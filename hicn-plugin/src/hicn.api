@@ -1,0 +1,538 @@
+/*
+ * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define hicn_api_node_params_set
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Enable / disable ICN forwarder in VPP */
+  u8 enable_disable;
+
+  /* PIT maximum size, otherwise -1 to assign default value */
+  i32 pit_max_size;
+
+  /* CS maximum size, otherwise -1 to assign default value */
+  i32 cs_max_size;
+
+  /* Portion of CS reserved to application, otherwise -1 to assign default value */
+  i32 cs_reserved_app;
+
+  /* Default PIT entry lifetime */
+  f64 pit_dflt_lifetime_sec;
+
+  /* Lower bound on PIT entry lifetime */
+  f64 pit_min_lifetime_sec;
+
+  /* Upper bound on PIT entry lifetime */
+  f64 pit_max_lifetime_sec;
+};
+
+define hicn_api_node_params_set_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_node_params_get
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+};
+
+define hicn_api_node_params_get_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+
+  /* Enabled / disabled flag */
+  u8 is_enabled;
+
+  /* compile-time plugin features */
+  u8 feature_cs;
+
+  /* Number of VPP workers */
+  u32 worker_count;
+
+  /* PIT maximum size, otherwise -1 to assign default value */
+  u32 pit_max_size;
+
+  /* CS maximum size, otherwise -1 to assign default value */
+  u32 cs_max_size;
+
+  /* Default PIT entry lifetime */
+  f64 pit_dflt_lifetime_sec;
+
+  /* Lower bound on PIT entry lifetime */
+  f64 pit_min_lifetime_sec;
+
+  /* Upper bound on PIT entry lifetime */
+  f64 pit_max_lifetime_sec;
+};
+
+define hicn_api_node_stats_get
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+};
+
+define hicn_api_node_stats_get_reply
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+
+  /* ICN packets processed */
+  u64 pkts_processed;
+
+  /* ICN interests forwarded */
+  u64 pkts_interest_count;
+
+  /* ICN data msgs forwarded */
+  u64 pkts_data_count;
+
+  /* ICN cached data msg replies */
+  u64 pkts_from_cache_count;
+
+  /* ICN no PIT entry drops */
+  u64 pkts_no_pit_count;
+
+  /* ICN expired PIT entries */
+  u64 pit_expired_count;
+
+  /* ICN expired CS entries */
+  u64 cs_expired_count;
+
+  /* ICN LRU CS entries freed */
+  u64 cs_lru_count;
+
+  /* ICN msgs dropped due to no packet buffers */
+  u64 pkts_drop_no_buf;
+
+  /* ICN Interest messages aggregated in PIT */
+  u64 interests_aggregated;
+
+  /* ICN Interest messages retransmitted */
+  u64 interests_retx;
+
+  /* ICN Interest messages colliding in hashtb */
+  u64 interests_hash_collision;
+
+  /* Number of entries in PIT at the present moment */
+  u64 pit_entries_count;
+
+  /* Number of entries in CS at the present moment */
+  u64 cs_entries_count;
+
+  /* Number of entries in CS at the present moment */
+  u64 cs_entries_ntw_count;
+};
+
+define hicn_api_face_ip_add
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* IP local address */
+  u64 nh_addr[2];
+
+  /* IPv4 local port number */
+  u32 swif;
+};
+
+define hicn_api_face_ip_add_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value: new Face ID, ~0 means no Face was created */
+  u32 faceid;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_face_ip_del
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* A Face ID to be deleted */
+  u16 faceid;
+};
+
+define hicn_api_face_ip_del_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_face_ip_params_get
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* A Face to be retrieved */
+  u16 faceid;
+};
+
+define hicn_api_face_ip_params_get_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+
+  /* IP local address */
+  u64 nh_addr[2];
+
+  /* VPP interface (index) associated with the face */
+  u32 swif;
+
+  /* Face flags */
+  u32 flags;
+};
+
+define hicn_api_route_nhops_add
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Prefix to be added to the FIB */
+  u64 prefix[2];
+
+  /* Length of the prefix */
+  u8 len;
+
+  /* A Face ID to the next hop forwarder for the specified prefix */
+  u32 face_ids[7];
+
+  /* Number of face to add */
+  u8 n_faces;
+};
+
+define hicn_api_route_nhops_add_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_route_del
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Prefix to be added to the FIB */
+  u64 prefix[2];
+
+  /* Length of the prefix */
+  u8 len;
+};
+
+define hicn_api_route_del_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_route_nhop_del
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Prefix to be added to the FIB */
+  u64 prefix[2];
+
+  /* Length of the prefix */
+  u8 len;
+
+  /* Specific next-hop to be removed */
+  u16 faceid;
+};
+
+define hicn_api_route_nhop_del_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_route_get
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Route prefix */
+  u64 prefix[2];
+
+  /* Prefix len */
+  u8 len;
+};
+
+define hicn_api_route_get_reply
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* List of faces pointing to the next hops */
+  u16 faceids[1000];
+
+  /* Strategy */
+  u32 strategy_id;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_strategies_get
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+};
+
+define hicn_api_strategies_get_reply
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Number of available strategies */
+  u8 n_strategies;
+
+  /* Strategies */
+  u32 strategy_id[256];
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_strategy_get
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Route prefix */
+  u32 strategy_id;
+};
+
+define hicn_api_strategy_get_reply
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Strategy description */
+  u8 description[200];
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_punting_add
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Prefix to match */
+  u64 prefix[2];
+
+  /* Subnet */
+  u8 len;
+
+  /* Interface id */
+  u32 swif;
+};
+
+define hicn_api_punting_add_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_punting_del
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Prefix to match */
+  u64 prefix[2];
+
+  /* Subnet */
+  u8 len;
+
+  /* Interface id */
+  u32 swif;
+};
+
+define hicn_api_punting_del_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_register_prod_app
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u64 context;
+
+  /* Prefix to match */
+  u64 prefix[2];
+
+  /* Subnet */
+  u8 len;
+
+  /* sw_if id */
+  u32 swif;
+
+  /* CS memory reserved -- in number of packets */
+  u32 cs_reserved;
+};
+
+define hicn_api_register_prod_app_reply
+{
+  /* From the request */
+  u64 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+
+  /* Actual CS memory reserved -- in number of packets */
+  u32 cs_reserved;
+
+  /* Prod address (ipv4 or ipv6) */
+  u64 prod_addr[2];
+
+  /* Return value: new Face ID, ~0 means no Face was created */
+  u32 faceid;
+};
+
+define hicn_api_register_cons_app
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u64 context;
+
+  /* swif */
+  u32 swif;
+};
+
+define hicn_api_register_cons_app_reply
+{
+  /* From the request */
+  u64 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+
+  /* Ip4 address */
+  u32 src_addr4;
+
+  /* Ip6 address */
+  u64 src_addr6[2];
+
+  /* Return value: new Face ID, ~0 means no Face was created */
+  u32 faceid;
+};
+
+/*
+ * fd.io coding-style-patch-verification: ON
+ *
+ * Local Variables:
+ * eval: (c-set-style "gnu")
+ * End:
+ */
