@@ -143,6 +143,7 @@ class MemifConnector : public Connector {
   volatile bool is_reconnection_;
   bool data_available_;
   bool enable_burst_;
+  bool closed_;
   uint32_t memif_id_;
   uint8_t memif_mode_;
   std::string app_name_;

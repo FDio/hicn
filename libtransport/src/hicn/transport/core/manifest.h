@@ -45,21 +45,21 @@ class Manifest : public Base {
     Base::setPayloadType(PayloadType::MANIFEST);
   }
 
-  Manifest(const core::Name& name)
+  Manifest(const core::Name &name)
       : packet_(new Base(name, HF_INET6_TCP_AH), nullptr),
         encoder_(*packet_),
         decoder_(*packet_) {
     Base::setPayloadType(PayloadType::MANIFEST);
   }
 
-  Manifest(typename Base::Ptr&& base)
+  Manifest(typename Base::Ptr &&base)
       : packet_(std::move(base)), encoder_(*packet_), decoder_(*packet_) {
     Base::setPayloadType(PayloadType::MANIFEST);
   }
 
   template <typename T>
-  Manifest(T&& base)
-      : packet_(new Base(std::move<T&&>(base)), nullptr),
+  Manifest(T &&base)
+      : packet_(new Base(std::move<T &&>(base)), nullptr),
         encoder_(*packet_),
         decoder_(*packet_) {
     Base::setPayloadType(PayloadType::MANIFEST);
@@ -67,12 +67,12 @@ class Manifest : public Base {
 
   virtual ~Manifest() = default;
 
-  bool operator==(const Manifest& other) {
+  bool operator==(const Manifest &other) {
     return this->packet_ == other.packet_;
   }
 
   std::size_t estimateManifestSize(std::size_t additional_entries = 0) {
-    return static_cast<ManifestImpl&>(*this).estimateManifestSizeImpl(
+    return static_cast<ManifestImpl &>(*this).estimateManifestSizeImpl(
         additional_entries);
   }
 
@@ -80,29 +80,29 @@ class Manifest : public Base {
    * After the call to encode, users MUST call clear before adding data
    * to the manifest.
    */
-  Manifest& encode() { return static_cast<ManifestImpl&>(*this).encodeImpl(); }
+  Manifest &encode() { return static_cast<ManifestImpl &>(*this).encodeImpl(); }
 
-  Manifest& decode() {
+  Manifest &decode() {
     Manifest::decoder_.decode();
 
     manifest_type_ = decoder_.getManifestType();
     hash_algorithm_ = decoder_.getHashAlgorithm();
     is_last_ = decoder_.getIsFinalManifest();
 
-    return static_cast<ManifestImpl&>(*this).decodeImpl();
+    return static_cast<ManifestImpl &>(*this).decodeImpl();
   }
 
   static std::size_t getManifestHeaderSize() {
     return Encoder::getManifestHeaderSize();
   }
 
-  Manifest& setManifestType(ManifestType type) {
+  Manifest &setManifestType(ManifestType type) {
     manifest_type_ = type;
     encoder_.setManifestType(manifest_type_);
     return *this;
   }
 
-  Manifest& setHashAlgorithm(HashAlgorithm hash_algorithm) {
+  Manifest &setHashAlgorithm(HashAlgorithm hash_algorithm) {
     hash_algorithm_ = hash_algorithm;
     encoder_.setHashAlgorithm(hash_algorithm_);
     return *this;
@@ -114,12 +114,12 @@ class Manifest : public Base {
 
   bool isFinalManifest() const { return is_last_; }
 
-  Manifest& setVersion(ManifestVersion version) {
+  Manifest &setVersion(ManifestVersion version) {
     encoder_.setVersion(version);
     return *this;
   }
 
-  Manifest& setFinalBlockNumber(std::uint32_t final_block_number) {
+  Manifest &setFinalBlockNumber(std::uint32_t final_block_number) {
     encoder_.setFinalBlockNumber(final_block_number);
     return *this;
   }
@@ -130,13 +130,13 @@ class Manifest : public Base {
 
   ManifestVersion getVersion() const { return decoder_.getVersion(); }
 
-  Manifest& setFinalManifest(bool is_final_manifest) {
+  Manifest &setFinalManifest(bool is_final_manifest) {
     encoder_.setIsFinalManifest(is_final_manifest);
     is_last_ = is_final_manifest;
     return *this;
   }
 
-  Manifest& clear() {
+  Manifest &clear() {
     encoder_.clear();
     decoder_.clear();
     return *this;
@@ -147,7 +147,7 @@ class Manifest : public Base {
     encoder_.update();
   }
 
-  typename Base::Ptr&& getPacket() { return std::move(packet_); }
+  typename Base::Ptr &&getPacket() { return std::move(packet_); }
 
  protected:
   typename Base::Ptr packet_;

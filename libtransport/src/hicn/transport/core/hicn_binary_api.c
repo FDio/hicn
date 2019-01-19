@@ -19,10 +19,11 @@
 
 #include <hicn/transport/core/hicn_binary_api.h>
 #include <hicn/transport/core/vpp_binary_api_internal.h>
-
-#include <hicn/transport/core/hicn_binary_api.h>
-#include <hicn/transport/core/vpp_binary_api_internal.h>
 #include <hicn/transport/utils/log.h>
+
+#define HICN_VPP_PLUGIN
+#include <hicn/name.h>
+#undef HICN_VPP_PLUGIN
 
 #include <fcntl.h>
 #include <inttypes.h>
@@ -66,21 +67,9 @@ const char *HICN_ERROR_STRING[] = {
 };
 /////////////////////////////////////////////////////
 
-#define POINTER_MAP_SIZE 32
-static void *global_pointers_map[POINTER_MAP_SIZE];
-static uint8_t global_pointers_map_index = 0;
-
-#define CONTEXT_SAVE(pointer, mp)                             \
-  do {                                                        \
-    global_pointers_map[global_pointers_map_index] = pointer; \
-    mp->context = global_pointers_map_index++;                \
-    global_pointers_map_index %= POINTER_MAP_SIZE;            \
-  } while (0);
-
-#define CONTEXT_GET(mp, pointer)                \
-  do {                                          \
-    pointer = global_pointers_map[mp->context]; \
-  } while (0);
+static context_store_t context_store = {
+    .global_pointers_map_index = 0,
+};
 
 /*
  * Table of message reply handlers, must include boilerplate handlers
@@ -96,22 +85,19 @@ int hicn_binary_api_register_prod_app(
     hicn_producer_output_params *output_params) {
   vl_api_hicn_api_register_prod_app_t *mp;
   vpp_plugin_binary_api_t *hm = api;
-  api->vpp_api->user_param = output_params;
+  vpp_binary_api_set_user_param(api->vpp_api, output_params);
 
   /* Construct the API message */
   M(HICN_API_REGISTER_PROD_APP, mp);
 
-  CONTEXT_SAVE(api, mp)
+  CONTEXT_SAVE(context_store, api, mp)
 
-  mp->len = (u8)input_params->prefix.prefix_length;
+  mp->len = (u8)input_params->prefix->prefix_len;
   mp->swif = clib_host_to_net_u32(input_params->swif);
   mp->cs_reserved = clib_host_to_net_u32(input_params->cs_reserved);
 
-  mp->prefix[0] = clib_host_to_net_u64(input_params->prefix.ip6.as_u64[0]);
-  mp->prefix[1] = clib_host_to_net_u64(input_params->prefix.ip6.as_u64[1]);
-
-  TRANSPORT_LOGI("Prefix length: %u", mp->len);
-  TRANSPORT_LOGI("Memif ID: %u", mp->swif);
+  mp->prefix[0] = clib_host_to_net_u64(input_params->prefix->as_u64[0]);
+  mp->prefix[1] = clib_host_to_net_u64(input_params->prefix->as_u64[1]);
 
   return vpp_binary_api_send_request_wait_reply(api->vpp_api, mp);
 }
@@ -119,16 +105,16 @@ int hicn_binary_api_register_prod_app(
 static void vl_api_hicn_api_register_prod_app_reply_t_handler(
     vl_api_hicn_api_register_prod_app_reply_t *mp) {
   vpp_plugin_binary_api_t *binary_api;
-  CONTEXT_GET(mp, binary_api);
-  hicn_producer_output_params *params = binary_api->vpp_api->user_param;
+  CONTEXT_GET(context_store, mp, binary_api);
+  hicn_producer_output_params *params =
+      vpp_binary_api_get_user_param(binary_api->vpp_api);
 
-  binary_api->vpp_api->ret_val = clib_net_to_host_u32(mp->retval);
+  vpp_binary_api_set_ret_value(binary_api->vpp_api,
+                               clib_net_to_host_u32(mp->retval));
   params->cs_reserved = mp->cs_reserved;
-  params->prod_addr.ip6.as_u64[0] = mp->prod_addr[0];
-  params->prod_addr.ip6.as_u64[1] = mp->prod_addr[1];
+  params->prod_addr->as_u64[0] = mp->prod_addr[0];
+  params->prod_addr->as_u64[1] = mp->prod_addr[1];
   params->face_id = clib_net_to_host_u32(mp->faceid);
-
-  TRANSPORT_LOGI("ret :%s", get_error_string(binary_api->vpp_api->ret_val));
 
   vpp_binary_api_unlock_waiting_thread(binary_api->vpp_api);
 }
@@ -139,14 +125,14 @@ int hicn_binary_api_register_cons_app(
   vl_api_hicn_api_register_cons_app_t *mp;
   vpp_plugin_binary_api_t *hm = api;
 
-  hm->vpp_api->user_param = output_params;
+  vpp_binary_api_set_user_param(hm->vpp_api, output_params);
 
   /* Construct the API message */
   M(HICN_API_REGISTER_CONS_APP, mp);
 
   mp->swif = clib_host_to_net_u32(input_params->swif);
 
-  CONTEXT_SAVE(api, mp)
+  CONTEXT_SAVE(context_store, api, mp)
 
   TRANSPORT_LOGI("Message created");
 
@@ -156,14 +142,16 @@ int hicn_binary_api_register_cons_app(
 static void vl_api_hicn_api_register_cons_app_reply_t_handler(
     vl_api_hicn_api_register_cons_app_reply_t *mp) {
   vpp_plugin_binary_api_t *binary_api;
-  CONTEXT_GET(mp, binary_api);
-  hicn_consumer_output_params *params = binary_api->vpp_api->user_param;
+  CONTEXT_GET(context_store, mp, binary_api);
+  hicn_consumer_output_params *params =
+      vpp_binary_api_get_user_param(binary_api->vpp_api);
 
-  binary_api->vpp_api->ret_val = clib_net_to_host_u32(mp->retval);
+  vpp_binary_api_set_ret_value(binary_api->vpp_api,
+                               clib_net_to_host_u32(mp->retval));
 
-  params->src4.ip4.as_u32 = clib_net_to_host_u32(mp->src_addr4);
-  params->src6.ip6.as_u64[0] = clib_net_to_host_u64(mp->src_addr6[0]);
-  params->src6.ip6.as_u64[1] = clib_net_to_host_u64(mp->src_addr6[1]);
+  params->src4->as_ip46.ip4.as_u32 = clib_net_to_host_u32(mp->src_addr4);
+  params->src6->as_u64[0] = clib_net_to_host_u64(mp->src_addr6[0]);
+  params->src6->as_u64[1] = clib_net_to_host_u64(mp->src_addr6[1]);
   params->face_id = clib_host_to_net_u32(mp->faceid);
 
   vpp_binary_api_unlock_waiting_thread(binary_api->vpp_api);
@@ -178,11 +166,11 @@ int hicn_binary_api_register_route(
   /* Construct the API message */
   M(HICN_API_ROUTE_NHOPS_ADD, mp);
 
-  CONTEXT_SAVE(api, mp)
+  CONTEXT_SAVE(context_store, api, mp)
 
-  mp->prefix[0] = input_params->prefix.ip6.as_u64[0];
-  mp->prefix[1] = input_params->prefix.ip6.as_u64[1];
-  mp->len = input_params->prefix.prefix_length;
+  mp->prefix[0] = input_params->prefix->as_u64[0];
+  mp->prefix[1] = input_params->prefix->as_u64[1];
+  mp->len = input_params->prefix->prefix_len;
   mp->face_ids[0] = input_params->face_id;
   mp->n_faces = 1;
 
@@ -192,9 +180,10 @@ int hicn_binary_api_register_route(
 static void vl_api_hicn_api_route_nhops_add_reply_t_handler(
     vl_api_hicn_api_route_nhops_add_reply_t *mp) {
   vpp_plugin_binary_api_t *binary_api;
-  CONTEXT_GET(mp, binary_api);
+  CONTEXT_GET(context_store, mp, binary_api);
 
-  binary_api->vpp_api->ret_val = clib_net_to_host_u32(mp->retval);
+  vpp_binary_api_set_ret_value(binary_api->vpp_api,
+                               clib_net_to_host_u32(mp->retval));
 
   vpp_binary_api_unlock_waiting_thread(binary_api->vpp_api);
 }
@@ -220,7 +209,7 @@ vpp_plugin_binary_api_t *hicn_binary_api_init(vpp_binary_api_t *api) {
   u8 *name = format(0, "hicn_%08x%c", api_version, 0);
   ret->msg_id_base = vl_client_get_first_plugin_msg_id((char *)name);
   ret->vpp_api = api;
-  ret->my_client_index = api->my_client_index;
+  ret->my_client_index = vpp_binary_api_get_client_index(api);
   hicn_binary_api_setup_handlers(ret);
   return ret;
 }

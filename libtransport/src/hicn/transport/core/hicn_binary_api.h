@@ -27,35 +27,10 @@ extern "C" {
 
 #include "stdint.h"
 
-typedef union {
-  uint8_t data[4];
-  uint32_t data_u32;
-  /* Aliases. */
-  uint8_t as_u8[4];
-  uint16_t as_u16[2];
-  uint32_t as_u32;
-} ip4_address;
-
-typedef union {
-  uint8_t as_u8[16];
-  uint16_t as_u16[8];
-  uint32_t as_u32[4];
-  uint64_t as_u64[2];
-} ip6_address;
-
-typedef enum { IP_TYPE_ANY, IP_TYPE_IP4, IP_TYPE_IP6 } ip46_type;
+typedef struct ip_address ip_address_t;
 
 typedef struct {
-  ip46_type type;
-  uint8_t prefix_length;
-  union {
-    ip4_address ip4;
-    ip6_address ip6;
-  };
-} ip46_address;
-
-typedef struct {
-  ip46_address prefix;
+  ip_address_t* prefix;
   uint32_t swif;
   uint32_t cs_reserved;
 } hicn_producer_input_params;
@@ -66,18 +41,18 @@ typedef struct {
 
 typedef struct {
   uint32_t cs_reserved;
-  ip46_address prod_addr;
+  ip_address_t* prod_addr;
   uint32_t face_id;
 } hicn_producer_output_params;
 
 typedef struct {
-  ip46_address src4;
-  ip46_address src6;
+  ip_address_t* src4;
+  ip_address_t* src6;
   uint32_t face_id;
 } hicn_consumer_output_params;
 
 typedef struct {
-  ip46_address prefix;
+  ip_address_t* prefix;
   uint32_t face_id;
 } hicn_producer_set_route_params;
 

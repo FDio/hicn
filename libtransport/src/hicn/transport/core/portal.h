@@ -224,7 +224,7 @@ class Portal {
 
   TRANSPORT_ALWAYS_INLINE void killConnection() { connector_.close(); }
 
-  TRANSPORT_ALWAYS_INLINE void clear() { pending_interest_hash_table_.clear();}
+  TRANSPORT_ALWAYS_INLINE void clear() { pending_interest_hash_table_.clear(); }
 
   TRANSPORT_ALWAYS_INLINE asio::io_service &getIoService() {
     return io_service_;

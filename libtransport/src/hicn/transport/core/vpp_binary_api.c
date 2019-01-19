@@ -53,13 +53,22 @@
 #include <vpp/api/vpe_all_api_h.h>
 #undef vl_msg_name_crc_list
 
-// #define vl_api_version(n,v) static u32 vpe_api_version = (v);
-// #include <vpp/api/vpe.api.h>
-// #undef vl_api_version
+#include <semaphore.h>
 
-#define POINTER_MAP_SIZE 32
-static void *global_pointers_map[POINTER_MAP_SIZE];
-static uint8_t global_pointers_map_index = 0;
+struct vpp_binary_api {
+  api_main_t *api_main;
+  u32 my_client_index;
+  unix_shared_memory_queue_t *vl_input_queue;
+  vlib_main_t *vlib_main;
+  sem_t *semaphore;
+  u32 ping_id;
+  int ret_val;
+  void *user_param;
+};
+
+static context_store_t context_store = {
+    .global_pointers_map_index = 0,
+};
 
 /*
  * Table of message reply handlers, must include boilerplate handlers
@@ -91,7 +100,8 @@ typedef struct __attribute__((packed)) vl_generic_reply_s {
 static void vl_api_control_ping_reply_t_handler(
     vl_api_control_ping_reply_t *mp) {
   // Just unblock main thread
-  vpp_binary_api_t *binary_api = global_pointers_map[mp->context];
+  vpp_binary_api_t *binary_api;
+  CONTEXT_GET(context_store, mp, binary_api);
   binary_api->ret_val = ntohl(mp->retval);
   vpp_binary_api_unlock_waiting_thread(binary_api);
 }
@@ -99,7 +109,8 @@ static void vl_api_control_ping_reply_t_handler(
 static void vl_api_sw_interface_set_flags_reply_t_handler(
     vl_api_control_ping_reply_t *mp) {
   // Unblock main thread setting reply message status code
-  vpp_binary_api_t *binary_api = global_pointers_map[mp->context];
+  vpp_binary_api_t *binary_api;
+  CONTEXT_GET(context_store, mp, binary_api);
   binary_api->ret_val = ntohl(mp->retval);
   vpp_binary_api_unlock_waiting_thread(binary_api);
 }
@@ -160,9 +171,7 @@ void vpp_binary_api_send_receive_ping(vpp_binary_api_t *api) {
       vl_msg_api_get_msg_index((u8 *)(VL_API_CONTROL_PING_CRC)));
   mp_ping->client_index = api->my_client_index;
 
-  global_pointers_map[global_pointers_map_index] = api;
-  mp_ping->context = global_pointers_map_index++;
-  global_pointers_map_index %= POINTER_MAP_SIZE;
+  CONTEXT_SAVE(context_store, api, mp_ping);
 
   TRANSPORT_LOGI("Sending ping id %u", mp_ping->_vl_msg_id);
 
@@ -191,9 +200,7 @@ int vpp_binary_api_set_int_state(vpp_binary_api_t *api, uint32_t sw_index,
   mp->sw_if_index = clib_host_to_net_u32(sw_index);
   mp->admin_up_down = (u8)state;
 
-  global_pointers_map[global_pointers_map_index] = api;
-  mp->context = global_pointers_map_index++;
-  global_pointers_map_index %= POINTER_MAP_SIZE;
+  CONTEXT_SAVE(context_store, api, mp);
 
   TRANSPORT_LOGI("Sending set int flags id %u", mp->_vl_msg_id);
 
@@ -207,6 +214,29 @@ void vpp_binary_api_send_request(vpp_binary_api_t *api, void *request) {
   TRANSPORT_LOGI("Sending a request to VPP (id=%d).\n", ntohs(req->_vl_msg_id));
 
   S(api, req);
+}
+
+int vpp_binary_api_get_ret_value(vpp_binary_api_t *api) { return api->ret_val; }
+
+void vpp_binary_api_set_ret_value(vpp_binary_api_t *api, int ret_val) {
+  api->ret_val = ret_val;
+}
+
+void *vpp_binary_api_get_user_param(vpp_binary_api_t *api) {
+  return api->user_param;
+}
+
+void vpp_binary_api_set_user_param(vpp_binary_api_t *api, void *user_param) {
+  api->user_param = user_param;
+}
+
+uint32_t vpp_binary_api_get_client_index(vpp_binary_api_t *api) {
+  return api->my_client_index;
+}
+
+void vpp_binary_api_set_client_index(vpp_binary_api_t *api,
+                                     uint32_t client_index) {
+  api->my_client_index = client_index;
 }
 
 int vpp_binary_api_send_request_wait_reply(vpp_binary_api_t *api,

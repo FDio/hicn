@@ -33,7 +33,7 @@ enum class ConnectorType : uint8_t {
   VPP_CONNECTOR,
 };
 
-static constexpr std::size_t packet_size = 2000;
+static constexpr std::size_t packet_size = 2048;
 static constexpr std::size_t queue_size = 4096;
 static constexpr std::size_t packet_pool_size = 4096;
 

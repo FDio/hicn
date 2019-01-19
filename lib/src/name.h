@@ -48,7 +48,7 @@
 #define IP_MAX_ADDR_LEN IPV6_ADDR_LEN
 #define TCP_SEQNO_LEN 4		/* bytes */
 
-typedef struct
+struct ip_address
 {
   union
   {
@@ -57,12 +57,13 @@ typedef struct
     u16 as_u16[IP_MAX_ADDR_LEN >> 1];
     u32 as_u32[IP_MAX_ADDR_LEN >> 2];
     u64 as_u64[IP_MAX_ADDR_LEN >> 3];
-    ip4_address_t as_ip4;
-    ip6_address_t as_ip6;
+    ip46_address_t as_ip46;
   };
   int family;
   unsigned short prefix_len;
-} ip_address_t;
+};
+
+typedef struct ip_address ip_address_t;
 
 int ip_address_len (const ip_address_t * ip_address);
 bool ip_address_empty (const ip_address_t * ip_address);

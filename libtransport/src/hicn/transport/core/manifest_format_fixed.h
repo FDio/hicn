@@ -53,7 +53,7 @@ struct Fixed {
   using Encoder = FixedManifestEncoder;
   using Decoder = FixedManifestDecoder;
   using HashType = utils::CryptoHash;
-  using SuffixList = std::list<std::pair<std::uint32_t, std::uint8_t*>>;
+  using SuffixList = std::list<std::pair<std::uint32_t, std::uint8_t *>>;
 };
 
 struct Flags {
@@ -83,60 +83,60 @@ static const constexpr std::uint8_t manifest_version = 1;
 
 class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
  public:
-  FixedManifestEncoder(Packet& packet);
+  FixedManifestEncoder(Packet &packet);
 
   ~FixedManifestEncoder();
 
-  FixedManifestEncoder& encodeImpl();
+  FixedManifestEncoder &encodeImpl();
 
-  FixedManifestEncoder& clearImpl();
+  FixedManifestEncoder &clearImpl();
 
-  FixedManifestEncoder& setManifestTypeImpl(ManifestType manifest_type);
+  FixedManifestEncoder &setManifestTypeImpl(ManifestType manifest_type);
 
-  FixedManifestEncoder& setHashAlgorithmImpl(HashAlgorithm algorithm);
+  FixedManifestEncoder &setHashAlgorithmImpl(HashAlgorithm algorithm);
 
-  FixedManifestEncoder& setNextSegmentCalculationStrategyImpl(
+  FixedManifestEncoder &setNextSegmentCalculationStrategyImpl(
       NextSegmentCalculationStrategy strategy);
 
-  FixedManifestEncoder& setBaseNameImpl(const core::Name& base_name);
+  FixedManifestEncoder &setBaseNameImpl(const core::Name &base_name);
 
-  FixedManifestEncoder& addSuffixAndHashImpl(uint32_t suffix,
-                                             const utils::CryptoHash& hash);
+  FixedManifestEncoder &addSuffixAndHashImpl(uint32_t suffix,
+                                             const utils::CryptoHash &hash);
 
-  FixedManifestEncoder& setIsFinalManifestImpl(bool is_last);
+  FixedManifestEncoder &setIsFinalManifestImpl(bool is_last);
 
-  FixedManifestEncoder& setVersionImpl(ManifestVersion version);
+  FixedManifestEncoder &setVersionImpl(ManifestVersion version);
 
   std::size_t estimateSerializedLengthImpl(std::size_t additional_entries = 0);
 
-  FixedManifestEncoder& updateImpl();
+  FixedManifestEncoder &updateImpl();
 
-  FixedManifestEncoder& setFinalBlockNumberImpl(
+  FixedManifestEncoder &setFinalBlockNumberImpl(
       std::uint32_t final_block_number);
 
   static std::size_t getManifestHeaderSizeImpl();
 
  private:
-  void addSuffixHashBytes(uint32_t suffix, const uint8_t* hash,
+  void addSuffixHashBytes(uint32_t suffix, const uint8_t *hash,
                           std::size_t length);
 
-  Packet& packet_;
+  Packet &packet_;
   std::size_t max_size_;
   std::unique_ptr<utils::MemBuf> manifest_;
-  ManifestHeader* manifest_header_;
-  ManifestEntry* manifest_entries_;
+  ManifestHeader *manifest_header_;
+  ManifestEntry *manifest_entries_;
   std::size_t current_entry_;
 };
 
 class FixedManifestDecoder : public ManifestDecoder<FixedManifestDecoder> {
  public:
-  FixedManifestDecoder(Packet& packet);
+  FixedManifestDecoder(Packet &packet);
 
   ~FixedManifestDecoder();
 
   void decodeImpl();
 
-  FixedManifestDecoder& clearImpl();
+  FixedManifestDecoder &clearImpl();
 
   ManifestType getManifestTypeImpl() const;
 
@@ -158,9 +158,9 @@ class FixedManifestDecoder : public ManifestDecoder<FixedManifestDecoder> {
   uint32_t getFinalBlockNumberImpl() const;
 
  private:
-  Packet& packet_;
-  ManifestHeader* manifest_header_;
-  ManifestEntry* manifest_entries_;
+  Packet &packet_;
+  ManifestHeader *manifest_header_;
+  ManifestEntry *manifest_entries_;
 };
 
 }  // namespace core

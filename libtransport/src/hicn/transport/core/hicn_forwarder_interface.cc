@@ -15,6 +15,7 @@
 
 #include <hicn/transport/core/hicn_forwarder_interface.h>
 
+
 #define ADDR_INET 1
 #define ADDR_INET6 2
 #define ADD_ROUTE 3
@@ -73,7 +74,6 @@ void HicnForwarderInterface::registerRoute(Prefix &prefix) {
   route_to_self->command_id = ADD_ROUTE;
   route_to_self->message_type = REQUEST_LIGHT;
   route_to_self->length = 1;
-  // route_to_self->seq_num not needed for now
 
   send((uint8_t *)route_to_self, sizeof(RouteToSelfCommand),
        [route_to_self]() { delete route_to_self; });
