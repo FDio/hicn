@@ -33,10 +33,11 @@ Identity::Identity(const std::string &keystore_name,
       parcCryptoSuite_GetSigningAlgorithm(static_cast<PARCCryptoSuite>(suite)),
       key_length, validity_days);
 
-  parcAssertTrue(success,
-             "parcPkcs12KeyStore_CreateFile('%s', '%s', '%s', %d, %d) failed.",
-             keystore_name.c_str(), keystore_password.c_str(),
-             subject_name.c_str(), static_cast<int>(key_length), validity_days);
+  parcAssertTrue(
+      success,
+      "parcPkcs12KeyStore_CreateFile('%s', '%s', '%s', %d, %d) failed.",
+      keystore_name.c_str(), keystore_password.c_str(), subject_name.c_str(),
+      static_cast<int>(key_length), validity_days);
 
   PARCIdentityFile *identity_file =
       parcIdentityFile_Create(keystore_name.c_str(), keystore_password.c_str());

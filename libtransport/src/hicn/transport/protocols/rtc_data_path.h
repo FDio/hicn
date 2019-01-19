@@ -15,8 +15,8 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <hicn/transport/utils/min_filter.h>
+#include <stdint.h>
 #include <climits>
 
 #define ALPHA_RTC 0.125

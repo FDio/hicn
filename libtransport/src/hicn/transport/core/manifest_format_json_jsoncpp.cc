@@ -25,38 +25,38 @@ namespace core {
 namespace {
 
 template <typename T>
-TRANSPORT_ALWAYS_INLINE void checkPointer(T* pointer) {
+TRANSPORT_ALWAYS_INLINE void checkPointer(T *pointer) {
   if (pointer == nullptr) {
     throw errors::NullPointerException();
   }
 }
 
 template <typename EnumType>
-TRANSPORT_ALWAYS_INLINE void setValueToJson(Json::Value& root, EnumType value) {
+TRANSPORT_ALWAYS_INLINE void setValueToJson(Json::Value &root, EnumType value) {
   root[JSONKey<EnumType>::key] = static_cast<uint8_t>(value);
 }
 
 template <typename EnumType>
-TRANSPORT_ALWAYS_INLINE EnumType getValueFromJson(const Json::Value& root) {
+TRANSPORT_ALWAYS_INLINE EnumType getValueFromJson(const Json::Value &root) {
   return static_cast<EnumType>(root[JSONKey<EnumType>::key].asUInt());
 };
 
 }  // namespace
 
-JSONManifestEncoder::JSONManifestEncoder(Packet& packet) : packet_(packet) {}
+JSONManifestEncoder::JSONManifestEncoder(Packet &packet) : packet_(packet) {}
 
 JSONManifestEncoder::~JSONManifestEncoder() {}
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder& JSONManifestEncoder::encodeImpl() {
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &JSONManifestEncoder::encodeImpl() {
   Json::StreamWriterBuilder writer_builder;
-  Json::StreamWriter* fast_writer = writer_builder.newStreamWriter();
+  Json::StreamWriter *fast_writer = writer_builder.newStreamWriter();
 
   asio::streambuf strbuf;
   strbuf.prepare(1500);
   std::ostream stream(&strbuf);
   fast_writer->write(root_, &stream);
 
-  const uint8_t* buffer = asio::buffer_cast<const uint8_t*>(strbuf.data());
+  const uint8_t *buffer = asio::buffer_cast<const uint8_t *>(strbuf.data());
 
   packet_.setPayload(buffer, strbuf.size());
 
@@ -65,38 +65,38 @@ TRANSPORT_ALWAYS_INLINE JSONManifestEncoder& JSONManifestEncoder::encodeImpl() {
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder& JSONManifestEncoder::clearImpl() {
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &JSONManifestEncoder::clearImpl() {
   root_.clear();
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::setHashAlgorithmImpl(HashAlgorithm algorithm) {
   setValueToJson(root_, algorithm);
   return *this;
 }
 
-JSONManifestEncoder& JSONManifestEncoder::setManifestTypeImpl(
+JSONManifestEncoder &JSONManifestEncoder::setManifestTypeImpl(
     ManifestType manifest_type) {
   setValueToJson(root_, manifest_type);
   return *this;
 }
 
-JSONManifestEncoder& JSONManifestEncoder::setNextSegmentCalculationStrategyImpl(
+JSONManifestEncoder &JSONManifestEncoder::setNextSegmentCalculationStrategyImpl(
     NextSegmentCalculationStrategy strategy) {
   setValueToJson(root_, strategy);
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
-JSONManifestEncoder::setBaseNameImpl(const core::Name& base_name) {
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
+JSONManifestEncoder::setBaseNameImpl(const core::Name &base_name) {
   root_[JSONKey<core::Name>::key] = base_name.toString().c_str();
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::addSuffixAndHashImpl(uint32_t suffix,
-                                          const utils::CryptoHash& hash) {
+                                          const utils::CryptoHash &hash) {
   throw errors::NotImplementedException();
   //  Json::Value value(Json::arrayValue);
   //  value.append(Json::Value(suffix));
@@ -106,21 +106,21 @@ JSONManifestEncoder::addSuffixAndHashImpl(uint32_t suffix,
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::setIsFinalManifestImpl(bool is_last) {
   root_[JSONKey<bool>::final_manifest] = is_last;
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::setVersionImpl(ManifestVersion version) {
   setValueToJson(root_, version);
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::setSuffixHashListImpl(
-    const typename JSON::SuffixList& name_hash_list) {
+    const typename JSON::SuffixList &name_hash_list) {
   throw errors::NotImplementedException();
   //  for (auto &suffix : name_hash_list) {
   //    addSuffixAndHashImpl(suffix.first, suffix.second);
@@ -133,7 +133,7 @@ TRANSPORT_ALWAYS_INLINE std::size_t
 JSONManifestEncoder::estimateSerializedLengthImpl(
     std::size_t number_of_entries) {
   Json::StreamWriterBuilder writer_builder;
-  Json::StreamWriter* fast_writer = writer_builder.newStreamWriter();
+  Json::StreamWriter *fast_writer = writer_builder.newStreamWriter();
 
   asio::streambuf strbuf;
   strbuf.prepare(1500);
@@ -143,11 +143,11 @@ JSONManifestEncoder::estimateSerializedLengthImpl(
   return strbuf.size();
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder& JSONManifestEncoder::updateImpl() {
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &JSONManifestEncoder::updateImpl() {
   throw errors::NotImplementedException();
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::setFinalBlockNumberImpl(std::uint32_t final_block_number) {
   throw errors::NotImplementedException();
 }
@@ -157,7 +157,7 @@ JSONManifestEncoder::getManifestHeaderSizeImpl() {
   return 0;
 }
 
-JSONManifestDecoder::JSONManifestDecoder(Packet& packet) : packet_(packet) {}
+JSONManifestDecoder::JSONManifestDecoder(Packet &packet) : packet_(packet) {}
 
 JSONManifestDecoder::~JSONManifestDecoder() {}
 
@@ -167,10 +167,10 @@ TRANSPORT_ALWAYS_INLINE void JSONManifestDecoder::decodeImpl() {
   auto payload_size = array.length();
 
   Json::CharReaderBuilder reader_builder;
-  Json::CharReader* reader = reader_builder.newCharReader();
+  Json::CharReader *reader = reader_builder.newCharReader();
   std::string errors;
 
-  if (!reader->parse((char*)payload, (char*)payload + payload_size, &root_,
+  if (!reader->parse((char *)payload, (char *)payload + payload_size, &root_,
                      &errors)) {
     TRANSPORT_LOGE("Error parsing manifest!");
     TRANSPORT_LOGE("%s", errors.c_str());
@@ -183,7 +183,7 @@ TRANSPORT_ALWAYS_INLINE void JSONManifestDecoder::decodeImpl() {
   delete reader;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestDecoder& JSONManifestDecoder::clearImpl() {
+TRANSPORT_ALWAYS_INLINE JSONManifestDecoder &JSONManifestDecoder::clearImpl() {
   root_.clear();
   return *this;
 }

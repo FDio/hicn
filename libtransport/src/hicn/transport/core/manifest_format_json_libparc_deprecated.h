@@ -42,37 +42,37 @@ struct JSONKey;
 
 template <>
 struct JSONKey<HashAlgorithm> {
-  static const constexpr char* key = "hash_algorithm";
+  static const constexpr char *key = "hash_algorithm";
 };
 
 template <>
 struct JSONKey<ManifestType> {
-  static const constexpr char* key = "manifest_type";
+  static const constexpr char *key = "manifest_type";
 };
 
 template <>
 struct JSONKey<NextSegmentCalculationStrategy> {
-  static const constexpr char* key = "next_segment_strategy";
+  static const constexpr char *key = "next_segment_strategy";
 };
 
 template <>
 struct JSONKey<NameHashList> {
-  static const constexpr char* key = "name_hash_list";
+  static const constexpr char *key = "name_hash_list";
 };
 
 template <>
 struct JSONKey<SuffixHashList> {
-  static const constexpr char* key = "suffix_hash_list";
+  static const constexpr char *key = "suffix_hash_list";
 };
 
 template <>
 struct JSONKey<core::Name> {
-  static const constexpr char* key = "base_name";
+  static const constexpr char *key = "base_name";
 };
 
 template <>
 struct JSONKey<bool> {
-  static const constexpr char* final_manifest = "final_manifest";
+  static const constexpr char *final_manifest = "final_manifest";
 };
 
 // template <>
@@ -95,28 +95,28 @@ class JSONManifestEncoder : public ManifestEncoder<JSONManifestEncoder> {
 
   ~JSONManifestEncoder();
 
-  JSONManifestEncoder& encodeImpl(Packet& packet);
+  JSONManifestEncoder &encodeImpl(Packet &packet);
 
-  JSONManifestEncoder& clearImpl();
+  JSONManifestEncoder &clearImpl();
 
-  JSONManifestEncoder& setManifestTypeImpl(ManifestType manifest_type);
+  JSONManifestEncoder &setManifestTypeImpl(ManifestType manifest_type);
 
-  JSONManifestEncoder& setHashAlgorithmImpl(HashAlgorithm algorithm);
+  JSONManifestEncoder &setHashAlgorithmImpl(HashAlgorithm algorithm);
 
-  JSONManifestEncoder& setNextSegmentCalculationStrategyImpl(
+  JSONManifestEncoder &setNextSegmentCalculationStrategyImpl(
       NextSegmentCalculationStrategy strategy);
 
-  JSONManifestEncoder& setSuffixHashListImpl(
-      const SuffixHashList& name_hash_list);
+  JSONManifestEncoder &setSuffixHashListImpl(
+      const SuffixHashList &name_hash_list);
 
-  JSONManifestEncoder& setBaseNameImpl(const core::Name& base_name);
+  JSONManifestEncoder &setBaseNameImpl(const core::Name &base_name);
 
-  JSONManifestEncoder& addSuffixAndHashImpl(uint32_t suffix, uint64_t hash);
+  JSONManifestEncoder &addSuffixAndHashImpl(uint32_t suffix, uint64_t hash);
 
-  JSONManifestEncoder& setIsFinalManifestImpl(bool is_last);
+  JSONManifestEncoder &setIsFinalManifestImpl(bool is_last);
 
  private:
-  PARCJSON* root_;
+  PARCJSON *root_;
 };
 
 class JSONManifestDecoder : public ManifestDecoder<JSONManifestDecoder> {
@@ -125,9 +125,9 @@ class JSONManifestDecoder : public ManifestDecoder<JSONManifestDecoder> {
 
   ~JSONManifestDecoder();
 
-  void decodeImpl(const uint8_t* payload, std::size_t payload_size);
+  void decodeImpl(const uint8_t *payload, std::size_t payload_size);
 
-  JSONManifestDecoder& clearImpl();
+  JSONManifestDecoder &clearImpl();
 
   ManifestType getManifestTypeImpl() const;
 
@@ -144,7 +144,7 @@ class JSONManifestDecoder : public ManifestDecoder<JSONManifestDecoder> {
   bool getIsFinalManifestImpl();
 
  private:
-  PARCJSON* root_;
+  PARCJSON *root_;
 };
 
 }  // namespace core

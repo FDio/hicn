@@ -19,7 +19,7 @@ macro(build_executable exec)
   cmake_parse_arguments(ARG
     "NO_INSTALL"
     "COMPONENT"
-    "SOURCES;LINK_LIBRARIES;DEPENDS;DEFINITIONS"
+    "SOURCES;LINK_LIBRARIES;DEPENDS;INCLUDE_DIRS;DEFINITIONS"
     ${ARGN}
   )
 
@@ -34,6 +34,13 @@ macro(build_executable exec)
 
   if(ARG_DEFINITIONS)
     target_compile_definitions(${exec} PRIVATE ${ARG_DEFINITIONS})
+  endif()
+
+  if(ARG_INCLUDE_DIRS)
+    target_include_directories(${exec} BEFORE PUBLIC
+      ${ARG_INCLUDE_DIRS}
+      ${PROJECT_BINARY_DIR}
+    )
   endif()
 
   if(NOT ARG_NO_INSTALL)
