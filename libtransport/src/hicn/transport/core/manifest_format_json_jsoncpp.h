@@ -38,7 +38,7 @@ struct JSON {
   using Encoder = JSONManifestEncoder;
   using Decoder = JSONManifestDecoder;
   using HashType = utils::CryptoHash;
-  using SuffixList = std::unordered_map<std::uint32_t, std::uint8_t*>;
+  using SuffixList = std::unordered_map<std::uint32_t, std::uint8_t *>;
 };
 
 template <typename T>
@@ -46,91 +46,91 @@ struct JSONKey;
 
 template <>
 struct JSONKey<ManifestVersion> {
-  static const constexpr char* key = "manifest_version";
+  static const constexpr char *key = "manifest_version";
 };
 
 template <>
 struct JSONKey<HashAlgorithm> {
-  static const constexpr char* key = "hash_algorithm";
+  static const constexpr char *key = "hash_algorithm";
 };
 
 template <>
 struct JSONKey<ManifestType> {
-  static const constexpr char* key = "manifest_type";
+  static const constexpr char *key = "manifest_type";
 };
 
 template <>
 struct JSONKey<NextSegmentCalculationStrategy> {
-  static const constexpr char* key = "next_segment_strategy";
+  static const constexpr char *key = "next_segment_strategy";
 };
 
 template <>
 struct JSONKey<typename JSON::SuffixList> {
-  static const constexpr char* key = "suffix_hash_list";
+  static const constexpr char *key = "suffix_hash_list";
 };
 
 template <>
 struct JSONKey<core::Name> {
-  static const constexpr char* key = "base_name";
+  static const constexpr char *key = "base_name";
 };
 
 template <>
 struct JSONKey<bool> {
-  static const constexpr char* final_manifest = "final_manifest";
+  static const constexpr char *final_manifest = "final_manifest";
 };
 
 class JSONManifestEncoder : public ManifestEncoder<JSONManifestEncoder> {
  public:
-  JSONManifestEncoder(Packet& packet);
+  JSONManifestEncoder(Packet &packet);
 
   ~JSONManifestEncoder() override;
 
-  JSONManifestEncoder& encodeImpl();
+  JSONManifestEncoder &encodeImpl();
 
-  JSONManifestEncoder& clearImpl();
+  JSONManifestEncoder &clearImpl();
 
-  JSONManifestEncoder& setManifestTypeImpl(ManifestType manifest_type);
+  JSONManifestEncoder &setManifestTypeImpl(ManifestType manifest_type);
 
-  JSONManifestEncoder& setHashAlgorithmImpl(HashAlgorithm algorithm);
+  JSONManifestEncoder &setHashAlgorithmImpl(HashAlgorithm algorithm);
 
-  JSONManifestEncoder& setNextSegmentCalculationStrategyImpl(
+  JSONManifestEncoder &setNextSegmentCalculationStrategyImpl(
       NextSegmentCalculationStrategy strategy);
 
-  JSONManifestEncoder& setSuffixHashListImpl(
-      const typename JSON::SuffixList& name_hash_list);
+  JSONManifestEncoder &setSuffixHashListImpl(
+      const typename JSON::SuffixList &name_hash_list);
 
-  JSONManifestEncoder& setBaseNameImpl(const core::Name& base_name);
+  JSONManifestEncoder &setBaseNameImpl(const core::Name &base_name);
 
-  JSONManifestEncoder& addSuffixAndHashImpl(uint32_t suffix,
-                                            const utils::CryptoHash& hash);
+  JSONManifestEncoder &addSuffixAndHashImpl(uint32_t suffix,
+                                            const utils::CryptoHash &hash);
 
-  JSONManifestEncoder& setIsFinalManifestImpl(bool is_last);
+  JSONManifestEncoder &setIsFinalManifestImpl(bool is_last);
 
-  JSONManifestEncoder& setVersionImpl(ManifestVersion version);
+  JSONManifestEncoder &setVersionImpl(ManifestVersion version);
 
   std::size_t estimateSerializedLengthImpl(std::size_t number_of_entries);
 
-  JSONManifestEncoder& updateImpl();
+  JSONManifestEncoder &updateImpl();
 
-  JSONManifestEncoder& setFinalBlockNumberImpl(
+  JSONManifestEncoder &setFinalBlockNumberImpl(
       std::uint32_t final_block_number);
 
   static std::size_t getManifestHeaderSizeImpl();
 
  private:
-  Packet& packet_;
+  Packet &packet_;
   Json::Value root_;
 };
 
 class JSONManifestDecoder : public ManifestDecoder<JSONManifestDecoder> {
  public:
-  JSONManifestDecoder(Packet& packet);
+  JSONManifestDecoder(Packet &packet);
 
   ~JSONManifestDecoder() override;
 
   void decodeImpl();
 
-  JSONManifestDecoder& clearImpl();
+  JSONManifestDecoder &clearImpl();
 
   ManifestType getManifestTypeImpl() const;
 
@@ -153,7 +153,7 @@ class JSONManifestDecoder : public ManifestDecoder<JSONManifestDecoder> {
   uint32_t getFinalBlockNumberImpl() const;
 
  private:
-  Packet& packet_;
+  Packet &packet_;
   Json::Value root_;
 };
 

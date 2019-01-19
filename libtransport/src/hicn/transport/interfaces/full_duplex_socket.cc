@@ -68,9 +68,10 @@ AsyncFullDuplexSocket::AsyncFullDuplexSocket(const Prefix &locator,
                                  ConsumerSocket & s, const ContentObject &c)
                                  ->bool { return true; });
 
-  consumer_->setSocketOption(
-      ConsumerCallbacksOptions::CONTENT_RETRIEVED,
-      std::bind(&AsyncFullDuplexSocket::onContentRetrieved, this, _1, _2, _3));
+  ConsumerContentCallback callback =
+      std::bind(&AsyncFullDuplexSocket::onContentRetrieved, this, _1, _2, _3);
+  consumer_->setSocketOption(ConsumerCallbacksOptions::CONTENT_RETRIEVED,
+                             callback);
 
   consumer_->setSocketOption(GeneralTransportOptions::MAX_INTEREST_RETX,
                              uint32_t{4});

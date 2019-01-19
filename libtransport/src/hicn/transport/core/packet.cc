@@ -48,7 +48,6 @@ Packet::Packet(MemBufPtr &&buffer)
       header_head_(packet_.get()),
       payload_head_(nullptr),
       format_(getFormatFromBuffer(packet_start_)) {
-
   auto header_size = getHeaderSizeFromFormat(format_);
   int signature_size = 0;
 
@@ -79,8 +78,6 @@ Packet::Packet(MemBufPtr &&buffer)
     packet_->prependChain(std::move(payload));
     packet_->append(header_size);
   }
-
-
 }
 
 Packet::Packet(const uint8_t *buffer, std::size_t size)
@@ -317,7 +314,7 @@ void Packet::setSignature(std::unique_ptr<utils::MemBuf> &&signature) {
 
 void Packet::setSignatureTimestamp(const uint64_t &timestamp) {
   int ret = hicn_packet_set_signature_timestamp(
-    format_, (hicn_header_t *)packet_start_, timestamp);
+      format_, (hicn_header_t *)packet_start_, timestamp);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error setting the signature timestamp.");
@@ -327,7 +324,7 @@ void Packet::setSignatureTimestamp(const uint64_t &timestamp) {
 uint64_t Packet::getSignatureTimestamp() const {
   uint64_t return_value;
   int ret = hicn_packet_get_signature_timestamp(
-    format_, (hicn_header_t *)packet_start_, &return_value);
+      format_, (hicn_header_t *)packet_start_, &return_value);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error getting the signature timestamp.");
@@ -336,9 +333,10 @@ uint64_t Packet::getSignatureTimestamp() const {
   return return_value;
 }
 
-void Packet::setValidationAlgorithm(const utils::CryptoSuite &validation_algorithm) {
+void Packet::setValidationAlgorithm(
+    const utils::CryptoSuite &validation_algorithm) {
   int ret = hicn_packet_set_validation_algorithm(
-  format_, (hicn_header_t *)packet_start_, uint8_t(validation_algorithm));
+      format_, (hicn_header_t *)packet_start_, uint8_t(validation_algorithm));
 
   if (ret < 0) {
     throw errors::RuntimeException("Error setting the validation algorithm.");
@@ -348,7 +346,7 @@ void Packet::setValidationAlgorithm(const utils::CryptoSuite &validation_algorit
 utils::CryptoSuite Packet::getValidationAlgorithm() const {
   uint8_t return_value;
   int ret = hicn_packet_get_validation_algorithm(
-    format_, (hicn_header_t *)packet_start_, &return_value);
+      format_, (hicn_header_t *)packet_start_, &return_value);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error getting the validation algorithm.");
@@ -358,8 +356,8 @@ utils::CryptoSuite Packet::getValidationAlgorithm() const {
 }
 
 void Packet::setKeyId(const utils::KeyId &key_id) {
-  int ret = hicn_packet_set_key_id(
-    format_, (hicn_header_t *)packet_start_, key_id.first);
+  int ret = hicn_packet_set_key_id(format_, (hicn_header_t *)packet_start_,
+                                   key_id.first);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error setting the key id.");
@@ -368,8 +366,8 @@ void Packet::setKeyId(const utils::KeyId &key_id) {
 
 utils::KeyId Packet::getKeyId() const {
   utils::KeyId return_value;
-  int ret = hicn_packet_get_key_id(
-    format_, (hicn_header_t *)packet_start_, &return_value.first, &return_value.second);
+  int ret = hicn_packet_get_key_id(format_, (hicn_header_t *)packet_start_,
+                                   &return_value.first, &return_value.second);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error getting the validation algorithm.");

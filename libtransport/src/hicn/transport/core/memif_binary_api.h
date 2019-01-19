@@ -43,15 +43,16 @@ typedef struct memif_output_params_s {
   uint32_t sw_if_index;
 } memif_output_params_t;
 
-vpp_plugin_binary_api_t* memif_binary_api_init(vpp_binary_api_t* api);
+vpp_plugin_binary_api_t *memif_binary_api_init(vpp_binary_api_t *api);
 
-uint32_t memif_binary_api_get_next_memif_id(vpp_plugin_binary_api_t* api);
+int memif_binary_api_get_next_memif_id(vpp_plugin_binary_api_t *api,
+                                       uint32_t *memif_id);
 
-int memif_binary_api_create_memif(vpp_plugin_binary_api_t* api,
-                                  memif_create_params_t* input_params,
-                                  memif_output_params_t* output_params);
+int memif_binary_api_create_memif(vpp_plugin_binary_api_t *api,
+                                  memif_create_params_t *input_params,
+                                  memif_output_params_t *output_params);
 
-int memif_binary_api_delete_memif(vpp_plugin_binary_api_t* api,
+int memif_binary_api_delete_memif(vpp_plugin_binary_api_t *api,
                                   uint32_t sw_if_index);
 
 #ifdef __cplusplus

@@ -27,22 +27,35 @@ extern "C" {
 #include <vlibapi/api.h>
 #include <vlibmemory/api.h>
 
-struct vpp_binary_api {
-  api_main_t *api_main;
-  u32 my_client_index;
-  unix_shared_memory_queue_t *vl_input_queue;
-  vlib_main_t *vlib_main;
-  sem_t *semaphore;
-  u32 ping_id;
-  int ret_val;
-  void *user_param;
-};
+#include <stdint.h>
+
+typedef struct vpp_binary_api vpp_binary_api_t;
 
 struct vpp_plugin_binary_api {
   vpp_binary_api_t *vpp_api;
   u16 msg_id_base;
   u32 my_client_index;
 };
+
+#define POINTER_MAP_SIZE 32
+typedef struct {
+  void *global_pointers_map[POINTER_MAP_SIZE];
+  uint8_t global_pointers_map_index;
+} context_store_t;
+
+#define CONTEXT_SAVE(context_store, pointer, mp)                        \
+  do {                                                                  \
+    context_store                                                       \
+        .global_pointers_map[context_store.global_pointers_map_index] = \
+        pointer;                                                        \
+    mp->context = context_store.global_pointers_map_index++;            \
+    context_store.global_pointers_map_index %= POINTER_MAP_SIZE;        \
+  } while (0);
+
+#define CONTEXT_GET(context_store, mp, pointer)               \
+  do {                                                        \
+    pointer = context_store.global_pointers_map[mp->context]; \
+  } while (0);
 
 #define M(T, mp)                                          \
   do {                                                    \

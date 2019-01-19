@@ -37,15 +37,15 @@ class ManifestInline
  public:
   ManifestInline() : ManifestBase() {}
 
-  ManifestInline(const core::Name& name) : ManifestBase(name) {}
+  ManifestInline(const core::Name &name) : ManifestBase(name) {}
 
   template <typename T>
-  ManifestInline(T&& base) : ManifestBase(std::forward<T&&>(base)) {}
+  ManifestInline(T &&base) : ManifestBase(std::forward<T &&>(base)) {}
 
-  static TRANSPORT_ALWAYS_INLINE ManifestInline* createManifest(
-      const core::Name& manifest_name, ManifestVersion version,
+  static TRANSPORT_ALWAYS_INLINE ManifestInline *createManifest(
+      const core::Name &manifest_name, ManifestVersion version,
       ManifestType type, HashAlgorithm algorithm, bool is_last,
-      const Name& base_name, NextSegmentCalculationStrategy strategy,
+      const Name &base_name, NextSegmentCalculationStrategy strategy,
       std::size_t signature_size) {
     auto manifest = new ManifestInline(manifest_name);
     manifest->setSignatureSize(signature_size);
@@ -59,12 +59,12 @@ class ManifestInline
     return manifest;
   }
 
-  ManifestInline& encodeImpl() {
+  ManifestInline &encodeImpl() {
     ManifestBase::encoder_.encode();
     return *this;
   }
 
-  ManifestInline& decodeImpl() {
+  ManifestInline &decodeImpl() {
     base_name_ = ManifestBase::decoder_.getBaseName();
     next_segment_strategy_ =
         ManifestBase::decoder_.getNextSegmentCalculationStrategy();
@@ -77,23 +77,23 @@ class ManifestInline
     return ManifestBase::encoder_.estimateSerializedLength(additional_entries);
   }
 
-  ManifestInline& setBaseName(const Name& name) {
+  ManifestInline &setBaseName(const Name &name) {
     base_name_ = name;
     ManifestBase::encoder_.setBaseName(base_name_);
     return *this;
   }
 
-  const Name& getBaseName() { return base_name_; }
+  const Name &getBaseName() { return base_name_; }
 
-  ManifestInline& addSuffixHash(uint32_t suffix, const HashType& hash) {
+  ManifestInline &addSuffixHash(uint32_t suffix, const HashType &hash) {
     ManifestBase::encoder_.addSuffixAndHash(suffix, hash);
     return *this;
   }
 
   // Call this function only after the decode function!
-  const SuffixList& getSuffixList() { return suffix_hash_map_; }
+  const SuffixList &getSuffixList() { return suffix_hash_map_; }
 
-  ManifestInline& setNextSegmentCalculationStrategy(
+  ManifestInline &setNextSegmentCalculationStrategy(
       NextSegmentCalculationStrategy strategy) {
     next_segment_strategy_ = strategy;
     ManifestBase::encoder_.setNextSegmentCalculationStrategy(

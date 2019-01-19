@@ -80,11 +80,9 @@ ContentObject::ContentObject(ContentObject &&other) : Packet(std::move(other)) {
 ContentObject::~ContentObject() {}
 
 const Name &ContentObject::getName() const {
-  if (!name_) {
-    if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
-                           (hicn_name_t *)name_.getStructReference()) < 0) {
-      throw errors::MalformedPacketException();
-    }
+  if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
+                          (hicn_name_t *)name_.getStructReference()) < 0) {
+    throw errors::MalformedPacketException();
   }
 
   return name_;

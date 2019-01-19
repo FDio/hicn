@@ -57,6 +57,10 @@
 #include <vpp/api/vpe_all_api_h.h>
 #undef vl_typedefs
 
+static context_store_t context_store = {
+    .global_pointers_map_index = 0,
+};
+
 /*
  * Table of message reply handlers, must include boilerplate handlers
  * we just generated
@@ -66,35 +70,34 @@
   _(MEMIF_DELETE_REPLY, memif_delete_reply) \
   _(MEMIF_DETAILS, memif_details)
 
-#define POINTER_MAP_SIZE 32
-static void *global_pointers_map[POINTER_MAP_SIZE];
-static uint8_t global_pointers_map_index = 0;
-
-uint32_t memif_binary_api_get_next_memif_id(vpp_plugin_binary_api_t *api) {
+int memif_binary_api_get_next_memif_id(vpp_plugin_binary_api_t *api,
+                                       uint32_t *memif_id) {
   // Dump all the memif interfaces and return the next to the largest memif id
   vl_api_memif_dump_t *mp;
   vpp_plugin_binary_api_t *hm = api;
 
   M(MEMIF_DUMP, mp);
-  api->vpp_api->user_param = malloc(sizeof(uint32_t));
-  *(uint32_t *)(api->vpp_api->user_param) = 0;
-  global_pointers_map[global_pointers_map_index] = api;
-  mp->context = global_pointers_map_index++;
-  global_pointers_map_index %= POINTER_MAP_SIZE;
+  uint32_t *user_param = malloc(sizeof(uint32_t));
+  *user_param = 0;
+  vpp_binary_api_set_user_param(api->vpp_api, user_param);
+
+  CONTEXT_SAVE(context_store, api, mp);
 
   vpp_binary_api_send_request(api->vpp_api, mp);
 
   vpp_binary_api_send_receive_ping(api->vpp_api);
 
-  uint32_t ret = *(uint32_t *)(api->vpp_api->user_param);
-  free(api->vpp_api->user_param);
+  user_param = vpp_binary_api_get_user_param(api->vpp_api);
+  *memif_id = *(uint32_t *)(user_param);
+  free(user_param);
 
-  return ret;
+  return vpp_binary_api_get_ret_value(api->vpp_api);
 }
 
 static void vl_api_memif_details_t_handler(vl_api_memif_details_t *mp) {
-  vpp_plugin_binary_api_t *binary_api = global_pointers_map[mp->context];
-  uint32_t *last_memif_id = binary_api->vpp_api->user_param;
+  vpp_plugin_binary_api_t *binary_api;
+  CONTEXT_GET(context_store, mp, binary_api);
+  uint32_t *last_memif_id = vpp_binary_api_get_user_param(binary_api->vpp_api);
   uint32_t current_memif_id = clib_net_to_host_u32(mp->id);
   if (current_memif_id >= *last_memif_id) {
     *last_memif_id = current_memif_id + 1;
@@ -127,14 +130,12 @@ int memif_binary_api_create_memif(vpp_plugin_binary_api_t *api,
     return -1;
   }
 
-  api->vpp_api->user_param = output_params;
+  vpp_binary_api_set_user_param(api->vpp_api, output_params);
 
   /* Construct the API message */
   M(MEMIF_CREATE, mp);
 
-  global_pointers_map[global_pointers_map_index] = api;
-  mp->context = global_pointers_map_index++;
-  global_pointers_map_index %= POINTER_MAP_SIZE;
+  CONTEXT_SAVE(context_store, api, mp)
 
   mp->role = input_params->role;
   mp->mode = input_params->mode;
@@ -161,9 +162,7 @@ int memif_binary_api_delete_memif(vpp_plugin_binary_api_t *api,
   /* Construct the API message */
   M(MEMIF_DELETE, mp);
 
-  global_pointers_map[global_pointers_map_index] = api;
-  mp->context = global_pointers_map_index++;
-  global_pointers_map_index %= POINTER_MAP_SIZE;
+  CONTEXT_SAVE(context_store, api, mp)
 
   mp->sw_if_index = htonl(sw_if_index);
 
@@ -172,22 +171,25 @@ int memif_binary_api_delete_memif(vpp_plugin_binary_api_t *api,
 
 static void vl_api_memif_create_reply_t_handler(
     vl_api_memif_create_reply_t *mp) {
-  vpp_plugin_binary_api_t *binary_api = global_pointers_map[mp->context];
-  memif_output_params_t *params = binary_api->vpp_api->user_param;
+  vpp_plugin_binary_api_t *binary_api;
+  CONTEXT_GET(context_store, mp, binary_api);
+  memif_output_params_t *params =
+      vpp_binary_api_get_user_param(binary_api->vpp_api);
 
-  binary_api->vpp_api->ret_val = ntohl(mp->retval);
+  vpp_binary_api_set_ret_value(binary_api->vpp_api,
+                               clib_net_to_host_u32(mp->retval));
   params->sw_if_index = clib_net_to_host_u32(mp->sw_if_index);
-
-  TRANSPORT_LOGI("ret :%d", binary_api->vpp_api->ret_val);
 
   vpp_binary_api_unlock_waiting_thread(binary_api->vpp_api);
 }
 
 static void vl_api_memif_delete_reply_t_handler(
     vl_api_memif_delete_reply_t *mp) {
-  vpp_plugin_binary_api_t *binary_api = global_pointers_map[mp->context];
+  vpp_plugin_binary_api_t *binary_api;
+  CONTEXT_GET(context_store, mp, binary_api);
 
-  binary_api->vpp_api->ret_val = ntohl(mp->retval);
+  vpp_binary_api_set_ret_value(binary_api->vpp_api,
+                               clib_net_to_host_u32(mp->retval));
 
   vpp_binary_api_unlock_waiting_thread(binary_api->vpp_api);
 }
@@ -210,7 +212,7 @@ vpp_plugin_binary_api_t *memif_binary_api_init(vpp_binary_api_t *api) {
   u8 *name = format(0, "memif_%08x%c", api_version, 0);
   ret->msg_id_base = vl_client_get_first_plugin_msg_id((char *)name);
   ret->vpp_api = api;
-  ret->my_client_index = api->my_client_index;
+  ret->my_client_index = vpp_binary_api_get_client_index(api);
   memif_binary_api_setup_handlers(ret);
   return ret;
 }

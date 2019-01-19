@@ -45,7 +45,11 @@ class ObjectPool {
  public:
   using Ptr = std::unique_ptr<T, ObjectDeleter>;
 
-  ObjectPool() {}
+  ObjectPool() : destructor_(false) {}
+
+  ~ObjectPool() {
+    destructor_ = true;
+  }
 
   std::pair<bool, Ptr> get() {
     if (object_pool_.empty()) {
@@ -60,7 +64,9 @@ class ObjectPool {
 
   void add(T *object) {
     utils::SpinLock::Acquire locked(object_pool_lock_);
-    object_pool_.emplace_back(makePtr(object));
+    if (TRANSPORT_EXPECT_TRUE(!destructor_)) {
+      object_pool_.emplace_back(makePtr(object));
+    }
   }
 
   Ptr makePtr(T *object) { return Ptr(object, ObjectDeleter(this)); }
@@ -71,6 +77,7 @@ class ObjectPool {
 
   utils::SpinLock object_pool_lock_;
   std::deque<Ptr> object_pool_;
+  bool destructor_;
 };
 
 }  // namespace utils

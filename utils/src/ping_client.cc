@@ -403,7 +403,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  Client *ping = new Client(c);
+  auto ping = std::make_unique<Client>(c);
 
   auto t0 = std::chrono::steady_clock::now();
   ping->ping();

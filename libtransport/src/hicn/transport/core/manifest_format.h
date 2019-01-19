@@ -71,28 +71,28 @@ class ManifestEncoder {
   virtual ~ManifestEncoder() = default;
 
   ManifestEncoder encode() {
-    return static_cast<Implementation&>(*this).encodeImpl();
+    return static_cast<Implementation &>(*this).encodeImpl();
   }
 
-  ManifestEncoder& clear() {
-    return static_cast<Implementation&>(*this).clearImpl();
+  ManifestEncoder &clear() {
+    return static_cast<Implementation &>(*this).clearImpl();
   }
 
-  ManifestEncoder& setManifestType(ManifestType type) {
-    return static_cast<Implementation&>(*this).setManifestTypeImpl(type);
+  ManifestEncoder &setManifestType(ManifestType type) {
+    return static_cast<Implementation &>(*this).setManifestTypeImpl(type);
   }
 
-  ManifestEncoder& setHashAlgorithm(HashAlgorithm hash) {
-    return static_cast<Implementation&>(*this).setHashAlgorithmImpl(hash);
+  ManifestEncoder &setHashAlgorithm(HashAlgorithm hash) {
+    return static_cast<Implementation &>(*this).setHashAlgorithmImpl(hash);
   }
 
-  ManifestEncoder& setFinalChunkNumber(uint32_t final_chunk) {
-    return static_cast<Implementation&>(*this).setFinalChunkImpl(final_chunk);
+  ManifestEncoder &setFinalChunkNumber(uint32_t final_chunk) {
+    return static_cast<Implementation &>(*this).setFinalChunkImpl(final_chunk);
   }
 
-  ManifestEncoder& setNextSegmentCalculationStrategy(
+  ManifestEncoder &setNextSegmentCalculationStrategy(
       NextSegmentCalculationStrategy strategy) {
-    return static_cast<Implementation&>(*this)
+    return static_cast<Implementation &>(*this)
         .setNextSegmentCalculationStrategyImpl(strategy);
   }
 
@@ -100,35 +100,35 @@ class ManifestEncoder {
       typename T,
       typename = std::enable_if_t<std::is_same<
           std::remove_const_t<std::remove_reference_t<T>>, core::Name>::value>>
-  ManifestEncoder& setBaseName(T&& name) {
-    return static_cast<Implementation&>(*this).setBaseNameImpl(name);
+  ManifestEncoder &setBaseName(T &&name) {
+    return static_cast<Implementation &>(*this).setBaseNameImpl(name);
   }
 
   template <typename Hash>
-  ManifestEncoder& addSuffixAndHash(uint32_t suffix, Hash&& hash) {
-    return static_cast<Implementation&>(*this).addSuffixAndHashImpl(
-        suffix, std::forward<Hash&&>(hash));
+  ManifestEncoder &addSuffixAndHash(uint32_t suffix, Hash &&hash) {
+    return static_cast<Implementation &>(*this).addSuffixAndHashImpl(
+        suffix, std::forward<Hash &&>(hash));
   }
 
-  ManifestEncoder& setIsFinalManifest(bool is_last) {
-    return static_cast<Implementation&>(*this).setIsFinalManifestImpl(is_last);
+  ManifestEncoder &setIsFinalManifest(bool is_last) {
+    return static_cast<Implementation &>(*this).setIsFinalManifestImpl(is_last);
   }
 
-  ManifestEncoder& setVersion(ManifestVersion version) {
-    return static_cast<Implementation&>(*this).setVersionImpl(version);
+  ManifestEncoder &setVersion(ManifestVersion version) {
+    return static_cast<Implementation &>(*this).setVersionImpl(version);
   }
 
   std::size_t estimateSerializedLength(std::size_t number_of_entries) {
-    return static_cast<Implementation&>(*this).estimateSerializedLengthImpl(
+    return static_cast<Implementation &>(*this).estimateSerializedLengthImpl(
         number_of_entries);
   }
 
-  ManifestEncoder& update() {
-    return static_cast<Implementation&>(*this).updateImpl();
+  ManifestEncoder &update() {
+    return static_cast<Implementation &>(*this).updateImpl();
   }
 
-  ManifestEncoder& setFinalBlockNumber(std::uint32_t final_block_number) {
-    return static_cast<Implementation&>(*this).setFinalBlockNumberImpl(
+  ManifestEncoder &setFinalBlockNumber(std::uint32_t final_block_number) {
+    return static_cast<Implementation &>(*this).setFinalBlockNumberImpl(
         final_block_number);
   }
 
@@ -142,52 +142,52 @@ class ManifestDecoder {
  public:
   virtual ~ManifestDecoder() = default;
 
-  ManifestDecoder& clear() {
-    return static_cast<Implementation&>(*this).clearImpl();
+  ManifestDecoder &clear() {
+    return static_cast<Implementation &>(*this).clearImpl();
   }
 
-  void decode() { static_cast<Implementation&>(*this).decodeImpl(); }
+  void decode() { static_cast<Implementation &>(*this).decodeImpl(); }
 
   ManifestType getManifestType() const {
-    return static_cast<const Implementation&>(*this).getManifestTypeImpl();
+    return static_cast<const Implementation &>(*this).getManifestTypeImpl();
   }
 
   HashAlgorithm getHashAlgorithm() const {
-    return static_cast<const Implementation&>(*this).getHashAlgorithmImpl();
+    return static_cast<const Implementation &>(*this).getHashAlgorithmImpl();
   }
 
   uint32_t getFinalChunkNumber() const {
-    return static_cast<const Implementation&>(*this).getFinalChunkImpl();
+    return static_cast<const Implementation &>(*this).getFinalChunkImpl();
   }
 
   NextSegmentCalculationStrategy getNextSegmentCalculationStrategy() const {
-    return static_cast<const Implementation&>(*this)
+    return static_cast<const Implementation &>(*this)
         .getNextSegmentCalculationStrategyImpl();
   }
 
   core::Name getBaseName() const {
-    return static_cast<const Implementation&>(*this).getBaseNameImpl();
+    return static_cast<const Implementation &>(*this).getBaseNameImpl();
   }
 
   auto getSuffixHashList() {
-    return static_cast<Implementation&>(*this).getSuffixHashListImpl();
+    return static_cast<Implementation &>(*this).getSuffixHashListImpl();
   }
 
   bool getIsFinalManifest() const {
-    return static_cast<const Implementation&>(*this).getIsFinalManifestImpl();
+    return static_cast<const Implementation &>(*this).getIsFinalManifestImpl();
   }
 
   ManifestVersion getVersion() const {
-    return static_cast<const Implementation&>(*this).getVersionImpl();
+    return static_cast<const Implementation &>(*this).getVersionImpl();
   }
 
   std::size_t estimateSerializedLength(std::size_t number_of_entries) const {
-    return static_cast<const Implementation&>(*this)
+    return static_cast<const Implementation &>(*this)
         .estimateSerializedLengthImpl(number_of_entries);
   }
 
   uint32_t getFinalBlockNumber() const {
-    return static_cast<const Implementation&>(*this).getFinalBlockNumberImpl();
+    return static_cast<const Implementation &>(*this).getFinalBlockNumberImpl();
   }
 };
 
