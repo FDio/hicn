@@ -95,9 +95,7 @@ void VegasTransportProtocol::reset() {
 
 void VegasTransportProtocol::start(
     utils::SharableVector<uint8_t> &content_buffer) {
-
-  if(is_running_)
-    return;
+  if (is_running_) return;
 
   socket_->t0_ = std::chrono::steady_clock::now();
 
@@ -110,15 +108,13 @@ void VegasTransportProtocol::start(
   portal_->runEventsLoop();
   removeAllPendingInterests();
   is_running_ = false;
-
 }
 
-void VegasTransportProtocol::resume(){
-  if(is_running_)
-    return;
+void VegasTransportProtocol::resume() {
+  if (is_running_) return;
 
   is_running_ = true;
-  sendInterest(next_suffix_++); 
+  sendInterest(next_suffix_++);
   portal_->runEventsLoop();
   removeAllPendingInterests();
   is_running_ = false;
@@ -539,7 +535,7 @@ void VegasTransportProtocol::reassemble() {
   uint64_t index = last_reassembled_segment_;
   auto it = receive_buffer_.find(index);
 
-  do {
+  while (it != receive_buffer_.end()) {
     if (it->second->getPayloadType() == PayloadType::CONTENT_OBJECT) {
       copyContent(*it->second);
       receive_buffer_.erase(it);
@@ -547,7 +543,7 @@ void VegasTransportProtocol::reassemble() {
 
     index = ++last_reassembled_segment_;
     it = receive_buffer_.find(index);
-  } while (it != receive_buffer_.end());
+  }
 }
 
 void VegasTransportProtocol::partialDownload() {

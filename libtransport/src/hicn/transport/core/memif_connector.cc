@@ -46,6 +46,7 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       is_reconnection_(false),
       data_available_(false),
       enable_burst_(false),
+      closed_(false),
       app_name_(app_name),
       receive_callback_(receive_callback),
       on_reconnect_callback_(on_reconnect_callback),
@@ -342,11 +343,14 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
       goto error;
     }
 
+    std::size_t packet_length;
     for (int i = 0; i < rx; i++) {
       auto packet = connector->getPacket();
+      packet_length = (c->rx_bufs + i)->len;
       std::memcpy(packet->writableData(),
                   reinterpret_cast<const uint8_t *>((c->rx_bufs + i)->data),
-                  (c->rx_bufs + i)->len);
+                  packet_length);
+      packet->append(packet_length);
 
       if (!connector->input_buffer_.push(std::move(packet))) {
         TRANSPORT_LOGI("Error pushing packet. Ring buffer full.");
@@ -394,20 +398,19 @@ error:
   return 0;
 }
 
-// void MemifConnector::runEventsLoop() {
-//  io_service_.run();
-//}
-
 void MemifConnector::close() {
-  event_reactor_.stop();
-  io_service_.stop();
+  if (!closed_) {
+    closed_ = true;
+    event_reactor_.stop();
+    io_service_.stop();
 
-  if (memif_worker_ && memif_worker_->joinable()) {
-    memif_worker_->join();
-    TRANSPORT_LOGD("Memif worker joined");
-    deleteMemif();
-  } else {
-    TRANSPORT_LOGD("Memif worker not joined");
+    if (memif_worker_ && memif_worker_->joinable()) {
+      memif_worker_->join();
+      TRANSPORT_LOGD("Memif worker joined");
+      deleteMemif();
+    } else {
+      TRANSPORT_LOGD("Memif worker not joined");
+    }
   }
 }
 

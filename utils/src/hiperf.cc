@@ -229,7 +229,7 @@ class HIperfClient {
     }
 
     if (consumer_socket_->setSocketOption(OtherOptions::VIRTUAL_DOWNLOAD,
-                                          false) == SOCKET_OPTION_NOT_SET) {
+                                          configuration_.virtual_download) == SOCKET_OPTION_NOT_SET) {
       return ERROR_SETUP;
     }
 
@@ -376,7 +376,7 @@ class HIperfServer {
 
     total = producer_socket_->produce(
         name, reinterpret_cast<const uint8_t *>(content.data()), content.size(),
-        !configuration_.multiphase_produce_);
+        !configuration_.multiphase_produce_, suffix);
 
     std::cout << "Written " << total << "pieces of data in output buffer"
               << std::endl;

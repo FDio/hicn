@@ -17,8 +17,6 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/content_object.h
   ${CMAKE_CURRENT_SOURCE_DIR}/facade.h
   ${CMAKE_CURRENT_SOURCE_DIR}/interest.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/key_locator.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/key_locator_type.h
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_connector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/manifest.h
   ${CMAKE_CURRENT_SOURCE_DIR}/manifest_inline.h
@@ -41,7 +39,6 @@ list(APPEND HEADER_FILES
 list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/content_object.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/interest.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/key_locator.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_connector.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/pending_interest.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/packet.cc
