@@ -127,7 +127,9 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      int res =
 		hicn_hashtb_lookup_node (rt->pitcs->pcs_table, nameptr,
 					 namelen, name_hash,
-					 !(hb0->is_appface) /* take lock */ ,
+					 !(hb0->flags &
+					   HICN_BUFFER_FLAGS_FACE_IS_APP)
+					 /* take lock */ ,
 					 &node_id0, &dpo_ctx_id0, &vft_id0,
 					 &is_cs0,
 					 &hash_entry_id, &bucket_id,
@@ -137,7 +139,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	      if ((res == HICN_ERROR_HASHTB_HASH_NOT_FOUND
 		   || (res == HICN_ERROR_NONE && is_cs0))
-		  && (hb0->is_appface))
+		  && (hb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP))
 		{
 		  next0 = HICN_DATA_PCSLOOKUP_NEXT_STORE_DATA;
 		}

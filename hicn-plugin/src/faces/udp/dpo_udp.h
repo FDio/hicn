@@ -64,8 +64,8 @@ hicn_dpo_udp4_create (dpo_id_t * dpo,
  * @param remote_addr: Remote address of the UDP tunnel
  * @param local_port: Local port of the UDP tunnel
  * @param remote_port: Remote port of the UDP tunnel
- * @param is_appface: Boolean that indicates whether the face is an application
- * face or not. (Currently only IP faces can be appface)
+ * @param hicnb_flags: Flags that indicate whether the face is an application
+ * face or not in the hicn_buffer. (Currently only IP faces can be appface)
  *
  * @result HICN_ERROR_FACE_NOT_FOUND if the face does not exist, otherwise HICN_ERROR_NONE.
  */
@@ -73,7 +73,7 @@ always_inline int
 hicn_dpo_udp4_lock (dpo_id_t * dpo,
 		    const ip4_address_t * local_addr,
 		    const ip4_address_t * remote_addr,
-		    u16 local_port, u16 remote_port, u8 * is_appface)
+		    u16 local_port, u16 remote_port, u8 * hicnb_flags)
 {
   hicn_face_t *face =
     hicn_face_udp4_get (local_addr, remote_addr, local_port, remote_port);
@@ -86,7 +86,7 @@ hicn_dpo_udp4_lock (dpo_id_t * dpo,
   dpo->dpoi_next_node = ~0;
   dpo_lock (dpo);
 
-  *is_appface = 0;
+  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
 
   return HICN_ERROR_NONE;
 }
@@ -101,7 +101,7 @@ hicn_dpo_udp4_lock (dpo_id_t * dpo,
  * @param remote_addr: Remote address of the UDP tunnel
  * @param local_port: Local port of the UDP tunnel
  * @param remote_port: Remote port of the UDP tunnel
- * @param is_appface: Boolean that indicates whether the face is an application
+ * @param hicnb_flags: Flags that indicate whether the face is an application
  * face or not. (Currently only IP faces can be appface)
  * @param node_index: vlib edge index to use in the packet processing
  */
@@ -110,7 +110,7 @@ hicn_dpo_udp4_add_and_lock (dpo_id_t * dpo,
 			    const ip4_address_t * local_addr,
 			    const ip4_address_t * remote_addr,
 			    u16 local_port, u16 remote_port,
-			    u32 node_index, u8 * is_appface)
+			    u32 node_index, u8 * hicnb_flags)
 {
   hicn_face_t *face =
     hicn_face_udp4_get (local_addr, remote_addr, local_port, remote_port);
@@ -145,7 +145,7 @@ hicn_dpo_udp4_add_and_lock (dpo_id_t * dpo,
       mhash_set_mem (&hicn_face_udp_hashtb, &key, (uword *) & dpoi_index, 0);
       face = face;
 
-      *is_appface = 0;
+      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
       dpo_set (dpo, hicn_face_udp_type, DPO_PROTO_IP4, dpoi_index);
       dpo->dpoi_next_node = node_index;
       dpo_lock (dpo);
@@ -153,7 +153,7 @@ hicn_dpo_udp4_add_and_lock (dpo_id_t * dpo,
       return;
     }
 
-  *is_appface = 0;
+  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
 
   hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
   dpo_set (dpo, hicn_face_udp_type, DPO_PROTO_IP4, dpoi_index);
@@ -196,7 +196,7 @@ hicn_dpo_udp6_create (dpo_id_t * dpo,
  * @param remote_addr: Remote address of the UDP tunnel
  * @param local_port: Local port of the UDP tunnel
  * @param remote_port: Remote port of the UDP tunnel
- * @param is_appface: Boolean that indicates whether the face is an application
+ * @param hicnb_flags: Flags that indicate whether the face is an application
  * face or not. (Currently only IP faces can be appface)
  *
  * @result HICN_ERROR_FACE_NOT_FOUND if the face does not exist, otherwise HICN_ERROR_NONE.
@@ -205,7 +205,7 @@ always_inline int
 hicn_dpo_udp6_lock (dpo_id_t * dpo,
 		    const ip6_address_t * local_addr,
 		    const ip6_address_t * remote_addr,
-		    u16 local_port, u16 remote_port, u8 * is_appface)
+		    u16 local_port, u16 remote_port, u8 * hicnb_flags)
 {
   hicn_face_t *face =
     hicn_face_udp6_get (local_addr, remote_addr, local_port, remote_port);
@@ -218,7 +218,7 @@ hicn_dpo_udp6_lock (dpo_id_t * dpo,
   dpo_set (dpo, hicn_face_udp_type, DPO_PROTO_IP4, dpoi_index);
   dpo->dpoi_next_node = ~0;
   dpo_lock (dpo);
-  *is_appface = 0;
+  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
 
   return HICN_ERROR_NONE;
 }
@@ -233,7 +233,7 @@ hicn_dpo_udp6_lock (dpo_id_t * dpo,
  * @param remote_addr: Remote address of the UDP tunnel
  * @param local_port: Local port of the UDP tunnel
  * @param remote_port: Remote port of the UDP tunnel
- * @param is_appface: Boolean that indicates whether the face is an application
+ * @param hicnb_flags: Flags that indicate whether the face is an application
  * face or not. (Currently only IP faces can be appface)
  * @param node_index: vlib edge index to use in the packet processing
  */
@@ -242,7 +242,7 @@ hicn_dpo_udp6_add_and_lock (dpo_id_t * dpo,
 			    const ip6_address_t * local_addr,
 			    const ip6_address_t * remote_addr,
 			    u16 local_port, u16 remote_port,
-			    u32 node_index, u8 * is_appface)
+			    u32 node_index, u8 * hicnb_flags)
 {
   hicn_face_t *face =
     hicn_face_udp6_get (local_addr, remote_addr, local_port, remote_port);
@@ -276,7 +276,7 @@ hicn_dpo_udp6_add_and_lock (dpo_id_t * dpo,
 
       mhash_set_mem (&hicn_face_udp_hashtb, &key, (uword *) & dpoi_index, 0);
 
-      *is_appface = 0;
+      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
       dpo_set (dpo, hicn_face_udp_type, DPO_PROTO_IP6, dpoi_index);
       dpo->dpoi_next_node = node_index;
       dpo_lock (dpo);
@@ -284,7 +284,7 @@ hicn_dpo_udp6_add_and_lock (dpo_id_t * dpo,
       return;
     }
 
-  *is_appface = 0;
+  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
 
   hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
   dpo_set (dpo, hicn_face_udp_type, DPO_PROTO_IP6, dpoi_index);

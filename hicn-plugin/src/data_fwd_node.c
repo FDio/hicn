@@ -112,10 +112,6 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      b1 = vlib_get_buffer (vm, from[1]);
 	      CLIB_PREFETCH (b1, 2 * CLIB_CACHE_LINE_BYTES, STORE);
 	      CLIB_PREFETCH (b1->data, CLIB_CACHE_LINE_BYTES, STORE);
-
-	      /* HICN PREFETCH */
-	      hicn_buffer_t *hicnb1 = hicn_get_buffer (b1);
-	      hicn_prefetch_pcs_entry (hicnb1, pitcs);
 	    }
 	  /* Dequeue a packet buffer */
 	  /*
@@ -288,6 +284,8 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
   u32 n_left_from = 0;
   u32 next0 = HICN_DATA_FWD_NEXT_ERROR_DROP, next1 =
     HICN_DATA_FWD_NEXT_ERROR_DROP;
+  u16 buffer_advance = isv6 ? sizeof (ip6_header_t) + sizeof (tcp_header_t) :
+    sizeof (ip4_header_t) + sizeof (tcp_header_t);
 
   /*
    * We have a hard limit on the number of vlib_buffer that we can
@@ -304,11 +302,32 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
   /* Clone bi0 */
   vlib_buffer_t *b0 = vlib_get_buffer (vm, bi0);
 
-  /* Add one reference to maintain the buffer in the CS */
-  b0->n_add_refs++;
+  hicn_buffer_t *hicnb = hicn_get_buffer (b0);
+  /*
+   * Mark the buffer as smaller than TWO_CL. It will be stored as is in the CS, without excluding
+   * the hicn_header. Cloning is not possible, it will be copied.
+   */
+  if (b0->current_length <= buffer_advance + CLIB_CACHE_LINE_BYTES * 2)
+    {
+      /* In this case the packet is copied. We don't need to add a reference as no buffer are
+       * chained to it.
+       */
+      hicnb->flags |= HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL;
+    }
+  else
+    {
+      /* Add one reference to maintain the buffer in the CS.
+       * b0->n_add_refs == 0 has two meaning: it has 1 buffer or no buffer chained to it.
+       * vlib_buffer_clone2 add a number of reference equalt to pitp->u.pit.faces.n_faces - 1
+       * as vlib_buffer_clone does. So after all the packet are forwarded the buffer stored in
+       * the CS will have n_add_refs == 0;
+       */
+      b0->n_add_refs++;
+    }
+
   found = n_left_from =
     vlib_buffer_clone2 (vm, bi0, clones, pitp->u.pit.faces.n_faces,
-			VLIB_BUFFER_MIN_CHAIN_SEG_SIZE);
+			buffer_advance);
 
   ASSERT (n_left_from == pitp->u.pit.faces.n_faces);
 
@@ -474,7 +493,8 @@ clone_data_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
    */
   hicn_buffer_t *hicnb0 = hicn_get_buffer (b0);
   hicn_pit_to_cs (vm, pitcs, pitp, hash_entry, nodep, dpo_vft, hicn_dpo_id,
-		  &hicnb->face_dpo_id, hicnb0->is_appface);
+		  &hicnb->face_dpo_id,
+		  hicnb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP);
 
   pitp->shared.create_time = tnow;
 

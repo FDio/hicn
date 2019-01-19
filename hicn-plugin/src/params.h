@@ -24,7 +24,10 @@
 /*
  * Face compile-time parameters
  */
-#define HICN_PARAM_FACES_MAX 64
+#define HICN_PARAM_FACES_MAX 512
+
+STATIC_ASSERT ((HICN_PARAM_FACES_MAX & (HICN_PARAM_FACES_MAX - 1)) == 0,
+	       "HICN_PARAM_FACES_MAX must be a power of 2");
 
 /*
  * Max length for hICN names
@@ -46,7 +49,12 @@
 #define HICN_PARAM_PIT_ENTRIES_MAX      2 * 1024 * 1024
 
 // aggregation limit(interest previous hops)
-#define HICN_PARAM_PIT_ENTRY_PHOPS_MAX 516
+// Supported up to 516. For more than 4 faces this param must
+// satisfy the equation (HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4) % 2 = 0
+#define HICN_PARAM_PIT_ENTRY_PHOPS_MAX 20
+
+STATIC_ASSERT ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX <= HICN_PARAM_FACES_MAX),
+	       "HICN_PARAM_PIT_ENTRY_PHOP_MAX must be <= than HICN_PARAM_FACES_MAX");
 
 // PIT lifetime limits on API override this(in seconds, long -float type)
 #define HICN_PARAM_PIT_LIFETIME_BOUND_MIN_SEC   0.100L

@@ -21,6 +21,8 @@
 #include <vnet/dpo/dpo.h>
 #include <vnet/adj/adj_types.h>
 
+#include "../hicn.h"
+
 typedef u8 hicn_face_flags_t;
 typedef index_t hicn_face_id_t;
 typedef dpo_type_t hicn_face_type_t;
@@ -100,6 +102,27 @@ extern hicn_face_t *hicn_dpoi_face_pool;
 #define HICN_FACE_FLAGS_DELETED        0x10
 
 #define HICN_FACE_NULL (hicn_face_id_t) ~0
+
+#define HICN_FACE_FLAGS_APPFACE_PROD_BIT 2
+#define HICN_FACE_FLAGS_APPFACE_CONS_BIT 3
+
+STATIC_ASSERT ((1 << HICN_FACE_FLAGS_APPFACE_PROD_BIT) ==
+	       HICN_FACE_FLAGS_APPFACE_PROD,
+	       "HICN_FACE_FLAGS_APPFACE_PROD_BIT and  HICN_FACE_FLAGS_APPFACE_PROD must correspond");
+
+STATIC_ASSERT ((1 << HICN_FACE_FLAGS_APPFACE_CONS_BIT) ==
+	       HICN_FACE_FLAGS_APPFACE_CONS,
+	       "HICN_FACE_FLAGS_APPFACE_CONS_BIT and  HICN_FACE_FLAGS_APPFACE_CONS must correspond");
+
+STATIC_ASSERT ((HICN_FACE_FLAGS_APPFACE_PROD >>
+		HICN_FACE_FLAGS_APPFACE_PROD_BIT) ==
+	       HICN_BUFFER_FLAGS_FACE_IS_APP,
+	       "hicn buffer app flag does not correspond to HICN_FACE_FLAGS_APPFACE_PROD");
+
+STATIC_ASSERT ((HICN_FACE_FLAGS_APPFACE_CONS >>
+		HICN_FACE_FLAGS_APPFACE_CONS_BIT) ==
+	       HICN_BUFFER_FLAGS_FACE_IS_APP,
+	       "hicn buffer app flag does not correspond to HICN_FACE_FLAGS_APPFACE_PROD");
 
 /**
  * @brief Definition of the virtual functin table for an hICN FACE DPO.

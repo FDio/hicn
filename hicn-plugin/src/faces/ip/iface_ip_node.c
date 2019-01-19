@@ -143,7 +143,7 @@ typedef enum
     {                                                                   \
       vlib_buffer_t *b1;                                                \
       b1 = vlib_get_buffer (vm, from[1]);                               \
-      CLIB_PREFETCH (b1, 2*CLIB_CACHE_LINE_BYTES, STORE);		\
+      CLIB_PREFETCH (b1, 2*CLIB_CACHE_LINE_BYTES, STORE);               \
       CLIB_PREFETCH (b1->data, CLIB_CACHE_LINE_BYTES , LOAD);           \
     }                                                                   \
   /* Dequeue a packet buffer */                                         \
@@ -171,7 +171,7 @@ typedef enum
                                                                         \
   DPO_ADD_LOCK_IP##ipv                                                  \
   (&(hicnb0->face_dpo_id),                                              \
-   &hicnb0->is_appface,                                                 \
+   &hicnb0->flags,                                                      \
    local_address,                                                       \
    &(ip_hdr->src_address),                                              \
    vnet_buffer(b0)->sw_if_index[VLIB_RX],                               \
@@ -248,7 +248,7 @@ typedef enum
                                                                         \
     DPO_ADD_LOCK_IP##ipv                                                \
       (&(hicnb0->face_dpo_id),                                          \
-       &hicnb0->is_appface,                                             \
+       &hicnb0->flags,                                                  \
        local_address0,                                                  \
        &(ip_hdr0->src_address),                                         \
        vnet_buffer(b0)->sw_if_index[VLIB_RX],                           \
@@ -256,7 +256,7 @@ typedef enum
                                                                         \
     DPO_ADD_LOCK_IP##ipv                                                \
       (&(hicnb1->face_dpo_id),                                          \
-       &hicnb1->is_appface,                                             \
+       &hicnb1->flags,                                                  \
        local_address1,                                                  \
        &(ip_hdr1->src_address),                                         \
        vnet_buffer(b1)->sw_if_index[VLIB_RX],                           \

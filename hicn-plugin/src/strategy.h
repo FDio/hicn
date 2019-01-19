@@ -56,6 +56,7 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 			  vlib_node_runtime_t * node,
 			  vlib_frame_t * frame,
 			  hicn_strategy_vft_t * strategy,
+			  dpo_type_t dpo_type,
 			  vlib_node_registration_t * hicn_strategy_node);
 
 /* Trace context struct */

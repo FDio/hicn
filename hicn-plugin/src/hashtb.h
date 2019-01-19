@@ -125,19 +125,15 @@ typedef struct
  * bucket. the node contains an embedded key; long keys are stored as chains
  * of keys.
  *
- * The memory block for a node includes space for client data, additional memory
- * located off the end of the htnode data structure. Size of client-supplied
- * data is fixed, so we can use vpp pools. The PIT and FIB need to ensure
- * that they fit within the available data area, or change the size to
- * accomodate their needs.
+ * The memory block for a node includes space for storing outgoing faces for
+ * interests, additional memory located off the end of the htnode data structure.
  *
- * NOTE: app_data_size currently applies to all apps, i.e. bigger FIB nodes
- * means (leads to, requires) bigger PCS nodes
  */
 
-/* Size this so that we can offer 64B aligned on 64-bits to the applications */
-/* New PIT entry syze 62B */
-#define HICN_HASH_NODE_APP_DATA_SIZE 4184	//to support 512 entry //96 //190 to support 50 faces
+/* Size this so that we can offer 64B aligned on 64-bits for storing outgoing
+ * faces information
+ */
+#define HICN_HASH_NODE_APP_DATA_SIZE 64
 
 /* How to align in the right way */
 typedef struct __attribute__ ((packed)) hicn_hash_node_s

@@ -409,6 +409,8 @@ hicn_hashtb_init_entry (hicn_hash_entry_t * entry, u32 nodeidx,
   /* Clear out some other fields in the entry */
   entry->he_flags = 0;
   entry->locks = locks;
+  entry->vft_id = 0;
+  entry->dpo_ctx_id = 0;
 }
 
 /*
@@ -506,6 +508,8 @@ loop_buckets:
 
 	      node->bucket_id = current_bucket_id;
 	      node->entry_idx = i;
+	      (*hash_entry)->vft_id = *vft_id;
+	      (*hash_entry)->dpo_ctx_id = *dpo_ctx_id;
 	      if (is_overflow)
 		node->hn_flags |= HICN_HASH_NODE_OVERFLOW_BUCKET;
 
@@ -590,6 +594,8 @@ loop_buckets:
 	  node->bucket_id = (newbkt - h->ht_overflow_buckets);
 	  node->entry_idx = 1;
 	  node->hn_flags |= HICN_HASH_NODE_OVERFLOW_BUCKET;
+	  (*hash_entry)->vft_id = *vft_id;
+	  (*hash_entry)->dpo_ctx_id = *dpo_ctx_id;
 	}
       else
 	{
@@ -600,6 +606,8 @@ loop_buckets:
 	  node->bucket_id = (newbkt - h->ht_overflow_buckets);
 	  node->entry_idx = 0;
 	  node->hn_flags |= HICN_HASH_NODE_OVERFLOW_BUCKET;
+	  (*hash_entry)->vft_id = *vft_id;
+	  (*hash_entry)->dpo_ctx_id = *dpo_ctx_id;
 	}
     }
 

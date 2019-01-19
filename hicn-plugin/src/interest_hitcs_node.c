@@ -40,43 +40,41 @@ vlib_node_registration_t hicn_interest_hitcs_node;
 always_inline void drop_packet (u32 * next0);
 
 always_inline void
-clone_from_cs (vlib_main_t * vm, u32 * bi0_cs, vlib_buffer_t * dest)
+clone_from_cs (vlib_main_t * vm, u32 * bi0_cs, vlib_buffer_t * dest, u8 isv6)
 {
   /* Retrieve the buffer to clone */
   vlib_buffer_t *cs_buf = vlib_get_buffer (vm, *bi0_cs);
+  hicn_buffer_t *hicnb = hicn_get_buffer (cs_buf);
+  u16 buffer_advance = isv6 ? sizeof (ip6_header_t) + sizeof (tcp_header_t) :
+    sizeof (ip4_header_t) + sizeof (tcp_header_t);
 
-  if (cs_buf->current_data >= VLIB_BUFFER_MIN_CHAIN_SEG_SIZE
-      && ((i16) cs_buf->current_length) < (i16) 0)
+  if (hicnb->flags & HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL)
     {
-      vlib_buffer_advance (cs_buf,
-			   -(((i16) cs_buf->current_length) +
-			     VLIB_BUFFER_MIN_CHAIN_SEG_SIZE));
-
-      clib_memcpy (vlib_buffer_get_current (dest),
-		   vlib_buffer_get_current (cs_buf), cs_buf->current_length);
-      clib_memcpy (dest->opaque2, cs_buf->opaque2, sizeof (cs_buf->opaque2));
+      clib_memcpy_fast (vlib_buffer_get_current (dest),
+			vlib_buffer_get_current (cs_buf),
+			cs_buf->current_length);
+      clib_memcpy_fast (dest->opaque2, cs_buf->opaque2,
+			sizeof (cs_buf->opaque2));
       dest->current_data = cs_buf->current_data;
       dest->current_length = cs_buf->current_length;
       dest->total_length_not_including_first_buffer = 0;
-      cs_buf->current_data += VLIB_BUFFER_MIN_CHAIN_SEG_SIZE;
-      cs_buf->current_length -= VLIB_BUFFER_MIN_CHAIN_SEG_SIZE;
     }
   else
     {
-      vlib_buffer_advance (cs_buf, -VLIB_BUFFER_MIN_CHAIN_SEG_SIZE);
-
+      vlib_buffer_advance (cs_buf, -buffer_advance);
       if (PREDICT_FALSE (cs_buf->n_add_refs == 255))
 	{
 	  vlib_buffer_t *cs_buf2 = vlib_buffer_copy (vm, cs_buf);
-	  vlib_buffer_advance (cs_buf, VLIB_BUFFER_MIN_CHAIN_SEG_SIZE);
+	  vlib_buffer_advance (cs_buf, buffer_advance);
+	  *bi0_cs = vlib_get_buffer_index (vm, cs_buf2);
+	  cs_buf->n_add_refs--;
 	  cs_buf = cs_buf2;
 	}
 
       clib_memcpy (vlib_buffer_get_current (dest),
-		   vlib_buffer_get_current (cs_buf),
-		   VLIB_BUFFER_MIN_CHAIN_SEG_SIZE);
-      dest->current_length = VLIB_BUFFER_MIN_CHAIN_SEG_SIZE;
-      vlib_buffer_advance (cs_buf, VLIB_BUFFER_MIN_CHAIN_SEG_SIZE);
+		   vlib_buffer_get_current (cs_buf), buffer_advance);
+      dest->current_length = buffer_advance;
+      vlib_buffer_advance (cs_buf, buffer_advance);
       vlib_buffer_attach_clone (vm, dest, cs_buf);
     }
 }
@@ -198,7 +196,7 @@ hicn_interest_hitcs_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      vnet_buffer (b0)->ip.adj_index[VLIB_TX] =
 		hicnb0->face_dpo_id.dpoi_index;
 
-	      clone_from_cs (vm, &pitp->u.cs.cs_pkt_buf, b0);
+	      clone_from_cs (vm, &pitp->u.cs.cs_pkt_buf, b0, isv6);
 
 	      stats.pkts_from_cache_count++;
 	      stats.pkts_data_count++;

@@ -102,6 +102,7 @@ hicn_mw_strategy_node_fn (vlib_main_t * vm,
 			  vlib_node_runtime_t * node, vlib_frame_t * frame)
 {
   return hicn_forward_interest_fn (vm, node, frame, &hicn_strategy_mw_vft,
+				   hicn_dpo_strategy_mw_get_type (),
 				   &hicn_mw_strategy_node);
 }
 

@@ -30,14 +30,11 @@
 /* Must be power of two */
 #define HICN_FACE_DB_INLINE_FACES 4
 
-#define HICN_PIT_N_HOP_BITMAP_SIZE HICN_PARAM_PIT_ENTRY_PHOPS_MAX
+#define HICN_PIT_BITMAP_SIZE_BYTE (HICN_PARAM_FACES_MAX / 8)
+#define HICN_PIT_N_HOP_BITMAP_SIZE HICN_PARAM_FACES_MAX
 
 #define HICN_PIT_N_HOP_BUCKET (HICN_PARAM_PIT_ENTRY_PHOPS_MAX - HICN_FACE_DB_INLINE_FACES)
 
-STATIC_ASSERT ((HICN_PIT_N_HOP_BUCKET & (HICN_PIT_N_HOP_BUCKET - 1)) == 0,
-	       "HICN_PARAM_PIT_ENTRY_PHOP_MAX must be a power of 2 + 4");
-
-/* Takes 2 cache lines */
 typedef struct __attribute__ ((packed)) hicn_face_bucket_s
 {
   /* Array of indexes of virtual faces */
@@ -46,7 +43,7 @@ typedef struct __attribute__ ((packed)) hicn_face_bucket_s
   CLIB_CACHE_LINE_ALIGN_MARK (cache_line1);
 
   /* Used to check if interests are retransmission */
-  u8 bitmap[HICN_PIT_N_HOP_BITMAP_SIZE];
+  u8 bitmap[HICN_PIT_BITMAP_SIZE_BYTE];
 
 } hicn_face_bucket_t;
 
@@ -138,7 +135,7 @@ hicn_faces_flush (hicn_face_db_t * face_db)
 {
   hicn_face_bucket_t *faces_bkt =
     pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket);
-  clib_memset_u64 (&(faces_bkt->bitmap), 0, HICN_PIT_N_HOP_BITMAP_SIZE / 8);
+  clib_memset_u8 (&(faces_bkt->bitmap), 0, HICN_PIT_BITMAP_SIZE_BYTE);
   face_db->n_faces = 0;
   pool_put_index (hicn_face_bucket_pool, face_db->next_bucket);
 }

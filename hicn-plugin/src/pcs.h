@@ -247,7 +247,9 @@ hicn_pit_get_data (hicn_hash_node_t * node)
 static inline void
 hicn_pit_init_data (hicn_pcs_entry_t * p)
 {
-  memset (p, 0, sizeof (hicn_pcs_entry_t));
+  p->shared.entry_flags = 0;
+  p->u.pit.faces.n_faces = 0;
+  p->u.pit.faces.is_overflow = 0;
   hicn_face_bucket_t *face_bkt;
   pool_get (hicn_face_bucket_pool, face_bkt);
 
@@ -363,7 +365,6 @@ hicn_pcs_delete_internal (hicn_pit_cs_t * pitcs,
     }
 
   hicn_hashtb_delete (pitcs->pcs_table, node, hash_entry->he_msb64);
-  memset (*pcs_entryp, 0, sizeof (hicn_pcs_entry_t));
   *pcs_entryp = NULL;
 }
 
@@ -386,7 +387,6 @@ hicn_pit_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
   dpo_vft->hicn_dpo_unlock_dpo_ctx (hicn_dpo_id);
   /* Flush faces */
   hicn_faces_flush (&(pcs_entry->u.pit.faces));
-  memset (&(pcs_entry->u.cs), ~0, sizeof (hicn_cs_entry_t));
 
   hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_CS_ENTRY;
   node->hn_flags |= HICN_HASH_NODE_CS_FLAGS;

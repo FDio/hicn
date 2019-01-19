@@ -139,7 +139,7 @@ typedef enum
        &(ip_hdr->src_address),                                      \
        (udp_hdr->dst_port),                                         \
        (udp_hdr->src_port),                                         \
-       &hicnb0->is_appface);                                        \
+       &hicnb0->flags);                                             \
                                                                     \
     if ( PREDICT_FALSE(ret != HICN_ERROR_NONE) )                    \
       {                                                             \
@@ -233,7 +233,7 @@ typedef enum
        &(ip_hdr0->src_address),                                     \
        (udp_hdr0->dst_port),                                        \
        (udp_hdr0->src_port),                                        \
-       &hicnb0->is_appface);                                        \
+       &hicnb0->flags);                                             \
                                                                     \
     ret1 = HICN_DPO_UDP_LOCK_IP##ipv                                \
       (&(hicnb1->face_dpo_id),                                      \
@@ -241,7 +241,7 @@ typedef enum
        &(ip_hdr1->src_address),                                     \
        (udp_hdr1->dst_port),                                        \
        (udp_hdr1->src_port),                                        \
-       &hicnb1->is_appface);                                        \
+       &hicnb1->flags);                                             \
 								    \
     if ( PREDICT_FALSE(ret0 != HICN_ERROR_NONE) )                   \
       {                                                             \

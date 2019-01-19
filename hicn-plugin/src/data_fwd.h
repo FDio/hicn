@@ -79,13 +79,10 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
 	{
 	  vlib_buffer_t *d;
 	  d = vlib_buffer_copy (vm, s);
-	  clib_memcpy (d->opaque2, s->opaque2, sizeof (s->opaque2));
 	  if (d == 0)
 	    return i;
 	  buffers[i] = vlib_get_buffer_index (vm, d);
 	}
-      s->current_data += head_end_offset;
-      s->current_length -= head_end_offset;
       return n_buffers;
     }
   n_buffers = vlib_buffer_alloc_from_free_list (vm, buffers, n_buffers,
@@ -145,8 +142,6 @@ always_inline u16
 vlib_buffer_clone2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
 		    u16 n_buffers, u16 head_end_offset)
 {
-  ASSERT (head_end_offset >= VLIB_BUFFER_MIN_CHAIN_SEG_SIZE);
-
   vlib_buffer_t *s = vlib_get_buffer (vm, src_buffer);
 
   /*

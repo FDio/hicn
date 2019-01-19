@@ -41,7 +41,8 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 		   u32 * next, f64 tnow, u8 * nameptr,
 		   u16 namelen, dpo_id_t * outface, int nh_idx,
 		   index_t hicn_dpo_idx, hicn_strategy_vft_t * strategy,
-		   u8 isv6, vl_api_hicn_api_node_stats_get_reply_t * stats)
+		   dpo_type_t dpo_type, u8 isv6,
+		   vl_api_hicn_api_node_stats_get_reply_t * stats)
 {
   int ret;
   hicn_hash_node_t *nodep;
@@ -50,8 +51,8 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
   hicn_main_t *sm = &hicn_main;
   hicn_buffer_t *hicnb0 = hicn_get_buffer (b0);
   u32 node_id0 = 0;
-  u8 dpo_ctx_id0 = 0;
-  u8 vft_id0 = 0;
+  u8 dpo_ctx_id0 = vnet_buffer (b0)->ip.adj_index[VLIB_TX];
+  u8 vft_id0 = dpo_type;
   u8 is_cs0 = 0;
   u8 hash_entry_id = 0;
   u8 bucket_is_overflow = 0;
@@ -92,6 +93,7 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 			 hicnb0->name_hash, &node_id0, &dpo_ctx_id0, &vft_id0,
 			 &is_cs0, &hash_entry_id, &bucket_id,
 			 &bucket_is_overflow);
+
   if (ret == HICN_ERROR_NONE)
     {
       strategy->hicn_add_interest (vnet_buffer (b0)->ip.adj_index[VLIB_TX],
@@ -140,6 +142,7 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 			  vlib_node_runtime_t * node,
 			  vlib_frame_t * frame,
 			  hicn_strategy_vft_t * strategy,
+			  dpo_type_t dpo_type,
 			  vlib_node_registration_t * hicn_strategy_node)
 {
 
@@ -221,7 +224,7 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 	      hicn_new_interest (rt, b0, &next0, tnow, nameptr, namelen,
 				 outface, nh_idx,
 				 vnet_buffer (b0)->ip.adj_index[VLIB_TX],
-				 strategy, isv6, &stats);
+				 strategy, dpo_type, isv6, &stats);
 	    }
 	  /* Maybe trace */
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&

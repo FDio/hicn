@@ -33,7 +33,7 @@ void hicn_dpo_ip_module_init (void);
  * method adds a lock on the face state.
  *
  * @param dpo: Result of the lookup. If the face doesn't exist dpo = NULL
- * @param is_appface: Boolean that indicates whether the face is an application
+ * @param hicnb_flags: Flags that indicate whether the face is an application
  * face or not
  * @param local_addr: Ip v4 local address of the face
  * @param sw_if: software interface id of the face
@@ -42,7 +42,7 @@ void hicn_dpo_ip_module_init (void);
  */
 always_inline int
 hicn_dpo_ip4_lock_from_local (dpo_id_t * dpo,
-			      u8 * is_appface,
+			      u8 * hicnb_flags,
 			      const ip4_address_t * local_addr, u32 sw_if)
 {
   hicn_face_t *face =
@@ -51,7 +51,10 @@ hicn_dpo_ip4_lock_from_local (dpo_id_t * dpo,
   if (PREDICT_FALSE (face == NULL))
     return HICN_ERROR_FACE_NOT_FOUND;
 
-  *is_appface = face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD;
+  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+  *hicnb_flags |=
+    (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
+    HICN_FACE_FLAGS_APPFACE_PROD_BIT;
 
   hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
   dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, dpoi_index);
@@ -66,7 +69,7 @@ hicn_dpo_ip4_lock_from_local (dpo_id_t * dpo,
  * method adds a lock on the face state.
  *
  * @param dpo: Result of the lookup. If the face doesn't exist dpo = NULL
- * @param is_appface: Boolean that indicates whether the face is an application
+ * @param hicnb_flags: Flags that indicate whether the face is an application
  * face or not
  * @param local_addr: Ip v6 local address of the face
  * @param sw_if: software interface id of the face
@@ -75,7 +78,7 @@ hicn_dpo_ip4_lock_from_local (dpo_id_t * dpo,
  */
 always_inline int
 hicn_dpo_ip6_lock_from_local (dpo_id_t * dpo,
-			      u8 * is_appface,
+			      u8 * hicnb_flags,
 			      const ip6_address_t * local_addr, u32 sw_if)
 {
   hicn_face_t *face =
@@ -84,7 +87,10 @@ hicn_dpo_ip6_lock_from_local (dpo_id_t * dpo,
   if (PREDICT_FALSE (face == NULL))
     return HICN_ERROR_FACE_NOT_FOUND;
 
-  *is_appface = face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD;
+  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+  *hicnb_flags |=
+    (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
+    HICN_FACE_FLAGS_APPFACE_PROD_BIT;
 
   hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
   dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP6, dpoi_index);
@@ -100,7 +106,7 @@ hicn_dpo_ip6_lock_from_local (dpo_id_t * dpo,
  * address and returns its dpo. This method adds a lock on the face state.
  *
  * @param dpo: Result of the lookup
- * @param is_appface: Boolean that indicates whether the face is an application
+ * @param hicnb_flags: Flags that indicate whether the face is an application
  * face or not
  * @param local_addr: Ip v4 local address of the face
  * @param remote_addr: Ip v4 remote address of the face
@@ -109,7 +115,7 @@ hicn_dpo_ip6_lock_from_local (dpo_id_t * dpo,
  */
 always_inline void
 hicn_dpo_ip4_add_and_lock_from_remote (dpo_id_t * dpo,
-				       u8 * is_appface,
+				       u8 * hicnb_flags,
 				       const ip4_address_t * local_addr,
 				       const ip4_address_t * remote_addr,
 				       u32 sw_if, u32 node_index)
@@ -125,7 +131,7 @@ hicn_dpo_ip4_add_and_lock_from_remote (dpo_id_t * dpo,
       ip46_address_t remote_addr46 = to_ip46 (0, (u8 *) remote_addr);
       hicn_iface_ip_add (&local_addr46, &remote_addr46, sw_if, &dpoi_index);
 
-      *is_appface = 0;
+      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
 
       dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, dpoi_index);
       dpo->dpoi_next_node = node_index;
@@ -135,7 +141,10 @@ hicn_dpo_ip4_add_and_lock_from_remote (dpo_id_t * dpo,
     }
 
   /* Code replicated on purpose */
-  *is_appface = face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD;
+  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+  *hicnb_flags |=
+    (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
+    HICN_FACE_FLAGS_APPFACE_PROD_BIT;
 
   hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
   dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, dpoi_index);
@@ -148,7 +157,7 @@ hicn_dpo_ip4_add_and_lock_from_remote (dpo_id_t * dpo,
  * address and returns its dpo. This method adds a lock on the face state.
  *
  * @param dpo: Result of the lookup
- * @param is_appface: Boolean that indicates whether the face is an application
+ * @param hicnb_flags: Flags that indicate whether the face is an application
  * face or not
  * @param local_addr: Ip v6 local address of the face
  * @param remote_addr: Ip v6 remote address of the face
@@ -157,11 +166,15 @@ hicn_dpo_ip4_add_and_lock_from_remote (dpo_id_t * dpo,
  */
 always_inline void
 hicn_dpo_ip6_add_and_lock_from_remote (dpo_id_t * dpo,
-				       u8 * is_appface,
+				       u8 * hicnb_flags,
 				       const ip6_address_t * local_addr,
 				       const ip6_address_t * remote_addr,
 				       u32 sw_if, u32 node_index)
 {
+  dpo->dpoi_type = DPO_FIRST;
+  dpo->dpoi_proto = DPO_PROTO_NONE;
+  dpo->dpoi_index = INDEX_INVALID;
+  dpo->dpoi_next_node = 0;
   /*All (complete) faces are indexed by remote addess as well */
   hicn_face_t *face =
     hicn_face_ip6_get (remote_addr, sw_if, &hicn_face_ip_remote_hashtb);
@@ -172,7 +185,7 @@ hicn_dpo_ip6_add_and_lock_from_remote (dpo_id_t * dpo,
       hicn_iface_ip_add ((ip46_address_t *) local_addr,
 			 (ip46_address_t *) remote_addr, sw_if, &dpoi_index);
 
-      *is_appface = 0;
+      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
 
       dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, dpoi_index);
       dpo->dpoi_next_node = node_index;
@@ -181,7 +194,10 @@ hicn_dpo_ip6_add_and_lock_from_remote (dpo_id_t * dpo,
       return;
     }
   /* Code replicated on purpose */
-  *is_appface = face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD;
+  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+  *hicnb_flags |=
+    (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
+    HICN_FACE_FLAGS_APPFACE_PROD_BIT;
 
   index_t dpoi_index = hicn_dpoi_get_index (face);
   dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP6, dpoi_index);

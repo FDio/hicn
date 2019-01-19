@@ -79,14 +79,14 @@ hicn_dpo_udp4_create (dpo_id_t * dpo,
   u16 net_dst_port = clib_host_to_net_u16 (dst_port);
   hicn_face_t *face = hicn_face_udp4_get (src_ip, dst_ip, src_port, dst_port);
 
-  u8 is_appface;
+  u8 hicnb_flags;
   /* ip_csum_t sum0; */
 
   if (face != NULL)
     return HICN_ERROR_FACE_ALREADY_CREATED;
 
   hicn_dpo_udp4_add_and_lock (dpo, src_ip, dst_ip, net_src_port, net_dst_port,
-			      node_index, &is_appface);
+			      node_index, &hicnb_flags);
 
   face = hicn_dpoi_get_from_idx (dpo->dpoi_index);
 
@@ -118,13 +118,13 @@ hicn_dpo_udp6_create (dpo_id_t * dpo,
   u16 net_dst_port = clib_host_to_net_u16 (dst_port);
   hicn_face_t *face =
     hicn_face_udp6_get (src_ip, dst_ip, net_src_port, net_dst_port);
-  u8 is_appface;
+  u8 hicnb_flags;
 
   if (face != NULL)
     return HICN_ERROR_FACE_ALREADY_CREATED;
 
   hicn_dpo_udp6_add_and_lock (dpo, src_ip, dst_ip, net_src_port, net_dst_port,
-			      node_index, &is_appface);
+			      node_index, &hicnb_flags);
 
   face = hicn_dpoi_get_from_idx (dpo->dpoi_index);
 

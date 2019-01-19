@@ -78,7 +78,7 @@ hicn_dpo_ip4_create (dpo_id_t * dpo,
   /* If local matches the dpoi is a face */
   hicn_face_t *face =
     hicn_face_ip4_get (local_addr, sw_if, &hicn_face_ip_local_hashtb);
-  u8 is_appface;
+  u8 hicnb_flags;
 
   if (face != NULL)
     return HICN_ERROR_FACE_ALREADY_CREATED;
@@ -87,7 +87,7 @@ hicn_dpo_ip4_create (dpo_id_t * dpo,
 
   if (face == NULL)
     {
-      hicn_dpo_ip4_add_and_lock_from_remote (dpo, &is_appface, local_addr,
+      hicn_dpo_ip4_add_and_lock_from_remote (dpo, &hicnb_flags, local_addr,
 					     remote_addr, sw_if, node_index);
       *face_id = (hicn_face_id_t) dpo->dpoi_index;
       face = hicn_dpoi_get_from_idx (*face_id);
@@ -127,7 +127,7 @@ hicn_dpo_ip6_create (dpo_id_t * dpo,
   hicn_face_t *face =
     hicn_face_ip6_get (local_addr, sw_if, &hicn_face_ip_local_hashtb);
 
-  u8 is_appface;
+  u8 hicnb_flags;
 
   if (face != NULL)
     return HICN_ERROR_FACE_ALREADY_CREATED;
@@ -137,7 +137,7 @@ hicn_dpo_ip6_create (dpo_id_t * dpo,
   /* If remote matches the dpoi is a iface */
   if (face == NULL)
     {
-      hicn_dpo_ip6_add_and_lock_from_remote (dpo, &is_appface, local_addr,
+      hicn_dpo_ip6_add_and_lock_from_remote (dpo, &hicnb_flags, local_addr,
 					     remote_addr, sw_if, node_index);
       *face_id = (hicn_face_id_t) dpo->dpoi_index;
       face = hicn_dpoi_get_from_idx (*face_id);
@@ -172,9 +172,8 @@ hicn_dpo_ip_create_from_face (hicn_face_t * face, dpo_id_t * dpo,
   hicn_face_id_t face_dpoi_id = hicn_dpoi_get_index (face);
   hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
   dpo_set (dpo, face->shared.face_type,
-	   ip46_address_is_ip4 (&ip_face->
-				local_addr) ? DPO_PROTO_IP4 : DPO_PROTO_IP6,
-	   face_dpoi_id);
+	   ip46_address_is_ip4 (&ip_face->local_addr) ? DPO_PROTO_IP4 :
+	   DPO_PROTO_IP6, face_dpoi_id);
   dpo->dpoi_next_node = dpoi_next_node;
 }
 
