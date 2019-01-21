@@ -51,7 +51,7 @@ endmacro()
 macro(build_library lib)
   cmake_parse_arguments(ARG
     "SHARED;STATIC"
-    "COMPONENT"
+    "COMPONENT;"
     "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;INSTALL_ROOT_DIR"
     ${ARGN}
   )
@@ -68,6 +68,11 @@ macro(build_library lib)
       ${lib}
     )
     add_library(${lib} STATIC ${ARG_SOURCES})
+  endif()
+
+      # install .so
+  if(NOT ARG_COMPONENT)
+    set(ARG_COMPONENT hicn)
   endif()
 
   foreach(library ${TARGET_LIBS})
@@ -101,10 +106,6 @@ macro(build_library lib)
       )
     endif()
 
-    # install .so
-    if(NOT ARG_COMPONENT)
-      set(ARG_COMPONENT hicn)
-    endif()
     install(
       TARGETS ${library}
       DESTINATION lib
@@ -122,6 +123,10 @@ macro(build_library lib)
     if (NOT ARG_INSTALL_ROOT_DIR)
       set(ARG_INSTALL_ROOT_DIR "hicn")
     endif()
+
+    list(APPEND local_comps
+      ${ARG_COMPONENT}-dev
+    )
 
     foreach(file ${ARG_INSTALL_HEADERS})
       get_filename_component(_dir ${file} DIRECTORY)
