@@ -23,6 +23,9 @@ macro(build_executable exec)
     ${ARGN}
   )
 
+  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
   add_executable(${exec} ${ARG_SOURCES})
   if(ARG_LINK_LIBRARIES)
     target_link_libraries(${exec} ${ARG_LINK_LIBRARIES})
@@ -55,6 +58,9 @@ macro(build_library lib)
     "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;INSTALL_ROOT_DIR"
     ${ARGN}
   )
+
+  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
   if (ARG_SHARED)
     list(APPEND TARGET_LIBS
