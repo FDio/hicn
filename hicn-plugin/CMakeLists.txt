@@ -24,6 +24,10 @@ if ( HAVE_MEMFD_CREATE )
     add_definitions ( -DHAVE_MEMFD_CREATE )
 endif()
 
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+	set(HICN_PLUGIN hicn-plugin)
+endif()
+
 # Dependencies
 
 find_package(Vpp REQUIRED)
@@ -222,14 +226,40 @@ set_target_properties(hicn_api_test_plugin
         LINKER_LANGUAGE C
         PREFIX "")
 
-install(DIRECTORY DESTINATION ${VPP_INSTALL_PLUGIN})
+install(DIRECTORY
+        DESTINATION ${VPP_INSTALL_PLUGIN}
+        COMPONENT ${HICN_PLUGIN})
 install(TARGETS hicn_plugin
         DESTINATION
-        ${VPP_INSTALL_PLUGIN})
+        ${VPP_INSTALL_PLUGIN}
+        COMPONENT ${HICN_PLUGIN})
 
-install(DIRECTORY DESTINATION ${VPP_INSTALL_API_TEST_PLUGIN})
+install(DIRECTORY
+        DESTINATION ${VPP_INSTALL_API_TEST_PLUGIN}
+        COMPONENT ${HICN_PLUGIN})
 install(TARGETS hicn_api_test_plugin
-        DESTINATION
-        ${VPP_INSTALL_API_TEST_PLUGIN})
+        DESTINATION ${VPP_INSTALL_API_TEST_PLUGIN}
+        COMPONENT ${HICN_PLUGIN})
 
-install(FILES ${HICN_API_TEST_HEADER_FILES} ${HICN_API_GENERATED_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/include/vpp_plugins/hicn)
+install(FILES ${HICN_API_TEST_HEADER_FILES} ${HICN_API_GENERATED_FILES}
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/include/vpp_plugins/hicn
+        COMPONENT ${HICN_PLUGIN})
+
+######################
+# Packages section
+######################
+
+set(${HICN_UTILS}_DESCRIPTION 
+  "A high-performance Hybrid ICN forwarder as a plugin to VPP."
+  CACHE STRING "Description for deb/rpm package."
+)
+
+set(${HICN_UTILS}_DEB_DEPENDENCIES
+  "libhicn (>= 1.0), vpp (>= 19.01)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(${HICN_UTILS}_RPM_DEPENDENCIES
+  "libhicn >= 1.0, vpp >= 19.01"
+  CACHE STRING "Dependencies for deb/rpm package."
+)

@@ -27,8 +27,8 @@ include(Packager)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
+  set(HICN_UTILS hicn-utils)
 else()
-  # TODO Set name of targets in CMakeroot file
   set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT})
 endif()
 
@@ -47,8 +47,24 @@ foreach(util ${UTILS_SRC})
   build_executable(${util_name}
     SOURCES ${util}
     LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES}
-    DEPENDS transport
-    COMPONENT utils
+    DEPENDS ${LIBTRANSPORT}
+    COMPONENT hicn-utils
     DEFINITIONS ${COMPILER_DEFINITIONS}
   )
 endforeach()
+
+set(${HICN_UTILS}_DESCRIPTION 
+"Hicn utils provide the hicn-ping and hiperf applications, \
+useful for testing and debugging within a hicn network."
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(${HICN_UTILS}_DEB_DEPENDENCIES
+  "libhicntransport (>= 1.0)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(${HICN_UTILS}_RPM_DEPENDENCIES
+  "libhicntransport >= 1.0"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
