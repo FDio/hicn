@@ -63,6 +63,25 @@ typedef uint8_t u8;
 #endif /* ! HICN_VPP_PLUGIN */
 
 /*
+ * Windows compilers do not support named initilizers when .h files are included
+ * inside C++ files. For readability, we either use the following macro, or
+ * duplicate some code, with the intent of preserving those safeguards for
+ * non-Windows platforms.
+ */
+#ifndef _WIN32
+#define ATTR_INIT(key, value) .key = value
+#else
+#define ATTR_INIT(key, value) value
+#endif
+
+/* Endianness detection for Windows platforms */
+#ifdef _WIN32
+#define __ORDER_LITTLE_ENDIAN__ 0x41424344UL
+#define __ORDER_BIG_ENDIAN__    0x44434241UL
+#define __BYTE_ORDER__ ('ABCD')
+#endif
+
+/*
  * IP address types
  */
 
