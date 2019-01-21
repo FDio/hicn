@@ -47,10 +47,10 @@ typedef struct
 
 /** @brief Default MAP-Me configuration */
 static const hicn_mapme_conf_t hicn_mapme_conf = {
-  .enabled = false,
-  .timescale = 0,
-  .retx = 50,
-  .discovery = true,
+  ATTR_INIT(enabled, false),
+  ATTR_INIT(timescale, 0),
+  ATTR_INIT(retx, 50),
+  ATTR_INIT(discovery, true),
 };
 
 /** @brief MAP-Me update sequence number */
@@ -83,9 +83,6 @@ int hicn_mapme_parse_packet (const u8 * packet, hicn_prefix_t * prefix,
 			     mapme_params_t * params);
 
 /* Implementation & parsing : ICMP Redirect */
-
-#define HEADER_TYPE_MAPME4 (hicn_type_t) {0, IPPROTO_ICMPRD, IPPROTO_ICMP, IPPROTO_IP}
-#define HEADER_TYPE_MAPME6 (hicn_type_t) {0, IPPROTO_ICMPRD, IPPROTO_ICMP, IPPROTO_IPV6}
 
 #define HICN_MAPME_ACK_FLAG (0x20 | 0x60)
 
