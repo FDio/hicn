@@ -48,3 +48,32 @@ if (ANDROID_API)
 endif ()
 
 add_subdirectory (src)
+
+######################
+# Packages section
+######################
+
+set(lib${LIBHICN}_DESCRIPTION
+"libhicn provides a support library coded in C \
+designed to help developers embed Hybrid ICN (hICN) \
+functionalities in their applications (eg. forwarder, \
+socket API, etc"
+  CACHE STRING "Description for deb/rpm package."
+)
+
+set(lib${LIBHICN}-dev_DESCRIPTION ${${LIBHICN}_DESCRIPTION}
+  CACHE STRING "Description for deb/rpm package."
+)
+set(lib${LIBHICN}-devel_DESCRIPTION ${${LIBHICN}_DESCRIPTION}
+  CACHE STRING "Description for deb/rpm package."
+)
+
+set(lib${LIBHICN}-dev_DEB_DEPENDENCIES
+	"libhicn (>= 1.0)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(lib${LIBHICN}-devel_DEB_DEPENDENCIES
+  "libhicn >= 1.0"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
