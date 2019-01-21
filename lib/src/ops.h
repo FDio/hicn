@@ -37,430 +37,430 @@
 
 typedef struct hicn_ops_s
 {
-    /** Protocol name */
-  const char *name;
-
-    /**
-     * @brief Initialize the headers of the hicn packet
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the packet
-     */
+  /**
+   * @brief Initialize the headers of the hicn packet
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the packet
+   */
   int (*init_packet_header) (hicn_type_t type, hicn_protocol_t * h);
 
-    /**
-     * @brief Retrieves an Interest locator
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Interest packet
-     * @param [out] ip_address - Retrieved locator
-     * @return hICN error code
-     */
+  /**
+   * @brief Retrieves an Interest locator
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest packet
+   * @param [out] ip_address - Retrieved locator
+   * @return hICN error code
+   */
   int (*get_interest_locator) (hicn_type_t type, const hicn_protocol_t * h,
 			       ip46_address_t * ip_address);
 
-    /**
-     * @brief Sets an Interest locator
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest packet
-     * @param [in] ip_address - Locator to set
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets an Interest locator
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest packet
+   * @param [in] ip_address - Locator to set
+   * @return hICN error code
+   */
   int (*set_interest_locator) (hicn_type_t type, hicn_protocol_t * h,
 			       const ip46_address_t * ip_address);
 
-    /**
-     * @brief Retrieves an Interest name
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Interest packet
-     * @param [out] name - Retrieved name
-     * @return hICN error code
-     */
+  /**
+   * @brief Retrieves an Interest name
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest packet
+   * @param [out] name - Retrieved name
+   * @return hICN error code
+   */
   int (*get_interest_name) (hicn_type_t type, const hicn_protocol_t * h,
 			    hicn_name_t * name);
 
-    /**
-     * @brief Sets an Interest name
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest packet
-     * @param [in] name - Name to set
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets an Interest name
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest packet
+   * @param [in] name - Name to set
+   * @return hICN error code
+   */
   int (*set_interest_name) (hicn_type_t type, hicn_protocol_t * h,
 			    const hicn_name_t * name);
 
-    /**
-     * @brief Retrieves an Interest name suffix
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Interest packet
-     * @param [out] suffix - Retrieved name suffix
-     * @return hICN error code
-     */
+  /**
+   * @brief Retrieves an Interest name suffix
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest packet
+   * @param [out] suffix - Retrieved name suffix
+   * @return hICN error code
+   */
   int (*get_interest_name_suffix) (hicn_type_t type,
 				   const hicn_protocol_t * h,
 				   hicn_name_suffix_t * suffix);
 
-    /**
-     * @brief Sets an Interest name suffix
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest packet
-     * @param [in] suffix - Name suffix to set
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets an Interest name suffix
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest packet
+   * @param [in] suffix - Name suffix to set
+   * @return hICN error code
+   */
   int (*set_interest_name_suffix) (hicn_type_t type, hicn_protocol_t * h,
 				   const hicn_name_suffix_t * suffix);
 
-    /**
-     * @brief Clear the necessary Interest fields in order to hash it
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest packet
-     * @return hICN error code
-     */
+  /**
+   * @brief Clear the necessary Interest fields in order to hash it
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest packet
+   * @return hICN error code
+   */
   int (*reset_interest_for_hash) (hicn_type_t type, hicn_protocol_t * h);
 
-    /**
-     * @brief Retrieves a Data locator
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Data packet
-     * @param [out] ip_address - Retrieved locator
-     * @return hICN error code
-     */
+  /**
+   * @brief Retrieves a Data locator
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Data packet
+   * @param [out] ip_address - Retrieved locator
+   * @return hICN error code
+   */
   int (*get_data_locator) (hicn_type_t type, const hicn_protocol_t * h,
 			   ip46_address_t * ip_address);
 
-    /**
-     * @brief Sets a Data locator
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Data packet
-     * @param [in] ip_address - Locator to set
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets a Data locator
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Data packet
+   * @param [in] ip_address - Locator to set
+   * @return hICN error code
+   */
   int (*set_data_locator) (hicn_type_t type, hicn_protocol_t * h,
 			   const ip46_address_t * ip_address);
 
-    /**
-     * @brief Retrieves a Data name
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Data packet
-     * @param [out] name - Retrieved name
-     * @return hICN error code
-     */
+  /**
+   * @brief Retrieves a Data name
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Data packet
+   * @param [out] name - Retrieved name
+   * @return hICN error code
+   */
   int (*get_data_name) (hicn_type_t type, const hicn_protocol_t * h,
 			hicn_name_t * name);
 
-    /**
-     * @brief Sets a Data name
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Data packet
-     * @param [in] name - Name to set
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets a Data name
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Data packet
+   * @param [in] name - Name to set
+   * @return hICN error code
+   */
   int (*set_data_name) (hicn_type_t type, hicn_protocol_t * h,
 			const hicn_name_t * name);
 
-    /**
-     * @brief Retrieves a Data name suffix
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Data packet
-     * @param [out] suffix - Retrieved name suffix
-     * @return hICN error code
-     */
+  /**
+   * @brief Retrieves a Data name suffix
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Data packet
+   * @param [out] suffix - Retrieved name suffix
+   * @return hICN error code
+   */
   int (*get_data_name_suffix) (hicn_type_t type, const hicn_protocol_t * h,
 			       hicn_name_suffix_t * suffix);
 
-    /**
-     * @brief Sets a Data name suffix
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Data packet
-     * @param [in] suffix - Name suffix to set
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets a Data name suffix
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Data packet
+   * @param [in] suffix - Name suffix to set
+   * @return hICN error code
+   */
   int (*set_data_name_suffix) (hicn_type_t type, hicn_protocol_t * h,
 			       const hicn_name_suffix_t * suffix);
 
-    /**
-     * @brief Retrieves a Data pathlabel
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Data packet
-     * @param [out] pathlabel - Retrieved pathlabel
-     * @return hICN error code
-     */
+  /**
+   * @brief Retrieves a Data pathlabel
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Data packet
+   * @param [out] pathlabel - Retrieved pathlabel
+   * @return hICN error code
+   */
   int (*get_data_pathlabel) (hicn_type_t type, const hicn_protocol_t * h,
 			     u32 * pathlabel);
 
-    /**
-     * @brief Sets a Data pathlabel
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Data packet
-     * @param [in] pathlabel - Pathlabel to set
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets a Data pathlabel
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Data packet
+   * @param [in] pathlabel - Pathlabel to set
+   * @return hICN error code
+   */
   int (*set_data_pathlabel) (hicn_type_t type, hicn_protocol_t * h,
 			     const u32 pathlabel);
 
-    /**
-     * @brief Update a Data pathlabel with a new face identifier
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Data packet
-     * @param [in] pathlabel - Face identifier used to update pathlabel
-     * @return hICN error code
-     */
+  /**
+   * @brief Update a Data pathlabel with a new face identifier
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Data packet
+   * @param [in] pathlabel - Face identifier used to update pathlabel
+   * @return hICN error code
+   */
   int (*update_data_pathlabel) (hicn_type_t type, hicn_protocol_t * h,
 				const hicn_faceid_t face_id);
 
-    /**
-     * @brief Clear the necessary Data fields in order to hash it
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Data packet
-     * @return hICN error code
-     */
+  /**
+   * @brief Clear the necessary Data fields in order to hash it
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Data packet
+   * @return hICN error code
+   */
   int (*reset_data_for_hash) (hicn_type_t type, hicn_protocol_t * h);
 
-    /**
-     * @brief Retrieves an Interest or Data lifetime
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Interest or Data packet
-     * @param [out] pathlabel - Retrieved lifetime
-     * @return hICN error code
-     */
+  /**
+   * @brief Retrieves an Interest or Data lifetime
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest or Data packet
+   * @param [out] pathlabel - Retrieved lifetime
+   * @return hICN error code
+   */
   int (*get_lifetime) (hicn_type_t type, const hicn_protocol_t * h,
 		       hicn_lifetime_t * lifetime);
 
-    /**
-     * @brief Sets an Interest or Data lifetime
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest or Data packet
-     * @param [in] pathlabel - Lifetime to set
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets an Interest or Data lifetime
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest or Data packet
+   * @param [in] pathlabel - Lifetime to set
+   * @return hICN error code
+   */
   int (*set_lifetime) (hicn_type_t type, hicn_protocol_t * h,
 		       const hicn_lifetime_t lifetime);
 
-    /**
-     * @brief Update all checksums in packet headers
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the packet
-     * @param [in] partial_csum - Partial checksum (set to 0, used internally to
-     *   carry intermediate values from IP pseudo-header)
-     * @param [in] payload_length - Payload length (can be set to 0, retrieved
-     *   and used internally to carry payload length across protocol headers)
-     * @return hICN error code
-     */
+  /**
+   * @brief Update all checksums in packet headers
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the packet
+   * @param [in] partial_csum - Partial checksum (set to 0, used internally to
+   *   carry intermediate values from IP pseudo-header)
+   * @param [in] payload_length - Payload length (can be set to 0, retrieved
+   *   and used internally to carry payload length across protocol headers)
+   * @return hICN error code
+   */
   int (*update_checksums) (hicn_type_t type, hicn_protocol_t * h,
 			   u16 partial_csum, size_t payload_length);
 
-    /**
-     * @brief Validate all checksums in packet headers
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the packet
-     * @param [in] partial_csum - Partial checksum (set to 0, used internally to
-     *   carry intermediate values from IP pseudo-header)
-     * @param [in] payload_length - Payload length (can be set to 0, retrieved
-     *   and used internally to carry payload length across protocol headers)
-     * @return hICN error code
-     */
+  /**
+   * @brief Validate all checksums in packet headers
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the packet
+   * @param [in] partial_csum - Partial checksum (set to 0, used internally to
+   *   carry intermediate values from IP pseudo-header)
+   * @param [in] payload_length - Payload length (can be set to 0, retrieved
+   *   and used internally to carry payload length across protocol headers)
+   * @return hICN error code
+   */
   int (*verify_checksums) (hicn_type_t type, hicn_protocol_t * h,
 			   u16 partial_csum, size_t payload_length);
 
-    /**
-     * @brief Rewrite an Interest packet header (locator)
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Interest packet
-     * @param [in] addr_new - New locator
-     * @param [in] addr_old - Old locator (set to NULL, used internally to
-     *   compute incremental checksums)
-     * @return hICN error code
-     */
+  /**
+   * @brief Rewrite an Interest packet header (locator)
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest packet
+   * @param [in] addr_new - New locator
+   * @param [in] addr_old - Old locator (set to NULL, used internally to
+   *   compute incremental checksums)
+   * @return hICN error code
+   */
   int (*rewrite_interest) (hicn_type_t type, hicn_protocol_t * h,
 			   const ip46_address_t * addr_new,
 			   ip46_address_t * addr_old);
 
-    /**
-     * @brief Rewrite a Data packet header (locator + pathlabel)
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Data packet
-     * @param [in] addr_new - New locator
-     * @param [in] addr_old - Old locator (set to NULL, used internally to
-     *   compute incremental checksums)
-     * @param [in] face_id - Face identifier used to update pathlabel
-     * @return hICN error code
-     */
+  /**
+   * @brief Rewrite a Data packet header (locator + pathlabel)
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Data packet
+   * @param [in] addr_new - New locator
+   * @param [in] addr_old - Old locator (set to NULL, used internally to
+   *   compute incremental checksums)
+   * @param [in] face_id - Face identifier used to update pathlabel
+   * @return hICN error code
+   */
   int (*rewrite_data) (hicn_type_t type, hicn_protocol_t * h,
 		       const ip46_address_t * addr_new,
 		       ip46_address_t * addr_old,
 		       const hicn_faceid_t face_id);
 
-    /**
-     * @brief Return the packet length
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the packet
-     * @parma [out] length - Returned packet length
-     * @return hICN error code
-     */
+  /**
+   * @brief Return the packet length
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the packet
+   * @parma [out] length - Returned packet length
+   * @return hICN error code
+   */
   int (*get_length) (hicn_type_t type, const hicn_protocol_t * h,
 		     size_t * length);
 
-    /**
-     * @brief Return the current packet header length
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the packet
-     * @parma [out] header_length - Returned packet current header length
-     * @return hICN error code
-     */
+  /**
+   * @brief Return the current packet header length
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the packet
+   * @parma [out] header_length - Returned packet current header length
+   * @return hICN error code
+   */
   int (*get_current_header_length) (hicn_type_t type,
 				    const hicn_protocol_t * h,
 				    size_t * header_length);
 
-    /**
-     * @brief Return the packet header length
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the packet
-     * @parma [out] header_length - Returned packet header length
-     * @return hICN error code
-     */
+  /**
+   * @brief Return the packet header length
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the packet
+   * @parma [out] header_length - Returned packet header length
+   * @return hICN error code
+   */
   int (*get_header_length) (hicn_type_t type, const hicn_protocol_t * h,
 			    size_t * header_length);
 
-    /**
-     * @brief Return the packet payload length
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the packet
-     * @parma [out] payload_length - Returned packet payload length
-     * @return hICN error code
-     */
+  /**
+   * @brief Return the packet payload length
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the packet
+   * @parma [out] payload_length - Returned packet payload length
+   * @return hICN error code
+   */
   int (*get_payload_length) (hicn_type_t type, const hicn_protocol_t * h,
 			     size_t * payload_length);
 
-    /**
-     * @brief Sets the packet paylaod length
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the packet
-     * @parma [out] payload_length - Payload length to set
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets the packet paylaod length
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the packet
+   * @parma [out] payload_length - Payload length to set
+   * @return hICN error code
+   */
   int (*set_payload_length) (hicn_type_t type, hicn_protocol_t * h,
 			     size_t payload_length);
 
-    /**
-     * @brief Retrieves an Interest or Data signature size
-     * @param [in] type - hICN packet type
-     * @param [in] h - Buffer holding the Interest or Data packet
-     * @param [out] signature_size - Retrieved signature size
-     * @return hICN error code
-     */
+  /**
+   * @brief Retrieves an Interest or Data signature size
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest or Data packet
+   * @param [out] signature_size - Retrieved signature size
+   * @return hICN error code
+   */
   int (*get_signature_size) (hicn_type_t type, const hicn_protocol_t * h,
 			     size_t * signature_size);
 
-    /**
-     * @brief Sets an Interest or Data signature size
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest or Data packet
-     * @param [in] signature_size - Signature size to set
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets an Interest or Data signature size
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest or Data packet
+   * @param [in] signature_size - Signature size to set
+   * @return hICN error code
+   */
   int (*set_signature_size) (hicn_type_t type, hicn_protocol_t * h,
 			     size_t signature_size);
 
-    /**
-     * @brief Sets the signature timestamp
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest or Data packet
-     * @param [in] signature_timestamp - Signature timestamp to set
-     * @return hICN error code
-     */
-  int (*set_signature_timestamp) (hicn_type_t type, hicn_protocol_t * h,
-                 uint64_t signature_timestamp);
-
-    /**
-     * @brief Gets the signature timestamp
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest or Data packet
-     * @param [out] signature_timestamp - Retrieved signature timestamp
-     * @return hICN error code
-     */
+  /**
+   * @brief Gets the signature timestamp
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest or Data packet
+   * @param [out] signature_timestamp - Retrieved signature timestamp
+   * @return hICN error code
+   */
   int (*get_signature_timestamp) (hicn_type_t type, const hicn_protocol_t * h,
                  uint64_t *signature_timestamp);
 
-    /**
-     * @brief Sets the signature validation algorithm
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest or Data packet
-     * @param [in] validation_algorithm - Validation algorithm enumeration
-     * @return hICN error code
-     */
-  int (*set_validation_algorithm) (hicn_type_t type, hicn_protocol_t * h,
-                 uint8_t validation_algorithm);
+  /**
+   * @brief Sets the signature timestamp
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest or Data packet
+   * @param [in] signature_timestamp - Signature timestamp to set
+   * @return hICN error code
+   */
+  int (*set_signature_timestamp) (hicn_type_t type, hicn_protocol_t * h,
+                 uint64_t signature_timestamp);
 
-    /**
-     * @brief Gets the signature validation algorithm
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest or Data packet
-     * @param [out] validation_algorithm - Retrieved validation_algorithm
-     * @return hICN error code
-     */
+
+  /**
+   * @brief Gets the signature validation algorithm
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest or Data packet
+   * @param [out] validation_algorithm - Retrieved validation_algorithm
+   * @return hICN error code
+   */
   int (*get_validation_algorithm) (hicn_type_t type, const hicn_protocol_t * h,
                  uint8_t *validation_algorithm);
 
-    /**
-     * @brief Sets the key id
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest or Data packet
-     * @param [in] key_id - Key id first byte address
-     * @return hICN error code
-     */
+  /**
+   * @brief Sets the signature validation algorithm
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest or Data packet
+   * @param [in] validation_algorithm - Validation algorithm enumeration
+   * @return hICN error code
+   */
+  int (*set_validation_algorithm) (hicn_type_t type, hicn_protocol_t * h,
+                 uint8_t validation_algorithm);
+
+
+  /**
+   * @brief Gets the key id
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest or Data packet
+   * @param [out] key_id - Retrieved key id first byte address
+   * @return hICN error code
+   */
+  int (*get_key_id) (hicn_type_t type, hicn_protocol_t * h,
+                 uint8_t **key_id, uint8_t *key_id_size);
+
+  /**
+   * @brief Sets the key id
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest or Data packet
+   * @param [in] key_id - Key id first byte address
+   * @return hICN error code
+   */
   int (*set_key_id) (hicn_type_t type, hicn_protocol_t * h,
                  uint8_t *key_id);
 
-    /**
-     * @brief Gets the key id
-     * @param [in] type - hICN packet type
-     * @param [in,out] h - Buffer holding the Interest or Data packet
-     * @param [out] key_id - Retrieved key id first byte address
-     * @return hICN error code
-     */
-  int (*get_key_id) (hicn_type_t type, hicn_protocol_t * h,
-                 uint8_t **key_id, uint8_t *key_id_size);
 
 } hicn_ops_t;
 
 #define DECLARE_HICN_OPS(protocol)                                              \
-    const hicn_ops_t hicn_ops_ ## protocol = {                                  \
-        .init_packet_header       = protocol ## _init_packet_header,            \
-        .get_interest_locator     = protocol ## _get_interest_locator,          \
-        .set_interest_locator     = protocol ## _set_interest_locator,          \
-        .get_interest_name        = protocol ## _get_interest_name,             \
-        .set_interest_name        = protocol ## _set_interest_name,             \
-        .get_interest_name_suffix = protocol ## _get_interest_name_suffix,      \
-        .set_interest_name_suffix = protocol ## _set_interest_name_suffix,      \
-        .reset_interest_for_hash  = protocol ## _reset_interest_for_hash,       \
-        .get_data_locator         = protocol ## _get_data_locator,              \
-        .set_data_locator         = protocol ## _set_data_locator,              \
-        .get_data_name            = protocol ## _get_data_name,                 \
-        .set_data_name            = protocol ## _set_data_name,                 \
-        .get_data_name_suffix     = protocol ## _get_data_name_suffix,          \
-        .set_data_name_suffix     = protocol ## _set_data_name_suffix,          \
-        .get_data_pathlabel       = protocol ## _get_data_pathlabel,            \
-        .set_data_pathlabel       = protocol ## _set_data_pathlabel,            \
-        .update_data_pathlabel    = protocol ## _update_data_pathlabel,         \
-        .reset_data_for_hash      = protocol ## _reset_data_for_hash,           \
-        .get_lifetime             = protocol ## _get_lifetime,                  \
-        .set_lifetime             = protocol ## _set_lifetime,                  \
-        .update_checksums         = protocol ## _update_checksums,              \
-        .verify_checksums         = protocol ## _verify_checksums,              \
-        .rewrite_interest         = protocol ## _rewrite_interest,              \
-        .rewrite_data             = protocol ## _rewrite_data,                  \
-        .get_length               = protocol ## _get_length,                    \
-        .get_current_header_length= protocol ## _get_current_header_length,     \
-        .get_header_length        = protocol ## _get_header_length,             \
-        .get_payload_length       = protocol ## _get_payload_length,            \
-        .set_payload_length       = protocol ## _set_payload_length,            \
-        .get_signature_size       = protocol ## _get_signature_size,            \
-        .set_signature_size       = protocol ## _set_signature_size,            \
-        .set_signature_timestamp  = protocol ## _set_signature_timestamp,       \
-        .get_signature_timestamp  = protocol ## _get_signature_timestamp,       \
-        .set_validation_algorithm = protocol ## _set_validation_algorithm,      \
-        .get_validation_algorithm = protocol ## _get_validation_algorithm,      \
-        .set_key_id               = protocol ## _set_key_id,                    \
-        .get_key_id               = protocol ## _get_key_id,                    \
-    }
+  const hicn_ops_t hicn_ops_ ## protocol = {                                    \
+    ATTR_INIT(init_packet_header,       protocol ## _init_packet_header),       \
+    ATTR_INIT(get_interest_locator,     protocol ## _get_interest_locator),     \
+    ATTR_INIT(set_interest_locator,     protocol ## _set_interest_locator),     \
+    ATTR_INIT(get_interest_name,        protocol ## _get_interest_name),        \
+    ATTR_INIT(set_interest_name,        protocol ## _set_interest_name),        \
+    ATTR_INIT(get_interest_name_suffix, protocol ## _get_interest_name_suffix), \
+    ATTR_INIT(set_interest_name_suffix, protocol ## _set_interest_name_suffix), \
+    ATTR_INIT(reset_interest_for_hash,  protocol ## _reset_interest_for_hash),  \
+    ATTR_INIT(get_data_locator,         protocol ## _get_data_locator),         \
+    ATTR_INIT(set_data_locator,         protocol ## _set_data_locator),         \
+    ATTR_INIT(get_data_name,            protocol ## _get_data_name),            \
+    ATTR_INIT(set_data_name,            protocol ## _set_data_name),            \
+    ATTR_INIT(get_data_name_suffix,     protocol ## _get_data_name_suffix),     \
+    ATTR_INIT(set_data_name_suffix,     protocol ## _set_data_name_suffix),     \
+    ATTR_INIT(get_data_pathlabel,       protocol ## _get_data_pathlabel),       \
+    ATTR_INIT(set_data_pathlabel,       protocol ## _set_data_pathlabel),       \
+    ATTR_INIT(update_data_pathlabel,    protocol ## _update_data_pathlabel),    \
+    ATTR_INIT(reset_data_for_hash,      protocol ## _reset_data_for_hash),      \
+    ATTR_INIT(get_lifetime,             protocol ## _get_lifetime),             \
+    ATTR_INIT(set_lifetime,             protocol ## _set_lifetime),             \
+    ATTR_INIT(update_checksums,         protocol ## _update_checksums),         \
+    ATTR_INIT(verify_checksums,         protocol ## _verify_checksums),         \
+    ATTR_INIT(rewrite_interest,         protocol ## _rewrite_interest),         \
+    ATTR_INIT(rewrite_data,             protocol ## _rewrite_data),             \
+    ATTR_INIT(get_length,               protocol ## _get_length),               \
+    ATTR_INIT(get_current_header_length,protocol ## _get_current_header_length),\
+    ATTR_INIT(get_header_length,        protocol ## _get_header_length),        \
+    ATTR_INIT(get_payload_length,       protocol ## _get_payload_length),       \
+    ATTR_INIT(set_payload_length,       protocol ## _set_payload_length),       \
+    ATTR_INIT(get_signature_size,       protocol ## _get_signature_size),       \
+    ATTR_INIT(set_signature_size,       protocol ## _set_signature_size),       \
+    ATTR_INIT(get_signature_timestamp,  protocol ## _get_signature_timestamp),  \
+    ATTR_INIT(set_signature_timestamp,  protocol ## _set_signature_timestamp),  \
+    ATTR_INIT(get_validation_algorithm, protocol ## _get_validation_algorithm), \
+    ATTR_INIT(set_validation_algorithm, protocol ## _set_validation_algorithm), \
+    ATTR_INIT(get_key_id,               protocol ## _get_key_id),               \
+    ATTR_INIT(set_key_id,               protocol ## _set_key_id),		\
+  }
 
 /**
  * @brief Protocol-independent packet operations VFT
@@ -476,11 +476,16 @@ extern const hicn_ops_t *const hicn_ops_vft[];
 always_inline hicn_type_t
 TYPE_POP (hicn_type_t type)
 {
-  return (hicn_type_t)
-  {
-    {
-    .l1 = type.l2,.l2 = type.l3,.l3 = type.l4,.l4 = IPPROTO_NONE,}
-  };
+#ifndef _WIN32
+  return HICN_TYPE(type.l2, type.l3, type.l4, IPPROTO_NONE);
+#else
+  hicn_type_t new_type;
+  new_type.l1 = type.l2;
+  new_type.l2 = type.l3;
+  new_type.l3 = type.l4;
+  new_type.l4 = IPPROTO_NONE;
+  return new_type;
+#endif
 }
 
 always_inline hicn_protocol_t *

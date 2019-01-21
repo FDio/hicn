@@ -91,52 +91,25 @@ hicn_format_to_type (hicn_format_t format)
   switch (format)
     {
     case HF_INET_TCP:
-      return (hicn_type_t)
-      {
-      .l4 = IPPROTO_NONE,.l3 = IPPROTO_NONE,.l2 = IPPROTO_TCP,.l1 =
-	  IPPROTO_IP};
+      return HICN_TYPE_IPV4_TCP;
     case HF_INET6_TCP:
-      return (hicn_type_t)
-      {
-      .l4 = IPPROTO_NONE,.l3 = IPPROTO_NONE,.l2 = IPPROTO_TCP,.l1 =
-	  IPPROTO_IPV6};
+      return HICN_TYPE_IPV6_TCP;
     case HF_INET_ICMP:
-      return (hicn_type_t)
-      {
-      .l4 = IPPROTO_NONE,.l3 = IPPROTO_NONE,.l2 = IPPROTO_ICMP,.l1 =
-	  IPPROTO_IP};
+      return HICN_TYPE_IPV4_ICMP;
     case HF_INET6_ICMP:
-      return (hicn_type_t)
-      {
-      .l4 = IPPROTO_NONE,.l3 = IPPROTO_NONE,.l2 = IPPROTO_ICMPV6,.l1 =
-	  IPPROTO_IPV6};
+      return HICN_TYPE_IPV6_ICMP;
     case HF_INET_TCP_AH:
-      return (hicn_type_t)
-      {
-      .l4 = IPPROTO_NONE,.l3 = IPPROTO_AH,.l2 = IPPROTO_TCP,.l1 = IPPROTO_IP};
+      return HICN_TYPE_IPV4_TCP_AH;
     case HF_INET6_TCP_AH:
-      return (hicn_type_t)
-      {
-      .l4 = IPPROTO_NONE,.l3 = IPPROTO_AH,.l2 = IPPROTO_TCP,.l1 =
-	  IPPROTO_IPV6};
+      return HICN_TYPE_IPV6_TCP_AH;
     case HF_INET_ICMP_AH:
-      return (hicn_type_t)
-      {
-      .l4 = IPPROTO_NONE,.l3 = IPPROTO_AH,.l2 = IPPROTO_ICMP,.l1 =
-	  IPPROTO_IP};
+      return HICN_TYPE_IPV4_ICMP_AH;
     case HF_INET6_ICMP_AH:
-      return (hicn_type_t)
-      {
-      .l4 = IPPROTO_NONE,.l3 = IPPROTO_AH,.l2 = IPPROTO_ICMPV6,.l1 =
-	  IPPROTO_IPV6};
+      return HICN_TYPE_IPV6_ICMP_AH;
     default:
       break;
     }
-  return (hicn_type_t)
-  {
-    {
-    IPPROTO_NONE}
-  };
+  return HICN_TYPE_NONE;
 }
 
 /**
