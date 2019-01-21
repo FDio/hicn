@@ -69,7 +69,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   if (__vpp__)
     find_package_wrapper(HicnBinaryApi REQUIRED)
   endif()
-  set(LIBTRANSPORT transport)
+  set(LIBTRANSPORT hicntransport)
 else()
   set(HICN_LIBRARIES ${LIBHICN_SHARED})
   list(APPEND DEPENDENCIES
@@ -114,9 +114,38 @@ list(APPEND LIBTRANSPORT_INCLUDE_DIRS
 
 add_subdirectory(${TRANSPORT_ROOT_PATH})
 
-# Packaging
-add_package(libtransport
-  NAME "libtransport"
-  # DEPENDENCIES "fd.io" FIXME
-  DESCRIPTION "Shared Memory Interface"
+######################
+# Packages section
+######################
+
+set(lib${LIBTRANSPORT}_DESCRIPTION 
+"Libhicn-transport provides transport services and \
+socket API for applications willing to communicate \
+using the hICN protocol stack."
+  CACHE STRING "Description for deb/rpm package."
+)
+
+set(lib${LIBTRANSPORT}-dev_DESCRIPTION ${lib${LIBTRANSPORT}_DESCRIPTION}
+  CACHE STRING "Description for deb/rpm package.")
+set(lib${LIBTRANSPORT}-devel_DESCRIPTION ${lib${LIBTRANSPORT}_DESCRIPTION}
+  CACHE STRING "Description for deb/rpm package.")
+
+set(lib${LIBTRANSPORT}_DEB_DEPENDENCIES
+  "libhicn (>= 1.0), libparc (>= 1.0)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(lib${LIBTRANSPORT}_RPM_DEPENDENCIES
+  "libhicn >= 1.0, libparc >= 1.0"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(lib${LIBTRANSPORT}-dev_DEB_DEPENDENCIES
+  "libtransport (>= 1.0), libasio-dev (>= 1.10), libhicn-dev (>= 1.0), libparc-dev (>= 1.0)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(lib${LIBTRANSPORT}-devel_RPM_DEPENDENCIES
+  "libtransport >= 1.0, asio-devel >= 1.10, libhicn-devel >= 1.0, libparc-devel >= 1.0"
+  CACHE STRING "Dependencies for deb/rpm package."
 )

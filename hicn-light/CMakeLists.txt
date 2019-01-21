@@ -72,3 +72,22 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
 endif()
 
 add_subdirectory(src)
+
+######################
+# Packages section
+######################
+
+set(${LIBHICN_LIGHT}_DESCRIPTION 
+  "hicn-light is a socket based forwarder"
+  CACHE STRING "Description for deb/rpm package."
+)
+
+set(${LIBHICN_LIGHT}_DEB_DEPENDENCIES
+  "libhicn (>= 1.0), libparc (>= 1.0)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(${LIBHICN_LIGHT}_RPM_DEPENDENCIES
+  "libhicn >= 1.0, libparc >= 1.0"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
