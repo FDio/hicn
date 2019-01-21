@@ -23,14 +23,15 @@ set(CMAKE_MODULE_PATH
 )
 
 include(BuildMacros)
-include(Packager)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
+  set(HICN_UTILS hicn-utils)
 else()
-  # TODO Set name of targets in CMakeroot file
   set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT})
 endif()
+
+include(Packaging)
 
 set (COMPILER_DEFINITIONS "-DASIO_STANDALONE")
 
@@ -47,8 +48,8 @@ foreach(util ${UTILS_SRC})
   build_executable(${util_name}
     SOURCES ${util}
     LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES}
-    DEPENDS transport
-    COMPONENT utils
+    DEPENDS ${LIBTRANSPORT}
+    COMPONENT hicn-utils
     DEFINITIONS ${COMPILER_DEFINITIONS}
   )
 endforeach()

@@ -19,15 +19,10 @@ set(CONTACT "hicn-dev@lists.fd.io" CACHE STRING "Contact")
 set(PACKAGE_MAINTAINER "ICN Team" CACHE STRING "Maintainer")
 set(PACKAGE_VENDOR "fd.io" CACHE STRING "Vendor")
 
-macro(add_package name)
-  cmake_parse_arguments(ARG
-    ""
-    "NAME;DESCRIPION;DEPENDENCIES"
-    ""
-    ${ARGN}
-  )
+# macro(set)
 
-  if (0)
+macro(make_packages)
+  if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     # parse /etc/os-release
     file(READ "/etc/os-release" os_version)
     string(REPLACE "\n" ";" os_version ${os_version})
@@ -41,6 +36,7 @@ macro(add_package name)
     # extract version from git
     execute_process(
       COMMAND git describe --long --match v*
+      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
       OUTPUT_VARIABLE VER
       OUTPUT_STRIP_TRAILING_WHITESPACE
     )
@@ -70,34 +66,38 @@ macro(add_package name)
       set(CPACK_GENERATOR "DEB")
       set(type "DEBIAN")
       set(CPACK_PACKAGE_VERSION "${deb_ver}")
-      set(CPACK_DEBIAN_PACKAGE_MAINTAINER "VPP Team")
-      set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+      set(CPACK_${type}_FILE_NAME DEB-DEFAULT)
       foreach(lc ${components})
         string(TOUPPER ${lc} uc)
-        set(CPACK_DEBIAN_${uc}_PACKAGE_NAME "${lc}")
+        set(CPACK_${type}_${uc}_PACKAGE_DEPENDS "${${lc}_DEB_DEPENDENCIES}")
+        set(CPACK_${type}_${uc}_PACKAGE_NAME "${lc}")
+        set(CPACK_COMPONENT_${uc}_DESCRIPTION "${${lc}_DESCRIPTION}")
       endforeach()
     elseif(OS_ID_LIKE MATCHES "rhel")
       set(CPACK_GENERATOR "RPM")
       set(type "RPM")
       set(CPACK_PACKAGE_VERSION "${rpm_ver}")
-      set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+      set(CPACK_${type}_FILE_NAME RPM-DEFAULT)
       foreach(lc ${components})
         string(TOUPPER ${lc} uc)
         if(${lc} MATCHES ".*-dev")
-          set(CPACK_RPM_${uc}_DEBUGINFO_PACKAGE ON)
+          set(CPACK_${type}_${uc}_DEBUGINFO_PACKAGE ON)
           set(lc ${lc}el)
         endif()
-        set(CPACK_RPM_${uc}_PACKAGE_NAME "${lc}")
+
+        set(CPACK_${type}_${uc}_PACKAGE_NAME "${lc}")
+        set(CPACK_${type}_${uc}_DESCRIPTION "${${lc}_DESCRIPTION}")
+        set(CPACK_${type}_${uc}_PACKAGE_REQUIRES "${${lc}_RPM_DEPENDENCIES}")
       endforeach()
     endif()
 
     if(CPACK_GENERATOR)
       set(CPACK_PACKAGE_NAME ${ARG_NAME})
       set(CPACK_STRIP_FILES OFF)
-      set(CPACK_PACKAGE_VENDOR "${ARG_VENDOR}")
+      set(CPACK_PACKAGE_VENDOR "${PACKAGE_VENDOR}")
       set(CPACK_COMPONENTS_IGNORE_GROUPS 1)
       set(CPACK_${CPACK_GENERATOR}_COMPONENT_INSTALL ON)
-      set(CPACK_${type}_PACKAGE_DESCRIPTION "${ARG_DESCRIPTION}")
+      set(CPACK_${type}_PACKAGE_MAINTAINER "HICN Team")
       set(CPACK_${type}_PACKAGE_RELEASE 1)
       include(CPack)
     endif()

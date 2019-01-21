@@ -13,7 +13,12 @@
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 project(hicn-plugin)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../cmake/Modules/")
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
+    "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules/"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/"
+)
+
 set (CMAKE_CXX_STANDARD 11)
 set (CMAKE_C_STANDARD 11)
 
@@ -23,6 +28,12 @@ CHECK_SYMBOL_EXISTS ( "__NR_memfd_create" "sys/syscall.h" HAVE_MEMFD_CREATE )
 if ( HAVE_MEMFD_CREATE )
     add_definitions ( -DHAVE_MEMFD_CREATE )
 endif()
+
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+	set(HICN_PLUGIN hicn-plugin)
+endif()
+
+include (Packaging)
 
 # Dependencies
 
@@ -222,14 +233,21 @@ set_target_properties(hicn_api_test_plugin
         LINKER_LANGUAGE C
         PREFIX "")
 
-install(DIRECTORY DESTINATION ${VPP_INSTALL_PLUGIN})
+install(DIRECTORY
+        DESTINATION ${VPP_INSTALL_PLUGIN}
+        COMPONENT ${HICN_PLUGIN})
 install(TARGETS hicn_plugin
         DESTINATION
-        ${VPP_INSTALL_PLUGIN})
+        ${VPP_INSTALL_PLUGIN}
+        COMPONENT ${HICN_PLUGIN})
 
-install(DIRECTORY DESTINATION ${VPP_INSTALL_API_TEST_PLUGIN})
+install(DIRECTORY
+        DESTINATION ${VPP_INSTALL_API_TEST_PLUGIN}
+        COMPONENT ${HICN_PLUGIN})
 install(TARGETS hicn_api_test_plugin
-        DESTINATION
-        ${VPP_INSTALL_API_TEST_PLUGIN})
+        DESTINATION ${VPP_INSTALL_API_TEST_PLUGIN}
+        COMPONENT ${HICN_PLUGIN})
 
-install(FILES ${HICN_API_TEST_HEADER_FILES} ${HICN_API_GENERATED_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/include/vpp_plugins/hicn)
+install(FILES ${HICN_API_TEST_HEADER_FILES} ${HICN_API_GENERATED_FILES}
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/include/vpp_plugins/hicn
+        COMPONENT ${HICN_PLUGIN})
