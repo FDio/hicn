@@ -421,46 +421,46 @@ typedef struct hicn_ops_s
 
 } hicn_ops_t;
 
-#define DECLARE_HICN_OPS(protocol)                                              \
-    const hicn_ops_t hicn_ops_ ## protocol = {                                  \
-        .init_packet_header       = protocol ## _init_packet_header,            \
-        .get_interest_locator     = protocol ## _get_interest_locator,          \
-        .set_interest_locator     = protocol ## _set_interest_locator,          \
-        .get_interest_name        = protocol ## _get_interest_name,             \
-        .set_interest_name        = protocol ## _set_interest_name,             \
-        .get_interest_name_suffix = protocol ## _get_interest_name_suffix,      \
-        .set_interest_name_suffix = protocol ## _set_interest_name_suffix,      \
-        .reset_interest_for_hash  = protocol ## _reset_interest_for_hash,       \
-        .get_data_locator         = protocol ## _get_data_locator,              \
-        .set_data_locator         = protocol ## _set_data_locator,              \
-        .get_data_name            = protocol ## _get_data_name,                 \
-        .set_data_name            = protocol ## _set_data_name,                 \
-        .get_data_name_suffix     = protocol ## _get_data_name_suffix,          \
-        .set_data_name_suffix     = protocol ## _set_data_name_suffix,          \
-        .get_data_pathlabel       = protocol ## _get_data_pathlabel,            \
-        .set_data_pathlabel       = protocol ## _set_data_pathlabel,            \
-        .update_data_pathlabel    = protocol ## _update_data_pathlabel,         \
-        .reset_data_for_hash      = protocol ## _reset_data_for_hash,           \
-        .get_lifetime             = protocol ## _get_lifetime,                  \
-        .set_lifetime             = protocol ## _set_lifetime,                  \
-        .update_checksums         = protocol ## _update_checksums,              \
-        .verify_checksums         = protocol ## _verify_checksums,              \
-        .rewrite_interest         = protocol ## _rewrite_interest,              \
-        .rewrite_data             = protocol ## _rewrite_data,                  \
-        .get_length               = protocol ## _get_length,                    \
-        .get_current_header_length= protocol ## _get_current_header_length,     \
-        .get_header_length        = protocol ## _get_header_length,             \
-        .get_payload_length       = protocol ## _get_payload_length,            \
-        .set_payload_length       = protocol ## _set_payload_length,            \
-        .get_signature_size       = protocol ## _get_signature_size,            \
-        .set_signature_size       = protocol ## _set_signature_size,            \
-        .set_signature_timestamp  = protocol ## _set_signature_timestamp,       \
-        .get_signature_timestamp  = protocol ## _get_signature_timestamp,       \
-        .set_validation_algorithm = protocol ## _set_validation_algorithm,      \
-        .get_validation_algorithm = protocol ## _get_validation_algorithm,      \
-        .set_key_id               = protocol ## _set_key_id,                    \
-        .get_key_id               = protocol ## _get_key_id,                    \
-    }
+#define DECLARE_HICN_OPS(protocol)              				\
+  const hicn_ops_t hicn_ops_ ## protocol = {  					\
+    ATTR_INIT(init_packet_header,       protocol ## _init_packet_header),       \
+    ATTR_INIT(get_interest_locator,     protocol ## _get_interest_locator),     \
+    ATTR_INIT(set_interest_locator,     protocol ## _set_interest_locator),     \
+    ATTR_INIT(get_interest_name,        protocol ## _get_interest_name),        \
+    ATTR_INIT(set_interest_name,        protocol ## _set_interest_name),        \
+    ATTR_INIT(get_interest_name_suffix, protocol ## _get_interest_name_suffix), \
+    ATTR_INIT(set_interest_name_suffix, protocol ## _set_interest_name_suffix), \
+    ATTR_INIT(reset_interest_for_hash,  protocol ## _reset_interest_for_hash),  \
+    ATTR_INIT(get_data_locator,         protocol ## _get_data_locator),         \
+    ATTR_INIT(set_data_locator,         protocol ## _set_data_locator),         \
+    ATTR_INIT(get_data_name,            protocol ## _get_data_name),            \
+    ATTR_INIT(set_data_name,            protocol ## _set_data_name),            \
+    ATTR_INIT(get_data_name_suffix,     protocol ## _get_data_name_suffix),     \
+    ATTR_INIT(set_data_name_suffix,     protocol ## _set_data_name_suffix),     \
+    ATTR_INIT(get_data_pathlabel,       protocol ## _get_data_pathlabel),       \
+    ATTR_INIT(set_data_pathlabel,       protocol ## _set_data_pathlabel),       \
+    ATTR_INIT(update_data_pathlabel,    protocol ## _update_data_pathlabel),    \
+    ATTR_INIT(reset_data_for_hash,      protocol ## _reset_data_for_hash),      \
+    ATTR_INIT(get_lifetime,             protocol ## _get_lifetime),             \
+    ATTR_INIT(set_lifetime,             protocol ## _set_lifetime),             \
+    ATTR_INIT(update_checksums,         protocol ## _update_checksums),         \
+    ATTR_INIT(verify_checksums,         protocol ## _verify_checksums),         \
+    ATTR_INIT(rewrite_interest,         protocol ## _rewrite_interest),         \
+    ATTR_INIT(rewrite_data,             protocol ## _rewrite_data),             \
+    ATTR_INIT(get_length,               protocol ## _get_length),               \
+    ATTR_INIT(get_current_header_length,protocol ## _get_current_header_length),\
+    ATTR_INIT(get_header_length,        protocol ## _get_header_length),        \
+    ATTR_INIT(get_payload_length,       protocol ## _get_payload_length),       \
+    ATTR_INIT(set_payload_length,       protocol ## _set_payload_length),       \
+    ATTR_INIT(get_signature_size,       protocol ## _get_signature_size),       \
+    ATTR_INIT(set_signature_size,       protocol ## _set_signature_size),       \
+    ATTR_INIT(get_signature_timestamp,  protocol ## _get_signature_timestamp),  \
+    ATTR_INIT(set_signature_timestamp,  protocol ## _set_signature_timestamp),  \
+    ATTR_INIT(get_validation_algorithm, protocol ## _get_validation_algorithm), \
+    ATTR_INIT(set_validation_algorithm, protocol ## _set_validation_algorithm), \
+    ATTR_INIT(get_key_id,               protocol ## _get_key_id),               \
+    ATTR_INIT(set_key_id,               protocol ## _set_key_id),		\
+  }
 
 /**
  * @brief Protocol-independent packet operations VFT
@@ -476,11 +476,16 @@ extern const hicn_ops_t *const hicn_ops_vft[];
 always_inline hicn_type_t
 TYPE_POP (hicn_type_t type)
 {
-  return (hicn_type_t)
-  {
-    {
-    .l1 = type.l2,.l2 = type.l3,.l3 = type.l4,.l4 = IPPROTO_NONE,}
-  };
+#ifndef _WIN32
+  return HICN_TYPE(type.l2, type.l3, type.l4, IPPROTO_NONE);
+#else
+  hicn_type_t new_type;
+  new_type.l1 = type.l2;
+  new_type.l2 = type.l3;
+  new_type.l3 = type.l4;
+  new_type.l4 = IPPROTO_NONE;
+  return new_type;
+#endif
 }
 
 always_inline hicn_protocol_t *
