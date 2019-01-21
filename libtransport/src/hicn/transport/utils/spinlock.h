@@ -35,7 +35,9 @@ class SpinLock : private std::atomic_flag {
     SpinLock& spin_lock_;
   };
 
-  SpinLock() : std::atomic_flag(false) {}
+  SpinLock() {
+    clear();
+  }
 
   void lock() {
     // busy-wait
