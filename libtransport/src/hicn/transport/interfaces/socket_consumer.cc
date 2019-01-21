@@ -137,11 +137,11 @@ void ConsumerSocket::stop() {
     transport_protocol_->stop();
   }
 
-  //is_running_ = false;
+  // is_running_ = false;
 }
 
 void ConsumerSocket::resume() {
-  if(!transport_protocol_->isRunning()){
+  if (!transport_protocol_->isRunning()) {
     transport_protocol_->resume();
   }
 }
@@ -548,7 +548,7 @@ int ConsumerSocket::getSocketOption(int socket_option_key,
 
     case GeneralTransportOptions::RUNNING:
       socket_option_value = transport_protocol_->isRunning();
-       return SOCKET_OPTION_GET;
+      return SOCKET_OPTION_GET;
 
     case OtherOptions::VIRTUAL_DOWNLOAD:
       socket_option_value = virtual_download_;

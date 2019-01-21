@@ -65,9 +65,9 @@ bool Verifier::addKey(PARCKey *key) {
   return true;
 }
 
-PARCKeyId * Verifier::addKeyFromCertificate(const std::string &file_name) {
-  PARCCertificateFactory *factory = parcCertificateFactory_Create(PARCCertificateType_X509,
-                                                                  PARCContainerEncoding_PEM);
+PARCKeyId *Verifier::addKeyFromCertificate(const std::string &file_name) {
+  PARCCertificateFactory *factory = parcCertificateFactory_Create(
+      PARCCertificateType_X509, PARCContainerEncoding_PEM);
   parcAssertNotNull(factory, "Expected non-NULL factory");
 
   if (!file_exists(file_name)) {

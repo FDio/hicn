@@ -17,10 +17,9 @@
 
 #include <hicn/transport/errors/malformed_ahpacket_exception.h>
 #include <hicn/transport/utils/endianess.h>
+#include <hicn/transport/utils/key_id.h>
 #include <hicn/transport/utils/membuf.h>
 #include <hicn/transport/utils/signer.h>
-#include <hicn/transport/utils/key_id.h>
-
 
 extern "C" {
 TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
@@ -77,7 +76,7 @@ Signer::~Signer() {
 void Signer::sign(Packet &packet) {
   // header chain points to the IP + TCP hicn header
   utils::MemBuf *header_chain = packet.header_head_;
-  utils::MemBuf * payload_chain = packet.payload_head_;
+  utils::MemBuf *payload_chain = packet.payload_head_;
   uint8_t *hicn_packet = header_chain->writableData();
   Packet::Format format = packet.getFormat();
   std::size_t sign_len_bytes = parcSigner_GetSignatureSize(signer_);
@@ -101,46 +100,51 @@ void Signer::sign(Packet &packet) {
 
   /* Fill the hicn_ah header */
   using namespace std::chrono;
-  auto now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+  auto now = duration_cast<milliseconds>(system_clock::now().time_since_epoch())
+                 .count();
   packet.setSignatureTimestamp(now);
   // *reinterpret_cast<uint64_t*>(ah->signTime) = utils::hton<uint64_t>(now);
-  // // std::memcpy(&ah->hicn_ah.signTime, &sign_time, sizeof(ah->hicn_ah.signTime));
+  // // std::memcpy(&ah->hicn_ah.signTime, &sign_time,
+  // sizeof(ah->hicn_ah.signTime));
 
-  packet.setValidationAlgorithm(CryptoSuite(parcSigner_GetCryptoSuite(this->signer_)));
+  packet.setValidationAlgorithm(
+      CryptoSuite(parcSigner_GetCryptoSuite(this->signer_)));
   // ah->validationAlgorithm = parcSigner_GetCryptoSuite(this->signer_);
 
   KeyId key_id;
-  key_id.first = (uint8_t *)parcBuffer_Overlay((PARCBuffer *) parcKeyId_GetKeyId(this->key_id_), 0);
+  key_id.first = (uint8_t *)parcBuffer_Overlay(
+      (PARCBuffer *)parcKeyId_GetKeyId(this->key_id_), 0);
   packet.setKeyId(key_id);
 
   // memcpy(ah->keyId,
-  //        parcBuffer_Overlay((PARCBuffer *) parcKeyId_GetKeyId(this->key_id_), 0),
-  //        sizeof(_ah_header_t::keyId));
+  //        parcBuffer_Overlay((PARCBuffer *) parcKeyId_GetKeyId(this->key_id_),
+  //        0), sizeof(_ah_header_t::keyId));
 
   // Calculate hash
   utils::CryptoHasher hasher(parcSigner_GetCryptoHasher(signer_));
   hasher.init();
   hasher.updateBytes(hicn_packet, header_len);
   hasher.updateBytes(zeros, sign_len_bytes);
-  
-  for (utils::MemBuf *current = payload_chain; current != header_chain; current = current->next()) {
+
+  for (utils::MemBuf *current = payload_chain; current != header_chain;
+       current = current->next()) {
     hasher.updateBytes(current->data(), current->length());
   }
 
   utils::CryptoHash hash = hasher.finalize();
-  
+
   PARCSignature *signature = parcSigner_SignDigest(this->signer_, hash.hash_);
   PARCBuffer *buffer = parcSignature_GetSignature(signature);
 
-  PARCByteArray * byte_array = parcBuffer_Array(buffer);
-  uint8_t * bytes = parcByteArray_Array(byte_array);
+  PARCByteArray *byte_array = parcBuffer_Array(buffer);
+  uint8_t *bytes = parcByteArray_Array(byte_array);
   size_t bytes_len = parcBuffer_Remaining(buffer);
 
   if (bytes_len > sign_len_bytes) {
     throw errors::MalformedAHPacketException();
   }
 
-    /* Restore the resetted fields */
+  /* Restore the resetted fields */
   if (format & HFO_INET) {
     memcpy(hicn_packet, &header_copy, sizeof(hicn_v4_hdr_t));
   } else if (format & HFO_INET6) {
@@ -151,12 +155,11 @@ void Signer::sign(Packet &packet) {
 
   std::unique_ptr<utils::MemBuf> signature_buffer;
   std::unique_ptr<utils::MemBuf> tmp_buf = utils::MemBuf::takeOwnership(
-    bytes,
-    bytes_len,
-    bytes_len,
-    [](void* buf, void* userData){ parcSignature_Release((PARCSignature **)&userData); },
-    signature,
-    true);
+      bytes, bytes_len, bytes_len,
+      [](void *buf, void *userData) {
+        parcSignature_Release((PARCSignature **)&userData);
+      },
+      signature, true);
 
   if (offset) {
     signature_buffer = utils::MemBuf::create(offset);

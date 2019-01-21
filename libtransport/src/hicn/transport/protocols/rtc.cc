@@ -48,9 +48,7 @@ RTCTransportProtocol::~RTCTransportProtocol() {
 
 void RTCTransportProtocol::start(
     utils::SharableVector<uint8_t> &content_buffer) {
-
-  if(is_running_)
-    return;
+  if (is_running_) return;
 
   is_running_ = true;
   content_buffer_ = content_buffer.shared_from_this();
@@ -63,29 +61,26 @@ void RTCTransportProtocol::start(
 }
 
 void RTCTransportProtocol::stop() {
-  if(!is_running_)
-    return;
+  if (!is_running_) return;
 
   is_running_ = false;
   portal_->stopEventsLoop();
 }
 
-void RTCTransportProtocol::resume(){
-    if(is_running_)
-        return;
-    
-    is_running_ = true;
-    
-    lastRoundBegin_ = std::chrono::steady_clock::now();
-    inflightInterestsCount_ = 0;
-    if(content_buffer_)
-        content_buffer_->clear();
+void RTCTransportProtocol::resume() {
+  if (is_running_) return;
 
-    scheduleNextInterest();
-    
-    portal_->runEventsLoop();
+  is_running_ = true;
 
-    is_running_ = false;
+  lastRoundBegin_ = std::chrono::steady_clock::now();
+  inflightInterestsCount_ = 0;
+  if (content_buffer_) content_buffer_->clear();
+
+  scheduleNextInterest();
+
+  portal_->runEventsLoop();
+
+  is_running_ = false;
 }
 
 void RTCTransportProtocol::onRTCPPacket(uint8_t *packet, size_t len) {
@@ -452,8 +447,7 @@ void RTCTransportProtocol::sendInterest() {
 
 void RTCTransportProtocol::scheduleNextInterest() {
   checkRound();
-  if(!is_running_)
-    return;
+  if (!is_running_) return;
 
   uint32_t MAX_RECOVER =
       40;  // if the packet is more than MAX_RECOVER seq in the past we drop it
@@ -573,8 +567,8 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
   estimatedBw_ = (double)productionRate;
 
   // if(inflightInterests_[segmentNumber %
-  // default_values::default_buffer_size].retransmissions != 0){ ignore nacks for
-  // retransmissions
+  // default_values::default_buffer_size].retransmissions != 0){ ignore nacks
+  // for retransmissions
   //    return;
   //}
 

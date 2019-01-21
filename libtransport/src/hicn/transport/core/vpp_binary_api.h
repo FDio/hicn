@@ -35,27 +35,40 @@ typedef enum link_state_s { UP = 1, DOWN = 0 } link_state_t;
  * @brief Instantiate a new vpp_binary_api_t data structure and
  *        connect the application to the local VPP forwarder.
  */
-vpp_binary_api_t* vpp_binary_api_init(const char* app_name);
+vpp_binary_api_t *vpp_binary_api_init(const char *app_name);
 
 /**
  * @brief Destroy the vpp_binary_api_t and disconnect from VPP.
  */
-void vpp_binary_api_destroy(vpp_binary_api_t* api);
+void vpp_binary_api_destroy(vpp_binary_api_t *api);
 
-void vpp_binary_api_send_receive_ping(vpp_binary_api_t* api);
+void vpp_binary_api_send_receive_ping(vpp_binary_api_t *api);
 
-int vpp_binary_api_set_int_state(vpp_binary_api_t* api, uint32_t sw_index,
+int vpp_binary_api_set_int_state(vpp_binary_api_t *api, uint32_t sw_index,
                                  link_state_t state);
 
 /**
  * @brief Send request to VPP and wait for reply.
  */
-int vpp_binary_api_send_request_wait_reply(vpp_binary_api_t* api,
-                                           void* request);
+int vpp_binary_api_send_request_wait_reply(vpp_binary_api_t *api,
+                                           void *request);
 
-void vpp_binary_api_unlock_waiting_thread(vpp_binary_api_t* api);
+void vpp_binary_api_unlock_waiting_thread(vpp_binary_api_t *api);
 
-void vpp_binary_api_send_request(vpp_binary_api_t* api, void* request);
+void vpp_binary_api_send_request(vpp_binary_api_t *api, void *request);
+
+int vpp_binary_api_get_ret_value(vpp_binary_api_t *api);
+
+void vpp_binary_api_set_ret_value(vpp_binary_api_t *api, int ret_val);
+
+void *vpp_binary_api_get_user_param(vpp_binary_api_t *api);
+
+void vpp_binary_api_set_user_param(vpp_binary_api_t *api, void *user_param);
+
+uint32_t vpp_binary_api_get_client_index(vpp_binary_api_t *api);
+
+void vpp_binary_api_set_client_index(vpp_binary_api_t *api,
+                                     uint32_t client_index);
 
 #ifdef __cplusplus
 }

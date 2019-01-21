@@ -20,10 +20,10 @@
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/branch_prediction.h>
 #include <hicn/transport/utils/crypto_hasher.h>
-#include <hicn/transport/utils/membuf.h>
-#include <hicn/transport/utils/object_pool.h>
 #include <hicn/transport/utils/crypto_suite.h>
 #include <hicn/transport/utils/key_id.h>
+#include <hicn/transport/utils/membuf.h>
+#include <hicn/transport/utils/object_pool.h>
 
 namespace utils {
 class Signer;

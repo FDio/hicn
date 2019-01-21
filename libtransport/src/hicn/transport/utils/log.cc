@@ -25,8 +25,8 @@
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -321,19 +321,19 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <hicn/transport/utils/log.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <hicn/transport/utils/log.h>
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
 #else
-#include <unistd.h>
 #include <sys/time.h>
+#include <unistd.h>
 #if defined(__linux__)
 #include <linux/limits.h>
 #else

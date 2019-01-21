@@ -29,23 +29,23 @@ namespace core {
 namespace {
 
 template <typename T>
-TRANSPORT_ALWAYS_INLINE void checkPointer(T* pointer) {
+TRANSPORT_ALWAYS_INLINE void checkPointer(T *pointer) {
   if (pointer == nullptr) {
     throw errors::NullPointerException();
   }
 }
 
 template <typename EnumType>
-TRANSPORT_ALWAYS_INLINE void setValueToJson(PARCJSON* root, EnumType value) {
+TRANSPORT_ALWAYS_INLINE void setValueToJson(PARCJSON *root, EnumType value) {
   parcJSON_AddInteger(root, JSONKey<EnumType>::key,
                       static_cast<int64_t>(value));
 }
 
 template <typename EnumType>
-TRANSPORT_ALWAYS_INLINE EnumType getValueFromJson(PARCJSON* root) {
+TRANSPORT_ALWAYS_INLINE EnumType getValueFromJson(PARCJSON *root) {
   checkPointer(root);
 
-  PARCJSONValue* value = parcJSON_GetValueByName(root, JSONKey<EnumType>::key);
+  PARCJSONValue *value = parcJSON_GetValueByName(root, JSONKey<EnumType>::key);
 
   EnumType ret = static_cast<EnumType>(parcJSONValue_GetInteger(value));
   // parcJSONValue_Release(&value);
@@ -65,17 +65,17 @@ JSONManifestEncoder::~JSONManifestEncoder() {
   }
 }
 
-TRANSPORT_ALWAYS_INLINE SONManifestEncoder& JSONManifestEncoder::encodeImpl(
-    Packet& packet) {
-  char* json_string = parcJSON_ToString(root_);
-  packet.setPayload(reinterpret_cast<uint8_t*>(json_string),
+TRANSPORT_ALWAYS_INLINE SONManifestEncoder &JSONManifestEncoder::encodeImpl(
+    Packet &packet) {
+  char *json_string = parcJSON_ToString(root_);
+  packet.setPayload(reinterpret_cast<uint8_t *>(json_string),
                     std::strlen(json_string));
   parcMemory_Deallocate(&json_string);
 
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder& JSONManifestEncoder::clearImpl() {
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &JSONManifestEncoder::clearImpl() {
   if (root_) {
     parcJSON_Release(&root_);
   }
@@ -85,35 +85,35 @@ TRANSPORT_ALWAYS_INLINE JSONManifestEncoder& JSONManifestEncoder::clearImpl() {
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::setHashAlgorithmImpl(HashAlgorithm algorithm) {
   setValueToJson(root_, algorithm);
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::setManifestTypeImpl(ManifestType manifest_type) {
   setValueToJson(root_, manifest_type);
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::setNextSegmentCalculationStrategyImpl(
     NextSegmentCalculationStrategy strategy) {
   setValueToJson(root_, strategy);
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
-JSONManifestEncoder::setBaseNameImpl(const core::Name& base_name) {
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
+JSONManifestEncoder::setBaseNameImpl(const core::Name &base_name) {
   parcJSON_AddString(root_, JSONKey<core::Name>::key,
                      base_name.toString().c_str());
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::addSuffixAndHashImpl(uint32_t suffix,
-                                          utils::CryptoHash& hash) {
+                                          utils::CryptoHash &hash) {
   throw errors::NotImplementedException();
   //  PARCJSONValue *value = parcJSON_GetValueByName(root_,
   //                                                 JSONKey<SuffixHashList>::key);
@@ -151,17 +151,17 @@ JSONManifestEncoder::addSuffixAndHashImpl(uint32_t suffix,
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::setIsFinalManifestImpl(bool is_last) {
   parcJSON_AddBoolean(root_, JSONKey<bool>::final_manifest, is_last);
 
   return *this;
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestEncoder&
+TRANSPORT_ALWAYS_INLINE JSONManifestEncoder &
 JSONManifestEncoder::setSuffixHashListImpl(
-    const SuffixHashList& name_hash_list) {
-  for (auto& suffix : name_hash_list) {
+    const SuffixHashList &name_hash_list) {
+  for (auto &suffix : name_hash_list) {
     addSuffixAndHashImpl(suffix.first, suffix.second);
   }
 
@@ -178,18 +178,18 @@ TRANSPORT_ALWAYS_INLINE JSONManifestDecoder::~JSONManifestDecoder() {
 }
 
 TRANSPORT_ALWAYS_INLINE void JSONManifestDecoder::decodeImpl(
-    const uint8_t* payload, std::size_t payload_size) {
-  PARCBuffer* b = parcBuffer_Wrap(const_cast<uint8_t*>(payload), payload_size,
+    const uint8_t *payload, std::size_t payload_size) {
+  PARCBuffer *b = parcBuffer_Wrap(const_cast<uint8_t *>(payload), payload_size,
                                   0, payload_size);
   clearImpl();
 
   root_ = parcJSON_ParseBuffer(b);
   parcBuffer_Release(&b);
 
-  char* str = parcJSON_ToString(root_);
+  char *str = parcJSON_ToString(root_);
 }
 
-TRANSPORT_ALWAYS_INLINE JSONManifestDecoder& JSONManifestDecoder::clearImpl() {
+TRANSPORT_ALWAYS_INLINE JSONManifestDecoder &JSONManifestDecoder::clearImpl() {
   if (root_) {
     parcJSON_Release(&root_);
   }
@@ -261,11 +261,11 @@ JSONManifestDecoder::getSuffixHashListImpl() {
 TRANSPORT_ALWAYS_INLINE core::Name JSONManifestDecoder::getBaseNameImpl()
     const {
   checkPointer(root_);
-  PARCJSONValue* value =
+  PARCJSONValue *value =
       parcJSON_GetValueByName(root_, JSONKey<core::Name>::key);
 
-  PARCBuffer* b = parcJSONValue_GetString(value);
-  char* string = parcBuffer_ToString(b);
+  PARCBuffer *b = parcJSONValue_GetString(value);
+  char *string = parcBuffer_ToString(b);
 
   core::Name ret(string);
 
@@ -277,7 +277,7 @@ TRANSPORT_ALWAYS_INLINE core::Name JSONManifestDecoder::getBaseNameImpl()
 
 TRANSPORT_ALWAYS_INLINE bool JSONManifestDecoder::getIsFinalManifestImpl() {
   checkPointer(root_);
-  PARCJSONValue* value =
+  PARCJSONValue *value =
       parcJSON_GetValueByName(root_, JSONKey<bool>::final_manifest);
 
   bool ret = parcJSONValue_GetBoolean(value);
