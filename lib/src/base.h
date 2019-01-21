@@ -64,6 +64,11 @@ typedef union
     u8 l3;     /**< Third layer */
     u8 l2;     /**< Second layer */
     u8 l1;     /**< First layer */
+#elif _WIN32 /* Windows is assumed little-endian */
+    u8 l1;
+    u8 l2;
+    u8 l3;
+    u8 l4;
 #else
 #error "Unsupported endianness"
 #endif
@@ -73,11 +78,31 @@ typedef union
 } hicn_type_t;
 
 /* Common protocol layers */
-#define HICN_TYPE_IPV4_TCP   (hicn_type_t) {{ .l4 = IPPROTO_NONE, .l3 = IPPROTO_NONE, .l2 = IPPROTO_TCP,    .l1 = IPPROTO_IP }}
-#define HICN_TYPE_IPV4_ICMP  (hicn_type_t) {{ .l4 = IPPROTO_NONE, .l3 = IPPROTO_NONE, .l2 = IPPROTO_ICMP,   .l1 = IPPROTO_IP }}
-#define HICN_TYPE_IPV6_TCP   (hicn_type_t) {{ .l4 = IPPROTO_NONE, .l3 = IPPROTO_NONE, .l2 = IPPROTO_TCP,    .l1 = IPPROTO_IPV6 }}
-#define HICN_TYPE_IPV6_ICMP  (hicn_type_t) {{ .l4 = IPPROTO_NONE, .l3 = IPPROTO_NONE, .l2 = IPPROTO_ICMPV6, .l1 = IPPROTO_IPV6 }}
+/* Common protocol layers */
+#ifndef _WIN32
+#define HICN_TYPE(x,y,z,t) (hicn_type_t) {{ .l1 = x, .l2 = y, .l3 = z, .l4 = t }}
+#else
+inline hicn_type_t
+HICN_TYPE(int x, int y, int z, int t)
+{
+    hicn_type_t type;
+    type.l1 = x;
+    type.l2 = y;
+    type.l3 = z;
+    type.l4 = t;
+    return type;
+}
+#endif
 
+#define HICN_TYPE_IPV4_TCP     HICN_TYPE(IPPROTO_IP,   IPPROTO_TCP,    IPPROTO_NONE, IPPROTO_NONE);
+#define HICN_TYPE_IPV4_ICMP    HICN_TYPE(IPPROTO_IP,   IPPROTO_ICMP,   IPPROTO_NONE, IPPROTO_NONE);
+#define HICN_TYPE_IPV6_TCP     HICN_TYPE(IPPROTO_IPV6, IPPROTO_TCP,    IPPROTO_NONE, IPPROTO_NONE);
+#define HICN_TYPE_IPV6_ICMP    HICN_TYPE(IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_NONE, IPPROTO_NONE);
+#define HICN_TYPE_IPV4_TCP_AH  HICN_TYPE(IPPROTO_IP,   IPPROTO_TCP,    IPPROTO_NONE, IPPROTO_NONE);
+#define HICN_TYPE_IPV4_ICMP_AH HICN_TYPE(IPPROTO_IP,   IPPROTO_ICMP,   IPPROTO_NONE, IPPROTO_NONE);
+#define HICN_TYPE_IPV6_TCP_AH  HICN_TYPE(IPPROTO_IPV6, IPPROTO_TCP,    IPPROTO_AH,   IPPROTO_NONE);
+#define HICN_TYPE_IPV6_ICMP_AH HICN_TYPE(IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_AH,   IPPROTO_NONE);
+#define HICN_TYPE_NONE         HICN_TYPE(IPPROTO_NONE, IPPROTO_NONE,   IPPROTO_NONE, IPPROTO_NONE);
 
 /**
  * @brief hICN Payload type
