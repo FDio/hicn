@@ -14,7 +14,11 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 configure_file("config.h.in" "config.h" @ONLY)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h DESTINATION include/hicn/transport COMPONENT libtransport-dev)
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
+  DESTINATION include/hicn/transport
+  COMPONENT lib${LIBTRANSPORT}
+)
 
 add_subdirectory(core)
 add_subdirectory(errors)
@@ -42,7 +46,7 @@ build_library(${LIBTRANSPORT}
   INSTALL_HEADERS ${HEADER_FILES}
   LINK_LIBRARIES ${LIBRARIES}
   DEPENDS ${DEPENDENCIES}
-  COMPONENT libtransport
+  COMPONENT lib${LIBTRANSPORT}
   INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS}
   INSTALL_ROOT_DIR hicn/transport
   DEFINITIONS ${COMPILER_DEFINITIONS}
