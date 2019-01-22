@@ -23,19 +23,20 @@ socket API, etc"
   CACHE STRING "Description for deb/rpm package."
 )
 
-set(lib${LIBHICN}-dev_DESCRIPTION ${${LIBHICN}_DESCRIPTION}
+set(lib${LIBHICN}_DESCRIPTION ${${LIBHICN}_DESCRIPTION}
   CACHE STRING "Description for deb/rpm package."
 )
-set(lib${LIBHICN}-devel_DESCRIPTION ${${LIBHICN}_DESCRIPTION}
+
+set(lib${LIBHICN}-dev_DESCRIPTION ${${LIBHICN}_DESCRIPTION}
   CACHE STRING "Description for deb/rpm package."
 )
 
 set(lib${LIBHICN}-dev_DEB_DEPENDENCIES
-	"libhicn (>= 1.0)"
+	"libhicn (>= stable_version)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
-set(lib${LIBHICN}-devel_DEB_DEPENDENCIES
-  "libhicn >= 1.0"
+set(lib${LIBHICN}-dev_RPM_DEPENDENCIES
+  "libhicn >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )

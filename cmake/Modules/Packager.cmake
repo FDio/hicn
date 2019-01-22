@@ -42,7 +42,7 @@ macro(make_packages)
     )
 
     if (NOT VER)
-      set(VER 1.0)
+      set(VER "v1.0-1-gcafe")
     endif()
 
     string(REGEX REPLACE "v(.*)-([0-9]+)-(g[0-9a-f]+)" "\\1;\\2;\\3" VER ${VER})
@@ -51,13 +51,19 @@ macro(make_packages)
     list(GET VER 1 commit_num)
     list(GET VER 2 commit_name)
 
+    if (NOT ENV{BUILD_NUMBER})
+      set(bld "b1")
+    else()
+      set(bld "b$ENV{BUILD_NUMBER}")
+    endif()
+
     #define DEB and RPM version numbers
     if(${commit_num} EQUAL 0)
       set(deb_ver "${tag}")
       set(rpm_ver "${tag}")
     else()
-      set(deb_ver "${tag}~${commit_num}~${commit_name}")
-      set(rpm_ver "${tag}~${commit_num}_${commit_name}")
+      set(deb_ver "${tag}-${commit_num}-${commit_name}~${bld}")
+      set(rpm_ver "${tag}-${commit_num}_${commit_name}~${bld}")
     endif()
 
     get_cmake_property(components COMPONENTS)
@@ -65,29 +71,57 @@ macro(make_packages)
     if(OS_ID_LIKE MATCHES "debian")
       set(CPACK_GENERATOR "DEB")
       set(type "DEBIAN")
+
+      execute_process(
+        COMMAND dpkg --print-architecture
+        OUTPUT_VARIABLE arch
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+
       set(CPACK_PACKAGE_VERSION "${deb_ver}")
-      set(CPACK_${type}_FILE_NAME DEB-DEFAULT)
       foreach(lc ${components})
         string(TOUPPER ${lc} uc)
-        set(CPACK_${type}_${uc}_PACKAGE_DEPENDS "${${lc}_DEB_DEPENDENCIES}")
+        set(CPACK_${type}_${uc}_FILE_NAME "${lc}_${tag}-${commit_num}-release_${arch}.deb")
+        
+        set(DEB_DEPS)
+        if (NOT ${${lc}_DEB_DEPENDENCIES} STREQUAL "")
+          string(REPLACE "stable_version" ${tag} DEB_DEPS ${${lc}_DEB_DEPENDENCIES})
+        endif()
+
+        set(CPACK_${type}_${uc}_PACKAGE_DEPENDS "${DEB_DEPS}")
         set(CPACK_${type}_${uc}_PACKAGE_NAME "${lc}")
         set(CPACK_COMPONENT_${uc}_DESCRIPTION "${${lc}_DESCRIPTION}")
       endforeach()
     elseif(OS_ID_LIKE MATCHES "rhel")
       set(CPACK_GENERATOR "RPM")
       set(type "RPM")
+
+      execute_process(
+        COMMAND uname -m
+        OUTPUT_VARIABLE arch
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+
       set(CPACK_PACKAGE_VERSION "${rpm_ver}")
-      set(CPACK_${type}_FILE_NAME RPM-DEFAULT)
       foreach(lc ${components})
         string(TOUPPER ${lc} uc)
-        if(${lc} MATCHES ".*-dev")
-          set(CPACK_${type}_${uc}_DEBUGINFO_PACKAGE ON)
-          set(lc ${lc}el)
+        set(CPACK_${type}_${uc}_DESCRIPTION "${${lc}_DESCRIPTION}")
+
+        set(RPM_DEPS)
+        f (NOT ${${lc}_DEB_DEPENDENCIES} STREQUAL "")
+          string(REPLACE "stable_version" ${tag} RPM_DEPS ${${lc}_RPM_DEPENDENCIES})
         endif()
 
-        set(CPACK_${type}_${uc}_PACKAGE_NAME "${lc}")
-        set(CPACK_${type}_${uc}_DESCRIPTION "${${lc}_DESCRIPTION}")
-        set(CPACK_${type}_${uc}_PACKAGE_REQUIRES "${${lc}_RPM_DEPENDENCIES}")
+        set(CPACK_${type}_${uc}_PACKAGE_REQUIRES "${RPM_DEPS}")
+        
+        if(${lc} MATCHES ".*-dev")
+          set(package_name ${lc}el)
+        else()
+          set(package_name ${lc})
+        endif()
+
+        set(CPACK_RPM_${uc}_PACKAGE_NAME "${package_name}")
+        set(CPACK_${type}_${uc}_FILE_NAME "${package_name}-${tag}-${commit_num}-release.${arch}.rpm")
       endforeach()
     endif()
 
