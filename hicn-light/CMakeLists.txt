@@ -10,6 +10,7 @@ endif()
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
   "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
 )
 
 set(CMAKE_C_STANDARD 11)
@@ -42,6 +43,8 @@ else()
     ${LIBHICN_SHARED}
   )
 endif()
+
+include( Packaging )
 
 find_package(Threads REQUIRED)
 

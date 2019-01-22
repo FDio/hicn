@@ -22,7 +22,6 @@ set(CMAKE_MODULE_PATH
 )
 
 include(DefaultConfiguration)
-include(Packager)
 include(BuildMacros)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -69,7 +68,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   if (__vpp__)
     find_package_wrapper(HicnBinaryApi REQUIRED)
   endif()
-  set(LIBTRANSPORT transport)
+  set(LIBTRANSPORT hicntransport)
 else()
   set(HICN_LIBRARIES ${LIBHICN_SHARED})
   list(APPEND DEPENDENCIES
@@ -83,6 +82,8 @@ else()
     )
   endif()
 endif()
+
+include(Packaging)
 
 find_package(Threads REQUIRED)
 
@@ -113,10 +114,3 @@ list(APPEND LIBTRANSPORT_INCLUDE_DIRS
 )
 
 add_subdirectory(${TRANSPORT_ROOT_PATH})
-
-# Packaging
-add_package(libtransport
-  NAME "libtransport"
-  # DEPENDENCIES "fd.io" FIXME
-  DESCRIPTION "Shared Memory Interface"
-)
