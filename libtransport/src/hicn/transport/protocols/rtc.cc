@@ -102,6 +102,7 @@ void RTCTransportProtocol::onRTCPPacket(uint8_t *packet, size_t len) {
 
 // private
 void RTCTransportProtocol::reset() {
+  portal_->setConsumerCallback(this);
   // controller var
   lastRoundBegin_ = std::chrono::steady_clock::now();
   currentState_ = RTC_SYNC_STATE;
