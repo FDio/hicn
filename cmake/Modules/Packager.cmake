@@ -42,7 +42,7 @@ macro(make_packages)
     )
 
     if (NOT VER)
-      set(VER 1.0)
+      set(VER "v1.0-1-g0000")
     endif()
 
     string(REGEX REPLACE "v(.*)-([0-9]+)-(g[0-9a-f]+)" "\\1;\\2;\\3" VER ${VER})
@@ -98,7 +98,14 @@ macro(make_packages)
       set(CPACK_COMPONENTS_IGNORE_GROUPS 1)
       set(CPACK_${CPACK_GENERATOR}_COMPONENT_INSTALL ON)
       set(CPACK_${type}_PACKAGE_MAINTAINER "HICN Team")
-      set(CPACK_${type}_PACKAGE_RELEASE 1)
+      
+      if (NOT $ENV{BUILD_NUMBER})
+        set(bld, "~b1")
+      else()
+        set(bld, "~b$ENV{BUILD_NUMBER}"
+      endif()
+
+      set(CPACK_${type}_PACKAGE_RELEASE ${bld})
       include(CPack)
     endif()
   endif()
