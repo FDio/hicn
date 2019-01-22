@@ -52,11 +52,7 @@ if ((BUILD_MEMIF_CONNECTOR OR BUILD_VPP_PLUGIN) AND "${CMAKE_SYSTEM_NAME}" STREQ
   )
 
 else()
-<<<<<<< HEAD
-  
-=======
 
->>>>>>> 691dfde... [HICN-3] First version of packaging system based on cmake.
   set(lib${LIBTRANSPORT}_DEB_DEPENDENCIES
     "libhicn (>= 1.0), libparc (>= 1.0)"
     CACHE STRING "Dependencies for deb/rpm package."
