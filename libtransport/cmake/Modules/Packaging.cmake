@@ -42,21 +42,17 @@ if ((BUILD_MEMIF_CONNECTOR OR BUILD_VPP_PLUGIN) AND "${CMAKE_SYSTEM_NAME}" STREQ
   )
 
   set(lib${LIBTRANSPORT}-dev_DEB_DEPENDENCIES
-    "libtransport (>= 1.0), libasio-dev (>= 1.10), libhicn-dev (>= 1.0), libparc-dev (>= 1.0), vpp-dev (== 19.01-release)"
+    "lib${LIBTRANSPORT} (>= 1.0), libasio-dev (>= 1.10), libhicn-dev (>= 1.0), libparc-dev (>= 1.0), vpp-dev (== 19.01-release)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}-devel_RPM_DEPENDENCIES
-    "libtransport >= 1.0, asio-devel >= 1.10, libhicn-devel >= 1.0, libparc-devel >= 1.0, vpp-devel = 19.01-release"
+    "lib${LIBTRANSPORT} >= 1.0, asio-devel >= 1.10, libhicn-devel >= 1.0, libparc-devel >= 1.0, vpp-devel = 19.01-release"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
 else()
-<<<<<<< HEAD
-  
-=======
 
->>>>>>> 691dfde... [HICN-3] First version of packaging system based on cmake.
   set(lib${LIBTRANSPORT}_DEB_DEPENDENCIES
     "libhicn (>= 1.0), libparc (>= 1.0)"
     CACHE STRING "Dependencies for deb/rpm package."
@@ -68,12 +64,12 @@ else()
   )
 
   set(lib${LIBTRANSPORT}-dev_DEB_DEPENDENCIES
-    "libtransport (>= 1.0), libasio-dev (>= 1.10), libhicn-dev (>= 1.0), libparc-dev (>= 1.0)"
+    "lib${LIBTRANSPORT}(>= 1.0), libasio-dev (>= 1.10), libhicn-dev (>= 1.0), libparc-dev (>= 1.0)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}-devel_RPM_DEPENDENCIES
-    "libtransport >= 1.0, asio-devel >= 1.10, libhicn-devel >= 1.0, libparc-devel >= 1.0"
+    "lib${LIBTRANSPORT} >= 1.0, asio-devel >= 1.10, libhicn-devel >= 1.0, libparc-devel >= 1.0"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
