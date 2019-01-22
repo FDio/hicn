@@ -18,11 +18,11 @@ useful for testing and debugging within a hicn network."
 )
 
 set(${HICN_UTILS}_DEB_DEPENDENCIES
-  "libhicntransport (>= 1.0)"
+  "libhicntransport (>= stable_version)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${HICN_UTILS}_RPM_DEPENDENCIES
-  "libhicntransport >= 1.0"
+  "libhicntransport >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )
