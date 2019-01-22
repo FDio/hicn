@@ -47,7 +47,9 @@ RTCProducerSocket::RTCProducerSocket(asio::io_service &io_service)
       bytesProductionRate_(0),
       packetsProductionRate_(INIT_PACKET_PRODUCTION_RATE),
       perSecondFactor_(1000 / STATS_INTERVAL_DURATION) {
-  nack_->appendPayload(utils::MemBuf::create(NACK_HEADER_SIZE));
+  auto nack_payload = utils::MemBuf::create(NACK_HEADER_SIZE);
+  nack_payload->append(NACK_HEADER_SIZE);
+  nack_->appendPayload(std::move(nack_payload));
   lastStats_ = std::chrono::steady_clock::now();
   srand(time(NULL));
   prodLabel_ = ((rand() % 255) << 24UL);
@@ -100,24 +102,23 @@ void RTCProducerSocket::produce(const uint8_t *buf, size_t buffer_size) {
 
   updateStats(buffer_size + headerSize_ + TIMESTAMP_LEN);
 
-  std::shared_ptr<ContentObject> content_object =
-      std::make_shared<ContentObject>(flowName_.setSuffix(currentSeg_));
-  auto payload = utils::MemBuf::copyBuffer(buf, buffer_size, TIMESTAMP_LEN);
-
-  // content_object->setLifetime(content_object_expiry_time_);
-  content_object->setLifetime(1000);  // XXX this should be set by the APP
+  ContentObject content_object(flowName_.setSuffix(currentSeg_));
 
   uint64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                            std::chrono::system_clock::now().time_since_epoch())
                            .count();
 
-  payload->prepend(TIMESTAMP_LEN);
-  uint8_t *payloadPointer = payload->writableData();
-  *(uint64_t *)payloadPointer = timestamp;
-  content_object->appendPayload(std::move(payload));
+  auto payload = utils::MemBuf::create(buffer_size + TIMESTAMP_LEN);
 
-  content_object->setPathLabel(prodLabel_);
-  portal_->sendContentObject(*content_object);
+  memcpy(payload->writableData(), &timestamp, TIMESTAMP_LEN);
+  memcpy(payload->writableData() + TIMESTAMP_LEN, buf, buffer_size);
+  payload->append(buffer_size + TIMESTAMP_LEN);
+  content_object.appendPayload(std::move(payload));
+
+  content_object.setLifetime(1000);  // XXX this should be set by the APP
+
+  content_object.setPathLabel(prodLabel_);
+  portal_->sendContentObject(content_object);
 
   currentSeg_++;
 }
