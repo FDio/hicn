@@ -22,6 +22,9 @@ namespace interface {
 RTCConsumerSocket::RTCConsumerSocket(int protocol, asio::io_service &io_service)
     : ConsumerSocket(protocol, io_service) {}
 
+RTCConsumerSocket::RTCConsumerSocket(int protocol)
+    : ConsumerSocket(protocol) {}
+
 RTCConsumerSocket::~RTCConsumerSocket() {}
 
 void RTCConsumerSocket::handleRTCPPacket(uint8_t *packet, size_t len) {

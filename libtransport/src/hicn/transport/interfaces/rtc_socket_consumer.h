@@ -25,6 +25,8 @@ class RTCConsumerSocket : public ConsumerSocket {
  public:
   explicit RTCConsumerSocket(int protocol, asio::io_service &io_service);
 
+  explicit RTCConsumerSocket(int protocol);
+
   ~RTCConsumerSocket();
 
   void handleRTCPPacket(uint8_t *packet, size_t len);
