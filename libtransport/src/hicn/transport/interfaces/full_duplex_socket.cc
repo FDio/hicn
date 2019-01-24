@@ -397,7 +397,7 @@ void AsyncFullDuplexSocket::onContentRetrieved(ConsumerSocket &s,
     return;
   }
 
-  TRANSPORT_LOGI("Received content with size %lu", size);
+  TRANSPORT_LOGI("Received content with size %zu", size);
   if (!ec) {
     read_callback_->readBufferAvailable(std::move(*receive_buffer_));
   } else {
