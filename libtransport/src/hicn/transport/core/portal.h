@@ -103,7 +103,6 @@ class Portal {
 
   Portal(asio::io_service &io_service)
       : io_service_(io_service),
-        is_running_(false),
         app_name_("libtransport_application"),
         consumer_callback_(nullptr),
         producer_callback_(nullptr),
@@ -157,9 +156,30 @@ class Portal {
                   std::placeholders::_1, name));
   }
 
+  TRANSPORT_ALWAYS_INLINE void sendInterest(Interest::Ptr &&interest,
+        const OnContentObjectCallback &&on_content_object_callback,
+        const OnInterestTimeoutCallback &&on_interest_timeout_callback) {
+
+    const Name name(interest->getName(), true);
+
+    // Send it
+    forwarder_interface_.send(*interest);
+
+    pending_interest_hash_table_[name] = std::make_unique<PendingInterest>(
+        std::move(interest), std::move(on_content_object_callback),
+        std::move(on_interest_timeout_callback),
+        std::make_unique<asio::steady_timer>(io_service_));
+
+    pending_interest_hash_table_[name]->startCountdown(
+        std::bind(&Portal<ForwarderInt>::timerHandler,
+        this, std::placeholders::_1, name));
+
+  }
+
   TRANSPORT_ALWAYS_INLINE void timerHandler(const std::error_code &ec,
                                             const Name &name) {
-    if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
+    bool is_stopped = io_service_.stopped();
+    if (TRANSPORT_EXPECT_FALSE(is_stopped)) {
       return;
     }
 
@@ -170,7 +190,9 @@ class Portal {
         std::unique_ptr<PendingInterest> ptr = std::move(it->second);
         pending_interest_hash_table_.erase(it);
 
-        if (consumer_callback_) {
+        if(ptr->getOnTimeoutCallback() != UNSET_CALLBACK){
+            ptr->on_interest_timeout_callback_(std::move(ptr->getInterest()));
+        }else if (consumer_callback_) {
           consumer_callback_->onTimeout(std::move(ptr->getInterest()));
         }
       }
@@ -189,9 +211,7 @@ class Portal {
       io_service_.reset();  // ensure that run()/poll() will do some work
     }
 
-    is_running_ = true;
     this->io_service_.run();
-    is_running_ = false;
   }
 
   TRANSPORT_ALWAYS_INLINE void runOneEvent() {
@@ -199,9 +219,7 @@ class Portal {
       io_service_.reset();  // ensure that run()/poll() will do some work
     }
 
-    is_running_ = true;
     this->io_service_.run_one();
-    is_running_ = false;
   }
 
   TRANSPORT_ALWAYS_INLINE void sendContentObject(
@@ -210,7 +228,6 @@ class Portal {
   }
 
   TRANSPORT_ALWAYS_INLINE void stopEventsLoop() {
-    is_running_ = false;
     internal_work_.reset();
 
     for (auto &pend_interest : pending_interest_hash_table_) {
@@ -242,7 +259,8 @@ class Portal {
  private:
   TRANSPORT_ALWAYS_INLINE void processIncomingMessages(
       Packet::MemBufPtr &&packet_buffer) {
-    if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
+    bool is_stopped = io_service_.stopped();
+    if (TRANSPORT_EXPECT_FALSE(is_stopped)) {
       return;
     }
 
@@ -293,7 +311,11 @@ class Portal {
         interest_ptr->setReceived();
         pending_interest_hash_table_.erase(content_object->getName());
 
-        if (consumer_callback_) {
+        if(interest_ptr->getOnDataCallback() != UNSET_CALLBACK){
+            interest_ptr->on_content_object_callback_(
+                std::move(interest_ptr->getInterest()),
+                std::move(content_object));
+        }else if (consumer_callback_) {
           consumer_callback_->onContentObject(
               std::move(interest_ptr->getInterest()),
               std::move(content_object));
@@ -319,8 +341,6 @@ class Portal {
   asio::io_service &io_service_;
   asio::io_service internal_io_service_;
   std::unique_ptr<asio::io_service::work> internal_work_;
-
-  volatile bool is_running_;
 
   std::string app_name_;
 
