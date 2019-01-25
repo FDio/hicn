@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "71c9ecc9_0f688e57",
+        "filename": "libtransport/src/hicn/transport/core/pending_interest.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 23,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2019-01-25T14:05:49Z",
+      "side": 1,
+      "message": "Whitespace",
+      "revId": "46f18bbfbbd1e67b92f248aaad190f4945ce4399",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ff68c0ef_ac441a41",
+        "filename": "libtransport/src/hicn/transport/core/pending_interest.cc",
+        "patchSetId": 1
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2019-01-25T14:05:49Z",
+      "side": 1,
+      "message": "Whitespace",
+      "revId": "46f18bbfbbd1e67b92f248aaad190f4945ce4399",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6e6bf6c0_24577b17",
+        "filename": "libtransport/src/hicn/transport/core/pending_interest.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 73,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2019-01-25T14:05:49Z",
+      "side": 1,
+      "message": "Whitespace",
+      "revId": "46f18bbfbbd1e67b92f248aaad190f4945ce4399",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    }
+  ]
+}
