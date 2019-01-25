@@ -34,6 +34,8 @@ class RawSocketInterface;
 template <typename ForwarderInt>
 class Portal;
 
+typedef std::function<void(Interest::Ptr&&, ContentObject::Ptr&&)> OnContentObjectCallback;
+typedef std::function<void(Interest::Ptr&&)> OnInterestTimeoutCallback;
 typedef std::function<void(const std::error_code &)> TimerCallback;
 
 class PendingInterest {
@@ -47,9 +49,12 @@ class PendingInterest {
   PendingInterest(Interest::Ptr &&interest,
                   std::unique_ptr<asio::steady_timer> &&timer);
 
-  ~PendingInterest();
+  PendingInterest(Interest::Ptr &&interest,
+                  const OnContentObjectCallback &&on_content_object,
+                  const OnInterestTimeoutCallback &&on_interest_timeout,
+                  std::unique_ptr<asio::steady_timer> &&timer);
 
-  bool isReceived() const;
+  ~PendingInterest();
 
   template <typename Handler>
   TRANSPORT_ALWAYS_INLINE void startCountdown(Handler &&cb) {
@@ -62,17 +67,23 @@ class PendingInterest {
 
   void setReceived();
 
+  bool isReceived() const;
+
   Interest::Ptr &&getInterest();
 
-  void setReceived(bool received);
+  const OnContentObjectCallback &getOnDataCallback() const;
 
-  bool isValid() const;
+  void setOnDataCallback(const OnContentObjectCallback &on_content_object);
 
-  void setValid(bool valid);
+  const OnInterestTimeoutCallback &getOnTimeoutCallback() const;
+
+  void setOnTimeoutCallback(const OnInterestTimeoutCallback &on_interest_timeout);
 
  private:
   Interest::Ptr interest_;
   std::unique_ptr<asio::steady_timer> timer_;
+  OnContentObjectCallback on_content_object_callback_;
+  OnInterestTimeoutCallback on_interest_timeout_callback_;
   bool received_;
 };
 

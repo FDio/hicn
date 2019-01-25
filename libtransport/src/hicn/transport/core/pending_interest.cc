@@ -20,12 +20,28 @@ namespace transport {
 namespace core {
 
 PendingInterest::PendingInterest()
-    : interest_(nullptr, nullptr), timer_(), received_(false) {}
+    : interest_(nullptr, nullptr),
+      timer_(),
+      on_content_object_callback_(),
+      on_interest_timeout_callback_(),
+      received_(false) {}
 
 PendingInterest::PendingInterest(Interest::Ptr &&interest,
                                  std::unique_ptr<asio::steady_timer> &&timer)
     : interest_(std::move(interest)),
       timer_(std::move(timer)),
+      on_content_object_callback_(),
+      on_interest_timeout_callback_(),
+      received_(false) {}
+
+PendingInterest::PendingInterest(Interest::Ptr &&interest,
+                                 const OnContentObjectCallback &&on_content_object,
+                                 const OnInterestTimeoutCallback &&on_interest_timeout,
+                                 std::unique_ptr<asio::steady_timer> &&timer)
+    : interest_(std::move(interest)),
+      timer_(std::move(timer)),
+      on_content_object_callback_(std::move(on_content_object)),
+      on_interest_timeout_callback_(std::move(on_interest_timeout)),
       received_(false) {}
 
 PendingInterest::~PendingInterest() {
@@ -34,14 +50,26 @@ PendingInterest::~PendingInterest() {
 
 void PendingInterest::cancelTimer() { timer_->cancel(); }
 
-bool PendingInterest::isReceived() const { return received_; }
-
 void PendingInterest::setReceived() { received_ = true; }
+
+bool PendingInterest::isReceived() const { return received_; }
 
 Interest::Ptr &&PendingInterest::getInterest() { return std::move(interest_); }
 
-void PendingInterest::setReceived(bool received) {
-  PendingInterest::received_ = received;
+const OnContentObjectCallback &PendingInterest::getOnDataCallback() const {
+  return on_content_object_callback_;
+}
+
+void PendingInterest::setOnDataCallback(const OnContentObjectCallback &on_content_object) {
+  PendingInterest::on_content_object_callback_ = on_content_object;
+}
+
+const OnInterestTimeoutCallback &PendingInterest::getOnTimeoutCallback() const {
+  return on_interest_timeout_callback_;
+}
+
+void PendingInterest::setOnTimeoutCallback(const OnInterestTimeoutCallback &on_interest_timeout) {
+  PendingInterest::on_interest_timeout_callback_ = on_interest_timeout;
 }
 
 }  // end namespace core
