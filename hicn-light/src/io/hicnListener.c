@@ -119,9 +119,9 @@ static bool _isEmptyAddressIPv4(Address *address) {
 
 ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
                                      Address *address) {
-  HIcnListener *hicn = parcMemory_AllocateAndClear(sizeof(HIcnListener));
+  HicnListener *hicn = parcMemory_AllocateAndClear(sizeof(HicnListener));
   parcAssertNotNull(hicn, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(HIcnListener));
+                    sizeof(HicnListener));
 
   hicn->forwarder = forwarder;
   hicn->logger = logger_Acquire(forwarder_GetLogger(forwarder));
@@ -134,7 +134,7 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
   hicn->connection_id = -1;
 
   hicn_socket_helper_t *hicnSocketHelper =
-      forwarder_GetHIcnSocketHelper(forwarder);
+      forwarder_GetHicnSocketHelper(forwarder);
 
   if (_isEmptyAddressIPv4(address)) {
     hicn->hicn_fd = hicn_socket(hicnSocketHelper, symbolic, NULL);
@@ -158,7 +158,7 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
                           PARCLogLevel_Debug)) {
       logger_Log(
           hicn->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-          "HIcnListener %s: error while creating an hicn listener in lib_hicn",
+          "HicnListener %s: error while creating an hicn listener in lib_hicn",
           symbolic);
     }
     logger_Release(&hicn->logger);
@@ -190,7 +190,7 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
 
   if (logger_IsLoggable(hicn->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
     logger_Log(hicn->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-               "HIcnListener %s created", symbolic);
+               "HicnListener %s created", symbolic);
   }
 
   return ops;
@@ -199,9 +199,9 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
 
 ListenerOps *hicnListener_CreateInet6(Forwarder *forwarder, char *symbolic,
                                       Address *address) {
-  HIcnListener *hicn = parcMemory_AllocateAndClear(sizeof(HIcnListener));
+  HicnListener *hicn = parcMemory_AllocateAndClear(sizeof(HicnListener));
   parcAssertNotNull(hicn, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(HIcnListener));
+                    sizeof(HicnListener));
 
   hicn->forwarder = forwarder;
   hicn->logger = logger_Acquire(forwarder_GetLogger(forwarder));
@@ -219,7 +219,7 @@ ListenerOps *hicnListener_CreateInet6(Forwarder *forwarder, char *symbolic,
   //address we just need to set the right type of packet
 
   hicn_socket_helper_t *hicnSocketHelper =
-      forwarder_GetHIcnSocketHelper(forwarder);
+      forwarder_GetHicnSocketHelper(forwarder);
 
   if (_isEmptyAddressIPv6(address)) {
     // create main listener
@@ -248,7 +248,7 @@ ListenerOps *hicnListener_CreateInet6(Forwarder *forwarder, char *symbolic,
                           PARCLogLevel_Debug)) {
       logger_Log(
           hicn->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-          "HIcnListener %s: error while creating an hicn listener in lib_hicn",
+          "HicnListener %s: error while creating an hicn listener in lib_hicn",
           symbolic);
     }
     logger_Release(&hicn->logger);
@@ -280,16 +280,16 @@ ListenerOps *hicnListener_CreateInet6(Forwarder *forwarder, char *symbolic,
 
   if (logger_IsLoggable(hicn->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
     logger_Log(hicn->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-               "HIcnListener %s created", symbolic);
+               "HicnListener %s created", symbolic);
   }
 
   return ops;
 }
 
 bool _hicnListener_BindInet6(ListenerOps *ops, const Address *remoteAddress) {
-  HIcnListener *hicn = (HIcnListener *)ops->context;
+  HicnListener *hicn = (HicnListener *)ops->context;
   hicn_socket_helper_t *hicnSocketHelper =
-      forwarder_GetHIcnSocketHelper(hicn->forwarder);
+      forwarder_GetHicnSocketHelper(hicn->forwarder);
 
   struct sockaddr_in6 *tmpAddr =
       parcMemory_AllocateAndClear(sizeof(struct sockaddr_in6));
@@ -319,9 +319,9 @@ bool _hicnListener_BindInet6(ListenerOps *ops, const Address *remoteAddress) {
 }
 
 bool _hicnListener_BindInet(ListenerOps *ops, const Address *remoteAddress) {
-  HIcnListener *hicn = (HIcnListener *)ops->context;
+  HicnListener *hicn = (HicnListener *)ops->context;
   hicn_socket_helper_t *hicnSocketHelper =
-      forwarder_GetHIcnSocketHelper(hicn->forwarder);
+      forwarder_GetHicnSocketHelper(hicn->forwarder);
 
   struct sockaddr_in *tmpAddr =
       parcMemory_AllocateAndClear(sizeof(struct sockaddr_in));
@@ -362,9 +362,9 @@ bool hicnListener_Bind(ListenerOps *ops, const Address *remoteAddress) {
 }
 
 bool hicnListener_Punting(ListenerOps *ops, const char *prefix) {
-  HIcnListener *hicn = (HIcnListener *)ops->context;
+  HicnListener *hicn = (HicnListener *)ops->context;
   hicn_socket_helper_t *hicnSocketHelper =
-      forwarder_GetHIcnSocketHelper(hicn->forwarder);
+      forwarder_GetHicnSocketHelper(hicn->forwarder);
 
   int res = hicn_listen(hicnSocketHelper, hicn->hicn_fd, prefix);
   int retry = 0;
@@ -388,7 +388,7 @@ bool hicnListener_Punting(ListenerOps *ops, const char *prefix) {
 }
 
 bool hicnListener_SetConnectionId(ListenerOps *ops, unsigned connId) {
-  HIcnListener *hicn = (HIcnListener *)ops->context;
+  HicnListener *hicn = (HicnListener *)ops->context;
   if (hicn) {
     hicn->connection_id = connId;
     return true;
@@ -396,12 +396,12 @@ bool hicnListener_SetConnectionId(ListenerOps *ops, unsigned connId) {
   return false;
 }
 
-static void _hicnListener_Destroy(HIcnListener **listenerPtr) {
+static void _hicnListener_Destroy(HicnListener **listenerPtr) {
   parcAssertNotNull(listenerPtr, "Parameter must be non-null double pointer");
   parcAssertNotNull(*listenerPtr,
                     "Parameter must derefernce to non-null pointer");
 
-  HIcnListener *hicn = *listenerPtr;
+  HicnListener *hicn = *listenerPtr;
 
   // close(hicn->hicn_fd); //XXX close the fd in the hicnlib (detroy listener?)
   dispatcher_DestroyNetworkEvent(forwarder_GetDispatcher(hicn->forwarder),
@@ -414,32 +414,32 @@ static void _hicnListener_Destroy(HIcnListener **listenerPtr) {
 
 static void _destroy(ListenerOps **listenerOpsPtr) {
   ListenerOps *ops = *listenerOpsPtr;
-  HIcnListener *hicn = (HIcnListener *)ops->context;
+  HicnListener *hicn = (HicnListener *)ops->context;
   _hicnListener_Destroy(&hicn);
   parcMemory_Deallocate((void **)&ops);
   *listenerOpsPtr = NULL;
 }
 
 static unsigned _getInterfaceIndex(const ListenerOps *ops) {
-  HIcnListener *hicn = (HIcnListener *)ops->context;
+  HicnListener *hicn = (HicnListener *)ops->context;
   return hicn->conn_id;
 }
 
 static const Address *_getListenAddress(const ListenerOps *ops) {
-  HIcnListener *hicn = (HIcnListener *)ops->context;
+  HicnListener *hicn = (HicnListener *)ops->context;
   return hicn->localAddress;
 }
 
 static EncapType _getEncapType(const ListenerOps *ops) { return ENCAP_HICN; }
 
 static int _getSocket(const ListenerOps *ops) {
-  HIcnListener *hicn = (HIcnListener *)ops->context;
+  HicnListener *hicn = (HicnListener *)ops->context;
   return hicn->hicn_fd;
 }
 
 // ===============================
 
-static void _readFrameToDiscard(HIcnListener *hicn, int fd) {
+static void _readFrameToDiscard(HicnListener *hicn, int fd) {
   // we need to discard the frame.  Read 1 byte.  This will clear it off the
   // stack.
   uint8_t buffer;
@@ -463,7 +463,7 @@ static void _readFrameToDiscard(HIcnListener *hicn, int fd) {
   }
 }
 
-static unsigned _createNewConnection(HIcnListener *hicn, int fd,
+static unsigned _createNewConnection(HicnListener *hicn, int fd,
                                      const AddressPair *pair) {
   bool isLocal = false;
 
@@ -477,7 +477,7 @@ static unsigned _createNewConnection(HIcnListener *hicn, int fd,
   return connid;
 }
 
-const Connection *_findConnectionFromPacket(HIcnListener *hicn,
+const Connection *_findConnectionFromPacket(HicnListener *hicn,
                                             Address *packetSourceAddress) {
   const Connection *conn = NULL;
   if (hicn->connection_id != -1) {
@@ -520,7 +520,7 @@ static Address *_createAddressFromPacket(uint8_t *msgBuffer) {
   return packetAddr;
 }
 
-static void _handleProbeMessage(HIcnListener *hicn, uint8_t *msgBuffer) {
+static void _handleProbeMessage(HicnListener *hicn, uint8_t *msgBuffer) {
   Address *packetAddr = _createAddressFromPacket(msgBuffer);
 
   if (packetAddr != NULL) {
@@ -536,7 +536,7 @@ static void _handleProbeMessage(HIcnListener *hicn, uint8_t *msgBuffer) {
   parcMemory_Deallocate((void **)&msgBuffer);
 }
 
-static void _handleWldrNotification(HIcnListener *hicn, uint8_t *msgBuffer) {
+static void _handleWldrNotification(HicnListener *hicn, uint8_t *msgBuffer) {
   Address *packetAddr = _createAddressFromPacket(msgBuffer);
 
   if (packetAddr == NULL) {
@@ -563,7 +563,7 @@ static void _handleWldrNotification(HIcnListener *hicn, uint8_t *msgBuffer) {
 }
 
 #ifdef WITH_MAPME
-static void _handleMapMe(HIcnListener *hicn, int fd, uint8_t *msgBuffer) {
+static void _handleMapMe(HicnListener *hicn, int fd, uint8_t *msgBuffer) {
   Address *packetAddr = _createAddressFromPacket(msgBuffer);
 
   if (packetAddr == NULL) {
@@ -630,7 +630,7 @@ static void _handleMapMe(HIcnListener *hicn, int fd, uint8_t *msgBuffer) {
 }
 #endif /* WITH_MAPME */
 
-static Message *_readMessage(HIcnListener *hicn, int fd, uint8_t *msgBuffer) {
+static Message *_readMessage(HicnListener *hicn, int fd, uint8_t *msgBuffer) {
   Message *message = NULL;
 
   ssize_t readLength = read(fd, msgBuffer, MTU_SIZE);
@@ -702,7 +702,7 @@ static Message *_readMessage(HIcnListener *hicn, int fd, uint8_t *msgBuffer) {
   return message;
 }
 
-static void _receivePacket(HIcnListener *hicn, int fd) {
+static void _receivePacket(HicnListener *hicn, int fd) {
   Message *msg = NULL;
   uint8_t *msgBuffer = parcMemory_AllocateAndClear(MTU_SIZE);
   msg = _readMessage(hicn, fd, msgBuffer);
@@ -713,7 +713,7 @@ static void _receivePacket(HIcnListener *hicn, int fd) {
 }
 
 static void _hicnListener_readcb(int fd, PARCEventType what, void *hicnVoid) {
-  HIcnListener *hicn = (HIcnListener *)hicnVoid;
+  HicnListener *hicn = (HicnListener *)hicnVoid;
 
   if (hicn->inetFamily == IPv4 || hicn->inetFamily == IPv6) {
     if (what & PARCEventType_Read) {
