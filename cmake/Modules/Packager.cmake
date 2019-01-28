@@ -57,13 +57,15 @@ macro(make_packages)
       set(bld "b$ENV{BUILD_NUMBER}")
     endif()
 
+    message("Build number is: $ENV{BUILD_NUMBER}")
+
     #define DEB and RPM version numbers
     if(${commit_num} EQUAL 0)
       set(deb_ver "${tag}")
       set(rpm_ver "${tag}")
     else()
-      set(deb_ver "${tag}-${commit_num}-${commit_name}~${bld}")
-      set(rpm_ver "${tag}-${commit_num}_${commit_name}~${bld}")
+      set(deb_ver "${tag}-${commit_num}-release")
+      set(rpm_ver "${tag}-${commit_num}-release")
     endif()
 
     get_cmake_property(components COMPONENTS)
@@ -81,7 +83,7 @@ macro(make_packages)
       set(CPACK_PACKAGE_VERSION "${deb_ver}")
       foreach(lc ${components})
         string(TOUPPER ${lc} uc)
-        set(CPACK_${type}_${uc}_FILE_NAME "${lc}_${tag}-${commit_num}-release_${arch}.deb")
+        set(CPACK_${type}_${uc}_FILE_NAME "${lc}_${deb_ver}_${arch}.deb")
         
         set(DEB_DEPS)
         if (NOT ${${lc}_DEB_DEPENDENCIES} STREQUAL "")
@@ -121,7 +123,7 @@ macro(make_packages)
         endif()
 
         set(CPACK_RPM_${uc}_PACKAGE_NAME "${package_name}")
-        set(CPACK_${type}_${uc}_FILE_NAME "${package_name}-${tag}-${commit_num}-release.${arch}.rpm")
+        set(CPACK_${type}_${uc}_FILE_NAME "${package_name}-${rpm_ver}.${arch}.rpm")
       endforeach()
     endif()
 
