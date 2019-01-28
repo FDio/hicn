@@ -56,6 +56,7 @@ setup_fdio_repo() {
         curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM} | sudo bash
         curl ${LATEST_EPEL_REPO} > epel-release-latest-7.noarch.rpm
         rpm -ivh epel-release-latest-7.noarch.rpm || true
+        rm epel-release-latest-7.noarch.rpm
     else
         echo "Distribution ${DISTRIB_ID} is not supported"
         exit -1
