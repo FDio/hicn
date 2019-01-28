@@ -82,7 +82,7 @@ macro(make_packages)
       foreach(lc ${components})
         string(TOUPPER ${lc} uc)
         set(CPACK_${type}_${uc}_FILE_NAME "${lc}_${tag}-${commit_num}-release_${arch}.deb")
-        
+
         set(DEB_DEPS)
         if (NOT ${${lc}_DEB_DEPENDENCIES} STREQUAL "")
           string(REPLACE "stable_version" ${tag} DEB_DEPS ${${lc}_DEB_DEPENDENCIES})
@@ -113,7 +113,7 @@ macro(make_packages)
         endif()
 
         set(CPACK_${type}_${uc}_PACKAGE_REQUIRES "${RPM_DEPS}")
-        
+
         if(${lc} MATCHES ".*-dev")
           set(package_name ${lc}el)
         else()
