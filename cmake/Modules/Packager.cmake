@@ -57,6 +57,8 @@ macro(make_packages)
       set(bld "b$ENV{BUILD_NUMBER}")
     endif()
 
+    message("Build number is: $ENV{BUILD_NUMBER}")
+
     #define DEB and RPM version numbers
     if(${commit_num} EQUAL 0)
       set(deb_ver "${tag}")
