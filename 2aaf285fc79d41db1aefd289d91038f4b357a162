@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ee6ab65f_69f3e4b1",
+        "filename": "hicn-light/src/config/configurationListeners.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 152,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2019-01-28T14:26:57Z",
+      "side": 1,
+      "message": "puting --\u003e punting",
+      "revId": "2aaf285fc79d41db1aefd289d91038f4b357a162",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    }
+  ]
+}
