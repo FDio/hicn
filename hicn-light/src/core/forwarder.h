@@ -240,7 +240,7 @@ void forwarder_ClearCache(Forwarder *forwarder);
 void forwarder_SetStrategy(Forwarder *forwarder, Name *prefix,
                            strategy_type strategy);
 
-hicn_socket_helper_t *forwarder_GetHIcnSocketHelper(Forwarder *forwarder);
+hicn_socket_helper_t *forwarder_GetHicnSocketHelper(Forwarder *forwarder);
 
 #ifdef WITH_MAPME
 

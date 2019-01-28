@@ -15,7 +15,7 @@
 
 /**
  * @file hicnConnection.h
- * @brief Represents a HIcn connection for the connection table
+ * @brief Represents a Hicn connection for the connection table
  *
  * <#Detailed Description#>
  *
@@ -30,7 +30,7 @@
 #include <src/utils/address.h>
 
 /**
- * Creates a HIcn connection that can send to the remote address
+ * Creates a Hicn connection that can send to the remote address
  *
  * The address pair must both be same type (i.e. INET or INET6).
  *
