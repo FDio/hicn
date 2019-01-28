@@ -43,9 +43,9 @@ static CommandReturn _controlAddConnection_Execute(CommandParser *parser,
 
 // ===================================================
 
-static CommandReturn _controlAddConnection_HIcnHelpExecute(
+static CommandReturn _controlAddConnection_hicnHelpExecute(
     CommandParser *parser, CommandOps *ops, PARCList *args);
-static CommandReturn _controlAddConnection_HIcnExecute(CommandParser *parser,
+static CommandReturn _controlAddConnection_hicnExecute(CommandParser *parser,
                                                        CommandOps *ops,
                                                        PARCList *args);
 
@@ -66,11 +66,11 @@ static CommandReturn _controlAddConnection_TcpExecute(CommandParser *parser,
 // ===================================================
 
 static const char *_commandAddConnection = "add connection";
-static const char *_commandAddConnectionHIcn = "add connection hicn";
+static const char *_commandAddConnectionhicn = "add connection hicn";
 static const char *_commandAddConnectionUdp = "add connection udp";
 static const char *_commandAddConnectionTcp = "add connection tcp";
 static const char *_commandAddConnectionHelp = "help add connection";
-static const char *_commandAddConnectionHIcnHelp = "help add connection hicn";
+static const char *_commandAddConnectionhicnHelp = "help add connection hicn";
 static const char *_commandAddConnectionUdpHelp = "help add connection udp";
 static const char *_commandAddConnectionTcpHelp = "help add connection tcp";
 
@@ -90,9 +90,9 @@ CommandOps *controlAddConnection_HelpCreate(ControlState *state) {
 
 // ===================================================
 
-static CommandOps *_controlAddConnection_HIcnCreate(ControlState *state) {
-  return commandOps_Create(state, _commandAddConnectionHIcn, NULL,
-                           _controlAddConnection_HIcnExecute,
+static CommandOps *_controlAddConnection_hicnCreate(ControlState *state) {
+  return commandOps_Create(state, _commandAddConnectionhicn, NULL,
+                           _controlAddConnection_hicnExecute,
                            commandOps_Destroy);
 }
 
@@ -110,9 +110,9 @@ static CommandOps *_controlAddConnection_TcpCreate(ControlState *state) {
 
 // ===================================================
 
-static CommandOps *_controlAddConnection_HIcnHelpCreate(ControlState *state) {
-  return commandOps_Create(state, _commandAddConnectionHIcnHelp, NULL,
-                           _controlAddConnection_HIcnHelpExecute,
+static CommandOps *_controlAddConnection_hicnHelpCreate(ControlState *state) {
+  return commandOps_Create(state, _commandAddConnectionhicnHelp, NULL,
+                           _controlAddConnection_hicnHelpExecute,
                            commandOps_Destroy);
 }
 
@@ -134,7 +134,7 @@ static CommandReturn _controlAddConnection_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
                                                        PARCList *args) {
   printf("Available commands:\n");
-  printf("   %s\n", _commandAddConnectionHIcn);
+  printf("   %s\n", _commandAddConnectionhicn);
   printf("   %s\n", _commandAddConnectionUdp);
   printf("   %s\n", _commandAddConnectionTcp);
   printf("\n");
@@ -144,13 +144,13 @@ static CommandReturn _controlAddConnection_HelpExecute(CommandParser *parser,
 static void _controlAddConnection_Init(CommandParser *parser, CommandOps *ops) {
   ControlState *state = ops->closure;
   controlState_RegisterCommand(state,
-                               _controlAddConnection_HIcnHelpCreate(state));
+                               _controlAddConnection_hicnHelpCreate(state));
   controlState_RegisterCommand(state,
                                _controlAddConnection_UdpHelpCreate(state));
   controlState_RegisterCommand(state,
                                _controlAddConnection_TcpHelpCreate(state));
 
-  controlState_RegisterCommand(state, _controlAddConnection_HIcnCreate(state));
+  controlState_RegisterCommand(state, _controlAddConnection_hicnCreate(state));
   controlState_RegisterCommand(state, _controlAddConnection_UdpCreate(state));
   controlState_RegisterCommand(state, _controlAddConnection_TcpCreate(state));
 }
@@ -269,14 +269,14 @@ static CommandReturn _controlAddConnection_IpHelp(CommandParser *parser,
   return CommandReturn_Success;
 }
 
-static CommandReturn _controlAddConnection_HIcnHelpExecute(
+static CommandReturn _controlAddConnection_hicnHelpExecute(
     CommandParser *parser, CommandOps *ops, PARCList *args) {
   _controlAddConnection_IpHelp(parser, ops, args, "hicn");
 
   return CommandReturn_Success;
 }
 
-static CommandReturn _controlAddConnection_HIcnExecute(CommandParser *parser,
+static CommandReturn _controlAddConnection_hicnExecute(CommandParser *parser,
                                                        CommandOps *ops,
                                                        PARCList *args) {
   static const int _indexSymbolic = 3;
@@ -284,7 +284,7 @@ static CommandReturn _controlAddConnection_HIcnExecute(CommandParser *parser,
   static const int _indexLocAddr = 5;
 
   if (parcList_Size(args) != 6) {
-    _controlAddConnection_HIcnHelpExecute(parser, ops, args);
+    _controlAddConnection_hicnHelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 

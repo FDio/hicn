@@ -439,7 +439,7 @@ PARCClock *forwarder_GetClock(const Forwarder *forwarder) {
   return forwarder->clock;
 }
 
-hicn_socket_helper_t *forwarder_GetHIcnSocketHelper(Forwarder *forwarder) {
+hicn_socket_helper_t *forwarder_GethicnSocketHelper(Forwarder *forwarder) {
   return forwarder->hicnSocketHelper;
 }
 

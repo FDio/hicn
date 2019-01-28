@@ -37,7 +37,7 @@
 #include <src/utils/commands.h>
 #include <src/utils/utils.h>
 
-static bool _setupHIcnListenerOnInet4(Forwarder *forwarder,
+static bool _setuphicnListenerOnInet4(Forwarder *forwarder,
                                       const char *symbolic, Address *address) {
   bool success = false;
 #ifndef __APPLE__
@@ -45,14 +45,14 @@ static bool _setupHIcnListenerOnInet4(Forwarder *forwarder,
       hicnListener_CreateInet(forwarder, (char *)symbolic, address);
   if (ops != NULL) {
     success = listenerSet_Add(forwarder_GetListenerSet(forwarder), ops);
-    parcAssertTrue(success, "Failed to add HIcn listener %s to ListenerSet",
+    parcAssertTrue(success, "Failed to add hicn listener %s to ListenerSet",
                    symbolic);
   }
 #endif /* __APPLE__ */
   return success;
 }
 
-static bool _setupHIcnListenerOnInet6(Forwarder *forwarder,
+static bool _setuphicnListenerOnInet6(Forwarder *forwarder,
                                       const char *symbolic, Address *address) {
   bool success = false;
 #ifndef __APPLE__
@@ -60,7 +60,7 @@ static bool _setupHIcnListenerOnInet6(Forwarder *forwarder,
       hicnListener_CreateInet6(forwarder, (char *)symbolic, address);
   if (ops != NULL) {
     success = listenerSet_Add(forwarder_GetListenerSet(forwarder), ops);
-    parcAssertTrue(success, "Failed to add HIcn listener %s to ListenerSet",
+    parcAssertTrue(success, "Failed to add hicn listener %s to ListenerSet",
                    symbolic);
   }
 #endif /* __APPLE__ */
@@ -149,7 +149,7 @@ bool _AddPuntingInet6(const Configuration *config, Punting *punting,
   Address *fakeAddr = addressCreateFromInet6((struct sockaddr_in6 *)addr);
 
   // comments:
-  // EncapType: I use the HIcn encap since the puting is available only for HIcn
+  // EncapType: I use the hicn encap since the puting is available only for hicn
   // listeners LocalAddress: The only listern for which we need punting rules is
   // the main one, which has no address
   //              so I create a fake empty address. This need to be consistent
@@ -297,7 +297,7 @@ bool _addHicn(Configuration *config, add_listener_command *control,
     case ADDR_INET: {
       localAddress =
           utils_AddressFromInet(&control->address.ipv4, &control->port);
-      success = _setupHIcnListenerOnInet4(configuration_GetForwarder(config),
+      success = _setuphicnListenerOnInet4(configuration_GetForwarder(config),
                                           symbolic, localAddress);
       break;
     }
@@ -305,7 +305,7 @@ bool _addHicn(Configuration *config, add_listener_command *control,
     case ADDR_INET6: {
       localAddress =
           utils_AddressFromInet6(&control->address.ipv6, &control->port);
-      success = _setupHIcnListenerOnInet6(configuration_GetForwarder(config),
+      success = _setuphicnListenerOnInet6(configuration_GetForwarder(config),
                                           symbolic, localAddress);
       break;
     }

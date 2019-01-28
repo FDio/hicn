@@ -14,7 +14,7 @@
  */
 
 /**
- * Embodies the reader/writer for a HIcn connection
+ * Embodies the reader/writer for a hicn connection
  *
  * NB The Send() function may overflow the output buffer
  *
@@ -112,7 +112,7 @@ static IoOperations _template = {.closure = NULL,
 
 // =================================================================
 
-static void _setConnectionState(_HicnState *HIcn, bool isUp);
+static void _setConnectionState(_HicnState *hicn, bool isUp);
 static bool _saveSockaddr(_HicnState *hicnConnState, const AddressPair *pair);
 static void _refreshProbeDestAddress(_HicnState *hicnConnState,
                                      const uint8_t *message);
@@ -150,7 +150,7 @@ IoOperations *hicnConnection_Create(Forwarder *forwarder, int fd,
       char *str = addressPair_ToString(hicnConnState->addressPair);
       logger_Log(hicnConnState->logger, LoggerFacility_IO, PARCLogLevel_Info,
                  __func__,
-                 "HIcnConnection %p created for address %s (isLocal %d)",
+                 "hicnConnection %p created for address %s (isLocal %d)",
                  (void *)hicnConnState, str, hicnConnState->isLocal);
       free(str);
     }
@@ -196,7 +196,7 @@ static void _destroy(IoOperations **opsPtr) {
   if (logger_IsLoggable(hicnConnState->logger, LoggerFacility_IO,
                         PARCLogLevel_Info)) {
     logger_Log(hicnConnState->logger, LoggerFacility_IO, PARCLogLevel_Info,
-               __func__, "HIcnConnection %p destroyed", (void *)hicnConnState);
+               __func__, "hicnConnection %p destroyed", (void *)hicnConnState);
   }
 
   // XXX

@@ -504,13 +504,13 @@ PARCEventBuffer *_tryReadControlMessage(_StreamState *stream,
   return NULL;
 }
 
-static bool _isAnHIcnPacket(PARCEventBuffer *input) {
+static bool _isAnhicnPacket(PARCEventBuffer *input) {
   size_t bytesAvailable = parcEventBuffer_GetLength(input);
   parcAssertTrue(bytesAvailable >= sizeof(header_control_message),
                  "Called with too short an input: %zu", bytesAvailable);
 
   uint8_t *fh = parcEventBuffer_Pullup(input, sizeof(header_control_message));
-  return messageHandler_IsValidHIcnPacket(fh);
+  return messageHandler_IsValidhicnPacket(fh);
 }
 
 static Message *_readMessage(_StreamState *stream, Ticks time,
@@ -607,8 +607,8 @@ static void _conn_readcb(PARCEventQueue *event, PARCEventType type,
         parcEventBuffer_Destroy(&message);
       }
 
-    } else if (_isAnHIcnPacket(input)) {
-      // this is an HIcn packet (here we should distinguish between IPv4 and
+    } else if (_isAnhicnPacket(input)) {
+      // this is an hicn packet (here we should distinguish between IPv4 and
       // IPv6 tryReadMessage may set nextMessageLength
       Message *message = _tryReadMessage(input, stream);
 

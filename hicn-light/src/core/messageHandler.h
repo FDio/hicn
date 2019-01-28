@@ -145,7 +145,7 @@ static inline size_t messageHandler_GetIPHeaderLength(unsigned ipVersion) {
     return 0;
 }
 
-static inline bool messageHandler_IsValidHIcnPacket(const uint8_t *message) {
+static inline bool messageHandler_IsValidhicnPacket(const uint8_t *message) {
   uint8_t version = messageHandler_GetIPPacketType(message);
   if (version == IPv6_TYPE || version == IPv4_TYPE) {
     return true;
