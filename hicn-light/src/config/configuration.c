@@ -102,7 +102,7 @@ void configuration_Destroy(Configuration **configPtr) {
   *configPtr = NULL;
 }
 
-struct iovec *configuration_ProcessRegisterHIcnPrefix(Configuration *config,
+struct iovec *configuration_ProcessRegisterHicnPrefix(Configuration *config,
                                                       struct iovec *request,
                                                       unsigned ingressId) {
   header_control_message *header = request[0].iov_base;
@@ -168,7 +168,7 @@ struct iovec *configuration_ProcessRegisterHIcnPrefix(Configuration *config,
   return response;
 }
 
-struct iovec *configuration_ProcessUnregisterHIcnPrefix(Configuration *config,
+struct iovec *configuration_ProcessUnregisterHicnPrefix(Configuration *config,
                                                         struct iovec *request) {
   header_control_message *header = request[0].iov_base;
   remove_route_command *control = request[1].iov_base;
@@ -292,6 +292,7 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
   response[1].iov_base = payloadResponse;
   response[1].iov_len = sizeof(list_routes_command) * payloadSize;
 
+  fibEntryList_Destroy(&fibList);
   return response;
 }
 
@@ -578,6 +579,7 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
   response[1].iov_len =
       sizeof(list_connections_command) * connectionList_Length(connList);
 
+  connectionList_Destroy(&connList);
   return response;
 }
 
@@ -984,7 +986,7 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
 
     case ADD_ROUTE:
       response =
-          configuration_ProcessRegisterHIcnPrefix(config, control, ingressId);
+          configuration_ProcessRegisterHicnPrefix(config, control, ingressId);
       break;
 
     case LIST_ROUTES:
@@ -996,7 +998,7 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
       break;
 
     case REMOVE_ROUTE:
-      response = configuration_ProcessUnregisterHIcnPrefix(config, control);
+      response = configuration_ProcessUnregisterHicnPrefix(config, control);
       break;
 
     case CACHE_STORE:

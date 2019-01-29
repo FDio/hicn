@@ -15,7 +15,7 @@
 
 /**
  * @file hicnListener.h
- * @brief Listens for in coming HIcn connections
+ * @brief Listens for in coming Hicn connections
  *
  *
  */
@@ -29,7 +29,7 @@
 #include <stdlib.h>
 
 struct hicn_listener;
-typedef struct hicn_listener HIcnListener;
+typedef struct hicn_listener HicnListener;
 
 ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
                                      Address *address);
