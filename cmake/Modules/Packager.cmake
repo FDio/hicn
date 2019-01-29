@@ -51,7 +51,7 @@ macro(make_packages)
     list(GET VER 1 commit_num)
     list(GET VER 2 commit_name)
 
-    if ($ENV{BUILD_NUMBER} STREQUAL "")
+    if (NOT DEFINED ENV{BUILD_NUMBER})
       set(bld "b1")
     else()
       set(bld "b$ENV{BUILD_NUMBER}")
