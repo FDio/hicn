@@ -54,9 +54,9 @@ ProducerSocket::ProducerSocket(asio::io_service &io_service)
 }
 
 ProducerSocket::~ProducerSocket() {
-  TRANSPORT_LOGI("Destroying the ProducerSocket");
+
   processing_thread_stop_ = true;
-  portal_->stopEventsLoop();
+  portal_->stopEventsLoop(true);
 
   if (processing_thread_.joinable()) {
     processing_thread_.join();
@@ -79,8 +79,6 @@ void ProducerSocket::serveForever() {
 }
 
 void ProducerSocket::stop() {
-  TRANSPORT_LOGI("Calling stop for ProducerSocket");
-  portal_->killConnection();
   portal_->stopEventsLoop();
 }
 

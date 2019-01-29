@@ -79,6 +79,7 @@ class SocketConnector : public Connector {
   bool is_connecting_;
   bool is_reconnection_;
   bool data_available_;
+  bool is_closed_;
 
   PacketReceivedCallback receive_callback_;
   OnReconnect on_reconnect_callback_;

@@ -38,7 +38,6 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       timer_set_(false),
       send_timer_(std::make_unique<utils::FdDeadlineTimer>(event_reactor_)),
       io_service_(io_service),
-      work_(std::make_unique<asio::io_service::work>(io_service_)),
       packet_counter_(0),
       memif_connection_({}),
       tx_buf_counter_(0),
@@ -73,6 +72,8 @@ void MemifConnector::connect(uint32_t memif_id, long memif_mode) {
   socket_filename_ = "/run/vpp/memif.sock";
 
   createMemif(memif_id, memif_mode, nullptr);
+
+  work_ = std::make_unique<asio::io_service::work>(io_service_);
 
   while (is_connecting_) {
     MemifConnector::main_event_reactor_.runOneEvent();
@@ -402,7 +403,7 @@ void MemifConnector::close() {
   if (!closed_) {
     closed_ = true;
     event_reactor_.stop();
-    io_service_.stop();
+    work_.reset();
 
     if (memif_worker_ && memif_worker_->joinable()) {
       memif_worker_->join();

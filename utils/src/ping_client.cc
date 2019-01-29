@@ -76,13 +76,15 @@ class Configuration {
 
 class Client : interface::BasePortal::ConsumerCallback {
  public:
-  Client(Configuration *c) : portal_() {
+  Client(Configuration *c) 
+    : portal_(),
+      signals_(portal_.getIoService(), SIGINT, SIGQUIT) {
     // Let the main thread to catch SIGINT and SIGQUIT
-    // asio::signal_set signals(io_service, SIGINT, SIGQUIT);
-    // signals.async_wait(std::bind(&Client::afterSignal, this));
-
     portal_.connect();
     portal_.setConsumerCallback(this);
+
+    signals_.async_wait(std::bind(&Client::afterSignal, this));
+
     timer_.reset(new asio::steady_timer(portal_.getIoService()));
     config_ = c;
     sequence_number_ = config_->first_suffix_;
@@ -270,7 +272,7 @@ class Client : interface::BasePortal::ConsumerCallback {
     std::cout << "Stop ping" << std::endl;
     std::cout << "Sent: " << sent_ << " Received: " << received_
               << " Timeouts: " << timedout_ << std::endl;
-    portal_.stopEventsLoop();
+    portal_.stopEventsLoop(true);
   }
 
   void reset() {
@@ -287,6 +289,7 @@ class Client : interface::BasePortal::ConsumerCallback {
  private:
   SendTimeMap send_timestamps_;
   interface::BasePortal portal_;
+  asio::signal_set signals_;
   uint64_t sequence_number_;
   uint64_t last_jump_;
   uint64_t processed_;
