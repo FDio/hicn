@@ -39,13 +39,17 @@ set(LIBTRANSPORT_HEADER_FILES)
 
 set(SUBDIRS lib hicn-light libtransport utils)
 
+add_compile_options(-Wall -Werror)
+
 if (BUILD_VPP_PLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
-list(APPEND SUBDIRS
-  hicn-plugin
-)
-list(APPEND HICN_BINARY_API_INCLUDE_DIRS
-  ${PROJECT_BINARY_DIR}/hicn-plugin
-  ${PROJECT_BINARY_DIR}/hicn-plugin/vpp_plugins)
+  list(APPEND SUBDIRS
+    hicn-plugin
+  )
+
+  list(APPEND HICN_BINARY_API_INCLUDE_DIRS
+    ${PROJECT_BINARY_DIR}/hicn-plugin
+    ${PROJECT_BINARY_DIR}/hicn-plugin/vpp_plugins
+  )
 endif()
 
 foreach(dir ${SUBDIRS})
