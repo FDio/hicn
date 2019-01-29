@@ -41,7 +41,7 @@ void RawSocketInterface::connect(bool is_consumer) {
   }
 
   // Get interface ip address
-  struct sockaddr_in6 address;
+  struct sockaddr_in6 address = {0};
   utils::retrieveInterfaceAddress(output_interface_, &address);
   inet6_address_.family = address.sin6_family;
 

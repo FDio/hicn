@@ -97,6 +97,8 @@ class Client : interface::BasePortal::ConsumerCallback {
     }
   }
 
+  virtual ~Client() {}
+
   void ping() {
     std::cout << "start ping" << std::endl;
     doPing();
