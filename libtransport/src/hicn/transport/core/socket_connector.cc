@@ -62,6 +62,7 @@ SocketConnector::SocketConnector(PacketReceivedCallback &&receive_callback,
       is_connecting_(false),
       is_reconnection_(false),
       data_available_(false),
+      is_closed_(false),
       receive_callback_(receive_callback),
       on_reconnect_callback_(on_reconnect_callback),
       app_name_(app_name) {}
@@ -102,7 +103,11 @@ void SocketConnector::send(const Packet::MemBufPtr &packet) {
 }
 
 void SocketConnector::close() {
-  io_service_.post([this]() { socket_.close(); });
+  io_service_.dispatch([this]() {
+    is_closed_ = true;
+    socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+    socket_.close();
+  });
 }
 
 void SocketConnector::doWrite() {
@@ -125,6 +130,9 @@ void SocketConnector::doWrite() {
           if (!output_buffer_.empty()) {
             doWrite();
           }
+        } else if (ec.value() == static_cast<int>(std::errc::operation_canceled)) {
+          // The connection has been closed by the application.
+          return;
         } else {
           TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
           tryReconnect();
@@ -141,6 +149,9 @@ void SocketConnector::doReadBody(std::size_t body_length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           receive_callback_(std::move(read_msg_));
           doReadHeader();
+        } else if (ec.value() == static_cast<int>(std::errc::operation_canceled)) {
+          // The connection has been closed by the application.
+          return;
         } else {
           TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
           tryReconnect();
@@ -165,6 +176,9 @@ void SocketConnector::doReadHeader() {
           } else {
             TRANSPORT_LOGE("Decoding error. Ignoring packet.");
           }
+        } else if (ec.value() == static_cast<int>(std::errc::operation_canceled)) {
+          // The connection has been closed by the application.
+          return;
         } else {
           TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
           tryReconnect();
@@ -173,11 +187,12 @@ void SocketConnector::doReadHeader() {
 }
 
 void SocketConnector::tryReconnect() {
-  if (!is_connecting_) {
+  if (!is_connecting_ && !is_closed_) {
     TRANSPORT_LOGE("Connection lost. Trying to reconnect...\n");
     is_connecting_ = true;
     is_reconnection_ = true;
     io_service_.post([this]() {
+      socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
       socket_.close();
       startConnectionTimer();
       doConnect();

@@ -99,7 +99,7 @@ int ConsumerSocket::consume(const Name &name,
 
   transport_protocol_->start(receive_buffer);
 
-  return CONSUMER_READY;
+  return CONSUMER_FINISHED;
 }
 
 int ConsumerSocket::asyncConsume(
@@ -115,7 +115,7 @@ int ConsumerSocket::asyncConsume(
     });
   }
 
-  return CONSUMER_READY;
+  return CONSUMER_RUNNING;
 }
 
 void ConsumerSocket::asyncSendInterest(Interest::Ptr &&interest,

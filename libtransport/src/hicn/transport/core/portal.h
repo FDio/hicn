@@ -97,9 +97,7 @@ class Portal {
     virtual void onInterest(Interest::Ptr &&i) = 0;
   };
 
-  Portal() : Portal(internal_io_service_) {
-    internal_work_ = std::make_unique<asio::io_service::work>(io_service_);
-  }
+  Portal() : Portal(internal_io_service_) {}
 
   Portal(asio::io_service &io_service)
       : io_service_(io_service),
@@ -130,8 +128,7 @@ class Portal {
   }
 
   ~Portal() {
-    connector_.close();
-    stopEventsLoop();
+    stopEventsLoop(true);
   }
 
   TRANSPORT_ALWAYS_INLINE bool interestIsPending(const Name &name) {
@@ -227,14 +224,16 @@ class Portal {
     forwarder_interface_.send(content_object);
   }
 
-  TRANSPORT_ALWAYS_INLINE void stopEventsLoop() {
-    internal_work_.reset();
-
+  TRANSPORT_ALWAYS_INLINE void stopEventsLoop(bool kill_connection = false) {
     for (auto &pend_interest : pending_interest_hash_table_) {
       pend_interest.second->cancelTimer();
     }
 
     clear();
+
+    if(kill_connection) {
+      connector_.close();
+    }
 
     io_service_.post([this]() { io_service_.stop(); });
   }
@@ -340,7 +339,6 @@ class Portal {
  private:
   asio::io_service &io_service_;
   asio::io_service internal_io_service_;
-  std::unique_ptr<asio::io_service::work> internal_work_;
 
   std::string app_name_;
 

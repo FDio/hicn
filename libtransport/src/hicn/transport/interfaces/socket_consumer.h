@@ -26,8 +26,9 @@
 #include <hicn/transport/utils/event_thread.h>
 #include <hicn/transport/utils/sharable_vector.h>
 
-#define CONSUMER_READY 0
+#define CONSUMER_FINISHED 0
 #define CONSUMER_BUSY 1
+#define CONSUMER_RUNNING 2
 
 namespace transport {
 
