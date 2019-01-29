@@ -158,7 +158,7 @@ static void _daemonize(void) {
   }
 
   int forkReturn = fork();
-  parcTrapUnexpectedStateIf(forkReturn < 0, "Fork error");
+  parcTrapUnexpectedStateIf(forkReturn < 0, "Fork error")
 
   if (forkReturn > 0) {
     // parent exits
