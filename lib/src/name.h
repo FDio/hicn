@@ -25,8 +25,9 @@
 #define HICN_NAME_H
 
 #include <stdbool.h>
+#ifndef _WIN32
 #include <netinet/in.h>		// struct sockadd
-
+#endif
 #include "common.h"
 
 /******************************************************************************

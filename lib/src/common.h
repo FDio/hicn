@@ -74,12 +74,35 @@ typedef uint8_t u8;
 #define ATTR_INIT(key, value) value
 #endif
 
-/* Endianness detection for Windows platforms */
 #ifdef _WIN32
+ /* Endianness detection for Windows platforms */
 #define __ORDER_LITTLE_ENDIAN__ 0x41424344UL
 #define __ORDER_BIG_ENDIAN__    0x44434241UL
 #define __BYTE_ORDER__ ('ABCD')
+
+ /* Windows compatibility headers*/
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2ipdef.h>
+#include <Ws2tcpip.h>
+#include <In6addr.h>
+
+#define __attribute__(A)
+
+#ifndef  IOVEC
+#define IOVEC
+#define UIO_MAXIOV 16
+#define IOV_MAX UIO_MAXIOV
+struct iovec {
+	void* iov_base;
+	size_t iov_len;
+};
 #endif
+
+#endif
+
+
 
 /*
  * IP address types
@@ -92,8 +115,10 @@ typedef uint8_t u8;
 
 #else
 
-#include <netinet/in.h>
 
+#ifndef _WIN32
+#include <netinet/in.h>
+#endif
 typedef union
 {
   u32 as_u32;

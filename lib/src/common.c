@@ -22,8 +22,10 @@
 #include <stdlib.h>
 #include <string.h>		// memset
 #include <sys/types.h>		// getaddrinfo
-#include <sys/socket.h>		// ''
-#include <netdb.h>		// ''
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
 #include <stdio.h>
 
 #include "common.h"
