@@ -18,7 +18,9 @@
 #include <hicn/transport/utils/branch_prediction.h>
 
 extern "C" {
+#ifndef _WIN32
 TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
+#endif
 #include <hicn/hicn.h>
 }
 
