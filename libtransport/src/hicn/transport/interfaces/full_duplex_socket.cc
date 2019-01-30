@@ -57,9 +57,10 @@ AsyncFullDuplexSocket::AsyncFullDuplexSocket(const Prefix &locator,
   producer_->setSocketOption(GeneralTransportOptions::OUTPUT_BUFFER_SIZE,
                              uint32_t{150000});
 
+  ProducerContentCallback producer_callback =
+	  std::bind(&AsyncFullDuplexSocket::onContentProduced, this, _1, _2, _3);
   producer_->setSocketOption(
-      ProducerCallbacksOptions::CONTENT_PRODUCED,
-      std::bind(&AsyncFullDuplexSocket::onContentProduced, this, _1, _2, _3));
+      ProducerCallbacksOptions::CONTENT_PRODUCED, producer_callback);
 
   producer_->connect();
 
@@ -68,10 +69,10 @@ AsyncFullDuplexSocket::AsyncFullDuplexSocket(const Prefix &locator,
                                  ConsumerSocket & s, const ContentObject &c)
                                  ->bool { return true; });
 
-  ConsumerContentCallback callback =
+  ConsumerContentCallback consumer_callback =
       std::bind(&AsyncFullDuplexSocket::onContentRetrieved, this, _1, _2, _3);
   consumer_->setSocketOption(ConsumerCallbacksOptions::CONTENT_RETRIEVED,
-                             callback);
+	  consumer_callback);
 
   consumer_->setSocketOption(GeneralTransportOptions::MAX_INTEREST_RETX,
                              uint32_t{4});

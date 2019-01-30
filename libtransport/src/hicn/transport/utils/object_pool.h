@@ -47,9 +47,7 @@ class ObjectPool {
 
   ObjectPool() : destructor_(false) {}
 
-  ~ObjectPool() {
-    destructor_ = true;
-  }
+  ~ObjectPool() { destructor_ = true; }
 
   std::pair<bool, Ptr> get() {
     if (object_pool_.empty()) {

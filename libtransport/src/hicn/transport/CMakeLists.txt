@@ -14,11 +14,7 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 configure_file("config.h.in" "config.h" @ONLY)
-install(
-  FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
-  DESTINATION include/hicn/transport
-  COMPONENT lib${LIBTRANSPORT}
-)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h DESTINATION include/hicn/transport COMPONENT libtransport-dev)
 
 add_subdirectory(core)
 add_subdirectory(errors)
@@ -35,18 +31,21 @@ list(APPEND LIBTRANSPORT_INCLUDE_DIRS
   ${CMAKE_CURRENT_BINARY_DIR}/../..
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-if (ANDROID_API)
+if(WIN32)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd5026 /wd4201 /wd4820 /wd5039 /wd4365 /wd4571 /wd4625 /wd4626 /wd4245 /wd4028 /wd4242 /wd4267 /wd4204")
+elseif(ANDROID_API)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -isystem -lm")
+else()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 endif()
-
-build_library(${LIBTRANSPORT}
-  STATIC SHARED
+message("xxx->>${LIBRARIES}")
+build_library(transport
+  STATIC
   SOURCES ${SOURCE_FILES}
   INSTALL_HEADERS ${HEADER_FILES}
   LINK_LIBRARIES ${LIBRARIES}
   DEPENDS ${DEPENDENCIES}
-  COMPONENT lib${LIBTRANSPORT}
+  COMPONENT libtransport
   INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS}
   INSTALL_ROOT_DIR hicn/transport
   DEFINITIONS ${COMPILER_DEFINITIONS}
