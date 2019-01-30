@@ -13,6 +13,9 @@
  * limitations under the License.
  */
 
+#ifdef _WIN32
+#include <hicn/transport/portability/win_portability.h>
+#endif
 #include <hicn/transport/core/socket_connector.h>
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/utils/log.h>
