@@ -18,5 +18,10 @@
 #undef TRANSPORT_EXPECT_TRUE
 #undef TRANSPORT_EXPECT_FALSE
 
+#ifndef _WIN32
 #define TRANSPORT_EXPECT_TRUE(x) __builtin_expect((x), 1)
 #define TRANSPORT_EXPECT_FALSE(x) __builtin_expect((x), 0)
+#else
+#define TRANSPORT_EXPECT_TRUE(x) (x)
+#define TRANSPORT_EXPECT_FALSE(x) (x)
+#endif

@@ -59,6 +59,7 @@ if ((BUILD_MEMIF_CONNECTOR OR BUILD_VPP_PLUGIN) AND "${CMAKE_SYSTEM_NAME}" STREQ
   )
 endif ()
 
+include(WindowsMacros)
 include(IosMacros)
 find_package_wrapper(Libparc REQUIRED)
 find_package_wrapper(Asio REQUIRED)
@@ -102,6 +103,7 @@ list(APPEND LIBRARIES
   ${VPP_LIBRARIES}
   ${ANDROID_LIBRARIES}
   ${OPENSSL_LIBRARIES}
+  ${WINDOWS_LIBRARIES}
 )
 
 # Include dirs -- Order does matter!
@@ -111,6 +113,7 @@ list(APPEND LIBTRANSPORT_INCLUDE_DIRS
   ${LIBPARC_INCLUDE_DIRS}
   ${CMAKE_THREADS_INCLUDE_DIRS}
   ${ASIO_INCLUDE_DIRS}
+  ${WINDOWS_INCLUDE_DIRS}
 )
 
 add_subdirectory(${TRANSPORT_ROOT_PATH})

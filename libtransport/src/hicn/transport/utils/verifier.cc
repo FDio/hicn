@@ -21,7 +21,9 @@
 #include <hicn/transport/utils/verifier.h>
 
 extern "C" {
+#ifndef _WIN32
 TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
+#endif
 #include <hicn/hicn.h>
 #include <parc/security/parc_CertificateFactory.h>
 #include <parc/security/parc_InMemoryVerifier.h>
