@@ -24,7 +24,9 @@
 #include <unordered_map>
 
 extern "C" {
+#ifndef _WIN32
 TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
+#endif
 #include <hicn/hicn.h>
 };
 
