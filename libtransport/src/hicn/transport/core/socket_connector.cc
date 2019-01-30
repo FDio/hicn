@@ -13,6 +13,9 @@
  * limitations under the License.
  */
 
+#ifdef _WIN32
+#include <hicn/transport/portability/win_portability.h>
+#endif
 #include <hicn/transport/core/socket_connector.h>
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/utils/log.h>
@@ -130,7 +133,8 @@ void SocketConnector::doWrite() {
           if (!output_buffer_.empty()) {
             doWrite();
           }
-        } else if (ec.value() == static_cast<int>(std::errc::operation_canceled)) {
+        } else if (ec.value() ==
+                   static_cast<int>(std::errc::operation_canceled)) {
           // The connection has been closed by the application.
           return;
         } else {
@@ -149,7 +153,8 @@ void SocketConnector::doReadBody(std::size_t body_length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           receive_callback_(std::move(read_msg_));
           doReadHeader();
-        } else if (ec.value() == static_cast<int>(std::errc::operation_canceled)) {
+        } else if (ec.value() ==
+                   static_cast<int>(std::errc::operation_canceled)) {
           // The connection has been closed by the application.
           return;
         } else {
@@ -176,7 +181,8 @@ void SocketConnector::doReadHeader() {
           } else {
             TRANSPORT_LOGE("Decoding error. Ignoring packet.");
           }
-        } else if (ec.value() == static_cast<int>(std::errc::operation_canceled)) {
+        } else if (ec.value() ==
+                   static_cast<int>(std::errc::operation_canceled)) {
           // The connection has been closed by the application.
           return;
         } else {

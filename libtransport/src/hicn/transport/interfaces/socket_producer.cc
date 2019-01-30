@@ -54,7 +54,6 @@ ProducerSocket::ProducerSocket(asio::io_service &io_service)
 }
 
 ProducerSocket::~ProducerSocket() {
-
   processing_thread_stop_ = true;
   portal_->stopEventsLoop(true);
 
@@ -78,9 +77,7 @@ void ProducerSocket::serveForever() {
   }
 }
 
-void ProducerSocket::stop() {
-  portal_->stopEventsLoop();
-}
+void ProducerSocket::stop() { portal_->stopEventsLoop(); }
 
 void ProducerSocket::registerPrefix(const Prefix &producer_namespace) {
   served_namespaces_.push_back(producer_namespace);
