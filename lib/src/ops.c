@@ -18,7 +18,9 @@
  * @brief Initializers for protocol-independent packet operations
  */
 
+#ifndef _WIN32
 #include <netinet/in.h>
+#endif
 #include <stdlib.h>
 #include "ops.h"
 

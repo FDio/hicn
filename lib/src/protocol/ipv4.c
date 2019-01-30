@@ -20,8 +20,10 @@
  * NOTE: IPv4 options (affecting the header size) are currently not supported.
  */
 
+#ifndef _WIN32
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 

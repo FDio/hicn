@@ -18,7 +18,9 @@
  * @brief Implementation of hICN name helpers.
  */
 
+#ifndef _WIN32
 #include <arpa/inet.h>		// inet_ptin
+#endif
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>		// strtoul
@@ -614,13 +616,13 @@ hicn_ip_pton (const char *ip_address_str, ip_address_t * ip_address)
       if (dst_len > IPV6_ADDR_LEN_BITS)
 	goto ERR;
       pton_fd = inet_pton (AF_INET6, addr, &ip_address->buffer);
-      ip_address->prefix_len = dst_len ? : IPV6_ADDR_LEN_BITS;
+      ip_address->prefix_len = dst_len ? dst_len : IPV6_ADDR_LEN_BITS;
       break;
     case AF_INET:
       if (dst_len > IPV4_ADDR_LEN_BITS)
 	goto ERR;
       pton_fd = inet_pton (AF_INET, addr, &ip_address->buffer);
-      ip_address->prefix_len = dst_len ? : IPV4_ADDR_LEN_BITS;
+      ip_address->prefix_len = dst_len ? dst_len : IPV4_ADDR_LEN_BITS;
       break;
     default:
       goto ERR;

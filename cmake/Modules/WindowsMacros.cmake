@@ -12,9 +12,9 @@
 # limitations under the License.
 
 if(WIN32)
-  find_package_wrapper(LibEvent REQUIRED)
-  find_package_wrapper(OpenSSL REQUIRED)
-  find_package_wrapper(PThread REQUIRED)
+  find_package(LibEvent REQUIRED)
+  find_package(OpenSSL REQUIRED)
+  find_package(PThread REQUIRED)
   find_library(WSOCK32_LIBRARY wsock32 required)
   find_library(WS2_32_LIBRARY ws2_32 required)
   list(APPEND WINDOWS_LIBRARIES
