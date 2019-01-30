@@ -16,6 +16,8 @@
 #include <hicn/transport/protocols/rate_estimation.h>
 #include <hicn/transport/utils/log.h>
 
+#include <thread>
+
 namespace transport {
 
 namespace protocol {
@@ -31,7 +33,8 @@ void *Timer(void *data) {
   pthread_mutex_unlock(&(estimator->mutex_));
 
   while (estimator->is_running_) {
-    usleep(KV * dat_rtt);
+    std::this_thread::sleep_for(
+        std::chrono::microseconds((uint64_t)(KV * dat_rtt)));
 
     pthread_mutex_lock(&(estimator->mutex_));
 
@@ -88,8 +91,8 @@ InterRttEstimator::InterRttEstimator(double alpha_arg) {
   this->win_current_ = 1.0;
 
   pthread_mutex_init(&(this->mutex_), NULL);
-  gettimeofday(&(this->start_time_), 0);
-  gettimeofday(&(this->begin_batch_), 0);
+  this->start_time_ = std::chrono::steady_clock::now();
+  this->begin_batch_ = std::chrono::steady_clock::now();
 }
 
 InterRttEstimator::~InterRttEstimator() {
@@ -124,10 +127,10 @@ void InterRttEstimator::onRttUpdate(double rtt) {
 }
 
 void InterRttEstimator::onWindowIncrease(double win_current) {
-  timeval end;
-  gettimeofday(&end, 0);
-  double delay = RaaqmDataPath::getMicroSeconds(end) -
-                 RaaqmDataPath::getMicroSeconds(this->begin_batch_);
+  TimePoint end = std::chrono::steady_clock::now();
+  auto delay =
+      std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
+          .count();
 
   pthread_mutex_lock(&(this->mutex_));
   this->avg_win_ += this->win_current_ * delay;
@@ -135,14 +138,14 @@ void InterRttEstimator::onWindowIncrease(double win_current) {
   this->win_change_ += delay;
   pthread_mutex_unlock(&(this->mutex_));
 
-  gettimeofday(&(this->begin_batch_), 0);
+  this->begin_batch_ = std::chrono::steady_clock::now();
 }
 
 void InterRttEstimator::onWindowDecrease(double win_current) {
-  timeval end;
-  gettimeofday(&end, 0);
-  double delay = RaaqmDataPath::getMicroSeconds(end) -
-                 RaaqmDataPath::getMicroSeconds(this->begin_batch_);
+  TimePoint end = std::chrono::steady_clock::now();
+  auto delay =
+      std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
+          .count();
 
   pthread_mutex_lock(&(this->mutex_));
   this->avg_win_ += this->win_current_ * delay;
@@ -150,26 +153,25 @@ void InterRttEstimator::onWindowDecrease(double win_current) {
   this->win_change_ += delay;
   pthread_mutex_unlock(&(this->mutex_));
 
-  gettimeofday(&(this->begin_batch_), 0);
+  this->begin_batch_ = std::chrono::steady_clock::now();
 }
 
 ALaTcpEstimator::ALaTcpEstimator() {
   this->estimation_ = 0.0;
   this->observer_ = NULL;
-  gettimeofday(&(this->start_time_), 0);
+  this->start_time_ = std::chrono::steady_clock::now();
   this->totalSize_ = 0.0;
 }
 
 void ALaTcpEstimator::onStart() {
   this->totalSize_ = 0.0;
-  gettimeofday(&(this->start_time_), 0);
+  this->start_time_ = std::chrono::steady_clock::now();
 }
 
 void ALaTcpEstimator::onDownloadFinished() {
-  timeval end;
-  gettimeofday(&end, 0);
-  double delay = RaaqmDataPath::getMicroSeconds(end) -
-                 RaaqmDataPath::getMicroSeconds(this->start_time_);
+  TimePoint end = std::chrono::steady_clock::now();
+  auto delay =
+      std::chrono::duration_cast<Microseconds>(end - this->start_time_).count();
   this->estimation_ = this->totalSize_ * 8 * 1000000 / delay;
   if (observer_) {
     observer_->notifyStats(this->estimation_);
@@ -189,23 +191,22 @@ SimpleEstimator::SimpleEstimator(double alphaArg, int batching_param) {
   this->number_of_packets_ = 0;
   this->base_alpha_ = alphaArg;
   this->alpha_ = alphaArg;
-  gettimeofday(&(this->start_time_), 0);
-  gettimeofday(&(this->begin_batch_), 0);
+  this->start_time_ = std::chrono::steady_clock::now();
+  this->begin_batch_ = std::chrono::steady_clock::now();
 }
 
 void SimpleEstimator::onStart() {
   this->estimated_ = false;
   this->number_of_packets_ = 0;
   this->total_size_ = 0.0;
-  gettimeofday(&(this->begin_batch_), 0);
-  gettimeofday(&(this->start_time_), 0);
+  this->start_time_ = std::chrono::steady_clock::now();
+  this->begin_batch_ = std::chrono::steady_clock::now();
 }
 
 void SimpleEstimator::onDownloadFinished() {
-  timeval end;
-  gettimeofday(&end, 0);
-  double delay = RaaqmDataPath::getMicroSeconds(end) -
-                 RaaqmDataPath::getMicroSeconds(this->start_time_);
+  TimePoint end = std::chrono::steady_clock::now();
+  auto delay =
+      std::chrono::duration_cast<Microseconds>(end - this->start_time_).count();
   if (observer_) {
     observer_->notifyDownloadTime(delay);
   }
@@ -227,8 +228,8 @@ void SimpleEstimator::onDownloadFinished() {
   } else {
     if (this->number_of_packets_ >=
         (int)(75.0 * (double)this->batching_param_ / 100.0)) {
-      delay = RaaqmDataPath::getMicroSeconds(end) -
-              RaaqmDataPath::getMicroSeconds(this->begin_batch_);
+      delay = std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
+                  .count();
       // Assuming all packets carry max_packet_size_ bytes of data
       // (8*max_packet_size_ bits); 1000000 factor to convert us to seconds
       if (this->estimation_) {
@@ -247,8 +248,8 @@ void SimpleEstimator::onDownloadFinished() {
   }
   this->number_of_packets_ = 0;
   this->total_size_ = 0.0;
-  gettimeofday(&(this->begin_batch_), 0);
-  gettimeofday(&(this->start_time_), 0);
+  this->start_time_ = std::chrono::steady_clock::now();
+  this->begin_batch_ = std::chrono::steady_clock::now();
 }
 
 void SimpleEstimator::onDataReceived(int packet_size) {
@@ -259,10 +260,10 @@ void SimpleEstimator::onRttUpdate(double rtt) {
   this->number_of_packets_++;
 
   if (number_of_packets_ == this->batching_param_) {
-    timeval end;
-    gettimeofday(&end, 0);
-    double delay = RaaqmDataPath::getMicroSeconds(end) -
-                   RaaqmDataPath::getMicroSeconds(this->begin_batch_);
+    TimePoint end = std::chrono::steady_clock::now();
+    auto delay =
+        std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
+            .count();
     // Assuming all packets carry max_packet_size_ bytes of data
     // (8*max_packet_size_ bits); 1000000 factor to convert us to seconds
     if (this->estimation_) {
@@ -278,7 +279,7 @@ void SimpleEstimator::onRttUpdate(double rtt) {
     this->alpha_ = this->base_alpha_;
     this->number_of_packets_ = 0;
     this->total_size_ = 0.0;
-    gettimeofday(&(this->begin_batch_), 0);
+    this->begin_batch_ = std::chrono::steady_clock::now();
   }
 }
 
@@ -295,8 +296,8 @@ BatchingPacketsEstimator::BatchingPacketsEstimator(double alpha_arg,
   this->max_packet_size_ = 0;
   this->estimation_ = 0.0;
   this->win_current_ = 1.0;
-  gettimeofday(&(this->begin_batch_), 0);
-  gettimeofday(&(this->start_time_), 0);
+  this->begin_batch_ = std::chrono::steady_clock::now();
+  this->start_time_ = std::chrono::steady_clock::now();
 }
 
 void BatchingPacketsEstimator::onRttUpdate(double rtt) {
@@ -327,25 +328,25 @@ void BatchingPacketsEstimator::onRttUpdate(double rtt) {
 }
 
 void BatchingPacketsEstimator::onWindowIncrease(double win_current) {
-  timeval end;
-  gettimeofday(&end, 0);
-  double delay = RaaqmDataPath::getMicroSeconds(end) -
-                 RaaqmDataPath::getMicroSeconds(this->begin_batch_);
+  TimePoint end = std::chrono::steady_clock::now();
+  auto delay =
+      std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
+          .count();
   this->avg_win_ += this->win_current_ * delay;
   this->win_current_ = win_current;
   this->win_change_ += delay;
-  gettimeofday(&(this->begin_batch_), 0);
+  this->begin_batch_ = std::chrono::steady_clock::now();
 }
 
 void BatchingPacketsEstimator::onWindowDecrease(double win_current) {
-  timeval end;
-  gettimeofday(&end, 0);
-  double delay = RaaqmDataPath::getMicroSeconds(end) -
-                 RaaqmDataPath::getMicroSeconds(this->begin_batch_);
+  TimePoint end = std::chrono::steady_clock::now();
+  auto delay =
+      std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
+          .count();
   this->avg_win_ += this->win_current_ * delay;
   this->win_current_ = win_current;
   this->win_change_ += delay;
-  gettimeofday(&(this->begin_batch_), 0);
+  this->begin_batch_ = std::chrono::steady_clock::now();
 }
 
 }  // end namespace protocol

@@ -35,8 +35,9 @@
 #include <type_traits>
 #include <vector>
 
-// Ignore shadowing warnings within this file, so includers can use -Wshadow.
+#ifndef _WIN32
 TRANSPORT_GNU_DISABLE_WARNING("-Wshadow")
+#endif
 
 namespace utils {
 
