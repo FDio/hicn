@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "50d8efe2_ec2de30d",
+        "filename": "lib/src/CMakeLists.txt",
+        "patchSetId": 5
+      },
+      "lineNbr": 56,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2019-01-30T16:47:38Z",
+      "side": 1,
+      "message": "Whitespace",
+      "revId": "0df8b57ea21b627507d0d91587d9a22559e7a017",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    }
+  ]
+}
