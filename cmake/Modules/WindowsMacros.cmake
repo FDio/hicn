@@ -11,26 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
-list(APPEND HEADER_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/c_portability.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/portability.h
-)
-
-list(APPEND SOURCE_FILES
-  ""
-)
-
 if(WIN32)
-  list(APPEND HEADER_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/win_portability.h
+  find_package_wrapper(LibEvent REQUIRED)
+  find_package_wrapper(OpenSSL REQUIRED)
+  find_package_wrapper(PThread REQUIRED)
+  list(APPEND WINDOWS_LIBRARIES
+    ${LIBEVENT_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    ${PTHREAD_LIBRARIES}
   )
 
-  list(APPEND SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/win_portability.cc
+  list(APPEND WINDOWS_INCLUDE_DIRS
+    ${LIBEVENT_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIR}
+    ${PTHREAD_INCLUDE_DIRS}
   )
 endif()
-
-set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
-set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)
