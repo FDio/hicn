@@ -127,9 +127,7 @@ class Portal {
     forwarder_interface_.connect(is_consumer);
   }
 
-  ~Portal() {
-    stopEventsLoop(true);
-  }
+  ~Portal() { stopEventsLoop(true); }
 
   TRANSPORT_ALWAYS_INLINE bool interestIsPending(const Name &name) {
     auto it = pending_interest_hash_table_.find(name);
@@ -153,10 +151,10 @@ class Portal {
                   std::placeholders::_1, name));
   }
 
-  TRANSPORT_ALWAYS_INLINE void sendInterest(Interest::Ptr &&interest,
-        const OnContentObjectCallback &&on_content_object_callback,
-        const OnInterestTimeoutCallback &&on_interest_timeout_callback) {
-
+  TRANSPORT_ALWAYS_INLINE void sendInterest(
+      Interest::Ptr &&interest,
+      const OnContentObjectCallback &&on_content_object_callback,
+      const OnInterestTimeoutCallback &&on_interest_timeout_callback) {
     const Name name(interest->getName(), true);
 
     // Send it
@@ -168,9 +166,8 @@ class Portal {
         std::make_unique<asio::steady_timer>(io_service_));
 
     pending_interest_hash_table_[name]->startCountdown(
-        std::bind(&Portal<ForwarderInt>::timerHandler,
-        this, std::placeholders::_1, name));
-
+        std::bind(&Portal<ForwarderInt>::timerHandler, this,
+                  std::placeholders::_1, name));
   }
 
   TRANSPORT_ALWAYS_INLINE void timerHandler(const std::error_code &ec,
@@ -187,9 +184,9 @@ class Portal {
         std::unique_ptr<PendingInterest> ptr = std::move(it->second);
         pending_interest_hash_table_.erase(it);
 
-        if(ptr->getOnTimeoutCallback() != UNSET_CALLBACK){
-            ptr->on_interest_timeout_callback_(std::move(ptr->getInterest()));
-        }else if (consumer_callback_) {
+        if (ptr->getOnTimeoutCallback() != UNSET_CALLBACK) {
+          ptr->on_interest_timeout_callback_(std::move(ptr->getInterest()));
+        } else if (consumer_callback_) {
           consumer_callback_->onTimeout(std::move(ptr->getInterest()));
         }
       }
@@ -231,7 +228,7 @@ class Portal {
 
     clear();
 
-    if(kill_connection) {
+    if (kill_connection) {
       connector_.close();
     }
 
@@ -310,11 +307,11 @@ class Portal {
         interest_ptr->setReceived();
         pending_interest_hash_table_.erase(content_object->getName());
 
-        if(interest_ptr->getOnDataCallback() != UNSET_CALLBACK){
-            interest_ptr->on_content_object_callback_(
-                std::move(interest_ptr->getInterest()),
-                std::move(content_object));
-        }else if (consumer_callback_) {
+        if (interest_ptr->getOnDataCallback() != UNSET_CALLBACK) {
+          interest_ptr->on_content_object_callback_(
+              std::move(interest_ptr->getInterest()),
+              std::move(content_object));
+        } else if (consumer_callback_) {
           consumer_callback_->onContentObject(
               std::move(interest_ptr->getInterest()),
               std::move(content_object));
