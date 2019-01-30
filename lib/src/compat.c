@@ -17,8 +17,9 @@
  * @file compat.c
  * @brief Implementation of the compatibility layer.
  */
-
+#ifndef _WIN32
 #include <netinet/in.h>
+#endif
 #include <string.h>		// memset
 #include <stddef.h>		// offsetof
 
