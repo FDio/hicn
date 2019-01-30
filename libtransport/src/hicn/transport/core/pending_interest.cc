@@ -34,10 +34,10 @@ PendingInterest::PendingInterest(Interest::Ptr &&interest,
       on_interest_timeout_callback_(),
       received_(false) {}
 
-PendingInterest::PendingInterest(Interest::Ptr &&interest,
-                                 const OnContentObjectCallback &&on_content_object,
-                                 const OnInterestTimeoutCallback &&on_interest_timeout,
-                                 std::unique_ptr<asio::steady_timer> &&timer)
+PendingInterest::PendingInterest(
+    Interest::Ptr &&interest, const OnContentObjectCallback &&on_content_object,
+    const OnInterestTimeoutCallback &&on_interest_timeout,
+    std::unique_ptr<asio::steady_timer> &&timer)
     : interest_(std::move(interest)),
       timer_(std::move(timer)),
       on_content_object_callback_(std::move(on_content_object)),
@@ -60,7 +60,8 @@ const OnContentObjectCallback &PendingInterest::getOnDataCallback() const {
   return on_content_object_callback_;
 }
 
-void PendingInterest::setOnDataCallback(const OnContentObjectCallback &on_content_object) {
+void PendingInterest::setOnDataCallback(
+    const OnContentObjectCallback &on_content_object) {
   PendingInterest::on_content_object_callback_ = on_content_object;
 }
 
@@ -68,7 +69,8 @@ const OnInterestTimeoutCallback &PendingInterest::getOnTimeoutCallback() const {
   return on_interest_timeout_callback_;
 }
 
-void PendingInterest::setOnTimeoutCallback(const OnInterestTimeoutCallback &on_interest_timeout) {
+void PendingInterest::setOnTimeoutCallback(
+    const OnInterestTimeoutCallback &on_interest_timeout) {
   PendingInterest::on_interest_timeout_callback_ = on_interest_timeout;
 }
 

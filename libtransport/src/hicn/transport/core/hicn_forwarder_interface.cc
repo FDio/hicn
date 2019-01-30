@@ -15,7 +15,6 @@
 
 #include <hicn/transport/core/hicn_forwarder_interface.h>
 
-
 #define ADDR_INET 1
 #define ADDR_INET6 2
 #define ADD_ROUTE 3

@@ -17,7 +17,7 @@
 
 #include <hicn/transport/utils/min_filter.h>
 
-#include <sys/time.h>
+#include <chrono>
 #include <climits>
 #include <iostream>
 
@@ -30,6 +30,9 @@ namespace transport {
 namespace protocol {
 
 class RaaqmDataPath {
+  using TimePoint = std::chrono::steady_clock::time_point;
+  using Microseconds = std::chrono::microseconds;
+
  public:
   RaaqmDataPath(double drop_factor, double minimum_drop_probability,
                 unsigned new_timer, unsigned int samples,
@@ -219,7 +222,7 @@ class RaaqmDataPath {
   /**
    * Time of the last call to the path reporter method
    */
-  struct timeval m_last_received_pkt_;
+  TimePoint last_received_pkt_;
 
   double average_rtt_;
   double alpha_;
