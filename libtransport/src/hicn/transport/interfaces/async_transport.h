@@ -20,7 +20,10 @@
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/sharable_vector.h>
 
+#ifndef _WIN32
 #include <sys/uio.h>
+#endif
+
 #include <memory>
 
 namespace transport {

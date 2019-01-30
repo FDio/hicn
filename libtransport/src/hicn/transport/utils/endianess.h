@@ -17,7 +17,12 @@
 
 #include <hicn/transport/portability/portability.h>
 
-#include <arpa/inet.h>
+#ifndef _WIN32
+#include <arp/inet.h>
+#else
+#include <hicn/transport/portability/win_portability.h>
+#endif
+
 #include <cstring>
 
 namespace utils {
