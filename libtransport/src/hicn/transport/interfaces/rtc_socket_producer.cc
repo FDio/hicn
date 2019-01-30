@@ -72,7 +72,6 @@ RTCProducerSocket::RTCProducerSocket()
   prodLabel_ = ((rand() % 255) << 24UL);
 }
 
-
 RTCProducerSocket::~RTCProducerSocket() {}
 
 void RTCProducerSocket::registerName(Prefix &producer_namespace) {

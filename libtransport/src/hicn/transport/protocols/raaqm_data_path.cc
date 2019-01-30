@@ -43,9 +43,8 @@ RaaqmDataPath::RaaqmDataPath(double drop_factor,
       last_raw_data_bytes_received_(0),
       rtt_samples_(samples_),
       average_rtt_(0),
-      alpha_(ALPHA) {
-  gettimeofday(&m_last_received_pkt_, 0);
-}
+      alpha_(ALPHA),
+      last_received_pkt_(std::chrono::steady_clock::now()) {}
 
 RaaqmDataPath &RaaqmDataPath::insertNewRtt(uint64_t new_rtt) {
   rtt_ = new_rtt;
@@ -59,7 +58,7 @@ RaaqmDataPath &RaaqmDataPath::insertNewRtt(uint64_t new_rtt) {
     prop_delay_ = rtt_min_;
   }
 
-  gettimeofday(&m_last_received_pkt_, 0);
+  last_received_pkt_ = std::chrono::steady_clock::now();
 
   return *this;
 }
@@ -144,9 +143,9 @@ bool RaaqmDataPath::newPropagationDelayAvailable() {
 unsigned int RaaqmDataPath::getPropagationDelay() { return prop_delay_; }
 
 bool RaaqmDataPath::isStale() {
-  struct timeval now;
-  gettimeofday(&now, 0);
-  double time = getMicroSeconds(now) - getMicroSeconds(m_last_received_pkt_);
+  TimePoint now = std::chrono::steady_clock::now();
+  auto time = std::chrono::duration_cast<Microseconds>(now - last_received_pkt_)
+                  .count();
   if (time > 2000000) {
     return true;
   }
