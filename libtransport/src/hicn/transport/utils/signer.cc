@@ -22,7 +22,9 @@
 #include <hicn/transport/utils/signer.h>
 
 extern "C" {
+#ifndef _WIN32
 TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
+#endif
 #include <hicn/hicn.h>
 #include <parc/security/parc_PublicKeySigner.h>
 #include <parc/security/parc_Security.h>
