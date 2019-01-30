@@ -22,18 +22,15 @@
 
 /* Headers were adapted from linux' definitions in netinet/ip.h */
 
-typedef struct
-{
-  union
-  {
-    struct
-    {
+typedef struct {
+  union {
+    struct {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-      u8 ihl:4;
-      u8 version:4;
+      u8 ihl : 4;
+      u8 version : 4;
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-      u8 version:4;
-      u8 ihl:4;
+      u8 version : 4;
+      u8 ihl : 4;
 #else
 #error "Unsupported endianness"
 #endif
@@ -52,12 +49,12 @@ typedef struct
   ip4_address_t daddr;
 } _ipv4_header_t;
 
-#define ipv4_header_bytes(ipv4_header) (sizeof(u32) * (ipv4_header->version_ihl & 0xf))
+#define ipv4_header_bytes(ipv4_header) \
+  (sizeof(u32) * (ipv4_header->version_ihl & 0xf))
 
 #define IPV4_HDRLEN sizeof(_ipv4_header_t)
 
-typedef struct
-{
+typedef struct {
   ip4_address_t ip_src;
   ip4_address_t ip_dst;
   u8 zero;
@@ -68,17 +65,16 @@ typedef struct
 #define IPV4_PSHDRLEN sizeof(ipv4_pseudo_header_t)
 
 /* Default field values */
-#define IPV4_DEFAULT_VERSION         4
-#define IPV4_DEFAULT_IHL             5
-#define IPV4_DEFAULT_TOS             0
-#define IPV4_DEFAULT_PAYLOAD_LENGTH  0
-#define IPV4_DEFAULT_ID              300
-#define IPV4_DEFAULT_FRAG_OFF        0x000
-#define IPV4_DEFAULT_TTL             64
-#define IPV4_DEFAULT_PROTOCOL        IPPROTO_TCP
-#define IPV4_DEFAULT_SRC_IP          0, 0, 0, 0
-#define IPV4_DEFAULT_DST_IP          0, 0, 0, 0
-
+#define IPV4_DEFAULT_VERSION 4
+#define IPV4_DEFAULT_IHL 5
+#define IPV4_DEFAULT_TOS 0
+#define IPV4_DEFAULT_PAYLOAD_LENGTH 0
+#define IPV4_DEFAULT_ID 300
+#define IPV4_DEFAULT_FRAG_OFF 0x000
+#define IPV4_DEFAULT_TTL 64
+#define IPV4_DEFAULT_PROTOCOL IPPROTO_TCP
+#define IPV4_DEFAULT_SRC_IP 0, 0, 0, 0
+#define IPV4_DEFAULT_DST_IP 0, 0, 0, 0
 
 #endif /* HICN_PROTOCOL_IPV4 */
 

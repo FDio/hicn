@@ -16,8 +16,7 @@
 #ifndef HICN_PROTOCOL_UDP_H
 #define HICN_PROTOCOL_UDP_H
 
-typedef struct
-{
+typedef struct {
   u16 src_port;
   u16 dst_port;
   u16 length;
