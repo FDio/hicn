@@ -24,67 +24,53 @@
 #include "common.h"
 #include "protocol.h"
 
-
-typedef struct
-{
+typedef struct {
   _ipv6_header_t ip;
-  union
-  {
+  union {
     _tcp_header_t tcp;
     _icmp_header_t icmp;
     _icmp_wldr_header_t wldr;
   };
 } hicn_v6_hdr_t;
 
-typedef struct
-{
+typedef struct {
   _ipv6_header_t ip;
-  union
-  {
-    struct
-    {
+  union {
+    struct {
       _tcp_header_t tcp;
       _ah_header_t ah;
     };
-    struct
-    {
+    struct {
       _icmp_header_t icmp;
       _ah_header_t icmp_ah;
     };
   };
 } hicn_v6ah_hdr_t;
 
-typedef struct
-{
+typedef struct {
   _ipv4_header_t ip;
-  union
-  {
+  union {
     _tcp_header_t tcp;
     _icmp_header_t icmp;
     _icmp_wldr_header_t wldr;
   };
 } hicn_v4_hdr_t;
 
-typedef struct
-{
+typedef struct {
   _ipv4_header_t ip;
-  union
-  {
-    struct
-    {
+  union {
+    struct {
       _tcp_header_t tcp;
       _ah_header_t ah;
     };
-    struct
-    {
+    struct {
       _icmp_header_t icmp;
       _ah_header_t icmp_ah;
     };
   };
 } hicn_v4ah_hdr_t;
 
-typedef union
-{
+typedef union {
   /* To deprecate as redundant with hicn_type_t */
   hicn_v6_hdr_t v6;
   hicn_v6ah_hdr_t v6ah;

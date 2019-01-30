@@ -18,28 +18,24 @@
 
 #include "../common.h"
 
-typedef struct
-{
-  union
-  {
-    struct
-    {
-      u32 version_class_flow;	/* version, traffic class and 20 bits of flow-ID */
-      u16 len;			/* payload length */
-      u8 nxt;			/* next header */
-      u8 hlim;			/* hop limit */
+typedef struct {
+  union {
+    struct {
+      u32 version_class_flow; /* version, traffic class and 20 bits of flow-ID
+                               */
+      u16 len;                /* payload length */
+      u8 nxt;                 /* next header */
+      u8 hlim;                /* hop limit */
     };
-    u8 vfc;			/* 4 bits version, top 4 bits class */
+    u8 vfc; /* 4 bits version, top 4 bits class */
   };
-  ip6_address_t saddr;		/* source address */
-  ip6_address_t daddr;		/* destination address */
+  ip6_address_t saddr; /* source address */
+  ip6_address_t daddr; /* destination address */
 } _ipv6_header_t;
-
 
 #define IPV6_HDRLEN sizeof(_ipv6_header_t)
 
-typedef struct
-{
+typedef struct {
   ip6_address_t ip_src;
   ip6_address_t ip_dst;
   u32 size;
@@ -51,10 +47,10 @@ typedef struct
 #define IPV6_PSHDRLEN sizeof(ipv6_pseudo_header_t)
 
 /* Default field values */
-#define IPV6_DEFAULT_VERSION         6
-#define IPV6_DEFAULT_TRAFFIC_CLASS   0
-#define IPV6_DEFAULT_FLOW_LABEL      0
-#define IPV6_DEFAULT_PAYLOAD_LENGTH  0
+#define IPV6_DEFAULT_VERSION 6
+#define IPV6_DEFAULT_TRAFFIC_CLASS 0
+#define IPV6_DEFAULT_FLOW_LABEL 0
+#define IPV6_DEFAULT_PAYLOAD_LENGTH 0
 
 #endif
 
