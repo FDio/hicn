@@ -15,7 +15,11 @@
 
 #pragma once
 
+#ifndef _WIN32
 #include <unistd.h>
+#else
+#include <hicn/transport/portability/win_portability.h>
+#endif
 
 #include <hicn/transport/protocols/download_observer.h>
 #include <hicn/transport/protocols/raaqm_data_path.h>

@@ -17,9 +17,13 @@
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/utils/string_tokenizer.h>
 
+#ifndef _WIN32
 extern "C" {
 #include <arpa/inet.h>
 }
+#else
+#include <hicn/transport/portability/win_portability.h>
+#endif
 
 #include <cstring>
 #include <memory>

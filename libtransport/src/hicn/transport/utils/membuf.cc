@@ -18,6 +18,9 @@
  * The code in this file if adapated from the IOBuf of folly:
  * https://github.com/facebook/folly/blob/master/folly/io/IOBuf.h
  */
+#ifdef _WIN32
+#include <hicn/transport/portability/win_portability.h>
+#endif
 
 #include <hicn/transport/utils/membuf.h>
 
