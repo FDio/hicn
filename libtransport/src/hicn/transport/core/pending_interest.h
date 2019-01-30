@@ -34,8 +34,9 @@ class RawSocketInterface;
 template <typename ForwarderInt>
 class Portal;
 
-typedef std::function<void(Interest::Ptr&&, ContentObject::Ptr&&)> OnContentObjectCallback;
-typedef std::function<void(Interest::Ptr&&)> OnInterestTimeoutCallback;
+typedef std::function<void(Interest::Ptr &&, ContentObject::Ptr &&)>
+    OnContentObjectCallback;
+typedef std::function<void(Interest::Ptr &&)> OnInterestTimeoutCallback;
 typedef std::function<void(const std::error_code &)> TimerCallback;
 
 class PendingInterest {
@@ -77,7 +78,8 @@ class PendingInterest {
 
   const OnInterestTimeoutCallback &getOnTimeoutCallback() const;
 
-  void setOnTimeoutCallback(const OnInterestTimeoutCallback &on_interest_timeout);
+  void setOnTimeoutCallback(
+      const OnInterestTimeoutCallback &on_interest_timeout);
 
  private:
   Interest::Ptr interest_;
