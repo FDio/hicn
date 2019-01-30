@@ -22,5 +22,15 @@ list(APPEND SOURCE_FILES
   ""
 )
 
+if(WIN32)
+  list(APPEND HEADER_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/win_portability.h
+  )
+
+  list(APPEND SOURCE_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/win_portability.cc
+  )
+endif()
+
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
 set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)

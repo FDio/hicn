@@ -17,7 +17,12 @@
 
 #include <hicn/transport/utils/min_filter.h>
 
+#ifndef _WIN32
 #include <sys/time.h>
+#else
+#include <hicn/transport/portability/win_portability.h>
+#endif
+
 #include <climits>
 #include <iostream>
 
