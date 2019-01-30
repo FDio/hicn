@@ -17,6 +17,10 @@
 
 #pragma once
 
+#ifdef _WIN32
+#include <hicn/transport/portability/win_portability.h>
+#endif
+
 #include <hicn/transport/portability/c_portability.h>
 
 #include <string.h>

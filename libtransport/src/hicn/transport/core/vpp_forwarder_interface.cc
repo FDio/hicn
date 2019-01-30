@@ -45,7 +45,8 @@ VPPForwarderInterface::VPPForwarderInterface(MemifConnector &connector)
 
 VPPForwarderInterface::~VPPForwarderInterface() {
   if (sw_if_index_ != uint32_t(~0) && VPPForwarderInterface::memif_api_) {
-    int ret = memif_binary_api_delete_memif(VPPForwarderInterface::memif_api_, sw_if_index_);
+    int ret = memif_binary_api_delete_memif(VPPForwarderInterface::memif_api_,
+                                            sw_if_index_);
 
     if (ret < 0) {
       TRANSPORT_LOGE("Error deleting memif with sw idx %u.", sw_if_index_);
@@ -82,7 +83,7 @@ uint32_t VPPForwarderInterface::getMemifConfiguration() {
   memif_output_params_t output_params = {0};
 
   ret = memif_binary_api_create_memif(VPPForwarderInterface::memif_api_,
-                                    &input_params, &output_params);
+                                      &input_params, &output_params);
 
   if (ret < 0) {
     throw errors::RuntimeException(
@@ -105,8 +106,8 @@ void VPPForwarderInterface::consumerConnection() {
 
   input.swif = sw_if_index_;
 
-  int ret = hicn_binary_api_register_cons_app(
-                    VPPForwarderInterface::hicn_api_, &input, &output);
+  int ret = hicn_binary_api_register_cons_app(VPPForwarderInterface::hicn_api_,
+                                              &input, &output);
 
   if (ret < 0) {
     throw errors::RuntimeException(hicn_binary_api_get_error_string(ret));
@@ -178,7 +179,7 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
     input.cs_reserved = content_store_reserved_;
 
     int ret = hicn_binary_api_register_prod_app(
-                      VPPForwarderInterface::hicn_api_, &input, &output);
+        VPPForwarderInterface::hicn_api_, &input, &output);
 
     if (ret < 0) {
       throw errors::RuntimeException(hicn_binary_api_get_error_string(ret));
@@ -206,8 +207,8 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
     params.prefix->prefix_len = addr.prefix_len;
     params.face_id = face_id_;
 
-    int ret = hicn_binary_api_register_route(
-                      VPPForwarderInterface::hicn_api_, &params);
+    int ret = hicn_binary_api_register_route(VPPForwarderInterface::hicn_api_,
+                                             &params);
 
     if (ret < 0) {
       throw errors::RuntimeException(hicn_binary_api_get_error_string(ret));

@@ -15,10 +15,10 @@
 
 #pragma once
 
-#include <unistd.h>
-
 #include <hicn/transport/protocols/download_observer.h>
 #include <hicn/transport/protocols/raaqm_data_path.h>
+
+#include <chrono>
 
 #define BATCH 50
 #define KV 20
@@ -31,6 +31,9 @@ namespace protocol {
 
 class IcnRateEstimator {
  public:
+  using TimePoint = std::chrono::steady_clock::time_point;
+  using Microseconds = std::chrono::microseconds;
+
   IcnRateEstimator(){};
 
   virtual ~IcnRateEstimator(){};
@@ -51,8 +54,8 @@ class IcnRateEstimator {
     this->observer_ = observer;
   };
   IcnObserver *observer_;
-  struct timeval start_time_;
-  struct timeval begin_batch_;
+  TimePoint start_time_;
+  TimePoint begin_batch_;
   double base_alpha_;
   double alpha_;
   double estimation_;
