@@ -26,37 +26,30 @@
  */
 #define AH_FLAG 0x10
 
-typedef struct
-{
-  u8 nh;			// (to match with reserved in IPSEC AH)
-  u8 payloadlen;		// Len of signature/HMAC in 4-bytes words
-  union
-  {
+typedef struct {
+  u8 nh;          // (to match with reserved in IPSEC AH)
+  u8 payloadlen;  // Len of signature/HMAC in 4-bytes words
+  union {
     u16 reserved;
-    struct
-    {
-      u8 validationAlgorithm;	// As defined in parc_SignerAlgorithm.h
-      u8 unused;		// Unused (to match with reserved in IPSEC AH)
+    struct {
+      u8 validationAlgorithm;  // As defined in parc_SignerAlgorithm.h
+      u8 unused;               // Unused (to match with reserved in IPSEC AH)
     };
   };
-  union
-  {
-    struct
-    {
+  union {
+    struct {
       u32 spi;
       u32 seq;
     };
-    union
-    {
+    union {
       u8 timestamp_as_u8[8];
       u64 timestamp_as_u64;
-    }; // Unix timestamp indicating when the signature has been calculated
-
+    };  // Unix timestamp indicating when the signature has been calculated
   };
   // ICV would follow
-  u8 keyId[32];			// Hash of the pub key
+  u8 keyId[32];  // Hash of the pub key
   /* 44 B + validationPayload */
-  u8 validationPayload[0];	// Holds the signature
+  u8 validationPayload[0];  // Holds the signature
 } _ah_header_t;
 
 #define AH_HDRLEN sizeof(_ah_header_t)

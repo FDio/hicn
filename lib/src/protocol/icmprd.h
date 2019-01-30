@@ -22,15 +22,13 @@
 
 #include "../common.h"
 
-typedef struct __attribute__ ((__packed__))
-{
+typedef struct __attribute__((__packed__)) {
   ip4_address_t ip;
   _ipv4_header_t iph;
   u8 data[64];
 } _icmprd4_header_t;
 
-typedef struct __attribute__ ((__packed__))
-{
+typedef struct __attribute__((__packed__)) {
   u32 res;
   ip6_address_t tgt;
   ip6_address_t dst;

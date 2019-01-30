@@ -30,9 +30,10 @@ typedef u32 hicn_faceid_t;
 typedef u8 hicn_pathlabel_t;
 typedef u32 hicn_lifetime_t;
 
-#define HICN_MAX_LIFETIME HICN_MAX_LIFETIME_SCALED << HICN_MAX_LIFETIME_MULTIPLIER
+#define HICN_MAX_LIFETIME \
+  HICN_MAX_LIFETIME_SCALED << HICN_MAX_LIFETIME_MULTIPLIER
 #define HICN_MAX_LIFETIME_SCALED 0xFFFF
-#define HICN_MAX_LIFETIME_MULTIPLIER 0xF	/* 4 bits */
+#define HICN_MAX_LIFETIME_MULTIPLIER 0xF /* 4 bits */
 
 /**
  * @brief hICN packet format type
@@ -49,21 +50,19 @@ typedef u32 hicn_lifetime_t;
  * currently used by an hypothetical signed MAP-Me update :
  * [IPPROTO_ICMPRD, IPPROTO_AH, IPPROTO_ICMP, IPPROTO_IPV6]
  */
-typedef union
-{
-    /** protocol layers representation */
-  struct
-  {
+typedef union {
+  /** protocol layers representation */
+  struct {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    u8 l1;     /**< First layer */
-    u8 l2;     /**< Second layer */
-    u8 l3;     /**< Third layer */
-    u8 l4;     /**< Fourth layer */
+    u8 l1; /**< First layer */
+    u8 l2; /**< Second layer */
+    u8 l3; /**< Third layer */
+    u8 l4; /**< Fourth layer */
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-    u8 l4;     /**< Fourth layer */
-    u8 l3;     /**< Third layer */
-    u8 l2;     /**< Second layer */
-    u8 l1;     /**< First layer */
+    u8 l4; /**< Fourth layer */
+    u8 l3; /**< Third layer */
+    u8 l2; /**< Second layer */
+    u8 l1; /**< First layer */
 #elif _WIN32 /* Windows is assumed little-endian */
     u8 l1;
     u8 l2;
@@ -73,36 +72,46 @@ typedef union
 #error "Unsupported endianness"
 #endif
   };
-    /** u32 representation */
+  /** u32 representation */
   u32 as_u32;
 } hicn_type_t;
 
 /* Common protocol layers */
 /* Common protocol layers */
 #ifndef _WIN32
-#define HICN_TYPE(x,y,z,t) (hicn_type_t) {{ .l1 = x, .l2 = y, .l3 = z, .l4 = t }}
+#define HICN_TYPE(x, y, z, t)              \
+  (hicn_type_t) {                          \
+    { .l1 = x, .l2 = y, .l3 = z, .l4 = t } \
+  }
 #else
-inline hicn_type_t
-HICN_TYPE(int x, int y, int z, int t)
-{
-    hicn_type_t type;
-    type.l1 = x;
-    type.l2 = y;
-    type.l3 = z;
-    type.l4 = t;
-    return type;
+inline hicn_type_t HICN_TYPE(int x, int y, int z, int t) {
+  hicn_type_t type;
+  type.l1 = x;
+  type.l2 = y;
+  type.l3 = z;
+  type.l4 = t;
+  return type;
 }
 #endif
 
-#define HICN_TYPE_IPV4_TCP     HICN_TYPE(IPPROTO_IP,   IPPROTO_TCP,    IPPROTO_NONE, IPPROTO_NONE)
-#define HICN_TYPE_IPV4_ICMP    HICN_TYPE(IPPROTO_IP,   IPPROTO_ICMP,   IPPROTO_NONE, IPPROTO_NONE)
-#define HICN_TYPE_IPV6_TCP     HICN_TYPE(IPPROTO_IPV6, IPPROTO_TCP,    IPPROTO_NONE, IPPROTO_NONE)
-#define HICN_TYPE_IPV6_ICMP    HICN_TYPE(IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_NONE, IPPROTO_NONE)
-#define HICN_TYPE_IPV4_TCP_AH  HICN_TYPE(IPPROTO_IP,   IPPROTO_TCP,    IPPROTO_NONE, IPPROTO_NONE)
-#define HICN_TYPE_IPV4_ICMP_AH HICN_TYPE(IPPROTO_IP,   IPPROTO_ICMP,   IPPROTO_NONE, IPPROTO_NONE)
-#define HICN_TYPE_IPV6_TCP_AH  HICN_TYPE(IPPROTO_IPV6, IPPROTO_TCP,    IPPROTO_AH,   IPPROTO_NONE)
-#define HICN_TYPE_IPV6_ICMP_AH HICN_TYPE(IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_AH,   IPPROTO_NONE)
-#define HICN_TYPE_NONE         HICN_TYPE(IPPROTO_NONE, IPPROTO_NONE,   IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_TYPE_IPV4_TCP \
+  HICN_TYPE(IPPROTO_IP, IPPROTO_TCP, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_TYPE_IPV4_ICMP \
+  HICN_TYPE(IPPROTO_IP, IPPROTO_ICMP, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_TYPE_IPV6_TCP \
+  HICN_TYPE(IPPROTO_IPV6, IPPROTO_TCP, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_TYPE_IPV6_ICMP \
+  HICN_TYPE(IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_TYPE_IPV4_TCP_AH \
+  HICN_TYPE(IPPROTO_IP, IPPROTO_TCP, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_TYPE_IPV4_ICMP_AH \
+  HICN_TYPE(IPPROTO_IP, IPPROTO_ICMP, IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_TYPE_IPV6_TCP_AH \
+  HICN_TYPE(IPPROTO_IPV6, IPPROTO_TCP, IPPROTO_AH, IPPROTO_NONE)
+#define HICN_TYPE_IPV6_ICMP_AH \
+  HICN_TYPE(IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_AH, IPPROTO_NONE)
+#define HICN_TYPE_NONE \
+  HICN_TYPE(IPPROTO_NONE, IPPROTO_NONE, IPPROTO_NONE, IPPROTO_NONE)
 
 /**
  * @brief hICN Payload type
@@ -110,8 +119,7 @@ HICN_TYPE(int x, int y, int z, int t)
  * This type distinguishes several types of data packet, which can either carry
  * content data, or Manifest
  */
-typedef enum
-{
+typedef enum {
   HPT_DATA = 0,
   HPT_MANIFEST = 1,
   HPT_UNSPEC = 999
@@ -127,7 +135,7 @@ typedef enum
  * NOTE: this computation is not (yet) part of the hICN specification.
  */
 
-#define HICN_PATH_LABEL_MASK 0xF000	/* 1000 0000 0000 0000 */
+#define HICN_PATH_LABEL_MASK 0xF000 /* 1000 0000 0000 0000 */
 #define HICN_PATH_LABEL_SIZE 8
 
 /**
@@ -138,16 +146,14 @@ typedef enum
  *
  * This function updates the current_label based on the new face_id, and returns
  */
-always_inline void
-update_pathlabel (hicn_pathlabel_t current_label, hicn_faceid_t face_id,
-		  hicn_pathlabel_t * new_label)
-{
-  hicn_pathlabel_t pl_face_id =
-    (hicn_pathlabel_t) ((face_id & HICN_PATH_LABEL_MASK) >>
-			(16 - HICN_PATH_LABEL_SIZE));
+always_inline void update_pathlabel(hicn_pathlabel_t current_label,
+                                    hicn_faceid_t face_id,
+                                    hicn_pathlabel_t* new_label) {
+  hicn_pathlabel_t pl_face_id = (hicn_pathlabel_t)(
+      (face_id & HICN_PATH_LABEL_MASK) >> (16 - HICN_PATH_LABEL_SIZE));
   *new_label =
-    ((current_label << 1) | (current_label >> (HICN_PATH_LABEL_SIZE - 1))) ^
-    pl_face_id;
+      ((current_label << 1) | (current_label >> (HICN_PATH_LABEL_SIZE - 1))) ^
+      pl_face_id;
 }
 
 #endif /* HICN_BASE_H */

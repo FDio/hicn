@@ -21,15 +21,14 @@
 #define HICN_PROTOCOL_H
 
 #include "protocol/ah.h"
-#include "protocol/ipv4.h"
-#include "protocol/ipv6.h"
 #include "protocol/icmp.h"
 #include "protocol/icmprd.h"
+#include "protocol/ipv4.h"
+#include "protocol/ipv6.h"
 #include "protocol/tcp.h"
 #include "protocol/udp.h"
 
-typedef union
-{
+typedef union {
   _ipv4_header_t ipv4;
   _ipv6_header_t ipv6;
   _tcp_header_t tcp;

@@ -31,15 +31,17 @@
  *
  *  [1] Hybrid Information-Centric Networking
  *      L. Muscariello, G. Carofiglio, J. Augé, M. Papalini
- *      IETF draft (intarea) @ https://tools.ietf.org/html/draft-muscariello-intarea-hicn
+ *      IETF draft (intarea) @
+ * https://tools.ietf.org/html/draft-muscariello-intarea-hicn
  *
- *  [2] Leveraging ICN in-network control for loss detection and recovery in wireless mobile networks
- *      G. Carofiglio, L. Muscariello, M. Papalini, N. Rozhnova, X. Zeng
- *      In proc. ICN'2016, Kyoto, JP
+ *  [2] Leveraging ICN in-network control for loss detection and recovery in
+ * wireless mobile networks G. Carofiglio, L. Muscariello, M. Papalini, N.
+ * Rozhnova, X. Zeng In proc. ICN'2016, Kyoto, JP
  *
  *  [3] Anchorless mobility through hICN
  *      J. Augé, G. Carofiglio, L. Muscariello, M. Papalini
- *      IETF draft (DMM) @ https://tools.ietf.org/html/draft-auge-dmm-hicn-mobility
+ *      IETF draft (DMM) @
+ * https://tools.ietf.org/html/draft-auge-dmm-hicn-mobility
  *
  *
  *  [4] MAP-Me : Managing Anchorless Mobility in Content Centric Networking
@@ -53,18 +55,18 @@
 #ifdef HICN_VPP_PLUGIN
 
 #include <hicn/header.h>
+#include <hicn/mapme.h>
 #include <hicn/name.h>
 #include <hicn/ops.h>
-#include <hicn/mapme.h>
 
 #else
 
+#include <hicn/compat.h>
 #include <hicn/error.h>
 #include <hicn/header.h>
+#include <hicn/mapme.h>
 #include <hicn/name.h>
 #include <hicn/ops.h>
-#include <hicn/mapme.h>
-#include <hicn/compat.h>
 
 #endif
 

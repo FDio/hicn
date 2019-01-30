@@ -22,33 +22,27 @@
 
 #include "../common.h"
 
-typedef struct
-{
+typedef struct {
   u8 type;
   u8 code;
   u16 csum;
 } _icmp_header_t;
 
-typedef struct
-{
+typedef struct {
   u8 type;
   u8 code;
   u16 csum;
-  union
-  {
-    struct
-    {
+  union {
+    struct {
       u16 id;
       u16 sequence;
-    } echo;			/* echo datagram */
-    u32 gateway;		/* gateway address */
-    struct
-    {
+    } echo;      /* echo datagram */
+    u32 gateway; /* gateway address */
+    struct {
       u16 _unused;
       u16 mtu;
-    } frag;			/* path mtu discovery */
-    struct
-    {
+    } frag; /* path mtu discovery */
+    struct {
       u16 expected_lbl;
       u16 received_lbl;
     } wldr_notification_lbl;
