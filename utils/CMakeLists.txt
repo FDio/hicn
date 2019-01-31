@@ -23,6 +23,7 @@ set(CMAKE_MODULE_PATH
 )
 
 include(BuildMacros)
+include(WindowsMacros)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
@@ -51,5 +52,6 @@ foreach(util ${UTILS_SRC})
     DEPENDS ${LIBTRANSPORT}
     COMPONENT hicn-utils
     DEFINITIONS ${COMPILER_DEFINITIONS}
+    LINK_LIBRARIES ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
   )
 endforeach()

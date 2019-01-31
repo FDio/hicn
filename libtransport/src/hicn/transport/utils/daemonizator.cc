@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
 #include <hicn/transport/errors/runtime_exception.h>
 #include <hicn/transport/utils/daemonizator.h>
 #include <hicn/transport/utils/log.h>
 
 #include <sys/stat.h>
 #include <unistd.h>
-
 namespace utils {
 
 void Daemonizator::daemonize(bool close_fds) {
@@ -68,6 +68,9 @@ void Daemonizator::daemonize(bool close_fds) {
   close(STDIN_FILENO);
 
   // Really start application
+
 }
 
 }  // namespace utils
+
+#endif
