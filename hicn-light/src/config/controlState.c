@@ -19,7 +19,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
 
 #include <parc/assert/parc_Assert.h>
 #include <string.h>
@@ -66,7 +65,8 @@ int controlState_connectToFwdDeamon() {
   // Filling server information
   servaddr.sin_family = AF_INET;
   servaddr.sin_port = htons(PORT);
-  servaddr.sin_addr.s_addr = INADDR_ANY;
+  inet_pton(AF_INET, "127.0.0.1", &(servaddr.sin_addr.s_addr));
+  // servaddr.sin_addr.s_addr = INADDR_LOOPBACK;
 
   // Establish connection
   if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
@@ -150,10 +150,12 @@ static PARCList *_controlState_ParseStringIntoTokens(
       parcMemory_StringDuplicate(originalString, strlen(originalString) + 1);
   char *string = tofree;
 
-  while ((token = strsep(&string, " \t\n")) != NULL) {
+  token = strtok(string, " \t\n");
+  while (token != NULL) {
     if (strlen(token) > 0) {
       parcList_Add(list, strdup(token));
     }
+    token = strtok(NULL, " \t\n");
   }
 
   parcMemory_Deallocate((void **)&tofree);

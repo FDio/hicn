@@ -26,8 +26,8 @@
 #ifndef configuration_h
 #define configuration_h
 
-#include <src/utils/commands.h>
 #include <src/core/logger.h>
+#include <src/utils/commands.h>
 
 struct configuration;
 typedef struct configuration Configuration;

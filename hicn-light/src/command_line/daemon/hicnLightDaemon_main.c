@@ -13,6 +13,9 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <src/config.h>
@@ -21,9 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include <parc/algol/parc_FileOutputStream.h>
 #include <parc/logging/parc_LogLevel.h>
@@ -35,21 +36,31 @@
 #include <src/core/dispatcher.h>
 #include <src/core/forwarder.h>
 
-static void _displayForwarderLogo(void){
-  const char cli_banner [] =
-  "\033[0;31m   ____ ___      _       \033[0m  __    _               __ _        __   __\n"
-  "\033[0;31m  / __// _ \\    (_)___  \033[0m  / /   (_)____ ___ ____/ /(_)___ _ / /  / /_\n"
-  "\033[0;31m / _/ / // /_  / // _ \\ \033[0m / _ \\ / // __// _ \\___/ // // _ `// _ \\/ __/\n"
-  "\033[0;31m/_/  /____/(_)/_/ \\___/ \033[0m/_//_//_/ \\__//_//_/  /_//_/ \\_, //_//_/\\__/\n"
-  "                                                    /___/            \n";
+static void _displayForwarderLogo(void) {
+  const char cli_banner[] =
+      "\033[0;31m   ____ ___      _       \033[0m  __    _               __ _  "
+      "      __   __\n"
+      "\033[0;31m  / __// _ \\    (_)___  \033[0m  / /   (_)____ ___ ____/ "
+      "/(_)___ _ / /  / /_\n"
+      "\033[0;31m / _/ / // /_  / // _ \\ \033[0m / _ \\ / // __// _ \\___/ // "
+      "// _ `// _ \\/ __/\n"
+      "\033[0;31m/_/  /____/(_)/_/ \\___/ \033[0m/_//_//_/ \\__//_//_/  /_//_/ "
+      "\\_, //_//_/\\__/\n"
+      "                                                    /___/            \n";
   printf("%s", cli_banner);
   printf("\n");
 }
 
 static void _usage(int exitCode) {
+#ifndef _WIN32
+  printf(
+      "Usage: daemon [--port port] [--capacity objectStoreSize] "
+      "[--log facility=level] [--log-file filename] [--config file]\n");
+#else
   printf(
       "Usage: daemon [--port port] [--daemon] [--capacity objectStoreSize] "
       "[--log facility=level] [--log-file filename] [--config file]\n");
+#endif
   printf("\n");
   printf(
       "hicn-light run as a daemon is the program to launch the forwarder, "
@@ -79,7 +90,9 @@ static void _usage(int exitCode) {
   printf("\n");
   printf("Options:\n");
   printf("--port            = tcp port for in-bound connections\n");
+#ifndef _WIN32
   printf("--daemon          = start as daemon process\n");
+#endif
   printf("--objectStoreSize = maximum number of content objects to cache\n");
   printf(
       "--log             = sets a facility to a given log level.  You can have "
@@ -122,9 +135,9 @@ static void _setLogLevel(int logLevelArray[LoggerFacility_END],
   char *tofree = parcMemory_StringDuplicate(string, strlen(string));
   char *p = tofree;
 
-  char *facilityString = strsep(&p, "=");
+  char *facilityString = strtok(p, "=");
   if (facilityString) {
-    char *levelString = p;
+    char *levelString = strtok(NULL,"=");
 
     if (strcasecmp(facilityString, "all") == 0) {
       for (LoggerFacility facility = 0; facility < LoggerFacility_END;
@@ -151,6 +164,7 @@ static void _setLogLevel(int logLevelArray[LoggerFacility_END],
   parcMemory_Deallocate((void **)&tofree);
 }
 
+#ifndef _WIN32
 static void _daemonize(void) {
   if (getppid() == 1) {
     // already a daemon
@@ -195,16 +209,24 @@ static void _daemonize(void) {
 
   // forwarder will capture signals
 }
+#endif
 
 static Logger *_createLogfile(const char *logfile) {
+#ifndef _WIN32
   int logfd = open(logfile, O_WRONLY | O_APPEND | O_CREAT, S_IWUSR | S_IRUSR);
+#else
+  int logfd =
+      _open(logfile, _O_WRONLY | _O_APPEND | _O_CREAT, _S_IWRITE | _S_IREAD);
+#endif
   if (logfd < 0) {
     fprintf(stderr, "Error opening %s for writing: (%d) %s\n", logfile, errno,
             strerror(errno));
     exit(EXIT_FAILURE);
   }
 
+#ifndef _WIN32
   chmod(logfile, S_IRWXU);
+#endif
 
   PARCFileOutputStream *fos = parcFileOutputStream_Create(logfd);
   PARCOutputStream *pos = parcFileOutputStream_AsOutputStream(fos);
@@ -220,10 +242,15 @@ static Logger *_createLogfile(const char *logfile) {
 
 int main(int argc, const char *argv[]) {
   _displayForwarderLogo();
+#ifndef _WIN32
+  bool daemon = false;
+#else
+  WSADATA wsaData = {0};
+  WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
 
   uint16_t port = PORT_NUMBER;
   uint16_t configurationPort = 2001;
-  bool daemon = false;
   int capacity = -1;
   const char *configFileName = NULL;
 
@@ -246,8 +273,10 @@ int main(int argc, const char *argv[]) {
       } else if (strcmp(argv[i], "--port") == 0) {
         port = atoi(argv[i + 1]);
         i++;
+#ifndef _WIN32
       } else if (strcmp(argv[i], "--daemon") == 0) {
         daemon = true;
+#endif
       } else if (strcmp(argv[i], "--capacity") == 0 ||
                  strcmp(argv[i], "-c") == 0) {
         capacity = atoi(argv[i + 1]);
@@ -273,6 +302,7 @@ int main(int argc, const char *argv[]) {
   // set restrictive umask, in case we create any files
   umask(027);
 
+#ifndef _WIN32
   if (daemon && (logfile == NULL)) {
     fprintf(stderr, "Must specify a logfile when running in daemon mode\n");
     _usage(EXIT_FAILURE);
@@ -282,6 +312,7 @@ int main(int argc, const char *argv[]) {
     // inside this call, parent will EXIT_SUCCESS and child will continue
     _daemonize();
   }
+#endif
 
   Logger *logger = NULL;
   if (logfile) {
@@ -329,7 +360,12 @@ int main(int argc, const char *argv[]) {
 
   forwarder_Destroy(&forwarder);
 
+#ifndef _WIN32
   sleep(2);
+#else
+  Sleep(2000);
+  WSACleanup();
+#endif
 
   logger_Release(&logger);
   return 0;
