@@ -1,4 +1,4 @@
-/*
+t/*
  * Copyright (c) 2017-2019 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,8 +106,6 @@ bool mapMe_Init(MapMe **mapme, Forwarder *forwarder) {
    *  - io/hicnListener.c
    *  - src/core/connection.{c,h}
    */
-
-  ERROR((*mapme), "MapMe");
 
   return true;
 
