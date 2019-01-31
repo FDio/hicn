@@ -16,7 +16,10 @@
 #ifndef udpListener_h
 #define udpListener_h
 
+#ifndef _WIN32
 #include <netinet/in.h>
+#endif
+
 #include <src/core/forwarder.h>
 #include <src/io/listener.h>
 #include <stdlib.h>

@@ -25,7 +25,10 @@
 #ifndef tcpListener_h
 #define tcpListener_h
 
+#ifndef _WIN32
 #include <netinet/in.h>
+#endif
+
 #include <src/core/forwarder.h>
 #include <src/io/listener.h>
 #include <stdlib.h>

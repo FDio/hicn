@@ -193,11 +193,11 @@ bool connection_ReSend(const Connection *conn, Message *message,
     // notification
 
     // we need to recompiute the path lable since we always store a pointer to
-    // the same message if this message will be sent again to someonelse, the new
-    // path label must be computed starting from the orignal labelorignal label.
-    // Notice that we heve the same problem in case of PIT aggregation. That case
-    // is handled insied the MessageProcessor. This is specific to WLDR
-    // retransmittions. This is done only for data packets
+    // the same message if this message will be sent again to someonelse, the
+    // new path label must be computed starting from the orignal labelorignal
+    // label. Notice that we heve the same problem in case of PIT aggregation.
+    // That case is handled insied the MessageProcessor. This is specific to
+    // WLDR retransmittions. This is done only for data packets
 
     if (message_GetType(message) == MessagePacketType_ContentObject) {
       uint8_t connectionId = (uint8_t)connection_GetConnectionId(conn);
