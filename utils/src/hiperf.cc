@@ -711,13 +711,10 @@ int main(int argc, char *argv[]) {
     close(fd);
 #else
     int fd = _open(log_file, _O_WRONLY | _O_APPEND | _O_CREAT, _S_IWRITE | _S_IREAD);
-    _dup2(fd, STDOUT_FILENO);
-    _dup2(STDOUT_FILENO, STDERR_FILENO);
+    _dup2(fd, _fileno(stdout));
+    _dup2(_fileno(stdout), _fileno(strerr));
     _close(fd);
 #endif
-    dup2(fd, STDOUT_FILENO);
-    dup2(STDOUT_FILENO, STDERR_FILENO);
-    close(fd);
   }
 
 #ifndef _WIN32
