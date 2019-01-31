@@ -13,12 +13,15 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 #include <errno.h>
 #include <src/config.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include <parc/assert/parc_Assert.h>
 

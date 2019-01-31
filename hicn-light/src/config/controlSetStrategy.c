@@ -19,7 +19,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
 
 #include <parc/assert/parc_Assert.h>
 
@@ -109,7 +108,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
   }
 
   const char *prefixStr = parcList_GetAtIndex(args, 2);
-  char addr[strlen(prefixStr) + 1];
+  char *addr = (char *)malloc(sizeof(char) * (strlen(prefixStr) + 1));
   // separate address and len
   char *slash;
   uint32_t len = UINT32_MAX;
@@ -121,6 +120,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
   }
   if (len == 0) {
     printf("ERROR: a prefix can not be of length 0\n");
+    free(addr);
     return CommandReturn_Failure;
   }
 
@@ -136,6 +136,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
     } else if (len > 32) {
       printf("ERROR: exceeded INET mask length, max=32\n");
       parcMemory_Deallocate(&setStrategyCommand);
+      free(addr);
       return CommandReturn_Failure;
     }
     setStrategyCommand->addressType = ADDR_INET;
@@ -147,6 +148,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
     } else if (len > 128) {
       printf("ERROR: exceeded INET6 mask length, max=128\n");
       parcMemory_Deallocate(&setStrategyCommand);
+      free(addr);
       return CommandReturn_Failure;
     }
     setStrategyCommand->addressType = ADDR_INET6;
@@ -163,8 +165,11 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
     printf("Error: invalid strategy \n");
     parcMemory_Deallocate(&setStrategyCommand);
     _controlSetStrategy_HelpExecute(parser, ops, args);
+    free(addr);
     return CommandReturn_Failure;
   }
+
+  free(addr);
 
   // Fill remaining payload fields
   setStrategyCommand->len = len;

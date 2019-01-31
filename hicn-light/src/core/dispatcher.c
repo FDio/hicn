@@ -22,9 +22,13 @@
  * timers, and network events.
  */
 
+#ifndef _WIN32
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
-#include <pthread.h>
 #include <signal.h>
 #include <src/config.h>
 #include <stdarg.h>
@@ -32,10 +36,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
-
-#include <arpa/inet.h>
-#include <sys/socket.h>
 
 #include <parc/algol/parc_EventQueue.h>
 #include <parc/algol/parc_EventTimer.h>
@@ -43,6 +43,8 @@
 #include <parc/assert/parc_Assert.h>
 
 #include <src/core/dispatcher.h>
+
+#include <pthread.h>
 
 #ifndef INPORT_ANY
 #define INPORT_ANY 0
@@ -298,6 +300,7 @@ static bool dispatcher_StreamBufferBindAndConnect(Dispatcher *dispatcher,
   // we need to bind, then connect.  Special operation, so we make our
   // own fd then pass it off to the buffer event
 
+#ifndef _WIN32
   int fd = socket(localSock->sa_family, SOCK_STREAM, 0);
   if (fd < 0) {
     perror("socket");
@@ -333,6 +336,42 @@ static bool dispatcher_StreamBufferBindAndConnect(Dispatcher *dispatcher,
     close(fd);
     return false;
   }
+#else
+  SOCKET fd = socket(localSock->sa_family, SOCK_STREAM, 0);
+  if (fd == INVALID_SOCKET) {
+    perror("socket");
+    return -1;
+  }
+
+  // Set non-blocking flag
+  u_long mode = 1;
+  int result = ioctlsocket(fd, FIONBIO, &mode);
+  if (result == NO_ERROR) {
+    perror("ioctlsocket error");
+    closesocket(fd);
+    WSACleanup();
+    return -1;
+  }
+
+  int failure = bind(fd, localSock, (int)localSockLength);
+  if (failure) {
+    perror("bind");
+    closesocket(fd);
+    WSACleanup();
+    return false;
+  }
+
+  parcEventQueue_SetFileDescriptor(buffer, (int)fd);
+
+  failure = parcEventQueue_ConnectSocket(buffer, remoteSock, remoteSockLength);
+  if (failure && (errno != EINPROGRESS)) {
+    perror("connect");
+    closesocket(fd);
+    WSACleanup();
+    return false;
+  }
+#endif
+
   return true;
 }
 

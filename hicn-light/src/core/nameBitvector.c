@@ -49,7 +49,7 @@ struct name_bitvector {
   uint8_t IPversion;
 };
 
-NameBitvector *nameBitvector_CreateFromInAddr(uint32_t s_addr, uint8_t len) {
+NameBitvector *nameBitvector_CreateFromInAddr(uint32_t addr, uint8_t len) {
   NameBitvector *bitvector = parcMemory_AllocateAndClear(sizeof(NameBitvector));
   parcAssertNotNull(bitvector, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(NameBitvector));
@@ -57,10 +57,10 @@ NameBitvector *nameBitvector_CreateFromInAddr(uint32_t s_addr, uint8_t len) {
   bitvector->bits[0] = 0;
   bitvector->bits[1] = 0;
 
-  uint8_t addr_1 = (s_addr & 0xff000000) >> 24;
-  uint8_t addr_2 = (s_addr & 0x00ff0000) >> 16;
-  uint8_t addr_3 = (s_addr & 0x0000ff00) >> 8;
-  uint8_t addr_4 = (s_addr & 0x000000ff);
+  uint8_t addr_1 = (addr & 0xff000000) >> 24;
+  uint8_t addr_2 = (addr & 0x00ff0000) >> 16;
+  uint8_t addr_3 = (addr & 0x0000ff00) >> 8;
+  uint8_t addr_4 = (addr & 0x000000ff);
 
   bitvector->bits[1] = (bitvector->bits[1] | addr_4) << 8;
   bitvector->bits[1] = (bitvector->bits[1] | addr_3) << 8;
@@ -269,9 +269,9 @@ uint8_t nameBitvector_firstDiff(const NameBitvector *a,
   // res is computed over the bitvector which is composed by 128 bit all the
   // times however the prefixes may be diffrent just because the have different
   // lengths example: prefix 1: 0::/30 prefix 2: 0::/20 at this point of the
-  // function res would be 0 since both the bitvectors are composed by 0s but the
-  // function will return 127-20, which is the position at which the two prefix
-  // are different, since prefix 2 has only 20 bits
+  // function res would be 0 since both the bitvectors are composed by 0s but
+  // the function will return 127-20, which is the position at which the two
+  // prefix are different, since prefix 2 has only 20 bits
 
   uint8_t len_diff;
   if (a->len < b->len)
