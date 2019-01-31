@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
 #include <hicn/transport/errors/runtime_exception.h>
 #include <hicn/transport/utils/daemonizator.h>
 #include <hicn/transport/utils/log.h>
@@ -71,3 +72,5 @@ void Daemonizator::daemonize(bool close_fds) {
 }
 
 }  // namespace utils
+
+#endif
