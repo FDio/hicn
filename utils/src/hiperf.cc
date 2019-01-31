@@ -15,7 +15,9 @@
 
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_producer.h>
+#ifndef _WIN32
 #include <hicn/transport/utils/daemonizator.h>
+#endif
 #include <hicn/transport/utils/literals.h>
 
 #include <fstream>
@@ -23,6 +25,10 @@
 
 #ifdef __linux__
 #include <mcheck.h>
+#endif
+
+#ifdef _WIN32
+#include <hicn/transport/portability/win_portability.h>
 #endif
 
 namespace transport {
@@ -538,8 +544,14 @@ void usage() {
 }
 
 int main(int argc, char *argv[]) {
+
+#ifndef _WIN32
   // Common
   bool daemon = false;
+#else
+	WSADATA wsaData = { 0 };
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
 
   // -1 server, 0 undefined, 1 client
   int role = 0;
@@ -556,10 +568,13 @@ int main(int argc, char *argv[]) {
   int opt;
   while ((opt = getopt(argc, argv, "DSCf:b:d:W:c:vs:rmlk:y:p:hi:x")) != -1) {
     switch (opt) {
+#ifndef _WIN32
       // Common
+
       case 'D':
         daemon = true;
         break;
+#endif
       case 'f':
         log_file = optarg;
         break;
@@ -685,15 +700,27 @@ int main(int argc, char *argv[]) {
   }
 
   if (log_file) {
-    int fd = open(log_file, O_WRONLY | O_APPEND | O_CREAT, S_IWUSR | S_IRUSR);
+#ifndef _WIN32
+	  int fd = open(log_file, O_WRONLY | O_APPEND | O_CREAT, S_IWUSR | S_IRUSR);
+	  dup2(fd, STDOUT_FILENO);
+	  dup2(STDOUT_FILENO, STDERR_FILENO);
+	  close(fd);
+#else
+	  int fd = _open(log_file, _O_WRONLY | _O_APPEND | _O_CREAT, _S_IWRITE | _S_IREAD);
+	  _dup2(fd, STDOUT_FILENO);
+	  _dup2(STDOUT_FILENO, STDERR_FILENO);
+	  _close(fd);
+#endif
     dup2(fd, STDOUT_FILENO);
     dup2(STDOUT_FILENO, STDERR_FILENO);
     close(fd);
   }
 
+#ifndef _WIN32
   if (daemon) {
     utils::Daemonizator::daemonize(false);
   }
+#endif
 
   if (role > 0) {
     HIperfClient c(client_configuration);
@@ -712,6 +739,10 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Bye bye" << std::endl;
 
+
+#ifdef _WIN32
+  WSACleanup();
+#endif
   return 0;
 }
 

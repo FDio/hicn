@@ -14,7 +14,9 @@
  */
 
 #include <hicn/transport/interfaces/socket_producer.h>
+#ifndef _WIN32
 #include <hicn/transport/utils/daemonizator.h>
+#endif
 #include <hicn/transport/utils/signer.h>
 #include <hicn/transport/utils/string_tokenizer.h>
 
@@ -190,7 +192,9 @@ void help() {
 int main(int argc, char **argv) {
   std::string name_prefix = "b001::0/64";
   std::string delimiter = "/";
+#ifndef _WIN32
   bool daemon = false;
+#endif
   bool verbose = false;
   bool dump = false;
   bool quite = false;
@@ -225,9 +229,11 @@ int main(int argc, char **argv) {
         dump = false;
         quite = true;
         break;
+#ifndef _WIN32
       case 'd':
         daemon = true;
         break;
+#endif
       case 'f':
         flags = true;
         break;
@@ -248,9 +254,11 @@ int main(int argc, char **argv) {
     }
   }
 
+#ifndef _WIN32
   if (daemon) {
-    utils::Daemonizator::daemonize();
+	utils::Daemonizator::daemonize();
   }
+#endif
 
   core::Prefix producer_namespace(name_prefix);
 
