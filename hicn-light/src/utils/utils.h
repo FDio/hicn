@@ -20,6 +20,10 @@
 #include <src/utils/address.h>
 #include <src/utils/commands.h>
 
+#ifdef _WIN32
+#include <src/platforms/windows/win_portability.h>
+#endif
+
 /**
  * Return true if string is purely an integer
  */
