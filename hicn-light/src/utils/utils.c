@@ -1,17 +1,19 @@
 // Utility function for commands
 
-#include <ctype.h>
+#ifndef _WIN32
 #include <netinet/in.h>
-#include <pthread.h>
+#endif
+
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
 
 #include <parc/algol/parc_Memory.h>
 #include <parc/algol/parc_Network.h>
 #include <parc/assert/parc_Assert.h>
+#include <pthread.h>
 #include <src/utils/utils.h>
 
 // This is the unique sequence number used by all messages and its thread locks

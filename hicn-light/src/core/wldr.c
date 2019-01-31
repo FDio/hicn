@@ -108,10 +108,10 @@ static void _wldr_SendWldrNotificaiton(Wldr *wldr, const Connection *conn,
   // is identified by the src. if message is a data, we need to send the
   // notification message with the content name has a source address in this way
   // the message will be trapped by the pounting rules in the next hop We define
-  // the notification as an interest message so that the NAT in the send function
-  // will set the src address of the local connection. Notice that in this way
-  // the notification packet will be dispaced to the right connection at the next
-  // hop.
+  // the notification as an interest message so that the NAT in the send
+  // function will set the src address of the local connection. Notice that in
+  // this way the notification packet will be dispaced to the right connection
+  // at the next hop.
 
   Message *notification =
       message_CreateWldrNotification(message, expected_lbl, received_lbl);

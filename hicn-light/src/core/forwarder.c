@@ -23,6 +23,11 @@
  * the event scheduler
  */
 
+#ifndef _WIN32
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -32,10 +37,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
-
-#include <arpa/inet.h>
-#include <sys/socket.h>
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
@@ -80,7 +81,9 @@ struct forwarder {
 
   PARCEventSignal *signal_int;
   PARCEventSignal *signal_term;
+#ifndef _WIN32
   PARCEventSignal *signal_usr1;
+#endif
   PARCEventTimer *keepalive_event;
 
   // will skew the virtual clock forward.  In normal operaiton, it is 0.
@@ -121,6 +124,7 @@ static void _keepalive_cb(int, PARCEventType, void *);
  * Reseed our pseudo-random number generator.
  */
 static void forwarder_Seed(Forwarder *forwarder) {
+#ifndef _WIN32
   int fd;
   ssize_t res;
 
@@ -139,6 +143,10 @@ static void forwarder_Seed(Forwarder *forwarder) {
    * on other platforms.
    */
   seed48(forwarder->seed);
+#else
+  forwarder->seed[1] = (unsigned short)getpid(); /* better than no entropy */
+  forwarder->seed[2] = (unsigned short)time(NULL);
+#endif
 }
 
 Logger *forwarder_GetLogger(const Forwarder *forwarder) {
@@ -183,22 +191,25 @@ Forwarder *forwarder_Create(Logger *logger) {
   forwarder->signal_int = dispatcher_CreateSignalEvent(
       forwarder->dispatcher, _signal_cb, forwarder, SIGINT);
   dispatcher_StartSignalEvent(forwarder->dispatcher, forwarder->signal_int);
-
+#ifndef _WIN32
   forwarder->signal_usr1 = dispatcher_CreateSignalEvent(
       forwarder->dispatcher, _signal_cb, forwarder, SIGPIPE);
   dispatcher_StartSignalEvent(forwarder->dispatcher, forwarder->signal_usr1);
+#endif
 
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(_WIN32)
   forwarder->hicnSocketHelper = hicn_create();
   if (forwarder->hicnSocketHelper == NULL) return NULL;
 #endif /* __APPLE__ */
-  /* ignore child */
+    /* ignore child */
+#ifndef _WIN32
   signal(SIGCHLD, SIG_IGN);
 
   /* ignore tty signals */
   signal(SIGTSTP, SIG_IGN);
   signal(SIGTTOU, SIG_IGN);
   signal(SIGTTIN, SIG_IGN);
+#endif
 
   // We no longer use this for ticks, but we need to have at least one event
   // schedule to keep Libevent happy.
@@ -226,7 +237,7 @@ void forwarder_Destroy(Forwarder **ptr) {
   parcAssertNotNull(ptr, "Parameter must be non-null double pointer");
   parcAssertNotNull(*ptr, "Parameter must dereference to non-null pointer");
   Forwarder *forwarder = *ptr;
-#if !defined(__APPLE__) && !defined(__ANDROID__)
+#if !defined(__APPLE__) && !defined(__ANDROID__) && !defined(_WIN32)
   hicn_destroy();
 #endif
   parcEventTimer_Destroy(&(forwarder->keepalive_event));
@@ -244,8 +255,10 @@ void forwarder_Destroy(Forwarder **ptr) {
                                 &(forwarder->signal_int));
   dispatcher_DestroySignalEvent(forwarder->dispatcher,
                                 &(forwarder->signal_term));
+#ifndef _WIN32
   dispatcher_DestroySignalEvent(forwarder->dispatcher,
                                 &(forwarder->signal_usr1));
+#endif
 
   parcClock_Release(&forwarder->clock);
   logger_Release(&forwarder->logger);
@@ -463,10 +476,11 @@ static void _signal_cb(int sig, PARCEventType events, void *user_data) {
                  __func__, "Caught an interrupt signal; exiting cleanly.");
       dispatcher_Stop(forwarder->dispatcher);
       break;
-
+#ifndef _WIN32
     case SIGUSR1:
       // dump stats
       break;
+#endif
 
     default:
       break;
