@@ -1,5 +1,9 @@
 /* CPU Cache line size */
 #define LEVEL1_DCACHE_LINESIZE @LEVEL1_DCACHE_LINESIZE@
 
+#ifndef _WIN32
 #define _GNU_SOURCE
+#else
+#include <src/platforms/windows/win_portability.h>
+#endif
 

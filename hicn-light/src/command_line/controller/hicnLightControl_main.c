@@ -15,13 +15,20 @@
 
 #include <src/config.h>
 
+#ifndef _WIN32
+#include <arpa/inet.h>
 #include <getopt.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+#include <unistd.h>
+#else
+#include <src/platforms/windows/win_portability.h>
+#endif
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
-#include <unistd.h>
 
 #include <parc/assert/parc_Assert.h>
 #include <string.h>
@@ -71,22 +78,21 @@ static int payloadLengthController[LAST_COMMAND_VALUE] = {
     sizeof(mapme_timing_command),
     sizeof(mapme_timing_command)};
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/uio.h>
-
 typedef struct controller_main_state {
   ControlState *controlState;
 } ControlMainState;
 
-static void _displayForwarderLogo(void){
-  const char cli_banner [] =
-  "\033[0;31m   ____ ___      _       \033[0m  __    _               __ _        __   __\n"
-  "\033[0;31m  / __// _ \\    (_)___  \033[0m  / /   (_)____ ___ ____/ /(_)___ _ / /  / /_\n"
-  "\033[0;31m / _/ / // /_  / // _ \\ \033[0m / _ \\ / // __// _ \\___/ // // _ `// _ \\/ __/\n"
-  "\033[0;31m/_/  /____/(_)/_/ \\___/ \033[0m/_//_//_/ \\__//_//_/  /_//_/ \\_, //_//_/\\__/\n"
-  "                                                    /___/            \n";
+static void _displayForwarderLogo(void) {
+  const char cli_banner[] =
+      "\033[0;31m   ____ ___      _       \033[0m  __    _               __ _  "
+      "      __   __\n"
+      "\033[0;31m  / __// _ \\    (_)___  \033[0m  / /   (_)____ ___ ____/ "
+      "/(_)___ _ / /  / /_\n"
+      "\033[0;31m / _/ / // /_  / // _ \\ \033[0m / _ \\ / // __// _ \\___/ // "
+      "// _ `// _ \\/ __/\n"
+      "\033[0;31m/_/  /____/(_)/_/ \\___/ \033[0m/_//_//_/ \\__//_//_/  /_//_/ "
+      "\\_, //_//_/\\__/\n"
+      "                                                    /___/            \n";
   printf("%s", cli_banner);
   printf("\n");
 }
@@ -165,15 +171,25 @@ struct iovec *_writeAndReadMessage(ControlState *state, struct iovec *msg) {
       0) {  // command with payload
     // write header + payload (compatibility issue: two write needed instead of
     // the writev)
-    if (write(sockfd, msg[0].iov_base, msg[0].iov_len) < 0 ||
-        write(sockfd, msg[1].iov_base, msg[1].iov_len) < 0) {
+#ifndef _WIN32
+    if (write(sockfd, msg[0].iov_base, (unsigned int)msg[0].iov_len) < 0 ||
+        write(sockfd, msg[1].iov_base, (unsigned int)msg[1].iov_len) < 0) {
+#else
+    if (send(sockfd, msg[0].iov_base, msg[0].iov_len, 0) == SOCKET_ERROR ||
+        send(sockfd, msg[1].iov_base, msg[1].iov_len, 0) == SOCKET_ERROR) {
+#endif
       printf("\nError while sending the Message: cannot write on socket \n");
       exit(EXIT_FAILURE);
     }
     parcMemory_Deallocate(&msg[1].iov_base);
   } else {  // command without payload, e.g. 'list'
-    // write header only
+            // write header only
+#ifndef _WIN32
     if (write(sockfd, msg[0].iov_base, msg[0].iov_len) < 0) {
+#else
+    int result = send(sockfd, msg[0].iov_base, msg[0].iov_len, 0);
+    if (result == SOCKET_ERROR) {
+#endif
       printf("\nError while sending the Message: cannot write on socket \n");
       exit(EXIT_FAILURE);
     }
@@ -193,8 +209,12 @@ struct iovec *_writeAndReadMessage(ControlState *state, struct iovec *msg) {
   if (headerResponse->messageType < RESPONSE_LIGHT ||
       headerResponse->messageType >= LAST_MSG_TYPE_VALUE) {
     char *checkFinMsg = parcMemory_Reallocate(headerResponse, 32);
+#ifndef _WIN32
     if (recv(sockfd, checkFinMsg, sizeof(checkFinMsg),
              MSG_PEEK | MSG_DONTWAIT) == 0) {
+#else
+    if (recv(sockfd, checkFinMsg, sizeof(checkFinMsg), MSG_PEEK) == 0) {
+#endif
       // if recv returns zero, that means the connection has been closed:
       close(sockfd);
       printf("\nConnection terminated by the Daemon. Exiting... \n");
@@ -235,6 +255,11 @@ struct iovec *_writeAndReadMessage(ControlState *state, struct iovec *msg) {
 
 int main(int argc, char *argv[]) {
   _displayForwarderLogo();
+
+#ifdef _WIN32
+  WSADATA wsaData;
+  WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
 
   if (argc == 2 && strcmp("-h", argv[1]) == 0) {
     _displayUsage(argv[0]);
@@ -279,6 +304,8 @@ int main(int argc, char *argv[]) {
   parcList_Release(&commands);
 
   controlState_Destroy(&mainState.controlState);
-
+#ifdef _WIN32
+  WSACleanup();
+#endif
   return EXIT_SUCCESS;
 }

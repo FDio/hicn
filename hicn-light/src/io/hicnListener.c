@@ -55,22 +55,24 @@ struct hicn_listener {
   PARCEvent *hicn_event;
   int hicn_fd;  // this is the file descriptor got from hicn library
 
-  Address *localAddress;  // this is the local address  or 0::0 in case of the
-                          // main listener this is the address used inside
-                          // forwarder to identify the listener. Notice that this
-                          // address is the same as the fisical interfaces on
-                          // which we create the TUN. it is NOT the TUN address
-                          // which is given by libhicn after the bind operation
-                          // However the user alway uses this address since is
-                          // the only one available at configuration time
+  Address
+      *localAddress;  // this is the local address  or 0::0 in case of the
+                      // main listener this is the address used inside
+                      // forwarder to identify the listener. Notice that this
+                      // address is the same as the fisical interfaces on
+                      // which we create the TUN. it is NOT the TUN address
+                      // which is given by libhicn after the bind operation
+                      // However the user alway uses this address since is
+                      // the only one available at configuration time
 
   unsigned inetFamily;
 
   int connection_id;  // this is used only if the listener is used to receive
                       // data packets we assume that 1 connection is associated
-                      // to one listener in this case so we set the connection_id
-                      // we the connection is create. if this id is not set and a
-                      // data packet is received, the packet is dropped
+                      // to one listener in this case so we set the
+                      // connection_id we the connection is create. if this id
+                      // is not set and a data packet is received, the packet is
+                      // dropped
 
   unsigned conn_id;
 };
@@ -216,7 +218,7 @@ ListenerOps *hicnListener_CreateInet6(Forwarder *forwarder, char *symbolic,
   // the call to libhicn is the same both for the main and the normal listeners
   // in both cases we need to set only the identifier. In the case of normal
   // listener (listener for data packet) we let the library select the right ip
-  //address we just need to set the right type of packet
+  // address we just need to set the right type of packet
 
   hicn_socket_helper_t *hicnSocketHelper =
       forwarder_GetHicnSocketHelper(forwarder);

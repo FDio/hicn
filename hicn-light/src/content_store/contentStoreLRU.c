@@ -13,9 +13,13 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
+#include <sys/queue.h>
+#else
+#include <src/platforms/windows/win_portability.h>
+#endif
 #include <src/config.h>
 #include <stdio.h>
-#include <sys/queue.h>
 
 #include <parc/algol/parc_DisplayIndented.h>
 #include <parc/algol/parc_HashCodeTable.h>
