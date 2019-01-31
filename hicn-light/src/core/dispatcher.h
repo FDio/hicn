@@ -28,8 +28,10 @@
 #ifndef dispatcher_h
 #define dispatcher_h
 
-#include <stdbool.h>
+#ifndef _WIN32
 #include <sys/socket.h>
+#endif
+#include <stdbool.h>
 
 struct dispatcher;
 typedef struct dispatcher Dispatcher;

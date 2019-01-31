@@ -21,8 +21,10 @@
 #ifndef forwarder_h
 #define forwarder_h
 
-#include <stdlib.h>
+#ifndef _WIN32
 #include <sys/time.h>
+#endif
+#include <stdlib.h>
 
 #include <src/core/connectionTable.h>
 #include <src/core/dispatcher.h>
@@ -55,7 +57,6 @@
 
 struct forwarder;
 typedef struct forwarder Forwarder;
-
 
 /**
  * @function forwarder_Create

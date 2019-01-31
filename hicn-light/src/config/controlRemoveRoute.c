@@ -20,10 +20,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
-
 #include <parc/assert/parc_Assert.h>
-
 #include <parc/algol/parc_List.h>
 #include <parc/algol/parc_Memory.h>
 #include <parc/algol/parc_Network.h>
@@ -90,7 +87,7 @@ static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
   }
 
   const char *prefixStr = parcList_GetAtIndex(args, 3);
-  char addr[strlen(prefixStr) + 1];
+  char *addr = (char *)malloc(sizeof(char) * (strlen(prefixStr) + 1));
 
   // separate address and len
   char *slash;
@@ -104,6 +101,7 @@ static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
 
   if (len == 0) {
     printf("ERROR: a prefix can not be of length 0\n");
+    free(addr);
     return CommandReturn_Failure;
   }
 
@@ -116,6 +114,7 @@ static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
     if (len > 32) {
       printf("ERROR: exceeded INET mask length, max=32\n");
       parcMemory_Deallocate(&removeRouteCommand);
+      free(addr);
       return CommandReturn_Failure;
     }
     removeRouteCommand->addressType = ADDR_INET;
@@ -124,15 +123,18 @@ static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
     if (len > 128) {
       printf("ERROR: exceeded INET6 mask length, max=128\n");
       parcMemory_Deallocate(&removeRouteCommand);
+      free(addr);
       return CommandReturn_Failure;
     }
     removeRouteCommand->addressType = ADDR_INET6;
   } else {
     printf("Error: %s is not a valid network address \n", addr);
     parcMemory_Deallocate(&removeRouteCommand);
+    free(addr);
     return CommandReturn_Failure;
   }
 
+  free(addr);
   // Fill remaining payload fields
   removeRouteCommand->len = len;
   strcpy(removeRouteCommand->symbolicOrConnid, symbolicOrConnid);

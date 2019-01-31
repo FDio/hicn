@@ -33,9 +33,11 @@
 #ifndef address_h
 #define address_h
 
+#ifndef _WIN32
 #include <netinet/in.h>
-#include <stdbool.h>
 #include <sys/un.h>
+#endif
+#include <stdbool.h>
 
 #include <parc/algol/parc_Buffer.h>
 #include <parc/algol/parc_BufferComposer.h>
