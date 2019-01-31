@@ -120,7 +120,7 @@ hicn_mapme_v4_create_ack (u8 * buf, const mapme_params_t * params)
   mh->ip.daddr = mh->ip.saddr;
   mh->ip.saddr = tmp;
   mh->ip.ttl = HICN_MAPME_TTL;
-  mh->icmp.type = (params->type == UPDATE) ? UPDATE_ACK : NOTIFICATION_ACK;
+  mh->icmp.type = HICN_MAPME_ICMP_TYPE_ACK_IPV4;
   mh->icmp.csum = 0;
 
   return HICN_MAPME_V4_HDRLEN;
@@ -136,7 +136,7 @@ hicn_mapme_v6_create_ack (u8 * buf, const mapme_params_t * params)
   mh->ip.daddr = mh->ip.saddr;
   mh->ip.saddr = tmp;
   mh->ip.hlim = HICN_MAPME_TTL;
-  mh->icmp.type = (params->type == UPDATE) ? UPDATE_ACK : NOTIFICATION_ACK;
+  mh->icmp.type = HICN_MAPME_ICMP_TYPE_ACK_IPV6;
   mh->icmp.csum = 0;
 
   return HICN_MAPME_V6_HDRLEN;
