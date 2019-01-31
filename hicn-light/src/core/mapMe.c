@@ -107,8 +107,6 @@ bool mapMe_Init(MapMe **mapme, Forwarder *forwarder) {
    *  - src/core/connection.{c,h}
    */
 
-  ERROR((*mapme), "MapMe");
-
   return true;
 
 ERR_MALLOC:
