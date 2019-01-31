@@ -20,14 +20,17 @@
  * <#example#>
  * @endcode
  */
+
+#ifndef _WIN32
 #include <arpa/inet.h>
+#include <unistd.h>
+#endif
 #include <ctype.h>
 #include <parc/assert/parc_Assert.h>
 #include <src/config.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <parc/algol/parc_HashMap.h>
 #include <parc/algol/parc_Memory.h>
@@ -364,11 +367,11 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
         logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
                    __func__, "Unsupported tunnel protocol: GRE");
         break;
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(_WIN32)
       case HICN_CONN:
         ops = hicnTunnel_Create(config->forwarder, source, destination);
         break;
-#endif /* __APPLE__ */
+#endif /* __APPLE__  _WIN32*/
       default:
         logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
                    __func__, "Unsupported tunnel protocol: %d",

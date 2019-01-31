@@ -20,7 +20,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
 
 #include <parc/algol/parc_Memory.h>
 
