@@ -76,10 +76,10 @@ class Configuration {
 
 class Client : interface::BasePortal::ConsumerCallback {
  public:
-  Client(Configuration *c) 
+  Client(Configuration *c)
     : portal_(),
-      signals_(portal_.getIoService(), SIGINT, SIGQUIT) {
-    // Let the main thread to catch SIGINT and SIGQUIT
+      signals_(portal_.getIoService(), SIGINT) {
+    // Let the main thread to catch SIGINT
     portal_.connect();
     portal_.setConsumerCallback(this);
 
@@ -341,6 +341,12 @@ void help() {
 }
 
 int main(int argc, char *argv[]) {
+
+#ifdef _WIN32
+  WSADATA wsaData = { 0 };
+  WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
+
   Configuration *c = new Configuration();
   int opt;
   std::string producer_certificate = "";
@@ -419,6 +425,9 @@ int main(int argc, char *argv[]) {
       << std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count()
       << std::endl;
 
+#ifdef _WIN32
+  WSACleanup();
+#endif
   return 0;
 }
 

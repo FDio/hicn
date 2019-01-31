@@ -14,6 +14,9 @@
  */
 
 #pragma once
+
+#ifndef _WIN32
+
 #include <cstdlib>
 namespace utils {
 
@@ -23,3 +26,5 @@ class Daemonizator {
 };
 
 }  // namespace utils
+
+#endif
