@@ -16,8 +16,6 @@ cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/string_tokenizer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/uri.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/daemonizator.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/min_filter.h
   ${CMAKE_CURRENT_SOURCE_DIR}/signer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/verifier.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/identity.cc
@@ -32,7 +30,6 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/string_tokenizer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hash.h
   ${CMAKE_CURRENT_SOURCE_DIR}/uri.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/daemonizator.h
   ${CMAKE_CURRENT_SOURCE_DIR}/sharable_vector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/branch_prediction.h
   ${CMAKE_CURRENT_SOURCE_DIR}/event_reactor.h
@@ -69,6 +66,14 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
 
   list(APPEND SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/epoll_event_reactor.cc
+  )
+elseif(WIN32)
+  list(APPEND HEADER_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/daemonizator.h
+  )
+
+  list(APPEND SOURCE_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/daemonizator.cc
   )
 endif()
 

@@ -41,6 +41,8 @@ list(APPEND UTILS_SRC
   src/ping_server.cc
 )
 
+include(WindowsMacros)
+
 foreach(util ${UTILS_SRC})
   get_filename_component(_util_name ${util} NAME)
   string(REGEX REPLACE ".cc" "" util_name ${_util_name})
@@ -51,5 +53,6 @@ foreach(util ${UTILS_SRC})
     DEPENDS ${LIBTRANSPORT}
     COMPONENT hicn-utils
     DEFINITIONS ${COMPILER_DEFINITIONS}
+	LINK_LIBRARIES ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
   )
 endforeach()

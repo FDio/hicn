@@ -14,7 +14,9 @@
  */
 
 #include <hicn/transport/interfaces/socket_producer.h>
+#ifndef _WIN32
 #include <hicn/transport/utils/daemonizator.h>
+#endif
 #include <hicn/transport/utils/signer.h>
 #include <hicn/transport/utils/string_tokenizer.h>
 
@@ -183,14 +185,18 @@ void help() {
   std::cout << "-D        dump, dumps sent and received packets (default false)"
             << std::endl;
   std::cout << "-q        quite, not prints (default false)" << std::endl;
+#ifndef _WIN32
   std::cout << "-d        daemon mode" << std::endl;
+#endif
   std::cout << "-H        prints this message" << std::endl;
 }
 
 int main(int argc, char **argv) {
   std::string name_prefix = "b001::0/64";
   std::string delimiter = "/";
+#ifndef _WIN32
   bool daemon = false;
+#endif
   bool verbose = false;
   bool dump = false;
   bool quite = false;
@@ -203,7 +209,11 @@ int main(int argc, char **argv) {
   bool sign = false;
 
   int opt;
+#ifndef _WIN32
   while ((opt = getopt(argc, argv, "s:n:t:qfrVDdHk:p:")) != -1) {
+#else
+  while ((opt = getopt(argc, argv, "s:n:t:qfrVDHk:p:")) != -1) {
+#endif
     switch (opt) {
       case 's':
         object_size = std::stoi(optarg);
@@ -225,9 +235,11 @@ int main(int argc, char **argv) {
         dump = false;
         quite = true;
         break;
+#ifndef _WIN32
       case 'd':
         daemon = true;
         break;
+#endif
       case 'f':
         flags = true;
         break;
@@ -248,9 +260,11 @@ int main(int argc, char **argv) {
     }
   }
 
+#ifndef _WIN32
   if (daemon) {
     utils::Daemonizator::daemonize();
   }
+#endif
 
   core::Prefix producer_namespace(name_prefix);
 
