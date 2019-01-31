@@ -25,6 +25,15 @@ elseif( ${CMAKE_SYSTEM_NAME} STREQUAL "Linux" )
   list(APPEND SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/linux/system.c
   )
+elseif( ${CMAKE_SYSTEM_NAME} STREQUAL "Windows" )
+  list(APPEND SOURCE_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/windows/system.c
+	${CMAKE_CURRENT_SOURCE_DIR}/windows/win_portability.c
+  )
+  list(APPEND HEADER_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/windows/win_portability.h
+  )
+
 endif()
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
