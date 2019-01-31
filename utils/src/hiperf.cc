@@ -15,7 +15,9 @@
 
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_producer.h>
+#ifndef _WIN32
 #include <hicn/transport/utils/daemonizator.h>
+#endif
 #include <hicn/transport/utils/literals.h>
 
 #include <fstream>
@@ -23,6 +25,10 @@
 
 #ifdef __linux__
 #include <mcheck.h>
+#endif
+
+#ifdef _WIN32
+#include <hicn/transport/portability/win_portability.h>
 #endif
 
 namespace transport {
@@ -492,8 +498,10 @@ void usage() {
             << std::endl;
   std::cerr << "usage: hiperf [-S|-C] [options] [prefix|name]" << std::endl;
   std::cerr << "Server or Client:" << std::endl;
+#ifndef _WIN32
   std::cerr << "-D\t\t\t\t\t"
             << "Run as a daemon" << std::endl;
+#endif
   std::cerr << std::endl;
   std::cerr << "Server specific:" << std::endl;
   std::cerr << "-s\t<content_size>\t\t\tSize of the content to publish"
@@ -538,8 +546,14 @@ void usage() {
 }
 
 int main(int argc, char *argv[]) {
+
+#ifndef _WIN32
   // Common
   bool daemon = false;
+#else
+  WSADATA wsaData = { 0 };
+  WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
 
   // -1 server, 0 undefined, 1 client
   int role = 0;
@@ -554,12 +568,17 @@ int main(int argc, char *argv[]) {
   ServerConfiguration server_configuration;
 
   int opt;
+#ifndef _WIN32
   while ((opt = getopt(argc, argv, "DSCf:b:d:W:c:vs:rmlk:y:p:hi:x")) != -1) {
     switch (opt) {
       // Common
       case 'D':
         daemon = true;
         break;
+#else
+  while ((opt = getopt(argc, argv, "SCf:b:d:W:c:vs:rmlk:y:p:hi:x")) != -1) {
+    switch (opt) {
+#endif
       case 'f':
         log_file = optarg;
         break;
@@ -685,15 +704,27 @@ int main(int argc, char *argv[]) {
   }
 
   if (log_file) {
+#ifndef _WIN32
     int fd = open(log_file, O_WRONLY | O_APPEND | O_CREAT, S_IWUSR | S_IRUSR);
+    dup2(fd, STDOUT_FILENO);
+    dup2(STDOUT_FILENO, STDERR_FILENO);
+    close(fd);
+#else
+    int fd = _open(log_file, _O_WRONLY | _O_APPEND | _O_CREAT, _S_IWRITE | _S_IREAD);
+    _dup2(fd, STDOUT_FILENO);
+    _dup2(STDOUT_FILENO, STDERR_FILENO);
+    _close(fd);
+#endif
     dup2(fd, STDOUT_FILENO);
     dup2(STDOUT_FILENO, STDERR_FILENO);
     close(fd);
   }
 
+#ifndef _WIN32
   if (daemon) {
     utils::Daemonizator::daemonize(false);
   }
+#endif
 
   if (role > 0) {
     HIperfClient c(client_configuration);
@@ -711,7 +742,10 @@ int main(int argc, char *argv[]) {
   }
 
   std::cout << "Bye bye" << std::endl;
-
+  
+#ifdef _WIN32
+  WSACleanup();
+#endif
   return 0;
 }
 
