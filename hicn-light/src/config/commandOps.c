@@ -15,13 +15,11 @@
 
 #include <src/config.h>
 
+#include <parc/assert/parc_Assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
-
-#include <parc/assert/parc_Assert.h>
 #include <string.h>
 
 #ifndef __ANDROID__

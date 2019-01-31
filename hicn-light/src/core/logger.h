@@ -25,13 +25,14 @@
 #ifndef logger_h
 #define logger_h
 
+#ifndef _WIN32
+#include <sys/time.h>
+#endif
 #include <parc/algol/parc_Buffer.h>
+#include <parc/algol/parc_Clock.h>
 #include <parc/logging/parc_LogLevel.h>
 #include <parc/logging/parc_LogReporter.h>
 #include <stdarg.h>
-#include <sys/time.h>
-
-#include <parc/algol/parc_Clock.h>
 
 struct logger;
 typedef struct logger Logger;
