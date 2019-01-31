@@ -15,13 +15,11 @@
 
 #include <src/config.h>
 
+#include <parc/assert/parc_Assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
-
-#include <parc/assert/parc_Assert.h>
 #include <string.h>
 
 #include <parc/security/parc_Security.h>
@@ -124,11 +122,15 @@ static PARCList *parseStringIntoTokens(const char *originalString) {
   char *tofree =
       parcMemory_StringDuplicate(originalString, strlen(originalString) + 1);
   char *string = tofree;
-
-  while ((token = strsep(&string, " \t\n")) != NULL) {
+  //
+  token = strtok(string, " \t\n");
+  while (token != NULL) {
     if (strlen(token) > 0) {
+      // temp = (char *)malloc(1000);
+      // strcpy(temp, token);
       parcList_Add(list, strdup(token));
     }
+    token = strtok(NULL, " \t\n");
   }
 
   parcMemory_Deallocate((void **)&tofree);

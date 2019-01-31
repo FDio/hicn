@@ -13,12 +13,14 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include <ctype.h>
 #include <errno.h>
 #include <src/config.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <parc/algol/parc_ArrayList.h>
 #include <parc/algol/parc_List.h>
@@ -157,9 +159,16 @@ static PARCList *_parseArgs(char *str) {
   const char delimiters[] = " \t";
 
   char *token;
-  while ((token = strsep(&str, delimiters)) != NULL) {
-    parcList_Add(list, token);
+  token = strtok(str, delimiters);
+  while (token != NULL) {
+    if (strlen(token) > 0) {
+      parcList_Add(list, strdup(token));
+    }
+    token = strtok(NULL, delimiters);
   }
+  // while ((token = strsep(&str, delimiters)) != NULL) {
+  //	  parcList_Add(list, token);
+  //  }
 
   return list;
 }
