@@ -13,12 +13,13 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
 #include <arpa/inet.h>
+#include <unistd.h>
+#endif
 #include <errno.h>
 #include <src/config.h>
 #include <stdio.h>
-#include <strings.h>
-#include <unistd.h>
 
 #include <src/utils/address.h>
 
