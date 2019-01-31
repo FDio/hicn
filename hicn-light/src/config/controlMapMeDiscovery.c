@@ -19,7 +19,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
 
 #include <parc/algol/parc_Memory.h>
 #include <parc/assert/parc_Assert.h>

@@ -23,10 +23,14 @@
 #ifndef commands_h
 #define commands_h
 
+#ifndef _WIN32
 #include <netinet/in.h>
+#include <sys/socket.h>
+#endif
+#include <src/config.h>
+
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;

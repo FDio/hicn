@@ -19,7 +19,9 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 include( CTest )
 include( detectCacheSize )
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+if(NOT WIN32)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+endif()
 if(ANDROID_API)
   message("############ Detected cross compile for $ENV{CMAKE_SYSTEM_NAME}")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ANDROID_C_FLAGS}")
@@ -28,11 +30,13 @@ if(ANDROID_API)
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -DLIBRTA_DISABLE_VALIDATION -DPARCLibrary_DISABLE_VALIDATION")
 
 include(IosMacros)
+include(WindowsMacros)
 
 find_package_wrapper(Libparc REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package_wrapper(Libhicn REQUIRED)
+  find_package_wrapper(Libparc REQUIRED)
   set(LIBHICN_LIGHT hicn-light)
   set(HICN_LIGHT_CONTROL hicnLightControl)
   set(HICN_LIGHT_DAEMON hicnLightDaemon)
@@ -53,12 +57,14 @@ set(HICN_LIGHT_LINK_LIBRARIES
   ${HICN_LIBRARIES}
   ${LIBPARC_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
+  ${WINDOWS_LIBRARIES}
 )
 
 # Include dirs -- Order does matter!
 list(APPEND HICN_LIGHT_INCLUDE_DIRS
   ${HICN_INCLUDE_DIRS}
   ${LIBPARC_INCLUDE_DIRS}
+  ${PTHREAD_INCLUDE_DIRS}
 )
 
 if (UNIX)
