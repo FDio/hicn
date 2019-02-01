@@ -21,38 +21,72 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set(HICN_INCLUDE_DIRS ${PROJECT_BINARY_DIR}/lib)
 
-## Target names
-set(LIBHICN hicn)
-set(LIBHICN_SHARED hicn.shared)
-set(LIBHICN_LIGHT hicn-light)
-set(HICN_LIGHT_CONTROL hicnLightControl)
-set(HICN_LIGHT_DAEMON hicnLightDaemon)
-set(HICN_PLUGIN hicn-plugin)
-set(LIBTRANSPORT hicntransport)
-set(LIBTRANSPORT_SHARED hicntransport.shared)
-set(HICN_UTILS hicn-utils)
+## Enabled components
+option(BUILD_LIBHICN "Build the hicn core library" ON)
+option(BUILD_HICNLIGHT "Build the hicn light forwarder" ON)
+option(BUILD_LIBTRANSPORT "Build the hicn transport library" ON)
+option(BUILD_UTILS "Build the hicn utils" ON)
+option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
+
+list(APPEND dir_options
+  BUILD_LIBHICN
+  BUILD_HICNLIGHT
+  BUILD_LIBTRANSPORT
+  BUILD_UTILS
+)
+
+set(BUILD_LIBHICN_DIR lib)
+set(BUILD_HICNLIGHT_DIR hicn-light)
+set(BUILD_LIBTRANSPORT_DIR libtransport)
+set(BUILD_UTILS_DIR utils)
+set(BUILD_HICNPLUGIN_DIR hicn-plugin)
 
 ## HEADER FILES
 set(LIBHICN_HEADER_FILES)
 set(LIBHICN_LIGHT_HEADER_FILES)
 set(LIBTRANSPORT_HEADER_FILES)
 
-set(SUBDIRS lib hicn-light libtransport utils)
+## Add enabled components
+foreach (opt ${dir_options})
+  if (${opt})
+    list(APPEND subdirs
+      ${${opt}_DIR}
+    )
+  endif()
+endforeach()
 
-add_compile_options(-Wall -Werror)
+## Static targets
+set(LIBHICN hicn)
+set(LIBHICN_LIGHT hicn-light)
+set(HICN_LIGHT_CONTROL hicnLightControl)
+set(HICN_LIGHT_DAEMON hicnLightDaemon)
+set(HICN_PLUGIN hicn-plugin)
+set(LIBTRANSPORT hicntransport)
+set(HICN_UTILS hicn-utils)
 
-if (BUILD_VPP_PLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
-  list(APPEND SUBDIRS
-    hicn-plugin
+if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
+  list(APPEND subdirs
+    ${BUILD_HICNPLUGIN_DIR}
   )
 
   list(APPEND HICN_BINARY_API_INCLUDE_DIRS
     ${PROJECT_BINARY_DIR}/hicn-plugin
     ${PROJECT_BINARY_DIR}/hicn-plugin/vpp_plugins
   )
+
+  set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
+  set(HICN_UTILS ${HICN_UTILS}-memif)
 endif()
 
-foreach(dir ${SUBDIRS})
+## Shared targets
+set(LIBHICN_SHARED ${LIBHICN}.shared)
+set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared)
+
+add_compile_options(-Wall -Werror)
+
+message(STATUS "Building the following subprojects: ${subdirs}")
+
+foreach(dir ${subdirs})
   add_subdirectory(${dir})
 endforeach()
 
