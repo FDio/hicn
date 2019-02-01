@@ -32,33 +32,11 @@
 
 #define _Static_assert static_assert
 
-extern "C" {
-#include <memif/libmemif.h>
-};
-
 namespace transport {
 
 namespace core {
 
-typedef struct {
-  uint16_t index;
-  /* memif conenction handle */
-  memif_conn_handle_t conn;
-  /* transmit queue id */
-  uint16_t tx_qid;
-  /* tx buffers */
-  memif_buffer_t *tx_bufs;
-  /* allocated tx buffers counter */
-  /* number of tx buffers pointing to shared memory */
-  uint16_t tx_buf_num;
-  /* rx buffers */
-  memif_buffer_t *rx_bufs;
-  /* allcoated rx buffers counter */
-  /* number of rx buffers pointing to shared memory */
-  uint16_t rx_buf_num;
-  /* interface ip address */
-  uint8_t ip_addr[4];
-} memif_connection_t;
+typedef struct memif_connection memif_connection_t;
 
 #define APP_NAME "libtransport"
 #define IF_NAME "vpp_connection"
@@ -68,6 +46,7 @@ typedef struct {
 #define MEMIF_LOG2_RING_SIZE 11
 
 class MemifConnector : public Connector {
+  typedef void *memif_conn_handle_t;
  public:
   MemifConnector(PacketReceivedCallback &&receive_callback,
                  OnReconnect &&on_reconnect_callback,
@@ -135,7 +114,7 @@ class MemifConnector : public Connector {
   asio::io_service &io_service_;
   std::unique_ptr<asio::io_service::work> work_;
   uint32_t packet_counter_;
-  memif_connection_t memif_connection_;
+  std::unique_ptr<memif_connection_t> memif_connection_;
   uint16_t tx_buf_counter_;
 
   PacketRing input_buffer_;
