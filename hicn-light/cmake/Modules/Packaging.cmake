@@ -21,11 +21,11 @@ set(${LIBHICN_LIGHT}_DESCRIPTION
 )
 
 set(${LIBHICN_LIGHT}_DEB_DEPENDENCIES
-  "libhicn (>= stable_version), libparc (>= 1.0)"
+  "lib${LIBHICN} (>= stable_version), libparc (>= 1.0)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${LIBHICN_LIGHT}_RPM_DEPENDENCIES
-  "libhicn >= stable_version, libparc >= 1.0"
+  "lib${LIBHICN} >= stable_version, libparc >= 1.0"
   CACHE STRING "Dependencies for deb/rpm package."
 )
