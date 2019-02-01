@@ -82,7 +82,7 @@ macro(make_packages)
 
       set(CPACK_PACKAGE_VERSION "${deb_ver}")
       foreach(lc ${components})
-        if (${lc} MATCHES "Unspecified.*")
+        if (${lc} MATCHES ".*Unspecified.*")
           continue()
         endif()
 
@@ -110,7 +110,7 @@ macro(make_packages)
 
       set(CPACK_PACKAGE_VERSION "${rpm_ver}")
       foreach(lc ${components})
-        if (${lc} MATCHES "Unspecified.*")
+        if (${lc} MATCHES ".*Unspecified.*")
           continue()
         endif()
 
