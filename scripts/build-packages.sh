@@ -21,12 +21,15 @@ apt_get=${APT_PATH:-"/usr/local/bin/apt-get"}
 PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio/release/script.deb.sh"
 PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
 
+VPP_VERSION_DEB="19.01-release"
+VPP_VERSION_RPM="19.01-release.x86_64"
+
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
-DEPS_UBUNTU="libparc-dev libasio-dev"
+DEPS_UBUNTU="libparc-dev libasio-dev vpp-dev=${VPP_VERSION_DEB} vpp-lib=${VPP_VERSION_DEB}"
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
-DEPS_CENTOS="libparc-devel asio-devel centos-release-scl devtoolset-7"
+DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM} vpp-lib-${VPP_VERSION_RPM} libparc-devel asio-devel centos-release-scl devtoolset-7"
 LATEST_EPEL_REPO="http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
 
 install_cmake() {
@@ -122,7 +125,7 @@ build_package() {
     mkdir -p ${SCRIPT_PATH}/../build && pushd ${SCRIPT_PATH}/../build
 
     rm -rf *
-    cmake -DCMAKE_INSTALL_PREFIX=/usr ..
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_VPP_PLUGIN=ON ..
     make package
 
     find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
