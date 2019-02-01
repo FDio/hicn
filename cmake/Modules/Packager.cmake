@@ -82,6 +82,10 @@ macro(make_packages)
 
       set(CPACK_PACKAGE_VERSION "${deb_ver}")
       foreach(lc ${components})
+	if (${lc} MATCHES "Unspecified.*")
+	  continue()
+	endif()
+	
         string(TOUPPER ${lc} uc)
         set(CPACK_${type}_${uc}_FILE_NAME "${lc}_${deb_ver}_${arch}.deb")
 
@@ -106,6 +110,9 @@ macro(make_packages)
 
       set(CPACK_PACKAGE_VERSION "${rpm_ver}")
       foreach(lc ${components})
+	if (${lc} MATCHES "Unspecified.*")
+          continue()
+	endif()
         string(TOUPPER ${lc} uc)
         set(CPACK_${type}_${uc}_DESCRIPTION "${${lc}_DESCRIPTION}")
 

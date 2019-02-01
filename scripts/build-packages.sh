@@ -122,7 +122,7 @@ build_package() {
     mkdir -p ${SCRIPT_PATH}/../build && pushd ${SCRIPT_PATH}/../build
 
     rm -rf *
-    cmake -DCMAKE_INSTALL_PREFIX=/usr ..
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_VPP_PLUGIN=ON ..
     make package
 
     find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
