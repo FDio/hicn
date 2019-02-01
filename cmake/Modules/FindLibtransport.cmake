@@ -35,7 +35,8 @@ find_path(LIBTRANSPORT_INCLUDE_DIR hicn/transport/config.h
   DOC "Find the libtransport includes"
 )
 
-find_library(LIBTRANSPORT_LIBRARY NAMES transport
+find_library(LIBTRANSPORT_LIBRARY
+  NAMES hicntransport hicntransport-memif
   HINTS ${LIBTRANSPORT_SEARCH_PATH_LIST}
   PATH_SUFFIXES lib
   DOC "Find the libtransport libraries"

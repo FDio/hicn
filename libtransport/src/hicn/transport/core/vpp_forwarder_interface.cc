@@ -22,6 +22,10 @@
 #include <hicn/transport/core/prefix.h>
 #include <hicn/transport/core/vpp_forwarder_interface.h>
 
+extern "C" {
+#include <memif/libmemif.h>
+};
+
 typedef enum { MASTER = 0, SLAVE = 1 } memif_role_t;
 
 #define MEMIF_DEFAULT_RING_SIZE 2048
