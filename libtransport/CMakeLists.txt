@@ -44,7 +44,7 @@ set(raaqm_config_path ${CMAKE_INSTALL_PREFIX}/etc/hicn-consumer.conf)
 # Install includes
 set(INSTALL_INCLUDE_DIR include/hicn/transport)
 
-if (BUILD_VPP_PLUGIN AND BUILD_MEMIF_CONNECTOR AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+if ((BUILD_HICNPLUGIN OR BUILD_MEMIF_CONNECTOR) AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   set(__vpp__ 1)
   find_package(Vpp REQUIRED)
   find_package(Libmemif REQUIRED)
