@@ -23,10 +23,10 @@ PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
-DEPS_UBUNTU="libparc-dev libasio-dev"
+DEPS_UBUNTU="libparc-dev libasio-dev vpp-dev vpp-lib"
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
-DEPS_CENTOS="libparc-devel asio-devel centos-release-scl devtoolset-7"
+DEPS_CENTOS="vpp-devel vpp-lib libparc-devel asio-devel centos-release-scl devtoolset-7"
 LATEST_EPEL_REPO="http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
 
 install_cmake() {
@@ -122,7 +122,7 @@ build_package() {
     mkdir -p ${SCRIPT_PATH}/../build && pushd ${SCRIPT_PATH}/../build
 
     rm -rf *
-    cmake -DCMAKE_INSTALL_PREFIX=/usr ..
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_VPP_PLUGIN=ON ..
     make package
 
     find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
