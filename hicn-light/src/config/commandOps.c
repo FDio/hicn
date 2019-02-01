@@ -14,14 +14,10 @@
  */
 
 #include <src/config.h>
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
-
-#include <parc/assert/parc_Assert.h>
 #include <string.h>
 
 #ifndef __ANDROID__
@@ -33,7 +29,7 @@ extern int errno;
 #endif
 
 #include <parc/algol/parc_Memory.h>
-
+#include <parc/assert/parc_Assert.h>
 #include <src/config/commandOps.h>
 #include <src/config/commandParser.h>
 

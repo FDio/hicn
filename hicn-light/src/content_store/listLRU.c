@@ -13,10 +13,12 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
+#include <sys/queue.h>
+#endif
 #include <src/config.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <sys/queue.h>
 
 #include <parc/algol/parc_Memory.h>
 #include <parc/assert/parc_Assert.h>

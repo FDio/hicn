@@ -13,13 +13,15 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
 #include <arpa/inet.h>
+#include <unistd.h>
+#endif
 #include <parc/assert/parc_Assert.h>
 #include <src/config.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <parc/algol/parc_Memory.h>
 #include <parc/algol/parc_Network.h>
@@ -40,7 +42,7 @@
 static bool _setupHicnListenerOnInet4(Forwarder *forwarder,
                                       const char *symbolic, Address *address) {
   bool success = false;
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(_WIN32)
   ListenerOps *ops =
       hicnListener_CreateInet(forwarder, (char *)symbolic, address);
   if (ops != NULL) {
@@ -48,14 +50,14 @@ static bool _setupHicnListenerOnInet4(Forwarder *forwarder,
     parcAssertTrue(success, "Failed to add Hicn listener %s to ListenerSet",
                    symbolic);
   }
-#endif /* __APPLE__ */
+#endif /* __APPLE__ _WIN32*/
   return success;
 }
 
 static bool _setupHicnListenerOnInet6(Forwarder *forwarder,
                                       const char *symbolic, Address *address) {
   bool success = false;
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(_WIN32)
   ListenerOps *ops =
       hicnListener_CreateInet6(forwarder, (char *)symbolic, address);
   if (ops != NULL) {
@@ -63,7 +65,7 @@ static bool _setupHicnListenerOnInet6(Forwarder *forwarder,
     parcAssertTrue(success, "Failed to add Hicn listener %s to ListenerSet",
                    symbolic);
   }
-#endif /* __APPLE__ */
+#endif /* __APPLE__ _WIN32 */
   return success;
 }
 
@@ -79,7 +81,7 @@ bool configurationListeners_Remove(const Configuration *config) {
 
 bool _AddPuntingInet(const Configuration *config, Punting *punting,
                      unsigned ingressId) {
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(_WIN32)
   struct sockaddr *addr = parcNetwork_SockAddress("0.0.0.0", 1234);
   if (addr == NULL) {
     printf("Error creating address\n");
@@ -139,7 +141,7 @@ bool _AddPuntingInet(const Configuration *config, Punting *punting,
 
 bool _AddPuntingInet6(const Configuration *config, Punting *punting,
                       unsigned ingressId) {
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(_WIN32)
   struct sockaddr *addr = parcNetwork_SockAddress("0::0", 1234);
   if (addr == NULL) {
     printf("Error creating address\n");
@@ -149,9 +151,9 @@ bool _AddPuntingInet6(const Configuration *config, Punting *punting,
   Address *fakeAddr = addressCreateFromInet6((struct sockaddr_in6 *)addr);
 
   // comments:
-  // EncapType: I use the Hicn encap since the punting is available only for Hicn
-  // listeners LocalAddress: The only listern for which we need punting rules is
-  // the main one, which has no address
+  // EncapType: I use the Hicn encap since the punting is available only for
+  // Hicn listeners LocalAddress: The only listern for which we need punting
+  // rules is the main one, which has no address
   //              so I create a fake empty address. This need to be consistent
   //              with the address set at creation time
 

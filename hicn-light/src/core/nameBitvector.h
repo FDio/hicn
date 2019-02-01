@@ -25,7 +25,7 @@
 struct name_bitvector;
 typedef struct name_bitvector NameBitvector;
 
-NameBitvector *nameBitvector_CreateFromInAddr(uint32_t s_addr, uint8_t len);
+NameBitvector *nameBitvector_CreateFromInAddr(uint32_t addr, uint8_t len);
 
 NameBitvector *nameBitvector_CreateFromIn6Addr(struct in6_addr *addr,
                                                uint8_t len);

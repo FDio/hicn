@@ -13,14 +13,16 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
 #include <arpa/inet.h>
+#include <unistd.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <src/config.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <src/core/messageHandler.h>
 
@@ -83,13 +85,24 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
   parcAssertFalse(udp->udp_socket < 0, "Error opening UDP socket: (%d) %s",
                   errno, strerror(errno));
 
+  int failure = 0;
+#ifndef _WIN32
   // Set non-blocking flag
   int flags = fcntl(udp->udp_socket, F_GETFL, NULL);
   parcAssertTrue(flags != -1,
                  "fcntl failed to obtain file descriptor flags (%d)", errno);
-  int failure = fcntl(udp->udp_socket, F_SETFL, flags | O_NONBLOCK);
+  failure = fcntl(udp->udp_socket, F_SETFL, flags | O_NONBLOCK);
   parcAssertFalse(failure, "fcntl failed to set file descriptor flags (%d)",
                   errno);
+#else
+  // Set non-blocking flag
+  u_long mode = 1;
+  int result = ioctlsocket(udp->udp_socket, FIONBIO, &mode);
+  if (result != NO_ERROR) {
+    parcAssertTrue(result != NO_ERROR,
+                   "ioctlsocket failed to set file descriptor");
+  }
+#endif
 
   int one = 1;
   // don't hang onto address after listener has closed
@@ -126,8 +139,11 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
                  myerrno, strerror(myerrno));
       parcMemory_Deallocate((void **)&str);
     }
-
+#ifndef _WIN32
     close(udp->udp_socket);
+#else
+    closesocket(udp->udp_socket);
+#endif
     addressDestroy(&udp->localAddress);
     logger_Release(&udp->logger);
     parcMemory_Deallocate((void **)&udp);
@@ -152,13 +168,23 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder,
   parcAssertFalse(udp->udp_socket < 0, "Error opening UDP socket: (%d) %s",
                   errno, strerror(errno));
 
+  int failure = 0;
+#ifndef _WIN32
   // Set non-blocking flag
   int flags = fcntl(udp->udp_socket, F_GETFL, NULL);
   parcAssertTrue(flags != -1,
                  "fcntl failed to obtain file descriptor flags (%d)", errno);
-  int failure = fcntl(udp->udp_socket, F_SETFL, flags | O_NONBLOCK);
+  failure = fcntl(udp->udp_socket, F_SETFL, flags | O_NONBLOCK);
   parcAssertFalse(failure, "fcntl failed to set file descriptor flags (%d)",
                   errno);
+#else
+  u_long mode = 1;
+  int result = ioctlsocket(udp->udp_socket, FIONBIO, &mode);
+  if (result != NO_ERROR) {
+    parcAssertTrue(result != NO_ERROR,
+                   "ioctlsocket failed to set file descriptor");
+  }
+#endif
 
   int one = 1;
   // don't hang onto address after listener has closed
@@ -217,7 +243,12 @@ static void udpListener_Destroy(UdpListener **listenerPtr) {
                "UdpListener %p destroyed", (void *)udp);
   }
 
+#ifndef _WIN32
   close(udp->udp_socket);
+#else
+  closesocket(udp->udp_socket);
+#endif
+
   addressDestroy(&udp->localAddress);
   dispatcher_DestroyNetworkEvent(forwarder_GetDispatcher(udp->forwarder),
                                  &udp->udp_event);
@@ -276,7 +307,8 @@ static size_t _peekMessageLength(UdpListener *udp, int fd,
 
   size_t packetLength = 0;
 
-  uint8_t fixedHeader[messageHandler_GetIPHeaderLength(IPv6)];
+  uint8_t *fixedHeader = (uint8_t *)malloc(
+      sizeof(uint8_t) * messageHandler_GetIPHeaderLength(IPv6));
 
   // peek at the UDP packet and read in the fixed header.
   // Also returns the socket information for the remote peer
@@ -293,6 +325,8 @@ static size_t _peekMessageLength(UdpListener *udp, int fd,
       printf("error while readin packet\n");
     }
   }
+
+  free(fixedHeader);
 
   return packetLength;
 }
