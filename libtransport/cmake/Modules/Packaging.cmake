@@ -32,44 +32,44 @@ set(lib${LIBTRANSPORT}-devel_DESCRIPTION ${lib${LIBTRANSPORT}_DESCRIPTION}
 if ((BUILD_MEMIF_CONNECTOR OR BUILD_VPP_PLUGIN) AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
 
   set(lib${LIBTRANSPORT}_DEB_DEPENDENCIES
-    "libhicn (>= stable_version), libparc (>= 1.0), vpp-lib (== stable_version-release)"
+    "lib${LIBHICN} (>= stable_version), libparc (>= 1.0), vpp-lib (= stable_version-release)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}_RPM_DEPENDENCIES
-    "libhicn >= stable_version, libparc >= 1.0, vpp-lib = stable_version-release"
+    "lib${LIBHICN} >= stable_version, libparc >= 1.0, vpp-lib = stable_version-release"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}-dev_DEB_DEPENDENCIES
-    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), libhicn-dev (>= stable_version), libparc-dev (>= 1.0), vpp-dev (== stable_version-release)"
+    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), libhicn-dev (>= stable_version), libparc-dev (>= 1.0), vpp-dev (= stable_version-release)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}-dev_RPM_DEPENDENCIES
-    "lib${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, libhicn-devel >= stable_version, libparc-devel >= 1.0, vpp-devel = stable_version-release"
+    "lib${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libparc-devel >= 1.0, vpp-devel = stable_version-release"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
 else()
 
   set(lib${LIBTRANSPORT}_DEB_DEPENDENCIES
-    "libhicn (>= stable_version), libparc (>= 1.0)"
+    "lib${LIBHICN} (>= stable_version), libparc (>= 1.0)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}_RPM_DEPENDENCIES
-    "libhicn >= stable_version, libparc >= 1.0"
+    "lib${LIBHICN} >= stable_version, libparc >= 1.0"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}-dev_DEB_DEPENDENCIES
-    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), libhicn-dev (>= stable_version), libparc-dev (>= 1.0)"
+    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), lib${LIBHICN}-dev (>= stable_version), libparc-dev (>= 1.0)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}-dev_RPM_DEPENDENCIES
-    "lib${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, libhicn-devel >= stable_version, libparc-devel >= 1.0"
+    "lib${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libparc-devel >= 1.0"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
