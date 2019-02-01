@@ -21,6 +21,9 @@ apt_get=${APT_PATH:-"/usr/local/bin/apt-get"}
 PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio/release/script.deb.sh"
 PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
 
+VPP_GIT_REPO="https://git.fd.io/vpp"
+VPP_BRANCH="stable/1901"
+
 VPP_VERSION_DEB="19.01-release"
 VPP_VERSION_RPM="19.01-release.x86_64"
 
@@ -33,8 +36,10 @@ DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM} vpp-lib-${VPP_VERSION_RPM} libparc-dev
 LATEST_EPEL_REPO="http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
 
 install_cmake() {
-    cat /etc/resolv.conf
-    echo "nameserver 8.8.8.8" | sudo tee -a /etc/resolv.conf
+    if ! grep -q "8.8.8.8" /etc/resolv.conf; then
+        echo "nameserver 8.8.8.8" | sudo tee -a /etc/resolv.conf
+    fi
+
     cat /etc/resolv.conf
 
     CMAKE_INSTALL_SCRIPT_URL="https://cmake.org/files/v3.8/cmake-3.8.0-Linux-x86_64.sh"
@@ -64,6 +69,19 @@ setup_fdio_repo() {
         echo "Distribution ${DISTRIB_ID} is not supported"
         exit -1
     fi
+}
+
+MEMIF_HOME=""
+build_libmemif_static() {
+    git clone ${VPP_GIT_REPO} -b ${VPP_BRANCH} vpp
+    pushd vpp
+    sed 's/SHARED/STATIC/g' src/cmake/library.cmake -i
+    mkdir -p build-root/build-libmemif && pushd build-root/build-libmemif
+    cmake ../../extras/libmemif/ -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_INSTALL_PREFIX=.
+    make install
+    MEMIF_HOME="$(pwd)"
+    popd
+    popd
 }
 
 setup() {
@@ -105,6 +123,8 @@ setup() {
         ${CC_COMPILER} --version
 
         export CC=${CC_COMPILER} CXX=${CXX_COMPILER}
+
+        build_libmemif_static
     fi
 
     # do nothing but check compiler version
@@ -122,13 +142,24 @@ build_package() {
     echo "*******************************************************************"
 
     # Make the package
-    mkdir -p ${SCRIPT_PATH}/../build && pushd ${SCRIPT_PATH}/../build
+    mkdir -p build && pushd build
 
     rm -rf *
-    cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_VPP_PLUGIN=ON ..
+    cmake -DCMAKE_INSTALL_PREFIX=/usr ${SCRIPT_PATH}/..
     make package
 
-    find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
+    rm -rf libtransport
+
+    cmake -DCMAKE_INSTALL_PREFIX=/usr \
+          -DBUILD_HICNPLUGIN=ON \
+          -DBUILD_LIBTRANSPORT=ON \
+          -DLIBMEMIF_HOME=${MEMIF_HOME} \
+          ${SCRIPT_PATH}/..
+
+    make package
+
+    # find . -name '.*Unspecified.*' -print0 | xargs -0 rm -rf -- || true
+    rm *Unspecified*
 
     popd
 
@@ -139,8 +170,6 @@ build_package() {
     exit 0
 }
 
-pushd ${SCRIPT_PATH}/..
 build_package
-popd
 
 exit 0

@@ -20,11 +20,35 @@
 #include <sys/epoll.h>
 #include <cstdlib>
 
+extern "C" {
+#include <memif/libmemif.h>
+};
+
 #define CANCEL_TIMER 1
 
 namespace transport {
 
 namespace core {
+
+struct memif_connection {
+  uint16_t index;
+  /* memif conenction handle */
+  memif_conn_handle_t conn;
+  /* transmit queue id */
+  uint16_t tx_qid;
+  /* tx buffers */
+  memif_buffer_t *tx_bufs;
+  /* allocated tx buffers counter */
+  /* number of tx buffers pointing to shared memory */
+  uint16_t tx_buf_num;
+  /* rx buffers */
+  memif_buffer_t *rx_bufs;
+  /* allcoated rx buffers counter */
+  /* number of rx buffers pointing to shared memory */
+  uint16_t rx_buf_num;
+  /* interface ip address */
+  uint8_t ip_addr[4];
+};
 
 std::once_flag MemifConnector::flag_;
 utils::EpollEventReactor MemifConnector::main_event_reactor_;
@@ -39,7 +63,7 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       send_timer_(std::make_unique<utils::FdDeadlineTimer>(event_reactor_)),
       io_service_(io_service),
       packet_counter_(0),
-      memif_connection_({}),
+      memif_connection_(std::make_unique<memif_connection_t>()),
       tx_buf_counter_(0),
       is_connecting_(true),
       is_reconnection_(false),
@@ -83,7 +107,7 @@ void MemifConnector::connect(uint32_t memif_id, long memif_mode) {
 
   /* get interrupt queue id */
   int fd = -1;
-  err = memif_get_queue_efd(memif_connection_.conn, 0, &fd);
+  err = memif_get_queue_efd(memif_connection_->conn, 0, &fd);
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
     TRANSPORT_LOGI("memif_get_queue_efd: %s", memif_strerror(err));
     return;
@@ -95,7 +119,7 @@ void MemifConnector::connect(uint32_t memif_id, long memif_mode) {
   // Add fd to epoll of instance
   event_reactor_.addFileDescriptor(
       fd, EPOLLIN, [this](const utils::Event &evt) -> int {
-        return onInterrupt(memif_connection_.conn, this, 0);
+        return onInterrupt(memif_connection_->conn, this, 0);
       });
 
   memif_worker_ = std::make_unique<std::thread>(
@@ -103,7 +127,7 @@ void MemifConnector::connect(uint32_t memif_id, long memif_mode) {
 }
 
 int MemifConnector::createMemif(uint32_t index, uint8_t mode, char *s) {
-  memif_connection_t *c = &memif_connection_;
+  memif_connection_t *c = memif_connection_.get();
 
   /* setting memif connection arguments */
   memif_conn_args_t args;
@@ -151,7 +175,7 @@ int MemifConnector::createMemif(uint32_t index, uint8_t mode, char *s) {
 }
 
 int MemifConnector::deleteMemif() {
-  memif_connection_t *c = &memif_connection_;
+  memif_connection_t *c = memif_connection_.get();
 
   if (c->rx_bufs) {
     free(c->rx_bufs);
@@ -231,7 +255,7 @@ int MemifConnector::controlFdUpdate(int fd, uint8_t events) {
 }
 
 int MemifConnector::bufferAlloc(long n, uint16_t qid) {
-  memif_connection_t *c = &memif_connection_;
+  memif_connection_t *c = memif_connection_.get();
   int err;
   uint16_t r;
   /* set data pointer to shared memory and set buffer_len to shared mmeory
@@ -249,7 +273,7 @@ int MemifConnector::bufferAlloc(long n, uint16_t qid) {
 }
 
 int MemifConnector::txBurst(uint16_t qid) {
-  memif_connection_t *c = &memif_connection_;
+  memif_connection_t *c = memif_connection_.get();
   int err;
   uint16_t r;
   /* inform peer memif interface about data in shared memory buffers */
@@ -313,7 +337,7 @@ int MemifConnector::onDisconnect(memif_conn_handle_t conn, void *private_ctx) {
   MemifConnector *connector = (MemifConnector *)private_ctx;
   //  TRANSPORT_LOGI ("Packet received: %u", connector->packet_counter_);
   TRANSPORT_LOGI("Packet to process: %u",
-                 connector->memif_connection_.tx_buf_num);
+                 connector->memif_connection_->tx_buf_num);
   return 0;
 }
 
@@ -323,7 +347,7 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
                                 uint16_t qid) {
   MemifConnector *connector = (MemifConnector *)private_ctx;
 
-  memif_connection_t *c = &connector->memif_connection_;
+  memif_connection_t *c = connector->memif_connection_.get();
   int err = MEMIF_ERR_SUCCESS, ret_val;
   uint16_t rx;
 
@@ -447,7 +471,7 @@ int MemifConnector::doSend() {
     max = size < MAX_MEMIF_BUFS ? size : MAX_MEMIF_BUFS;
 
     if (TRANSPORT_EXPECT_FALSE(
-            (n = bufferAlloc(max, memif_connection_.tx_qid)) < 0)) {
+            (n = bufferAlloc(max, memif_connection_->tx_qid)) < 0)) {
       TRANSPORT_LOGI("Error allocating buffers.");
       return -1;
     }
@@ -459,21 +483,21 @@ int MemifConnector::doSend() {
       const utils::MemBuf *current = packet;
       std::size_t offset = 0;
       uint8_t *shared_buffer =
-          reinterpret_cast<uint8_t *>(memif_connection_.tx_bufs[i].data);
+          reinterpret_cast<uint8_t *>(memif_connection_->tx_bufs[i].data);
       do {
         std::memcpy(shared_buffer + offset, current->data(), current->length());
         offset += current->length();
         current = current->next();
       } while (current != packet);
 
-      memif_connection_.tx_bufs[i].len = uint32_t(offset);
+      memif_connection_->tx_bufs[i].len = uint32_t(offset);
 
       TRANSPORT_LOGD("Packet size : %zu", offset);
 
       output_buffer_.pop_front();
     }
 
-    txBurst(memif_connection_.tx_qid);
+    txBurst(memif_connection_->tx_qid);
 
     utils::SpinLock::Acquire locked(write_msgs_lock_);
     size = output_buffer_.size();
