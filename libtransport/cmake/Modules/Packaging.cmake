@@ -32,7 +32,7 @@ set(lib${LIBTRANSPORT}-devel_DESCRIPTION ${lib${LIBTRANSPORT}_DESCRIPTION}
 if ((BUILD_MEMIF_CONNECTOR OR BUILD_VPP_PLUGIN) AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
 
   set(lib${LIBTRANSPORT}_DEB_DEPENDENCIES
-    "libhicn (>= stable_version), libparc (>= 1.0), vpp-lib (== stable_version-release)"
+    "libhicn (>= stable_version), libparc (>= 1.0), vpp-lib (= stable_version-release)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
@@ -42,7 +42,7 @@ if ((BUILD_MEMIF_CONNECTOR OR BUILD_VPP_PLUGIN) AND "${CMAKE_SYSTEM_NAME}" STREQ
   )
 
   set(lib${LIBTRANSPORT}-dev_DEB_DEPENDENCIES
-    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), libhicn-dev (>= stable_version), libparc-dev (>= 1.0), vpp-dev (== stable_version-release)"
+    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), libhicn-dev (>= stable_version), libparc-dev (>= 1.0), vpp-dev (= stable_version-release)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
