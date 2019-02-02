@@ -19,6 +19,12 @@ and a real-time transport service for audio/video media.
 |      utils             | Tools for testing                              |
 |      apps              | Application examples using hicn stack          |
 
+hicn plugin is a VPP plugin that implement hicn packet processing
+as specified in https://datatracker.ietf.org/doc/draft-muscariello-intarea-hicn/.
+The transport library is used to implement the hicn host stack and
+makes use of libmemif as high performance connector between transport
+and the network stack. The transport library makes use of VPP binary
+API to configure the local namespace (local face management).
 
 ## Supported platforms
 
@@ -31,3 +37,12 @@ and a real-time transport service for audio/video media.
 - iOS 12
 - macOS 10.12
 - Windows 10
+
+## Binaries
+# Ubuntu 16/18 (amd64) and CentOS 7 (x86_64)
+https://packagecloud.io/fdio/release
+
+## Release note
+The current master branch provides the 19.01 release
+which is compatible with the 19.01 VPP stable.
+No other VPP releases are supported nor maintained.
