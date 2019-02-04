@@ -17,7 +17,8 @@
 
 #include <hicn/transport/interfaces/socket.h>
 #include <hicn/transport/utils/object_pool.h>
-#include <hicn/transport/utils/sharable_vector.h>
+#include <hicn/transport/protocols/packet_manager.h>
+#include <hicn/transport/protocols/statistics.h>
 
 namespace transport {
 
@@ -31,39 +32,30 @@ class TransportProtocolCallback {
   virtual void onTimeout(const core::Interest &interest) = 0;
 };
 
-class TransportProtocol : public interface::BasePortal::ConsumerCallback {
+class TransportProtocol : public interface::BasePortal::ConsumerCallback,
+                          public PacketManager<Interest> {
+
   static constexpr std::size_t interest_pool_size = 4096;
 
  public:
-  TransportProtocol(interface::BaseSocket *icn_socket);
 
-  virtual ~TransportProtocol();
+  TransportProtocol(interface::ConsumerSocket *icn_socket);
 
-  void updatePortal();
+  virtual ~TransportProtocol() { stop();};
 
-  bool isRunning();
+  TRANSPORT_ALWAYS_INLINE bool isRunning() { return is_running_; }
 
-  virtual void start(utils::SharableVector<uint8_t> &content_buffer) = 0;
+  virtual int start();
 
-  virtual void stop() = 0;
+  virtual void stop();
 
-  virtual void resume() = 0;
+  virtual void resume();
+
+  virtual void scheduleNextInterests() = 0;
 
  protected:
-  virtual void increasePoolSize(std::size_t size = interest_pool_size);
-
-  TRANSPORT_ALWAYS_INLINE Interest::Ptr getInterest() {
-    auto result = interest_pool_.get();
-
-    while (TRANSPORT_EXPECT_FALSE(!result.first)) {
-      // Add packets to the pool
-      increasePoolSize();
-      result = interest_pool_.get();
-    }
-
-    return std::move(result.second);
-  }
   // Consumer Callback
+  virtual void reset() = 0;
   virtual void onContentObject(Interest::Ptr &&i, ContentObject::Ptr &&c) = 0;
   virtual void onTimeout(Interest::Ptr &&i) = 0;
 
@@ -71,7 +63,8 @@ class TransportProtocol : public interface::BasePortal::ConsumerCallback {
   interface::ConsumerSocket *socket_;
   std::shared_ptr<interface::BasePortal> portal_;
   volatile bool is_running_;
-  utils::ObjectPool<Interest> interest_pool_;
+  TransportStatistics stats_;
+  std::shared_ptr<std::vector<uint8_t>> content_buffer_;
 };
 
 }  // end namespace protocol

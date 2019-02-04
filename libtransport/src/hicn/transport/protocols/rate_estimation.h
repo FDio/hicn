@@ -20,11 +20,6 @@
 
 #include <chrono>
 
-#define BATCH 50
-#define KV 20
-#define ALPHA 0.8
-#define RATE_CHOICE 0
-
 namespace transport {
 
 namespace protocol {

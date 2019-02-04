@@ -15,16 +15,16 @@
 
 #pragma once
 
-#include <memory>
-#include <vector>
+namespace transport {
 
-namespace utils {
+namespace protocol {
 
-template <class T>
-class SharableVector : public std::vector<T>,
-                       public std::enable_shared_from_this<SharableVector<T>> {
- public:
-  virtual ~SharableVector(){};
+class CWindowProtocol {
+ protected:
+  virtual void increaseWindow() = 0;
+  virtual void decreaseWindow() = 0;
 };
 
-}  // namespace utils
+}  // end namespace protocol
+
+}  // end namespace transport

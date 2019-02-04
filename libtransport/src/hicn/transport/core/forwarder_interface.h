@@ -18,6 +18,8 @@
 #include <hicn/transport/core/prefix.h>
 #include <hicn/transport/core/socket_connector.h>
 #include <hicn/transport/portability/portability.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
+#include <hicn/transport/utils/log.h>
 
 #include <deque>
 
@@ -85,6 +87,7 @@ class ForwarderInterface {
       packet.setLocator(inet6_address_);
     }
 
+    // TRANSPORT_LOGI("Sending packet %s at %lu", packet.getName().toString().c_str(), utils::SteadyClock::now().time_since_epoch().count());
     packet.setChecksum();
     connector_.send(packet.data());
   }

@@ -41,7 +41,7 @@ typedef std::pair<std::shared_ptr<ContentObject>,
 typedef std::pair<ObjectTimeEntry,
                   std::list<std::reference_wrapper<const Name>>::iterator>
     ContentStoreEntry;
-typedef std::list<std::reference_wrapper<const Name>> LRUList;
+typedef std::list<std::reference_wrapper<const Name>> FIFOList;
 typedef std::unordered_map<Name, ContentStoreEntry> ContentStoreHashTable;
 
 class ContentStore {
@@ -66,7 +66,7 @@ class ContentStore {
 
  private:
   ContentStoreHashTable content_store_hash_table_;
-  LRUList lru_list_;
+  FIFOList fifo_list_;
   std::shared_ptr<ContentObject> empty_reference_;
   std::size_t max_content_store_size_;
   std::mutex cs_mutex_;

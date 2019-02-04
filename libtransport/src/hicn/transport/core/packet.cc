@@ -269,7 +269,7 @@ void Packet::dump() const {
   std::cout << std::endl << "PAYLOAD -- Length: " << payloadSize() << std::endl;
   for (utils::MemBuf *current = payload_head_;
        current && current != header_head_; current = current->next()) {
-    std::cout << "First MemBuf Length: " << current->length() << std::endl;
+    std::cout << "MemBuf Length: " << current->length() << std::endl;
     hicn_packet_dump((uint8_t *)current->data(), current->length());
   }
 }
