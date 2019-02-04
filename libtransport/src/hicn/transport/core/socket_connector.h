@@ -29,6 +29,7 @@ namespace core {
 using asio::ip::tcp;
 
 class SocketConnector : public Connector {
+  static constexpr uint16_t packet_store_size = 32;
  public:
   SocketConnector(PacketReceivedCallback &&receive_callback,
                   OnReconnect &&reconnect_callback,

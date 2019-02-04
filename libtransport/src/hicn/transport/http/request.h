@@ -16,7 +16,6 @@
 #pragma once
 
 #include <hicn/transport/http/message.h>
-#include <hicn/transport/utils/sharable_vector.h>
 
 #include <map>
 #include <sstream>

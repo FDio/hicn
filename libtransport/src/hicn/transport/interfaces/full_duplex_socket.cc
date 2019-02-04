@@ -15,7 +15,6 @@
 
 #include <hicn/transport/interfaces/full_duplex_socket.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
-#include <hicn/transport/utils/sharable_vector.h>
 
 #include <memory>
 
@@ -45,7 +44,7 @@ AsyncFullDuplexSocket::AsyncFullDuplexSocket(const Prefix &locator,
       internal_signal_callback_(new OnSignalCallback(*this)),
       send_timeout_milliseconds_(~0),
       counters_({0}),
-      receive_buffer_(std::make_shared<utils::SharableVector<uint8_t>>()) {
+      receive_buffer_(ContentBuffer()) {
   using namespace transport;
   using namespace std::placeholders;
   producer_->registerPrefix(locator);
@@ -201,16 +200,16 @@ void AsyncFullDuplexSocket::write(WriteCallback *callback, const void *buf,
 }
 
 void AsyncFullDuplexSocket::write(
-    WriteCallback *callback, utils::SharableVector<uint8_t> &&output_buffer,
+    WriteCallback *callback, ContentBuffer &&output_buffer,
     const PublicationOptions &options, WriteFlags flags) {
   using namespace transport;
 
   // 1 asynchronously write the content. I assume here the
   // buffer contains the whole application frame. FIXME: check
   // if this is true and fix it accordingly
-  std::cout << "Size of the PAYLOAD: " << output_buffer.size() << std::endl;
+  std::cout << "Size of the PAYLOAD: " << output_buffer->size() << std::endl;
 
-  if (output_buffer.size() >
+  if (output_buffer->size() >
       core::Packet::default_mtu - sizeof(PayloadMessage)) {
     TRANSPORT_LOGI("Producing content with name %s",
                    options.name.toString().c_str());
@@ -218,8 +217,8 @@ void AsyncFullDuplexSocket::write(
     signalProductionToSubscribers(options.name);
   } else {
     TRANSPORT_LOGI("Sending payload through interest");
-    piggybackPayloadToSubscribers(options.name, &output_buffer[0],
-                                  output_buffer.size());
+    piggybackPayloadToSubscribers(options.name, &(*output_buffer)[0],
+                                  output_buffer->size());
   }
 }
 
@@ -350,10 +349,10 @@ AsyncFullDuplexSocket::decodeSynchronizationMessage(
       // The interest contains the payload directly.
       // We saved one round trip :)
 
-      auto buffer = std::make_shared<utils::SharableVector<uint8_t>>();
+      auto buffer = ContentBuffer();
       const uint8_t *data = mesg.data() + sizeof(PayloadMessage);
       buffer->assign(data, data + mesg.length() - sizeof(PayloadMessage));
-      read_callback_->readBufferAvailable(std::move(*buffer));
+      read_callback_->readBufferAvailable(std::move(buffer));
       return createAck();
     }
     default: {
@@ -401,7 +400,7 @@ void AsyncFullDuplexSocket::onContentRetrieved(ConsumerSocket &s,
 
   TRANSPORT_LOGI("Received content with size %zu", size);
   if (!ec) {
-    read_callback_->readBufferAvailable(std::move(*receive_buffer_));
+    read_callback_->readBufferAvailable(std::move(receive_buffer_));
   } else {
     TRANSPORT_LOGE("Error retrieving content.");
   }

@@ -57,7 +57,6 @@ Packet::Packet(MemBufPtr &&buffer)
   }
 
   auto header_size = getHeaderSizeFromFormat(format_, signature_size);
-
   auto payload_length = packet_->length() - header_size - signature_size;
 
   if (!payload_length) {

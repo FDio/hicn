@@ -21,9 +21,8 @@ namespace interface {
 
 typedef enum {
   RAAQM = 0,
-  VEGAS = 1,
-  CBR = 3,
-  RTC = 4,
+  CBR = 1,
+  RTC = 2,
 } TransportProtocolAlgorithms;
 
 typedef enum {
@@ -44,12 +43,14 @@ typedef enum {
   MAKE_MANIFEST = 116,
   PORTAL = 117,
   RUNNING = 118,
-  HASH_ALGORITHM = 119,
-  CRYPTO_SUITE = 120,
-  IDENTITY = 121,
-  CERTIFICATE = 122,
-  VERIFY_SIGNATURE = 123,
-  TIMER_INTERVAL = 124
+  APPLICATION_BUFFER = 119,
+  HASH_ALGORITHM = 120,
+  CRYPTO_SUITE = 121,
+  IDENTITY = 122,
+  VERIFIER = 123,
+  CERTIFICATE = 124,
+  VERIFY_SIGNATURE = 125,
+  STATS_INTERVAL = 126
 } GeneralTransportOptions;
 
 typedef enum {
@@ -78,7 +79,7 @@ typedef enum {
   MANIFEST_INPUT = 412,
   CONTENT_OBJECT_TO_VERIFY = 413,
   CONTENT_RETRIEVED = 414,
-  TIMER_EXPIRES = 415
+  STATS_SUMMARY = 415
 } ConsumerCallbacksOptions;
 
 typedef enum {
@@ -96,11 +97,11 @@ typedef enum {
 
 typedef enum { OUTPUT_INTERFACE = 601 } DataLinkOptions;
 
-typedef enum { VIRTUAL_DOWNLOAD = 601, USE_CFG_FILE = 603 } OtherOptions;
+typedef enum { VIRTUAL_DOWNLOAD = 701, USE_CFG_FILE = 702 } OtherOptions;
 
 typedef enum {
-  SHA_256 = 701,
-  RSA_256 = 702,
+  SHA_256 = 801,
+  RSA_256 = 802,
 } SignatureType;
 
 }  // namespace interface
