@@ -37,7 +37,7 @@ const uint32_t signature_size = 260;           // bytes
 const uint32_t key_locator_size = 60;          // bytes
 const uint32_t limit_guard = 80;               // bytes
 const uint32_t min_window_size = 1;            // Interests
-const uint32_t max_window_size = 128000;       // Interests
+const uint32_t max_window_size = 256;          // Interests
 const uint32_t digest_size = 34;               // bytes
 const uint32_t max_out_of_order_segments = 3;  // content object
 
@@ -49,13 +49,6 @@ const double drop_factor = 0.2;
 const double minimum_drop_probability = 0.00001;
 const int path_id = 0;
 const double rate_alpha = 0.8;
-
-// Vegas
-const double alpha = 1 / 8;
-const double beta = 1 / 4;
-const uint16_t k = 4;
-const std::chrono::milliseconds clock_granularity =
-    std::chrono::milliseconds(100);
 
 // maximum allowed values
 const uint32_t transport_protocol_min_retransmissions = 0;

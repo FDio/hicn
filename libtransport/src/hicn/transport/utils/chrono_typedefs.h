@@ -17,32 +17,11 @@
 
 #include <chrono>
 
-// Implementation inspired from RFC6298
-// (https://tools.ietf.org/search/rfc6298#ref-JK88)
+namespace utils {
 
-namespace transport {
+using SteadyClock = std::chrono::steady_clock;
+using TimePoint = SteadyClock::time_point;
+using Milliseconds = std::chrono::milliseconds;
+using Microseconds = std::chrono::microseconds;
 
-namespace protocol {
-
-class RtoEstimator {
- public:
-  typedef std::chrono::microseconds Duration;
-
-  static Duration getInitialRtt() { return std::chrono::seconds(1); }
-
-  RtoEstimator(Duration min_rto = std::chrono::seconds(1));
-
-  void addMeasurement(Duration measure);
-
-  Duration computeRto() const;
-
- private:
-  double smoothed_rtt_;
-  double rtt_variation_;
-  bool first_measurement_;
-  double last_rto_;
-};
-
-}  // end namespace protocol
-
-}  // end namespace transport
+}  // namespace utils
