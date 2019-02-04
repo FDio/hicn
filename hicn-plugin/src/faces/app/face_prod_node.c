@@ -27,20 +27,9 @@
 #include "../../hicn_api.h"
 #include "../../mgmt.h"
 
-#define foreach_face_prod_input_error                   \
-  _(NOT_SOCK_PREFIX, "name not in the socket prefix")
-
-typedef enum
-{
-#define _(f,s) FACE_PROD_INPUT_ERROR_##f,
-  foreach_face_prod_input_error
-#undef _
-    FACE_PROD_INPUT_N_ERROR,
-} face_prod_input_error_t;
-
 static __clib_unused char *face_prod_input_error_strings[] = {
-#define _(n,s) s,
-  foreach_face_prod_input_error
+#define _(sym, string) string,
+  foreach_hicnfwd_error
 #undef _
 };
 
@@ -133,8 +122,6 @@ hicn_face_prod_next_from_data_hdr (vlib_node_runtime_t * node,
     {
       match_res = match_ip6_name ((u32x4 *) & (ptr[8]), prefix);
     }
-
-  b->error = 0*(1-match_res) + match_res*(node->errors[FACE_PROD_INPUT_ERROR_NOT_SOCK_PREFIX]);
 
   return match_res ? HICN_FACE_PROD_NEXT_DATA_IP4 + (v ==
 						     0x60) :
@@ -304,9 +291,6 @@ hicn_face_prod_input_node_fn (vlib_main_t * vm,
 
   vlib_node_increment_counter (vm, node->node_index,
 			       HICNFWD_ERROR_PROCESSED, stats.pkts_processed);
-  vlib_node_increment_counter (vm, node->node_index,
-			       HICNFWD_ERROR_INTERESTS,
-			       stats.pkts_interest_count);
   vlib_node_increment_counter (vm, node->node_index, HICNFWD_ERROR_DATAS,
 			       stats.pkts_data_count);
 
