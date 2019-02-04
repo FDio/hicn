@@ -18,7 +18,7 @@
 
 #include <hicn/transport/interfaces/publication_options.h>
 #include <hicn/transport/portability/portability.h>
-#include <hicn/transport/utils/sharable_vector.h>
+#include <hicn/transport/interfaces/socket.h>
 
 #ifndef _WIN32
 #include <sys/uio.h>
@@ -529,7 +529,7 @@ class AsyncReader {
     // *buf_length) noexcept {}
 
     virtual void readBufferAvailable(
-        utils::SharableVector<uint8_t> &&buffer) noexcept {}
+        ContentBuffer &&buffer) noexcept {}
 
     // virtual void readBufferAvailable(utils::SharableBuffer<uint8_t>&& buffer)
     // noexcept {}
@@ -613,7 +613,7 @@ class AsyncWriter {
    * still be invoked once for each outstanding write operation.
    */
   virtual void write(WriteCallback *callback,
-                     utils::SharableVector<uint8_t> &&output_buffer,
+                     ContentBuffer &&output_buffer,
                      const PublicationOptions &options,
                      WriteFlags flags = WriteFlags::NONE) = 0;
 

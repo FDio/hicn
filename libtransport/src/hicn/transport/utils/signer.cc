@@ -16,7 +16,6 @@
  */
 
 #include <hicn/transport/errors/malformed_ahpacket_exception.h>
-#include <hicn/transport/utils/endianess.h>
 #include <hicn/transport/utils/key_id.h>
 #include <hicn/transport/utils/membuf.h>
 #include <hicn/transport/utils/signer.h>
@@ -91,14 +90,7 @@ void Signer::sign(Packet &packet) {
 
   // Copy IP+TCP/ICMP header before zeroing them
   hicn_header_t header_copy;
-  if (format == HF_INET_TCP_AH) {
-    memcpy(&header_copy, hicn_packet, HICN_V4_TCP_HDRLEN);
-  } else if (format == HF_INET6_TCP_AH) {
-    memcpy(&header_copy, hicn_packet, HICN_V6_TCP_HDRLEN);
-  } else {
-    throw errors::RuntimeException(
-        "Signer::sign -- Packet format not expected.");
-  }
+  hicn_packet_copy_header(format, (const hicn_header_t*)packet.packet_start_, &header_copy, false);
 
   std::size_t header_len = Packet::getHeaderSizeFromFormat(format);
 
@@ -139,12 +131,8 @@ void Signer::sign(Packet &packet) {
     throw errors::MalformedAHPacketException();
   }
 
-  /* Restore the resetted fields */
-  if (format & HFO_INET) {
-    memcpy(hicn_packet, &header_copy, HICN_V4_TCP_HDRLEN);
-  } else if (format & HFO_INET6) {
-    memcpy(hicn_packet, &header_copy, HICN_V6_TCP_HDRLEN);
-  }
+  hicn_packet_copy_header(format, &header_copy, (hicn_header_t*)packet.packet_start_,
+                          false);
 }
 
 PARCKeyStore *Signer::getKeyStore() {

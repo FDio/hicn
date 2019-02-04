@@ -298,6 +298,7 @@ class Portal {
 
   TRANSPORT_ALWAYS_INLINE void processContentObject(
       ContentObject::Ptr &&content_object) {
+    // TRANSPORT_LOGI("Received packet %s at %lu", content_object->getName().toString().c_str(), utils::SteadyClock::now().time_since_epoch().count());
     PendingInterestHashTable::iterator it =
         pending_interest_hash_table_.find(content_object->getName());
 

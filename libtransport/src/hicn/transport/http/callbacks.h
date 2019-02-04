@@ -37,7 +37,7 @@ using DeadlineTimerCallback = std::function<void(const std::error_code& e)>;
 using ReceiveCallback = std::function<void(const std::vector<uint8_t>&)>;
 using OnPayloadCallback = std::function<RC(
     const std::error_code& ec, const core::Name& name,
-    const std::shared_ptr<utils::SharableVector<uint8_t>>& payload)>;
+    const ContentBuffer& payload)>;
 using ContentSentCallback =
     std::function<void(const std::error_code&, const core::Name&)>;
 

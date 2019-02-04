@@ -52,7 +52,7 @@ struct ClientConfiguration {
         window(-1),
         virtual_download(true),
         producer_certificate("/tmp/rsa_certificate.pem"),
-        receive_buffer(std::make_shared<utils::SharableVector<uint8_t>>()),
+        receive_buffer(std::make_shared<std::vector<uint8_t>>()),
         download_size(0),
         report_interval_milliseconds_(1000),
         rtc_(false) {}
@@ -64,7 +64,7 @@ struct ClientConfiguration {
   double window;
   bool virtual_download;
   std::string producer_certificate;
-  std::shared_ptr<utils::SharableVector<uint8_t>> receive_buffer;
+  std::shared_ptr<std::vector<uint8_t>> receive_buffer;
   std::size_t download_size;
   std::uint32_t report_interval_milliseconds_;
   TransportProtocolAlgorithms transport_protocol_;
@@ -114,7 +114,7 @@ class HIperfClient {
   void processPayload(ConsumerSocket &c, std::size_t bytes_transferred,
                       const std::error_code &ec) {
     Time t2 = std::chrono::steady_clock::now();
-    TimeDuration dt = std::chrono::duration_cast<TimeDuration>(t2 - t1_);
+    TimeDuration dt = std::chrono::duration_cast<TimeDuration>(t2 - t_download_);
     long usec = (long)dt.count();
 
     std::cout << "Content retrieved. Size: " << bytes_transferred << " [Bytes]"
@@ -137,37 +137,34 @@ class HIperfClient {
     return true;
   }
 
-  void processLeavingInterest(ConsumerSocket &c, const Interest &interest) {
-    //    std::cout << "LEAVES " << interest.getName().toUri() << std::endl;
-  }
+  void processLeavingInterest(ConsumerSocket &c, const Interest &interest) {}
 
-  void handleTimerExpiration(ConsumerSocket &c, std::size_t byte_count,
-                             std::chrono::milliseconds &exact_duration,
-                             float c_window, uint32_t retransmissions,
-                             uint32_t average_rtt) {
+  void handleTimerExpiration(ConsumerSocket &c, const protocol::TransportStatistics &stats) {
     const char separator = ' ';
     const int width = 20;
 
+    utils::TimePoint t2 = utils::SteadyClock::now();
+    auto exact_duration = std::chrono::duration_cast<utils::Milliseconds>(t2 - t_stats_);
+
     std::stringstream interval;
     interval << total_duration_milliseconds_ / 1000 << "-"
-             << total_duration_milliseconds_ / 1000 +
-                    exact_duration.count() / 1000;
+             << total_duration_milliseconds_ / 1000 + exact_duration.count() / 1000;
 
     std::stringstream bytes_transferred;
     bytes_transferred << std::fixed << std::setprecision(3)
-                      << (byte_count - old_bytes_value_) / 1000000.0
+                      << (stats.getBytesRecv() - old_bytes_value_) / 1000000.0
                       << std::setfill(separator) << "[MBytes]";
 
     std::stringstream bandwidth;
-    bandwidth << ((byte_count - old_bytes_value_) * 8) /
+    bandwidth << ((stats.getBytesRecv() - old_bytes_value_) * 8) /
                      (exact_duration.count()) / 1000.0
               << std::setfill(separator) << "[Mbps]";
 
     std::stringstream window;
-    window << c_window << std::setfill(separator) << "[Interest]";
+    window << stats.getAverageWindowSize() << std::setfill(separator) << "[Interest]";
 
     std::stringstream avg_rtt;
-    avg_rtt << average_rtt << std::setfill(separator) << "[us]";
+    avg_rtt << stats.getAverageRtt() << std::setfill(separator) << "[us]";
 
     std::cout << std::left << std::setw(width) << "Interval";
     std::cout << std::left << std::setw(width) << "Transfer";
@@ -179,13 +176,14 @@ class HIperfClient {
     std::cout << std::left << std::setw(width) << interval.str();
     std::cout << std::left << std::setw(width) << bytes_transferred.str();
     std::cout << std::left << std::setw(width) << bandwidth.str();
-    std::cout << std::left << std::setw(width) << retransmissions;
+    std::cout << std::left << std::setw(width) << stats.getRetxCount();
     std::cout << std::left << std::setw(width) << window.str();
     std::cout << std::left << std::setw(width) << avg_rtt.str() << std::endl;
     std::cout << std::endl;
 
     total_duration_milliseconds_ += (uint32_t)exact_duration.count();
-    old_bytes_value_ = byte_count;
+    old_bytes_value_ = stats.getBytesRecv();
+    t_stats_ = utils::SteadyClock::now();
   }
 
   int setup() {
@@ -280,18 +278,17 @@ class HIperfClient {
     }
 
     ret = consumer_socket_->setSocketOption(
-        ConsumerCallbacksOptions::TIMER_EXPIRES,
+        ConsumerCallbacksOptions::STATS_SUMMARY,
         (ConsumerTimerCallback)std::bind(
             &HIperfClient::handleTimerExpiration, this, std::placeholders::_1,
-            std::placeholders::_2, std::placeholders::_3, std::placeholders::_4,
-            std::placeholders::_5, std::placeholders::_6));
+            std::placeholders::_2));
 
     if (ret == SOCKET_OPTION_NOT_SET) {
       return ERROR_SETUP;
     }
 
     if (consumer_socket_->setSocketOption(
-            GeneralTransportOptions::TIMER_INTERVAL,
+            GeneralTransportOptions::STATS_INTERVAL,
             configuration_.report_interval_milliseconds_) ==
         SOCKET_OPTION_NOT_SET) {
       return ERROR_SETUP;
@@ -310,7 +307,7 @@ class HIperfClient {
       io_service_.stop();
     });
 
-    t1_ = std::chrono::steady_clock::now();
+    t_download_ = std::chrono::steady_clock::now();
     consumer_socket_->asyncConsume(configuration_.name,
                                    configuration_.receive_buffer);
     io_service_.run();
@@ -321,7 +318,8 @@ class HIperfClient {
  private:
   ClientConfiguration configuration_;
   std::unique_ptr<ConsumerSocket> consumer_socket_;
-  Time t1_;
+  Time t_stats_;
+  Time t_download_;
   uint32_t total_duration_milliseconds_;
   uint64_t old_bytes_value_;
   asio::io_service io_service_;
@@ -338,8 +336,7 @@ class HIperfServer {
         content_objects_((std::uint16_t)(1 << log2_content_object_buffer_size)),
         content_objects_index_(0),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1) {
-    std::string buffer(1440, 'X');
-
+    std::string buffer(1200, 'X');
     std::cout << "Producing contents under name " << conf.name.getName()
               << std::endl;
 
@@ -396,13 +393,13 @@ class HIperfServer {
               << std::endl;
   }
 
-  utils::Identity setProducerIdentity(std::string &keystore_name,
+  std::shared_ptr<utils::Identity> setProducerIdentity(std::string &keystore_name,
                                       std::string &keystore_password,
                                       HashAlgorithm &hash_algorithm) {
     if (access(keystore_name.c_str(), F_OK) != -1) {
-      return utils::Identity(keystore_name, keystore_password, hash_algorithm);
+      return std::make_shared<utils::Identity>(keystore_name, keystore_password, hash_algorithm);
     } else {
-      return utils::Identity(keystore_name, keystore_password,
+      return std::make_shared<utils::Identity>(keystore_name, keystore_password,
                              CryptoSuite::RSA_SHA256, 1024, 365,
                              "producer-test");
     }
@@ -414,7 +411,7 @@ class HIperfServer {
     producer_socket_ = std::make_unique<ProducerSocket>();
 
     if (configuration_.sign) {
-      Identity identity = setProducerIdentity(configuration_.keystore_name,
+      auto identity = setProducerIdentity(configuration_.keystore_name,
                                               configuration_.keystore_password,
                                               configuration_.hash_algorithm);
 
@@ -426,6 +423,7 @@ class HIperfServer {
     }
 
     producer_socket_->registerPrefix(configuration_.name);
+    producer_socket_->connect();
 
     if (!configuration_.virtual_producer) {
       if (producer_socket_->setSocketOption(
@@ -477,8 +475,6 @@ class HIperfServer {
         return ERROR_SETUP;
       }
     }
-
-    producer_socket_->connect();
 
     return ERROR_SUCCESS;
   }
@@ -548,6 +544,9 @@ void usage() {
             << "RAAQM drop factor "
                "parameter"
             << std::endl;
+  std::cerr << "-M\t<Download for real>\t\t"
+            << "Store the content downloaded."
+            << std::endl;
   std::cerr << "-W\t<window_size>\t\t\t"
             << "Use a fixed congestion window "
                "for retrieving the data."
@@ -584,14 +583,14 @@ int main(int argc, char *argv[]) {
 
   int opt;
 #ifndef _WIN32
-  while ((opt = getopt(argc, argv, "DSCf:b:d:W:c:vs:rmlk:y:p:hi:x")) != -1) {
+  while ((opt = getopt(argc, argv, "DSCf:b:d:W:RMc:vs:rmlk:y:p:hi:x")) != -1) {
     switch (opt) {
       // Common
       case 'D':
         daemon = true;
         break;
 #else
-  while ((opt = getopt(argc, argv, "SCf:b:d:W:c:vs:rmlk:y:p:hi:x")) != -1) {
+  while ((opt = getopt(argc, argv, "SCf:b:d:W:RMc:vs:rmlk:y:p:hi:x")) != -1) {
     switch (opt) {
 #endif
       case 'f':
@@ -617,6 +616,10 @@ int main(int argc, char *argv[]) {
         break;
       case 'W':
         client_configuration.window = std::stod(optarg);
+        options = 1;
+        break;
+      case 'M':
+        client_configuration.virtual_download = false;
         options = 1;
         break;
       case 'c':
@@ -753,8 +756,6 @@ int main(int argc, char *argv[]) {
     usage();
     return EXIT_FAILURE;
   }
-
-  std::cout << "Bye bye" << std::endl;
 
 #ifdef _WIN32
   WSACleanup();

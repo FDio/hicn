@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
   bool quite = false;
   bool flags = false;
   bool reset = false;
-  uint32_t object_size = 1350;
+  uint32_t object_size = 1250;
   uint8_t ttl = 64;
   std::string keystore_path = "./rsa_crypto_material.p12";
   std::string keystore_password = "cisco";

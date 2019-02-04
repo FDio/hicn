@@ -23,6 +23,8 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/tokenizer_exception.h
   ${CMAKE_CURRENT_SOURCE_DIR}/null_pointer_exception.h
   ${CMAKE_CURRENT_SOURCE_DIR}/malformed_ahpacket_exception.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/unexpected_manifest_exception.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/indexing_exception.h
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

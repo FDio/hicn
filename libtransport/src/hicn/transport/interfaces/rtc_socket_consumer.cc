@@ -14,6 +14,7 @@
  */
 
 #include <hicn/transport/interfaces/rtc_socket_consumer.h>
+#include <hicn/transport/protocols/rtc.h>
 
 namespace transport {
 
