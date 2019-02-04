@@ -20,24 +20,51 @@ namespace transport {
 
 namespace protocol {
 
-TransportProtocol::TransportProtocol(interface::BaseSocket *icn_socket)
-    : socket_(dynamic_cast<interface::ConsumerSocket *>(icn_socket)),
-      is_running_(false),
-      interest_pool_() {
-  // Create pool of interests
-  increasePoolSize();
+using namespace interface;
+
+TransportProtocol::TransportProtocol(interface::ConsumerSocket *icn_socket)
+    : socket_(icn_socket),
+      is_running_(false) {
+  socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal_);
 }
 
-TransportProtocol::~TransportProtocol() {}
+int TransportProtocol::start() {
+  // If the protocol is already running, return
+  if (is_running_) return -1;
 
-void TransportProtocol::updatePortal() { portal_ = socket_->portal_; }
+  // Set the protocol as running
+  is_running_ = true;
 
-bool TransportProtocol::isRunning() { return is_running_; }
+  // Reset the protocol state machine
+  reset();
 
-void TransportProtocol::increasePoolSize(std::size_t size) {
-  for (std::size_t i = 0; i < size; i++) {
-    interest_pool_.add(new Interest());
-  }
+  // Schedule next interests
+  scheduleNextInterests();
+
+  // Start Event loop
+  portal_->runEventsLoop();
+
+  // Not running anymore
+  is_running_ = false;
+
+  return 0;
+}
+
+void TransportProtocol::stop() {
+  is_running_ = false;
+  portal_->stopEventsLoop();
+}
+
+void TransportProtocol::resume() {
+  if (is_running_) return;
+
+  is_running_ = true;
+  
+  scheduleNextInterests();
+
+  portal_->runEventsLoop();
+  
+  is_running_ = false;
 }
 
 }  // end namespace protocol

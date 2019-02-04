@@ -15,32 +15,21 @@
 
 #pragma once
 
-#include <hicn/transport/protocols/raaqm_data_path.h>
-#include <hicn/transport/protocols/rate_estimation.h>
-#include <hicn/transport/protocols/vegas.h>
-#include <hicn/transport/protocols/vegas_rto_estimator.h>
+#include <hicn/transport/protocols/raaqm.h>
 
 namespace transport {
 
 namespace protocol {
 
-class CbrTransportProtocol : public VegasTransportProtocol {
+class CbrTransportProtocol : public RaaqmTransportProtocol {
  public:
-  CbrTransportProtocol(interface::BaseSocket *icnet_socket);
+  CbrTransportProtocol(interface::ConsumerSocket *icnet_socket);
 
-  void start(utils::SharableVector<uint8_t> &receive_buffer) override;
+  int start() override;
 
  private:
-  void afterContentReception(const Interest &interest,
-                             const ContentObject &content_object) override;
-
+  void afterContentReception(const Interest &interest, const ContentObject &content_object) override;
   void afterDataUnsatisfied(uint64_t segment) override;
-
-  void increaseWindow() override;
-
-  void decreaseWindow() override;
-
-  void changeInterestLifetime(uint64_t segment) override;
 };
 
 }  // end namespace protocol

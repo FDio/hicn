@@ -21,10 +21,7 @@
 #include <hicn/transport/protocols/protocol.h>
 #include <hicn/transport/protocols/raaqm.h>
 #include <hicn/transport/protocols/rtc.h>
-#include <hicn/transport/protocols/vegas.h>
-
 #include <hicn/transport/utils/event_thread.h>
-#include <hicn/transport/utils/sharable_vector.h>
 
 #define CONSUMER_FINISHED 0
 #define CONSUMER_BUSY 1
@@ -35,11 +32,6 @@ namespace transport {
 namespace interface {
 
 class ConsumerSocket : public BaseSocket {
-  friend class protocol::TransportProtocol;
-  friend class protocol::VegasTransportProtocol;
-  friend class protocol::RaaqmTransportProtocol;
-  friend class protocol::CbrTransportProtocol;
-
  public:
   explicit ConsumerSocket(int protocol);
   explicit ConsumerSocket(int protocol, asio::io_service &io_service);
@@ -48,11 +40,9 @@ class ConsumerSocket : public BaseSocket {
 
   void connect() override;
 
-  int consume(const Name &name, utils::SharableVector<uint8_t> &receive_buffer);
+  int consume(const Name &name, ContentBuffer &receive_buffer);
 
-  int asyncConsume(
-      const Name &name,
-      std::shared_ptr<utils::SharableVector<uint8_t>> receive_buffer);
+  int asyncConsume(const Name &name, ContentBuffer &receive_buffer);
 
   void asyncSendInterest(Interest::Ptr &&interest,
                          Portal::ConsumerCallback *callback);
@@ -63,126 +53,630 @@ class ConsumerSocket : public BaseSocket {
 
   asio::io_service &getIoService() override;
 
-  int setSocketOption(int socket_option_key,
-                      uint32_t socket_option_value) override;
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(int socket_option_key,
+                                              double socket_option_value) {
+    switch (socket_option_key) {
+      case MIN_WINDOW_SIZE:
+        min_window_size_ = socket_option_value;
+        break;
 
-  int setSocketOption(int socket_option_key,
-                      double socket_option_value) override;
+      case MAX_WINDOW_SIZE:
+        max_window_size_ = socket_option_value;
+        break;
 
-  int setSocketOption(int socket_option_key, bool socket_option_value) override;
+      case CURRENT_WINDOW_SIZE:
+        current_window_size_ = socket_option_value;
+        break;
 
-  int setSocketOption(int socket_option_key, Name socket_option_value) override;
+      case GAMMA_VALUE:
+        gamma_ = socket_option_value;
+        break;
 
-  int setSocketOption(int socket_option_key,
-                      std::list<Prefix> socket_option_value) override;
+      case BETA_VALUE:
+        beta_ = socket_option_value;
+        break;
 
-  int setSocketOption(
+      case DROP_FACTOR:
+        drop_factor_ = socket_option_value;
+        break;
+
+      case MINIMUM_DROP_PROBABILITY:
+        minimum_drop_probability_ = socket_option_value;
+        break;
+
+      case RATE_ESTIMATION_ALPHA:
+        if (socket_option_value >= 0 && socket_option_value < 1) {
+          rate_estimation_alpha_ = socket_option_value;
+        } else {
+          rate_estimation_alpha_ = ALPHA;
+        }
+        break;
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(int socket_option_key,
+                                              uint32_t socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::INPUT_BUFFER_SIZE:
+        input_buffer_size_ = socket_option_value;
+        break;
+
+      case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
+        output_buffer_size_ = socket_option_value;
+        break;
+
+      case GeneralTransportOptions::MAX_INTEREST_RETX:
+        max_retransmissions_ = socket_option_value;
+        break;
+
+      case GeneralTransportOptions::INTEREST_LIFETIME:
+        interest_lifetime_ = socket_option_value;
+        break;
+
+      case ConsumerCallbacksOptions::INTEREST_RETRANSMISSION:
+        if (socket_option_value == VOID_HANDLER) {
+          on_interest_retransmission_ = VOID_HANDLER;
+          break;
+        }
+
+      case ConsumerCallbacksOptions::INTEREST_EXPIRED:
+        if (socket_option_value == VOID_HANDLER) {
+          on_interest_timeout_ = VOID_HANDLER;
+          break;
+        }
+
+      case ConsumerCallbacksOptions::INTEREST_SATISFIED:
+        if (socket_option_value == VOID_HANDLER) {
+          on_interest_satisfied_ = VOID_HANDLER;
+          break;
+        }
+
+      case ConsumerCallbacksOptions::INTEREST_OUTPUT:
+        if (socket_option_value == VOID_HANDLER) {
+          on_interest_output_ = VOID_HANDLER;
+          break;
+        }
+
+      case ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT:
+        if (socket_option_value == VOID_HANDLER) {
+          on_content_object_input_ = VOID_HANDLER;
+          break;
+        }
+
+      case ConsumerCallbacksOptions::CONTENT_OBJECT_TO_VERIFY:
+        if (socket_option_value == VOID_HANDLER) {
+          on_content_object_verification_ = VOID_HANDLER;
+          break;
+        }
+
+      case ConsumerCallbacksOptions::CONTENT_RETRIEVED:
+        if (socket_option_value == VOID_HANDLER) {
+          on_payload_retrieved_ = VOID_HANDLER;
+          break;
+        }
+
+      case RateEstimationOptions::RATE_ESTIMATION_BATCH_PARAMETER:
+        if (socket_option_value > 0) {
+          rate_estimation_batching_parameter_ = socket_option_value;
+        } else {
+          rate_estimation_batching_parameter_ = BATCH;
+        }
+        break;
+
+      case RateEstimationOptions::RATE_ESTIMATION_CHOICE:
+        if (socket_option_value > 0) {
+          rate_estimation_choice_ = socket_option_value;
+        } else {
+          rate_estimation_choice_ = RATE_CHOICE;
+        }
+        break;
+
+      case GeneralTransportOptions::STATS_INTERVAL:
+        timer_interval_milliseconds_ = socket_option_value;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(int socket_option_key,
+                                              bool socket_option_value) {
+    switch (socket_option_key) {
+      case OtherOptions::VIRTUAL_DOWNLOAD:
+        virtual_download_ = socket_option_value;
+        break;
+
+      case RaaqmTransportOptions::RTT_STATS:
+        rtt_stats_ = socket_option_value;
+        break;
+
+      case GeneralTransportOptions::VERIFY_SIGNATURE:
+        verify_signature_ = socket_option_value;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(int socket_option_key,
+                                              Name *socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::NETWORK_NAME:
+        network_name_ = *socket_option_value;
+        break;
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(
       int socket_option_key,
-      ProducerContentObjectCallback socket_option_value) override;
+      ConsumerContentObjectCallback socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT:
+        on_content_object_input_ = socket_option_value;
+        break;
 
-  int setSocketOption(
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(
       int socket_option_key,
-      ConsumerContentObjectVerificationCallback socket_option_value) override;
+      ConsumerContentObjectVerificationCallback socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::CONTENT_OBJECT_TO_VERIFY:
+        on_content_object_verification_ = socket_option_value;
+        break;
 
-  int setSocketOption(
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(
+      int socket_option_key, ConsumerInterestCallback socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::INTEREST_RETRANSMISSION:
+        on_interest_retransmission_ = socket_option_value;
+        break;
+
+      case ConsumerCallbacksOptions::INTEREST_OUTPUT:
+        on_interest_output_ = socket_option_value;
+        break;
+
+      case ConsumerCallbacksOptions::INTEREST_EXPIRED:
+        on_interest_timeout_ = socket_option_value;
+        break;
+
+      case ConsumerCallbacksOptions::INTEREST_SATISFIED:
+        on_interest_satisfied_ = socket_option_value;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(
+      int socket_option_key, ConsumerContentCallback socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::CONTENT_RETRIEVED:
+        on_payload_retrieved_ = socket_option_value;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(
+      int socket_option_key, ConsumerManifestCallback socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::MANIFEST_INPUT:
+        on_manifest_ = socket_option_value;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(
+      int socket_option_key, IcnObserver *socket_option_value) {
+    switch (socket_option_key) {
+      case RateEstimationOptions::RATE_ESTIMATION_OBSERVER:
+        rate_estimation_observer_ = socket_option_value;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(
       int socket_option_key,
-      ConsumerContentObjectCallback socket_option_value) override;
+      const std::shared_ptr<utils::Verifier> &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::VERIFIER:
+        verifier_ = socket_option_value;
+        break;
 
-  int setSocketOption(int socket_option_key,
-                      ConsumerInterestCallback socket_option_value) override;
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
 
-  int setSocketOption(int socket_option_key,
-                      ProducerInterestCallback socket_option_value) override;
+    return SOCKET_OPTION_SET;
+  }
 
-  int setSocketOption(int socket_option_key,
-                      ConsumerContentCallback socket_option_value) override;
-
-  int setSocketOption(int socket_option_key,
-                      ConsumerManifestCallback socket_option_value) override;
-
-  int setSocketOption(int socket_option_key,
-                      IcnObserver *socket_option_value) override;
-
-  int setSocketOption(int socket_option_key,
-                      HashAlgorithm socket_option_value) override;
-
-  int setSocketOption(int socket_option_key,
-                      utils::CryptoSuite crypto_suite) override;
-
-  int setSocketOption(int socket_option_key,
-                      const utils::Identity &crypto_suite) override;
-
-  int setSocketOption(int socket_option_key,
-                      const std::string &socket_option_value) override;
-
-  int setSocketOption(int socket_option_key,
-                      ConsumerTimerCallback socket_option_value) override;
-
-  int setSocketOption(int socket_option_key,
-                      ProducerContentCallback socket_option_value) override;
-
-  int getSocketOption(int socket_option_key,
-                      uint32_t &socket_option_value) override;
-
-  int getSocketOption(int socket_option_key,
-                      double &socket_option_value) override;
-
-  int getSocketOption(int socket_option_key,
-                      bool &socket_option_value) override;
-
-  int getSocketOption(int socket_option_key,
-                      Name &socket_option_value) override;
-
-  int getSocketOption(int socket_option_key,
-                      std::list<Prefix> &socket_option_value) override;
-
-  int getSocketOption(
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(
       int socket_option_key,
-      ProducerContentObjectCallback &socket_option_value) override;
+      const std::shared_ptr<std::vector<uint8_t>> &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::APPLICATION_BUFFER:
+        content_buffer_ = socket_option_value;
+        break;
 
-  int getSocketOption(
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(
+      int socket_option_key, const std::string &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::CERTIFICATE:
+        key_id_ = verifier_->addKeyFromCertificate(socket_option_value);
+
+        if (key_id_ != nullptr) {
+          break;
+        }
+
+      case DataLinkOptions::OUTPUT_INTERFACE:
+        output_interface_ = socket_option_value;
+        portal_->setOutputInterface(output_interface_);
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int setSocketOption(
+      int socket_option_key, ConsumerTimerCallback socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::STATS_SUMMARY:
+        stats_summary_ = socket_option_value;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+
+    return SOCKET_OPTION_SET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(int socket_option_key,
+                                              double &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::MIN_WINDOW_SIZE:
+        socket_option_value = min_window_size_;
+        break;
+
+      case GeneralTransportOptions::MAX_WINDOW_SIZE:
+        socket_option_value = max_window_size_;
+        break;
+
+      case GeneralTransportOptions::CURRENT_WINDOW_SIZE:
+        socket_option_value = current_window_size_;
+        break;
+
+        // RAAQM parameters
+
+      case RaaqmTransportOptions::GAMMA_VALUE:
+        socket_option_value = gamma_;
+        break;
+
+      case RaaqmTransportOptions::BETA_VALUE:
+        socket_option_value = beta_;
+        break;
+
+      case RaaqmTransportOptions::DROP_FACTOR:
+        socket_option_value = drop_factor_;
+        break;
+
+      case RaaqmTransportOptions::MINIMUM_DROP_PROBABILITY:
+        socket_option_value = minimum_drop_probability_;
+        break;
+
+      case RateEstimationOptions::RATE_ESTIMATION_ALPHA:
+        socket_option_value = rate_estimation_alpha_;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(int socket_option_key,
+                                              uint32_t &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::INPUT_BUFFER_SIZE:
+        socket_option_value = input_buffer_size_;
+        break;
+
+      case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
+        socket_option_value = output_buffer_size_;
+        break;
+
+      case GeneralTransportOptions::MAX_INTEREST_RETX:
+        socket_option_value = max_retransmissions_;
+        break;
+
+      case GeneralTransportOptions::INTEREST_LIFETIME:
+        socket_option_value = interest_lifetime_;
+        break;
+
+      case RaaqmTransportOptions::SAMPLE_NUMBER:
+        socket_option_value = sample_number_;
+        break;
+
+      case RateEstimationOptions::RATE_ESTIMATION_BATCH_PARAMETER:
+        socket_option_value = rate_estimation_batching_parameter_;
+        break;
+
+      case RateEstimationOptions::RATE_ESTIMATION_CHOICE:
+        socket_option_value = rate_estimation_choice_;
+        break;
+
+      case GeneralTransportOptions::STATS_INTERVAL:
+        socket_option_value = timer_interval_milliseconds_;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(int socket_option_key,
+                                              bool &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::ASYNC_MODE:
+        socket_option_value = is_async_;
+        break;
+
+      case GeneralTransportOptions::RUNNING:
+        socket_option_value = transport_protocol_->isRunning();
+        break;
+
+      case OtherOptions::VIRTUAL_DOWNLOAD:
+        socket_option_value = virtual_download_;
+        break;
+
+      case RaaqmTransportOptions::RTT_STATS:
+        socket_option_value = rtt_stats_;
+        break;
+
+      case GeneralTransportOptions::VERIFY_SIGNATURE:
+        socket_option_value = verify_signature_;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(int socket_option_key,
+                                              Name **socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::NETWORK_NAME:
+        *socket_option_value = &network_name_;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
       int socket_option_key,
-      ConsumerContentObjectVerificationCallback &socket_option_value) override;
+      ConsumerContentObjectCallback **socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT:
+        *socket_option_value = &on_content_object_input_;
+        break;
 
-  int getSocketOption(
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
       int socket_option_key,
-      ConsumerContentObjectCallback &socket_option_value) override;
+      ConsumerContentObjectVerificationCallback **socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::CONTENT_OBJECT_TO_VERIFY:
+        *socket_option_value = &on_content_object_verification_;
+        break;
 
-  int getSocketOption(int socket_option_key,
-                      ConsumerInterestCallback &socket_option_value) override;
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
 
-  int getSocketOption(int socket_option_key,
-                      ProducerInterestCallback &socket_option_value) override;
+    return SOCKET_OPTION_GET;
+  }
 
-  int getSocketOption(int socket_option_key,
-                      ConsumerContentCallback &socket_option_value) override;
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+      int socket_option_key, ConsumerInterestCallback **socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::INTEREST_RETRANSMISSION:
+        *socket_option_value = &on_interest_retransmission_;
+        break;
 
-  int getSocketOption(int socket_option_key,
-                      ConsumerManifestCallback &socket_option_value) override;
+      case ConsumerCallbacksOptions::INTEREST_OUTPUT:
+        *socket_option_value = &on_interest_output_;
+        break;
 
-  int getSocketOption(int socket_option_key,
-                      std::shared_ptr<Portal> &socket_option_value) override;
+      case ConsumerCallbacksOptions::INTEREST_EXPIRED:
+        *socket_option_value = &on_interest_timeout_;
+        break;
 
-  int getSocketOption(int socket_option_key,
-                      IcnObserver **socket_option_value) override;
+      case ConsumerCallbacksOptions::INTEREST_SATISFIED:
+        *socket_option_value = &on_interest_satisfied_;
+        break;
 
-  int getSocketOption(int socket_option_key,
-                      HashAlgorithm &socket_option_value) override;
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
 
-  int getSocketOption(int socket_option_key,
-                      utils::CryptoSuite &crypto_suite) override;
+    return SOCKET_OPTION_GET;
+  }
 
-  int getSocketOption(int socket_option_key,
-                      utils::Identity &crypto_suite) override;
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+      int socket_option_key, ConsumerContentCallback **socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::CONTENT_RETRIEVED:
+        *socket_option_value = &on_payload_retrieved_;
+        return SOCKET_OPTION_GET;
 
-  int getSocketOption(int socket_option_key,
-                      std::string &socket_option_value) override;
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+  }
 
-  int getSocketOption(int socket_option_key,
-                      ConsumerTimerCallback &socket_option_value) override;
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+      int socket_option_key, ConsumerManifestCallback **socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::MANIFEST_INPUT:
+        *socket_option_value = &on_manifest_;
+        break;
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
 
-  int getSocketOption(int socket_option_key,
-                      ProducerContentCallback &socket_option_value) override;
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+      int socket_option_key, std::shared_ptr<Portal> &socket_option_value) {
+    switch (socket_option_key) {
+      case PORTAL:
+        socket_option_value = portal_;
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+      int socket_option_key, IcnObserver **socket_option_value) {
+    switch (socket_option_key) {
+      case RateEstimationOptions::RATE_ESTIMATION_OBSERVER:
+        *socket_option_value = (rate_estimation_observer_);
+        break;
+
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+      int socket_option_key,
+      std::shared_ptr<utils::Verifier> &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::VERIFIER:
+        socket_option_value = verifier_;
+        break;
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+      int socket_option_key,
+      std::shared_ptr<std::vector<uint8_t>> &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::APPLICATION_BUFFER:
+        socket_option_value = content_buffer_;
+        break;
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+      int socket_option_key, std::string &socket_option_value) {
+    switch (socket_option_key) {
+      case DataLinkOptions::OUTPUT_INTERFACE:
+        socket_option_value = output_interface_;
+        break;
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+      int socket_option_key, ConsumerTimerCallback **socket_option_value) {
+    switch (socket_option_key) {
+      case ConsumerCallbacksOptions::STATS_SUMMARY:
+        *socket_option_value = &stats_summary_;
+        break;
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
 
  protected:
   std::shared_ptr<TransportProtocol> transport_protocol_;
@@ -208,7 +702,6 @@ class ConsumerSocket : public BaseSocket {
   size_t input_buffer_size_;
 
   // RAAQM Parameters
-
   double minimum_drop_probability_;
   unsigned int sample_number_;
   double gamma_;
@@ -223,11 +716,13 @@ class ConsumerSocket : public BaseSocket {
 
   bool is_async_;
 
-  utils::Verifier verifier_;
+  // Verification parameters
+  std::shared_ptr<utils::Verifier> verifier_;
+  std::shared_ptr<IndexVerificationManager> verification_manager_;
   PARCKeyId *key_id_;
   bool verify_signature_;
 
-  std::shared_ptr<utils::SharableVector<uint8_t>> content_buffer_;
+  ContentBuffer content_buffer_;
 
   ConsumerInterestCallback on_interest_retransmission_;
   ConsumerInterestCallback on_interest_output_;
@@ -242,16 +737,13 @@ class ConsumerSocket : public BaseSocket {
 
   ConsumerContentCallback on_payload_retrieved_;
 
-  ConsumerTimerCallback on_timer_expires_;
+  ConsumerTimerCallback stats_summary_;
 
   // Virtual download for traffic generator
 
   bool virtual_download_;
   bool rtt_stats_;
 
-  Time t0_;
-  Time t1_;
-  asio::steady_timer timer_;
   uint32_t timer_interval_milliseconds_;
 };
 
