@@ -158,7 +158,7 @@ build_package() {
 
     make package
 
-    # find . -name '.*Unspecified.*' -print0 | xargs -0 rm -rf -- || true
+    find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
     rm *Unspecified*
 
     popd
