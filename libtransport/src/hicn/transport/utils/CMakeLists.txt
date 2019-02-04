@@ -30,7 +30,6 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/string_tokenizer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hash.h
   ${CMAKE_CURRENT_SOURCE_DIR}/uri.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/sharable_vector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/branch_prediction.h
   ${CMAKE_CURRENT_SOURCE_DIR}/event_reactor.h
   ${CMAKE_CURRENT_SOURCE_DIR}/deadline_timer.h
@@ -38,7 +37,6 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/event_reactor.h
   ${CMAKE_CURRENT_SOURCE_DIR}/min_filter.h
   ${CMAKE_CURRENT_SOURCE_DIR}/stream_buffer.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/endianess.h
   ${CMAKE_CURRENT_SOURCE_DIR}/literals.h
   ${CMAKE_CURRENT_SOURCE_DIR}/signer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/verifier.h
