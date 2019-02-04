@@ -15,7 +15,6 @@
 
 #include <hicn/transport/core/manifest_format_fixed.h>
 #include <hicn/transport/core/packet.h>
-#include <hicn/transport/utils/endianess.h>
 #include <hicn/transport/utils/literals.h>
 
 namespace transport {
@@ -23,26 +22,30 @@ namespace transport {
 namespace core {
 
 // TODO use preallocated pool of membufs
-FixedManifestEncoder::FixedManifestEncoder(Packet &packet)
+FixedManifestEncoder::FixedManifestEncoder(Packet &packet, std::size_t signature_size)
     : packet_(packet),
-      max_size_(Packet::default_mtu - packet_.headerSize()),
+      max_size_(Packet::default_mtu - packet_.headerSize() - signature_size),
       manifest_(
           utils::MemBuf::create(Packet::default_mtu - packet_.headerSize())),
       manifest_header_(
           reinterpret_cast<ManifestHeader *>(manifest_->writableData())),
       manifest_entries_(reinterpret_cast<ManifestEntry *>(
           manifest_->writableData() + sizeof(ManifestHeader))),
-      current_entry_(0) {}
+      current_entry_(0),
+      signature_size_(signature_size) {
+  *manifest_header_ = {0};
+}
 
 FixedManifestEncoder::~FixedManifestEncoder() {}
 
 FixedManifestEncoder &FixedManifestEncoder::encodeImpl() {
+  manifest_->append(sizeof(ManifestHeader) + manifest_header_->number_of_entries * sizeof(ManifestEntry));
   packet_.appendPayload(std::move(manifest_));
   return *this;
 }
 
 FixedManifestEncoder &FixedManifestEncoder::clearImpl() {
-  manifest_ = utils::MemBuf::create(Packet::default_mtu - packet_.headerSize());
+  manifest_ = utils::MemBuf::create(Packet::default_mtu - packet_.headerSize() - signature_size_);
   return *this;
 }
 
@@ -84,7 +87,7 @@ FixedManifestEncoder &FixedManifestEncoder::addSuffixAndHashImpl(
 void FixedManifestEncoder::addSuffixHashBytes(uint32_t suffix,
                                               const uint8_t *hash,
                                               std::size_t length) {
-  manifest_entries_[current_entry_].suffix = utils::hton(suffix);
+  manifest_entries_[current_entry_].suffix = htonl(suffix);
   //  std::copy(hash, hash + length,
   //            manifest_entries_[current_entry_].hash);
   std::memcpy(
@@ -119,18 +122,13 @@ std::size_t FixedManifestEncoder::estimateSerializedLengthImpl(
 }
 
 FixedManifestEncoder &FixedManifestEncoder::updateImpl() {
-  max_size_ = Packet::default_mtu - packet_.headerSize();
-  manifest_header_ = reinterpret_cast<ManifestHeader *>(
-      const_cast<uint8_t *>(packet_.getPayload().data()));
-  manifest_entries_ = reinterpret_cast<ManifestEntry *>(
-      const_cast<uint8_t *>(packet_.getPayload().data()) +
-      sizeof(ManifestHeader));
+  max_size_ = Packet::default_mtu - packet_.headerSize() - signature_size_;
   return *this;
 }
 
 FixedManifestEncoder &FixedManifestEncoder::setFinalBlockNumberImpl(
     std::uint32_t final_block_number) {
-  manifest_header_->final_block_number = utils::hton(final_block_number);
+  manifest_header_->final_block_number = htonl(final_block_number);
   return *this;
 }
 
@@ -179,7 +177,7 @@ typename Fixed::SuffixList FixedManifestDecoder::getSuffixHashListImpl() {
 
   for (int i = 0; i < manifest_header_->number_of_entries; i++) {
     hash_list.insert(hash_list.end(),
-                     std::make_pair(utils::ntoh(manifest_entries_[i].suffix),
+                     std::make_pair(ntohl(manifest_entries_[i].suffix),
                                     reinterpret_cast<uint8_t *>(
                                         &manifest_entries_[i].hash[0])));
   }
@@ -213,7 +211,7 @@ std::size_t FixedManifestDecoder::estimateSerializedLengthImpl(
 }
 
 uint32_t FixedManifestDecoder::getFinalBlockNumberImpl() const {
-  return utils::ntoh(manifest_header_->final_block_number);
+  return ntohl(manifest_header_->final_block_number);
 }
 
 }  // end namespace core

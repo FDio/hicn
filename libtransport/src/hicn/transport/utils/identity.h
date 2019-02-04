@@ -36,7 +36,6 @@ class Identity {
            unsigned int signature_length, unsigned int validity_days,
            const std::string &subject_name);
 
-  // No copies
   Identity(const Identity &other);
 
   Identity(std::string &file_name, std::string &password,

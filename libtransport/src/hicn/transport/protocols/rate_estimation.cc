@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/protocols/rate_estimation.h>
 #include <hicn/transport/utils/log.h>
 
@@ -34,7 +35,7 @@ void *Timer(void *data) {
 
   while (estimator->is_running_) {
     std::this_thread::sleep_for(
-        std::chrono::microseconds((uint64_t)(KV * dat_rtt)));
+        std::chrono::microseconds((uint64_t)(interface::default_values::kv * dat_rtt)));
 
     pthread_mutex_lock(&(estimator->mutex_));
 
