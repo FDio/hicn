@@ -76,7 +76,6 @@ void SocketConnector::connect(std::string ip_address, std::string port) {
   endpoint_iterator_ = resolver_.resolve(
       {ip_address, port, asio::ip::resolver_query_base::numeric_service});
 
-  startConnectionTimer();
   doConnect();
 }
 
