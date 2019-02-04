@@ -1,5 +1,5 @@
 PROJECT_NAME           = "Hybrid ICN (hICN)"
-PROJECT_NUMBER         = v@CMAKE_VERSION_MAJOR@.@CMAKE_VERSION_MINOR@.@CMAKE_VERSION_PATCH@
+PROJECT_NUMBER         = @VERSION@
 STRIP_FROM_PATH        = @PROJECT_SOURCE_DIR@ \
                          @PROJECT_BINARY_DIR@
 INPUT                  = @doxy_main_page@ \

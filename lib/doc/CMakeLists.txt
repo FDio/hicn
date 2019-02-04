@@ -11,6 +11,18 @@ if(BUILD_DOCUMENTATION)
     set(doxyfile_in ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
     set(doxyfile ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 
+    # extract version from git
+    execute_process(
+      COMMAND git describe --long --match v*
+      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+      OUTPUT_VARIABLE VERSION
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    if (NOT VERSION)
+      set(VERSION "v1.0-1-gcafe")
+    endif()
+
     configure_file(${doxyfile_in} ${doxyfile} @ONLY)
 
     add_custom_target(doc
