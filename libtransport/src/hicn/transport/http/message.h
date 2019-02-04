@@ -19,8 +19,6 @@
 #include <hicn/transport/portability/win_portability.h>
 #endif
 
-#include <hicn/transport/utils/sharable_vector.h>
-
 #include <map>
 #include <sstream>
 #include <vector>

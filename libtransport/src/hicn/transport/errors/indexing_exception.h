@@ -15,24 +15,17 @@
 
 #pragma once
 
-#include <hicn/transport/protocols/raaqm.h>
+#include <stdexcept>
 
-namespace transport {
+namespace errors {
 
-namespace protocol {
-
-class CbrTransportProtocol : public RaaqmTransportProtocol {
+class IndexingException : public std::logic_error {
  public:
-  CbrTransportProtocol(interface::ConsumerSocket *icnet_socket);
+  IndexingException() : std::logic_error("") {}
 
-  int start() override;
-
- private:
-  void afterContentReception(const Interest &interest,
-                             const ContentObject &content_object) override;
-  void afterDataUnsatisfied(uint64_t segment) override;
+  virtual char const *what() const noexcept override {
+    return "Impossible to retrieve next index to download.";
+  }
 };
 
-}  // end namespace protocol
-
-}  // end namespace transport
+}  // end namespace errors

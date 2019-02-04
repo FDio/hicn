@@ -14,6 +14,7 @@
  */
 
 #include <hicn/transport/protocols/raaqm_data_path.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
 
 namespace transport {
 
@@ -42,7 +43,7 @@ RaaqmDataPath::RaaqmDataPath(double drop_factor,
       raw_data_bytes_received_(0),
       last_raw_data_bytes_received_(0),
       rtt_samples_(samples_),
-      last_received_pkt_(std::chrono::steady_clock::now()),
+      last_received_pkt_(utils::SteadyClock::now()),
       average_rtt_(0),
       alpha_(ALPHA) {}
 
@@ -58,7 +59,7 @@ RaaqmDataPath &RaaqmDataPath::insertNewRtt(uint64_t new_rtt) {
     prop_delay_ = rtt_min_;
   }
 
-  last_received_pkt_ = std::chrono::steady_clock::now();
+  last_received_pkt_ = utils::SteadyClock::now();
 
   return *this;
 }
@@ -124,10 +125,6 @@ RaaqmDataPath &RaaqmDataPath::updateDropProb() {
   return *this;
 }
 
-double RaaqmDataPath::getMicroSeconds(struct timeval &time) {
-  return (double)(time.tv_sec) * 1000000 + (double)(time.tv_usec);
-}
-
 void RaaqmDataPath::setAlpha(double alpha) {
   if (alpha >= 0 && alpha <= 1) {
     alpha_ = alpha;
@@ -145,9 +142,10 @@ unsigned int RaaqmDataPath::getPropagationDelay() {
 }
 
 bool RaaqmDataPath::isStale() {
-  TimePoint now = std::chrono::steady_clock::now();
-  auto time = std::chrono::duration_cast<Microseconds>(now - last_received_pkt_)
-                  .count();
+  utils::TimePoint now = utils::SteadyClock::now();
+  auto time =
+      std::chrono::duration_cast<utils::Microseconds>(now - last_received_pkt_)
+          .count();
   if (time > 2000000) {
     return true;
   }

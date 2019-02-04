@@ -15,65 +15,108 @@
 
 #pragma once
 
+#include <hicn/transport/protocols/congestion_window_protocol.h>
+#include <hicn/transport/protocols/protocol.h>
 #include <hicn/transport/protocols/raaqm_data_path.h>
 #include <hicn/transport/protocols/rate_estimation.h>
-#include <hicn/transport/protocols/vegas.h>
-#include <hicn/transport/protocols/vegas_rto_estimator.h>
+#include <hicn/transport/protocols/reassembly.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
+
+#include <queue>
+#include <vector>
 
 namespace transport {
 
 namespace protocol {
 
-class RaaqmTransportProtocol : public VegasTransportProtocol {
+class RaaqmTransportProtocol
+    : public TransportProtocol,
+      public BaseReassembly,
+      public CWindowProtocol,
+      public BaseReassembly::ContentReassembledCallback {
  public:
-  RaaqmTransportProtocol(interface::BaseSocket *icnet_socket);
+  RaaqmTransportProtocol(interface::ConsumerSocket *icnet_socket);
 
   ~RaaqmTransportProtocol();
 
-  void start(utils::SharableVector<uint8_t> &content_buffer) override;
+  int start() override;
+
+  void resume() override;
+
+  void reset() override;
 
  protected:
-  void copyContent(const ContentObject &content_object) override;
+  static constexpr uint32_t buffer_size =
+      1 << interface::default_values::log_2_default_buffer_size;
+  static constexpr uint16_t mask = buffer_size - 1;
+  using PathTable =
+      std::unordered_map<uint32_t, std::unique_ptr<RaaqmDataPath>>;
+
+  void increaseWindow() override;
+  void decreaseWindow() override;
+
+  virtual void afterContentReception(const Interest &interest,
+                                     const ContentObject &content_object);
+  virtual void afterDataUnsatisfied(uint64_t segment);
+
+  virtual void updateStats(uint32_t suffix, uint64_t rtt,
+                           utils::TimePoint &now);
 
  private:
   void init();
 
-  void afterContentReception(const Interest &interest,
-                             const ContentObject &content_object) override;
+  void onContentObject(Interest::Ptr &&i, ContentObject::Ptr &&c) override;
 
-  void afterDataUnsatisfied(uint64_t segment) override;
+  void onContentSegment(Interest::Ptr &&interest,
+                        ContentObject::Ptr &&content_object);
 
-  void increaseWindow() override;
+  void onTimeout(Interest::Ptr &&i) override;
+
+  virtual void scheduleNextInterests() override;
+
+  void sendInterest(std::uint64_t next_suffix);
+
+  void sendInterest(Interest::Ptr &&interest);
+
+  void onContentReassembled(std::error_code ec) override;
 
   void updateRtt(uint64_t segment);
-
-  void decreaseWindow() override;
-
-  void changeInterestLifetime(uint64_t segment) override;
-
-  void onTimeout(Interest::Ptr &&interest) override;
 
   void RAAQM();
 
   void updatePathTable(const ContentObject &content_object);
 
-  void check_drop_probability();
+  void checkDropProbability();
 
-  void check_for_stale_paths();
+  void checkForStalePaths();
 
   void printRtt();
 
+ protected:
+  // Congestion window management
+  double current_window_size_;
+  // Protocol management
+  uint64_t interests_in_flight_;
+  std::array<std::uint32_t, buffer_size> interest_retransmissions_;
+  std::array<utils::TimePoint, buffer_size> interest_timepoints_;
+  std::queue<Interest::Ptr> interest_to_retransmit_;
+
+ private:
   /**
    * Current download path
    */
-  std::shared_ptr<RaaqmDataPath> cur_path_;
+  RaaqmDataPath *cur_path_;
 
   /**
    * Hash table for path: each entry is a pair path ID(key) - path object
    */
-  std::unordered_map<uint32_t, std::shared_ptr<RaaqmDataPath>> path_table_;
+  PathTable path_table_;
+
+  // TimePoints for statistic
+  utils::TimePoint t0_;
 
   bool set_interest_filter_;
+
   // for rate-estimation at packet level
   IcnRateEstimator *rate_estimator_;
 

@@ -25,37 +25,39 @@ namespace interface {
 
 namespace default_values {
 
-const uint32_t interest_lifetime = 1001;  // milliseconds
-const uint32_t never_expire_time = HICN_MAX_LIFETIME;
-const uint32_t content_object_expiry_time =
-    never_expire_time;                             // milliseconds -> 50 seconds
-const uint32_t content_object_packet_size = 1500;  // The ethernet MTU
-const uint32_t producer_socket_input_buffer_size = 150000;   // Interests
-const uint32_t producer_socket_output_buffer_size = 150000;  // Content Object
-const uint32_t log_2_default_buffer_size = 12;
-const uint32_t signature_size = 260;           // bytes
-const uint32_t key_locator_size = 60;          // bytes
-const uint32_t limit_guard = 80;               // bytes
-const uint32_t min_window_size = 1;            // Interests
-const uint32_t max_window_size = 128000;       // Interests
-const uint32_t digest_size = 34;               // bytes
-const uint32_t max_out_of_order_segments = 3;  // content object
+static constexpr uint32_t interest_lifetime = 1001;  // milliseconds
+static constexpr uint32_t never_expire_time = HICN_MAX_LIFETIME;
+static constexpr uint32_t content_object_expiry_time =
+    never_expire_time;  // milliseconds -> 50 seconds
+static constexpr uint32_t content_object_packet_size =
+    1500;  // The ethernet MTU
+static constexpr uint32_t producer_socket_input_buffer_size =
+    150000;  // Interests
+static constexpr uint32_t producer_socket_output_buffer_size =
+    150000;  // Content Object
+static constexpr uint32_t log_2_default_buffer_size = 12;
+static constexpr uint32_t signature_size = 260;           // bytes
+static constexpr uint32_t key_locator_size = 60;          // bytes
+static constexpr uint32_t limit_guard = 80;               // bytes
+static constexpr uint32_t min_window_size = 1;            // Interests
+static constexpr uint32_t max_window_size = 256;          // Interests
+static constexpr uint32_t digest_size = 34;               // bytes
+static constexpr uint32_t max_out_of_order_segments = 3;  // content object
 
 // RAAQM
-const int sample_number = 30;
-const double gamma_value = 1;
-const double beta_value = 0.8;
-const double drop_factor = 0.2;
-const double minimum_drop_probability = 0.00001;
-const int path_id = 0;
-const double rate_alpha = 0.8;
+static constexpr int sample_number = 30;
+static constexpr double gamma_value = 1;
+static constexpr double beta_value = 0.8;
+static constexpr double drop_factor = 0.2;
+static constexpr double minimum_drop_probability = 0.00001;
+static constexpr int path_id = 0;
+static constexpr double rate_alpha = 0.8;
 
-// Vegas
-const double alpha = 1 / 8;
-const double beta = 1 / 4;
-const uint16_t k = 4;
-const std::chrono::milliseconds clock_granularity =
-    std::chrono::milliseconds(100);
+// Rate estimation
+static constexpr uint32_t batch = 50;
+static constexpr uint32_t kv = 20;
+static constexpr double alpha = 0.8;
+static constexpr uint32_t rate_choice = 0;
 
 // maximum allowed values
 const uint32_t transport_protocol_min_retransmissions = 0;

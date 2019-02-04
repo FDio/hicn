@@ -181,7 +181,7 @@ void RawSocketConnector::doSendPacket() {
 }
 
 void RawSocketConnector::doRecvPacket() {
-  read_msg_ = std::move(getPacket());
+  read_msg_ = getPacket();
   socket_.async_receive(
       asio::buffer(read_msg_->writableData(), packet_size),
       [this](std::error_code ec, std::size_t bytes_transferred) mutable {

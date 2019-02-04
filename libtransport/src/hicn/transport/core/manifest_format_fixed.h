@@ -83,7 +83,7 @@ static const constexpr std::uint8_t manifest_version = 1;
 
 class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
  public:
-  FixedManifestEncoder(Packet &packet);
+  FixedManifestEncoder(Packet &packet, std::size_t signature_size = 0);
 
   ~FixedManifestEncoder();
 
@@ -126,6 +126,7 @@ class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
   ManifestHeader *manifest_header_;
   ManifestEntry *manifest_entries_;
   std::size_t current_entry_;
+  std::size_t signature_size_;
 };
 
 class FixedManifestDecoder : public ManifestDecoder<FixedManifestDecoder> {

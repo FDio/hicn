@@ -12,8 +12,8 @@
 # limitations under the License.
 
 cmake_minimum_required (VERSION 3.5 FATAL_ERROR)
-project(Hicn C)
-include(CTest)
+project(libhicn C)
+#include(CTest)
 
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}

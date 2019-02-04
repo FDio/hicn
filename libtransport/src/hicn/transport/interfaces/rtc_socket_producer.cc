@@ -159,7 +159,6 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
   if (interestSeg < currentSeg_ || interestSeg > (max_gap + currentSeg_)) {
     sendNack(*interest);
   }
-  // else drop packet
 }
 
 void RTCProducerSocket::sendNack(const Interest &interest) {
