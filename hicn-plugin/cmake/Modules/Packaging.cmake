@@ -21,11 +21,11 @@ set(${HICN_PLUGIN}_DESCRIPTION
 )
 
 set(${HICN_PLUGIN}_DEB_DEPENDENCIES
-  "lib${LIBHICN} (>= stable_version), vpp (= stable_version-release), vpp-plugins (= stable_version-release)"
+  "vpp (= stable_version-release), vpp-plugins (= stable_version-release)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${HICN_PLUGIN}_RPM_DEPENDENCIES
-  "lib${LIBHICN} >= stable_version, vpp = stable_version-release, vpp-plugins = stable_version-release"
+  "vpp = stable_version-release, vpp-plugins = stable_version-release"
   CACHE STRING "Dependencies for deb/rpm package."
 )
