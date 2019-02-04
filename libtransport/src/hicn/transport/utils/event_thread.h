@@ -76,8 +76,6 @@ class EventThread {
   }
 
   void stop() {
-    TRANSPORT_LOGI("Stopping event thread!");
-
     io_service_.stop();
 
     if (thread_ && thread_->joinable()) {

@@ -29,6 +29,7 @@ HTTPClientConnection::HTTPClientConnection()
     : consumer_(TransportProtocolAlgorithms::RAAQM, io_service_),
       response_(std::make_shared<HTTPResponse>()),
       timer_(nullptr) {
+  
   consumer_.setSocketOption(
       ConsumerCallbacksOptions::CONTENT_OBJECT_TO_VERIFY,
       (ConsumerContentObjectVerificationCallback)std::bind(
@@ -118,14 +119,16 @@ std::string HTTPClientConnection::sendRequestGetReply(
 
   stream << "|0";
 
-  consumer_.consume(Name(stream.str()), *response);
+  ContentBuffer response_ptr = std::static_pointer_cast<std::vector<uint8_t>>(response);
+
+  consumer_.consume(Name(stream.str()), response_ptr);
 
   consumer_.stop();
 
   return stream.str();
 }
 
-HTTPResponse &&HTTPClientConnection::response() {
+HTTPResponse HTTPClientConnection::response() {
   // response_->parse();
   return std::move(*response_);
 }
