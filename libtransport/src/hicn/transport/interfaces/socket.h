@@ -27,6 +27,7 @@
 #include <hicn/transport/utils/crypto_suite.h>
 #include <hicn/transport/utils/identity.h>
 #include <hicn/transport/utils/verifier.h>
+#include <hicn/transport/protocols/statistics.h>
 
 #define SOCKET_OPTION_GET 0
 #define SOCKET_OPTION_NOT_GET 1
@@ -40,6 +41,7 @@ namespace transport {
 
 namespace protocol {
 class IcnObserver;
+class TransportStatistics;
 }
 
 namespace interface {
@@ -77,6 +79,7 @@ using BasePortal = HicnForwarderPortal;
 using PayloadType = core::PayloadType;
 using Prefix = core::Prefix;
 using Array = utils::Array<uint8_t>;
+using ContentBuffer = std::shared_ptr<std::vector<uint8_t>>;
 
 using ConsumerInterestCallback =
     std::function<void(ConsumerSocket &, const core::Interest &)>;
@@ -85,8 +88,7 @@ using ConsumerContentCallback =
     std::function<void(ConsumerSocket &, std::size_t, const std::error_code &)>;
 
 using ConsumerTimerCallback =
-    std::function<void(ConsumerSocket &, std::size_t,
-                       std::chrono::milliseconds &, float, uint32_t, uint32_t)>;
+    std::function<void(ConsumerSocket &, const protocol::TransportStatistics &stats)>;
 
 using ProducerContentCallback = std::function<void(
     ProducerSocket &, const std::error_code &, uint64_t bytes_written)>;
@@ -134,129 +136,6 @@ class Socket {
   virtual asio::io_service &getIoService() = 0;
 
   virtual void connect() = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              uint32_t socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              double socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              bool socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              core::Name socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              std::list<Prefix> socket_option_value) = 0;
-
-  virtual int setSocketOption(
-      int socket_option_key,
-      ProducerContentObjectCallback socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              ProducerInterestCallback socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              ProducerContentCallback socket_option_value) = 0;
-
-  virtual int setSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationCallback socket_option_value) = 0;
-
-  virtual int setSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectCallback socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              ConsumerInterestCallback socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              ConsumerContentCallback socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              ConsumerManifestCallback socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              IcnObserver *socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              core::HashAlgorithm socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              utils::CryptoSuite socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              const utils::Identity &socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              ConsumerTimerCallback socket_option_value) = 0;
-
-  virtual int setSocketOption(int socket_option_key,
-                              const std::string &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              uint32_t &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              double &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              bool &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              core::Name &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              std::list<Prefix> &socket_option_value) = 0;
-
-  virtual int getSocketOption(
-      int socket_option_key,
-      ProducerContentObjectCallback &socket_option_value) = 0;
-
-  virtual int getSocketOption(
-      int socket_option_key, ProducerInterestCallback &socket_option_value) = 0;
-
-  virtual int getSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationCallback &socket_option_value) = 0;
-
-  virtual int getSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectCallback &socket_option_value) = 0;
-
-  virtual int getSocketOption(
-      int socket_option_key, ConsumerInterestCallback &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              ConsumerContentCallback &socket_option_value) = 0;
-
-  virtual int getSocketOption(
-      int socket_option_key, ConsumerManifestCallback &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              ProducerContentCallback &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              std::shared_ptr<Portal> &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              IcnObserver **socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              core::HashAlgorithm &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              utils::CryptoSuite &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              utils::Identity &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              std::string &socket_option_value) = 0;
-
-  virtual int getSocketOption(int socket_option_key,
-                              ConsumerTimerCallback &socket_option_value) = 0;
 
  protected:
   virtual ~Socket(){};
