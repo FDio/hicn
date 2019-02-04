@@ -319,7 +319,7 @@ static size_t _peekMessageLength(UdpListener *udp, int fd,
 
   if (res == messageHandler_GetIPHeaderLength(IPv6)) {
     packetLength =
-        messageHandler_GetTotalPacketLength((const uint8_t *)&fixedHeader);
+        messageHandler_GetTotalPacketLength(fixedHeader);
   } else {
     if (res < 0) {
       printf("error while readin packet\n");
