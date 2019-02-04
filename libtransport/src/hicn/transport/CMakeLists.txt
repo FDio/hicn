@@ -13,13 +13,6 @@
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
-configure_file("config.h.in" "config.h" @ONLY)
-install(
-  FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
-  DESTINATION include/hicn/transport
-  COMPONENT lib${LIBTRANSPORT}-dev
-)
-
 add_subdirectory(core)
 add_subdirectory(errors)
 add_subdirectory(http)
@@ -28,9 +21,16 @@ add_subdirectory(portability)
 add_subdirectory(protocols)
 add_subdirectory(utils)
 
+configure_file("config.h.in" "config.h" @ONLY)
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
+  DESTINATION include/hicn/transport
+  COMPONENT lib${LIBTRANSPORT}-dev
+)
+
 set (COMPILER_DEFINITIONS "-DASIO_STANDALONE")
 
-list(APPEND LIBTRANSPORT_INCLUDE_DIRS
+list(INSERT LIBTRANSPORT_INCLUDE_DIRS 0
   ${CMAKE_CURRENT_SOURCE_DIR}/../..
   ${CMAKE_CURRENT_BINARY_DIR}/../..
 )
@@ -50,7 +50,7 @@ endif()
 
 build_library(${LIBTRANSPORT}
   STATIC SHARED
-  SOURCES ${SOURCE_FILES}
+  SOURCES ${SOURCE_FILES} ${HEADER_FILES}
   INSTALL_HEADERS ${HEADER_FILES}
   LINK_LIBRARIES ${LIBRARIES}
   DEPENDS ${DEPENDENCIES}

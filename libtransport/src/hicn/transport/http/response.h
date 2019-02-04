@@ -17,7 +17,6 @@
 
 #include <hicn/transport/http/message.h>
 #include <hicn/transport/utils/array.h>
-#include <hicn/transport/utils/sharable_vector.h>
 
 #include <map>
 #include <sstream>
@@ -27,7 +26,7 @@ namespace transport {
 
 namespace http {
 
-class HTTPResponse : public HTTPMessage, public utils::SharableVector<uint8_t> {
+class HTTPResponse : public HTTPMessage, public std::vector<uint8_t> {
  public:
   HTTPResponse(const HTTPHeaders &headers, const HTTPPayload &payload);
 
