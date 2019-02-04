@@ -111,8 +111,25 @@ void TcpSocketConnector::close() {
 }
 
 void TcpSocketConnector::doWrite() {
-  // TODO improve this piece of code for sending many buffers togethers
-  // if list contains more than one packet
+#if 1
+  auto array = std::vector<asio::const_buffer>();
+  std::vector<Packet::MemBufPtr> packet_store(packet_store_size);
+  uint8_t i = 0;
+
+  utils::MemBuf *packet = nullptr;
+  const utils::MemBuf *current = nullptr;
+  // Send vectors of 32 packets
+  while (!output_buffer_.empty() && i++ < packet_store_size) {
+    packet_store[i] = output_buffer_.front();
+    output_buffer_.pop_front();
+    packet = packet_store[i].get();
+    current = packet;
+    do {
+      array.push_back(asio::const_buffer(current->data(), current->length()));
+      current = current->next();
+    } while (current != packet);
+  }
+#else
   auto packet = output_buffer_.front().get();
   auto array = std::vector<asio::const_buffer>();
 
@@ -121,12 +138,13 @@ void TcpSocketConnector::doWrite() {
     array.push_back(asio::const_buffer(current->data(), current->length()));
     current = current->next();
   } while (current != packet);
+#endif
 
   asio::async_write(
       socket_, std::move(array),
-      [this /*, packet*/](std::error_code ec, std::size_t length) {
+      [this, packet_store = std::move(packet_store)](std::error_code ec,
+                                                     std::size_t length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
-          output_buffer_.pop_front();
           if (!output_buffer_.empty()) {
             doWrite();
           }

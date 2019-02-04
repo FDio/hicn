@@ -92,6 +92,8 @@ const Name &ContentObject::getName() const {
   return name_;
 }
 
+Name &ContentObject::getWritableName() { return const_cast<Name &>(getName()); }
+
 ContentObject &ContentObject::setName(const Name &name) {
   if (hicn_data_set_name(format_, (hicn_header_t *)packet_start_,
                          name.getStructReference()) < 0) {

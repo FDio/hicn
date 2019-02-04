@@ -37,7 +37,8 @@ class ManifestInline
  public:
   ManifestInline() : ManifestBase() {}
 
-  ManifestInline(const core::Name &name) : ManifestBase(name) {}
+  ManifestInline(const core::Name &name, std::size_t signature_size = 0)
+      : ManifestBase(name, signature_size) {}
 
   template <typename T>
   ManifestInline(T &&base) : ManifestBase(std::forward<T &&>(base)) {}
@@ -47,8 +48,7 @@ class ManifestInline
       ManifestType type, HashAlgorithm algorithm, bool is_last,
       const Name &base_name, NextSegmentCalculationStrategy strategy,
       std::size_t signature_size) {
-    auto manifest = new ManifestInline(manifest_name);
-    manifest->setSignatureSize(signature_size);
+    auto manifest = new ManifestInline(manifest_name, signature_size);
     manifest->setVersion(version);
     manifest->setManifestType(type);
     manifest->setHashAlgorithm(algorithm);

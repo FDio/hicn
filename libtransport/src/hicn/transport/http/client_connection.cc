@@ -118,14 +118,17 @@ std::string HTTPClientConnection::sendRequestGetReply(
 
   stream << "|0";
 
-  consumer_.consume(Name(stream.str()), *response);
+  ContentBuffer response_ptr =
+      std::static_pointer_cast<std::vector<uint8_t>>(response);
+
+  consumer_.consume(Name(stream.str()), response_ptr);
 
   consumer_.stop();
 
   return stream.str();
 }
 
-HTTPResponse &&HTTPClientConnection::response() {
+HTTPResponse HTTPClientConnection::response() {
   // response_->parse();
   return std::move(*response_);
 }

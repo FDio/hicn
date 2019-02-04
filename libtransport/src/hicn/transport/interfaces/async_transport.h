@@ -17,8 +17,8 @@
 #pragma once
 
 #include <hicn/transport/interfaces/publication_options.h>
+#include <hicn/transport/interfaces/socket.h>
 #include <hicn/transport/portability/portability.h>
-#include <hicn/transport/utils/sharable_vector.h>
 
 #ifndef _WIN32
 #include <sys/uio.h>
@@ -528,8 +528,7 @@ class AsyncReader {
     // virtual void readBufferAvailable(uint8_t** buffer, std::size_t
     // *buf_length) noexcept {}
 
-    virtual void readBufferAvailable(
-        utils::SharableVector<uint8_t> &&buffer) noexcept {}
+    virtual void readBufferAvailable(ContentBuffer &&buffer) noexcept {}
 
     // virtual void readBufferAvailable(utils::SharableBuffer<uint8_t>&& buffer)
     // noexcept {}
@@ -612,8 +611,7 @@ class AsyncWriter {
    * shutdownWriteNow()). When closing the socket this way, writeErr() will
    * still be invoked once for each outstanding write operation.
    */
-  virtual void write(WriteCallback *callback,
-                     utils::SharableVector<uint8_t> &&output_buffer,
+  virtual void write(WriteCallback *callback, ContentBuffer &&output_buffer,
                      const PublicationOptions &options,
                      WriteFlags flags = WriteFlags::NONE) = 0;
 

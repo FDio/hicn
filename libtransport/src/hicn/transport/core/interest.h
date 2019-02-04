@@ -45,9 +45,9 @@ class Interest
 
   ~Interest() override;
 
-  const Name &getName() const;
+  const Name &getName() const override;
 
-  Name &getWritableName();
+  Name &getWritableName() override;
 
   Interest &setName(const Name &name);
 

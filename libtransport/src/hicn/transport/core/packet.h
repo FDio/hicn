@@ -103,6 +103,10 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   virtual void setLifetime(uint32_t lifetime);
 
+  virtual const Name &getName() const = 0;
+
+  virtual Name &getWritableName() = 0;
+
   virtual uint32_t getLifetime() const;
 
   Packet &appendPayload(const uint8_t *buffer, std::size_t length);
@@ -129,12 +133,6 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   virtual ip_address_t getLocator() const = 0;
 
-  void setSignatureSize(std::size_t size_bytes);
-
-  std::size_t getSignatureSize() const;
-
-  uint8_t *getSignature() const;
-
   void setSignatureTimestamp(const uint64_t &timestamp);
 
   uint64_t getSignatureTimestamp() const;
@@ -146,8 +144,6 @@ class Packet : public std::enable_shared_from_this<Packet> {
   void setKeyId(const utils::KeyId &key_id);
 
   utils::KeyId getKeyId() const;
-
-  void setSignature(std::unique_ptr<utils::MemBuf> &&signature);
 
   virtual utils::CryptoHash computeDigest(HashAlgorithm algorithm) const;
 
@@ -180,6 +176,9 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
  private:
   virtual void resetForHash() = 0;
+  void setSignatureSize(std::size_t size_bytes);
+  std::size_t getSignatureSize() const;
+  uint8_t *getSignature() const;
 
  protected:
   Name name_;

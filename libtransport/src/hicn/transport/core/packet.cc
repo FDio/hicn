@@ -80,7 +80,7 @@ Packet::Packet(const uint8_t *buffer, std::size_t size)
 
 Packet::Packet(Packet &&other)
     : packet_(std::move(other.packet_)),
-      packet_start_(packet_->writableData()),
+      packet_start_(other.packet_start_),
       header_head_(other.header_head_),
       payload_head_(other.payload_head_),
       format_(other.format_) {
@@ -269,7 +269,7 @@ void Packet::dump() const {
   std::cout << std::endl << "PAYLOAD -- Length: " << payloadSize() << std::endl;
   for (utils::MemBuf *current = payload_head_;
        current && current != header_head_; current = current->next()) {
-    std::cout << "First MemBuf Length: " << current->length() << std::endl;
+    std::cout << "MemBuf Length: " << current->length() << std::endl;
     hicn_packet_dump((uint8_t *)current->data(), current->length());
   }
 }
@@ -308,17 +308,6 @@ std::size_t Packet::getSignatureSize() const {
   }
 
   return size_bytes;
-}
-
-void Packet::setSignature(std::unique_ptr<utils::MemBuf> &&signature) {
-  // Check if packet already contains a signature
-  auto header = header_head_->next();
-  while (header != payload_head_) {
-    header->unlink();
-    header = header->next();
-  }
-
-  appendHeader(std::move(signature));
 }
 
 void Packet::setSignatureTimestamp(const uint64_t &timestamp) {
@@ -397,12 +386,11 @@ utils::CryptoHash Packet::computeDigest(HashAlgorithm algorithm) const {
 
   const_cast<Packet *>(this)->resetForHash();
 
-  std::size_t payload_len = getPayloadSizeFromBuffer(format_, packet_start_);
-  std::size_t header_length = getHeaderSizeFromFormat(format_);
-  std::size_t signature_size = _is_ah(format_) ? getSignatureSize() : 0;
-
-  hasher.updateBytes(packet_start_,
-                     payload_len + header_length + signature_size);
+  auto current = header_head_;
+  do {
+    hasher.updateBytes(current->data(), current->length());
+    current = current->next();
+  } while (current != header_head_);
 
   hicn_packet_copy_header(format_, &header_copy, (hicn_header_t *)packet_start_,
                           false);

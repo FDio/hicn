@@ -38,38 +38,27 @@ class Manifest : public Base {
   using Encoder = typename FormatTraits::Encoder;
   using Decoder = typename FormatTraits::Decoder;
 
-  Manifest()
-      : packet_(new Base(HF_INET6_TCP_AH), nullptr),
-        encoder_(*packet_),
-        decoder_(*packet_) {
+  Manifest(std::size_t signature_size = 0)
+      : Base(HF_INET6_TCP_AH),
+        encoder_(*this, signature_size),
+        decoder_(*this) {
     Base::setPayloadType(PayloadType::MANIFEST);
   }
 
-  Manifest(const core::Name &name)
-      : packet_(new Base(name, HF_INET6_TCP_AH), nullptr),
-        encoder_(*packet_),
-        decoder_(*packet_) {
-    Base::setPayloadType(PayloadType::MANIFEST);
-  }
-
-  Manifest(typename Base::Ptr &&base)
-      : packet_(std::move(base)), encoder_(*packet_), decoder_(*packet_) {
+  Manifest(const core::Name &name, std::size_t signature_size = 0)
+      : Base(name, HF_INET6_TCP_AH),
+        encoder_(*this, signature_size),
+        decoder_(*this) {
     Base::setPayloadType(PayloadType::MANIFEST);
   }
 
   template <typename T>
   Manifest(T &&base)
-      : packet_(new Base(std::move<T &&>(base)), nullptr),
-        encoder_(*packet_),
-        decoder_(*packet_) {
+      : Base(std::forward<T &&>(base)), encoder_(*this), decoder_(*this) {
     Base::setPayloadType(PayloadType::MANIFEST);
   }
 
   virtual ~Manifest() = default;
-
-  bool operator==(const Manifest &other) {
-    return this->packet_ == other.packet_;
-  }
 
   std::size_t estimateManifestSize(std::size_t additional_entries = 0) {
     return static_cast<ManifestImpl &>(*this).estimateManifestSizeImpl(
@@ -142,15 +131,7 @@ class Manifest : public Base {
     return *this;
   }
 
-  void setSignatureSize(std::size_t size_bits) {
-    Packet::setSignatureSize(size_bits);
-    encoder_.update();
-  }
-
-  typename Base::Ptr &&getPacket() { return std::move(packet_); }
-
  protected:
-  typename Base::Ptr packet_;
   ManifestType manifest_type_;
   HashAlgorithm hash_algorithm_;
   bool is_last_;
