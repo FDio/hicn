@@ -64,7 +64,7 @@ class HTTPServerPublisher {
   ProducerInterestCallback interest_enter_callback_;
   utils::UserCallback wait_callback_;
 
-  utils::SharableVector<uint8_t> receive_buffer_;
+  ContentBuffer receive_buffer_;
 };
 
 }  // end namespace http

@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/utils/min_filter.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
 
 #include <chrono>
 #include <climits>
@@ -30,9 +31,6 @@ namespace transport {
 namespace protocol {
 
 class RaaqmDataPath {
-  using TimePoint = std::chrono::steady_clock::time_point;
-  using Microseconds = std::chrono::microseconds;
-
  public:
   RaaqmDataPath(double drop_factor, double minimum_drop_probability,
                 unsigned new_timer, unsigned int samples,
@@ -125,12 +123,6 @@ class RaaqmDataPath {
    */
   RaaqmDataPath &updateDropProb();
 
-  /**
-   * @brief This function convert the time from struct timeval to its value in
-   * microseconds
-   */
-  static double getMicroSeconds(struct timeval &time);
-
   void setAlpha(double alpha);
 
   /**
@@ -222,7 +214,7 @@ class RaaqmDataPath {
   /**
    * Time of the last call to the path reporter method
    */
-  TimePoint last_received_pkt_;
+  utils::TimePoint last_received_pkt_;
 
   double average_rtt_;
   double alpha_;
