@@ -21,7 +21,7 @@
 
 namespace utils {
 
-template <typename T>
+template <typename T = uint8_t>
 class Array {
  public:
   explicit Array(const T *array, size_t size) : array_(array), size_(size) {

@@ -79,16 +79,7 @@ const Name &Interest::getName() const {
   return name_;
 }
 
-Name &Interest::getWritableName() {
-  if (!name_) {
-    if (hicn_interest_get_name(format_, (hicn_header_t *)packet_start_,
-                               (hicn_name_t *)name_.getStructReference()) < 0) {
-      throw errors::MalformedPacketException();
-    }
-  }
-
-  return name_;
-}
+Name &Interest::getWritableName() { return const_cast<Name &>(getName()); }
 
 Interest &Interest::setName(const Name &name) {
   if (hicn_interest_set_name(format_, (hicn_header_t *)packet_start_,

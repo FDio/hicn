@@ -44,7 +44,7 @@ class HTTPClientConnection {
       HTTPPayload payload = {},
       std::shared_ptr<HTTPResponse> response = nullptr);
 
-  HTTPResponse &&response();
+  HTTPResponse response();
 
   HTTPClientConnection &stop();
 
