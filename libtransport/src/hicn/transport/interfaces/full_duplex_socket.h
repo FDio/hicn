@@ -24,7 +24,6 @@
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_producer.h>
 #include <hicn/transport/portability/portability.h>
-#include <hicn/transport/utils/sharable_vector.h>
 
 #include <unordered_set>
 #include <vector>
@@ -137,7 +136,7 @@ class AsyncFullDuplexSocket : public AsyncSocket,
              WriteFlags flags = WriteFlags::NONE) override;
 
   virtual void write(WriteCallback *callback,
-                     utils::SharableVector<uint8_t> &&output_buffer,
+                     ContentBuffer &&output_buffer,
                      const PublicationOptions &options,
                      WriteFlags flags = WriteFlags::NONE) override;
 
@@ -247,7 +246,7 @@ class AsyncFullDuplexSocket : public AsyncSocket,
 
   uint32_t send_timeout_milliseconds_;
   struct Counters counters_;
-  std::shared_ptr<utils::SharableVector<uint8_t>> receive_buffer_;
+  ContentBuffer receive_buffer_;
 };
 
 }  // namespace interface

@@ -50,11 +50,12 @@ Packet::Packet(MemBufPtr &&buffer)
       header_head_(packet_.get()),
       payload_head_(nullptr),
       format_(getFormatFromBuffer(packet_start_)) {
-
   int signature_size = 0;
   if (_is_ah(format_)) {
     signature_size = getSignatureSize();
   }
+  
+  auto header_size = getHeaderSizeFromFormat(format_, signature_size);
 
   auto header_size = getHeaderSizeFromFormat(format_, signature_size);
 
