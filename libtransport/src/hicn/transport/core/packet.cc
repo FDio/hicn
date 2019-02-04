@@ -50,27 +50,21 @@ Packet::Packet(MemBufPtr &&buffer)
       header_head_(packet_.get()),
       payload_head_(nullptr),
       format_(getFormatFromBuffer(packet_start_)) {
-  auto header_size = getHeaderSizeFromFormat(format_);
+  
   int signature_size = 0;
-
   if (_is_ah(format_)) {
     signature_size = getSignatureSize();
   }
+  
+  auto header_size = getHeaderSizeFromFormat(format_, signature_size);
 
   auto payload_length = packet_->length() - header_size - signature_size;
 
-  if (!payload_length && !signature_size) {
+  if (!payload_length) {
     return;
   }
 
   packet_->trimEnd(packet_->length());
-
-  if (signature_size) {
-    auto sig = packet_->cloneOne();
-    sig->advance(header_size);
-    sig->append(signature_size);
-    packet_->appendChain(std::move(sig));
-  }
 
   if (payload_length) {
     auto payload = packet_->cloneOne();

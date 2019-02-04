@@ -22,25 +22,25 @@ namespace protocol {
 
 using namespace interface;
 
-CbrTransportProtocol::CbrTransportProtocol(BaseSocket *icnet_socket)
-    : VegasTransportProtocol(icnet_socket) {}
+CbrTransportProtocol::CbrTransportProtocol(interface::ConsumerSocket *icnet_socket)
+    : RaaqmTransportProtocol(icnet_socket) {}
 
-void CbrTransportProtocol::start(
-    utils::SharableVector<uint8_t> &receive_buffer) {
-  current_window_size_ = socket_->current_window_size_;
-  VegasTransportProtocol::start(receive_buffer);
+int CbrTransportProtocol::start() {
+  socket_->getSocketOption(GeneralTransportOptions::CURRENT_WINDOW_SIZE, current_window_size_);
+  return RaaqmTransportProtocol::start();
 }
-
-void CbrTransportProtocol::changeInterestLifetime(uint64_t segment) { return; }
-
-void CbrTransportProtocol::increaseWindow() {}
-
-void CbrTransportProtocol::decreaseWindow() {}
 
 void CbrTransportProtocol::afterDataUnsatisfied(uint64_t segment) {}
 
 void CbrTransportProtocol::afterContentReception(
-    const Interest &interest, const ContentObject &content_object) {}
+    const Interest &interest, const ContentObject &content_object) {
+  auto segment = content_object.getName().getSuffix();
+  auto now = utils::SteadyClock::now();
+  auto rtt = std::chrono::duration_cast<utils::Microseconds>(
+    now - interest_timepoints_[segment & mask]);
+  // Update stats
+  updateStats(segment, rtt.count());
+}
 
 }  // end namespace protocol
 

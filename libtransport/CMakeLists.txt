@@ -13,7 +13,7 @@
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
-project(Transport VERSION 1.0)
+project(libtransport)
 
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
@@ -38,8 +38,6 @@ set(TRANSPORT_UTILS ${TRANSPORT_ROOT_PATH}/utils)
 set(TRANSPORT_HTTP ${TRANSPORT_ROOT_PATH}/http)
 set(TRANSPORT_PORTABILITY ${TRANSPORT_ROOT_PATH}/portability)
 set(TRANSPORT_INTERFACES ${TRANSPORT_ROOT_PATH}/interfaces)
-
-set(raaqm_config_path ${CMAKE_INSTALL_PREFIX}/etc/hicn-consumer.conf)
 
 # Install includes
 set(INSTALL_INCLUDE_DIR include/hicn/transport)
