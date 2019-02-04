@@ -46,7 +46,9 @@ class ContentObject : public Packet {
 
   ~ContentObject() override;
 
-  const Name &getName() const;
+  const Name &getName() const override;
+
+  Name &getWritableName() override;
 
   ContentObject &setName(const Name &name);
 

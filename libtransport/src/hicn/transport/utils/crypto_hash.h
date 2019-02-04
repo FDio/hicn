@@ -108,6 +108,10 @@ class CryptoHash {
         std::memcmp(digest1, digest2, hash_size_map[hash_type]));
   }
 
+  TRANSPORT_ALWAYS_INLINE void display() {
+    parcBuffer_Display(parcCryptoHash_GetDigest(hash_), 2);
+  }
+
  private:
   PARCCryptoHash* hash_;
 };

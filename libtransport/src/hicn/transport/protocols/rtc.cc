@@ -22,7 +22,7 @@
  * TODO
  * 2) start/constructor/rest variable implementation
  * 3) interest retransmission: now I always recover, we should recover only if
- * we have enough time 4) returnContentToUser: rememeber to remove the first
+ * we have enough time 4) returnContentToApplication: rememeber to remove the first
  * 32bits from the payload
  */
 
@@ -32,7 +32,7 @@ namespace protocol {
 
 using namespace interface;
 
-RTCTransportProtocol::RTCTransportProtocol(BaseSocket *icnet_socket)
+RTCTransportProtocol::RTCTransportProtocol(interface::ConsumerSocket *icnet_socket)
     : TransportProtocol(icnet_socket),
       inflightInterests_(1 << default_values::log_2_default_buffer_size),
       modMask_((1 << default_values::log_2_default_buffer_size) - 1) {
@@ -46,18 +46,8 @@ RTCTransportProtocol::~RTCTransportProtocol() {
   }
 }
 
-void RTCTransportProtocol::start(
-    utils::SharableVector<uint8_t> &content_buffer) {
-  if (is_running_) return;
-
-  is_running_ = true;
-  content_buffer_ = content_buffer.shared_from_this();
-
-  reset();
-  scheduleNextInterest();
-
-  portal_->runEventsLoop();
-  is_running_ = false;
+int RTCTransportProtocol::start() {
+  return TransportProtocol::start();
 }
 
 void RTCTransportProtocol::stop() {
@@ -74,9 +64,8 @@ void RTCTransportProtocol::resume() {
 
   lastRoundBegin_ = std::chrono::steady_clock::now();
   inflightInterestsCount_ = 0;
-  if (content_buffer_) content_buffer_->clear();
 
-  scheduleNextInterest();
+  scheduleNextInterests();
 
   portal_->runEventsLoop();
 
@@ -117,7 +106,6 @@ void RTCTransportProtocol::reset() {
   while (interestRetransmissions_.size() != 0) interestRetransmissions_.pop();
   nackedByProducer_.clear();
   nackedByProducerMaxSize_ = 512;
-  if (content_buffer_) content_buffer_->clear();
 
   // stats
   receivedBytes_ = 0;
@@ -364,9 +352,9 @@ void RTCTransportProtocol::increaseWindow() {
 }
 
 void RTCTransportProtocol::sendInterest() {
-  Name interest_name;
+  Name *interest_name = nullptr;
   socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME,
-                           interest_name);
+                           &interest_name);
   bool isRTX = false;
   // uint32_t sentInt = 0;
 
@@ -382,11 +370,11 @@ void RTCTransportProtocol::sendInterest() {
     packetLost_++;
 
     uint32_t pkt = rtxSeg & modMask_;
-    interest_name.setSuffix(rtxSeg);
+    interest_name->setSuffix(rtxSeg);
 
     // if the interest is not pending anymore we encrease the retrasnmission
     // counter in order to avoid to handle a recovered packt as a normal one
-    if (!portal_->interestIsPending(interest_name)) {
+    if (!portal_->interestIsPending(*interest_name)) {
       inflightInterests_[pkt].retransmissions++;
     }
 
@@ -394,8 +382,8 @@ void RTCTransportProtocol::sendInterest() {
     isRTX = true;
   } else {
     // in this case we send the packet only if it is not pending yet
-    interest_name.setSuffix(actualSegment_);
-    if (portal_->interestIsPending(interest_name)) {
+    interest_name->setSuffix(actualSegment_);
+    if (portal_->interestIsPending(*interest_name)) {
       actualSegment_++;
       return;
     }
@@ -410,21 +398,21 @@ void RTCTransportProtocol::sendInterest() {
     actualSegment_++;
   }
 
-  auto interest = getInterest();
-  interest->setName(interest_name);
+  auto interest = getPacket();
+  interest->setName(*interest_name);
 
   uint32_t interestLifetime = default_values::interest_lifetime;
   socket_->getSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
                            interestLifetime);
   interest->setLifetime(uint32_t(interestLifetime));
 
-  ConsumerInterestCallback on_interest_output = VOID_HANDLER;
+  ConsumerInterestCallback *on_interest_output = nullptr;
 
   socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
-                           on_interest_output);
+                           &on_interest_output);
 
-  if (on_interest_output != VOID_HANDLER) {
-    on_interest_output(*dynamic_cast<ConsumerSocket *>(socket_), *interest);
+  if (*on_interest_output != VOID_HANDLER) {
+    (*on_interest_output)(*socket_, *interest);
   }
 
   if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
@@ -441,7 +429,7 @@ void RTCTransportProtocol::sendInterest() {
   }
 }
 
-void RTCTransportProtocol::scheduleNextInterest() {
+void RTCTransportProtocol::scheduleNextInterests() {
   checkRound();
   if (!is_running_) return;
 
@@ -467,7 +455,7 @@ void RTCTransportProtocol::scheduleAppNackRtx(std::vector<uint32_t> &nacks) {
     interestRetransmissions_.push(nacks[i]);
   }
 
-  scheduleNextInterest();
+  scheduleNextInterests();
 }
 void RTCTransportProtocol::onTimeout(Interest::Ptr &&interest) {
   // packetLost_++;
@@ -483,7 +471,7 @@ void RTCTransportProtocol::onTimeout(Interest::Ptr &&interest) {
     interestRetransmissions_.push(segmentNumber);
   }
 
-  scheduleNextInterest();
+  scheduleNextInterests();
 }
 
 void RTCTransportProtocol::onNack(const ContentObject &content_object) {
@@ -573,14 +561,14 @@ void RTCTransportProtocol::onContentObject(
       updateDelayStats(*content_object);
     }
 
-    returnContentToUser(*content_object);
+    reassemble(std::move(content_object));
     increaseWindow();
   }
 
-  scheduleNextInterest();
+  scheduleNextInterests();
 }
 
-void RTCTransportProtocol::returnContentToUser(
+void RTCTransportProtocol::returnContentToApplication(
     const ContentObject &content_object) {
   // return content to the user
   Array a = content_object.getPayload();
@@ -592,13 +580,14 @@ void RTCTransportProtocol::returnContentToUser(
   uint16_t rtp_seq = ntohs(*(((uint16_t *)start) + 1));
   RTPhICN_offset_ = content_object.getName().getSuffix() - rtp_seq;
 
-  content_buffer_->insert(content_buffer_->end(), start, start + size);
+  std::shared_ptr<std::vector<uint8_t>> content_buffer;
+  socket_->getSocketOption(APPLICATION_BUFFER, content_buffer);
+  content_buffer->insert(content_buffer_->end(), start, start + size);
 
-  ConsumerContentCallback on_payload = VOID_HANDLER;
-  socket_->getSocketOption(CONTENT_RETRIEVED, on_payload);
-  if (on_payload != VOID_HANDLER) {
-    on_payload(*dynamic_cast<ConsumerSocket *>(socket_), size,
-               std::make_error_code(std::errc(0)));
+  ConsumerContentCallback *on_payload = nullptr;
+  socket_->getSocketOption(CONTENT_RETRIEVED, &on_payload);
+  if ((*on_payload) != VOID_HANDLER) {
+    (*on_payload)(*socket_, size, std::make_error_code(std::errc(0)));
   }
 }
 

@@ -15,23 +15,13 @@
 
 #pragma once
 
-#include <hicn/transport/protocols/raaqm.h>
+#include <chrono>
 
-namespace transport {
+namespace utils {
 
-namespace protocol {
+using SteadyClock = std::chrono::steady_clock;
+using TimePoint = SteadyClock::time_point;
+using Milliseconds = std::chrono::milliseconds;
+using Microseconds = std::chrono::microseconds;
 
-class CbrTransportProtocol : public RaaqmTransportProtocol {
- public:
-  CbrTransportProtocol(interface::ConsumerSocket *icnet_socket);
-
-  int start() override;
-
- private:
-  void afterContentReception(const Interest &interest, const ContentObject &content_object) override;
-  void afterDataUnsatisfied(uint64_t segment) override;
-};
-
-}  // end namespace protocol
-
-}  // end namespace transport
+}  // namespace utils

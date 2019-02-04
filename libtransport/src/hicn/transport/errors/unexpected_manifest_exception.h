@@ -15,34 +15,17 @@
 
 #pragma once
 
-#include <chrono>
+#include <stdexcept>
 
-// Implementation inspired from RFC6298
-// (https://tools.ietf.org/search/rfc6298#ref-JK88)
+namespace errors {
 
-namespace transport {
-
-namespace protocol {
-
-class RtoEstimator {
+class UnexpectedManifestException : public std::logic_error {
  public:
-  typedef std::chrono::microseconds Duration;
+  UnexpectedManifestException() : std::logic_error("") {}
 
-  static Duration getInitialRtt() { return std::chrono::seconds(1); }
-
-  RtoEstimator(Duration min_rto = std::chrono::seconds(1));
-
-  void addMeasurement(Duration measure);
-
-  Duration computeRto() const;
-
- private:
-  double smoothed_rtt_;
-  double rtt_variation_;
-  bool first_measurement_;
-  double last_rto_;
+  virtual char const *what() const noexcept override {
+    return "Received unexpected manifest.";
+  }
 };
 
-}  // end namespace protocol
-
-}  // end namespace transport
+}  // end namespace errors

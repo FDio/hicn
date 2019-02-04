@@ -21,6 +21,7 @@
 
 #include <hicn/transport/protocols/protocol.h>
 #include <hicn/transport/protocols/rtc_data_path.h>
+#include <hicn/transport/protocols/reassembly.h>
 
 // algorithm state
 #define HICN_RTC_SYNC_STATE 0
@@ -86,23 +87,23 @@ struct sentInterest {
   uint8_t retransmissions;
 };
 
-class RTCTransportProtocol : public TransportProtocol {
+class RTCTransportProtocol : public TransportProtocol, public Reassembly {
  public:
-  RTCTransportProtocol(interface::BaseSocket *icnet_socket);
+  RTCTransportProtocol(interface::ConsumerSocket *icnet_socket);
 
   ~RTCTransportProtocol();
 
-  void start(utils::SharableVector<uint8_t> &content_buffer);
+  int start() override;
 
-  void stop();
+  void stop() override;
 
-  void resume();
+  void resume() override;
 
   void onRTCPPacket(uint8_t *packet, size_t len);
 
  private:
   // algo functions
-  void reset();
+  void reset() override;
   void checkRound();
 
   // CC functions
@@ -117,13 +118,17 @@ class RTCTransportProtocol : public TransportProtocol {
 
   // packet functions
   void sendInterest();
-  void scheduleNextInterest();
+  void scheduleNextInterests() override;
   void scheduleAppNackRtx(std::vector<uint32_t> &nacks);
-  void onTimeout(Interest::Ptr &&interest);
+  void onTimeout(Interest::Ptr &&interest) override;
   void onNack(const ContentObject &content_object);
   void onContentObject(Interest::Ptr &&interest,
-                       ContentObject::Ptr &&content_object);
-  void returnContentToUser(const ContentObject &content_object);
+                       ContentObject::Ptr &&content_object) override;
+  void returnContentToApplication(const ContentObject &content_object);
+  
+  TRANSPORT_ALWAYS_INLINE virtual void reassemble(ContentObject::Ptr &&content_object) override {
+    returnContentToApplication(*content_object);
+  }
 
   // RTCP functions
   uint32_t hICN2RTP(uint32_t hicn_seq);
@@ -161,7 +166,7 @@ class RTCTransportProtocol : public TransportProtocol {
                           // application for pakets for which we already got a
                           // past NACK by the producer these packet are too old,
                           // they will never be retrived
-  std::shared_ptr<utils::SharableVector<uint8_t>> content_buffer_;
+
   uint32_t modMask_;
 
   // stats
