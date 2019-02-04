@@ -32,10 +32,6 @@ endif()
 
 include (Packaging)
 
-set(CMAKE_VERSION_MAJOR 0)
-set(CMAKE_VERSION_MINOR 1)
-set(CMAKE_VERSION_PATCH 1)
-
 option(CMAKE_BUILD_TEST "Build unit tests" OFF)
 
 if (NOT CMAKE_BUILD_TYPE)
