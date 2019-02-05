@@ -80,14 +80,52 @@ typedef struct controller_main_state {
   ControlState *controlState;
 } ControlMainState;
 
+static void _printRed(const char *output) {
+
+#ifndef _WIN32
+  printf("\033[0;31m%s", output);
+#else
+  HANDLE hConsole = NULL;
+  WORD currentConsoleAttr;
+  CONSOLE_SCREEN_BUFFER_INFO csbi;
+  if (GetConsoleScreenBufferInfo(hConsole, &csbi))
+   currentConsoleAttr = csbi.wAttributes;
+  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+  SetConsoleTextAttribute(hConsole, 4);
+  printf("%s", output);
+  SetConsoleTextAttribute(hConsole, currentConsoleAttr);
+#endif
+
+}
+
+static void _printWhite(const char *output) {
+
+#ifndef _WIN32
+	printf("\033[0m%s", output);
+#else
+  HANDLE  hConsole = NULL;
+  WORD currentConsoleAttr;
+  CONSOLE_SCREEN_BUFFER_INFO csbi;
+  if (GetConsoleScreenBufferInfo(hConsole, &csbi))
+    currentConsoleAttr = csbi.wAttributes;
+  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+  SetConsoleTextAttribute(hConsole, 7);
+  printf("%s", output);
+  SetConsoleTextAttribute(hConsole, currentConsoleAttr);
+#endif
+
+}
+
 static void _displayForwarderLogo(void) {
-  const char cli_banner[] =
-      "\033[0;31m   ____ ___      _       \033[0m  __    _               __ _        __   __\n"
-      "\033[0;31m  / __// _ \\    (_)___  \033[0m  / /   (_)____ ___ ____/ /(_)___ _ / /  / /_\n"
-      "\033[0;31m / _/ / // /_  / // _ \\ \033[0m / _ \\ / // __// _ \\___/ // // _ `// _ \\/ __/\n"
-      "\033[0;31m/_/  /____/(_)/_/ \\___/ \033[0m/_//_//_/ \\__//_//_/  /_//_/ \\_, //_//_/\\__/\n"
-      "                                                    /___/            \n";
-  printf("%s", cli_banner);
+  _printRed("   ____ ___      _       ");
+  _printWhite("  __    _               __ _        __   __\n");
+  _printRed("  / __// _ \\    (_)___  ");
+  _printWhite("  / /   (_)____ ___ ____/ /(_)___ _ / /  / /_\n");
+  _printRed(" / _/ / // /_  / // _ \\ ");
+  _printWhite(" / _ \\ / // __// _ \\___/ // // _ `// _ \\/ __/\n");
+  _printRed("/_/  /____/(_)/_/ \\___/ ");
+  _printWhite("/_//_//_/ \\__//_//_/  /_//_/ \\_, //_//_/\\__/\n");
+  _printWhite("                                                    /___/            \n");
   printf("\n");
 }
 
