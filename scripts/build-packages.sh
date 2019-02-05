@@ -195,12 +195,12 @@ push_doc() {
     . /etc/os-release
 
     # if [[ ${JOB_NAME} == *merge* ]]; then
-    if [ ${JOB_NAME} == *merge*  ] && [ ${ID} == "ubuntu" ] && [ ${UBUNTU_CODENAME} == "xenial" ]; then
-    mkdir -p $(dirname ${RESOURCES_DIR})
-    mv -f ${DOC_DIR} ${RESOURCES_DIR}
-    cd ${SITE_DIR}
-    find . -type f '(' -name '*.md5' -o -name '*.dot' -o -name '*.map' ')' -delete
-    cat > pom.xml << EOF
+    if [[ ${JOB_NAME} == *merge*  ]] && [[ ${ID} == "ubuntu" ]] && [[ ${UBUNTU_CODENAME} == "xenial" ]]; then
+        mkdir -p $(dirname ${RESOURCES_DIR})
+        mv -f ${DOC_DIR} ${RESOURCES_DIR}
+        cd ${SITE_DIR}
+        find . -type f '(' -name '*.md5' -o -name '*.dot' -o -name '*.map' ')' -delete
+        cat > pom.xml << EOF
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.fd.hicn</groupId>
@@ -229,8 +229,8 @@ push_doc() {
     </distributionManagement>
 </project>
 EOF
-    ${MVN} site:site site:deploy -gs "${GLOBAL_SETTINGS_FILE}" -s "${SETTINGS_FILE}" -T 4C
-    cd -
+        ${MVN} site:site site:deploy -gs "${GLOBAL_SETTINGS_FILE}" -s "${SETTINGS_FILE}" -T 4C
+        cd -
     fi
 }
 
