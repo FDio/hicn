@@ -33,6 +33,7 @@ typedef struct
   union
   {
     u16 reserved;
+
     struct
     {
       u8 validationAlgorithm;	// As defined in parc_SignerAlgorithm.h
@@ -46,12 +47,8 @@ typedef struct
       u32 spi;
       u32 seq;
     };
-    union
-    {
-      u8 timestamp_as_u8[8];
-      u64 timestamp_as_u64;
-    }; // Unix timestamp indicating when the signature has been calculated
-
+    // Unix timestamp indicating when the signature has been calculated
+    u8 timestamp_as_u8[8];
   };
   // ICV would follow
   u8 keyId[32];			// Hash of the pub key

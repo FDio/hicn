@@ -48,7 +48,15 @@ DECLARE_set_payload_length (ah, UNEXPECTED);
 int
 ah_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
 {
-  return HICN_LIB_ERROR_NOT_IMPLEMENTED;
+  /* *INDENT-OFF* */
+  h->ah = (_ah_header_t)
+    {
+      .nh = (u8)0,
+      .payloadlen = (u8)0,
+      .reserved = (u16)0,
+    };
+  /* *INDENT-ON* */
+  return CHILD_OPS (init_packet_header, type, h);
 }
 
 int
@@ -155,7 +163,7 @@ int
 ah_set_signature_timestamp(hicn_type_t type, hicn_protocol_t * h,
        uint64_t signature_timestamp)
 {
-  h->ah.timestamp_as_u64 = signature_timestamp;
+  *((u64 *)h->ah.timestamp_as_u8) = signature_timestamp;
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -163,7 +171,7 @@ int
 ah_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t * h,
        uint64_t * signature_timestamp)
 {
-  *signature_timestamp = h->ah.timestamp_as_u64;
+  *signature_timestamp =  *((u64 *)h->ah.timestamp_as_u8);
   return HICN_LIB_ERROR_NONE;
 }
 
