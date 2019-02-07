@@ -104,10 +104,7 @@ using ProducerContentObjectCallback =
     std::function<void(ProducerSocket &, core::ContentObject &)>;
 
 using ProducerInterestCallback =
-    std::function<void(ProducerSocket &, const core::Interest &)>;
-
-using ProducerInterestCallback =
-    std::function<void(ProducerSocket &, const core::Interest &)>;
+    std::function<void(ProducerSocket &, core::Interest &)>;
 
 using namespace protocol;
 

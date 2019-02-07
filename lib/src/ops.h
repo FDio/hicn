@@ -418,7 +418,15 @@ typedef struct hicn_ops_s
   int (*set_key_id) (hicn_type_t type, hicn_protocol_t * h,
                  uint8_t *key_id);
 
-
+   /**
+   * @brief Get a pointer to the signature field in the packet
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest or Data packet
+   * @param [out] signature - Pointer to the memory region holding the signature
+   * @return hICN error code
+   */
+  int (*get_signature) (hicn_type_t type, hicn_protocol_t * h,
+		              uint8_t ** signature);
 } hicn_ops_t;
 
 #define DECLARE_HICN_OPS(protocol)                                              \
@@ -459,7 +467,8 @@ typedef struct hicn_ops_s
     ATTR_INIT(get_validation_algorithm, protocol ## _get_validation_algorithm), \
     ATTR_INIT(set_validation_algorithm, protocol ## _set_validation_algorithm), \
     ATTR_INIT(get_key_id,               protocol ## _get_key_id),               \
-    ATTR_INIT(set_key_id,               protocol ## _set_key_id),		\
+    ATTR_INIT(set_key_id,               protocol ## _set_key_id),		        \
+    ATTR_INIT(get_signature,            protocol ## _get_signature),		    \
   }
 
 /**
@@ -617,6 +626,9 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t * h)
 
 #define DECLARE_get_key_id(protocol, error) \
     int protocol ## _get_key_id(hicn_type_t type, hicn_protocol_t * h, uint8_t ** key_id, uint8_t *key_id_size) { return HICN_LIB_ERROR_ ## error ; }
+
+#define DECLARE_get_signature(protocol, error) \
+    int protocol ## _get_signature(hicn_type_t type, hicn_protocol_t * h, uint8_t ** signature) { return HICN_LIB_ERROR_ ## error ; }
 
 #endif /* HICN_OPS_H */
 

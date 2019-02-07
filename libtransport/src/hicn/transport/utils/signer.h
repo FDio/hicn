@@ -60,6 +60,8 @@ class Signer {
    */
   void sign(Packet &packet);
 
+  PARCKeyStore * getKeyStore();
+
  private:
   PARCSigner *signer_;
   PARCKeyId *key_id_;
