@@ -39,7 +39,9 @@ DECLARE_set_lifetime (icmp, UNEXPECTED)
 DECLARE_get_length (icmp, UNEXPECTED)
 DECLARE_get_payload_length (icmp, UNEXPECTED)
 DECLARE_set_payload_length (icmp, UNEXPECTED)
-     int icmp_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
+DECLARE_get_signature (icmp, UNEXPECTED)
+
+int icmp_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
 {
   h->icmp = (_icmp_header_t)
   {

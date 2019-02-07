@@ -144,6 +144,14 @@ ah_get_header_length (hicn_type_t type, const hicn_protocol_t * h,
 }
 
 int
+ah_get_signature (hicn_type_t type, hicn_protocol_t * h,
+		              uint8_t ** signature)
+{
+  *signature = h->ah.validationPayload;
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
 ah_get_signature_size (hicn_type_t type, const hicn_protocol_t * h,
 		       size_t * signature_size)
 {

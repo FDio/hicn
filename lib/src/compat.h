@@ -387,6 +387,7 @@ int hicn_packet_set_src_port (hicn_header_t * packet, u16 src_port);
 int hicn_packet_get_src_port (const hicn_header_t * packet, u16 * src_port);
 int hicn_packet_set_dst_port (hicn_header_t * packet, u16 dst_port);
 int hicn_packet_get_dst_port (const hicn_header_t * packet, u16 * dst_port);
+int hicn_packet_get_signature(hicn_format_t format, hicn_header_t * packet, uint8_t ** sign_buf);
 
 /* Interest */
 

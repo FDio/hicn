@@ -83,7 +83,7 @@ void HTTPServerAcceptor::listen(bool async) {
 }
 
 void HTTPServerAcceptor::processIncomingInterest(ProducerSocket &p,
-                                                 const Interest &interest) {
+                                                 Interest &interest) {
   // Temporary solution. With
   utils::Array<uint8_t> payload = interest.getPayload();
 
