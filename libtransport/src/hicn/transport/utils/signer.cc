@@ -76,10 +76,10 @@ Signer::~Signer() {
 }
 
 void Signer::sign(Packet &packet) {
-  // header chain points to the IP + TCP hicn header
+  // header chain points to the IP + TCP hicn header + AH Header
   utils::MemBuf *header_chain = packet.header_head_;
   utils::MemBuf *payload_chain = packet.payload_head_;
-  uint8_t *hicn_packet = header_chain->writableData();
+  uint8_t *hicn_packet = (uint8_t *)header_chain->writableData();
   Packet::Format format = packet.getFormat();
   std::size_t sign_len_bytes = parcSigner_GetSignatureSize(signer_);
 
@@ -98,35 +98,26 @@ void Signer::sign(Packet &packet) {
   std::size_t header_len = Packet::getHeaderSizeFromFormat(format);
 
   packet.resetForHash();
-  packet.setSignatureSize(sign_len_bytes);
 
   /* Fill the hicn_ah header */
   using namespace std::chrono;
   auto now = duration_cast<milliseconds>(system_clock::now().time_since_epoch())
                  .count();
   packet.setSignatureTimestamp(now);
-  // *reinterpret_cast<uint64_t*>(ah->signTime) = utils::hton<uint64_t>(now);
-  // // std::memcpy(&ah->hicn_ah.signTime, &sign_time,
-  // sizeof(ah->hicn_ah.signTime));
 
   packet.setValidationAlgorithm(
       CryptoSuite(parcSigner_GetCryptoSuite(this->signer_)));
-  // ah->validationAlgorithm = parcSigner_GetCryptoSuite(this->signer_);
 
   KeyId key_id;
   key_id.first = (uint8_t *)parcBuffer_Overlay(
       (PARCBuffer *)parcKeyId_GetKeyId(this->key_id_), 0);
   packet.setKeyId(key_id);
 
-  // memcpy(ah->keyId,
-  //        parcBuffer_Overlay((PARCBuffer *) parcKeyId_GetKeyId(this->key_id_),
-  //        0), sizeof(_ah_header_t::keyId));
-
   // Calculate hash
   utils::CryptoHasher hasher(parcSigner_GetCryptoHasher(signer_));
   hasher.init();
-  hasher.updateBytes(hicn_packet, header_len);
-  hasher.updateBytes(zeros, sign_len_bytes);
+  hasher.updateBytes(hicn_packet, header_len + sign_len_bytes);
+  //hasher.updateBytes(zeros, sign_len_bytes);
 
   for (utils::MemBuf *current = payload_chain; current != header_chain;
        current = current->next()) {
@@ -135,11 +126,8 @@ void Signer::sign(Packet &packet) {
 
   utils::CryptoHash hash = hasher.finalize();
 
-  PARCSignature *signature = parcSigner_SignDigest(this->signer_, hash.hash_);
+  PARCSignature *signature = parcSigner_SignDigest(this->signer_, hash.hash_, packet.getSignature(), sign_len_bytes);
   PARCBuffer *buffer = parcSignature_GetSignature(signature);
-
-  PARCByteArray *byte_array = parcBuffer_Array(buffer);
-  uint8_t *bytes = parcByteArray_Array(byte_array);
   size_t bytes_len = parcBuffer_Remaining(buffer);
 
   if (bytes_len > sign_len_bytes) {
@@ -153,26 +141,10 @@ void Signer::sign(Packet &packet) {
     memcpy(hicn_packet, &header_copy, sizeof(hicn_v6_hdr_t));
   }
 
-  int offset = sign_len_bytes - bytes_len;
+}
 
-  std::unique_ptr<utils::MemBuf> signature_buffer;
-  std::unique_ptr<utils::MemBuf> tmp_buf = utils::MemBuf::takeOwnership(
-      bytes, bytes_len, bytes_len,
-      [](void *buf, void *userData) {
-        parcSignature_Release((PARCSignature **)&userData);
-      },
-      signature, true);
-
-  if (offset) {
-    signature_buffer = utils::MemBuf::create(offset);
-    memset(signature_buffer->writableData(), 0, offset);
-    signature_buffer->append(offset);
-    signature_buffer->appendChain(std::move(tmp_buf));
-  } else {
-    signature_buffer = std::move(tmp_buf);
-  }
-
-  packet.setSignature(std::move(signature_buffer));
+PARCKeyStore * Signer::getKeyStore() {
+  return parcSigner_GetKeyStore(this->signer_);
 }
 
 }  // namespace utils

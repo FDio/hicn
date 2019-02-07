@@ -401,6 +401,13 @@ ipv6_get_key_id (hicn_type_t type, hicn_protocol_t * h,
   return CHILD_OPS (get_key_id, type, h, key_id, key_id_size);
 }
 
+int
+ipv6_get_signature (hicn_type_t type, hicn_protocol_t * h,
+		              uint8_t ** signature)
+{
+  return CHILD_OPS (get_signature, type, h, signature);
+}
+
 DECLARE_HICN_OPS (ipv6);
 
 /*
