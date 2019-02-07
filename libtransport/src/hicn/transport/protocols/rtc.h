@@ -23,72 +23,59 @@
 #include <hicn/transport/protocols/rtc_data_path.h>
 
 // algorithm state
-#define RTC_SYNC_STATE 0
-#define RTC_NORMAL_STATE 1
-#define ROUNDS_IN_SYNC_BEFORE_SWITCH 3
+#define HICN_RTC_SYNC_STATE 0
+#define HICN_RTC_NORMAL_STATE 1
+#define HICN_ROUNDS_IN_SYNC_BEFORE_SWITCH 3
 
 // packet constants
-#define INIT_PACKET_SIZE 1300       // bytes
+#define HICN_INIT_PACKET_SIZE 1300       // bytes
 #define HICN_PACKET_HEADER_SIZE 60  // bytes ipv6+tcp
-#define NACK_HEADER_SIZE 8          // bytes
-#define TIMESTAMP_SIZE 8            // bytes
-#define RTC_INTEREST_LIFETIME 1000  // ms
+#define HICN_NACK_HEADER_SIZE 8          // bytes
+#define HICN_TIMESTAMP_SIZE 8            // bytes
+#define HICN_RTC_INTEREST_LIFETIME 1000  // ms
 
 // controller constant
-#define ROUND_LEN \
+#define HICN_ROUND_LEN \
   200  // ms interval of time on which we take decisions / measurements
-#define MAX_RTX 128
-#define MIN_RTT_WIN 30  // rounds
+#define HICN_MAX_RTX 128
+#define HICN_MIN_RTT_WIN 30  // rounds
 
 // cwin
-#define INITIAL_CWIN 1           // packets
-#define INITIAL_CWIN_MAX 100000  // packets
-#define MIN_CWIN 5               // packets
+#define HICN_INITIAL_CWIN 1           // packets
+#define HICN_INITIAL_CWIN_MAX 100000  // packets
+#define HICN_MIN_CWIN 5               // packets
+#define HICN_WIN_INCREASE_FACTOR 1.1
+#define HICN_WIN_DECREASE_FACTOR 0.8
 
 // statistics constants
-#define BANDWIDTH_SLACK_FACTOR 1.5
-#define ESTIMATED_BW_ALPHA 0.7
-#define ESTIMATED_PACKET_SIZE 0.7
-#define ESTIMATED_LOSSES_ALPHA 0.8
-#define INTEREST_LIFETIME_REDUCTION_FACTOR 0.8
-
-//#define MAX_LOSS_RATE 0.05
-//#define MAX_QUEUING_DELAY 200       //ms
-
-// cwin
-#define INITIAL_CWIN 1
-#define MIN_CWIN 5
-#define WIN_DECREASE_FACTOR 0.8
-#define WIN_INCREASE_FACTOR 1.1
-
-// protocol state
-//#define RTC_CONGESTED_STATE 10
-//#define RTC_LOSSY_STATE 20
-//#define RTC_DELAY_STATE 30
-//#define RTC_NORMAL_STATE 40
+#define HICN_BANDWIDTH_SLACK_FACTOR 1.5
+#define HICN_ESTIMATED_BW_ALPHA 0.7
+#define HICN_ESTIMATED_PACKET_SIZE 0.7
+#define HICN_ESTIMATED_LOSSES_ALPHA 0.8
+#define HICN_INTEREST_LIFETIME_REDUCTION_FACTOR 0.8
 
 // other constants
-#define NANO_IN_A_SEC 1000000000
-#define MICRO_IN_A_SEC 1000000
-#define MILLI_IN_A_SEC 1000
+#define HICN_NANO_IN_A_SEC 1000000000
+#define HICN_MICRO_IN_A_SEC 1000000
+#define HICN_MILLI_IN_A_SEC 1000
 
 // RTCP
-#define MASK_RTCP_VERSION 192
-#define MASK_TYPE_CODE \
+#define HICN_MASK_RTCP_VERSION 192
+#define HICN_MASK_TYPE_CODE \
   31  // this is RC in the RR/SR packet or FMT int the early feedback packets
-#define RTPC_NACK_HEADER 12  // bytes
-#define MAX_RTCP_SEQ_NUMBER 0xffff
-#define RTCP_VERSION 2
+#define HICN_RTPC_NACK_HEADER 12  // bytes
+#define HICN_MAX_RTCP_SEQ_NUMBER 0xffff
+#define HICN_RTCP_VERSION 2
 // RTCP TYPES
-#define RTCP_SR 200
-#define RTCP_RR 201
-#define RTCP_SDES 202
-#define RTCP_RTPFB 205
-#define RTCP_PSFB 206
+#define HICN_RTCP_SR 200
+#define HICN_RTCP_RR 201
+#define HICN_RTCP_SDES 202
+#define HICN_RTCP_RTPFB 205
+#define HICN_RTCP_PSFB 206
 // RTCP RC/FMT
-#define RTCP_SDES_CNAME 1
-#define RTCP_RTPFB_GENERIC_NACK 1
-#define RTCP_PSFB_PLI 1
+#define HICN_RTCP_SDES_CNAME 1
+#define HICN_RTCP_RTPFB_GENERIC_NACK 1
+#define HICN_RTCP_PSFB_PLI 1
 
 namespace transport {
 
