@@ -1142,6 +1142,13 @@ hicn_data_reset_for_hash (hicn_format_t format, hicn_header_t * packet)
 
 }
 
+int hicn_packet_get_signature(hicn_format_t format, hicn_header_t * packet, uint8_t ** sign_buf)
+{
+  hicn_type_t type = hicn_format_to_type (format);
+  return hicn_ops_vft[type.l1]->get_signature (type,
+							 &packet->protocol, sign_buf);
+}
+
 /*
  * fd.io coding-style-patch-verification: ON
  *

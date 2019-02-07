@@ -48,7 +48,7 @@ class HTTPServerAcceptor {
   //  HTTPResponse&& response();
 
  private:
-  void processIncomingInterest(ProducerSocket &p, const Interest &interest);
+  void processIncomingInterest(ProducerSocket &p, Interest &interest);
 
   OnHttpRequest callback_;
   asio::io_service io_service_;

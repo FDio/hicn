@@ -70,6 +70,7 @@ DECLARE_set_validation_algorithm (none, NONE);
 DECLARE_get_validation_algorithm (none, NONE);
 DECLARE_set_key_id (none, NONE);
 DECLARE_get_key_id (none, NONE);
+DECLARE_get_signature (none, NONE);
 DECLARE_HICN_OPS (none);
 
 /**

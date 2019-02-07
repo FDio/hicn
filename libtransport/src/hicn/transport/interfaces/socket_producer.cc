@@ -401,7 +401,7 @@ void ProducerSocket::asyncProduce(
   }
 }
 
-void ProducerSocket::onInterest(const Interest &interest) {
+void ProducerSocket::onInterest(Interest &interest) {
   if (on_interest_input_ != VOID_HANDLER) {
     on_interest_input_(*this, interest);
   }
