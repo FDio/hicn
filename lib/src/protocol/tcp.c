@@ -57,7 +57,7 @@ tcp_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
       TCP_DEFAULT_ACK << 4 | TCP_DEFAULT_PSH << 3 | TCP_DEFAULT_RST << 2 |
       TCP_DEFAULT_SYN << 1 | TCP_DEFAULT_FIN << 0,.window =
       htons (TCP_DEFAULT_WINDOW_SIZE),.csum = 0,.urg_ptr = 65000,};
-
+      
   uint8_t ah_flag = type.l2 == IPPROTO_AH ? AH_FLAG : ~AH_FLAG;
 
   h->tcp.flags |= ah_flag;
@@ -247,10 +247,10 @@ tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
    * csum = ip_csum_sub_even (*tcp_checksum, h->ipv4.saddr.as_u32);
    * csum = ip_csum_add_even (csum, h->ipv4.saddr.as_u32);
    */
-  u16 csum = ip_csum_sub_even (*tcp_checksum, h->ipv6.saddr.as_u64[0]);
-  csum = ip_csum_sub_even (csum, h->ipv6.saddr.as_u64[1]);
-  csum = ip_csum_add_even (csum, h->ipv6.saddr.as_u64[0]);
-  csum = ip_csum_add_even (csum, h->ipv6.saddr.as_u64[1]);
+  u16 csum = ip_csum_sub_even (*tcp_checksum, (ip_csum_t) (h->ipv6.saddr.as_u64[0]));
+  csum = ip_csum_sub_even (csum, (ip_csum_t) (h->ipv6.saddr.as_u64[1]));
+  csum = ip_csum_add_even (csum, (ip_csum_t) (h->ipv6.saddr.as_u64[0]));
+  csum = ip_csum_add_even (csum, (ip_csum_t) (h->ipv6.saddr.as_u64[1]));
 
   *tcp_checksum = ip_csum_fold (csum);
 
@@ -272,10 +272,10 @@ tcp_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
    * csum = ip_csum_sub_even (*tcp_checksum, h->ipv4.saddr.as_u32);
    * csum = ip_csum_add_even (csum, h->ipv4.saddr.as_u32);
    */
-  u16 csum = ip_csum_sub_even (*tcp_checksum, addr_old->ip6.as_u64[0]);
-  csum = ip_csum_sub_even (*tcp_checksum, addr_old->ip6.as_u64[1]);
-  csum = ip_csum_add_even (csum, addr_new->ip6.as_u64[0]);
-  csum = ip_csum_add_even (csum, addr_new->ip6.as_u64[1]);
+  u16 csum = ip_csum_sub_even (*tcp_checksum, (ip_csum_t) (addr_old->ip6.as_u64[0]));
+  csum = ip_csum_sub_even (*tcp_checksum, (ip_csum_t) (addr_old->ip6.as_u64[1]));
+  csum = ip_csum_add_even (csum, (ip_csum_t) (addr_new->ip6.as_u64[0]));
+  csum = ip_csum_add_even (csum, (ip_csum_t) (addr_new->ip6.as_u64[1]));
 
   csum = ip_csum_sub_even (csum, h->tcp.pathlabel);
   tcp_update_data_pathlabel (type, h, face_id);
