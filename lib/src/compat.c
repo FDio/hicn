@@ -199,7 +199,7 @@ hicn_packet_get_payload_length (hicn_format_t format, const hicn_header_t * h,
 
 int
 hicn_packet_set_payload_length (hicn_format_t format, hicn_header_t * h,
-				size_t payload_length)
+				const size_t payload_length)
 {
   hicn_type_t type = hicn_format_to_type (format);
   return hicn_ops_vft[type.l1]->set_payload_length (type, &h->protocol,
@@ -504,10 +504,10 @@ hicn_packet_get_reserved_bits (const hicn_header_t * h, u8 * reserved_bits)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      *reserved_bits = h->v6.tcp.reserved;
+      *reserved_bits = (u8)(h->v6.tcp.reserved);
       break;
     case 4:
-      *reserved_bits = h->v4.tcp.reserved;
+      *reserved_bits = (u8)(h->v4.tcp.reserved);
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -517,7 +517,7 @@ hicn_packet_get_reserved_bits (const hicn_header_t * h, u8 * reserved_bits)
 }
 
 int
-hicn_packet_set_reserved_bits (hicn_header_t * h, u8 reserved_bits)
+hicn_packet_set_reserved_bits (hicn_header_t * h, const u8 reserved_bits)
 {
   switch (HICN_IP_VERSION (h))
     {
@@ -1011,7 +1011,7 @@ int
 hicn_interest_set_payload (hicn_format_t format, hicn_header_t * interest,
 			   const u8 * payload, size_t payload_length)
 {
-  return hicn_packet_set_payload (format, interest, payload, payload_length);
+  return hicn_packet_set_payload (format, interest, payload, (u16)payload_length);
 }
 
 int
@@ -1122,7 +1122,7 @@ int
 hicn_data_set_payload (hicn_format_t format, hicn_header_t * data,
 		       const u8 * payload, size_t payload_length)
 {
-  return hicn_packet_set_payload (format, data, payload, payload_length);
+  return hicn_packet_set_payload (format, data, payload, (u16)payload_length);
 }
 
 int

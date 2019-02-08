@@ -88,6 +88,7 @@ typedef uint8_t u8;
 #include <Ws2tcpip.h>
 #include <In6addr.h>
 
+#define strdup _strdup
 #define __attribute__(A)
 
 #ifndef  IOVEC
