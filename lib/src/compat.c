@@ -1137,7 +1137,7 @@ int
 hicn_data_reset_for_hash (hicn_format_t format, hicn_header_t * packet)
 {
   hicn_type_t type = hicn_format_to_type (format);
-  return hicn_ops_vft[type.l1]->reset_interest_for_hash (type,
+  return hicn_ops_vft[type.l1]->reset_data_for_hash (type,
 							 &packet->protocol);
 
 }

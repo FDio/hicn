@@ -58,7 +58,7 @@ Packet::Packet(MemBufPtr &&buffer)
 
   auto header_size = getHeaderSizeFromFormat(format_, signature_size);
 
-  auto payload_length = packet_->length() - header_size - signature_size;
+  auto payload_length = packet_->length() - header_size;
 
   if (!payload_length) {
     return;
@@ -69,7 +69,7 @@ Packet::Packet(MemBufPtr &&buffer)
   if (payload_length) {
     auto payload = packet_->cloneOne();
     payload_head_ = payload.get();
-    payload_head_->advance(header_size + signature_size);
+    payload_head_->advance(header_size);
     payload_head_->append(payload_length);
     packet_->prependChain(std::move(payload));
     packet_->append(header_size);

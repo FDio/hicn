@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <hicn/base.h>
 #include <chrono>
 #include <cstdint>
 
@@ -25,8 +26,8 @@ namespace interface {
 namespace default_values {
 
 const uint32_t interest_lifetime = 1001;  // milliseconds
-const uint32_t content_object_expiry_time =
-    0xffff;                                        // milliseconds -> 50 seconds
+const uint32_t never_expire_time = HICN_MAX_LIFETIME;
+const uint32_t content_object_expiry_time = never_expire_time; // milliseconds -> 50 seconds
 const uint32_t content_object_packet_size = 1500;  // The ethernet MTU
 const uint32_t producer_socket_input_buffer_size = 150000;   // Interests
 const uint32_t producer_socket_output_buffer_size = 150000;  // Content Object
@@ -38,7 +39,6 @@ const uint32_t min_window_size = 1;            // Interests
 const uint32_t max_window_size = 128000;       // Interests
 const uint32_t digest_size = 34;               // bytes
 const uint32_t max_out_of_order_segments = 3;  // content object
-const uint32_t never_expire_time = 0x0000ffff << 0x0f;
 
 // RAAQM
 const int sample_number = 30;

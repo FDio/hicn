@@ -58,6 +58,10 @@ tcp_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
       TCP_DEFAULT_SYN << 1 | TCP_DEFAULT_FIN << 0,.window =
       htons (TCP_DEFAULT_WINDOW_SIZE),.csum = 0,.urg_ptr = 65000,};
 
+  uint8_t ah_flag = type.l2 == IPPROTO_AH ? AH_FLAG : ~AH_FLAG;
+
+  h->tcp.flags |= ah_flag;
+
   return CHILD_OPS (init_packet_header, type, h);
 }
 
@@ -166,7 +170,7 @@ tcp_set_lifetime (hicn_type_t type, hicn_protocol_t * h,
       h->tcp.urg_ptr = htons (HICN_MAX_LIFETIME_SCALED);
       h->tcp.data_offset_and_reserved =
 	(h->
-	 tcp.data_offset_and_reserved & ~0xF) | HICN_MAX_LIFETIME_MULTIPLIER;
+	 tcp.data_offset_and_reserved & ~0x0F) | HICN_MAX_LIFETIME_MULTIPLIER;
       return HICN_LIB_ERROR_NONE;
     }
 
@@ -179,7 +183,7 @@ tcp_set_lifetime (hicn_type_t type, hicn_protocol_t * h,
 
   h->tcp.urg_ptr = htons (lifetime_scaled);
   h->tcp.data_offset_and_reserved =
-    (h->tcp.data_offset_and_reserved & ~0xF) | multiplier;
+    (h->tcp.data_offset_and_reserved & ~0x0F) | multiplier;
 
   return HICN_LIB_ERROR_NONE;
 }
