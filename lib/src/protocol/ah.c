@@ -163,7 +163,7 @@ int
 ah_set_signature_size (hicn_type_t type, hicn_protocol_t * h,
 		       const size_t signature_size)
 {
-  h->ah.payloadlen = signature_size >> 2;
+  h->ah.payloadlen = (u8)(signature_size >> 2);
   return HICN_LIB_ERROR_NONE;
 }
 

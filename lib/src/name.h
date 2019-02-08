@@ -35,8 +35,13 @@
  ******************************************************************************/
 
 /* Presentation format */
+#ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16
+#endif
+
+#ifndef INET6_ADDRSTRLEN
 #define INET6_ADDRSTRLEN 46
+#endif
 //#define INET_MAX_ADDRSTRLEN INET6_ADDRSTRLEN
 
 /* Address size */

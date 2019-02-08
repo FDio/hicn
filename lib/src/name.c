@@ -97,7 +97,7 @@ hicn_name_create_from_ip_address (const ip_address_t * ip_address, u32 id,
       return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
     }
 
-  name->len = ip_address->prefix_len;
+  name->len = (u8) (ip_address->prefix_len);
   if ((name->type != HNT_CONTIGUOUS_V4) && (name->type != HNT_CONTIGUOUS_V6))
     {
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
@@ -493,7 +493,7 @@ hicn_name_ntop (const hicn_name_t * src, char *dst, size_t len)
       goto ERR;
     }
 
-  offset = strlen (dst);
+  offset = (int) strlen (dst);
   dst[offset] = '|';
 
   sprintf (dst + offset + 1, "%lu", (unsigned long) (*(u32 *) seg_number));
@@ -546,7 +546,7 @@ hicn_prefix_create_from_ip_address (const ip_address_t * ip_address,
     default:
       return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
     }
-  prefix->len = ip_address->prefix_len;
+  prefix->len = (u8) (ip_address->prefix_len);
 
   return HICN_LIB_ERROR_NONE;
 }

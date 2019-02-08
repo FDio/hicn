@@ -30,9 +30,9 @@ typedef u32 hicn_faceid_t;
 typedef u8 hicn_pathlabel_t;
 typedef u32 hicn_lifetime_t;
 
-#define HICN_MAX_LIFETIME_SCALED 0xFFFF
-#define HICN_MAX_LIFETIME_MULTIPLIER 0x0F	/* 4 bits */
 #define HICN_MAX_LIFETIME HICN_MAX_LIFETIME_SCALED << HICN_MAX_LIFETIME_MULTIPLIER
+#define HICN_MAX_LIFETIME_SCALED 0xFFFF
+#define HICN_MAX_LIFETIME_MULTIPLIER 0xF	/* 4 bits */
 
 /**
  * @brief hICN packet format type

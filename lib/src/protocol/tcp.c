@@ -58,10 +58,6 @@ tcp_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
       TCP_DEFAULT_SYN << 1 | TCP_DEFAULT_FIN << 0,.window =
       htons (TCP_DEFAULT_WINDOW_SIZE),.csum = 0,.urg_ptr = 65000,};
 
-  uint8_t ah_flag = type.l2 == IPPROTO_AH ? AH_FLAG : ~AH_FLAG;
-
-  h->tcp.flags |= ah_flag;
-
   return CHILD_OPS (init_packet_header, type, h);
 }
 
@@ -170,7 +166,7 @@ tcp_set_lifetime (hicn_type_t type, hicn_protocol_t * h,
       h->tcp.urg_ptr = htons (HICN_MAX_LIFETIME_SCALED);
       h->tcp.data_offset_and_reserved =
 	(h->
-	 tcp.data_offset_and_reserved & ~0x0F) | HICN_MAX_LIFETIME_MULTIPLIER;
+	 tcp.data_offset_and_reserved & ~0xF) | HICN_MAX_LIFETIME_MULTIPLIER;
       return HICN_LIB_ERROR_NONE;
     }
 
@@ -183,7 +179,7 @@ tcp_set_lifetime (hicn_type_t type, hicn_protocol_t * h,
 
   h->tcp.urg_ptr = htons (lifetime_scaled);
   h->tcp.data_offset_and_reserved =
-    (h->tcp.data_offset_and_reserved & ~0x0F) | multiplier;
+    (h->tcp.data_offset_and_reserved & ~0xF) | multiplier;
 
   return HICN_LIB_ERROR_NONE;
 }
@@ -247,10 +243,10 @@ tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
    * csum = ip_csum_sub_even (*tcp_checksum, h->ipv4.saddr.as_u32);
    * csum = ip_csum_add_even (csum, h->ipv4.saddr.as_u32);
    */
-  u16 csum = ip_csum_sub_even (*tcp_checksum, h->ipv6.saddr.as_u64[0]);
-  csum = ip_csum_sub_even (csum, h->ipv6.saddr.as_u64[1]);
-  csum = ip_csum_add_even (csum, h->ipv6.saddr.as_u64[0]);
-  csum = ip_csum_add_even (csum, h->ipv6.saddr.as_u64[1]);
+  u16 csum = ip_csum_sub_even (*tcp_checksum, (ip_csum_t) (h->ipv6.saddr.as_u64[0]));
+  csum = ip_csum_sub_even (csum, (ip_csum_t) (h->ipv6.saddr.as_u64[1]));
+  csum = ip_csum_add_even (csum, (ip_csum_t) (h->ipv6.saddr.as_u64[0]));
+  csum = ip_csum_add_even (csum, (ip_csum_t) (h->ipv6.saddr.as_u64[1]));
 
   *tcp_checksum = ip_csum_fold (csum);
 
@@ -272,10 +268,10 @@ tcp_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
    * csum = ip_csum_sub_even (*tcp_checksum, h->ipv4.saddr.as_u32);
    * csum = ip_csum_add_even (csum, h->ipv4.saddr.as_u32);
    */
-  u16 csum = ip_csum_sub_even (*tcp_checksum, addr_old->ip6.as_u64[0]);
-  csum = ip_csum_sub_even (*tcp_checksum, addr_old->ip6.as_u64[1]);
-  csum = ip_csum_add_even (csum, addr_new->ip6.as_u64[0]);
-  csum = ip_csum_add_even (csum, addr_new->ip6.as_u64[1]);
+  u16 csum = ip_csum_sub_even (*tcp_checksum, (ip_csum_t) (addr_old->ip6.as_u64[0]));
+  csum = ip_csum_sub_even (*tcp_checksum, (ip_csum_t) (addr_old->ip6.as_u64[1]));
+  csum = ip_csum_add_even (csum, (ip_csum_t) (addr_new->ip6.as_u64[0]));
+  csum = ip_csum_add_even (csum, (ip_csum_t) (addr_new->ip6.as_u64[1]));
 
   csum = ip_csum_sub_even (csum, h->tcp.pathlabel);
   tcp_update_data_pathlabel (type, h, face_id);
