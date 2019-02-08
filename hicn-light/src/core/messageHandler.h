@@ -41,8 +41,6 @@
 #define PATH_LABEL_MASK 0x8000      // 1000 0000 0000 0000
 #define NOT_PATH_LABEL_MASK 0x7fff  // 0111 0000 0000 0000
 #define UINT16_T_MASK 0x0000ffff    // 1111 1111 1111 1111
-#define NEVER_EXPIRE \
-  16777216  // 2^16 (max urgent pointer) * 2^8 (max reserved + NS bits)
 
 /*** HICN ALLOWED PORTS ***/
 #define CONTROL_PORT 9695
@@ -435,7 +433,7 @@ static inline bool messageHandler_HasContentExpiryTime(const uint8_t *message) {
       hicn_data_get_expiry_time((hicn_header_t *)message, &expirationTime);
   if (res < 0) return false;
 
-  if (expirationTime == NEVER_EXPIRE) return false;
+  if (expirationTime == HICN_MAX_LIFETIME) return false;
 
   return true;
 }
