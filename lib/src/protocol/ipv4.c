@@ -383,7 +383,7 @@ ipv4_set_payload_length (hicn_type_t type, hicn_protocol_t * h,
   int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
   if (rc < 0)
     return rc;
-  h->ipv4.len = htons (payload_length + IPV4_HDRLEN + child_header_length);
+  h->ipv4.len = htons ((u_short) (payload_length + IPV4_HDRLEN + child_header_length));
   return HICN_LIB_ERROR_NONE;
 }
 

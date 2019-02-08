@@ -82,10 +82,11 @@ macro(build_library lib)
   endif()
 
   foreach(library ${TARGET_LIBS})
-    if (NOT WIN32)
-      target_compile_options(${library} PRIVATE -Wall)
-    else ()
+
+    if (WIN32)
       target_compile_options(${library} PRIVATE)
+    else ()
+      target_compile_options(${library} PRIVATE -Wall)
     endif ()
 
     if(HICN_VERSION)

@@ -39,7 +39,11 @@ if (NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-set(CMAKE_C_FLAGS -Wall)
+if (NOT WIN32)
+  set(CMAKE_C_FLAGS -Wall)
+else ()
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
+endif ()
 
 if (ANDROID_API)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ANDROID_C_FLAGS} -std=c99")
