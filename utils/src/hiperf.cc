@@ -35,7 +35,10 @@ namespace transport {
 
 namespace interface {
 
+#ifdef ERROR_SUCCESS
+#undef ERROR_SUCCESS
 #define ERROR_SUCCESS 0
+#endif
 #define ERROR_SETUP -5
 
 using CryptoSuite = utils::CryptoSuite;
@@ -112,7 +115,7 @@ class HIperfClient {
                       const std::error_code &ec) {
     Time t2 = std::chrono::steady_clock::now();
     TimeDuration dt = std::chrono::duration_cast<TimeDuration>(t2 - t1_);
-    long usec = dt.count();
+    long usec = (long) dt.count();
 
     std::cout << "Content retrieved. Size: " << bytes_transferred << " [Bytes]"
               << std::endl;
@@ -179,7 +182,7 @@ class HIperfClient {
     std::cout << std::left << std::setw(width) << avg_rtt.str() << std::endl;
     std::cout << std::endl;
 
-    total_duration_milliseconds_ += exact_duration.count();
+    total_duration_milliseconds_ += (uint32_t) exact_duration.count();
     old_bytes_value_ = byte_count;
   }
 
@@ -324,9 +327,13 @@ class HIperfServer {
   HIperfServer(ServerConfiguration &conf)
       : configuration_(conf),
         // signals_(io_service_, SIGINT, SIGQUIT),
-        content_objects_((1 << log2_content_object_buffer_size)),
+                //TODO
+        //check with mauro
+        content_objects_((std::uint16_t) (1 << log2_content_object_buffer_size)),
         content_objects_index_(0),
-        mask_((1 << log2_content_object_buffer_size) - 1) {
+        //TODO
+        //check with mauro
+        mask_((std::uint16_t) (1 << log2_content_object_buffer_size) - 1) {
     // signals_.async_wait([this] (const std::error_code&, const int&)
     // {std::cout << "STOPPING!!" << std::endl; io_service_.stop();});
 
@@ -712,7 +719,7 @@ int main(int argc, char *argv[]) {
 #else
     int fd = _open(log_file, _O_WRONLY | _O_APPEND | _O_CREAT, _S_IWRITE | _S_IREAD);
     _dup2(fd, _fileno(stdout));
-    _dup2(_fileno(stdout), _fileno(strerr));
+    _dup2(_fileno(stdout), _fileno(stderr));
     _close(fd);
 #endif
   }
