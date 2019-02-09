@@ -46,8 +46,8 @@ class CallbackContainer {
                     bool dump, bool quite, bool flags, bool reset, uint8_t ttl,
                     utils::Identity *identity, bool sign)
       : buffer_(object_size, 'X'),
-        content_objects_(1 << log2_content_object_buffer_size),
-        mask_((1 << log2_content_object_buffer_size) - 1),
+        content_objects_((std::uint32_t)(1 << log2_content_object_buffer_size)),
+        mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
         content_objects_index_(0),
         verbose_(verbose),
         dump_(dump),
@@ -193,7 +193,7 @@ void help() {
 
 int main(int argc, char **argv) {
 #ifdef _WIN32
-  WSADATA wsaData = { 0 };
+  WSADATA wsaData = {0};
   WSAStartup(MAKEWORD(2, 2), &wsaData);
 #else
   bool daemon = false;

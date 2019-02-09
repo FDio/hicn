@@ -77,8 +77,7 @@ class Configuration {
 class Client : interface::BasePortal::ConsumerCallback {
  public:
   Client(Configuration *c)
-    : portal_(),
-      signals_(portal_.getIoService(), SIGINT) {
+      : portal_(), signals_(portal_.getIoService(), SIGINT) {
     // Let the main thread to catch SIGINT
     portal_.connect();
     portal_.setConsumerCallback(this);
@@ -206,7 +205,7 @@ class Client : interface::BasePortal::ConsumerCallback {
   }
 
   void doPing() {
-    Name interest_name(config_->name_, sequence_number_);
+    Name interest_name(config_->name_, (uint32_t)sequence_number_);
     hicn_format_t format;
     if (interest_name.getAddressFamily() == AF_INET) {
       format = HF_INET_TCP;
@@ -341,9 +340,8 @@ void help() {
 }
 
 int main(int argc, char *argv[]) {
-
 #ifdef _WIN32
-  WSADATA wsaData = { 0 };
+  WSADATA wsaData = {0};
   WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif
 
