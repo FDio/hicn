@@ -206,7 +206,7 @@ class Client : interface::BasePortal::ConsumerCallback {
   }
 
   void doPing() {
-    Name interest_name(config_->name_, sequence_number_);
+    Name interest_name(config_->name_, (uint32_t) sequence_number_);
     hicn_format_t format;
     if (interest_name.getAddressFamily() == AF_INET) {
       format = HF_INET_TCP;

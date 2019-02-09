@@ -42,6 +42,9 @@ list(APPEND UTILS_SRC
   src/ping_server.cc
 )
 
+if (WIN32)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
+endif ()
 foreach(util ${UTILS_SRC})
   get_filename_component(_util_name ${util} NAME)
   string(REGEX REPLACE ".cc" "" util_name ${_util_name})
