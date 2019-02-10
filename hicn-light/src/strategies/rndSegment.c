@@ -74,7 +74,7 @@ StrategyImpl *strategyRndSegment_Create() {
   strategy->nexthops = numberSet_Create();
   strategy->segmentName = NULL;
   strategy->last_used_face = 0;
-  srand(time(NULL));
+  srand((unsigned int)time(NULL));
 
   StrategyImpl *impl = parcMemory_AllocateAndClear(sizeof(StrategyImpl));
   parcAssertNotNull(impl, "parcMemory_AllocateAndClear(%zu) returned NULL",
@@ -93,7 +93,7 @@ strategy_type _strategyRndSegment_GetStrategy(StrategyImpl *strategy) {
 }
 
 static int _select_Nexthop(StrategyRndSegment *strategy) {
-  unsigned len = numberSet_Length(strategy->nexthops);
+  unsigned len = (unsigned)numberSet_Length(strategy->nexthops);
   if (len == 0) {
     return -1;
   }
@@ -115,7 +115,7 @@ static NumberSet *_strategyRndSegment_LookupNexthop(
   StrategyRndSegment *srnd = (StrategyRndSegment *)strategy->context;
 
   unsigned in_connection = message_GetIngressConnectionId(interestMessage);
-  unsigned nexthopSize = numberSet_Length(srnd->nexthops);
+  unsigned nexthopSize = (unsigned)numberSet_Length(srnd->nexthops);
 
   NumberSet *out = numberSet_Create();
   if ((nexthopSize == 0) ||
@@ -168,7 +168,7 @@ static NumberSet *_strategyRndSegment_ReturnNexthops(StrategyImpl *strategy) {
 
 unsigned _strategyRndSegment_CountNexthops(StrategyImpl *strategy) {
   StrategyRndSegment *srnd = (StrategyRndSegment *)strategy->context;
-  return numberSet_Length(srnd->nexthops);
+  return (unsigned)numberSet_Length(srnd->nexthops);
 }
 
 static void _strategyRndSegment_AddNexthop(StrategyImpl *strategy,

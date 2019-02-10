@@ -81,7 +81,6 @@ typedef struct controller_main_state {
 } ControlMainState;
 
 static void _printRed(const char *output) {
-
 #ifndef _WIN32
   printf("\033[0;31m%s", output);
 #else
@@ -95,15 +94,13 @@ static void _printRed(const char *output) {
   printf("%s", output);
   SetConsoleTextAttribute(hConsole, currentConsoleAttr);
 #endif
-
 }
 
 static void _printWhite(const char *output) {
-
 #ifndef _WIN32
-	printf("\033[0m%s", output);
+  printf("\033[0m%s", output);
 #else
-  HANDLE  hConsole = NULL;
+  HANDLE hConsole = NULL;
   WORD currentConsoleAttr;
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   SetConsoleTextAttribute(hConsole, 7);
@@ -113,7 +110,6 @@ static void _printWhite(const char *output) {
   printf("%s", output);
   SetConsoleTextAttribute(hConsole, currentConsoleAttr);
 #endif
-
 }
 
 static void _displayForwarderLogo(void) {
@@ -125,7 +121,9 @@ static void _displayForwarderLogo(void) {
   _printWhite(" / _ \\ / // __// _ \\___/ // // _ `// _ \\/ __/\n");
   _printRed("/_/  /____/(_)/_/ \\___/ ");
   _printWhite("/_//_//_/ \\__//_//_/  /_//_/ \\_, //_//_/\\__/\n");
-  _printWhite("                                                    /___/            \n");
+  _printWhite(
+      "                                                    /___/            "
+      "\n");
   printf("\n");
 }
 
@@ -207,8 +205,8 @@ struct iovec *_writeAndReadMessage(ControlState *state, struct iovec *msg) {
     if (write(sockfd, msg[0].iov_base, (unsigned int)msg[0].iov_len) < 0 ||
         write(sockfd, msg[1].iov_base, (unsigned int)msg[1].iov_len) < 0) {
 #else
-    if (send(sockfd, msg[0].iov_base, msg[0].iov_len, 0) == SOCKET_ERROR ||
-        send(sockfd, msg[1].iov_base, msg[1].iov_len, 0) == SOCKET_ERROR) {
+    if (send(sockfd, msg[0].iov_base, (int)msg[0].iov_len, 0) == SOCKET_ERROR ||
+        send(sockfd, msg[1].iov_base, (int)msg[1].iov_len, 0) == SOCKET_ERROR) {
 #endif
       printf("\nError while sending the Message: cannot write on socket \n");
       exit(EXIT_FAILURE);
@@ -219,7 +217,7 @@ struct iovec *_writeAndReadMessage(ControlState *state, struct iovec *msg) {
 #ifndef _WIN32
     if (write(sockfd, msg[0].iov_base, msg[0].iov_len) < 0) {
 #else
-    int result = send(sockfd, msg[0].iov_base, msg[0].iov_len, 0);
+    int result = send(sockfd, msg[0].iov_base, (int)msg[0].iov_len, 0);
     if (result == SOCKET_ERROR) {
 #endif
       printf("\nError while sending the Message: cannot write on socket \n");
@@ -233,7 +231,8 @@ struct iovec *_writeAndReadMessage(ControlState *state, struct iovec *msg) {
   header_control_message *headerResponse =
       (header_control_message *)parcMemory_AllocateAndClear(
           sizeof(header_control_message));
-  if (recv(sockfd, headerResponse, sizeof(header_control_message), 0) < 0) {
+  if (recv(sockfd, (char *)headerResponse, sizeof(header_control_message), 0) <
+      0) {
     printf("\nError in Receiving the Message \n");
     exit(EXIT_FAILURE);
   }

@@ -137,7 +137,7 @@ void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy) {
   }
 
   const NumberSet *nexthops = fibEntry_GetNexthops(fibEntry);
-  unsigned size = fibEntry_NexthopCount(fibEntry);
+  unsigned size = (unsigned)fibEntry_NexthopCount(fibEntry);
   for (unsigned i = 0; i < size; i++) {
     fwdStrategyImpl->addNexthop(fwdStrategyImpl,
                                 numberSet_GetItem(nexthops, i));

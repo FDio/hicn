@@ -429,7 +429,7 @@ FibEntry *fib_Match(const FIB *fib, const Message *interestMessage) {
 }
 
 void _collectFibEntries(FibNode *n, int pos, FibEntryList *list) {
-  if (n->pos < pos) {
+  if (n->pos < (unsigned)pos) {
     fibEntryList_Append(list, n->entry);
     _collectFibEntries(n->left, n->pos, list);
     _collectFibEntries(n->right, n->pos, list);

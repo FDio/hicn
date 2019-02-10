@@ -285,7 +285,7 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
   // send response
   header_control_message *header = request[0].iov_base;
   header->messageType = RESPONSE_LIGHT;
-  header->length = payloadSize;
+  header->length = (unsigned)payloadSize;
 
   struct iovec *response =
       parcMemory_AllocateAndClear(sizeof(struct iovec) * 2);

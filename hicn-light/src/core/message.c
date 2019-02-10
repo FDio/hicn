@@ -66,7 +66,7 @@ Message *message_CreateFromEventBuffer(PARCEventBuffer *data, size_t dataLength,
   message->logger = logger_Acquire(logger);
   message->receiveTime = receiveTime;
   message->ingressConnectionId = ingressConnectionId;
-  message->length = dataLength;
+  message->length = (int)dataLength;
 
   message->messageHead = parcMemory_AllocateAndClear(dataLength);
   parcAssertNotNull(message->messageHead,
@@ -173,7 +173,7 @@ bool message_IsWldrNotification(const Message *message) {
 
 void message_ResetWldrLabel(Message *message) {
   parcAssertNotNull(message, "Parameter must be non-null");
-  return messageHandler_ResetWldrLabel(message->messageHead);
+  messageHandler_ResetWldrLabel(message->messageHead);
 }
 
 unsigned message_GetWldrLabel(const Message *message) {
@@ -207,7 +207,7 @@ Message *message_CreateWldrNotification(Message *original, uint16_t expected,
   message->refcount = 1;
   message->logger = logger_Acquire(original->logger);
 
-  message->length = messageHandler_GetICMPPacketSize(
+  message->length = (unsigned int)messageHandler_GetICMPPacketSize(
       messageHandler_GetIPPacketType(original->messageHead));
   message->messageHead = parcMemory_AllocateAndClear(message->length);
   parcAssertNotNull(message->messageHead,
@@ -246,7 +246,7 @@ uint32_t message_GetPathLabel(const Message *message) {
 
 void message_SetPathLabel(Message *message, uint32_t label) {
   parcAssertNotNull(message, "Parameter must be non-null");
-  return messageHandler_SetPathLabel(message->messageHead, label);
+  messageHandler_SetPathLabel(message->messageHead, label);
 }
 
 void message_UpdatePathLabel(Message *message, uint8_t outFace) {
