@@ -47,6 +47,7 @@ typedef struct memif_connection memif_connection_t;
 
 class MemifConnector : public Connector {
   typedef void *memif_conn_handle_t;
+
  public:
   MemifConnector(PacketReceivedCallback &&receive_callback,
                  OnReconnect &&on_reconnect_callback,

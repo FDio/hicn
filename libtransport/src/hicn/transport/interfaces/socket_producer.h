@@ -223,7 +223,7 @@ class ProducerSocket : public Socket<BasePortal>,
 
   HashAlgorithm hash_algorithm_;
   utils::CryptoSuite crypto_suite_;
-  //std::unique_ptr<utils::Identity> identity_;
+  // std::unique_ptr<utils::Identity> identity_;
   // utils::Signer& signer_;
 
   // buffers
