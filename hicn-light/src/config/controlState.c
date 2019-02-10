@@ -55,7 +55,7 @@ int controlState_connectToFwdDeamon() {
   int sockfd;
   struct sockaddr_in servaddr;
 
-  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+  if ((sockfd = (int)socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     printf("\nSocket Creation Failed \n");
     exit(EXIT_FAILURE);
   }

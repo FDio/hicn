@@ -65,8 +65,7 @@
 
 #define WARN(mapme, fmt, ...) \
   LOG(mapme, PARCLogLevel_Warning, fmt, ##__VA_ARGS__)
-#define ERROR(mapme, fmt, ...) \
-  LOG(mapme, PARCLogLevel_Error, fmt, ##__VA_ARGS__)
+#define ERR(mapme, fmt, ...) LOG(mapme, PARCLogLevel_Error, fmt, ##__VA_ARGS__)
 #define INFO(mapme, fmt, ...) LOG(mapme, PARCLogLevel_Info, fmt, ##__VA_ARGS__)
 #define DEBUG(mapme, fmt, ...) \
   LOG(mapme, PARCLogLevel_Debug, fmt, ##__VA_ARGS__)
@@ -234,14 +233,14 @@ static Message *mapMe_createMessage(const MapMe *mapme, const Name *name,
   hicn_prefix_t prefix;
   int rc = hicn_prefix_from_name(name, &prefix);
   if (rc < 0) {
-    ERROR(mapme, "[MAP-Me] Failed to create lib's name");
+    ERR(mapme, "[MAP-Me] Failed to create lib's name");
     goto ERR_NAME;
   }
 
   INFO(mapme, "[MAP-Me] Creating MAP-Me packet");
   size_t len = hicn_mapme_create_packet(icmp_pkt, &prefix, params);
   if (len != 0) {
-    ERROR(mapme, "[MAP-Me] Failed to create mapme packet through lib");
+    ERR(mapme, "[MAP-Me] Failed to create mapme packet through lib");
     goto ERR_CREATE;
   }
 
@@ -268,7 +267,7 @@ static Message *mapMe_createAckMessage(const MapMe *mapme,
 
   size_t len = hicn_mapme_create_ack(icmp_pkt, params);
   if (len != size) {
-    ERROR(mapme, "[MAP-Me] Failed to create mapme ack packet through lib");
+    ERR(mapme, "[MAP-Me] Failed to create mapme ack packet through lib");
     return NULL;
   }
 

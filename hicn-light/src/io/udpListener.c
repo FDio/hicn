@@ -81,7 +81,7 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
   udp->localAddress = addressCreateFromInet6(&sin6);
   udp->id = forwarder_GetNextConnectionId(forwarder);
 
-  udp->udp_socket = socket(AF_INET6, SOCK_DGRAM, 0);
+  udp->udp_socket = (SocketType)socket(AF_INET6, SOCK_DGRAM, 0);
   parcAssertFalse(udp->udp_socket < 0, "Error opening UDP socket: (%d) %s",
                   errno, strerror(errno));
 
@@ -164,7 +164,7 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder,
   udp->localAddress = addressCreateFromInet(&sin);
   udp->id = forwarder_GetNextConnectionId(forwarder);
 
-  udp->udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
+  udp->udp_socket = (SocketType)socket(AF_INET, SOCK_DGRAM, 0);
   parcAssertFalse(udp->udp_socket < 0, "Error opening UDP socket: (%d) %s",
                   errno, strerror(errno));
 
@@ -314,12 +314,11 @@ static size_t _peekMessageLength(UdpListener *udp, int fd,
   // Also returns the socket information for the remote peer
 
   ssize_t res = recvfrom(
-      fd, fixedHeader, messageHandler_GetIPHeaderLength(IPv6), MSG_PEEK,
+      fd, fixedHeader, (int)messageHandler_GetIPHeaderLength(IPv6), MSG_PEEK,
       (struct sockaddr *)peerIpAddress, peerIpAddressLengthPtr);
 
   if (res == messageHandler_GetIPHeaderLength(IPv6)) {
-    packetLength =
-        messageHandler_GetTotalPacketLength(fixedHeader);
+    packetLength = messageHandler_GetTotalPacketLength(fixedHeader);
   } else {
     if (res < 0) {
       printf("error while readin packet\n");
@@ -446,7 +445,7 @@ static Message *_readMessage(UdpListener *udp, int fd, size_t packetLength,
                              AddressPair *pair) {
   uint8_t *msgBuffer = parcMemory_AllocateAndClear(packetLength);
 
-  ssize_t readLength = read(fd, msgBuffer, packetLength);
+  ssize_t readLength = read(fd, msgBuffer, (unsigned int)packetLength);
 
   Message *message = NULL;
 

@@ -16,14 +16,14 @@
 #include <src/config.h>
 
 #include <ctype.h>
+#include <parc/algol/parc_List.h>
+#include <parc/algol/parc_Memory.h>
+#include <parc/algol/parc_Network.h>
+#include <parc/assert/parc_Assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <parc/assert/parc_Assert.h>
-#include <parc/algol/parc_List.h>
-#include <parc/algol/parc_Memory.h>
-#include <parc/algol/parc_Network.h>
 
 #include <src/utils/address.h>
 

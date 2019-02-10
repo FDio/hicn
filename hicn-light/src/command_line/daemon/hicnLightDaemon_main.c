@@ -37,7 +37,6 @@
 #include <src/core/forwarder.h>
 
 static void _printRed(const char *output) {
-
 #ifndef _WIN32
   printf("\033[0;31m%s", output);
 #else
@@ -45,21 +44,19 @@ static void _printRed(const char *output) {
   WORD currentConsoleAttr;
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   if (GetConsoleScreenBufferInfo(hConsole, &csbi))
-   currentConsoleAttr = csbi.wAttributes;
+    currentConsoleAttr = csbi.wAttributes;
   hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
   SetConsoleTextAttribute(hConsole, 4);
   printf("%s", output);
   SetConsoleTextAttribute(hConsole, currentConsoleAttr);
 #endif
-
 }
 
 static void _printWhite(const char *output) {
-
 #ifndef _WIN32
-	printf("\033[0m%s", output);
+  printf("\033[0m%s", output);
 #else
-  HANDLE  hConsole = NULL;
+  HANDLE hConsole = NULL;
   WORD currentConsoleAttr;
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   if (GetConsoleScreenBufferInfo(hConsole, &csbi))
@@ -69,7 +66,6 @@ static void _printWhite(const char *output) {
   printf("%s", output);
   SetConsoleTextAttribute(hConsole, currentConsoleAttr);
 #endif
-
 }
 
 static void _displayForwarderLogo(void) {
@@ -81,7 +77,9 @@ static void _displayForwarderLogo(void) {
   _printWhite(" / _ \\ / // __// _ \\___/ // // _ `// _ \\/ __/\n");
   _printRed("/_/  /____/(_)/_/ \\___/ ");
   _printWhite("/_//_//_/ \\__//_//_/  /_//_/ \\_, //_//_/\\__/\n");
-  _printWhite("                                                    /___/            \n");
+  _printWhite(
+      "                                                    /___/            "
+      "\n");
   printf("\n");
 }
 

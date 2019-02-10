@@ -209,7 +209,7 @@ bool nameBitvector_StartsWith(const NameBitvector *name,
 bool nameBitvector_testBit(const NameBitvector *name, uint8_t pos) {
   if (pos == WIDTH) pos = 127;
 
-  uint8_t final_pos = WIDTH - name->len;
+  uint8_t final_pos = (uint8_t)(WIDTH - name->len);
 
   // the bit to test is inside the name/prefix len
   if (pos > final_pos) {
@@ -262,9 +262,9 @@ uint8_t nameBitvector_firstDiff(const NameBitvector *a,
   uint8_t res = 0;
   uint64_t diff = a->bits[1] ^ b->bits[1];
   if (diff)
-    res = 64 + _diff_bit_log2(diff);
+    res = (uint8_t)(64 + _diff_bit_log2(diff));
   else
-    res = _diff_bit_log2(a->bits[0] ^ b->bits[0]);
+    res = (uint8_t)_diff_bit_log2(a->bits[0] ^ b->bits[0]);
 
   // res is computed over the bitvector which is composed by 128 bit all the
   // times however the prefixes may be diffrent just because the have different
@@ -275,9 +275,9 @@ uint8_t nameBitvector_firstDiff(const NameBitvector *a,
 
   uint8_t len_diff;
   if (a->len < b->len)
-    len_diff = WIDTH - a->len;
+    len_diff = (uint8_t)(WIDTH - a->len);
   else
-    len_diff = WIDTH - b->len;
+    len_diff = (uint8_t)(WIDTH - b->len);
 
   if (len_diff > res) res = len_diff;
 
