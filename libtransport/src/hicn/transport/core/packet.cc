@@ -32,7 +32,8 @@ namespace core {
 const core::Name Packet::base_name("0::0|0");
 
 Packet::Packet(Format format)
-    : packet_(utils::MemBuf::create(getHeaderSizeFromFormat(format, 256)).release()),
+    : packet_(utils::MemBuf::create(getHeaderSizeFromFormat(format, 256))
+                  .release()),
       packet_start_(packet_->writableData()),
       header_head_(packet_.get()),
       payload_head_(nullptr),
@@ -50,15 +51,14 @@ Packet::Packet(MemBufPtr &&buffer)
       header_head_(packet_.get()),
       payload_head_(nullptr),
       format_(getFormatFromBuffer(packet_start_)) {
-
   int signature_size = 0;
   if (_is_ah(format_)) {
-    signature_size = getSignatureSize();
+    signature_size = (uint32_t)getSignatureSize();
   }
 
   auto header_size = getHeaderSizeFromFormat(format_, signature_size);
 
-  auto payload_length = packet_->length() - header_size;
+  auto payload_length = packet_->length() - header_size - signature_size;
 
   if (!payload_length) {
     return;
@@ -69,7 +69,7 @@ Packet::Packet(MemBufPtr &&buffer)
   if (payload_length) {
     auto payload = packet_->cloneOne();
     payload_head_ = payload.get();
-    payload_head_->advance(header_size);
+    payload_head_->advance(header_size + signature_size);
     payload_head_->append(payload_length);
     packet_->prependChain(std::move(payload));
     packet_->append(header_size);
@@ -283,10 +283,10 @@ void Packet::setSignatureSize(std::size_t size_bytes) {
   packet_->append(size_bytes);
 }
 
-uint8_t * Packet::getSignature() const {
-  uint8_t * signature;
-  int ret = hicn_packet_get_signature(
-      format_, (hicn_header_t *)packet_start_, &signature);
+uint8_t *Packet::getSignature() const {
+  uint8_t *signature;
+  int ret = hicn_packet_get_signature(format_, (hicn_header_t *)packet_start_,
+                                      &signature);
 
   if (ret < 0) {
     throw errors::RuntimeException("Packet without Authentication Header.");

@@ -51,7 +51,7 @@ Identity::Identity(const std::string &keystore_name,
 
   signer_ = std::make_shared<Signer>(signer);
 
-  signature_length_ = parcSigner_GetSignatureSize(signer);
+  signature_length_ = (unsigned int)parcSigner_GetSignatureSize(signer);
 
   parcSigner_Release(&signer);
   parcIdentityFile_Release(&identity_file);
@@ -72,8 +72,8 @@ Identity Identity::generateIdentity(const std::string &subject_name) {
   unsigned int validity_days = 30;
   CryptoSuite suite = CryptoSuite::RSA_SHA256;
 
-  return utils::Identity(keystore_name, keystore_password, suite, key_length,
-                         validity_days, subject_name);
+  return utils::Identity(keystore_name, keystore_password, suite,
+                         (unsigned int)key_length, validity_days, subject_name);
 }
 
 Identity::Identity(std::string &file_name, std::string &password,
@@ -92,7 +92,7 @@ Identity::Identity(std::string &file_name, std::string &password,
 
   signer_ = std::make_shared<Signer>(signer);
 
-  signature_length_ = parcSigner_GetSignatureSize(signer);
+  signature_length_ = (unsigned int)parcSigner_GetSignatureSize(signer);
 
   parcSigner_Release(&signer);
   parcIdentityFile_Release(&identity_file);

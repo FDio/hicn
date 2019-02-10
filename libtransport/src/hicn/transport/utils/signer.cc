@@ -117,7 +117,7 @@ void Signer::sign(Packet &packet) {
   utils::CryptoHasher hasher(parcSigner_GetCryptoHasher(signer_));
   hasher.init();
   hasher.updateBytes(hicn_packet, header_len + sign_len_bytes);
-  //hasher.updateBytes(zeros, sign_len_bytes);
+  // hasher.updateBytes(zeros, sign_len_bytes);
 
   for (utils::MemBuf *current = payload_chain; current != header_chain;
        current = current->next()) {
@@ -126,7 +126,9 @@ void Signer::sign(Packet &packet) {
 
   utils::CryptoHash hash = hasher.finalize();
 
-  PARCSignature *signature = parcSigner_SignDigest(this->signer_, hash.hash_, packet.getSignature(), sign_len_bytes);
+  PARCSignature *signature =
+      parcSigner_SignDigest(this->signer_, hash.hash_, packet.getSignature(),
+                            (uint32_t)sign_len_bytes);
   PARCBuffer *buffer = parcSignature_GetSignature(signature);
   size_t bytes_len = parcBuffer_Remaining(buffer);
 
@@ -140,10 +142,9 @@ void Signer::sign(Packet &packet) {
   } else if (format & HFO_INET6) {
     memcpy(hicn_packet, &header_copy, sizeof(hicn_v6_hdr_t));
   }
-
 }
 
-PARCKeyStore * Signer::getKeyStore() {
+PARCKeyStore *Signer::getKeyStore() {
   return parcSigner_GetKeyStore(this->signer_);
 }
 

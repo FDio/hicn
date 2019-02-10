@@ -133,7 +133,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   std::size_t getSignatureSize() const;
 
-  uint8_t * getSignature() const;
+  uint8_t *getSignature() const;
 
   void setSignatureTimestamp(const uint64_t &timestamp);
 
