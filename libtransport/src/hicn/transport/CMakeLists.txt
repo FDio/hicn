@@ -35,7 +35,15 @@ list(APPEND LIBTRANSPORT_INCLUDE_DIRS
   ${CMAKE_CURRENT_BINARY_DIR}/../..
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+
+if (NOT WIN32)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+else ()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200")
+  if (CMAKE_BUILD_TYPE EQUAL "RELEASE")
+    set(CMAKE_SHARED_LINKER_FLAGS "/NODEFAULTLIB:\"MSVCRTD\"" )
+  endif ()
+endif ()
 if (ANDROID_API)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -isystem -lm")
 endif()

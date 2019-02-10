@@ -65,9 +65,13 @@ void HicnForwarderInterface::registerRoute(Prefix &prefix) {
   }
 
   // Fill remaining payload fields
+#ifndef _WIN32
   strcpy(route_to_self->symbolic_or_connid, identifier);
+#else
+  strcpy_s(route_to_self->symbolic_or_connid, strlen(identifier), identifier);
+#endif
   route_to_self->cost = 1;
-  route_to_self->len = prefix.getPrefixLength();
+  route_to_self->len = (uint8_t)prefix.getPrefixLength();
 
   // Allocate and fill the header
   route_to_self->command_id = ADD_ROUTE;

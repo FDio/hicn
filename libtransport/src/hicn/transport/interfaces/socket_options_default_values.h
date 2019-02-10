@@ -27,7 +27,8 @@ namespace default_values {
 
 const uint32_t interest_lifetime = 1001;  // milliseconds
 const uint32_t never_expire_time = HICN_MAX_LIFETIME;
-const uint32_t content_object_expiry_time = never_expire_time; // milliseconds -> 50 seconds
+const uint32_t content_object_expiry_time =
+    never_expire_time;                             // milliseconds -> 50 seconds
 const uint32_t content_object_packet_size = 1500;  // The ethernet MTU
 const uint32_t producer_socket_input_buffer_size = 150000;   // Interests
 const uint32_t producer_socket_output_buffer_size = 150000;  // Content Object

@@ -145,11 +145,9 @@ void RTCTransportProtocol::reset() {
   protocolState_ = HICN_RTC_NORMAL_STATE;
 
   producerPathLabel_ = 0;
-  socket_->setSocketOption(
-      GeneralTransportOptions::INTEREST_LIFETIME,
-      (uint32_t)
-          HICN_RTC_INTEREST_LIFETIME);
-                  // XXX this should bedone by the application
+  socket_->setSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
+                           (uint32_t)HICN_RTC_INTEREST_LIFETIME);
+  // XXX this should bedone by the application
 }
 
 uint32_t max(uint32_t a, uint32_t b) {
@@ -167,9 +165,10 @@ uint32_t min(uint32_t a, uint32_t b) {
 }
 
 void RTCTransportProtocol::checkRound() {
-  uint32_t duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                          std::chrono::steady_clock::now() - lastRoundBegin_)
-                          .count();
+  uint32_t duration =
+      (uint32_t)std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - lastRoundBegin_)
+          .count();
   if (duration >= HICN_ROUND_LEN) {
     lastRoundBegin_ = std::chrono::steady_clock::now();
     updateStats(duration);  // update stats and window
@@ -217,9 +216,9 @@ void RTCTransportProtocol::updateDelayStats(
 
 void RTCTransportProtocol::updateStats(uint32_t round_duration) {
   if (receivedBytes_ != 0) {
-    double bytesPerSec = (double)(receivedBytes_ *
-                          ((double) HICN_MILLI_IN_A_SEC /
-                          (double)round_duration));
+    double bytesPerSec =
+        (double)(receivedBytes_ *
+                 ((double)HICN_MILLI_IN_A_SEC / (double)round_duration));
     estimatedBw_ = (estimatedBw_ * HICN_ESTIMATED_BW_ALPHA) +
                    ((1 - HICN_ESTIMATED_BW_ALPHA) * bytesPerSec);
   }
@@ -262,12 +261,11 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
 
   if (avgPacketSize_ == 0) avgPacketSize_ = HICN_INIT_PACKET_SIZE;
 
-  uint32_t BDP =
-      ceil((estimatedBw_ * (double)((double)minRtt_ /
-                (double)HICN_MILLI_IN_A_SEC) *
-                HICN_BANDWIDTH_SLACK_FACTOR) /
-           avgPacketSize_);
-  uint32_t BW = ceil(estimatedBw_);
+  uint32_t BDP = (uint32_t)ceil(
+      (estimatedBw_ * (double)((double)minRtt_ / (double)HICN_MILLI_IN_A_SEC) *
+       HICN_BANDWIDTH_SLACK_FACTOR) /
+      avgPacketSize_);
+  uint32_t BW = (uint32_t)ceil(estimatedBw_);
   computeMaxWindow(BW, BDP);
 
   // bound also by interest lifitime* production rate
@@ -307,11 +305,11 @@ void RTCTransportProtocol::computeMaxWindow(uint32_t productionRate,
   uint32_t interestLifetime = default_values::interest_lifetime;
   socket_->getSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
                            interestLifetime);
-  uint32_t maxWaintingInterest = ceil(
+  uint32_t maxWaintingInterest = (uint32_t)ceil(
       (productionRate / avgPacketSize_) *
       (double)((double)(interestLifetime *
-                HICN_INTEREST_LIFETIME_REDUCTION_FACTOR) /
-                (double) HICN_MILLI_IN_A_SEC));
+                        HICN_INTEREST_LIFETIME_REDUCTION_FACTOR) /
+               (double)HICN_MILLI_IN_A_SEC));
 
   if (currentState_ == HICN_RTC_SYNC_STATE) {
     // in this case we do not limit the window with the BDP, beacuse most likly
@@ -322,7 +320,8 @@ void RTCTransportProtocol::computeMaxWindow(uint32_t productionRate,
 
   // currentState = RTC_NORMAL_STATE
   if (BDPWin != 0) {
-    maxCWin_ = ceil((double)BDPWin + ((double)BDPWin / 10.0));  // BDP + 10%
+    maxCWin_ =
+        (uint32_t)ceil((double)BDPWin + ((double)BDPWin / 10.0));  // BDP + 10%
   } else {
     maxCWin_ = min(maxWaintingInterest, maxCWin_);
   }
@@ -332,9 +331,11 @@ void RTCTransportProtocol::updateWindow() {
   if (currentState_ == HICN_RTC_SYNC_STATE) return;
 
   if (currentCWin_ < maxCWin_ * 0.7) {
-    currentCWin_ = min(maxCWin_, currentCWin_ * HICN_WIN_INCREASE_FACTOR);
+    currentCWin_ =
+        min(maxCWin_, (uint32_t)(currentCWin_ * HICN_WIN_INCREASE_FACTOR));
   } else if (currentCWin_ > maxCWin_) {
-    currentCWin_ = max(currentCWin_ * HICN_WIN_DECREASE_FACTOR, HICN_MIN_CWIN);
+    currentCWin_ =
+        max((uint32_t)(currentCWin_ * HICN_WIN_DECREASE_FACTOR), HICN_MIN_CWIN);
   }
 }
 
@@ -343,8 +344,8 @@ void RTCTransportProtocol::decreaseWindow() {
   if (currentState_ == HICN_RTC_NORMAL_STATE) return;
 
   if (gotFutureNack_ == 1)
-    currentCWin_ =
-        min((currentCWin_ - 1), ceil((double)maxCWin_ * 0.66));  // 2/3
+    currentCWin_ = min((currentCWin_ - 1),
+                       (uint32_t)ceil((double)maxCWin_ * 0.66));  // 2/3
   else
     currentCWin_--;
 
@@ -360,7 +361,8 @@ void RTCTransportProtocol::increaseWindow() {
     currentCWin_ = currentCWin_ + 1;  // exponential
   } else {
     currentCWin_ = min(
-        maxCWin_, ceil(currentCWin_ + (1.0 / (double)currentCWin_)));  // linear
+        maxCWin_,
+        (uint32_t)ceil(currentCWin_ + (1.0 / (double)currentCWin_)));  // linear
   }
 }
 
@@ -625,7 +627,7 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
 
 void RTCTransportProtocol::onContentObject(
     Interest::Ptr &&interest, ContentObject::Ptr &&content_object) {
-  uint32_t payload_size = content_object->getPayload().length();
+  uint32_t payload_size = (uint32_t)content_object->getPayload().length();
   uint32_t segmentNumber = content_object->getName().getSuffix();
   uint32_t pkt = segmentNumber & modMask_;
 
@@ -651,17 +653,16 @@ void RTCTransportProtocol::onContentObject(
   } else {
     receivedData_++;
 
-    avgPacketSize_ =
-        (HICN_ESTIMATED_PACKET_SIZE * avgPacketSize_) +
-        ((1 - HICN_ESTIMATED_PACKET_SIZE) *
-        content_object->getPayload().length());
+    avgPacketSize_ = (HICN_ESTIMATED_PACKET_SIZE * avgPacketSize_) +
+                     ((1 - HICN_ESTIMATED_PACKET_SIZE) *
+                      content_object->getPayload().length());
 
     if (inflightInterests_[pkt].retransmissions == 0) {
       inflightInterestsCount_--;
       // we count only non retransmitted data in order to take into accunt only
       // the transmition rate of the producer
-      receivedBytes_ +=
-          content_object->headerSize() + content_object->payloadSize();
+      receivedBytes_ += (uint32_t)(content_object->headerSize() +
+                                   content_object->payloadSize());
       updateDelayStats(*content_object);
 
       // handle holes
@@ -703,7 +704,7 @@ void RTCTransportProtocol::returnContentToUser(
   Array a = content_object.getPayload();
 
   uint8_t *start = ((uint8_t *)a.data()) + HICN_TIMESTAMP_SIZE;
-  unsigned size = a.length() - HICN_TIMESTAMP_SIZE;
+  unsigned size = (unsigned)(a.length() - HICN_TIMESTAMP_SIZE);
 
   // set offset between hICN and RTP packets
   uint16_t rtp_seq = ntohs(*(((uint16_t *)start) + 1));

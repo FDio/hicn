@@ -29,7 +29,7 @@
 
 // packet constants
 #define HICN_INIT_PACKET_SIZE 1300       // bytes
-#define HICN_PACKET_HEADER_SIZE 60  // bytes ipv6+tcp
+#define HICN_PACKET_HEADER_SIZE 60       // bytes ipv6+tcp
 #define HICN_NACK_HEADER_SIZE 8          // bytes
 #define HICN_TIMESTAMP_SIZE 8            // bytes
 #define HICN_RTC_INTEREST_LIFETIME 1000  // ms
