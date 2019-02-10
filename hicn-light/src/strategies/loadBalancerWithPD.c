@@ -88,7 +88,7 @@ StrategyImpl *strategyLoadBalancerWithPD_Create() {
   strategy->min_delay = INT_MAX;
   strategy->strategy_state = parcHashMap_Create();
   strategy->nexthops = numberSet_Create();
-  srand(time(NULL));
+  srand((unsigned int)time(NULL));
 
   StrategyImpl *impl = parcMemory_AllocateAndClear(sizeof(StrategyImpl));
   parcAssertNotNull(impl, "parcMemory_AllocateAndClear(%zu) returned NULL",
@@ -128,14 +128,14 @@ static void _update_Stats(StrategyLoadBalancerWithPD *strategy,
 }
 
 static void _sendProbes(StrategyLoadBalancerWithPD *strategy) {
-  unsigned size = numberSet_Length(strategy->nexthops);
+  unsigned size = (unsigned)numberSet_Length(strategy->nexthops);
   for (unsigned i = 0; i < size; i++) {
     unsigned nhop = numberSet_GetItem(strategy->nexthops, i);
     Connection *conn =
         (Connection *)connectionTable_FindById(strategy->connTable, nhop);
     if (conn != NULL) {
       connection_Probe(conn);
-      unsigned delay = connection_GetDelay(conn);
+      unsigned delay = (unsigned)connection_GetDelay(conn);
       PARCUnsigned *cid = parcUnsigned_Create(nhop);
       StrategyNexthopStateWithPD *elem =
           (StrategyNexthopStateWithPD *)parcHashMap_Get(
@@ -249,7 +249,7 @@ static NumberSet *_strategyLoadBalancerWithPD_LookupNexthop(
   unsigned in_connection = message_GetIngressConnectionId(interestMessage);
   PARCUnsigned *in = parcUnsigned_Create(in_connection);
 
-  unsigned mapSize = parcHashMap_Size(lb->strategy_state);
+  unsigned mapSize = (unsigned)parcHashMap_Size(lb->strategy_state);
   NumberSet *outList = numberSet_Create();
 
   if ((mapSize == 0) ||
@@ -294,7 +294,7 @@ static NumberSet *_strategyLoadBalancerWithPD_ReturnNexthops(
 unsigned _strategyLoadBalancerWithPD_CountNexthops(StrategyImpl *strategy) {
   StrategyLoadBalancerWithPD *lb =
       (StrategyLoadBalancerWithPD *)strategy->context;
-  return numberSet_Length(lb->nexthops);
+  return (unsigned)numberSet_Length(lb->nexthops);
 }
 
 static void _strategyLoadBalancerWithPD_resetState(StrategyImpl *strategy) {

@@ -273,7 +273,7 @@ static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
 
   ssize_t writeLength =
       sendto(udpConnState->udpListenerSocket, message_FixedHeader(message),
-             message_Length(message), 0, udpConnState->peerAddress,
+             (int)message_Length(message), 0, udpConnState->peerAddress,
              udpConnState->peerAddressLength);
 
   if (writeLength < 0) {
