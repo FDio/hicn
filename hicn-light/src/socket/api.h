@@ -34,8 +34,9 @@
 #define BUFSIZE 4096
 #define MAX_CONNECTIONS \
   255  // We currently limit the number of connections we can establish
+#ifndef IF_NAMESIZE
 #define IF_NAMESIZE 16
-
+#endif
 /* hICN socket helper */
 
 /** hICN configuration options */

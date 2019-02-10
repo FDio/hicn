@@ -201,7 +201,7 @@ Forwarder *forwarder_Create(Logger *logger) {
   forwarder->hicnSocketHelper = hicn_create();
   if (forwarder->hicnSocketHelper == NULL) return NULL;
 #endif /* __APPLE__ */
-    /* ignore child */
+       /* ignore child */
 #ifndef _WIN32
   signal(SIGCHLD, SIG_IGN);
 

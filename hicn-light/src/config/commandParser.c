@@ -35,7 +35,9 @@
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #else
+#ifndef _WIN32
 extern int errno;
+#endif
 #endif
 #endif
 
@@ -122,7 +124,7 @@ static PARCList *parseStringIntoTokens(const char *originalString) {
   char *tofree =
       parcMemory_StringDuplicate(originalString, strlen(originalString) + 1);
   char *string = tofree;
-  
+
   token = strtok(string, " \t\n");
   while (token != NULL) {
     if (strlen(token) > 0) {

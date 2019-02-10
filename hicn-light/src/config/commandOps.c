@@ -24,7 +24,9 @@
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #else
+#ifndef _WIN32
 extern int errno;
+#endif
 #endif
 #endif
 

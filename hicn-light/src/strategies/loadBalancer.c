@@ -78,7 +78,7 @@ StrategyImpl *strategyLoadBalancer_Create() {
   strategy->weights_sum = 0.0;
   strategy->strategy_state = parcHashMap_Create();
   strategy->nexthops = numberSet_Create();
-  srand(time(NULL));
+  srand((unsigned int)time(NULL));
 
   StrategyImpl *impl = parcMemory_AllocateAndClear(sizeof(StrategyImpl));
   parcAssertNotNull(impl, "parcMemory_AllocateAndClear(%zu) returned NULL",
@@ -170,7 +170,7 @@ static NumberSet *_strategyLoadBalancer_LookupNexthop(
   unsigned in_connection = message_GetIngressConnectionId(interestMessage);
   PARCUnsigned *in = parcUnsigned_Create(in_connection);
 
-  unsigned mapSize = parcHashMap_Size(lb->strategy_state);
+  unsigned mapSize = (unsigned)parcHashMap_Size(lb->strategy_state);
   NumberSet *outList = numberSet_Create();
 
   if ((mapSize == 0) ||
@@ -211,7 +211,7 @@ static NumberSet *_strategyLoadBalancer_ReturnNexthops(StrategyImpl *strategy) {
 
 unsigned _strategyLoadBalancer_CountNexthops(StrategyImpl *strategy) {
   StrategyLoadBalancer *lb = (StrategyLoadBalancer *)strategy->context;
-  return numberSet_Length(lb->nexthops);
+  return (unsigned)numberSet_Length(lb->nexthops);
 }
 
 static void _strategyLoadBalancer_resetState(StrategyImpl *strategy) {
