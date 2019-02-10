@@ -182,9 +182,6 @@ class RTCTransportProtocol : public TransportProtocol {
   // std::vector<uint64_t> minRTTwin_;
   uint64_t minRtt_;
 
-  std::unordered_map<uint32_t, uint64_t> holes_;
-  uint32_t lastReceived_;
-
   // CC var
   double estimatedBw_;
   double lossRate_;

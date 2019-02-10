@@ -119,9 +119,6 @@ void RTCTransportProtocol::reset() {
   nackedByProducerMaxSize_ = 512;
   if (content_buffer_) content_buffer_->clear();
 
-  holes_.clear();
-  lastReceived_ = 0;
-
   // stats
   receivedBytes_ = 0;
   sentInterest_ = 0;
@@ -379,14 +376,6 @@ void RTCTransportProtocol::sendInterest() {
     uint32_t rtxSeg = interestRetransmissions_.front();
     interestRetransmissions_.pop();
 
-    std::unordered_map<uint32_t, uint64_t>::const_iterator res =
-        holes_.find(rtxSeg);
-    if (res != holes_.end()) {
-      // this packet is already managed by as an hole
-      // we don't need to send it again
-      return;
-    }
-
     // a packet recovery means that there was a loss
     packetLost_++;
 
@@ -454,73 +443,6 @@ void RTCTransportProtocol::scheduleNextInterest() {
   checkRound();
   if (!is_running_) return;
 
-  uint32_t MAX_RECOVER =
-      40;  // if the packet is more than MAX_RECOVER seq in the past we drop it
-  uint64_t TIME_BEFORE_RECOVERY = 10;  // this should be proporsional to the RTT
-
-  // holes are important only in NORMAL state
-  if (currentState_ == HICN_RTC_NORMAL_STATE) {
-    for (std::unordered_map<uint32_t, uint64_t>::iterator it = holes_.begin();
-         it != holes_.end();) {
-      if (it->first < lastReceived_ - MAX_RECOVER) {
-        // the packet is to hold, remove it
-        it = holes_.erase(it);
-      } else {
-        uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-                           std::chrono::steady_clock::now().time_since_epoch())
-                           .count();
-        uint64_t sinceLastTry = now - it->second;
-
-        if (sinceLastTry > TIME_BEFORE_RECOVERY || it->second == 0) {
-          // a recovery means a packet lost
-          packetLost_++;
-          // update last sent time
-          it->second = now;
-
-          Name interest_name;
-          socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME,
-                                   interest_name);
-
-          uint32_t pkt = it->first & modMask_;
-          interest_name.setSuffix(it->first);
-
-          if (!portal_->interestIsPending(interest_name)) {
-            inflightInterests_[pkt].retransmissions++;
-          }
-
-          inflightInterests_[pkt].transmissionTime = 0;
-          // XXX
-          // code refactoring:
-          // from here on this is a copy and paste of the code inside
-          // sendInterest this should go inside an other method
-          auto interest = getInterest();
-          uint32_t interestLifetime = default_values::interest_lifetime;
-          socket_->getSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
-                                   interestLifetime);
-          interest->setLifetime(uint32_t(interestLifetime));
-
-          ConsumerInterestCallback on_interest_output = VOID_HANDLER;
-
-          socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
-                                   on_interest_output);
-          if (on_interest_output != VOID_HANDLER)
-            on_interest_output(*dynamic_cast<ConsumerSocket *>(socket_),
-                               *interest);
-
-          if (TRANSPORT_EXPECT_FALSE(!is_running_)) return;
-
-          using namespace std::placeholders;
-          portal_->sendInterest(std::move(interest));
-
-          sentInterest_++;
-        }
-        ++it;
-      }
-      // as usual check the round at each packet
-      checkRound();
-    }
-  }
-
   while (interestRetransmissions_.size() > 0) {
     sendInterest();
     checkRound();
@@ -584,11 +506,6 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
     actualSegment_ = max(productionSeg + 1, actualSegment_);
     if (currentState_ == HICN_RTC_NORMAL_STATE) {
       currentState_ = HICN_RTC_SYNC_STATE;
-      // if we switch in SYNC mode we do not care about holes
-      // se we reset the data structure. going back to NORMAL
-      // mode will anable again the holes_ check.
-      holes_.clear();
-      lastReceived_ = 0;
     }
 
     computeMaxWindow(productionRate, 0);
@@ -629,16 +546,6 @@ void RTCTransportProtocol::onContentObject(
   uint32_t segmentNumber = content_object->getName().getSuffix();
   uint32_t pkt = segmentNumber & modMask_;
 
-  // try to recover holes
-  // we can recover haoles with valid data, nacks or retransmitted packets
-  bool recoveredHole = false;
-  std::unordered_map<uint32_t, uint64_t>::const_iterator res =
-      holes_.find(segmentNumber);
-  if (res != holes_.end()) {
-    holes_.erase(res);
-    recoveredHole = true;
-  }
-
   if (payload_size == HICN_NACK_HEADER_SIZE) {
     // Nacks always come form the producer, so we set the producerePathLabel_;
     producerPathLabel_ = content_object->getPathLabel();
@@ -663,31 +570,6 @@ void RTCTransportProtocol::onContentObject(
       receivedBytes_ +=
           content_object->headerSize() + content_object->payloadSize();
       updateDelayStats(*content_object);
-
-      // handle holes
-      // the packet sequence make sense only in case of valid data (no nacks, no
-      // rtx) in RTC_NORMAL_STATE we should get all the packets in order, so if
-      // segmentNumber != lastReceived + 1 something happened
-      // if recoveredHole == true this is a packet recovered so we should do
-      // nothing
-      if (currentState_ == HICN_RTC_NORMAL_STATE && recoveredHole == false) {
-        if ((segmentNumber != lastReceived_ + 1) &&
-            segmentNumber > lastReceived_) {
-          // we have holes in the sequence
-          for (uint32_t seq = lastReceived_ + 1; seq < segmentNumber; seq++) {
-            // the hole exists we do not insert it again
-            std::unordered_map<uint32_t, uint64_t>::const_iterator res =
-                holes_.find(seq);
-            if (res == holes_.end())
-              holes_.insert(std::make_pair(seq, 0));  // 0 means never sent
-          }
-        }
-      }
-
-      // this if should be always true
-      if (segmentNumber > lastReceived_) {
-        lastReceived_ = segmentNumber;
-      }
     }
 
     returnContentToUser(*content_object);
