@@ -122,7 +122,7 @@ void VegasTransportProtocol::resume() {
 
 void VegasTransportProtocol::sendInterest(std::uint64_t next_suffix) {
   auto interest = getInterest();
-  socket_->network_name_.setSuffix(next_suffix);
+  socket_->network_name_.setSuffix((uint32_t) next_suffix);
   interest->setName(socket_->network_name_);
 
   interest->setLifetime(uint32_t(socket_->interest_lifetime_));
@@ -244,7 +244,7 @@ void VegasTransportProtocol::changeInterestLifetime(uint64_t segment) {
   std::chrono::milliseconds lifetime =
       std::chrono::duration_cast<std::chrono::milliseconds>(rto);
 
-  socket_->interest_lifetime_ = lifetime.count();
+  socket_->interest_lifetime_ = (int) lifetime.count();
 }
 
 void VegasTransportProtocol::returnContentToUser() {
@@ -291,7 +291,7 @@ void VegasTransportProtocol::onManifest(
             suffix_queue_.push(_it->first);
           }
 
-          next_manifest_interval_ = manifest->getSuffixList().size();
+          next_manifest_interval_ = (unsigned short) manifest->getSuffixList().size();
 
           if (manifest->isFinalManifest()) {
             suffix_queue_completed_ = true;
@@ -364,8 +364,8 @@ void VegasTransportProtocol::onContentObject(
     auto dt = std::chrono::duration_cast<TimeDuration>(now - socket_->t0_);
     if (dt.count() > socket_->timer_interval_milliseconds_) {
       socket_->on_timer_expires_(*socket_, byte_count_, dt,
-                                 current_window_size_, retx_count_,
-                                 std::round(average_rtt_));
+                                 (float) current_window_size_, retx_count_,
+                                 (uint32_t) std::round(average_rtt_));
       socket_->t0_ = std::chrono::steady_clock::now();
     }
   }
@@ -427,7 +427,7 @@ bool VegasTransportProtocol::verifyContentObject(
   bool ret = false;
 
   if (download_with_manifest_) {
-    auto it = suffix_hash_map_.find(segment);
+    auto it = suffix_hash_map_.find((const unsigned int) segment);
     if (it != suffix_hash_map_.end()) {
       auto hash_type = static_cast<utils::CryptoHashType>(it->second.second);
       auto data_packet_digest = content_object.computeDigest(it->second.second);
@@ -533,7 +533,7 @@ void VegasTransportProtocol::copyContent(const ContentObject &content_object) {
 
 void VegasTransportProtocol::reassemble() {
   uint64_t index = last_reassembled_segment_;
-  auto it = receive_buffer_.find(index);
+  auto it = receive_buffer_.find((const unsigned int) index);
 
   while (it != receive_buffer_.end()) {
     if (it->second->getPayloadType() == PayloadType::CONTENT_OBJECT) {
@@ -542,7 +542,7 @@ void VegasTransportProtocol::reassemble() {
     }
 
     index = ++last_reassembled_segment_;
-    it = receive_buffer_.find(index);
+    it = receive_buffer_.find((const unsigned int) index);
   }
 }
 

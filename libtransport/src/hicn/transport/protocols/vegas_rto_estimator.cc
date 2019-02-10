@@ -26,10 +26,10 @@ namespace protocol {
 using namespace interface;
 
 RtoEstimator::RtoEstimator(Duration min_rto)
-    : smoothed_rtt_(RtoEstimator::getInitialRtt().count()),
+    : smoothed_rtt_((double) RtoEstimator::getInitialRtt().count()),
       rtt_variation_(0),
       first_measurement_(true),
-      last_rto_(min_rto.count()) {}
+      last_rto_((double) min_rto.count()) {}
 
 void RtoEstimator::addMeasurement(Duration rtt) {
   double duration = static_cast<double>(rtt.count());

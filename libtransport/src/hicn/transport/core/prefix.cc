@@ -155,7 +155,7 @@ Prefix &Prefix::setNetwork(std::string &network) {
 }
 
 Name Prefix::makeRandomName() const {
-  srand(time(nullptr));
+  srand((unsigned int) time(nullptr));
 
   if (ip_address_.family == AF_INET6) {
     std::default_random_engine eng((std::random_device())());

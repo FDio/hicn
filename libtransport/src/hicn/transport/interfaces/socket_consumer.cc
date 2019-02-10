@@ -507,11 +507,11 @@ int ConsumerSocket::getSocketOption(int socket_option_key,
                                     uint32_t &socket_option_value) {
   switch (socket_option_key) {
     case GeneralTransportOptions::INPUT_BUFFER_SIZE:
-      socket_option_value = input_buffer_size_;
+      socket_option_value = (uint32_t) input_buffer_size_;
       return SOCKET_OPTION_GET;
 
     case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
-      socket_option_value = output_buffer_size_;
+      socket_option_value = (uint32_t) output_buffer_size_;
       return SOCKET_OPTION_GET;
 
     case GeneralTransportOptions::MAX_INTEREST_RETX:

@@ -125,7 +125,7 @@ int Verifier::verify(const Packet &packet) {
   PARCKeyId *key_id = parcKeyId_Create(buffer);
   parcBuffer_Release(&buffer);
 
-  int ah_payload_len = header_chain->next()->length();
+  int ah_payload_len = (int) (header_chain->next()->length());
   uint8_t *signature = header_chain->next()->writableData();
 
   // Reset fields that should not appear in the signature

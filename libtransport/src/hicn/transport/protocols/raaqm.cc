@@ -272,7 +272,7 @@ void RaaqmTransportProtocol::updateRtt(uint64_t segment) {
     rtt = std::chrono::duration_cast<std::chrono::microseconds>(duration);
 
     if (this->rate_estimator_) {
-      this->rate_estimator_->onRttUpdate(rtt.count());
+      this->rate_estimator_->onRttUpdate((double) rtt.count());
     }
     cur_path_->insertNewRtt(rtt.count());
     cur_path_->smoothTimer();
@@ -405,8 +405,8 @@ void RaaqmTransportProtocol::afterContentReception(
   updatePathTable(content_object);
   increaseWindow();
   updateRtt(interest.getName().getSuffix());
-  this->rate_estimator_->onDataReceived((int)content_object.payloadSize() +
-                                        content_object.headerSize());
+  this->rate_estimator_->onDataReceived((int) (content_object.payloadSize() +
+                                        content_object.headerSize()));
   // Set drop probablility and window size accordingly
   RAAQM();
 }

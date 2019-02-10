@@ -23,11 +23,16 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <io.h>
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2ipdef.h>
 #include <ws2tcpip.h>
 #include <algorithm>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdio.h>
 
 #define __ORDER_LITTLE_ENDIAN__ 0x41424344UL
 #define __ORDER_BIG_ENDIAN__ 0x44434241UL

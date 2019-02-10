@@ -41,7 +41,7 @@ void *Timer(void *data) {
     dat_rtt = estimator->rtt_;
     my_avg_win = estimator->avg_win_;
     my_avg_rtt = estimator->avg_rtt_;
-    my_win_change = estimator->win_change_;
+    my_win_change = (int) (estimator->win_change_);
     number_of_packets = estimator->number_of_packets_;
     max_packet_size = estimator->max_packet_size_;
     estimator->avg_rtt_ = estimator->rtt_;
@@ -208,7 +208,7 @@ void SimpleEstimator::onDownloadFinished() {
   auto delay =
       std::chrono::duration_cast<Microseconds>(end - this->start_time_).count();
   if (observer_) {
-    observer_->notifyDownloadTime(delay);
+    observer_->notifyDownloadTime((double) delay);
   }
   if (!this->estimated_) {
     // Assuming all packets carry max_packet_size_ bytes of data
