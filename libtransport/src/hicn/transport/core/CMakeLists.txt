@@ -17,7 +17,6 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/content_object.h
   ${CMAKE_CURRENT_SOURCE_DIR}/facade.h
   ${CMAKE_CURRENT_SOURCE_DIR}/interest.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/socket_connector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/manifest.h
   ${CMAKE_CURRENT_SOURCE_DIR}/manifest_inline.h
   ${CMAKE_CURRENT_SOURCE_DIR}/manifest_format_fixed.h
@@ -29,7 +28,8 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/portal.h
   ${CMAKE_CURRENT_SOURCE_DIR}/prefix.h
   ${CMAKE_CURRENT_SOURCE_DIR}/connector.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/socket_connector.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/tcp_socket_connector.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/udp_socket_connector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/forwarder_interface.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_forwarder_interface.h
   ${CMAKE_CURRENT_SOURCE_DIR}/vpp_forwarder_interface.h
@@ -39,12 +39,12 @@ list(APPEND HEADER_FILES
 list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/content_object.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/interest.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/socket_connector.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/pending_interest.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/packet.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/name.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/prefix.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/socket_connector.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/tcp_socket_connector.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/udp_socket_connector.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_forwarder_interface.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/manifest_format_fixed.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/connector.cc
