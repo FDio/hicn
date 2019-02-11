@@ -288,9 +288,7 @@ int main(int argc, char **argv) {
                                   reset, ttl, identity, sign);
   }
 
-  asio::io_service io_service;
-
-  ProducerSocket p(io_service);  // , setProducerIdentity());
+  ProducerSocket p;
   p.registerPrefix(producer_namespace);
 
   p.setSocketOption(GeneralTransportOptions::OUTPUT_BUFFER_SIZE, 0U);
@@ -301,7 +299,17 @@ int main(int argc, char **argv) {
 
   p.connect();
 
-  p.serveForever();
+  asio::io_service io_service;
+  asio::signal_set signal_set(io_service, SIGINT);
+  signal_set.async_wait(
+      [&p, &io_service](const std::error_code &, const int &) {
+        std::cout << "STOPPING!!" << std::endl;
+        p.stop();
+        io_service.stop();
+      });
+
+  io_service.run();
+
 #ifdef _WIN32
   WSACleanup();
 #endif

@@ -65,6 +65,12 @@ Connection *connection_Acquire(Connection *connection);
 bool connection_Send(const Connection *conn, Message *message);
 
 /**
+ * @function connection_SendCommandResponse
+ * @abstract Sends a response (ack/nack) for a command
+ */
+bool connection_SendCommandResponse(const Connection *conn, struct iovec *msg);
+
+/**
  * Return the `IoOperations` instance associated with the specified `Connection`
  * instance.
  * @param [in] connection The allocated connection

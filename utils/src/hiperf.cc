@@ -108,7 +108,8 @@ class HIperfClient {
   HIperfClient(const ClientConfiguration &conf)
       : configuration_(conf),
         total_duration_milliseconds_(0),
-        old_bytes_value_(0) {}
+        old_bytes_value_(0),
+        signals_(io_service_, SIGINT) {}
 
   void processPayload(ConsumerSocket &c, std::size_t bytes_transferred,
                       const std::error_code &ec) {
@@ -122,6 +123,8 @@ class HIperfClient {
     std::cerr << "Elapsed Time: " << usec / 1000000.0 << " seconds -- "
               << (bytes_transferred * 8) * 1.0 / usec * 1.0 << " [Mbps]"
               << std::endl;
+
+    io_service_.stop();
   }
 
   bool verifyData(ConsumerSocket &c, const ContentObject &contentObject) {
@@ -302,11 +305,15 @@ class HIperfClient {
   int run() {
     std::cout << "Starting download of " << configuration_.name << std::endl;
 
-    do {
-      t1_ = std::chrono::steady_clock::now();
-      consumer_socket_->consume(configuration_.name,
-                                *configuration_.receive_buffer);
-    } while (configuration_.virtual_download);
+    signals_.async_wait([this](const std::error_code &, const int &) {
+      consumer_socket_->stop();
+      io_service_.stop();
+    });
+
+    t1_ = std::chrono::steady_clock::now();
+    consumer_socket_->asyncConsume(configuration_.name,
+                                   configuration_.receive_buffer);
+    io_service_.run();
 
     return ERROR_SUCCESS;
   }
@@ -317,7 +324,8 @@ class HIperfClient {
   Time t1_;
   uint32_t total_duration_milliseconds_;
   uint64_t old_bytes_value_;
-  // std::unique_ptr<asio::signal_set> signals_;
+  asio::io_service io_service_;
+  asio::signal_set signals_;
 };
 
 class HIperfServer {
@@ -326,13 +334,10 @@ class HIperfServer {
  public:
   HIperfServer(ServerConfiguration &conf)
       : configuration_(conf),
-        // signals_(io_service_, SIGINT, SIGQUIT),
+        signals_(io_service_, SIGINT),
         content_objects_((std::uint16_t)(1 << log2_content_object_buffer_size)),
         content_objects_index_(0),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1) {
-    // signals_.async_wait([this] (const std::error_code&, const int&)
-    // {std::cout << "STOPPING!!" << std::endl; io_service_.stop();});
-
     std::string buffer(1440, 'X');
 
     std::cout << "Producing contents under name " << conf.name.getName()
@@ -480,7 +485,14 @@ class HIperfServer {
 
   int run() {
     std::cerr << "Starting to serve consumers" << std::endl;
-    producer_socket_->serveForever();
+
+    signals_.async_wait([this](const std::error_code &, const int &) {
+      std::cout << "STOPPING!!" << std::endl;
+      producer_socket_->stop();
+      io_service_.stop();
+    });
+
+    io_service_.run();
 
     return ERROR_SUCCESS;
   }
@@ -488,7 +500,8 @@ class HIperfServer {
  private:
   ServerConfiguration configuration_;
   std::unique_ptr<ProducerSocket> producer_socket_;
-  // asio::signal_set signals_;
+  asio::io_service io_service_;
+  asio::signal_set signals_;
   std::vector<std::shared_ptr<ContentObject>> content_objects_;
   std::uint16_t content_objects_index_;
   std::uint16_t mask_;
