@@ -22,7 +22,8 @@
 
 /* Headers were adapted from linux' definitions in netinet/ip.h */
 
-typedef struct
+PACKED(
+struct _ipv4_header_s
 {
   union
   {
@@ -50,7 +51,8 @@ typedef struct
   u16 csum;
   ip4_address_t saddr;
   ip4_address_t daddr;
-} _ipv4_header_t;
+});
+typedef struct _ipv4_header_s _ipv4_header_t;
 
 #define ipv4_header_bytes(ipv4_header) (sizeof(u32) * (ipv4_header->version_ihl & 0xf))
 

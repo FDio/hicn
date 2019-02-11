@@ -18,7 +18,8 @@
 
 #include "../common.h"
 
-typedef struct
+PACKED(
+struct _ipv6_header_s
 {
   union
   {
@@ -33,8 +34,8 @@ typedef struct
   };
   ip6_address_t saddr;		/* source address */
   ip6_address_t daddr;		/* destination address */
-} _ipv6_header_t;
-
+});
+typedef struct _ipv6_header_s _ipv6_header_t;
 
 #define IPV6_HDRLEN sizeof(_ipv6_header_t)
 

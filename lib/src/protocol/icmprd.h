@@ -22,19 +22,23 @@
 
 #include "../common.h"
 
-typedef struct __attribute__ ((__packed__))
+PACKED(
+struct _icmprd4_header_s
 {
   ip4_address_t ip;
   _ipv4_header_t iph;
   u8 data[64];
-} _icmprd4_header_t;
+});
+typedef struct _icmprd4_header_s _icmprd4_header_t;
 
-typedef struct __attribute__ ((__packed__))
+PACKED(
+struct _icmprd_header_s
 {
   u32 res;
   ip6_address_t tgt;
   ip6_address_t dst;
-} _icmprd_header_t;
+});
+typedef struct _icmprd_header_s _icmprd_header_t;
 
 #endif /* HICN_PROTOCOL_ICMPRD_H */
 

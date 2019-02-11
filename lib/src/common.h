@@ -88,8 +88,6 @@ typedef uint8_t u8;
 #include <Ws2tcpip.h>
 #include <In6addr.h>
 
-#define __attribute__(A)
-
 #ifndef  IOVEC
 #define IOVEC
 #define UIO_MAXIOV 16
@@ -99,9 +97,16 @@ struct iovec {
 	size_t iov_len;
 };
 #endif
-
 #endif
 
+/*
+ * Portable attribute packed.
+ */
+#ifndef _WIN32
+#define PACKED( __Declaration__ ) __Declaration__ __attribute__((__packed__))
+#else
+#define PACKED( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop) )
+#endif
 
 
 /*
@@ -119,6 +124,7 @@ struct iovec {
 #ifndef _WIN32
 #include <netinet/in.h>
 #endif
+
 typedef union
 {
   u32 as_u32;
@@ -263,6 +269,17 @@ csum (const void *addr, size_t size, u16 init)
  * (version is located as same offsets in both protocol headers)
  */
 #define HICN_IP_VERSION(packet) ((hicn_header_t *)packet)->v4.ip.version
+
+/*
+ * ntohll / htonll allows byte swapping for 64 bits integers
+ */
+#ifndef htonll
+#define htonll(x) ((1==htonl(1)) ? (x) : ((uint64_t)htonl((x) & 0xFFFFFFFF) << 32) | htonl((x) >> 32))
+#endif
+
+#ifndef ntohll
+#define ntohll(x) ((1==ntohl(1)) ? (x) : ((uint64_t)ntohl((x) & 0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+#endif
 
 #endif /* HICN_COMMON_H */
 
