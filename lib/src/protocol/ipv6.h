@@ -18,6 +18,11 @@
 
 #include "../common.h"
 
+/*
+ * The length of the IPV6 header struct must be 40 bytes.
+ */
+#define EXPECTED_IPV6_HDRLEN 40
+
 typedef struct
 {
   union
@@ -35,8 +40,13 @@ typedef struct
   ip6_address_t daddr;		/* destination address */
 } _ipv6_header_t;
 
-
 #define IPV6_HDRLEN sizeof(_ipv6_header_t)
+static_assert(EXPECTED_IPV6_HDRLEN == IPV6_HDRLEN, "Size of IPV6 struct does not match its expected size.");
+
+/*
+ * The length of the IPV6 pseudo header struct must be 40 bytes.
+ */
+#define EXPECTED_IPV6_PSHDRLEN 40
 
 typedef struct
 {
@@ -49,6 +59,7 @@ typedef struct
 } ipv6_pseudo_header_t;
 
 #define IPV6_PSHDRLEN sizeof(ipv6_pseudo_header_t)
+static_assert(EXPECTED_IPV6_PSHDRLEN == IPV6_PSHDRLEN, "Size of IPV6_PSHDR struct does not match its expected size.");
 
 /* Default field values */
 #define IPV6_DEFAULT_VERSION         6

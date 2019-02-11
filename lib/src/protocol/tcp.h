@@ -21,11 +21,16 @@
 #include "../name.h"
 
 /*
+ * The length of the TCP header struct must be 20 bytes.
+ */
+#define EXPECTED_TCP_HDRLEN 20
+
+/*
  * NOTE: bitfields are problematic for portability reasons. There are provided
  * here for reference and documentation purposes, we might just provide a macro
  * to disable and use it instead of __BYTE_ORDER__.
  */
-typedef struct __attribute__ ((packed))
+typedef struct
 {
   u16 sport;
   u16 dport;
@@ -120,6 +125,7 @@ typedef struct __attribute__ ((packed))
 } _tcp_header_t;
 
 #define TCP_HDRLEN sizeof(_tcp_header_t)
+static_assert(EXPECTED_TCP_HDRLEN == TCP_HDRLEN, "Size of TCP struct does not match its expected size.");
 
 #ifndef HICN_VPP_PLUGIN
 

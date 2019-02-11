@@ -58,12 +58,6 @@ typedef enum
 } hicn_format_t;
 
 /**
- * Maximum Size of the hICN header (the effective size will depend on the
- * underlying IP version)
- */
-#define HICN_HDR_LEN sizeof(hicn_header_t)
-
-/**
  * Minimum required header length to determine the type and length of a supposed
  * hICN packet.
  * This should be equal to the maximum value over all possible hICN packet

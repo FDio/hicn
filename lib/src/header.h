@@ -24,6 +24,13 @@
 #include "common.h"
 #include "protocol.h"
 
+/*
+ * NOTE: These structures are used as convenient facade for accessing
+ * the encapsulated headers. They are not written taking compiler padding
+ * into account, then a sizeof() on these struct could not give the expected
+ * result. For accessing the size of the hicn headers use the macros at the end of
+ * this file.
+ */
 
 typedef struct
 {
@@ -93,6 +100,25 @@ typedef union
 
   hicn_protocol_t protocol;
 } hicn_header_t;
+
+
+#define HICN_V6_TCP_HDRLEN   (IPV6_HDRLEN + TCP_HDRLEN)
+#define HICN_V6_ICMP_HDRLEN  (IPV6_HDRLEN + ICMP_HDRLEN)
+#define HICN_V6_WLDR_HDRLEN  (IPV6_HDRLEN + ICMPWLDR_HDRLEN)
+
+#define HICN_V6_TCP_AH_HDRLEN   (HICN_V6_TCP_HDRLEN + AH_HDRLEN)
+#define HICN_V6_ICMP_AH_HDRLEN   (HICN_V6_ICMP_HDRLEN + AH_HDRLEN)
+
+
+#define HICN_V4_TCP_HDRLEN   (IPV4_HDRLEN + TCP_HDRLEN)
+#define HICN_V4_ICMP_HDRLEN  (IPV4_HDRLEN + ICMP_HDRLEN)
+#define HICN_V4_WLDR_HDRLEN  (IPV4_HDRLEN + ICMPWLDR_HDRLEN)
+
+#define HICN_V4_TCP_AH_HDRLEN   (HICN_V4_TCP_HDRLEN + AH_HDRLEN)
+#define HICN_V4_ICMP_AH_HDRLEN   (HICN_V4_ICMP_HDRLEN + AH_HDRLEN)
+
+
+
 
 #endif /* HICN_HEADER_H */
 

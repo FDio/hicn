@@ -22,12 +22,25 @@
 
 #include "../common.h"
 
+/*
+ * The length of the ICMP header struct must be 4 bytes.
+ */
+#define EXPECTED_ICMP_HDRLEN 4
+
 typedef struct
 {
   u8 type;
   u8 code;
   u16 csum;
 } _icmp_header_t;
+
+#define ICMP_HDRLEN sizeof(_icmp_header_t)
+static_assert(EXPECTED_ICMP_HDRLEN == ICMP_HDRLEN, "Size of ICMP struct does not match its expected size.");
+
+/*
+ * The length of the ICMPWLDR header struct must be 4 bytes.
+ */
+#define EXPECTED_ICMPWLDR_HDRLEN 8
 
 typedef struct
 {
@@ -55,7 +68,8 @@ typedef struct
   };
 } _icmp_wldr_header_t;
 
-#define ICMP_HDRLEN sizeof(_icmp_header_t)
+#define ICMPWLDR_HDRLEN sizeof(_icmp_wldr_header_t)
+static_assert(EXPECTED_ICMPWLDR_HDRLEN == ICMPWLDR_HDRLEN, "Size of ICMPWLDR struct does not match its expected size.");
 
 #endif /* HICN_PROTOCOL_ICMP_H */
 
