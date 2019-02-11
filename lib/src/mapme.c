@@ -44,14 +44,10 @@ hicn_mapme_v4_create_packet (u8 * buf, const hicn_prefix_t * prefix,
       .saddr.as_u32 = 0,
       .daddr = prefix->name.ip4,
      },
-    .icmp = {
-      .type = ((params->type == UPDATE) || (params->type == NOTIFICATION))
-		? HICN_MAPME_ICMP_TYPE_IPV4
-		: HICN_MAPME_ICMP_TYPE_ACK_IPV4,
+    .icmp_rd = {
+      .type = ((params->type == UPDATE) || (params->type == NOTIFICATION)) ? HICN_MAPME_ICMP_TYPE_IPV4 : HICN_MAPME_ICMP_TYPE_ACK_IPV4,
       .code = HICN_MAPME_ICMP_CODE,
       .csum = 0,
-    },
-    .icmp_rd = {
       .ip = prefix->name.ip4,
     },
     .seq = htonl(params->seq),
@@ -80,14 +76,10 @@ hicn_mapme_v6_create_packet (u8 * buf, const hicn_prefix_t * prefix,
       .nxt = IPPROTO_ICMPV6,
       .hlim = HICN_MAPME_TTL,
      },
-    .icmp = {
-      .type = ((params->type == UPDATE) || (params->type == NOTIFICATION))
-		? HICN_MAPME_ICMP_TYPE_IPV6
-		: HICN_MAPME_ICMP_TYPE_ACK_IPV6,
+    .icmp_rd = {
+      .type = ((params->type == UPDATE) || (params->type == NOTIFICATION)) ? HICN_MAPME_ICMP_TYPE_IPV6 : HICN_MAPME_ICMP_TYPE_ACK_IPV6,
       .code = HICN_MAPME_ICMP_CODE,
       .csum = 0,
-    },
-    .icmp_rd = {
       .res = 0,
       .tgt = prefix->name.ip6,
       .dst = prefix->name.ip6,
@@ -120,8 +112,8 @@ hicn_mapme_v4_create_ack (u8 * buf, const mapme_params_t * params)
   mh->ip.daddr = mh->ip.saddr;
   mh->ip.saddr = tmp;
   mh->ip.ttl = HICN_MAPME_TTL;
-  mh->icmp.type = HICN_MAPME_ICMP_TYPE_ACK_IPV4;
-  mh->icmp.csum = 0;
+  mh->icmp_rd.type = HICN_MAPME_ICMP_TYPE_ACK_IPV4;
+  mh->icmp_rd.csum = 0;
 
   return HICN_MAPME_V4_HDRLEN;
 }
@@ -136,8 +128,8 @@ hicn_mapme_v6_create_ack (u8 * buf, const mapme_params_t * params)
   mh->ip.daddr = mh->ip.saddr;
   mh->ip.saddr = tmp;
   mh->ip.hlim = HICN_MAPME_TTL;
-  mh->icmp.type = HICN_MAPME_ICMP_TYPE_ACK_IPV6;
-  mh->icmp.csum = 0;
+  mh->icmp_rd.type = HICN_MAPME_ICMP_TYPE_ACK_IPV6;
+  mh->icmp_rd.csum = 0;
 
   return HICN_MAPME_V6_HDRLEN;
 }
@@ -161,14 +153,14 @@ hicn_mapme_v4_parse_packet (const u8 * packet, hicn_prefix_t * prefix,
   /* *INDENT-OFF* */
   *prefix = (hicn_prefix_t) {
     .name = {
-      .ip4 = HICN_MAPME_TYPE_IS_IU (mh->icmp.type) ? mh->ip.daddr : mh->ip.saddr,
+      .ip4 = HICN_MAPME_TYPE_IS_IU (mh->icmp_rd.type) ? mh->ip.daddr : mh->ip.saddr,
     },
     .len = mh->len,
   };
 
   *params = (mapme_params_t) {
     .protocol = IPPROTO_IP,
-    .type = (mh->icmp.type == HICN_MAPME_ICMP_TYPE_IPV4) ? UPDATE : UPDATE_ACK,
+    .type = (mh->icmp_rd.type == HICN_MAPME_ICMP_TYPE_IPV4) ? UPDATE : UPDATE_ACK,
     .seq = ntohl (mh->seq),
   };
   /* *INDENT-ON* */
@@ -185,14 +177,14 @@ hicn_mapme_v6_parse_packet (const u8 * packet, hicn_prefix_t * prefix,
   /* *INDENT-OFF* */
   *prefix = (hicn_prefix_t) {
     .name = {
-      .ip6 = HICN_MAPME_TYPE_IS_IU (mh->icmp.type) ? mh->ip.daddr : mh->ip.saddr,
+      .ip6 = HICN_MAPME_TYPE_IS_IU (mh->icmp_rd.type) ? mh->ip.daddr : mh->ip.saddr,
     },
     .len = mh->len,
   };
 
   *params = (mapme_params_t) {
     .protocol = IPPROTO_IPV6,
-    .type = (mh->icmp.type == HICN_MAPME_ICMP_TYPE_IPV6) ? UPDATE : UPDATE_ACK,
+    .type = (mh->icmp_rd.type == HICN_MAPME_ICMP_TYPE_IPV6) ? UPDATE : UPDATE_ACK,
     .seq = ntohl (mh->seq),
   };
   /* *INDENT-ON* */

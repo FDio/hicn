@@ -20,11 +20,18 @@
 #ifndef HICN_PROTOCOL_AH_H
 #define HICN_PROTOCOL_AH_H
 
+#include "../common.h"
+
 /*
  * The TCP PSH flag is set to indicate TCP payload in fact contains a AH header
  * with signature information for the packet
  */
 #define AH_FLAG 0x10
+
+/*
+ * The length of the AH struct must be 44 bytes.
+ */
+#define EXPECTED_AH_HDRLEN 44
 
 typedef struct
 {
@@ -49,6 +56,8 @@ typedef struct
     };
     // Unix timestamp indicating when the signature has been calculated
     u8 timestamp_as_u8[8];
+    u16 timestamp_as_u16[4];
+    u32 timestamp_as_u32[2];
   };
   // ICV would follow
   u8 keyId[32];			// Hash of the pub key
@@ -57,6 +66,8 @@ typedef struct
 } _ah_header_t;
 
 #define AH_HDRLEN sizeof(_ah_header_t)
+static_assert (EXPECTED_AH_HDRLEN == AH_HDRLEN,
+	       "Size of AH Struct does not match its expected size.");
 
 #endif /* HICN_PROTOCOL_AH_H */
 
