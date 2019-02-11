@@ -282,53 +282,7 @@ static int _getSocket(const ListenerOps *ops) {
   return (int)udp->udp_socket;
 }
 
-// void
-// udpListener_SetPacketType(ListenerOps *ops, MessagePacketType type)
-//{
-//    return;
-//}
-
 // =====================================================================
-
-/**
- * @function peekMesageLength
- * @abstract Peek at the next packet to learn its length by reading the fixed
- * header
- * @discussion
- *   <#Discussion#>
- *
- * @param <#param1#>
- * @return <#return#>
- */
-static size_t _peekMessageLength(UdpListener *udp, int fd,
-                                 struct sockaddr *peerIpAddress,
-                                 socklen_t *peerIpAddressLengthPtr) {
-  // to be fast I try to use just ipv6, this needs to be validated for ipv4
-
-  size_t packetLength = 0;
-
-  uint8_t *fixedHeader = (uint8_t *)malloc(
-      sizeof(uint8_t) * messageHandler_GetIPHeaderLength(IPv6));
-
-  // peek at the UDP packet and read in the fixed header.
-  // Also returns the socket information for the remote peer
-
-  ssize_t res = recvfrom(
-      fd, fixedHeader, (int)messageHandler_GetIPHeaderLength(IPv6), MSG_PEEK,
-      (struct sockaddr *)peerIpAddress, peerIpAddressLengthPtr);
-
-  if (res == messageHandler_GetIPHeaderLength(IPv6)) {
-    packetLength = messageHandler_GetTotalPacketLength(fixedHeader);
-  } else {
-    if (res < 0) {
-      printf("error while readin packet\n");
-    }
-  }
-
-  free(fixedHeader);
-
-  return packetLength;
-}
 
 /**
  * @function _constructAddressPair
@@ -441,100 +395,108 @@ static void _handleWldrNotification(UdpListener *udp, unsigned connId,
   message_Release(&message);
 }
 
-static Message *_readMessage(UdpListener *udp, int fd, size_t packetLength,
-                             AddressPair *pair) {
-  uint8_t *msgBuffer = parcMemory_AllocateAndClear(packetLength);
-
-  ssize_t readLength = read(fd, msgBuffer, (unsigned int)packetLength);
+static Message *_readMessage(UdpListener *udp, int fd,
+                      AddressPair *pair, uint8_t * packet, bool * processed) {
 
   Message *message = NULL;
-
-  if (readLength < 0) {
-    printf("read failed %d: (%d) %s\n", fd, errno, strerror(errno));
-    return message;
-  }
 
   unsigned connid = 0;
   bool foundConnection = _lookupConnectionId(udp, pair, &connid);
 
-  if (readLength == packetLength) {
-    // we need to check if it is a valid packet
-    if (messageHandler_IsTCP(msgBuffer)) {
-      MessagePacketType pktType;
+  if (messageHandler_IsTCP(packet)) {
+    *processed = true;
+    MessagePacketType pktType;
 
-      if (messageHandler_IsData(msgBuffer)) {
-        pktType = MessagePacketType_ContentObject;
-        if (!foundConnection) {
-          parcMemory_Deallocate((void **)&msgBuffer);
-          return message;
-        }
-      } else if (messageHandler_IsInterest(msgBuffer)) {
-        pktType = MessagePacketType_Interest;
-        if (!foundConnection) {
-          connid = _createNewConnection(udp, fd, pair);
-        }
-      } else {
-        printf("Got a packet that is not a data nor an interest, drop it!\n");
-        parcMemory_Deallocate((void **)&msgBuffer);
+    if (messageHandler_IsData(packet)) {
+      pktType = MessagePacketType_ContentObject;
+      if (!foundConnection) {
+        parcMemory_Deallocate((void **)&packet);
         return message;
       }
-
-      message = message_CreateFromByteArray(
-          connid, msgBuffer, pktType, forwarder_GetTicks(udp->forwarder),
-          forwarder_GetLogger(udp->forwarder));
-
-      if (message == NULL) {
-        parcMemory_Deallocate((void **)&msgBuffer);
+    } else if (messageHandler_IsInterest(packet)) {
+      pktType = MessagePacketType_Interest;
+      if (!foundConnection) {
+        connid = _createNewConnection(udp, fd, pair);
       }
-    } else if (messageHandler_IsWldrNotification(msgBuffer)) {
-      _handleWldrNotification(udp, connid, msgBuffer);
-    } else if (messageHandler_IsLoadBalancerProbe(msgBuffer)) {
-      _handleProbeMessage(udp, msgBuffer);
+    } else {
+      printf("Got a packet that is not a data nor an interest, drop it!\n");
+      parcMemory_Deallocate((void **)&packet);
+      return message;
     }
-#ifdef WITH_MAPME
-    else if (mapMe_isMapMe(msgBuffer)) {
-      forwarder_ProcessMapMe(udp->forwarder, msgBuffer, connid);
+
+    message = message_CreateFromByteArray(
+        connid, packet, pktType, forwarder_GetTicks(udp->forwarder),
+        forwarder_GetLogger(udp->forwarder));
+
+    if (message == NULL) {
+      parcMemory_Deallocate((void **)&packet);
     }
-#endif /* WITH_MAPME */
+  } else if (messageHandler_IsWldrNotification(packet)) {
+    *processed = true;
+    _handleWldrNotification(udp, connid, packet);
+  } else if (messageHandler_IsLoadBalancerProbe(packet)) {
+    *processed = true;
+    _handleProbeMessage(udp, packet);
   }
+#ifdef WITH_MAPME
+  else if (mapMe_isMapMe(packet)) {
+    *processed = true;
+    forwarder_ProcessMapMe(udp->forwarder, packet, connid);
+  }
+#endif /* WITH_MAPME */
 
   return message;
 }
 
-static void _receivePacket(UdpListener *udp, int fd, size_t packetLength,
-                           struct sockaddr_storage *peerIpAddress,
-                           socklen_t peerIpAddressLength) {
-  AddressPair *pair = _constructAddressPair(
-      udp, (struct sockaddr *)peerIpAddress, peerIpAddressLength);
+static void _readCommand(UdpListener *udp, int fd,
+                        AddressPair *pair,
+                        uint8_t * command) {
 
-  Message *message = _readMessage(udp, fd, packetLength, pair);
-  addressPair_Release(&pair);
-
-  if (message) {
-    forwarder_Receive(udp->forwarder, message);
-  } else {
+  if (*command != REQUEST_LIGHT){
+    printf("the message received is not a command, drop\n");
     return;
   }
+
+  command_id id = *(command + 1);
+
+  if ( id < 0 || id >= LAST_COMMAND_VALUE){
+    printf("the message received is not a valid command, drop\n");
+    return;
+  }
+
+  unsigned connid = 0;
+  bool foundConnection = _lookupConnectionId(udp, pair, &connid);
+  if(!foundConnection){
+    connid = _createNewConnection(udp, fd, pair);
+  }
+
+  struct iovec *request;
+  if (!(request = (struct iovec *) parcMemory_AllocateAndClear(
+              sizeof(struct iovec) * 2))) {
+    return;
+  }
+
+  request[0].iov_base = command;
+  request[0].iov_len = sizeof(header_control_message);
+  request[1].iov_base = command + sizeof(header_control_message);
+  request[1].iov_len = payloadLengthDaemon(id);
+
+  forwarder_ReceiveCommand(udp->forwarder, id, request, connid);
+  parcMemory_Deallocate((void **) &command);
+  parcMemory_Deallocate((void **) &request);
 }
 
-static void _readFrameToDiscard(UdpListener *udp, int fd) {
-  // we need to discard the frame.  Read 1 byte.  This will clear it off the
-  // stack.
-  uint8_t buffer;
-  ssize_t nread = read(fd, &buffer, 1);
 
-  if (nread == 1) {
-    if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "Discarded frame from fd %d", fd);
-    }
-  } else if (nread < 0) {
-    if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Error)) {
-      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-                 "Error trying to discard frame from fd %d: (%d) %s", fd, errno,
-                 strerror(errno));
-    }
+static bool _receivePacket(UdpListener *udp, int fd,
+                           AddressPair *pair,
+                           uint8_t * packet) {
+  bool processed = false;
+  Message *message = _readMessage(udp, fd, pair,
+                                   packet, &processed);
+  if (message) {
+    forwarder_Receive(udp->forwarder, message);
   }
+  return processed;
 }
 
 static void _readcb(int fd, PARCEventType what, void *udpVoid) {
@@ -553,14 +515,24 @@ static void _readcb(int fd, PARCEventType what, void *udpVoid) {
     struct sockaddr_storage peerIpAddress;
     socklen_t peerIpAddressLength = sizeof(peerIpAddress);
 
-    size_t packetLength = _peekMessageLength(
-        udp, fd, (struct sockaddr *)&peerIpAddress, &peerIpAddressLength);
+    //packet it deallocated by _receivePacket or _readCommand
+    uint8_t * packet = parcMemory_AllocateAndClear(1500); //max MTU
+     ssize_t readLength = recvfrom(fd, packet, 1500, 0,
+      (struct sockaddr *)&peerIpAddress, &peerIpAddressLength);
 
-    if (packetLength > 0) {
-      _receivePacket(udp, fd, packetLength, &peerIpAddress,
-                     peerIpAddressLength);
-    } else {
-      _readFrameToDiscard(udp, fd);
+    if(readLength < 0) {
+      printf("unable to read the message\n");
+      return;
     }
+
+    AddressPair *pair = _constructAddressPair(
+      udp, (struct sockaddr *)&peerIpAddress, peerIpAddressLength);
+
+    bool done = _receivePacket(udp, fd, pair, packet);
+    if(!done){
+      _readCommand(udp, fd, pair, packet);
+    }
+
+    addressPair_Release(&pair);
   }
 }

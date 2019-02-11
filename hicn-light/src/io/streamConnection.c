@@ -80,6 +80,7 @@ static list_connections_type _streamConnection_GetConnectionType(
 static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
                         uint8_t *message);
 
+#if 0
 // REMINDER: when a new_command is added, the following array has to be updated
 // with the sizeof(new_command). It allows to allocate the buffer for receiving
 // the payload of the CONTROLLER REQUEST after the header has beed read. Each
@@ -104,6 +105,7 @@ static int payloadLengthDaemon[LAST_COMMAND_VALUE] = {
     sizeof(mapme_activator_command),
     sizeof(mapme_timing_command),
     sizeof(mapme_timing_command)};
+#endif
 
 /*
  * This assigns a unique pointer to the void * which we use
@@ -447,7 +449,7 @@ int _isACommand(PARCEventBuffer *input) {
   // read first byte of the header
 
   // first byte: must be a REQUEST_LIGHT
-  if (msg[0] != 100) {
+  if (msg[0] != REQUEST_LIGHT) {
     return LAST_COMMAND_VALUE;
   }
 
@@ -468,7 +470,7 @@ PARCEventBuffer *_tryReadControlMessage(_StreamState *stream,
   if (stream->nextMessageLength == 0) {
     stream->nextMessageLength =
         sizeof(header_control_message) +
-        payloadLengthDaemon[command];  // consider the whole packet.
+        payloadLengthDaemon(command);  // consider the whole packet.
   }
 
   if (bytesAvailable >= stream->nextMessageLength) {
@@ -487,13 +489,13 @@ PARCEventBuffer *_tryReadControlMessage(_StreamState *stream,
     }
     (*request)[0].iov_base = control;  // header
     (*request)[0].iov_len = sizeof(header_control_message);
-    if (payloadLengthDaemon[command] > 0) {
+    if (payloadLengthDaemon(command) > 0) {
       (*request)[1].iov_base =
           control + sizeof(header_control_message);  // payload
     } else {
       (*request)[1].iov_base = NULL;
     }
-    (*request)[1].iov_len = payloadLengthDaemon[command];
+    (*request)[1].iov_len = payloadLengthDaemon(command);
     // now reset message length for next packet
 
     stream->nextMessageLength = 0;

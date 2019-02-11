@@ -115,7 +115,7 @@ struct iovec *configuration_ProcessRegisterHicnPrefix(Configuration *config,
 
   const char *symbolicOrConnid = control->symbolicOrConnid;
 
-  if (strcmp(symbolicOrConnid, "SELF_ROUTE") == 0) {
+  if (strcmp(symbolicOrConnid, "SELF") == 0) {
     success = forwarder_AddOrUpdateRoute(config->forwarder, control, ingressId);
   } else if (utils_IsNumber(symbolicOrConnid)) {
     // case for connid as input
@@ -304,8 +304,10 @@ static void configuration_SendResponse(Configuration *config, struct iovec *msg,
   ConnectionTable *connectionTable =
       forwarder_GetConnectionTable(config->forwarder);
   const Connection *conn = connectionTable_FindById(connectionTable, egressId);
-  parcAssertNotNull(conn,
-                    "Got null connection for control message we just received");
+
+  if (conn == NULL) {
+    return;
+  }
 
   IoOperations *ops = connection_GetIoOperations(conn);
   streamState_SendCommandResponse(ops, msg);
@@ -425,7 +427,8 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
  */
 
 struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
-                                                struct iovec *request) {
+                                                struct iovec *request,
+                                                unsigned ingressId) {
   header_control_message *header = request[0].iov_base;
   remove_connection_command *control = request[1].iov_base;
 
@@ -434,7 +437,11 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
   const char *symbolicOrConnid = control->symbolicOrConnid;
   ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
 
-  if (utils_IsNumber(symbolicOrConnid)) {
+  if (strcmp(symbolicOrConnid, "SELF") == 0) {
+    forwarder_RemoveConnectionIdFromRoutes(config->forwarder, ingressId);
+    connectionTable_RemoveById(table, ingressId);
+    success = true;
+  } else if (utils_IsNumber(symbolicOrConnid)) {
     // case for connid as input
     unsigned connid = (unsigned)strtold(symbolicOrConnid, NULL);
 
@@ -997,7 +1004,7 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
       break;
 
     case REMOVE_CONNECTION:
-      response = configuration_ProcessRemoveTunnel(config, control);
+      response = configuration_ProcessRemoveTunnel(config, control, ingressId);
       break;
 
     case REMOVE_ROUTE:
