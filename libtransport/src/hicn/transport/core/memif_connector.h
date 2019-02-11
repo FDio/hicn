@@ -50,8 +50,8 @@ class MemifConnector : public Connector {
 
  public:
   MemifConnector(PacketReceivedCallback &&receive_callback,
-                 OnReconnect &&on_reconnect_callback,
-                 asio::io_service &io_service,
+                 OnReconnect &&on_reconnect_callback
+                     asio::io_service &io_service,
                  std::string app_name = "Libtransport");
 
   ~MemifConnector() override;
@@ -128,8 +128,6 @@ class MemifConnector : public Connector {
   uint8_t memif_mode_;
   std::string app_name_;
   uint16_t transmission_index_;
-  PacketReceivedCallback receive_callback_;
-  OnReconnect on_reconnect_callback_;
   utils::SpinLock write_msgs_lock_;
   std::string socket_filename_;
 

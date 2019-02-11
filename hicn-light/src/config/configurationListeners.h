@@ -47,6 +47,9 @@
 void configurationListeners_SetupAll(const Configuration *config, uint16_t port,
                                      const char *localPath);
 
+void configurationListeners_SetutpLocalIPv4(const Configuration *config,
+                                            uint16_t port);
+
 bool configurationListeners_Remove(const Configuration *config);
 
 // light functions
