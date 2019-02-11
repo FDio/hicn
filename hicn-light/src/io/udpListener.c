@@ -282,23 +282,12 @@ static int _getSocket(const ListenerOps *ops) {
   return (int)udp->udp_socket;
 }
 
-// void
-// udpListener_SetPacketType(ListenerOps *ops, MessagePacketType type)
-//{
-//    return;
-//}
-
 // =====================================================================
 
 /**
  * @function peekMesageLength
  * @abstract Peek at the next packet to learn its length by reading the fixed
  * header
- * @discussion
- *   <#Discussion#>
- *
- * @param <#param1#>
- * @return <#return#>
  */
 static size_t _peekMessageLength(UdpListener *udp, int fd,
                                  struct sockaddr *peerIpAddress,
@@ -328,6 +317,33 @@ static size_t _peekMessageLength(UdpListener *udp, int fd,
   free(fixedHeader);
 
   return packetLength;
+}
+
+int _isUDPCommand(UdpListener *udp, int fd,
+                struct sockaddr *peerIpAddress,
+                socklen_t *peerIpAddressLengthPtr) {
+
+  uint8_t *fixedHeader = (uint8_t *)malloc(sizeof(header_control_message));
+
+  ssize_t res = recvfrom(
+      fd, fixedHeader, (int) sizeof(header_control_message), MSG_PEEK,
+      (struct sockaddr *)peerIpAddress, peerIpAddressLengthPtr);
+
+  if(res < 0){
+    printf("Error while reading a command packet");
+    return LAST_COMMAND_VALUE;
+  }
+
+  // read first byte of the header
+  // first byte: must be a REQUEST_LIGHT
+  if (*fixedHeader != 100) 
+    return LAST_COMMAND_VALUE;
+
+  // second byte: must be a command_id
+  if (*(fixedHeader + 1) < 0 || *(fixedHeader + 1) >= LAST_COMMAND_VALUE) 
+    return LAST_COMMAND_VALUE;
+
+  return *(fixedHeader + 1);
 }
 
 /**
@@ -550,16 +566,26 @@ static void _readcb(int fd, PARCEventType what, void *udpVoid) {
   }
 
   if (what & PARCEventType_Read) {
+    printf("reading packet");
     struct sockaddr_storage peerIpAddress;
     socklen_t peerIpAddressLength = sizeof(peerIpAddress);
 
     size_t packetLength = _peekMessageLength(
         udp, fd, (struct sockaddr *)&peerIpAddress, &peerIpAddressLength);
+    printf("packetLength =  %lu\n", packetLength);
 
     if (packetLength > 0) {
+      printf("questo e un vero pacchtto!\n");
       _receivePacket(udp, fd, packetLength, &peerIpAddress,
                      peerIpAddressLength);
     } else {
+      printf("ERROR WHILE READING PACKET, this could be a command\n");
+      command_id command;
+      if ((command = _isUDPCommand(udp, fd, (struct sockaddr *)&peerIpAddress, 
+              &peerIpAddressLength)) != LAST_COMMAND_VALUE) {
+        printf("Received command %d", command);
+        //TODO
+      }      
       _readFrameToDiscard(udp, fd);
     }
   }

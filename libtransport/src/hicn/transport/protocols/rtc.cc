@@ -613,10 +613,10 @@ void RTCTransportProtocol::processRtcpHeader(uint8_t *offset) {
   uint8_t pkt_type = (*(offset + 1));
   switch (pkt_type) {
     case HICN_RTCP_RR:  // Receiver report
-      TRANSPORT_LOGI("got RR packet\n");
+      //TRANSPORT_LOGI("got RR packet\n");
       break;
     case HICN_RTCP_SR:  // Sender report
-      TRANSPORT_LOGI("got SR packet\n");
+      //TRANSPORT_LOGI("got SR packet\n");
       break;
     case HICN_RTCP_SDES:  // Description
       processSDES(offset);

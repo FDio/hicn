@@ -41,8 +41,8 @@ namespace transport {
 
 namespace core {
 
-HicnForwarderInterface::HicnForwarderInterface(SocketConnector &connector)
-    : ForwarderInterface<HicnForwarderInterface, SocketConnector>(connector) {}
+HicnForwarderInterface::HicnForwarderInterface(UdpSocketConnector &connector)
+    : ForwarderInterface<HicnForwarderInterface, UdpSocketConnector>(connector) {}
 
 HicnForwarderInterface::~HicnForwarderInterface() {}
 
