@@ -58,12 +58,6 @@ typedef enum
 } hicn_format_t;
 
 /**
- * Maximum Size of the hICN header (the effective size will depend on the
- * underlying IP version)
- */
-#define HICN_HDR_LEN sizeof(hicn_header_t)
-
-/**
  * Minimum required header length to determine the type and length of a supposed
  * hICN packet.
  * This should be equal to the maximum value over all possible hICN packet
@@ -283,8 +277,9 @@ int hicn_packet_set_signature_size (hicn_format_t format,
  * @param [in] signature_timestamp - Signature timestamp to set
  * @return hICN error code
  */
-int hicn_packet_set_signature_timestamp (hicn_format_t format, hicn_header_t * h,
-				uint64_t signature_timestamp);
+int hicn_packet_set_signature_timestamp (hicn_format_t format,
+					 hicn_header_t * h,
+					 uint64_t signature_timestamp);
 
 /**
  * @brief Sets the signature size
@@ -293,8 +288,9 @@ int hicn_packet_set_signature_timestamp (hicn_format_t format, hicn_header_t * h
  * @param [out] signature_timestamp - Retrieved signature timestamp
  * @return hICN error code
  */
-int hicn_packet_get_signature_timestamp (hicn_format_t format, const hicn_header_t * h,
-				uint64_t *signature_timestamp);
+int hicn_packet_get_signature_timestamp (hicn_format_t format,
+					 const hicn_header_t * h,
+					 uint64_t * signature_timestamp);
 
 /**
  * @brief Sets the signature size
@@ -303,8 +299,9 @@ int hicn_packet_get_signature_timestamp (hicn_format_t format, const hicn_header
  * @param [in] validation_algorithm - Validation algorithm to set
  * @return hICN error code
  */
-int hicn_packet_set_validation_algorithm (hicn_format_t format, hicn_header_t * h,
-				uint8_t validation_algorithm);
+int hicn_packet_set_validation_algorithm (hicn_format_t format,
+					  hicn_header_t * h,
+					  uint8_t validation_algorithm);
 
 /**
  * @brief Sets the signature size
@@ -313,8 +310,9 @@ int hicn_packet_set_validation_algorithm (hicn_format_t format, hicn_header_t * 
  * @param [out] validation_algorithm - Retrieved validation algorithm
  * @return hICN error code
  */
-int hicn_packet_get_validation_algorithm (hicn_format_t format, const hicn_header_t * h,
-				uint8_t * validation_algorithm);
+int hicn_packet_get_validation_algorithm (hicn_format_t format,
+					  const hicn_header_t * h,
+					  uint8_t * validation_algorithm);
 
 /**
  * @brief Sets the signature size
@@ -324,7 +322,7 @@ int hicn_packet_get_validation_algorithm (hicn_format_t format, const hicn_heade
  * @return hICN error code
  */
 int hicn_packet_set_key_id (hicn_format_t format, hicn_header_t * h,
-				uint8_t *key_id);
+			    uint8_t * key_id);
 
 /**
  * @brief Sets the signature size
@@ -334,7 +332,7 @@ int hicn_packet_set_key_id (hicn_format_t format, hicn_header_t * h,
  * @return hICN error code
  */
 int hicn_packet_get_key_id (hicn_format_t format, hicn_header_t * h,
-				uint8_t ** key_id, uint8_t *key_id_length);
+			    uint8_t ** key_id, uint8_t * key_id_length);
 
 /**
  * @brief Retrieves the packet hop limit
@@ -387,7 +385,8 @@ int hicn_packet_set_src_port (hicn_header_t * packet, u16 src_port);
 int hicn_packet_get_src_port (const hicn_header_t * packet, u16 * src_port);
 int hicn_packet_set_dst_port (hicn_header_t * packet, u16 dst_port);
 int hicn_packet_get_dst_port (const hicn_header_t * packet, u16 * dst_port);
-int hicn_packet_get_signature(hicn_format_t format, hicn_header_t * packet, uint8_t ** sign_buf);
+int hicn_packet_get_signature (hicn_format_t format, hicn_header_t * packet,
+			       uint8_t ** sign_buf);
 
 /* Interest */
 int hicn_interest_get_name (hicn_format_t format,

@@ -16,6 +16,11 @@
 #ifndef HICN_PROTOCOL_UDP_H
 #define HICN_PROTOCOL_UDP_H
 
+/*
+ * The length of the UDP header struct must be 8 bytes.
+ */
+#define EXPECTED_UDP_HDRLEN 8
+
 typedef struct
 {
   u16 src_port;
@@ -25,6 +30,8 @@ typedef struct
 } _udp_header_t;
 
 #define UDP_HDRLEN sizeof(_udp_header_t)
+static_assert (EXPECTED_UDP_HDRLEN == UDP_HDRLEN,
+	       "Size of UDP struct does not match its expected size.");
 
 #endif /* HICN_PROTOCOL_UDP_H */
 
