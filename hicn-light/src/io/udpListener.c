@@ -282,23 +282,12 @@ static int _getSocket(const ListenerOps *ops) {
   return (int)udp->udp_socket;
 }
 
-// void
-// udpListener_SetPacketType(ListenerOps *ops, MessagePacketType type)
-//{
-//    return;
-//}
-
 // =====================================================================
 
 /**
  * @function peekMesageLength
  * @abstract Peek at the next packet to learn its length by reading the fixed
  * header
- * @discussion
- *   <#Discussion#>
- *
- * @param <#param1#>
- * @return <#return#>
  */
 static size_t _peekMessageLength(UdpListener *udp, int fd,
                                  struct sockaddr *peerIpAddress,
@@ -501,6 +490,58 @@ static Message *_readMessage(UdpListener *udp, int fd, size_t packetLength,
   return message;
 }
 
+static void _readCommand(UdpListener *udp, int fd,
+                        struct sockaddr *peerIpAddress,
+                        socklen_t *peerIpAddressLengthPtr) {
+
+  uint8_t *command = parcMemory_AllocateAndClear(1500); //max MTU
+  ssize_t readLength = read(fd, command, 1500);
+
+  if (readLength < 0) {
+    printf("command read failed %d: (%d) %s\n", fd, errno, strerror(errno));
+    parcMemory_Deallocate((void **)&command);
+    return;
+  }
+
+  if (*command != REQUEST_LIGHT){
+    printf("the message received is not a command, drop\n");
+    return;
+  }
+
+  command_id id = *(command + 1);
+
+  if ( id < 0 || id >= LAST_COMMAND_VALUE){
+    printf("the message received is not a valid command, drop\n");
+    return;
+  }
+
+  AddressPair *pair = _constructAddressPair(
+      udp, (struct sockaddr *)peerIpAddress, *peerIpAddressLengthPtr);
+
+  unsigned connid = 0;
+  bool foundConnection = _lookupConnectionId(udp, pair, &connid);
+  if(!foundConnection){
+    connid = _createNewConnection(udp, fd, pair);
+  }
+  addressPair_Release(&pair);
+
+  struct iovec *request;
+  if (!(request = (struct iovec *) parcMemory_AllocateAndClear(
+              sizeof(struct iovec) * 2))) {
+    return;
+  }
+
+  request[0].iov_base = command;
+  request[0].iov_len = sizeof(header_control_message);
+  request[1].iov_base = command + sizeof(header_control_message);
+  request[1].iov_len = payloadLengthDaemon(id);
+
+  forwarder_ReceiveCommand(udp->forwarder, id, request, connid);
+  parcMemory_Deallocate((void **) &command);
+  parcMemory_Deallocate((void **) &request);
+}
+
+
 static void _receivePacket(UdpListener *udp, int fd, size_t packetLength,
                            struct sockaddr_storage *peerIpAddress,
                            socklen_t peerIpAddressLength) {
@@ -514,26 +555,6 @@ static void _receivePacket(UdpListener *udp, int fd, size_t packetLength,
     forwarder_Receive(udp->forwarder, message);
   } else {
     return;
-  }
-}
-
-static void _readFrameToDiscard(UdpListener *udp, int fd) {
-  // we need to discard the frame.  Read 1 byte.  This will clear it off the
-  // stack.
-  uint8_t buffer;
-  ssize_t nread = read(fd, &buffer, 1);
-
-  if (nread == 1) {
-    if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "Discarded frame from fd %d", fd);
-    }
-  } else if (nread < 0) {
-    if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Error)) {
-      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-                 "Error trying to discard frame from fd %d: (%d) %s", fd, errno,
-                 strerror(errno));
-    }
   }
 }
 
@@ -560,7 +581,8 @@ static void _readcb(int fd, PARCEventType what, void *udpVoid) {
       _receivePacket(udp, fd, packetLength, &peerIpAddress,
                      peerIpAddressLength);
     } else {
-      _readFrameToDiscard(udp, fd);
+      _readCommand(udp, fd, (struct sockaddr *)&peerIpAddress,
+                                            &peerIpAddressLength);
     }
   }
 }

@@ -22,7 +22,7 @@
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/core/pending_interest.h>
 #include <hicn/transport/core/prefix.h>
-#include <hicn/transport/core/socket_connector.h>
+#include <hicn/transport/core/udp_socket_connector.h>
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/log.h>
