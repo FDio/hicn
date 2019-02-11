@@ -108,9 +108,7 @@ class CallbackContainer {
       content_object->setDstPort(interest.getSrcPort());
       content_object->setTTL(ttl_);
 
-      if (sign_) {
-        content_object->setSignatureSize(identity_->getSignatureLength());
-      } else {
+      if (!sign_) {
         content_object->resetFlags();
       }
 

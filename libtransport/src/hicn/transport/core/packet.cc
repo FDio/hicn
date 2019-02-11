@@ -52,14 +52,13 @@ Packet::Packet(MemBufPtr &&buffer)
       payload_head_(nullptr),
       format_(getFormatFromBuffer(packet_start_)) {
   int signature_size = 0;
+  
   if (_is_ah(format_)) {
     signature_size = (uint32_t)getSignatureSize();
   }
 
   auto header_size = getHeaderSizeFromFormat(format_, signature_size);
-
-  auto payload_length = packet_->length() - header_size - signature_size;
-
+  auto payload_length = packet_->length() - header_size;
   if (!payload_length) {
     return;
   }
@@ -69,7 +68,7 @@ Packet::Packet(MemBufPtr &&buffer)
   if (payload_length) {
     auto payload = packet_->cloneOne();
     payload_head_ = payload.get();
-    payload_head_->advance(header_size + signature_size);
+    payload_head_->advance(header_size);
     payload_head_->append(payload_length);
     packet_->prependChain(std::move(payload));
     packet_->append(header_size);
@@ -264,12 +263,16 @@ Packet::Format Packet::getFormat() const {
 const std::shared_ptr<utils::MemBuf> Packet::data() { return packet_; }
 
 void Packet::dump() const {
-  TRANSPORT_LOGI("The header length is: %zu", headerSize());
-  TRANSPORT_LOGI("The payload length is: %zu", payloadSize());
-  std::cerr << std::endl;
+  std::cout << "HEADER -- Length: " << headerSize() << std::endl;
+  hicn_packet_dump((uint8_t *)header_head_->data(), headerSize());
 
-  hicn_packet_dump((uint8_t *)packet_->data(), headerSize());
-  // hicn_packet_dump((uint8_t *)packet_->next()->data(), payloadSize());
+  std::cout << std::endl << "PAYLOAD -- Length: " << payloadSize() << std::endl;
+  for (utils::MemBuf *current = payload_head_;
+       current && current != header_head_;
+       current = current->next()) {
+    std::cout << "First MemBuf Length: " << current->length() << std::endl;
+    hicn_packet_dump((uint8_t *)current->data(), current->length());
+  }
 }
 
 void Packet::setSignatureSize(std::size_t size_bytes) {
@@ -281,6 +284,7 @@ void Packet::setSignatureSize(std::size_t size_bytes) {
   }
 
   packet_->append(size_bytes);
+  updateLength();
 }
 
 uint8_t *Packet::getSignature() const {
