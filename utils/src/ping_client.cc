@@ -117,9 +117,9 @@ class Client : interface::BasePortal::ConsumerCallback {
         auto dt =
             std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
         std::cout << "Verification time: " << dt.count() << std::endl;
-        std::cout << "<<<<<< Signature OK!!!" << std::endl;
+        std::cout << "<<< Signature Ok." << std::endl;
       } else {
-        std::cout << "<<<<<< Signature verification failed!" << std::endl;
+        std::cout << "<<< Signature verification failed!" << std::endl;
       }
     }
 
