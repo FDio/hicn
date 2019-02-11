@@ -90,6 +90,12 @@ void forwarder_Destroy(Forwarder **ptr);
  */
 void forwarder_SetupAllListeners(Forwarder *forwarder, uint16_t port,
                                  const char *localPath);
+/**
+ * @function forwarder_SetupAllListeners
+ * @abstract Setup one tcp and one udp listener on address 127.0.0.1 and the
+ * given port
+ */
+void forwarder_SetupLocalListeners(Forwarder *forwarder, uint16_t port);
 
 /**
  * Configure hicn-light via a configuration file

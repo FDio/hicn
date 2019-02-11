@@ -75,6 +75,7 @@ typedef struct hicn_state {
 
 // Prototypes
 static bool _send(IoOperations *ops, const Address *nexthop, Message *message);
+static bool _sendCommandResponse(IoOperations *ops, struct iovec *message);
 static const Address *_getRemoteAddress(const IoOperations *ops);
 static const AddressPair *_getAddressPair(const IoOperations *ops);
 static unsigned _getConnectionId(const IoOperations *ops);
@@ -100,6 +101,7 @@ static const void *_streamConnection_Class(const IoOperations *ops) {
 
 static IoOperations _template = {.closure = NULL,
                                  .send = &_send,
+                                 .sendCommandResponse = &_sendCommandResponse,
                                  .getRemoteAddress = &_getRemoteAddress,
                                  .getAddressPair = &_getAddressPair,
                                  .getConnectionId = &_getConnectionId,
@@ -253,7 +255,6 @@ static unsigned _getConnectionId(const IoOperations *ops) {
  *   sends a message to the peer.
  *
  * @param dummy is ignored. .
- * @return <#return#>
  */
 static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
@@ -326,6 +327,12 @@ static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
   }
 
   return true;
+}
+
+static bool _sendCommandResponse(IoOperations *ops, struct iovec *message) {
+  //XXX this should be nerver called since we do not handle control messages
+  //with hicn connections, so nothing to do here!
+  return false;
 }
 
 static list_connections_type _getConnectionType(const IoOperations *ops) {
