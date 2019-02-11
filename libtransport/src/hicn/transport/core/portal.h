@@ -22,7 +22,7 @@
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/core/pending_interest.h>
 #include <hicn/transport/core/prefix.h>
-#include <hicn/transport/core/socket_connector.h>
+#include <hicn/transport/core/udp_socket_connector.h>
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/log.h>
@@ -106,7 +106,8 @@ class Portal {
         producer_callback_(nullptr),
         connector_(std::bind(&Portal::processIncomingMessages, this,
                              std::placeholders::_1),
-                   std::bind(&Portal::setLocalRoutes, this), io_service_,
+                   std::bind(&Portal::setLocalRoutes, this),
+                   io_service_,
                    app_name_),
         forwarder_interface_(connector_) {}
 
@@ -229,7 +230,7 @@ class Portal {
     clear();
 
     if (kill_connection) {
-      connector_.close();
+      forwarder_interface_.closeConnection();
     }
 
     io_service_.post([this]() { io_service_.stop(); });
@@ -260,17 +261,15 @@ class Portal {
       return;
     }
 
-    if (packet_buffer->data()[0] == ForwarderInt::ack_code) {
-      // Hicn forwarder message
+    if (TRANSPORT_EXPECT_FALSE(ForwarderInt::isControlMessage(packet_buffer->data()))) {
       processControlMessage(std::move(packet_buffer));
       return;
     }
 
-    bool is_interest = Packet::isInterest(packet_buffer->data());
     Packet::Format format = Packet::getFormatFromBuffer(packet_buffer->data());
 
     if (TRANSPORT_EXPECT_TRUE(_is_tcp(format))) {
-      if (!is_interest) {
+      if (!Packet::isInterest(packet_buffer->data())) {
         processContentObject(
             ContentObject::Ptr(new ContentObject(std::move(packet_buffer))));
       } else {
@@ -329,8 +328,7 @@ class Portal {
 
   TRANSPORT_ALWAYS_INLINE void processControlMessage(
       Packet::MemBufPtr &&packet_buffer) {
-    // Control message as response to the route set by a producer.
-    // Do nothing
+    
   }
 
  private:

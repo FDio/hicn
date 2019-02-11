@@ -16,7 +16,7 @@
 #pragma once
 
 #include <hicn/transport/core/prefix.h>
-#include <hicn/transport/core/socket_connector.h>
+#include <hicn/transport/core/udp_socket_connector.h>
 #include <hicn/transport/portability/portability.h>
 
 #include <deque>
@@ -54,8 +54,6 @@ class ForwarderInterface {
   }
 
  public:
-  static constexpr uint8_t ack_code = 102;
-
   virtual ~ForwarderInterface() {}
 
   TRANSPORT_ALWAYS_INLINE void connect(bool is_consumer = true) {
@@ -68,6 +66,19 @@ class ForwarderInterface {
 
   TRANSPORT_ALWAYS_INLINE std::uint32_t getMtu() {
     return static_cast<Implementation &>(*this).getMtu();
+  }
+
+  TRANSPORT_ALWAYS_INLINE static bool isControlMessage(const uint8_t *message) {
+    return Implementation::isControlMessageImpl(message);
+  }
+
+  template <typename R>
+  TRANSPORT_ALWAYS_INLINE void processControlMessageReply(R &&packet_buffer) {
+    return static_cast<Implementation &>(*this).processControlMessageReplyImpl(std::forward<R&&>(packet_buffer));
+  }
+
+  TRANSPORT_ALWAYS_INLINE void closeConnection() {
+    return static_cast<Implementation &>(*this).closeConnection();
   }
 
   template <
@@ -97,7 +108,7 @@ class ForwarderInterface {
     counters_.tx_bytes += len;
 
     // Perfect forwarding
-    connector_.send(packet, len, std::forward<Handler>(packet_sent));
+    connector_.send(packet, len, std::forward<Handler&&>(packet_sent));
   }
 
   TRANSPORT_ALWAYS_INLINE void shutdown() { connector_.close(); }

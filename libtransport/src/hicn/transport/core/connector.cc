@@ -21,7 +21,13 @@ namespace core {
 
 std::once_flag Connector::init_flag_;
 
-Connector::Connector() : packet_pool_() { init(); }
+Connector::Connector(PacketReceivedCallback &&receive_callback,
+                     OnReconnect &&reconnect_callback) 
+  : packet_pool_(),
+    receive_callback_(std::move(receive_callback)),
+    on_reconnect_callback_(std::move(reconnect_callback)) { 
+  init();
+}
 
 void Connector::init() { increasePoolSize(); }
 

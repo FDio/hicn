@@ -15,38 +15,6 @@
 
 /**
  * Defines the interface all connections use to communicate with the forwarder.
- *
- * @code
- *
- *   static IoOperations _template = {
- *      .closure           = NULL,
- *      .send              = &_etherConnection_Send,
- *      .getRemoteAddress  = &_etherConnection_GetRemoteAddress,
- *      .getAddressPair    = &_etherConnection_GetAddressPair,
- *      .getConnectionId   = &_etherConnection_GetConnectionId,
- *      .isUp              = &_etherConnection_IsUp,
- *      .isLocal           = &_etherConnection_IsLocal,
- *      .destroy           = &_etherConnection_DestroyOperations,
- *      .class             = &_etherConnection_Class,
- *      .getConnectionType = &_etherConnection_getConnectionType
- *   };
- *
- *   IoOperations *
- *   etherConnection_Create(Forwarder *forwarder, GenericEther *ether,
- * AddressPair *pair)
- *   {
- *      _EtherState *etherConnState = parcMemory_Allocate(sizeof(_EtherState));
- *      // Fill in etherConnState with instance variables
- *
- *      IoOperations *io_ops = parcMemory_Allocate(sizeof(IoOperations));
- *      memcpy(io_ops, &_template, sizeof(IoOperations));
- *      io_ops->closure = etherConnState;
- *      // Add to connection table, send missives about connection state
- *
- *      return op_ops;
- *   }
- * @endcode
- *
  */
 
 /**
@@ -95,6 +63,7 @@ typedef struct io_ops IoOperations;
 struct io_ops {
   void *closure;
   bool (*send)(IoOperations *ops, const Address *nexthop, Message *message);
+  bool (*sendCommandResponse)(IoOperations *ops, struct iovec *message);
   const Address *(*getRemoteAddress)(const IoOperations *ops);
   const AddressPair *(*getAddressPair)(const IoOperations *ops);
   bool (*isUp)(const IoOperations *ops);
@@ -200,6 +169,9 @@ void ioOperations_Release(IoOperations **opsPtr);
  */
 bool ioOperations_Send(IoOperations *ops, const Address *nexthop,
                        Message *message);
+
+bool ioOperations_SendCommandResponse(IoOperations *ops,
+                       struct iovec *message);
 
 /**
  * A connection is made up of a local and a remote address.  This function
