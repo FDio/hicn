@@ -31,6 +31,9 @@ namespace core {
 
 class VPPForwarderInterface
     : public ForwarderInterface<VPPForwarderInterface, MemifConnector> {
+
+  static constexpr std::uint16_t interface_mtu = 1500;
+
  public:
   VPPForwarderInterface(MemifConnector &connector);
 
@@ -43,6 +46,14 @@ class VPPForwarderInterface
   void registerRoute(Prefix &prefix);
 
   TRANSPORT_ALWAYS_INLINE std::uint16_t getMtu() { return interface_mtu; }
+
+  TRANSPORT_ALWAYS_INLINE static bool isControlMessageImpl(const uint8_t *message) {
+    return false;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void processControlMessageReplyImpl(Packet::MemBufPtr &&packet_buffer) { }
+
+  void closeConnection();
 
  private:
   uint32_t getMemifConfiguration();
@@ -58,7 +69,6 @@ class VPPForwarderInterface
   uint32_t sw_if_index_;
   uint32_t face_id_;
   static std::mutex global_lock_;
-  static constexpr std::uint16_t interface_mtu = 1500;
 };
 
 }  // namespace core
