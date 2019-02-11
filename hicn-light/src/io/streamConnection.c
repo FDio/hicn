@@ -65,6 +65,8 @@ typedef struct stream_state {
 // Prototypes
 static bool _streamConnection_Send(IoOperations *ops, const Address *nexthop,
                                    Message *message);
+static bool _streamConnection_SendCommandResponse(IoOperations *ops,
+                                          struct iovec *msg);
 static const Address *_streamConnection_GetRemoteAddress(
     const IoOperations *ops);
 static const AddressPair *_streamConnection_GetAddressPair(
@@ -79,31 +81,6 @@ static list_connections_type _streamConnection_GetConnectionType(
     const IoOperations *ops);
 static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
                         uint8_t *message);
-
-// REMINDER: when a new_command is added, the following array has to be updated
-// with the sizeof(new_command). It allows to allocate the buffer for receiving
-// the payload of the CONTROLLER REQUEST after the header has beed read. Each
-// command identifier (typedef enum command_id) corresponds to a position in the
-// following array.
-static int payloadLengthDaemon[LAST_COMMAND_VALUE] = {
-    sizeof(add_listener_command),
-    sizeof(add_connection_command),
-    0,  // list connections: payload always 0 when get controller request
-    sizeof(add_route_command),
-    0,  // list routes: payload always 0 when get controller request
-    sizeof(remove_connection_command),
-    sizeof(remove_route_command),
-    sizeof(cache_store_command),
-    sizeof(cache_serve_command),
-    0,  // cache clear
-    sizeof(set_strategy_command),
-    sizeof(set_wldr_command),
-    sizeof(add_punting_command),
-    0,  // list listeners: payload always 0 when get controller request
-    sizeof(mapme_activator_command),
-    sizeof(mapme_activator_command),
-    sizeof(mapme_timing_command),
-    sizeof(mapme_timing_command)};
 
 /*
  * This assigns a unique pointer to the void * which we use
@@ -121,6 +98,7 @@ static const void *_streamConnection_Class(const IoOperations *ops) {
 static IoOperations _template = {
     .closure = NULL,
     .send = &_streamConnection_Send,
+    .sendCommandResponse = &_streamConnection_SendCommandResponse,
     .getRemoteAddress = &_streamConnection_GetRemoteAddress,
     .getAddressPair = &_streamConnection_GetAddressPair,
     .getConnectionId = &_streamConnection_GetConnectionId,
@@ -308,7 +286,7 @@ static unsigned _streamConnection_GetConnectionId(const IoOperations *ops) {
   return stream->id;
 }
 
-bool streamState_SendCommandResponse(IoOperations *ops,
+bool _streamConnection_SendCommandResponse(IoOperations *ops,
                                      struct iovec *response) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
   parcAssertNotNull(response, "Parameter message must be non-null");
@@ -447,7 +425,7 @@ int _isACommand(PARCEventBuffer *input) {
   // read first byte of the header
 
   // first byte: must be a REQUEST_LIGHT
-  if (msg[0] != 100) {
+  if (msg[0] != REQUEST_LIGHT) {
     return LAST_COMMAND_VALUE;
   }
 
@@ -468,7 +446,7 @@ PARCEventBuffer *_tryReadControlMessage(_StreamState *stream,
   if (stream->nextMessageLength == 0) {
     stream->nextMessageLength =
         sizeof(header_control_message) +
-        payloadLengthDaemon[command];  // consider the whole packet.
+        payloadLengthDaemon(command);  // consider the whole packet.
   }
 
   if (bytesAvailable >= stream->nextMessageLength) {
@@ -487,13 +465,13 @@ PARCEventBuffer *_tryReadControlMessage(_StreamState *stream,
     }
     (*request)[0].iov_base = control;  // header
     (*request)[0].iov_len = sizeof(header_control_message);
-    if (payloadLengthDaemon[command] > 0) {
+    if (payloadLengthDaemon(command) > 0) {
       (*request)[1].iov_base =
           control + sizeof(header_control_message);  // payload
     } else {
       (*request)[1].iov_base = NULL;
     }
-    (*request)[1].iov_len = payloadLengthDaemon[command];
+    (*request)[1].iov_len = payloadLengthDaemon(command);
     // now reset message length for next packet
 
     stream->nextMessageLength = 0;

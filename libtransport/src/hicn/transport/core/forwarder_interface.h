@@ -16,7 +16,7 @@
 #pragma once
 
 #include <hicn/transport/core/prefix.h>
-#include <hicn/transport/core/socket_connector.h>
+#include <hicn/transport/core/udp_socket_connector.h>
 #include <hicn/transport/portability/portability.h>
 
 #include <deque>
@@ -54,7 +54,7 @@ class ForwarderInterface {
   }
 
  public:
-  static constexpr uint8_t ack_code = 102;
+  static constexpr uint8_t ack_code = 0xc2;
 
   virtual ~ForwarderInterface() {}
 
@@ -97,7 +97,7 @@ class ForwarderInterface {
     counters_.tx_bytes += len;
 
     // Perfect forwarding
-    connector_.send(packet, len, std::forward<Handler>(packet_sent));
+    connector_.send(packet, len, std::forward<Handler&&>(packet_sent));
   }
 
   TRANSPORT_ALWAYS_INLINE void shutdown() { connector_.close(); }

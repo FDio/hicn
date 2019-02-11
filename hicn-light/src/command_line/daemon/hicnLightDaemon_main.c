@@ -371,12 +371,9 @@ int main(int argc, const char *argv[]) {
     configuration_SetObjectStoreSize(configuration, capacity);
   }
 
+  forwarder_SetupLocalListeners(forwarder, port);
   if (configFileName) {
-    forwarder_SetupAllListeners(forwarder, port, NULL);
     forwarder_SetupFromConfigFile(forwarder, configFileName);
-  } else {
-    // NULL to not setup AF_UNIX
-    forwarder_SetupAllListeners(forwarder, port, NULL);
   }
 
   Dispatcher *dispatcher = forwarder_GetDispatcher(forwarder);

@@ -41,7 +41,7 @@ union commandAddr {
 };
 
 typedef enum {
-  REQUEST_LIGHT = 100,
+  REQUEST_LIGHT = 0xc0, //this is a command
   RESPONSE_LIGHT,
   ACK_LIGHT,
   NACK_LIGHT,
@@ -49,7 +49,7 @@ typedef enum {
 } message_type;
 
 typedef enum {
-  ADD_LISTENER,
+  ADD_LISTENER = 0,
   ADD_CONNECTION,
   LIST_CONNECTIONS,
   ADD_ROUTE,
@@ -283,4 +283,51 @@ typedef struct {
 
 // SIZE=1
 
+//===== size of commands ======
+// REMINDER: when a new_command is added, the following switch has to be 
+// updated.
+static inline int payloadLengthDaemon(command_id id) {
+    switch (id){
+      case ADD_LISTENER:
+        return sizeof(add_listener_command);
+      case ADD_CONNECTION:
+        return sizeof(add_connection_command);
+      case LIST_CONNECTIONS:
+        return 0;  // list connections: payload always 0
+      case ADD_ROUTE:
+        return sizeof(add_route_command);
+      case LIST_ROUTES:
+        return 0;  // list routes: payload always 0
+      case REMOVE_CONNECTION:
+        return sizeof(remove_connection_command);
+      case REMOVE_ROUTE:
+        return sizeof(remove_route_command);
+      case CACHE_STORE:
+        return sizeof(cache_store_command);
+      case CACHE_SERVE:
+        return sizeof(cache_serve_command);
+      case CACHE_CLEAR:
+        return 0;  // cache clear
+      case SET_STRATEGY:
+        return sizeof(set_strategy_command);
+      case SET_WLDR:
+        return sizeof(set_wldr_command);
+      case ADD_PUNTING:
+        return sizeof(add_punting_command);
+      case LIST_LISTENERS:
+         return 0;  // list listeners: payload always 0 
+      case MAPME_ENABLE:
+        return sizeof(mapme_activator_command);
+      case MAPME_DISCOVERY:
+        return sizeof(mapme_activator_command);
+      case MAPME_TIMESCALE:
+        return sizeof(mapme_timing_command);
+      case MAPME_RETX:
+        return sizeof(mapme_timing_command);
+      case LAST_COMMAND_VALUE:
+        return 0;
+      default:
+        return 0;
+    }
+}
 #endif

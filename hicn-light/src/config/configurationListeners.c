@@ -217,7 +217,7 @@ static bool _setupTcpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = *port;
+  addr.sin_port = htons(*port);
   addr.sin_addr.s_addr = *addr4;
 
   ListenerOps *ops = tcpListener_CreateInet(forwarder, addr);
@@ -231,12 +231,13 @@ static bool _setupTcpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
 
 static bool _setupUdpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
                                     uint16_t *port) {
+
   bool success = false;
 
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = *port;
+  addr.sin_port = htons(*port);
   addr.sin_addr.s_addr = *addr4;
 
   ListenerOps *ops = udpListener_CreateInet(forwarder, addr);
@@ -256,7 +257,7 @@ static bool _setupTcpListenerOnInet6Light(Forwarder *forwarder,
   struct sockaddr_in6 addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin6_family = AF_INET6;
-  addr.sin6_port = *port;
+  addr.sin6_port = htons(*port);
   addr.sin6_addr = *addr6;
   addr.sin6_scope_id = scopeId;
 
@@ -276,7 +277,7 @@ static bool _setupUdpListenerOnInet6Light(Forwarder *forwarder,
   struct sockaddr_in6 addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin6_family = AF_INET6;
-  addr.sin6_port = *port;
+  addr.sin6_port = htons(*port);
   addr.sin6_addr = *addr6;
   addr.sin6_scope_id = 0;
 
@@ -529,9 +530,13 @@ void configurationListeners_SetupAll(const Configuration *config, uint16_t port,
     }
   }
 
-  // if (localPath != NULL) {
-  //    _setupLocalListener(forwarder, localPath);
-  //}
-
   interfaceSetDestroy(&set);
+}
+
+void configurationListeners_SetutpLocalIPv4(const Configuration *config, 
+                                            uint16_t port) {
+  Forwarder *forwarder = configuration_GetForwarder(config);
+  in_addr_t addr = inet_addr("127.0.0.1");
+  _setupUdpListenerOnInet(forwarder, (ipv4_addr_t *) &(addr), &port);
+  _setupTcpListenerOnInet(forwarder, (ipv4_addr_t *) &(addr), &port);
 }
