@@ -58,7 +58,7 @@ tcp_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
       TCP_DEFAULT_SYN << 1 | TCP_DEFAULT_FIN << 0,.window =
       htons (TCP_DEFAULT_WINDOW_SIZE),.csum = 0,.urg_ptr = 65000,};
 
-  uint8_t ah_flag = type.l2 == IPPROTO_AH ? AH_FLAG : ~AH_FLAG;
+  uint8_t ah_flag = type.l2 == IPPROTO_AH ? AH_FLAG : 0;
 
   h->tcp.flags |= ah_flag;
 
