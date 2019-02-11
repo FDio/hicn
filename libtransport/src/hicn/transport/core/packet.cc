@@ -281,6 +281,7 @@ void Packet::setSignatureSize(std::size_t size_bytes) {
   }
 
   packet_->append(size_bytes);
+  updateLength();
 }
 
 uint8_t *Packet::getSignature() const {
