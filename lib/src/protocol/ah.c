@@ -171,7 +171,8 @@ int
 ah_set_signature_timestamp(hicn_type_t type, hicn_protocol_t * h,
        uint64_t signature_timestamp)
 {
-  memcpy(h->ah.timestamp_as_u8, &signature_timestamp, 8);
+  uint64_t netwok_order_timestamp = htonll(signature_timestamp);
+  memcpy(h->ah.timestamp_as_u8, &netwok_order_timestamp, sizeof(uint64_t));
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -179,7 +180,8 @@ int
 ah_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t * h,
        uint64_t * signature_timestamp)
 {
-  memcpy(signature_timestamp, h->ah.timestamp_as_u8, 8);
+  memcpy(signature_timestamp, h->ah.timestamp_as_u8, sizeof(uint64_t));
+  *signature_timestamp = htonll(*signature_timestamp);
   return HICN_LIB_ERROR_NONE;
 }
 
