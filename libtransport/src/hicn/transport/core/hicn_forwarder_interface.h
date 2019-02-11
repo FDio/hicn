@@ -17,7 +17,7 @@
 
 #include <hicn/transport/core/forwarder_interface.h>
 #include <hicn/transport/core/prefix.h>
-#include <hicn/transport/core/socket_connector.h>
+#include <hicn/transport/core/udp_socket_connector.h>
 
 #include <deque>
 
@@ -26,7 +26,11 @@ namespace transport {
 namespace core {
 
 class HicnForwarderInterface
-    : public ForwarderInterface<HicnForwarderInterface, SocketConnector> {
+    : public ForwarderInterface<HicnForwarderInterface, UdpSocketConnector> {
+
+  static constexpr uint8_t ack_code = 0xc2;
+  static constexpr uint8_t nack_code = 0xc3;
+
  public:
   union addressLight {
     uint32_t ipv4;
@@ -46,9 +50,9 @@ class HicnForwarderInterface
   };
 
   using route_to_self_command = struct route_to_self_command;
-  using ConnectorType = SocketConnector;
+  using ConnectorType = UdpSocketConnector;
 
-  HicnForwarderInterface(SocketConnector &connector);
+  HicnForwarderInterface(UdpSocketConnector &connector);
 
   ~HicnForwarderInterface();
 
@@ -57,6 +61,18 @@ class HicnForwarderInterface
   void registerRoute(Prefix &prefix);
 
   std::uint16_t getMtu() { return interface_mtu; }
+
+  TRANSPORT_ALWAYS_INLINE static bool isControlMessageImpl(const uint8_t *message) {
+    return message[0] == ack_code || message[0] == nack_code;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void processControlMessageReplyImpl(Packet::MemBufPtr &&packet_buffer) {
+    if (packet_buffer->data()[0] == nack_code) {
+      throw errors::RuntimeException("Received Nack message from hicn light forwarder.");
+    }
+  }
+
+  void closeConnection();
 
  private:
   static constexpr std::uint16_t interface_mtu = 1500;

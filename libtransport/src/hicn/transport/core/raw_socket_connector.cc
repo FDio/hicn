@@ -37,17 +37,16 @@ namespace core {
 
 RawSocketConnector::RawSocketConnector(
     PacketReceivedCallback &&receive_callback,
-    OnReconnect &&on_reconnect_callback, asio::io_service &io_service,
+    OnReconnect &&on_reconnect_callback,
+    asio::io_service &io_service,
     std::string app_name)
-    : Connector(),
+    : Connector(std::move(receive_callback), std::move(on_reconnect_callback)),
       io_service_(io_service),
       socket_(io_service_, raw_protocol(PF_PACKET, SOCK_RAW)),
       // resolver_(io_service_),
       timer_(io_service_),
       read_msg_(packet_pool_.makePtr(nullptr)),
       data_available_(false),
-      receive_callback_(receive_callback),
-      on_reconnect_callback_(on_reconnect_callback),
       app_name_(app_name) {
   memset(&link_layer_address_, 0, sizeof(link_layer_address_));
 }
