@@ -41,6 +41,13 @@ class RawSocketInterface
 
   std::uint16_t getMtu() { return interface_mtu; }
 
+  TRANSPORT_ALWAYS_INLINE static bool isControlMessageImpl(const uint8_t *message) {
+    return false;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void processControlMessageReplyImpl(Packet::MemBufPtr &&packet_buffer) { }
+
+  TRANSPORT_ALWAYS_INLINE void closeConnection() {};
  private:
   static constexpr std::uint16_t interface_mtu = 1500;
   std::string remote_mac_address_;

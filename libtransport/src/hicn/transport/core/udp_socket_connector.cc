@@ -16,7 +16,7 @@
 #ifdef _WIN32
 #include <hicn/transport/portability/win_portability.h>
 #endif
-#include <hicn/transport/core/socket_connector.h>
+#include <hicn/transport/core/udp_socket_connector.h>
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/object_pool.h>
@@ -27,69 +27,43 @@ namespace transport {
 
 namespace core {
 
-namespace {
-class NetworkMessage {
- public:
-  static constexpr std::size_t fixed_header_length = 10;
-
-  static std::size_t decodeHeader(const uint8_t *packet) {
-    // General checks
-    // CCNX Control packet format
-    uint8_t first_byte = packet[0];
-    uint8_t ip_format = (packet[0] & 0xf0) >> 4;
-
-    if (TRANSPORT_EXPECT_FALSE(first_byte == 102)) {
-      // Get packet length
-      return 44;
-    } else if (TRANSPORT_EXPECT_TRUE(ip_format == 6 || ip_format == 4)) {
-      Packet::Format format = Packet::getFormatFromBuffer(packet);
-      return Packet::getHeaderSizeFromBuffer(format, packet) +
-             Packet::getPayloadSizeFromBuffer(format, packet);
-    }
-
-    return 0;
-  }
-};
-}  // namespace
-
-SocketConnector::SocketConnector(PacketReceivedCallback &&receive_callback,
+UdpSocketConnector::UdpSocketConnector(PacketReceivedCallback &&receive_callback,
                                  OnReconnect &&on_reconnect_callback,
                                  asio::io_service &io_service,
                                  std::string app_name)
-    : Connector(),
+    : Connector(std::move(receive_callback), std::move(on_reconnect_callback)),
       io_service_(io_service),
       socket_(io_service_),
       resolver_(io_service_),
-      timer_(io_service_),
+      connection_timer_(io_service_),
+      connection_timeout_(io_service_),
       read_msg_(packet_pool_.makePtr(nullptr)),
       is_connecting_(false),
       is_reconnection_(false),
       data_available_(false),
       is_closed_(false),
-      receive_callback_(receive_callback),
-      on_reconnect_callback_(on_reconnect_callback),
       app_name_(app_name) {}
 
-SocketConnector::~SocketConnector() {}
+UdpSocketConnector::~UdpSocketConnector() {}
 
-void SocketConnector::connect(std::string ip_address, std::string port) {
+void UdpSocketConnector::connect(std::string ip_address, std::string port) {
   endpoint_iterator_ = resolver_.resolve(
       {ip_address, port, asio::ip::resolver_query_base::numeric_service});
 
   doConnect();
 }
 
-void SocketConnector::state() { return; }
+void UdpSocketConnector::state() { return; }
 
-void SocketConnector::send(const uint8_t *packet, std::size_t len,
+void UdpSocketConnector::send(const uint8_t *packet, std::size_t len,
                            const PacketSentCallback &packet_sent) {
-  asio::async_write(socket_, asio::buffer(packet, len),
-                    [packet_sent](std::error_code ec, std::size_t /*length*/) {
+  socket_.async_send(asio::buffer(packet, len),
+                     [packet_sent](std::error_code ec, std::size_t /*length*/) {
                       packet_sent();
-                    });
+                     });
 }
 
-void SocketConnector::send(const Packet::MemBufPtr &packet) {
+void UdpSocketConnector::send(const Packet::MemBufPtr &packet) {
   io_service_.post([this, packet]() {
     bool write_in_progress = !output_buffer_.empty();
     output_buffer_.push_back(std::move(packet));
@@ -104,15 +78,15 @@ void SocketConnector::send(const Packet::MemBufPtr &packet) {
   });
 }
 
-void SocketConnector::close() {
+void UdpSocketConnector::close() {
   io_service_.dispatch([this]() {
     is_closed_ = true;
-    socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+    socket_.shutdown(asio::ip::udp::socket::shutdown_type::shutdown_both);
     socket_.close();
   });
 }
 
-void SocketConnector::doWrite() {
+void UdpSocketConnector::doWrite() {
   // TODO improve this piece of code for sending many buffers togethers
   // if list contains more than one packet
   auto packet = output_buffer_.front().get();
@@ -124,8 +98,8 @@ void SocketConnector::doWrite() {
     current = current->next();
   } while (current != packet);
 
-  asio::async_write(
-      socket_, std::move(array),
+  socket_.async_send(
+      std::move(array),
       [this /*, packet*/](std::error_code ec, std::size_t length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           output_buffer_.pop_front();
@@ -143,43 +117,15 @@ void SocketConnector::doWrite() {
       });
 }
 
-void SocketConnector::doReadBody(std::size_t body_length) {
-  asio::async_read(
-      socket_, asio::buffer(read_msg_->writableTail(), body_length),
-      asio::transfer_exactly(body_length),
-      [this](std::error_code ec, std::size_t length) {
-        read_msg_->append(length);
-        if (TRANSPORT_EXPECT_TRUE(!ec)) {
-          receive_callback_(std::move(read_msg_));
-          doReadHeader();
-        } else if (ec.value() ==
-                   static_cast<int>(std::errc::operation_canceled)) {
-          // The connection has been closed by the application.
-          return;
-        } else {
-          TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
-          tryReconnect();
-        }
-      });
-}
-
-void SocketConnector::doReadHeader() {
+void UdpSocketConnector::doRead() {
   read_msg_ = getPacket();
-  asio::async_read(
-      socket_,
-      asio::buffer(read_msg_->writableData(),
-                   NetworkMessage::fixed_header_length),
-      asio::transfer_exactly(NetworkMessage::fixed_header_length),
+  socket_.async_receive(
+      asio::buffer(read_msg_->writableData(), Connector::packet_size),
       [this](std::error_code ec, std::size_t length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
-          read_msg_->append(NetworkMessage::fixed_header_length);
-          std::size_t body_length = 0;
-          if ((body_length = NetworkMessage::decodeHeader(read_msg_->data())) >
-              0) {
-            doReadBody(body_length - length);
-          } else {
-            TRANSPORT_LOGE("Decoding error. Ignoring packet.");
-          }
+          read_msg_->append(length);
+          receive_callback_(std::move(read_msg_));
+          doRead();
         } else if (ec.value() ==
                    static_cast<int>(std::errc::operation_canceled)) {
           // The connection has been closed by the application.
@@ -191,29 +137,30 @@ void SocketConnector::doReadHeader() {
       });
 }
 
-void SocketConnector::tryReconnect() {
+void UdpSocketConnector::tryReconnect() {
   if (!is_connecting_ && !is_closed_) {
     TRANSPORT_LOGE("Connection lost. Trying to reconnect...\n");
     is_connecting_ = true;
     is_reconnection_ = true;
-    io_service_.post([this]() {
-      socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
-      socket_.close();
-      startConnectionTimer();
-      doConnect();
+    connection_timer_.expires_from_now(std::chrono::seconds(1));
+    connection_timer_.async_wait([this](const std::error_code &ec) {
+      if (!ec) {
+        socket_.shutdown(asio::ip::udp::socket::shutdown_type::shutdown_both);
+        socket_.close();
+        startConnectionTimer();
+        doConnect();
+      }
     });
   }
 }
 
-void SocketConnector::doConnect() {
+void UdpSocketConnector::doConnect() {
   asio::async_connect(socket_, endpoint_iterator_,
-                      [this](std::error_code ec, tcp::resolver::iterator) {
+                      [this](std::error_code ec, udp::resolver::iterator) {
                         if (!ec) {
-                          timer_.cancel();
+                          connection_timeout_.cancel();
                           is_connecting_ = false;
-                          asio::ip::tcp::no_delay noDelayOption(true);
-                          socket_.set_option(noDelayOption);
-                          doReadHeader();
+                          doRead();
 
                           if (data_available_) {
                             data_available_ = false;
@@ -222,7 +169,6 @@ void SocketConnector::doConnect() {
 
                           if (is_reconnection_) {
                             is_reconnection_ = false;
-                            TRANSPORT_LOGI("Connection recovered!\n");
                             on_reconnect_callback_();
                           }
                         } else {
@@ -232,17 +178,17 @@ void SocketConnector::doConnect() {
                       });
 }
 
-bool SocketConnector::checkConnected() { return !is_connecting_; }
+bool UdpSocketConnector::checkConnected() { return !is_connecting_; }
 
-void SocketConnector::enableBurst() { return; }
+void UdpSocketConnector::enableBurst() { return; }
 
-void SocketConnector::startConnectionTimer() {
-  timer_.expires_from_now(std::chrono::seconds(60));
-  timer_.async_wait(
-      std::bind(&SocketConnector::handleDeadline, this, std::placeholders::_1));
+void UdpSocketConnector::startConnectionTimer() {
+  connection_timeout_.expires_from_now(std::chrono::seconds(60));
+  connection_timeout_.async_wait(
+      std::bind(&UdpSocketConnector::handleDeadline, this, std::placeholders::_1));
 }
 
-void SocketConnector::handleDeadline(const std::error_code &ec) {
+void UdpSocketConnector::handleDeadline(const std::error_code &ec) {
   if (!ec) {
     io_service_.post([this]() {
       socket_.close();

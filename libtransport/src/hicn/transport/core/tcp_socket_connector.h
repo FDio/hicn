@@ -28,14 +28,14 @@ namespace core {
 
 using asio::ip::tcp;
 
-class SocketConnector : public Connector {
+class TcpSocketConnector : public Connector {
  public:
-  SocketConnector(PacketReceivedCallback &&receive_callback,
+  TcpSocketConnector(PacketReceivedCallback &&receive_callback,
                   OnReconnect &&reconnect_callback,
                   asio::io_service &io_service,
                   std::string app_name = "Libtransport");
 
-  ~SocketConnector() override;
+  ~TcpSocketConnector() override;
 
   void send(const Packet::MemBufPtr &packet) override;
 
@@ -81,8 +81,6 @@ class SocketConnector : public Connector {
   bool data_available_;
   bool is_closed_;
 
-  PacketReceivedCallback receive_callback_;
-  OnReconnect on_reconnect_callback_;
   std::string app_name_;
 };
 
