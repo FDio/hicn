@@ -54,10 +54,10 @@ std::once_flag MemifConnector::flag_;
 utils::EpollEventReactor MemifConnector::main_event_reactor_;
 
 MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
-                               OnReconnect &&on_reconnect_callback,
+                               OnReconnect &&on_reconnect_callback
                                asio::io_service &io_service,
                                std::string app_name)
-    : Connector(),
+    : Connector(std::move(receive_callback), std::move(on_reconnect_callback)),
       memif_worker_(nullptr),
       timer_set_(false),
       send_timer_(std::make_unique<utils::FdDeadlineTimer>(event_reactor_)),
@@ -71,8 +71,6 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       enable_burst_(false),
       closed_(false),
       app_name_(app_name),
-      receive_callback_(receive_callback),
-      on_reconnect_callback_(on_reconnect_callback),
       socket_filename_("") {
   std::call_once(MemifConnector::flag_, &MemifConnector::init, this);
 }

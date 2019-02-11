@@ -112,6 +112,13 @@ bool connection_Send(const Connection *conn, Message *message) {
   return false;
 }
 
+bool connection_SendCommandResponse(const Connection *conn, struct iovec *msg){
+  parcAssertNotNull(conn, "Parameter conn must be non-null");
+  parcAssertNotNull(msg, "Parameter message must be non-null");
+
+  return ioOperations_SendCommandResponse(conn->ops, msg);
+}
+
 static void _sendProbe(Connection *conn, unsigned probeType, uint8_t *message) {
   parcAssertNotNull(conn, "Parameter conn must be non-null");
 

@@ -17,28 +17,25 @@
 
 #include <hicn/transport/core/connector.h>
 #include <hicn/transport/core/name.h>
+#include <hicn/transport/utils/branch_prediction.h>
 
-#include <linux/if_packet.h>
-#include <net/ethernet.h>
-#include <sys/socket.h>
 #include <asio.hpp>
+#include <asio/steady_timer.hpp>
 #include <deque>
 
 namespace transport {
-
 namespace core {
 
-using asio::generic::raw_protocol;
-using raw_endpoint = asio::generic::basic_endpoint<raw_protocol>;
+using asio::ip::udp;
 
-class RawSocketConnector : public Connector {
+class UdpSocketConnector : public Connector {
  public:
-  RawSocketConnector(PacketReceivedCallback &&receive_callback,
-                     OnReconnect &&reconnect_callback,
-                     asio::io_service &io_service,
-                     std::string app_name = "Libtransport");
+  UdpSocketConnector(PacketReceivedCallback &&receive_callback,
+                  OnReconnect &&reconnect_callback,
+                  asio::io_service &io_service,
+                  std::string app_name = "Libtransport");
 
-  ~RawSocketConnector() override;
+  ~UdpSocketConnector() override;
 
   void send(const Packet::MemBufPtr &packet) override;
 
@@ -49,31 +46,40 @@ class RawSocketConnector : public Connector {
 
   void enableBurst() override;
 
-  void connect(const std::string &interface_name,
-               const std::string &mac_address_str);
+  void connect(std::string ip_address = "127.0.0.1", std::string port = "9695");
 
   void state() override;
 
  private:
   void doConnect();
 
-  void doRecvPacket();
+  void doRead();
 
-  void doSendPacket();
+  void doWrite();
+
+  bool checkConnected();
 
  private:
+  void handleDeadline(const std::error_code &ec);
+
+  void startConnectionTimer();
+
+  void tryReconnect();
+
   asio::io_service &io_service_;
-  raw_protocol::socket socket_;
-
-  struct ether_header ethernet_header_;
-
-  struct sockaddr_ll link_layer_address_;
-
-  asio::steady_timer timer_;
+  asio::ip::udp::socket socket_;
+  asio::ip::udp::resolver resolver_;
+  asio::ip::udp::resolver::iterator endpoint_iterator_;
+  asio::steady_timer connection_timer_;
+  asio::steady_timer connection_timeout_;
 
   utils::ObjectPool<utils::MemBuf>::Ptr read_msg_;
 
+  bool is_connecting_;
+  bool is_reconnection_;
   bool data_available_;
+  bool is_closed_;
+
   std::string app_name_;
 };
 
