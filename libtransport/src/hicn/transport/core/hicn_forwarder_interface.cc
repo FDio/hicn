@@ -18,7 +18,7 @@
 #define ADDR_INET 1
 #define ADDR_INET6 2
 #define ADD_ROUTE 3
-#define REQUEST_LIGHT 100
+#define REQUEST_LIGHT 0xc0
 
 union AddressLight {
   uint32_t ipv4;
@@ -41,8 +41,8 @@ namespace transport {
 
 namespace core {
 
-HicnForwarderInterface::HicnForwarderInterface(SocketConnector &connector)
-    : ForwarderInterface<HicnForwarderInterface, SocketConnector>(connector) {}
+HicnForwarderInterface::HicnForwarderInterface(UdpSocketConnector &connector)
+    : ForwarderInterface<HicnForwarderInterface, UdpSocketConnector>(connector) {}
 
 HicnForwarderInterface::~HicnForwarderInterface() {}
 

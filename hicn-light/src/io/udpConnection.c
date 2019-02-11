@@ -239,38 +239,6 @@ static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
   // in this particular connection we don't need natting beacause we send the
   // packet to the next hop using upd connection
 
-#if 0
-    if((hicnConnState->peerAddressLength == sizeof(struct sockaddr_in)) || (hicnConnState->localAddressLength == sizeof(struct sockaddr_in)))
-        return false;
-
-    if(message_GetType(message) = MessagePacketType_ContentObject){
-        //this is a data packet. We need to put the remote address in the destination field
-        messageHandler_SetDestination_IPv6((uint8_t *) message_FixedHeader(message),
-                                             &((struct sockaddr_in6 *) hicnConnState->peerAddress)->sin6_addr);
-
-    } else if (message_GetType(message) == MessagePacketType_Interest) {
-        //this si an interest packet. We need to put the local address in the source field
-        messageHandler_SetSource_IPv6((uint8_t *) message_FixedHeader(message),
-                                        &((struct sockaddr_in6 *) hicnConnState->localAddress)->sin6_addr);
-
-        //only in this case we may need to set the probeDestAddress
-        if(hicnConnState->refreshProbeDestAddress){
-            _refreshProbeDestAddress(hicnConnState, message_FixedHeader(message));
-        }
-
-    } else if (message_GetType(message) == MessagePacketType_WldrNotification) {
-        //here we don't need to do anything for now
-    }else{
-        //unkown packet
-        if (logger_IsLoggable(hicnConnState->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-            logger_Log(hicnConnState->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                              "connid %u can't parse the message",
-                              hicnConnState->id);
-        }
-        return false;
-    }
-#endif
-
   ssize_t writeLength =
       sendto(udpConnState->udpListenerSocket, message_FixedHeader(message),
              (int)message_Length(message), 0, udpConnState->peerAddress,
@@ -296,38 +264,7 @@ static list_connections_type _getConnectionType(const IoOperations *ops) {
 
 static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
                         uint8_t *message) {
-#if 0
-    parcAssertNotNull(ops, "Parameter ops must be non-null");
-    _MetisUdpState *udpConnState = (_MetisUdpState *) metisIoOperations_GetClosure(ops);
-
-
-    uint8_t *pkt;
-    size_t pkt_size = 8;
-    pkt = (uint8_t *) malloc(sizeof(uint8_t) * pkt_size);
-    for (unsigned i = 0; i < pkt_size; i++) {
-        pkt[i] = 0;
-    }
-    pkt[0] = 1;         //type
-    pkt[1] = probeType; //packet type
-    pkt[6] = 8;         //header len (16bit, network order)
-
-    ssize_t writeLen = sendto(udpConnState->udpListenerSocket, pkt, pkt_size, 0, udpConnState->peerAddress, udpConnState->peerAddressLength);
-
-    if (writeLen < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            free(pkt);
-            return 0;
-        } else  {
-            //this print is for debugging
-            printf("Incorrect write length %zd, expected %zd: (%d) %s\n", writeLen, pkt_size, errno, strerror(errno));
-            free(pkt);
-            return 0;
-        }
-    }
-
-    free(pkt);
-    return metisForwarder_GetTicks(udpConnState->metis);
-#endif
+  //TODO
   return 0;
 }
 

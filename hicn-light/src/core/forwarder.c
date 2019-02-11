@@ -277,6 +277,11 @@ void forwarder_SetupAllListeners(Forwarder *forwarder, uint16_t port,
   configurationListeners_SetupAll(forwarder->config, port, localPath);
 }
 
+void forwarder_SetupLocalListeners(Forwarder *forwarder, uint16_t port) {
+  parcAssertNotNull(forwarder, "Parameter must be non-null");
+  configurationListeners_SetutpLocalIPv4(forwarder->config, port);
+}
+
 void forwarder_SetupFromConfigFile(Forwarder *forwarder, const char *filename) {
   ConfigurationFile *configFile = configurationFile_Create(forwarder, filename);
   if (configFile) {

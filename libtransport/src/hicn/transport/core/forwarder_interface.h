@@ -16,7 +16,7 @@
 #pragma once
 
 #include <hicn/transport/core/prefix.h>
-#include <hicn/transport/core/socket_connector.h>
+#include <hicn/transport/core/udp_socket_connector.h>
 #include <hicn/transport/portability/portability.h>
 
 #include <deque>

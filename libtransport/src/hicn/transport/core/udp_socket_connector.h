@@ -26,16 +26,16 @@
 namespace transport {
 namespace core {
 
-using asio::ip::tcp;
+using asio::ip::udp;
 
-class SocketConnector : public Connector {
+class UdpSocketConnector : public Connector {
  public:
-  SocketConnector(PacketReceivedCallback &&receive_callback,
+  UdpSocketConnector(PacketReceivedCallback &&receive_callback,
                   OnReconnect &&reconnect_callback,
                   asio::io_service &io_service,
                   std::string app_name = "Libtransport");
 
-  ~SocketConnector() override;
+  ~UdpSocketConnector() override;
 
   void send(const Packet::MemBufPtr &packet) override;
 
@@ -53,9 +53,7 @@ class SocketConnector : public Connector {
  private:
   void doConnect();
 
-  void doReadHeader();
-
-  void doReadBody(std::size_t body_length);
+  void doRead();
 
   void doWrite();
 
@@ -69,9 +67,9 @@ class SocketConnector : public Connector {
   void tryReconnect();
 
   asio::io_service &io_service_;
-  asio::ip::tcp::socket socket_;
-  asio::ip::tcp::resolver resolver_;
-  asio::ip::tcp::resolver::iterator endpoint_iterator_;
+  asio::ip::udp::socket socket_;
+  asio::ip::udp::resolver resolver_;
+  asio::ip::udp::resolver::iterator endpoint_iterator_;
   asio::steady_timer timer_;
 
   utils::ObjectPool<utils::MemBuf>::Ptr read_msg_;
