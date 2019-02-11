@@ -22,14 +22,17 @@
 
 #include "../common.h"
 
-typedef struct
+PACKED(
+struct _icmp_header_s
 {
   u8 type;
   u8 code;
   u16 csum;
-} _icmp_header_t;
+});
+typedef struct _icmp_header_s _icmp_header_t;
 
-typedef struct
+PACKED(
+struct _icmp_wldr_header_s
 {
   u8 type;
   u8 code;
@@ -53,7 +56,8 @@ typedef struct
       u16 received_lbl;
     } wldr_notification_lbl;
   };
-} _icmp_wldr_header_t;
+});
+typedef struct _icmp_wldr_header_s _icmp_wldr_header_t;
 
 #define ICMP_HDRLEN sizeof(_icmp_header_t)
 

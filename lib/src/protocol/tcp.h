@@ -25,7 +25,8 @@
  * here for reference and documentation purposes, we might just provide a macro
  * to disable and use it instead of __BYTE_ORDER__.
  */
-typedef struct __attribute__ ((packed))
+PACKED(
+struct _tcp_header_s
 {
   u16 sport;
   u16 dport;
@@ -117,7 +118,8 @@ typedef struct __attribute__ ((packed))
     u16 urg_ptr;
     u16 lifetime;
   };
-} _tcp_header_t;
+});
+typedef struct _tcp_header_s _tcp_header_t;
 
 #define TCP_HDRLEN sizeof(_tcp_header_t)
 

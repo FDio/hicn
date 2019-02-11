@@ -20,13 +20,16 @@
 #ifndef HICN_PROTOCOL_AH_H
 #define HICN_PROTOCOL_AH_H
 
+#include "../common.h"
+
 /*
  * The TCP PSH flag is set to indicate TCP payload in fact contains a AH header
  * with signature information for the packet
  */
 #define AH_FLAG 0x10
 
-typedef struct
+PACKED(
+struct _ah_header_s
 {
   u8 nh;			// (to match with reserved in IPSEC AH)
   u8 payloadlen;		// Len of signature/HMAC in 4-bytes words
@@ -49,12 +52,16 @@ typedef struct
     };
     // Unix timestamp indicating when the signature has been calculated
     u8 timestamp_as_u8[8];
+    u16 timestamp_as_u16[4];
+    u32 timestamp_as_u32[2];
+    u64 timestamp_as_u64;
   };
   // ICV would follow
   u8 keyId[32];			// Hash of the pub key
   /* 44 B + validationPayload */
   u8 validationPayload[0];	// Holds the signature
-} _ah_header_t;
+});
+typedef struct _ah_header_s _ah_header_t;
 
 #define AH_HDRLEN sizeof(_ah_header_t)
 

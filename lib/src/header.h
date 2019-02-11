@@ -24,8 +24,8 @@
 #include "common.h"
 #include "protocol.h"
 
-
-typedef struct
+PACKED(
+struct hicn_v6_hdr_s
 {
   _ipv6_header_t ip;
   union
@@ -34,9 +34,11 @@ typedef struct
     _icmp_header_t icmp;
     _icmp_wldr_header_t wldr;
   };
-} hicn_v6_hdr_t;
+});
+typedef struct hicn_v6_hdr_s hicn_v6_hdr_t;
 
-typedef struct
+PACKED(
+struct hicn_v6ah_hdr_s
 {
   _ipv6_header_t ip;
   union
@@ -52,9 +54,11 @@ typedef struct
       _ah_header_t icmp_ah;
     };
   };
-} hicn_v6ah_hdr_t;
+});
+typedef struct hicn_v6ah_hdr_s hicn_v6ah_hdr_t;
 
-typedef struct
+PACKED(
+struct hicn_v4_hdr_s
 {
   _ipv4_header_t ip;
   union
@@ -63,9 +67,11 @@ typedef struct
     _icmp_header_t icmp;
     _icmp_wldr_header_t wldr;
   };
-} hicn_v4_hdr_t;
+});
+typedef struct hicn_v4_hdr_s hicn_v4_hdr_t;
 
-typedef struct
+PACKED(
+struct hicn_v4ah_hdr_s
 {
   _ipv4_header_t ip;
   union
@@ -81,7 +87,8 @@ typedef struct
       _ah_header_t icmp_ah;
     };
   };
-} hicn_v4ah_hdr_t;
+});
+typedef struct hicn_v4ah_hdr_s hicn_v4ah_hdr_t;
 
 typedef union
 {
