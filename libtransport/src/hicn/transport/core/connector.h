@@ -33,18 +33,18 @@ enum class ConnectorType : uint8_t {
   VPP_CONNECTOR,
 };
 
-static constexpr std::size_t packet_size = 2048;
-static constexpr std::size_t queue_size = 4096;
-static constexpr std::size_t packet_pool_size = 4096;
-
-using PacketRing = utils::CircularFifo<Packet::MemBufPtr, queue_size>;
-using PacketQueue = std::deque<Packet::MemBufPtr>;
-using PacketReceivedCallback = std::function<void(Packet::MemBufPtr &&)>;
-using OnReconnect = std::function<void()>;
-using PacketSentCallback = std::function<void()>;
-
 class Connector {
  public:
+  static constexpr std::size_t packet_size = 2048;
+  static constexpr std::size_t queue_size = 4096;
+  static constexpr std::size_t packet_pool_size = 4096;
+
+  using PacketRing = utils::CircularFifo<Packet::MemBufPtr, queue_size>;
+  using PacketQueue = std::deque<Packet::MemBufPtr>;
+  using PacketReceivedCallback = std::function<void(Packet::MemBufPtr &&)>;
+  using OnReconnect = std::function<void()>;
+  using PacketSentCallback = std::function<void()>;
+
   Connector();
 
   virtual ~Connector() = default;
