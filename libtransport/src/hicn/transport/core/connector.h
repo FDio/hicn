@@ -33,19 +33,20 @@ enum class ConnectorType : uint8_t {
   VPP_CONNECTOR,
 };
 
-static constexpr std::size_t packet_size = 2048;
-static constexpr std::size_t queue_size = 4096;
-static constexpr std::size_t packet_pool_size = 4096;
-
-using PacketRing = utils::CircularFifo<Packet::MemBufPtr, queue_size>;
-using PacketQueue = std::deque<Packet::MemBufPtr>;
-using PacketReceivedCallback = std::function<void(Packet::MemBufPtr &&)>;
-using OnReconnect = std::function<void()>;
-using PacketSentCallback = std::function<void()>;
-
 class Connector {
  public:
-  Connector();
+  static constexpr std::size_t packet_size = 2048;
+  static constexpr std::size_t queue_size = 4096;
+  static constexpr std::size_t packet_pool_size = 4096;
+
+  using PacketRing = utils::CircularFifo<Packet::MemBufPtr, queue_size>;
+  using PacketQueue = std::deque<Packet::MemBufPtr>;
+  using PacketReceivedCallback = std::function<void(Packet::MemBufPtr &&)>;
+  using OnReconnect = std::function<void()>;
+  using PacketSentCallback = std::function<void()>;
+
+  Connector(PacketReceivedCallback &&receive_callback,
+            OnReconnect &&reconnect_callback);
 
   virtual ~Connector() = default;
 
@@ -88,6 +89,10 @@ class Connector {
   static std::once_flag init_flag_;
   utils::ObjectPool<utils::MemBuf> packet_pool_;
   PacketQueue output_buffer_;
+
+  // Connector events
+  PacketReceivedCallback receive_callback_;
+  OnReconnect on_reconnect_callback_;
 };
 }  // end namespace core
 

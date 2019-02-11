@@ -47,20 +47,7 @@ VPPForwarderInterface::VPPForwarderInterface(MemifConnector &connector)
       sw_if_index_(~0),
       face_id_(~0) {}
 
-VPPForwarderInterface::~VPPForwarderInterface() {
-  if (sw_if_index_ != uint32_t(~0) && VPPForwarderInterface::memif_api_) {
-    int ret = memif_binary_api_delete_memif(VPPForwarderInterface::memif_api_,
-                                            sw_if_index_);
-
-    if (ret < 0) {
-      TRANSPORT_LOGE("Error deleting memif with sw idx %u.", sw_if_index_);
-    }
-  }
-
-  if (VPPForwarderInterface::api_) {
-    vpp_binary_api_destroy(VPPForwarderInterface::api_);
-  }
-}
+VPPForwarderInterface::~VPPForwarderInterface() {}
 
 /**
  * @brief Create a memif interface in the local VPP forwarder.
@@ -218,6 +205,23 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
       throw errors::RuntimeException(hicn_binary_api_get_error_string(ret));
     }
   }
+}
+
+void VPPForwarderInterface::closeConnection() {
+  if (sw_if_index_ != uint32_t(~0) && VPPForwarderInterface::memif_api_) {
+    int ret = memif_binary_api_delete_memif(VPPForwarderInterface::memif_api_,
+                                            sw_if_index_);
+
+    if (ret < 0) {
+      TRANSPORT_LOGE("Error deleting memif with sw idx %u.", sw_if_index_);
+    }
+  }
+
+  if (VPPForwarderInterface::api_) {
+    vpp_binary_api_destroy(VPPForwarderInterface::api_);
+  }
+
+  connector_.close();
 }
 
 }  // namespace core
