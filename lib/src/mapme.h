@@ -47,10 +47,10 @@ typedef struct
 
 /** @brief Default MAP-Me configuration */
 static const hicn_mapme_conf_t hicn_mapme_conf = {
-  ATTR_INIT(enabled, false),
-  ATTR_INIT(timescale, 0),
-  ATTR_INIT(retx, 50),
-  ATTR_INIT(discovery, true),
+  ATTR_INIT (enabled, false),
+  ATTR_INIT (timescale, 0),
+  ATTR_INIT (retx, 50),
+  ATTR_INIT (discovery, true),
 };
 
 /** @brief MAP-Me update sequence number */
@@ -106,22 +106,30 @@ int hicn_mapme_parse_packet (const u8 * packet, hicn_prefix_t * prefix,
 /* Default TTL */
 #define HICN_MAPME_TTL 255	// typical for redirect (ref?)
 
+/*
+ * The length of the MAPME4 header struct must be 120 bytes.
+ */
+#define EXPECTED_MAPME_V4_HDRLEN 120
+
 /** @brief MAP-Me packet header for IPv4 */
-typedef struct __attribute__ ((packed))
+typedef struct
 {
   _ipv4_header_t ip;
-  _icmp_header_t icmp;
   _icmprd4_header_t icmp_rd;
   seq_t seq;
   u8 len;
   u8 _pad[3];
 } hicn_mapme_v4_header_t;
 
+/*
+ * The length of the MAPME4 header struct must be  bytes.
+ */
+#define EXPECTED_MAPME_V6_HDRLEN 88
+
 /** @brief MAP-Me packet header for IPv6 */
-typedef struct __attribute__ ((packed))
+typedef struct
 {
   _ipv6_header_t ip;
-  _icmp_header_t icmp;
   _icmprd_header_t icmp_rd;
   seq_t seq;
   u8 len;
@@ -137,6 +145,11 @@ typedef union
 
 #define HICN_MAPME_V4_HDRLEN sizeof(hicn_mapme_v4_header_t)
 #define HICN_MAPME_V6_HDRLEN sizeof(hicn_mapme_v6_header_t)
+
+static_assert (EXPECTED_MAPME_V4_HDRLEN == HICN_MAPME_V4_HDRLEN,
+	       "Size of MAPME_V4 struct does not match its expected size.");
+static_assert (EXPECTED_MAPME_V6_HDRLEN == HICN_MAPME_V6_HDRLEN,
+	       "Size of MAPME_V6 struct does not match its expected size.");
 
 #endif /* HICN_MAPME_H */
 

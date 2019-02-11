@@ -22,6 +22,11 @@
 
 /* Headers were adapted from linux' definitions in netinet/ip.h */
 
+/*
+ * The length of the IPV4 header struct must be 20 bytes.
+ */
+#define EXPECTED_IPV4_HDRLEN 20
+
 typedef struct
 {
   union
@@ -55,6 +60,13 @@ typedef struct
 #define ipv4_header_bytes(ipv4_header) (sizeof(u32) * (ipv4_header->version_ihl & 0xf))
 
 #define IPV4_HDRLEN sizeof(_ipv4_header_t)
+static_assert (EXPECTED_IPV4_HDRLEN == IPV4_HDRLEN,
+	       "Size of IPV4 struct does not match its expected size.");
+
+/*
+ * The length of the IPV4 pseudo header struct must be 12 bytes.
+ */
+#define EXPECTED_IPV4_PSHDRLEN 12
 
 typedef struct
 {
@@ -66,6 +78,8 @@ typedef struct
 } ipv4_pseudo_header_t;
 
 #define IPV4_PSHDRLEN sizeof(ipv4_pseudo_header_t)
+static_assert (EXPECTED_IPV4_PSHDRLEN == IPV4_PSHDRLEN,
+	       "Size of IPV4_PSHDR struct does not match its expected size.");
 
 /* Default field values */
 #define IPV4_DEFAULT_VERSION         4

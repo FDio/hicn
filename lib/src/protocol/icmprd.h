@@ -21,20 +21,45 @@
 #define HICN_PROTOCOL_ICMPRD_H
 
 #include "../common.h"
+#include "ipv4.h"
 
-typedef struct __attribute__ ((__packed__))
+/*
+ * The length of the ICMPRD4 header struct must be 88 bytes.
+ */
+#define EXPECTED_ICMPRD4_HDRLEN 92
+
+typedef struct
 {
+  u8 type;
+  u8 code;
+  u16 csum;
   ip4_address_t ip;
   _ipv4_header_t iph;
   u8 data[64];
 } _icmprd4_header_t;
 
-typedef struct __attribute__ ((__packed__))
+#define ICMPRD4_HDRLEN sizeof(_icmprd4_header_t)
+static_assert (EXPECTED_ICMPRD4_HDRLEN == ICMPRD4_HDRLEN,
+	       "Size of ICMPWLDR struct does not match its expected size.");
+
+/*
+ * The length of the ICMPRD header struct must be 36 bytes.
+ */
+#define EXPECTED_ICMPRD_HDRLEN 40
+
+typedef struct
 {
+  u8 type;
+  u8 code;
+  u16 csum;
   u32 res;
   ip6_address_t tgt;
   ip6_address_t dst;
 } _icmprd_header_t;
+
+#define ICMPRD_HDRLEN sizeof(_icmprd_header_t)
+static_assert (EXPECTED_ICMPRD_HDRLEN == ICMPRD_HDRLEN,
+	       "Size of ICMPWLDR struct does not match its expected size.");
 
 #endif /* HICN_PROTOCOL_ICMPRD_H */
 
