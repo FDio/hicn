@@ -51,7 +51,7 @@ RTCProducerSocket::RTCProducerSocket(asio::io_service &io_service)
   nack_payload->append(NACK_HEADER_SIZE);
   nack_->appendPayload(std::move(nack_payload));
   lastStats_ = std::chrono::steady_clock::now();
-  srand(time(NULL));
+  srand((unsigned int)time(NULL));
   prodLabel_ = ((rand() % 255) << 24UL);
 }
 
@@ -68,7 +68,7 @@ RTCProducerSocket::RTCProducerSocket()
   nack_payload->append(NACK_HEADER_SIZE);
   nack_->appendPayload(std::move(nack_payload));
   lastStats_ = std::chrono::steady_clock::now();
-  srand(time(NULL));
+  srand((unsigned int)time(NULL));
   prodLabel_ = ((rand() % 255) << 24UL);
 }
 
@@ -117,7 +117,7 @@ void RTCProducerSocket::produce(const uint8_t *buf, size_t buffer_size) {
     return;
   }
 
-  updateStats(buffer_size + headerSize_ + TIMESTAMP_LEN);
+  updateStats((uint32_t)(buffer_size + headerSize_ + TIMESTAMP_LEN));
 
   ContentObject content_object(flowName_.setSuffix(currentSeg_));
 
@@ -148,10 +148,10 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
   // XXX
   // packetsProductionRate_ is modified by another thread in updateStats
   // this should be safe since I just read here. but, you never know.
-  max_gap =
-      floor((double)((double)((double)lifetime *
-                              INTEREST_LIFETIME_REDUCTION_FACTOR / 1000.0) *
-                     (double)packetsProductionRate_));
+  max_gap = (uint32_t)floor(
+      (double)((double)((double)lifetime * INTEREST_LIFETIME_REDUCTION_FACTOR /
+                        1000.0) *
+               (double)packetsProductionRate_));
 
   if (interestSeg < currentSeg_ || interestSeg > (max_gap + currentSeg_)) {
     sendNack(*interest);

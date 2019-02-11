@@ -30,7 +30,7 @@ bool StringTokenizer::hasMoreTokens() {
 }
 
 std::string StringTokenizer::nextToken() {
-  unsigned long pos = str_.find(delimiter_);
+  unsigned long pos = (unsigned long)str_.find(delimiter_);
 
   bool token_found = std::string::npos != pos;
 

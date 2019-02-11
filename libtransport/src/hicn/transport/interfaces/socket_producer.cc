@@ -314,7 +314,7 @@ uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
     if (packaged_segments == number_of_segments - 1) {
       content_object->appendPayload(&buf[bytes_segmented],
                                     buffer_size - bytes_segmented);
-      bytes_segmented += buffer_size - bytes_segmented;
+      bytes_segmented += (int)(buffer_size - bytes_segmented);
 
       if (is_last && making_manifest_) {
         is_last_manifest = true;
@@ -325,7 +325,7 @@ uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
     } else {
       content_object->appendPayload(&buf[bytes_segmented],
                                     free_space_for_content);
-      bytes_segmented += free_space_for_content;
+      bytes_segmented += (int)(free_space_for_content);
     }
 
     if (making_manifest_) {
@@ -716,15 +716,15 @@ int ProducerSocket::getSocketOption(int socket_option_key,
                                     uint32_t &socket_option_value) {
   switch (socket_option_key) {
     case GeneralTransportOptions::INPUT_BUFFER_SIZE:
-      socket_option_value = input_buffer_capacity_;
+      socket_option_value = (int)input_buffer_capacity_;
       return SOCKET_OPTION_GET;
 
     case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
-      socket_option_value = output_buffer_.getLimit();
+      socket_option_value = (uint32_t)output_buffer_.getLimit();
       return SOCKET_OPTION_GET;
 
     case GeneralTransportOptions::DATA_PACKET_SIZE:
-      socket_option_value = data_packet_size_;
+      socket_option_value = (uint32_t)data_packet_size_;
       return SOCKET_OPTION_GET;
 
     case GeneralTransportOptions::CONTENT_OBJECT_EXPIRY_TIME:

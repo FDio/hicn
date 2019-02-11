@@ -255,7 +255,6 @@ class Portal {
  private:
   TRANSPORT_ALWAYS_INLINE void processIncomingMessages(
       Packet::MemBufPtr &&packet_buffer) {
-
     bool is_stopped = io_service_.stopped();
     if (TRANSPORT_EXPECT_FALSE(is_stopped)) {
       return;

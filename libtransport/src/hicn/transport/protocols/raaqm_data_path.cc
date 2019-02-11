@@ -95,13 +95,13 @@ RaaqmDataPath &RaaqmDataPath::smoothTimer() {
   return *this;
 }
 
-double RaaqmDataPath::getRtt() { return rtt_; }
+double RaaqmDataPath::getRtt() { return (double)rtt_; }
 
 double RaaqmDataPath::getAverageRtt() { return average_rtt_; }
 
-double RaaqmDataPath::getRttMax() { return rtt_max_; }
+double RaaqmDataPath::getRttMax() { return (double)rtt_max_; }
 
-double RaaqmDataPath::getRttMin() { return rtt_min_; }
+double RaaqmDataPath::getRttMin() { return (double)rtt_min_; }
 
 unsigned RaaqmDataPath::getSampleValue() { return samples_; }
 
@@ -140,7 +140,9 @@ bool RaaqmDataPath::newPropagationDelayAvailable() {
   return r;
 }
 
-unsigned int RaaqmDataPath::getPropagationDelay() { return prop_delay_; }
+unsigned int RaaqmDataPath::getPropagationDelay() {
+  return (unsigned int)prop_delay_;
+}
 
 bool RaaqmDataPath::isStale() {
   TimePoint now = std::chrono::steady_clock::now();
