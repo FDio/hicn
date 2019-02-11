@@ -109,10 +109,13 @@ int Verifier::verify(const Packet &packet) {
 
   // Copy IP+TCP/ICMP header before zeroing them
   hicn_header_t header_copy;
-  if (format & HFO_INET) {
-    memcpy(&header_copy, hicn_packet, sizeof(hicn_v4_hdr_t));
-  } else if (format & HFO_INET6) {
-    memcpy(&header_copy, hicn_packet, sizeof(hicn_v6_hdr_t));
+  if (format == HF_INET_TCP_AH) {
+    memcpy(&header_copy, hicn_packet, HICN_V4_TCP_HDRLEN);
+  } else if (format == HF_INET6_TCP_AH) {
+    memcpy(&header_copy, hicn_packet, HICN_V6_TCP_HDRLEN);
+  } else {
+    throw errors::RuntimeException(
+        "Verifier::verify -- Packet format not expected.");
   }
 
   std::size_t header_len = Packet::getHeaderSizeFromFormat(format);
@@ -125,8 +128,13 @@ int Verifier::verify(const Packet &packet) {
   PARCKeyId *key_id = parcKeyId_Create(buffer);
   parcBuffer_Release(&buffer);
 
-  int ah_payload_len = (int)(header_chain->next()->length());
-  uint8_t *signature = header_chain->next()->writableData();
+  int ah_payload_len = packet.getSignatureSize();
+  uint8_t *_signature = packet.getSignature();
+  uint8_t signature[ah_payload_len];
+
+  // TODO Remove signature copy at this point, by not setting to zero
+  // the validation payload.
+  std::memcpy(signature, _signature, ah_payload_len);
 
   // Reset fields that should not appear in the signature
   const_cast<Packet &>(packet).resetForHash();
@@ -135,9 +143,7 @@ int Verifier::verify(const Packet &packet) {
   utils::CryptoHasher hasher(
       parcVerifier_GetCryptoHasher(verifier_, key_id, hashtype));
 
-  hasher.init()
-      .updateBytes(hicn_packet, header_len)
-      .updateBytes(zeros, ah_payload_len);
+  hasher.init().updateBytes(hicn_packet, header_len + ah_payload_len);
 
   for (utils::MemBuf *current = payload_chain; current != header_chain;
        current = current->next()) {
@@ -180,9 +186,9 @@ int Verifier::verify(const Packet &packet) {
 
   /* Restore the resetted fields */
   if (format & HFO_INET) {
-    memcpy(hicn_packet, &header_copy, sizeof(hicn_v4_hdr_t));
+    memcpy(hicn_packet, &header_copy, HICN_V4_TCP_HDRLEN);
   } else if (format & HFO_INET6) {
-    memcpy(hicn_packet, &header_copy, sizeof(hicn_v6_hdr_t));
+    memcpy(hicn_packet, &header_copy, HICN_V6_TCP_HDRLEN);
   }
 
   parcKeyId_Release(&key_id);
@@ -192,4 +198,5 @@ int Verifier::verify(const Packet &packet) {
 
   return valid;
 }
+
 }  // namespace utils

@@ -144,8 +144,7 @@ ah_get_header_length (hicn_type_t type, const hicn_protocol_t * h,
 }
 
 int
-ah_get_signature (hicn_type_t type, hicn_protocol_t * h,
-		              uint8_t ** signature)
+ah_get_signature (hicn_type_t type, hicn_protocol_t * h, uint8_t ** signature)
 {
   *signature = h->ah.validationPayload;
   return HICN_LIB_ERROR_NONE;
@@ -163,29 +162,31 @@ int
 ah_set_signature_size (hicn_type_t type, hicn_protocol_t * h,
 		       const size_t signature_size)
 {
-  h->ah.payloadlen = (u8)(signature_size >> 2);
+  h->ah.payloadlen = (u8) (signature_size >> 2);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ah_set_signature_timestamp(hicn_type_t type, hicn_protocol_t * h,
-       uint64_t signature_timestamp)
+ah_set_signature_timestamp (hicn_type_t type, hicn_protocol_t * h,
+			    uint64_t signature_timestamp)
 {
-  memcpy(h->ah.timestamp_as_u8, &signature_timestamp, 8);
+  uint64_t netwok_order_timestamp = htonll (signature_timestamp);
+  memcpy (h->ah.timestamp_as_u8, &netwok_order_timestamp, sizeof (uint64_t));
   return HICN_LIB_ERROR_NONE;
 }
 
 int
 ah_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t * h,
-       uint64_t * signature_timestamp)
+			    uint64_t * signature_timestamp)
 {
-  memcpy(signature_timestamp, h->ah.timestamp_as_u8, 8);
+  memcpy (signature_timestamp, h->ah.timestamp_as_u8, sizeof (uint64_t));
+  *signature_timestamp = ntohll (*signature_timestamp);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
 ah_set_validation_algorithm (hicn_type_t type, hicn_protocol_t * h,
-       uint8_t validation_algorithm)
+			     uint8_t validation_algorithm)
 {
   h->ah.validationAlgorithm = validation_algorithm;
   return HICN_LIB_ERROR_NONE;
@@ -193,26 +194,25 @@ ah_set_validation_algorithm (hicn_type_t type, hicn_protocol_t * h,
 
 int
 ah_get_validation_algorithm (hicn_type_t type, const hicn_protocol_t * h,
-       uint8_t * validation_algorithm)
+			     uint8_t * validation_algorithm)
 {
   *validation_algorithm = h->ah.validationAlgorithm;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ah_set_key_id (hicn_type_t type, hicn_protocol_t * h,
-       uint8_t *key_id)
+ah_set_key_id (hicn_type_t type, hicn_protocol_t * h, uint8_t * key_id)
 {
-  memcpy(h->ah.keyId, key_id, sizeof(h->ah.keyId));
+  memcpy (h->ah.keyId, key_id, sizeof (h->ah.keyId));
   return HICN_LIB_ERROR_NONE;
 }
 
 int
 ah_get_key_id (hicn_type_t type, hicn_protocol_t * h,
-       uint8_t **key_id, uint8_t *key_id_size)
+	       uint8_t ** key_id, uint8_t * key_id_size)
 {
   *key_id = h->ah.keyId;
-  *key_id_size = sizeof(h->ah.keyId);
+  *key_id_size = sizeof (h->ah.keyId);
   return HICN_LIB_ERROR_NONE;
 }
 
