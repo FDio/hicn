@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "21cb08b3_c35c270e",
+        "filename": "libtransport/src/hicn/transport/core/hicn_forwarder_interface.cc",
+        "patchSetId": 4
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2019-02-11T13:21:05Z",
+      "side": 1,
+      "message": "The strcpy_s exists also in Linux/MacOs. Why not using just that one?",
+      "range": {
+        "startLine": 71,
+        "startChar": 2,
+        "endLine": 71,
+        "endChar": 10
+      },
+      "revId": "d6a887818d03ea5a21357b922f664490dcd26f5a",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    }
+  ]
+}
