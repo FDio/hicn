@@ -16,13 +16,15 @@
 #ifndef HICN_PROTOCOL_UDP_H
 #define HICN_PROTOCOL_UDP_H
 
-typedef struct
+PACKED(
+struct _udp_header_s
 {
   u16 src_port;
   u16 dst_port;
   u16 length;
   u16 checksum;
-} _udp_header_t;
+});
+typedef struct _udp_header_s _udp_header_t;
 
 #define UDP_HDRLEN sizeof(_udp_header_t)
 

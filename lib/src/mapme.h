@@ -107,7 +107,8 @@ int hicn_mapme_parse_packet (const u8 * packet, hicn_prefix_t * prefix,
 #define HICN_MAPME_TTL 255	// typical for redirect (ref?)
 
 /** @brief MAP-Me packet header for IPv4 */
-typedef struct __attribute__ ((packed))
+PACKED(
+struct hicn_mapme_v4_header_s
 {
   _ipv4_header_t ip;
   _icmp_header_t icmp;
@@ -115,10 +116,12 @@ typedef struct __attribute__ ((packed))
   seq_t seq;
   u8 len;
   u8 _pad[3];
-} hicn_mapme_v4_header_t;
+});
+typedef struct hicn_mapme_v4_header_s hicn_mapme_v4_header_t;
 
 /** @brief MAP-Me packet header for IPv6 */
-typedef struct __attribute__ ((packed))
+PACKED(
+struct hicn_mapme_v6_header_s
 {
   _ipv6_header_t ip;
   _icmp_header_t icmp;
@@ -126,7 +129,8 @@ typedef struct __attribute__ ((packed))
   seq_t seq;
   u8 len;
   u8 _pad[3];
-} hicn_mapme_v6_header_t;
+});
+typedef struct hicn_mapme_v6_header_s hicn_mapme_v6_header_t;
 
 /** @brief MAP-Me packet header (IP version agnostic) */
 typedef union
