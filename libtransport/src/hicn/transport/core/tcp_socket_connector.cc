@@ -16,7 +16,7 @@
 #ifdef _WIN32
 #include <hicn/transport/portability/win_portability.h>
 #endif
-#include <hicn/transport/core/socket_connector.h>
+#include <hicn/transport/core/tcp_socket_connector.h>
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/object_pool.h>
@@ -52,11 +52,11 @@ class NetworkMessage {
 };
 }  // namespace
 
-SocketConnector::SocketConnector(PacketReceivedCallback &&receive_callback,
-                                 OnReconnect &&on_reconnect_callback,
-                                 asio::io_service &io_service,
-                                 std::string app_name)
-    : Connector(),
+TcpSocketConnector::TcpSocketConnector(
+    PacketReceivedCallback &&receive_callback,
+    OnReconnect &&on_reconnect_callback, asio::io_service &io_service,
+    std::string app_name)
+    : Connector(std::move(receive_callback), std::move(on_reconnect_callback)),
       io_service_(io_service),
       socket_(io_service_),
       resolver_(io_service_),
@@ -66,30 +66,28 @@ SocketConnector::SocketConnector(PacketReceivedCallback &&receive_callback,
       is_reconnection_(false),
       data_available_(false),
       is_closed_(false),
-      receive_callback_(receive_callback),
-      on_reconnect_callback_(on_reconnect_callback),
       app_name_(app_name) {}
 
-SocketConnector::~SocketConnector() {}
+TcpSocketConnector::~TcpSocketConnector() {}
 
-void SocketConnector::connect(std::string ip_address, std::string port) {
+void TcpSocketConnector::connect(std::string ip_address, std::string port) {
   endpoint_iterator_ = resolver_.resolve(
       {ip_address, port, asio::ip::resolver_query_base::numeric_service});
 
   doConnect();
 }
 
-void SocketConnector::state() { return; }
+void TcpSocketConnector::state() { return; }
 
-void SocketConnector::send(const uint8_t *packet, std::size_t len,
-                           const PacketSentCallback &packet_sent) {
+void TcpSocketConnector::send(const uint8_t *packet, std::size_t len,
+                              const PacketSentCallback &packet_sent) {
   asio::async_write(socket_, asio::buffer(packet, len),
                     [packet_sent](std::error_code ec, std::size_t /*length*/) {
                       packet_sent();
                     });
 }
 
-void SocketConnector::send(const Packet::MemBufPtr &packet) {
+void TcpSocketConnector::send(const Packet::MemBufPtr &packet) {
   io_service_.post([this, packet]() {
     bool write_in_progress = !output_buffer_.empty();
     output_buffer_.push_back(std::move(packet));
@@ -104,7 +102,7 @@ void SocketConnector::send(const Packet::MemBufPtr &packet) {
   });
 }
 
-void SocketConnector::close() {
+void TcpSocketConnector::close() {
   io_service_.dispatch([this]() {
     is_closed_ = true;
     socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
@@ -112,7 +110,7 @@ void SocketConnector::close() {
   });
 }
 
-void SocketConnector::doWrite() {
+void TcpSocketConnector::doWrite() {
   // TODO improve this piece of code for sending many buffers togethers
   // if list contains more than one packet
   auto packet = output_buffer_.front().get();
@@ -143,7 +141,7 @@ void SocketConnector::doWrite() {
       });
 }
 
-void SocketConnector::doReadBody(std::size_t body_length) {
+void TcpSocketConnector::doReadBody(std::size_t body_length) {
   asio::async_read(
       socket_, asio::buffer(read_msg_->writableTail(), body_length),
       asio::transfer_exactly(body_length),
@@ -163,7 +161,7 @@ void SocketConnector::doReadBody(std::size_t body_length) {
       });
 }
 
-void SocketConnector::doReadHeader() {
+void TcpSocketConnector::doReadHeader() {
   read_msg_ = getPacket();
   asio::async_read(
       socket_,
@@ -191,7 +189,7 @@ void SocketConnector::doReadHeader() {
       });
 }
 
-void SocketConnector::tryReconnect() {
+void TcpSocketConnector::tryReconnect() {
   if (!is_connecting_ && !is_closed_) {
     TRANSPORT_LOGE("Connection lost. Trying to reconnect...\n");
     is_connecting_ = true;
@@ -205,7 +203,7 @@ void SocketConnector::tryReconnect() {
   }
 }
 
-void SocketConnector::doConnect() {
+void TcpSocketConnector::doConnect() {
   asio::async_connect(socket_, endpoint_iterator_,
                       [this](std::error_code ec, tcp::resolver::iterator) {
                         if (!ec) {
@@ -232,17 +230,17 @@ void SocketConnector::doConnect() {
                       });
 }
 
-bool SocketConnector::checkConnected() { return !is_connecting_; }
+bool TcpSocketConnector::checkConnected() { return !is_connecting_; }
 
-void SocketConnector::enableBurst() { return; }
+void TcpSocketConnector::enableBurst() { return; }
 
-void SocketConnector::startConnectionTimer() {
+void TcpSocketConnector::startConnectionTimer() {
   timer_.expires_from_now(std::chrono::seconds(60));
-  timer_.async_wait(
-      std::bind(&SocketConnector::handleDeadline, this, std::placeholders::_1));
+  timer_.async_wait(std::bind(&TcpSocketConnector::handleDeadline, this,
+                              std::placeholders::_1));
 }
 
-void SocketConnector::handleDeadline(const std::error_code &ec) {
+void TcpSocketConnector::handleDeadline(const std::error_code &ec) {
   if (!ec) {
     io_service_.post([this]() {
       socket_.close();
