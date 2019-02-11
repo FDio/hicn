@@ -125,8 +125,13 @@ int Verifier::verify(const Packet &packet) {
   PARCKeyId *key_id = parcKeyId_Create(buffer);
   parcBuffer_Release(&buffer);
 
-  int ah_payload_len = (int)(header_chain->next()->length());
-  uint8_t *signature = header_chain->next()->writableData();
+  int ah_payload_len = packet.getSignatureSize();
+  uint8_t *_signature = packet.getSignature();
+  uint8_t signature[ah_payload_len];
+
+  // TODO Remove signature copy at this point, by not setting to zero
+  // the validation payload.
+  std::memcpy(signature, _signature, ah_payload_len);
 
   // Reset fields that should not appear in the signature
   const_cast<Packet &>(packet).resetForHash();
@@ -135,9 +140,7 @@ int Verifier::verify(const Packet &packet) {
   utils::CryptoHasher hasher(
       parcVerifier_GetCryptoHasher(verifier_, key_id, hashtype));
 
-  hasher.init()
-      .updateBytes(hicn_packet, header_len)
-      .updateBytes(zeros, ah_payload_len);
+  hasher.init().updateBytes(hicn_packet, header_len + ah_payload_len);
 
   for (utils::MemBuf *current = payload_chain; current != header_chain;
        current = current->next()) {
@@ -146,6 +149,8 @@ int Verifier::verify(const Packet &packet) {
 
   utils::CryptoHash hash = hasher.finalize();
   PARCCryptoHash *hash_computed_locally = hash.hash_;
+
+  parcBuffer_Display(parcCryptoHash_GetDigest(hash_computed_locally), 2);
 
   PARCBuffer *bits =
       parcBuffer_Wrap(signature, ah_payload_len, 0, ah_payload_len);
@@ -174,6 +179,8 @@ int Verifier::verify(const Packet &packet) {
   if (algo == PARCSigningAlgorithm_RSA) {
     parcBuffer_SetPosition(bits, 0);
   }
+
+  parcBuffer_Display(parcSignature_GetSignature(signatureToVerify), 2);
 
   valid = parcVerifier_VerifyDigestSignature(
       verifier_, key_id, hash_computed_locally, suite, signatureToVerify);

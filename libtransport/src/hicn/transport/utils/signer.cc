@@ -87,6 +87,8 @@ void Signer::sign(Packet &packet) {
     throw errors::MalformedAHPacketException();
   }
 
+  packet.setSignatureSize(sign_len_bytes);
+
   // Copy IP+TCP/ICMP header before zeroing them
   hicn_header_t header_copy;
   if (format & HFO_INET) {
@@ -104,7 +106,6 @@ void Signer::sign(Packet &packet) {
   auto now = duration_cast<milliseconds>(system_clock::now().time_since_epoch())
                  .count();
   packet.setSignatureTimestamp(now);
-
   packet.setValidationAlgorithm(
       CryptoSuite(parcSigner_GetCryptoSuite(this->signer_)));
 
@@ -117,7 +118,6 @@ void Signer::sign(Packet &packet) {
   utils::CryptoHasher hasher(parcSigner_GetCryptoHasher(signer_));
   hasher.init();
   hasher.updateBytes(hicn_packet, header_len + sign_len_bytes);
-  // hasher.updateBytes(zeros, sign_len_bytes);
 
   for (utils::MemBuf *current = payload_chain; current != header_chain;
        current = current->next()) {
@@ -126,10 +126,12 @@ void Signer::sign(Packet &packet) {
 
   utils::CryptoHash hash = hasher.finalize();
 
-  PARCSignature *signature =
-      parcSigner_SignDigest(this->signer_, hash.hash_, packet.getSignature(),
-                            (uint32_t)sign_len_bytes);
+  PARCSignature *signature = parcSigner_SignDigest(this->signer_,
+          hash.hash_, packet.getSignature(), sign_len_bytes);
   PARCBuffer *buffer = parcSignature_GetSignature(signature);
+
+  parcBuffer_Display(buffer, 2);
+
   size_t bytes_len = parcBuffer_Remaining(buffer);
 
   if (bytes_len > sign_len_bytes) {
