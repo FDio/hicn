@@ -28,6 +28,12 @@ bool ioOperations_Send(IoOperations *ops, const Address *nexthop,
   return ops->send(ops, nexthop, message);
 }
 
+bool ioOperations_SendCommandResponse(IoOperations *ops,
+                                  struct iovec *message) {
+  return ops->sendCommandResponse(ops, message);
+}
+
+
 const Address *ioOperations_GetRemoteAddress(const IoOperations *ops) {
   return ops->getRemoteAddress(ops);
 }
