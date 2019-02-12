@@ -33,7 +33,7 @@ mhash_t hicn_face_udp_hashtb;
 dpo_type_t hicn_face_udp_type;
 
 ip4_header_t ip4_header_skl = {
-  .ip_version_and_header_length = 0x45,
+  .ip_version_and_header_length = IP4_VERSION_AND_HEADER_LENGTH_NO_OPTIONS,
   .tos = 0x00,
   .length = (u16) 0,
   .fragment_id = (u16) 0,
@@ -262,7 +262,7 @@ format_hicn_face_udp (u8 * s, va_list * args)
   hicn_face_t *face;
   hicn_face_udp_t *udp_face;
   ip_adjacency_t *adj;
-  u8 ipv = 0x40;
+  u8 ipv = IP4_VERSION_AND_HEADER_LENGTH_NO_OPTIONS;
   vnet_main_t *vnm = vnet_get_main ();
 
 
