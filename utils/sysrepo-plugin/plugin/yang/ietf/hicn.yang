@@ -1,0 +1,81 @@
+module hicn {
+    namespace "urn:sysrepo:hicn";
+    prefix hcn;
+
+    revision 2019-02-06 {
+        description "Initial revision.";
+    }
+
+    typedef float {
+         type decimal64 {
+             fraction-digits 2;
+         }
+    }
+
+    container hicn-state {
+        description "State data container of the hicn.";
+        leaf enabled {
+            description "Informs whether the hicn is enable or not.";
+            type boolean;
+            default false;
+        }
+    }
+
+    rpc param-set {
+        description "Operation to set hicn params in vpp.";
+        input {
+            leaf enable_disable {
+                description "Main switch determining whether the hicn is on or off.";
+                type boolean;
+                default false;
+            }
+
+            leaf pit_max_size {
+                description "Main switch determining whether the hicn is on or off.";
+                type int32;
+                default -1;
+            }
+
+            leaf cs_max_size {
+                description "Main switch determining whether the hicn is on or off.";
+                type int32;
+                default -1;
+            }
+
+            leaf cs_reserved_app {
+                description "Main switch determining whether the hicn is on or off.";
+                type int32;
+                default -1;
+            }
+
+            leaf pit_dflt_lifetime_sec {
+                description "Main switch determining whether the hicn is on or off.";
+                type float;
+                default -1;
+            }
+
+            leaf pit_max_lifetime_sec {
+                description "Main switch determining whether the hicn is on or off.";
+                type float;
+                default -1;
+            }
+
+            leaf pit_min_lifetime_sec {
+                description "Main switch determining whether the hicn is on or off.";
+                type float;
+                default -1;
+            }
+        }
+    }
+
+    rpc param-get {
+        description "Operation to get hicn parameter in vpp.";
+    }
+
+
+    notification hicn-ready {
+        description
+            "Event of the configured hicn
+             inside the vpp.";
+    }
+}
