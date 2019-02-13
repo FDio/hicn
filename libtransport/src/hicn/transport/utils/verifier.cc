@@ -128,9 +128,9 @@ int Verifier::verify(const Packet &packet) {
   PARCKeyId *key_id = parcKeyId_Create(buffer);
   parcBuffer_Release(&buffer);
 
-  int ah_payload_len = packet.getSignatureSize();
+  int ah_payload_len = (int)packet.getSignatureSize();
   uint8_t *_signature = packet.getSignature();
-  uint8_t signature[ah_payload_len];
+  uint8_t *signature = (uint8_t *)malloc(ah_payload_len * sizeof(uint8_t);
 
   // TODO Remove signature copy at this point, by not setting to zero
   // the validation payload.
@@ -190,6 +190,8 @@ int Verifier::verify(const Packet &packet) {
   } else if (format & HFO_INET6) {
     memcpy(hicn_packet, &header_copy, HICN_V6_TCP_HDRLEN);
   }
+
+  free(signature);
 
   parcKeyId_Release(&key_id);
 

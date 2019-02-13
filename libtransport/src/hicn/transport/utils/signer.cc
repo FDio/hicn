@@ -130,7 +130,7 @@ void Signer::sign(Packet &packet) {
   utils::CryptoHash hash = hasher.finalize();
 
   PARCSignature *signature = parcSigner_SignDigest(
-      this->signer_, hash.hash_, packet.getSignature(), sign_len_bytes);
+      this->signer_, hash.hash_, packet.getSignature(), (uint32_t)sign_len_bytes);
   PARCBuffer *buffer = parcSignature_GetSignature(signature);
 
   size_t bytes_len = parcBuffer_Remaining(buffer);
