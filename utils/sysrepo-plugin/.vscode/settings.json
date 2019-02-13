@@ -1,0 +1,5 @@
+{
+    "files.associations": {
+        "hicn_vpp_comm.h": "c"
+    }
+}
