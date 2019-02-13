@@ -1,0 +1,126 @@
+module test {
+    namespace "urn:sysrepo:test";
+    prefix tst;
+
+    revision 2019-02-06 {
+        description "Initial revision.";
+    }
+
+    grouping params {
+
+        leaf is_enabled {
+                description "Enable / disable ICN forwarder in VPP.";
+                type boolean;
+                default false;
+            }
+
+        leaf feature_cs {
+                description "compile-time plugin features.";
+                type uint8;
+            }
+
+
+        leaf worker_count {
+                description "Number of VPP workers.";
+                type uint32;
+            }
+
+        leaf pit_max_size {
+                description "PIT maximum size, otherwise -1 to assign default value.";
+                type int32;
+            }
+
+        leaf cs_max_size {
+                description "CS maximum size, otherwise -1 to assign default value.";
+                type int32;
+            }
+
+}
+
+  grouping states {
+
+        leaf pkts_processed {
+                description "ICN packets processed.";
+                type uint64;
+            }
+
+        leaf pkts_interest_count {
+                description "PIT maximum size, otherwise -1 to assign default value.";
+                type uint64;
+            }
+
+        leaf pkts_data_count {
+                description "CS maximum size, otherwise -1 to assign default value.";
+                type uint64;
+            }
+
+        leaf pkts_from_cache_count {
+                description "Portion of CS reserved to application, otherwise -1 to assign default value.";
+                type uint64;
+            }
+
+        leaf pkts_no_pit_count {
+                description "Default PIT entry lifetime, otherwise -1 to assign default value.";
+                type uint64;
+            }
+
+        leaf pit_expired_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value.";
+                type uint64;
+            }
+
+        leaf cs_expired_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf cs_lru_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf pkts_drop_no_buf {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf interests_aggregated {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf interests_retx {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf interests_hash_collision {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf pit_entries_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf cs_entries_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf cs_entries_ntw_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+}
+
+/* Hicn container configuration */
+
+    container vpp-hicn {
+            description "config data container for the hic-vpp.";
+            uses params;
+            uses states;
+    }
+}
