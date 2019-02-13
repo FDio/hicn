@@ -86,7 +86,7 @@ bool CircularFifo<Element, Size>::push(Element&& item) {
 // the tail must be accessed with at least acquire
 template <typename Element, std::size_t Size>
 bool CircularFifo<Element, Size>::pop(Element& item) {
-  const auto current_head = head_.load(std::memory_order_relaxed);
+  const size_t current_head = head_.load(std::memory_order_relaxed);
   if (current_head == tail_.load(std::memory_order_acquire)) {
     return false;  // empty queue
   }

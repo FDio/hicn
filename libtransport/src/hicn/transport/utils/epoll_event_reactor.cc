@@ -51,10 +51,9 @@ int EpollEventReactor::addFileDescriptor(int fd, uint32_t events) {
 int EpollEventReactor::addFileDescriptor(int fd, uint32_t events,
                                          EventCallback &callback) {
   auto it = event_callback_map_.find(fd);
-  event_callback_map_[fd] = callback;
-  if (it != event_callback_map_.end()) {
+
+  if (it == event_callback_map_.end()) {
     event_callback_map_[fd] = callback;
-  } else {
     return addFileDescriptor(fd, events);
   }
 
@@ -64,10 +63,9 @@ int EpollEventReactor::addFileDescriptor(int fd, uint32_t events,
 int EpollEventReactor::addFileDescriptor(int fd, uint32_t events,
                                          EventCallback &&callback) {
   auto it = event_callback_map_.find(fd);
-  event_callback_map_[fd] = callback;
-  if (it != event_callback_map_.end()) {
+
+  if (it == event_callback_map_.end()) {
     event_callback_map_[fd] = callback;
-  } else {
     return addFileDescriptor(fd, events);
   }
 

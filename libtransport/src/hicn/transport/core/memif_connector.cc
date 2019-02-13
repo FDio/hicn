@@ -298,16 +298,10 @@ int MemifConnector::txBurst(uint16_t qid) {
 }
 
 void MemifConnector::sendCallback(const std::error_code &ec) {
+  timer_set_ = false;
+
   if (TRANSPORT_EXPECT_TRUE(!ec && !is_connecting_)) {
     doSend();
-  }
-
-  if (output_buffer_.size() > 0) {
-    send_timer_->expiresFromNow(std::chrono::microseconds(50));
-    send_timer_->asyncWait(
-        std::bind(&MemifConnector::sendCallback, this, std::placeholders::_1));
-  } else {
-    timer_set_ = false;
   }
 }
 
@@ -378,6 +372,7 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
       packet->append(packet_length);
 
       if (!connector->input_buffer_.push(std::move(packet))) {
+
         TRANSPORT_LOGI("Error pushing packet. Ring buffer full.");
 
         // TODO Here we should consider the possibility to signal the congestion
@@ -442,7 +437,11 @@ void MemifConnector::close() {
 void MemifConnector::enableBurst() { enable_burst_ = true; }
 
 void MemifConnector::send(const Packet::MemBufPtr &packet) {
-#ifdef CANCEL_TIMER
+  {
+    utils::SpinLock::Acquire locked(write_msgs_lock_);
+    output_buffer_.push_back(packet);
+  }
+#if CANCEL_TIMER
   if (!timer_set_) {
     timer_set_ = true;
     send_timer_->expiresFromNow(std::chrono::microseconds(50));
@@ -450,11 +449,6 @@ void MemifConnector::send(const Packet::MemBufPtr &packet) {
         std::bind(&MemifConnector::sendCallback, this, std::placeholders::_1));
   }
 #endif
-
-  {
-    utils::SpinLock::Acquire locked(write_msgs_lock_);
-    output_buffer_.push_back(packet);
-  }
 }
 
 int MemifConnector::doSend() {

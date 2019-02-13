@@ -110,7 +110,7 @@ class MemifConnector : public Connector {
   int epfd;
   std::unique_ptr<std::thread> memif_worker_;
   utils::EpollEventReactor event_reactor_;
-  volatile bool timer_set_;
+  std::atomic_bool timer_set_;
   std::unique_ptr<utils::FdDeadlineTimer> send_timer_;
   asio::io_service &io_service_;
   std::unique_ptr<asio::io_service::work> work_;
