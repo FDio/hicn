@@ -1,0 +1,1 @@
+/usr/bin/cc -fPIC  -Wall -std=gnu99 -Wall -std=gnu99 -g -O0  -shared -Wl,-soname,libbapi.so -o libbapi.so CMakeFiles/bapi.dir/bapi/bapi_hicn.c.o -Wl,-rpath,/usr/lib/vpp_plugins -lvlibmemoryclient -lsvm -lvppinfra -lvlib -lvatplugin -lvapiclient -lvom /usr/lib/vpp_plugins/hicn_plugin.so 

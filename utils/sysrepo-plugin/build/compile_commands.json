@@ -1,0 +1,22 @@
+[
+{
+  "directory": "/home/sc/hicn/utils/sysrepo-plugin/build/plugins",
+  "command": "/usr/bin/cc -Dvpp_plugins_EXPORTS -I/home/sc/hicn/utils/sysrepo-plugin/plugins/./bapi   -Wall -std=gnu99 -Wall -std=gnu99 -g -O0 -fPIC   -o CMakeFiles/vpp-plugins.dir/hicn_plugin.c.o   -c /home/sc/hicn/utils/sysrepo-plugin/plugins/hicn_plugin.c",
+  "file": "/home/sc/hicn/utils/sysrepo-plugin/plugins/hicn_plugin.c"
+},
+{
+  "directory": "/home/sc/hicn/utils/sysrepo-plugin/build/plugins",
+  "command": "/usr/bin/cc -Dvpp_plugins_EXPORTS -I/home/sc/hicn/utils/sysrepo-plugin/plugins/./bapi   -Wall -std=gnu99 -Wall -std=gnu99 -g -O0 -fPIC   -o CMakeFiles/vpp-plugins.dir/ietf/ietf_hicn.c.o   -c /home/sc/hicn/utils/sysrepo-plugin/plugins/ietf/ietf_hicn.c",
+  "file": "/home/sc/hicn/utils/sysrepo-plugin/plugins/ietf/ietf_hicn.c"
+},
+{
+  "directory": "/home/sc/hicn/utils/sysrepo-plugin/build/plugins",
+  "command": "/usr/bin/cc -Dvpp_plugins_EXPORTS -I/home/sc/hicn/utils/sysrepo-plugin/plugins/./bapi   -Wall -std=gnu99 -Wall -std=gnu99 -g -O0 -fPIC   -o CMakeFiles/vpp-plugins.dir/hicn_vpp_comm.c.o   -c /home/sc/hicn/utils/sysrepo-plugin/plugins/hicn_vpp_comm.c",
+  "file": "/home/sc/hicn/utils/sysrepo-plugin/plugins/hicn_vpp_comm.c"
+},
+{
+  "directory": "/home/sc/hicn/utils/sysrepo-plugin/build/plugins",
+  "command": "/usr/bin/cc -Dbapi_EXPORTS -I/home/sc/hicn/utils/sysrepo-plugin/plugins/./bapi   -Wall -std=gnu99 -Wall -std=gnu99 -g -O0 -fPIC   -o CMakeFiles/bapi.dir/bapi/bapi_hicn.c.o   -c /home/sc/hicn/utils/sysrepo-plugin/plugins/bapi/bapi_hicn.c",
+  "file": "/home/sc/hicn/utils/sysrepo-plugin/plugins/bapi/bapi_hicn.c"
+}
+]

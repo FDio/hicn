@@ -1,0 +1,16 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/sc/hicn/utils/sysrepo-plugin/plugins/bapi/bapi_hicn.c
+assert.h
+-
+stdbool.h
+-
+vapi/l2.api.vapi.h
+-
+

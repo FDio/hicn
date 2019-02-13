@@ -1,0 +1,14 @@
+/home/sc/hicn/utils/sysrepo-plugin/build/CMakeFiles/install/strip.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/CMakeFiles/install.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/CMakeFiles/install/local.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/CMakeFiles/list_install_components.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/CMakeFiles/edit_cache.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/CMakeFiles/rebuild_cache.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/plugins/CMakeFiles/install/strip.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/plugins/CMakeFiles/install/local.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/plugins/CMakeFiles/vpp-plugins.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/plugins/CMakeFiles/edit_cache.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/plugins/CMakeFiles/bapi.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/plugins/CMakeFiles/rebuild_cache.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/plugins/CMakeFiles/list_install_components.dir
+/home/sc/hicn/utils/sysrepo-plugin/build/plugins/CMakeFiles/install.dir

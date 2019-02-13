@@ -1,0 +1,1 @@
+/usr/local/lib/sysrepo/plugins/libvpp-plugins.so
