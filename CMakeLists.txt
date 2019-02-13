@@ -82,7 +82,9 @@ endif()
 set(LIBHICN_SHARED ${LIBHICN}.shared)
 set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared)
 
-add_compile_options(-Wall -Werror)
+if (NOT WIN32)
+  add_compile_options(-Wall -Werror)
+endif ()
 
 message(STATUS "Building the following subprojects: ${subdirs}")
 
