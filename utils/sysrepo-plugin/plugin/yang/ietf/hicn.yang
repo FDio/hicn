@@ -1,0 +1,526 @@
+module hicn {
+    namespace "urn:sysrepo:hicn";
+    prefix hcn;
+
+    revision 2019-02-06 {
+        description "Initial revision.";
+    }
+
+
+/* new data types and grouping definition to forward the remote request toward vpp odl--to-->vpp */
+
+    typedef float {
+         type decimal64 {
+             fraction-digits 2;
+         }
+    }
+
+
+    grouping params {
+
+        leaf enable_disable {
+                description "Enable / disable ICN forwarder in VPP.";
+                type boolean;
+                default false;
+            }
+
+        leaf pit_max_size {
+                description "PIT maximum size, otherwise -1 to assign default value.";
+                type int32;
+                default -1;
+            }
+
+        leaf cs_max_size {
+                description "CS maximum size, otherwise -1 to assign default value.";
+                type int32;
+                default -1;
+            }
+
+        leaf cs_reserved_app {
+                description "Portion of CS reserved to application, otherwise -1 to assign default value.";
+                type int32;
+                default -1;
+            }
+
+        leaf pit_dflt_lifetime_sec {
+                description "Default PIT entry lifetime, otherwise -1 to assign default value.";
+                type float;
+                default -1;
+            }
+
+        leaf pit_max_lifetime_sec {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value.";
+                type float;
+                default -1;
+            }
+
+        leaf pit_min_lifetime_sec {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type float;
+                default -1;
+            }
+}
+
+    grouping states {
+
+        leaf pkts_processed {
+                description "ICN packets processed.";
+                type uint64;
+            }
+
+        leaf pkts_interest_count {
+                description "PIT maximum size, otherwise -1 to assign default value.";
+                type uint64;
+            }
+
+        leaf pkts_data_count {
+                description "CS maximum size, otherwise -1 to assign default value.";
+                type uint64;
+            }
+
+        leaf pkts_from_cache_count {
+                description "Portion of CS reserved to application, otherwise -1 to assign default value.";
+                type uint64;
+            }
+
+        leaf pkts_no_pit_count {
+                description "Default PIT entry lifetime, otherwise -1 to assign default value.";
+                type uint64;
+            }
+
+        leaf pit_expired_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value.";
+                type uint64;
+            }
+
+        leaf cs_expired_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf cs_lru_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf pkts_drop_no_buf {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf interests_aggregated {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf interests_retx {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf interests_hash_collision {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf pit_entries_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf cs_entries_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+        leaf cs_entries_ntw_count {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint64;
+            }
+
+}
+
+    grouping face_ip_add {
+
+       leaf nh_addr0 {
+                description "IP local address.";
+                type uint64;
+            }
+
+       leaf nh_addr1 {
+                description "IP local address.";
+                type uint64;
+            }
+
+        leaf swif {
+                description "IPv4 local port number.";
+                type uint32;
+            }
+    }
+
+    grouping route_nhops_add {
+
+       leaf prefix0 {
+                description "Prefix0 to be added to the FIB.";
+                type uint64;
+            }
+
+       leaf prefix1 {
+                description "Prefix1 to be added to the FIB.";
+                type uint64;
+            }
+
+        leaf len {
+                description "Length of the prefix.";
+                type uint8;
+            }
+
+        leaf face_ids0 {
+                description "A Face ID to the next hop forwarder for the specified prefix.";
+                type uint32;
+            }
+
+        leaf face_ids1 {
+                description "A Face ID to the next hop forwarder for the specified prefix.";
+                type uint32;
+            }
+
+        leaf face_ids2 {
+                description "A Face ID to the next hop forwarder for the specified prefix.";
+                type uint32;
+            }
+
+        leaf face_ids3 {
+                description "A Face ID to the next hop forwarder for the specified prefix.";
+                type uint32;
+            }
+
+        leaf face_ids4 {
+                description "A Face ID to the next hop forwarder for the specified prefix.";
+                type uint32;
+            }
+
+        leaf face_ids5 {
+                description "A Face ID to the next hop forwarder for the specified prefix.";
+                type uint32;
+            }
+
+        leaf face_ids6 {
+                description "A Face ID to the next hop forwarder for the specified prefix.";
+                type uint32;
+            }
+
+        leaf n_faces {
+                description "Number of face to add.";
+                type uint8;
+            }
+    }
+
+
+    grouping route_nhops_del {
+
+       leaf prefix0 {
+                description "Prefix0 to be added to the FIB.";
+                type uint64;
+            }
+
+       leaf prefix1 {
+                description "Prefix1 to be added to the FIB.";
+                type uint64;
+            }
+
+        leaf len {
+                description "Length of the prefix.";
+                type uint8;
+            }
+
+        leaf faceid {
+                description "A Face ID to the next hop forwarder for the specified prefix.";
+                type uint16;
+            }
+
+    }
+
+
+    grouping route_del {
+
+       leaf prefix0 {
+                description "Prefix0 to be added to the FIB.";
+                type uint64;
+            }
+
+       leaf prefix1 {
+                description "Prefix1 to be added to the FIB.";
+                type uint64;
+            }
+
+        leaf len {
+                description "Length of the prefix.";
+                type uint8;
+            }
+    }
+
+    grouping route_nhop_del {
+
+       leaf-list prefix {
+                description "Prefix to be added to the FIB.";
+                type uint64;
+            }
+
+       leaf  faceid {
+                description "Specific next-hop to be removed.";
+                type uint16;
+            }
+
+       leaf  len {
+                description "Length of the prefix.";
+                type uint8;
+            }
+    }
+
+    grouping route_get {
+
+
+       leaf prefix0 {
+                description "Prefix0 to be added to the FIB.";
+                type uint64;
+            }
+
+       leaf prefix1 {
+                description "Prefix1 to be added to the FIB.";
+                type uint64;
+            }
+
+        leaf len {
+                description "Length of the prefix.";
+                type uint8;
+            }
+    }
+
+    grouping punting_add {
+
+       leaf prefix0 {
+                description "Prefix to be added to the FIB.";
+                type uint64;
+            }
+
+       leaf prefix1 {
+                description "Prefix to be added to the FIB.";
+                type uint64;
+            }
+
+        leaf len {
+                description "Length of the prefix.";
+                type uint8;
+            }
+
+       leaf swif {
+                description "Interface id.";
+                type uint32;
+            }
+    }
+
+    grouping register_prod_app {
+
+       leaf-list prefix {
+                description "Prefix to be matched to the FIB.";
+                type uint64;
+            }
+
+        leaf len {
+                description "Length of the prefix.";
+                type uint8;
+            }
+
+       leaf swif {
+                description "Interface id.";
+                type uint32;
+            }
+
+       leaf cs_reserved {
+                description "CS memory reserved -- in number of packets.";
+                type uint32;
+            }
+
+    }
+
+/* new data types and grouping definition to backward the remote response  vpp--to-->odl */
+
+
+    grouping params-reply {
+
+        leaf is_enabled {
+                description "Enable / disable ICN forwarder in VPP.";
+                type boolean;
+                default false;
+            }
+
+        leaf feature_cs {
+                description "compile-time plugin features.";
+                type uint8;
+            }
+
+
+        leaf worker_count {
+                description "Number of VPP workers.";
+                type uint32;
+            }
+
+        leaf pit_max_size {
+                description "PIT maximum size, otherwise -1 to assign default value.";
+                type int32;
+                default -1;
+            }
+
+        leaf cs_max_size {
+                description "CS maximum size, otherwise -1 to assign default value.";
+                type int32;
+                default -1;
+            }
+
+
+        leaf pit_dflt_lifetime_sec {
+                description "Default PIT entry lifetime, otherwise -1 to assign default value.";
+                type float;
+                default -1;
+            }
+
+        leaf pit_max_lifetime_sec {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value.";
+                type float;
+                default -1;
+            }
+
+        leaf pit_min_lifetime_sec {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type float;
+                default -1;
+            }
+}
+
+/* Hicn configuration */
+
+    container hicn-conf {
+        config true;
+        description "config data container for the hic-vpp.";
+        container params{
+            uses params;
+        }
+    }
+
+
+/* Hicn operational data */
+
+    container hicn-state {
+        config false;
+        description "operational data container for the hic-vpp.";
+        container states{
+            config false;
+            uses states;
+        }
+    }
+
+/* RPC Definitions */
+
+
+    rpc node-params-set {
+        description "Operation to set hicn params in vpp.";
+        input {
+            uses params;
+        }
+    }
+
+    rpc node-params-get {
+        description "Operation to get hicn parameter in vpp.";
+    }
+
+
+    rpc node-stat-get {
+        description "Operation to get hicn status in vpp.";
+    }
+
+
+    rpc strategy-get {
+          description "Operation to get hicn strategy.";
+        input {
+            leaf strategy_id {
+                description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+                type uint32;
+            }
+        }
+    }
+
+    rpc  strategies-get {
+          description "Operation to get hicn strategies.";
+    }
+
+    rpc route-get {
+          description "Operation to get hicn route.";
+        input {
+          uses route_get;
+        }
+    }
+
+    rpc  route-del {
+          description "Operation to del hicn route.";
+        input {
+          uses route_del;
+        }
+    }
+
+    rpc route-nhops-add {
+          description "Operation to add hicn route nhops.";
+        input {
+          uses route_nhops_add;
+        }
+    }
+
+    rpc  route-nhops-del {
+          description "Operation to add hicn face ip punt.";
+        input {
+          uses route_nhops_del;
+        }
+    }
+
+    rpc  face-ip-params-get {
+          description "Operation to del hicn route.";
+        input {
+            leaf faceid {
+                description "Face to be retrieved .";
+                type uint16;
+            }
+        }
+    }
+
+    rpc  face-ip-add {
+          description "Operation to add hicn face ip.";
+        input {
+          uses face_ip_add;
+        }
+    }
+
+    rpc  face-ip-del {
+          description "Operation to del hicn face ip.";
+        input {
+            leaf faceid {
+                description "Face to be deleted .";
+                type uint16;
+            }
+        }
+    }
+
+    rpc  punting-add {
+          description "Operation to add hicn punt.";
+        input {
+          uses punting_add;
+        }
+    }
+
+    rpc  punting-del {
+          description "Operation to del hicn punt.";
+        input {
+          uses punting_add; /* It uses the same payload as the add*/
+        }
+    }
+
+}
