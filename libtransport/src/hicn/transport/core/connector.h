@@ -76,7 +76,8 @@ class Connector {
       result.second->separateChain(result.second->next(),
                                    result.second->prev());
     }
-    result.second->clear();
+    
+    result.second->trimEnd(result.second->length());
     return std::move(result.second);
   }
 
