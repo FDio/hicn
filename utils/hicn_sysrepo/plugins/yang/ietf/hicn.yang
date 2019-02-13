@@ -1,0 +1,35 @@
+module hicn {
+    namespace "urn:sysrepo:hicn";
+    prefix hcn;
+
+    revision 2019-02-06 {
+        description "Initial revision.";
+    }
+
+    container hicn-state {
+        description "State data container of the hicn.";
+        config false;
+
+        leaf enabled {
+            description "Informs whether the hicn is enable or not.";
+            type boolean;
+        }
+    }
+
+    rpc hicn-enable {
+        description "Operation to enable hicn in vpp.";
+        input {
+            leaf turned-on {
+                description "Main switch determining whether the hicn is on or off.";
+                type boolean;
+                default false;
+            }
+        }
+    }
+
+    notification hicn-ready {
+        description
+            "Event of the configured hicn
+             inside the vpp.";
+    }
+}
