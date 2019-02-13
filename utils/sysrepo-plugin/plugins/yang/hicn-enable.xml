@@ -1,0 +1,3 @@
+<hicn-enable xmlns="urn:sysrepo:hicn">
+    <turned-on>true</turned-on>
+</hicn-enable>
