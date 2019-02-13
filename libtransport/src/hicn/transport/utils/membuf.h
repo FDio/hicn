@@ -225,6 +225,9 @@ class MemBuf {
 
   void trimEnd(std::size_t amount) { length_ -= amount; }
 
+  // Never call clear on cloned membuf sharing different
+  // portions of the same underlying buffer.
+  // Use the trim functions instead.
   void clear() {
     data_ = writableBuffer();
     length_ = 0;
