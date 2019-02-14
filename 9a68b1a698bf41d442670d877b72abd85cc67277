@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e7c1187e_22cb5be1",
+        "filename": "utils/hicn_sysrepo/plugins/bapi/bapi_hicn.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2019-02-14T08:03:10Z",
+      "side": 1,
+      "message": "Do we need this file?",
+      "revId": "9a68b1a698bf41d442670d877b72abd85cc67277",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "cc715b2f_e98a1d1e",
+        "filename": "utils/hicn_sysrepo/plugins/bapi/bapi_hicn.h",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2019-02-14T08:03:10Z",
+      "side": 1,
+      "message": "Do we need this file?",
+      "revId": "9a68b1a698bf41d442670d877b72abd85cc67277",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ab8df151_423fccd4",
+        "filename": "utils/hicn_sysrepo/plugins/hicn_plugin.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2019-02-14T08:03:10Z",
+      "side": 1,
+      "message": "Trailing spaces to be fixed.",
+      "revId": "9a68b1a698bf41d442670d877b72abd85cc67277",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "7ff06fd0_9694ca9b",
+        "filename": "utils/hicn_sysrepo/plugins/ietf/ietf_hicn.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2019-02-14T08:03:10Z",
+      "side": 1,
+      "message": "Copyright dates are 2019.\nTrailing spaces have to be fixed.",
+      "revId": "9a68b1a698bf41d442670d877b72abd85cc67277",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "edae9398_d547e918",
+        "filename": "utils/hicn_sysrepo/plugins/ietf/ietf_hicn.h",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2019-02-14T08:03:10Z",
+      "side": 1,
+      "message": "Copyright notice is wrong. Check hicn plugin copyright header.",
+      "revId": "9a68b1a698bf41d442670d877b72abd85cc67277",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    }
+  ]
+}
