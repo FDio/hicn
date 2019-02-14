@@ -56,9 +56,9 @@ STATIC_ASSERT ((HICN_PARAM_FACES_MAX & (HICN_PARAM_FACES_MAX - 1)) == 0,
 STATIC_ASSERT ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX <= HICN_PARAM_FACES_MAX),
 	       "HICN_PARAM_PIT_ENTRY_PHOP_MAX must be <= than HICN_PARAM_FACES_MAX");
 
-// PIT lifetime limits on API override this(in seconds, long -float type)
-#define HICN_PARAM_PIT_LIFETIME_BOUND_MIN_SEC   0.100L
-#define HICN_PARAM_PIT_LIFETIME_BOUND_MAX_SEC  20.000L
+// PIT lifetime limits on API override this(in mseconds, integer type)
+#define HICN_PARAM_PIT_LIFETIME_BOUND_MIN_SEC   100
+#define HICN_PARAM_PIT_LIFETIME_BOUND_MAX_SEC  20000
 
 //PIT lifetime params if not set at API(in mseconds, integer type)
 #define HICN_PARAM_PIT_LIFETIME_DFLT_MIN_MS  200
