@@ -33,13 +33,13 @@ define hicn_api_node_params_set
   /* Portion of CS reserved to application, otherwise -1 to assign default value */
   i32 cs_reserved_app;
 
-  /* Default PIT entry lifetime */
+  /* Default PIT entry lifetime, otherwise -1 to assign default value */
   f64 pit_dflt_lifetime_sec;
 
-  /* Lower bound on PIT entry lifetime */
+  /* Lower bound on PIT entry lifetime, otherwise -1 to assign default value */
   f64 pit_min_lifetime_sec;
 
-  /* Upper bound on PIT entry lifetime */
+  /* Upper bound on PIT entry lifetime, otherwise -1 to assign default value */
   f64 pit_max_lifetime_sec;
 };
 

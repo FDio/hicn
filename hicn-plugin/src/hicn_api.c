@@ -106,12 +106,21 @@ vl_api_hicn_api_node_params_set_t_handler (vl_api_hicn_api_node_params_set_t *
   hicn_main_t *sm = &hicn_main;
 
   int pit_max_size = clib_net_to_host_i32 (mp->pit_max_size);
-  f64 pit_dflt_lifetime_sec = mp->pit_dflt_lifetime_sec;
-  f64 pit_min_lifetime_sec = mp->pit_min_lifetime_sec;
-  f64 pit_max_lifetime_sec = mp->pit_max_lifetime_sec;
-  int cs_max_size = clib_net_to_host_i32 (mp->cs_max_size);
-  int cs_reserved_app = clib_net_to_host_i32 (mp->cs_reserved_app);
+  pit_max_size = pit_max_size == -1? HICN_PARAM_PIT_ENTRIES_DFLT : pit_max_size;
 
+  f64 pit_dflt_lifetime_sec = mp->pit_dflt_lifetime_sec;
+  pit_dflt_lifetime_sec = pit_dflt_lifetime_sec == -1? HICN_PARAM_PIT_LIFETIME_DFLT_DFLT_MS : pit_dflt_lifetime_sec;
+
+  f64 pit_min_lifetime_sec = mp->pit_min_lifetime_sec;
+  pit_min_lifetime_sec = pit_min_lifetime_sec == -1? HICN_PARAM_PIT_LIFETIME_MIN_DFLT_MS : pit_min_lifetime_sec;
+
+  f64 pit_max_lifetime_sec = mp->pit_max_lifetime_sec;
+  pit_max_lifetime_sec = pit_max_lifetime_sec == -1? HICN_PARAM_PIT_LIFETIME_DFLT_DFLT_MS : pit_max_lifetime_sec;
+
+  int cs_max_size = clib_net_to_host_i32 (mp->cs_max_size);
+  cs_max_size = cs_max_size == -1? HICN_PARAM_CS_ENTRIES_DFLT : cs_max_size;
+
+  int cs_reserved_app = clib_net_to_host_i32 (mp->cs_reserved_app);
   cs_reserved_app = cs_reserved_app >= 0
     && cs_reserved_app < 100 ? cs_reserved_app : HICN_PARAM_CS_RESERVED_APP;
 
@@ -493,20 +502,35 @@ static void vl_api_hicn_api_register_cons_app_t_handler
 
 /************************************************************************************/
 
+#define vl_msg_name_crc_list
+#include <hicn/hicn_all_api_h.h>
+#undef vl_msg_name_crc_list
+
+static void
+setup_message_id_table (hicn_main_t * hm, api_main_t * am)
+{
+#define _(id,n,crc)                                                     \
+  vl_msg_api_add_msg_name_crc (am, #n "_" #crc, id + hm->msg_id_base);
+  foreach_vl_msg_name_crc_hicn;
+#undef _
+}
+
+
 /* Set up the API message handling tables */
 clib_error_t *
 hicn_api_plugin_hookup (vlib_main_t * vm)
 {
-  hicn_main_t *sm = &hicn_main;
+  hicn_main_t *hm = &hicn_main;
+  api_main_t *am = &api_main;
 
   /* Get a correctly-sized block of API message decode slots */
   u8 *name = format (0, "hicn_%08x%c", api_version, 0);
-  sm->msg_id_base = vl_msg_api_get_msg_ids ((char *) name,
+  hm->msg_id_base = vl_msg_api_get_msg_ids ((char *) name,
 					    VL_MSG_FIRST_AVAILABLE);
   vec_free (name);
 
 #define _(N, n)                                                  \
-    vl_msg_api_set_handlers(sm->msg_id_base + VL_API_##N,       \
+    vl_msg_api_set_handlers(hm->msg_id_base + VL_API_##N,       \
                             #n,                                 \
                             vl_api_##n##_t_handler,             \
                             vl_noop_handler,                    \
@@ -516,12 +540,13 @@ hicn_api_plugin_hookup (vlib_main_t * vm)
   foreach_hicn_plugin_api_msg;
 #undef _
 
+  /*
+   * Set up the (msg_name, crc, message-id) table
+   */
+  setup_message_id_table (hm, am);
+
   return 0;
 }
-
-
-
-
 
 
 
