@@ -145,9 +145,12 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
   uint32_t lifetime = interest->getLifetime();
   uint32_t max_gap;
 
-  // XXX
+  if (on_interest_input_ != VOID_HANDLER) {
+    on_interest_input_(*this, *interest);
+  }
+
   // packetsProductionRate_ is modified by another thread in updateStats
-  // this should be safe since I just read here. but, you never know.
+  // this should be safe since I just read here.
   max_gap = (uint32_t)floor(
       (double)((double)((double)lifetime * INTEREST_LIFETIME_REDUCTION_FACTOR /
                         1000.0) *
