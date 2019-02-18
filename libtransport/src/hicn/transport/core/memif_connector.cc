@@ -57,7 +57,7 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
                                OnReconnect &&on_reconnect_callback,
                                asio::io_service &io_service,
                                std::string app_name)
-    : Connector(),
+    : Connector(std::move(receive_callback), std::move(on_reconnect_callback)),
       memif_worker_(nullptr),
       timer_set_(false),
       send_timer_(std::make_unique<utils::FdDeadlineTimer>(event_reactor_)),
@@ -71,8 +71,6 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       enable_burst_(false),
       closed_(false),
       app_name_(app_name),
-      receive_callback_(receive_callback),
-      on_reconnect_callback_(on_reconnect_callback),
       socket_filename_("") {
   std::call_once(MemifConnector::flag_, &MemifConnector::init, this);
 }
@@ -372,7 +370,6 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
       packet->append(packet_length);
 
       if (!connector->input_buffer_.push(std::move(packet))) {
-
         TRANSPORT_LOGI("Error pushing packet. Ring buffer full.");
 
         // TODO Here we should consider the possibility to signal the congestion
