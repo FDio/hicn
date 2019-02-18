@@ -16,6 +16,7 @@
 #pragma once
 
 #cmakedefine TRANSPORT_HAVE_PTHREAD 1
+#cmakedefine ASIO_STANDALONE
 
 #define RAAQM_CONFIG_PATH "@raaqm_config_path@"
 

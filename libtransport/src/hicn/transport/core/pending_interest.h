@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <hicn/transport/config.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/core/name.h>

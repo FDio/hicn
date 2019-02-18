@@ -34,7 +34,7 @@ endif()
 
 include(Packaging)
 
-set (COMPILER_DEFINITIONS "-DASIO_STANDALONE")
+set (COMPILER_DEFINITIONS "")
 
 list(APPEND UTILS_SRC
   src/hiperf.cc

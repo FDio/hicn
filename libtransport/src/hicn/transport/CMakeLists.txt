@@ -13,6 +13,8 @@
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
+set(ASIO_STANDALONE 1)
+
 configure_file("config.h.in" "config.h" @ONLY)
 install(
   FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
@@ -28,7 +30,7 @@ add_subdirectory(portability)
 add_subdirectory(protocols)
 add_subdirectory(utils)
 
-set (COMPILER_DEFINITIONS "-DASIO_STANDALONE")
+set (COMPILER_DEFINITIONS "")
 
 list(APPEND LIBTRANSPORT_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}/../..
