@@ -459,7 +459,7 @@ static void _readCommand(UdpListener *udp, int fd,
 
   command_id id = *(command + 1);
 
-  if ( id < 0 || id >= LAST_COMMAND_VALUE){
+  if (id >= LAST_COMMAND_VALUE){
     printf("the message received is not a valid command, drop\n");
     return;
   }
