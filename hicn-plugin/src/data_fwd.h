@@ -73,7 +73,7 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
   ASSERT (n_buffers);
   ASSERT (n_buffers <= 256);
 
-  if (s->current_length <= CLIB_CACHE_LINE_BYTES * 2)
+  if (s->current_length <= head_end_offset + CLIB_CACHE_LINE_BYTES * 2)
     {
       for (i = 0; i < n_buffers; i++)
 	{
@@ -107,6 +107,7 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
 	}
       d->flags = s->flags | VLIB_BUFFER_NEXT_PRESENT;
       d->flags &= ~VLIB_BUFFER_EXT_HDR_VALID;
+      d->trace_index = s->trace_index;
       clib_memcpy (d->opaque, s->opaque, sizeof (s->opaque));
       clib_memcpy (d->opaque2, s->opaque2, sizeof (s->opaque2));
       clib_memcpy (vlib_buffer_get_current (d), vlib_buffer_get_current (s),

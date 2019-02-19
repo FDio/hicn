@@ -77,6 +77,7 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
+  u8 packet_data[128 - 1 * sizeof (u32)];
 } hicn_iface_ip4_input_trace_t;
 
 typedef enum
@@ -93,6 +94,7 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
+  u8 packet_data[128 - 1 * sizeof (u32)];
 } hicn_iface_ip6_input_trace_t;
 
 typedef enum
@@ -185,6 +187,10 @@ typedef enum
       t->pkt_type = HICN_PKT_TYPE_INTEREST;                             \
       t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];          \
       t->next_index = next0;                                            \
+      clib_memcpy_fast (t->packet_data,					\
+			vlib_buffer_get_current (b0),			\
+			sizeof (t->packet_data));			\
+									\
     }                                                                   \
                                                                         \
                                                                         \
@@ -270,6 +276,9 @@ typedef enum
         t->pkt_type = HICN_PKT_TYPE_INTEREST;                           \
         t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];        \
         t->next_index = next0;                                          \
+	clib_memcpy_fast (t->packet_data,				\
+			  vlib_buffer_get_current (b0),			\
+			  sizeof (t->packet_data));			\
       }                                                                 \
                                                                         \
     if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&          \
@@ -280,6 +289,9 @@ typedef enum
         t->pkt_type = HICN_PKT_TYPE_INTEREST;                           \
         t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];        \
         t->next_index = next1;                                          \
+	clib_memcpy_fast (t->packet_data,				\
+			  vlib_buffer_get_current (b1),			\
+			  sizeof (t->packet_data));			\
       }                                                                 \
                                                                         \
     /* Verify speculative enqueue, maybe switch current next frame */   \
@@ -335,8 +347,8 @@ hicn_iface_ip4_input_format_trace (u8 * s, va_list * args)
   hicn_iface_ip4_input_trace_t *t =
     va_arg (*args, hicn_iface_ip4_input_trace_t *);
 
-  s = format (s, "IFACE_IP4_INPUT: pkt: %d, sw_if_index %d, next index %d",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+  s = format (s, "IFACE_IP4_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
+	      (int) t->pkt_type, t->sw_if_index, t->next_index, format_ip4_header, t->packet_data, sizeof (t->packet_data));
   return (s);
 }
 
@@ -412,8 +424,8 @@ hicn_iface_ip6_input_format_trace (u8 * s, va_list * args)
   hicn_iface_ip6_input_trace_t *t =
     va_arg (*args, hicn_iface_ip6_input_trace_t *);
 
-  s = format (s, "IFACE_IP6_INPUT: pkt: %d, sw_if_index %d, next index %d",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+  s = format (s, "IFACE_IP6_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
+	      (int) t->pkt_type, t->sw_if_index, t->next_index, format_ip6_header, t->packet_data, sizeof (t->packet_data));
   return (s);
 }
 
@@ -518,6 +530,7 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
+  u8 packet_data[128 - 1 * sizeof (u32)];
 } hicn_iface_ip4_output_trace_t;
 
 typedef enum
@@ -533,6 +546,7 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
+  u8 packet_data[128 - 1 * sizeof (u32)];
 } hicn_iface_ip6_output_trace_t;
 
 typedef enum
@@ -598,6 +612,9 @@ typedef enum
         t->pkt_type = HICN_PKT_TYPE_INTEREST;                           \
         t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];        \
         t->next_index = next0;                                          \
+	clib_memcpy_fast (t->packet_data,				\
+			  vlib_buffer_get_current (b0),			\
+			  sizeof (t->packet_data));			\
       }                                                                 \
                                                                         \
                                                                         \
@@ -669,6 +686,9 @@ typedef enum
         t->pkt_type = HICN_PKT_TYPE_INTEREST;                           \
         t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];        \
         t->next_index = next0;                                          \
+	clib_memcpy_fast (t->packet_data,				\
+			  vlib_buffer_get_current (b0),			\
+			  sizeof (t->packet_data));			\
       }                                                                 \
                                                                         \
     if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&          \
@@ -679,6 +699,9 @@ typedef enum
         t->pkt_type = HICN_PKT_TYPE_INTEREST;                           \
         t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];        \
         t->next_index = next1;                                          \
+	clib_memcpy_fast (t->packet_data,				\
+			  vlib_buffer_get_current (b1),			\
+			  sizeof (t->packet_data));			\
       }                                                                 \
                                                                         \
                                                                         \
@@ -735,8 +758,8 @@ hicn_iface_ip4_output_format_trace (u8 * s, va_list * args)
   hicn_iface_ip4_output_trace_t *t =
     va_arg (*args, hicn_iface_ip4_output_trace_t *);
 
-  s = format (s, "IFACE_IP4_OUTPUT: pkt: %d, sw_if_index %d, next index %d",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+  s = format (s, "IFACE_IP4_OUTPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
+		(int) t->pkt_type, t->sw_if_index, t->next_index, format_ip4_header, t->packet_data, sizeof (t->packet_data));
   return (s);
 }
 
@@ -808,8 +831,8 @@ hicn_iface_ip6_output_format_trace (u8 * s, va_list * args)
   hicn_iface_ip6_output_trace_t *t =
     va_arg (*args, hicn_iface_ip6_output_trace_t *);
 
-  s = format (s, "IFACE_IP6_OUTPUT: pkt: %d, sw_if_index %d, next index %d",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+  s = format (s, "IFACE_IP6_OUTPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
+		(int) t->pkt_type, t->sw_if_index, t->next_index, format_ip6_header, t->packet_data, sizeof (t->packet_data));
   return (s);
 }
 

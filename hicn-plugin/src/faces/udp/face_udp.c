@@ -20,6 +20,7 @@
 #include "face_udp_node.h"
 #include "dpo_udp.h"
 #include "../face.h"
+#include "../../infra.h"
 #include "../../strategy.h"
 #include "../../strategy_dpo_manager.h"
 #include "../../hicn.h"
@@ -78,17 +79,15 @@ hicn_face_udp_init (vlib_main_t * vm)
   /* Default Strategy has index 0 and it always exists */
   strategy_face_udp4_vlib_edge = vlib_node_add_next (vm,
 						     hicn_dpo_get_strategy_vft
-						     (default_dpo.
-						      hicn_dpo_get_type ())->
-						     get_strategy_node_index
+						     (default_dpo.hicn_dpo_get_type
+						      ())->get_strategy_node_index
 						     (),
-						     hicn_face_udp4_output_node.
-						     index);
+						     hicn_face_udp4_output_node.index);
   strategy_face_udp6_vlib_edge =
     vlib_node_add_next (vm,
-			hicn_dpo_get_strategy_vft (default_dpo.
-						   hicn_dpo_get_type ())->
-			get_strategy_node_index (),
+			hicn_dpo_get_strategy_vft
+			(default_dpo.hicn_dpo_get_type
+			 ())->get_strategy_node_index (),
 			hicn_face_udp6_output_node.index);
 
   /*
@@ -108,6 +107,16 @@ hicn_face_udp_init (vlib_main_t * vm)
       ASSERT (temp_index4 == strategy_face_udp4_vlib_edge);
       ASSERT (temp_index6 == strategy_face_udp6_vlib_edge);
     }
+
+  u32 temp_index4 = vlib_node_add_next (vm,
+					hicn_interest_hitpit_node.index,
+					hicn_face_udp4_output_node.index);
+  u32 temp_index6 = vlib_node_add_next (vm,
+					hicn_interest_hitpit_node.index,
+					hicn_face_udp6_output_node.index);
+
+  ASSERT (temp_index4 == strategy_face_udp4_vlib_edge);
+  ASSERT (temp_index6 == strategy_face_udp6_vlib_edge);
 
   hicn_dpo_udp_module_init ();
 
@@ -133,7 +142,21 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
     {
       link_type = VNET_LINK_IP4;
       fib_type = FIB_PROTOCOL_IP4;
-      ip_adj = adj_nbr_add_or_lock (fib_type, link_type, remote_addr, swif);
+
+      fib_prefix_t fib_pfx;
+      fib_node_index_t fib_entry_index;
+      fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
+      fib_pfx.fp_len = 32;
+
+      u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+							 HICN_FIB_TABLE,
+							 FIB_SOURCE_PLUGIN_HI);
+      fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+
+      ip_adj = fib_entry_get_adj (fib_entry_index);
+
+      if (ip_adj = ~0)
+	return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
       hicn_face_t *face =
 	hicn_face_udp4_get (&local_addr->ip4, &remote_addr->ip4, local_port,
@@ -181,13 +204,28 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
 
       *pfaceid = hicn_dpoi_get_index (face);
       dpo_proto = DPO_PROTO_IP4;
+      fib_table_unlock (*fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
     }
   else if (!ip46_address_is_ip4 (local_addr)
 	   && !ip46_address_is_ip4 (remote_addr))
     {
       link_type = VNET_LINK_IP6;
       fib_type = FIB_PROTOCOL_IP6;
-      ip_adj = adj_nbr_add_or_lock (fib_type, link_type, remote_addr, swif);
+
+      fib_prefix_t fib_pfx;
+      fib_node_index_t fib_entry_index;
+      fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
+      fib_pfx.fp_len = 128;
+
+      u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+							 HICN_FIB_TABLE,
+							 FIB_SOURCE_PLUGIN_HI);
+      fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+
+      ip_adj = fib_entry_get_adj (fib_entry_index);
+
+      if (ip_adj = ~0)
+	return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
       hicn_face_t *face =
 	hicn_face_udp6_get (&local_addr->ip6, &remote_addr->ip6, local_port,
@@ -226,6 +264,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
 
       *pfaceid = hicn_dpoi_get_index (face);
       dpo_proto = DPO_PROTO_IP6;
+      fib_table_unlock (*fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
     }
   else
     {
@@ -233,8 +272,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-						 hicn_mapme_eventmgr_process_node.
-						 index,
+						 hicn_mapme_eventmgr_process_node.index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
   *retx = (retx_t)
