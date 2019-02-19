@@ -524,7 +524,7 @@ void configurationListeners_SetupAll(const Configuration *config, uint16_t port,
 
       // Do not start on link address
       if (addressGetType(address) != ADDR_LINK) {
-        _setupListenersOnAddress(forwarder, address, htons(port),
+        _setupListenersOnAddress(forwarder, address, port,
                                  interfaceGetName(iface));
       }
     }
