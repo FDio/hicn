@@ -144,6 +144,12 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
   if_flags |= VNET_SW_INTERFACE_FLAG_ADMIN_UP;
   vnet_sw_interface_set_flags (vnm, sw_if, if_flags);
 
+  u8 *s0;
+  s0 = format (0, "Prefix %U/%u", format_ip6_address,
+	       &prefix->name, prefix->len);
+
+  vlib_cli_output (vm, "Received request for %s, swif %d\n", s0, sw_if);
+
   if (ip46_address_is_zero (&prefix->name))
     {
       return HICN_ERROR_APPFACE_PROD_PREFIX_NULL;
@@ -204,19 +210,20 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 	  ip4_address_t app_ip4 = get_ip4_address ();
 	  ip4_add_del_interface_address (vm,
 					 sw_if,
-					 &app_ip4,
-					 ADDR_MGR_IP4_CONS_LEN,
-					 0 /* is_del */ );
+					 &app_ip4, 32, 0 /* is_del */ );
 	  app_ip = to_ip46 ( /* isv6 */ 0, app_ip4.as_u8);
 	}
       else
 	{
 	  ip6_address_t app_ip6 = get_ip6_address ();
+	  u8 *s0;
+	  s0 = format (0, "Prefix %U", format_ip6_address, &app_ip6);
+
+	  vlib_cli_output (vm, "Setting ip address %s\n", s0);
+
 	  ip6_add_del_interface_address (vm,
 					 sw_if,
-					 &app_ip6,
-					 ADDR_MGR_IP6_CONS_LEN,
-					 0 /* is_del */ );
+					 &app_ip6, 128, 0 /* is_del */ );
 	  app_ip = to_ip46 ( /* isv6 */ 1, app_ip6.as_u8);
 	}
 

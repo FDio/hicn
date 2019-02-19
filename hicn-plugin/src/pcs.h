@@ -581,7 +581,7 @@ hicn_pcs_cs_insert_update (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 			bucket_is_overflow);
 
   /* A content already exists in CS with the same name */
-  if (ret == HICN_ERROR_HASHTB_EXIST)
+  if (ret == HICN_ERROR_HASHTB_EXIST && *is_cs)
     {
       /* Update the entry */
       hicn_hash_node_t *existing_node =
