@@ -118,7 +118,9 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 	  hicn_store_internal_state (b0, hicnb0->name_hash, node_id0,
 				     dpo_ctx_id0, vft_id0, hash_entry_id,
 				     bucket_id, bucket_is_overflow);
-	  *next = HICN_STRATEGY_NEXT_INTEREST_HITPIT;
+	  *next =
+	    is_cs0 ? HICN_STRATEGY_NEXT_INTEREST_HITCS :
+	    HICN_STRATEGY_NEXT_INTEREST_HITPIT;
 	}
       else
 	{
@@ -199,7 +201,6 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 	  next0 = HICN_STRATEGY_NEXT_ERROR_DROP;
 
 	  ret = hicn_interest_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
-
 	  stats.pkts_processed++;
 	  /* Select next hop */
 	  /*
@@ -209,9 +210,8 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 	   */
 	  if (PREDICT_TRUE
 	      (ret == HICN_ERROR_NONE && HICN_IS_NAMEHASH_CACHED (b0)
-	       && strategy->hicn_select_next_hop (vnet_buffer (b0)->
-						  ip.adj_index[VLIB_TX],
-						  &nh_idx,
+	       && strategy->hicn_select_next_hop (vnet_buffer (b0)->ip.
+						  adj_index[VLIB_TX], &nh_idx,
 						  &outface) ==
 	       HICN_ERROR_NONE))
 	    {

@@ -91,8 +91,8 @@ hicn_select_next_hop_mw (index_t dpo_idx, int *nh_idx, dpo_id_t ** outface)
     return HICN_ERROR_MW_STRATEGY_NH_NOT_FOUND;
 
   *outface =
-    (dpo_id_t *) & hicn_strategy_mw_ctx->default_ctx.
-    next_hops[next_hop_index];
+    (dpo_id_t *) & hicn_strategy_mw_ctx->
+    default_ctx.next_hops[next_hop_index];
 
   return HICN_ERROR_NONE;
 }
@@ -158,7 +158,9 @@ VLIB_REGISTER_NODE (hicn_mw_strategy_node) =
   .n_next_nodes = HICN_STRATEGY_N_NEXT,
   .next_nodes = {
     [HICN_STRATEGY_NEXT_INTEREST_HITPIT] = "hicn-interest-hitpit",
+    [HICN_STRATEGY_NEXT_INTEREST_HITCS] = "hicn-interest-hitcs",
     [HICN_STRATEGY_NEXT_ERROR_DROP] = "error-drop",
+    [HICN_STRATEGY_NEXT_EMPTY] = "ip4-lookup",
   },
 };
 /* *INDENT-ON* */
