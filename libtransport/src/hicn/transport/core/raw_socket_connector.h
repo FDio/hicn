@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <hicn/transport/config.h>
 #include <hicn/transport/core/connector.h>
 #include <hicn/transport/core/name.h>
 
