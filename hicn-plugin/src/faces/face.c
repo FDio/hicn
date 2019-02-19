@@ -72,7 +72,7 @@ void
 hicn_face_module_init (vlib_main_t * vm)
 {
   pool_validate (hicn_dpoi_face_pool);
-
+  pool_alloc (hicn_dpoi_face_pool, 1024);
   hicn_face_ip_init (vm);
   hicn_iface_ip_init (vm);
   hicn_face_udp_init (vm);
