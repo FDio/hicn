@@ -173,6 +173,19 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      drop_packet (vm, bi0, &n_left_to_next, &next0, &to_next,
 			   &next_index, node);
 	      stats.pit_expired_count++;
+
+	      if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
+				 (b0->flags & VLIB_BUFFER_IS_TRACED)))
+		{
+		  hicn_data_fwd_trace_t *t =
+		    vlib_add_trace (vm, node, b0, sizeof (*t));
+		  t->pkt_type = HICN_PKT_TYPE_CONTENT;
+		  t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
+		  t->next_index = next0;
+		  clib_memcpy (t->packet_data,
+			       vlib_buffer_get_current (b0),
+			       sizeof (t->packet_data));
+		}
 	    }
 	  else
 	    {
@@ -284,8 +297,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
   u32 n_left_from = 0;
   u32 next0 = HICN_DATA_FWD_NEXT_ERROR_DROP, next1 =
     HICN_DATA_FWD_NEXT_ERROR_DROP;
-  u16 buffer_advance = isv6 ? sizeof (ip6_header_t) + sizeof (tcp_header_t) :
-    sizeof (ip4_header_t) + sizeof (tcp_header_t);
+  word buffer_advance = CLIB_CACHE_LINE_BYTES * 2;
 
   /*
    * We have a hard limit on the number of vlib_buffer that we can
@@ -307,7 +319,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
    * Mark the buffer as smaller than TWO_CL. It will be stored as is in the CS, without excluding
    * the hicn_header. Cloning is not possible, it will be copied.
    */
-  if (b0->current_length <= buffer_advance + CLIB_CACHE_LINE_BYTES * 2)
+  if (b0->current_length < (buffer_advance + (CLIB_CACHE_LINE_BYTES * 2)))
     {
       /* In this case the packet is copied. We don't need to add a reference as no buffer are
        * chained to it.

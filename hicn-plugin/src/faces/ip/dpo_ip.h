@@ -120,6 +120,10 @@ hicn_dpo_ip4_add_and_lock_from_remote (dpo_id_t * dpo,
 				       const ip4_address_t * remote_addr,
 				       u32 sw_if, u32 node_index)
 {
+  dpo->dpoi_type = DPO_FIRST;
+  dpo->dpoi_proto = DPO_PROTO_NONE;
+  dpo->dpoi_index = INDEX_INVALID;
+  dpo->dpoi_next_node = 0;
   /*All (complete) faces are indexed by remote addess as well */
   hicn_face_t *face =
     hicn_face_ip4_get (remote_addr, sw_if, &hicn_face_ip_remote_hashtb);
