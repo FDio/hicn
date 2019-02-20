@@ -68,6 +68,15 @@ Interest::Interest(Interest &&other_interest)
 
 Interest::~Interest() {}
 
+void Interest::replace(MemBufPtr &&buffer) {
+  Packet::replace(std::move(buffer));
+
+  if (hicn_interest_get_name(format_, (hicn_header_t *)packet_start_,
+                             name_.getStructReference()) < 0) {
+    throw errors::MalformedPacketException();
+  }
+}
+
 const Name &Interest::getName() const {
   if (!name_) {
     if (hicn_interest_get_name(format_, (hicn_header_t *)packet_start_,
@@ -81,7 +90,7 @@ const Name &Interest::getName() const {
 
 Name &Interest::getWritableName() { return const_cast<Name &>(getName()); }
 
-Interest &Interest::setName(const Name &name) {
+void Interest::setName(const Name &name) {
   if (hicn_interest_set_name(format_, (hicn_header_t *)packet_start_,
                              name.getStructReference()) < 0) {
     throw errors::RuntimeException("Error setting interest name.");
@@ -91,11 +100,9 @@ Interest &Interest::setName(const Name &name) {
                              name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
-
-  return *this;
 }
 
-Interest &Interest::setName(Name &&name) {
+void Interest::setName(Name &&name) {
   if (hicn_interest_set_name(format_, (hicn_header_t *)packet_start_,
                              name.getStructReference()) < 0) {
     throw errors::RuntimeException("Error setting interest name.");
@@ -105,8 +112,6 @@ Interest &Interest::setName(Name &&name) {
                              name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
-
-  return *this;
 }
 
 void Interest::setLocator(const ip_address_t &ip_address) {
