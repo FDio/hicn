@@ -46,14 +46,15 @@ class PendingInterest {
   friend class Portal<RawSocketInterface>;
 
  public:
+  using Ptr = utils::ObjectPool<PendingInterest>::Ptr;
   PendingInterest();
 
   PendingInterest(Interest::Ptr &&interest,
                   std::unique_ptr<asio::steady_timer> &&timer);
 
   PendingInterest(Interest::Ptr &&interest,
-                  const OnContentObjectCallback &&on_content_object,
-                  const OnInterestTimeoutCallback &&on_interest_timeout,
+                  OnContentObjectCallback &&on_content_object,
+                  OnInterestTimeoutCallback &&on_interest_timeout,
                   std::unique_ptr<asio::steady_timer> &&timer);
 
   ~PendingInterest();
@@ -62,25 +63,27 @@ class PendingInterest {
   TRANSPORT_ALWAYS_INLINE void startCountdown(Handler &&cb) {
     timer_->expires_from_now(
         std::chrono::milliseconds(interest_->getLifetime()));
-    timer_->async_wait(cb);
+    timer_->async_wait(std::forward<Handler&&>(cb));
   }
 
   void cancelTimer();
 
-  void setReceived();
+  void setReceived(bool received = true);
 
   bool isReceived() const;
 
   Interest::Ptr &&getInterest();
 
+  void setInterest(Interest::Ptr &&interest);
+
   const OnContentObjectCallback &getOnDataCallback() const;
 
-  void setOnDataCallback(const OnContentObjectCallback &on_content_object);
+  void setOnContentObjectCallback(OnContentObjectCallback &&on_content_object);
 
   const OnInterestTimeoutCallback &getOnTimeoutCallback() const;
 
   void setOnTimeoutCallback(
-      const OnInterestTimeoutCallback &on_interest_timeout);
+      OnInterestTimeoutCallback &&on_interest_timeout);
 
  private:
   Interest::Ptr interest_;
