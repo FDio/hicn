@@ -46,13 +46,15 @@ class ContentObject : public Packet {
 
   ~ContentObject() override;
 
+  void replace(MemBufPtr &&buffer) override;
+
   const Name &getName() const override;
 
   Name &getWritableName() override;
 
-  ContentObject &setName(const Name &name);
+  void setName(const Name &name) override;
 
-  void setName(Name &&name);
+  void setName(Name &&name) override;
 
   uint32_t getPathLabel() const;
 

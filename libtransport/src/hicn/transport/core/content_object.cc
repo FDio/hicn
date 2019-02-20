@@ -81,6 +81,15 @@ ContentObject::ContentObject(ContentObject &&other) : Packet(std::move(other)) {
 
 ContentObject::~ContentObject() {}
 
+void ContentObject::replace(MemBufPtr &&buffer) {
+  Packet::replace(std::move(buffer));
+
+  if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
+                         name_.getStructReference()) < 0) {
+    throw errors::RuntimeException("Error getting name from content object.");
+  }
+}
+
 const Name &ContentObject::getName() const {
   if (!name_) {
     if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
@@ -92,11 +101,9 @@ const Name &ContentObject::getName() const {
   return name_;
 }
 
-Name &ContentObject::getWritableName() {
-  return const_cast<Name&>(getName());
-}
+Name &ContentObject::getWritableName() { return const_cast<Name &>(getName()); }
 
-ContentObject &ContentObject::setName(const Name &name) {
+void ContentObject::setName(const Name &name) {
   if (hicn_data_set_name(format_, (hicn_header_t *)packet_start_,
                          name.getStructReference()) < 0) {
     throw errors::RuntimeException("Error setting content object name.");
@@ -106,8 +113,6 @@ ContentObject &ContentObject::setName(const Name &name) {
                          name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
-
-  return *this;
 }
 
 void ContentObject::setName(Name &&name) {
