@@ -136,7 +136,7 @@ int MemifConnector::createMemif(uint32_t index, uint8_t mode, char *s) {
   args.buffer_size = MEMIF_BUF_SIZE;
   args.num_s2m_rings = 1;
   args.num_m2s_rings = 1;
-  strncpy((char *)args.interface_name, IF_NAME, strlen(IF_NAME));
+  strcpy((char *)args.interface_name, IF_NAME);
   // strncpy((char *) args.instance_name, APP_NAME, strlen(APP_NAME));
   args.mode = memif_interface_mode_t::MEMIF_INTERFACE_MODE_IP;
   args.socket_filename = (uint8_t *)socket_filename_.c_str();
@@ -378,9 +378,6 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
       }
     }
 
-    connector->io_service_.post(
-        std::bind(&MemifConnector::processInputBuffer, connector));
-
     /* mark memif buffers and shared memory buffers as free */
     /* free processed buffers */
 
@@ -399,6 +396,9 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
     //      connector->doSend();
     //    }
   } while (ret_val == MEMIF_ERR_NOBUF);
+
+  connector->io_service_.post(
+      std::bind(&MemifConnector::processInputBuffer, connector));
 
   return 0;
 
