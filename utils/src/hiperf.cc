@@ -307,7 +307,7 @@ class HIperfClient {
       io_service_.stop();
     });
 
-    t_download_ = std::chrono::steady_clock::now();
+    t_download_ = t_stats_ = std::chrono::steady_clock::now();
     consumer_socket_->asyncConsume(configuration_.name,
                                    configuration_.receive_buffer);
     io_service_.run();
@@ -336,7 +336,7 @@ class HIperfServer {
         content_objects_((std::uint16_t)(1 << log2_content_object_buffer_size)),
         content_objects_index_(0),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1) {
-    std::string buffer(1200, 'X');
+    std::string buffer(1440, 'X');
     std::cout << "Producing contents under name " << conf.name.getName()
               << std::endl;
 
