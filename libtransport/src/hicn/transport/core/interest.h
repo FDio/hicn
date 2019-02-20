@@ -45,13 +45,15 @@ class Interest
 
   ~Interest() override;
 
-  const Name &getName() const;
+  void replace(MemBufPtr &&buffer) override;
 
-  Name &getWritableName();
+  const Name &getName() const override;
 
-  Interest &setName(const Name &name);
+  Name &getWritableName() override;
 
-  Interest &setName(Name &&name);
+  void setName(const Name &name) override;
+
+  void setName(Name &&name) override;
 
   void setLocator(const ip_address_t &ip_address) override;
 

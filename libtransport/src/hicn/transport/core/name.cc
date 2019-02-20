@@ -67,7 +67,7 @@ Name::Name(const std::string &uri) {
 
   try {
     seq_number = tokenizer.nextToken();
-  } catch (errors::TokenizerException) {
+  } catch (errors::TokenizerException&) {
     seq_number = "0";
   }
 

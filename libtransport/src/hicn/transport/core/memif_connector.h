@@ -41,9 +41,9 @@ typedef struct memif_connection memif_connection_t;
 #define APP_NAME "libtransport"
 #define IF_NAME "vpp_connection"
 
-#define MAX_MEMIF_BUFS 1024
 #define MEMIF_BUF_SIZE 2048
 #define MEMIF_LOG2_RING_SIZE 11
+#define MAX_MEMIF_BUFS (1 << MEMIF_LOG2_RING_SIZE)
 
 class MemifConnector : public Connector {
   typedef void *memif_conn_handle_t;
