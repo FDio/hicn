@@ -93,6 +93,8 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   static Format getFormatFromBuffer(const uint8_t *buffer);
 
+  virtual void replace(MemBufPtr &&buffer);
+
   std::size_t payloadSize() const;
 
   std::size_t headerSize() const;
@@ -100,6 +102,14 @@ class Packet : public std::enable_shared_from_this<Packet> {
   const std::shared_ptr<utils::MemBuf> data();
 
   const uint8_t *start() const;
+
+  virtual const Name &getName() const = 0;
+
+  virtual Name &getWritableName() = 0;
+
+  virtual void setName(const Name &name) = 0;
+
+  virtual void setName(Name &&name) = 0;
 
   virtual void setLifetime(uint32_t lifetime);
 
