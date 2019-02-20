@@ -43,8 +43,8 @@ namespace transport {
 
 namespace core {
 
-typedef std::unordered_map<Name, std::unique_ptr<PendingInterest>>
-    PendingInterestHashTable;
+using PendingInterestHashTable =
+    std::unordered_map<uint32_t, PendingInterest::Ptr>;
 
 template <typename PrefixType>
 class BasicBindConfig {
@@ -85,6 +85,8 @@ class Portal {
                       ForwarderInt>::value,
       "ForwarderInt must inherit from ForwarderInterface!");
 
+  static constexpr uint32_t pool_size = 4096;
+
  public:
   class ConsumerCallback {
    public:
@@ -108,7 +110,11 @@ class Portal {
                              std::placeholders::_1),
                    std::bind(&Portal::setLocalRoutes, this), io_service_,
                    app_name_),
-        forwarder_interface_(connector_) {}
+        forwarder_interface_(connector_) {
+    increasePendingInterestPool();
+    increaseInterestPool();
+    increaseContentObjectPool();
+  }
 
   void setConsumerCallback(ConsumerCallback *consumer_callback) {
     consumer_callback_ = consumer_callback;
@@ -130,58 +136,50 @@ class Portal {
   ~Portal() { stopEventsLoop(true); }
 
   TRANSPORT_ALWAYS_INLINE bool interestIsPending(const Name &name) {
-    auto it = pending_interest_hash_table_.find(name);
+    auto it =
+        pending_interest_hash_table_.find(name.getHash32() + name.getSuffix());
     if (it != pending_interest_hash_table_.end())
       if (!it->second->isReceived()) return true;
 
     return false;
   }
 
-  TRANSPORT_ALWAYS_INLINE void sendInterest(Interest::Ptr &&interest) {
-    const Name name(interest->getName(), true);
-
-    // Send it
-    forwarder_interface_.send(*interest);
-
-    pending_interest_hash_table_[name] = std::make_unique<PendingInterest>(
-        std::move(interest), std::make_unique<asio::steady_timer>(io_service_));
-
-    pending_interest_hash_table_[name]->startCountdown(
-        std::bind(&Portal<ForwarderInt>::timerHandler, this,
-                  std::placeholders::_1, name));
-  }
-
   TRANSPORT_ALWAYS_INLINE void sendInterest(
       Interest::Ptr &&interest,
-      const OnContentObjectCallback &&on_content_object_callback,
-      const OnInterestTimeoutCallback &&on_interest_timeout_callback) {
-    const Name name(interest->getName(), true);
-
+      OnContentObjectCallback &&on_content_object_callback = UNSET_CALLBACK,
+      OnInterestTimeoutCallback &&on_interest_timeout_callback =
+          UNSET_CALLBACK) {
+    uint32_t hash =
+        interest->getName().getHash32() + interest->getName().getSuffix();
     // Send it
     forwarder_interface_.send(*interest);
 
-    pending_interest_hash_table_[name] = std::make_unique<PendingInterest>(
-        std::move(interest), std::move(on_content_object_callback),
-        std::move(on_interest_timeout_callback),
-        std::make_unique<asio::steady_timer>(io_service_));
-
-    pending_interest_hash_table_[name]->startCountdown(
+    auto pending_interest = getPendingInterest();
+    pending_interest->setReceived(false);
+    pending_interest->setInterest(std::move(interest));
+    pending_interest->setOnContentObjectCallback(
+        std::move(on_content_object_callback));
+    pending_interest->setOnTimeoutCallback(
+        std::move(on_interest_timeout_callback));
+    pending_interest->startCountdown(
         std::bind(&Portal<ForwarderInt>::timerHandler, this,
-                  std::placeholders::_1, name));
+                  std::placeholders::_1, hash));
+    pending_interest_hash_table_.emplace(
+        std::make_pair(hash, std::move(pending_interest)));
   }
 
   TRANSPORT_ALWAYS_INLINE void timerHandler(const std::error_code &ec,
-                                            const Name &name) {
+                                            uint32_t hash) {
     bool is_stopped = io_service_.stopped();
     if (TRANSPORT_EXPECT_FALSE(is_stopped)) {
       return;
     }
 
     if (TRANSPORT_EXPECT_TRUE(!ec)) {
-      std::unordered_map<Name, std::unique_ptr<PendingInterest>>::iterator it =
-          pending_interest_hash_table_.find(name);
+      PendingInterestHashTable::iterator it =
+          pending_interest_hash_table_.find(hash);
       if (it != pending_interest_hash_table_.end()) {
-        std::unique_ptr<PendingInterest> ptr = std::move(it->second);
+        PendingInterest::Ptr ptr = std::move(it->second);
         pending_interest_hash_table_.erase(it);
 
         if (ptr->getOnTimeoutCallback() != UNSET_CALLBACK) {
@@ -273,10 +271,13 @@ class Portal {
 
     if (TRANSPORT_EXPECT_TRUE(_is_tcp(format))) {
       if (!Packet::isInterest(packet_buffer->data())) {
-        processContentObject(
-            ContentObject::Ptr(new ContentObject(std::move(packet_buffer))));
+        auto content_object = content_object_pool_.get().second;
+        content_object->replace(std::move(packet_buffer));
+        processContentObject(std::move(content_object));
       } else {
-        processInterest(Interest::Ptr(new Interest(std::move(packet_buffer))));
+        auto interest = interest_pool_.get().second;
+        interest->replace(std::move(packet_buffer));
+        processInterest(std::move(interest));
       }
     } else {
       TRANSPORT_LOGE("Received not supported packet. Ignoring it.");
@@ -298,16 +299,16 @@ class Portal {
 
   TRANSPORT_ALWAYS_INLINE void processContentObject(
       ContentObject::Ptr &&content_object) {
-    PendingInterestHashTable::iterator it =
-        pending_interest_hash_table_.find(content_object->getName());
+    uint32_t hash = content_object->getName().getHash32() +
+                    content_object->getName().getSuffix();
 
-    if (TRANSPORT_EXPECT_TRUE(it != pending_interest_hash_table_.end())) {
-      std::unique_ptr<PendingInterest> interest_ptr = std::move(it->second);
+    auto it = pending_interest_hash_table_.find(hash);
+    if (it != pending_interest_hash_table_.end()) {
+      PendingInterest::Ptr interest_ptr = std::move(it->second);
       interest_ptr->cancelTimer();
 
       if (TRANSPORT_EXPECT_TRUE(!interest_ptr->isReceived())) {
         interest_ptr->setReceived();
-        pending_interest_hash_table_.erase(content_object->getName());
 
         if (interest_ptr->getOnDataCallback() != UNSET_CALLBACK) {
           interest_ptr->on_content_object_callback_(
@@ -318,11 +319,12 @@ class Portal {
               std::move(interest_ptr->getInterest()),
               std::move(content_object));
         }
-
       } else {
-        TRANSPORT_LOGW(
-            "Content already received (interest already satisfied).");
+        TRANSPORT_LOGW("Content %s already received! Dropping it.",
+                       content_object->getName().toString().c_str());
       }
+
+      pending_interest_hash_table_.erase(it);
     } else {
       TRANSPORT_LOGW("No pending interests for current content (%s)",
                      content_object->getName().toString().c_str());
@@ -334,6 +336,59 @@ class Portal {
     forwarder_interface_.processControlMessageReply(std::move(packet_buffer));
   }
 
+  TRANSPORT_ALWAYS_INLINE void increasePendingInterestPool() {
+    // Create pool of pending interests to reuse
+    for (uint32_t i = 0; i < pool_size; i++) {
+      pending_interests_pool_.add(new PendingInterest(
+          Interest::Ptr(nullptr),
+          std::make_unique<asio::steady_timer>(io_service_)));
+    }
+  }
+
+  TRANSPORT_ALWAYS_INLINE void increaseInterestPool() {
+    // Create pool of interests to reuse
+    for (uint32_t i = 0; i < pool_size; i++) {
+      interest_pool_.add(new Interest());
+    }
+  }
+
+  TRANSPORT_ALWAYS_INLINE void increaseContentObjectPool() {
+    // Create pool of content object to reuse
+    for (uint32_t i = 0; i < pool_size; i++) {
+      content_object_pool_.add(new ContentObject());
+    }
+  }
+
+  PendingInterest::Ptr getPendingInterest() {
+    auto res = pending_interests_pool_.get();
+    while (TRANSPORT_EXPECT_FALSE(!res.first)) {
+      increasePendingInterestPool();
+      res = pending_interests_pool_.get();
+    }
+
+    return std::move(res.second);
+  }
+
+  TRANSPORT_ALWAYS_INLINE ContentObject::Ptr getContentObject() {
+    auto res = content_object_pool_.get();
+    while (TRANSPORT_EXPECT_FALSE(!res.first)) {
+      increaseContentObjectPool();
+      res = content_object_pool_.get();
+    }
+
+    return std::move(res.second);
+  }
+
+  TRANSPORT_ALWAYS_INLINE Interest::Ptr getInterest() {
+    auto res = interest_pool_.get();
+    while (TRANSPORT_EXPECT_FALSE(!res.first)) {
+      increaseInterestPool();
+      res = interest_pool_.get();
+    }
+
+    return std::move(res.second);
+  }
+
  private:
   asio::io_service &io_service_;
   asio::io_service internal_io_service_;
@@ -341,6 +396,10 @@ class Portal {
   std::string app_name_;
 
   PendingInterestHashTable pending_interest_hash_table_;
+  utils::ObjectPool<PendingInterest> pending_interests_pool_;
+
+  utils::ObjectPool<ContentObject> content_object_pool_;
+  utils::ObjectPool<Interest> interest_pool_;
 
   ConsumerCallback *consumer_callback_;
   ProducerCallback *producer_callback_;
@@ -349,9 +408,6 @@ class Portal {
   ForwarderInt forwarder_interface_;
 
   std::list<Prefix> served_namespaces_;
-
-  ip_address_t locator4_;
-  ip_address_t locator6_;
 };
 
 }  // end namespace core
