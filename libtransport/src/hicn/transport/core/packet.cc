@@ -50,30 +50,7 @@ Packet::Packet(MemBufPtr &&buffer)
       packet_start_(packet_->writableData()),
       header_head_(packet_.get()),
       payload_head_(nullptr),
-      format_(getFormatFromBuffer(packet_start_)) {
-  int signature_size = 0;
-
-  if (_is_ah(format_)) {
-    signature_size = (uint32_t)getSignatureSize();
-  }
-
-  auto header_size = getHeaderSizeFromFormat(format_, signature_size);
-  auto payload_length = packet_->length() - header_size;
-  if (!payload_length) {
-    return;
-  }
-
-  packet_->trimEnd(packet_->length());
-
-  if (payload_length) {
-    auto payload = packet_->cloneOne();
-    payload_head_ = payload.get();
-    payload_head_->advance(header_size);
-    payload_head_->append(payload_length);
-    packet_->prependChain(std::move(payload));
-    packet_->append(header_size);
-  }
-}
+      format_(getFormatFromBuffer(packet_start_)) {}
 
 Packet::Packet(const uint8_t *buffer, std::size_t size)
     : Packet(MemBufPtr(utils::MemBuf::copyBuffer(buffer, size).release())) {}
@@ -145,6 +122,14 @@ std::size_t Packet::getPayloadSizeFromBuffer(Format format,
   return payload_length;
 }
 
+void Packet::replace(MemBufPtr &&buffer) {
+  packet_ = std::move(buffer);
+  packet_start_ = packet_->writableData();
+  header_head_ = packet_.get();
+  payload_head_ = nullptr;
+  format_ = getFormatFromBuffer(packet_start_);
+}
+
 std::size_t Packet::payloadSize() const {
   return getPayloadSizeFromBuffer(format_, packet_start_);
 }
@@ -173,6 +158,8 @@ uint32_t Packet::getLifetime() const {
 }
 
 Packet &Packet::appendPayload(std::unique_ptr<utils::MemBuf> &&payload) {
+  separateHeaderPayload();
+
   if (!payload_head_) {
     payload_head_ = payload.get();
   }
@@ -187,6 +174,8 @@ Packet &Packet::appendPayload(const uint8_t *buffer, std::size_t length) {
 }
 
 Packet &Packet::appendHeader(std::unique_ptr<utils::MemBuf> &&header) {
+  separateHeaderPayload();
+
   if (!payload_head_) {
     header_head_->prependChain(std::move(header));
   } else {
@@ -202,6 +191,8 @@ Packet &Packet::appendHeader(const uint8_t *buffer, std::size_t length) {
 }
 
 utils::Array<uint8_t> Packet::getPayload() const {
+  const_cast<Packet *>(this)->separateHeaderPayload();
+
   if (TRANSPORT_EXPECT_FALSE(payload_head_ == nullptr)) {
     return utils::Array<uint8_t>();
   }
@@ -263,6 +254,8 @@ Packet::Format Packet::getFormat() const {
 const std::shared_ptr<utils::MemBuf> Packet::data() { return packet_; }
 
 void Packet::dump() const {
+  const_cast<Packet *>(this)->separateHeaderPayload();
+
   std::cout << "HEADER -- Length: " << headerSize() << std::endl;
   hicn_packet_dump((uint8_t *)header_head_->data(), headerSize());
 
@@ -602,6 +595,35 @@ uint8_t Packet::getTTL() const {
   }
 
   return hops;
+}
+
+void Packet::separateHeaderPayload() {
+  if (payload_head_) {
+    return;
+  }
+
+  int signature_size = 0;
+
+  if (_is_ah(format_)) {
+    signature_size = (uint32_t)getSignatureSize();
+  }
+
+  auto header_size = getHeaderSizeFromFormat(format_, signature_size);
+  auto payload_length = packet_->length() - header_size;
+  if (!payload_length) {
+    return;
+  }
+
+  packet_->trimEnd(packet_->length());
+
+  if (payload_length) {
+    auto payload = packet_->cloneOne();
+    payload_head_ = payload.get();
+    payload_head_->advance(header_size);
+    payload_head_->append(payload_length);
+    packet_->prependChain(std::move(payload));
+    packet_->append(header_size);
+  }
 }
 
 }  // end namespace core

@@ -39,8 +39,6 @@ static constexpr uint32_t log_2_default_buffer_size = 12;
 static constexpr uint32_t signature_size = 260;           // bytes
 static constexpr uint32_t key_locator_size = 60;          // bytes
 static constexpr uint32_t limit_guard = 80;               // bytes
-static constexpr uint32_t min_window_size = 1;            // Interests
-static constexpr uint32_t max_window_size = 256;          // Interests
 static constexpr uint32_t digest_size = 34;               // bytes
 static constexpr uint32_t max_out_of_order_segments = 3;  // content object
 
@@ -60,9 +58,11 @@ static constexpr double alpha = 0.8;
 static constexpr uint32_t rate_choice = 0;
 
 // maximum allowed values
-const uint32_t transport_protocol_min_retransmissions = 0;
-const uint32_t transport_protocol_max_retransmissions = 128;
-const uint32_t max_content_object_size = 8096;
+static constexpr uint32_t transport_protocol_min_retransmissions = 0;
+static constexpr uint32_t transport_protocol_max_retransmissions = 128;
+static constexpr uint32_t max_content_object_size = 8096;
+static constexpr uint32_t min_window_size = 1;            // Interests
+static constexpr uint32_t max_window_size = 256 * 2;          // Interests
 
 }  // namespace default_values
 
