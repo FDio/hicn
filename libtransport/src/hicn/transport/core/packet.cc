@@ -145,6 +145,37 @@ std::size_t Packet::getPayloadSizeFromBuffer(Format format,
   return payload_length;
 }
 
+void Packet::replace(MemBufPtr &&buffer) {
+  packet_ = std::move(buffer);
+  packet_start_ = packet_->writableData();
+  header_head_ = packet_.get();
+  payload_head_ = nullptr;
+  format_ = getFormatFromBuffer(packet_start_);
+
+  int signature_size = 0;
+
+  if (_is_ah(format_)) {
+    signature_size = (uint32_t)getSignatureSize();
+  }
+
+  auto header_size = getHeaderSizeFromFormat(format_, signature_size);
+  auto payload_length = packet_->length() - header_size;
+  if (!payload_length) {
+    return;
+  }
+
+  packet_->trimEnd(packet_->length());
+
+  if (payload_length) {
+    auto payload = packet_->cloneOne();
+    payload_head_ = payload.get();
+    payload_head_->advance(header_size);
+    payload_head_->append(payload_length);
+    packet_->prependChain(std::move(payload));
+    packet_->append(header_size);
+  }
+}
+
 std::size_t Packet::payloadSize() const {
   return getPayloadSizeFromBuffer(format_, packet_start_);
 }
