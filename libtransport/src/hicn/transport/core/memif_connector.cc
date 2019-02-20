@@ -377,9 +377,6 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
       }
     }
 
-    connector->io_service_.post(
-        std::bind(&MemifConnector::processInputBuffer, connector));
-
     /* mark memif buffers and shared memory buffers as free */
     /* free processed buffers */
 
@@ -398,6 +395,9 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
     //      connector->doSend();
     //    }
   } while (ret_val == MEMIF_ERR_NOBUF);
+
+  connector->io_service_.post(
+      std::bind(&MemifConnector::processInputBuffer, connector));
 
   return 0;
 

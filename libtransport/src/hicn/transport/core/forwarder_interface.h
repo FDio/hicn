@@ -99,8 +99,7 @@ class ForwarderInterface {
       packet.setLocator(inet6_address_);
     }
 
-    // TRANSPORT_LOGI("Sending packet %s at %lu", packet.getName().toString().c_str(), utils::SteadyClock::now().time_since_epoch().count());
-    packet.setChecksum();
+    // packet.setChecksum();
     connector_.send(packet.data());
   }
 
