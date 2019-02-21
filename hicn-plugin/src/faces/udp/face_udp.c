@@ -313,6 +313,7 @@ format_hicn_face_udp (u8 * s, va_list * args)
 	  s =
 	    format (s, "remote %U|%u ", format_ip4_address,
 		    &udp_face->hdrs.ip4.ip.dst_address,
+
 		    clib_net_to_host_u16 (udp_face->hdrs.ip4.udp.dst_port));
 	  s = format (s, "%U", format_vnet_link, adj->ia_link);
 	  s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,

@@ -56,7 +56,7 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
-  u8 packet_data[128 - 1 * sizeof (u32)];
+  u8 packet_data[60];
 }
 hicn_face_ip4_input_trace_t;
 
@@ -74,7 +74,7 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
-  u8 packet_data[128 - 1 * sizeof (u32)];
+  u8 packet_data[60];
 }
 hicn_face_ip6_input_trace_t;
 
@@ -483,7 +483,7 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
-  u8 packet_data[128 - 1 * sizeof (u32)];
+  u8 packet_data[60];
 }
 hicn_face_ip4_output_trace_t;
 
@@ -493,7 +493,7 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
-  u8 packet_data[128 - 1 * sizeof (u32)];
+  u8 packet_data[60];
 }
 hicn_face_ip6_output_trace_t;
 
