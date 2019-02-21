@@ -54,7 +54,9 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
-} hicn_face_udp4_input_trace_t;
+  u8 packet_data[128 - 1 * sizeof (u32)];
+}
+hicn_face_udp4_input_trace_t;
 
 typedef enum
 {
@@ -70,7 +72,9 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
-} hicn_face_udp6_input_trace_t;
+  u8 packet_data[128 - 1 * sizeof (u32)];
+}
+hicn_face_udp6_input_trace_t;
 
 typedef enum
 {
@@ -163,7 +167,10 @@ typedef enum
         t->pkt_type = HICN_PKT_TYPE_CONTENT;                        \
         t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];    \
         t->next_index = next0;                                      \
-      }                                                             \
+	clib_memcpy_fast (t->packet_data,			    \
+			  vlib_buffer_get_current (b0),		    \
+			  sizeof (t->packet_data));		    \
+      }								    \
 								    \
                                                                     \
     /* Verify speculative enqueue, maybe switch current next frame */   \
@@ -279,6 +286,9 @@ typedef enum
         t->pkt_type = HICN_PKT_TYPE_CONTENT;                        \
         t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];    \
         t->next_index = next0;                                      \
+	clib_memcpy_fast (t->packet_data,			    \
+			  vlib_buffer_get_current (b0),		    \
+			  sizeof (t->packet_data));		    \
       }                                                             \
                                                                     \
     if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&      \
@@ -289,6 +299,9 @@ typedef enum
         t->pkt_type = HICN_PKT_TYPE_CONTENT;                        \
         t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];    \
         t->next_index = next1;                                      \
+	clib_memcpy_fast (t->packet_data,			    \
+			  vlib_buffer_get_current (b1),		    \
+			  sizeof (t->packet_data));		    \
       }                                                             \
                                                                     \
                                                                     \
@@ -343,8 +356,11 @@ hicn_face_udp4_input_format_trace (u8 * s, va_list * args)
   hicn_face_udp4_input_trace_t *t =
     va_arg (*args, hicn_face_udp4_input_trace_t *);
 
-  s = format (s, "FACE_UDP4_INPUT: pkt: %d, sw_if_index %d, next index %d",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+  s =
+    format (s, "FACE_UDP4_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
+	    (int) t->pkt_type, t->sw_if_index, t->next_index,
+	    t->packet_data[0] == 4 ? format_ip4_header : format_ip6_header,
+	    t->packet_data, sizeof (t->packet_data));
   return (s);
 }
 
@@ -421,8 +437,11 @@ hicn_face_udp6_input_format_trace (u8 * s, va_list * args)
   hicn_face_udp6_input_trace_t *t =
     va_arg (*args, hicn_face_udp6_input_trace_t *);
 
-  s = format (s, "FACE_UDP6_INPUT: pkt: %d, sw_if_index %d, next index %d",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+  s =
+    format (s, "FACE_UDP6_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
+	    (int) t->pkt_type, t->sw_if_index, t->next_index,
+	    t->packet_data[0] == 4 ? format_ip4_header : format_ip6_header,
+	    t->packet_data, sizeof (t->packet_data));
   return (s);
 }
 
@@ -551,7 +570,9 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
-} hicn_face_udp4_output_trace_t;
+  u8 packet_data[128 - 1 * sizeof (u32)];
+}
+hicn_face_udp4_output_trace_t;
 
 /* Trace context struct */
 typedef struct
@@ -559,7 +580,9 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
-} hicn_face_udp6_output_trace_t;
+  u8 packet_data[128 - 1 * sizeof (u32)];
+}
+hicn_face_udp6_output_trace_t;
 
 #define HICN_FACE_UDP_ENCAP_IP4 hicn_face_udp4_encap
 #define HICN_FACE_UDP_ENCAP_IP6 hicn_face_udp6_encap
@@ -615,6 +638,9 @@ typedef struct
       t->pkt_type = HICN_PKT_TYPE_INTEREST;                             \
       t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];          \
       t->next_index = next0;                                            \
+      clib_memcpy_fast (t->packet_data,					\
+			vlib_buffer_get_current (b0),			\
+			sizeof (t->packet_data));			\
     }                                                                   \
                                                                         \
   to_next[0] = bi0;                                                     \
@@ -699,8 +725,24 @@ typedef struct
         t->pkt_type = HICN_PKT_TYPE_INTEREST;                           \
         t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];        \
         t->next_index = next0;                                          \
+	clib_memcpy_fast (t->packet_data,				\
+			  vlib_buffer_get_current (b0),			\
+			  sizeof (t->packet_data));			\
       }                                                                 \
                                                                         \
+                                                                        \
+    if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&          \
+                       (b1->flags & VLIB_BUFFER_IS_TRACED)))            \
+      {                                                                 \
+        TRACE_OUTPUT_PKT_UDP##ipv *t =                                  \
+          vlib_add_trace (vm, node, b0, sizeof (*t));                   \
+        t->pkt_type = HICN_PKT_TYPE_INTEREST;                           \
+        t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];        \
+        t->next_index = next1;                                          \
+	clib_memcpy_fast (t->packet_data,				\
+			  vlib_buffer_get_current (b1),			\
+			  sizeof (t->packet_data));			\
+      }                                                                 \
     /* Verify speculative enqueue, maybe switch current next frame */   \
     vlib_validate_buffer_enqueue_x2 (vm, node, next_index,              \
                                      to_next, n_left_to_next,           \
@@ -755,8 +797,11 @@ hicn_face_udp4_output_format_trace (u8 * s, va_list * args)
   hicn_face_udp4_output_trace_t *t =
     va_arg (*args, hicn_face_udp4_output_trace_t *);
 
-  s = format (s, "FACE_UDP4_OUTPUT: pkt: %d, sw_if_index %d, next index %d",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+  s =
+    format (s, "FACE_UDP4_OUTPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
+	    (int) t->pkt_type, t->sw_if_index, t->next_index,
+	    t->packet_data[0] == 4 ? format_ip4_header : format_ip6_header,
+	    t->packet_data, sizeof (t->packet_data));
   return (s);
 }
 
@@ -828,8 +873,11 @@ hicn_face_udp6_output_format_trace (u8 * s, va_list * args)
   hicn_face_udp6_output_trace_t *t =
     va_arg (*args, hicn_face_udp6_output_trace_t *);
 
-  s = format (s, "FACE_UDP6_OUTPUT: pkt: %d, sw_if_index %d, next index %d",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+  s =
+    format (s, "FACE_UDP6_OUTPUT: pkt: %d, sw_if_index %d, next index %d\n%u",
+	    (int) t->pkt_type, t->sw_if_index, t->next_index,
+	    t->packet_data[0] == 4 ? format_ip4_header : format_ip6_header,
+	    t->packet_data, sizeof (t->packet_data));
   return (s);
 }
 

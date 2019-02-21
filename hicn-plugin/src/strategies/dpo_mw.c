@@ -95,21 +95,27 @@ hicn_dpo_strategy_mw_get_type (void)
 void
 hicn_strategy_mw_ctx_lock (dpo_id_t * dpo)
 {
-  hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
-    (hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo->dpoi_index);
-  hicn_strategy_mw_ctx->default_ctx.locks++;
+  if (dpo->dpoi_index != 0)
+    {
+      hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
+	(hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo->dpoi_index);
+      hicn_strategy_mw_ctx->default_ctx.locks++;
+    }
 }
 
 void
 hicn_strategy_mw_ctx_unlock (dpo_id_t * dpo)
 {
-  hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
-    (hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo->dpoi_index);
-  hicn_strategy_mw_ctx->default_ctx.locks--;
-
-  if (0 == hicn_strategy_mw_ctx->default_ctx.locks)
+  if (dpo->dpoi_index != 0)
     {
-      pool_put (hicn_strategy_mw_ctx_pool, hicn_strategy_mw_ctx);
+      hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
+	(hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo->dpoi_index);
+      hicn_strategy_mw_ctx->default_ctx.locks--;
+
+      if (0 == hicn_strategy_mw_ctx->default_ctx.locks)
+	{
+	  pool_put (hicn_strategy_mw_ctx_pool, hicn_strategy_mw_ctx);
+	}
     }
 }
 
@@ -213,8 +219,8 @@ hicn_strategy_mw_ctx_add_nh (const dpo_id_t * nh, index_t dpo_idx)
 	    {
 	      /* If face is marked as deleted, ignore it */
 	      hicn_face_t *face =
-		hicn_dpoi_get_from_idx (hicn_strategy_mw_ctx->
-					default_ctx.next_hops[i].dpoi_index);
+		hicn_dpoi_get_from_idx (hicn_strategy_mw_ctx->default_ctx.
+					next_hops[i].dpoi_index);
 	      if (face->shared.flags & HICN_FACE_FLAGS_DELETED)
 		{
 		  continue;
@@ -259,8 +265,8 @@ hicn_strategy_mw_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
 	      face_id)
 	    {
 	      nh_id = i;
-	      hicn_face_unlock (&hicn_strategy_mw_ctx->default_ctx.
-				next_hops[i]);
+	      hicn_face_unlock (&hicn_strategy_mw_ctx->
+				default_ctx.next_hops[i]);
 	      hicn_strategy_mw_ctx->default_ctx.next_hops[i] = invalid;
 	      hicn_strategy_mw_ctx->default_ctx.entry_count--;
 	    }

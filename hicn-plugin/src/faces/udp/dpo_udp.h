@@ -75,6 +75,11 @@ hicn_dpo_udp4_lock (dpo_id_t * dpo,
 		    const ip4_address_t * remote_addr,
 		    u16 local_port, u16 remote_port, u8 * hicnb_flags)
 {
+  dpo->dpoi_type = DPO_FIRST;
+  dpo->dpoi_proto = DPO_PROTO_NONE;
+  dpo->dpoi_index = INDEX_INVALID;
+  dpo->dpoi_next_node = 0;
+
   hicn_face_t *face =
     hicn_face_udp4_get (local_addr, remote_addr, local_port, remote_port);
 
@@ -112,6 +117,11 @@ hicn_dpo_udp4_add_and_lock (dpo_id_t * dpo,
 			    u16 local_port, u16 remote_port,
 			    u32 node_index, u8 * hicnb_flags)
 {
+  dpo->dpoi_type = DPO_FIRST;
+  dpo->dpoi_proto = DPO_PROTO_NONE;
+  dpo->dpoi_index = INDEX_INVALID;
+  dpo->dpoi_next_node = 0;
+
   hicn_face_t *face =
     hicn_face_udp4_get (local_addr, remote_addr, local_port, remote_port);
 
@@ -207,6 +217,11 @@ hicn_dpo_udp6_lock (dpo_id_t * dpo,
 		    const ip6_address_t * remote_addr,
 		    u16 local_port, u16 remote_port, u8 * hicnb_flags)
 {
+  dpo->dpoi_type = DPO_FIRST;
+  dpo->dpoi_proto = DPO_PROTO_NONE;
+  dpo->dpoi_index = INDEX_INVALID;
+  dpo->dpoi_next_node = 0;
+
   hicn_face_t *face =
     hicn_face_udp6_get (local_addr, remote_addr, local_port, remote_port);
 
@@ -244,6 +259,11 @@ hicn_dpo_udp6_add_and_lock (dpo_id_t * dpo,
 			    u16 local_port, u16 remote_port,
 			    u32 node_index, u8 * hicnb_flags)
 {
+  dpo->dpoi_type = DPO_FIRST;
+  dpo->dpoi_proto = DPO_PROTO_NONE;
+  dpo->dpoi_index = INDEX_INVALID;
+  dpo->dpoi_next_node = 0;
+
   hicn_face_t *face =
     hicn_face_udp6_get (local_addr, remote_addr, local_port, remote_port);
 

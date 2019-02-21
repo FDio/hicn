@@ -40,21 +40,17 @@ hicn_face_ip_init (vlib_main_t * vm)
   /* Default Strategy has index 0 and it always exists */
   strategy_face_ip4_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.
-						     hicn_dpo_get_type ())->
-						    get_strategy_node_index
+						    (default_dpo.hicn_dpo_get_type
+						     ())->get_strategy_node_index
 						    (),
-						    hicn_face_ip4_output_node.
-						    index);
+						    hicn_face_ip4_output_node.index);
 
   strategy_face_ip6_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.
-						     hicn_dpo_get_type ())->
-						    get_strategy_node_index
+						    (default_dpo.hicn_dpo_get_type
+						     ())->get_strategy_node_index
 						    (),
-						    hicn_face_ip6_output_node.
-						    index);
+						    hicn_face_ip6_output_node.index);
   /*
    * Create and edge between al the other strategy nodes
    * and the ip_encap nodes.
@@ -72,6 +68,17 @@ hicn_face_ip_init (vlib_main_t * vm)
       ASSERT (temp_index4 == strategy_face_ip4_vlib_edge);
       ASSERT (temp_index6 == strategy_face_ip6_vlib_edge);
     }
+
+  u32 temp_index4 = vlib_node_add_next (vm,
+					hicn_interest_hitpit_node.index,
+					hicn_face_ip4_output_node.index);
+  u32 temp_index6 = vlib_node_add_next (vm,
+					hicn_interest_hitpit_node.index,
+					hicn_face_ip6_output_node.index);
+
+  ASSERT (temp_index4 == strategy_face_ip4_vlib_edge);
+  ASSERT (temp_index6 == strategy_face_ip6_vlib_edge);
+
 
   hicn_dpo_ip_module_init ();
 
@@ -224,8 +231,7 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-						 hicn_mapme_eventmgr_process_node.
-						 index,
+						 hicn_mapme_eventmgr_process_node.index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
   *retx = (retx_t)
@@ -305,8 +311,8 @@ hicn_face_ip_get_dpo (hicn_face_t * face, dpo_id_t * dpo)
 
   hicn_face_ip_t *face_ip = (hicn_face_ip_t *) face->data;
   return hicn_dpo_ip_create_from_face (face, dpo,
-				       ip46_address_is_ip4 (&face_ip->
-							    remote_addr) ?
+				       ip46_address_is_ip4
+				       (&face_ip->remote_addr) ?
 				       strategy_face_ip4_vlib_edge :
 				       strategy_face_ip6_vlib_edge);
 }
