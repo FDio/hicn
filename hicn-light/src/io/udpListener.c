@@ -520,6 +520,10 @@ static void _readcb(int fd, PARCEventType what, void *udpVoid) {
      ssize_t readLength = recvfrom(fd, packet, 1500, 0,
       (struct sockaddr *)&peerIpAddress, &peerIpAddressLength);
 
+#ifdef __APPLE__
+    peerIpAddress.ss_len = 0x00;
+#endif
+
     if(readLength < 0) {
       printf("unable to read the message\n");
       return;
