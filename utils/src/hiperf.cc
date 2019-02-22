@@ -754,8 +754,6 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  std::cout << "Bye bye" << std::endl;
-
 #ifdef _WIN32
   WSACleanup();
 #endif

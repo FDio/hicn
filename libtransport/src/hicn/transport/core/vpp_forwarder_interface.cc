@@ -208,20 +208,21 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
 }
 
 void VPPForwarderInterface::closeConnection() {
-  if (sw_if_index_ != uint32_t(~0) && VPPForwarderInterface::memif_api_) {
-    int ret = memif_binary_api_delete_memif(VPPForwarderInterface::memif_api_,
-                                            sw_if_index_);
-
-    if (ret < 0) {
-      TRANSPORT_LOGE("Error deleting memif with sw idx %u.", sw_if_index_);
-    }
-  }
-
   if (VPPForwarderInterface::api_) {
-    vpp_binary_api_destroy(VPPForwarderInterface::api_);
-  }
+    if (sw_if_index_ != uint32_t(~0)) {
+      int ret = memif_binary_api_delete_memif(VPPForwarderInterface::memif_api_,
+                                              sw_if_index_);
 
-  connector_.close();
+      if (ret < 0) {
+        TRANSPORT_LOGE("Error deleting memif with sw idx %u.", sw_if_index_);
+      }
+    }
+
+    vpp_binary_api_destroy(VPPForwarderInterface::api_);
+    connector_.close();
+
+    VPPForwarderInterface::api_ = nullptr;
+  }
 }
 
 }  // namespace core
