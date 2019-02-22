@@ -18,6 +18,7 @@
 #include <hicn/transport/utils/event_reactor.h>
 
 #include <sys/epoll.h>
+#include <atomic>
 #include <cstddef>
 #include <functional>
 #include <mutex>
@@ -57,7 +58,7 @@ class EpollEventReactor : public EventReactor {
   int addFileDescriptor(int fd, uint32_t events);
 
   int epoll_fd_;
-  volatile bool run_event_loop_;
+  std::atomic_bool run_event_loop_;
   EventCallbackMap event_callback_map_;
   std::mutex event_callback_map_mutex_;
 };

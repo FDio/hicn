@@ -136,8 +136,7 @@ int MemifConnector::createMemif(uint32_t index, uint8_t mode, char *s) {
   args.buffer_size = MEMIF_BUF_SIZE;
   args.num_s2m_rings = 1;
   args.num_m2s_rings = 1;
-  strncpy((char *)args.interface_name, IF_NAME, strlen(IF_NAME));
-  // strncpy((char *) args.instance_name, APP_NAME, strlen(APP_NAME));
+  strncpy((char *)args.interface_name, IF_NAME, strlen(IF_NAME) + 1);
   args.mode = memif_interface_mode_t::MEMIF_INTERFACE_MODE_IP;
   args.socket_filename = (uint8_t *)socket_filename_.c_str();
 
