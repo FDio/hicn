@@ -22,6 +22,7 @@
 #include <functional>
 #include <mutex>
 #include <unordered_map>
+#include <atomic>
 
 #define FD_NUMBER 20000
 
@@ -57,7 +58,7 @@ class EpollEventReactor : public EventReactor {
   int addFileDescriptor(int fd, uint32_t events);
 
   int epoll_fd_;
-  volatile bool run_event_loop_;
+  std::atomic_bool run_event_loop_;
   EventCallbackMap event_callback_map_;
   std::mutex event_callback_map_mutex_;
 };
