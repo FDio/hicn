@@ -333,7 +333,7 @@ int MemifConnector::onDisconnect(memif_conn_handle_t conn, void *private_ctx) {
   return 0;
 }
 
-void MemifConnector::threadMain() { event_reactor_.runEventLoop(1); }
+void MemifConnector::threadMain() { event_reactor_.runEventLoop(1000); }
 
 int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
                                 uint16_t qid) {
