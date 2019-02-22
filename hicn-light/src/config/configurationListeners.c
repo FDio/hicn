@@ -42,7 +42,7 @@
 static bool _setupHicnListenerOnInet4(Forwarder *forwarder,
                                       const char *symbolic, Address *address) {
   bool success = false;
-#if !defined(__APPLE__) && !defined(_WIN32)
+#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
   ListenerOps *ops =
       hicnListener_CreateInet(forwarder, (char *)symbolic, address);
   if (ops != NULL) {
@@ -57,7 +57,7 @@ static bool _setupHicnListenerOnInet4(Forwarder *forwarder,
 static bool _setupHicnListenerOnInet6(Forwarder *forwarder,
                                       const char *symbolic, Address *address) {
   bool success = false;
-#if !defined(__APPLE__) && !defined(_WIN32)
+#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
   ListenerOps *ops =
       hicnListener_CreateInet6(forwarder, (char *)symbolic, address);
   if (ops != NULL) {
@@ -81,7 +81,7 @@ bool configurationListeners_Remove(const Configuration *config) {
 
 bool _AddPuntingInet(const Configuration *config, Punting *punting,
                      unsigned ingressId) {
-#if !defined(__APPLE__) && !defined(_WIN32)
+#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
   struct sockaddr *addr = parcNetwork_SockAddress("0.0.0.0", 1234);
   if (addr == NULL) {
     printf("Error creating address\n");
@@ -141,7 +141,7 @@ bool _AddPuntingInet(const Configuration *config, Punting *punting,
 
 bool _AddPuntingInet6(const Configuration *config, Punting *punting,
                       unsigned ingressId) {
-#if !defined(__APPLE__) && !defined(_WIN32)
+#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
   struct sockaddr *addr = parcNetwork_SockAddress("0::0", 1234);
   if (addr == NULL) {
     printf("Error creating address\n");
@@ -231,7 +231,6 @@ static bool _setupTcpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
 
 static bool _setupUdpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
                                     uint16_t *port) {
-
   bool success = false;
 
   struct sockaddr_in addr;
@@ -537,6 +536,6 @@ void configurationListeners_SetutpLocalIPv4(const Configuration *config,
                                             uint16_t port) {
   Forwarder *forwarder = configuration_GetForwarder(config);
   in_addr_t addr = inet_addr("127.0.0.1");
-  _setupUdpListenerOnInet(forwarder, (ipv4_addr_t *) &(addr), &port);
-  _setupTcpListenerOnInet(forwarder, (ipv4_addr_t *) &(addr), &port);
+  _setupUdpListenerOnInet(forwarder, (ipv4_addr_t *)&(addr), &port);
+  _setupTcpListenerOnInet(forwarder, (ipv4_addr_t *)&(addr), &port);
 }

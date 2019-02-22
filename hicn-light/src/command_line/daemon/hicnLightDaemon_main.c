@@ -206,7 +206,7 @@ static void _daemonize(void) {
   int forkReturn = fork();
   parcTrapUnexpectedStateIf(forkReturn < 0, "Fork error")
 
-  if (forkReturn > 0) {
+      if (forkReturn > 0) {
     // parent exits
     exit(EXIT_SUCCESS);
   }
@@ -364,6 +364,13 @@ int main(int argc, const char *argv[]) {
 
   // this will update the clock to the tick clock
   Forwarder *forwarder = forwarder_Create(logger);
+
+  if (forwarder == NULL) {
+    logger_Log(logger, LoggerFacility_Core, PARCLogLevel_Error, "daemon",
+               "Forwarder initialization failed. Are you running it with sudo "
+               "privileges?");
+    return -1;
+  }
 
   Configuration *configuration = forwarder_GetConfiguration(forwarder);
 

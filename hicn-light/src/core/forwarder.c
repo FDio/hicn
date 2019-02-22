@@ -197,7 +197,7 @@ Forwarder *forwarder_Create(Logger *logger) {
   dispatcher_StartSignalEvent(forwarder->dispatcher, forwarder->signal_usr1);
 #endif
 
-#if !defined(__APPLE__) && !defined(_WIN32)
+#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
   forwarder->hicnSocketHelper = hicn_create();
   if (forwarder->hicnSocketHelper == NULL) return NULL;
 #endif /* __APPLE__ */
@@ -237,7 +237,8 @@ void forwarder_Destroy(Forwarder **ptr) {
   parcAssertNotNull(ptr, "Parameter must be non-null double pointer");
   parcAssertNotNull(*ptr, "Parameter must dereference to non-null pointer");
   Forwarder *forwarder = *ptr;
-#if !defined(__APPLE__) && !defined(__ANDROID__) && !defined(_WIN32)
+#if !defined(__APPLE__) && !defined(__ANDROID__) && !defined(_WIN32) && \
+    defined(PUNTING)
   hicn_destroy();
 #endif
   parcEventTimer_Destroy(&(forwarder->keepalive_event));
