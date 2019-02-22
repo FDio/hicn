@@ -159,7 +159,7 @@ int memif_binary_api_delete_memif(vpp_plugin_binary_api_t *api,
   vl_api_memif_delete_t *mp;
   vpp_plugin_binary_api_t *hm = api;
 
-  /* Construct the API message */
+  /* Construct the API message */            
   M(MEMIF_DELETE, mp);
 
   CONTEXT_SAVE(context_store, api, mp)
