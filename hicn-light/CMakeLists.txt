@@ -16,6 +16,8 @@ set(CMAKE_MODULE_PATH
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+option(ENABLE_PUNTING "Enable punting on linux systems" ON)
+
 include( CTest )
 include( detectCacheSize )
 
@@ -24,10 +26,11 @@ if(NOT WIN32)
 else ()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
 endif ()
+
 if(ANDROID_API)
   message("############ Detected cross compile for $ENV{CMAKE_SYSTEM_NAME}")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ANDROID_C_FLAGS}")
-  endif()
+endif()
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -DLIBRTA_DISABLE_VALIDATION -DPARCLibrary_DISABLE_VALIDATION")
 
