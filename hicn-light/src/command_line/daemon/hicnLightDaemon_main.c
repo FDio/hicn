@@ -365,6 +365,13 @@ int main(int argc, const char *argv[]) {
   // this will update the clock to the tick clock
   Forwarder *forwarder = forwarder_Create(logger);
 
+  if (forwarder == NULL) {
+    logger_Log(logger, LoggerFacility_Core, PARCLogLevel_Error, "daemon",
+               "Forwarder initialization failed. Are you running it with sudo "
+               "privileges?");
+    return -1;
+  }
+
   Configuration *configuration = forwarder_GetConfiguration(forwarder);
 
   if (capacity > -1) {

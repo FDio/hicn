@@ -310,8 +310,8 @@ static void configuration_SendResponse(Configuration *config, struct iovec *msg,
   }
 
   connection_SendCommandResponse(conn, msg);
-  //IoOperations *ops = connection_GetIoOperations(conn);
-  //streamState_SendCommandResponse(ops, msg);
+  // IoOperations *ops = connection_GetIoOperations(conn);
+  // streamState_SendCommandResponse(ops, msg);
 }
 
 struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
@@ -370,7 +370,7 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
         logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
                    __func__, "Unsupported tunnel protocol: GRE");
         break;
-#if !defined(__APPLE__) && !defined(_WIN32)
+#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
       case HICN_CONN:
         ops = hicnTunnel_Create(config->forwarder, source, destination);
         break;
