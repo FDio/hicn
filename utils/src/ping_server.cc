@@ -44,7 +44,7 @@ class CallbackContainer {
  public:
   CallbackContainer(const Name &prefix, uint32_t object_size, bool verbose,
                     bool dump, bool quite, bool flags, bool reset, uint8_t ttl,
-                    utils::Identity *identity, bool sign)
+                    utils::Identity *identity, bool sign, uint32_t lifetime)
       : buffer_(object_size, 'X'),
         content_objects_((std::uint32_t)(1 << log2_content_object_buffer_size)),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
@@ -74,12 +74,11 @@ class CallbackContainer {
     for (int i = 0; i < (1 << log2_content_object_buffer_size); i++) {
       content_objects_[i] = std::make_shared<ContentObject>(
           prefix, format, (const uint8_t *)buffer_.data(), buffer_.size());
-      content_objects_[i]->setLifetime(
-          default_values::content_object_expiry_time);
+      content_objects_[i]->setLifetime(lifetime);
     }
   }
 
-  void processInterest(ProducerSocket &p, const Interest &interest) {
+  void processInterest(ProducerSocket &p, const Interest &interest, uint32_t lifetime) {
     if (verbose_) {
       std::cout << "<<< received interest " << interest.getName()
                 << " src port: " << interest.getSrcPort()
@@ -102,7 +101,7 @@ class CallbackContainer {
       auto &content_object = content_objects_[content_objects_index_++ & mask_];
 
       content_object->setName(interest.getName());
-      content_object->setLifetime(default_values::content_object_expiry_time);
+      content_object->setLifetime(lifetime);
       content_object->setLocator(interest.getLocator());
       content_object->setSrcPort(interest.getDstPort());
       content_object->setDstPort(interest.getSrcPort());
@@ -173,6 +172,7 @@ void help() {
   std::cout << "-f        set tcp flags according to the flag received "
                "(default false)"
             << std::endl;
+  std::cout << "-l        data lifetime" << std::endl;
   std::cout << "-r        always reply with a reset flag (default false)"
             << std::endl;
   std::cout << "-t        set ttl (default 64)" << std::endl;
@@ -208,12 +208,13 @@ int main(int argc, char **argv) {
   std::string keystore_path = "./rsa_crypto_material.p12";
   std::string keystore_password = "cisco";
   bool sign = false;
+  uint32_t data_lifetime = default_values::content_object_expiry_time;
 
   int opt;
 #ifndef _WIN32
-  while ((opt = getopt(argc, argv, "s:n:t:qfrVDdHk:p:")) != -1) {
+  while ((opt = getopt(argc, argv, "s:n:t:l:qfrVDdHk:p:")) != -1) {
 #else
-  while ((opt = getopt(argc, argv, "s:n:t:qfrVDHk:p:")) != -1) {
+  while ((opt = getopt(argc, argv, "s:n:t:l:qfrVDHk:p:")) != -1) {
 #endif
     switch (opt) {
       case 's':
@@ -225,6 +226,9 @@ int main(int argc, char **argv) {
       case 't':
         ttl = (uint8_t)std::stoi(optarg);
         break;
+      case 'l':
+	data_lifetime = std::stoi(optarg);
+	break;
       case 'V':
         verbose = true;
         break;
@@ -281,11 +285,11 @@ int main(int argc, char **argv) {
 
   if (sign) {
     stubs = new CallbackContainer(n, object_size, verbose, dump, quite, flags,
-                                  reset, ttl, &identity, sign);
+                                  reset, ttl, &identity, sign, data_lifetime);
   } else {
     utils::Identity *identity = nullptr;
     stubs = new CallbackContainer(n, object_size, verbose, dump, quite, flags,
-                                  reset, ttl, identity, sign);
+                                  reset, ttl, identity, sign, data_lifetime);
   }
 
   ProducerSocket p;
@@ -295,7 +299,7 @@ int main(int argc, char **argv) {
   p.setSocketOption(ProducerCallbacksOptions::CACHE_MISS,
                     (ProducerInterestCallback)bind(
                         &CallbackContainer::processInterest, stubs,
-                        std::placeholders::_1, std::placeholders::_2));
+                        std::placeholders::_1, std::placeholders::_2, data_lifetime));
 
   p.connect();
 
