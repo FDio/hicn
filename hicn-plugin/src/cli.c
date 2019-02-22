@@ -86,9 +86,12 @@ hicn_cli_node_ctl_start_set_command_fn (vlib_main_t * vm,
 
   ret = hicn_infra_plugin_enable_disable (1 /* enable */ ,
 					  node_ctl_params.pit_max_size,
-					  node_ctl_params.pit_dflt_lifetime_sec,
-					  node_ctl_params.pit_min_lifetime_sec,
-					  node_ctl_params.pit_max_lifetime_sec,
+					  node_ctl_params.
+					  pit_dflt_lifetime_sec,
+					  node_ctl_params.
+					  pit_min_lifetime_sec,
+					  node_ctl_params.
+					  pit_max_lifetime_sec,
 					  node_ctl_params.cs_max_size,
 					  node_ctl_params.cs_reserved_app);
 
@@ -131,9 +134,12 @@ hicn_cli_node_ctl_stop_set_command_fn (vlib_main_t * vm,
     }
   ret = hicn_infra_plugin_enable_disable (0 /* !enable */ ,
 					  node_ctl_params.pit_max_size,
-					  node_ctl_params.pit_dflt_lifetime_sec,
-					  node_ctl_params.pit_min_lifetime_sec,
-					  node_ctl_params.pit_max_lifetime_sec,
+					  node_ctl_params.
+					  pit_dflt_lifetime_sec,
+					  node_ctl_params.
+					  pit_min_lifetime_sec,
+					  node_ctl_params.
+					  pit_max_lifetime_sec,
 					  node_ctl_params.cs_max_size,
 					  node_ctl_params.cs_reserved_app);
 
@@ -877,8 +883,8 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
     {
       /* Add data node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.
-					      hicn_node_info.ip4_inacl_node_index,
+					      hicn_punt_glb.hicn_node_info.
+					      ip4_inacl_node_index,
 					      hicn_pg_data_node.index);
 
       /* Add pgen_client node to the vpp graph */
@@ -915,8 +921,8 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
     {
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.hicn_node_info.
-					      ip6_inacl_node_index,
+					      hicn_punt_glb.
+					      hicn_node_info.ip6_inacl_node_index,
 					      hicn_pg_data_node.index);
 
       /* Add pgen_client node to the vpp graph */
@@ -1086,8 +1092,8 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
     {
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.
-					      hicn_node_info.ip4_inacl_node_index,
+					      hicn_punt_glb.hicn_node_info.
+					      ip4_inacl_node_index,
 					      hicn_pg_server_node.index);
 
       /* Create the punting table if it does not exist */
@@ -1113,8 +1119,8 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
     {
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.hicn_node_info.
-					      ip6_inacl_node_index,
+					      hicn_punt_glb.
+					      hicn_node_info.ip6_inacl_node_index,
 					      hicn_pg_server_node.index);
 
       /* Create the punting table if it does not exist */
@@ -1210,7 +1216,7 @@ VLIB_CLI_COMMAND(hicn_cli_show_command, static)=
 VLIB_CLI_COMMAND(hicn_cli_punting_command, static)=
 {
 	.path = "hicn punting",
-        .short_help = "hicn punting {add|delete} prefix <ip_address/mask> intfc <interface> type <ip/udp>",
+        .short_help = "hicn punting {add|delete} prefix <ip_address/mask> intfc <interface> {type ip | type <udp4|udp6> src_port <port> dst_port <port>}",
         .function = hicn_cli_punting_command_fn,
 };
 

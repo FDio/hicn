@@ -97,7 +97,7 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
   u32 bi0 = vlib_get_buffer_index (vm, b0);
   hicn_hash_node_t *nodep;
   hicn_pcs_entry_t *pitp;
-  hicn_header_t *hicn0;
+  hicn_header_t *hicn0 = vlib_buffer_get_current (b0);
   hicn_buffer_t *hicnb0 = hicn_get_buffer (b0);
   u32 node_id0 = 0;
   u8 dpo_ctx_id0 = ~0;
@@ -107,6 +107,17 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
   u32 bucket_id = ~0;
   u8 bucket_is_overflow = 0;
   hicn_lifetime_t dmsg_lifetime;
+
+  hicnb0 = hicn_get_buffer (b0);
+  hicn_type_t type = hicnb0->type;
+  hicn_ops_vft[type.l1]->get_lifetime (type, &hicn0->protocol,
+				       &dmsg_lifetime);
+
+  if (!dmsg_lifetime)
+    {
+      vlib_buffer_free_one (vm, bi0);
+      return HICN_ERROR_NONE;
+    }
 
   /* Create PIT node and init PIT entry */
   nodep = hicn_hashtb_alloc_node (rt->pitcs->pcs_table);
@@ -120,12 +131,6 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
   pitp = hicn_pit_get_data (nodep);
   hicn_pit_init_data (pitp);
   pitp->shared.create_time = tnow;
-
-  hicn0 = vlib_buffer_get_current (b0);
-
-  hicn_type_t type = hicnb0->type;
-  hicn_ops_vft[type.l1]->get_lifetime (type, &hicn0->protocol,
-				       &dmsg_lifetime);
 
   if (dmsg_lifetime < HICN_PARAM_CS_LIFETIME_MIN
       || dmsg_lifetime > HICN_PARAM_CS_LIFETIME_MAX)
@@ -238,10 +243,13 @@ hicn_data_push_fn (vlib_main_t * vm,
 
       ret0 = hicn_data_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
       nameptr = (u8 *) (&name);
+
       if (PREDICT_TRUE (ret0 == HICN_ERROR_NONE))
-	hicn_new_data (vm, rt, b0, &to_forward, &n_to_forward, tnow, nameptr,
-		       namelen, isv6);
-      stats.pkts_data_count++;
+	{
+	  hicn_new_data (vm, rt, b0, &to_forward, &n_to_forward, tnow,
+			 nameptr, namelen, isv6);
+	  stats.pkts_data_count++;
+	}
     }
 
   to_forward -= n_to_forward;

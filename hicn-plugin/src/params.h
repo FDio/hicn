@@ -80,7 +80,7 @@ STATIC_ASSERT ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX <= HICN_PARAM_FACES_MAX),
 #define HICN_PARAM_CS_LRU_DEFAULT    (16 * 1024)
 
 /* CS lifetime defines, in mseconds, integer type */
-#define HICN_PARAM_CS_LIFETIME_MIN      100
+#define HICN_PARAM_CS_LIFETIME_MIN      0
 #define HICN_PARAM_CS_LIFETIME_DFLT    (5 * 60 * 1000)	// 300 seconds
 #define HICN_PARAM_CS_LIFETIME_MAX      (24 * 3600 * 1000)	//24 hours...
 

@@ -50,7 +50,7 @@ clone_data_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 		  hicn_hash_node_t * nodep, vlib_buffer_t * b0,
 		  hicn_hash_entry_t * hash_entry, u64 name_hash,
 		  hicn_buffer_t * hicnb, const hicn_dpo_vft_t * dpo_vft,
-		  dpo_id_t * hicn_dpo_id);
+		  dpo_id_t * hicn_dpo_id, hicn_lifetime_t dmsg_lifetime);
 
 
 /* packet trace format function */
@@ -221,24 +221,69 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 						pitp->u.pit.pe_txnh);
 
 #if HICN_FEATURE_CS
-	      /*
-	       * Clone data packet in the content store and
-	       * convert the PIT entry into a CS entry
-	       */
-	      clone_data_to_cs (vm, pitcs, pitp, hicn0, tnow, node0,
-				b0, hash_entry0, hicnb0->name_hash, hicnb0,
-				dpo_vft0, &hicn_dpo_id0);
+	      hicn_lifetime_t dmsg_lifetime;
 
-	      hicn_pcs_remove_lock (pitcs, &pitp, &node0, vm,
-				    hash_entry0, NULL, NULL);
+	      hicn_type_t type = hicnb0->type;
+	      hicn_ops_vft[type.l1]->get_lifetime (type, &hicn0->protocol,
+						   &dmsg_lifetime);
+
+	      if (dmsg_lifetime)
+		{
+		  /*
+		   * Clone data packet in the content store and
+		   * convert the PIT entry into a CS entry
+		   */
+		  clone_data_to_cs (vm, pitcs, pitp, hicn0, tnow, node0,
+				    b0, hash_entry0, hicnb0->name_hash,
+				    hicnb0, dpo_vft0, &hicn_dpo_id0,
+				    dmsg_lifetime);
+
+		  hicn_pcs_remove_lock (pitcs, &pitp, &node0, vm,
+					hash_entry0, NULL, NULL);
+		}
+	      else
+		{
+		  /*
+		   * If the packet is copied and not cloned, we need to free the vlib_buffer
+		   */
+		  if (hicnb0->flags & HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL)
+		    {
+		      vlib_buffer_free_one (vm, bi0);
+		    }
+		  else
+		    {
+		      /*
+		       * Remove one reference as the buffer is no
+		       * longer in any frame. The vlib_buffer will be freed when
+		       * all its cloned vlib_buffer will be freed.
+		       */
+		      b0->n_add_refs--;
+		    }
+
+		  /* Delete the PIT entry */
+		  hicn_pcs_pit_delete (pitcs, &pitp, &node0, vm,
+				       hash_entry0, dpo_vft0, &hicn_dpo_id0);
+		}
 #else
 	      ASSERT (pitp == hicn_pit_get_data (node0));
 	      /*
-	       * Remove one reference as the buffer is no
-	       * longer in any frame
+	       * If the packet is copied and not cloned, we need to free the vlib_buffer
 	       */
-	      b0->n_add_refs--;
-	      /* If not enabled, delete the PIT entry */
+	      if (hicnb0->flags & HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL)
+		{
+		  vlib_buffer_free_one (vm, bi0);
+		}
+	      else
+		{
+		  /*
+		   * Remove one reference as the buffer is no
+		   * longer in any frame. The vlib_buffer will be freed when
+		   * all its cloned vlib_buffer will be freed.
+		   */
+		  b0->n_add_refs--;
+		}
+
+	      /* Delete the PIT entry */
 	      hicn_pcs_pit_delete (pitcs, &pitp, &node0, vm,
 				   hash_entry0, dpo_vft0, &hicn_dpo_id0);
 #endif
@@ -490,9 +535,8 @@ clone_data_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 		  hicn_hash_node_t * nodep, vlib_buffer_t * b0,
 		  hicn_hash_entry_t * hash_entry, u64 name_hash,
 		  hicn_buffer_t * hicnb, const hicn_dpo_vft_t * dpo_vft,
-		  dpo_id_t * hicn_dpo_id)
+		  dpo_id_t * hicn_dpo_id, hicn_lifetime_t dmsg_lifetime)
 {
-  hicn_lifetime_t dmsg_lifetime;
   /*
    * At this point we think we're safe to proceed. Store the CS buf in
    * the PIT/CS hashtable entry
@@ -509,10 +553,6 @@ clone_data_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 		  hicnb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP);
 
   pitp->shared.create_time = tnow;
-
-  hicn_type_t type = hicnb0->type;
-  hicn_ops_vft[type.l1]->get_lifetime (type, &hicn0->protocol,
-				       &dmsg_lifetime);
 
   if (dmsg_lifetime < HICN_PARAM_CS_LIFETIME_MIN
       || dmsg_lifetime > HICN_PARAM_CS_LIFETIME_MAX)
