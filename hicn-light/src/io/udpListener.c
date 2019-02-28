@@ -29,6 +29,7 @@
 #include <src/io/udpConnection.h>
 #include <src/io/udpListener.h>
 
+#include <parc/algol/parc_Network.h>
 #include <parc/algol/parc_Memory.h>
 #include <parc/assert/parc_Assert.h>
 #include <src/core/connection.h>
@@ -360,7 +361,20 @@ static bool _lookupConnectionId(UdpListener *udp, AddressPair *pair,
 
 static unsigned _createNewConnection(UdpListener *udp, int fd,
                                      const AddressPair *pair) {
+  //check it the connection is local
   bool isLocal = false;
+  const Address *localAddress = addressPair_GetLocal(pair);
+  if(addressGetType(localAddress) == ADDR_INET){
+    struct sockaddr_in tmpAddr;
+    addressGetInet(localAddress, &tmpAddr);
+    if(parcNetwork_IsSocketLocal((struct sockaddr *)&tmpAddr))
+      isLocal = true;
+  }else{
+    struct sockaddr_in6 tmpAddr6;
+    addressGetInet6(localAddress, &tmpAddr6);
+    if(parcNetwork_IsSocketLocal((struct sockaddr *)&tmpAddr6))
+      isLocal = true;
+  }
 
   // metisUdpConnection_Create takes ownership of the pair
   IoOperations *ops = udpConnection_Create(udp->forwarder, fd, pair, isLocal);
