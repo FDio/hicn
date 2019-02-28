@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <parc/algol/parc_Network.h>
 #include <parc/assert/parc_Assert.h>
 #include <src/io/udpConnection.h>
 #include <src/io/udpListener.h>
@@ -42,7 +43,20 @@ IoOperations *udpTunnel_CreateOnListener(Forwarder *forwarder,
 
     if (localType == remoteType) {
       AddressPair *pair = addressPair_Create(localAddress, remoteAddress);
+
+      //check it the connection is local
       bool isLocal = false;
+      if(localType == ADDR_INET){
+        struct sockaddr_in tmpAddr;
+        addressGetInet(localAddress, &tmpAddr);
+        if(parcNetwork_IsSocketLocal((struct sockaddr *)&tmpAddr))
+          isLocal = true;
+      }else{
+        struct sockaddr_in6 tmpAddr6;
+        addressGetInet6(localAddress, &tmpAddr6);
+        if(parcNetwork_IsSocketLocal((struct sockaddr *)&tmpAddr6))
+          isLocal = true;
+      }
       int fd = localListener->getSocket(localListener);
       // udpListener_SetPacketType(localListener,
       //                MessagePacketType_ContentObject);
