@@ -18,6 +18,7 @@
 #include <hicn/transport/core/forwarder_interface.h>
 #include <hicn/transport/core/prefix.h>
 #include <hicn/transport/core/udp_socket_connector.h>
+#include <hicn/transport/core/tcp_socket_connector.h>
 
 #include <deque>
 
@@ -26,11 +27,12 @@ namespace transport {
 namespace core {
 
 class HicnForwarderInterface
-    : public ForwarderInterface<HicnForwarderInterface, UdpSocketConnector> {
-  static constexpr uint8_t ack_code = 0xc2;
-  static constexpr uint8_t nack_code = 0xc3;
+    : public ForwarderInterface<HicnForwarderInterface, TcpSocketConnector> {
 
  public:
+
+static constexpr uint8_t ack_code = 0xc2;
+  static constexpr uint8_t nack_code = 0xc3;
   union addressLight {
     uint32_t ipv4;
     struct in6_addr ipv6;
@@ -49,9 +51,9 @@ class HicnForwarderInterface
   };
 
   using route_to_self_command = struct route_to_self_command;
-  using ConnectorType = UdpSocketConnector;
+  using ConnectorType = TcpSocketConnector;
 
-  HicnForwarderInterface(UdpSocketConnector &connector);
+  HicnForwarderInterface(ConnectorType &connector);
 
   ~HicnForwarderInterface();
 
