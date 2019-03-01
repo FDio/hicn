@@ -20,6 +20,7 @@
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/object_pool.h>
+#include <hicn/transport/core/hicn_forwarder_interface.h>
 
 #include <vector>
 
@@ -38,7 +39,7 @@ class NetworkMessage {
     uint8_t first_byte = packet[0];
     uint8_t ip_format = (packet[0] & 0xf0) >> 4;
 
-    if (TRANSPORT_EXPECT_FALSE(first_byte == 102)) {
+    if (TRANSPORT_EXPECT_FALSE(first_byte == HicnForwarderInterface::ack_code || first_byte == HicnForwarderInterface::nack_code)) {
       // Get packet length
       return 44;
     } else if (TRANSPORT_EXPECT_TRUE(ip_format == 6 || ip_format == 4)) {

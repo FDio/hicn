@@ -91,7 +91,7 @@ std::unique_ptr<RouteToSelfCommand> createCommandRoute(
   return command;
 }
 
-std::unique_ptr<DeleteSelfConnectionCommand> createCommandDeleteConnection() {
+/*std::unique_ptr<DeleteSelfConnectionCommand> createCommandDeleteConnection() {
   auto command = std::make_unique<DeleteSelfConnectionCommand>();
   fillCommandHeader((CommandHeader *)command.get());
   command->command_id = delete_connection_command;
@@ -104,7 +104,7 @@ std::unique_ptr<DeleteSelfConnectionCommand> createCommandDeleteConnection() {
 #endif
 
   return command;
-}
+}*/
 
 }  // namespace
 
@@ -112,8 +112,8 @@ namespace transport {
 
 namespace core {
 
-HicnForwarderInterface::HicnForwarderInterface(UdpSocketConnector &connector)
-    : ForwarderInterface<HicnForwarderInterface, UdpSocketConnector>(
+HicnForwarderInterface::HicnForwarderInterface(ConnectorType &connector)
+    : ForwarderInterface<HicnForwarderInterface, ConnectorType>(
           connector) {}
 
 HicnForwarderInterface::~HicnForwarderInterface() {}
@@ -129,12 +129,13 @@ void HicnForwarderInterface::registerRoute(Prefix &prefix) {
 }
 
 void HicnForwarderInterface::closeConnection() {
-  auto command = createCommandDeleteConnection().release();
+  connector_.close();
+  /*auto command = createCommandDeleteConnection().release();
   send((uint8_t *)command, sizeof(DeleteSelfConnectionCommand),
        [this, command]() {
          delete command;
          connector_.close();
-       });
+       });*/
 }
 
 }  // namespace core
