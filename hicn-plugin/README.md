@@ -30,7 +30,7 @@ $ sudo make install
 $ cd hicn-plugin
 $ mkdir -p build
 $ cd build
-$ cmake .. -DVPP_HOME=<vpp dir>/build-root/install-vpp-native/vpp/include/ -DHICN_INSTALL_PREFIX=<vpp src>/build-root/install-vpp-native/vpp/lib
+$ cmake .. -DVPP_HOME=<vpp dir>/build-root/install-vpp-native/vpp -DCMAKE_INSTALL_PREFIX=<vpp src>/build-root/install-vpp-native/vpp
 $ make
 $ sudo make install
 
@@ -38,13 +38,13 @@ $ sudo make install
 $ cd hicn-plugin
 $ mkdir -p build
 $ cd build
-$ cmake .. -DCMAKE_BUILD_TYPE=DEBUG -DVPP_HOME=<vpp dir>/build-root/install-vpp_debug-native/vpp/include/ -DHICN_INSTALL_PREFIX=<vpp src>/build-root/install-vpp_debug-native/vpp/lib
+$ cmake .. -DCMAKE_BUILD_TYPE=DEBUG -DVPP_HOME=<vpp dir>/build-root/install-vpp_debug-native/vpp -DCMAKE_INSTALL_PREFIX=<vpp src>/build-root/install-vpp_debug-native/vpp
 $ make
 $ sudo make install
 
 CMAKE variables:
-- HICN_INSTALL_PREFIX -- set the install directory for the hicn-plugin. This is the common path to the folders vpp_plugins and vpp_api_test_plugins. Default is <vpp install dir>/lib
-- VPP_INSTALL_PLUGIN -- set the install directory for the libhicn_plugin.so. Defatuls id $HICN_INSTALL_PREFIX/vpp_plugins
+- CMAKE_INSTALL_PREFIX -- set the install directory for the hicn-plugin. This is the common path to the lib folder containing vpp_plugins and vpp_api_test_plugins folders. Default is /usr/local.
+- VPP_HOME -- set the directory containing the include and lib directories of vpp.
 - HICN_API_TEST_HEADER_FILES -- set the install directory for the header files. Default is <vpp install dir>/include/vpp_plugins/hicn
 ```
 
