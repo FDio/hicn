@@ -1197,7 +1197,7 @@ VLIB_CLI_COMMAND(hicn_cli_node_ctl_command, static)=
 VLIB_CLI_COMMAND(hicn_cli_fib_set_command, static)=
 {
 	.path = "hicn fib",
-        .short_help = "hicn fib {{add | delete } prefix <prefix> face <faceid> }"
+        .short_help = "hicn fib {{add | delete } prefix <prefix> face <facei_d> }"
         " | set strategy <strategy_id> prefix <prefix>",
         .function = hicn_cli_fib_set_command_fn,
 };
@@ -1207,7 +1207,7 @@ VLIB_CLI_COMMAND(hicn_cli_show_command, static)=
 {
 	.path = "hicn show",
         .short_help = "hicn show "
-        "[detail] [internal]"
+        "[internal]"
         "[strategies]",
         .function = hicn_cli_show_command_fn,
 };
@@ -1216,7 +1216,7 @@ VLIB_CLI_COMMAND(hicn_cli_show_command, static)=
 VLIB_CLI_COMMAND(hicn_cli_punting_command, static)=
 {
 	.path = "hicn punting",
-        .short_help = "hicn punting {add|delete} prefix <ip_address/mask> intfc <interface> {type ip | type <udp4|udp6> src_port <port> dst_port <port>}",
+        .short_help = "hicn punting {add|delete} prefix <prefix> intfc <sw_if> {type ip | type <udp4|udp6> src_port <port> dst_port <port>}",
         .function = hicn_cli_punting_command_fn,
 };
 
@@ -1231,7 +1231,7 @@ VLIB_CLI_COMMAND(hicn_cli_mapme_command, static)=
 VLIB_CLI_COMMAND(hicn_cli_pgen_client_set_command, static)=
 {
 	.path = "hicn pgen client",
-        .short_help = "hicn pgen client fwd <ip|hicn> src <addr> n_ifaces <n_ifaces> name <addr/subnet> lifetime <interest-lifetime> intfc <data in-interface> max_seq <max sequence number> n_flows <number of flows>",
+        .short_help = "hicn pgen client fwd <ip|hicn> src <src_addr> n_ifaces <n_ifaces> name <prefix> lifetime <interest-lifetime> intfc <data in-interface> max_seq <max sequence number> n_flows <number of flows>",
         .long_help = "Run hicn in packet-gen client mode\n",
         .function = hicn_cli_pgen_client_set_command_fn,
 };
@@ -1240,7 +1240,7 @@ VLIB_CLI_COMMAND(hicn_cli_pgen_client_set_command, static)=
 VLIB_CLI_COMMAND(hicn_cli_pgen_server_set_command, static)=
 {
 	.path = "hicn pgen server",
-        .short_help = "hicn pgen server fwd <ip|hicn> name <addr/subnet> intfc <interest in-interface> size <payload_size>",
+        .short_help = "hicn pgen server fwd <ip|hicn> name <prefix> intfc <interest in-interface> size <payload_size>",
         .long_help = "Run hicn in packet-gen server mode\n",
         .function = hicn_cli_pgen_server_set_command_fn,
 };
