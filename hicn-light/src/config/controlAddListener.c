@@ -111,7 +111,7 @@ static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
   // Fill remaining payload fields
   addListenerCommand->listenerMode = mode;
   addListenerCommand->connectionType = type;
-  addListenerCommand->port = (uint16_t)atoi(port);
+  addListenerCommand->port = htons((uint16_t)atoi(port));
   strcpy(addListenerCommand->symbolic, symbolic);
 
   // send message and receive response
