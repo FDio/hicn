@@ -32,18 +32,6 @@ bool utils_IsNumber(const char *string);
 bool utils_ValidateSymbolicName(const char *symbolic);
 
 /**
- * Convert an internet address family (IPv4) to the address format used by the
- * Fwd
- */
-Address *utils_AddressFromInet(in_addr_t *addr4, in_port_t *port);
-
-/**
- * Convert an internet address family (IPv6) to the address format used by the
- * Fwd
- */
-Address *utils_AddressFromInet6(struct in6_addr *addr6, in_port_t *port);
-
-/**
  *Create an Ack message instance as a response of a control successfully
  *completed.
  */
