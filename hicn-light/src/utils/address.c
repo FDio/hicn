@@ -119,6 +119,36 @@ Address *addressCreateFromInet6(struct sockaddr_in6 *addr_in6) {
   return result;
 }
 
+Address *addressFromInaddr4Port(in_addr_t *addr4, in_port_t *port) {
+  struct sockaddr_in addr;
+  memset(&addr, 0, sizeof(addr));
+
+  // We assume address and port are already written in memory in network byte
+  // order
+  addr.sin_family = AF_INET;
+  addr.sin_port = *port;
+  addr.sin_addr.s_addr = *addr4;
+
+  Address *result = addressCreateFromInet(&addr);
+  return result;
+}
+
+Address *addressFromInaddr6Port(struct in6_addr *addr6, in_port_t *port) {
+  struct sockaddr_in6 addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sin6_family = AF_INET6;
+
+  // We assume address and port are already written in memory in network byte
+  // order
+  addr.sin6_port = *port;
+  addr.sin6_addr = *addr6;
+  addr.sin6_scope_id = 0;
+  // Other 2 fields: scope_id and flowinfo, do not know what to put inside.
+
+  Address *result = addressCreateFromInet6(&addr);
+  return result;
+}
+
 Address *addressCreateFromLink(const uint8_t *linkaddr, size_t length) {
   parcAssertNotNull(linkaddr, "Parameter must be non-null");
 
