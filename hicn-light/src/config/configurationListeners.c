@@ -38,6 +38,7 @@
 #include <src/utils/addressList.h>
 #include <src/utils/commands.h>
 #include <src/utils/utils.h>
+#include <src/utils/address.h>
 
 static bool _setupHicnListenerOnInet4(Forwarder *forwarder,
                                       const char *symbolic, Address *address) {
@@ -210,6 +211,15 @@ static bool _addEther(Configuration *config, add_listener_command *control,
   return false;
 }
 
+/*
+ *  Create a new IPV4/TCP listener.
+ *
+ * @param [in,out] forwarder   The hicn-light forwarder instance
+ * @param [in] addr4           The ipv4 address in network byte order
+ * @param [in] port            The port number in network byte order
+ * 
+ * return true if success, false otherwise
+ */
 static bool _setupTcpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
                                     uint16_t *port) {
   bool success = false;
@@ -217,7 +227,7 @@ static bool _setupTcpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(*port);
+  addr.sin_port = *port;
   addr.sin_addr.s_addr = *addr4;
 
   ListenerOps *ops = tcpListener_CreateInet(forwarder, addr);
@@ -229,6 +239,15 @@ static bool _setupTcpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
   return success;
 }
 
+/*
+ *  Create a new IPV4/UDP listener.
+ *
+ * @param [in,out] forwarder   The hicn-light forwarder instance
+ * @param [in] addr4           The ipv4 address in network byte order
+ * @param [in] port            The port number in network byte order
+ * 
+ * return true if success, false otherwise
+ */
 static bool _setupUdpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
                                     uint16_t *port) {
   bool success = false;
@@ -236,7 +255,7 @@ static bool _setupUdpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(*port);
+  addr.sin_port = *port;
   addr.sin_addr.s_addr = *addr4;
 
   ListenerOps *ops = udpListener_CreateInet(forwarder, addr);
@@ -248,6 +267,15 @@ static bool _setupUdpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
   return success;
 }
 
+/*
+ *  Create a new IPV6/TCP listener.
+ *
+ * @param [in,out] forwarder   The hicn-light forwarder instance
+ * @param [in] addr6           The ipv6 address in network byte order
+ * @param [in] port            The port number in network byte order
+ * 
+ * return true if success, false otherwise
+ */
 static bool _setupTcpListenerOnInet6Light(Forwarder *forwarder,
                                           ipv6_addr_t *addr6, uint16_t *port,
                                           uint32_t scopeId) {
@@ -256,7 +284,7 @@ static bool _setupTcpListenerOnInet6Light(Forwarder *forwarder,
   struct sockaddr_in6 addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin6_family = AF_INET6;
-  addr.sin6_port = htons(*port);
+  addr.sin6_port = *port;
   addr.sin6_addr = *addr6;
   addr.sin6_scope_id = scopeId;
 
@@ -269,6 +297,15 @@ static bool _setupTcpListenerOnInet6Light(Forwarder *forwarder,
   return success;
 }
 
+/*
+ *  Create a new IPV6/UDP listener.
+ *
+ * @param [in,out] forwarder   The hicn-light forwarder instance
+ * @param [in] addr6           The ipv6 address in network byte order
+ * @param [in] port            The port number in network byte order
+ * 
+ * return true if success, false otherwise
+ */
 static bool _setupUdpListenerOnInet6Light(Forwarder *forwarder,
                                           ipv6_addr_t *addr6, uint16_t *port) {
   bool success = false;
@@ -276,7 +313,7 @@ static bool _setupUdpListenerOnInet6Light(Forwarder *forwarder,
   struct sockaddr_in6 addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin6_family = AF_INET6;
-  addr.sin6_port = htons(*port);
+  addr.sin6_port = *port;
   addr.sin6_addr = *addr6;
   addr.sin6_scope_id = 0;
 
@@ -289,6 +326,15 @@ static bool _setupUdpListenerOnInet6Light(Forwarder *forwarder,
   return success;
 }
 
+/*
+ *  Create a new HICN listener.
+ *
+ * @param [in] config   The configuration
+ * @param [in] control  The control command
+ * @param [in] port     The connection id of the command
+ * 
+ * return true if success, false otherwise
+ */
 bool _addHicn(Configuration *config, add_listener_command *control,
               unsigned ingressId) {
   bool success = false;
@@ -298,7 +344,7 @@ bool _addHicn(Configuration *config, add_listener_command *control,
   switch (control->addressType) {
     case ADDR_INET: {
       localAddress =
-          utils_AddressFromInet(&control->address.ipv4, &control->port);
+          addressFromInaddr4Port(&control->address.ipv4, &control->port);
       success = _setupHicnListenerOnInet4(configuration_GetForwarder(config),
                                           symbolic, localAddress);
       break;
@@ -306,7 +352,7 @@ bool _addHicn(Configuration *config, add_listener_command *control,
 
     case ADDR_INET6: {
       localAddress =
-          utils_AddressFromInet6(&control->address.ipv6, &control->port);
+          addressFromInaddr6Port(&control->address.ipv6, &control->port);
       success = _setupHicnListenerOnInet6(configuration_GetForwarder(config),
                                           symbolic, localAddress);
       break;
@@ -449,12 +495,12 @@ struct iovec *configurationListeners_AddPunting(Configuration *config,
   bool success = false;
 
   if (control->addressType == ADDR_INET) {
-    Address *address = utils_AddressFromInet(&control->address.ipv4, &port);
+    Address *address = addressFromInaddr4Port(&control->address.ipv4, &port);
     Punting *punting = puntingCreate(symbolicOrConnid, address, len);
     success = _AddPuntingInet(config, punting, ingressId);
     addressDestroy(&address);
   } else if (control->addressType == ADDR_INET6) {
-    Address *address = utils_AddressFromInet6(&control->address.ipv6, &port);
+    Address *address = addressFromInaddr6Port(&control->address.ipv6, &port);
     Punting *punting = puntingCreate(symbolicOrConnid, address, len);
     success = _AddPuntingInet6(config, punting, ingressId);
     addressDestroy(&address);
@@ -536,6 +582,8 @@ void configurationListeners_SetutpLocalIPv4(const Configuration *config,
                                             uint16_t port) {
   Forwarder *forwarder = configuration_GetForwarder(config);
   in_addr_t addr = inet_addr("127.0.0.1");
-  _setupUdpListenerOnInet(forwarder, (ipv4_addr_t *)&(addr), &port);
-  _setupTcpListenerOnInet(forwarder, (ipv4_addr_t *)&(addr), &port);
+  uint16_t network_byte_order_port = htons(port);
+
+  _setupUdpListenerOnInet(forwarder, (ipv4_addr_t *)&(addr), &network_byte_order_port);
+  _setupTcpListenerOnInet(forwarder, (ipv4_addr_t *)&(addr), &network_byte_order_port);
 }

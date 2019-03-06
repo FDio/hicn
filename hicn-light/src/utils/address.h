@@ -144,6 +144,30 @@ Address *addressCreateFromInet(struct sockaddr_in *addr_in);
 Address *addressCreateFromInet6(struct sockaddr_in6 *addr_in6);
 
 /**
+ * Convert an internet address family (IPv4) to the address format used by the
+ * Fwd.
+ * 
+ * @param [in] addr4    IPV4 address in *Network byte order*
+ * @param [in] port     Port number in *Network byte order*
+ * 
+ * @return  A new instance of `Address` that must eventually be destroyed by
+ * calling {@link addressDestroy}()
+ */
+Address *addressFromInaddr4Port(in_addr_t *addr4, in_port_t *port);
+
+/**
+ * Convert an internet address family (IPv6) to the address format used by the
+ * Fwd
+ * 
+ * @param [in] addr6    IPV4 address in *Network byte order*
+ * @param [in] port     Port number in *Network byte order*
+ * 
+ * @return  A new instance of `Address` that must eventually be destroyed by
+ * calling {@link addressDestroy}()
+ */
+Address *addressFromInaddr6Port(struct in6_addr *addr6, in_port_t *port);
+
+/**
  * Create a new `Address` instance, initialized from a Link address.
  *
  * User must know the link address format (i.e. token ring vs ethernet) and have
