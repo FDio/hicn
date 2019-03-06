@@ -34,8 +34,6 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
   ip46_address_t local_addr;
   ip46_address_t remote_addr;
   hicn_face_id_t face_id = HICN_FACE_NULL;
-  int app_face = 0;
-  u32 cs_reserved = HICN_PARAM_FACE_DFT_CS_RESERVED;
   int ret = HICN_ERROR_NONE;
   int sw_if;
   int face_op = HICN_FACE_NONE;
@@ -73,10 +71,6 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
 					(HICN_ERROR_CLI_INVAL),
 					format_unformat_error, line_input);
 	    }
-	}
-      else if (unformat (line_input, "app_face %d", &app_face))
-	{
-	  if (unformat (line_input, "cs_size %d", &cs_reserved));
 	}
       else
 	{
@@ -144,7 +138,7 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
 VLIB_CLI_COMMAND (hicn_face_ip_cli_set_command, static) =
 {
   .path = "hicn face ip",
-  .short_help = "hicn face ip {add local <local_address> remote <remote_address> intfc <sw_if>} {app_face <0/1>} {cs_size <size_in_packets>} | {del id <face_id>}",
+  .short_help = "hicn face ip {add local <src_address> remote <dst_address> intfc <sw_if>} | {del id <face_id>}",
   .function = hicn_face_ip_cli_set_command_fn,
 };
 /* *INDENT-ON* */
