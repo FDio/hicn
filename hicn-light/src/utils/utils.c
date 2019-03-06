@@ -69,30 +69,6 @@ bool utils_ValidateSymbolicName(const char *symbolic) {
   return success;
 }
 
-Address *utils_AddressFromInet(in_addr_t *addr4, in_port_t *port) {
-  struct sockaddr_in addr;
-  memset(&addr, 0, sizeof(addr));
-  addr.sin_family = AF_INET;
-  addr.sin_port = *port;
-  addr.sin_addr.s_addr = *addr4;
-
-  Address *result = addressCreateFromInet(&addr);
-  return result;
-}
-
-Address *utils_AddressFromInet6(struct in6_addr *addr6, in_port_t *port) {
-  struct sockaddr_in6 addr;
-  memset(&addr, 0, sizeof(addr));
-  addr.sin6_family = AF_INET6;
-  addr.sin6_port = *port;
-  addr.sin6_addr = *addr6;
-  addr.sin6_scope_id = 0;
-  // Other 2 fields: scope_id and flowinfo, do not know what to put inside.
-
-  Address *result = addressCreateFromInet6(&addr);
-  return result;
-}
-
 struct iovec *utils_CreateAck(header_control_message *header, void *payload,
                               size_t payloadLen) {
   struct iovec *response =

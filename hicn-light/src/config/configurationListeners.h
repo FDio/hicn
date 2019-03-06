@@ -54,6 +54,15 @@ bool configurationListeners_Remove(const Configuration *config);
 
 // light functions
 
+/**
+ * Add new listener.
+ * 
+ * @param request The request coming from hicnLightControl or the
+ *                configuration file. The bytes in the request are
+ *                ordered following the network byte order convention.
+ * 
+ * @param ingressId The connection id of the incoming request.
+ */
 struct iovec *configurationListeners_Add(Configuration *config,
                                          struct iovec *request,
                                          unsigned ingressId);
