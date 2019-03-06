@@ -330,14 +330,14 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
   if (!symbolicNameTable_Exists(config->symbolicNameTable, symbolicName)) {
     if (control->ipType == ADDR_INET) {
       source =
-          utils_AddressFromInet(&control->localIp.ipv4, &control->localPort);
+          addressFromInaddr4Port(&control->localIp.ipv4, &control->localPort);
       destination =
-          utils_AddressFromInet(&control->remoteIp.ipv4, &control->remotePort);
+          addressFromInaddr4Port(&control->remoteIp.ipv4, &control->remotePort);
     } else if (control->ipType == ADDR_INET6) {
       source =
-          utils_AddressFromInet6(&control->localIp.ipv6, &control->localPort);
+          addressFromInaddr6Port(&control->localIp.ipv6, &control->localPort);
       destination =
-          utils_AddressFromInet6(&control->remoteIp.ipv6, &control->remotePort);
+          addressFromInaddr6Port(&control->remoteIp.ipv6, &control->remotePort);
     } else {
       printf("Invalid IP type.\n");  // will generate a Nack
     }
