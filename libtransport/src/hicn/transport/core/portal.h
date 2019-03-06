@@ -48,7 +48,8 @@ namespace portal_details {
 static constexpr uint32_t pool_size = 2048;
 
 class HandlerMemory {
-  static constexpr std::size_t memory_size = 1024 * 1024;
+#ifdef __vpp__
+  static constexpr std::size_t memory_size = 1024 * 512;
  public:
   HandlerMemory() : index_(0) {  }
 
@@ -65,6 +66,21 @@ class HandlerMemory {
   // Storage space used for handler-based custom memory allocation.
   typename std::aligned_storage<128>::type storage_[memory_size];
   uint32_t index_;
+#else
+ public:
+  HandlerMemory() {  }
+
+  HandlerMemory(const HandlerMemory&) = delete;
+  HandlerMemory& operator=(const HandlerMemory&) = delete;
+
+  TRANSPORT_ALWAYS_INLINE void* allocate(std::size_t size) {
+    return ::operator new(size);
+  }
+
+  TRANSPORT_ALWAYS_INLINE void deallocate(void* pointer) {
+    ::operator delete(pointer);
+  }
+#endif
 };
 
 // The allocator to be associated with the handler objects. This allocator only
@@ -506,8 +522,9 @@ class Portal {
   ForwarderInt forwarder_interface_;
 
   std::list<Prefix> served_namespaces_;
-  portal_details::HandlerMemory async_callback_memory_;
   portal_details::Pool packet_pool_;
+
+  portal_details::HandlerMemory async_callback_memory_;
 };
 
 }  // end namespace core
