@@ -49,18 +49,19 @@ static constexpr uint32_t pool_size = 2048;
 
 class HandlerMemory {
 #ifdef __vpp__
-  static constexpr std::size_t memory_size = 1024 * 512;
+  static constexpr std::size_t memory_size = 1024 * 1024;
+
  public:
-  HandlerMemory() : index_(0) {  }
+  HandlerMemory() : index_(0) {}
 
-  HandlerMemory(const HandlerMemory&) = delete;
-  HandlerMemory& operator=(const HandlerMemory&) = delete;
+  HandlerMemory(const HandlerMemory &) = delete;
+  HandlerMemory &operator=(const HandlerMemory &) = delete;
 
-  TRANSPORT_ALWAYS_INLINE void* allocate(std::size_t size) {
+  TRANSPORT_ALWAYS_INLINE void *allocate(std::size_t size) {
     return &storage_[index_++ % memory_size];
   }
 
-  TRANSPORT_ALWAYS_INLINE void deallocate(void* pointer) {  }
+  TRANSPORT_ALWAYS_INLINE void deallocate(void *pointer) {}
 
  private:
   // Storage space used for handler-based custom memory allocation.
@@ -68,16 +69,16 @@ class HandlerMemory {
   uint32_t index_;
 #else
  public:
-  HandlerMemory() {  }
+  HandlerMemory() {}
 
-  HandlerMemory(const HandlerMemory&) = delete;
-  HandlerMemory& operator=(const HandlerMemory&) = delete;
+  HandlerMemory(const HandlerMemory &) = delete;
+  HandlerMemory &operator=(const HandlerMemory &) = delete;
 
-  TRANSPORT_ALWAYS_INLINE void* allocate(std::size_t size) {
+  TRANSPORT_ALWAYS_INLINE void *allocate(std::size_t size) {
     return ::operator new(size);
   }
 
-  TRANSPORT_ALWAYS_INLINE void deallocate(void* pointer) {
+  TRANSPORT_ALWAYS_INLINE void deallocate(void *pointer) {
     ::operator delete(pointer);
   }
 #endif
@@ -90,34 +91,36 @@ class HandlerAllocator {
  public:
   using value_type = T;
 
-  explicit HandlerAllocator(HandlerMemory& mem)
-    : memory_(mem) {}
+  explicit HandlerAllocator(HandlerMemory &mem) : memory_(mem) {}
 
   template <typename U>
-  HandlerAllocator(const HandlerAllocator<U>& other) noexcept
-    : memory_(other.memory_) { }
+  HandlerAllocator(const HandlerAllocator<U> &other) noexcept
+      : memory_(other.memory_) {}
 
-  TRANSPORT_ALWAYS_INLINE bool operator==(const HandlerAllocator& other) const noexcept {
+  TRANSPORT_ALWAYS_INLINE bool operator==(const HandlerAllocator &other) const
+      noexcept {
     return &memory_ == &other.memory_;
   }
 
-  TRANSPORT_ALWAYS_INLINE bool operator!=(const HandlerAllocator& other) const noexcept {
+  TRANSPORT_ALWAYS_INLINE bool operator!=(const HandlerAllocator &other) const
+      noexcept {
     return &memory_ != &other.memory_;
   }
 
-  TRANSPORT_ALWAYS_INLINE T* allocate(std::size_t n) const {
-    return static_cast<T*>(memory_.allocate(sizeof(T) * n));
+  TRANSPORT_ALWAYS_INLINE T *allocate(std::size_t n) const {
+    return static_cast<T *>(memory_.allocate(sizeof(T) * n));
   }
 
-  TRANSPORT_ALWAYS_INLINE void deallocate(T* p, std::size_t /*n*/) const {
+  TRANSPORT_ALWAYS_INLINE void deallocate(T *p, std::size_t /*n*/) const {
     return memory_.deallocate(p);
   }
 
  private:
-  template <typename> friend class HandlerAllocator;
+  template <typename>
+  friend class HandlerAllocator;
 
   // The underlying memory.
-  HandlerMemory& memory_;
+  HandlerMemory &memory_;
 };
 
 // Wrapper class template for handler objects to allow handler memory
@@ -129,35 +132,33 @@ class CustomAllocatorHandler {
  public:
   using allocator_type = HandlerAllocator<Handler>;
 
-  CustomAllocatorHandler(HandlerMemory& m, Handler h)
-    : memory_(m),
-      handler_(h) { }
+  CustomAllocatorHandler(HandlerMemory &m, Handler h)
+      : memory_(m), handler_(h) {}
 
   allocator_type get_allocator() const noexcept {
     return allocator_type(memory_);
   }
 
-  template <typename ...Args>
-  void operator()(Args&&... args) {
+  template <typename... Args>
+  void operator()(Args &&... args) {
     handler_(std::forward<Args>(args)...);
   }
 
  private:
-  HandlerMemory& memory_;
+  HandlerMemory &memory_;
   Handler handler_;
 };
 
 // Helper function to wrap a handler object to add custom allocation.
 template <typename Handler>
 inline CustomAllocatorHandler<Handler> makeCustomAllocatorHandler(
-    HandlerMemory& m, Handler h) {
+    HandlerMemory &m, Handler h) {
   return CustomAllocatorHandler<Handler>(m, h);
 }
 
 class Pool {
  public:
-  Pool(asio::io_service &io_service)
-    : io_service_(io_service) {
+  Pool(asio::io_service &io_service) : io_service_(io_service) {
     increasePendingInterestPool();
     increaseInterestPool();
     increaseContentObjectPool();
@@ -223,7 +224,7 @@ class Pool {
   asio::io_service &io_service_;
 };
 
-}
+}  // namespace portal_details
 
 using PendingInterestHashTable =
     std::unordered_map<uint32_t, PendingInterest::Ptr>;
@@ -266,6 +267,7 @@ class Portal {
                                          typename ForwarderInt::ConnectorType>,
                       ForwarderInt>::value,
       "ForwarderInt must inherit from ForwarderInterface!");
+
  public:
   class ConsumerCallback {
    public:
@@ -290,7 +292,7 @@ class Portal {
                    std::bind(&Portal::setLocalRoutes, this), io_service_,
                    app_name_),
         forwarder_interface_(connector_),
-        packet_pool_(io_service) {  }
+        packet_pool_(io_service) {}
 
   void setConsumerCallback(ConsumerCallback *consumer_callback) {
     consumer_callback_ = consumer_callback;
@@ -310,7 +312,7 @@ class Portal {
     forwarder_interface_.connect(is_consumer);
   }
 
-  ~Portal() { stopEventsLoop(true); }
+  ~Portal() { killConnection(); }
 
   TRANSPORT_ALWAYS_INLINE bool interestIsPending(const Name &name) {
     auto it =
@@ -338,11 +340,9 @@ class Portal {
         std::move(on_content_object_callback));
     pending_interest->setOnTimeoutCallback(
         std::move(on_interest_timeout_callback));
-    pending_interest->startCountdown(
-        portal_details::makeCustomAllocatorHandler(
-        async_callback_memory_,
-        std::bind(&Portal<ForwarderInt>::timerHandler, this,
-                  std::placeholders::_1, hash)));
+    pending_interest->startCountdown(portal_details::makeCustomAllocatorHandler(
+        async_callback_memory_, std::bind(&Portal<ForwarderInt>::timerHandler,
+                                          this, std::placeholders::_1, hash)));
     pending_interest_hash_table_.emplace(
         std::make_pair(hash, std::move(pending_interest)));
   }
@@ -398,15 +398,13 @@ class Portal {
     forwarder_interface_.send(content_object);
   }
 
-  TRANSPORT_ALWAYS_INLINE void stopEventsLoop(bool kill_connection = false) {
-    if (kill_connection) {
-      forwarder_interface_.closeConnection();
+  TRANSPORT_ALWAYS_INLINE void stopEventsLoop() {
+    if (!io_service_.stopped()) {
+      io_service_.dispatch([this]() {
+        clear();
+        io_service_.stop();
+      });
     }
-
-    io_service_.post([this]() {
-      clear();
-      io_service_.stop();
-    });
   }
 
   TRANSPORT_ALWAYS_INLINE void killConnection() { connector_.close(); }
@@ -489,12 +487,10 @@ class Portal {
 
       if (interest_ptr->getOnDataCallback() != UNSET_CALLBACK) {
         interest_ptr->on_content_object_callback_(
-            std::move(interest_ptr->getInterest()),
-            std::move(content_object));
+            std::move(interest_ptr->getInterest()), std::move(content_object));
       } else if (consumer_callback_) {
         consumer_callback_->onContentObject(
-            std::move(interest_ptr->getInterest()),
-            std::move(content_object));
+            std::move(interest_ptr->getInterest()), std::move(content_object));
       }
     } else {
       TRANSPORT_LOGW("No pending interests for current content (%s)",

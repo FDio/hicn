@@ -273,7 +273,7 @@ class Client : interface::BasePortal::ConsumerCallback {
     std::cout << "Stop ping" << std::endl;
     std::cout << "Sent: " << sent_ << " Received: " << received_
               << " Timeouts: " << timedout_ << std::endl;
-    portal_.stopEventsLoop(true);
+    portal_.stopEventsLoop();
   }
 
   void reset() {

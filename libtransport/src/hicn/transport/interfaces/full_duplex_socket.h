@@ -104,9 +104,7 @@ class AsyncFullDuplexSocket : public AsyncSocket,
   AsyncFullDuplexSocket(const Prefix &locator, asio::io_service &io_service);
   AsyncFullDuplexSocket(const core::Prefix &locator);
 
-  ~AsyncFullDuplexSocket() {
-    TRANSPORT_LOGI("Adios AsyncFullDuplexSocket!!!");
-  };
+  ~AsyncFullDuplexSocket(){};
 
   using ReadCallback = AsyncReader::ReadCallback;
   using WriteCallback = AsyncWriter::WriteCallback;

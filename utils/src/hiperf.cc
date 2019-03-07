@@ -114,7 +114,8 @@ class HIperfClient {
   void processPayload(ConsumerSocket &c, std::size_t bytes_transferred,
                       const std::error_code &ec) {
     Time t2 = std::chrono::steady_clock::now();
-    TimeDuration dt = std::chrono::duration_cast<TimeDuration>(t2 - t_download_);
+    TimeDuration dt =
+        std::chrono::duration_cast<TimeDuration>(t2 - t_download_);
     long usec = (long)dt.count();
 
     std::cout << "Content retrieved. Size: " << bytes_transferred << " [Bytes]"
@@ -139,16 +140,19 @@ class HIperfClient {
 
   void processLeavingInterest(ConsumerSocket &c, const Interest &interest) {}
 
-  void handleTimerExpiration(ConsumerSocket &c, const protocol::TransportStatistics &stats) {
+  void handleTimerExpiration(ConsumerSocket &c,
+                             const protocol::TransportStatistics &stats) {
     const char separator = ' ';
     const int width = 20;
 
     utils::TimePoint t2 = utils::SteadyClock::now();
-    auto exact_duration = std::chrono::duration_cast<utils::Milliseconds>(t2 - t_stats_);
+    auto exact_duration =
+        std::chrono::duration_cast<utils::Milliseconds>(t2 - t_stats_);
 
     std::stringstream interval;
     interval << total_duration_milliseconds_ / 1000 << "-"
-             << total_duration_milliseconds_ / 1000 + exact_duration.count() / 1000;
+             << total_duration_milliseconds_ / 1000 +
+                    exact_duration.count() / 1000;
 
     std::stringstream bytes_transferred;
     bytes_transferred << std::fixed << std::setprecision(3)
@@ -161,7 +165,8 @@ class HIperfClient {
               << std::setfill(separator) << "[Mbps]";
 
     std::stringstream window;
-    window << stats.getAverageWindowSize() << std::setfill(separator) << "[Interest]";
+    window << stats.getAverageWindowSize() << std::setfill(separator)
+           << "[Interest]";
 
     std::stringstream avg_rtt;
     avg_rtt << stats.getAverageRtt() << std::setfill(separator) << "[us]";
@@ -279,9 +284,9 @@ class HIperfClient {
 
     ret = consumer_socket_->setSocketOption(
         ConsumerCallbacksOptions::STATS_SUMMARY,
-        (ConsumerTimerCallback)std::bind(
-            &HIperfClient::handleTimerExpiration, this, std::placeholders::_1,
-            std::placeholders::_2));
+        (ConsumerTimerCallback)std::bind(&HIperfClient::handleTimerExpiration,
+                                         this, std::placeholders::_1,
+                                         std::placeholders::_2));
 
     if (ret == SOCKET_OPTION_NOT_SET) {
       return ERROR_SETUP;
@@ -317,13 +322,13 @@ class HIperfClient {
 
  private:
   ClientConfiguration configuration_;
-  std::unique_ptr<ConsumerSocket> consumer_socket_;
   Time t_stats_;
   Time t_download_;
   uint32_t total_duration_milliseconds_;
   uint64_t old_bytes_value_;
   asio::io_service io_service_;
   asio::signal_set signals_;
+  std::unique_ptr<ConsumerSocket> consumer_socket_;
 };
 
 class HIperfServer {
@@ -393,15 +398,16 @@ class HIperfServer {
               << std::endl;
   }
 
-  std::shared_ptr<utils::Identity> setProducerIdentity(std::string &keystore_name,
-                                      std::string &keystore_password,
-                                      HashAlgorithm &hash_algorithm) {
+  std::shared_ptr<utils::Identity> setProducerIdentity(
+      std::string &keystore_name, std::string &keystore_password,
+      HashAlgorithm &hash_algorithm) {
     if (access(keystore_name.c_str(), F_OK) != -1) {
-      return std::make_shared<utils::Identity>(keystore_name, keystore_password, hash_algorithm);
+      return std::make_shared<utils::Identity>(keystore_name, keystore_password,
+                                               hash_algorithm);
     } else {
       return std::make_shared<utils::Identity>(keystore_name, keystore_password,
-                             CryptoSuite::RSA_SHA256, 1024, 365,
-                             "producer-test");
+                                               CryptoSuite::RSA_SHA256, 1024,
+                                               365, "producer-test");
     }
   }
 
@@ -412,8 +418,8 @@ class HIperfServer {
 
     if (configuration_.sign) {
       auto identity = setProducerIdentity(configuration_.keystore_name,
-                                              configuration_.keystore_password,
-                                              configuration_.hash_algorithm);
+                                          configuration_.keystore_password,
+                                          configuration_.hash_algorithm);
 
       if (producer_socket_->setSocketOption(GeneralTransportOptions::IDENTITY,
                                             identity) ==
@@ -495,12 +501,12 @@ class HIperfServer {
 
  private:
   ServerConfiguration configuration_;
-  std::unique_ptr<ProducerSocket> producer_socket_;
   asio::io_service io_service_;
   asio::signal_set signals_;
   std::vector<std::shared_ptr<ContentObject>> content_objects_;
   std::uint16_t content_objects_index_;
   std::uint16_t mask_;
+  std::unique_ptr<ProducerSocket> producer_socket_;
 };
 
 void usage() {
@@ -545,8 +551,7 @@ void usage() {
                "parameter"
             << std::endl;
   std::cerr << "-M\t<Download for real>\t\t"
-            << "Store the content downloaded."
-            << std::endl;
+            << "Store the content downloaded." << std::endl;
   std::cerr << "-W\t<window_size>\t\t\t"
             << "Use a fixed congestion window "
                "for retrieving the data."

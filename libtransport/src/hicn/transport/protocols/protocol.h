@@ -39,7 +39,7 @@ class TransportProtocol : public interface::BasePortal::ConsumerCallback,
  public:
   TransportProtocol(interface::ConsumerSocket *icn_socket);
 
-  virtual ~TransportProtocol() { stop(); };
+  virtual ~TransportProtocol() = default;
 
   TRANSPORT_ALWAYS_INLINE bool isRunning() { return is_running_; }
 
