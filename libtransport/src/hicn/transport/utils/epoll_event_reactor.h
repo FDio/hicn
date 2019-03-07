@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/utils/event_reactor.h>
+#include <hicn/transport/utils/spinlock.h>
 
 #include <sys/epoll.h>
 #include <atomic>
@@ -60,7 +61,7 @@ class EpollEventReactor : public EventReactor {
   int epoll_fd_;
   std::atomic_bool run_event_loop_;
   EventCallbackMap event_callback_map_;
-  std::mutex event_callback_map_mutex_;
+  utils::SpinLock event_callback_map_lock_;
 };
 
 }  // namespace utils

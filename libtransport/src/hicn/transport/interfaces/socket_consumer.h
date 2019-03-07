@@ -676,7 +676,7 @@ class ConsumerSocket : public BaseSocket {
   }
 
  protected:
-  std::shared_ptr<TransportProtocol> transport_protocol_;
+  std::unique_ptr<TransportProtocol> transport_protocol_;
 
  private:
   // context inner state variables

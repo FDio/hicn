@@ -51,25 +51,35 @@ int EpollEventReactor::addFileDescriptor(int fd, uint32_t events) {
 int EpollEventReactor::addFileDescriptor(int fd, uint32_t events,
                                          EventCallback &callback) {
   auto it = event_callback_map_.find(fd);
+  int ret = 0;
 
   if (it == event_callback_map_.end()) {
-    event_callback_map_[fd] = callback;
-    return addFileDescriptor(fd, events);
+    {
+      utils::SpinLock::Acquire locked(event_callback_map_lock_);
+      event_callback_map_[fd] = callback;
+    }
+
+    ret = addFileDescriptor(fd, events);
   }
 
-  return 0;
+  return ret;
 }
 
 int EpollEventReactor::addFileDescriptor(int fd, uint32_t events,
                                          EventCallback &&callback) {
   auto it = event_callback_map_.find(fd);
+  int ret = 0;
 
   if (it == event_callback_map_.end()) {
-    event_callback_map_[fd] = callback;
-    return addFileDescriptor(fd, events);
+    {
+      utils::SpinLock::Acquire locked(event_callback_map_lock_);
+      event_callback_map_[fd] = std::move(callback);
+    }
+
+    ret = addFileDescriptor(fd, events);
   }
 
-  return 0;
+  return ret;
 }
 
 int EpollEventReactor::modFileDescriptor(int fd, uint32_t events) {
@@ -109,6 +119,7 @@ int EpollEventReactor::delFileDescriptor(int fd) {
     return -1;
   }
 
+  utils::SpinLock::Acquire locked(event_callback_map_lock_);
   event_callback_map_.erase(fd);
 
   return 0;
@@ -117,6 +128,8 @@ int EpollEventReactor::delFileDescriptor(int fd) {
 void EpollEventReactor::runEventLoop(int timeout) {
   Event evt[128];
   int en = 0;
+  EventCallbackMap::iterator it;
+  EventCallback callback;
 
   // evt.events = EPOLLIN | EPOLLOUT;
   sigset_t sigset;
@@ -134,11 +147,26 @@ void EpollEventReactor::runEventLoop(int timeout) {
 
     for (int i = 0; i < en; i++) {
       if (evt[i].data.fd > 0) {
-        auto it = event_callback_map_.find(evt[i].data.fd);
+        {
+          utils::SpinLock::Acquire locked(event_callback_map_lock_);
+          it = event_callback_map_.find(evt[i].data.fd);
+        }
+
         if (TRANSPORT_EXPECT_FALSE(it == event_callback_map_.end())) {
           TRANSPORT_LOGE("unexpected event. fd %d", evt[i].data.fd);
         } else {
-          event_callback_map_[evt[i].data.fd](evt[i]);
+          {
+            utils::SpinLock::Acquire locked(event_callback_map_lock_);
+            callback = event_callback_map_[evt[i].data.fd];
+          }
+          
+          callback(evt[i]);
+
+          // In the callback the epoll event reactor could have been stopped,
+          // then we need to check whether the event loop is still running.
+          if (TRANSPORT_EXPECT_FALSE(!run_event_loop_)) {
+            return;
+          }
         }
       } else {
         TRANSPORT_LOGE("unexpected event. fd %d", evt[i].data.fd);
@@ -150,6 +178,8 @@ void EpollEventReactor::runEventLoop(int timeout) {
 void EpollEventReactor::runOneEvent() {
   Event evt;
   int en = 0;
+  EventCallbackMap::iterator it;
+  EventCallback callback;
 
   //  evt.events = EPOLLIN | EPOLLOUT;
   sigset_t sigset;
@@ -165,11 +195,20 @@ void EpollEventReactor::runOneEvent() {
   }
 
   if (TRANSPORT_EXPECT_TRUE(evt.data.fd > 0)) {
-    auto it = event_callback_map_.find(evt.data.fd);
+    {
+      utils::SpinLock::Acquire locked(event_callback_map_lock_);
+      it = event_callback_map_.find(evt.data.fd);
+    }
+
     if (TRANSPORT_EXPECT_FALSE(it == event_callback_map_.end())) {
       TRANSPORT_LOGE("unexpected event. fd %d", evt.data.fd);
     } else {
-      event_callback_map_[evt.data.fd](evt);
+      {
+        utils::SpinLock::Acquire locked(event_callback_map_lock_);
+        callback = event_callback_map_[evt.data.fd];
+      }
+          
+      callback(evt);
     }
   } else {
     TRANSPORT_LOGE("unexpected event. fd %d", evt.data.fd);
