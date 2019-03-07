@@ -303,8 +303,11 @@ class HIperfClient {
     std::cout << "Starting download of " << configuration_.name << std::endl;
 
     signals_.async_wait([this](const std::error_code &, const int &) {
+      std::cout << "Adios1" << std::endl;
       consumer_socket_->stop();
+      std::cout << "Adios2" << std::endl;
       io_service_.stop();
+      std::cout << "Adios3" << std::endl;
     });
 
     t_download_ = t_stats_ = std::chrono::steady_clock::now();
@@ -312,18 +315,20 @@ class HIperfClient {
                                    configuration_.receive_buffer);
     io_service_.run();
 
+    std::cout << "Adios from run" << std::endl;
+
     return ERROR_SUCCESS;
   }
 
  private:
   ClientConfiguration configuration_;
-  std::unique_ptr<ConsumerSocket> consumer_socket_;
   Time t_stats_;
   Time t_download_;
   uint32_t total_duration_milliseconds_;
   uint64_t old_bytes_value_;
   asio::io_service io_service_;
   asio::signal_set signals_;
+  std::unique_ptr<ConsumerSocket> consumer_socket_;
 };
 
 class HIperfServer {
@@ -495,12 +500,12 @@ class HIperfServer {
 
  private:
   ServerConfiguration configuration_;
-  std::unique_ptr<ProducerSocket> producer_socket_;
   asio::io_service io_service_;
   asio::signal_set signals_;
   std::vector<std::shared_ptr<ContentObject>> content_objects_;
   std::uint16_t content_objects_index_;
   std::uint16_t mask_;
+  std::unique_ptr<ProducerSocket> producer_socket_;
 };
 
 void usage() {
@@ -747,11 +752,15 @@ int main(int argc, char *argv[]) {
     if (c.setup() != ERROR_SETUP) {
       c.run();
     }
+
+    std::cout << "Adios" << std::endl;
   } else if (role < 0) {
     HIperfServer s(server_configuration);
     if (s.setup() != ERROR_SETUP) {
       s.run();
     }
+
+    std::cout << "Adios producer" << std::endl;
   } else {
     usage();
     return EXIT_FAILURE;
