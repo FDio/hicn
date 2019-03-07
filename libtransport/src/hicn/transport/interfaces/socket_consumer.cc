@@ -62,25 +62,21 @@ ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service)
       timer_interval_milliseconds_(0) {
   switch (protocol) {
     case TransportProtocolAlgorithms::CBR:
-      transport_protocol_ = std::make_shared<CbrTransportProtocol>(this);
+      transport_protocol_ = std::make_unique<CbrTransportProtocol>(this);
       break;
     case TransportProtocolAlgorithms::RTC:
-      transport_protocol_ = std::make_shared<RTCTransportProtocol>(this);
+      transport_protocol_ = std::make_unique<RTCTransportProtocol>(this);
       break;
     case TransportProtocolAlgorithms::RAAQM:
     default:
-      transport_protocol_ = std::make_shared<RaaqmTransportProtocol>(this);
+      transport_protocol_ = std::make_unique<RaaqmTransportProtocol>(this);
       break;
   }
 }
 
 ConsumerSocket::~ConsumerSocket() {
   stop();
-
   async_downloader_.stop();
-
-  transport_protocol_.reset();
-  portal_.reset();
 }
 
 void ConsumerSocket::connect() { portal_->connect(); }
@@ -132,10 +128,9 @@ void ConsumerSocket::asyncSendInterest(Interest::Ptr &&interest,
 
 void ConsumerSocket::stop() {
   if (transport_protocol_->isRunning()) {
+    std::cout << "Stopping transport protocol " << std::endl;
     transport_protocol_->stop();
   }
-
-  // is_running_ = false;
 }
 
 void ConsumerSocket::resume() {

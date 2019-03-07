@@ -49,7 +49,7 @@ static constexpr uint32_t pool_size = 2048;
 
 class HandlerMemory {
 #ifdef __vpp__
-  static constexpr std::size_t memory_size = 1024 * 512;
+  static constexpr std::size_t memory_size = 1024 * 1024;
  public:
   HandlerMemory() : index_(0) {  }
 
@@ -310,7 +310,7 @@ class Portal {
     forwarder_interface_.connect(is_consumer);
   }
 
-  ~Portal() { stopEventsLoop(true); }
+  ~Portal() { killConnection(); }
 
   TRANSPORT_ALWAYS_INLINE bool interestIsPending(const Name &name) {
     auto it =
@@ -398,15 +398,13 @@ class Portal {
     forwarder_interface_.send(content_object);
   }
 
-  TRANSPORT_ALWAYS_INLINE void stopEventsLoop(bool kill_connection = false) {
-    if (kill_connection) {
-      forwarder_interface_.closeConnection();
+  TRANSPORT_ALWAYS_INLINE void stopEventsLoop() {
+    if (!io_service_.stopped()) {
+      io_service_.dispatch([this] () {
+        clear();
+        io_service_.stop();
+      });
     }
-
-    io_service_.post([this]() {
-      clear();
-      io_service_.stop();
-    });
   }
 
   TRANSPORT_ALWAYS_INLINE void killConnection() { connector_.close(); }

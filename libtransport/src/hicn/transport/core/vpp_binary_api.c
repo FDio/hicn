@@ -173,7 +173,7 @@ void vpp_binary_api_send_receive_ping(vpp_binary_api_t *api) {
 
   CONTEXT_SAVE(context_store, api, mp_ping);
 
-  TRANSPORT_LOGI("Sending ping id %u", mp_ping->_vl_msg_id);
+  TRANSPORT_LOGD("Sending ping id %u", mp_ping->_vl_msg_id);
 
   vpp_binary_api_send_request_wait_reply(api, mp_ping);
 }
@@ -202,7 +202,7 @@ int vpp_binary_api_set_int_state(vpp_binary_api_t *api, uint32_t sw_index,
 
   CONTEXT_SAVE(context_store, api, mp);
 
-  TRANSPORT_LOGI("Sending set int flags id %u", mp->_vl_msg_id);
+  TRANSPORT_LOGD("Sending set int flags id %u", mp->_vl_msg_id);
 
   return vpp_binary_api_send_request_wait_reply(api, mp);
 }
@@ -211,7 +211,7 @@ void vpp_binary_api_send_request(vpp_binary_api_t *api, void *request) {
   vl_generic_request_t *req = NULL;
 
   req = (vl_generic_request_t *)request;
-  TRANSPORT_LOGI("Sending a request to VPP (id=%d).\n", ntohs(req->_vl_msg_id));
+  TRANSPORT_LOGD("Sending a request to VPP (id=%d).\n", ntohs(req->_vl_msg_id));
 
   S(api, req);
 }
