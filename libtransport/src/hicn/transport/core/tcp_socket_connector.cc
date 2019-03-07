@@ -62,10 +62,8 @@ TcpSocketConnector::TcpSocketConnector(
       resolver_(io_service_),
       timer_(io_service_),
       read_msg_(packet_pool_.makePtr(nullptr)),
-      is_connecting_(false),
       is_reconnection_(false),
       data_available_(false),
-      is_closed_(false),
       app_name_(app_name) {}
 
 TcpSocketConnector::~TcpSocketConnector() {}
@@ -74,10 +72,9 @@ void TcpSocketConnector::connect(std::string ip_address, std::string port) {
   endpoint_iterator_ = resolver_.resolve(
       {ip_address, port, asio::ip::resolver_query_base::numeric_service});
 
+  state_ = ConnectorState::CONNECTING;
   doConnect();
 }
-
-void TcpSocketConnector::state() { return; }
 
 void TcpSocketConnector::send(const uint8_t *packet, std::size_t len,
                               const PacketSentCallback &packet_sent) {
@@ -91,7 +88,7 @@ void TcpSocketConnector::send(const Packet::MemBufPtr &packet) {
   io_service_.post([this, packet]() {
     bool write_in_progress = !output_buffer_.empty();
     output_buffer_.push_back(std::move(packet));
-    if (TRANSPORT_EXPECT_FALSE(!is_connecting_)) {
+    if (TRANSPORT_EXPECT_TRUE(state_ == ConnectorState::CONNECTED)) {
       if (!write_in_progress) {
         doWrite();
       }
@@ -103,11 +100,13 @@ void TcpSocketConnector::send(const Packet::MemBufPtr &packet) {
 }
 
 void TcpSocketConnector::close() {
-  io_service_.dispatch([this]() {
-    is_closed_ = true;
-    socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
-    socket_.close();
-  });
+  if (state_ != ConnectorState::CLOSED) {
+    state_ = ConnectorState::CLOSED;
+    if (socket_.is_open()) {
+      socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+      socket_.close();
+    }
+  }
 }
 
 void TcpSocketConnector::doWrite() {
@@ -208,13 +207,15 @@ void TcpSocketConnector::doReadHeader() {
 }
 
 void TcpSocketConnector::tryReconnect() {
-  if (!is_connecting_ && !is_closed_) {
+  if (state_ == ConnectorState::CONNECTED) {
     TRANSPORT_LOGE("Connection lost. Trying to reconnect...\n");
-    is_connecting_ = true;
+    state_ = ConnectorState::CONNECTING;
     is_reconnection_ = true;
     io_service_.post([this]() {
-      socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
-      socket_.close();
+      if (socket_.is_open()) {
+        socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+        socket_.close();
+      }
       startConnectionTimer();
       doConnect();
     });
@@ -226,7 +227,7 @@ void TcpSocketConnector::doConnect() {
                       [this](std::error_code ec, tcp::resolver::iterator) {
                         if (!ec) {
                           timer_.cancel();
-                          is_connecting_ = false;
+                          state_ = ConnectorState::CONNECTED;
                           asio::ip::tcp::no_delay noDelayOption(true);
                           socket_.set_option(noDelayOption);
                           doReadHeader();
@@ -248,7 +249,9 @@ void TcpSocketConnector::doConnect() {
                       });
 }
 
-bool TcpSocketConnector::checkConnected() { return !is_connecting_; }
+bool TcpSocketConnector::checkConnected() {
+  return state_ == ConnectorState::CONNECTED;
+}
 
 void TcpSocketConnector::enableBurst() { return; }
 
