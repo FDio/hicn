@@ -25,7 +25,8 @@ Connector::Connector(PacketReceivedCallback &&receive_callback,
                      OnReconnect &&reconnect_callback)
     : packet_pool_(),
       receive_callback_(std::move(receive_callback)),
-      on_reconnect_callback_(std::move(reconnect_callback)) {
+      on_reconnect_callback_(std::move(reconnect_callback)),
+      state_(ConnectorState::CLOSED) {
   init();
 }
 

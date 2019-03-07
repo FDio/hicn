@@ -49,8 +49,6 @@ class UdpSocketConnector : public Connector {
 
   void connect(std::string ip_address = "127.0.0.1", std::string port = "9695");
 
-  void state() override;
-
  private:
   void doConnect();
 
@@ -76,10 +74,8 @@ class UdpSocketConnector : public Connector {
 
   utils::ObjectPool<utils::MemBuf>::Ptr read_msg_;
 
-  bool is_connecting_;
   bool is_reconnection_;
   bool data_available_;
-  bool is_closed_;
 
   std::string app_name_;
 };
