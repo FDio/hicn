@@ -38,10 +38,8 @@ UdpSocketConnector::UdpSocketConnector(
       connection_timer_(io_service_),
       connection_timeout_(io_service_),
       read_msg_(packet_pool_.makePtr(nullptr)),
-      is_connecting_(false),
       is_reconnection_(false),
       data_available_(false),
-      is_closed_(false),
       app_name_(app_name) {}
 
 UdpSocketConnector::~UdpSocketConnector() {}
@@ -50,10 +48,9 @@ void UdpSocketConnector::connect(std::string ip_address, std::string port) {
   endpoint_iterator_ = resolver_.resolve(
       {ip_address, port, asio::ip::resolver_query_base::numeric_service});
 
+  state_ = ConnectorState::CONNECTING;
   doConnect();
 }
-
-void UdpSocketConnector::state() { return; }
 
 void UdpSocketConnector::send(const uint8_t *packet, std::size_t len,
                               const PacketSentCallback &packet_sent) {
@@ -67,7 +64,7 @@ void UdpSocketConnector::send(const Packet::MemBufPtr &packet) {
   io_service_.post([this, packet]() {
     bool write_in_progress = !output_buffer_.empty();
     output_buffer_.push_back(std::move(packet));
-    if (TRANSPORT_EXPECT_FALSE(!is_connecting_)) {
+    if (TRANSPORT_EXPECT_TRUE(state_ == ConnectorState::CONNECTED)) {
       if (!write_in_progress) {
         doWrite();
       }
@@ -79,11 +76,13 @@ void UdpSocketConnector::send(const Packet::MemBufPtr &packet) {
 }
 
 void UdpSocketConnector::close() {
-  io_service_.dispatch([this]() {
-    is_closed_ = true;
-    socket_.shutdown(asio::ip::udp::socket::shutdown_type::shutdown_both);
-    socket_.close();
-  });
+  if (state_ != ConnectorState::CLOSED) {
+    state_ = ConnectorState::CLOSED;
+    if (socket_.is_open()) {
+      socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+      socket_.close();
+    }
+  }
 }
 
 void UdpSocketConnector::doWrite() {
@@ -136,15 +135,17 @@ void UdpSocketConnector::doRead() {
 }
 
 void UdpSocketConnector::tryReconnect() {
-  if (!is_connecting_ && !is_closed_) {
+  if (state_ == ConnectorState::CONNECTED) {
     TRANSPORT_LOGE("Connection lost. Trying to reconnect...\n");
-    is_connecting_ = true;
+    state_ = ConnectorState::CONNECTING;
     is_reconnection_ = true;
     connection_timer_.expires_from_now(std::chrono::seconds(1));
     connection_timer_.async_wait([this](const std::error_code &ec) {
       if (!ec) {
-        socket_.shutdown(asio::ip::udp::socket::shutdown_type::shutdown_both);
-        socket_.close();
+        if (socket_.is_open()) {
+          socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+          socket_.close();
+        }
         startConnectionTimer();
         doConnect();
       }
@@ -157,7 +158,7 @@ void UdpSocketConnector::doConnect() {
                       [this](std::error_code ec, udp::resolver::iterator) {
                         if (!ec) {
                           connection_timeout_.cancel();
-                          is_connecting_ = false;
+                          state_ = ConnectorState::CONNECTED;
                           doRead();
 
                           if (data_available_) {
@@ -176,7 +177,7 @@ void UdpSocketConnector::doConnect() {
                       });
 }
 
-bool UdpSocketConnector::checkConnected() { return !is_connecting_; }
+bool UdpSocketConnector::checkConnected() { return state_ == ConnectorState::CONNECTED; }
 
 void UdpSocketConnector::enableBurst() { return; }
 

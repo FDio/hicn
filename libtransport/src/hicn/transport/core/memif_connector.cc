@@ -61,15 +61,14 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       memif_worker_(nullptr),
       timer_set_(false),
       send_timer_(std::make_unique<utils::FdDeadlineTimer>(event_reactor_)),
+      disconnect_timer_(std::make_unique<utils::FdDeadlineTimer>(event_reactor_)),
       io_service_(io_service),
       packet_counter_(0),
       memif_connection_(std::make_unique<memif_connection_t>()),
       tx_buf_counter_(0),
-      is_connecting_(true),
       is_reconnection_(false),
       data_available_(false),
       enable_burst_(false),
-      closed_(false),
       app_name_(app_name),
       socket_filename_("") {
   std::call_once(MemifConnector::flag_, &MemifConnector::init, this);
@@ -89,6 +88,7 @@ void MemifConnector::init() {
 
 void MemifConnector::connect(uint32_t memif_id, long memif_mode) {
   TRANSPORT_LOGI("Creating memif");
+  state_ = ConnectorState::CONNECTING;
 
   memif_id_ = memif_id;
   socket_filename_ = "/run/vpp/memif.sock";
@@ -97,7 +97,7 @@ void MemifConnector::connect(uint32_t memif_id, long memif_mode) {
 
   work_ = std::make_unique<asio::io_service::work>(io_service_);
 
-  while (is_connecting_) {
+  while (state_ != ConnectorState::CONNECTED) {
     MemifConnector::main_event_reactor_.runOneEvent();
   }
 
@@ -140,7 +140,7 @@ int MemifConnector::createMemif(uint32_t index, uint8_t mode, char *s) {
   args.mode = memif_interface_mode_t::MEMIF_INTERFACE_MODE_IP;
   args.socket_filename = (uint8_t *)socket_filename_.c_str();
 
-  TRANSPORT_LOGI("Socket filename: %s", args.socket_filename);
+  TRANSPORT_LOGD("Socket filename: %s", args.socket_filename);
 
   args.interface_id = index;
   /* last argument for memif_create (void * private_ctx) is used by user
@@ -297,7 +297,7 @@ int MemifConnector::txBurst(uint16_t qid) {
 void MemifConnector::sendCallback(const std::error_code &ec) {
   timer_set_ = false;
 
-  if (TRANSPORT_EXPECT_TRUE(!ec && !is_connecting_)) {
+  if (TRANSPORT_EXPECT_TRUE(!ec && state_ == ConnectorState::CONNECTED)) {
     doSend();
   }
 }
@@ -315,8 +315,8 @@ void MemifConnector::processInputBuffer() {
 int MemifConnector::onConnect(memif_conn_handle_t conn, void *private_ctx) {
   TRANSPORT_LOGI("memif connected!\n");
   MemifConnector *connector = (MemifConnector *)private_ctx;
-  memif_refill_queue(conn, 0, -1, 0);
-  connector->is_connecting_ = false;
+  connector->state_ = ConnectorState::CONNECTED;
+  memif_refill_queue(conn, 0, -1, 0); 
 
   return 0;
 }
@@ -326,7 +326,7 @@ int MemifConnector::onConnect(memif_conn_handle_t conn, void *private_ctx) {
 int MemifConnector::onDisconnect(memif_conn_handle_t conn, void *private_ctx) {
   TRANSPORT_LOGI("memif disconnected!");
   MemifConnector *connector = (MemifConnector *)private_ctx;
-  //  TRANSPORT_LOGI ("Packet received: %u", connector->packet_counter_);
+  connector->state_ = ConnectorState::CLOSED;
   TRANSPORT_LOGI("Packet to process: %u",
                  connector->memif_connection_->tx_buf_num);
   return 0;
@@ -390,10 +390,6 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
 
     TRANSPORT_LOGD("freed %d buffers. %u/%u alloc/free buffers", rx, rx,
                    MAX_MEMIF_BUFS - rx);
-
-    //    if (connector->enable_burst_) {
-    //      connector->doSend();
-    //    }
   } while (ret_val == MEMIF_ERR_NOBUF);
 
   connector->io_service_.post(
@@ -415,17 +411,15 @@ error:
 }
 
 void MemifConnector::close() {
-  if (!closed_) {
-    closed_ = true;
-    event_reactor_.stop();
-    work_.reset();
+  if (state_ != ConnectorState::CLOSED) {
+    disconnect_timer_->expiresFromNow(std::chrono::microseconds(50));
+    disconnect_timer_->asyncWait([this] (const std::error_code &ec) { deleteMemif(); event_reactor_.stop(); work_.reset();});
 
     if (memif_worker_ && memif_worker_->joinable()) {
       memif_worker_->join();
-      TRANSPORT_LOGD("Memif worker joined");
-      deleteMemif();
+      TRANSPORT_LOGI("Memif worker joined");
     } else {
-      TRANSPORT_LOGD("Memif worker not joined");
+      TRANSPORT_LOGI("Memif worker not joined");
     }
   }
 }
@@ -494,11 +488,6 @@ int MemifConnector::doSend() {
   } while (size > 0);
 
   return 0;
-}
-
-void MemifConnector::state() {
-  TRANSPORT_LOGD("Event reactor map: %zu", event_reactor_.mapSize());
-  TRANSPORT_LOGD("Output buffer %zu", output_buffer_.size());
 }
 
 void MemifConnector::send(const uint8_t *packet, std::size_t len,
