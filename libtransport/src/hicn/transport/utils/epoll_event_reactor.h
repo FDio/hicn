@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/utils/event_reactor.h>
+#include <hicn/transport/utils/spinlock.h>
 
 #include <sys/epoll.h>
 #include <atomic>
@@ -38,9 +39,22 @@ class EpollEventReactor : public EventReactor {
 
   ~EpollEventReactor();
 
-  int addFileDescriptor(int fd, uint32_t events, EventCallback &callback);
+  template <typename EventHandler>
+  int addFileDescriptor(int fd, uint32_t events, EventHandler &&callback) {
+    auto it = event_callback_map_.find(fd);
+    int ret = 0;
 
-  int addFileDescriptor(int fd, uint32_t events, EventCallback &&callback);
+    if (it == event_callback_map_.end()) {
+      {
+        utils::SpinLock::Acquire locked(event_callback_map_lock_);
+        event_callback_map_[fd] = std::forward<EventHandler &&>(callback);
+      }
+
+      ret = addFileDescriptor(fd, events);
+    }
+
+    return ret;
+  }
 
   int delFileDescriptor(int fd);
 
@@ -60,7 +74,7 @@ class EpollEventReactor : public EventReactor {
   int epoll_fd_;
   std::atomic_bool run_event_loop_;
   EventCallbackMap event_callback_map_;
-  std::mutex event_callback_map_mutex_;
+  utils::SpinLock event_callback_map_lock_;
 };
 
 }  // namespace utils

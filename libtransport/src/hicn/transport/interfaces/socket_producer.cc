@@ -15,6 +15,8 @@
 
 #include <hicn/transport/interfaces/socket_producer.h>
 
+#include <functional>
+
 namespace transport {
 
 namespace interface {
@@ -30,15 +32,12 @@ ProducerSocket::ProducerSocket(asio::io_service &io_service)
       data_packet_size_(default_values::content_object_packet_size),
       content_object_expiry_time_(default_values::content_object_expiry_time),
       output_buffer_(default_values::producer_socket_output_buffer_size),
-      async_thread_(),
       registration_status_(REGISTRATION_NOT_ATTEMPTED),
       making_manifest_(false),
       signature_type_(SHA_256),
       hash_algorithm_(HashAlgorithm::SHA_256),
       input_buffer_capacity_(default_values::producer_socket_input_buffer_size),
       input_buffer_size_(0),
-      processing_thread_stop_(false),
-      listening_thread_stop_(false),
       on_interest_input_(VOID_HANDLER),
       on_interest_dropped_input_buffer_(VOID_HANDLER),
       on_interest_inserted_input_buffer_(VOID_HANDLER),
@@ -49,18 +48,10 @@ ProducerSocket::ProducerSocket(asio::io_service &io_service)
       on_content_object_in_output_buffer_(VOID_HANDLER),
       on_content_object_output_(VOID_HANDLER),
       on_content_object_evicted_from_output_buffer_(VOID_HANDLER),
-      on_content_produced_(VOID_HANDLER) {
-  listening_thread_stop_ = false;
-}
+      on_content_produced_(VOID_HANDLER) {}
 
 ProducerSocket::~ProducerSocket() {
-  processing_thread_stop_ = true;
-  portal_->stopEventsLoop(true);
-
-  if (processing_thread_.joinable()) {
-    processing_thread_.join();
-  }
-
+  stop();
   if (listening_thread_.joinable()) {
     listening_thread_.join();
   }
@@ -308,8 +299,8 @@ uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
     if (is_last_manifest) {
       manifest->setFinalManifest(is_last_manifest);
     }
+
     manifest->encode();
-    //  Time t0 = std::chrono::steady_clock::now();
     identity_->getSigner().sign(*manifest);
     passContentObjectToCallbacks(manifest);
   }
@@ -324,32 +315,20 @@ uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
 
 void ProducerSocket::asyncProduce(ContentObject &content_object) {
   if (!async_thread_.stopped()) {
-    // async_thread_.add(std::bind(&ProducerSocket::produce, this,
-    // content_object));
+    auto co_ptr = std::static_pointer_cast<ContentObject>(
+        content_object.shared_from_this());
+    async_thread_.add([this, content_object = std::move(co_ptr)]() {
+      produce(*content_object);
+    });
   }
 }
-
-// void ProducerSocket::asyncProduce(const Name &suffix,
-//                                   const uint8_t *buf,
-//                                   size_t buffer_size,
-//                                   AsyncProduceCallback && handler) {
-//   if (!async_thread_.stopped()) {
-//     async_thread_.add([this, buffer = buf, size = buffer_size, cb =
-//     std::move(handler)] () {
-//       uint64_t bytes_written = produce(suff, buffer, size, 0, false);
-//       auto ec = std::make_errc(0);
-//       cb(*this, ec, bytes_written);
-//     });
-//   }
-// }
 
 void ProducerSocket::asyncProduce(const Name &suffix, const uint8_t *buf,
                                   size_t buffer_size) {
   if (!async_thread_.stopped()) {
-    async_thread_.add(
-        [this, suff = suffix, buffer = buf, size = buffer_size]() {
-          produce(suff, buffer, size, true);
-        });
+    async_thread_.add([this, suffix, buffer = buf, size = buffer_size]() {
+      produce(suffix, buffer, size, 0, false);
+    });
   }
 }
 

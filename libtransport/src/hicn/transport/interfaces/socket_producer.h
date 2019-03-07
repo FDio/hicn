@@ -525,6 +525,10 @@ class ProducerSocket : public Socket<BasePortal>,
     return SOCKET_OPTION_GET;
   }
 
+ private:
+  // Threads
+  std::thread listening_thread_;
+
  protected:
   asio::io_service internal_io_service_;
   asio::io_service &io_service_;
@@ -538,7 +542,6 @@ class ProducerSocket : public Socket<BasePortal>,
 
  private:
   utils::EventThread async_thread_;
-
   int registration_status_;
 
   bool making_manifest_;
@@ -559,12 +562,6 @@ class ProducerSocket : public Socket<BasePortal>,
   std::queue<std::shared_ptr<const Interest>> input_buffer_;
   std::atomic_size_t input_buffer_capacity_;
   std::atomic_size_t input_buffer_size_;
-
-  // threads
-  std::thread listening_thread_;
-  std::thread processing_thread_;
-  volatile bool processing_thread_stop_;
-  volatile bool listening_thread_stop_;
 
   // callbacks
  protected:
