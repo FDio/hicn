@@ -6,7 +6,6 @@ module hicn {
         description "Initial revision.";
     }
 
-
 /* new data types and grouping definition to forward the remote request toward hicn controler--to-->hicn */
 
     typedef float {
@@ -19,7 +18,7 @@ module hicn {
     grouping params {
 
         leaf enable_disable {
-                description "Enable / disable ICN forwarder in VPP.";
+                description "Enable / disable ICN forwarder in forwarder.";
                 type boolean;
                 default false;
             }
@@ -354,7 +353,7 @@ module hicn {
    grouping strategy-reply {
 
         leaf description {
-                description "Enable / disable ICN forwarder in VPP.";
+                description "Enable / disable ICN forwarder in forwarder.";
                 type uint8;
             }
    }
@@ -362,7 +361,7 @@ module hicn {
    grouping route-reply {
 
         leaf faceids {
-                description "Enable / disable ICN forwarder in VPP.";
+                description "Enable / disable ICN forwarder in forwarder.";
                 type uint16;
 
             }
@@ -375,11 +374,11 @@ module hicn {
 
    grouping strategies-reply {
         leaf n_strategies {
-                description "Enable / disable ICN forwarder in VPP.";
+                description "Enable / disable ICN forwarder in forwarder.";
                 type uint8;
             }
         leaf strategy_id {
-                description "Enable / disable ICN forwarder in VPP.";
+                description "Enable / disable ICN forwarder in forwarder.";
                 type uint32;
             }
 
@@ -388,7 +387,7 @@ module hicn {
    grouping face-ip-params-reply {
 
         leaf nh_addr {
-                description "Enable / disable ICN forwarder in VPP.";
+                description "Enable / disable ICN forwarder in forwarder.";
                 type uint64;
             }
 
@@ -409,7 +408,7 @@ module hicn {
 
     container hicn-conf {
         config true;
-        description "config data container for the hicn-vpp.";
+        description "config data container for the hicn-forwarder.";
 
         container params{
             uses params;
@@ -438,25 +437,26 @@ module hicn {
         container face-ip-params{
             uses face-ip-params-reply;
         }
+
     }
 
 /* RPC Definitions */
 
 
     rpc node-params-set {
-        description "Operation to set hicn params in vpp.";
+        description "Operation to set hicn params in forwarder.";
         input {
             uses params;
         }
     }
 
     rpc node-params-get {
-        description "Operation to get hicn parameter in vpp.";
+        description "Operation to get hicn parameter in forwarder.";
     }
 
 
     rpc node-stat-get {
-        description "Operation to get hicn status in vpp.";
+        description "Operation to get hicn status in forwarder.";
     }
 
 
