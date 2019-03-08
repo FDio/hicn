@@ -11,14 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 # set compiler options
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -std=gnu99")
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O2")
 set(CMAKE_C_FLAGS_DEBUG   "-g -O0")
-set (CMAKE_INSTALL_LIBDIR "/usr/lib")
 
 cmake_minimum_required(VERSION 2.8)
 project(sysrepo-vpp-plugins)
@@ -44,22 +42,24 @@ if (NOT SR_PLUGINS_DIR)
     message(FATAL_ERROR "Cannot get sysrepo plugins directory due to missing pkg-config, set SR_PLUGINS_DIR manually.")
 endif()
 
-#target_include_directories(vpinc PUBLIC ${VPP_INCLUDE_DIRS} ${HICNPLUGIN_INCLUDE_DIRS})
-#target_link_libraries(vplib ${VPP_LIBRARIES} ${HICNPLUGIN_LIBRARIES})
-
 # plugins sources
 set(PLUGINS_SOURCES
-    hicn_plugin.c
-    model/hicn_model.c
-    model/tlock.c
-    hicn_vpp_comm.h
-    hicn_vpp_comm.c
+    plugin/ietf/ietf_interface.c
+    plugin/model/hicn_model.c
+    plugin/model/tlock.c
+    plugin/hicn_vpp_comm.c
+    plugin/hicn_plugin.c
 )
 
 # build the source code into shared library
 add_library(hicn SHARED ${PLUGINS_SOURCES})
 target_include_directories(hicn PUBLIC ${VPP_INCLUDE_DIRS} ${HICNPLUGIN_INCLUDE_DIRS})
 target_link_libraries(hicn ${SYSREPO_LIBRARIES} ${VPP_LIBRARIES} ${HICNPLUGIN_LIBRARIES})
+
+#set_target_properties(hicn
+#        PROPERTIES
+#        LINKER_LANGUAGE C
+#        INSTALL_RPATH ${VPP_HOME}/lib)
 
 # install the plugin into plugins dir
 install(TARGETS hicn DESTINATION ${SR_PLUGINS_DIR} COMPONENT hicn_sysrepo_plugin)
