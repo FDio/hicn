@@ -122,7 +122,7 @@ class IncrementalIndexManager : public IndexVerificationManager {
  public:
   IncrementalIndexManager(interface::ConsumerSocket *icn_socket)
       : socket_(icn_socket),
-        final_suffix_(std::numeric_limits<uint64_t>::max()),
+        final_suffix_(std::numeric_limits<uint32_t>::max()),
         next_download_suffix_(0),
         next_reassembly_suffix_(0),
         verification_manager_(
@@ -134,7 +134,7 @@ class IncrementalIndexManager : public IndexVerificationManager {
   virtual ~IncrementalIndexManager() {}
 
   TRANSPORT_ALWAYS_INLINE virtual void reset() override {
-    final_suffix_ = std::numeric_limits<uint64_t>::max();
+    final_suffix_ = std::numeric_limits<uint32_t>::max();
     next_download_suffix_ = 0;
     next_reassembly_suffix_ = 0;
   }
@@ -157,7 +157,7 @@ class IncrementalIndexManager : public IndexVerificationManager {
   }
 
   TRANSPORT_ALWAYS_INLINE virtual bool isFinalSuffixDiscovered() override {
-    return final_suffix_ != std::numeric_limits<uint64_t>::max();
+    return final_suffix_ != std::numeric_limits<uint32_t>::max();
   }
 
   TRANSPORT_ALWAYS_INLINE virtual uint32_t getFinalSuffix() override {
@@ -182,9 +182,9 @@ class IncrementalIndexManager : public IndexVerificationManager {
 
  protected:
   interface::ConsumerSocket *socket_;
-  uint64_t final_suffix_;
-  uint64_t next_download_suffix_;
-  uint64_t next_reassembly_suffix_;
+  uint32_t final_suffix_;
+  uint32_t next_download_suffix_;
+  uint32_t next_reassembly_suffix_;
   std::unique_ptr<VerificationManager> verification_manager_;
 };
 

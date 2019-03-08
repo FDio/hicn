@@ -331,15 +331,15 @@ class ProducerSocket : public Socket<BasePortal>,
                                               uint32_t &socket_option_value) {
     switch (socket_option_key) {
       case GeneralTransportOptions::INPUT_BUFFER_SIZE:
-        socket_option_value = input_buffer_capacity_;
+        socket_option_value = (uint32_t)input_buffer_capacity_;
         break;
 
       case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
-        socket_option_value = output_buffer_.getLimit();
+        socket_option_value = (uint32_t)output_buffer_.getLimit();
         break;
 
       case GeneralTransportOptions::DATA_PACKET_SIZE:
-        socket_option_value = data_packet_size_;
+        socket_option_value = (uint32_t)data_packet_size_;
         break;
 
       case GeneralTransportOptions::CONTENT_OBJECT_EXPIRY_TIME:
