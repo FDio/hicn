@@ -37,6 +37,11 @@ drop_packet (vlib_main_t * vm, u32 bi0,
 	     u32 * n_left_to_next, u32 * next0, u32 ** to_next,
 	     u32 * next_index, vlib_node_runtime_t * node);
 
+always_inline void
+push_in_cache (vlib_main_t * vm, u32 bi0,
+	       u32 * n_left_to_next, u32 * next0, u32 ** to_next,
+	       u32 * next_index, vlib_node_runtime_t * node);
+
 always_inline int
 hicn_satisfy_faces (vlib_main_t * vm, u32 b0,
 		    hicn_pcs_entry_t * pitp, u32 * n_left_to_next,
@@ -170,8 +175,16 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      hicn_pcs_delete (pitcs, &pitp, &node0, vm, hash_entry0,
 			       dpo_vft0, &hicn_dpo_id0);
 
-	      drop_packet (vm, bi0, &n_left_to_next, &next0, &to_next,
-			   &next_index, node);
+	      if (hicnb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP)
+		{
+		  push_in_cache (vm, bi0, &n_left_to_next, &next0, &to_next,
+				 &next_index, node);
+		}
+	      else
+		{
+		  drop_packet (vm, bi0, &n_left_to_next, &next0, &to_next,
+			       &next_index, node);
+		}
 	      stats.pit_expired_count++;
 
 	      if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
@@ -320,6 +333,21 @@ drop_packet (vlib_main_t * vm, u32 bi0,
 	     u32 * next_index, vlib_node_runtime_t * node)
 {
   *next0 = HICN_DATA_FWD_NEXT_ERROR_DROP;
+
+  (*to_next)[0] = bi0;
+  *to_next += 1;
+  *n_left_to_next -= 1;
+
+  vlib_validate_buffer_enqueue_x1 (vm, node, *next_index,
+				   *to_next, *n_left_to_next, bi0, *next0);
+}
+
+always_inline void
+push_in_cache (vlib_main_t * vm, u32 bi0,
+	       u32 * n_left_to_next, u32 * next0, u32 ** to_next,
+	       u32 * next_index, vlib_node_runtime_t * node)
+{
+  *next0 = HICN_DATA_FWD_NEXT_PUSH;
 
   (*to_next)[0] = bi0;
   *to_next += 1;
@@ -601,6 +629,7 @@ VLIB_REGISTER_NODE(hicn_data_fwd_node) =
   .next_nodes = {
     [HICN_DATA_FWD_NEXT_V4_LOOKUP] = "ip4-lookup",
     [HICN_DATA_FWD_NEXT_V6_LOOKUP] = "ip6-lookup",
+    [HICN_DATA_FWD_NEXT_PUSH] = "hicn-data-push",
     [HICN_DATA_FWD_NEXT_ERROR_DROP] = "error-drop",
   },
 };

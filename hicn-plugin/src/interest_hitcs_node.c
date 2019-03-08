@@ -280,6 +280,7 @@ VLIB_REGISTER_NODE(hicn_interest_hitcs_node) =
   {
     [HICN_INTEREST_HITCS_NEXT_V4_LOOKUP] = "ip4-lookup",
     [HICN_INTEREST_HITCS_NEXT_V6_LOOKUP] = "ip6-lookup",
+    [HICN_INTEREST_HITCS_NEXT_PUSH] = "hicn-data-push",
     [HICN_INTEREST_HITCS_NEXT_ERROR_DROP] = "error-drop",
   },
 };
