@@ -1,0 +1,39 @@
+## OBJECT_LISTENER
+
+#  CREATE
+if (hc_listener_create(s, &command.listener) < 0)
+                        die(COMMAND, "Error creating listener");
+                    printf("OK\n");
+
+
+# DELETE
+
+
+# ACTION_LIST
+if (hc_listener_list(s, &data) < 0)
+                        die(COMMAND, "Error getting listeners.");
+
+
+## OBJECT_CONNECTION
+
+# CREATE
+
+
+# DELETE
+
+
+# LIST
+if (hc_connection_list(s, &data) < 0)
+                        die(COMMAND, "Error getting connections.");
+
+## OBJECT_ROUTE
+
+# CREATE
+
+
+# DELETE
+
+
+# LIST
+if (hc_route_list(s, &data) < 0)
+                        die(COMMAND, "Error getting routes.");

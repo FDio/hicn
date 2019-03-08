@@ -125,9 +125,14 @@ static inline void  strategy_update(sr_val_t * vals ){
 }
 
 static inline void  strategies_update(sr_val_t * vals ){
-  sr_val_set_xpath(&vals[0], "/hicn:hicn-state/strategies/description");
+  sr_val_set_xpath(&vals[0], "/hicn:hicn-state/strategies/n_strategies");
   vals[0].type = SR_UINT8_T;
-  vals[0].data.uint8_val = hicn_strategy->description[0];
+  vals[0].data.uint8_val = hicn_strategies->n_strategies;
+
+  sr_val_set_xpath(&vals[1], "/hicn:hicn-state/strategies/strategy_id");
+  vals[1].type = SR_UINT32_T;
+  vals[1].data.uint32_val = hicn_strategies->strategy_id[0];
+
 }
 
 static inline void  route_update(sr_val_t * vals ){
@@ -316,7 +321,7 @@ static int hicn_state_route_cb(const char *xpath, sr_val_t **values,
 
   SRP_LOG_DBG("Requesting state data for '%s'", xpath);
   Ticket_Lock(face_ip_params);
-  route_update(vals);
+  face_ip_params_update(vals);
   Ticket_Unlock(face_ip_params);
 
   *values = vals;
@@ -364,6 +369,8 @@ static int hicn_node_params_set_cb(sr_session_ctx_t *session, const char *xpath,
     return rc;
   }
 
+
+  SRP_LOG_DBG_MSG("Start writing msg");
   vapi_msg_hicn_api_node_params_set *msg;
   vapi_msg_hicn_api_node_params_set_reply *resp = NULL;
   msg = vapi_alloc_hicn_api_node_params_set(g_vapi_ctx_instance);
@@ -472,23 +479,25 @@ static int hicn_node_stat_get_cb(const char *xpath, const sr_val_t *input,
                                  size_t *output_cnt, void *private_ctx) {
   vapi_msg_hicn_api_node_stats_get *msg;
   vapi_msg_hicn_api_node_stats_get_reply *resp;
+  enum locks_name state;
+  state=lstate;
 
+  SRP_LOG_DBG_MSG("-------Enter------");
   msg = vapi_alloc_hicn_api_node_stats_get(g_vapi_ctx_instance);
   vapi_msg_hicn_api_node_stats_get_hton(msg);
-
+  SRP_LOG_DBG_MSG("-------Send------");
   if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
     SRP_LOG_DBG_MSG("Sending msg to VPP failed");
     return SR_ERR_OPERATION_FAILED;
   }
 
   HICN_VPP_VAPI_RECV;
+  SRP_LOG_DBG_MSG("-------Receive------");
+  vapi_msg_hicn_api_node_stats_get_reply_ntoh(resp);
 
-   vapi_msg_hicn_api_node_stats_get_reply_ntoh(resp);
-
-   Ticket_Lock(0);
-   hicn_state = (hicn_state_t *) resp;
-   Ticket_Unlock(0);
-
+  Ticket_Lock(state);
+  hicn_state = (hicn_state_t *) resp;
+  Ticket_Unlock(state);
 
   SRP_LOG_DBG_MSG("hicn status receive successfully");
   return SR_ERR_OK;
@@ -833,7 +842,7 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
 int hicn_subscribe_events(sr_session_ctx_t *session,
                           sr_subscription_ctx_t **subscription) {
     int rc = SR_ERR_OK;
-    SRP_LOG_DBG_MSG("Initializing hicn-interfaces plugin.");
+    SRP_LOG_DBG_MSG("Subscriging hicn.");
 
 
     //Initializing the locks
@@ -847,12 +856,15 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
     }
 
 
-    // node param subscriptions
 
-    rc = sr_rpc_subscribe(session, "/hicn:node-params-get",
-    hicn_node_params_get_cb, session, SR_SUBSCR_CTX_REUSE, subscription); if (rc
-    != SR_ERR_OK) { SRP_LOG_DBG_MSG("Problem in subscription params-get\n"); goto error;
+    // node state subscriptions
+
+    rc = sr_rpc_subscribe(session, "/hicn:node-params-get", hicn_node_params_get_cb,
+    session, SR_SUBSCR_CTX_REUSE, subscription); if (rc != SR_ERR_OK) {
+      SRP_LOG_DBG_MSG("Problem in subscription stat-get\n");
+      goto error;
     }
+
 
     // node state subscriptions
 
@@ -956,6 +968,8 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
     SRP_LOG_DBG_MSG("Problem in subscription /hicn:hicn-state/states\n");
     goto error;
   }
+
+
 
   rc = sr_dp_get_items_subscribe(session, "/hicn:hicn-state/strategy",
                                  hicn_state_strategy_cb, NULL, SR_SUBSCR_CTX_REUSE,
