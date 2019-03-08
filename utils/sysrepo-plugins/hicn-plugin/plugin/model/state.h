@@ -20,7 +20,7 @@
 #include "../hicn_vpp_comm.h"
 
 //DEFINE_VAPI_MSG_IDS_HICN_API_JSON;
-vapi_ctx_t g_vapi_ctx_instance;
+//vapi_ctx_t g_vapi_ctx_instance;
 
 static void *state_thread(void *arg) {
   /*
