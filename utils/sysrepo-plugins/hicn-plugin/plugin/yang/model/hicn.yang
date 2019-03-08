@@ -6,6 +6,9 @@ module hicn {
         description "Initial revision.";
     }
 
+    import ietf-interfaces {
+       prefix if;
+    }
 
 /* new data types and grouping definition to forward the remote request toward hicn controler--to-->hicn */
 
@@ -438,6 +441,7 @@ module hicn {
         container face-ip-params{
             uses face-ip-params-reply;
         }
+
     }
 
 /* RPC Definitions */
