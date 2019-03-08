@@ -53,7 +53,7 @@ class FdDeadlineTimer : public DeadlineTimer<FdDeadlineTimer> {
 
     reactor_.addFileDescriptor(
         timer_fd_, events,
-        [callback{move(callback)}](const Event &event) -> int {
+        [callback = std::forward<WaitHandler &&>(callback)](const Event &event) -> int {
           uint64_t s = 0;
           std::error_code ec;
 

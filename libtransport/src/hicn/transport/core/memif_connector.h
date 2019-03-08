@@ -69,8 +69,6 @@ class MemifConnector : public Connector {
 
   void enableBurst() override;
 
-  void state() override;
-
   TRANSPORT_ALWAYS_INLINE uint32_t getMemifId() { return memif_id_; };
 
  private:
@@ -112,6 +110,7 @@ class MemifConnector : public Connector {
   utils::EpollEventReactor event_reactor_;
   std::atomic_bool timer_set_;
   std::unique_ptr<utils::FdDeadlineTimer> send_timer_;
+  std::unique_ptr<utils::FdDeadlineTimer> disconnect_timer_;
   asio::io_service &io_service_;
   std::unique_ptr<asio::io_service::work> work_;
   uint32_t packet_counter_;
@@ -119,11 +118,9 @@ class MemifConnector : public Connector {
   uint16_t tx_buf_counter_;
 
   PacketRing input_buffer_;
-  volatile bool is_connecting_;
-  volatile bool is_reconnection_;
+  bool is_reconnection_;
   bool data_available_;
   bool enable_burst_;
-  bool closed_;
   uint32_t memif_id_;
   uint8_t memif_mode_;
   std::string app_name_;

@@ -54,8 +54,6 @@ class RawSocketConnector : public Connector {
   void connect(const std::string &interface_name,
                const std::string &mac_address_str);
 
-  void state() override;
-
  private:
   void doConnect();
 
