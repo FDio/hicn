@@ -78,8 +78,7 @@ std::unique_ptr<RouteToSelfCommand> createCommandRoute(
 #ifndef _WIN32
   strcpy(command->symbolic_or_connid, identifier);
 #else
-  strcpy_s(command->symbolic_or_connid,
-           strlen(command->symbolic_or_connid), identifier);
+  strcpy_s(command->symbolic_or_connid, 16, identifier);
 #endif
   command->cost = 1;
   command->len = (uint8_t)prefix_length;
@@ -99,8 +98,7 @@ std::unique_ptr<DeleteSelfConnectionCommand> createCommandDeleteConnection() {
 #ifndef _WIN32
   strcpy(command->symbolic_or_connid, identifier);
 #else
-  strcpy_s(command->symbolic_or_connid,
-           strlen(command->symbolic_or_connid), identifier);
+  strcpy_s(command->symbolic_or_connid, 16, identifier);
 #endif
 
   return command;
