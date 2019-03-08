@@ -33,7 +33,8 @@ set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O2")
 set(CMAKE_C_FLAGS_DEBUG   "-g -O0")
 
 # add subdirectories
-add_subdirectory(plugin)
+add_subdirectory(hicn-plugin)
+add_subdirectory(hicn-light)
 include(Packaging)
 include(Packager)
 make_packages()
