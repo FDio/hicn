@@ -3,10 +3,10 @@
 
 void Ticket_init ( int Lock_Number , long int init ){
 
-//__atomic_store( &En[Lock_Number] , &init , __ATOMIC_SEQ_CST );
-//__atomic_store( &De[Lock_Number] , &init , __ATOMIC_SEQ_CST );
-En[Lock_Number]=init;
-De[Lock_Number]=init;
+__atomic_store( &En[Lock_Number] , &init , __ATOMIC_SEQ_CST );
+__atomic_store( &De[Lock_Number] , &init , __ATOMIC_SEQ_CST );
+//En[Lock_Number]=init;
+//De[Lock_Number]=init;
 }
 
 void Ticket_Lock(int Lock_Number ){

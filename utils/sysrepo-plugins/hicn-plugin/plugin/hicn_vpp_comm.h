@@ -47,7 +47,9 @@
 
 //Here it is the definition
 
-
+#define VPP_INTFC_NAME_LEN 64
+#define VPP_MAC_ADDRESS_LEN 8
+#define VPP_IP6_ADDRESS_LEN 16
 #define HICN_INVOKE_BEGIN HICN_LOG_DBG("inovke %s bein.", HICN_THIS_FUNC);
 #define HICN_INVOKE_END \
   HICN_LOG_DBG("inovke %s end,with return OK.", HICN_THIS_FUNC);
@@ -61,6 +63,12 @@
       return (retval);                                \
     }                                                 \
   } while (0)
+
+
+
+#define ARG_CHECK2(retval, arg1, arg2) \
+    ARG_CHECK(retval, arg1); \
+    ARG_CHECK(retval, arg2)
 
 #define ARG_CHECK5(retval, arg1, arg2, arg3, arg4, arg5) \
     ARG_CHECK(retval, arg1); \
