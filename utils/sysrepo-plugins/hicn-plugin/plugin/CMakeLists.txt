@@ -49,11 +49,11 @@ endif()
 
 # plugins sources
 set(PLUGINS_SOURCES
-    hicn_plugin.c
+    ietf/ietf_interface.c
     model/hicn_model.c
     model/tlock.c
-    hicn_vpp_comm.h
     hicn_vpp_comm.c
+    hicn_plugin.c
 )
 
 # build the source code into shared library
