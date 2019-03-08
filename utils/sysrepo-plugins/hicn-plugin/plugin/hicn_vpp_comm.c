@@ -20,7 +20,8 @@
 #define APP_NAME "hicn_plugin"
 #define MAX_OUTSTANDING_REQUESTS 4
 #define RESPONSE_QUEUE_SIZE 2
-vapi_ctx_t g_vapi_ctx_instance = NULL;
+vapi_ctx_t g_vapi_ctx_instance=NULL;
+DEFINE_VAPI_MSG_IDS_HICN_API_JSON;
 
 int hicn_connect_vpp() {
   HICN_INVOKE_BEGIN;

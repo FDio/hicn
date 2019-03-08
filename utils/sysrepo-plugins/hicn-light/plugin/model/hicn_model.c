@@ -18,15 +18,12 @@
 
 /* Hicn headers */
 
-#include <vapi/hicn.api.vapi.h>
-#include "../hicn_plugin.h"
-#include "../hicn_vpp_comm.h"
 #include "hicn_model.h"
-#include "state.h"
 #include "tlock.h"
+#include "../hicn_light.h"
 
 
-vapi_ctx_t g_vapi_ctx_instance;
+
 
 // Shared local variables between state and RPCs
 
@@ -125,9 +122,14 @@ static inline void  strategy_update(sr_val_t * vals ){
 }
 
 static inline void  strategies_update(sr_val_t * vals ){
-  sr_val_set_xpath(&vals[0], "/hicn:hicn-state/strategies/description");
+  sr_val_set_xpath(&vals[0], "/hicn:hicn-state/strategies/n_strategies");
   vals[0].type = SR_UINT8_T;
-  vals[0].data.uint8_val = hicn_strategy->description[0];
+  vals[0].data.uint8_val = hicn_strategies->n_strategies;
+
+  sr_val_set_xpath(&vals[1], "/hicn:hicn-state/strategies/strategy_id");
+  vals[1].type = SR_UINT32_T;
+  vals[1].data.uint32_val = hicn_strategies->strategy_id[0];
+
 }
 
 static inline void  route_update(sr_val_t * vals ){
@@ -182,13 +184,6 @@ static int hicn_state_states_cb(const char *xpath, sr_val_t **values,
 
   *values = vals;
   *values_cnt = NSTATE_LEAVES;
-
-  pthread_t state_tid;
-  rc = pthread_create((pthread_t *)&state_tid, NULL, state_thread, NULL);
-  if (rc != 0) {
-        SRP_LOG_DBG_MSG("Error making hicn state thread");
-        return SR_ERR_OPERATION_FAILED;
-  }
 
   return SR_ERR_OK;
 }
@@ -262,31 +257,7 @@ static int hicn_state_strategies_cb(const char *xpath, sr_val_t **values,
 static int hicn_state_route_cb(const char *xpath, sr_val_t **values,
                          size_t *values_cnt, uint64_t request_id,
                          const char *original_xpath, void *private_ctx) {
-  sr_val_t *vals;
-  int rc;
-  enum locks_name route;
-  route=lroute;
 
-
-  if (! sr_xpath_node_name_eq(xpath, "route")) {
-    SRP_LOG_DBG_MSG("Requesting state is not for route");
-    *values = NULL;
-    *values_cnt = 0;
-    return SR_ERR_OK;
-  }
-
-  rc = sr_new_values(NROUTE_LEAVES, &vals);
-  if (SR_ERR_OK != rc) {
-    return rc;
-  }
-
-  SRP_LOG_DBG("Requesting state data for '%s'", xpath);
-  Ticket_Lock(route);
-  route_update(vals);
-  Ticket_Unlock(route);
-
-  *values = vals;
-  *values_cnt = NROUTE_LEAVES;
   return SR_ERR_OK;
 
   }
@@ -295,535 +266,137 @@ static int hicn_state_route_cb(const char *xpath, sr_val_t **values,
   static int hicn_state_face_ip_params_cb(const char *xpath, sr_val_t **values,
                          size_t *values_cnt, uint64_t request_id,
                          const char *original_xpath, void *private_ctx) {
-  sr_val_t *vals;
-  int rc;
-  enum locks_name face_ip_params;
-  face_ip_params=lface_ip_params;
 
-
-
-  if (! sr_xpath_node_name_eq(xpath, "face-ip-params")) {
-    SRP_LOG_DBG_MSG("Requesting state is not for face-ip-params");
-    *values = NULL;
-    *values_cnt = 0;
-    return SR_ERR_OK;
-  }
-
-  rc = sr_new_values(NFACE_IP_PARAMS_LEAVES, &vals);
-  if (SR_ERR_OK != rc) {
-    return rc;
-  }
-
-  SRP_LOG_DBG("Requesting state data for '%s'", xpath);
-  Ticket_Lock(face_ip_params);
-  route_update(vals);
-  Ticket_Unlock(face_ip_params);
-
-  *values = vals;
-  *values_cnt = NFACE_IP_PARAMS_LEAVES;
   return SR_ERR_OK;
 
   }
-
-
-static int params_send(vapi_msg_hicn_api_node_params_set *msg,
-                       vapi_msg_hicn_api_node_params_set_reply *resp) {
-  vapi_msg_hicn_api_node_params_set_hton(msg);
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-  HICN_VPP_VAPI_RECV;
-  SRP_LOG_DBG_MSG("state data are updated successfully");
-  return SR_ERR_OK;
-}
 
 /**
  * @brief Callback to be called by any config change of "/hicn:/" leaf.
  */
 static int hicn_node_params_set_cb(sr_session_ctx_t *session, const char *xpath,
                                    sr_notif_event_t event, void *private_ctx) {
-  sr_change_iter_t *iter = NULL;
-  sr_change_oper_t op = SR_OP_CREATED;
-  sr_val_t *old_val = NULL;
-  sr_val_t *new_val = NULL;
-  sr_xpath_ctx_t xpath_ctx = {
-      0,
-  };
-  int rc = SR_ERR_OK, op_rc = SR_ERR_OK;
-  // no-op for apply, we only care about SR_EV_ENABLED, SR_EV_VERIFY,
-  // SR_EV_ABORT
-  if (SR_EV_APPLY == event) {
-    return SR_ERR_OK;
-  }
 
-  // get changes iterator
-  rc = sr_get_changes_iter(session, xpath, &iter);
-  if (SR_ERR_OK != rc) {
-    SRP_LOG_ERR("Unable to retrieve change iterator: %s", sr_strerror(rc));
-    return rc;
-  }
-
-  vapi_msg_hicn_api_node_params_set *msg;
-  vapi_msg_hicn_api_node_params_set_reply *resp = NULL;
-  msg = vapi_alloc_hicn_api_node_params_set(g_vapi_ctx_instance);
-  // iterate over all changes
-  while ((SR_ERR_OK == op_rc || event == SR_EV_ABORT) &&
-         (SR_ERR_OK ==
-          (rc = sr_get_change_next(session, iter, &op, &old_val, &new_val)))) {
-    if (!strcmp(new_val->xpath, "/hicn:hicn-conf/params/enable_disable")) {
-      SRP_LOG_DBG("A change detected in '%s', op=%d",
-                  new_val ? new_val->xpath : old_val->xpath,
-                  new_val->data.bool_val);
-      msg->payload.enable_disable = new_val->data.bool_val;
-    } else if (!strcmp(new_val->xpath, "/hicn:hicn-conf/params/pit_max_size")) {
-      SRP_LOG_DBG("A change detected in '%s', op=%d",
-                  new_val ? new_val->xpath : old_val->xpath,
-                  new_val->data.int32_val);
-      msg->payload.pit_max_size = new_val->data.int32_val;
-    } else if (!strcmp(new_val->xpath, "/hicn:hicn-conf/params/cs_max_size")) {
-      SRP_LOG_DBG("A change detected in '%s', op=%d",
-                  new_val ? new_val->xpath : old_val->xpath,
-                  new_val->data.int32_val);
-      msg->payload.cs_max_size = new_val->data.int32_val;
-    } else if (!strcmp(new_val->xpath,
-                       "/hicn:hicn-conf/params/cs_reserved_app")) {
-      SRP_LOG_DBG("A change detected in '%s', op=%d",
-                  new_val ? new_val->xpath : old_val->xpath,
-                  new_val->data.int32_val);
-      msg->payload.cs_reserved_app = new_val->data.int32_val;
-    } else if (!strcmp(new_val->xpath,
-                       "/hicn:hicn-conf/params/pit_dflt_lifetime_sec")) {
-      SRP_LOG_DBG("A change detected in '%s', op=%d",
-                  new_val ? new_val->xpath : old_val->xpath,
-                  new_val->data.decimal64_val);
-      msg->payload.pit_dflt_lifetime_sec = new_val->data.decimal64_val;
-    } else if (!strcmp(new_val->xpath,
-                       "/hicn:hicn-conf/params/pit_min_lifetime_sec")) {
-      SRP_LOG_DBG("A change detected in '%s', op=%d",
-                  new_val ? new_val->xpath : old_val->xpath,
-                  new_val->data.decimal64_val);
-      msg->payload.pit_min_lifetime_sec = new_val->data.decimal64_val;
-    } else if (!strcmp(new_val->xpath,
-                       "/hicn:hicn-conf/params/pit_max_lifetime_sec")) {
-      SRP_LOG_DBG("A change detected in '%s', op=%d",
-                  new_val ? new_val->xpath : old_val->xpath,
-                  new_val->data.decimal64_val);
-      msg->payload.pit_max_lifetime_sec = new_val->data.decimal64_val;
-    }
-
-    switch (op) {
-      case SR_OP_CREATED:
-      case SR_OP_MODIFIED:
-        op_rc = SR_ERR_OK;  // OK
-        break;
-      case SR_OP_DELETED:
-        op_rc = SR_ERR_OPERATION_FAILED;  // ERROR
-        break;
-      default:
-        break;
-    }
-    sr_xpath_recover(&xpath_ctx);
-    if (SR_ERR_INVAL_ARG == op_rc) {
-      sr_set_error(session, "You are not allowed to change the schema.",
-                   new_val ? new_val->xpath : old_val->xpath);
-    }
-    sr_free_val(old_val);
-    sr_free_val(new_val);
-  }
-
-  params_send(msg, resp);
-
-  sr_free_change_iter(iter);
-  SRP_LOG_DBG_MSG("Configuration applied successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to get hicn param in vpp.
+ * @brief API to get hicn param in forwarder.
  */
 static int hicn_node_params_get_cb(const char *xpath, const sr_val_t *input,
                                    const size_t input_cnt, sr_val_t **output,
                                    size_t *output_cnt, void *private_ctx) {
-  vapi_msg_hicn_api_node_params_get *msg;
-  vapi_msg_hicn_api_node_params_get_reply *resp;
 
-  msg = vapi_alloc_hicn_api_node_params_get(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_node_params_get_hton(msg);
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_node_params_get_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn parameter receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to get hicn stat in vpp.
+ * @brief API to get hicn stat in forwarder.
  */
 static int hicn_node_stat_get_cb(const char *xpath, const sr_val_t *input,
                                  const size_t input_cnt, sr_val_t **output,
                                  size_t *output_cnt, void *private_ctx) {
-  vapi_msg_hicn_api_node_stats_get *msg;
-  vapi_msg_hicn_api_node_stats_get_reply *resp;
-
-  msg = vapi_alloc_hicn_api_node_stats_get(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_node_stats_get_hton(msg);
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-   vapi_msg_hicn_api_node_stats_get_reply_ntoh(resp);
-
-   Ticket_Lock(0);
-   hicn_state = (hicn_state_t *) resp;
-   Ticket_Unlock(0);
-
-
-  SRP_LOG_DBG_MSG("hicn status receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to get hicn strategy in vpp.
+ * @brief API to get hicn strategy in forwarder.
  */
 static int hicn_strategy_get_cb(const char *xpath, const sr_val_t *input,
                                 const size_t input_cnt, sr_val_t **output,
                                 size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_strategy_get *msg;
-  vapi_msg_hicn_api_strategy_get_reply *resp;
-
-  msg = vapi_alloc_hicn_api_strategy_get(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_strategy_get_hton(msg);
-
-  msg->payload.strategy_id = input[0].data.uint32_val;
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_strategy_get_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to get hicn strategies in vpp.
+ * @brief API to get hicn strategies in forwarder.
  */
 static int hicn_strategies_get_cb(const char *xpath, const sr_val_t *input,
                                   const size_t input_cnt, sr_val_t **output,
                                   size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_strategies_get *msg;
-  vapi_msg_hicn_api_strategies_get_reply *resp;
-
-  msg = vapi_alloc_hicn_api_strategies_get(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_strategies_get_hton(msg);
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_strategies_get_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to get hicn route in vpp.
+ * @brief API to get hicn route in forwarder.
  */
 static int hicn_route_get_cb(const char *xpath, const sr_val_t *input,
                              const size_t input_cnt, sr_val_t **output,
                              size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_route_get *msg;
-  vapi_msg_hicn_api_route_get_reply *resp;
 
-  msg = vapi_alloc_hicn_api_route_get(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_route_get_hton(msg);
-
-  msg->payload.prefix[0] = input[0].data.uint64_val;
-  msg->payload.prefix[1] = input[1].data.uint64_val;
-  msg->payload.len = input[2].data.uint8_val;
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_route_get_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to add hicn route nhops in vpp.
+ * @brief API to add hicn route nhops in forwarder.
  */
 static int hicn_route_nhops_add_cb(const char *xpath, const sr_val_t *input,
                                    const size_t input_cnt, sr_val_t **output,
                                    size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_route_nhops_add *msg;
-  vapi_msg_hicn_api_route_nhops_add_reply *resp;
 
-  msg = vapi_alloc_hicn_api_route_nhops_add(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_route_nhops_add_hton(msg);
-
-  msg->payload.prefix[0] = input[0].data.uint64_val;
-  msg->payload.prefix[1] = input[1].data.uint64_val;
-  msg->payload.len = input[2].data.uint8_val;
-  msg->payload.face_ids[0] = input[3].data.uint32_val;
-  msg->payload.face_ids[1] = input[4].data.uint32_val;
-  msg->payload.face_ids[2] = input[5].data.uint32_val;
-  msg->payload.face_ids[3] = input[6].data.uint32_val;
-  msg->payload.face_ids[4] = input[7].data.uint32_val;
-  msg->payload.face_ids[5] = input[8].data.uint32_val;
-  msg->payload.face_ids[6] = input[9].data.uint32_val;
-
-  msg->payload.n_faces = input[10].data.uint8_val;
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_route_nhops_add_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to del hicn route in vpp.
+ * @brief API to del hicn route in forwarder.
  */
 static int hicn_route_del_cb(const char *xpath, const sr_val_t *input,
                              const size_t input_cnt, sr_val_t **output,
                              size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_route_del *msg;
-  vapi_msg_hicn_api_route_del_reply *resp;
-
-  msg = vapi_alloc_hicn_api_route_del(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_route_del_hton(msg);
-
-  msg->payload.prefix[0] = input[0].data.uint64_val;
-  msg->payload.prefix[1] = input[1].data.uint64_val;
-  msg->payload.len = input[2].data.uint8_val;
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_route_del_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to get face ip params in hicn in vpp.
+ * @brief API to get face ip params in hicn in forwarder.
  */
 static int hicn_face_ip_params_get_cb(const char *xpath, const sr_val_t *input,
                                       const size_t input_cnt, sr_val_t **output,
                                       size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_face_ip_params_get *msg;
-  vapi_msg_hicn_api_face_ip_params_get_reply *resp;
-
-  msg = vapi_alloc_hicn_api_face_ip_params_get(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_face_ip_params_get_hton(msg);
-
-  msg->payload.faceid = input[0].data.uint16_val;
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_face_ip_params_get_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to get face ip params in hicn in vpp.
+ * @brief API to get face ip params in hicn in forwarder.
  */
 static int hicn_punting_add_cb(const char *xpath, const sr_val_t *input,
                                const size_t input_cnt, sr_val_t **output,
                                size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_punting_add *msg;
-  vapi_msg_hicn_api_punting_add_reply *resp;
-
-  msg = vapi_alloc_hicn_api_punting_add(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_punting_add_hton(msg);
-
-  msg->payload.prefix[0] = input[0].data.uint64_val;
-  msg->payload.prefix[1] = input[1].data.uint64_val;
-  msg->payload.len = input[2].data.uint8_val;
-  msg->payload.swif = input[3].data.uint32_val;
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_punting_add_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to del hicn route nhops in vpp.
+ * @brief API to del hicn route nhops in forwarder.
  */
 static int hicn_route_nhops_del_cb(const char *xpath, const sr_val_t *input,
                                    const size_t input_cnt, sr_val_t **output,
                                    size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_route_nhop_del *msg;
-  vapi_msg_hicn_api_route_nhop_del_reply *resp;
-
-  msg = vapi_alloc_hicn_api_route_nhop_del(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_route_nhop_del_hton(msg);
-
-  msg->payload.prefix[0] = input[0].data.uint64_val;
-  msg->payload.prefix[1] = input[1].data.uint64_val;
-  msg->payload.len = input[2].data.uint8_val;
-  msg->payload.faceid = input[3].data.uint16_val;
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_route_nhop_del_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to del hicn punting in vpp.
+ * @brief API to del hicn punting in forwarder.
  */
 static int hicn_punting_del_cb(const char *xpath, const sr_val_t *input,
                                const size_t input_cnt, sr_val_t **output,
                                size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_punting_del *msg;
-  vapi_msg_hicn_api_punting_del_reply *resp;
-
-  msg = vapi_alloc_hicn_api_punting_del(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_punting_del_hton(msg);
-
-  msg->payload.prefix[0] = input[0].data.uint64_val;
-  msg->payload.prefix[1] = input[1].data.uint64_val;
-  msg->payload.len = input[2].data.uint8_val;
-  msg->payload.swif = input[3].data.uint32_val;
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_punting_del_reply_ntoh(resp);
-
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to del hicn face ip in vpp.
+ * @brief API to del hicn face ip in forwarder.
  */
 static int hicn_face_ip_del_cb(const char *xpath, const sr_val_t *input,
                                const size_t input_cnt, sr_val_t **output,
                                size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_face_ip_del *msg;
-  vapi_msg_hicn_api_face_ip_del_reply *resp;
-
-  msg = vapi_alloc_hicn_api_face_ip_del(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_face_ip_del_hton(msg);
-
-  msg->payload.faceid = input[0].data.uint16_val;
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_face_ip_del_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
 /**
- * @brief API to del hicn face ip in vpp.
+ * @brief API to del hicn face ip in forwarder.
  */
 static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
                                const size_t input_cnt, sr_val_t **output,
                                size_t *output_cnt, void *private_ctx) {
-  // allocate memory msg and resp
-  vapi_msg_hicn_api_face_ip_add *msg;
-  vapi_msg_hicn_api_face_ip_add_reply *resp;
-
-  msg = vapi_alloc_hicn_api_face_ip_add(g_vapi_ctx_instance);
-  vapi_msg_hicn_api_face_ip_add_hton(msg);
-
-  msg->payload.nh_addr[0] = input[0].data.uint64_val;
-  msg->payload.nh_addr[1] = input[1].data.uint64_val;
-  msg->payload.swif = input[2].data.uint32_val;
-
-  if (VAPI_OK != vapi_send(g_vapi_ctx_instance, msg)) {
-    SRP_LOG_DBG_MSG("Sending msg to VPP failed");
-    return SR_ERR_OPERATION_FAILED;
-  }
-
-  HICN_VPP_VAPI_RECV;
-
-  vapi_msg_hicn_api_face_ip_add_reply_ntoh(resp);
-
-  SRP_LOG_DBG_MSG("hicn strategy receive successfully");
   return SR_ERR_OK;
 }
 
@@ -832,27 +405,20 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
  */
 int hicn_subscribe_events(sr_session_ctx_t *session,
                           sr_subscription_ctx_t **subscription) {
+
+/*
     int rc = SR_ERR_OK;
-    SRP_LOG_DBG_MSG("Initializing hicn-interfaces plugin.");
+    SRP_LOG_DBG_MSG("Subscriging hicn.");
 
 
-    //Initializing the locks
-    for (int i=0; i<NLOCKS; i++)
-      Ticket_init(i,LOCK_INIT);
+    // node state subscriptions
 
-//Initializing the buffer
-    rc=init_buffer();
-    if(rc!= SR_ERR_OK){
-        SRP_LOG_DBG_MSG("Problem in initializing the buffers\n"); goto error;
+    rc = sr_rpc_subscribe(session, "/hicn:node-params-get", hicn_node_params_get_cb,
+    session, SR_SUBSCR_CTX_REUSE, subscription); if (rc != SR_ERR_OK) {
+      SRP_LOG_DBG_MSG("Problem in subscription stat-get\n");
+      goto error;
     }
 
-
-    // node param subscriptions
-
-    rc = sr_rpc_subscribe(session, "/hicn:node-params-get",
-    hicn_node_params_get_cb, session, SR_SUBSCR_CTX_REUSE, subscription); if (rc
-    != SR_ERR_OK) { SRP_LOG_DBG_MSG("Problem in subscription params-get\n"); goto error;
-    }
 
     // node state subscriptions
 
@@ -957,6 +523,8 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
     goto error;
   }
 
+
+
   rc = sr_dp_get_items_subscribe(session, "/hicn:hicn-state/strategy",
                                  hicn_state_strategy_cb, NULL, SR_SUBSCR_CTX_REUSE,
                                  subscription);
@@ -992,13 +560,14 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
     SRP_LOG_DBG_MSG("Problem in subscription /hicn:hicn-state/face-ip-params\n");
     goto error;
   }
+*/
 
-
-  SRP_LOG_INF_MSG("hicn plugin initialized successfully.");
+  SRP_LOG_INF_MSG("hicn light plugin initialized successfully.");
   return SR_ERR_OK;
-
+/*
 error:
   SRP_LOG_ERR_MSG("Error by initialization of the hicn plugin.");
-  sr_plugin_cleanup_cb(session, &g_vapi_ctx_instance);
+  sr_plugin_cleanup_cb(session, *subscription);
   return rc;
+*/
 }
