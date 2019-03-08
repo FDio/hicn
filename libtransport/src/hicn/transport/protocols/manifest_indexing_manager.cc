@@ -111,7 +111,7 @@ bool ManifestIndexManager::onManifest(
         // Send as many manifest as required for filling window.
         do {
           segment_count += segments_in_manifest;
-          next_manifest_ += segments_in_manifest;
+          next_manifest_ += (uint32_t)segments_in_manifest;
 
           Interest::Ptr interest = getPacket();
           name.setSuffix(next_manifest_);
@@ -156,7 +156,7 @@ bool ManifestIndexManager::onContentObject(
 
   bool ret = false;
 
-  auto it = suffix_hash_map_.find(segment);
+  auto it = suffix_hash_map_.find((const unsigned int)segment);
   if (it != suffix_hash_map_.end()) {
     auto hash_type = static_cast<utils::CryptoHashType>(it->second.second);
     auto data_packet_digest = content_object.computeDigest(it->second.second);

@@ -430,11 +430,11 @@ class ConsumerSocket : public BaseSocket {
                                               uint32_t &socket_option_value) {
     switch (socket_option_key) {
       case GeneralTransportOptions::INPUT_BUFFER_SIZE:
-        socket_option_value = input_buffer_size_;
+        socket_option_value = (uint32_t)input_buffer_size_;
         break;
 
       case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
-        socket_option_value = output_buffer_size_;
+        socket_option_value = (uint32_t)output_buffer_size_;
         break;
 
       case GeneralTransportOptions::MAX_INTEREST_RETX:
