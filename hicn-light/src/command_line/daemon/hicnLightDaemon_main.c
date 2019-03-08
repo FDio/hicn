@@ -43,9 +43,9 @@ static void _printRed(const char *output) {
   HANDLE hConsole = NULL;
   WORD currentConsoleAttr;
   CONSOLE_SCREEN_BUFFER_INFO csbi;
+  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
   if (GetConsoleScreenBufferInfo(hConsole, &csbi))
     currentConsoleAttr = csbi.wAttributes;
-  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
   SetConsoleTextAttribute(hConsole, 4);
   printf("%s", output);
   SetConsoleTextAttribute(hConsole, currentConsoleAttr);
@@ -59,9 +59,9 @@ static void _printWhite(const char *output) {
   HANDLE hConsole = NULL;
   WORD currentConsoleAttr;
   CONSOLE_SCREEN_BUFFER_INFO csbi;
+  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
   if (GetConsoleScreenBufferInfo(hConsole, &csbi))
     currentConsoleAttr = csbi.wAttributes;
-  hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
   SetConsoleTextAttribute(hConsole, 7);
   printf("%s", output);
   SetConsoleTextAttribute(hConsole, currentConsoleAttr);
