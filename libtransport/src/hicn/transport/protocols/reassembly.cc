@@ -41,7 +41,7 @@ void BaseReassembly::reassemble(ContentObject::Ptr &&content_object) {
         content_object->getName().getSuffix(), std::move(content_object)));
   }
 
-  auto it = received_packets_.find(index_);
+  auto it = received_packets_.find((const unsigned int)index_);
   while (it != received_packets_.end()) {
     if (it->second->getPayloadType() == PayloadType::CONTENT_OBJECT) {
       copyContent(*it->second);
@@ -49,7 +49,7 @@ void BaseReassembly::reassemble(ContentObject::Ptr &&content_object) {
     }
 
     index_ = index_manager_->getNextReassemblySegment();
-    it = received_packets_.find(index_);
+    it = received_packets_.find((const unsigned int)index_);
   }
 }
 

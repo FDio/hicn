@@ -19,8 +19,10 @@
  * NB The Send() function may overflow the output buffer
  *
  */
-#include <sys/uio.h>
 
+#ifndef _WIN32
+#include <sys/uio.h>
+#endif
 #include <errno.h>
 #include <src/config.h>
 #include <stdio.h>
@@ -266,6 +268,7 @@ static bool _sendCommandResponse(IoOperations *ops, struct iovec *message){
   parcAssertNotNull(message, "Parameter message must be non-null");
   _UdpState *udpConnState = (_UdpState *)ioOperations_GetClosure(ops);
 
+#ifndef _WIN32
   // Perform connect before to establish association between this peer and
   // the remote peer. This is required to use writev.
   // Connection association can be changed at any time.
@@ -283,7 +286,16 @@ static bool _sendCommandResponse(IoOperations *ops, struct iovec *message){
   if (writeLength < 0) {
       return false;
   }
-
+#else
+  ssize_t writeLength = write(udpConnState->udpListenerSocket, message[0].iov_base, (unsigned int)message[0].iov_len);
+  if (writeLength < 0) {
+      return false;
+  }
+  writeLength = write(udpConnState->udpListenerSocket, message[0].iov_base, (unsigned int)message[0].iov_len);
+  if (writeLength < 0) {
+      return false;
+  }
+#endif
   return true;
 }
 

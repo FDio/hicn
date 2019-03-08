@@ -151,7 +151,7 @@ void RaaqmTransportProtocol::afterContentReception(
   increaseWindow();
   updateRtt(interest.getName().getSuffix());
   this->rate_estimator_->onDataReceived((int)content_object.payloadSize() +
-                                        content_object.headerSize());
+                                        (int)content_object.headerSize());
   // Set drop probablility and window size accordingly
   RAAQM();
 }
@@ -468,7 +468,7 @@ void RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
   auto interest = getPacket();
   core::Name *name;
   socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME, &name);
-  name->setSuffix(next_suffix);
+  name->setSuffix((uint32_t)next_suffix);
   interest->setName(*name);
 
   uint32_t interest_lifetime;
@@ -522,7 +522,7 @@ void RaaqmTransportProtocol::updateRtt(uint64_t segment) {
         now - interest_timepoints_[segment & mask]);
 
     // Update stats
-    updateStats(segment, rtt.count(), now);
+    updateStats((uint32_t)segment, rtt.count(), now);
 
     if (this->rate_estimator_) {
       this->rate_estimator_->onRttUpdate((double)rtt.count());

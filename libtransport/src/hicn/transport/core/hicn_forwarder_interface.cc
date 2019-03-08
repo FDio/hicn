@@ -78,8 +78,8 @@ std::unique_ptr<RouteToSelfCommand> createCommandRoute(
 #ifndef _WIN32
   strcpy(command->symbolic_or_connid, identifier);
 #else
-  strcpy_s(route_to_self->symbolic_or_connid,
-           strlen(route_to_self->symbolic_or_connid), identifier);
+  strcpy_s(command->symbolic_or_connid,
+           strlen(command->symbolic_or_connid), identifier);
 #endif
   command->cost = 1;
   command->len = (uint8_t)prefix_length;
@@ -99,8 +99,8 @@ std::unique_ptr<DeleteSelfConnectionCommand> createCommandDeleteConnection() {
 #ifndef _WIN32
   strcpy(command->symbolic_or_connid, identifier);
 #else
-  strcpy_s(route_to_self->symbolic_or_connid,
-           strlen(route_to_self->symbolic_or_connid), identifier);
+  strcpy_s(command->symbolic_or_connid,
+           strlen(command->symbolic_or_connid), identifier);
 #endif
 
   return command;
@@ -122,7 +122,7 @@ void HicnForwarderInterface::connect(bool is_consumer) { connector_.connect(); }
 
 void HicnForwarderInterface::registerRoute(Prefix &prefix) {
   auto command =
-      createCommandRoute(prefix.toSockaddr(), prefix.getPrefixLength())
+      createCommandRoute(prefix.toSockaddr(), (uint8_t)prefix.getPrefixLength())
           .release();
   send((uint8_t *)command, sizeof(RouteToSelfCommand),
        [command]() { delete command; });
