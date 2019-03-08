@@ -123,8 +123,13 @@ bool ManifestIndexManager::onManifest(
           interest->setLifetime(interest_lifetime);
 
           // Send requests for manifest out of the congestion window (no
-          // in_flight_interest++)
-          portal->sendInterest(std::move(interest));
+          // in_flight_interests++)
+          portal->sendInterest(
+              std::move(interest),
+              std::bind(&ManifestIndexManager::onManifestReceived, this,
+                        std::placeholders::_1, std::placeholders::_2),
+              std::bind(&ManifestIndexManager::onManifestTimeout, this,
+                        std::placeholders::_1));
         } while (segment_count < current_window_size &&
                  next_manifest_ < final_suffix_);
 
@@ -140,6 +145,32 @@ bool ManifestIndexManager::onManifest(
   }
 
   return manifest_verified;
+}
+
+void ManifestIndexManager::onManifestReceived(Interest::Ptr &&i, ContentObject::Ptr &&c) {
+  onManifest(std::move(c));
+}
+
+void ManifestIndexManager::onManifestTimeout(Interest::Ptr &&i) {
+  const Name &n = i->getName();
+  uint32_t segment = n.getSuffix();
+
+  if (segment > final_suffix_) {
+    return;
+  }
+
+  // Get portal
+  std::shared_ptr<interface::BasePortal> portal;
+  socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal);
+
+  // Send requests for manifest out of the congestion window (no
+  // in_flight_interests++)
+  portal->sendInterest(
+      std::move(i),
+      std::bind(&ManifestIndexManager::onManifestReceived, this,
+                std::placeholders::_1, std::placeholders::_2),
+      std::bind(&ManifestIndexManager::onManifestTimeout, this,
+                std::placeholders::_1));
 }
 
 bool ManifestIndexManager::onContentObject(

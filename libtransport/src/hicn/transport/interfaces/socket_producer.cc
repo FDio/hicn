@@ -300,6 +300,10 @@ uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
       manifest->setFinalManifest(is_last_manifest);
     }
 
+    if (!is_last) {
+      manifest->addSuffixHash(current_segment, *zero_hash);
+    }
+
     manifest->encode();
     identity_->getSigner().sign(*manifest);
     passContentObjectToCallbacks(manifest);
