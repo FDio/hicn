@@ -18,8 +18,6 @@
 #include <hicn/transport/core/manifest.h>
 #include <hicn/transport/core/manifest_format.h>
 #include <hicn/transport/portability/portability.h>
-#include <hicn/transport/utils/log.h>
-
 #include <set>
 
 namespace transport {

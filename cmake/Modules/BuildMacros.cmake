@@ -23,10 +23,17 @@ macro(build_executable exec)
     ${ARGN}
   )
 
-  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
   add_executable(${exec} ${ARG_SOURCES})
+
+  set_target_properties(${exec}
+    PROPERTIES
+    INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib"
+    INSTALL_RPATH_USE_LINK_PATH TRUE
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+  )
+
   if(ARG_LINK_LIBRARIES)
     target_link_libraries(${exec} ${ARG_LINK_LIBRARIES})
   endif()
@@ -47,7 +54,7 @@ macro(build_executable exec)
   endif()
 
   if(NOT ARG_NO_INSTALL)
-    install(TARGETS ${exec} DESTINATION bin COMPONENT ${ARG_COMPONENT})
+    install(TARGETS ${exec} RUNTIME DESTINATION bin COMPONENT ${ARG_COMPONENT})
   endif()
 endmacro()
 
@@ -58,9 +65,6 @@ macro(build_library lib)
     "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;INSTALL_ROOT_DIR"
     ${ARGN}
   )
-
-  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
   if (ARG_SHARED)
     list(APPEND TARGET_LIBS
@@ -76,18 +80,11 @@ macro(build_library lib)
     add_library(${lib} STATIC ${ARG_SOURCES})
   endif()
 
-      # install .so
   if(NOT ARG_COMPONENT)
     set(ARG_COMPONENT hicn)
   endif()
 
   foreach(library ${TARGET_LIBS})
-
-    if (WIN32)
-      target_compile_options(${library} PRIVATE)
-    else ()
-      target_compile_options(${library} PRIVATE -Wall)
-    endif ()
 
     if(HICN_VERSION)
       set_target_properties(${library}
@@ -98,8 +95,26 @@ macro(build_library lib)
 
     set_target_properties(${library}
       PROPERTIES
-      OUTPUT_NAME ${lib}
+      INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib"
+      INSTALL_RPATH_USE_LINK_PATH TRUE
+      ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
+
+    if (WIN32)
+      target_compile_options(${library} PRIVATE)
+      set_target_properties(${library}
+        PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS TRUE
+      )
+    else ()
+      target_compile_options(${library} PRIVATE -Wall)
+      set_target_properties(${library}
+        PROPERTIES
+        OUTPUT_NAME ${lib}
+      )
+    endif ()
 
     # library deps
     if(ARG_LINK_LIBRARIES)
@@ -119,7 +134,9 @@ macro(build_library lib)
 
     install(
       TARGETS ${library}
-      DESTINATION lib
+      RUNTIME DESTINATION bin
+      ARCHIVE DESTINATION lib
+      LIBRARY DESTINATION lib
       COMPONENT ${ARG_COMPONENT}
     )
 
