@@ -27,6 +27,7 @@ macro(build_executable exec)
   set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
   add_executable(${exec} ${ARG_SOURCES})
+
   if(ARG_LINK_LIBRARIES)
     target_link_libraries(${exec} ${ARG_LINK_LIBRARIES})
   endif()
@@ -76,18 +77,17 @@ macro(build_library lib)
     add_library(${lib} STATIC ${ARG_SOURCES})
   endif()
 
-      # install .so
+  set_target_properties(${TARGET_LIBS}
+	  PROPERTIES
+	  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+	  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+  )
+
   if(NOT ARG_COMPONENT)
     set(ARG_COMPONENT hicn)
   endif()
 
   foreach(library ${TARGET_LIBS})
-
-    if (WIN32)
-      target_compile_options(${library} PRIVATE)
-    else ()
-      target_compile_options(${library} PRIVATE -Wall)
-    endif ()
 
     if(HICN_VERSION)
       set_target_properties(${library}
@@ -96,10 +96,19 @@ macro(build_library lib)
       )
     endif()
 
-    set_target_properties(${library}
-      PROPERTIES
-      OUTPUT_NAME ${lib}
-    )
+    if (WIN32)
+      target_compile_options(${library} PRIVATE)
+      set_target_properties(${library}
+        PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS TRUE
+      )
+    else ()
+      target_compile_options(${library} PRIVATE -Wall)
+      set_target_properties(${library}
+        PROPERTIES
+        OUTPUT_NAME ${lib}
+      )
+    endif ()
 
     # library deps
     if(ARG_LINK_LIBRARIES)
