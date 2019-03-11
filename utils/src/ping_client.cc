@@ -16,6 +16,11 @@
 #include <hicn/transport/interfaces/socket.h>
 #include <hicn/transport/utils/verifier.h>
 
+// Let's make the linker happy
+#if !TRANSPORT_LOG_EXTERN_GLOBAL_OUTPUT_LEVEL
+TRANSPORT_LOG_DEFINE_GLOBAL_OUTPUT_LEVEL = 0;
+#endif
+
 #include <asio/steady_timer.hpp>
 #include <chrono>
 #include <map>

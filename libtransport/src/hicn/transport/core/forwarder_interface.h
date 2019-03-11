@@ -19,8 +19,6 @@
 #include <hicn/transport/core/udp_socket_connector.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
-#include <hicn/transport/utils/log.h>
-
 #include <deque>
 
 namespace transport {
