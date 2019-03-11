@@ -287,13 +287,20 @@ static bool _sendCommandResponse(IoOperations *ops, struct iovec *message){
       return false;
   }
 #else
-  ssize_t writeLength = write(udpConnState->udpListenerSocket, message[0].iov_base, (unsigned int)message[0].iov_len);
-  if (writeLength < 0) {
-      return false;
+  WSABUF dataBuf[2];
+  DWORD BytesSent = 0;
+
+  for (int i = 0; i < 2; i++) {
+    dataBuf[i].buf = message[i].iov_base;
+    dataBuf[i].len = (ULONG)message[i].iov_len;
   }
-  writeLength = write(udpConnState->udpListenerSocket, message[0].iov_base, (unsigned int)message[0].iov_len);
-  if (writeLength < 0) {
-      return false;
+
+  int rc = WSASendTo(udpConnState->udpListenerSocket, dataBuf, 2,
+    &BytesSent, 0, (SOCKADDR *)udpConnState->peerAddress,
+    udpConnState->peerAddressLength, NULL, NULL);
+
+  if (rc == SOCKET_ERROR) {
+    return false;
   }
 #endif
   return true;
