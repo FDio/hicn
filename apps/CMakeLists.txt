@@ -14,7 +14,7 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 14)
 
-project(utils)
+project(apps)
 
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
@@ -27,7 +27,7 @@ include(WindowsMacros)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
-  set(HICN_UTILS hicn-utils)
+  set(HICN_APPS hicn-apps)
 else()
   set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
 endif()
@@ -36,26 +36,24 @@ include(Packaging)
 
 set (COMPILER_DEFINITIONS "")
 
-list(APPEND UTILS_SRC
-  src/hiperf.cc
-  src/ping_client.cc
-  src/ping_server.cc
+list(APPEND APPS_SRC
+  src/higet.cc
 )
 
 if (WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
 endif ()
 
-message("utils libtransport ${LIBTRANSPORT}")
-foreach(util ${UTILS_SRC})
-  get_filename_component(_util_name ${util} NAME)
-  string(REGEX REPLACE ".cc" "" util_name ${_util_name})
+message("apps libtransport ${LIBTRANSPORT}")
+foreach(app ${APPS_SRC})
+  get_filename_component(_app_name ${app} NAME)
+  string(REGEX REPLACE ".cc" "" app_name ${_app_name})
 
-  build_executable(${util_name}
-    SOURCES ${util}
+  build_executable(${app_name}
+    SOURCES ${app}
     LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
     DEPENDS ${LIBTRANSPORT}
-    COMPONENT ${HICN_UTILS}
+    COMPONENT ${HICN_APPS}
     DEFINITIONS ${COMPILER_DEFINITIONS}
   )
 endforeach()
