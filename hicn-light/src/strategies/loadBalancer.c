@@ -106,7 +106,7 @@ static void _update_Stats(StrategyLoadBalancer *strategy,
 }
 
 static unsigned _select_Nexthop(StrategyLoadBalancer *strategy) {
-  double rnd = (double)rand() / (double)RAND_MAX;
+  double rnd = (double)rand() / (double)(RAND_MAX + 1);
   double start_range = 0.0;
 
   PARCIterator *it = parcHashMap_CreateKeyIterator(strategy->strategy_state);
