@@ -15,8 +15,8 @@
 
 #pragma once
 
-#include <hicn/transport/http/transport_http_client_connection.h>
-#include <hicn/transport/http/transport_http_server_acceptor.h>
-#include <hicn/transport/http/transport_http_server_publisher.h>
+#include <hicn/transport/http/client_connection.h>
+#include <hicn/transport/http/server_acceptor.h>
+#include <hicn/transport/http/server_publisher.h>
 
 namespace libl4 = transport;
