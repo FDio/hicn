@@ -120,7 +120,7 @@ static unsigned _select_Nexthop(StrategyLoadBalancer *strategy) {
     double w = strategyNexthopState_GetWeight(elem);
 
     double prob = w / strategy->weights_sum;
-    if ((rnd >= start_range) && (rnd < (start_range + prob))) {
+    if ((rnd >= start_range) && (rnd <= (start_range + prob))) {
       nexthop = parcUnsigned_GetUnsigned(cid);
       break;
     } else {
