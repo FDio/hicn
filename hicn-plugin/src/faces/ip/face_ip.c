@@ -40,17 +40,21 @@ hicn_face_ip_init (vlib_main_t * vm)
   /* Default Strategy has index 0 and it always exists */
   strategy_face_ip4_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.hicn_dpo_get_type
-						     ())->get_strategy_node_index
+						    (default_dpo.
+						     hicn_dpo_get_type ())->
+						    get_strategy_node_index
 						    (),
-						    hicn_face_ip4_output_node.index);
+						    hicn_face_ip4_output_node.
+						    index);
 
   strategy_face_ip6_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.hicn_dpo_get_type
-						     ())->get_strategy_node_index
+						    (default_dpo.
+						     hicn_dpo_get_type ())->
+						    get_strategy_node_index
 						    (),
-						    hicn_face_ip6_output_node.index);
+						    hicn_face_ip6_output_node.
+						    index);
   /*
    * Create and edge between al the other strategy nodes
    * and the ip_encap nodes.
@@ -144,7 +148,6 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
       fib_type = FIB_PROTOCOL_IP6;
     }
 
-
   adj = adj_nbr_add_or_lock (fib_type, link_type, remote_addr, sw_if);
 
   hicn_face_flags_t flags = (hicn_face_flags_t) 0;
@@ -231,7 +234,8 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-						 hicn_mapme_eventmgr_process_node.index,
+						 hicn_mapme_eventmgr_process_node.
+						 index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
   *retx = (retx_t)

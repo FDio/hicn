@@ -106,19 +106,26 @@ vl_api_hicn_api_node_params_set_t_handler (vl_api_hicn_api_node_params_set_t *
   hicn_main_t *sm = &hicn_main;
 
   int pit_max_size = clib_net_to_host_i32 (mp->pit_max_size);
-  pit_max_size = pit_max_size == -1? HICN_PARAM_PIT_ENTRIES_DFLT : pit_max_size;
+  pit_max_size =
+    pit_max_size == -1 ? HICN_PARAM_PIT_ENTRIES_DFLT : pit_max_size;
 
   f64 pit_dflt_lifetime_sec = mp->pit_dflt_lifetime_sec;
-  pit_dflt_lifetime_sec = pit_dflt_lifetime_sec == -1? HICN_PARAM_PIT_LIFETIME_DFLT_DFLT_MS : pit_dflt_lifetime_sec;
+  pit_dflt_lifetime_sec =
+    pit_dflt_lifetime_sec ==
+    -1 ? HICN_PARAM_PIT_LIFETIME_DFLT_DFLT_MS : pit_dflt_lifetime_sec;
 
   f64 pit_min_lifetime_sec = mp->pit_min_lifetime_sec;
-  pit_min_lifetime_sec = pit_min_lifetime_sec == -1? HICN_PARAM_PIT_LIFETIME_DFLT_MIN_MS : pit_min_lifetime_sec;
+  pit_min_lifetime_sec =
+    pit_min_lifetime_sec ==
+    -1 ? HICN_PARAM_PIT_LIFETIME_DFLT_MIN_MS : pit_min_lifetime_sec;
 
   f64 pit_max_lifetime_sec = mp->pit_max_lifetime_sec;
-  pit_max_lifetime_sec = pit_max_lifetime_sec == -1? HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS : pit_max_lifetime_sec;
+  pit_max_lifetime_sec =
+    pit_max_lifetime_sec ==
+    -1 ? HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS : pit_max_lifetime_sec;
 
   int cs_max_size = clib_net_to_host_i32 (mp->cs_max_size);
-  cs_max_size = cs_max_size == -1? HICN_PARAM_CS_ENTRIES_DFLT : cs_max_size;
+  cs_max_size = cs_max_size == -1 ? HICN_PARAM_CS_ENTRIES_DFLT : cs_max_size;
 
   int cs_reserved_app = clib_net_to_host_i32 (mp->cs_reserved_app);
   cs_reserved_app = cs_reserved_app >= 0
@@ -183,17 +190,27 @@ static void
 vl_api_hicn_api_face_ip_add_t_handler (vl_api_hicn_api_face_ip_add_t * mp)
 {
   vl_api_hicn_api_face_ip_add_reply_t *rmp;
-  int rv;
+  int rv = HICN_ERROR_UNSPECIFIED;
 
   hicn_main_t *sm = &hicn_main;
+  vnet_main_t *vnm = vnet_get_main ();
 
   hicn_face_id_t faceid = HICN_FACE_NULL;
-  ip46_address_t nh_addr;
-  nh_addr.as_u64[0] = clib_net_to_host_u64 (((u64 *) (&mp->nh_addr))[0]);
-  nh_addr.as_u64[1] = clib_net_to_host_u64 (((u64 *) (&mp->nh_addr))[1]);
+  ip46_address_t local_addr;
+  ip46_address_t remote_addr;
+  local_addr.as_u64[0] =
+    clib_net_to_host_u64 (((u64 *) (&mp->local_addr))[0]);
+  local_addr.as_u64[1] =
+    clib_net_to_host_u64 (((u64 *) (&mp->local_addr))[1]);
+  remote_addr.as_u64[0] =
+    clib_net_to_host_u64 (((u64 *) (&mp->remote_addr))[0]);
+  remote_addr.as_u64[1] =
+    clib_net_to_host_u64 (((u64 *) (&mp->remote_addr))[1]);
 
   u32 swif = clib_net_to_host_u32 (mp->swif);
-  rv = hicn_face_ip_add (&nh_addr, NULL, swif, &faceid);
+
+  if (vnet_get_sw_interface_safe (vnm, swif) != NULL)
+    rv = hicn_face_ip_add (&local_addr, &remote_addr, swif, &faceid);
 
   /* *INDENT-OFF* */
   REPLY_MACRO2 (VL_API_HICN_API_FACE_IP_ADD_REPLY /* , rmp, mp, rv */ ,(
@@ -570,14 +587,17 @@ hicn_face_api_entry_params_serialize (hicn_face_id_t faceid,
     }
   hicn_face_t *face = hicn_dpoi_get_from_idx (faceid);
 
-  ip_adjacency_t *ip_adj = adj_get (face->shared.adj);
-
-  if (ip_adj != NULL)
+  if (face != NULL && face->shared.face_type == hicn_face_ip_type)
     {
-      reply->nh_addr[0] =
-	clib_host_to_net_u64 (ip_adj->sub_type.nbr.next_hop.as_u64[0]);
-      reply->nh_addr[1] =
-	clib_host_to_net_u64 (ip_adj->sub_type.nbr.next_hop.as_u64[1]);
+      hicn_face_ip_t *face_ip = (hicn_face_ip_t *) face->data;
+      reply->local_addr[0] =
+	clib_host_to_net_u64 (face_ip->local_addr.as_u64[0]);
+      reply->local_addr[1] =
+	clib_host_to_net_u64 (face_ip->local_addr.as_u64[1]);
+      reply->remote_addr[0] =
+	clib_host_to_net_u64 (face_ip->remote_addr.as_u64[0]);
+      reply->remote_addr[1] =
+	clib_host_to_net_u64 (face_ip->remote_addr.as_u64[1]);
       reply->swif = clib_host_to_net_u32 (face->shared.sw_if);
       reply->flags = clib_host_to_net_u32 (face->shared.flags);
     }

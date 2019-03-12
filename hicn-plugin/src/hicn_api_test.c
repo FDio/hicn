@@ -322,17 +322,27 @@ static int
 api_hicn_api_face_ip_add (vat_main_t * vam)
 {
   unformat_input_t *input = vam->input;
-  ip46_address_t nh_addr;
+  ip46_address_t local_addr = { 0 };
+  ip46_address_t remote_addr = { 0 };
+  int ret = HICN_ERROR_NONE;
+  int sw_if = 0;
   vl_api_hicn_api_face_ip_add_t *mp;
-  int swif, ret;
 
   /* Parse args required to build the message */
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
-      if (unformat (input, "add %d %U",
-		    &swif, unformat_ip46_address, &nh_addr))
-	{;
-	}
+      if (unformat
+	  (input, "local %U", unformat_ip4_address, &local_addr.ip4));
+      else
+	if (unformat
+	    (input, "local %U", unformat_ip6_address, &local_addr.ip6));
+      else
+	if (unformat
+	    (input, "remote %U", unformat_ip4_address, &remote_addr.ip4));
+      else
+	if (unformat
+	    (input, "remote %U", unformat_ip6_address, &remote_addr.ip6));
+      else if (unformat (input, "intfc %d", &sw_if));
       else
 	{
 	  break;
@@ -340,16 +350,20 @@ api_hicn_api_face_ip_add (vat_main_t * vam)
     }
 
   /* Check for presence of both addresses */
-  if ((nh_addr.as_u64[0] == (u64) 0) && (nh_addr.as_u64[1] == (u64) 0))
+  if ((!ip46_address_is_zero (&local_addr)
+       && ! !ip46_address_is_zero (&remote_addr)))
     {
-      clib_warning ("Next hop address not specified");
+      clib_warning
+	("Incomplete IP face. Please specify local and remote address");
       return (1);
     }
   /* Construct the API message */
   M (HICN_API_FACE_IP_ADD, mp);
-  mp->nh_addr[0] = clib_host_to_net_u64 (nh_addr.as_u64[0]);
-  mp->nh_addr[1] = clib_host_to_net_u64 (nh_addr.as_u64[0]);
-  mp->swif = clib_host_to_net_u32 (swif);
+  mp->local_addr[0] = clib_host_to_net_u64 (local_addr.as_u64[0]);
+  mp->local_addr[1] = clib_host_to_net_u64 (local_addr.as_u64[1]);
+  mp->remote_addr[0] = clib_host_to_net_u64 (remote_addr.as_u64[0]);
+  mp->remote_addr[1] = clib_host_to_net_u64 (remote_addr.as_u64[1]);
+  mp->swif = clib_host_to_net_u32 (sw_if);
 
   /* send it... */
   S (mp);
@@ -465,7 +479,8 @@ static void
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (rmp->retval);
   u8 *sbuf = 0;
-  u64 nh_addr[2];
+  ip46_address_t remote_addr;
+  ip46_address_t local_addr;
 
   if (vam->async_mode)
     {
@@ -482,13 +497,16 @@ static void
       return;
     }
   vec_reset_length (sbuf);
-  nh_addr[0] = clib_net_to_host_u64 (rmp->nh_addr[0]);
-  nh_addr[1] = clib_net_to_host_u64 (rmp->nh_addr[1]);
+  local_addr.as_u64[0] = clib_net_to_host_u64 (rmp->local_addr[0]);
+  local_addr.as_u64[1] = clib_net_to_host_u64 (rmp->local_addr[1]);
+  remote_addr.as_u64[0] = clib_net_to_host_u64 (rmp->remote_addr[0]);
+  remote_addr.as_u64[1] = clib_net_to_host_u64 (rmp->remote_addr[1]);
   sbuf =
-    format (sbuf, "%U", format_ip46_address, &nh_addr,
-	    0 /* IP46_ANY_TYPE */ );
+    format (0, "local_addr %U remote_addr %U", format_ip46_address,
+	    &local_addr, 0 /*IP46_ANY_TYPE */ , format_ip46_address,
+	    &remote_addr, 0 /*IP46_ANY_TYPE */ );
 
-  fformat (vam->ofp, "nh_addr %s swif %d flags %d\n",
+  fformat (vam->ofp, "%s swif %d flags %d\n",
 	   sbuf,
 	   clib_net_to_host_u16 (rmp->swif),
 	   clib_net_to_host_i32 (rmp->flags));

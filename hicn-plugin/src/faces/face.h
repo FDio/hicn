@@ -67,7 +67,7 @@ typedef struct __attribute__ ((packed)) hicn_face_shared_s
   union
   {
     hicn_face_type_t face_type;
-    u32 int_face_type;		//To forse the face_type_t to be 4B
+    u32 int_face_type;		//To force the face_type_t to be 4B
   };
 
 } hicn_face_shared_t;

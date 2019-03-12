@@ -169,7 +169,10 @@ define hicn_api_face_ip_add
   u32 context;
 
   /* IP local address */
-  u64 nh_addr[2];
+  u64 local_addr[2];
+
+  /* IP remote address */
+  u64 remote_addr[2];
 
   /* IPv4 local port number */
   u32 swif;
@@ -229,7 +232,10 @@ define hicn_api_face_ip_params_get_reply
   i32 retval;
 
   /* IP local address */
-  u64 nh_addr[2];
+  u64 local_addr[2];
+
+  /* IP remote address */
+  u64 remote_addr[2];
 
   /* VPP interface (index) associated with the face */
   u32 swif;
