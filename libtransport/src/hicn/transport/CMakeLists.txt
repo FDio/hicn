@@ -15,13 +15,6 @@ cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 set(ASIO_STANDALONE 1)
 
-configure_file("config.h.in" "config.h" @ONLY)
-install(
-  FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
-  DESTINATION include/hicn/transport
-  COMPONENT lib${LIBTRANSPORT}-dev
-)
-
 add_subdirectory(core)
 add_subdirectory(errors)
 add_subdirectory(http)
@@ -29,6 +22,13 @@ add_subdirectory(interfaces)
 add_subdirectory(portability)
 add_subdirectory(protocols)
 add_subdirectory(utils)
+
+configure_file("config.h.in" "config.h" @ONLY)
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
+  DESTINATION include/hicn/transport
+  COMPONENT lib${LIBTRANSPORT}-dev
+)
 
 set (COMPILER_DEFINITIONS "")
 
