@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
-#include <hicn/transport/http/client_connection.h>
-
 #include <fstream>
+
+#include <hicn/transport/http/client_connection.h>
 
 typedef std::chrono::time_point<std::chrono::system_clock> Time;
 typedef std::chrono::milliseconds TimeDuration;
@@ -59,7 +59,6 @@ void processResponse(Configuration &conf, transport::http::HTTPResponse &&respon
 
   if (conf.print_headers) {
     auto &headers = response.getHeaders();
-
     out << "HTTP/" << response.getHttpVersion() << " " << response.getStatusCode() << " " << response.getStatusString()
         << "\n";
     for (auto &h : headers) {
@@ -68,14 +67,14 @@ void processResponse(Configuration &conf, transport::http::HTTPResponse &&respon
     out << "\n";
   }
 
-  out.write((char *) payload.data(), payload.size());
+  out.write((char *)payload.data(), payload.size());
   of.close();
 
   Time t2 = std::chrono::system_clock::now();;
   TimeDuration dt = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
   TimeDuration dt3 = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t1);
-  long msec = dt.count();
-  long msec3 = dt3.count();
+  long msec = (long)dt.count();
+  long msec3 = (long)dt3.count();
   std::cerr << "Elapsed Time: " << msec / 1000.0 << " seconds -- " << payload.size() * 8 / msec / 1000.0
             << "[Mbps] -- " << payload.size() * 8 / msec3 / 1000.0 << "[Mbps]" << std::endl;
 
@@ -93,10 +92,14 @@ void usage(char *program_name) {
 }
 
 int main(int argc, char **argv) {
-
-  Configuration conf {
-      .file_name = "", .print_headers = false, .producer_certificate = ""
-  };
+#ifdef _WIN32
+  WSADATA wsaData = { 0 };
+  WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
+  Configuration conf;
+  conf.file_name = "";
+  conf.print_headers = false;
+  conf.producer_certificate = ""; 
 
   std::string name("http://webserver/sintel/mpd");
 
@@ -133,7 +136,7 @@ int main(int argc, char **argv) {
       {"Host", "localhost"},
       {"User-Agent", "higet/1.0"}
   };
-
+  
   transport::http::HTTPClientConnection connection;
   if (!conf.producer_certificate.empty()) {
     connection.setCertificate(conf.producer_certificate);
@@ -143,6 +146,10 @@ int main(int argc, char **argv) {
 
   connection.get(name, headers);
   processResponse(conf, connection.response());
+
+#ifdef _WIN32
+  WSACleanup();
+#endif
 
   return EXIT_SUCCESS;
 }
