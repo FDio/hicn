@@ -14,7 +14,7 @@
  */
 
 #include <hicn/transport/http/client_connection.h>
-
+#include <ostream>
 #include <fstream>
 
 typedef std::chrono::time_point<std::chrono::system_clock> Time;
@@ -59,7 +59,6 @@ void processResponse(Configuration &conf, transport::http::HTTPResponse &&respon
 
   if (conf.print_headers) {
     auto &headers = response.getHeaders();
-
     out << "HTTP/" << response.getHttpVersion() << " " << response.getStatusCode() << " " << response.getStatusString()
         << "\n";
     for (auto &h : headers) {
@@ -68,14 +67,14 @@ void processResponse(Configuration &conf, transport::http::HTTPResponse &&respon
     out << "\n";
   }
 
-  out.write((char *) payload.data(), payload.size());
+  out << payload.data();
   of.close();
 
   Time t2 = std::chrono::system_clock::now();;
   TimeDuration dt = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
   TimeDuration dt3 = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t1);
-  long msec = dt.count();
-  long msec3 = dt3.count();
+  long msec = (long)dt.count();
+  long msec3 = (long)dt3.count();
   std::cerr << "Elapsed Time: " << msec / 1000.0 << " seconds -- " << payload.size() * 8 / msec / 1000.0
             << "[Mbps] -- " << payload.size() * 8 / msec3 / 1000.0 << "[Mbps]" << std::endl;
 
@@ -94,9 +93,10 @@ void usage(char *program_name) {
 
 int main(int argc, char **argv) {
 
-  Configuration conf {
-      .file_name = "", .print_headers = false, .producer_certificate = ""
-  };
+  Configuration conf;
+  conf.file_name = "";
+  conf.print_headers = false;
+  conf.producer_certificate = "";
 
   std::string name("http://webserver/sintel/mpd");
 
