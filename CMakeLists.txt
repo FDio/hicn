@@ -80,6 +80,7 @@ if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
 
   set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
   set(HICN_UTILS ${HICN_UTILS}-memif)
+  set(HICN_APPS ${HICN_APPS}-memif)
 endif()
 
 ## Shared targets
