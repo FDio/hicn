@@ -39,11 +39,13 @@ hicn_iface_udp_init (vlib_main_t * vm)
 {
   data_fwd_face_udp4_vlib_edge = vlib_node_add_next (vm,
 						     hicn_data_fwd_node.index,
-						     hicn_iface_udp4_output_node.index);
+						     hicn_iface_udp4_output_node.
+						     index);
 
   data_fwd_face_udp6_vlib_edge = vlib_node_add_next (vm,
 						     hicn_data_fwd_node.index,
-						     hicn_iface_udp6_output_node.index);
+						     hicn_iface_udp6_output_node.
+						     index);
 
   u32 temp_index4 = vlib_node_add_next (vm,
 					hicn_interest_hitcs_node.index,
@@ -185,7 +187,8 @@ typedef enum
        udp_hdr->src_port,						\
        GET_FACE_UDP##ipv						\
        (),								\
-       &hicnb0->flags);                                                 \
+       &hicnb0->flags,							\
+       vnet_buffer(b0)->sw_if_index[VLIB_RX]);				\
 									\
     vlib_buffer_advance(b0, sizeof(IP_HEADER_##ipv) +			\
 			sizeof(udp_header_t));				\
@@ -275,7 +278,8 @@ typedef enum
      udp_hdr0->src_port,						\
      GET_FACE_UDP##ipv							\
      (),								\
-     &hicnb0->flags);                                                   \
+     &hicnb0->flags,							\
+     vnet_buffer(b0)->sw_if_index[VLIB_RX]);				\
 									\
 									\
     HICN_IFACE_UDP_ADD_LOCK_IP##ipv					\
@@ -286,7 +290,8 @@ typedef enum
      udp_hdr1->src_port,						\
      GET_FACE_UDP##ipv							\
      (),								\
-     &hicnb1->flags);                                                   \
+     &hicnb1->flags,							\
+     vnet_buffer(b1)->sw_if_index[VLIB_RX]);				\
 									\
     vlib_buffer_advance(b0, sizeof(IP_HEADER_##ipv) +			\
 			sizeof(udp_header_t));				\
@@ -379,8 +384,9 @@ hicn_iface_udp4_input_format_trace (u8 * s, va_list * args)
   s =
     format (s, "IFACE_UDP4_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
 	    (int) t->pkt_type, t->sw_if_index, t->next_index,
-	    (t->packet_data[0] & 0xf0) == 0x40 ? format_ip4_header : format_ip6_header,
-            t->packet_data, sizeof (t->packet_data));
+	    (t->packet_data[0] & 0xf0) ==
+	    0x40 ? format_ip4_header : format_ip6_header, t->packet_data,
+	    sizeof (t->packet_data));
   return (s);
 }
 
@@ -460,8 +466,9 @@ hicn_iface_udp6_input_format_trace (u8 * s, va_list * args)
   s =
     format (s, "IFACE_UDP6_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
 	    (int) t->pkt_type, t->sw_if_index, t->next_index,
-	    (t->packet_data[0] & 0xf0) == 0x40 ? format_ip4_header : format_ip6_header,
-            t->packet_data, sizeof (t->packet_data));
+	    (t->packet_data[0] & 0xf0) ==
+	    0x40 ? format_ip4_header : format_ip6_header, t->packet_data,
+	    sizeof (t->packet_data));
   return (s);
 }
 
@@ -819,8 +826,9 @@ hicn_iface_udp4_output_format_trace (u8 * s, va_list * args)
     format (s,
 	    "IFACE_UDP4_OUTPUT: pkt: %d, out face %d, next index %d\n%U",
 	    (int) t->pkt_type, t->sw_if_index, t->next_index,
-	    (t->packet_data[0] & 0xf0) == 0x40 ? format_ip4_header : format_ip6_header,
-	    t->packet_data, sizeof (t->packet_data));
+	    (t->packet_data[0] & 0xf0) ==
+	    0x40 ? format_ip4_header : format_ip6_header, t->packet_data,
+	    sizeof (t->packet_data));
   return (s);
 }
 
@@ -899,8 +907,9 @@ hicn_iface_udp6_output_format_trace (u8 * s, va_list * args)
     format (s,
 	    "IFACE_UDP6_OUTPUT: pkt: %d, out face %d, next index %d\n%U",
 	    (int) t->pkt_type, t->sw_if_index, t->next_index,
-	    (t->packet_data[0] & 0xf0) == 0x40 ? format_ip4_header : format_ip6_header,
-	    t->packet_data, sizeof (t->packet_data));
+	    (t->packet_data[0] & 0xf0) ==
+	    0x40 ? format_ip4_header : format_ip6_header, t->packet_data,
+	    sizeof (t->packet_data));
   return (s);
 }
 

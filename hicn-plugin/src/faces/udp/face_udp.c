@@ -79,15 +79,17 @@ hicn_face_udp_init (vlib_main_t * vm)
   /* Default Strategy has index 0 and it always exists */
   strategy_face_udp4_vlib_edge = vlib_node_add_next (vm,
 						     hicn_dpo_get_strategy_vft
-						     (default_dpo.hicn_dpo_get_type
-						      ())->get_strategy_node_index
+						     (default_dpo.
+						      hicn_dpo_get_type ())->
+						     get_strategy_node_index
 						     (),
-						     hicn_face_udp4_output_node.index);
+						     hicn_face_udp4_output_node.
+						     index);
   strategy_face_udp6_vlib_edge =
     vlib_node_add_next (vm,
-			hicn_dpo_get_strategy_vft
-			(default_dpo.hicn_dpo_get_type
-			 ())->get_strategy_node_index (),
+			hicn_dpo_get_strategy_vft (default_dpo.
+						   hicn_dpo_get_type ())->
+			get_strategy_node_index (),
 			hicn_face_udp6_output_node.index);
 
   /*
@@ -264,7 +266,8 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-						 hicn_mapme_eventmgr_process_node.index,
+						 hicn_mapme_eventmgr_process_node.
+						 index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
   *retx = (retx_t)
@@ -313,7 +316,6 @@ format_hicn_face_udp (u8 * s, va_list * args)
 	  s =
 	    format (s, "remote %U|%u ", format_ip4_address,
 		    &udp_face->hdrs.ip4.ip.dst_address,
-
 		    clib_net_to_host_u16 (udp_face->hdrs.ip4.udp.dst_port));
 	  s = format (s, "%U", format_vnet_link, adj->ia_link);
 	  s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
@@ -339,7 +341,7 @@ format_hicn_face_udp (u8 * s, va_list * args)
     }
   else
     {
-      s = format (s, "IFace %d: ", format_white_space, indent, face_id);
+      s = format (s, "%U iFace %d: ", format_white_space, indent, face_id);
       if (udp_face->hdrs.ip4.ip.ip_version_and_header_length == ipv)
 	{
 	  s = format (s, "type UDP local %U|%u",

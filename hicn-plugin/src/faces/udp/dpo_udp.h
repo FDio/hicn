@@ -115,7 +115,7 @@ hicn_dpo_udp4_add_and_lock (dpo_id_t * dpo,
 			    const ip4_address_t * local_addr,
 			    const ip4_address_t * remote_addr,
 			    u16 local_port, u16 remote_port,
-			    u32 node_index, u8 * hicnb_flags)
+			    u32 node_index, u8 * hicnb_flags, u32 sw_if)
 {
   dpo->dpoi_type = DPO_FIRST;
   dpo->dpoi_proto = DPO_PROTO_NONE;
@@ -146,6 +146,7 @@ hicn_dpo_udp4_add_and_lock (dpo_id_t * dpo,
       face->shared.face_type = hicn_face_udp_type;
       face->shared.flags = HICN_FACE_FLAGS_IFACE;
       face->shared.locks = 0;
+      face->shared.sw_if = sw_if;
 
       hicn_face_udp_key_t key;
       hicn_face_udp4_get_key (local_addr, remote_addr, local_port,
@@ -153,7 +154,6 @@ hicn_dpo_udp4_add_and_lock (dpo_id_t * dpo,
       hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
 
       mhash_set_mem (&hicn_face_udp_hashtb, &key, (uword *) & dpoi_index, 0);
-      face = face;
 
       *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
       dpo_set (dpo, hicn_face_udp_type, DPO_PROTO_IP4, dpoi_index);
@@ -257,7 +257,7 @@ hicn_dpo_udp6_add_and_lock (dpo_id_t * dpo,
 			    const ip6_address_t * local_addr,
 			    const ip6_address_t * remote_addr,
 			    u16 local_port, u16 remote_port,
-			    u32 node_index, u8 * hicnb_flags)
+			    u32 node_index, u8 * hicnb_flags, u32 sw_if)
 {
   dpo->dpoi_type = DPO_FIRST;
   dpo->dpoi_proto = DPO_PROTO_NONE;
@@ -288,6 +288,7 @@ hicn_dpo_udp6_add_and_lock (dpo_id_t * dpo,
       face->shared.face_type = hicn_face_udp_type;
       face->shared.flags = HICN_FACE_FLAGS_IFACE;
       face->shared.locks = 0;
+      face->shared.sw_if = sw_if;
 
       hicn_face_udp_key_t key;
       hicn_face_udp6_get_key (local_addr, remote_addr, local_port,
