@@ -407,7 +407,8 @@ class Portal {
     }
   }
 
-  TRANSPORT_ALWAYS_INLINE void killConnection() { connector_.close(); }
+
+  TRANSPORT_ALWAYS_INLINE void killConnection() { forwarder_interface_.closeConnection(); }
 
   TRANSPORT_ALWAYS_INLINE void clear() {
     for (auto &pend_interest : pending_interest_hash_table_) {
