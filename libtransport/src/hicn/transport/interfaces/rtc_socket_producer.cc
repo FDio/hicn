@@ -74,22 +74,22 @@ RTCProducerSocket::RTCProducerSocket()
 
 RTCProducerSocket::~RTCProducerSocket() {}
 
-void RTCProducerSocket::registerName(Prefix &producer_namespace) {
+void RTCProducerSocket::registerPrefix(const Prefix &producer_namespace) {
   ProducerSocket::registerPrefix(producer_namespace);
 
   flowName_ = producer_namespace.getName();
+  auto family = flowName_.getAddressFamily();
 
-  if (flowName_.getType() == HNT_CONTIGUOUS_V4 ||
-      flowName_.getType() == HNT_IOV_V4) {
-    headerSize_ = sizeof(hicn_v6_hdr_t::ip);
-  } else if (flowName_.getType() == HNT_CONTIGUOUS_V6 ||
-             flowName_.getType() == HNT_IOV_V6) {
-    headerSize_ = sizeof(hicn_v4_hdr_t::ip);
-  } else {
-    throw errors::RuntimeException("Unknown name format.");
+  switch (family) {
+    case AF_INET6:
+      headerSize_ = Packet::getHeaderSizeFromFormat(HF_INET6_TCP);
+      break;
+    case AF_INET:
+      headerSize_ = Packet::getHeaderSizeFromFormat(HF_INET_TCP);
+      break;
+    default:
+      throw errors::RuntimeException("Unknown name format.");
   }
-
-  headerSize_ += TCP_HEADER_SIZE;
 }
 
 void RTCProducerSocket::updateStats(uint32_t packet_size) {

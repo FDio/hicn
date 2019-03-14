@@ -33,9 +33,9 @@ class RTCProducerSocket : public ProducerSocket {
 
   ~RTCProducerSocket();
 
-  void registerName(Prefix &producer_namespace);
+  void registerPrefix(const Prefix &producer_namespace) override;
 
-  void produce(const uint8_t *buffer, size_t buffer_size);
+  void produce(const uint8_t *buffer, size_t buffer_size) override;
 
   void onInterest(Interest::Ptr &&interest) override;
 
