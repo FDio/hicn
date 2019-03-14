@@ -185,7 +185,8 @@ typedef enum
        udp_hdr->src_port,						\
        GET_FACE_UDP##ipv						\
        (),								\
-       &hicnb0->flags);                                                 \
+       &hicnb0->flags,							\
+       vnet_buffer(b0)->sw_if_index[VLIB_RX]);				\
 									\
     vlib_buffer_advance(b0, sizeof(IP_HEADER_##ipv) +			\
 			sizeof(udp_header_t));				\
@@ -275,7 +276,8 @@ typedef enum
      udp_hdr0->src_port,						\
      GET_FACE_UDP##ipv							\
      (),								\
-     &hicnb0->flags);                                                   \
+     &hicnb0->flags,							\
+     vnet_buffer(b0)->sw_if_index[VLIB_RX]);				\
 									\
 									\
     HICN_IFACE_UDP_ADD_LOCK_IP##ipv					\
@@ -286,7 +288,8 @@ typedef enum
      udp_hdr1->src_port,						\
      GET_FACE_UDP##ipv							\
      (),								\
-     &hicnb1->flags);                                                   \
+     &hicnb1->flags,							\
+     vnet_buffer(b1)->sw_if_index[VLIB_RX]);				\
 									\
     vlib_buffer_advance(b0, sizeof(IP_HEADER_##ipv) +			\
 			sizeof(udp_header_t));				\

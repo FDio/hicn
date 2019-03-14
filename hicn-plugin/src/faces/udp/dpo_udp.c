@@ -77,7 +77,7 @@ hicn_dpo_udp4_create (dpo_id_t * dpo,
 {
   u16 net_src_port = clib_host_to_net_u16 (src_port);
   u16 net_dst_port = clib_host_to_net_u16 (dst_port);
-  hicn_face_t *face = hicn_face_udp4_get (src_ip, dst_ip, src_port, dst_port);
+  hicn_face_t *face = hicn_face_udp4_get (src_ip, dst_ip, net_src_port, net_dst_port);
 
   u8 hicnb_flags;
   /* ip_csum_t sum0; */
@@ -86,7 +86,7 @@ hicn_dpo_udp4_create (dpo_id_t * dpo,
     return HICN_ERROR_FACE_ALREADY_CREATED;
 
   hicn_dpo_udp4_add_and_lock (dpo, src_ip, dst_ip, net_src_port, net_dst_port,
-			      node_index, &hicnb_flags);
+			      node_index, &hicnb_flags, sw_if);
 
   face = hicn_dpoi_get_from_idx (dpo->dpoi_index);
 
@@ -97,7 +97,6 @@ hicn_dpo_udp4_create (dpo_id_t * dpo,
 
   face->shared.flags = flags;
   face->shared.adj = ip_adj;
-  face->shared.sw_if = sw_if;
   *face_id = hicn_dpoi_get_index (face);
 
   return HICN_ERROR_NONE;
@@ -124,13 +123,12 @@ hicn_dpo_udp6_create (dpo_id_t * dpo,
     return HICN_ERROR_FACE_ALREADY_CREATED;
 
   hicn_dpo_udp6_add_and_lock (dpo, src_ip, dst_ip, net_src_port, net_dst_port,
-			      node_index, &hicnb_flags);
+			      node_index, &hicnb_flags, sw_if);
 
   face = hicn_dpoi_get_from_idx (dpo->dpoi_index);
 
   face->shared.flags = flags;
   face->shared.adj = ip_adj;
-  face->shared.sw_if = sw_if;
   *face_id = hicn_dpoi_get_index (face);
 
   return HICN_ERROR_NONE;

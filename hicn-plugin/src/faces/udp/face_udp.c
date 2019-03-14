@@ -339,7 +339,7 @@ format_hicn_face_udp (u8 * s, va_list * args)
     }
   else
     {
-      s = format (s, "IFace %d: ", format_white_space, indent, face_id);
+      s = format (s, "%U iFace %d: ", format_white_space, indent, face_id);
       if (udp_face->hdrs.ip4.ip.ip_version_and_header_length == ipv)
 	{
 	  s = format (s, "type UDP local %U|%u",
