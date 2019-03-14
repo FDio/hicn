@@ -51,13 +51,19 @@ class ProducerSocket : public Socket<BasePortal>,
 
   void produce(ContentObject &content_object);
 
+  virtual void produce(const uint8_t *buffer, size_t buffer_size) {
+    // This API is meant to be used just with the RTC producer.
+    // Here it cannot be used since no name for the content is specified.
+    throw errors::NotImplementedException();
+  }
+
   void asyncProduce(const Name &suffix, const uint8_t *buf, size_t buffer_size);
 
   void asyncProduce(const Name &suffix, ContentBuffer &&output_buffer);
 
   void asyncProduce(ContentObject &content_object);
 
-  void registerPrefix(const Prefix &producer_namespace);
+  virtual void registerPrefix(const Prefix &producer_namespace);
 
   void serveForever();
 
