@@ -24,8 +24,8 @@ PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio
 VPP_GIT_REPO="https://git.fd.io/vpp"
 VPP_BRANCH="stable/1901"
 
-VPP_VERSION_DEB="19.01-release"
-VPP_VERSION_RPM="19.01-release.x86_64"
+VPP_VERSION_DEB="19.01.1-release"
+VPP_VERSION_RPM="19.01.1-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
@@ -112,7 +112,6 @@ setup() {
         # echo ${BUILD_TOOLS_GROUP_CENTOS} | xargs sudo yum groupinstall -y --nogpgcheck
         echo ${DEPS_CENTOS} | xargs sudo yum install -y --nogpgcheck
         sudo yum install devtoolset-7
-        scl enable devtoolset-7 bash
 
         c++ --version
 

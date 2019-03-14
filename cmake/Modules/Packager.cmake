@@ -19,7 +19,23 @@ set(CONTACT "hicn-dev@lists.fd.io" CACHE STRING "Contact")
 set(PACKAGE_MAINTAINER "ICN Team" CACHE STRING "Maintainer")
 set(PACKAGE_VENDOR "fd.io" CACHE STRING "Vendor")
 
-# macro(set)
+function(get_next_version VERSION NEXT_VERSION)
+  string(REGEX REPLACE "([0-9]+).([0-9]+)" "\\1;\\2" VER_NUMBERS ${VERSION})
+
+  # Increment version for getting next version value
+  list(GET VER_NUMBERS 0 major)
+  list(GET VER_NUMBERS 1 minor)
+
+  math(EXPR minor "${minor} + 3")
+
+  if (minor GREATER 12)
+    set(minor "1")
+    math(EXPR major "${major} + 1")
+  endif()
+
+  set(minor "0${minor}")
+  set(${NEXT_VERSION} "${major}.${minor}" PARENT_SCOPE)
+endfunction()
 
 macro(make_packages)
   if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
@@ -68,6 +84,8 @@ macro(make_packages)
       set(rpm_ver "${tag}-${commit_num}-release")
     endif()
 
+    get_next_version(${tag}, next_version)
+
     get_cmake_property(components COMPONENTS)
 
     if(OS_ID_LIKE MATCHES "debian")
@@ -92,6 +110,7 @@ macro(make_packages)
         set(DEB_DEPS)
         if (NOT ${${lc}_DEB_DEPENDENCIES} STREQUAL "")
           string(REPLACE "stable_version" ${tag} DEB_DEPS ${${lc}_DEB_DEPENDENCIES})
+          string(REPLACE "next_version" ${next_version} DEB_DEPS ${DEB_DEPS})
         endif()
 
         set(CPACK_${type}_${uc}_PACKAGE_DEPENDS "${DEB_DEPS}")
@@ -120,6 +139,7 @@ macro(make_packages)
         set(RPM_DEPS)
         if (NOT ${${lc}_DEB_DEPENDENCIES} STREQUAL "")
           string(REPLACE "stable_version" ${tag} RPM_DEPS ${${lc}_RPM_DEPENDENCIES})
+          string(REPLACE "next_version" ${next_version} RPM_DEPS ${RPM_DEPS})
         endif()
 
         set(CPACK_${type}_${uc}_PACKAGE_REQUIRES "${RPM_DEPS}")
