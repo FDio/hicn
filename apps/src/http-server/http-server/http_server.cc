@@ -226,8 +226,8 @@ void HttpServer::read_request_and_content(std::shared_ptr<socket_type> socket) {
         if (!ec) {
           // request->streambuf.size() is not necessarily the same as
           // bytes_transferred, from Asio-docs: "After a successful
-          //async_read_until operation, the streambuf may contain additional
-          //data beyond the delimiter" The chosen solution is to extract lines
+          // async_read_until operation, the streambuf may contain additional
+          // data beyond the delimiter" The chosen solution is to extract lines
           // from the stream directly when parsing the header. What is left of
           // the streambuf (maybe some bytes of the content) is appended to in
           // the async_read-function below (for retrieving content).

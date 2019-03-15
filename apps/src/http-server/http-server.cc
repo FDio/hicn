@@ -56,6 +56,35 @@ string getFileName(const string &strPath) {
 #endif
 }
 
+int _mkdir(const char *dir) {
+  std::cout << dir << std::endl;
+  char tmp[PATH_MAX];
+  char *p = NULL;
+  size_t len;
+
+  snprintf(tmp, sizeof(tmp), "%s", dir);
+  len = strlen(tmp);
+  if (tmp[len - 1] == '/')
+    tmp[len - 1] = 0;
+  for (p = tmp + 1; *p; p++) {
+    if (*p == '/') {
+      *p = 0;
+      if (!(std::ifstream(tmp).good())) {
+        if (mkdir(tmp, S_IRWXU) == -1)
+          return -1;
+      }
+      *p = '/';
+    }
+  }
+
+  if (!(std::ifstream(tmp).good())) {
+    if (mkdir(tmp, S_IRWXU) == -1)
+      return -1;
+  }
+
+  return 0;
+}
+
 string getExtension(const string &strPath) {
   size_t iLastSeparator = 0;
   return strPath.substr((iLastSeparator = strPath.find_last_of(".")) !=
@@ -157,8 +186,7 @@ int main(int argc, char **argv) {
     }
   }
   if (!(std::ifstream(root_folder).good())) {
-    if (mkdir(root_folder.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) ==
-        -1) {
+    if (_mkdir(root_folder.c_str()) == -1) {
       std::cerr << "The web root folder " << root_folder
                 << " does not exist and its creation failed. Exiting.."
                 << std::endl;
