@@ -35,12 +35,14 @@ typedef struct {
   std::string producer_certificate;
 } Configuration;
 
-void processResponse(Configuration &conf, transport::http::HTTPResponse &&response) {
+void processResponse(Configuration &conf,
+                     transport::http::HTTPResponse &&response) {
 
   auto &payload = response.getPayload();
 
   if (conf.file_name != "-") {
-    std::cerr << "Saving to: " << conf.file_name << " " << payload.size()  << "kB" << std::endl;
+    std::cerr << "Saving to: " << conf.file_name << " " << payload.size()
+              << "kB" << std::endl;
   }
 
   Time t3 = std::chrono::system_clock::now();
@@ -59,7 +61,8 @@ void processResponse(Configuration &conf, transport::http::HTTPResponse &&respon
 
   if (conf.print_headers) {
     auto &headers = response.getHeaders();
-    out << "HTTP/" << response.getHttpVersion() << " " << response.getStatusCode() << " " << response.getStatusString()
+    out << "HTTP/" << response.getHttpVersion() << " "
+        << response.getStatusCode() << " " << response.getStatusString()
         << "\n";
     for (auto &h : headers) {
       out << h.first << ": " << h.second << "\n";
@@ -70,31 +73,37 @@ void processResponse(Configuration &conf, transport::http::HTTPResponse &&respon
   out.write((char *)payload.data(), payload.size());
   of.close();
 
-  Time t2 = std::chrono::system_clock::now();;
-  TimeDuration dt = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  TimeDuration dt3 = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t1);
+  Time t2 = std::chrono::system_clock::now();
+  ;
+  TimeDuration dt =
+      std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+  TimeDuration dt3 =
+      std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t1);
   long msec = (long)dt.count();
   long msec3 = (long)dt3.count();
-  std::cerr << "Elapsed Time: " << msec / 1000.0 << " seconds -- " << payload.size() * 8 / msec / 1000.0
-            << "[Mbps] -- " << payload.size() * 8 / msec3 / 1000.0 << "[Mbps]" << std::endl;
-
+  std::cerr << "Elapsed Time: " << msec / 1000.0 << " seconds -- "
+            << payload.size() * 8 / msec / 1000.0 << "[Mbps] -- "
+            << payload.size() * 8 / msec3 / 1000.0 << "[Mbps]" << std::endl;
 }
 
 void usage(char *program_name) {
   std::cerr << "USAGE:" << std::endl;
   std::cerr << "\t" << program_name << " [OPTION]... [URL]..." << std::endl;
   std::cerr << "OPTIONS:" << std::endl;
-  std::cerr << "\t" << "-O filename             write documents to FILE" << std::endl;
-  std::cerr << "\t" << "-S                      print server response" << std::endl;
+  std::cerr << "\t"
+            << "-O filename             write documents to FILE" << std::endl;
+  std::cerr << "\t"
+            << "-S                      print server response" << std::endl;
   std::cerr << "EXAMPLE:" << std::endl;
-  std::cerr << "\t" << program_name << " -O - http://origin/index.html" << std::endl;
+  std::cerr << "\t" << program_name << " -O - http://origin/index.html"
+            << std::endl;
   exit(EXIT_FAILURE);
 }
 
 int main(int argc, char **argv) {
 
 #ifdef _WIN32
-  WSADATA wsaData = { 0 };
+  WSADATA wsaData = {0};
   WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif
 
@@ -108,19 +117,19 @@ int main(int argc, char **argv) {
   int opt;
   while ((opt = getopt(argc, argv, "O:Sc:")) != -1) {
     switch (opt) {
-      case 'O':
-        conf.file_name = optarg;
-        break;
-      case 'S':
-        conf.print_headers = true;
-        break;
-      case 'c':
-        conf.producer_certificate = optarg;
-        break;
-      case 'h':
-      default:
-        usage(argv[0]);
-        break;
+    case 'O':
+      conf.file_name = optarg;
+      break;
+    case 'S':
+      conf.print_headers = true;
+      break;
+    case 'c':
+      conf.producer_certificate = optarg;
+      break;
+    case 'h':
+    default:
+      usage(argv[0]);
+      break;
     }
   }
 
@@ -134,10 +143,8 @@ int main(int argc, char **argv) {
     conf.file_name = name.substr(1 + name.find_last_of("/"));
   }
 
-  std::map<std::string, std::string> headers = {
-      {"Host", "localhost"},
-      {"User-Agent", "higet/1.0"}
-  };
+  std::map<std::string, std::string> headers = {{"Host", "localhost"},
+                                                {"User-Agent", "higet/1.0"}};
 
   transport::http::HTTPClientConnection connection;
   if (!conf.producer_certificate.empty()) {
@@ -160,6 +167,4 @@ int main(int argc, char **argv) {
 
 } // end namespace hicnet
 
-int main(int argc, char **argv) {
-  return hicnet::http::main(argc, argv);
-}
+int main(int argc, char **argv) { return hicnet::http::main(argc, argv); }
