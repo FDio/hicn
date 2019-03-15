@@ -29,7 +29,7 @@ VPP_VERSION_RPM="19.01.1-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
-DEPS_UBUNTU="libparc-dev libasio-dev vpp-dev=${VPP_VERSION_DEB} vpp-lib=${VPP_VERSION_DEB}"
+DEPS_UBUNTU="libparc-dev libasio-dev libcurl4-openssl-dev vpp-dev=${VPP_VERSION_DEB} vpp-lib=${VPP_VERSION_DEB}"
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
 DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM} vpp-lib-${VPP_VERSION_RPM} libparc-devel asio-devel centos-release-scl devtoolset-7"
