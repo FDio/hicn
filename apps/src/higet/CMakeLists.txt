@@ -14,7 +14,7 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 14)
 
-project(apps)
+project(utils)
 
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
@@ -22,41 +22,20 @@ set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
 )
 
-include(BuildMacros)
-include(WindowsMacros)
-
-find_package_wrapper(Asio REQUIRED)
-find_package_wrapper(Jsoncpp REQUIRED)
-find_package_wrapper(CURL REQUIRED)
-
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  find_package_wrapper(Libtransport REQUIRED)
-  set(HICN_APPS hicn-apps)
-else()
-  set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
-  list(APPEND DEPENDENCIES
-    ${LIBHICN}
-    ${LIBHICN_SHARED}
-    ${LIBTRANSPORT_LIBRARIES}
-  )
-endif()
-
-list(APPEND LIBRARIES
-  ${LIBTRANSPORT_LIBRARIES}
-  ${CURL_LIBRARY}
-  ${JSONCPP_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT}
+list(APPEND APPS_SRC
+  higet.cc
 )
 
-include(Packaging)
 
-set (COMPILER_DEFINITIONS "")
+foreach(app ${APPS_SRC})
+  get_filename_component(_app_name ${app} NAME)
+  string(REGEX REPLACE ".cc" "" app_name ${_app_name})
 
-
-if (WIN32)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
-else ()
-  add_subdirectory(src/http-server)
-endif ()
-
-add_subdirectory(src/higet)
+  build_executable(${app_name}
+    SOURCES ${app}
+    LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
+    DEPENDS ${LIBTRANSPORT}
+    COMPONENT ${HICN_APPS}
+    DEFINITIONS ${COMPILER_DEFINITIONS}
+  )
+endforeach()
