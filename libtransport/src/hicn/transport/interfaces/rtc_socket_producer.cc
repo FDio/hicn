@@ -82,10 +82,10 @@ void RTCProducerSocket::registerPrefix(const Prefix &producer_namespace) {
 
   switch (family) {
     case AF_INET6:
-      headerSize_ = Packet::getHeaderSizeFromFormat(HF_INET6_TCP);
+      headerSize_ = (uint32_t)Packet::getHeaderSizeFromFormat(HF_INET6_TCP);
       break;
     case AF_INET:
-      headerSize_ = Packet::getHeaderSizeFromFormat(HF_INET_TCP);
+      headerSize_ = (uint32_t)Packet::getHeaderSizeFromFormat(HF_INET_TCP);
       break;
     default:
       throw errors::RuntimeException("Unknown name format.");
