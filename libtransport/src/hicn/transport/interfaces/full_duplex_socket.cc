@@ -25,17 +25,11 @@ namespace interface {
 static const std::string producer_identity = "producer_socket";
 
 AsyncFullDuplexSocket::AsyncFullDuplexSocket(const Prefix &locator)
-    : AsyncFullDuplexSocket(locator, internal_io_service_) {}
-
-AsyncFullDuplexSocket::AsyncFullDuplexSocket(const Prefix &locator,
-                                             asio::io_service &io_service)
     : locator_(locator),
       incremental_suffix_(0),
-      io_service_(io_service),
-      work_(io_service),
-      producer_(std::make_unique<ProducerSocket>(io_service_)),
+      producer_(std::make_unique<ProducerSocket>()),
       consumer_(std::make_unique<ConsumerSocket>(
-          TransportProtocolAlgorithms::RAAQM /* , io_service_ */)),
+          TransportProtocolAlgorithms::RAAQM)),
       read_callback_(nullptr),
       write_callback_(nullptr),
       connect_callback_(nullptr),

@@ -23,10 +23,7 @@ namespace transport {
 namespace interface {
 
 ConsumerSocket::ConsumerSocket(int protocol)
-    : ConsumerSocket(protocol, internal_io_service_) {}
-
-ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service)
-    : io_service_(io_service),
+    : io_service_(internal_io_service_),
       portal_(std::make_shared<Portal>(io_service_)),
       async_downloader_(),
       interest_lifetime_(default_values::interest_lifetime),
@@ -58,7 +55,6 @@ ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service)
       on_manifest_(VOID_HANDLER),
       on_payload_retrieved_(VOID_HANDLER),
       virtual_download_(false),
-      rtt_stats_(false),
       timer_interval_milliseconds_(0) {
   switch (protocol) {
     case TransportProtocolAlgorithms::CBR:
@@ -99,15 +95,17 @@ int ConsumerSocket::consume(const Name &name, ContentBuffer &receive_buffer) {
 
 int ConsumerSocket::asyncConsume(const Name &name,
                                  ContentBuffer &receive_buffer) {
-  if (!async_downloader_.stopped()) {
-    async_downloader_.add([this, receive_buffer, name]() {
-      network_name_ = std::move(name);
-      network_name_.setSuffix(0);
-      is_async_ = true;
-      content_buffer_ = receive_buffer;
-      transport_protocol_->start();
-    });
+  if (async_downloader_.stopped()) {
+    async_downloader_.run();
   }
+
+  async_downloader_.add([this, receive_buffer, name]() {
+    network_name_ = std::move(name);
+    network_name_.setSuffix(0);
+    is_async_ = true;
+    content_buffer_ = receive_buffer;
+    transport_protocol_->start();
+  });
 
   return CONSUMER_RUNNING;
 }

@@ -36,27 +36,66 @@ namespace interface {
 
 using namespace core;
 
+/**
+ * @brief Main interface for accessing the producer transport services.
+ *
+ * This class allows application to produce application data (using different
+ * segmentation strategies) and at the same time to react to incoming requests
+ * from the network.
+ */
 class ProducerSocket : public Socket<BasePortal>,
                        public BasePortal::ProducerCallback {
  public:
+  /**
+   * Create a new producer socket.
+   */
   explicit ProducerSocket();
-  explicit ProducerSocket(asio::io_service &io_service);
 
+  /**
+   * Destroy a producer socket.
+   */
   ~ProducerSocket();
 
+  /**
+   * Connect the producer to the underlying hicn forwarder.
+   */
   void connect() override;
 
+  /**
+   * Segment and publish an application data.
+   *
+   * @param content_name - The hicn name to be used for the data packets to
+   * produce.
+   * @param buffer - The pointer to the first byte of the buffer containing the
+   * application data
+   * @param buffer_size - The size of the application buffer
+   * @param is_last - True if the buffer contains the whole ADU to publish,
+   * false otherwise
+   * @param start_offset - The fist suffix number to use during the segmentation
+   *
+   * @return The number of segment produced (including possible manifests)
+   */
   uint32_t produce(Name content_name, const uint8_t *buffer, size_t buffer_size,
                    bool is_last = true, uint32_t start_offset = 0);
 
+  /**
+   * Publish a content object created by the application.
+   *
+   * @param content_object - A reference to the content object. Note that the
+   * content object should be allocated by the application as a shared_ptr, so
+   * that the transport layer will just acquire a reference to it without making
+   * a hard copy of the whole packet.
+   */
   void produce(ContentObject &content_object);
 
+  /**
+   * This API is meant to be used just with the RTC producer.
+   * Here it cannot be used since no name for the content is specified.
+   */
   virtual void produce(const uint8_t *buffer, size_t buffer_size) {
-    // This API is meant to be used just with the RTC producer.
-    // Here it cannot be used since no name for the content is specified.
     throw errors::NotImplementedException();
   }
-
+  
   void asyncProduce(const Name &suffix, const uint8_t *buf, size_t buffer_size);
 
   void asyncProduce(const Name &suffix, ContentBuffer &&output_buffer);
@@ -84,12 +123,6 @@ class ProducerSocket : public Socket<BasePortal>,
         if (socket_option_value < default_values::max_content_object_size &&
             socket_option_value > 0) {
           data_packet_size_ = socket_option_value;
-          break;
-        }
-
-      case GeneralTransportOptions::INPUT_BUFFER_SIZE:
-        if (socket_option_value >= 1) {
-          input_buffer_capacity_ = socket_option_value;
           break;
         }
 
@@ -336,10 +369,6 @@ class ProducerSocket : public Socket<BasePortal>,
   TRANSPORT_ALWAYS_INLINE int getSocketOption(int socket_option_key,
                                               uint32_t &socket_option_value) {
     switch (socket_option_key) {
-      case GeneralTransportOptions::INPUT_BUFFER_SIZE:
-        socket_option_value = (uint32_t)input_buffer_capacity_;
-        break;
-
       case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
         socket_option_value = (uint32_t)output_buffer_.getLimit();
         break;
@@ -562,12 +591,6 @@ class ProducerSocket : public Socket<BasePortal>,
   HashAlgorithm hash_algorithm_;
   utils::CryptoSuite crypto_suite_;
   std::shared_ptr<utils::Identity> identity_;
-
-  // buffers
-
-  std::queue<std::shared_ptr<const Interest>> input_buffer_;
-  std::atomic_size_t input_buffer_capacity_;
-  std::atomic_size_t input_buffer_size_;
 
   // callbacks
  protected:

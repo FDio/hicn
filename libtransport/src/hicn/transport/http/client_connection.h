@@ -68,8 +68,6 @@ class HTTPClientConnection {
                               const core::Interest &interest,
                               std::string &payload);
 
-  asio::io_service io_service_;
-
   ConsumerSocket consumer_;
 
   std::shared_ptr<HTTPResponse> response_;

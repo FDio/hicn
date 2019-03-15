@@ -26,7 +26,7 @@ namespace http {
 using namespace transport;
 
 HTTPClientConnection::HTTPClientConnection()
-    : consumer_(TransportProtocolAlgorithms::RAAQM, io_service_),
+    : consumer_(TransportProtocolAlgorithms::RAAQM),
       response_(std::make_shared<HTTPResponse>()),
       timer_(nullptr) {
   consumer_.setSocketOption(
@@ -42,9 +42,7 @@ HTTPClientConnection::HTTPClientConnection()
           std::placeholders::_2, std::placeholders::_3));
 
   consumer_.connect();
-  std::shared_ptr<typename ConsumerSocket::Portal> portal;
-  consumer_.getSocketOption(GeneralTransportOptions::PORTAL, portal);
-  timer_ = std::make_unique<asio::steady_timer>(portal->getIoService());
+  timer_ = std::make_unique<asio::steady_timer>(consumer_.getIoService());
 }
 
 HTTPClientConnection &HTTPClientConnection::get(

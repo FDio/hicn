@@ -37,7 +37,6 @@ RTCTransportProtocol::RTCTransportProtocol(
     : TransportProtocol(icnet_socket),
       inflightInterests_(1 << default_values::log_2_default_buffer_size),
       modMask_((1 << default_values::log_2_default_buffer_size) - 1) {
-  icnet_socket->getSocketOption(PORTAL, portal_);
   reset();
 }
 

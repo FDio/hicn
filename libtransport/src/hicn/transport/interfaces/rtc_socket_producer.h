@@ -27,8 +27,6 @@ namespace interface {
 
 class RTCProducerSocket : public ProducerSocket {
  public:
-  RTCProducerSocket(asio::io_service &io_service);
-
   RTCProducerSocket();
 
   ~RTCProducerSocket();

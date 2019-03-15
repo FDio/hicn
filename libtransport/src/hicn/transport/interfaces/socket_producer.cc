@@ -24,10 +24,8 @@ namespace interface {
 typedef std::chrono::time_point<std::chrono::steady_clock> Time;
 typedef std::chrono::microseconds TimeDuration;
 
-ProducerSocket::ProducerSocket() : ProducerSocket(internal_io_service_) {}
-
-ProducerSocket::ProducerSocket(asio::io_service &io_service)
-    : io_service_(io_service),
+ProducerSocket::ProducerSocket()
+    : io_service_(internal_io_service_),
       portal_(std::make_shared<Portal>(io_service_)),
       data_packet_size_(default_values::content_object_packet_size),
       content_object_expiry_time_(default_values::content_object_expiry_time),
@@ -36,8 +34,6 @@ ProducerSocket::ProducerSocket(asio::io_service &io_service)
       making_manifest_(false),
       signature_type_(SHA_256),
       hash_algorithm_(HashAlgorithm::SHA_256),
-      input_buffer_capacity_(default_values::producer_socket_input_buffer_size),
-      input_buffer_size_(0),
       on_interest_input_(VOID_HANDLER),
       on_interest_dropped_input_buffer_(VOID_HANDLER),
       on_interest_inserted_input_buffer_(VOID_HANDLER),
@@ -307,10 +303,10 @@ uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
 
   if (on_content_produced_ != VOID_HANDLER) {
     on_content_produced_(*this, std::make_error_code(std::errc(0)),
-                         buffer_size);
+                         (current_segment - start_offset));
   }
 
-  return current_segment;
+  return (current_segment - start_offset);
 }
 
 void ProducerSocket::asyncProduce(ContentObject &content_object) {

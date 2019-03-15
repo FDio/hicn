@@ -101,7 +101,6 @@ class AsyncFullDuplexSocket : public AsyncSocket,
   using UniquePtr = std::unique_ptr<AsyncFullDuplexSocket>;
   using SharedPtr = std::unique_ptr<AsyncFullDuplexSocket>;
 
-  AsyncFullDuplexSocket(const Prefix &locator, asio::io_service &io_service);
   AsyncFullDuplexSocket(const core::Prefix &locator);
 
   ~AsyncFullDuplexSocket(){};
@@ -220,10 +219,6 @@ class AsyncFullDuplexSocket : public AsyncSocket,
   core::Prefix locator_;
   uint32_t incremental_suffix_;
   core::Name sync_notification_;
-  //  std::unique_ptr<BasePortal> portal_;
-  asio::io_service internal_io_service_;
-  asio::io_service &io_service_;
-  asio::io_service::work work_;
 
   // These names represent the "locator" of a certain
   // peer that subscribed to this.

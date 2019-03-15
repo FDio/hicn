@@ -23,7 +23,7 @@ namespace http {
 HTTPServerPublisher::HTTPServerPublisher(const core::Name &content_name)
     : content_name_(content_name, true) {
   std::string identity = "acceptor_producer";
-  producer_ = std::make_unique<ProducerSocket>(io_service_);
+  producer_ = std::make_unique<ProducerSocket>();
   //                                                          utils::Identity::generateIdentity(identity));
   core::Prefix publisher_prefix(content_name_, 128);
   producer_->registerPrefix(publisher_prefix);
@@ -45,10 +45,8 @@ HTTPServerPublisher &HTTPServerPublisher::attachPublisher() {
 
 HTTPServerPublisher &HTTPServerPublisher::setTimeout(
     const std::chrono::milliseconds &timeout, bool timeout_renewal) {
-  std::shared_ptr<typename ProducerSocket::Portal> portal;
-  producer_->getSocketOption(GeneralTransportOptions::PORTAL, portal);
   timer_ =
-      std::make_unique<asio::steady_timer>(portal->getIoService(), timeout);
+      std::make_unique<asio::steady_timer>(producer_->getIoService(), timeout);
 
   wait_callback_ = [this](const std::error_code &e) {
     if (!e) {
@@ -107,9 +105,7 @@ void HTTPServerPublisher::asyncPublishContent(
 void HTTPServerPublisher::serveClients() { producer_->serveForever(); }
 
 void HTTPServerPublisher::stop() {
-  std::shared_ptr<typename ProducerSocket::Portal> portal_ptr;
-  producer_->getSocketOption(GeneralTransportOptions::PORTAL, portal_ptr);
-  portal_ptr->getIoService().stop();
+  producer_->stop();
 }
 
 ProducerSocket &HTTPServerPublisher::getProducer() { return *producer_; }

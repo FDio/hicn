@@ -26,7 +26,6 @@ typedef enum {
 } TransportProtocolAlgorithms;
 
 typedef enum {
-  INPUT_BUFFER_SIZE = 101,
   OUTPUT_BUFFER_SIZE = 102,
   NETWORK_NAME = 103,
   NAME_SUFFIX = 104,
@@ -60,7 +59,6 @@ typedef enum {
   DROP_FACTOR = 204,
   MINIMUM_DROP_PROBABILITY = 205,
   PATH_ID = 206,
-  RTT_STATS = 207,
 } RaaqmTransportOptions;
 
 typedef enum {

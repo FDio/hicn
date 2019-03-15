@@ -23,8 +23,6 @@ namespace interface {
 
 class RTCConsumerSocket : public ConsumerSocket {
  public:
-  explicit RTCConsumerSocket(int protocol, asio::io_service &io_service);
-
   explicit RTCConsumerSocket(int protocol);
 
   ~RTCConsumerSocket();

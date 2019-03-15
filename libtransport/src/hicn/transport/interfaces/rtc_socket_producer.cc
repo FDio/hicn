@@ -38,23 +38,6 @@ namespace transport {
 
 namespace interface {
 
-RTCProducerSocket::RTCProducerSocket(asio::io_service &io_service)
-    : ProducerSocket(io_service),
-      currentSeg_(1),
-      nack_(std::make_shared<ContentObject>()),
-      producedBytes_(0),
-      producedPackets_(0),
-      bytesProductionRate_(0),
-      packetsProductionRate_(INIT_PACKET_PRODUCTION_RATE),
-      perSecondFactor_(1000 / STATS_INTERVAL_DURATION) {
-  auto nack_payload = utils::MemBuf::create(NACK_HEADER_SIZE);
-  nack_payload->append(NACK_HEADER_SIZE);
-  nack_->appendPayload(std::move(nack_payload));
-  lastStats_ = std::chrono::steady_clock::now();
-  srand((unsigned int)time(NULL));
-  prodLabel_ = ((rand() % 255) << 24UL);
-}
-
 RTCProducerSocket::RTCProducerSocket()
     : ProducerSocket(),
       currentSeg_(1),
