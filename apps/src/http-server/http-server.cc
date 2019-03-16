@@ -27,11 +27,18 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 #include "http-server/http_server.h"
 #include "http_client_icn.h"
 #include "http_client_tcp.h"
+
+#ifdef _WIN32
+#include <shlobj.h>
+#endif
 
 typedef icn_httpserver::HttpServer HttpServer;
 typedef icn_httpserver::Response Response;
@@ -39,7 +46,21 @@ typedef icn_httpserver::Request Request;
 
 namespace std {
 
-string getFileName(const string &strPath) {
+int _isDirectory(const char *path) {
+  struct stat statbuf;
+  if (stat(path, &statbuf) != 0)
+    return -1;
+  return S_ISDIR(statbuf.st_mode);
+}
+
+int _isRegularFile(const char *path) {
+  struct stat statbuf;
+  if (stat(path, &statbuf) != 0)
+    return 0;
+  return S_ISREG(statbuf.st_mode);
+}
+
+string _getFileName(const string &strPath) {
   size_t iLastSeparator = 0;
 #ifdef _WIN32
   return strPath.substr((iLastSeparator = strPath.find_last_of("\\")) !=
@@ -58,53 +79,57 @@ string getFileName(const string &strPath) {
 
 int _mkdir(const char *dir) {
   std::cout << dir << std::endl;
+#ifdef _WIN32
+  char sepChar = '\\';
+  char tmp[MAX_PATH];
+#else
+  char sepChar = '/';
   char tmp[PATH_MAX];
+#endif
   char *p = NULL;
   size_t len;
 
   snprintf(tmp, sizeof(tmp), "%s", dir);
   len = strlen(tmp);
-  if (tmp[len - 1] == '/')
+
+  if (tmp[len - 1] == sepChar)
     tmp[len - 1] = 0;
   for (p = tmp + 1; *p; p++) {
-    if (*p == '/') {
+    if (*p == sepChar) {
       *p = 0;
-      if (!(std::ifstream(tmp).good())) {
-        if (mkdir(tmp, S_IRWXU) == -1)
+      if (_isDirectory(tmp) != 1) {
+#ifdef _WIN32
+        if (!CreateDirectory(tmp, NULL)) {
+#else
+        if (mkdir(tmp, S_IRWXU) == -1) {
+#endif
           return -1;
+        }
       }
-      *p = '/';
+      *p = sepChar;
     }
   }
 
-  if (!(std::ifstream(tmp).good())) {
-    if (mkdir(tmp, S_IRWXU) == -1)
+  if (_isDirectory(tmp) != 1) {
+#ifdef _WIN32
+    if (!CreateDirectory(tmp, NULL)) {
+#else
+    if (mkdir(tmp, S_IRWXU) == -1) {
+#endif
       return -1;
+    }
   }
 
   return 0;
 }
 
-string getExtension(const string &strPath) {
+string _getExtension(const string &strPath) {
   size_t iLastSeparator = 0;
   return strPath.substr((iLastSeparator = strPath.find_last_of(".")) !=
                                 std::string::npos
                             ? iLastSeparator + 1
                             : 0,
                         strPath.size());
-}
-
-int isRegularFile(const string path) {
-  struct stat path_stat;
-  stat(path.c_str(), &path_stat);
-  return S_ISREG(path_stat.st_mode);
-}
-
-int isDirectory(const string path) {
-  struct stat statbuf;
-  if (stat(path.c_str(), &statbuf) != 0)
-    return 0;
-  return S_ISDIR(statbuf.st_mode);
 }
 
 void default_resource_send(const HttpServer &server,
@@ -155,7 +180,14 @@ void usage(const char *programName) {
 int main(int argc, char **argv) {
   // Parse command line arguments
 
+#ifndef _WIN32
   string root_folder = "/var/www/html";
+#else
+  char path[MAX_PATH];
+  SHGetFolderPathA(NULL, CSIDL_PROFILE, NULL, 0, path);
+  string root_folder(path);
+  root_folder += "\\www\\html";
+#endif
   string webserver_prefix = "http://webserver";
   string tcp_proxy_address;
   string icn_proxy_prefix;
@@ -185,7 +217,8 @@ int main(int argc, char **argv) {
       break;
     }
   }
-  if (!(std::ifstream(root_folder).good())) {
+
+  if (_isDirectory(root_folder.c_str()) != 1) {
     if (_mkdir(root_folder.c_str()) == -1) {
       std::cerr << "The web root folder " << root_folder
                 << " does not exist and its creation failed. Exiting.."
@@ -246,8 +279,8 @@ int main(int argc, char **argv) {
             dynamic_cast<icn_httpserver::SocketRequest *>(request.get());
 
         std::chrono::milliseconds response_lifetime;
-        std::string stem = getFileName(path);
-        std::string extension = getExtension(path);
+        std::string stem = _getFileName(path);
+        std::string extension = _getExtension(path);
         if (extension == "mpd" || stem == "latest") {
           std::cout << "1 second" << std::endl;
           std::cout << "Setting lifetime to 1 second" << std::endl;
@@ -260,17 +293,13 @@ int main(int argc, char **argv) {
 
         response->setResponseLifetime(response_lifetime);
 
-        if (std::ifstream(path).good()) {
-
+        if (_isDirectory(path.c_str())) {
           // Check if path is within web_root_path
           if (distance(web_root_path.begin(), web_root_path.end()) <=
                   distance(path.begin(), path.end()) &&
               equal(web_root_path.begin(), web_root_path.end(), path.begin())) {
-            if (isDirectory(path)) {
-              path += "index.html";
-            } // default path
-
-            if (std::ifstream(path).good() && isRegularFile(path)) {
+            path += "index.html";
+            if (_isRegularFile(path.c_str())) {
 
               auto ifs = make_shared<ifstream>();
               ifs->open(path, ifstream::in | ios::binary);
@@ -350,8 +379,8 @@ int main(int argc, char **argv) {
                   << content;
       };
 
-  // Let the main thread to catch SIGINT and SIGQUIT
-  asio::signal_set signals(io_service, SIGINT, SIGQUIT);
+  // Let the main thread to catch SIGINT
+  asio::signal_set signals(io_service, SIGINT);
   signals.async_wait(bind(afterSignal, &server, placeholders::_1));
 
   thread server_thread([&server]() {
