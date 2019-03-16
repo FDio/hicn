@@ -54,8 +54,7 @@ set (COMPILER_DEFINITIONS "")
 
 if (WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
-else ()
-  add_subdirectory(src/http-server)
 endif ()
 
+add_subdirectory(src/http-server)
 add_subdirectory(src/higet)

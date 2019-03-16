@@ -27,11 +27,18 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 #include "http-server/http_server.h"
 #include "http_client_icn.h"
 #include "http_client_tcp.h"
+
+#ifdef _WIN32
+#include <shlobj.h>
+#endif
 
 typedef icn_httpserver::HttpServer HttpServer;
 typedef icn_httpserver::Response Response;
@@ -58,27 +65,43 @@ string getFileName(const string &strPath) {
 
 int _mkdir(const char *dir) {
   std::cout << dir << std::endl;
+#ifdef _WIN32
+  char sepChar = '\\';
+  char tmp[MAX_PATH];
+#else
+  char sepChar = '/';
   char tmp[PATH_MAX];
+#endif
   char *p = NULL;
   size_t len;
 
   snprintf(tmp, sizeof(tmp), "%s", dir);
   len = strlen(tmp);
-  if (tmp[len - 1] == '/')
+
+  if (tmp[len - 1] == sepChar)
     tmp[len - 1] = 0;
   for (p = tmp + 1; *p; p++) {
-    if (*p == '/') {
+    if (*p == sepChar) {
       *p = 0;
       if (!(std::ifstream(tmp).good())) {
+#ifdef _WIN32
+        if (!CreateDirectory(tmp, NULL) &&
+            GetLastError() != ERROR_ALREADY_EXISTS)
+#else
         if (mkdir(tmp, S_IRWXU) == -1)
+#endif
           return -1;
       }
-      *p = '/';
+      *p = sepChar;
     }
   }
 
   if (!(std::ifstream(tmp).good())) {
+#ifdef _WIN32
+    if (!CreateDirectory(tmp, NULL) && GetLastError() != ERROR_ALREADY_EXISTS)
+#else
     if (mkdir(tmp, S_IRWXU) == -1)
+#endif
       return -1;
   }
 
@@ -155,7 +178,14 @@ void usage(const char *programName) {
 int main(int argc, char **argv) {
   // Parse command line arguments
 
+#ifndef _WIN32
   string root_folder = "/var/www/html";
+#else
+  char path[MAX_PATH];
+  SHGetFolderPathA(NULL, CSIDL_PROFILE, NULL, 0, path);
+  string root_folder(path);
+  root_folder += "\\www\\html";
+#endif
   string webserver_prefix = "http://webserver";
   string tcp_proxy_address;
   string icn_proxy_prefix;
@@ -185,7 +215,8 @@ int main(int argc, char **argv) {
       break;
     }
   }
-  if (!(std::ifstream(root_folder).good())) {
+  struct stat info;
+  if (stat(root_folder.c_str(), &info) != 0) {
     if (_mkdir(root_folder.c_str()) == -1) {
       std::cerr << "The web root folder " << root_folder
                 << " does not exist and its creation failed. Exiting.."
@@ -350,8 +381,8 @@ int main(int argc, char **argv) {
                   << content;
       };
 
-  // Let the main thread to catch SIGINT and SIGQUIT
-  asio::signal_set signals(io_service, SIGINT, SIGQUIT);
+  // Let the main thread to catch SIGINT
+  asio::signal_set signals(io_service, SIGINT);
   signals.async_wait(bind(afterSignal, &server, placeholders::_1));
 
   thread server_thread([&server]() {
