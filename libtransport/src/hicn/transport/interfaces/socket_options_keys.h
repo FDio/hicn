@@ -25,6 +25,8 @@ typedef enum {
   RTC = 2,
 } TransportProtocolAlgorithms;
 
+typedef enum { RELIABLE = 10, UNRELIABLE = 11 } ProductionAlgorithms;
+
 typedef enum {
   INPUT_BUFFER_SIZE = 101,
   OUTPUT_BUFFER_SIZE = 102,

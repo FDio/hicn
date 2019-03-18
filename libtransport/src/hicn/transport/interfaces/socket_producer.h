@@ -43,8 +43,9 @@ using namespace core;
 class ProducerSocket : public Socket<BasePortal>,
                        public BasePortal::ProducerCallback {
  public:
-  explicit ProducerSocket();
-  explicit ProducerSocket(asio::io_service &io_service);
+  explicit ProducerSocket(int protocol = ProductionAlgorithms::RELIABLE);
+  explicit ProducerSocket(asio::io_service &io_service,
+                          int protocol = ProductionAlgorithms::RELIABLE);
 
   ~ProducerSocket();
 

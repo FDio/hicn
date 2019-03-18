@@ -146,7 +146,7 @@ class ConsumerSocket : public BaseSocket {
    *  - RTC: Real time communication
    */
   explicit ConsumerSocket(int protocol);
-  explicit ConsumerSocket(int protocol, asio::io_service &io_service);
+  explicit ConsumerSocket(asio::io_service &io_service, int protocol);
 
   /**
    * @brief Destroy the consumer socket.

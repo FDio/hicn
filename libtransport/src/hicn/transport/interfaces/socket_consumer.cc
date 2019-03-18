@@ -23,9 +23,9 @@ namespace transport {
 namespace interface {
 
 ConsumerSocket::ConsumerSocket(int protocol)
-    : ConsumerSocket(protocol, internal_io_service_) {}
+    : ConsumerSocket(internal_io_service_, protocol) {}
 
-ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service)
+ConsumerSocket::ConsumerSocket(asio::io_service &io_service, int protocol)
     : io_service_(io_service),
       portal_(std::make_shared<Portal>(io_service_)),
       async_downloader_(),
