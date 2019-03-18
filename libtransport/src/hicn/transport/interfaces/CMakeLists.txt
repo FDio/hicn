@@ -14,6 +14,7 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 list(APPEND HEADER_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/c_api.h
   ${CMAKE_CURRENT_SOURCE_DIR}/socket.h
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_consumer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_producer.h
@@ -32,6 +33,7 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_socket_producer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_producer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_consumer.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/c_api.cc
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
