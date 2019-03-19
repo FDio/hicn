@@ -26,7 +26,7 @@ option(BUILD_LIBHICN "Build the hicn core library" ON)
 option(BUILD_HICNLIGHT "Build the hicn light forwarder" ON)
 option(BUILD_LIBTRANSPORT "Build the hicn transport library" ON)
 option(BUILD_UTILS "Build the hicn utils" ON)
-option(BUILD_APPS "Build the hicn apps" ON)
+option(BUILD_APPS "Build the hicn apps" OFF)
 option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
 
 list(APPEND dir_options
@@ -68,7 +68,7 @@ set(LIBTRANSPORT hicntransport)
 set(HICN_UTILS hicn-utils)
 set(HICN_APPS hicn-apps)
 
-if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
+if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   list(APPEND subdirs
     ${BUILD_HICNPLUGIN_DIR}
   )
