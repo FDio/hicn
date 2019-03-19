@@ -60,9 +60,9 @@ class ContentObject : public Packet {
 
   ContentObject &setPathLabel(uint32_t path_label);
 
-  void setLocator(const ip_address_t &ip_address) override;
+  void setLocator(const ip_address_t &ip_address);
 
-  ip_address_t getLocator() const override;
+  ip_address_t getLocator() const;
 
  private:
   void resetForHash() override;

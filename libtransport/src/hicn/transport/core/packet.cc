@@ -246,7 +246,9 @@ Packet::Format Packet::getFormat() const {
   return format_;
 }
 
-const std::shared_ptr<utils::MemBuf> Packet::data() { return packet_; }
+const std::shared_ptr<utils::MemBuf> Packet::acquireMemBufReference() {
+  return packet_;
+}
 
 void Packet::dump() const {
   const_cast<Packet *>(this)->separateHeaderPayload();

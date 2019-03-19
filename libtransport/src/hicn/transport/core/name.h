@@ -102,7 +102,6 @@ class Name {
 
   int getAddressFamily() const;
 
- private:
   TRANSPORT_ALWAYS_INLINE NameStruct *getStructReference() const {
     if (TRANSPORT_EXPECT_TRUE(name_ != nullptr)) {
       return name_.get();
@@ -111,6 +110,7 @@ class Name {
     return nullptr;
   }
 
+ private:
   static TRANSPORT_ALWAYS_INLINE std::unique_ptr<NameStruct> createEmptyName() {
     NameStruct *name = new NameStruct;
     name->type = HNT_UNSPEC;

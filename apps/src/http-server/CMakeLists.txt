@@ -20,6 +20,11 @@ option(HICNET "Link against Libhicnet." ON)
 configure_file("${PROJECT_SOURCE_DIR}/src/http-server/config.h.in"
         "${CMAKE_BINARY_DIR}/apps/http-server/config.h")
 
+find_package(CURL REQUIRED)
+list(APPEND LIBRARIES
+  ${CURL_LIBRARY}
+)
+
 set(LIB_SOURCE_FILES
     http-server/http_server.cc
     http-server/response.cc
