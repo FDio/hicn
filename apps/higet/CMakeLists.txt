@@ -14,7 +14,7 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 14)
 
-project(apps)
+project(utils)
 
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
@@ -22,36 +22,14 @@ set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
 )
 
-include(BuildMacros)
-include(WindowsMacros)
-
-find_package(Asio REQUIRED)
-
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  find_package(Libtransport REQUIRED)
-  include_directories(${LIBTRANSPORT_INCLUDE_DIRS})
-  set(HICN_APPS hicn-apps)
-else()
-  set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
-  list(APPEND DEPENDENCIES
-    ${LIBTRANSPORT_LIBRARIES}
-  )
-endif()
-
-list(APPEND LIBRARIES
-  ${LIBTRANSPORT_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT}
+list(APPEND APPS_SRC
+  higet.cc
 )
 
-include(Packaging)
-
-set(COMPILER_DEFINITIONS "")
-
-
-if (WIN32)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
-endif ()
-
-add_subdirectory(http-server)
-add_subdirectory(http-proxy)
-add_subdirectory(higet)
+build_executable(higet
+  SOURCES ${APPS_SRC}
+  LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
+  DEPENDS ${LIBTRANSPORT}
+  COMPONENT higet
+  DEFINITIONS ${COMPILER_DEFINITIONS}
+)

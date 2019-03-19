@@ -46,13 +46,13 @@ typedef std::unordered_map<Name, ContentStoreEntry> ContentStoreHashTable;
 
 class ContentStore {
  public:
-  explicit ContentStore(std::size_t max_packets = 65536);
+  explicit ContentStore(std::size_t max_packets = (1 << 16));
 
   ~ContentStore();
 
   void insert(const std::shared_ptr<ContentObject> &content_object);
 
-  const std::shared_ptr<ContentObject> &find(const Interest &interest);
+  const std::shared_ptr<ContentObject> find(const Interest &interest);
 
   void erase(const Name &exact_name);
 
