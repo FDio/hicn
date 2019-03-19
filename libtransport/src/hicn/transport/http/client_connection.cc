@@ -154,10 +154,10 @@ bool HTTPClientConnection::verifyData(
 
 void HTTPClientConnection::processLeavingInterest(
     ConsumerSocket &c, const core::Interest &interest, std::string &payload) {
-  //  if (interest.getName().getSuffix() == 0) {
-  Interest &int2 = const_cast<Interest &>(interest);
-  int2.appendPayload((uint8_t *)payload.data(), payload.size());
-  //  }
+  if (interest.payloadSize() == 0) {
+    Interest &int2 = const_cast<Interest &>(interest);
+    int2.appendPayload((uint8_t *)payload.data(), payload.size());
+  }
 }
 
 ConsumerSocket &HTTPClientConnection::getConsumer() { return consumer_; }
