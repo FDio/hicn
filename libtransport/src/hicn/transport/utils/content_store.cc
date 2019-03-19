@@ -62,7 +62,7 @@ void ContentStore::insert(
   }
 }
 
-const std::shared_ptr<ContentObject> &ContentStore::find(
+const std::shared_ptr<ContentObject> ContentStore::find(
     const Interest &interest) {
   std::unique_lock<std::mutex> lock(cs_mutex_);
   auto it = content_store_hash_table_.find(interest.getName());
