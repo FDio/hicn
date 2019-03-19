@@ -25,12 +25,11 @@ namespace protocol {
 BaseReassembly::BaseReassembly(interface::ConsumerSocket *icn_socket,
                                ContentReassembledCallback *content_callback)
     : reassembly_consumer_socket_(icn_socket),
-      zero_index_manager_(std::make_unique<ZeroIndexManager>()),
       incremental_index_manager_(
           std::make_unique<IncrementalIndexManager>(icn_socket)),
       manifest_index_manager_(
           std::make_unique<ManifestIndexManager>(icn_socket)),
-      index_manager_(zero_index_manager_.get()),
+      index_manager_(incremental_index_manager_.get()),
       index_(0) {
   setContentCallback(content_callback);
 }
@@ -54,14 +53,14 @@ void BaseReassembly::reassemble(ContentObject::Ptr &&content_object) {
 }
 
 void BaseReassembly::copyContent(const ContentObject &content_object) {
-  utils::Array<> a = content_object.getPayload();
+  auto a = content_object.getPayload();
 
   std::shared_ptr<std::vector<uint8_t>> content_buffer;
   reassembly_consumer_socket_->getSocketOption(
       interface::GeneralTransportOptions::APPLICATION_BUFFER, content_buffer);
 
-  content_buffer->insert(content_buffer->end(), (uint8_t *)a.data(),
-                         (uint8_t *)a.data() + a.length());
+  content_buffer->insert(content_buffer->end(), (uint8_t *)a->data(),
+                         (uint8_t *)a->data() + a->length());
 
   bool download_completed =
       index_manager_->getFinalSuffix() == content_object.getName().getSuffix();
@@ -74,6 +73,7 @@ void BaseReassembly::copyContent(const ContentObject &content_object) {
 void BaseReassembly::reset() {
   manifest_index_manager_->reset();
   incremental_index_manager_->reset();
+  index_ = index_manager_->getNextReassemblySegment();
 
   received_packets_.clear();
 }

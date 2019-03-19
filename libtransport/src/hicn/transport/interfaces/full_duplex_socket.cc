@@ -261,7 +261,7 @@ void AsyncFullDuplexSocket::signalProductionToSubscribers(
     // Todo consider using preallocated pool of membufs
     auto _payload = utils::MemBuf::create(sizeof(ActionMessage));
     _payload->append(sizeof(ActionMessage));
-    auto payload = const_cast<uint8_t *>(interest->getPayload().data());
+    auto payload = interest->getPayload()->writableData();
 
     ActionMessage *produce_notification =
         reinterpret_cast<ActionMessage *>(payload);
@@ -294,7 +294,7 @@ AsyncFullDuplexSocket::decodeSynchronizationMessage(
     const core::Interest &interest) {
   auto mesg = interest.getPayload();
   const MessageHeader *header =
-      reinterpret_cast<const MessageHeader *>(mesg.data());
+      reinterpret_cast<const MessageHeader *>(mesg->data());
 
   switch (header->msg_type) {
     case MessageType::ACTION: {
@@ -350,14 +350,12 @@ AsyncFullDuplexSocket::decodeSynchronizationMessage(
       // We saved one round trip :)
 
       auto buffer = ContentBuffer();
-      const uint8_t *data = mesg.data() + sizeof(PayloadMessage);
-      buffer->assign(data, data + mesg.length() - sizeof(PayloadMessage));
+      const uint8_t *data = mesg->data() + sizeof(PayloadMessage);
+      buffer->assign(data, data + mesg->length() - sizeof(PayloadMessage));
       read_callback_->readBufferAvailable(std::move(buffer));
       return createAck();
     }
-    default: {
-      return std::shared_ptr<core::ContentObject>(nullptr);
-    }
+    default: { return std::shared_ptr<core::ContentObject>(nullptr); }
   }
 
   return std::shared_ptr<core::ContentObject>(nullptr);
@@ -366,7 +364,7 @@ AsyncFullDuplexSocket::decodeSynchronizationMessage(
 void AsyncFullDuplexSocket::onControlInterest(ProducerSocket &s,
                                               const core::Interest &i) {
   auto payload = i.getPayload();
-  if (payload.length()) {
+  if (payload->length()) {
     // Try to decode payload and see if starting an async pull operation
     auto response = decodeSynchronizationMessage(i);
     if (response) {
@@ -412,14 +410,14 @@ void AsyncFullDuplexSocket::OnConnectCallback::onContentObject(
   // The ack message should contain the name to be used for notifying
   // the production of the content to the other part
 
-  if (content_object->getPayload().length() == 0) {
+  if (content_object->getPayload()->length() == 0) {
     TRANSPORT_LOGW("Connection response message empty....");
     return;
   }
 
   SubscriptionResponseMessage *response =
       reinterpret_cast<SubscriptionResponseMessage *>(
-          content_object->getPayload().writableData());
+          content_object->getPayload()->writableData());
 
   if (response->response.header.msg_type == MessageType::RESPONSE) {
     if (response->response.return_code == ReturnCode::OK) {
@@ -457,7 +455,7 @@ std::shared_ptr<core::ContentObject> AsyncFullDuplexSocket::createAck() {
   auto response = std::make_shared<core::ContentObject>(name);
   auto _payload = utils::MemBuf::create(sizeof(ActionMessage));
   _payload->append(sizeof(ResponseMessage));
-  auto payload = response->getPayload().data();
+  auto payload = response->getPayload()->data();
   ResponseMessage *response_message = (ResponseMessage *)payload;
   response_message->header.msg_type = MessageType::RESPONSE;
   response_message->header.reserved[0] = 0;

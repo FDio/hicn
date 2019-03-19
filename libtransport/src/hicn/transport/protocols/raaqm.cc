@@ -98,6 +98,11 @@ int RaaqmTransportProtocol::start() {
 void RaaqmTransportProtocol::resume() { return TransportProtocol::resume(); }
 
 void RaaqmTransportProtocol::reset() {
+  // Set first segment to retrieve
+  core::Name *name;
+  socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME, &name);
+  index_manager_->setFirstSuffix(name->getSuffix());
+
   // Reset reassembly component
   BaseReassembly::reset();
 
@@ -333,15 +338,7 @@ void RaaqmTransportProtocol::onContentObject(
     index_manager_->onManifest(std::move(content_object));
 
   } else if (content_object->getPayloadType() == PayloadType::CONTENT_OBJECT) {
-    if (TRANSPORT_EXPECT_FALSE(incremental_suffix == 0)) {
-      index_manager_ = incremental_index_manager_.get();
-    }
-
     onContentSegment(std::move(interest), std::move(content_object));
-  }
-
-  if (TRANSPORT_EXPECT_FALSE(incremental_suffix == 0)) {
-    BaseReassembly::index_ = index_manager_->getNextReassemblySegment();
   }
 
   scheduleNextInterests();

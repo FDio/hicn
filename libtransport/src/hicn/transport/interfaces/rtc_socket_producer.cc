@@ -163,7 +163,7 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
 
 void RTCProducerSocket::sendNack(const Interest &interest) {
   nack_->setName(interest.getName());
-  uint32_t *payload_ptr = (uint32_t *)nack_->getPayload().data();
+  uint32_t *payload_ptr = (uint32_t *)nack_->getPayload()->data();
   *payload_ptr = currentSeg_;
   *(++payload_ptr) = bytesProductionRate_;
 

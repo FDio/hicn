@@ -533,7 +533,7 @@ class HIperfServer {
     if (!ec) {
       auto payload =
           content_objects_[content_objects_index_++ & mask_]->getPayload();
-      producer_socket_->produce(payload.data(), payload.length());
+      producer_socket_->produce(payload->data(), payload->length());
       rtc_timer_.expires_from_now(
           configuration_.production_rate_.getMicrosecondsForPacket(
               configuration_.payload_size_));
@@ -625,7 +625,8 @@ void usage() {
                "the suffix to 0."
             << std::endl;
   std::cerr << "-B\t<bitrate>\t\t\t"
-            << "Bitrate for RTC producer, to be used with the -R option." << std::endl;
+            << "Bitrate for RTC producer, to be used with the -R option."
+            << std::endl;
   std::cerr << std::endl;
   std::cerr << "Client specific:" << std::endl;
   std::cerr << "-b\t<beta_parameter>\t\t"

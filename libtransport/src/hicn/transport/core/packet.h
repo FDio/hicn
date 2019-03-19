@@ -101,8 +101,6 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   const std::shared_ptr<utils::MemBuf> data();
 
-  const uint8_t *start() const;
-
   virtual const Name &getName() const = 0;
 
   virtual Name &getWritableName() = 0;
@@ -123,7 +121,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   Packet &appendHeader(const uint8_t *buffer, std::size_t length);
 
-  utils::Array<uint8_t> getPayload() const;
+  std::unique_ptr<utils::MemBuf> getPayload() const;
 
   Packet &updateLength(std::size_t length = 0);
 
@@ -190,7 +188,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
  protected:
   Name name_;
   MemBufPtr packet_;
-  uint8_t *packet_start_;
+  hicn_header_t *packet_start_;
   utils::MemBuf *header_head_;
   utils::MemBuf *payload_head_;
   mutable Format format_;

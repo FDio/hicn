@@ -186,8 +186,8 @@ void RTCTransportProtocol::updateDelayStats(
   pathTable_[pathLabel]->insertRttSample(RTT);
 
   // we collect OWD only for datapackets
-  if (content_object.getPayload().length() != HICN_NACK_HEADER_SIZE) {
-    uint64_t *senderTimeStamp = (uint64_t *)content_object.getPayload().data();
+  if (content_object.getPayload()->length() != HICN_NACK_HEADER_SIZE) {
+    uint64_t *senderTimeStamp = (uint64_t *)content_object.getPayload()->data();
 
     int64_t OWD = std::chrono::duration_cast<std::chrono::milliseconds>(
                       std::chrono::system_clock::now().time_since_epoch())
@@ -474,7 +474,7 @@ void RTCTransportProtocol::onTimeout(Interest::Ptr &&interest) {
 }
 
 void RTCTransportProtocol::onNack(const ContentObject &content_object) {
-  uint32_t *payload = (uint32_t *)content_object.getPayload().data();
+  uint32_t *payload = (uint32_t *)content_object.getPayload()->data();
   uint32_t productionSeg = *payload;
   uint32_t productionRate = *(++payload);
   uint32_t nackSegment = content_object.getName().getSuffix();
@@ -531,7 +531,7 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
 
 void RTCTransportProtocol::onContentObject(
     Interest::Ptr &&interest, ContentObject::Ptr &&content_object) {
-  uint32_t payload_size = (uint32_t)content_object->getPayload().length();
+  uint32_t payload_size = (uint32_t)content_object->getPayload()->length();
   uint32_t segmentNumber = content_object->getName().getSuffix();
   uint32_t pkt = segmentNumber & modMask_;
 
@@ -549,7 +549,7 @@ void RTCTransportProtocol::onContentObject(
 
     avgPacketSize_ = (HICN_ESTIMATED_PACKET_SIZE * avgPacketSize_) +
                      ((1 - HICN_ESTIMATED_PACKET_SIZE) *
-                      content_object->getPayload().length());
+                      content_object->getPayload()->length());
 
     if (inflightInterests_[pkt].retransmissions == 0) {
       inflightInterestsCount_--;
@@ -570,10 +570,10 @@ void RTCTransportProtocol::onContentObject(
 void RTCTransportProtocol::returnContentToApplication(
     const ContentObject &content_object) {
   // return content to the user
-  Array a = content_object.getPayload();
+  auto a = content_object.getPayload();
 
-  uint8_t *start = ((uint8_t *)a.data()) + HICN_TIMESTAMP_SIZE;
-  unsigned size = (unsigned)(a.length() - HICN_TIMESTAMP_SIZE);
+  uint8_t *start = ((uint8_t *)a->data()) + HICN_TIMESTAMP_SIZE;
+  unsigned size = (unsigned)(a->length() - HICN_TIMESTAMP_SIZE);
 
   // set offset between hICN and RTP packets
   uint16_t rtp_seq = ntohs(*(((uint16_t *)start) + 1));

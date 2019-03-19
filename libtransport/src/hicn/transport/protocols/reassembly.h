@@ -57,7 +57,6 @@ class BaseReassembly : public Reassembly {
  protected:
   // The consumer socket
   interface::ConsumerSocket *reassembly_consumer_socket_;
-  std::unique_ptr<ZeroIndexManager> zero_index_manager_;
   std::unique_ptr<IncrementalIndexManager> incremental_index_manager_;
   std::unique_ptr<ManifestIndexManager> manifest_index_manager_;
   IndexVerificationManager *index_manager_;
