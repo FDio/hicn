@@ -187,14 +187,14 @@ void AsyncFullDuplexSocket::write(WriteCallback *callback, const void *buf,
 
   if (bytes > core::Packet::default_mtu - sizeof(PayloadMessage)) {
     TRANSPORT_LOGI("Producing content with name %s",
-                   options.name.toString().c_str());
-    producer_->asyncProduce(options.name,
+                   options.getName().toString().c_str());
+    producer_->asyncProduce(options.getName(),
                             reinterpret_cast<const uint8_t *>(buf), bytes);
-    signalProductionToSubscribers(options.name);
+    signalProductionToSubscribers(options.getName());
   } else {
     TRANSPORT_LOGI("Sending payload through interest");
     piggybackPayloadToSubscribers(
-        options.name, reinterpret_cast<const uint8_t *>(buf), bytes);
+        options.getName(), reinterpret_cast<const uint8_t *>(buf), bytes);
   }
 }
 
@@ -212,12 +212,12 @@ void AsyncFullDuplexSocket::write(WriteCallback *callback,
   if (output_buffer->size() >
       core::Packet::default_mtu - sizeof(PayloadMessage)) {
     TRANSPORT_LOGI("Producing content with name %s",
-                   options.name.toString().c_str());
-    producer_->asyncProduce(options.name, std::move(output_buffer));
-    signalProductionToSubscribers(options.name);
+                   options.getName().toString().c_str());
+    producer_->asyncProduce(options.getName(), std::move(output_buffer));
+    signalProductionToSubscribers(options.getName());
   } else {
     TRANSPORT_LOGI("Sending payload through interest");
-    piggybackPayloadToSubscribers(options.name, &(*output_buffer)[0],
+    piggybackPayloadToSubscribers(options.getName(), &(*output_buffer)[0],
                                   output_buffer->size());
   }
 }

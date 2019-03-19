@@ -26,7 +26,6 @@ include(BuildMacros)
 include(WindowsMacros)
 
 find_package(Asio REQUIRED)
-find_package(CURL REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
@@ -35,15 +34,12 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
 else()
   set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
   list(APPEND DEPENDENCIES
-    ${LIBHICN}
-    ${LIBHICN_SHARED}
     ${LIBTRANSPORT_LIBRARIES}
   )
 endif()
 
 list(APPEND LIBRARIES
   ${LIBTRANSPORT_LIBRARIES}
-  ${CURL_LIBRARY}
   ${CMAKE_THREAD_LIBS_INIT}
 )
 
@@ -57,4 +53,5 @@ if (WIN32)
 endif ()
 
 add_subdirectory(src/http-server)
+add_subdirectory(src/http-proxy)
 add_subdirectory(src/higet)
