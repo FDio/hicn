@@ -15,10 +15,15 @@ cmake_minimum_required(VERSION 3.2)
 
 set(CMAKE_CXX_STANDARD 14)
 
-option(HICNET "Link against Libhicnet." ON)
+configure_file(
+  "${PROJECT_SOURCE_DIR}/http-server/config.h.in"
+  "${CMAKE_BINARY_DIR}/apps/http-server/config.h"
+)
 
-configure_file("${PROJECT_SOURCE_DIR}/src/http-server/config.h.in"
-        "${CMAKE_BINARY_DIR}/apps/http-server/config.h")
+find_package(CURL REQUIRED)
+list(APPEND LIBRARIES
+  ${CURL_LIBRARY}
+)
 
 set(LIB_SOURCE_FILES
     http-server/http_server.cc
@@ -67,7 +72,6 @@ build_library(hicn-httpserver
   INSTALL_ROOT_DIR hicn/transport
   DEFINITIONS ${COMPILER_DEFINITIONS}
 )
-
 
 build_executable(hicn-http-server
   SOURCES ${APP_SOURCE_FILES}
