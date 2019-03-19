@@ -65,6 +65,36 @@ Options:
 -z <hicn_proxy_prefix>      = hicn proxy prefix
 ```
 
+### hicn-http-proxy ###
+
+`hicn-http-proxy` is a reverse proxy which can be used for augmenting the performance of a legacy HTTP/TCP server
+by making use of hICN. It performs the following operations:
+
+- Receives a HTTP request over hICN
+- Forwards it to a HTTP server over TCP
+- Receives the response from the server and publishes it
+
+Subsequently, other hICN client asking for the same HTTP message can retrieve it directly
+through hICN, by retrieving it either from the forwarder caches or directly from the `hicn-http-proxy`.
+
+The proxy uses hICN names for performing the multiplexing of http requests, allowing a single
+hICN proxy with a single producer socket to serve multiple consumers asking for the same content. Conversely, a normal
+TCP proxy still needs to open one TCP connection per client.
+
+```
+hicn-http-proxy [HTTP_PREFIX] [OPTIONS]
+
+HTTP_PREFIX: The prefix used for building the hicn names.
+
+Options:
+-a <server_address>   = origin server address
+-p <server_port>      = origin server port
+-c <cache_size>       = cache size of the proxy, in number of hicn data packets
+
+Example:
+./hicn-http-proxy http://webserver -a 127.0.0.1 -p 8080 -c 10000
+```
+
 ## License ##
 
 This software is distributed under the following license:
