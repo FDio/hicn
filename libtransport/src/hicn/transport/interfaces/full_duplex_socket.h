@@ -139,13 +139,6 @@ class AsyncFullDuplexSocket : public AsyncSocket,
 
   void waitForSubscribers(AcceptCallback *cb) override;
 
-  // void writev(
-  //     WriteCallback* callback,
-  //     const iovec* vec,
-  //     size_t count,
-  //     Name &&content_to_publish_name,
-  //     WriteFlags flags = WriteFlags::NONE) override;
-
   void close() override;
 
   void closeNow() override;

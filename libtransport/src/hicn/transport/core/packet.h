@@ -99,7 +99,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   std::size_t headerSize() const;
 
-  const std::shared_ptr<utils::MemBuf> data();
+  const std::shared_ptr<utils::MemBuf> acquireMemBufReference();
 
   virtual const Name &getName() const = 0;
 
