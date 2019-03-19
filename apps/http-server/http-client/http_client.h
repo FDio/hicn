@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Cisco and/or its affiliates.
+ * Copyright (c) 2019 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,22 +13,25 @@
  * limitations under the License.
  */
 
-#include "common.h"
-
 #pragma once
 
-namespace icn_httpserver {
+#include "config.h"
 
-class Content : public std::istream {
+#include <string>
+
+#if defined(HICNET)
+#include <hicn/transport/http/facade.h>
+#elif defined(ICNET)
+#include <icnet/icnet_http_facade.h>
+#else
+#error "No ICN tranport library to which link against."
+#endif
+
+class HTTPClient {
 public:
-  Content(asio::streambuf &streambuf);
+  virtual ~HTTPClient() = default;
 
-  size_t size();
+  virtual void setTcp() = 0;
 
-  std::string string();
-
-private:
-  asio::streambuf &streambuf_;
+  virtual bool download(const std::string &url, std::ostream &out) = 0;
 };
-
-} // end namespace icn_httpserver

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Cisco and/or its affiliates.
+ * Copyright (c) 2019 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,27 +13,25 @@
  * limitations under the License.
  */
 
-#pragma once
-
+#include "http_client_icn.h"
 #include "response.h"
 
-namespace icn_httpserver {
+#include <curl/curl.h>
 
-class IcnResponse : public Response {
+using namespace std;
 
-public:
-  IcnResponse(std::shared_ptr<libl4::http::HTTPServerPublisher> producer,
-              std::string ndn_name, std::string ndn_path);
+HTTPClientIcn::HTTPClientIcn(uint32_t timeout) {
+  std::chrono::seconds _timeout(timeout);
+  connection_.setTimeout(_timeout);
+}
 
-  void send(const SendCallback &callback = nullptr) override;
+void HTTPClientIcn::setTcp() {}
 
-  void setResponseLifetime(
-      const std::chrono::milliseconds &response_lifetime) override;
+HTTPClientIcn::~HTTPClientIcn() {}
 
-private:
-  std::string ndn_name_;
-  std::string ndn_path_;
-  std::shared_ptr<libl4::http::HTTPServerPublisher> publisher_;
-};
-
-} // end namespace icn_httpserver
+bool HTTPClientIcn::download(const std::string &url, std::ostream &out) {
+  connection_.get(url);
+  libl4::http::HTTPResponse r = connection_.response();
+  out.write(reinterpret_cast<const char *>(r.data()), r.size());
+  return true;
+}

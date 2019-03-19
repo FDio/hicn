@@ -26,16 +26,10 @@ list(APPEND APPS_SRC
   higet.cc
 )
 
-
-foreach(app ${APPS_SRC})
-  get_filename_component(_app_name ${app} NAME)
-  string(REGEX REPLACE ".cc" "" app_name ${_app_name})
-
-  build_executable(${app_name}
-    SOURCES ${app}
-    LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
-    DEPENDS ${LIBTRANSPORT}
-    COMPONENT ${HICN_APPS}
-    DEFINITIONS ${COMPILER_DEFINITIONS}
-  )
-endforeach()
+build_executable(higet
+  SOURCES ${APPS_SRC}
+  LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
+  DEPENDS ${LIBTRANSPORT}
+  COMPONENT higet
+  DEFINITIONS ${COMPILER_DEFINITIONS}
+)

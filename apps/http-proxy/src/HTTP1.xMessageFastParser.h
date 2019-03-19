@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Cisco and/or its affiliates.
+ * Copyright (c) 2019 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,20 +15,20 @@
 
 #pragma once
 
-#include "http_client.h"
-
+#include <algorithm>
 #include <string>
 
-class HTTPClientIcn : public HTTPClient {
-public:
-  HTTPClientIcn(uint32_t timeout);
+class HTTPMessageFastParser {
+ public:
+  static std::size_t hasBody(const uint8_t* headers, std::size_t length);
+  static bool isMpdRequest(const uint8_t* headers, std::size_t length);
+  static uint32_t parseCacheControl(const uint8_t* headers, std::size_t length);
 
-  void setTcp();
-
-  ~HTTPClientIcn();
-
-  bool download(const std::string &url, std::ostream &out);
-
-private:
-  libl4::http::HTTPClientConnection connection_;
+ private:
+  static std::string numbers;
+  static std::string content_length;
+  static std::string cache_control;
+  static std::string connection;
+  static std::string mpd;
+  static std::string separator;
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Cisco and/or its affiliates.
+ * Copyright (c) 2019 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,23 +15,20 @@
 
 #pragma once
 
-#include "config.h"
+#include "http_client.h"
 
 #include <string>
 
-#if defined(HICNET)
-#include <hicn/transport/http/facade.h>
-#elif defined(ICNET)
-#include <icnet/icnet_http_facade.h>
-#else
-#error "No ICN tranport library to which link against."
-#endif
-
-class HTTPClient {
+class HTTPClientIcn : public HTTPClient {
 public:
-  virtual ~HTTPClient() = default;
+  HTTPClientIcn(uint32_t timeout);
 
-  virtual void setTcp() = 0;
+  void setTcp();
 
-  virtual bool download(const std::string &url, std::ostream &out) = 0;
+  ~HTTPClientIcn();
+
+  bool download(const std::string &url, std::ostream &out);
+
+private:
+  libl4::http::HTTPClientConnection connection_;
 };
