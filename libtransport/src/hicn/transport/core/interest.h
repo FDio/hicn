@@ -55,9 +55,9 @@ class Interest
 
   void setName(Name &&name) override;
 
-  void setLocator(const ip_address_t &ip_address) override;
+  void setLocator(const ip_address_t &ip_address);
 
-  ip_address_t getLocator() const override;
+  ip_address_t getLocator() const;
 
  private:
   void resetForHash() override;

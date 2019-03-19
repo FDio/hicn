@@ -99,7 +99,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   std::size_t headerSize() const;
 
-  const std::shared_ptr<utils::MemBuf> data();
+  const std::shared_ptr<utils::MemBuf> acquireMemBufReference();
 
   virtual const Name &getName() const = 0;
 
@@ -133,9 +133,9 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   void dump() const;
 
-  virtual void setLocator(const ip_address_t &locator) = 0;
+  // virtual void setLocator(const ip_address_t &locator) = 0;
 
-  virtual ip_address_t getLocator() const = 0;
+  // virtual ip_address_t getLocator() const = 0;
 
   void setSignatureTimestamp(const uint64_t &timestamp);
 

@@ -37,7 +37,6 @@ typedef struct {
 
 void processResponse(Configuration &conf,
                      transport::http::HTTPResponse &&response) {
-
   auto &payload = response.getPayload();
 
   if (conf.file_name != "-") {
@@ -74,7 +73,6 @@ void processResponse(Configuration &conf,
   of.close();
 
   Time t2 = std::chrono::system_clock::now();
-  ;
   TimeDuration dt =
       std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
   TimeDuration dt3 =
@@ -99,7 +97,6 @@ void usage(char *program_name) {
 }
 
 int main(int argc, char **argv) {
-
 #ifdef _WIN32
   WSADATA wsaData = {0};
   WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -115,19 +112,19 @@ int main(int argc, char **argv) {
   int opt;
   while ((opt = getopt(argc, argv, "O:Sc:")) != -1) {
     switch (opt) {
-    case 'O':
-      conf.file_name = optarg;
-      break;
-    case 'S':
-      conf.print_headers = true;
-      break;
-    case 'c':
-      conf.producer_certificate = optarg;
-      break;
-    case 'h':
-    default:
-      usage(argv[0]);
-      break;
+      case 'O':
+        conf.file_name = optarg;
+        break;
+      case 'S':
+        conf.print_headers = true;
+        break;
+      case 'c':
+        conf.producer_certificate = optarg;
+        break;
+      case 'h':
+      default:
+        usage(argv[0]);
+        break;
     }
   }
 
@@ -142,7 +139,8 @@ int main(int argc, char **argv) {
   }
 
   std::map<std::string, std::string> headers = {{"Host", "localhost"},
-                                                {"User-Agent", "higet/1.0"}};
+                                                {"User-Agent", "higet/1.0"},
+                                                {"Connection", "Keep-Alive"}};
 
   transport::http::HTTPClientConnection connection;
   if (!conf.producer_certificate.empty()) {
@@ -161,8 +159,8 @@ int main(int argc, char **argv) {
   return EXIT_SUCCESS;
 }
 
-} // end namespace http
+}  // end namespace http
 
-} // end namespace hicnet
+}  // end namespace hicnet
 
 int main(int argc, char **argv) { return hicnet::http::main(argc, argv); }
