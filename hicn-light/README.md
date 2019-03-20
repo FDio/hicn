@@ -33,67 +33,67 @@ Basic dependencies:
 
 ## hicn-light Executables ##
 
-hicn-light is a set of binary executables that are used to run a forwarder instance. 
+hicn-light is a set of binary executables that are used to run a forwarder instance.
 The forwarder can be run and configured using the commands
 
-- `hicnLightDaemon`
-- `hicnLightControl`
+- `hicn-light-daemon`
+- `hicn-light-control`
 
 Use the `-h` option to display the help messages
 
 ### hicn-light Daemon ###
 
-The command `hicnLightDaemon` runs the hicn-light forwarder. The forwarder can be executed 
+The command `hicn-light-daemon` runs the hicn-light forwarder. The forwarder can be executed
 with the following options:
 
 ```
-hicnLightDaemon [--port port] [--daemon] [--capacity objectStoreSize] [--log facility=level] 
+hicn-light-daemon [--port port] [--daemon] [--capacity objectStoreSize] [--log facility=level]
                 [--log-file filename] [--config file]
 
 Options:
 
---port            = tcp port for local in-bound connections
---daemon          = start as daemon process
---capacity        = maximum number of content objects to cache. To disable the cache 
-                    objectStoreSize must be 0.
-                    Default vaule for objectStoreSize is 100000
---log             = sets a facility to a given log level. You can have multiple of these.
-                    facilities: all, config, core, io, message, processor
-                    levels: debug, info, notice, warning, error, critical, alert, off
-                    example: hicnLightDaemon --log io=debug --log core=off
---log-file        = file to write log messages to (required in daemon mode)
---config          = configuration filename
+--port <value>            = tcp port for local in-bound connections
+--daemon                  = start as daemon process
+--capacity <value>        = maximum number of content objects to cache. To disable the cache
+                            objectStoreSize must be 0.
+                            Default vaule for objectStoreSize is 100000
+--log <value>             = sets a facility to a given log level. You can have multiple of these.
+                            facilities: all, config, core, io, message, processor
+                            levels: debug, info, notice, warning, error, critical, alert, off
+                            example: hicn-light-daemon --log io=debug --log core=off
+--log-file <value>        = file to write log messages to (required in daemon mode)
+--config <value>          = configuration filename
 ```
 
-The configuration file contains configuration lines as per hicnLightControl (see below for all
+The configuration file contains configuration lines as per hicn-light-control (see below for all
 the available commands). If logging level or content store capacity is set in the configuration
 file, it overrides the command_line. When a configuration file is specified, no default listeners
 are setup.  Only 'add listener' lines in the configuration file matter.
 
-If no configuration file is specified, hicnLightDaemon will listen on TCP and UDP ports specified
+If no configuration file is specified, hicn-light-daemon will listen on TCP and UDP ports specified
 by the --port flag (or default port).  It will listen on both IPv4 and IPv6 if available. The
 default port for hicn-light is 9695. Commands are expected on port 2001.
 
-### hicn-light Control ###
+### hicn-light-control ###
 
-`hicnLightControl` can be used to send command to the hicn-light forwarder and configure it.
+`hicn-light-control` can be used to send command to the hicn-light forwarder and configure it.
 The command can be executed in the following way:
 
 ```
-hicnLightControl [commands]
+hicn-light-control [commands]
 
 Options:
-    -h              = This help screen
-    commands        = configuration line to send to hicn-light (use 'help' for list)
+    -h                    = This help screen
+    commands              = configuration line to send to hicn-light (use 'help' for list)
 ```
 
-#### Available Commands in hicn-light Control ####
+#### Available Commands in hicn-light-control ####
 
-This is the full list of available commands in `hicnLightControl`. This commands can be used
-from the command line running `hicnLightControl` as explained before, or listing them in a
+This is the full list of available commands in `hicn-light-control`. This commands can be used
+from the command line running `hicn-light-control` as explained before, or listing them in a
 configuration file.
 
-Information about the commands are also available in the `hicnLightControl` help message.
+Information about the commands are also available in the `hicn-light-control` help message.
 
 `add listener`: creates a TCP or UDP listener with the specified options on the local forwarder.
 For local connections (application to hicn-light) we expect a TCP listener. The default port for
@@ -267,7 +267,7 @@ mapme retx <milliseconds>
 ### hicn-light Configuration File Example ###
 
 This is an example of a simple configuration file for hicn-light. It can be loaded by running
-the command `hicnLightDaemon --config configFile.cfg`, assuming the file name is configFile.cfg
+the command `hicn-light-daemon --config configFile.cfg`, assuming the file name is configFile.cfg
 
 ```
 #create a local listener on port 9199. This will be used by the applications to talk

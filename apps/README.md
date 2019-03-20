@@ -30,6 +30,7 @@ Basic dependencies:
 - pthreads
 - Libevent
 - Libparc
+- Libcurl
 
 ## Executables ##
 
@@ -41,14 +42,11 @@ The command `higet` runs the higet application. higet can be executed
 with the following options:
 
 ```
-higet [OPTION]... [URL]...
+higet [option]... [url]...
 
 Options:
-	-O filename             write documents to FILE
-	-S                      print server response
-Example:
-	higet -O - http://origin/index.html
-
+-O <string>               = write documents to FILE
+-S                        = print server response
 ```
 
 ### hicn-http-server ###
@@ -60,12 +58,12 @@ The command can be executed in the following way:
 hicn-http-server [OPTIONS]
 
 Options:
-	-p path					path to root foot folder
-	-f confFile				configuration file
-	-o tcpPort				tcp listener port
-	-l webserverPrefix		webserver prefix
-	-x tcpProxyPrefix		tcp proxy prefix
-	-z hicnProxyPrefix		hicn proxy prefix
+-p <string>               = path to root folder
+-f <string>               = configuration file path
+-o <value>                = tcp listener port
+-l <string>               = webserver prefix
+-x <string>               = tcp proxy prefix
+-z <string>               = hicn proxy prefix
 ```
 
 ## License ##

@@ -86,11 +86,11 @@ static void _displayForwarderLogo(void) {
 static void _usage(int exitCode) {
 #ifndef _WIN32
   printf(
-      "Usage: daemon [--port port] [--capacity objectStoreSize] "
+      "Usage: hicn-light-daemon [--port port] [--capacity objectStoreSize] "
       "[--log facility=level] [--log-file filename] [--config file]\n");
 #else
   printf(
-      "Usage: daemon [--port port] [--daemon] [--capacity objectStoreSize] "
+      "Usage: hicn-light-daemon.exe [--port port] [--daemon] [--capacity objectStoreSize] "
       "[--log facility=level] [--log-file filename] [--config file]\n");
 #endif
   printf("\n");
