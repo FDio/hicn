@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/interfaces/socket.h>
+#include <hicn/transport/utils/spinlock.h>
 
 #include <mutex>
 
@@ -52,7 +53,7 @@ class ContentStore {
 
   void insert(const std::shared_ptr<ContentObject> &content_object);
 
-  const std::shared_ptr<ContentObject> &find(const Interest &interest);
+  const std::shared_ptr<ContentObject> find(const Interest &interest);
 
   void erase(const Name &exact_name);
 
@@ -69,7 +70,7 @@ class ContentStore {
   FIFOList fifo_list_;
   std::shared_ptr<ContentObject> empty_reference_;
   std::size_t max_content_store_size_;
-  std::mutex cs_mutex_;
+  utils::SpinLock lock_;
 };
 
 }  // end namespace utils
