@@ -1,16 +1,16 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at:
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) 2017-2019 Cisco and/or its affiliates. Licensed under the
+ * Apache License, Version 2.0 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of the
+ * License at:
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
  */
 
 #include "face_ip.h"
@@ -40,24 +40,20 @@ hicn_face_ip_init (vlib_main_t * vm)
   /* Default Strategy has index 0 and it always exists */
   strategy_face_ip4_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.
-						     hicn_dpo_get_type ())->
-						    get_strategy_node_index
+						    (default_dpo.hicn_dpo_get_type
+						     ())->get_strategy_node_index
 						    (),
-						    hicn_face_ip4_output_node.
-						    index);
+						    hicn_face_ip4_output_node.index);
 
   strategy_face_ip6_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.
-						     hicn_dpo_get_type ())->
-						    get_strategy_node_index
+						    (default_dpo.hicn_dpo_get_type
+						     ())->get_strategy_node_index
 						    (),
-						    hicn_face_ip6_output_node.
-						    index);
+						    hicn_face_ip6_output_node.index);
   /*
-   * Create and edge between al the other strategy nodes
-   * and the ip_encap nodes.
+   * Create and edge between al the other strategy nodes and the
+   * ip_encap nodes.
    */
   for (int i = 1; i < strategy_nodes_n; i++)
     {
@@ -120,8 +116,8 @@ hicn_face_ip_del (hicn_face_id_t face_id)
 
 
 /*
- * Utility that adds a new face cache entry. For the moment we assume that the
- * ip_adjacency has already been set up.
+ * Utility that adds a new face cache entry. For the moment we assume that
+ * the ip_adjacency has already been set up.
  */
 int
 hicn_face_ip_add (const ip46_address_t * local_addr,
@@ -234,8 +230,7 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-						 hicn_mapme_eventmgr_process_node.
-						 index,
+						 hicn_mapme_eventmgr_process_node.index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
   *retx = (retx_t)
@@ -275,8 +270,12 @@ format_hicn_face_ip (u8 * s, va_list * args)
 	format (s, "remote %U ", format_ip46_address, &ip_face->remote_addr,
 		IP46_TYPE_ANY);
       s = format (s, "%U", format_vnet_link, adj->ia_link);
-      s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		  vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+      vnet_sw_interface_t *sw_int =
+	vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+      if (sw_int != NULL)
+	s = format (s, " dev %U", format_vnet_sw_interface_name, vnm, sw_int);
+
 
       if ((face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD))
 	s = format (s, " %U", format_hicn_face_prod, face_id, 0);
@@ -293,9 +292,11 @@ format_hicn_face_ip (u8 * s, va_list * args)
       s = format (s, "type IP local %U remote %U",
 		  format_ip46_address, &ip_face->local_addr, IP46_TYPE_ANY,
 		  format_ip46_address, &ip_face->remote_addr, IP46_TYPE_ANY);
-      s =
-	format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+      vnet_sw_interface_t *sw_int =
+	vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+      if (sw_int != NULL)
+	s = format (s, " dev %U", format_vnet_sw_interface_name, vnm, sw_int);
 
       if ((face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD))
 	s = format (s, " %U", format_hicn_face_prod, face_id, 0);
@@ -329,8 +330,6 @@ hicn_face_vft_t ip_vft = {
 
 /*
  * fd.io coding-style-patch-verification: ON
- *
- * Local Variables:
- * eval: (c-set-style "gnu")
- * End:
+ * 
+ * Local Variables: eval: (c-set-style "gnu") End:
  */
