@@ -46,17 +46,11 @@ using Identity = utils::Identity;
 
 struct ClientConfiguration {
   ClientConfiguration()
-      : name("b001::abcd", 0),
-        verify(false),
-        beta(-1.f),
-        drop_factor(-1.f),
-        window(-1),
-        virtual_download(true),
+      : name("b001::abcd", 0), verify(false), beta(-1.f), drop_factor(-1.f),
+        window(-1), virtual_download(true),
         producer_certificate("/tmp/rsa_certificate.pem"),
         receive_buffer(std::make_shared<std::vector<uint8_t>>()),
-        download_size(0),
-        report_interval_milliseconds_(1000),
-        rtc_(false) {}
+        download_size(0), report_interval_milliseconds_(1000), rtc_(false) {}
 
   Name name;
   bool verify;
@@ -73,7 +67,7 @@ struct ClientConfiguration {
 };
 
 class Rate {
- public:
+public:
   Rate() : rate_kbps_(0) {}
 
   Rate(const std::string &rate) {
@@ -103,27 +97,19 @@ class Rate {
         packet_size * long(std::round(1000.0 * 8.0 / rate_kbps_)));
   }
 
- private:
+private:
   float rate_kbps_;
 };
 
 struct ServerConfiguration {
   ServerConfiguration()
-      : name("b001::abcd/64"),
-        virtual_producer(true),
-        manifest(false),
-        live_production(false),
-        sign(false),
-        content_lifetime(600000000_U32),
-        content_object_size(1440),
-        download_size(20 * 1024 * 1024),
+      : name("b001::abcd/64"), virtual_producer(true), manifest(false),
+        live_production(false), sign(false), content_lifetime(600000000_U32),
+        content_object_size(1440), download_size(20 * 1024 * 1024),
         hash_algorithm(HashAlgorithm::SHA_256),
         keystore_name("/tmp/rsa_crypto_material.p12"),
-        keystore_password("cisco"),
-        multiphase_produce_(false),
-        rtc_(false),
-        production_rate_(std::string("2048kbps")),
-        payload_size_(1400) {}
+        keystore_password("cisco"), multiphase_produce_(false), rtc_(false),
+        production_rate_(std::string("2048kbps")), payload_size_(1400) {}
 
   Prefix name;
   bool virtual_producer;
@@ -146,12 +132,10 @@ class HIperfClient {
   typedef std::chrono::time_point<std::chrono::steady_clock> Time;
   typedef std::chrono::microseconds TimeDuration;
 
- public:
+public:
   HIperfClient(const ClientConfiguration &conf)
-      : configuration_(conf),
-        total_duration_milliseconds_(0),
-        old_bytes_value_(0),
-        signals_(io_service_, SIGINT) {}
+      : configuration_(conf), total_duration_milliseconds_(0),
+        old_bytes_value_(0), signals_(io_service_, SIGINT) {}
 
   void processPayload(ConsumerSocket &c, std::size_t bytes_transferred,
                       const std::error_code &ec) {
@@ -362,7 +346,7 @@ class HIperfClient {
     return ERROR_SUCCESS;
   }
 
- private:
+private:
   ClientConfiguration configuration_;
   Time t_stats_;
   Time t_download_;
@@ -376,10 +360,9 @@ class HIperfClient {
 class HIperfServer {
   const std::size_t log2_content_object_buffer_size = 8;
 
- public:
+public:
   HIperfServer(ServerConfiguration &conf)
-      : configuration_(conf),
-        signals_(io_service_, SIGINT),
+      : configuration_(conf), signals_(io_service_, SIGINT),
         rtc_timer_(io_service_),
         content_objects_((std::uint16_t)(1 << log2_content_object_buffer_size)),
         content_objects_index_(0),
@@ -431,9 +414,10 @@ class HIperfServer {
               << std::endl;
   }
 
-  std::shared_ptr<utils::Identity> setProducerIdentity(
-      std::string &keystore_name, std::string &keystore_password,
-      HashAlgorithm &hash_algorithm) {
+  std::shared_ptr<utils::Identity>
+  setProducerIdentity(std::string &keystore_name,
+                      std::string &keystore_password,
+                      HashAlgorithm &hash_algorithm) {
     if (access(keystore_name.c_str(), F_OK) != -1) {
       return std::make_shared<utils::Identity>(keystore_name, keystore_password,
                                                hash_algorithm);
@@ -566,7 +550,7 @@ class HIperfServer {
     return ERROR_SUCCESS;
   }
 
- private:
+private:
   ServerConfiguration configuration_;
   asio::io_service io_service_;
   asio::signal_set signals_;
@@ -585,72 +569,69 @@ void usage() {
   std::cerr << "usage: hiperf [-S|-C] [options] [prefix|name]" << std::endl;
   std::cerr << "Server or Client:" << std::endl;
 #ifndef _WIN32
-  std::cerr << "-D\t\t\t\t\t"
-            << "Run as a daemon" << std::endl;
-  std::cerr << "-R\t\t\t\t\t"
-            << "Run RTC protocol (client or server)" << std::endl;
-  std::cerr << "-f\t<filename>\t\t\t"
-            << "Log file" << std::endl;
+  std::cerr << "-D                          = run as a daemon" << std::endl;
+
 #endif
+  std::cerr
+      << "-R                          = run RTC protocol (client or server)"
+      << std::endl;
+  std::cerr << "-f <ouptup_log_file>        = output log file path"
+            << std::endl;
   std::cerr << std::endl;
   std::cerr << "Server specific:" << std::endl;
-  std::cerr << "-A\t<download_size>\t\t\tSize of the content to publish. This "
-               "is not the size of the packet (see -s for it)."
+  std::cerr << "-A <download_size>          = size of the content to publish"
+               "This is not the size of the packet (see -s for it)"
             << std::endl;
-  std::cerr << "-s\t<packet_size>\t\t\tSize of the payload of each data packet."
+  std::cerr
+      << "-s <payload_size>           = size of the payload of each data packet"
+      << std::endl;
+  std::cerr << "-r                          = produce real content of "
+               "content_size bytes"
             << std::endl;
-  std::cerr << "-r\t\t\t\t\t"
-            << "Produce real content of content_size bytes" << std::endl;
-  std::cerr << "-m\t\t\t\t\t"
-            << "Produce transport manifest" << std::endl;
-  std::cerr << "-l\t\t\t\t\t"
-            << "Start producing content upon the reception of the "
-               "first interest"
+  std::cerr << "-m                          = produce transport manifest"
             << std::endl;
-  std::cerr << "-k\t<keystore_path>\t\t\t"
-            << "Path of p12 file containing the "
+  std::cerr << "-l                          = start producing content upon the "
+               "reception of the first interest"
+            << std::endl;
+  std::cerr << "-k <keystore_path>          = path of p12 file containing the "
                "crypto material used for signing the packets"
             << std::endl;
-  std::cerr << "-y\t<hash_algorithm>\t\t"
-            << "Use the selected hash algorithm for "
-               "calculating manifest digests"
+  std::cerr << "-y <hash_algorithm>         = use the selected hash algorithm "
+               "for calculating manifest digests"
             << std::endl;
-  std::cerr << "-p\t<password>\t\t\t"
-            << "Password for p12 keystore" << std::endl;
-  std::cerr << "-x\t\t\t\t\t"
-            << "Produce a content of <download_size>, then after downloading "
-               "it produce a new content of"
-            << std::endl
-            << "\t\t\t\t\t<download_size> without resetting "
-               "the suffix to 0."
+  std::cerr << "-p <password>               = password for p12 keystore"
             << std::endl;
-  std::cerr << "-B\t<bitrate>\t\t\t"
-            << "Bitrate for RTC producer, to be used with the -R option."
+  std::cerr
+      << "-x                          = produce a content of <download_size>, "
+         "then after downloading it produce a new content of"
+      << std::endl;
+  std::cerr << "                              <download_size> without "
+               "resetting the suffix to 0"
+  << std::endl;
+  std::cerr << "-B	<bitrate>			    = bitrate for RTC "
+               "producer, to be used with the -R option"
             << std::endl;
   std::cerr << std::endl;
   std::cerr << "Client specific:" << std::endl;
-  std::cerr << "-b\t<beta_parameter>\t\t"
-            << "RAAQM beta parameter" << std::endl;
-  std::cerr << "-d\t<drop_factor_parameter>\t\t"
-            << "RAAQM drop factor "
-               "parameter"
+  std::cerr << "-b <beta_parameter>         = RAAQM beta parameter"
             << std::endl;
-  std::cerr << "-M\t<Download for real>\t\t"
-            << "Store the content downloaded." << std::endl;
-  std::cerr << "-W\t<window_size>\t\t\t"
-            << "Use a fixed congestion window "
-               "for retrieving the data."
+  std::cerr << "-d <drop_factor_parameter>  = RAAQM drop factor parameter"
             << std::endl;
-  std::cerr << "-c\t<certificate_path>\t\t"
-            << "Path of the producer certificate "
-               "to be used for verifying the "
-               "origin of the packets received"
+  std::cerr << "-M                          = store the content downloaded"
+               "(default false)"
             << std::endl;
-  std::cerr << "-i\t<stats_interval>\t\t"
-            << "Show the statistics every <stats_interval> milliseconds."
+  std::cerr << "-W <window_size>            = use a fixed congestion window"
+               "for retrieving the data"
             << std::endl;
-  std::cout << "-v\t\t\t\t\t"
-            << "Enable verification of received data" << std::endl;
+  std::cerr << "-c <certificate_path>       = path of the producer certificate"
+               "to be used for verifying the origin of the packets received"
+            << std::endl;
+  std::cerr << "-i <stats_interval>         = show the statistics every "
+               "<stats_interval> milliseconds"
+            << std::endl;
+  std::cout
+      << "-v                          = Enable verification of received data"
+      << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -679,143 +660,143 @@ int main(int argc, char *argv[]) {
   while ((opt = getopt(argc, argv, "DSCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:")) !=
          -1) {
     switch (opt) {
-      // Common
-      case 'D': {
-        daemon = true;
-        break;
-      }
+    // Common
+    case 'D': {
+      daemon = true;
+      break;
+    }
 #else
   while ((opt = getopt(argc, argv, "SCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:")) !=
          -1) {
     switch (opt) {
 #endif
-      case 'f': {
-        log_file = optarg;
-        break;
-      }
-      case 'R': {
-        client_configuration.rtc_ = true;
-        server_configuration.rtc_ = true;
-        break;
-      }
+    case 'f': {
+      log_file = optarg;
+      break;
+    }
+    case 'R': {
+      client_configuration.rtc_ = true;
+      server_configuration.rtc_ = true;
+      break;
+    }
 
-      // Server or Client
-      case 'S': {
-        role -= 1;
-        break;
-      }
-      case 'C': {
-        role += 1;
-        break;
-      }
+    // Server or Client
+    case 'S': {
+      role -= 1;
+      break;
+    }
+    case 'C': {
+      role += 1;
+      break;
+    }
 
-      // Client specifc
-      case 'b': {
-        client_configuration.beta = std::stod(optarg);
-        options = 1;
-        break;
-      }
-      case 'd': {
-        client_configuration.drop_factor = std::stod(optarg);
-        options = 1;
-        break;
-      }
-      case 'W': {
-        client_configuration.window = std::stod(optarg);
-        options = 1;
-        break;
-      }
-      case 'M': {
-        client_configuration.virtual_download = false;
-        options = 1;
-        break;
-      }
-      case 'c': {
-        client_configuration.producer_certificate = std::string(optarg);
-        options = 1;
-        break;
-      }
-      case 'v': {
-        client_configuration.verify = true;
-        options = 1;
-        break;
-      }
-      case 'i': {
-        client_configuration.report_interval_milliseconds_ = std::stoul(optarg);
-        options = 1;
-        break;
-      }
+    // Client specifc
+    case 'b': {
+      client_configuration.beta = std::stod(optarg);
+      options = 1;
+      break;
+    }
+    case 'd': {
+      client_configuration.drop_factor = std::stod(optarg);
+      options = 1;
+      break;
+    }
+    case 'W': {
+      client_configuration.window = std::stod(optarg);
+      options = 1;
+      break;
+    }
+    case 'M': {
+      client_configuration.virtual_download = false;
+      options = 1;
+      break;
+    }
+    case 'c': {
+      client_configuration.producer_certificate = std::string(optarg);
+      options = 1;
+      break;
+    }
+    case 'v': {
+      client_configuration.verify = true;
+      options = 1;
+      break;
+    }
+    case 'i': {
+      client_configuration.report_interval_milliseconds_ = std::stoul(optarg);
+      options = 1;
+      break;
+    }
 
-      // Server specific
-      case 'A': {
-        server_configuration.download_size = std::stoul(optarg);
-        options = -1;
-        break;
+    // Server specific
+    case 'A': {
+      server_configuration.download_size = std::stoul(optarg);
+      options = -1;
+      break;
+    }
+    case 's': {
+      server_configuration.payload_size_ = std::stoul(optarg);
+      options = -1;
+      break;
+    }
+    case 'r': {
+      server_configuration.virtual_producer = false;
+      options = -1;
+      break;
+    }
+    case 'm': {
+      server_configuration.manifest = true;
+      options = -1;
+      break;
+    }
+    case 'l': {
+      server_configuration.live_production = true;
+      options = -1;
+      break;
+    }
+    case 'k': {
+      server_configuration.keystore_name = std::string(optarg);
+      server_configuration.sign = true;
+      options = -1;
+      break;
+    }
+    case 'y': {
+      if (strncasecmp(optarg, "sha256", 6) == 0) {
+        server_configuration.hash_algorithm = HashAlgorithm::SHA_256;
+      } else if (strncasecmp(optarg, "sha512", 6) == 0) {
+        server_configuration.hash_algorithm = HashAlgorithm::SHA_512;
+      } else if (strncasecmp(optarg, "crc32", 5) == 0) {
+        server_configuration.hash_algorithm = HashAlgorithm::CRC32C;
+      } else {
+        std::cerr << "Ignored unknown hash algorithm. Using SHA 256."
+                  << std::endl;
       }
-      case 's': {
-        server_configuration.payload_size_ = std::stoul(optarg);
-        options = -1;
-        break;
-      }
-      case 'r': {
-        server_configuration.virtual_producer = false;
-        options = -1;
-        break;
-      }
-      case 'm': {
-        server_configuration.manifest = true;
-        options = -1;
-        break;
-      }
-      case 'l': {
-        server_configuration.live_production = true;
-        options = -1;
-        break;
-      }
-      case 'k': {
-        server_configuration.keystore_name = std::string(optarg);
-        server_configuration.sign = true;
-        options = -1;
-        break;
-      }
-      case 'y': {
-        if (strncasecmp(optarg, "sha256", 6) == 0) {
-          server_configuration.hash_algorithm = HashAlgorithm::SHA_256;
-        } else if (strncasecmp(optarg, "sha512", 6) == 0) {
-          server_configuration.hash_algorithm = HashAlgorithm::SHA_512;
-        } else if (strncasecmp(optarg, "crc32", 5) == 0) {
-          server_configuration.hash_algorithm = HashAlgorithm::CRC32C;
-        } else {
-          std::cerr << "Ignored unknown hash algorithm. Using SHA 256."
-                    << std::endl;
-        }
-        options = -1;
-        break;
-      }
-      case 'p': {
-        server_configuration.keystore_password = std::string(optarg);
-        options = -1;
-        break;
-      }
-      case 'x': {
-        server_configuration.multiphase_produce_ = true;
-        options = -1;
-        break;
-      }
-      case 'B': {
-        auto str = std::string(optarg);
-        std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-        std::cout << "---------------------------------------------------------"
-                     "---------------------->"
-                  << str << std::endl;
-        server_configuration.production_rate_ = str;
-        options = -1;
-        break;
-      }
-      case 'h':
-      default:
-        usage();
-        return EXIT_FAILURE;
+      options = -1;
+      break;
+    }
+    case 'p': {
+      server_configuration.keystore_password = std::string(optarg);
+      options = -1;
+      break;
+    }
+    case 'x': {
+      server_configuration.multiphase_produce_ = true;
+      options = -1;
+      break;
+    }
+    case 'B': {
+      auto str = std::string(optarg);
+      std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+      std::cout << "---------------------------------------------------------"
+                   "---------------------->"
+                << str << std::endl;
+      server_configuration.production_rate_ = str;
+      options = -1;
+      break;
+    }
+    case 'h':
+    default:
+      usage();
+      return EXIT_FAILURE;
     }
   }
 
@@ -894,9 +875,9 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-}  // end namespace interface
+} // end namespace interface
 
-}  // end namespace transport
+} // end namespace transport
 
 int main(int argc, char *argv[]) {
   return transport::interface::main(argc, argv);
