@@ -184,10 +184,11 @@ void RTCTransportProtocol::updateDelayStats(
                  inflightInterests_[pkt].transmissionTime;
 
   pathTable_[pathLabel]->insertRttSample(RTT);
+  auto payload = content_object.getPayload();
 
   // we collect OWD only for datapackets
-  if (content_object.getPayload()->length() != HICN_NACK_HEADER_SIZE) {
-    uint64_t *senderTimeStamp = (uint64_t *)content_object.getPayload()->data();
+  if (payload->length() != HICN_NACK_HEADER_SIZE) {
+    uint64_t *senderTimeStamp = (uint64_t *)payload->data();
 
     int64_t OWD = std::chrono::duration_cast<std::chrono::milliseconds>(
                       std::chrono::system_clock::now().time_since_epoch())
@@ -531,7 +532,8 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
 
 void RTCTransportProtocol::onContentObject(
     Interest::Ptr &&interest, ContentObject::Ptr &&content_object) {
-  uint32_t payload_size = (uint32_t)content_object->getPayload()->length();
+  auto payload = content_object->getPayload();
+  uint32_t payload_size = (uint32_t)payload->length();
   uint32_t segmentNumber = content_object->getName().getSuffix();
   uint32_t pkt = segmentNumber & modMask_;
 
@@ -548,8 +550,7 @@ void RTCTransportProtocol::onContentObject(
     receivedData_++;
 
     avgPacketSize_ = (HICN_ESTIMATED_PACKET_SIZE * avgPacketSize_) +
-                     ((1 - HICN_ESTIMATED_PACKET_SIZE) *
-                      content_object->getPayload()->length());
+                     ((1 - HICN_ESTIMATED_PACKET_SIZE) * payload->length());
 
     if (inflightInterests_[pkt].retransmissions == 0) {
       inflightInterestsCount_--;
