@@ -318,8 +318,12 @@ format_hicn_face_udp (u8 * s, va_list * args)
 		    &udp_face->hdrs.ip4.ip.dst_address,
 		    clib_net_to_host_u16 (udp_face->hdrs.ip4.udp.dst_port));
 	  s = format (s, "%U", format_vnet_link, adj->ia_link);
-	  s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		      vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+          vnet_sw_interface_t* sw_int = vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+          if (sw_int != NULL)
+            s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
+                        sw_int);
+
 	  if ((face->shared.flags & HICN_FACE_FLAGS_DELETED))
 	    s = format (s, " (deleted)");
 	}
@@ -333,8 +337,12 @@ format_hicn_face_udp (u8 * s, va_list * args)
 		    &udp_face->hdrs.ip6.ip.dst_address,
 		    clib_net_to_host_u16 (udp_face->hdrs.ip6.udp.dst_port));
 	  s = format (s, "%U", format_vnet_link, adj->ia_link);
-	  s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		      vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+          vnet_sw_interface_t* sw_int = vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+          if (sw_int != NULL)
+            s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
+                        sw_int);
+
 	  if ((face->shared.flags & HICN_FACE_FLAGS_DELETED))
 	    s = format (s, " (deleted)");
 	}
@@ -351,9 +359,12 @@ format_hicn_face_udp (u8 * s, va_list * args)
 	    format (s, " local %U|%u", format_ip4_address,
 		    &udp_face->hdrs.ip4.ip.dst_address,
 		    clib_net_to_host_u16 (udp_face->hdrs.ip4.udp.dst_port));
-	  s =
-	    format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		    vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+          vnet_sw_interface_t* sw_int = vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+          if (sw_int != NULL)
+            s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
+                        sw_int);
+
 	  if ((face->shared.flags & HICN_FACE_FLAGS_DELETED))
 	    s = format (s, " (deleted)");
 	}
@@ -366,9 +377,12 @@ format_hicn_face_udp (u8 * s, va_list * args)
 	    format (s, " remote %U|%u", format_ip6_address,
 		    &udp_face->hdrs.ip6.ip.dst_address,
 		    clib_net_to_host_u16 (udp_face->hdrs.ip6.udp.dst_port));
-	  s =
-	    format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		    vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+          vnet_sw_interface_t* sw_int = vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+          if (sw_int != NULL)
+            s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
+                        sw_int);
+
 	  if ((face->shared.flags & HICN_FACE_FLAGS_DELETED))
 	    s = format (s, " (deleted)");
 	}

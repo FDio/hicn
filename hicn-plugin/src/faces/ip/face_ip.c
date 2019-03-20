@@ -275,8 +275,12 @@ format_hicn_face_ip (u8 * s, va_list * args)
 	format (s, "remote %U ", format_ip46_address, &ip_face->remote_addr,
 		IP46_TYPE_ANY);
       s = format (s, "%U", format_vnet_link, adj->ia_link);
-      s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		  vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+      vnet_sw_interface_t* sw_int = vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+      if (sw_int != NULL)
+        s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
+                    sw_int);
+
 
       if ((face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD))
 	s = format (s, " %U", format_hicn_face_prod, face_id, 0);
@@ -293,9 +297,11 @@ format_hicn_face_ip (u8 * s, va_list * args)
       s = format (s, "type IP local %U remote %U",
 		  format_ip46_address, &ip_face->local_addr, IP46_TYPE_ANY,
 		  format_ip46_address, &ip_face->remote_addr, IP46_TYPE_ANY);
-      s =
-	format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+      vnet_sw_interface_t* sw_int = vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+      if (sw_int != NULL)
+        s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
+                    sw_int);
 
       if ((face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD))
 	s = format (s, " %U", format_hicn_face_prod, face_id, 0);
