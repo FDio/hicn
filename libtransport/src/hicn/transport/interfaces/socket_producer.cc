@@ -314,7 +314,7 @@ uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
                          buffer_size);
   }
 
-  return current_segment;
+  return current_segment - start_offset;
 }
 
 void ProducerSocket::asyncProduce(ContentObject &content_object) {
