@@ -46,17 +46,11 @@ using Identity = utils::Identity;
 
 struct ClientConfiguration {
   ClientConfiguration()
-      : name("b001::abcd", 0),
-        verify(false),
-        beta(-1.f),
-        drop_factor(-1.f),
-        window(-1),
-        virtual_download(true),
+      : name("b001::abcd", 0), verify(false), beta(-1.f), drop_factor(-1.f),
+        window(-1), virtual_download(true),
         producer_certificate("/tmp/rsa_certificate.pem"),
         receive_buffer(std::make_shared<std::vector<uint8_t>>()),
-        download_size(0),
-        report_interval_milliseconds_(1000),
-        rtc_(false) {}
+        download_size(0), report_interval_milliseconds_(1000), rtc_(false) {}
 
   Name name;
   bool verify;
@@ -73,7 +67,7 @@ struct ClientConfiguration {
 };
 
 class Rate {
- public:
+public:
   Rate() : rate_kbps_(0) {}
 
   Rate(const std::string &rate) {
@@ -103,27 +97,19 @@ class Rate {
         packet_size * long(std::round(1000.0 * 8.0 / rate_kbps_)));
   }
 
- private:
+private:
   float rate_kbps_;
 };
 
 struct ServerConfiguration {
   ServerConfiguration()
-      : name("b001::abcd/64"),
-        virtual_producer(true),
-        manifest(false),
-        live_production(false),
-        sign(false),
-        content_lifetime(600000000_U32),
-        content_object_size(1440),
-        download_size(20 * 1024 * 1024),
+      : name("b001::abcd/64"), virtual_producer(true), manifest(false),
+        live_production(false), sign(false), content_lifetime(600000000_U32),
+        content_object_size(1440), download_size(20 * 1024 * 1024),
         hash_algorithm(HashAlgorithm::SHA_256),
         keystore_name("/tmp/rsa_crypto_material.p12"),
-        keystore_password("cisco"),
-        multiphase_produce_(false),
-        rtc_(false),
-        production_rate_(std::string("2048kbps")),
-        payload_size_(1400) {}
+        keystore_password("cisco"), multiphase_produce_(false), rtc_(false),
+        production_rate_(std::string("2048kbps")), payload_size_(1400) {}
 
   Prefix name;
   bool virtual_producer;
@@ -146,12 +132,10 @@ class HIperfClient {
   typedef std::chrono::time_point<std::chrono::steady_clock> Time;
   typedef std::chrono::microseconds TimeDuration;
 
- public:
+public:
   HIperfClient(const ClientConfiguration &conf)
-      : configuration_(conf),
-        total_duration_milliseconds_(0),
-        old_bytes_value_(0),
-        signals_(io_service_, SIGINT) {}
+      : configuration_(conf), total_duration_milliseconds_(0),
+        old_bytes_value_(0), signals_(io_service_, SIGINT) {}
 
   void processPayload(ConsumerSocket &c, std::size_t bytes_transferred,
                       const std::error_code &ec) {
@@ -362,7 +346,7 @@ class HIperfClient {
     return ERROR_SUCCESS;
   }
 
- private:
+private:
   ClientConfiguration configuration_;
   Time t_stats_;
   Time t_download_;
@@ -376,10 +360,9 @@ class HIperfClient {
 class HIperfServer {
   const std::size_t log2_content_object_buffer_size = 8;
 
- public:
+public:
   HIperfServer(ServerConfiguration &conf)
-      : configuration_(conf),
-        signals_(io_service_, SIGINT),
+      : configuration_(conf), signals_(io_service_, SIGINT),
         rtc_timer_(io_service_),
         content_objects_((std::uint16_t)(1 << log2_content_object_buffer_size)),
         content_objects_index_(0),
@@ -431,9 +414,10 @@ class HIperfServer {
               << std::endl;
   }
 
-  std::shared_ptr<utils::Identity> setProducerIdentity(
-      std::string &keystore_name, std::string &keystore_password,
-      HashAlgorithm &hash_algorithm) {
+  std::shared_ptr<utils::Identity>
+  setProducerIdentity(std::string &keystore_name,
+                      std::string &keystore_password,
+                      HashAlgorithm &hash_algorithm) {
     if (access(keystore_name.c_str(), F_OK) != -1) {
       return std::make_shared<utils::Identity>(keystore_name, keystore_password,
                                                hash_algorithm);
@@ -566,7 +550,7 @@ class HIperfServer {
     return ERROR_SUCCESS;
   }
 
- private:
+private:
   ServerConfiguration configuration_;
   asio::io_service io_service_;
   asio::signal_set signals_;
@@ -679,143 +663,143 @@ int main(int argc, char *argv[]) {
   while ((opt = getopt(argc, argv, "DSCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:")) !=
          -1) {
     switch (opt) {
-      // Common
-      case 'D': {
-        daemon = true;
-        break;
-      }
+    // Common
+    case 'D': {
+      daemon = true;
+      break;
+    }
 #else
   while ((opt = getopt(argc, argv, "SCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:")) !=
          -1) {
     switch (opt) {
 #endif
-      case 'f': {
-        log_file = optarg;
-        break;
-      }
-      case 'R': {
-        client_configuration.rtc_ = true;
-        server_configuration.rtc_ = true;
-        break;
-      }
+    case 'f': {
+      log_file = optarg;
+      break;
+    }
+    case 'R': {
+      client_configuration.rtc_ = true;
+      server_configuration.rtc_ = true;
+      break;
+    }
 
-      // Server or Client
-      case 'S': {
-        role -= 1;
-        break;
-      }
-      case 'C': {
-        role += 1;
-        break;
-      }
+    // Server or Client
+    case 'S': {
+      role -= 1;
+      break;
+    }
+    case 'C': {
+      role += 1;
+      break;
+    }
 
-      // Client specifc
-      case 'b': {
-        client_configuration.beta = std::stod(optarg);
-        options = 1;
-        break;
-      }
-      case 'd': {
-        client_configuration.drop_factor = std::stod(optarg);
-        options = 1;
-        break;
-      }
-      case 'W': {
-        client_configuration.window = std::stod(optarg);
-        options = 1;
-        break;
-      }
-      case 'M': {
-        client_configuration.virtual_download = false;
-        options = 1;
-        break;
-      }
-      case 'c': {
-        client_configuration.producer_certificate = std::string(optarg);
-        options = 1;
-        break;
-      }
-      case 'v': {
-        client_configuration.verify = true;
-        options = 1;
-        break;
-      }
-      case 'i': {
-        client_configuration.report_interval_milliseconds_ = std::stoul(optarg);
-        options = 1;
-        break;
-      }
+    // Client specifc
+    case 'b': {
+      client_configuration.beta = std::stod(optarg);
+      options = 1;
+      break;
+    }
+    case 'd': {
+      client_configuration.drop_factor = std::stod(optarg);
+      options = 1;
+      break;
+    }
+    case 'W': {
+      client_configuration.window = std::stod(optarg);
+      options = 1;
+      break;
+    }
+    case 'M': {
+      client_configuration.virtual_download = false;
+      options = 1;
+      break;
+    }
+    case 'c': {
+      client_configuration.producer_certificate = std::string(optarg);
+      options = 1;
+      break;
+    }
+    case 'v': {
+      client_configuration.verify = true;
+      options = 1;
+      break;
+    }
+    case 'i': {
+      client_configuration.report_interval_milliseconds_ = std::stoul(optarg);
+      options = 1;
+      break;
+    }
 
-      // Server specific
-      case 'A': {
-        server_configuration.download_size = std::stoul(optarg);
-        options = -1;
-        break;
+    // Server specific
+    case 'A': {
+      server_configuration.download_size = std::stoul(optarg);
+      options = -1;
+      break;
+    }
+    case 's': {
+      server_configuration.payload_size_ = std::stoul(optarg);
+      options = -1;
+      break;
+    }
+    case 'r': {
+      server_configuration.virtual_producer = false;
+      options = -1;
+      break;
+    }
+    case 'm': {
+      server_configuration.manifest = true;
+      options = -1;
+      break;
+    }
+    case 'l': {
+      server_configuration.live_production = true;
+      options = -1;
+      break;
+    }
+    case 'k': {
+      server_configuration.keystore_name = std::string(optarg);
+      server_configuration.sign = true;
+      options = -1;
+      break;
+    }
+    case 'y': {
+      if (strncasecmp(optarg, "sha256", 6) == 0) {
+        server_configuration.hash_algorithm = HashAlgorithm::SHA_256;
+      } else if (strncasecmp(optarg, "sha512", 6) == 0) {
+        server_configuration.hash_algorithm = HashAlgorithm::SHA_512;
+      } else if (strncasecmp(optarg, "crc32", 5) == 0) {
+        server_configuration.hash_algorithm = HashAlgorithm::CRC32C;
+      } else {
+        std::cerr << "Ignored unknown hash algorithm. Using SHA 256."
+                  << std::endl;
       }
-      case 's': {
-        server_configuration.payload_size_ = std::stoul(optarg);
-        options = -1;
-        break;
-      }
-      case 'r': {
-        server_configuration.virtual_producer = false;
-        options = -1;
-        break;
-      }
-      case 'm': {
-        server_configuration.manifest = true;
-        options = -1;
-        break;
-      }
-      case 'l': {
-        server_configuration.live_production = true;
-        options = -1;
-        break;
-      }
-      case 'k': {
-        server_configuration.keystore_name = std::string(optarg);
-        server_configuration.sign = true;
-        options = -1;
-        break;
-      }
-      case 'y': {
-        if (strncasecmp(optarg, "sha256", 6) == 0) {
-          server_configuration.hash_algorithm = HashAlgorithm::SHA_256;
-        } else if (strncasecmp(optarg, "sha512", 6) == 0) {
-          server_configuration.hash_algorithm = HashAlgorithm::SHA_512;
-        } else if (strncasecmp(optarg, "crc32", 5) == 0) {
-          server_configuration.hash_algorithm = HashAlgorithm::CRC32C;
-        } else {
-          std::cerr << "Ignored unknown hash algorithm. Using SHA 256."
-                    << std::endl;
-        }
-        options = -1;
-        break;
-      }
-      case 'p': {
-        server_configuration.keystore_password = std::string(optarg);
-        options = -1;
-        break;
-      }
-      case 'x': {
-        server_configuration.multiphase_produce_ = true;
-        options = -1;
-        break;
-      }
-      case 'B': {
-        auto str = std::string(optarg);
-        std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-        std::cout << "---------------------------------------------------------"
-                     "---------------------->"
-                  << str << std::endl;
-        server_configuration.production_rate_ = str;
-        options = -1;
-        break;
-      }
-      case 'h':
-      default:
-        usage();
-        return EXIT_FAILURE;
+      options = -1;
+      break;
+    }
+    case 'p': {
+      server_configuration.keystore_password = std::string(optarg);
+      options = -1;
+      break;
+    }
+    case 'x': {
+      server_configuration.multiphase_produce_ = true;
+      options = -1;
+      break;
+    }
+    case 'B': {
+      auto str = std::string(optarg);
+      std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+      std::cout << "---------------------------------------------------------"
+                   "---------------------->"
+                << str << std::endl;
+      server_configuration.production_rate_ = str;
+      options = -1;
+      break;
+    }
+    case 'h':
+    default:
+      usage();
+      return EXIT_FAILURE;
     }
   }
 
@@ -894,9 +878,9 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-}  // end namespace interface
+} // end namespace interface
 
-}  // end namespace transport
+} // end namespace transport
 
 int main(int argc, char *argv[]) {
   return transport::interface::main(argc, argv);

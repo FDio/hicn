@@ -87,14 +87,12 @@ void processResponse(Configuration &conf,
 }
 
 void usage(char *program_name) {
-  std::cerr << "USAGE:" << std::endl;
-  std::cerr << "\t" << program_name << " [OPTION]... [URL]..." << std::endl;
-  std::cerr << "OPTIONS:" << std::endl;
-  std::cerr << "\t"
-            << "-O filename             write documents to FILE" << std::endl;
-  std::cerr << "\t"
-            << "-S                      print server response" << std::endl;
-  std::cerr << "EXAMPLE:" << std::endl;
+  std::cerr << "usage:" << std::endl;
+  std::cerr << program_name << " [option]... [url]..." << std::endl;
+  std::cerr << program_name << "options:" << std::endl;
+  std::cerr << "-O <value>       write documents to FILE" << std::endl;
+  std::cerr << "-S               print server response" << std::endl;
+  std::cerr << "example:" << std::endl;
   std::cerr << "\t" << program_name << " -O - http://origin/index.html"
             << std::endl;
   exit(EXIT_FAILURE);
