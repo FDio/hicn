@@ -167,8 +167,8 @@ class CallbackContainer {
 };
 
 void help() {
-  std::cout << "usage: hicn-preoducer-ping [options]" << std::endl;
-  std::cout << "PING options" << std::endl;
+  std::cout << "usage: hicn-ping-server [options]" << std::endl;
+  std::cout << "PING server options" << std::endl;
   std::cout << "-s <val>  object content size (default 1350B)" << std::endl;
   std::cout << "-n <val>  hicn name (default b001::/64)" << std::endl;
   std::cout << "-f        set tcp flags according to the flag received "
@@ -188,7 +188,7 @@ void help() {
 #ifndef _WIN32
   std::cout << "-d        daemon mode" << std::endl;
 #endif
-  std::cout << "-H        prints this message" << std::endl;
+  std::cout << "-H        prints help options" << std::endl;
 }
 
 int main(int argc, char **argv) {

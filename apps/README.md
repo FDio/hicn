@@ -60,12 +60,12 @@ The command can be executed in the following way:
 hicn-http-server [OPTIONS]
 
 Options:
-	-p path					path to root foot folder
-	-f confFile				configuration file
-	-o tcpPort				tcp listener port
-	-l webserverPrefix		webserver prefix
-	-x tcpProxyPrefix		tcp proxy prefix
-	-z hicnProxyPrefix		hicn proxy prefix
+	-p path                 path to root foot folder
+	-f confFile             configuration file
+	-o tcpPort              tcp listener port
+	-l webserverPrefix      webserver prefix
+	-x tcpProxyPrefix       tcp proxy prefix
+	-z hicnProxyPrefix      hicn proxy prefix
 ```
 
 ## License ##
