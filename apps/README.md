@@ -44,11 +44,8 @@ with the following options:
 higet [OPTION]... [URL]...
 
 Options:
-	-O filename             write documents to FILE
-	-S                      print server response
-Example:
-	higet -O - http://origin/index.html
-
+-O filename               = write documents to FILE
+-S                        = print server response
 ```
 
 ### hicn-http-server ###
@@ -60,12 +57,12 @@ The command can be executed in the following way:
 hicn-http-server [OPTIONS]
 
 Options:
-	-p path					path to root foot folder
-	-f confFile				configuration file
-	-o tcpPort				tcp listener port
-	-l webserverPrefix		webserver prefix
-	-x tcpProxyPrefix		tcp proxy prefix
-	-z hicnProxyPrefix		hicn proxy prefix
+-p <value>                = path to root folder
+-f <value>                = configuration file path
+-o <value>                = tcp listener port
+-l <value>                = webserver prefix
+-x <value>                = tcp proxy prefix
+-z <value>                = hicn proxy prefix
 ```
 
 ## License ##

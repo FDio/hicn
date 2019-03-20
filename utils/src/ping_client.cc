@@ -310,8 +310,8 @@ class Client : interface::BasePortal::ConsumerCallback {
 };
 
 void help() {
-  std::cout << "usage: hicn-consumer-ping [options]" << std::endl;
-  std::cout << "PING options" << std::endl;
+  std::cout << "usage: hicn-ping-client [options]" << std::endl;
+  std::cout << "PING client options" << std::endl;
   std::cout
       << "-i <val>          ping interval in microseconds (default 1000000ms)"
       << std::endl;
