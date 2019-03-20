@@ -36,25 +36,30 @@ include(Packaging)
 
 set (COMPILER_DEFINITIONS "")
 
-list(APPEND UTILS_SRC
-  src/hiperf.cc
-  src/ping_client.cc
-  src/ping_server.cc
-)
-
 if (WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
 endif ()
 
-foreach(util ${UTILS_SRC})
-  get_filename_component(_util_name ${util} NAME)
-  string(REGEX REPLACE ".cc" "" util_name ${_util_name})
+build_executable(hiperf
+  SOURCES src/hiperf.cc
+  LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
+  DEPENDS ${LIBTRANSPORT}
+  COMPONENT ${HICN_UTILS}
+  DEFINITIONS ${COMPILER_DEFINITIONS}
+)
 
-  build_executable(${util_name}
-    SOURCES ${util}
-    LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
-    DEPENDS ${LIBTRANSPORT}
-    COMPONENT ${HICN_UTILS}
-    DEFINITIONS ${COMPILER_DEFINITIONS}
-  )
-endforeach()
+build_executable(hicn-ping-server
+  SOURCES src/ping_server.cc
+  LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
+  DEPENDS ${LIBTRANSPORT}
+  COMPONENT ${HICN_UTILS}
+  DEFINITIONS ${COMPILER_DEFINITIONS}
+)
+
+build_executable(hicn-ping-client
+  SOURCES src/ping_client.cc
+  LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
+  DEPENDS ${LIBTRANSPORT}
+  COMPONENT ${HICN_UTILS}
+  DEFINITIONS ${COMPILER_DEFINITIONS}
+)

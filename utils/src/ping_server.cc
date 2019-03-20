@@ -43,22 +43,16 @@ utils::Identity setProducerIdentity(std::string keystore_name,
 class CallbackContainer {
   const std::size_t log2_content_object_buffer_size = 12;
 
- public:
+public:
   CallbackContainer(const Name &prefix, uint32_t object_size, bool verbose,
                     bool dump, bool quite, bool flags, bool reset, uint8_t ttl,
                     utils::Identity *identity, bool sign, uint32_t lifetime)
       : buffer_(object_size, 'X'),
         content_objects_((std::uint32_t)(1 << log2_content_object_buffer_size)),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
-        content_objects_index_(0),
-        verbose_(verbose),
-        dump_(dump),
-        quite_(quite),
-        flags_(flags),
-        reset_(reset),
-        ttl_(ttl),
-        identity_(identity),
-        sign_(sign) {
+        content_objects_index_(0), verbose_(verbose), dump_(dump),
+        quite_(quite), flags_(flags), reset_(reset), ttl_(ttl),
+        identity_(identity), sign_(sign) {
     core::Packet::Format format;
 
     if (prefix.getAddressFamily() == AF_INET) {
@@ -80,7 +74,8 @@ class CallbackContainer {
     }
   }
 
-  void processInterest(ProducerSocket &p, const Interest &interest, uint32_t lifetime) {
+  void processInterest(ProducerSocket &p, const Interest &interest,
+                       uint32_t lifetime) {
     if (verbose_) {
       std::cout << "<<< received interest " << interest.getName()
                 << " src port: " << interest.getSrcPort()
@@ -119,7 +114,7 @@ class CallbackContainer {
           content_object->setAck();
         } else if (interest.testAck()) {
           content_object->setAck();
-        }  // here I may need to handle the FIN flag;
+        } // here I may need to handle the FIN flag;
       } else if (reset_) {
         content_object->setRst();
       }
@@ -141,7 +136,8 @@ class CallbackContainer {
         std::cout << "-----------------------" << std::endl;
       }
 
-      if (!quite_) std::cout << std::endl;
+      if (!quite_)
+        std::cout << std::endl;
 
       if (sign_) {
         identity_->getSigner().sign(*content_object);
@@ -151,7 +147,7 @@ class CallbackContainer {
     }
   }
 
- private:
+private:
   std::string buffer_;
   std::vector<std::shared_ptr<ContentObject>> content_objects_;
   std::uint16_t mask_;
@@ -167,28 +163,28 @@ class CallbackContainer {
 };
 
 void help() {
-  std::cout << "usage: hicn-preoducer-ping [options]" << std::endl;
-  std::cout << "PING options" << std::endl;
-  std::cout << "-s <val>  object content size (default 1350B)" << std::endl;
-  std::cout << "-n <val>  hicn name (default b001::/64)" << std::endl;
-  std::cout << "-f        set tcp flags according to the flag received "
+  std::cout << "usage: hicn-ping-server [options]" << std::endl;
+  std::cout << "PING server options" << std::endl;
+  std::cout << "-s <value>        object content size (default 1350B)" << std::endl;
+  std::cout << "-n <value>        hicn name (default b001::/64)" << std::endl;
+  std::cout << "-f <true/false>   set tcp flags according to the flag received "
                "(default false)"
             << std::endl;
-  std::cout << "-l        data lifetime" << std::endl;
-  std::cout << "-r        always reply with a reset flag (default false)"
+  std::cout << "-l <value>        data lifetime" << std::endl;
+  std::cout << "-r <true/false>   always reply with a reset flag (default false)"
             << std::endl;
-  std::cout << "-t        set ttl (default 64)" << std::endl;
+  std::cout << "-t <value>        set ttl (default 64)" << std::endl;
   std::cout << "OUTPUT options" << std::endl;
-  std::cout << "-V        verbose, prints statistics about the messagges sent "
+  std::cout << "-V                verbose, prints statistics about the messagges sent "
                "and received (default false)"
             << std::endl;
-  std::cout << "-D        dump, dumps sent and received packets (default false)"
+  std::cout << "-D <true/false>   dump, dumps sent and received packets (default false)"
             << std::endl;
-  std::cout << "-q        quite, not prints (default false)" << std::endl;
+  std::cout << "-q <true/false>   quite, not prints (default false)" << std::endl;
 #ifndef _WIN32
-  std::cout << "-d        daemon mode" << std::endl;
+  std::cout << "-d                daemon mode" << std::endl;
 #endif
-  std::cout << "-H        prints this message" << std::endl;
+  std::cout << "-H                prints help options" << std::endl;
 }
 
 int main(int argc, char **argv) {
@@ -219,51 +215,51 @@ int main(int argc, char **argv) {
   while ((opt = getopt(argc, argv, "s:n:t:l:qfrVDHk:p:")) != -1) {
 #endif
     switch (opt) {
-      case 's':
-        object_size = std::stoi(optarg);
-        break;
-      case 'n':
-        name_prefix = optarg;
-        break;
-      case 't':
-        ttl = (uint8_t)std::stoi(optarg);
-        break;
-      case 'l':
-	data_lifetime = std::stoi(optarg);
-	break;
-      case 'V':
-        verbose = true;
-        break;
-      case 'D':
-        dump = true;
-        break;
-      case 'q':
-        verbose = false;
-        dump = false;
-        quite = true;
-        break;
+    case 's':
+      object_size = std::stoi(optarg);
+      break;
+    case 'n':
+      name_prefix = optarg;
+      break;
+    case 't':
+      ttl = (uint8_t)std::stoi(optarg);
+      break;
+    case 'l':
+      data_lifetime = std::stoi(optarg);
+      break;
+    case 'V':
+      verbose = true;
+      break;
+    case 'D':
+      dump = true;
+      break;
+    case 'q':
+      verbose = false;
+      dump = false;
+      quite = true;
+      break;
 #ifndef _WIN32
-      case 'd':
-        daemon = true;
-        break;
+    case 'd':
+      daemon = true;
+      break;
 #endif
-      case 'f':
-        flags = true;
-        break;
-      case 'r':
-        reset = true;
-        break;
-      case 'k':
-        keystore_path = optarg;
-        sign = true;
-        break;
-      case 'p':
-        keystore_password = optarg;
-        break;
-      case 'H':
-      default:
-        help();
-        exit(EXIT_FAILURE);
+    case 'f':
+      flags = true;
+      break;
+    case 'r':
+      reset = true;
+      break;
+    case 'k':
+      keystore_path = optarg;
+      sign = true;
+      break;
+    case 'p':
+      keystore_password = optarg;
+      break;
+    case 'H':
+    default:
+      help();
+      exit(EXIT_FAILURE);
     }
   }
 
@@ -279,7 +275,8 @@ int main(int argc, char **argv) {
   std::string ip_address = tokenizer.nextToken();
   Name n(ip_address);
 
-  if (object_size > 1350) object_size = 1350;
+  if (object_size > 1350)
+    object_size = 1350;
 
   CallbackContainer *stubs;
   utils::Identity identity = setProducerIdentity(
@@ -298,10 +295,11 @@ int main(int argc, char **argv) {
   p.registerPrefix(producer_namespace);
 
   p.setSocketOption(GeneralTransportOptions::OUTPUT_BUFFER_SIZE, 0U);
-  p.setSocketOption(ProducerCallbacksOptions::CACHE_MISS,
-                    (ProducerInterestCallback)bind(
-                        &CallbackContainer::processInterest, stubs,
-                        std::placeholders::_1, std::placeholders::_2, data_lifetime));
+  p.setSocketOption(
+      ProducerCallbacksOptions::CACHE_MISS,
+      (ProducerInterestCallback)bind(&CallbackContainer::processInterest, stubs,
+                                     std::placeholders::_1,
+                                     std::placeholders::_2, data_lifetime));
 
   p.connect();
 
@@ -322,9 +320,9 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-}  // namespace interface
+} // namespace interface
 
-}  // end namespace transport
+} // end namespace transport
 
 int main(int argc, char **argv) {
   return transport::interface::main(argc, argv);
