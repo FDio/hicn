@@ -166,13 +166,19 @@ void afterSignal(HttpServer *webServer, const std::error_code &errorCode) {
 }
 
 void usage(const char *programName) {
-  cerr << programName
-       << " [-p PATH_TO_ROOT_FOOT_FOLDER] [-f CONFIGURATION_FILE] [-o "
-          "TCP_LISTEN_PORT] [-l WEBSERVER_PREFIX] [-x TCP_PROXY_ADDRESS] [-z "
-          "ICN_PROXY_PREFIX]\n"
-       << "Web server able to publish content and generate http responses over "
-          "TCP/ICN\n"
+  cerr << "usage: " << programName << " [options]" << endl;
+  cerr << programName << " options:" << endl;
+  cerr << "-p <root_folder_path>       = path to root folder" << endl;
+  cerr << "-f <coniguration_path>      = configuration file path" << endl;
+  cerr << "-o <tcp_port>               = tcp listener port" << endl;
+  cerr << "-l <webserver_prefix>       = webserver prefix" << endl;
+  cerr << "-x <tcp_proxy_prefix>       = tcp proxy prefix" << endl;
+  cerr << "-z <hicn_proxy_prefix>      = hicn proxy prefix" << endl;
+  cerr << endl;
+  cerr << "Web server able to publish content and generate http responses over "
+          "TCP/ICN"
        << endl;
+  cerr << endl;
 
   exit(1);
 }
