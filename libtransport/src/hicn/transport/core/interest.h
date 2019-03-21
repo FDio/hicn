@@ -59,6 +59,10 @@ class Interest
 
   ip_address_t getLocator() const override;
 
+  void setLifetime(uint32_t lifetime) override;
+
+  uint32_t Interest::getLifetime() const override;
+
  private:
   void resetForHash() override;
 };
