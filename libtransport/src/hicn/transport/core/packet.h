@@ -109,7 +109,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   virtual void setName(Name &&name) = 0;
 
-  virtual void setLifetime(uint32_t lifetime);
+  virtual void setLifetime(uint32_t lifetime) = 0;
 
   virtual uint32_t getLifetime() const;
 

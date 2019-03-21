@@ -34,14 +34,14 @@ namespace core {
 ContentObject::ContentObject(const Name &name, Packet::Format format)
     : Packet(format) {
   if (TRANSPORT_EXPECT_FALSE(
-          hicn_data_set_name(format, (hicn_header_t *)packet_start_,
-                             name.getStructReference()) < 0)) {
+          hicn_data_set_name(format, packet_start_, name.getStructReference()) <
+          0)) {
     throw errors::RuntimeException("Error filling the packet name.");
   }
 
-  if (TRANSPORT_EXPECT_FALSE(
-          hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
-                             name_.getStructReference()) < 0)) {
+  if (TRANSPORT_EXPECT_FALSE(hicn_data_get_name(format_, packet_start_,
+                                                name_.getStructReference()) <
+                             0)) {
     throw errors::MalformedPacketException();
   }
 }
@@ -57,15 +57,15 @@ ContentObject::ContentObject(const Name &name, hicn_format_t format,
 
 ContentObject::ContentObject(const uint8_t *buffer, std::size_t size)
     : Packet(buffer, size) {
-  if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
-                         name_.getStructReference()) < 0) {
+  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
+      0) {
     throw errors::RuntimeException("Error getting name from content object.");
   }
 }
 
 ContentObject::ContentObject(MemBufPtr &&buffer) : Packet(std::move(buffer)) {
-  if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
-                         name_.getStructReference()) < 0) {
+  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
+      0) {
     throw errors::RuntimeException("Error getting name from content object.");
   }
 }
@@ -73,8 +73,8 @@ ContentObject::ContentObject(MemBufPtr &&buffer) : Packet(std::move(buffer)) {
 ContentObject::ContentObject(ContentObject &&other) : Packet(std::move(other)) {
   name_ = std::move(other.name_);
 
-  if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
-                         name_.getStructReference()) < 0) {
+  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
+      0) {
     throw errors::MalformedPacketException();
   }
 }
@@ -84,15 +84,15 @@ ContentObject::~ContentObject() {}
 void ContentObject::replace(MemBufPtr &&buffer) {
   Packet::replace(std::move(buffer));
 
-  if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
-                         name_.getStructReference()) < 0) {
+  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
+      0) {
     throw errors::RuntimeException("Error getting name from content object.");
   }
 }
 
 const Name &ContentObject::getName() const {
   if (!name_) {
-    if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
+    if (hicn_data_get_name(format_, packet_start_,
                            (hicn_name_t *)name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
@@ -104,34 +104,33 @@ const Name &ContentObject::getName() const {
 Name &ContentObject::getWritableName() { return const_cast<Name &>(getName()); }
 
 void ContentObject::setName(const Name &name) {
-  if (hicn_data_set_name(format_, (hicn_header_t *)packet_start_,
-                         name.getStructReference()) < 0) {
+  if (hicn_data_set_name(format_, packet_start_, name.getStructReference()) <
+      0) {
     throw errors::RuntimeException("Error setting content object name.");
   }
 
-  if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
-                         name_.getStructReference()) < 0) {
+  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
+      0) {
     throw errors::MalformedPacketException();
   }
 }
 
 void ContentObject::setName(Name &&name) {
-  if (hicn_data_set_name(format_, (hicn_header_t *)packet_start_,
-                         name.getStructReference()) < 0) {
+  if (hicn_data_set_name(format_, packet_start_, name.getStructReference()) <
+      0) {
     throw errors::RuntimeException(
         "Error getting the payload length from content object.");
   }
 
-  if (hicn_data_get_name(format_, (hicn_header_t *)packet_start_,
-                         name_.getStructReference()) < 0) {
+  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
+      0) {
     throw errors::MalformedPacketException();
   }
 }
 
 uint32_t ContentObject::getPathLabel() const {
   uint32_t path_label;
-  if (hicn_data_get_path_label((hicn_header_t *)packet_start_, &path_label) <
-      0) {
+  if (hicn_data_get_path_label(packet_start_, &path_label) < 0) {
     throw errors::RuntimeException(
         "Error retrieving the path label from content object");
   }
@@ -150,8 +149,7 @@ ContentObject &ContentObject::setPathLabel(uint32_t path_label) {
 }
 
 void ContentObject::setLocator(const ip_address_t &ip_address) {
-  if (hicn_data_set_locator(format_, (hicn_header_t *)packet_start_,
-                            &ip_address) < 0) {
+  if (hicn_data_set_locator(format_, packet_start_, &ip_address) < 0) {
     throw errors::RuntimeException("Error setting content object locator");
   }
 
@@ -161,11 +159,17 @@ void ContentObject::setLocator(const ip_address_t &ip_address) {
 ip_address_t ContentObject::getLocator() const {
   ip_address_t ip;
 
-  if (hicn_data_get_locator(format_, (hicn_header_t *)packet_start_, &ip) < 0) {
+  if (hicn_data_get_locator(format_, packet_start_, &ip) < 0) {
     throw errors::RuntimeException("Error getting content object locator.");
   }
 
   return ip;
+}
+
+void ContentObject::setLifetime(uint32_t lifetime) {
+  if (hicn_data_set_expiry_time(packet_start_, lifetime) < 0) {
+    throw errors::MalformedPacketException();
+  }
 }
 
 void ContentObject::resetForHash() {
