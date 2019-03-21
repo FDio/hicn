@@ -140,22 +140,6 @@ std::size_t Packet::headerSize() const {
                                  reinterpret_cast<uint8_t *>(packet_start_));
 }
 
-void Packet::setLifetime(uint32_t lifetime) {
-  if (hicn_interest_set_lifetime(packet_start_, lifetime) < 0) {
-    throw errors::MalformedPacketException();
-  }
-}
-
-uint32_t Packet::getLifetime() const {
-  uint32_t lifetime = 0;
-
-  if (hicn_packet_get_lifetime(packet_start_, &lifetime) < 0) {
-    throw errors::MalformedPacketException();
-  }
-
-  return lifetime;
-}
-
 Packet &Packet::appendPayload(std::unique_ptr<utils::MemBuf> &&payload) {
   separateHeaderPayload();
 
