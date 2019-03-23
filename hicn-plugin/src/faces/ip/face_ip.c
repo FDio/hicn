@@ -233,13 +233,20 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
 						 hicn_mapme_eventmgr_process_node.index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
+
+  /* *INDENT-OFF* */
   *retx = (retx_t)
   {
-    .prefix = 0,.dpo = (dpo_id_t)
+    .prefix = 0,
+    .dpo = (dpo_id_t)
     {
-    .dpoi_type = hicn_face_ip_type,.dpoi_proto = dpo_proto,.dpoi_next_node =
-	0,.dpoi_index = *pfaceid,}
+      .dpoi_type = hicn_face_ip_type,
+      .dpoi_proto = dpo_proto,
+      .dpoi_next_node = 0,
+      .dpoi_index = *pfaceid,
+    }
   };
+  /* *INDENT-ON* */
 
   return HICN_ERROR_NONE;
 }
