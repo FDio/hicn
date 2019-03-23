@@ -31,6 +31,14 @@ hicn_face_t *hicn_dpoi_face_pool;
 
 dpo_type_t first_type = DPO_FIRST;
 
+vlib_combined_counter_main_t *counters;
+
+const char *HICN_FACE_CTRX_STRING[] = {
+#define _(a,b,c) c,
+  foreach_hicn_face_counter
+#undef _
+};
+
 u8 *
 face_show (u8 * s, int face_id, u32 indent)
 {
@@ -77,6 +85,7 @@ hicn_face_module_init (vlib_main_t * vm)
   hicn_iface_ip_init (vm);
   hicn_face_udp_init (vm);
   hicn_iface_udp_init (vm);
+  vec_alloc (counters, 40);
 }
 
 u8 *
