@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
         break;
       case 'h':
       default:
-        usage(argv[0]);
+        return usage(argv[0]);
         break;
     }
   }
@@ -57,6 +57,8 @@ int main(int argc, char** argv) {
     prefix = argv[optind];
   }
 
+  std::cout << "Connecting to " << ip_address << " port " << port
+            << "Cache size " << cache_size << "Prefix " << prefix << std::endl;
   transport::AsyncConsumerProducer proxy(prefix, ip_address, port, cache_size);
 
   proxy.run();
