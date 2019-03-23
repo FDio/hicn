@@ -102,6 +102,9 @@ void RaaqmTransportProtocol::reset() {
   core::Name *name;
   socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME, &name);
   index_manager_->setFirstSuffix(name->getSuffix());
+  std::queue<Interest::Ptr> empty;
+  std::swap(interest_to_retransmit_, empty);
+  current_window_size_ = 1;
 
   // Reset reassembly component
   BaseReassembly::reset();
@@ -484,7 +487,7 @@ void RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
     return;
   }
 
-  interest_retransmissions_[next_suffix & mask] = ~0;
+  interest_retransmissions_[next_suffix & mask] = 0;
   interest_timepoints_[next_suffix & mask] = utils::SteadyClock::now();
   sendInterest(std::move(interest));
 }

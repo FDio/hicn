@@ -130,7 +130,7 @@ void AsyncConsumerProducer::manageIncomingInterest(
       HTTPMessageFastParser::isMpdRequest(payload->data(), payload->length());
 
   chunk_number_map_.emplace(name, 0);
-  response_name_queue_.emplace(std::move(name), is_mpd ? 500 : 10000);
+  response_name_queue_.emplace(std::move(name), is_mpd ? 1000 : 10000);
 
   connector_.send(payload, [packet = std::move(packet)]() {});
 }

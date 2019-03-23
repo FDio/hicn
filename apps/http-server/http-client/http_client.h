@@ -17,13 +17,7 @@
 
 #include <string>
 
-#if defined(HICNET)
 #include <hicn/transport/http/facade.h>
-#elif defined(ICNET)
-#include <icnet/icnet_http_facade.h>
-#else
-#error "No ICN tranport library to which link against."
-#endif
 
 class HTTPClient {
  public:
