@@ -98,7 +98,7 @@ class ForwarderInterface {
     }
 
     packet.setChecksum();
-    connector_.send(packet.data());
+    connector_.send(packet.acquireMemBufReference());
   }
 
   template <typename Handler>

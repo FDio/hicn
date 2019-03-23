@@ -15,9 +15,7 @@
 
 #pragma once
 
-#include <map>
-#include <sstream>
-#include <vector>
+#include <hicn/transport/core/name.h>
 
 namespace transport {
 
@@ -25,8 +23,19 @@ namespace interface {
 
 class PublicationOptions {
  public:
-  core::Name name;
-  uint32_t content_lifetime_milliseconds;
+  template <typename T>
+  PublicationOptions(T&& name, uint32_t lifetime)
+      : name_(std::forward<T&&>(name)),
+        content_lifetime_milliseconds_(lifetime) {}
+
+  TRANSPORT_ALWAYS_INLINE const core::Name& getName() const { return name_; }
+  TRANSPORT_ALWAYS_INLINE uint32_t getLifetime() const {
+    return content_lifetime_milliseconds_;
+  }
+
+ private:
+  core::Name name_;
+  uint32_t content_lifetime_milliseconds_;
   // TODO Signature
 };
 }  // namespace interface
