@@ -68,6 +68,7 @@
   _(HICN_API_FACE_IP_ADD, hicn_api_face_ip_add)                     \
   _(HICN_API_FACE_IP_DEL, hicn_api_face_ip_del)                     \
   _(HICN_API_FACE_IP_PARAMS_GET, hicn_api_face_ip_params_get)       \
+  _(HICN_API_FACE_STATS_DUMP, hicn_api_face_stats_dump)             \
   _(HICN_API_ROUTE_GET, hicn_api_route_get)                         \
   _(HICN_API_ROUTE_NHOPS_ADD, hicn_api_route_nhops_add)             \
   _(HICN_API_ROUTE_DEL, hicn_api_route_del)                         \
@@ -254,6 +255,68 @@ static void
     }));
   /* *INDENT-ON* */
 }
+
+static void
+send_face_stats_details (vl_api_registration_t * reg,
+			 hicn_face_t * face, u32 context)
+{
+  vl_api_hicn_api_face_stats_details_t *mp;
+  hicn_main_t *hm = &hicn_main;
+  mp = vl_msg_api_alloc (sizeof (*mp));
+  memset (mp, 0, sizeof (*mp));
+
+  mp->_vl_msg_id =
+    htons (VL_API_HICN_API_FACE_STATS_DETAILS + hm->msg_id_base);
+  mp->context = context;
+
+  mp->faceid = htonl (hicn_dpoi_get_index (face));
+  vlib_counter_t v;
+  vlib_get_combined_counter (&counters
+			     [hicn_dpoi_get_index (face) * HICN_N_COUNTER],
+			     HICN_FACE_COUNTERS_INTEREST_RX, &v);
+  mp->irx_packets = clib_net_to_host_u64 (v.packets);
+  mp->irx_bytes = clib_net_to_host_u64 (v.bytes);
+
+  vlib_get_combined_counter (&counters
+			     [hicn_dpoi_get_index (face) * HICN_N_COUNTER],
+			     HICN_FACE_COUNTERS_INTEREST_TX, &v);
+  mp->itx_packets = clib_net_to_host_u64 (v.packets);
+  mp->itx_bytes = clib_net_to_host_u64 (v.bytes);
+
+  vlib_get_combined_counter (&counters
+			     [hicn_dpoi_get_index (face) * HICN_N_COUNTER],
+			     HICN_FACE_COUNTERS_DATA_RX, &v);
+  mp->drx_packets = clib_net_to_host_u64 (v.packets);
+  mp->drx_bytes = clib_net_to_host_u64 (v.bytes);
+
+  vlib_get_combined_counter (&counters
+			     [hicn_dpoi_get_index (face) * HICN_N_COUNTER],
+			     HICN_FACE_COUNTERS_DATA_TX, &v);
+  mp->dtx_packets = clib_net_to_host_u64 (v.packets);
+  mp->dtx_bytes = clib_net_to_host_u64 (v.bytes);
+
+  vl_api_send_msg (reg, (u8 *) mp);
+}
+
+static void
+  vl_api_hicn_api_face_stats_dump_t_handler
+  (vl_api_hicn_api_face_stats_dump_t * mp)
+{
+  hicn_face_t *face;
+  vl_api_registration_t *reg;
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    return;
+
+  /* *INDENT-OFF* */
+  pool_foreach (face, hicn_dpoi_face_pool,
+                ({
+                  send_face_stats_details (reg, face, mp->context);
+                }));
+  /* *INDENT-ON* */
+}
+
 
 /****** ROUTE *******/
 

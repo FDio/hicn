@@ -27,7 +27,6 @@
 #define __plugin_msg_base hicn_test_main.msg_id_base
 #include <vlibapi/vat_helper_macros.h>
 
-
 #include <hicn/hicn_api.h>
 #include "error.h"
 
@@ -35,6 +34,17 @@
 
 /* Declare message IDs */
 #include "hicn_msg_enum.h"
+
+/* define message structures */
+#define vl_typedefs
+#include <vpp/api/vpe_all_api_h.h>
+#include <hicn/hicn_all_api_h.h>
+#undef vl_typedefs
+
+/* Get CRC codes of the messages defined outside of this plugin */
+#define vl_msg_name_crc_list
+#include <vpp/api/vpe_all_api_h.h>
+#undef vl_msg_name_crc_list
 
 /* declare message handlers for each api */
 
@@ -82,6 +92,7 @@ typedef struct
   /* API message ID base */
   u16 msg_id_base;
   vat_main_t *vat_main;
+  u32 ping_id;
 } hicn_test_main_t;
 
 hicn_test_main_t hicn_test_main;
@@ -120,6 +131,7 @@ _(HICN_API_NODE_PARAMS_GET_REPLY, hicn_api_node_params_get_reply)       \
 _(HICN_API_NODE_STATS_GET_REPLY, hicn_api_node_stats_get_reply)         \
 _(HICN_API_FACE_IP_DEL_REPLY, hicn_api_face_ip_del_reply)               \
 _(HICN_API_FACE_IP_ADD_REPLY, hicn_api_face_ip_add_reply)               \
+_(HICN_API_FACE_STATS_DETAILS, hicn_api_face_stats_details)             \
 _(HICN_API_ROUTE_NHOPS_ADD_REPLY, hicn_api_route_nhops_add_reply)       \
 _(HICN_API_FACE_IP_PARAMS_GET_REPLY, hicn_api_face_ip_params_get_reply) \
 _(HICN_API_ROUTE_GET_REPLY, hicn_api_route_get_reply)                   \
@@ -511,6 +523,66 @@ static void
 	   clib_net_to_host_u16 (rmp->swif),
 	   clib_net_to_host_i32 (rmp->flags));
 }
+
+/* memif-dump API */
+static int
+api_hicn_api_face_stats_dump (vat_main_t * vam)
+{
+  hicn_test_main_t *hm = &hicn_test_main;
+  vl_api_hicn_api_face_stats_dump_t *mp;
+  vl_api_control_ping_t *mp_ping;
+  int ret;
+
+  if (vam->json_output)
+    {
+      clib_warning ("JSON output not supported for memif_dump");
+      return -99;
+    }
+
+  M (HICN_API_FACE_STATS_DUMP, mp);
+  S (mp);
+
+  /* Use a control ping for synchronization */
+  mp_ping = vl_msg_api_alloc_as_if_client (sizeof (*mp_ping));
+  mp_ping->_vl_msg_id = htons (hm->ping_id);
+  mp_ping->client_index = vam->my_client_index;
+
+  fformat (vam->ofp, "Sending ping id=%d\n", hm->ping_id);
+
+  vam->result_ready = 0;
+  S (mp_ping);
+
+  W (ret);
+  return ret;
+}
+
+/* memif-details message handler */
+static void
+vl_api_hicn_api_face_stats_details_t_handler
+  (vl_api_hicn_api_face_stats_details_t * mp)
+{
+  vat_main_t *vam = hicn_test_main.vat_main;
+
+  fformat (vam->ofp, "face id %d\n"
+	   "    interest rx           packets %16Ld\n"
+	   "                          bytes %16Ld\n"
+	   "    interest tx           packets %16Ld\n"
+	   "                          bytes %16Ld\n"
+	   "    data rx               packets %16Ld\n"
+	   "                          bytes %16Ld\n"
+	   "    data tx               packets %16Ld\n"
+	   "                          bytes %16Ld\n",
+	   clib_host_to_net_u32 (mp->faceid),
+	   clib_host_to_net_u64 (mp->irx_packets),
+	   clib_host_to_net_u64 (mp->irx_bytes),
+	   clib_host_to_net_u64 (mp->itx_packets),
+	   clib_host_to_net_u64 (mp->itx_bytes),
+	   clib_host_to_net_u64 (mp->drx_packets),
+	   clib_host_to_net_u64 (mp->drx_bytes),
+	   clib_host_to_net_u64 (mp->dtx_packets),
+	   clib_host_to_net_u64 (mp->dtx_bytes));
+}
+
 
 static int
 api_hicn_api_route_get (vat_main_t * vam)
@@ -1000,6 +1072,7 @@ _(hicn_api_node_params_get, "")                                         \
 _(hicn_api_node_stats_get, "")                                          \
 _(hicn_api_face_ip_del, "face <faceID>")                                \
 _(hicn_api_face_ip_add, "add <swif> <address>")                         \
+_(hicn_api_face_stats_dump, "")                                         \
 _(hicn_api_route_nhops_add, "add prefix <IP4/IP6>/<subnet> face <faceID> weight <weight>") \
 _(hicn_api_face_ip_params_get, "face <faceID>")                         \
 _(hicn_api_route_get, "prefix <IP4/IP6>/<subnet>")                      \
@@ -1048,6 +1121,13 @@ vat_plugin_register (vat_main_t * vam)
   /* Ask the vpp engine for the first assigned message-id */
   name = format (0, "hicn_%08x%c", api_version, 0);
   sm->msg_id_base = vl_client_get_first_plugin_msg_id ((char *) name);
+
+  /* Get the control ping ID */
+#define _(id,n,crc)                                                     \
+  const char *id ## _CRC __attribute__ ((unused)) = #n "_" #crc;
+  foreach_vl_msg_name_crc_vpe;
+#undef _
+  sm->ping_id = vl_msg_api_get_msg_index ((u8 *) (VL_API_CONTROL_PING_CRC));
 
   if (sm->msg_id_base != (u16) ~ 0)
     hicn_vat_api_hookup (vam);
