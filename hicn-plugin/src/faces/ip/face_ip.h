@@ -202,6 +202,12 @@ hicn_iface_ip_add (const ip46_address_t * local_addr,
   *pfaceid = hicn_dpoi_get_index (face);
 
   mhash_set_mem (&hicn_face_ip_remote_hashtb, &key, (uword *) pfaceid, 0);
+
+  for (int i = 0; i < HICN_N_COUNTER; i++)
+    {
+      vlib_validate_combined_counter(&counters[(*pfaceid)*HICN_N_COUNTER], i);
+      vlib_zero_combined_counter (&counters[(*pfaceid)*HICN_N_COUNTER], i);
+    }
 }
 
 /**

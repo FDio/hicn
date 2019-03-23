@@ -28,7 +28,9 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
   char *face_type_name = NULL;
   int found = ~0;
   int deleted = 0;
-
+  u8 *n = 0;
+  u8 *s = 0;
+  vlib_counter_t v;
 
   /* Get a line of input. */
   unformat_input_t _line_input, *line_input = &_line_input;
@@ -74,6 +76,25 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
       hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
       hicn_face_vft_t *vft = hicn_face_get_vft (face->shared.face_type);
       vlib_cli_output (vm, "%U\n", vft->format_face, face_id, 0 /*indent */ );
+
+      u32 indent = 3;
+
+      for (int i = 0; i < HICN_N_COUNTER; i++)
+        {
+          vlib_get_combined_counter (&counters[hicn_dpoi_get_index(face) * HICN_N_COUNTER], i, &v);
+          s = format (s, "%U%s",format_white_space, indent, HICN_FACE_CTRX_STRING[i]);
+
+          if (n)
+            _vec_len (n) = 0;
+          n = format (n, "packets");
+          s = format (s, "%U%-16v%16Ld", format_white_space, 30-strlen(HICN_FACE_CTRX_STRING[i]), n, v.packets);
+
+          _vec_len (n) = 0;
+          n = format (n, "bytes");
+          s = format (s, "\n%U%-16v%16Ld\n",
+                      format_white_space, indent+30, n, v.bytes);
+        }
+      vlib_cli_output (vm, "%s\n", s);
     }
   else
     {
@@ -88,7 +109,28 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
                          if (!((face->shared.flags & HICN_FACE_FLAGS_DELETED) && !deleted))
                            {
                              if ((face->shared.face_type == type) && (face->shared.flags))
-                               vlib_cli_output(vm, "%U\n", vft->format_face, hicn_dpoi_get_index(face), 0);
+                               {
+                                 vlib_cli_output(vm, "%U\n", vft->format_face, hicn_dpoi_get_index(face), 0);
+                                 u8 * s = 0;
+                                 u32 indent = 3;
+
+                                 for (int i = 0; i < HICN_N_COUNTER; i++)
+                                   {
+                                     vlib_get_combined_counter (&counters[hicn_dpoi_get_index(face) * HICN_N_COUNTER], i, &v);
+                                     s = format (s, "%U%s",format_white_space, indent, HICN_FACE_CTRX_STRING[i]);
+
+                                     if (n)
+                                       _vec_len (n) = 0;
+                                     n = format (n, "packets");
+                                     s = format (s, "%U%-16v%16Ld", format_white_space, 30-strlen(HICN_FACE_CTRX_STRING[i]), n, v.packets);
+
+                                     _vec_len (n) = 0;
+                                     n = format (n, "bytes");
+                                     s = format (s, "\n%U%-16v%16Ld\n",
+                                                 format_white_space, indent+30, n, v.bytes);
+                                   }
+                                 vlib_cli_output (vm, "%s\n", s);
+                               }
                            }
                        });
 	  /* *INDENT-ON* */
@@ -103,6 +145,25 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
                            {
                              hicn_face_vft_t * vft = hicn_face_get_vft(face->shared.face_type);
                              vlib_cli_output(vm, "%U\n", vft->format_face, hicn_dpoi_get_index(face), 0);
+                             u32 indent = 3;
+                             u8 * s = 0;
+
+                                 for (int i = 0; i < HICN_N_COUNTER; i++)
+                                   {
+                                     vlib_get_combined_counter (&counters[hicn_dpoi_get_index(face) * HICN_N_COUNTER], i, &v);
+                                     s = format (s, "%U%s",format_white_space, indent, HICN_FACE_CTRX_STRING[i]);
+
+                                     if (n)
+                                       _vec_len (n) = 0;
+                                     n = format (n, "packets");
+                                     s = format (s, "%U%-16v%16Ld", format_white_space, 30-strlen(HICN_FACE_CTRX_STRING[i]), n, v.packets);
+
+                                     _vec_len (n) = 0;
+                                     n = format (n, "bytes");
+                                     s = format (s, "\n%U%-16v%16Ld\n",
+                                                 format_white_space, indent+30, n, v.bytes);
+                                   }
+                                 vlib_cli_output (vm, "%s\n", s);
                            }
                        });
 	  /* *INDENT-ON* */

@@ -265,17 +265,29 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       return HICN_ERROR_IPS_ADDR_TYPE_NONUNIFORM;
     }
 
+  for (int i = 0; i < HICN_N_COUNTER; i++)
+    {
+      vlib_validate_combined_counter(&counters[(*pfaceid)*HICN_N_COUNTER], i);
+      vlib_zero_combined_counter (&counters[(*pfaceid)*HICN_N_COUNTER], i);
+    }
+
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
 						 hicn_mapme_eventmgr_process_node.index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
+  /* *INDENT-OFF* */
   *retx = (retx_t)
   {
-    .prefix = 0,.dpo = (dpo_id_t)
+    .prefix = 0,
+    .dpo = (dpo_id_t)
     {
-    .dpoi_type = hicn_face_udp_type,.dpoi_proto =
-	dpo_proto,.dpoi_next_node = 0,.dpoi_index = *pfaceid,}
+      .dpoi_type = hicn_face_udp_type,
+      .dpoi_proto = dpo_proto,
+      .dpoi_next_node = 0,
+      .dpoi_index = *pfaceid,
+    }
   };
+  /* *INDENT-ON* */
 
   return ret;
 }
