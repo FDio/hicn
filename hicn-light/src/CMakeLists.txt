@@ -10,6 +10,7 @@ endif ()
 add_subdirectory(config)
 add_subdirectory(content_store)
 add_subdirectory(core)
+add_subdirectory(api)
 add_subdirectory(io)
 add_subdirectory(messenger)
 add_subdirectory(platforms)
@@ -47,3 +48,4 @@ build_library(${LIBHICN_LIGHT}
   INSTALL_ROOT_DIR hicn/light
   DEFINITIONS ${COMPILER_DEFINITIONS}
 )
+
