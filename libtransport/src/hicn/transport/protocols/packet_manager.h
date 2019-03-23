@@ -53,6 +53,7 @@ class PacketManager {
       result = interest_pool_.get();
     }
 
+    result.second->resetPayload();
     return std::move(result.second);
   }
 

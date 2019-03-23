@@ -178,6 +178,8 @@ class Packet : public std::enable_shared_from_this<Packet> {
   Packet &setTTL(uint8_t hops);
   uint8_t getTTL() const;
 
+  void resetPayload();
+
  private:
   virtual void resetForHash() = 0;
   void setSignatureSize(std::size_t size_bytes);
