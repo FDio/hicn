@@ -161,7 +161,7 @@ void ATSConnector::tryReconnection() {
     is_reconnection_ = true;
     io_service_.post([this]() {
       if (socket_.is_open()) {
-        socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+        // socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
         socket_.close();
       }
       startConnectionTimer();

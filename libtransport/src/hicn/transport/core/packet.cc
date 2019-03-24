@@ -594,6 +594,14 @@ void Packet::separateHeaderPayload() {
   packet_->append(header_size);
 }
 
+void Packet::resetPayload() {
+  if (packet_->isChained()) {
+    packet_->separateChain(packet_->next(), packet_->prev());
+    payload_head_ = nullptr;
+    updateLength();
+  }
+}
+
 }  // end namespace core
 
 }  // end namespace transport
