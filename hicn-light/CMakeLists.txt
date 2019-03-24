@@ -98,4 +98,4 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
 	message(STATUS "Set \"-undefined dynamic_lookup\" for shared libraries")
 endif()
 
-add_subdirectory(src)
+add_subdirectory(src/hicn)
