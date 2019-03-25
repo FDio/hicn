@@ -32,7 +32,12 @@ else()
   set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
 endif()
 
-include(Packaging)
+set(SUFFIX "")
+if (${LIBTRANSPORT_LIBRARIES} MATCHES ".*-memif.*")
+  set(SUFFIX "-memif")
+endif()
+
+set(HICN_APPS "${HICN_APPS}${SUFFIX}")
 
 set (COMPILER_DEFINITIONS "")
 
