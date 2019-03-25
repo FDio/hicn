@@ -62,7 +62,7 @@ endmacro()
 
 macro(build_library lib)
   cmake_parse_arguments(ARG
-    "SHARED;STATIC"
+    "SHARED;STATIC;NO_DEV"
     "COMPONENT;"
     "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;INSTALL_ROOT_DIR"
     ${ARGN}
@@ -166,10 +166,15 @@ macro(build_library lib)
       if (${dir} STREQUAL src)
         set(dir "")
       endif()
+      
+      set(COMPONENT ${ARG_COMPONENT})
+      if (NOT ARG_NO_DEV)
+        set(COMPONENT ${COMPONENT}-dev)
+      endif()
       install(
         FILES ${file}
         DESTINATION include/${ARG_INSTALL_ROOT_DIR}/${dir}
-        COMPONENT ${ARG_COMPONENT}-dev
+        COMPONENT ${COMPONENT}
       )
     endforeach()
   endif()
