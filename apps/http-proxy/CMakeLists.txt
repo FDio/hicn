@@ -14,11 +14,6 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 14)
 
-if (NOT CMAKE_BUILD_TYPE)
-  message(STATUS "No build type selected, default to Release")
-  set(CMAKE_BUILD_TYPE "Release")
-endif()
-
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
   "${CMAKE_SOURCE_DIR}/cmake/Modules/"
@@ -49,7 +44,9 @@ set(APP_SOURCE_FILES
   main.cc
 )
 
-build_library(httpproxylib
+set(LIBHTTP_PROXY hicnhttpproxy)
+
+build_library(${LIBHTTP_PROXY}
   STATIC
   SOURCES ${LIB_SOURCE_FILES}
   LINK_LIBRARIES ${LIBRARIES}
@@ -57,10 +54,10 @@ build_library(httpproxylib
   INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS}
 )
 
-build_executable(hicn-http-proxy
+build_executable(${HTTP_PROXY}
   SOURCES ${APP_SOURCE_FILES}
-  LINK_LIBRARIES httpproxylib
-  DEPENDS httpproxylib
-  COMPONENT hicn-http-proxy
+  LINK_LIBRARIES ${LIBHTTP_PROXY}
+  DEPENDS ${LIBHTTP_PROXY}
+  COMPONENT ${HTTP_PROXY}
   DEFINITIONS ${COMPILER_DEFINITIONS}
 )
