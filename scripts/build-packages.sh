@@ -144,14 +144,15 @@ build_package() {
     mkdir -p build && pushd build
 
     rm -rf *
-    cmake -DCMAKE_INSTALL_PREFIX=/usr ${SCRIPT_PATH}/..
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ${SCRIPT_PATH}/..
     make package
 
     rm -rf libtransport
 
-    cmake -DCMAKE_INSTALL_PREFIX=/usr \
-          -DBUILD_HICNPLUGIN=ON \
-          -DBUILD_LIBTRANSPORT=ON \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr   \
+          -DBUILD_HICNPLUGIN=ON         \
+          -DBUILD_LIBTRANSPORT=ON       \
+          -DBUILD_APPS=ON               \
           -DLIBMEMIF_HOME=${MEMIF_HOME} \
           ${SCRIPT_PATH}/..
 
