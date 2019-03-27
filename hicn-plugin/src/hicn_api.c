@@ -500,7 +500,7 @@ static void vl_api_hicn_api_punting_add_t_handler
   u32 swif = clib_net_to_host_u32 (mp->swif);
 
   rv =
-    hicn_punt_interest_data_for_ethernet (vm, &prefix, subnet_mask, swif, 0);
+    hicn_punt_interest_data_for_ip (vm, &prefix, subnet_mask, swif, 0, NO_L2);
 
   REPLY_MACRO (VL_API_HICN_API_PUNTING_ADD_REPLY /* , rmp, mp, rv */ );
 }
