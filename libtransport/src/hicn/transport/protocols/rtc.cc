@@ -419,7 +419,6 @@ void RTCTransportProtocol::sendInterest() {
     return;
   }
 
-  using namespace std::placeholders;
   portal_->sendInterest(std::move(interest));
 
   sentInterest_++;
@@ -573,8 +572,9 @@ void RTCTransportProtocol::returnContentToApplication(
   // return content to the user
   auto a = content_object.getPayload();
 
-  uint8_t *start = ((uint8_t *)a->data()) + HICN_TIMESTAMP_SIZE;
-  unsigned size = (unsigned)(a->length() - HICN_TIMESTAMP_SIZE);
+  a->trimStart(HICN_TIMESTAMP_SIZE);
+  uint8_t *start = a->writableData();
+  unsigned size = (unsigned)a->length();
 
   // set offset between hICN and RTP packets
   uint16_t rtp_seq = ntohs(*(((uint16_t *)start) + 1));
@@ -582,7 +582,7 @@ void RTCTransportProtocol::returnContentToApplication(
 
   std::shared_ptr<std::vector<uint8_t>> content_buffer;
   socket_->getSocketOption(APPLICATION_BUFFER, content_buffer);
-  content_buffer->insert(content_buffer_->end(), start, start + size);
+  content_buffer->insert(content_buffer->end(), start, start + size);
 
   ConsumerContentCallback *on_payload = nullptr;
   socket_->getSocketOption(CONTENT_RETRIEVED, &on_payload);
