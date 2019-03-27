@@ -296,14 +296,16 @@ hicn_punt_enable_disable_vnet_ip6_table_on_intf (vlib_main_t * vm,
 u32 hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 				     ip46_address_t * prefix, u8 mask,
 				     u32 swif, u8 punt_type, u16 sport,
-				     u16 dport);
-u32 hicn_punt_interest_data_for_ethernet (vlib_main_t * vm,
-					  ip46_address_t * prefix, u8 mask,
-					  u32 swif, u8 type);
+				     u16 dport, u8 with_l2);
+u32 hicn_punt_interest_data_for_ip (vlib_main_t * vm,
+				    ip46_address_t * prefix, u8 mask,
+				    u32 swif, u8 type, u8 with_l2);
 int hicn_punt_remove_ip6_address (vlib_main_t * vm, ip6_address_t * addr,
-				  u8 mask, int skip, u32 swif, int is_enable);
+				  u8 mask, int skip, u32 swif, int is_enable,
+				  u8 with_l2);
 int hicn_punt_remove_ip4_address (vlib_main_t * vm, ip4_address_t * addr,
-				  u8 mask, int skip, u32 swif, int is_enable);
+				  u8 mask, int skip, u32 swif, int is_enable,
+				  u8 with_l2);
 void hicn_punt_init (vlib_main_t * vm);
 
 int

@@ -658,7 +658,7 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 						 clib_host_to_net_u16
 						 (src_port),
 						 clib_host_to_net_u16
-						 (dst_port));
+						 (dst_port), NO_L2);
 	    else
 	      return (clib_error_return
 		      (0,
@@ -667,8 +667,8 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	else
 	  {
 	    ret =
-	      hicn_punt_interest_data_for_ethernet (vm, &prefix, subnet_mask,
-						    sw_if_index, type);
+	      hicn_punt_interest_data_for_ip (vm, &prefix, subnet_mask,
+					      sw_if_index, type, NO_L2);
 	  }
       }
       break;
@@ -689,9 +689,10 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	    ret = ip46_address_is_ip4 (&prefix) ?
 	      hicn_punt_remove_ip4_address (vm, &(prefix.ip4), subnet_mask, 1,
 					    sw_if_index,
-					    0) :
+					    0, NO_L2) :
 	      hicn_punt_remove_ip6_address (vm, (ip6_address_t *) & prefix,
-					    subnet_mask, 1, sw_if_index, 0);
+					    subnet_mask, 1, sw_if_index, 0,
+					    NO_L2);
 	  }
       }
       break;

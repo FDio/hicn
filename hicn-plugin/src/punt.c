@@ -89,11 +89,11 @@ ip_version_t ipv66 = {
   .ip_version = 0x60,
 };
 
-#define _(NAME, BASE, LAYER, FIELD, PUNT_ID)          \
-    field_t NAME = {                     \
-        .offset = BASE + offsetof(LAYER, FIELD),       \
-        .len = STRUCT_SIZE_OF(LAYER, FIELD),       \
-        .punt_id = PUNT_ID,                     \
+#define _(NAME, BASE, LAYER, FIELD, PUNT_ID)           \
+  field_t NAME = {                                     \
+    .offset = BASE + offsetof(LAYER, FIELD),           \
+    .len = STRUCT_SIZE_OF(LAYER, FIELD),               \
+    .punt_id = PUNT_ID,                                \
     };
 foreach_field
 #undef _
@@ -108,7 +108,6 @@ foreach_field
 #define NEXT_MAPME_ACK4 hicn_punt_glb.next_hit_data_ipv4
 #define NEXT_MAPME_CTRL6 hicn_punt_glb.next_hit_interest_ipv6
 #define NEXT_MAPME_ACK6 hicn_punt_glb.next_hit_data_ipv6
-
 /* Maximum number of vector allowed in match. Value hardcoded in vnet_classify_hash_packet_inline in vnet_classify.h */
 #define MAX_MATCH_SIZE 5
 /**
@@ -117,7 +116,7 @@ foreach_field
  *
  *
  */
-hicn_punt_glb_t hicn_punt_glb;
+  hicn_punt_glb_t hicn_punt_glb;
 
 /**
  * We use the function build_bit_array to populate an initially empty buffer
@@ -371,28 +370,29 @@ hicn_punt_add_del_vnettbl (ip_version_t * ip, field_t * field, u8 mask,
 int
 hicn_punt_add_del_vnettbl_udp (ip_version_t * outer, ip_version_t * inner,
 			       field_t * field, u8 mask, u32 next_tbl_index,
-			       u32 intfc, u8 base_offset, int is_add)
+			       u32 intfc, u8 base_offset, u8 use_current_data,
+			       int is_add)
 {
   u8 udp_mask[inner->addr_len_bits];
   build_ip_address_mask (mask, udp_mask, sizeof (udp_mask));
   u16 port_value = 0xffff;
   u8 protocol_value = 0xff;
-  
+
   return _hicn_punt_add_del_vnettbl (outer, field->punt_id, mask,
 				     next_tbl_index, intfc, base_offset,
 				     is_add,
-				     HICN_CLASSIFY_NO_CURRENT_DATA_FLAG,
+				     use_current_data,
 				     outer->protocol_field, &protocol_value,
 				     outer->udp_sport, &port_value,
 				     outer->udp_dport, &port_value, field,
 				     udp_mask, NULL);
 }
 
-#define hicn_punt_add_vnettbl_udp(outer, inner, field, mask, next_tbl_index, intfc, base_offset) \
-  (hicn_punt_add_del_vnettbl_udp(outer, inner, field, mask, next_tbl_index, intfc, base_offset, OP_ADD))
+#define hicn_punt_add_vnettbl_udp(outer, inner, field, mask, next_tbl_index, intfc, base_offset, use_current_data) \
+  (hicn_punt_add_del_vnettbl_udp(outer, inner, field, mask, next_tbl_index, intfc, base_offset, use_current_data, OP_ADD))
 
-#define hicn_punt_del_vnettbl_udp(outer, inner, field, mask, next_tbl_index, intfc, base_offset) \
-  (hicn_punt_add_del_vnettbl_udp(outer, inner, field, mask, next_tbl_index, intfc, base_offset, OP_DEL))
+#define hicn_punt_del_vnettbl_udp(outer, inner, field, mask, next_tbl_index, intfc, base_offset, use_current_data) \
+  (hicn_punt_add_del_vnettbl_udp(outer, inner, field, mask, next_tbl_index, intfc, base_offset, use_current_data, OP_DEL))
 
 /**
  * @brief Add or remove a vnet session matching the list of fields/values passed
@@ -481,7 +481,7 @@ hicn_punt_add_del_vnetssn_udp (ip_version_t * outer, ip_version_t * inner,
 			       u8 mask, u32 next_hit_index, u32 intfc,
 			       u8 base_offset, u8 protocol, u16 sport,
 			       u16 dport, int is_add)
-{    
+{
   return _hicn_punt_add_del_vnetssn (outer, field->punt_id, mask,
 				     next_hit_index, intfc, base_offset,
 				     is_add, outer->protocol_field, &protocol,
@@ -520,7 +520,7 @@ hicn_punt_enable_disable_vnet_ip4_table_on_intf (vlib_main_t * vm,
 int
 hicn_punt_remove_ip4_address (vlib_main_t * vm, ip4_address_t * addr,
 			      u8 mask, int skip, u32 sw_if_index,
-			      int is_enable)
+			      int is_enable, u8 with_l2)
 {
 
   vnet_classify_main_t *cm = &vnet_classify_main;
@@ -528,7 +528,7 @@ hicn_punt_remove_ip4_address (vlib_main_t * vm, ip4_address_t * addr,
 
   u32 table_index = ~0;
 
-  u32 base_offset = (skip ? ETH_L2 : NO_L2);
+  u32 base_offset = (with_l2 ? ETH_L2 : NO_L2);
   ip46_address_t addr46;
   ip46_address_set_ip4 (&addr46, addr);
 
@@ -562,7 +562,7 @@ hicn_punt_remove_ip4_address (vlib_main_t * vm, ip4_address_t * addr,
 int
 hicn_punt_remove_ip6_address (vlib_main_t * vm, ip6_address_t * addr,
 			      u8 mask, int skip, u32 sw_if_index,
-			      int is_enable)
+			      int is_enable, u8 with_l2)
 {
 
   vnet_classify_main_t *cm = &vnet_classify_main;
@@ -570,7 +570,7 @@ hicn_punt_remove_ip6_address (vlib_main_t * vm, ip6_address_t * addr,
 
   u32 table_index = ~0;
 
-  u32 base_offset = (skip ? ETH_L2 : NO_L2);
+  u32 base_offset = (with_l2 ? ETH_L2 : NO_L2);
 
   hicn_punt_del_vnetssn (&ipv6, &ipv6_src, (ip46_address_t *) addr, mask,
 			 hicn_punt_glb.next_hit_data_ipv6, sw_if_index,
@@ -763,10 +763,16 @@ hicn_punt_init (vlib_main_t * vm)
 u32
 hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 				 ip46_address_t * prefix, u8 mask,
-				 u32 swif, u8 punt_type, u16 sport, u16 dport)
+				 u32 swif, u8 punt_type, u16 sport, u16 dport,
+				 u8 with_l2)
 {
   int skip = 1;
   u32 table_index;
+  // If we want l2 then we punt from data (and not current)
+  u8 use_current_data =
+    with_l2 ? HICN_CLASSIFY_NO_CURRENT_DATA_FLAG :
+    HICN_CLASSIFY_CURRENT_DATA_FLAG;
+  u8 base_offset = with_l2 ? ETH_L2 : NO_L2;
 
   if (punt_type != HICN_PUNT_IP_TYPE && punt_type != HICN_PUNT_UDP4_TYPE
       && punt_type != HICN_PUNT_UDP6_TYPE)
@@ -779,16 +785,18 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 
       if (punt_type == HICN_PUNT_UDP4_TYPE)
 	{
-	  skip = 2;
+	  //If we consider ethernet we can skip 32 bytes, otherwise only 16
+	  skip = 1 + with_l2;
 	  /* Create Vnet table for a given mask */
 	  hicn_punt_add_vnettbl_udp (&ipv44, &ipv4, &udp44_src, mask, ~0,
-				     swif, ETH_L2);
+				     swif, base_offset, use_current_data);
 
 	  table_index =
 	    hicn_punt_glb.udp44_vnet_tbl_idx[swif][skip][HICN_PUNT_SRC][mask];
 
 	  hicn_punt_add_vnettbl_udp (&ipv44, &ipv4, &udp44_dst, mask,
-				     table_index, swif, ETH_L2);
+				     table_index, swif, base_offset,
+				     use_current_data);
 	  /*
 	   * Add a session for the specified ip address and
 	   * subnet mask
@@ -796,28 +804,32 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 	  hicn_punt_add_vnetssn_udp (&ipv44, &ipv4, &udp44_src,
 				     prefix, mask,
 				     hicn_punt_glb.next_hit_data_udp4,
-				     swif, ETH_L2, IPPROTO_UDP, sport, dport);
+				     swif, base_offset, IPPROTO_UDP, sport,
+				     dport);
 
 	  hicn_punt_add_vnetssn_udp (&ipv44, &ipv4, &udp44_dst,
 				     prefix, mask,
 				     hicn_punt_glb.next_hit_interest_udp4,
-				     swif, ETH_L2, IPPROTO_UDP, sport, dport);
+				     swif, base_offset, IPPROTO_UDP, sport,
+				     dport);
 
 	  hicn_punt_enable_disable_vnet_ip4_table_on_intf (vm, swif,
 							   OP_ENABLE);
 	}
       else			//PUNTING is UDP6
 	{
-	  skip = 3;
+	  //If we consider ethernet we can skip 48 bytes, otherwise only 32
+	  skip = 2 + with_l2;
 	  /* Create Vnet table for a given mask */
 	  hicn_punt_add_vnettbl_udp (&ipv64, &ipv6, &udp64_src, mask, ~0,
-				     swif, ETH_L2);
+				     swif, base_offset, use_current_data);
 
 	  table_index =
 	    hicn_punt_glb.udp64_vnet_tbl_idx[swif][skip][HICN_PUNT_SRC][mask];
 
 	  hicn_punt_add_vnettbl_udp (&ipv64, &ipv6, &udp64_dst, mask,
-				     table_index, swif, ETH_L2);
+				     table_index, swif, base_offset,
+				     use_current_data);
 
 	  /*
 	   * Add a session for the specified ip address and
@@ -826,12 +838,14 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 	  hicn_punt_add_vnetssn_udp (&ipv64, &ipv4, &udp64_src,
 				     prefix, mask,
 				     hicn_punt_glb.next_hit_data_udp6,
-				     swif, ETH_L2, IPPROTO_UDP, sport, dport);
+				     swif, base_offset, IPPROTO_UDP, sport,
+				     dport);
 
 	  hicn_punt_add_vnetssn_udp (&ipv64, &ipv4, &udp64_dst,
 				     prefix, mask,
 				     hicn_punt_glb.next_hit_interest_udp6,
-				     swif, ETH_L2, IPPROTO_UDP, sport, dport);
+				     swif, base_offset, IPPROTO_UDP, sport,
+				     dport);
 
 	  hicn_punt_enable_disable_vnet_ip6_table_on_intf (vm, swif,
 							   OP_ENABLE);
@@ -841,18 +855,20 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
     {
       if (punt_type == HICN_PUNT_UDP4_TYPE)
 	{
-	  skip = 2;
+	  //If we consider ethernet we can skip 32 bytes, otherwise only 16
+	  skip = 1 + with_l2;
 	  /* Create Vnet table for a given mask */
 	  if (mask > 96)
 	    return HICN_ERROR_PUNT_INVAL;
 
 	  hicn_punt_add_vnettbl_udp (&ipv46, &ipv4, &udp46_src, mask, ~0,
-				     swif, ETH_L2);
+				     swif, base_offset, use_current_data);
 
 	  table_index =
 	    hicn_punt_glb.udp46_vnet_tbl_idx[swif][skip][HICN_PUNT_SRC][mask];
 	  hicn_punt_add_vnettbl_udp (&ipv46, &ipv4, &udp46_dst, mask,
-				     table_index, swif, ETH_L2);
+				     table_index, swif, base_offset,
+				     use_current_data);
 
 	  /*
 	   * Add a session for the specified ip address and
@@ -861,11 +877,12 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 	  hicn_punt_add_vnetssn_udp (&ipv46, &ipv4, &udp46_src,
 				     prefix, mask,
 				     hicn_punt_glb.next_hit_data_udp4,
-				     swif, ETH_L2, IPPROTO_UDP, sport, dport);
-	  hicn_punt_add_vnetssn_udp (&ipv46, &ipv4, &udp46_dst,
-				     prefix, mask,
+				     swif, base_offset, IPPROTO_UDP, sport,
+				     dport);
+	  hicn_punt_add_vnetssn_udp (&ipv46, &ipv4, &udp46_dst, prefix, mask,
 				     hicn_punt_glb.next_hit_interest_udp4,
-				     swif, ETH_L2, IPPROTO_UDP, sport, dport);
+				     swif, base_offset, IPPROTO_UDP, sport,
+				     dport);
 
 	  hicn_punt_enable_disable_vnet_ip4_table_on_intf (vm, swif,
 							   OP_ENABLE);
@@ -874,15 +891,17 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 	{
 	  if (mask > 122)
 	    return HICN_ERROR_PUNT_INVAL;
-	  
-	  skip = 3;
+
+	  //If we consider ethernet we can skip 48 bytes, otherwise only 32
+	  skip = 2 + with_l2;
 	  hicn_punt_add_vnettbl_udp (&ipv66, &ipv6, &udp66_src, mask, ~0,
-				     swif, ETH_L2);
+				     swif, base_offset, use_current_data);
 
 	  table_index =
 	    hicn_punt_glb.udp66_vnet_tbl_idx[swif][skip][HICN_PUNT_SRC][mask];
 	  hicn_punt_add_vnettbl_udp (&ipv66, &ipv6, &udp66_dst, mask,
-				     table_index, swif, ETH_L2);
+				     table_index, swif, base_offset,
+				     use_current_data);
 
 	  /*
 	   * Add a session for the specified ip address and
@@ -891,11 +910,12 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 	  hicn_punt_add_vnetssn_udp (&ipv66, &ipv6, &udp66_src,
 				     prefix, mask,
 				     hicn_punt_glb.next_hit_data_udp6,
-				     swif, ETH_L2, IPPROTO_UDP, sport, dport);
-	  hicn_punt_add_vnetssn_udp (&ipv66, &ipv6, &udp66_dst,
-				     prefix, mask,
+				     swif, base_offset, IPPROTO_UDP, sport,
+				     dport);
+	  hicn_punt_add_vnetssn_udp (&ipv66, &ipv6, &udp66_dst, prefix, mask,
 				     hicn_punt_glb.next_hit_interest_udp6,
-				     swif, ETH_L2, IPPROTO_UDP, sport, dport);
+				     swif, base_offset, IPPROTO_UDP, sport,
+				     dport);
 
 	  hicn_punt_enable_disable_vnet_ip6_table_on_intf (vm, swif,
 							   OP_ENABLE);
@@ -908,13 +928,17 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 
 
 u32
-hicn_punt_interest_data_for_ethernet (vlib_main_t * vm,
-				      ip46_address_t * prefix, u8 mask,
-				      u32 swif, u8 punt_type)
+hicn_punt_interest_data_for_ip (vlib_main_t * vm,
+				ip46_address_t * prefix, u8 mask,
+				u32 swif, u8 punt_type, u8 with_l2)
 {
   int skip = 1;
   u32 table_index;
-  u8 use_current_data = HICN_CLASSIFY_NO_CURRENT_DATA_FLAG;
+  // If we want l2 then we punt from data (and not current)
+  u8 use_current_data =
+    with_l2 ? HICN_CLASSIFY_NO_CURRENT_DATA_FLAG :
+    HICN_CLASSIFY_CURRENT_DATA_FLAG;
+  u8 base_offset = with_l2 ? ETH_L2 : NO_L2;
 
   if (punt_type != HICN_PUNT_IP_TYPE && punt_type != HICN_PUNT_UDP4_TYPE
       && punt_type != HICN_PUNT_UDP6_TYPE)
@@ -928,14 +952,14 @@ hicn_punt_interest_data_for_ethernet (vlib_main_t * vm,
       if (punt_type == HICN_PUNT_IP_TYPE)
 	{
 	  /* Create Vnet table for a given mask */
-	  hicn_punt_add_vnettbl (&ipv4, &ipv4_src, mask, ~0, swif, ETH_L2,
-				 use_current_data);
+	  hicn_punt_add_vnettbl (&ipv4, &ipv4_src, mask, ~0, swif,
+				 base_offset, use_current_data);
 
 	  table_index =
 	    hicn_punt_glb.ip4_vnet_tbl_idx[swif][skip][HICN_PUNT_SRC][mask];
 
 	  hicn_punt_add_vnettbl (&ipv4, &ipv4_dst, mask, table_index, swif,
-				 ETH_L2, use_current_data);
+				 base_offset, use_current_data);
 
 	  /*
 	   * Add a session for the specified ip address and
@@ -944,11 +968,11 @@ hicn_punt_interest_data_for_ethernet (vlib_main_t * vm,
 	  hicn_punt_add_vnetssn (&ipv4, &ipv4_src,
 				 prefix, mask,
 				 hicn_punt_glb.next_hit_data_ipv4, swif,
-				 ETH_L2);
+				 base_offset);
 	  hicn_punt_add_vnetssn (&ipv4, &ipv4_dst,
 				 prefix, mask,
 				 hicn_punt_glb.next_hit_interest_ipv4, swif,
-				 ETH_L2);
+				 base_offset);
 
 	  hicn_punt_enable_disable_vnet_ip4_table_on_intf (vm, swif,
 							   OP_ENABLE);
@@ -966,14 +990,14 @@ hicn_punt_interest_data_for_ethernet (vlib_main_t * vm,
 	    return HICN_ERROR_PUNT_INVAL;
 
 	  /* Create Vnet table for a given mask */
-	  hicn_punt_add_vnettbl (&ipv6, &ipv6_src, mask, ~0, swif, ETH_L2,
-				 use_current_data);
+	  hicn_punt_add_vnettbl (&ipv6, &ipv6_src, mask, ~0, swif,
+				 base_offset, use_current_data);
 
 	  table_index =
 	    hicn_punt_glb.ip6_vnet_tbl_idx[swif][skip][HICN_PUNT_SRC][mask];
 
 	  hicn_punt_add_vnettbl (&ipv6, &ipv6_dst, mask, table_index, swif,
-				 ETH_L2, use_current_data);
+				 base_offset, use_current_data);
 
 	  /*
 	   * Add a session for the specified ip address and
@@ -981,10 +1005,10 @@ hicn_punt_interest_data_for_ethernet (vlib_main_t * vm,
 	   */
 	  hicn_punt_add_vnetssn (&ipv6, &ipv6_src, prefix,
 				 mask, hicn_punt_glb.next_hit_data_ipv6, swif,
-				 ETH_L2);
+				 base_offset);
 	  hicn_punt_add_vnetssn (&ipv6, &ipv6_dst, prefix,
 				 mask, hicn_punt_glb.next_hit_interest_ipv6,
-				 swif, ETH_L2);
+				 swif, base_offset);
 
 	  hicn_punt_enable_disable_vnet_ip6_table_on_intf (vm, swif,
 							   OP_ENABLE);
