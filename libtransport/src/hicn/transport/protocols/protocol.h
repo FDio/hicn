@@ -62,7 +62,6 @@ class TransportProtocol : public interface::BasePortal::ConsumerCallback,
   std::shared_ptr<interface::BasePortal> portal_;
   volatile bool is_running_;
   TransportStatistics stats_;
-  std::shared_ptr<std::vector<uint8_t>> content_buffer_;
 };
 
 }  // end namespace protocol
