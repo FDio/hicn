@@ -362,11 +362,9 @@ api_hicn_api_face_ip_add (vat_main_t * vam)
     }
 
   /* Check for presence of both addresses */
-  if ((!ip46_address_is_zero (&local_addr)
-       && ! !ip46_address_is_zero (&remote_addr)))
+  if (ip46_address_is_zero (&remote_addr))
     {
-      clib_warning
-	("Incomplete IP face. Please specify local and remote address");
+      clib_warning ("Incomplete IP face. Please specify remote address");
       return (1);
     }
   /* Construct the API message */
@@ -558,7 +556,7 @@ api_hicn_api_face_stats_dump (vat_main_t * vam)
 
 /* memif-details message handler */
 static void
-vl_api_hicn_api_face_stats_details_t_handler
+  vl_api_hicn_api_face_stats_details_t_handler
   (vl_api_hicn_api_face_stats_details_t * mp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
@@ -1071,7 +1069,7 @@ _(hicn_api_node_params_set, "PIT size <sz> CS size <sz>"                \
 _(hicn_api_node_params_get, "")                                         \
 _(hicn_api_node_stats_get, "")                                          \
 _(hicn_api_face_ip_del, "face <faceID>")                                \
-_(hicn_api_face_ip_add, "add <swif> <address>")                         \
+_(hicn_api_face_ip_add, "local <address> remote <address> intfc <swif>")\
 _(hicn_api_face_stats_dump, "")                                         \
 _(hicn_api_route_nhops_add, "add prefix <IP4/IP6>/<subnet> face <faceID> weight <weight>") \
 _(hicn_api_face_ip_params_get, "face <faceID>")                         \

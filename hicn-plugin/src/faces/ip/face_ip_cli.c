@@ -60,10 +60,12 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
       else if (unformat (line_input, "add"))
 	{
 	  face_op = HICN_FACE_ADD;
-	  if (unformat (line_input, "local %U remote %U intfc %U",
-			unformat_ip46_address, &local_addr, IP46_TYPE_ANY,
-			unformat_ip46_address, &remote_addr, IP46_TYPE_ANY,
-			unformat_vnet_sw_interface, vnm, &sw_if));
+	  if (unformat (line_input, "local %U ",
+			unformat_ip46_address, &local_addr, IP46_TYPE_ANY));
+	  else if (unformat (line_input, "remote %U intfc %U",
+			     unformat_ip46_address, &remote_addr,
+			     IP46_TYPE_ANY, unformat_vnet_sw_interface, vnm,
+			     &sw_if));
 	  else
 	    {
 	      return clib_error_return (0, "%s '%U'",
@@ -87,6 +89,57 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
 	{
 	  return clib_error_return (0, "%s, face_id %d not valid",
 				    get_error_string (ret), face_id);
+	}
+    }
+
+  if (ip46_address_is_zero (&local_addr))
+    {
+      if (!vnet_sw_interface_is_valid (vnm, sw_if))
+	return clib_error_return (0, "interface not valid");
+
+      if (ip46_address_is_ip4 (&remote_addr))
+	{
+	  ip_interface_address_t *interface_address;
+	  ip4_address_t *addr =
+	    ip4_interface_address_matching_destination (&ip4_main,
+							&remote_addr.ip4,
+							sw_if,
+							&interface_address);
+
+	  if (addr == NULL)
+	    addr = ip4_interface_first_address (&ip4_main,
+						sw_if, &interface_address);
+
+	  if (addr == NULL)
+	    return clib_error_return (0,
+				      "no valid ip address on interface %d",
+				      sw_if);
+
+	  ip46_address_set_ip4 (&local_addr, addr);
+	}
+      else
+	{
+	  ip_interface_address_t *interface_address;
+	  ip6_interface_address_matching_destination (&ip6_main,
+						      &remote_addr.ip6, sw_if,
+						      &interface_address);
+
+	  ip6_address_t *addr = NULL;
+	  if (interface_address != NULL)
+	    addr =
+	      (ip6_address_t *)
+	      ip_interface_address_get_address (&ip6_main.lookup_main,
+						interface_address);
+
+	  if (addr == NULL)
+	    addr = ip6_interface_first_address (&ip6_main, sw_if);
+
+	  if (addr == NULL)
+	    return clib_error_return (0,
+				      "no valid ip address on interface %d",
+				      sw_if);
+
+	  ip46_address_set_ip6 (&local_addr, addr);
 	}
     }
 

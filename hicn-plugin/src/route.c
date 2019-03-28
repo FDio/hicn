@@ -108,7 +108,7 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
   vlib_main_t *vm = vlib_get_main ();
   hicn_face_vft_t *face_vft = NULL;
 
-  if (face_id == NULL)
+  if (face_id == NULL || !hicn_dpoi_idx_is_valid (*face_id))
     {
       return HICN_ERROR_ROUTE_INVAL;
     }
