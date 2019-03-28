@@ -208,15 +208,41 @@ vl_api_hicn_api_face_ip_add_t_handler (vl_api_hicn_api_face_ip_add_t * mp)
   remote_addr.as_u64[1] =
     clib_net_to_host_u64 (((u64 *) (&mp->remote_addr))[1]);
 
-  u32 swif = clib_net_to_host_u32 (mp->swif);
+  u32 sw_if = clib_net_to_host_u32 (mp->swif);
 
-  if (vnet_get_sw_interface_safe (vnm, swif) != NULL)
-    rv = hicn_face_ip_add (&local_addr, &remote_addr, swif, &faceid);
+  if(ip46_address_is_zero(&local_addr))
+    {
+      if(!vnet_sw_interface_is_valid(vnm, sw_if))
+        {
+          faceid = HICN_FACE_NULL;
+        }
+      else
+        {
+          rv = HICN_ERROR_NONE;
+        }
+
+      if(ip46_address_is_ip4(&remote_addr))
+        {
+          ip_interface_address_t * interface_address;
+          ip4_address_t * addr = ip4_interface_address_matching_destination (&ip4_main, &remote_addr.ip4, sw_if, &interface_address);
+          ip46_address_set_ip4(&local_addr, addr);
+        }
+      else
+        {
+          ip_interface_address_t * interface_address;
+          ip6_interface_address_matching_destination (&ip6_main, &remote_addr.ip6, sw_if, &interface_address);
+          ip6_address_t * addr = (ip6_address_t *)ip_interface_address_get_address(&ip6_main.lookup_main, interface_address);
+          ip46_address_set_ip6(&local_addr, addr);
+        }
+    }
+
+  if (rv == HICN_ERROR_NONE)
+    rv = hicn_face_ip_add (&local_addr, &remote_addr, sw_if, &faceid);
 
   /* *INDENT-OFF* */
   REPLY_MACRO2 (VL_API_HICN_API_FACE_IP_ADD_REPLY /* , rmp, mp, rv */ ,(
     {
-      rmp->faceid = clib_host_to_net_u16 ((u16) faceid);
+      rmp->faceid = clib_host_to_net_u16 ((u32) faceid);
     }));
   /* *INDENT-ON* */
 }
