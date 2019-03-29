@@ -26,10 +26,12 @@ CbrTransportProtocol::CbrTransportProtocol(
     interface::ConsumerSocket *icnet_socket)
     : RaaqmTransportProtocol(icnet_socket) {}
 
-int CbrTransportProtocol::start() {
+int CbrTransportProtocol::start() { return RaaqmTransportProtocol::start(); }
+
+void CbrTransportProtocol::reset() {
+  RaaqmTransportProtocol::reset();
   socket_->getSocketOption(GeneralTransportOptions::CURRENT_WINDOW_SIZE,
                            current_window_size_);
-  return RaaqmTransportProtocol::start();
 }
 
 void CbrTransportProtocol::afterDataUnsatisfied(uint64_t segment) {}
