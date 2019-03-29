@@ -12,20 +12,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <stdio.h>
+#include <malloc.h>
+#include <sysrepo/xpath.h>
+
+/* Hicn headers */
+
+#include "hicn_model.h"
+#include "tlock.h"
+#include "../hicn_light.h"
 
 
-#ifndef __TLOCK_H__
-#define __TLOCK_H__
 
+int hicn_subscribe_events(sr_session_ctx_t *session,
+                          sr_subscription_ctx_t **subscription) {
 
-// limit on the number of locks: it shoud be matched with the  number of hicn-state leaves
-#define MAX_LOCK_SIZE  4
+  SRP_LOG_INF_MSG("hicn light plugin initialized successfully.");
+  return SR_ERR_OK;
 
-volatile long int  En[MAX_LOCK_SIZE] , De[MAX_LOCK_SIZE] ;   // For Ticket Algorithm
-
-
-void Ticket_init ( int Lock_Number , long int init );
-void Ticket_Lock(int Lock_Number );
-void Ticket_Unlock(int Lock_Number );
-
-#endif /* __IETF_HICN_H__ */
+}
