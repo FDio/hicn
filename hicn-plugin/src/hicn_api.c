@@ -268,7 +268,7 @@ vl_api_hicn_api_face_ip_add_t_handler (vl_api_hicn_api_face_ip_add_t * mp)
   /* *INDENT-OFF* */
   REPLY_MACRO2 (VL_API_HICN_API_FACE_IP_ADD_REPLY /* , rmp, mp, rv */ ,(
     {
-      rmp->faceid = clib_host_to_net_u16 ((u32) faceid);
+      rmp->faceid = clib_host_to_net_u32 ((u32) faceid);
       rmp->retval = rv;
     }));
   /* *INDENT-ON* */
