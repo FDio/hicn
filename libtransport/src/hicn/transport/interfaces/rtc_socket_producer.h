@@ -18,6 +18,7 @@
 #include <hicn/transport/interfaces/socket_producer.h>
 #include <hicn/transport/utils/content_store.h>
 
+#include <atomic>
 #include <map>
 #include <mutex>
 
@@ -41,7 +42,7 @@ class RTCProducerSocket : public ProducerSocket {
 
  private:
   void sendNack(const Interest &interest);
-  void updateStats(uint32_t packet_size);
+  void updateStats(uint32_t packet_size, uint64_t now);
 
   // std::map<uint32_t, uint64_t> pendingInterests_;
   uint32_t currentSeg_;
@@ -53,9 +54,12 @@ class RTCProducerSocket : public ProducerSocket {
   uint32_t producedBytes_;
   uint32_t producedPackets_;
   uint32_t bytesProductionRate_;
-  uint32_t packetsProductionRate_;
+  std::atomic<uint32_t> packetsProductionRate_;
   uint32_t perSecondFactor_;
-  std::chrono::steady_clock::time_point lastStats_;
+  uint64_t lastStats_;
+  // std::chrono::steady_clock::time_point lastProduced_;
+  std::atomic<uint64_t> lastProduced_;
+  std::atomic<bool> active_;
 };
 
 }  // namespace interface
