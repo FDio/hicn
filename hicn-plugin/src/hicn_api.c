@@ -282,8 +282,8 @@ vl_api_hicn_api_face_ip_del_t_handler (vl_api_hicn_api_face_ip_del_t * mp)
 
   hicn_main_t *sm = &hicn_main;
 
-  hicn_face_id_t faceid = clib_net_to_host_u16 (mp->faceid);
-  rv = hicn_face_del (faceid);
+  hicn_face_id_t faceid = clib_net_to_host_u32 (mp->faceid);
+  rv = hicn_face_ip_del (faceid);
 
   REPLY_MACRO (VL_API_HICN_API_FACE_IP_DEL_REPLY /* , rmp, mp, rv */ );
 
@@ -298,7 +298,7 @@ static void
 
   hicn_main_t *sm = &hicn_main;
 
-  hicn_face_id_t faceid = clib_net_to_host_u16 (mp->faceid);
+  hicn_face_id_t faceid = clib_net_to_host_u32 (mp->faceid);
 
   /* *INDENT-OFF* */
   REPLY_MACRO2 (VL_API_HICN_API_FACE_IP_PARAMS_GET_REPLY, (

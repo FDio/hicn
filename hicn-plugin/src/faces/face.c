@@ -127,7 +127,7 @@ hicn_face_del (hicn_face_id_t face_id)
 {
   int ret = HICN_ERROR_NONE;
 
-  if (pool_len (hicn_dpoi_face_pool) > face_id)
+  if (hicn_dpoi_idx_is_valid (face_id))
     {
       hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
       if (face->shared.locks == 0)

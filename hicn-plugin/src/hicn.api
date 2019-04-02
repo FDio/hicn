@@ -199,7 +199,7 @@ define hicn_api_face_ip_del
   u32 context;
 
   /* A Face ID to be deleted */
-  u16 faceid;
+  u32 faceid;
 };
 
 define hicn_api_face_ip_del_reply
@@ -220,7 +220,7 @@ define hicn_api_face_ip_params_get
   u32 context;
 
   /* A Face to be retrieved */
-  u16 faceid;
+  u32 faceid;
 };
 
 define hicn_api_face_stats_details
@@ -354,7 +354,7 @@ define hicn_api_route_nhop_del
   u8 len;
 
   /* Specific next-hop to be removed */
-  u16 faceid;
+  u32 faceid;
 };
 
 define hicn_api_route_nhop_del_reply
@@ -390,7 +390,7 @@ define hicn_api_route_get_reply
   u32 context;
 
   /* List of faces pointing to the next hops */
-  u16 faceids[1000];
+  u32 faceids[1000];
 
   /* Strategy */
   u32 strategy_id;

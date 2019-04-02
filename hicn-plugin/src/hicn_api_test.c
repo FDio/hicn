@@ -413,7 +413,7 @@ api_hicn_api_face_ip_del (vat_main_t * vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_face_ip_del_t *mp;
-  int faceid = 0, ret;
+  u32 faceid = 0, ret;
 
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
@@ -427,14 +427,14 @@ api_hicn_api_face_ip_del (vat_main_t * vam)
     }
 
   //Check for presence of face ID
-  if (faceid == 0)
+  if (faceid == ~0)
     {
       clib_warning ("Please specify face ID");
       return 1;
     }
   //Construct the API message
   M (HICN_API_FACE_IP_DEL, mp);
-  mp->faceid = clib_host_to_net_i32 (faceid);
+  mp->faceid = clib_host_to_net_u32 (faceid);
 
   //send it...
   S (mp);
@@ -450,7 +450,7 @@ api_hicn_api_face_ip_params_get (vat_main_t * vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_face_ip_params_get_t *mp;
-  int faceid = 0, ret;
+  u32 faceid = 0, ret;
 
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
@@ -471,7 +471,7 @@ api_hicn_api_face_ip_params_get (vat_main_t * vam)
     }
   //Construct the API message
   M (HICN_API_FACE_IP_PARAMS_GET, mp);
-  mp->faceid = clib_host_to_net_i32 (faceid);
+  mp->faceid = clib_host_to_net_u32 (faceid);
 
   //send it...
   S (mp);
