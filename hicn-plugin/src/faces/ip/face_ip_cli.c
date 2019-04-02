@@ -60,12 +60,13 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
       else if (unformat (line_input, "add"))
 	{
 	  face_op = HICN_FACE_ADD;
-	  if (unformat (line_input, "local %U ",
+	  if (unformat (line_input, "local %U",
 			unformat_ip46_address, &local_addr, IP46_TYPE_ANY));
-	  else if (unformat (line_input, "remote %U intfc %U",
-			     unformat_ip46_address, &remote_addr,
-			     IP46_TYPE_ANY, unformat_vnet_sw_interface, vnm,
-			     &sw_if));
+
+          if (unformat (line_input, "remote %U intfc %U",
+                        unformat_ip46_address, &remote_addr,
+                        IP46_TYPE_ANY, unformat_vnet_sw_interface, vnm,
+                        &sw_if));
 	  else
 	    {
 	      return clib_error_return (0, "%s '%U'",
