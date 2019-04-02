@@ -109,7 +109,8 @@ struct ServerConfiguration {
         hash_algorithm(HashAlgorithm::SHA_256),
         keystore_name("/tmp/rsa_crypto_material.p12"),
         keystore_password("cisco"), multiphase_produce_(false), rtc_(false),
-        production_rate_(std::string("2048kbps")), payload_size_(1400) {}
+        interactive_(false), production_rate_(std::string("2048kbps")),
+        payload_size_(1400) {}
 
   Prefix name;
   bool virtual_producer;
@@ -124,6 +125,7 @@ struct ServerConfiguration {
   std::string keystore_password;
   bool multiphase_produce_;
   bool rtc_;
+  bool interactive_;
   Rate production_rate_;
   std::size_t payload_size_;
 };
@@ -152,6 +154,11 @@ public:
               << std::endl;
 
     io_service_.stop();
+  }
+
+  void processPayloadRtc(ConsumerSocket &c, std::size_t bytes_transferred,
+                        const std::error_code &ec) {
+    configuration_.receive_buffer->clear();
   }
 
   bool verifyData(ConsumerSocket &c, const ContentObject &contentObject) {
@@ -298,11 +305,19 @@ public:
       return ERROR_SETUP;
     }
 
-    ret = consumer_socket_->setSocketOption(
+    if(!configuration_.rtc_) {
+      ret = consumer_socket_->setSocketOption(
         ConsumerCallbacksOptions::CONTENT_RETRIEVED,
         (ConsumerContentCallback)std::bind(
             &HIperfClient::processPayload, this, std::placeholders::_1,
             std::placeholders::_2, std::placeholders::_3));
+    }else{
+      ret = consumer_socket_->setSocketOption(
+        ConsumerCallbacksOptions::CONTENT_RETRIEVED,
+        (ConsumerContentCallback)std::bind(
+            &HIperfClient::processPayloadRtc, this, std::placeholders::_1,
+            std::placeholders::_2, std::placeholders::_3));
+    }
 
     if (ret == SOCKET_OPTION_NOT_SET) {
       return ERROR_SETUP;
@@ -366,7 +381,12 @@ public:
         rtc_timer_(io_service_),
         content_objects_((std::uint16_t)(1 << log2_content_object_buffer_size)),
         content_objects_index_(0),
-        mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1) {
+        mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
+#ifndef _WIN32
+        input_(io_service_, ::dup(STDIN_FILENO)),
+        rtc_running_(false)
+#endif
+    {
     std::string buffer(configuration_.payload_size_, 'X');
     std::cout << "Producing contents under name " << conf.name.getName()
               << std::endl;
@@ -527,6 +547,38 @@ public:
     }
   }
 
+#ifndef _WIN32
+  void handleInput(const std::error_code& error, std::size_t length) {
+    if(error){
+      producer_socket_->stop();
+      io_service_.stop();
+    }
+
+    if(rtc_running_){
+      std::cout << "stop real time content production" << std::endl;
+      rtc_running_ = false;
+      rtc_timer_.cancel();
+    } else {
+      std::cout << "start real time content production" << std::endl;
+      rtc_running_ = true;
+      rtc_timer_.expires_from_now(
+        configuration_.production_rate_.getMicrosecondsForPacket(
+        configuration_.payload_size_));
+      rtc_timer_.async_wait(
+         std::bind(&HIperfServer::sendRTCContentObjectCallback,
+                        this,
+                        std::placeholders::_1));
+    }
+
+    input_buffer_.consume(length); // Remove newline from input.
+    asio::async_read_until(input_, input_buffer_, '\n',
+          std::bind(&HIperfServer::handleInput,
+                      this,
+                      std::placeholders::_1,
+                      std::placeholders::_2));
+  }
+#endif
+
   int run() {
     std::cerr << "Starting to serve consumers" << std::endl;
 
@@ -536,13 +588,33 @@ public:
       io_service_.stop();
     });
 
-    if (configuration_.rtc_) {
+    if (configuration_.rtc_){
+#ifndef _WIN32
+      if(configuration_.interactive_) {
+        asio::async_read_until(input_, input_buffer_, '\n',
+          std::bind(&HIperfServer::handleInput,
+                          this,
+                          std::placeholders::_1,
+                          std::placeholders::_2));
+      }else{
+        rtc_running_ = true;
+        rtc_timer_.expires_from_now(
+            configuration_.production_rate_.getMicrosecondsForPacket(
+            configuration_.payload_size_));
+        rtc_timer_.async_wait(
+             std::bind(&HIperfServer::sendRTCContentObjectCallback,
+                        this,
+                        std::placeholders::_1));
+      }
+#else
       rtc_timer_.expires_from_now(
-          configuration_.production_rate_.getMicrosecondsForPacket(
-              configuration_.payload_size_));
+        configuration_.production_rate_.getMicrosecondsForPacket(
+        configuration_.payload_size_));
       rtc_timer_.async_wait(
-          std::bind(&HIperfServer::sendRTCContentObjectCallback, this,
-                    std::placeholders::_1));
+         std::bind(&HIperfServer::sendRTCContentObjectCallback,
+                        this,
+                        std::placeholders::_1));
+#endif
     }
 
     io_service_.run();
@@ -559,6 +631,11 @@ private:
   std::uint16_t content_objects_index_;
   std::uint16_t mask_;
   std::unique_ptr<ProducerSocket> producer_socket_;
+#ifndef _WIN32
+  asio::posix::stream_descriptor input_;
+  asio::streambuf input_buffer_;
+  bool rtc_running_;
+#endif
 };
 
 void usage() {
@@ -608,9 +685,15 @@ void usage() {
   std::cerr << "                              <download_size> without "
                "resetting the suffix to 0"
   << std::endl;
-  std::cerr << "-B	<bitrate>			    = bitrate for RTC "
+  std::cerr << "-B <bitrate>                = bitrate for RTC "
                "producer, to be used with the -R option"
             << std::endl;
+#ifndef _WIN32
+  std::cerr << "-I                          = interactive mode,"
+               "start/stop real time content production "
+               "by pressing return. To be used with the -R option"
+              << std::endl;
+#endif
   std::cerr << std::endl;
   std::cerr << "Client specific:" << std::endl;
   std::cerr << "-b <beta_parameter>         = RAAQM beta parameter"
@@ -657,12 +740,16 @@ int main(int argc, char *argv[]) {
 
   int opt;
 #ifndef _WIN32
-  while ((opt = getopt(argc, argv, "DSCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:")) !=
+  while ((opt = getopt(argc, argv, "DSCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:I")) !=
          -1) {
     switch (opt) {
     // Common
     case 'D': {
       daemon = true;
+      break;
+    }
+    case 'I': {
+      server_configuration.interactive_ = true;
       break;
     }
 #else
