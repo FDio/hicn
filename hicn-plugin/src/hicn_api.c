@@ -191,7 +191,7 @@ static void
 vl_api_hicn_api_face_ip_add_t_handler (vl_api_hicn_api_face_ip_add_t * mp)
 {
   vl_api_hicn_api_face_ip_add_reply_t *rmp;
-  int rv = HICN_ERROR_UNSPECIFIED;
+  hicn_error_t rv = HICN_ERROR_NONE;
 
   hicn_main_t *sm = &hicn_main;
   vnet_main_t *vnm = vnet_get_main ();
@@ -212,12 +212,12 @@ vl_api_hicn_api_face_ip_add_t_handler (vl_api_hicn_api_face_ip_add_t * mp)
 
   if (ip46_address_is_zero (&local_addr))
     {
-      if (vnet_sw_interface_is_valid (vnm, sw_if))
+      if (!vnet_sw_interface_is_valid (vnm, sw_if))
 	{
-	  rv = HICN_ERROR_NONE;
+	  rv = HICN_ERROR_UNSPECIFIED;
 	}
 
-      if (rv == HICN_ERROR_NONE && ip46_address_is_ip4 (&remote_addr))
+      if ((rv == HICN_ERROR_NONE) && ip46_address_is_ip4 (&remote_addr))
 	{
 	  ip_interface_address_t *interface_address;
 	  ip4_address_t *addr =
