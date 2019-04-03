@@ -100,7 +100,7 @@ class Rate {
 
   std::chrono::microseconds getMicrosecondsForPacket(std::size_t packet_size) {
     return std::chrono::microseconds(
-        packet_size * long(std::round(1000.0 * 8.0 / rate_kbps_)));
+        (uint32_t)std::round(packet_size * 1000.0 * 8.0 / (double)rate_kbps_));
   }
 
  private:
@@ -551,15 +551,15 @@ class HIperfServer {
 
   void sendRTCContentObjectCallback(std::error_code ec) {
     if (!ec) {
-      auto payload =
-          content_objects_[content_objects_index_++ & mask_]->getPayload();
-      producer_socket_->produce(payload->data(), payload->length());
       rtc_timer_.expires_from_now(
           configuration_.production_rate_.getMicrosecondsForPacket(
               configuration_.payload_size_));
       rtc_timer_.async_wait(
           std::bind(&HIperfServer::sendRTCContentObjectCallback, this,
                     std::placeholders::_1));
+      auto payload =
+          content_objects_[content_objects_index_++ & mask_]->getPayload();
+      producer_socket_->produce(payload->data(), payload->length());
     }
   }
 
