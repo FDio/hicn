@@ -14,6 +14,7 @@
  */
 
 #include <hicn/transport/interfaces/socket_producer.h>
+#include <hicn/transport/utils/identity.h>
 
 #include <functional>
 
@@ -333,16 +334,6 @@ void ProducerSocket::asyncProduce(const Name &suffix, const uint8_t *buf,
     async_thread_.add([this, suffix, buffer = buf, size = buffer_size]() {
       produce(suffix, buffer, size, 0, false);
     });
-  }
-}
-
-void ProducerSocket::asyncProduce(const Name &suffix,
-                                  ContentBuffer &&output_buffer) {
-  if (!async_thread_.stopped()) {
-    async_thread_.add(
-        [this, suff = suffix, buffer = std::move(output_buffer)]() {
-          produce(suff, &(*buffer)[0], buffer->size(), true);
-        });
   }
 }
 
