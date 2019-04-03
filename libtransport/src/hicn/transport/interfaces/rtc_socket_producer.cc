@@ -145,7 +145,7 @@ void RTCProducerSocket::produce(const uint8_t *buf, size_t buffer_size) {
   payload->append(buffer_size + TIMESTAMP_LEN);
   content_object.appendPayload(std::move(payload));
 
-  content_object.setLifetime(1000);  // XXX this should be set by the APP
+  content_object.setLifetime(500);  // XXX this should be set by the APP
 
   content_object.setPathLabel(prodLabel_);
   portal_->sendContentObject(content_object);

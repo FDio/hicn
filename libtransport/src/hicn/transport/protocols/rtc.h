@@ -38,7 +38,7 @@
 // controller constant
 #define HICN_ROUND_LEN \
   200  // ms interval of time on which we take decisions / measurements
-#define HICN_MAX_RTX 128
+#define HICN_MAX_RTX 3
 #define HICN_MIN_RTT_WIN 30  // rounds
 
 // cwin
@@ -126,6 +126,8 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   // is not active)
   bool checkIfProducerIsActive(const ContentObject &content_object);
   void onNack(const ContentObject &content_object);
+  //funtcion used to handle nacks for retransmitted interests
+  void onNackForRtx(const ContentObject &content_object);
   void onContentObject(Interest::Ptr &&interest,
                        ContentObject::Ptr &&content_object) override;
   void returnContentToApplication(const ContentObject &content_object);
@@ -158,6 +160,9 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   uint32_t inflightInterestsCount_;
   std::queue<uint32_t> interestRetransmissions_;
   std::vector<sentInterest> inflightInterests_;
+  uint32_t lastSegNacked_; //indicates the last segment id in a past Nack.
+                           //we do not ask for retransmissions for samething
+                           //that is older than this value.
   uint32_t nackedByProducerMaxSize_;
   std::set<uint32_t>
       nackedByProducer_;  // this is used to avoid retransmissions from the
