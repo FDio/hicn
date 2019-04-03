@@ -377,11 +377,11 @@ void RTCTransportProtocol::sendInterest() {
     }
     uint32_t pkt = actualSegment_ & modMask_;
 
-    //if we already reacevied the content we don't ask it again
-    if(inflightInterests_[pkt].received == 1 &&
-      inflightInterests_[pkt].sequence == actualSegment_) {
-        actualSegment_++;
-        return;
+    // if we already reacevied the content we don't ask it again
+    if (inflightInterests_[pkt].received == 1 &&
+        inflightInterests_[pkt].sequence == actualSegment_) {
+      actualSegment_++;
+      return;
     }
 
     // sentInt = actualSegment_;
@@ -464,8 +464,7 @@ void RTCTransportProtocol::onTimeout(Interest::Ptr &&interest) {
   }
 
   if (inflightInterests_[pkt].retransmissions < HICN_MAX_RTX &&
-          lastSegNacked_ <= segmentNumber &&
-          actualSegment_ < segmentNumber) {
+      lastSegNacked_ <= segmentNumber && actualSegment_ < segmentNumber) {
     interestRetransmissions_.push(segmentNumber);
   }
 
@@ -482,7 +481,7 @@ bool RTCTransportProtocol::checkIfProducerIsActive(
     // the producer socket is not active
     // in this case we consider only the first nack
     if (nack_timer_used_) {
-        return false;
+      return false;
     }
 
     nack_timer_used_ = true;
@@ -533,13 +532,13 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
     // we are asking stuff in the future
     gotFutureNack_++;
 
-    if(lastReceived_ > productionSeg){
-      //if this happens the producer socket was restarted
-      //we erase all the inflight + timeout state (only for the first NACK)
-      if(gotFutureNack_ == 1){
+    if (lastReceived_ > productionSeg) {
+      // if this happens the producer socket was restarted
+      // we erase all the inflight + timeout state (only for the first NACK)
+      if (gotFutureNack_ == 1) {
         while (interestRetransmissions_.size() != 0)
-              interestRetransmissions_.pop();
-        for (uint32_t i = 0; i < inflightInterests_.size(); i++){
+          interestRetransmissions_.pop();
+        for (uint32_t i = 0; i < inflightInterests_.size(); i++) {
           inflightInterests_[i].transmissionTime = 0;
           inflightInterests_[i].sequence = 0;
           inflightInterests_[i].retransmissions = 0;
@@ -547,8 +546,8 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
         }
       }
       actualSegment_ = productionSeg + 1;
-      //we can't say much abouit the window, so keep it as it is
-    }else{
+      // we can't say much abouit the window, so keep it as it is
+    } else {
       actualSegment_ = productionSeg + 1;
 
       computeMaxWindow(productionRate, 0);
@@ -574,7 +573,6 @@ void RTCTransportProtocol::onNackForRtx(const ContentObject &content_object) {
     lastSegNacked_ = productionSeg;
 
   } else if (productionSeg < nackSegment) {
-
     actualSegment_ = productionSeg + 1;
   }  // equal should not happen
 }
@@ -638,24 +636,50 @@ void RTCTransportProtocol::onContentObject(
 void RTCTransportProtocol::returnContentToApplication(
     const ContentObject &content_object) {
   // return content to the user
-  auto a = content_object.getPayload();
+  auto read_buffer = content_object.getPayload();
 
-  a->trimStart(HICN_TIMESTAMP_SIZE);
-  uint8_t *start = a->writableData();
-  unsigned size = (unsigned)a->length();
+  read_buffer->trimStart(HICN_TIMESTAMP_SIZE);
 
   // set offset between hICN and RTP packets
-  uint16_t rtp_seq = ntohs(*(((uint16_t *)start) + 1));
+  uint16_t rtp_seq = ntohs(*(((uint16_t *)read_buffer->writableData()) + 1));
   RTPhICN_offset_ = content_object.getName().getSuffix() - rtp_seq;
 
-  std::shared_ptr<std::vector<uint8_t>> content_buffer;
-  socket_->getSocketOption(APPLICATION_BUFFER, content_buffer);
-  content_buffer->insert(content_buffer->end(), start, start + size);
+  interface::ConsumerSocket::ReadCallback *read_callback = nullptr;
+  socket_->getSocketOption(READ_CALLBACK, &read_callback);
 
-  ConsumerContentCallback *on_payload = nullptr;
-  socket_->getSocketOption(CONTENT_RETRIEVED, &on_payload);
-  if ((*on_payload) != VOID_HANDLER) {
-    (*on_payload)(*socket_, size, std::make_error_code(std::errc(0)));
+  if (read_callback == nullptr) {
+    throw errors::RuntimeException(
+        "The read callback must be installed in the transport before starting "
+        "the content retrieval.");
+  }
+
+  if (read_callback->isBufferMovable()) {
+    read_callback->readBufferAvailable(
+        utils::MemBuf::copyBuffer(read_buffer->data(), read_buffer->length()));
+  } else {
+    // The buffer will be copied into the application-provided buffer
+    uint8_t *buffer;
+    std::size_t length;
+    std::size_t total_length = read_buffer->length();
+
+    while (read_buffer->length()) {
+      buffer = nullptr;
+      length = 0;
+      read_callback->getReadBuffer(&buffer, &length);
+
+      if (!buffer || !length) {
+        throw errors::RuntimeException(
+            "Invalid buffer provided by the application.");
+      }
+
+      auto to_copy = std::min(read_buffer->length(), length);
+
+      std::memcpy(buffer, read_buffer->data(), to_copy);
+      read_buffer->trimStart(to_copy);
+    }
+
+    read_callback->readDataAvailable(total_length);
+    read_buffer->clear();
   }
 }
 

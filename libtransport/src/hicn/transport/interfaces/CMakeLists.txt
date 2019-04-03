@@ -19,15 +19,13 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_producer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_socket_consumer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_socket_producer.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/async_transport.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/full_duplex_socket.h
   ${CMAKE_CURRENT_SOURCE_DIR}/publication_options.h
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_options_default_values.h
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_options_keys.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/callbacks.h
 )
 
 list(APPEND SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/full_duplex_socket.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_socket_consumer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_socket_producer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_producer.cc
