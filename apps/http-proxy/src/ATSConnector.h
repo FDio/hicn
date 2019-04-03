@@ -83,8 +83,7 @@ class ATSConnector {
 
   BufferQueue write_msgs_;
 
-  asio::streambuf header_input_buffer_;
-  uint8_t input_buffer_[buffer_size];
+  asio::streambuf input_buffer_;
 
   bool is_reconnection_;
   bool data_available_;

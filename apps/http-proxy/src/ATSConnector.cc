@@ -35,7 +35,7 @@ ATSConnector::ATSConnector(asio::io_service &io_service,
       data_available_(false),
       receive_callback_(receive_callback),
       on_reconnect_callback_(on_reconnect_callback) {
-  header_input_buffer_.prepare(2048);
+  input_buffer_.prepare(buffer_size + 2048);
   state_ = ConnectorState::CONNECTING;
   doConnect();
 }
@@ -99,20 +99,23 @@ void ATSConnector::doWrite() {
 void ATSConnector::handleRead(std::error_code ec, std::size_t length,
                               std::size_t size) {
   if (TRANSPORT_EXPECT_TRUE(!ec)) {
-    std::size_t bytes_in_buffer = length;
-    size -= bytes_in_buffer;
-    receive_callback_(input_buffer_, bytes_in_buffer, !size, false);
+    size -= length;
+    const uint8_t *buffer =
+        asio::buffer_cast<const uint8_t *>(input_buffer_.data());
+    receive_callback_(buffer, input_buffer_.size(), !size, false);
+    input_buffer_.consume(input_buffer_.size());
 
     if (!size) {
       doReadHeader();
     } else {
       auto to_read = size >= buffer_size ? buffer_size : size;
       asio::async_read(
-          socket_, asio::buffer(input_buffer_, to_read),
+          socket_, input_buffer_, asio::transfer_exactly(to_read),
           std::bind(&ATSConnector::handleRead, this, std::placeholders::_1,
                     std::placeholders::_2, size));
     }
   } else if (ec == asio::error::eof) {
+    input_buffer_.consume(input_buffer_.size());
     tryReconnection();
   }
 }
@@ -120,35 +123,29 @@ void ATSConnector::handleRead(std::error_code ec, std::size_t length,
 void ATSConnector::doReadBody(std::size_t size) {
   auto to_read = size >= buffer_size ? buffer_size : size;
   asio::async_read(
-      socket_, asio::buffer(input_buffer_, to_read),
+      socket_, input_buffer_, asio::transfer_exactly(to_read),
       std::bind(&ATSConnector::handleRead, this, std::placeholders::_1,
                 std::placeholders::_2, size));
 }
 
 void ATSConnector::doReadHeader() {
   asio::async_read_until(
-      socket_, header_input_buffer_, "\r\n\r\n",
+      socket_, input_buffer_, "\r\n\r\n",
       [this](std::error_code ec, std::size_t length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
-          // TRANSPORT_LOGD("Headers received");
-
           const uint8_t *buffer =
-              asio::buffer_cast<const uint8_t *>(header_input_buffer_.data());
+              asio::buffer_cast<const uint8_t *>(input_buffer_.data());
           std::size_t size = HTTPMessageFastParser::hasBody(buffer, length);
 
-          auto additional_bytes = header_input_buffer_.size() - length;
+          auto additional_bytes = input_buffer_.size() - length;
           auto bytes_to_read = size - additional_bytes;
-          receive_callback_(buffer, header_input_buffer_.size(), !bytes_to_read,
-                            true);
-          header_input_buffer_.consume(header_input_buffer_.size());
 
-          if (bytes_to_read) {
-            doReadBody(bytes_to_read);
-          } else {
-            doReadHeader();
-          }
+          receive_callback_(buffer, length, !size, true);
+          input_buffer_.consume(length);
+
+          doReadBody(bytes_to_read);
         } else {
-          header_input_buffer_.consume(header_input_buffer_.size());
+          input_buffer_.consume(input_buffer_.size());
           tryReconnection();
         }
       });
