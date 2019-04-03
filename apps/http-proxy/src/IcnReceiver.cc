@@ -141,6 +141,7 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
   uint32_t start_suffix = 0;
 
   if (response_name_queue_.empty()) {
+    std::cerr << "Aborting due tue empty request queue" << std::endl;
     abort();
   }
 

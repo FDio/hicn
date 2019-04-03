@@ -49,7 +49,7 @@ bool HTTPResponse::parseHeaders() {
 
   if (it != end()) {
     std::stringstream ss;
-    ss.str(std::string(begin(), it));
+    ss.str(std::string(begin(), it + 1));
 
     std::string line;
     getline(ss, line);
