@@ -528,7 +528,8 @@ class AsyncReader {
     // virtual void readBufferAvailable(uint8_t** buffer, std::size_t
     // *buf_length) noexcept {}
 
-    virtual void readBufferAvailable(ContentBuffer &&buffer) noexcept {}
+    virtual void readBufferAvailable(
+        std::unique_ptr<utils::MemBuf> &&buffer) noexcept {}
 
     // virtual void readBufferAvailable(utils::SharableBuffer<uint8_t>&& buffer)
     // noexcept {}
@@ -611,9 +612,6 @@ class AsyncWriter {
    * shutdownWriteNow()). When closing the socket this way, writeErr() will
    * still be invoked once for each outstanding write operation.
    */
-  virtual void write(WriteCallback *callback, ContentBuffer &&output_buffer,
-                     const PublicationOptions &options,
-                     WriteFlags flags = WriteFlags::NONE) = 0;
 
   // /**
   //  * If you supply a non-null WriteCallback, exactly one of writeSuccess()

@@ -43,8 +43,7 @@ AsyncFullDuplexSocket::AsyncFullDuplexSocket(const Prefix &locator,
       internal_connect_callback_(new OnConnectCallback(*this)),
       internal_signal_callback_(new OnSignalCallback(*this)),
       send_timeout_milliseconds_(~0),
-      counters_({0}),
-      receive_buffer_(ContentBuffer()) {
+      counters_({0}) {
   using namespace transport;
   using namespace std::placeholders;
   producer_->registerPrefix(locator);
@@ -68,10 +67,11 @@ AsyncFullDuplexSocket::AsyncFullDuplexSocket(const Prefix &locator,
                                  ConsumerSocket & s, const ContentObject &c)
                                  ->bool { return true; });
 
-  ConsumerContentCallback consumer_callback =
-      std::bind(&AsyncFullDuplexSocket::onContentRetrieved, this, _1, _2, _3);
-  consumer_->setSocketOption(ConsumerCallbacksOptions::CONTENT_RETRIEVED,
-                             consumer_callback);
+  // ConsumerContentCallback consumer_callback =
+  //     std::bind(&AsyncFullDuplexSocket::onContentRetrieved, this, _1, _2,
+  //     _3);
+  // consumer_->setSocketOption(ConsumerCallbacksOptions::CONTENT_RETRIEVED,
+  //                            consumer_callback);
 
   consumer_->setSocketOption(GeneralTransportOptions::MAX_INTEREST_RETX,
                              uint32_t{4});
@@ -198,30 +198,6 @@ void AsyncFullDuplexSocket::write(WriteCallback *callback, const void *buf,
   }
 }
 
-void AsyncFullDuplexSocket::write(WriteCallback *callback,
-                                  ContentBuffer &&output_buffer,
-                                  const PublicationOptions &options,
-                                  WriteFlags flags) {
-  using namespace transport;
-
-  // 1 asynchronously write the content. I assume here the
-  // buffer contains the whole application frame. FIXME: check
-  // if this is true and fix it accordingly
-  std::cout << "Size of the PAYLOAD: " << output_buffer->size() << std::endl;
-
-  if (output_buffer->size() >
-      core::Packet::default_mtu - sizeof(PayloadMessage)) {
-    TRANSPORT_LOGI("Producing content with name %s",
-                   options.getName().toString().c_str());
-    producer_->asyncProduce(options.getName(), std::move(output_buffer));
-    signalProductionToSubscribers(options.getName());
-  } else {
-    TRANSPORT_LOGI("Sending payload through interest");
-    piggybackPayloadToSubscribers(options.getName(), &(*output_buffer)[0],
-                                  output_buffer->size());
-  }
-}
-
 void AsyncFullDuplexSocket::piggybackPayloadToSubscribers(
     const core::Name &name, const uint8_t *buffer, std::size_t bytes) {
   for (auto &sub : subscribers_) {
@@ -332,7 +308,7 @@ AsyncFullDuplexSocket::decodeSynchronizationMessage(
 
         if (sync_notification_.equals(interest.getName(), false)) {
           std::cout << "Starting reverse pull for " << n << std::endl;
-          consumer_->asyncConsume(n, receive_buffer_);
+          consumer_->asyncConsume(n);
           return createAck();
         }
       } else {
@@ -349,9 +325,9 @@ AsyncFullDuplexSocket::decodeSynchronizationMessage(
       // The interest contains the payload directly.
       // We saved one round trip :)
 
-      auto buffer = ContentBuffer();
       const uint8_t *data = mesg->data() + sizeof(PayloadMessage);
-      buffer->assign(data, data + mesg->length() - sizeof(PayloadMessage));
+      auto buffer = utils::MemBuf::copyBuffer(
+          data, mesg->length() - sizeof(PayloadMessage));
       read_callback_->readBufferAvailable(std::move(buffer));
       return createAck();
     }
@@ -384,25 +360,6 @@ void AsyncFullDuplexSocket::onContentProduced(ProducerSocket &producer,
       write_callback_->writeErr(bytes_written);
     }
   }
-}
-
-void AsyncFullDuplexSocket::onContentRetrieved(ConsumerSocket &s,
-                                               std::size_t size,
-                                               const std::error_code &ec) {
-  // Sanity check
-  if (size != receive_buffer_->size()) {
-    TRANSPORT_LOGE(
-        "Received content size differs from size retrieved from the buffer.");
-    return;
-  }
-
-  TRANSPORT_LOGI("Received content with size %zu", size);
-  if (!ec) {
-    read_callback_->readBufferAvailable(std::move(receive_buffer_));
-  } else {
-    TRANSPORT_LOGE("Error retrieving content.");
-  }
-  // consumer_->stop();
 }
 
 void AsyncFullDuplexSocket::OnConnectCallback::onContentObject(

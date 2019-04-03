@@ -16,18 +16,10 @@
 #pragma once
 
 #include <hicn/transport/config.h>
-#include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/facade.h>
-#include <hicn/transport/core/interest.h>
-#include <hicn/transport/core/manifest_format_fixed.h>
-#include <hicn/transport/core/manifest_inline.h>
-#include <hicn/transport/core/name.h>
+#include <hicn/transport/interfaces/callbacks.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/socket_options_keys.h>
-#include <hicn/transport/protocols/statistics.h>
-#include <hicn/transport/utils/crypto_suite.h>
-#include <hicn/transport/utils/identity.h>
-#include <hicn/transport/utils/verifier.h>
 
 #define SOCKET_OPTION_GET 0
 #define SOCKET_OPTION_NOT_GET 1
@@ -39,26 +31,14 @@
 
 namespace transport {
 
-namespace protocol {
-class IcnObserver;
-class TransportStatistics;
-}  // namespace protocol
-
 namespace interface {
 
+// Forward Declarations
 template <typename PortalType>
 class Socket;
-class ConsumerSocket;
-class ProducerSocket;
 
-// using Interest = core::Interest;
-// using ContentObject = core::ContentObject;
-// using Name = core::Name;
-// using HashAlgorithm = core::HashAlgorithm;
-// using CryptoSuite = utils::CryptoSuite;
-// using Identity = utils::Identity;
-// using Verifier = utils::Verifier;
-
+// Define the portal and its connector, depending on the compilation options
+// passed by the build tool.
 using HicnForwarderPortal = core::HicnForwarderPortal;
 
 #ifdef __linux__
@@ -75,40 +55,6 @@ using BasePortal = VPPForwarderPortal;
 using BaseSocket = Socket<HicnForwarderPortal>;
 using BasePortal = HicnForwarderPortal;
 #endif
-
-using PayloadType = core::PayloadType;
-using Prefix = core::Prefix;
-using Array = utils::Array<uint8_t>;
-using ContentBuffer = std::shared_ptr<std::vector<uint8_t>>;
-
-using ConsumerInterestCallback =
-    std::function<void(ConsumerSocket &, const core::Interest &)>;
-
-using ConsumerContentCallback =
-    std::function<void(ConsumerSocket &, std::size_t, const std::error_code &)>;
-
-using ConsumerTimerCallback = std::function<void(
-    ConsumerSocket &, const protocol::TransportStatistics &stats)>;
-
-using ProducerContentCallback = std::function<void(
-    ProducerSocket &, const std::error_code &, uint64_t bytes_written)>;
-
-using ConsumerContentObjectCallback =
-    std::function<void(ConsumerSocket &, const core::ContentObject &)>;
-
-using ConsumerContentObjectVerificationCallback =
-    std::function<bool(ConsumerSocket &, const core::ContentObject &)>;
-
-using ConsumerManifestCallback =
-    std::function<void(ConsumerSocket &, const core::ContentObjectManifest &)>;
-
-using ProducerContentObjectCallback =
-    std::function<void(ProducerSocket &, core::ContentObject &)>;
-
-using ProducerInterestCallback =
-    std::function<void(ProducerSocket &, core::Interest &)>;
-
-using namespace protocol;
 
 template <typename PortalType>
 class Socket {

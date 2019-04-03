@@ -20,6 +20,10 @@
 
 namespace transport {
 
+namespace interface {
+class ConsumerReadCallback;
+}
+
 namespace protocol {
 
 // Forward Declaration
@@ -54,6 +58,9 @@ class BaseReassembly : public Reassembly {
 
   virtual void reset() override;
 
+ private:
+  void notifyApplication();
+
  protected:
   // The consumer socket
   interface::ConsumerSocket *reassembly_consumer_socket_;
@@ -63,6 +70,7 @@ class BaseReassembly : public Reassembly {
   std::unordered_map<std::uint32_t, ContentObject::Ptr> received_packets_;
 
   uint64_t index_;
+  std::unique_ptr<utils::MemBuf> read_buffer_;
 };
 
 }  // namespace protocol

@@ -61,7 +61,7 @@ void ATSConnector::send(utils::MemBuf *buffer,
         doWrite();
       }
     } else {
-      TRANSPORT_LOGD(" Tell the handle connect it has data to write");
+      TRANSPORT_LOGD("Tell the handle connect it has data to write");
       data_available_ = true;
     }
   });

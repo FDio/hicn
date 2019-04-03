@@ -16,6 +16,7 @@
 #include <hicn/transport/interfaces/rtc_socket_producer.h>
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_producer.h>
+#include <hicn/transport/utils/identity.h>
 #ifndef _WIN32
 #include <hicn/transport/utils/daemonizator.h>
 #endif
@@ -44,6 +45,9 @@ namespace interface {
 using CryptoSuite = utils::CryptoSuite;
 using Identity = utils::Identity;
 
+/**
+ * Container for command line configuration for hiperf client.
+ */
 struct ClientConfiguration {
   ClientConfiguration()
       : name("b001::abcd", 0),
@@ -53,7 +57,7 @@ struct ClientConfiguration {
         window(-1),
         virtual_download(true),
         producer_certificate("/tmp/rsa_certificate.pem"),
-        receive_buffer(std::make_shared<std::vector<uint8_t>>()),
+        receive_buffer(nullptr),
         download_size(0),
         report_interval_milliseconds_(1000),
         rtc_(false) {}
@@ -65,13 +69,16 @@ struct ClientConfiguration {
   double window;
   bool virtual_download;
   std::string producer_certificate;
-  std::shared_ptr<std::vector<uint8_t>> receive_buffer;
+  std::shared_ptr<utils::MemBuf> receive_buffer;
   std::size_t download_size;
   std::uint32_t report_interval_milliseconds_;
   TransportProtocolAlgorithms transport_protocol_;
   bool rtc_;
 };
 
+/**
+ * Class for handling the production rate for the RTC producer.
+ */
 class Rate {
  public:
   Rate() : rate_kbps_(0) {}
@@ -107,6 +114,9 @@ class Rate {
   float rate_kbps_;
 };
 
+/**
+ * Container for command line configuration for hiperf server.
+ */
 struct ServerConfiguration {
   ServerConfiguration()
       : name("b001::abcd/64"),
@@ -144,38 +154,31 @@ struct ServerConfiguration {
   std::size_t payload_size_;
 };
 
+/**
+ * Forward declaration of client Read callbacks.
+ */
+class RTCCallback;
+class Callback;
+
+/**
+ * Hiperf client class: configure and setup an hicn consumer following the
+ * ClientConfiguration.
+ */
 class HIperfClient {
   typedef std::chrono::time_point<std::chrono::steady_clock> Time;
   typedef std::chrono::microseconds TimeDuration;
+
+  friend class RTCCallback;
+  friend class Callback;
 
  public:
   HIperfClient(const ClientConfiguration &conf)
       : configuration_(conf),
         total_duration_milliseconds_(0),
         old_bytes_value_(0),
-        signals_(io_service_, SIGINT) {}
-
-  void processPayload(ConsumerSocket &c, std::size_t bytes_transferred,
-                      const std::error_code &ec) {
-    Time t2 = std::chrono::steady_clock::now();
-    TimeDuration dt =
-        std::chrono::duration_cast<TimeDuration>(t2 - t_download_);
-    long usec = (long)dt.count();
-
-    std::cout << "Content retrieved. Size: " << bytes_transferred << " [Bytes]"
-              << std::endl;
-
-    std::cerr << "Elapsed Time: " << usec / 1000000.0 << " seconds -- "
-              << (bytes_transferred * 8) * 1.0 / usec * 1.0 << " [Mbps]"
-              << std::endl;
-
-    io_service_.stop();
-  }
-
-  void processPayloadRtc(ConsumerSocket &c, std::size_t bytes_transferred,
-                         const std::error_code &ec) {
-    configuration_.receive_buffer->clear();
-  }
+        signals_(io_service_, SIGINT),
+        rtc_callback_(configuration_.rtc_ ? new RTCCallback(*this) : nullptr),
+        callback_(configuration_.rtc_ ? nullptr : new Callback(*this)) {}
 
   bool verifyData(ConsumerSocket &c, const ContentObject &contentObject) {
     if (contentObject.getPayloadType() == PayloadType::CONTENT_OBJECT) {
@@ -323,16 +326,10 @@ class HIperfClient {
 
     if (!configuration_.rtc_) {
       ret = consumer_socket_->setSocketOption(
-          ConsumerCallbacksOptions::CONTENT_RETRIEVED,
-          (ConsumerContentCallback)std::bind(
-              &HIperfClient::processPayload, this, std::placeholders::_1,
-              std::placeholders::_2, std::placeholders::_3));
+          ConsumerCallbacksOptions::READ_CALLBACK, callback_);
     } else {
       ret = consumer_socket_->setSocketOption(
-          ConsumerCallbacksOptions::CONTENT_RETRIEVED,
-          (ConsumerContentCallback)std::bind(
-              &HIperfClient::processPayloadRtc, this, std::placeholders::_1,
-              std::placeholders::_2, std::placeholders::_3));
+          ConsumerCallbacksOptions::READ_CALLBACK, rtc_callback_);
     }
 
     if (ret == SOCKET_OPTION_NOT_SET) {
@@ -370,14 +367,103 @@ class HIperfClient {
     });
 
     t_download_ = t_stats_ = std::chrono::steady_clock::now();
-    consumer_socket_->asyncConsume(configuration_.name,
-                                   configuration_.receive_buffer);
+    consumer_socket_->asyncConsume(configuration_.name);
     io_service_.run();
 
     return ERROR_SUCCESS;
   }
 
  private:
+  class RTCCallback : public ConsumerSocket::ReadCallback {
+    static constexpr std::size_t mtu = 1500;
+
+   public:
+    RTCCallback(HIperfClient &hiperf_client) : client_(hiperf_client) {
+      client_.configuration_.receive_buffer = utils::MemBuf::create(mtu);
+    }
+
+    bool isBufferMovable() noexcept override { return false; }
+
+    void getReadBuffer(uint8_t **application_buffer,
+                       size_t *max_length) override {
+      *application_buffer =
+          client_.configuration_.receive_buffer->writableData();
+      *max_length = mtu;
+    }
+
+    void readDataAvailable(std::size_t length) noexcept override {
+      // Do nothing
+      return;
+    }
+
+    size_t maxBufferSize() const override { return mtu; }
+
+    void readError(const std::error_code ec) noexcept override {
+      std::cerr << "Error while reading from RTC socket" << std::endl;
+    }
+
+    void readSuccess(std::size_t total_size) noexcept override {
+      std::cout << "Data successfully read" << std::endl;
+    }
+
+   private:
+    HIperfClient &client_;
+  };
+
+  class Callback : public ConsumerSocket::ReadCallback {
+    static constexpr std::size_t read_size = 16 * 1024;
+
+   public:
+    Callback(HIperfClient &hiperf_client) : client_(hiperf_client) {}
+
+    bool isBufferMovable() noexcept override { return true; }
+
+    void getReadBuffer(uint8_t **application_buffer,
+                       size_t *max_length) override {
+      // Not used
+    }
+
+    void readDataAvailable(std::size_t length) noexcept override {
+      // Do nothing
+      return;
+    }
+
+    void readBufferAvailable(
+        std::unique_ptr<utils::MemBuf> &&buffer) noexcept override {
+      if (client_.configuration_.receive_buffer) {
+        client_.configuration_.receive_buffer->prependChain(std::move(buffer));
+      } else {
+        client_.configuration_.receive_buffer = std::move(buffer);
+      }
+    }
+
+    size_t maxBufferSize() const override { return read_size; }
+
+    void readError(const std::error_code ec) noexcept override {
+      std::cerr << "Error " << ec.message() << " while reading from socket"
+                << std::endl;
+    }
+
+    void readSuccess(std::size_t total_size) noexcept override {
+      Time t2 = std::chrono::steady_clock::now();
+      TimeDuration dt =
+          std::chrono::duration_cast<TimeDuration>(t2 - client_.t_download_);
+      long usec = (long)dt.count();
+
+      std::cout << "Content retrieved. Size: " << total_size << " [Bytes]"
+                << std::endl;
+
+      std::cerr << "Elapsed Time: " << usec / 1000000.0 << " seconds -- "
+                << (total_size * 8) * 1.0 / usec * 1.0 << " [Mbps]"
+                << std::endl;
+
+      client_.io_service_.stop();
+    }
+
+   private:
+    HIperfClient &client_;
+  };
+
   ClientConfiguration configuration_;
   Time t_stats_;
   Time t_download_;
@@ -386,8 +472,14 @@ class HIperfClient {
   asio::io_service io_service_;
   asio::signal_set signals_;
   std::unique_ptr<ConsumerSocket> consumer_socket_;
+  RTCCallback *rtc_callback_;
+  Callback *callback_;
 };
 
+/**
+ * Hiperf server class: configure and setup an hicn producer following the
+ * ServerConfiguration.
+ */
 class HIperfServer {
   const std::size_t log2_content_object_buffer_size = 8;
 

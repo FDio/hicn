@@ -133,10 +133,6 @@ class AsyncFullDuplexSocket : public AsyncSocket,
              const PublicationOptions &options,
              WriteFlags flags = WriteFlags::NONE) override;
 
-  virtual void write(WriteCallback *callback, ContentBuffer &&output_buffer,
-                     const PublicationOptions &options,
-                     WriteFlags flags = WriteFlags::NONE) override;
-
   void waitForSubscribers(AcceptCallback *cb) override;
 
   void close() override;
@@ -236,7 +232,6 @@ class AsyncFullDuplexSocket : public AsyncSocket,
 
   uint32_t send_timeout_milliseconds_;
   struct Counters counters_;
-  ContentBuffer receive_buffer_;
 };
 
 }  // namespace interface

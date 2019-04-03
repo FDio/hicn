@@ -30,6 +30,10 @@
 #define REGISTRATION_FAILURE 2
 #define REGISTRATION_IN_PROGRESS 3
 
+namespace utils {
+class Identity;
+}
+
 namespace transport {
 
 namespace interface {
@@ -59,7 +63,7 @@ class ProducerSocket : public Socket<BasePortal>,
 
   void asyncProduce(const Name &suffix, const uint8_t *buf, size_t buffer_size);
 
-  void asyncProduce(const Name &suffix, ContentBuffer &&output_buffer);
+  void asyncProduce(const Name &suffix);
 
   void asyncProduce(ContentObject &content_object);
 

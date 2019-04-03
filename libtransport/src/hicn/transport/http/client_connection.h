@@ -31,18 +31,30 @@ namespace http {
 using namespace interface;
 using namespace core;
 
-class HTTPClientConnection {
+class HTTPClientConnection : public ConsumerSocket::ReadCallback {
+  static constexpr uint32_t max_buffer_capacity = 64 * 1024;
+
  public:
+  class ReadBytesCallback {
+   public:
+    virtual void onBytesReceived(std::unique_ptr<utils::MemBuf> &&buffer) = 0;
+    virtual void onSuccess(std::size_t bytes) = 0;
+    virtual void onError(const std::error_code ec) = 0;
+  };
+
+  enum class RC : uint32_t { DOWNLOAD_FAILED, DOWNLOAD_SUCCESS };
+
   HTTPClientConnection();
 
-  HTTPClientConnection &get(const std::string &url, HTTPHeaders headers = {},
-                            HTTPPayload payload = {},
-                            std::shared_ptr<HTTPResponse> response = nullptr);
+  RC get(const std::string &url, HTTPHeaders headers = {},
+         HTTPPayload payload = {},
+         std::shared_ptr<HTTPResponse> response = nullptr,
+         ReadBytesCallback *callback = nullptr);
 
-  HTTPClientConnection &sendRequest(
-      const std::string &url, HTTPMethod method, HTTPHeaders headers = {},
-      HTTPPayload payload = {},
-      std::shared_ptr<HTTPResponse> response = nullptr);
+  RC sendRequest(const std::string &url, HTTPMethod method,
+                 HTTPHeaders headers = {}, HTTPPayload payload = {},
+                 std::shared_ptr<HTTPResponse> response = nullptr,
+                 ReadBytesCallback *callback = nullptr);
 
   HTTPResponse response();
 
@@ -55,11 +67,8 @@ class HTTPClientConnection {
   HTTPClientConnection &setCertificate(const std::string &cert_path);
 
  private:
-  void processPayload(interface::ConsumerSocket &c,
-                      std::size_t bytes_transferred, const std::error_code &ec);
-
-  std::string sendRequestGetReply(const HTTPRequest &request,
-                                  std::shared_ptr<HTTPResponse> &response);
+  void sendRequestGetReply(const HTTPRequest &request,
+                           std::shared_ptr<HTTPResponse> &response);
 
   bool verifyData(interface::ConsumerSocket &c,
                   const core::ContentObject &contentObject);
@@ -68,12 +77,42 @@ class HTTPClientConnection {
                               const core::Interest &interest,
                               std::string &payload);
 
+  // Read callback
+  bool isBufferMovable() noexcept override { return true; }
+  void getReadBuffer(uint8_t **application_buffer,
+                     size_t *max_length) override {}
+  void readDataAvailable(size_t length) noexcept override {}
+  size_t maxBufferSize() const override { return max_buffer_capacity; }
+  void readBufferAvailable(
+      std::unique_ptr<utils::MemBuf> &&buffer) noexcept override;
+  void readError(const std::error_code ec) noexcept override;
+  void readSuccess(std::size_t total_size) noexcept override;
+
   asio::io_service io_service_;
 
+  // The consumer socket
   ConsumerSocket consumer_;
 
+  // The current url provided by the application
+  std::string current_url_;
+  // The current hICN name used for downloading
+  std::stringstream name_;
+  // Function to be called when the read is successful
+  std::function<std::shared_ptr<HTTPResponse>(std::size_t)> success_callback_;
+  // Return code for current download
+  RC return_code_;
+
+  // Application provided callback for saving the received content during
+  // the download. If this callback is used, the HTTPClient will NOT save
+  // any byte internally.
+  ReadBytesCallback *read_bytes_callback_;
+
+  // Internal read buffer and HTTP response, to be used if the application does
+  // not provide any read_bytes_callback
+  std::unique_ptr<utils::MemBuf> read_buffer_;
   std::shared_ptr<HTTPResponse> response_;
 
+  // Timer
   std::unique_ptr<asio::steady_timer> timer_;
 };
 
