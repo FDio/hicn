@@ -105,6 +105,7 @@ void RTCTransportProtocol::reset() {
   actualSegment_ = 0;
   inflightInterestsCount_ = 0;
   while (interestRetransmissions_.size() != 0) interestRetransmissions_.pop();
+  lastSegNacked_ = 0;
   nackedByProducer_.clear();
   nackedByProducerMaxSize_ = 512;
 
@@ -433,8 +434,8 @@ void RTCTransportProtocol::scheduleAppNackRtx(std::vector<uint32_t> &nacks) {
       continue;
     }
     // packetLost_++;
-    // XXX here I need to avoid the retrasmission for packet that were nacked by
-    // the network
+    // XXX here I need to avoid the retrasmission for packet that were
+    // nacked by the network
     interestRetransmissions_.push(nacks[i]);
   }
 
@@ -450,7 +451,8 @@ void RTCTransportProtocol::onTimeout(Interest::Ptr &&interest) {
     inflightInterestsCount_--;
   }
 
-  if (inflightInterests_[pkt].retransmissions < HICN_MAX_RTX) {
+  if (inflightInterests_[pkt].retransmissions < HICN_MAX_RTX &&
+          lastSegNacked_ <= segmentNumber) {
     interestRetransmissions_.push(segmentNumber);
   }
 
@@ -466,7 +468,9 @@ bool RTCTransportProtocol::checkIfProducerIsActive(
   if (productionRate == 0) {
     // the producer socket is not active
     // in this case we consider only the first nack
-    if (nack_timer_used_) return false;
+    if (nack_timer_used_) {
+        return false;
+    }
 
     nack_timer_used_ = true;
     // actualSegment_ should be the one in the nack, which will the next in
@@ -482,7 +486,6 @@ bool RTCTransportProtocol::checkIfProducerIsActive(
     });
     return false;
   }
-
   return true;
 }
 
@@ -491,6 +494,7 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
   uint32_t productionSeg = *payload;
   uint32_t productionRate = *(++payload);
   uint32_t nackSegment = content_object.getName().getSuffix();
+
 
   gotNack_ = true;
   // we synch the estimated production rate with the actual one
@@ -506,25 +510,18 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
     computeMaxWindow(productionRate, 0);
     increaseWindow();
 
+    while (interestRetransmissions_.size() != 0) interestRetransmissions_.pop();
+    lastSegNacked_ = productionSeg;
+
     if (nackedByProducer_.size() >= nackedByProducerMaxSize_)
       nackedByProducer_.erase(nackedByProducer_.begin());
     nackedByProducer_.insert(nackSegment);
 
   } else if (productionSeg < nackSegment) {
-    gotFutureNack_++;
     // we are asking stuff in the future
-    // example
-    // 10    12    13    14    15    16    17
-    //       ^                  ^           ^
-    //       in prod            nack        actual
-    // in this example we sent up to segment 17 and we get a nack for segment 15
-    // this means that we will get nack also for 16 17
-    // and valid data for 13 14
-    // so the next segment to ask is 15, because 13 and 14 will can back anyway
-    // we go back only in the case that the actual segment is really bigger than
-    // nack segment, other we do nothing
+    gotFutureNack_++;
 
-    actualSegment_ = min(actualSegment_, nackSegment);
+    actualSegment_ = productionSeg + 1;
 
     computeMaxWindow(productionRate, 0);
     decreaseWindow();
@@ -532,6 +529,24 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
     if (currentState_ == HICN_RTC_SYNC_STATE) {
       currentState_ = HICN_RTC_NORMAL_STATE;
     }
+  }  // equal should not happen
+}
+
+void RTCTransportProtocol::onNackForRtx(const ContentObject &content_object) {
+  uint32_t *payload = (uint32_t *)content_object.getPayload()->data();
+  uint32_t productionSeg = *payload;
+  uint32_t nackSegment = content_object.getName().getSuffix();
+
+  if (productionSeg > nackSegment) {
+    // we are asking for stuff produced in the past
+    actualSegment_ = max(productionSeg + 1, actualSegment_);
+
+    while (interestRetransmissions_.size() != 0) interestRetransmissions_.pop();
+    lastSegNacked_ = productionSeg;
+
+  } else if (productionSeg < nackSegment) {
+
+    actualSegment_ = productionSeg + 1;
   }  // equal should not happen
 }
 
@@ -546,16 +561,16 @@ void RTCTransportProtocol::onContentObject(
   if (payload_size == HICN_NACK_HEADER_SIZE) {
     // Nacks always come form the producer, so we set the producerPathLabel_;
     producerPathLabel_ = content_object->getPathLabel();
+    schedule_next_interest = checkIfProducerIsActive(*content_object);
     if (inflightInterests_[pkt].retransmissions == 0) {
       // discard nacks for rtx packets
       inflightInterestsCount_--;
-      schedule_next_interest = checkIfProducerIsActive(*content_object);
-      // if checkIfProducerIsActive returns true, we did all we need to do
+      // if checkIfProducerIsActive returns false, we did all we need to do
       // inside that function, no need to call onNack
-      if (!schedule_next_interest) onNack(*content_object);
+      if (schedule_next_interest) onNack(*content_object);
       updateDelayStats(*content_object);
     } else {
-      schedule_next_interest = checkIfProducerIsActive(*content_object);
+      if (schedule_next_interest) onNackForRtx(*content_object);
     }
 
   } else {
