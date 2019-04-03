@@ -558,6 +558,13 @@ void RTCTransportProtocol::onContentObject(
   uint32_t pkt = segmentNumber & modMask_;
   bool schedule_next_interest = true;
 
+  ConsumerContentObjectCallback *callback_content_object = nullptr;
+  socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
+                           &callback_content_object);
+  if (*callback_content_object != VOID_HANDLER) {
+    (*callback_content_object)(*socket_, *content_object);
+  }
+
   if (payload_size == HICN_NACK_HEADER_SIZE) {
     // Nacks always come form the producer, so we set the producerPathLabel_;
     producerPathLabel_ = content_object->getPathLabel();

@@ -148,6 +148,11 @@ void RTCProducerSocket::produce(const uint8_t *buf, size_t buffer_size) {
   content_object.setLifetime(500);  // XXX this should be set by the APP
 
   content_object.setPathLabel(prodLabel_);
+
+  if (on_content_object_output_ != VOID_HANDLER) {
+    on_content_object_output_(*this, content_object);
+  }
+
   portal_->sendContentObject(content_object);
 
   currentSeg_++;
@@ -178,8 +183,7 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
 
   max_gap = (uint32_t)floor(
       (double)((double)((double)lifetime * INTEREST_LIFETIME_REDUCTION_FACTOR /
-                        1000.0) *
-               (double)packetsProductionRate_.load()));
+            1000.0) * (double)packetsProductionRate_.load()));
 
   if (interestSeg < currentSeg_ || interestSeg > (max_gap + currentSeg_)) {
     sendNack(*interest);
@@ -200,6 +204,11 @@ void RTCProducerSocket::sendNack(const Interest &interest) {
 
   nack_->setLifetime(0);
   nack_->setPathLabel(prodLabel_);
+
+  if (on_content_object_output_ != VOID_HANDLER) {
+    on_content_object_output_(*this, *nack_);
+  }
+
   portal_->sendContentObject(*nack_);
 }
 
