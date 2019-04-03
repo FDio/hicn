@@ -63,8 +63,6 @@ class HTTPServerPublisher {
   std::unique_ptr<ProducerSocket> producer_;
   ProducerInterestCallback interest_enter_callback_;
   utils::UserCallback wait_callback_;
-
-  ContentBuffer receive_buffer_;
 };
 
 }  // end namespace http

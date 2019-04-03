@@ -19,6 +19,7 @@
 #else
 #include <openssl/applink.c>
 #endif
+#include <hicn/transport/utils/identity.h>
 #include <hicn/transport/utils/signer.h>
 #include <hicn/transport/utils/string_tokenizer.h>
 
@@ -43,16 +44,22 @@ utils::Identity setProducerIdentity(std::string keystore_name,
 class CallbackContainer {
   const std::size_t log2_content_object_buffer_size = 12;
 
-public:
+ public:
   CallbackContainer(const Name &prefix, uint32_t object_size, bool verbose,
                     bool dump, bool quite, bool flags, bool reset, uint8_t ttl,
                     utils::Identity *identity, bool sign, uint32_t lifetime)
       : buffer_(object_size, 'X'),
         content_objects_((std::uint32_t)(1 << log2_content_object_buffer_size)),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
-        content_objects_index_(0), verbose_(verbose), dump_(dump),
-        quite_(quite), flags_(flags), reset_(reset), ttl_(ttl),
-        identity_(identity), sign_(sign) {
+        content_objects_index_(0),
+        verbose_(verbose),
+        dump_(dump),
+        quite_(quite),
+        flags_(flags),
+        reset_(reset),
+        ttl_(ttl),
+        identity_(identity),
+        sign_(sign) {
     core::Packet::Format format;
 
     if (prefix.getAddressFamily() == AF_INET) {
@@ -114,7 +121,7 @@ public:
           content_object->setAck();
         } else if (interest.testAck()) {
           content_object->setAck();
-        } // here I may need to handle the FIN flag;
+        }  // here I may need to handle the FIN flag;
       } else if (reset_) {
         content_object->setRst();
       }
@@ -136,8 +143,7 @@ public:
         std::cout << "-----------------------" << std::endl;
       }
 
-      if (!quite_)
-        std::cout << std::endl;
+      if (!quite_) std::cout << std::endl;
 
       if (sign_) {
         identity_->getSigner().sign(*content_object);
@@ -147,7 +153,7 @@ public:
     }
   }
 
-private:
+ private:
   std::string buffer_;
   std::vector<std::shared_ptr<ContentObject>> content_objects_;
   std::uint16_t mask_;
@@ -222,51 +228,51 @@ int main(int argc, char **argv) {
   while ((opt = getopt(argc, argv, "s:n:t:l:qfrVDHk:p:")) != -1) {
 #endif
     switch (opt) {
-    case 's':
-      object_size = std::stoi(optarg);
-      break;
-    case 'n':
-      name_prefix = optarg;
-      break;
-    case 't':
-      ttl = (uint8_t)std::stoi(optarg);
-      break;
-    case 'l':
-      data_lifetime = std::stoi(optarg);
-      break;
-    case 'V':
-      verbose = true;
-      break;
-    case 'D':
-      dump = true;
-      break;
-    case 'q':
-      verbose = false;
-      dump = false;
-      quite = true;
-      break;
+      case 's':
+        object_size = std::stoi(optarg);
+        break;
+      case 'n':
+        name_prefix = optarg;
+        break;
+      case 't':
+        ttl = (uint8_t)std::stoi(optarg);
+        break;
+      case 'l':
+        data_lifetime = std::stoi(optarg);
+        break;
+      case 'V':
+        verbose = true;
+        break;
+      case 'D':
+        dump = true;
+        break;
+      case 'q':
+        verbose = false;
+        dump = false;
+        quite = true;
+        break;
 #ifndef _WIN32
-    case 'd':
-      daemon = true;
-      break;
+      case 'd':
+        daemon = true;
+        break;
 #endif
-    case 'f':
-      flags = true;
-      break;
-    case 'r':
-      reset = true;
-      break;
-    case 'k':
-      keystore_path = optarg;
-      sign = true;
-      break;
-    case 'p':
-      keystore_password = optarg;
-      break;
-    case 'H':
-    default:
-      help();
-      exit(EXIT_FAILURE);
+      case 'f':
+        flags = true;
+        break;
+      case 'r':
+        reset = true;
+        break;
+      case 'k':
+        keystore_path = optarg;
+        sign = true;
+        break;
+      case 'p':
+        keystore_password = optarg;
+        break;
+      case 'H':
+      default:
+        help();
+        exit(EXIT_FAILURE);
     }
   }
 
@@ -282,8 +288,7 @@ int main(int argc, char **argv) {
   std::string ip_address = tokenizer.nextToken();
   Name n(ip_address);
 
-  if (object_size > 1350)
-    object_size = 1350;
+  if (object_size > 1350) object_size = 1350;
 
   CallbackContainer *stubs;
   utils::Identity identity = setProducerIdentity(
@@ -327,9 +332,9 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-} // namespace interface
+}  // namespace interface
 
-} // end namespace transport
+}  // end namespace transport
 
 int main(int argc, char **argv) {
   return transport::interface::main(argc, argv);
