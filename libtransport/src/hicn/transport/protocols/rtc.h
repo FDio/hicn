@@ -84,7 +84,9 @@ namespace protocol {
 
 struct sentInterest {
   uint64_t transmissionTime;
+  uint32_t sequence;  //sequence number of the interest sent
   uint8_t retransmissions;
+  uint8_t received; //1 = received, 0 = not received
 };
 
 class RTCTransportProtocol : public TransportProtocol, public Reassembly {
@@ -160,9 +162,11 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   uint32_t inflightInterestsCount_;
   std::queue<uint32_t> interestRetransmissions_;
   std::vector<sentInterest> inflightInterests_;
-  uint32_t lastSegNacked_; //indicates the last segment id in a past Nack.
-                           //we do not ask for retransmissions for samething
-                           //that is older than this value.
+  uint32_t lastSegNacked_; //indicates the segment id in the last received
+                           // past Nack. we do not ask for retransmissions
+                           //for samething that is older than this value.
+  uint32_t lastReceived_; //segment of the last content object received
+                          //indicates the base of the window on the client
   uint32_t nackedByProducerMaxSize_;
   std::set<uint32_t>
       nackedByProducer_;  // this is used to avoid retransmissions from the

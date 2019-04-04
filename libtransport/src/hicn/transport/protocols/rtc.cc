@@ -106,6 +106,7 @@ void RTCTransportProtocol::reset() {
   inflightInterestsCount_ = 0;
   while (interestRetransmissions_.size() != 0) interestRetransmissions_.pop();
   lastSegNacked_ = 0;
+  lastReceived_ = 0;
   nackedByProducer_.clear();
   nackedByProducerMaxSize_ = 512;
 
@@ -364,6 +365,8 @@ void RTCTransportProtocol::sendInterest() {
     }
 
     inflightInterests_[pkt].transmissionTime = 0;
+    inflightInterests_[pkt].received = 0;
+    inflightInterests_[pkt].sequence = rtxSeg;
     isRTX = true;
   } else {
     // in this case we send the packet only if it is not pending yet
@@ -372,14 +375,23 @@ void RTCTransportProtocol::sendInterest() {
       actualSegment_++;
       return;
     }
+    uint32_t pkt = actualSegment_ & modMask_;
+
+    //if we already reacevied the content we don't ask it again
+    if(inflightInterests_[pkt].received == 1 &&
+      inflightInterests_[pkt].sequence == actualSegment_) {
+        actualSegment_++;
+        return;
+    }
 
     // sentInt = actualSegment_;
-    uint32_t pkt = actualSegment_ & modMask_;
     inflightInterests_[pkt].transmissionTime =
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch())
             .count();
     inflightInterests_[pkt].retransmissions = 0;
+    inflightInterests_[pkt].received = 0;
+    inflightInterests_[pkt].sequence = actualSegment_;
     actualSegment_++;
   }
 
@@ -452,7 +464,8 @@ void RTCTransportProtocol::onTimeout(Interest::Ptr &&interest) {
   }
 
   if (inflightInterests_[pkt].retransmissions < HICN_MAX_RTX &&
-          lastSegNacked_ <= segmentNumber) {
+          lastSegNacked_ <= segmentNumber &&
+          actualSegment_ < segmentNumber) {
     interestRetransmissions_.push(segmentNumber);
   }
 
@@ -495,7 +508,6 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
   uint32_t productionRate = *(++payload);
   uint32_t nackSegment = content_object.getName().getSuffix();
 
-
   gotNack_ = true;
   // we synch the estimated production rate with the actual one
   estimatedBw_ = (double)productionRate;
@@ -521,13 +533,30 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
     // we are asking stuff in the future
     gotFutureNack_++;
 
-    actualSegment_ = productionSeg + 1;
+    if(lastReceived_ > productionSeg){
+      //if this happens the producer socket was restarted
+      //we erase all the inflight + timeout state (only for the first NACK)
+      if(gotFutureNack_ == 1){
+        while (interestRetransmissions_.size() != 0)
+              interestRetransmissions_.pop();
+        for (uint32_t i = 0; i < inflightInterests_.size(); i++){
+          inflightInterests_[i].transmissionTime = 0;
+          inflightInterests_[i].sequence = 0;
+          inflightInterests_[i].retransmissions = 0;
+          inflightInterests_[i].received = 0;
+        }
+      }
+      actualSegment_ = productionSeg + 1;
+      //we can't say much abouit the window, so keep it as it is
+    }else{
+      actualSegment_ = productionSeg + 1;
 
-    computeMaxWindow(productionRate, 0);
-    decreaseWindow();
+      computeMaxWindow(productionRate, 0);
+      decreaseWindow();
 
-    if (currentState_ == HICN_RTC_SYNC_STATE) {
-      currentState_ = HICN_RTC_NORMAL_STATE;
+      if (currentState_ == HICN_RTC_SYNC_STATE) {
+        currentState_ = HICN_RTC_NORMAL_STATE;
+      }
     }
   }  // equal should not happen
 }
@@ -582,6 +611,8 @@ void RTCTransportProtocol::onContentObject(
 
   } else {
     receivedData_++;
+    inflightInterests_[pkt].received = 1;
+    lastReceived_ = segmentNumber;
 
     avgPacketSize_ = (HICN_ESTIMATED_PACKET_SIZE * avgPacketSize_) +
                      ((1 - HICN_ESTIMATED_PACKET_SIZE) * payload->length());
