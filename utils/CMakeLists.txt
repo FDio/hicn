@@ -32,13 +32,20 @@ else()
   set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
 endif()
 
-include(Packaging)
+set(SUFFIX "")
+if (${LIBTRANSPORT_LIBRARIES} MATCHES ".*-memif.*")
+  set(SUFFIX "-memif")
+endif()
+
+set(HICN_UTILS "${HICN_UTILS}${SUFFIX}")
 
 set (COMPILER_DEFINITIONS "")
 
 if (WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
 endif ()
+
+include(Packaging)
 
 build_executable(hiperf
   SOURCES src/hiperf.cc

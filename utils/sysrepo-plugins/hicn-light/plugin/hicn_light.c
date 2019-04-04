@@ -48,7 +48,6 @@ int sr_plugin_init_cb(sr_session_ctx_t *session, void **private_ctx) {
 
 void sr_plugin_cleanup_cb(sr_session_ctx_t *session, void *private_ctx) {
   HICN_INVOKE_BEGIN;
-
   /* subscription was set as our private context */
   sr_unsubscribe(session, private_ctx);
   HICN_LOG_DBG_MSG("hicn light unload plugin ok.");

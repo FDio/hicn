@@ -38,7 +38,7 @@
 // controller constant
 #define HICN_ROUND_LEN \
   200  // ms interval of time on which we take decisions / measurements
-#define HICN_MAX_RTX 128
+#define HICN_MAX_RTX 3
 #define HICN_MIN_RTT_WIN 30  // rounds
 
 // cwin
@@ -121,7 +121,13 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   void scheduleNextInterests() override;
   void scheduleAppNackRtx(std::vector<uint32_t> &nacks);
   void onTimeout(Interest::Ptr &&interest) override;
+  // checkIfProducerIsActive: return true if we need to schedule an interest
+  // immediatly after, false otherwise (this happens when the producer socket
+  // is not active)
+  bool checkIfProducerIsActive(const ContentObject &content_object);
   void onNack(const ContentObject &content_object);
+  //funtcion used to handle nacks for retransmitted interests
+  void onNackForRtx(const ContentObject &content_object);
   void onContentObject(Interest::Ptr &&interest,
                        ContentObject::Ptr &&content_object) override;
   void returnContentToApplication(const ContentObject &content_object);
@@ -142,18 +148,11 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
 
   // controller var
   std::chrono::steady_clock::time_point lastRoundBegin_;
-  // bool allPacketsInSync_;
-  // unsigned numberOfRoundsInSync_;
-  // unsigned numberOfCatchUpRounds_;
-  // bool catchUpPhase_;
   unsigned currentState_;
-
-  // uint32_t inProduction_;
 
   // cwin var
   uint32_t currentCWin_;
   uint32_t maxCWin_;
-  // uint32_t previousCWin_;
 
   // names/packets var
   uint32_t actualSegment_;
@@ -161,12 +160,19 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   uint32_t inflightInterestsCount_;
   std::queue<uint32_t> interestRetransmissions_;
   std::vector<sentInterest> inflightInterests_;
+  uint32_t lastSegNacked_; //indicates the last segment id in a past Nack.
+                           //we do not ask for retransmissions for samething
+                           //that is older than this value.
   uint32_t nackedByProducerMaxSize_;
   std::set<uint32_t>
       nackedByProducer_;  // this is used to avoid retransmissions from the
                           // application for pakets for which we already got a
                           // past NACK by the producer these packet are too old,
                           // they will never be retrived
+  bool nack_timer_used_;
+  std::unique_ptr<asio::steady_timer> nack_timer_;  // timer used to schedule
+  // a nack retransmission in
+  // of inactive prod socket
 
   uint32_t modMask_;
 
@@ -185,7 +191,6 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
                                 // vector
   std::unordered_map<uint32_t, std::shared_ptr<RTCDataPath>> pathTable_;
   uint32_t roundCounter_;
-  // std::vector<uint64_t> minRTTwin_;
   uint64_t minRtt_;
 
   // CC var

@@ -487,7 +487,9 @@ void RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
     return;
   }
 
-  interest_retransmissions_[next_suffix & mask] = 0;
+  // This is set to ~0 so that the next interest_retransmissions_ + 1, performed
+  // by sendInterest, will result in 0
+  interest_retransmissions_[next_suffix & mask] = ~0;
   interest_timepoints_[next_suffix & mask] = utils::SteadyClock::now();
   sendInterest(std::move(interest));
 }

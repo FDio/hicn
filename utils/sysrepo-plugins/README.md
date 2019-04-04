@@ -1,6 +1,6 @@
 # Sysrepo plugin for hicn-plugin  (2019)
 
-These plugins serve as a data management agent. they provide yang models via NETCONF to allow the management of hicn-light and hicn-plugin which runs in VPP instance from out-of-box.
+These plugins serve as a data management agent. They provide yang models via NETCONF to allow the management of hicn-light, and hicn-plugin which runs in VPP instance from out-of-box.
 
 ## Software Requirement
 
@@ -25,8 +25,7 @@ else
 sysrepoctl --install --yang=path_to_hicn_yang_model
 fi
 
-hicn.yang can be found under plugin/yang/model/. It consists of two container nodes: hicn-conf and hicn-state. One is used to hold the
-configuration data (i.e., hicn-conf) and one for providing the state data (i.e., hicn-state). The hicn-conf has one node, params, which contains the hICN configuration parameters. Controler can configure these parameters through the edit-config RPC call. This node can be used to enable and to initialize the hicn-plugin in VPP instance. Hicn-state container is used to provide the state data to the controler. It consists of state, strategy, strategies, route, and face-ip-params nodes with the coresponding leaves. In hicn model variety of RPCs are provided to allow controler to communicate with hicn-plugin as well as update the state data in hicn-state. Here you can find the schematic view of the described hicn model:
+hicn.yang can be found in the yang-model. It consists of two container nodes: hicn-conf and hicn-state. One is used to hold the configuration data (i.e., hicn-conf) and one for providing the state data (i.e., hicn-state). The hicn-conf has one node, params, which contains the hICN configuration parameters. Controler can configure these parameters through the edit-config RPC call. This node can be used to enable and to initialize the hicn-plugin in VPP instance. Hicn-state container is used to provide the state data to the controler. It consists of state, strategy, strategies, route, and face-ip-params nodes with the coresponding leaves. In hicn model variety of RPCs are provided to allow controler to communicate with hicn-plugin as well as update the state data in hicn-state. Here you can find the schematic view of the described hicn model:
 
 
 module: hicn
@@ -82,7 +81,7 @@ sysrepocfg -d startup -i path_to_startup_xml -f xml hicn
 fi
 
 
-startup.xml is placed under plugin/yang/. Here you can find the content:
+startup.xml is placed in the yang-model. Here you can find the content:
 
 <hicn-conf  xmlns="urn:sysrepo:hicn">
 <params>
@@ -168,7 +167,7 @@ As can be seen, it contains the leaves of the params in hicn-conf node which is 
           +---w swif?      uint32
 
 
-In order to run different RPCs from controler you can use the examples in the controler_rpcs_instances.xml under plugin/yang/. Here you can find the content:
+In order to run different RPCs from controler you can use the examples in the controler_rpcs_instances.xml in the yang-model. Here you can find the content:
 
 <node-params-get xmlns="urn:sysrepo:hicn"/>
 

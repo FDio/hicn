@@ -25,8 +25,6 @@ set(CMAKE_MODULE_PATH
 include(BuildMacros)
 include(WindowsMacros)
 
-find_package(Asio REQUIRED)
-
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
   include_directories(${LIBTRANSPORT_INCLUDE_DIRS})
@@ -38,19 +36,27 @@ else()
   )
 endif()
 
+set(SUFFIX "")
+if (${LIBTRANSPORT_LIBRARIES} MATCHES ".*-memif.*")
+  set(SUFFIX "-memif")
+endif()
+
+set(HICN_APPS "${HICN_APPS}${SUFFIX}")
+
 list(APPEND LIBRARIES
   ${LIBTRANSPORT_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
 )
 
-include(Packaging)
-
-set(COMPILER_DEFINITIONS "")
-
-
 if (WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
 endif ()
+
+include(Packaging)
+
+set(HIGET higet)
+set(HTTP_SERVER hicn-http-sever)
+set(HTTP_PROXY hicn-http-proxy)
 
 add_subdirectory(http-server)
 add_subdirectory(http-proxy)

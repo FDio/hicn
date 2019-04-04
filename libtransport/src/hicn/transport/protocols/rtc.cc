@@ -38,6 +38,8 @@ RTCTransportProtocol::RTCTransportProtocol(
       inflightInterests_(1 << default_values::log_2_default_buffer_size),
       modMask_((1 << default_values::log_2_default_buffer_size) - 1) {
   icnet_socket->getSocketOption(PORTAL, portal_);
+  nack_timer_ = std::make_unique<asio::steady_timer>(portal_->getIoService());
+  nack_timer_used_ = false;
   reset();
 }
 
@@ -103,6 +105,7 @@ void RTCTransportProtocol::reset() {
   actualSegment_ = 0;
   inflightInterestsCount_ = 0;
   while (interestRetransmissions_.size() != 0) interestRetransmissions_.pop();
+  lastSegNacked_ = 0;
   nackedByProducer_.clear();
   nackedByProducerMaxSize_ = 512;
 
@@ -211,8 +214,6 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
   auto it = pathTable_.find(producerPathLabel_);
   if (it == pathTable_.end()) return;
 
-  // double maxAvgRTT = it->second->getAverageRtt();
-  // double minRTT = it->second->getMinRtt();
   minRtt_ = it->second->getMinRtt();
   queuingDelay_ = it->second->getQueuingDealy();
 
@@ -221,22 +222,6 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
   for (auto it = pathTable_.begin(); it != pathTable_.end(); it++) {
     it->second->roundEnd();
   }
-
-  // this is inefficient but the window is supposed to be small, so it
-  // probably makes sense to leave it like this
-  // if(minRTT == 0)
-  //    minRTT = 1;
-
-  // minRTTwin_[roundCounter_ % MIN_RTT_WIN] = minRTT;
-  // minRtt_ = minRTT;
-  // for (int i = 0; i < MIN_RTT_WIN; i++)
-  //    if(minRtt_ > minRTTwin_[i])
-  //        minRtt_ = minRTTwin_[i];
-
-  // roundCounter_++;
-
-  // std::cout << "min RTT " << minRtt_ << " queuing " << queuingDelay_ <<
-  // std::endl;
 
   if (sentInterest_ != 0 && currentState_ == HICN_RTC_NORMAL_STATE) {
     double lossRate = (double)((double)packetLost_ / (double)sentInterest_);
@@ -419,7 +404,6 @@ void RTCTransportProtocol::sendInterest() {
     return;
   }
 
-  using namespace std::placeholders;
   portal_->sendInterest(std::move(interest));
 
   sentInterest_++;
@@ -450,8 +434,8 @@ void RTCTransportProtocol::scheduleAppNackRtx(std::vector<uint32_t> &nacks) {
       continue;
     }
     // packetLost_++;
-    // XXX here I need to avoid the retrasmission for packet that were nacked by
-    // the network
+    // XXX here I need to avoid the retrasmission for packet that were
+    // nacked by the network
     interestRetransmissions_.push(nacks[i]);
   }
 
@@ -467,11 +451,42 @@ void RTCTransportProtocol::onTimeout(Interest::Ptr &&interest) {
     inflightInterestsCount_--;
   }
 
-  if (inflightInterests_[pkt].retransmissions < HICN_MAX_RTX) {
+  if (inflightInterests_[pkt].retransmissions < HICN_MAX_RTX &&
+          lastSegNacked_ <= segmentNumber) {
     interestRetransmissions_.push(segmentNumber);
   }
 
   scheduleNextInterests();
+}
+
+bool RTCTransportProtocol::checkIfProducerIsActive(
+    const ContentObject &content_object) {
+  uint32_t *payload = (uint32_t *)content_object.getPayload()->data();
+  uint32_t productionSeg = *payload;
+  uint32_t productionRate = *(++payload);
+
+  if (productionRate == 0) {
+    // the producer socket is not active
+    // in this case we consider only the first nack
+    if (nack_timer_used_) {
+        return false;
+    }
+
+    nack_timer_used_ = true;
+    // actualSegment_ should be the one in the nack, which will the next in
+    // production
+    actualSegment_ = productionSeg;
+    // all the rest (win size should not change)
+    // we wait a bit before pull the socket again
+    nack_timer_->expires_from_now(std::chrono::milliseconds(500));
+    nack_timer_->async_wait([this](std::error_code ec) {
+      if (ec) return;
+      nack_timer_used_ = false;
+      scheduleNextInterests();
+    });
+    return false;
+  }
+  return true;
 }
 
 void RTCTransportProtocol::onNack(const ContentObject &content_object) {
@@ -480,16 +495,10 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
   uint32_t productionRate = *(++payload);
   uint32_t nackSegment = content_object.getName().getSuffix();
 
-  // we synch the estimated production rate with the actual one
-  estimatedBw_ = (double)productionRate;
-
-  // if(inflightInterests_[segmentNumber %
-  // default_values::default_buffer_size].retransmissions != 0){ ignore nacks
-  // for retransmissions
-  //    return;
-  //}
 
   gotNack_ = true;
+  // we synch the estimated production rate with the actual one
+  estimatedBw_ = (double)productionRate;
 
   if (productionSeg > nackSegment) {
     // we are asking for stuff produced in the past
@@ -501,25 +510,18 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
     computeMaxWindow(productionRate, 0);
     increaseWindow();
 
+    while (interestRetransmissions_.size() != 0) interestRetransmissions_.pop();
+    lastSegNacked_ = productionSeg;
+
     if (nackedByProducer_.size() >= nackedByProducerMaxSize_)
       nackedByProducer_.erase(nackedByProducer_.begin());
     nackedByProducer_.insert(nackSegment);
 
   } else if (productionSeg < nackSegment) {
-    gotFutureNack_++;
     // we are asking stuff in the future
-    // example
-    // 10    12    13    14    15    16    17
-    //       ^                  ^           ^
-    //       in prod            nack        actual
-    // in this example we sent up to segment 17 and we get a nack for segment 15
-    // this means that we will get nack also for 16 17
-    // and valid data for 13 14
-    // so the next segment to ask is 15, because 13 and 14 will can back anyway
-    // we go back only in the case that the actual segment is really bigger than
-    // nack segment, other we do nothing
+    gotFutureNack_++;
 
-    actualSegment_ = min(actualSegment_, nackSegment);
+    actualSegment_ = productionSeg + 1;
 
     computeMaxWindow(productionRate, 0);
     decreaseWindow();
@@ -530,20 +532,52 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
   }  // equal should not happen
 }
 
+void RTCTransportProtocol::onNackForRtx(const ContentObject &content_object) {
+  uint32_t *payload = (uint32_t *)content_object.getPayload()->data();
+  uint32_t productionSeg = *payload;
+  uint32_t nackSegment = content_object.getName().getSuffix();
+
+  if (productionSeg > nackSegment) {
+    // we are asking for stuff produced in the past
+    actualSegment_ = max(productionSeg + 1, actualSegment_);
+
+    while (interestRetransmissions_.size() != 0) interestRetransmissions_.pop();
+    lastSegNacked_ = productionSeg;
+
+  } else if (productionSeg < nackSegment) {
+
+    actualSegment_ = productionSeg + 1;
+  }  // equal should not happen
+}
+
 void RTCTransportProtocol::onContentObject(
     Interest::Ptr &&interest, ContentObject::Ptr &&content_object) {
   auto payload = content_object->getPayload();
   uint32_t payload_size = (uint32_t)payload->length();
   uint32_t segmentNumber = content_object->getName().getSuffix();
   uint32_t pkt = segmentNumber & modMask_;
+  bool schedule_next_interest = true;
+
+  ConsumerContentObjectCallback *callback_content_object = nullptr;
+  socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
+                           &callback_content_object);
+  if (*callback_content_object != VOID_HANDLER) {
+    (*callback_content_object)(*socket_, *content_object);
+  }
 
   if (payload_size == HICN_NACK_HEADER_SIZE) {
-    // Nacks always come form the producer, so we set the producerePathLabel_;
+    // Nacks always come form the producer, so we set the producerPathLabel_;
     producerPathLabel_ = content_object->getPathLabel();
+    schedule_next_interest = checkIfProducerIsActive(*content_object);
     if (inflightInterests_[pkt].retransmissions == 0) {
+      // discard nacks for rtx packets
       inflightInterestsCount_--;
-      onNack(*content_object);
+      // if checkIfProducerIsActive returns false, we did all we need to do
+      // inside that function, no need to call onNack
+      if (schedule_next_interest) onNack(*content_object);
       updateDelayStats(*content_object);
+    } else {
+      if (schedule_next_interest) onNackForRtx(*content_object);
     }
 
   } else {
@@ -565,7 +599,9 @@ void RTCTransportProtocol::onContentObject(
     increaseWindow();
   }
 
-  scheduleNextInterests();
+  if (schedule_next_interest) {
+    scheduleNextInterests();
+  }
 }
 
 void RTCTransportProtocol::returnContentToApplication(
@@ -573,8 +609,9 @@ void RTCTransportProtocol::returnContentToApplication(
   // return content to the user
   auto a = content_object.getPayload();
 
-  uint8_t *start = ((uint8_t *)a->data()) + HICN_TIMESTAMP_SIZE;
-  unsigned size = (unsigned)(a->length() - HICN_TIMESTAMP_SIZE);
+  a->trimStart(HICN_TIMESTAMP_SIZE);
+  uint8_t *start = a->writableData();
+  unsigned size = (unsigned)a->length();
 
   // set offset between hICN and RTP packets
   uint16_t rtp_seq = ntohs(*(((uint16_t *)start) + 1));
@@ -582,7 +619,7 @@ void RTCTransportProtocol::returnContentToApplication(
 
   std::shared_ptr<std::vector<uint8_t>> content_buffer;
   socket_->getSocketOption(APPLICATION_BUFFER, content_buffer);
-  content_buffer->insert(content_buffer_->end(), start, start + size);
+  content_buffer->insert(content_buffer->end(), start, start + size);
 
   ConsumerContentCallback *on_payload = nullptr;
   socket_->getSocketOption(CONTENT_RETRIEVED, &on_payload);

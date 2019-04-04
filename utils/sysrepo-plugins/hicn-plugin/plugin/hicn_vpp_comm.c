@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "hicn_vpp_comm.h"
+#include <vapi/vapi.h>
 
 
 
@@ -21,7 +22,10 @@
 #define MAX_OUTSTANDING_REQUESTS 4
 #define RESPONSE_QUEUE_SIZE 2
 vapi_ctx_t g_vapi_ctx_instance=NULL;
-DEFINE_VAPI_MSG_IDS_HICN_API_JSON;
+
+// Use VAPI macros to define symbols
+
+
 
 int hicn_connect_vpp() {
   HICN_INVOKE_BEGIN;

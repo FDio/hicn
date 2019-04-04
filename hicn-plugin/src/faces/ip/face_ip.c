@@ -40,17 +40,21 @@ hicn_face_ip_init (vlib_main_t * vm)
   /* Default Strategy has index 0 and it always exists */
   strategy_face_ip4_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.hicn_dpo_get_type
-						     ())->get_strategy_node_index
+						    (default_dpo.
+						     hicn_dpo_get_type ())->
+						    get_strategy_node_index
 						    (),
-						    hicn_face_ip4_output_node.index);
+						    hicn_face_ip4_output_node.
+						    index);
 
   strategy_face_ip6_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.hicn_dpo_get_type
-						     ())->get_strategy_node_index
+						    (default_dpo.
+						     hicn_dpo_get_type ())->
+						    get_strategy_node_index
 						    (),
-						    hicn_face_ip6_output_node.index);
+						    hicn_face_ip6_output_node.
+						    index);
   /*
    * Create and edge between al the other strategy nodes and the
    * ip_encap nodes.
@@ -124,8 +128,8 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
 		  const ip46_address_t * remote_addr,
 		  int sw_if, hicn_face_id_t * pfaceid)
 {
-  fib_protocol_t fib_type;
-  vnet_link_t link_type;
+  /* fib_protocol_t fib_type; */
+  /* vnet_link_t link_type; */
   adj_index_t adj;
   dpo_proto_t dpo_proto;
 
@@ -133,18 +137,21 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
   if (ip46_address_is_zero (local_addr) || ip46_address_is_zero (remote_addr))
     return HICN_ERROR_FACE_NO_GLOBAL_IP;
 
-  if (ip46_address_is_ip4 (local_addr) && ip46_address_is_ip4 (remote_addr))
-    {
-      link_type = VNET_LINK_IP4;
-      fib_type = FIB_PROTOCOL_IP4;
-    }
-  else
-    {
-      link_type = VNET_LINK_IP6;
-      fib_type = FIB_PROTOCOL_IP6;
-    }
+  fib_prefix_t fib_pfx;
+  fib_node_index_t fib_entry_index;
+  fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
+  fib_pfx.fp_len = 128;
 
-  adj = adj_nbr_add_or_lock (fib_type, link_type, remote_addr, sw_if);
+  u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+						     HICN_FIB_TABLE,
+						     FIB_SOURCE_PLUGIN_HI);
+
+  fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+
+  adj = fib_entry_get_adj (fib_entry_index);
+
+  if (adj == ~0)
+    return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
   hicn_face_flags_t flags = (hicn_face_flags_t) 0;
   flags |= HICN_FACE_FLAGS_FACE;
@@ -230,7 +237,8 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-						 hicn_mapme_eventmgr_process_node.index,
+						 hicn_mapme_eventmgr_process_node.
+						 index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
 

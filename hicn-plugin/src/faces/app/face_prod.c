@@ -131,7 +131,8 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 
   hicn_main_t *hm = &hicn_main;
 
-  ip46_address_t app_ip;
+  ip46_address_t local_app_ip;
+  ip46_address_t remote_app_ip;
   u32 if_flags = 0;
 
   if (!hm->is_enabled)
@@ -195,7 +196,7 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 	   */
 	  face->shared.flags &= HICN_FACE_FLAGS_DELETED;
 	  hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data;
-	  app_ip = prod_face->ip_face.local_addr;
+	  local_app_ip = prod_face->ip_face.local_addr;
 	}
     }
   else
@@ -207,31 +208,38 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 	   * Otherwise retrieve an ip address to assign as a
 	   * local ip addr.
 	   */
-	  ip4_address_t app_ip4 = get_ip4_address ();
+	  ip4_address_t local_app_ip4;
+	  ip4_address_t remote_app_ip4;
+	  get_two_ip4_addresses (&local_app_ip4, &remote_app_ip4);
 	  ip4_add_del_interface_address (vm,
 					 sw_if,
-					 &app_ip4, 32, 0 /* is_del */ );
-	  app_ip = to_ip46 ( /* isv6 */ 0, app_ip4.as_u8);
+					 &local_app_ip4, 31, 0 /* is_del */ );
+	  local_app_ip = to_ip46 ( /* isv6 */ 0, local_app_ip4.as_u8);
+	  remote_app_ip = to_ip46 ( /* isv6 */ 0, remote_app_ip4.as_u8);
+
+	  ret =
+	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid);
 	}
       else
 	{
-	  ip6_address_t app_ip6 = get_ip6_address ();
+	  ip6_address_t local_app_ip6;
+	  ip6_address_t remote_app_ip6;
+	  get_two_ip6_addresses (&local_app_ip6, &remote_app_ip6);
 	  u8 *s0;
-	  s0 = format (0, "Prefix %U", format_ip6_address, &app_ip6);
+	  s0 = format (0, "Prefix %U", format_ip6_address, &local_app_ip6);
 
 	  vlib_cli_output (vm, "Setting ip address %s\n", s0);
 
 	  ip6_add_del_interface_address (vm,
 					 sw_if,
-					 &app_ip6, 128, 0 /* is_del */ );
-	  app_ip = to_ip46 ( /* isv6 */ 1, app_ip6.as_u8);
-	}
+					 &local_app_ip6, 127,
+					 0 /* is_del */ );
+	  local_app_ip = to_ip46 ( /* isv6 */ 1, local_app_ip6.as_u8);
+	  remote_app_ip = to_ip46 ( /* isv6 */ 1, remote_app_ip6.as_u8);
 
-      /*
-       * Special case: the nh_addr in the face is the appif ip
-       * address
-       */
-      ret = hicn_face_ip_add (&app_ip, &(prefix->name), sw_if, faceid);
+	  ret =
+	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid);
+	}
 
       face = hicn_dpoi_get_from_idx (*faceid);
 
@@ -259,7 +267,7 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
       ret = hicn_route_add (faceid, 1, &(prefix->name), prefix->len);
     }
 
-  *prod_addr = app_ip;
+  *prod_addr = local_app_ip;
 
   /* Cleanup in case of something went wrong. */
   if (ret)

@@ -338,7 +338,56 @@ grouping states-reply {
 
 }
 
+grouping face-stats-reply {
 
+    leaf faceid {
+            description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+            type uint32;
+        }
+
+    leaf irx_packets {
+            description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+            type uint64;
+        }
+
+    leaf irx_bytes {
+            description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+            type uint64;
+        }
+
+    leaf itx_packets {
+            description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+            type uint64;
+        }
+
+    leaf itx_bytes {
+            description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+            type uint64;
+        }
+
+
+    leaf drx_packets {
+            description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+            type uint64;
+        }
+
+    leaf drx_bytes {
+            description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+            type uint64;
+        }
+
+    leaf dtx_packets {
+            description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+            type uint64;
+        }
+
+
+    leaf dtx_bytes {
+            description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+            type uint64;
+        }
+
+}
 
 grouping strategy-reply {
 
@@ -374,24 +423,20 @@ grouping strategies-reply {
 
 }
 
-grouping face-ip-params-reply {
-
-    leaf nh_addr {
-            description "Enable / disable ICN forwarder in VPP.";
-            type uint64;
+grouping face-maps {
+        list face{
+            key faceid;
+            leaf faceid {
+                description "faceid number.";
+                type uint16;
+            }
+            leaf intfc {
+                description "intfc number.";
+                type uint16;
+            }
         }
+   }
 
-    leaf swif {
-            description "compile-time plugin features.";
-            type uint32;
-        }
-
-    leaf flags {
-            description "compile-time plugin features.";
-            type uint32;
-        }
-
-}
 
 
 /* Hicn configuration */
@@ -399,7 +444,6 @@ grouping face-ip-params-reply {
 container hicn-conf {
     config true;
     description "config data container for the hicn-vpp.";
-
     container params{
         uses params;
     }
@@ -414,18 +458,16 @@ container hicn-state {
 
     container states{
         uses states-reply;
+        uses face-stats-reply;
     }
-    container strategy{
-        uses strategy-reply;
-    }
-    container route{
+    container routes{
         uses route-reply;
     }
     container strategies{
         uses strategies-reply;
     }
-    container face-ip-params{
-        uses face-ip-params-reply;
+    container faces{
+        uses face-maps;
     }
 
 }
@@ -532,5 +574,10 @@ rpc  punting-del {
         uses punting_add; /* It uses the same payload as the add*/
     }
 }
+
+rpc  face-stats-details {
+        description "Operation to take stat per face.";
+}
+
 
 }

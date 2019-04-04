@@ -41,9 +41,7 @@
 #define HICN_LOG_ERR_MSG  // SRP_LOG_ERR_MSG
 #endif
 
-//DEFINE_VAPI_MSG_IDS_VPE_API_JSON
 
-DEFINE_VAPI_MSG_IDS_HICN_API_JSON;
 // ctx vpp connect
 extern vapi_ctx_t g_vapi_ctx_instance;
 
@@ -72,13 +70,13 @@ extern vapi_ctx_t g_vapi_ctx_instance;
     ARG_CHECK(retval, arg1); \
     ARG_CHECK(retval, arg2)
 
-#define ARG_CHECK5(retval, arg1, arg2, arg3, arg4, arg5) \
+#define ARG_CHECK7(retval, arg1, arg2, arg3, arg4, arg5, arg6) \
     ARG_CHECK(retval, arg1); \
     ARG_CHECK(retval, arg2); \
     ARG_CHECK(retval, arg3); \
     ARG_CHECK(retval, arg4); \
-    ARG_CHECK(retval, arg5)
-
+    ARG_CHECK(retval, arg5); \
+    ARG_CHECK(retval, arg6)
 
 
 /**
@@ -111,6 +109,17 @@ extern vapi_ctx_t g_vapi_ctx_instance;
       return rc;                                               \
     }                                                          \
   } while (0);
+
+
+// define the error list
+typedef enum {
+    HICN_OK = 0,       /* Success */
+    HICN_EINVAL,       /* Invalid value encountered */
+    HICN_EAGAIN,       /* Operation would block */
+    HICN_ENOTSUP,      /* Operation not supported */
+    HICN_ENOMEM,       /* Out of memory */
+    HICN_NOT_FOUND,    /* Required element can not be found */
+} hicn_error_e;
 
 
 int hicn_connect_vpp();
