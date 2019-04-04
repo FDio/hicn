@@ -17,12 +17,14 @@
 hc_sock_t * hsocket;
 
 int hicn_connect_light() {
+
     hsocket = hc_sock_create();
     if (!hsocket)
       HICN_LOG_ERR_MSG("Error creating socket\n");
     if (hc_sock_connect(hsocket) < 0)
       HICN_LOG_ERR_MSG("Error connecting to the forwarder\n");
     return 0;
+
 }
 
 int hicn_disconnect_light() {
