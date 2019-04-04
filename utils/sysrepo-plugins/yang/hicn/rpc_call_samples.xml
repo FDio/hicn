@@ -74,3 +74,5 @@
     <len>24</len>
     <swif>0</swif>
 </punting-del>
+
+<face-stats-details xmlns="urn:sysrepo:hicn"/>

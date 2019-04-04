@@ -36,8 +36,6 @@ enum locks_name {lstate, lstrategy, lstrategies, lroute, lface_ip_params};
 #define NROUTE_LEAVES 2
 #define NFACE_IP_PARAMS_LEAVES 3
 
-
-
 int hicn_subscribe_events(sr_session_ctx_t *session,
                           sr_subscription_ctx_t **subscription);
 

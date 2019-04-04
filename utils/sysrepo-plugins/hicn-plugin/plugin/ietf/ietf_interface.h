@@ -16,8 +16,6 @@
 #ifndef __IETF_INTERFACE_H__
 #define __IETF_INTERFACE_H__
 
-//#include "../sc_model.h"
-
 int ietf_subscribe_events(sr_session_ctx_t *session,
                           sr_subscription_ctx_t **subscription);
 

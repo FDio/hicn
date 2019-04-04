@@ -24,8 +24,8 @@
 volatile long int  En[MAX_LOCK_SIZE] , De[MAX_LOCK_SIZE] ;   // For Ticket Algorithm
 
 
-void Ticket_init ( int Lock_Number , long int init );
-void Ticket_Lock(int Lock_Number );
-void Ticket_Unlock(int Lock_Number );
+void ticket_init ( int Lock_Number , long int init );
+void tlock(int Lock_Number );
+void tunlock(int Lock_Number );
 
 #endif /* __IETF_HICN_H__ */
