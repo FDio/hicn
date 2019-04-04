@@ -72,6 +72,9 @@
     ARG_CHECK(retval, arg4); \
     ARG_CHECK(retval, arg5)
 
+
+#define MEM_ALIGN 4096
+
 int hicn_connect_light();
 int hicn_disconnect_light();
 extern hc_sock_t * hsocket;
