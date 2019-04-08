@@ -40,21 +40,17 @@ hicn_face_ip_init (vlib_main_t * vm)
   /* Default Strategy has index 0 and it always exists */
   strategy_face_ip4_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.
-						     hicn_dpo_get_type ())->
-						    get_strategy_node_index
+						    (default_dpo.hicn_dpo_get_type
+						     ())->get_strategy_node_index
 						    (),
-						    hicn_face_ip4_output_node.
-						    index);
+						    hicn_face_ip4_output_node.index);
 
   strategy_face_ip6_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.
-						     hicn_dpo_get_type ())->
-						    get_strategy_node_index
+						    (default_dpo.hicn_dpo_get_type
+						     ())->get_strategy_node_index
 						    (),
-						    hicn_face_ip6_output_node.
-						    index);
+						    hicn_face_ip6_output_node.index);
   /*
    * Create and edge between al the other strategy nodes and the
    * ip_encap nodes.
@@ -140,7 +136,7 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
   fib_prefix_t fib_pfx;
   fib_node_index_t fib_entry_index;
   fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
-  fib_pfx.fp_len = 128;
+  fib_pfx.fp_len = ip46_address_is_ip4 (local_addr) ? 32 : 128;
 
   u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 						     HICN_FIB_TABLE,
@@ -237,8 +233,7 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-						 hicn_mapme_eventmgr_process_node.
-						 index,
+						 hicn_mapme_eventmgr_process_node.index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
 
@@ -258,6 +253,69 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
 
   return HICN_ERROR_NONE;
 }
+
+int
+hicn_face_ip_add_no_local (ip46_address_t * remote_addr,
+			   int sw_if, hicn_face_id_t * pfaceid)
+{
+  int rv = HICN_ERROR_NONE;
+  vnet_main_t *vnm = vnet_get_main ();
+  ip46_address_t local_addr;
+  *pfaceid = HICN_FACE_NULL;
+
+  if (!vnet_sw_interface_is_valid (vnm, sw_if))
+    {
+      rv = HICN_ERROR_UNSPECIFIED;
+    }
+
+  if (rv == HICN_ERROR_NONE && ip46_address_is_ip4 (remote_addr))
+    {
+      ip_interface_address_t *interface_address;
+      ip4_address_t *addr =
+	ip4_interface_address_matching_destination (&ip4_main,
+						    &remote_addr->ip4,
+						    sw_if,
+						    &interface_address);
+      if (addr == NULL)
+	addr = ip4_interface_first_address (&ip4_main,
+					    sw_if, &interface_address);
+
+      if (addr == NULL)
+	rv = HICN_ERROR_UNSPECIFIED;
+      else
+	ip46_address_set_ip4 (&local_addr, addr);
+    }
+  else
+    {
+      ip_interface_address_t *interface_address;
+      ip6_interface_address_matching_destination (&ip6_main,
+						  &remote_addr->ip6, sw_if,
+						  &interface_address);
+      ip6_address_t *addr = NULL;
+      if (rv == HICN_ERROR_NONE && interface_address != NULL)
+	{
+	  addr =
+	    (ip6_address_t *)
+	    ip_interface_address_get_address (&ip6_main.lookup_main,
+					      interface_address);
+	}
+      else
+	{
+	  addr = ip6_interface_first_address (&ip6_main, sw_if);
+	}
+
+      if (addr == NULL)
+	rv = HICN_ERROR_UNSPECIFIED;
+      else
+	ip46_address_set_ip6 (&local_addr, addr);
+    }
+
+  if (rv == HICN_ERROR_NONE)
+    rv = hicn_face_ip_add (&local_addr, remote_addr, sw_if, pfaceid);
+
+  return rv;
+}
+
 
 u8 *
 format_hicn_face_ip (u8 * s, va_list * args)

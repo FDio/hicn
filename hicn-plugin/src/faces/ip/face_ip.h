@@ -166,6 +166,19 @@ int hicn_face_ip_add (const ip46_address_t * local_addr,
 		      int swif, hicn_face_id_t * pfaceid);
 
 /**
+ * @brief Create a new face ip. API for other modules (e.g., routing)
+ *
+ * @param remote_addr Remote ip v4 or v6 address of the face
+ * @param sw_if interface associated to the face
+ * @param is_app_face Boolean to set the face as an application face
+ * @param pfaceid Pointer to return the face id
+ * @return HICN_ERROR_FACE_NO_GLOBAL_IP if the face does not have a globally
+ * reachable ip address, otherwise HICN_ERROR_NONE
+ */
+int hicn_face_ip_add_no_local (ip46_address_t * remote_addr,
+			       int swif, hicn_face_id_t * pfaceid);
+
+/**
  * @brief Create a new incomplete face ip. (Meant to be used by the data plane)
  *
  * @param local_addr Local ip v4 or v6 address of the face

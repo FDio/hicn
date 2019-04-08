@@ -484,8 +484,8 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
       (adj->lookup_next_index == IP_LOOKUP_NEXT_ARP
        || adj->lookup_next_index == IP_LOOKUP_NEXT_GLEAN))
     hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
-					 &ip_face->remote_addr, &temp_addr,
-					 0);
+					 &adj->sub_type.nbr.next_hop,
+					 &temp_addr, 0);
 
   *next = adj->lookup_next_index;
 }
