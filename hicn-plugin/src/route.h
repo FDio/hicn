@@ -52,6 +52,8 @@ int hicn_route_del_nhop (ip46_address_t * prefix, u8 plen, u32 face_id);
 int
 hicn_route_set_strategy (ip46_address_t * prefix, u8 plen, u32 strategy_id);
 
+int hicn_route_convert_from_ip (ip46_address_t * prefix, u8 len);
+
 #endif /* //__HICN_ROUTE__ */
 
 /*
