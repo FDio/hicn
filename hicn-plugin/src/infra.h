@@ -79,6 +79,8 @@ hicn_infra_plugin_enable_disable (int enable_disable,
 				  f64 pit_max_lifetime_sec_req,
 				  int cs_max_size, int cs_reserved_app);
 
+int
+hicn_enable_on_prefix (int enable_disable, ip46_address_t * prefix, u8 len);
 
 /* vlib nodes that compose the hICN forwarder */
 extern vlib_node_registration_t hicn_interest_pcslookup_node;

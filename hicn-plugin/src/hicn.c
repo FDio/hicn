@@ -15,6 +15,7 @@
 
 #include <vnet/vnet.h>
 #include <vnet/plugin/plugin.h>
+#include <vnet/dpo/load_balance.h>
 
 #include "hicn.h"
 #include "params.h"
@@ -22,6 +23,7 @@
 #include "strategy_dpo_manager.h"
 #include "mgmt.h"
 #include "punt.h"
+#include "route.h"
 #include "error.h"
 #include "faces/app/address_mgr.h"
 #include "face_db.h"
