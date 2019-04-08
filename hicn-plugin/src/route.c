@@ -24,6 +24,7 @@
 #include "strategy_dpo_manager.h"
 #include "strategy.h"
 #include "faces/face.h"
+#include "infra.h"
 #include "error.h"
 #include "strategies/dpo_mw.h"
 
@@ -383,6 +384,201 @@ hicn_route_set_strategy (ip46_address_t * prefix, u8 plen, u8 strategy_id)
   //Remember to remove the lock from the table when removing the entry
   return ret;
 
+}
+
+/*
+ * Translare an IP route in the fib to the corresponding hICN one.
+ * 1. Scan the FIB
+ * 1.2 if an ip route exists, convert it to hicn one. For each ip hop, create an hicn one
+ * 1.3 if an hicn route exists, do nothing here
+ */
+int
+hicn_route_convert_from_ip (ip46_address_t * prefix, u8 len)
+{
+  hicn_main_t *hm = &hicn_main;
+
+  /* Check if the hicn plugin is enabled */
+  if (!hm->is_enabled)
+    return HICN_ERROR_FWD_NOT_ENABLED;
+
+  /* 1. Scan the FIB */
+  /* 1.2 if an ip route exists, convert it to hicn one. For each ip hop, create an hicn one */
+  /* 1.3 if an hicn route exists, do nothing here */
+
+  const dpo_id_t *load_balance_dpo_id;
+  const dpo_id_t *former_dpo_id;
+  int ret2 = HICN_ERROR_NONE, ret = HICN_ERROR_NONE;
+
+  hicn_face_id_t *faces = NULL;
+
+  /* Check if we found at least one ip address */
+  if (ip46_address_is_zero (prefix))
+    return HICN_ERROR_FACE_NO_GLOBAL_IP;
+
+  fib_prefix_t fib_pfx;
+  fib_node_index_t fib_entry_index;
+  fib_prefix_from_ip46_addr (prefix, &fib_pfx);
+  fib_pfx.fp_len = len;
+
+  u32 fib_index = fib_table_find (fib_pfx.fp_proto,
+				  HICN_FIB_TABLE);
+
+  if (fib_index == ~0)
+    return HICN_ERROR_ROUTE_NOT_FOUND;
+
+  fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
+
+  if (fib_entry_index == FIB_NODE_INDEX_INVALID)
+    return HICN_ERROR_ROUTE_NOT_FOUND;
+
+  /* Route already existing. We need to update the dpo. */
+  load_balance_dpo_id = fib_entry_contribute_ip_forwarding (fib_entry_index);
+
+  /* The dpo is not a load balance dpo as expected */
+  if (load_balance_dpo_id->dpoi_type != DPO_LOAD_BALANCE)
+    ret = HICN_ERROR_ROUTE_NO_LD;
+  else
+    {
+      /* former_dpo_id is a load_balance dpo */
+      load_balance_t *lb = load_balance_get (load_balance_dpo_id->dpoi_index);
+
+      ret = HICN_ERROR_ROUTE_DPO_NO_HICN;
+      vec_alloc (faces, lb->lb_n_buckets);
+      int j = 0;
+      for (int i = 0; i < lb->lb_n_buckets; i++)
+	{
+	  former_dpo_id = load_balance_get_bucket_i (lb, i);
+
+	  if (!dpo_is_hicn (former_dpo_id))
+	    {
+	      ip_adjacency_t *ip_adj = adj_get (former_dpo_id->dpoi_index);
+
+	      /* create hicn face */
+	      ret =
+		hicn_face_ip_add_no_local (&ip_adj->sub_type.nbr.next_hop,
+					   adj_get_sw_if_index
+					   (former_dpo_id->dpoi_index),
+					   &faces[j]);
+	      if (ret == HICN_ERROR_NONE)
+		j++;
+	      else
+		ret2 = ret;
+	    }
+	}
+
+      if (ret == HICN_ERROR_NONE)
+	{
+	  fib_table_entry_delete (fib_index, &fib_pfx,
+				  fib_entry_get_best_source
+				  (fib_entry_index));
+	  hicn_route_add (faces, j, prefix, len);
+	}
+      else
+	{
+	  for (int i = 0; i < j; i++)
+	    {
+	      hicn_face_ip_del (faces[i]);
+	    }
+	}
+    }
+
+  return ret2;
+}
+
+int
+hicn_route_convert_to_ip (ip46_address_t * prefix, u8 len)
+{
+  hicn_main_t *hm = &hicn_main;
+
+  /* Check if the hicn plugin is enabled */
+  if (!hm->is_enabled)
+    return HICN_ERROR_FWD_NOT_ENABLED;
+
+  const dpo_id_t *load_balance_dpo_id;
+  const dpo_id_t *former_dpo_id;
+  int ret = HICN_ERROR_NONE;
+
+  ip_adjacency_t **ip_adjacencies = NULL;
+  hicn_face_t **faces = NULL;
+
+
+  /* Check if we found at least one ip address */
+  if (ip46_address_is_zero (prefix))
+    return HICN_ERROR_FACE_NO_GLOBAL_IP;
+
+  fib_prefix_t fib_pfx;
+  fib_node_index_t fib_entry_index;
+  fib_prefix_from_ip46_addr (prefix, &fib_pfx);
+  fib_pfx.fp_len = len;
+
+  u32 fib_index = fib_table_find (fib_pfx.fp_proto,
+				  HICN_FIB_TABLE);
+
+  if (fib_index == ~0)
+    return HICN_ERROR_ROUTE_NOT_FOUND;
+
+  fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
+
+  /* Route already existing. We need to update the dpo. */
+  load_balance_dpo_id = fib_entry_contribute_ip_forwarding (fib_entry_index);
+
+  int j = 0;
+
+  /* The dpo is not a load balance dpo as expected */
+  if (load_balance_dpo_id->dpoi_type != DPO_LOAD_BALANCE)
+    ret = HICN_ERROR_ROUTE_NO_LD;
+  else
+    {
+      /* former_dpo_id is a load_balance dpo */
+      load_balance_t *lb = load_balance_get (load_balance_dpo_id->dpoi_index);
+
+      if (lb->lb_n_buckets > 1)
+	ret = HICN_ERROR_ROUTE_DPO_NO_HICN;
+      else
+	{
+	  former_dpo_id = load_balance_get_bucket_i (lb, 0);
+
+	  if (dpo_is_hicn (former_dpo_id))
+	    {
+	      u32 vft_id = hicn_dpo_get_vft_id (former_dpo_id);
+	      const hicn_dpo_vft_t *dpo_vft = hicn_dpo_get_vft (vft_id);
+	      hicn_dpo_ctx_t *hicn_dpo =
+		dpo_vft->hicn_dpo_get_ctx (former_dpo_id->dpoi_index);
+
+	      vec_alloc (faces, hicn_dpo->entry_count);
+	      vec_alloc (ip_adjacencies, hicn_dpo->entry_count);
+	      for (int i = 0; i < hicn_dpo->entry_count; i++)
+		{
+		  hicn_face_t *face =
+		    hicn_dpoi_get_from_idx (hicn_dpo->next_hops[i].
+					    dpoi_index);
+		  ip_adjacencies[j] = adj_get (face->shared.adj);
+
+		  hicn_route_del_nhop (prefix, len,
+				       hicn_dpo->next_hops[i].dpoi_index);
+		}
+	    }
+
+
+	}
+
+
+      if (ret == HICN_ERROR_NONE)
+	{
+	  fib_table_entry_delete (fib_index, &fib_pfx,
+				  fib_entry_get_best_source
+				  (fib_entry_index));
+	}
+      else
+	{
+	  for (int i = 0; i < j; i++)
+	    {
+	      hicn_face_ip_del (hicn_dpoi_get_index (faces[i]));
+	    }
+	}
+    }
+
+  return ret;
 }
 
 /*

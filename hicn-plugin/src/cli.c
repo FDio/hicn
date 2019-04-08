@@ -86,12 +86,9 @@ hicn_cli_node_ctl_start_set_command_fn (vlib_main_t * vm,
 
   ret = hicn_infra_plugin_enable_disable (1 /* enable */ ,
 					  node_ctl_params.pit_max_size,
-					  node_ctl_params.
-					  pit_dflt_lifetime_sec,
-					  node_ctl_params.
-					  pit_min_lifetime_sec,
-					  node_ctl_params.
-					  pit_max_lifetime_sec,
+					  node_ctl_params.pit_dflt_lifetime_sec,
+					  node_ctl_params.pit_min_lifetime_sec,
+					  node_ctl_params.pit_max_lifetime_sec,
 					  node_ctl_params.cs_max_size,
 					  node_ctl_params.cs_reserved_app);
 
@@ -134,12 +131,9 @@ hicn_cli_node_ctl_stop_set_command_fn (vlib_main_t * vm,
     }
   ret = hicn_infra_plugin_enable_disable (0 /* !enable */ ,
 					  node_ctl_params.pit_max_size,
-					  node_ctl_params.
-					  pit_dflt_lifetime_sec,
-					  node_ctl_params.
-					  pit_min_lifetime_sec,
-					  node_ctl_params.
-					  pit_max_lifetime_sec,
+					  node_ctl_params.pit_dflt_lifetime_sec,
+					  node_ctl_params.pit_min_lifetime_sec,
+					  node_ctl_params.pit_max_lifetime_sec,
 					  node_ctl_params.cs_max_size,
 					  node_ctl_params.cs_reserved_app);
 
@@ -884,8 +878,8 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
     {
       /* Add data node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.hicn_node_info.
-					      ip4_inacl_node_index,
+					      hicn_punt_glb.
+					      hicn_node_info.ip4_inacl_node_index,
 					      hicn_pg_data_node.index);
 
       /* Add pgen_client node to the vpp graph */
@@ -922,8 +916,8 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
     {
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.
-					      hicn_node_info.ip6_inacl_node_index,
+					      hicn_punt_glb.hicn_node_info.
+					      ip6_inacl_node_index,
 					      hicn_pg_data_node.index);
 
       /* Add pgen_client node to the vpp graph */
@@ -1093,8 +1087,8 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
     {
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.hicn_node_info.
-					      ip4_inacl_node_index,
+					      hicn_punt_glb.
+					      hicn_node_info.ip4_inacl_node_index,
 					      hicn_pg_server_node.index);
 
       /* Create the punting table if it does not exist */
@@ -1120,8 +1114,8 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
     {
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.
-					      hicn_node_info.ip6_inacl_node_index,
+					      hicn_punt_glb.hicn_node_info.
+					      ip6_inacl_node_index,
 					      hicn_pg_server_node.index);
 
       /* Create the punting table if it does not exist */
@@ -1158,6 +1152,38 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
     }
 
   return cl_err;
+}
+
+static clib_error_t *
+hicn_cli_enable_prefix_command_fn (vlib_main_t * vm,
+				   unformat_input_t * main_input,
+				   vlib_cli_command_t * cmd)
+{
+  ip46_address_t prefix;
+  u8 len;
+  int ret = 0;
+
+  unformat_input_t _line_input, *line_input = &_line_input;
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    {
+      return (0);
+    }
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat
+	  (line_input, "%U/%d", unformat_ip46_address, &prefix, IP46_TYPE_ANY,
+	   &len))
+	{;
+	}
+      else
+	{
+	  return (clib_error_return (0, "invalid option"));
+	}
+    }
+
+  ret = hicn_route_convert_from_ip (&prefix, len);
+
+  return clib_error_return (0, get_error_string (ret));
 }
 
 /* cli declaration for 'control start' */
@@ -1245,6 +1271,15 @@ VLIB_CLI_COMMAND(hicn_cli_pgen_server_set_command, static)=
         .long_help = "Run hicn in packet-gen server mode\n",
         .function = hicn_cli_pgen_server_set_command_fn,
 };
+
+/* cli declaration for 'enable prefix' */
+VLIB_CLI_COMMAND(hicn_cli_enable_prefix_command, static)=
+{
+  .path = "hicn enbale prefix",
+  .short_help = "hicn enable prefix <prefix>",
+  .function = hicn_cli_enable_prefix_command_fn,
+};
+
 /* *INDENT-ON* */
 
 /*

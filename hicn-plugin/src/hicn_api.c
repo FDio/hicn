@@ -194,7 +194,6 @@ vl_api_hicn_api_face_ip_add_t_handler (vl_api_hicn_api_face_ip_add_t * mp)
   hicn_error_t rv = HICN_ERROR_NONE;
 
   hicn_main_t *sm = &hicn_main;
-  vnet_main_t *vnm = vnet_get_main ();
 
   hicn_face_id_t faceid = HICN_FACE_NULL;
   ip46_address_t local_addr;
@@ -212,58 +211,12 @@ vl_api_hicn_api_face_ip_add_t_handler (vl_api_hicn_api_face_ip_add_t * mp)
 
   if (ip46_address_is_zero (&local_addr))
     {
-      if (!vnet_sw_interface_is_valid (vnm, sw_if))
-	{
-	  rv = HICN_ERROR_UNSPECIFIED;
-	}
-
-      if ((rv == HICN_ERROR_NONE) && ip46_address_is_ip4 (&remote_addr))
-	{
-	  ip_interface_address_t *interface_address;
-	  ip4_address_t *addr =
-	    ip4_interface_address_matching_destination (&ip4_main,
-							&remote_addr.ip4,
-							sw_if,
-							&interface_address);
-	  if (addr == NULL)
-	    addr = ip4_interface_first_address (&ip4_main,
-						sw_if, &interface_address);
-
-	  if (addr == NULL)
-	    rv = HICN_ERROR_UNSPECIFIED;
-	  else
-	    ip46_address_set_ip4 (&local_addr, addr);
-	}
-      else
-	{
-	  ip_interface_address_t *interface_address;
-	  ip6_interface_address_matching_destination (&ip6_main,
-						      &remote_addr.ip6, sw_if,
-						      &interface_address);
-	  ip6_address_t *addr = NULL;
-	  if (rv == HICN_ERROR_NONE && interface_address != NULL)
-	    {
-	      addr =
-		(ip6_address_t *)
-		ip_interface_address_get_address (&ip6_main.lookup_main,
-						  interface_address);
-	    }
-	  else
-	    {
-	      addr = ip6_interface_first_address (&ip6_main, sw_if);
-	    }
-
-	  if (addr == NULL)
-	    rv = HICN_ERROR_UNSPECIFIED;
-	  else
-	    ip46_address_set_ip6 (&local_addr, addr);
-	}
+      rv = hicn_face_ip_add_no_local (&remote_addr, sw_if, &faceid);
     }
-
-  if (rv == HICN_ERROR_NONE)
-    rv = hicn_face_ip_add (&local_addr, &remote_addr, sw_if, &faceid);
   else
-    faceid = HICN_FACE_NULL;
+    {
+      rv = hicn_face_ip_add (&local_addr, &remote_addr, sw_if, &faceid);
+    }
 
   /* *INDENT-OFF* */
   REPLY_MACRO2 (VL_API_HICN_API_FACE_IP_ADD_REPLY /* , rmp, mp, rv */ ,(
