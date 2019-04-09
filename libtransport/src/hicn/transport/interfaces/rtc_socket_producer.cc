@@ -49,7 +49,7 @@ RTCProducerSocket::RTCProducerSocket(asio::io_service &io_service)
       nack_(std::make_shared<ContentObject>()),
       producedBytes_(0),
       producedPackets_(0),
-      bytesProductionRate_(0),
+      bytesProductionRate_(INIT_PACKET_PRODUCTION_RATE * 1400),
       packetsProductionRate_(INIT_PACKET_PRODUCTION_RATE),
       perSecondFactor_(MILLI_IN_A_SEC / STATS_INTERVAL_DURATION),
       active_(false) {
@@ -69,7 +69,7 @@ RTCProducerSocket::RTCProducerSocket()
       nack_(std::make_shared<ContentObject>()),
       producedBytes_(0),
       producedPackets_(0),
-      bytesProductionRate_(0),
+      bytesProductionRate_(INIT_PACKET_PRODUCTION_RATE * 1400),
       packetsProductionRate_(INIT_PACKET_PRODUCTION_RATE),
       perSecondFactor_(MILLI_IN_A_SEC / STATS_INTERVAL_DURATION),
       active_(false) {
@@ -171,7 +171,8 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
     uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
                        std::chrono::steady_clock::now().time_since_epoch())
                        .count();
-    if (now - lastProduced_.load() >= INACTIVE_TIME) {
+    uint64_t lastProduced = lastProduced_.load();
+    if (now - lastProduced >= INACTIVE_TIME) {
       active_ = false;
     }
   }
