@@ -50,7 +50,6 @@ class RTCProducerSocket : public ProducerSocket {
   uint16_t headerSize_;
   Name flowName_;
   // bool produceInSynch_;
-  std::shared_ptr<ContentObject> nack_;
   uint32_t producedBytes_;
   uint32_t producedPackets_;
   uint32_t bytesProductionRate_;

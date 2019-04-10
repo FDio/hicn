@@ -24,8 +24,9 @@
 #define INIT_PACKET_PRODUCTION_RATE 100  // pps random value (almost 1Mbps)
 #define STATS_INTERVAL_DURATION 500      // ms
 #define INTEREST_LIFETIME_REDUCTION_FACTOR 0.8
-#define INACTIVE_TIME 100  // ms opus generates ~50 packets per seocnd, one
-                           // every
+#define INACTIVE_TIME \
+  100  // ms opus generates ~50 packets per seocnd, one
+       // every
 // 20ms. to be safe we use 20ms*5 as timer for an
 // inactive socket
 #define MILLI_IN_A_SEC 1000  // ms in a second
@@ -46,16 +47,12 @@ namespace interface {
 RTCProducerSocket::RTCProducerSocket(asio::io_service &io_service)
     : ProducerSocket(io_service),
       currentSeg_(1),
-      nack_(std::make_shared<ContentObject>()),
       producedBytes_(0),
       producedPackets_(0),
       bytesProductionRate_(INIT_PACKET_PRODUCTION_RATE * 1400),
       packetsProductionRate_(INIT_PACKET_PRODUCTION_RATE),
       perSecondFactor_(MILLI_IN_A_SEC / STATS_INTERVAL_DURATION),
       active_(false) {
-  auto nack_payload = utils::MemBuf::create(NACK_HEADER_SIZE);
-  nack_payload->append(NACK_HEADER_SIZE);
-  nack_->appendPayload(std::move(nack_payload));
   lastStats_ = std::chrono::duration_cast<std::chrono::milliseconds>(
                    std::chrono::steady_clock::now().time_since_epoch())
                    .count();
@@ -66,16 +63,12 @@ RTCProducerSocket::RTCProducerSocket(asio::io_service &io_service)
 RTCProducerSocket::RTCProducerSocket()
     : ProducerSocket(),
       currentSeg_(1),
-      nack_(std::make_shared<ContentObject>()),
       producedBytes_(0),
       producedPackets_(0),
       bytesProductionRate_(INIT_PACKET_PRODUCTION_RATE * 1400),
       packetsProductionRate_(INIT_PACKET_PRODUCTION_RATE),
       perSecondFactor_(MILLI_IN_A_SEC / STATS_INTERVAL_DURATION),
       active_(false) {
-  auto nack_payload = utils::MemBuf::create(NACK_HEADER_SIZE);
-  nack_payload->append(NACK_HEADER_SIZE);
-  nack_->appendPayload(std::move(nack_payload));
   lastStats_ = std::chrono::duration_cast<std::chrono::milliseconds>(
                    std::chrono::steady_clock::now().time_since_epoch())
                    .count();
@@ -184,7 +177,8 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
 
   max_gap = (uint32_t)floor(
       (double)((double)((double)lifetime * INTEREST_LIFETIME_REDUCTION_FACTOR /
-            1000.0) * (double)packetsProductionRate_.load()));
+                        1000.0) *
+               (double)packetsProductionRate_.load()));
 
   if (interestSeg < currentSeg_ || interestSeg > (max_gap + currentSeg_)) {
     sendNack(*interest);
@@ -193,8 +187,14 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
 }
 
 void RTCProducerSocket::sendNack(const Interest &interest) {
-  nack_->setName(interest.getName());
-  uint32_t *payload_ptr = (uint32_t *)nack_->getPayload()->data();
+  auto nack_payload = utils::MemBuf::create(NACK_HEADER_SIZE);
+  nack_payload->append(NACK_HEADER_SIZE);
+  ContentObject nack;
+
+  nack.appendPayload(std::move(nack_payload));
+  nack.setName(interest.getName());
+
+  uint32_t *payload_ptr = (uint32_t *)nack.getPayload()->data();
   *payload_ptr = currentSeg_;
 
   if (active_.load()) {
@@ -203,14 +203,14 @@ void RTCProducerSocket::sendNack(const Interest &interest) {
     *(++payload_ptr) = 0;
   }
 
-  nack_->setLifetime(0);
-  nack_->setPathLabel(prodLabel_);
+  nack.setLifetime(0);
+  nack.setPathLabel(prodLabel_);
 
   if (on_content_object_output_ != VOID_HANDLER) {
-    on_content_object_output_(*this, *nack_);
+    on_content_object_output_(*this, nack);
   }
 
-  portal_->sendContentObject(*nack_);
+  portal_->sendContentObject(nack);
 }
 
 }  // namespace interface
