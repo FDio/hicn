@@ -168,7 +168,8 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	   * not changed from the lookup.
 	   */
 
-	  if (tnow > pitp->shared.expire_time)
+	  if (tnow > pitp->shared.expire_time
+	      || (hash_entry0->he_flags & HICN_HASH_ENTRY_FLAG_DELETED))
 	    {
 	      dpo_id_t hicn_dpo_id0 =
 		{ dpo_vft0->hicn_dpo_get_type (), 0, 0, dpo_ctx_id0 };
@@ -503,6 +504,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 	  *n_left_to_next -= 1;
 	  n_left_from -= 1;
 	  clones += 1;
+
 	  next0 = face0->dpoi_next_node;
 	  vnet_buffer (h0)->ip.adj_index[VLIB_TX] = face0->dpoi_index;
 

@@ -85,7 +85,7 @@ hicn_face_module_init (vlib_main_t * vm)
   hicn_iface_ip_init (vm);
   hicn_face_udp_init (vm);
   hicn_iface_udp_init (vm);
-  vec_alloc (counters, 40);
+  counters = vec_new (vlib_combined_counter_main_t, HICN_PARAM_FACES_MAX);
 }
 
 u8 *

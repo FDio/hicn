@@ -16,6 +16,8 @@
 #ifndef __HICN_PARAM_H__
 #define __HICN_PARAM_H__
 
+#include <math.h>
+
 /*
  * Features
  */
@@ -50,8 +52,12 @@ STATIC_ASSERT ((HICN_PARAM_FACES_MAX & (HICN_PARAM_FACES_MAX - 1)) == 0,
 
 // aggregation limit(interest previous hops)
 // Supported up to 516. For more than 4 faces this param must
-// satisfy the equation (HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4) % 2 = 0
+// HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4 must be a power of two
 #define HICN_PARAM_PIT_ENTRY_PHOPS_MAX 20
+
+STATIC_ASSERT ((ceil (log2 ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4)))) ==
+	       (floor (log2 ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4)))),
+	       "HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4 must be a power of two");
 
 STATIC_ASSERT ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX <= HICN_PARAM_FACES_MAX),
 	       "HICN_PARAM_PIT_ENTRY_PHOP_MAX must be <= than HICN_PARAM_FACES_MAX");
