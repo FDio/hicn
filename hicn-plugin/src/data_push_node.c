@@ -54,7 +54,6 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
-  u8 packet_data[40];
 } hicn_data_push_trace_t;
 
 vlib_node_registration_t hicn_data_push_node;
@@ -250,6 +249,17 @@ hicn_data_push_fn (vlib_main_t * vm,
 			 nameptr, namelen, isv6);
 	  stats.pkts_data_count++;
 	}
+
+      /* Maybe trace */
+      if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
+			 (b0->flags & VLIB_BUFFER_IS_TRACED)))
+	{
+	  hicn_data_push_trace_t *t =
+	    vlib_add_trace (vm, node, b0, sizeof (*t));
+	  t->pkt_type = HICN_PKT_TYPE_CONTENT;
+	  t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
+	  t->next_index = HICN_DATA_PUSH_NEXT_ERROR_DROP;
+	}
     }
 
   to_forward -= n_to_forward;
@@ -266,6 +276,7 @@ hicn_data_push_fn (vlib_main_t * vm,
 	  to_next++;
 	  n_left_to_next--;
 	}
+
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
 
