@@ -16,7 +16,7 @@
 #pragma once
 
 #include <queue>
-#include <set>
+#include <map>
 #include <unordered_map>
 
 #include <hicn/transport/protocols/protocol.h>
@@ -38,7 +38,9 @@
 // controller constant
 #define HICN_ROUND_LEN \
   200  // ms interval of time on which we take decisions / measurements
-#define HICN_MAX_RTX 3
+#define HICN_MAX_RTX 10
+#define HICN_MAX_RTX_SIZE 1024
+#define HICN_MAX_RTX_MAX_AGE 10000
 #define HICN_MIN_RTT_WIN 30  // rounds
 
 // cwin
@@ -82,11 +84,21 @@ namespace transport {
 
 namespace protocol {
 
+enum packetState {
+  sent_,
+  received_,
+  timeout1_,
+  timeout2_,
+  lost_
+};
+
+typedef enum packetState packetState_t;
+
 struct sentInterest {
   uint64_t transmissionTime;
   uint32_t sequence;  //sequence number of the interest sent
-  uint8_t retransmissions;
-  uint8_t received; //1 = received, 0 = not received
+                      //to handle seq % buffer_size
+  packetState_t state; //see packet state
 };
 
 class RTCTransportProtocol : public TransportProtocol, public Reassembly {
@@ -119,9 +131,13 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   void resetPreviousWindow();
 
   // packet functions
-  void sendInterest();
+  void sendInterest(Name *interest_name, bool rtx);
   void scheduleNextInterests() override;
   void scheduleAppNackRtx(std::vector<uint32_t> &nacks);
+  void addRetransmissions(uint32_t val);
+  void addRetransmissions(uint32_t start, uint32_t stop);
+  void retransmit(bool first_rtx);
+  void checkRtx();
   void onTimeout(Interest::Ptr &&interest) override;
   // checkIfProducerIsActive: return true if we need to schedule an interest
   // immediatly after, false otherwise (this happens when the producer socket
@@ -160,7 +176,10 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   uint32_t actualSegment_;
   int32_t RTPhICN_offset_;
   uint32_t inflightInterestsCount_;
-  std::queue<uint32_t> interestRetransmissions_;
+  //map seq to rtx
+  std::map<uint32_t, uint8_t> interestRetransmissions_;
+  std::unique_ptr<asio::steady_timer> rtx_timer_;
+  //std::queue<uint32_t> interestRetransmissions_;
   std::vector<sentInterest> inflightInterests_;
   uint32_t lastSegNacked_; //indicates the segment id in the last received
                            // past Nack. we do not ask for retransmissions
