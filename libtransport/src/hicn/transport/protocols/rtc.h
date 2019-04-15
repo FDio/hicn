@@ -36,8 +36,8 @@
 #define HICN_RTC_INTEREST_LIFETIME 1000  // ms
 
 // controller constant
-#define HICN_ROUND_LEN \
-  200  // ms interval of time on which we take decisions / measurements
+#define HICN_ROUND_LEN 200  // ms interval of time on which
+			    // we take decisions / measurements
 #define HICN_MAX_RTX 10
 #define HICN_MAX_RTX_SIZE 1024
 #define HICN_MAX_RTX_MAX_AGE 10000
@@ -61,24 +61,6 @@
 #define HICN_NANO_IN_A_SEC 1000000000
 #define HICN_MICRO_IN_A_SEC 1000000
 #define HICN_MILLI_IN_A_SEC 1000
-
-// RTCP
-#define HICN_MASK_RTCP_VERSION 192
-#define HICN_MASK_TYPE_CODE \
-  31  // this is RC in the RR/SR packet or FMT int the early feedback packets
-#define HICN_RTPC_NACK_HEADER 12  // bytes
-#define HICN_MAX_RTCP_SEQ_NUMBER 0xffff
-#define HICN_RTCP_VERSION 2
-// RTCP TYPES
-#define HICN_RTCP_SR 200
-#define HICN_RTCP_RR 201
-#define HICN_RTCP_SDES 202
-#define HICN_RTCP_RTPFB 205
-#define HICN_RTCP_PSFB 206
-// RTCP RC/FMT
-#define HICN_RTCP_SDES_CNAME 1
-#define HICN_RTCP_RTPFB_GENERIC_NACK 1
-#define HICN_RTCP_PSFB_PLI 1
 
 namespace transport {
 
@@ -112,8 +94,6 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   void stop() override;
 
   void resume() override;
-
-  void onRTCPPacket(uint8_t *packet, size_t len);
 
  private:
   // algo functions
@@ -155,15 +135,6 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
     returnContentToApplication(*content_object);
   }
 
-  // RTCP functions
-  uint32_t hICN2RTP(uint32_t hicn_seq);
-  uint32_t RTP2hICN(uint32_t rtp_seq);
-  void processRtcpHeader(uint8_t *offset);
-  void errorParsingRtcpHeader(uint8_t *offset);
-  void processSDES(uint8_t *offset);
-  void processGenericNack(uint8_t *offset);
-  void processPli(uint8_t *offset);
-
   // controller var
   std::chrono::steady_clock::time_point lastRoundBegin_;
   unsigned currentState_;
@@ -174,7 +145,6 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
 
   // names/packets var
   uint32_t actualSegment_;
-  int32_t RTPhICN_offset_;
   uint32_t inflightInterestsCount_;
   //map seq to rtx
   std::map<uint32_t, uint8_t> interestRetransmissions_;
