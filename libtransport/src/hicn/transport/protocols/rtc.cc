@@ -70,23 +70,6 @@ void RTCTransportProtocol::resume() {
   is_running_ = false;
 }
 
-void RTCTransportProtocol::onRTCPPacket(uint8_t *packet, size_t len) {
-  //#define MASK_RTCP_VERSION 192
-  //#define MASK_TYPE_CODE 31
-  size_t read = 0;
-  uint8_t *offset = packet;
-  while (read < len) {
-    if ((((*offset) & HICN_MASK_RTCP_VERSION) >> 6) != HICN_RTCP_VERSION) {
-      TRANSPORT_LOGE("error while parsing RTCP packet, version unkwown");
-      return;
-    }
-    processRtcpHeader(offset);
-    uint16_t RTCPlen = (ntohs(*(((uint16_t *)offset) + 1)) + 1) * 4;
-    offset += RTCPlen;
-    read += RTCPlen;
-  }
-}
-
 // private
 void RTCTransportProtocol::reset() {
   portal_->setConsumerCallback(this);
@@ -715,10 +698,6 @@ void RTCTransportProtocol::returnContentToApplication(
 
   read_buffer->trimStart(HICN_TIMESTAMP_SIZE);
 
-  // set offset between hICN and RTP packets
-  uint16_t rtp_seq = ntohs(*(((uint16_t *)read_buffer->writableData()) + 1));
-  RTPhICN_offset_ = content_object.getName().getSuffix() - rtp_seq;
-
   interface::ConsumerSocket::ReadCallback *read_callback = nullptr;
   socket_->getSocketOption(READ_CALLBACK, &read_callback);
 
@@ -756,95 +735,6 @@ void RTCTransportProtocol::returnContentToApplication(
     read_callback->readDataAvailable(total_length);
     read_buffer->clear();
   }
-}
-
-uint32_t RTCTransportProtocol::hICN2RTP(uint32_t hicn_seq) {
-  return RTPhICN_offset_ - hicn_seq;
-}
-
-uint32_t RTCTransportProtocol::RTP2hICN(uint32_t rtp_seq) {
-  return RTPhICN_offset_ + rtp_seq;
-}
-
-void RTCTransportProtocol::processRtcpHeader(uint8_t *offset) {
-  uint8_t pkt_type = (*(offset + 1));
-  switch (pkt_type) {
-    case HICN_RTCP_RR:  // Receiver report
-      TRANSPORT_LOGD("got RR packet\n");
-      break;
-    case HICN_RTCP_SR:  // Sender report
-      TRANSPORT_LOGD("got SR packet\n");
-      break;
-    case HICN_RTCP_SDES:  // Description
-      processSDES(offset);
-      break;
-    case HICN_RTCP_RTPFB:  // Transport layer FB message
-      processGenericNack(offset);
-      break;
-    case HICN_RTCP_PSFB:
-      processPli(offset);
-      break;
-    default:
-      errorParsingRtcpHeader(offset);
-  }
-}
-
-void RTCTransportProtocol::errorParsingRtcpHeader(uint8_t *offset) {
-  uint8_t pt = (*(offset + 1));
-  uint8_t code = ((*offset) & HICN_MASK_TYPE_CODE);
-  TRANSPORT_LOGE("Received unknwnon RTCP packet. Payload type = %u, code = %u",
-                 pt, code);
-}
-
-void RTCTransportProtocol::processSDES(uint8_t *offset) {
-  uint8_t code = ((*offset) & HICN_MASK_TYPE_CODE);
-  switch (code) {
-    case HICN_RTCP_SDES_CNAME:
-      TRANSPORT_LOGI("got SDES packet: CNAME\n");
-      break;
-    default:
-      errorParsingRtcpHeader(offset);
-  }
-}
-
-void RTCTransportProtocol::processPli(uint8_t *offset) {
-  if (((*offset) & HICN_MASK_TYPE_CODE) != HICN_RTCP_PSFB_PLI) {
-    errorParsingRtcpHeader(offset);
-    return;
-  }
-
-  TRANSPORT_LOGI("got PLI packet\n");
-}
-
-void RTCTransportProtocol::processGenericNack(uint8_t *offset) {
-  if (((*offset) & HICN_MASK_TYPE_CODE) != HICN_RTCP_RTPFB_GENERIC_NACK) {
-    errorParsingRtcpHeader(offset);
-    return;
-  }
-
-  std::vector<uint32_t> nacks;
-
-  uint16_t header_lines =
-      ntohs(*(((uint16_t *)offset) + 1)) -
-      2;  // 2 is the number of header 32-bits words - 1 (RFC 4885)
-  uint8_t *payload = offset + HICN_RTPC_NACK_HEADER;  // 12 bytes
-  for (uint16_t l = header_lines; l > 0; l--) {
-    nacks.push_back(RTP2hICN(ntohs(*((uint16_t *)payload))));
-
-    uint16_t BLP = ntohs(*(((uint16_t *)payload) + 1));
-
-    for (int bit = 0; bit < 15; bit++) {  // 16 bits word to scan
-      if ((BLP >> bit) & 1) {
-        nacks.push_back(RTP2hICN((ntohs(*((uint16_t *)payload)) + bit + 1) %
-                                 HICN_MAX_RTCP_SEQ_NUMBER));
-      }
-    }
-
-    payload += 4;  // go to the next line
-  }
-
-  portal_->getIoService().post(std::bind(
-      &RTCTransportProtocol::scheduleAppNackRtx, this, std::move(nacks)));
 }
 
 }  // end namespace protocol
