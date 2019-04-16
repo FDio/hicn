@@ -50,8 +50,10 @@ int TransportProtocol::start() {
 }
 
 void TransportProtocol::stop() {
+  std::cout << "Transport stop" << std::endl;
   is_running_ = false;
   portal_->stopEventsLoop();
+  std::cout << "Transport stop end" << std::endl;
 }
 
 void TransportProtocol::resume() {

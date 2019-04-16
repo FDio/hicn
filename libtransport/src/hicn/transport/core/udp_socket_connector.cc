@@ -36,13 +36,16 @@ UdpSocketConnector::UdpSocketConnector(
       socket_(io_service_),
       resolver_(io_service_),
       connection_timer_(io_service_),
-      connection_timeout_(io_service_),
+      connection_retry_timer_(io_service_),
       read_msg_(packet_pool_.makePtr(nullptr)),
       is_reconnection_(false),
       data_available_(false),
       app_name_(app_name) {}
 
-UdpSocketConnector::~UdpSocketConnector() {}
+UdpSocketConnector::~UdpSocketConnector() {
+  connection_timer_.cancel();
+  connection_retry_timer_.cancel();
+}
 
 void UdpSocketConnector::connect(std::string ip_address, std::string port) {
   endpoint_iterator_ = resolver_.resolve(
@@ -52,12 +55,12 @@ void UdpSocketConnector::connect(std::string ip_address, std::string port) {
   doConnect();
 }
 
-void UdpSocketConnector::send(const uint8_t *packet, std::size_t len,
-                              const PacketSentCallback &packet_sent) {
-  socket_.async_send(asio::buffer(packet, len),
-                     [packet_sent](std::error_code ec, std::size_t /*length*/) {
-                       packet_sent();
-                     });
+void UdpSocketConnector::send(const uint8_t *packet, std::size_t len) {
+  std::cout << "Adios" << std::endl;
+  if (state_ == ConnectorState::CONNECTED) {
+    socket_.send(asio::buffer(packet, len));
+  }
+  std::cout << "Adios2" << std::endl;
 }
 
 void UdpSocketConnector::send(const Packet::MemBufPtr &packet) {
@@ -139,17 +142,25 @@ void UdpSocketConnector::tryReconnect() {
     TRANSPORT_LOGE("Connection lost. Trying to reconnect...\n");
     state_ = ConnectorState::CONNECTING;
     is_reconnection_ = true;
-    connection_timer_.expires_from_now(std::chrono::seconds(1));
-    connection_timer_.async_wait([this](const std::error_code &ec) {
-      if (!ec) {
-        if (socket_.is_open()) {
-          socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
-          socket_.close();
-        }
-        startConnectionTimer();
-        doConnect();
-      }
-    });
+    startConnectionTimer();
+    connection_retry_timer_.expires_from_now(std::chrono::seconds(1));
+    connection_retry_timer_.async_wait(std::bind(
+        &UdpSocketConnector::doTryReconnect, this, std::placeholders::_1));
+  }
+}
+
+void UdpSocketConnector::doTryReconnect(const std::error_code &ec) {
+  if (!ec) {
+    if (socket_.is_open()) {
+      socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+      socket_.close();
+    }
+
+    doConnect();
+
+    connection_retry_timer_.expires_from_now(std::chrono::seconds(1));
+    connection_retry_timer_.async_wait(std::bind(
+        &UdpSocketConnector::doTryReconnect, this, std::placeholders::_1));
   }
 }
 
@@ -157,7 +168,7 @@ void UdpSocketConnector::doConnect() {
   asio::async_connect(socket_, endpoint_iterator_,
                       [this](std::error_code ec, udp::resolver::iterator) {
                         if (!ec) {
-                          connection_timeout_.cancel();
+                          connection_timer_.cancel();
                           state_ = ConnectorState::CONNECTED;
                           doRead();
 
@@ -168,8 +179,9 @@ void UdpSocketConnector::doConnect() {
 
                           if (is_reconnection_) {
                             is_reconnection_ = false;
-                            on_reconnect_callback_();
                           }
+
+                          on_reconnect_callback_();
                         } else {
                           sleep(1);
                           doConnect();
@@ -184,9 +196,9 @@ bool UdpSocketConnector::checkConnected() {
 void UdpSocketConnector::enableBurst() { return; }
 
 void UdpSocketConnector::startConnectionTimer() {
-  connection_timeout_.expires_from_now(std::chrono::seconds(60));
-  connection_timeout_.async_wait(std::bind(&UdpSocketConnector::handleDeadline,
-                                           this, std::placeholders::_1));
+  connection_timer_.expires_from_now(std::chrono::seconds(60));
+  connection_timer_.async_wait(std::bind(&UdpSocketConnector::handleDeadline,
+                                         this, std::placeholders::_1));
 }
 
 void UdpSocketConnector::handleDeadline(const std::error_code &ec) {

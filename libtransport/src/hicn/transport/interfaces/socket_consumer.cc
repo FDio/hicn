@@ -75,8 +75,10 @@ ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service)
 }
 
 ConsumerSocket::~ConsumerSocket() {
+  std::cout << "Consumer stop" << std::endl;
   stop();
   async_downloader_.stop();
+  std::cout << "Consumer stop end" << std::endl;
 }
 
 void ConsumerSocket::connect() { portal_->connect(); }

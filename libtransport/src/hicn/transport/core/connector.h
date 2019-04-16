@@ -59,14 +59,15 @@ class Connector {
 
   virtual void send(const Packet::MemBufPtr &packet) = 0;
 
-  virtual void send(const uint8_t *packet, std::size_t len,
-                    const PacketSentCallback &packet_sent = 0) = 0;
+  virtual void send(const uint8_t *packet, std::size_t len) = 0;
 
   virtual void close() = 0;
 
   virtual void enableBurst() = 0;
 
   virtual ConnectorState state() { return state_; };
+
+  virtual bool isConnected() { return state_ == ConnectorState::CONNECTED; }
 
  protected:
   void increasePoolSize(std::size_t size = packet_pool_size);

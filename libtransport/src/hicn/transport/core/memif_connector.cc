@@ -495,8 +495,7 @@ int MemifConnector::doSend() {
   return 0;
 }
 
-void MemifConnector::send(const uint8_t *packet, std::size_t len,
-                          const PacketSentCallback &packet_sent) {}
+void MemifConnector::send(const uint8_t *packet, std::size_t len) {}
 
 }  // end namespace core
 

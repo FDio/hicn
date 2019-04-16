@@ -429,8 +429,11 @@ class HIperfClient {
     std::cout << "Starting download of " << configuration_.name << std::endl;
 
     signals_.async_wait([this](const std::error_code &, const int &) {
+      std::cout << "Sasastopping!" << std::endl;
       consumer_socket_->stop();
+      std::cout << "Sasastopping2!" << std::endl;
       io_service_.stop();
+      std::cout << "Adiossss!!!! " << std::endl;
     });
 
     t_download_ = t_stats_ = std::chrono::steady_clock::now();

@@ -371,10 +371,12 @@ class Portal {
   }
 
   TRANSPORT_ALWAYS_INLINE void bind(const BindConfig &config) {
-    connector_.enableBurst();
     forwarder_interface_.setContentStoreSize(config.csReserved());
     served_namespaces_.push_back(config.prefix());
-    registerRoute(served_namespaces_.back());
+
+    if (connector_.isConnected()) {
+      registerRoute(served_namespaces_.back());
+    }
   }
 
   TRANSPORT_ALWAYS_INLINE void runEventsLoop() {

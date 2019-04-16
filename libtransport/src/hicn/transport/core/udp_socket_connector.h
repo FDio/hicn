@@ -40,8 +40,7 @@ class UdpSocketConnector : public Connector {
 
   void send(const Packet::MemBufPtr &packet) override;
 
-  void send(const uint8_t *packet, std::size_t len,
-            const PacketSentCallback &packet_sent = 0) override;
+  void send(const uint8_t *packet, std::size_t len) override;
 
   void close() override;
 
@@ -65,12 +64,14 @@ class UdpSocketConnector : public Connector {
 
   void tryReconnect();
 
+  void doTryReconnect(const std::error_code &ec);
+
   asio::io_service &io_service_;
   asio::ip::udp::socket socket_;
   asio::ip::udp::resolver resolver_;
   asio::ip::udp::resolver::iterator endpoint_iterator_;
   asio::steady_timer connection_timer_;
-  asio::steady_timer connection_timeout_;
+  asio::steady_timer connection_retry_timer_;
 
   utils::ObjectPool<utils::MemBuf>::Ptr read_msg_;
 
