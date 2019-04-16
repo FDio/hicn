@@ -698,6 +698,10 @@ void RTCTransportProtocol::returnContentToApplication(
 
   read_buffer->trimStart(HICN_TIMESTAMP_SIZE);
 
+  // set offset between hICN and RTP packets
+  uint16_t rtp_seq = ntohs(*(((uint16_t *)read_buffer->writableData()) + 1));
+  RTPhICN_offset_ = content_object.getName().getSuffix() - rtp_seq;
+
   interface::ConsumerSocket::ReadCallback *read_callback = nullptr;
   socket_->getSocketOption(READ_CALLBACK, &read_callback);
 
@@ -705,6 +709,35 @@ void RTCTransportProtocol::returnContentToApplication(
     throw errors::RuntimeException(
         "The read callback must be installed in the transport before starting "
         "the content retrieval.");
+  }
+
+  if (read_callback->isBufferMovable()) {
+    read_callback->readBufferAvailable(
+        utils::MemBuf::copyBuffer(read_buffer->data(), read_buffer->length()));
+  } else {
+    // The buffer will be copied into the application-provided buffer
+    uint8_t *buffer;
+    std::size_t length;
+    std::size_t total_length = read_buffer->length();
+
+    while (read_buffer->length()) {
+      buffer = nullptr;
+      length = 0;
+      read_callback->getReadBuffer(&buffer, &length);
+
+      if (!buffer || !length) {
+        throw errors::RuntimeException(
+            "Invalid buffer provided by the application.");
+      }
+
+      auto to_copy = std::min(read_buffer->length(), length);
+
+      std::memcpy(buffer, read_buffer->data(), to_copy);
+      read_buffer->trimStart(to_copy);
+    }
+
+    read_callback->readDataAvailable(total_length);
+    read_buffer->clear();
   }
 
   if (read_callback->isBufferMovable()) {

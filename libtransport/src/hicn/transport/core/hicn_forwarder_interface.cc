@@ -61,44 +61,44 @@ void fillCommandHeader(CommandHeader *header) {
   header->length = 1;
 }
 
-std::unique_ptr<RouteToSelfCommand> createCommandRoute(
-    std::unique_ptr<sockaddr> &&addr, uint8_t prefix_length) {
-  auto command = std::make_unique<RouteToSelfCommand>();
+RouteToSelfCommand createCommandRoute(std::unique_ptr<sockaddr> &&addr,
+                                      uint8_t prefix_length) {
+  RouteToSelfCommand command;
 
   // check and set IP address
   if (addr->sa_family == AF_INET) {
-    command->address_type = addr_inet;
-    command->address.ipv4 = ((sockaddr_in *)addr.get())->sin_addr.s_addr;
+    command.address_type = addr_inet;
+    command.address.ipv4 = ((sockaddr_in *)addr.get())->sin_addr.s_addr;
   } else if (addr->sa_family == AF_INET6) {
-    command->address_type = addr_inet6;
-    command->address.ipv6 = ((sockaddr_in6 *)addr.get())->sin6_addr;
+    command.address_type = addr_inet6;
+    command.address.ipv6 = ((sockaddr_in6 *)addr.get())->sin6_addr;
   }
 
   // Fill remaining payload fields
 #ifndef _WIN32
-  strcpy(command->symbolic_or_connid, identifier);
+  strcpy(command.symbolic_or_connid, identifier);
 #else
-  strcpy_s(command->symbolic_or_connid, 16, identifier);
+  strcpy_s(command.symbolic_or_connid, 16, identifier);
 #endif
-  command->cost = 1;
-  command->len = (uint8_t)prefix_length;
+  command.cost = 1;
+  command.len = (uint8_t)prefix_length;
 
   // Allocate and fill the header
-  command->command_id = add_route_command;
-  fillCommandHeader((CommandHeader *)command.get());
+  command.command_id = add_route_command;
+  fillCommandHeader((CommandHeader *)&command);
 
   return command;
 }
 
-std::unique_ptr<DeleteSelfConnectionCommand> createCommandDeleteConnection() {
-  auto command = std::make_unique<DeleteSelfConnectionCommand>();
-  fillCommandHeader((CommandHeader *)command.get());
-  command->command_id = delete_connection_command;
+DeleteSelfConnectionCommand createCommandDeleteConnection() {
+  DeleteSelfConnectionCommand command;
+  fillCommandHeader((CommandHeader *)&command);
+  command.command_id = delete_connection_command;
 
 #ifndef _WIN32
-  strcpy(command->symbolic_or_connid, identifier);
+  strcpy(command.symbolic_or_connid, identifier);
 #else
-  strcpy_s(command->symbolic_or_connid, 16, identifier);
+  strcpy_s(command.symbolic_or_connid, 16, identifier);
 #endif
 
   return command;
@@ -119,20 +119,15 @@ HicnForwarderInterface::~HicnForwarderInterface() {}
 void HicnForwarderInterface::connect(bool is_consumer) { connector_.connect(); }
 
 void HicnForwarderInterface::registerRoute(Prefix &prefix) {
-  auto command =
-      createCommandRoute(prefix.toSockaddr(), (uint8_t)prefix.getPrefixLength())
-          .release();
-  send((uint8_t *)command, sizeof(RouteToSelfCommand),
-       [command]() { delete command; });
+  auto command = createCommandRoute(prefix.toSockaddr(),
+                                    (uint8_t)prefix.getPrefixLength());
+  send((uint8_t *)&command, sizeof(RouteToSelfCommand));
 }
 
 void HicnForwarderInterface::closeConnection() {
-  auto command = createCommandDeleteConnection().release();
-  send((uint8_t *)command, sizeof(DeleteSelfConnectionCommand),
-       [this, command]() {
-         delete command;
-         connector_.close();
-       });
+  auto command = createCommandDeleteConnection();
+  send((uint8_t *)&command, sizeof(DeleteSelfConnectionCommand));
+  connector_.close()
 }
 
 }  // namespace core
