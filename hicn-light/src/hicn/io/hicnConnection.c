@@ -24,6 +24,7 @@
 #include <src/hicn/config.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #include <hicn/core/message.h>
@@ -75,7 +76,8 @@ typedef struct hicn_state {
 
 // Prototypes
 static bool _send(IoOperations *ops, const Address *nexthop, Message *message);
-static bool _sendCommandResponse(IoOperations *ops, struct iovec *message);
+static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
+    size_t size);
 static const Address *_getRemoteAddress(const IoOperations *ops);
 static const AddressPair *_getAddressPair(const IoOperations *ops);
 static unsigned _getConnectionId(const IoOperations *ops);
@@ -99,18 +101,20 @@ static const void *_streamConnection_Class(const IoOperations *ops) {
   return _ioOperationsGuid;
 }
 
-static IoOperations _template = {.closure = NULL,
-                                 .send = &_send,
-                                 .sendCommandResponse = &_sendCommandResponse,
-                                 .getRemoteAddress = &_getRemoteAddress,
-                                 .getAddressPair = &_getAddressPair,
-                                 .getConnectionId = &_getConnectionId,
-                                 .isUp = &_isUp,
-                                 .isLocal = &_isLocal,
-                                 .destroy = &_destroy,
-                                 .class = &_streamConnection_Class,
-                                 .getConnectionType = &_getConnectionType,
-                                 .sendProbe = &_sendProbe};
+static IoOperations _template = {
+  .closure = NULL,
+  .send = &_send,
+  .sendIOVBuffer = &_sendIOVBuffer,
+  .getRemoteAddress = &_getRemoteAddress,
+  .getAddressPair = &_getAddressPair,
+  .getConnectionId = &_getConnectionId,
+  .isUp = &_isUp,
+  .isLocal = &_isLocal,
+  .destroy = &_destroy,
+  .class = &_streamConnection_Class,
+  .getConnectionType = &_getConnectionType,
+  .sendProbe = &_sendProbe,
+};
 
 // =================================================================
 
@@ -329,10 +333,30 @@ static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
   return true;
 }
 
-static bool _sendCommandResponse(IoOperations *ops, struct iovec *message) {
-  //XXX this should be nerver called since we do not handle control messages
-  //with hicn connections, so nothing to do here!
-  return false;
+static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
+    size_t size) {
+  parcAssertNotNull(ops, "Parameter ops must be non-null");
+  parcAssertNotNull(message, "Parameter message must be non-null");
+
+  _HicnState *hicnConnState = (_HicnState *)ioOperations_GetClosure(ops);
+
+
+  ssize_t n = writev(hicnConnState->hicnListenerSocket, message, size);
+  if (n < 0) {
+    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+      if (logger_IsLoggable(hicnConnState->logger, LoggerFacility_IO,
+                  PARCLogLevel_Error)) {
+        size_t length = 0;
+        for (int i = 0; i < size; i++)
+          length += message[i].iov_len;
+        logger_Log(hicnConnState->logger, LoggerFacility_IO, PARCLogLevel_Error,
+                __func__, "Incorrect write length %zd, expected %zd: (%d) %s\n",
+                n, length, errno, strerror(errno));
+      }
+    }
+    return false;
+  }
+  return true;
 }
 
 static list_connections_type _getConnectionType(const IoOperations *ops) {

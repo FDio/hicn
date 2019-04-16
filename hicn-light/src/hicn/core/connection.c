@@ -45,6 +45,7 @@ struct connection {
                        // file/hicnLightControl) this value is set to false so
                        // that a base station can not disable wldr at the client
   Wldr *wldr;
+
 };
 
 Connection *connection_Create(IoOperations *ops) {
@@ -112,11 +113,12 @@ bool connection_Send(const Connection *conn, Message *message) {
   return false;
 }
 
-bool connection_SendCommandResponse(const Connection *conn, struct iovec *msg){
+bool connection_SendIOVBuffer(const Connection *conn, struct iovec *msg,
+    size_t size) {
   parcAssertNotNull(conn, "Parameter conn must be non-null");
   parcAssertNotNull(msg, "Parameter message must be non-null");
 
-  return ioOperations_SendCommandResponse(conn->ops, msg);
+  return ioOperations_SendIOVBuffer(conn->ops, msg, size);
 }
 
 static void _sendProbe(Connection *conn, unsigned probeType, uint8_t *message) {
@@ -130,6 +132,14 @@ static void _sendProbe(Connection *conn, unsigned probeType, uint8_t *message) {
   } else {
     ioOperations_SendProbe(conn->ops, probeType, message);
   }
+}
+
+bool connection_SendBuffer(const Connection *conn, u8 * buffer, size_t length)
+{
+  struct iovec iov[1];
+  iov[0].iov_base = buffer;
+  iov[0].iov_len = length;
+  return connection_SendIOVBuffer(conn, &iov, 1);
 }
 
 void connection_Probe(Connection *conn) {
