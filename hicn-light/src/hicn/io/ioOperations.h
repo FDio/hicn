@@ -63,7 +63,8 @@ typedef struct io_ops IoOperations;
 struct io_ops {
   void *closure;
   bool (*send)(IoOperations *ops, const Address *nexthop, Message *message);
-  bool (*sendCommandResponse)(IoOperations *ops, struct iovec *message);
+  bool (*sendIOVBuffer)(IoOperations *ops, struct iovec *message, size_t
+      size);
   const Address *(*getRemoteAddress)(const IoOperations *ops);
   const AddressPair *(*getAddressPair)(const IoOperations *ops);
   bool (*isUp)(const IoOperations *ops);
@@ -168,10 +169,10 @@ void ioOperations_Release(IoOperations **opsPtr);
  * @endcode
  */
 bool ioOperations_Send(IoOperations *ops, const Address *nexthop,
-                       Message *message);
+    Message *message);
 
-bool ioOperations_SendCommandResponse(IoOperations *ops,
-                       struct iovec *message);
+bool ioOperations_SendIOVBuffer(IoOperations *ops, struct iovec *message,
+    size_t size);
 
 /**
  * A connection is made up of a local and a remote address.  This function
@@ -363,4 +364,5 @@ list_connections_type ioOperations_GetConnectionType(const IoOperations *ops);
 
 Ticks ioOperations_SendProbe(IoOperations *ops, unsigned probeType,
                              uint8_t *message);
+
 #endif  // io_h

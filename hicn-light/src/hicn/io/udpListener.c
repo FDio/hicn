@@ -451,13 +451,18 @@ static Message *_readMessage(UdpListener *udp, int fd,
   } else if (messageHandler_IsLoadBalancerProbe(packet)) {
     *processed = true;
     _handleProbeMessage(udp, packet);
-  }
 #ifdef WITH_MAPME
-  else if (mapMe_isMapMe(packet)) {
+  } else if (mapMe_isMapMe(packet)) {
     *processed = true;
     forwarder_ProcessMapMe(udp->forwarder, packet, connid);
-  }
 #endif /* WITH_MAPME */
+  }
+
+  /* Generic hook handler */
+  if (messageHandler_handleHooks(udp->forwarder, CONNECTION_ID_UNDEFINED,
+              udp->localAddress, packet))
+      goto END;
+END:
 
   return message;
 }
