@@ -47,8 +47,6 @@ class TcpSocketConnector : public Connector {
 
   void close() override;
 
-  void enableBurst() override;
-
   void connect(std::string ip_address = "127.0.0.1", std::string port = "9695");
 
  private:

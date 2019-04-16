@@ -64,9 +64,9 @@ class Connector {
 
   virtual void close() = 0;
 
-  virtual void enableBurst() = 0;
-
   virtual ConnectorState state() { return state_; };
+
+  virtual bool isConnected() { return state_ == ConnectorState::CONNECTED; }
 
  protected:
   void increasePoolSize(std::size_t size = packet_pool_size);

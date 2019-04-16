@@ -49,8 +49,6 @@ class RawSocketConnector : public Connector {
 
   void close() override;
 
-  void enableBurst() override;
-
   void connect(const std::string &interface_name,
                const std::string &mac_address_str);
 
