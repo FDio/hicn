@@ -59,8 +59,7 @@ class Connector {
 
   virtual void send(const Packet::MemBufPtr &packet) = 0;
 
-  virtual void send(const uint8_t *packet, std::size_t len,
-                    const PacketSentCallback &packet_sent = 0) = 0;
+  virtual void send(const uint8_t *packet, std::size_t len) = 0;
 
   virtual void close() = 0;
 
