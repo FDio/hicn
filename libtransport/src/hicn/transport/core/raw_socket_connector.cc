@@ -113,13 +113,10 @@ void RawSocketConnector::connect(const std::string &interface_name,
   doRecvPacket();
 }
 
-void RawSocketConnector::send(const uint8_t *packet, std::size_t len,
-                              const PacketSentCallback &packet_sent) {
-  // asio::async_write(socket_, asio::buffer(packet, len),
-  //                   [packet_sent] (std::error_code ec,
-  //                                  std::size_t /*length*/) {
-  //                     packet_sent();
-  //                   });
+void RawSocketConnector::send(const uint8_t *packet, std::size_t len) {
+  if (state_ == ConnectorState::CONNECTED) {
+    socket_.send(asio::buffer(packet, len));
+  }
 }
 
 void RawSocketConnector::send(const Packet::MemBufPtr &packet) {
@@ -190,8 +187,6 @@ void RawSocketConnector::doConnect() {
   state_ = ConnectorState::CONNECTED;
   socket_.bind(raw_endpoint(&link_layer_address_, sizeof(link_layer_address_)));
 }
-
-void RawSocketConnector::enableBurst() { return; }
 
 }  // end namespace core
 

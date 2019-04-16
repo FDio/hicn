@@ -44,12 +44,9 @@ class RawSocketConnector : public Connector {
 
   void send(const Packet::MemBufPtr &packet) override;
 
-  void send(const uint8_t *packet, std::size_t len,
-            const PacketSentCallback &packet_sent = 0) override;
+  void send(const uint8_t *packet, std::size_t len) override;
 
   void close() override;
-
-  void enableBurst() override;
 
   void connect(const std::string &interface_name,
                const std::string &mac_address_str);
