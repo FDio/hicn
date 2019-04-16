@@ -52,12 +52,10 @@ void UdpSocketConnector::connect(std::string ip_address, std::string port) {
   doConnect();
 }
 
-void UdpSocketConnector::send(const uint8_t *packet, std::size_t len,
-                              const PacketSentCallback &packet_sent) {
-  socket_.async_send(asio::buffer(packet, len),
-                     [packet_sent](std::error_code ec, std::size_t /*length*/) {
-                       packet_sent();
-                     });
+void UdpSocketConnector::send(const uint8_t *packet, std::size_t len) {
+  if (state_ == ConnectorState::CONNECTED) {
+    socket_.send(asio::buffer(packet, len));
+  }
 }
 
 void UdpSocketConnector::send(const Packet::MemBufPtr &packet) {
