@@ -101,15 +101,13 @@ class ForwarderInterface {
     connector_.send(packet.acquireMemBufReference());
   }
 
-  template <typename Handler>
-  TRANSPORT_ALWAYS_INLINE void send(const uint8_t *packet, std::size_t len,
-                                    Handler &&packet_sent) {
+  TRANSPORT_ALWAYS_INLINE void send(const uint8_t *packet, std::size_t len) {
     // ASIO_COMPLETION_HANDLER_CHECK(Handler, packet_sent) type_check;
     counters_.tx_packets++;
     counters_.tx_bytes += len;
 
     // Perfect forwarding
-    connector_.send(packet, len, std::forward<Handler &&>(packet_sent));
+    connector_.send(packet, len);
   }
 
   TRANSPORT_ALWAYS_INLINE void shutdown() { connector_.close(); }
