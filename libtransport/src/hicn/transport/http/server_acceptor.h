@@ -53,7 +53,6 @@ class HTTPServerAcceptor {
   void processIncomingInterest(ProducerSocket &p, Interest &interest);
 
   OnHttpRequest callback_;
-  asio::io_service io_service_;
   std::shared_ptr<ProducerSocket> acceptor_producer_;
 
   std::map<int, std::shared_ptr<HTTPServerPublisher>> publishers_;

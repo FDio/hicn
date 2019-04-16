@@ -63,9 +63,7 @@ HTTPServerAcceptor::HTTPServerAcceptor(std::string &server_locator,
   core::Prefix acceptor_namespace(network, 64);
 
   std::string producer_identity = "acceptor_producer";
-  acceptor_producer_ = std::make_shared<ProducerSocket>(
-      io_service_); /*,
-                                 utils::Identity::generateIdentity(producer_identity));*/
+  acceptor_producer_ = std::make_shared<ProducerSocket>();
   acceptor_producer_->registerPrefix(acceptor_namespace);
 }
 

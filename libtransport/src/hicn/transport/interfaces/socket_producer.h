@@ -44,7 +44,6 @@ class ProducerSocket : public Socket<BasePortal>,
                        public BasePortal::ProducerCallback {
  public:
   explicit ProducerSocket();
-  explicit ProducerSocket(asio::io_service &io_service);
 
   ~ProducerSocket();
 
@@ -540,8 +539,7 @@ class ProducerSocket : public Socket<BasePortal>,
   std::thread listening_thread_;
 
  protected:
-  asio::io_service internal_io_service_;
-  asio::io_service &io_service_;
+  asio::io_service io_service_;
   std::shared_ptr<Portal> portal_;
   std::size_t data_packet_size_;
   std::list<Prefix> served_namespaces_;
