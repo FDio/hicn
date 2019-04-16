@@ -44,22 +44,6 @@ namespace transport {
 
 namespace interface {
 
-RTCProducerSocket::RTCProducerSocket(asio::io_service &io_service)
-    : ProducerSocket(io_service),
-      currentSeg_(1),
-      producedBytes_(0),
-      producedPackets_(0),
-      bytesProductionRate_(INIT_PACKET_PRODUCTION_RATE * 1400),
-      packetsProductionRate_(INIT_PACKET_PRODUCTION_RATE),
-      perSecondFactor_(MILLI_IN_A_SEC / STATS_INTERVAL_DURATION),
-      active_(false) {
-  lastStats_ = std::chrono::duration_cast<std::chrono::milliseconds>(
-                   std::chrono::steady_clock::now().time_since_epoch())
-                   .count();
-  srand((unsigned int)time(NULL));
-  prodLabel_ = ((rand() % 255) << 24UL);
-}
-
 RTCProducerSocket::RTCProducerSocket()
     : ProducerSocket(),
       currentSeg_(1),

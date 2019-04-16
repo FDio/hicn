@@ -25,11 +25,8 @@ namespace interface {
 typedef std::chrono::time_point<std::chrono::steady_clock> Time;
 typedef std::chrono::microseconds TimeDuration;
 
-ProducerSocket::ProducerSocket() : ProducerSocket(internal_io_service_) {}
-
-ProducerSocket::ProducerSocket(asio::io_service &io_service)
-    : io_service_(io_service),
-      portal_(std::make_shared<Portal>(io_service_)),
+ProducerSocket::ProducerSocket()
+    : portal_(std::make_shared<Portal>(io_service_)),
       data_packet_size_(default_values::content_object_packet_size),
       content_object_expiry_time_(default_values::content_object_expiry_time),
       output_buffer_(default_values::producer_socket_output_buffer_size),

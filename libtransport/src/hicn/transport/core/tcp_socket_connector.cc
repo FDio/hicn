@@ -76,12 +76,10 @@ void TcpSocketConnector::connect(std::string ip_address, std::string port) {
   doConnect();
 }
 
-void TcpSocketConnector::send(const uint8_t *packet, std::size_t len,
-                              const PacketSentCallback &packet_sent) {
-  asio::async_write(socket_, asio::buffer(packet, len),
-                    [packet_sent](std::error_code ec, std::size_t /*length*/) {
-                      packet_sent();
-                    });
+void TcpSocketConnector::send(const uint8_t *packet, std::size_t len) {
+  if (socket_.is_open()) {
+    asio::write(socket_, asio::buffer(packet, len));
+  }
 }
 
 void TcpSocketConnector::send(const Packet::MemBufPtr &packet) {
