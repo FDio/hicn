@@ -42,12 +42,9 @@ class TcpSocketConnector : public Connector {
 
   void send(const Packet::MemBufPtr &packet) override;
 
-  void send(const uint8_t *packet, std::size_t len,
-            const PacketSentCallback &packet_sent = 0) override;
+  void send(const uint8_t *packet, std::size_t len) override;
 
   void close() override;
-
-  void enableBurst() override;
 
   void connect(std::string ip_address = "127.0.0.1", std::string port = "9695");
 

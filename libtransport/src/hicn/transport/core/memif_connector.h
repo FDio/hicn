@@ -58,16 +58,11 @@ class MemifConnector : public Connector {
 
   void send(const Packet::MemBufPtr &packet) override;
 
-  void send(const uint8_t *packet, std::size_t len,
-            const PacketSentCallback &packet_sent = 0) override;
+  void send(const uint8_t *packet, std::size_t len) override;
 
   void close() override;
 
   void connect(uint32_t memif_id, long memif_mode);
-
-  //  void runEventsLoop();
-
-  void enableBurst() override;
 
   TRANSPORT_ALWAYS_INLINE uint32_t getMemifId() { return memif_id_; };
 
@@ -120,7 +115,6 @@ class MemifConnector : public Connector {
   PacketRing input_buffer_;
   bool is_reconnection_;
   bool data_available_;
-  bool enable_burst_;
   uint32_t memif_id_;
   uint8_t memif_mode_;
   std::string app_name_;

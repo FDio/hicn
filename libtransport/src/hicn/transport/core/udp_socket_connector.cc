@@ -36,7 +36,6 @@ UdpSocketConnector::UdpSocketConnector(
       socket_(io_service_),
       resolver_(io_service_),
       connection_timer_(io_service_),
-      connection_timeout_(io_service_),
       read_msg_(packet_pool_.makePtr(nullptr)),
       is_reconnection_(false),
       data_available_(false),
@@ -52,12 +51,10 @@ void UdpSocketConnector::connect(std::string ip_address, std::string port) {
   doConnect();
 }
 
-void UdpSocketConnector::send(const uint8_t *packet, std::size_t len,
-                              const PacketSentCallback &packet_sent) {
-  socket_.async_send(asio::buffer(packet, len),
-                     [packet_sent](std::error_code ec, std::size_t /*length*/) {
-                       packet_sent();
-                     });
+void UdpSocketConnector::send(const uint8_t *packet, std::size_t len) {
+  if (state_ == ConnectorState::CONNECTED) {
+    socket_.send(asio::buffer(packet, len));
+  }
 }
 
 void UdpSocketConnector::send(const Packet::MemBufPtr &packet) {
@@ -76,6 +73,14 @@ void UdpSocketConnector::send(const Packet::MemBufPtr &packet) {
 }
 
 void UdpSocketConnector::close() {
+  if (io_service_.stopped()) {
+    doClose();
+  } else {
+    io_service_.dispatch(std::bind(&UdpSocketConnector::doClose, this));
+  }
+}
+
+void UdpSocketConnector::doClose() {
   if (state_ != ConnectorState::CLOSED) {
     state_ = ConnectorState::CLOSED;
     if (socket_.is_open()) {
@@ -108,7 +113,7 @@ void UdpSocketConnector::doWrite() {
       // The connection has been closed by the application.
       return;
     } else {
-      TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+      TRANSPORT_LOGE("--->%d %s", ec.value(), ec.message().c_str());
       tryReconnect();
     }
   });
@@ -128,7 +133,7 @@ void UdpSocketConnector::doRead() {
           // The connection has been closed by the application.
           return;
         } else {
-          TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+          TRANSPORT_LOGE("<----%d %s", ec.value(), ec.message().c_str());
           tryReconnect();
         }
       });
@@ -139,54 +144,52 @@ void UdpSocketConnector::tryReconnect() {
     TRANSPORT_LOGE("Connection lost. Trying to reconnect...\n");
     state_ = ConnectorState::CONNECTING;
     is_reconnection_ = true;
-    connection_timer_.expires_from_now(std::chrono::seconds(1));
-    connection_timer_.async_wait([this](const std::error_code &ec) {
-      if (!ec) {
-        if (socket_.is_open()) {
-          socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
-          socket_.close();
-        }
-        startConnectionTimer();
-        doConnect();
-      }
-    });
+    startConnectionTimer();
+    if (socket_.is_open()) {
+      socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+      socket_.close();
+    }
+
+    doConnect();
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
   }
 }
 
 void UdpSocketConnector::doConnect() {
-  asio::async_connect(socket_, endpoint_iterator_,
-                      [this](std::error_code ec, udp::resolver::iterator) {
-                        if (!ec) {
-                          connection_timeout_.cancel();
-                          state_ = ConnectorState::CONNECTED;
-                          doRead();
+  asio::async_connect(
+      socket_, endpoint_iterator_,
+      [this](std::error_code ec, udp::resolver::iterator) {
+        if (!ec) {
+          std::cout << "Connected1!!" << std::endl;
+          connection_timer_.cancel();
+          state_ = ConnectorState::CONNECTED;
+          doRead();
 
-                          if (data_available_) {
-                            data_available_ = false;
-                            doWrite();
-                          }
+          if (data_available_) {
+            data_available_ = false;
+            doWrite();
+          }
 
-                          if (is_reconnection_) {
-                            is_reconnection_ = false;
-                            on_reconnect_callback_();
-                          }
-                        } else {
-                          sleep(1);
-                          doConnect();
-                        }
-                      });
+          if (is_reconnection_) {
+            is_reconnection_ = false;
+          }
+
+          on_reconnect_callback_();
+        } else {
+          doConnect();
+          std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+      });
 }
 
 bool UdpSocketConnector::checkConnected() {
   return state_ == ConnectorState::CONNECTED;
 }
 
-void UdpSocketConnector::enableBurst() { return; }
-
 void UdpSocketConnector::startConnectionTimer() {
-  connection_timeout_.expires_from_now(std::chrono::seconds(60));
-  connection_timeout_.async_wait(std::bind(&UdpSocketConnector::handleDeadline,
-                                           this, std::placeholders::_1));
+  connection_timer_.expires_from_now(std::chrono::seconds(60));
+  connection_timer_.async_wait(std::bind(&UdpSocketConnector::handleDeadline,
+                                         this, std::placeholders::_1));
 }
 
 void UdpSocketConnector::handleDeadline(const std::error_code &ec) {
