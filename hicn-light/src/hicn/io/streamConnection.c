@@ -64,9 +64,9 @@ typedef struct stream_state {
 
 // Prototypes
 static bool _streamConnection_Send(IoOperations *ops, const Address *nexthop,
-                                   Message *message);
-static bool _streamConnection_SendCommandResponse(IoOperations *ops,
-                                          struct iovec *msg);
+    Message *message);
+static bool _streamConnection_SendIOVBuffer(IoOperations *ops, struct
+    iovec *msg, size_t size);
 static const Address *_streamConnection_GetRemoteAddress(
     const IoOperations *ops);
 static const AddressPair *_streamConnection_GetAddressPair(
@@ -98,7 +98,7 @@ static const void *_streamConnection_Class(const IoOperations *ops) {
 static IoOperations _template = {
     .closure = NULL,
     .send = &_streamConnection_Send,
-    .sendCommandResponse = &_streamConnection_SendCommandResponse,
+    .sendIOVBuffer = &_streamConnection_SendIOVBuffer,
     .getRemoteAddress = &_streamConnection_GetRemoteAddress,
     .getAddressPair = &_streamConnection_GetAddressPair,
     .getConnectionId = &_streamConnection_GetConnectionId,
@@ -286,52 +286,14 @@ static unsigned _streamConnection_GetConnectionId(const IoOperations *ops) {
   return stream->id;
 }
 
-bool _streamConnection_SendCommandResponse(IoOperations *ops,
-                                     struct iovec *response) {
+bool _streamConnection_SendIOVBuffer(IoOperations *ops,
+    struct iovec * message, size_t size) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
-  parcAssertNotNull(response, "Parameter message must be non-null");
+  parcAssertNotNull(message, "Parameter message must be non-null");
+
   _StreamState *conn = (_StreamState *)ioOperations_GetClosure(ops);
 
-  bool success = false;
-  if (conn->isUp) {
-    PARCEventBuffer *buffer =
-        parcEventBuffer_GetQueueBufferOutput(conn->bufferEventVector);
-    size_t buffer_backlog = parcEventBuffer_GetLength(buffer);
-    parcEventBuffer_Destroy(&buffer);
-
-    if (buffer_backlog < OUTPUT_QUEUE_BYTES) {
-      if (logger_IsLoggable(conn->logger, LoggerFacility_IO,
-                            PARCLogLevel_Debug)) {
-        logger_Log(
-            conn->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-            "connid %u Writing %zu bytes to buffer with backlog %zu bytes",
-            conn->id,
-            (response[0].iov_len +
-             response[1].iov_len),  // NEW: take total lenght
-            buffer_backlog);
-      }
-
-      // NEW: write directly ino the parcEventQueue without passing through
-      // message
-      int failure =
-          parcEventQueue_Write(conn->bufferEventVector, response[0].iov_base,
-                               response[0].iov_len) +
-          parcEventQueue_Write(conn->bufferEventVector, response[1].iov_base,
-                               response[1].iov_len);
-
-      if (failure == 0) {
-        success = true;
-      }
-    } else {
-      if (logger_IsLoggable(conn->logger, LoggerFacility_IO,
-                            PARCLogLevel_Warning)) {
-        logger_Log(conn->logger, LoggerFacility_IO, PARCLogLevel_Warning,
-                   __func__,
-                   "connid %u Writing to buffer backlog %zu bytes DROP MESSAGE",
-                   conn->id, buffer_backlog);
-      }
-    }
-  } else {
+  if (!conn->isUp) {
     if (logger_IsLoggable(conn->logger, LoggerFacility_IO,
                           PARCLogLevel_Error)) {
       logger_Log(
@@ -339,9 +301,44 @@ bool _streamConnection_SendCommandResponse(IoOperations *ops,
           "connid %u tried to send to down connection (isUp %d isClosed %d)",
           conn->id, conn->isUp, conn->isClosed);
     }
+    return false;
   }
 
-  return success;
+  PARCEventBuffer *buffer =
+      parcEventBuffer_GetQueueBufferOutput(conn->bufferEventVector);
+  size_t buffer_backlog = parcEventBuffer_GetLength(buffer);
+  parcEventBuffer_Destroy(&buffer);
+
+  if (buffer_backlog >= OUTPUT_QUEUE_BYTES) {
+    if (logger_IsLoggable(conn->logger, LoggerFacility_IO,
+                          PARCLogLevel_Warning)) {
+      logger_Log(conn->logger, LoggerFacility_IO, PARCLogLevel_Warning,
+                 __func__,
+                 "connid %u Writing to buffer backlog %zu bytes DROP MESSAGE",
+                 conn->id, buffer_backlog);
+    }
+    return false;
+  }
+
+  if (logger_IsLoggable(conn->logger, LoggerFacility_IO,
+                        PARCLogLevel_Debug)) {
+    size_t length = 0;
+    for (int i = 0; i < size; i++)
+      length += message[i].iov_len;
+
+    logger_Log( conn->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
+            "connid %u Writing %zu bytes to buffer with backlog %zu bytes",
+            conn->id, length, buffer_backlog);
+  }
+
+  /* Write directly into the parcEventQueue without passing through message */
+  for (int i = 0; i < size; i++) {
+    if (parcEventQueue_Write(conn->bufferEventVector, message[i].iov_base,
+                message[i].iov_len) != 0)
+        return false;
+  }
+
+  return true;
 }
 
 /**

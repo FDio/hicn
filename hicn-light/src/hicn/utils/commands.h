@@ -31,6 +31,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "face.h"
+
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;
 
@@ -40,7 +42,7 @@ union commandAddr {
 };
 
 typedef enum {
-  REQUEST_LIGHT = 0xc0,  // this is a command
+  REQUEST_LIGHT = 0xc0, // this is a command
   RESPONSE_LIGHT,
   ACK_LIGHT,
   NACK_LIGHT,
@@ -66,6 +68,9 @@ typedef enum {
   MAPME_DISCOVERY,
   MAPME_TIMESCALE,
   MAPME_RETX,
+  CONNECTION_SET_STATE,
+  UPDATE_LISTENER,
+  UPDATE_CONNECTION,
   LAST_COMMAND_VALUE
 } command_id;
 
@@ -282,6 +287,32 @@ typedef struct {
 
 // SIZE=1
 
+//==========  NEW COMMANDS  ==========
+
+typedef struct {
+  char symbolicOrConnid[16];
+  face_state_t state;
+} connection_set_state_command;
+
+typedef struct {
+  char symbolicOrConnid[16];
+  union commandAddr address;
+  uint16_t port;
+  uint8_t addressType;
+  uint8_t listenerMode;
+  uint8_t connectionType;
+} update_listener_command;
+
+typedef struct {
+  char symbolicOrConnid[16];
+  union commandAddr remoteIp;
+  union commandAddr localIp;
+  uint16_t remotePort;
+  uint16_t localPort;
+  uint8_t ipType;
+  uint8_t connectionType;
+} update_connection_command;
+
 //===== size of commands ======
 // REMINDER: when a new_command is added, the following switch has to be
 // updated.
@@ -323,6 +354,12 @@ static inline int payloadLengthDaemon(command_id id) {
       return sizeof(mapme_timing_command);
     case MAPME_RETX:
       return sizeof(mapme_timing_command);
+    case CONNECTION_SET_STATE:
+      return sizeof(connection_set_state_command);
+    case UPDATE_LISTENER:
+      return sizeof(update_listener_command);
+    case UPDATE_CONNECTION:
+      return sizeof(update_connection_command);
     case LAST_COMMAND_VALUE:
       return 0;
     default:
