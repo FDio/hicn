@@ -78,10 +78,15 @@ void TcpSocketConnector::connect(std::string ip_address, std::string port) {
 
 void TcpSocketConnector::send(const uint8_t *packet, std::size_t len,
                               const PacketSentCallback &packet_sent) {
-  asio::async_write(socket_, asio::buffer(packet, len),
-                    [packet_sent](std::error_code ec, std::size_t /*length*/) {
-                      packet_sent();
-                    });
+  if (packet_sent != 0) {
+    asio::async_write(socket_, asio::buffer(packet, len),
+                      [packet_sent](std::error_code ec,
+                                    std::size_t /*length*/) { packet_sent(); });
+  } else {
+    if (state_ == ConnectorState::CONNECTED) {
+      asio::write(socket_, asio::buffer(packet, len));
+    }
+  }
 }
 
 void TcpSocketConnector::send(const Packet::MemBufPtr &packet) {
@@ -223,37 +228,36 @@ void TcpSocketConnector::tryReconnect() {
 }
 
 void TcpSocketConnector::doConnect() {
-  asio::async_connect(socket_, endpoint_iterator_,
-                      [this](std::error_code ec, tcp::resolver::iterator) {
-                        if (!ec) {
-                          timer_.cancel();
-                          state_ = ConnectorState::CONNECTED;
-                          asio::ip::tcp::no_delay noDelayOption(true);
-                          socket_.set_option(noDelayOption);
-                          doReadHeader();
+  asio::async_connect(
+      socket_, endpoint_iterator_,
+      [this](std::error_code ec, tcp::resolver::iterator) {
+        if (!ec) {
+          timer_.cancel();
+          state_ = ConnectorState::CONNECTED;
+          asio::ip::tcp::no_delay noDelayOption(true);
+          socket_.set_option(noDelayOption);
+          doReadHeader();
 
-                          if (data_available_) {
-                            data_available_ = false;
-                            doWrite();
-                          }
+          if (data_available_) {
+            data_available_ = false;
+            doWrite();
+          }
 
-                          if (is_reconnection_) {
-                            is_reconnection_ = false;
-                            TRANSPORT_LOGI("Connection recovered!\n");
-                            on_reconnect_callback_();
-                          }
-                        } else {
-                          sleep(1);
-                          doConnect();
-                        }
-                      });
+          if (is_reconnection_) {
+            is_reconnection_ = false;
+            TRANSPORT_LOGI("Connection recovered!\n");
+            on_reconnect_callback_();
+          }
+        } else {
+          doConnect();
+          std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+      });
 }
 
 bool TcpSocketConnector::checkConnected() {
   return state_ == ConnectorState::CONNECTED;
 }
-
-void TcpSocketConnector::enableBurst() { return; }
 
 void TcpSocketConnector::startConnectionTimer() {
   timer_.expires_from_now(std::chrono::seconds(60));

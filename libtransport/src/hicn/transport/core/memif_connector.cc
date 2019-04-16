@@ -69,7 +69,6 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       tx_buf_counter_(0),
       is_reconnection_(false),
       data_available_(false),
-      enable_burst_(false),
       app_name_(app_name),
       socket_filename_("") {
   std::call_once(MemifConnector::flag_, &MemifConnector::init, this);
@@ -429,8 +428,6 @@ void MemifConnector::close() {
   }
 }
 
-void MemifConnector::enableBurst() { enable_burst_ = true; }
-
 void MemifConnector::send(const Packet::MemBufPtr &packet) {
   {
     utils::SpinLock::Acquire locked(write_msgs_lock_);
@@ -496,7 +493,9 @@ int MemifConnector::doSend() {
 }
 
 void MemifConnector::send(const uint8_t *packet, std::size_t len,
-                          const PacketSentCallback &packet_sent) {}
+                          const PacketSentCallback &packet_sent) {
+  throw errors::NotImplementedException();
+}
 
 }  // end namespace core
 
