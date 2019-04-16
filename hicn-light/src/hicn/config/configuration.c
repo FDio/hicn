@@ -309,9 +309,7 @@ static void configuration_SendResponse(Configuration *config, struct iovec *msg,
     return;
   }
 
-  connection_SendCommandResponse(conn, msg);
-  // IoOperations *ops = connection_GetIoOperations(conn);
-  // streamState_SendCommandResponse(ops, msg);
+  connection_SendIOVBuffer(conn, msg, 2);
 }
 
 struct iovec *configuration_ProcessCreateTunnel(Configuration *config,

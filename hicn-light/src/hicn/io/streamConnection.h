@@ -70,6 +70,7 @@ IoOperations *streamConnection_AcceptConnection(Forwarder *forwarder, int fd,
 IoOperations *streamConnection_OpenConnection(Forwarder *forwarder,
                                               AddressPair *pair, bool isLocal);
 
-bool streamState_SendCommandResponse(IoOperations *ops, struct iovec *response);
+bool streamState_SendIOVBuffer(IoOperations *ops, struct iovec *response,
+    size_t size);
 
 #endif  // streamConnection_h

@@ -61,7 +61,8 @@ typedef struct udp_state {
 
 // Prototypes
 static bool _send(IoOperations *ops, const Address *nexthop, Message *message);
-static bool _sendCommandResponse(IoOperations *ops, struct iovec *message);
+static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
+    size_t size);
 static const Address *_getRemoteAddress(const IoOperations *ops);
 static const AddressPair *_getAddressPair(const IoOperations *ops);
 static unsigned _getConnectionId(const IoOperations *ops);
@@ -71,6 +72,7 @@ static void _destroy(IoOperations **opsPtr);
 static list_connections_type _getConnectionType(const IoOperations *ops);
 static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
                         uint8_t *message);
+
 /*
  * This assigns a unique pointer to the void * which we use
  * as a GUID for this class.
@@ -84,18 +86,20 @@ static const void *_streamConnection_Class(const IoOperations *ops) {
   return _IoOperationsGuid;
 }
 
-static IoOperations _template = {.closure = NULL,
-                                 .send = &_send,
-                                 .sendCommandResponse = &_sendCommandResponse,
-                                 .getRemoteAddress = &_getRemoteAddress,
-                                 .getAddressPair = &_getAddressPair,
-                                 .getConnectionId = &_getConnectionId,
-                                 .isUp = &_isUp,
-                                 .isLocal = &_isLocal,
-                                 .destroy = &_destroy,
-                                 .class = &_streamConnection_Class,
-                                 .getConnectionType = &_getConnectionType,
-                                 .sendProbe = &_sendProbe};
+static IoOperations _template = {
+  .closure = NULL,
+  .send = &_send,
+  .sendIOVBuffer = &_sendIOVBuffer,
+  .getRemoteAddress = &_getRemoteAddress,
+  .getAddressPair = &_getAddressPair,
+  .getConnectionId = &_getConnectionId,
+  .isUp = &_isUp,
+  .isLocal = &_isLocal,
+  .destroy = &_destroy,
+  .class = &_streamConnection_Class,
+  .getConnectionType = &_getConnectionType,
+  .sendProbe = &_sendProbe,
+};
 
 // =================================================================
 
@@ -263,7 +267,8 @@ static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
   return true;
 }
 
-static bool _sendCommandResponse(IoOperations *ops, struct iovec *message){
+static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
+    size_t size) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
   parcAssertNotNull(message, "Parameter message must be non-null");
   _UdpState *udpConnState = (_UdpState *)ioOperations_GetClosure(ops);
@@ -276,7 +281,7 @@ static bool _sendCommandResponse(IoOperations *ops, struct iovec *message){
           udpConnState->peerAddress,
           udpConnState->peerAddressLength);
 
-  ssize_t writeLength = writev(udpConnState->udpListenerSocket, message, 2);
+  ssize_t writeLength = writev(udpConnState->udpListenerSocket, message, size);
 
   struct sockaddr any_address = {0};
   any_address.sa_family = AF_UNSPEC;
@@ -287,15 +292,15 @@ static bool _sendCommandResponse(IoOperations *ops, struct iovec *message){
       return false;
   }
 #else
-  WSABUF dataBuf[2];
+  WSABUF dataBuf[ARRAY_SIZE(message)];
   DWORD BytesSent = 0;
 
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < ARRAY_SIZE(message); i++) {
     dataBuf[i].buf = message[i].iov_base;
     dataBuf[i].len = (ULONG)message[i].iov_len;
   }
 
-  int rc = WSASendTo(udpConnState->udpListenerSocket, dataBuf, 2,
+  int rc = WSASendTo(udpConnState->udpListenerSocket, dataBuf, ARRAY_SIZE(message),
     &BytesSent, 0, (SOCKADDR *)udpConnState->peerAddress,
     udpConnState->peerAddressLength, NULL, NULL);
 

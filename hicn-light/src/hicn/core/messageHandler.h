@@ -53,6 +53,10 @@
 #define expected_lbl wldr_notification_lbl.expected_lbl
 #define received_lbl wldr_notification_lbl.received_lbl
 
+#include <hicn/core/forwarder.h>
+
+#define CONNECTION_ID_UNDEFINED -1
+
 static inline uint8_t messageHandler_GetIPPacketType(const uint8_t *message) {
   return HICN_IP_VERSION(message);
 }
@@ -160,6 +164,83 @@ static inline uint8_t messageHandler_NextHeaderType(const uint8_t *message) {
     default:
       return 0;
   }
+}
+
+/* Forward declarations */
+static inline void * messageHandler_GetSource(const uint8_t *message);
+
+/* Helpers */
+
+// NOTE: this function is generalized from the one in hICN listener and takes a
+// forwarder as parameter
+static inline
+const Connection *
+_getConnectionFromPacket(Forwarder * forwarder, Address * localAddress, Address *packetSourceAddress)
+{
+  if (!packetSourceAddress)
+      return NULL;
+
+  AddressPair *pair = addressPair_Create(localAddress,
+          packetSourceAddress);
+  const Connection * conn = connectionTable_FindByAddressPair(
+              forwarder_GetConnectionTable(forwarder), pair);
+  addressPair_Release(&pair);
+
+  return conn;
+}
+
+static inline
+Address *
+_createAddressFromPacket(const uint8_t *msgBuffer)
+{
+  Address *packetAddr = NULL;
+  if (messageHandler_GetIPPacketType(msgBuffer) == IPv6_TYPE) {
+    struct sockaddr_in6 addr_in6;
+    addr_in6.sin6_family = AF_INET6;
+    addr_in6.sin6_port = htons(1234);
+    addr_in6.sin6_flowinfo = 0;
+    addr_in6.sin6_scope_id = 0;
+    memcpy(&addr_in6.sin6_addr,
+           (struct in6_addr *)messageHandler_GetSource(msgBuffer), 16);
+    packetAddr = addressCreateFromInet6(&addr_in6);
+  } else if (messageHandler_GetIPPacketType(msgBuffer) == IPv4_TYPE) {
+    struct sockaddr_in addr_in;
+    addr_in.sin_family = AF_INET;
+    addr_in.sin_port = htons(1234);
+    memcpy(&addr_in.sin_addr,
+           (struct in_addr *)messageHandler_GetSource(msgBuffer), 4);
+    packetAddr = addressCreateFromInet(&addr_in);
+  }
+  return packetAddr;
+}
+
+/* Hooks */
+
+/* ... */
+
+/* Main hook handler */
+
+/**
+ * \brief Handle incoming messages
+ * \param [in] forwarder - Reference to the Forwarder instance
+ * \param [in] connection_id - A hint on the connection ID on which the packet
+ *      was received, CONNECTION_ID_UNDEFINED (-1) otherwise.
+ * \param [in] localAddress - Local listener address
+ * \param [in] messsage - Buffer possibly containing a hooked message
+ * \return Flag indicating whether the packet matched a hook and was
+ *      (successfully or not) processed.
+ */
+static inline bool messageHandler_handleHooks(Forwarder * forwarder,
+        int connection_id, Address * localAddress, const uint8_t * message)
+{
+  /* ... */
+
+  return false;
+
+#if 0 // Enable and jump here when a handler has successfully processed the packet
+END:
+  return true;
+#endif
 }
 
 static inline bool messageHandler_IsTCP(const uint8_t *message) {
