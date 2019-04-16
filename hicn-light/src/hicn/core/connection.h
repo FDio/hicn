@@ -65,10 +65,17 @@ Connection *connection_Acquire(Connection *connection);
 bool connection_Send(const Connection *conn, Message *message);
 
 /**
- * @function connection_SendCommandResponse
- * @abstract Sends a response (ack/nack) for a command
+ * @function connection_SendIOVBuffer
+ * @abstract Sends an IOV buffer
  */
-bool connection_SendCommandResponse(const Connection *conn, struct iovec *msg);
+bool connection_SendIOVBuffer(const Connection *conn, struct iovec *msg,
+    size_t size);
+
+/**
+ * @function connection_SendBuffer
+ * @abstract Sends a buffer
+ */
+bool connection_SendBuffer(const Connection *conn, u8 * buffer, size_t length);
 
 /**
  * Return the `IoOperations` instance associated with the specified `Connection`
@@ -151,4 +158,5 @@ bool connection_WldrAutoStartAllowed(const Connection *conn);
 void connection_DetectLosses(Connection *conn, Message *message);
 
 void connection_HandleWldrNotification(Connection *conn, Message *message);
+
 #endif  // connection_h

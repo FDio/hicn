@@ -500,6 +500,7 @@ const Connection *_findConnectionFromPacket(HicnListener *hicn,
   return conn;
 }
 
+#if 0
 static Address *_createAddressFromPacket(uint8_t *msgBuffer) {
   Address *packetAddr = NULL;
   if (messageHandler_GetIPPacketType(msgBuffer) == IPv6_TYPE) {
@@ -521,6 +522,7 @@ static Address *_createAddressFromPacket(uint8_t *msgBuffer) {
   }
   return packetAddr;
 }
+#endif
 
 static void _handleProbeMessage(HicnListener *hicn, uint8_t *msgBuffer) {
   Address *packetAddr = _createAddressFromPacket(msgBuffer);
@@ -691,16 +693,20 @@ static Message *_readMessage(HicnListener *hicn, int fd, uint8_t *msgBuffer) {
     _handleWldrNotification(hicn, msgBuffer);
   } else if (messageHandler_IsLoadBalancerProbe(msgBuffer)) {
     _handleProbeMessage(hicn, msgBuffer);
-  }
 #ifdef WITH_MAPME
-  else if (mapMe_isMapMe(msgBuffer)) {
+  } else if (mapMe_isMapMe(msgBuffer)) {
     /* This function triggers the handling of the MAP-Me message, and we
      * will return NULL so as to terminate the processing of this
      * msgBuffer. */
     _handleMapMe(hicn, fd, msgBuffer);
-  }
 #endif /* WITH_MAPME */
+  }
 
+  if (messageHandler_handleHooks(hicn->forwarder, hicn->connection_id,
+              hicn->localAddress, msgBuffer))
+    goto END;
+
+END:
   return message;
 }
 

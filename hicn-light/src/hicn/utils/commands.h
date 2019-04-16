@@ -31,6 +31,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "face.h"
+
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;
 
@@ -40,7 +42,7 @@ union commandAddr {
 };
 
 typedef enum {
-  REQUEST_LIGHT = 0xc0,  // this is a command
+  REQUEST_LIGHT = 0xc0, // this is a command
   RESPONSE_LIGHT,
   ACK_LIGHT,
   NACK_LIGHT,
