@@ -88,8 +88,6 @@ class HTTPClientConnection : public ConsumerSocket::ReadCallback {
   void readError(const std::error_code ec) noexcept override;
   void readSuccess(std::size_t total_size) noexcept override;
 
-  asio::io_service io_service_;
-
   // The consumer socket
   ConsumerSocket consumer_;
 

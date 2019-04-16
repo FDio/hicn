@@ -467,6 +467,7 @@ class HIperfClient {
 
     void readError(const std::error_code ec) noexcept override {
       std::cerr << "Error while reading from RTC socket" << std::endl;
+      client_.io_service_.stop();
     }
 
     void readSuccess(std::size_t total_size) noexcept override {
@@ -509,6 +510,7 @@ class HIperfClient {
     void readError(const std::error_code ec) noexcept override {
       std::cerr << "Error " << ec.message() << " while reading from socket"
                 << std::endl;
+      client_.io_service_.stop();
     }
 
     void readSuccess(std::size_t total_size) noexcept override {
