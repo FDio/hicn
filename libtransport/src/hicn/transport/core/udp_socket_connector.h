@@ -40,8 +40,7 @@ class UdpSocketConnector : public Connector {
 
   void send(const Packet::MemBufPtr &packet) override;
 
-  void send(const uint8_t *packet, std::size_t len,
-            const PacketSentCallback &packet_sent = 0) override;
+  void send(const uint8_t *packet, std::size_t len) override;
 
   void close() override;
 

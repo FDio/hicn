@@ -146,7 +146,6 @@ class ConsumerSocket : public BaseSocket {
    *  - RTC: Real time communication
    */
   explicit ConsumerSocket(int protocol);
-  explicit ConsumerSocket(int protocol, asio::io_service &io_service);
 
   /**
    * @brief Destroy the consumer socket.
@@ -805,9 +804,7 @@ class ConsumerSocket : public BaseSocket {
   std::unique_ptr<TransportProtocol> transport_protocol_;
 
  private:
-  // context inner state variables
-  asio::io_service internal_io_service_;
-  asio::io_service &io_service_;
+  asio::io_service io_service_;
 
   std::shared_ptr<Portal> portal_;
 

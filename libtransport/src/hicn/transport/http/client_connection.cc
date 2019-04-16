@@ -26,7 +26,7 @@ namespace http {
 using namespace transport;
 
 HTTPClientConnection::HTTPClientConnection()
-    : consumer_(TransportProtocolAlgorithms::RAAQM, io_service_),
+    : consumer_(TransportProtocolAlgorithms::RAAQM),
       read_bytes_callback_(nullptr),
       read_buffer_(nullptr),
       response_(std::make_shared<HTTPResponse>()),
