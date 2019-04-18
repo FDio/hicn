@@ -29,6 +29,19 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
+#########################################
+# LOG LEVELS AVAILABLE
+# VERBOSE
+# DEBUG
+# INFO
+# WARN
+# ERROR
+# FATAL
+# NONE
+# 
+# Default: INFO
+set(TRANSPORT_LOG_LEVEL "INFO" CACHE STRING "Set log level")
+
 set(TRANSPORT_ROOT_PATH "src/hicn/transport")
 
 set(TRANSPORT_CORE ${TRANSPORT_ROOT_PATH}/core)
