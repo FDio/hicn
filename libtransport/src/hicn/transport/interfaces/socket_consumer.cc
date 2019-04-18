@@ -101,6 +101,7 @@ int ConsumerSocket::asyncConsume(const Name &name) {
       network_name_ = std::move(name);
       network_name_.setSuffix(0);
       is_async_ = true;
+      TRANSPORT_LOGD("Opla' :D :D :D");
       transport_protocol_->start();
     });
   }
