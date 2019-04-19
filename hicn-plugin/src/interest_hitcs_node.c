@@ -60,12 +60,12 @@ clone_from_cs (vlib_main_t * vm, u32 * bi0_cs, vlib_buffer_t * dest, u8 isv6)
   else
     {
       vlib_buffer_advance (cs_buf, -buffer_advance);
-      if (PREDICT_FALSE (cs_buf->n_add_refs == 255))
+      if (PREDICT_FALSE (cs_buf->ref_count == 255))
 	{
 	  vlib_buffer_t *cs_buf2 = vlib_buffer_copy (vm, cs_buf);
 	  vlib_buffer_advance (cs_buf, buffer_advance);
 	  *bi0_cs = vlib_get_buffer_index (vm, cs_buf2);
-	  cs_buf->n_add_refs--;
+	  cs_buf->ref_count--;
 	  cs_buf = cs_buf2;
 	}
 

@@ -1056,9 +1056,7 @@ convert_interest_to_data_v4 (vlib_main_t * vm, vlib_buffer_t * b0,
       bytes_to_copy = 1500 - pkt_len;
     }
   /* Add content to the data packet */
-  vlib_buffer_add_data (vm,
-			VLIB_BUFFER_DEFAULT_FREE_LIST_INDEX, &bi0,
-			rb->data, bytes_to_copy);
+  vlib_buffer_add_data (vm, &bi0, rb->data, bytes_to_copy);
 
   b0 = vlib_get_buffer (vm, bi0);
 
@@ -1094,9 +1092,7 @@ convert_interest_to_data_v6 (vlib_main_t * vm, vlib_buffer_t * b0,
       bytes_to_copy = 1500 - pkt_len;
     }
   /* Add content to the data packet */
-  vlib_buffer_add_data (vm,
-			VLIB_BUFFER_DEFAULT_FREE_LIST_INDEX, &bi0,
-			rb->data, bytes_to_copy);
+  vlib_buffer_add_data (vm, &bi0, rb->data, bytes_to_copy);
 
   b0 = vlib_get_buffer (vm, bi0);
 

@@ -271,7 +271,7 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		       * longer in any frame. The vlib_buffer will be freed when
 		       * all its cloned vlib_buffer will be freed.
 		       */
-		      b0->n_add_refs--;
+		      b0->ref_count--;
 		    }
 
 		  /* Delete the PIT entry */
@@ -294,7 +294,7 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		   * longer in any frame. The vlib_buffer will be freed when
 		   * all its cloned vlib_buffer will be freed.
 		   */
-		  b0->n_add_refs--;
+		  b0->ref_count--;
 		}
 
 	      /* Delete the PIT entry */
@@ -403,12 +403,12 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
   else
     {
       /* Add one reference to maintain the buffer in the CS.
-       * b0->n_add_refs == 0 has two meaning: it has 1 buffer or no buffer chained to it.
+       * b0->ref_count == 0 has two meaning: it has 1 buffer or no buffer chained to it.
        * vlib_buffer_clone2 add a number of reference equalt to pitp->u.pit.faces.n_faces - 1
        * as vlib_buffer_clone does. So after all the packet are forwarded the buffer stored in
-       * the CS will have n_add_refs == 0;
+       * the CS will have ref_count == 0;
        */
-      b0->n_add_refs++;
+      b0->ref_count++;
     }
 
   found = n_left_from =
@@ -621,7 +621,6 @@ VLIB_REGISTER_NODE(hicn_data_fwd_node) =
   .function = hicn_data_node_fn,
   .name = "hicn-data-fwd",
   .vector_size = sizeof(u32),
-  .runtime_data_bytes = sizeof(hicn_data_fwd_runtime_t),
   .format_trace = hicn_data_fwd_format_trace,
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(hicn_data_fwd_error_strings),
