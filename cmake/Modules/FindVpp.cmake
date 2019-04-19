@@ -60,6 +60,13 @@ find_library(VPP_LIBRARY_VLIB
   DOC "Find the Vpp vlib library"
 )
 
+find_library(VPP_LIBRARY_VPPAPICLIENT
+  NAMES vppapiclient
+  HINTS ${VPP_SEARCH_PATH_LIST}
+  PATH_SUFFIXES lib lib64
+  DOC "Find the Vpp vlib library"
+)
+
 set(VPP_LIBRARIES ${VPP_LIBRARY_MEMORYCLIENT} ${VPP_LIBRARY_SVM} ${VPP_LIBRARY_INFRA} ${VPP_LIBRARY_VATPLUGIN} ${VPP_LIBRARY_VLIB})
 set(VPP_INCLUDE_DIRS ${VPP_INCLUDE_DIR} ${VPP_INCLUDE_DIR}/vpp_plugins)
 
