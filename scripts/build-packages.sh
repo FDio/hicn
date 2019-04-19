@@ -19,17 +19,19 @@ APT_PATH=`which apt-get` || true
 apt_get=${APT_PATH:-"/usr/local/bin/apt-get"}
 
 PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio/release/script.deb.sh"
+PACKAGECLOUD_1904_REPO_DEB="https://packagecloud.io/install/repositories/fdio/1904/script.deb.sh"
 PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
+PACKAGECLOUD_1904_REPO_RPM="https://packagecloud.io/install/repositories/fdio/1904/script.rpm.sh"
 
 VPP_GIT_REPO="https://git.fd.io/vpp"
-VPP_BRANCH="stable/1901"
+VPP_BRANCH="stable/1904"
 
 VPP_VERSION_DEB="19.01.1-release"
 VPP_VERSION_RPM="19.01.1-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
-DEPS_UBUNTU="libparc-dev libasio-dev libcurl4-openssl-dev vpp-dev=${VPP_VERSION_DEB} vpp-lib=${VPP_VERSION_DEB}"
+DEPS_UBUNTU="libparc-dev libasio-dev libcurl4-openssl-dev vpp-dev vpp-lib"
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
 DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM} vpp-lib-${VPP_VERSION_RPM} libparc-devel libcurl-devel asio-devel centos-release-scl devtoolset-7"
@@ -60,8 +62,10 @@ setup_fdio_repo() {
 
     if [ "${DISTRIB_ID}" == "ubuntu" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
+        curl -s ${PACKAGECLOUD_1904_REPO_DEB} | sudo bash
     elif [ "${DISTRIB_ID}" == "centos" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM} | sudo bash
+        curl -s ${PACKAGECLOUD_1904_REPO_RPM} | sudo bash
         curl ${LATEST_EPEL_REPO} > epel-release-latest-7.noarch.rpm
         rpm -ivh epel-release-latest-7.noarch.rpm || true
         rm epel-release-latest-7.noarch.rpm
