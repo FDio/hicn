@@ -123,10 +123,12 @@ void ConsumerSocket::asyncSendInterest(Interest::Ptr &&interest,
 }
 
 void ConsumerSocket::stop() {
-  if (transport_protocol_->isRunning()) {
-    std::cout << "Stopping transport protocol " << std::endl;
-    transport_protocol_->stop();
-  }
+  auto &io_service = getIoService();
+  io_service.dispatch([this]() {
+    if (transport_protocol_->isRunning()) {
+      transport_protocol_->stop();
+    }
+  });
 }
 
 void ConsumerSocket::resume() {
