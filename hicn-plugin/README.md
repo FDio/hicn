@@ -65,7 +65,7 @@ hICN-plugin has been tested in:
 
 Build dependencies:
 
-- VPP 19.01
+- VPP 19.04
   - DEB packages:
   - vpp
   - vpp-lib

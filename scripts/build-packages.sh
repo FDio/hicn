@@ -22,17 +22,18 @@ PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio
 PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
 
 VPP_GIT_REPO="https://git.fd.io/vpp"
-VPP_BRANCH="stable/1901"
+VPP_BRANCH="stable/1904"
 
-VPP_VERSION_DEB="19.01.1-release"
-VPP_VERSION_RPM="19.01.1-release.x86_64"
+VPP_VERSION_DEB="19.04-release"
+VPP_VERSION_RPM="19.04-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
-DEPS_UBUNTU="libparc-dev libasio-dev libcurl4-openssl-dev vpp-dev=${VPP_VERSION_DEB} vpp-lib=${VPP_VERSION_DEB}"
+DEPS_UBUNTU="libparc-dev libasio-dev libcurl4-openssl-dev vpp-dev=${VPP_VERSION_DEB} libvppinfra=${VPP_VERSION_DEB} libvppinfra-dev=${VPP_VERSION_DEB} vpp-plugin-core=${VPP_VERSION_DEB}"
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
 DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM} vpp-lib-${VPP_VERSION_RPM} libparc-devel libcurl-devel asio-devel centos-release-scl devtoolset-7"
+DEPS_CENTOS_NOVERSION="vpp-devel vpp-lib libparc-devel libcurl-devel asio-devel centos-release-scl devtoolset-7"
 LATEST_EPEL_REPO="http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
 
 install_cmake() {
@@ -41,7 +42,7 @@ install_cmake() {
     fi
 
     cat /etc/resolv.conf
-
+``
     CMAKE_INSTALL_SCRIPT_URL="https://cmake.org/files/v3.8/cmake-3.8.0-Linux-x86_64.sh"
     CMAKE_INSTALL_SCRIPT="/tmp/install_cmake.sh"
     curl ${CMAKE_INSTALL_SCRIPT_URL} > ${CMAKE_INSTALL_SCRIPT}
@@ -59,6 +60,7 @@ setup_fdio_repo() {
     DISTRIB_ID=${1}
 
     if [ "${DISTRIB_ID}" == "ubuntu" ]; then
+    rm -r /etc/apt/sources.list.d/*
         curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
     elif [ "${DISTRIB_ID}" == "centos" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM} | sudo bash
@@ -122,9 +124,9 @@ setup() {
         ${CC_COMPILER} --version
 
         export CC=${CC_COMPILER} CXX=${CXX_COMPILER}
-
-        build_libmemif_static
     fi
+
+    build_libmemif_static
 
     # do nothing but check compiler version
     c++ --version
