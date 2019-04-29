@@ -22,10 +22,10 @@ PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio
 PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
 
 VPP_GIT_REPO="https://git.fd.io/vpp"
-VPP_BRANCH="stable/1901"
+VPP_BRANCH="stable/1904"
 
-VPP_VERSION_DEB="19.01.1-release"
-VPP_VERSION_RPM="19.01.1-release.x86_64"
+VPP_VERSION_DEB="19.04-release"
+VPP_VERSION_RPM="19.04-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
@@ -122,9 +122,9 @@ setup() {
         ${CC_COMPILER} --version
 
         export CC=${CC_COMPILER} CXX=${CXX_COMPILER}
-
-        build_libmemif_static
     fi
+
+    build_libmemif_static
 
     # do nothing but check compiler version
     c++ --version
