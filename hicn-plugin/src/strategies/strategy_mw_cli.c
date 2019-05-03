@@ -111,7 +111,7 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
 	  cl_err =
 	    clib_error_return (0,
 			       get_error_string
-			       (HICN_ERROR_MW_STRATEGY_NH_NOT_FOUND));
+			       (HICN_ERROR_STRATEGY_NH_NOT_FOUND));
 	  goto done;
 	}
 

@@ -17,6 +17,7 @@
 
 #include "strategy_dpo_manager.h"
 #include "strategies/dpo_mw.h"
+#include "strategies/dpo_rr.h"
 #include "strategy.h"
 #include "faces/face.h"
 
@@ -94,6 +95,7 @@ void
 hicn_dpos_init (void)
 {
   hicn_dpo_strategy_mw_module_init ();
+  hicn_dpo_strategy_rr_module_init ();
 
   default_dpo.hicn_dpo_get_ctx = &hicn_strategy_mw_ctx_get;
   default_dpo.hicn_dpo_is_type = &hicn_dpo_is_type_strategy_mw;
