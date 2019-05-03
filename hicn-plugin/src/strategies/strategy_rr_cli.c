@@ -23,19 +23,17 @@
 #include "../faces/face.h"
 #include "../error.h"
 #include "../route.h"
-#include "dpo_mw.h"
+#include "dpo_rr.h"
 
 static clib_error_t *
-hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
+hicn_rr_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
 					    unformat_input_t * main_input,
 					    vlib_cli_command_t * cmd)
 {
   clib_error_t *cl_err = 0;
   int ret = HICN_ERROR_NONE;
   ip46_address_t prefix;
-  hicn_face_id_t faceid = HICN_FACE_NULL;
   u32 fib_index;
-  u32 weight = HICN_PARAM_FIB_ENTRY_NHOP_WGHT_DFLT;
   u32 plen = 0;
   hicn_dpo_ctx_t *hicn_dpo_ctx;
   const dpo_id_t *hicn_dpo_id;
@@ -51,10 +49,6 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
 	  if (unformat (line_input, "prefix %U/%u", unformat_ip46_address,
 			&prefix, IP46_TYPE_ANY, &plen))
 	    ;
-	  else if (unformat (line_input, "face %u", &faceid))
-	    ;
-	  else if (unformat (line_input, "weight %u", &weight))
-	    ;
 	  else
 	    {
 	      return clib_error_return (0, "%s",
@@ -65,15 +59,7 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
 	}
     }
 
-  if (((weight < 0) || (weight > HICN_PARAM_FIB_ENTRY_NHOP_WGHT_MAX)))
-    {
-      cl_err = clib_error_return (0,
-				  "Next-hop weight must be between 0 and %d",
-				  (int) HICN_PARAM_FIB_ENTRY_NHOP_WGHT_MAX);
-      goto done;
-    }
-
-  if (((ip46_address_is_zero (&prefix)) || faceid == HICN_FACE_NULL))
+  if (ip46_address_is_zero (&prefix))
     {
       cl_err =
 	clib_error_return (0, "Please specify prefix and a valid faceid...");
@@ -93,29 +79,16 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
       hicn_dpo_ctx = dpo_vft->hicn_dpo_get_ctx (hicn_dpo_id->dpoi_index);
 
       if (hicn_dpo_ctx == NULL
-	  || hicn_dpo_id->dpoi_type != hicn_dpo_strategy_mw_get_type ())
+	  || hicn_dpo_id->dpoi_type != hicn_dpo_strategy_rr_get_type ())
 	{
 	  cl_err = clib_error_return (0, get_error_string (ret));
 	  goto done;
 	}
 
-      hicn_strategy_mw_ctx_t *mw_dpo =
-	(hicn_strategy_mw_ctx_t *) hicn_dpo_ctx;
-      int idx = ~0;
-      for (int i = 0; i < hicn_dpo_ctx->entry_count; i++)
-	if (hicn_dpo_ctx->next_hops[i].dpoi_index == (index_t) faceid)
-	  idx = i;
+      hicn_strategy_rr_ctx_t *rr_dpo =
+	(hicn_strategy_rr_ctx_t *) hicn_dpo_ctx;
 
-      if (idx == ~0)
-	{
-	  cl_err =
-	    clib_error_return (0,
-			       get_error_string
-			       (HICN_ERROR_STRATEGY_NH_NOT_FOUND));
-	  goto done;
-	}
-
-      mw_dpo->weight[idx] = weight;
+      rr_dpo->current_nhop = 0;
     }
   else
     {
@@ -129,13 +102,13 @@ done:
 
 }
 
-/* cli declaration for 'strategy mw' */
+/* cli declaration for 'strategy rr' */
 /* *INDENT-OFF* */
-VLIB_CLI_COMMAND(hicn_mw_strategy_cli_set_weight_command, static)=
+VLIB_CLI_COMMAND(hicn_rr_strategy_cli_set_weight_command, static)=
 {
-  .path = "hicn strategy mw set",
-  .short_help = "hicn strategy mw set prefix <prefix> face <face_id> weight <weight>",
-  .function = hicn_mw_strategy_cli_set_weight_command_fn,
+  .path = "hicn strategy round-robin set",
+  .short_help = "hicn strategy round-robin set prefix <prefix>",
+  .function = hicn_rr_strategy_cli_set_weight_command_fn,
 };
 /* *INDENT-ON* */
 

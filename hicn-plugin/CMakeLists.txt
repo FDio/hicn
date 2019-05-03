@@ -113,6 +113,9 @@ set(HICN_PLUGIN_SOURCE_FILES
     src/strategies/dpo_mw.c
     src/strategies/strategy_mw.c
     src/strategies/strategy_mw_cli.c
+    src/strategies/dpo_rr.c
+    src/strategies/strategy_rr.c
+    src/strategies/strategy_rr_cli.c
     src/cache_policies/cs_lru.c
     src/mapme_ack_node.c
     src/mapme_ctrl_node.c
@@ -158,6 +161,8 @@ set(HICN_PLUGIN_HEADER_FILES
     src/pg.h
     src/strategies/dpo_mw.h
     src/strategies/strategy_mw.h
+    src/strategies/dpo_rr.h
+    src/strategies/strategy_rr.h
     src/cache_policies/cs_policy.h
     src/cache_policies/cs_lru.h
     src/mapme.h

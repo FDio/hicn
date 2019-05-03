@@ -74,7 +74,7 @@
  _(APPFACE_FEATURE, -181, "Error while enabling app face feature")      \
  _(APPFACE_NOT_FOUND, -182, "Application face not found")               \
  _(APPFACE_PROD_PREFIX_NULL, -183, "Prefix must not be null for producer face") \
- _(MW_STRATEGY_NH_NOT_FOUND, -184, "Next hop not found")		\
+ _(STRATEGY_NH_NOT_FOUND, -184, "Next hop not found")		\
  _(MW_STRATEGY_SET, -185, "Error while setting weight for next hop")	\
  _(STRATEGY_NOT_FOUND, -186, "Strategy not found")
 
