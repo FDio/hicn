@@ -99,12 +99,6 @@ static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
     *slash = '\0';
   }
 
-  if (len == 0) {
-    printf("ERROR: a prefix can not be of length 0\n");
-    free(addr);
-    return CommandReturn_Failure;
-  }
-
   // allocate command payload
   remove_route_command *removeRouteCommand =
       parcMemory_AllocateAndClear(sizeof(remove_route_command));
