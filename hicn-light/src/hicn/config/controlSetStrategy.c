@@ -118,11 +118,6 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
     len = atoi(slash + 1);
     *slash = '\0';
   }
-  if (len == 0) {
-    printf("ERROR: a prefix can not be of length 0\n");
-    free(addr);
-    return CommandReturn_Failure;
-  }
 
   // allocate command payload
   set_strategy_command *setStrategyCommand =

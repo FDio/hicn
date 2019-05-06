@@ -108,12 +108,6 @@ static CommandReturn _controlAddRoute_Execute(CommandParser *parser,
     *slash = '\0';
   }
 
-  if (len == 0) {
-    printf("ERROR: a prefix can not be of length 0\n");
-    free(addr);
-    return CommandReturn_Failure;
-  }
-
   // allocate command payload
   add_route_command *addRouteCommand =
       parcMemory_AllocateAndClear(sizeof(add_route_command));

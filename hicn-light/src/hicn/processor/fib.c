@@ -103,6 +103,13 @@ void fib_Add(FIB *fib, FibEntry *entry) {
 
   NameBitvector *name = name_GetContentName(fibEntry_GetPrefix(entry));
 
+  //if the name len is 0, we add this entry on the root
+  if(nameBitvector_GetLength(name) == 0){
+    fib->size++;
+    fib->root->entry = entry;
+    return;
+  }
+
   // search the name
   FibNode *prev = fib->root;
   FibNode *curr;
@@ -122,7 +129,7 @@ void fib_Add(FIB *fib, FibEntry *entry) {
     }
   }
 
-  if (curr->entry != NULL &&
+  if (curr->entry != NULL && curr->pos != NULL_POS &&
       nameBitvector_Equals(
           name, name_GetContentName(fibEntry_GetPrefix(curr->entry)))) {
     // there is already an entry with this name
@@ -134,9 +141,10 @@ void fib_Add(FIB *fib, FibEntry *entry) {
   // if the name is not in the FIB search for the first different bit between
   // the new name to add and the node found in the trie
   uint8_t pos = MSB_POS;
-  if (curr->entry != NULL)
+  if (curr->entry != NULL && curr->pos != NULL_POS){
     pos = nameBitvector_firstDiff(
         name, name_GetContentName(fibEntry_GetPrefix(curr->entry)));
+  }
 
   // reset pointer and search the insertion point
   prev = fib->root;
@@ -182,6 +190,13 @@ FibEntry *fib_Contains(const FIB *fib, const Name *prefix) {
 
   NameBitvector *name = name_GetContentName(prefix);
 
+  //if prefix len is 0 it must be stored in the root.
+  //if the root entry is null we need to create it, otherwise
+  //we just need to add an other nexthop
+  if(nameBitvector_GetLength(name) == 0){
+    return fib->root->entry;
+  }
+
   // this is the same as the first part of the add function
   // we cannnot call this function inside the add because
   // we need the pointer prev and curr for the insertion
@@ -204,7 +219,7 @@ FibEntry *fib_Contains(const FIB *fib, const Name *prefix) {
     }
   }
 
-  if (curr->entry != NULL &&
+  if (curr->entry != NULL && curr->pos != NULL_POS &&
       nameBitvector_Equals(
           name, name_GetContentName(fibEntry_GetPrefix(curr->entry)))) {
     return curr->entry;
@@ -333,7 +348,17 @@ void fib_Remove(FIB *fib, const Name *name, unsigned connId) {
 
   fibEntry_RemoveNexthopByConnectionId(entry, connId);
   if (fibEntry_NexthopCount(entry) == 0) {
-    _removeNode(fib, name);
+    //if the len is 0, just release the fibEntry on the root node
+    if(nameBitvector_GetLength(
+              name_GetContentName(fibEntry_GetPrefix(entry))) == 0){
+      parcAssertTrue(entry == fib->root->entry,
+          "prefix len == 0, entry is not in the FIB root");
+      fib->size--;
+      fibEntry_Release(&entry);
+      fib->root->entry = NULL;
+    } else {
+      _removeNode(fib, name);
+    }
   }
 }
 
@@ -352,9 +377,19 @@ void _removeConnectionId(FibNode *n, unsigned pos, unsigned connectionId,
 void fib_RemoveConnectionId(FIB *fib, unsigned connectionId) {
   parcAssertNotNull(fib, "Parameter must be non-null");
 
+  // 0 - remove the connection id from the root
   // 1 - we vist the tree to remove the connection id
   // 2 - during the visit we collect the fib entry with 0 nexthop
   // 3 - after the visit we remove this entries
+
+  if(fib->root->entry){
+    fibEntry_RemoveNexthopByConnectionId(fib->root->entry, connectionId);
+    if(fibEntry_NexthopCount(fib->root->entry) == 0){
+      fib->size--;
+      fibEntry_Release(&fib->root->entry);
+      fib->root->entry = NULL;
+    }
+  }
 
   FibEntryList *list = fibEntryList_Create();
 
@@ -393,7 +428,7 @@ FibEntry *fib_Match(const FIB *fib, const Message *interestMessage) {
   while (prev->pos > curr->pos) {
     prev = curr;
 
-    if (curr->entry != NULL) {
+    if (curr->entry != NULL && curr->pos != NULL_POS) {
       if (nameBitvector_StartsWith(
               name, name_GetContentName(fibEntry_GetPrefix(curr->entry))) &&
           nameBitvector_GetLength(
@@ -410,7 +445,7 @@ FibEntry *fib_Match(const FIB *fib, const Message *interestMessage) {
       curr = curr->left;
   }
 
-  if (curr->entry != NULL) {
+  if (curr->entry != NULL && curr->pos != NULL_POS) {
     if (nameBitvector_StartsWith(
             name, name_GetContentName(fibEntry_GetPrefix(curr->entry))) &&
         nameBitvector_GetLength(
@@ -424,7 +459,9 @@ FibEntry *fib_Match(const FIB *fib, const Message *interestMessage) {
   if (match != NULL && match->entry != NULL) {
     return match->entry;
   } else {
-    return NULL;
+    //if there is a  default route, return it.
+    //the dafualt route is in the route
+    return fib->root->entry;
   }
 }
 
@@ -440,6 +477,10 @@ FibEntryList *fib_GetEntries(const FIB *fib) {
   parcAssertNotNull(fib, "Parameter must be non-null");
 
   FibEntryList *list = fibEntryList_Create();
+
+  if(fib->root->entry){
+    fibEntryList_Append(list, fib->root->entry);
+  }
 
   _collectFibEntries(fib->root->left, fib->root->pos, list);
   _collectFibEntries(fib->root->right, fib->root->pos, list);
