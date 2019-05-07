@@ -2,7 +2,7 @@ module hicn {
 namespace "urn:sysrepo:hicn";
 prefix hcn;
 
-revision 2019-04-25 {
+revision 2019-05-7 {
     description "Initial revision.";
 }
 
