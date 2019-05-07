@@ -389,6 +389,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
   vlib_buffer_t *b0 = vlib_get_buffer (vm, bi0);
 
   hicn_buffer_t *hicnb = hicn_get_buffer (b0);
+
   /*
    * Mark the buffer as smaller than TWO_CL. It will be stored as is in the CS, without excluding
    * the hicn_header. Cloning is not possible, it will be copied.
@@ -545,7 +546,6 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 			       *n_left_to_next);
 	}
     }
-
 
   vec_free (header);
 

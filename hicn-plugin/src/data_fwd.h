@@ -95,18 +95,18 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
       d->flags = s->flags | VLIB_BUFFER_NEXT_PRESENT;
       d->flags &= ~VLIB_BUFFER_EXT_HDR_VALID;
       d->trace_index = s->trace_index;
-      clib_memcpy (d->opaque, s->opaque, sizeof (s->opaque));
-      clib_memcpy (d->opaque2, s->opaque2, sizeof (s->opaque2));
-      clib_memcpy (vlib_buffer_get_current (d), vlib_buffer_get_current (s),
-		   head_end_offset);
+      clib_memcpy_fast (d->opaque, s->opaque, sizeof (s->opaque));
+      clib_memcpy_fast (d->opaque2, s->opaque2, sizeof (s->opaque2));
+      clib_memcpy_fast (vlib_buffer_get_current (d),
+			vlib_buffer_get_current (s), head_end_offset);
       d->next_buffer = src_buffer;
     }
   vlib_buffer_advance (s, head_end_offset);
-  s->ref_count = n_buffers - 1;
+  s->ref_count = n_buffers;
   while (s->flags & VLIB_BUFFER_NEXT_PRESENT)
     {
       s = vlib_get_buffer (vm, s->next_buffer);
-      s->ref_count = n_buffers - 1;
+      s->ref_count = n_buffers;
     }
 
   return n_buffers;
@@ -166,7 +166,7 @@ vlib_buffer_clone2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
    */
   u8 tmp_ref_count = s->ref_count;
 
-  s->ref_count = 0;
+  s->ref_count = 1;
   /*
    * The regular vlib_buffer_clone_256 does copy if we need to clone
    * only one packet. While this is not a problem per se, it adds
@@ -178,7 +178,7 @@ vlib_buffer_clone2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
 				       (buffers + n_cloned),
 				       n_buffers, head_end_offset);
 
-  s->ref_count += tmp_ref_count;
+  s->ref_count += (tmp_ref_count - 1);
 
   return n_cloned;
 }

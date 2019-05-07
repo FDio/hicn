@@ -207,6 +207,110 @@ int hicn_face_udp_add (const ip46_address_t * local_addr,
 		       u16 remote_port, u32 swif, hicn_face_id_t * pfaceid);
 
 /**
+ * @brief Create a new incomplete face udp. (Meant to be used by the data plane)
+ *
+ * @param local_addr Local ip v6 address of the face
+ * @param remote_addr Remote ip v6 address of the face
+ * @param sw_if interface associated to the face
+ * @param pfaceid Pointer to return the face id
+ * @return HICN_ERROR_FACE_NO_GLOBAL_IP if the face does not have a globally
+ * reachable ip address, otherwise HICN_ERROR_NONE
+ */
+always_inline void
+hicn_iface_udp6_add (const ip6_address_t * local_addr,
+		     const ip6_address_t * remote_addr, u16 local_port,
+		     u16 remote_port, int sw_if, hicn_face_id_t * pfaceid)
+{
+  hicn_face_t *face;
+  pool_get (hicn_dpoi_face_pool, face);
+
+  hicn_face_udp_t *udp_face = (hicn_face_udp_t *) face->data;
+
+  clib_memcpy (&(udp_face->hdrs.ip6.ip), &ip6_header_skl,
+	       sizeof (ip6_header_t));
+  clib_memcpy (&(udp_face->hdrs.ip6.ip.src_address), local_addr,
+	       sizeof (ip6_address_t));
+  clib_memcpy (&(udp_face->hdrs.ip6.ip.dst_address), remote_addr,
+	       sizeof (ip6_address_t));
+
+  udp_face->hdrs.ip6.udp.src_port = local_port;
+  udp_face->hdrs.ip6.udp.dst_port = remote_port;
+
+  face->shared.adj = ADJ_INDEX_INVALID;
+  face->shared.pl_id = (u16) 0;
+  face->shared.face_type = hicn_face_udp_type;
+  face->shared.flags = HICN_FACE_FLAGS_IFACE;
+  face->shared.locks = 0;
+  face->shared.sw_if = sw_if;
+
+  hicn_face_udp_key_t key;
+  hicn_face_udp6_get_key (local_addr, remote_addr, local_port,
+			  remote_port, &key);
+  *pfaceid = hicn_dpoi_get_index (face);
+
+  mhash_set_mem (&hicn_face_udp_hashtb, &key, (uword *) & pfaceid, 0);
+
+  for (int i = 0; i < HICN_N_COUNTER; i++)
+    {
+      vlib_validate_combined_counter (&counters[(*pfaceid) * HICN_N_COUNTER],
+				      i);
+      vlib_zero_combined_counter (&counters[(*pfaceid) * HICN_N_COUNTER], i);
+    }
+}
+
+/**
+ * @brief Create a new incomplete face udp. (Meant to be used by the data plane)
+ *
+ * @param local_addr Local ip v4 address of the face
+ * @param remote_addr Remote ip v4 address of the face
+ * @param sw_if interface associated to the face
+ * @param pfaceid Pointer to return the face id
+ * @return HICN_ERROR_FACE_NO_GLOBAL_IP if the face does not have a globally
+ * reachable ip address, otherwise HICN_ERROR_NONE
+ */
+always_inline void
+hicn_iface_udp4_add (const ip4_address_t * local_addr,
+		     const ip4_address_t * remote_addr, u16 local_port,
+		     u16 remote_port, int sw_if, hicn_face_id_t * pfaceid)
+{
+  hicn_face_t *face;
+  pool_get (hicn_dpoi_face_pool, face);
+
+  hicn_face_udp_t *udp_face = (hicn_face_udp_t *) face->data;
+
+  clib_memcpy (&(udp_face->hdrs.ip4.ip), &ip4_header_skl,
+	       sizeof (ip4_header_t));
+  clib_memcpy (&(udp_face->hdrs.ip4.ip.src_address), local_addr,
+	       sizeof (ip4_address_t));
+  clib_memcpy (&(udp_face->hdrs.ip4.ip.dst_address), remote_addr,
+	       sizeof (ip4_address_t));
+
+  udp_face->hdrs.ip4.udp.src_port = local_port;
+  udp_face->hdrs.ip4.udp.dst_port = remote_port;
+
+  face->shared.adj = ADJ_INDEX_INVALID;
+  face->shared.pl_id = (u16) 0;
+  face->shared.face_type = hicn_face_udp_type;
+  face->shared.flags = HICN_FACE_FLAGS_IFACE;
+  face->shared.locks = 0;
+  face->shared.sw_if = sw_if;
+
+  hicn_face_udp_key_t key;
+  hicn_face_udp4_get_key (local_addr, remote_addr, local_port,
+			  remote_port, &key);
+  *pfaceid = hicn_dpoi_get_index (face);
+
+  mhash_set_mem (&hicn_face_udp_hashtb, &key, (uword *) & pfaceid, 0);
+
+  for (int i = 0; i < HICN_N_COUNTER; i++)
+    {
+      vlib_validate_combined_counter (&counters[(*pfaceid) * HICN_N_COUNTER],
+				      i);
+      vlib_zero_combined_counter (&counters[(*pfaceid) * HICN_N_COUNTER], i);
+    }
+}
+
+/**
  * @brief Delete an ip face
  *
  * @param face_id Id of the face to delete

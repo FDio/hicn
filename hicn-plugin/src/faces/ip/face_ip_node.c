@@ -463,12 +463,10 @@ VLIB_REGISTER_NODE(hicn_face_ip6_input_node) =
 
 static inline void
 hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
-			    const hicn_face_t * face, u32 * next)
+			    hicn_face_t * face, u32 * next)
 {
   ip_adjacency_t *adj = adj_get (face->shared.adj);
 
-  /* We assume the ip adjacency has already the MAC/link layer address */
-  vnet_buffer (b0)->ip.adj_index[VLIB_TX] = face->shared.adj;
   hicn_header_t *hicn = vlib_buffer_get_current (b0);
 
   hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
@@ -479,14 +477,33 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
   hicn_ops_vft[type.l1]->rewrite_interest (type, &hicn->protocol,
 					   &ip_face->local_addr, &temp_addr);
 
-  /* We rewrite the dst address to send an arp/neighbour discovert request */
-  if (PREDICT_FALSE
-      (adj->lookup_next_index == IP_LOOKUP_NEXT_ARP
-       || adj->lookup_next_index == IP_LOOKUP_NEXT_GLEAN))
-    hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
-					 &ip_face->remote_addr, &temp_addr,
-					 0);
+  /* In case the adj is not complete, we look if a better one exists, otherwise we send an arp request
+   * This is necessary to account for the case in which when we create a face, there isn't a /128(/32) adjacency and we match with a more general route which is in glean state
+   * In this case in fact, the general route will not be update upone receiving of a arp or neighbour responde, but a new /128(/32) will be created
+   */
+  if (PREDICT_FALSE (adj->lookup_next_index < IP_LOOKUP_NEXT_REWRITE))
+    {
+      fib_prefix_t fib_pfx;
+      fib_node_index_t fib_entry_index;
+      fib_prefix_from_ip46_addr (&ip_face->remote_addr, &fib_pfx);
+      fib_pfx.fp_len = 128;
 
+      u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+							 HICN_FIB_TABLE,
+							 FIB_SOURCE_PLUGIN_HI);
+
+      fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+
+      face->shared.adj = fib_entry_get_adj (fib_entry_index);
+
+      adj = adj_get (face->shared.adj);
+
+      hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
+					   &ip_face->remote_addr, &temp_addr,
+					   0);
+    }
+
+  vnet_buffer (b0)->ip.adj_index[VLIB_TX] = face->shared.adj;
   *next = adj->lookup_next_index;
 }
 

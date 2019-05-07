@@ -535,8 +535,31 @@ hicn_face_udp4_encap (vlib_main_t * vm,
 			 length /* changed member */ );
   ip0->checksum = sum0;
 
-  vnet_buffer (outer_b0)->ip.adj_index[VLIB_TX] = face->shared.adj;
+  /* In case the adj is not complete, we look if a better one exists, otherwise we send an arp request
+   * This is necessary to account for the case in which when we create a face, there isn't a /128(/32) adjacency and we match with a more general route which is in glean state
+   * In this case in fact, the general route will not be update upone receiving of a arp or neighbour responde, but a new /128(/32) will be created
+   */
+  if (PREDICT_FALSE (adj->lookup_next_index < IP_LOOKUP_NEXT_REWRITE))
+    {
+      fib_prefix_t fib_pfx;
+      fib_node_index_t fib_entry_index;
+      ip46_address_t ip46 =
+	to_ip46 (0, (u8 *) & (face_udp->hdrs.ip4.ip.dst_address));
+      fib_prefix_from_ip46_addr (&ip46, &fib_pfx);
+      fib_pfx.fp_len = 32;
 
+      u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+							 HICN_FIB_TABLE,
+							 FIB_SOURCE_PLUGIN_HI);
+
+      fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+
+      face->shared.adj = fib_entry_get_adj (fib_entry_index);
+
+      adj = adj_get (face->shared.adj);
+    }
+
+  vnet_buffer (outer_b0)->ip.adj_index[VLIB_TX] = face->shared.adj;
   *next = adj->lookup_next_index;
 }
 
@@ -571,6 +594,30 @@ hicn_face_udp6_encap (vlib_main_t * vm,
 
   if (udp0->checksum == 0)
     udp0->checksum = 0xffff;
+
+  /* In case the adj is not complete, we look if a better one exists, otherwise we send an arp request
+   * This is necessary to account for the case in which when we create a face, there isn't a /128(/32) adjacency and we match with a more general route which is in glean state
+   * In this case in fact, the general route will not be update upone receiving of a arp or neighbour responde, but a new /128(/32) will be created
+   */
+  if (PREDICT_FALSE (adj->lookup_next_index < IP_LOOKUP_NEXT_REWRITE))
+    {
+      fib_prefix_t fib_pfx;
+      fib_node_index_t fib_entry_index;
+      ip46_address_t ip46 =
+	to_ip46 (1, (u8 *) & (face_udp->hdrs.ip6.ip.dst_address));
+      fib_prefix_from_ip46_addr (&ip46, &fib_pfx);
+      fib_pfx.fp_len = 128;
+
+      u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+							 HICN_FIB_TABLE,
+							 FIB_SOURCE_PLUGIN_HI);
+
+      fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+
+      face->shared.adj = fib_entry_get_adj (fib_entry_index);
+
+      adj = adj_get (face->shared.adj);
+    }
 
   vnet_buffer (outer_b0)->ip.adj_index[VLIB_TX] = face->shared.adj;
 
