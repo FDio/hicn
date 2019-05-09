@@ -66,6 +66,7 @@ typedef enum {
   MAPME_DISCOVERY,
   MAPME_TIMESCALE,
   MAPME_RETX,
+  CONNECTION_SET_ADMIN_STATE,
   LAST_COMMAND_VALUE
 } command_id;
 
@@ -125,6 +126,7 @@ typedef struct {
   uint16_t localPort;
   uint8_t ipType;
   uint8_t connectionType;
+  uint8_t admin_state;
 } add_connection_command;
 
 // SIZE=56
@@ -282,6 +284,11 @@ typedef struct {
 
 // SIZE=1
 
+typedef struct {
+  char symbolicOrConnid[16];
+  uint8_t admin_state;
+} connection_set_admin_state_command;
+
 //===== size of commands ======
 // REMINDER: when a new_command is added, the following switch has to be
 // updated.
@@ -323,6 +330,8 @@ static inline int payloadLengthDaemon(command_id id) {
       return sizeof(mapme_timing_command);
     case MAPME_RETX:
       return sizeof(mapme_timing_command);
+    case CONNECTION_SET_ADMIN_STATE:
+      return sizeof(connection_set_admin_state_command);
     case LAST_COMMAND_VALUE:
       return 0;
     default:

@@ -806,10 +806,7 @@ int hc_parse_connection(void *in, hc_connection_t *connection) {
       .local_port = ntohs(cmd->connectionData.localPort),
       .remote_addr = UNION_CAST(cmd->connectionData.remoteIp, ip_address_t),
       .remote_port = ntohs(cmd->connectionData.remotePort),
-#ifdef WITH_POLICY
-      .desired_state = cmd->connectionData.desired_state,
-      .tags = cmd->connectionData.tags,
-#endif /* WITH_POLICY */
+      .admin_state = cmd->connectionData.admin_state,
       .state = state,
   };
   strncpy(connection->name, cmd->connectionData.symbolic, NAME_LEN);
@@ -843,10 +840,7 @@ int hc_connection_create(hc_sock_t *s, hc_connection_t *connection) {
           .remotePort = htons(connection->remote_port),
           .localPort = htons(connection->local_port),
           .ipType = (u8)map_to_addr_type[connection->family],
-#ifdef WITH_POLICY
-          .desired_state = connection->desired_state,
-          .tags = connection->tags,
-#endif /* WITH_POLICY */
+          .admin_state = connection->admin_state,
           .connectionType = (u8)map_to_connection_type[connection->type],
       }};
   strncpy(msg.payload.symbolic, connection->name, NAME_LEN);
@@ -890,40 +884,38 @@ int hc_connection_delete(hc_sock_t *s, hc_connection_t *connection) {
   return hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, NULL);
 }
 
-#ifdef WITH_POLICY
 typedef struct {
   header_control_message hdr;
-  connection_set_state_command payload;
-} hc_msg_connection_set_state_t;
+  connection_set_admin_state_command payload;
+} hc_msg_connection_set_admin_state_t;
 
-int hc_connection_set_state(hc_sock_t *s, const char *conn_id_or_name,
-                            face_state_t state) {
-  hc_msg_connection_set_state_t msg = {
+int hc_connection_set_admin_state(hc_sock_t *s, const char *conn_id_or_name,
+                            hc_connection_state_t admin_state) {
+  hc_msg_connection_set_admin_state_t msg = {
       .hdr =
           {
               .messageType = REQUEST_LIGHT,
-              .commandID = CONNECTION_SET_STATE,
+              .commandID = CONNECTION_SET_ADMIN_STATE,
               .length = 1,
               .seqNum = s->send_seq,
           },
       .payload =
           {
-              .state = state,
+              .admin_state = admin_state,
           },
   };
   strncpy(msg.payload.symbolicOrConnid, conn_id_or_name, NAME_LEN);
 
   hc_command_params_t params = {
       .cmd = ACTION_SET,
-      .cmd_id = CONNECTION_SET_STATE,
-      .size_in = sizeof(connection_set_state_command),
+      .cmd_id = CONNECTION_SET_ADMIN_STATE,
+      .size_in = sizeof(connection_set_admin_state_command),
       .size_out = 0,
       .parse = NULL,
   };
 
   return hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, NULL);
 }
-#endif /* WITH_POLICY */
 
 typedef struct {
   header_control_message hdr;
@@ -1321,12 +1313,11 @@ ERR:
   return LIBHICNCTRL_FAILURE;
 }
 
-#ifdef WITH_POLICY
-int hc_face_set_state(hc_sock_t *s, const char *conn_id_or_name,
-                      face_state_t state) {
-  return hc_connection_set_state(s, conn_id_or_name, state);
+int hc_face_set_admin_state(hc_sock_t *s, const char *conn_id_or_name,
+                      hc_connection_state_t admin_state) {
+  return hc_connection_set_admin_state(s, conn_id_or_name, admin_state);
 }
-#endif /* WITH_POLICY */
+
 /* /!\ Please update constants in header file upon changes */
 size_t hc_face_snprintf(char *s, size_t size, hc_face_t *face) {
   return LIBHICNCTRL_SUCCESS;

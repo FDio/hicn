@@ -26,6 +26,7 @@
 #ifndef io_h
 #define io_h
 
+#include <hicn/core/connectionState.h>
 #include <hicn/core/message.h>
 #include <hicn/core/ticks.h>
 #include <hicn/io/addressPair.h>
@@ -58,6 +59,14 @@ typedef struct io_ops IoOperations;
  * IoOperations.
  * @constant getConnectionType Returns the type of connection (TCP, UDP, L2,
  * etc.) of the underlying connection.
+ * @constant getState Returns the current state of the connection (redundant
+ * with isUp for added for completeness of the API).
+ * @constant setState Allows to mark the current state of a connection.
+ * @constant getAdminState Returns the administrative state of a connection (as
+ * requested by the user, which might occasionally differ from the current
+ * state).
+ * @constant setAdminState Allows to set the administrative state of a
+ * connection.
  * @discussion <#Discussion#>
  */
 struct io_ops {
@@ -74,6 +83,10 @@ struct io_ops {
   const void *(*class)(const IoOperations *ops);
   list_connections_type (*getConnectionType)(const IoOperations *ops);
   Ticks (*sendProbe)(IoOperations *ops, unsigned probeType, uint8_t *message);
+  connection_state_t (*getState)(const IoOperations *ops);
+  void (*setState)(IoOperations *ops, connection_state_t state);
+  connection_state_t (*getAdminState)(const IoOperations *ops);
+  void (*setAdminState)(IoOperations *ops, connection_state_t admin_state);
 };
 
 /**
@@ -364,5 +377,40 @@ list_connections_type ioOperations_GetConnectionType(const IoOperations *ops);
 
 Ticks ioOperations_SendProbe(IoOperations *ops, unsigned probeType,
                              uint8_t *message);
+
+
+/**
+ * Returns the current state of the connection
+ *
+ * @param [in] ops The connection implementation.
+ *
+ * @return Connection state (connection_state_t).
+ */
+connection_state_t ioOperations_GetState(const IoOperations *ops);
+
+/**
+ * Sets the current state of the connection
+ *
+ * @param [in] ops The connection implementation.
+ * @param [in] state New state to set (connection_state_t).
+ */
+void ioOperations_SetState(IoOperations *ops, connection_state_t state);
+
+/**
+ * Returns the administrative state of the connection
+ *
+ * @param [in] ops The connection implementation.
+ *
+ * @return Connection state (connection_state_t).
+ */
+connection_state_t ioOperations_GetAdminState(const IoOperations *ops);
+
+/**
+ * Sets the administrative state of the connection
+ *
+ * @param [in] ops The connection implementation.
+ * @param [in] state New state to set (connection_state_t).
+ */
+void ioOperations_SetAdminState(IoOperations *ops, connection_state_t admin_state);
 
 #endif  // io_h

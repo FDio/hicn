@@ -66,3 +66,20 @@ Ticks ioOperations_SendProbe(IoOperations *ops, unsigned probeType,
                              uint8_t *message) {
   return ops->sendProbe(ops, probeType, message);
 }
+
+
+connection_state_t ioOperations_GetState(const IoOperations *ops) {
+  return ops->getState(ops);
+}
+
+void ioOperations_SetState(IoOperations *ops, connection_state_t state) {
+  ops->setState(ops, state);
+}
+
+connection_state_t ioOperations_GetAdminState(const IoOperations *ops) {
+  return ops->getAdminState(ops);
+}
+
+void ioOperations_SetAdminState(IoOperations *ops, connection_state_t admin_state) {
+  ops->setAdminState(ops, admin_state);
+}

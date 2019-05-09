@@ -448,10 +448,7 @@ typedef struct {
   u16 local_port;            /* .rw */
   ip_address_t remote_addr;  /* .rw */
   u16 remote_port;           /* .rw */
-#ifdef WITH_POLICY
-  face_state_t desired_state;  /* .rw */
-  face_tags_t tags;            /* .rw */
-#endif                         /* WITH_POLICY */
+  hc_connection_state_t admin_state; /* .rw */
   hc_connection_state_t state; /* .r. */
 } hc_connection_t;
 

@@ -57,6 +57,11 @@ typedef struct udp_state {
   unsigned id;
 
   unsigned delay;
+
+  /* This information would better be stored in the connection data structure
+   * but it is currently not reachable from within the implementation. */
+  connection_state_t state;
+  connection_state_t admin_state;
 } _UdpState;
 
 // Prototypes
@@ -72,6 +77,10 @@ static void _destroy(IoOperations **opsPtr);
 static list_connections_type _getConnectionType(const IoOperations *ops);
 static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
                         uint8_t *message);
+static connection_state_t _getState(const IoOperations *ops);
+static void _setState(IoOperations *ops, connection_state_t state);
+static connection_state_t _getAdminState(const IoOperations *ops);
+static void _setAdminState(IoOperations *ops, connection_state_t admin_state);
 
 /*
  * This assigns a unique pointer to the void * which we use
@@ -99,6 +108,10 @@ static IoOperations _template = {
   .class = &_streamConnection_Class,
   .getConnectionType = &_getConnectionType,
   .sendProbe = &_sendProbe,
+  .getState = &_getState,
+  .setState = &_setState,
+  .getAdminState = &_getAdminState,
+  .setAdminState = &_setAdminState,
 };
 
 // =================================================================
@@ -393,4 +406,32 @@ static void _setConnectionState(_UdpState *udpConnState, bool isUp) {
     messenger_Send(messenger, missive);
     return;
   }
+}
+
+static connection_state_t _getState(const IoOperations *ops) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  const _UdpState *udpConnState =
+      (const _UdpState *)ioOperations_GetClosure(ops);
+  return udpConnState->state;
+}
+
+static void _setState(IoOperations *ops, connection_state_t state) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  _UdpState *udpConnState =
+      (_UdpState *)ioOperations_GetClosure(ops);
+  udpConnState->state = state;
+}
+
+static connection_state_t _getAdminState(const IoOperations *ops) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  const _UdpState *udpConnState =
+      (const _UdpState *)ioOperations_GetClosure(ops);
+  return udpConnState->admin_state;
+}
+
+static void _setAdminState(IoOperations *ops, connection_state_t admin_state) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  _UdpState *udpConnState =
+      (_UdpState *)ioOperations_GetClosure(ops);
+  udpConnState->admin_state = admin_state;
 }

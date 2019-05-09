@@ -18,6 +18,7 @@
 #include <stdio.h>
 
 #include <hicn/core/connection.h>
+#include <hicn/core/connectionState.h>
 #include <hicn/core/messageHandler.h>
 #include <hicn/core/ticks.h>
 #include <hicn/core/wldr.h>
@@ -45,7 +46,6 @@ struct connection {
                        // file/hicnLightControl) this value is set to false so
                        // that a base station can not disable wldr at the client
   Wldr *wldr;
-
 };
 
 Connection *connection_Create(IoOperations *ops) {
@@ -64,6 +64,10 @@ Connection *connection_Create(IoOperations *ops) {
   conn->counter = 0;
   conn->last_sent = 0;
   conn->delay = INT_MAX;
+
+  /* By default, a connection will aim at the UP state */
+  connection_SetAdminState(conn, CONNECTION_STATE_UP);
+
   return conn;
 }
 
@@ -279,4 +283,36 @@ void connection_DetectLosses(Connection *conn, Message *message) {
 void connection_HandleWldrNotification(Connection *conn, Message *message) {
   if (conn->wldr != NULL)
     wldr_HandleWldrNotification(conn->wldr, conn, message);
+}
+
+connection_state_t connection_GetState(const Connection *conn)
+{
+  parcAssertNotNull(conn, "Parameter conn must be non-null");
+  if (!conn->ops)
+    return CONNECTION_STATE_UNDEFINED;
+  return ioOperations_GetState(conn->ops);
+}
+
+void connection_SetState(Connection *conn, connection_state_t state)
+{
+  parcAssertNotNull(conn, "Parameter conn must be non-null");
+  if (!conn->ops)
+    return;
+  ioOperations_SetState(conn->ops, state);
+}
+
+connection_state_t connection_GetAdminState(const Connection *conn)
+{
+  parcAssertNotNull(conn, "Parameter conn must be non-null");
+  if (!conn->ops)
+    return CONNECTION_STATE_UNDEFINED;
+  return ioOperations_GetAdminState(conn->ops);
+}
+
+void connection_SetAdminState(Connection *conn, connection_state_t admin_state)
+{
+  parcAssertNotNull(conn, "Parameter conn must be non-null");
+  if (!conn->ops)
+    return;
+  ioOperations_SetAdminState(conn->ops, admin_state);
 }
