@@ -60,6 +60,11 @@ typedef struct stream_state {
   unsigned id;
 
   size_t nextMessageLength;
+
+  /* This information would better be stored in the connection data structure
+   * but it is currently not reachable from within the implementation. */
+  connection_state_t state;
+  connection_state_t admin_state;
 } _StreamState;
 
 // Prototypes
@@ -81,6 +86,10 @@ static list_connections_type _streamConnection_GetConnectionType(
     const IoOperations *ops);
 static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
                         uint8_t *message);
+static connection_state_t _streamConnection_getState(const IoOperations *ops);
+static void _streamConnection_setState(IoOperations *ops, connection_state_t state);
+static connection_state_t _streamConnection_getAdminState(const IoOperations *ops);
+static void _streamConnection_setAdminState(IoOperations *ops, connection_state_t admin_state);
 
 /*
  * This assigns a unique pointer to the void * which we use
@@ -108,6 +117,10 @@ static IoOperations _template = {
     .class = &_streamConnection_Class,
     .getConnectionType = &_streamConnection_GetConnectionType,
     .sendProbe = &_sendProbe,
+    .getState = &_streamConnection_getState,
+    .setState = &_streamConnection_setState,
+    .getAdminState = &_streamConnection_getAdminState,
+    .setAdminState = &_streamConnection_setAdminState,
 };
 
 IoOperations *streamConnection_AcceptConnection(Forwarder *forwarder, int fd,
@@ -686,4 +699,32 @@ static void _conn_eventcb(PARCEventQueue *event, PARCEventQueueEventType events,
   }
   /* None of the other events can happen here, since we haven't enabled
    * timeouts */
+}
+
+static connection_state_t _streamConnection_getState(const IoOperations *ops) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  const _StreamState *stream =
+      (const _StreamState *)ioOperations_GetClosure(ops);
+  return stream->state;
+}
+
+static void _streamConnection_setState(IoOperations *ops, connection_state_t state) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  _StreamState *stream =
+      (_StreamState *)ioOperations_GetClosure(ops);
+  stream->state = state;
+}
+
+static connection_state_t _streamConnection_getAdminState(const IoOperations *ops) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  const _StreamState *stream =
+      (const _StreamState *)ioOperations_GetClosure(ops);
+  return stream->admin_state;
+}
+
+static void _streamConnection_setAdminState(IoOperations *ops, connection_state_t admin_state) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  _StreamState *stream =
+      (_StreamState *)ioOperations_GetClosure(ops);
+  stream->admin_state = admin_state;
 }

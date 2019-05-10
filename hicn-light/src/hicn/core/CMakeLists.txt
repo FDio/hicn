@@ -15,6 +15,7 @@ cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/connectionManager.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/connectionState.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ticks.h
   ${CMAKE_CURRENT_SOURCE_DIR}/connectionList.h
   ${CMAKE_CURRENT_SOURCE_DIR}/connectionTable.h

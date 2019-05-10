@@ -25,6 +25,7 @@
 #ifndef connection_h
 #define connection_h
 #include <src/hicn/config.h>
+#include <hicn/core/connectionState.h>
 #include <hicn/io/ioOperations.h>
 #include <hicn/utils/address.h>
 
@@ -158,5 +159,13 @@ bool connection_WldrAutoStartAllowed(const Connection *conn);
 void connection_DetectLosses(Connection *conn, Message *message);
 
 void connection_HandleWldrNotification(Connection *conn, Message *message);
+
+connection_state_t connection_GetState(const Connection *conn);
+
+void connection_SetState(Connection *conn, connection_state_t state);
+
+connection_state_t connection_GetAdminState(const Connection *conn);
+
+void connection_SetAdminState(Connection *conn, connection_state_t admin_state);
 
 #endif  // connection_h

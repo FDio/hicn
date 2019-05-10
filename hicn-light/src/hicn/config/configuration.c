@@ -78,6 +78,44 @@ struct configuration {
 
 // ========================================================================================
 
+Connection *
+getConnectionBySymbolicOrId(Configuration * config, const char * symbolicOrConnid)
+{
+  ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
+  unsigned connid;
+  Connection *conn = NULL;
+
+  /* Try to resolve an eventual symbolic name as input */
+  if (utils_IsNumber(symbolicOrConnid)) {
+    connid = strtold(symbolicOrConnid, NULL);
+
+  } else {
+    connid = symbolicNameTable_Get(config->symbolicNameTable, symbolicOrConnid);
+    if (connid == UINT32_MAX) {
+      if (logger_IsLoggable(config->logger, LoggerFacility_Config,
+                            PARCLogLevel_Warning)) {
+        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
+                   __func__, "Symbolic name '%s' could not be resolved",
+                   symbolicOrConnid);
+      }
+    }
+  }
+
+  /* Get connection by ID */
+  conn = (Connection *)connectionTable_FindById( table, connid);
+  if (!conn) {
+    if (logger_IsLoggable(config->logger, LoggerFacility_Config,
+                          PARCLogLevel_Warning)) {
+      logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
+              __func__, "ConnID not found, check list connections");
+    }
+  }
+
+  return conn;
+}
+
+// ========================================================================================
+
 Configuration *configuration_Create(Forwarder *forwarder) {
   parcAssertNotNull(forwarder, "Parameter hicn-fwd must be non-null");
   Configuration *config = parcMemory_AllocateAndClear(sizeof(Configuration));
@@ -383,6 +421,8 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
     if (ops != NULL) {
       Connection *conn = connection_Create(ops);
 
+      connection_SetAdminState(conn, control->admin_state);
+
       connectionTable_Add(forwarder_GetConnectionTable(config->forwarder),
                           conn);
       symbolicNameTable_Add(config->symbolicNameTable, symbolicName,
@@ -537,6 +577,8 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
         connection_IsUp(original) ? IFACE_UP : IFACE_DOWN;
     listConnectionsCommand->connectionData.connectionType =
         ioOperations_GetConnectionType(connection_GetIoOperations(original));
+
+    listConnectionsCommand->connectionData.admin_state = connection_GetAdminState(original);
 
     if (addressGetType(localAddress) == ADDR_INET &&
         addressGetType(remoteAddress) == ADDR_INET) {
@@ -970,6 +1012,20 @@ struct iovec *configuration_MapMeRetx(Configuration *config,
   return response;
 }
 
+struct iovec *configuration_ConnectionSetAdminState(Configuration *config,
+                                      struct iovec *request) {
+  header_control_message *header = request[0].iov_base;
+  connection_set_admin_state_command *control = request[1].iov_base;
+
+  Connection * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
+  if (!conn)
+    return utils_CreateNack(header, control, sizeof(connection_set_admin_state_command));
+
+  connection_SetAdminState(conn, control->admin_state);
+
+  return utils_CreateAck(header, control, sizeof(connection_set_admin_state_command));
+}
+
 // ===========================
 // Main functions that deal with receiving commands, executing them, and sending
 // ACK/NACK
@@ -1052,6 +1108,10 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
 
     case MAPME_RETX:
       response = configuration_MapMeRetx(config, control);
+      break;
+
+    case CONNECTION_SET_ADMIN_STATE:
+      response = configuration_ConnectionSetAdminState(config, control);
       break;
 
     default:
