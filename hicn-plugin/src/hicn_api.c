@@ -392,7 +392,7 @@ vl_api_hicn_api_route_nhops_add_t_handler (vl_api_hicn_api_route_nhops_add_t
 
   for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
     {
-      face_ids[i] = clib_net_to_host_u16 (mp->face_ids[i]);
+      face_ids[i] = clib_net_to_host_u32 (mp->face_ids[i]);
     }
 
   if ((face_ids == NULL) || (n_faces > HICN_PARAM_FIB_ENTRY_NHOPS_MAX))
