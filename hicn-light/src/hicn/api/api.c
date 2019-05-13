@@ -27,6 +27,11 @@
 
 #include <stdio.h>  // XXX debug
 
+#ifndef bzero
+#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
+#endif
+
+
 #include <hicn/api/api.h>
 #include <hicn/api/commands.h>
 #include <hicn/api/ip_address.h>

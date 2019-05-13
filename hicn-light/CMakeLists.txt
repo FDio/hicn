@@ -70,6 +70,8 @@ include( Packaging )
 
 find_package(Threads REQUIRED)
 
+find_package(OpenSSL REQUIRED)
+
 set(HICN_LIGHT_LINK_LIBRARIES
   hicn-light
   ${HICN_LIBRARIES}

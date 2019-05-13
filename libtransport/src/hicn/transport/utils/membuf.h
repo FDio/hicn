@@ -35,6 +35,8 @@
 #include <type_traits>
 #include <vector>
 
+#include <stdlib.h>
+
 #ifndef _WIN32
 TRANSPORT_GNU_DISABLE_WARNING("-Wshadow")
 #endif
