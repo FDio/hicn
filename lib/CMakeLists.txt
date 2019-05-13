@@ -45,10 +45,6 @@ else ()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
 endif ()
 
-if (ANDROID_API)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ANDROID_C_FLAGS} -std=c99")
-endif ()
-
 add_subdirectory (src)
 add_subdirectory (doc)
 

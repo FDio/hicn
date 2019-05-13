@@ -107,6 +107,10 @@ if (${COMPILE_TESTS})
   )
 endif()
 
+if(ANDROID_API)
+find_package(OpenSSL REQUIRED)
+endif ()
+
 list(APPEND LIBRARIES
   ${LIBPARC_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}

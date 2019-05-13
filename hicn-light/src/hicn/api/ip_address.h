@@ -27,6 +27,9 @@
 #include <machine/endian.h>
 #else
 #include <endian.h>
+#ifdef __ANDROID__
+#include <byteswap.h>
+#endif
 #endif
 #include <errno.h>
 #include <netdb.h>       // struct addrinfo
@@ -82,7 +85,11 @@ typedef union {
 /* No htonl() with const */
 static const ip_address_t IPV4_LOOPBACK = {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
+#ifdef __ANDROID__
+    .v4.as_inaddr.s_addr = bswap_32(INADDR_LOOPBACK),
+#else
     .v4.as_inaddr.s_addr = __bswap_constant_32(INADDR_LOOPBACK),
+#endif
 #else
     .v4.as_inaddr.s_addr = INADDR_LOOPBACK,
 #endif

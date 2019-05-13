@@ -27,7 +27,9 @@
 #include <unordered_set>
 
 #ifdef __linux__
+#ifndef __ANDROID__
 #include <mcheck.h>
+#endif
 #endif
 
 #ifdef _WIN32
