@@ -23,7 +23,7 @@
 #ifndef _WIN32
 #include <unistd.h>
 #endif
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -18,7 +18,7 @@
 #endif
 
 #include <errno.h>
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>

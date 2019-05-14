@@ -21,7 +21,7 @@
  */
 
 #include <errno.h>
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/uio.h>

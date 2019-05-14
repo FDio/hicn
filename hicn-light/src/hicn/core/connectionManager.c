@@ -22,7 +22,7 @@
  *
  */
 
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <hicn/core/connectionManager.h>
 #include <hicn/core/forwarder.h>
 #include <hicn/messenger/messenger.h>

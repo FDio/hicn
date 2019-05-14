@@ -19,7 +19,7 @@
 #endif
 #include <errno.h>
 #include <fcntl.h>
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
