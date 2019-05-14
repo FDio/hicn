@@ -18,7 +18,9 @@
 
 // Let's make the linker happy
 #if !TRANSPORT_LOG_EXTERN_GLOBAL_OUTPUT_LEVEL
+#ifndef TRANSPORT_LOG_DEFINE_GLOBAL_OUTPUT_LEVEL
 TRANSPORT_LOG_DEFINE_GLOBAL_OUTPUT_LEVEL = 0;
+#endif
 #endif
 
 #include <asio/steady_timer.hpp>
