@@ -82,11 +82,18 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   endif()
   set(LIBTRANSPORT hicntransport)
 else()
-  set(HICN_LIBRARIES ${LIBHICN_SHARED})
-  list(APPEND DEPENDENCIES
-    ${LIBHICN}
-    ${LIBHICN_SHARED}
-  )
+  if (ANDROID_API)
+    set(HICN_LIBRARIES ${LIBHICN})
+    list(APPEND DEPENDENCIES
+      ${LIBHICN}
+    )
+  else ()
+    set(HICN_LIBRARIES ${LIBHICN_SHARED})
+    list(APPEND DEPENDENCIES
+      ${LIBHICN}
+      ${LIBHICN_SHARED}
+    )
+  endif ()
 
   if (__vpp__)
     list(APPEND DEPENDENCIES
@@ -108,7 +115,7 @@ if (${COMPILE_TESTS})
 endif()
 
 if(ANDROID_API)
-find_package(OpenSSL REQUIRED)
+  find_package(OpenSSL REQUIRED)
 endif ()
 
 list(APPEND LIBRARIES
