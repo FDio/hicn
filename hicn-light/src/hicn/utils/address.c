@@ -18,7 +18,7 @@
 #include <unistd.h>
 #endif
 #include <errno.h>
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <stdio.h>
 
 #include <hicn/utils/address.h>

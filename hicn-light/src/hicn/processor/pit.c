@@ -19,7 +19,7 @@
  */
 
 #include <parc/assert/parc_Assert.h>
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <stdio.h>
 
 #include <hicn/processor/pit.h>
