@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 
 #ifndef _WIN32
 #include <arpa/inet.h>

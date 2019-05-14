@@ -59,11 +59,18 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   set(HICN_LIGHT_CONTROL hicn-light-control)
   set(HICN_LIGHT_DAEMON hicn-light-daemon)
 else()
-  set(HICN_LIBRARIES ${LIBHICN_SHARED})
-  set(DEPENDENCIES
-    ${LIBHICN}
-    ${LIBHICN_SHARED}
-  )
+  if (ANDROID_API)
+    set(HICN_LIBRARIES ${LIBHICN})
+    list(APPEND DEPENDENCIES
+      ${LIBHICN}
+    )
+  else ()
+    set(HICN_LIBRARIES ${LIBHICN_SHARED})
+    list(APPEND DEPENDENCIES
+      ${LIBHICN}
+      ${LIBHICN_SHARED}
+    )
+  endif ()
 endif()
 
 include( Packaging )

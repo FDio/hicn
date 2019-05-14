@@ -224,7 +224,9 @@ int _nl_del_lo_prio_rule(const ip_address_t *ip_address,
 
 #define FLAGS_LIST NLM_F_REQUEST | NLM_F_DUMP
 
+#ifndef __ANDROID__
 #define IF_NAMESIZE 16
+#endif 
 #define FR_ACT_TO_TBL 1
 #define NLMSG_BOTTOM(nlmsg) \
   ((struct rtattr *)(((void *)(nlmsg)) + NLMSG_ALIGN((nlmsg)->nlmsg_len)))
@@ -1539,8 +1541,9 @@ int _nl_del_lo_prio_rule(const ip_address_t *ip_address, uint8_t address_family,
 
 // #include <net/if.h>
 // duplicate declarations, in the meantime
+#ifndef __ANDROID__
 #define IF_NAMESIZE 16
-
+#endif
 //#define WITH_TUN_PI 1
 
 #ifdef WITH_TUN_PI

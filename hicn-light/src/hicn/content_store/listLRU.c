@@ -16,7 +16,7 @@
 #ifndef _WIN32
 #include <sys/queue.h>
 #endif
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <stdbool.h>
 #include <stdio.h>
 

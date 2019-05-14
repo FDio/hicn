@@ -16,7 +16,7 @@
 #ifndef wldr_h
 #define wldr_h
 
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <hicn/core/connection.h>
 #include <hicn/core/message.h>
 

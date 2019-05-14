@@ -15,7 +15,7 @@
 
 #include <parc/algol/parc_ArrayList.h>
 #include <parc/algol/parc_Memory.h>
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <hicn/core/numberSet.h>
 #include <stdio.h>
 

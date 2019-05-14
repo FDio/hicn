@@ -16,7 +16,7 @@
 #ifndef _WIN32
 #include <sys/queue.h>
 #endif
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <stdio.h>
 
 #include <parc/algol/parc_DisplayIndented.h>

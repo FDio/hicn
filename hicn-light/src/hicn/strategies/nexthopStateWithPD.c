@@ -15,7 +15,7 @@
 
 #include <float.h>
 #include <limits.h>
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <stdio.h>
 
 #include <parc/algol/parc_DisplayIndented.h>
