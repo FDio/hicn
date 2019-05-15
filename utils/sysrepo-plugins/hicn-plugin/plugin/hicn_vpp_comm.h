@@ -86,7 +86,7 @@ extern vapi_ctx_t g_vapi_ctx_instance;
   do {                                                                       \
     size_t size;                                                             \
     int recv_vapimsgid = -1;                                                 \
-    vapi_recv(g_vapi_ctx_instance, (void *)&resp, &size, 0, 0);              \
+    vapi_recv(g_vapi_ctx_instance, (void *)&resp, &size, SVM_Q_TIMEDWAIT, 5);              \
     recv_vapimsgid = vapi_lookup_vapi_msg_id_t(                              \
         g_vapi_ctx_instance, ntohs(resp->header._vl_msg_id));                \
     if (recv_vapimsgid <= vapi_msg_id_get_next_index_reply ||                \
