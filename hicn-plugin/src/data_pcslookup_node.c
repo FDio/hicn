@@ -137,13 +137,13 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	      stats.pkts_data_count += 1;
 
-	      if ((res == HICN_ERROR_HASHTB_HASH_NOT_FOUND
-		   || (res == HICN_ERROR_NONE && is_cs0))
-		  && (hb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP))
-		{
-		  next0 = HICN_DATA_PCSLOOKUP_NEXT_STORE_DATA;
-		}
-	      else if (res == HICN_ERROR_NONE)
+	      /* if ((res == HICN_ERROR_HASHTB_HASH_NOT_FOUND */
+	      /*      || (res == HICN_ERROR_NONE && is_cs0)) */
+	      /*     && (hb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP)) */
+	      /*   { */
+	      /*     next0 = HICN_DATA_PCSLOOKUP_NEXT_STORE_DATA; */
+	      /*   } */
+	      /* else */ if (res == HICN_ERROR_NONE)
 		{
 		  /*
 		   * In case the result of the lookup
