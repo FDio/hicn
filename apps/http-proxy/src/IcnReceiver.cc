@@ -55,12 +55,14 @@ core::Prefix generatePrefix(const std::string& prefix_url) {
 AsyncConsumerProducer::AsyncConsumerProducer(const std::string& prefix,
                                              std::string& ip_address,
                                              std::string& port,
-                                             std::string& cache_size)
+                                             std::string& cache_size,
+                                             std::string& mtu)
     : prefix_(generatePrefix(prefix)),
       producer_socket_(),
       ip_address_(ip_address),
       port_(port),
       cache_size_(std::stoul(cache_size)),
+      mtu_(std::stoul(mtu)),
       request_counter_(0),
       signals_(io_service_, SIGINT, SIGQUIT),
       connector_(io_service_, ip_address_, port_,
@@ -76,6 +78,13 @@ AsyncConsumerProducer::AsyncConsumerProducer(const std::string& prefix,
 
   if (ret != SOCKET_OPTION_SET) {
     TRANSPORT_LOGD("Warning: output buffer size has not been set.");
+  }
+
+  ret = producer_socket_.setSocketOption(
+      interface::GeneralTransportOptions::DATA_PACKET_SIZE, mtu_);
+
+  if (ret != SOCKET_OPTION_SET) {
+    TRANSPORT_LOGD("Warning: mtu has not been set.");
   }
 
   producer_socket_.registerPrefix(prefix_);

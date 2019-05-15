@@ -31,7 +31,7 @@ class AsyncConsumerProducer {
  public:
   explicit AsyncConsumerProducer(const std::string& prefix,
                                  std::string& ip_address, std::string& port,
-                                 std::string& cache_size);
+                                 std::string& cache_size, std::string& mtu);
 
   void start();
 
@@ -55,6 +55,7 @@ class AsyncConsumerProducer {
   std::string ip_address_;
   std::string port_;
   uint32_t cache_size_;
+  uint32_t mtu_;
 
   uint64_t request_counter_;
   asio::signal_set signals_;

@@ -19,9 +19,9 @@ using namespace transport;
 
 int usage(char* program) {
   std::cerr << "ICN Plugin not loaded!" << std::endl;
-  std::cerr << "USAGE: " << program
+  std::cerr << "USAGE: " << program << "\n"
             << "[HTTP_PREFIX] -a [SERVER_IP_ADDRESS] "
-               "-p [SERVER_PORT] -c [CACHE_SIZE]"
+               "-p [SERVER_PORT] -c [CACHE_SIZE] -m [MTU]"
             << std::endl;
   return -1;
 }
@@ -31,9 +31,10 @@ int main(int argc, char** argv) {
   std::string ip_address("127.0.0.1");
   std::string port("80");
   std::string cache_size("50000");
+  std::string mtu("1500");
 
   int opt;
-  while ((opt = getopt(argc, argv, "a:p:c:")) != -1) {
+  while ((opt = getopt(argc, argv, "a:p:c:m:")) != -1) {
     switch (opt) {
       case 'a':
         prefix = optarg;
@@ -43,6 +44,9 @@ int main(int argc, char** argv) {
         break;
       case 'c':
         cache_size = optarg;
+        break;
+      case 'm':
+        mtu = optarg;
         break;
       case 'h':
       default:
@@ -58,9 +62,10 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "Connecting to " << ip_address << " port " << port
-            << " Cache size " << cache_size << " Prefix " << prefix
-            << std::endl;
-  transport::AsyncConsumerProducer proxy(prefix, ip_address, port, cache_size);
+            << " Cache size " << cache_size << " Prefix " << prefix << " MTU "
+            << mtu << std::endl;
+  transport::AsyncConsumerProducer proxy(prefix, ip_address, port, cache_size,
+                                         mtu);
 
   proxy.run();
 

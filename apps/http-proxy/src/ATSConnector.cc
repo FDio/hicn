@@ -193,7 +193,8 @@ void ATSConnector::doConnect() {
                           }
 
                         } else {
-                          TRANSPORT_LOGE("Impossible to reconnect.");
+                          TRANSPORT_LOGE("Impossible to reconnect: %s",
+                                         ec.message().c_str());
                           close();
                         }
                       });
