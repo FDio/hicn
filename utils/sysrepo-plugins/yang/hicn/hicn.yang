@@ -2,7 +2,7 @@ module hicn {
 namespace "urn:sysrepo:hicn";
 prefix hcn;
 
-revision 2019-05-7 {
+revision 2019-05-15 {
     description "Initial revision.";
 }
 
@@ -444,7 +444,6 @@ container hicn-conf {
 container hicn-state {
     config false;
     description "operational data container for the hicn.";
-
     container states{
         uses states-reply;
     }
@@ -457,7 +456,20 @@ container hicn-state {
     container faces{
         uses face-stats-reply;
     }
-
+    container host{
+        leaf eth1 {
+                description "eth1 traffic.";
+                type uint64;
+        }
+        leaf eth2 {
+                description "eth2 traffic.";
+                type uint64;
+        }
+        leaf eth3 {
+                description "eth3 traffic.";
+                type uint64;
+        }
+    }
 }
 
 /* RPC Definitions */
