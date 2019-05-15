@@ -50,6 +50,50 @@ volatile hicn_faces_t *  hicn_faces = NULL;
 struct hicn_faces_s * current = NULL;
 //volatile hicn_state_face_t * hicn_state_face=NULL;
 
+uint64_t teth11=0,teth2=0,teth3=0;
+
+void RemoveSpaces(char* source)
+{
+  char* i = source;
+  char* j = source;
+  while(*j != 0)
+  {
+    *i = *j++;
+    if(*i != ' ')
+      i++;
+  }
+  *i = 0;
+}
+
+static void host_speed(void){
+
+    FILE *fp = fopen("/proc/net/dev", "r");
+    char buf[200];
+    char * ifname;
+    ifname = malloc (2000);
+    unsigned long int r_bytes, t_bytes, r_packets, t_packets;
+
+    // skip first two lines
+    for (int i = 0; i < 2; i++) {
+        fgets(buf, 200, fp);
+    }
+
+    while (fgets(buf, 2000, fp)) {
+        sscanf(buf, "%[^:]: %lu %lu %*u %*u %*u %*u %*u %*u %lu %lu",
+               ifname, &r_bytes, &r_packets, &t_bytes, &t_packets);
+        RemoveSpaces(ifname);
+        if (!strcmp(ifname,"eth11"))
+          teth11=r_bytes+t_bytes;
+        if (!strcmp(ifname,"eth2"))
+          teth2=r_bytes+t_bytes;
+        if (!strcmp(ifname,"eth3"))
+          teth3=r_bytes+t_bytes;
+        //printf(" rbytes: %lu tbytes: %lu, bandwidth: %lu \n",
+        //       r_bytes, t_bytes, r_bytes+t_bytes);
+    }
+    fclose(fp);
+    free(ifname);
+}
 
 static int init_buffer(void){
 
@@ -198,7 +242,11 @@ static inline void  route_update(sr_val_t * vals ){
 
 static inline int  faces_update(sr_val_t * vals, uint32_t nleaves){
 
+     SRP_LOG_DBG_MSG("Before link");
+
  struct hicn_faces_s * temp = hicn_faces->next;
+      SRP_LOG_DBG_MSG("After link");
+
  int face =0;
 
  for(int count=0; count<nleaves; count++){
@@ -1242,6 +1290,53 @@ static void *state_thread(void *arg) {
  return NULL;
 }
 
+static int hicn_state_host_cb(const char *xpath, sr_val_t **values,
+                        size_t *values_cnt, uint64_t request_id,
+                        const char *original_xpath, void *private_ctx) {
+
+ sr_val_t *vals;
+ int rc;
+ SRP_LOG_DBG("Requesting state data for '%s'", xpath);
+
+ if (!sr_xpath_node_name_eq(xpath, "host")) {
+   *values = NULL;
+   *values_cnt = 0;
+   return SR_ERR_OK;
+ }
+
+ rc = sr_new_values(3, &vals);
+ if (SR_ERR_OK != rc) {
+   return rc;
+ }
+
+ SRP_LOG_DBG("Requesting state data for '%s'", xpath);
+
+ host_speed();
+
+ sr_val_set_xpath(&vals[0], "/hicn:hicn-state/host/eth1");
+ vals[0].type = SR_UINT64_T;
+ vals[0].data.uint64_val = teth11;
+
+ sr_val_set_xpath(&vals[1], "/hicn:hicn-state/host/eth2");
+ vals[1].type = SR_UINT64_T;
+ vals[1].data.uint64_val = teth2;
+
+ sr_val_set_xpath(&vals[2], "/hicn:hicn-state/host/eth3");
+ vals[2].type = SR_UINT64_T;
+ vals[2].data.uint64_val = teth3;
+
+ SRP_LOG_DBG("-------->teth1:%d",teth11);
+ SRP_LOG_DBG("-------->teth2:%d",teth2);
+ SRP_LOG_DBG("-------->teth3:%d",teth3);
+
+
+ *values = vals;
+ *values_cnt = 3;
+
+ return SR_ERR_OK;
+
+}
+
 /**
 * @brief helper function for subscribing all hicn APIs.
 */
@@ -1444,6 +1539,14 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
    goto error;
  }
 
+
+ rc = sr_dp_get_items_subscribe(session, "/hicn:hicn-state/host",
+                                hicn_state_host_cb, NULL, SR_SUBSCR_CTX_REUSE,
+                                subscription);
+ if (rc != SR_ERR_OK) {
+   SRP_LOG_DBG_MSG("Problem in subscription /hicn:hicn-state/host\n");
+   goto error;
+ }
 
  SRP_LOG_INF_MSG("hicn plugin initialized successfully.");
  return SR_ERR_OK;
