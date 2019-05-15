@@ -85,6 +85,7 @@ prep_buffer_for_cs (vlib_main_t * vm, vlib_buffer_t * b0, u8 isv6)
     {
       vlib_buffer_advance (b0, buffer_advance);
     }
+  b0->ref_count--;
 }
 
 always_inline int
