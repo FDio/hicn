@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
   while ((opt = getopt(argc, argv, "a:p:c:m:")) != -1) {
     switch (opt) {
       case 'a':
-        prefix = optarg;
+        ip_address = optarg;
         break;
       case 'p':
         port = optarg;
