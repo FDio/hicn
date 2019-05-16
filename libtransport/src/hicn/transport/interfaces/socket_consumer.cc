@@ -123,12 +123,9 @@ void ConsumerSocket::asyncSendInterest(Interest::Ptr &&interest,
 }
 
 void ConsumerSocket::stop() {
-  auto &io_service = getIoService();
-  io_service.dispatch([this]() {
-    if (transport_protocol_->isRunning()) {
-      transport_protocol_->stop();
-    }
-  });
+  if (transport_protocol_->isRunning()) {
+    transport_protocol_->stop();
+  }
 }
 
 void ConsumerSocket::resume() {
