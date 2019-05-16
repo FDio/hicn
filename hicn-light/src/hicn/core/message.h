@@ -21,7 +21,7 @@
 #ifndef message_h
 #define message_h
 
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <hicn/core/logger.h>
 #include <hicn/core/messagePacketType.h>
 #include <hicn/core/streamBuffer.h>

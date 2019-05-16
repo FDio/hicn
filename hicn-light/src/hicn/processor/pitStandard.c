@@ -29,7 +29,7 @@
  *
  */
 
-#include <src/hicn/config.h>
+#include <hicn/hicn-light/config.h>
 #include <stdio.h>
 
 #define __STDC_FORMAT_MACROS
