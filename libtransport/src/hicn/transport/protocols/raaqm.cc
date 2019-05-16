@@ -453,6 +453,14 @@ void RaaqmTransportProtocol::scheduleNextInterests() {
     return;
   }
 
+  if (TRANSPORT_EXPECT_FALSE(interests_in_flight_ >= current_window_size_ &&
+                             interest_to_retransmit_.size() > 0)) {
+    // send at least one interest if there are retransmissions to perform and
+    // there is no space left in the window
+    sendInterest(std::move(interest_to_retransmit_.front()));
+    interest_to_retransmit_.pop();
+  }
+
   uint32_t index = IndexManager::invalid_index;
   // Send the interest needed for filling the window
   while (interests_in_flight_ < current_window_size_) {
