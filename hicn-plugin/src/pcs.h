@@ -495,14 +495,16 @@ hicn_pcs_cs_delete (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
       /* Update the global CS counter */
       pitcs->pcs_cs_count--;
     }
-  hash_entry->locks--;
-  if (hash_entry->locks == 0)
+
+  /* A data could have been inserted in the CS through a push. In this case locks == 0 */
+  if (hash_entry->locks == 0 || hash_entry->locks == 1)
     {
       hicn_pcs_delete_internal
 	(pitcs, pcs_entryp, hash_entry, nodep, vm, dpo_vft, hicn_dpo_id);
     }
   else
     {
+      hash_entry->locks--;
       hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_DELETED;
     }
 }
