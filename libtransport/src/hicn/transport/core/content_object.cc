@@ -33,6 +33,7 @@ namespace core {
 
 ContentObject::ContentObject(const Name &name, Packet::Format format)
     : Packet(format) {
+
   if (TRANSPORT_EXPECT_FALSE(
           hicn_data_set_name(format, packet_start_, name.getStructReference()) <
           0)) {
@@ -46,8 +47,13 @@ ContentObject::ContentObject(const Name &name, Packet::Format format)
   }
 }
 
+#ifdef __ANDROID__
+ContentObject::ContentObject(hicn_format_t format)
+    : ContentObject(Name("0::0|0"), format) {}
+#else
 ContentObject::ContentObject(hicn_format_t format)
     : ContentObject(Packet::base_name, format) {}
+#endif
 
 ContentObject::ContentObject(const Name &name, hicn_format_t format,
                              const uint8_t *payload, std::size_t size)
