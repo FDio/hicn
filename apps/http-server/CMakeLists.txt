@@ -20,6 +20,11 @@ list(APPEND LIBRARIES
   ${CURL_LIBRARY}
 )
 
+if (NOT CMAKE_BUILD_TYPE)
+  message(STATUS "No build type selected, default to Release")
+  set(CMAKE_BUILD_TYPE "Release")
+endif ()
+
 set(LIB_SOURCE_FILES
   http-server/http_server.cc
   http-server/response.cc
