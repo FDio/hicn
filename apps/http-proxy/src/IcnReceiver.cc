@@ -126,20 +126,37 @@ void AsyncConsumerProducer::doReceive() {
 
 void AsyncConsumerProducer::manageIncomingInterest(
     core::Name& name, core::Packet::MemBufPtr& packet, utils::MemBuf* payload) {
-  // auto seg = name.getSuffix();
+  auto seg = name.getSuffix();
   name.setSuffix(0);
   auto _it = chunk_number_map_.find(name);
   auto _end = chunk_number_map_.end();
 
   if (_it != _end) {
-    return;
+    if (_it->second.second) {
+      // Content is in production
+      return;
+    }
+
+    if (seg >= _it->second.first) {
+      TRANSPORT_LOGD(
+          "Ignoring interest with name %s for a content object which does not "
+          "exist. (Request: %u, max: %u)",
+          name.toString().c_str(), (uint32_t)seg, (uint32_t)_it->second.first);
+      return;
+    }
   }
 
   bool is_mpd =
       HTTPMessageFastParser::isMpdRequest(payload->data(), payload->length());
 
-  chunk_number_map_.emplace(name, 0);
-  response_name_queue_.emplace(std::move(name), is_mpd ? 1000 : 10000);
+  auto pair = chunk_number_map_.emplace(name, std::pair<uint32_t, bool>(0, 0));
+  if (!pair.second) {
+    pair.first->second.first = 0;
+  }
+
+  pair.first->second.second = true;
+
+  response_name_queue_.emplace(std::move(name), is_mpd ? 1000 : 100000);
 
   connector_.send(payload, [packet = std::move(packet)]() {});
 }
@@ -166,17 +183,23 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
 
   const interface::Name& name = options.getName();
 
-  start_suffix = chunk_number_map_[name];
+  auto it = chunk_number_map_.find(name);
+  if (it == chunk_number_map_.end()) {
+    std::cerr << "Aborting due to response not found in ResposeInfo map."
+              << std::endl;
+    abort();
+  }
+
+  start_suffix = it->second.first;
 
   if (headers) {
     request_counter_++;
   }
-
-  chunk_number_map_[name] +=
+  it->second.first +=
       producer_socket_.produce(name, data, size, is_last, start_suffix);
 
   if (is_last) {
-    chunk_number_map_.erase(name);
+    it->second.second = false;
     response_name_queue_.pop();
   }
 }

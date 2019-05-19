@@ -28,6 +28,10 @@
 namespace transport {
 
 class AsyncConsumerProducer {
+  using SegmentProductionPair = std::pair<uint32_t, bool>;
+  using ResponseInfoMap = std::unordered_map<core::Name, SegmentProductionPair>;
+  using RequestQueue = std::queue<interface::PublicationOptions>;
+
  public:
   explicit AsyncConsumerProducer(const std::string& prefix,
                                  std::string& ip_address, std::string& port,
@@ -63,8 +67,11 @@ class AsyncConsumerProducer {
   // std::unordered_map<core::Name, std::shared_ptr<ATSConnector>>
   // connection_map_;
   ATSConnector connector_;
-  std::unordered_map<core::Name, uint32_t> chunk_number_map_;
-  std::queue<interface::PublicationOptions> response_name_queue_;
+
+  // ResponseInfoMap --> max_seq_number + bool indicating whether request is in
+  // production
+  ResponseInfoMap chunk_number_map_;
+  RequestQueue response_name_queue_;
 };
 
 }  // namespace transport
