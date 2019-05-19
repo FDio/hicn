@@ -23,7 +23,7 @@ PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio
 PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
 
 VPP_GIT_REPO="https://git.fd.io/vpp"
-VPP_BRANCH="stable/1901"
+VPP_BRANCH="stable/1904"
 
 VPP_VERSION_DEB="19.04-release"
 VPP_VERSION_RPM="19.04-release.x86_64"
