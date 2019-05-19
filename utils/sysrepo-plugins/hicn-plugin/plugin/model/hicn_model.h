@@ -35,7 +35,7 @@ enum locks_name {lstate, lstrategy, lstrategies, lroute, lfaces};
 #define NSTRATEGY_LEAVES 1
 #define NSTRATEGIES_LEAVES 2
 #define NROUTE_LEAVES 2
-#define MAX_FACE_POOL 100
+#define MAX_FACE_POOL 200
 #define FACES_CHILDREN 9 /*this is the number of children of each leave*/
 
 
