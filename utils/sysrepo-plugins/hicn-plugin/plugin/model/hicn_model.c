@@ -198,14 +198,18 @@ static inline void  route_update(sr_val_t * vals ){
 
 static inline int  faces_update(sr_val_t * vals, uint32_t nleaves){
 
+SRP_LOG_DBG_MSG("Before link");
+
  struct hicn_faces_s * temp = hicn_faces->next;
+      SRP_LOG_DBG_MSG("After link");
+
  int face =0;
 
  for(int count=0; count<nleaves; count++){
 
 
   // This part must be removed once the faceid is provided by the dump msg
-   vapi_msg_hicn_api_face_ip_params_get *msg;
+   /*vapi_msg_hicn_api_face_ip_params_get *msg;
    vapi_msg_hicn_api_face_ip_params_get_reply *resp;
    msg = vapi_alloc_hicn_api_face_ip_params_get(g_vapi_ctx_instance);
    msg->payload.faceid = temp->face.faceid;
@@ -215,13 +219,13 @@ static inline int  faces_update(sr_val_t * vals, uint32_t nleaves){
    if(!resp->payload.retval){
      SRP_LOG_DBG("faceid(%d)-->intfc(%d)", temp->face.faceid, resp->payload.swif);
      temp->face.intfc= resp->payload.swif;
-   }
-
+   }*/
+  // temp->face.intfc=1;
 
    sr_val_build_xpath(&vals[face], "%s[faceid='%d']/intfc", "/hicn:hicn-state/faces/face",
    temp->face.faceid);
    vals[face].type = SR_UINT32_T;
-   vals[face].data.uint32_val = temp->face.intfc;
+   vals[face].data.uint32_val = 1; //temp->face.intfc;
 
 
    face++;
@@ -283,9 +287,9 @@ static inline int  faces_update(sr_val_t * vals, uint32_t nleaves){
 
    face++;
 
-   SRP_LOG_DBG(" **********************face is: %d-%d-%d ****************\n",temp->face.dtx_bytes,temp->face.drx_bytes,temp->face.faceid);
+   //SRP_LOG_DBG(" **********************face is: %d-%d-%d ****************\n",temp->face.dtx_bytes,temp->face.drx_bytes,temp->face.faceid);
 
-   printf("%" PRId64 "\n", temp->face.drx_bytes);
+   ///printf("%" PRId64 "\n", temp->face.drx_bytes);
 
    temp=temp->next;
 
@@ -1242,6 +1246,66 @@ static void *state_thread(void *arg) {
  return NULL;
 }
 
+
+static int hicn_state_host_cb(const char *xpath, sr_val_t **values,
+                        size_t *values_cnt, uint64_t request_id,
+                        const char *original_xpath, void *private_ctx) {
+
+ sr_val_t *vals;
+ int rc;
+ SRP_LOG_DBG("Requesting state data for '%s'", xpath);
+
+ if (!sr_xpath_node_name_eq(xpath, "host")) {
+   *values = NULL;
+   *values_cnt = 0;
+   return SR_ERR_OK;
+ }
+
+ rc = sr_new_values(3, &vals);
+ if (SR_ERR_OK != rc) {
+   return rc;
+ }
+
+ SRP_LOG_DBG("Requesting state data for '%s'", xpath);
+
+
+ char hostname[1024];
+ hostname[1023] = '\0';
+ gethostname(hostname, 1023);
+ printf("Hostname: %s\n", hostname);
+ struct hostent* h;
+ h = gethostbyname(hostname);
+ printf("h_name: %s\n", h->h_name);
+
+if (!strcmp(h->h_name,"host-isp")){
+
+ FILE* file = fopen ("/sys/class/net/eth1/statistics/rx_bytes", "r");
+ int rec = 0,snd=0;
+ fscanf (file, "%d", &rec);
+ fclose(file);
+ file = fopen ("/sys/class/net/eth1/statistics/tx_bytes", "r");
+ fscanf (file, "%d", &snd);
+ fclose(file);
+ sr_val_set_xpath(&vals[0], "/hicn:hicn-state/host/eth1");
+ vals[0].type = SR_UINT64_T;
+ vals[0].data.uint64_val = snd+rec;
+
+ sr_val_set_xpath(&vals[1], "/hicn:hicn-state/host/eth2");
+ vals[1].type = SR_UINT64_T;
+ vals[1].data.uint64_val = 0;
+
+ sr_val_set_xpath(&vals[2], "/hicn:hicn-state/host/eth3");
+ vals[2].type = SR_UINT64_T;
+ vals[2].data.uint64_val = 0;
+}
+
+ *values = vals;
+ *values_cnt = 3;
+
+ return SR_ERR_OK;
+
+}
+
 /**
 * @brief helper function for subscribing all hicn APIs.
 */
@@ -1444,6 +1508,13 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
    goto error;
  }
 
+ rc = sr_dp_get_items_subscribe(session, "/hicn:hicn-state/host",
+                                hicn_state_host_cb, NULL, SR_SUBSCR_CTX_REUSE,
+                                subscription);
+ if (rc != SR_ERR_OK) {
+   SRP_LOG_DBG_MSG("Problem in subscription /hicn:hicn-state/host\n");
+   goto error;
+ }
 
  SRP_LOG_INF_MSG("hicn plugin initialized successfully.");
  return SR_ERR_OK;
