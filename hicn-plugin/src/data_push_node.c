@@ -128,7 +128,7 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
     }
 
   pitp = hicn_pit_get_data (nodep);
-  hicn_pit_init_data (pitp);
+  hicn_cs_init_data (pitp);
   pitp->shared.create_time = tnow;
 
   if (dmsg_lifetime < HICN_PARAM_CS_LIFETIME_MIN

@@ -256,6 +256,14 @@ hicn_pit_init_data (hicn_pcs_entry_t * p)
   p->u.pit.faces.next_bucket = face_bkt - hicn_face_bucket_pool;
 }
 
+/* Init pit/cs data block (usually inside hash table node) */
+static inline void
+hicn_cs_init_data (hicn_pcs_entry_t * p)
+{
+  p->shared.entry_flags = 0;
+  p->u.pit.faces.n_faces = 0;
+  p->u.pit.faces.is_overflow = 0;
+}
 
 
 static inline f64
