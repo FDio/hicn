@@ -126,20 +126,30 @@ void AsyncConsumerProducer::doReceive() {
 
 void AsyncConsumerProducer::manageIncomingInterest(
     core::Name& name, core::Packet::MemBufPtr& packet, utils::MemBuf* payload) {
-  // auto seg = name.getSuffix();
+  auto seg = name.getSuffix();
   name.setSuffix(0);
   auto _it = chunk_number_map_.find(name);
   auto _end = chunk_number_map_.end();
 
   if (_it != _end) {
-    return;
+    if (seg >= _it->second) {
+      TRANSPORT_LOGD(
+          "Ignoring interest with name %s for a content object which does not "
+          "exist. (Request: %u, max: %u)",
+          name.toString().c_str(), (uint32_t)seg, (uint32_t)_it->second);
+      return;
+    }
   }
 
   bool is_mpd =
       HTTPMessageFastParser::isMpdRequest(payload->data(), payload->length());
 
-  chunk_number_map_.emplace(name, 0);
-  response_name_queue_.emplace(std::move(name), is_mpd ? 1000 : 10000);
+  auto pair = chunk_number_map_.emplace(name, 0);
+  if (!pair.second) {
+    pair.first->second = 0;
+  }
+
+  response_name_queue_.emplace(std::move(name), is_mpd ? 1000 : 100000);
 
   connector_.send(payload, [packet = std::move(packet)]() {});
 }
@@ -172,11 +182,13 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
     request_counter_++;
   }
 
+  TRANSPORT_LOGD("Producing %s using start suffix %u", name.toString().c_str(),
+                 start_suffix);
   chunk_number_map_[name] +=
       producer_socket_.produce(name, data, size, is_last, start_suffix);
 
   if (is_last) {
-    chunk_number_map_.erase(name);
+    // chunk_number_map_.erase(name);
     response_name_queue_.pop();
   }
 }
