@@ -44,7 +44,12 @@ Interest::Interest(const Name &interest_name, Packet::Format format)
   }
 }
 
+
+#ifdef __ANDROID__
+Interest::Interest(hicn_format_t format) : Interest(Name("0::0|0"), format) {}
+#else
 Interest::Interest(hicn_format_t format) : Interest(base_name, format) {}
+#endif
 
 Interest::Interest(const uint8_t *buffer, std::size_t size)
     : Packet(buffer, size) {

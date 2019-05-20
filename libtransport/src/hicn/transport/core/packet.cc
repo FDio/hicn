@@ -29,7 +29,7 @@ namespace transport {
 
 namespace core {
 
-const core::Name Packet::base_name("0::0|0");
+ const core::Name Packet::base_name("0::0|0");
 
 Packet::Packet(Format format)
     : packet_(utils::MemBuf::create(getHeaderSizeFromFormat(format, 256))
@@ -37,7 +37,8 @@ Packet::Packet(Format format)
       packet_start_(reinterpret_cast<hicn_header_t *>(packet_->writableData())),
       header_head_(packet_.get()),
       payload_head_(nullptr),
-      format_(format) {
+      format_(format){
+        
   if (hicn_packet_init_header(format, packet_start_) < 0) {
     throw errors::RuntimeException("Unexpected error initializing the packet.");
   }

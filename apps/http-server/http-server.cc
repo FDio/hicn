@@ -287,12 +287,40 @@ int main(int argc, char **argv) {
 
         response->setResponseLifetime(response_lifetime);
 
-        if (_isDirectory(path.c_str())) {
+        if (!_isDirectory(path.c_str())) {
           // Check if path is within web_root_path
           if (distance(web_root_path.begin(), web_root_path.end()) <=
                   distance(path.begin(), path.end()) &&
               equal(web_root_path.begin(), web_root_path.end(), path.begin())) {
+            if (_isRegularFile(path.c_str())) {
+              auto ifs = make_shared<ifstream>();
+              ifs->open(path, ifstream::in | ios::binary);
+
+              if (*ifs) {
+                // read and send 15 MB at a time
+                streamsize buffer_size = 15 * 1024 * 1024;
+                auto buffer = make_shared<vector<char>>(buffer_size);
+
+                ifs->seekg(0, ios::end);
+                auto length = ifs->tellg();
+                ifs->seekg(0, ios::beg);
+
+                response->setResponseLength(length);
+                *response << "HTTP/1.0 200 OK\r\nContent-Length: " << length
+                          << "\r\n\r\n";
+
+                default_resource_send(server, response, ifs, buffer, length);
+
+                return;
+              }
+            }
+          }
+        } else {
+          if (distance(web_root_path.begin(), web_root_path.end()) <=
+                  distance(path.begin(), path.end()) &&
+              equal(web_root_path.begin(), web_root_path.end(), path.begin())) {
             path += "index.html";
+            std::cout << "path: "<< path <<endl;
             if (_isRegularFile(path.c_str())) {
               auto ifs = make_shared<ifstream>();
               ifs->open(path, ifstream::in | ios::binary);
