@@ -439,9 +439,14 @@ done:
     {
       vlib_cli_output (vm, "Plugin features: cs:%d\n", HICN_FEATURE_CS);
       vlib_cli_output (vm,
-		       "Removed CS entries (and freed vlib buffers) %d, Removed PIT entries %d",
+		       "Removed CS entries (and freed vlib buffers) %d, Removed PIT entries %d\n",
 		       hicn_main.pitcs.pcs_cs_dealloc,
 		       hicn_main.pitcs.pcs_pit_dealloc);
+      vlib_cli_output (vm,
+		       "Bucke count %d, Overflow buckets count %d, used %d\n",
+		       hicn_main.pitcs.pcs_table->ht_bucket_count,
+		       hicn_main.pitcs.pcs_table->ht_overflow_bucket_count,
+                       hicn_main.pitcs.pcs_table->ht_overflow_buckets_used);
 
     }
   return (ret == HICN_ERROR_NONE) ? 0 : clib_error_return (0, "%s\n",
