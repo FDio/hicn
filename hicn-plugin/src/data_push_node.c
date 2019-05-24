@@ -141,21 +141,16 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
   /* Store the original packet buffer in the CS node */
   pitp->u.cs.cs_pkt_buf = vlib_get_buffer_index (vm, b0);
 
-  pitp->u.cs.cs_rxface = hicnb0->face_dpo_id;
-
   /* Set up the hash node and insert it */
   hicn_hashtb_init_node (rt->pitcs->pcs_table, nodep, nameptr, namelen);
 
-
-  nodep->hn_flags |= HICN_HASH_NODE_CS_FLAGS;
-  pitp->shared.entry_flags |= HICN_PCS_ENTRY_CS_FLAG;
 
   hicn_hash_entry_t *hash_entry;
   ret =
     hicn_pcs_cs_insert_update (vm, rt->pitcs, pitp, nodep, &hash_entry,
 			       hicnb0->name_hash, &node_id0, &dpo_ctx_id0,
 			       &vft_id0, &is_cs0, &hash_entry_id, &bucket_id,
-			       &bucket_is_overflow);
+			       &bucket_is_overflow, &(hicnb0->face_dpo_id));
 
   if (ret != HICN_ERROR_NONE)
     {
@@ -177,7 +172,6 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
 	}
       else
 	{
-	  hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_CS_ENTRY;
 	  prep_buffer_for_cs (vm, b0, isv6);
 	}
     }
