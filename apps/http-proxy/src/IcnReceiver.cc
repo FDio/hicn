@@ -24,7 +24,8 @@
 
 namespace transport {
 
-core::Prefix generatePrefix(const std::string& prefix_url) {
+core::Prefix generatePrefix(const std::string& prefix_url,
+                            std::string& first_ipv6_word) {
   const char* str = prefix_url.c_str();
   uint16_t pos = 0;
 
@@ -39,7 +40,7 @@ core::Prefix generatePrefix(const std::string& prefix_url) {
   uint32_t locator_hash = utils::hash::fnv32_buf(str, strlen(str));
 
   std::stringstream stream;
-  stream << std::hex << http::default_values::ipv6_first_word << ":0";
+  stream << first_ipv6_word << ":0";
 
   for (uint16_t* word = (uint16_t*)&locator_hash;
        std::size_t(word) < (std::size_t(&locator_hash) + sizeof(locator_hash));
@@ -52,12 +53,10 @@ core::Prefix generatePrefix(const std::string& prefix_url) {
   return core::Prefix(stream.str(), 64);
 }
 
-AsyncConsumerProducer::AsyncConsumerProducer(const std::string& prefix,
-                                             std::string& ip_address,
-                                             std::string& port,
-                                             std::string& cache_size,
-                                             std::string& mtu)
-    : prefix_(generatePrefix(prefix)),
+AsyncConsumerProducer::AsyncConsumerProducer(
+    const std::string& prefix, std::string& ip_address, std::string& port,
+    std::string& cache_size, std::string& mtu, std::string& first_ipv6_word)
+    : prefix_(generatePrefix(prefix, first_ipv6_word)),
       producer_socket_(),
       ip_address_(ip_address),
       port_(port),
