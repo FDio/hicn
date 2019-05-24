@@ -404,7 +404,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
   else
     {
       /* Add one reference to maintain the buffer in the CS.
-       * b0->ref_count == 0 has two meaning: it has 1 buffer or no buffer chained to it.
+       * b0->ref_count =f= 0 has two meaning: it has 1 buffer or no buffer chained to it.
        * vlib_buffer_clone2 add a number of reference equalt to pitp->u.pit.faces.n_faces - 1
        * as vlib_buffer_clone does. So after all the packet are forwarded the buffer stored in
        * the CS will have ref_count == 0;

@@ -485,7 +485,8 @@ loop_buckets:
 	   * If we are doing lookup for a data, do not take a
 	   * lock in case of a hit with a CS entry
 	   */
-	  bucket->hb_entries[i].locks++;
+          if (!(*is_cs))
+            bucket->hb_entries[i].locks++;
 	  *bucket_is_overflow = is_overflow;
 	  ret = HICN_ERROR_HASHTB_EXIST;
 	  goto done;
