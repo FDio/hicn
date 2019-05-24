@@ -19,10 +19,11 @@ using namespace transport;
 
 int usage(char* program) {
   std::cerr << "ICN Plugin not loaded!" << std::endl;
-  std::cerr << "USAGE: " << program << "\n"
-            << "[HTTP_PREFIX] -a [SERVER_IP_ADDRESS] "
-               "-p [SERVER_PORT] -c [CACHE_SIZE] -m [MTU]"
-            << std::endl;
+  std::cerr
+      << "USAGE: " << program << "\n"
+      << "[HTTP_PREFIX] -a [SERVER_IP_ADDRESS] "
+         "-p [SERVER_PORT] -c [CACHE_SIZE] -m [MTU] -P [FIRST_IPv6_WORD_HEX]"
+      << std::endl;
   return -1;
 }
 
@@ -32,9 +33,10 @@ int main(int argc, char** argv) {
   std::string port("80");
   std::string cache_size("50000");
   std::string mtu("1500");
+  std::string first_ipv6_word("b001");
 
   int opt;
-  while ((opt = getopt(argc, argv, "a:p:c:m:")) != -1) {
+  while ((opt = getopt(argc, argv, "a:p:c:m:P:")) != -1) {
     switch (opt) {
       case 'a':
         ip_address = optarg;
@@ -47,6 +49,9 @@ int main(int argc, char** argv) {
         break;
       case 'm':
         mtu = optarg;
+        break;
+      case 'P':
+        first_ipv6_word = optarg;
         break;
       case 'h':
       default:
@@ -63,9 +68,9 @@ int main(int argc, char** argv) {
 
   std::cout << "Connecting to " << ip_address << " port " << port
             << " Cache size " << cache_size << " Prefix " << prefix << " MTU "
-            << mtu << std::endl;
+            << mtu << " IPv6 first word " << first_ipv6_word << std::endl;
   transport::AsyncConsumerProducer proxy(prefix, ip_address, port, cache_size,
-                                         mtu);
+                                         mtu, first_ipv6_word);
 
   proxy.run();
 

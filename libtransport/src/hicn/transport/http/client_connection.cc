@@ -47,15 +47,16 @@ HTTPClientConnection::HTTPClientConnection()
 
 HTTPClientConnection::RC HTTPClientConnection::get(
     const std::string &url, HTTPHeaders headers, HTTPPayload payload,
-    std::shared_ptr<HTTPResponse> response, ReadBytesCallback *callback) {
-  return sendRequest(url, HTTPMethod::GET, headers, payload, response,
-                     callback);
+    std::shared_ptr<HTTPResponse> response, ReadBytesCallback *callback,
+    std::string ipv6_first_word) {
+  return sendRequest(url, HTTPMethod::GET, headers, payload, response, callback,
+                     ipv6_first_word);
 }
 
 HTTPClientConnection::RC HTTPClientConnection::sendRequest(
     const std::string &url, HTTPMethod method, HTTPHeaders headers,
     HTTPPayload payload, std::shared_ptr<HTTPResponse> response,
-    ReadBytesCallback *callback) {
+    ReadBytesCallback *callback, std::string ipv6_first_word) {
   current_url_ = url;
   read_bytes_callback_ = callback;
   if (!response) {
@@ -82,12 +83,13 @@ HTTPClientConnection::RC HTTPClientConnection::sendRequest(
     return response;
   };
 
-  sendRequestGetReply(request, response);
+  sendRequestGetReply(request, response, ipv6_first_word);
   return return_code_;
 }
 
 void HTTPClientConnection::sendRequestGetReply(
-    const HTTPRequest &request, std::shared_ptr<HTTPResponse> &response) {
+    const HTTPRequest &request, std::shared_ptr<HTTPResponse> &response,
+    std::string &ipv6_first_word) {
   const std::string &request_string = request.getRequestString();
   const std::string &locator = request.getLocator();
 
@@ -107,7 +109,7 @@ void HTTPClientConnection::sendRequestGetReply(
   // Factor hicn name using hash
   name_.str("");
 
-  name_ << std::hex << http::default_values::ipv6_first_word << ":";
+  name_ << ipv6_first_word << ":";
 
   for (uint16_t *word = (uint16_t *)&locator_hash;
        std::size_t(word) < (std::size_t(&locator_hash) + sizeof(locator_hash));

@@ -35,7 +35,8 @@ class AsyncConsumerProducer {
  public:
   explicit AsyncConsumerProducer(const std::string& prefix,
                                  std::string& ip_address, std::string& port,
-                                 std::string& cache_size, std::string& mtu);
+                                 std::string& cache_size, std::string& mtu,
+                                 std::string& first_ipv6_word);
 
   void start();
 

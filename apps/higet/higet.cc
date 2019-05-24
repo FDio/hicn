@@ -31,6 +31,7 @@ typedef struct {
   std::string file_name;
   bool print_headers;
   std::string producer_certificate;
+  std::string ipv6_first_word;
 } Configuration;
 
 void processResponse(Configuration &conf,
@@ -90,6 +91,9 @@ void usage(char *program_name) {
             << std::endl;
   std::cerr << "-S                          = print server response"
             << std::endl;
+  std::cerr << "-P                          = first word of the ipv6 name of "
+               "the response"
+            << std::endl;
   std::cerr << "example:" << std::endl;
   std::cerr << "\t" << program_name << " -O - http://origin/index.html"
             << std::endl;
@@ -106,11 +110,12 @@ int main(int argc, char **argv) {
   conf.file_name = "";
   conf.print_headers = false;
   conf.producer_certificate = "";
+  conf.ipv6_first_word = "b001";
 
   std::string name("http://webserver/sintel/mpd");
 
   int opt;
-  while ((opt = getopt(argc, argv, "O:Sc:")) != -1) {
+  while ((opt = getopt(argc, argv, "O:Sc:P:")) != -1) {
     switch (opt) {
       case 'O':
         conf.file_name = optarg;
@@ -121,6 +126,9 @@ int main(int argc, char **argv) {
       case 'c':
         conf.producer_certificate = optarg;
         break;
+      case 'P':
+        conf.ipv6_first_word = optarg;
+        break;
       case 'h':
       default:
         usage(argv[0]);
@@ -128,11 +136,10 @@ int main(int argc, char **argv) {
     }
   }
 
-  if (argv[optind] == 0) {
-    std::cerr << "Using default name " << name << std::endl;
-  } else {
-    name = argv[optind];
-  }
+  name = argv[optind];
+
+  std::cerr << "Using name " << name << " and name first word "
+            << conf.ipv6_first_word << std::endl;
 
   if (conf.file_name.empty()) {
     conf.file_name = name.substr(1 + name.find_last_of("/"));
@@ -149,7 +156,7 @@ int main(int argc, char **argv) {
 
   t1 = std::chrono::system_clock::now();
 
-  connection.get(name, headers);
+  connection.get(name, headers, {}, nullptr, nullptr, conf.ipv6_first_word);
   processResponse(conf, connection.response());
 
 #ifdef _WIN32
