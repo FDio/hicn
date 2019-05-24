@@ -149,6 +149,12 @@ hicn_cs_lru_update_head (hicn_pit_cs_t * pit, hicn_hash_node_t * pnode,
     }
   else
     {
+      /* The element is already dequeue */
+      if (pcs->u.cs.cs_lru_next == 0)
+        {
+          /* Now detached from the list; attach at head */
+          hicn_cs_lru_insert (pit, pnode, pcs, lru);
+        }
       ASSERT (lru->head ==
 	      hicn_hashtb_node_idx_from_node (pit->pcs_table, pnode));
     }
