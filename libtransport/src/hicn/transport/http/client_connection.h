@@ -49,12 +49,13 @@ class HTTPClientConnection : public ConsumerSocket::ReadCallback {
   RC get(const std::string &url, HTTPHeaders headers = {},
          HTTPPayload payload = {},
          std::shared_ptr<HTTPResponse> response = nullptr,
-         ReadBytesCallback *callback = nullptr);
+         ReadBytesCallback *callback = nullptr,
+         std::string ipv6_first_word = "b001");
 
   RC sendRequest(const std::string &url, HTTPMethod method,
                  HTTPHeaders headers = {}, HTTPPayload payload = {},
                  std::shared_ptr<HTTPResponse> response = nullptr,
-                 ReadBytesCallback *callback = nullptr);
+                 ReadBytesCallback *callback = nullptr, std::string = "b001");
 
   HTTPResponse response();
 
@@ -68,7 +69,8 @@ class HTTPClientConnection : public ConsumerSocket::ReadCallback {
 
  private:
   void sendRequestGetReply(const HTTPRequest &request,
-                           std::shared_ptr<HTTPResponse> &response);
+                           std::shared_ptr<HTTPResponse> &response,
+                           std::string &ipv6_first_word);
 
   bool verifyData(interface::ConsumerSocket &c,
                   const core::ContentObject &contentObject);
