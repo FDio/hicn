@@ -155,14 +155,14 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       ip_adj = fib_entry_get_adj (fib_entry_index);
 
       if (ip_adj == ~0)
-	return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
+        return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
       hicn_face_t *face =
 	hicn_face_udp4_get (&local_addr->ip4, &remote_addr->ip4, local_port,
 			    remote_port);
 
       if (face != NULL)
-	return HICN_ERROR_FACE_ALREADY_CREATED;
+        return HICN_ERROR_FACE_ALREADY_CREATED;
 
       pool_get (hicn_dpoi_face_pool, face);
 
@@ -221,14 +221,14 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       ip_adj = fib_entry_get_adj (fib_entry_index);
 
       if (ip_adj == ~0)
-	return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
+        return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
       hicn_face_t *face =
 	hicn_face_udp6_get (&local_addr->ip6, &remote_addr->ip6, local_port,
 			    remote_port);
 
       if (face != NULL)
-	return HICN_ERROR_FACE_ALREADY_CREATED;
+        return HICN_ERROR_FACE_ALREADY_CREATED;
 
       pool_get (hicn_dpoi_face_pool, face);
 
@@ -299,6 +299,23 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
 int
 hicn_face_udp_del (u32 faceid)
 {
+  hicn_face_t *face = hicn_dpoi_get_from_idx (faceid);
+  hicn_face_udp_t *face_udp = (hicn_face_udp_t *) face->data;
+  hicn_face_udp_key_t key;
+  hicn_face_udp_key_t old_key;
+
+  if (face_udp->hdrs.ip4.ip.ip_version_and_header_length == IP4_VERSION_AND_HEADER_LENGTH_NO_OPTIONS)
+    {
+      hicn_face_udp4_get_key (&face_udp->hdrs.ip4.ip.src_address, &face_udp->hdrs.ip4.ip.dst_address, face_udp->hdrs.ip4.udp.src_port,
+			      face_udp->hdrs.ip4.udp.dst_port, &key);
+      mhash_unset (&hicn_face_udp_hashtb, &key, (uword *) & old_key);
+    }
+  else
+    {
+      hicn_face_udp6_get_key (&face_udp->hdrs.ip6.ip.src_address, &face_udp->hdrs.ip6.ip.dst_address, face_udp->hdrs.ip6.udp.src_port,
+			      face_udp->hdrs.ip6.udp.dst_port, &key);
+      mhash_unset (&hicn_face_udp_hashtb, &key, (uword *) & old_key);
+    }
   return hicn_face_del (faceid);
 }
 
