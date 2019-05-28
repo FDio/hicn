@@ -180,7 +180,7 @@ hicn_interest_hitcs_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    {
 	      if (PREDICT_TRUE
 		  (!(hash_entry0->he_flags & HICN_HASH_ENTRY_FLAG_DELETED)))
-		hicn_pcs_cs_update (vm, rt->pitcs, pitp, node0);
+		hicn_pcs_cs_update (vm, rt->pitcs, pitp, pitp, node0);
 
 	      /*
 	       * Retrieve the incoming iface and forward
