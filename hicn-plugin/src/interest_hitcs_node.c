@@ -50,7 +50,7 @@ clone_from_cs (vlib_main_t * vm, u32 * bi0_cs, vlib_buffer_t * dest, u8 isv6)
     {
       clib_memcpy_fast (vlib_buffer_get_current (dest),
 			vlib_buffer_get_current (cs_buf),
-			dest->current_length);
+			cs_buf->current_length);
       clib_memcpy_fast (dest->opaque2, cs_buf->opaque2,
 			sizeof (cs_buf->opaque2));
 

@@ -91,7 +91,7 @@ STATIC_ASSERT ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX <= HICN_PARAM_FACES_MAX),
 #define HICN_PARAM_CS_LIFETIME_MAX      (24 * 3600 * 1000)	//24 hours...
 
 /* CS reserved portion for applications */
-#define HICN_PARAM_CS_RESERVED_APP 30	//%
+#define HICN_PARAM_CS_RESERVED_APP 50	//%
 
 /* Cloning parameters */
 /* ip4 */
