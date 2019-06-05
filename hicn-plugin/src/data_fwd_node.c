@@ -485,7 +485,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 			   sizeof (t->packet_data));
 	    }
 	  vlib_validate_buffer_enqueue_x2 (vm, node, *next_index,
-					   *to_next, *n_left_to_next,
+					   (*to_next), *n_left_to_next,
 					   hi0, hi1, next0, next1);
 	}
 

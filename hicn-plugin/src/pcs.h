@@ -356,8 +356,6 @@ hicn_pcs_delete_internal (hicn_pit_cs_t * pitcs,
   if (hash_entry->he_flags & HICN_HASH_ENTRY_FLAG_CS_ENTRY)
     {
       pitcs->pcs_cs_dealloc++;
-      vlib_buffer_t *b0 = vlib_get_buffer (vm, pcs->u.cs.cs_pkt_buf);
-      ASSERT(b0->ref_count == 1);
       /* Free any associated packet buffer */
       vlib_buffer_free_one (vm, pcs->u.cs.cs_pkt_buf);
       pcs->u.cs.cs_pkt_buf = ~0;
