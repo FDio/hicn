@@ -138,8 +138,8 @@ typedef enum
 								    \
     inner_ip_hdr = (u8 *)(udp_hdr + 1);				    \
     u8 is_v6 = hicn_is_v6((hicn_header_t *)inner_ip_hdr);           \
-    u8 is_icmp = is_v6*(inner_ip_hdr[7] == IPPROTO_ICMPV6) +	    \
-      (1 - is_v6)*(inner_ip_hdr[10] == IPPROTO_ICMPV4);		    \
+    u8 is_icmp = is_v6*(inner_ip_hdr[6] == IPPROTO_ICMPV6) +	    \
+      (1 - is_v6)*(inner_ip_hdr[9] == IPPROTO_ICMPV4);		    \
                                                                     \
     ret = HICN_DPO_UDP_LOCK_IP##ipv                                 \
       (&(hicnb0->face_dpo_id),                                      \
@@ -236,13 +236,13 @@ typedef enum
                                                                     \
     inner_ip_hdr0 = (u8 *)(udp_hdr0 + 1);			    \
     u8 is_v6_0 = hicn_is_v6((hicn_header_t *)inner_ip_hdr0);        \
-     u8 is_icmp0 = is_v6_0*(inner_ip_hdr0[7] == IPPROTO_ICMPV6) +   \
-      (1 - is_v6_0)*(inner_ip_hdr0[10] == IPPROTO_ICMPV4);	    \
+     u8 is_icmp0 = is_v6_0*(inner_ip_hdr0[6] == IPPROTO_ICMPV6) +   \
+      (1 - is_v6_0)*(inner_ip_hdr0[9] == IPPROTO_ICMPV4);	    \
 								    \
     inner_ip_hdr1 = (u8 *)(udp_hdr1 + 1);			    \
     u8 is_v6_1 = hicn_is_v6((hicn_header_t *)inner_ip_hdr1);        \
-    u8 is_icmp1 = is_v6_1*(inner_ip_hdr1[7] == IPPROTO_ICMPV6) +    \
-      (1 - is_v6_1)*(inner_ip_hdr1[10] == IPPROTO_ICMPV4);	    \
+    u8 is_icmp1 = is_v6_1*(inner_ip_hdr1[6] == IPPROTO_ICMPV6) +    \
+      (1 - is_v6_1)*(inner_ip_hdr1[9] == IPPROTO_ICMPV4);	    \
 								    \
     ret0 = HICN_DPO_UDP_LOCK_IP##ipv                                \
       (&(hicnb0->face_dpo_id),                                      \
@@ -507,7 +507,6 @@ hicn_face_udp4_encap (vlib_main_t * vm,
   ip4_header_t *ip0;
   udp_header_t *udp0;
   hicn_face_udp_t *face_udp = (hicn_face_udp_t *) face->data;
-  ip_adjacency_t *adj = adj_get (face->shared.adj);
 
   /* ip */
   ip0 = vlib_buffer_get_current (outer_b0);
@@ -535,11 +534,19 @@ hicn_face_udp4_encap (vlib_main_t * vm,
 			 length /* changed member */ );
   ip0->checksum = sum0;
 
+  int is_iface = 0;
+  ip_adjacency_t *adj;
+  if (PREDICT_FALSE (face->shared.adj == ~0))
+    is_iface = 1;
+  else
+    adj = adj_get (face->shared.adj);
+
   /* In case the adj is not complete, we look if a better one exists, otherwise we send an arp request
    * This is necessary to account for the case in which when we create a face, there isn't a /128(/32) adjacency and we match with a more general route which is in glean state
    * In this case in fact, the general route will not be update upone receiving of a arp or neighbour responde, but a new /128(/32) will be created
    */
-  if (PREDICT_FALSE (adj->lookup_next_index < IP_LOOKUP_NEXT_REWRITE))
+  if (PREDICT_FALSE
+      (is_iface || adj->lookup_next_index < IP_LOOKUP_NEXT_REWRITE))
     {
       fib_prefix_t fib_pfx;
       fib_node_index_t fib_entry_index;
@@ -555,6 +562,8 @@ hicn_face_udp4_encap (vlib_main_t * vm,
       fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
 
       face->shared.adj = fib_entry_get_adj (fib_entry_index);
+      face->shared.flags &= ~HICN_FACE_FLAGS_IFACE;
+      face->shared.flags |= HICN_FACE_FLAGS_FACE;
 
       adj = adj_get (face->shared.adj);
     }
@@ -573,7 +582,6 @@ hicn_face_udp6_encap (vlib_main_t * vm,
   ip6_header_t *ip0;
   udp_header_t *udp0;
   hicn_face_udp_t *face_udp = (hicn_face_udp_t *) face->data;
-  ip_adjacency_t *adj = adj_get (face->shared.adj);
 
   /* ip */
   ip0 = vlib_buffer_get_current (outer_b0);
@@ -595,6 +603,13 @@ hicn_face_udp6_encap (vlib_main_t * vm,
   if (udp0->checksum == 0)
     udp0->checksum = 0xffff;
 
+  int is_iface = 0;
+  ip_adjacency_t *adj;
+  if (PREDICT_FALSE (face->shared.adj == ~0))
+    is_iface = 1;
+  else
+    adj = adj_get (face->shared.adj);
+
   /* In case the adj is not complete, we look if a better one exists, otherwise we send an arp request
    * This is necessary to account for the case in which when we create a face, there isn't a /128(/32) adjacency and we match with a more general route which is in glean state
    * In this case in fact, the general route will not be update upone receiving of a arp or neighbour responde, but a new /128(/32) will be created
@@ -615,6 +630,8 @@ hicn_face_udp6_encap (vlib_main_t * vm,
       fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
 
       face->shared.adj = fib_entry_get_adj (fib_entry_index);
+      face->shared.flags &= ~HICN_FACE_FLAGS_IFACE;
+      face->shared.flags |= HICN_FACE_FLAGS_FACE;
 
       adj = adj_get (face->shared.adj);
     }

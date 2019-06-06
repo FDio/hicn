@@ -39,13 +39,11 @@ hicn_iface_udp_init (vlib_main_t * vm)
 {
   data_fwd_face_udp4_vlib_edge = vlib_node_add_next (vm,
 						     hicn_data_fwd_node.index,
-						     hicn_iface_udp4_output_node.
-						     index);
+						     hicn_iface_udp4_output_node.index);
 
   data_fwd_face_udp6_vlib_edge = vlib_node_add_next (vm,
 						     hicn_data_fwd_node.index,
-						     hicn_iface_udp6_output_node.
-						     index);
+						     hicn_iface_udp6_output_node.index);
 
   u32 temp_index4 = vlib_node_add_next (vm,
 					hicn_interest_hitcs_node.index,
@@ -173,8 +171,8 @@ typedef enum
 									\
     inner_ip_hdr = (u8 *)(udp_hdr + 1);					\
     u8 is_v6 = hicn_is_v6((hicn_header_t *)inner_ip_hdr);               \
-    u8 is_icmp = is_v6*(inner_ip_hdr[7] == IPPROTO_ICMPV6) +		\
-      (1 - is_v6)*(inner_ip_hdr[10] == IPPROTO_ICMPV4);			\
+    u8 is_icmp = is_v6*(inner_ip_hdr[6] == IPPROTO_ICMPV6) +		\
+      (1 - is_v6)*(inner_ip_hdr[9] == IPPROTO_ICMPV4);			\
 									\
     next0 = is_icmp*NEXT_MAPME_UDP##ipv +				\
       (1-is_icmp)*NEXT_INTEREST_UDP##ipv;				\
@@ -267,10 +265,10 @@ typedef enum
   inner_ip_hdr1 = (u8 *)(udp_hdr1 + 1);					\
   u8 is_v6_0 = hicn_is_v6((hicn_header_t *)inner_ip_hdr0);              \
   u8 is_v6_1 = hicn_is_v6((hicn_header_t *)inner_ip_hdr1);              \
-  u8 is_icmp0 = is_v6_0*(inner_ip_hdr0[7] == IPPROTO_ICMPV6) +		\
-    (1 - is_v6_0)*(inner_ip_hdr0[10] == IPPROTO_ICMPV4);		\
-  u8 is_icmp1 = is_v6_1*(inner_ip_hdr1[7] == IPPROTO_ICMPV6) +		\
-    (1 - is_v6_1)*(inner_ip_hdr1[10] == IPPROTO_ICMPV4);		\
+  u8 is_icmp0 = is_v6_0*(inner_ip_hdr0[6] == IPPROTO_ICMPV6) +		\
+    (1 - is_v6_0)*(inner_ip_hdr0[9] == IPPROTO_ICMPV4);		\
+  u8 is_icmp1 = is_v6_1*(inner_ip_hdr1[6] == IPPROTO_ICMPV6) +		\
+    (1 - is_v6_1)*(inner_ip_hdr1[9] == IPPROTO_ICMPV4);		\
   									\
   next0 = is_icmp0*NEXT_MAPME_UDP##ipv +				\
     (1-is_icmp0)*NEXT_INTEREST_UDP##ipv;				\
