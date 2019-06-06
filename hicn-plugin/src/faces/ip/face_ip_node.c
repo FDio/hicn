@@ -465,7 +465,6 @@ static inline void
 hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
 			    hicn_face_t * face, u32 * next)
 {
-  ip_adjacency_t *adj = adj_get (face->shared.adj);
 
   hicn_header_t *hicn = vlib_buffer_get_current (b0);
 
@@ -477,11 +476,19 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
   hicn_ops_vft[type.l1]->rewrite_interest (type, &hicn->protocol,
 					   &ip_face->local_addr, &temp_addr);
 
+  int is_iface = 0;
+  ip_adjacency_t *adj;
+  if (PREDICT_FALSE (face->shared.adj == ~0))
+    is_iface = 1;
+  else
+    adj = adj_get (face->shared.adj);
+
   /* In case the adj is not complete, we look if a better one exists, otherwise we send an arp request
    * This is necessary to account for the case in which when we create a face, there isn't a /128(/32) adjacency and we match with a more general route which is in glean state
    * In this case in fact, the general route will not be update upone receiving of a arp or neighbour responde, but a new /128(/32) will be created
    */
-  if (PREDICT_FALSE (adj->lookup_next_index < IP_LOOKUP_NEXT_REWRITE))
+  if (PREDICT_FALSE
+      (is_iface || adj->lookup_next_index < IP_LOOKUP_NEXT_REWRITE))
     {
       fib_prefix_t fib_pfx;
       fib_node_index_t fib_entry_index;
@@ -495,6 +502,8 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
       fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
 
       face->shared.adj = fib_entry_get_adj (fib_entry_index);
+      face->shared.flags &= ~HICN_FACE_FLAGS_IFACE;
+      face->shared.flags |= HICN_FACE_FLAGS_FACE;
 
       adj = adj_get (face->shared.adj);
 
