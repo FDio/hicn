@@ -27,6 +27,7 @@ include(WindowsMacros)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
+  find_package(Threads REQUIRED)
   include_directories(${LIBTRANSPORT_INCLUDE_DIRS})
   set(HICN_APPS hicn-apps)
 else()
