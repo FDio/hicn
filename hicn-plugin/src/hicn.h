@@ -81,6 +81,12 @@ hicn_get_buffer (vlib_buffer_t * b0)
   return (hicn_buffer_t *) & (b0->opaque2[0]);
 }
 
+always_inline u8
+hicn_is_v6 (hicn_header_t * pkt_hdr)
+{
+  return ((pkt_hdr->v4.ip.version_ihl >> 4) != 4);
+}
+
 #endif /* __HICN_H__ */
 
 
