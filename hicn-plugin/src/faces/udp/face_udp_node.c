@@ -137,7 +137,7 @@ typedef enum
     hicnb0 = hicn_get_buffer(b0);                                   \
 								    \
     inner_ip_hdr = (u8 *)(udp_hdr + 1);				    \
-    u8 is_v6 = ((inner_ip_hdr[0] & 2) >> 1);                        \
+    u8 is_v6 = hicn_is_v6((hicn_header_t *)inner_ip_hdr);           \
     u8 is_icmp = is_v6*(inner_ip_hdr[7] == IPPROTO_ICMPV6) +	    \
       (1 - is_v6)*(inner_ip_hdr[10] == IPPROTO_ICMPV4);		    \
                                                                     \
@@ -235,12 +235,12 @@ typedef enum
     hicnb1 = hicn_get_buffer(b1);                                   \
                                                                     \
     inner_ip_hdr0 = (u8 *)(udp_hdr0 + 1);			    \
-    u8 is_v6_0 = ((inner_ip_hdr0[0] & 2) >> 1);                     \
+    u8 is_v6_0 = hicn_is_v6((hicn_header_t *)inner_ip_hdr0);        \
      u8 is_icmp0 = is_v6_0*(inner_ip_hdr0[7] == IPPROTO_ICMPV6) +   \
       (1 - is_v6_0)*(inner_ip_hdr0[10] == IPPROTO_ICMPV4);	    \
 								    \
     inner_ip_hdr1 = (u8 *)(udp_hdr1 + 1);			    \
-    u8 is_v6_1 = ((inner_ip_hdr1[0] & 2) >> 1);                     \
+    u8 is_v6_1 = hicn_is_v6((hicn_header_t *)inner_ip_hdr1);        \
     u8 is_icmp1 = is_v6_1*(inner_ip_hdr1[7] == IPPROTO_ICMPV6) +    \
       (1 - is_v6_1)*(inner_ip_hdr1[10] == IPPROTO_ICMPV4);	    \
 								    \
