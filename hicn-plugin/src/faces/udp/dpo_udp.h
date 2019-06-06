@@ -24,6 +24,9 @@
 #include "../face.h"
 #include "../../error.h"
 
+extern u32 strategy_face_udp4_vlib_edge;
+extern u32 strategy_face_udp6_vlib_edge;
+
 
 /**
  * @brief Initialize the internal structures of the dpo udp face module.
@@ -88,7 +91,7 @@ hicn_dpo_udp4_lock (dpo_id_t * dpo,
 
   index_t dpoi_index = hicn_dpoi_get_index (face);
   dpo_set (dpo, hicn_face_udp_type, DPO_PROTO_IP4, dpoi_index);
-  dpo->dpoi_next_node = ~0;
+  dpo->dpoi_next_node = strategy_face_udp4_vlib_edge;
   dpo_lock (dpo);
 
   *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
@@ -208,7 +211,7 @@ hicn_dpo_udp6_lock (dpo_id_t * dpo,
 
   hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
   dpo_set (dpo, hicn_face_udp_type, DPO_PROTO_IP6, dpoi_index);
-  dpo->dpoi_next_node = ~0;
+  dpo->dpoi_next_node = strategy_face_udp6_vlib_edge;
   dpo_lock (dpo);
   *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
 
