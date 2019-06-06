@@ -248,7 +248,9 @@ hicn_iface_udp6_add (const ip6_address_t * local_addr,
 			  remote_port, &key);
   *pfaceid = hicn_dpoi_get_index (face);
 
-  mhash_set_mem (&hicn_face_udp_hashtb, &key, (uword *) & pfaceid, 0);
+  hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
+
+  mhash_set_mem (&hicn_face_udp_hashtb, &key, (uword *) & dpoi_index, 0);
 
   for (int i = 0; i < HICN_N_COUNTER; i++)
     {
@@ -300,7 +302,9 @@ hicn_iface_udp4_add (const ip4_address_t * local_addr,
 			  remote_port, &key);
   *pfaceid = hicn_dpoi_get_index (face);
 
-  mhash_set_mem (&hicn_face_udp_hashtb, &key, (uword *) & pfaceid, 0);
+  hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
+
+  mhash_set_mem (&hicn_face_udp_hashtb, &key, (uword *) & dpoi_index, 0);
 
   for (int i = 0; i < HICN_N_COUNTER; i++)
     {

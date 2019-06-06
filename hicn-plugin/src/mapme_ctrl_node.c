@@ -157,15 +157,15 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 	}
 
       /* ... and set ingress face as next_hop */
+      in_face->dpoi_next_node = hicn_mapme_get_dpo_vlib_edge (in_face);
       hicn_mapme_nh_set (tfib, in_face);
 
       /* We transmit both the prefix and the full dpo (type will be needed to pick the right transmit node */
-      retx_t *retx =
-	vlib_process_signal_event_data (vm,
-					hicn_mapme_eventmgr_process_node.
-					index,
-					HICN_MAPME_EVENT_FACE_NH_SET, 1,
-					sizeof (retx_t));
+      retx_t *retx = vlib_process_signal_event_data (vm,
+						     hicn_mapme_eventmgr_process_node.index,
+						     HICN_MAPME_EVENT_FACE_NH_SET,
+						     1,
+						     sizeof (retx_t));
       *retx = (retx_t)
       {
       .prefix = prefix,.dpo = *dpo};
@@ -183,12 +183,11 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
       hicn_mapme_nh_add (tfib, in_face);
 
       /* Multipath, multihoming, multiple producers or duplicate interest */
-      retx_t *retx =
-	vlib_process_signal_event_data (vm,
-					hicn_mapme_eventmgr_process_node.
-					index,
-					HICN_MAPME_EVENT_FACE_NH_ADD, 1,
-					sizeof (retx_t));
+      retx_t *retx = vlib_process_signal_event_data (vm,
+						     hicn_mapme_eventmgr_process_node.index,
+						     HICN_MAPME_EVENT_FACE_NH_ADD,
+						     1,
+						     sizeof (retx_t));
       *retx = (retx_t)
       {
       .prefix = prefix,.dpo = *dpo};
@@ -201,12 +200,11 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
        */
       hicn_mapme_tfib_add (tfib, in_face);
 
-      retx_t *retx =
-	vlib_process_signal_event_data (vm,
-					hicn_mapme_eventmgr_process_node.
-					index,
-					HICN_MAPME_EVENT_FACE_PH_ADD, 1,
-					sizeof (retx_t));
+      retx_t *retx = vlib_process_signal_event_data (vm,
+						     hicn_mapme_eventmgr_process_node.index,
+						     HICN_MAPME_EVENT_FACE_PH_ADD,
+						     1,
+						     sizeof (retx_t));
       *retx = (retx_t)
       {
       .prefix = prefix,.dpo = *dpo};

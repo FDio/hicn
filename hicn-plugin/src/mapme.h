@@ -215,7 +215,7 @@ extern dpo_type_t hicn_face_ip_type;
 extern u32 strategy_face_ip4_vlib_edge;
 extern u32 strategy_face_ip6_vlib_edge;
 /* in faces/udp/face_udp.c */
-extern u32 strategy_face_udp6_vlib_edge;
+extern u32 strategy_face_udp4_vlib_edge;
 extern u32 strategy_face_udp6_vlib_edge;
 
 
@@ -244,7 +244,7 @@ hicn_mapme_get_dpo_vlib_edge (dpo_id_t * dpo)
       switch (dpo->dpoi_proto)
 	{
 	case DPO_PROTO_IP4:
-	  return strategy_face_udp6_vlib_edge;
+	  return strategy_face_udp4_vlib_edge;
 	case DPO_PROTO_IP6:
 	  return strategy_face_udp6_vlib_edge;
 	default:
@@ -293,10 +293,9 @@ hicn_mapme_get_dpo_face_node (dpo_id_t * dpo)
     }
 }
 
-
-#define DEBUG(...) vlib_log_debug(mapme_main.log_class, __VA_ARGS__)
-#define WARN(...) vlib_log_warn(mapme_main.log_class, __VA_ARGS__)
-#define ERROR(...) vlib_log_err(mapme_main.log_class, __VA_ARGS__)
+#define DEBUG(...)		//vlib_log_debug(mapme_main.log_class, __VA_ARGS__)
+#define WARN(...)		//vlib_log_warn(mapme_main.log_class, __VA_ARGS__)
+#define ERROR(...)		//vlib_log_err(mapme_main.log_class, __VA_ARGS__)
 
 #endif /* __HICN_MAPME__ */
 
