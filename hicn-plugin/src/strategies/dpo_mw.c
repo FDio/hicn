@@ -161,19 +161,13 @@ hicn_strategy_mw_ctx_create (dpo_proto_t proto, const dpo_id_t * next_hop,
 {
   hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx;
   int ret = HICN_ERROR_NONE, i;
-  dpo_id_t invalid = NEXT_HOP_INVALID;
 
   /* Allocate a hicn_dpo_ctx on the vpp pool and initialize it */
   pool_get (hicn_strategy_mw_ctx_pool, hicn_strategy_mw_ctx);
 
   *dpo_idx = hicn_strategy_mw_ctx_get_index (hicn_strategy_mw_ctx);
-  for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
-    {
-      hicn_strategy_mw_ctx->default_ctx.next_hops[i] = invalid;
-    }
 
-  hicn_strategy_mw_ctx->default_ctx.entry_count = 0;
-  hicn_strategy_mw_ctx->default_ctx.locks = 0;
+  init_dpo_ctx (&(hicn_strategy_mw_ctx->default_ctx));
 
   for (i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX && i < nh_len; i++)
     {
@@ -219,8 +213,8 @@ hicn_strategy_mw_ctx_add_nh (const dpo_id_t * nh, index_t dpo_idx)
 	    {
 	      /* If face is marked as deleted, ignore it */
 	      hicn_face_t *face =
-		hicn_dpoi_get_from_idx (hicn_strategy_mw_ctx->default_ctx.
-					next_hops[i].dpoi_index);
+		hicn_dpoi_get_from_idx (hicn_strategy_mw_ctx->
+					default_ctx.next_hops[i].dpoi_index);
 	      if (face->shared.flags & HICN_FACE_FLAGS_DELETED)
 		{
 		  continue;
@@ -265,8 +259,8 @@ hicn_strategy_mw_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
 	      face_id)
 	    {
 	      nh_id = i;
-	      hicn_face_unlock (&hicn_strategy_mw_ctx->
-				default_ctx.next_hops[i]);
+	      hicn_face_unlock (&hicn_strategy_mw_ctx->default_ctx.
+				next_hops[i]);
 	      hicn_strategy_mw_ctx->default_ctx.next_hops[i] = invalid;
 	      hicn_strategy_mw_ctx->default_ctx.entry_count--;
 	    }

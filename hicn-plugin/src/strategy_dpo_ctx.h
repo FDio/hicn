@@ -29,6 +29,7 @@
 
 #define NEXT_HOP_INVALID DPO_INVALID
 
+#define INIT_SEQ 0
 /*
  * An hicn dpo is a list of next hops (face + weight).
  */
@@ -56,6 +57,28 @@ typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
   seq_t seq;
 
 } hicn_dpo_ctx_t;
+
+always_inline void
+init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx)
+{
+  dpo_id_t invalid = NEXT_HOP_INVALID;
+
+  for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
+    {
+      dpo_ctx->next_hops[i] = invalid;
+    }
+
+  dpo_ctx->entry_count = 0;
+  dpo_ctx->locks = 0;
+
+  dpo_ctx->tfib_entry_count = 0;
+
+#ifdef HICN_MAPME_NOTIFICATIONS
+  last_iu_ack = 0;
+#endif
+
+  dpo_ctx->seq = INIT_SEQ;
+}
 
 STATIC_ASSERT (sizeof (hicn_dpo_ctx_t) <= CLIB_CACHE_LINE_BYTES,
 	       "sizeof hicn_dpo_ctx_t is greater than 64B");

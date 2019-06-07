@@ -33,7 +33,6 @@
 #define TIMER_NO_REPEAT false
 
 #define INVALID_SEQ 0
-#define INIT_SEQ 0
 
 typedef struct hicn_mapme_conf_s
 {
@@ -135,9 +134,9 @@ hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
   for (pos = start_pos; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos++)
     if (dpo_cmp (&tfib->next_hops[pos], face_id) == 0)
       {
-        hicn_face_unlock (&tfib->next_hops[pos]);
-        tfib->next_hops[pos] = invalid;
-        break;
+	hicn_face_unlock (&tfib->next_hops[pos]);
+	tfib->next_hops[pos] = invalid;
+	break;
       }
   if (pos == HICN_PARAM_FIB_ENTRY_NHOPS_MAX)
     /* Not found */
