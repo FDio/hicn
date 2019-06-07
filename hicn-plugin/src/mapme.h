@@ -33,7 +33,7 @@
 #define TIMER_NO_REPEAT false
 
 #define INVALID_SEQ 0
-#define INIT_SEQ 1
+#define INIT_SEQ 0
 
 typedef struct hicn_mapme_conf_s
 {
