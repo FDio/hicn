@@ -90,13 +90,13 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
   vlib_cli_output (vm, "IU - type:%d seq:%d len:%d", params.type, params.seq,
 		   prefix.len);
 
-  if (params.seq == INVALID_SEQ)
-    {
-      vlib_log_warn (mapme_main.log_class,
-		     "Invalid sequence number found in IU");
+  /* if (params.seq == INVALID_SEQ) */
+  /*   { */
+  /*     vlib_log_warn (mapme_main.log_class, */
+  /*       	     "Invalid sequence number found in IU"); */
 
-      return true;
-    }
+  /*     return true; */
+  /*   } */
 
   /* We forge the ACK which we be the packet forwarded by the node */
   hicn_mapme_create_ack (vlib_buffer_get_current (b), &params);
