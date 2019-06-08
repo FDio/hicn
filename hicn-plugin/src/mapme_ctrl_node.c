@@ -310,9 +310,9 @@ VLIB_REGISTER_NODE (hicn_mapme_ctrl_node) =
   .n_next_nodes = HICN_MAPME_CTRL_N_NEXT,
   .next_nodes =
   {
-    /* 
+    /*
      * Control packets are not forwarded by this node, but sent by the Event
-     * Manager. This node is only responsible for sending ACK back, 
+     * Manager. This node is only responsible for sending ACK back,
      * Acks are like data packets are output on iface's
      */
     [HICN_MAPME_CTRL_NEXT_IP4_OUTPUT]   = "hicn-iface-ip4-output",
