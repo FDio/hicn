@@ -137,9 +137,9 @@ typedef enum
     hicnb0 = hicn_get_buffer(b0);                                   \
 								    \
     inner_ip_hdr = (u8 *)(udp_hdr + 1);				    \
-    u8 is_v6 = ((inner_ip_hdr[0] & 2) >> 1);                        \
-    u8 is_icmp = is_v6*(inner_ip_hdr[7] == IPPROTO_ICMPV6) +	    \
-      (1 - is_v6)*(inner_ip_hdr[10] == IPPROTO_ICMPV4);		    \
+    u8 is_v6 = hicn_is_v6((hicn_header_t *)inner_ip_hdr);           \
+    u8 is_icmp = is_v6*(inner_ip_hdr[6] == IPPROTO_ICMPV6) +	    \
+      (1 - is_v6)*(inner_ip_hdr[9] == IPPROTO_ICMPV4);		    \
                                                                     \
     ret = HICN_DPO_UDP_LOCK_IP##ipv                                 \
       (&(hicnb0->face_dpo_id),                                      \
@@ -161,6 +161,12 @@ typedef enum
 								    \
         vlib_buffer_advance(b0, sizeof(IP_HEADER_##ipv) +           \
                             sizeof(udp_header_t));                  \
+        vlib_increment_combined_counter (                           \
+                           &counters[hicnb0->face_dpo_id.dpoi_index \
+                                  * HICN_N_COUNTER], thread_index,  \
+                           HICN_FACE_COUNTERS_DATA_RX,              \
+                           1,                                       \
+                           vlib_buffer_length_in_chain(vm, b0));    \
       }                                                             \
 								    \
     if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&	    \
@@ -229,14 +235,14 @@ typedef enum
     hicnb1 = hicn_get_buffer(b1);                                   \
                                                                     \
     inner_ip_hdr0 = (u8 *)(udp_hdr0 + 1);			    \
-    u8 is_v6_0 = ((inner_ip_hdr0[0] & 2) >> 1);                     \
-     u8 is_icmp0 = is_v6_0*(inner_ip_hdr0[7] == IPPROTO_ICMPV6) +   \
-      (1 - is_v6_0)*(inner_ip_hdr0[10] == IPPROTO_ICMPV4);	    \
+    u8 is_v6_0 = hicn_is_v6((hicn_header_t *)inner_ip_hdr0);        \
+     u8 is_icmp0 = is_v6_0*(inner_ip_hdr0[6] == IPPROTO_ICMPV6) +   \
+      (1 - is_v6_0)*(inner_ip_hdr0[9] == IPPROTO_ICMPV4);	    \
 								    \
     inner_ip_hdr1 = (u8 *)(udp_hdr1 + 1);			    \
-    u8 is_v6_1 = ((inner_ip_hdr1[0] & 2) >> 1);                     \
-    u8 is_icmp1 = is_v6_1*(inner_ip_hdr1[7] == IPPROTO_ICMPV6) +    \
-      (1 - is_v6_1)*(inner_ip_hdr1[10] == IPPROTO_ICMPV4);	    \
+    u8 is_v6_1 = hicn_is_v6((hicn_header_t *)inner_ip_hdr1);        \
+    u8 is_icmp1 = is_v6_1*(inner_ip_hdr1[6] == IPPROTO_ICMPV6) +    \
+      (1 - is_v6_1)*(inner_ip_hdr1[9] == IPPROTO_ICMPV4);	    \
 								    \
     ret0 = HICN_DPO_UDP_LOCK_IP##ipv                                \
       (&(hicnb0->face_dpo_id),                                      \
@@ -266,6 +272,12 @@ typedef enum
 								    \
         vlib_buffer_advance(b0, sizeof(IP_HEADER_##ipv) +           \
                             sizeof(udp_header_t));                  \
+        vlib_increment_combined_counter (                           \
+                        &counters[hicnb0->face_dpo_id.dpoi_index    \
+                                  * HICN_N_COUNTER], thread_index,  \
+                        HICN_FACE_COUNTERS_DATA_RX,                 \
+                        1,                                          \
+                        vlib_buffer_length_in_chain(vm, b0));       \
       }                                                             \
                                                                     \
     if ( PREDICT_FALSE(ret1 != HICN_ERROR_NONE) )                   \
@@ -280,6 +292,12 @@ typedef enum
 								    \
         vlib_buffer_advance(b1, sizeof(IP_HEADER_##ipv) +           \
                             sizeof(udp_header_t));                  \
+        vlib_increment_combined_counter (                           \
+                          &counters[hicnb1->face_dpo_id.dpoi_index  \
+                                    * HICN_N_COUNTER], thread_index,\
+                          HICN_FACE_COUNTERS_DATA_RX,               \
+                          1,                                        \
+                          vlib_buffer_length_in_chain(vm, b1));     \
       }                                                             \
                                                                     \
     if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&      \
@@ -325,6 +343,7 @@ hicn_face_udp4_input_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
   n_left_from = frame->n_vectors;
   next_index = node->cached_next_index;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
+  u32 thread_index = vm->thread_index;
 
   while (n_left_from > 0)
     {
@@ -363,8 +382,9 @@ hicn_face_udp4_input_format_trace (u8 * s, va_list * args)
   s =
     format (s, "FACE_UDP4_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
 	    (int) t->pkt_type, t->sw_if_index, t->next_index,
-	    (t->packet_data[0] & 0xf0) == 0x40 ? format_ip4_header : format_ip6_header,
-	    t->packet_data, sizeof (t->packet_data));
+	    (t->packet_data[0] & 0xf0) ==
+	    0x40 ? format_ip4_header : format_ip6_header, t->packet_data,
+	    sizeof (t->packet_data));
   return (s);
 }
 
@@ -403,6 +423,7 @@ hicn_face_udp6_input_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
   n_left_from = frame->n_vectors;
   next_index = node->cached_next_index;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
+  u32 thread_index = vm->thread_index;
 
   while (n_left_from > 0)
     {
@@ -444,8 +465,9 @@ hicn_face_udp6_input_format_trace (u8 * s, va_list * args)
   s =
     format (s, "FACE_UDP6_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
 	    (int) t->pkt_type, t->sw_if_index, t->next_index,
-	    (t->packet_data[0] & 0xf0) == 0x40 ? format_ip4_header : format_ip6_header,
-	    t->packet_data, sizeof (t->packet_data));
+	    (t->packet_data[0] & 0xf0) ==
+	    0x40 ? format_ip4_header : format_ip6_header, t->packet_data,
+	    sizeof (t->packet_data));
   return (s);
 }
 
@@ -485,7 +507,6 @@ hicn_face_udp4_encap (vlib_main_t * vm,
   ip4_header_t *ip0;
   udp_header_t *udp0;
   hicn_face_udp_t *face_udp = (hicn_face_udp_t *) face->data;
-  ip_adjacency_t *adj = adj_get (face->shared.adj);
 
   /* ip */
   ip0 = vlib_buffer_get_current (outer_b0);
@@ -513,8 +534,41 @@ hicn_face_udp4_encap (vlib_main_t * vm,
 			 length /* changed member */ );
   ip0->checksum = sum0;
 
-  vnet_buffer (outer_b0)->ip.adj_index[VLIB_TX] = face->shared.adj;
+  int is_iface = 0;
+  ip_adjacency_t *adj;
+  if (PREDICT_FALSE (face->shared.adj == ~0))
+    is_iface = 1;
+  else
+    adj = adj_get (face->shared.adj);
 
+  /* In case the adj is not complete, we look if a better one exists, otherwise we send an arp request
+   * This is necessary to account for the case in which when we create a face, there isn't a /128(/32) adjacency and we match with a more general route which is in glean state
+   * In this case in fact, the general route will not be update upone receiving of a arp or neighbour responde, but a new /128(/32) will be created
+   */
+  if (PREDICT_FALSE
+      (is_iface || adj->lookup_next_index < IP_LOOKUP_NEXT_REWRITE))
+    {
+      fib_prefix_t fib_pfx;
+      fib_node_index_t fib_entry_index;
+      ip46_address_t ip46 =
+	to_ip46 (0, (u8 *) & (face_udp->hdrs.ip4.ip.dst_address));
+      fib_prefix_from_ip46_addr (&ip46, &fib_pfx);
+      fib_pfx.fp_len = 32;
+
+      u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+							 HICN_FIB_TABLE,
+							 FIB_SOURCE_PLUGIN_HI);
+
+      fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+
+      face->shared.adj = fib_entry_get_adj (fib_entry_index);
+      face->shared.flags &= ~HICN_FACE_FLAGS_IFACE;
+      face->shared.flags |= HICN_FACE_FLAGS_FACE;
+
+      adj = adj_get (face->shared.adj);
+    }
+
+  vnet_buffer (outer_b0)->ip.adj_index[VLIB_TX] = face->shared.adj;
   *next = adj->lookup_next_index;
 }
 
@@ -528,7 +582,6 @@ hicn_face_udp6_encap (vlib_main_t * vm,
   ip6_header_t *ip0;
   udp_header_t *udp0;
   hicn_face_udp_t *face_udp = (hicn_face_udp_t *) face->data;
-  ip_adjacency_t *adj = adj_get (face->shared.adj);
 
   /* ip */
   ip0 = vlib_buffer_get_current (outer_b0);
@@ -549,6 +602,39 @@ hicn_face_udp6_encap (vlib_main_t * vm,
 
   if (udp0->checksum == 0)
     udp0->checksum = 0xffff;
+
+  int is_iface = 0;
+  ip_adjacency_t *adj;
+  if (PREDICT_FALSE (face->shared.adj == ~0))
+    is_iface = 1;
+  else
+    adj = adj_get (face->shared.adj);
+
+  /* In case the adj is not complete, we look if a better one exists, otherwise we send an arp request
+   * This is necessary to account for the case in which when we create a face, there isn't a /128(/32) adjacency and we match with a more general route which is in glean state
+   * In this case in fact, the general route will not be update upone receiving of a arp or neighbour responde, but a new /128(/32) will be created
+   */
+  if (PREDICT_FALSE (is_iface || adj->lookup_next_index < IP_LOOKUP_NEXT_REWRITE))
+    {
+      fib_prefix_t fib_pfx;
+      fib_node_index_t fib_entry_index;
+      ip46_address_t ip46 =
+	to_ip46 (1, (u8 *) & (face_udp->hdrs.ip6.ip.dst_address));
+      fib_prefix_from_ip46_addr (&ip46, &fib_pfx);
+      fib_pfx.fp_len = 128;
+
+      u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+							 HICN_FIB_TABLE,
+							 FIB_SOURCE_PLUGIN_HI);
+
+      fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+
+      face->shared.adj = fib_entry_get_adj (fib_entry_index);
+      face->shared.flags &= ~HICN_FACE_FLAGS_IFACE;
+      face->shared.flags |= HICN_FACE_FLAGS_FACE;
+
+      adj = adj_get (face->shared.adj);
+    }
 
   vnet_buffer (outer_b0)->ip.adj_index[VLIB_TX] = face->shared.adj;
 
@@ -618,8 +704,9 @@ hicn_face_udp6_output_trace_t;
   n_left_from -= 1;                                                 \
                                                                     \
   b0 = vlib_get_buffer (vm, bi0);                                       \
+  hicn_face_id_t face_id = vnet_buffer (b0)->ip.adj_index[VLIB_TX];     \
   face =                                                                \
-    hicn_dpoi_get_from_idx(vnet_buffer (b0)->ip.adj_index[VLIB_TX]);    \
+    hicn_dpoi_get_from_idx(face_id);                                    \
                                                                         \
   if (PREDICT_TRUE(face != NULL))                                       \
     {                                                                   \
@@ -631,6 +718,12 @@ hicn_face_udp6_output_trace_t;
       HICN_FACE_UDP_ENCAP_IP##ipv                                       \
         (vm, b0, face, &next0);						\
       stats.pkts_interest_count += 1;					\
+      vlib_increment_combined_counter (                                 \
+                                   &counters[face_id * HICN_N_COUNTER], \
+                                   thread_index,                        \
+                                   HICN_FACE_COUNTERS_INTEREST_TX,      \
+                                   1,                                   \
+                                   vlib_buffer_length_in_chain(vm, b0));\
     }                                                                   \
                                                                         \
                                                                         \
@@ -692,6 +785,8 @@ hicn_face_udp6_output_trace_t;
     b0 = vlib_get_buffer (vm, bi0);                                     \
     b1 = vlib_get_buffer (vm, bi1);                                     \
                                                                         \
+    hicn_face_id_t face_id0 = vnet_buffer (b0)->ip.adj_index[VLIB_TX];  \
+    hicn_face_id_t face_id1 = vnet_buffer (b1)->ip.adj_index[VLIB_TX];  \
     face0 =                                                             \
       hicn_dpoi_get_from_idx(vnet_buffer (b0)->ip.adj_index[VLIB_TX]);  \
     face1 =                                                             \
@@ -707,6 +802,12 @@ hicn_face_udp6_output_trace_t;
         HICN_FACE_UDP_ENCAP_IP##ipv                                     \
           (vm, b0, face0, &next0);					\
 	stats.pkts_interest_count += 1;					\
+        vlib_increment_combined_counter (                               \
+                                  &counters[face_id0 * HICN_N_COUNTER], \
+                                  thread_index,                         \
+                                  HICN_FACE_COUNTERS_INTEREST_TX,       \
+                                  1,                                    \
+                                  vlib_buffer_length_in_chain(vm, b0)); \
       }                                                                 \
                                                                         \
     if (PREDICT_TRUE(face1 != NULL))                                    \
@@ -719,6 +820,12 @@ hicn_face_udp6_output_trace_t;
         HICN_FACE_UDP_ENCAP_IP##ipv                                     \
           (vm, b1, face1, &next1);					\
 	stats.pkts_interest_count += 1;					\
+        vlib_increment_combined_counter (                               \
+                                  &counters[face_id1 * HICN_N_COUNTER], \
+                                  thread_index,                         \
+                                  HICN_FACE_COUNTERS_INTEREST_TX,       \
+                                  1,                                    \
+                                  vlib_buffer_length_in_chain(vm, b1)); \
       }                                                                 \
                                                                         \
                                                                         \
@@ -764,6 +871,7 @@ hicn_face_udp4_output_node_fn (vlib_main_t * vm,
 {
   u32 n_left_from, *from, *to_next, next_index;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
+  u32 thread_index = vm->thread_index;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -807,8 +915,9 @@ hicn_face_udp4_output_format_trace (u8 * s, va_list * args)
   s =
     format (s, "FACE_UDP4_OUTPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
 	    (int) t->pkt_type, t->sw_if_index, t->next_index,
-	    (t->packet_data[0] & 0xf0) == 0x40 ? format_ip4_header : format_ip6_header,
-	    t->packet_data, sizeof (t->packet_data));
+	    (t->packet_data[0] & 0xf0) ==
+	    0x40 ? format_ip4_header : format_ip6_header, t->packet_data,
+	    sizeof (t->packet_data));
   return (s);
 }
 
@@ -841,6 +950,7 @@ hicn_face_udp6_output_node_fn (vlib_main_t * vm,
 {
   u32 n_left_from, *from, *to_next, next_index;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
+  u32 thread_index = vm->thread_index;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -883,8 +993,9 @@ hicn_face_udp6_output_format_trace (u8 * s, va_list * args)
   s =
     format (s, "FACE_UDP6_OUTPUT: pkt: %d, sw_if_index %d, next index %d\n%u",
 	    (int) t->pkt_type, t->sw_if_index, t->next_index,
-	    (t->packet_data[0] & 0xf0) == 0x40 ? format_ip4_header : format_ip6_header,
-	    t->packet_data, sizeof (t->packet_data));
+	    (t->packet_data[0] & 0xf0) ==
+	    0x40 ? format_ip4_header : format_ip6_header, t->packet_data,
+	    sizeof (t->packet_data));
   return (s);
 }
 

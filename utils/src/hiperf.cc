@@ -13,8 +13,10 @@
  * limitations under the License.
  */
 
+#include <hicn/transport/interfaces/rtc_socket_producer.h>
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_producer.h>
+#include <hicn/transport/utils/identity.h>
 #ifndef _WIN32
 #include <hicn/transport/utils/daemonizator.h>
 #endif
@@ -22,9 +24,12 @@
 
 #include <fstream>
 #include <iomanip>
+#include <unordered_set>
 
 #ifdef __linux__
+#ifndef __ANDROID__
 #include <mcheck.h>
+#endif
 #endif
 
 #ifdef _WIN32
@@ -43,6 +48,9 @@ namespace interface {
 using CryptoSuite = utils::CryptoSuite;
 using Identity = utils::Identity;
 
+/**
+ * Container for command line configuration for hiperf client.
+ */
 struct ClientConfiguration {
   ClientConfiguration()
       : name("b001::abcd", 0),
@@ -52,10 +60,11 @@ struct ClientConfiguration {
         window(-1),
         virtual_download(true),
         producer_certificate("/tmp/rsa_certificate.pem"),
-        receive_buffer(std::make_shared<std::vector<uint8_t>>()),
+        receive_buffer(nullptr),
         download_size(0),
         report_interval_milliseconds_(1000),
-        rtc_(false) {}
+        rtc_(false),
+        test_mode_(false) {}
 
   Name name;
   bool verify;
@@ -64,13 +73,55 @@ struct ClientConfiguration {
   double window;
   bool virtual_download;
   std::string producer_certificate;
-  std::shared_ptr<std::vector<uint8_t>> receive_buffer;
+  std::shared_ptr<utils::MemBuf> receive_buffer;
   std::size_t download_size;
   std::uint32_t report_interval_milliseconds_;
   TransportProtocolAlgorithms transport_protocol_;
   bool rtc_;
+  bool test_mode_;
 };
 
+/**
+ * Class for handling the production rate for the RTC producer.
+ */
+class Rate {
+ public:
+  Rate() : rate_kbps_(0) {}
+
+  Rate(const std::string &rate) {
+    std::size_t found = rate.find("kbps");
+    if (found != std::string::npos) {
+      rate_kbps_ = std::stof(rate.substr(0, found));
+    } else {
+      throw std::runtime_error("Format " + rate + " not correct");
+    }
+  }
+
+  Rate(const Rate &other) : rate_kbps_(other.rate_kbps_) {}
+
+  Rate &operator=(const std::string &rate) {
+    std::size_t found = rate.find("kbps");
+    if (found != std::string::npos) {
+      rate_kbps_ = std::stof(rate.substr(0, found));
+    } else {
+      throw std::runtime_error("Format " + rate + " not correct");
+    }
+
+    return *this;
+  }
+
+  std::chrono::microseconds getMicrosecondsForPacket(std::size_t packet_size) {
+    return std::chrono::microseconds(
+        (uint32_t)std::round(packet_size * 1000.0 * 8.0 / (double)rate_kbps_));
+  }
+
+ private:
+  float rate_kbps_;
+};
+
+/**
+ * Container for command line configuration for hiperf server.
+ */
 struct ServerConfiguration {
   ServerConfiguration()
       : name("b001::abcd/64"),
@@ -84,7 +135,11 @@ struct ServerConfiguration {
         hash_algorithm(HashAlgorithm::SHA_256),
         keystore_name("/tmp/rsa_crypto_material.p12"),
         keystore_password("cisco"),
-        multiphase_produce_(false) {}
+        multiphase_produce_(false),
+        rtc_(false),
+        interactive_(false),
+        production_rate_(std::string("2048kbps")),
+        payload_size_(1400) {}
 
   Prefix name;
   bool virtual_producer;
@@ -98,33 +153,89 @@ struct ServerConfiguration {
   std::string keystore_name;
   std::string keystore_password;
   bool multiphase_produce_;
+  bool rtc_;
+  bool interactive_;
+  Rate production_rate_;
+  std::size_t payload_size_;
 };
 
+/**
+ * Forward declaration of client Read callbacks.
+ */
+class RTCCallback;
+class Callback;
+
+/**
+ * Hiperf client class: configure and setup an hicn consumer following the
+ * ClientConfiguration.
+ */
 class HIperfClient {
   typedef std::chrono::time_point<std::chrono::steady_clock> Time;
   typedef std::chrono::microseconds TimeDuration;
+
+  friend class RTCCallback;
+  friend class Callback;
 
  public:
   HIperfClient(const ClientConfiguration &conf)
       : configuration_(conf),
         total_duration_milliseconds_(0),
         old_bytes_value_(0),
-        signals_(io_service_, SIGINT) {}
+        signals_(io_service_, SIGINT),
+        expected_seg_(0),
+        lost_packets_(std::unordered_set<uint32_t>()),
+        rtc_callback_(configuration_.rtc_ ? new RTCCallback(*this) : nullptr),
+        callback_(configuration_.rtc_ ? nullptr : new Callback(*this)) {}
 
-  void processPayload(ConsumerSocket &c, std::size_t bytes_transferred,
-                      const std::error_code &ec) {
-    Time t2 = std::chrono::steady_clock::now();
-    TimeDuration dt = std::chrono::duration_cast<TimeDuration>(t2 - t_download_);
-    long usec = (long)dt.count();
+  void checkReceivedRtcContent(ConsumerSocket &c,
+                               const ContentObject &contentObject) {
+    if (!configuration_.test_mode_) return;
 
-    std::cout << "Content retrieved. Size: " << bytes_transferred << " [Bytes]"
-              << std::endl;
+    uint32_t receivedSeg = contentObject.getName().getSuffix();
+    auto payload = contentObject.getPayload();
 
-    std::cerr << "Elapsed Time: " << usec / 1000000.0 << " seconds -- "
-              << (bytes_transferred * 8) * 1.0 / usec * 1.0 << " [Mbps]"
-              << std::endl;
+    if ((uint32_t)payload->length() == 8) {  // 8 is the size of the NACK
+                                             // payload
+      uint32_t *payloadPtr = (uint32_t *)payload->data();
+      uint32_t productionSeg = *(payloadPtr);
+      uint32_t productionRate = *(++payloadPtr);
 
-    io_service_.stop();
+      if (productionRate == 0) {
+        std::cout << "[STOP] producer is not producing content" << std::endl;
+        return;
+      }
+
+      if (receivedSeg < productionSeg) {
+        std::cout << "[OUT OF SYNCH] received NACK for " << receivedSeg
+                  << ". Next expected packet " << productionSeg + 1
+                  << std::endl;
+        expected_seg_ = productionSeg;
+      } else if (receivedSeg > productionSeg) {
+        std::cout << "[WINDOW TO LARGE] received NACK for " << receivedSeg
+                  << ". Next expected packet " << productionSeg << std::endl;
+      }
+      return;
+    }
+
+    if (receivedSeg > expected_seg_) {
+      for (uint32_t i = expected_seg_; i < receivedSeg; i++) {
+        std::cout << "[LOSS] lost packet " << i << std::endl;
+        lost_packets_.insert(i);
+      }
+      expected_seg_ = receivedSeg + 1;
+      return;
+    } else if (receivedSeg < expected_seg_) {
+      auto it = lost_packets_.find(receivedSeg);
+      if (it != lost_packets_.end()) {
+        std::cout << "[RECOVER] recovered packet " << receivedSeg << std::endl;
+        lost_packets_.erase(it);
+      } else {
+        std::cout << "[OUT OF ORDER] recevied " << receivedSeg << " expedted "
+                  << expected_seg_ << std::endl;
+      }
+      return;
+    }
+    expected_seg_ = receivedSeg + 1;
   }
 
   bool verifyData(ConsumerSocket &c, const ContentObject &contentObject) {
@@ -139,16 +250,19 @@ class HIperfClient {
 
   void processLeavingInterest(ConsumerSocket &c, const Interest &interest) {}
 
-  void handleTimerExpiration(ConsumerSocket &c, const protocol::TransportStatistics &stats) {
+  void handleTimerExpiration(ConsumerSocket &c,
+                             const protocol::TransportStatistics &stats) {
     const char separator = ' ';
     const int width = 20;
 
     utils::TimePoint t2 = utils::SteadyClock::now();
-    auto exact_duration = std::chrono::duration_cast<utils::Milliseconds>(t2 - t_stats_);
+    auto exact_duration =
+        std::chrono::duration_cast<utils::Milliseconds>(t2 - t_stats_);
 
     std::stringstream interval;
     interval << total_duration_milliseconds_ / 1000 << "-"
-             << total_duration_milliseconds_ / 1000 + exact_duration.count() / 1000;
+             << total_duration_milliseconds_ / 1000 +
+                    exact_duration.count() / 1000;
 
     std::stringstream bytes_transferred;
     bytes_transferred << std::fixed << std::setprecision(3)
@@ -161,7 +275,8 @@ class HIperfClient {
               << std::setfill(separator) << "[Mbps]";
 
     std::stringstream window;
-    window << stats.getAverageWindowSize() << std::setfill(separator) << "[Interest]";
+    window << stats.getAverageWindowSize() << std::setfill(separator)
+           << "[Interest]";
 
     std::stringstream avg_rtt;
     avg_rtt << stats.getAverageRtt() << std::setfill(separator) << "[us]";
@@ -267,21 +382,34 @@ class HIperfClient {
       return ERROR_SETUP;
     }
 
-    ret = consumer_socket_->setSocketOption(
-        ConsumerCallbacksOptions::CONTENT_RETRIEVED,
-        (ConsumerContentCallback)std::bind(
-            &HIperfClient::processPayload, this, std::placeholders::_1,
-            std::placeholders::_2, std::placeholders::_3));
+    if (!configuration_.rtc_) {
+      ret = consumer_socket_->setSocketOption(
+          ConsumerCallbacksOptions::READ_CALLBACK, callback_);
+    } else {
+      ret = consumer_socket_->setSocketOption(
+          ConsumerCallbacksOptions::READ_CALLBACK, rtc_callback_);
+    }
 
     if (ret == SOCKET_OPTION_NOT_SET) {
       return ERROR_SETUP;
     }
 
+    if (configuration_.rtc_) {
+      ret = consumer_socket_->setSocketOption(
+          ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
+          (ConsumerContentObjectCallback)std::bind(
+              &HIperfClient::checkReceivedRtcContent, this,
+              std::placeholders::_1, std::placeholders::_2));
+      if (ret == SOCKET_OPTION_NOT_SET) {
+        return ERROR_SETUP;
+      }
+    }
+
     ret = consumer_socket_->setSocketOption(
         ConsumerCallbacksOptions::STATS_SUMMARY,
-        (ConsumerTimerCallback)std::bind(
-            &HIperfClient::handleTimerExpiration, this, std::placeholders::_1,
-            std::placeholders::_2));
+        (ConsumerTimerCallback)std::bind(&HIperfClient::handleTimerExpiration,
+                                         this, std::placeholders::_1,
+                                         std::placeholders::_2));
 
     if (ret == SOCKET_OPTION_NOT_SET) {
       return ERROR_SETUP;
@@ -308,24 +436,123 @@ class HIperfClient {
     });
 
     t_download_ = t_stats_ = std::chrono::steady_clock::now();
-    consumer_socket_->asyncConsume(configuration_.name,
-                                   configuration_.receive_buffer);
+    consumer_socket_->asyncConsume(configuration_.name);
     io_service_.run();
 
     return ERROR_SUCCESS;
   }
 
  private:
+  class RTCCallback : public ConsumerSocket::ReadCallback {
+    static constexpr std::size_t mtu = 1500;
+
+   public:
+    RTCCallback(HIperfClient &hiperf_client) : client_(hiperf_client) {
+      client_.configuration_.receive_buffer = utils::MemBuf::create(mtu);
+    }
+
+    bool isBufferMovable() noexcept override { return false; }
+
+    void getReadBuffer(uint8_t **application_buffer,
+                       size_t *max_length) override {
+      *application_buffer =
+          client_.configuration_.receive_buffer->writableData();
+      *max_length = mtu;
+    }
+
+    void readDataAvailable(std::size_t length) noexcept override {
+      // Do nothing
+      return;
+    }
+
+    size_t maxBufferSize() const override { return mtu; }
+
+    void readError(const std::error_code ec) noexcept override {
+      std::cerr << "Error while reading from RTC socket" << std::endl;
+      client_.io_service_.stop();
+    }
+
+    void readSuccess(std::size_t total_size) noexcept override {
+      std::cout << "Data successfully read" << std::endl;
+    }
+
+   private:
+    HIperfClient &client_;
+  };
+
+  class Callback : public ConsumerSocket::ReadCallback {
+    static constexpr std::size_t read_size = 16 * 1024;
+
+   public:
+    Callback(HIperfClient &hiperf_client) : client_(hiperf_client) {}
+
+    bool isBufferMovable() noexcept override { return true; }
+
+    void getReadBuffer(uint8_t **application_buffer,
+                       size_t *max_length) override {
+      // Not used
+    }
+
+    void readDataAvailable(std::size_t length) noexcept override {
+      // Do nothing
+      return;
+    }
+
+    void readBufferAvailable(
+        std::unique_ptr<utils::MemBuf> &&buffer) noexcept override {
+      if (client_.configuration_.receive_buffer) {
+        client_.configuration_.receive_buffer->prependChain(std::move(buffer));
+      } else {
+        client_.configuration_.receive_buffer = std::move(buffer);
+      }
+    }
+
+    size_t maxBufferSize() const override { return read_size; }
+
+    void readError(const std::error_code ec) noexcept override {
+      std::cerr << "Error " << ec.message() << " while reading from socket"
+                << std::endl;
+      client_.io_service_.stop();
+    }
+
+    void readSuccess(std::size_t total_size) noexcept override {
+      Time t2 = std::chrono::steady_clock::now();
+      TimeDuration dt =
+          std::chrono::duration_cast<TimeDuration>(t2 - client_.t_download_);
+      long usec = (long)dt.count();
+
+      std::cout << "Content retrieved. Size: " << total_size << " [Bytes]"
+                << std::endl;
+
+      std::cerr << "Elapsed Time: " << usec / 1000000.0 << " seconds -- "
+                << (total_size * 8) * 1.0 / usec * 1.0 << " [Mbps]"
+                << std::endl;
+
+      client_.io_service_.stop();
+    }
+
+   private:
+    HIperfClient &client_;
+  };
+
   ClientConfiguration configuration_;
-  std::unique_ptr<ConsumerSocket> consumer_socket_;
   Time t_stats_;
   Time t_download_;
   uint32_t total_duration_milliseconds_;
   uint64_t old_bytes_value_;
   asio::io_service io_service_;
   asio::signal_set signals_;
+  std::unique_ptr<ConsumerSocket> consumer_socket_;
+  uint32_t expected_seg_;
+  std::unordered_set<uint32_t> lost_packets_;
+  RTCCallback *rtc_callback_;
+  Callback *callback_;
 };
 
+/**
+ * Hiperf server class: configure and setup an hicn producer following the
+ * ServerConfiguration.
+ */
 class HIperfServer {
   const std::size_t log2_content_object_buffer_size = 8;
 
@@ -333,10 +560,16 @@ class HIperfServer {
   HIperfServer(ServerConfiguration &conf)
       : configuration_(conf),
         signals_(io_service_, SIGINT),
+        rtc_timer_(io_service_),
         content_objects_((std::uint16_t)(1 << log2_content_object_buffer_size)),
         content_objects_index_(0),
-        mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1) {
-    std::string buffer(1440, 'X');
+        mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
+#ifndef _WIN32
+        input_(io_service_, ::dup(STDIN_FILENO)),
+        rtc_running_(false)
+#endif
+  {
+    std::string buffer(configuration_.payload_size_, 'X');
     std::cout << "Producing contents under name " << conf.name.getName()
               << std::endl;
 
@@ -352,16 +585,6 @@ class HIperfServer {
   void processInterest(ProducerSocket &p, const Interest &interest) {
     content_objects_[content_objects_index_ & mask_]->setName(
         interest.getName());
-
-    //    if (final_chunk_number_ > 0 && interest.getName().getSuffix() == 0) {
-    //      auto name = interest.getName();
-    //      manifest_ = std::make_shared<ContentObjectManifest>(name);
-    //      // manifest_->setFinalChunkNumber(final_chunk_number_);
-    //      manifest_->encode();
-    //      p.produce(*manifest_);
-    //      return;
-    //    }
-
     producer_socket_->produce(
         *content_objects_[content_objects_index_++ & mask_]);
   }
@@ -393,27 +616,32 @@ class HIperfServer {
               << std::endl;
   }
 
-  std::shared_ptr<utils::Identity> setProducerIdentity(std::string &keystore_name,
-                                      std::string &keystore_password,
-                                      HashAlgorithm &hash_algorithm) {
+  std::shared_ptr<utils::Identity> setProducerIdentity(
+      std::string &keystore_name, std::string &keystore_password,
+      HashAlgorithm &hash_algorithm) {
     if (access(keystore_name.c_str(), F_OK) != -1) {
-      return std::make_shared<utils::Identity>(keystore_name, keystore_password, hash_algorithm);
+      return std::make_shared<utils::Identity>(keystore_name, keystore_password,
+                                               hash_algorithm);
     } else {
       return std::make_shared<utils::Identity>(keystore_name, keystore_password,
-                             CryptoSuite::RSA_SHA256, 1024, 365,
-                             "producer-test");
+                                               CryptoSuite::RSA_SHA256, 1024,
+                                               365, "producer-test");
     }
   }
 
   int setup() {
     int ret;
 
-    producer_socket_ = std::make_unique<ProducerSocket>();
+    if (configuration_.rtc_) {
+      producer_socket_ = std::make_unique<RTCProducerSocket>();
+    } else {
+      producer_socket_ = std::make_unique<ProducerSocket>();
+    }
 
     if (configuration_.sign) {
       auto identity = setProducerIdentity(configuration_.keystore_name,
-                                              configuration_.keystore_password,
-                                              configuration_.hash_algorithm);
+                                          configuration_.keystore_password,
+                                          configuration_.hash_algorithm);
 
       if (producer_socket_->setSocketOption(GeneralTransportOptions::IDENTITY,
                                             identity) ==
@@ -424,6 +652,13 @@ class HIperfServer {
 
     producer_socket_->registerPrefix(configuration_.name);
     producer_socket_->connect();
+
+    if (configuration_.rtc_) {
+      std::cout << "Running RTC producer: the prefix length will be ignored."
+                   " Use /128 by default in RTC mode"
+                << std::endl;
+      return ERROR_SUCCESS;
+    }
 
     if (!configuration_.virtual_producer) {
       if (producer_socket_->setSocketOption(
@@ -479,6 +714,50 @@ class HIperfServer {
     return ERROR_SUCCESS;
   }
 
+  void sendRTCContentObjectCallback(std::error_code ec) {
+    if (!ec) {
+      rtc_timer_.expires_from_now(
+          configuration_.production_rate_.getMicrosecondsForPacket(
+              configuration_.payload_size_));
+      rtc_timer_.async_wait(
+          std::bind(&HIperfServer::sendRTCContentObjectCallback, this,
+                    std::placeholders::_1));
+      auto payload =
+          content_objects_[content_objects_index_++ & mask_]->getPayload();
+      producer_socket_->produce(payload->data(), payload->length());
+    }
+  }
+
+#ifndef _WIN32
+  void handleInput(const std::error_code &error, std::size_t length) {
+    if (error) {
+      producer_socket_->stop();
+      io_service_.stop();
+    }
+
+    if (rtc_running_) {
+      std::cout << "stop real time content production" << std::endl;
+      rtc_running_ = false;
+      rtc_timer_.cancel();
+    } else {
+      std::cout << "start real time content production" << std::endl;
+      rtc_running_ = true;
+      rtc_timer_.expires_from_now(
+          configuration_.production_rate_.getMicrosecondsForPacket(
+              configuration_.payload_size_));
+      rtc_timer_.async_wait(
+          std::bind(&HIperfServer::sendRTCContentObjectCallback, this,
+                    std::placeholders::_1));
+    }
+
+    input_buffer_.consume(length);  // Remove newline from input.
+    asio::async_read_until(
+        input_, input_buffer_, '\n',
+        std::bind(&HIperfServer::handleInput, this, std::placeholders::_1,
+                  std::placeholders::_2));
+  }
+#endif
+
   int run() {
     std::cerr << "Starting to serve consumers" << std::endl;
 
@@ -488,6 +767,32 @@ class HIperfServer {
       io_service_.stop();
     });
 
+    if (configuration_.rtc_) {
+#ifndef _WIN32
+      if (configuration_.interactive_) {
+        asio::async_read_until(
+            input_, input_buffer_, '\n',
+            std::bind(&HIperfServer::handleInput, this, std::placeholders::_1,
+                      std::placeholders::_2));
+      } else {
+        rtc_running_ = true;
+        rtc_timer_.expires_from_now(
+            configuration_.production_rate_.getMicrosecondsForPacket(
+                configuration_.payload_size_));
+        rtc_timer_.async_wait(
+            std::bind(&HIperfServer::sendRTCContentObjectCallback, this,
+                      std::placeholders::_1));
+      }
+#else
+      rtc_timer_.expires_from_now(
+          configuration_.production_rate_.getMicrosecondsForPacket(
+              configuration_.payload_size_));
+      rtc_timer_.async_wait(
+          std::bind(&HIperfServer::sendRTCContentObjectCallback, this,
+                    std::placeholders::_1));
+#endif
+    }
+
     io_service_.run();
 
     return ERROR_SUCCESS;
@@ -495,12 +800,18 @@ class HIperfServer {
 
  private:
   ServerConfiguration configuration_;
-  std::unique_ptr<ProducerSocket> producer_socket_;
   asio::io_service io_service_;
   asio::signal_set signals_;
+  asio::steady_timer rtc_timer_;
   std::vector<std::shared_ptr<ContentObject>> content_objects_;
   std::uint16_t content_objects_index_;
   std::uint16_t mask_;
+  std::unique_ptr<ProducerSocket> producer_socket_;
+#ifndef _WIN32
+  asio::posix::stream_descriptor input_;
+  asio::streambuf input_buffer_;
+  bool rtc_running_;
+#endif
 };
 
 void usage() {
@@ -511,53 +822,80 @@ void usage() {
   std::cerr << "usage: hiperf [-S|-C] [options] [prefix|name]" << std::endl;
   std::cerr << "Server or Client:" << std::endl;
 #ifndef _WIN32
-  std::cerr << "-D\t\t\t\t\t"
-            << "Run as a daemon" << std::endl;
+  std::cerr << "-D                          = run as a daemon" << std::endl;
+
 #endif
+  std::cerr
+      << "-R                          = run RTC protocol (client or server)"
+      << std::endl;
+  std::cerr << "-f <ouptup_log_file>        = output log file path"
+            << std::endl;
   std::cerr << std::endl;
   std::cerr << "Server specific:" << std::endl;
-  std::cerr << "-s\t<content_size>\t\t\tSize of the content to publish"
+  std::cerr << "-A <download_size>          = size of the content to publish"
+               "This is not the size of the packet (see -s for it)"
             << std::endl;
-  std::cerr << "-r\t\t\t\t\t"
-            << "Produce real content of content_size bytes" << std::endl;
-  std::cerr << "-m\t\t\t\t\t"
-            << "Produce transport manifest" << std::endl;
-  std::cerr << "-l\t\t\t\t\t"
-            << "Start producing content upon the reception of the "
-               "first interest"
+  std::cerr
+      << "-s <payload_size>           = size of the payload of each data packet"
+      << std::endl;
+  std::cerr << "-r                          = produce real content of "
+               "content_size bytes"
             << std::endl;
-  std::cerr << "-k\t<keystore_path>\t\t\t"
-            << "Path of p12 file containing the "
+  std::cerr << "-m                          = produce transport manifest"
+            << std::endl;
+  std::cerr << "-l                          = start producing content upon the "
+               "reception of the first interest"
+            << std::endl;
+  std::cerr << "-k <keystore_path>          = path of p12 file containing the "
                "crypto material used for signing the packets"
             << std::endl;
-  std::cerr << "-y\t<hash_algorithm>\t\t"
-            << "Use the selected hash algorithm for "
-               "calculating manifest digests"
+  std::cerr << "-y <hash_algorithm>         = use the selected hash algorithm "
+               "for calculating manifest digests"
             << std::endl;
-  std::cerr << "-p\t<password>\t\t\t"
-            << "Password for p12 keystore" << std::endl;
+  std::cerr << "-p <password>               = password for p12 keystore"
+            << std::endl;
+  std::cerr
+      << "-x                          = produce a content of <download_size>, "
+         "then after downloading it produce a new content of"
+      << std::endl;
+  std::cerr << "                              <download_size> without "
+               "resetting the suffix to 0"
+            << std::endl;
+  std::cerr << "-B <bitrate>                = bitrate for RTC "
+               "producer, to be used with the -R option"
+            << std::endl;
+#ifndef _WIN32
+  std::cerr << "-I                          = interactive mode,"
+               "start/stop real time content production "
+               "by pressing return. To be used with the -R option"
+            << std::endl;
+#endif
   std::cerr << std::endl;
   std::cerr << "Client specific:" << std::endl;
-  std::cerr << "-b\t<beta_parameter>\t\t"
-            << "RAAQM beta parameter" << std::endl;
-  std::cerr << "-d\t<drop_factor_parameter>\t\t"
-            << "RAAQM drop factor "
-               "parameter"
+  std::cerr << "-b <beta_parameter>         = RAAQM beta parameter"
             << std::endl;
-  std::cerr << "-M\t<Download for real>\t\t"
-            << "Store the content downloaded."
+  std::cerr << "-d <drop_factor_parameter>  = RAAQM drop factor parameter"
             << std::endl;
-  std::cerr << "-W\t<window_size>\t\t\t"
-            << "Use a fixed congestion window "
-               "for retrieving the data."
+  std::cerr << "-M                          = store the content downloaded"
+               "(default false)"
             << std::endl;
-  std::cerr << "-c\t<certificate_path>\t\t"
-            << "Path of the producer certificate "
-               "to be used for verifying the "
-               "origin of the packets received"
+  std::cerr << "-W <window_size>            = use a fixed congestion window"
+               "for retrieving the data"
             << std::endl;
-  std::cout << "-v\t\t\t\t\t"
-            << "Enable verification of received data" << std::endl;
+  std::cerr << "-c <certificate_path>       = path of the producer certificate"
+               "to be used for verifying the origin of the packets received"
+            << std::endl;
+  std::cerr << "-i <stats_interval>         = show the statistics every "
+               "<stats_interval> milliseconds"
+            << std::endl;
+  std::cout
+      << "-v                          = Enable verification of received data"
+      << std::endl;
+  std::cout
+      << "-t                          = Test mode, check if the client is "
+         "receiving the correct data. This is an RTC specific option, to be "
+         "used with the -R (default false)"
+      << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -583,84 +921,117 @@ int main(int argc, char *argv[]) {
 
   int opt;
 #ifndef _WIN32
-  while ((opt = getopt(argc, argv, "DSCf:b:d:W:RMc:vs:rmlk:y:p:hi:x")) != -1) {
+  while ((opt = getopt(argc, argv, "DSCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:It")) !=
+         -1) {
     switch (opt) {
       // Common
-      case 'D':
+      case 'D': {
         daemon = true;
         break;
+      }
+      case 'I': {
+        server_configuration.interactive_ = true;
+        break;
+      }
 #else
-  while ((opt = getopt(argc, argv, "SCf:b:d:W:RMc:vs:rmlk:y:p:hi:x")) != -1) {
+  while ((opt = getopt(argc, argv, "SCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:t")) !=
+         -1) {
     switch (opt) {
 #endif
-      case 'f':
+      case 'f': {
         log_file = optarg;
         break;
+      }
+      case 'R': {
+        client_configuration.rtc_ = true;
+        server_configuration.rtc_ = true;
+        break;
+      }
 
       // Server or Client
-      case 'S':
+      case 'S': {
         role -= 1;
         break;
-      case 'C':
+      }
+      case 'C': {
         role += 1;
         break;
+      }
 
       // Client specifc
-      case 'b':
+      case 'b': {
         client_configuration.beta = std::stod(optarg);
         options = 1;
         break;
-      case 'd':
+      }
+      case 'd': {
         client_configuration.drop_factor = std::stod(optarg);
         options = 1;
         break;
-      case 'W':
+      }
+      case 'W': {
         client_configuration.window = std::stod(optarg);
         options = 1;
         break;
-      case 'M':
+      }
+      case 'M': {
         client_configuration.virtual_download = false;
         options = 1;
         break;
-      case 'c':
+      }
+      case 'c': {
         client_configuration.producer_certificate = std::string(optarg);
         options = 1;
         break;
-      case 'v':
+      }
+      case 'v': {
         client_configuration.verify = true;
         options = 1;
         break;
-      case 'i':
+      }
+      case 'i': {
         client_configuration.report_interval_milliseconds_ = std::stoul(optarg);
         options = 1;
         break;
-      case 'R':
-        client_configuration.rtc_ = true;
+      }
+      case 't': {
+        client_configuration.test_mode_ = true;
+        options = 1;
         break;
-
+      }
       // Server specific
-      case 's':
+      case 'A': {
         server_configuration.download_size = std::stoul(optarg);
         options = -1;
         break;
-      case 'r':
+      }
+      case 's': {
+        server_configuration.payload_size_ = std::stoul(optarg);
+        options = -1;
+        break;
+      }
+      case 'r': {
         server_configuration.virtual_producer = false;
         options = -1;
         break;
-      case 'm':
+      }
+      case 'm': {
         server_configuration.manifest = true;
         options = -1;
         break;
-      case 'l':
+      }
+      case 'l': {
         server_configuration.live_production = true;
         options = -1;
         break;
-      case 'k':
+      }
+      case 'k': {
         server_configuration.keystore_name = std::string(optarg);
         server_configuration.sign = true;
         options = -1;
         break;
-      case 'y':
+      }
+      case 'y': {
         if (strncasecmp(optarg, "sha256", 6) == 0) {
           server_configuration.hash_algorithm = HashAlgorithm::SHA_256;
         } else if (strncasecmp(optarg, "sha512", 6) == 0) {
@@ -673,14 +1044,27 @@ int main(int argc, char *argv[]) {
         }
         options = -1;
         break;
-      case 'p':
+      }
+      case 'p': {
         server_configuration.keystore_password = std::string(optarg);
         options = -1;
         break;
-      case 'x':
+      }
+      case 'x': {
         server_configuration.multiphase_produce_ = true;
         options = -1;
         break;
+      }
+      case 'B': {
+        auto str = std::string(optarg);
+        std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+        std::cout << "---------------------------------------------------------"
+                     "---------------------->"
+                  << str << std::endl;
+        server_configuration.production_rate_ = str;
+        options = -1;
+        break;
+      }
       case 'h':
       default:
         usage();

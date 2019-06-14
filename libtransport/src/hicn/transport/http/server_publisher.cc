@@ -23,7 +23,7 @@ namespace http {
 HTTPServerPublisher::HTTPServerPublisher(const core::Name &content_name)
     : content_name_(content_name, true) {
   std::string identity = "acceptor_producer";
-  producer_ = std::make_unique<ProducerSocket>(io_service_);
+  producer_ = std::make_unique<ProducerSocket>();
   //                                                          utils::Identity::generateIdentity(identity));
   core::Prefix publisher_prefix(content_name_, 128);
   producer_->registerPrefix(publisher_prefix);

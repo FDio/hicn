@@ -50,6 +50,10 @@ class ManifestIndexManager : public IncrementalIndexManager,
 
   uint32_t getFinalSuffix() override;
 
+ private:
+  void onManifestReceived(Interest::Ptr &&i, ContentObject::Ptr &&c);
+  void onManifestTimeout(Interest::Ptr &&i);
+
  protected:
   SuffixQueue suffix_queue_;
   SuffixQueue::iterator next_reassembly_segment_;

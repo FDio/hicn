@@ -27,7 +27,6 @@
 #define __plugin_msg_base hicn_test_main.msg_id_base
 #include <vlibapi/vat_helper_macros.h>
 
-
 #include <hicn/hicn_api.h>
 #include "error.h"
 
@@ -35,6 +34,17 @@
 
 /* Declare message IDs */
 #include "hicn_msg_enum.h"
+
+/* define message structures */
+#define vl_typedefs
+#include <vpp/api/vpe_all_api_h.h>
+#include <hicn/hicn_all_api_h.h>
+#undef vl_typedefs
+
+/* Get CRC codes of the messages defined outside of this plugin */
+#define vl_msg_name_crc_list
+#include <vpp/api/vpe_all_api_h.h>
+#undef vl_msg_name_crc_list
 
 /* declare message handlers for each api */
 
@@ -82,6 +92,7 @@ typedef struct
   /* API message ID base */
   u16 msg_id_base;
   vat_main_t *vat_main;
+  u32 ping_id;
 } hicn_test_main_t;
 
 hicn_test_main_t hicn_test_main;
@@ -120,6 +131,7 @@ _(HICN_API_NODE_PARAMS_GET_REPLY, hicn_api_node_params_get_reply)       \
 _(HICN_API_NODE_STATS_GET_REPLY, hicn_api_node_stats_get_reply)         \
 _(HICN_API_FACE_IP_DEL_REPLY, hicn_api_face_ip_del_reply)               \
 _(HICN_API_FACE_IP_ADD_REPLY, hicn_api_face_ip_add_reply)               \
+_(HICN_API_FACE_STATS_DETAILS, hicn_api_face_stats_details)             \
 _(HICN_API_ROUTE_NHOPS_ADD_REPLY, hicn_api_route_nhops_add_reply)       \
 _(HICN_API_FACE_IP_PARAMS_GET_REPLY, hicn_api_face_ip_params_get_reply) \
 _(HICN_API_ROUTE_GET_REPLY, hicn_api_route_get_reply)                   \
@@ -322,17 +334,27 @@ static int
 api_hicn_api_face_ip_add (vat_main_t * vam)
 {
   unformat_input_t *input = vam->input;
-  ip46_address_t nh_addr;
+  ip46_address_t local_addr = { 0 };
+  ip46_address_t remote_addr = { 0 };
+  int ret = HICN_ERROR_NONE;
+  int sw_if = 0;
   vl_api_hicn_api_face_ip_add_t *mp;
-  int swif, ret;
 
   /* Parse args required to build the message */
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
-      if (unformat (input, "add %d %U",
-		    &swif, unformat_ip46_address, &nh_addr))
-	{;
-	}
+      if (unformat
+	  (input, "local %U", unformat_ip4_address, &local_addr.ip4));
+      else
+	if (unformat
+	    (input, "local %U", unformat_ip6_address, &local_addr.ip6));
+      else
+	if (unformat
+	    (input, "remote %U", unformat_ip4_address, &remote_addr.ip4));
+      else
+	if (unformat
+	    (input, "remote %U", unformat_ip6_address, &remote_addr.ip6));
+      else if (unformat (input, "intfc %d", &sw_if));
       else
 	{
 	  break;
@@ -340,16 +362,18 @@ api_hicn_api_face_ip_add (vat_main_t * vam)
     }
 
   /* Check for presence of both addresses */
-  if ((nh_addr.as_u64[0] == (u64) 0) && (nh_addr.as_u64[1] == (u64) 0))
+  if (ip46_address_is_zero (&remote_addr))
     {
-      clib_warning ("Next hop address not specified");
+      clib_warning ("Incomplete IP face. Please specify remote address");
       return (1);
     }
   /* Construct the API message */
   M (HICN_API_FACE_IP_ADD, mp);
-  mp->nh_addr[0] = clib_host_to_net_u64 (nh_addr.as_u64[0]);
-  mp->nh_addr[1] = clib_host_to_net_u64 (nh_addr.as_u64[0]);
-  mp->swif = clib_host_to_net_u32 (swif);
+  mp->local_addr[0] = clib_host_to_net_u64 (local_addr.as_u64[0]);
+  mp->local_addr[1] = clib_host_to_net_u64 (local_addr.as_u64[1]);
+  mp->remote_addr[0] = clib_host_to_net_u64 (remote_addr.as_u64[0]);
+  mp->remote_addr[1] = clib_host_to_net_u64 (remote_addr.as_u64[1]);
+  mp->swif = clib_host_to_net_u32 (sw_if);
 
   /* send it... */
   S (mp);
@@ -389,7 +413,7 @@ api_hicn_api_face_ip_del (vat_main_t * vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_face_ip_del_t *mp;
-  int faceid = 0, ret;
+  u32 faceid = 0, ret;
 
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
@@ -403,14 +427,14 @@ api_hicn_api_face_ip_del (vat_main_t * vam)
     }
 
   //Check for presence of face ID
-  if (faceid == 0)
+  if (faceid == ~0)
     {
       clib_warning ("Please specify face ID");
       return 1;
     }
   //Construct the API message
   M (HICN_API_FACE_IP_DEL, mp);
-  mp->faceid = clib_host_to_net_i32 (faceid);
+  mp->faceid = clib_host_to_net_u32 (faceid);
 
   //send it...
   S (mp);
@@ -426,7 +450,7 @@ api_hicn_api_face_ip_params_get (vat_main_t * vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_face_ip_params_get_t *mp;
-  int faceid = 0, ret;
+  u32 faceid = 0, ret;
 
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
@@ -447,7 +471,7 @@ api_hicn_api_face_ip_params_get (vat_main_t * vam)
     }
   //Construct the API message
   M (HICN_API_FACE_IP_PARAMS_GET, mp);
-  mp->faceid = clib_host_to_net_i32 (faceid);
+  mp->faceid = clib_host_to_net_u32 (faceid);
 
   //send it...
   S (mp);
@@ -465,7 +489,8 @@ static void
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (rmp->retval);
   u8 *sbuf = 0;
-  u64 nh_addr[2];
+  ip46_address_t remote_addr;
+  ip46_address_t local_addr;
 
   if (vam->async_mode)
     {
@@ -482,17 +507,80 @@ static void
       return;
     }
   vec_reset_length (sbuf);
-  nh_addr[0] = clib_net_to_host_u64 (rmp->nh_addr[0]);
-  nh_addr[1] = clib_net_to_host_u64 (rmp->nh_addr[1]);
+  local_addr.as_u64[0] = clib_net_to_host_u64 (rmp->local_addr[0]);
+  local_addr.as_u64[1] = clib_net_to_host_u64 (rmp->local_addr[1]);
+  remote_addr.as_u64[0] = clib_net_to_host_u64 (rmp->remote_addr[0]);
+  remote_addr.as_u64[1] = clib_net_to_host_u64 (rmp->remote_addr[1]);
   sbuf =
-    format (sbuf, "%U", format_ip46_address, &nh_addr,
-	    0 /* IP46_ANY_TYPE */ );
+    format (0, "local_addr %U remote_addr %U", format_ip46_address,
+	    &local_addr, 0 /*IP46_ANY_TYPE */ , format_ip46_address,
+	    &remote_addr, 0 /*IP46_ANY_TYPE */ );
 
-  fformat (vam->ofp, "nh_addr %s swif %d flags %d\n",
+  fformat (vam->ofp, "%s swif %d flags %d\n",
 	   sbuf,
 	   clib_net_to_host_u16 (rmp->swif),
 	   clib_net_to_host_i32 (rmp->flags));
 }
+
+/* memif-dump API */
+static int
+api_hicn_api_face_stats_dump (vat_main_t * vam)
+{
+  hicn_test_main_t *hm = &hicn_test_main;
+  vl_api_hicn_api_face_stats_dump_t *mp;
+  vl_api_control_ping_t *mp_ping;
+  int ret;
+
+  if (vam->json_output)
+    {
+      clib_warning ("JSON output not supported for memif_dump");
+      return -99;
+    }
+
+  M (HICN_API_FACE_STATS_DUMP, mp);
+  S (mp);
+
+  /* Use a control ping for synchronization */
+  mp_ping = vl_msg_api_alloc_as_if_client (sizeof (*mp_ping));
+  mp_ping->_vl_msg_id = htons (hm->ping_id);
+  mp_ping->client_index = vam->my_client_index;
+
+  fformat (vam->ofp, "Sending ping id=%d\n", hm->ping_id);
+
+  vam->result_ready = 0;
+  S (mp_ping);
+
+  W (ret);
+  return ret;
+}
+
+/* memif-details message handler */
+static void
+  vl_api_hicn_api_face_stats_details_t_handler
+  (vl_api_hicn_api_face_stats_details_t * mp)
+{
+  vat_main_t *vam = hicn_test_main.vat_main;
+
+  fformat (vam->ofp, "face id %d\n"
+	   "    interest rx           packets %16Ld\n"
+	   "                          bytes %16Ld\n"
+	   "    interest tx           packets %16Ld\n"
+	   "                          bytes %16Ld\n"
+	   "    data rx               packets %16Ld\n"
+	   "                          bytes %16Ld\n"
+	   "    data tx               packets %16Ld\n"
+	   "                          bytes %16Ld\n",
+	   clib_host_to_net_u32 (mp->faceid),
+	   clib_host_to_net_u64 (mp->irx_packets),
+	   clib_host_to_net_u64 (mp->irx_bytes),
+	   clib_host_to_net_u64 (mp->itx_packets),
+	   clib_host_to_net_u64 (mp->itx_bytes),
+	   clib_host_to_net_u64 (mp->drx_packets),
+	   clib_host_to_net_u64 (mp->drx_bytes),
+	   clib_host_to_net_u64 (mp->dtx_packets),
+	   clib_host_to_net_u64 (mp->dtx_bytes));
+}
+
 
 static int
 api_hicn_api_route_get (vat_main_t * vam)
@@ -981,7 +1069,8 @@ _(hicn_api_node_params_set, "PIT size <sz> CS size <sz>"                \
 _(hicn_api_node_params_get, "")                                         \
 _(hicn_api_node_stats_get, "")                                          \
 _(hicn_api_face_ip_del, "face <faceID>")                                \
-_(hicn_api_face_ip_add, "add <swif> <address>")                         \
+_(hicn_api_face_ip_add, "local <address> remote <address> intfc <swif>")\
+_(hicn_api_face_stats_dump, "")                                         \
 _(hicn_api_route_nhops_add, "add prefix <IP4/IP6>/<subnet> face <faceID> weight <weight>") \
 _(hicn_api_face_ip_params_get, "face <faceID>")                         \
 _(hicn_api_route_get, "prefix <IP4/IP6>/<subnet>")                      \
@@ -1030,6 +1119,13 @@ vat_plugin_register (vat_main_t * vam)
   /* Ask the vpp engine for the first assigned message-id */
   name = format (0, "hicn_%08x%c", api_version, 0);
   sm->msg_id_base = vl_client_get_first_plugin_msg_id ((char *) name);
+
+  /* Get the control ping ID */
+#define _(id,n,crc)                                                     \
+  const char *id ## _CRC __attribute__ ((unused)) = #n "_" #crc;
+  foreach_vl_msg_name_crc_vpe;
+#undef _
+  sm->ping_id = vl_msg_api_get_msg_index ((u8 *) (VL_API_CONTROL_PING_CRC));
 
   if (sm->msg_id_base != (u16) ~ 0)
     hicn_vat_api_hookup (vam);

@@ -31,6 +31,14 @@ hicn_face_t *hicn_dpoi_face_pool;
 
 dpo_type_t first_type = DPO_FIRST;
 
+vlib_combined_counter_main_t *counters;
+
+const char *HICN_FACE_CTRX_STRING[] = {
+#define _(a,b,c) c,
+  foreach_hicn_face_counter
+#undef _
+};
+
 u8 *
 face_show (u8 * s, int face_id, u32 indent)
 {
@@ -77,6 +85,9 @@ hicn_face_module_init (vlib_main_t * vm)
   hicn_iface_ip_init (vm);
   hicn_face_udp_init (vm);
   hicn_iface_udp_init (vm);
+  counters =
+    vec_new (vlib_combined_counter_main_t,
+	     HICN_PARAM_FACES_MAX * HICN_N_COUNTER);
 }
 
 u8 *
@@ -118,7 +129,7 @@ hicn_face_del (hicn_face_id_t face_id)
 {
   int ret = HICN_ERROR_NONE;
 
-  if (pool_len (hicn_dpoi_face_pool) > face_id)
+  if (hicn_dpoi_idx_is_valid (face_id))
     {
       hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
       if (face->shared.locks == 0)

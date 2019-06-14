@@ -45,11 +45,7 @@ class UdpSocketConnector : public Connector {
 
   void close() override;
 
-  void enableBurst() override;
-
   void connect(std::string ip_address = "127.0.0.1", std::string port = "9695");
-
-  void state() override;
 
  private:
   void doConnect();
@@ -57,6 +53,8 @@ class UdpSocketConnector : public Connector {
   void doRead();
 
   void doWrite();
+
+  void doClose();
 
   bool checkConnected();
 
@@ -72,14 +70,11 @@ class UdpSocketConnector : public Connector {
   asio::ip::udp::resolver resolver_;
   asio::ip::udp::resolver::iterator endpoint_iterator_;
   asio::steady_timer connection_timer_;
-  asio::steady_timer connection_timeout_;
 
   utils::ObjectPool<utils::MemBuf>::Ptr read_msg_;
 
-  bool is_connecting_;
   bool is_reconnection_;
   bool data_available_;
-  bool is_closed_;
 
   std::string app_name_;
 };

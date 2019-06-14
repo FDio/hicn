@@ -54,6 +54,7 @@ RawSocketConnector::~RawSocketConnector() {}
 
 void RawSocketConnector::connect(const std::string &interface_name,
                                  const std::string &mac_address_str) {
+  state_ = ConnectorState::CONNECTING;
   memset(&ethernet_header_, 0, sizeof(ethernet_header_));
   struct ifreq ifr;
   struct ifreq if_mac;
@@ -112,42 +113,32 @@ void RawSocketConnector::connect(const std::string &interface_name,
   doRecvPacket();
 }
 
-void RawSocketConnector::state() { return; }
-
 void RawSocketConnector::send(const uint8_t *packet, std::size_t len,
                               const PacketSentCallback &packet_sent) {
-  // asio::async_write(socket_, asio::buffer(packet, len),
-  //                   [packet_sent] (std::error_code ec,
-  //                                  std::size_t /*length*/) {
-  //                     packet_sent();
-  //                   });
+  if (packet_sent != 0) {
+    socket_.async_send(
+        asio::buffer(packet, len),
+        [packet_sent](std::error_code ec, std::size_t /*length*/) {
+          packet_sent();
+        });
+  } else {
+    if (state_ == ConnectorState::CONNECTED) {
+      socket_.send(asio::buffer(packet, len));
+    }
+  }
 }
 
 void RawSocketConnector::send(const Packet::MemBufPtr &packet) {
-  // Packet &p = const_cast<Packet &>(packet);
-  // p.setTcpChecksum();
-
-  // if (!p.checkIntegrity()) {
-  //   TRANSPORT_LOGW("Sending message with wrong checksum!!!");
-  // }
-
-  // std::shared_ptr<const Packet> ptr;
-  // try {
-  //   ptr = packet.shared_from_this();
-  // } catch (std::bad_weak_ptr& exc) {
-  //   TRANSPORT_LOGW("Sending interest which has not been created using a
-  //   shared PTR! A copy will be made."); ptr =
-  //   std::shared_ptr<Packet>(packet.clone());
-  // }
-
   io_service_.post([this, packet]() {
     bool write_in_progress = !output_buffer_.empty();
     output_buffer_.push_back(std::move(packet));
-    if (!write_in_progress) {
-      doSendPacket();
-    } else {
-      // Tell the handle connect it has data to write
-      data_available_ = true;
+    if (TRANSPORT_EXPECT_TRUE(state_ == ConnectorState::CONNECTED)) {
+      if (!write_in_progress) {
+        doSendPacket();
+      } else {
+        // Tell the handle connect it has data to write
+        data_available_ = true;
+      }
     }
   });
 }
@@ -202,10 +193,9 @@ void RawSocketConnector::doRecvPacket() {
 }
 
 void RawSocketConnector::doConnect() {
+  state_ = ConnectorState::CONNECTED;
   socket_.bind(raw_endpoint(&link_layer_address_, sizeof(link_layer_address_)));
 }
-
-void RawSocketConnector::enableBurst() { return; }
 
 }  // end namespace core
 

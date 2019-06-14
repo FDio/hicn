@@ -99,9 +99,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   std::size_t headerSize() const;
 
-  const std::shared_ptr<utils::MemBuf> data();
-
-  const uint8_t *start() const;
+  const std::shared_ptr<utils::MemBuf> acquireMemBufReference();
 
   virtual const Name &getName() const = 0;
 
@@ -111,9 +109,9 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   virtual void setName(Name &&name) = 0;
 
-  virtual void setLifetime(uint32_t lifetime);
+  virtual void setLifetime(uint32_t lifetime) = 0;
 
-  virtual uint32_t getLifetime() const;
+  virtual uint32_t getLifetime() const = 0;
 
   Packet &appendPayload(const uint8_t *buffer, std::size_t length);
 
@@ -123,7 +121,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   Packet &appendHeader(const uint8_t *buffer, std::size_t length);
 
-  utils::Array<uint8_t> getPayload() const;
+  std::unique_ptr<utils::MemBuf> getPayload() const;
 
   Packet &updateLength(std::size_t length = 0);
 
@@ -180,6 +178,8 @@ class Packet : public std::enable_shared_from_this<Packet> {
   Packet &setTTL(uint8_t hops);
   uint8_t getTTL() const;
 
+  void resetPayload();
+
  private:
   virtual void resetForHash() = 0;
   void setSignatureSize(std::size_t size_bytes);
@@ -190,7 +190,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
  protected:
   Name name_;
   MemBufPtr packet_;
-  uint8_t *packet_start_;
+  hicn_header_t *packet_start_;
   utils::MemBuf *header_head_;
   utils::MemBuf *payload_head_;
   mutable Format format_;

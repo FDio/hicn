@@ -88,11 +88,11 @@ hicn_select_next_hop_mw (index_t dpo_idx, int *nh_idx, dpo_id_t ** outface)
 
   if (!dpo_id_is_valid
       (&hicn_strategy_mw_ctx->default_ctx.next_hops[next_hop_index]))
-    return HICN_ERROR_MW_STRATEGY_NH_NOT_FOUND;
+    return HICN_ERROR_STRATEGY_NH_NOT_FOUND;
 
   *outface =
-    (dpo_id_t *) & hicn_strategy_mw_ctx->
-    default_ctx.next_hops[next_hop_index];
+    (dpo_id_t *) & hicn_strategy_mw_ctx->default_ctx.
+    next_hops[next_hop_index];
 
   return HICN_ERROR_NONE;
 }

@@ -34,8 +34,6 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
   ip46_address_t local_addr;
   ip46_address_t remote_addr;
   hicn_face_id_t face_id = HICN_FACE_NULL;
-  int app_face = 0;
-  u32 cs_reserved = HICN_PARAM_FACE_DFT_CS_RESERVED;
   int ret = HICN_ERROR_NONE;
   int sw_if;
   int face_op = HICN_FACE_NONE;
@@ -62,10 +60,13 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
       else if (unformat (line_input, "add"))
 	{
 	  face_op = HICN_FACE_ADD;
-	  if (unformat (line_input, "local %U remote %U intfc %U",
-			unformat_ip46_address, &local_addr, IP46_TYPE_ANY,
-			unformat_ip46_address, &remote_addr, IP46_TYPE_ANY,
-			unformat_vnet_sw_interface, vnm, &sw_if));
+	  if (unformat (line_input, "local %U",
+			unformat_ip46_address, &local_addr, IP46_TYPE_ANY));
+
+          if (unformat (line_input, "remote %U intfc %U",
+                        unformat_ip46_address, &remote_addr,
+                        IP46_TYPE_ANY, unformat_vnet_sw_interface, vnm,
+                        &sw_if));
 	  else
 	    {
 	      return clib_error_return (0, "%s '%U'",
@@ -73,10 +74,6 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
 					(HICN_ERROR_CLI_INVAL),
 					format_unformat_error, line_input);
 	    }
-	}
-      else if (unformat (line_input, "app_face %d", &app_face))
-	{
-	  if (unformat (line_input, "cs_size %d", &cs_reserved));
 	}
       else
 	{
@@ -106,6 +103,59 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
 	  && (remote_addr.as_u64[1] == (u64) 0))
 	{
 	  return clib_error_return (0, "next hop address not specified");
+	}
+
+      if (ip46_address_is_zero (&local_addr))
+	{
+	  if (!vnet_sw_interface_is_valid (vnm, sw_if))
+	    return clib_error_return (0, "interface not valid");
+
+	  if (ip46_address_is_ip4 (&remote_addr))
+	    {
+	      ip_interface_address_t *interface_address;
+	      ip4_address_t *addr =
+		ip4_interface_address_matching_destination (&ip4_main,
+							    &remote_addr.ip4,
+							    sw_if,
+							    &interface_address);
+
+	      if (addr == NULL)
+		addr = ip4_interface_first_address (&ip4_main,
+						    sw_if,
+						    &interface_address);
+
+	      if (addr == NULL)
+		return clib_error_return (0,
+					  "no valid ip address on interface %d",
+					  sw_if);
+
+	      ip46_address_set_ip4 (&local_addr, addr);
+	    }
+	  else
+	    {
+	      ip_interface_address_t *interface_address;
+	      ip6_interface_address_matching_destination (&ip6_main,
+							  &remote_addr.ip6,
+							  sw_if,
+							  &interface_address);
+
+	      ip6_address_t *addr = NULL;
+	      if (interface_address != NULL)
+		addr =
+		  (ip6_address_t *)
+		  ip_interface_address_get_address (&ip6_main.lookup_main,
+						    interface_address);
+
+	      if (addr == NULL)
+		addr = ip6_interface_first_address (&ip6_main, sw_if);
+
+	      if (addr == NULL)
+		return clib_error_return (0,
+					  "no valid ip address on interface %d",
+					  sw_if);
+
+	      ip46_address_set_ip6 (&local_addr, addr);
+	    }
 	}
 
       rv = hicn_face_ip_add (&local_addr, &remote_addr, sw_if, &face_id);
@@ -144,7 +194,7 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
 VLIB_CLI_COMMAND (hicn_face_ip_cli_set_command, static) =
 {
   .path = "hicn face ip",
-  .short_help = "hicn face ip {add local <local_address> remote <remote_address> intfc <sw_if>} {app_face <0/1>} {cs_size <size_in_packets>} | {del id <face_id>}",
+  .short_help = "hicn face ip {add local <src_address> remote <dst_address> intfc <sw_if>} | {del id <face_id>}",
   .function = hicn_face_ip_cli_set_command_fn,
 };
 /* *INDENT-ON* */

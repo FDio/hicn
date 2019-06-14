@@ -33,29 +33,34 @@ namespace core {
 
 Interest::Interest(const Name &interest_name, Packet::Format format)
     : Packet(format) {
-  if (hicn_interest_set_name(format_, (hicn_header_t *)packet_start_,
+  if (hicn_interest_set_name(format_, packet_start_,
                              interest_name.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 
-  if (hicn_interest_get_name(format_, (hicn_header_t *)packet_start_,
+  if (hicn_interest_get_name(format_, packet_start_,
                              name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
 
+
+#ifdef __ANDROID__
+Interest::Interest(hicn_format_t format) : Interest(Name("0::0|0"), format) {}
+#else
 Interest::Interest(hicn_format_t format) : Interest(base_name, format) {}
+#endif
 
 Interest::Interest(const uint8_t *buffer, std::size_t size)
     : Packet(buffer, size) {
-  if (hicn_interest_get_name(format_, (hicn_header_t *)packet_start_,
+  if (hicn_interest_get_name(format_, packet_start_,
                              name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
 
 Interest::Interest(MemBufPtr &&buffer) : Packet(std::move(buffer)) {
-  if (hicn_interest_get_name(format_, (hicn_header_t *)packet_start_,
+  if (hicn_interest_get_name(format_, packet_start_,
                              name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
@@ -71,7 +76,7 @@ Interest::~Interest() {}
 void Interest::replace(MemBufPtr &&buffer) {
   Packet::replace(std::move(buffer));
 
-  if (hicn_interest_get_name(format_, (hicn_header_t *)packet_start_,
+  if (hicn_interest_get_name(format_, packet_start_,
                              name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
@@ -79,7 +84,7 @@ void Interest::replace(MemBufPtr &&buffer) {
 
 const Name &Interest::getName() const {
   if (!name_) {
-    if (hicn_interest_get_name(format_, (hicn_header_t *)packet_start_,
+    if (hicn_interest_get_name(format_, packet_start_,
                                (hicn_name_t *)name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
@@ -91,32 +96,31 @@ const Name &Interest::getName() const {
 Name &Interest::getWritableName() { return const_cast<Name &>(getName()); }
 
 void Interest::setName(const Name &name) {
-  if (hicn_interest_set_name(format_, (hicn_header_t *)packet_start_,
+  if (hicn_interest_set_name(format_, packet_start_,
                              name.getStructReference()) < 0) {
     throw errors::RuntimeException("Error setting interest name.");
   }
 
-  if (hicn_interest_get_name(format_, (hicn_header_t *)packet_start_,
+  if (hicn_interest_get_name(format_, packet_start_,
                              name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
 
 void Interest::setName(Name &&name) {
-  if (hicn_interest_set_name(format_, (hicn_header_t *)packet_start_,
+  if (hicn_interest_set_name(format_, packet_start_,
                              name.getStructReference()) < 0) {
     throw errors::RuntimeException("Error setting interest name.");
   }
 
-  if (hicn_interest_get_name(format_, (hicn_header_t *)packet_start_,
+  if (hicn_interest_get_name(format_, packet_start_,
                              name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
 
 void Interest::setLocator(const ip_address_t &ip_address) {
-  if (hicn_interest_set_locator(format_, (hicn_header_t *)packet_start_,
-                                &ip_address) < 0) {
+  if (hicn_interest_set_locator(format_, packet_start_, &ip_address) < 0) {
     throw errors::RuntimeException("Error setting interest locator.");
   }
 
@@ -126,12 +130,27 @@ void Interest::setLocator(const ip_address_t &ip_address) {
 ip_address_t Interest::getLocator() const {
   ip_address_t ip;
 
-  if (hicn_interest_get_locator(format_, (hicn_header_t *)packet_start_, &ip) <
-      0) {
+  if (hicn_interest_get_locator(format_, packet_start_, &ip) < 0) {
     throw errors::RuntimeException("Error getting interest locator.");
   }
 
   return ip;
+}
+
+void Interest::setLifetime(uint32_t lifetime) {
+  if (hicn_interest_set_lifetime(packet_start_, lifetime) < 0) {
+    throw errors::MalformedPacketException();
+  }
+}
+
+uint32_t Interest::getLifetime() const {
+  uint32_t lifetime = 0;
+
+  if (hicn_interest_get_lifetime(packet_start_, &lifetime) < 0) {
+    throw errors::MalformedPacketException();
+  }
+
+  return lifetime;
 }
 
 void Interest::resetForHash() {

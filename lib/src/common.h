@@ -60,6 +60,28 @@ typedef uint8_t u8;
 
 #define STATIC_ASSERT(x)
 
+/* Architecture-dependent uword size */
+#if INTPTR_MAX == INT64_MAX
+#define log2_uword_bits 6
+#elif INTPTR_MAX == INT32_MAX
+#define log2_uword_bits 5
+#else
+#error "Impossible to detect architecture"
+#endif
+
+#define uword_bits (1 << log2_uword_bits)
+
+/* Word types. */
+#if uword_bits == 64
+/* 64 bit word machines. */
+typedef u64 uword;
+#else
+/* 32 bit word machines. */
+typedef u32 uword;
+#endif
+
+typedef uword ip_csum_t;
+
 #endif /* ! HICN_VPP_PLUGIN */
 
 /*
@@ -173,8 +195,6 @@ int get_addr_family (const char *ip_address);
 
 #ifndef HICN_VPP_PLUGIN
 
-typedef u16 ip_csum_t;
-
 /*
  * Checksum update (incremental and non-incremental)
  *
@@ -186,7 +206,7 @@ static_always_inline u16
 ip_csum_fold (ip_csum_t c)
 {
   /* Reduce to 16 bits. */
-#if 0				// uword_bits == 64
+#if uword_bits == 64
   c = (c & (ip_csum_t) 0xffffffff) + (c >> (ip_csum_t) 32);
   c = (c & 0xffff) + (c >> 16);
 #endif
@@ -194,7 +214,7 @@ ip_csum_fold (ip_csum_t c)
   c = (c & 0xffff) + (c >> 16);
   c = (c & 0xffff) + (c >> 16);
 
-  return c;
+  return (u16)c;
 }
 
 static_always_inline ip_csum_t

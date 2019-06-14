@@ -30,6 +30,10 @@
 #define REGISTRATION_FAILURE 2
 #define REGISTRATION_IN_PROGRESS 3
 
+namespace utils {
+class Identity;
+}
+
 namespace transport {
 
 namespace interface {
@@ -51,13 +55,19 @@ class ProducerSocket : public Socket<BasePortal>,
 
   void produce(ContentObject &content_object);
 
+  virtual void produce(const uint8_t *buffer, size_t buffer_size) {
+    // This API is meant to be used just with the RTC producer.
+    // Here it cannot be used since no name for the content is specified.
+    throw errors::NotImplementedException();
+  }
+
   void asyncProduce(const Name &suffix, const uint8_t *buf, size_t buffer_size);
 
-  void asyncProduce(const Name &suffix, ContentBuffer &&output_buffer);
+  void asyncProduce(const Name &suffix);
 
   void asyncProduce(ContentObject &content_object);
 
-  void registerPrefix(const Prefix &producer_namespace);
+  virtual void registerPrefix(const Prefix &producer_namespace);
 
   void serveForever();
 
@@ -331,15 +341,15 @@ class ProducerSocket : public Socket<BasePortal>,
                                               uint32_t &socket_option_value) {
     switch (socket_option_key) {
       case GeneralTransportOptions::INPUT_BUFFER_SIZE:
-        socket_option_value = input_buffer_capacity_;
+        socket_option_value = (uint32_t)input_buffer_capacity_;
         break;
 
       case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
-        socket_option_value = output_buffer_.getLimit();
+        socket_option_value = (uint32_t)output_buffer_.getLimit();
         break;
 
       case GeneralTransportOptions::DATA_PACKET_SIZE:
-        socket_option_value = data_packet_size_;
+        socket_option_value = (uint32_t)data_packet_size_;
         break;
 
       case GeneralTransportOptions::CONTENT_OBJECT_EXPIRY_TIME:
@@ -525,6 +535,10 @@ class ProducerSocket : public Socket<BasePortal>,
     return SOCKET_OPTION_GET;
   }
 
+ private:
+  // Threads
+  std::thread listening_thread_;
+
  protected:
   asio::io_service internal_io_service_;
   asio::io_service &io_service_;
@@ -538,7 +552,6 @@ class ProducerSocket : public Socket<BasePortal>,
 
  private:
   utils::EventThread async_thread_;
-
   int registration_status_;
 
   bool making_manifest_;
@@ -559,12 +572,6 @@ class ProducerSocket : public Socket<BasePortal>,
   std::queue<std::shared_ptr<const Interest>> input_buffer_;
   std::atomic_size_t input_buffer_capacity_;
   std::atomic_size_t input_buffer_size_;
-
-  // threads
-  std::thread listening_thread_;
-  std::thread processing_thread_;
-  volatile bool processing_thread_stop_;
-  volatile bool listening_thread_stop_;
 
   // callbacks
  protected:

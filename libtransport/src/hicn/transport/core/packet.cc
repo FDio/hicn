@@ -29,16 +29,17 @@ namespace transport {
 
 namespace core {
 
-const core::Name Packet::base_name("0::0|0");
+ const core::Name Packet::base_name("0::0|0");
 
 Packet::Packet(Format format)
     : packet_(utils::MemBuf::create(getHeaderSizeFromFormat(format, 256))
                   .release()),
-      packet_start_(packet_->writableData()),
+      packet_start_(reinterpret_cast<hicn_header_t *>(packet_->writableData())),
       header_head_(packet_.get()),
       payload_head_(nullptr),
-      format_(format) {
-  if (hicn_packet_init_header(format, (hicn_header_t *)packet_start_) < 0) {
+      format_(format){
+        
+  if (hicn_packet_init_header(format, packet_start_) < 0) {
     throw errors::RuntimeException("Unexpected error initializing the packet.");
   }
 
@@ -47,10 +48,10 @@ Packet::Packet(Format format)
 
 Packet::Packet(MemBufPtr &&buffer)
     : packet_(std::move(buffer)),
-      packet_start_(packet_->writableData()),
+      packet_start_(reinterpret_cast<hicn_header_t *>(packet_->writableData())),
       header_head_(packet_.get()),
       payload_head_(nullptr),
-      format_(getFormatFromBuffer(packet_start_)) {}
+      format_(getFormatFromBuffer(packet_->writableData())) {}
 
 Packet::Packet(const uint8_t *buffer, std::size_t size)
     : Packet(MemBufPtr(utils::MemBuf::copyBuffer(buffer, size).release())) {}
@@ -124,37 +125,20 @@ std::size_t Packet::getPayloadSizeFromBuffer(Format format,
 
 void Packet::replace(MemBufPtr &&buffer) {
   packet_ = std::move(buffer);
-  packet_start_ = packet_->writableData();
+  packet_start_ = reinterpret_cast<hicn_header_t *>(packet_->writableData());
   header_head_ = packet_.get();
   payload_head_ = nullptr;
-  format_ = getFormatFromBuffer(packet_start_);
+  format_ = getFormatFromBuffer(reinterpret_cast<uint8_t *>(packet_start_));
 }
 
 std::size_t Packet::payloadSize() const {
-  return getPayloadSizeFromBuffer(format_, packet_start_);
+  return getPayloadSizeFromBuffer(format_,
+                                  reinterpret_cast<uint8_t *>(packet_start_));
 }
 
 std::size_t Packet::headerSize() const {
-  return getHeaderSizeFromBuffer(format_, packet_start_);
-}
-
-const uint8_t *Packet::start() const { return packet_start_; }
-
-void Packet::setLifetime(uint32_t lifetime) {
-  if (hicn_interest_set_lifetime((hicn_header_t *)packet_start_, lifetime) <
-      0) {
-    throw errors::MalformedPacketException();
-  }
-}
-
-uint32_t Packet::getLifetime() const {
-  uint32_t lifetime = 0;
-
-  if (hicn_packet_get_lifetime((hicn_header_t *)packet_start_, &lifetime) < 0) {
-    throw errors::MalformedPacketException();
-  }
-
-  return lifetime;
+  return getHeaderSizeFromBuffer(format_,
+                                 reinterpret_cast<uint8_t *>(packet_start_));
 }
 
 Packet &Packet::appendPayload(std::unique_ptr<utils::MemBuf> &&payload) {
@@ -190,20 +174,16 @@ Packet &Packet::appendHeader(const uint8_t *buffer, std::size_t length) {
   return appendHeader(utils::MemBuf::copyBuffer(buffer, length));
 }
 
-utils::Array<uint8_t> Packet::getPayload() const {
+std::unique_ptr<utils::MemBuf> Packet::getPayload() const {
   const_cast<Packet *>(this)->separateHeaderPayload();
 
-  if (TRANSPORT_EXPECT_FALSE(payload_head_ == nullptr)) {
-    return utils::Array<uint8_t>();
-  }
-
   // Hopefully the payload is contiguous
-  if (TRANSPORT_EXPECT_FALSE(payload_head_->next() != header_head_)) {
+  if (TRANSPORT_EXPECT_FALSE(payload_head_ &&
+                             payload_head_->next() != header_head_)) {
     payload_head_->gather(payloadSize());
   }
 
-  return utils::Array<uint8_t>(payload_head_->writableData(),
-                               payload_head_->length());
+  return payload_head_->cloneOne();
 }
 
 Packet &Packet::updateLength(std::size_t length) {
@@ -214,8 +194,8 @@ Packet &Packet::updateLength(std::size_t length) {
     total_length += current->length();
   }
 
-  if (hicn_packet_set_payload_length(format_, (hicn_header_t *)packet_start_,
-                                     total_length) < 0) {
+  if (hicn_packet_set_payload_length(format_, packet_start_, total_length) <
+      0) {
     throw errors::RuntimeException("Error setting the packet payload.");
   }
 
@@ -225,7 +205,7 @@ Packet &Packet::updateLength(std::size_t length) {
 PayloadType Packet::getPayloadType() const {
   hicn_payload_type_t ret = HPT_UNSPEC;
 
-  if (hicn_packet_get_payload_type((hicn_header_t *)packet_start_, &ret) < 0) {
+  if (hicn_packet_get_payload_type(packet_start_, &ret) < 0) {
     throw errors::RuntimeException("Impossible to retrieve payload type.");
   }
 
@@ -233,7 +213,7 @@ PayloadType Packet::getPayloadType() const {
 }
 
 Packet &Packet::setPayloadType(PayloadType payload_type) {
-  if (hicn_packet_set_payload_type((hicn_header_t *)packet_start_,
+  if (hicn_packet_set_payload_type(packet_start_,
                                    hicn_payload_type_t(payload_type)) < 0) {
     throw errors::RuntimeException("Error setting payload type of the packet.");
   }
@@ -243,7 +223,7 @@ Packet &Packet::setPayloadType(PayloadType payload_type) {
 
 Packet::Format Packet::getFormat() const {
   if (format_ == HF_UNSPEC) {
-    if (hicn_packet_get_format((hicn_header_t *)packet_start_, &format_) < 0) {
+    if (hicn_packet_get_format(packet_start_, &format_) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -251,7 +231,9 @@ Packet::Format Packet::getFormat() const {
   return format_;
 }
 
-const std::shared_ptr<utils::MemBuf> Packet::data() { return packet_; }
+const std::shared_ptr<utils::MemBuf> Packet::acquireMemBufReference() {
+  return packet_;
+}
 
 void Packet::dump() const {
   const_cast<Packet *>(this)->separateHeaderPayload();
@@ -268,8 +250,7 @@ void Packet::dump() const {
 }
 
 void Packet::setSignatureSize(std::size_t size_bytes) {
-  int ret = hicn_packet_set_signature_size(
-      format_, (hicn_header_t *)packet_start_, size_bytes);
+  int ret = hicn_packet_set_signature_size(format_, packet_start_, size_bytes);
 
   if (ret < 0) {
     throw errors::RuntimeException("Packet without Authentication Header.");
@@ -281,8 +262,7 @@ void Packet::setSignatureSize(std::size_t size_bytes) {
 
 uint8_t *Packet::getSignature() const {
   uint8_t *signature;
-  int ret = hicn_packet_get_signature(format_, (hicn_header_t *)packet_start_,
-                                      &signature);
+  int ret = hicn_packet_get_signature(format_, packet_start_, &signature);
 
   if (ret < 0) {
     throw errors::RuntimeException("Packet without Authentication Header.");
@@ -293,8 +273,7 @@ uint8_t *Packet::getSignature() const {
 
 std::size_t Packet::getSignatureSize() const {
   size_t size_bytes;
-  int ret = hicn_packet_get_signature_size(
-      format_, (hicn_header_t *)packet_start_, &size_bytes);
+  int ret = hicn_packet_get_signature_size(format_, packet_start_, &size_bytes);
 
   if (ret < 0) {
     throw errors::RuntimeException("Packet without Authentication Header.");
@@ -304,8 +283,8 @@ std::size_t Packet::getSignatureSize() const {
 }
 
 void Packet::setSignatureTimestamp(const uint64_t &timestamp) {
-  int ret = hicn_packet_set_signature_timestamp(
-      format_, (hicn_header_t *)packet_start_, timestamp);
+  int ret =
+      hicn_packet_set_signature_timestamp(format_, packet_start_, timestamp);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error setting the signature timestamp.");
@@ -314,8 +293,8 @@ void Packet::setSignatureTimestamp(const uint64_t &timestamp) {
 
 uint64_t Packet::getSignatureTimestamp() const {
   uint64_t return_value;
-  int ret = hicn_packet_get_signature_timestamp(
-      format_, (hicn_header_t *)packet_start_, &return_value);
+  int ret = hicn_packet_get_signature_timestamp(format_, packet_start_,
+                                                &return_value);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error getting the signature timestamp.");
@@ -326,8 +305,8 @@ uint64_t Packet::getSignatureTimestamp() const {
 
 void Packet::setValidationAlgorithm(
     const utils::CryptoSuite &validation_algorithm) {
-  int ret = hicn_packet_set_validation_algorithm(
-      format_, (hicn_header_t *)packet_start_, uint8_t(validation_algorithm));
+  int ret = hicn_packet_set_validation_algorithm(format_, packet_start_,
+                                                 uint8_t(validation_algorithm));
 
   if (ret < 0) {
     throw errors::RuntimeException("Error setting the validation algorithm.");
@@ -336,8 +315,8 @@ void Packet::setValidationAlgorithm(
 
 utils::CryptoSuite Packet::getValidationAlgorithm() const {
   uint8_t return_value;
-  int ret = hicn_packet_get_validation_algorithm(
-      format_, (hicn_header_t *)packet_start_, &return_value);
+  int ret = hicn_packet_get_validation_algorithm(format_, packet_start_,
+                                                 &return_value);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error getting the validation algorithm.");
@@ -347,8 +326,7 @@ utils::CryptoSuite Packet::getValidationAlgorithm() const {
 }
 
 void Packet::setKeyId(const utils::KeyId &key_id) {
-  int ret = hicn_packet_set_key_id(format_, (hicn_header_t *)packet_start_,
-                                   key_id.first);
+  int ret = hicn_packet_set_key_id(format_, packet_start_, key_id.first);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error setting the key id.");
@@ -357,8 +335,8 @@ void Packet::setKeyId(const utils::KeyId &key_id) {
 
 utils::KeyId Packet::getKeyId() const {
   utils::KeyId return_value;
-  int ret = hicn_packet_get_key_id(format_, (hicn_header_t *)packet_start_,
-                                   &return_value.first, &return_value.second);
+  int ret = hicn_packet_get_key_id(format_, packet_start_, &return_value.first,
+                                   &return_value.second);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error getting the validation algorithm.");
@@ -374,8 +352,7 @@ utils::CryptoHash Packet::computeDigest(HashAlgorithm algorithm) const {
   // Copy IP+TCP/ICMP header before zeroing them
   hicn_header_t header_copy;
 
-  hicn_packet_copy_header(format_, (hicn_header_t *)packet_start_, &header_copy,
-                          false);
+  hicn_packet_copy_header(format_, packet_start_, &header_copy, false);
 
   const_cast<Packet *>(this)->resetForHash();
 
@@ -385,8 +362,7 @@ utils::CryptoHash Packet::computeDigest(HashAlgorithm algorithm) const {
     current = current->next();
   } while (current != header_head_);
 
-  hicn_packet_copy_header(format_, &header_copy, (hicn_header_t *)packet_start_,
-                          false);
+  hicn_packet_copy_header(format_, &header_copy, packet_start_, false);
 
   return hasher.finalize();
 }
@@ -401,15 +377,14 @@ void Packet::setChecksum() {
     }
     partial_csum = csum(current->data(), current->length(), partial_csum);
   }
-  if (hicn_packet_compute_header_checksum(
-          format_, (hicn_header_t *)packet_start_, partial_csum) < 0) {
+  if (hicn_packet_compute_header_checksum(format_, packet_start_,
+                                          partial_csum) < 0) {
     throw errors::MalformedPacketException();
   }
 }
 
 bool Packet::checkIntegrity() const {
-  if (hicn_packet_check_integrity(format_, (hicn_header_t *)packet_start_) <
-      0) {
+  if (hicn_packet_check_integrity(format_, packet_start_) < 0) {
     return false;
   }
 
@@ -417,7 +392,7 @@ bool Packet::checkIntegrity() const {
 }
 
 Packet &Packet::setSyn() {
-  if (hicn_packet_set_syn((hicn_header_t *)packet_start_) < 0) {
+  if (hicn_packet_set_syn(packet_start_) < 0) {
     throw errors::RuntimeException("Error setting syn bit in the packet.");
   }
 
@@ -425,7 +400,7 @@ Packet &Packet::setSyn() {
 }
 
 Packet &Packet::resetSyn() {
-  if (hicn_packet_reset_syn((hicn_header_t *)packet_start_) < 0) {
+  if (hicn_packet_reset_syn(packet_start_) < 0) {
     throw errors::RuntimeException("Error resetting syn bit in the packet.");
   }
 
@@ -434,7 +409,7 @@ Packet &Packet::resetSyn() {
 
 bool Packet::testSyn() const {
   bool res = false;
-  if (hicn_packet_test_syn((hicn_header_t *)packet_start_, &res) < 0) {
+  if (hicn_packet_test_syn(packet_start_, &res) < 0) {
     throw errors::RuntimeException("Error testing syn bit in the packet.");
   }
 
@@ -442,7 +417,7 @@ bool Packet::testSyn() const {
 }
 
 Packet &Packet::setAck() {
-  if (hicn_packet_set_ack((hicn_header_t *)packet_start_) < 0) {
+  if (hicn_packet_set_ack(packet_start_) < 0) {
     throw errors::RuntimeException("Error setting ack bit in the packet.");
   }
 
@@ -450,7 +425,7 @@ Packet &Packet::setAck() {
 }
 
 Packet &Packet::resetAck() {
-  if (hicn_packet_reset_ack((hicn_header_t *)packet_start_) < 0) {
+  if (hicn_packet_reset_ack(packet_start_) < 0) {
     throw errors::RuntimeException("Error resetting ack bit in the packet.");
   }
 
@@ -459,7 +434,7 @@ Packet &Packet::resetAck() {
 
 bool Packet::testAck() const {
   bool res = false;
-  if (hicn_packet_test_ack((hicn_header_t *)packet_start_, &res) < 0) {
+  if (hicn_packet_test_ack(packet_start_, &res) < 0) {
     throw errors::RuntimeException("Error testing ack bit in the packet.");
   }
 
@@ -467,7 +442,7 @@ bool Packet::testAck() const {
 }
 
 Packet &Packet::setRst() {
-  if (hicn_packet_set_rst((hicn_header_t *)packet_start_) < 0) {
+  if (hicn_packet_set_rst(packet_start_) < 0) {
     throw errors::RuntimeException("Error setting rst bit in the packet.");
   }
 
@@ -475,7 +450,7 @@ Packet &Packet::setRst() {
 }
 
 Packet &Packet::resetRst() {
-  if (hicn_packet_reset_rst((hicn_header_t *)packet_start_) < 0) {
+  if (hicn_packet_reset_rst(packet_start_) < 0) {
     throw errors::RuntimeException("Error resetting rst bit in the packet.");
   }
 
@@ -484,7 +459,7 @@ Packet &Packet::resetRst() {
 
 bool Packet::testRst() const {
   bool res = false;
-  if (hicn_packet_test_rst((hicn_header_t *)packet_start_, &res) < 0) {
+  if (hicn_packet_test_rst(packet_start_, &res) < 0) {
     throw errors::RuntimeException("Error testing rst bit in the packet.");
   }
 
@@ -492,7 +467,7 @@ bool Packet::testRst() const {
 }
 
 Packet &Packet::setFin() {
-  if (hicn_packet_set_fin((hicn_header_t *)packet_start_) < 0) {
+  if (hicn_packet_set_fin(packet_start_) < 0) {
     throw errors::RuntimeException("Error setting fin bit in the packet.");
   }
 
@@ -500,7 +475,7 @@ Packet &Packet::setFin() {
 }
 
 Packet &Packet::resetFin() {
-  if (hicn_packet_reset_fin((hicn_header_t *)packet_start_) < 0) {
+  if (hicn_packet_reset_fin(packet_start_) < 0) {
     throw errors::RuntimeException("Error resetting fin bit in the packet.");
   }
 
@@ -509,7 +484,7 @@ Packet &Packet::resetFin() {
 
 bool Packet::testFin() const {
   bool res = false;
-  if (hicn_packet_test_fin((hicn_header_t *)packet_start_, &res) < 0) {
+  if (hicn_packet_test_fin(packet_start_, &res) < 0) {
     throw errors::RuntimeException("Error testing fin bit in the packet.");
   }
 
@@ -543,7 +518,7 @@ std::string Packet::printFlags() const {
 }
 
 Packet &Packet::setSrcPort(uint16_t srcPort) {
-  if (hicn_packet_set_src_port((hicn_header_t *)packet_start_, srcPort) < 0) {
+  if (hicn_packet_set_src_port(packet_start_, srcPort) < 0) {
     throw errors::RuntimeException("Error setting source port in the packet.");
   }
 
@@ -551,7 +526,7 @@ Packet &Packet::setSrcPort(uint16_t srcPort) {
 }
 
 Packet &Packet::setDstPort(uint16_t dstPort) {
-  if (hicn_packet_set_dst_port((hicn_header_t *)packet_start_, dstPort) < 0) {
+  if (hicn_packet_set_dst_port(packet_start_, dstPort) < 0) {
     throw errors::RuntimeException(
         "Error setting destination port in the packet.");
   }
@@ -562,7 +537,7 @@ Packet &Packet::setDstPort(uint16_t dstPort) {
 uint16_t Packet::getSrcPort() const {
   uint16_t port = 0;
 
-  if (hicn_packet_get_src_port((hicn_header_t *)packet_start_, &port) < 0) {
+  if (hicn_packet_get_src_port(packet_start_, &port) < 0) {
     throw errors::RuntimeException("Error reading source port in the packet.");
   }
 
@@ -572,7 +547,7 @@ uint16_t Packet::getSrcPort() const {
 uint16_t Packet::getDstPort() const {
   uint16_t port = 0;
 
-  if (hicn_packet_get_dst_port((hicn_header_t *)packet_start_, &port) < 0) {
+  if (hicn_packet_get_dst_port(packet_start_, &port) < 0) {
     throw errors::RuntimeException(
         "Error reading destination port in the packet.");
   }
@@ -581,7 +556,7 @@ uint16_t Packet::getDstPort() const {
 }
 
 Packet &Packet::setTTL(uint8_t hops) {
-  if (hicn_packet_set_hoplimit((hicn_header_t *)packet_start_, hops) < 0) {
+  if (hicn_packet_set_hoplimit(packet_start_, hops) < 0) {
     throw errors::RuntimeException("Error setting TTL.");
   }
 
@@ -590,7 +565,7 @@ Packet &Packet::setTTL(uint8_t hops) {
 
 uint8_t Packet::getTTL() const {
   uint8_t hops = 0;
-  if (hicn_packet_get_hoplimit((hicn_header_t *)packet_start_, &hops) < 0) {
+  if (hicn_packet_get_hoplimit(packet_start_, &hops) < 0) {
     throw errors::RuntimeException("Error reading TTL.");
   }
 
@@ -603,26 +578,28 @@ void Packet::separateHeaderPayload() {
   }
 
   int signature_size = 0;
-
   if (_is_ah(format_)) {
     signature_size = (uint32_t)getSignatureSize();
   }
 
   auto header_size = getHeaderSizeFromFormat(format_, signature_size);
   auto payload_length = packet_->length() - header_size;
-  if (!payload_length) {
-    return;
-  }
 
   packet_->trimEnd(packet_->length());
 
-  if (payload_length) {
-    auto payload = packet_->cloneOne();
-    payload_head_ = payload.get();
-    payload_head_->advance(header_size);
-    payload_head_->append(payload_length);
-    packet_->prependChain(std::move(payload));
-    packet_->append(header_size);
+  auto payload = packet_->cloneOne();
+  payload_head_ = payload.get();
+  payload_head_->advance(header_size);
+  payload_head_->append(payload_length);
+  packet_->prependChain(std::move(payload));
+  packet_->append(header_size);
+}
+
+void Packet::resetPayload() {
+  if (packet_->isChained()) {
+    packet_->separateChain(packet_->next(), packet_->prev());
+    payload_head_ = nullptr;
+    updateLength();
   }
 }
 

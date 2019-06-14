@@ -15,13 +15,6 @@ cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 set(ASIO_STANDALONE 1)
 
-configure_file("config.h.in" "config.h" @ONLY)
-install(
-  FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
-  DESTINATION include/hicn/transport
-  COMPONENT lib${LIBTRANSPORT}-dev
-)
-
 add_subdirectory(core)
 add_subdirectory(errors)
 add_subdirectory(http)
@@ -30,13 +23,19 @@ add_subdirectory(portability)
 add_subdirectory(protocols)
 add_subdirectory(utils)
 
-set (COMPILER_DEFINITIONS "")
+configure_file("config.h.in" "config.h" @ONLY)
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
+  DESTINATION include/hicn/transport
+  COMPONENT lib${LIBTRANSPORT}-dev
+)
+
+set (COMPILER_DEFINITIONS "-DTRANSPORT_LOG_DEF_LEVEL=TRANSPORT_LOG_${TRANSPORT_LOG_LEVEL}")
 
 list(INSERT LIBTRANSPORT_INCLUDE_DIRS 0
   ${CMAKE_CURRENT_SOURCE_DIR}/../..
   ${CMAKE_CURRENT_BINARY_DIR}/../..
 )
-
 
 if (NOT WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
@@ -49,18 +48,31 @@ endif ()
 if (ANDROID_API)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -isystem -lm")
 endif()
-
-build_library(${LIBTRANSPORT}
-  STATIC SHARED
-  SOURCES ${SOURCE_FILES} ${HEADER_FILES}
-  INSTALL_HEADERS ${HEADER_FILES}
-  LINK_LIBRARIES ${LIBRARIES}
-  DEPENDS ${DEPENDENCIES}
-  COMPONENT lib${LIBTRANSPORT}
-  INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS}
-  INSTALL_ROOT_DIR hicn/transport
-  DEFINITIONS ${COMPILER_DEFINITIONS}
-)
+if (ANDROID_API)
+  build_library(${LIBTRANSPORT}
+    STATIC
+    SOURCES ${SOURCE_FILES} ${HEADER_FILES}
+    INSTALL_HEADERS ${HEADER_FILES}
+    LINK_LIBRARIES ${LIBRARIES}
+    DEPENDS ${DEPENDENCIES}
+    COMPONENT lib${LIBTRANSPORT}
+    INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS}
+    INSTALL_ROOT_DIR hicn/transport
+    DEFINITIONS ${COMPILER_DEFINITIONS}
+  )
+else ()
+  build_library(${LIBTRANSPORT}
+    STATIC SHARED
+    SOURCES ${SOURCE_FILES} ${HEADER_FILES}
+    INSTALL_HEADERS ${HEADER_FILES}
+    LINK_LIBRARIES ${LIBRARIES}
+    DEPENDS ${DEPENDENCIES}
+    COMPONENT lib${LIBTRANSPORT}
+    INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS}
+    INSTALL_ROOT_DIR hicn/transport
+    DEFINITIONS ${COMPILER_DEFINITIONS}
+  )
+endif ()
 
 if (${COMPILE_TESTS})
   add_subdirectory(core/test)

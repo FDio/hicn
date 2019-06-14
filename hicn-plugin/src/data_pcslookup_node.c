@@ -72,7 +72,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  u32 next0 = HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP;
 	  u64 name_hash = 0;
 	  hicn_name_t name;
-	  hicn_header_t *hicn0;
+	  hicn_header_t *hicn0 = NULL;
 	  u32 node_id0 = 0;
 	  u8 dpo_ctx_id0 = 0;
 	  int ret0;
@@ -87,7 +87,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    {
 	      vlib_buffer_t *b1;
 	      b1 = vlib_get_buffer (vm, from[1]);
-	      //Prefetch one cache line-- 64 byte-- so that we load the hicn_buffer_t as well
+	      //Prefetch two cache lines-- 128 byte-- so that we load the hicn_buffer_t as well
 	      CLIB_PREFETCH (b1, 2 * CLIB_CACHE_LINE_BYTES, STORE);
 	      CLIB_PREFETCH (b1->data, CLIB_CACHE_LINE_BYTES, LOAD);
 	    }

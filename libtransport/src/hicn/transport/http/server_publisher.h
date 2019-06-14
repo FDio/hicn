@@ -59,12 +59,9 @@ class HTTPServerPublisher {
  private:
   Name content_name_;
   std::unique_ptr<asio::steady_timer> timer_;
-  asio::io_service io_service_;
   std::unique_ptr<ProducerSocket> producer_;
   ProducerInterestCallback interest_enter_callback_;
   utils::UserCallback wait_callback_;
-
-  ContentBuffer receive_buffer_;
 };
 
 }  // end namespace http

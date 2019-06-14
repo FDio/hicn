@@ -63,9 +63,7 @@ HTTPServerAcceptor::HTTPServerAcceptor(std::string &server_locator,
   core::Prefix acceptor_namespace(network, 64);
 
   std::string producer_identity = "acceptor_producer";
-  acceptor_producer_ = std::make_shared<ProducerSocket>(
-      io_service_); /*,
-                                 utils::Identity::generateIdentity(producer_identity));*/
+  acceptor_producer_ = std::make_shared<ProducerSocket>();
   acceptor_producer_->registerPrefix(acceptor_namespace);
 }
 
@@ -85,9 +83,9 @@ void HTTPServerAcceptor::listen(bool async) {
 void HTTPServerAcceptor::processIncomingInterest(ProducerSocket &p,
                                                  Interest &interest) {
   // Temporary solution. With
-  utils::Array<uint8_t> payload = interest.getPayload();
+  auto payload = interest.getPayload();
 
-  int request_id = utils::hash::fnv32_buf(payload.data(), payload.length());
+  int request_id = utils::hash::fnv32_buf(payload->data(), payload->length());
 
   if (publishers_.find(request_id) != publishers_.end()) {
     if (publishers_[request_id]) {
@@ -98,8 +96,8 @@ void HTTPServerAcceptor::processIncomingInterest(ProducerSocket &p,
 
   publishers_[request_id] =
       std::make_shared<HTTPServerPublisher>(interest.getName());
-  callback_(publishers_[request_id], (uint8_t *)payload.data(),
-            payload.length(), request_id);
+  callback_(publishers_[request_id], (uint8_t *)payload->data(),
+            payload->length(), request_id);
 }
 
 std::map<int, std::shared_ptr<HTTPServerPublisher>>

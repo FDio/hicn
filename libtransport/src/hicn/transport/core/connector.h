@@ -34,6 +34,13 @@ enum class ConnectorType : uint8_t {
 };
 
 class Connector {
+ protected:
+  enum class ConnectorState {
+    CLOSED,
+    CONNECTING,
+    CONNECTED,
+  };
+
  public:
   static constexpr std::size_t packet_size = 2048;
   static constexpr std::size_t queue_size = 4096;
@@ -48,7 +55,7 @@ class Connector {
   Connector(PacketReceivedCallback &&receive_callback,
             OnReconnect &&reconnect_callback);
 
-  virtual ~Connector() = default;
+  virtual ~Connector(){};
 
   virtual void send(const Packet::MemBufPtr &packet) = 0;
 
@@ -57,9 +64,9 @@ class Connector {
 
   virtual void close() = 0;
 
-  virtual void enableBurst() = 0;
+  virtual ConnectorState state() { return state_; };
 
-  virtual void state() = 0;
+  virtual bool isConnected() { return state_ == ConnectorState::CONNECTED; }
 
  protected:
   void increasePoolSize(std::size_t size = packet_pool_size);
@@ -93,6 +100,9 @@ class Connector {
   // Connector events
   PacketReceivedCallback receive_callback_;
   OnReconnect on_reconnect_callback_;
+
+  // Connector state
+  ConnectorState state_;
 };
 }  // end namespace core
 

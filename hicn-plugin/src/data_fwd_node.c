@@ -37,6 +37,11 @@ drop_packet (vlib_main_t * vm, u32 bi0,
 	     u32 * n_left_to_next, u32 * next0, u32 ** to_next,
 	     u32 * next_index, vlib_node_runtime_t * node);
 
+always_inline void
+push_in_cache (vlib_main_t * vm, u32 bi0,
+	       u32 * n_left_to_next, u32 * next0, u32 ** to_next,
+	       u32 * next_index, vlib_node_runtime_t * node);
+
 always_inline int
 hicn_satisfy_faces (vlib_main_t * vm, u32 b0,
 		    hicn_pcs_entry_t * pitp, u32 * n_left_to_next,
@@ -163,15 +168,24 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	   * not changed from the lookup.
 	   */
 
-	  if (tnow > pitp->shared.expire_time)
+	  if (tnow > pitp->shared.expire_time
+	      || (hash_entry0->he_flags & HICN_HASH_ENTRY_FLAG_DELETED))
 	    {
 	      dpo_id_t hicn_dpo_id0 =
 		{ dpo_vft0->hicn_dpo_get_type (), 0, 0, dpo_ctx_id0 };
 	      hicn_pcs_delete (pitcs, &pitp, &node0, vm, hash_entry0,
 			       dpo_vft0, &hicn_dpo_id0);
 
-	      drop_packet (vm, bi0, &n_left_to_next, &next0, &to_next,
-			   &next_index, node);
+	      if (hicnb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP)
+		{
+		  push_in_cache (vm, bi0, &n_left_to_next, &next0, &to_next,
+				 &next_index, node);
+		}
+	      else
+		{
+		  drop_packet (vm, bi0, &n_left_to_next, &next0, &to_next,
+			       &next_index, node);
+		}
 	      stats.pit_expired_count++;
 
 	      if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
@@ -257,7 +271,7 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		       * longer in any frame. The vlib_buffer will be freed when
 		       * all its cloned vlib_buffer will be freed.
 		       */
-		      b0->n_add_refs--;
+		      b0->ref_count--;
 		    }
 
 		  /* Delete the PIT entry */
@@ -280,7 +294,7 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		   * longer in any frame. The vlib_buffer will be freed when
 		   * all its cloned vlib_buffer will be freed.
 		   */
-		  b0->n_add_refs--;
+		  b0->ref_count--;
 		}
 
 	      /* Delete the PIT entry */
@@ -329,6 +343,21 @@ drop_packet (vlib_main_t * vm, u32 bi0,
 				   *to_next, *n_left_to_next, bi0, *next0);
 }
 
+always_inline void
+push_in_cache (vlib_main_t * vm, u32 bi0,
+	       u32 * n_left_to_next, u32 * next0, u32 ** to_next,
+	       u32 * next_index, vlib_node_runtime_t * node)
+{
+  *next0 = HICN_DATA_FWD_NEXT_PUSH;
+
+  (*to_next)[0] = bi0;
+  *to_next += 1;
+  *n_left_to_next -= 1;
+
+  vlib_validate_buffer_enqueue_x1 (vm, node, *next_index,
+				   *to_next, *n_left_to_next, bi0, *next0);
+}
+
 always_inline int
 hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 		    hicn_pcs_entry_t * pitp, u32 * n_left_to_next,
@@ -360,6 +389,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
   vlib_buffer_t *b0 = vlib_get_buffer (vm, bi0);
 
   hicn_buffer_t *hicnb = hicn_get_buffer (b0);
+
   /*
    * Mark the buffer as smaller than TWO_CL. It will be stored as is in the CS, without excluding
    * the hicn_header. Cloning is not possible, it will be copied.
@@ -374,12 +404,12 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
   else
     {
       /* Add one reference to maintain the buffer in the CS.
-       * b0->n_add_refs == 0 has two meaning: it has 1 buffer or no buffer chained to it.
+       * b0->ref_count == 0 has two meaning: it has 1 buffer or no buffer chained to it.
        * vlib_buffer_clone2 add a number of reference equalt to pitp->u.pit.faces.n_faces - 1
        * as vlib_buffer_clone does. So after all the packet are forwarded the buffer stored in
-       * the CS will have n_add_refs == 0;
+       * the CS will have ref_count == 0;
        */
-      b0->n_add_refs++;
+      b0->ref_count++;
     }
 
   found = n_left_from =
@@ -455,7 +485,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 			   sizeof (t->packet_data));
 	    }
 	  vlib_validate_buffer_enqueue_x2 (vm, node, *next_index,
-					   *to_next, *n_left_to_next,
+					   (*to_next), *n_left_to_next,
 					   hi0, hi1, next0, next1);
 	}
 
@@ -475,6 +505,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 	  *n_left_to_next -= 1;
 	  n_left_from -= 1;
 	  clones += 1;
+
 	  next0 = face0->dpoi_next_node;
 	  vnet_buffer (h0)->ip.adj_index[VLIB_TX] = face0->dpoi_index;
 
@@ -515,7 +546,6 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 			       *n_left_to_next);
 	}
     }
-
 
   vec_free (header);
 
@@ -591,7 +621,6 @@ VLIB_REGISTER_NODE(hicn_data_fwd_node) =
   .function = hicn_data_node_fn,
   .name = "hicn-data-fwd",
   .vector_size = sizeof(u32),
-  .runtime_data_bytes = sizeof(hicn_data_fwd_runtime_t),
   .format_trace = hicn_data_fwd_format_trace,
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(hicn_data_fwd_error_strings),
@@ -601,6 +630,7 @@ VLIB_REGISTER_NODE(hicn_data_fwd_node) =
   .next_nodes = {
     [HICN_DATA_FWD_NEXT_V4_LOOKUP] = "ip4-lookup",
     [HICN_DATA_FWD_NEXT_V6_LOOKUP] = "ip6-lookup",
+    [HICN_DATA_FWD_NEXT_PUSH] = "hicn-data-push",
     [HICN_DATA_FWD_NEXT_ERROR_DROP] = "error-drop",
   },
 };

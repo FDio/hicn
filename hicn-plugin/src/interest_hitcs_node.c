@@ -50,7 +50,7 @@ clone_from_cs (vlib_main_t * vm, u32 * bi0_cs, vlib_buffer_t * dest, u8 isv6)
     {
       clib_memcpy_fast (vlib_buffer_get_current (dest),
 			vlib_buffer_get_current (cs_buf),
-			dest->current_length);
+			cs_buf->current_length);
       clib_memcpy_fast (dest->opaque2, cs_buf->opaque2,
 			sizeof (cs_buf->opaque2));
 
@@ -60,12 +60,12 @@ clone_from_cs (vlib_main_t * vm, u32 * bi0_cs, vlib_buffer_t * dest, u8 isv6)
   else
     {
       vlib_buffer_advance (cs_buf, -buffer_advance);
-      if (PREDICT_FALSE (cs_buf->n_add_refs == 255))
+      if (PREDICT_FALSE (cs_buf->ref_count == 255))
 	{
 	  vlib_buffer_t *cs_buf2 = vlib_buffer_copy (vm, cs_buf);
 	  vlib_buffer_advance (cs_buf, buffer_advance);
 	  *bi0_cs = vlib_get_buffer_index (vm, cs_buf2);
-	  cs_buf->n_add_refs--;
+	  cs_buf->ref_count--;
 	  cs_buf = cs_buf2;
 	}
 
@@ -180,7 +180,7 @@ hicn_interest_hitcs_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    {
 	      if (PREDICT_TRUE
 		  (!(hash_entry0->he_flags & HICN_HASH_ENTRY_FLAG_DELETED)))
-		hicn_pcs_cs_update (vm, rt->pitcs, pitp, node0);
+		hicn_pcs_cs_update (vm, rt->pitcs, pitp, pitp, node0);
 
 	      /*
 	       * Retrieve the incoming iface and forward
@@ -280,6 +280,7 @@ VLIB_REGISTER_NODE(hicn_interest_hitcs_node) =
   {
     [HICN_INTEREST_HITCS_NEXT_V4_LOOKUP] = "ip4-lookup",
     [HICN_INTEREST_HITCS_NEXT_V6_LOOKUP] = "ip6-lookup",
+    [HICN_INTEREST_HITCS_NEXT_PUSH] = "hicn-data-push",
     [HICN_INTEREST_HITCS_NEXT_ERROR_DROP] = "error-drop",
   },
 };

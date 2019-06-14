@@ -134,8 +134,6 @@ int hicn_binary_api_register_cons_app(
 
   CONTEXT_SAVE(context_store, api, mp)
 
-  TRANSPORT_LOGI("Message created");
-
   return vpp_binary_api_send_request_wait_reply(api->vpp_api, mp);
 }
 

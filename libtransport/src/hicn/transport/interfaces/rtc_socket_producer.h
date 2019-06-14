@@ -18,6 +18,7 @@
 #include <hicn/transport/interfaces/socket_producer.h>
 #include <hicn/transport/utils/content_store.h>
 
+#include <atomic>
 #include <map>
 #include <mutex>
 
@@ -33,15 +34,15 @@ class RTCProducerSocket : public ProducerSocket {
 
   ~RTCProducerSocket();
 
-  void registerName(Prefix &producer_namespace);
+  void registerPrefix(const Prefix &producer_namespace) override;
 
-  void produce(const uint8_t *buffer, size_t buffer_size);
+  void produce(const uint8_t *buffer, size_t buffer_size) override;
 
   void onInterest(Interest::Ptr &&interest) override;
 
  private:
   void sendNack(const Interest &interest);
-  void updateStats(uint32_t packet_size);
+  void updateStats(uint32_t packet_size, uint64_t now);
 
   // std::map<uint32_t, uint64_t> pendingInterests_;
   uint32_t currentSeg_;
@@ -49,13 +50,15 @@ class RTCProducerSocket : public ProducerSocket {
   uint16_t headerSize_;
   Name flowName_;
   // bool produceInSynch_;
-  std::shared_ptr<ContentObject> nack_;
   uint32_t producedBytes_;
   uint32_t producedPackets_;
   uint32_t bytesProductionRate_;
-  uint32_t packetsProductionRate_;
+  std::atomic<uint32_t> packetsProductionRate_;
   uint32_t perSecondFactor_;
-  std::chrono::steady_clock::time_point lastStats_;
+  uint64_t lastStats_;
+  // std::chrono::steady_clock::time_point lastProduced_;
+  std::atomic<uint64_t> lastProduced_;
+  std::atomic<bool> active_;
 };
 
 }  // namespace interface

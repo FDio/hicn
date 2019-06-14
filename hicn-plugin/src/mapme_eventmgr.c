@@ -423,7 +423,7 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 
 		/* Delete entry_id from retransmissions in the current slot (if present) ... */
 		for (u8 j = 0; j < CURLEN; j++)
-		  if (dpo_cmp (&(CUR[j].dpo), &retx->dpo))
+		  if (!dpo_cmp (&(CUR[j].dpo), &retx->dpo))
 		    {
 		      CUR[j].dpo.dpoi_index = ~0;	/* sufficient */
 		    }
@@ -431,7 +431,7 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 		/* ... and schedule it for next slot (if not already) */
 		u8 j;
 		for (j = 0; j < NXTLEN; j++)
-		  if (dpo_cmp (&NXT[j].dpo, &retx->dpo))
+		  if (!dpo_cmp (&NXT[j].dpo, &retx->dpo))
 		    break;
 		if (j == NXTLEN)	/* not found */
 		  NXT[NXTLEN++] = *retx;

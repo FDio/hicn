@@ -1,16 +1,16 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at:
+ * Copyright (c) 2017-2019 Cisco and/or its affiliates. Licensed under the
+ * Apache License, Version 2.0 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of the
+ * License at:
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
  */
 
 #include <vlib/vlib.h>
@@ -62,8 +62,10 @@ ip6_header_t ip6_header_skl = {
 u32 strategy_face_udp4_vlib_edge;
 u32 strategy_face_udp6_vlib_edge;
 
-/* Separated from the hicn_face_udp_init because it cannot be called by the
-   init macro due to dependencies with other modules not yet initialied */
+/*
+ * Separated from the hicn_face_udp_init because it cannot be called by the
+ * init macro due to dependencies with other modules not yet initialied
+ */
 void
 hicn_face_udp_init_internal ()
 {
@@ -79,20 +81,22 @@ hicn_face_udp_init (vlib_main_t * vm)
   /* Default Strategy has index 0 and it always exists */
   strategy_face_udp4_vlib_edge = vlib_node_add_next (vm,
 						     hicn_dpo_get_strategy_vft
-						     (default_dpo.hicn_dpo_get_type
-						      ())->get_strategy_node_index
+						     (default_dpo.
+						      hicn_dpo_get_type ())->
+						     get_strategy_node_index
 						     (),
-						     hicn_face_udp4_output_node.index);
+						     hicn_face_udp4_output_node.
+						     index);
   strategy_face_udp6_vlib_edge =
     vlib_node_add_next (vm,
-			hicn_dpo_get_strategy_vft
-			(default_dpo.hicn_dpo_get_type
-			 ())->get_strategy_node_index (),
+			hicn_dpo_get_strategy_vft (default_dpo.
+						   hicn_dpo_get_type ())->
+			get_strategy_node_index (),
 			hicn_face_udp6_output_node.index);
 
   /*
-   * Create and edge between al the other strategy nodes
-   * and the udp_output nodes.
+   * Create and edge between al the other strategy nodes and the
+   * udp_output nodes.
    */
   for (int i = 1; i < strategy_nodes_n; i++)
     {
@@ -151,14 +155,14 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       ip_adj = fib_entry_get_adj (fib_entry_index);
 
       if (ip_adj == ~0)
-	return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
+        return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
       hicn_face_t *face =
 	hicn_face_udp4_get (&local_addr->ip4, &remote_addr->ip4, local_port,
 			    remote_port);
 
       if (face != NULL)
-	return HICN_ERROR_FACE_ALREADY_CREATED;
+        return HICN_ERROR_FACE_ALREADY_CREATED;
 
       pool_get (hicn_dpoi_face_pool, face);
 
@@ -217,14 +221,14 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       ip_adj = fib_entry_get_adj (fib_entry_index);
 
       if (ip_adj == ~0)
-	return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
+        return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
       hicn_face_t *face =
 	hicn_face_udp6_get (&local_addr->ip6, &remote_addr->ip6, local_port,
 			    remote_port);
 
       if (face != NULL)
-	return HICN_ERROR_FACE_ALREADY_CREATED;
+        return HICN_ERROR_FACE_ALREADY_CREATED;
 
       pool_get (hicn_dpoi_face_pool, face);
 
@@ -263,17 +267,31 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       return HICN_ERROR_IPS_ADDR_TYPE_NONUNIFORM;
     }
 
+  for (int i = 0; i < HICN_N_COUNTER; i++)
+    {
+      vlib_validate_combined_counter (&counters[(*pfaceid) * HICN_N_COUNTER],
+				      i);
+      vlib_zero_combined_counter (&counters[(*pfaceid) * HICN_N_COUNTER], i);
+    }
+
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-						 hicn_mapme_eventmgr_process_node.index,
+						 hicn_mapme_eventmgr_process_node.
+						 index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
+  /* *INDENT-OFF* */
   *retx = (retx_t)
   {
-    .prefix = 0,.dpo = (dpo_id_t)
+    .prefix = 0,
+    .dpo = (dpo_id_t)
     {
-    .dpoi_type = hicn_face_udp_type,.dpoi_proto =
-	dpo_proto,.dpoi_next_node = 0,.dpoi_index = *pfaceid,}
+      .dpoi_type = hicn_face_udp_type,
+      .dpoi_proto = dpo_proto,
+      .dpoi_next_node = 0,
+      .dpoi_index = *pfaceid,
+    }
   };
+  /* *INDENT-ON* */
 
   return ret;
 }
@@ -281,6 +299,23 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
 int
 hicn_face_udp_del (u32 faceid)
 {
+  hicn_face_t *face = hicn_dpoi_get_from_idx (faceid);
+  hicn_face_udp_t *face_udp = (hicn_face_udp_t *) face->data;
+  hicn_face_udp_key_t key;
+  hicn_face_udp_key_t old_key;
+
+  if (face_udp->hdrs.ip4.ip.ip_version_and_header_length == IP4_VERSION_AND_HEADER_LENGTH_NO_OPTIONS)
+    {
+      hicn_face_udp4_get_key (&face_udp->hdrs.ip4.ip.src_address, &face_udp->hdrs.ip4.ip.dst_address, face_udp->hdrs.ip4.udp.src_port,
+			      face_udp->hdrs.ip4.udp.dst_port, &key);
+      mhash_unset (&hicn_face_udp_hashtb, &key, (uword *) & old_key);
+    }
+  else
+    {
+      hicn_face_udp6_get_key (&face_udp->hdrs.ip6.ip.src_address, &face_udp->hdrs.ip6.ip.dst_address, face_udp->hdrs.ip6.udp.src_port,
+			      face_udp->hdrs.ip6.udp.dst_port, &key);
+      mhash_unset (&hicn_face_udp_hashtb, &key, (uword *) & old_key);
+    }
   return hicn_face_del (faceid);
 }
 
@@ -313,11 +348,15 @@ format_hicn_face_udp (u8 * s, va_list * args)
 	  s =
 	    format (s, "remote %U|%u ", format_ip4_address,
 		    &udp_face->hdrs.ip4.ip.dst_address,
-
 		    clib_net_to_host_u16 (udp_face->hdrs.ip4.udp.dst_port));
 	  s = format (s, "%U", format_vnet_link, adj->ia_link);
-	  s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		      vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+	  vnet_sw_interface_t *sw_int =
+	    vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+	  if (sw_int != NULL)
+	    s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
+			sw_int);
+
 	  if ((face->shared.flags & HICN_FACE_FLAGS_DELETED))
 	    s = format (s, " (deleted)");
 	}
@@ -331,15 +370,20 @@ format_hicn_face_udp (u8 * s, va_list * args)
 		    &udp_face->hdrs.ip6.ip.dst_address,
 		    clib_net_to_host_u16 (udp_face->hdrs.ip6.udp.dst_port));
 	  s = format (s, "%U", format_vnet_link, adj->ia_link);
-	  s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		      vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+	  vnet_sw_interface_t *sw_int =
+	    vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+	  if (sw_int != NULL)
+	    s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
+			sw_int);
+
 	  if ((face->shared.flags & HICN_FACE_FLAGS_DELETED))
 	    s = format (s, " (deleted)");
 	}
     }
   else
     {
-      s = format (s, "IFace %d: ", format_white_space, indent, face_id);
+      s = format (s, "%U iFace %d: ", format_white_space, indent, face_id);
       if (udp_face->hdrs.ip4.ip.ip_version_and_header_length == ipv)
 	{
 	  s = format (s, "type UDP local %U|%u",
@@ -349,9 +393,13 @@ format_hicn_face_udp (u8 * s, va_list * args)
 	    format (s, " local %U|%u", format_ip4_address,
 		    &udp_face->hdrs.ip4.ip.dst_address,
 		    clib_net_to_host_u16 (udp_face->hdrs.ip4.udp.dst_port));
-	  s =
-	    format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		    vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+	  vnet_sw_interface_t *sw_int =
+	    vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+	  if (sw_int != NULL)
+	    s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
+			sw_int);
+
 	  if ((face->shared.flags & HICN_FACE_FLAGS_DELETED))
 	    s = format (s, " (deleted)");
 	}
@@ -364,9 +412,13 @@ format_hicn_face_udp (u8 * s, va_list * args)
 	    format (s, " remote %U|%u", format_ip6_address,
 		    &udp_face->hdrs.ip6.ip.dst_address,
 		    clib_net_to_host_u16 (udp_face->hdrs.ip6.udp.dst_port));
-	  s =
-	    format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		    vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+	  vnet_sw_interface_t *sw_int =
+	    vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+	  if (sw_int != NULL)
+	    s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
+			sw_int);
+
 	  if ((face->shared.flags & HICN_FACE_FLAGS_DELETED))
 	    s = format (s, " (deleted)");
 	}

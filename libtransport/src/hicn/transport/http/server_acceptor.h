@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <hicn/transport/http/callbacks.h>
 #include <hicn/transport/http/default_values.h>
 #include <hicn/transport/http/request.h>
 #include <hicn/transport/http/server_publisher.h>
@@ -31,6 +30,9 @@ namespace http {
 
 class HTTPServerAcceptor {
   friend class HTTPServerPublisher;
+  using OnHttpRequest =
+      std::function<void(std::shared_ptr<HTTPServerPublisher> &,
+                         const uint8_t *, std::size_t, int request_id)>;
 
  public:
   HTTPServerAcceptor(std::string &&server_locator, OnHttpRequest callback);
@@ -51,7 +53,6 @@ class HTTPServerAcceptor {
   void processIncomingInterest(ProducerSocket &p, Interest &interest);
 
   OnHttpRequest callback_;
-  asio::io_service io_service_;
   std::shared_ptr<ProducerSocket> acceptor_producer_;
 
   std::map<int, std::shared_ptr<HTTPServerPublisher>> publishers_;

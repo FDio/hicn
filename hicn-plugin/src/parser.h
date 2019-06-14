@@ -42,8 +42,7 @@ hicn_interest_parse_pkt (vlib_buffer_t * pkt, hicn_name_t * name,
   hicn_header_t *pkt_hdr = vlib_buffer_get_current (pkt);
   *pkt_hdrp = pkt_hdr;
   u8 *ip_pkt = vlib_buffer_get_current (pkt);
-  u8 version = (pkt_hdr->v4.ip.version_ihl & 0xf0) >> 4;
-  *isv6 = ((version & 2) >> 1);
+  *isv6 = hicn_is_v6 (pkt_hdr);
   u8 ip_proto = (*isv6) * IPPROTO_IPV6;
   u8 next_proto_offset = 6 + (1 - *isv6) * 3;
   //in the ipv6 header the next header field is at byte 6
@@ -72,8 +71,7 @@ hicn_data_parse_pkt (vlib_buffer_t * pkt, hicn_name_t * name,
   *pkt_hdrp = pkt_hdr;
   *pkt_hdrp = pkt_hdr;
   u8 *ip_pkt = vlib_buffer_get_current (pkt);
-  u8 version = (pkt_hdr->v4.ip.version_ihl & 0xf0) >> 4;
-  *isv6 = ((version & 2) >> 1);
+  *isv6 = hicn_is_v6 (pkt_hdr);
   u8 ip_proto = (*isv6) * IPPROTO_IPV6;
   /*
    * in the ipv6 header the next header field is at byte 6 in the ipv4

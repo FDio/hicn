@@ -61,8 +61,8 @@ static constexpr uint32_t rate_choice = 0;
 static constexpr uint32_t transport_protocol_min_retransmissions = 0;
 static constexpr uint32_t transport_protocol_max_retransmissions = 128;
 static constexpr uint32_t max_content_object_size = 8096;
-static constexpr uint32_t min_window_size = 1;            // Interests
-static constexpr uint32_t max_window_size = 256 * 2;          // Interests
+static constexpr uint32_t min_window_size = 1;        // Interests
+static constexpr uint32_t max_window_size = 256 * 2;  // Interests
 
 }  // namespace default_values
 

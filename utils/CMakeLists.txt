@@ -22,6 +22,11 @@ set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
 )
 
+if (NOT CMAKE_BUILD_TYPE)
+  message(STATUS "No build type selected, default to Release")
+  set(CMAKE_BUILD_TYPE "Release")
+endif ()
+
 include(BuildMacros)
 include(WindowsMacros)
 
@@ -29,31 +34,49 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
   set(HICN_UTILS hicn-utils)
 else()
-  set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
+  if (ANDROID_API)
+    set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT})
+  else ()
+    set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
+  endif ()
+
 endif()
 
-include(Packaging)
+set(SUFFIX "")
+if (${LIBTRANSPORT_LIBRARIES} MATCHES ".*-memif.*")
+  set(SUFFIX "-memif")
+endif()
+
+set(HICN_UTILS "${HICN_UTILS}${SUFFIX}")
 
 set (COMPILER_DEFINITIONS "")
-
-list(APPEND UTILS_SRC
-  src/hiperf.cc
-  src/ping_client.cc
-  src/ping_server.cc
-)
 
 if (WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
 endif ()
-foreach(util ${UTILS_SRC})
-  get_filename_component(_util_name ${util} NAME)
-  string(REGEX REPLACE ".cc" "" util_name ${_util_name})
 
-  build_executable(${util_name}
-    SOURCES ${util}
-    LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
-    DEPENDS ${LIBTRANSPORT}
-    COMPONENT ${HICN_UTILS}
-    DEFINITIONS ${COMPILER_DEFINITIONS}
-  )
-endforeach()
+include(Packaging)
+
+build_executable(hiperf
+  SOURCES src/hiperf.cc
+  LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
+  DEPENDS ${LIBTRANSPORT}
+  COMPONENT ${HICN_UTILS}
+  DEFINITIONS ${COMPILER_DEFINITIONS}
+)
+
+build_executable(hicn-ping-server
+  SOURCES src/ping_server.cc
+  LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
+  DEPENDS ${LIBTRANSPORT}
+  COMPONENT ${HICN_UTILS}
+  DEFINITIONS ${COMPILER_DEFINITIONS}
+)
+
+build_executable(hicn-ping-client
+  SOURCES src/ping_client.cc
+  LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
+  DEPENDS ${LIBTRANSPORT}
+  COMPONENT ${HICN_UTILS}
+  DEFINITIONS ${COMPILER_DEFINITIONS}
+)

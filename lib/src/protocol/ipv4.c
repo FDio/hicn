@@ -98,7 +98,7 @@ int
 ipv4_get_interest_name_suffix (hicn_type_t type, const hicn_protocol_t * h,
 			       hicn_name_suffix_t * suffix)
 {
-  return CHILD_OPS (set_interest_name_suffix, type, h, suffix);
+  return CHILD_OPS (get_interest_name_suffix, type, h, suffix);
 }
 
 int

@@ -54,7 +54,6 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
-  u8 packet_data[40];
 } hicn_data_push_trace_t;
 
 vlib_node_registration_t hicn_data_push_node;
@@ -129,7 +128,7 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
     }
 
   pitp = hicn_pit_get_data (nodep);
-  hicn_pit_init_data (pitp);
+  hicn_cs_init_data (pitp);
   pitp->shared.create_time = tnow;
 
   if (dmsg_lifetime < HICN_PARAM_CS_LIFETIME_MIN
@@ -142,21 +141,16 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
   /* Store the original packet buffer in the CS node */
   pitp->u.cs.cs_pkt_buf = vlib_get_buffer_index (vm, b0);
 
-  pitp->u.cs.cs_rxface = hicnb0->face_dpo_id;
-
   /* Set up the hash node and insert it */
   hicn_hashtb_init_node (rt->pitcs->pcs_table, nodep, nameptr, namelen);
 
-
-  nodep->hn_flags |= HICN_HASH_NODE_CS_FLAGS;
-  pitp->shared.entry_flags |= HICN_PCS_ENTRY_CS_FLAG;
 
   hicn_hash_entry_t *hash_entry;
   ret =
     hicn_pcs_cs_insert_update (vm, rt->pitcs, pitp, nodep, &hash_entry,
 			       hicnb0->name_hash, &node_id0, &dpo_ctx_id0,
 			       &vft_id0, &is_cs0, &hash_entry_id, &bucket_id,
-			       &bucket_is_overflow);
+			       &bucket_is_overflow, &(hicnb0->face_dpo_id));
 
   if (ret != HICN_ERROR_NONE)
     {
@@ -178,7 +172,6 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
 	}
       else
 	{
-	  hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_CS_ENTRY;
 	  prep_buffer_for_cs (vm, b0, isv6);
 	}
     }
@@ -250,6 +243,17 @@ hicn_data_push_fn (vlib_main_t * vm,
 			 nameptr, namelen, isv6);
 	  stats.pkts_data_count++;
 	}
+
+      /* Maybe trace */
+      if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
+			 (b0->flags & VLIB_BUFFER_IS_TRACED)))
+	{
+	  hicn_data_push_trace_t *t =
+	    vlib_add_trace (vm, node, b0, sizeof (*t));
+	  t->pkt_type = HICN_PKT_TYPE_CONTENT;
+	  t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
+	  t->next_index = HICN_DATA_PUSH_NEXT_ERROR_DROP;
+	}
     }
 
   to_forward -= n_to_forward;
@@ -266,6 +270,7 @@ hicn_data_push_fn (vlib_main_t * vm,
 	  to_next++;
 	  n_left_to_next--;
 	}
+
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
 

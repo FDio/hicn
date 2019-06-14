@@ -48,7 +48,6 @@ ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service)
       is_async_(false),
       verifier_(std::make_shared<utils::Verifier>()),
       verify_signature_(false),
-      content_buffer_(nullptr),
       on_interest_output_(VOID_HANDLER),
       on_interest_timeout_(VOID_HANDLER),
       on_interest_satisfied_(VOID_HANDLER),
@@ -56,41 +55,36 @@ ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service)
       on_content_object_verification_(VOID_HANDLER),
       on_content_object_(VOID_HANDLER),
       on_manifest_(VOID_HANDLER),
-      on_payload_retrieved_(VOID_HANDLER),
+      stats_summary_(VOID_HANDLER),
+      read_callback_(nullptr),
       virtual_download_(false),
       rtt_stats_(false),
       timer_interval_milliseconds_(0) {
   switch (protocol) {
     case TransportProtocolAlgorithms::CBR:
-      transport_protocol_ = std::make_shared<CbrTransportProtocol>(this);
+      transport_protocol_ = std::make_unique<CbrTransportProtocol>(this);
       break;
     case TransportProtocolAlgorithms::RTC:
-      transport_protocol_ = std::make_shared<RTCTransportProtocol>(this);
+      transport_protocol_ = std::make_unique<RTCTransportProtocol>(this);
       break;
     case TransportProtocolAlgorithms::RAAQM:
     default:
-      transport_protocol_ = std::make_shared<RaaqmTransportProtocol>(this);
+      transport_protocol_ = std::make_unique<RaaqmTransportProtocol>(this);
       break;
   }
 }
 
 ConsumerSocket::~ConsumerSocket() {
   stop();
-
   async_downloader_.stop();
-
-  transport_protocol_.reset();
-  portal_.reset();
 }
 
 void ConsumerSocket::connect() { portal_->connect(); }
 
-int ConsumerSocket::consume(const Name &name, ContentBuffer &receive_buffer) {
+int ConsumerSocket::consume(const Name &name) {
   if (transport_protocol_->isRunning()) {
     return CONSUMER_BUSY;
   }
-
-  content_buffer_ = receive_buffer;
 
   network_name_ = name;
   network_name_.setSuffix(0);
@@ -101,14 +95,12 @@ int ConsumerSocket::consume(const Name &name, ContentBuffer &receive_buffer) {
   return CONSUMER_FINISHED;
 }
 
-int ConsumerSocket::asyncConsume(const Name &name,
-                                 ContentBuffer &receive_buffer) {
+int ConsumerSocket::asyncConsume(const Name &name) {
   if (!async_downloader_.stopped()) {
-    async_downloader_.add([this, receive_buffer, name]() {
+    async_downloader_.add([this, name]() {
       network_name_ = std::move(name);
       network_name_.setSuffix(0);
       is_async_ = true;
-      content_buffer_ = receive_buffer;
       transport_protocol_->start();
     });
   }
@@ -134,8 +126,6 @@ void ConsumerSocket::stop() {
   if (transport_protocol_->isRunning()) {
     transport_protocol_->stop();
   }
-
-  // is_running_ = false;
 }
 
 void ConsumerSocket::resume() {

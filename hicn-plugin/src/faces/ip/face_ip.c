@@ -1,16 +1,16 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at:
+ * Copyright (c) 2017-2019 Cisco and/or its affiliates. Licensed under the
+ * Apache License, Version 2.0 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of the
+ * License at:
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
  */
 
 #include "face_ip.h"
@@ -40,20 +40,24 @@ hicn_face_ip_init (vlib_main_t * vm)
   /* Default Strategy has index 0 and it always exists */
   strategy_face_ip4_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.hicn_dpo_get_type
-						     ())->get_strategy_node_index
+						    (default_dpo.
+						     hicn_dpo_get_type ())->
+						    get_strategy_node_index
 						    (),
-						    hicn_face_ip4_output_node.index);
+						    hicn_face_ip4_output_node.
+						    index);
 
   strategy_face_ip6_vlib_edge = vlib_node_add_next (vm,
 						    hicn_dpo_get_strategy_vft
-						    (default_dpo.hicn_dpo_get_type
-						     ())->get_strategy_node_index
+						    (default_dpo.
+						     hicn_dpo_get_type ())->
+						    get_strategy_node_index
 						    (),
-						    hicn_face_ip6_output_node.index);
+						    hicn_face_ip6_output_node.
+						    index);
   /*
-   * Create and edge between al the other strategy nodes
-   * and the ip_encap nodes.
+   * Create and edge between al the other strategy nodes and the
+   * ip_encap nodes.
    */
   for (int i = 1; i < strategy_nodes_n; i++)
     {
@@ -116,16 +120,16 @@ hicn_face_ip_del (hicn_face_id_t face_id)
 
 
 /*
- * Utility that adds a new face cache entry. For the moment we assume that the
- * ip_adjacency has already been set up.
+ * Utility that adds a new face cache entry. For the moment we assume that
+ * the ip_adjacency has already been set up.
  */
 int
 hicn_face_ip_add (const ip46_address_t * local_addr,
 		  const ip46_address_t * remote_addr,
 		  int sw_if, hicn_face_id_t * pfaceid)
 {
-  fib_protocol_t fib_type;
-  vnet_link_t link_type;
+  /* fib_protocol_t fib_type; */
+  /* vnet_link_t link_type; */
   adj_index_t adj;
   dpo_proto_t dpo_proto;
 
@@ -133,19 +137,21 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
   if (ip46_address_is_zero (local_addr) || ip46_address_is_zero (remote_addr))
     return HICN_ERROR_FACE_NO_GLOBAL_IP;
 
-  if (ip46_address_is_ip4 (local_addr) && ip46_address_is_ip4 (remote_addr))
-    {
-      link_type = VNET_LINK_IP4;
-      fib_type = FIB_PROTOCOL_IP4;
-    }
-  else
-    {
-      link_type = VNET_LINK_IP6;
-      fib_type = FIB_PROTOCOL_IP6;
-    }
+  fib_prefix_t fib_pfx;
+  fib_node_index_t fib_entry_index;
+  fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
+  fib_pfx.fp_len = 128;
 
+  u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+						     HICN_FIB_TABLE,
+						     FIB_SOURCE_PLUGIN_HI);
 
-  adj = adj_nbr_add_or_lock (fib_type, link_type, remote_addr, sw_if);
+  fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+
+  adj = fib_entry_get_adj (fib_entry_index);
+
+  if (adj == ~0)
+    return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
   hicn_face_flags_t flags = (hicn_face_flags_t) 0;
   flags |= HICN_FACE_FLAGS_FACE;
@@ -231,16 +237,24 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-						 hicn_mapme_eventmgr_process_node.index,
+						 hicn_mapme_eventmgr_process_node.
+						 index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
+
+  /* *INDENT-OFF* */
   *retx = (retx_t)
   {
-    .prefix = 0,.dpo = (dpo_id_t)
+    .prefix = 0,
+    .dpo = (dpo_id_t)
     {
-    .dpoi_type = hicn_face_ip_type,.dpoi_proto = dpo_proto,.dpoi_next_node =
-	0,.dpoi_index = *pfaceid,}
+      .dpoi_type = hicn_face_ip_type,
+      .dpoi_proto = dpo_proto,
+      .dpoi_next_node = 0,
+      .dpoi_index = *pfaceid,
+    }
   };
+  /* *INDENT-ON* */
 
   return HICN_ERROR_NONE;
 }
@@ -271,8 +285,12 @@ format_hicn_face_ip (u8 * s, va_list * args)
 	format (s, "remote %U ", format_ip46_address, &ip_face->remote_addr,
 		IP46_TYPE_ANY);
       s = format (s, "%U", format_vnet_link, adj->ia_link);
-      s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		  vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+      vnet_sw_interface_t *sw_int =
+	vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+      if (sw_int != NULL)
+	s = format (s, " dev %U", format_vnet_sw_interface_name, vnm, sw_int);
+
 
       if ((face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD))
 	s = format (s, " %U", format_hicn_face_prod, face_id, 0);
@@ -289,9 +307,11 @@ format_hicn_face_ip (u8 * s, va_list * args)
       s = format (s, "type IP local %U remote %U",
 		  format_ip46_address, &ip_face->local_addr, IP46_TYPE_ANY,
 		  format_ip46_address, &ip_face->remote_addr, IP46_TYPE_ANY);
-      s =
-	format (s, " dev %U", format_vnet_sw_interface_name, vnm,
-		vnet_get_sw_interface (vnm, face->shared.sw_if));
+
+      vnet_sw_interface_t *sw_int =
+	vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+      if (sw_int != NULL)
+	s = format (s, " dev %U", format_vnet_sw_interface_name, vnm, sw_int);
 
       if ((face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD))
 	s = format (s, " %U", format_hicn_face_prod, face_id, 0);

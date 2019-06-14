@@ -439,9 +439,14 @@ done:
     {
       vlib_cli_output (vm, "Plugin features: cs:%d\n", HICN_FEATURE_CS);
       vlib_cli_output (vm,
-		       "Removed CS entries (and freed vlib buffers) %d, Removed PIT entries %d",
+		       "Removed CS entries (and freed vlib buffers) %d, Removed PIT entries %d\n",
 		       hicn_main.pitcs.pcs_cs_dealloc,
 		       hicn_main.pitcs.pcs_pit_dealloc);
+      vlib_cli_output (vm,
+		       "Bucke count %d, Overflow buckets count %d, used %d\n",
+		       hicn_main.pitcs.pcs_table->ht_bucket_count,
+		       hicn_main.pitcs.pcs_table->ht_overflow_bucket_count,
+                       hicn_main.pitcs.pcs_table->ht_overflow_buckets_used);
 
     }
   return (ret == HICN_ERROR_NONE) ? 0 : clib_error_return (0, "%s\n",
@@ -658,7 +663,7 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 						 clib_host_to_net_u16
 						 (src_port),
 						 clib_host_to_net_u16
-						 (dst_port));
+						 (dst_port), NO_L2);
 	    else
 	      return (clib_error_return
 		      (0,
@@ -667,8 +672,8 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	else
 	  {
 	    ret =
-	      hicn_punt_interest_data_for_ethernet (vm, &prefix, subnet_mask,
-						    sw_if_index, type);
+	      hicn_punt_interest_data_for_ip (vm, &prefix, subnet_mask,
+					      sw_if_index, type, NO_L2);
 	  }
       }
       break;
@@ -689,9 +694,10 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	    ret = ip46_address_is_ip4 (&prefix) ?
 	      hicn_punt_remove_ip4_address (vm, &(prefix.ip4), subnet_mask, 1,
 					    sw_if_index,
-					    0) :
+					    0, NO_L2) :
 	      hicn_punt_remove_ip6_address (vm, (ip6_address_t *) & prefix,
-					    subnet_mask, 1, sw_if_index, 0);
+					    subnet_mask, 1, sw_if_index, 0,
+					    NO_L2);
 	  }
       }
       break;
@@ -1197,7 +1203,7 @@ VLIB_CLI_COMMAND(hicn_cli_node_ctl_command, static)=
 VLIB_CLI_COMMAND(hicn_cli_fib_set_command, static)=
 {
 	.path = "hicn fib",
-        .short_help = "hicn fib {{add | delete } prefix <prefix> face <faceid> }"
+        .short_help = "hicn fib {{add | delete } prefix <prefix> face <facei_d> }"
         " | set strategy <strategy_id> prefix <prefix>",
         .function = hicn_cli_fib_set_command_fn,
 };
@@ -1207,7 +1213,7 @@ VLIB_CLI_COMMAND(hicn_cli_show_command, static)=
 {
 	.path = "hicn show",
         .short_help = "hicn show "
-        "[detail] [internal]"
+        "[internal]"
         "[strategies]",
         .function = hicn_cli_show_command_fn,
 };
@@ -1216,7 +1222,7 @@ VLIB_CLI_COMMAND(hicn_cli_show_command, static)=
 VLIB_CLI_COMMAND(hicn_cli_punting_command, static)=
 {
 	.path = "hicn punting",
-        .short_help = "hicn punting {add|delete} prefix <ip_address/mask> intfc <interface> {type ip | type <udp4|udp6> src_port <port> dst_port <port>}",
+        .short_help = "hicn punting {add|delete} prefix <prefix> intfc <sw_if> {type ip | type <udp4|udp6> src_port <port> dst_port <port>}",
         .function = hicn_cli_punting_command_fn,
 };
 
@@ -1231,7 +1237,7 @@ VLIB_CLI_COMMAND(hicn_cli_mapme_command, static)=
 VLIB_CLI_COMMAND(hicn_cli_pgen_client_set_command, static)=
 {
 	.path = "hicn pgen client",
-        .short_help = "hicn pgen client fwd <ip|hicn> src <addr> n_ifaces <n_ifaces> name <addr/subnet> lifetime <interest-lifetime> intfc <data in-interface> max_seq <max sequence number> n_flows <number of flows>",
+        .short_help = "hicn pgen client fwd <ip|hicn> src <src_addr> n_ifaces <n_ifaces> name <prefix> lifetime <interest-lifetime> intfc <data in-interface> max_seq <max sequence number> n_flows <number of flows>",
         .long_help = "Run hicn in packet-gen client mode\n",
         .function = hicn_cli_pgen_client_set_command_fn,
 };
@@ -1240,7 +1246,7 @@ VLIB_CLI_COMMAND(hicn_cli_pgen_client_set_command, static)=
 VLIB_CLI_COMMAND(hicn_cli_pgen_server_set_command, static)=
 {
 	.path = "hicn pgen server",
-        .short_help = "hicn pgen server fwd <ip|hicn> name <addr/subnet> intfc <interest in-interface> size <payload_size>",
+        .short_help = "hicn pgen server fwd <ip|hicn> name <prefix> intfc <interest in-interface> size <payload_size>",
         .long_help = "Run hicn in packet-gen server mode\n",
         .function = hicn_cli_pgen_server_set_command_fn,
 };

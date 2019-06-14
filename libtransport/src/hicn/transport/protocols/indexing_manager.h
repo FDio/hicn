@@ -40,6 +40,8 @@ class IndexManager {
    */
   virtual uint32_t getNextSuffix() = 0;
 
+  virtual void setFirstSuffix(uint32_t suffix) = 0;
+
   /**
    * Retrive the next segment to be reassembled.
    */
@@ -72,57 +74,11 @@ class IndexVerificationManager : public IndexManager {
   virtual bool onContentObject(const core::ContentObject &content_object) = 0;
 };
 
-class ZeroIndexManager : public IndexVerificationManager {
- public:
-  ZeroIndexManager() : reset_(true) {}
-
-  TRANSPORT_ALWAYS_INLINE virtual void reset() override { reset_ = true; }
-
-  /**
-   * Retrieve from the manifest the next suffix to retrieve.
-   */
-  TRANSPORT_ALWAYS_INLINE virtual uint32_t getNextSuffix() override {
-    uint32_t ret = reset_ ? 0 : IndexManager::invalid_index;
-    reset_ = false;
-    return ret;
-  }
-
-  /**
-   * Retrive the next segment to be reassembled.
-   */
-  TRANSPORT_ALWAYS_INLINE virtual uint32_t getNextReassemblySegment() override {
-    return IndexManager::invalid_index;
-  }
-
-  TRANSPORT_ALWAYS_INLINE virtual bool isFinalSuffixDiscovered() override {
-    return false;
-  }
-
-  TRANSPORT_ALWAYS_INLINE virtual uint32_t getFinalSuffix() override {
-    return IndexManager::invalid_index;
-  }
-
-  TRANSPORT_ALWAYS_INLINE bool onManifest(
-      core::ContentObject::Ptr &&content_object) override {
-    throw errors::UnexpectedManifestException();
-  }
-
-  TRANSPORT_ALWAYS_INLINE bool onContentObject(
-      const core::ContentObject &content_object) override {
-    throw errors::RuntimeException(
-        "Called onContentObject on a ZeroIndexManager, which is not able to "
-        "process packets.");
-  }
-
- private:
-  bool reset_;
-};
-
 class IncrementalIndexManager : public IndexVerificationManager {
  public:
   IncrementalIndexManager(interface::ConsumerSocket *icn_socket)
       : socket_(icn_socket),
-        final_suffix_(std::numeric_limits<uint64_t>::max()),
+        final_suffix_(std::numeric_limits<uint32_t>::max()),
         next_download_suffix_(0),
         next_reassembly_suffix_(0),
         verification_manager_(
@@ -134,8 +90,8 @@ class IncrementalIndexManager : public IndexVerificationManager {
   virtual ~IncrementalIndexManager() {}
 
   TRANSPORT_ALWAYS_INLINE virtual void reset() override {
-    final_suffix_ = std::numeric_limits<uint64_t>::max();
-    next_download_suffix_ = 0;
+    final_suffix_ = std::numeric_limits<uint32_t>::max();
+    next_download_suffix_ = first_suffix_;
     next_reassembly_suffix_ = 0;
   }
 
@@ -145,6 +101,11 @@ class IncrementalIndexManager : public IndexVerificationManager {
   TRANSPORT_ALWAYS_INLINE virtual uint32_t getNextSuffix() override {
     return next_download_suffix_ <= final_suffix_ ? next_download_suffix_++
                                                   : IndexManager::invalid_index;
+  }
+
+  TRANSPORT_ALWAYS_INLINE virtual void setFirstSuffix(
+      uint32_t suffix) override {
+    first_suffix_ = suffix;
   }
 
   /**
@@ -157,7 +118,7 @@ class IncrementalIndexManager : public IndexVerificationManager {
   }
 
   TRANSPORT_ALWAYS_INLINE virtual bool isFinalSuffixDiscovered() override {
-    return final_suffix_ != std::numeric_limits<uint64_t>::max();
+    return final_suffix_ != std::numeric_limits<uint32_t>::max();
   }
 
   TRANSPORT_ALWAYS_INLINE virtual uint32_t getFinalSuffix() override {
@@ -182,9 +143,10 @@ class IncrementalIndexManager : public IndexVerificationManager {
 
  protected:
   interface::ConsumerSocket *socket_;
-  uint64_t final_suffix_;
-  uint64_t next_download_suffix_;
-  uint64_t next_reassembly_suffix_;
+  uint32_t final_suffix_;
+  uint32_t first_suffix_;
+  uint32_t next_download_suffix_;
+  uint32_t next_reassembly_suffix_;
   std::unique_ptr<VerificationManager> verification_manager_;
 };
 

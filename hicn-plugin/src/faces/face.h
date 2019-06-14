@@ -51,6 +51,9 @@ typedef struct __attribute__ ((packed)) hicn_face_shared_s
   /* And a network or application face (1B) */
   hicn_face_flags_t flags;
 
+  /* Align the upcoming fields */
+  u8 align;
+
   /* Path label (2B) */
   u16 pl_id;
 
@@ -67,7 +70,7 @@ typedef struct __attribute__ ((packed)) hicn_face_shared_s
   union
   {
     hicn_face_type_t face_type;
-    u32 int_face_type;		//To forse the face_type_t to be 4B
+    u32 int_face_type;		//To force the face_type_t to be 4B
   };
 
 } hicn_face_shared_t;
@@ -82,7 +85,6 @@ typedef struct __attribute__ ((packed)) hicn_face_s
   /* Additional space to fill with face_type specific information */
   u8 data[2 * CLIB_CACHE_LINE_BYTES - sizeof (hicn_face_shared_t)];
   hicn_face_shared_t shared;
-
 }
 
 hicn_face_t;
@@ -140,6 +142,24 @@ typedef struct hicn_face_vft_s
   void (*hicn_face_get_dpo) (hicn_face_t * face, dpo_id_t * dpo);
 } hicn_face_vft_t;
 
+#define foreach_hicn_face_counter                      \
+  _(INTEREST_RX, 0, "Interest rx")                     \
+  _(INTEREST_TX, 1, "Interest tx")                     \
+  _(DATA_RX, 2, "Data rx")                     \
+  _(DATA_TX, 3, "Data tx")                     \
+
+typedef enum
+{
+#define _(a,b,c) HICN_FACE_COUNTERS_##a = (b),
+  foreach_hicn_face_counter
+#undef _
+  HICN_N_COUNTER
+} hicn_face_counters_t;
+
+extern const char *HICN_FACE_CTRX_STRING[];
+
+#define get_face_counter_string(ctrxno) (char *)(HICN_FACE_CTRX_STRING[ctrxno])
+
 
 /* Vector maintaining a dpo per face */
 extern dpo_id_t *face_dpo_vec;
@@ -150,6 +170,9 @@ extern char **face_type_names_vec;
 
 /* First face type registered in the sytem.*/
 extern dpo_type_t first_type;
+
+/* Per-face counters */
+extern vlib_combined_counter_main_t *counters;
 
 /**
  * @brief Return the face id from the face state

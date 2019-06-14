@@ -16,7 +16,7 @@
 #pragma once
 
 #include <queue>
-#include <set>
+#include <map>
 #include <unordered_map>
 
 #include <hicn/transport/protocols/protocol.h>
@@ -36,9 +36,11 @@
 #define HICN_RTC_INTEREST_LIFETIME 1000  // ms
 
 // controller constant
-#define HICN_ROUND_LEN \
-  200  // ms interval of time on which we take decisions / measurements
-#define HICN_MAX_RTX 128
+#define HICN_ROUND_LEN 200  // ms interval of time on which
+			    // we take decisions / measurements
+#define HICN_MAX_RTX 10
+#define HICN_MAX_RTX_SIZE 1024
+#define HICN_MAX_RTX_MAX_AGE 10000
 #define HICN_MIN_RTT_WIN 30  // rounds
 
 // cwin
@@ -60,31 +62,25 @@
 #define HICN_MICRO_IN_A_SEC 1000000
 #define HICN_MILLI_IN_A_SEC 1000
 
-// RTCP
-#define HICN_MASK_RTCP_VERSION 192
-#define HICN_MASK_TYPE_CODE \
-  31  // this is RC in the RR/SR packet or FMT int the early feedback packets
-#define HICN_RTPC_NACK_HEADER 12  // bytes
-#define HICN_MAX_RTCP_SEQ_NUMBER 0xffff
-#define HICN_RTCP_VERSION 2
-// RTCP TYPES
-#define HICN_RTCP_SR 200
-#define HICN_RTCP_RR 201
-#define HICN_RTCP_SDES 202
-#define HICN_RTCP_RTPFB 205
-#define HICN_RTCP_PSFB 206
-// RTCP RC/FMT
-#define HICN_RTCP_SDES_CNAME 1
-#define HICN_RTCP_RTPFB_GENERIC_NACK 1
-#define HICN_RTCP_PSFB_PLI 1
-
 namespace transport {
 
 namespace protocol {
 
+enum packetState {
+  sent_,
+  received_,
+  timeout1_,
+  timeout2_,
+  lost_
+};
+
+typedef enum packetState packetState_t;
+
 struct sentInterest {
   uint64_t transmissionTime;
-  uint8_t retransmissions;
+  uint32_t sequence;  //sequence number of the interest sent
+                      //to handle seq % buffer_size
+  packetState_t state; //see packet state
 };
 
 class RTCTransportProtocol : public TransportProtocol, public Reassembly {
@@ -98,8 +94,6 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   void stop() override;
 
   void resume() override;
-
-  void onRTCPPacket(uint8_t *packet, size_t len);
 
  private:
   // algo functions
@@ -117,11 +111,21 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   void resetPreviousWindow();
 
   // packet functions
-  void sendInterest();
+  void sendInterest(Name *interest_name, bool rtx);
   void scheduleNextInterests() override;
   void scheduleAppNackRtx(std::vector<uint32_t> &nacks);
+  void addRetransmissions(uint32_t val);
+  void addRetransmissions(uint32_t start, uint32_t stop);
+  void retransmit(bool first_rtx);
+  void checkRtx();
   void onTimeout(Interest::Ptr &&interest) override;
+  // checkIfProducerIsActive: return true if we need to schedule an interest
+  // immediatly after, false otherwise (this happens when the producer socket
+  // is not active)
+  bool checkIfProducerIsActive(const ContentObject &content_object);
   void onNack(const ContentObject &content_object);
+  //funtcion used to handle nacks for retransmitted interests
+  void onNackForRtx(const ContentObject &content_object);
   void onContentObject(Interest::Ptr &&interest,
                        ContentObject::Ptr &&content_object) override;
   void returnContentToApplication(const ContentObject &content_object);
@@ -131,42 +135,37 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
     returnContentToApplication(*content_object);
   }
 
-  // RTCP functions
-  uint32_t hICN2RTP(uint32_t hicn_seq);
-  uint32_t RTP2hICN(uint32_t rtp_seq);
-  void processRtcpHeader(uint8_t *offset);
-  void errorParsingRtcpHeader(uint8_t *offset);
-  void processSDES(uint8_t *offset);
-  void processGenericNack(uint8_t *offset);
-  void processPli(uint8_t *offset);
-
   // controller var
   std::chrono::steady_clock::time_point lastRoundBegin_;
-  // bool allPacketsInSync_;
-  // unsigned numberOfRoundsInSync_;
-  // unsigned numberOfCatchUpRounds_;
-  // bool catchUpPhase_;
   unsigned currentState_;
-
-  // uint32_t inProduction_;
 
   // cwin var
   uint32_t currentCWin_;
   uint32_t maxCWin_;
-  // uint32_t previousCWin_;
 
   // names/packets var
   uint32_t actualSegment_;
-  int32_t RTPhICN_offset_;
   uint32_t inflightInterestsCount_;
-  std::queue<uint32_t> interestRetransmissions_;
+  //map seq to rtx
+  std::map<uint32_t, uint8_t> interestRetransmissions_;
+  std::unique_ptr<asio::steady_timer> rtx_timer_;
+  //std::queue<uint32_t> interestRetransmissions_;
   std::vector<sentInterest> inflightInterests_;
+  uint32_t lastSegNacked_; //indicates the segment id in the last received
+                           // past Nack. we do not ask for retransmissions
+                           //for samething that is older than this value.
+  uint32_t lastReceived_; //segment of the last content object received
+                          //indicates the base of the window on the client
   uint32_t nackedByProducerMaxSize_;
   std::set<uint32_t>
       nackedByProducer_;  // this is used to avoid retransmissions from the
                           // application for pakets for which we already got a
                           // past NACK by the producer these packet are too old,
                           // they will never be retrived
+  bool nack_timer_used_;
+  std::unique_ptr<asio::steady_timer> nack_timer_;  // timer used to schedule
+  // a nack retransmission in
+  // of inactive prod socket
 
   uint32_t modMask_;
 
@@ -185,7 +184,6 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
                                 // vector
   std::unordered_map<uint32_t, std::shared_ptr<RTCDataPath>> pathTable_;
   uint32_t roundCounter_;
-  // std::vector<uint64_t> minRTTwin_;
   uint64_t minRtt_;
 
   // CC var

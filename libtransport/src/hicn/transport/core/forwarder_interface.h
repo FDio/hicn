@@ -19,8 +19,6 @@
 #include <hicn/transport/core/udp_socket_connector.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
-#include <hicn/transport/utils/log.h>
-
 #include <deque>
 
 namespace transport {
@@ -100,18 +98,16 @@ class ForwarderInterface {
     }
 
     packet.setChecksum();
-    connector_.send(packet.data());
+    connector_.send(packet.acquireMemBufReference());
   }
 
-  template <typename Handler>
-  TRANSPORT_ALWAYS_INLINE void send(const uint8_t *packet, std::size_t len,
-                                    Handler &&packet_sent) {
+  TRANSPORT_ALWAYS_INLINE void send(const uint8_t *packet, std::size_t len) {
     // ASIO_COMPLETION_HANDLER_CHECK(Handler, packet_sent) type_check;
     counters_.tx_packets++;
     counters_.tx_bytes += len;
 
     // Perfect forwarding
-    connector_.send(packet, len, std::forward<Handler &&>(packet_sent));
+    connector_.send(packet, len);
   }
 
   TRANSPORT_ALWAYS_INLINE void shutdown() { connector_.close(); }

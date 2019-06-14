@@ -143,10 +143,9 @@ std::size_t FixedManifestEncoder::getManifestHeaderSizeImpl() {
 FixedManifestDecoder::FixedManifestDecoder(Packet &packet)
     : packet_(packet),
       manifest_header_(reinterpret_cast<ManifestHeader *>(
-          const_cast<uint8_t *>(packet_.getPayload().data()))),
+          packet_.getPayload()->writableData())),
       manifest_entries_(reinterpret_cast<ManifestEntry *>(
-          const_cast<uint8_t *>(packet_.getPayload().data()) +
-          sizeof(ManifestHeader))) {}
+          packet_.getPayload()->writableData() + sizeof(ManifestHeader))) {}
 
 FixedManifestDecoder::~FixedManifestDecoder() {}
 

@@ -29,6 +29,19 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
+#########################################
+# LOG LEVELS AVAILABLE
+# VERBOSE
+# DEBUG
+# INFO
+# WARN
+# ERROR
+# FATAL
+# NONE
+#
+# Default: INFO
+set(TRANSPORT_LOG_LEVEL "INFO" CACHE STRING "Set log level")
+
 set(TRANSPORT_ROOT_PATH "src/hicn/transport")
 
 set(TRANSPORT_CORE ${TRANSPORT_ROOT_PATH}/core)
@@ -69,11 +82,18 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   endif()
   set(LIBTRANSPORT hicntransport)
 else()
-  set(HICN_LIBRARIES ${LIBHICN_SHARED})
-  list(APPEND DEPENDENCIES
-    ${LIBHICN}
-    ${LIBHICN_SHARED}
-  )
+  if (ANDROID_API)
+    set(HICN_LIBRARIES ${LIBHICN})
+    list(APPEND DEPENDENCIES
+      ${LIBHICN}
+    )
+  else ()
+    set(HICN_LIBRARIES ${LIBHICN_SHARED})
+    list(APPEND DEPENDENCIES
+      ${LIBHICN}
+      ${LIBHICN_SHARED}
+    )
+  endif ()
 
   if (__vpp__)
     list(APPEND DEPENDENCIES
@@ -94,11 +114,15 @@ if (${COMPILE_TESTS})
   )
 endif()
 
+if(ANDROID_API)
+  find_package(OpenSSL REQUIRED)
+endif ()
+
 list(APPEND LIBRARIES
   ${LIBPARC_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   ${HICN_LIBRARIES}
-  ${VPP_LIBRARIES}
+  ${VPP_LIBRARY_VPPAPICLIENT}
   ${ANDROID_LIBRARIES}
   ${OPENSSL_LIBRARIES}
   ${WINDOWS_LIBRARIES}

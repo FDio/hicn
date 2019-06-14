@@ -30,6 +30,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/string_tokenizer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hash.h
   ${CMAKE_CURRENT_SOURCE_DIR}/uri.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/chrono_typedefs.h
   ${CMAKE_CURRENT_SOURCE_DIR}/branch_prediction.h
   ${CMAKE_CURRENT_SOURCE_DIR}/event_reactor.h
   ${CMAKE_CURRENT_SOURCE_DIR}/deadline_timer.h

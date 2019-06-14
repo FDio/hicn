@@ -56,19 +56,28 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package_wrapper(Libhicn REQUIRED)
   find_package_wrapper(Libparc REQUIRED)
   set(LIBHICN_LIGHT hicn-light)
-  set(HICN_LIGHT_CONTROL hicnLightControl)
-  set(HICN_LIGHT_DAEMON hicnLightDaemon)
+  set(HICN_LIGHT_CONTROL hicn-light-control)
+  set(HICN_LIGHT_DAEMON hicn-light-daemon)
 else()
-  set(HICN_LIBRARIES ${LIBHICN_SHARED})
-  set(DEPENDENCIES
-    ${LIBHICN}
-    ${LIBHICN_SHARED}
-  )
+  if (ANDROID_API)
+    set(HICN_LIBRARIES ${LIBHICN})
+    list(APPEND DEPENDENCIES
+      ${LIBHICN}
+    )
+  else ()
+    set(HICN_LIBRARIES ${LIBHICN_SHARED})
+    list(APPEND DEPENDENCIES
+      ${LIBHICN}
+      ${LIBHICN_SHARED}
+    )
+  endif ()
 endif()
 
 include( Packaging )
 
 find_package(Threads REQUIRED)
+
+find_package(OpenSSL REQUIRED)
 
 set(HICN_LIGHT_LINK_LIBRARIES
   hicn-light
@@ -98,4 +107,4 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
 	message(STATUS "Set \"-undefined dynamic_lookup\" for shared libraries")
 endif()
 
-add_subdirectory(src)
+add_subdirectory(src/hicn)

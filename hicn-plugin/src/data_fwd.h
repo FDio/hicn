@@ -20,17 +20,6 @@
 
 #include "pcs.h"
 
-/*
- * Node context data; we think this is per-thread/instance
- */
-typedef struct hicn_data_fwd_runtime_s
-{
-  vlib_combined_counter_main_t repm_counters;
-
-  /* per-cpu vector of cloned packets */
-  u32 **clones;
-} hicn_data_fwd_runtime_t;
-
 /* Trace context struct */
 typedef struct
 {
@@ -44,6 +33,7 @@ typedef enum
 {
   HICN_DATA_FWD_NEXT_V4_LOOKUP,
   HICN_DATA_FWD_NEXT_V6_LOOKUP,
+  HICN_DATA_FWD_NEXT_PUSH,
   HICN_DATA_FWD_NEXT_ERROR_DROP,
   HICN_DATA_FWD_N_NEXT,
 } hicn_data_fwd_next_t;
@@ -85,9 +75,8 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
 	}
       return n_buffers;
     }
-  n_buffers = vlib_buffer_alloc_from_free_list (vm, buffers, n_buffers,
-						vlib_buffer_get_free_list_index
-						(s));
+  n_buffers = vlib_buffer_alloc_from_pool (vm, buffers, n_buffers,
+					   s->buffer_pool_index);
 
   for (i = 0; i < n_buffers; i++)
     {
@@ -95,8 +84,6 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
       d->current_data = s->current_data;
       d->current_length = head_end_offset;
       d->trace_index = s->trace_index;
-      vlib_buffer_set_free_list_index (d,
-				       vlib_buffer_get_free_list_index (s));
 
       d->total_length_not_including_first_buffer = s->current_length -
 	head_end_offset;
@@ -108,18 +95,18 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
       d->flags = s->flags | VLIB_BUFFER_NEXT_PRESENT;
       d->flags &= ~VLIB_BUFFER_EXT_HDR_VALID;
       d->trace_index = s->trace_index;
-      clib_memcpy (d->opaque, s->opaque, sizeof (s->opaque));
-      clib_memcpy (d->opaque2, s->opaque2, sizeof (s->opaque2));
-      clib_memcpy (vlib_buffer_get_current (d), vlib_buffer_get_current (s),
-		   head_end_offset);
+      clib_memcpy_fast (d->opaque, s->opaque, sizeof (s->opaque));
+      clib_memcpy_fast (d->opaque2, s->opaque2, sizeof (s->opaque2));
+      clib_memcpy_fast (vlib_buffer_get_current (d),
+			vlib_buffer_get_current (s), head_end_offset);
       d->next_buffer = src_buffer;
     }
   vlib_buffer_advance (s, head_end_offset);
-  s->n_add_refs = n_buffers - 1;
+  s->ref_count = n_buffers;
   while (s->flags & VLIB_BUFFER_NEXT_PRESENT)
     {
       s = vlib_get_buffer (vm, s->next_buffer);
-      s->n_add_refs = n_buffers - 1;
+      s->ref_count = n_buffers;
     }
 
   return n_buffers;
@@ -128,7 +115,7 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
 /**
  * @brief Create multiple clones of buffer and store them
  *  in the supplied array. Unlike the function in the vlib library,
- *   we allow src_buffer to have n_add_refs != 0.
+ *   we allow src_buffer to have ref_count != 0.
  *
  * @param vm - (vlib_main_t *) vlib main data structure pointer
  * @param src_buffer - (u32) source buffer index
@@ -153,13 +140,13 @@ vlib_buffer_clone2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
     s->total_length_not_including_first_buffer = 0;
 
   u16 n_cloned = 0;
-  u8 n_clone_src = 255 - s->n_add_refs;
+  u8 n_clone_src = 255 - s->ref_count;
 
   /*
    * We need to copy src for all the clones that cannot be chained in
    * the src_buffer
    */
-  /* MAX(n_add_refs) = 256 */
+  /* MAX(ref_count) = 256 */
   if (n_buffers > n_clone_src)
     {
       vlib_buffer_t *copy;
@@ -173,25 +160,25 @@ vlib_buffer_clone2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
       n_buffers -= n_cloned;
     }
   /*
-   * vlib_buffer_clone_256 check if n_add_refs is 0. We force it to be
+   * vlib_buffer_clone_256 check if ref_count is 0. We force it to be
    * 0 before calling the function and we retore it to the right value
    * after the function has been called
    */
-  u8 tmp_n_add_refs = s->n_add_refs;
+  u8 tmp_ref_count = s->ref_count;
 
-  s->n_add_refs = 0;
+  s->ref_count = 1;
   /*
    * The regular vlib_buffer_clone_256 does copy if we need to clone
    * only one packet. While this is not a problem per se, it adds
    * complexity to the code, especially because we need to add 1 to
-   * n_add_refs when the packet is cloned.
+   * ref_count when the packet is cloned.
    */
   n_cloned += vlib_buffer_clone_256_2 (vm,
 				       src_buffer,
 				       (buffers + n_cloned),
 				       n_buffers, head_end_offset);
 
-  s->n_add_refs += tmp_n_add_refs;
+  s->ref_count += (tmp_ref_count - 1);
 
   return n_cloned;
 }

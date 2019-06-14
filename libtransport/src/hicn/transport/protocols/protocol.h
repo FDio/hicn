@@ -39,7 +39,7 @@ class TransportProtocol : public interface::BasePortal::ConsumerCallback,
  public:
   TransportProtocol(interface::ConsumerSocket *icn_socket);
 
-  virtual ~TransportProtocol() { stop(); };
+  virtual ~TransportProtocol() = default;
 
   TRANSPORT_ALWAYS_INLINE bool isRunning() { return is_running_; }
 
@@ -62,7 +62,6 @@ class TransportProtocol : public interface::BasePortal::ConsumerCallback,
   std::shared_ptr<interface::BasePortal> portal_;
   volatile bool is_running_;
   TransportStatistics stats_;
-  std::shared_ptr<std::vector<uint8_t>> content_buffer_;
 };
 
 }  // end namespace protocol

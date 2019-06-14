@@ -38,14 +38,14 @@ RaaqmTransportProtocol::RaaqmTransportProtocol(ConsumerSocket *icnet_socket)
 }
 
 RaaqmTransportProtocol::~RaaqmTransportProtocol() {
-  if (this->rate_estimator_) {
-    delete this->rate_estimator_;
+  if (rate_estimator_) {
+    delete rate_estimator_;
   }
 }
 
 int RaaqmTransportProtocol::start() {
-  if (this->rate_estimator_) {
-    this->rate_estimator_->onStart();
+  if (rate_estimator_) {
+    rate_estimator_->onStart();
   }
 
   if (!cur_path_) {
@@ -75,13 +75,13 @@ int RaaqmTransportProtocol::start() {
                              choice_param);
 
     if (choice_param == 1) {
-      this->rate_estimator_ = new ALaTcpEstimator();
+      rate_estimator_ = new ALaTcpEstimator();
     } else {
-      this->rate_estimator_ = new SimpleEstimator(alpha, batching_param);
+      rate_estimator_ = new SimpleEstimator(alpha, batching_param);
     }
 
     socket_->getSocketOption(RateEstimationOptions::RATE_ESTIMATION_OBSERVER,
-                             &this->rate_estimator_->observer_);
+                             &rate_estimator_->observer_);
 
     // Current path
     auto cur_path = std::make_unique<RaaqmDataPath>(
@@ -98,6 +98,15 @@ int RaaqmTransportProtocol::start() {
 void RaaqmTransportProtocol::resume() { return TransportProtocol::resume(); }
 
 void RaaqmTransportProtocol::reset() {
+  // Set first segment to retrieve
+  core::Name *name;
+  socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME, &name);
+  index_manager_->setFirstSuffix(name->getSuffix());
+  std::queue<Interest::Ptr> empty;
+  std::swap(interest_to_retransmit_, empty);
+  current_window_size_ = 1;
+  stats_.reset();
+
   // Reset reassembly component
   BaseReassembly::reset();
 
@@ -118,7 +127,7 @@ void RaaqmTransportProtocol::increaseWindow() {
     socket_->setSocketOption(GeneralTransportOptions::CURRENT_WINDOW_SIZE,
                              current_window_size_);
   }
-  this->rate_estimator_->onWindowIncrease(current_window_size_);
+  rate_estimator_->onWindowIncrease(current_window_size_);
 }
 
 void RaaqmTransportProtocol::decreaseWindow() {
@@ -137,7 +146,7 @@ void RaaqmTransportProtocol::decreaseWindow() {
     socket_->setSocketOption(GeneralTransportOptions::CURRENT_WINDOW_SIZE,
                              current_window_size_);
   }
-  this->rate_estimator_->onWindowDecrease(current_window_size_);
+  rate_estimator_->onWindowDecrease(current_window_size_);
 }
 
 void RaaqmTransportProtocol::afterDataUnsatisfied(uint64_t segment) {
@@ -150,8 +159,8 @@ void RaaqmTransportProtocol::afterContentReception(
   updatePathTable(content_object);
   increaseWindow();
   updateRtt(interest.getName().getSuffix());
-  this->rate_estimator_->onDataReceived((int)content_object.payloadSize() +
-                                        content_object.headerSize());
+  rate_estimator_->onDataReceived((int)content_object.payloadSize() +
+                                  (int)content_object.headerSize());
   // Set drop probablility and window size accordingly
   RAAQM();
 }
@@ -333,15 +342,7 @@ void RaaqmTransportProtocol::onContentObject(
     index_manager_->onManifest(std::move(content_object));
 
   } else if (content_object->getPayloadType() == PayloadType::CONTENT_OBJECT) {
-    if (TRANSPORT_EXPECT_FALSE(incremental_suffix == 0)) {
-      index_manager_ = incremental_index_manager_.get();
-    }
-
     onContentSegment(std::move(interest), std::move(content_object));
-  }
-
-  if (TRANSPORT_EXPECT_FALSE(incremental_suffix == 0)) {
-    BaseReassembly::index_ = index_manager_->getNextReassemblySegment();
   }
 
   scheduleNextInterests();
@@ -368,7 +369,12 @@ void RaaqmTransportProtocol::onContentSegment(
       reassemble(std::move(content_object));
     } else if (TRANSPORT_EXPECT_FALSE(incremental_suffix ==
                                       index_manager_->getFinalSuffix())) {
-      onContentReassembled(std::make_error_code(std::errc(0)));
+      interface::ConsumerSocket::ReadCallback *on_payload = nullptr;
+      socket_->getSocketOption(READ_CALLBACK, &on_payload);
+
+      if (on_payload != nullptr) {
+        on_payload->readSuccess(stats_.getBytesRecv());
+      }
     }
   } else {
     // TODO Application policy check
@@ -448,6 +454,14 @@ void RaaqmTransportProtocol::scheduleNextInterests() {
     return;
   }
 
+  if (TRANSPORT_EXPECT_FALSE(interests_in_flight_ >= current_window_size_ &&
+                             interest_to_retransmit_.size() > 0)) {
+    // send at least one interest if there are retransmissions to perform and
+    // there is no space left in the window
+    sendInterest(std::move(interest_to_retransmit_.front()));
+    interest_to_retransmit_.pop();
+  }
+
   uint32_t index = IndexManager::invalid_index;
   // Send the interest needed for filling the window
   while (interests_in_flight_ < current_window_size_) {
@@ -468,7 +482,7 @@ void RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
   auto interest = getPacket();
   core::Name *name;
   socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME, &name);
-  name->setSuffix(next_suffix);
+  name->setSuffix((uint32_t)next_suffix);
   interest->setName(*name);
 
   uint32_t interest_lifetime;
@@ -487,6 +501,8 @@ void RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
     return;
   }
 
+  // This is set to ~0 so that the next interest_retransmissions_ + 1,
+  // performed by sendInterest, will result in 0
   interest_retransmissions_[next_suffix & mask] = ~0;
   interest_timepoints_[next_suffix & mask] = utils::SteadyClock::now();
   sendInterest(std::move(interest));
@@ -500,16 +516,23 @@ void RaaqmTransportProtocol::sendInterest(Interest::Ptr &&interest) {
 }
 
 void RaaqmTransportProtocol::onContentReassembled(std::error_code ec) {
-  interface::ConsumerContentCallback *on_payload = nullptr;
-  socket_->getSocketOption(CONTENT_RETRIEVED, &on_payload);
-  if (*on_payload != VOID_HANDLER) {
-    std::shared_ptr<std::vector<uint8_t>> content_buffer;
-    socket_->getSocketOption(
-        interface::GeneralTransportOptions::APPLICATION_BUFFER, content_buffer);
-    (*on_payload)(*socket_, content_buffer->size(), ec);
+  interface::ConsumerSocket::ReadCallback *on_payload = nullptr;
+  socket_->getSocketOption(READ_CALLBACK, &on_payload);
+
+  if (on_payload == nullptr) {
+    throw errors::RuntimeException(
+        "The read callback must be installed in the transport before "
+        "starting "
+        "the content retrieval.");
   }
 
-  this->rate_estimator_->onDownloadFinished();
+  if (!ec) {
+    on_payload->readSuccess(stats_.getBytesRecv());
+  } else {
+    on_payload->readError(ec);
+  }
+
+  rate_estimator_->onDownloadFinished();
   stop();
 }
 
@@ -522,10 +545,10 @@ void RaaqmTransportProtocol::updateRtt(uint64_t segment) {
         now - interest_timepoints_[segment & mask]);
 
     // Update stats
-    updateStats(segment, rtt.count(), now);
+    updateStats((uint32_t)segment, rtt.count(), now);
 
-    if (this->rate_estimator_) {
-      this->rate_estimator_->onRttUpdate((double)rtt.count());
+    if (rate_estimator_) {
+      rate_estimator_->onRttUpdate((double)rtt.count());
     }
 
     cur_path_->insertNewRtt(rtt.count());
@@ -674,4 +697,4 @@ void RaaqmTransportProtocol::checkForStalePaths() {
 
 }  // end namespace protocol
 
-}  // end namespace transport
+}  // namespace transport

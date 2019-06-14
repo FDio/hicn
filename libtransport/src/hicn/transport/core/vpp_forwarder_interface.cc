@@ -86,11 +86,9 @@ uint32_t VPPForwarderInterface::getMemifConfiguration() {
 
 void VPPForwarderInterface::consumerConnection() {
   hicn_consumer_input_params input = {0};
-  hicn_consumer_output_params output;
+  hicn_consumer_output_params output = {0};
   ip_address_t ip4_address;
   ip_address_t ip6_address;
-
-  std::memset(&output, 0, sizeof(hicn_consumer_output_params));
 
   output.src4 = &ip4_address;
   output.src6 = &ip6_address;
@@ -120,7 +118,7 @@ void VPPForwarderInterface::producerConnection() {
 void VPPForwarderInterface::connect(bool is_consumer) {
   std::lock_guard<std::mutex> connection_lock(global_lock_);
 
-  srand(time(NULL));
+  srand(time(nullptr));
   int secret = rand() % (1 << 10);
   std::stringstream app_name;
   app_name << "Libtransport_" << secret;
@@ -209,18 +207,17 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
 
 void VPPForwarderInterface::closeConnection() {
   if (VPPForwarderInterface::api_) {
+    connector_.close();
+
     if (sw_if_index_ != uint32_t(~0)) {
       int ret = memif_binary_api_delete_memif(VPPForwarderInterface::memif_api_,
                                               sw_if_index_);
-
       if (ret < 0) {
         TRANSPORT_LOGE("Error deleting memif with sw idx %u.", sw_if_index_);
       }
     }
 
     vpp_binary_api_destroy(VPPForwarderInterface::api_);
-    connector_.close();
-
     VPPForwarderInterface::api_ = nullptr;
   }
 }

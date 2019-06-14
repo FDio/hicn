@@ -64,6 +64,10 @@ class ContentObject : public Packet {
 
   ip_address_t getLocator() const override;
 
+  void setLifetime(uint32_t lifetime) override;
+
+  uint32_t getLifetime() const override;
+
  private:
   void resetForHash() override;
 };

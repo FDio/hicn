@@ -62,11 +62,11 @@ hicn_mapme_process_ack (vlib_main_t * vm, vlib_buffer_t * b,
   if (rc < 0)
     goto ERR_PARSE;
 
-  if (params.seq == INVALID_SEQ)
-    {
-      DEBUG ("Invalid sequence number found in IU");
-      return true;
-    }
+  /* if (params.seq == INVALID_SEQ) */
+  /*   { */
+  /*     DEBUG ("Invalid sequence number found in IU"); */
+  /*     return true; */
+  /*   } */
 
   dpo = fib_epm_lookup (&(prefix.name), prefix.len);
   if (!dpo)
