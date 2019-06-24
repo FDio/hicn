@@ -801,16 +801,11 @@ class ConsumerSocket : public BaseSocket {
     return SOCKET_OPTION_GET;
   }
 
- protected:
-  std::unique_ptr<TransportProtocol> transport_protocol_;
-
  private:
-  // context inner state variables
   asio::io_service internal_io_service_;
   asio::io_service &io_service_;
 
   std::shared_ptr<Portal> portal_;
-
   utils::EventThread async_downloader_;
 
   Name network_name_;
@@ -848,10 +843,8 @@ class ConsumerSocket : public BaseSocket {
   ConsumerInterestCallback on_interest_output_;
   ConsumerInterestCallback on_interest_timeout_;
   ConsumerInterestCallback on_interest_satisfied_;
-
   ConsumerContentObjectCallback on_content_object_input_;
   ConsumerContentObjectVerificationCallback on_content_object_verification_;
-
   ConsumerContentObjectCallback on_content_object_;
   ConsumerManifestCallback on_manifest_;
   ConsumerTimerCallback stats_summary_;
@@ -859,11 +852,13 @@ class ConsumerSocket : public BaseSocket {
   ReadCallback *read_callback_;
 
   // Virtual download for traffic generator
-
   bool virtual_download_;
   bool rtt_stats_;
 
   uint32_t timer_interval_milliseconds_;
+
+  // Transport protocol
+  std::unique_ptr<TransportProtocol> transport_protocol_;
 };
 
 }  // namespace interface
