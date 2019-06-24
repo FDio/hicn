@@ -28,8 +28,6 @@ include_directories(
   SYSTEM
   ${CMAKE_BINARY_DIR}
   ${LIB${TRANSPORT_LIBRARY}_INCLUDE_DIR}
-  http-server
-  http-client
 )
 
 set(LIB_SOURCE_FILES

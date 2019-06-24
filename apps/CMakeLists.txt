@@ -66,9 +66,7 @@ endif ()
 include(Packaging)
 
 set(HIGET higet)
-set(HTTP_SERVER hicn-http-sever)
 set(HTTP_PROXY hicn-http-proxy)
 
-add_subdirectory(http-server)
 add_subdirectory(http-proxy)
 add_subdirectory(higet)

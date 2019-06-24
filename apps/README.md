@@ -3,7 +3,7 @@ Application examples using hicn stack
 
 ## Introduction ##
 
-higet and hicn-http-server are two application examples that use hicn stack.
+higet and hicn-http-proxy are two application examples that use hicn stack.
 
 ## Using hICN Application Examples ##
 
@@ -34,7 +34,7 @@ Basic dependencies:
 
 ## Executables ##
 
-The application examples are a set of binary executables that are used to run a simple http client (higet) and a simple http server (hicn-http-server).
+The application examples are a set of binary executables that are used to run a simple http client (higet) and a hicn-http-proxy (hicn-http-proxy).
 
 ### higet ###
 
@@ -46,23 +46,6 @@ higet [option]... [url]...
 Options:
 -O <output_path>            = write documents to <output_file>
 -S                          = print server response
-```
-
-### hicn-http-server ###
-
-`hicn-http-server` is a web server able to publish content and generate http responses over TCP/HICN
-The command can be executed in the following way:
-
-```
-hicn-http-server [OPTIONS]
-
-Options:
--p <root_folder_path>       = path to root folder
--f <coniguration_path>      = configuration file path
--o <tcp_port>               = tcp listener port
--l <webserver_prefix>       = webserver prefix
--x <tcp_proxy_prefix>       = tcp proxy prefix
--z <hicn_proxy_prefix>      = hicn proxy prefix
 ```
 
 ### hicn-http-proxy ###
