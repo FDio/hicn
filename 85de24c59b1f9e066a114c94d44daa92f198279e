@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "35b2463e_e8243ac5",
+        "filename": "apps/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2019-06-24T13:07:15Z",
+      "side": 1,
+      "message": "L lower case",
+      "revId": "85de24c59b1f9e066a114c94d44daa92f198279e",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "b3181a09_69498633",
+        "filename": "apps/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2019-06-24T13:07:15Z",
+      "side": 1,
+      "message": "is a reverse proxy that can be used",
+      "revId": "85de24c59b1f9e066a114c94d44daa92f198279e",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "343431a9_0664b5a0",
+        "filename": "apps/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2019-06-24T13:07:15Z",
+      "side": 1,
+      "message": "16 bits in HEX",
+      "revId": "85de24c59b1f9e066a114c94d44daa92f198279e",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4d798c9b_892e966e",
+        "filename": "apps/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2019-06-24T13:07:15Z",
+      "side": 1,
+      "message": "Explain how HTTP req/reply are mapped into hICN sockets.\nHTTP 1.1/2/3",
+      "revId": "85de24c59b1f9e066a114c94d44daa92f198279e",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    }
+  ]
+}
