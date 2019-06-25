@@ -1,23 +1,25 @@
-hicn-light
-=======
+# hicn-light
 
-## Introduction ##
+## Introduction
 
 hicn-light is a socket based forwarder
 
-## Using hicn-light ##
+## Using hicn-light
 
-### Platforms ###
+### Platforms
 
 hicn-light has been tested in:
 
-- Ubuntu 16.04 (x86_64)
+- Ubuntu 16.04 / 18.04 (x86_64)
 - Debian Testing
+- Centos 7
 - MacOSX 10.12
+- Android
+- iOS
 
 Other platforms and architectures may work.
 
-### Dependencies ###
+### Dependencies
 
 Build dependencies:
 
@@ -28,10 +30,10 @@ Basic dependencies:
 
 - OpenSSL
 - pthreads
-- Libevent
-- Libparc
+- libevent
+- libparc
 
-## hicn-light Executables ##
+## hicn-light Executables
 
 hicn-light is a set of binary executables that are used to run a forwarder instance.
 The forwarder can be run and configured using the commands
@@ -41,7 +43,7 @@ The forwarder can be run and configured using the commands
 
 Use the `-h` option to display the help messages
 
-### hicn-light Daemon ###
+### hicn-light Daemon
 
 The command `hicn-light-daemon` runs the hicn-light forwarder. The forwarder can be executed
 with the following options:
@@ -73,7 +75,7 @@ If no configuration file is specified, hicn-light-daemon will listen on TCP and 
 by the --port flag (or default port).  It will listen on both IPv4 and IPv6 if available. The
 default port for hicn-light is 9695. Commands are expected on port 2001.
 
-### hicn-light-control ###
+### hicn-light-control
 
 `hicn-light-control` can be used to send command to the hicn-light forwarder and configure it.
 The command can be executed in the following way:
@@ -86,7 +88,7 @@ Options:
     commands              = configuration line to send to hicn-light (use 'help' for list)
 ```
 
-#### Available Commands in hicn-light-control ####
+#### Available Commands in hicn-light-control
 
 This is the full list of available commands in `hicn-light-control`. This commands can be used
 from the command line running `hicn-light-control` as explained before, or listing them in a
@@ -263,7 +265,7 @@ mapme retx <milliseconds>
 ```
 `quit`: Exits the interactive shell
 
-### hicn-light Configuration File Example ###
+### hicn-light Configuration File Example
 
 This is an example of a simple configuration file for hicn-light. It can be loaded by running
 the command `hicn-light-daemon --config configFile.cfg`, assuming the file name is configFile.cfg
@@ -271,17 +273,16 @@ the command `hicn-light-daemon --config configFile.cfg`, assuming the file name 
 ```
 #create a local listener on port 9199. This will be used by the applications to talk
 with the forwarder
-add listener udp local0 127.0.0.1 9199
+add listener udp local0 192.168.0.1 9199
 
-#create a connection with a remote node
-add connection udp conn0 192.168.0.20 12345 127.0.0.1 9199
+#create a connection with a remote hicn-light-daemon, with a listener on 192.168.0.20 12345
+add connection udp conn0 192.168.0.20 12345 192.168.0.1 9199
 
 #add a route toward the remote node
-add route conn0 192.168.0.20/24 1
+add route conn0 c001::/64 1
 ```
 
-
-## License ##
+## License
 
 This software is distributed under the following license:
 
