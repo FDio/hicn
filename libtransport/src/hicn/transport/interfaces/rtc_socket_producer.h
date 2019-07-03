@@ -41,7 +41,7 @@ class RTCProducerSocket : public ProducerSocket {
   void onInterest(Interest::Ptr &&interest) override;
 
  private:
-  void sendNack(const Interest &interest, bool isActvie);
+  void sendNack(const Interest &interest, bool isActive);
   void updateStats(uint32_t packet_size, uint64_t now);
 
   uint32_t currentSeg_;

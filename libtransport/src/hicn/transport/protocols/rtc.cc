@@ -90,6 +90,11 @@ void RTCTransportProtocol::reset() {
   nackedByProducer_.clear();
   nackedByProducerMaxSize_ = 512;
 
+  nack_timer_used_ = false;
+  for(int i = 0; i < (1 << default_values::log_2_default_buffer_size); i++){
+    inflightInterests_[i] = {0};
+  }
+
   // stats
   receivedBytes_ = 0;
   sentInterest_ = 0;
@@ -173,7 +178,7 @@ void RTCTransportProtocol::updateDelayStats(
     uint64_t *senderTimeStamp = (uint64_t *)payload->data();
 
     int64_t OWD = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      std::chrono::system_clock::now().time_since_epoch())
+                      std::chrono::steady_clock::now().time_since_epoch())
                       .count() -
                   *senderTimeStamp;
 
@@ -381,22 +386,6 @@ void RTCTransportProtocol::scheduleNextInterests() {
     sendInterest(interest_name, false);
     checkRound();
   }
-}
-
-void RTCTransportProtocol::scheduleAppNackRtx(std::vector<uint32_t> &nacks) {
-#if 0
-  for (uint32_t i = 0; i < nacks.size(); i++) {
-    if (nackedByProducer_.find(nacks[i]) != nackedByProducer_.end()) {
-      continue;
-    }
-    // packetLost_++;
-    // XXX here I need to avoid the retrasmission for packet that were
-    // nacked by the network
-    interestRetransmissions_.push(nacks[i]);
-  }
-
-  scheduleNextInterests();
-#endif
 }
 
 void RTCTransportProtocol::addRetransmissions(uint32_t val) {

@@ -113,7 +113,6 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   // packet functions
   void sendInterest(Name *interest_name, bool rtx);
   void scheduleNextInterests() override;
-  void scheduleAppNackRtx(std::vector<uint32_t> &nacks);
   void addRetransmissions(uint32_t val);
   void addRetransmissions(uint32_t start, uint32_t stop);
   void retransmit(bool first_rtx);
