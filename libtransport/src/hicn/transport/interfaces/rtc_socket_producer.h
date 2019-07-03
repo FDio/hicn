@@ -41,24 +41,23 @@ class RTCProducerSocket : public ProducerSocket {
   void onInterest(Interest::Ptr &&interest) override;
 
  private:
-  void sendNack(const Interest &interest);
+  void sendNack(const Interest &interest, bool isActvie);
   void updateStats(uint32_t packet_size, uint64_t now);
 
-  // std::map<uint32_t, uint64_t> pendingInterests_;
   uint32_t currentSeg_;
   uint32_t prodLabel_;
   uint16_t headerSize_;
   Name flowName_;
-  // bool produceInSynch_;
   uint32_t producedBytes_;
   uint32_t producedPackets_;
   uint32_t bytesProductionRate_;
   std::atomic<uint32_t> packetsProductionRate_;
   uint32_t perSecondFactor_;
   uint64_t lastStats_;
-  // std::chrono::steady_clock::time_point lastProduced_;
-  std::atomic<uint64_t> lastProduced_;
-  std::atomic<bool> active_;
+
+  uint64_t lastProduced_;
+  bool active_;
+  utils::SpinLock lock_;
 };
 
 }  // namespace interface
