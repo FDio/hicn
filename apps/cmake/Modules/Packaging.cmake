@@ -16,13 +16,3 @@ set(${HICN_APPS}_DESCRIPTION
 useful for testing and debugging within a hicn network."
   CACHE STRING "Description for deb/rpm package."
 )
-
-set(${HICN_APPS}_DEB_DEPENDENCIES
-  "lib${LIBTRANSPORT} (>= stable_version), libcurl3"
-  CACHE STRING "Dependencies for deb/rpm package."
-)
-
-set(${HICN_APPS}_RPM_DEPENDENCIES
-  "lib${LIBTRANSPORT} >= stable_version, libcurl"
-  CACHE STRING "Dependencies for deb/rpm package."
-)
