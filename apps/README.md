@@ -106,7 +106,7 @@ It should install the hICN suite under hicn-install.
 
 #### hICN stack based on hicn-light forwarder with UDP faces
 
-##### Server Configuration
+##### Server Configuration - Udp Face
 
 Open a new terminal on the machine where you want to run the HTTP server and install apache2 http server:
 
@@ -138,7 +138,7 @@ Run the [hicn-http-proxy](#hicn-http-proxy). Assuming the http origin is listeni
 server$ ${HICN_ROOT}/bin/hicn-http-proxy -a 127.0.0.1 -p 80 -c 10000 -m 1200 -P c001 http://webserver
 ```
 
-##### Client Configuration
+##### Client Configuration - Udp Face
 
 Create a configuration file for the hicn-light forwarder. Here we are configuring UDP faces.
 
@@ -172,7 +172,7 @@ EOF
 
 For sending hICN packets directly over the network, using hicn faces, change the configuration of the two forwarders and restart them.
 
-##### Server Configuration
+##### Server Configuration - hICN face
 
 ```bash
 server$ mkdir -p ${HICN_ROOT}/etc
@@ -184,7 +184,7 @@ add listener hicn list0 ${LOCAL_IP}
 EOF
 ```
 
-#### Client Configuration
+#### Client Configuration - hICN face
 
 ```bash
 client$ mkdir -p ${HICN_ROOT}/etc
@@ -197,6 +197,173 @@ add listener hicn list0 ${LOCAL_IP}
 add connection hicn conn0 ${REMOTE_IP} ${LOCAL_IP}
 add route conn0 c001::/16 1
 EOF
+```
+
+#### hICN stack based on vpp forwarder plugin with UDP faces
+
+The hicn plugin for the vpp forwarder is the preferred and supported choice be use at the server side.
+
+For installing the hicn-plugin at the server there are two main alternatives:
+
+- Use docker
+- Use deb packages
+
+Keep in mind that on the same system the stack based on vpp forwarder cannot coexist with the stack based on hicn light.
+
+##### Docker
+
+Install docker in the server VM:
+
+```bash
+server$ sudo apt-get update
+server$ sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg-agent \
+    software-properties-common
+
+server$ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+server$ sudo add-apt-repository \
+   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+   $(lsb_release -cs) \
+   stable"
+server$ sudo apt-get update
+server$ sudo apt-get install docker-ce docker-ce-cli containerd.io
+```
+
+Run the hicn-http-proxy container. Here we use a public server [www.ovh.net](www.ovh.net) as origin, and we expose port 50000 for creating udp faces with external nodes:
+
+```bash
+server$ docker run -e ORIGIN_ADDRESS=example.com    \
+             -e ORIGIN_PORT=80                \
+             -e CACHE_SIZE=10000              \
+             -e HICN_MTU=1200                 \
+             -e FIRST_IPV6_WORD=c001          \
+             -e HICN_PREFIX=http://webserver  \
+             --privileged                     \
+             --name vhttpproxy                \
+             -d icnteam/vhttpproxy
+```
+
+Create a hicn private network:
+
+```bash
+GATEWAY=192.168.0.254
+server$ docker network create --subnet 192.168.0.0/24 --gateway ${GATEWAY} hicn-network
+```
+
+Connect the proxy container to the hicn network:
+
+```bash
+server$ docker network connect hicn-network vhttpproxy
+```
+
+Connect the hicn network to the vpp forwarder:
+
+```bash
+server$ IP_ADDRESS=$(docker inspect -f "{{with index .NetworkSettings.Networks \"hicn-network\"}}{{.IPAddress}}{{end}}" vhttpproxy)
+server$ INTERFACE=$(docker exec -it vhttpproxy ifconfig | grep -B 1 ${IP_ADDRESS} | awk 'NR==1 {gsub(":","",$1); print $1}')
+server$ docker exec -it vhttpproxy ip addr flush dev ${INTERFACE}
+server$ docker exec -it vhttpproxy ethtool -K ${INTERFACE} tx off rx off ufo off gso off gro off tso off
+server$ docker exec -it vhttpproxy vppctl create host-interface name ${INTERFACE}
+server$ docker exec -it vhttpproxy vppctl set interface state host-${INTERFACE} up
+server$ docker exec -it vhttpproxy vppctl set interface ip address host-${INTERFACE} ${IP_ADDRESS}/24
+server$ docker exec -it vhttpproxy vppctl ip route add 10.0.0.0/24 via ${GATEWAY} host-eth1
+```
+
+Set the punting:
+
+```bash
+server$ PORT=12345
+server$ docker exec -it vhttpproxy vppctl hicn punting add prefix c001::/16 intfc host-${INTERFACE} type udp4 src_port ${PORT} dst_port ${PORT}
+```
+
+Docker containers are cool, but sometimes they do not allow you to do simple operations like expose ports while the container is already running. But we have a workaround for this :)
+
+```bash
+server$ sudo iptables -t nat -A DOCKER -p udp --dport ${PORT} -j DNAT --to-destination ${IP_ADDRESS}:${PORT}
+server$ sudo iptables -t nat -A POSTROUTING -j MASQUERADE -p udp --source ${IP_ADDRESS} --destination ${IP_ADDRESS} --dport ${PORT}
+server$ sudo iptables -A DOCKER -j ACCEPT -p udp --destination ${IP_ADDRESS} --dport ${PORT}
+```
+
+In the client, create a connection towards the server where the container is running. Here we will use the same configuration file used [here](#Client-Configuration). If the configuration changed you need to restart the hicn-light-daemon.
+
+```bash
+client$ mkdir -p ${HICN_ROOT}/etc
+client$ LOCAL_IP="10.0.0.2" # Put here the actual IPv4 of the local interface
+client$ LOCAL_PORT="12345"
+client$ REMOTE_IP="10.0.0.1" # Put here the actual IPv4 of the remote interface
+client$ REMOTE_PORT="12345"
+client$ cat << EOF > ${HICN_ROOT}/etc/hicn-light.conf
+add listener udp list0 ${LOCAL_IP} ${LOCAL_PORT}
+add connection udp conn0 ${REMOTE_IP} ${REMOTE_PORT} ${LOCAL_IP} ${LOCAL_PORT}
+add route conn0 c001::/16 1
+EOF
+```
+
+Download a web page from the client:
+
+```bash
+client$ ${HICN_ROOT}/bin/higet -O - http://webserver/index.html -P c001
+```
+
+##### Deb packages
+
+You can install directly the hicn-plugin of vpp on your VM and directly use DPDK compatible nics, forwarding hicn packets directly over the network. DPDK compatible nics can be used inside a container as well.
+
+```bash
+server$ sudo apt-get install -y hicn-plugin hicn-apps-memif
+```
+
+It will install all the required deps (vpp, hicn apps and libraries compiled for communicating with vpp using shared memories). Configure VPP following the steps described [here](https://github.com/FDio/hicn/blob/master/hicn-plugin/README.md#configure-vpp).
+
+This tutorial assumes you configured two interfaces in your server VM:
+
+- One interface which uses the DPDK driver, to be used by VPP
+- One interface which is still owned by the kernel
+
+The DPDK interface will be used for connecting the server with the hicn client, while the other interface will guarantee connectivity to the applications running in the VM. If you run the commands:
+
+```bash
+server$ sudo systemctl restart vpp
+server$ vppctl show int
+```
+
+The output must show the dpdk interface owned by VPP:
+
+```text
+              Name               Idx    State  MTU (L3/IP4/IP6/MPLS)     Counter          Count
+GigabitEthernetb/0/0              1     down         9000/0/0/0
+local0                            0     down          0/0/0/0
+```
+
+If the interface is down, bring it up and assign the correct ip address to it:
+
+```bash
+server$ vppctl set int state GigabitEthernetb/0/0 up
+server$ vppctl set interface ip address GigabitEthernetb/0/0 9001::1/64
+```
+
+Take care of replacing the interface name (`GigabitEthernetb/0/0`) with the actual name of your interface.
+
+Now enable the hicn plugin and set the punting for the hicn packets:
+
+```bash
+server$ vppctl hicn control start
+server$ vppctl hicn punting add prefix c002::/16 intfc GigabitEthernetb/0/0 type ip
+```
+
+Run the hicn-http-proxy app:
+
+```bash
+server$ ${HICN_ROOT}/bin/hicn-http-proxy -a example.com -p 80 -c 10000 -m 1200 -P c001 http://webserver
+```
+
+Configure the client for sending hicn packets without any udp encapsulation (see [here](#Client-Configuration---hICN-face)) and retrieve a web page:
+
+```bash
+client$ ${HICN_ROOT}/bin/higet -O - http://webserver/index.html -P c001
 ```
 
 ## License
