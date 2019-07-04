@@ -199,6 +199,115 @@ add route conn0 c001::/16 1
 EOF
 ```
 
+#### hICN stack based on vpp forwarder plugin with UDP faces
+
+The hicn plugin for the vpp forwarder is the preferred and supported choice be use at the server side.
+
+For installing the hicn-plugin at the server there are two main alternatives:
+
+- Use docker
+- Use deb packages
+
+Keep in mind that on the same system the stack based on vpp forwarder cannot coexist with the stack based on hicn light.
+
+##### Docker
+
+Install docker in the server VM:
+
+```bash
+server$ sudo apt-get update
+server$ sudo apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg-agent \
+    software-properties-common
+
+server$ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+server$ sudo add-apt-repository \
+   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+   $(lsb_release -cs) \
+   stable"
+server$ sudo apt-get update
+server$ sudo apt-get install docker-ce docker-ce-cli containerd.io
+```
+
+Run the hicn-http-proxy container. Here we use a public server [www.ovh.net](www.ovh.net) as origin, and we expose port 50000 for creating udp faces with external nodes:
+
+```bash
+server$ docker run -e ORIGIN_ADDRESS=example.com    \
+             -e ORIGIN_PORT=80                \
+             -e CACHE_SIZE=10000              \
+             -e HICN_MTU=1200                 \
+             -e FIRST_IPV6_WORD=c001          \
+             -e HICN_PREFIX=http://webserver  \
+             --privileged                     \
+             --name vhttpproxy                \
+             -d icnteam/vhttpproxy
+```
+
+Create a hicn private network:
+
+```bash
+GATEWAY=192.168.0.254
+server$ docker network create --subnet 192.168.0.0/24 --gateway ${GATEWAY} hicn-network
+```
+
+Connect the proxy container to the hicn network:
+
+```bash
+server$ docker network connect hicn-network vhttpproxy
+```
+
+Connect the hicn network to the vpp forwarder:
+
+```bash
+server$ IP_ADDRESS=$(docker inspect -f "{{with index .NetworkSettings.Networks \"hicn-network\"}}{{.IPAddress}}{{end}}" vhttpproxy)
+server$ INTERFACE=$(docker exec -it vhttpproxy ifconfig | grep -B 1 ${IP_ADDRESS} | awk 'NR==1 {gsub(":","",$1); print $1}')
+server$ docker exec -it vhttpproxy ip addr flush dev ${INTERFACE}
+server$ docker exec -it vhttpproxy ethtool -K ${INTERFACE} tx off rx off ufo off gso off gro off tso off
+server$ docker exec -it vhttpproxy vppctl create host-interface name ${INTERFACE}
+server$ docker exec -it vhttpproxy vppctl set interface state host-${INTERFACE} up
+server$ docker exec -it vhttpproxy vppctl set interface ip address host-${INTERFACE} ${IP_ADDRESS}/24
+server$ docker exec -it vhttpproxy vppctl ip route add 10.0.0.0/24 via ${GATEWAY} host-eth1
+```
+
+Set the punting:
+
+```bash
+server$ PORT=12345
+server$ docker exec -it vhttpproxy vppctl hicn punting add prefix c001::/16 intfc host-${INTERFACE} type udp4 src_port ${PORT} dst_port ${PORT}
+```
+
+Docker containers are cool, but sometimes they do not allow you to do simple operations like expose ports while the container is already running. But we have a workaround for this :)
+
+```bash
+server$ sudo iptables -t nat -A DOCKER -p udp --dport ${PORT} -j DNAT --to-destination ${IP_ADDRESS}:${PORT}
+server$ sudo iptables -t nat -A POSTROUTING -j MASQUERADE -p udp --source ${IP_ADDRESS} --destination ${IP_ADDRESS} --dport ${PORT}
+$ sudo iptables -A DOCKER -j ACCEPT -p udp --destination ${IP_ADDRESS} --dport ${PORT}
+```
+
+In the client, create a connection towards the server where the container is running. Here we will use the same configuration file used [here](#Client-Configuration). If the configuration changed you need to restart the hicn-light-daemon.
+
+```bash
+client$ mkdir -p ${HICN_ROOT}/etc
+client$ LOCAL_IP="10.0.0.2" # Put here the actual IPv4 of the local interface
+client$ LOCAL_PORT="12345"
+client$ REMOTE_IP="10.0.0.1" # Put here the actual IPv4 of the remote interface
+client$ REMOTE_PORT="12345"
+client$ cat << EOF > ${HICN_ROOT}/etc/hicn-light.conf
+add listener udp list0 ${LOCAL_IP} ${LOCAL_PORT}
+add connection udp conn0 ${REMOTE_IP} ${REMOTE_PORT} ${LOCAL_IP} ${LOCAL_PORT}
+add route conn0 c001::/16 1
+EOF
+```
+
+Download a web page from the client:
+
+```bash
+client$ ${HICN_ROOT}/bin/higet -O - http://webserver/index.html -P c001
+```
+
 ## License
 
 This software is distributed under the following license:
