@@ -565,13 +565,17 @@ class HIperfServer {
         content_objects_index_(0),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
 #ifndef _WIN32
-        input_(io_service_, ::dup(STDIN_FILENO)),
+        input_(io_service_),
         rtc_running_(false)
 #endif
   {
     std::string buffer(configuration_.payload_size_, 'X');
     std::cout << "Producing contents under name " << conf.name.getName()
               << std::endl;
+
+    if (configuration_.interactive_) {
+      input_.assign(::dup(STDIN_FILENO));
+    }
 
     for (int i = 0; i < (1 << log2_content_object_buffer_size); i++) {
       content_objects_[i] = std::make_shared<ContentObject>(
