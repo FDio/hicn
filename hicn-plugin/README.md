@@ -66,15 +66,21 @@ hICN-plugin has been tested in:
 Build dependencies:
 
 - VPP 19.04
-  - DEB packages:
-  - vpp
-  - vpp-lib
+  - DEB packages (can be found https://packagecloud.io/fdio/release/install):
+  - libvppinfra-dev
   - vpp-dev
-  - vpp-plugins
 
-Hardware support:
+Running dependencies:
 
-- [DPDK](http://DPDK.org/) compatible nic
+- VPP 19.04
+  - DEB packages (can be found https://packagecloud.io/fdio/release/install):
+  - vpp
+  - vpp-plugin-core
+  - vpp-plugin-dpdk (only to use DPDK compatible nics)
+
+Hardware support (not mandatory):
+
+- [DPDK](http://DPDK.org/) compatible nics
 
 ## Getting started ##
 In order to start, the hICN plugin requires a running instance of VPP
@@ -96,18 +102,22 @@ Hugepages must be enabled in the system
 $ sudo sysctl -w vm.nr_hugepages=1024
 ```
 
-In order to use a DPDK interface, the package vpp-dpdk-dkms must be installed in the system and the `uio` and `igb_uio` modules need to be loaded in the kernel
+In order to use a DPDK interface, the `uio` and `uio_pci_generic` or `vfio_pci` modules need to be loaded in the kernel
 
 ```
-$ sudo apt install vpp-dpdk-dkms
 $ sudo modprobe uio
-$ sudo modprobe igb_uio
+$ sudo modprobe uio_pci_generic
+$ sudo modprobe vfio_pci
 ```
 
 If the DPDK interface we want to assign to VPP is up, we must bring it down
 
 ```
 $ sudo ifconfig <interface_name> down
+```
+or
+```
+$ sudo ip link set <interface_name> down
 ```
 
 ### Configure VPP ###
@@ -131,6 +141,19 @@ api-segment {
 
 dpdk {
   dev 0000:08:00.0
+}
+
+plugins {
+        ## Disable all plugins by default and then selectively enable specific plugins
+        plugin default { disable }
+        plugin dpdk_plugin.so { enable }
+        plugin acl_plugin.so { enable }
+        plugin memif_plugin.so { enable }
+        plugin hicn_plugin.so { enable }
+
+        ## Enable all plugins by default and then selectively disable specific plugins
+        # plugin dpdk_plugin.so { disable }
+        # plugin acl_plugin.so { disable }
 }
 ```
 Where `0000:08:00.0` must be replaced with the actual PCI address of the DPDK interface
