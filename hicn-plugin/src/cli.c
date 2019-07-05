@@ -34,7 +34,6 @@
 #include "route.h"
 #include "punt.h"
 #include "hicn_api.h"
-#include "mapme.h"
 
 extern ip_version_t ipv4;
 extern ip_version_t ipv6;
@@ -710,71 +709,6 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 							   (ret));
 }
 
-static clib_error_t *
-hicn_cli_mapme_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
-			   vlib_cli_command_t * cmd)
-{
-  hicn_mgmt_mapme_op_e mapme_op = HICN_MGMT_MAPME_OP_NONE;
-  unsigned int subnet_mask = 0;
-  ip46_address_t prefix;
-  u32 sw_if_index = ~0;
-  int ret = 0;
-  vnet_main_t *vnm = NULL;
-
-  vnm = vnet_get_main ();
-
-  unformat_input_t _line_input, *line_input = &_line_input;
-  if (!unformat_user (main_input, unformat_line_input, line_input))
-    {
-      return (0);
-    }
-  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (line_input, "add"))
-	{
-	  mapme_op = HICN_MGMT_MAPME_OP_CREATE;
-	}
-      else if (unformat (line_input, "delete"))
-	{
-	  mapme_op = HICN_MGMT_MAPME_OP_DELETE;
-	}
-      else if (unformat (line_input, "intfc %U",
-			 unformat_vnet_sw_interface, vnm, &sw_if_index))
-	{;
-	}
-      else if (unformat
-	       (line_input, "prefix %U/%d", unformat_ip46_address,
-		&prefix, IP46_TYPE_ANY, &subnet_mask))
-	{;
-	}
-      else
-	{
-	  return (clib_error_return (0, "invalid option"));
-	}
-    }
-
-  if (mapme_op == HICN_MGMT_MAPME_OP_CREATE
-      && (ip46_address_is_zero (&prefix) || sw_if_index == ~0))
-    {
-      return (clib_error_return
-	      (0, "Please specify valid prefix and interface"));
-    }
-  else if ((mapme_op == HICN_MGMT_MAPME_OP_DELETE) &&
-	   ip46_address_is_zero (&prefix))
-    {
-      return (clib_error_return
-	      (0, "Please specify valid prefix and optionally an interface"));
-    }
-  else if (mapme_op == HICN_MGMT_MAPME_OP_NONE)
-    {
-      return (clib_error_return
-	      (0, "Please specify valid operation, add or delete"));
-    }
-  return (ret == HICN_ERROR_NONE) ? clib_error_return (0, "Punting %s",
-						       get_error_string (ret))
-    : clib_error_return (0, get_error_string (ret));
-}
-
 /*
  * cli handler for 'pgen'
  */
@@ -1224,13 +1158,6 @@ VLIB_CLI_COMMAND(hicn_cli_punting_command, static)=
 	.path = "hicn punting",
         .short_help = "hicn punting {add|delete} prefix <prefix> intfc <sw_if> {type ip | type <udp4|udp6> src_port <port> dst_port <port>}",
         .function = hicn_cli_punting_command_fn,
-};
-
-VLIB_CLI_COMMAND(hicn_cli_mapme_command, static)=
-{
-	.path = "hicn mapme",
-        .short_help = "hicn mapme {enable|disable|set <param> <value>}",
-        .function = hicn_cli_mapme_command_fn,
 };
 
 /* cli declaration for 'hicn pgen client' */

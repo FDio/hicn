@@ -248,13 +248,6 @@ hicn fib {{add | delete } prefix <prefix> face <face_id> } | set strategy <strat
   <strategy_id>             :set a strategy for the corresponding prefix
 ```
 
-`hicn mapme`: enable and disable mapme.
-
-```
-hicn mapme {enable|disable|set <param> <value>}
-```
-
-
 `hicn pgen client`: set an vpp forwarder as an hicn packet generator client
 
 ```
