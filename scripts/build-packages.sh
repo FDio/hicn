@@ -153,6 +153,7 @@ build_package() {
 
     cmake -DCMAKE_INSTALL_PREFIX=/usr   \
           -DBUILD_HICNPLUGIN=ON         \
+          -DBUILD_EXTRAPLUGIN=ON       \
           -DBUILD_LIBTRANSPORT=ON       \
           -DBUILD_APPS=ON               \
           -DLIBMEMIF_HOME=${MEMIF_HOME} \
