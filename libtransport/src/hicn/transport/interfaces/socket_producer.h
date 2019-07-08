@@ -51,6 +51,12 @@ class ProducerSocket : public Socket<BasePortal>,
   void connect() override;
 
   uint32_t produce(Name content_name, const uint8_t *buffer, size_t buffer_size,
+                   bool is_last = true, uint32_t start_offset = 0) {
+    return produce(content_name, utils::MemBuf::copyBuffer(buffer, buffer_size),
+                   is_last, start_offset);
+  }
+
+  uint32_t produce(Name content_name, std::unique_ptr<utils::MemBuf> &&buffer,
                    bool is_last = true, uint32_t start_offset = 0);
 
   void produce(ContentObject &content_object);
