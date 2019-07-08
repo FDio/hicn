@@ -28,6 +28,7 @@ option(BUILD_LIBTRANSPORT "Build the hicn transport library" ON)
 option(BUILD_UTILS "Build the hicn utils" ON)
 option(BUILD_APPS "Build the hicn apps" OFF)
 option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
+option(BUILD_ROUTERPLUGIN "Build the router vpp plugin" OFF)
 
 list(APPEND dir_options
   BUILD_LIBHICN
@@ -43,6 +44,8 @@ set(BUILD_LIBTRANSPORT_DIR libtransport)
 set(BUILD_UTILS_DIR utils)
 set(BUILD_APPS_DIR apps)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
+set(BUILD_ROUTERPLUGIN_DIR utils/extras/)
+
 
 ## HEADER FILES
 set(LIBHICN_HEADER_FILES)
@@ -64,6 +67,7 @@ set(LIBHICN_LIGHT hicn-light)
 set(HICN_LIGHT_CONTROL hicn-light-control)
 set(HICN_LIGHT_DAEMON hicn-light-daemon)
 set(HICN_PLUGIN hicn-plugin)
+set(ROUTER_PLUGIN router-plugin)
 set(LIBTRANSPORT hicntransport)
 set(HICN_UTILS hicn-utils)
 set(HICN_APPS hicn-apps)
@@ -79,6 +83,12 @@ if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   )
 
   set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
+endif()
+
+if (BUILD_ROUTERPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+  list(APPEND subdirs
+    ${BUILD_ROUTERPLUGIN_DIR}
+  )
 endif()
 
 ## Shared targets
