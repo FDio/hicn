@@ -21,7 +21,7 @@ namespace transport {
 namespace http {
 
 HTTPServerPublisher::HTTPServerPublisher(const core::Name &content_name)
-    : content_name_(content_name, true) {
+    : content_name_(content_name) {
   std::string identity = "acceptor_producer";
   producer_ = std::make_unique<ProducerSocket>();
   //                                                          utils::Identity::generateIdentity(identity));

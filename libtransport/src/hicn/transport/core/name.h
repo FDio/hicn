@@ -67,9 +67,7 @@ class Name {
 
   Name(const std::string &uri);
 
-  Name(const Name &name, bool hard_copy = false);
-
-  Name(Name &&name);
+  Name(const Name &name);
 
   Name &operator=(const Name &name);
 
@@ -103,21 +101,13 @@ class Name {
   int getAddressFamily() const;
 
  private:
-  TRANSPORT_ALWAYS_INLINE NameStruct *getStructReference() const {
-    if (TRANSPORT_EXPECT_TRUE(name_ != nullptr)) {
-      return name_.get();
-    }
-
-    return nullptr;
+  TRANSPORT_ALWAYS_INLINE const NameStruct *getConstStructReference() const {
+    return &name_;
   }
 
-  static TRANSPORT_ALWAYS_INLINE std::unique_ptr<NameStruct> createEmptyName() {
-    NameStruct *name = new NameStruct;
-    name->type = HNT_UNSPEC;
-    return std::unique_ptr<NameStruct>(name);
-  };
+  TRANSPORT_ALWAYS_INLINE NameStruct *getStructReference() { return &name_; }
 
-  std::unique_ptr<NameStruct> name_;
+  NameStruct name_;
 };
 
 std::ostream &operator<<(std::ostream &os, const Name &name);

@@ -423,7 +423,7 @@ int hicn_interest_reset_for_hash (hicn_format_t format,
 int hicn_data_get_name (hicn_format_t format, const hicn_header_t * data,
 			hicn_name_t * name);
 int hicn_data_set_name (hicn_format_t format, hicn_header_t * data,
-			hicn_name_t * name);
+			const hicn_name_t * name);
 int hicn_data_get_locator (hicn_format_t format, const hicn_header_t * data,
 			   ip_address_t * ip_address);
 int hicn_data_set_locator (hicn_format_t format, hicn_header_t * data,

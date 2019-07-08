@@ -69,7 +69,7 @@ class ContentStore {
   FIFOList fifo_list_;
   std::shared_ptr<ContentObject> empty_reference_;
   std::size_t max_content_store_size_;
-  std::mutex cs_mutex_;
+  utils::SpinLock cs_mutex_;
 };
 
 }  // end namespace utils

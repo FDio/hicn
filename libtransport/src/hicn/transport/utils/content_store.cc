@@ -31,7 +31,7 @@ void ContentStore::insert(
     return;
   }
 
-  std::unique_lock<std::mutex> lock(cs_mutex_);
+  utils::SpinLock::Acquire locked(cs_mutex_);
 
   if (TRANSPORT_EXPECT_FALSE(content_store_hash_table_.size() !=
                              fifo_list_.size())) {
@@ -64,7 +64,7 @@ void ContentStore::insert(
 
 const std::shared_ptr<ContentObject> ContentStore::find(
     const Interest &interest) {
-  std::unique_lock<std::mutex> lock(cs_mutex_);
+  utils::SpinLock::Acquire locked(cs_mutex_);
   auto it = content_store_hash_table_.find(interest.getName());
   if (it != content_store_hash_table_.end()) {
     if (std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -78,7 +78,7 @@ const std::shared_ptr<ContentObject> ContentStore::find(
 }
 
 void ContentStore::erase(const Name &exact_name) {
-  std::unique_lock<std::mutex> lock(cs_mutex_);
+  utils::SpinLock::Acquire locked(cs_mutex_);
   auto it = content_store_hash_table_.find(exact_name);
   fifo_list_.erase(it->second.second);
   content_store_hash_table_.erase(exact_name);

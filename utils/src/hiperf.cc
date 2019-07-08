@@ -610,15 +610,23 @@ class HIperfServer {
   void produceContent(uint32_t suffix) {
     core::Name name = configuration_.name.getName();
 
-    std::string content(configuration_.download_size, '?');
+    auto b = utils::MemBuf::create(configuration_.download_size);
+    std::memset(b->writableData(), '?', configuration_.download_size);
+    b->append(configuration_.download_size);
     uint32_t total;
 
-    total = producer_socket_->produce(
-        name, reinterpret_cast<const uint8_t *>(content.data()), content.size(),
-        !configuration_.multiphase_produce_, suffix);
+    utils::TimePoint t0 = utils::SteadyClock::now();
 
-    std::cout << "Written " << total << "pieces of data in output buffer"
-              << std::endl;
+    total = producer_socket_->produce(
+        name, std::move(b), !configuration_.multiphase_produce_, suffix);
+
+    utils::TimePoint t1 = utils::SteadyClock::now();
+
+    std::cout
+        << "Written " << total
+        << " data packets in output buffer (Segmentation time: "
+        << std::chrono::duration_cast<utils::Microseconds>(t1 - t0).count()
+        << " us)" << std::endl;
   }
 
   std::shared_ptr<utils::Identity> setProducerIdentity(

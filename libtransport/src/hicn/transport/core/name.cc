@@ -24,21 +24,22 @@ namespace transport {
 
 namespace core {
 
-Name::Name() { name_ = createEmptyName(); }
+Name::Name() { name_ = {}; }
 
 Name::Name(int family, const uint8_t *ip_address, std::uint32_t suffix)
-    : name_(createEmptyName()) {
+    : name_({}) {
+  name_.type = HNT_UNSPEC;
   std::size_t length;
   uint8_t *dst = NULL;
 
   if (family == AF_INET) {
-    dst = name_->ip4.prefix_as_u8;
+    dst = name_.ip4.prefix_as_u8;
     length = IPV4_ADDR_LEN;
-    name_->type = HNT_CONTIGUOUS_V4;
+    name_.type = HNT_CONTIGUOUS_V4;
   } else if (family == AF_INET6) {
-    dst = name_->ip6.prefix_as_u8;
+    dst = name_.ip6.prefix_as_u8;
     length = IPV6_ADDR_LEN;
-    name_->type = HNT_CONTIGUOUS_V6;
+    name_.type = HNT_CONTIGUOUS_V6;
   } else {
     throw errors::RuntimeException("Specified name family does not exist.");
   }
@@ -48,9 +49,8 @@ Name::Name(int family, const uint8_t *ip_address, std::uint32_t suffix)
 }
 
 Name::Name(const char *name, uint32_t segment) {
-  name_ = createEmptyName();
-
-  if (hicn_name_create(name, segment, name_.get()) < 0) {
+  name_.type = HNT_UNSPEC;
+  if (hicn_name_create(name, segment, &name_) < 0) {
     throw errors::InvalidIpAddressException();
   }
 }
@@ -59,6 +59,7 @@ Name::Name(const std::string &uri, uint32_t segment)
     : Name(uri.c_str(), segment) {}
 
 Name::Name(const std::string &uri) {
+  name_.type = HNT_UNSPEC;
   utils::StringTokenizer tokenizer(uri, "|");
   std::string ip_address;
   std::string seq_number;
@@ -71,30 +72,16 @@ Name::Name(const std::string &uri) {
     seq_number = "0";
   }
 
-  name_ = createEmptyName();
-
   if (hicn_name_create(ip_address.c_str(), (uint32_t)atoi(seq_number.c_str()),
-                       name_.get()) < 0) {
+                       &name_) < 0) {
     throw errors::InvalidIpAddressException();
   }
 }
 
-Name::Name(const Name &name, bool hard_copy) {
-  name_ = createEmptyName();
-
-  if (hard_copy) {
-    if (hicn_name_copy(this->name_.get(), name.name_.get()) < 0) {
-      throw errors::MalformedNameException();
-    }
-  } else {
-    *this->name_ = *name.name_;
-  }
-}
-
-Name::Name(Name &&name) : name_(std::move(name.name_)) {}
+Name::Name(const Name &name) { this->name_ = name.name_; }
 
 Name &Name::operator=(const Name &name) {
-  if (hicn_name_copy(this->name_.get(), name.name_.get()) < 0) {
+  if (hicn_name_copy(&this->name_, &name.name_) < 0) {
     throw errors::MalformedNameException();
   }
 
@@ -110,16 +97,16 @@ bool Name::operator!=(const Name &name) const {
 }
 
 Name::operator bool() const {
-  return bool(hicn_name_empty((hicn_name_t *)name_.get()));
+  return bool(hicn_name_empty((hicn_name_t *)&name_));
 }
 
 bool Name::equals(const Name &name, bool consider_segment) const {
-  return !hicn_name_compare(name_.get(), name.name_.get(), consider_segment);
+  return !hicn_name_compare(&name_, &name.name_, consider_segment);
 }
 
 std::string Name::toString() const {
   char *name = new char[100];
-  int ret = hicn_name_ntop(name_.get(), name, standard_name_string_length);
+  int ret = hicn_name_ntop(&name_, name, standard_name_string_length);
   if (ret < 0) {
     throw errors::MalformedNameException();
   }
@@ -131,22 +118,19 @@ std::string Name::toString() const {
 
 uint32_t Name::getHash32() const {
   uint32_t hash;
-  if (hicn_name_hash((hicn_name_t *)name_.get(), &hash) < 0) {
+  if (hicn_name_hash((hicn_name_t *)&name_, &hash) < 0) {
     throw errors::RuntimeException("Error computing the hash of the name!");
   }
   return hash;
 }
 
-void Name::clear() {
-  name_.reset();
-  name_ = createEmptyName();
-};
+void Name::clear() { name_.type = HNT_UNSPEC; };
 
-Name::Type Name::getType() const { return name_->type; }
+Name::Type Name::getType() const { return name_.type; }
 
 uint32_t Name::getSuffix() const {
   uint32_t ret = 0;
-  if (hicn_name_get_seq_number((hicn_name_t *)name_.get(), &ret) < 0) {
+  if (hicn_name_get_seq_number((hicn_name_t *)&name_, &ret) < 0) {
     throw errors::RuntimeException(
         "Impossible to retrieve the sequence number from the name.");
   }
@@ -154,7 +138,7 @@ uint32_t Name::getSuffix() const {
 }
 
 Name &Name::setSuffix(uint32_t seq_number) {
-  if (hicn_name_set_seq_number(name_.get(), seq_number) < 0) {
+  if (hicn_name_set_seq_number(&name_, seq_number) < 0) {
     throw errors::RuntimeException(
         "Impossible to set the sequence number to the name.");
   }
@@ -165,7 +149,7 @@ Name &Name::setSuffix(uint32_t seq_number) {
 std::shared_ptr<Sockaddr> Name::getAddress() const {
   Sockaddr *ret = nullptr;
 
-  switch (name_->type) {
+  switch (name_.type) {
     case HNT_CONTIGUOUS_V4:
     case HNT_IOV_V4:
       ret = (Sockaddr *)new Sockaddr4;
@@ -178,7 +162,7 @@ std::shared_ptr<Sockaddr> Name::getAddress() const {
       throw errors::MalformedNameException();
   }
 
-  if (hicn_name_to_sockaddr_address((hicn_name_t *)name_.get(), ret) < 0) {
+  if (hicn_name_to_sockaddr_address((hicn_name_t *)&name_, ret) < 0) {
     throw errors::MalformedNameException();
   }
 
@@ -189,7 +173,7 @@ ip_address_t Name::toIpAddress() const {
   ip_address_t ret;
   std::memset(&ret, 0, sizeof(ret));
 
-  if (hicn_name_to_ip_address(name_.get(), &ret) < 0) {
+  if (hicn_name_to_ip_address(&name_, &ret) < 0) {
     throw errors::InvalidIpAddressException();
   }
 
@@ -199,7 +183,7 @@ ip_address_t Name::toIpAddress() const {
 int Name::getAddressFamily() const {
   int ret = 0;
 
-  if (hicn_name_get_family(name_.get(), &ret) < 0) {
+  if (hicn_name_get_family(&name_, &ret) < 0) {
     throw errors::InvalidIpAddressException();
   }
 
@@ -207,8 +191,7 @@ int Name::getAddressFamily() const {
 }
 
 void Name::copyToDestination(uint8_t *destination, bool include_suffix) const {
-  if (hicn_name_copy_to_destination(destination, name_.get(), include_suffix) <
-      0) {
+  if (hicn_name_copy_to_destination(destination, &name_, include_suffix) < 0) {
     throw errors::RuntimeException(
         "Impossibe to copy the name into the "
         "provided destination");

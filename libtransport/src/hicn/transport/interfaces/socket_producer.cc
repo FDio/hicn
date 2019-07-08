@@ -22,6 +22,8 @@ namespace transport {
 
 namespace interface {
 
+namespace details {}
+
 typedef std::chrono::time_point<std::chrono::steady_clock> Time;
 typedef std::chrono::microseconds TimeDuration;
 
@@ -133,12 +135,14 @@ void ProducerSocket::produce(ContentObject &content_object) {
   portal_->sendContentObject(content_object);
 }
 
-uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
-                                 size_t buffer_size, bool is_last,
-                                 uint32_t start_offset) {
-  if (TRANSPORT_EXPECT_FALSE(buffer_size == 0)) {
+uint32_t ProducerSocket::produce(Name content_name,
+                                 std::unique_ptr<utils::MemBuf> &&buffer,
+                                 bool is_last, uint32_t start_offset) {
+  if (TRANSPORT_EXPECT_FALSE(buffer->length() == 0)) {
     return 0;
   }
+
+  auto buffer_size = buffer->length();
 
   const std::size_t hash_size = 32;
 
@@ -197,6 +201,8 @@ uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
   if (free_space_for_content * number_of_segments < buffer_size) {
     number_of_segments++;
   }
+
+  // TODO allocate space for all the headers
 
   if (making_manifest_) {
     auto segment_in_manifest = static_cast<float>(
@@ -267,9 +273,11 @@ uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
         content_name.setSuffix(current_segment), format);
     content_object->setLifetime(content_object_expiry_time_);
 
-    if (packaged_segments == number_of_segments - 1) {
-      content_object->appendPayload(&buf[bytes_segmented],
-                                    buffer_size - bytes_segmented);
+    auto b = buffer->cloneOne();
+    b->trimStart(free_space_for_content * packaged_segments);
+    b->trimEnd(b->length());
+    if (TRANSPORT_EXPECT_FALSE(packaged_segments == number_of_segments - 1)) {
+      b->append(buffer_size - bytes_segmented);
       bytes_segmented += (int)(buffer_size - bytes_segmented);
 
       if (is_last && making_manifest_) {
@@ -279,10 +287,11 @@ uint32_t ProducerSocket::produce(Name content_name, const uint8_t *buf,
       }
 
     } else {
-      content_object->appendPayload(&buf[bytes_segmented],
-                                    free_space_for_content);
+      b->append(free_space_for_content);
       bytes_segmented += (int)(free_space_for_content);
     }
+
+    content_object->appendPayload(std::move(b));
 
     if (making_manifest_) {
       using namespace std::chrono_literals;

@@ -1033,7 +1033,7 @@ hicn_data_get_name (hicn_format_t format, const hicn_header_t * data,
 
 int
 hicn_data_set_name (hicn_format_t format, hicn_header_t * data,
-		    hicn_name_t * name)
+		    const hicn_name_t * name)
 {
   int ret_err = hicn_packet_set_ece (data);	//data packet -> ece flag set
   if (ret_err < 0)

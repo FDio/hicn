@@ -33,10 +33,8 @@ namespace core {
 
 ContentObject::ContentObject(const Name &name, Packet::Format format)
     : Packet(format) {
-
   if (TRANSPORT_EXPECT_FALSE(
-          hicn_data_set_name(format, packet_start_, name.getStructReference()) <
-          0)) {
+          hicn_data_set_name(format, packet_start_, &name.name_) < 0)) {
     throw errors::RuntimeException("Error filling the packet name.");
   }
 
@@ -99,7 +97,8 @@ void ContentObject::replace(MemBufPtr &&buffer) {
 const Name &ContentObject::getName() const {
   if (!name_) {
     if (hicn_data_get_name(format_, packet_start_,
-                           (hicn_name_t *)name_.getStructReference()) < 0) {
+                           (hicn_name_t *)name_.getConstStructReference()) <
+        0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -110,8 +109,8 @@ const Name &ContentObject::getName() const {
 Name &ContentObject::getWritableName() { return const_cast<Name &>(getName()); }
 
 void ContentObject::setName(const Name &name) {
-  if (hicn_data_set_name(format_, packet_start_, name.getStructReference()) <
-      0) {
+  if (hicn_data_set_name(format_, packet_start_,
+                         name.getConstStructReference()) < 0) {
     throw errors::RuntimeException("Error setting content object name.");
   }
 

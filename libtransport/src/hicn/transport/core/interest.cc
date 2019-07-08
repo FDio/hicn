@@ -34,7 +34,7 @@ namespace core {
 Interest::Interest(const Name &interest_name, Packet::Format format)
     : Packet(format) {
   if (hicn_interest_set_name(format_, packet_start_,
-                             interest_name.getStructReference()) < 0) {
+                             interest_name.getConstStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 
@@ -43,7 +43,6 @@ Interest::Interest(const Name &interest_name, Packet::Format format)
     throw errors::MalformedPacketException();
   }
 }
-
 
 #ifdef __ANDROID__
 Interest::Interest(hicn_format_t format) : Interest(Name("0::0|0"), format) {}
@@ -85,7 +84,8 @@ void Interest::replace(MemBufPtr &&buffer) {
 const Name &Interest::getName() const {
   if (!name_) {
     if (hicn_interest_get_name(format_, packet_start_,
-                               (hicn_name_t *)name_.getStructReference()) < 0) {
+                               (hicn_name_t *)name_.getConstStructReference()) <
+        0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -97,7 +97,7 @@ Name &Interest::getWritableName() { return const_cast<Name &>(getName()); }
 
 void Interest::setName(const Name &name) {
   if (hicn_interest_set_name(format_, packet_start_,
-                             name.getStructReference()) < 0) {
+                             name.getConstStructReference()) < 0) {
     throw errors::RuntimeException("Error setting interest name.");
   }
 
