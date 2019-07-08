@@ -22,12 +22,13 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(HICN_INCLUDE_DIRS ${PROJECT_BINARY_DIR}/lib)
 
 ## Enabled components
-option(BUILD_LIBHICN "Build the hicn core library" ON)
-option(BUILD_HICNLIGHT "Build the hicn light forwarder" ON)
-option(BUILD_LIBTRANSPORT "Build the hicn transport library" ON)
-option(BUILD_UTILS "Build the hicn utils" ON)
+option(BUILD_LIBHICN "Build the hicn core library" OFF)
+option(BUILD_HICNLIGHT "Build the hicn light forwarder" OFF)
+option(BUILD_LIBTRANSPORT "Build the hicn transport library" OFF)
+option(BUILD_UTILS "Build the hicn utils" OFF)
 option(BUILD_APPS "Build the hicn apps" OFF)
 option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
+option(BUILD_HICNEXTRAPLUGIN "Build the hicn extra plugin" ON)
 
 list(APPEND dir_options
   BUILD_LIBHICN
@@ -43,6 +44,8 @@ set(BUILD_LIBTRANSPORT_DIR libtransport)
 set(BUILD_UTILS_DIR utils)
 set(BUILD_APPS_DIR apps)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
+set(BUILD_HICNEXTRAPLUGIN_DIR utils/extras/)
+
 
 ## HEADER FILES
 set(LIBHICN_HEADER_FILES)
@@ -64,6 +67,7 @@ set(LIBHICN_LIGHT hicn-light)
 set(HICN_LIGHT_CONTROL hicn-light-control)
 set(HICN_LIGHT_DAEMON hicn-light-daemon)
 set(HICN_PLUGIN hicn-plugin)
+set(HICN_EXTRA_PLUGIN hicn-extra-plugin)
 set(LIBTRANSPORT hicntransport)
 set(HICN_UTILS hicn-utils)
 set(HICN_APPS hicn-apps)
@@ -79,6 +83,12 @@ if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   )
 
   set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
+endif()
+
+if (BUILD_HICNEXTRAPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+  list(APPEND subdirs
+    ${BUILD_HICNEXTRAPLUGIN_DIR}
+  )
 endif()
 
 ## Shared targets
