@@ -1,0 +1,44 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e9ea46ad_0bd2e235",
+        "filename": "utils/extras/CMakeLists.txt",
+        "patchSetId": 10
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-09T08:30:43Z",
+      "side": 1,
+      "message": "Remove trailing spaces",
+      "range": {
+        "startLine": 50,
+        "startChar": 19,
+        "endLine": 50,
+        "endChar": 25
+      },
+      "revId": "d34b97a76c3521ea2ecd20da56b89623ecc0adf9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5ea89eeb_bd048b7f",
+        "filename": "utils/extras/rtnetlink/mapper.h",
+        "patchSetId": 10
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-09T08:30:43Z",
+      "side": 1,
+      "message": "Move the rtnetlink folder inside a \"device\" folder. The path should be \"/utils/extras/device/rtnetlink/\"",
+      "revId": "d34b97a76c3521ea2ecd20da56b89623ecc0adf9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    }
+  ]
+}
