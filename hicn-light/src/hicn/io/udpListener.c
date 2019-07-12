@@ -70,8 +70,13 @@ static ListenerOps udpTemplate = {.context = NULL,
 
 static void _readcb(int fd, PARCEventType what, void *udpVoid);
 
+#ifdef __linux__
+ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
+                                     struct sockaddr_in6 sin6, const char *interfaceName) {
+#else
 ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
                                      struct sockaddr_in6 sin6) {
+#endif
   ListenerOps *ops = NULL;
 
   UdpListener *udp = parcMemory_AllocateAndClear(sizeof(UdpListener));
@@ -112,7 +117,12 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
   parcAssertFalse(failure, "failed to set REUSEADDR on socket(%d)", errno);
 
   failure = bind(udp->udp_socket, (struct sockaddr *)&sin6, sizeof(sin6));
+
   if (failure == 0) {
+#ifdef __linux__
+    setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
+                     interfaceName, strlen(interfaceName) + 1);
+#endif
     udp->udp_event =
         dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(forwarder), true,
                                       _readcb, (void *)udp, udp->udp_socket);
@@ -153,8 +163,13 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
   return ops;
 }
 
+#ifdef __linux__
+ListenerOps *udpListener_CreateInet(Forwarder *forwarder,
+                                    struct sockaddr_in sin, const char *interfaceName) {
+#else
 ListenerOps *udpListener_CreateInet(Forwarder *forwarder,
                                     struct sockaddr_in sin) {
+#endif
   ListenerOps *ops = NULL;
 
   UdpListener *udp = parcMemory_AllocateAndClear(sizeof(UdpListener));
@@ -195,6 +210,10 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder,
 
   failure = bind(udp->udp_socket, (struct sockaddr *)&sin, sizeof(sin));
   if (failure == 0) {
+#ifdef __linux__
+    setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
+                     interfaceName, strlen(interfaceName) + 1);
+#endif
     udp->udp_event =
         dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(forwarder), true,
                                       _readcb, (void *)udp, udp->udp_socket);
