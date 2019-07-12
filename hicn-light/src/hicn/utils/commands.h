@@ -105,7 +105,9 @@ typedef enum { ETHER_MODE, IP_MODE, HICN_MODE } listener_mode;
 
 typedef struct {
   char symbolic[16];
-  // char interfaceName[16];
+#ifdef __linux__
+  char interfaceName[16];
+#endif
   union commandAddr address;
   uint16_t port;
   // uint16_t etherType;
