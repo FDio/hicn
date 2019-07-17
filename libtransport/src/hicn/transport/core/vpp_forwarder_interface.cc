@@ -125,15 +125,14 @@ void VPPForwarderInterface::connect(bool is_consumer) {
 
   if (!VPPForwarderInterface::memif_api_) {
     VPPForwarderInterface::api_ = vpp_binary_api_init(app_name.str().c_str());
-  }
-
-  VPPForwarderInterface::memif_api_ =
+    VPPForwarderInterface::memif_api_ =
       memif_binary_api_init(VPPForwarderInterface::api_);
+    VPPForwarderInterface::hicn_api_ =
+      hicn_binary_api_init(VPPForwarderInterface::api_);
+  }
 
   sw_if_index_ = getMemifConfiguration();
 
-  VPPForwarderInterface::hicn_api_ =
-      hicn_binary_api_init(VPPForwarderInterface::api_);
   if (is_consumer) {
     consumerConnection();
   }
