@@ -1,0 +1,257 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "87295c60_45f9d38c",
+        "filename": "utils/extras/devices/rtnetlink/mapper.c",
+        "patchSetId": 17
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "2016-2019",
+      "range": {
+        "startLine": 2,
+        "startChar": 17,
+        "endLine": 2,
+        "endChar": 21
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "e43fa9f2_cc1b31b0",
+        "filename": "utils/extras/devices/rtnetlink/mapper.c",
+        "patchSetId": 17
+      },
+      "lineNbr": 187,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "remove",
+      "range": {
+        "startLine": 187,
+        "startChar": 2,
+        "endLine": 187,
+        "endChar": 32
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "33d22ad5_dd094d85",
+        "filename": "utils/extras/devices/rtnetlink/mapper.c",
+        "patchSetId": 17
+      },
+      "lineNbr": 190,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "remove",
+      "range": {
+        "startLine": 190,
+        "startChar": 2,
+        "endLine": 190,
+        "endChar": 85
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0c32ad89_b9111f19",
+        "filename": "utils/extras/devices/rtnetlink/mapper.c",
+        "patchSetId": 17
+      },
+      "lineNbr": 203,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "Please remove commented code",
+      "range": {
+        "startLine": 195,
+        "startChar": 0,
+        "endLine": 203,
+        "endChar": 5
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "2a273f67_26e31ea7",
+        "filename": "utils/extras/devices/rtnetlink/mapper.h",
+        "patchSetId": 17
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "Update copyright to 2016-2019",
+      "range": {
+        "startLine": 2,
+        "startChar": 3,
+        "endLine": 2,
+        "endChar": 50
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "96190820_7fff9b69",
+        "filename": "utils/extras/devices/rtnetlink/netns.c",
+        "patchSetId": 17
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "2016-2019",
+      "range": {
+        "startLine": 2,
+        "startChar": 17,
+        "endLine": 2,
+        "endChar": 21
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "a0140e46_9b212692",
+        "filename": "utils/extras/devices/rtnetlink/netns.h",
+        "patchSetId": 17
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "2016-2019",
+      "range": {
+        "startLine": 2,
+        "startChar": 17,
+        "endLine": 2,
+        "endChar": 21
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8a81d307_53979945",
+        "filename": "utils/extras/devices/rtnetlink/rtnl.c",
+        "patchSetId": 17
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "2016-2019",
+      "range": {
+        "startLine": 2,
+        "startChar": 17,
+        "endLine": 2,
+        "endChar": 21
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "24a527c5_4a83089c",
+        "filename": "utils/extras/devices/rtnetlink/rtnl.h",
+        "patchSetId": 17
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "2016-2019",
+      "range": {
+        "startLine": 2,
+        "startChar": 17,
+        "endLine": 2,
+        "endChar": 21
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "657e6175_4a3ca8f3",
+        "filename": "utils/extras/devices/rtnetlink/test.c",
+        "patchSetId": 17
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "2016-2019",
+      "range": {
+        "startLine": 2,
+        "startChar": 17,
+        "endLine": 2,
+        "endChar": 21
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0ae5c88e_5be637cb",
+        "filename": "utils/extras/devices/rtnetlink/test.c",
+        "patchSetId": 17
+      },
+      "lineNbr": 199,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-18T07:15:16Z",
+      "side": 1,
+      "message": "Fix",
+      "range": {
+        "startLine": 199,
+        "startChar": 2,
+        "endLine": 199,
+        "endChar": 35
+      },
+      "revId": "579a8a896d4c72175e8fbd951af76b8233a0d3f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    }
+  ]
+}
