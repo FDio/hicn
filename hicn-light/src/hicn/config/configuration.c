@@ -346,7 +346,6 @@ static void configuration_SendResponse(Configuration *config, struct iovec *msg,
   if (conn == NULL) {
     return;
   }
-
   connection_SendIOVBuffer(conn, msg, 2);
 }
 
@@ -450,6 +449,10 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
     /* Hook: new connection created through the control protocol */
     forwarder_onConnectionEvent(config->forwarder, conn, CONNECTION_EVENT_UPDATE);
 #endif /* WITH_MAPME */
+    if (source)
+      addressDestroy(&source);
+    if (destination)
+      addressDestroy(&destination);
 
     success = true;
 #else
@@ -472,6 +475,70 @@ ERR:
     return utils_CreateNack(header, control, sizeof(add_connection_command));
 }
 
+struct iovec *configuration_ProcessRemoveListener(Configuration *config,
+                                                struct iovec *request,
+                                                unsigned ingressId) {
+  header_control_message *header = request[0].iov_base;
+  remove_listener_command *control = request[1].iov_base;
+
+  bool success = false;
+
+  const char *symbolicOrListenerid = control->symbolicOrListenerid;
+  unsigned listenerId = -1;
+  ListenerSet *listenerSet = forwarder_GetListenerSet(config->forwarder);
+  if (utils_IsNumber(symbolicOrListenerid)) {
+    // case for connid as input
+    listenerId = (unsigned)strtold(symbolicOrListenerid, NULL);
+  } else {
+    listenerId = listenerSet_FindIdByListenerName(listenerSet, symbolicOrListenerid);
+  }
+
+  if (listenerId >= 0) {
+
+    ConnectionTable *connTable = forwarder_GetConnectionTable(config->forwarder);
+    ListenerOps *listenerOps = listenerSet_FindById(listenerSet, listenerId);
+    if (listenerOps) {
+      ConnectionList *connectionList =connectionTable_GetEntries(connTable);
+      for (size_t i =0; i < connectionList_Length(connectionList); i++) {
+        Connection *connection = connectionList_Get(connectionList, i);
+        const AddressPair *addressPair = connection_GetAddressPair(connection);
+        const Address *address = addressPair_GetLocal(addressPair);
+        if (addressEquals(listenerOps->getListenAddress(listenerOps),address)) {
+          // case for connid as input
+          unsigned connid = connection_GetConnectionId(connection);
+          // remove connection from the FIB
+          forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
+          // remove connection
+          connectionTable_RemoveById(connTable, connid);
+          const char *symbolicConnection = symbolicNameTable_GetNameByIndex(config->symbolicNameTable,connid);
+          symbolicNameTable_Remove(config->symbolicNameTable, symbolicConnection);
+        }
+      }
+      // remove listener
+      listenerSet_RemoveById(listenerSet, listenerId);
+      success = true;
+    } else {
+      logger_Log(forwarder_GetLogger(config->forwarder), LoggerFacility_IO,
+        PARCLogLevel_Error, __func__,
+        "Listener Id not found, check list listeners");
+    }
+  }
+
+  // generate ACK/NACK
+  struct iovec *response;
+
+  if (success) {  // ACK
+    response =
+        utils_CreateAck(header, control, sizeof(remove_listener_command));
+  } else {  // NACK
+    response =
+        utils_CreateNack(header, control, sizeof(remove_connection_command));
+  }
+
+  return response;
+}
+
+
 /**
  * Add an IP-based tunnel.
  *
@@ -493,7 +560,6 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
 
   const char *symbolicOrConnid = control->symbolicOrConnid;
   ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
-
   if (strcmp(symbolicOrConnid, "SELF") == 0) {
     forwarder_RemoveConnectionIdFromRoutes(config->forwarder, ingressId);
     connectionTable_RemoveById(table, ingressId);
@@ -515,6 +581,9 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
       forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
       // remove connection
       connectionTable_RemoveById(table, connid);
+      // remove connection from symbolicNameTable
+      const char *symbolicConnection = symbolicNameTable_GetNameByIndex(config->symbolicNameTable,connid);
+      symbolicNameTable_Remove(config->symbolicNameTable, symbolicConnection);
 
 #ifdef WITH_MAPME
        /* Hook: new connection created through the control protocol */
@@ -568,6 +637,8 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
     }
   }
 
+
+
   // generate ACK/NACK
   struct iovec *response;
 
@@ -612,8 +683,8 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
     list_connections_command *listConnectionsCommand =
         (list_connections_command *)(payloadResponse +
                                      (i * sizeof(list_connections_command)));
-
     // set structure fields
+
     listConnectionsCommand->connid = connection_GetConnectionId(original);
 
     const char *connectionName = symbolicNameTable_GetNameByIndex(config->symbolicNameTable, connection_GetConnectionId(original));
@@ -1202,7 +1273,6 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
                                             struct iovec *control,
                                             unsigned ingressId) {
   struct iovec *response = NULL;
-
   switch (command) {
     case ADD_LISTENER:
       response = configurationListeners_Add(config, control, ingressId);
@@ -1227,6 +1297,10 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
 
     case REMOVE_CONNECTION:
       response = configuration_ProcessRemoveTunnel(config, control, ingressId);
+      break;
+
+    case REMOVE_LISTENER:
+      response = configuration_ProcessRemoveListener(config, control, ingressId);
       break;
 
     case REMOVE_ROUTE:

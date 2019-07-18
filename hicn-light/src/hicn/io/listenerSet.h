@@ -135,7 +135,6 @@ ListenerOps *listenerSet_Get(const ListenerSet *set, size_t index);
 ListenerOps *listenerSet_Find(const ListenerSet *set, EncapType encapType,
                               const Address *localAddress);
 
-
 /**
  * Looks up a listener by its id
  *
@@ -153,6 +152,7 @@ ListenerOps *listenerSet_Find(const ListenerSet *set, EncapType encapType,
  * @endcode
  */
 ListenerOps *listenerSet_FindById(const ListenerSet *set, unsigned id);
+
 /**
  * Looks up a listener by its id
  *
@@ -171,4 +171,18 @@ ListenerOps *listenerSet_FindById(const ListenerSet *set, unsigned id);
  */
 int listenerSet_FindIdByListenerName(const ListenerSet *set, const char *listenerName);
 
+/**
+ * Remove up a listener by its id
+ *
+ * <#Paragraphs Of Explanation#>
+ *
+ * @param [in] set An allocated listener set
+ * @param [in] id of the listener
+ *
+ * Example:
+ * @code
+ *
+ * @endcode
+ */
+void listenerSet_RemoveById(const ListenerSet *set, unsigned id);
 #endif

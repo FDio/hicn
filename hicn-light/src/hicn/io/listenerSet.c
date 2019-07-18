@@ -166,3 +166,17 @@ int listenerSet_FindIdByListenerName(const ListenerSet *set, const char *listene
 
   return index;
 }
+
+void listenerSet_RemoveById(const ListenerSet *set, unsigned id) {
+  parcAssertNotNull(set, "Parameter set must be non-null");
+
+  for (size_t i = 0; i < parcArrayList_Size(set->listOfListeners);
+       i++) {
+    ListenerOps *ops = parcArrayList_Get(set->listOfListeners, i);
+    parcAssertNotNull(ops, "Got null listener ops at index %zu", i);
+    if (ops->getInterfaceIndex(ops) == id) {
+       parcArrayList_RemoveAtIndex(set->listOfListeners, i);
+       break;
+    }
+  }
+}
