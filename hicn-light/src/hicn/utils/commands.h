@@ -54,6 +54,7 @@ typedef enum {
   ADD_ROUTE,
   LIST_ROUTES,
   REMOVE_CONNECTION,
+  REMOVE_LISTENER,
   REMOVE_ROUTE,
   CACHE_STORE,
   CACHE_SERVE,
@@ -154,9 +155,10 @@ typedef struct {
   add_connection_command connectionData;
   uint32_t connid;
   uint8_t state;
+  char connectioName[16];
 } list_connections_command;
 
-// SIZE=64
+// SIZE=80
 
 //==========  [03]  ADD ROUTE    ==========
 
@@ -183,10 +185,14 @@ typedef struct {
 // SIZE=24
 
 //==========  [05]  REMOVE CONNECTION    ==========
-
 typedef struct {
   char symbolicOrConnid[16];
 } remove_connection_command;
+
+
+typedef struct {
+  char symbolicOrListenerid[16];
+} remove_listener_command;
 
 // SIZE=16
 
@@ -262,13 +268,17 @@ typedef struct {
 
 typedef struct {
   union commandAddr address;
+  char listenerName[16];
+#ifdef __linux__
+  char interfaceName[16];
+#endif
   uint32_t connid;
   uint16_t port;
   uint8_t addressType;
   uint8_t encapType;
 } list_listeners_command;
 
-// SIZE=24
+// if linux SIZE=56 else SIZE=40
 
 //==========  [14]  MAPME    ==========
 
@@ -291,6 +301,7 @@ typedef struct {
   uint8_t admin_state;
 } connection_set_admin_state_command;
 
+
 //===== size of commands ======
 // REMINDER: when a new_command is added, the following switch has to be
 // updated.
@@ -305,9 +316,11 @@ static inline int payloadLengthDaemon(command_id id) {
     case ADD_ROUTE:
       return sizeof(add_route_command);
     case LIST_ROUTES:
-      return 0;  // list routes: payload always 0
+      return 0;  // list rout`es: payload always 0
     case REMOVE_CONNECTION:
       return sizeof(remove_connection_command);
+    case REMOVE_LISTENER:
+      return sizeof(remove_listener_command);
     case REMOVE_ROUTE:
       return sizeof(remove_route_command);
     case CACHE_STORE:
