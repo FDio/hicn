@@ -29,6 +29,7 @@
 #include <parc/assert/parc_Assert.h>
 
 struct connection {
+
   const AddressPair *addressPair;
   IoOperations *ops;
 
