@@ -63,6 +63,7 @@ static int payloadLengthController[LAST_COMMAND_VALUE] = {
     sizeof(add_route_command),
     sizeof(list_routes_command),  // needed when get response from FWD
     sizeof(remove_connection_command),
+    sizeof(remove_listener_command),
     sizeof(remove_route_command),
     sizeof(cache_store_command),
     sizeof(cache_serve_command),
