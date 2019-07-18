@@ -54,6 +54,7 @@ typedef enum {
   ADD_ROUTE,
   LIST_ROUTES,
   REMOVE_CONNECTION,
+  REMOVE_LISTENER,
   REMOVE_ROUTE,
   CACHE_STORE,
   CACHE_SERVE,
@@ -186,6 +187,10 @@ typedef struct {
   char symbolicOrConnid[16];
 } remove_connection_command;
 
+typedef struct {
+  char symbolicOrConnid[16];
+} remove_listener_command;
+
 // SIZE=16
 
 //==========  [06]  REMOVE ROUTE    ==========
@@ -306,6 +311,8 @@ static inline int payloadLengthDaemon(command_id id) {
       return 0;  // list routes: payload always 0
     case REMOVE_CONNECTION:
       return sizeof(remove_connection_command);
+    case REMOVE_LISTENER:
+      return sizeof(remove_listener_command);
     case REMOVE_ROUTE:
       return sizeof(remove_route_command);
     case CACHE_STORE:
