@@ -346,7 +346,6 @@ static void configuration_SendResponse(Configuration *config, struct iovec *msg,
   if (conn == NULL) {
     return;
   }
-
   connection_SendIOVBuffer(conn, msg, 2);
 }
 
@@ -438,8 +437,10 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
     printf("failed, symbolic name or connextion already exist\n");
   }
 
-  addressDestroy(&source);
-  addressDestroy(&destination);
+  if (source)
+    addressDestroy(&source);
+  if (destination)
+    addressDestroy(&destination);
 
   // generate ACK/NACK
   struct iovec *response;
@@ -453,6 +454,70 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
 
   return response;
 }
+
+struct iovec *configuration_ProcessRemoveListener(Configuration *config,
+                                                struct iovec *request,
+                                                unsigned ingressId) {
+  header_control_message *header = request[0].iov_base;
+  remove_listener_command *control = request[1].iov_base;
+
+  bool success = false;
+
+  const char *symbolicOrListenerid = control->symbolicOrListenerid;
+  unsigned listenerId = -1;
+  ListenerSet *listenerSet = forwarder_GetListenerSet(config->forwarder);
+  if (utils_IsNumber(symbolicOrListenerid)) {
+    // case for connid as input
+    listenerId = (unsigned)strtold(symbolicOrListenerid, NULL);
+  } else {
+    listenerId = listenerSet_FindIdByListenerName(listenerSet, symbolicOrListenerid);
+  }
+
+  if (listenerId >= 0) {
+
+    ConnectionTable *connTable = forwarder_GetConnectionTable(config->forwarder);
+    ListenerOps *listenerOps = listenerSet_FindById(listenerSet, listenerId);
+    if (listenerOps) {
+      ConnectionList *connectionList =connectionTable_GetEntries(connTable);
+      for (size_t i =0; i < connectionList_Length(connectionList); i++) {
+        Connection *connection = connectionList_Get(connectionList, i);
+        const AddressPair *addressPair = connection_GetAddressPair(connection);
+        const Address *address = addressPair_GetLocal(addressPair);
+        if (addressEquals(listenerOps->getListenAddress(listenerOps),address)) {
+          // case for connid as input
+          unsigned connid = connection_GetConnectionId(connection);
+          // remove connection from the FIB
+          forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
+          // remove connection
+          connectionTable_RemoveById(connTable, connid);
+          const char *symbolicConnection = symbolicNameTable_GetNameByIndex(config->symbolicNameTable,connid);
+          symbolicNameTable_Remove(config->symbolicNameTable, symbolicConnection);
+        }
+      }
+      // remove listener
+      listenerSet_RemoveById(listenerSet, listenerId);
+      success = true;
+    } else {
+      logger_Log(forwarder_GetLogger(config->forwarder), LoggerFacility_IO,
+        PARCLogLevel_Error, __func__,
+        "Listener Id not found, check list listeners");
+    }
+  }
+
+  // generate ACK/NACK
+  struct iovec *response;
+
+  if (success) {  // ACK
+    response =
+        utils_CreateAck(header, control, sizeof(remove_listener_command));
+  } else {  // NACK
+    response =
+        utils_CreateNack(header, control, sizeof(remove_connection_command));
+  }
+
+  return response;
+}
+
 
 /**
  * Add an IP-based tunnel.
@@ -475,7 +540,6 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
 
   const char *symbolicOrConnid = control->symbolicOrConnid;
   ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
-
   if (strcmp(symbolicOrConnid, "SELF") == 0) {
     forwarder_RemoveConnectionIdFromRoutes(config->forwarder, ingressId);
     connectionTable_RemoveById(table, ingressId);
@@ -491,6 +555,9 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
       forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
       // remove connection
       connectionTable_RemoveById(table, connid);
+      // remove connection from symbolicNameTable
+      const char *symbolicConnection = symbolicNameTable_GetNameByIndex(config->symbolicNameTable,connid);
+      symbolicNameTable_Remove(config->symbolicNameTable, symbolicConnection);
 
       success = true;
     } else {
@@ -533,6 +600,8 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
     }
   }
 
+
+
   // generate ACK/NACK
   struct iovec *response;
 
@@ -545,6 +614,13 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
   }
 
   return response;
+}
+
+void _strlwr(char *string) {
+  char *p = string;
+  while ((*p = tolower(*p))) {
+    p++;
+  }
 }
 
 struct iovec *configuration_ProcessConnectionList(Configuration *config,
@@ -570,9 +646,14 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
     list_connections_command *listConnectionsCommand =
         (list_connections_command *)(payloadResponse +
                                      (i * sizeof(list_connections_command)));
-
     // set structure fields
+
     listConnectionsCommand->connid = connection_GetConnectionId(original);
+    const char *connectionName = symbolicNameTable_GetNameByIndex(config->symbolicNameTable, connection_GetConnectionId(original));
+
+    strncpy(listConnectionsCommand->connectioName, connectionName, strlen(connectionName));
+    _strlwr(listConnectionsCommand->connectioName);
+
     listConnectionsCommand->state =
         connection_IsUp(original) ? IFACE_UP : IFACE_DOWN;
     listConnectionsCommand->connectionData.connectionType =
@@ -615,6 +696,7 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
     addressDestroy(&localAddress);
     addressDestroy(&remoteAddress);
   }
+  
 
   // send response
   header_control_message *header = request[0].iov_base;
@@ -673,6 +755,14 @@ struct iovec *configuration_ProcessListenersList(Configuration *config,
       listListenersCommand->address.ipv6 = tmpAddr6.sin6_addr;
       listListenersCommand->port = tmpAddr6.sin6_port;
     }
+    const char * listenerName = listenerEntry->getListenerName(listenerEntry);
+    strncpy(listListenersCommand->listenerName,listenerName, strlen(listenerName));
+#ifdef __linux__
+    if (listenerEntry->getEncapType(listenerEntry) == ENCAP_TCP || listenerEntry->getEncapType(listenerEntry) == ENCAP_UDP) {
+      const char * interfaceName = listenerEntry->getInterfaceName(listenerEntry);
+      strncpy(listListenersCommand->interfaceName,interfaceName, strlen(interfaceName));
+    }
+#endif
   }
 
   // send response
@@ -1035,7 +1125,6 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
                                             struct iovec *control,
                                             unsigned ingressId) {
   struct iovec *response = NULL;
-
   switch (command) {
     case ADD_LISTENER:
       response = configurationListeners_Add(config, control, ingressId);
@@ -1060,6 +1149,10 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
 
     case REMOVE_CONNECTION:
       response = configuration_ProcessRemoveTunnel(config, control, ingressId);
+      break;
+
+    case REMOVE_LISTENER:
+      response = configuration_ProcessRemoveListener(config, control, ingressId);
       break;
 
     case REMOVE_ROUTE:
