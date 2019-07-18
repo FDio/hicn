@@ -110,6 +110,8 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
   }
 
   // Process/Print payload
+
+  printf("%5s %10s %6s %40s %40s %5s\n", "id", "name", "state", "source", "destination", "type");
   for (int i = 0; i < receivedHeader->length; i++) {
     list_connections_command *listConnectionsCommand =
         (list_connections_command *)(receivedPayload +
@@ -126,9 +128,8 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
         &listConnectionsCommand->connectionData.remotePort);
 
     PARCBufferComposer *composer = parcBufferComposer_Create();
-
     parcBufferComposer_Format(
-        composer, "%5d %4s %s %s %s", listConnectionsCommand->connid,
+        composer, "%5d %10s %6s %40s %40s %5s", listConnectionsCommand->connid, listConnectionsCommand->connectionName,
         stateString[listConnectionsCommand->state], sourceString,
         destinationString,
         connTypeString[listConnectionsCommand->connectionData.connectionType]);

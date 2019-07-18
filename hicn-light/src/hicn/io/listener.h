@@ -53,6 +53,15 @@ struct listener_ops {
   void (*destroy)(ListenerOps **listenerOpsPtr);
 
   /**
+   * Returns the listener name of the listener.
+   *
+   * @param [in] ops Pointer to this structure
+   *
+   * @return the listener name of the listener
+   */
+  const char *(*getListenerName)(const ListenerOps *ops);
+
+  /**
    * Returns the interface index of the listener.
    *
    * @param [in] ops Pointer to this structure
@@ -79,6 +88,14 @@ struct listener_ops {
    */
   EncapType (*getEncapType)(const ListenerOps *ops);
 
+  /**
+   * Returns the interface name of the listener.
+   *
+   * @param [in] ops Pointer to this structure
+   *
+   * @return the interface name of the listener
+   */
+  const char *(*getInterfaceName)(const ListenerOps *ops);
   /**
    * Returns the underlying socket associated with the listener
    *
