@@ -33,8 +33,15 @@
 #include <hicn/io/listener.h>
 #include <stdlib.h>
 
-ListenerOps *tcpListener_CreateInet6(Forwarder *forwarder,
+#ifdef __linux__
+ListenerOps *tcpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
+                                     struct sockaddr_in6 sin6, char *interfaceName);
+ListenerOps *tcpListener_CreateInet(Forwarder *forwarder, char *listenerName,
+                                    struct sockaddr_in sin, char *interfaceName);
+#else
+ListenerOps *tcpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
                                      struct sockaddr_in6 sin6);
-ListenerOps *tcpListener_CreateInet(Forwarder *forwarder,
+ListenerOps *tcpListener_CreateInet(Forwarder *forwarder, char *listenerName,
                                     struct sockaddr_in sin);
+#endif
 #endif  // tcpListener_h
