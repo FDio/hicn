@@ -33,6 +33,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/controlListRoutes.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlQuit.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemove.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlRemoveListener.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemoveConnection.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemoveRoute.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlSet.h
@@ -71,6 +72,7 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/controlListRoutes.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlQuit.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemove.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlRemoveListener.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemoveConnection.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemoveRoute.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRoot.c
