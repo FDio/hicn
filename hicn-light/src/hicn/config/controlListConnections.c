@@ -120,6 +120,8 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
 #endif /* WITH_POLICY */
 
   // Process/Print payload
+
+  printf("%5s %10s %6s %40s %40s %5s\n", "id", "name", "state", "source", "destination", "type");
   for (int i = 0; i < receivedHeader->length; i++) {
     list_connections_command *listConnectionsCommand =
         (list_connections_command *)(receivedPayload +

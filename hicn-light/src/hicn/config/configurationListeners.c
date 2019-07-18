@@ -317,6 +317,7 @@ static bool _setupTcpListenerOnInet6Light(Forwarder *forwarder, char *listenerNa
  *  Create a new IPV6/UDP listener.
  *
  * @param [in,out] forwarder   The hicn-light forwarder instance
+ * @param [in] listenerName    The name of the listener
  * @param [in] addr6           The ipv6 address in network byte order
  * @param [in] port            The port number in network byte order
  * @param [in] interfaceName   The name of the interface to bind the socket
@@ -615,7 +616,8 @@ void configurationListeners_SetutpLocalIPv4(const Configuration *config,
   Forwarder *forwarder = configuration_GetForwarder(config);
   in_addr_t addr = inet_addr("127.0.0.1");
   uint16_t network_byte_order_port = htons(port);
-    char listenerNameUdp[16] = "lo_udp";
+
+  char listenerNameUdp[16] = "lo_udp";
   char listenerNameTcp[16] = "lo_tcp";
   char *loopback_interface = "lo";
   _setupUdpListenerOnInet(forwarder, listenerNameUdp,(ipv4_addr_t *)&(addr),

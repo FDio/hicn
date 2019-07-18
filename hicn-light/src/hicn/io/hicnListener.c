@@ -82,6 +82,12 @@ static EncapType _getEncapType(const ListenerOps *ops);
 static int _getSocket(const ListenerOps *ops);
 static unsigned _createNewConnection(ListenerOps *listener, int fd, const AddressPair *pair);
 static const Connection * _lookupConnection(ListenerOps * listener, const AddressPair *pair);
+static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer);
+static void _hicnListener_readcb(int fd, PARCEventType what, void *listener_void);
+static Address *_createAddressFromPacket(uint8_t *msgBuffer);
+static void _handleProbeMessage(ListenerOps * listener, uint8_t *msgBuffer);
+static void _handleWldrNotification(ListenerOps *listener, uint8_t *msgBuffer);
+static void _readFrameToDiscard(HicnListener *hicn, int fd);
 
 static ListenerOps _hicnTemplate = {
   .context = NULL,
@@ -95,8 +101,6 @@ static ListenerOps _hicnTemplate = {
   .createConnection = &_createNewConnection,
   .lookupConnection = &_lookupConnection,
 };
-
-static void _hicnListener_readcb(int fd, PARCEventType what, void *hicnVoid);
 
 static bool _isEmptyAddressIPv6(Address *address) {
   struct sockaddr_in6 *addr6 =
@@ -118,6 +122,100 @@ static bool _isEmptyAddressIPv6(Address *address) {
   return res;
 }
 
+static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer) {
+  HicnListener * hicn = (HicnListener*)listener->context;
+  Message *message = NULL;
+
+  ssize_t readLength = read(fd, msgBuffer, MTU_SIZE);
+
+  if (readLength < 0) {
+    printf("read failed %d: (%d) %s\n", fd, errno, strerror(errno));
+    return message;
+  }
+
+  size_t packetLength = messageHandler_GetTotalPacketLength(msgBuffer);
+
+  if (readLength != packetLength) {
+    parcMemory_Deallocate((void **)&msgBuffer);
+    return message;
+  }
+
+  if (messageHandler_IsTCP(msgBuffer)) {
+    MessagePacketType pktType;
+    unsigned connid = 0;
+    if (messageHandler_IsData(msgBuffer)) {
+      pktType = MessagePacketType_ContentObject;
+      if (hicn->connection_id == -1) {
+        parcMemory_Deallocate((void **)&msgBuffer);
+        return message;
+      } else {
+        connid = hicn->connection_id;
+      }
+    } else if (messageHandler_IsInterest(msgBuffer)) {
+      // notice that the connections for the interest (the one that we create at
+      // run time) uses as a local address 0::0, so the main tun
+      pktType = MessagePacketType_Interest;
+      Address *packetAddr = _createAddressFromPacket(msgBuffer);
+
+      AddressPair *pair_find = addressPair_Create(packetAddr, /* dummy */ hicn->localAddress);
+      const Connection *conn = _lookupConnection(listener, pair_find);
+      addressPair_Release(&pair_find);
+      if (conn == NULL) {
+        AddressPair *pair = addressPair_Create(hicn->localAddress, packetAddr);
+        connid = _createNewConnection(listener, fd, pair);
+        addressPair_Release(&pair);
+      } else {
+        connid = connection_GetConnectionId(conn);
+      }
+      addressDestroy(&packetAddr);
+    } else {
+      printf("Got a packet that is not a data nor an interest, drop it!\n");
+      parcMemory_Deallocate((void **)&msgBuffer);
+      return message;
+    }
+
+    message = message_CreateFromByteArray(connid, msgBuffer, pktType,
+                                          forwarder_GetTicks(hicn->forwarder),
+                                          forwarder_GetLogger(hicn->forwarder));
+    if (message == NULL) {
+      parcMemory_Deallocate((void **)&msgBuffer);
+    }
+  } else if (messageHandler_IsWldrNotification(msgBuffer)) {
+    _handleWldrNotification(listener, msgBuffer);
+  } else if (messageHandler_IsLoadBalancerProbe(msgBuffer)) {
+    _handleProbeMessage(listener, msgBuffer);
+  } else {
+    messageHandler_handleHooks(hicn->forwarder, msgBuffer, listener, fd, NULL);
+    parcMemory_Deallocate((void **)&msgBuffer);
+  }
+
+  return message;
+}
+
+static void _receivePacket(ListenerOps * listener, int fd) {
+  HicnListener * hicn = (HicnListener*)listener->context;
+  Message *msg = NULL;
+  uint8_t *msgBuffer = parcMemory_AllocateAndClear(MTU_SIZE);
+  msg = _readMessage(listener, fd, msgBuffer);
+
+  if (msg) {
+    forwarder_Receive(hicn->forwarder, msg);
+  }
+}
+
+static void _hicnListener_readcb(int fd, PARCEventType what, void *listener_void) {
+  ListenerOps * listener = (ListenerOps *)listener_void;
+  HicnListener *hicn = (HicnListener *)listener->context;
+
+  if (hicn->inetFamily == IPv4 || hicn->inetFamily == IPv6) {
+    if (what & PARCEventType_Read) {
+      _receivePacket(listener, fd);
+    }
+  } else {
+    _readFrameToDiscard(hicn, fd);
+  }
+}
+
 static bool _isEmptyAddressIPv4(Address *address) {
   bool res = false;
 
@@ -133,13 +231,8 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
 
   hicn->forwarder = forwarder;
   hicn->listenerName = parcMemory_StringDuplicate(symbolic, strlen(symbolic));
-  hicn->logger = logger_Acquire(forwarder_GetLogger(forwarder));
-
-  hicn->logger = logger_Acquire(forwarder_GetLogger(forwarder));
 
   hicn->conn_id = forwarder_GetNextConnectionId(forwarder);
-  hicn->localAddress = addressCopy(address);
-
   hicn->inetFamily = IPv4;
 
   hicn->connection_id = -1;
@@ -438,6 +531,7 @@ static const char *_getListenerName(const ListenerOps *ops) {
   HicnListener *hicn = (HicnListener *)ops->context;
   return hicn->listenerName;
 }
+
 static const char *_getInterfaceName(const ListenerOps *ops) {
   const char *interfaceName = "";
   return interfaceName;
@@ -601,96 +695,6 @@ static void _handleWldrNotification(ListenerOps *listener, uint8_t *msgBuffer) {
 }
 
 
-static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer) {
-  HicnListener * hicn = (HicnListener*)listener->context;
-  Message *message = NULL;
 
-  ssize_t readLength = read(fd, msgBuffer, MTU_SIZE);
 
-  if (readLength < 0) {
-    printf("read failed %d: (%d) %s\n", fd, errno, strerror(errno));
-    return message;
-  }
 
-  size_t packetLength = messageHandler_GetTotalPacketLength(msgBuffer);
-
-  if (readLength != packetLength) {
-    parcMemory_Deallocate((void **)&msgBuffer);
-    return message;
-  }
-
-  if (messageHandler_IsTCP(msgBuffer)) {
-    MessagePacketType pktType;
-    unsigned connid = 0;
-    if (messageHandler_IsData(msgBuffer)) {
-      pktType = MessagePacketType_ContentObject;
-      if (hicn->connection_id == -1) {
-        parcMemory_Deallocate((void **)&msgBuffer);
-        return message;
-      } else {
-        connid = hicn->connection_id;
-      }
-    } else if (messageHandler_IsInterest(msgBuffer)) {
-      // notice that the connections for the interest (the one that we create at
-      // run time) uses as a local address 0::0, so the main tun
-      pktType = MessagePacketType_Interest;
-      Address *packetAddr = _createAddressFromPacket(msgBuffer);
-
-      AddressPair *pair_find = addressPair_Create(packetAddr, /* dummy */ hicn->localAddress);
-      const Connection *conn = _lookupConnection(listener, pair_find);
-      addressPair_Release(&pair_find);
-      if (conn == NULL) {
-        AddressPair *pair = addressPair_Create(hicn->localAddress, packetAddr);
-        connid = _createNewConnection(listener, fd, pair);
-        addressPair_Release(&pair);
-      } else {
-        connid = connection_GetConnectionId(conn);
-      }
-      addressDestroy(&packetAddr);
-    } else {
-      printf("Got a packet that is not a data nor an interest, drop it!\n");
-      parcMemory_Deallocate((void **)&msgBuffer);
-      return message;
-    }
-
-    message = message_CreateFromByteArray(connid, msgBuffer, pktType,
-                                          forwarder_GetTicks(hicn->forwarder),
-                                          forwarder_GetLogger(hicn->forwarder));
-    if (message == NULL) {
-      parcMemory_Deallocate((void **)&msgBuffer);
-    }
-  } else if (messageHandler_IsWldrNotification(msgBuffer)) {
-    _handleWldrNotification(listener, msgBuffer);
-  } else if (messageHandler_IsLoadBalancerProbe(msgBuffer)) {
-    _handleProbeMessage(listener, msgBuffer);
-  } else {
-    messageHandler_handleHooks(hicn->forwarder, msgBuffer, listener, fd, NULL);
-    parcMemory_Deallocate((void **)&msgBuffer);
-  }
-
-  return message;
-}
-
-static void _receivePacket(ListenerOps * listener, int fd) {
-  HicnListener * hicn = (HicnListener*)listener->context;
-  Message *msg = NULL;
-  uint8_t *msgBuffer = parcMemory_AllocateAndClear(MTU_SIZE);
-  msg = _readMessage(listener, fd, msgBuffer);
-
-  if (msg) {
-    forwarder_Receive(hicn->forwarder, msg);
-  }
-}
-
-static void _hicnListener_readcb(int fd, PARCEventType what, void *listener_void) {
-  ListenerOps * listener = (ListenerOps *)listener_void;
-  HicnListener *hicn = (HicnListener *)listener->context;
-
-  if (hicn->inetFamily == IPv4 || hicn->inetFamily == IPv6) {
-    if (what & PARCEventType_Read) {
-      _receivePacket(listener, fd);
-    }
-  } else {
-    _readFrameToDiscard(hicn, fd);
-  }
-}
