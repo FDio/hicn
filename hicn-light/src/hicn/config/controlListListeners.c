@@ -95,7 +95,11 @@ static CommandReturn _controlListListeners_Execute(CommandParser *parser,
 
   char *addrString = NULL;
   if (receivedHeader->length > 0) {
-    printf("%6.6s %50.70s %s\n", "iface", "address", "type");
+  #ifdef __linux__
+    printf("%6.6s %16s %50.70s %6s %10s\n", "iface", "name", "address", "type", "interface");
+  #else
+    printf("%6.6s %16s %50.70s %s\n", "iface", "name", "address", "type");
+  #endif
   } else {
     printf(" --- No entry in the list \n");
   }
@@ -110,10 +114,22 @@ static CommandReturn _controlListListeners_Execute(CommandParser *parser,
                                               &listListenersCommand->port);
 
     PARCBufferComposer *composer = parcBufferComposer_Create();
-
-    parcBufferComposer_Format(composer, "%6u %50.70s %3s",
-                              listListenersCommand->connid, addrString,
+#ifdef __linux__
+    if (strcmp(listenerType[listListenersCommand->encapType], "UDP") == 0 ||
+        strcmp(listenerType[listListenersCommand->encapType], "TCP") == 0) {
+      parcBufferComposer_Format(composer, "%6u %16s %50.70s %6s %10s",
+                              listListenersCommand->connid, listListenersCommand->listenerName,addrString,
+                              listenerType[listListenersCommand->encapType], listListenersCommand->interfaceName);
+    } else {
+      parcBufferComposer_Format(composer, "%6u %16s %50.70s %6s",
+                              listListenersCommand->connid, listListenersCommand->listenerName,addrString,
                               listenerType[listListenersCommand->encapType]);
+    }
+#else
+    parcBufferComposer_Format(composer, "%6u %16s %50.70s %3s",
+                              listListenersCommand->connid, listListenersCommand->listenerName,addrString,
+                              listenerType[listListenersCommand->encapType]);
+#endif
 
     PARCBuffer *tempBuffer = parcBufferComposer_ProduceBuffer(composer);
     char *result = parcBuffer_ToString(tempBuffer);

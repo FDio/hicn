@@ -66,8 +66,8 @@ static CommandReturn _controlAddListener_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
                                                      PARCList *args) {
   printf("commands:\n");
-  printf("   add listener hicn <symbolic> <localAddress> \n");
 #ifdef __linux__
+  printf("   add listener hicn <symbolic> <localAddress> \n");
   printf("   add listener udp <symbolic> <localAddress> <port> <interface>\n");
   printf("   add listener tcp <symbolic> <localAddress> <port> <interface>\n");
 #else
@@ -78,7 +78,11 @@ static CommandReturn _controlAddListener_HelpExecute(CommandParser *parser,
   printf(
       "   symbolic:        User defined name for listener, must start with "
       "alpha and be alphanum\n");
+#ifdef __linux__
   printf("   protocol:        hicn | udp\n");
+#else
+  printf("   protocol:        udp\n");
+#endif
   printf(
       "   localAddress:    IPv4 or IPv6 address (or prefix protocol = hicn) "
       "assigend to the local interface\n");
@@ -88,16 +92,18 @@ static CommandReturn _controlAddListener_HelpExecute(CommandParser *parser,
   printf("\n");
   printf("Notes:\n");
   printf("   The symblic name must be unique or the source will reject it.\n");
+#ifdef __linux__
   printf(
-      "    If protocol = hinc: the address 0::0 indicates the main listern, "
+      "    If protocol = hicn: the address 0::0 indicates the main listern, "
       "for which we can set punting rules.\n");
+#endif
   return CommandReturn_Success;
 }
 
 #ifdef __linux__
 static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
                                      const char *symbolic, const char *addr,
-                                     const char *port, const char *interfaceName, listener_mode mode,
+                                     const char *port, char *interfaceName, listener_mode mode,
                                      connection_type type) {
 #else
 static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
@@ -169,27 +175,20 @@ static CommandReturn _controlAddListener_Execute(CommandParser *parser,
     return result;
   }
 
+  const char *protocol = parcList_GetAtIndex(args, _indexProtocol);
   const char *host = parcList_GetAtIndex(args, _indexAddress);
 #ifdef __linux__
-  const char *interfaceName = parcList_GetAtIndex(args, _indexInterfaceName);
-#endif
-  const char *protocol = parcList_GetAtIndex(args, _indexProtocol);
-
+  char *interfaceName = parcList_GetAtIndex(args, _indexInterfaceName);
   if ((strcasecmp("hicn", protocol) == 0)) {
     const char *port =
         "1234";  // this is a random port number that will be ignored
 
     // here we discard the prefix len if it exists, since we don't use it in
     // code but we let libhicn to find the right ip address.
-#ifdef __linux__
     return _CreateListener(parser, ops, symbolic, host, port, interfaceName, HICN_MODE,
                            HICN_CONN);
-#else
-    return _CreateListener(parser, ops, symbolic, host, port, HICN_MODE,
-                           HICN_CONN);
-#endif
   }
-
+#endif
   const char *port = parcList_GetAtIndex(args, _indexPort);
 
   if ((strcasecmp("udp", protocol) == 0)) {
