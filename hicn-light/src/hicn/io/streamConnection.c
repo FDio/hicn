@@ -584,6 +584,7 @@ static void _conn_readcb(PARCEventQueue *event, PARCEventType type,
   // kind of packets
   while (parcEventBuffer_GetLength(input) >= sizeof(header_control_message) &&
          parcEventBuffer_GetLength(input) >= stream->nextMessageLength) {
+
     if ((command = _isACommand(input)) != LAST_COMMAND_VALUE) {
       struct iovec *rx;
       // Get message from the stream and set the stream->nextMessageLength

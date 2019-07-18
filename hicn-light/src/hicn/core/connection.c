@@ -32,6 +32,7 @@
 #endif /* WITH_POLICY */
 
 struct connection {
+
   const AddressPair *addressPair;
   IoOperations *ops;
 

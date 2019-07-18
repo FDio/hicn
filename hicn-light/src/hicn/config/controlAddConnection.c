@@ -42,11 +42,13 @@ static CommandReturn _controlAddConnection_Execute(CommandParser *parser,
 
 // ===================================================
 
+#ifdef __linux__
 static CommandReturn _controlAddConnection_HicnHelpExecute(
     CommandParser *parser, CommandOps *ops, PARCList *args);
 static CommandReturn _controlAddConnection_HicnExecute(CommandParser *parser,
                                                        CommandOps *ops,
                                                        PARCList *args);
+#endif
 
 static CommandReturn _controlAddConnection_UdpHelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
@@ -65,11 +67,15 @@ static CommandReturn _controlAddConnection_TcpExecute(CommandParser *parser,
 // ===================================================
 
 static const char *_commandAddConnection = "add connection";
+#ifdef __linux__
 static const char *_commandAddConnectionHicn = "add connection hicn";
+#endif
 static const char *_commandAddConnectionUdp = "add connection udp";
 static const char *_commandAddConnectionTcp = "add connection tcp";
 static const char *_commandAddConnectionHelp = "help add connection";
+#ifdef __linux__
 static const char *_commandAddConnectionHicnHelp = "help add connection hicn";
+#endif
 static const char *_commandAddConnectionUdpHelp = "help add connection udp";
 static const char *_commandAddConnectionTcpHelp = "help add connection tcp";
 
@@ -89,11 +95,13 @@ CommandOps *controlAddConnection_HelpCreate(ControlState *state) {
 
 // ===================================================
 
+#ifdef __linux__
 static CommandOps *_controlAddConnection_HicnCreate(ControlState *state) {
   return commandOps_Create(state, _commandAddConnectionHicn, NULL,
                            _controlAddConnection_HicnExecute,
                            commandOps_Destroy);
 }
+#endif
 
 static CommandOps *_controlAddConnection_UdpCreate(ControlState *state) {
   return commandOps_Create(state, _commandAddConnectionUdp, NULL,
@@ -108,12 +116,13 @@ static CommandOps *_controlAddConnection_TcpCreate(ControlState *state) {
 }
 
 // ===================================================
-
+#ifdef __linux__
 static CommandOps *_controlAddConnection_HicnHelpCreate(ControlState *state) {
   return commandOps_Create(state, _commandAddConnectionHicnHelp, NULL,
                            _controlAddConnection_HicnHelpExecute,
                            commandOps_Destroy);
 }
+#endif
 
 static CommandOps *_controlAddConnection_UdpHelpCreate(ControlState *state) {
   return commandOps_Create(state, _commandAddConnectionUdpHelp, NULL,
@@ -133,7 +142,9 @@ static CommandReturn _controlAddConnection_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
                                                        PARCList *args) {
   printf("Available commands:\n");
+#ifdef __linux__
   printf("   %s\n", _commandAddConnectionHicn);
+#endif
   printf("   %s\n", _commandAddConnectionUdp);
   printf("   %s\n", _commandAddConnectionTcp);
   printf("\n");
@@ -142,14 +153,17 @@ static CommandReturn _controlAddConnection_HelpExecute(CommandParser *parser,
 
 static void _controlAddConnection_Init(CommandParser *parser, CommandOps *ops) {
   ControlState *state = ops->closure;
+#ifdef __linux__
   controlState_RegisterCommand(state,
                                _controlAddConnection_HicnHelpCreate(state));
+#endif
   controlState_RegisterCommand(state,
                                _controlAddConnection_UdpHelpCreate(state));
   controlState_RegisterCommand(state,
                                _controlAddConnection_TcpHelpCreate(state));
-
+#ifdef __linux__
   controlState_RegisterCommand(state, _controlAddConnection_HicnCreate(state));
+#endif
   controlState_RegisterCommand(state, _controlAddConnection_UdpCreate(state));
   controlState_RegisterCommand(state, _controlAddConnection_TcpCreate(state));
 }
@@ -255,7 +269,9 @@ static CommandReturn _controlAddConnection_IpHelp(CommandParser *parser,
                                                   CommandOps *ops,
                                                   PARCList *args,
                                                   const char *protocol) {
+#ifdef __linux__
   printf("add connection hicn <symbolic> <remote_ip> <local_ip>\n");
+#endif
   printf(
       "add connection udp <symbolic> <remote_ip> <port> <local_ip> <port>\n");
   printf(
@@ -268,6 +284,7 @@ static CommandReturn _controlAddConnection_IpHelp(CommandParser *parser,
   return CommandReturn_Success;
 }
 
+#ifdef __linux__
 static CommandReturn _controlAddConnection_HicnHelpExecute(
     CommandParser *parser, CommandOps *ops, PARCList *args) {
   _controlAddConnection_IpHelp(parser, ops, args, "hicn");
@@ -303,6 +320,7 @@ static CommandReturn _controlAddConnection_HicnExecute(CommandParser *parser,
   return _controlAddConnection_CreateTunnel(
       parser, ops, local_ip, port, remote_ip, port, HICN_CONN, symbolic);
 }
+#endif
 
 static CommandReturn _controlAddConnection_UdpHelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
