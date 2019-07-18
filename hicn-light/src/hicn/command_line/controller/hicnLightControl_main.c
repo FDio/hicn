@@ -63,6 +63,7 @@ static int payloadLengthController[LAST_COMMAND_VALUE] = {
     sizeof(add_route_command),
     sizeof(list_routes_command),  // needed when get response from FWD
     sizeof(remove_connection_command),
+    sizeof(remove_listener_command),
     sizeof(remove_route_command),
     sizeof(cache_store_command),
     sizeof(cache_serve_command),
@@ -236,7 +237,7 @@ struct iovec *_writeAndReadMessage(ControlState *state, struct iovec *msg) {
     printf("\nError in Receiving the Message \n");
     exit(EXIT_FAILURE);
   }
-
+  
   if (headerResponse->messageType < RESPONSE_LIGHT ||
       headerResponse->messageType >= LAST_MSG_TYPE_VALUE) {
     char *checkFinMsg = parcMemory_Reallocate(headerResponse, 32);
