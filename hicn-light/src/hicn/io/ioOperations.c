@@ -41,6 +41,8 @@ const AddressPair *ioOperations_GetAddressPair(const IoOperations *ops) {
   return ops->getAddressPair(ops);
 }
 
+
+
 bool ioOperations_IsUp(const IoOperations *ops) { return ops->isUp(ops); }
 
 bool ioOperations_IsLocal(const IoOperations *ops) { return ops->isLocal(ops); }

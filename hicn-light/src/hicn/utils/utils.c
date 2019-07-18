@@ -90,7 +90,6 @@ struct iovec *utils_CreateNack(header_control_message *header, void *payload,
       parcMemory_AllocateAndClear(sizeof(struct iovec) * 2);
 
   header->messageType = NACK_LIGHT;
-
   response[0].iov_base = header;
   response[0].iov_len = sizeof(header_control_message);
   response[1].iov_base = payload;
