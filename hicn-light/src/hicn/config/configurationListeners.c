@@ -211,32 +211,21 @@ static bool _addEther(Configuration *config, add_listener_command *control,
   return false;
 }
 
-#ifdef __linux__
 /*
  *  Create a new IPV4/TCP listener.
  *
  * @param [in,out] forwarder   The hicn-light forwarder instance
+ * @param [in] listenerName    The name of the listener
  * @param [in] addr4           The ipv4 address in network byte order
  * @param [in] port            The port number in network byte order
  * @param [in] interfaceName   The name of the interface to bind the socket
  *
  * return true if success, false otherwise
  */
-static bool _setupTcpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
-                                    uint16_t *port, const char *interfaceName) {
-#else
-/*
- *  Create a new IPV4/TCP listener.
- *
- * @param [in,out] forwarder   The hicn-light forwarder instance
- * @param [in] addr4           The ipv4 address in network byte order
- * @param [in] port            The port number in network byte order
- *
- * return true if success, false otherwise
- */
-static bool _setupTcpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
-                                    uint16_t *port) {
-#endif
+static bool _setupTcpListenerOnInet(Forwarder *forwarder, char *listenerName, ipv4_addr_t *addr4,
+                                    uint16_t *port, char *interfaceName) {
+
+  parcAssertNotNull(listenerName, "Parameter listenerName must be non-null");
   bool success = false;
 
   struct sockaddr_in addr;
@@ -245,7 +234,8 @@ static bool _setupTcpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
   addr.sin_port = *port;
   addr.sin_addr.s_addr = *addr4;
 
-  ListenerOps *ops = tcpListener_CreateInet(forwarder, addr);
+  ListenerOps *ops = tcpListener_CreateInet(forwarder, listenerName, addr, interfaceName);
+
   if (ops) {
     success = listenerSet_Add(forwarder_GetListenerSet(forwarder), ops);
     parcAssertTrue(success, "Failed to add TCP listener on %s to ListenerSet",
@@ -255,32 +245,19 @@ static bool _setupTcpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
 }
 
 
-#ifdef __linux__
 /*
  *  Create a new IPV4/UDP listener.
  *
  * @param [in,out] forwarder   The hicn-light forwarder instance
+ * @param [in] listenerName    The name of the listener
  * @param [in] addr4           The ipv4 address in network byte order
  * @param [in] port            The port number in network byte order
  * @param [in] interfaceName   The name of the interface to bind the socket
  *
  * return true if success, false otherwise
  */
-static bool _setupUdpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
+static bool _setupUdpListenerOnInet(Forwarder *forwarder, char *listenerName, ipv4_addr_t *addr4,
                                     uint16_t *port, char *interfaceName) {
-#else
-/*
- *  Create a new IPV4/UDP listener.
- *
- * @param [in,out] forwarder   The hicn-light forwarder instance
- * @param [in] addr4           The ipv4 address in network byte order
- * @param [in] port            The port number in network byte order
- *
- * return true if success, false otherwise
- */
-static bool _setupUdpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
-                                    uint16_t *port) {
-#endif
   bool success = false;
 
   struct sockaddr_in addr;
@@ -289,11 +266,8 @@ static bool _setupUdpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
   addr.sin_port = *port;
   addr.sin_addr.s_addr = *addr4;
 
-#ifdef __linux__
-  ListenerOps *ops = udpListener_CreateInet(forwarder, addr, interfaceName);
-#else
-  ListenerOps *ops = udpListener_CreateInet(forwarder, addr);
-#endif
+  ListenerOps *ops = udpListener_CreateInet(forwarder, listenerName, addr, interfaceName);
+
   if (ops) {
     success = listenerSet_Add(forwarder_GetListenerSet(forwarder), ops);
     parcAssertTrue(success, "Failed to add UDP listener on %s to ListenerSet",
@@ -303,7 +277,6 @@ static bool _setupUdpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
 }
 
 
-#ifdef __linux__
 /*
  *  Create a new IPV6/TCP listener.
  *
@@ -314,23 +287,9 @@ static bool _setupUdpListenerOnInet(Forwarder *forwarder, ipv4_addr_t *addr4,
  *
  * return true if success, false otherwise
  */
-static bool _setupTcpListenerOnInet6Light(Forwarder *forwarder,
+static bool _setupTcpListenerOnInet6Light(Forwarder *forwarder, char *listenerName,
                                           ipv6_addr_t *addr6, uint16_t *port, char *interfaceName,
                                           uint32_t scopeId) {
-#else
-/*
- *  Create a new IPV6/TCP listener.
- *
- * @param [in,out] forwarder   The hicn-light forwarder instance
- * @param [in] addr6           The ipv6 address in network byte order
- * @param [in] port            The port number in network byte order
- *
- * return true if success, false otherwise
- */
-static bool _setupTcpListenerOnInet6Light(Forwarder *forwarder,
-                                          ipv6_addr_t *addr6, uint16_t *port,
-                                          uint32_t scopeId) {
-#endif
   bool success = false;
 
   struct sockaddr_in6 addr;
@@ -340,7 +299,8 @@ static bool _setupTcpListenerOnInet6Light(Forwarder *forwarder,
   addr.sin6_addr = *addr6;
   addr.sin6_scope_id = scopeId;
 
-  ListenerOps *ops = tcpListener_CreateInet6(forwarder, addr);
+  ListenerOps *ops = tcpListener_CreateInet6(forwarder, listenerName, addr, interfaceName);
+
   if (ops) {
     success = listenerSet_Add(forwarder_GetListenerSet(forwarder), ops);
     parcAssertTrue(success, "Failed to add TCP6 listener on %s to ListenerSet",
@@ -350,32 +310,20 @@ static bool _setupTcpListenerOnInet6Light(Forwarder *forwarder,
 }
 
 
-#ifdef __linux__
 /*
  *  Create a new IPV6/UDP listener.
  *
  * @param [in,out] forwarder   The hicn-light forwarder instance
+ * @param [in] listenerName    The name of the listener
  * @param [in] addr6           The ipv6 address in network byte order
  * @param [in] port            The port number in network byte order
  * @param [in] interfaceName   The name of the interface to bind the socket
  *
  * return true if success, false otherwise
  */
-static bool _setupUdpListenerOnInet6Light(Forwarder *forwarder,
+static bool _setupUdpListenerOnInet6Light(Forwarder *forwarder, char *listenerName,
                                           ipv6_addr_t *addr6, uint16_t *port, char *interfaceName) {
-#else
-/*
- *  Create a new IPV6/UDP listener.
- *
- * @param [in,out] forwarder   The hicn-light forwarder instance
- * @param [in] addr6           The ipv6 address in network byte order
- * @param [in] port            The port number in network byte order
- *
- * return true if success, false otherwise
- */
-static bool _setupUdpListenerOnInet6Light(Forwarder *forwarder,
-                                          ipv6_addr_t *addr6, uint16_t *port) {
-#endif
+
   bool success = false;
 
   struct sockaddr_in6 addr;
@@ -385,11 +333,7 @@ static bool _setupUdpListenerOnInet6Light(Forwarder *forwarder,
   addr.sin6_addr = *addr6;
   addr.sin6_scope_id = 0;
 
-#ifdef __linux__
-  ListenerOps *ops = udpListener_CreateInet6(forwarder, addr, interfaceName);
-#else
-  ListenerOps *ops = udpListener_CreateInet6(forwarder, addr);
-#endif
+  ListenerOps *ops = udpListener_CreateInet6(forwarder, listenerName, addr, interfaceName);
   if (ops) {
     success = listenerSet_Add(forwarder_GetListenerSet(forwarder), ops);
     parcAssertTrue(success, "Failed to add UDP6 listener on %s to ListenerSet",
@@ -460,56 +404,33 @@ bool _addHicn(Configuration *config, add_listener_command *control,
 bool _addIP(Configuration *config, add_listener_command *control,
             unsigned ingressId) {
   bool success = false;
+  char *symbolic = control->symbolic;
 
   switch (control->addressType) {
     case ADDR_INET: {
 
-#ifdef __linux__
       if (control->connectionType == UDP_CONN) {
         success =
-            _setupUdpListenerOnInet(configuration_GetForwarder(config),
+            _setupUdpListenerOnInet(configuration_GetForwarder(config), symbolic,
                                     &control->address.ipv4, &control->port, control->interfaceName);
       } else if (control->connectionType == TCP_CONN) {
         success =
-            _setupTcpListenerOnInet(configuration_GetForwarder(config),
+            _setupTcpListenerOnInet(configuration_GetForwarder(config), symbolic,
                                     &control->address.ipv4, &control->port, control->interfaceName);
       }
-#else
-      if (control->connectionType == UDP_CONN) {
-        success =
-            _setupUdpListenerOnInet(configuration_GetForwarder(config),
-                                    &control->address.ipv4, &control->port);
-      } else if (control->connectionType == TCP_CONN) {
-        success =
-            _setupTcpListenerOnInet(configuration_GetForwarder(config),
-                                    &control->address.ipv4, &control->port);
-      }
-#endif
       break;
     }
 
     case ADDR_INET6: {
-#ifdef __linux__
       if (control->connectionType == UDP_CONN) {
         success = _setupUdpListenerOnInet6Light(
-            configuration_GetForwarder(config), &control->address.ipv6,
+            configuration_GetForwarder(config), symbolic, &control->address.ipv6,
             &control->port, control->interfaceName);
       } else if (control->connectionType == TCP_CONN) {
         success = _setupTcpListenerOnInet6Light(
-            configuration_GetForwarder(config), &control->address.ipv6,
+            configuration_GetForwarder(config), symbolic, &control->address.ipv6,
             &control->port, control->interfaceName, 0);
       }
-#else
-      if (control->connectionType == UDP_CONN) {
-        success = _setupUdpListenerOnInet6Light(
-            configuration_GetForwarder(config), &control->address.ipv6,
-            &control->port);
-      } else if (control->connectionType == TCP_CONN) {
-        success = _setupTcpListenerOnInet6Light(
-            configuration_GetForwarder(config), &control->address.ipv6,
-            &control->port, 0);
-      }
-#endif
       break;
     }
 
@@ -550,21 +471,26 @@ struct iovec *configurationListeners_Add(Configuration *config,
   add_listener_command *control = request[1].iov_base;
 
   bool success = false;
+  ListenerSet *listenerSet = forwarder_GetListenerSet(configuration_GetForwarder(config));
 
-  if (control->listenerMode == ETHER_MODE) {
-    parcTrapNotImplemented("Add Ethernet Listener is not supported");
-    success = _addEther(config, control, ingressId);
-    // it is a failure
-  } else if (control->listenerMode == IP_MODE) {
-    success = _addIP(config, control, ingressId);
-  } else if (control->listenerMode == HICN_MODE) {
-    success = _addHicn(config, control, ingressId);
-  } else {
-    Logger *logger = configuration_GetLogger(config);
-    if (logger_IsLoggable(logger, LoggerFacility_Config,
+  int listenerId = listenerSet_FindIdByListenerName(listenerSet, control->symbolic);
+
+  if (listenerId < 0) {
+    if (control->listenerMode == ETHER_MODE) {
+      parcTrapNotImplemented("Add Ethernet Listener is not supported");
+      success = _addEther(config, control, ingressId);
+      // it is a failure
+    } else if (control->listenerMode == IP_MODE) {
+      success = _addIP(config, control, ingressId);
+    } else if (control->listenerMode == HICN_MODE) {
+      success = _addHicn(config, control, ingressId);
+    } else {
+      Logger *logger = configuration_GetLogger(config);
+      if (logger_IsLoggable(logger, LoggerFacility_Config,
                           PARCLogLevel_Warning)) {
-      logger_Log(logger, LoggerFacility_Config, PARCLogLevel_Warning, __func__,
+        logger_Log(logger, LoggerFacility_Config, PARCLogLevel_Warning, __func__,
                  "Unsupported encapsulation mode (ingress id %u)", ingressId);
+      }
     }
   }
 
@@ -619,7 +545,7 @@ struct iovec *configurationListeners_AddPunting(Configuration *config,
 
 //===========================       INITIAL LISTENERS ====================
 
-static void _setupListenersOnAddress(Forwarder *forwarder,
+static void _setupListenersOnAddress(Forwarder *forwarder,char *listenerName,
                                      const Address *address, uint16_t port,
                                      char *interfaceName) {
   address_type type = addressGetType(address);
@@ -627,24 +553,15 @@ static void _setupListenersOnAddress(Forwarder *forwarder,
     case ADDR_INET: {
       struct sockaddr_in tmp;
       addressGetInet(address, &tmp);
-#ifdef __linux__
-      _setupTcpListenerOnInet(forwarder, &tmp.sin_addr.s_addr, &port, interfaceName);
-#else
-      _setupTcpListenerOnInet(forwarder, &tmp.sin_addr.s_addr, &port);
-#endif
+      _setupTcpListenerOnInet(forwarder, listenerName, &tmp.sin_addr.s_addr, &port, interfaceName);
       break;
     }
 
     case ADDR_INET6: {
       struct sockaddr_in6 tmp;
       addressGetInet6(address, &tmp);
-#ifdef __linux__
-      _setupTcpListenerOnInet6Light(forwarder, &tmp.sin6_addr, &port, interfaceName,
+      _setupTcpListenerOnInet6Light(forwarder, listenerName, &tmp.sin6_addr, &port, interfaceName,
                                     tmp.sin6_scope_id);
-#else
-      _setupTcpListenerOnInet6Light(forwarder, &tmp.sin6_addr, &port,
-                                    tmp.sin6_scope_id);
-#endif
       break;
     }
 
@@ -674,8 +591,10 @@ void configurationListeners_SetupAll(const Configuration *config, uint16_t port,
       const Address *address = addressListGetItem(addresses, j);
 
       // Do not start on link address
+      char listenerName[16];
+      snprintf(listenerName, 16, "local_%ld", i);
       if (addressGetType(address) != ADDR_LINK) {
-        _setupListenersOnAddress(forwarder, address, port,
+        _setupListenersOnAddress(forwarder, listenerName, address, port,
                                  (char *)interfaceGetName(iface));
       }
     }
@@ -689,16 +608,11 @@ void configurationListeners_SetutpLocalIPv4(const Configuration *config,
   Forwarder *forwarder = configuration_GetForwarder(config);
   in_addr_t addr = inet_addr("127.0.0.1");
   uint16_t network_byte_order_port = htons(port);
-#ifdef __linux__
+  char listenerNameUdp[16] = "lo_udp";
+  char listenerNameTcp[16] = "lo_tcp";
   char *loopback_interface = "lo";
-  _setupUdpListenerOnInet(forwarder, (ipv4_addr_t *)&(addr),
+  _setupUdpListenerOnInet(forwarder, listenerNameUdp, (ipv4_addr_t *)&(addr),
                           &network_byte_order_port, loopback_interface);
-  _setupTcpListenerOnInet(forwarder, (ipv4_addr_t *)&(addr),
+  _setupTcpListenerOnInet(forwarder, listenerNameTcp, (ipv4_addr_t *)&(addr),
                           &network_byte_order_port, loopback_interface);
-#else
-  _setupUdpListenerOnInet(forwarder, (ipv4_addr_t *)&(addr),
-                          &network_byte_order_port);
-  _setupTcpListenerOnInet(forwarder, (ipv4_addr_t *)&(addr),
-                          &network_byte_order_port);
-#endif
 }

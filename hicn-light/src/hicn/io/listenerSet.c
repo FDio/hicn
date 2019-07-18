@@ -130,3 +130,53 @@ ListenerOps *listenerSet_Find(const ListenerSet *set, EncapType encapType,
 
   return match;
 }
+
+ListenerOps *listenerSet_FindById(const ListenerSet *set, unsigned id) {
+  parcAssertNotNull(set, "Parameter set must be non-null");
+
+  ListenerOps *match = NULL;
+
+  for (size_t i = 0; i < parcArrayList_Size(set->listOfListeners) && !match;
+       i++) {
+    ListenerOps *ops = parcArrayList_Get(set->listOfListeners, i);
+    parcAssertNotNull(ops, "Got null listener ops at index %zu", i);
+    if (ops->getInterfaceIndex(ops) == id) {
+        match = ops;
+    }
+  }
+
+  return match;
+}
+
+int listenerSet_FindIdByListenerName(const ListenerSet *set, const char *listenerName ) {
+  parcAssertNotNull(set, "Parameter set must be non-null");
+  parcAssertNotNull(listenerName, "Parameter listenerName must be non-null");
+
+  ListenerOps *match = NULL;
+  int index = -1;
+  for (size_t i = 0; i < parcArrayList_Size(set->listOfListeners) && !match;
+       i++) {
+    ListenerOps *ops = parcArrayList_Get(set->listOfListeners, i);
+    parcAssertNotNull(ops, "Got null listener ops at index %zu", i);
+    if (strcmp(ops->getListenerName(ops), listenerName) == 0) {
+        index = ops->getInterfaceIndex(ops);
+        break;
+    }
+  }
+
+  return index;
+}
+
+void listenerSet_RemoveById(const ListenerSet *set, unsigned id) {
+  parcAssertNotNull(set, "Parameter set must be non-null");
+
+  for (size_t i = 0; i < parcArrayList_Size(set->listOfListeners);
+       i++) {
+    ListenerOps *ops = parcArrayList_Get(set->listOfListeners, i);
+    parcAssertNotNull(ops, "Got null listener ops at index %zu", i);
+    if (ops->getInterfaceIndex(ops) == id) {
+       parcArrayList_RemoveAtIndex(set->listOfListeners, i);
+       break;
+    }
+  }
+}

@@ -42,6 +42,9 @@
 #define MAX_HICN_RETRY 5
 
 struct hicn_listener {
+
+  char *listenerName;
+
   Forwarder *forwarder;
   Logger *logger;
 
@@ -71,6 +74,8 @@ struct hicn_listener {
 };
 
 static void _destroy(ListenerOps **listenerOpsPtr);
+static const char *_getListenerName(const ListenerOps *ops);
+static const char *_getInterfaceName(const ListenerOps *ops);
 static unsigned _getInterfaceIndex(const ListenerOps *ops);
 static const Address *_getListenAddress(const ListenerOps *ops);
 static EncapType _getEncapType(const ListenerOps *ops);
@@ -85,11 +90,11 @@ static ListenerOps _hicnTemplate = {
   .getListenAddress = &_getListenAddress,
   .getEncapType = &_getEncapType,
   .getSocket = &_getSocket,
+  .getInterfaceName = &_getInterfaceName,
+  .getListenerName = &_getListenerName,
   .createConnection = &_createNewConnection,
   .lookupConnection = &_lookupConnection,
 };
-
-static void _hicnListener_readcb(int fd, PARCEventType what, void *hicnVoid);
 
 static bool _isEmptyAddressIPv6(Address *address) {
   struct sockaddr_in6 *addr6 =
@@ -111,6 +116,30 @@ static bool _isEmptyAddressIPv6(Address *address) {
   return res;
 }
 
+static void _receivePacket(ListenerOps * listener, int fd) {
+  HicnListener * hicn = (HicnListener*)listener->context;
+  Message *msg = NULL;
+  uint8_t *msgBuffer = parcMemory_AllocateAndClear(MTU_SIZE);
+  msg = _readMessage(listener, fd, msgBuffer);
+
+  if (msg) {
+    forwarder_Receive(hicn->forwarder, msg);
+  }
+}
+
+static void _hicnListener_readcb(int fd, PARCEventType what, void *listener_void) {
+  ListenerOps * listener = (ListenerOps *)listener_void;
+  HicnListener *hicn = (HicnListener *)listener->context;
+
+  if (hicn->inetFamily == IPv4 || hicn->inetFamily == IPv6) {
+    if (what & PARCEventType_Read) {
+      _receivePacket(listener, fd);
+    }
+  } else {
+    _readFrameToDiscard(hicn, fd);
+  }
+}
+
 static bool _isEmptyAddressIPv4(Address *address) {
   bool res = false;
 
@@ -125,6 +154,7 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
                     sizeof(HicnListener));
 
   hicn->forwarder = forwarder;
+  hicn->listenerName = parcMemory_StringDuplicate(symbolic, strlen(symbolic));
   hicn->logger = logger_Acquire(forwarder_GetLogger(forwarder));
 
   hicn->conn_id = forwarder_GetNextConnectionId(forwarder);
@@ -164,6 +194,7 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
     }
     logger_Release(&hicn->logger);
     addressDestroy(&hicn->localAddress);
+    parcMemory_Deallocate((void **)&hicn->listenerName);
     parcMemory_Deallocate((void **)&hicn);
     return NULL;
   }
@@ -421,6 +452,16 @@ static void _destroy(ListenerOps **listenerOpsPtr) {
   *listenerOpsPtr = NULL;
 }
 
+static const char *_getListenerName(const ListenerOps *ops) {
+  HicnListener *hicn = (HicnListener *)ops->context;
+  return hicn->listenerName;
+}
+
+static const char *_getInterfaceName(const ListenerOps *ops) {
+  const char *interfaceName = "";
+  return interfaceName;
+}
+
 static unsigned _getInterfaceIndex(const ListenerOps *ops) {
   HicnListener *hicn = (HicnListener *)ops->context;
   return hicn->conn_id;
@@ -649,26 +690,4 @@ static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer)
   return message;
 }
 
-static void _receivePacket(ListenerOps * listener, int fd) {
-  HicnListener * hicn = (HicnListener*)listener->context;
-  Message *msg = NULL;
-  uint8_t *msgBuffer = parcMemory_AllocateAndClear(MTU_SIZE);
-  msg = _readMessage(listener, fd, msgBuffer);
 
-  if (msg) {
-    forwarder_Receive(hicn->forwarder, msg);
-  }
-}
-
-static void _hicnListener_readcb(int fd, PARCEventType what, void *listener_void) {
-  ListenerOps * listener = (ListenerOps *)listener_void;
-  HicnListener *hicn = (HicnListener *)listener->context;
-
-  if (hicn->inetFamily == IPv4 || hicn->inetFamily == IPv6) {
-    if (what & PARCEventType_Read) {
-      _receivePacket(listener, fd);
-    }
-  } else {
-    _readFrameToDiscard(hicn, fd);
-  }
-}
