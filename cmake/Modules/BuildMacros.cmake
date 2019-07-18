@@ -15,6 +15,8 @@
 # Utils for building libraries and executables
 #
 
+include(GNUInstallDirs)
+
 macro(build_executable exec)
   cmake_parse_arguments(ARG
     "NO_INSTALL"
@@ -29,7 +31,7 @@ macro(build_executable exec)
 
   set_target_properties(${exec}
     PROPERTIES
-    INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib"
+    INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}"
     INSTALL_RPATH_USE_LINK_PATH TRUE
     ARCHIVE_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
     LIBRARY_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
@@ -56,7 +58,12 @@ macro(build_executable exec)
   endif()
 
   if(NOT ARG_NO_INSTALL)
-    install(TARGETS ${exec} RUNTIME DESTINATION bin COMPONENT ${ARG_COMPONENT})
+    install(
+      TARGETS ${exec}
+      RUNTIME
+      DESTINATION ${CMAKE_INSTALL_BINDIR}
+      COMPONENT ${ARG_COMPONENT}
+    )
   endif()
 endmacro()
 
@@ -99,7 +106,7 @@ macro(build_library lib)
 
     set_target_properties(${library}
       PROPERTIES
-      INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib"
+      INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}"
       INSTALL_RPATH_USE_LINK_PATH TRUE
       ARCHIVE_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
@@ -138,9 +145,9 @@ macro(build_library lib)
 
     install(
       TARGETS ${library}
-      RUNTIME DESTINATION bin
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       COMPONENT ${ARG_COMPONENT}
     )
 
@@ -173,7 +180,7 @@ macro(build_library lib)
       endif()
       install(
         FILES ${file}
-        DESTINATION include/${ARG_INSTALL_ROOT_DIR}/${dir}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${ARG_INSTALL_ROOT_DIR}/${dir}
         COMPONENT ${COMPONENT}
       )
     endforeach()
