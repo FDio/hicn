@@ -66,8 +66,8 @@ static CommandReturn _controlAddListener_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
                                                      PARCList *args) {
   printf("commands:\n");
-  printf("   add listener hicn <symbolic> <localAddress> \n");
 #ifdef __linux__
+  printf("   add listener hicn <symbolic> <localAddress> \n");
   printf("   add listener udp <symbolic> <localAddress> <port> <interface>\n");
   printf("   add listener tcp <symbolic> <localAddress> <port> <interface>\n");
 #else
@@ -97,7 +97,7 @@ static CommandReturn _controlAddListener_HelpExecute(CommandParser *parser,
 #ifdef __linux__
 static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
                                      const char *symbolic, const char *addr,
-                                     const char *port, const char *interfaceName, listener_mode mode,
+                                     const char *port, char *interfaceName, listener_mode mode,
                                      connection_type type) {
 #else
 static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
@@ -169,10 +169,10 @@ static CommandReturn _controlAddListener_Execute(CommandParser *parser,
     return result;
   }
 
-  const char *host = parcList_GetAtIndex(args, _indexAddress);
+
 #ifdef __linux__
-  const char *interfaceName = parcList_GetAtIndex(args, _indexInterfaceName);
-#endif
+  const char *host = parcList_GetAtIndex(args, _indexAddress);
+  char *interfaceName = parcList_GetAtIndex(args, _indexInterfaceName);
   const char *protocol = parcList_GetAtIndex(args, _indexProtocol);
 
   if ((strcasecmp("hicn", protocol) == 0)) {
@@ -181,14 +181,11 @@ static CommandReturn _controlAddListener_Execute(CommandParser *parser,
 
     // here we discard the prefix len if it exists, since we don't use it in
     // code but we let libhicn to find the right ip address.
-#ifdef __linux__
     return _CreateListener(parser, ops, symbolic, host, port, interfaceName, HICN_MODE,
                            HICN_CONN);
-#else
-    return _CreateListener(parser, ops, symbolic, host, port, HICN_MODE,
-                           HICN_CONN);
-#endif
   }
+#endif
+  
 
   const char *port = parcList_GetAtIndex(args, _indexPort);
 

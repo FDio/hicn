@@ -49,6 +49,9 @@
 #define MAX_HICN_RETRY 5
 
 struct hicn_listener {
+
+  char *listenerName;
+
   Forwarder *forwarder;
   Logger *logger;
 
@@ -78,6 +81,8 @@ struct hicn_listener {
 };
 
 static void _destroy(ListenerOps **listenerOpsPtr);
+static const char *_getListenerName(const ListenerOps *ops);
+static const char *_getInterfaceName(const ListenerOps *ops);
 static unsigned _getInterfaceIndex(const ListenerOps *ops);
 static const Address *_getListenAddress(const ListenerOps *ops);
 static EncapType _getEncapType(const ListenerOps *ops);
@@ -85,9 +90,13 @@ static int _getSocket(const ListenerOps *ops);
 
 static ListenerOps _hicnTemplate = {.context = NULL,
                                     .destroy = &_destroy,
+                                    .getListenerName = &_getListenerName,
                                     .getInterfaceIndex = &_getInterfaceIndex,
                                     .getListenAddress = &_getListenAddress,
                                     .getEncapType = &_getEncapType,
+#ifdef __linux__
+                                    .getInterfaceName = &_getInterfaceName,
+#endif
                                     .getSocket = &_getSocket};
 
 static void _hicnListener_readcb(int fd, PARCEventType what, void *hicnVoid);
@@ -126,6 +135,7 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
                     sizeof(HicnListener));
 
   hicn->forwarder = forwarder;
+  hicn->listenerName = parcMemory_StringDuplicate(symbolic, strlen(symbolic));
   hicn->logger = logger_Acquire(forwarder_GetLogger(forwarder));
 
   hicn->conn_id = forwarder_GetNextConnectionId(forwarder);
@@ -165,6 +175,7 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
     }
     logger_Release(&hicn->logger);
     addressDestroy(&hicn->localAddress);
+    parcMemory_Deallocate((void **)&hicn->listenerName);
     parcMemory_Deallocate((void **)&hicn);
     return NULL;
   }
@@ -420,6 +431,16 @@ static void _destroy(ListenerOps **listenerOpsPtr) {
   _hicnListener_Destroy(&hicn);
   parcMemory_Deallocate((void **)&ops);
   *listenerOpsPtr = NULL;
+}
+
+static const char *_getListenerName(const ListenerOps *ops) {
+  HicnListener *hicn = (HicnListener *)ops->context;
+  return hicn->listenerName;
+}
+
+static const char *_getInterfaceName(const ListenerOps *ops) {
+  const char *interfaceName = "";
+  return interfaceName;
 }
 
 static unsigned _getInterfaceIndex(const ListenerOps *ops) {
