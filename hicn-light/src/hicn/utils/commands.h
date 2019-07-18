@@ -56,6 +56,7 @@ typedef enum {
   ADD_ROUTE,
   LIST_ROUTES,
   REMOVE_CONNECTION,
+  REMOVE_LISTENER,
   REMOVE_ROUTE,
   CACHE_STORE,
   CACHE_SERVE,
@@ -113,9 +114,7 @@ typedef enum { ETHER_MODE, IP_MODE, HICN_MODE } listener_mode;
 
 typedef struct {
   char symbolic[16];
-#ifdef __linux__
   char interfaceName[16];
-#endif
   union commandAddr address;
   uint16_t port;
   // uint16_t etherType;
@@ -124,7 +123,7 @@ typedef struct {
   uint8_t connectionType;
 } add_listener_command;
 
-// SIZE=40
+// SIZE=56
 
 //==========  [01]  ADD CONNECTION    ==========
 
@@ -165,9 +164,10 @@ typedef struct {
   add_connection_command connectionData;
   uint32_t connid;
   uint8_t state;
+  char connectionName[16];
 } list_connections_command;
 
-// SIZE=64
+// SIZE=80
 
 //==========  [03]  ADD ROUTE    ==========
 
@@ -194,14 +194,18 @@ typedef struct {
 // SIZE=24
 
 //==========  [05]  REMOVE CONNECTION    ==========
-
 typedef struct {
   char symbolicOrConnid[16];
 } remove_connection_command;
 
+//==========  [06]  REMOVE LISTENER    ==========
+typedef struct {
+  char symbolicOrListenerid[16];
+} remove_listener_command;
+
 // SIZE=16
 
-//==========  [06]  REMOVE ROUTE    ==========
+//==========  [07]  REMOVE ROUTE    ==========
 
 typedef struct {
   char symbolicOrConnid[16];
@@ -212,7 +216,7 @@ typedef struct {
 
 // SIZE=36
 
-//==========  [07]  CACHE STORE    ==========
+//==========  [08]  CACHE STORE    ==========
 
 typedef struct {
   uint8_t activate;
@@ -220,7 +224,7 @@ typedef struct {
 
 // SIZE=1
 
-//==========  [08]  CACHE SERVE    ==========
+//==========  [09]  CACHE SERVE    ==========
 
 typedef struct {
   uint8_t activate;
@@ -228,7 +232,7 @@ typedef struct {
 
 // SIZE=1
 
-//==========  [09]  SET STRATEGY    ==========
+//==========  [10]  SET STRATEGY    ==========
 
 typedef enum {
   SET_STRATEGY_LOADBALANCER,
@@ -273,13 +277,16 @@ typedef struct {
 
 typedef struct {
   union commandAddr address;
+  char listenerName[16];
+  char interfaceName[16];
+
   uint32_t connid;
   uint16_t port;
   uint8_t addressType;
   uint8_t encapType;
 } list_listeners_command;
 
-// SIZE=24
+// SIZE=56
 
 //==========  [14]  MAPME    ==========
 
@@ -346,9 +353,11 @@ static inline int payloadLengthDaemon(command_id id) {
     case ADD_ROUTE:
       return sizeof(add_route_command);
     case LIST_ROUTES:
-      return 0;  // list routes: payload always 0
+      return 0;  // list rout`es: payload always 0
     case REMOVE_CONNECTION:
       return sizeof(remove_connection_command);
+    case REMOVE_LISTENER:
+      return sizeof(remove_listener_command);
     case REMOVE_ROUTE:
       return sizeof(remove_route_command);
     case CACHE_STORE:
