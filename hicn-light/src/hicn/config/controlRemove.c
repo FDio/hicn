@@ -27,6 +27,7 @@
 #include <parc/algol/parc_Memory.h>
 
 #include <hicn/config/controlRemove.h>
+#include <hicn/config/controlRemoveListener.h>
 #include <hicn/config/controlRemoveConnection.h>
 #include <hicn/config/controlRemovePunting.h>
 #include <hicn/config/controlRemoveRoute.h>
@@ -62,6 +63,7 @@ static CommandReturn _controlRemove_HelpExecute(CommandParser *parser,
                                                 CommandOps *ops,
                                                 PARCList *args) {
   CommandOps *ops_remove_connection = controlRemoveConnection_Create(NULL);
+  CommandOps *ops_remove_listener = controlRemoveListener_Create(NULL);
   CommandOps *ops_remove_route = controlRemoveRoute_Create(NULL);
   CommandOps *ops_remove_punting = controlRemovePunting_Create(NULL);
 #ifdef WITH_POLICY
@@ -70,6 +72,7 @@ static CommandReturn _controlRemove_HelpExecute(CommandParser *parser,
 
   printf("Available commands:\n");
   printf("   %s\n", ops_remove_connection->command);
+  printf("   %s\n", ops_remove_listener->command);
   printf("   %s\n", ops_remove_route->command);
   printf("   %s\n", ops_remove_punting->command);
 #ifdef WITH_POLICY
@@ -78,6 +81,7 @@ static CommandReturn _controlRemove_HelpExecute(CommandParser *parser,
   printf("\n");
 
   commandOps_Destroy(&ops_remove_connection);
+  commandOps_Destroy(&ops_remove_listener);
   commandOps_Destroy(&ops_remove_route);
   commandOps_Destroy(&ops_remove_punting);
 #ifdef WITH_POLICY
@@ -90,8 +94,11 @@ static void _controlRemove_Init(CommandParser *parser, CommandOps *ops) {
   ControlState *state = ops->closure;
   controlState_RegisterCommand(state,
                                controlRemoveConnection_HelpCreate(state));
+  controlState_RegisterCommand(state,
+                               controlRemoveListener_HelpCreate(state));
   controlState_RegisterCommand(state, controlRemoveRoute_HelpCreate(state));
   controlState_RegisterCommand(state, controlRemoveConnection_Create(state));
+  controlState_RegisterCommand(state, controlRemoveListener_Create(state));
   controlState_RegisterCommand(state, controlRemoveRoute_Create(state));
   controlState_RegisterCommand(state, controlRemovePunting_Create(state));
   controlState_RegisterCommand(state, controlRemovePunting_HelpCreate(state));

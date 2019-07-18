@@ -40,8 +40,8 @@
 #define IPv6 6
 
 struct udp_listener {
-  Forwarder *forwarder;
   char *listenerName;
+  Forwarder *forwarder;
   Logger *logger;
 
   PARCEvent *udp_event;
@@ -75,6 +75,7 @@ static ListenerOps udpTemplate = {
   .lookupConnection = &_lookupConnection,
   .getInterfaceName = &_getInterfaceName,
 };
+
 
 static void _readcb(int fd, PARCEventType what, void * listener_void);
 
