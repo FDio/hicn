@@ -26,7 +26,7 @@ add_subdirectory(utils)
 configure_file("config.h.in" "config.h" @ONLY)
 install(
   FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
-  DESTINATION include/hicn/transport
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hicn/transport
   COMPONENT lib${LIBTRANSPORT}-dev
 )
 
