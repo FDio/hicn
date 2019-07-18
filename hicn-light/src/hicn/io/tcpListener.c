@@ -30,6 +30,8 @@
 #include <parc/assert/parc_Assert.h>
 
 typedef struct tcp_listener {
+
+  char *listenerName;
   Forwarder *forwarder;
   Logger *logger;
 
@@ -38,6 +40,9 @@ typedef struct tcp_listener {
   Address *localAddress;
 
   unsigned id;
+#ifdef __linux__
+  char *interfaceName;
+#endif
 
   // is the localAddress as 127.0.0.0 address?
   bool isLocalAddressLocal;
@@ -46,31 +51,50 @@ typedef struct tcp_listener {
 static void _tcpListener_Destroy(_TcpListener **listenerPtr);
 
 static void _tcpListener_OpsDestroy(ListenerOps **listenerOpsPtr);
+
+static const char *_tcpListener_ListenerName(const ListenerOps *ops);
+
 static unsigned _tcpListener_OpsGetInterfaceIndex(const ListenerOps *ops);
+
 static const Address *_tcpListener_OpsGetListenAddress(const ListenerOps *ops);
+#ifdef __linux__
+static const char *_tcpListener_InterfaceName(const ListenerOps *ops);
+#endif
 static EncapType _tcpListener_OpsGetEncapType(const ListenerOps *ops);
 
 static ListenerOps _tcpTemplate = {
     .context = NULL,
     .destroy = &_tcpListener_OpsDestroy,
+    .getListenerName = &_tcpListener_ListenerName,
     .getInterfaceIndex = &_tcpListener_OpsGetInterfaceIndex,
     .getListenAddress = &_tcpListener_OpsGetListenAddress,
     .getEncapType = &_tcpListener_OpsGetEncapType,
+#ifdef __linux__
+    .getInterfaceName = &_tcpListener_InterfaceName,
+#endif
     .getSocket = NULL};
 
 // STREAM daemon listener callback
 static void _tcpListener_Listen(int, struct sockaddr *, int socklen,
                                 void *tcpVoid);
 
-ListenerOps *tcpListener_CreateInet6(Forwarder *forwarder,
+#ifdef __linux__
+ListenerOps *tcpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
+                                     struct sockaddr_in6 sin6, char *interfaceName) {
+#else
+ListenerOps *tcpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
                                      struct sockaddr_in6 sin6) {
+#endif
   _TcpListener *tcp = parcMemory_AllocateAndClear(sizeof(_TcpListener));
   parcAssertNotNull(tcp, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(_TcpListener));
 
   tcp->forwarder = forwarder;
+  tcp->listenerName = parcMemory_StringDuplicate(listenerName, strlen(listenerName));
   tcp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
-
+#ifdef __linux__
+  tcp->interfaceName = parcMemory_StringDuplicate(interfaceName, strlen(interfaceName));
+#endif
   tcp->listener = dispatcher_CreateListener(
       forwarder_GetDispatcher(forwarder), _tcpListener_Listen, (void *)tcp, -1,
       (struct sockaddr *)&sin6, sizeof(sin6));
@@ -107,14 +131,23 @@ ListenerOps *tcpListener_CreateInet6(Forwarder *forwarder,
   return ops;
 }
 
-ListenerOps *tcpListener_CreateInet(Forwarder *forwarder,
+#ifdef __linux__
+ListenerOps *tcpListener_CreateInet(Forwarder *forwarder, char *listenerName,
+                                    struct sockaddr_in sin, char *interfaceName) {
+#else
+ListenerOps *tcpListener_CreateInet(Forwarder *forwarder, char *listenerName,
                                     struct sockaddr_in sin) {
+#endif
   _TcpListener *tcp = parcMemory_AllocateAndClear(sizeof(_TcpListener));
   parcAssertNotNull(tcp, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(_TcpListener));
 
   tcp->forwarder = forwarder;
+  tcp->listenerName = parcMemory_StringDuplicate(listenerName, strlen(listenerName));
   tcp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
+#ifdef __linux__
+  tcp->interfaceName = parcMemory_StringDuplicate(interfaceName, strlen(interfaceName));
+#endif
   tcp->listener = dispatcher_CreateListener(
       forwarder_GetDispatcher(forwarder), _tcpListener_Listen, (void *)tcp, -1,
       (struct sockaddr *)&sin, sizeof(sin));
@@ -164,6 +197,10 @@ static void _tcpListener_Destroy(_TcpListener **listenerPtr) {
     parcMemory_Deallocate((void **)&str);
   }
 
+#ifdef __linux__
+  parcMemory_Deallocate((void **)&tcp->listenerName);
+  parcMemory_Deallocate((void **)&tcp->interfaceName);
+#endif
   logger_Release(&tcp->logger);
   dispatcher_DestroyListener(forwarder_GetDispatcher(tcp->forwarder),
                              &tcp->listener);
@@ -173,6 +210,19 @@ static void _tcpListener_Destroy(_TcpListener **listenerPtr) {
 }
 
 // ==================================================
+
+static const char *_tcpListener_ListenerName(const ListenerOps *ops) {
+  _TcpListener *tcp = (_TcpListener *)ops->context;
+  return tcp->listenerName;
+}
+
+#ifdef __linux__
+static const char *_tcpListener_InterfaceName(const ListenerOps *ops) {
+  _TcpListener *tcp = (_TcpListener *)ops->context;
+  return tcp->interfaceName;
+}
+#endif
+
 
 static void _tcpListener_Listen(int fd, struct sockaddr *sa, int socklen,
                                 void *tcpVoid) {
