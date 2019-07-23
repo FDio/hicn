@@ -288,6 +288,8 @@ bool message_HasContentExpiryTime(const Message *message) {
 uint64_t message_GetContentExpiryTimeTicks(const Message *message) {
   parcAssertNotNull(message, "Parameter message must be non-null");
   uint64_t expire = messageHandler_GetContentExpiryTime(message->messageHead);
+  if(expire == 0)
+    return message->receiveTime;
   return message->receiveTime + forwarder_NanosToTicks(expire * 1000000ULL);
 }
 
