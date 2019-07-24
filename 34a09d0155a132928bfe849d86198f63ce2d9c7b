@@ -1,0 +1,119 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9d90b129_eef80d8d",
+        "filename": "utils/extras/rtinject/tap_inject.c",
+        "patchSetId": 18
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-24T07:13:24Z",
+      "side": 1,
+      "message": "do not update this copyright",
+      "range": {
+        "startLine": 2,
+        "startChar": 13,
+        "endLine": 2,
+        "endChar": 22
+      },
+      "revId": "34a09d0155a132928bfe849d86198f63ce2d9c7b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0964eb40_eb57c982",
+        "filename": "utils/extras/rtinject/tap_inject.h",
+        "patchSetId": 18
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-24T07:13:24Z",
+      "side": 1,
+      "message": "do not update this copyright",
+      "range": {
+        "startLine": 2,
+        "startChar": 13,
+        "endLine": 2,
+        "endChar": 22
+      },
+      "revId": "34a09d0155a132928bfe849d86198f63ce2d9c7b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "806f12d4_556da480",
+        "filename": "utils/extras/rtinject/tap_inject_netlink.c",
+        "patchSetId": 18
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-24T07:13:24Z",
+      "side": 1,
+      "message": "do not update this copyright",
+      "range": {
+        "startLine": 2,
+        "startChar": 12,
+        "endLine": 2,
+        "endChar": 22
+      },
+      "revId": "34a09d0155a132928bfe849d86198f63ce2d9c7b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "834a5ba1_441c092d",
+        "filename": "utils/extras/rtinject/tap_inject_node.c",
+        "patchSetId": 18
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-24T07:13:24Z",
+      "side": 1,
+      "message": "do not update this copyright",
+      "range": {
+        "startLine": 2,
+        "startChar": 13,
+        "endLine": 2,
+        "endChar": 22
+      },
+      "revId": "34a09d0155a132928bfe849d86198f63ce2d9c7b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "072e72dd_4cfcd837",
+        "filename": "utils/extras/rtinject/tap_inject_tap.c",
+        "patchSetId": 18
+      },
+      "lineNbr": 2,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-07-24T07:13:24Z",
+      "side": 1,
+      "message": "do not update this copyright",
+      "range": {
+        "startLine": 2,
+        "startChar": 13,
+        "endLine": 2,
+        "endChar": 22
+      },
+      "revId": "34a09d0155a132928bfe849d86198f63ce2d9c7b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
+    }
+  ]
+}
