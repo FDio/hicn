@@ -14,6 +14,8 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 project(extra-plugin)
 
+include(GNUInstallDirs)
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
     "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Modules/"
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/"
@@ -65,7 +67,7 @@ if (NOT CMAKE_BUILD_TYPE)
     set (CMAKE_BUILD_TYPE "Release")
 endif (NOT CMAKE_BUILD_TYPE)
 
-SET(EXTRA_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/lib CACHE STRING "extra_install_prefix")
+SET(EXTRA_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR} CACHE STRING "extra_install_prefix")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall  -march=native -O3 -g")
@@ -89,7 +91,8 @@ set_target_properties(hicn_extra_plugin
         PROPERTIES
         LINKER_LANGUAGE C
         INSTALL_RPATH ${VPP_INSTALL_PLUGIN}
-        PREFIX "")
+        PREFIX ""
+        LIBRARY_OUTPUT_NAME "hicn_router")
 
 install(DIRECTORY
         DESTINATION ${VPP_INSTALL_PLUGIN}
