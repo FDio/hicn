@@ -26,9 +26,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <hicn/io/hicnListener.h>
-
 #include <hicn/hicn.h>
+#include <hicn/core/forwarder.h>
+#include <hicn/core/connection.h>
 #include <hicn/utils/commands.h>
 
 struct mapme;
@@ -63,14 +63,23 @@ void mapMe_Process(const MapMe *mapme, const uint8_t *msgBuffer,
                    unsigned conn_id);
 
 /**
- * @function mapMe_onConnectionAdded
+ * @function mapMe_onConnectionEvent
  * @abstract Callback following the addition of the face though the control
  * protocol.
  * @discussion This callback triggers the sending of control packets by MAP-Me.
  * @param [in] mapme - Pointer to the MAP-Me data structure.
  * @param [in] conn - The newly added connection.
+ * @param [in] event - Connection event
  */
-void mapMe_onConnectionAdded(const MapMe *mapme, const Connection *conn);
+void mapMe_onConnectionEvent(const MapMe *mapme, const Connection *conn, connection_event_t event);
+
+#ifdef WITH_POLICY
+
+/**
+ * @function mapMe_onPolicyUpdate
+ */
+void mapMe_onPolicyUpdate(const MapMe *mapme, const Connection *conn_added, FibEntry * fibEntry);
+#endif /* WITH_POLICY */
 
 /**
  * @function mapMe_getNextHops

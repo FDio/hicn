@@ -31,6 +31,9 @@
 //#include <hicn/config/controlListInterfaces.h>
 #include <hicn/config/controlListListeners.h>
 #include <hicn/config/controlListRoutes.h>
+#ifdef WITH_POLICY
+#include <hicn/config/controlListPolicies.h>
+#endif /* WITH_POLICY */
 
 static void _controlList_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlList_Execute(CommandParser *parser,
@@ -59,18 +62,27 @@ static CommandReturn _controlList_HelpExecute(CommandParser *parser,
   // CommandOps *ops_list_interfaces = controlListInterfaces_HelpCreate(NULL);
   CommandOps *ops_list_routes = controlListRoutes_HelpCreate(NULL);
   CommandOps *ops_list_listeners = controlListListeners_HelpCreate(NULL);
+#ifdef WITH_POLICY
+  CommandOps *ops_list_policies = controlListPolicies_HelpCreate(NULL);
+#endif /* WITH_POLICY */
 
   printf("Available commands:\n");
   printf("   %s\n", ops_list_connections->command);
   // printf("   %s\n", ops_list_interfaces->command);
   printf("   %s\n", ops_list_routes->command);
   printf("   %s\n", ops_list_listeners->command);
+#ifdef WITH_POLICY
+  printf("   %s\n", ops_list_policies->command);
+#endif /* WITH_POLICY */
   printf("\n");
 
   commandOps_Destroy(&ops_list_connections);
   // commandOps_Destroy(&ops_list_interfaces);
   commandOps_Destroy(&ops_list_routes);
   commandOps_Destroy(&ops_list_listeners);
+#ifdef WITH_POLICY
+  commandOps_Destroy(&ops_list_policies);
+#endif /* WITH_POLICY */
 
   return CommandReturn_Success;
 }
@@ -86,6 +98,10 @@ static void _controlList_Init(CommandParser *parser, CommandOps *ops) {
   // controlState_RegisterCommand(state, controlListInterfaces_Create(state));
   controlState_RegisterCommand(state, controlListRoutes_Create(state));
   controlState_RegisterCommand(state, controlListListeners_Create(state));
+#ifdef WITH_POLICY
+  controlState_RegisterCommand(state, controlListPolicies_HelpCreate(state));
+  controlState_RegisterCommand(state, controlListPolicies_Create(state));
+#endif /* WITH_POLICY */
 }
 
 static CommandReturn _controlList_Execute(CommandParser *parser,

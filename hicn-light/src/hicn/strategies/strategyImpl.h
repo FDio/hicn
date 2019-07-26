@@ -55,12 +55,18 @@ struct strategy_impl {
                         const Message *objectMessage, Ticks rtt);
   void (*onTimeout)(StrategyImpl *strategy, const NumberSet *egressId);
   NumberSet *(*lookupNexthop)(StrategyImpl *strategy,
+#ifdef WITH_POLICY
+    NumberSet * nexthops,
+#endif /* WITH_POLICY */
                               const Message *interestMessage);
+#ifndef WITH_POLICY
   NumberSet *(*returnNexthops)(StrategyImpl *strategy);
   unsigned (*countNexthops)(StrategyImpl *strategy);
+#endif /* ! WITH_POLICY */
   void (*addNexthop)(StrategyImpl *strategy, unsigned connectionId);
   void (*removeNexthop)(StrategyImpl *strategy, unsigned connectionId);
   void (*destroy)(StrategyImpl **strategyPtr);
   strategy_type (*getStrategy)(StrategyImpl *strategy);
 };
+
 #endif  // strategyImpl_h

@@ -29,6 +29,21 @@
 #include <hicn/io/ioOperations.h>
 #include <hicn/utils/address.h>
 
+#ifdef WITH_MAPME
+typedef enum {
+  CONNECTION_EVENT_CREATE,
+  CONNECTION_EVENT_DELETE,
+  CONNECTION_EVENT_UPDATE,
+  CONNECTION_EVENT_SET_UP,
+  CONNECTION_EVENT_SET_DOWN,
+} connection_event_t;
+
+#endif /* WITH_MAPME */
+
+#ifdef WITH_POLICY
+#include <hicn/utils/policy.h>
+#endif /* WITH_POLICY */
+
 // packet types for probing
 #define PACKET_TYPE_PROBE_REQUEST 5
 #define PACKET_TYPE_PROBE_REPLY 6
@@ -167,5 +182,14 @@ void connection_SetState(Connection *conn, connection_state_t state);
 connection_state_t connection_GetAdminState(const Connection *conn);
 
 void connection_SetAdminState(Connection *conn, connection_state_t admin_state);
+
+#ifdef WITH_POLICY
+void connection_AddTag(Connection *conn, policy_tag_t tag);
+void connection_RemoveTag(Connection *conn, policy_tag_t tag);
+policy_tags_t connection_GetTags(const Connection *conn);
+void connection_SetTags(Connection *conn, policy_tags_t tags);
+void connection_ClearTags(Connection *conn);
+int connection_HasTag(const Connection *conn, policy_tag_t tag);
+#endif /* WITH_POLICY */
 
 #endif  // connection_h

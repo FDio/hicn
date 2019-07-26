@@ -23,6 +23,8 @@
 #include <parc/assert/parc_Assert.h>
 #include <hicn/strategies/nexthopState.h>
 
+#define AVG_PI_THRESHOLD 1e-3
+
 struct strategy_nexthop_state {
   unsigned int pi;
   double avg_pi;
@@ -197,7 +199,11 @@ double strategyNexthopState_UpdateState(StrategyNexthopState *x, bool inc,
     }
   }
   x->avg_pi = (x->avg_pi * alpha) + (x->pi * (1 - alpha));
+#ifdef WITH_POLICY
+  if (x->avg_pi < AVG_PI_THRESHOLD) {
+#else
   if (x->avg_pi == 0.0) {
+#endif /* WITH_POLICY */
     x->avg_pi = 0.1;
   }
   x->weight = 1 / x->avg_pi;

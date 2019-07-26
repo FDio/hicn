@@ -23,5 +23,6 @@
 
 #include <hicn/strategies/strategyImpl.h>
 
-StrategyImpl* strategyRndSegment_Create();
+StrategyImpl *strategyRndSegment_Create();
+
 #endif  // rnd_Segment_h
