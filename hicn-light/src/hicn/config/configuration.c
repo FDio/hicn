@@ -356,8 +356,8 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
   add_connection_command *control = request[1].iov_base;
 
   bool success = false;
-  bool exists = true;
 
+  Connection *conn;
   const char *symbolicName = control->symbolic;
 
   Address *source = NULL;
@@ -379,18 +379,15 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
     }
 
     AddressPair *pair = addressPair_Create(source, destination);
-    const Connection *conn = connectionTable_FindByAddressPair(
+    conn = (Connection *)connectionTable_FindByAddressPair(
         forwarder_GetConnectionTable(config->forwarder), pair);
 
     addressPair_Release(&pair);
-
-    if (conn == NULL) {
-      // the connection does not exists (even without a name)
-      exists = false;
-    }
+  } else {
+    conn = NULL;
   }
 
-  if (!exists) {
+  if (!conn) {
     IoOperations *ops = NULL;
     switch (control->connectionType) {
       case TCP_CONN:
@@ -420,6 +417,9 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
 
     if (ops != NULL) {
       Connection *conn = connection_Create(ops);
+#ifdef WITH_POLICY
+      connection_SetTags(conn, control->tags);
+#endif /* WITH_POLICY */
 
       connection_SetAdminState(conn, control->admin_state);
 
@@ -428,6 +428,11 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
       symbolicNameTable_Add(config->symbolicNameTable, symbolicName,
                             connection_GetConnectionId(conn));
 
+#ifdef WITH_MAPME
+       /* Hook: new connection created through the control protocol */
+      forwarder_onConnectionEvent(config->forwarder, conn, CONNECTION_EVENT_CREATE);
+#endif /* WITH_MAPME */
+
       success = true;
 
     } else {
@@ -435,23 +440,31 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
     }
 
   } else {
-    printf("failed, symbolic name or connextion already exist\n");
+#ifdef WITH_POLICY
+    connection_SetTags(conn, control->tags);
+    connection_SetAdminState(conn, control->admin_state);
+
+#ifdef WITH_MAPME
+    /* Hook: new connection created through the control protocol */
+    forwarder_onConnectionEvent(config->forwarder, conn, CONNECTION_EVENT_UPDATE);
+#endif /* WITH_MAPME */
+
+    success = true;
+#else
+    printf("failed, symbolic name or connection already exist\n");
+#endif /* WITH_POLICY */
   }
 
-  addressDestroy(&source);
-  addressDestroy(&destination);
-
-  // generate ACK/NACK
-  struct iovec *response;
+  if (source)
+    addressDestroy(&source);
+  if (destination)
+    addressDestroy(&destination);
 
   if (success) {  // ACK
-    response = utils_CreateAck(header, control, sizeof(add_connection_command));
+    return utils_CreateAck(header, control, sizeof(add_connection_command));
   } else {  // NACK
-    response =
-        utils_CreateNack(header, control, sizeof(add_connection_command));
+    return utils_CreateNack(header, control, sizeof(add_connection_command));
   }
-
-  return response;
 }
 
 /**
@@ -479,6 +492,12 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
   if (strcmp(symbolicOrConnid, "SELF") == 0) {
     forwarder_RemoveConnectionIdFromRoutes(config->forwarder, ingressId);
     connectionTable_RemoveById(table, ingressId);
+
+#ifdef WITH_MAPME
+       /* Hook: new connection created through the control protocol */
+      forwarder_onConnectionEvent(config->forwarder, NULL, CONNECTION_EVENT_DELETE);
+#endif /* WITH_MAPME */
+
     success = true;
   } else if (utils_IsNumber(symbolicOrConnid)) {
     // case for connid as input
@@ -491,6 +510,11 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
       forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
       // remove connection
       connectionTable_RemoveById(table, connid);
+
+#ifdef WITH_MAPME
+       /* Hook: new connection created through the control protocol */
+      forwarder_onConnectionEvent(config->forwarder, NULL, CONNECTION_EVENT_DELETE);
+#endif /* WITH_MAPME */
 
       success = true;
     } else {
@@ -520,6 +544,12 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
       connectionTable_RemoveById(table, connid);
       // remove connection from symbolicNameTable since we have symbolic input
       symbolicNameTable_Remove(config->symbolicNameTable, symbolicOrConnid);
+
+#ifdef WITH_MAPME
+       /* Hook: new connection created through the control protocol */
+      forwarder_onConnectionEvent(config->forwarder, NULL, CONNECTION_EVENT_DELETE);
+#endif /* WITH_MAPME */
+
       success = true;  // to write
     } else {
       if (logger_IsLoggable(config->logger, LoggerFacility_Config,
@@ -579,6 +609,10 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
         ioOperations_GetConnectionType(connection_GetIoOperations(original));
 
     listConnectionsCommand->connectionData.admin_state = connection_GetAdminState(original);
+
+#ifdef WITH_POLICY
+    listConnectionsCommand->connectionData.tags = connection_GetTags(original);
+#endif /* WITH_POLICY */
 
     if (addressGetType(localAddress) == ADDR_INET &&
         addressGetType(remoteAddress) == ADDR_INET) {
@@ -1017,14 +1051,118 @@ struct iovec *configuration_ConnectionSetAdminState(Configuration *config,
   header_control_message *header = request[0].iov_base;
   connection_set_admin_state_command *control = request[1].iov_base;
 
+  if ((control->admin_state != CONNECTION_STATE_UP) && (control->admin_state != CONNECTION_STATE_DOWN))
+    return utils_CreateNack(header, control, sizeof(connection_set_admin_state_command));
+
   Connection * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
   if (!conn)
     return utils_CreateNack(header, control, sizeof(connection_set_admin_state_command));
 
   connection_SetAdminState(conn, control->admin_state);
 
+#ifdef WITH_MAPME
+  /* Hook: new connection created through the control protocol */
+  forwarder_onConnectionEvent(config->forwarder, conn,
+      control->admin_state == CONNECTION_STATE_UP
+              ? CONNECTION_EVENT_SET_UP
+              : CONNECTION_EVENT_SET_DOWN);
+#endif /* WITH_MAPME */
+
   return utils_CreateAck(header, control, sizeof(connection_set_admin_state_command));
 }
+
+#ifdef WITH_POLICY
+struct iovec *configuration_ProcessPolicyAdd(Configuration *config,
+                                      struct iovec *request) {
+  header_control_message *header = request[0].iov_base;
+  add_policy_command *control = request[1].iov_base;
+
+  if (forwarder_AddOrUpdatePolicy(config->forwarder, control)) {
+    return utils_CreateAck(header, control, sizeof(add_policy_command));
+  } else {
+    return utils_CreateNack(header, control, sizeof(add_policy_command));
+  }
+}
+
+struct iovec *configuration_ProcessPolicyList(Configuration *config,
+                                                    struct iovec *request) {
+  FibEntryList *fibList = forwarder_GetFibEntries(config->forwarder);
+
+  size_t payloadSize = fibEntryList_Length(fibList);
+  struct sockaddr_in tmpAddr;
+  struct sockaddr_in6 tmpAddr6;
+
+  // allocate payload, cast from void* to uint8_t* = bytes granularity
+  uint8_t *payloadResponse =
+      parcMemory_AllocateAndClear(sizeof(list_policies_command) * payloadSize);
+
+  for (size_t i = 0; i < fibEntryList_Length(fibList); i++) {
+    FibEntry *entry = (FibEntry *)fibEntryList_Get(fibList, i);
+    NameBitvector *prefix = name_GetContentName(fibEntry_GetPrefix(entry));
+
+    list_policies_command *listPoliciesCommand =
+        (list_policies_command *)(payloadResponse +
+                (i * sizeof(list_policies_command)));
+
+    Address *addressEntry = nameBitvector_ToAddress(prefix);
+    if (addressGetType(addressEntry) == ADDR_INET) {
+      addressGetInet(addressEntry, &tmpAddr);
+      listPoliciesCommand->addressType = ADDR_INET;
+      listPoliciesCommand->address.ipv4 = tmpAddr.sin_addr.s_addr;
+    } else if (addressGetType(addressEntry) == ADDR_INET6) {
+      addressGetInet6(addressEntry, &tmpAddr6);
+      listPoliciesCommand->addressType = ADDR_INET6;
+      listPoliciesCommand->address.ipv6 = tmpAddr6.sin6_addr;
+    }
+    listPoliciesCommand->len = nameBitvector_GetLength(prefix);
+    listPoliciesCommand->policy = fibEntry_GetPolicy(entry);
+
+    addressDestroy(&addressEntry);
+  }
+
+  // send response
+  header_control_message *header = request[0].iov_base;
+  header->messageType = RESPONSE_LIGHT;
+  header->length = (unsigned)payloadSize;
+
+  struct iovec *response =
+      parcMemory_AllocateAndClear(sizeof(struct iovec) * 2);
+
+  response[0].iov_base = header;
+  response[0].iov_len = sizeof(header_control_message);
+  response[1].iov_base = payloadResponse;
+  response[1].iov_len = sizeof(list_policies_command) * payloadSize;
+
+  fibEntryList_Destroy(&fibList);
+  return response;
+}
+
+struct iovec *configuration_ProcessPolicyRemove(Configuration *config,
+                                                        struct iovec *request) {
+  header_control_message *header = request[0].iov_base;
+  remove_policy_command *control = request[1].iov_base;
+
+  if (forwarder_RemovePolicy(config->forwarder, control))
+    return utils_CreateAck(header, control, sizeof(remove_policy_command));
+  else
+    return utils_CreateNack(header, control, sizeof(remove_policy_command));
+}
+
+struct iovec *configuration_UpdateConnection(Configuration *config,
+                                                        struct iovec *request) {
+  header_control_message *header = request[0].iov_base;
+  update_connection_command *control = request[1].iov_base;
+
+  Connection * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
+  if (!conn)
+    return utils_CreateNack(header, control, sizeof(connection_set_admin_state_command));
+
+  connection_SetTags(conn, control->tags);
+  connection_SetAdminState(conn, control->admin_state);
+
+  return utils_CreateAck(header, control, sizeof(remove_policy_command));
+}
+#endif /* WITH_POLICY */
 
 // ===========================
 // Main functions that deal with receiving commands, executing them, and sending
@@ -1113,6 +1251,24 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
     case CONNECTION_SET_ADMIN_STATE:
       response = configuration_ConnectionSetAdminState(config, control);
       break;
+
+#ifdef WITH_POLICY
+    case ADD_POLICY:
+      response = configuration_ProcessPolicyAdd(config, control);
+      break;
+
+    case LIST_POLICIES:
+      response = configuration_ProcessPolicyList(config, control);
+      break;
+
+    case REMOVE_POLICY:
+      response = configuration_ProcessPolicyRemove(config, control);
+      break;
+
+    case UPDATE_CONNECTION:
+      response = configuration_UpdateConnection(config, control);
+      break;
+#endif /* WITH_POLICY */
 
     default:
       break;

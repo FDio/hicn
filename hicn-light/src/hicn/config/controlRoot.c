@@ -31,6 +31,9 @@
 #include <hicn/config/controlRoot.h>
 #include <hicn/config/controlSet.h>
 #include <hicn/config/controlUnset.h>
+#ifdef WITH_POLICY
+#include <hicn/config/controlUpdate.h>
+#endif /* WITH_POLICY */
 
 static void _controlRoot_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlRoot_Execute(CommandParser *parser,
@@ -79,6 +82,9 @@ static CommandReturn _controlRoot_HelpExecute(CommandParser *parser,
   CommandOps *ops_help_unset = controlUnset_HelpCreate(NULL);
   CommandOps *ops_help_cache = controlCache_HelpCreate(NULL);
   CommandOps *ops_help_mapme = controlMapMe_HelpCreate(NULL);
+#ifdef WITH_POLICY
+  CommandOps *ops_help_update = controlUpdate_HelpCreate(NULL);
+#endif /* WITH_POLICY */
 
   printf("Available commands:\n");
   printf("   %s\n", ops_help_add->command);
@@ -89,6 +95,9 @@ static CommandReturn _controlRoot_HelpExecute(CommandParser *parser,
   printf("   %s\n", ops_help_unset->command);
   printf("   %s\n", ops_help_cache->command);
   printf("   %s\n", ops_help_mapme->command);
+#ifdef WITH_POLICY
+  printf("   %s\n", ops_help_update->command);
+#endif /* WITH_POLICY */
   printf("\n");
 
   commandOps_Destroy(&ops_help_add);
@@ -99,6 +108,9 @@ static CommandReturn _controlRoot_HelpExecute(CommandParser *parser,
   commandOps_Destroy(&ops_help_unset);
   commandOps_Destroy(&ops_help_cache);
   commandOps_Destroy(&ops_help_mapme);
+#ifdef WITH_POLICY
+  commandOps_Destroy(&ops_help_update);
+#endif /* WITH_POLICY */
 
   return CommandReturn_Success;
 }
@@ -114,6 +126,9 @@ static void _controlRoot_Init(CommandParser *parser, CommandOps *ops) {
   controlState_RegisterCommand(state, controlUnset_HelpCreate(state));
   controlState_RegisterCommand(state, controlCache_HelpCreate(state));
   controlState_RegisterCommand(state, controlMapMe_HelpCreate(state));
+#ifdef WITH_POLICY
+  controlState_RegisterCommand(state, controlUpdate_HelpCreate(state));
+#endif /* WITH_POLICY */
 
   controlState_RegisterCommand(state, webControlAdd_Create(state));
   controlState_RegisterCommand(state, controlList_Create(state));
@@ -123,6 +138,9 @@ static void _controlRoot_Init(CommandParser *parser, CommandOps *ops) {
   controlState_RegisterCommand(state, controlUnset_Create(state));
   controlState_RegisterCommand(state, controlCache_Create(state));
   controlState_RegisterCommand(state, controlMapMe_Create(state));
+#ifdef WITH_POLICY
+  controlState_RegisterCommand(state, controlUpdate_Create(state));
+#endif /* WITH_POLICY */
 }
 
 static CommandReturn _controlRoot_Execute(CommandParser *parser,
