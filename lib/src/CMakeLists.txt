@@ -78,16 +78,16 @@ else ()
     LINK_LIBRARIES ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
   )
 endif ()
-add_custom_command(TARGET hicn PRE_BUILD
+add_custom_command(TARGET ${LIBHICN_STATIC} PRE_BUILD
   COMMAND ${CMAKE_COMMAND} -E remove_directory ${PROJECT_BINARY_DIR}/hicn
 )
 
-add_custom_command(TARGET hicn POST_BUILD
+add_custom_command(TARGET ${LIBHICN_STATIC} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/hicn/
   COMMAND ${CMAKE_COMMAND} -E copy ${LIBHICN_HEADER_FILES} ${PROJECT_BINARY_DIR}/hicn/
 )
 
-add_custom_command(TARGET hicn POST_BUILD
+add_custom_command(TARGET ${LIBHICN_STATIC} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/hicn/protocol
   COMMAND ${CMAKE_COMMAND} -E copy ${LIBHICN_HEADER_FILES_PROTOCOL} ${PROJECT_BINARY_DIR}/hicn/protocol
 )
