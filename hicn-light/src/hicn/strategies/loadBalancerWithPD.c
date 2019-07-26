@@ -38,11 +38,17 @@ static void _strategyLoadBalancerWithPD_ReceiveObject(
 static void _strategyLoadBalancerWithPD_OnTimeout(StrategyImpl *strategy,
                                                   const NumberSet *egressId);
 static NumberSet *_strategyLoadBalancerWithPD_LookupNexthop(
-    StrategyImpl *strategy, const Message *interestMessage);
+    StrategyImpl *strategy,
+#ifdef WITH_POLICY
+    NumberSet * nexthops,
+#endif
+    const Message *interestMessage);
+#ifndef WITH_POLICY
 static NumberSet *_strategyLoadBalancerWithPD_ReturnNexthops(
     StrategyImpl *strategy);
 static unsigned _strategyLoadBalancerWithPD_CountNexthops(
     StrategyImpl *strategy);
+#endif /* ! WITH_POLICY */
 static void _strategyLoadBalancerWithPD_AddNexthop(StrategyImpl *strategy,
                                                    unsigned connectionId);
 static void _strategyLoadBalancerWithPD_RemoveNexthop(StrategyImpl *strategy,
@@ -56,8 +62,10 @@ static StrategyImpl _template = {
     .receiveObject = &_strategyLoadBalancerWithPD_ReceiveObject,
     .onTimeout = &_strategyLoadBalancerWithPD_OnTimeout,
     .lookupNexthop = &_strategyLoadBalancerWithPD_LookupNexthop,
+#ifndef WITH_POLICY
     .returnNexthops = &_strategyLoadBalancerWithPD_ReturnNexthops,
     .countNexthops = &_strategyLoadBalancerWithPD_CountNexthops,
+#endif /* ! WITH_POLICY */
     .addNexthop = &_strategyLoadBalancerWithPD_AddNexthop,
     .removeNexthop = &_strategyLoadBalancerWithPD_RemoveNexthop,
     .destroy = &_strategyLoadBalancerWithPD_ImplDestroy,
@@ -72,13 +80,19 @@ struct strategy_load_balancer_with_pd {
   unsigned min_delay;
   // hash map from connectionId to StrategyNexthopState
   PARCHashMap *strategy_state;
+#ifndef WITH_POLICY
   NumberSet *nexthops;
-  ConnectionTable *connTable;
+#endif /* ! WITH_POLICY */
+  const ConnectionTable *connTable;
   bool toInit;
   unsigned int fwdPackets;
 };
 
+#ifdef WITH_POLICY
+StrategyImpl *strategyLoadBalancerWithPD_Create(const ConnectionTable *table) {
+#else
 StrategyImpl *strategyLoadBalancerWithPD_Create() {
+#endif /* WITH_POLICY */
   StrategyLoadBalancerWithPD *strategy =
       parcMemory_AllocateAndClear(sizeof(StrategyLoadBalancerWithPD));
   parcAssertNotNull(strategy, "parcMemory_AllocateAndClear(%zu) returned NULL",
@@ -87,7 +101,9 @@ StrategyImpl *strategyLoadBalancerWithPD_Create() {
   strategy->weights_sum = 0.0;
   strategy->min_delay = INT_MAX;
   strategy->strategy_state = parcHashMap_Create();
+#ifndef WITH_POLICY
   strategy->nexthops = numberSet_Create();
+#endif /* ! WITH_POLICY */
   srand((unsigned int)time(NULL));
 
   StrategyImpl *impl = parcMemory_AllocateAndClear(sizeof(StrategyImpl));
@@ -127,6 +143,31 @@ static void _update_Stats(StrategyLoadBalancerWithPD *strategy,
   strategy->weights_sum += w;
 }
 
+#ifdef WITH_POLICY
+static void _sendProbes(StrategyLoadBalancerWithPD *strategy, NumberSet * nexthops) {
+  unsigned size = (unsigned)numberSet_Length(nexthops);
+  for (unsigned i = 0; i < size; i++) {
+    unsigned nhop = numberSet_GetItem(nexthops, i);
+    Connection *conn =
+        (Connection *)connectionTable_FindById(strategy->connTable, nhop);
+    if (!conn)
+        continue;
+
+    connection_Probe(conn);
+    unsigned delay = (unsigned)connection_GetDelay(conn);
+    PARCUnsigned *cid = parcUnsigned_Create(nhop);
+    StrategyNexthopStateWithPD *elem =
+        (StrategyNexthopStateWithPD *)parcHashMap_Get(
+            strategy->strategy_state, cid);
+    strategyNexthopStateWithPD_SetDelay(elem, delay);
+    if (delay < strategy->min_delay && delay != 0) {
+      strategy->min_delay = delay;
+    }
+
+    parcUnsigned_Release(&cid);
+  }
+}
+#else
 static void _sendProbes(StrategyLoadBalancerWithPD *strategy) {
   unsigned size = (unsigned)numberSet_Length(strategy->nexthops);
   for (unsigned i = 0; i < size; i++) {
@@ -149,7 +190,53 @@ static void _sendProbes(StrategyLoadBalancerWithPD *strategy) {
     }
   }
 }
+#endif /* WITH_POLICY */
 
+#ifdef WITH_POLICY
+static unsigned _select_Nexthop(StrategyLoadBalancerWithPD *strategy, NumberSet * nexthops) {
+  strategy->fwdPackets++;
+  if (strategy->toInit || strategy->fwdPackets == PROBE_FREQUENCY) {
+    strategy->toInit = false;
+    strategy->fwdPackets = 0;
+    _sendProbes(strategy, nexthops);
+  }
+  double rnd = (double)rand() / (double)RAND_MAX;
+  double start_range = 0.0;
+
+  PARCIterator *it = parcHashMap_CreateKeyIterator(strategy->strategy_state);
+
+  unsigned nexthop = 100000;
+  while (parcIterator_HasNext(it)) {
+    PARCUnsigned *cid = parcIterator_Next(it);
+    const StrategyNexthopStateWithPD *elem =
+        parcHashMap_Get(strategy->strategy_state, cid);
+
+    double w = strategyNexthopStateWithPD_GetWeight(elem);
+
+    // printf("next = %u .. pi %u avgpi %f w %f avgrtt
+    // %f\n",parcUnsigned_GetUnsigned(cid),
+    // strategyNexthopStateWithPD_GetPI(elem),
+    //        strategyNexthopStateWithPD_GetWeight(elem),
+    //        strategyNexthopStateWithPD_GetWeight(elem),
+    //        strategyNexthopStateWithPD_GetAvgRTT(elem));
+
+    double prob = w / strategy->weights_sum;
+    if ((rnd >= start_range) && (rnd < (start_range + prob))) {
+      nexthop = parcUnsigned_GetUnsigned(cid);
+      break;
+    } else {
+      start_range += prob;
+    }
+  }
+
+  parcIterator_Release(&it);
+
+  // if no face is selected by the algorithm (for example because of a wrong
+  // round in the weights) we may always select the last face here. Double check
+  // this!
+  return nexthop;
+}
+#else
 static unsigned _select_Nexthop(StrategyLoadBalancerWithPD *strategy) {
   strategy->fwdPackets++;
   if (strategy->toInit || strategy->fwdPackets == PROBE_FREQUENCY) {
@@ -193,6 +280,7 @@ static unsigned _select_Nexthop(StrategyLoadBalancerWithPD *strategy) {
   // this!
   return nexthop;
 }
+#endif /* WITH_POLICY */
 
 static void _strategyLoadBalancerWithPD_ReceiveObject(
     StrategyImpl *strategy, const NumberSet *egressId,
@@ -242,7 +330,11 @@ static void _strategyLoadBalancerWithPD_OnTimeout(StrategyImpl *strategy,
 // function never returns NULL. in case we have no output face we need to return
 // an empty NumberSet
 static NumberSet *_strategyLoadBalancerWithPD_LookupNexthop(
-    StrategyImpl *strategy, const Message *interestMessage) {
+    StrategyImpl *strategy,
+#ifdef WITH_POLICY
+    NumberSet * nexthops,
+#endif
+    const Message *interestMessage) {
   StrategyLoadBalancerWithPD *lb =
       (StrategyLoadBalancerWithPD *)strategy->context;
 
@@ -262,7 +354,11 @@ static NumberSet *_strategyLoadBalancerWithPD_LookupNexthop(
 
   unsigned out_connection;
   do {
+#ifdef WITH_POLICY
+    out_connection = _select_Nexthop(lb, nexthops);
+#else
     out_connection = _select_Nexthop(lb);
+#endif /* WITH_POLICY */
   } while (out_connection == in_connection);
 
   PARCUnsigned *out = parcUnsigned_Create(out_connection);
@@ -284,6 +380,7 @@ static NumberSet *_strategyLoadBalancerWithPD_LookupNexthop(
   return outList;
 }
 
+#ifndef WITH_POLICY
 static NumberSet *_strategyLoadBalancerWithPD_ReturnNexthops(
     StrategyImpl *strategy) {
   StrategyLoadBalancerWithPD *lb =
@@ -296,6 +393,7 @@ unsigned _strategyLoadBalancerWithPD_CountNexthops(StrategyImpl *strategy) {
       (StrategyLoadBalancerWithPD *)strategy->context;
   return (unsigned)numberSet_Length(lb->nexthops);
 }
+#endif /* WITH_POLICY */
 
 static void _strategyLoadBalancerWithPD_resetState(StrategyImpl *strategy) {
   StrategyLoadBalancerWithPD *lb =
@@ -328,7 +426,9 @@ static void _strategyLoadBalancerWithPD_AddNexthop(StrategyImpl *strategy,
 
   if (!parcHashMap_Contains(lb->strategy_state, cid)) {
     parcHashMap_Put(lb->strategy_state, cid, state);
+#ifndef WITH_POLICY
     numberSet_Add(lb->nexthops, connectionId);
+#endif /* ! WITH_POLICY */
     _strategyLoadBalancerWithPD_resetState(strategy);
   }
 }
@@ -342,7 +442,9 @@ static void _strategyLoadBalancerWithPD_RemoveNexthop(StrategyImpl *strategy,
 
   if (parcHashMap_Contains(lb->strategy_state, cid)) {
     parcHashMap_Remove(lb->strategy_state, cid);
+#ifndef WITH_POLICY
     numberSet_Remove(lb->nexthops, connectionId);
+#endif /* ! WITH_POLICY */
     _strategyLoadBalancerWithPD_resetState(strategy);
   }
 
@@ -360,7 +462,9 @@ static void _strategyLoadBalancerWithPD_ImplDestroy(
       (StrategyLoadBalancerWithPD *)impl->context;
 
   parcHashMap_Release(&(strategy->strategy_state));
+#ifndef WITH_POLICY
   numberSet_Release(&(strategy->nexthops));
+#endif /* ! WITH_POLICY */
 
   parcMemory_Deallocate((void **)&strategy);
   parcMemory_Deallocate((void **)&impl);

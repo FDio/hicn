@@ -160,7 +160,11 @@ static PITVerdict _pitStandard_ReceiveInterest(PIT *generic,
                      (void *)interestMessage, pitEntry_GetExpiryTime(pitEntry));
         }
 
+#ifdef WITH_POLICY
+        return PITVerdict_Retransmit;
+#else
         return PITVerdict_Forward;
+#endif /* WITH_POLICY */
       }
 
       // It is in the PIT but this is the first interest for the reverse path

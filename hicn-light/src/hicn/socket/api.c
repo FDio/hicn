@@ -36,7 +36,6 @@ static hicn_conf_t hicn_default_conf = {
 };
 
 /* Global state */
-// FIXME move into helper state ?
 
 struct ip_rule_state_ {
   char tun_name[IF_NAMESIZE];
@@ -60,8 +59,6 @@ uint16_t rules_counter;
 uint16_t routes_counter;
 static ip_rule_state rules_to_remove[MAX_TABLES];
 static ip_route_state routes_to_remove[MAX_TABLES];
-
-// END FIXME
 
 hicn_socket_helper_t *hicn_create() {
   int rc;
@@ -265,8 +262,6 @@ end:
   return rc;
 }
 
-// XXX This could be used by hicn_set_remote_endpoint
-// XXX This has been introduced for mapme
 int hicn_get_local_address(const ip_address_t *remote_address,
                            ip_address_t *local_address) {
   int rc = 0;
@@ -520,11 +515,9 @@ int hicn_bind(hicn_socket_helper_t *hicn, int fd,
   // each connection is associated a table id, let's take it equal to the
   // tun ID by default (% MAX_TABLES, assuming TUN IDs do not overlap modulo
   // 256...).
-  // XXX we need to make sure the corresponding table is flushed.
   socket->connection.table_id =
       socket->tun_id % MAX_TABLES;  // interface_id; // ops.get_free_table_id();
 
-  // XXX use IP address
   rc = hicn_set_remote_endpoint(socket, remote_ip_address);
   if (rc < 0) {
     goto ERR;
