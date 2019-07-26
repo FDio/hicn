@@ -156,7 +156,11 @@ ListenerSet *forwarder_GetListenerSet(Forwarder *forwarder);
  * @retval null An error
  *
  */
+#ifdef WITH_POLICY
+ConnectionTable *forwarder_GetConnectionTable(const Forwarder *forwarder);
+#else
 ConnectionTable *forwarder_GetConnectionTable(Forwarder *forwarder);
+#endif /* WITH_POLICY */
 
 /**
  * Returns a Tick-based clock
@@ -209,6 +213,20 @@ bool forwarder_AddOrUpdateRoute(Forwarder *forwarder,
 bool forwarder_RemoveRoute(Forwarder *forwarder, remove_route_command *control,
                            unsigned ifidx);
 
+#ifdef WITH_POLICY
+/**
+ * @function forwarder_AddOrUpdatePolicy
+ * @abstract Adds or updates a policy on the message processor
+ */
+bool forwarder_AddOrUpdatePolicy(Forwarder *forwarder, add_policy_command *control);
+
+/**
+ * @function forwarder_RemovePolicy
+ * @abstract Removes a policy from the message processor
+ */
+bool forwarder_RemovePolicy(Forwarder *forwarder, remove_policy_command *control);
+#endif /* WITH_POLICY */
+
 /**
  * Removes a connection id from all routes
  */
@@ -260,23 +278,14 @@ hicn_socket_helper_t *forwarder_GetHicnSocketHelper(Forwarder *forwarder);
 FIB *forwarder_getFib(Forwarder *forwarder);
 
 /**
- * @function forwarder_onConnectionAdded
+ * @function forwarder_onConnectionEvent
  * @abstract Callback fired upon addition of a new connection through the
  *   control protocol.
  * @param [in] forwarder - Pointer to the hICN forwarder.
  * @param [in] conn - Pointer to the newly added connection.
+ * @param [in] event - Connection event
  */
-void forwarder_onConnectionAdded(Forwarder *forwarder, const Connection *conn);
-
-/**
- * @function forwarder_onConnectionRemoved
- * @abstract Callback fired upon removal of a connection through the control
- *   protocol.
- * @param [in] forwarder - Pointer to the hICN forwarder.
- * @param [in] conn - Pointer to the removed connection.
- */
-void forwarder_onConnectionRemoved(Forwarder *forwarder,
-                                   const Connection *conn);
+void forwarder_onConnectionEvent(Forwarder *forwarder, const Connection *conn, connection_event_t event);
 
 /**
  * @function forwarder_ProcessMapMe
@@ -286,8 +295,11 @@ void forwarder_onConnectionRemoved(Forwarder *forwarder,
  * @param [in] msgBuffer - MAP-Me buffer
  * @param [in] conn_id - Ingress connection id
  */
-void forwarder_ProcessMapMe(Forwarder *forwarder, uint8_t *msgBuffer,
+void forwarder_ProcessMapMe(Forwarder *forwarder, const uint8_t *msgBuffer,
                             unsigned conn_id);
+
+struct mapme;
+struct mapme * forwarder_getMapmeInstance(const Forwarder *forwarder);
 
 #endif /* WITH_MAPME */
 

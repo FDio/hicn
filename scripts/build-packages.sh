@@ -42,7 +42,7 @@ install_cmake() {
     fi
 
     cat /etc/resolv.conf
-
+``
     CMAKE_INSTALL_SCRIPT_URL="https://cmake.org/files/v3.8/cmake-3.8.0-Linux-x86_64.sh"
     CMAKE_INSTALL_SCRIPT="/tmp/install_cmake.sh"
     curl ${CMAKE_INSTALL_SCRIPT_URL} > ${CMAKE_INSTALL_SCRIPT}

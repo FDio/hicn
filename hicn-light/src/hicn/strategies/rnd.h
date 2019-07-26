@@ -23,4 +23,5 @@
 #include <hicn/strategies/strategyImpl.h>
 
 StrategyImpl* strategyRnd_Create();
+
 #endif  // rnd_h

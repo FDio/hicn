@@ -35,18 +35,47 @@
 #include <parc/assert/parc_Assert.h>
 
 #include <hicn/utils/commands.h>
+#include <hicn/core/connectionState.h>
+
+#ifdef WITH_POLICY
+#include <hicn/core/forwarder.h>
+#include <hicn/utils/policy.h>
+
+#ifdef WITH_MAPME
+#include <hicn/core/mapMe.h>
+#endif /* WITH_MAPME */
+
+#define ALPHA 0.5
+
+#endif /* WITH_POLICY */
 
 struct fib_entry {
   Name *name;
   unsigned refcount;
   StrategyImpl *fwdStrategy;
+#ifdef WITH_POLICY
+  NumberSet *nexthops;
+  const Forwarder * forwarder;
+  policy_t policy;
+  policy_counters_t policy_counters;
+  NumberSet *available_nexthops;
+#ifdef WITH_MAPME
+  /* In case of no multipath, this stores the previous decision taken by policy */
+  unsigned previous_nexthop;
+#endif /* WITH_MAPME */
+#endif /* WITH_POLICY */
 #ifdef WITH_MAPME
   void *userData;
   void (*userDataRelease)(void **userData);
 #endif /* WITH_MAPME */
 };
 
+#ifdef WITH_POLICY
+FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy, const Forwarder * forwarder) {
+  ConnectionTable * table = forwarder_GetConnectionTable(forwarder);
+#else
 FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
+#endif /* WITH_POLICY */
   FibEntry *fibEntry = parcMemory_AllocateAndClear(sizeof(FibEntry));
   parcAssertNotNull(fibEntry, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(FibEntry));
@@ -55,27 +84,47 @@ FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
   if (fwdStrategy) {
     switch (fwdStrategy) {
       case SET_STRATEGY_LOADBALANCER:
+#ifdef WITH_POLICY
+        fibEntry->fwdStrategy = strategyLoadBalancer_Create(table);
+#else
         fibEntry->fwdStrategy = strategyLoadBalancer_Create();
+#endif /* WITH_POLICY */
         break;
 
       case SET_STRATEGY_RANDOM_PER_DASH_SEGMENT:
+#ifdef WITH_POLICY
+        fibEntry->fwdStrategy = strategyRndSegment_Create(table);
+#else
         fibEntry->fwdStrategy = strategyRndSegment_Create();
+#endif /* WITH_POLICY */
         break;
 
       case SET_STRATEGY_LOADBALANCER_WITH_DELAY:
+#ifdef WITH_POLICY
+        fibEntry->fwdStrategy = strategyLoadBalancerWithPD_Create(table);
+#else
         fibEntry->fwdStrategy = strategyLoadBalancerWithPD_Create();
+#endif /* WITH_POLICY */
         break;
 
       default:
-        // LB is the defualt strategy
+        // LB is the default strategy
+#ifdef WITH_POLICY
+        fibEntry->fwdStrategy = strategyLoadBalancer_Create(table);
+#else
         fibEntry->fwdStrategy = strategyLoadBalancer_Create();
+#endif /* WITH_POLICY */
         // the LB strategy is the default one
         // other strategies can be set using the appropiate function
         break;
     }
 
   } else {
+#ifdef WITH_POLICY
+    fibEntry->fwdStrategy = strategyLoadBalancer_Create(table);
+#else
     fibEntry->fwdStrategy = strategyLoadBalancer_Create();
+#endif /* WITH_POLICY */
   }
 
   fibEntry->refcount = 1;
@@ -84,6 +133,16 @@ FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
   fibEntry->userData = NULL;
   fibEntry->userDataRelease = NULL;
 #endif /* WITH_MAPME */
+
+#ifdef WITH_POLICY
+  fibEntry->nexthops = numberSet_Create();
+  fibEntry->forwarder = forwarder;
+  fibEntry->policy = POLICY_NONE;
+  fibEntry->policy_counters = POLICY_COUNTERS_NONE;
+#ifdef WITH_MAPME
+  fibEntry->previous_nexthop = ~0;
+#endif /* WITH_MAPME */
+#endif /* WITH_POLICY */
 
   return fibEntry;
 }
@@ -114,23 +173,42 @@ void fibEntry_Release(FibEntry **fibEntryPtr) {
 
 void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy) {
   StrategyImpl *fwdStrategyImpl;
+#ifdef WITH_POLICY
+  ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
+#endif /* WITH_POLICY */
 
   switch (strategy) {
     case SET_STRATEGY_LOADBALANCER:
+#ifdef WITH_POLICY
+      fwdStrategyImpl = strategyLoadBalancer_Create(table);
+#else
       fwdStrategyImpl = strategyLoadBalancer_Create();
+#endif /* WITH_POLICY */
       break;
 
     case SET_STRATEGY_RANDOM_PER_DASH_SEGMENT:
+#ifdef WITH_POLICY
+      fwdStrategyImpl = strategyRndSegment_Create(table);
+#else
       fwdStrategyImpl = strategyRndSegment_Create();
+#endif /* WITH_POLICY */
       break;
 
     case SET_STRATEGY_LOADBALANCER_WITH_DELAY:
+#ifdef WITH_POLICY
+      fwdStrategyImpl = strategyLoadBalancerWithPD_Create(table);
+#else
       fwdStrategyImpl = strategyLoadBalancerWithPD_Create();
+#endif /* WITH_POLICY */
       break;
 
     default:
       // LB is the defualt strategy
+#ifdef WITH_POLICY
+      fwdStrategyImpl = strategyLoadBalancer_Create(table);
+#else
       fwdStrategyImpl = strategyLoadBalancer_Create();
+#endif /* WITH_POLICY */
       // the LB strategy is the default one
       // other strategies can be set using the appropiate function
       break;
@@ -145,46 +223,647 @@ void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy) {
   fibEntry->fwdStrategy->destroy(&(fibEntry->fwdStrategy));
   fibEntry->fwdStrategy = fwdStrategyImpl;
 }
+
+#ifdef WITH_POLICY
+
+/*
+ * Update available next hops following policy update.
+ */
+NumberSet *
+fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) {
+  ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
+  NumberSet * nexthops;
+  policy_t policy = fibEntry_GetPolicy(fibEntry);
+
+  /* Reset available next hops and start filtering */
+  NumberSet * available_nexthops = numberSet_Create();
+
+  /*
+   * Give absolute preference to local faces, with no policy, unless
+   * in_connection == ~0, which means we are searching faces on which to
+   * advertise our prefix
+   */
+  if (in_connection == ~0) {
+    /* We might advertise among all available up connections */
+    nexthops = numberSet_Create();
+
+    ConnectionList * list = connectionTable_GetEntries(table);
+    for (size_t i = 0; i < connectionList_Length(list); i++) {
+      Connection *conn = connectionList_Get(list, i);
+      if (connection_GetState(conn) == CONNECTION_STATE_DOWN)
+        continue;
+      if (connection_IsLocal(conn))
+        continue;
+      numberSet_Add(nexthops, connection_GetConnectionId(conn));
+    }
+
+  } else {
+    nexthops = (NumberSet*)fibEntry_GetNexthops(fibEntry);
+    for (size_t k = 0; k < numberSet_Length(nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(nexthops, k);
+      /* Filtering out ingress face */
+      if (conn_id == in_connection)
+        continue;
+      /* Filtering out DOWN faces */
+      const Connection *  conn = connectionTable_FindById(table, conn_id);
+      if (!conn)
+        continue;
+      if (connection_GetState(conn) == CONNECTION_STATE_DOWN)
+        continue;
+      if (!connection_IsLocal(conn))
+        continue;
+      numberSet_Add(available_nexthops, conn_id);
+    }
+
+    if (numberSet_Length(available_nexthops) > 0)
+      return available_nexthops;
+  }
+
+  for (size_t k = 0; k < numberSet_Length(nexthops); k++) {
+    unsigned conn_id = numberSet_GetItem(nexthops, k);
+    const Connection * conn;
+
+    /* Filtering out ingress face */
+    if (conn_id == in_connection)
+      continue;
+
+    /* Filtering out DOWN faces */
+    conn = connectionTable_FindById(table, conn_id);
+    if (!conn)
+      continue;
+    if (connection_GetState(conn) == CONNECTION_STATE_DOWN)
+      continue;
+
+    /* Policy filtering : next hops */
+    if ((policy.tags[POLICY_TAG_WIRED].state == POLICY_STATE_REQUIRE) &&
+        (!connection_HasTag(conn, POLICY_TAG_WIRED)))
+      continue;
+    if ((policy.tags[POLICY_TAG_WIRED].state == POLICY_STATE_PROHIBIT) &&
+        (connection_HasTag(conn, POLICY_TAG_WIRED)))
+      continue;
+    if ((policy.tags[POLICY_TAG_WIFI].state == POLICY_STATE_REQUIRE) &&
+        (!connection_HasTag(conn, POLICY_TAG_WIFI)))
+      continue;
+    if ((policy.tags[POLICY_TAG_WIFI].state == POLICY_STATE_PROHIBIT) &&
+        (connection_HasTag(conn, POLICY_TAG_WIFI)))
+      continue;
+    if ((policy.tags[POLICY_TAG_CELLULAR].state == POLICY_STATE_REQUIRE) &&
+        (!connection_HasTag(conn, POLICY_TAG_CELLULAR)))
+      continue;
+    if ((policy.tags[POLICY_TAG_CELLULAR].state == POLICY_STATE_PROHIBIT) &&
+        (connection_HasTag(conn, POLICY_TAG_CELLULAR)))
+      continue;
+    if ((policy.tags[POLICY_TAG_TRUSTED].state == POLICY_STATE_REQUIRE) &&
+        (!connection_HasTag(conn, POLICY_TAG_TRUSTED)))
+      continue;
+    if ((policy.tags[POLICY_TAG_TRUSTED].state == POLICY_STATE_PROHIBIT) &&
+        (connection_HasTag(conn, POLICY_TAG_TRUSTED)))
+      continue;
+
+    numberSet_Add(available_nexthops, conn_id);
+  }
+
+  if (numberSet_Length(available_nexthops) == 0)
+    return available_nexthops;
+
+  /* We have at least one matching next hop, implement heuristic */
+
+  /*
+   * As VPN connections might trigger duplicate uses of one interface, we start
+   * by filtering out interfaces based on trust status.
+   */
+  NumberSet * filtered_nexthops = numberSet_Create();
+  if ((policy.tags[POLICY_TAG_TRUSTED].state == POLICY_STATE_REQUIRE) ||
+      (policy.tags[POLICY_TAG_TRUSTED].state == POLICY_STATE_PREFER)) {
+    /* Try to filter out NON TRUSTED faces */
+    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
+      const Connection * conn = connectionTable_FindById(table, conn_id);
+      if (!connection_HasTag(conn, POLICY_TAG_TRUSTED))
+          continue;
+      numberSet_Add(filtered_nexthops, conn_id);
+    }
+  } else {
+      /* Try to filter out TRUSTED faces */
+    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
+      const Connection * conn = connectionTable_FindById(table, conn_id);
+      if (connection_HasTag(conn, POLICY_TAG_TRUSTED))
+          continue;
+      numberSet_Add(filtered_nexthops, conn_id);
+    }
+  }
+  if (numberSet_Length(filtered_nexthops) > 0) {
+    numberSet_Release(&available_nexthops);
+    available_nexthops = numberSet_Create();
+    numberSet_AddSet(available_nexthops, filtered_nexthops);
+  }
+  numberSet_Release(&filtered_nexthops);
+
+  /* Other preferences */
+  if (policy.tags[POLICY_TAG_WIRED].state == POLICY_STATE_AVOID) {
+    filtered_nexthops = numberSet_Create();
+    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
+      const Connection * conn = connectionTable_FindById(table, conn_id);
+      if (connection_HasTag(conn, POLICY_TAG_WIRED))
+          continue;
+      numberSet_Add(filtered_nexthops, conn_id);
+    }
+    if (numberSet_Length(filtered_nexthops) > 0) {
+        numberSet_Release(&available_nexthops);
+        available_nexthops = numberSet_Create();
+        numberSet_AddSet(available_nexthops, filtered_nexthops);
+    }
+    numberSet_Release(&filtered_nexthops);
+  }
+  if (policy.tags[POLICY_TAG_WIFI].state == POLICY_STATE_AVOID) {
+    filtered_nexthops = numberSet_Create();
+    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
+      const Connection * conn = connectionTable_FindById(table, conn_id);
+      if (connection_HasTag(conn, POLICY_TAG_WIFI))
+          continue;
+      numberSet_Add(filtered_nexthops, conn_id);
+    }
+    if (numberSet_Length(filtered_nexthops) > 0) {
+        numberSet_Release(&available_nexthops);
+        available_nexthops = numberSet_Create();
+        numberSet_AddSet(available_nexthops, filtered_nexthops);
+    }
+    numberSet_Release(&filtered_nexthops);
+  }
+  if (policy.tags[POLICY_TAG_CELLULAR].state == POLICY_STATE_AVOID) {
+    filtered_nexthops = numberSet_Create();
+    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
+      const Connection * conn = connectionTable_FindById(table, conn_id);
+      if (connection_HasTag(conn, POLICY_TAG_CELLULAR))
+          continue;
+      numberSet_Add(filtered_nexthops, conn_id);
+    }
+    if (numberSet_Length(filtered_nexthops) > 0) {
+        numberSet_Release(&available_nexthops);
+        available_nexthops = numberSet_Create();
+        numberSet_AddSet(available_nexthops, filtered_nexthops);
+    }
+    numberSet_Release(&filtered_nexthops);
+  }
+
+  if (policy.tags[POLICY_TAG_WIRED].state == POLICY_STATE_PREFER) {
+    filtered_nexthops = numberSet_Create();
+    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
+      const Connection * conn = connectionTable_FindById(table, conn_id);
+      if (!connection_HasTag(conn, POLICY_TAG_WIRED))
+          continue;
+      numberSet_Add(filtered_nexthops, conn_id);
+    }
+    if (numberSet_Length(filtered_nexthops) > 0) {
+        numberSet_Release(&available_nexthops);
+        available_nexthops = numberSet_Create();
+        numberSet_AddSet(available_nexthops, filtered_nexthops);
+    }
+    numberSet_Release(&filtered_nexthops);
+  }
+  if (policy.tags[POLICY_TAG_WIFI].state == POLICY_STATE_PREFER) {
+    filtered_nexthops = numberSet_Create();
+    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
+      const Connection * conn = connectionTable_FindById(table, conn_id);
+      if (!connection_HasTag(conn, POLICY_TAG_WIFI))
+          continue;
+      numberSet_Add(filtered_nexthops, conn_id);
+    }
+    if (numberSet_Length(filtered_nexthops) > 0) {
+        numberSet_Release(&available_nexthops);
+        available_nexthops = numberSet_Create();
+        numberSet_AddSet(available_nexthops, filtered_nexthops);
+    }
+    numberSet_Release(&filtered_nexthops);
+  }
+  if (policy.tags[POLICY_TAG_CELLULAR].state == POLICY_STATE_PREFER) {
+    filtered_nexthops = numberSet_Create();
+    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
+      const Connection * conn = connectionTable_FindById(table, conn_id);
+      if (!connection_HasTag(conn, POLICY_TAG_CELLULAR))
+          continue;
+      numberSet_Add(filtered_nexthops, conn_id);
+    }
+    if (numberSet_Length(filtered_nexthops) > 0) {
+        numberSet_Release(&available_nexthops);
+        available_nexthops = numberSet_Create();
+        numberSet_AddSet(available_nexthops, filtered_nexthops);
+    }
+    numberSet_Release(&filtered_nexthops);
+  }
+
+  return available_nexthops;
+}
+
+policy_t fibEntry_GetPolicy(const FibEntry *fibEntry) {
+  return fibEntry->policy;
+}
+
+void fibEntry_ReconsiderPolicy(FibEntry *fibEntry) {
+#ifdef WITH_MAPME
+  NumberSet * available_nexthops = fibEntry_GetAvailableNextHops(fibEntry, ~0);
+
+  if (numberSet_Length(available_nexthops) == 0)
+    goto END;
+
+  /* Multipath */
+  if ((fibEntry->policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_PROHIBIT) &&
+        (fibEntry->policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_AVOID))
+    goto END;
+
+  unsigned nexthop = numberSet_GetItem(available_nexthops, 0);
+  if (nexthop != fibEntry->previous_nexthop) {
+    /* Policy has elected a new nexthop, signal it using MAP-Me */
+    fibEntry->previous_nexthop = nexthop;
+    ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
+    const Connection * conn = connectionTable_FindById(table, nexthop);
+    mapMe_onPolicyUpdate(forwarder_getMapmeInstance(fibEntry->forwarder), conn, fibEntry);
+  }
+
+END:
+  numberSet_Release(&available_nexthops);
+#endif /* WITH_MAPME */
+}
+
+void fibEntry_SetPolicy(FibEntry *fibEntry, policy_t policy) {
+  fibEntry->policy = policy;
+  fibEntry_ReconsiderPolicy(fibEntry);
+}
+
+#endif /* WITH_POLICY */
+
 void fibEntry_AddNexthop(FibEntry *fibEntry, unsigned connectionId) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
+#ifdef WITH_POLICY
+  if (!numberSet_Contains(fibEntry->nexthops, connectionId)) {
+    numberSet_Add(fibEntry->nexthops, connectionId);
+  }
+#endif /* WITH_POLICY */
   fibEntry->fwdStrategy->addNexthop(fibEntry->fwdStrategy, connectionId);
 }
 
 void fibEntry_RemoveNexthopByConnectionId(FibEntry *fibEntry,
                                           unsigned connectionId) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
+#ifdef WITH_POLICY
+  if (numberSet_Contains(fibEntry->nexthops, connectionId)) {
+    numberSet_Remove(fibEntry->nexthops, connectionId);
+  }
+#endif /* WITH_POLICY */
   fibEntry->fwdStrategy->removeNexthop(fibEntry->fwdStrategy, connectionId);
 }
 
 size_t fibEntry_NexthopCount(const FibEntry *fibEntry) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
+#ifdef WITH_POLICY
+  return numberSet_Length(fibEntry->nexthops);
+#else
   return fibEntry->fwdStrategy->countNexthops(fibEntry->fwdStrategy);
+#endif /* WITH_POLICY */
 }
 
 const NumberSet *fibEntry_GetNexthops(const FibEntry *fibEntry) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
+#ifdef WITH_POLICY
+  return fibEntry->nexthops;
+#else
   return fibEntry->fwdStrategy->returnNexthops(fibEntry->fwdStrategy);
+#endif /* WITH_POLICY */
 }
 
 const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
+#ifdef WITH_POLICY
+    FibEntry *fibEntry, const Message *interestMessage, bool is_retransmission) {
+#else
     const FibEntry *fibEntry, const Message *interestMessage) {
+#endif /* WITH_POLICY */
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
+#ifdef WITH_POLICY
+  ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
+  unsigned in_connection = message_GetIngressConnectionId(interestMessage);
+
+  policy_t policy = fibEntry_GetPolicy(fibEntry);
+
+  NumberSet * out;
+
+  /* Filtering */
+  NumberSet * available_nexthops = fibEntry_GetAvailableNextHops(fibEntry, in_connection);
+  if (numberSet_Length(available_nexthops) == 0) {
+    numberSet_Release(&available_nexthops);
+    out = numberSet_Create();
+    return out;
+  }
+
+  /*
+   * Update statistics about loss rates. We only detect losses upon
+   * retransmissions, and assume for the computation that the candidate set of
+   * output faces is the same as previously (i.e. does not take into account
+   * event such as face up/down, policy update, etc. Otherwise we would need to
+   * know what was the previous choice !
+   */
+  if (is_retransmission) {
+    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
+      const Connection * conn = connectionTable_FindById(table, conn_id);
+
+      if (connection_HasTag(conn, POLICY_TAG_WIRED))
+        fibEntry->policy_counters.wired.num_losses++;
+      if (connection_HasTag(conn, POLICY_TAG_WIFI))
+        fibEntry->policy_counters.wifi.num_losses++;
+      if (connection_HasTag(conn, POLICY_TAG_CELLULAR))
+        fibEntry->policy_counters.cellular.num_losses++;
+      fibEntry->policy_counters.all.num_losses++;
+    }
+  }
+
+  /*
+   * NOTE: We might want to call a forwarding strategy even with no nexthop to
+   * take a fallback decision.
+   */
+  if (numberSet_Length(available_nexthops) == 0) {
+    out = numberSet_Create();
+  } else {
+    /* Multipath */
+    if ((policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_PROHIBIT) &&
+        (policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_AVOID)) {
+      out = fibEntry->fwdStrategy->lookupNexthop(fibEntry->fwdStrategy, available_nexthops,
+          interestMessage);
+    } else {
+      unsigned nexthop = numberSet_GetItem(available_nexthops, 0);
+      out = numberSet_Create();
+      numberSet_Add(out, nexthop);
+    }
+  }
+
+  numberSet_Release(&available_nexthops);
+
+  return out;
+#else
   return fibEntry->fwdStrategy->lookupNexthop(fibEntry->fwdStrategy,
-                                              interestMessage);
+          interestMessage);
+#endif /* WITH_POLICY */
 }
 
+#ifdef WITH_POLICY
+void fibEntry_ReceiveObjectMessage(FibEntry *fibEntry,
+#else
 void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
+#endif /* WITH_POLICY */
                                    const NumberSet *egressId,
                                    const Message *objectMessage, Ticks rtt) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
+
+#ifdef WITH_POLICY
+  ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
+
+  /* Update statistic counters : */
+
+  size_t msg_size = message_Length(objectMessage);
+
+  for (unsigned i = 0; i < numberSet_Length(egressId); i++) {
+    unsigned conn_id = numberSet_GetItem(egressId, i);
+    const Connection * conn = connectionTable_FindById(table, conn_id);
+    if (!conn)
+      continue;
+    if (connection_HasTag(conn, POLICY_TAG_WIRED)) {
+      fibEntry->policy_counters.wired.num_packets++;
+      fibEntry->policy_counters.wired.num_bytes += msg_size;
+      fibEntry->policy.stats.wired.latency = \
+                      ALPHA       * fibEntry->policy.stats.wired.latency + \
+                      (1 - ALPHA) * (double)rtt;
+      fibEntry->policy_counters.wired.latency_idle = 0;
+    }
+    if (connection_HasTag(conn, POLICY_TAG_WIFI)) {
+      fibEntry->policy_counters.wifi.num_packets++;
+      fibEntry->policy_counters.wifi.num_bytes += msg_size;
+      fibEntry->policy.stats.wifi.latency = \
+                      ALPHA       * fibEntry->policy.stats.wifi.latency + \
+                      (1 - ALPHA) * (double)rtt;
+      fibEntry->policy_counters.wifi.latency_idle = 0;
+
+    }
+    if (connection_HasTag(conn, POLICY_TAG_CELLULAR)) {
+      fibEntry->policy_counters.cellular.num_packets++;
+      fibEntry->policy_counters.cellular.num_bytes += msg_size;
+      fibEntry->policy.stats.cellular.latency = \
+                      ALPHA       * fibEntry->policy.stats.cellular.latency + \
+                      (1 - ALPHA) * (double)rtt;
+      fibEntry->policy_counters.cellular.latency_idle = 0;
+    }
+  }
+
+  fibEntry->policy.stats.all.latency = \
+                    ALPHA       * fibEntry->policy.stats.all.latency + \
+                    (1 - ALPHA) * (double)rtt;
+  fibEntry->policy_counters.all.latency_idle = 0;
+
+  fibEntry->policy_counters.all.num_packets++;
+  fibEntry->policy_counters.all.num_bytes += msg_size;
+
+#endif /* WITH_POLICY */
+
   fibEntry->fwdStrategy->receiveObject(fibEntry->fwdStrategy, egressId,
                                        objectMessage, rtt);
 }
 
+#ifdef WITH_POLICY
+void fibEntry_OnTimeout(FibEntry *fibEntry, const NumberSet *egressId) {
+#else
 void fibEntry_OnTimeout(const FibEntry *fibEntry, const NumberSet *egressId) {
+#endif /* WITH_POLICY */
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
+
+#ifdef WITH_POLICY
+
+  ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
+
+  for (unsigned i = 0; i < numberSet_Length(egressId); i++) {
+    unsigned conn_id = numberSet_GetItem(egressId, i);
+    const Connection * conn = connectionTable_FindById(table, conn_id);
+    if (!conn)
+      continue;
+    if (connection_HasTag(conn, POLICY_TAG_WIRED)) {
+      fibEntry->policy_counters.wired.num_losses++;
+    }
+    if (connection_HasTag(conn, POLICY_TAG_WIFI)) {
+      fibEntry->policy_counters.wifi.num_losses++;
+    }
+    if (connection_HasTag(conn, POLICY_TAG_CELLULAR)) {
+      fibEntry->policy_counters.cellular.num_losses++;
+    }
+  }
+
+  fibEntry->policy_counters.all.num_losses++;
+
+#endif /* WITH_POLICY */
+
   fibEntry->fwdStrategy->onTimeout(fibEntry->fwdStrategy, egressId);
 }
+
+#ifdef WITH_POLICY
+void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now) {
+  double throughput;
+  double loss_rate;
+
+  if (now == fibEntry->policy_counters.last_update)
+      return ;
+
+  /* WIRED */
+
+  /*  a) throughput */
+  if (fibEntry->policy_counters.wired.num_bytes > 0) {
+    throughput = fibEntry->policy_counters.wired.num_bytes / \
+          (now - fibEntry->policy_counters.last_update) ;
+    throughput = throughput * 8 / 1024;
+    if (throughput < 0)
+        throughput = 0;
+  } else {
+    throughput = 0;
+  }
+  fibEntry->policy.stats.wired.throughput = \
+        ALPHA     * fibEntry->policy.stats.wired.throughput + \
+        (1-ALPHA) * throughput;
+
+  /* b) loss rate */
+  if ((fibEntry->policy_counters.wired.num_losses > 0) && \
+          (fibEntry->policy_counters.wired.num_packets > 0)){
+      loss_rate = fibEntry->policy_counters.wired.num_losses / \
+            fibEntry->policy_counters.wired.num_packets;
+      loss_rate *= 100;
+  } else {
+      loss_rate = 0;
+  }
+  fibEntry->policy.stats.wired.loss_rate = \
+        ALPHA     * fibEntry->policy.stats.wired.loss_rate + \
+        (1-ALPHA) * loss_rate;
+
+  /* Latency */
+  fibEntry->policy_counters.wired.latency_idle++;
+  if (fibEntry->policy_counters.wired.latency_idle > 1)
+      fibEntry->policy.stats.wired.latency = 0;
+  fibEntry->policy_counters.wifi.latency_idle++;
+  if (fibEntry->policy_counters.wifi.latency_idle > 1)
+      fibEntry->policy.stats.wifi.latency = 0;
+  fibEntry->policy_counters.cellular.latency_idle++;
+  if (fibEntry->policy_counters.cellular.latency_idle > 1)
+      fibEntry->policy.stats.cellular.latency = 0;
+  fibEntry->policy_counters.all.latency_idle++;
+  if (fibEntry->policy_counters.all.latency_idle > 1)
+      fibEntry->policy.stats.all.latency = 0;
+
+  fibEntry->policy_counters.wired.num_bytes = 0;
+  fibEntry->policy_counters.wired.num_losses = 0;
+  fibEntry->policy_counters.wired.num_packets = 0;
+
+  /* WIFI */
+
+  /*  a) throughput */
+  if (fibEntry->policy_counters.wifi.num_bytes > 0) {
+    throughput = fibEntry->policy_counters.wifi.num_bytes / \
+          (now - fibEntry->policy_counters.last_update);
+    throughput = throughput * 8 / 1024;
+    if (throughput < 0)
+        throughput = 0;
+  } else {
+    throughput = 0;
+  }
+  fibEntry->policy.stats.wifi.throughput = \
+        ALPHA     * fibEntry->policy.stats.wifi.throughput + \
+        (1-ALPHA) * throughput;
+
+  /* b) loss rate */
+  if ((fibEntry->policy_counters.wifi.num_losses > 0) && \
+          (fibEntry->policy_counters.wifi.num_packets > 0)) {
+    loss_rate = fibEntry->policy_counters.wifi.num_losses / \
+          fibEntry->policy_counters.wifi.num_packets;
+      loss_rate *= 100;
+  } else {
+      loss_rate = 0;
+  }
+  fibEntry->policy.stats.wifi.loss_rate = \
+        ALPHA     * fibEntry->policy.stats.wifi.loss_rate + \
+        (1-ALPHA) * loss_rate;
+
+  fibEntry->policy_counters.wifi.num_bytes = 0;
+  fibEntry->policy_counters.wifi.num_losses = 0;
+  fibEntry->policy_counters.wifi.num_packets = 0;
+
+  /* CELLULAR */
+
+  /*  a) throughput */
+  if (fibEntry->policy_counters.cellular.num_bytes > 0) {
+    throughput = fibEntry->policy_counters.cellular.num_bytes / \
+          (now - fibEntry->policy_counters.last_update) ;
+    throughput = throughput * 8 / 1024;
+    if (throughput < 0)
+        throughput = 0;
+  } else {
+    throughput = 0;
+  }
+  fibEntry->policy.stats.cellular.throughput = \
+        ALPHA     * fibEntry->policy.stats.cellular.throughput + \
+        (1-ALPHA) * throughput;
+
+  /* b) loss rate */
+  if ((fibEntry->policy_counters.cellular.num_losses > 0) && \
+          (fibEntry->policy_counters.cellular.num_packets > 0)) {
+    loss_rate = fibEntry->policy_counters.cellular.num_losses / \
+          fibEntry->policy_counters.cellular.num_packets;
+      loss_rate *= 100;
+  } else {
+      loss_rate = 0;
+  }
+  fibEntry->policy.stats.cellular.loss_rate = \
+        ALPHA     * fibEntry->policy.stats.cellular.loss_rate + \
+        (1-ALPHA) * loss_rate;
+
+  fibEntry->policy_counters.cellular.num_bytes = 0;
+  fibEntry->policy_counters.cellular.num_losses = 0;
+  fibEntry->policy_counters.cellular.num_packets = 0;
+
+  /* ALL */
+
+  /*  a) throughput */
+  if (fibEntry->policy_counters.all.num_bytes > 0) {
+    throughput = fibEntry->policy_counters.all.num_bytes / \
+          (now - fibEntry->policy_counters.last_update);
+    throughput = throughput * 8 / 1024;
+    if (throughput < 0)
+        throughput = 0;
+  } else {
+    throughput = 0;
+  }
+  fibEntry->policy.stats.all.throughput = \
+        ALPHA     * fibEntry->policy.stats.all.throughput + \
+        (1-ALPHA) * throughput;
+
+  /* b) loss rate */
+  if ((fibEntry->policy_counters.all.num_losses > 0) && \
+          (fibEntry->policy_counters.all.num_packets > 0)) {
+    loss_rate = fibEntry->policy_counters.all.num_losses / \
+          fibEntry->policy_counters.all.num_packets;
+      loss_rate *= 100;
+  } else {
+      loss_rate = 0;
+  }
+  fibEntry->policy.stats.all.loss_rate = \
+        ALPHA     * fibEntry->policy.stats.all.loss_rate + \
+        (1-ALPHA) * loss_rate;
+
+  fibEntry->policy_counters.all.num_bytes = 0;
+  fibEntry->policy_counters.all.num_losses = 0;
+  fibEntry->policy_counters.all.num_packets = 0;
+
+  fibEntry->policy_counters.last_update = now;
+}
+#endif /* WITH_POLICY */
 
 Name *fibEntry_GetPrefix(const FibEntry *fibEntry) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
@@ -201,12 +880,6 @@ StrategyImpl *fibEntry_GetFwdStrategy(const FibEntry *fibEntry) {
 }
 
 #ifdef WITH_MAPME
-
-void fibEntry_AddNexthopByConnectionId(FibEntry *fibEntry,
-                                       unsigned connectionId) {
-  parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
-  fibEntry->fwdStrategy->addNexthop(fibEntry->fwdStrategy, connectionId);
-}
 
 void *fibEntry_getUserData(const FibEntry *fibEntry) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
