@@ -104,12 +104,6 @@ static CommandReturn _controlAddPunting_Execute(CommandParser *parser,
     *slash = '\0';
   }
 
-  if (len == 0) {
-    printf("ERROR: a prefix can not be of length 0\n");
-    free(addr);
-    return CommandReturn_Failure;
-  }
-
   // allocate command payload
   add_punting_command *addPuntingCommand =
       parcMemory_AllocateAndClear(sizeof(add_punting_command));

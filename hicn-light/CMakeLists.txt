@@ -54,7 +54,6 @@ find_package_wrapper(Libparc REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package_wrapper(Libhicn REQUIRED)
-  find_package_wrapper(Libparc REQUIRED)
   set(HICN_LIGHT hicn-light)
   set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control)
   set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon)

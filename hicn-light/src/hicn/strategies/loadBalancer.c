@@ -36,9 +36,15 @@ static void _strategyLoadBalancer_ReceiveObject(StrategyImpl *strategy,
 static void _strategyLoadBalancer_OnTimeout(StrategyImpl *strategy,
                                             const NumberSet *egressId);
 static NumberSet *_strategyLoadBalancer_LookupNexthop(
-    StrategyImpl *strategy, const Message *interestMessage);
+    StrategyImpl *strategy,
+#ifdef WITH_POLICY
+    NumberSet * nexthops,
+#endif /* WITH_POLICY */
+    const Message *interestMessage);
+#ifndef WITH_POLICY
 static NumberSet *_strategyLoadBalancer_ReturnNexthops(StrategyImpl *strategy);
 static unsigned _strategyLoadBalancer_CountNexthops(StrategyImpl *strategy);
+#endif /* ! WITH_POLICY */
 static void _strategyLoadBalancer_AddNexthop(StrategyImpl *strategy,
                                              unsigned connectionId);
 static void _strategyLoadBalancer_RemoveNexthop(StrategyImpl *strategy,
@@ -51,8 +57,10 @@ static StrategyImpl _template = {
     .receiveObject = &_strategyLoadBalancer_ReceiveObject,
     .onTimeout = &_strategyLoadBalancer_OnTimeout,
     .lookupNexthop = &_strategyLoadBalancer_LookupNexthop,
+#ifndef WITH_POLICY
     .returnNexthops = &_strategyLoadBalancer_ReturnNexthops,
     .countNexthops = &_strategyLoadBalancer_CountNexthops,
+#endif /* ! WITH_POLICY */
     .addNexthop = &_strategyLoadBalancer_AddNexthop,
     .removeNexthop = &_strategyLoadBalancer_RemoveNexthop,
     .destroy = &_strategyLoadBalancer_ImplDestroy,
@@ -63,10 +71,14 @@ struct strategy_load_balancer;
 typedef struct strategy_load_balancer StrategyLoadBalancer;
 
 struct strategy_load_balancer {
+#ifndef WITH_POLICY
   double weights_sum;
+#endif /* ! WITH_POLICY */
   // hash map from connectionId to StrategyNexthopState
   PARCHashMap *strategy_state;
+#ifndef WITH_POLICY
   NumberSet *nexthops;
+#endif /* ! WITH_POLICY */
 };
 
 StrategyImpl *strategyLoadBalancer_Create() {
@@ -75,9 +87,13 @@ StrategyImpl *strategyLoadBalancer_Create() {
   parcAssertNotNull(strategy, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(StrategyLoadBalancer));
 
+#ifndef WITH_POLICY
   strategy->weights_sum = 0.0;
+#endif /* ! WITH_POLICY */
   strategy->strategy_state = parcHashMap_Create();
+#ifndef WITH_POLICY
   strategy->nexthops = numberSet_Create();
+#endif /* ! WITH_POLICY */
   srand((unsigned int)time(NULL));
 
   StrategyImpl *impl = parcMemory_AllocateAndClear(sizeof(StrategyImpl));
@@ -99,12 +115,17 @@ strategy_type _strategyLoadBalancer_GetStrategy(StrategyImpl *strategy) {
 static void _update_Stats(StrategyLoadBalancer *strategy,
                           StrategyNexthopState *state, bool inc) {
   const double ALPHA = 0.9;
+#ifdef WITH_POLICY
+  strategyNexthopState_UpdateState(state, inc, ALPHA);
+#else
   double w = strategyNexthopState_GetWeight(state);
   strategy->weights_sum -= w;
   w = strategyNexthopState_UpdateState(state, inc, ALPHA);
   strategy->weights_sum += w;
+#endif /* WITH_POLICY */
 }
 
+#ifndef WITH_POLICY
 static unsigned _select_Nexthop(StrategyLoadBalancer *strategy) {
   double rnd = (double)rand() / (double)RAND_MAX;
   double start_range = 0.0;
@@ -135,6 +156,7 @@ static unsigned _select_Nexthop(StrategyLoadBalancer *strategy) {
   // this!
   return nexthop;
 }
+#endif /* ! WITH_POLICY */
 
 static void _strategyLoadBalancer_ReceiveObject(StrategyImpl *strategy,
                                                 const NumberSet *egressId,
@@ -164,14 +186,47 @@ static void _strategyLoadBalancer_OnTimeout(StrategyImpl *strategy,
 }
 
 static NumberSet *_strategyLoadBalancer_LookupNexthop(
-    StrategyImpl *strategy, const Message *interestMessage) {
+    StrategyImpl *strategy,
+#ifdef WITH_POLICY
+    NumberSet * nexthops,
+#endif /* WITH_POLICY */
+    const Message *interestMessage) {
   StrategyLoadBalancer *lb = (StrategyLoadBalancer *)strategy->context;
+  NumberSet *outList = numberSet_Create();
 
+#ifdef WITH_POLICY
+  /* Compute the sum of weights of potential next hops */
+  double sum = 0;
+  for (unsigned i = 0; i < numberSet_Length(nexthops); i++) {
+    PARCUnsigned *cid = parcUnsigned_Create(numberSet_GetItem(nexthops, i));
+    const StrategyNexthopState *elem =
+        parcHashMap_Get(lb->strategy_state, cid);
+    if (!elem)
+      continue;
+    sum += strategyNexthopState_GetWeight(elem);
+  }
+
+  /* Perform weighted random selection */
+  double distance = (double)rand() * sum / ((double)RAND_MAX + 1);
+
+  for (unsigned i = 0; i < numberSet_Length(nexthops); i++) {
+    PARCUnsigned *cid = parcUnsigned_Create(numberSet_GetItem(nexthops, i));
+    const StrategyNexthopState *state =
+        parcHashMap_Get(lb->strategy_state, cid);
+    if (!state)
+      continue;
+    distance -= strategyNexthopState_GetWeight(state);
+    if (distance < 0) {
+      numberSet_Add(outList, parcUnsigned_GetUnsigned(cid));
+      _update_Stats(lb, (StrategyNexthopState *)state, true);
+      break;
+    }
+  }
+#else
   unsigned in_connection = message_GetIngressConnectionId(interestMessage);
   PARCUnsigned *in = parcUnsigned_Create(in_connection);
 
   unsigned mapSize = (unsigned)parcHashMap_Size(lb->strategy_state);
-  NumberSet *outList = numberSet_Create();
 
   if ((mapSize == 0) ||
       ((mapSize == 1) && parcHashMap_Contains(lb->strategy_state, in))) {
@@ -201,9 +256,12 @@ static NumberSet *_strategyLoadBalancer_LookupNexthop(
   parcUnsigned_Release(&out);
 
   numberSet_Add(outList, out_connection);
+#endif /* WITH_POLICY */
+
   return outList;
 }
 
+#ifndef WITH_POLICY
 static NumberSet *_strategyLoadBalancer_ReturnNexthops(StrategyImpl *strategy) {
   StrategyLoadBalancer *lb = (StrategyLoadBalancer *)strategy->context;
   return lb->nexthops;
@@ -213,10 +271,13 @@ unsigned _strategyLoadBalancer_CountNexthops(StrategyImpl *strategy) {
   StrategyLoadBalancer *lb = (StrategyLoadBalancer *)strategy->context;
   return (unsigned)numberSet_Length(lb->nexthops);
 }
+#endif /* ! WITH_POLICY */
 
 static void _strategyLoadBalancer_resetState(StrategyImpl *strategy) {
   StrategyLoadBalancer *lb = (StrategyLoadBalancer *)strategy->context;
+#ifndef WITH_POLICY
   lb->weights_sum = 0.0;
+#endif/* ! WITH_POLICY */
   PARCIterator *it = parcHashMap_CreateKeyIterator(lb->strategy_state);
 
   while (parcIterator_HasNext(it)) {
@@ -225,7 +286,9 @@ static void _strategyLoadBalancer_resetState(StrategyImpl *strategy) {
         (StrategyNexthopState *)parcHashMap_Get(lb->strategy_state, cid);
 
     strategyNexthopState_Reset(elem);
+#ifndef WITH_POLICY
     lb->weights_sum += strategyNexthopState_GetWeight(elem);
+#endif /* ! WITH_POLICY */
   }
 
   parcIterator_Release(&it);
@@ -241,7 +304,9 @@ static void _strategyLoadBalancer_AddNexthop(StrategyImpl *strategy,
 
   if (!parcHashMap_Contains(lb->strategy_state, cid)) {
     parcHashMap_Put(lb->strategy_state, cid, state);
+#ifndef WITH_POLICY
     numberSet_Add(lb->nexthops, connectionId);
+#endif /* WITH_POLICY */
     _strategyLoadBalancer_resetState(strategy);
   }
 }
@@ -254,7 +319,9 @@ static void _strategyLoadBalancer_RemoveNexthop(StrategyImpl *strategy,
 
   if (parcHashMap_Contains(lb->strategy_state, cid)) {
     parcHashMap_Remove(lb->strategy_state, cid);
+#ifndef WITH_POLICY
     numberSet_Remove(lb->nexthops, connectionId);
+#endif /* WITH_POLICY */
     _strategyLoadBalancer_resetState(strategy);
   }
 
@@ -270,7 +337,9 @@ static void _strategyLoadBalancer_ImplDestroy(StrategyImpl **strategyPtr) {
   StrategyLoadBalancer *strategy = (StrategyLoadBalancer *)impl->context;
 
   parcHashMap_Release(&(strategy->strategy_state));
+#ifndef WITH_POLICY
   numberSet_Release(&(strategy->nexthops));
+#endif /* ! WITH_POLICY */
 
   parcMemory_Deallocate((void **)&strategy);
   parcMemory_Deallocate((void **)&impl);

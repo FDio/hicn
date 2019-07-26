@@ -33,9 +33,15 @@ static void _strategyRndSegment_ReceiveObject(StrategyImpl *strategy,
 static void _strategyRndSegment_OnTimeout(StrategyImpl *strategy,
                                           const NumberSet *egressId);
 static NumberSet *_strategyRndSegment_LookupNexthop(
-    StrategyImpl *strategy, const Message *interestMessage);
+    StrategyImpl *strategy,
+#ifdef WITH_POLICY
+    NumberSet * nexthops,
+#endif /* WITH_POLICY */
+    const Message *interestMessage);
+#ifndef WITH_POLICY
 static NumberSet *_strategyRndSegment_ReturnNexthops(StrategyImpl *strategy);
 static unsigned _strategyRndSegment_CountNexthops(StrategyImpl *strategy);
+#endif /* ! WITH_POLICY */
 static void _strategyRndSegment_AddNexthop(StrategyImpl *strategy,
                                            unsigned connectionId);
 static void _strategyRndSegment_RemoveNexthop(StrategyImpl *strategy,
@@ -48,8 +54,10 @@ static StrategyImpl _template = {
     .receiveObject = &_strategyRndSegment_ReceiveObject,
     .onTimeout = &_strategyRndSegment_OnTimeout,
     .lookupNexthop = &_strategyRndSegment_LookupNexthop,
+#ifndef WITH_POLICY
     .returnNexthops = &_strategyRndSegment_ReturnNexthops,
     .countNexthops = &_strategyRndSegment_CountNexthops,
+#endif /* ! WITH_POLICY */
     .addNexthop = &_strategyRndSegment_AddNexthop,
     .removeNexthop = &_strategyRndSegment_RemoveNexthop,
     .destroy = &_strategyRndSegment_ImplDestroy,
@@ -111,7 +119,11 @@ static void _strategyRndSegment_OnTimeout(StrategyImpl *strategy,
                                           const NumberSet *egressId) {}
 
 static NumberSet *_strategyRndSegment_LookupNexthop(
-    StrategyImpl *strategy, const Message *interestMessage) {
+    StrategyImpl *strategy,
+#ifdef WITH_POLICY
+    NumberSet * nexthops,
+#endif /* WITH_POLICY */
+    const Message *interestMessage) {
   StrategyRndSegment *srnd = (StrategyRndSegment *)strategy->context;
 
   unsigned in_connection = message_GetIngressConnectionId(interestMessage);
@@ -161,6 +173,7 @@ static NumberSet *_strategyRndSegment_LookupNexthop(
   return out;
 }
 
+#ifndef WITH_POLICY
 static NumberSet *_strategyRndSegment_ReturnNexthops(StrategyImpl *strategy) {
   StrategyRndSegment *srnd = (StrategyRndSegment *)strategy->context;
   return srnd->nexthops;
@@ -170,22 +183,27 @@ unsigned _strategyRndSegment_CountNexthops(StrategyImpl *strategy) {
   StrategyRndSegment *srnd = (StrategyRndSegment *)strategy->context;
   return (unsigned)numberSet_Length(srnd->nexthops);
 }
+#endif /* ! WITH_POLICY */
 
 static void _strategyRndSegment_AddNexthop(StrategyImpl *strategy,
                                            unsigned connectionId) {
+#ifndef WITH_POLICY
   StrategyRndSegment *srnd = (StrategyRndSegment *)strategy->context;
   if (!numberSet_Contains(srnd->nexthops, connectionId)) {
     numberSet_Add(srnd->nexthops, connectionId);
   }
+#endif /* ! WITH_POLICY */
 }
 
 static void _strategyRndSegment_RemoveNexthop(StrategyImpl *strategy,
                                               unsigned connectionId) {
+#ifndef WITH_POLICY
   StrategyRndSegment *srnd = (StrategyRndSegment *)strategy->context;
 
   if (numberSet_Contains(srnd->nexthops, connectionId)) {
     numberSet_Remove(srnd->nexthops, connectionId);
   }
+#endif /* ! WITH_POLICY */
 }
 
 static void _strategyRndSegment_ImplDestroy(StrategyImpl **strategyPtr) {
