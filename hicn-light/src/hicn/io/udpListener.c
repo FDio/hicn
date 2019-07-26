@@ -36,10 +36,6 @@
 #include <hicn/core/forwarder.h>
 #include <hicn/core/messagePacketType.h>
 
-#ifdef WITH_MAPME
-#include <hicn/core/mapMe.h>
-#endif /* WITH_MAPME */
-
 #define IPv4 4
 #define IPv6 6
 
@@ -60,15 +56,21 @@ static unsigned _getInterfaceIndex(const ListenerOps *ops);
 static const Address *_getListenAddress(const ListenerOps *ops);
 static EncapType _getEncapType(const ListenerOps *ops);
 static int _getSocket(const ListenerOps *ops);
+static unsigned _createNewConnection(ListenerOps *listener, int fd, const AddressPair *pair);
+static const Connection * _lookupConnection(ListenerOps * listener, const AddressPair *pair);
 
-static ListenerOps udpTemplate = {.context = NULL,
-                                  .destroy = &_destroy,
-                                  .getInterfaceIndex = &_getInterfaceIndex,
-                                  .getListenAddress = &_getListenAddress,
-                                  .getEncapType = &_getEncapType,
-                                  .getSocket = &_getSocket};
+static ListenerOps udpTemplate = {
+  .context = NULL,
+  .destroy = &_destroy,
+  .getInterfaceIndex = &_getInterfaceIndex,
+  .getListenAddress = &_getListenAddress,
+  .getEncapType = &_getEncapType,
+  .getSocket = &_getSocket,
+  .createConnection = &_createNewConnection,
+  .lookupConnection = &_lookupConnection,
+};
 
-static void _readcb(int fd, PARCEventType what, void *udpVoid);
+static void _readcb(int fd, PARCEventType what, void * listener_void);
 
 #ifdef __linux__
 ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
@@ -123,17 +125,18 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
     setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
                      interfaceName, strlen(interfaceName) + 1);
 #endif
-    udp->udp_event =
-        dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(forwarder), true,
-                                      _readcb, (void *)udp, udp->udp_socket);
-    dispatcher_StartNetworkEvent(forwarder_GetDispatcher(forwarder),
-                                 udp->udp_event);
 
     ops = parcMemory_AllocateAndClear(sizeof(ListenerOps));
     parcAssertNotNull(ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
                       sizeof(ListenerOps));
     memcpy(ops, &udpTemplate, sizeof(ListenerOps));
     ops->context = udp;
+
+    udp->udp_event =
+        dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(forwarder), true,
+                                      _readcb, (void*)ops, udp->udp_socket);
+    dispatcher_StartNetworkEvent(forwarder_GetDispatcher(forwarder),
+                                 udp->udp_event);
 
     if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
       char *str = addressToString(udp->localAddress);
@@ -214,17 +217,18 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder,
     setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
                      interfaceName, strlen(interfaceName) + 1);
 #endif
-    udp->udp_event =
-        dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(forwarder), true,
-                                      _readcb, (void *)udp, udp->udp_socket);
-    dispatcher_StartNetworkEvent(forwarder_GetDispatcher(forwarder),
-                                 udp->udp_event);
-
     ops = parcMemory_AllocateAndClear(sizeof(ListenerOps));
     parcAssertNotNull(ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
                       sizeof(ListenerOps));
     memcpy(ops, &udpTemplate, sizeof(ListenerOps));
     ops->context = udp;
+
+    udp->udp_event =
+        dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(forwarder), true,
+                                      _readcb, (void *)ops, udp->udp_socket);
+    dispatcher_StartNetworkEvent(forwarder_GetDispatcher(forwarder),
+                                 udp->udp_event);
+
 
     if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
       char *str = addressToString(udp->localAddress);
@@ -341,28 +345,12 @@ static AddressPair *_constructAddressPair(UdpListener *udp,
   return pair;
 }
 
-/**
- * @function _lookupConnectionId
- * @abstract  Lookup a connection in the connection table
- * @discussion
- *   Looks up the connection in the connection table and returns the connection
- * id if it exists.
- *
- * @param outputConnectionIdPtr is the output parameter
- * @return true if connection found and outputConnectionIdPtr set
- */
-static bool _lookupConnectionId(UdpListener *udp, AddressPair *pair,
-                                unsigned *outputConnectionIdPtr) {
+static const Connection * _lookupConnection(ListenerOps * listener,
+                                const AddressPair *pair) {
+  UdpListener * udp = (UdpListener *)listener->context;
   ConnectionTable *connTable = forwarder_GetConnectionTable(udp->forwarder);
+  return connectionTable_FindByAddressPair(connTable, pair);
 
-  const Connection *conn = connectionTable_FindByAddressPair(connTable, pair);
-  if (conn) {
-    *outputConnectionIdPtr = connection_GetConnectionId(conn);
-    return true;
-  } else {
-    *outputConnectionIdPtr = 0;
-    return false;
-  }
 }
 
 /**
@@ -378,8 +366,10 @@ static bool _lookupConnectionId(UdpListener *udp, AddressPair *pair,
  * @return The connection id for the new connection
  */
 
-static unsigned _createNewConnection(UdpListener *udp, int fd,
+static unsigned _createNewConnection(ListenerOps * listener, int fd,
                                      const AddressPair *pair) {
+  UdpListener * udp = (UdpListener *)listener->context;
+
   //check it the connection is local
   bool isLocal = false;
   const Address *localAddress = addressPair_GetLocal(pair);
@@ -428,13 +418,23 @@ static void _handleWldrNotification(UdpListener *udp, unsigned connId,
   message_Release(&message);
 }
 
-static Message *_readMessage(UdpListener *udp, int fd,
+static Message *_readMessage(ListenerOps * ops, int fd,
                       AddressPair *pair, uint8_t * packet, bool * processed) {
+  UdpListener * udp = (UdpListener *)ops->context;
 
   Message *message = NULL;
 
-  unsigned connid = 0;
-  bool foundConnection = _lookupConnectionId(udp, pair, &connid);
+  unsigned connid;
+  bool foundConnection;
+
+  const Connection *conn = _lookupConnection(ops, pair);
+  if (conn) {
+    connid = connection_GetConnectionId(conn);
+    foundConnection = true;
+  } else {
+    connid = 0;
+    foundConnection = false;
+  }
 
   if (messageHandler_IsTCP(packet)) {
     *processed = true;
@@ -449,7 +449,7 @@ static Message *_readMessage(UdpListener *udp, int fd,
     } else if (messageHandler_IsInterest(packet)) {
       pktType = MessagePacketType_Interest;
       if (!foundConnection) {
-        connid = _createNewConnection(udp, fd, pair);
+        connid = _createNewConnection(ops, fd, pair);
       }
     } else {
       printf("Got a packet that is not a data nor an interest, drop it!\n");
@@ -470,25 +470,20 @@ static Message *_readMessage(UdpListener *udp, int fd,
   } else if (messageHandler_IsLoadBalancerProbe(packet)) {
     *processed = true;
     _handleProbeMessage(udp, packet);
-#ifdef WITH_MAPME
-  } else if (mapMe_isMapMe(packet)) {
-    *processed = true;
-    forwarder_ProcessMapMe(udp->forwarder, packet, connid);
-#endif /* WITH_MAPME */
-  }
+  } else {
+    /* Generic hook handler */
+    if (!foundConnection)
+      connid = _createNewConnection(ops, fd, pair);
 
-  /* Generic hook handler */
-  if (messageHandler_handleHooks(udp->forwarder, CONNECTION_ID_UNDEFINED,
-              udp->localAddress, packet))
-      goto END;
-END:
+    *processed = messageHandler_handleHooks(udp->forwarder, packet, connid);
+  }
 
   return message;
 }
 
-static void _readCommand(UdpListener *udp, int fd,
-                        AddressPair *pair,
-                        uint8_t * command) {
+static void _readCommand(ListenerOps * listener, int fd,
+                        AddressPair *pair, uint8_t * command) {
+  UdpListener * udp = (UdpListener *)listener->context;
 
   if (*command != REQUEST_LIGHT){
     printf("the message received is not a command, drop\n");
@@ -502,10 +497,13 @@ static void _readCommand(UdpListener *udp, int fd,
     return;
   }
 
-  unsigned connid = 0;
-  bool foundConnection = _lookupConnectionId(udp, pair, &connid);
-  if(!foundConnection){
-    connid = _createNewConnection(udp, fd, pair);
+  unsigned connid;
+
+  const Connection *conn = _lookupConnection(listener, pair);
+  if (conn) {
+    connid = connection_GetConnectionId(conn);
+  } else {
+    connid = _createNewConnection(listener, fd, pair);
   }
 
   struct iovec *request;
@@ -525,11 +523,12 @@ static void _readCommand(UdpListener *udp, int fd,
 }
 
 
-static bool _receivePacket(UdpListener *udp, int fd,
+static bool _receivePacket(ListenerOps * listener, int fd,
                            AddressPair *pair,
                            uint8_t * packet) {
+  UdpListener * udp = (UdpListener *)listener->context;
   bool processed = false;
-  Message *message = _readMessage(udp, fd, pair,
+  Message *message = _readMessage(listener, fd, pair,
                                    packet, &processed);
   if (message) {
     forwarder_Receive(udp->forwarder, message);
@@ -537,8 +536,9 @@ static bool _receivePacket(UdpListener *udp, int fd,
   return processed;
 }
 
-static void _readcb(int fd, PARCEventType what, void *udpVoid) {
-  UdpListener *udp = (UdpListener *)udpVoid;
+static void _readcb(int fd, PARCEventType what, void * listener_void) {
+  ListenerOps * listener = (ListenerOps *)listener_void;
+  UdpListener * udp = (UdpListener *)listener->context;
 
   if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
     logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
@@ -546,7 +546,7 @@ static void _readcb(int fd, PARCEventType what, void *udpVoid) {
                (what & PARCEventType_Timeout) ? " timeout" : "",
                (what & PARCEventType_Read) ? " read" : "",
                (what & PARCEventType_Write) ? " write" : "",
-               (what & PARCEventType_Signal) ? " signal" : "", udpVoid);
+               (what & PARCEventType_Signal) ? " signal" : "", udp);
   }
 
   if (what & PARCEventType_Read) {
@@ -570,9 +570,9 @@ static void _readcb(int fd, PARCEventType what, void *udpVoid) {
     AddressPair *pair = _constructAddressPair(
       udp, (struct sockaddr *)&peerIpAddress, peerIpAddressLength);
 
-    bool done = _receivePacket(udp, fd, pair, packet);
+    bool done = _receivePacket(listener, fd, pair, packet);
     if(!done){
-      _readCommand(udp, fd, pair, packet);
+      _readCommand(listener, fd, pair, packet);
     }
 
     addressPair_Release(&pair);

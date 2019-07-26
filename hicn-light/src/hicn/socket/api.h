@@ -155,7 +155,14 @@ int hicn_set_conf(hicn_socket_helper_t *hicn, hicn_conf_t *hicn_conf);
  */
 void hicn_free(hicn_socket_helper_t *hicn);
 
-// FIXME doc
+/**
+ * Returns the local address used to reach the remote address
+ *
+ * @param [in] remote_address
+ * @param [out] local address
+ *
+ * @return 0 in case of success, -1 otherwise.
+ */
 int hicn_get_local_address(const ip_address_t *remote_address,
                            ip_address_t *local_address);
 
@@ -206,8 +213,6 @@ int hicn_listen(hicn_socket_helper_t *hicn, int fd, const char *prefix);
  * @param [in] prefix Prefix (IPv4 or IPv6) to be bound to hICN in
  *    RFC-compliant presentation format.
  * @return 0 in case of success, -1 otherwise.
- *
- * XXX adjacency does not perform any copy heresofar
  *
  * @see hicn_socket
  */

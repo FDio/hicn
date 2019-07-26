@@ -23,4 +23,5 @@
 #include <hicn/strategies/strategyImpl.h>
 
 StrategyImpl *strategyLoadBalancer_Create();
+
 #endif  // loadBalancer_h

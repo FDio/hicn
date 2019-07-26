@@ -313,7 +313,11 @@ Dispatcher *forwarder_GetDispatcher(Forwarder *forwarder) {
   return forwarder->dispatcher;
 }
 
+#ifdef WITH_POLICY
+ConnectionTable *forwarder_GetConnectionTable(const Forwarder *forwarder) {
+#else
 ConnectionTable *forwarder_GetConnectionTable(Forwarder *forwarder) {
+#endif /* WITH_POLICY */
   parcAssertNotNull(forwarder, "Parameter must be non-null");
   return forwarder->connectionTable;
 }
@@ -412,6 +416,7 @@ bool forwarder_AddOrUpdateRoute(Forwarder *forwarder,
   return res;
 }
 
+
 bool forwarder_RemoveRoute(Forwarder *forwarder, remove_route_command *control,
                            unsigned ifidx) {
   parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");
@@ -420,6 +425,25 @@ bool forwarder_RemoveRoute(Forwarder *forwarder, remove_route_command *control,
   // we only have one message processor
   return messageProcessor_RemoveRoute(forwarder->processor, control, ifidx);
 }
+
+#ifdef WITH_POLICY
+
+bool forwarder_AddOrUpdatePolicy(Forwarder *forwarder,
+                                add_policy_command *control) {
+  parcAssertNotNull(forwarder, "Parameter forwarder must be non-null");
+  parcAssertNotNull(control, "Parameter control must be non-null");
+
+  return messageProcessor_AddOrUpdatePolicy(forwarder->processor, control);
+}
+
+bool forwarder_RemovePolicy(Forwarder *forwarder, remove_policy_command *control) {
+  parcAssertNotNull(forwarder, "Parameter forwarder must be non-null");
+  parcAssertNotNull(control, "Parameter control must be non-null");
+
+  return messageProcessor_RemovePolicy(forwarder->processor, control);
+}
+
+#endif /* WITH_POLICY */
 
 void forwarder_RemoveConnectionIdFromRoutes(Forwarder *forwarder,
                                             unsigned connectionId) {
@@ -504,16 +528,22 @@ FIB *forwarder_getFib(Forwarder *forwarder) {
   return messageProcessor_getFib(forwarder->processor);
 }
 
-void forwarder_onConnectionAdded(Forwarder *forwarder, const Connection *conn) {
-  mapMe_onConnectionAdded(forwarder->mapme, conn);
+void forwarder_onConnectionEvent(Forwarder *forwarder, const Connection *conn, connection_event_t event) {
+#ifdef WITH_POLICY
+    messageProcessor_onConnectionEvent(forwarder->processor, conn, event);
+#else
+  mapMe_onConnectionEvent(forwarder->mapme, conn, event);
+#endif /* WITH_POLICY */
 }
 
-void forwarder_onConnectionRemoved(Forwarder *forwarder,
-                                   const Connection *conn) {}
-
-void forwarder_ProcessMapMe(Forwarder *forwarder, uint8_t *msgBuffer,
+void forwarder_ProcessMapMe(Forwarder *forwarder, const uint8_t *msgBuffer,
                             unsigned conn_id) {
   mapMe_Process(forwarder->mapme, msgBuffer, conn_id);
+}
+
+MapMe *
+forwarder_getMapmeInstance(const Forwarder *forwarder) {
+    return forwarder->mapme;
 }
 
 #endif /* WITH_MAPME */

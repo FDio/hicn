@@ -27,6 +27,8 @@
 #define listener_h
 
 #include <hicn/utils/address.h>
+#include <hicn/io/addressPair.h>
+#include <hicn/core/connection.h>
 
 struct listener_ops;
 typedef struct listener_ops ListenerOps;
@@ -101,5 +103,8 @@ struct listener_ops {
    * @endcode
    */
   int (*getSocket)(const ListenerOps *ops);
+
+  unsigned (*createConnection)(ListenerOps *listener, int fd, const AddressPair *pair);
+  const Connection * (*lookupConnection)(ListenerOps * listener, const AddressPair *pair);
 };
 #endif  // listener_h
