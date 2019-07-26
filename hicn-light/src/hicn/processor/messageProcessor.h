@@ -32,6 +32,12 @@
 
 #include <hicn/utils/commands.h>
 
+#ifdef WITH_POLICY
+#ifdef WITH_MAPME
+#include <hicn/core/connection.h>
+#endif /* WITH_MAPME */
+#endif /* WITH_POLICY */
+
 struct message_processor;
 typedef struct message_processor MessageProcessor;
 
@@ -99,6 +105,43 @@ bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
 bool messageProcessor_RemoveRoute(MessageProcessor *processor,
                                   remove_route_command *control,
                                   unsigned ifidx);
+
+#ifdef WITH_POLICY
+
+/**
+ * Adds or updates a policy in the FIB
+ *
+ * If the policy is already set, it is replaced
+ *
+ * @param [in] procesor An allocated message processor
+ * @param [in] control Control message
+ *
+ * @retval true added or updated
+ * @retval false An error
+ */
+bool messageProcessor_AddOrUpdatePolicy(MessageProcessor *processor,
+        add_policy_command *control);
+
+/**
+ * Removes a policy from the FIB
+ *
+ * Reset the policy in the FIB to the default (empty) policy.
+ *
+ * @param [in] procesor An allocated message processor
+ * @param [in] control Control message
+ *
+ * @retval true Policy completely removed
+ * @retval false There is still a nexthop for the policy
+ */
+bool messageProcessor_RemovePolicy(MessageProcessor *processor,
+        remove_policy_command *control);
+
+#ifdef WITH_MAPME
+void messageProcessor_onConnectionEvent(const MessageProcessor *processor,
+        const Connection *conn_added, connection_event_t event);
+#endif /* WITH_MAPME */
+
+#endif /* WITH_POLICY */
 
 /**
  * Removes a given connection id from all FIB entries

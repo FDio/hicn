@@ -82,6 +82,10 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
     _controlListConnections_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
+#ifdef WITH_POLICY
+  char flags_str[POLICY_TAG_N];
+  char *s;
+#endif /* WITH_POLICY */
 
   ControlState *state = ops->closure;
 
@@ -127,11 +131,28 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
 
     PARCBufferComposer *composer = parcBufferComposer_Create();
 
+#ifdef WITH_POLICY
+
+    s = flags_str;
+#define _(x, y) *s++ = policy_tags_has(listConnectionsCommand->connectionData.tags, POLICY_TAG_ ## x) ? y : '.';
+foreach_policy_tag
+#undef _
+    *s = '\0';
+
+    parcBufferComposer_Format(
+        composer, "%5d %4s %s %s %s [%s]", listConnectionsCommand->connid,
+        stateString[listConnectionsCommand->state], sourceString,
+        destinationString,
+        connTypeString[listConnectionsCommand->connectionData.connectionType],
+        flags_str);
+
+#else
     parcBufferComposer_Format(
         composer, "%5d %4s %s %s %s", listConnectionsCommand->connid,
         stateString[listConnectionsCommand->state], sourceString,
         destinationString,
         connTypeString[listConnectionsCommand->connectionData.connectionType]);
+#endif /* WITH_POLICY */
 
     PARCBuffer *tempBuffer = parcBufferComposer_ProduceBuffer(composer);
     char *result = parcBuffer_ToString(tempBuffer);

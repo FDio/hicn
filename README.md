@@ -9,14 +9,15 @@ real-time transport service for audio/video media.
 
 ## Directory layout
 
-| Directory name | Description                                  |
-| -------------- | -------------------------------------------- |
-| lib            | Core support library                         |
-| hicn-plugin    | VPP plugin                                   |
-| hicn-light     | Lightweight packet forwarder                 |
-| libtransport   | Support library with transport layer and API |
-| utils          | Tools for testing                            |
-| apps           | Application examples using hicn stack        |
+| Directory name | Description                                               |
+| -------------- | --------------------------------------------------------- |
+| lib            | Core support library                                      |
+| hicn-plugin    | VPP plugin                                                |
+| hicn-light     | Lightweight packet forwarder                              |
+| libtransport   | Support library with transport layer and API              |
+| utils          | Tools for testing                                         |
+| apps           | Application examples using hicn stack                     |
+| ctrl           | Tools and libraries for network configuration and control |
 
 hicn plugin is a VPP plugin that implement hicn packet processing as specified in
 https://datatracker.ietf.org/doc/draft-muscariello-intarea-hicn/. The transport library is used to

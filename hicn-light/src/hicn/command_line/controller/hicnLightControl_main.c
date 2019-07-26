@@ -74,7 +74,15 @@ static int payloadLengthController[LAST_COMMAND_VALUE] = {
     sizeof(mapme_activator_command),
     sizeof(mapme_activator_command),
     sizeof(mapme_timing_command),
-    sizeof(mapme_timing_command)};
+    sizeof(mapme_timing_command),
+    sizeof(connection_set_admin_state_command),
+#ifdef WITH_POLICY
+    sizeof(add_policy_command),
+    sizeof(list_policies_command),
+    sizeof(remove_policy_command),
+    sizeof(update_connection_command),
+#endif
+};
 
 typedef struct controller_main_state {
   ControlState *controlState;
@@ -320,9 +328,11 @@ int main(int argc, char *argv[]) {
     char **commandOutputMain =
         controlState_GetCommandOutput(mainState.controlState);
     if (commandOutputMain != NULL && commandOutputLen > 0) {
+#if 0
       for (size_t j = 0; j < commandOutputLen; j++) {
         printf("Output %zu: %s \n", j, commandOutputMain[j]);
       }
+#endif
       controlState_ReleaseCommandOutput(mainState.controlState,
                                         commandOutputMain, commandOutputLen);
     }

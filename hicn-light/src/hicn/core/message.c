@@ -220,7 +220,6 @@ Message *message_CreateWldrNotification(Message *original, uint16_t expected,
   // set notification stuff.
   messageHandler_SetWldrNotification(
       message->messageHead, original->messageHead, expected, lastReceived);
-  // XXX: what about the checksum?
   return message;
 }
 

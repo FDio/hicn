@@ -27,6 +27,9 @@
 
 #include <parc/algol/parc_Memory.h>
 #include <parc/assert/parc_Assert.h>
+#ifdef WITH_POLICY
+#include <hicn/utils/policy.h>
+#endif /* WITH_POLICY */
 
 struct connection {
   const AddressPair *addressPair;
@@ -46,6 +49,11 @@ struct connection {
                        // file/hicnLightControl) this value is set to false so
                        // that a base station can not disable wldr at the client
   Wldr *wldr;
+
+#ifdef WITH_POLICY
+  policy_tags_t tags;
+#endif /* WITH_POLICY */
+
 };
 
 Connection *connection_Create(IoOperations *ops) {
@@ -67,6 +75,10 @@ Connection *connection_Create(IoOperations *ops) {
 
   /* By default, a connection will aim at the UP state */
   connection_SetAdminState(conn, CONNECTION_STATE_UP);
+
+#ifdef WITH_POLICY
+  conn->tags = POLICY_TAGS_EMPTY;
+#endif /* WITH_POLICY */
 
   return conn;
 }
@@ -316,3 +328,37 @@ void connection_SetAdminState(Connection *conn, connection_state_t admin_state)
     return;
   ioOperations_SetAdminState(conn->ops, admin_state);
 }
+
+#ifdef WITH_POLICY
+
+void connection_AddTag(Connection *conn, policy_tag_t tag)
+{
+    policy_tags_add(&conn->tags, tag);
+}
+
+void connection_RemoveTag(Connection *conn, policy_tag_t tag)
+{
+    policy_tags_remove(&conn->tags, tag);
+}
+
+policy_tags_t connection_GetTags(const Connection *conn)
+{
+    return conn->tags;
+}
+
+void connection_SetTags(Connection *conn, policy_tags_t tags)
+{
+    conn->tags = tags;
+}
+
+void connection_ClearTags(Connection *conn)
+{
+    conn->tags = POLICY_TAGS_EMPTY;
+}
+
+int connection_HasTag(const Connection *conn, policy_tag_t tag)
+{
+    return policy_tags_has(conn->tags, tag);
+}
+
+#endif /* WITH_POLICY */

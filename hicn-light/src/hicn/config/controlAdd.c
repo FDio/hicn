@@ -28,6 +28,9 @@
 #include <hicn/config/controlAddListener.h>
 #include <hicn/config/controlAddPunting.h>
 #include <hicn/config/controlAddRoute.h>
+#ifdef WITH_POLICY
+#include <hicn/config/controlAddPolicy.h>
+#endif /* WITH_POLICY */
 
 // ===================================================
 
@@ -60,18 +63,27 @@ static CommandReturn _controlAdd_HelpExecute(CommandParser *parser,
   CommandOps *ops_add_route = controlAddRoute_Create(NULL);
   CommandOps *ops_add_punting = controlAddPunting_Create(NULL);
   CommandOps *ops_add_listener = controlAddListener_Create(NULL);
+#ifdef WITH_POLICY
+  CommandOps *ops_add_policy = controlAddPolicy_Create(NULL);
+#endif /* WITH_POLICY */
 
   printf("Available commands:\n");
   printf("   %s\n", ops_add_connection->command);
   printf("   %s\n", ops_add_route->command);
   printf("   %s\n", ops_add_punting->command);
   printf("   %s\n", ops_add_listener->command);
+#ifdef WITH_POLICIES
+  printf("   %s\n", ops_add_policy->command);
+#endif /* WITH_POLICIES */
   printf("\n");
 
   commandOps_Destroy(&ops_add_connection);
   commandOps_Destroy(&ops_add_route);
   commandOps_Destroy(&ops_add_punting);
   commandOps_Destroy(&ops_add_listener);
+#ifdef WITH_POLICY
+  commandOps_Destroy(&ops_add_policy);
+#endif /* WITH_POLICY */
   return CommandReturn_Success;
 }
 
@@ -85,6 +97,10 @@ static void _controlAdd_Init(CommandParser *parser, CommandOps *ops) {
   controlState_RegisterCommand(state, controlAddRoute_Create(state));
   controlState_RegisterCommand(state, controlAddPunting_Create(state));
   controlState_RegisterCommand(state, controlAddPunting_HelpCreate(state));
+#ifdef WITH_POLICY
+  controlState_RegisterCommand(state, controlAddPolicy_HelpCreate(state));
+  controlState_RegisterCommand(state, controlAddPolicy_Create(state));
+#endif /* WITH_POLICY */
 }
 
 static CommandReturn _controlAdd_Execute(CommandParser *parser, CommandOps *ops,

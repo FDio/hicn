@@ -26,15 +26,18 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/configurationFile.h
   ${CMAKE_CURRENT_SOURCE_DIR}/configurationListeners.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlAddRoute.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlAddPolicy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlAddListener.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlListConnections.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlList.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlListListeners.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlListRoutes.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlListPolicies.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlQuit.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemove.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemoveConnection.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemoveRoute.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlRemovePolicy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlSet.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlUnset.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlSetDebug.h
@@ -51,6 +54,8 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/controlSetWldr.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlAddPunting.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemovePunting.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlUpdate.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlUpdateConnection.h
 )
 
 list(APPEND SOURCE_FILES
@@ -64,15 +69,18 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/controlAdd.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlAddConnection.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlAddRoute.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlAddPolicy.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlAddListener.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlList.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlListConnections.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlListListeners.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlListRoutes.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlListPolicies.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlQuit.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemove.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemoveConnection.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemoveRoute.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlRemovePolicy.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRoot.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlSet.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlSetDebug.c
@@ -91,6 +99,8 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/controlSetWldr.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlAddPunting.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemovePunting.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlUpdate.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlUpdateConnection.c
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
