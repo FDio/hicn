@@ -47,8 +47,7 @@ static const char *_commandSetStrategyOptions[LAST_STRATEGY_VALUE] = {
     "random",
     "random_per_dash_segment",
     "loadbalancer_with_delay",
-    "loadbalancer_by_rate",
-    "loadbalancer_best_route"};
+};
 
 // ====================================================
 
@@ -117,11 +116,6 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
   if (slash != NULL) {
     len = atoi(slash + 1);
     *slash = '\0';
-  }
-  if (len == 0) {
-    printf("ERROR: a prefix can not be of length 0\n");
-    free(addr);
-    return CommandReturn_Failure;
   }
 
   // allocate command payload

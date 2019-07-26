@@ -19,14 +19,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-set(HICN_INCLUDE_DIRS ${PROJECT_BINARY_DIR}/lib)
-
 ## Enabled components
 option(BUILD_LIBHICN "Build the hicn core library" ON)
 option(BUILD_HICNLIGHT "Build the hicn light forwarder" ON)
 option(BUILD_LIBTRANSPORT "Build the hicn transport library" ON)
 option(BUILD_UTILS "Build the hicn utils" ON)
 option(BUILD_APPS "Build the hicn apps" OFF)
+option(BUILD_CTRL "Build the hicn control tools" ON)
 option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
 option(BUILD_HICNEXTRAPLUGIN "Build the hicn extra plugin" OFF)
 
@@ -36,6 +35,7 @@ list(APPEND dir_options
   BUILD_LIBTRANSPORT
   BUILD_UTILS
   BUILD_APPS
+  BUILD_CTRL
 )
 
 set(BUILD_LIBHICN_DIR lib)
@@ -43,14 +43,9 @@ set(BUILD_HICNLIGHT_DIR hicn-light)
 set(BUILD_LIBTRANSPORT_DIR libtransport)
 set(BUILD_UTILS_DIR utils)
 set(BUILD_APPS_DIR apps)
+set(BUILD_CTRL_DIR ctrl)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
 set(BUILD_HICNEXTRAPLUGIN_DIR utils/extras/)
-
-
-## HEADER FILES
-set(LIBHICN_HEADER_FILES)
-set(LIBHICN_LIGHT_HEADER_FILES)
-set(LIBTRANSPORT_HEADER_FILES)
 
 ## Add enabled components
 foreach (opt ${dir_options})
@@ -70,7 +65,10 @@ set(HICN_PLUGIN hicn-plugin)
 set(HICN_EXTRA_PLUGIN hicn-extra-plugin)
 set(LIBTRANSPORT hicntransport)
 set(HICN_UTILS hicn-utils)
+set(HICN_CTRL hicn-ctrl)
+set(LIBHICN_CTRL hicn-ctrl)
 set(HICN_APPS hicn-apps)
+set(FACE_MGR facemgr)
 
 if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   list(APPEND subdirs
@@ -94,9 +92,16 @@ endif()
 ## Libraries targets
 set(LIBHICN_SHARED ${LIBHICN}.shared)
 set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared)
+set(LIBHICN_CTRL_SHARED ${LIBHICN_CTRL}.shared)
 
 set(LIBHICN_STATIC ${LIBHICN}.static)
 set(LIBTRANSPORT_STATIC ${LIBTRANSPORT}.static)
+set(LIBHICN_CTRL_STATIC ${LIBHICN_CTRL}.static)
+
+## HEADER FILES
+set(HICN_INCLUDE_DIRS "" "" CACHE INTERNAL "" FORCE)
+set(LIBTRANSPORT_INCLUDE_DIRS "" "" CACHE INTERNAL "" FORCE)
+set(LIBHICNCTRL_INCLUDE_DIRS ""  "" CACHE INTERNAL "" FORCE)
 
 if (NOT WIN32)
   add_compile_options(-Wall -Werror)

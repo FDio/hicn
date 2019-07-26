@@ -32,5 +32,9 @@
  * @constant PITVerdict_Aggregate The Interest was aggregated in the PIT, does
  * not need to be forwarded
  */
+#ifdef WITH_POLICY
+typedef enum { PITVerdict_Forward, PITVerdict_Aggregate, PITVerdict_Retransmit } PITVerdict;
+#else
 typedef enum { PITVerdict_Forward, PITVerdict_Aggregate } PITVerdict;
+#endif /* WITH_POLICY */
 #endif  // pitVerdict_h

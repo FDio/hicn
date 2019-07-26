@@ -1,6 +1,5 @@
 #include <sys/ioctl.h>   // ioctl
 #include <sys/socket.h>  // needed by linux/if.h
-//#include <linux/if.h>
 #include <errno.h>
 #include <fcntl.h>  // ''
 #include <linux/if_tun.h>
@@ -25,22 +24,6 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-
-// DEPRECATED|/* Socket */
-// DEPRECATED|int _nl_get_socket();
-// DEPRECATED|int _nl_send(int s, uint8_t * buffer, size_t len);
-// DEPRECATED|size_t _nl_receive(uint8_t * buffer, size_t len);
-// DEPRECATED|
-// DEPRECATED|/* Netlink packet format */
-// DEPRECATED|int _nl_header(int request, uint8_t * buffer, size_t len, uint32_t
-// flags); DEPRECATED|int _nl_payload_rule(uint8_t table_id, uint8_t * buffer,
-// size_t len); DEPRECATED|int _nl_payload_link(uint32_t ifindex, uint8_t *
-// buffer, size_t len); DEPRECATED|int _nl_payload_route(uint8_t table_id,
-// uint8_t dst_len, uint8_t * buffer, size_t len); DEPRECATED| DEPRECATED|int
-// _nl_parse(uint8_t * buffer, size_t len); DEPRECATED|int _nl_parse_ret(uint8_t
-// * buffer, size_t len); DEPRECATED|int _nl_parse_link_ifid(uint8_t * buffer,
-// size_t len, uint32_t * interface_id); DEPRECATED|int
-// _nl_parse_link_ip_addr(uint8_t * buffer, size_t len, struct in6_addr * addr);
 
 /* Public interface */
 
@@ -127,25 +110,22 @@ int _nl_del_lo_prio_rule(const ip_address_t *ip_address,
  *
  * More specifically, it consists of the following functionalities:
  *  - LINK
-       . map interface name to ID
-       . set and interface up
+ *     . map interface name to ID
+ *     . set and interface up
  *  - ADDR
-       . get and set ip addresses on a given interface ID
+ *     . get and set ip addresses on a given interface ID
  *  - ROUTE
-       . get output interface id towards IP (ip route get IP > interface_id)
-       . add input route (ip route add PREFIX dev INTERFACE) for punting
- interests . add output route (ip route add default GATEWAY table TABLE) for
- routing interests (2, 3) . delete local route towards IP (ip route del IP table
- local) for ???
-         /!\ could this be avoided by removing the local attribute in the
- netlink call ?
+ *     . get output interface id towards IP (ip route get IP > interface_id)
+ *     . add input route (ip route add PREFIX dev INTERFACE) for punting
+ *     interests . add output route (ip route add default GATEWAY table TABLE)
+ *     for routing interests (2, 3)
+ *     . delete local route towards IP (ip route del IP table local)
  *  - RULE
  *     . add output rule (ip rule add iif interface table TABLE) for routing
- interests (2, 3)
- *  - ND PROXY
+ *     interests (2, 3) - ND PROXY
  *     . enable NDP proxy functionality for IP on interface ID (ip -6 neigh add
- proxy IP dev INTERFACE)
- *       for allowing the TUN to be reachable on the reverse data path
+ *     proxy IP dev INTERFACE) for allowing the TUN to be reachable on the
+ *     reverse data path
  *
  * Implementation notes:
  *  (1) We have not been using the libnl library because it requires
@@ -209,16 +189,11 @@ int _nl_del_lo_prio_rule(const ip_address_t *ip_address,
 #include <sys/socket.h>  // ''
 #include <sys/types.h>   // send, recv
 
-//#include "../../hicn.h"
-//#include "../../hicn_util.h"    // ARRAY_SIZE, hicn_packet_dump_iov
-
 #define BUFSIZE 4096
 #define FLAGS_CREATE NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK
-// ??
 #define FLAGS_CREATE_MATCH \
   NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK | NLM_F_MATCH
 
-// XXX putting ACK poses a prolem for the value received by get_if_id.
 #define FLAGS_GET NLM_F_REQUEST
 #define FLAGS_GET_ROOT (NLM_F_REQUEST | NLM_F_ROOT)
 
@@ -226,7 +201,7 @@ int _nl_del_lo_prio_rule(const ip_address_t *ip_address,
 
 #ifndef __ANDROID__
 #define IF_NAMESIZE 16
-#endif 
+#endif
 #define FR_ACT_TO_TBL 1
 #define NLMSG_BOTTOM(nlmsg) \
   ((struct rtattr *)(((void *)(nlmsg)) + NLMSG_ALIGN((nlmsg)->nlmsg_len)))
@@ -651,15 +626,10 @@ int _nl_set_ip_addr(uint32_t interface_id, ip_address_t *ip_address) {
   /* Set attributes = length/type/value */
   struct rtattr ifa_address = {RTA_LENGTH(ip_address_len(ip_address)),
                                IFA_ADDRESS};
-  // XXX maybe the reason why we have a local route ?
-  // struct rtattr ifa_local   = { RTA_LENGTH(ip_address_len(ip_address)),
-  // IFA_LOCAL };
   struct iovec iov[] = {
       {&msg, sizeof(msg)},
       {&ifa_address, sizeof(ifa_address)},
       {(void *)&ip_address->buffer, sizeof(ip_address->buffer)},
-      //        { &ifa_local, sizeof(ifa_local) },
-      //        { (void*)&ip_address->buffer, sizeof(ip_address->buffer) },
   };
   msg.hdr.nlmsg_len = iov_length(iov, ARRAY_SIZE(iov));
 
@@ -1075,11 +1045,8 @@ int _nl_add_rule(const char *interface_name, uint8_t address_family,
   _nl_header(RTM_NEWRULE, (uint8_t *)buffer, BUFSIZE, FLAGS_CREATE);
   _nl_payload_rule(table_id, address_family, (uint8_t *)buffer, BUFSIZE);
 
-  /* XXX iif */
   addAttr(hdr, BUFSIZE, FRA_IIFNAME, (void *)interface_name,
           strlen(interface_name));
-  // attr1 = addNestedAttr(hdr, IFLA_LINKINFO);
-  // endNestedAttr(hdr, attr1);
 
   fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
   if (fd < 0) {
@@ -1124,7 +1091,6 @@ int _nl_del_rule(const char *interface_name, uint8_t address_family,
   _nl_header(RTM_DELRULE, (uint8_t *)buffer, BUFSIZE, FLAGS_CREATE);
   _nl_payload_rule(table_id, address_family, (uint8_t *)buffer, BUFSIZE);
 
-  /* XXX iif */
   addAttr(hdr, BUFSIZE, FRA_IIFNAME, (void *)interface_name,
           strlen(interface_name));
 
@@ -1253,7 +1219,7 @@ int _nl_add_in_route_table(const ip_address_t *prefix,
       .hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK | NLM_F_EXCL,
       .hdr.nlmsg_seq = seq++,
       .payload.rtm_family = prefix->family,
-      .payload.rtm_dst_len = prefix->prefix_len,  // XXX ? XXX dst_len,
+      .payload.rtm_dst_len = prefix->prefix_len,
       .payload.rtm_src_len = 0,
       .payload.rtm_tos = 0,
       .payload.rtm_table = table_id, /* RT_TABLE_MAIN, etc. */
@@ -1265,7 +1231,6 @@ int _nl_add_in_route_table(const ip_address_t *prefix,
   };
 
   /* Message attributes = length/type/value */
-  // XXX This could be put directly inside the iovec maybe ? XXX
   struct rtattr a_dst = {RTA_LENGTH(ip_address_len(prefix)), RTA_DST};
   struct rtattr a_oif = {RTA_LENGTH(sizeof(uint32_t)), RTA_OIF};
 
@@ -1332,7 +1297,6 @@ int _nl_add_in_route_s(const char *prefix, const uint32_t interface_id) {
   return _nl_add_in_route_table_s(prefix, interface_id, RT_TABLE_MAIN);
 }
 
-////////* ip -6 rule add from all prio 10 table local */
 /* ip -6 rule add from b001::/16 prio 0 table 100 */
 int _nl_add_prio_rule(const ip_address_t *ip_address, uint8_t address_family,
                       const uint32_t priority, const uint8_t table_id) {
