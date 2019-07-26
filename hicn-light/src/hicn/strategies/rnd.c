@@ -32,9 +32,14 @@ static void _strategyRnd_ReceiveObject(StrategyImpl *strategy,
 static void _strategyRnd_OnTimeout(StrategyImpl *strategy,
                                    const NumberSet *egressId);
 static NumberSet *_strategyRnd_LookupNexthop(StrategyImpl *strategy,
-                                             const Message *interestMessage);
+#ifdef WITH_POLICY
+    NumberSet * nexthops,
+#endif /* WITH_POLICY */
+    const Message *interestMessage);
+#ifndef WITH_POLICY
 static NumberSet *_strategyRnd_ReturnNexthops(StrategyImpl *strategy);
 static unsigned _strategyRnd_CountNexthops(StrategyImpl *strategy);
+#endif /* ! WITH_POLICY */
 static void _strategyRnd_AddNexthop(StrategyImpl *strategy,
                                     unsigned connectionId);
 static void _strategyRnd_RemoveNexthop(StrategyImpl *strategy,
@@ -47,8 +52,10 @@ static StrategyImpl _template = {
     .receiveObject = &_strategyRnd_ReceiveObject,
     .onTimeout = &_strategyRnd_OnTimeout,
     .lookupNexthop = &_strategyRnd_LookupNexthop,
+#ifndef WITH_POLICY
     .returnNexthops = &_strategyRnd_ReturnNexthops,
     .countNexthops = &_strategyRnd_CountNexthops,
+#endif /* ! WITH_POLICY */
     .addNexthop = &_strategyRnd_AddNexthop,
     .removeNexthop = &_strategyRnd_RemoveNexthop,
     .destroy = &_strategyRnd_ImplDestroy,
@@ -59,7 +66,9 @@ struct strategy_rnd;
 typedef struct strategy_rnd StrategyRnd;
 
 struct strategy_rnd {
+#ifndef WITH_POLICY
   NumberSet *nexthops;
+#endif /* ! WITH_POLICY */
 };
 
 StrategyImpl *strategyRnd_Create() {
@@ -67,7 +76,9 @@ StrategyImpl *strategyRnd_Create() {
   parcAssertNotNull(strategy, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(StrategyRnd));
 
+#ifndef WITH_POLICY
   strategy->nexthops = numberSet_Create();
+#endif /* ! WITH_POLICY */
   srand((unsigned int)time(NULL));
 
   StrategyImpl *impl = parcMemory_AllocateAndClear(sizeof(StrategyImpl));
@@ -85,6 +96,7 @@ strategy_type _strategyRnd_GetStrategy(StrategyImpl *strategy) {
   return SET_STRATEGY_RANDOM;
 }
 
+#ifndef WITH_POLICY
 static int _select_Nexthop(StrategyRnd *strategy) {
   unsigned len = (unsigned)numberSet_Length(strategy->nexthops);
   if (len == 0) {
@@ -94,6 +106,7 @@ static int _select_Nexthop(StrategyRnd *strategy) {
   int rnd = (rand() % len);
   return numberSet_GetItem(strategy->nexthops, rnd);
 }
+#endif /* ! WITH_POLICY */
 
 static void _strategyRnd_ReceiveObject(StrategyImpl *strategy,
                                        const NumberSet *egressId,
@@ -104,13 +117,22 @@ static void _strategyRnd_OnTimeout(StrategyImpl *strategy,
                                    const NumberSet *egressId) {}
 
 static NumberSet *_strategyRnd_LookupNexthop(StrategyImpl *strategy,
-                                             const Message *interestMessage) {
-  StrategyRnd *srnd = (StrategyRnd *)strategy->context;
+#ifdef WITH_POLICY
+        NumberSet * nexthops,
+#endif /* WITH_POLICY */
+        const Message *interestMessage) {
+  unsigned out_connection;
+  NumberSet *out = numberSet_Create();
 
+#ifdef WITH_POLICY
+  // We return one next hop at random
+  out_connection = numberSet_GetItem(nexthops, rand() % numberSet_Length(nexthops));
+
+#else
+  StrategyRnd *srnd = (StrategyRnd *)strategy->context;
   unsigned in_connection = message_GetIngressConnectionId(interestMessage);
   unsigned nexthopSize = (unsigned)numberSet_Length(srnd->nexthops);
 
-  NumberSet *out = numberSet_Create();
   if ((nexthopSize == 0) ||
       ((nexthopSize == 1) &&
        numberSet_Contains(srnd->nexthops, in_connection))) {
@@ -119,7 +141,6 @@ static NumberSet *_strategyRnd_LookupNexthop(StrategyImpl *strategy,
     return out;
   }
 
-  unsigned out_connection;
   do {
     out_connection = _select_Nexthop(srnd);
   } while (out_connection == in_connection);
@@ -127,11 +148,13 @@ static NumberSet *_strategyRnd_LookupNexthop(StrategyImpl *strategy,
   if (out_connection == -1) {
     return out;
   }
+#endif /* WITH_POLICY */
 
   numberSet_Add(out, out_connection);
   return out;
 }
 
+#ifndef WITH_POLICY
 static NumberSet *_strategyRnd_ReturnNexthops(StrategyImpl *strategy) {
   StrategyRnd *srnd = (StrategyRnd *)strategy->context;
   return srnd->nexthops;
@@ -141,22 +164,27 @@ unsigned _strategyRnd_CountNexthops(StrategyImpl *strategy) {
   StrategyRnd *srnd = (StrategyRnd *)strategy->context;
   return (unsigned)numberSet_Length(srnd->nexthops);
 }
+#endif /* ! WITH_POLICY */
 
 static void _strategyRnd_AddNexthop(StrategyImpl *strategy,
                                     unsigned connectionId) {
+#ifndef WITH_POLICY
   StrategyRnd *srnd = (StrategyRnd *)strategy->context;
   if (!numberSet_Contains(srnd->nexthops, connectionId)) {
     numberSet_Add(srnd->nexthops, connectionId);
   }
+#endif /* ! WITH_POLICY */
 }
 
 static void _strategyRnd_RemoveNexthop(StrategyImpl *strategy,
                                        unsigned connectionId) {
+#ifndef WITH_POLICY
   StrategyRnd *srnd = (StrategyRnd *)strategy->context;
 
   if (numberSet_Contains(srnd->nexthops, connectionId)) {
     numberSet_Remove(srnd->nexthops, connectionId);
   }
+#endif /* ! WITH_POLICY */
 }
 
 static void _strategyRnd_ImplDestroy(StrategyImpl **strategyPtr) {
@@ -167,7 +195,9 @@ static void _strategyRnd_ImplDestroy(StrategyImpl **strategyPtr) {
   StrategyImpl *impl = *strategyPtr;
   StrategyRnd *strategy = (StrategyRnd *)impl->context;
 
+#ifndef WITH_POLICY
   numberSet_Release(&(strategy->nexthops));
+#endif /* ! WITH_POLICY */
 
   parcMemory_Deallocate((void **)&strategy);
   parcMemory_Deallocate((void **)&impl);

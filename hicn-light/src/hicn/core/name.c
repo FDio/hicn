@@ -234,3 +234,9 @@ char *name_ToString(const Name *name) {
 void name_setLen(const Name *name, uint8_t len) {
   nameBitvector_setLen(name->content_name, len);
 }
+
+#ifdef WITH_POLICY
+uint32_t name_GetSuffix(const Name * name) {
+    return name->segment;
+}
+#endif /* WITH_POLICY */

@@ -84,7 +84,7 @@ const Connection *connectionTable_FindByAddressPair(ConnectionTable *table,
  * @abstract Find a connection by its numeric id.
  * @return NULL if not found
  */
-const Connection *connectionTable_FindById(ConnectionTable *table, unsigned id);
+const Connection *connectionTable_FindById(const ConnectionTable *table, unsigned id);
 
 /**
  * @function connectionTable_GetEntries

@@ -1,7 +1,6 @@
 #ifndef HICN_SOCKET_ERROR_H
 #define HICN_SOCKET_ERROR_H
 
-// FIXME remove unused errors
 #define foreach_hicn_socket_error                                             \
   _(NONE, 0, "OK")                                                            \
   _(UNSPEC, 1, "unspecified error")                                           \
