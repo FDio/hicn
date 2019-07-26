@@ -102,4 +102,8 @@ void name_setLen(const Name *name, uint8_t len);
 Name *name_CreateFromAddress(address_type addressType, union commandAddr addr,
                              uint8_t len);
 
+#ifdef WITH_POLICY
+uint32_t name_GetSuffix(const Name * name);
+#endif /* WITH_POLICY */
+
 #endif  // name_h

@@ -37,6 +37,10 @@ void fib_RemoveConnectionId(FIB *fib, unsigned connectionId);
 
 FibEntry *fib_Match(const FIB *fib, const Message *interestMessage);
 
+#ifdef WITH_MAPME
+FibEntry *fib_LPM(const FIB *fib, const Name * name);
+#endif /* WITH_MAPME */
+
 size_t fib_Length(const FIB *fib);
 
 FibEntryList *fib_GetEntries(const FIB *fib);

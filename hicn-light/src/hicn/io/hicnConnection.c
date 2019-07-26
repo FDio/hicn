@@ -218,7 +218,6 @@ static void _destroy(IoOperations **opsPtr) {
                __func__, "HicnConnection %p destroyed", (void *)hicnConnState);
   }
 
-  // XXX
   // do not close hicListenerSocket, the listener will close
   // that when its done
   // should I say something to libhicn?
@@ -279,7 +278,6 @@ static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
   _HicnState *hicnConnState = (_HicnState *)ioOperations_GetClosure(ops);
 
   // NAT for HICN
-  // XXX
   if (message_GetType(message) == MessagePacketType_ContentObject) {
     // this is a data packet. We need to put the remote address in the
     // destination field

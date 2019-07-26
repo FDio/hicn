@@ -27,6 +27,7 @@ option(BUILD_HICNLIGHT "Build the hicn light forwarder" ON)
 option(BUILD_LIBTRANSPORT "Build the hicn transport library" ON)
 option(BUILD_UTILS "Build the hicn utils" ON)
 option(BUILD_APPS "Build the hicn apps" OFF)
+option(BUILD_CTRL "Build the hicn control tools" ON)
 option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
 option(BUILD_HICNEXTRAPLUGIN "Build the hicn extra plugin" OFF)
 
@@ -36,6 +37,7 @@ list(APPEND dir_options
   BUILD_LIBTRANSPORT
   BUILD_UTILS
   BUILD_APPS
+  BUILD_CTRL
 )
 
 set(BUILD_LIBHICN_DIR lib)
@@ -43,6 +45,7 @@ set(BUILD_HICNLIGHT_DIR hicn-light)
 set(BUILD_LIBTRANSPORT_DIR libtransport)
 set(BUILD_UTILS_DIR utils)
 set(BUILD_APPS_DIR apps)
+set(BUILD_CTRL_DIR ctrl)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
 set(BUILD_HICNEXTRAPLUGIN_DIR utils/extras/)
 
@@ -70,6 +73,7 @@ set(HICN_PLUGIN hicn-plugin)
 set(HICN_EXTRA_PLUGIN hicn-extra-plugin)
 set(LIBTRANSPORT hicntransport)
 set(HICN_UTILS hicn-utils)
+set(HICN_CTRL hicn-ctrl)
 set(HICN_APPS hicn-apps)
 
 if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")

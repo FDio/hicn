@@ -31,6 +31,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <hicn/utils/policy.h>
+
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;
 
@@ -67,6 +69,12 @@ typedef enum {
   MAPME_TIMESCALE,
   MAPME_RETX,
   CONNECTION_SET_ADMIN_STATE,
+#ifdef WITH_POLICY
+  ADD_POLICY,
+  LIST_POLICIES,
+  REMOVE_POLICY,
+  UPDATE_CONNECTION,
+#endif /* WITH_POLICY */
   LAST_COMMAND_VALUE
 } command_id;
 
@@ -129,6 +137,9 @@ typedef struct {
   uint8_t ipType;
   uint8_t connectionType;
   uint8_t admin_state;
+#ifdef WITH_POLICY
+  policy_tags_t tags;
+#endif /* WITH_POLICY */
 } add_connection_command;
 
 // SIZE=56
@@ -291,6 +302,36 @@ typedef struct {
   uint8_t admin_state;
 } connection_set_admin_state_command;
 
+#ifdef WITH_POLICY
+
+typedef struct {
+  union commandAddr address;
+  uint8_t addressType;
+  uint8_t len;
+  policy_t policy;
+} add_policy_command;
+
+typedef struct {
+  union commandAddr address;
+  uint8_t addressType;
+  uint8_t len;
+  policy_t policy;
+} list_policies_command;
+
+typedef struct {
+  union commandAddr address;
+  uint8_t addressType;
+  uint8_t len;
+} remove_policy_command;
+
+typedef struct {
+  char symbolicOrConnid[16];
+  uint8_t admin_state;
+  policy_tags_t tags;
+} update_connection_command;
+
+#endif /* WITH_POLICY */
+
 //===== size of commands ======
 // REMINDER: when a new_command is added, the following switch has to be
 // updated.
@@ -334,6 +375,16 @@ static inline int payloadLengthDaemon(command_id id) {
       return sizeof(mapme_timing_command);
     case CONNECTION_SET_ADMIN_STATE:
       return sizeof(connection_set_admin_state_command);
+#ifdef WITH_POLICY
+    case ADD_POLICY:
+      return sizeof(add_policy_command);
+    case LIST_POLICIES:
+      return 0; // list policies: payload always 0
+    case REMOVE_POLICY:
+      return sizeof(remove_policy_command);
+    case UPDATE_CONNECTION:
+      return sizeof(update_connection_command);
+#endif /* WITH_POLICY */
     case LAST_COMMAND_VALUE:
       return 0;
     default:

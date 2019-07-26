@@ -55,6 +55,11 @@
 
 #include <hicn/core/forwarder.h>
 
+#ifdef WITH_MAPME
+#include <hicn/core/mapMe.h>
+#include <hicn/socket/api.h>
+#endif /* WITH_MAPME */
+
 #define CONNECTION_ID_UNDEFINED -1
 
 static inline uint8_t messageHandler_GetIPPacketType(const uint8_t *message) {
@@ -168,76 +173,32 @@ static inline uint8_t messageHandler_NextHeaderType(const uint8_t *message) {
 
 /* Forward declarations */
 static inline void * messageHandler_GetSource(const uint8_t *message);
-
-/* Helpers */
-
-// NOTE: this function is generalized from the one in hICN listener and takes a
-// forwarder as parameter
-static inline
-const Connection *
-_getConnectionFromPacket(Forwarder * forwarder, Address * localAddress, Address *packetSourceAddress)
-{
-  if (!packetSourceAddress)
-      return NULL;
-
-  AddressPair *pair = addressPair_Create(localAddress,
-          packetSourceAddress);
-  const Connection * conn = connectionTable_FindByAddressPair(
-              forwarder_GetConnectionTable(forwarder), pair);
-  addressPair_Release(&pair);
-
-  return conn;
-}
-
-static inline
-Address *
-_createAddressFromPacket(const uint8_t *msgBuffer)
-{
-  Address *packetAddr = NULL;
-  if (messageHandler_GetIPPacketType(msgBuffer) == IPv6_TYPE) {
-    struct sockaddr_in6 addr_in6;
-    addr_in6.sin6_family = AF_INET6;
-    addr_in6.sin6_port = htons(1234);
-    addr_in6.sin6_flowinfo = 0;
-    addr_in6.sin6_scope_id = 0;
-    memcpy(&addr_in6.sin6_addr,
-           (struct in6_addr *)messageHandler_GetSource(msgBuffer), 16);
-    packetAddr = addressCreateFromInet6(&addr_in6);
-  } else if (messageHandler_GetIPPacketType(msgBuffer) == IPv4_TYPE) {
-    struct sockaddr_in addr_in;
-    addr_in.sin_family = AF_INET;
-    addr_in.sin_port = htons(1234);
-    memcpy(&addr_in.sin_addr,
-           (struct in_addr *)messageHandler_GetSource(msgBuffer), 4);
-    packetAddr = addressCreateFromInet(&addr_in);
-  }
-  return packetAddr;
-}
-
-/* Hooks */
-
-/* ... */
+static inline void *messageHandler_GetDestination(const uint8_t *message);
 
 /* Main hook handler */
 
 /**
  * \brief Handle incoming messages
  * \param [in] forwarder - Reference to the Forwarder instance
- * \param [in] connection_id - A hint on the connection ID on which the packet
- *      was received, CONNECTION_ID_UNDEFINED (-1) otherwise.
- * \param [in] localAddress - Local listener address
- * \param [in] messsage - Buffer possibly containing a hooked message
+ * \param [in] packet - Packet buffer
+ * \param [in] conn_id - A hint on the connection ID on which the packet
+ *      was received
  * \return Flag indicating whether the packet matched a hook and was
  *      (successfully or not) processed.
  */
 static inline bool messageHandler_handleHooks(Forwarder * forwarder,
-        int connection_id, Address * localAddress, const uint8_t * message)
+        const uint8_t * packet, int conn_id)
 {
-  /* ... */
+#ifdef WITH_MAPME
+  if (mapMe_isMapMe(packet)) {
+    forwarder_ProcessMapMe(forwarder, packet, conn_id);
+    goto END;
+  }
+#endif /* WITH_MAPME */
 
   return false;
 
-#if 0 // Enable and jump here when a handler has successfully processed the packet
+#if 1 // Enable and jump here when a handler has successfully processed the packet
 END:
   return true;
 #endif
