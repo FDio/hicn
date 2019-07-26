@@ -10,7 +10,6 @@ endif ()
 add_subdirectory(config)
 add_subdirectory(content_store)
 add_subdirectory(core)
-add_subdirectory(api)
 add_subdirectory(io)
 add_subdirectory(messenger)
 add_subdirectory(platforms)
@@ -49,7 +48,7 @@ if (ANDROID_API)
     INSTALL_HEADERS ${TO_INSTALL_HEADER_FILES}
     LINK_LIBRARIES ${LIBRARIES}
     DEPENDS ${DEPENDENCIES}
-    COMPONENT ${LIBHICN_LIGHT}
+    COMPONENT ${HICN_LIGHT}
     INCLUDE_DIRS ${HICN_LIGHT_INCLUDE_DIRS}
     INSTALL_ROOT_DIR hicn
     DEFINITIONS ${COMPILER_DEFINITIONS}
@@ -61,7 +60,7 @@ else ()
     INSTALL_HEADERS ${TO_INSTALL_HEADER_FILES}
     LINK_LIBRARIES ${LIBRARIES}
     DEPENDS ${DEPENDENCIES}
-    COMPONENT ${LIBHICN_LIGHT}
+    COMPONENT ${HICN_LIGHT}
     INCLUDE_DIRS ${HICN_LIGHT_INCLUDE_DIRS}
     INSTALL_ROOT_DIR hicn
     DEFINITIONS ${COMPILER_DEFINITIONS}
