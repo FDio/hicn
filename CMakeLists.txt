@@ -91,9 +91,14 @@ if (BUILD_HICNEXTRAPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   )
 endif()
 
-## Shared targets
+## Libraries targets
 set(LIBHICN_SHARED ${LIBHICN}.shared)
 set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared)
+
+set(LIBHICN_STATIC ${LIBHICN}.static)
+set(LIBTRANSPORT_STATIC ${LIBTRANSPORT}.static)
+
+set(LIBHICN_LIGHT_STATIC ${LIBHICN_LIGHT}.static)
 
 if (NOT WIN32)
   add_compile_options(-Wall -Werror)

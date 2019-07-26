@@ -27,7 +27,8 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-	set(LIBHICN hicn)
+  set(LIBHICN hicn)
+  set(LIBHICN_STATIC ${LIBHICN}.static)
 endif()
 
 include (Packaging)
