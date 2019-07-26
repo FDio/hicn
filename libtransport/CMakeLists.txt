@@ -81,16 +81,17 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     find_package_wrapper(HicnBinaryApi REQUIRED)
   endif()
   set(LIBTRANSPORT hicntransport)
+  set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared)
+  set(LIBTRANSPORT_STATIC ${LIBTRANSPORT}.static)
 else()
   if (ANDROID_API)
-    set(HICN_LIBRARIES ${LIBHICN})
+    set(HICN_LIBRARIES ${LIBHICN_STATIC})
     list(APPEND DEPENDENCIES
-      ${LIBHICN}
+      ${LIBHICN_STATIC}
     )
   else ()
     set(HICN_LIBRARIES ${LIBHICN_SHARED})
     list(APPEND DEPENDENCIES
-      ${LIBHICN}
       ${LIBHICN_SHARED}
     )
   endif ()
