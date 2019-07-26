@@ -84,9 +84,9 @@ macro(build_library lib)
 
   if(ARG_STATIC)
     list(APPEND TARGET_LIBS
-      ${lib}
+      ${lib}.static
     )
-    add_library(${lib} STATIC ${ARG_SOURCES})
+    add_library(${lib}.static STATIC ${ARG_SOURCES})
   endif()
 
   if(NOT ARG_COMPONENT)

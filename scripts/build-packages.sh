@@ -29,7 +29,7 @@ VPP_VERSION_RPM="19.04.1-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
-DEPS_UBUNTU="libparc-dev libasio-dev libcurl4-openssl-dev vpp-dev=${VPP_VERSION_DEB} libvppinfra=${VPP_VERSION_DEB} libvppinfra-dev=${VPP_VERSION_DEB} vpp-plugin-core=${VPP_VERSION_DEB}"
+DEPS_UBUNTU="libparc-dev libasio-dev libcurl4-openssl-dev vpp=${VPP_VERSION_DEB} vpp-dev=${VPP_VERSION_DEB} libvppinfra=${VPP_VERSION_DEB} libvppinfra-dev=${VPP_VERSION_DEB} vpp-plugin-core=${VPP_VERSION_DEB}"
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
 DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM} vpp-lib-${VPP_VERSION_RPM} libparc-devel libcurl-devel asio-devel centos-release-scl devtoolset-7"
@@ -42,7 +42,7 @@ install_cmake() {
     fi
 
     cat /etc/resolv.conf
-``
+
     CMAKE_INSTALL_SCRIPT_URL="https://cmake.org/files/v3.8/cmake-3.8.0-Linux-x86_64.sh"
     CMAKE_INSTALL_SCRIPT="/tmp/install_cmake.sh"
     curl ${CMAKE_INSTALL_SCRIPT_URL} > ${CMAKE_INSTALL_SCRIPT}
