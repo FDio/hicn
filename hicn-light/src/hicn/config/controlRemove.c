@@ -30,6 +30,9 @@
 #include <hicn/config/controlRemoveConnection.h>
 #include <hicn/config/controlRemovePunting.h>
 #include <hicn/config/controlRemoveRoute.h>
+#ifdef WITH_POLICY
+#include <hicn/config/controlRemovePolicy.h>
+#endif /* WITH_POLICY */
 
 static void _controlRemove_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlRemove_Execute(CommandParser *parser,
@@ -61,16 +64,25 @@ static CommandReturn _controlRemove_HelpExecute(CommandParser *parser,
   CommandOps *ops_remove_connection = controlRemoveConnection_Create(NULL);
   CommandOps *ops_remove_route = controlRemoveRoute_Create(NULL);
   CommandOps *ops_remove_punting = controlRemovePunting_Create(NULL);
+#ifdef WITH_POLICY
+  CommandOps *ops_remove_policy = controlRemovePolicy_Create(NULL);
+#endif /* WITH_POLICY */
 
   printf("Available commands:\n");
   printf("   %s\n", ops_remove_connection->command);
   printf("   %s\n", ops_remove_route->command);
   printf("   %s\n", ops_remove_punting->command);
+#ifdef WITH_POLICY
+  printf("   %s\n", ops_remove_policy->command);
+#endif /* WITH_POLICY */
   printf("\n");
 
   commandOps_Destroy(&ops_remove_connection);
   commandOps_Destroy(&ops_remove_route);
   commandOps_Destroy(&ops_remove_punting);
+#ifdef WITH_POLICY
+  commandOps_Destroy(&ops_remove_policy);
+#endif /* WITH_POLICY */
   return CommandReturn_Success;
 }
 
@@ -83,6 +95,10 @@ static void _controlRemove_Init(CommandParser *parser, CommandOps *ops) {
   controlState_RegisterCommand(state, controlRemoveRoute_Create(state));
   controlState_RegisterCommand(state, controlRemovePunting_Create(state));
   controlState_RegisterCommand(state, controlRemovePunting_HelpCreate(state));
+#ifdef WITH_POLICY
+  controlState_RegisterCommand(state, controlRemovePolicy_HelpCreate(state));
+  controlState_RegisterCommand(state, controlRemovePolicy_Create(state));
+#endif /* WITH_POLICY */
 }
 
 static CommandReturn _controlRemove_Execute(CommandParser *parser,

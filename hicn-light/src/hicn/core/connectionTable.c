@@ -206,7 +206,7 @@ const Connection *connectionTable_FindByAddressPair(ConnectionTable *table,
   return (Connection *)parcHashCodeTable_Get(table->indexByAddressPair, pair);
 }
 
-const Connection *connectionTable_FindById(ConnectionTable *table,
+const Connection *connectionTable_FindById(const ConnectionTable *table,
                                            unsigned id) {
   parcAssertNotNull(table, "Parameter table must be non-null");
   return (Connection *)parcHashCodeTable_Get(table->storageTableById, &id);

@@ -38,7 +38,6 @@ else()
   else ()
     set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
   endif ()
-
   list(APPEND DEPENDENCIES
     ${LIBTRANSPORT_LIBRARIES}
   )

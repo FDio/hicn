@@ -40,6 +40,10 @@
 #include <hicn/core/name.h>
 #include <hicn/strategies/strategyImpl.h>
 
+#ifdef WITH_POLICY
+#include <hicn/core/connectionTable.h>
+#endif /* WITH_POLICY */
+
 #ifdef WITH_MAPME
 #include <parc/algol/parc_EventTimer.h>
 #include <parc/algol/parc_Iterator.h>
@@ -48,7 +52,12 @@
 struct fib_entry;
 typedef struct fib_entry FibEntry;
 
+#ifdef WITH_POLICY
+struct forwarder;
+FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy, const struct forwarder * table);
+#else
 FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy);
+#endif
 
 /**
  * Decrements the reference count by one, and destroys the memory after last
@@ -72,6 +81,16 @@ FibEntry *fibEntry_Acquire(const FibEntry *fibEntry);
 
 void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy);
 
+#ifdef WITH_POLICY
+
+policy_t fibEntry_GetPolicy(const FibEntry *fibEntry);
+
+void fibEntry_ReconsiderPolicy(FibEntry *fibEntry);
+
+void fibEntry_SetPolicy(FibEntry *fibEntry, policy_t policy);
+
+#endif /* WITH_POLICY */
+
 void fibEntry_AddNexthop(FibEntry *fibEntry, unsigned connectionId);
 
 void fibEntry_RemoveNexthopByConnectionId(FibEntry *fibEntry,
@@ -89,13 +108,29 @@ size_t fibEntry_NexthopCount(const FibEntry *fibEntry);
 const NumberSet *fibEntry_GetNexthops(const FibEntry *fibEntry);
 
 const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
+#ifdef WITH_POLICY
+    FibEntry *fibEntry, const Message *interestMessage, bool is_retransmission);
+#else
     const FibEntry *fibEntry, const Message *interestMessage);
+#endif /* WITH_POLICY */
 
+#ifdef WITH_POLICY
+void fibEntry_ReceiveObjectMessage(FibEntry *fibEntry,
+#else
 void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
+#endif /* WITH_POLICY */
                                    const NumberSet *egressId,
                                    const Message *objectMessage, Ticks rtt);
 
+#ifdef WITH_POLICY
+void fibEntry_OnTimeout(FibEntry *fibEntry, const NumberSet *egressId);
+#else
 void fibEntry_OnTimeout(const FibEntry *fibEntry, const NumberSet *egressId);
+#endif /* WITH_POLICY */
+
+#ifdef WITH_POLICY
+void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now);
+#endif /* WITH_POLICY */
 
 strategy_type fibEntry_GetFwdStrategyType(const FibEntry *fibEntry);
 
@@ -109,15 +144,6 @@ StrategyImpl *fibEntry_GetFwdStrategy(const FibEntry *fibEntry);
 Name *fibEntry_GetPrefix(const FibEntry *fibEntry);
 
 #ifdef WITH_MAPME
-
-/**
- * @function fibEntry_AddNexthopByConnectionId
- * @abstract Adds a next hop directly from the connection id.
- * @param [in] fibEntry - Pointer to the FIB entry.
- * @return The sequence number stored in the FIB entry.
- */
-void fibEntry_AddNexthopByConnectionId(FibEntry *fibEntry,
-                                       unsigned connectionId);
 
 /**
  * @function fibEntry_getUserData
