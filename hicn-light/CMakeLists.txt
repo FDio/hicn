@@ -55,19 +55,18 @@ find_package_wrapper(Libparc REQUIRED)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package_wrapper(Libhicn REQUIRED)
   find_package_wrapper(Libparc REQUIRED)
-  set(LIBHICN_LIGHT hicn-light)
-  set(HICN_LIGHT_CONTROL hicn-light-control)
-  set(HICN_LIGHT_DAEMON hicn-light-daemon)
+  set(HICN_LIGHT hicn-light)
+  set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control)
+  set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon)
 else()
   if (ANDROID_API)
-    set(HICN_LIBRARIES ${LIBHICN})
+    set(HICN_LIBRARIES ${LIBHICN_STATIC})
     list(APPEND DEPENDENCIES
-      ${LIBHICN}
+      ${LIBHICN_STATIC}
     )
   else ()
     set(HICN_LIBRARIES ${LIBHICN_SHARED})
     list(APPEND DEPENDENCIES
-      ${LIBHICN}
       ${LIBHICN_SHARED}
     )
   endif ()
@@ -76,11 +75,13 @@ endif()
 include( Packaging )
 
 find_package(Threads REQUIRED)
-
 find_package(OpenSSL REQUIRED)
 
+set(LIBHICN_LIGHT hicn-light)
+set(LIBHICN_LIGHT_STATIC ${LIBHICN_LIGHT}.static)
+
 set(HICN_LIGHT_LINK_LIBRARIES
-  hicn-light
+  ${LIBHICN_LIGHT_STATIC}
   ${HICN_LIBRARIES}
   ${LIBPARC_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}

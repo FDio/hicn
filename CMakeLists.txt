@@ -63,7 +63,7 @@ endforeach()
 
 ## Static targets
 set(LIBHICN hicn)
-set(LIBHICN_LIGHT hicn-light)
+set(HICN_LIGHT hicn-light)
 set(HICN_LIGHT_CONTROL hicn-light-control)
 set(HICN_LIGHT_DAEMON hicn-light-daemon)
 set(HICN_PLUGIN hicn-plugin)
@@ -91,9 +91,12 @@ if (BUILD_HICNEXTRAPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   )
 endif()
 
-## Shared targets
+## Libraries targets
 set(LIBHICN_SHARED ${LIBHICN}.shared)
 set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared)
+
+set(LIBHICN_STATIC ${LIBHICN}.static)
+set(LIBTRANSPORT_STATIC ${LIBTRANSPORT}.static)
 
 if (NOT WIN32)
   add_compile_options(-Wall -Werror)
