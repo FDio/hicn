@@ -145,7 +145,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       fib_prefix_t fib_pfx;
       fib_node_index_t fib_entry_index;
       fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
-      fib_pfx.fp_len = 32;
+      fib_pfx.fp_len = ip46_address_is_ip4(remote_addr)? 32 : 128;
 
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
@@ -211,7 +211,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       fib_prefix_t fib_pfx;
       fib_node_index_t fib_entry_index;
       fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
-      fib_pfx.fp_len = 128;
+      fib_pfx.fp_len = ip46_address_is_ip4(remote_addr)? 32 : 128;
 
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
@@ -352,7 +352,7 @@ format_hicn_face_udp (u8 * s, va_list * args)
 	  s = format (s, "%U", format_vnet_link, adj->ia_link);
 
 	  vnet_sw_interface_t *sw_int =
-	    vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+	    vnet_get_sw_interface_or_null (vnm, face->shared.sw_if);
 	  if (sw_int != NULL)
 	    s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
 			sw_int);
@@ -372,7 +372,7 @@ format_hicn_face_udp (u8 * s, va_list * args)
 	  s = format (s, "%U", format_vnet_link, adj->ia_link);
 
 	  vnet_sw_interface_t *sw_int =
-	    vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+	    vnet_get_sw_interface_or_null (vnm, face->shared.sw_if);
 	  if (sw_int != NULL)
 	    s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
 			sw_int);
@@ -395,7 +395,7 @@ format_hicn_face_udp (u8 * s, va_list * args)
 		    clib_net_to_host_u16 (udp_face->hdrs.ip4.udp.dst_port));
 
 	  vnet_sw_interface_t *sw_int =
-	    vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+	    vnet_get_sw_interface_or_null (vnm, face->shared.sw_if);
 	  if (sw_int != NULL)
 	    s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
 			sw_int);
@@ -414,7 +414,7 @@ format_hicn_face_udp (u8 * s, va_list * args)
 		    clib_net_to_host_u16 (udp_face->hdrs.ip6.udp.dst_port));
 
 	  vnet_sw_interface_t *sw_int =
-	    vnet_get_sw_interface_safe (vnm, face->shared.sw_if);
+	    vnet_get_sw_interface_or_null (vnm, face->shared.sw_if);
 	  if (sw_int != NULL)
 	    s = format (s, " dev %U", format_vnet_sw_interface_name, vnm,
 			sw_int);

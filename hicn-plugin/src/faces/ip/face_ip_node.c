@@ -493,7 +493,7 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
       fib_prefix_t fib_pfx;
       fib_node_index_t fib_entry_index;
       fib_prefix_from_ip46_addr (&ip_face->remote_addr, &fib_pfx);
-      fib_pfx.fp_len = 128;
+      fib_pfx.fp_len = ip46_address_is_ip4(&ip_face->remote_addr)? 32 : 128;
 
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
