@@ -26,6 +26,10 @@
 #include "util/hash.h"
 #include "util/token.h"
 
+#ifndef bzero
+#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
+#endif
+
 #define member_size(type, member) sizeof(((type *)0)->member)
 
 
