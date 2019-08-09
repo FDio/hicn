@@ -12,6 +12,8 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
+#include <vnet/adj/adj_midchain.h>
+#include <vnet/adj/adj.h>
 
 #include "face_ip.h"
 #include "face_ip_node.h"
@@ -96,28 +98,149 @@ hicn_face_ip_del (hicn_face_id_t face_id)
   hicn_face_ip_t *face_ip = (hicn_face_ip_t *) face->data;
   hicn_face_ip_key_t key;
   hicn_face_ip_key_t old_key;
+  hicn_face_ip_key_t old_key2;
 
   if (ip46_address_is_ip4 (&face_ip->local_addr))
     {
       hicn_face_ip4_get_key (&(face_ip->local_addr.ip4), face->shared.sw_if,
 			     &key);
-      mhash_unset (&hicn_face_ip_local_hashtb, &key, (uword *) & old_key);
-      hicn_face_ip4_get_key (&(face_ip->remote_addr.ip4), face->shared.sw_if,
-			     &key);
-      mhash_unset (&hicn_face_ip_remote_hashtb, &key, (uword *) & old_key);
+      hicn_face_ip_input_faces_t * in_faces_vec = hicn_face_ip4_get_vec(&(face_ip->local_addr.ip4), face->shared.sw_if,
+                                                                        &hicn_face_ip_local_hashtb);
+      if (in_faces_vec != NULL)
+        {
+          hicn_face_ip_vec_t * vec = pool_elt_at_index (hicn_vec_pool, in_faces_vec->vec_id);
+          u32 index_face = vec_search(*vec, face_id);
+          vec_del1(*vec, index_face);
+
+          if (vec_len(*vec) == 0)
+            {
+              pool_put_index(hicn_vec_pool, in_faces_vec->vec_id);
+              mhash_unset (&hicn_face_ip_local_hashtb, &key, (uword *) & old_key);
+              vec_free(*vec);
+            }
+          else
+            {
+              /* Check if the face we are deleting is the preferred one. */
+              /* If so, repleace with another. */
+              if (in_faces_vec->face_id == face_id)
+                {
+                  in_faces_vec->face_id = (*vec)[0];
+                }
+            }
+          hicn_face_ip4_get_key (&(face_ip->remote_addr.ip4), face->shared.sw_if,
+                                 &key);
+          mhash_unset (&hicn_face_ip_remote_hashtb, &key, (uword *) & old_key2);
+        }
     }
   else
     {
       hicn_face_ip6_get_key (&(face_ip->local_addr.ip6), face->shared.sw_if,
 			     &key);
-      mhash_unset (&hicn_face_ip_local_hashtb, &key, (uword *) & old_key);
-      hicn_face_ip6_get_key (&(face_ip->remote_addr.ip6), face->shared.sw_if,
-			     &key);
-      mhash_unset (&hicn_face_ip_remote_hashtb, &key, (uword *) & old_key);
+
+      hicn_face_ip_input_faces_t * in_faces_vec = hicn_face_ip6_get_vec(&(face_ip->local_addr.ip6), face->shared.sw_if,
+                                                                      &hicn_face_ip_local_hashtb);
+      if (in_faces_vec != NULL)
+        {
+          hicn_face_ip_vec_t * vec = pool_elt_at_index (hicn_vec_pool, in_faces_vec->vec_id);
+          u32 index_face = vec_search(*vec, face_id);
+          vec_del1(*vec, index_face);
+
+          if (vec_len(*vec) == 0)
+            {
+              pool_put(hicn_vec_pool, vec);
+              mhash_unset (&hicn_face_ip_local_hashtb, &key, (uword *) & old_key);
+              vec_free(*vec);
+            }
+          else
+            {
+              /* Check if the face we are deleting is the preferred one. */
+              /* If so, repleace with another. */
+              if (in_faces_vec->face_id == face_id)
+                {
+                  in_faces_vec->face_id = (*vec)[0];
+                }
+            }
+          hicn_face_ip6_get_key (&(face_ip->remote_addr.ip6), face->shared.sw_if,
+                                 &key);
+          mhash_unset (&hicn_face_ip_remote_hashtb, &key, (uword *) & old_key);
+        }
     }
   return hicn_face_del (face_id);
 }
 
+/**
+ * @brief Helper for handling midchain adjacencies
+ */
+void face_midchain_fixup_t (vlib_main_t * vm,
+                            struct ip_adjacency_t_ * adj,
+                            vlib_buffer_t * b0,
+                            const void *data) {
+  vnet_buffer (b0)->sw_if_index[VLIB_TX] = 0;
+};
+
+/**
+ * @brief Build a rewrite string for the face.
+ */
+static u8*
+face_build_rewrite_i (void)
+{
+  /*
+   * passing the adj code a NULL rewrite means 'i don't have one cos
+   * t'other end is unresolved'. That's not the case here. For the mpls
+   * tunnel there are just no bytes of encap to apply in the adj. We'll impose
+   * the label stack once we choose a path. So return a zero length rewrite.
+   */
+  u8 *rewrite = NULL;
+
+  vec_validate(rewrite, 0);
+  vec_reset_length(rewrite);
+
+  return (rewrite);
+}
+
+always_inline void
+hicn_face_ip_find_adj (const ip46_address_t * remote_addr,
+                       int sw_if, adj_index_t * adj)
+{
+  fib_prefix_t fib_pfx;
+  fib_node_index_t fib_entry_index;
+  fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
+  fib_pfx.fp_len = ip46_address_is_ip4(remote_addr)? 32 : 128;
+  vnet_link_t link_type = ip46_address_is_ip4(&fib_pfx.fp_addr)? VNET_LINK_IP4 : VNET_LINK_IP6;
+  *adj = adj_nbr_find(fib_pfx.fp_proto, link_type, &fib_pfx.fp_addr, sw_if);
+
+  if (*adj == ADJ_INDEX_INVALID)
+    {
+      u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+                                                         HICN_FIB_TABLE,
+                                                         FIB_SOURCE_PLUGIN_HI);
+
+      fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
+      *adj = fib_entry_get_adj (fib_entry_index);
+      ip_adjacency_t * temp = NULL;
+      if (*adj != ~0)
+        temp = adj_get(*adj);
+
+      if (temp == NULL)
+        {
+          *adj = adj_nbr_add_or_lock(fib_pfx.fp_proto, link_type, remote_addr, sw_if);
+          adj_nbr_midchain_update_rewrite(*adj, &face_midchain_fixup_t, NULL, ADJ_FLAG_NONE, face_build_rewrite_i());
+          adj_midchain_delegate_stack(*adj, fib_index, &fib_pfx);
+        }
+      else
+        {
+          if (temp->lookup_next_index <= IP_LOOKUP_NEXT_REWRITE)
+            {
+              *adj  = adj_nbr_add_or_lock(fib_pfx.fp_proto, link_type, &(fib_pfx.fp_addr), sw_if);
+            }
+          else
+            {
+              adj_nbr_midchain_update_rewrite(*adj, &face_midchain_fixup_t, NULL, ADJ_FLAG_NONE, face_build_rewrite_i());
+              adj_midchain_delegate_stack(*adj, fib_index, &fib_pfx);
+            }
+        }
+    }
+}
 
 /*
  * Utility that adds a new face cache entry. For the moment we assume that
@@ -126,32 +249,14 @@ hicn_face_ip_del (hicn_face_id_t face_id)
 int
 hicn_face_ip_add (const ip46_address_t * local_addr,
 		  const ip46_address_t * remote_addr,
-		  int sw_if, hicn_face_id_t * pfaceid)
+		  int sw_if, hicn_face_id_t * pfaceid,
+                  u8 is_app_prod)
 {
-  /* fib_protocol_t fib_type; */
-  /* vnet_link_t link_type; */
-  adj_index_t adj;
   dpo_proto_t dpo_proto;
 
   /* Check if we found at least one ip address */
-  if (ip46_address_is_zero (local_addr) || ip46_address_is_zero (remote_addr))
+  if (ip46_address_is_zero (remote_addr))
     return HICN_ERROR_FACE_NO_GLOBAL_IP;
-
-  fib_prefix_t fib_pfx;
-  fib_node_index_t fib_entry_index;
-  fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
-  fib_pfx.fp_len = ip46_address_is_ip4(remote_addr)? 32 : 128;
-
-  u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
-						     HICN_FIB_TABLE,
-						     FIB_SOURCE_PLUGIN_HI);
-
-  fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
-
-  adj = fib_entry_get_adj (fib_entry_index);
-
-  if (adj == ~0)
-    return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
   hicn_face_flags_t flags = (hicn_face_flags_t) 0;
   flags |= HICN_FACE_FLAGS_FACE;
@@ -160,17 +265,10 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
   if (ip46_address_is_ip4 (local_addr))
     {
       face =
-	hicn_face_ip4_get (&(local_addr->ip4), sw_if,
-			   &hicn_face_ip_local_hashtb);
-
-      if (face != NULL)
-	return HICN_ERROR_FACE_ALREADY_CREATED;
-
-      face =
 	hicn_face_ip4_get (&(remote_addr->ip4), sw_if,
 			   &hicn_face_ip_remote_hashtb);
 
-      /* If remote matches the face is a iface */
+      /* If remote matches the face we need to check if it is an incomplete face */
       if (face == NULL)
 	{
 	  hicn_iface_ip_add (local_addr, remote_addr, sw_if, pfaceid);
@@ -181,30 +279,72 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
 	  *pfaceid = hicn_dpoi_get_index (face);
 	}
 
+      if (!(face->shared.flags & HICN_FACE_FLAGS_IFACE))
+        return HICN_ERROR_FACE_ALREADY_CREATED;
+
       hicn_face_ip_key_t key;
       hicn_face_ip4_get_key (&(local_addr->ip4), sw_if, &key);
 
-      mhash_set_mem (&hicn_face_ip_local_hashtb, &key, (uword *) pfaceid, 0);
+      hicn_face_ip_input_faces_t * in_faces =
+	hicn_face_ip4_get_vec (&(local_addr->ip4), sw_if,
+                               &hicn_face_ip_local_hashtb);
 
-      hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
-      clib_memcpy (&ip_face->local_addr, local_addr, sizeof (ip4_address_t));
-      clib_memcpy (&ip_face->remote_addr, remote_addr,
-		   sizeof (ip4_address_t));
-      face->shared.sw_if = sw_if;
-      face->shared.flags = flags;
-      face->shared.adj = adj;
+      if (in_faces == NULL)
+        {
+          hicn_face_ip_input_faces_t in_faces_temp;
+          hicn_face_ip_vec_t *vec;
+          pool_get(hicn_vec_pool, vec);
+          *vec = vec_new(hicn_face_ip_vec_t, 0);
+          u32 index = vec - hicn_vec_pool;
+          in_faces_temp.vec_id = index;
+          vec_add1(*vec, *pfaceid);
 
-      dpo_proto = DPO_PROTO_IP4;
+          hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
+          clib_memcpy (&ip_face->local_addr, local_addr, sizeof (ip4_address_t));
+          clib_memcpy (&ip_face->remote_addr, remote_addr,
+                       sizeof (ip4_address_t));
+          face->shared.sw_if = sw_if;
+          face->shared.flags = flags;
+          hicn_face_ip_find_adj(remote_addr, sw_if, &face->shared.adj);
+
+          dpo_proto = DPO_PROTO_IP4;
+
+          in_faces_temp.face_id = *pfaceid;
+
+          mhash_set_mem (&hicn_face_ip_local_hashtb, &key, (uword *) &in_faces_temp, 0);
+        }
+      else
+        {
+          hicn_face_ip_vec_t * vec = pool_elt_at_index(hicn_vec_pool, in_faces->vec_id);
+
+          /* */
+          if (vec_search(*vec, *pfaceid) != ~0)
+            return HICN_ERROR_FACE_ALREADY_CREATED;
+
+          vec_add1(*vec, *pfaceid);
+
+          hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
+          clib_memcpy (&ip_face->local_addr, local_addr, sizeof (ip4_address_t));
+          clib_memcpy (&ip_face->remote_addr, remote_addr,
+                       sizeof (ip4_address_t));
+          face->shared.sw_if = sw_if;
+          face->shared.flags = flags;
+          hicn_face_ip_find_adj(remote_addr, sw_if, &face->shared.adj);
+
+          dpo_proto = DPO_PROTO_IP4;
+
+          mhash_set_mem (&hicn_face_ip_local_hashtb, &key, (uword *) in_faces, 0);
+
+          /* If the face is an application producer face, we set it as the preferred incoming face. */
+          /* This is required to handle the CS separation, and the push api in a lightway*/
+          if (is_app_prod)
+            {
+              in_faces->face_id = *pfaceid;
+            }
+        }
     }
   else
     {
-      face =
-	hicn_face_ip6_get (&(local_addr->ip6), sw_if,
-			   &hicn_face_ip_local_hashtb);
-
-      if (face != NULL)
-	return HICN_ERROR_FACE_ALREADY_CREATED;
-
       face =
 	hicn_face_ip6_get (&(remote_addr->ip6), sw_if,
 			   &hicn_face_ip_remote_hashtb);
@@ -220,20 +360,69 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
 	  *pfaceid = hicn_dpoi_get_index (face);
 	}
 
+      if (!(face->shared.flags & HICN_FACE_FLAGS_IFACE))
+        return HICN_ERROR_FACE_ALREADY_CREATED;
+
       hicn_face_ip_key_t key;
       hicn_face_ip6_get_key (&(local_addr->ip6), sw_if, &key);
 
-      mhash_set_mem (&hicn_face_ip_local_hashtb, &key, (uword *) pfaceid, 0);
+      hicn_face_ip_input_faces_t * in_faces =
+	hicn_face_ip6_get_vec (&(local_addr->ip6), sw_if,
+                               &hicn_face_ip_local_hashtb);
 
-      hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
-      clib_memcpy (&ip_face->local_addr, local_addr, sizeof (ip6_address_t));
-      clib_memcpy (&ip_face->remote_addr, remote_addr,
-		   sizeof (ip6_address_t));
-      face->shared.sw_if = sw_if;
-      face->shared.flags = flags;
-      face->shared.adj = adj;
+      if (in_faces == NULL)
+        {
+          hicn_face_ip_input_faces_t in_faces_temp;
+          hicn_face_ip_vec_t *vec;
+          pool_get(hicn_vec_pool, vec);
+          vec_alloc(*vec, 1);
+          u32 index = vec - hicn_vec_pool;
+          in_faces_temp.vec_id = index;
+          vec_add1(*vec, *pfaceid);
 
-      dpo_proto = DPO_PROTO_IP6;
+          hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
+          clib_memcpy (&ip_face->local_addr, local_addr, sizeof (ip6_address_t));
+          clib_memcpy (&ip_face->remote_addr, remote_addr,
+                       sizeof (ip6_address_t));
+          face->shared.sw_if = sw_if;
+          face->shared.flags = flags;
+          hicn_face_ip_find_adj(remote_addr, sw_if, &face->shared.adj);
+
+          dpo_proto = DPO_PROTO_IP6;
+
+          in_faces_temp.face_id = *pfaceid;
+
+          mhash_set_mem (&hicn_face_ip_local_hashtb, &key, (uword *) &in_faces_temp, 0);
+        }
+      else
+        {
+          hicn_face_ip_vec_t *vec = pool_elt_at_index(hicn_vec_pool, in_faces->vec_id);
+
+          /* */
+          if (vec_search(*vec, *pfaceid) != ~0)
+            return HICN_ERROR_FACE_ALREADY_CREATED;
+
+          vec_add1(*vec, *pfaceid);
+
+          hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
+          clib_memcpy (&ip_face->local_addr, local_addr, sizeof (ip6_address_t));
+          clib_memcpy (&ip_face->remote_addr, remote_addr,
+                       sizeof (ip6_address_t));
+          face->shared.sw_if = sw_if;
+          face->shared.flags = flags;
+          hicn_face_ip_find_adj(remote_addr, sw_if, &face->shared.adj);
+
+          dpo_proto = DPO_PROTO_IP6;
+
+          mhash_set_mem (&hicn_face_ip_local_hashtb, &key, (uword *) in_faces, 0);
+
+          /* If the face is an application producer face, we set it as the preferred incoming face. */
+          /* This is required to handle the CS separation, and the push api in a lightway*/
+          if (is_app_prod)
+            {
+              in_faces->face_id = *pfaceid;
+            }
+        }
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
