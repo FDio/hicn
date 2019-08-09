@@ -144,6 +144,7 @@ typedef enum
                                                                         \
   ret = LOCK_FROM_LOCAL_IP##ipv                                         \
     (&(hicnb0->face_dpo_id),                                            \
+     &(hicnb0->in_faces_vec_id),                                        \
      &hicnb0->flags,                                                    \
      &(ip_hdr->dst_address),                                            \
      vnet_buffer (b0)->sw_if_index[VLIB_RX]);                           \
@@ -232,12 +233,14 @@ typedef enum
                                                                         \
     ret0 = LOCK_FROM_LOCAL_IP##ipv                                      \
       (&(hicnb0->face_dpo_id),                                          \
+       &(hicnb0->in_faces_vec_id),                                      \
        &hicnb0->flags,                                                  \
        &(ip_hdr0->dst_address),                                         \
        vnet_buffer (b0)->sw_if_index[VLIB_RX]);                         \
                                                                         \
     ret1 = LOCK_FROM_LOCAL_IP##ipv                                      \
       (&(hicnb1->face_dpo_id),                                          \
+       &(hicnb1->in_faces_vec_id),                                      \
        &hicnb1->flags,                                                  \
        &(ip_hdr1->dst_address),                                         \
        vnet_buffer (b1)->sw_if_index[VLIB_RX]);                         \
