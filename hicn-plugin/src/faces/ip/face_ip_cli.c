@@ -158,7 +158,7 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
 	    }
 	}
 
-      rv = hicn_face_ip_add (&local_addr, &remote_addr, sw_if, &face_id);
+      rv = hicn_face_ip_add (&local_addr, &remote_addr, sw_if, &face_id, 0);
 
       if (rv == HICN_ERROR_NONE)
 	{
@@ -194,7 +194,7 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
 VLIB_CLI_COMMAND (hicn_face_ip_cli_set_command, static) =
 {
   .path = "hicn face ip",
-  .short_help = "hicn face ip {add local <src_address> remote <dst_address> intfc <sw_if>} | {del id <face_id>}",
+  .short_help = "hicn face ip {add [local <src_address>] remote <dst_address> intfc <sw_if>} | {del id <face_id>}",
   .function = hicn_face_ip_cli_set_command_fn,
 };
 /* *INDENT-ON* */

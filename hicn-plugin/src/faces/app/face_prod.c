@@ -218,7 +218,7 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 	  remote_app_ip = to_ip46 ( /* isv6 */ 0, remote_app_ip4.as_u8);
 
 	  ret =
-	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid);
+	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid, HICN_FACE_FLAGS_APPFACE_PROD);
 	}
       else
 	{
@@ -238,7 +238,7 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 	  remote_app_ip = to_ip46 ( /* isv6 */ 1, remote_app_ip6.as_u8);
 
 	  ret =
-	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid);
+	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid, HICN_FACE_FLAGS_APPFACE_PROD);
 	}
 
       face = hicn_dpoi_get_from_idx (*faceid);
