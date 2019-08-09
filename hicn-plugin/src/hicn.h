@@ -64,8 +64,9 @@ typedef struct
   u8 dpo_ctx_id;		/* used for data path */
   u8 vft_id;			/* " */
 
-  dpo_id_t face_dpo_id;		/* ingress face ,sizeof(iface_dpo_id)
-				 * <= sizeof(u64) */
+  dpo_id_t face_dpo_id;	/* ingress iface, sizeof(dpo_id_t)
+                                 * <= sizeof(u64) */
+  u32 in_faces_vec;          /* vector of possible input face for a data packet */
 
   hicn_type_t type;
 } hicn_buffer_t;
