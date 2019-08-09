@@ -158,7 +158,7 @@ hicn_face_ip_cli_set_command_fn (vlib_main_t * vm,
 	    }
 	}
 
-      rv = hicn_face_ip_add (&local_addr, &remote_addr, sw_if, &face_id);
+      rv = hicn_face_ip_add (&local_addr, &remote_addr, sw_if, &face_id, 0);
 
       if (rv == HICN_ERROR_NONE)
 	{
