@@ -209,9 +209,11 @@ endif()
 execute_process(COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/hicn)
 # These files are missing from vpp binary distribution
 execute_process(
-    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_json_parser.py?h=stable/1901 -o ${CMAKE_BINARY_DIR}/vapi_json_parser.py
-    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_c_gen.py?h=stable/1901  -o ${CMAKE_BINARY_DIR}/vapi_c_gen.py
-    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_cpp_gen.py?h=stable/1901  -o ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_json_parser.py?h=stable/1904 -o ${CMAKE_BINARY_DIR}/vapi_json_parser.py
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_c_gen.py?h=stable/1904  -o ${CMAKE_BINARY_DIR}/vapi_c_gen.py
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_cpp_gen.py?h=stable/1904  -o ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py
+    COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/vnet/adj
+    COMMAND curl https://git.fd.io/vpp/plain/src/vnet/adj/adj_midchain.h?h=stable/1904  -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/adj/adj_midchain.h
     )
 
 add_custom_command(
@@ -275,10 +277,14 @@ install(TARGETS hicn_api_test_plugin
         DESTINATION ${VPP_INSTALL_API_TEST_PLUGIN}
         COMPONENT ${HICN_PLUGIN})
 
-install(FILES ${HICN_API_TEST_HEADER_FILES} ${HICN_API_GENERATED_FILES}
+install(FILES ${HICN_API_TEST_HEADER_FILES}
         DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/vpp_plugins/hicn
         COMPONENT ${HICN_PLUGIN})
 
+install(FILES ${HICN_API_GENERATED_FILES}
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/vpp_plugins/hicn
+        COMPONENT ${HICN_PLUGIN_DEV})
+
 install(FILES ${HICN_VAPI_GENERATED_FILES}
         DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/vapi
-        COMPONENT ${HICN_PLUGIN})
+        COMPONENT ${HICN_PLUGIN_DEV})

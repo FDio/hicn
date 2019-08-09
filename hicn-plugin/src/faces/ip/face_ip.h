@@ -43,6 +43,24 @@ typedef struct hicn_ip_face_t_
 
 } hicn_face_ip_t;
 
+/**
+ * @bried vector of faces used to collect faces having the same local address
+ *
+ */
+typedef hicn_face_id_t * hicn_face_ip_vec_t;
+
+typedef struct hicn_ip_input_faces_s_
+{
+  /* Vector of all possible input faces */
+  u32 vec_id;
+
+  /* Preferred face. If an prod_app face is in the vector it will be the preferred one. */
+  /* It's not possible to have multiple prod_app face in the same vector, they would have */
+  /* the same local address. Every prod_app face is a point-to-point face between the forwarder */
+  /* and the application. */
+  hicn_face_id_t face_id;
+
+} hicn_face_ip_input_faces_t;
 
 /**
  * Hash tables that indexes a face by local address. For fast lookup when an
@@ -55,6 +73,11 @@ extern mhash_t hicn_face_ip_local_hashtb;
  * interest arrives.
  */
 extern mhash_t hicn_face_ip_remote_hashtb;
+
+/**
+ * Pool containing the vector of possible incoming faces.
+ */
+extern hicn_face_ip_vec_t * hicn_vec_pool;
 
 /**
  * Key definition for the mhash table. An ip face is uniquely identified by ip
@@ -129,6 +152,42 @@ hicn_face_ip4_get (const ip4_address_t * addr, u32 sw_if, mhash_t * hashtb)
 }
 
 /**
+ * @brief Get the vector of faces from the ip v4 address. Does not add any lock.
+ *
+ * @param addr Ip v4 address used to create the key for the hash table.
+ * @param sw_if Software interface id used to create the key for the hash table.
+ * @param hashtb Hash table (remote or local) where to perform the lookup.
+ *
+ * @result Pointer to the face.
+ */
+always_inline hicn_face_ip_input_faces_t *
+hicn_face_ip4_get_vec (const ip4_address_t * addr, u32 sw_if, mhash_t * hashtb)
+{
+  hicn_face_ip_key_t key;
+
+  hicn_face_ip4_get_key (addr, sw_if, &key);
+  return (hicn_face_ip_input_faces_t *) mhash_get (hashtb,&key);
+}
+
+/**
+ * @brief Get the vector of faces from the ip v6 address. Does not add any lock.
+ *
+ * @param addr Ip v6 address used to create the key for the hash table.
+ * @param sw_if Software interface id used to create the key for the hash table.
+ * @param hashtb Hash table (remote or local) where to perform the lookup.
+ *
+ * @result Pointer to the face.
+ */
+always_inline hicn_face_ip_input_faces_t *
+hicn_face_ip6_get_vec (const ip6_address_t * addr, u32 sw_if, mhash_t * hashtb)
+{
+  hicn_face_ip_key_t key;
+
+  hicn_face_ip6_get_key (addr, sw_if, &key);
+  return (hicn_face_ip_input_faces_t *) mhash_get (hashtb,&key);
+}
+
+/**
  * @brief Get the dpoi from the ip v6 address. Does not add any lock.
  *
  * @param addr Ip v6 address used to create the key for the hash table.
@@ -158,12 +217,13 @@ hicn_face_ip6_get (const ip6_address_t * addr, u32 sw_if, mhash_t * hashtb)
  * @param sw_if interface associated to the face
  * @param is_app_face Boolean to set the face as an application face
  * @param pfaceid Pointer to return the face id
+ * @param is_app_prod if HICN_FACE_FLAGS_APPFACE_PROD the face is a local application face, all other values are ignored
  * @return HICN_ERROR_FACE_NO_GLOBAL_IP if the face does not have a globally
  * reachable ip address, otherwise HICN_ERROR_NONE
  */
 int hicn_face_ip_add (const ip46_address_t * local_addr,
 		      const ip46_address_t * remote_addr,
-		      int swif, hicn_face_id_t * pfaceid);
+		      int swif, hicn_face_id_t * pfaceid, u8 is_app_prod);
 
 /**
  * @brief Create a new incomplete face ip. (Meant to be used by the data plane)
