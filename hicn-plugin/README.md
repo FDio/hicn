@@ -45,7 +45,6 @@ $ sudo make install
 CMAKE variables:
 - CMAKE_INSTALL_PREFIX -- set the install directory for the hicn-plugin. This is the common path to the lib folder containing vpp_plugins and vpp_api_test_plugins folders. Default is /usr/local.
 - VPP_HOME -- set the directory containing the include and lib directories of vpp.
-- HICN_API_TEST_HEADER_FILES -- set the install directory for the header files. Default is <vpp install dir>/include/vpp_plugins/hicn
 ```
 
 ## Using hICN plugin ##
