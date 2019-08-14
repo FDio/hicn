@@ -21,6 +21,7 @@
 #include <vnet/ip/ip6.h>
 #include <vlibapi/api.h>
 #include <vlibmemory/api.h>
+#include <vnet/dpo/load_balance.h>
 
 #include "hicn.h"
 #include "faces/ip/face_ip.h"
@@ -70,6 +71,7 @@
   _(HICN_API_FACE_IP_PARAMS_GET, hicn_api_face_ip_params_get)       \
   _(HICN_API_FACE_STATS_DUMP, hicn_api_face_stats_dump)             \
   _(HICN_API_ROUTE_GET, hicn_api_route_get)                         \
+  _(HICN_API_ROUTES_DUMP, hicn_api_routes_dump)                     \
   _(HICN_API_ROUTE_NHOPS_ADD, hicn_api_route_nhops_add)             \
   _(HICN_API_ROUTE_DEL, hicn_api_route_del)                         \
   _(HICN_API_ROUTE_NHOP_DEL, hicn_api_route_nhop_del)               \
@@ -474,7 +476,7 @@ static void vl_api_hicn_api_route_get_t_handler
     {
       if (rv == HICN_ERROR_NONE)
 	{
-	  hicn_dpo_vft = hicn_dpo_get_vft(hicn_dpo_id->dpoi_index);
+	  hicn_dpo_vft = hicn_dpo_get_vft(hicn_dpo_id->dpoi_type);
 	  hicn_dpo_ctx = hicn_dpo_vft->hicn_dpo_get_ctx(hicn_dpo_id->dpoi_index);
 	  for (int i = 0; i < hicn_dpo_ctx->entry_count; i++)
 	    {
@@ -485,6 +487,130 @@ static void vl_api_hicn_api_route_get_t_handler
 	  rmp->strategy_id = clib_host_to_net_u32(hicn_dpo_get_vft_id(hicn_dpo_id));}
     }));
   /* *INDENT-ON* */
+}
+
+static void
+send_route_details (vl_api_registration_t * reg,
+                    const fib_prefix_t *pfx, u32 context)
+{
+  vl_api_hicn_api_routes_details_t *mp;
+  hicn_main_t *hm = &hicn_main;
+  mp = vl_msg_api_alloc (sizeof (*mp));
+  memset (mp, 0, sizeof (*mp));
+
+  mp->_vl_msg_id =
+    htons (VL_API_HICN_API_ROUTES_DETAILS + hm->msg_id_base);
+  mp->context = context;
+
+  clib_memcpy(&mp->prefix, &pfx->fp_addr, sizeof(ip46_address_t));
+  mp->len = pfx->fp_len;
+  mp->nfaces = 0;
+
+  const dpo_id_t *hicn_dpo_id;
+  const hicn_dpo_vft_t *hicn_dpo_vft;
+  hicn_dpo_ctx_t *hicn_dpo_ctx;
+  u32 fib_index;
+
+  int rv = hicn_route_get_dpo (&pfx->fp_addr, pfx->fp_len, &hicn_dpo_id, &fib_index);
+
+  if (rv == HICN_ERROR_NONE)
+    {
+      hicn_dpo_vft = hicn_dpo_get_vft(hicn_dpo_id->dpoi_type);
+      hicn_dpo_ctx = hicn_dpo_vft->hicn_dpo_get_ctx(hicn_dpo_id->dpoi_index);
+      for (int i = 0; i < hicn_dpo_ctx->entry_count; i++)
+        {
+          if (dpo_id_is_valid(&hicn_dpo_ctx->next_hops[i]))
+            {
+              mp->faceids[i] = clib_host_to_net_u32(((dpo_id_t *) &hicn_dpo_ctx->next_hops[i])->dpoi_index);
+              mp->nfaces++;
+            }
+        }
+      mp->strategy_id = clib_host_to_net_u32(hicn_dpo_get_vft_id(hicn_dpo_id));
+    }
+
+  vl_api_send_msg (reg, (u8 *) mp);
+}
+
+typedef struct vl_api_hicn_api_route_dump_walk_ctx_t_
+{
+  fib_node_index_t *feis;
+} vl_api_hicn_api_route_dump_walk_ctx_t;
+
+static fib_table_walk_rc_t
+vl_api_hicn_api_route_dump_walk(fib_node_index_t fei, void *arg)
+{
+  vl_api_hicn_api_route_dump_walk_ctx_t *ctx = arg;
+  int found = 0;
+  const dpo_id_t *former_dpo_id;
+
+  /* Route already existing. We need to update the dpo. */
+  const dpo_id_t * load_balance_dpo_id =
+    fib_entry_contribute_ip_forwarding (fei);
+
+  /* The dpo is not a load balance dpo as expected */
+  if (load_balance_dpo_id->dpoi_type == DPO_LOAD_BALANCE)
+    {
+      /* former_dpo_id is a load_balance dpo */
+      load_balance_t *lb =
+        load_balance_get (load_balance_dpo_id->dpoi_index);
+
+      /* FIB entry exists but there is no hicn dpo. */
+      for (int i = 0; i < lb->lb_n_buckets && !found; i++)
+        {
+          former_dpo_id = load_balance_get_bucket_i (lb, i);
+
+          if (dpo_is_hicn (former_dpo_id))
+            {
+              vec_add1 (ctx->feis, fei);
+            }
+        }
+    }
+
+  return (FIB_TABLE_WALK_CONTINUE);
+}
+
+static void
+vl_api_hicn_api_routes_dump_t_handler
+(vl_api_hicn_api_face_stats_dump_t * mp)
+{
+  vl_api_registration_t *reg;
+  fib_table_t *fib_table;
+  ip4_main_t *im = &ip4_main;
+  ip6_main_t *im6 = &ip6_main;
+  fib_node_index_t *lfeip;
+  const fib_prefix_t *pfx;
+  vl_api_hicn_api_route_dump_walk_ctx_t ctx = {
+                                               .feis = NULL,
+  };
+
+  reg = vl_api_client_index_to_registration (mp->client_index);
+  if (!reg)
+    return;
+
+  pool_foreach (fib_table, im->fibs,
+                ({
+                  fib_table_walk(fib_table->ft_index,
+                                 FIB_PROTOCOL_IP4,
+                                 vl_api_hicn_api_route_dump_walk,
+                                 &ctx);
+                }));
+
+  pool_foreach (fib_table, im6->fibs,
+                ({
+                  fib_table_walk(fib_table->ft_index,
+                                 FIB_PROTOCOL_IP6,
+                                 vl_api_hicn_api_route_dump_walk,
+                                 &ctx);
+                }));
+
+  vec_foreach (lfeip, ctx.feis)
+    {
+      pfx = fib_entry_get_prefix (*lfeip);
+      send_route_details (reg, pfx, mp->context);
+    }
+
+  vec_free (ctx.feis);
+
 }
 
 static void vl_api_hicn_api_strategies_get_t_handler
@@ -716,6 +842,7 @@ hicn_face_api_entry_params_serialize (hicn_face_id_t faceid,
 	clib_host_to_net_u64 (face_ip->remote_addr.as_u64[1]);
       reply->swif = clib_host_to_net_u32 (face->shared.sw_if);
       reply->flags = clib_host_to_net_u32 (face->shared.flags);
+      reply->faceid = clib_host_to_net_u32(faceid);
     }
   else
     rv = HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
