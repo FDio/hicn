@@ -209,11 +209,9 @@ endif()
 execute_process(COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/hicn)
 # These files are missing from vpp binary distribution
 execute_process(
-    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_json_parser.py?h=stable/1904 -o ${CMAKE_BINARY_DIR}/vapi_json_parser.py
-    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_c_gen.py?h=stable/1904  -o ${CMAKE_BINARY_DIR}/vapi_c_gen.py
-    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_cpp_gen.py?h=stable/1904  -o ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py
-    COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/vnet/adj
-    COMMAND curl https://git.fd.io/vpp/plain/src/vnet/adj/adj_midchain.h?h=stable/1904  -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/adj/adj_midchain.h
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_json_parser.py?h=stable/1908 -o ${CMAKE_BINARY_DIR}/vapi_json_parser.py
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_c_gen.py?h=stable/1908  -o ${CMAKE_BINARY_DIR}/vapi_c_gen.py
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_cpp_gen.py?h=stable/1908  -o ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py
     )
 
 add_custom_command(

@@ -186,7 +186,7 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 	      vlib_buffer_t *b1;
 	      b1 = vlib_get_buffer (vm, from[1]);
 	      CLIB_PREFETCH (b1, CLIB_CACHE_LINE_BYTES, LOAD);
-	      CLIB_PREFETCH (&b1->trace_index, 2 * CLIB_CACHE_LINE_BYTES,
+	      CLIB_PREFETCH (&b1->trace_handle, 2 * CLIB_CACHE_LINE_BYTES,
 			     STORE);
 	    }
 	  /* Dequeue a packet buffer */

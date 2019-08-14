@@ -23,10 +23,10 @@ PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio
 PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
 
 VPP_GIT_REPO="https://git.fd.io/vpp"
-VPP_BRANCH="stable/1901"
+VPP_BRANCH="stable/1908"
 
-VPP_VERSION_DEB="19.04-release"
-VPP_VERSION_RPM="19.04-release.x86_64"
+VPP_VERSION_DEB="19.08-release"
+VPP_VERSION_RPM="19.08-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
