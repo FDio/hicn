@@ -176,7 +176,7 @@ set(HICN_API_TEST_SOURCE_FILES
     src/hicn_api_test.c
     src/error.c)
 
-set(HICN_API_TEST_HEADER_FILES
+set(HICN_API_HEADER_FILES
     src/hicn_msg_enum.h
     src/hicn_all_api_h.h
     src/hicn_api.h
@@ -209,9 +209,11 @@ endif()
 execute_process(COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/hicn)
 # These files are missing from vpp binary distribution
 execute_process(
-    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_json_parser.py?h=stable/1901 -o ${CMAKE_BINARY_DIR}/vapi_json_parser.py
-    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_c_gen.py?h=stable/1901  -o ${CMAKE_BINARY_DIR}/vapi_c_gen.py
-    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_cpp_gen.py?h=stable/1901  -o ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_json_parser.py?h=stable/1904 -o ${CMAKE_BINARY_DIR}/vapi_json_parser.py
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_c_gen.py?h=stable/1904  -o ${CMAKE_BINARY_DIR}/vapi_c_gen.py
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_cpp_gen.py?h=stable/1904  -o ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py
+    COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/vnet/adj
+    COMMAND curl https://git.fd.io/vpp/plain/src/vnet/adj/adj_midchain.h?h=stable/1904  -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/adj/adj_midchain.h
     )
 
 add_custom_command(
@@ -237,7 +239,7 @@ add_library(hicn_plugin SHARED
     ${HICN_API_GENERATED_FILES}
     ${HICN_VAPI_GENERATED_FILES})
 
-file(COPY ${HICN_API_TEST_HEADER_FILES} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn)
+file(COPY ${HICN_API_HEADER_FILES} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins)
 
 file(COPY ${LIBHICN_HEADER_FILES_SRC} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/hicn)
@@ -275,10 +277,10 @@ install(TARGETS hicn_api_test_plugin
         DESTINATION ${VPP_INSTALL_API_TEST_PLUGIN}
         COMPONENT ${HICN_PLUGIN})
 
-install(FILES ${HICN_API_TEST_HEADER_FILES} ${HICN_API_GENERATED_FILES}
+install(FILES ${HICN_API_HEADER_FILES} ${HICN_API_GENERATED_FILES}
         DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/vpp_plugins/hicn
-        COMPONENT ${HICN_PLUGIN})
+        COMPONENT ${HICN_PLUGIN}-dev)
 
 install(FILES ${HICN_VAPI_GENERATED_FILES}
         DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/vapi
-        COMPONENT ${HICN_PLUGIN})
+        COMPONENT ${HICN_PLUGIN}-dev)
