@@ -139,14 +139,22 @@ int MemifConnector::createMemif(uint32_t index, uint8_t mode, char *s) {
   args.num_m2s_rings = 1;
   strncpy((char *)args.interface_name, IF_NAME, strlen(IF_NAME) + 1);
   args.mode = memif_interface_mode_t::MEMIF_INTERFACE_MODE_IP;
-  args.socket_filename = (uint8_t *)socket_filename_.c_str();
 
-  TRANSPORT_LOGD("Socket filename: %s", args.socket_filename);
+  int err;
+
+  err= memif_create_socket (&args.socket, socket_filename_.c_str(),
+                         nullptr);
+
+  if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+      throw errors::RuntimeException(memif_strerror(err));
+  }
+
+  TRANSPORT_LOGD("Socket filename: %s", socket_filename_.c_str());
 
   args.interface_id = index;
   /* last argument for memif_create (void * private_ctx) is used by user
      to identify connection. this context is returned with callbacks */
-  int err;
+
   /* default interrupt */
   if (s == nullptr) {
     err = memif_create(&c->conn, &args, onConnect, onDisconnect, onInterrupt,
@@ -204,7 +212,7 @@ int MemifConnector::deleteMemif() {
   return 0;
 }
 
-int MemifConnector::controlFdUpdate(int fd, uint8_t events) {
+int MemifConnector::controlFdUpdate(int fd, uint8_t events, void *private_ctx) {
   /* convert memif event definitions to epoll events */
   if (events & MEMIF_FD_EVENT_DEL) {
     return MemifConnector::main_event_reactor_.delFileDescriptor(fd);
