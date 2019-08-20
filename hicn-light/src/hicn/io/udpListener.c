@@ -418,16 +418,16 @@ static void _handleWldrNotification(UdpListener *udp, unsigned connId,
   message_Release(&message);
 }
 
-static Message *_readMessage(ListenerOps * ops, int fd,
+static Message *_readMessage(ListenerOps * listener, int fd,
                       AddressPair *pair, uint8_t * packet, bool * processed) {
-  UdpListener * udp = (UdpListener *)ops->context;
+  UdpListener * udp = (UdpListener *)listener->context;
 
   Message *message = NULL;
 
   unsigned connid;
   bool foundConnection;
 
-  const Connection *conn = _lookupConnection(ops, pair);
+  const Connection *conn = _lookupConnection(listener, pair);
   if (conn) {
     connid = connection_GetConnectionId(conn);
     foundConnection = true;
@@ -449,7 +449,7 @@ static Message *_readMessage(ListenerOps * ops, int fd,
     } else if (messageHandler_IsInterest(packet)) {
       pktType = MessagePacketType_Interest;
       if (!foundConnection) {
-        connid = _createNewConnection(ops, fd, pair);
+        connid = _createNewConnection(listener, fd, pair);
       }
     } else {
       printf("Got a packet that is not a data nor an interest, drop it!\n");
@@ -471,11 +471,13 @@ static Message *_readMessage(ListenerOps * ops, int fd,
     *processed = true;
     _handleProbeMessage(udp, packet);
   } else {
-    /* Generic hook handler */
-    if (!foundConnection)
-      connid = _createNewConnection(ops, fd, pair);
 
-    *processed = messageHandler_handleHooks(udp->forwarder, packet, connid);
+#if 0
+    if (!foundConnection)
+      connid = _createNewConnection(listener, fd, pair);
+#endif
+
+    *processed = messageHandler_handleHooks(udp->forwarder, packet, listener, fd, pair);
   }
 
   return message;

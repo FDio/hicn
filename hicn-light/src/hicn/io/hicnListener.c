@@ -19,7 +19,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <unistd.h>
 
@@ -579,84 +578,6 @@ static void _handleWldrNotification(ListenerOps *listener, uint8_t *msgBuffer) {
   message_Release(&message);
 }
 
-static const
-AddressPair *
-_createRecvAddressPairFromPacket(const uint8_t *msgBuffer) {
-  Address *packetSrcAddr = NULL; /* This one is in the packet */
-  Address *localAddr = NULL; /* This one is to be determined */
-
-  if (messageHandler_GetIPPacketType(msgBuffer) == IPv6_TYPE) {
-    struct sockaddr_in6 addr_in6;
-    addr_in6.sin6_family = AF_INET6;
-    addr_in6.sin6_port = htons(1234);
-    addr_in6.sin6_flowinfo = 0;
-    addr_in6.sin6_scope_id = 0;
-    memcpy(&addr_in6.sin6_addr,
-           (struct in6_addr *)messageHandler_GetSource(msgBuffer), 16);
-    packetSrcAddr = addressCreateFromInet6(&addr_in6);
-
-    /* We now determine the local address used to reach the packet src address */
-    int sock = socket (AF_INET6, SOCK_DGRAM, 0);
-    if (sock < 0)
-      goto ERR;
-
-    struct sockaddr_in6 remote, local;
-    memset(&remote, 0, sizeof(remote));
-    remote.sin6_family = AF_INET6;
-    remote.sin6_addr = addr_in6.sin6_addr;
-    remote.sin6_port = htons(1234);
-
-    socklen_t locallen = sizeof(local);
-    if (connect(sock, (const struct sockaddr*)&remote, sizeof(remote)) == -1)
-      goto ERR;
-    if (getsockname(sock, (struct sockaddr*) &local, &locallen) == -1)
-      goto ERR;
-
-    local.sin6_port = htons(1234);
-    localAddr = addressCreateFromInet6(&local);
-
-    close(sock);
-
-  } else if (messageHandler_GetIPPacketType(msgBuffer) == IPv4_TYPE) {
-    struct sockaddr_in addr_in;
-    addr_in.sin_family = AF_INET;
-    addr_in.sin_port = htons(1234);
-    memcpy(&addr_in.sin_addr,
-           (struct in_addr *)messageHandler_GetSource(msgBuffer), 4);
-    packetSrcAddr = addressCreateFromInet(&addr_in);
-
-    /* We now determine the local address used to reach the packet src address */
-
-    int sock = socket (AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-      perror("Socket error");
-      goto ERR;
-    }
-
-    struct sockaddr_in remote, local;
-    memset(&remote, 0, sizeof(remote));
-    remote.sin_family = AF_INET;
-    remote.sin_addr = addr_in.sin_addr;
-    remote.sin_port = htons(1234);
-
-    socklen_t locallen = sizeof(local);
-    if (connect(sock, (const struct sockaddr*)&remote, sizeof(remote)) == -1)
-      goto ERR;
-    if (getsockname(sock, (struct sockaddr*) &local, &locallen) == -1)
-      goto ERR;
-
-    local.sin_port = htons(1234);
-    localAddr = addressCreateFromInet(&local);
-
-    close(sock);
-  }
-  /* As this is a receive pair, we swap src and dst */
-  return addressPair_Create(localAddr, packetSrcAddr);
-
-ERR:
-  perror("Socket error");
-  return NULL;
-}
 
 static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer) {
   HicnListener * hicn = (HicnListener*)listener->context;
@@ -721,25 +642,8 @@ static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer)
   } else if (messageHandler_IsLoadBalancerProbe(msgBuffer)) {
     _handleProbeMessage(listener, msgBuffer);
   } else {
-    const AddressPair * pair = _createRecvAddressPairFromPacket(msgBuffer);
-    if (!pair)
-      goto ERR;
-
-    /* Find connection and eventually create it */
-    const Connection * conn = connectionTable_FindByAddressPair(
-          forwarder_GetConnectionTable(hicn->forwarder), pair);
-    unsigned conn_id;
-    if (conn == NULL) {
-      conn_id = listener->createConnection(listener, fd, pair);
-    } else {
-      conn_id = connection_GetConnectionId(conn);
-    }
-
-    messageHandler_handleHooks(hicn->forwarder, msgBuffer, conn_id);
-
-ERR:
-  parcMemory_Deallocate((void **)&msgBuffer);
-
+    messageHandler_handleHooks(hicn->forwarder, msgBuffer, listener, fd, NULL);
+    parcMemory_Deallocate((void **)&msgBuffer);
   }
 
   return message;

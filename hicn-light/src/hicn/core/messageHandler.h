@@ -17,6 +17,7 @@
 #define messageHandler
 
 #include <stdlib.h>
+#include <unistd.h> // close
 
 #include <hicn/hicn.h>
 #include <hicn/core/messagePacketType.h>
@@ -175,6 +176,85 @@ static inline uint8_t messageHandler_NextHeaderType(const uint8_t *message) {
 static inline void * messageHandler_GetSource(const uint8_t *message);
 static inline void *messageHandler_GetDestination(const uint8_t *message);
 
+static const
+AddressPair *
+_createRecvAddressPairFromPacket(const uint8_t *msgBuffer) {
+  Address *packetSrcAddr = NULL; /* This one is in the packet */
+  Address *localAddr = NULL; /* This one is to be determined */
+
+  if (messageHandler_GetIPPacketType(msgBuffer) == IPv6_TYPE) {
+    struct sockaddr_in6 addr_in6;
+    addr_in6.sin6_family = AF_INET6;
+    addr_in6.sin6_port = htons(1234);
+    addr_in6.sin6_flowinfo = 0;
+    addr_in6.sin6_scope_id = 0;
+    memcpy(&addr_in6.sin6_addr,
+           (struct in6_addr *)messageHandler_GetSource(msgBuffer), 16);
+    packetSrcAddr = addressCreateFromInet6(&addr_in6);
+
+    /* We now determine the local address used to reach the packet src address */
+    int sock = socket (AF_INET6, SOCK_DGRAM, 0);
+    if (sock < 0)
+      goto ERR;
+
+    struct sockaddr_in6 remote, local;
+    memset(&remote, 0, sizeof(remote));
+    remote.sin6_family = AF_INET6;
+    remote.sin6_addr = addr_in6.sin6_addr;
+    remote.sin6_port = htons(1234);
+
+    socklen_t locallen = sizeof(local);
+    if (connect(sock, (const struct sockaddr*)&remote, sizeof(remote)) == -1)
+      goto ERR;
+    if (getsockname(sock, (struct sockaddr*) &local, &locallen) == -1)
+      goto ERR;
+
+    local.sin6_port = htons(1234);
+    localAddr = addressCreateFromInet6(&local);
+
+    close(sock);
+
+  } else if (messageHandler_GetIPPacketType(msgBuffer) == IPv4_TYPE) {
+    struct sockaddr_in addr_in;
+    addr_in.sin_family = AF_INET;
+    addr_in.sin_port = htons(1234);
+    memcpy(&addr_in.sin_addr,
+           (struct in_addr *)messageHandler_GetSource(msgBuffer), 4);
+    packetSrcAddr = addressCreateFromInet(&addr_in);
+
+    /* We now determine the local address used to reach the packet src address */
+
+    int sock = socket (AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+      perror("Socket error");
+      goto ERR;
+    }
+
+    struct sockaddr_in remote, local;
+    memset(&remote, 0, sizeof(remote));
+    remote.sin_family = AF_INET;
+    remote.sin_addr = addr_in.sin_addr;
+    remote.sin_port = htons(1234);
+
+    socklen_t locallen = sizeof(local);
+    if (connect(sock, (const struct sockaddr*)&remote, sizeof(remote)) == -1)
+      goto ERR;
+    if (getsockname(sock, (struct sockaddr*) &local, &locallen) == -1)
+      goto ERR;
+
+    local.sin_port = htons(1234);
+    localAddr = addressCreateFromInet(&local);
+
+    close(sock);
+  }
+  /* As this is a receive pair, we swap src and dst */
+  return addressPair_Create(localAddr, packetSrcAddr);
+
+ERR:
+  perror("Socket error");
+  return NULL;
+}
+
 /* Main hook handler */
 
 /**
@@ -187,21 +267,58 @@ static inline void *messageHandler_GetDestination(const uint8_t *message);
  *      (successfully or not) processed.
  */
 static inline bool messageHandler_handleHooks(Forwarder * forwarder,
-        const uint8_t * packet, int conn_id)
+        const uint8_t * packet, ListenerOps * listener, int fd, AddressPair * pair)
 {
+  bool is_matched = false;
+
+  /* BEGIN Match */
+
 #ifdef WITH_MAPME
-  if (mapMe_isMapMe(packet)) {
-    forwarder_ProcessMapMe(forwarder, packet, conn_id);
-    goto END;
-  }
+  bool is_mapme = mapMe_isMapMe(packet);
+  is_matched |= is_mapme;
 #endif /* WITH_MAPME */
 
-  return false;
+  /* ... */
 
-#if 1 // Enable and jump here when a handler has successfully processed the packet
-END:
+  /* END Match */
+
+  if (!is_matched)
+    return false;
+
+  /*
+   * Find existing connection or create a new one (we assume all processing
+   * requires a valid connection.
+   */
+
+  if (!pair) {
+    /* The hICN listener does not provide any address pair while UDP does */
+    const AddressPair * pair = _createRecvAddressPairFromPacket(packet);
+    if (!pair)
+      return false;
+  }
+
+  /* Find connection and eventually create it */
+  const Connection * conn = connectionTable_FindByAddressPair(
+        forwarder_GetConnectionTable(forwarder), pair);
+  unsigned conn_id;
+  if (conn == NULL) {
+    conn_id = listener->createConnection(listener, fd, pair);
+  } else {
+    conn_id = connection_GetConnectionId(conn);
+  }
+
+  /* BEGIN Process */
+
+#ifdef WITH_MAPME
+  if (mapMe_isMapMe(packet))
+    forwarder_ProcessMapMe(forwarder, packet, conn_id);
+#endif /* WITH_MAPME */
+
+  /* ... */
+
+  /* END Process */
+
   return true;
-#endif
 }
 
 static inline bool messageHandler_IsTCP(const uint8_t *message) {
