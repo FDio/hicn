@@ -70,17 +70,17 @@ format_face_prod_input_trace (u8 * s, va_list * args)
 }
 
 static_always_inline int
-match_ip4_name (u32 * name, hicn_prefix_t * prefix)
+match_ip4_name (u32 * name, fib_prefix_t * prefix)
 {
   u32 xor = 0;
 
-  xor = *name & prefix->name.ip4.data_u32;
+  xor = *name & prefix->fp_addr.ip4.data_u32;
 
-  return xor == prefix->name.ip4.data_u32;
+  return xor == prefix->fp_addr.ip4.data_u32;
 }
 
 static_always_inline int
-match_ip6_name (u32x4 * name, hicn_prefix_t * prefix)
+match_ip6_name (u32x4 * name, fib_prefix_t * prefix)
 {
   union
   {
@@ -93,32 +93,32 @@ match_ip6_name (u32x4 * name, hicn_prefix_t * prefix)
   if (U32X4_ALIGNED (name))
     {				//SSE can't handle unaligned data
       xor_sum.as_u32x4 = *((u32x4 *) name) &
-	UNION_CAST (prefix->name.ip6.as_u64[0], u32x4);
+	UNION_CAST (prefix->fp_addr.ip6.as_u64[0], u32x4);
     }
   else
 #endif /* CLIB_HAVE_VEC128 */
     {
-      xor_sum.as_u64[0] = ((u64 *) name)[0] & prefix->name.ip6.as_u64[0];
-      xor_sum.as_u64[1] = ((u64 *) name)[1] & prefix->name.ip6.as_u64[1];
+      xor_sum.as_u64[0] = ((u64 *) name)[0] & prefix->fp_addr.ip6.as_u64[0];
+      xor_sum.as_u64[1] = ((u64 *) name)[1] & prefix->fp_addr.ip6.as_u64[1];
     }
 
-  return (xor_sum.as_u64[0] == prefix->name.ip6.as_u64[0]) &&
-    (xor_sum.as_u64[1] == prefix->name.ip6.as_u64[1]);
+  return (xor_sum.as_u64[0] == prefix->fp_addr.ip6.as_u64[0]) &&
+    (xor_sum.as_u64[1] == prefix->fp_addr.ip6.as_u64[1]);
 }
 
 static_always_inline u32
 hicn_face_prod_next_from_data_hdr (vlib_node_runtime_t * node,
-				   vlib_buffer_t * b, hicn_prefix_t * prefix)
+				   vlib_buffer_t * b, fib_prefix_t * prefix)
 {
   u8 *ptr = vlib_buffer_get_current (b);
   u8 v = *ptr & 0xf0;
   int match_res = 1;
 
-  if (PREDICT_TRUE (v == 0x40 && ip46_address_is_ip4 (&prefix->name)))
+  if (PREDICT_TRUE (v == 0x40 && ip46_address_is_ip4 (&prefix->fp_addr)))
     {
       match_res = match_ip4_name ((u32 *) & (ptr[12]), prefix);
     }
-  else if (PREDICT_TRUE (v == 0x60 && !ip46_address_is_ip4 (&prefix->name)))
+  else if (PREDICT_TRUE (v == 0x60 && !ip46_address_is_ip4 (&prefix->fp_addr)))
     {
       match_res = match_ip6_name ((u32x4 *) & (ptr[8]), prefix);
     }

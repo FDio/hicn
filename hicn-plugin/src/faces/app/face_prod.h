@@ -49,7 +49,7 @@
  */
 typedef struct
 {
-  hicn_prefix_t prefix;
+  fib_prefix_t prefix;
 } hicn_face_prod_state_t;
 
 extern hicn_face_prod_state_t *face_state_vec;
@@ -77,7 +77,7 @@ typedef struct __attribute__ ((packed)) hicn_face_prod_t_
  * send data to the producer face
  */
 int
-hicn_face_prod_add (hicn_prefix_t * prefix, u32 swif, u32 * cs_reserved,
+hicn_face_prod_add (fib_prefix_t * prefix, u32 swif, u32 * cs_reserved,
 		    ip46_address_t * prod_addr, hicn_face_id_t * faceid);
 
 /**
