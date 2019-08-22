@@ -39,6 +39,7 @@
 #include <vnet/ip/format.h>
 #include <vnet/ip/ip4_packet.h>
 #include <vnet/ip/ip6_packet.h>
+#include <vnet/ip/ip_types_api.h>
 
 #include <vpp_plugins/hicn/error.h>
 #include <vpp_plugins/hicn/hicn_api.h>
@@ -58,7 +59,6 @@
 #undef vl_api_version
 #undef vl_printfun
 #undef vl_endianfun
-
 /////////////////////////////////////////////////////
 const char *HICN_ERROR_STRING[] = {
 #define _(a, b, c) c,
@@ -66,6 +66,24 @@ const char *HICN_ERROR_STRING[] = {
 #undef _
 };
 /////////////////////////////////////////////////////
+
+/*********************** Missing Symbol in vpp libraries *************************/
+u8 *
+format_vl_api_address_union (u8 * s, va_list * args)
+{
+  const vl_api_address_union_t *addr =
+    va_arg (*args, vl_api_address_union_t *);
+  vl_api_address_family_t af = va_arg (*args, vl_api_address_family_t);
+
+  if (ADDRESS_IP6 == af)
+    s = format (s, "%U", format_ip6_address, addr->ip6);
+  else
+    s = format (s, "%U", format_ip4_address, addr->ip4);
+
+  return s;
+}
+
+/*********************************************************************************/
 
 static context_store_t context_store = {
     .global_pointers_map_index = 0,
@@ -112,8 +130,8 @@ static void vl_api_hicn_api_register_prod_app_reply_t_handler(
   vpp_binary_api_set_ret_value(binary_api->vpp_api,
                                clib_net_to_host_u32(mp->retval));
   params->cs_reserved = mp->cs_reserved;
-  params->prod_addr->address.as_u64[0] = mp->prod_addr[0];
-  params->prod_addr->address.as_u64[1] = mp->prod_addr[1];
+  params->prod_addr = (ip_address_t *)malloc(sizeof(ip_address_t));
+  ip_address_decode(&mp->prod_addr, (ip46_address_t *)&(params->prod_addr));
   params->face_id = clib_net_to_host_u32(mp->faceid);
 
   vpp_binary_api_unlock_waiting_thread(binary_api->vpp_api);
@@ -147,9 +165,8 @@ static void vl_api_hicn_api_register_cons_app_reply_t_handler(
   vpp_binary_api_set_ret_value(binary_api->vpp_api,
                                clib_net_to_host_u32(mp->retval));
 
-  params->src4->address.v4.as_u32 = clib_net_to_host_u32(mp->src_addr4);
-  params->src6->address.as_u64[0] = clib_net_to_host_u64(mp->src_addr6[0]);
-  params->src6->address.as_u64[1] = clib_net_to_host_u64(mp->src_addr6[1]);
+  ip_address_decode(&mp->src_addr4, (ip46_address_t *)params->src4);
+  ip_address_decode(&mp->src_addr6, (ip46_address_t *)params->src6);
   params->face_id = clib_host_to_net_u32(mp->faceid);
 
   vpp_binary_api_unlock_waiting_thread(binary_api->vpp_api);
