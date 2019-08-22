@@ -13,6 +13,9 @@
  * limitations under the License.
  */
 
+option version = "5.1.0";
+import "vnet/ip/ip_types.api";
+
 define hicn_api_node_params_set
 {
   /* Client identifier, set from api_main.my_client_index */
@@ -157,10 +160,10 @@ define hicn_api_face_ip_add
   u32 context;
 
   /* IP local address */
-  u64 local_addr[2];
+  vl_api_address_t local_addr;
 
   /* IP remote address */
-  u64 remote_addr[2];
+  vl_api_address_t remote_addr;
 
   /* IPv4 local port number */
   u32 swif;
@@ -264,10 +267,10 @@ define hicn_api_face_ip_params_get_reply
   u32 faceid;
 
   /* IP local address */
-  u64 local_addr[2];
+  vl_api_address_t local_addr;
 
   /* IP remote address */
-  u64 remote_addr[2];
+  vl_api_address_t remote_addr;
 
   /* VPP interface (index) associated with the face */
   u32 swif;
@@ -570,7 +573,7 @@ define hicn_api_register_prod_app_reply
   u32 cs_reserved;
 
   /* Prod address (ipv4 or ipv6) */
-  u64 prod_addr[2];
+  vl_api_address_t prod_addr;
 
   /* Return value: new Face ID, ~0 means no Face was created */
   u32 faceid;
@@ -597,10 +600,10 @@ define hicn_api_register_cons_app_reply
   i32 retval;
 
   /* Ip4 address */
-  u32 src_addr4;
+  vl_api_address_t src_addr4;
 
   /* Ip6 address */
-  u64 src_addr6[2];
+  vl_api_address_t src_addr6;
 
   /* Return value: new Face ID, ~0 means no Face was created */
   u32 faceid;
