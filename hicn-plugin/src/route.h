@@ -25,7 +25,7 @@
  * Retrieve the hicn dpo corresponding to a hicn prefix
  */
 int
-hicn_route_get_dpo (const ip46_address_t * prefix, u8 plen,
+hicn_route_get_dpo (const fib_prefix_t * prefix,
 		    const dpo_id_t ** hicn_dpo, u32 * fib_index);
 
 /*
@@ -33,24 +33,24 @@ hicn_route_get_dpo (const ip46_address_t * prefix, u8 plen,
  */
 int
 hicn_route_add (hicn_face_id_t * face_id, u32 len,
-		const ip46_address_t * prefix, u8 plen);
+		const fib_prefix_t * prefix);
 
 /*
  * Add new next hops for a prefix route
  */
 int
 hicn_route_add_nhops (hicn_face_id_t * face_id, u32 len,
-		      const ip46_address_t * prefix, u8 plen);
+		      const fib_prefix_t * prefix);
 
 /* Remove a route for a name prefix */
-int hicn_route_del (ip46_address_t * prefix, u8 plen);
+int hicn_route_del (fib_prefix_t * prefix);
 
 /* Remove a next hop route for a name prefix */
-int hicn_route_del_nhop (ip46_address_t * prefix, u8 plen, u32 face_id);
+int hicn_route_del_nhop (fib_prefix_t * prefix, u32 face_id);
 
 /* Remove a next hop route for a name prefix */
 int
-hicn_route_set_strategy (ip46_address_t * prefix, u8 plen, u32 strategy_id);
+hicn_route_set_strategy (fib_prefix_t * prefix, u32 strategy_id);
 
 #endif /* //__HICN_ROUTE__ */
 
