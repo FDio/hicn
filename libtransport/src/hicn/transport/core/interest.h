@@ -55,9 +55,9 @@ class Interest
 
   void setName(Name &&name) override;
 
-  void setLocator(const ip_prefix_t &ip_address) override;
+  void setLocator(const ip_address_t &ip_address) override;
 
-  ip_prefix_t getLocator() const override;
+  ip_address_t getLocator() const override;
 
   void setLifetime(uint32_t lifetime) override;
 

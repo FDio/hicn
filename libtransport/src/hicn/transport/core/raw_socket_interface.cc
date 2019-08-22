@@ -43,9 +43,8 @@ void RawSocketInterface::connect(bool is_consumer) {
   // Get interface ip address
   struct sockaddr_in6 address = {0};
   utils::retrieveInterfaceAddress(output_interface_, &address);
-  inet6_address_.family = address.sin6_family;
 
-  std::memcpy(inet6_address_.address.buffer, &address.sin6_addr,
+  std::memcpy(&inet6_address_.v6.as_u8, &address.sin6_addr,
               sizeof(address.sin6_addr));
   connector_.connect(output_interface_, remote_mac_address_);
 }
