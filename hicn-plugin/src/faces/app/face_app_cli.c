@@ -34,14 +34,14 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 				  vlib_cli_command_t * cmd)
 {
   vnet_main_t *vnm = vnet_get_main ();
-  ip46_address_t prefix;
+  fib_prefix_t prefix;
   hicn_face_id_t face_id = HICN_FACE_NULL;
   u32 cs_reserved = HICN_PARAM_FACE_DFT_CS_RESERVED;
   int ret = HICN_ERROR_NONE;
   int sw_if;
   int face_op = HICN_FACE_NONE;
   int prod = 0;
-  int len;
+
 
   /* Get a line of input. */
   unformat_input_t _line_input, *line_input = &_line_input;
@@ -71,7 +71,7 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 	  else
 	    if (unformat
 		(line_input, "prod prefix %U/%d", unformat_ip46_address,
-		 &prefix, IP46_TYPE_ANY, &len))
+		 &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
 	    {
 	      prod = 1;
 	    }
@@ -114,14 +114,10 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 	ip4_address_t cons_addr4;
 	ip6_address_t cons_addr6;
 
-	hicn_prefix_t name_prefix = {
-	  .name = prefix,
-	  .len = len,
-	};
 	if (prod)
 	  {
 	    rv =
-	      hicn_face_prod_add (&name_prefix, sw_if, &cs_reserved,
+	      hicn_face_prod_add (&prefix, sw_if, &cs_reserved,
 				  &prod_addr, &face_id);
 	    if (rv == HICN_ERROR_NONE)
 	      {

@@ -29,7 +29,7 @@ hicn_face_prod_state_t *face_state_vec;
 u32 *face_state_pool;
 
 static int
-hicn_app_state_create (u32 swif, hicn_prefix_t * prefix)
+hicn_app_state_create (u32 swif, fib_prefix_t * prefix)
 {
   /* Make sure that the pool is not empty */
   pool_validate_index (face_state_pool, 0);
@@ -54,14 +54,14 @@ hicn_app_state_create (u32 swif, hicn_prefix_t * prefix)
   /* Create the appif and store in the vector */
   vec_validate (face_state_vec, swif);
   clib_memcpy (&(face_state_vec[swif].prefix), prefix,
-	       sizeof (hicn_prefix_t));
+	       sizeof (fib_prefix_t));
 
   /* Set as busy the element in the vector */
   pool_get (face_state_pool, swif_app);
   *swif_app = swif;
 
   int ret = HICN_ERROR_NONE;
-  if (ip46_address_is_ip4 (&(prefix->name)))
+  if (ip46_address_is_ip4 (&(prefix->fp_addr)))
     {
       ret =
 	vnet_feature_enable_disable ("ip4-unicast", "hicn-face-prod-input",
@@ -86,7 +86,7 @@ hicn_app_state_del (u32 swif)
   u32 *temp;
   u32 *swif_app = NULL;
   u8 found = 0;
-  ip46_address_t *prefix_addr;
+  fib_prefix_t *prefix;
   /* *INDENT-OFF* */
   pool_foreach (temp, face_state_pool,{
       if (*temp == swif)
@@ -98,12 +98,12 @@ hicn_app_state_del (u32 swif)
   );
   /* *INDENT-ON* */
 
-  prefix_addr = &(face_state_vec[swif].prefix.name);
+  prefix = &(face_state_vec[swif].prefix);
   if (!found)
     return HICN_ERROR_APPFACE_NOT_FOUND;
 
   int ret = HICN_ERROR_NONE;
-  if (ip46_address_is_ip4 (prefix_addr))
+  if (ip46_address_is_ip4 (&prefix->fp_addr))
     {
       ret =
 	vnet_feature_enable_disable ("ip4-unicast", "hicn-face-prod-input",
@@ -123,7 +123,7 @@ hicn_app_state_del (u32 swif)
 }
 
 int
-hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
+hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 		    ip46_address_t * prod_addr, hicn_face_id_t * faceid)
 {
   vlib_main_t *vm = vlib_get_main ();
@@ -146,12 +146,12 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
   vnet_sw_interface_set_flags (vnm, sw_if, if_flags);
 
   u8 *s0;
-  s0 = format (0, "Prefix %U/%u", format_ip6_address,
-	       &prefix->name, prefix->len);
+  s0 = format (0, "Prefix %U", format_fib_prefix,
+	       &prefix->fp_addr);
 
   vlib_cli_output (vm, "Received request for %s, swif %d\n", s0, sw_if);
 
-  if (ip46_address_is_zero (&prefix->name))
+  if (ip46_address_is_zero (&prefix->fp_addr))
     {
       return HICN_ERROR_APPFACE_PROD_PREFIX_NULL;
     }
@@ -159,16 +159,16 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
    * Check if a producer face is already existing for the same prefix
    * and sw_if
    */
-  if (ip46_address_is_ip4 (&prefix->name))
+  if (ip46_address_is_ip4 (&prefix->fp_addr))
     {
       face =
-	hicn_face_ip4_get (&(prefix->name.ip4), sw_if,
+	hicn_face_ip4_get (&(prefix->fp_addr.ip4), sw_if,
 			   &hicn_face_ip_remote_hashtb);
     }
   else
     {
       face =
-	hicn_face_ip6_get (&(prefix->name.ip6), sw_if,
+	hicn_face_ip6_get (&(prefix->fp_addr.ip6), sw_if,
 			   &hicn_face_ip_remote_hashtb);
       if (face != NULL)
 	return HICN_ERROR_FACE_ALREADY_CREATED;
@@ -202,7 +202,7 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
   else
     {
       /* Otherwise create the face */
-      if (ip46_address_is_ip4 (&prefix->name))
+      if (ip46_address_is_ip4 (&prefix->fp_addr))
 	{
 	  /*
 	   * Otherwise retrieve an ip address to assign as a
@@ -264,7 +264,7 @@ hicn_face_prod_add (hicn_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
       && hicn_face_prod_set_lru_max (*faceid, cs_reserved) == HICN_ERROR_NONE)
     {
       hicn_app_state_create (sw_if, prefix);
-      ret = hicn_route_add (faceid, 1, &(prefix->name), prefix->len);
+      ret = hicn_route_add (faceid, 1, prefix);
     }
 
   *prod_addr = local_app_ip;
@@ -294,8 +294,7 @@ hicn_face_prod_del (hicn_face_id_t face_id)
       prod_face->policy.max = 0;
 
       /* Remove the face from the fib */
-      hicn_route_del_nhop (&(face_state_vec[face->shared.sw_if].prefix.name),
-			   (face_state_vec[face->shared.sw_if].prefix.len),
+      hicn_route_del_nhop (&(face_state_vec[face->shared.sw_if].prefix),
 			   face_id);
 
       int ret = hicn_face_ip_del (face_id);

@@ -52,7 +52,7 @@ class Prefix {
 
   Name makeRandomName() const;
 
-  ip_prefix_t &toIpAddressStruct();
+  ip_prefix_t &toIpPrefixStruct();
 
  private:
   static bool checkPrefixLengthAndAddressFamily(uint16_t prefix_length,
@@ -60,7 +60,7 @@ class Prefix {
 
   void buildPrefix(std::string &prefix, uint16_t prefix_length, int family);
 
-  ip_prefix_t ip_address_;
+  ip_prefix_t ip_prefix_;
 };
 
 }  // end namespace core
