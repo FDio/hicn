@@ -40,13 +40,13 @@ typedef struct {
 
 typedef struct {
   uint32_t cs_reserved;
-  ip_prefix_t* prod_addr;
+  ip_address_t* prod_addr;
   uint32_t face_id;
 } hicn_producer_output_params;
 
 typedef struct {
-  ip_prefix_t* src4;
-  ip_prefix_t* src6;
+  ip_address_t* src4;
+  ip_address_t* src6;
   uint32_t face_id;
 } hicn_consumer_output_params;
 
