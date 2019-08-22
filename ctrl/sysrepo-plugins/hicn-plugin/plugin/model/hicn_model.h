@@ -21,6 +21,7 @@
 #define MEM_ALIGN 4096
 #define B32 4
 #define B64 8
+#define B128 16
 
 // Number of locks is equal to number of nodes in hicn-state
 // It is a coarse grain approach later can be changed to fine grained
