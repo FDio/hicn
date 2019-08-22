@@ -22,6 +22,7 @@
 #include <vlibapi/api.h>
 #include <vlibmemory/api.h>
 #include <vnet/dpo/load_balance.h>
+#include <vnet/ip/ip_types_api.h>
 
 #include "hicn.h"
 #include "faces/ip/face_ip.h"
@@ -187,14 +188,8 @@ vl_api_hicn_api_face_ip_add_t_handler (vl_api_hicn_api_face_ip_add_t * mp)
   hicn_face_id_t faceid = HICN_FACE_NULL;
   ip46_address_t local_addr;
   ip46_address_t remote_addr;
-  local_addr.as_u64[0] =
-    clib_net_to_host_u64 (((u64 *) (&mp->local_addr))[0]);
-  local_addr.as_u64[1] =
-    clib_net_to_host_u64 (((u64 *) (&mp->local_addr))[1]);
-  remote_addr.as_u64[0] =
-    clib_net_to_host_u64 (((u64 *) (&mp->remote_addr))[0]);
-  remote_addr.as_u64[1] =
-    clib_net_to_host_u64 (((u64 *) (&mp->remote_addr))[1]);
+  ip_address_decode(&mp->local_addr, &local_addr);
+  ip_address_decode(&mp->remote_addr, &remote_addr);
 
   u32 sw_if = clib_net_to_host_u32 (mp->swif);
 
@@ -371,11 +366,9 @@ vl_api_hicn_api_route_nhops_add_t_handler (vl_api_hicn_api_route_nhops_add_t
 
   hicn_main_t *sm = &hicn_main;
 
-  ip46_address_t prefix;
-  prefix.as_u64[0] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[0]);
-  prefix.as_u64[1] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[1]);
+  fib_prefix_t prefix;
+  ip_prefix_decode(&mp->prefix, &prefix);
 
-  u8 len = mp->len;
   u8 n_faces = mp->n_faces;
 
   for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
@@ -389,11 +382,11 @@ vl_api_hicn_api_route_nhops_add_t_handler (vl_api_hicn_api_route_nhops_add_t
     }
   if (rv == HICN_ERROR_NONE)
     {
-      rv = hicn_route_add (face_ids, n_faces, &prefix, len);
+      rv = hicn_route_add (face_ids, n_faces, &prefix);
 
       if (rv == HICN_ERROR_ROUTE_ALREADY_EXISTS)
 	{
-	  rv = hicn_route_add_nhops (face_ids, n_faces, &prefix, len);
+	  rv = hicn_route_add_nhops (face_ids, n_faces, &prefix);
 	}
     }
   REPLY_MACRO (VL_API_HICN_API_ROUTE_NHOPS_ADD_REPLY /* , rmp, mp, rv */ );
@@ -408,12 +401,10 @@ static void vl_api_hicn_api_route_del_t_handler
 
   hicn_main_t *sm = &hicn_main;
 
-  ip46_address_t prefix;
-  prefix.as_u64[0] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[0]);
-  prefix.as_u64[1] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[1]);
-  u8 len = mp->len;
+  fib_prefix_t prefix;
+  ip_prefix_decode(&mp->prefix, &prefix);
 
-  rv = hicn_route_del (&prefix, len);
+  rv = hicn_route_del (&prefix);
 
   REPLY_MACRO (VL_API_HICN_API_ROUTE_DEL_REPLY /* , rmp, mp, rv */ );
 }
@@ -426,14 +417,12 @@ static void vl_api_hicn_api_route_nhop_del_t_handler
 
   hicn_main_t *sm = &hicn_main;
 
-  ip46_address_t prefix;
-  prefix.as_u64[0] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[0]);
-  prefix.as_u64[1] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[1]);
-  u8 len = mp->len;
+  fib_prefix_t prefix;
+  ip_prefix_decode(&mp->prefix, &prefix);
   hicn_face_id_t faceid = clib_net_to_host_u32 (mp->faceid);
 
 
-  rv = hicn_route_del_nhop (&prefix, len, faceid);
+  rv = hicn_route_del_nhop (&prefix, faceid);
 
   REPLY_MACRO (VL_API_HICN_API_ROUTE_NHOP_DEL_REPLY /* , rmp, mp, rv */ );
 }
@@ -446,16 +435,14 @@ static void vl_api_hicn_api_route_get_t_handler
 
   hicn_main_t *sm = &hicn_main;
 
-  ip46_address_t prefix;
-  prefix.as_u64[0] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[0]);
-  prefix.as_u64[1] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[1]);
-  u8 len = mp->len;
+  fib_prefix_t prefix;
+  ip_prefix_decode(&mp->prefix, &prefix);
   const dpo_id_t *hicn_dpo_id;
   const hicn_dpo_vft_t *hicn_dpo_vft;
   hicn_dpo_ctx_t *hicn_dpo_ctx;
   u32 fib_index;
 
-  rv = hicn_route_get_dpo (&prefix, len, &hicn_dpo_id, &fib_index);
+  rv = hicn_route_get_dpo (&prefix, &hicn_dpo_id, &fib_index);
 
   /* *INDENT-OFF* */
   REPLY_MACRO2 (VL_API_HICN_API_ROUTE_GET_REPLY, (
@@ -487,8 +474,7 @@ send_route_details (vl_api_registration_t * reg,
   mp->_vl_msg_id = htons (VL_API_HICN_API_ROUTES_DETAILS + hm->msg_id_base);
   mp->context = context;
 
-  clib_memcpy (&mp->prefix, &pfx->fp_addr, sizeof (ip46_address_t));
-  mp->len = pfx->fp_len;
+  clib_memcpy (&mp->prefix, &pfx, sizeof (fib_prefix_t));
   mp->nfaces = 0;
 
   const dpo_id_t *hicn_dpo_id;
@@ -497,7 +483,7 @@ send_route_details (vl_api_registration_t * reg,
   u32 fib_index;
 
   int rv =
-    hicn_route_get_dpo (&pfx->fp_addr, pfx->fp_len, &hicn_dpo_id, &fib_index);
+    hicn_route_get_dpo (pfx, &hicn_dpo_id, &fib_index);
 
   if (rv == HICN_ERROR_NONE)
     {
@@ -660,14 +646,12 @@ static void vl_api_hicn_api_punting_add_t_handler
 
   hicn_main_t *sm = &hicn_main;
 
-  ip46_address_t prefix;
-  prefix.as_u64[0] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[0]);
-  prefix.as_u64[1] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[1]);
-  u8 subnet_mask = mp->len;
+  fib_prefix_t prefix;
+  ip_prefix_decode(&mp->prefix, &prefix);
   u32 swif = clib_net_to_host_u32 (mp->swif);
 
   rv =
-    hicn_punt_interest_data_for_ip (vm, &prefix, subnet_mask, swif, 0, NO_L2);
+    hicn_punt_interest_data_for_ip (vm, &prefix, swif, 0, NO_L2);
 
   REPLY_MACRO (VL_API_HICN_API_PUNTING_ADD_REPLY /* , rmp, mp, rv */ );
 }
@@ -695,10 +679,8 @@ static void vl_api_hicn_api_register_prod_app_t_handler
 
   hicn_main_t *sm = &hicn_main;
 
-  hicn_prefix_t prefix;
-  prefix.name.as_u64[0] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[0]);
-  prefix.name.as_u64[1] = clib_net_to_host_u64 (((u64 *) (&mp->prefix))[1]);
-  prefix.len = mp->len;
+  fib_prefix_t prefix;
+  ip_prefix_decode(&mp->prefix, &prefix);
   u32 swif = clib_net_to_host_u32 (mp->swif);
   u32 cs_reserved = clib_net_to_host_u32 (mp->cs_reserved);
   u32 faceid;
@@ -710,8 +692,7 @@ static void vl_api_hicn_api_register_prod_app_t_handler
   /* *INDENT-OFF* */
   REPLY_MACRO2 (VL_API_HICN_API_REGISTER_PROD_APP_REPLY, (
     {
-      rmp->prod_addr[0] = prod_addr.as_u64[0];
-      rmp->prod_addr[1] = prod_addr.as_u64[1];
+      ip_address_encode(&prod_addr, IP46_TYPE_ANY, &rmp->prod_addr);
       rmp->cs_reserved = clib_net_to_host_u32(cs_reserved);
       rmp->faceid = clib_net_to_host_u32(faceid);
     }));
@@ -725,23 +706,19 @@ static void vl_api_hicn_api_register_cons_app_t_handler
   int rv = HICN_ERROR_NONE;
 
   hicn_main_t *sm = &hicn_main;
-  ip4_address_t src_addr4;
-  ip6_address_t src_addr6;
-  src_addr4.as_u32 = (u32) 0;
-  src_addr6.as_u64[0] = (u64) 0;
-  src_addr6.as_u64[1] = (u64) 1;
+  ip46_address_t src_addr4 = ip46_address_initializer;
+  ip46_address_t src_addr6 = ip46_address_initializer;
 
   u32 swif = clib_net_to_host_u32 (mp->swif);
   u32 faceid;
 
-  rv = hicn_face_cons_add (&src_addr4, &src_addr6, swif, &faceid);
+  rv = hicn_face_cons_add (&src_addr4.ip4, &src_addr6.ip6, swif, &faceid);
 
   /* *INDENT-OFF* */
   REPLY_MACRO2 (VL_API_HICN_API_REGISTER_CONS_APP_REPLY, (
     {
-      rmp->src_addr4 = clib_net_to_host_u32(src_addr4.as_u32);
-      rmp->src_addr6[0] = clib_net_to_host_u64(src_addr6.as_u64[0]);
-      rmp->src_addr6[1] = clib_net_to_host_u64(src_addr6.as_u64[1]);
+      ip_address_encode(&src_addr4, IP46_TYPE_ANY, &rmp->src_addr4);
+      ip_address_encode(&src_addr6, IP46_TYPE_ANY, &rmp->src_addr6);
       rmp->faceid = clib_net_to_host_u32(faceid);
     }));
   /* *INDENT-ON* */
@@ -820,14 +797,8 @@ hicn_face_api_entry_params_serialize (hicn_face_id_t faceid,
   if (face != NULL && face->shared.face_type == hicn_face_ip_type)
     {
       hicn_face_ip_t *face_ip = (hicn_face_ip_t *) face->data;
-      reply->local_addr[0] =
-	clib_host_to_net_u64 (face_ip->local_addr.as_u64[0]);
-      reply->local_addr[1] =
-	clib_host_to_net_u64 (face_ip->local_addr.as_u64[1]);
-      reply->remote_addr[0] =
-	clib_host_to_net_u64 (face_ip->remote_addr.as_u64[0]);
-      reply->remote_addr[1] =
-	clib_host_to_net_u64 (face_ip->remote_addr.as_u64[1]);
+      ip_address_encode(&face_ip->local_addr, IP46_TYPE_ANY, &reply->local_addr);
+      ip_address_encode(&face_ip->remote_addr, IP46_TYPE_ANY, &reply->remote_addr);
       reply->swif = clib_host_to_net_u32 (face->shared.sw_if);
       reply->flags = clib_host_to_net_u32 (face->shared.flags);
       reply->faceid = clib_host_to_net_u32 (faceid);

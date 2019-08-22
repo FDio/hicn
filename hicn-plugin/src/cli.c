@@ -21,6 +21,7 @@
 #include <vnet/udp/udp.h>	// port registration
 #include <vnet/ip/ip6_packet.h>	// ip46_address_t
 #include <vnet/ip/format.h>
+#include <vnet/fib/fib_types.h>
 
 #include "hicn.h"
 #include "infra.h"
@@ -416,10 +417,11 @@ hicn_cli_fib_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 
   int rv = HICN_ERROR_NONE;
   int addpfx = -1;
-  ip46_address_t prefix;
+  ip46_address_t address;
   hicn_face_id_t faceid = HICN_FACE_NULL;
   u32 strategy_id;
   u8 plen = 0;
+  fib_prefix_t prefix;
 
   /* Get a line of input. */
   unformat_input_t _line_input, *line_input = &_line_input;
@@ -443,7 +445,7 @@ hicn_cli_fib_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	}
       else if (addpfx != -1
 	       && unformat (line_input, "prefix %U/%d", unformat_ip46_address,
-			    &prefix, IP46_TYPE_ANY, &plen))
+			    &address, IP46_TYPE_ANY, &plen))
 	{;
 	}
       else if (addpfx <= 1 && unformat (line_input, "face %u", &faceid))
@@ -458,16 +460,18 @@ hicn_cli_fib_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	}
     }
 
+  fib_prefix_from_ip46_addr(&address, &prefix);
+  prefix.fp_len=plen;
   /* Check parse */
   if (addpfx <= 1
-      && ((ip46_address_is_zero (&prefix)) || faceid == HICN_FACE_NULL))
+      && ((ip46_address_is_zero (&prefix.fp_addr)) || faceid == HICN_FACE_NULL))
     {
       cl_err =
 	clib_error_return (0, "Please specify prefix and a valid faceid...");
       goto done;
     }
   /* Check parse */
-  if ((ip46_address_is_zero (&prefix))
+  if ((ip46_address_is_zero (&prefix.fp_addr))
       || (addpfx == 2 && hicn_dpo_strategy_id_is_valid (strategy_id)))
     {
       cl_err = clib_error_return (0,
@@ -476,18 +480,18 @@ hicn_cli_fib_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
     }
   if (addpfx == 0)
     {
-      if (ip46_address_is_zero (&prefix))
+      if (ip46_address_is_zero (&prefix.fp_addr))
 	{
 	  cl_err = clib_error_return (0, "Please specify prefix");
 	  goto done;
 	}
       if (faceid == HICN_FACE_NULL)
 	{
-	  rv = hicn_route_del (&prefix, plen);
+	  rv = hicn_route_del (&prefix);
 	}
       else
 	{
-	  rv = hicn_route_del_nhop (&prefix, plen, faceid);
+	  rv = hicn_route_del_nhop (&prefix, faceid);
 	}
       cl_err =
 	(rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
@@ -497,10 +501,10 @@ hicn_cli_fib_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
     }
   else if (addpfx == 1)
     {
-      rv = hicn_route_add (&faceid, 1, &prefix, plen);
+      rv = hicn_route_add (&faceid, 1, &prefix);
       if (rv == HICN_ERROR_ROUTE_ALREADY_EXISTS)
 	{
-	  rv = hicn_route_add_nhops (&faceid, 1, &prefix, plen);
+	  rv = hicn_route_add_nhops (&faceid, 1, &prefix);
 	}
       cl_err =
 	(rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
@@ -509,7 +513,7 @@ hicn_cli_fib_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
     }
   else if (addpfx == 2)
     {
-      rv = hicn_route_set_strategy (&prefix, plen, strategy_id);
+      rv = hicn_route_set_strategy (&prefix, strategy_id);
       cl_err =
 	(rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
 							    get_error_string
@@ -526,13 +530,14 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 {
   hicn_mgmt_punting_op_e punting_op = HICN_MGMT_PUNTING_OP_NONE;
   unsigned int subnet_mask = 0;
-  ip46_address_t prefix;
+  ip46_address_t address;
   u32 sw_if_index = ~0;
   int ret = 0;
   vnet_main_t *vnm = NULL;
   u8 type = HICN_PUNT_IP_TYPE;
   u32 src_port = 0, dst_port = 0;
   vnm = vnet_get_main ();
+  fib_prefix_t prefix;
 
   unformat_input_t _line_input, *line_input = &_line_input;
   if (!unformat_user (main_input, unformat_line_input, line_input))
@@ -555,7 +560,7 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	}
       else if (unformat
 	       (line_input, "prefix %U/%d", unformat_ip46_address,
-		&prefix, IP46_TYPE_ANY, &subnet_mask))
+		&address, IP46_TYPE_ANY, &subnet_mask))
 	{;
 	}
       else if (unformat (line_input, "type ip"))
@@ -584,14 +589,16 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	}
     }
 
+  fib_prefix_from_ip46_addr(&address, &prefix);
+  prefix.fp_len = subnet_mask;
   if (punting_op == HICN_MGMT_PUNTING_OP_CREATE
-      && (ip46_address_is_zero (&prefix) || sw_if_index == ~0))
+      && (ip46_address_is_zero (&prefix.fp_addr) || sw_if_index == ~0))
     {
       return (clib_error_return
 	      (0, "Please specify valid prefix and interface"));
     }
   else if ((punting_op == HICN_MGMT_PUNTING_OP_DELETE) &&
-	   ip46_address_is_zero (&prefix))
+	   ip46_address_is_zero (&prefix.fp_addr))
     {
       return (clib_error_return
 	      (0, "Please specify valid prefix and optionally an interface"));
@@ -609,7 +616,7 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	  {
 	    if (src_port != 0 && dst_port != 0)
 	      ret =
-		hicn_punt_interest_data_for_udp (vm, &prefix, subnet_mask,
+		hicn_punt_interest_data_for_udp (vm, &prefix,
 						 sw_if_index, type,
 						 clib_host_to_net_u16
 						 (src_port),
@@ -623,8 +630,7 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	else
 	  {
 	    ret =
-	      hicn_punt_interest_data_for_ip (vm, &prefix, subnet_mask,
-					      sw_if_index, type, NO_L2);
+	      hicn_punt_interest_data_for_ip (vm, &prefix, sw_if_index, type, NO_L2);
 	  }
       }
       break;
@@ -632,7 +638,7 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
       {
 	if (sw_if_index != ~0)
 	  {
-	    ip46_address_is_ip4 (&prefix) ?
+	    ip46_address_is_ip4 (&prefix.fp_addr) ?
 	      hicn_punt_enable_disable_vnet_ip4_table_on_intf (vm,
 							       sw_if_index,
 							       0) :
@@ -640,14 +646,13 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 							       sw_if_index,
 							       0);
 	  }
-	else if (!(ip46_address_is_zero (&prefix)))
+	else if (!(ip46_address_is_zero (&prefix.fp_addr)))
 	  {
-	    ret = ip46_address_is_ip4 (&prefix) ?
-	      hicn_punt_remove_ip4_address (vm, &(prefix.ip4), subnet_mask, 1,
+	    ret = ip46_address_is_ip4 (&prefix.fp_addr) ?
+	      hicn_punt_remove_ip4_address (vm, &prefix, 1,
 					    sw_if_index,
 					    0, NO_L2) :
-	      hicn_punt_remove_ip6_address (vm, (ip6_address_t *) & prefix,
-					    subnet_mask, 1, sw_if_index, 0,
+	      hicn_punt_remove_ip6_address (vm, &prefix, 1, sw_if_index, 0,
 					    NO_L2);
 	  }
       }
@@ -671,14 +676,15 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
 {
   hicn_main_t *sm = &hicn_main;
   hicnpg_main_t *hpgm = &hicnpg_main;
-  ip46_address_t src_addr, hicn_name;
+  ip46_address_t src_addr;
+  fib_prefix_t prefix;
   vnet_main_t *vnm = vnet_get_main ();
   u32 sw_if_index = ~0;
   u16 lifetime = 4000;
   int rv = VNET_API_ERROR_UNIMPLEMENTED;
   u32 max_seq = ~0;
   u32 n_flows = ~0;
-  u32 mask = 0;
+  u16 mask = 0;
   u32 n_ifaces = 1;
   u32 hicn_underneath = ~0;
 
@@ -711,8 +717,8 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
 	      ;
 	    }
 	  else if (unformat (line_input, "name %U/%d",
-			     unformat_ip46_address, &hicn_name, IP46_TYPE_ANY,
-			     &mask))
+			     unformat_ip46_address, &prefix.fp_addr, IP46_TYPE_ANY,
+			     &prefix.fp_len))
 	    {
 	      ;
 	    }
@@ -738,6 +744,7 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
 	}
     }
   hpgm->interest_lifetime = lifetime;
+  mask = prefix.fp_len;
 
   if (sw_if_index == ~0)
     {
@@ -771,8 +778,9 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
    * Register punting on src address generated by pg and data punting
    * on the name
    */
-  if (ip46_address_is_ip4 (&src_addr) && ip46_address_is_ip4 (&hicn_name))
+  if (ip46_address_is_ip4 (&src_addr) && ip46_address_is_ip4 (&prefix.fp_addr))
     {
+      prefix.fp_proto = FIB_PROTOCOL_IP4;
       /* Add data node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
 					      hicn_punt_glb.
@@ -793,11 +801,11 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
 
       /* Add a session to the table */
       hicn_punt_add_vnetssn (&ipv4, &ipv4_src,
-			     &hicn_name, mask,
+			     &prefix,
 			     next_hit_node, sw_if_index, base_offset);
 
       hicn_punt_add_vnetssn (&ipv4, &ipv4_src,
-			     &hicn_name, mask,
+			     &prefix,
 			     next_hit_node, sw_if_index, base_offset);
 
       hicn_punt_enable_disable_vnet_ip4_table_on_intf (vm, sw_if_index,
@@ -809,8 +817,9 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
 
     }
   else if (!ip46_address_is_ip4 (&src_addr)
-	   && !ip46_address_is_ip4 (&hicn_name))
+	   && !ip46_address_is_ip4 (&prefix.fp_addr))
     {
+      prefix.fp_proto = FIB_PROTOCOL_IP6;
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
 					      hicn_punt_glb.hicn_node_info.
@@ -831,11 +840,11 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
 
       /* Add a session to the table */
       hicn_punt_add_vnetssn (&ipv6, &ipv6_src,
-			     &hicn_name, mask,
+			     &prefix,
 			     next_hit_node, sw_if_index, base_offset);
 
       hicn_punt_add_vnetssn (&ipv6, &ipv6_src,
-			     &hicn_name, mask,
+			     &prefix,
 			     next_hit_node, sw_if_index, base_offset);
 
       hicn_punt_enable_disable_vnet_ip6_table_on_intf (vm, sw_if_index,
@@ -854,7 +863,7 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
 
 
   hpgm->pgen_clt_src_addr = src_addr;
-  hpgm->pgen_clt_hicn_name = hicn_name;
+  hpgm->pgen_clt_hicn_name = prefix.fp_addr;
   hpgm->max_seq_number = max_seq;
   hpgm->n_flows = n_flows;
   hpgm->n_ifaces = n_ifaces;
@@ -890,7 +899,7 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
   int rv = HICN_ERROR_NONE;
   hicnpg_server_main_t *pg_main = &hicnpg_server_main;
   hicn_main_t *sm = &hicn_main;
-  ip46_address_t hicn_name;
+  fib_prefix_t prefix;
   u32 subnet_mask;
   int payload_size = 0;
   u32 sw_if_index = ~0;
@@ -912,8 +921,8 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
 		hicn_underneath = 1;
 	    }
 	  if (unformat (line_input, "name %U/%d",
-			unformat_ip46_address, &hicn_name, IP46_TYPE_ANY,
-			&subnet_mask))
+			unformat_ip46_address, &prefix.fp_addr, IP46_TYPE_ANY,
+			&prefix.fp_len))
 	    {;
 	    }
 	  else if (unformat (line_input, "size %d", &payload_size))
@@ -940,6 +949,8 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
 	    }
 	}
     }
+  prefix.fp_proto = ip46_address_is_ip4(&prefix.fp_addr) ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
+  subnet_mask = prefix.fp_len;
   /* Attach our packet-gen node for ip4 udp local traffic */
   if (payload_size == 0 || sw_if_index == ~0)
     {
@@ -980,7 +991,7 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
       base_offset = NO_L2;
       use_current_data = HICN_CLASSIFY_CURRENT_DATA_FLAG;
     }
-  if (ip46_address_is_ip4 (&hicn_name))
+  if (ip46_address_is_ip4 (&prefix.fp_addr))
     {
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
@@ -999,8 +1010,7 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
 
       /* Add a session to the table */
       hicn_punt_add_vnetssn (&ipv4, &ipv4_dst,
-			     (ip46_address_t *) & (hicn_name.ip4),
-			     subnet_mask, next_hit_node, sw_if_index,
+			     &prefix, next_hit_node, sw_if_index,
 			     base_offset);
 
       hicn_punt_enable_disable_vnet_ip4_table_on_intf (vm, sw_if_index,
@@ -1026,8 +1036,7 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
 
       /* Add a session to the table */
       hicn_punt_add_vnetssn (&ipv6, &ipv6_dst,
-			     (ip46_address_t *) & (hicn_name.ip6),
-			     subnet_mask, next_hit_node, sw_if_index,
+			     &prefix, next_hit_node, sw_if_index,
 			     base_offset);
 
       hicn_punt_enable_disable_vnet_ip6_table_on_intf (vm, sw_if_index,

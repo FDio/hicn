@@ -234,7 +234,7 @@ int hicn_packet_get_payload (hicn_format_t format,
  */
 int hicn_packet_get_locator (hicn_format_t format,
 			     const hicn_header_t * packet,
-			     ip_prefix_t * prefix, bool is_interest);
+			     ip_address_t * prefix, bool is_interest);
 
 /**
  * @brief Sets the locator of an interest / data packet
@@ -246,7 +246,7 @@ int hicn_packet_get_locator (hicn_format_t format,
  * @return hICN error code
  */
 int hicn_packet_set_locator (hicn_format_t format, hicn_header_t * packet,
-			     const ip_prefix_t * prefix,
+			     const ip_address_t * prefix,
 			     bool is_interest);
 
 /**
@@ -396,9 +396,9 @@ int hicn_interest_set_name (hicn_format_t format, hicn_header_t * interest,
 			    const hicn_name_t * name);
 int hicn_interest_get_locator (hicn_format_t format,
 			       const hicn_header_t * interest,
-			       ip_prefix_t * prefix);
+			       ip_address_t * prefix);
 int hicn_interest_set_locator (hicn_format_t format, hicn_header_t * interest,
-			       const ip_prefix_t * prefix);
+			       const ip_address_t * prefix);
 int hicn_interest_compare (const hicn_header_t * interest_1,
 			   const hicn_header_t * interest_2);
 int hicn_interest_set_lifetime (hicn_header_t * interest, u32 lifetime);
@@ -425,9 +425,9 @@ int hicn_data_get_name (hicn_format_t format, const hicn_header_t * data,
 int hicn_data_set_name (hicn_format_t format, hicn_header_t * data,
 			const hicn_name_t * name);
 int hicn_data_get_locator (hicn_format_t format, const hicn_header_t * data,
-			   ip_prefix_t * prefix);
+			   ip_address_t * prefix);
 int hicn_data_set_locator (hicn_format_t format, hicn_header_t * data,
-			   const ip_prefix_t * prefix);
+			   const ip_address_t * prefix);
 int hicn_data_compare (const hicn_header_t * data_1,
 		       const hicn_header_t * data_2);
 int hicn_data_get_expiry_time (const hicn_header_t * data, u32 * expiry_time);

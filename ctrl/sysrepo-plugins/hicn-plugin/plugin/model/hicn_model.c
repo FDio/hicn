@@ -663,16 +663,16 @@ static int hicn_route_get_cb(const char *xpath, const sr_val_t *input,
    struct sockaddr_in sa;
    inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
    unsigned char * tmp = (unsigned char *) &sa.sin_addr.s_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B32);
-
+   memcpy(&msg->payload.prefix.address.un.ip4[0],tmp,B32);
+   msg->payload.prefix.address.af = ADDRESS_IP4;
 
  }else if(strcmp(input[1].data.string_val,"-1")){
 
    void *dst = malloc(sizeof(struct in6_addr));
    inet_pton(AF_INET6, input[1].data.string_val, dst);
    unsigned char * tmp = (unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B64);
-   memcpy(&msg->payload.prefix[1],tmp+B64,B64);
+   memcpy(&msg->payload.prefix.address.un.ip6[0],tmp,B128);
+   msg->payload.prefix.address.af = ADDRESS_IP6;
 
  }else{
      SRP_LOG_DBG_MSG("Invalid local IP address");
@@ -681,7 +681,7 @@ static int hicn_route_get_cb(const char *xpath, const sr_val_t *input,
 
 
 
- msg->payload.len = input[2].data.uint8_val;
+ msg->payload.prefix.len = input[2].data.uint8_val;
 
  vapi_msg_hicn_api_route_get_hton(msg);
  params_send(msg,resp);
@@ -715,23 +715,23 @@ static int hicn_route_nhops_add_cb(const char *xpath, const sr_val_t *input,
    struct sockaddr_in sa;
    inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
    unsigned char * tmp = (unsigned char *) &sa.sin_addr.s_addr;
-   memcpy(&msg->payload.prefix[0],tmp,4);
-
+   memcpy(&msg->payload.prefix.address.un.ip4[0],tmp,B32);
+   msg->payload.prefix.address.af = ADDRESS_IP4;
 
  }else if(strcmp(input[1].data.string_val,"-1")){
 
    void *dst = malloc(sizeof(struct in6_addr));
    inet_pton(AF_INET6, input[1].data.string_val, dst);
    unsigned char * tmp = (unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B64);
-   memcpy(&msg->payload.prefix[1],tmp+B64,B64);
+   memcpy(&msg->payload.prefix.address.un.ip6[0],tmp,B128);
+   msg->payload.prefix.address.af = ADDRESS_IP6;
 
  }else{
      SRP_LOG_DBG_MSG("Invalid local IP address");
      return SR_ERR_OPERATION_FAILED;
  }
 
- msg->payload.len = input[2].data.uint8_val;
+ msg->payload.prefix.len = input[2].data.uint8_val;
  msg->payload.face_ids[0] = input[3].data.uint32_val;
  msg->payload.face_ids[1] = input[4].data.uint32_val;
  msg->payload.face_ids[2] = input[5].data.uint32_val;
@@ -772,7 +772,8 @@ static int hicn_route_del_cb(const char *xpath, const sr_val_t *input,
    struct sockaddr_in sa;
    inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
    unsigned char * tmp = (unsigned char *) &sa.sin_addr.s_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B32);
+   memcpy(&msg->payload.prefix.address.un.ip4[0],tmp,B32);
+   msg->payload.prefix.address.af = ADDRESS_IP4;
 
 
  }else if(strcmp(input[1].data.string_val,"-1")){
@@ -780,8 +781,8 @@ static int hicn_route_del_cb(const char *xpath, const sr_val_t *input,
    void *dst = malloc(sizeof(struct in6_addr));
    inet_pton(AF_INET6, input[1].data.string_val, dst);
    unsigned char * tmp = (unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B64);
-   memcpy(&msg->payload.prefix[1],tmp+B64,B64);
+   memcpy(&msg->payload.prefix.address.un.ip6[0],tmp,B128);
+   msg->payload.prefix.address.af = ADDRESS_IP6;
 
  }else{
      SRP_LOG_DBG_MSG("Invalid local IP address");
@@ -789,7 +790,7 @@ static int hicn_route_del_cb(const char *xpath, const sr_val_t *input,
  }
 
 
- msg->payload.len = input[2].data.uint8_val;
+ msg->payload.prefix.len = input[2].data.uint8_val;
 
  vapi_msg_hicn_api_route_del_hton(msg);
  params_send(msg,resp);
@@ -857,7 +858,8 @@ static int hicn_punting_add_cb(const char *xpath, const sr_val_t *input,
    // store this IP address in sa:
    inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
    unsigned char * tmp =  (unsigned char *) &sa.sin_addr.s_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B32);
+   memcpy(&msg->payload.prefix.address.un.ip4[0],tmp,B32);
+   msg->payload.prefix.address.af = ADDRESS_IP4;
 
 
  }else if(strcmp(input[1].data.string_val,"-1")){
@@ -865,15 +867,15 @@ static int hicn_punting_add_cb(const char *xpath, const sr_val_t *input,
    void *dst = malloc(sizeof(struct in6_addr));
    inet_pton(AF_INET6, input[1].data.string_val, dst);
    unsigned char * tmp =(unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B64);
-   memcpy(&msg->payload.prefix[1],tmp+B64,B64);
+   memcpy(&msg->payload.prefix.address.un.ip6[0],tmp,B128);
+   msg->payload.prefix.address.af = ADDRESS_IP6;
 
  }else{
      SRP_LOG_DBG_MSG("Invalid local IP address");
      return SR_ERR_OPERATION_FAILED;
  }
 
- msg->payload.len = input[2].data.uint8_val;
+ msg->payload.prefix.len = input[2].data.uint8_val;
  msg->payload.swif = input[3].data.uint32_val;
 
 
@@ -912,7 +914,8 @@ static int hicn_route_nhops_del_cb(const char *xpath, const sr_val_t *input,
    // store this IP address in sa:
    inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
    unsigned char * tmp = (unsigned char *) &sa.sin_addr.s_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B32);
+   memcpy(&msg->payload.prefix.address.un.ip4[0],tmp,B32);
+   msg->payload.prefix.address.af = ADDRESS_IP4;
 
 
  }else if(strcmp(input[1].data.string_val,"-1")){
@@ -920,8 +923,8 @@ static int hicn_route_nhops_del_cb(const char *xpath, const sr_val_t *input,
    void *dst = malloc(sizeof(struct in6_addr));
    inet_pton(AF_INET6, input[1].data.string_val, dst);
    unsigned char * tmp = (unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B64);
-   memcpy(&msg->payload.prefix[1],tmp+B64,B64);
+   memcpy(&msg->payload.prefix.address.un.ip6[0],tmp,B128);
+   msg->payload.prefix.address.af = ADDRESS_IP6;
 
  }else{
      SRP_LOG_DBG_MSG("Invalid local IP address");
@@ -929,7 +932,7 @@ static int hicn_route_nhops_del_cb(const char *xpath, const sr_val_t *input,
  }
 
 
- msg->payload.len = input[2].data.uint8_val;
+ msg->payload.prefix.len = input[2].data.uint8_val;
  msg->payload.faceid = input[3].data.uint32_val;
 
  vapi_msg_hicn_api_route_nhop_del_hton(msg);
@@ -967,7 +970,8 @@ static int hicn_punting_del_cb(const char *xpath, const sr_val_t *input,
    struct sockaddr_in sa;
    inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
    unsigned char * tmp = (unsigned char *) &sa.sin_addr.s_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B32);
+   memcpy(&msg->payload.prefix.address.un.ip4[0],tmp,B32);
+   msg->payload.prefix.address.af = ADDRESS_IP4;
 
 
  }else if(strcmp(input[1].data.string_val,"-1")){
@@ -975,8 +979,8 @@ static int hicn_punting_del_cb(const char *xpath, const sr_val_t *input,
    void *dst = malloc(sizeof(struct in6_addr));
    inet_pton(AF_INET6, input[1].data.string_val, dst);
    unsigned char * tmp = (unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-   memcpy(&msg->payload.prefix[0],tmp,B64);
-   memcpy(&msg->payload.prefix[1],tmp+B64,B64);
+   memcpy(&msg->payload.prefix.address.un.ip6[0],tmp,B128);
+   msg->payload.prefix.address.af = ADDRESS_IP6;
 
  }else{
      SRP_LOG_DBG_MSG("Invalid local IP address");
@@ -984,7 +988,7 @@ static int hicn_punting_del_cb(const char *xpath, const sr_val_t *input,
  }
 
 
- msg->payload.len = input[2].data.uint8_val;
+ msg->payload.prefix.len = input[2].data.uint8_val;
  msg->payload.swif = input[3].data.uint32_val;
 
  vapi_msg_hicn_api_punting_del_hton(msg);
@@ -1049,15 +1053,16 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
      struct sockaddr_in sa;
      inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
      unsigned char * tmp = (unsigned char *) &sa.sin_addr.s_addr;
-     memcpy(&msg->payload.local_addr[0],tmp,B32);
+     memcpy(&msg->payload.local_addr.un.ip4[0],tmp,B32);
+     msg->payload.local_addr.af = ADDRESS_IP4;
 
  }else if(strcmp(input[1].data.string_val,"-1")){
 
      void *dst = malloc(sizeof(struct in6_addr));
      inet_pton(AF_INET6, input[1].data.string_val, dst);
      unsigned char * tmp = (unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-     memcpy(&msg->payload.local_addr[0],tmp,B64);
-     memcpy(&msg->payload.local_addr[1],tmp+B64,B64);
+     memcpy(&msg->payload.local_addr.un.ip6[0],tmp,B128);
+     msg->payload.local_addr.af = ADDRESS_IP6;
 
  }else{
      SRP_LOG_DBG_MSG("Invalid local IP address");
@@ -1069,7 +1074,8 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
      struct sockaddr_in sa;
      inet_pton(AF_INET,  input[2].data.string_val, &(sa.sin_addr));
      unsigned char * tmp = (unsigned char *)&sa.sin_addr.s_addr;
-     memcpy(&msg->payload.remote_addr[0],tmp,B32);
+     memcpy(&msg->payload.remote_addr.un.ip4[0],tmp,B32);
+     msg->payload.remote_addr.af = ADDRESS_IP4;
 
 
  }else if(strcmp(input[3].data.string_val,"-1")){
@@ -1077,8 +1083,8 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
      void *dst = malloc(sizeof(struct in6_addr));
      inet_pton(AF_INET6, input[3].data.string_val, dst);
      unsigned char * tmp =(unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-     memcpy(&msg->payload.remote_addr[0],tmp,B64);
-     memcpy(&msg->payload.remote_addr[1],tmp+B64,B64);
+     memcpy(&msg->payload.remote_addr.un.ip6[0],tmp,B128);
+     msg->payload.remote_addr.af = ADDRESS_IP6;
 
  }else{
      SRP_LOG_DBG_MSG("Invalid local IP address");
