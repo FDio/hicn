@@ -78,7 +78,7 @@ class MemifConnector : public Connector {
 
   int deleteMemif();
 
-  static int controlFdUpdate(int fd, uint8_t events);
+  static int controlFdUpdate(int fd, uint8_t events, void *private_ctx);
 
   static int onConnect(memif_conn_handle_t conn, void *private_ctx);
 
