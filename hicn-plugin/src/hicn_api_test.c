@@ -23,6 +23,7 @@
 #include <vnet/ip/ip4_packet.h>
 #include <vnet/ip/ip6_packet.h>
 #include <vnet/ip/format.h>
+#include <vnet/ip/ip_types_api.h>
 
 #define __plugin_msg_base hicn_test_main.msg_id_base
 #include <vlibapi/vat_helper_macros.h>
@@ -137,8 +138,8 @@ _(HICN_API_FACE_IP_PARAMS_GET_REPLY, hicn_api_face_ip_params_get_reply) \
 _(HICN_API_ROUTE_GET_REPLY, hicn_api_route_get_reply)                   \
 _(HICN_API_ROUTES_DETAILS, hicn_api_routes_details)                     \
 _(HICN_API_ROUTE_DEL_REPLY, hicn_api_route_del_reply)                   \
-_(HICN_API_ROUTE_NHOP_DEL_REPLY, hicn_api_route_nhop_del_reply)		    \
-_(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)		    \
+_(HICN_API_ROUTE_NHOP_DEL_REPLY, hicn_api_route_nhop_del_reply)         \
+_(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)         \
 _(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)             \
 _(HICN_API_REGISTER_PROD_APP_REPLY, hicn_api_register_prod_app_reply)   \
 _(HICN_API_REGISTER_CONS_APP_REPLY, hicn_api_register_cons_app_reply)
@@ -359,10 +360,8 @@ api_hicn_api_face_ip_add (vat_main_t * vam)
     }
   /* Construct the API message */
   M (HICN_API_FACE_IP_ADD, mp);
-  mp->local_addr[0] = clib_host_to_net_u64 (local_addr.as_u64[0]);
-  mp->local_addr[1] = clib_host_to_net_u64 (local_addr.as_u64[1]);
-  mp->remote_addr[0] = clib_host_to_net_u64 (remote_addr.as_u64[0]);
-  mp->remote_addr[1] = clib_host_to_net_u64 (remote_addr.as_u64[1]);
+  ip_address_decode (&mp->local_addr, &local_addr);
+  ip_address_decode (&mp->remote_addr, &remote_addr);
   mp->swif = clib_host_to_net_u32 (sw_if);
 
   /* send it... */
