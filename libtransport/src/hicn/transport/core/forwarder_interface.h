@@ -94,9 +94,9 @@ class ForwarderInterface {
     counters_.tx_bytes += packet.payloadSize() + packet.headerSize();
 
     if (_is_ipv4(packet.getFormat())) {
-      packet.setLocator(inet_address_);
+      packet.setLocator(inet_address_.address);
     } else {
-      packet.setLocator(inet6_address_);
+      packet.setLocator(inet6_address_.address);
     }
 
     packet.setChecksum();
