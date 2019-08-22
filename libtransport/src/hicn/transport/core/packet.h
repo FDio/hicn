@@ -133,9 +133,9 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   void dump() const;
 
-  virtual void setLocator(const ip_prefix_t &locator) = 0;
+  virtual void setLocator(const ip_address_t &locator) = 0;
 
-  virtual ip_prefix_t getLocator() const = 0;
+  virtual ip_address_t getLocator() const = 0;
 
   void setSignatureTimestamp(const uint64_t &timestamp);
 

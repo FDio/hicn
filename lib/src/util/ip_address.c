@@ -77,7 +77,7 @@ ip_address_get_family (const char * ip_address)
 }
 
 int
-ip_address_len (const ip_address_t * ip_address, int family)
+ip_address_len (int family)
 {
   return (family == AF_INET6) ? IPV6_ADDR_LEN :
     (family == AF_INET) ? IPV4_ADDR_LEN : 0;
@@ -167,7 +167,7 @@ ip_address_to_sockaddr(const ip_address_t * ip_address,
 int
 ip_address_cmp(const ip_address_t * ip1, const ip_address_t * ip2, int family)
 {
-    return memcmp(ip1, ip2, ip_address_len(ip1, family));
+    return memcmp(ip1, ip2, ip_address_len(family));
 }
 
 int
