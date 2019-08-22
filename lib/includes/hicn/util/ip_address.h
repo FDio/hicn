@@ -65,12 +65,15 @@
 #define DUMMY_PORT 1234
 
 typedef union {
-    union {
-        struct in_addr as_inaddr;
-        u8 as_u8[4];
-        u16 as_u16[2];
-        u32 as_u32;
-    } v4;
+    struct {
+        u32 pad[3];
+        union {
+                struct in_addr as_inaddr;
+                u8 as_u8[4];
+                u16 as_u16[2];
+                u32 as_u32;
+        } v4;
+    };
     union {
         struct in6_addr as_in6addr;
         u8 as_u8[16];
@@ -121,7 +124,7 @@ extern const ip_address_t IP_ADDRESS_EMPTY;
 /* IP address */
 
 int ip_address_get_family (const char * ip_address);
-int ip_address_len (const ip_address_t * ip_address, int family);
+int ip_address_len (int family);
 int ip_address_ntop (const ip_address_t * ip_address, char *dst,
         const size_t len, int family);
 int ip_address_pton (const char *ip_address_str, ip_address_t * ip_address);
