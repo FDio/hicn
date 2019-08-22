@@ -49,10 +49,6 @@ class ForwarderInterface {
         mtu_(1500),
         output_interface_(""),
         content_store_reserved_(standard_cs_reserved) {
-    inet_address_.family = AF_INET;
-    inet_address_.len = IPV4_ADDR_LEN;
-    inet6_address_.family = AF_INET6;
-    inet6_address_.len = IPV6_ADDR_LEN;
   }
 
  public:
@@ -135,8 +131,8 @@ class ForwarderInterface {
 
  protected:
   ConnectorType &connector_;
-  ip_prefix_t inet_address_;
-  ip_prefix_t inet6_address_;
+  ip_address_t inet_address_;
+  ip_address_t inet6_address_;
   uint16_t mtu_;
   std::string output_interface_;
   uint32_t content_store_reserved_;
