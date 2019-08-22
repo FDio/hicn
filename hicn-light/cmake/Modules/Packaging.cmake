@@ -15,17 +15,17 @@
 # Packages section
 ######################
 
-set(${LIBHICN_LIGHT}_DESCRIPTION
+set(${HICN_LIGHT}_DESCRIPTION
   "hicn-light is a socket based forwarder"
   CACHE STRING "Description for deb/rpm package."
 )
 
-set(${LIBHICN_LIGHT}_DEB_DEPENDENCIES
+set(${HICN_LIGHT}_DEB_DEPENDENCIES
   "lib${LIBHICN} (>= stable_version), libparc (>= 1.0)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
-set(${LIBHICN_LIGHT}_RPM_DEPENDENCIES
+set(${HICN_LIGHT}_RPM_DEPENDENCIES
   "lib${LIBHICN} >= stable_version, libparc >= 1.0"
   CACHE STRING "Dependencies for deb/rpm package."
 )

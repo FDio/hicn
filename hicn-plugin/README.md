@@ -209,7 +209,7 @@ hicn face app {add intfc <sw_if> {prod prefix <hicn_prefix> cs_size <size_in_pac
 `hicn face ip`: manipulates ip application faces in the forwarder.
 
 ```
-hicn face ip {[add local <src_address>] remote <dst_address> intfc <sw_if>} | {del id <face_id>}
+hicn face ip {add [local <src_address>] remote <dst_address> intfc <sw_if>} | {del id <face_id>}
   <src_address>               :the IPv4 or IPv6 local IP address to bind to (not mandatory, if not specified the local address is one of the address assigned to sw_if)
   <dst_address>               :the IPv4 or IPv6 address of the remote system
   <sw_if>                     :software interface on thop of which we create the face
