@@ -121,7 +121,7 @@ extern const ip_address_t IP_ADDRESS_EMPTY;
 /* IP address */
 
 int ip_address_get_family (const char * ip_address);
-int ip_address_len (const ip_address_t * ip_address, int family);
+int ip_address_len (int family);
 int ip_address_ntop (const ip_address_t * ip_address, char *dst,
         const size_t len, int family);
 int ip_address_pton (const char *ip_address_str, ip_address_t * ip_address);

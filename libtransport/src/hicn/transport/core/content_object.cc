@@ -154,7 +154,7 @@ ContentObject &ContentObject::setPathLabel(uint32_t path_label) {
   return *this;
 }
 
-void ContentObject::setLocator(const ip_prefix_t &ip_address) {
+void ContentObject::setLocator(const ip_address_t &ip_address) {
   if (hicn_data_set_locator(format_, packet_start_, &ip_address) < 0) {
     throw errors::RuntimeException("Error setting content object locator");
   }
@@ -162,8 +162,8 @@ void ContentObject::setLocator(const ip_prefix_t &ip_address) {
   return;
 }
 
-ip_prefix_t ContentObject::getLocator() const {
-  ip_prefix_t ip;
+ip_address_t ContentObject::getLocator() const {
+  ip_address_t ip;
 
   if (hicn_data_get_locator(format_, packet_start_, &ip) < 0) {
     throw errors::RuntimeException("Error getting content object locator.");
