@@ -32,11 +32,10 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
 {
   clib_error_t *cl_err = 0;
   int ret = HICN_ERROR_NONE;
-  ip46_address_t prefix;
+  fib_prefix_t prefix;
   hicn_face_id_t faceid = HICN_FACE_NULL;
   u32 fib_index;
   u32 weight = HICN_PARAM_FIB_ENTRY_NHOP_WGHT_DFLT;
-  u32 plen = 0;
   hicn_dpo_ctx_t *hicn_dpo_ctx;
   const dpo_id_t *hicn_dpo_id;
   u32 vft_id;
@@ -49,7 +48,7 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
 	{
 	  if (unformat (line_input, "prefix %U/%u", unformat_ip46_address,
-			&prefix, IP46_TYPE_ANY, &plen))
+			&prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
 	    ;
 	  else if (unformat (line_input, "face %u", &faceid))
 	    ;
@@ -73,18 +72,15 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
       goto done;
     }
 
-  if (((ip46_address_is_zero (&prefix)) || faceid == HICN_FACE_NULL))
+  if (((ip46_address_is_zero (&prefix.fp_addr)) || faceid == HICN_FACE_NULL))
     {
       cl_err =
 	clib_error_return (0, "Please specify prefix and a valid faceid...");
       goto done;
     }
 
-  fib_prefix_t fib_pfx;
-  fib_prefix_from_ip46_addr (&prefix, &fib_pfx);
-  fib_pfx.fp_len = plen;
-
-  ret = hicn_route_get_dpo (&prefix, plen, &hicn_dpo_id, &fib_index);
+  prefix.fp_proto = ip46_address_is_ip4(&prefix.fp_addr) ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
+  ret = hicn_route_get_dpo (&prefix, &hicn_dpo_id, &fib_index);
 
   if (ret == HICN_ERROR_NONE)
     {
