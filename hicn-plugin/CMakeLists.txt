@@ -241,16 +241,16 @@ execute_process(
 )
 
 add_custom_command(
-        COMMAND chmod +x  ${CMAKE_BINARY_DIR}/vapi_json_parser.py ${CMAKE_BINARY_DIR}/vapi_c_gen.py ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py
+        COMMAND chmod +x  ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py
         OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h
-        COMMAND ${VPP_HOME}/bin/vppapigen --input ${CMAKE_CURRENT_SOURCE_DIR}/src/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h
+        COMMAND ${VPP_HOME}/bin/vppapigen --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/src/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/hicn.api
         OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.json
         COMMAND ${VPP_HOME}/bin/vppapigen JSON --input ${CMAKE_CURRENT_SOURCE_DIR}/src/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.json
         OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.vapi.h
-        COMMAND ${CMAKE_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.json
+        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.json
         OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.vapi.hpp
-        COMMAND ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.json
+        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.json
         )
 
 include_directories(SYSTEM)

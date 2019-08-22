@@ -13,6 +13,9 @@
  * limitations under the License.
  */
 
+option version = "5.1.0";
+import "vnet/ip/ip_types.api";
+
 define hicn_api_node_params_set
 {
   /* Client identifier, set from api_main.my_client_index */
@@ -157,10 +160,10 @@ define hicn_api_face_ip_add
   u32 context;
 
   /* IP local address */
-  u64 local_addr[2];
+  vl_api_address_t local_addr;
 
   /* IP remote address */
-  u64 remote_addr[2];
+  vl_api_address_t remote_addr;
 
   /* IPv4 local port number */
   u32 swif;
