@@ -23,6 +23,7 @@
 #include <vnet/ip/ip4_packet.h>
 #include <vnet/ip/ip6_packet.h>
 #include <vnet/ip/format.h>
+#include <vnet/ip/ip_types_api.h>
 
 #define __plugin_msg_base hicn_test_main.msg_id_base
 #include <vlibapi/vat_helper_macros.h>
@@ -83,6 +84,70 @@ unformat_ip46_address (unformat_input_t * input, va_list * args)
   return 0;
 }
 
+/* static ip46_type_t */
+/* ip_address_union_decode (const vl_api_address_union_t *in, */
+/*                          vl_api_address_family_t af, */
+/*                          ip46_address_t *out) */
+/* { */
+/*   ip46_type_t type; */
+
+/*   switch (clib_net_to_host_u32 (af)) */
+/*     { */
+/*     case ADDRESS_IP4: */
+/*       clib_memset (out, 0, sizeof (*out)); */
+/*       clib_memcpy (&out->ip4, &in->ip4, sizeof (out->ip4)); */
+/*       type = IP46_TYPE_IP4; */
+/*       break; */
+/*     case ADDRESS_IP6: */
+/*       clib_memcpy (&out->ip6, &in->ip6, sizeof (out->ip6)); */
+/*       type = IP46_TYPE_IP6; */
+/*       break; */
+/*     default: */
+/*       ASSERT (!"Unkown address family in API address type"); */
+/*       type = IP46_TYPE_ANY; */
+/*       break; */
+/*     } */
+
+/*   return type; */
+/* } */
+
+/* static void */
+/* ip_address_union_encode (const ip46_address_t * in, */
+/* 			 vl_api_address_family_t af, */
+/* 			 vl_api_address_union_t * out) */
+/* { */
+/*   if (ADDRESS_IP6 == clib_net_to_host_u32 (af)) */
+/*     memcpy (out->ip6.address, &in->ip6, sizeof (out->ip6)); */
+/*   else */
+/*     memcpy (out->ip4.address, &in->ip4, sizeof (out->ip4)); */
+/* } */
+
+/* ip46_type_t ip_address_decode (const vl_api_address_t *in, ip46_address_t *out) */
+/* { */
+/*   return (ip_address_union_decode (&in->un, in->af, out)); */
+/* } */
+
+/* void ip_address_encode (const ip46_address_t *in, ip46_type_t type, */
+/*                         vl_api_address_t *out) */
+/* { */
+/*   switch (type) */
+/*     { */
+/*     case IP46_TYPE_IP4: */
+/*       out->af = clib_net_to_host_u32 (ADDRESS_IP4); */
+/*       break; */
+/*     case IP46_TYPE_IP6: */
+/*       out->af = clib_net_to_host_u32 (ADDRESS_IP6); */
+/*       break; */
+/*     case IP46_TYPE_ANY: */
+/*       if (ip46_address_is_ip4 (in)) */
+/*         out->af = clib_net_to_host_u32 (ADDRESS_IP4); */
+/*       else */
+/*         out->af = clib_net_to_host_u32 (ADDRESS_IP6); */
+/*       break; */
+/*     } */
+/*   ip_address_union_encode (in, out->af, &out->un); */
+/* } */
+
 /////////////////////////////////////////////////////
 
 #define HICN_FACE_NULL ~0
@@ -137,8 +202,8 @@ _(HICN_API_FACE_IP_PARAMS_GET_REPLY, hicn_api_face_ip_params_get_reply) \
 _(HICN_API_ROUTE_GET_REPLY, hicn_api_route_get_reply)                   \
 _(HICN_API_ROUTES_DETAILS, hicn_api_routes_details)                     \
 _(HICN_API_ROUTE_DEL_REPLY, hicn_api_route_del_reply)                   \
-_(HICN_API_ROUTE_NHOP_DEL_REPLY, hicn_api_route_nhop_del_reply)		    \
-_(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)		    \
+_(HICN_API_ROUTE_NHOP_DEL_REPLY, hicn_api_route_nhop_del_reply)         \
+_(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)         \
 _(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)             \
 _(HICN_API_REGISTER_PROD_APP_REPLY, hicn_api_register_prod_app_reply)   \
 _(HICN_API_REGISTER_CONS_APP_REPLY, hicn_api_register_cons_app_reply)
@@ -359,10 +424,8 @@ api_hicn_api_face_ip_add (vat_main_t * vam)
     }
   /* Construct the API message */
   M (HICN_API_FACE_IP_ADD, mp);
-  mp->local_addr[0] = clib_host_to_net_u64 (local_addr.as_u64[0]);
-  mp->local_addr[1] = clib_host_to_net_u64 (local_addr.as_u64[1]);
-  mp->remote_addr[0] = clib_host_to_net_u64 (remote_addr.as_u64[0]);
-  mp->remote_addr[1] = clib_host_to_net_u64 (remote_addr.as_u64[1]);
+  ip_address_decode (&mp->local_addr, &local_addr);
+  ip_address_decode (&mp->remote_addr, &remote_addr);
   mp->swif = clib_host_to_net_u32 (sw_if);
 
   /* send it... */
@@ -497,10 +560,8 @@ static void
       return;
     }
   vec_reset_length (sbuf);
-  local_addr.as_u64[0] = clib_net_to_host_u64 (rmp->local_addr[0]);
-  local_addr.as_u64[1] = clib_net_to_host_u64 (rmp->local_addr[1]);
-  remote_addr.as_u64[0] = clib_net_to_host_u64 (rmp->remote_addr[0]);
-  remote_addr.as_u64[1] = clib_net_to_host_u64 (rmp->remote_addr[1]);
+  ip_address_decode(&rmp->local_addr, &local_addr);
+  ip_address_decode(&rmp->remote_addr, &remote_addr);
   sbuf =
     format (0, "local_addr %U remote_addr %U", format_ip46_address,
 	    &local_addr, 0 /*IP46_ANY_TYPE */ , format_ip46_address,
@@ -1094,17 +1155,16 @@ static void
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
-  ip4_address_t src_addr4;
-  src_addr4.as_u32 = clib_net_to_host_u32 (mp->src_addr4);
-  ip6_address_t src_addr6;
-  src_addr6.as_u64[0] = clib_net_to_host_u64 (mp->src_addr6[0]);
-  src_addr6.as_u64[1] = clib_net_to_host_u64 (mp->src_addr6[1]);
+  ip46_address_t src_addr4 = ip46_address_initializer;
+  ip46_address_t src_addr6 = ip46_address_initializer;
+  ip_address_decode(&mp->src_addr4, &src_addr4);
+  ip_address_decode(&mp->src_addr6, &src_addr6);
 
   fformat (vam->ofp,
 	   "ip4 address %U\n"
 	   "ip6 address :%U\n"
 	   "appif id :%d\n",
-	   format_ip4_address, &src_addr4, format_ip6_address, &src_addr6);
+	   format_ip46_address, IP46_TYPE_ANY, &src_addr4, format_ip46_address, IP46_TYPE_ANY, &src_addr6);
 }
 
 /*
