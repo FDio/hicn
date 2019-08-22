@@ -34,9 +34,7 @@
 #include <hicn/content_store/contentStoreLRU.h>
 
 #include <hicn/strategies/loadBalancer.h>
-#ifndef WITH_POLICY
 #include <hicn/strategies/loadBalancerWithPD.h>
-#endif /* ! WITH_POLICY */
 #include <hicn/strategies/rnd.h>
 #include <hicn/strategies/rndSegment.h>
 #include <hicn/strategies/strategyImpl.h>
@@ -311,16 +309,14 @@ bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
   Name *prefix = name_CreateFromAddress(control->addressType, control->address,
                                         control->len);
   FibEntry *entry = fib_Contains(processor->fib, prefix);
-#ifndef WITH_POLICY
   bool newEntry = false;
-#endif /* ! WITH_POLICY */
   if (entry != NULL) {
     fibEntry_AddNexthop(entry, ifidx);
   } else {
+    newEntry = true;
 #ifdef WITH_POLICY
     entry = fibEntry_Create(prefix, fwdStrategy, processor->forwarder);
 #else
-    newEntry = true;
     entry = fibEntry_Create(prefix, fwdStrategy);
 #endif /* WITH_POLICY */
     fibEntry_AddNexthop(entry, ifidx);
@@ -329,7 +325,6 @@ bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
 
   name_Release(&prefix);
 
-#ifndef WITH_POLICY
   /* For policy implementation, we need access to the ConnectionTable in all
    * Forwarding Strategies, so it is setup during FIB Entry creation */
   if (newEntry && (fwdStrategy == SET_STRATEGY_LOADBALANCER_WITH_DELAY)) {
@@ -337,7 +332,6 @@ bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
         fibEntry_GetFwdStrategy(entry),
         forwarder_GetConnectionTable(processor->forwarder));
   }
-#endif /* ! WITH_POLICY */
 
   return true;
 }
