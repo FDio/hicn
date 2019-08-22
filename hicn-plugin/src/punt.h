@@ -294,17 +294,17 @@ hicn_punt_enable_disable_vnet_ip6_table_on_intf (vlib_main_t * vm,
 						 u32 sw_if_index,
 						 int is_enable);
 u32 hicn_punt_interest_data_for_udp (vlib_main_t * vm,
-				     ip46_address_t * prefix, u8 mask,
+				     fib_address_t * prefix,
 				     u32 swif, u8 punt_type, u16 sport,
 				     u16 dport, u8 with_l2);
 u32 hicn_punt_interest_data_for_ip (vlib_main_t * vm,
-				    ip46_address_t * prefix, u8 mask,
+				    fib_address_t * prefix,
 				    u32 swif, u8 type, u8 with_l2);
-int hicn_punt_remove_ip6_address (vlib_main_t * vm, ip6_address_t * addr,
-				  u8 mask, int skip, u32 swif, int is_enable,
+int hicn_punt_remove_ip6_address (vlib_main_t * vm, fib_address_t * prefix,
+				  int skip, u32 swif, int is_enable,
 				  u8 with_l2);
-int hicn_punt_remove_ip4_address (vlib_main_t * vm, ip4_address_t * addr,
-				  u8 mask, int skip, u32 swif, int is_enable,
+int hicn_punt_remove_ip4_address (vlib_main_t * vm, fib_address_t * prefix,
+				  int skip, u32 swif, int is_enable,
 				  u8 with_l2);
 void hicn_punt_init (vlib_main_t * vm);
 
@@ -321,15 +321,15 @@ hicn_punt_add_del_vnettbl (ip_version_t * ip, field_t * field, u8 mask, u32
 
 int
 hicn_punt_add_del_vnetssn (ip_version_t * ip, field_t * field,
-			   ip46_address_t * v46_address, u8 mask,
+			   fib_address_t * prefix,
 			   u32 next_hit_index, u32 intfc, u8 base_offset,
 			   int is_add);
 
-#define hicn_punt_add_vnetssn(ip, field, addr, mask, index, intfc, offset) \
-    (hicn_punt_add_del_vnetssn(ip, field, addr, mask, index, intfc, offset, OP_ADD))
+#define hicn_punt_add_vnetssn(ip, field, addr, index, intfc, offset)    \
+  (hicn_punt_add_del_vnetssn(ip, field, addr, index, intfc, offset, OP_ADD))
 
-#define hicn_punt_del_vnetssn(ip, field, addr, mask, index, intfc, offset) \
-    (hicn_punt_add_del_vnetssn(ip, field, addr, mask, index, intfc, offset, OP_DEL))
+#define hicn_punt_del_vnetssn(ip, field, addr, index, intfc, offset)    \
+    (hicn_punt_add_del_vnetssn(ip, field, addr, index, intfc, offset, OP_DEL))
 
 #endif /* // __HICN_PUNT_H__ */
 

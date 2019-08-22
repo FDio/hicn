@@ -28,29 +28,24 @@
 #include "strategies/dpo_mw.h"
 
 int
-hicn_route_get_dpo (const ip46_address_t * prefix, u8 plen,
+hicn_route_get_dpo (const fib_prefix_t * prefix,
 		    const dpo_id_t ** hicn_dpo, u32 * fib_index)
 {
-  fib_prefix_t fib_pfx;
+  //fib_prefix_t fib_pfx;
   const dpo_id_t *load_balance_dpo_id;
   const dpo_id_t *former_dpo_id;
   int found = 0, ret = HICN_ERROR_ROUTE_NOT_FOUND;
   fib_node_index_t fib_entry_index;
-
-  /* At this point the face exists in the face table */
-  fib_prefix_from_ip46_addr (prefix, &fib_pfx);
-  fib_pfx.fp_len = plen;
-
 
   /* Check if the route already exist in the fib */
   /*
    * ASSUMPTION: we use table 0 which is the default table and it is
    * already existing and locked
    */
-  *fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
+  *fib_index = fib_table_find_or_create_and_lock (prefix->fp_proto,
 						  HICN_FIB_TABLE,
 						  FIB_SOURCE_PLUGIN_HI);
-  fib_entry_index = fib_table_lookup_exact_match (*fib_index, &fib_pfx);
+  fib_entry_index = fib_table_lookup_exact_match (*fib_index, prefix);
 
   if (fib_entry_index != FIB_NODE_INDEX_INVALID)
     {
@@ -86,7 +81,7 @@ hicn_route_get_dpo (const ip46_address_t * prefix, u8 plen,
    * Remove the lock from the table. We keep one lock per route, not
    * per dpo
    */
-  fib_table_unlock (*fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
+  fib_table_unlock (*fib_index, prefix->fp_proto, FIB_SOURCE_PLUGIN_HI);
 
   return ret;
 }
@@ -94,10 +89,8 @@ hicn_route_get_dpo (const ip46_address_t * prefix, u8 plen,
 /* Add a new route for a name prefix */
 int
 hicn_route_add (hicn_face_id_t * face_id, u32 len,
-		const ip46_address_t * prefix, u8 plen)
+		const fib_prefix_t * prefix)
 {
-
-  fib_prefix_t fib_pfx;
   dpo_id_t dpo = DPO_INVALID;
   const dpo_id_t *hicn_dpo_id;
   int ret = HICN_ERROR_NONE;
@@ -135,15 +128,10 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
 	}
     }
 
-  ret = hicn_route_get_dpo (prefix, plen, &hicn_dpo_id, &fib_index);
+  ret = hicn_route_get_dpo (prefix, &hicn_dpo_id, &fib_index);
 
   if (ret == HICN_ERROR_ROUTE_NOT_FOUND)
     {
-      /* The Fib entry does not exist */
-      /* At this point the face exists in the face table */
-      fib_prefix_from_ip46_addr (prefix, &fib_pfx);
-      fib_pfx.fp_len = plen;
-
       dpo_id_t nhops[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
       for (int i = 0; i < n_face_dpo; i++)
 	{
@@ -151,7 +139,7 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
 	}
 
       ret =
-	default_dpo.hicn_dpo_create (fib_pfx.fp_proto, nhops, n_face_dpo,
+	default_dpo.hicn_dpo_create (prefix->fp_proto, nhops, n_face_dpo,
 				     &dpo_idx);
 
       if (ret)
@@ -165,7 +153,7 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
        */
       dpo_set (&dpo,
 	       default_dpo.hicn_dpo_get_type (),
-	       (ip46_address_is_ip4 (prefix) ? DPO_PROTO_IP4 : DPO_PROTO_IP6),
+	       (ip46_address_is_ip4 (prefix->fp_addr) ? DPO_PROTO_IP4 : DPO_PROTO_IP6),
 	       dpo_idx);
 
       /* Here is where we create the "via" like route */
@@ -176,13 +164,13 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
        */
       fib_node_index_t new_fib_node_index =
 	fib_table_entry_special_dpo_add (fib_index,
-					 &fib_pfx,
+					 prefix,
 					 FIB_SOURCE_PLUGIN_HI,
 					 FIB_ENTRY_FLAG_EXCLUSIVE,
 					 &dpo);
 
       /* We added a route, therefore add one lock to the table */
-      fib_table_lock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_lock (fib_index, prefix->fp_proto, FIB_SOURCE_PLUGIN_HI);
 
       dpo_unlock (&dpo);
       ret =
@@ -206,7 +194,7 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
 
 int
 hicn_route_add_nhops (hicn_face_id_t * face_id, u32 len,
-		      const ip46_address_t * prefix, u8 plen)
+		      const fib_prefix_t * prefix)
 {
   const dpo_id_t *hicn_dpo_id;
   int ret = HICN_ERROR_NONE;
@@ -244,7 +232,7 @@ hicn_route_add_nhops (hicn_face_id_t * face_id, u32 len,
 	}
     }
 
-  ret = hicn_route_get_dpo (prefix, plen, &hicn_dpo_id, &fib_index);
+  ret = hicn_route_get_dpo (prefix &hicn_dpo_id, &fib_index);
 
   if (ret == HICN_ERROR_NONE)
     {
@@ -260,50 +248,40 @@ hicn_route_add_nhops (hicn_face_id_t * face_id, u32 len,
 }
 
 int
-hicn_route_del (ip46_address_t * prefix, u8 plen)
+hicn_route_del (fib_prefix_t * prefix)
 {
-  fib_prefix_t fib_pfx;
   const dpo_id_t *hicn_dpo_id;
   int ret = HICN_ERROR_NONE;
   u32 fib_index;
 
-  /* At this point the face exists in the face table */
-  fib_prefix_from_ip46_addr (prefix, &fib_pfx);
-  fib_pfx.fp_len = plen;
-
   /* Remove the fib entry only if the dpo is of type hicn */
-  ret = hicn_route_get_dpo (prefix, plen, &hicn_dpo_id, &fib_index);
+  ret = hicn_route_get_dpo (prefix &hicn_dpo_id, &fib_index);
 
   if (ret == HICN_ERROR_NONE)
     {
-      fib_table_entry_special_remove (HICN_FIB_TABLE, &fib_pfx,
+      fib_table_entry_special_remove (HICN_FIB_TABLE, prefix,
 				      FIB_SOURCE_PLUGIN_HI);
 
       /*
        * Remove the lock from the table. We keep one lock per route
        */
-      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_unlock (fib_index, prefix->fp_proto, FIB_SOURCE_PLUGIN_HI);
     }
   //Remember to remove the lock from the table when removing the entry
   return ret;
 }
 
 int
-hicn_route_del_nhop (ip46_address_t * prefix, u8 plen, hicn_face_id_t face_id)
+hicn_route_del_nhop (fib_prefix_t * prefix, hicn_face_id_t face_id)
 {
-
-  fib_prefix_t fib_pfx;
   const dpo_id_t *hicn_dpo_id;
   int ret;
   u32 vft_id;
   const hicn_dpo_vft_t *dpo_vft;
   u32 fib_index;
 
-  /* At this point the face exists in the face table */
-  fib_prefix_from_ip46_addr (prefix, &fib_pfx);
-  fib_pfx.fp_len = plen;
 
-  ret = hicn_route_get_dpo (prefix, plen, &hicn_dpo_id, &fib_index);
+  ret = hicn_route_get_dpo (prefix &hicn_dpo_id, &fib_index);
 
   /* Check if the dpo is an hicn_dpo_t */
   if (ret == HICN_ERROR_NONE)
@@ -311,16 +289,15 @@ hicn_route_del_nhop (ip46_address_t * prefix, u8 plen, hicn_face_id_t face_id)
       vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
       dpo_vft = hicn_dpo_get_vft (vft_id);
       return dpo_vft->hicn_dpo_del_nh (face_id, hicn_dpo_id->dpoi_index,
-				       &fib_pfx);
+				       prefix);
     }
   //Remember to remove the lock from the table when removing the entry
   return ret;
 }
 
 int
-hicn_route_set_strategy (ip46_address_t * prefix, u8 plen, u8 strategy_id)
+hicn_route_set_strategy (fib_prefix_t * prefix, u8 strategy_id)
 {
-  fib_prefix_t fib_pfx;
   const dpo_id_t *hicn_dpo_id;
   dpo_id_t new_dpo_id = DPO_INVALID;
   int ret;
@@ -331,11 +308,8 @@ hicn_route_set_strategy (ip46_address_t * prefix, u8 plen, u8 strategy_id)
   u32 fib_index;
   u32 old_vft_id;
 
-  /* At this point the face exists in the face table */
-  fib_prefix_from_ip46_addr (prefix, &fib_pfx);
-  fib_pfx.fp_len = plen;
 
-  ret = hicn_route_get_dpo (prefix, plen, &hicn_dpo_id, &fib_index);
+  ret = hicn_route_get_dpo (prefix &hicn_dpo_id, &fib_index);
 
   if (ret == HICN_ERROR_NONE)
     {
@@ -358,7 +332,7 @@ hicn_route_set_strategy (ip46_address_t * prefix, u8 plen, u8 strategy_id)
       /* the value we got when we registered */
       dpo_set (&new_dpo_id,
 	       new_dpo_vft->hicn_dpo_get_type (),
-	       (ip46_address_is_ip4 (prefix) ? DPO_PROTO_IP4 :
+	       (ip46_address_is_ip4 (prefix->fp_addr) ? DPO_PROTO_IP4 :
 		DPO_PROTO_IP6), new_hicn_dpo_idx);
 
       /* Here is where we create the "via" like route */
@@ -369,7 +343,7 @@ hicn_route_set_strategy (ip46_address_t * prefix, u8 plen, u8 strategy_id)
        */
       fib_node_index_t new_fib_node_index =
 	fib_table_entry_special_dpo_update (fib_index,
-					    &fib_pfx,
+					    prefix,
 					    FIB_SOURCE_PLUGIN_HI,
 					    FIB_ENTRY_FLAG_EXCLUSIVE,
 					    &new_dpo_id);

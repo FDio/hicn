@@ -321,7 +321,7 @@ hicn_packet_get_payload (hicn_format_t format, const hicn_header_t * h,
 
 int
 hicn_packet_get_locator (hicn_format_t format, const hicn_header_t * h,
-			 ip_prefix_t * prefix, bool is_interest)
+			 ip_address_t * address, bool is_interest)
 {
   const void *locator;
   int is_ipv4 = (format & HFO_INET);
@@ -330,28 +330,24 @@ hicn_packet_get_locator (hicn_format_t format, const hicn_header_t * h,
   if (is_ipv4)
     {
       locator = is_interest ? &h->v4.ip.saddr : &h->v4.ip.daddr;
-      prefix->family = AF_INET;
-      prefix->len = IPV4_ADDR_LEN_BITS;
     }
   else if (is_ipv6)
     {
       locator = is_interest ? &h->v6.ip.saddr : &h->v6.ip.daddr;
-      prefix->family = AF_INET6;
-      prefix->len = IPV6_ADDR_LEN_BITS;
     }
   else
     {
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
     }
 
-  memcpy (prefix->address.buffer, locator, ip_address_len(&prefix->address, prefix->family));
+  memcpy (address->as_u8, locator, is_ipv4 ? IPV4_ADDR_LEN : IPV6_ADDR_LEN);
 
   return HICN_LIB_ERROR_NONE;
 }
 
 int
 hicn_packet_set_locator (hicn_format_t format, hicn_header_t * h,
-			 const ip_prefix_t * prefix, bool is_interest)
+			 const ip_address_t * address, bool is_interest)
 {
   void *locator;
   int is_ipv4 = (format & HFO_INET);
@@ -370,7 +366,7 @@ hicn_packet_set_locator (hicn_format_t format, hicn_header_t * h,
       return HICN_LIB_ERROR_INVALID_PARAMETER;
     }
 
-  memcpy (locator, prefix->address.buffer, ip_address_len(&prefix->address, prefix->family));
+  memcpy (locator, address->as_u8, is_ipv4 ? IPV4_ADDR_LEN : IPV6_ADDR_LEN);
 
   return HICN_LIB_ERROR_NONE;
 }
@@ -953,16 +949,16 @@ hicn_interest_set_name (hicn_format_t format, hicn_header_t * interest,
 int
 hicn_interest_get_locator (hicn_format_t format,
 			   const hicn_header_t * interest,
-			   ip_prefix_t * prefix)
+			   ip_address_t * address)
 {
-  return hicn_packet_get_locator (format, interest, prefix, _INTEREST);
+  return hicn_packet_get_locator (format, interest, address, _INTEREST);
 }
 
 int
 hicn_interest_set_locator (hicn_format_t format, hicn_header_t * interest,
-			   const ip_prefix_t * prefix)
+			   const ip_address_t * address)
 {
-  return hicn_packet_set_locator (format, interest, prefix, _INTEREST);
+  return hicn_packet_set_locator (format, interest, address, _INTEREST);
 }
 
 int
@@ -1045,16 +1041,16 @@ hicn_data_set_name (hicn_format_t format, hicn_header_t * data,
 
 int
 hicn_data_get_locator (hicn_format_t format, const hicn_header_t * data,
-		       ip_prefix_t * prefix)
+		       ip_address_t * address)
 {
-  return hicn_packet_get_locator (format, data, prefix, _DATA);
+  return hicn_packet_get_locator (format, data, address, _DATA);
 }
 
 int
 hicn_data_set_locator (hicn_format_t format, hicn_header_t * data,
-		       const ip_prefix_t * prefix)
+		       const ip_address_t * address)
 {
-  return hicn_packet_set_locator (format, data, prefix, _DATA);
+  return hicn_packet_set_locator (format, data, address, _DATA);
 }
 
 int

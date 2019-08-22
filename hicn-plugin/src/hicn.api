@@ -13,6 +13,9 @@
  * limitations under the License.
  */
 
+option version = "5.1.0";
+import "vnet/ip/ip_types.api";
+
 define hicn_api_node_params_set
 {
   /* Client identifier, set from api_main.my_client_index */
@@ -157,10 +160,10 @@ define hicn_api_face_ip_add
   u32 context;
 
   /* IP local address */
-  u64 local_addr[2];
+  vl_api_address_t local_addr;
 
   /* IP remote address */
-  u64 remote_addr[2];
+  vl_api_address_t remote_addr;
 
   /* IPv4 local port number */
   u32 swif;
@@ -243,7 +246,7 @@ define hicn_api_face_stats_details
   u64 dtx_bytes;
 };
 
-define hicn_api_face_stats_dump
+Define hicn_api_face_stats_dump
 {
 /* Client identifier, set from api_main.my_client_index */
   u32 client_index;
@@ -264,10 +267,10 @@ define hicn_api_face_ip_params_get_reply
   u32 faceid;
 
   /* IP local address */
-  u64 local_addr[2];
+  vl_api_address_t local_addr;
 
   /* IP remote address */
-  u64 remote_addr[2];
+  vl_api_address_t remote_addr;
 
   /* VPP interface (index) associated with the face */
   u32 swif;
@@ -285,13 +288,10 @@ define hicn_api_route_nhops_add
   u32 context;
 
   /* Prefix to be added to the FIB */
-  u64 prefix[2];
-
-  /* Length of the prefix */
-  u8 len;
+  vl_api_prefix_t prefix;
 
   /* A Face ID to the next hop forwarder for the specified prefix */
-  u32 face_ids[7];
+  u32 face_ids[5];
 
   /* Number of face to add */
   u8 n_faces;
@@ -315,10 +315,7 @@ define hicn_api_route_del
   u32 context;
 
   /* Prefix to be added to the FIB */
-  u64 prefix[2];
-
-  /* Length of the prefix */
-  u8 len;
+  vl_api_prefix_t prefix;
 };
 
 define hicn_api_route_del_reply
@@ -339,10 +336,7 @@ define hicn_api_route_nhop_del
   u32 context;
 
   /* Prefix to be added to the FIB */
-  u64 prefix[2];
-
-  /* Length of the prefix */
-  u8 len;
+  vl_api_prefix_t prefix;
 
   /* Specific next-hop to be removed */
   u32 faceid;
@@ -366,10 +360,7 @@ define hicn_api_route_get
   u32 context;
 
   /* Route prefix */
-  u64 prefix[2];
-
-  /* Prefix len */
-  u8 len;
+  vl_api_prefix_t prefix;
 };
 
 define hicn_api_route_get_reply
@@ -402,10 +393,7 @@ define hicn_api_routes_details
   u32 context;
 
   /* Route prefix */
-  u64 prefix[2];
-
-  /* Prefix len */
-  u8 len;
+  vl_api_prefix_t prefix;
 
   /* List of faces pointing to the next hops */
   u32 faceids[5];
@@ -492,10 +480,7 @@ define hicn_api_punting_add
   u32 context;
 
   /* Prefix to match */
-  u64 prefix[2];
-
-  /* Subnet */
-  u8 len;
+  vl_api_prefix_t prefix;
 
   /* Interface id */
   u32 swif;
@@ -519,10 +504,7 @@ define hicn_api_punting_del
   u32 context;
 
   /* Prefix to match */
-  u64 prefix[2];
-
-  /* Subnet */
-  u8 len;
+  vl_api_prefix_t prefix;
 
   /* Interface id */
   u32 swif;
@@ -546,10 +528,7 @@ define hicn_api_register_prod_app
   u64 context;
 
   /* Prefix to match */
-  u64 prefix[2];
-
-  /* Subnet */
-  u8 len;
+  vl_api_prefix_t prefix;
 
   /* sw_if id */
   u32 swif;
@@ -570,7 +549,7 @@ define hicn_api_register_prod_app_reply
   u32 cs_reserved;
 
   /* Prod address (ipv4 or ipv6) */
-  u64 prod_addr[2];
+  vl_api_address_t prod_addr;
 
   /* Return value: new Face ID, ~0 means no Face was created */
   u32 faceid;
@@ -597,10 +576,10 @@ define hicn_api_register_cons_app_reply
   i32 retval;
 
   /* Ip4 address */
-  u32 src_addr4;
+  vl_api_address_t src_addr4;
 
   /* Ip6 address */
-  u64 src_addr6[2];
+  vl_api_address_t src_addr6;
 
   /* Return value: new Face ID, ~0 means no Face was created */
   u32 faceid;
