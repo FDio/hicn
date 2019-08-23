@@ -24,11 +24,7 @@
 #include <hicn/strategies/strategyImpl.h>
 #include <hicn/core/connectionTable.h>
 
-#ifdef WITH_POLICY
-StrategyImpl *strategyLoadBalancerWithPD_Create(const ConnectionTable * table);
-#else
 StrategyImpl *strategyLoadBalancerWithPD_Create();
-#endif /* WITH_POLICY */
 
 void strategyLoadBalancerWithPD_SetConnectionTable(StrategyImpl *strategy,
                                                    ConnectionTable *connTable);

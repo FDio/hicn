@@ -88,11 +88,7 @@ struct strategy_load_balancer_with_pd {
   unsigned int fwdPackets;
 };
 
-#ifdef WITH_POLICY
-StrategyImpl *strategyLoadBalancerWithPD_Create(const ConnectionTable *table) {
-#else
 StrategyImpl *strategyLoadBalancerWithPD_Create() {
-#endif /* WITH_POLICY */
   StrategyLoadBalancerWithPD *strategy =
       parcMemory_AllocateAndClear(sizeof(StrategyLoadBalancerWithPD));
   parcAssertNotNull(strategy, "parcMemory_AllocateAndClear(%zu) returned NULL",

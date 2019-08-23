@@ -72,7 +72,6 @@ struct fib_entry {
 
 #ifdef WITH_POLICY
 FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy, const Forwarder * forwarder) {
-  ConnectionTable * table = forwarder_GetConnectionTable(forwarder);
 #else
 FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
 #endif /* WITH_POLICY */
@@ -84,47 +83,31 @@ FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
   if (fwdStrategy) {
     switch (fwdStrategy) {
       case SET_STRATEGY_LOADBALANCER:
-#ifdef WITH_POLICY
-        fibEntry->fwdStrategy = strategyLoadBalancer_Create(table);
-#else
         fibEntry->fwdStrategy = strategyLoadBalancer_Create();
-#endif /* WITH_POLICY */
+        break;
+
+      case SET_STRATEGY_RANDOM:
+        fibEntry->fwdStrategy = strategyRnd_Create();
         break;
 
       case SET_STRATEGY_RANDOM_PER_DASH_SEGMENT:
-#ifdef WITH_POLICY
-        fibEntry->fwdStrategy = strategyRndSegment_Create(table);
-#else
         fibEntry->fwdStrategy = strategyRndSegment_Create();
-#endif /* WITH_POLICY */
         break;
 
       case SET_STRATEGY_LOADBALANCER_WITH_DELAY:
-#ifdef WITH_POLICY
-        fibEntry->fwdStrategy = strategyLoadBalancerWithPD_Create(table);
-#else
         fibEntry->fwdStrategy = strategyLoadBalancerWithPD_Create();
-#endif /* WITH_POLICY */
         break;
 
       default:
         // LB is the default strategy
-#ifdef WITH_POLICY
-        fibEntry->fwdStrategy = strategyLoadBalancer_Create(table);
-#else
         fibEntry->fwdStrategy = strategyLoadBalancer_Create();
-#endif /* WITH_POLICY */
         // the LB strategy is the default one
         // other strategies can be set using the appropiate function
         break;
     }
 
   } else {
-#ifdef WITH_POLICY
-    fibEntry->fwdStrategy = strategyLoadBalancer_Create(table);
-#else
     fibEntry->fwdStrategy = strategyLoadBalancer_Create();
-#endif /* WITH_POLICY */
   }
 
   fibEntry->refcount = 1;
@@ -173,42 +156,27 @@ void fibEntry_Release(FibEntry **fibEntryPtr) {
 
 void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy) {
   StrategyImpl *fwdStrategyImpl;
-#ifdef WITH_POLICY
-  ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
-#endif /* WITH_POLICY */
 
   switch (strategy) {
     case SET_STRATEGY_LOADBALANCER:
-#ifdef WITH_POLICY
-      fwdStrategyImpl = strategyLoadBalancer_Create(table);
-#else
       fwdStrategyImpl = strategyLoadBalancer_Create();
-#endif /* WITH_POLICY */
+      break;
+
+    case SET_STRATEGY_RANDOM:
+      fwdStrategyImpl = strategyRnd_Create();
       break;
 
     case SET_STRATEGY_RANDOM_PER_DASH_SEGMENT:
-#ifdef WITH_POLICY
-      fwdStrategyImpl = strategyRndSegment_Create(table);
-#else
       fwdStrategyImpl = strategyRndSegment_Create();
-#endif /* WITH_POLICY */
       break;
 
     case SET_STRATEGY_LOADBALANCER_WITH_DELAY:
-#ifdef WITH_POLICY
-      fwdStrategyImpl = strategyLoadBalancerWithPD_Create(table);
-#else
       fwdStrategyImpl = strategyLoadBalancerWithPD_Create();
-#endif /* WITH_POLICY */
       break;
 
     default:
       // LB is the defualt strategy
-#ifdef WITH_POLICY
-      fwdStrategyImpl = strategyLoadBalancer_Create(table);
-#else
       fwdStrategyImpl = strategyLoadBalancer_Create();
-#endif /* WITH_POLICY */
       // the LB strategy is the default one
       // other strategies can be set using the appropiate function
       break;
