@@ -415,14 +415,12 @@ void processor_SetStrategy(MessageProcessor *processor, Name *prefix,
                            strategy_type strategy) {
   FibEntry *entry = fib_Contains(processor->fib, prefix);
   if (entry != NULL) {
-#ifndef WITH_POLICY
     fibEntry_SetStrategy(entry, strategy);
     if (strategy == SET_STRATEGY_LOADBALANCER_WITH_DELAY) {
       strategyLoadBalancerWithPD_SetConnectionTable(
           fibEntry_GetFwdStrategy(entry),
           forwarder_GetConnectionTable(processor->forwarder));
     }
-#endif /* ! WITH_POLICY */
   }
 }
 
