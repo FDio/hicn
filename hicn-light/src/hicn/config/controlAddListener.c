@@ -182,7 +182,7 @@ static CommandReturn _controlAddListener_Execute(CommandParser *parser,
     // here we discard the prefix len if it exists, since we don't use it in
     // code but we let libhicn to find the right ip address.
 #ifdef __linux__
-    return _CreateListener(parser, ops, symbolic, host, port, interfaceName, HICN_MODE,
+    return _CreateListener(parser, ops, symbolic, host, port, "hicn", HICN_MODE,
                            HICN_CONN);
 #else
     return _CreateListener(parser, ops, symbolic, host, port, HICN_MODE,
