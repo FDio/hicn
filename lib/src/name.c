@@ -82,28 +82,22 @@ hicn_name_create_from_ip_address (const ip_address_t * ip_address, u32 id,
   switch (ip_address->family)
     {
     case AF_INET:
-      if (name->type == HNT_UNSPEC)
-	{
-	  name->type = HNT_CONTIGUOUS_V4;
-	}
+	    name->type = HNT_CONTIGUOUS_V4;
       break;
     case AF_INET6:
-      if (name->type == HNT_UNSPEC)
-	{
-	  name->type = HNT_CONTIGUOUS_V6;
-	}
+	    name->type = HNT_CONTIGUOUS_V6;
       break;
     default:
       return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
     }
 
-  name->len = (u8) (ip_address->prefix_len);
+  name->len = (u8) ip_address_len (ip_address);
   if ((name->type != HNT_CONTIGUOUS_V4) && (name->type != HNT_CONTIGUOUS_V6))
     {
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
     }
 
-  memcpy (name->buffer, ip_address->buffer, ip_address_len (ip_address));
+  memcpy (name->buffer, ip_address->buffer, name->len);
   *(u32 *) (name->buffer + name->len) = id;
 
   return HICN_LIB_ERROR_NONE;
