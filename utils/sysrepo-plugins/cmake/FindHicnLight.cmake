@@ -24,7 +24,7 @@ find_path(HICNLIGHT_INCLUDE_DIR hicn/api/api.h
   DOC "Find the hicn plugin includes"
 )
 
-find_library(HICNLIGHT_LIBRARY NAMES libhicn-light-ctrl.so
+find_library(HICNLIGHT_LIBRARY NAMES libhicn-ctrl.so
 	HINTS ${HICNLIGHT_SEARCH_PATH_LIST}
   PATH_SUFFIXES lib
   DOC "Find the hicn light lib"
