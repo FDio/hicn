@@ -13,18 +13,18 @@
 set(HICNLIGHT_SEARCH_PATH_LIST
   ${HICNLIGHT_HOME}
   $ENV{HICNLIGHT_HOME}
+  /usr
   /usr/local
   /opt
-  /usr
 )
 
-find_path(HICNLIGHT_INCLUDE_DIR hicn/api/api.h
+find_path(HICNLIGHT_INCLUDE_DIR hicn/ctrl/api.h
 	HINTS ${HICNLIGHT_SEARCH_PATH_LIST}
-  PATH_SUFFIXES include
+	PATH_SUFFIXES include
   DOC "Find the hicn plugin includes"
 )
 
-find_library(HICNLIGHT_LIBRARY NAMES libhicn-light-ctrl.so
+find_library(HICNLIGHT_LIBRARY NAMES libhicn-ctrl.so
 	HINTS ${HICNLIGHT_SEARCH_PATH_LIST}
   PATH_SUFFIXES lib
   DOC "Find the hicn light lib"
