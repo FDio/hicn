@@ -326,4 +326,4 @@ At this point, we are able to connect to the remote device.
 
 ## Release note
 
-The current version is compatible with the 19.01 VPP stable and sysrepo 0.7.7.
+The current version is compatible with the 19.08 VPP stable and sysrepo 0.7.8.
