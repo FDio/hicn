@@ -35,11 +35,9 @@ void fib_Remove(FIB *fib, const Name *prefix, unsigned connId);
 
 void fib_RemoveConnectionId(FIB *fib, unsigned connectionId);
 
-FibEntry *fib_Match(const FIB *fib, const Message *interestMessage);
-
-#ifdef WITH_MAPME
-FibEntry *fib_LPM(const FIB *fib, const Name * name);
-#endif /* WITH_MAPME */
+FibEntry *fib_MatchMessage(const FIB *fib, const Message *interestMessage);
+FibEntry *fib_MatchName(const FIB *fib, const Name *name);
+FibEntry *fib_MatchBitvector(const FIB *fib, const NameBitvector *name);
 
 size_t fib_Length(const FIB *fib);
 

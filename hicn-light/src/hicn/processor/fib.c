@@ -16,15 +16,13 @@
 #include <hicn/hicn-light/config.h>
 #include <stdio.h>
 
+#include <hicn/core/forwarder.h>
 #include <hicn/processor/fib.h>
 
 #include <parc/algol/parc_Memory.h>
 #include <parc/algol/parc_Network.h>
 
 #include <parc/assert/parc_Assert.h>
-
-#define NULL_POS 128
-#define MSB_POS 127
 
 struct node;
 typedef struct node FibNode;
@@ -33,10 +31,11 @@ struct node {
   FibNode *left;
   FibNode *right;
   FibEntry *entry;
-  unsigned pos;
+  bool is_used;
 };
 
 struct fib {
+  Forwarder *forwarder;
   FibNode *root;
   unsigned size;
 };
@@ -45,7 +44,7 @@ struct fib {
 // Public API
 
 FibNode *_createNode(FibNode *left, FibNode *right, FibEntry *entry,
-                     unsigned pos) {
+                     bool is_used) {
   FibNode *n = parcMemory_AllocateAndClear(sizeof(FibNode));
   parcAssertNotNull(n, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(FibNode));
@@ -53,22 +52,18 @@ FibNode *_createNode(FibNode *left, FibNode *right, FibEntry *entry,
   n->left = left;
   n->right = right;
   n->entry = entry;
-  n->pos = pos;
+  n->is_used = is_used;
 
   return n;
 }
 
-FIB *fib_Create() {
+FIB *fib_Create(Forwarder *forwarder) {
   FIB *hicnFib = parcMemory_AllocateAndClear(sizeof(FIB));
   parcAssertNotNull(hicnFib, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(FIB));
 
-  hicnFib->root =
-      _createNode(NULL, NULL, NULL,
-                  NULL_POS);  // the pos will decrease going down in the trie
-  hicnFib->root->left = hicnFib->root;
-  hicnFib->root->right = hicnFib->root;
-
+  hicnFib->forwarder = forwarder;
+  hicnFib->root = NULL;
   hicnFib->size = 0;
 
   return hicnFib;
@@ -80,9 +75,12 @@ void _destroyNode(FibNode *n) {
   n = NULL;
 }
 
-void _destroyFib(FIB *fib) {
-  // to be done
-  return;
+void _destroyFib(FibNode *n) {
+  if(n != NULL){
+    _destroyFib(n->right);
+    _destroyFib(n->left);
+    _destroyNode(n);
+  }
 }
 
 void fib_Destroy(FIB **fibPtr) {
@@ -90,8 +88,8 @@ void fib_Destroy(FIB **fibPtr) {
   parcAssertNotNull(*fibPtr, "Parameter must dereference to non-null pointer");
 
   FIB *fib = *fibPtr;
+  _destroyFib(fib->root);
 
-  _destroyFib(fib);
   parcMemory_Deallocate((void **)&fib);
   *fibPtr = NULL;
 }
@@ -100,239 +98,319 @@ void fib_Add(FIB *fib, FibEntry *entry) {
   parcAssertNotNull(fib, "Parameter must be non-null");
   parcAssertNotNull(entry, "Parameter must be non-null");
 
-  NameBitvector *name = name_GetContentName(fibEntry_GetPrefix(entry));
+  NameBitvector *new_prefix = name_GetContentName(fibEntry_GetPrefix(entry));
+  uint32_t new_prefix_len = nameBitvector_GetLength(new_prefix);
+  FibNode * curr =  fib->root;
+  FibNode * last =  NULL;
 
-  //if the name len is 0, we add this entry on the root
-  if(nameBitvector_GetLength(name) == 0){
+  NameBitvector *curr_name;
+  uint32_t curr_prefix_len;
+  uint32_t match_len;
+
+  while(curr != NULL){
+    curr_name = name_GetContentName(fibEntry_GetPrefix(curr->entry));
+
+    match_len =  nameBitvector_lpm(new_prefix, curr_name);
+    curr_prefix_len = nameBitvector_GetLength(curr_name);
+
+    if(curr_prefix_len != match_len || //the new entry does not match the curr
+        curr_prefix_len >= new_prefix_len) //in this case we cannot procede anymore
+          break;
+
+    last = curr;
+    bool bit;
+    int res = nameBitvector_testBit(new_prefix, curr_prefix_len, &bit);
+    parcAssertFalse(res < 0, "error testing name bit (fib_add)");
+    if(bit)
+      curr = curr->right;
+    else
+      curr = curr->left;
+  }
+
+  //this is the root (empty trie) or an empty child
+  if(curr == NULL){
+    FibNode * new_node = _createNode(NULL, NULL, entry, true);
+    if(last == NULL){
+      fib->root =  new_node;
+    }else{
+      uint32_t last_prefix_len = nameBitvector_GetLength(
+                      name_GetContentName(fibEntry_GetPrefix(last->entry)));
+      bool bit;
+      int res = nameBitvector_testBit(new_prefix, last_prefix_len, &bit);
+      parcAssertFalse(res < 0, "error testing name bit (fib_add)");
+      if(bit)
+        last->right = new_node;
+      else
+        last->left = new_node;
+    }
     fib->size++;
-    fib->root->entry = entry;
     return;
   }
 
-  // search the name
-  FibNode *prev = fib->root;
-  FibNode *curr;
+  //curr is not null
 
-  if (nameBitvector_testBit(name, MSB_POS)) {
-    curr = fib->root->right;
-  } else {
-    curr = fib->root->left;
-  }
-
-  while (prev->pos > curr->pos) {
-    prev = curr;
-    if (nameBitvector_testBit(name, curr->pos)) {
-      curr = curr->right;
-    } else {
-      curr = curr->left;
+  //the node already exist
+  //if is not in use we turn it on and we set the rigth fib entry
+  if(curr_prefix_len == match_len && new_prefix_len == match_len){
+    if(!curr->is_used){
+      curr->is_used = true;
+      curr->entry = entry;
+      fib->size++;
+      return;
+    }else{
+      //this case should never happen beacuse of the way we add
+      //entries in the fib
+      const NumberSet * next_hops = fibEntry_GetNexthops(entry);
+      unsigned size = (unsigned)fibEntry_NexthopCount(entry);
+      for(unsigned i = 0; i < size; i++)
+        fibEntry_AddNexthop(curr->entry,numberSet_GetItem(next_hops, i));
     }
   }
 
-  if (curr->entry != NULL && curr->pos != NULL_POS &&
-      nameBitvector_Equals(
-          name, name_GetContentName(fibEntry_GetPrefix(curr->entry)))) {
-    // there is already an entry with this name
-    // do nothing. Before call ADD we should check
-    // if the node exists, and, in that case update it
+  //key is prefix of the curr node (so new_prefix_len < curr_prefix_len)
+  if(new_prefix_len == match_len){
+    FibNode * new_node = _createNode(NULL, NULL, entry, true);
+    if(last == NULL){
+      fib->root = new_node;
+    }else{
+      uint32_t last_prefix_len = nameBitvector_GetLength(
+                      name_GetContentName(fibEntry_GetPrefix(last->entry)));
+
+      bool bit;
+      int res = nameBitvector_testBit(new_prefix, last_prefix_len, &bit);
+      parcAssertFalse(res < 0, "error testing name bit (fib_add)");
+      if(bit)
+        last->right =  new_node;
+      else
+        last->left = new_node;
+    }
+    bool bit;
+    int res = nameBitvector_testBit(curr_name, match_len, &bit);
+    parcAssertFalse(res < 0, "error testing name bit (fib_add)");
+    if(bit)
+      new_node->right = curr;
+    else
+      new_node->left = curr;
+    fib->size++;
     return;
   }
 
-  // if the name is not in the FIB search for the first different bit between
-  // the new name to add and the node found in the trie
-  uint8_t pos = MSB_POS;
-  if (curr->entry != NULL && curr->pos != NULL_POS){
-    pos = nameBitvector_firstDiff(
-        name, name_GetContentName(fibEntry_GetPrefix(curr->entry)));
+  //in the last case we need to add an inner node
+  Name * inner_prefix = name_Copy(fibEntry_GetPrefix(entry));
+  nameBitvector_clear(name_GetContentName(inner_prefix), match_len);
+  name_setLen(inner_prefix,  match_len);
+
+  FibEntry * inner_entry = fibEntry_Create(inner_prefix, SET_STRATEGY_LOADBALANCER,
+            fib->forwarder);
+
+  FibNode * inner_node = _createNode(NULL, NULL, inner_entry, false);
+  FibNode * new_node = _createNode(NULL, NULL, entry, true);
+
+  if(last == NULL){
+    //we need to place the inner_node at the root
+    fib->root = inner_node;
+  }else{
+    uint32_t last_prefix_len = nameBitvector_GetLength(
+                      name_GetContentName(fibEntry_GetPrefix(last->entry)));
+    bool bit;
+    int res = nameBitvector_testBit(name_GetContentName(inner_prefix),
+                                                last_prefix_len, &bit);
+    parcAssertFalse(res < 0, "error testing name bit (fib_add)");
+    if(bit)
+      last->right =  inner_node;
+    else
+      last->left = inner_node;
   }
 
-  // reset pointer and search the insertion point
-  prev = fib->root;
-  if (nameBitvector_testBit(name, MSB_POS))
-    curr = fib->root->right;
-  else
-    curr = fib->root->left;
+  bool bit;
+  int res = nameBitvector_testBit(new_prefix, match_len, &bit);
+  parcAssertFalse(res < 0, "error testing name bit (fib_add)");
 
-  while (prev->pos > curr->pos && curr->pos > pos) {
-    prev = curr;
-    if (nameBitvector_testBit(name, curr->pos)) {
-      curr = curr->right;
-    } else {
-      curr = curr->left;
-    }
+  if(bit){
+    inner_node -> left = curr;
+    inner_node ->right = new_node;
+  }else{
+    inner_node -> left = new_node;
+    inner_node ->right = curr;
   }
-
-  // insert the node
-  fib->size++;
-  FibNode *n = _createNode(NULL, NULL, entry, pos);
-
-  if (nameBitvector_testBit(name, pos)) {
-    n->left = curr;
-    n->right = n;
-  } else {
-    n->left = n;
-    n->right = curr;
-  }
-
-  uint8_t new_pos = prev->pos;
-  if (new_pos == NULL_POS) new_pos = MSB_POS;
-
-  if (nameBitvector_testBit(name, new_pos)) {
-    prev->right = n;
-  } else {
-    prev->left = n;
-  }
+  fib->size ++;
 }
 
 FibEntry *fib_Contains(const FIB *fib, const Name *prefix) {
   parcAssertNotNull(fib, "Parameter must be non-null");
   parcAssertNotNull(prefix, "Parameter must be non-null");
 
-  NameBitvector *name = name_GetContentName(prefix);
+  NameBitvector *key_name = name_GetContentName(prefix);
+  uint32_t key_prefix_len = nameBitvector_GetLength(key_name);
 
-  //if prefix len is 0 it must be stored in the root.
-  //if the root entry is null we need to create it, otherwise
-  //we just need to add an other nexthop
-  if(nameBitvector_GetLength(name) == 0){
-    return fib->root->entry;
-  }
+  FibNode * curr = fib->root;
 
-  // this is the same as the first part of the add function
-  // we cannnot call this function inside the add because
-  // we need the pointer prev and curr for the insertion
+  while(curr != NULL){
+    NameBitvector *curr_name =
+          name_GetContentName(fibEntry_GetPrefix(curr->entry));
+    uint32_t match_len = nameBitvector_lpm(key_name, curr_name);
+    uint32_t curr_prefix_len = nameBitvector_GetLength(curr_name);
 
-  FibNode *prev = fib->root;
-  FibNode *curr;
-
-  if (nameBitvector_testBit(name, MSB_POS))
-    curr = fib->root->right;
-  else
-    curr = fib->root->left;
-
-  while (prev->pos > curr->pos) {
-    prev = curr;
-
-    if (nameBitvector_testBit(name, curr->pos)) {
-      curr = curr->right;
-    } else {
-      curr = curr->left;
+    if(match_len < curr_prefix_len){
+      //the current node does not match completelly the key, so
+      //the key is not in the trie
+      //this implies curr_prefix_len > key_prefix_len
+      return NULL;
     }
+
+    if(curr_prefix_len == key_prefix_len){ //== match_len
+        //this is an exact match
+        if(curr->is_used){
+          //we found the key
+          return curr->entry;
+        }else{
+          //the key does not exists
+          return NULL;
+        }
+    }
+
+    bool bit;
+    int res = nameBitvector_testBit(key_name, curr_prefix_len, &bit);
+    parcAssertFalse(res < 0, "error testing name bit (fib_contains)");
+
+    if(bit)
+      curr = curr->right;
+    else
+      curr = curr->left;
   }
 
-  if (curr->entry != NULL && curr->pos != NULL_POS &&
-      nameBitvector_Equals(
-          name, name_GetContentName(fibEntry_GetPrefix(curr->entry)))) {
-    return curr->entry;
-  } else {
-    return NULL;
-  }
+  return NULL;
 }
 
-void _removeNode(FIB *fib, const Name *prefix) {
+void _removeNode(FIB *fib, const Name *prefix){
   parcAssertNotNull(fib, "Parameter must be non-null");
   parcAssertNotNull(prefix, "Parameter must be non-null");
 
-  FibNode *grand = NULL;  // grandparent
-  FibNode *prev =
-      fib->root;  // parent: it will points to curr of the next hop in the trie
-  FibNode *curr;  // current node: the node to remove
+  NameBitvector *key_name = name_GetContentName(prefix);
+  uint32_t key_prefix_len = nameBitvector_GetLength(key_name);
 
-  NameBitvector *name = name_GetContentName(prefix);
+  FibNode * curr = fib->root;
+  FibNode * parent = NULL;
+  FibNode * grandpa = NULL;
 
-  if (nameBitvector_testBit(name, MSB_POS)) {
-    curr = fib->root->right;
-  } else {
-    curr = fib->root->left;
-  }
+  uint32_t match_len;
+  uint32_t curr_prefix_len;
+  while(curr != NULL){
+    NameBitvector *curr_name =
+          name_GetContentName(fibEntry_GetPrefix(curr->entry));
+    match_len = nameBitvector_lpm(key_name, curr_name);
+    curr_prefix_len = nameBitvector_GetLength(curr_name);
 
-  // in the first loop we always search the node to remove
-  while (prev->pos > curr->pos) {
-    grand = prev;
-    prev = curr;
-
-    if (nameBitvector_testBit(name, curr->pos)) {
-      curr = curr->right;
-    } else {
-      curr = curr->left;
+    if(match_len < curr_prefix_len ||
+        curr_prefix_len == key_prefix_len){
+      break;
     }
+
+    grandpa = parent;
+    parent = curr;
+
+    bool bit;
+    int res = nameBitvector_testBit(key_name, curr_prefix_len, &bit);
+    parcAssertFalse(res < 0, "error testing name bit (_removeNode)");
+
+    if(bit)
+      curr = curr->right;
+    else
+      curr = curr->left;
   }
 
-  if (!nameBitvector_Equals(
-          name, name_GetContentName(fibEntry_GetPrefix(curr->entry)))) {
-    // the node does not exists
+  if(curr == NULL ||
+     !curr->is_used ||
+     (curr_prefix_len != key_prefix_len)){
+     //the node does not exists
     return;
   }
 
-  // search for the real parent of curr (*tmpPrev)
-  // prev points to curr or next node in the trie
-  // this is because of the loopback links
-
-  FibNode *tmpPrev = fib->root;
-  FibNode *tmpCurr;
-
-  if (nameBitvector_testBit(name, MSB_POS)) {
-    tmpCurr = fib->root->right;
-  } else {
-    tmpCurr = fib->root->left;
+  //curr has 2 children, leave it there and mark it as inner
+  if(curr->right != NULL && curr->left != NULL){
+    curr->is_used = false;
+    fib->size--;
+    return;
   }
 
-  // here we compare pointer so we are sure to stop at the right potion
-  while (tmpCurr != curr) {
-    tmpPrev = tmpCurr;
-
-    if (nameBitvector_testBit(name, tmpCurr->pos)) {
-      tmpCurr = tmpCurr->right;
-    } else {
-      tmpCurr = tmpCurr->left;
+  //curr has no children
+  if(curr->right == NULL && curr->left == NULL){
+    if (parent == NULL){
+      //curr is the root and is the only node in the fib
+      fib->root = NULL;
+      fib->size--;
+      _destroyNode(curr);
+      return;
     }
+    if(grandpa == NULL){
+      //parent is the root
+      if(fib->root->left == curr)
+        fib->root->left = NULL;
+      else
+        fib->root->right = NULL;
+      fib->size--;
+      _destroyNode(curr);
+      return;
+    }
+    if(!parent->is_used){
+      //parent is an inner node
+      //remove curr and inner_node (parent), connect the other child
+      //of the parent to the grandpa
+      FibNode * tmp;
+      if(parent->right == curr)
+        tmp = parent->left;
+      else
+        tmp = parent->right;
+
+      if(grandpa->right == parent)
+        grandpa->right = tmp;
+      else
+        grandpa->left = tmp;
+
+      fib->size--;
+      _destroyNode(curr);
+      _destroyNode(parent);
+      return;
+    }
+    //parent is node not an inner_node
+    //just remove curr the node
+    if(parent->right == curr)
+      parent->right = NULL;
+    else
+       parent->left = NULL;
+    fib->size--;
+    _destroyNode(curr);
+    return;
   }
 
-  // now curr is the node to remove and tmpPrev is the real parent of curr
-
-  if (curr == prev) {
-    // this is the case where curr is a leaf node
-    FibNode *next;  // child of curr (the loopback)
-
-    if (nameBitvector_testBit(name, curr->pos)) {
-      next = curr->left;
-    } else {
-      next = curr->right;
+  //curr has one child
+  if(curr->right != NULL || curr->left != NULL){
+    if(parent == NULL){
+      //curr is the root
+      if(fib->root->right != NULL)
+        fib->root = fib->root->right;
+      else
+        fib->root = fib->root->left;
+      fib->size--;
+      _destroyNode(curr);
+      return;
     }
+    //attach the child of curr to parent
+    FibNode * tmp;
+    if(curr->right != NULL)
+      tmp = curr->right;
+    else
+      tmp = curr->left;
 
-    if (nameBitvector_testBit(name, tmpPrev->pos)) {
-      tmpPrev->right = next;
-    } else {
-      tmpPrev->left = next;
-    }
+    if(parent->right == curr)
+      parent->right = tmp;
+    else
+      parent->left = tmp;
 
-  } else {
-    // curr is an internal node
-    FibNode *next;  // child of prev (loopback)
-
-    if (nameBitvector_testBit(name, prev->pos)) {
-      next = prev->left;
-    } else {
-      next = prev->right;
-    }
-
-    if (nameBitvector_testBit(name, grand->pos)) {
-      grand->right = next;
-    } else {
-      grand->left = next;
-    }
-
-    if (nameBitvector_testBit(name, tmpPrev->pos)) {
-      tmpPrev->right = prev;
-    } else {
-      tmpPrev->left = prev;
-    }
-
-    prev->left = curr->left;
-    prev->right = curr->right;
-    prev->pos = curr->pos;
+    fib->size--;
+    _destroyNode(curr);
+    return;
   }
-
-  fib->size--;
-  _destroyNode(curr);
 }
 
 void fib_Remove(FIB *fib, const Name *name, unsigned connId) {
@@ -346,60 +424,34 @@ void fib_Remove(FIB *fib, const Name *name, unsigned connId) {
   }
 
   fibEntry_RemoveNexthopByConnectionId(entry, connId);
-  if (fibEntry_NexthopCount(entry) == 0) {
-    //if the len is 0, just release the fibEntry on the root node
-    if(nameBitvector_GetLength(
-              name_GetContentName(fibEntry_GetPrefix(entry))) == 0){
-      parcAssertTrue(entry == fib->root->entry,
-          "prefix len == 0, entry is not in the FIB root");
-      fib->size--;
-      fibEntry_Release(&entry);
-      fib->root->entry = NULL;
-    } else {
-      _removeNode(fib, name);
-    }
-  }
+  if (fibEntry_NexthopCount(entry) == 0)
+    _removeNode(fib, name);
+
 }
 
-void _removeConnectionId(FibNode *n, unsigned pos, unsigned connectionId,
+void _removeConnectionId(FibNode *n, unsigned connectionId,
                          FibEntryList *list) {
-  if (n->pos < pos) {
-    fibEntry_RemoveNexthopByConnectionId(n->entry, connectionId);
-    if (fibEntry_NexthopCount(n->entry) == 0) {
-      fibEntryList_Append(list, n->entry);
+  if(n != NULL){
+    if(n->is_used){
+      fibEntry_RemoveNexthopByConnectionId(n->entry, connectionId);
+      if (fibEntry_NexthopCount(n->entry) == 0) {
+        fibEntryList_Append(list, n->entry);
+      }
     }
-    _removeConnectionId(n->left, n->pos, connectionId, list);
-    _removeConnectionId(n->right, n->pos, connectionId, list);
+    _removeConnectionId(n->right, connectionId, list);
+    _removeConnectionId(n->left, connectionId, list);
   }
 }
 
 void fib_RemoveConnectionId(FIB *fib, unsigned connectionId) {
   parcAssertNotNull(fib, "Parameter must be non-null");
 
-  // 0 - remove the connection id from the root
-  // 1 - we vist the tree to remove the connection id
-  // 2 - during the visit we collect the fib entry with 0 nexthop
-  // 3 - after the visit we remove this entries
-
-  if(fib->root->entry){
-    fibEntry_RemoveNexthopByConnectionId(fib->root->entry, connectionId);
-    if(fibEntry_NexthopCount(fib->root->entry) == 0){
-      fib->size--;
-      fibEntry_Release(&fib->root->entry);
-      fib->root->entry = NULL;
-    }
-  }
-
-  FibEntryList *list = fibEntryList_Create();
-
-  _removeConnectionId(fib->root->left, fib->root->pos, connectionId, list);
-  _removeConnectionId(fib->root->right, fib->root->pos, connectionId, list);
+   FibEntryList *list = fibEntryList_Create();
+   _removeConnectionId(fib->root, connectionId, list);
 
   for (int i = 0; i < fibEntryList_Length(list); i++) {
     _removeNode(fib, fibEntry_GetPrefix(fibEntryList_Get(list, i)));
   }
-
-  fibEntryList_Destroy(&list);
 }
 
 size_t fib_Length(const FIB *fib) {
@@ -407,143 +459,82 @@ size_t fib_Length(const FIB *fib) {
   return fib->size;
 }
 
-FibEntry *fib_Match(const FIB *fib, const Message *interestMessage) {
+FibEntry *fib_MatchMessage(const FIB *fib, const Message *interestMessage) {
   parcAssertNotNull(fib, "Parameter must be non-null");
   parcAssertNotNull(interestMessage, "Parameter must be non-null");
-
-  NameBitvector *name = name_GetContentName(message_GetName(interestMessage));
-
-  FibNode *prev = fib->root;
-  FibNode *curr;
-
-  FibNode *match = NULL;
-  unsigned len = 0;
-
-  if (nameBitvector_testBit(name, MSB_POS))
-    curr = fib->root->right;
-  else
-    curr = fib->root->left;
-
-  while (prev->pos > curr->pos) {
-    prev = curr;
-
-    if (curr->entry != NULL && curr->pos != NULL_POS) {
-      if (nameBitvector_StartsWith(
-              name, name_GetContentName(fibEntry_GetPrefix(curr->entry))) &&
-          nameBitvector_GetLength(
-              name_GetContentName(fibEntry_GetPrefix(curr->entry))) > len) {
-        match = curr;
-        len = nameBitvector_GetLength(
-            name_GetContentName(fibEntry_GetPrefix(curr->entry)));
-      }
-    }
-
-    if (nameBitvector_testBit(name, curr->pos))
-      curr = curr->right;
-    else
-      curr = curr->left;
-  }
-
-  if (curr->entry != NULL && curr->pos != NULL_POS) {
-    if (nameBitvector_StartsWith(
-            name, name_GetContentName(fibEntry_GetPrefix(curr->entry))) &&
-        nameBitvector_GetLength(
-            name_GetContentName(fibEntry_GetPrefix(curr->entry))) > len) {
-      match = curr;
-      len = nameBitvector_GetLength(
-          name_GetContentName(fibEntry_GetPrefix(curr->entry)));
-    }
-  }
-
-  if (match != NULL && match->entry != NULL) {
-    return match->entry;
-  } else {
-    //if there is a  default route, return it.
-    //the dafualt route is in the route
-    return fib->root->entry;
-  }
+  return fib_MatchBitvector(fib, name_GetContentName(
+                  message_GetName(interestMessage)));
 }
 
-#ifdef WITH_MAPME
-
-FibEntry *fib_LPM(const FIB *fib, const Name * prefix) {
+FibEntry *fib_MatchName(const FIB *fib, const Name *name) {
   parcAssertNotNull(fib, "Parameter must be non-null");
-  parcAssertNotNull(prefix, "Parameter must be non-null");
+  parcAssertNotNull(name, "Parameter must be non-null");
+  return fib_MatchBitvector(fib, name_GetContentName(name));
+}
 
-  NameBitvector *name = name_GetContentName(prefix);
 
-  FibNode *prev = fib->root;
-  FibNode *curr;
+FibEntry *fib_MatchBitvector(const FIB *fib, const NameBitvector *name){
+  parcAssertNotNull(fib, "Parameter must be non-null");
+  parcAssertNotNull(name, "Parameter must be non-null");
 
-  FibNode *match = NULL;
-  unsigned len = 0;
+  uint32_t key_prefix_len = nameBitvector_GetLength(name);
 
-  if (nameBitvector_testBit(name, MSB_POS))
-    curr = fib->root->right;
-  else
-    curr = fib->root->left;
+  FibNode * curr = fib->root;
+  FibNode * candidate = NULL;
 
-  while (prev->pos > curr->pos) {
-    prev = curr;
+  while(curr != NULL){
+    NameBitvector *curr_name =
+          name_GetContentName(fibEntry_GetPrefix(curr->entry));
+    uint32_t match_len = nameBitvector_lpm(name, curr_name);
+    uint32_t curr_prefix_len = nameBitvector_GetLength(curr_name);
 
-    if (curr->entry != NULL && curr->pos != NULL_POS) {
-      if (nameBitvector_StartsWith(
-              name, name_GetContentName(fibEntry_GetPrefix(curr->entry))) &&
-          nameBitvector_GetLength(
-              name_GetContentName(fibEntry_GetPrefix(curr->entry))) > len) {
-        match = curr;
-        len = nameBitvector_GetLength(
-            name_GetContentName(fibEntry_GetPrefix(curr->entry)));
-      }
+    if(match_len < curr_prefix_len){
+      //the current node does not match completelly the key, so
+      //return the parent of this node (saved in candidate)
+      break;
     }
 
-    if (nameBitvector_testBit(name, curr->pos))
+    if(curr->is_used)
+      candidate = curr;
+
+    //if we are here match_len == curr_prefix_len (can't be larger)
+    //so this node is actually a good candidate for a match
+    if(curr_prefix_len == key_prefix_len){
+      //this an exact match, do not continue
+      break;
+    }
+
+    bool bit;
+    int res = nameBitvector_testBit(name, curr_prefix_len, &bit);
+    parcAssertFalse(res < 0, "error testing name bit (fib_MatchBitvector)");
+
+    if(bit)
       curr = curr->right;
     else
       curr = curr->left;
   }
 
-  if (curr->entry != NULL && curr->pos != NULL_POS) {
-    if (nameBitvector_StartsWith(
-            name, name_GetContentName(fibEntry_GetPrefix(curr->entry))) &&
-        nameBitvector_GetLength(
-            name_GetContentName(fibEntry_GetPrefix(curr->entry))) > len) {
-      match = curr;
-      len = nameBitvector_GetLength(
-          name_GetContentName(fibEntry_GetPrefix(curr->entry)));
-    }
+  if(candidate != NULL){
+    return candidate->entry;
   }
 
-  if (match != NULL && match->entry != NULL) {
-    return match->entry;
-  } else {
-    //if there is a  default route, return it.
-    //the dafualt route is in the route
-    return fib->root->entry;
-  }
+  return NULL;
 }
 
-#endif /* WITH_MAPME */
-
-void _collectFibEntries(FibNode *n, int pos, FibEntryList *list) {
-  if (n->pos < (unsigned)pos) {
-    fibEntryList_Append(list, n->entry);
-    _collectFibEntries(n->left, n->pos, list);
-    _collectFibEntries(n->right, n->pos, list);
+void _collectFibEntries(FibNode *n, FibEntryList *list){
+  if(n != NULL){
+    if(n->is_used)
+      fibEntryList_Append(list, n->entry);
+    _collectFibEntries(n->right, list);
+    _collectFibEntries(n->left, list);
   }
 }
 
 FibEntryList *fib_GetEntries(const FIB *fib) {
   parcAssertNotNull(fib, "Parameter must be non-null");
-
   FibEntryList *list = fibEntryList_Create();
 
-  if(fib->root->entry){
-    fibEntryList_Append(list, fib->root->entry);
-  }
-
-  _collectFibEntries(fib->root->left, fib->root->pos, list);
-  _collectFibEntries(fib->root->right, fib->root->pos, list);
+  _collectFibEntries(fib->root, list);
 
   return list;
 }

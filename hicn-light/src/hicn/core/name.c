@@ -162,6 +162,24 @@ Name *name_Acquire(const Name *original) {
   return copy;
 }
 
+Name *name_Copy(const Name *original) {
+  parcAssertNotNull(original, "Parameter must be non-null");
+  Name *copy = parcMemory_AllocateAndClear(sizeof(Name));
+  parcAssertNotNull(copy, "parcMemory_AllocateAndClear(%zu) returned NULL",
+                    sizeof(Name));
+
+  copy->content_name = nameBitvector_Copy(original->content_name);
+  copy->segment = original->segment;
+  copy->name_hash = original->name_hash;
+
+  copy->refCountPtr = parcMemory_Allocate(sizeof(unsigned));
+  parcAssertNotNull(copy->refCountPtr, "parcMemory_Allocate(%zu) returned NULL",
+                    sizeof(unsigned));
+  *copy->refCountPtr = 1;
+
+  return copy;
+}
+
 uint32_t name_HashCode(const Name *name) {
   parcAssertNotNull(name, "Parameter must be non-null");
   return name->name_hash;
@@ -211,13 +229,6 @@ int name_Compare(const Name *a, const Name *b) {
   }
 }
 
-bool name_StartsWith(const Name *name, const Name *prefix) {
-  parcAssertNotNull(name, "Parameter name must be non-null");
-  parcAssertNotNull(prefix, "Parameter prefix must be non-null");
-
-  return nameBitvector_StartsWith(name->content_name, prefix->content_name);
-}
-
 char *name_ToString(const Name *name) {
   char *output = malloc(128);
 
@@ -231,8 +242,9 @@ char *name_ToString(const Name *name) {
   return output;
 }
 
-void name_setLen(const Name *name, uint8_t len) {
+void name_setLen(Name *name, uint8_t len) {
   nameBitvector_setLen(name->content_name, len);
+  name->name_hash = _computeHash(name);
 }
 
 #ifdef WITH_POLICY

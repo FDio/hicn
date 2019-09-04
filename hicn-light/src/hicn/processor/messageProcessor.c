@@ -576,7 +576,7 @@ static bool messageProcessor_ForwardViaFib(MessageProcessor *processor,
 static bool messageProcessor_ForwardViaFib(MessageProcessor *processor,
                                            Message *interestMessage) {
 #endif /* WITH_POLICY */
-  FibEntry *fibEntry = fib_Match(processor->fib, interestMessage);
+  FibEntry *fibEntry = fib_MatchMessage(processor->fib, interestMessage);
   if (fibEntry == NULL) {
     return false;
   }

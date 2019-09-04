@@ -30,9 +30,6 @@ NameBitvector *nameBitvector_CreateFromInAddr(uint32_t addr, uint8_t len);
 NameBitvector *nameBitvector_CreateFromIn6Addr(struct in6_addr *addr,
                                                uint8_t len);
 
-NameBitvector *nameBitvector_CreateFromAddress(const Address *prefix,
-                                               uint8_t len);
-
 NameBitvector *nameBitvector_Copy(const NameBitvector *original);
 
 void nameBitvector_Destroy(NameBitvector **bitvectorPtr);
@@ -45,12 +42,11 @@ bool nameBitvector_Equals(const NameBitvector *a, const NameBitvector *b);
 
 int nameBitvector_Compare(const NameBitvector *a, const NameBitvector *b);
 
-bool nameBitvector_StartsWith(const NameBitvector *name,
-                              const NameBitvector *prefix);
+int nameBitvector_testBit(const NameBitvector *name, uint8_t pos, bool *bit);
 
-bool nameBitvector_testBit(const NameBitvector *name, uint8_t pos);
+uint32_t nameBitvector_lpm(const NameBitvector *a, const NameBitvector *b);
 
-uint8_t nameBitvector_firstDiff(const NameBitvector *a, const NameBitvector *b);
+void nameBitvector_clear(NameBitvector *a, uint8_t start_from);
 
 int nameBitvector_ToIPAddress(const NameBitvector *name,
                               ip_address_t *ip_address);

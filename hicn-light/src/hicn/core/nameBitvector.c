@@ -27,24 +27,21 @@
 
 #include <hicn/utils/commands.h>
 
-#define BLOCKS 2
+#define NAME_LEN 2
 
-const uint64_t BLOCK_SIZE = 64;
+const uint64_t BV_SIZE = 64;
 const uint64_t WIDTH = 128;
-const uint64_t BLOCK_ONE = 0x1;
+const uint64_t ONE = 0x1;
 
-// the bits are encoded in the following order:
-// 00100101001---101010  00100011---110100100
-// [bits[0] (uint64_t)]  [bits[1] (uint64_t)]
-// ^                  ^  ^                  ^
-// 0                 63 64                127
-// address  2200::0011 is encoded as:
-//   1000 1000 0000 0010 00000 ....0100 0100
-//   ^                                     ^
-//   0                                   127
+// address b000:0000:0000:0001:c000:0000:0000:0001 is encodend as follow
+// [bits[0] uint64_t       ] [bits[1] unit64_t       ]
+// ^                       ^ ^                       ^
+// 63                      0 127                     64
+// [1000 0000 ... 0000 1101] [1000 0000 ... 0000 0011] //binary
+//    1                  b     1                  c    //hex
 
 struct name_bitvector {
-  uint64_t bits[BLOCKS];
+  uint64_t bits[NAME_LEN];
   uint8_t len;
   uint8_t IPversion;
 };
@@ -62,11 +59,11 @@ NameBitvector *nameBitvector_CreateFromInAddr(uint32_t addr, uint8_t len) {
   uint8_t addr_3 = (addr & 0x0000ff00) >> 8;
   uint8_t addr_4 = (addr & 0x000000ff);
 
-  bitvector->bits[1] = (bitvector->bits[1] | addr_4) << 8;
-  bitvector->bits[1] = (bitvector->bits[1] | addr_3) << 8;
-  bitvector->bits[1] = (bitvector->bits[1] | addr_2) << 8;
-  bitvector->bits[1] = (bitvector->bits[1] | addr_1);
-  bitvector->bits[1] = bitvector->bits[1] << 32;
+  bitvector->bits[0] = (bitvector->bits[0] | addr_4) << 8;
+  bitvector->bits[0] = (bitvector->bits[0] | addr_3) << 8;
+  bitvector->bits[0] = (bitvector->bits[0] | addr_2) << 8;
+  bitvector->bits[0] = (bitvector->bits[0] | addr_1);
+  bitvector->bits[0] = bitvector->bits[0] << 32;
 
   bitvector->len = len;
 
@@ -87,11 +84,11 @@ NameBitvector *nameBitvector_CreateFromIn6Addr(struct in6_addr *addr,
   bitvector->bits[1] = 0;
 
   for (int i = 0; i < 8; ++i) {
-    bitvector->bits[1] = (bitvector->bits[1] << 8) | addr->s6_addr[i];
+    bitvector->bits[0] = (bitvector->bits[0] << 8) | addr->s6_addr[i];
   }
 
   for (int i = 8; i < 16; ++i) {
-    bitvector->bits[0] = (bitvector->bits[0] << 8) | addr->s6_addr[i];
+    bitvector->bits[1] = (bitvector->bits[1] << 8) | addr->s6_addr[i];
   }
 
   bitvector->len = len;
@@ -191,38 +188,13 @@ int nameBitvector_Compare(const NameBitvector *a, const NameBitvector *b) {
   }
 }
 
-bool nameBitvector_StartsWith(const NameBitvector *name,
-                              const NameBitvector *prefix) {
-  parcAssertNotNull(name, "name cannot be NULL");
-  parcAssertNotNull(prefix, "prefix cannot be NULL");
-  parcAssertTrue(prefix->len > 0, "prefix length can not be 0");
+int nameBitvector_testBit(const NameBitvector *name, uint8_t pos, bool *bit) {
+  if(pos >= name->len  || pos > (WIDTH -1))
+    return -1;
 
-  if (prefix->len > BLOCK_SIZE)
-    return (name->bits[1] == prefix->bits[1]) &&
-           ((name->bits[0] ^ prefix->bits[0]) >>
-                (BLOCK_SIZE - (prefix->len - BLOCK_SIZE)) ==
-            0);
+  *bit = (name->bits[pos / BV_SIZE] & (ONE << ((BV_SIZE - 1) - (pos % BV_SIZE))));
 
-  return ((name->bits[1] ^ prefix->bits[1]) >> (BLOCK_SIZE - prefix->len) == 0);
-}
-
-bool nameBitvector_testBit(const NameBitvector *name, uint8_t pos) {
-  if (pos == WIDTH) pos = 127;
-
-  uint8_t final_pos = (uint8_t)(WIDTH - name->len);
-
-  // the bit to test is inside the name/prefix len
-  if (pos > final_pos) {
-    return (name->bits[pos / BLOCK_SIZE] & (BLOCK_ONE << (pos % BLOCK_SIZE)));
-  }
-
-  // the bit to test is outside the name/prefix len
-  if (pos < final_pos) {
-    return false;
-  }
-
-  // pos is equal to the name/prefix len
-  return true;
+  return 0;
 }
 
 uint64_t _diff_bit_log2(uint64_t val) {
@@ -257,31 +229,38 @@ uint64_t _diff_bit_log2(uint64_t val) {
   return result;
 }
 
-uint8_t nameBitvector_firstDiff(const NameBitvector *a,
-                                const NameBitvector *b) {
-  uint8_t res = 0;
-  uint64_t diff = a->bits[1] ^ b->bits[1];
-  if (diff)
-    res = (uint8_t)(64 + _diff_bit_log2(diff));
-  else
-    res = (uint8_t)_diff_bit_log2(a->bits[0] ^ b->bits[0]);
-
-  // res is computed over the bitvector which is composed by 128 bit all the
-  // times however the prefixes may be diffrent just because the have different
-  // lengths example: prefix 1: 0::/30 prefix 2: 0::/20 at this point of the
-  // function res would be 0 since both the bitvectors are composed by 0s but
-  // the function will return 127-20, which is the position at which the two
-  // prefix are different, since prefix 2 has only 20 bits
-
-  uint8_t len_diff;
+uint32_t nameBitvector_lpm(const NameBitvector *a,
+                          const NameBitvector *b) {
+  uint32_t limit;
+  uint32_t prefix_len;
   if (a->len < b->len)
-    len_diff = (uint8_t)(WIDTH - a->len);
+    limit = a->len;
   else
-    len_diff = (uint8_t)(WIDTH - b->len);
+    limit = b->len;
 
-  if (len_diff > res) res = len_diff;
+  uint64_t diff = a->bits[0] ^ b->bits[0];
+  if(diff){
+    prefix_len = BV_SIZE - (_diff_bit_log2(diff) + 1);
+    //printf("if 1 diff = %lu plen = %d\n", diff, prefix_len);
+  }else{
+    prefix_len = BV_SIZE;
+    diff = a->bits[1] ^ b->bits[1];
+    if(diff){
+      prefix_len +=  (BV_SIZE - (_diff_bit_log2(diff) + 1));
+      //printf("if 2 diff = %lu plen = %d\n", diff, prefix_len);
+    }else{
+      prefix_len += BV_SIZE;
+    }
+  }
 
-  return res;
+  if(prefix_len < limit)
+    return prefix_len;
+  return limit;
+}
+
+void nameBitvector_clear(NameBitvector *a, uint8_t start_from){
+  for(uint8_t pos = start_from; pos < WIDTH; pos++)
+      a->bits[pos / BV_SIZE] &= ~(ONE << ((BV_SIZE - 1) - (pos % BV_SIZE)));
 }
 
 int nameBitvector_ToIPAddress(const NameBitvector *name,
@@ -291,7 +270,7 @@ int nameBitvector_ToIPAddress(const NameBitvector *name,
     ip_address->family = AF_INET;
     ip_address->prefix_len = IPV4_ADDR_LEN_BITS;
 
-    uint32_t tmp_addr = name->bits[1] >> 32ULL;
+    uint32_t tmp_addr = name->bits[0] >> 32ULL;
     uint8_t addr_1 = (tmp_addr & 0xff000000) >> 24;
     uint8_t addr_2 = (tmp_addr & 0x00ff0000) >> 16;
     uint8_t addr_3 = (tmp_addr & 0x0000ff00) >> 8;
@@ -309,12 +288,12 @@ int nameBitvector_ToIPAddress(const NameBitvector *name,
     ip_address->prefix_len = name->len;  // IPV6_ADDR_LEN_BITS;
 
     for (int i = 0; i < 8; i++) {
-      addr->s6_addr[i] = (uint8_t)((name->bits[1] >> 8 * (7 - i)) & 0xFF);
+      addr->s6_addr[i] = (uint8_t)((name->bits[0] >> 8 * (7 - i)) & 0xFF);
     }
 
     int x = 0;
     for (int i = 8; i < 16; ++i) {
-      addr->s6_addr[i] = (uint8_t)((name->bits[0] >> 8 * (7 - x)) & 0xFF);
+      addr->s6_addr[i] = (uint8_t)((name->bits[1] >> 8 * (7 - x)) & 0xFF);
       x++;
     }
   }
@@ -329,7 +308,7 @@ Address *nameBitvector_ToAddress(const NameBitvector *name) {
     addr.sin_family = AF_INET;
     addr.sin_port = htons(1234);
 
-    uint32_t tmp_addr = name->bits[1] >> 32ULL;
+    uint32_t tmp_addr = name->bits[0] >> 32ULL;
     uint8_t addr_1 = (tmp_addr & 0xff000000) >> 24;
     uint8_t addr_2 = (tmp_addr & 0x00ff0000) >> 16;
     uint8_t addr_3 = (tmp_addr & 0x0000ff00) >> 8;
@@ -354,13 +333,13 @@ Address *nameBitvector_ToAddress(const NameBitvector *name) {
 
     for (int i = 0; i < 8; i++) {
       addr.sin6_addr.s6_addr[i] =
-          (uint8_t)((name->bits[1] >> 8 * (7 - i)) & 0xFF);
+          (uint8_t)((name->bits[0] >> 8 * (7 - i)) & 0xFF);
     }
 
     int x = 0;
     for (int i = 8; i < 16; ++i) {
       addr.sin6_addr.s6_addr[i] =
-          (uint8_t)((name->bits[0] >> 8 * (7 - x)) & 0xFF);
+          (uint8_t)((name->bits[1] >> 8 * (7 - x)) & 0xFF);
       x++;
     }
 

@@ -583,7 +583,7 @@ static bool mapMe_onSpecialInterest(const MapMe *mapme,
 #else
     fibEntry = fibEntry_Create(name, fwdStrategy);
 #endif /* WITH_POLICY */
-    FibEntry *lpm = fib_LPM(fib, name);
+    FibEntry *lpm = fib_MatchName(fib, name);
     mapMe_CreateTFIB(fibEntry);
     fib_Add(fib, fibEntry);
     if (!lpm) {
@@ -755,7 +755,7 @@ void mapMe_onSpecialInterestAck(const MapMe *mapme, const uint8_t *msgBuffer,
 
   const Name * name =
       name_CreateFromPacket(msgBuffer, MessagePacketType_ContentObject);
-  name_setLen(name, prefix->len);
+  name_setLen((Name*) name, prefix->len);
   char * name_str = name_ToString(name);
   INFO(mapme, "[MAP-Me] Received ack for name prefix=%s seq=%d on conn id=%d",
           name_str, params->seq, conn_in_id);

@@ -48,6 +48,11 @@ void name_Release(Name **namePtr);
 Name *name_Acquire(const Name *original);
 
 /**
+ * returns a copy of the name
+ */
+Name *name_Copy(const Name *original);
+
+/**
  * A hash value for use in hash tables
  *
  */
@@ -71,17 +76,6 @@ bool name_Equals(const Name *a, const Name *b);
 int name_Compare(const Name *a, const Name *b);
 
 /**
- * @function metsName_StartsWith
- * @abstract Checks if name starts with prefix
- * @discussion
- *   Byte-by-byte prefix comparison
- *
- * @return True if the name is equal to or begins with prefix
- */
-
-bool name_StartsWith(const Name *name, const Name *prefix);
-
-/**
  * return the name in string format (bitvector + segment number)
  *
  */
@@ -93,7 +87,7 @@ char *name_ToString(const Name *name);
  * @param [in] message - Interest message
  * @param [in] len - Name length
  */
-void name_setLen(const Name *name, uint8_t len);
+void name_setLen(Name *name, uint8_t len);
 
 /**
  * Creates a name from a Address
