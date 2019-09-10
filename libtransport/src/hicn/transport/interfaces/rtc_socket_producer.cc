@@ -24,8 +24,9 @@
 #define INIT_PACKET_PRODUCTION_RATE 100  // pps random value (almost 1Mbps)
 #define STATS_INTERVAL_DURATION 500      // ms
 #define INTEREST_LIFETIME_REDUCTION_FACTOR 0.8
-#define INACTIVE_TIME 500 //ms without producing before the socket
-                          //is considered inactive
+#define INACTIVE_TIME \
+  500                        // ms without producing before the socket
+                             // is considered inactive
 #define MILLI_IN_A_SEC 1000  // ms in a second
 
 // NACK HEADER
@@ -113,7 +114,9 @@ void RTCProducerSocket::updateStats(uint32_t packet_size, uint64_t now) {
   }
 }
 
-void RTCProducerSocket::produce(const uint8_t *buf, size_t buffer_size) {
+void RTCProducerSocket::produce(std::unique_ptr<utils::MemBuf> &&buffer) {
+  auto buffer_size = buffer->length();
+
   if (TRANSPORT_EXPECT_FALSE(buffer_size == 0)) {
     return;
   }
@@ -137,11 +140,11 @@ void RTCProducerSocket::produce(const uint8_t *buf, size_t buffer_size) {
 
   ContentObject content_object(flowName_.setSuffix(currentSeg_));
 
-  auto payload = utils::MemBuf::create(buffer_size + TIMESTAMP_LEN);
+  auto payload = utils::MemBuf::create(TIMESTAMP_LEN);
 
   memcpy(payload->writableData(), &now, TIMESTAMP_LEN);
-  memcpy(payload->writableData() + TIMESTAMP_LEN, buf, buffer_size);
-  payload->append(buffer_size + TIMESTAMP_LEN);
+  payload->append(TIMESTAMP_LEN);
+  payload->prependChain(std::move(buffer));
   content_object.appendPayload(std::move(payload));
 
   content_object.setLifetime(500);  // XXX this should be set by the APP
@@ -169,14 +172,14 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
   {
     utils::SpinLock::Acquire locked(lock_);
     isActive = active_;
-    if(isActive){
+    if (isActive) {
       uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       std::chrono::steady_clock::now().time_since_epoch())
-                       .count();
+                         std::chrono::steady_clock::now().time_since_epoch())
+                         .count();
       if ((now - lastProduced_) > INACTIVE_TIME) {
-        //socket is inactive
+        // socket is inactive
         active_ = false;
-        isActive =  false;
+        isActive = false;
       }
     }
   }

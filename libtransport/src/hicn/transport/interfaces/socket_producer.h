@@ -62,6 +62,10 @@ class ProducerSocket : public Socket<BasePortal>,
   void produce(ContentObject &content_object);
 
   virtual void produce(const uint8_t *buffer, size_t buffer_size) {
+    produce(utils::MemBuf::copyBuffer(buffer, buffer_size));
+  }
+
+  virtual void produce(std::unique_ptr<utils::MemBuf> &&buffer) {
     // This API is meant to be used just with the RTC producer.
     // Here it cannot be used since no name for the content is specified.
     throw errors::NotImplementedException();
