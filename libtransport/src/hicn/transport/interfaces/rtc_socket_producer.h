@@ -36,7 +36,7 @@ class RTCProducerSocket : public ProducerSocket {
 
   void registerPrefix(const Prefix &producer_namespace) override;
 
-  void produce(const uint8_t *buffer, size_t buffer_size) override;
+  void produce(std::unique_ptr<utils::MemBuf> &&buffer) override;
 
   void onInterest(Interest::Ptr &&interest) override;
 
