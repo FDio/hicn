@@ -80,6 +80,7 @@ macro(build_library lib)
       ${lib}.shared
     )
     add_library(${lib}.shared SHARED ${ARG_SOURCES})
+    message("Building library ${${lib}.shared}" )
   endif()
 
   if(ARG_STATIC)
