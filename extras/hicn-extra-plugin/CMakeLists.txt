@@ -24,18 +24,18 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
 set (CMAKE_CXX_STANDARD 11)
 set (CMAKE_C_STANDARD 11)
 
+include (Packaging)
+
 # Check for memfd_create syscall
 include(CheckSymbolExists)
 CHECK_SYMBOL_EXISTS ( "__NR_memfd_create" "sys/syscall.h" HAVE_MEMFD_CREATE )
 if ( HAVE_MEMFD_CREATE )
-    add_definitions ( -DHAVE_MEMFD_CREATE )
+  add_definitions ( -DHAVE_MEMFD_CREATE )
 endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-	set(HICN_EXTRA_PLUGIN extra-plugin)
+  set(HICN_EXTRA_PLUGIN extra-plugin)
 endif()
-
-include (Packaging)
 
 # Dependencies
 
@@ -60,17 +60,20 @@ set(HICN_EXTRA_PLUGIN_HEADER_FILES
 )
 
 if (NOT VPP_HOME)
-    set(VPP_HOME /usr)
+  set(VPP_HOME /usr)
 endif()
 
 if (NOT CMAKE_BUILD_TYPE)
     set (CMAKE_BUILD_TYPE "Release")
 endif (NOT CMAKE_BUILD_TYPE)
 
-SET(EXTRA_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR} CACHE STRING "extra_install_prefix")
+SET(EXTRA_INSTALL_PREFIX
+  ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
+  CACHE STRING "extra_install_prefix"
+)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall  -march=native -O3 -g")
+   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall -march=native -O3 -g")
 elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -march=native -O0 -g")
    add_definitions(-DCLIB_DEBUG -fPIC -fstack-protector-all)
@@ -80,25 +83,30 @@ include_directories(SYSTEM)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DEXTRA_VPP_PLUGIN=1")
+
 add_library(hicn_extra_plugin SHARED
-    ${HICN_EXTRA_PLUGIN_SOURCE_FILES})
+  ${HICN_EXTRA_PLUGIN_SOURCE_FILES}
+)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins)
 
 set(VPP_INSTALL_PLUGIN ${EXTRA_INSTALL_PREFIX}/vpp_plugins)
 
 set_target_properties(hicn_extra_plugin
-        PROPERTIES
-        LINKER_LANGUAGE C
-        INSTALL_RPATH ${VPP_INSTALL_PLUGIN}
-        PREFIX ""
-        LIBRARY_OUTPUT_NAME "hicn_router")
+  PROPERTIES
+  LINKER_LANGUAGE C
+  INSTALL_RPATH ${VPP_INSTALL_PLUGIN}
+  PREFIX ""
+  LIBRARY_OUTPUT_NAME "hicn_router"
+)
 
 install(DIRECTORY
-        DESTINATION ${VPP_INSTALL_PLUGIN}
-        COMPONENT ${HICN_EXTRA_PLUGIN})
+  DESTINATION ${VPP_INSTALL_PLUGIN}
+  COMPONENT ${HICN_EXTRA_PLUGIN}
+)
 
 install(TARGETS hicn_extra_plugin
-        DESTINATION
-        ${VPP_INSTALL_PLUGIN}
-        COMPONENT ${HICN_EXTRA_PLUGIN})
+  DESTINATION
+  ${VPP_INSTALL_PLUGIN}
+  COMPONENT ${HICN_EXTRA_PLUGIN}
+)
