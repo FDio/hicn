@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 project(libhicnctrl)
 
 if (NOT CMAKE_BUILD_TYPE)
-    message(STATUS "No build type selected, default to Release")
+    message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
