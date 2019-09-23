@@ -24,8 +24,8 @@ PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio
 VPP_GIT_REPO="https://git.fd.io/vpp"
 VPP_BRANCH="stable/1908"
 
-VPP_VERSION_DEB="19.08-release"
-VPP_VERSION_RPM="19.08-release.x86_64"
+VPP_VERSION_DEB="19.08.1-release"
+VPP_VERSION_RPM="19.08.1-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
@@ -73,19 +73,6 @@ setup_fdio_repo() {
     fi
 }
 
-MEMIF_HOME=""
-build_libmemif_static() {
-    git clone ${VPP_GIT_REPO} -b ${VPP_BRANCH} vpp
-    pushd vpp
-    sed 's/SHARED/STATIC/g' src/cmake/library.cmake -i
-    mkdir -p build-root/build-libmemif && pushd build-root/build-libmemif
-    cmake ../../extras/libmemif/ -DCMAKE_C_FLAGS="-fPIC" -DCMAKE_INSTALL_PREFIX=.
-    make install
-    MEMIF_HOME="$(pwd)"
-    popd
-    popd
-}
-
 setup() {
     # Figure out what system we are running on
     if [ -f /etc/os-release ]; then
@@ -126,8 +113,6 @@ setup() {
         export CC=${CC_COMPILER} CXX=${CXX_COMPILER}
     fi
 
-    build_libmemif_static
-
     # do nothing but check compiler version
     c++ --version
 }
@@ -156,7 +141,6 @@ build_package() {
           -DBUILD_HICNEXTRAPLUGIN=ON    \
           -DBUILD_LIBTRANSPORT=ON       \
           -DBUILD_APPS=ON               \
-          -DLIBMEMIF_HOME=${MEMIF_HOME} \
           ${SCRIPT_PATH}/..
 
     make package
