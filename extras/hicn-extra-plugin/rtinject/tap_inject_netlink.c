@@ -137,7 +137,7 @@ add_del_neigh (ns_neigh_t * n, int is_del)
           memcpy (mac1, n->lladdr, ETHER_ADDR_LEN);
           vnet_set_ip6_ethernet_neighbor (vm, sw_if_index,
                                           (ip6_address_t *) n->dst, (mac_address_t *) mac1,
-                                           IP_NEIGHBOR_FLAG_NO_FIB_ENTRY);
+                                           IP_NEIGHBOR_FLAG_NONE);
         }
       else
         vnet_unset_ip6_ethernet_neighbor (vm, sw_if_index,
