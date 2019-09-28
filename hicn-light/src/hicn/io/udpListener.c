@@ -72,6 +72,10 @@ static ListenerOps udpTemplate = {
 
 static void _readcb(int fd, PARCEventType what, void * listener_void);
 
+#ifdef __ANDROID__
+extern int bindSocket(int sock, const char* ifname);
+#endif
+
 #ifdef __linux__
 ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
                                      struct sockaddr_in6 sin6, const char *interfaceName) {
@@ -214,8 +218,23 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder,
   failure = bind(udp->udp_socket, (struct sockaddr *)&sin, sizeof(sin));
   if (failure == 0) {
 #ifdef __linux__
-    setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
+    int ret = setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
                      interfaceName, strlen(interfaceName) + 1);
+    if (ret < 0) {
+      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
+                 "setsockopt(%d, SO_BINDTODEVICE, %s) failed (%d) %s",
+                 udp->udp_socket, interfaceName, errno, strerror(errno));
+#ifdef __ANDROID__
+      ret = bindSocket(udp->udp_socket, interfaceName);
+      if (ret < 0) {
+        logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
+                 "bindSocket(%d, %s) failed", udp->udp_socket, interfaceName);
+      } else {
+        logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
+                 "bindSocket(%d, %s) success", udp->udp_socket, interfaceName);
+      }
+#endif
+    }
 #endif
     ops = parcMemory_AllocateAndClear(sizeof(ListenerOps));
     parcAssertNotNull(ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
