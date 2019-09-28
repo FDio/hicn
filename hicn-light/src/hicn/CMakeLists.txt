@@ -43,9 +43,6 @@ list(APPEND TO_INSTALL_HEADER_FILES
   ${CMAKE_CURRENT_BINARY_DIR}/hicn-light/config.h
 )
 
-set(TO_INSTALL_HEADER_FILES
-)
-
 if (ANDROID_API)
   build_library(${LIBHICN_LIGHT}
     STATIC
