@@ -92,6 +92,7 @@ STATIC_ASSERT ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX <= HICN_PARAM_FACES_MAX),
 
 /* CS reserved portion for applications */
 #define HICN_PARAM_CS_RESERVED_APP 50	//%
+#define HICN_PARAM_CS_MIN_MBUF 8196     //this seems to be the minumim default number of mbuf we can have in vpp
 
 /* Cloning parameters */
 /* ip4 */
