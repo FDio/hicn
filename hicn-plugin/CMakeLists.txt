@@ -189,6 +189,9 @@ set(HICN_VAPI_GENERATED_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.vapi.h
     ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.vapi.hpp)
 
+set(HICN_VPP_STARTUP_CONF_FILE
+    ${CMAKE_BINARY_DIR}/startup.conf)
+
 if (NOT VPP_HOME)
     set(VPP_HOME /usr)
 endif()
@@ -231,6 +234,32 @@ execute_process(
     fi;"
 )
 
+execute_process(
+    COMMAND
+    bash -c
+    "if [ ! -e ${CMAKE_BINARY_DIR}/startup.conf ]; then
+        curl https://git.fd.io/vpp/plain/src/vpp/conf/startup.conf?h=stable/1908 -o ${CMAKE_BINARY_DIR}/startup.conf;
+    fi;"
+)
+
+execute_process(
+    COMMAND
+    bash -c
+    " echo '\n hicn {
+        ## Set PIT size. Default is 131 072 entries
+        # pit-size 500000
+        #
+        ## Set CS size. Default is 4096
+        # cs-size 50000
+        #
+        ## Set maximum PIT entries lifetime in milliseconds. Assigned to a PIT entry in case an interest carries a bigger lifetime 
+        # pit-lifetime-max
+        #
+        ## Percentage of CS to reserve for application producer faces
+        # cs-reserved-app
+ }' >> ${CMAKE_BINARY_DIR}/startup.conf"
+)
+
 add_custom_command(
         COMMAND chmod +x  ${CMAKE_BINARY_DIR}/vapi_json_parser.py ${CMAKE_BINARY_DIR}/vapi_c_gen.py ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py
         OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h
@@ -266,6 +295,7 @@ add_library(hicn_api_test_plugin SHARED
 
 set(VPP_INSTALL_PLUGIN ${HICN_INSTALL_PREFIX}/vpp_plugins)
 set(VPP_INSTALL_API_TEST_PLUGIN ${HICN_INSTALL_PREFIX}/vpp_api_test_plugins CACHE STRING "vpp_install_api_test_plugin")
+set(VPP_STARTUP_CONF /etc/vpp/)
 
 set_target_properties(hicn_plugin
         PROPERTIES
@@ -299,3 +329,7 @@ install(FILES ${HICN_API_HEADER_FILES} ${HICN_API_GENERATED_FILES}
 install(FILES ${HICN_VAPI_GENERATED_FILES}
         DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/vapi
         COMPONENT ${HICN_PLUGIN}-dev)
+
+install(FILES ${HICN_VPP_STARTUP_CONF_FILE}
+        DESTINATION /etc/vpp/
+        COMPONENT ${HICN_PLUGIN})
