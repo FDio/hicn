@@ -150,8 +150,7 @@ api_hicn_api_node_params_set (vat_main_t * vam)
   unformat_input_t *input = vam->input;
   int enable_disable = 1;
   int pit_size = -1, cs_size = -1;
-  f64 pit_dflt_lifetime_sec = -1.0f;
-  f64 pit_min_lifetime_sec = -1.0f, pit_max_lifetime_sec = -1.0f;
+  f64 pit_max_lifetime_sec = -1.0f;
   int ret;
 
   vl_api_hicn_api_node_params_set_t *mp;
@@ -169,12 +168,6 @@ api_hicn_api_node_params_set (vat_main_t * vam)
       else if (unformat (input, "CS size %d", &cs_size))
 	{;
 	}
-      else if (unformat (input, "PIT dfltlife %f", &pit_dflt_lifetime_sec))
-	{;
-	}
-      else if (unformat (input, "PIT minlife %f", &pit_min_lifetime_sec))
-	{;
-	}
       else if (unformat (input, "PIT maxlife %f", &pit_max_lifetime_sec))
 	{;
 	}
@@ -189,8 +182,6 @@ api_hicn_api_node_params_set (vat_main_t * vam)
   mp->enable_disable = enable_disable;
   mp->pit_max_size = clib_host_to_net_i32 (pit_size);
   mp->cs_max_size = clib_host_to_net_i32 (cs_size);
-  mp->pit_dflt_lifetime_sec = pit_dflt_lifetime_sec;
-  mp->pit_min_lifetime_sec = pit_min_lifetime_sec;
   mp->pit_max_lifetime_sec = pit_max_lifetime_sec;
 
   /* send it... */
@@ -250,8 +241,6 @@ static void
 	   mp->is_enabled,
 	   mp->feature_cs,
 	   clib_net_to_host_u32 (mp->pit_max_size),
-	   mp->pit_dflt_lifetime_sec,
-	   mp->pit_min_lifetime_sec,
 	   mp->pit_max_lifetime_sec, clib_net_to_host_u32 (mp->cs_max_size));
 }
 
@@ -627,7 +616,7 @@ api_hicn_api_route_get (vat_main_t * vam)
 }
 
 static int
-api_hicn_api_routes_dump (vat_main_t *vam)
+api_hicn_api_routes_dump (vat_main_t * vam)
 {
 
   hicn_test_main_t *hm = &hicn_test_main;
@@ -708,8 +697,8 @@ vl_api_hicn_api_route_get_reply_t_handler (vl_api_hicn_api_route_get_reply_t *
 
 /* face_stats-details message handler */
 static void
-vl_api_hicn_api_routes_details_t_handler
-(vl_api_hicn_api_routes_details_t * mp)
+  vl_api_hicn_api_routes_details_t_handler
+  (vl_api_hicn_api_routes_details_t * mp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
 
@@ -717,14 +706,15 @@ vl_api_hicn_api_routes_details_t_handler
   u8 *sbuf = 0;
   vec_reset_length (sbuf);
 
-  sbuf = format (sbuf, "Prefix: %U/%u\n", format_ip46_address, &mp->prefix, 0, mp->len);
+  sbuf =
+    format (sbuf, "Prefix: %U/%u\n", format_ip46_address, &mp->prefix, 0,
+	    mp->len);
 
   sbuf = format (sbuf, "Faces: \n");
-  for( int i = 0; i < mp->nfaces; i++)
+  for (int i = 0; i < mp->nfaces; i++)
     {
       faceid = clib_net_to_host_u32 (mp->faceids[i]);
-      sbuf =
-        format (sbuf, " faceid %d\n", faceid);
+      sbuf = format (sbuf, " faceid %d\n", faceid);
     }
 
   fformat (vam->ofp, "%sStrategy: %d\n",

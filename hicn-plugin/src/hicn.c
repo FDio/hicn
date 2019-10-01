@@ -15,6 +15,7 @@
 
 #include <vnet/vnet.h>
 #include <vnet/plugin/plugin.h>
+#include <vlib/vlib.h>
 
 #include "hicn.h"
 #include "params.h"
@@ -84,8 +85,6 @@ done:
 int
 hicn_infra_plugin_enable_disable (int enable_disable,
 				  int pit_size_req,
-				  f64 pit_dflt_lifetime_sec_req,
-				  f64 pit_min_lifetime_sec_req,
 				  f64 pit_max_lifetime_sec_req,
 				  int cs_size_req, int cs_reserved_app)
 {
@@ -103,21 +102,6 @@ hicn_infra_plugin_enable_disable (int enable_disable,
   /* Set up params and call fwdr_init set up PIT/CS, forwarder nodes */
 
   /* Check the range and assign some globals */
-  if (pit_min_lifetime_sec_req < 0)
-    {
-      sm->pit_lifetime_min_ms = HICN_PARAM_PIT_LIFETIME_DFLT_MIN_MS;
-    }
-  else
-    {
-      if (pit_min_lifetime_sec_req < HICN_PARAM_PIT_LIFETIME_BOUND_MIN_SEC ||
-	  pit_min_lifetime_sec_req > HICN_PARAM_PIT_LIFETIME_BOUND_MAX_SEC)
-	{
-	  ret = HICN_ERROR_PIT_CONFIG_MINLT_OOB;
-	  goto done;
-	}
-      sm->pit_lifetime_min_ms = pit_min_lifetime_sec_req * SEC_MS;
-    }
-
   if (pit_max_lifetime_sec_req < 0)
     {
       sm->pit_lifetime_max_ms = HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS;
@@ -132,25 +116,7 @@ hicn_infra_plugin_enable_disable (int enable_disable,
 	}
       sm->pit_lifetime_max_ms = pit_max_lifetime_sec_req * SEC_MS;
     }
-  if (sm->pit_lifetime_min_ms > sm->pit_lifetime_max_ms)
-    {
-      ret = HICN_ERROR_PIT_CONFIG_MINMAXLT;
-      goto done;
-    }
-  if (pit_dflt_lifetime_sec_req < 0)
-    {
-      sm->pit_lifetime_dflt_ms = HICN_PARAM_PIT_LIFETIME_DFLT_DFLT_MS;
-    }
-  else
-    {
-      sm->pit_lifetime_dflt_ms = pit_dflt_lifetime_sec_req * SEC_MS;
-    }
-  if (sm->pit_lifetime_dflt_ms < sm->pit_lifetime_min_ms ||
-      sm->pit_lifetime_dflt_ms > sm->pit_lifetime_max_ms)
-    {
-      ret = HICN_ERROR_PIT_CONFIG_DFTLT_OOB;
-      goto done;
-    }
+
   if (pit_size_req < 0)
     {
       pit_size = HICN_PARAM_PIT_ENTRIES_DFLT;
@@ -172,10 +138,32 @@ hicn_infra_plugin_enable_disable (int enable_disable,
     }
   else
     {
-      if (cs_size_req > HICN_PARAM_CS_ENTRIES_MAX)
+      /*
+       * This should be relatively safe
+       * At this point vlib buffers should have been already allocated
+       */
+
+      vlib_buffer_main_t *bm;
+      vlib_buffer_pool_t *bp;
+      vlib_main_t *vm = vlib_get_main ();
+      bm = vm->buffer_main;
+
+      u32 n_buffers = 0;
+      vec_foreach (bp, bm->buffer_pools)
+	n_buffers = n_buffers < bp->n_buffers ? bp->n_buffers : n_buffers;
+
+      // check if CS is bugger tha PIT or bigger than the available vlib_buffers
+      uword cs_buffers =
+	(n_buffers >
+	 HICN_PARAM_CS_MIN_MBUF) ? n_buffers - HICN_PARAM_CS_MIN_MBUF : 0;
+
+      if (cs_size_req > (pit_size_req / 2) || cs_size_req > cs_buffers)
 	{
-	  ret = HICN_ERROR_CS_CONFIG_SIZE_OOB;
-	  goto done;
+	  cs_size_req =
+	    ((pit_size_req / 2) > cs_buffers) ? cs_buffers : pit_size_req / 2;
+	  vlib_cli_output (vm,
+			   "WARNING!! CS too large. Please check size of PIT or the number of buffers available in VPP\n");
+
 	}
       cs_size = (uint32_t) cs_size_req;
     }
@@ -207,6 +195,42 @@ done:
 
   return (ret);
 }
+
+static clib_error_t *
+hicn_configure (vlib_main_t * vm, unformat_input_t * input)
+{
+  u32 pit_size = HICN_PARAM_PIT_ENTRIES_DFLT;
+  u32 cs_size = HICN_PARAM_CS_ENTRIES_DFLT;
+  u64 pit_lifetime_max_sec = HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS / SEC_MS;
+  int cs_reserved = HICN_PARAM_CS_RESERVED_APP;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "pit-size %u", &pit_size))
+	;
+      else if (unformat (input, "cs-size %u", &cs_size))
+	;
+      else if (unformat (input, "pit-lifetime-max %u", &pit_lifetime_max_sec))
+	;
+      else if (unformat (input, "cs-reserved-app %u", &cs_reserved))
+	;
+      else
+  break;
+//  clib_error_return (0, 
+//							      "hICN parameter unknown");
+    }
+
+  unformat_free (input);
+
+  hicn_infra_plugin_enable_disable (1, pit_size,
+				    pit_lifetime_max_sec,
+				    cs_size, cs_reserved);
+
+
+  return 0;
+}
+
+VLIB_CONFIG_FUNCTION (hicn_configure, "hicn");
 
 /*
  * Init entry-point for the icn plugin
