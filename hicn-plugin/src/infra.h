@@ -38,15 +38,9 @@ typedef struct hicn_main_s
 
   /* Global PIT lifetime info */
   /*
-   * Default PIT entry timeout to use in case an interest does not
-   * contain a valid interest lifetime
+   * Boundaries for the interest lifetime. If greater than
+   * pit_lifetime_max_ms, pit_lifetime_max_ms is used in the PIT
    */
-  u64 pit_lifetime_dflt_ms;
-  /*
-   * Boundarier for the interest lifetime. If outside,
-   * pit_lifetime_dflt_ms is used in the PIT
-   */
-  u64 pit_lifetime_min_ms;
   u64 pit_lifetime_max_ms;
 
 } hicn_main_t;
@@ -65,8 +59,6 @@ u32 hicn_infra_cs_size;
  * Enable the time the hICN plugin and set the forwarder parameters.
  * @param enable_disable 1 if to enable, 0 otherwisw (currently only enable is supported)
  * @param pit_max_size Max size of the PIT
- * @param pit_dflt_lifetime_sec_req Default PIT entry timeout to use in case an interest does not contain a valid interest lifetime
- * @param pit_min_lifetime_sec_req Minimum timeout allowed for a PIT entry lifetime
  * @param pit_max_lifetime_sec_req Maximum timeout allowed for a PIT entry lifetime
  * @param cs_max_size CS size. Must be <= than pit_max_size
  * @param cs_reserved_app Amount of CS reserved for application faces
@@ -74,8 +66,6 @@ u32 hicn_infra_cs_size;
 int
 hicn_infra_plugin_enable_disable (int enable_disable,
 				  int pit_max_size,
-				  f64 pit_dflt_lifetime_sec_req,
-				  f64 pit_min_lifetime_sec_req,
 				  f64 pit_max_lifetime_sec_req,
 				  int cs_max_size, int cs_reserved_app);
 

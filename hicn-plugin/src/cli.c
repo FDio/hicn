@@ -40,8 +40,6 @@ extern ip_version_t ipv6;
 
 static vl_api_hicn_api_node_params_set_t node_ctl_params = {
   .pit_max_size = -1,
-  .pit_dflt_lifetime_sec = -1.0f,
-  .pit_min_lifetime_sec = -1.0f,
   .pit_max_lifetime_sec = -1.0f,
   .cs_max_size = -1,
   .cs_reserved_app = -1,
@@ -85,12 +83,7 @@ hicn_cli_node_ctl_start_set_command_fn (vlib_main_t * vm,
 
   ret = hicn_infra_plugin_enable_disable (1 /* enable */ ,
 					  node_ctl_params.pit_max_size,
-					  node_ctl_params.
-					  pit_dflt_lifetime_sec,
-					  node_ctl_params.
-					  pit_min_lifetime_sec,
-					  node_ctl_params.
-					  pit_max_lifetime_sec,
+					  node_ctl_params.pit_max_lifetime_sec,
 					  node_ctl_params.cs_max_size,
 					  node_ctl_params.cs_reserved_app);
 
@@ -133,12 +126,7 @@ hicn_cli_node_ctl_stop_set_command_fn (vlib_main_t * vm,
     }
   ret = hicn_infra_plugin_enable_disable (0 /* !enable */ ,
 					  node_ctl_params.pit_max_size,
-					  node_ctl_params.
-					  pit_dflt_lifetime_sec,
-					  node_ctl_params.
-					  pit_min_lifetime_sec,
-					  node_ctl_params.
-					  pit_max_lifetime_sec,
+					  node_ctl_params.pit_max_lifetime_sec,
 					  node_ctl_params.cs_max_size,
 					  node_ctl_params.cs_reserved_app);
 
@@ -196,28 +184,6 @@ hicn_cli_node_ctl_param_set_command_fn (vlib_main_t * vm,
 		  break;
 		}
 	      node_ctl_params.pit_max_size = table_size;
-	    }
-	  else if (unformat (line_input, "dfltlife %f", &lifetime))
-	    {
-	      if (!DFLTD_RANGE_OK
-		  (lifetime, HICN_PARAM_PIT_LIFETIME_BOUND_MIN_SEC,
-		   HICN_PARAM_PIT_LIFETIME_BOUND_MAX_SEC))
-		{
-		  rv = HICN_ERROR_PIT_CONFIG_DFTLT_OOB;
-		  break;
-		}
-	      node_ctl_params.pit_dflt_lifetime_sec = lifetime;
-	    }
-	  else if (unformat (line_input, "minlife %f", &lifetime))
-	    {
-	      if (!DFLTD_RANGE_OK
-		  (lifetime, HICN_PARAM_PIT_LIFETIME_BOUND_MIN_SEC,
-		   HICN_PARAM_PIT_LIFETIME_BOUND_MAX_SEC))
-		{
-		  rv = HICN_ERROR_PIT_CONFIG_MINLT_OOB;
-		  break;
-		}
-	      node_ctl_params.pit_min_lifetime_sec = lifetime;
 	    }
 	  else if (unformat (line_input, "maxlife %f", &lifetime))
 	    {
@@ -332,8 +298,6 @@ hicn_cli_show_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
   if (!hicn_main.is_enabled)
     {
       if (node_ctl_params.pit_max_size == -1 &&
-	  node_ctl_params.pit_dflt_lifetime_sec == -1 &&
-	  node_ctl_params.pit_min_lifetime_sec == -1 &&
 	  node_ctl_params.pit_max_lifetime_sec == -1 &&
 	  node_ctl_params.cs_max_size == -1 &&
 	  node_ctl_params.cs_reserved_app == -1)
@@ -348,16 +312,6 @@ hicn_cli_show_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	{
 	  vlib_cli_output (vm, "  PIT:: max entries:%d\n",
 			   node_ctl_params.pit_max_size);
-	}
-      if (node_ctl_params.pit_dflt_lifetime_sec != -1)
-	{
-	  vlib_cli_output (vm, "  PIT:: dflt lifetime: %05.3f seconds\n",
-			   node_ctl_params.pit_dflt_lifetime_sec);
-	}
-      if (node_ctl_params.pit_min_lifetime_sec != -1)
-	{
-	  vlib_cli_output (vm, "  PIT:: min lifetime: %05.3f seconds\n",
-			   node_ctl_params.pit_min_lifetime_sec);
 	}
       if (node_ctl_params.pit_max_lifetime_sec != -1)
 	{
@@ -380,12 +334,10 @@ hicn_cli_show_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
   vlib_cli_output (vm,
 		   "Forwarder: %sabled\n"
 		   "  PIT:: max entries:%d,"
-		   " lifetime default: %05.3f sec (min:%05.3f, max:%05.3f)\n"
+		   " lifetime default: max:%05.3f\n"
 		   "  CS::  max entries:%d, network entries:%d, app entries:%d (allocated %d, free %d)\n",
 		   hicn_main.is_enabled ? "en" : "dis",
 		   hicn_infra_pit_size,
-		   ((f64) hicn_main.pit_lifetime_dflt_ms) / SEC_MS,
-		   ((f64) hicn_main.pit_lifetime_min_ms) / SEC_MS,
 		   ((f64) hicn_main.pit_lifetime_max_ms) / SEC_MS,
 		   hicn_infra_cs_size,
 		   hicn_infra_cs_size - hicn_main.pitcs.pcs_app_max,
@@ -445,7 +397,7 @@ done:
 		       "Bucke count %d, Overflow buckets count %d, used %d\n",
 		       hicn_main.pitcs.pcs_table->ht_bucket_count,
 		       hicn_main.pitcs.pcs_table->ht_overflow_bucket_count,
-                       hicn_main.pitcs.pcs_table->ht_overflow_buckets_used);
+		       hicn_main.pitcs.pcs_table->ht_overflow_buckets_used);
 
     }
   return (ret == HICN_ERROR_NONE) ? 0 : clib_error_return (0, "%s\n",
@@ -823,8 +775,8 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
     {
       /* Add data node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.hicn_node_info.
-					      ip4_inacl_node_index,
+					      hicn_punt_glb.
+					      hicn_node_info.ip4_inacl_node_index,
 					      hicn_pg_data_node.index);
 
       /* Add pgen_client node to the vpp graph */
@@ -861,8 +813,8 @@ hicn_cli_pgen_client_set_command_fn (vlib_main_t * vm,
     {
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.
-					      hicn_node_info.ip6_inacl_node_index,
+					      hicn_punt_glb.hicn_node_info.
+					      ip6_inacl_node_index,
 					      hicn_pg_data_node.index);
 
       /* Add pgen_client node to the vpp graph */
@@ -1032,8 +984,8 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
     {
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.hicn_node_info.
-					      ip4_inacl_node_index,
+					      hicn_punt_glb.
+					      hicn_node_info.ip4_inacl_node_index,
 					      hicn_pg_server_node.index);
 
       /* Create the punting table if it does not exist */
@@ -1059,8 +1011,8 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
     {
       /* Add node to the vpp graph */
       u32 next_hit_node = vlib_node_add_next (vm,
-					      hicn_punt_glb.
-					      hicn_node_info.ip6_inacl_node_index,
+					      hicn_punt_glb.hicn_node_info.
+					      ip6_inacl_node_index,
 					      hicn_pg_server_node.index);
 
       /* Create the punting table if it does not exist */

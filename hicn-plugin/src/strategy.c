@@ -77,10 +77,9 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
   hicn_ops_vft[type.l1]->get_lifetime (type, &hicn0->protocol,
 				       &imsg_lifetime);
 
-  if (imsg_lifetime < sm->pit_lifetime_min_ms
-      || imsg_lifetime > sm->pit_lifetime_max_ms)
+  if (imsg_lifetime > sm->pit_lifetime_max_ms)
     {
-      imsg_lifetime = sm->pit_lifetime_dflt_ms;
+      imsg_lifetime = sm->pit_lifetime_max_ms;
     }
   pitp->shared.expire_time = hicn_pcs_get_exp_time (tnow, imsg_lifetime);
 
@@ -210,8 +209,9 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 	   */
 	  if (PREDICT_TRUE
 	      (ret == HICN_ERROR_NONE && HICN_IS_NAMEHASH_CACHED (b0)
-	       && strategy->hicn_select_next_hop (vnet_buffer (b0)->ip.
-						  adj_index[VLIB_TX], &nh_idx,
+	       && strategy->hicn_select_next_hop (vnet_buffer (b0)->
+						  ip.adj_index[VLIB_TX],
+						  &nh_idx,
 						  &outface) ==
 	       HICN_ERROR_NONE))
 	    {
