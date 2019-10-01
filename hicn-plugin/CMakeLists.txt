@@ -189,6 +189,9 @@ set(HICN_VAPI_GENERATED_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.vapi.h
     ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.vapi.hpp)
 
+set(HICN_VPP_STARTUP_CONF_FILE
+    ${CMAKE_BINARY_DIR}/startup.conf)
+
 if (NOT VPP_HOME)
     set(VPP_HOME /usr)
 endif()
@@ -266,6 +269,7 @@ add_library(hicn_api_test_plugin SHARED
 
 set(VPP_INSTALL_PLUGIN ${HICN_INSTALL_PREFIX}/vpp_plugins)
 set(VPP_INSTALL_API_TEST_PLUGIN ${HICN_INSTALL_PREFIX}/vpp_api_test_plugins CACHE STRING "vpp_install_api_test_plugin")
+set(VPP_STARTUP_CONF /etc/vpp/)
 
 set_target_properties(hicn_plugin
         PROPERTIES

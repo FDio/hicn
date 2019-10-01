@@ -29,3 +29,8 @@ set(${HICN_PLUGIN}_RPM_DEPENDENCIES
   "vpp >= stable_version-release, vpp < next_version-release, vpp-plugins >= stable_version-release, vpp-plugins < next_version-release"
   CACHE STRING "Dependencies for deb/rpm package."
 )
+
+set(${HICN_PLUGIN}_DEB_PACKAGE_CONTROL_EXTRA
+  "${CMAKE_CURRENT_SOURCE_DIR}/scripts/postinst"
+  CACHE STRING "Control scripts conffiles, postinst, postrm, prerm."
+)

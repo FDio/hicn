@@ -62,13 +62,11 @@ STATIC_ASSERT ((ceil (log2 ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4)))) ==
 STATIC_ASSERT ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX <= HICN_PARAM_FACES_MAX),
 	       "HICN_PARAM_PIT_ENTRY_PHOP_MAX must be <= than HICN_PARAM_FACES_MAX");
 
-// PIT lifetime limits on API override this(in mseconds, integer type)
-#define HICN_PARAM_PIT_LIFETIME_BOUND_MIN_SEC   100
-#define HICN_PARAM_PIT_LIFETIME_BOUND_MAX_SEC  20000
+// PIT lifetime limits on API override this(in seconds, integer type)
+#define HICN_PARAM_PIT_LIFETIME_BOUND_MIN_SEC   0
+#define HICN_PARAM_PIT_LIFETIME_BOUND_MAX_SEC  200
 
 //PIT lifetime params if not set at API(in mseconds, integer type)
-#define HICN_PARAM_PIT_LIFETIME_DFLT_MIN_MS  200
-#define HICN_PARAM_PIT_LIFETIME_DFLT_DFLT_MS 20000
 #define HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS  20000
 
 // Face CS reservation params
@@ -92,6 +90,7 @@ STATIC_ASSERT ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX <= HICN_PARAM_FACES_MAX),
 
 /* CS reserved portion for applications */
 #define HICN_PARAM_CS_RESERVED_APP 50	//%
+#define HICN_PARAM_CS_MIN_MBUF 4096	//this seems to be the minumim default number of mbuf we can have in vpp
 
 /* Cloning parameters */
 /* ip4 */
