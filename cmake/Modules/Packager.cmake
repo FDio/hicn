@@ -116,6 +116,10 @@ macro(make_packages)
         set(CPACK_${type}_${uc}_PACKAGE_DEPENDS "${DEB_DEPS}")
         set(CPACK_${type}_${uc}_PACKAGE_NAME "${lc}")
         set(CPACK_COMPONENT_${uc}_DESCRIPTION "${${lc}_DESCRIPTION}")
+
+        if (NOT ${${lc}_DEB_PACKAGE_CONTROL_EXTRA} STREQUAL "")
+          set(CPACK_DEBIAN_${uc}_PACKAGE_CONTROL_EXTRA "${${lc}_DEB_PACKAGE_CONTROL_EXTRA}")
+        endif()
       endforeach()
     elseif(OS_ID_LIKE MATCHES "rhel")
       set(CPACK_GENERATOR "RPM")
@@ -152,6 +156,10 @@ macro(make_packages)
 
         set(CPACK_RPM_${uc}_PACKAGE_NAME "${package_name}")
         set(CPACK_${type}_${uc}_FILE_NAME "${package_name}-${rpm_ver}.${arch}.rpm")
+
+        if (NOT ${${lc}_RPM_POST_INSTALL_SCRIPT_FILE} STREQUAL "")
+          set(CPACK_RPM_${uc}_POST_INSTALL_SCRIPT_FILE "${${lc}_RPM_POST_INSTALL_SCRIPT_FILE}")
+        endif()
       endforeach()
     endif()
 
