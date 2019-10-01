@@ -27,3 +27,18 @@ set(${LIBMEMIF}_DEB_DEPENDENCIES
 set(${LIBMEMIF}_RPM_DEPENDENCIES
   "" CACHE STRING "Dependencies for deb/rpm package."
 )
+
+set(${LIBMEMIF}-dev_DESCRIPTION
+  "Libmemif, shared memory interface header files"
+  CACHE STRING "Description for deb/rpm package."
+)
+
+set(${LIBMEMIF}-dev_DEB_DEPENDENCIES
+  "libmemif (>= stable_version)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(${LIBMEMIF}-dev_RPM_DEPENDENCIES
+  "libmemif (>= stable_version)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)

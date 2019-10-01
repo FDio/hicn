@@ -55,4 +55,10 @@ set(LIBMEMIF_INCLUDE_DIRS
   "" FORCE
 )
 
+set(LIBMEMIF_LIBRARIES
+  ${LIBMEMIF_SHARED}
+  "" CACHE INTERNAL
+  "" FORCE
+)
+
 add_subdirectory(memif)
