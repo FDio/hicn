@@ -74,7 +74,6 @@ endif()
 include( Packaging )
 
 find_package(Threads REQUIRED)
-find_package(OpenSSL REQUIRED)
 
 set(LIBHICN_LIGHT hicn-light)
 set(LIBHICN_LIGHT_STATIC ${LIBHICN_LIGHT}.static)
