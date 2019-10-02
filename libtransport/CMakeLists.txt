@@ -105,11 +105,11 @@ else()
         list(APPEND DEPENDENCIES
           ${LIBMEMIF_SHARED}
         )
-
-        list(APPEND LIBRARIES
-          ${LIBMEMIF_SHARED}
-        )
       endif()
+
+      list(APPEND LIBRARIES
+        ${LIBMEMIF_LIBRARIES}
+      )
     endif()
   endif()
 endif()

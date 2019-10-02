@@ -48,9 +48,16 @@ endif()
 
 include_directories(src)
 set(LIBMEMIF memif)
+set(LIBMEMIF_SHARED ${LIBMEMIF}.shared)
 
 set(LIBMEMIF_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}
+  "" CACHE INTERNAL
+  "" FORCE
+)
+
+set(LIBMEMIF_LIBRARIES
+  ${LIBMEMIF_SHARED}
   "" CACHE INTERNAL
   "" FORCE
 )
