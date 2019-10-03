@@ -1,0 +1,234 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "dd85e881_3bb94a0b",
+        "filename": "ctrl/sysrepo-plugins/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-10-03T10:00:28Z",
+      "side": 1,
+      "message": "A controller",
+      "range": {
+        "startLine": 34,
+        "startChar": 12,
+        "endLine": 34,
+        "endChar": 21
+      },
+      "revId": "324a24d2efc9853ca9529a07a3f489fc0d187b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "e6044a3c_10255ee2",
+        "filename": "ctrl/sysrepo-plugins/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 37,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-10-03T10:00:28Z",
+      "side": 1,
+      "message": "controller",
+      "range": {
+        "startLine": 37,
+        "startChar": 0,
+        "endLine": 37,
+        "endChar": 9
+      },
+      "revId": "324a24d2efc9853ca9529a07a3f489fc0d187b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "05567e4a_72ec73d9",
+        "filename": "ctrl/sysrepo-plugins/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-10-03T10:00:28Z",
+      "side": 1,
+      "message": "corresponding",
+      "range": {
+        "startLine": 38,
+        "startChar": 15,
+        "endLine": 38,
+        "endChar": 27
+      },
+      "revId": "324a24d2efc9853ca9529a07a3f489fc0d187b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "76d42507_4fcd44e0",
+        "filename": "ctrl/sysrepo-plugins/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 38,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-10-03T10:00:28Z",
+      "side": 1,
+      "message": "the hicn model a variety",
+      "range": {
+        "startLine": 38,
+        "startChar": 39,
+        "endLine": 38,
+        "endChar": 57
+      },
+      "revId": "324a24d2efc9853ca9529a07a3f489fc0d187b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f61463e5_62ebdae9",
+        "filename": "ctrl/sysrepo-plugins/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-10-03T10:00:28Z",
+      "side": 1,
+      "message": "the controller",
+      "range": {
+        "startLine": 39,
+        "startChar": 9,
+        "endLine": 39,
+        "endChar": 18
+      },
+      "revId": "324a24d2efc9853ca9529a07a3f489fc0d187b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4c7f807f_cea94076",
+        "filename": "ctrl/sysrepo-plugins/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-10-03T10:00:28Z",
+      "side": 1,
+      "message": "the hicn-plugin",
+      "range": {
+        "startLine": 39,
+        "startChar": 39,
+        "endLine": 39,
+        "endChar": 50
+      },
+      "revId": "324a24d2efc9853ca9529a07a3f489fc0d187b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ee31b727_c61a1216",
+        "filename": "ctrl/sysrepo-plugins/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 70,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-10-03T10:00:28Z",
+      "side": 1,
+      "message": "controller",
+      "range": {
+        "startLine": 70,
+        "startChar": 0,
+        "endLine": 70,
+        "endChar": 9
+      },
+      "revId": "324a24d2efc9853ca9529a07a3f489fc0d187b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "c0890420_bb142e0c",
+        "filename": "ctrl/sysrepo-plugins/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-10-03T10:00:28Z",
+      "side": 1,
+      "message": "controller",
+      "range": {
+        "startLine": 71,
+        "startChar": 48,
+        "endLine": 71,
+        "endChar": 57
+      },
+      "revId": "324a24d2efc9853ca9529a07a3f489fc0d187b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "07ac8f3e_5d918427",
+        "filename": "ctrl/sysrepo-plugins/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-10-03T10:00:28Z",
+      "side": 1,
+      "message": "controller",
+      "range": {
+        "startLine": 75,
+        "startChar": 36,
+        "endLine": 75,
+        "endChar": 45
+      },
+      "revId": "324a24d2efc9853ca9529a07a3f489fc0d187b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0b32791d_8797c4f8",
+        "filename": "ctrl/sysrepo-plugins/README.md",
+        "patchSetId": 3
+      },
+      "lineNbr": 220,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-10-03T10:00:28Z",
+      "side": 1,
+      "message": "procedure",
+      "range": {
+        "startLine": 220,
+        "startChar": 21,
+        "endLine": 220,
+        "endChar": 31
+      },
+      "revId": "324a24d2efc9853ca9529a07a3f489fc0d187b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
