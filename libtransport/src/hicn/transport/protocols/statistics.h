@@ -33,7 +33,9 @@ class TransportStatistics {
         average_rtt_(0),
         avg_window_size_(0),
         interest_tx_(0),
-        alpha_(alpha) {}
+        alpha_(alpha),
+        loss_ratio_(0.0),
+        queuing_delay_(0.0) {}
 
   TRANSPORT_ALWAYS_INLINE void updateRetxCount(uint64_t retx) {
     retx_count_ += retx;
@@ -56,6 +58,14 @@ class TransportStatistics {
     interest_tx_ += int_tx;
   }
 
+  TRANSPORT_ALWAYS_INLINE void updateLossRatio(double loss_ratio) {
+    loss_ratio_ = loss_ratio;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void updateQueuingDelay(double queuing_delay) {
+    queuing_delay_ = queuing_delay;
+  }
+
   TRANSPORT_ALWAYS_INLINE uint64_t getRetxCount() const { return retx_count_; }
 
   TRANSPORT_ALWAYS_INLINE uint64_t getBytesRecv() const {
@@ -72,12 +82,21 @@ class TransportStatistics {
     return interest_tx_;
   }
 
+  TRANSPORT_ALWAYS_INLINE double getLossRatio() const {
+    return loss_ratio_;
+  }
+
+  TRANSPORT_ALWAYS_INLINE double getQueuingDelay() const {
+    return queuing_delay_;
+  }
+
   TRANSPORT_ALWAYS_INLINE void reset() {
     retx_count_ = 0;
     bytes_received_ = 0;
     average_rtt_ = 0;
     avg_window_size_ = 0;
     interest_tx_ = 0;
+    loss_ratio_ = 0;
   }
 
  private:
@@ -87,6 +106,8 @@ class TransportStatistics {
   double avg_window_size_;
   uint64_t interest_tx_;
   double alpha_;
+  double loss_ratio_;
+  double queuing_delay_;
 };
 
 }  // end namespace protocol

@@ -33,10 +33,13 @@ class RTCDataPath {
  public:
   void insertRttSample(uint64_t rtt);
   void insertOwdSample(int64_t owd);
+  void computeInterArrivalGap(uint32_t segmentNumber);
+  void receivedNack();
 
   uint64_t getMinRtt();
-
   double getQueuingDealy();
+  double getInterArrivalGap();
+  bool isActive();
 
   void roundEnd();
 
@@ -52,6 +55,20 @@ class RTCDataPath {
   double avg_owd;
 
   double queuing_delay;
+
+  uint32_t lastRecvSeq_;
+  uint64_t lastRecvTime_;
+  double avg_inter_arrival_;
+
+  //flags to check if a path is active
+  //we considere a path active if it reaches a producer
+  //(not a cache) --aka we got at least one nack on this path--
+  //and if we receives packets
+  bool received_nacks_;
+  bool received_packets_;
+  uint8_t rounds_without_packets_; //if we don't get any packet
+                                   //for MAX_ROUNDS_WITHOUT_PKTS
+                                   //we consider the path inactive
 
   utils::MinFilter<uint64_t> RTThistory_;
   utils::MinFilter<int64_t> OWDhistory_;
