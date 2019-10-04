@@ -497,7 +497,7 @@ void RTCTransportProtocol::addRetransmissions(uint32_t start, uint32_t stop) {
     auto it = interestRetransmissions_.find(i);
     if (it == interestRetransmissions_.end()) {
       if (lastSegNacked_ <= i) {
-        // i must be larger than the last past nack received
+        // it must be larger than the last past nack received
         packetLost_++;
         interestRetransmissions_[i] = 0;
         uint32_t pkt = i & modMask_;
@@ -614,6 +614,12 @@ void RTCTransportProtocol::onTimeout(Interest::Ptr &&interest) {
   // packetLost_++;
 
   uint32_t segmentNumber = interest->getName().getSuffix();
+
+  if(segmentNumber >= HICN_MIN_PROBE_SEQ){
+    //this is a timeout on a probe, do nothing
+    return;
+  }
+
   uint32_t pkt = segmentNumber & modMask_;
 
   if (inflightInterests_[pkt].state == sent_) {
@@ -746,30 +752,25 @@ void RTCTransportProtocol::onContentObject(
     (*callback_content_object)(*socket_, *content_object);
   }
 
-  if(segmentNumber == probe_seq_number_){
-    if(payload_size == HICN_NACK_HEADER_SIZE){
-      if(!received_probe_){
-        received_probe_ = true;
+  if(segmentNumber >= HICN_MIN_PROBE_SEQ){
+    if(segmentNumber == probe_seq_number_ && !received_probe_){
+      received_probe_ = true;
 
-        uint32_t pathLabel = content_object->getPathLabel();
-        if (pathTable_.find(pathLabel) == pathTable_.end()){
-          //if this path does not exists we cannot create a new one so drop
-          return;
-        }
+      uint32_t pathLabel = content_object->getPathLabel();
+      if (pathTable_.find(pathLabel) == pathTable_.end()){
+        //if this path does not exists we cannot create a new one so drop
+        return;
+      }
 
-        //this is the expected probe, update the RTT and drop the packet
-        uint64_t RTT = std::chrono::duration_cast<std::chrono::milliseconds>(
+      //this is the expected probe, update the RTT and drop the packet
+      uint64_t RTT = std::chrono::duration_cast<std::chrono::milliseconds>(
                      std::chrono::steady_clock::now().time_since_epoch())
                      .count() - time_sent_probe_;
 
-        pathTable_[pathLabel]->insertRttSample(RTT);
-        pathTable_[pathLabel]->receivedNack();
-        return;
-      }
-    }else{
-      //this should never happen
-      //don't know what to do, let's try to process it as normal packet
+      pathTable_[pathLabel]->insertRttSample(RTT);
+      pathTable_[pathLabel]->receivedNack();
     }
+    return;
   }
 
   if (payload_size == HICN_NACK_HEADER_SIZE) {

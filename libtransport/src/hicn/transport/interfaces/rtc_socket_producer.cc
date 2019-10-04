@@ -191,6 +191,11 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
     return;
   }
 
+  if(interestSeg > HICN_MAX_DATA_SEQ){
+    sendNack(*interest, isActive);
+    return;
+  }
+
   uint32_t max_gap = (uint32_t)floor(
       (double)((double)((double)lifetime * INTEREST_LIFETIME_REDUCTION_FACTOR /
                         1000.0) *
