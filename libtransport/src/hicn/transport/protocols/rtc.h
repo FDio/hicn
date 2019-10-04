@@ -183,6 +183,7 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   uint32_t modMask_;
 
   // stats
+  bool firstPckReceived_;
   uint32_t receivedBytes_;
   uint32_t sentInterest_;
   uint32_t receivedData_;

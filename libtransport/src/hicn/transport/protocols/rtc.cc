@@ -99,6 +99,7 @@ void RTCTransportProtocol::reset() {
   }
 
   // stats
+  firstPckReceived_ = false;
   receivedBytes_ = 0;
   sentInterest_ = 0;
   receivedData_ = 0;
@@ -446,8 +447,23 @@ void RTCTransportProtocol::scheduleNextInterests() {
     socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME,
                              &interest_name);
 
+   interest_name->setSuffix(actualSegment_);
+
+    // if the producer socket is not stated (does not reply even with nacks)
+    // we keep asking for something without marking anything as lost (see
+    // timeout). In this way when the producer socket will start the
+    //consumer socket will not miss any packet
+    if(TRANSPORT_EXPECT_FALSE(!firstPckReceived_)){
+      uint32_t pkt = actualSegment_ & modMask_;
+      inflightInterests_[pkt].state = sent_;
+      inflightInterests_[pkt].sequence = actualSegment_;
+      actualSegment_ = (actualSegment_ + 1) % HICN_MIN_PROBE_SEQ;
+      sendInterest(interest_name, false);
+      return;
+    }
+
     // we send the packet only if it is not pending yet
-    interest_name->setSuffix(actualSegment_);
+    // notice that this is not true for rtx packets
     if (portal_->interestIsPending(*interest_name)) {
       actualSegment_ = (actualSegment_ + 1) % HICN_MIN_PROBE_SEQ;
       continue;
@@ -616,11 +632,19 @@ void RTCTransportProtocol::onTimeout(Interest::Ptr &&interest) {
   uint32_t segmentNumber = interest->getName().getSuffix();
 
   if(segmentNumber >= HICN_MIN_PROBE_SEQ){
-    //this is a timeout on a probe, do nothing
+    // this is a timeout on a probe, do nothing
     return;
   }
 
   uint32_t pkt = segmentNumber & modMask_;
+
+  if(TRANSPORT_EXPECT_FALSE(!firstPckReceived_)){
+    inflightInterestsCount_--;
+    // we do nothing, and we keep asking the same stuff over
+    // and over until we get at least a packet
+    scheduleNextInterests();
+    return;
+  }
 
   if (inflightInterests_[pkt].state == sent_) {
     inflightInterestsCount_--;
@@ -739,6 +763,10 @@ bool RTCTransportProtocol::onNack(const ContentObject &content_object, bool rtx)
 
 void RTCTransportProtocol::onContentObject(
     Interest::Ptr &&interest, ContentObject::Ptr &&content_object) {
+
+  // as soon as we get a packet firstPckReceived_ will never be false
+  firstPckReceived_ = true;
+
   auto payload = content_object->getPayload();
   uint32_t payload_size = (uint32_t)payload->length();
   uint32_t segmentNumber = content_object->getName().getSuffix();
