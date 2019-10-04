@@ -45,6 +45,9 @@ namespace interface {
 #endif
 #define ERROR_SETUP -5
 
+#define MIN_PROBE_SEQ 0xefffffff
+
+
 using CryptoSuite = utils::CryptoSuite;
 using Identity = utils::Identity;
 
@@ -210,9 +213,11 @@ class HIperfClient {
                   << ". Next expected packet " << productionSeg + 1
                   << std::endl;
         expected_seg_ = productionSeg;
-      } else if (receivedSeg > productionSeg) {
+      } else if (receivedSeg > productionSeg && receivedSeg < MIN_PROBE_SEQ) {
         std::cout << "[WINDOW TO LARGE] received NACK for " << receivedSeg
-                  << ". Next expected packet " << productionSeg << std::endl;
+            << ". Next expected packet " << productionSeg << std::endl;
+      } else if (receivedSeg >= MIN_PROBE_SEQ){
+        std::cout << "[PROBE] probe number = " << receivedSeg << std::endl;
       }
       return;
     }
@@ -252,6 +257,10 @@ class HIperfClient {
 
   void handleTimerExpiration(ConsumerSocket &c,
                              const protocol::TransportStatistics &stats) {
+
+    if (configuration_.rtc_)
+        return;
+
     const char separator = ' ';
     const int width = 20;
 
