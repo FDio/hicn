@@ -83,3 +83,7 @@ connection_state_t ioOperations_GetAdminState(const IoOperations *ops) {
 void ioOperations_SetAdminState(IoOperations *ops, connection_state_t admin_state) {
   ops->setAdminState(ops, admin_state);
 }
+
+const char * ioOperations_GetInterfaceName(const IoOperations *ops) {
+    return ops->getInterfaceName(ops);
+}

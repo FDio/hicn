@@ -119,7 +119,7 @@ void Interest::setName(Name &&name) {
   }
 }
 
-void Interest::setLocator(const ip_address_t &ip_address) {
+void Interest::setLocator(const ip_prefix_t &ip_address) {
   if (hicn_interest_set_locator(format_, packet_start_, &ip_address) < 0) {
     throw errors::RuntimeException("Error setting interest locator.");
   }
@@ -127,8 +127,8 @@ void Interest::setLocator(const ip_address_t &ip_address) {
   return;
 }
 
-ip_address_t Interest::getLocator() const {
-  ip_address_t ip;
+ip_prefix_t Interest::getLocator() const {
+  ip_prefix_t ip;
 
   if (hicn_interest_get_locator(format_, packet_start_, &ip) < 0) {
     throw errors::RuntimeException("Error getting interest locator.");

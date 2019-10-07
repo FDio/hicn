@@ -18,34 +18,120 @@
  * \brief Netlink interface
  */
 
+#include <assert.h>
 #include <linux/rtnetlink.h>
+#include <net/if_arp.h> // ARPHRD_LOOPBACK
 #include <sys/types.h> // getpid
 #include <unistd.h> // getpid
 
-#include "../../event.h"
-#include "../../facemgr.h"
+#include <hicn/facemgr.h>
+#include <hicn/util/ip_address.h>
+#include <hicn/util/log.h>
+
+#include "../../common.h"
+#include "../../facelet.h"
 #include "../../interface.h"
+
+typedef enum {
+    NL_STATE_UNDEFINED,
+    NL_STATE_LINK_SENT,
+    NL_STATE_ADDR_SENT,
+    NL_STATE_DONE,
+} nl_state_t;
 
 /* Internal data storage */
 typedef struct {
     int fd;
+    nl_state_t state;
 } nl_data_t;
 
-// little helper to parsing message using netlink macroses
-void parseRtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
+static inline void parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len,
+	unsigned short flags)
 {
-    memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
+    unsigned short type;
 
-    while (RTA_OK(rta, len)) {  // while not end of the message
-        if (rta->rta_type <= max) {
-            tb[rta->rta_type] = rta; // read attr
-        }
-        rta = RTA_NEXT(rta,len);    // get next attr
+    memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
+    while (RTA_OK(rta, len)) {
+        type = rta->rta_type & ~flags;
+        if (type <= max)
+            tb[type] = rta;
+        rta = RTA_NEXT(rta, len);
     }
 }
 
+int nl_process_state(interface_t * interface)
+{
+    nl_data_t * data = (nl_data_t*)interface->data;
+    int rc;
 
-int nl_initialize(interface_t * interface, face_rules_t * rules, void ** pdata)
+    switch(data->state) {
+        case NL_STATE_UNDEFINED:
+        {
+            struct {
+                struct nlmsghdr  header;
+                struct rtgenmsg payload;
+            } msg2 = {
+                .header = {
+                    .nlmsg_len = NLMSG_LENGTH(sizeof(struct rtgenmsg)),
+                    .nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+                    .nlmsg_type = RTM_GETLINK,
+                    .nlmsg_pid = getpid(),
+                    .nlmsg_seq = 3,
+                },
+                .payload = {
+                    .rtgen_family = AF_PACKET,
+                }
+            };
+
+            rc = send(data->fd, &msg2, msg2.header.nlmsg_len, 0);
+            if (rc < 0)
+                printf("E: Error sending netlink query\n");
+
+            data->state = NL_STATE_LINK_SENT;
+            break;
+        }
+
+        case NL_STATE_LINK_SENT:
+        {
+            /* Issue a first query to receive static state */
+            struct {
+                struct nlmsghdr  header;
+                struct ifaddrmsg payload;
+            } msg = {
+                .header = {
+                    .nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg)),
+                    .nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+                    .nlmsg_type = RTM_GETADDR,
+                    .nlmsg_pid = getpid(),
+                    .nlmsg_seq = 7,
+                },
+                .payload = {
+                    .ifa_family = AF_INET,
+                }
+            };
+
+            rc = send(data->fd, &msg, msg.header.nlmsg_len, 0);
+            if (rc < 0)
+                printf("E: Error sending netlink query\n");
+
+            data->state = NL_STATE_ADDR_SENT;
+            break;
+        }
+
+        case NL_STATE_ADDR_SENT:
+        {
+            data->state = NL_STATE_DONE;
+            break;
+        }
+
+        default: /* NL_STATE_DONE never called */
+            break;
+    }
+
+    return 0;
+}
+
+int nl_initialize(interface_t * interface, void * cfg)
 {
     nl_data_t * data = malloc(sizeof(nl_data_t));
     if (!data)
@@ -57,31 +143,194 @@ int nl_initialize(interface_t * interface, face_rules_t * rules, void ** pdata)
         goto ERR_SOCKET;
     }
 
+    data->state = NL_STATE_UNDEFINED;
+
     struct sockaddr_nl  local;  // local addr struct
     memset(&local, 0, sizeof(local));
     local.nl_family = AF_NETLINK;       // set protocol family
-    local.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR | RTMGRP_IPV4_ROUTE;   // set groups we interested in
+    // NOTE: RTNLGRP_LINK replaces obsolete RTMGRP_LINK, etc
+    local.nl_groups = 0
+        | RTMGRP_LINK
+        | RTMGRP_IPV4_IFADDR
+        | RTMGRP_IPV6_IFADDR
+#if 0
+        | RTMGRP_IPV4_ROUTE;
+        | RTMGRP_IPV6_ROUTE;
+#endif
+        ;
     local.nl_pid = getpid();    // set out id using current process id
-
 
     if (bind(data->fd, (struct sockaddr*)&local, sizeof(local)) < 0) {     // bind socket
         printf("Failed to bind netlink socket: %s\n", (char*)strerror(errno));
         goto ERR_BIND;
     }
 
-    /* Issue a first query to receive static state */
+    interface->data = data;
 
+    nl_process_state(interface);
 
-    *pdata = data;
-    return data->fd; // FACEMGR_SUCCESS;
+    return data->fd; // 0;
 
 ERR_BIND:
     close(data->fd);
 ERR_SOCKET:
     free(data);
 ERR_MALLOC:
-    *pdata = NULL;
-    return FACEMGR_FAILURE;
+    return -1;
+}
+
+int parse_link(struct nlmsghdr * h, facelet_t ** facelet,
+        char * interface_name, size_t interface_name_size,
+        bool * up, bool * running)
+{
+    struct ifinfomsg *ifi;  // structure for network interface info
+    struct rtattr *tb[IFLA_MAX + 1];
+
+    assert(facelet);
+
+    ifi = (struct ifinfomsg*) NLMSG_DATA(h);    // get information about changed network interface
+    parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), IFLA_PAYLOAD(h), 1<<15);
+
+    if (interface_name) {
+        assert(tb[IFLA_IFNAME]);
+        snprintf(interface_name, interface_name_size, "%s", (char*)RTA_DATA(tb[IFLA_IFNAME]));
+    }
+
+    if (up)
+        *up = ifi->ifi_flags & IFF_UP;
+    if (running)
+        *running = ifi->ifi_flags & IFF_RUNNING;
+
+
+    *facelet = facelet_create();
+    netdevice_t * netdevice = netdevice_create_from_name(interface_name);
+    if (!netdevice)
+        goto ERROR;
+    int rc = facelet_set_netdevice(*facelet, *netdevice);
+    if (rc < 0)
+        goto ERROR;
+
+// FIXME Tags
+#if 0
+    /* This is the only opportunity to identify a loopback interface on both
+     * linux _and_ android, as NetworkCapabilities does not have a flag for
+     * LOOPBACK... */
+    if (ifi->ifi_type==ARPHRD_LOOPBACK) {
+        DEBUG("loopback");
+    }
+
+#ifdef IFLA_WIRELESS
+    /*
+     * This signals a wirless event, but it typically occurs _after_ a face is
+     * created... we might need to update an existing face by setting a tag...
+     * or find a way to exploit this flag before actually creating the face...
+     */
+    if (tb[IFLA_WIRELESS])
+        DEBUG("wireless!!!");
+#else
+#warning "IFLA_WIRELESS not supported on this platform"
+#endif /* IFLA_WIRELESS */
+
+#endif
+
+    // TODO
+    //  - ifi_change
+    //  - IFLA_PROTINFO
+
+    return 0;
+
+ERROR:
+    facelet_free(*facelet);
+    *facelet = NULL;
+
+    return -1;
+}
+
+int parse_addr(struct nlmsghdr * h, facelet_t ** facelet,
+        char * interface_name, size_t interface_name_size,
+        char * interface_address, size_t interface_address_size)
+{
+    ip_address_t local_addr = IP_ADDRESS_EMPTY;
+    struct ifaddrmsg *ifa; // structure for network interface data
+    struct rtattr *tba[IFA_MAX+1];
+
+    assert(facelet);
+
+    ifa = (struct ifaddrmsg*)NLMSG_DATA(h); // get data from the network interface
+
+    parse_rtattr(tba, IFA_MAX, IFA_RTA(ifa), IFA_PAYLOAD(h), 0);
+
+    /* FIXME
+     *
+     * IFA_LOCAL ok for v4, not there for v6
+     *
+     * IFA_ADDRESS seems to work for both but with the following precaution
+     *
+     * IFA_ADDRESS is prefix address, rather than local interface address.
+     * It makes no difference for normally configured broadcast interfaces,
+     * but for point-to-point IFA_ADDRESS is DESTINATION address,
+     * local address is supplied in IFA_LOCAL attribute.
+     */
+    if (!tba[IFA_ADDRESS]) {
+        ERROR("[netlink.parse_addr] No local address");
+        return -1;
+    }
+
+    switch(ifa->ifa_family) {
+        case AF_INET:
+            local_addr.v4.as_inaddr = *(struct in_addr*)RTA_DATA(tba[IFA_ADDRESS]);
+            break;
+        case AF_INET6:
+            local_addr.v6.as_in6addr = *(struct in6_addr*)RTA_DATA(tba[IFA_ADDRESS]);
+            break;
+        default:
+            return 0;
+    }
+
+#if 0 /* Not working for v6 */
+    if (interface_name) {
+        assert(tba[IFLA_IFNAME]);
+        snprintf(interface_name, interface_name_size, "%s", (char*)RTA_DATA(tba[IFLA_IFNAME]));
+    }
+#endif
+
+    /* See comment in parse_link */
+    if (interface_address) {
+        assert(tba[IFA_ADDRESS]);
+        ip_address_snprintf(interface_address, interface_address_size, &local_addr, ifa->ifa_family);
+    }
+
+    netdevice_t * netdevice = netdevice_create_from_index(ifa->ifa_index);
+    if (!netdevice) {
+        ERROR("[netlink.parse_addr] error creating netdevice '%s'", interface_name);
+        goto ERROR;
+    }
+
+    if (interface_name) {
+        snprintf(interface_name, interface_name_size, "%s", netdevice->name);
+    }
+
+    *facelet = facelet_create();
+    if (facelet_set_netdevice(*facelet, *netdevice) < 0) {
+        ERROR("[netlink.parse_addr] error setting netdevice");
+        goto ERROR;
+    }
+    if (facelet_set_family(*facelet, ifa->ifa_family) < 0) {
+        ERROR("[netlink.parse_addr] error setting family");
+        goto ERROR;
+    }
+    if (facelet_set_local_addr(*facelet, local_addr) < 0) {
+        ERROR("[netlink.parse_addr] error setting local address");
+        goto ERROR;
+    }
+
+    return 0;
+
+ERROR:
+    facelet_free(*facelet);
+    *facelet = NULL;
+
+    return -1;
 }
 
 int nl_callback(interface_t * interface)
@@ -97,13 +346,12 @@ int nl_callback(interface_t * interface)
     iov.iov_len = sizeof(buf);  // set size
 
     // initialize protocol message header
-    struct msghdr msg;
-    {
-        msg.msg_name = &local;                  // local address
-        msg.msg_namelen = sizeof(local);        // address size
-        msg.msg_iov = &iov;                     // io vector
-        msg.msg_iovlen = 1;                     // io size
-    }
+    struct msghdr msg = {
+        .msg_name = &local,                  // local address
+        .msg_namelen = sizeof(local),        // address size
+        .msg_iov = &iov,                     // io vector
+        .msg_iovlen = 1,                     // io size
+    };
 
     ssize_t status = recvmsg(data->fd, &msg, 0);
 
@@ -115,12 +363,12 @@ int nl_callback(interface_t * interface)
 */
 
         printf("Failed to read netlink: %s", (char*)strerror(errno));
-        return FACEMGR_FAILURE;
+        return -1;
     }
 
     if (msg.msg_namelen != sizeof(local)) { // check message length, just in case
         printf("Invalid length of the sender address struct\n");
-        return FACEMGR_FAILURE;
+        return -1;
     }
 
     // message parser
@@ -129,103 +377,122 @@ int nl_callback(interface_t * interface)
     for (h = (struct nlmsghdr*)buf; status >= (ssize_t)sizeof(*h); ) {   // read all messagess headers
         int len = h->nlmsg_len;
         int l = len - sizeof(*h);
-        char *ifName = NULL;
 
         if ((l < 0) || (len > status)) {
             printf("Invalid message length: %i\n", len);
             continue;
         }
 
-        // now we can check message type
-        if ((h->nlmsg_type == RTM_NEWROUTE) || (h->nlmsg_type == RTM_DELROUTE)) { // some changes in routing table
-            printf("Routing table was changed\n");
-        } else {    // in other case we need to go deeper
-            char *ifUpp;
-            char *ifRunn;
-            struct ifinfomsg *ifi;  // structure for network interface info
-            struct rtattr *tb[IFLA_MAX + 1];
+        switch(h->nlmsg_type) {
+#if 0
+            case RTM_NEWROUTE:
+            case RTM_DELROUTE:
+                DEBUG("Routing table was changed");
+                break;
+#endif
 
-            ifi = (struct ifinfomsg*) NLMSG_DATA(h);    // get information about changed network interface
+            case RTM_DELADDR:
+            {
+                facelet_t * facelet = NULL;
+                char interface_name[IFNAMSIZ];
+                char interface_address[MAXSZ_IP_ADDRESS] = {0};
 
-            parseRtattr(tb, IFLA_MAX, IFLA_RTA(ifi), h->nlmsg_len);  // get attributes
-
-            if (tb[IFLA_IFNAME]) {  // validation
-                ifName = (char*)RTA_DATA(tb[IFLA_IFNAME]); // get network interface name
-            }
-
-            if (ifi->ifi_flags & IFF_UP) { // get UP flag of the network interface
-                ifUpp = (char*)"UP";
-            } else {
-                ifUpp = (char*)"DOWN";
-            }
-
-            if (ifi->ifi_flags & IFF_RUNNING) { // get RUNNING flag of the network interface
-                ifRunn = (char*)"RUNNING";
-            } else {
-                ifRunn = (char*)"NOT RUNNING";
-            }
-
-            char ifAddress[256] = {0};    // network addr
-            struct ifaddrmsg *ifa; // structure for network interface data
-            struct rtattr *tba[IFA_MAX+1];
-
-            ifa = (struct ifaddrmsg*)NLMSG_DATA(h); // get data from the network interface
-
-            parseRtattr(tba, IFA_MAX, IFA_RTA(ifa), h->nlmsg_len);
-
-            if (tba[IFA_LOCAL]) {
-                inet_ntop(AF_INET, RTA_DATA(tba[IFA_LOCAL]), ifAddress, sizeof(ifAddress)); // get IP addr
-            }
-
-            face_t * face;
-
-            if (tba[IFA_LOCAL]) {
-                ip_address_t local_addr = IP_ADDRESS_EMPTY;
-                switch(ifa->ifa_family) {
-                    case AF_INET:
-                        local_addr.v4.as_inaddr = *(struct in_addr*)RTA_DATA(tba[IFA_LOCAL]);
-                        break;
-                    case AF_INET6:
-                        local_addr.v6.as_in6addr = *(struct in6_addr*)RTA_DATA(tba[IFA_LOCAL]);
-                        break;
-                    default:
-                        continue;
+                if (parse_addr(h, &facelet, interface_name, IFNAMSIZ,
+                            interface_address, MAXSZ_IP_ADDRESS) < 0) {
+                    ERROR("Error parsing address message");
+                    break;
                 }
-                face = face_create_udp(&local_addr, 0, &IP_ADDRESS_EMPTY, 0, ifa->ifa_family);
-            } else {
-                face = NULL;
+
+                DEBUG("Interface %s: address was removed", interface_name);
+                if (facelet) {
+                    facelet_set_event(facelet, FACELET_EVENT_DELETE);
+                    facelet_raise_event(facelet, interface);
+                }
+                break;
             }
 
-            switch (h->nlmsg_type) {
-                case RTM_DELADDR:
-                    // DOES NOT SEEM TO BE TRIGGERED
-                    printf("Interface %s: address was removed\n", ifName);
-                    if (face)
-                        event_raise(EVENT_TYPE_DELETE, face, interface);
-                    break;
+            case RTM_NEWADDR:
+            {
+                facelet_t * facelet = NULL;
+                char interface_name[IFNAMSIZ];
+                char interface_address[MAXSZ_IP_ADDRESS] = {0};
 
-                case RTM_DELLINK:
-                    printf("Network interface %s was removed\n", ifName);
+                if (parse_addr(h, &facelet, interface_name, IFNAMSIZ,
+                            interface_address, MAXSZ_IP_ADDRESS) < 0) {
+                    ERROR("Error parsing address message");
                     break;
+                }
 
-                case RTM_NEWLINK:
-                    printf("New network interface %s, state: %s %s\n", ifName, ifUpp, ifRunn);
-                    // UP RUNNING
-                    // UP NOT RUNNING
-                    // DOWN NOT RUNNING
-                    if (!(ifi->ifi_flags & IFF_UP) || (!(ifi->ifi_flags & IFF_RUNNING))) {
-                        if(face)
-                            event_raise(EVENT_TYPE_DELETE, face, interface);
+                DEBUG("Interface %s: new address was assigned: %s", interface_name, interface_address);
+
+                if (facelet) {
+                    facelet_set_event(facelet, FACELET_EVENT_UPDATE);
+                    facelet_raise_event(facelet, interface);
+                }
+                break;
+            }
+
+            case RTM_DELLINK:
+            {
+                facelet_t * facelet = NULL;
+                char interface_name[IFNAMSIZ];
+                if (parse_link(h, &facelet, interface_name, IFNAMSIZ,
+                            NULL, NULL) < 0) {
+                    ERROR("Error parsing link message");
+                    break;
+                }
+                if (facelet) {
+                    facelet_set_event(facelet, FACELET_EVENT_DELETE);
+                    facelet_raise_event(facelet, interface);
+                }
+
+                DEBUG("Network interface %s was removed", interface_name);
+                break;
+            }
+
+            case RTM_NEWLINK:
+            {
+                facelet_t * facelet = NULL;
+                char interface_name[IFNAMSIZ];
+                bool up, running;
+
+                if (parse_link(h, &facelet, interface_name, IFNAMSIZ, &up, &running) < 0) {
+                    ERROR("Error parsing link message");
+                    break;
+                }
+
+                // UP RUNNING
+                // UP NOT RUNNING
+                // DOWN NOT RUNNING
+                DEBUG("New network interface %s, state: %s %s", interface_name,
+                        up ? "UP" : "DOWN",
+                        running ? "RUNNING" : "NOT_RUNNING");
+
+                if (facelet && up && running) {
+                    facelet_set_event(facelet, FACELET_EVENT_CREATE);
+                    facelet_t * facelet6 = facelet_dup(facelet);
+                    if (!facelet6) {
+                        ERROR("Could not duplicate face for v6");
+                        break;
                     }
-                    break;
 
-                case RTM_NEWADDR:
-                    printf("Interface %s: new address was assigned: %s\n", ifName, ifAddress);
-                    printf("NEW FACE\n");
-                    if (face)
-                        event_raise(EVENT_TYPE_CREATE, face, interface);
-                    break;
+                    facelet_set_family(facelet, AF_INET);
+                    facelet_raise_event(facelet, interface);
+
+                    facelet_set_family(facelet6, AF_INET6);
+                    facelet_raise_event(facelet6, interface);
+                }
+                break;
             }
+
+            case NLMSG_ERROR:
+                break;
+            case NLMSG_DONE:
+                nl_process_state(interface);
+                break;
+            default:
+                break;
+
         }
 
         status -= NLMSG_ALIGN(len); // align offsets by the message length, this is important
@@ -233,20 +500,19 @@ int nl_callback(interface_t * interface)
         h = (struct nlmsghdr*)((char*)h + NLMSG_ALIGN(len));    // get next message
     }
 
-    return FACEMGR_SUCCESS;
+    return 0;
 }
 
 int nl_finalize(interface_t * interface)
 {
     nl_data_t * data = (nl_data_t*)interface->data;
     close(data->fd);
-    return FACEMGR_SUCCESS;
+    return 0;
 
 }
 
 const interface_ops_t netlink_ops = {
     .type = "netlink",
-    .is_singleton = true,
     .initialize = nl_initialize,
     .callback = nl_callback,
     .finalize = nl_finalize,

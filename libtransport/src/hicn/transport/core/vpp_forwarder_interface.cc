@@ -87,8 +87,8 @@ uint32_t VPPForwarderInterface::getMemifConfiguration() {
 void VPPForwarderInterface::consumerConnection() {
   hicn_consumer_input_params input = {0};
   hicn_consumer_output_params output = {0};
-  ip_address_t ip4_address;
-  ip_address_t ip6_address;
+  ip_prefix_t ip4_address;
+  ip_prefix_t ip6_address;
 
   output.src4 = &ip4_address;
   output.src6 = &ip6_address;
@@ -144,7 +144,7 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
   auto &addr = prefix.toIpAddressStruct();
 
   // Same ip address for input and outurt params
-  ip_address_t ip_address;
+  ip_prefix_t ip_address;
 
   if (face_id_ == uint32_t(~0)) {
     hicn_producer_input_params input;

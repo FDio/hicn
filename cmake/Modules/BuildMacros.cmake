@@ -25,12 +25,13 @@ macro(build_executable exec)
     ${ARGN}
   )
 
-  add_executable(${exec} ${ARG_SOURCES})
+  add_executable(${exec}-bin ${ARG_SOURCES})
 
   set(BUILD_ROOT ${CMAKE_BINARY_DIR}/build-root)
 
-  set_target_properties(${exec}
+  set_target_properties(${exec}-bin
     PROPERTIES
+    OUTPUT_NAME ${exec}
     INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}"
     INSTALL_RPATH_USE_LINK_PATH TRUE
     ARCHIVE_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
@@ -39,19 +40,19 @@ macro(build_executable exec)
   )
 
   if(ARG_LINK_LIBRARIES)
-    target_link_libraries(${exec} ${ARG_LINK_LIBRARIES})
+    target_link_libraries(${exec}-bin ${ARG_LINK_LIBRARIES})
   endif()
 
   if(ARG_DEPENDS)
-    add_dependencies(${exec} ${ARG_DEPENDS})
+    add_dependencies(${exec}-bin ${ARG_DEPENDS})
   endif()
 
   if(ARG_DEFINITIONS)
-    target_compile_definitions(${exec} PRIVATE ${ARG_DEFINITIONS})
+    target_compile_definitions(${exec}-bin PRIVATE ${ARG_DEFINITIONS})
   endif()
 
   if(ARG_INCLUDE_DIRS)
-    target_include_directories(${exec} BEFORE PUBLIC
+    target_include_directories(${exec}-bin BEFORE PUBLIC
       ${ARG_INCLUDE_DIRS}
       ${PROJECT_BINARY_DIR}
     )
@@ -59,7 +60,7 @@ macro(build_executable exec)
 
   if(NOT ARG_NO_INSTALL)
     install(
-      TARGETS ${exec}
+      TARGETS ${exec}-bin
       RUNTIME
       DESTINATION ${CMAKE_INSTALL_BINDIR}
       COMPONENT ${ARG_COMPONENT}
@@ -176,6 +177,9 @@ macro(build_library lib)
           set(dir "")
         endif()
         if ("${dir}" STREQUAL includes)
+          set(dir "")
+        endif()
+        if ("${dir}" STREQUAL ${ARG_INSTALL_ROOT_DIR})
           set(dir "")
         endif()
       else()
