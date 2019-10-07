@@ -23,12 +23,12 @@
 #include <string.h>		// memset
 #include <stddef.h>		// offsetof
 
-#include "common.h"
-#include "compat.h"
-#include "error.h"
-#include "header.h"
-#include "name.h"
-#include "ops.h"
+#include <hicn/common.h>
+#include <hicn/compat.h>
+#include <hicn/error.h>
+#include <hicn/header.h>
+#include <hicn/name.h>
+#include <hicn/ops.h>
 
 #define member_size(type, member) sizeof(((type *)0)->member)
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
@@ -319,7 +319,7 @@ hicn_packet_get_payload (hicn_format_t format, const hicn_header_t * h,
 
 int
 hicn_packet_get_locator (hicn_format_t format, const hicn_header_t * h,
-			 ip_address_t * ip_address, bool is_interest)
+			 ip_prefix_t * prefix, bool is_interest)
 {
   const void *locator;
   int is_ipv4 = (format & HFO_INET);
@@ -328,28 +328,28 @@ hicn_packet_get_locator (hicn_format_t format, const hicn_header_t * h,
   if (is_ipv4)
     {
       locator = is_interest ? &h->v4.ip.saddr : &h->v4.ip.daddr;
-      ip_address->family = AF_INET;
-      ip_address->prefix_len = IPV4_ADDR_LEN_BITS;
+      prefix->family = AF_INET;
+      prefix->len = IPV4_ADDR_LEN_BITS;
     }
   else if (is_ipv6)
     {
       locator = is_interest ? &h->v6.ip.saddr : &h->v6.ip.daddr;
-      ip_address->family = AF_INET6;
-      ip_address->prefix_len = IPV6_ADDR_LEN_BITS;
+      prefix->family = AF_INET6;
+      prefix->len = IPV6_ADDR_LEN_BITS;
     }
   else
     {
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
     }
 
-  memcpy (ip_address->buffer, locator, ip_address_len (ip_address));
+  memcpy (prefix->address.buffer, locator, ip_prefix_len(prefix));
 
   return HICN_LIB_ERROR_NONE;
 }
 
 int
 hicn_packet_set_locator (hicn_format_t format, hicn_header_t * h,
-			 const ip_address_t * ip_address, bool is_interest)
+			 const ip_prefix_t * prefix, bool is_interest)
 {
   void *locator;
   int is_ipv4 = (format & HFO_INET);
@@ -368,7 +368,7 @@ hicn_packet_set_locator (hicn_format_t format, hicn_header_t * h,
       return HICN_LIB_ERROR_INVALID_PARAMETER;
     }
 
-  memcpy (locator, ip_address->buffer, ip_address_len (ip_address));
+  memcpy (locator, prefix->address.buffer, ip_prefix_len(prefix));
 
   return HICN_LIB_ERROR_NONE;
 }
@@ -951,16 +951,16 @@ hicn_interest_set_name (hicn_format_t format, hicn_header_t * interest,
 int
 hicn_interest_get_locator (hicn_format_t format,
 			   const hicn_header_t * interest,
-			   ip_address_t * ip_address)
+			   ip_prefix_t * prefix)
 {
-  return hicn_packet_get_locator (format, interest, ip_address, _INTEREST);
+  return hicn_packet_get_locator (format, interest, prefix, _INTEREST);
 }
 
 int
 hicn_interest_set_locator (hicn_format_t format, hicn_header_t * interest,
-			   const ip_address_t * ip_address)
+			   const ip_prefix_t * prefix)
 {
-  return hicn_packet_set_locator (format, interest, ip_address, _INTEREST);
+  return hicn_packet_set_locator (format, interest, prefix, _INTEREST);
 }
 
 int
@@ -1043,16 +1043,16 @@ hicn_data_set_name (hicn_format_t format, hicn_header_t * data,
 
 int
 hicn_data_get_locator (hicn_format_t format, const hicn_header_t * data,
-		       ip_address_t * ip_address)
+		       ip_prefix_t * prefix)
 {
-  return hicn_packet_get_locator (format, data, ip_address, _DATA);
+  return hicn_packet_get_locator (format, data, prefix, _DATA);
 }
 
 int
 hicn_data_set_locator (hicn_format_t format, hicn_header_t * data,
-		       const ip_address_t * ip_address)
+		       const ip_prefix_t * prefix)
 {
-  return hicn_packet_set_locator (format, data, ip_address, _DATA);
+  return hicn_packet_set_locator (format, data, prefix, _DATA);
 }
 
 int

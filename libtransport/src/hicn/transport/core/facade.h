@@ -37,7 +37,7 @@ namespace core {
 using HicnForwarderPortal = Portal<HicnForwarderInterface>;
 
 #ifdef __linux__
-#ifndef __ANDROID_API__
+#ifndef __ANDROID__
 using RawSocketPortal = Portal<RawSocketInterface>;
 #endif
 #ifdef __vpp__

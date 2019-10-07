@@ -15,17 +15,17 @@
 # Packages section
 ######################
 
-set(${FACE_MGR}_DESCRIPTION
-  "hICN face manager, lib${LIBHICN_CTRL}"
+set(${FACEMGR}_DESCRIPTION
+  "hICN face manager, lib${LIBHICNCTRL}"
   CACHE STRING "Description for deb/rpm package."
 )
 
-set(${FACE_MGR}_DEB_DEPENDENCIES
-  "libconfig9, libevent-dev, lib${LIBHICN_CTRL} (>= stable_version)"
+set(${FACEMGR}_DEB_DEPENDENCIES
+  "libconfig9, libevent-dev, lib${LIBHICNCTRL} (>= stable_version)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
-set(${FACE_MGR}_RPM_DEPENDENCIES
-  "libconfig, libevent-devel, lib${LIBHICN_CTRL} >= stable_version"
+set(${FACEMGR}_RPM_DEPENDENCIES
+  "libconfig, libevent-devel, lib${LIBHICNCTRL} >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )

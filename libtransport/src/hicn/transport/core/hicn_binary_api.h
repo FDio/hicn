@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/config.h>
+#include <hicn/util/ip_address.h>
 
 #ifdef __vpp__
 
@@ -27,10 +28,8 @@ extern "C" {
 
 #include "stdint.h"
 
-typedef struct ip_address ip_address_t;
-
 typedef struct {
-  ip_address_t* prefix;
+  ip_prefix_t* prefix;
   uint32_t swif;
   uint32_t cs_reserved;
 } hicn_producer_input_params;
@@ -41,18 +40,18 @@ typedef struct {
 
 typedef struct {
   uint32_t cs_reserved;
-  ip_address_t* prod_addr;
+  ip_prefix_t* prod_addr;
   uint32_t face_id;
 } hicn_producer_output_params;
 
 typedef struct {
-  ip_address_t* src4;
-  ip_address_t* src6;
+  ip_prefix_t* src4;
+  ip_prefix_t* src6;
   uint32_t face_id;
 } hicn_consumer_output_params;
 
 typedef struct {
-  ip_address_t* prefix;
+  ip_prefix_t* prefix;
   uint32_t face_id;
 } hicn_producer_set_route_params;
 

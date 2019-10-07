@@ -41,7 +41,7 @@ typedef enum {
 #endif /* WITH_MAPME */
 
 #ifdef WITH_POLICY
-#include <hicn/utils/policy.h>
+#include <hicn/policy.h>
 #endif /* WITH_POLICY */
 
 // packet types for probing
@@ -182,6 +182,8 @@ void connection_SetState(Connection *conn, connection_state_t state);
 connection_state_t connection_GetAdminState(const Connection *conn);
 
 void connection_SetAdminState(Connection *conn, connection_state_t admin_state);
+
+const char * connection_GetInterfaceName(const Connection * conn);
 
 #ifdef WITH_POLICY
 void connection_AddTag(Connection *conn, policy_tag_t tag);

@@ -48,6 +48,6 @@
  * <#example#>
  * @endcode
  */
-IoOperations *hicnConnection_Create(Forwarder *forwarder, int fd,
+IoOperations *hicnConnection_Create(Forwarder *forwarder, const char * interfaceName, int fd,
                                     const AddressPair *pair, bool isLocal);
 #endif  // hicnConnection_h

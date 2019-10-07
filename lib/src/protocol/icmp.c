@@ -14,10 +14,10 @@
  */
 
 #include <string.h>
-#include "icmp.h"
+#include <hicn/protocol/icmp.h>
 
-#include "../error.h"
-#include "../ops.h"
+#include <hicn/error.h>
+#include <hicn/ops.h>
 
 DECLARE_get_interest_locator (icmp, UNEXPECTED)
 DECLARE_set_interest_locator (icmp, UNEXPECTED)
