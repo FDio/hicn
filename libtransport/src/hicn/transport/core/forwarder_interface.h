@@ -133,8 +133,8 @@ class ForwarderInterface {
 
  protected:
   ConnectorType &connector_;
-  ip_address_t inet_address_;
-  ip_address_t inet6_address_;
+  ip_prefix_t inet_address_;
+  ip_prefix_t inet6_address_;
   uint16_t mtu_;
   std::string output_interface_;
   uint32_t content_store_reserved_;

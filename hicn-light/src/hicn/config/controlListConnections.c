@@ -83,7 +83,7 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
     return CommandReturn_Failure;
   }
 #ifdef WITH_POLICY
-  char flags_str[POLICY_TAG_N];
+  char flags_str[POLICY_TAG_N+1];
   char *s;
 #endif /* WITH_POLICY */
 
@@ -113,6 +113,12 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
     }
   }
 
+#ifdef WITH_POLICY
+  printf("%5s %10s %12s %6s %40s %40s %5s %s\n", "id", "name", "admin_state", "state", "source", "destination", "type", "flags");
+#else
+  printf("%5s %10s %12s %6s %40s %40s %5s\n", "id", "name", "admin_state", "state", "source", "destination", "type");
+#endif /* WITH_POLICY */
+
   // Process/Print payload
   for (int i = 0; i < receivedHeader->length; i++) {
     list_connections_command *listConnectionsCommand =
@@ -140,7 +146,8 @@ foreach_policy_tag
     *s = '\0';
 
     parcBufferComposer_Format(
-        composer, "%5d %4s %s %s %s [%s]", listConnectionsCommand->connid,
+        composer, "%5d %10s %12s %6s %40s %40s %5s [%s]", listConnectionsCommand->connid, listConnectionsCommand->connectionName,
+        stateString[listConnectionsCommand->admin_state],
         stateString[listConnectionsCommand->state], sourceString,
         destinationString,
         connTypeString[listConnectionsCommand->connectionData.connectionType],
@@ -148,7 +155,8 @@ foreach_policy_tag
 
 #else
     parcBufferComposer_Format(
-        composer, "%5d %4s %s %s %s", listConnectionsCommand->connid,
+        composer, "%5d %10s %12s %6s %40s %40s %5s", listConnectionsCommand->connid, listConnectionsCommand->connectionName,
+        stateString[listConnectionsCommand->admin_state],
         stateString[listConnectionsCommand->state], sourceString,
         destinationString,
         connTypeString[listConnectionsCommand->connectionData.connectionType]);

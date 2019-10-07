@@ -24,14 +24,17 @@
 #include <Network/Network.h>
 #include <err.h>
 
+#include <hicn/facemgr.h>
+#include <hicn/util/token.h>
+#include <hicn/util/log.h>
+
 #include "../../common.h"
-#include "../../event.h"
-#include "../../face.h"
-#include "../../facemgr.h"
+#include <hicn/ctrl/face.h>
+#include "../../facelet.h"
 #include "../../interface.h"
 #include "../../util/map.h"
-#include "../../util/token.h"
-#include "../../util/log.h"
+
+#include "network_framework.h"
 
 /*
  * Bonjour service discovery for hICN forwarder
@@ -107,7 +110,7 @@ cmp_iface(const nw_interface_t iface1, const nw_interface_t iface2)
 //TYPEDEF_MAP(map_cnx, nw_interface_t, nw_connection_t, cmp_iface);
 
 typedef struct {
-    face_rules_t * rules; /**< Face creation rules */
+    network_framework_cfg_t cfg;
     nw_path_monitor_t pm; /**< Main path monitor */
 //    map_cnx_t map_cnx;    /**< Map: interface -> connection for face status */
 } nf_data_t;
@@ -209,97 +212,90 @@ dump_connection(nw_connection_t connection, int indent)
     nw_release(path);
 }
 
-face_t *
-face_create_from_connection(nw_connection_t connection, face_rules_t * rules)
+facelet_t *
+facelet_create_from_connection(nw_connection_t connection)
 {
-    face_t * face;
-    struct sockaddr_in * sin;
-    struct sockaddr_in6 * sin6;
+    facelet_t * facelet;
+    ip_address_t local_addr, remote_addr;
+    uint16_t remote_port;
 
     nw_path_t path = nw_connection_copy_current_path(connection);
     nw_endpoint_t local = nw_path_copy_effective_local_endpoint(path);
     nw_endpoint_t remote = nw_path_copy_effective_remote_endpoint(path);
     __block nw_interface_t interface;
 
-    const struct sockaddr * local_addr = nw_endpoint_get_address(local);
-    const struct sockaddr * remote_addr = nw_endpoint_get_address(remote);
+    const struct sockaddr * local_sa = nw_endpoint_get_address(local);
+    const struct sockaddr * remote_sa = nw_endpoint_get_address(remote);
 
-    assert (local_addr->sa_family == remote_addr->sa_family);
-    switch(local_addr->sa_family) {
+    assert (local_sa->sa_family == remote_sa->sa_family);
+    switch(local_sa->sa_family) {
         case AF_INET:
-            sin = (struct sockaddr_in *)local_addr;
-            sin->sin_port = htons(DEFAULT_PORT);
-            sin = (struct sockaddr_in *)remote_addr;
-            sin->sin_port = htons(DEFAULT_PORT);
+            local_addr.v4.as_inaddr = ((struct sockaddr_in *)local_sa)->sin_addr;
+            remote_addr.v4.as_inaddr = ((struct sockaddr_in *)remote_sa)->sin_addr;
+            remote_port = ((struct sockaddr_in *)remote_sa)->sin_port;
             break;
         case AF_INET6:
-            sin6 = (struct sockaddr_in6 *)local_addr;
-            sin6->sin6_port = htons(DEFAULT_PORT);
-            sin6 = (struct sockaddr_in6 *)remote_addr;
-            sin6->sin6_port = htons(DEFAULT_PORT);
+            local_addr.v6.as_in6addr = ((struct sockaddr_in6 *)local_sa)->sin6_addr;
+            remote_addr.v6.as_in6addr = ((struct sockaddr_in6 *)remote_sa)->sin6_addr;
+            remote_port = ((struct sockaddr_in6 *)remote_sa)->sin6_port;
             break;
         default:
-            ERROR("Unsupported address family: %d\n", local_addr->sa_family);
+            ERROR("Unsupported address family: %d\n", local_sa->sa_family);
             return NULL;
     }
 
-    face = face_create_udp_sa(local_addr, remote_addr);
 
     /* Retrieving path interface type (a single one expected */
     nw_path_enumerate_interfaces(path, (nw_path_enumerate_interfaces_block_t)^(nw_interface_t path_interface) {
         interface = path_interface;
         return false;
     });
-    nw_interface_type_t type = nw_interface_get_type(interface);
+
     const char * name = nw_interface_get_name(interface);
+    netdevice_t netdevice;
+    snprintf(netdevice.name, IFNAMSIZ, "%s", name);
+    netdevice_update_index(&netdevice);
 
-    policy_tags_t tags = POLICY_TAGS_EMPTY;
-
-    if (rules) {
-        if (!FACEMGR_IS_ERROR(face_rules_get(rules, name, &tags)))
-            goto SET_TAGS;
-
-        char tags[MAXSZ_POLICY_TAGS];
-        policy_tags_snprintf(tags, MAXSZ_POLICY_TAGS, face->tags);
-    }
+    netdevice_type_t netdevice_type;
+    nw_interface_type_t type = nw_interface_get_type(interface);
 
     switch(type) {
         case INTERFACE_TYPE_OTHER:
-            policy_tags_add(&tags, POLICY_TAG_WIFI);
-            policy_tags_add(&tags, POLICY_TAG_TRUSTED);
+            netdevice_type = NETDEVICE_TYPE_UNDEFINED;
             break;
         case INTERFACE_TYPE_WIFI:
-            // XXX disambuiguate on interface name for now.
-            policy_tags_add(&tags, POLICY_TAG_WIFI);
-            policy_tags_add(&tags, POLICY_TAG_TRUSTED);
+            netdevice_type = NETDEVICE_TYPE_WIFI;
             break;
         case INTERFACE_TYPE_CELLULAR:
-            policy_tags_add(&tags, POLICY_TAG_CELLULAR);
+            netdevice_type = NETDEVICE_TYPE_CELLULAR;
             break;
         case INTERFACE_TYPE_WIRED:
-            /* Both VPN and USB WiFi are not well detected on MacOS. For USB
-             * WiFi, we currently have no solution. For VPN, until we have
-             * proper support of AnyC APIs, we need to have heuristics to
-             * determine VPN interfaces. */
-            policy_tags_add(&tags, POLICY_TAG_WIRED);
-            policy_tags_add(&tags, POLICY_TAG_TRUSTED);
+            netdevice_type = NETDEVICE_TYPE_WIRED;
             break;
         case INTERFACE_TYPE_LOOPBACK:
-            tags = POLICY_TAGS_EMPTY;
+            netdevice_type = NETDEVICE_TYPE_LOOPBACK;
             break;
         default:
             break;
 
     }
 
-SET_TAGS:
-    face_set_tags(face, tags);
-
     nw_release(local);
     nw_release(remote);
     nw_release(path);
 
-    return face;
+    facelet = facelet_create();
+    if (!facelet)
+        return NULL;
+
+    facelet_set_netdevice(facelet, netdevice);
+    facelet_set_netdevice_type(facelet, netdevice_type);
+    facelet_set_family(facelet, local_sa->sa_family);
+    facelet_set_local_addr(facelet, local_addr);
+    facelet_set_remote_addr(facelet, remote_addr);
+    facelet_set_remote_port(facelet, remote_port);
+
+    return facelet;
 }
 
 void
@@ -340,9 +336,11 @@ on_connection_state_event(interface_t * interface, nw_interface_t iface,
                 dump_connection(cnx, 1);
             });
 #endif
-            nf_data_t * data = (nf_data_t*)interface->data;
-            face_t * face = face_create_from_connection(cnx, data->rules);
-            event_raise(EVENT_TYPE_CREATE, face, interface);
+            facelet_t * facelet = facelet_create_from_connection(cnx);
+            if (!facelet)
+                return;
+            facelet_set_event(facelet, FACELET_EVENT_CREATE);
+            facelet_raise_event(facelet, interface);
             break;
             }
         case nw_connection_state_failed:
@@ -482,14 +480,11 @@ void on_interface_event(interface_t * interface, nw_interface_t iface)
          * This is the first time we have a connection with address and port
          * and thus the full identification of an hICN face
          */
-        nf_data_t * data = (nf_data_t*)interface->data;
-        face_t * face = face_create_from_connection(connection, data->rules);
-        //event_raise(value ? EVENT_TYPE_SET_UP : EVENT_TYPE_SET_DOWN, face, interface);
-        if(value) {
-            event_raise(EVENT_TYPE_CREATE, face, interface);
-        } else {
-            event_raise(EVENT_TYPE_DELETE, face, interface);
-        }
+        facelet_t * facelet = facelet_create_from_connection(connection);
+        if (!facelet)
+            return;
+        facelet_set_event(facelet, value ? FACELET_EVENT_CREATE : FACELET_EVENT_DELETE);
+        facelet_raise_event(facelet, interface);
 
     });
 
@@ -528,13 +523,16 @@ void on_path_event(interface_t * interface, nw_path_t path)
 
 }
 
-int nf_initialize(interface_t * interface, face_rules_t * rules, void ** pdata)
+int nf_initialize(interface_t * interface, void * cfg)
 {
     nf_data_t * data = malloc(sizeof(nf_data_t));
     if (!data)
         goto ERR_MALLOC;
 
-    data->rules = rules;
+    if (cfg)
+        data->cfg = * (network_framework_cfg_t *)cfg;
+    else
+        data->cfg.rules = NULL;
 
     data->pm = nw_path_monitor_create();
     if (!data->pm)
@@ -552,14 +550,13 @@ int nf_initialize(interface_t * interface, face_rules_t * rules, void ** pdata)
     DEBUG("Starting network path monitor");
     nw_path_monitor_start(data->pm);
 
-    *pdata = data;
-    return FACEMGR_SUCCESS;
+    interface->data = data;
+    return 0;
 
 ERR_PM:
     free(data);
 ERR_MALLOC:
-    *pdata = NULL;
-    return FACEMGR_FAILURE;
+    return -1;
 }
 
 int nf_finalize(interface_t * interface)
@@ -569,12 +566,11 @@ int nf_finalize(interface_t * interface)
         nw_path_monitor_cancel(data->pm);
         data->pm = NULL;
     }
-    return FACEMGR_SUCCESS;
+    return 0;
 }
 
 const interface_ops_t network_framework_ops = {
     .type = "network_framework",
-    .is_singleton = true,
     .initialize = nf_initialize,
     .finalize = nf_finalize,
     .on_event = NULL,

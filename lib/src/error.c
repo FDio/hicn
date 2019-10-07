@@ -18,7 +18,7 @@
  * @brief Implementation of error management functions.
  */
 
-#include "error.h"
+#include <hicn/error.h>
 
 const char *HICN_LIB_ERROR_STRING[] = {
 #define _(a,b,c) [b] = c,

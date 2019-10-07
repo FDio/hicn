@@ -24,10 +24,19 @@ endif()
 
 if(LINUX)
 add_subdirectory(netlink)
+add_subdirectory(bonjour)
 endif()
 
-if(false)
+if(ANDROID)
+add_subdirectory(android_utility)
+endif()
+
+if(WITH_EXAMPLE_DUMMY)
 add_subdirectory(dummy)
+endif()
+
+if(WITH_EXAMPLE_UPDOWN)
+add_subdirectory(updown)
 endif()
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

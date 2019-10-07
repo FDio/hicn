@@ -207,11 +207,11 @@ static PARCIterator *mapMeTFIB_CreateKeyIterator(const MapMeTFIB *tfib) {
 
 int hicn_prefix_from_name(const Name *name, hicn_prefix_t *prefix) {
   NameBitvector *bv = name_GetContentName(name);
-  ip_address_t ip_address;
-  nameBitvector_ToIPAddress(bv, &ip_address);
+  ip_prefix_t ip_prefix;
+  nameBitvector_ToIPAddress(bv, &ip_prefix);
 
   /* The name length will be equal to ip address' prefix length */
-  return hicn_prefix_create_from_ip_address(&ip_address, prefix);
+  return hicn_prefix_create_from_ip_prefix(&ip_prefix, prefix);
 }
 
 static Message *mapMe_createMessage(const MapMe *mapme, const Name *name,

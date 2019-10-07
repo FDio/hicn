@@ -40,6 +40,7 @@
 
 typedef struct hicn_state {
   Forwarder *forwarder;
+  char * interfaceName;
   Logger *logger;
 
   // the hicn listener socket we receive packets on
@@ -96,6 +97,7 @@ static connection_state_t _getState(const IoOperations *ops);
 static void _setState(IoOperations *ops, connection_state_t state);
 static connection_state_t _getAdminState(const IoOperations *ops);
 static void _setAdminState(IoOperations *ops, connection_state_t admin_state);
+static const char * _getInterfaceName(const IoOperations *ops);
 
 /*
  * This assigns a unique pointer to the void * which we use
@@ -127,6 +129,7 @@ static IoOperations _template = {
   .setState = &_setState,
   .getAdminState = &_getAdminState,
   .setAdminState = &_setAdminState,
+  .getInterfaceName = &_getInterfaceName,
 };
 
 // =================================================================
@@ -136,7 +139,7 @@ static bool _saveSockaddr(_HicnState *hicnConnState, const AddressPair *pair);
 static void _refreshProbeDestAddress(_HicnState *hicnConnState,
                                      const uint8_t *message);
 
-IoOperations *hicnConnection_Create(Forwarder *forwarder, int fd,
+IoOperations *hicnConnection_Create(Forwarder *forwarder, const char * interfaceName, int fd,
                                     const AddressPair *pair, bool isLocal) {
   IoOperations *io_ops = NULL;
 
@@ -146,6 +149,7 @@ IoOperations *hicnConnection_Create(Forwarder *forwarder, int fd,
                     sizeof(_HicnState));
 
   hicnConnState->forwarder = forwarder;
+  hicnConnState->interfaceName = strdup(interfaceName);
   hicnConnState->logger = logger_Acquire(forwarder_GetLogger(forwarder));
 
   bool saved = _saveSockaddr(hicnConnState, pair);
@@ -183,6 +187,7 @@ IoOperations *hicnConnection_Create(Forwarder *forwarder, int fd,
     // _saveSockaddr will already log an error, no need for extra log message
     // here
     logger_Release(&hicnConnState->logger);
+    free(hicnConnState->interfaceName);
     parcMemory_Deallocate((void **)&hicnConnState);
   }
 
@@ -223,6 +228,7 @@ static void _destroy(IoOperations **opsPtr) {
   // should I say something to libhicn?
 
   logger_Release(&hicnConnState->logger);
+  free(hicnConnState->interfaceName);
   parcMemory_Deallocate((void **)&hicnConnState);
   parcMemory_Deallocate((void **)&ops);
 
@@ -584,4 +590,12 @@ static void _setAdminState(IoOperations *ops, connection_state_t admin_state) {
   _HicnState *hicnConnState =
       (_HicnState *)ioOperations_GetClosure(ops);
   hicnConnState->admin_state = admin_state;
+}
+
+static const char * _getInterfaceName(const IoOperations *ops)
+{
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  _HicnState *hicnConnState =
+      (_HicnState *)ioOperations_GetClosure(ops);
+  return hicnConnState->interfaceName;
 }

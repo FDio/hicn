@@ -30,12 +30,11 @@
 #define NULLTERM 1
 #endif
 
-#ifndef _HICNTRL_NO_DEF_IPADDR
-#include "util/ip_address.h"
-#endif /* _HICNTRL_NO_DEF_IPADDR */
-#include "util/policy.h"
-#include "util/types.h"
+#include <hicn/policy.h>
 
+#include <hicn/util/ip_address.h>
+
+typedef unsigned int hash_t;
 
 /* Netdevice type */
 
@@ -43,6 +42,7 @@
 
 #define foreach_netdevice_type  \
     _(UNDEFINED)                \
+    _(LOOPBACK)                 \
     _(WIRED)                    \
     _(WIFI)                     \
     _(CELLULAR)                 \
@@ -63,10 +63,35 @@ extern const char * netdevice_type_str[];
 
 /* Netdevice */
 
+/**
+ * \brief Netdevice type
+ *
+ * NOTE
+ *  - This struct cannot be made opaque as it is currently part of face_t
+ *  - We recommand using the API as to keep redundant attributes consistent
+ */
 typedef struct {
     u32 index;
     char name[IFNAMSIZ];
 } netdevice_t;
+
+#define NETDEVICE_EMPTY (netdevice_t) { \
+    .index = 0,                         \
+    .name = {0},                        \
+}
+
+netdevice_t * netdevice_create_from_index(u32 index);
+netdevice_t * netdevice_create_from_name(const char * name);
+#define netdevice_initialize_from_index netdevice_set_index
+#define netdevice_initialize_from_name netdevice_set_name
+void netdevice_free(netdevice_t * netdevice);
+int netdevice_get_index(const netdevice_t * netdevice, u32 * index);
+int netdevice_set_index(netdevice_t * netdevice, u32 index);
+int netdevice_get_name(const netdevice_t * netdevice, const char ** name);
+int netdevice_set_name(netdevice_t * netdevice, const char * name);
+int netdevice_update_index(netdevice_t * netdevice);
+int netdevice_update_name(netdevice_t * netdevice);
+int netdevice_cmp(const netdevice_t * nd1, const netdevice_t * nd2);
 
 #define NETDEVICE_UNDEFINED_INDEX 0
 
@@ -74,14 +99,12 @@ typedef struct {
 
 #define foreach_face_state      \
     _(UNDEFINED)                \
-    _(PENDING_UP)               \
-    _(UP)                       \
-    _(PENDING_DOWN)             \
     _(DOWN)                     \
-    _(ERROR)                    \
+    _(UP)                       \
     _(N)
 
-#define MAXSZ_FACE_STATE_ 12
+
+#define MAXSZ_FACE_STATE_ 9
 #define MAXSZ_FACE_STATE MAXSZ_FACE_STATE_ + 1
 
 typedef enum {
@@ -116,49 +139,49 @@ foreach_face_type
 
 extern const char * face_type_str[];
 
-#define MAXSZ_FACE_ MAXSZ_FACE_TYPE_ + 2 * MAXSZ_IP_ADDRESS + 2 * MAXSZ_PORT + 9
+#ifdef WITH_POLICY
+#define MAXSZ_FACE_ MAXSZ_FACE_TYPE_ + 2 * MAXSZ_URL_ + 2 * MAXSZ_FACE_STATE_ + MAXSZ_POLICY_TAGS_ + 7
+#else
+#define MAXSZ_FACE_ MAXSZ_FACE_TYPE_ + 2 * MAXSZ_URL_ + 2 * MAXSZ_FACE_STATE_ + 4
+#endif /* WITH_POLICY */
 #define MAXSZ_FACE MAXSZ_FACE_ + 1
 
 /* Face */
 
-typedef union {
-    int family; /* To access family independently of face type */
-    struct {
-        int family;
-        netdevice_t netdevice;
-        ip_address_t local_addr;
-        ip_address_t remote_addr;
-    } hicn;
-    struct {
-        int family;
-        ip_address_t local_addr;
-        u16 local_port;
-        ip_address_t remote_addr;
-        u16 remote_port;
-    } tunnel;
-} face_params_t;
-
 typedef struct {
     face_type_t type;
-    face_params_t params;
     face_state_t admin_state;
     face_state_t state;
 #ifdef WITH_POLICY
     policy_tags_t tags; /**< \see policy_tag_t */
 #endif /* WITH_POLICY */
+
+    /*
+     * Depending on the face type, some of the following fields will be unused
+     */
+    netdevice_t netdevice;
+    int family; /* To access family independently of face type */
+    ip_address_t local_addr;
+    ip_address_t remote_addr;
+    u16 local_port;
+    u16 remote_port;
 } face_t;
 
 int face_initialize(face_t * face);
-int face_initialize_udp(face_t * face, const ip_address_t * local_addr,
-        u16 local_port, const ip_address_t * remote_addr, u16 remote_port,
+int face_initialize_udp(face_t * face, const char * interface_name,
+        const ip_address_t * local_addr, u16 local_port,
+        const ip_address_t * remote_addr, u16 remote_port,
         int family);
 int face_initialize_udp_sa(face_t * face,
+        const char * interface_name,
         const struct sockaddr * local_addr, const struct sockaddr * remote_addr);
 
 face_t * face_create();
-face_t * face_create_udp(const ip_address_t * local_addr, u16 local_port,
+face_t * face_create_udp(const char * interface_name,
+        const ip_address_t * local_addr, u16 local_port,
         const ip_address_t * remote_addr, u16 remote_port, int family);
-face_t * face_create_udp_sa(const struct sockaddr * local_addr,
+face_t * face_create_udp_sa(const char * interface_name,
+        const struct sockaddr * local_addr,
         const struct sockaddr * remote_addr);
 
 int face_finalize(face_t * face);
@@ -173,6 +196,7 @@ hash_t face_hash(const face_t * face);
 size_t
 face_snprintf(char * s, size_t size, const face_t * face);
 
+policy_tags_t face_get_tags(const face_t * face);
 int face_set_tags(face_t * face, policy_tags_t tags);
 
 #endif /* HICN_FACE_H */

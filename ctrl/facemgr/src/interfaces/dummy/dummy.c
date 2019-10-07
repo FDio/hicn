@@ -19,31 +19,101 @@
  */
 
 #include <stdlib.h>
+#include <unistd.h> // close
 
-#include "../../interface.h"
+#include <hicn/facemgr.h>
+
 #include "../../common.h"
-#include "../../event.h"
-#include "../../face.h"
-#include "../../facemgr.h"
+#include "../../facelet.h"
+#include "../../interface.h"
+
+#include "dummy.h"
 
 #define DEFAULT_PORT 9695
 
-int dummy_initialize(interface_t * interface, face_rules_t * rules, void **pdata) {
-    ip_address_t local = IPV4_LOOPBACK;
-    ip_address_t remote = IPV4_LOOPBACK;
-    face_t * face = face_create_udp(&local, DEFAULT_PORT, &remote, DEFAULT_PORT, AF_INET);
-    event_raise(EVENT_TYPE_CREATE, face, interface);
-    return FACEMGR_SUCCESS;
+#define UNUSED(x) ((void)x)
+
+/*
+ * Internal data
+ */
+typedef struct {
+    /* The configuration data will likely be allocated on the stack (or should
+     * be freed) by the caller, we recommend to make a copy of this data.
+     * This copy can further be altered with default values.
+     */
+    dummy_cfg_t cfg;
+
+    /* ... */
+
+    int fd; /* Sample internal data: file descriptor */
+} dummy_data_t;
+
+int dummy_initialize(interface_t * interface, void * cfg)
+{
+    dummy_data_t * data = malloc(sizeof(dummy_data_t));
+    if (!data)
+        goto ERR_MALLOC;
+    interface->data = data;
+
+    /* Use default values for unspecified configuration parameters */
+    if (cfg) {
+        data->cfg = *(dummy_cfg_t *)cfg;
+    } else {
+        memset(&data->cfg, 0, sizeof(data->cfg));
+    }
+
+    /* ... */
+
+    data->fd = 0;
+
+    /* ... */
+
+    /*
+     * We should return a negative value in case of error, and a positive value
+     * otherwise:
+     *  - a file descriptor (>0) will be added to the event loop; or
+     *  - 0 if we don't use any file descriptor
+     */
+    return data->fd;
+
+ERR_MALLOC:
+    return -1;
 }
 
-int dummy_finalize(interface_t * interface) {
-    return FACEMGR_SUCCESS;
+int dummy_finalize(interface_t * interface)
+{
+    dummy_data_t * data = (dummy_data_t*)interface->data;
+
+    if (data->fd > 0)
+        close(data->fd);
+
+    return 0;
+}
+
+int dummy_callback(interface_t * interface)
+{
+    dummy_data_t * data = (dummy_data_t*)interface->data;
+    UNUSED(data);
+
+    /* ... */
+
+    return 0;
+}
+
+int dummy_on_event(interface_t * interface, const facelet_t * facelet)
+{
+    dummy_data_t * data = (dummy_data_t*)interface->data;
+    UNUSED(data);
+
+    /* ... */
+
+    return 0;
 }
 
 interface_ops_t dummy_ops = {
     .type = "dummy",
-    .is_singleton = true,
     .initialize = dummy_initialize,
     .finalize = dummy_finalize,
-    .on_event = NULL,
+    .callback = dummy_callback,
+    .on_event = dummy_on_event,
 };
