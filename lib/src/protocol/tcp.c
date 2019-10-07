@@ -14,10 +14,10 @@
  */
 
 #include <string.h>
-#include "tcp.h"
+#include <hicn/protocol/tcp.h>
 
-#include "../error.h"
-#include "../ops.h"
+#include <hicn/error.h>
+#include <hicn/ops.h>
 
 #define TCP_DEFAULT_SRC_PORT           0x8000
 #define TCP_DEFAULT_DST_PORT           0x0080

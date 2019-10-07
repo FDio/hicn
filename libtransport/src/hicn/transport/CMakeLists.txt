@@ -54,11 +54,11 @@ else ()
     set(CMAKE_SHARED_LINKER_FLAGS "/NODEFAULTLIB:\"MSVCRTD\"" )
   endif ()
 endif ()
-if (ANDROID_API)
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -isystem -lm")
 endif()
 
-if (ANDROID_API)
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   build_library(${LIBTRANSPORT}
     STATIC
     SOURCES ${SOURCE_FILES} ${HEADER_FILES}

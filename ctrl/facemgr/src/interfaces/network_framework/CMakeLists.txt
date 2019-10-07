@@ -17,6 +17,7 @@ if (NOT NETWORK_LIBRARY)
 endif()
 
 list(APPEND HEADER_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/network_framework.h
 )
 
 list(APPEND SOURCE_FILES

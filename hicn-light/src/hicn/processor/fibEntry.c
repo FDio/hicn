@@ -39,7 +39,7 @@
 
 #ifdef WITH_POLICY
 #include <hicn/core/forwarder.h>
-#include <hicn/utils/policy.h>
+#include <hicn/policy.h>
 
 #ifdef WITH_MAPME
 #include <hicn/core/mapMe.h>
@@ -218,6 +218,8 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
     ConnectionList * list = connectionTable_GetEntries(table);
     for (size_t i = 0; i < connectionList_Length(list); i++) {
       Connection *conn = connectionList_Get(list, i);
+      if (connection_GetAdminState(conn) == CONNECTION_STATE_DOWN)
+        continue;
       if (connection_GetState(conn) == CONNECTION_STATE_DOWN)
         continue;
       if (connection_IsLocal(conn))
@@ -235,6 +237,8 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
       /* Filtering out DOWN faces */
       const Connection *  conn = connectionTable_FindById(table, conn_id);
       if (!conn)
+        continue;
+      if (connection_GetAdminState(conn) == CONNECTION_STATE_DOWN)
         continue;
       if (connection_GetState(conn) == CONNECTION_STATE_DOWN)
         continue;
@@ -258,6 +262,8 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
     /* Filtering out DOWN faces */
     conn = connectionTable_FindById(table, conn_id);
     if (!conn)
+      continue;
+    if (connection_GetAdminState(conn) == CONNECTION_STATE_DOWN)
       continue;
     if (connection_GetState(conn) == CONNECTION_STATE_DOWN)
       continue;

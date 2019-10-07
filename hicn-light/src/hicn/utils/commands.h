@@ -31,7 +31,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <hicn/utils/policy.h>
+#ifdef WITH_POLICY
+#include <hicn/policy.h>
+#endif /* WITH_POLICY */
 
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;
@@ -113,9 +115,7 @@ typedef enum { ETHER_MODE, IP_MODE, HICN_MODE } listener_mode;
 
 typedef struct {
   char symbolic[16];
-#ifdef __linux__
   char interfaceName[16];
-#endif
   union commandAddr address;
   uint16_t port;
   // uint16_t etherType;
@@ -130,6 +130,7 @@ typedef struct {
 
 typedef struct {
   char symbolic[16];
+  //char interfaceName[16];
   union commandAddr remoteIp;
   union commandAddr localIp;
   uint16_t remotePort;
@@ -165,6 +166,9 @@ typedef struct {
   add_connection_command connectionData;
   uint32_t connid;
   uint8_t state;
+  uint8_t admin_state;
+  char connectionName[16];
+  char interfaceName[16];
 } list_connections_command;
 
 // SIZE=64
@@ -273,6 +277,8 @@ typedef struct {
 
 typedef struct {
   union commandAddr address;
+  char listenerName[16];
+  char interfaceName[16];
   uint32_t connid;
   uint16_t port;
   uint8_t addressType;
@@ -300,6 +306,7 @@ typedef struct {
 typedef struct {
   char symbolicOrConnid[16];
   uint8_t admin_state;
+  uint16_t pad16;
 } connection_set_admin_state_command;
 
 #ifdef WITH_POLICY

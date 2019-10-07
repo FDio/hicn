@@ -13,11 +13,15 @@
  * limitations under the License.
  */
 
-#include "log.h"
+#include <hicn/util/log.h>
 
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 
 log_conf_t log_conf = DEFAULT_LOG_CONF;
 
@@ -43,14 +47,61 @@ static char *timestamp(void)
 }
 
 void _log_va(int level, const char *fmt, va_list ap)
-{
-	char *prefix;
-  FILE *f = log_conf.log_file ? log_conf.log_file : stdout;
+{  
 
 #if 0
 	if (!conf.log_system)
 		return;
 #endif
+
+	char *prefix;
+
+#ifdef __ANDROID__
+	int prio = -1;
+	if (level > log_conf.log_level)
+		return;
+
+	switch (level) {
+		case LOG_FATAL:
+			prio = ANDROID_LOG_FATAL;
+			prefix = "FATAL: ";
+			break;
+		case LOG_ERROR:
+			prio = ANDROID_LOG_ERROR;
+			prefix = "ERROR: ";
+			break;
+		case LOG_WARN:
+			prio = ANDROID_LOG_WARN;
+			prefix = "WARNING: ";
+			break;
+		case LOG_INFO:
+			prio = ANDROID_LOG_INFO;
+			prefix = "";
+			break;
+		case LOG_DEBUG:
+			prio  = ANDROID_LOG_DEBUG;
+			prefix = "DEBUG: ";
+			break;
+		case LOG_TRACE:
+			prio = ANDROID_LOG_DEBUG;
+			prefix = "TRACE: ";
+			break;
+		default:
+			prio = ANDROID_LOG_INFO;
+			prefix = "";
+			break;
+	}
+
+	if (log_conf.log_file) {
+		FILE *f = log_conf.log_file;
+		fprintf(f, "%s %s", timestamp(), prefix);
+		vfprintf(f, fmt, ap);
+		fprintf(f, "\n");
+	} else {
+		__android_log_vprint(ANDROID_LOG_INFO, "HICN FACEMGR", fmt, ap);
+	}
+
+#else
 
 	if (level > log_conf.log_level)
 		return;
@@ -78,12 +129,13 @@ void _log_va(int level, const char *fmt, va_list ap)
 			prefix = "";
 			break;
 	}
-
+	FILE *f = log_conf.log_file ? log_conf.log_file : stdout;
 	fprintf(f, "%s %s", timestamp(), prefix);
 	vfprintf(f, fmt, ap);
 	fprintf(f, "\n");
 #ifdef DEBUG
 	fflush(f);
+#endif
 #endif
 }
 
