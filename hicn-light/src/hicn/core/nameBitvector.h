@@ -48,8 +48,7 @@ uint32_t nameBitvector_lpm(const NameBitvector *a, const NameBitvector *b);
 
 void nameBitvector_clear(NameBitvector *a, uint8_t start_from);
 
-int nameBitvector_ToIPAddress(const NameBitvector *name,
-                              ip_address_t *ip_address);
+int nameBitvector_ToIPAddress(const NameBitvector *name, ip_prefix_t *prefix);
 void nameBitvector_setLen(NameBitvector *name, uint8_t len);
 
 Address *nameBitvector_ToAddress(const NameBitvector *name);

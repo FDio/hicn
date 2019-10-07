@@ -46,6 +46,7 @@ else ()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
 endif ()
 
+add_subdirectory(includes)
 add_subdirectory (src)
 add_subdirectory (doc)
 
