@@ -28,7 +28,6 @@ option(BUILD_APPS "Build the hicn apps" OFF)
 option(BUILD_CTRL "Build the hicn control tools" ON)
 option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
 option(BUILD_HICNEXTRAPLUGIN "Build the hicn extra plugin" OFF)
-option(BUILD_SYSREPOPLUGIN "Build the sysrepo plugin" OFF)
 
 list(APPEND dir_options
   BUILD_LIBHICN
@@ -37,10 +36,6 @@ list(APPEND dir_options
   BUILD_UTILS
   BUILD_APPS
   BUILD_CTRL
-  BUILD_HICNPLUGIN
-  BUILD_HICNEXTRAPLUGIN
-  BUILD_SYSREPOPLUGIN
-  BUILD_LIBMEMIF
 )
 
 set(BUILD_LIBHICN_DIR lib)
@@ -50,9 +45,7 @@ set(BUILD_UTILS_DIR utils)
 set(BUILD_APPS_DIR apps)
 set(BUILD_CTRL_DIR ctrl)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
-set(BUILD_SYSREPOPLUGIN_DIR ctrl/sysrepo-plugins)
-set(BUILD_HICNEXTRAPLUGIN_DIR extras/hicn-extra-plugin)
-set(BUILD_LIBMEMIF_DIR extras/libmemif)
+set(BUILD_HICNEXTRAPLUGIN_DIR utils/extras/)
 
 ## Add enabled components
 foreach (opt ${dir_options})
@@ -72,24 +65,16 @@ set(HICN_PLUGIN hicn-plugin)
 set(HICN_EXTRA_PLUGIN hicn-extra-plugin)
 set(LIBTRANSPORT hicntransport)
 set(HICN_UTILS hicn-utils)
-set(HICN_CTRL hicn-ctrl)
-set(LIBHICN_CTRL hicn-ctrl)
+set(HICNCTRL hicnctrl)
+set(LIBHICNCTRL hicnctrl)
 set(HICN_APPS hicn-apps)
-set(FACE_MGR facemgr)
-set(LIBMEMIF memif)
+set(LIBFACEMGR facemgr)
+set(FACEMGR facemgr)
 
 if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-  find_package(Libmemif)
-
-  if (NOT Libmemif_FOUND)
-    message(STATUS "Libmemif not found in the system. Building it as external project.")
-    list(INSERT subdirs 0
-      ${BUILD_LIBMEMIF_DIR}
-    )
-
-    unset(LIBMEMIF_INCLUDE_DIRS)
-    unset(LIBMEMIF_LIBRARIES)
-  endif()
+  list(APPEND subdirs
+    ${BUILD_HICNPLUGIN_DIR}
+  )
 
   list(APPEND HICN_BINARY_API_INCLUDE_DIRS
     ${PROJECT_BINARY_DIR}/hicn-plugin
@@ -99,16 +84,20 @@ if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
 endif()
 
+if (BUILD_HICNEXTRAPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+  list(APPEND subdirs
+    ${BUILD_HICNEXTRAPLUGIN_DIR}
+  )
+endif()
+
 ## Libraries targets
 set(LIBHICN_SHARED ${LIBHICN}.shared)
 set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared)
-set(LIBHICN_CTRL_SHARED ${LIBHICN_CTRL}.shared)
-set(LIBMEMIF_SHARED ${LIBMEMIF}.shared)
+set(LIBHICNCTRL_SHARED ${LIBHICNCTRL}.shared)
 
 set(LIBHICN_STATIC ${LIBHICN}.static)
 set(LIBTRANSPORT_STATIC ${LIBTRANSPORT}.static)
-set(LIBHICN_CTRL_STATIC ${LIBHICN_CTRL}.static)
-set(LIBMEMIF_STATIC ${LIBMEMIF}.static)
+set(LIBHICNCTRL_STATIC ${LIBHICNCTRL}.static)
 
 ## HEADER FILES
 set(HICN_INCLUDE_DIRS "" "" CACHE INTERNAL "" FORCE)

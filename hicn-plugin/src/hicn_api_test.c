@@ -135,7 +135,6 @@ _(HICN_API_FACE_STATS_DETAILS, hicn_api_face_stats_details)             \
 _(HICN_API_ROUTE_NHOPS_ADD_REPLY, hicn_api_route_nhops_add_reply)       \
 _(HICN_API_FACE_IP_PARAMS_GET_REPLY, hicn_api_face_ip_params_get_reply) \
 _(HICN_API_ROUTE_GET_REPLY, hicn_api_route_get_reply)                   \
-_(HICN_API_ROUTES_DETAILS, hicn_api_routes_details)                     \
 _(HICN_API_ROUTE_DEL_REPLY, hicn_api_route_del_reply)                   \
 _(HICN_API_ROUTE_NHOP_DEL_REPLY, hicn_api_route_nhop_del_reply)		    \
 _(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)		    \
@@ -555,7 +554,7 @@ api_hicn_api_face_stats_dump (vat_main_t * vam)
   return ret;
 }
 
-/* face_stats-details message handler */
+/* memif-details message handler */
 static void
   vl_api_hicn_api_face_stats_details_t_handler
   (vl_api_hicn_api_face_stats_details_t * mp)
@@ -626,38 +625,6 @@ api_hicn_api_route_get (vat_main_t * vam)
   return ret;
 }
 
-static int
-api_hicn_api_routes_dump (vat_main_t *vam)
-{
-
-  hicn_test_main_t *hm = &hicn_test_main;
-  vl_api_hicn_api_route_get_t *mp;
-  vl_api_control_ping_t *mp_ping;
-  int ret;
-
-  if (vam->json_output)
-    {
-      clib_warning ("JSON output not supported for routes_dump");
-      return -99;
-    }
-
-  M (HICN_API_ROUTES_DUMP, mp);
-  S (mp);
-
-  /* Use a control ping for synchronization */
-  mp_ping = vl_msg_api_alloc_as_if_client (sizeof (*mp_ping));
-  mp_ping->_vl_msg_id = htons (hm->ping_id);
-  mp_ping->client_index = vam->my_client_index;
-
-  fformat (vam->ofp, "Sending ping id=%d\n", hm->ping_id);
-
-  vam->result_ready = 0;
-  S (mp_ping);
-
-  W (ret);
-  return ret;
-}
-
 static void
 vl_api_hicn_api_route_get_reply_t_handler (vl_api_hicn_api_route_get_reply_t *
 					   rmp)
@@ -702,33 +669,8 @@ vl_api_hicn_api_route_get_reply_t_handler (vl_api_hicn_api_route_get_reply_t *
 	}
     }
 
-  fformat (vam->ofp, "%s\n Strategy: %d\n",
+  fformat (vam->ofp, "%s\n Strategy: %d",
 	   sbuf, clib_net_to_host_u32 (rmp->strategy_id));
-}
-
-/* face_stats-details message handler */
-static void
-vl_api_hicn_api_routes_details_t_handler
-(vl_api_hicn_api_routes_details_t * mp)
-{
-  vat_main_t *vam = hicn_test_main.vat_main;
-
-  u32 faceid;
-  u8 *sbuf = 0;
-  vec_reset_length (sbuf);
-
-  sbuf = format (sbuf, "Prefix: %U/%u\n", format_ip46_address, &mp->prefix, 0, mp->len);
-
-  sbuf = format (sbuf, "Faces: \n");
-  for( int i = 0; i < mp->nfaces; i++)
-    {
-      faceid = clib_net_to_host_u32 (mp->faceids[i]);
-      sbuf =
-        format (sbuf, " faceid %d\n", faceid);
-    }
-
-  fformat (vam->ofp, "%sStrategy: %d\n",
-	   sbuf, clib_net_to_host_u32 (mp->strategy_id));
 }
 
 static int
@@ -1132,7 +1074,6 @@ _(hicn_api_face_stats_dump, "")                                         \
 _(hicn_api_route_nhops_add, "add prefix <IP4/IP6>/<subnet> face <faceID> weight <weight>") \
 _(hicn_api_face_ip_params_get, "face <faceID>")                         \
 _(hicn_api_route_get, "prefix <IP4/IP6>/<subnet>")                      \
-_(hicn_api_routes_dump, "")                                             \
 _(hicn_api_route_del, "prefix <IP4/IP6>/<subnet>")                      \
 _(hicn_api_route_nhop_del, "del prefix <IP4/IP6>/<subnet> face <faceID>") \
 _(hicn_api_strategies_get, "")                                          \

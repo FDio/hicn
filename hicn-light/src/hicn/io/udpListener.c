@@ -41,6 +41,7 @@
 
 struct udp_listener {
   Forwarder *forwarder;
+  char *listenerName;
   Logger *logger;
 
   PARCEvent *udp_event;
@@ -48,13 +49,16 @@ struct udp_listener {
   uint16_t port;
 
   unsigned id;
+  char *interfaceName;
   Address *localAddress;
 };
 
 static void _destroy(ListenerOps **listenerOpsPtr);
+static const char *_getListenerName(const ListenerOps *ops);
 static unsigned _getInterfaceIndex(const ListenerOps *ops);
 static const Address *_getListenAddress(const ListenerOps *ops);
 static EncapType _getEncapType(const ListenerOps *ops);
+static const char *_getInterfaceName(const ListenerOps *ops);
 static int _getSocket(const ListenerOps *ops);
 static unsigned _createNewConnection(ListenerOps *listener, int fd, const AddressPair *pair);
 static const Connection * _lookupConnection(ListenerOps * listener, const AddressPair *pair);
@@ -66,8 +70,10 @@ static ListenerOps udpTemplate = {
   .getListenAddress = &_getListenAddress,
   .getEncapType = &_getEncapType,
   .getSocket = &_getSocket,
+  .getListenerName = &_getListenerName,
   .createConnection = &_createNewConnection,
   .lookupConnection = &_lookupConnection,
+  .getInterfaceName = &_getInterfaceName,
 };
 
 static void _readcb(int fd, PARCEventType what, void * listener_void);
@@ -76,19 +82,16 @@ static void _readcb(int fd, PARCEventType what, void * listener_void);
 extern int bindSocket(int sock, const char* ifname);
 #endif
 
-#ifdef __linux__
-ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
+ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
                                      struct sockaddr_in6 sin6, const char *interfaceName) {
-#else
-ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
-                                     struct sockaddr_in6 sin6) {
-#endif
   ListenerOps *ops = NULL;
 
   UdpListener *udp = parcMemory_AllocateAndClear(sizeof(UdpListener));
   parcAssertNotNull(udp, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(UdpListener));
   udp->forwarder = forwarder;
+  udp->listenerName = parcMemory_StringDuplicate(listenerName, strlen(listenerName));
+  udp->interfaceName = parcMemory_StringDuplicate(interfaceName, strlen(interfaceName));
   udp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
   udp->localAddress = addressCreateFromInet6(&sin6);
   udp->id = forwarder_GetNextConnectionId(forwarder);
@@ -126,7 +129,7 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
 
   if (failure == 0) {
 #ifdef __linux__
-    int ret = setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
+  int ret = setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
                      interfaceName, strlen(interfaceName) + 1);
     if (ret < 0) {
       logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
@@ -172,6 +175,8 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
                  myerrno, strerror(myerrno));
       parcMemory_Deallocate((void **)&str);
     }
+    parcMemory_Deallocate((void **)&udp->listenerName);
+    parcMemory_Deallocate((void **)&udp->interfaceName);
 #ifndef _WIN32
     close(udp->udp_socket);
 #else
@@ -185,19 +190,16 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder,
   return ops;
 }
 
-#ifdef __linux__
-ListenerOps *udpListener_CreateInet(Forwarder *forwarder,
+ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
                                     struct sockaddr_in sin, const char *interfaceName) {
-#else
-ListenerOps *udpListener_CreateInet(Forwarder *forwarder,
-                                    struct sockaddr_in sin) {
-#endif
   ListenerOps *ops = NULL;
 
   UdpListener *udp = parcMemory_AllocateAndClear(sizeof(UdpListener));
   parcAssertNotNull(udp, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(UdpListener));
   udp->forwarder = forwarder;
+  udp->listenerName = parcMemory_StringDuplicate(listenerName, strlen(listenerName));
+  udp->interfaceName = parcMemory_StringDuplicate(interfaceName, strlen(interfaceName));
   udp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
   udp->localAddress = addressCreateFromInet(&sin);
   udp->id = forwarder_GetNextConnectionId(forwarder);
@@ -315,6 +317,16 @@ static void udpListener_Destroy(UdpListener **listenerPtr) {
   *listenerPtr = NULL;
 }
 
+static const char *_getListenerName(const ListenerOps *ops) {
+  UdpListener *udp = (UdpListener *)ops->context;
+  return udp->listenerName;
+}
+
+static const char *_getInterfaceName(const ListenerOps *ops) {
+  UdpListener *udp = (UdpListener *)ops->context;
+  return udp->interfaceName;
+}
+
 static void _destroy(ListenerOps **listenerOpsPtr) {
   ListenerOps *ops = *listenerOpsPtr;
   UdpListener *udp = (UdpListener *)ops->context;
@@ -420,7 +432,7 @@ static unsigned _createNewConnection(ListenerOps * listener, int fd,
   }
 
   // metisUdpConnection_Create takes ownership of the pair
-  IoOperations *ops = udpConnection_Create(udp->forwarder, fd, pair, isLocal);
+  IoOperations *ops = udpConnection_Create(udp->forwarder, udp->interfaceName, fd, pair, isLocal);
   Connection *conn = connection_Create(ops);
   // connection_AllowWldrAutoStart(conn);
 

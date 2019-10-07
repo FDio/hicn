@@ -16,9 +16,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../common.h"
-#include "../error.h"
-#include "../ops.h"
+#include <hicn/common.h>
+#include <hicn/error.h>
+#include <hicn/ops.h>
 
 int
 ipv6_get_payload_length (hicn_type_t type, const hicn_protocol_t * h,

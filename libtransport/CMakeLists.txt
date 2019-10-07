@@ -25,7 +25,7 @@ include(DefaultConfiguration)
 include(BuildMacros)
 
 if (NOT CMAKE_BUILD_TYPE)
-  message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
+  message(STATUS "No build type selected, default to Release")
   set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
@@ -58,9 +58,15 @@ set(INSTALL_INCLUDE_DIR include/hicn/transport)
 if ((BUILD_HICNPLUGIN OR BUILD_MEMIF_CONNECTOR) AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   set(__vpp__ 1)
   find_package(Vpp REQUIRED)
-
+  find_package(Libmemif REQUIRED)
   list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
     ${VPP_INCLUDE_DIRS}
+    ${LIBMEMIF_INCLUDE_DIRS}
+  )
+
+  list(APPEND LIBRARIES
+    # ${VPP_INCLUDE_DIRS}
+    ${LIBMEMIF_LIBRARIES}
   )
 endif ()
 
@@ -70,53 +76,32 @@ find_package_wrapper(Libparc REQUIRED)
 find_package_wrapper(Asio REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  find_package_wrapper(Libhicn REQUIRED)
   if (__vpp__)
     find_package_wrapper(HicnBinaryApi REQUIRED)
-    find_package(Libmemif REQUIRED)
-
-    list(APPEND LIBRARIES
-      ${LIBMEMIF_LIBRARIES}
-    )
   endif()
-
-  find_package_wrapper(Libhicn REQUIRED)
-
   set(LIBTRANSPORT hicntransport)
   set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared)
   set(LIBTRANSPORT_STATIC ${LIBTRANSPORT}.static)
 else()
-  if(ANDROID_API)
+  if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(HICN_LIBRARIES ${LIBHICN_STATIC})
     list(APPEND DEPENDENCIES
       ${LIBHICN_STATIC}
     )
-  else()
+  else ()
     set(HICN_LIBRARIES ${LIBHICN_SHARED})
     list(APPEND DEPENDENCIES
       ${LIBHICN_SHARED}
     )
+  endif ()
 
-    if (__vpp__)
-      list(APPEND DEPENDENCIES
-        hicn_plugin
-      )
-
-      if (NOT Libmemif_FOUND)
-        list(APPEND DEPENDENCIES
-          ${LIBMEMIF_SHARED}
-        )
-      endif()
-
-      list(APPEND LIBRARIES
-        ${LIBMEMIF_LIBRARIES}
-      )
-    endif()
+  if (__vpp__)
+    list(APPEND DEPENDENCIES
+      hicn_plugin
+    )
   endif()
 endif()
-
-list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
-  ${LIBMEMIF_INCLUDE_DIRS}
-)
 
 include(Packaging)
 
@@ -130,7 +115,7 @@ if (${COMPILE_TESTS})
   )
 endif()
 
-if(ANDROID_API)
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   find_package(OpenSSL REQUIRED)
 endif ()
 

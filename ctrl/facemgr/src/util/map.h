@@ -31,6 +31,10 @@ typedef struct {                                                                
     VAL_T value;                                                                \
 } NAME ## _pair_t;                                                              \
                                                                                 \
+NAME ## _pair_t * NAME ## _pair_create(KEY_T key, VAL_T value);                 \
+                                                                                \
+void NAME ## _pair_free(NAME ## _pair_t * pair);                                \
+                                                                                \
 int NAME ## _pair_cmp(const NAME ## _pair_t * p1, const NAME ## _pair_t * p2);  \
                                                                                 \
 TYPEDEF_SET_H(NAME ## _pair_set, NAME ## _pair_t *)                             \
@@ -47,7 +51,7 @@ NAME ## _t * NAME ## _create();                                                 
                                                                                 \
 void NAME ## _free(NAME ## _t * map);                                           \
                                                                                 \
-int NAME ## _add(NAME ## _t * map, KEY_T key, const VAL_T value);               \
+int NAME ## _add(NAME ## _t * map, KEY_T key, VAL_T value);                     \
                                                                                 \
 int NAME ## _remove(NAME ## _t * map, KEY_T key, VAL_T * value);                \
                                                                                 \
@@ -59,6 +63,24 @@ void NAME ## _dump(NAME ## _t * map);
 
 
 #define TYPEDEF_MAP(NAME, KEY_T, VAL_T, CMP, KEY_SNPRINTF, VALUE_SNPRINTF)      \
+                                                                                \
+NAME ## _pair_t * NAME ## _pair_create(KEY_T key, VAL_T value)                  \
+{                                                                               \
+    /* Create pair */                                                           \
+    NAME ## _pair_t * pair = malloc(sizeof(NAME ## _pair_t));                   \
+    if (!pair)                                                                  \
+        return NULL;                                                            \
+                                                                                \
+    pair->key = key;                                                            \
+    pair->value = value;                                                        \
+                                                                                \
+    return pair;                                                                \
+}                                                                               \
+                                                                                \
+void NAME ## _pair_free(NAME ## _pair_t * pair)                                 \
+{                                                                               \
+    free(pair);                                                                 \
+}                                                                               \
                                                                                 \
 int                                                                             \
 NAME ## _pair_cmp(const NAME ## _pair_t * p1, const NAME ## _pair_t * p2)       \
@@ -72,7 +94,7 @@ NAME ## _pair_snprintf(char * buf, size_t size, const NAME ## _pair_t * pair) { 
     rc = KEY_SNPRINTF(buf, BUFSIZE/2, (KEY_T)pair->key);                        \
     if (rc < 0)                                                                 \
         return rc;                                                              \
-    rc = VALUE_SNPRINTF(buf+rc, BUFSIZE/2, (VAL_T)pair->value);             \
+    rc = VALUE_SNPRINTF(buf+rc, BUFSIZE/2, (VAL_T)pair->value);                 \
     return rc;                                                                  \
 }                                                                               \
                                                                                 \
@@ -93,57 +115,98 @@ NAME ## _finalize(NAME ## _t * map)                                             
 AUTOGENERATE_CREATE_FREE(NAME)                                                  \
                                                                                 \
 int                                                                             \
-NAME ## _add(NAME ## _t * map, KEY_T key, const VAL_T value)                    \
+NAME ## _add(NAME ## _t * map, KEY_T key, VAL_T value)                          \
 {                                                                               \
     int rc;                                                                     \
+    NAME ## _pair_t * found = NULL;                                             \
                                                                                 \
-    /* Create pair */                                                           \
-    NAME ## _pair_t * pair = malloc(sizeof(NAME ## _pair_t));                   \
+    NAME ## _pair_t * pair = NAME ## _pair_create(key, value);                  \
     if (!pair)                                                                  \
-        return FACEMGR_FAILURE;                                                 \
+        return -1;                                                 \
                                                                                 \
-    pair->key = key;                                                            \
-    pair->value = (VAL_T)value;                                                 \
-                                                                                \
-    rc = NAME ## _pair_set_get(&map->pair_set, pair, NULL);                     \
-    if (!FACEMGR_IS_ERROR(rc)) {                                                \
-        free(pair);                                                             \
+    rc = NAME ## _pair_set_get(&map->pair_set, pair, &found);                   \
+    if (rc < 0)                                                   \
+        return -1;                                                 \
+    if (found) {                                                                \
+        NAME ## _pair_free(pair);                                               \
         return ERR_MAP_EXISTS;                                                  \
     }                                                                           \
                                                                                 \
     rc = NAME ## _pair_set_add(&map->pair_set, pair);                           \
-    if (FACEMGR_IS_ERROR(rc)) {                                                 \
-        free(pair);                                                             \
-        return FACEMGR_FAILURE;                                                 \
+    if (rc < 0) {                                                 \
+        NAME ## _pair_free(pair);                                               \
+        return -1;                                                 \
     }                                                                           \
-    return FACEMGR_SUCCESS;                                                     \
+    return 0;                                                     \
 }                                                                               \
                                                                                 \
 int                                                                             \
 NAME ## _remove(NAME ## _t * map, KEY_T key, VAL_T * value)                     \
 {                                                                               \
-    NAME ## _pair_t * found, search = { .key = key };                           \
+    NAME ## _pair_t * found = NULL;                                             \
+    NAME ## _pair_t search = { .key = key };                                    \
     int rc = NAME ## _pair_set_remove(&map->pair_set, &search, &found);         \
-    if (FACEMGR_IS_ERROR(rc))                                                   \
+    if (rc < 0)                                                   \
         return ERR_MAP_NOT_FOUND;                                               \
-    *value = found->value;                                                      \
-    return FACEMGR_SUCCESS;                                                     \
+    if (value)                                                                  \
+        *value = found->value;                                                  \
+    NAME ## _pair_free(found);                                                  \
+    return 0;                                                     \
 }                                                                               \
                                                                                 \
 int                                                                             \
 NAME ## _get(NAME ## _t * map, KEY_T key, VAL_T * value)                        \
 {                                                                               \
-    NAME ## _pair_t * found, search = { .key = key };                           \
+    NAME ## _pair_t * found = NULL, search = { .key = key };                    \
     int rc = NAME ## _pair_set_get(&map->pair_set, &search, &found);            \
-    if (FACEMGR_IS_ERROR(rc))                                                   \
-        return ERR_MAP_NOT_FOUND;                                               \
-    *value = found->value;                                                      \
-    return FACEMGR_SUCCESS;                                                     \
+    if (rc < 0)                                                   \
+        return -1;                                                 \
+    if (found)                                                                  \
+        *value = found->value;                                                  \
+    return 0;                                                     \
 }                                                                               \
                                                                                 \
 void                                                                            \
 NAME ## _dump(NAME ## _t * map) {                                               \
     NAME ## _pair_set_dump(&map->pair_set);                                     \
+}                                                                               \
+                                                                                \
+int                                                                             \
+NAME ## _get_key_array(NAME ## _t * map, KEY_T **array) {                       \
+    NAME ## _pair_t ** pair_array;                                              \
+    int n = NAME ## _pair_set_get_array(&map->pair_set, &pair_array);           \
+    if (n < 0)                                                                  \
+        return -1;                                                 \
+    /* Allocate result array */                                                 \
+    array = malloc(n * sizeof(KEY_T));                                          \
+    if (!array) {                                                               \
+        free(pair_array);                                                       \
+        return -1;                                                 \
+    }                                                                           \
+    /* Copy keys */                                                             \
+    for (int i = 0; i < n; i++)                                                 \
+        array[i] = &pair_array[i]->key;                                         \
+    free(pair_array);                                                           \
+    return 0;                                                     \
+}                                                                               \
+                                                                                \
+int                                                                             \
+NAME ## _get_value_array(NAME ## _t * map, VAL_T **array) {                     \
+    NAME ## _pair_t ** pair_array;                                              \
+    int n = NAME ## _pair_set_get_array(&map->pair_set, &pair_array);           \
+    if (n < 0)                                                                  \
+        return -1;                                                 \
+    /* Allocate result array */                                                 \
+    array = malloc(n * sizeof(VAL_T));                                          \
+    if (!array) {                                                               \
+        free(pair_array);                                                       \
+        return -1;                                                 \
+    }                                                                           \
+    /* Copy values */                                                           \
+    for (int i = 0; i < n; i++)                                                 \
+        array[i] = &pair_array[i]->value;                                       \
+    free(pair_array);                                                           \
+    return 0;                                                     \
 }
 
 #endif /* UTIL_MAP_H */

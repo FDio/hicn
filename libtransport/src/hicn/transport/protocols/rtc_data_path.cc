@@ -14,10 +14,6 @@
  */
 
 #include <hicn/transport/protocols/rtc_data_path.h>
-#include <chrono>
-#include <cfloat>
-
-#define MAX_ROUNDS_WITHOUT_PKTS 10 //2sec
 
 namespace transport {
 
@@ -34,13 +30,7 @@ RTCDataPath::RTCDataPath()
                          // (for congestion/quality control)
       prev_min_owd(INT_MAX),
       avg_owd(0.0),
-      queuing_delay(DBL_MAX),
-      lastRecvSeq_(0),
-      lastRecvTime_(0),
-      avg_inter_arrival_(DBL_MAX),
-      received_nacks_(false),
-      received_packets_(false),
-      rounds_without_packets_(0),
+      queuing_delay(0.0),
       RTThistory_(HISTORY_LEN),
       OWDhistory_(HISTORY_LEN){};
 
@@ -53,62 +43,14 @@ void RTCDataPath::insertOwdSample(int64_t owd) {
   // for owd we use both min and avg
   if (owd < min_owd) min_owd = owd;
 
-  if(avg_owd != DBL_MAX)
-    avg_owd = (avg_owd * (1 - ALPHA_RTC)) + (owd * ALPHA_RTC);
-  else {
-    avg_owd = owd;
-  }
-
-  //owd is computed only for valid data packets so we count only
-  //this for decide if we recevie traffic or not
-  received_packets_ = true;
-}
-
-void RTCDataPath::computeInterArrivalGap(uint32_t segmentNumber){
-
-  //got packet in sequence, compute gap
-  if(lastRecvSeq_ == (segmentNumber - 1)){
-    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      std::chrono::steady_clock::now().time_since_epoch())
-                      .count();
-    uint64_t delta = now - lastRecvTime_;
-    lastRecvSeq_ = segmentNumber;
-    lastRecvTime_ = now;
-    if(avg_inter_arrival_ == DBL_MAX)
-      avg_inter_arrival_ = delta;
-    else
-      avg_inter_arrival_ = (avg_inter_arrival_ * (1 -ALPHA_RTC))
-                                              + (delta * ALPHA_RTC);
-    return;
-  }
-
-  //ooo packet, update the stasts if needed
-  if(lastRecvSeq_ <= segmentNumber){
-    lastRecvSeq_ = segmentNumber;
-    lastRecvTime_ = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      std::chrono::steady_clock::now().time_since_epoch())
-                      .count();
-  }
-}
-
-void RTCDataPath::receivedNack(){
-  received_nacks_ = true;
-}
-
-double RTCDataPath::getInterArrivalGap(){
-  if(avg_inter_arrival_ == DBL_MAX)
-    return 0;
-  return avg_inter_arrival_;
-}
-
-bool RTCDataPath::isActive(){
-  if(received_nacks_ && rounds_without_packets_ < MAX_ROUNDS_WITHOUT_PKTS)
-    return true;
-  return false;
+  avg_owd = (avg_owd * (1 - ALPHA_RTC)) + (owd * ALPHA_RTC);
 }
 
 void RTCDataPath::roundEnd() {
-   // reset min_rtt and add it to the history
+  // compute queuing delay
+  queuing_delay = avg_owd - getMinOwd();
+
+  // reset min_rtt and add it to the history
   if (min_rtt != UINT_MAX) {
     prev_min_rtt = min_rtt;
   } else {
@@ -117,9 +59,6 @@ void RTCDataPath::roundEnd() {
     // we use the measure from the previuos round
     min_rtt = prev_min_rtt;
   }
-
-  if(min_rtt == 0)
-    min_rtt = 1;
 
   RTThistory_.pushBack(min_rtt);
   min_rtt = UINT_MAX;
@@ -131,22 +70,8 @@ void RTCDataPath::roundEnd() {
     min_owd = prev_min_owd;
   }
 
-  if (min_owd != INT_MAX) {
-    OWDhistory_.pushBack(min_owd);
-    min_owd = INT_MAX;
-
-    // compute queuing delay
-    queuing_delay = avg_owd - getMinOwd();
-
-  } else {
-    queuing_delay = 0.0;
-  }
-
-  if(!received_packets_)
-    rounds_without_packets_++;
-  else
-    rounds_without_packets_ = 0;
-  received_packets_ = false;
+  OWDhistory_.pushBack(min_owd);
+  min_owd = INT_MAX;
 }
 
 double RTCDataPath::getQueuingDealy() { return queuing_delay; }

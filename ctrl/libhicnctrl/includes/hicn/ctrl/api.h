@@ -68,42 +68,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <hicn/util/ip_address.h>
 #include "face.h"
-#include "util/types.h"
+
+#define HICN_DEFAULT_PORT 9695
 
 #define LIBHICNCTRL_SUCCESS 0
 #define LIBHICNCTRL_FAILURE -1
 #define LIBHICNCTRL_NOT_IMPLEMENTED -99
 #define LIBHICNCTRL_IS_ERROR(x) (x < 0)
 
-
-/**
- * This allows to selectively define convenience types to avoid any collision
- * when using the library in conjunction with other frameworks including similar
- * defines
- */
-#ifdef _HICNTRL_NO_DEFS
-#define _HICNTRL_NO_DEF_TYPES
-#define _HICNTRL_NO_DEF_IPADDR
-#define _HICNTRL_NO_DEF_UNIONCAST
-#endif
-
-#ifndef _HICNTRL_NO_DEF_TYPES
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-#endif /* _HICNTRL_NO_DEF_TYPES */
-
-#ifndef _HICNTRL_NO_DEF_IPADDR
-#include "util/ip_address.h"
-#endif /* _HICNTRL_NO_DEF_IPADDR */
-
-#ifndef _HICNTRL_NO_DEF_UNIONCAST
 /* Helper for avoiding warnings about type-punning */
 #define UNION_CAST(x, destType) \
    (((union {__typeof__(x) a; destType b;})x).b)
-#endif /* _HICNTRL_NO_DEF_UNIONCAST */
 
 /******************************************************************************
  * Message helper types and aliases
@@ -419,27 +396,13 @@ hc_sock_reset(hc_sock_t * s);
 #endif
 
 #define NAME_LEN 16 /* NULL-terminated right ? */
-#ifdef __linux__
 #define INTERFACE_LEN 16
-#endif
 #define MAXSZ_HC_NAME_ NAME_LEN
 #define MAXSZ_HC_NAME MAXSZ_HC_NAME_ + NULLTERM
 
 #define MAXSZ_HC_ID_ 10 /* Number of digits for MAX_INT */
 #define MAXSZ_HC_ID MAXSZ_HC_ID_ + NULLTERM
 
-#define MAXSZ_HC_PROTO_ 8 /* inetX:// */
-#define MAXSZ_HC_PROTO MAXSZ_HC_PROTO_ + NULLTERM
-
-#define MAXSZ_HC_URL4_ MAXSZ_HC_PROTO_ + MAXSZ_IP4_ADDRESS_ + MAXSZ_PORT_
-#define MAXSZ_HC_URL6_ MAXSZ_HC_PROTO_ + MAXSZ_IP6_ADDRESS_ + MAXSZ_PORT_
-#define MAXSZ_HC_URL_ MAXSZ_HC_URL6_
-#define MAXSZ_HC_URL4 MAXSZ_HC_URL4_ + NULLTERM
-#define MAXSZ_HC_URL6 MAXSZ_HC_URL6_ + NULLTERM
-#define MAXSZ_HC_URL MAXSZ_HC_URL_ + NULLTERM
-
-int hc_url_snprintf(char * s, size_t size, int family,
-        const ip_address_t * ip_address, u16 port);
 
 #define foreach_type(TYPE, VAR, data) \
     for (TYPE * VAR = (TYPE*)data->buffer; \
@@ -498,9 +461,7 @@ typedef int (*HC_PARSE)(const u8 *, u8 *);
 // FIXME the listener should not require any port for hICN...
 typedef struct {
     char name[NAME_LEN];        /* K.w */ // XXX clarify what used for
-#ifdef __linux__
     char interface_name[INTERFACE_LEN];                     /* Kr. */
-#endif
     u32 id;
     hc_connection_type_t type;  /* .rw */
     int family;                 /* .rw */
@@ -509,6 +470,7 @@ typedef struct {
 } hc_listener_t;
 
 int hc_listener_create(hc_sock_t * s, hc_listener_t * listener);
+/* listener_found might eventually be allocated, and needs to be freed */
 int hc_listener_get(hc_sock_t *s, hc_listener_t * listener,
         hc_listener_t ** listener_found);
 int hc_listener_delete(hc_sock_t * s, hc_listener_t * listener);
@@ -520,7 +482,7 @@ int hc_listener_parse(void * in, hc_listener_t * listener);
 
 #define foreach_listener(VAR, data) foreach_type(hc_listener_t, VAR, data)
 
-#define MAXSZ_HC_LISTENER_ MAXSZ_HC_URL_ + SPACE + MAXSZ_HC_CONNECTION_TYPE_
+#define MAXSZ_HC_LISTENER_ INTERFACE_LEN + SPACE + MAXSZ_URL_ + SPACE + MAXSZ_HC_CONNECTION_TYPE_
 #define MAXSZ_HC_LISTENER MAXSZ_HC_LISTENER_ + NULLTERM
 
 GENERATE_FIND_HEADER(listener);
@@ -531,9 +493,15 @@ int hc_listener_snprintf(char * s, size_t size, hc_listener_t * listener);
  * Connections
  *----------------------------------------------------------------------------*/
 
+/*
+ * NOTE :
+ *  - interface_name is mainly used to derive listeners from connections, but is
+ *  not itself used to create connections.
+ */
 typedef struct {
     u32 id;                 /* Kr. */
     char name[NAME_LEN];         /* K.w */
+    char interface_name[INTERFACE_LEN];                     /* Kr. */
     hc_connection_type_t type;   /* .rw */
     int family;                  /* .rw */
     ip_address_t local_addr;     /* .rw */
@@ -549,6 +517,7 @@ typedef struct {
 
 
 int hc_connection_create(hc_sock_t * s, hc_connection_t * connection);
+/* connection_found will be allocated, and must be freed */
 int hc_connection_get(hc_sock_t *s, hc_connection_t * connection,
         hc_connection_t ** connection_found);
 int hc_connection_update_by_id(hc_sock_t * s, int hc_connection_id,
@@ -567,18 +536,62 @@ int hc_connection_cmp(const hc_connection_t * c1, const hc_connection_t * c2);
 int hc_connection_parse(void * in, hc_connection_t * connection);
 
 #ifdef WITH_POLICY
-int hc_connection_set_state(hc_sock_t * s, const char * conn_id_or_name, face_state_t state);
+int hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, face_state_t state);
 #endif /* WITH_POLICY */
 
 #define foreach_connection(VAR, data) foreach_type(hc_connection_t, VAR, data)
 
-#define MAXSZ_HC_CONNECTION_ MAXSZ_HC_CONNECTION_STATE_ + \
-    2 * MAXSZ_HC_URL_ + MAXSZ_HC_CONNECTION_TYPE_ + SPACES(3)
+#define MAXSZ_HC_CONNECTION_ MAXSZ_HC_CONNECTION_STATE_ +       \
+    INTERFACE_LEN + SPACE +                                     \
+    2 * MAXSZ_URL_ + MAXSZ_HC_CONNECTION_TYPE_ + SPACES(3)
 #define MAXSZ_HC_CONNECTION MAXSZ_HC_CONNECTION_ + NULLTERM
 
 GENERATE_FIND_HEADER(connection);
 
 int hc_connection_snprintf(char * s, size_t size, const hc_connection_t * connection);
+
+/*----------------------------------------------------------------------------*
+ * Faces
+ *
+ * A face is an abstraction introduced by the control library to abstract the
+ * forwarder implementation details. It encompasses connections and listeners
+ * and ensures the right dependencies are enforced, eg that we always have a
+ * listener when a connection is created.
+ *
+ *----------------------------------------------------------------------------*/
+
+typedef struct {
+    u8 id;
+    char name[NAME_LEN];
+    face_t face; // or embed ?
+    //face_id_t parent; /* Pointer from connection to listener */
+} hc_face_t;
+
+/**
+ * \brief Create a face
+ * \param [in] s - hICN socket
+ * \param [in,out] face - Parameters of the face to create
+ * \return Error code
+ *
+ * The face parameters will be updated with the face ID.
+ */
+int hc_face_create(hc_sock_t * s, hc_face_t * face);
+int hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found);
+int hc_face_delete(hc_sock_t * s, hc_face_t * face);
+int hc_face_list(hc_sock_t * s, hc_data_t ** pdata);
+
+#define foreach_face(VAR, data) foreach_type(hc_face_t, VAR, data)
+
+#define MAX_FACE_ID 255
+#define MAXSZ_FACE_ID_ 3
+#define MAXSZ_FACE_ID MAXSZ_FACE_ID_ + NULLTERM
+#define MAXSZ_FACE_NAME_ NAMELEN
+#define MAXSZ_FACE_NAME MAXSZ_FACE_NAME_ + NULLTERM
+
+#define MAXSZ_HC_FACE_ MAXSZ_FACE_ID_ + MAXSZ_FACE_NAME_ + MAXSZ_FACE_ + 5
+#define MAXSZ_HC_FACE MAXSZ_HC_FACE_ + NULLTERM
+
+int hc_face_snprintf(char * s, size_t size, hc_face_t * face);
 
 /*----------------------------------------------------------------------------*
  * Routes
@@ -600,8 +613,6 @@ int hc_route_list(hc_sock_t * s, hc_data_t ** pdata);
 
 #define foreach_route(VAR, data) foreach_type(hc_route_t, VAR, data)
 
-#define MAX_FACE_ID 255
-#define MAXSZ_FACE_ID 3
 #define MAX_COST 65535
 #define MAXSZ_COST 5
 #define MAX_LEN 255
@@ -612,44 +623,6 @@ int hc_route_list(hc_sock_t * s, hc_data_t ** pdata);
 
 int hc_route_snprintf(char * s, size_t size, hc_route_t * route);
 
-/*----------------------------------------------------------------------------*
- * Faces
- *
- * A face is an abstraction introduced by the control library to abstract the
- * forwarder implementation details. It encompasses connections and listeners
- * and ensures the right dependencies are enforced, eg that we always have a
- * listener when a connection is created.
- *
- *----------------------------------------------------------------------------*/
-
-typedef struct {
-    u32 id;
-    char name[NAME_LEN];
-    face_t face; // or embed ?
-    //face_id_t parent; /* Pointer from connection to listener */
-} hc_face_t;
-
-/**
- * \brief Create a face
- * \param [in] s - hICN socket
- * \param [in,out] face - Parameters of the face to create
- * \return Error code
- *
- * The face parameters will be updated with the face ID.
- */
-int hc_face_create(hc_sock_t * s, hc_face_t * face);
-int hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found);
-int hc_face_delete(hc_sock_t * s, hc_face_t * face);
-int hc_face_list(hc_sock_t * s, hc_data_t ** pdata);
-
-#define foreach_face(VAR, data) foreach_type(hc_face_t, VAR, data)
-
-#define MAXSZ_HC_FACE_ 0
-#define MAXSZ_HC_FACE MAXSZ_HC_FACE_ + NULLTERM
-
-int hc_face_snprintf(char * s, size_t size, hc_face_t * face);
-
-/////// XXX XXX XXX XXX missing face api functions, cf punting now...
 
 /*----------------------------------------------------------------------------*
  * Punting

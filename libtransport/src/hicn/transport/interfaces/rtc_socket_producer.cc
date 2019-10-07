@@ -29,8 +29,6 @@
                              // is considered inactive
 #define MILLI_IN_A_SEC 1000  // ms in a second
 
-#define HICN_MAX_DATA_SEQ 0xefffffff
-
 // NACK HEADER
 //   +-----------------------------------------+
 //   | 4 bytes: current segment in production  |
@@ -159,7 +157,7 @@ void RTCProducerSocket::produce(std::unique_ptr<utils::MemBuf> &&buffer) {
 
   portal_->sendContentObject(content_object);
 
-  currentSeg_ = (currentSeg_ + 1) % HICN_MAX_DATA_SEQ;
+  currentSeg_++;
 }
 
 void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
@@ -188,11 +186,6 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
 
   if (TRANSPORT_EXPECT_FALSE(!isActive)) {
     sendNack(*interest, false);
-    return;
-  }
-
-  if(interestSeg > HICN_MAX_DATA_SEQ){
-    sendNack(*interest, isActive);
     return;
   }
 

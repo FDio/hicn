@@ -20,11 +20,13 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "event.h"
+#include "facelet.h"
 #include "face_rules.h"
 #include "interface.h"
-#include "interface_ops_map.h"
 #include "util/map.h"
+
+TYPEDEF_MAP_H(interface_ops_map, const char *, const interface_ops_t *);
+TYPEDEF_MAP(interface_ops_map, const char *, const interface_ops_t *, strcmp, string_snprintf, generic_snprintf);
 
 static interface_ops_map_t * interface_ops_map = NULL;
 
@@ -34,19 +36,19 @@ interface_register(const interface_ops_t * ops)
     if (!interface_ops_map) {
         interface_ops_map = interface_ops_map_create();
         if (!interface_ops_map)
-            return FACEMGR_FAILURE;
+            return -1;
     }
     interface_ops_map_add(interface_ops_map, ops->type, ops);
-    return FACEMGR_SUCCESS;
+    return 0;
 }
 
 interface_t *
 interface_create(const char * name, const char * type)
 {
 
-    interface_ops_t * ops;
+    const interface_ops_t * ops = NULL;
     int rc = interface_ops_map_get(interface_ops_map, type, &ops);
-    if (FACEMGR_IS_ERROR(rc)) {
+    if (rc < 0) {
         printf("Interface type not found %s\n", type);
         return NULL;
     }
@@ -80,25 +82,25 @@ _interface_set_callback(interface_t * interface, callback_t callback, void * cal
 }
 
 int
-interface_initialize(interface_t * interface, struct face_rules_s * rules)
+interface_initialize(interface_t * interface, void * cfg)
 {
     if (!interface->ops->initialize)
-        return FACEMGR_FAILURE;
-    return interface->ops->initialize(interface, rules, &interface->data);
+        return -1;
+    return interface->ops->initialize(interface, cfg);
 }
 
 int
 interface_finalize(interface_t * interface)
 {
     if (!interface->ops->finalize)
-        return FACEMGR_FAILURE;
+        return -1;
     return interface->ops->finalize(interface);
 }
 
 int
-interface_on_event(interface_t * interface, const event_t * event)
+interface_on_event(interface_t * interface, const facelet_t * facelet)
 {
     if (!interface->ops->on_event)
-        return FACEMGR_FAILURE;
-    return interface->ops->on_event(interface, event);
+        return -1;
+    return interface->ops->on_event(interface, facelet);
 }

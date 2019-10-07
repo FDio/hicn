@@ -22,17 +22,11 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
-#include "util/types.h"
-#include "util/ip_address.h"
-#include "util/token.h" // XXX debug
+#include <hicn/util/ip_address.h>
 
 //#define DEBUG
-
-/* Return value conventions */
-#define FACEMGR_SUCCESS 0
-#define FACEMGR_FAILURE -1
-#define FACEMGR_IS_ERROR(rc) (rc < 0)
 
 /* Useful types and macros for comparisons */
 typedef int(*cmp_t)(const void * x, const void * y);
@@ -43,18 +37,35 @@ typedef int(*cmp_t)(const void * x, const void * y);
 #define INDENT(n, fmt) "%*s" fmt, n, ""
 #define printfi(n, fmt, ...) printf(INDENT(n*4, fmt), ##__VA_ARGS__)
 
+#define _unused(x) ((void)(x))
+
+/* Random strings */
+
+static inline
+void rand_str(char *dest, size_t length) {
+    char charset[] = "0123456789"
+                     "abcdefghijklmnopqrstuvwxyz"
+                     "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    while (length-- > 0) {
+        size_t index = (double) rand() / RAND_MAX * (sizeof charset - 1);
+        *dest++ = charset[index];
+    }
+    *dest = '\0';
+}
+
 /* Boilerplate code */
 
 #define NO_INITIALIZE(NAME)                                             \
 int                                                                     \
 NAME ## _initialize(NAME ## _t * obj) {                                 \
-    return FACEMGR_SUCCESS;                                             \
+    return 0;                                             \
 }
 
 #define NO_FINALIZE(NAME)                                               \
 int                                                                     \
 NAME ## _finalize(NAME ## _t * obj) {                                   \
-    return FACEMGR_SUCCESS;                                             \
+    return 0;                                             \
 }
 
 #define AUTOGENERATE_CREATE_FREE(NAME)                                  \
@@ -66,7 +77,7 @@ NAME ## _create()                                                       \
     if (!obj)                                                           \
         goto ERR_MALLOC;                                                \
                                                                         \
-    if (FACEMGR_IS_ERROR(NAME ## _initialize(obj)))                     \
+    if (NAME ## _initialize(obj) < 0)                                   \
         goto ERR_INIT;                                                  \
                                                                         \
     return obj;                                                         \
@@ -80,7 +91,7 @@ ERR_MALLOC:                                                             \
 void                                                                    \
 NAME ## _free(NAME ## _t * obj)                                         \
 {                                                                       \
-    if (FACEMGR_IS_ERROR(NAME ## _finalize(obj)))                       \
+    if (NAME ## _finalize(obj) < 0)                                     \
         (void)0; /* XXX */                                              \
     free(obj);                                                          \
 }                                                                       \

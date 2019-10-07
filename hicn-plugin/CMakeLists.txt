@@ -207,29 +207,12 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 execute_process(COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/hicn)
-
 # These files are missing from vpp binary distribution
 execute_process(
-    COMMAND
-    bash -c
-    "if [ ! -e ${CMAKE_BINARY_DIR}/vapi_json_parser.py ]; then
-        curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_json_parser.py?h=stable/1908 -o ${CMAKE_BINARY_DIR}/vapi_json_parser.py;
-    fi;"
-)
-execute_process(
-    COMMAND
-    bash -c
-    "if [ ! -e ${CMAKE_BINARY_DIR}/vapi_c_gen.py ]; then
-        curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_c_gen.py?h=stable/1908 -o ${CMAKE_BINARY_DIR}/vapi_c_gen.py;
-    fi;"
-)
-execute_process(
-    COMMAND
-    bash -c
-    "if [ ! -e ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py ]; then
-        curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_cpp_gen.py?h=stable/1908 -o ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py;
-    fi;"
-)
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_json_parser.py?h=stable/1908 -o ${CMAKE_BINARY_DIR}/vapi_json_parser.py
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_c_gen.py?h=stable/1908  -o ${CMAKE_BINARY_DIR}/vapi_c_gen.py
+    COMMAND curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_cpp_gen.py?h=stable/1908  -o ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py
+    )
 
 add_custom_command(
         COMMAND chmod +x  ${CMAKE_BINARY_DIR}/vapi_json_parser.py ${CMAKE_BINARY_DIR}/vapi_c_gen.py ${CMAKE_BINARY_DIR}/vapi_cpp_gen.py

@@ -169,11 +169,11 @@ std::shared_ptr<Sockaddr> Name::getAddress() const {
   return std::shared_ptr<Sockaddr>(ret);
 }
 
-ip_address_t Name::toIpAddress() const {
-  ip_address_t ret;
+ip_prefix_t Name::toIpAddress() const {
+  ip_prefix_t ret;
   std::memset(&ret, 0, sizeof(ret));
 
-  if (hicn_name_to_ip_address(&name_, &ret) < 0) {
+  if (hicn_name_to_ip_prefix(&name_, &ret) < 0) {
     throw errors::InvalidIpAddressException();
   }
 

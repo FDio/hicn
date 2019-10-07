@@ -16,6 +16,6 @@
 #include "face_rules.h"
 
 #include <string.h>
-#include "util/policy.h"
+#include <hicn/policy.h>
 
 TYPEDEF_MAP(face_rules, const char *, policy_tags_t, strcmp, string_snprintf, policy_tags_snprintf);

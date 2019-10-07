@@ -22,7 +22,7 @@ set(CMAKE_MODULE_PATH
 )
 
 if (NOT CMAKE_BUILD_TYPE)
-	message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
+	message(STATUS "No build type selected, default to Release")
 	set(CMAKE_BUILD_TYPE "Release")
 endif()
 
@@ -36,7 +36,7 @@ include (Packaging)
 option(CMAKE_BUILD_TEST "Build unit tests" OFF)
 
 if (NOT CMAKE_BUILD_TYPE)
-	message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
+	message(STATUS "No build type selected, default to Release")
 	set(CMAKE_BUILD_TYPE "Release")
 endif()
 
@@ -46,6 +46,7 @@ else ()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
 endif ()
 
+add_subdirectory(includes)
 add_subdirectory (src)
 add_subdirectory (doc)
 

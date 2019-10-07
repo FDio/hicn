@@ -23,7 +23,7 @@ set(CMAKE_MODULE_PATH
 )
 
 if (NOT CMAKE_BUILD_TYPE)
-  message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
+  message(STATUS "No build type selected, default to Release")
   set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
@@ -34,7 +34,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
   set(HICN_UTILS hicn-utils)
 else()
-  if (ANDROID_API)
+  if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_STATIC})
     set(DEPENDENCIES ${LIBTRANSPORT_STATIC})
   else ()

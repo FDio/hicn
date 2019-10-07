@@ -28,7 +28,8 @@
 #endif
 #include <stdio.h>
 
-#include "common.h"
+#include <hicn/common.h>
+
 
 
 int

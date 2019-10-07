@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 project(hicn-light)
 
 if (NOT CMAKE_BUILD_TYPE)
-    message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
+    message(STATUS "No build type selected, default to Release")
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
@@ -39,8 +39,9 @@ if(NOT WIN32)
 else ()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
 endif ()
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 
-if(ANDROID_API)
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   message("############ Detected cross compile for $ENV{CMAKE_SYSTEM_NAME}")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ANDROID_C_FLAGS}")
 endif()
@@ -58,7 +59,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control)
   set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon)
 else()
-  if (ANDROID_API)
+  if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(HICN_LIBRARIES ${LIBHICN_STATIC})
     list(APPEND DEPENDENCIES
       ${LIBHICN_STATIC}
@@ -74,6 +75,7 @@ endif()
 include( Packaging )
 
 find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 set(LIBHICN_LIGHT hicn-light)
 set(LIBHICN_LIGHT_STATIC ${LIBHICN_LIGHT}.static)

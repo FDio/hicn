@@ -60,7 +60,7 @@ IoOperations *udpTunnel_CreateOnListener(Forwarder *forwarder,
       int fd = localListener->getSocket(localListener);
       // udpListener_SetPacketType(localListener,
       //                MessagePacketType_ContentObject);
-      ops = udpConnection_Create(forwarder, fd, pair, isLocal);
+      ops = udpConnection_Create(forwarder, localListener->getInterfaceName(localListener), fd, pair, isLocal);
 
       addressPair_Release(&pair);
     } else {

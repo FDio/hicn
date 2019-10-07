@@ -12,6 +12,7 @@
 # limitations under the License.
 
 list(APPEND HEADER_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/dummy.h
 )
 
 list(APPEND SOURCE_FILES

@@ -35,13 +35,6 @@
 #define HICN_TIMESTAMP_SIZE 8            // bytes
 #define HICN_RTC_INTEREST_LIFETIME 1000  // ms
 
-//rtt measurement
-//normal interests for data goes from 0 to
-//HICN_MIN_PROBE_SEQ, the rest is reserverd for
-//probes
-#define HICN_MIN_PROBE_SEQ 0xefffffff
-#define HICN_MAX_PROBE_SEQ 0xffffffff
-
 // controller constant
 #define HICN_ROUND_LEN 200  // ms interval of time on which
 			    // we take decisions / measurements
@@ -69,14 +62,12 @@
 #define HICN_MICRO_IN_A_SEC 1000000
 #define HICN_MILLI_IN_A_SEC 1000
 
-
 namespace transport {
 
 namespace protocol {
 
 enum packetState {
   sent_,
-  nacked_,
   received_,
   timeout1_,
   timeout2_,
@@ -124,15 +115,16 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   void scheduleNextInterests() override;
   void addRetransmissions(uint32_t val);
   void addRetransmissions(uint32_t start, uint32_t stop);
-  void retransmit();
+  void retransmit(bool first_rtx);
   void checkRtx();
-  void probeRtt();
   void onTimeout(Interest::Ptr &&interest) override;
   // checkIfProducerIsActive: return true if we need to schedule an interest
   // immediatly after, false otherwise (this happens when the producer socket
   // is not active)
   bool checkIfProducerIsActive(const ContentObject &content_object);
-  bool onNack(const ContentObject &content_object, bool rtx);
+  void onNack(const ContentObject &content_object);
+  //funtcion used to handle nacks for retransmitted interests
+  void onNackForRtx(const ContentObject &content_object);
   void onContentObject(Interest::Ptr &&interest,
                        ContentObject::Ptr &&content_object) override;
   void returnContentToApplication(const ContentObject &content_object);
@@ -156,63 +148,48 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   //map seq to rtx
   std::map<uint32_t, uint8_t> interestRetransmissions_;
   std::unique_ptr<asio::steady_timer> rtx_timer_;
+  //std::queue<uint32_t> interestRetransmissions_;
   std::vector<sentInterest> inflightInterests_;
   uint32_t lastSegNacked_; //indicates the segment id in the last received
                            // past Nack. we do not ask for retransmissions
                            //for samething that is older than this value.
   uint32_t lastReceived_; //segment of the last content object received
                           //indicates the base of the window on the client
-
+  uint32_t nackedByProducerMaxSize_;
+  std::set<uint32_t>
+      nackedByProducer_;  // this is used to avoid retransmissions from the
+                          // application for pakets for which we already got a
+                          // past NACK by the producer these packet are too old,
+                          // they will never be retrived
   bool nack_timer_used_;
-  bool rtx_timer_used_;
   std::unique_ptr<asio::steady_timer> nack_timer_;  // timer used to schedule
-  // a nack retransmission in case
+  // a nack retransmission in
   // of inactive prod socket
-
-  //rtt probes
-  //the RTC transport tends to overestimate the RTT
-  //du to the production time on the server side
-  //once per second we send an interest for wich we know
-  //we will get a nack. This nack will keep our estimation
-  //close to the reality
-  std::unique_ptr<asio::steady_timer> probe_timer_;
-  uint64_t time_sent_probe_;
-  uint32_t probe_seq_number_;
-  bool received_probe_;
 
   uint32_t modMask_;
 
   // stats
-  bool firstPckReceived_;
   uint32_t receivedBytes_;
   uint32_t sentInterest_;
   uint32_t receivedData_;
-  int32_t packetLost_;
-  int32_t lossRecovered_;
-  uint32_t firstSequenceInRound_;
-  uint32_t highestReceived_;
+  uint32_t packetLost_;
   double avgPacketSize_;
   bool gotNack_;
   uint32_t gotFutureNack_;
   uint32_t roundsWithoutNacks_;
-
-  //we keep track of up two paths (if only one path is in use
-  //the two values in the vector will be the same)
-  //position 0 stores the path with minRTT
-  //position 1 stores the path with maxRTT
-  uint32_t producerPathLabels_[2];
-
+  uint32_t producerPathLabel_;  // XXX we pick only one path lable for the
+                                // producer for now, assuming the usage of a
+                                // single path this should be extended to a
+                                // vector
   std::unordered_map<uint32_t, std::shared_ptr<RTCDataPath>> pathTable_;
   uint32_t roundCounter_;
+  uint64_t minRtt_;
 
   // CC var
   double estimatedBw_;
   double lossRate_;
   double queuingDelay_;
   unsigned protocolState_;
-
-  bool initied;
-  TransportStatistics stats_;
 };
 
 }  // namespace protocol
