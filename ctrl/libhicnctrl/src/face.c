@@ -21,10 +21,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <hicn/util/token.h>
 
-#include "face.h"
+#include <hicn/ctrl/face.h>
 #include "util/hash.h"
-#include "util/token.h"
 
 #define member_size(type, member) sizeof(((type *)0)->member)
 
@@ -36,6 +36,112 @@ const char * netdevice_type_str[] = {
 foreach_netdevice_type
 #undef _
 };
+
+netdevice_t *
+netdevice_create_from_index(u32 index)
+{
+    netdevice_t * netdevice = malloc(sizeof(netdevice_t));
+    if (!netdevice)
+        goto ERR_MALLOC;
+
+    int rc = netdevice_set_index(netdevice, index);
+    if (rc < 0)
+        goto ERR_INIT;
+
+    return netdevice;
+
+ERR_INIT:
+    free(netdevice);
+ERR_MALLOC:
+    return NULL;
+}
+
+netdevice_t *
+netdevice_create_from_name(const char * name)
+{
+    netdevice_t * netdevice = malloc(sizeof(netdevice_t));
+    if (!netdevice)
+        goto ERR_MALLOC;
+
+    int rc = netdevice_set_name(netdevice, name);
+    if (rc < 0)
+        goto ERR_INIT;
+
+    return netdevice;
+
+ERR_INIT:
+    free(netdevice);
+ERR_MALLOC:
+    return NULL;
+}
+
+/**
+ * \brief Update the index of the netdevice based on the name
+ */
+int
+netdevice_update_index(netdevice_t * netdevice)
+{
+    netdevice->index = if_nametoindex(netdevice->name);
+    if (netdevice->index == 0)
+        return -1;
+    return 0;
+}
+
+int
+netdevice_update_name(netdevice_t * netdevice)
+{
+    if (!if_indextoname(netdevice->index, netdevice->name))
+        return -1;
+    return 0;
+}
+
+void
+netdevice_free(netdevice_t * netdevice)
+{
+    free(netdevice);
+}
+
+int
+netdevice_get_index(const netdevice_t * netdevice, u32 * index)
+{
+    if (netdevice->index == 0)
+        return -1;
+    *index = netdevice->index;
+    return 0;
+}
+
+int
+netdevice_set_index(netdevice_t * netdevice, u32 index)
+{
+    netdevice->index = index;
+    return netdevice_update_name(netdevice);
+}
+
+int
+netdevice_get_name(const netdevice_t * netdevice, const char ** name)
+{
+    if (netdevice->name[0] == '\0')
+        return -1;
+    *name = netdevice->name;
+    return 0;
+}
+
+int
+netdevice_set_name(netdevice_t * netdevice, const char * name)
+{
+    int rc = snprintf(netdevice->name, IFNAMSIZ, "%s", name);
+    if (rc < 0)
+        return -1;
+    if (rc >= IFNAMSIZ)
+        return -2; /* truncated */
+    return netdevice_update_index(netdevice);
+}
+
+int
+netdevice_cmp(const netdevice_t * nd1, const netdevice_t * nd2)
+{
+    return (nd1->index - nd2->index);
+}
 
 
 /* Face state */
@@ -61,33 +167,42 @@ foreach_face_type
 int
 face_initialize(face_t * face)
 {
-    bzero(face, sizeof(face_t)); /* 0'ed for hash */
+    memset(face, 0, sizeof(face_t)); /* 0'ed for hash */
     return 1;
 }
 
 int
-face_initialize_udp(face_t * face, const ip_address_t * local_addr,
-        u16 local_port, const ip_address_t * remote_addr, u16 remote_port,
+face_initialize_udp(face_t * face, const char * interface_name, const
+        ip_address_t * local_addr, u16 local_port,
+        const ip_address_t * remote_addr, u16 remote_port,
         int family)
 {
+    if (!local_addr)
+        return -1;
+
     *face = (face_t) {
         .type = FACE_TYPE_UDP,
-        .params.tunnel = {
-            .family = family,
-            .local_addr = *local_addr,
-            .local_port = local_port,
-            .remote_addr = *remote_addr,
-            .remote_port = remote_port,
-        },
+        .family = family,
+        .local_addr = *local_addr,
+        .local_port = local_port,
+        .remote_addr = remote_addr ? *remote_addr : IP_ADDRESS_EMPTY,
+        .remote_port = remote_port,
     };
+
+    snprintf(face->netdevice.name, IFNAMSIZ, "%s", interface_name);
+
     return 1;
 }
 
 int
-face_initialize_udp_sa(face_t * face, const struct sockaddr * local_addr,
+face_initialize_udp_sa(face_t * face, const char * interface_name,
+        const struct sockaddr * local_addr,
         const struct sockaddr * remote_addr)
 {
-    if (local_addr->sa_family != remote_addr->sa_family)
+    if (!local_addr)
+        return -1;
+
+    if (remote_addr && (local_addr->sa_family != remote_addr->sa_family))
         return -1;
 
     switch (local_addr->sa_family) {
@@ -97,14 +212,14 @@ face_initialize_udp_sa(face_t * face, const struct sockaddr * local_addr,
             struct sockaddr_in *rsai = (struct sockaddr_in *)remote_addr;
             *face = (face_t) {
                 .type = FACE_TYPE_UDP,
-                .params.tunnel = {
-                    .family = AF_INET,
-                    .local_addr.v4.as_inaddr = lsai->sin_addr,
-                    .local_port = ntohs(lsai->sin_port),
-                    .remote_addr.v4.as_inaddr = rsai->sin_addr,
-                    .remote_port = ntohs(rsai->sin_port),
-                },
+                .family = AF_INET,
+                .local_addr.v4.as_inaddr = lsai->sin_addr,
+                .local_port = lsai ? ntohs(lsai->sin_port) : 0,
+                .remote_addr = IP_ADDRESS_EMPTY,
+                .remote_port = rsai ? ntohs(rsai->sin_port) : 0,
             };
+            if (rsai)
+                face->remote_addr.v4.as_inaddr = rsai->sin_addr;
             }
             break;
         case AF_INET6:
@@ -113,19 +228,22 @@ face_initialize_udp_sa(face_t * face, const struct sockaddr * local_addr,
             struct sockaddr_in6 *rsai = (struct sockaddr_in6 *)remote_addr;
             *face = (face_t) {
                 .type = FACE_TYPE_UDP,
-                .params.tunnel = {
-                    .family = AF_INET6,
-                    .local_addr.v6.as_in6addr = lsai->sin6_addr,
-                    .local_port = ntohs(lsai->sin6_port),
-                    .remote_addr.v6.as_in6addr = rsai->sin6_addr,
-                    .remote_port = ntohs(rsai->sin6_port),
-                },
+                .family = AF_INET6,
+                .local_addr.v6.as_in6addr = lsai->sin6_addr,
+                .local_port = lsai ? ntohs(lsai->sin6_port) : 0,
+                .remote_addr = IP_ADDRESS_EMPTY,
+                .remote_port = rsai ? ntohs(rsai->sin6_port) : 0,
             };
+            if (rsai)
+                face->remote_addr.v6.as_in6addr = rsai->sin6_addr;
             }
             break;
         default:
             return -1;
     }
+
+    snprintf(face->netdevice.name, IFNAMSIZ, "%s", interface_name);
+
     return 1;
 }
 
@@ -135,11 +253,12 @@ face_t * face_create()
     return face;
 }
 
-face_t * face_create_udp(const ip_address_t * local_addr, u16 local_port,
+face_t * face_create_udp(const char * interface_name,
+        const ip_address_t * local_addr, u16 local_port,
         const ip_address_t * remote_addr, u16 remote_port, int family)
 {
     face_t * face = face_create();
-    if (face_initialize_udp(face, local_addr, local_port, remote_addr, remote_port, family) < 0)
+    if (face_initialize_udp(face, interface_name, local_addr, local_port, remote_addr, remote_port, family) < 0)
         goto ERR_INIT;
     return face;
 
@@ -148,11 +267,12 @@ ERR_INIT:
     return NULL;
 }
 
-face_t * face_create_udp_sa(const struct sockaddr * local_addr,
+face_t * face_create_udp_sa(const char * interface_name,
+        const struct sockaddr * local_addr,
         const struct sockaddr * remote_addr)
 {
     face_t * face = face_create();
-    if (face_initialize_udp_sa(face, local_addr, remote_addr) < 0)
+    if (face_initialize_udp_sa(face, interface_name, local_addr, remote_addr) < 0)
         goto ERR_INIT;
     return face;
 
@@ -166,10 +286,6 @@ void face_free(face_t * face)
     free(face);
 }
 
-#define face_param_cmp(f1, f2, face_param_type)            \
-    memcmp(&f1->type, &f2->type,  \
-            member_size(face_params_t, face_param_type));
-
 /**
  * \brief Compare two faces
  * \param [in] f1 - First face
@@ -182,18 +298,61 @@ void face_free(face_t * face)
 int
 face_cmp(const face_t * f1, const face_t * f2)
 {
-    if (f1->type != f2->type)
-        return false;
+
+    int ret = f1->type - f2->type;
+    if (ret != 0)
+        return ret;
+
+    ret = f1->family - f2->family;
+    if (ret != 0)
+        return ret;
+
+    /*
+     * FIXME As hicn-light API might not return the netdevice, we can discard the
+     * comparison when one of the two is not set for now...
+     */
+    if ((f1->netdevice.index != 0) && (f2->netdevice.index != 0)) {
+        ret = netdevice_cmp(&f1->netdevice, &f2->netdevice);
+        if (ret != 0)
+            return ret;
+    }
 
     switch(f1->type) {
         case FACE_TYPE_HICN:
-            return face_param_cmp(f1, f2, hicn);
+            ret = ip_address_cmp(&f1->local_addr, &f2->local_addr, f1->family);
+            if (ret != 0)
+                return ret;
+
+            ret = ip_address_cmp(&f1->remote_addr, &f2->remote_addr, f1->family);
+            if (ret != 0)
+                return ret;
+
+            break;
+
         case FACE_TYPE_TCP:
         case FACE_TYPE_UDP:
-            return face_param_cmp(f1, f2, tunnel);
+            ret = ip_address_cmp(&f1->local_addr, &f2->local_addr, f1->family);
+            if (ret != 0)
+                return ret;
+
+            ret = f1->local_port - f2->local_port;
+            if (ret != 0)
+                return ret;
+
+            ret = ip_address_cmp(&f1->remote_addr, &f2->remote_addr, f1->family);
+            if (ret != 0)
+                return ret;
+
+            ret = f1->remote_port - f2->remote_port;
+            if (ret != 0)
+                return ret;
+
+            break;
         default:
-            return false;
+            break;
     }
+
+    return 0;
 }
 
 hash_t
@@ -209,32 +368,57 @@ face_snprintf(char * s, size_t size, const face_t * face)
 {
     switch(face->type) {
         case FACE_TYPE_HICN:
-            return 0; // XXX Not implemented
+        {
+            char local[MAXSZ_IP_ADDRESS];
+            char remote[MAXSZ_IP_ADDRESS];
+            char tags[MAXSZ_POLICY_TAGS];
+
+            ip_address_snprintf(local, MAXSZ_IP_ADDRESS,
+                    &face->local_addr,
+                    face->family);
+            ip_address_snprintf(remote, MAXSZ_IP_ADDRESS,
+                    &face->remote_addr,
+                    face->family);
+            policy_tags_snprintf(tags, MAXSZ_POLICY_TAGS, face->tags);
+            return snprintf(s, size, "%s [%s -> %s] [%s]",
+                    face_type_str[face->type],
+                    local,
+                    remote,
+                    tags);
+        }
+        case FACE_TYPE_UNDEFINED:
         case FACE_TYPE_TCP:
         case FACE_TYPE_UDP:
-            {
-                char local[MAXSZ_IP_ADDRESS];
-                char remote[MAXSZ_IP_ADDRESS];
+        {
+            char local[MAXSZ_IP_ADDRESS];
+            char remote[MAXSZ_IP_ADDRESS];
+            char tags[MAXSZ_POLICY_TAGS];
 
-                ip_address_snprintf(local, MAXSZ_IP_ADDRESS,
-                        &face->params.tunnel.local_addr,
-                        face->params.tunnel.family);
-                ip_address_snprintf(remote, MAXSZ_IP_ADDRESS,
-                        &face->params.tunnel.remote_addr,
-                        face->params.tunnel.family);
+            ip_address_snprintf(local, MAXSZ_IP_ADDRESS,
+                    &face->local_addr,
+                    face->family);
+            ip_address_snprintf(remote, MAXSZ_IP_ADDRESS,
+                    &face->remote_addr,
+                    face->family);
+            policy_tags_snprintf(tags, MAXSZ_POLICY_TAGS, face->tags);
 
-                return snprintf(s, size, "%s [%s:%d -> %s:%d]",
-                        face_type_str[face->type],
-                        local,
-                        face->params.tunnel.local_port,
-                        remote,
-                        face->params.tunnel.remote_port);
-            }
-            break;
+            return snprintf(s, size, "%s [%s:%d -> %s:%d] [%s]",
+                    face_type_str[face->type],
+                    local,
+                    face->local_port,
+                    remote,
+                    face->remote_port,
+                    tags);
+        }
         default:
-            return 0;
+            return -1;
     }
 
+}
+
+policy_tags_t face_get_tags(const face_t * face)
+{
+    return face->tags;
 }
 
 int

@@ -31,9 +31,9 @@
 
 #include <hicn/config/controlUpdateConnection.h>
 
+#include <hicn/policy.h>
 #include <hicn/utils/commands.h>
 #include <hicn/utils/utils.h>
-#include <hicn/utils/policy.h>
 
 static CommandReturn _controlUpdateConnection_Execute(CommandParser *parser,
                                                  CommandOps *ops,

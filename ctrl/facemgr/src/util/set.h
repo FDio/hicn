@@ -16,15 +16,27 @@
 #ifndef UTIL_SET_H
 #define UTIL_SET_H
 
+#include <hicn/util/log.h>
 #include <search.h>
 #include <string.h>
-#include "token.h"
+//#if !defined(__ANDROID__) && !defined(__APPLE__)
+//#include <threads.h>
+//#else
+#define thread_local _Thread_local
+//#endif /* ! __ANDROID__ */
 #include "../common.h"
 
 #define ERR_SET_EXISTS -2
 #define ERR_SET_NOT_FOUND -3
 
-#define BUFSIZE 80
+/* FIXME: buffer overflow when this is too small... investigate */
+#define BUFSIZE 1024
+
+static inline
+int
+int_snprintf(char * buf, size_t size, int value) {
+    return snprintf(buf, size, "%d", value);
+}
 
 static inline
 int
@@ -34,7 +46,7 @@ string_snprintf(char * buf, size_t size, const char * s) {
 
 static inline
 int
-generic_snprintf(char * buf, size_t size, void * value) {
+generic_snprintf(char * buf, size_t size, const void * value) {
     return snprintf(buf, BUFSIZE, "%p", value);
 }
 
@@ -57,7 +69,9 @@ int NAME ## _add(NAME ## _t * set, const T element);                    \
                                                                         \
 int NAME ## _remove(NAME ## _t * set, const T search, T * element);     \
                                                                         \
-int NAME ## _get(NAME ## _t * set, const T search, T * element);        \
+int NAME ## _get(const NAME ## _t * set, const T search, T * element);  \
+                                                                        \
+int NAME ## _get_array(const NAME ## _t * set, T ** element);           \
                                                                         \
 void NAME ## _dump(NAME ## _t * set);
 
@@ -70,7 +84,7 @@ NAME ## _initialize(NAME ## _t * set)                                   \
 {                                                                       \
     set->root = NULL;                                                   \
     set->size = 0;                                                      \
-    return FACEMGR_SUCCESS;                                             \
+    return 0;                                                           \
 }                                                                       \
                                                                         \
 NO_FINALIZE(NAME);                                                      \
@@ -79,49 +93,88 @@ AUTOGENERATE_CREATE_FREE(NAME);                                         \
 int                                                                     \
 NAME ## _add(NAME ## _t * set, const T element)                         \
 {                                                                       \
-    return tsearch(element, &set->root, (cmp_t)CMP)              \
-        ? FACEMGR_SUCCESS : FACEMGR_FAILURE;                            \
+    void * ptr = tsearch(element, &set->root, (cmp_t)CMP);              \
+    if (!ptr)                                                           \
+        return -1;                                                      \
+    set->size++;                                                        \
+    return 0;                                                           \
 }                                                                       \
                                                                         \
 int                                                                     \
 NAME ## _remove(NAME ## _t * set, const T search, T * element)          \
 {                                                                       \
-    T * found = tdelete(search, &set->root, (cmp_t)CMP);         \
-    if (found && element)                                               \
+    T * found = tfind(search, &set->root, (cmp_t)CMP);                  \
+    if (!found)                                                         \
+        return ERR_SET_NOT_FOUND;                                       \
+    if (element)                                                        \
         *element = *found;                                              \
-    return found ? FACEMGR_SUCCESS : ERR_SET_NOT_FOUND;                 \
+    tdelete(search, &set->root, (cmp_t)CMP);                            \
+    set->size--;                                                        \
+    return 0;                                                           \
 }                                                                       \
                                                                         \
 int                                                                     \
-NAME ## _get(NAME ## _t * set, const T search, T * element)             \
+NAME ## _get(const NAME ## _t * set, const T search, T * element)       \
 {                                                                       \
     T * found = tfind(search, &set->root, (cmp_t)CMP);                  \
-    if (found && element)                                               \
-        *element = *found;                                              \
-    return found ? FACEMGR_SUCCESS : ERR_SET_NOT_FOUND;                 \
+    if (element)                                                        \
+        *element = found ? *found : NULL;                               \
+    return 0;                                                           \
 }                                                                       \
                                                                         \
-void                                                                    \
-__ ## NAME ## _dump_node(const void *nodep, const VISIT which, const int depth) \
+static void                                                             \
+NAME ## _dump_node(const void *nodep, const VISIT which,                \
+        const int depth)                                                \
 {                                                                       \
     char buf[BUFSIZE];                                                  \
     switch (which) {                                                    \
     case preorder:                                                      \
-        break;                                                          \
-    case postorder:                                                     \
-        break;                                                          \
     case endorder:                                                      \
         break;                                                          \
+    case postorder:                                                     \
     case leaf:                                                          \
         SNPRINTF(buf, BUFSIZE, *(T*)nodep);                             \
-        printf("%s\n", buf);                                            \
+        INFO("%s", buf);                                                \
         break;                                                          \
     }                                                                   \
 }                                                                       \
                                                                         \
 void                                                                    \
 NAME ## _dump(NAME ## _t * set) {                                       \
-    twalk(set->root, __ ## NAME ## _dump_node);                         \
+    twalk(set->root, NAME ## _dump_node);                               \
 }                                                                       \
+                                                                        \
+thread_local                                                            \
+T * NAME ## _array_pos = NULL;                                          \
+                                                                        \
+static void                                                             \
+NAME ## _add_node_to_array(const void *nodep, const VISIT which,        \
+        const int depth)                                                \
+{                                                                       \
+    if (!NAME ## _array_pos)                                            \
+        return;                                                         \
+    switch (which) {                                                    \
+        case preorder:                                                  \
+        case endorder:                                                  \
+            break;                                                      \
+        case postorder:                                                 \
+        case leaf:                                                      \
+            *NAME ## _array_pos = *(T*)nodep;                           \
+            NAME ## _array_pos++;                                       \
+            break;                                                      \
+    }                                                                   \
+}                                                                       \
+                                                                        \
+int                                                                     \
+NAME ## _get_array(const NAME ## _t * set, T ** element)                \
+{                                                                       \
+    *element = malloc(set->size * sizeof(T));                           \
+    if (!*element)                                                      \
+        return -1;                                                      \
+    NAME ## _array_pos = *element;                                      \
+    twalk(set->root, NAME ## _add_node_to_array);                       \
+    NAME ## _array_pos = NULL;                                          \
+    return set->size;                                                   \
+}
 
 #endif /* UTIL_SET_H */

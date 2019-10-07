@@ -42,6 +42,9 @@
 #define MAX_HICN_RETRY 5
 
 struct hicn_listener {
+
+  char *listenerName;
+
   Forwarder *forwarder;
   Logger *logger;
 
@@ -71,6 +74,8 @@ struct hicn_listener {
 };
 
 static void _destroy(ListenerOps **listenerOpsPtr);
+static const char *_getListenerName(const ListenerOps *ops);
+static const char *_getInterfaceName(const ListenerOps *ops);
 static unsigned _getInterfaceIndex(const ListenerOps *ops);
 static const Address *_getListenAddress(const ListenerOps *ops);
 static EncapType _getEncapType(const ListenerOps *ops);
@@ -85,6 +90,8 @@ static ListenerOps _hicnTemplate = {
   .getListenAddress = &_getListenAddress,
   .getEncapType = &_getEncapType,
   .getSocket = &_getSocket,
+  .getInterfaceName = &_getInterfaceName,
+  .getListenerName = &_getListenerName,
   .createConnection = &_createNewConnection,
   .lookupConnection = &_lookupConnection,
 };
@@ -125,6 +132,9 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
                     sizeof(HicnListener));
 
   hicn->forwarder = forwarder;
+  hicn->listenerName = parcMemory_StringDuplicate(symbolic, strlen(symbolic));
+  hicn->logger = logger_Acquire(forwarder_GetLogger(forwarder));
+
   hicn->logger = logger_Acquire(forwarder_GetLogger(forwarder));
 
   hicn->conn_id = forwarder_GetNextConnectionId(forwarder);
@@ -164,6 +174,7 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
     }
     logger_Release(&hicn->logger);
     addressDestroy(&hicn->localAddress);
+    parcMemory_Deallocate((void **)&hicn->listenerName);
     parcMemory_Deallocate((void **)&hicn);
     return NULL;
   }
@@ -206,6 +217,7 @@ ListenerOps *hicnListener_CreateInet6(Forwarder *forwarder, char *symbolic,
                     sizeof(HicnListener));
 
   hicn->forwarder = forwarder;
+  hicn->listenerName = parcMemory_StringDuplicate(symbolic, strlen(symbolic));
   hicn->logger = logger_Acquire(forwarder_GetLogger(forwarder));
 
   hicn->conn_id = forwarder_GetNextConnectionId(forwarder);
@@ -255,6 +267,7 @@ ListenerOps *hicnListener_CreateInet6(Forwarder *forwarder, char *symbolic,
     }
     logger_Release(&hicn->logger);
     addressDestroy(&hicn->localAddress);
+    parcMemory_Deallocate((void **)&hicn->listenerName);
     parcMemory_Deallocate((void **)&hicn);
     return NULL;
   }
@@ -421,6 +434,15 @@ static void _destroy(ListenerOps **listenerOpsPtr) {
   *listenerOpsPtr = NULL;
 }
 
+static const char *_getListenerName(const ListenerOps *ops) {
+  HicnListener *hicn = (HicnListener *)ops->context;
+  return hicn->listenerName;
+}
+static const char *_getInterfaceName(const ListenerOps *ops) {
+  const char *interfaceName = "";
+  return interfaceName;
+}
+
 static unsigned _getInterfaceIndex(const ListenerOps *ops) {
   HicnListener *hicn = (HicnListener *)ops->context;
   return hicn->conn_id;
@@ -468,7 +490,7 @@ static unsigned _createNewConnection(ListenerOps * listener, int fd,
   bool isLocal = false;
 
   // udpConnection_Create takes ownership of the pair
-  IoOperations *ops = hicnConnection_Create(hicn->forwarder, fd, pair, isLocal);
+  IoOperations *ops = hicnConnection_Create(hicn->forwarder, listener->getInterfaceName(listener), fd, pair, isLocal);
   Connection *conn = connection_Create(ops);
 
   connectionTable_Add(forwarder_GetConnectionTable(hicn->forwarder), conn);
