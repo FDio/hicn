@@ -26,21 +26,38 @@ set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
 )
 
+include(BuildMacros)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(CMAKE_MACOSX_RPATH ON)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  set(HICN_CTRL hicn-ctrl)
-  set(LIBHICN_CTRL hicn-ctrl)
-  set(LIBHICN_CTRL_SHARED ${LIBHICNCTRL}.shared)
-  set(LIBHICN_CTRL_STATIC ${LIBHICNCTRL}.static)
+
+  find_package_wrapper(Libhicn REQUIRED)
+
+  set(HICNCTRL hicnctrl)
+  set(LIBHICNCTRL hicnctrl)
+  set(LIBHICNCTRL_SHARED ${LIBHICNCTRL}.shared)
+  set(LIBHICNCTRL_STATIC ${LIBHICNCTRL}.static)
+
+else()
+  if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    set(HICN_LIBRARIES ${LIBHICN_STATIC})
+    list(APPEND DEPENDENCIES
+      ${LIBHICN_STATIC}
+    )
+  else ()
+    set(HICN_LIBRARIES ${LIBHICN_SHARED})
+    list(APPEND DEPENDENCIES
+      ${LIBHICN_SHARED}
+    )
+  endif ()
+
 endif()
 
-set(LIBHICNCTRL_COMPONENT lib${LIBHICN_CTRL})
-
-set(TO_INSTALL_HEADER_FILES)
+set(LIBHICNCTRL_COMPONENT lib${LIBHICNCTRL})
 
 add_subdirectory(includes)
 add_subdirectory(src)

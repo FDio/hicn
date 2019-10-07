@@ -363,29 +363,31 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
   Address *source = NULL;
   Address *destination = NULL;
 
-  if (!symbolicNameTable_Exists(config->symbolicNameTable, symbolicName)) {
-    if (control->ipType == ADDR_INET) {
-      source =
-          addressFromInaddr4Port(&control->localIp.ipv4, &control->localPort);
-      destination =
-          addressFromInaddr4Port(&control->remoteIp.ipv4, &control->remotePort);
-    } else if (control->ipType == ADDR_INET6) {
-      source =
-          addressFromInaddr6Port(&control->localIp.ipv6, &control->localPort);
-      destination =
-          addressFromInaddr6Port(&control->remoteIp.ipv6, &control->remotePort);
-    } else {
-      printf("Invalid IP type.\n");  // will generate a Nack
-    }
-
-    AddressPair *pair = addressPair_Create(source, destination);
-    conn = (Connection *)connectionTable_FindByAddressPair(
-        forwarder_GetConnectionTable(config->forwarder), pair);
-
-    addressPair_Release(&pair);
-  } else {
-    conn = NULL;
+  if (symbolicNameTable_Exists(config->symbolicNameTable, symbolicName)) {
+      logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
+              __func__, "Listener symbolic name already exists");
+      goto ERR;
   }
+
+  if (control->ipType == ADDR_INET) {
+    source =
+        addressFromInaddr4Port(&control->localIp.ipv4, &control->localPort);
+    destination =
+        addressFromInaddr4Port(&control->remoteIp.ipv4, &control->remotePort);
+  } else if (control->ipType == ADDR_INET6) {
+    source =
+        addressFromInaddr6Port(&control->localIp.ipv6, &control->localPort);
+    destination =
+        addressFromInaddr6Port(&control->remoteIp.ipv6, &control->remotePort);
+  } else {
+    printf("Invalid IP type.\n");  // will generate a Nack
+  }
+
+  AddressPair *pair = addressPair_Create(source, destination);
+  conn = (Connection *)connectionTable_FindByAddressPair(
+      forwarder_GetConnectionTable(config->forwarder), pair);
+
+  addressPair_Release(&pair);
 
   if (!conn) {
     IoOperations *ops = NULL;
@@ -460,11 +462,14 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
   if (destination)
     addressDestroy(&destination);
 
-  if (success) {  // ACK
-    return utils_CreateAck(header, control, sizeof(add_connection_command));
-  } else {  // NACK
+  if (!success)
+    goto ERR;
+
+  // ACK
+  return utils_CreateAck(header, control, sizeof(add_connection_command));
+
+ERR:
     return utils_CreateNack(header, control, sizeof(add_connection_command));
-  }
 }
 
 /**
@@ -577,6 +582,13 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
   return response;
 }
 
+void _strlwr(char *string) {
+  char *p = string;
+  while ((*p = tolower(*p))) {
+    p++;
+  }
+}
+
 struct iovec *configuration_ProcessConnectionList(Configuration *config,
                                                   struct iovec *request) {
   ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
@@ -603,8 +615,17 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
 
     // set structure fields
     listConnectionsCommand->connid = connection_GetConnectionId(original);
+
+    const char *connectionName = symbolicNameTable_GetNameByIndex(config->symbolicNameTable, connection_GetConnectionId(original));
+    snprintf(listConnectionsCommand->connectionName, 16, "%s", connectionName);
+    _strlwr(listConnectionsCommand->connectionName);
+
+    snprintf(listConnectionsCommand->interfaceName, 16, "%s", ioOperations_GetInterfaceName(connection_GetIoOperations(original)));
+
     listConnectionsCommand->state =
         connection_IsUp(original) ? IFACE_UP : IFACE_DOWN;
+    listConnectionsCommand->admin_state =
+        (connection_GetAdminState(original) == CONNECTION_STATE_UP) ? IFACE_UP : IFACE_DOWN;
     listConnectionsCommand->connectionData.connectionType =
         ioOperations_GetConnectionType(connection_GetIoOperations(original));
 
@@ -706,6 +727,14 @@ struct iovec *configuration_ProcessListenersList(Configuration *config,
       listListenersCommand->addressType = ADDR_INET6;
       listListenersCommand->address.ipv6 = tmpAddr6.sin6_addr;
       listListenersCommand->port = tmpAddr6.sin6_port;
+    }
+
+    const char * listenerName = listenerEntry->getListenerName(listenerEntry);
+    snprintf(listListenersCommand->listenerName, 16, "%s", listenerName);
+    if (listenerEntry->getEncapType(listenerEntry) == ENCAP_TCP ||
+            listenerEntry->getEncapType(listenerEntry) == ENCAP_UDP) {
+      const char * interfaceName = listenerEntry->getInterfaceName(listenerEntry);
+      snprintf(listListenersCommand->interfaceName, 16, "%s", interfaceName);
     }
   }
 

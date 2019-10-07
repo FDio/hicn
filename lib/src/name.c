@@ -26,11 +26,9 @@
 #include <stdlib.h>		// strtoul
 #include <string.h>		// memcpy
 
-#include "common.h"
-#include "error.h"
-#include "name.h"
-
-#define DUMMY_PORT ntohs(1234)
+#include <hicn/common.h>
+#include <hicn/error.h>
+#include <hicn/name.h>
 
 #if ! HICN_VPP_PLUGIN
 int
@@ -76,10 +74,10 @@ hicn_name_create (const char *ip_address, u32 id, hicn_name_t * name)
 }
 
 int
-hicn_name_create_from_ip_address (const ip_address_t * ip_address, u32 id,
+hicn_name_create_from_prefix (const ip_prefix_t * prefix, u32 id,
 				  hicn_name_t * name)
 {
-  switch (ip_address->family)
+  switch (prefix->family)
     {
     case AF_INET:
 	    name->type = HNT_CONTIGUOUS_V4;
@@ -91,13 +89,13 @@ hicn_name_create_from_ip_address (const ip_address_t * ip_address, u32 id,
       return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
     }
 
-  name->len = (u8) ip_address_len (ip_address);
+  name->len = (u8) (prefix->len);
   if ((name->type != HNT_CONTIGUOUS_V4) && (name->type != HNT_CONTIGUOUS_V6))
     {
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
     }
 
-  memcpy (name->buffer, ip_address->buffer, name->len);
+  memcpy (name->buffer, prefix->address.buffer, ip_prefix_len (prefix));
   *(u32 *) (name->buffer + name->len) = id;
 
   return HICN_LIB_ERROR_NONE;
@@ -391,27 +389,27 @@ hicn_name_to_sockaddr_address (const hicn_name_t * name,
 }
 
 int
-hicn_name_to_ip_address (const hicn_name_t * name, ip_address_t * ip_address)
+hicn_name_to_ip_prefix (const hicn_name_t * name, ip_prefix_t * prefix)
 {
   switch (name->type)
     {
     case HNT_CONTIGUOUS_V6:
-      memcpy (&ip_address->buffer, name->buffer, IPV6_ADDR_LEN);
-      ip_address->family = AF_INET6;
+      memcpy (&prefix->address.buffer, name->buffer, IPV6_ADDR_LEN);
+      prefix->family = AF_INET6;
       break;
     case HNT_IOV_V6:
-      memcpy (&ip_address->buffer, name->iov.buffers[0].iov_base,
+      memcpy (&prefix->address.buffer, name->iov.buffers[0].iov_base,
 	      name->iov.buffers[0].iov_len);
-      ip_address->family = AF_INET6;
+      prefix->family = AF_INET6;
       break;
     case HNT_CONTIGUOUS_V4:
-      memcpy (&ip_address->buffer, name->buffer, IPV4_ADDR_LEN);
-      ip_address->family = AF_INET;
+      memcpy (&prefix->address.buffer, name->buffer, IPV4_ADDR_LEN);
+      prefix->family = AF_INET;
       break;
     case HNT_IOV_V4:
-      memcpy (&ip_address->buffer, name->iov.buffers[0].iov_base,
+      memcpy (&prefix->address.buffer, name->iov.buffers[0].iov_base,
 	      name->iov.buffers[0].iov_len);
-      ip_address->family = AF_INET;
+      prefix->family = AF_INET;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -525,142 +523,27 @@ hicn_name_get_family (const hicn_name_t * name, int *family)
 }
 
 int
-hicn_prefix_create_from_ip_address (const ip_address_t * ip_address,
+hicn_prefix_create_from_ip_prefix (const ip_prefix_t * ip_prefix,
 				    hicn_prefix_t * prefix)
 {
-  switch (ip_address->family)
+  switch (ip_prefix->family)
     {
     case AF_INET:
-      prefix->name.ip4.as_u32 = ip_address->as_u32[0];
+      prefix->name.ip4.as_u32 = ip_prefix->address.as_u32[0];
       break;
     case AF_INET6:
-      prefix->name.ip6.as_u64[0] = ip_address->as_u64[0];
-      prefix->name.ip6.as_u64[1] = ip_address->as_u64[1];
+      prefix->name.ip6.as_u64[0] = ip_prefix->address.as_u64[0];
+      prefix->name.ip6.as_u64[1] = ip_prefix->address.as_u64[1];
       break;
     default:
       return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
     }
-  prefix->len = (u8) (ip_address->prefix_len);
+  prefix->len = (u8) (ip_prefix->len);
 
   return HICN_LIB_ERROR_NONE;
 }
 
 #endif /* ! HICN_VPP_PLUGIN */
-
-/********
- * IP
- */
-
-inline int
-ip_address_len (const ip_address_t * ip_address)
-{
-  return (ip_address->family == AF_INET6) ? IPV6_ADDR_LEN :
-    (ip_address->family == AF_INET) ? IPV4_ADDR_LEN : 0;
-}
-
-bool
-ip_address_empty (const ip_address_t * ip_address)
-{
-  return ip_address->prefix_len == 0;
-}
-
-int
-hicn_ip_ntop (const ip_address_t * ip_address, char *dst, const size_t len)
-{
-  const char *rc;
-
-  rc = inet_ntop (ip_address->family, ip_address->buffer, dst, len);
-  if (!rc)
-    {
-      printf ("error ntop: %d %s\n", errno, strerror (errno));
-      return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
-    }
-
-  return HICN_LIB_ERROR_NONE;
-}
-
-/*
- * Parse ip addresses in presentation format, or prefixes (in bits, separated by a slash)
- */
-int
-hicn_ip_pton (const char *ip_address_str, ip_address_t * ip_address)
-{
-  int pton_fd;
-  char *p;
-  char *eptr;
-  u32 dst_len;
-  char *addr = strdup (ip_address_str);
-
-  p = strchr (addr, '/');
-  if (!p)
-    {
-      dst_len = 0;		// until we get the ip address family
-    }
-  else
-    {
-      dst_len = strtoul (p + 1, &eptr, 10);
-      *p = 0;
-    }
-
-  ip_address->family = get_addr_family (addr);
-
-  switch (ip_address->family)
-    {
-    case AF_INET6:
-      if (dst_len > IPV6_ADDR_LEN_BITS)
-	goto ERR;
-      pton_fd = inet_pton (AF_INET6, addr, &ip_address->buffer);
-      ip_address->prefix_len = dst_len ? dst_len : IPV6_ADDR_LEN_BITS;
-      break;
-    case AF_INET:
-      if (dst_len > IPV4_ADDR_LEN_BITS)
-	goto ERR;
-      pton_fd = inet_pton (AF_INET, addr, &ip_address->buffer);
-      ip_address->prefix_len = dst_len ? dst_len : IPV4_ADDR_LEN_BITS;
-      break;
-    default:
-      goto ERR;
-    }
-
-  //   0 = not in presentation format
-  // < 0 = other error (use perror)
-  if (pton_fd <= 0)
-    {
-      goto ERR;
-    }
-
-  return HICN_LIB_ERROR_NONE;
-ERR:
-  free (addr);
-  return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
-}
-
-int
-hicn_ip_to_sockaddr_address (const ip_address_t * ip_address,
-			     struct sockaddr *sockaddr_address)
-{
-  struct sockaddr_in6 *tmp6 = (struct sockaddr_in6 *) sockaddr_address;
-  struct sockaddr_in *tmp4 = (struct sockaddr_in *) sockaddr_address;
-
-  switch (ip_address->family)
-    {
-    case AF_INET6:
-      tmp6->sin6_family = AF_INET6;
-      tmp6->sin6_port = DUMMY_PORT;
-      tmp6->sin6_scope_id = 0;
-      memcpy (&tmp6->sin6_addr, ip_address->buffer, IPV6_ADDR_LEN);
-      break;
-    case AF_INET:
-      tmp4->sin_family = AF_INET;
-      tmp4->sin_port = DUMMY_PORT;
-      memcpy (&tmp4->sin_addr, ip_address->buffer, IPV4_ADDR_LEN);
-      break;
-    default:
-      return HICN_LIB_ERROR_UNEXPECTED;
-    }
-
-  return HICN_LIB_ERROR_NONE;
-}
 
 
 /*

@@ -16,8 +16,8 @@
 #ifndef FACE_RULES_H
 #define FACE_RULES_H
 
+#include <hicn/policy.h>
 #include "util/map.h"
-#include "util/policy.h"
 
 /*
  * Face creation rules

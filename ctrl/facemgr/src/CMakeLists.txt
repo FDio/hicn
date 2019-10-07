@@ -20,40 +20,24 @@ set(COMPILER_DEFINITIONS
 )
 
 set(HEADER_FILES
-#cache.h
     common.h
     error.h
-    event.h
-    face.h
-    face_cache.h
     face_rules.h
+    facelet.h
     interface.h
-    interface_map.h
-    interface_ops_map.h
     util/hash.h
-    util/ip_address.h
-    util/log.h
     util/map.h
-    util/policy.h
     util/set.h
-    util/token.h
-    util/types.h
-
 )
 
 set(SOURCE_FILES
-#   cache.c
+    api.c
+    cfg.c
     error.c
-    event.c
-    face.c
-    face_cache.c
     face_rules.c
+    facelet.c
     interface.c
-    interface_map.c
-    interface_ops_map.c
-    facemgr.c
     util/log.c
-    util/policy.c
 )
 
 set(INCLUDE_DIRS
@@ -61,51 +45,82 @@ set(INCLUDE_DIRS
     ../includes/
     ${CONFIG_INCLUDE_DIR}
     ${LIBEVENT_INCLUDE_DIR}
+    ${HICN_INCLUDE_DIRS}
     ${LIBHICNCTRL_INCLUDE_DIRS}
 )
 
 set(LIBRARIES
     ${CONFIG_LIBRARY}
     ${LIBEVENT_LIBRARY}
+    ${HICN_LIBRARIES}
     ${LIBHICNCTRL_LIBRARIES}
 )
 
+
 add_subdirectory(interfaces)
 
-if (ANDROID_API)
-    build_library(${FACE_MGR}
+if(WITH_THREAD)
+    set(LIBRARIES
+        ${LIBRARIES}
+        "pthread"
+        "event_pthreads"
+    )
+    set(COMPILER_DEFINITIONS
+        ${COMPILER_DEFINITIONS}
+        "-DWITH_THREAD"
+    )
+endif()
+
+if(WITH_EXAMPLE_DUMMY)
+    set(COMPILER_DEFINITIONS
+        ${COMPILER_DEFINITIONS}
+        "-DWITH_EXAMPLE_DUMMY"
+    )
+endif()
+
+if(WITH_EXAMPLE_UPDOWN)
+    set(COMPILER_DEFINITIONS
+        ${COMPILER_DEFINITIONS}
+        "-DWITH_EXAMPLE_UPDOWN"
+    )
+endif()
+
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    build_library(${LIBFACEMGR}
         STATIC
         SOURCES ${SOURCE_FILES}
         INSTALL_HEADERS ${TO_INSTALL_HEADER_FILES}
         DEPENDS ${DEPENDENCIES}
-        COMPONENT ${FACE_MGR}
+        LINK_LIBRARIES ${LIBRARIES}
+        COMPONENT ${FACEMGR}
         INCLUDE_DIRS ${INCLUDE_DIRS}
         INSTALL_ROOT_DIR hicn
         DEFINITIONS ${COMPILER_DEFINITIONS}
     )
 else ()
-    build_library(${FACE_MGR}
-        STATIC NO_DEV
+    build_library(${LIBFACEMGR}
+        SHARED STATIC NO_DEV
         SOURCES ${SOURCE_FILES}
         INSTALL_HEADERS ${TO_INSTALL_HEADER_FILES}
         DEPENDS ${DEPENDENCIES}
-        COMPONENT ${FACE_MGR}
+        LINK_LIBRARIES ${LIBRARIES}
+        COMPONENT ${FACEMGR}
         INCLUDE_DIRS ${INCLUDE_DIRS}
         INSTALL_ROOT_DIR hicn
         DEFINITIONS ${COMPILER_DEFINITIONS}
     )
 endif ()
 
-if(NOT ANDROID_API AND NOT COMPILE_FOR_IOS)
+if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Android" AND NOT COMPILE_FOR_IOS)
     list(APPEND DAEMON_SRC
       main.c
     )
 
-    build_executable(${FACE_MGR}
+    build_executable(${FACEMGR}
       SOURCES ${DAEMON_SRC}
-      LINK_LIBRARIES ${FACE_MGR}.static ${LIBRARIES}
-      DEPENDS ${FACE_MGR}.static
-      COMPONENT ${FACE_MGR}
+      LINK_LIBRARIES ${LIBFACEMGR}.static ${LIBRARIES}
+      DEPENDS ${LIBFACEMGR}.static
+      COMPONENT ${FACEMGR}
       INCLUDE_DIRS ${INCLUDE_DIRS}
       DEFINITIONS ${COMPILER_DEFINITIONS}
     )
