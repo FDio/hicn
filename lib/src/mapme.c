@@ -18,12 +18,12 @@
  * @brief Implementation  of MAP-Me anchorless producer mobility management.
  */
 
-#include "mapme.h"
-#include "common.h"
-#include "error.h"
+#include <hicn/mapme.h>
+#include <hicn/common.h>
+#include <hicn/error.h>
 
-#include "protocol/ipv4.h"
-#include "protocol/ipv6.h"
+#include <hicn/protocol/ipv4.h>
+#include <hicn/protocol/ipv6.h>
 
 size_t
 hicn_mapme_v4_create_packet (u8 * buf, const hicn_prefix_t * prefix,

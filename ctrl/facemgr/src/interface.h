@@ -30,8 +30,8 @@
 
 #include <stdbool.h>
 
-struct event_s;
-typedef int (*callback_t)(struct event_s * event, void * callback_data);
+struct facelet_s;
+typedef int (*callback_t)(struct facelet_s * facelet, void * callback_data);
 
 struct interface_s;
 struct face_rules_s;
@@ -40,17 +40,21 @@ struct face_rules_s;
  * \brief Interface operations
  */
 typedef struct {
+    /** The type given to the interfaces */
     char * type;
-    bool is_singleton;
-    int (*initialize)(struct interface_s * interface, struct face_rules_s * rules, void ** pdata);
+    /* Constructor */
+    int (*initialize)(struct interface_s * interface, void * cfg);
+    /* Destructor */
     int (*finalize)(struct interface_s * interface);
+    /* Callback upon file descriptor event (iif previously registered) */
     int (*callback)(struct interface_s * interface);
-    int (*on_event)(struct interface_s * interface, const struct event_s * event);
+    /* Callback upon face events coming from the face manager */
+    int (*on_event)(struct interface_s * interface, const struct facelet_s * facelet);
 } interface_ops_t;
 
 typedef struct interface_s {
     char * name;
-    interface_ops_t * ops;
+    const interface_ops_t * ops;
     callback_t callback;
     void * callback_data;
     void * data;
@@ -90,9 +94,9 @@ void _interface_set_callback(interface_t * interface, callback_t callback, void 
 #define interface_set_callback(interface, callback, callback_data) \
     _interface_set_callback(interface, (callback_t)callback, (void*)callback_data)
 
-int interface_initialize(interface_t * interface, struct face_rules_s * rules);
+int interface_initialize(interface_t * interface, void * cfg);
 int interface_finalize(interface_t * interface);
 
-int interface_on_event(interface_t * interface, const struct event_s * event);
+int interface_on_event(interface_t * interface, const struct facelet_s * facelet);
 
 #endif /* FACEMGR_INTERFACE_H */

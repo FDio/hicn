@@ -60,13 +60,13 @@ int _nl_get_output_ifid(const char *ip_address, uint8_t address_family,
  * @see getifaddrs
  */
 int _nl_get_ip_addr(uint32_t interface_id, uint8_t address_family,
-                    ip_address_t *ip_address);
+                    ip_prefix_t *ip_address);
 
-int _nl_set_ip_addr(uint32_t interface_id, ip_address_t *ip_address);
+int _nl_set_ip_addr(uint32_t interface_id, ip_prefix_t *ip_address);
 
 int _nl_up_if(uint32_t interface_id);
 
-int _nl_add_in_route_table(const ip_address_t *prefix,
+int _nl_add_in_route_table(const ip_prefix_t *prefix,
                            const uint32_t interface_id, const uint8_t table_id);
 int _nl_add_in_route_table_s(const char *prefix, const uint32_t interface_id,
                              const uint8_t table_id);
@@ -77,25 +77,25 @@ int _nl_add_out_route(const char *gateway, const uint8_t address_family,
 int _nl_del_out_route(const char *gateway, const uint8_t address_family,
                       const uint8_t table_id);
 
-int _nl_del_lo_route(const ip_address_t *ip_address);
+int _nl_del_lo_route(const ip_prefix_t *ip_address);
 
 int _nl_add_rule(const char *interface_name, const uint8_t address_family,
                  const uint8_t table_id);
 int _nl_del_rule(const char *interface_name, const uint8_t address_family,
                  const uint8_t table_id);
 
-int _nl_add_neigh_proxy(const ip_address_t *ip_address,
+int _nl_add_neigh_proxy(const ip_prefix_t *ip_address,
                         const uint32_t interface_id);
 
-int _nl_add_prio_rule(const ip_address_t *ip_address,
+int _nl_add_prio_rule(const ip_prefix_t *ip_address,
                       const uint8_t address_family, const uint32_t priority,
                       const uint8_t table_id);
-int _nl_add_lo_prio_rule(const ip_address_t *ip_address,
+int _nl_add_lo_prio_rule(const ip_prefix_t *ip_address,
                          const uint8_t address_family, const uint32_t priority);
-int _nl_del_prio_rule(const ip_address_t *ip_address,
+int _nl_del_prio_rule(const ip_prefix_t *ip_address,
                       const uint8_t address_family, const uint32_t priority,
                       const uint8_t table_id);
-int _nl_del_lo_prio_rule(const ip_address_t *ip_address,
+int _nl_del_lo_prio_rule(const ip_prefix_t *ip_address,
                          const uint8_t address_family, const uint32_t priority);
 
 #endif /* HICN_NETLINK_H */
@@ -530,7 +530,7 @@ ERR:
 }
 
 int _nl_get_ip_addr(uint32_t interface_id, uint8_t address_family,
-                    ip_address_t *ip_address) {
+                    ip_prefix_t *prefix) {
   char buffer[BUFSIZE];
   struct nlmsghdr *hdr = (struct nlmsghdr *)buffer;
   size_t n;
@@ -575,9 +575,9 @@ int _nl_get_ip_addr(uint32_t interface_id, uint8_t address_family,
       if ((payload->ifa_index == interface_id) &&
           (payload->ifa_prefixlen < IPV6_ADDR_LEN * 8)) {
         printf("got ip address\n");
-        memcpy(ip_address->buffer, RTA_DATA(payload + 1), IPV6_ADDR_LEN);
-        ip_address->family = AF_INET6;
-        ip_address->prefix_len = IPV6_ADDR_LEN_BITS;
+        memcpy(prefix->address.buffer, RTA_DATA(payload + 1), IPV6_ADDR_LEN);
+        prefix->family = AF_INET6;
+        prefix->len = IPV6_ADDR_LEN_BITS;
         printf("returning %d\n", HICN_SOCKET_ERROR_NONE);
         return HICN_SOCKET_ERROR_NONE;
       }
@@ -585,9 +585,9 @@ int _nl_get_ip_addr(uint32_t interface_id, uint8_t address_family,
       if ((payload->ifa_index == interface_id) &&
           (payload->ifa_prefixlen < IPV4_ADDR_LEN * 8)) {
         printf("got ip address\n");
-        memcpy(ip_address->buffer, RTA_DATA(payload + 1), IPV4_ADDR_LEN);
-        ip_address->family = AF_INET;
-        ip_address->prefix_len = IPV4_ADDR_LEN_BITS;
+        memcpy(prefix->address.buffer, RTA_DATA(payload + 1), IPV4_ADDR_LEN);
+        prefix->family = AF_INET;
+        prefix->len = IPV4_ADDR_LEN_BITS;
         printf("returning %d\n", HICN_SOCKET_ERROR_NONE);
         return HICN_SOCKET_ERROR_NONE;
       }
@@ -604,7 +604,7 @@ ERR_SOCKET:
   return HICN_SOCKET_ERROR_UNSPEC;
 }
 
-int _nl_set_ip_addr(uint32_t interface_id, ip_address_t *ip_address) {
+int _nl_set_ip_addr(uint32_t interface_id, ip_prefix_t *prefix) {
   char buffer[BUFSIZE];
   struct nlmsghdr *hdr = (struct nlmsghdr *)buffer;
   size_t n;
@@ -617,19 +617,19 @@ int _nl_set_ip_addr(uint32_t interface_id, ip_address_t *ip_address) {
       .hdr.nlmsg_type = RTM_NEWADDR,
       .hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_MATCH | NLM_F_ATOMIC,
       .hdr.nlmsg_seq = seq++,
-      .payload.ifa_family = ip_address->family,
-      .payload.ifa_prefixlen = ip_address->prefix_len,
+      .payload.ifa_family = prefix->family,
+      .payload.ifa_prefixlen = prefix->len,
       .payload.ifa_flags = 0,
       .payload.ifa_scope = RT_SCOPE_UNIVERSE,
       .payload.ifa_index = interface_id};
 
   /* Set attributes = length/type/value */
-  struct rtattr ifa_address = {RTA_LENGTH(ip_address_len(ip_address)),
+  struct rtattr ifa_address = {RTA_LENGTH(ip_prefix_len(prefix)),
                                IFA_ADDRESS};
   struct iovec iov[] = {
       {&msg, sizeof(msg)},
       {&ifa_address, sizeof(ifa_address)},
-      {(void *)&ip_address->buffer, sizeof(ip_address->buffer)},
+      {(void *)&prefix->address.buffer, sizeof(prefix->address.buffer)},
   };
   msg.hdr.nlmsg_len = iov_length(iov, ARRAY_SIZE(iov));
 
@@ -966,7 +966,7 @@ ERR_SOCKET:
  * ip route del 1:2::2 dev lo table local
  *
  */
-int _nl_del_lo_route(const ip_address_t *ip_address) {
+int _nl_del_lo_route(const ip_prefix_t *prefix) {
   char buffer[BUFSIZE];
   struct nlmsghdr *hdr = (struct nlmsghdr *)buffer;
   size_t n;
@@ -979,8 +979,8 @@ int _nl_del_lo_route(const ip_address_t *ip_address) {
       .hdr.nlmsg_type = RTM_DELROUTE,
       .hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
       .hdr.nlmsg_seq = seq++,
-      .payload.rtm_family = ip_address->family,
-      .payload.rtm_dst_len = ip_address->prefix_len,
+      .payload.rtm_family = prefix->family,
+      .payload.rtm_dst_len = prefix->len,
       .payload.rtm_src_len = 0,
       .payload.rtm_tos = 0,
       .payload.rtm_table = RT_TABLE_LOCAL,
@@ -992,13 +992,13 @@ int _nl_del_lo_route(const ip_address_t *ip_address) {
 
   /* Set attribute = length/type/value */
   uint32_t one = 1;
-  struct rtattr a_dst = {RTA_LENGTH(ip_address_len(ip_address)), RTA_DST};
+  struct rtattr a_dst = {RTA_LENGTH(ip_prefix_len(prefix)), RTA_DST};
   struct rtattr a_ifid_lo = {RTA_LENGTH(sizeof(uint32_t)), RTA_OIF};
   struct iovec iov[] = {
       {&msg, sizeof(msg)},
       /* Ip address */
       {&a_dst, sizeof(a_dst)},
-      {(void *)&ip_address->buffer, ip_address_len(ip_address)},
+      {(void *)&prefix->address.buffer, ip_prefix_len(prefix)},
       /* Interface id */
       {&a_ifid_lo, sizeof(a_ifid_lo)},
       {&one, sizeof(one)}};
@@ -1129,7 +1129,7 @@ ERR_SOCKET:
  * ip -6 neigh add proxy 1:2::2 dev hicnc-cons-eth0 2>&1 | grep nei
  *
  */
-int _nl_add_neigh_proxy(const ip_address_t *ip_address,
+int _nl_add_neigh_proxy(const ip_prefix_t *prefix,
                         const uint32_t interface_id) {
   /* Buffer for holding the response, with appropriate casting on the header */
   char buffer[BUFSIZE];
@@ -1147,21 +1147,21 @@ int _nl_add_neigh_proxy(const ip_address_t *ip_address,
       .hdr.nlmsg_type = RTM_NEWNEIGH,
       .hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK | NLM_F_EXCL,
       .hdr.nlmsg_seq = seq++,
-      .payload.ndm_family = ip_address->family,
+      .payload.ndm_family = prefix->family,
       .payload.ndm_ifindex = interface_id,
       .payload.ndm_state = NUD_PERMANENT,
       .payload.ndm_flags = NTF_PROXY,
   };
 
   /* Message attributes = length/type/value */
-  struct rtattr a_dst = {RTA_LENGTH(ip_address_len(ip_address)), NDA_DST};
+  struct rtattr a_dst = {RTA_LENGTH(ip_prefix_len(prefix)), NDA_DST};
 
   /* Iovec describing the packets */
   struct iovec iov[] = {
       {&msg, sizeof(msg)},
       /* Ip address */
       {&a_dst, sizeof(a_dst)},
-      {(void *)&ip_address->buffer, sizeof(ip_address->buffer)},
+      {(void *)&prefix->address.buffer, sizeof(prefix->address.buffer)},
   };
   msg.hdr.nlmsg_len = iov_length(iov, ARRAY_SIZE(iov));
 
@@ -1199,7 +1199,7 @@ ERR:
 
 /* ip -6 route add 0:1::/64 dev hicn-if0 table 100 */
 /* ip -6 route add 0:2::/64 dev hicn-if1 table 100 */
-int _nl_add_in_route_table(const ip_address_t *prefix,
+int _nl_add_in_route_table(const ip_prefix_t *prefix,
                            const uint32_t interface_id,
                            const uint8_t table_id) {
   /* Buffer for holding the response, with appropriate casting on the header */
@@ -1219,7 +1219,7 @@ int _nl_add_in_route_table(const ip_address_t *prefix,
       .hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK | NLM_F_EXCL,
       .hdr.nlmsg_seq = seq++,
       .payload.rtm_family = prefix->family,
-      .payload.rtm_dst_len = prefix->prefix_len,
+      .payload.rtm_dst_len = prefix->len,
       .payload.rtm_src_len = 0,
       .payload.rtm_tos = 0,
       .payload.rtm_table = table_id, /* RT_TABLE_MAIN, etc. */
@@ -1231,7 +1231,7 @@ int _nl_add_in_route_table(const ip_address_t *prefix,
   };
 
   /* Message attributes = length/type/value */
-  struct rtattr a_dst = {RTA_LENGTH(ip_address_len(prefix)), RTA_DST};
+  struct rtattr a_dst = {RTA_LENGTH(ip_prefix_len(prefix)), RTA_DST};
   struct rtattr a_oif = {RTA_LENGTH(sizeof(uint32_t)), RTA_OIF};
 
   /* Iovec describing the packets */
@@ -1239,7 +1239,7 @@ int _nl_add_in_route_table(const ip_address_t *prefix,
       {&msg, sizeof(msg)},
       /* Destination prefix / ip address */
       {&a_dst, sizeof(a_dst)},
-      {(void *)&prefix->buffer, ip_address_len(prefix)},
+      {(void *)&prefix->address.buffer, ip_prefix_len(prefix)},
       /* Output interface */
       {&a_oif, sizeof(a_oif)},
       {(void *)&interface_id, sizeof(uint32_t)},
@@ -1283,9 +1283,9 @@ ERR:
 int _nl_add_in_route_table_s(const char *prefix, const uint32_t interface_id,
                              const uint8_t table_id) {
   int rc;
-  ip_address_t ip_address;
+  ip_prefix_t ip_address;
 
-  rc = hicn_ip_pton(prefix, &ip_address);
+  rc = ip_prefix_pton(prefix, &ip_address);
   if (rc < 0) {
     return rc;
   }
@@ -1298,7 +1298,7 @@ int _nl_add_in_route_s(const char *prefix, const uint32_t interface_id) {
 }
 
 /* ip -6 rule add from b001::/16 prio 0 table 100 */
-int _nl_add_prio_rule(const ip_address_t *ip_address, uint8_t address_family,
+int _nl_add_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
                       const uint32_t priority, const uint8_t table_id) {
   /* Buffer for holding the response, with appropriate casting on the header */
   char buffer[BUFSIZE];
@@ -1318,7 +1318,7 @@ int _nl_add_prio_rule(const ip_address_t *ip_address, uint8_t address_family,
       .hdr.nlmsg_seq = seq++,
       .payload.family = address_family,
       //.payload.dst_len = ,
-      .payload.src_len = ip_address ? ip_address->prefix_len : 0,
+      .payload.src_len = prefix ? prefix->len : 0,
       .payload.tos = 0,
       .payload.table = table_id,
       .payload.action = FR_ACT_TO_TBL,
@@ -1331,17 +1331,17 @@ int _nl_add_prio_rule(const ip_address_t *ip_address, uint8_t address_family,
     goto ERR;
   }
 
-  if (ip_address) {
+  if (prefix) {
     /* Message attributes = length/type/value */
-    struct rtattr a_src = {RTA_LENGTH(ip_address_len(ip_address)), FRA_SRC};
+    struct rtattr a_src = {RTA_LENGTH(ip_prefix_len(prefix)), FRA_SRC};
     struct rtattr a_prio = {RTA_LENGTH(sizeof(uint32_t)), FRA_PRIORITY};
 
     /* Iovec describing the packets */
     struct iovec iov[] = {
         {&msg, sizeof(msg)},
-        /* Source prefix / ip_address */
+        /* Source prefix / prefix */
         {&a_src, sizeof(a_src)},
-        {(void *)&ip_address->buffer, ip_address_len(ip_address)},
+        {(void *)&prefix->address.buffer, ip_prefix_len(prefix)},
         /* Priority */
         {&a_prio, sizeof(a_prio)},
         {(void *)&priority, sizeof(uint32_t)},
@@ -1392,14 +1392,14 @@ ERR:
   return HICN_SOCKET_ERROR_UNSPEC;
 }
 
-int _nl_add_lo_prio_rule(const ip_address_t *ip_address, uint8_t address_family,
+int _nl_add_lo_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
                          const uint32_t priority) {
-  return _nl_add_prio_rule(ip_address, address_family, priority,
+  return _nl_add_prio_rule(prefix, address_family, priority,
                            RT_TABLE_LOCAL);
 }
 
 /* ip -6 rule del from all prio 0 table local */
-int _nl_del_prio_rule(const ip_address_t *ip_address, uint8_t address_family,
+int _nl_del_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
                       const uint32_t priority, const uint8_t table_id) {
   /* Buffer for holding the response, with appropriate casting on the header */
   char buffer[BUFSIZE];
@@ -1419,7 +1419,7 @@ int _nl_del_prio_rule(const ip_address_t *ip_address, uint8_t address_family,
       .hdr.nlmsg_seq = seq++,
       .payload.family = address_family,
       //.payload.dst_len = ,
-      .payload.src_len = ip_address ? ip_address->prefix_len : 0,
+      .payload.src_len = prefix ? prefix->len : 0,
       .payload.tos = 0,
       .payload.table = table_id,
       .payload.action = FR_ACT_TO_TBL,
@@ -1433,16 +1433,16 @@ int _nl_del_prio_rule(const ip_address_t *ip_address, uint8_t address_family,
   }
 
   /* Message attributes = length/type/value */
-  if (ip_address) {
-    struct rtattr a_src = {RTA_LENGTH(ip_address_len(ip_address)), FRA_SRC};
+  if (prefix) {
+    struct rtattr a_src = {RTA_LENGTH(ip_prefix_len(prefix)), FRA_SRC};
     struct rtattr a_prio = {RTA_LENGTH(sizeof(uint32_t)), FRA_PRIORITY};
 
     /* Iovec describing the packets */
     struct iovec iov[] = {
         {&msg, sizeof(msg)},
-        /* Source prefix / ip_address */
+        /* Source prefix / prefix */
         {&a_src, sizeof(a_src)},
-        {(void *)&ip_address->buffer, ip_address_len(ip_address)},
+        {(void *)&prefix->address.buffer, ip_prefix_len(prefix)},
         /* Priority */
         {&a_prio, sizeof(a_prio)},
         {(void *)&priority, sizeof(uint32_t)},
@@ -1495,7 +1495,7 @@ ERR:
   return HICN_SOCKET_ERROR_UNSPEC;
 }
 
-int _nl_del_lo_prio_rule(const ip_address_t *ip_address, uint8_t address_family,
+int _nl_del_lo_prio_rule(const ip_prefix_t *ip_address, uint8_t address_family,
                          const uint32_t priority) {
   return _nl_del_prio_rule(ip_address, address_family, priority,
                            RT_TABLE_LOCAL);

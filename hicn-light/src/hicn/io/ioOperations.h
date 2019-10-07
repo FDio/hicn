@@ -67,6 +67,8 @@ typedef struct io_ops IoOperations;
  * state).
  * @constant setAdminState Allows to set the administrative state of a
  * connection.
+ * @constant getInterfaceName Returns the interface name associated to a
+ * connection.
  * @discussion <#Discussion#>
  */
 struct io_ops {
@@ -87,6 +89,7 @@ struct io_ops {
   void (*setState)(IoOperations *ops, connection_state_t state);
   connection_state_t (*getAdminState)(const IoOperations *ops);
   void (*setAdminState)(IoOperations *ops, connection_state_t admin_state);
+  const char * (*getInterfaceName)(const IoOperations *ops);
 };
 
 /**
@@ -412,5 +415,13 @@ connection_state_t ioOperations_GetAdminState(const IoOperations *ops);
  * @param [in] state New state to set (connection_state_t).
  */
 void ioOperations_SetAdminState(IoOperations *ops, connection_state_t admin_state);
+
+/**
+ * Sets the interface name associated to the connection.
+ *
+ * @param [in] ops The connection implementation.
+ * @return the name associated to the connection (const char *)
+ */
+const char * ioOperations_GetInterfaceName(const IoOperations *ops);
 
 #endif  // io_h

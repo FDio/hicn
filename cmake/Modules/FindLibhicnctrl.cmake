@@ -31,14 +31,14 @@ find_path(LIBHICNCTRL_INCLUDE_DIR hicn/ctrl.h
   DOC "Find the hICN control include"
 )
 
-find_library(LIBHICNCTRL_LIBRARY NAMES hicn-ctrl
+find_library(LIBHICNCTRL_LIBRARY NAMES hicnctrl
   HINTS ${HICN_SEARCH_PATH_LIST}
   PATH_SUFFIXES lib
   DOC "Find the hicn control library"
 )
 
-set(LIBHICNCTRL_LIBRARIES ${HICNCTRL_LIBRARY})
-set(LIBHICNCTRL_INCLUDE_DIRS ${HICNCTRL_INCLUDE_DIR})
+set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_LIBRARY})
+set(LIBHICNCTRL_INCLUDE_DIRS ${LIBHICNCTRL_INCLUDE_DIR})
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(hicnctrl DEFAULT_MSG
