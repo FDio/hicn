@@ -1,7 +1,8 @@
 #!/bin/bash
 
 if [ -e /etc/vpp/startup.conf ]; then
-    if ! grep -q "hicn" /etc/vpp/startup.conf; then
+    RESULTS=$(sed -n '/hicn[ ]*{/p' /etc/vpp/startup.conf | wc -l)
+    if [[ $RESULTS = 0 ]]; then
         printf '\n hicn {
             ## Set PIT size. Default is 131 072 entries
             # pit-size 500000
