@@ -22,9 +22,8 @@
 #include <unistd.h> // getopt
 
 #include <hicn/ctrl.h>
-
-#include "util/ip_address.h"
-#include "util/token.h"
+#include <hicn/util/ip_address.h>
+#include <hicn/util/token.h>
 
 
 #define die(LABEL, MESSAGE) do {    \

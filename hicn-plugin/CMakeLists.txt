@@ -55,25 +55,25 @@ set(LIBHICN_FILES
 )
 
 set(LIBHICN_HEADER_FILES_SRC
-    ../lib/src/hicn.h
-    ../lib/src/base.h
-    ../lib/src/common.h
-    ../lib/src/error.h
-    ../lib/src/header.h
-    ../lib/src/name.h
-    ../lib/src/protocol.h
-    ../lib/src/ops.h
-    ../lib/src/mapme.h
+    ../lib/includes/hicn/hicn.h
+    ../lib/includes/hicn/base.h
+    ../lib/includes/hicn/common.h
+    ../lib/includes/hicn/error.h
+    ../lib/includes/hicn/header.h
+    ../lib/includes/hicn/name.h
+    ../lib/includes/hicn/protocol.h
+    ../lib/includes/hicn/ops.h
+    ../lib/includes/hicn/mapme.h
 )
 
 set(LIBHICN_HEADER_FILES_PROTOCOL
-    ../lib/src/protocol/ah.h
-    ../lib/src/protocol/icmp.h
-    ../lib/src/protocol/icmprd.h
-    ../lib/src/protocol/ipv4.h
-    ../lib/src/protocol/ipv6.h
-    ../lib/src/protocol/tcp.h
-    ../lib/src/protocol/udp.h
+    ../lib/includes/hicn/protocol/ah.h
+    ../lib/includes/hicn/protocol/icmp.h
+    ../lib/includes/hicn/protocol/icmprd.h
+    ../lib/includes/hicn/protocol/ipv4.h
+    ../lib/includes/hicn/protocol/ipv6.h
+    ../lib/includes/hicn/protocol/tcp.h
+    ../lib/includes/hicn/protocol/udp.h
 )
 
 set(HICN_PLUGIN_SOURCE_FILES

@@ -47,6 +47,7 @@ static void _conn_eventcb(PARCEventQueue *bufferEventVector,
 
 typedef struct stream_state {
   Forwarder *forwarder;
+  char * interfaceName;
   Logger *logger;
 
   int fd;
@@ -90,6 +91,7 @@ static connection_state_t _streamConnection_getState(const IoOperations *ops);
 static void _streamConnection_setState(IoOperations *ops, connection_state_t state);
 static connection_state_t _streamConnection_getAdminState(const IoOperations *ops);
 static void _streamConnection_setAdminState(IoOperations *ops, connection_state_t admin_state);
+static const char * _streamConnection_getInterfaceName(const IoOperations *ops);
 
 /*
  * This assigns a unique pointer to the void * which we use
@@ -121,6 +123,7 @@ static IoOperations _template = {
     .setState = &_streamConnection_setState,
     .getAdminState = &_streamConnection_getAdminState,
     .setAdminState = &_streamConnection_setAdminState,
+    .getInterfaceName = &_streamConnection_getInterfaceName,
 };
 
 IoOperations *streamConnection_AcceptConnection(Forwarder *forwarder, int fd,
@@ -137,6 +140,7 @@ IoOperations *streamConnection_AcceptConnection(Forwarder *forwarder, int fd,
       PARCEventQueueOption_CloseOnFree | PARCEventQueueOption_DeferCallbacks);
 
   stream->forwarder = forwarder;
+  stream->interfaceName = NULL;
   stream->logger = logger_Acquire(forwarder_GetLogger(forwarder));
   stream->fd = fd;
   stream->id = forwarder_GetNextConnectionId(forwarder);
@@ -191,6 +195,7 @@ IoOperations *streamConnection_OpenConnection(Forwarder *forwarder,
                     sizeof(_StreamState));
 
   stream->forwarder = forwarder;
+  stream->interfaceName = NULL;
   stream->logger = logger_Acquire(forwarder_GetLogger(forwarder));
   stream->fd = parcEventQueue_GetFileDescriptor(bufferEventVector);
   stream->bufferEventVector = bufferEventVector;
@@ -606,7 +611,7 @@ static void _conn_readcb(PARCEventQueue *event, PARCEventType type,
 
     } else {
       parcAssertTrue(false,
-                     "(Local stream connection) malformend packet received");
+                     "(Local stream connection) malformed packet received");
     }
   }
 
@@ -727,4 +732,12 @@ static void _streamConnection_setAdminState(IoOperations *ops, connection_state_
   _StreamState *stream =
       (_StreamState *)ioOperations_GetClosure(ops);
   stream->admin_state = admin_state;
+}
+
+static const char * _streamConnection_getInterfaceName(const IoOperations *ops)
+{
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  _StreamState *stream =
+      (_StreamState *)ioOperations_GetClosure(ops);
+  return stream->interfaceName;
 }

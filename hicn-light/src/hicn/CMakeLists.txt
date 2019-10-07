@@ -14,8 +14,7 @@ list(APPEND COMPILER_DEFINITIONS
   "-DWITH_POLICY"
 )
 
-
-if(NOT ANDROID_API AND NOT COMPILE_FOR_IOS)
+if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Android" AND NOT COMPILE_FOR_IOS)
   add_subdirectory(command_line)
 endif ()
 
@@ -43,7 +42,7 @@ list(APPEND TO_INSTALL_HEADER_FILES
   ${CMAKE_CURRENT_BINARY_DIR}/hicn-light/config.h
 )
 
-if (ANDROID_API)
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   build_library(${LIBHICN_LIGHT}
     STATIC
     SOURCES ${SOURCE_FILES}

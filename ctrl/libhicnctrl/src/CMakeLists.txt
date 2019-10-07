@@ -11,11 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-include(BuildMacros)
-
 list(APPEND COMPILER_DEFINITIONS
   "-DWITH_POLICY"
-#  "-DWITH_UPDATE"
 )
 
 set(HEADER_FILES
@@ -26,34 +23,34 @@ set(HEADER_FILES
 
 set(UTIL_HEADER_FILES
     face.h
-    util/ip_address.h
     util/log.h
-    util/policy.h
-    util/token.h
-    util/types.h
 )
 
 set(SOURCE_FILES
     api.c
-    util/policy.c
+    face.c
     util/log.c
 )
 
 set(LIBRARIES
     m
+    ${HICN_LIBRARIES}
 )
 
 set(INCLUDE_DIRS
     ./
     ../includes/
+    ${HICN_INCLUDE_DIRS}
 )
 
-if (ANDROID_API)
-    build_library(${LIBHICN_CTRL}
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    set(HICN_LIBRARIES ${LIBHICN_STATIC})
+    build_library(${LIBHICNCTRL}
         STATIC
         SOURCES ${SOURCE_FILES}
         INSTALL_HEADERS ${TO_INSTALL_HEADER_FILES}
         LINK_LIBRARIES ${LIBRARIES}
+        DEPENDS ${LIBHICN_STATIC}
         COMPONENT ${LIBHICNCTRL_COMPONENT}
         DEPENDS ${LIBHICN_STATIC}
         INCLUDE_DIRS ${INCLUDE_DIRS}
@@ -61,11 +58,12 @@ if (ANDROID_API)
         DEFINITIONS ${COMPILER_DEFINITIONS}
     )
 else ()
-    build_library(${LIBHICN_CTRL}
+    build_library(${LIBHICNCTRL}
         SHARED STATIC
         SOURCES ${SOURCE_FILES}
         INSTALL_HEADERS ${TO_INSTALL_HEADER_FILES}
         LINK_LIBRARIES ${LIBRARIES}
+        DEPENDS ${LIBHICN_SHARED}
         COMPONENT ${LIBHICNCTRL_COMPONENT}
         DEPENDS ${LIBHICN_SHARED}
         INCLUDE_DIRS ${INCLUDE_DIRS}
@@ -74,14 +72,14 @@ else ()
     )
 endif ()
 
-if(NOT ANDROID_API AND NOT COMPILE_FOR_IOS)
+if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Android" AND NOT COMPILE_FOR_IOS)
     list(APPEND DAEMON_SRC
       cli.c
     )
-    build_executable(${HICN_CTRL}
+    build_executable(${HICNCTRL}
       SOURCES ${DAEMON_SRC}
-      LINK_LIBRARIES ${LIBHICN_CTRL_SHARED}
-      DEPENDS ${LIBHICN_CTRL_SHARED}
+      LINK_LIBRARIES ${LIBHICNCTRL_SHARED} ${LIBHICN_SHARED}
+      DEPENDS ${LIBHICNCTRL_SHARED} ${LIBHICN_SHARED}
       COMPONENT ${LIBHICNCTRL_COMPONENT}
       INCLUDE_DIRS ${INCLUDE_DIRS}
       DEFINITIONS ${COMPILER_DEFINITIONS}

@@ -24,14 +24,17 @@
 #include <Network/Network.h>
 #include <err.h>
 
+#include <hicn/facemgr.h>
+#include <hicn/util/token.h>
+#include <hicn/util/log.h>
+
 #include "../../common.h"
-#include "../../event.h"
-#include "../../face.h"
-#include "../../facemgr.h"
+#include <hicn/ctrl/face.h>
+#include "../../facelet.h"
 #include "../../interface.h"
 #include "../../util/map.h"
-#include "../../util/token.h"
-#include "../../util/log.h"
+
+#include "network_framework.h"
 
 /*
  * Bonjour service discovery for hICN forwarder
@@ -107,7 +110,7 @@ cmp_iface(const nw_interface_t iface1, const nw_interface_t iface2)
 //TYPEDEF_MAP(map_cnx, nw_interface_t, nw_connection_t, cmp_iface);
 
 typedef struct {
-    face_rules_t * rules; /**< Face creation rules */
+    network_framework_cfg_t cfg;
     nw_path_monitor_t pm; /**< Main path monitor */
 //    map_cnx_t map_cnx;    /**< Map: interface -> connection for face status */
 } nf_data_t;
@@ -243,7 +246,7 @@ face_create_from_connection(nw_connection_t connection, face_rules_t * rules)
             return NULL;
     }
 
-    face = face_create_udp_sa(local_addr, remote_addr);
+
 
     /* Retrieving path interface type (a single one expected */
     nw_path_enumerate_interfaces(path, (nw_path_enumerate_interfaces_block_t)^(nw_interface_t path_interface) {
@@ -252,7 +255,7 @@ face_create_from_connection(nw_connection_t connection, face_rules_t * rules)
     });
     nw_interface_type_t type = nw_interface_get_type(interface);
     const char * name = nw_interface_get_name(interface);
-
+    face = face_create_udp_sa(name, local_addr, remote_addr);
     policy_tags_t tags = POLICY_TAGS_EMPTY;
 
     if (rules) {
@@ -341,8 +344,12 @@ on_connection_state_event(interface_t * interface, nw_interface_t iface,
             });
 #endif
             nf_data_t * data = (nf_data_t*)interface->data;
-            face_t * face = face_create_from_connection(cnx, data->rules);
-            event_raise(EVENT_TYPE_CREATE, face, interface);
+            face_t * face = face_create_from_connection(cnx, data->cfg.rules);
+            facelet_t * facelet = facelet_create_from_face(face);
+            if (!facelet)
+                return;
+            facelet_set_event(facelet, FACELET_EVENT_CREATE);
+            facelet_raise_event(facelet, interface);
             break;
             }
         case nw_connection_state_failed:
@@ -483,13 +490,13 @@ void on_interface_event(interface_t * interface, nw_interface_t iface)
          * and thus the full identification of an hICN face
          */
         nf_data_t * data = (nf_data_t*)interface->data;
-        face_t * face = face_create_from_connection(connection, data->rules);
+        face_t * face = face_create_from_connection(connection, data->cfg.rules);
+        facelet_t * facelet = facelet_create_from_face(face);
+        if (!facelet)
+            return;
+        facelet_set_event(facelet, value ? FACELET_EVENT_CREATE : EVENT_TYPE_DELETE);
         //event_raise(value ? EVENT_TYPE_SET_UP : EVENT_TYPE_SET_DOWN, face, interface);
-        if(value) {
-            event_raise(EVENT_TYPE_CREATE, face, interface);
-        } else {
-            event_raise(EVENT_TYPE_DELETE, face, interface);
-        }
+        facelet_raise_event(facelet, interface);
 
     });
 
@@ -528,13 +535,16 @@ void on_path_event(interface_t * interface, nw_path_t path)
 
 }
 
-int nf_initialize(interface_t * interface, face_rules_t * rules, void ** pdata)
+int nf_initialize(interface_t * interface, void * cfg, void ** pdata)
 {
     nf_data_t * data = malloc(sizeof(nf_data_t));
     if (!data)
         goto ERR_MALLOC;
 
-    data->rules = rules;
+    if (cfg)
+        data->cfg = * (network_framework_cfg_t *)cfg;
+    else
+        data->cfg.rules = NULL;
 
     data->pm = nw_path_monitor_create();
     if (!data->pm)
@@ -574,7 +584,6 @@ int nf_finalize(interface_t * interface)
 
 const interface_ops_t network_framework_ops = {
     .type = "network_framework",
-    .is_singleton = true,
     .initialize = nf_initialize,
     .finalize = nf_finalize,
     .on_event = NULL,

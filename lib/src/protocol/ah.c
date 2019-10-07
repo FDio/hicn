@@ -19,11 +19,11 @@
  */
 
 #include <string.h>		// memcpy
-#include "../common.h"
-#include "../error.h"
-#include "../header.h"
-#include "../ops.h"
-#include "ah.h"
+#include <hicn/common.h>
+#include <hicn/error.h>
+#include <hicn/header.h>
+#include <hicn/ops.h>
+#include <hicn/protocol/ah.h>
 
 DECLARE_get_interest_locator (ah, UNEXPECTED);
 DECLARE_set_interest_locator (ah, UNEXPECTED);

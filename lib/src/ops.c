@@ -22,9 +22,9 @@
 #include <netinet/in.h>
 #endif
 #include <stdlib.h>
-#include "ops.h"
+#include <hicn/ops.h>
 
-#include "header.h"
+#include <hicn/header.h>
 
 extern const hicn_ops_t hicn_ops_ipv4;
 extern const hicn_ops_t hicn_ops_icmp;

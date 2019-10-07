@@ -28,7 +28,7 @@
 #include <parc/algol/parc_Memory.h>
 #include <parc/assert/parc_Assert.h>
 #ifdef WITH_POLICY
-#include <hicn/utils/policy.h>
+#include <hicn/policy.h>
 #endif /* WITH_POLICY */
 
 struct connection {
@@ -327,6 +327,14 @@ void connection_SetAdminState(Connection *conn, connection_state_t admin_state)
   if (!conn->ops)
     return;
   ioOperations_SetAdminState(conn->ops, admin_state);
+}
+
+const char * connection_GetInterfaceName(const Connection * conn)
+{
+  parcAssertNotNull(conn, "Parameter conn must be non-null");
+  if (!conn->ops)
+    return NULL;
+  return ioOperations_GetInterfaceName(conn->ops);
 }
 
 #ifdef WITH_POLICY

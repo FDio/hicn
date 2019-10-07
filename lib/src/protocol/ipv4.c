@@ -27,12 +27,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../error.h"
-#include "../ops.h"
-#include "../common.h"
-#include "../header.h"
+#include <hicn/error.h>
+#include <hicn/ops.h>
+#include <hicn/common.h>
+#include <hicn/header.h>
 
-#include "ipv4.h"
+#include <hicn/protocol/ipv4.h>
 
 int ipv4_get_payload_length (hicn_type_t type, const hicn_protocol_t * h,
 			     size_t * payload_length);
