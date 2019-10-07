@@ -87,8 +87,8 @@ uint32_t VPPForwarderInterface::getMemifConfiguration() {
 void VPPForwarderInterface::consumerConnection() {
   hicn_consumer_input_params input = {0};
   hicn_consumer_output_params output = {0};
-  ip_address_t ip4_address;
-  ip_address_t ip6_address;
+  ip_prefix_t ip4_address;
+  ip_prefix_t ip6_address;
 
   output.src4 = &ip4_address;
   output.src6 = &ip6_address;
@@ -103,12 +103,12 @@ void VPPForwarderInterface::consumerConnection() {
   }
 
   inet_address_.family = AF_INET;
-  inet_address_.prefix_len = output.src4->prefix_len;
-  std::memcpy(inet_address_.buffer, output.src4->buffer, IPV6_ADDR_LEN);
+  inet_address_.len = output.src4->len;
+  std::memcpy(inet_address_.address.buffer, output.src4->address.buffer, IPV6_ADDR_LEN);
 
   inet6_address_.family = AF_INET6;
-  inet6_address_.prefix_len = output.src6->prefix_len;
-  std::memcpy(inet6_address_.buffer, output.src6->buffer, IPV6_ADDR_LEN);
+  inet6_address_.len = output.src6->len;
+  std::memcpy(inet6_address_.address.buffer, output.src6->address.buffer, IPV6_ADDR_LEN);
 }
 
 void VPPForwarderInterface::producerConnection() {
@@ -144,7 +144,7 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
   auto &addr = prefix.toIpAddressStruct();
 
   // Same ip address for input and outurt params
-  ip_address_t ip_address;
+  ip_prefix_t ip_address;
 
   if (face_id_ == uint32_t(~0)) {
     hicn_producer_input_params input;
@@ -160,10 +160,10 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
     // memif_id, since this function should be called after the
     // memif creation.
     input.swif = sw_if_index_;
-    input.prefix->as_u64[0] = addr.as_u64[0];
-    input.prefix->as_u64[1] = addr.as_u64[1];
+    input.prefix->address.as_u64[0] = addr.address.as_u64[0];
+    input.prefix->address.as_u64[1] = addr.address.as_u64[1];
     input.prefix->family = addr.family == AF_INET6 ? AF_INET6 : AF_INET;
-    input.prefix->prefix_len = addr.prefix_len;
+    input.prefix->len = addr.len;
     input.cs_reserved = content_store_reserved_;
 
     int ret = hicn_binary_api_register_prod_app(
@@ -174,25 +174,25 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
     }
 
     if (addr.family == AF_INET6) {
-      inet6_address_.prefix_len = output.prod_addr->prefix_len;
-      inet6_address_.as_u64[0] = output.prod_addr->as_u64[0];
-      inet6_address_.as_u64[1] = output.prod_addr->as_u64[1];
+      inet6_address_.len = output.prod_addr->len;
+      inet6_address_.address.as_u64[0] = output.prod_addr->address.as_u64[0];
+      inet6_address_.address.as_u64[1] = output.prod_addr->address.as_u64[1];
     } else {
-      inet_address_.prefix_len = output.prod_addr->prefix_len;
+      inet_address_.len = output.prod_addr->len;
       // The ipv4 is written in the last 4 bytes of the ipv6 address, so we need
       // to copy from the byte 12
-      inet_address_.as_u64[0] = output.prod_addr->as_u64[0];
-      inet_address_.as_u64[1] = output.prod_addr->as_u64[1];
+      inet_address_.address.as_u64[0] = output.prod_addr->address.as_u64[0];
+      inet_address_.address.as_u64[1] = output.prod_addr->address.as_u64[1];
     }
 
     face_id_ = output.face_id;
   } else {
     hicn_producer_set_route_params params;
     params.prefix = &ip_address;
-    params.prefix->as_u64[0] = addr.as_u64[0];
-    params.prefix->as_u64[1] = addr.as_u64[1];
+    params.prefix->address.as_u64[0] = addr.address.as_u64[0];
+    params.prefix->address.as_u64[1] = addr.address.as_u64[1];
     params.prefix->family = addr.family == AF_INET6 ? AF_INET6 : AF_INET;
-    params.prefix->prefix_len = addr.prefix_len;
+    params.prefix->len = addr.len;
     params.face_id = face_id_;
 
     int ret = hicn_binary_api_register_route(VPPForwarderInterface::hicn_api_,

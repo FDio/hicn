@@ -33,7 +33,7 @@ namespace transport {
 
 namespace core {
 
-Prefix::Prefix() { std::memset(&ip_address_, 0, sizeof(ip_address_t)); }
+Prefix::Prefix() { std::memset(&ip_address_, 0, sizeof(ip_prefix_t)); }
 
 Prefix::Prefix(const char *prefix) : Prefix(std::string(prefix)) {}
 
@@ -67,7 +67,7 @@ Prefix::Prefix(const core::Name &content_name, uint16_t prefix_length) {
   }
 
   ip_address_ = content_name.toIpAddress();
-  ip_address_.prefix_len = prefix_length;
+  ip_address_.len = prefix_length;
   ip_address_.family = family;
 }
 
@@ -77,13 +77,13 @@ void Prefix::buildPrefix(std::string &prefix, uint16_t prefix_length,
     throw errors::InvalidIpAddressException();
   }
 
-  int ret = inet_pton(family, prefix.c_str(), ip_address_.buffer);
+  int ret = inet_pton(family, prefix.c_str(), ip_address_.address.buffer);
 
   if (ret != 1) {
     throw errors::InvalidIpAddressException();
   }
 
-  ip_address_.prefix_len = prefix_length;
+  ip_address_.len = prefix_length;
   ip_address_.family = family;
 }
 
@@ -101,17 +101,17 @@ std::unique_ptr<Sockaddr> Prefix::toSockaddr() {
       throw errors::InvalidIpAddressException();
   }
 
-  if (hicn_ip_to_sockaddr_address(&ip_address_, ret) < 0) {
+  if (ip_prefix_to_sockaddr(&ip_address_, ret) < 0) {
     throw errors::InvalidIpAddressException();
   }
 
   return std::unique_ptr<Sockaddr>(ret);
 }
 
-uint16_t Prefix::getPrefixLength() { return ip_address_.prefix_len; }
+uint16_t Prefix::getPrefixLength() { return ip_address_.len; }
 
 Prefix &Prefix::setPrefixLength(uint16_t prefix_length) {
-  ip_address_.prefix_len = prefix_length;
+  ip_address_.len = prefix_length;
   return *this;
 }
 
@@ -123,17 +123,17 @@ Prefix &Prefix::setAddressFamily(int address_family) {
 }
 
 std::string Prefix::getNetwork() const {
-  if (!checkPrefixLengthAndAddressFamily(ip_address_.prefix_len,
+  if (!checkPrefixLengthAndAddressFamily(ip_address_.len,
                                          ip_address_.family)) {
     throw errors::InvalidIpAddressException();
   }
 
   std::size_t size =
-      ip_address_.family == AF_INET ? INET_ADDRSTRLEN : INET6_ADDRSTRLEN;
+      ip_address_.family == 4 + AF_INET ? INET_ADDRSTRLEN : INET6_ADDRSTRLEN;
 
   std::string network(size, 0);
 
-  if (hicn_ip_ntop(&ip_address_, (char *)network.c_str(), size) < 0) {
+  if (ip_prefix_ntop(&ip_address_, (char *)network.c_str(), size) < 0) {
     throw errors::RuntimeException(
         "Impossible to retrieve network from ip address.");
   }
@@ -147,7 +147,7 @@ Name Prefix::getName() const {
 }
 
 Prefix &Prefix::setNetwork(std::string &network) {
-  if (!inet_pton(AF_INET6, network.c_str(), ip_address_.buffer)) {
+  if (!inet_pton(AF_INET6, network.c_str(), ip_address_.address.buffer)) {
     throw errors::RuntimeException("The network name is not valid.");
   }
 
@@ -163,10 +163,10 @@ Name Prefix::makeRandomName() const {
         0, std::numeric_limits<uint32_t>::max());
     uint64_t random_number = idis(eng);
 
-    uint32_t hash_size_bits = IPV6_ADDR_LEN_BITS - ip_address_.prefix_len;
+    uint32_t hash_size_bits = IPV6_ADDR_LEN_BITS - ip_address_.len;
     uint64_t ip_address[2];
-    memcpy(ip_address, ip_address_.buffer, sizeof(uint64_t));
-    memcpy(ip_address + 1, ip_address_.buffer + 8, sizeof(uint64_t));
+    memcpy(ip_address, ip_address_.address.buffer, sizeof(uint64_t));
+    memcpy(ip_address + 1, ip_address_.address.buffer + 8, sizeof(uint64_t));
     std::string network(IPV6_ADDR_LEN * 3, 0);
 
     // Let's do the magic ;)
@@ -208,7 +208,7 @@ bool Prefix::checkPrefixLengthAndAddressFamily(uint16_t prefix_length,
   return true;
 }
 
-ip_address_t &Prefix::toIpAddressStruct() { return ip_address_; }
+ip_prefix_t &Prefix::toIpAddressStruct() { return ip_address_; }
 
 }  // namespace core
 

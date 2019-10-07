@@ -28,11 +28,20 @@
 
 #include <hicn/ctrl/api.h>
 #include <hicn/ctrl/commands.h>
+#include <hicn/util/token.h>
 #include "util/log.h"
-#include "util/token.h"
 #include <strings.h>
 
 #define PORT 9695
+
+#if 0
+#ifdef __APPLE__
+#define RANDBYTE() (u8)(arc4random() & 0xFF)
+#else
+#define RANDBYTE() (u8)(random() & 0xFF)
+#endif
+#endif
+#define RANDBYTE() (u8)(rand() & 0xFF)
 
 /*
  * list was working with all seq set to 0, but it seems hicnLightControl uses
@@ -159,8 +168,8 @@ static const hc_connection_state_t map_from_list_connections_state[] = {
 };
 
 
-#define connection_state_to_face_state(x) ((face_state_t)x)
-#define face_state_to_connection_state(x) ((hc_connection_state_t)x)
+#define connection_state_to_face_state(x) ((face_state_t)(x))
+#define face_state_to_connection_state(x) ((hc_connection_state_t)(x))
 
 #define IS_VALID_ADDR_TYPE(x) ((x >= ADDR_INET) && (x <= ADDR_UNIX))
 
@@ -342,6 +351,8 @@ hc_sock_parse_url(const char * url, struct sockaddr * sa)
     /* FIXME URL parsing is currently not implemented */
     assert(!url);
 
+    srand(time(NULL));
+
     /*
      * A temporary solution is to inspect the sa_family fields of the passed in
      * sockaddr, which defaults to AF_UNSPEC (0) and thus creates an IPv4/TCP
@@ -443,7 +454,13 @@ ERR_PARSE:
 int
 hc_sock_send(hc_sock_t * s, hc_msg_t * msg, size_t msglen)
 {
-    return send(s->fd, msg, msglen, 0);
+    int rc;
+    rc = send(s->fd, msg, msglen, 0);
+    if (rc < 0) {
+        perror("hc_sock_send");
+        return -1;
+    }
+    return 0;
 }
 
 int
@@ -473,6 +490,7 @@ hc_sock_recv(hc_sock_t * s, hc_data_t * data)
         // XXX
     }
     if (rc < 0) {
+        perror("hc_sock_recv");
         /* Error occurred */
         // XXX check for EWOULDBLOCK;
         // XXX
@@ -647,7 +665,8 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
     if (!data)
         goto ERR_DATA;
 
-    hc_sock_send(s, msg, msg_len);
+    if (hc_sock_send(s, msg, msg_len) < 0)
+        goto ERR_PROCESS;
     while(!data->complete) {
         if (hc_sock_recv(s, data) < 0)
             break;
@@ -665,52 +684,6 @@ ERR_PROCESS:
     free(data);
 ERR_DATA:
      return LIBHICNCTRL_FAILURE;
-}
-
-/* /!\ Please update constants in header file upon changes */
-int
-hc_url_snprintf(char * s, size_t size, int family,
-        const ip_address_t * ip_address, u16 port)
-{
-    char * cur = s;
-    int rc;
-
-    /* Other address are currently not supported */
-    if (!IS_VALID_FAMILY(family)) {
-        ERROR("Invalid family %d for IP address", family);
-        return -1;
-    }
-
-    rc = snprintf(cur, s + size - cur, "inet%c://",
-            (family == AF_INET) ? '4' : '6');
-    if (rc < 0)
-        return rc;
-    cur += rc;
-    if (size != 0 && cur >= s + size)
-        return cur - s;
-
-    rc = ip_address_snprintf(cur, s + size - cur, ip_address, family);
-    if (rc < 0)
-        return rc;
-    cur += rc;
-    if (size != 0 && cur >= s + size)
-        return cur - s;
-
-    rc = snprintf(cur, s + size - cur, ":");
-    if (rc < 0)
-        return rc;
-    cur += rc;
-    if (size != 0 && cur >= s + size)
-        return cur - s;
-
-    rc = snprintf(cur, s + size - cur, "%d", port);
-    if (rc < 0)
-        return rc;
-    cur += rc;
-    if (size != 0 && cur >= s + size)
-        return cur - s;
-
-    return cur - s;
 }
 
 /*----------------------------------------------------------------------------*
@@ -750,9 +723,7 @@ hc_listener_create(hc_sock_t * s, hc_listener_t * listener)
     };
 
     snprintf(msg.payload.symbolic, NAME_LEN, "%s", listener->name);
-#ifdef __linux__
     snprintf(msg.payload.interfaceName, INTERFACE_LEN, "%s", listener->interface_name);
-#endif
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
@@ -772,13 +743,25 @@ hc_listener_get(hc_sock_t *s, hc_listener_t * listener,
         hc_listener_t ** listener_found)
 {
     hc_data_t * listeners;
+    hc_listener_t * found;
 
     if (hc_listener_list(s, &listeners) < 0)
         return LIBHICNCTRL_FAILURE;
 
     /* Test */
-    if (hc_listener_find(listeners, listener, listener_found) < 0)
+    if (hc_listener_find(listeners, listener, &found) < 0) {
+        hc_data_free(listeners);
         return LIBHICNCTRL_FAILURE;
+    }
+
+    if (found) {
+        *listener_found = malloc(sizeof(hc_listener_t));
+        if (!*listener_found)
+            return LIBHICNCTRL_FAILURE;
+        **listener_found = *found;
+    } else {
+        *listener_found = NULL;
+    }
 
     hc_data_free(listeners);
 
@@ -818,6 +801,7 @@ hc_listener_delete(hc_sock_t * s, hc_listener_t * listener)
             return LIBHICNCTRL_FAILURE;
         printf("Delete listener ID=%d\n", listener_found->id);
         snprintf(msg.payload.symbolicOrListenerid, NAME_LEN, "%d", listener_found->id);
+        free(listener_found);
     }
 
     hc_command_params_t params = {
@@ -879,6 +863,7 @@ hc_listener_cmp(const hc_listener_t * l1, const hc_listener_t * l2)
 {
     return ((l1->type == l2->type) &&
             (l1->family == l2->family) &&
+            (strncmp(l1->interface_name, l2->interface_name, INTERFACE_LEN) == 0) &&
             (ip_address_cmp(&l1->local_addr, &l2->local_addr, l1->family) == 0) &&
             (l1->local_port == l2->local_port))
         ? LIBHICNCTRL_SUCCESS
@@ -913,7 +898,8 @@ hc_listener_parse(void * in, hc_listener_t * listener)
         .local_addr = UNION_CAST(cmd->address, ip_address_t),
         .local_port = ntohs(cmd->port),
     };
-    memset(listener->name, 0, NAME_LEN);
+    snprintf(listener->name, NAME_LEN, "%s", cmd->listenerName);
+    snprintf(listener->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
     return LIBHICNCTRL_SUCCESS;
 }
 
@@ -925,14 +911,15 @@ GENERATE_FIND(listener)
 int
 hc_listener_snprintf(char * s, size_t size, hc_listener_t * listener)
 {
-    char local[MAXSZ_HC_URL];
+    char local[MAXSZ_URL];
     int rc;
-    rc = hc_url_snprintf(local, MAXSZ_HC_URL,
+    rc = url_snprintf(local, MAXSZ_URL,
          listener->family, &listener->local_addr, listener->local_port);
     if (rc < 0)
         return rc;
 
-    return snprintf(s, size+17, "%s %s",
+    return snprintf(s, size+17, "%s %s %s",
+            listener->interface_name,
             local,
             connection_type_str[listener->type]);
 }
@@ -993,13 +980,25 @@ hc_connection_get(hc_sock_t *s, hc_connection_t * connection,
         hc_connection_t ** connection_found)
 {
     hc_data_t * connections;
+    hc_connection_t * found;
 
     if (hc_connection_list(s, &connections) < 0)
         return LIBHICNCTRL_FAILURE;
 
     /* Test */
-    if (hc_connection_find(connections, connection, connection_found) < 0)
+    if (hc_connection_find(connections, connection, &found) < 0) {
+        hc_data_free(connections);
         return LIBHICNCTRL_FAILURE;
+    }
+
+    if (found) {
+        *connection_found = malloc(sizeof(hc_connection_t));
+        if (!*connection_found)
+            return LIBHICNCTRL_FAILURE;
+        **connection_found = *found;
+    } else {
+        *connection_found = NULL;
+    }
 
     hc_data_free(connections);
 
@@ -1039,6 +1038,7 @@ hc_connection_delete(hc_sock_t * s, hc_connection_t * connection)
             return LIBHICNCTRL_FAILURE;
         printf("Delete connection ID=%d\n", connection_found->id);
         snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%d", connection_found->id);
+        free(connection_found);
     }
 
     hc_command_params_t params = {
@@ -1158,6 +1158,7 @@ hc_connection_parse(void * in, hc_connection_t * connection)
         .state = state,
     };
     snprintf(connection->name, NAME_LEN, "%s", cmd->connectionData.symbolic);
+    snprintf(connection->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
     return LIBHICNCTRL_SUCCESS;
 }
 
@@ -1169,23 +1170,24 @@ GENERATE_FIND(connection)
 int
 hc_connection_snprintf(char * s, size_t size, const hc_connection_t * connection)
 {
-    char local[MAXSZ_HC_URL];
-    char remote[MAXSZ_HC_URL];
+    char local[MAXSZ_URL];
+    char remote[MAXSZ_URL];
     int rc;
 
     // assert(connection->connection_state)
 
-    rc = hc_url_snprintf(local, MAXSZ_HC_URL, connection->family,
+    rc = url_snprintf(local, MAXSZ_URL, connection->family,
             &connection->local_addr, connection->local_port);
     if (rc < 0)
         return rc;
-    rc = hc_url_snprintf(remote, MAXSZ_HC_URL, connection->family,
+    rc = url_snprintf(remote, MAXSZ_URL, connection->family,
             &connection->remote_addr, connection->remote_port);
     if (rc < 0)
         return rc;
 
-    return snprintf(s, size, "%s %s %s %s",
+    return snprintf(s, size, "%s %s %s %s %s",
             connection_state_str[connection->state],
+            connection->interface_name,
             local,
             remote,
             connection_type_str[connection->type]);
@@ -1195,7 +1197,7 @@ hc_connection_snprintf(char * s, size_t size, const hc_connection_t * connection
 
 int
 hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
-        hc_connection_state_t admin_state)
+        face_state_t state)
 {
     struct {
         header_control_message hdr;
@@ -1208,7 +1210,7 @@ hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
             .seqNum = s->send_seq,
         },
         .payload = {
-            .admin_state = admin_state,
+            .admin_state = state,
         },
     };
     snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%s", conn_id_or_name);
@@ -1436,13 +1438,12 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
 
     switch(f->type) {
         case FACE_TYPE_HICN:
-            /* FIXME truncations, collisions, ... */
             *connection = (hc_connection_t) {
                 .type = CONNECTION_TYPE_HICN,
-                .family = f->params.hicn.family,
-                .local_addr = f->params.hicn.local_addr,
+                .family = f->family,
+                .local_addr = f->local_addr,
                 .local_port = 0,
-                .remote_addr = f->params.hicn.remote_addr,
+                .remote_addr = f->remote_addr,
                 .remote_port = 0,
                 .admin_state = face_state_to_connection_state(f->admin_state),
                 .state = face_state_to_connection_state(f->state),
@@ -1451,16 +1452,18 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
 #endif /* WITH_POLICY */
             };
             snprintf(connection->name, NAME_LEN, "%s",
-                    f->params.hicn.netdevice.name);
+                    f->netdevice.name);
+            snprintf(connection->interface_name, INTERFACE_LEN, "%s",
+                    f->netdevice.name);
             break;
         case FACE_TYPE_TCP:
             *connection = (hc_connection_t) {
                 .type = CONNECTION_TYPE_TCP,
-                .family = f->params.hicn.family,
-                .local_addr = f->params.tunnel.local_addr,
-                .local_port = f->params.tunnel.local_port,
-                .remote_addr = f->params.tunnel.remote_addr,
-                .remote_port = f->params.tunnel.remote_port,
+                .family = f->family,
+                .local_addr = f->local_addr,
+                .local_port = f->local_port,
+                .remote_addr = f->remote_addr,
+                .remote_port = f->remote_port,
                 .admin_state = face_state_to_connection_state(f->admin_state),
                 .state = face_state_to_connection_state(f->state),
 #ifdef WITH_POLICY
@@ -1468,23 +1471,21 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
 #endif /* WITH_POLICY */
             };
             if (generate_name) {
-#ifdef __APPLE__
-                snprintf(connection->name, NAME_LEN, "tcp%d", arc4random() & 0xFF);
-#else
-                snprintf(connection->name, NAME_LEN, "tcp%ld", random() & 0xFF);
-#endif
+                snprintf(connection->name, NAME_LEN, "tcp%u", RANDBYTE());
             } else {
                 memset(connection->name, 0, NAME_LEN);
             }
+            snprintf(connection->interface_name, INTERFACE_LEN, "%s",
+                    f->netdevice.name);
             break;
         case FACE_TYPE_UDP:
             *connection = (hc_connection_t) {
                 .type = CONNECTION_TYPE_UDP,
                 .family = AF_INET,
-                .local_addr = f->params.tunnel.local_addr,
-                .local_port = f->params.tunnel.local_port,
-                .remote_addr = f->params.tunnel.remote_addr,
-                .remote_port = f->params.tunnel.remote_port,
+                .local_addr = f->local_addr,
+                .local_port = f->local_port,
+                .remote_addr = f->remote_addr,
+                .remote_port = f->remote_port,
                 .admin_state = face_state_to_connection_state(f->admin_state),
                 .state = face_state_to_connection_state(f->state),
 #ifdef WITH_POLICY
@@ -1492,20 +1493,21 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
 #endif /* WITH_POLICY */
             };
             if (generate_name) {
-#ifdef __APPLE__
-                snprintf(connection->name, NAME_LEN, "udp%d", arc4random() & 0xFF);
-#else
-                snprintf(connection->name, NAME_LEN, "udp%ld", random() & 0xFF);
-#endif
+                snprintf(connection->name, NAME_LEN, "udp%u", RANDBYTE());
             } else {
                 memset(connection->name, 0, NAME_LEN);
             }
+            snprintf(connection->interface_name, INTERFACE_LEN, "%s",
+                    f->netdevice.name);
             break;
         default:
              return LIBHICNCTRL_FAILURE;
     }
 
-     return LIBHICNCTRL_SUCCESS;
+    snprintf(connection->interface_name, INTERFACE_LEN, "%s",
+            f->netdevice.name);
+
+    return LIBHICNCTRL_SUCCESS;
 }
 
 /* CONNECTION -> FACE */
@@ -1519,13 +1521,11 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
                 .id = connection->id,
                 .face = {
                     .type = FACE_TYPE_TCP,
-                    .params.tunnel = {
-                        .family = connection->family,
-                        .local_addr = connection->local_addr,
-                        .local_port = connection->local_port,
-                        .remote_addr = connection->remote_addr,
-                        .remote_port = connection->remote_port,
-                    },
+                    .family = connection->family,
+                    .local_addr = connection->local_addr,
+                    .local_port = connection->local_port,
+                    .remote_addr = connection->remote_addr,
+                    .remote_port = connection->remote_port,
                     .admin_state = connection_state_to_face_state(connection->admin_state),
                     .state = connection_state_to_face_state(connection->state),
 #ifdef WITH_POLICY
@@ -1539,13 +1539,11 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
                 .id = connection->id,
                 .face = {
                     .type = FACE_TYPE_UDP,
-                    .params.tunnel = {
-                        .family = connection->family,
-                        .local_addr = connection->local_addr,
-                        .local_port = connection->local_port,
-                        .remote_addr = connection->remote_addr,
-                        .remote_port = connection->remote_port,
-                    },
+                    .family = connection->family,
+                    .local_addr = connection->local_addr,
+                    .local_port = connection->local_port,
+                    .remote_addr = connection->remote_addr,
+                    .remote_port = connection->remote_port,
                     .admin_state = connection_state_to_face_state(connection->admin_state),
                     .state = connection_state_to_face_state(connection->state),
 #ifdef WITH_POLICY
@@ -1559,12 +1557,10 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
                 .id = connection->id,
                 .face = {
                     .type = FACE_TYPE_HICN,
-                    .params.hicn = {
-                        .family = connection->family,
-                        .netdevice.index = NETDEVICE_UNDEFINED_INDEX, // XXX
-                        .local_addr = connection->local_addr,
-                        .remote_addr = connection->remote_addr,
-                    },
+                    .family = connection->family,
+                    .netdevice.index = NETDEVICE_UNDEFINED_INDEX, // XXX
+                    .local_addr = connection->local_addr,
+                    .remote_addr = connection->remote_addr,
                     .admin_state = connection_state_to_face_state(connection->admin_state),
                     .state = connection_state_to_face_state(connection->state),
 #ifdef WITH_POLICY
@@ -1576,7 +1572,11 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
         default:
             return LIBHICNCTRL_FAILURE;
     }
+    face->face.netdevice.name[0] = '\0';
+    face->face.netdevice.index = 0;
     snprintf(face->name, NAME_LEN, "%s", connection->name);
+    snprintf(face->face.netdevice.name, INTERFACE_LEN, "%s", connection->interface_name);
+    netdevice_update_index(&face->face.netdevice);
     return LIBHICNCTRL_SUCCESS;
 }
 
@@ -1592,6 +1592,8 @@ hc_connection_to_local_listener(const hc_connection_t * connection, hc_listener_
         .local_addr = connection->local_addr,
         .local_port = connection->local_port,
     };
+    snprintf(listener->name, NAME_LEN, "lst%u", RANDBYTE()); // generate name
+    snprintf(listener->interface_name, INTERFACE_LEN, "%s", connection->interface_name);
     return LIBHICNCTRL_SUCCESS;
 }
 
@@ -1631,8 +1633,11 @@ hc_face_create(hc_sock_t * s, hc_face_t * face)
                 /* We need to create the listener if it does not exist */
                 if (hc_listener_create(s, &listener) < 0) {
                     ERROR("[hc_face_create] Could not create listener.");
+                    free(listener_found);
                     return LIBHICNCTRL_FAILURE;
                 }
+            } else {
+                free(listener_found);
             }
 
             /* Create corresponding connection */
@@ -1656,6 +1661,7 @@ hc_face_create(hc_sock_t * s, hc_face_t * face)
             }
 
             face->id = connection_found->id;
+            free(connection_found);
 
             break;
 
@@ -1674,6 +1680,7 @@ hc_face_create(hc_sock_t * s, hc_face_t * face)
             break;
         default:
             ERROR("[hc_face_create] Unknwon face type.");
+
             return LIBHICNCTRL_FAILURE;
     };
 
@@ -1702,7 +1709,9 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
                 *face_found = NULL;
                 return LIBHICNCTRL_SUCCESS;
             }
+            *face_found = malloc(sizeof(face_t));
             hc_connection_to_face(connection_found, *face_found);
+            free(connection_found);
             break;
 
         case FACE_TYPE_HICN_LISTENER:
@@ -1716,7 +1725,9 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
                 *face_found = NULL;
                 return LIBHICNCTRL_SUCCESS;
             }
+            *face_found = malloc(sizeof(face_t));
             hc_listener_to_face(listener_found, *face_found);
+            free(listener_found);
             break;
 
         default:
@@ -1776,6 +1787,71 @@ ERR:
 int
 hc_face_snprintf(char * s, size_t size, hc_face_t * face)
 {
+    /* URLs are also big enough to contain IP addresses in the hICN case */
+    char local[MAXSZ_URL];
+    char remote[MAXSZ_URL];
+#ifdef WITH_POLICY
+    char tags[MAXSZ_POLICY_TAGS];
+#endif /* WITH_POLICY */
+    int rc;
+
+    switch(face->face.type) {
+        case FACE_TYPE_HICN:
+        case FACE_TYPE_HICN_LISTENER:
+            rc = ip_address_snprintf(local, MAXSZ_URL,
+                    &face->face.local_addr,
+                    face->face.family);
+            if (rc < 0)
+                return rc;
+            rc = ip_address_snprintf(remote, MAXSZ_URL,
+                    &face->face.remote_addr,
+                    face->face.family);
+            if (rc < 0)
+                return rc;
+            break;
+        case FACE_TYPE_TCP:
+        case FACE_TYPE_UDP:
+        case FACE_TYPE_TCP_LISTENER:
+        case FACE_TYPE_UDP_LISTENER:
+            rc = url_snprintf(local, MAXSZ_URL, face->face.family,
+                    &face->face.local_addr,
+                    face->face.local_port); if (rc < 0)
+                return rc;
+            rc = url_snprintf(remote, MAXSZ_URL, face->face.family,
+                    &face->face.remote_addr,
+                    face->face.remote_port); if (rc < 0)
+            if (rc < 0)
+                return rc;
+            break;
+        default:
+            return LIBHICNCTRL_FAILURE;
+    }
+
+    // [#ID NAME] TYPE LOCAL_URL REMOTE_URL STATE/ADMIN_STATE (TAGS)
+#ifdef WITH_POLICY
+    rc = policy_tags_snprintf(tags, MAXSZ_POLICY_TAGS, face->face.tags);
+    if (rc < 0)
+        return rc;
+
+    return snprintf(s, size, "[#%d %s] %s %s %s %s/%s (%s)",
+            face->id,
+            face->name,
+            face_type_str[face->face.type],
+            local,
+            remote,
+            face_state_str[face->face.state],
+            face_state_str[face->face.admin_state],
+            tags);
+#else
+    return snprintf(s, size, "[#%d %s] %s %s %s %s/%s",
+            face->id,
+            face->name,
+            face_type_str[face->face.type],
+            local,
+            remote,
+            face_state_str[face->face.state],
+            face_state_str[face->face.admin_state]);
+#endif /* WITH_POLICY */
     return LIBHICNCTRL_SUCCESS;
 }
 
@@ -1783,7 +1859,7 @@ int
 hc_face_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, // XXX wrong identifier
         face_state_t admin_state)
 {
-    return hc_connection_set_admin_state(s, conn_id_or_name, (hc_connection_state_t)admin_state);
+    return hc_connection_set_admin_state(s, conn_id_or_name, admin_state);
 }
 
 /*----------------------------------------------------------------------------*

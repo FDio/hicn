@@ -48,6 +48,6 @@
  * <#example#>
  * @endcode
  */
-IoOperations *udpConnection_Create(Forwarder *forwarder, int fd,
+IoOperations *udpConnection_Create(Forwarder *forwarder, const char * interfaceName, int fd,
                                    const AddressPair *pair, bool isLocal);
 #endif  // udpConnection_h

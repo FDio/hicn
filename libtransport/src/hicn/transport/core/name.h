@@ -93,7 +93,7 @@ class Name {
 
   Name &setSuffix(uint32_t seq_number);
 
-  ip_address_t toIpAddress() const;
+  ip_prefix_t toIpAddress() const;
 
   void copyToDestination(uint8_t *destination,
                          bool include_suffix = false) const;

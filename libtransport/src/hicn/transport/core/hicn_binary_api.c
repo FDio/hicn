@@ -92,12 +92,12 @@ int hicn_binary_api_register_prod_app(
 
   CONTEXT_SAVE(context_store, api, mp)
 
-  mp->len = (u8)input_params->prefix->prefix_len;
+  mp->len = (u8)input_params->prefix->len;
   mp->swif = clib_host_to_net_u32(input_params->swif);
   mp->cs_reserved = clib_host_to_net_u32(input_params->cs_reserved);
 
-  mp->prefix[0] = clib_host_to_net_u64(input_params->prefix->as_u64[0]);
-  mp->prefix[1] = clib_host_to_net_u64(input_params->prefix->as_u64[1]);
+  mp->prefix[0] = clib_host_to_net_u64(input_params->prefix->address.as_u64[0]);
+  mp->prefix[1] = clib_host_to_net_u64(input_params->prefix->address.as_u64[1]);
 
   return vpp_binary_api_send_request_wait_reply(api->vpp_api, mp);
 }
@@ -112,8 +112,8 @@ static void vl_api_hicn_api_register_prod_app_reply_t_handler(
   vpp_binary_api_set_ret_value(binary_api->vpp_api,
                                clib_net_to_host_u32(mp->retval));
   params->cs_reserved = mp->cs_reserved;
-  params->prod_addr->as_u64[0] = mp->prod_addr[0];
-  params->prod_addr->as_u64[1] = mp->prod_addr[1];
+  params->prod_addr->address.as_u64[0] = mp->prod_addr[0];
+  params->prod_addr->address.as_u64[1] = mp->prod_addr[1];
   params->face_id = clib_net_to_host_u32(mp->faceid);
 
   vpp_binary_api_unlock_waiting_thread(binary_api->vpp_api);
@@ -147,9 +147,9 @@ static void vl_api_hicn_api_register_cons_app_reply_t_handler(
   vpp_binary_api_set_ret_value(binary_api->vpp_api,
                                clib_net_to_host_u32(mp->retval));
 
-  params->src4->as_ip46.ip4.as_u32 = clib_net_to_host_u32(mp->src_addr4);
-  params->src6->as_u64[0] = clib_net_to_host_u64(mp->src_addr6[0]);
-  params->src6->as_u64[1] = clib_net_to_host_u64(mp->src_addr6[1]);
+  params->src4->address.v4.as_u32 = clib_net_to_host_u32(mp->src_addr4);
+  params->src6->address.as_u64[0] = clib_net_to_host_u64(mp->src_addr6[0]);
+  params->src6->address.as_u64[1] = clib_net_to_host_u64(mp->src_addr6[1]);
   params->face_id = clib_host_to_net_u32(mp->faceid);
 
   vpp_binary_api_unlock_waiting_thread(binary_api->vpp_api);
@@ -166,9 +166,9 @@ int hicn_binary_api_register_route(
 
   CONTEXT_SAVE(context_store, api, mp)
 
-  mp->prefix[0] = input_params->prefix->as_u64[0];
-  mp->prefix[1] = input_params->prefix->as_u64[1];
-  mp->len = input_params->prefix->prefix_len;
+  mp->prefix[0] = input_params->prefix->address.as_u64[0];
+  mp->prefix[1] = input_params->prefix->address.as_u64[1];
+  mp->len = input_params->prefix->len;
   mp->face_ids[0] = input_params->face_id;
   mp->n_faces = 1;
 

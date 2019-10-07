@@ -20,6 +20,22 @@ endif()
 
 project(facemgr)
 
+option(WITH_THREAD "Run library as thread" OFF)
+option(WITH_EXAMPLE_DUMMY "Compile dummy example interface" OFF)
+option(WITH_EXAMPLE_UPDOWN "Compile updown example interface" OFF)
+
+if(WITH_THREAD)
+    message("Building with thread support")
+endif()
+
+if(WITH_EXAMPLE_DUMMY)
+    message("Building with 'dummy' example interface")
+endif()
+
+if(WITH_EXAMPLE_UPDOWN)
+    message("Building with 'updown' example interface")
+endif()
+
 if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
     set(CMAKE_BUILD_TYPE "Release")
@@ -42,22 +58,29 @@ find_package_wrapper(Config REQUIRED)
 find_package_wrapper(LibEvent REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  find_package_wrapper(Libhicn REQUIRED)
   find_package_wrapper(Libhicnctrl REQUIRED)
-  set(FACE_MGR facemgr)
+  set(FACEMGR facemgr)
+  set(LIBFACEMGR facemgr)
 else()
-  if (ANDROID_API)
-    set(LIBHICNCTRL_LIBRARIES ${LIBHICN_CTRL_STATIC})
+  if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+    set(HICN_LIBRARIES ${LIBHICN_STATIC})
+    set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_STATIC})
     list(APPEND DEPENDENCIES
-      ${LIBHICN_CTRL_STATIC}
+      ${LIBHICN_STATIC}
+      ${LIBHICNCTRL_STATIC}
     )
   else ()
-    set(LIBHICNCTRL_LIBRARIES ${LIBHICN_CTRL_SHARED})
+    set(HICN_LIBRARIES ${LIBHICN_SHARED})
+    set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_SHARED})
     list(APPEND DEPENDENCIES
-      ${LIBHICN_CTRL_SHARED}
+      ${LIBHICN_SHARED}
+      ${LIBHICNCTRL_SHARED}
     )
   endif ()
 endif()
 
+add_subdirectory(includes)
 add_subdirectory(src)
 
 include(Packaging)

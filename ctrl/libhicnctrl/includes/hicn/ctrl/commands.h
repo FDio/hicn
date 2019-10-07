@@ -32,7 +32,7 @@
 #include <stdlib.h>
 
 #ifdef WITH_POLICY
-#include "util/policy.h"
+#include <hicn/policy.h>
 #endif /* WITH_POLICY */
 
 typedef struct in6_addr ipv6_addr_t;
@@ -131,6 +131,7 @@ typedef struct {
 
 typedef struct {
   char symbolic[16];
+  //char interfaceName[16];
   union commandAddr remoteIp;
   union commandAddr localIp;
   uint16_t remotePort;
@@ -166,9 +167,9 @@ typedef struct {
   add_connection_command connectionData;
   uint32_t connid;
   uint8_t state;
-#ifdef WITH_UPDATE
+  uint8_t admin_state;
   char connectionName[16];
-#endif /* WITH_UPDATE */
+  char interfaceName[16];
 } list_connections_command;
 
 // SIZE=64
@@ -282,10 +283,8 @@ typedef struct {
 
 typedef struct {
   union commandAddr address;
-#ifdef WITH_UPDATE
   char listenerName[16];
   char interfaceName[16];
-#endif /* WITH_UPDATE */
   uint32_t connid;
   uint16_t port;
   uint8_t addressType;
@@ -310,11 +309,10 @@ typedef struct {
 
 // SIZE=1
 
-//==========  NEW COMMANDS  ==========
-
 typedef struct {
   char symbolicOrConnid[16];
   uint8_t admin_state;
+  uint8_t pad8[3];
 } connection_set_admin_state_command;
 
 #ifdef WITH_POLICY
