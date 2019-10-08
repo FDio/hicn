@@ -182,8 +182,10 @@ hicn_packet_get_header_length (hicn_format_t format, const hicn_header_t * h,
   int is_ipv4 = _is_ipv4 (format);
   int is_ipv6 = _is_ipv6 (format);
   // The signature payload is expressed as number of 32 bits words
-  *header_length += (is_ah * is_ipv4) * (h->v4ah.ah.payloadlen) << 2;
-  *header_length += (is_ah * is_ipv6) * (h->v6ah.ah.payloadlen) << 2;
+  if (is_ah && is_ipv4)
+    *header_length += (h->v4ah.ah.payloadlen) << 2;
+  else if(is_ah && is_ipv6)
+    *header_length += (h->v6ah.ah.payloadlen) << 2;
 
   return HICN_LIB_ERROR_NONE;
 }
