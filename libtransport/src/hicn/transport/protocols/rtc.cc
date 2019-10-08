@@ -744,7 +744,7 @@ bool RTCTransportProtocol::onNack(const ContentObject &content_object, bool rtx)
     old_nack = true;
 
   } else if (productionSeg < nackSegment) {
-    actualSegment_ = (productionSeg + 1) % HICN_MIN_PROBE_SEQ;
+    actualSegment_ = productionSeg % HICN_MIN_PROBE_SEQ;
 
     if(!rtx){
       // we are asking stuff in the future
