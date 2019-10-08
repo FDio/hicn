@@ -268,7 +268,7 @@ int hicn_get_local_address(const ip_prefix_t *remote_address,
   uint32_t interface_id;
   char remote_address_str[INET_MAX_ADDRSTRLEN + 4 ];
 
-  rc = ip_prefix_ntop(remote_address, remote_address_str,
+  rc = ip_prefix_ntop_short(remote_address, remote_address_str,
                     sizeof(remote_address_str));
   if (rc < 0) {
     rc = HICN_SOCKET_ERROR_BIND_REMOTE_REPR;
@@ -338,7 +338,7 @@ int hicn_set_remote_endpoint(hicn_socket_t *socket,
     /////
 
     /* Convert to representation format */
-    rc = ip_prefix_ntop(&addr, local_ip_address, sizeof(local_ip_address));
+    rc = ip_prefix_ntop_short(&addr, local_ip_address, sizeof(local_ip_address));
     if (rc < 0) {
       rc = HICN_SOCKET_ERROR_BIND_REMOTE_REPR;
       goto ERR;

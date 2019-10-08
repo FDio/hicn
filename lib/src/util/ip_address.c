@@ -227,7 +227,19 @@ ERR:
 }
 
 int
-ip_prefix_ntop (const ip_prefix_t * ip_prefix, char *dst, size_t size)
+ip_prefix_ntop_short(const ip_prefix_t * ip_prefix, char *dst, size_t size)
+{
+  char ip_s[MAXSZ_IP_ADDRESS];
+  const char * s = inet_ntop (ip_prefix->family, ip_prefix->address.buffer, ip_s, MAXSZ_IP_ADDRESS);
+  if (!s)
+      return -1;
+  size_t n = snprintf(dst, size, "%s", ip_s);
+
+  return (n > 0 ? 1 : -1);
+}
+
+int
+ip_prefix_ntop(const ip_prefix_t * ip_prefix, char *dst, size_t size)
 {
   char ip_s[MAXSZ_IP_ADDRESS];
   const char * s = inet_ntop (ip_prefix->family, ip_prefix->address.buffer, ip_s, MAXSZ_IP_ADDRESS);
