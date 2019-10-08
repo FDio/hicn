@@ -41,8 +41,10 @@ class RTCProducerSocket : public ProducerSocket {
   void onInterest(Interest::Ptr &&interest) override;
 
  private:
-  void sendNack(const Interest &interest, bool isActive);
+  void sendNack(uint32_t sequence, bool isActive);
   void updateStats(uint32_t packet_size, uint64_t now);
+  void scheduleTimer(uint64_t wait);
+  void interestCacheTimer();
 
   uint32_t currentSeg_;
   uint32_t prodLabel_;
@@ -54,6 +56,20 @@ class RTCProducerSocket : public ProducerSocket {
   std::atomic<uint32_t> packetsProductionRate_;
   uint32_t perSecondFactor_;
   uint64_t lastStats_;
+
+  // cache for the received interests
+  // this map maps the expiration time of an interest to
+  // its sequence number. the map is sorted by timeouts
+  // the same timeout may be used for multiple sequence numbers
+  // but for each sequence number we store only the smallest
+  // expiry time. In this way the mapping from seqs_map_ to
+  // timers_map_ is unique
+  std::multimap<uint64_t,uint32_t> timers_map_;
+  // this map does the opposite, this map is not ordered
+  std::unordered_map<uint32_t,uint64_t> seqs_map_;
+  bool timer_on_;
+  std::unique_ptr<asio::steady_timer> interests_cache_timer_;
+  utils::SpinLock interests_cache_lock_;
 
   uint64_t lastProduced_;
   bool active_;
