@@ -133,7 +133,7 @@ std::string Prefix::getNetwork() const {
 
   std::string network(size, 0);
 
-  if (ip_prefix_ntop(&ip_address_, (char *)network.c_str(), size) < 0) {
+  if (ip_prefix_ntop_short(&ip_address_, (char *)network.c_str(), size) < 0) {
     throw errors::RuntimeException(
         "Impossible to retrieve network from ip address.");
   }

@@ -135,6 +135,7 @@ int ip_address_empty(const ip_address_t * ip);
 /* Prefix */
 
 int ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix);
+int ip_prefix_ntop_short (const ip_prefix_t * ip_prefix, char *dst, size_t size);
 int ip_prefix_ntop (const ip_prefix_t * ip_prefix, char *dst, size_t size);
 int ip_prefix_len (const ip_prefix_t * prefix);
 bool ip_prefix_empty (const ip_prefix_t * prefix);
