@@ -82,6 +82,7 @@ RTCProducerSocket::RTCProducerSocket()
       bytesProductionRate_(INIT_PACKET_PRODUCTION_RATE * 1400),
       packetsProductionRate_(INIT_PACKET_PRODUCTION_RATE),
       perSecondFactor_(MILLI_IN_A_SEC / STATS_INTERVAL_DURATION),
+      timer_on_(false),
       active_(false) {
   lastStats_ = std::chrono::duration_cast<std::chrono::milliseconds>(
                    std::chrono::steady_clock::now().time_since_epoch())
@@ -183,6 +184,7 @@ void RTCProducerSocket::produce(std::unique_ptr<utils::MemBuf> &&buffer) {
           break;
         }
       }
+      seqs_map_.erase(it_seqs);
     }
   }
 
@@ -214,9 +216,14 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
     }
   }
 
+  if(interestSeg > HICN_MAX_DATA_SEQ){
+    sendNack(interestSeg, isActive);
+    return;
+  }
+
   // if the production rate is less than MIN_PRODUCTION_RATE we put the
   // interest in a queue, otherwise we handle it in the usual way
-  if(bytesProductionRate_ < MIN_PRODUCTION_RATE){
+  if(bytesProductionRate_ < MIN_PRODUCTION_RATE && interestSeg > currentSeg_){
 
     utils::SpinLock::Acquire locked(interests_cache_lock_);
 
@@ -266,11 +273,6 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
         scheduleTimer(timers_map_.begin()->first - now);
       }
     }
-    return;
-  }
-
-  if(interestSeg > HICN_MAX_DATA_SEQ){
-    sendNack(interestSeg, isActive);
     return;
   }
 
