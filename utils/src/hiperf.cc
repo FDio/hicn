@@ -67,7 +67,8 @@ struct ClientConfiguration {
         download_size(0),
         report_interval_milliseconds_(1000),
         rtc_(false),
-        test_mode_(false) {}
+        test_mode_(false),
+        interest_lifetime_(1000) {}
 
   Name name;
   bool verify;
@@ -82,6 +83,7 @@ struct ClientConfiguration {
   TransportProtocolAlgorithms transport_protocol_;
   bool rtc_;
   bool test_mode_;
+  uint32_t interest_lifetime_;
 };
 
 /**
@@ -325,6 +327,7 @@ class HIperfClient {
     }
 
     consumer_socket_ = std::make_unique<ConsumerSocket>(transport_protocol);
+    consumer_socket_->setSocketOption(GeneralTransportOptions::INTEREST_LIFETIME, configuration_.interest_lifetime_);
 
 #if defined(DEBUG) && defined(__linux__)
     std::shared_ptr<transport::BasePortal> portal;
@@ -509,11 +512,7 @@ class HIperfClient {
 
     void readBufferAvailable(
         std::unique_ptr<utils::MemBuf> &&buffer) noexcept override {
-      if (client_.configuration_.receive_buffer) {
-        client_.configuration_.receive_buffer->prependChain(std::move(buffer));
-      } else {
-        client_.configuration_.receive_buffer = std::move(buffer);
-      }
+      return;
     }
 
     size_t maxBufferSize() const override { return read_size; }
@@ -898,6 +897,8 @@ void usage() {
             << std::endl;
   std::cerr << "-d <drop_factor_parameter>  = RAAQM drop factor parameter"
             << std::endl;
+  std::cerr << "-L\t<interest lifetime>\t\t"
+            << "Set interest lifetime." << std::endl;
   std::cerr << "-M                          = store the content downloaded"
                "(default false)"
             << std::endl;
@@ -943,7 +944,7 @@ int main(int argc, char *argv[]) {
 
   int opt;
 #ifndef _WIN32
-  while ((opt = getopt(argc, argv, "DSCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:It")) !=
+  while ((opt = getopt(argc, argv, "DSCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:ItL:")) !=
          -1) {
     switch (opt) {
       // Common
@@ -956,7 +957,7 @@ int main(int argc, char *argv[]) {
         break;
       }
 #else
-  while ((opt = getopt(argc, argv, "SCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:t")) !=
+  while ((opt = getopt(argc, argv, "SCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:tL:")) !=
          -1) {
     switch (opt) {
 #endif
@@ -1018,6 +1019,11 @@ int main(int argc, char *argv[]) {
       }
       case 't': {
         client_configuration.test_mode_ = true;
+        options = 1;
+        break;
+      }
+      case 'L': {
+        client_configuration.interest_lifetime_ = std::stoul(optarg);
         options = 1;
         break;
       }
