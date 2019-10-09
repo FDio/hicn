@@ -176,6 +176,7 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      hicn_pcs_delete (pitcs, &pitp, &node0, vm, hash_entry0,
 			       dpo_vft0, &hicn_dpo_id0);
 
+#if HICN_FEATURE_CS
 	      if (hicnb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP)
 		{
 		  push_in_cache (vm, bi0, &n_left_to_next, &next0, &to_next,
@@ -186,6 +187,10 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  drop_packet (vm, bi0, &n_left_to_next, &next0, &to_next,
 			       &next_index, node);
 		}
+#else
+              drop_packet (vm, bi0, &n_left_to_next, &next0, &to_next,
+                           &next_index, node);
+#endif
 	      stats.pit_expired_count++;
 
 	      if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
