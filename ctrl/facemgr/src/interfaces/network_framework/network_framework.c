@@ -529,11 +529,6 @@ int nf_initialize(interface_t * interface, void * cfg)
     if (!data)
         goto ERR_MALLOC;
 
-    if (cfg)
-        data->cfg = * (network_framework_cfg_t *)cfg;
-    else
-        data->cfg.rules = NULL;
-
     data->pm = nw_path_monitor_create();
     if (!data->pm)
         goto ERR_PM;
