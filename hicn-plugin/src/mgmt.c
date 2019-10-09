@@ -66,10 +66,6 @@ hicn_mgmt_node_stats_get (vl_api_hicn_api_node_stats_get_reply_t * rmp)
 		       rmp->pkts_processed +=
 		       clib_host_to_net_u64 (em->counters[node_cntr_base_idx +
 							  HICNFWD_ERROR_PROCESSED]);
-		       n =
-		       vlib_get_node (this_vlib_main,
-				      hicn_data_pcslookup_node.index);
-		       node_cntr_base_idx = n->error_heap_index;
 		       rmp->pkts_data_count +=
 		       clib_host_to_net_u64 (em->counters[node_cntr_base_idx +
 							  HICNFWD_ERROR_DATAS]);

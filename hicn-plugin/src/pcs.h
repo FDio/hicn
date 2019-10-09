@@ -685,9 +685,9 @@ hicn_pcs_pit_delete (hicn_pit_cs_t * pitcs, hicn_pcs_entry_t ** pcs_entryp,
 		     const hicn_dpo_vft_t * dpo_vft, dpo_id_t * hicn_dpo_id)
 {
   hash_entry->locks--;
-  pitcs->pcs_pit_count--;
   if (hash_entry->locks == 0)
     {
+      pitcs->pcs_pit_count--;
       hicn_pcs_delete_internal
 	(pitcs, pcs_entryp, hash_entry, node, vm, dpo_vft, hicn_dpo_id);
     }

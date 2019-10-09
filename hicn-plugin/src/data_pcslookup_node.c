@@ -102,27 +102,17 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  b0 = vlib_get_buffer (vm, bi0);
 	  hb0 = hicn_get_buffer (b0);
+          next0 = HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP;
 
 	  /* Incr packet counter */
 	  stats.pkts_processed += 1;
 
 	  ret0 = hicn_data_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
-
-	  if (PREDICT_TRUE (ret0 == HICN_ERROR_NONE))
-	    {
-	      next0 =
-		isv6 ? HICN_DATA_PCSLOOKUP_NEXT_V6_LOOKUP :
-		HICN_DATA_PCSLOOKUP_NEXT_V4_LOOKUP;
-	    }
 	  nameptr = (u8 *) (&name);
-	  if (PREDICT_FALSE
-	      (ret0 != HICN_ERROR_NONE
-	       || hicn_hashtb_fullhash (nameptr, namelen,
-					&name_hash) != HICN_ERROR_NONE))
-	    {
-	      next0 = HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP;
-	    }
-	  else
+
+	  if (PREDICT_TRUE (ret0 == HICN_ERROR_NONE &&
+                            hicn_hashtb_fullhash (nameptr, namelen,
+                                                  &name_hash) == HICN_ERROR_NONE))
 	    {
 	      int res =
 		hicn_hashtb_lookup_node (rt->pitcs->pcs_table, nameptr,
@@ -137,9 +127,10 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	      stats.pkts_data_count += 1;
 
+#if HICN_FEATURE_CS
 	      if ((res == HICN_ERROR_HASHTB_HASH_NOT_FOUND
 		   || (res == HICN_ERROR_NONE && is_cs0))
-		  && (hb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP))
+		  && ((hb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP)))
 		{
 		  next0 = HICN_DATA_PCSLOOKUP_NEXT_STORE_DATA;
 		}
@@ -153,6 +144,18 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  next0 = HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD + is_cs0;
 		}
 	    }
+#else
+	      if (res == HICN_ERROR_NONE)
+		{
+		  /*
+		   * In case the result of the lookup
+		   * is a CS entry, the packet is
+		   * dropped
+		   */
+		  next0 = HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD + is_cs0;
+		}
+	    }
+#endif
 
 	  hicn_store_internal_state (b0, name_hash, node_id0, dpo_ctx_id0,
 				     vft_id0, hash_entry_id, bucket_id,
