@@ -50,7 +50,9 @@ class ForwarderInterface {
         output_interface_(""),
         content_store_reserved_(standard_cs_reserved) {
     inet_address_.family = AF_INET;
+    inet_address_.len = IPV4_ADDR_LEN;
     inet6_address_.family = AF_INET6;
+    inet6_address_.len = IPV6_ADDR_LEN;
   }
 
  public:

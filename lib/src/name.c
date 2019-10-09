@@ -95,7 +95,8 @@ hicn_name_create_from_prefix (const ip_prefix_t * prefix, u32 id,
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
     }
 
-  memcpy (name->buffer, prefix->address.buffer, ip_prefix_len (prefix));
+  memcpy (name->buffer, prefix->address.buffer,
+          ip_address_len(&prefix->address, prefix->family));
   *(u32 *) (name->buffer + name->len) = id;
 
   return HICN_LIB_ERROR_NONE;

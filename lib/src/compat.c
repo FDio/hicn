@@ -344,7 +344,7 @@ hicn_packet_get_locator (hicn_format_t format, const hicn_header_t * h,
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
     }
 
-  memcpy (prefix->address.buffer, locator, ip_prefix_len(prefix));
+  memcpy (prefix->address.buffer, locator, ip_address_len(&prefix->address, prefix->family));
 
   return HICN_LIB_ERROR_NONE;
 }
@@ -370,7 +370,7 @@ hicn_packet_set_locator (hicn_format_t format, hicn_header_t * h,
       return HICN_LIB_ERROR_INVALID_PARAMETER;
     }
 
-  memcpy (locator, prefix->address.buffer, ip_prefix_len(prefix));
+  memcpy (locator, prefix->address.buffer, ip_address_len(&prefix->address, prefix->family));
 
   return HICN_LIB_ERROR_NONE;
 }
