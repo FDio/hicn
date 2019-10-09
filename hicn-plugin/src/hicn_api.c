@@ -249,7 +249,7 @@ vl_api_hicn_api_face_ip_add_t_handler (vl_api_hicn_api_face_ip_add_t * mp)
     }
 
   if (rv == HICN_ERROR_NONE)
-    rv = hicn_face_ip_add (&local_addr, &remote_addr, sw_if, &faceid);
+    rv = hicn_face_ip_add (&local_addr, &remote_addr, sw_if, &faceid, 0);
   else
     faceid = HICN_FACE_NULL;
 
