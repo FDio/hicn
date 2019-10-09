@@ -39,7 +39,6 @@ if(NOT WIN32)
 else ()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
 endif ()
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   message("############ Detected cross compile for $ENV{CMAKE_SYSTEM_NAME}")
