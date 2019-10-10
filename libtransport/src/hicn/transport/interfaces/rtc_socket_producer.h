@@ -42,20 +42,22 @@ class RTCProducerSocket : public ProducerSocket {
 
  private:
   void sendNack(uint32_t sequence);
-  void updateStats(uint32_t packet_size, uint64_t now);
-  void scheduleTimer(uint64_t wait);
+  void updateStats();
+  void scheduleCacheTimer(uint64_t wait);
+  void scheduleRoundTimer();
   void interestCacheTimer();
 
   uint32_t currentSeg_;
   uint32_t prodLabel_;
   uint16_t headerSize_;
   Name flowName_;
-  uint32_t producedBytes_;
-  uint32_t producedPackets_;
+  std::atomic<uint32_t> producedBytes_;
+  std::atomic<uint32_t> producedPackets_;
   std::atomic<uint32_t> bytesProductionRate_;
   std::atomic<uint32_t> packetsProductionRate_;
   uint32_t perSecondFactor_;
-  uint64_t lastStats_;
+
+  std::unique_ptr<asio::steady_timer> round_timer_;
 
   // cache for the received interests
   // this map maps the expiration time of an interest to
