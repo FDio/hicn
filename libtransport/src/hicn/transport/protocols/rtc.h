@@ -128,10 +128,6 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   void checkRtx();
   void probeRtt();
   void onTimeout(Interest::Ptr &&interest) override;
-  // checkIfProducerIsActive: return true if we need to schedule an interest
-  // immediatly after, false otherwise (this happens when the producer socket
-  // is not active)
-  bool checkIfProducerIsActive(const ContentObject &content_object);
   bool onNack(const ContentObject &content_object, bool rtx);
   void onContentObject(Interest::Ptr &&interest,
                        ContentObject::Ptr &&content_object) override;
@@ -155,6 +151,7 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   uint32_t inflightInterestsCount_;
   //map seq to rtx
   std::map<uint32_t, uint8_t> interestRetransmissions_;
+  bool rtx_timer_used_;
   std::unique_ptr<asio::steady_timer> rtx_timer_;
   std::vector<sentInterest> inflightInterests_;
   uint32_t lastSegNacked_; //indicates the segment id in the last received
@@ -162,12 +159,6 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
                            //for samething that is older than this value.
   uint32_t lastReceived_; //segment of the last content object received
                           //indicates the base of the window on the client
-
-  bool nack_timer_used_;
-  bool rtx_timer_used_;
-  std::unique_ptr<asio::steady_timer> nack_timer_;  // timer used to schedule
-  // a nack retransmission in case
-  // of inactive prod socket
 
   //rtt probes
   //the RTC transport tends to overestimate the RTT

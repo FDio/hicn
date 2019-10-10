@@ -41,7 +41,7 @@ class RTCProducerSocket : public ProducerSocket {
   void onInterest(Interest::Ptr &&interest) override;
 
  private:
-  void sendNack(uint32_t sequence, bool isActive);
+  void sendNack(uint32_t sequence);
   void updateStats(uint32_t packet_size, uint64_t now);
   void scheduleTimer(uint64_t wait);
   void interestCacheTimer();
@@ -52,7 +52,7 @@ class RTCProducerSocket : public ProducerSocket {
   Name flowName_;
   uint32_t producedBytes_;
   uint32_t producedPackets_;
-  uint32_t bytesProductionRate_;
+  std::atomic<uint32_t> bytesProductionRate_;
   std::atomic<uint32_t> packetsProductionRate_;
   uint32_t perSecondFactor_;
   uint64_t lastStats_;
@@ -70,10 +70,6 @@ class RTCProducerSocket : public ProducerSocket {
   bool timer_on_;
   std::unique_ptr<asio::steady_timer> interests_cache_timer_;
   utils::SpinLock interests_cache_lock_;
-
-  uint64_t lastProduced_;
-  bool active_;
-  utils::SpinLock lock_;
 };
 
 }  // namespace interface

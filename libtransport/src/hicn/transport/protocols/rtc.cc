@@ -31,10 +31,8 @@ RTCTransportProtocol::RTCTransportProtocol(
       inflightInterests_(1 << default_values::log_2_default_buffer_size),
       modMask_((1 << default_values::log_2_default_buffer_size) - 1) {
   icnet_socket->getSocketOption(PORTAL, portal_);
-  nack_timer_ = std::make_unique<asio::steady_timer>(portal_->getIoService());
   rtx_timer_ = std::make_unique<asio::steady_timer>(portal_->getIoService());
   probe_timer_ = std::make_unique<asio::steady_timer>(portal_->getIoService());
-  nack_timer_used_ = false;
   reset();
 }
 
@@ -92,7 +90,6 @@ void RTCTransportProtocol::reset() {
   highestReceived_ = 0;
   firstSequenceInRound_ = 0;
 
-  nack_timer_used_ = false;
   rtx_timer_used_ = false;
   for(int i = 0; i < (1 << default_values::log_2_default_buffer_size); i++){
     inflightInterests_[i] = {0};
@@ -673,36 +670,6 @@ void RTCTransportProtocol::onTimeout(Interest::Ptr &&interest) {
   scheduleNextInterests();
 }
 
-bool RTCTransportProtocol::checkIfProducerIsActive(
-    const ContentObject &content_object) {
-  uint32_t *payload = (uint32_t *)content_object.getPayload()->data();
-  uint32_t productionSeg = *payload;
-  uint32_t productionRate = *(++payload);
-
-  if (productionRate == 0) {
-    // the producer socket is not active
-    // in this case we consider only the first nack
-    if (nack_timer_used_) {
-      return false;
-    }
-
-    nack_timer_used_ = true;
-    // actualSegment_ should be the one in the nack, which will be the next in
-    // production
-    actualSegment_ = productionSeg;
-    // all the rest (win size should not change)
-    // we wait a bit before pull the socket again
-    nack_timer_->expires_from_now(std::chrono::milliseconds(500));
-    nack_timer_->async_wait([this](std::error_code ec) {
-      if (ec) return;
-      nack_timer_used_ = false;
-      scheduleNextInterests();
-    });
-    return false;
-  }
-  return true;
-}
-
 bool RTCTransportProtocol::onNack(const ContentObject &content_object, bool rtx) {
   uint32_t *payload = (uint32_t *)content_object.getPayload()->data();
   uint32_t productionSeg = *payload;
@@ -719,7 +686,7 @@ bool RTCTransportProtocol::onNack(const ContentObject &content_object, bool rtx)
 
   if (productionSeg > nackSegment) {
     // we are asking for stuff produced in the past
-    actualSegment_ = max(productionSeg + 1, actualSegment_) % HICN_MIN_PROBE_SEQ;
+    actualSegment_ = max(productionSeg, actualSegment_) % HICN_MIN_PROBE_SEQ;
 
     if(!rtx) {
       if (currentState_ == HICN_RTC_NORMAL_STATE) {
@@ -756,7 +723,11 @@ bool RTCTransportProtocol::onNack(const ContentObject &content_object, bool rtx)
         currentState_ = HICN_RTC_NORMAL_STATE;
       }
     }
-  }  // equal should not happen
+  } else {
+    //we are asking the right thing, but the producer is slow
+    //keep doing the same until the packet is produced
+    actualSegment_ = productionSeg % HICN_MIN_PROBE_SEQ;
+  }
 
   return old_nack;
 }
@@ -771,7 +742,6 @@ void RTCTransportProtocol::onContentObject(
   uint32_t payload_size = (uint32_t)payload->length();
   uint32_t segmentNumber = content_object->getName().getSuffix();
   uint32_t pkt = segmentNumber & modMask_;
-  bool schedule_next_interest = true;
 
   ConsumerContentObjectCallback *callback_content_object = nullptr;
   socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
@@ -802,25 +772,19 @@ void RTCTransportProtocol::onContentObject(
   }
 
   if (payload_size == HICN_NACK_HEADER_SIZE) {
-    schedule_next_interest = checkIfProducerIsActive(*content_object);
-
     if (inflightInterests_[pkt].state == sent_) {
       inflightInterestsCount_--;
     }
 
-    // if checkIfProducerIsActive returns false, we did all we need to do
-    // inside that function, no need to call onNack
     bool old_nack = false;
 
-    if (schedule_next_interest){
-      if (interestRetransmissions_.find(segmentNumber) ==
+    if (interestRetransmissions_.find(segmentNumber) ==
             interestRetransmissions_.end()){
-        //this is not a retransmitted packet
-        old_nack = onNack(*content_object, false);
-        updateDelayStats(*content_object);
-      } else {
-        old_nack = onNack(*content_object, true);
-      }
+      //this is not a retransmitted packet
+      old_nack = onNack(*content_object, false);
+      updateDelayStats(*content_object);
+    } else {
+      old_nack = onNack(*content_object, true);
     }
 
     //the nacked_ state is used only to avoid to decrease inflightInterestsCount_
@@ -870,9 +834,7 @@ void RTCTransportProtocol::onContentObject(
 
   interestRetransmissions_.erase(segmentNumber);
 
-  if (schedule_next_interest) {
-    scheduleNextInterests();
-  }
+  scheduleNextInterests();
 }
 
 void RTCTransportProtocol::returnContentToApplication(
