@@ -452,6 +452,8 @@ void fib_RemoveConnectionId(FIB *fib, unsigned connectionId) {
   for (int i = 0; i < fibEntryList_Length(list); i++) {
     _removeNode(fib, fibEntry_GetPrefix(fibEntryList_Get(list, i)));
   }
+
+  fibEntryList_Destroy(&list);
 }
 
 size_t fib_Length(const FIB *fib) {

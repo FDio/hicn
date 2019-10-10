@@ -201,6 +201,7 @@ static NumberSet *_strategyLoadBalancer_LookupNexthop(
     PARCUnsigned *cid = parcUnsigned_Create(numberSet_GetItem(nexthops, i));
     const StrategyNexthopState *elem =
         parcHashMap_Get(lb->strategy_state, cid);
+    parcUnsigned_Release(&cid);
     if (!elem)
       continue;
     sum += strategyNexthopState_GetWeight(elem);
@@ -213,12 +214,15 @@ static NumberSet *_strategyLoadBalancer_LookupNexthop(
     PARCUnsigned *cid = parcUnsigned_Create(numberSet_GetItem(nexthops, i));
     const StrategyNexthopState *state =
         parcHashMap_Get(lb->strategy_state, cid);
-    if (!state)
-      continue;
+    if (!state){
+        parcUnsigned_Release(&cid);
+       continue;
+    }
     distance -= strategyNexthopState_GetWeight(state);
     if (distance < 0) {
       numberSet_Add(outList, parcUnsigned_GetUnsigned(cid));
       _update_Stats(lb, (StrategyNexthopState *)state, true);
+      parcUnsigned_Release(&cid);
       break;
     }
   }
@@ -296,19 +300,20 @@ static void _strategyLoadBalancer_resetState(StrategyImpl *strategy) {
 
 static void _strategyLoadBalancer_AddNexthop(StrategyImpl *strategy,
                                              unsigned connectionId) {
-  StrategyNexthopState *state = strategyNexthopState_Create();
 
   PARCUnsigned *cid = parcUnsigned_Create(connectionId);
 
   StrategyLoadBalancer *lb = (StrategyLoadBalancer *)strategy->context;
 
   if (!parcHashMap_Contains(lb->strategy_state, cid)) {
+    StrategyNexthopState *state = strategyNexthopState_Create();
     parcHashMap_Put(lb->strategy_state, cid, state);
 #ifndef WITH_POLICY
     numberSet_Add(lb->nexthops, connectionId);
 #endif /* WITH_POLICY */
     _strategyLoadBalancer_resetState(strategy);
   }
+  parcUnsigned_Release(&cid);
 }
 
 static void _strategyLoadBalancer_RemoveNexthop(StrategyImpl *strategy,

@@ -298,7 +298,7 @@ bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
                                        unsigned ifidx) {
   Configuration *config = forwarder_GetConfiguration(processor->forwarder);
 
-  const char *prefixStr = utils_PrefixLenToString(
+  char *prefixStr = (char *) utils_PrefixLenToString(
       control->addressType, &control->address, &control->len);
   strategy_type fwdStrategy =
       configuration_GetForwardingStrategy(config, prefixStr);
@@ -323,6 +323,7 @@ bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
     fib_Add(processor->fib, entry);
   }
 
+  free(prefixStr);
   name_Release(&prefix);
 
   /* For policy implementation, we need access to the ConnectionTable in all

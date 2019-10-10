@@ -201,6 +201,7 @@ NumberSet *
 fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) {
   ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
   NumberSet * nexthops;
+  bool dealloc_nexthops = false;
   policy_t policy = fibEntry_GetPolicy(fibEntry);
 
   /* Reset available next hops and start filtering */
@@ -214,6 +215,7 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
   if (in_connection == ~0) {
     /* We might advertise among all available up connections */
     nexthops = numberSet_Create();
+    dealloc_nexthops = true;
 
     ConnectionList * list = connectionTable_GetEntries(table);
     for (size_t i = 0; i < connectionList_Length(list); i++) {
@@ -226,7 +228,7 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
         continue;
       numberSet_Add(nexthops, connection_GetConnectionId(conn));
     }
-
+    connectionList_Destroy(&list);
   } else {
     nexthops = (NumberSet*)fibEntry_GetNexthops(fibEntry);
     for (size_t k = 0; k < numberSet_Length(nexthops); k++) {
@@ -247,8 +249,12 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
       numberSet_Add(available_nexthops, conn_id);
     }
 
-    if (numberSet_Length(available_nexthops) > 0)
+    if (numberSet_Length(available_nexthops) > 0){
+      if(dealloc_nexthops){
+        numberSet_Release(&nexthops);
+      }
       return available_nexthops;
+    }
   }
 
   for (size_t k = 0; k < numberSet_Length(nexthops); k++) {
@@ -296,6 +302,9 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
 
     numberSet_Add(available_nexthops, conn_id);
   }
+
+  if(dealloc_nexthops)
+    numberSet_Release(&nexthops);
 
   if (numberSet_Length(available_nexthops) == 0)
     return available_nexthops;
