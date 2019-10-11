@@ -112,6 +112,11 @@ facemgr_cfg_override_initialize(facemgr_cfg_override_t * override)
     override->is_discovery = false;
     override->discovery = false;
 
+    override->is_ipv4 = false;
+    override->ipv6 = false;
+    override->is_ipv6 = false;
+    override->ipv6 = false;
+
     override->overlays.v4 = NULL;
     override->overlays.v6 = NULL;
 
