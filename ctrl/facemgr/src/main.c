@@ -211,14 +211,18 @@ parse_config_global(facemgr_cfg_t * cfg, config_setting_t * setting)
         config_setting_t *overlay_v4 = config_setting_get_member(overlay, "ipv4");
         if (overlay_v4) {
             const char * local_addr_str, * remote_addr_str;
-            ip_address_t local_addr, remote_addr;
+            ip_address_t local_addr = IP_ADDRESS_EMPTY;
+            ip_address_t remote_addr = IP_ADDRESS_EMPTY;
             ip_address_t * local_addr_p = NULL;
             ip_address_t * remote_addr_p = NULL;
             int local_port = 0;
             int remote_port = 0;
 
             if (config_setting_lookup_string(overlay_v4, "local_addr", &local_addr_str)) {
-                ip_address_pton(local_addr_str, &local_addr);
+                if (ip_address_pton(local_addr_str, &local_addr) < 0) {
+                    ERROR("Error parsing v4 local addr");
+                    goto ERR;
+                }
                 local_addr_p = &local_addr;
             }
 
@@ -228,7 +232,10 @@ parse_config_global(facemgr_cfg_t * cfg, config_setting_t * setting)
             }
 
             if (config_setting_lookup_string(overlay_v4, "remote_addr", &remote_addr_str)) {
-                ip_address_pton(remote_addr_str, &remote_addr);
+                if (ip_address_pton(remote_addr_str, &remote_addr) < 0) {
+                    ERROR("Error parsing v4 remote addr");
+                    goto ERR;
+                }
                 remote_addr_p = &remote_addr;
             }
 
@@ -247,14 +254,18 @@ parse_config_global(facemgr_cfg_t * cfg, config_setting_t * setting)
         config_setting_t *overlay_v6 = config_setting_get_member(overlay, "ipv6");
         if (overlay_v6) {
             const char * local_addr_str, * remote_addr_str;
-            ip_address_t local_addr, remote_addr;
+            ip_address_t local_addr = IP_ADDRESS_EMPTY;
+            ip_address_t remote_addr = IP_ADDRESS_EMPTY;
             ip_address_t * local_addr_p = NULL;
             ip_address_t * remote_addr_p = NULL;
             int local_port = 0;
             int remote_port = 0;
 
             if (config_setting_lookup_string(overlay_v6, "local_addr", &local_addr_str)) {
-                ip_address_pton(local_addr_str, &local_addr);
+                if (ip_address_pton(local_addr_str, &local_addr) < 0) {
+                    ERROR("Error parsing v6 local addr");
+                    goto ERR;
+                }
                 local_addr_p = &local_addr;
             }
 
@@ -264,7 +275,10 @@ parse_config_global(facemgr_cfg_t * cfg, config_setting_t * setting)
             }
 
             if (config_setting_lookup_string(overlay_v6, "remote_addr", &remote_addr_str)) {
-                ip_address_pton(remote_addr_str, &remote_addr);
+                if (ip_address_pton(remote_addr_str, &remote_addr) < 0) {
+                    ERROR("Error parsing v6 remote addr");
+                    goto ERR;
+                }
                 remote_addr_p = &remote_addr;
             }
 
@@ -462,14 +476,18 @@ parse_config_rules(facemgr_cfg_t * cfg, config_setting_t * setting)
             config_setting_t *overlay_v4 = config_setting_get_member(overlay, "ipv4");
             if (overlay_v4) {
                 const char * local_addr_str, * remote_addr_str;
-                ip_address_t local_addr, remote_addr;
+                ip_address_t local_addr = IP_ADDRESS_EMPTY;
+                ip_address_t remote_addr = IP_ADDRESS_EMPTY;
                 ip_address_t * local_addr_p = NULL;
                 ip_address_t * remote_addr_p = NULL;
                 int local_port = 0;
                 int remote_port = 0;
 
                 if (config_setting_lookup_string(overlay_v4, "local_addr", &local_addr_str)) {
-                    ip_address_pton(local_addr_str, &local_addr);
+                    if (ip_address_pton(local_addr_str, &local_addr) < 0) {
+                        ERROR("Error parsing v4 local addr");
+                        goto ERR;
+                    }
                     local_addr_p = &local_addr;
                 }
 
@@ -479,7 +497,10 @@ parse_config_rules(facemgr_cfg_t * cfg, config_setting_t * setting)
                 }
 
                 if (config_setting_lookup_string(overlay_v4, "remote_addr", &remote_addr_str)) {
-                    ip_address_pton(remote_addr_str, &remote_addr);
+                    if (ip_address_pton(remote_addr_str, &remote_addr) < 0) {
+                        ERROR("Error parsing v4 remote addr");
+                        goto ERR;
+                    }
                     remote_addr_p = &remote_addr;
                 }
 
@@ -498,14 +519,18 @@ parse_config_rules(facemgr_cfg_t * cfg, config_setting_t * setting)
             config_setting_t *overlay_v6 = config_setting_get_member(overlay, "ipv6");
             if (overlay_v6) {
                 const char * local_addr_str, * remote_addr_str;
-                ip_address_t local_addr, remote_addr;
+                ip_address_t local_addr = IP_ADDRESS_EMPTY;
+                ip_address_t remote_addr = IP_ADDRESS_EMPTY;
                 ip_address_t * local_addr_p = NULL;
                 ip_address_t * remote_addr_p = NULL;
                 int local_port = 0;
                 int remote_port = 0;
 
                 if (config_setting_lookup_string(overlay_v6, "local_addr", &local_addr_str)) {
-                    ip_address_pton(local_addr_str, &local_addr);
+                    if (ip_address_pton(local_addr_str, &local_addr) < 0) {
+                        ERROR("Error parsing v6 local addr");
+                        goto ERR;
+                    }
                     local_addr_p = &local_addr;
                 }
 
@@ -515,7 +540,10 @@ parse_config_rules(facemgr_cfg_t * cfg, config_setting_t * setting)
                 }
 
                 if (config_setting_lookup_string(overlay_v6, "remote_addr", &remote_addr_str)) {
-                    ip_address_pton(remote_addr_str, &remote_addr);
+                    if (ip_address_pton(remote_addr_str, &remote_addr) < 0) {
+                        ERROR("Error parsing v6 remote addr");
+                        goto ERR;
+                    }
                     remote_addr_p = &remote_addr;
                 }
 

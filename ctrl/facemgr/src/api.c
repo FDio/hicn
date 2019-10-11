@@ -833,12 +833,6 @@ facemgr_process_create(facemgr_t * facemgr, facelet_t * facelet)
      */
     int rc;
 
-    if (facelet_cache_add(&facemgr->facelet_cache, facelet) < 0) {
-        ERROR("[facemgr_process_create] Error adding facelet to cache");
-        return -1;
-    }
-    DEBUG("Facelet added to cache");
-
     /*
      * If the facelet does not satisfy filters, we do not lose any information
      * but do not take any action to complement the face
@@ -1075,14 +1069,29 @@ facemgr_process_update(facemgr_t * facemgr, facelet_t * facelet)
 int
 facemgr_process_delete(facemgr_t * facemgr, facelet_t * facelet)
 {
+
+    DEBUG("[facemgr_process_delete] Deleting facelet on hicn-light");
     if (interface_on_event(facemgr->hl, facelet) < 0)
         return -1;
 
+    /*
+     * It might be tempting to cache old information, but for now we reset the
+     * facelet state that might change (such as IP addresses etc).
+     * netdevice, netdevice_type and admin_state should not be affected.
+     */
+    DEBUG("[facemgr_process_delete] Cleaning cached data");
+    facelet_unset_local_addr(facelet);
+    facelet_unset_local_port(facelet);
+    facelet_unset_remote_addr(facelet);
+    facelet_unset_remote_port(facelet);
+
     facelet_set_status(facelet, FACELET_STATUS_DELETED);
-    //facelet_set_bj_done(facelet, false);
+
+    facelet_unset_bj_done(facelet);
 
     return 0;
 }
+
 
 /**
  * \brief Process incoming events from interfaces
@@ -1113,8 +1122,15 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
         /* This is a new facelet...  we expect a CREATE event. */
         switch(facelet_get_event(facelet_in)) {
             case FACELET_EVENT_CREATE:
+
+                if (facelet_cache_add(&facemgr->facelet_cache, facelet_in) < 0) {
+                    ERROR("[facemgr_on_event] Error adding facelet to cache");
+                    return -1;
+                }
+                DEBUG("Facelet added to cache");
+
                 if (facemgr_process_create(facemgr, facelet_in) < 0) {
-                    ERROR("[facemgr_process_cached_facelet] Error processing CREATE event");
+                    ERROR("[facemgr_on_event] Error processing CREATE event");
                     goto ERR;
                 }
                 break;
@@ -1122,7 +1138,7 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
             case FACELET_EVENT_GET:
                 /* Insert new facelet in cached */
                 if (facemgr_process_get(facemgr, facelet_in) < 0) {
-                    ERROR("[facemgr_process_cached_facelet] Error processing GET event");
+                    ERROR("[facemgr_on_event] Error processing GET event");
                     goto ERR;
                 }
                 break;
@@ -1162,10 +1178,17 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
         DEBUG("... match #%d", i);
         switch(facelet_get_event(facelet_in)) {
             case FACELET_EVENT_CREATE:
-                // FIXME, this might occur if the facemgr restarts and we try to
-                // re-create existing faces
-                ERROR("[facemgr_on_event] CREATE event for a face that already exists...");
-                ret = -1;
+                // This case will occur when we try to re-create existing faces,
+                // eg. in the situation of a forwarder restarting.
+                // likely this occurs when the interface receives a (potentially new) address
+                if (facelet_merge(facelet, facelet_in) < 0) {
+                    ERROR("[facemgr_on_event] Error merging facelets");
+                    continue;
+                }
+                if (facemgr_process_create(facemgr, facelet) < 0) {
+                    ERROR("[facemgr_on_event] Error processing CREATE event");
+                    ret = -1;
+                }
                 continue;
 
             case FACELET_EVENT_GET: /* should be an INFORM message */
@@ -1176,14 +1199,6 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                 continue;
 
             case FACELET_EVENT_UPDATE:
-                {
-                DEBUG("FACELET_EVENT_UPDATE");
-                char buf[128];
-                facelet_snprintf(buf, 128, facelet_in);
-                DEBUG("MERGE %s", buf);
-                facelet_snprintf(buf, 128, facelet);
-                DEBUG("   ON %s", buf);
-                }
                 if (facelet_merge(facelet, facelet_in) < 0) {
                     ERROR("[facemgr_on_event] Error merging facelets");
                     continue;

@@ -205,7 +205,6 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                 ERROR("Failed to delete face\n");
                 goto ERR;
             }
-            INFO("Deleted face id=%d\n", hc_face.id);
             break;
 
         case FACELET_EVENT_UPDATE:

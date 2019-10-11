@@ -518,6 +518,11 @@ facelet_set_ ## NAME(facelet_t * facelet, TYPE NAME)                            
     return facelet_set_local_ ## NAME(facelet, NAME);                           \
 }                                                                               \
                                                                                 \
+int                                                                             \
+facelet_unset_ ## NAME(facelet_t * facelet)                                     \
+{                                                                               \
+    return facelet->NAME ## _status = FACELET_ATTR_STATUS_UNSET;                \
+}
 
 #define _(TYPE, NAME) FACELET_ACCESSORS(TYPE, NAME)
 foreach_facelet_attr
@@ -778,6 +783,13 @@ facelet_set_bj_done(facelet_t * facelet)
 {
     facelet->bj_done = true;
 }
+
+void
+facelet_unset_bj_done(facelet_t * facelet)
+{
+    facelet->bj_done = false;
+}
+
 
 bool
 facelet_is_bj_done(const facelet_t * facelet)
