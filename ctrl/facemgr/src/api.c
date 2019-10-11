@@ -1279,7 +1279,6 @@ facemgr_bootstrap(facemgr_t * facemgr)
 
 #ifdef __APPLE__
     network_framework_cfg_t nf_cfg = {
-        .rules = &facemgr->rules,
     };
     rc = facemgr_create_interface(facemgr, "nf", "network_framework", &nf_cfg, &facemgr->nf);
     if (rc < 0) {
