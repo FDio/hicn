@@ -417,8 +417,14 @@ class Portal {
     pending_interest->startCountdown(portal_details::makeCustomAllocatorHandler(
         async_callback_memory_, std::bind(&Portal<ForwarderInt>::timerHandler,
                                           this, std::placeholders::_1, hash)));
-    pending_interest_hash_table_.emplace(
-        std::make_pair(hash, std::move(pending_interest)));
+
+    auto it = pending_interest_hash_table_.find(hash);
+    if(it != pending_interest_hash_table_.end()){
+      it->second->cancelTimer();
+      it->second = std::move(pending_interest);
+    }else{
+      pending_interest_hash_table_[hash] = std::move(pending_interest);
+    }
   }
 
   /**
