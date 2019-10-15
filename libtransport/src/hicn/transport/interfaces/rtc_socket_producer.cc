@@ -14,6 +14,7 @@
  */
 
 #include <hicn/transport/interfaces/rtc_socket_producer.h>
+#include <hicn/transport/interfaces/callbacks.h>
 #include <stdlib.h>
 #include <time.h>
 
