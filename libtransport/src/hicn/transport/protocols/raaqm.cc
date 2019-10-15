@@ -372,7 +372,7 @@ void RaaqmTransportProtocol::onContentSegment(
       interface::ConsumerSocket::ReadCallback *on_payload = nullptr;
       socket_->getSocketOption(READ_CALLBACK, &on_payload);
 
-      if (on_payload != nullptr) {
+      if (on_payload) {
         on_payload->readSuccess(stats_.getBytesRecv());
       }
     }

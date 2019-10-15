@@ -166,13 +166,13 @@ void RTCProducerSocket::produce(std::unique_ptr<utils::MemBuf> &&buffer) {
   output_buffer_.insert(std::static_pointer_cast<ContentObject>(
       content_object->shared_from_this()));
 
-  if (on_content_object_in_output_buffer_ != VOID_HANDLER) {
+  if (on_content_object_in_output_buffer_) {
     on_content_object_in_output_buffer_(*this, *content_object);
   }
 
   portal_->sendContentObject(*content_object);
 
-  if (on_content_object_output_ != VOID_HANDLER) {
+  if (on_content_object_output_) {
     on_content_object_output_(*this, *content_object);
   }
 
@@ -218,18 +218,18 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
       output_buffer_.find(*interest);
 
   if (content_object) {
-    if (on_interest_satisfied_output_buffer_ != VOID_HANDLER) {
+    if (on_interest_satisfied_output_buffer_) {
       on_interest_satisfied_output_buffer_(*this, *interest);
     }
 
-    if (on_content_object_output_ != VOID_HANDLER) {
+    if (on_content_object_output_) {
       on_content_object_output_(*this, *content_object);
     }
 
     portal_->sendContentObject(*content_object);
     return;
   } else {
-    if (on_interest_process_ != VOID_HANDLER) {
+    if (on_interest_process_) {
       on_interest_process_(*this, *interest);
     }
   }
