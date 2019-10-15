@@ -205,7 +205,7 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
                    ((1 - HICN_ESTIMATED_BW_ALPHA) * bytesPerSec);
   }
 
-  uint64_t minRtt = UINT_MAX;
+  uint64_t minRtt = 150;
   uint64_t maxRtt = 0;
 
   for (auto it = pathTable_.begin(); it != pathTable_.end(); it++) {
@@ -509,7 +509,9 @@ void RTCTransportProtocol::addRetransmissions(uint32_t start, uint32_t stop) {
   for (uint32_t i = start; i < stop; i++) {
     auto it = interestRetransmissions_.find(i);
     if (it == interestRetransmissions_.end()) {
-      if (lastSegNacked_ <= i) {
+      uint32_t pkt = actualSegment_ & modMask_;
+      if (lastSegNacked_ <= i  &&
+            inflightInterests_[pkt].state != received_) {
         // it must be larger than the last past nack received
         packetLost_++;
         interestRetransmissions_[i] = 0;
@@ -564,17 +566,19 @@ void RTCTransportProtocol::retransmit() {
     uint64_t sent_time = inflightInterests_[pkt].transmissionTime;
     uint64_t rtx_time = sent_time;
 
-    if(it->second == 0){
-      if(pathTable_.find(producerPathLabels_[0]) != pathTable_.end() &&
-        pathTable_.find(producerPathLabels_[1]) != pathTable_.end()){
+    if(it->second == 0 &&
+        pathTable_.find(producerPathLabels_[0]) != pathTable_.end() &&
+        (pathTable_[producerPathLabels_[0]]->getInterArrivalGap() <
+            pathTable_[producerPathLabels_[0]]->getMinRtt())){
+      if(pathTable_.find(producerPathLabels_[1]) != pathTable_.end()){
         //first rtx: wait RTTmax - RTTmin + gap
         rtx_time = sent_time + pathTable_[producerPathLabels_[1]]->getMinRtt() -
                   pathTable_[producerPathLabels_[0]]->getMinRtt() +
-                  pathTable_[producerPathLabels_[1]]->getInterArrivalGap();
+                  pathTable_[producerPathLabels_[0]]->getInterArrivalGap();
       }
     }else{
       if(pathTable_.find(producerPathLabels_[0]) != pathTable_.end()){
-        //second+ rtx: waint min rtt
+        //second+ rtx: wait min rtt
         rtx_time = sent_time + pathTable_[producerPathLabels_[0]]->getMinRtt();
       }
     }
@@ -609,7 +613,9 @@ void RTCTransportProtocol::checkRtx() {
   auto pathStats = pathTable_.find(producerPathLabels_[0]);
   uint64_t wait = 1;
   if(pathStats != pathTable_.end()){
-    wait = floor(pathStats->second->getInterArrivalGap() / 2.0);
+    uint32_t GAP = floor(pathStats->second->getInterArrivalGap() / 2.0);
+    uint32_t RTT = floor(pathStats->second->getMinRtt() / 2.0);
+    wait =  min(RTT,GAP);
     if(wait < 1)
       wait = 1;
   }
@@ -678,6 +684,12 @@ bool RTCTransportProtocol::onNack(const ContentObject &content_object, bool rtx)
 
   bool old_nack = false;
 
+  // if we did not received anything between lastReceived_ + 1 and productionSeg
+  // most likelly some packets got lost
+  if(lastReceived_ != 0){
+    addRetransmissions(lastReceived_ + 1, productionSeg);
+  }
+
   if(!rtx){
     gotNack_ = true;
     // we synch the estimated production rate with the actual one
@@ -695,16 +707,6 @@ bool RTCTransportProtocol::onNack(const ContentObject &content_object, bool rtx)
 
       computeMaxWindow(productionRate, 0);
       increaseWindow();
-    }
-
-    //we need to remove the rtx for packets with seq number
-    //< productionSeg
-    for(auto it = interestRetransmissions_.begin(); it !=
-          interestRetransmissions_.end();){
-      if(it->first < productionSeg)
-        it = interestRetransmissions_.erase(it);
-      else
-        ++it;
     }
 
     lastSegNacked_ = productionSeg;
@@ -791,10 +793,12 @@ void RTCTransportProtocol::onContentObject(
     //multiple times. In fact, every time that we receive an event related to an
     //interest (timeout, nacked, content) we cange the state. In this way we are
     //sure that we do not decrease twice the counter
-    if(old_nack)
+    if(old_nack){
       inflightInterests_[pkt].state = lost_;
-    else
+      interestRetransmissions_.erase(segmentNumber);
+    }else{
       inflightInterests_[pkt].state = nacked_;
+    }
 
   } else {
     avgPacketSize_ = (HICN_ESTIMATED_PACKET_SIZE * avgPacketSize_) +
@@ -812,27 +816,27 @@ void RTCTransportProtocol::onContentObject(
       receivedBytes_ += (uint32_t)(content_object->headerSize() +
                                    content_object->payloadSize());
       updateDelayStats(*content_object);
-
-      addRetransmissions(lastReceived_ + 1, segmentNumber);
-      if(segmentNumber > highestReceived_)
-        highestReceived_ = segmentNumber;
-      // lastReceived_ is updated only for data packets received without RTX
-      lastReceived_ = segmentNumber;
     }
 
+    addRetransmissions(lastReceived_ + 1, segmentNumber);
+    if(segmentNumber > highestReceived_){
+      highestReceived_ = segmentNumber;
+    }
+    if(segmentNumber > lastReceived_){
+        lastReceived_ = segmentNumber;
+    }
     receivedData_++;
     inflightInterests_[pkt].state = received_;
+
+    auto it = interestRetransmissions_.find(segmentNumber);
+    if(it != interestRetransmissions_.end())
+      lossRecovered_ ++;
+
+    interestRetransmissions_.erase(segmentNumber);
 
     reassemble(std::move(content_object));
     increaseWindow();
   }
-
-  // in any case we remove the packet from the rtx list
-  auto it = interestRetransmissions_.find(segmentNumber);
-  if(it != interestRetransmissions_.end())
-    lossRecovered_ ++;
-
-  interestRetransmissions_.erase(segmentNumber);
 
   scheduleNextInterests();
 }
