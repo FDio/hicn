@@ -318,17 +318,17 @@ void RaaqmTransportProtocol::onContentObject(
   }
 
   // Call application-defined callbacks
-  ConsumerContentObjectCallback *callback_content_object = nullptr;
+  ConsumerContentObjectCallback *callback_content_object = VOID_HANDLER;
   socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
                            &callback_content_object);
-  if (*callback_content_object != VOID_HANDLER) {
+  if (*callback_content_object) {
     (*callback_content_object)(*socket_, *content_object);
   }
 
-  ConsumerInterestCallback *callback_interest = nullptr;
+  ConsumerInterestCallback *callback_interest = VOID_HANDLER;
   socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_SATISFIED,
                            &callback_interest);
-  if (*callback_content_object != VOID_HANDLER) {
+  if (*callback_content_object) {
     (*callback_interest)(*socket_, *interest);
   }
 
@@ -369,10 +369,10 @@ void RaaqmTransportProtocol::onContentSegment(
       reassemble(std::move(content_object));
     } else if (TRANSPORT_EXPECT_FALSE(incremental_suffix ==
                                       index_manager_->getFinalSuffix())) {
-      interface::ConsumerSocket::ReadCallback *on_payload = nullptr;
+      interface::ConsumerSocket::ReadCallback *on_payload = VOID_HANDLER;
       socket_->getSocketOption(READ_CALLBACK, &on_payload);
 
-      if (on_payload != nullptr) {
+      if (on_payload != VOID_HANDLER) {
         on_payload->readSuccess(stats_.getBytesRecv());
       }
     }
@@ -404,10 +404,10 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
     return;
   }
 
-  ConsumerInterestCallback *callback = nullptr;
+  ConsumerInterestCallback *callback = VOID_HANDLER;
   socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_EXPIRED,
                            &callback);
-  if (*callback != VOID_HANDLER) {
+  if (*callback) {
     (*callback)(*socket_, *interest);
   }
 
@@ -420,17 +420,17 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
                             max_rtx)) {
     stats_.updateRetxCount(1);
 
-    callback = nullptr;
+    callback = VOID_HANDLER;
     socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_RETRANSMISSION,
                              &callback);
-    if (*callback != VOID_HANDLER) {
+    if (*callback) {
       (*callback)(*socket_, *interest);
     }
 
-    callback = nullptr;
+    callback = VOID_HANDLER;
     socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
                              &callback);
-    if ((*callback) != VOID_HANDLER) {
+    if (*callback) {
       (*callback)(*socket_, *interest);
     }
 
@@ -450,7 +450,7 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
 }
 
 void RaaqmTransportProtocol::scheduleNextInterests() {
-  if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
+  if (TRANSPORT_EXPECT_FALSE(!is_running_ && !is_first_)) {
     return;
   }
 
@@ -490,14 +490,14 @@ void RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
                            interest_lifetime);
   interest->setLifetime(interest_lifetime);
 
-  ConsumerInterestCallback *callback = nullptr;
+  ConsumerInterestCallback *callback = VOID_HANDLER;
   socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
                            &callback);
-  if (*callback != VOID_HANDLER) {
+  if (*callback) {
     callback->operator()(*socket_, *interest);
   }
 
-  if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
+  if (TRANSPORT_EXPECT_FALSE(!is_running_ && !is_first_)) {
     return;
   }
 
@@ -516,10 +516,10 @@ void RaaqmTransportProtocol::sendInterest(Interest::Ptr &&interest) {
 }
 
 void RaaqmTransportProtocol::onContentReassembled(std::error_code ec) {
-  interface::ConsumerSocket::ReadCallback *on_payload = nullptr;
+  interface::ConsumerSocket::ReadCallback *on_payload = VOID_HANDLER;
   socket_->getSocketOption(READ_CALLBACK, &on_payload);
 
-  if (on_payload == nullptr) {
+  if (on_payload == VOID_HANDLER) {
     throw errors::RuntimeException(
         "The read callback must be installed in the transport before "
         "starting "
@@ -581,10 +581,10 @@ void RaaqmTransportProtocol::updateStats(uint32_t suffix, uint64_t rtt,
   stats_.updateAverageWindowSize(current_window_size_);
 
   // Call statistics callback
-  ConsumerTimerCallback *stats_callback = nullptr;
+  ConsumerTimerCallback *stats_callback = VOID_HANDLER;
   socket_->getSocketOption(ConsumerCallbacksOptions::STATS_SUMMARY,
                            &stats_callback);
-  if (*stats_callback != VOID_HANDLER) {
+  if (*stats_callback) {
     auto dt = std::chrono::duration_cast<utils::Milliseconds>(now - t0_);
 
     uint32_t timer_interval_milliseconds = 0;

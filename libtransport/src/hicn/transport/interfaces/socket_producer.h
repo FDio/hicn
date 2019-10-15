@@ -91,500 +91,119 @@ class ProducerSocket : public Socket<BasePortal>,
     onInterest(*interest);
   };
 
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(int socket_option_key,
-                                              uint32_t socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::DATA_PACKET_SIZE:
-        if (socket_option_value < default_values::max_content_object_size &&
-            socket_option_value > 0) {
-          data_packet_size_ = socket_option_value;
-          break;
-        }
+  virtual int setSocketOption(int socket_option_key,
+                                              uint32_t socket_option_value);
 
-      case GeneralTransportOptions::INPUT_BUFFER_SIZE:
-        if (socket_option_value >= 1) {
-          input_buffer_capacity_ = socket_option_value;
-          break;
-        }
+  virtual int setSocketOption(int socket_option_key,
+                                      std::nullptr_t socket_option_value);
 
-      case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
-        output_buffer_.setLimit(socket_option_value);
-        break;
+  virtual int setSocketOption(int socket_option_key,
+                                              bool socket_option_value);
 
-      case GeneralTransportOptions::CONTENT_OBJECT_EXPIRY_TIME:
-        content_object_expiry_time_ = socket_option_value;
-        break;
+  virtual int setSocketOption(int socket_option_key,
+                                              Name *socket_option_value);
 
-      case GeneralTransportOptions::SIGNATURE_TYPE:
-        if (socket_option_value == SOCKET_OPTION_DEFAULT) {
-          signature_type_ = SHA_256;
-        } else {
-          signature_type_ = socket_option_value;
-        }
+  virtual int setSocketOption(
+      int socket_option_key, std::list<Prefix> socket_option_value);
 
-        if (signature_type_ == SHA_256 || signature_type_ == RSA_256) {
-          signature_size_ = 32;
-        }
-
-        break;
-
-      case ProducerCallbacksOptions::INTEREST_INPUT:
-        if (socket_option_value == VOID_HANDLER) {
-          on_interest_input_ = VOID_HANDLER;
-          break;
-        }
-
-      case ProducerCallbacksOptions::INTEREST_DROP:
-        if (socket_option_value == VOID_HANDLER) {
-          on_interest_dropped_input_buffer_ = VOID_HANDLER;
-          break;
-        }
-
-      case ProducerCallbacksOptions::INTEREST_PASS:
-        if (socket_option_value == VOID_HANDLER) {
-          on_interest_inserted_input_buffer_ = VOID_HANDLER;
-          break;
-        }
-
-      case ProducerCallbacksOptions::CACHE_HIT:
-        if (socket_option_value == VOID_HANDLER) {
-          on_interest_satisfied_output_buffer_ = VOID_HANDLER;
-          break;
-        }
-
-      case ProducerCallbacksOptions::CACHE_MISS:
-        if (socket_option_value == VOID_HANDLER) {
-          on_interest_process_ = VOID_HANDLER;
-          break;
-        }
-
-      case ProducerCallbacksOptions::NEW_CONTENT_OBJECT:
-        if (socket_option_value == VOID_HANDLER) {
-          on_new_segment_ = VOID_HANDLER;
-          break;
-        }
-
-      case ProducerCallbacksOptions::CONTENT_OBJECT_SIGN:
-        if (socket_option_value == VOID_HANDLER) {
-          on_content_object_to_sign_ = VOID_HANDLER;
-          break;
-        }
-
-      case ProducerCallbacksOptions::CONTENT_OBJECT_READY:
-        if (socket_option_value == VOID_HANDLER) {
-          on_content_object_in_output_buffer_ = VOID_HANDLER;
-          break;
-        }
-
-      case ProducerCallbacksOptions::CONTENT_OBJECT_OUTPUT:
-        if (socket_option_value == VOID_HANDLER) {
-          on_content_object_output_ = VOID_HANDLER;
-          break;
-        }
-
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
-
-    return SOCKET_OPTION_SET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(int socket_option_key,
-                                              bool socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::MAKE_MANIFEST:
-        making_manifest_ = socket_option_value;
-        break;
-
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
-
-    return SOCKET_OPTION_SET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(int socket_option_key,
-                                              Name *socket_option_value) {
-    return SOCKET_OPTION_NOT_SET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(
-      int socket_option_key, std::list<Prefix> socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::NETWORK_NAME:
-        served_namespaces_ = socket_option_value;
-        break;
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
-
-    return SOCKET_OPTION_SET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(
+  virtual int setSocketOption(
       int socket_option_key,
-      ProducerContentObjectCallback socket_option_value) {
-    switch (socket_option_key) {
-      case ProducerCallbacksOptions::NEW_CONTENT_OBJECT:
-        on_new_segment_ = socket_option_value;
-        break;
+      ProducerContentObjectCallback socket_option_value);
 
-      case ProducerCallbacksOptions::CONTENT_OBJECT_SIGN:
-        on_content_object_to_sign_ = socket_option_value;
-        break;
+  virtual int setSocketOption(
+      int socket_option_key, ProducerInterestCallback socket_option_value);
 
-      case ProducerCallbacksOptions::CONTENT_OBJECT_READY:
-        on_content_object_in_output_buffer_ = socket_option_value;
-        break;
+  virtual int setSocketOption(
+      int socket_option_key, ProducerContentCallback socket_option_value);
 
-      case ProducerCallbacksOptions::CONTENT_OBJECT_OUTPUT:
-        on_content_object_output_ = socket_option_value;
-        break;
+  virtual int setSocketOption(
+      int socket_option_key, HashAlgorithm socket_option_value);
 
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
+  virtual int setSocketOption(
+      int socket_option_key, utils::CryptoSuite socket_option_value);
 
-    return SOCKET_OPTION_SET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(
-      int socket_option_key, ProducerInterestCallback socket_option_value) {
-    switch (socket_option_key) {
-      case ProducerCallbacksOptions::INTEREST_INPUT:
-        on_interest_input_ = socket_option_value;
-        break;
-
-      case ProducerCallbacksOptions::INTEREST_DROP:
-        on_interest_dropped_input_buffer_ = socket_option_value;
-        break;
-
-      case ProducerCallbacksOptions::INTEREST_PASS:
-        on_interest_inserted_input_buffer_ = socket_option_value;
-        break;
-
-      case ProducerCallbacksOptions::CACHE_HIT:
-        on_interest_satisfied_output_buffer_ = socket_option_value;
-        break;
-
-      case ProducerCallbacksOptions::CACHE_MISS:
-        on_interest_process_ = socket_option_value;
-        break;
-
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
-
-    return SOCKET_OPTION_SET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(
-      int socket_option_key, ProducerContentCallback socket_option_value) {
-    switch (socket_option_key) {
-      case ProducerCallbacksOptions::CONTENT_PRODUCED:
-        on_content_produced_ = socket_option_value;
-        break;
-
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
-
-    return SOCKET_OPTION_SET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(
-      int socket_option_key, HashAlgorithm socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::HASH_ALGORITHM:
-        hash_algorithm_ = socket_option_value;
-        break;
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
-
-    return SOCKET_OPTION_SET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(
-      int socket_option_key, utils::CryptoSuite socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::CRYPTO_SUITE:
-        crypto_suite_ = socket_option_value;
-        break;
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
-
-    return SOCKET_OPTION_SET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(
+  virtual int setSocketOption(
       int socket_option_key,
-      const std::shared_ptr<utils::Identity> &socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::IDENTITY:
-        identity_ = socket_option_value;
-        break;
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
+      const std::shared_ptr<utils::Identity> &socket_option_value);
 
-    return SOCKET_OPTION_SET;
-  }
+  virtual int setSocketOption(
+      int socket_option_key, const std::string &socket_option_value);
 
-  TRANSPORT_ALWAYS_INLINE int setSocketOption(
-      int socket_option_key, const std::string &socket_option_value) {
-    switch (socket_option_key) {
-      case DataLinkOptions::OUTPUT_INTERFACE:
-        output_interface_ = socket_option_value;
-        portal_->setOutputInterface(output_interface_);
-        break;
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
+  virtual int getSocketOption(int socket_option_key,
+                                              uint32_t &socket_option_value);
 
-    return SOCKET_OPTION_SET;
-    ;
-  }
+  virtual int getSocketOption(int socket_option_key,
+                                              bool &socket_option_value);
 
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(int socket_option_key,
-                                              uint32_t &socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::INPUT_BUFFER_SIZE:
-        socket_option_value = (uint32_t)input_buffer_capacity_;
-        break;
+  virtual int getSocketOption(
+      int socket_option_key, std::list<Prefix> &socket_option_value);
 
-      case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
-        socket_option_value = (uint32_t)output_buffer_.getLimit();
-        break;
-
-      case GeneralTransportOptions::DATA_PACKET_SIZE:
-        socket_option_value = (uint32_t)data_packet_size_;
-        break;
-
-      case GeneralTransportOptions::CONTENT_OBJECT_EXPIRY_TIME:
-        socket_option_value = content_object_expiry_time_;
-        break;
-
-      case GeneralTransportOptions::SIGNATURE_TYPE:
-        socket_option_value = signature_type_;
-        break;
-
-      default:
-        return SOCKET_OPTION_NOT_SET;
-    }
-
-    return SOCKET_OPTION_GET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(int socket_option_key,
-                                              bool &socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::MAKE_MANIFEST:
-        socket_option_value = making_manifest_;
-        break;
-
-      default:
-        return SOCKET_OPTION_NOT_GET;
-    }
-
-    return SOCKET_OPTION_GET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(
-      int socket_option_key, std::list<Prefix> &socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::NETWORK_NAME:
-        socket_option_value = served_namespaces_;
-        break;
-
-      default:
-        return SOCKET_OPTION_NOT_GET;
-    }
-
-    return SOCKET_OPTION_GET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+  virtual int getSocketOption(
       int socket_option_key,
-      ProducerContentObjectCallback **socket_option_value) {
-    switch (socket_option_key) {
-      case ProducerCallbacksOptions::NEW_CONTENT_OBJECT:
-        *socket_option_value = &on_new_segment_;
-        break;
+      ProducerContentObjectCallback **socket_option_value);
 
-      case ProducerCallbacksOptions::CONTENT_OBJECT_SIGN:
-        *socket_option_value = &on_content_object_to_sign_;
-        break;
+  virtual int getSocketOption(
+      int socket_option_key, ProducerContentCallback **socket_option_value);
 
-      case ProducerCallbacksOptions::CONTENT_OBJECT_READY:
-        *socket_option_value = &on_content_object_in_output_buffer_;
-        break;
+  virtual int getSocketOption(
+      int socket_option_key, ProducerInterestCallback **socket_option_value);
 
-      case ProducerCallbacksOptions::CONTENT_OBJECT_OUTPUT:
-        *socket_option_value = &on_content_object_output_;
-        break;
+  virtual int getSocketOption(
+      int socket_option_key, std::shared_ptr<Portal> &socket_option_value);
 
-      default:
-        return SOCKET_OPTION_NOT_GET;
-    }
+  virtual int getSocketOption(
+      int socket_option_key, HashAlgorithm &socket_option_value);
 
-    return SOCKET_OPTION_GET;
-  }
+  virtual int getSocketOption(
+      int socket_option_key, utils::CryptoSuite &socket_option_value);
 
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(
-      int socket_option_key, ProducerContentCallback **socket_option_value) {
-    switch (socket_option_key) {
-      case ProducerCallbacksOptions::CONTENT_PRODUCED:
-        *socket_option_value = &on_content_produced_;
-        break;
-
-      default:
-        return SOCKET_OPTION_NOT_GET;
-    }
-
-    return SOCKET_OPTION_GET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(
-      int socket_option_key, ProducerInterestCallback **socket_option_value) {
-    switch (socket_option_key) {
-      case ProducerCallbacksOptions::INTEREST_INPUT:
-        *socket_option_value = &on_interest_input_;
-        break;
-
-      case ProducerCallbacksOptions::INTEREST_DROP:
-        *socket_option_value = &on_interest_dropped_input_buffer_;
-        break;
-
-      case ProducerCallbacksOptions::INTEREST_PASS:
-        *socket_option_value = &on_interest_inserted_input_buffer_;
-        break;
-
-      case CACHE_HIT:
-        *socket_option_value = &on_interest_satisfied_output_buffer_;
-        break;
-
-      case CACHE_MISS:
-        *socket_option_value = &on_interest_process_;
-        break;
-
-      default:
-        return SOCKET_OPTION_NOT_GET;
-    }
-
-    return SOCKET_OPTION_GET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(
-      int socket_option_key, std::shared_ptr<Portal> &socket_option_value) {
-    switch (socket_option_key) {
-      case PORTAL:
-        socket_option_value = portal_;
-        break;
-      default:
-        return SOCKET_OPTION_NOT_GET;
-        ;
-    }
-
-    return SOCKET_OPTION_GET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(
-      int socket_option_key, HashAlgorithm &socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::HASH_ALGORITHM:
-        socket_option_value = hash_algorithm_;
-        break;
-      default:
-        return SOCKET_OPTION_NOT_GET;
-    }
-
-    return SOCKET_OPTION_GET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(
-      int socket_option_key, utils::CryptoSuite &socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::HASH_ALGORITHM:
-        socket_option_value = crypto_suite_;
-        break;
-      default:
-        return SOCKET_OPTION_NOT_GET;
-    }
-
-    return SOCKET_OPTION_GET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(
+  virtual int getSocketOption(
       int socket_option_key,
-      std::shared_ptr<utils::Identity> &socket_option_value) {
-    switch (socket_option_key) {
-      case GeneralTransportOptions::IDENTITY:
-        if (identity_) {
-          socket_option_value = identity_;
-          break;
-        }
-      default:
-        return SOCKET_OPTION_NOT_GET;
-    }
+      std::shared_ptr<utils::Identity> &socket_option_value);
 
-    return SOCKET_OPTION_GET;
-  }
-
-  TRANSPORT_ALWAYS_INLINE int getSocketOption(
-      int socket_option_key, std::string &socket_option_value) {
-    switch (socket_option_key) {
-      case DataLinkOptions::OUTPUT_INTERFACE:
-        socket_option_value = output_interface_;
-        break;
-      default:
-        return SOCKET_OPTION_NOT_GET;
-    }
-
-    return SOCKET_OPTION_GET;
-  }
-
- private:
+  virtual int getSocketOption(
+      int socket_option_key, std::string &socket_option_value);
+  
+  template<typename Lambda, typename arg2>
+  int rescheduleOnIOService(int socket_option_key,
+                            arg2 socket_option_value,
+                            Lambda lambda_func);
+  
+  template<typename Lambda, typename arg2>
+  int rescheduleOnIOServiceWithReference(int socket_option_key,
+                                         arg2 &socket_option_value,
+                                         Lambda lambda_func);
+ 
+ protected:
   // Threads
   std::thread listening_thread_;
 
- protected:
   asio::io_service internal_io_service_;
   asio::io_service &io_service_;
   std::shared_ptr<Portal> portal_;
-  std::size_t data_packet_size_;
-  std::list<Prefix> served_namespaces_;
-  uint32_t content_object_expiry_time_;
+  std::atomic_size_t data_packet_size_;
+  std::list<Prefix> served_namespaces_; //No need to be threadsafe, this is always modified by the application thread
+  std::atomic_uint32_t content_object_expiry_time_;
 
   // buffers
+  // ContentStore is thread-safe
   utils::ContentStore output_buffer_;
 
- private:
   utils::EventThread async_thread_;
   int registration_status_;
 
-  bool making_manifest_;
+  std::atomic_bool making_manifest_;
 
   // map for storing sequence numbers for several calls of the publish
   // function
   std::unordered_map<Name, std::unordered_map<int, uint32_t>> seq_number_map_;
 
-  int signature_type_;
-  int signature_size_;
-
-  HashAlgorithm hash_algorithm_;
-  utils::CryptoSuite crypto_suite_;
+  std::atomic<HashAlgorithm> hash_algorithm_;
+  std::atomic<utils::CryptoSuite> crypto_suite_;
+  utils::SpinLock identity_lock_;
   std::shared_ptr<utils::Identity> identity_;
 
-  // buffers
-
-  std::queue<std::shared_ptr<const Interest>> input_buffer_;
-  std::atomic_size_t input_buffer_capacity_;
-  std::atomic_size_t input_buffer_size_;
-
   // callbacks
- protected:
   ProducerInterestCallback on_interest_input_;
   ProducerInterestCallback on_interest_dropped_input_buffer_;
   ProducerInterestCallback on_interest_inserted_input_buffer_;
