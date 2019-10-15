@@ -28,11 +28,8 @@ TransportProtocol::TransportProtocol(interface::ConsumerSocket *icn_socket)
 }
 
 int TransportProtocol::start() {
-  // If the protocol is already running, return
+  // If the protocol is already running, return otherwise set as running
   if (is_running_) return -1;
-
-  // Set the protocol as running
-  is_running_ = true;
 
   // Reset the protocol state machine
   reset();

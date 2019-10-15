@@ -60,7 +60,7 @@ class TransportProtocol : public interface::BasePortal::ConsumerCallback,
  protected:
   interface::ConsumerSocket *socket_;
   std::shared_ptr<interface::BasePortal> portal_;
-  volatile bool is_running_;
+  std::atomic_bool is_running_;
   TransportStatistics stats_;
 };
 
