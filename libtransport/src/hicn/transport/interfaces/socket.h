@@ -85,6 +85,7 @@ class Socket {
 
  protected:
   std::string output_interface_;
+  std::thread::id listener_id;
 };
 
 }  // namespace interface

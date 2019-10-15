@@ -18,6 +18,8 @@
 #include <functional>
 #include <system_error>
 
+#include <hicn/transport/core/facade.h>
+
 namespace utils {
 class MemBuf;
 }
@@ -104,6 +106,17 @@ using ProducerContentObjectCallback =
  */
 using ProducerInterestCallback =
     std::function<void(ProducerSocket &, core::Interest &)>;
+
+// void VOID_HANDLER_CONSUMER_INTEREST(ConsumerSocket &, core::Interest &);
+// void VOID_HANDLER_CONSUMER_TIMER(ConsumerSocket &, const protocol::TransportStatistics &);
+// void VOID_HANDLER_PRODUCER_CONTENT(ProducerSocket &, const std::error_code &, uint64_t);
+// void VOID_HANDLER_CONSUMER_CONTENTOBJECT(ConsumerSocket &, const core::ContentObject &);
+// bool VOID_HANDLER_CONSUMER_CONTENTOBJECT_VERIFICATION(ConsumerSocket &, const core::ContentObject &);
+// void VOID_HANDLER_CONSUMER_MANIFEST(ConsumerSocket &, const core::ContentObjectManifest &);
+// void VOID_HANDLER_PRODUCER_CONTENTOBJECT(ProducerSocket &, core::ContentObject &);
+extern nullptr_t VOID_HANDLER_PTR;
+//(ProducerSocket &, core::ContentObject &);
+// void VOID_HANDLER_PRODUCER_INTEREST(ProducerSocket &, core::Interest &);
 
 }  // namespace interface
 

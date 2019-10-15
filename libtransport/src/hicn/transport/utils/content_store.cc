@@ -85,12 +85,17 @@ void ContentStore::erase(const Name &exact_name) {
 }
 
 void ContentStore::setLimit(size_t max_packets) {
+  utils::SpinLock::Acquire locked(cs_mutex_);
   max_content_store_size_ = max_packets;
 }
 
-std::size_t ContentStore::getLimit() const { return max_content_store_size_; }
+std::size_t ContentStore::getLimit() const { 
+  utils::SpinLock::Acquire locked(cs_mutex_);
+  return max_content_store_size_; 
+}
 
 std::size_t ContentStore::size() const {
+  utils::SpinLock::Acquire locked(cs_mutex_);
   return content_store_hash_table_.size();
 }
 
