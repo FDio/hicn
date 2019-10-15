@@ -31,8 +31,6 @@ static constexpr uint32_t content_object_expiry_time =
     never_expire_time;  // milliseconds -> 50 seconds
 static constexpr uint32_t content_object_packet_size =
     1500;  // The ethernet MTU
-static constexpr uint32_t producer_socket_input_buffer_size =
-    150000;  // Interests
 static constexpr uint32_t producer_socket_output_buffer_size =
     150000;  // Content Object
 static constexpr uint32_t log_2_default_buffer_size = 12;

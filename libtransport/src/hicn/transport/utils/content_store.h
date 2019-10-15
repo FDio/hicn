@@ -68,8 +68,9 @@ class ContentStore {
   ContentStoreHashTable content_store_hash_table_;
   FIFOList fifo_list_;
   std::shared_ptr<ContentObject> empty_reference_;
-  std::size_t max_content_store_size_;
-  utils::SpinLock cs_mutex_;
+  // Must be atomic
+  std::atomic_size_t max_content_store_size_;
+  mutable utils::SpinLock cs_mutex_;
 };
 
 }  // end namespace utils
