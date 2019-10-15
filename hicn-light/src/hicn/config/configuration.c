@@ -484,7 +484,7 @@ struct iovec *configuration_ProcessRemoveListener(Configuration *config,
   bool success = false;
 
   const char *symbolicOrListenerid = control->symbolicOrListenerid;
-  unsigned listenerId = -1;
+  int listenerId = -1;
   ListenerSet *listenerSet = forwarder_GetListenerSet(config->forwarder);
   if (utils_IsNumber(symbolicOrListenerid)) {
     // case for connid as input
