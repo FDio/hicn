@@ -27,8 +27,6 @@
 #define SOCKET_OPTION_NOT_SET 3
 #define SOCKET_OPTION_DEFAULT 12345
 
-#define VOID_HANDLER 0
-
 namespace transport {
 
 namespace interface {
@@ -85,6 +83,7 @@ class Socket {
 
  protected:
   std::string output_interface_;
+  std::thread::id listener_id;
 };
 
 }  // namespace interface
