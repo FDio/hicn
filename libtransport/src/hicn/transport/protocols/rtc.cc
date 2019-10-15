@@ -273,7 +273,7 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
   ConsumerTimerCallback *stats_callback = nullptr;
   socket_->getSocketOption(ConsumerCallbacksOptions::STATS_SUMMARY,
                            &stats_callback);
-  if (*stats_callback != VOID_HANDLER) {
+  if (*stats_callback) {
     //Send the stats to the app
     stats_.updateQueuingDelay(queuingDelay_);
     stats_.updateLossRatio(lossRate_);
@@ -421,7 +421,7 @@ void RTCTransportProtocol::sendInterest(Name *interest_name, bool rtx) {
   socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
                            &on_interest_output);
 
-  if (*on_interest_output != VOID_HANDLER) {
+  if (*on_interest_output) {
     (*on_interest_output)(*socket_, *interest);
   }
 
@@ -770,7 +770,7 @@ void RTCTransportProtocol::onContentObject(
   ConsumerContentObjectCallback *callback_content_object = nullptr;
   socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
                            &callback_content_object);
-  if (*callback_content_object != VOID_HANDLER) {
+  if (*callback_content_object) {
     (*callback_content_object)(*socket_, *content_object);
   }
 
