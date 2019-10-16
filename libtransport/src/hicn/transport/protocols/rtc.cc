@@ -332,7 +332,7 @@ void RTCTransportProtocol::computeMaxWindow(uint32_t productionRate,
   // currentState = RTC_NORMAL_STATE
   if (BDPWin != 0) {
     maxCWin_ =
-        (uint32_t)ceil((double)BDPWin + ((double)BDPWin / 10.0));  // BDP + 10%
+        (uint32_t)ceil((double)BDPWin + (((double)BDPWin * 30.0) / 100.0));  // BDP + 30%
   } else {
     maxCWin_ = min(maxWaintingInterest, maxCWin_);
   }
