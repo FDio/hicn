@@ -650,7 +650,7 @@ class Portal {
             std::move(interest_ptr->getInterest()), std::move(content_object));
       }
     } else {
-      TRANSPORT_LOGW("No pending interests for current content (%s)",
+      TRANSPORT_LOGD("No pending interests for current content (%s)",
                      content_object->getName().toString().c_str());
     }
   }
