@@ -528,7 +528,7 @@ void RTCTransportProtocol::addRetransmissions(uint32_t start, uint32_t stop) {
     checkRtx();
 }
 
-void RTCTransportProtocol::retransmit() {
+uint64_t RTCTransportProtocol::retransmit() {
   auto it = interestRetransmissions_.begin();
 
   // cut len to max HICN_MAX_RTX_SIZE
@@ -539,6 +539,7 @@ void RTCTransportProtocol::retransmit() {
   }
 
   it = interestRetransmissions_.begin();
+  uint64_t smallest_timeout = ULONG_MAX;
 
   while (it != interestRetransmissions_.end()) {
     uint32_t pkt = it->first & modMask_;
@@ -596,10 +597,13 @@ void RTCTransportProtocol::retransmit() {
                                  &interest_name);
       interest_name->setSuffix(it->first);
       sendInterest(interest_name, true);
+    }else if(rtx_time < smallest_timeout){
+      smallest_timeout = rtx_time;
     }
 
     ++it;
   }
+  return smallest_timeout;
 }
 
 void RTCTransportProtocol::checkRtx() {
@@ -608,20 +612,15 @@ void RTCTransportProtocol::checkRtx() {
     return;
   }
 
-  //we use the packet intearriva time on the fastest path
-  //even if this stats should be the same on both
-  auto pathStats = pathTable_.find(producerPathLabels_[0]);
-  uint64_t wait = 1;
-  if(pathStats != pathTable_.end()){
-    uint32_t GAP = floor(pathStats->second->getInterArrivalGap() / 2.0);
-    uint32_t RTT = floor(pathStats->second->getMinRtt() / 2.0);
-    wait =  min(RTT,GAP);
-    if(wait < 1)
-      wait = 1;
-  }
-
   rtx_timer_used_ = true;
-  retransmit();
+  uint64_t next_timeout = retransmit();
+  uint64_t wait = 1;
+  uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::steady_clock::now().time_since_epoch())
+                         .count();
+  if(next_timeout != ULONG_MAX && now < next_timeout){
+        wait =  next_timeout - now;
+  }
   rtx_timer_->expires_from_now(std::chrono::milliseconds(wait));
   rtx_timer_->async_wait([this](std::error_code ec) {
     if (ec) return;

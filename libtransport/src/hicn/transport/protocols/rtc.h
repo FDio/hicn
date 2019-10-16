@@ -124,7 +124,7 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   void scheduleNextInterests() override;
   void addRetransmissions(uint32_t val);
   void addRetransmissions(uint32_t start, uint32_t stop);
-  void retransmit();
+  uint64_t retransmit();
   void checkRtx();
   void probeRtt();
   void onTimeout(Interest::Ptr &&interest) override;
