@@ -509,7 +509,7 @@ void RTCTransportProtocol::addRetransmissions(uint32_t start, uint32_t stop) {
   for (uint32_t i = start; i < stop; i++) {
     auto it = interestRetransmissions_.find(i);
     if (it == interestRetransmissions_.end()) {
-      uint32_t pkt = actualSegment_ & modMask_;
+      uint32_t pkt = i & modMask_;
       if (lastSegNacked_ <= i  &&
             inflightInterests_[pkt].state != received_) {
         // it must be larger than the last past nack received
