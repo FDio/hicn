@@ -803,6 +803,9 @@ void RTCTransportProtocol::onContentObject(
     avgPacketSize_ = (HICN_ESTIMATED_PACKET_SIZE * avgPacketSize_) +
                      ((1 - HICN_ESTIMATED_PACKET_SIZE) * payload->length());
 
+    receivedBytes_ += (uint32_t)(content_object->headerSize() +
+                                   content_object->payloadSize());
+
     if (inflightInterests_[pkt].state == sent_) {
       inflightInterestsCount_--;  // packet sent without timeouts
     }
@@ -810,10 +813,7 @@ void RTCTransportProtocol::onContentObject(
     if (inflightInterests_[pkt].state == sent_ &&
         interestRetransmissions_.find(segmentNumber) ==
             interestRetransmissions_.end()) {
-      // we count only non retransmitted data in order to take into accunt only
-      // the transmition rate of the producer
-      receivedBytes_ += (uint32_t)(content_object->headerSize() +
-                                   content_object->payloadSize());
+      // delay stats are computed only for non retransmitted data
       updateDelayStats(*content_object);
     }
 
