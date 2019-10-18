@@ -87,6 +87,9 @@ void RTCTransportProtocol::reset() {
   interestRetransmissions_.clear();
   lastSegNacked_ = 0;
   lastReceived_ = 0;
+  lastReceivedTime_ = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::steady_clock::now().time_since_epoch())
+                      .count();
   highestReceived_ = 0;
   firstSequenceInRound_ = 0;
 
@@ -205,7 +208,7 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
                    ((1 - HICN_ESTIMATED_BW_ALPHA) * bytesPerSec);
   }
 
-  uint64_t minRtt = 150;
+  uint64_t minRtt = UINT_MAX;
   uint64_t maxRtt = 0;
 
   for (auto it = pathTable_.begin(); it != pathTable_.end(); it++) {
@@ -228,7 +231,7 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
 
   //as a queuing delay we keep the lowest one among the two paths
   //if one path is congested the forwarder should decide to do not
-  //use it soon so it does not make sens to inform the application
+  //use it so it does not make sense  to inform the application
   //that maybe we have a problem
   if(pathTable_[producerPathLabels_[0]]->getQueuingDealy() <
       pathTable_[producerPathLabels_[1]]->getQueuingDealy())
@@ -506,6 +509,7 @@ void RTCTransportProtocol::addRetransmissions(uint32_t start, uint32_t stop) {
                          std::chrono::steady_clock::now().time_since_epoch())
                          .count();
 
+  bool new_rtx = false;
   for (uint32_t i = start; i < stop; i++) {
     auto it = interestRetransmissions_.find(i);
     if (it == interestRetransmissions_.end()) {
@@ -519,13 +523,21 @@ void RTCTransportProtocol::addRetransmissions(uint32_t start, uint32_t stop) {
         //we reset the transmission time setting to now, so that rtx will
         //happne in one RTT on waint one inter arrival gap
         inflightInterests_[pkt].transmissionTime = now;
+        new_rtx = true;
       }
     }  // if the retransmission is already there the rtx timer will
        // take care of it
   }
 
-  if(!rtx_timer_used_)
+  //in case a new rtx is added to the map we need to run checkRtx()
+  if(new_rtx){
+    if(rtx_timer_used_){
+      //if a timer is pending we need to delete it
+      rtx_timer_->cancel();
+      rtx_timer_used_ = false;
+    }
     checkRtx();
+  }
 }
 
 uint64_t RTCTransportProtocol::retransmit() {
@@ -540,6 +552,9 @@ uint64_t RTCTransportProtocol::retransmit() {
 
   it = interestRetransmissions_.begin();
   uint64_t smallest_timeout = ULONG_MAX;
+  uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::steady_clock::now().time_since_epoch())
+                         .count();
 
   while (it != interestRetransmissions_.end()) {
     uint32_t pkt = it->first & modMask_;
@@ -563,30 +578,37 @@ uint64_t RTCTransportProtocol::retransmit() {
       continue;
     }
 
+    uint64_t rtx_time = now;
 
-    uint64_t sent_time = inflightInterests_[pkt].transmissionTime;
-    uint64_t rtx_time = sent_time;
-
-    if(it->second == 0 &&
-        pathTable_.find(producerPathLabels_[0]) != pathTable_.end() &&
-        (pathTable_[producerPathLabels_[0]]->getInterArrivalGap() <
-            pathTable_[producerPathLabels_[0]]->getMinRtt())){
-      if(pathTable_.find(producerPathLabels_[1]) != pathTable_.end()){
-        //first rtx: wait RTTmax - RTTmin + gap
-        rtx_time = sent_time + pathTable_[producerPathLabels_[1]]->getMinRtt() -
-                  pathTable_[producerPathLabels_[0]]->getMinRtt() +
-                  pathTable_[producerPathLabels_[0]]->getInterArrivalGap();
+    if(it->second == 0) {
+      //first rtx
+      if(producerPathLabels_[0] != producerPathLabels_[1]){
+        //multipath
+        if(pathTable_.find(producerPathLabels_[0]) != pathTable_.end() &&
+             pathTable_.find(producerPathLabels_[1]) != pathTable_.end() &&
+             (pathTable_[producerPathLabels_[0]]->getInterArrivalGap() <
+                HICN_MIN_INTER_ARRIVAL_GAP)){
+          rtx_time = lastReceivedTime_ +
+                (pathTable_[producerPathLabels_[1]]->getMinRtt() -
+                pathTable_[producerPathLabels_[0]]->getMinRtt()) +
+                pathTable_[producerPathLabels_[0]]->getInterArrivalGap();
+        }//else low rate producer, send it immediatly
+      }else{
+        //single path
+        if(pathTable_.find(producerPathLabels_[0]) != pathTable_.end() &&
+            (pathTable_[producerPathLabels_[0]]->getInterArrivalGap() <
+              HICN_MIN_INTER_ARRIVAL_GAP)){
+          rtx_time = lastReceivedTime_ +
+              pathTable_[producerPathLabels_[0]]->getInterArrivalGap();
+        }//else low rate producer send immediatly
       }
     }else{
+      //second or plus rtx, wait for the min rtt
       if(pathTable_.find(producerPathLabels_[0]) != pathTable_.end()){
-        //second+ rtx: wait min rtt
+        uint64_t sent_time = inflightInterests_[pkt].transmissionTime;
         rtx_time = sent_time + pathTable_[producerPathLabels_[0]]->getMinRtt();
-      }
+      }//if we don't have info we send it immediatly
     }
-
-    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-                         std::chrono::steady_clock::now().time_since_epoch())
-                         .count();
 
     if(now >= rtx_time){
       inflightInterests_[pkt].transmissionTime = now;
@@ -612,7 +634,6 @@ void RTCTransportProtocol::checkRtx() {
     return;
   }
 
-  rtx_timer_used_ = true;
   uint64_t next_timeout = retransmit();
   uint64_t wait = 1;
   uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -621,9 +642,11 @@ void RTCTransportProtocol::checkRtx() {
   if(next_timeout != ULONG_MAX && now < next_timeout){
         wait =  next_timeout - now;
   }
+  rtx_timer_used_ = true;
   rtx_timer_->expires_from_now(std::chrono::milliseconds(wait));
   rtx_timer_->async_wait([this](std::error_code ec) {
     if (ec) return;
+    rtx_timer_used_ = false;
     checkRtx();
   });
 }
@@ -822,7 +845,11 @@ void RTCTransportProtocol::onContentObject(
       highestReceived_ = segmentNumber;
     }
     if(segmentNumber > lastReceived_){
-        lastReceived_ = segmentNumber;
+      lastReceived_ = segmentNumber;
+      lastReceivedTime_ = std::chrono::duration_cast<
+                      std::chrono::milliseconds>(
+                      std::chrono::steady_clock::now().time_since_epoch())
+                      .count();
     }
     receivedData_++;
     inflightInterests_[pkt].state = received_;
