@@ -49,6 +49,7 @@
 #define HICN_MAX_RTX_SIZE 1024
 #define HICN_MAX_RTX_MAX_AGE 10000
 #define HICN_MIN_RTT_WIN 30  // rounds
+#define HICN_MIN_INTER_ARRIVAL_GAP 100 //ms
 
 // cwin
 #define HICN_INITIAL_CWIN 1           // packets
@@ -159,6 +160,8 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
                            //for samething that is older than this value.
   uint32_t lastReceived_; //segment of the last content object received
                           //indicates the base of the window on the client
+  uint64_t lastReceivedTime_; //time at which we recevied the
+                              //lastReceived_ packet
 
   //rtt probes
   //the RTC transport tends to overestimate the RTT
