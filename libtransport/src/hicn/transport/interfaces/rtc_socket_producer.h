@@ -47,7 +47,7 @@ class RTCProducerSocket : public ProducerSocket {
   void scheduleRoundTimer();
   void interestCacheTimer();
 
-  uint32_t currentSeg_;
+  std::atomic<uint32_t> currentSeg_;
   uint32_t prodLabel_;
   uint16_t headerSize_;
   Name flowName_;
