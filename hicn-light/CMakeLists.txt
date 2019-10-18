@@ -71,7 +71,7 @@ else()
   endif ()
 endif()
 
-include( Packaging )
+include(Packaging)
 
 find_package(Threads REQUIRED)
 
@@ -107,3 +107,9 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
 endif()
 
 add_subdirectory(src/hicn)
+
+# Install service file in linux systems
+include(ServiceScript)
+install_service_script(
+  ${CMAKE_CURRENT_SOURCE_DIR}/config/hicn-light.service
+)
