@@ -415,7 +415,7 @@ bool _hicnListener_BindInet6(ListenerOps *ops, const Address *remoteAddress) {
     if (logger_IsLoggable(hicn->logger, LoggerFacility_IO,
                           PARCLogLevel_Debug)) {
       logger_Log(hicn->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "hicn_bild failed %d %s", res, hicn_socket_strerror(res));
+                 "hicn_bind failed %d %s", res, hicn_socket_strerror(res));
     }
   } else {
     result = true;
@@ -447,7 +447,7 @@ bool _hicnListener_BindInet(ListenerOps *ops, const Address *remoteAddress) {
     if (logger_IsLoggable(hicn->logger, LoggerFacility_IO,
                           PARCLogLevel_Debug)) {
       logger_Log(hicn->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "hicn_bild failed %d %s", res, hicn_socket_strerror(res));
+                 "hicn_bind failed %d %s", res, hicn_socket_strerror(res));
     }
   } else {
     result = true;
