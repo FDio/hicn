@@ -14,12 +14,12 @@
  */
 
 #include "data_pcslookup.h"
+#include "infra.h"
 #include "mgmt.h"
 #include "parser.h"
-#include "infra.h"
+#include "state.h"
 #include "strategy.h"
 #include "strategy_dpo_manager.h"
-#include "state.h"
 
 /* Stats string values */
 static char *hicn_data_pcslookup_error_strings[] = {
@@ -37,10 +37,9 @@ vlib_node_registration_t hicn_data_pcslookup_node;
  * hICN node for handling data. It performs a lookup in the PIT.
  */
 static uword
-hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
-			     vlib_frame_t * frame)
+hicn_data_pcslookup_node_fn (vlib_main_t * vm,
+			     vlib_node_runtime_t * node, vlib_frame_t * frame)
 {
-
   u32 n_left_from, *from, *to_next;
   hicn_data_pcslookup_next_t next_index;
   hicn_data_pcslookup_runtime_t *rt;
@@ -87,7 +86,8 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	    {
 	      vlib_buffer_t *b1;
 	      b1 = vlib_get_buffer (vm, from[1]);
-	      //Prefetch two cache lines-- 128 byte-- so that we load the hicn_buffer_t as well
+	      // Prefetch two cache lines-- 128 byte-- so that we load the
+	      // hicn_buffer_t as well
 	      CLIB_PREFETCH (b1, 2 * CLIB_CACHE_LINE_BYTES, STORE);
 	      CLIB_PREFETCH (b1->data, CLIB_CACHE_LINE_BYTES, LOAD);
 	    }
@@ -99,10 +99,9 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  to_next += 1;
 	  n_left_to_next -= 1;
 
-
 	  b0 = vlib_get_buffer (vm, bi0);
 	  hb0 = hicn_get_buffer (b0);
-          next0 = HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP;
+	  next0 = HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP;
 
 	  /* Incr packet counter */
 	  stats.pkts_processed += 1;
@@ -111,26 +110,24 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  nameptr = (u8 *) (&name);
 
 	  if (PREDICT_TRUE (ret0 == HICN_ERROR_NONE &&
-                            hicn_hashtb_fullhash (nameptr, namelen,
-                                                  &name_hash) == HICN_ERROR_NONE))
+			    hicn_hashtb_fullhash (nameptr, namelen,
+						  &name_hash) ==
+			    HICN_ERROR_NONE))
 	    {
 	      int res =
 		hicn_hashtb_lookup_node (rt->pitcs->pcs_table, nameptr,
 					 namelen, name_hash,
-					 !(hb0->flags &
-					   HICN_BUFFER_FLAGS_FACE_IS_APP)
-					 /* take lock */ ,
+					 0 /*! take lock if hit CS */ ,
 					 &node_id0, &dpo_ctx_id0, &vft_id0,
-					 &is_cs0,
-					 &hash_entry_id, &bucket_id,
+					 &is_cs0, &hash_entry_id, &bucket_id,
 					 &bucket_is_overflown);
 
 	      stats.pkts_data_count += 1;
 
 #if HICN_FEATURE_CS
-	      if ((res == HICN_ERROR_HASHTB_HASH_NOT_FOUND
-		   || (res == HICN_ERROR_NONE && is_cs0))
-		  && ((hb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP)))
+	      if ((res == HICN_ERROR_HASHTB_HASH_NOT_FOUND ||
+		   (res == HICN_ERROR_NONE && is_cs0)) &&
+		  ((hb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP)))
 		{
 		  next0 = HICN_DATA_PCSLOOKUP_NEXT_STORE_DATA;
 		}
@@ -169,9 +166,8 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	   * Fix in case of a wrong speculation. Needed to
 	   * clone the data in the right frame
 	   */
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
-					   to_next, n_left_to_next,
-					   bi0, next0);
+	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+					   n_left_to_next, bi0, next0);
 
 	  /* Maybe trace */
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
@@ -217,30 +213,28 @@ hicn_data_pcslookup_format_trace (u8 * s, va_list * args)
   return (s);
 }
 
-
 /*
  * Node registration for the data forwarder node
  */
 /* *INDENT-OFF* */
-VLIB_REGISTER_NODE (hicn_data_pcslookup_node) =
-{
-  .function = hicn_data_pcslookup_node_fn,
-  .name = "hicn-data-pcslookup",
-  .vector_size = sizeof (u32),
-  .runtime_data_bytes = sizeof (hicn_data_pcslookup_runtime_t),
-  .format_trace = hicn_data_pcslookup_format_trace,
-  .type =  VLIB_NODE_TYPE_INTERNAL,
-  .n_errors = ARRAY_LEN (hicn_data_pcslookup_error_strings),
-  .error_strings = hicn_data_pcslookup_error_strings,
-  .n_next_nodes = HICN_DATA_PCSLOOKUP_N_NEXT,
-  .next_nodes =
-  {
-    [HICN_DATA_PCSLOOKUP_NEXT_V4_LOOKUP] = "ip4-lookup",
-    [HICN_DATA_PCSLOOKUP_NEXT_V6_LOOKUP] = "ip6-lookup",
-    [HICN_DATA_PCSLOOKUP_NEXT_STORE_DATA] = "hicn-data-push",
-    [HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD] = "hicn-data-fwd",
-    [HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP] = "error-drop",
-  },
+VLIB_REGISTER_NODE(hicn_data_pcslookup_node) = {
+    .function = hicn_data_pcslookup_node_fn,
+    .name = "hicn-data-pcslookup",
+    .vector_size = sizeof(u32),
+    .runtime_data_bytes = sizeof(hicn_data_pcslookup_runtime_t),
+    .format_trace = hicn_data_pcslookup_format_trace,
+    .type = VLIB_NODE_TYPE_INTERNAL,
+    .n_errors = ARRAY_LEN(hicn_data_pcslookup_error_strings),
+    .error_strings = hicn_data_pcslookup_error_strings,
+    .n_next_nodes = HICN_DATA_PCSLOOKUP_N_NEXT,
+    .next_nodes =
+        {
+            [HICN_DATA_PCSLOOKUP_NEXT_V4_LOOKUP] = "ip4-lookup",
+            [HICN_DATA_PCSLOOKUP_NEXT_V6_LOOKUP] = "ip6-lookup",
+            [HICN_DATA_PCSLOOKUP_NEXT_STORE_DATA] = "hicn-data-push",
+            [HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD] = "hicn-data-fwd",
+            [HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP] = "error-drop",
+        },
 };
 /* *INDENT-ON* */
 
