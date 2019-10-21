@@ -220,6 +220,7 @@ ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix)
   if (pton_fd <= 0)
       goto ERR;
 
+  free(addr);
   return 1;
 ERR:
   free (addr);
