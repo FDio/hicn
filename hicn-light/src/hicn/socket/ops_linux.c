@@ -624,7 +624,7 @@ int _nl_set_ip_addr(uint32_t interface_id, ip_prefix_t *prefix) {
       .payload.ifa_index = interface_id};
 
   /* Set attributes = length/type/value */
-  struct rtattr ifa_address = {RTA_LENGTH(ip_prefix_len(prefix)),
+  struct rtattr ifa_address = {RTA_LENGTH(ip_address_len(&prefix->address, prefix->family)),
                                IFA_ADDRESS};
   struct iovec iov[] = {
       {&msg, sizeof(msg)},
@@ -992,13 +992,13 @@ int _nl_del_lo_route(const ip_prefix_t *prefix) {
 
   /* Set attribute = length/type/value */
   uint32_t one = 1;
-  struct rtattr a_dst = {RTA_LENGTH(ip_prefix_len(prefix)), RTA_DST};
+  struct rtattr a_dst = {RTA_LENGTH(ip_address_len(&prefix->address, prefix->family)), RTA_DST};
   struct rtattr a_ifid_lo = {RTA_LENGTH(sizeof(uint32_t)), RTA_OIF};
   struct iovec iov[] = {
       {&msg, sizeof(msg)},
       /* Ip address */
       {&a_dst, sizeof(a_dst)},
-      {(void *)&prefix->address.buffer, ip_prefix_len(prefix)},
+      {(void *)&prefix->address.buffer, ip_address_len(&prefix->address, prefix->family)},
       /* Interface id */
       {&a_ifid_lo, sizeof(a_ifid_lo)},
       {&one, sizeof(one)}};
@@ -1154,7 +1154,7 @@ int _nl_add_neigh_proxy(const ip_prefix_t *prefix,
   };
 
   /* Message attributes = length/type/value */
-  struct rtattr a_dst = {RTA_LENGTH(ip_prefix_len(prefix)), NDA_DST};
+  struct rtattr a_dst = {RTA_LENGTH(ip_address_len(&prefix->address, prefix->family)), NDA_DST};
 
   /* Iovec describing the packets */
   struct iovec iov[] = {
@@ -1231,7 +1231,7 @@ int _nl_add_in_route_table(const ip_prefix_t *prefix,
   };
 
   /* Message attributes = length/type/value */
-  struct rtattr a_dst = {RTA_LENGTH(ip_prefix_len(prefix)), RTA_DST};
+  struct rtattr a_dst = {RTA_LENGTH(ip_address_len(&prefix->address, prefix->family)), RTA_DST};
   struct rtattr a_oif = {RTA_LENGTH(sizeof(uint32_t)), RTA_OIF};
 
   /* Iovec describing the packets */
@@ -1239,7 +1239,7 @@ int _nl_add_in_route_table(const ip_prefix_t *prefix,
       {&msg, sizeof(msg)},
       /* Destination prefix / ip address */
       {&a_dst, sizeof(a_dst)},
-      {(void *)&prefix->address.buffer, ip_prefix_len(prefix)},
+      {(void *)&prefix->address.buffer, ip_address_len(&prefix->address, prefix->family)},
       /* Output interface */
       {&a_oif, sizeof(a_oif)},
       {(void *)&interface_id, sizeof(uint32_t)},
@@ -1333,7 +1333,7 @@ int _nl_add_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
 
   if (prefix) {
     /* Message attributes = length/type/value */
-    struct rtattr a_src = {RTA_LENGTH(ip_prefix_len(prefix)), FRA_SRC};
+    struct rtattr a_src = {RTA_LENGTH(ip_address_len(&prefix->address, prefix->family)), FRA_SRC};
     struct rtattr a_prio = {RTA_LENGTH(sizeof(uint32_t)), FRA_PRIORITY};
 
     /* Iovec describing the packets */
@@ -1341,7 +1341,7 @@ int _nl_add_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
         {&msg, sizeof(msg)},
         /* Source prefix / prefix */
         {&a_src, sizeof(a_src)},
-        {(void *)&prefix->address.buffer, ip_prefix_len(prefix)},
+        {(void *)&prefix->address.buffer, ip_address_len(&prefix->address, prefix->family)},
         /* Priority */
         {&a_prio, sizeof(a_prio)},
         {(void *)&priority, sizeof(uint32_t)},
@@ -1434,7 +1434,7 @@ int _nl_del_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
 
   /* Message attributes = length/type/value */
   if (prefix) {
-    struct rtattr a_src = {RTA_LENGTH(ip_prefix_len(prefix)), FRA_SRC};
+    struct rtattr a_src = {RTA_LENGTH(ip_address_len(&prefix->address, prefix->family)), FRA_SRC};
     struct rtattr a_prio = {RTA_LENGTH(sizeof(uint32_t)), FRA_PRIORITY};
 
     /* Iovec describing the packets */
@@ -1442,7 +1442,7 @@ int _nl_del_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
         {&msg, sizeof(msg)},
         /* Source prefix / prefix */
         {&a_src, sizeof(a_src)},
-        {(void *)&prefix->address.buffer, ip_prefix_len(prefix)},
+        {(void *)&prefix->address.buffer, ip_address_len(&prefix->address, prefix->family)},
         /* Priority */
         {&a_prio, sizeof(a_prio)},
         {(void *)&priority, sizeof(uint32_t)},
