@@ -499,8 +499,16 @@ hicn_pcs_cs_update (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
           policy_vft->hicn_cs_delete_get (pitcs, policy_state,
                                           &node, &pcs_entry, &hash_entry);
 
-          hicn_pcs_cs_delete (vm, pitcs, &pcs_entry, &node, hash_entry, NULL,
-                              NULL);
+          /*
+           * We don't have to decrease the lock (therefore we cannot
+           * use hicn_pcs_cs_delete function)
+           */
+          policy_vft->hicn_cs_dequeue (pitcs, node, pcs_entry, policy_state);
+
+          hicn_cs_delete_trimmed (pitcs, &pcs_entry, hash_entry, &node, vm);
+
+          /* Update the global CS counter */
+          pitcs->pcs_cs_count--;
         }
     }
   else
@@ -603,8 +611,16 @@ hicn_pcs_cs_insert (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 	  policy_vft->hicn_cs_delete_get (pitcs, policy_state,
 					  &node, &pcs_entry, &hash_entry);
 
-	  hicn_pcs_cs_delete (vm, pitcs, &pcs_entry, &node, hash_entry, NULL,
-			      NULL);
+          /*
+           * We don't have to decrease the lock (therefore we cannot
+           * use hicn_pcs_cs_delete function)
+           */
+          policy_vft->hicn_cs_dequeue (pitcs, node, pcs_entry, policy_state);
+
+          hicn_cs_delete_trimmed (pitcs, &pcs_entry, hash_entry, &node, vm);
+
+          /* Update the global CS counter */
+          pitcs->pcs_cs_count--;
 	}
     }
   return ret;
