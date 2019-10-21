@@ -107,7 +107,7 @@ using ProducerContentObjectCallback =
 using ProducerInterestCallback =
     std::function<void(ProducerSocket &, core::Interest &)>;
 
-extern nullptr_t VOID_HANDLER;
+extern std::nullptr_t VOID_HANDLER;
 
 }  // namespace interface
 

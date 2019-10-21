@@ -19,7 +19,7 @@ namespace transport {
 
 namespace interface {
 
-nullptr_t VOID_HANDLER = nullptr;
+std::nullptr_t VOID_HANDLER = nullptr;
 
 }  // namespace interface
 

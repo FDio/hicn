@@ -406,8 +406,8 @@ int ProducerSocket::rescheduleOnIOService(int socket_option_key,
     /* Condition variable for the wait */
     std::condition_variable cv;
     bool done = false;
-    io_service_.dispatch([this, &socket_option_key, &socket_option_value, &mtx,
-                          &cv, &result, &done, &func]() {
+    io_service_.dispatch([&socket_option_key, &socket_option_value, &mtx,
+                          &result, &done, &func]() {
       std::unique_lock<std::mutex> lck(mtx);
       done = true;
       result = func(socket_option_key, socket_option_value);

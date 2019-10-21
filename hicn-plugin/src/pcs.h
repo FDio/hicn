@@ -499,8 +499,16 @@ hicn_pcs_cs_update (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
           policy_vft->hicn_cs_delete_get (pitcs, policy_state,
                                           &node, &pcs_entry, &hash_entry);
 
-          hicn_pcs_cs_delete (vm, pitcs, &pcs_entry, &node, hash_entry, NULL,
-                              NULL);
+          /*
+           * We don't have to decrease the lock (therefore we cannot
+           * use hicn_pcs_cs_delete function)
+           */
+          policy_vft->hicn_cs_dequeue (pitcs, node, pcs_entry, policy_state);
+
+          hicn_cs_delete_trimmed (pitcs, &pcs_entry, hash_entry, &node, vm);
+
+          /* Update the global CS counter */
+          pitcs->pcs_cs_count--;
         }
     }
   else
@@ -541,14 +549,14 @@ hicn_pcs_cs_delete (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
     }
 
   /* A data could have been inserted in the CS through a push. In this case locks == 0 */
-  if (hash_entry->locks == 0 || hash_entry->locks == 1)
+  hash_entry->locks--;
+  if (hash_entry->locks == 0)
     {
       hicn_pcs_delete_internal
 	(pitcs, pcs_entryp, hash_entry, nodep, vm, dpo_vft, hicn_dpo_id);
     }
   else
     {
-      hash_entry->locks--;
       hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_DELETED;
     }
 }
@@ -603,8 +611,16 @@ hicn_pcs_cs_insert (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 	  policy_vft->hicn_cs_delete_get (pitcs, policy_state,
 					  &node, &pcs_entry, &hash_entry);
 
-	  hicn_pcs_cs_delete (vm, pitcs, &pcs_entry, &node, hash_entry, NULL,
-			      NULL);
+          /*
+           * We don't have to decrease the lock (therefore we cannot
+           * use hicn_pcs_cs_delete function)
+           */
+          policy_vft->hicn_cs_dequeue (pitcs, node, pcs_entry, policy_state);
+
+          hicn_cs_delete_trimmed (pitcs, &pcs_entry, hash_entry, &node, vm);
+
+          /* Update the global CS counter */
+          pitcs->pcs_cs_count--;
 	}
     }
   return ret;
