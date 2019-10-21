@@ -190,9 +190,9 @@ ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix)
   char *addr = strdup (ip_address_str);
 
   p = strchr (addr, '/');
-  if (!p)
-      ip_prefix->len = 0;		// until we get the ip address family
-  else {
+  if (!p) {
+      ip_prefix->len = ~0;		// until we get the ip address family
+  } else {
     ip_prefix->len = strtoul (p + 1, &eptr, 10);
     *p = 0;
   }
@@ -202,11 +202,15 @@ ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix)
   switch (ip_prefix->family)
     {
     case AF_INET6:
+      if (ip_prefix->len == (u8)~0)
+          ip_prefix->len = IPV6_ADDR_LEN_BITS;
       if (ip_prefix->len > IPV6_ADDR_LEN_BITS)
 	goto ERR;
       pton_fd = inet_pton (AF_INET6, addr, &ip_prefix->address.buffer);
       break;
     case AF_INET:
+      if (ip_prefix->len == (u8)~0)
+          ip_prefix->len = IPV4_ADDR_LEN_BITS;
       if (ip_prefix->len > IPV4_ADDR_LEN_BITS)
 	goto ERR;
       pton_fd = inet_pton (AF_INET, addr, &ip_prefix->address.buffer);
@@ -220,6 +224,7 @@ ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix)
   if (pton_fd <= 0)
       goto ERR;
 
+  free(addr);
   return 1;
 ERR:
   free (addr);
