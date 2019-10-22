@@ -127,19 +127,36 @@ bool symbolicNameTable_Add(SymbolicNameTable *table, const char *symbolicName,
   parcAssertTrue(connid < UINT32_MAX, "Parameter connid must be less than %u",
                  UINT32_MAX);
 
-  char *key = _createKey(symbolicName);
+  char *key1 = _createKey(symbolicName);
 
-  uint32_t *value = parcMemory_Allocate(sizeof(uint32_t));
-  *value = connid;
+  uint32_t *value1 = parcMemory_Allocate(sizeof(uint32_t));
+  *value1 = connid;
 
-  bool success = parcHashCodeTable_Add(table->symbolicNameTable, key, value);
-  success = parcHashCodeTable_Add(table->indexToNameTable, value, key);
-  if (!success) {
-    parcMemory_Deallocate((void **)&key);
-    parcMemory_Deallocate((void **)&value);
-  }
+  bool success = parcHashCodeTable_Add(table->symbolicNameTable, key1, value1);
+  if (!success)
+      goto ERR_NAME;
 
+  char *key2 = _createKey(symbolicName);
+
+  uint32_t *value2 = parcMemory_Allocate(sizeof(uint32_t));
+  *value2 = connid;
+
+  success = parcHashCodeTable_Add(table->indexToNameTable, value2, key2);
+  if (!success)
+      goto ERR_INDEX;
+
+  goto END;
+
+ERR_INDEX:
+    parcMemory_Deallocate((void **)&key2);
+    parcMemory_Deallocate((void **)&value2);
+    parcHashCodeTable_Del(table->symbolicNameTable, key1);
+ERR_NAME:
+    parcMemory_Deallocate((void **)&key1);
+    parcMemory_Deallocate((void **)&value1);
+END:
   return success;
+
 }
 
 unsigned symbolicNameTable_Get(SymbolicNameTable *table,
@@ -152,9 +169,8 @@ unsigned symbolicNameTable_Get(SymbolicNameTable *table,
   char *key = _createKey(symbolicName);
 
   uint32_t *value = parcHashCodeTable_Get(table->symbolicNameTable, key);
-  if (value) {
+  if (value)
     connid = *value;
-  }
 
   parcMemory_Deallocate((void **)&key);
   return connid;
