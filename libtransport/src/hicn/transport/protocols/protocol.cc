@@ -23,22 +23,27 @@ namespace protocol {
 using namespace interface;
 
 TransportProtocol::TransportProtocol(interface::ConsumerSocket *icn_socket)
-    : socket_(icn_socket), is_running_(false) {
+    : socket_(icn_socket), is_running_(false), is_first_(false) {
   socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal_);
 }
 
 int TransportProtocol::start() {
-  // If the protocol is already running, return
+  // If the protocol is already running, return otherwise set as running
   if (is_running_) return -1;
-
-  // Set the protocol as running
-  is_running_ = true;
 
   // Reset the protocol state machine
   reset();
 
+  // Set it is the first time we schedule an interest
+  is_first_ = true;
+
   // Schedule next interests
   scheduleNextInterests();
+
+  is_first_ = false;
+
+  // Set the protocol as running
+  is_running_ = true;
 
   // Start Event loop
   portal_->runEventsLoop();

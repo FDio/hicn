@@ -47,7 +47,6 @@ namespace interface {
 
 #define MIN_PROBE_SEQ 0xefffffff
 
-
 using CryptoSuite = utils::CryptoSuite;
 using Identity = utils::Identity;
 
@@ -217,8 +216,8 @@ class HIperfClient {
         expected_seg_ = productionSeg;
       } else if (receivedSeg > productionSeg && receivedSeg < MIN_PROBE_SEQ) {
         std::cout << "[WINDOW TO LARGE] received NACK for " << receivedSeg
-            << ". Next expected packet " << productionSeg << std::endl;
-      } else if (receivedSeg >= MIN_PROBE_SEQ){
+                  << ". Next expected packet " << productionSeg << std::endl;
+      } else if (receivedSeg >= MIN_PROBE_SEQ) {
         std::cout << "[PROBE] probe number = " << receivedSeg << std::endl;
       }
       return;
@@ -259,9 +258,7 @@ class HIperfClient {
 
   void handleTimerExpiration(ConsumerSocket &c,
                              const protocol::TransportStatistics &stats) {
-
-    if (configuration_.rtc_)
-        return;
+    if (configuration_.rtc_) return;
 
     const char separator = ' ';
     const int width = 20;
@@ -327,7 +324,9 @@ class HIperfClient {
     }
 
     consumer_socket_ = std::make_unique<ConsumerSocket>(transport_protocol);
-    consumer_socket_->setSocketOption(GeneralTransportOptions::INTEREST_LIFETIME, configuration_.interest_lifetime_);
+    consumer_socket_->setSocketOption(
+        GeneralTransportOptions::INTEREST_LIFETIME,
+        configuration_.interest_lifetime_);
 
 #if defined(DEBUG) && defined(__linux__)
     std::shared_ptr<transport::BasePortal> portal;
@@ -944,8 +943,8 @@ int main(int argc, char *argv[]) {
 
   int opt;
 #ifndef _WIN32
-  while ((opt = getopt(argc, argv, "DSCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:ItL:")) !=
-         -1) {
+  while ((opt = getopt(argc, argv,
+                       "DSCf:b:d:W:RMc:vA:s:rmlk:y:p:hi:xB:ItL:")) != -1) {
     switch (opt) {
       // Common
       case 'D': {
