@@ -74,7 +74,7 @@ hicn_name_create (const char *ip_address, u32 id, hicn_name_t * name)
 }
 
 int
-hicn_name_create_from_prefix (const ip_prefix_t * prefix, u32 id,
+hicn_name_create_from_ip_prefix (const ip_prefix_t * prefix, u32 id,
 				  hicn_name_t * name)
 {
   switch (prefix->family)
