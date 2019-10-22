@@ -33,9 +33,34 @@ function(get_next_version VERSION NEXT_VERSION)
     math(EXPR major "${major} + 1")
   endif()
 
-  set(minor "0${minor}")
+  if (minor LESS 10)
+    set(minor "0${minor}")
+  endif()
+
   set(${NEXT_VERSION} "${major}.${minor}" PARENT_SCOPE)
 endfunction()
+
+macro(extract_version)
+  # Extract version from git
+  execute_process(
+    COMMAND git describe --long --match v*
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    OUTPUT_VARIABLE VER
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+
+  if (NOT VER)
+    set(VER "v1.0-0-gcafe")
+  endif()
+
+  message(STATUS "Git describe output: ${VER}")
+
+  string(REGEX REPLACE "v([0-9]+).([0-9]+)-([0-9]+)-(g[0-9a-f]+)" "\\1;\\2;\\3;\\4" VER ${VER})
+  list(GET VER 0 VERSION_MAJOR)
+  list(GET VER 1 VERSION_MINOR)
+  list(GET VER 2 VERSION_REVISION)
+  list(GET VER 3 COMMIT_NAME)
+endmacro(extract_version)
 
 macro(make_packages)
   if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
@@ -49,23 +74,17 @@ macro(make_packages)
       set(OS_${_name} ${_value})
     endforeach()
 
-    # extract version from git
-    execute_process(
-      COMMAND git describe --long --match v*
-      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-      OUTPUT_VARIABLE VER
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
+    extract_version()
 
-    if (NOT VER)
-      set(VER "v1.0-1-gcafe")
-    endif()
+    message(STATUS "Version major: ${VERSION_MAJOR}")
+    message(STATUS "Version minor: ${VERSION_MINOR}")
+    message(STATUS "Revision: ${VERSION_REVISION}")
+    message(STATUS "Commit hash: ${COMMIT_NAME}")
 
-    string(REGEX REPLACE "v(.*)-([0-9]+)-(g[0-9a-f]+)" "\\1;\\2;\\3" VER ${VER})
-    list(GET VER 0 tag)
+    set(tag "${VERSION_MAJOR}.${VERSION_MINOR}")
     string(REPLACE "-" "~" tag ${tag})
-    list(GET VER 1 commit_num)
-    list(GET VER 2 commit_name)
+    set(commit_num ${VERSION_REVISION})
+    set(commit_name ${COMMIT_NAME})
 
     if (NOT DEFINED ENV{BUILD_NUMBER})
       set(bld "b1")
