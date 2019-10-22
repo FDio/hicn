@@ -25,6 +25,8 @@ add_subdirectory(portability)
 add_subdirectory(protocols)
 add_subdirectory(utils)
 
+include(Packager)
+extract_version()
 configure_file("config.h.in" "config.h" @ONLY)
 install(
   FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
