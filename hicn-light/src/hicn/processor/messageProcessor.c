@@ -131,16 +131,18 @@ static void messageProcessor_ForwardToInterfaceId(MessageProcessor *processor,
 static void
 messageProcessor_Tick(int fd, PARCEventType type, void *user_data)
 {
-    MessageProcessor *processor = (MessageProcessor*)user_data;
-    uint64_t now = (uint64_t)forwarder_GetTicks(processor->forwarder);
+  MessageProcessor *processor = (MessageProcessor*)user_data;
+  uint64_t now = (uint64_t)forwarder_GetTicks(processor->forwarder);
 
-    /* Loop over FIB entries to compute statistics from counters */
-    FibEntryList *fibList = forwarder_GetFibEntries(processor->forwarder);
+  /* Loop over FIB entries to compute statistics from counters */
+  FibEntryList *fibList = forwarder_GetFibEntries(processor->forwarder);
 
-    for (size_t i = 0; i < fibEntryList_Length(fibList); i++) {
-      FibEntry *entry = (FibEntry *)fibEntryList_Get(fibList, i);
-      fibEntry_UpdateStats(entry, now);
-    }
+  for (size_t i = 0; i < fibEntryList_Length(fibList); i++) {
+    FibEntry *entry = (FibEntry *)fibEntryList_Get(fibList, i);
+    fibEntry_UpdateStats(entry, now);
+  }
+
+  fibEntryList_Destroy(&fibList);
 }
 #endif /* WITH_POLICY */
 
