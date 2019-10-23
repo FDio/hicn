@@ -913,7 +913,7 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
         }
     };
 
-    snprintf(msg.payload.symbolic, NAME_LEN, "%s", listener->name);
+    snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", listener->name);
     snprintf(msg.payload.interfaceName, INTERFACE_LEN, "%s", listener->interface_name);
 
     hc_command_params_t params = {
@@ -990,16 +990,16 @@ _hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
     };
 
     if (listener->id) {
-        snprintf(msg.payload.symbolicOrListenerid, NAME_LEN, "%d", listener->id);
+        snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%d", listener->id);
     } else if (*listener->name) {
-        snprintf(msg.payload.symbolicOrListenerid, NAME_LEN, "%s", listener->name);
+        snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%s", listener->name);
     } else {
         hc_listener_t * listener_found;
         if (hc_listener_get(s, listener, &listener_found) < 0)
             return -1;
         if (!listener_found)
             return -1;
-        snprintf(msg.payload.symbolicOrListenerid, NAME_LEN, "%d", listener_found->id);
+        snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%d", listener_found->id);
         free(listener_found);
     }
 
@@ -1122,7 +1122,7 @@ hc_listener_parse(void * in, hc_listener_t * listener)
         .local_addr = UNION_CAST(cmd->address, ip_address_t),
         .local_port = ntohs(cmd->port),
     };
-    snprintf(listener->name, NAME_LEN, "%s", cmd->listenerName);
+    snprintf(listener->name, SYMBOLIC_NAME_LEN, "%s", cmd->listenerName);
     snprintf(listener->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
     return 0;
 }
@@ -1184,7 +1184,7 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
             .connectionType = (u8)map_to_connection_type[connection->type],
         }
     };
-    snprintf(msg.payload.symbolic, NAME_LEN, "%s", connection->name);
+    snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", connection->name);
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
@@ -1260,16 +1260,16 @@ _hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
     };
 
     if (connection->id) {
-        snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%d", connection->id);
+        snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", connection->id);
     } else if (*connection->name) {
-        snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%s", connection->name);
+        snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", connection->name);
     } else {
         hc_connection_t * connection_found;
         if (hc_connection_get(s, connection, &connection_found) < 0)
             return -1;
         if (!connection_found)
             return -1;
-        snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%d", connection_found->id);
+        snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", connection_found->id);
         free(connection_found);
     }
 
@@ -1412,7 +1412,7 @@ hc_connection_parse(void * in, hc_connection_t * connection)
 #endif /* WITH_POLICY */
         .state = state,
     };
-    snprintf(connection->name, NAME_LEN, "%s", cmd->connectionData.symbolic);
+    snprintf(connection->name, SYMBOLIC_NAME_LEN, "%s", cmd->connectionData.symbolic);
     snprintf(connection->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
     return 0;
 }
@@ -1468,7 +1468,7 @@ _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
             .admin_state = state,
         },
     };
-    snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%s", conn_id_or_name);
+    snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", conn_id_or_name);
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
@@ -1530,7 +1530,7 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
      * The route commands expects the ID (or name that we don't use) as part of
      * the symbolicOrConnid attribute.
      */
-    snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%d", route->face_id);
+    snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", route->face_id);
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
@@ -1756,7 +1756,7 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
                 .tags = f->tags,
 #endif /* WITH_POLICY */
             };
-            snprintf(connection->name, NAME_LEN, "%s",
+            snprintf(connection->name, SYMBOLIC_NAME_LEN, "%s",
                     f->netdevice.name);
             snprintf(connection->interface_name, INTERFACE_LEN, "%s",
                     f->netdevice.name);
@@ -1776,9 +1776,9 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
 #endif /* WITH_POLICY */
             };
             if (generate_name) {
-                snprintf(connection->name, NAME_LEN, "tcp%u", RANDBYTE());
+                snprintf(connection->name, SYMBOLIC_NAME_LEN, "tcp%u", RANDBYTE());
             } else {
-                memset(connection->name, 0, NAME_LEN);
+                memset(connection->name, 0, SYMBOLIC_NAME_LEN);
             }
             snprintf(connection->interface_name, INTERFACE_LEN, "%s",
                     f->netdevice.name);
@@ -1798,9 +1798,9 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
 #endif /* WITH_POLICY */
             };
             if (generate_name) {
-                snprintf(connection->name, NAME_LEN, "udp%u", RANDBYTE());
+                snprintf(connection->name, SYMBOLIC_NAME_LEN, "udp%u", RANDBYTE());
             } else {
-                memset(connection->name, 0, NAME_LEN);
+                memset(connection->name, 0, SYMBOLIC_NAME_LEN);
             }
             snprintf(connection->interface_name, INTERFACE_LEN, "%s",
                     f->netdevice.name);
@@ -1879,7 +1879,7 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
     }
     face->face.netdevice.name[0] = '\0';
     face->face.netdevice.index = 0;
-    snprintf(face->name, NAME_LEN, "%s", connection->name);
+    snprintf(face->name, SYMBOLIC_NAME_LEN, "%s", connection->name);
     snprintf(face->face.netdevice.name, INTERFACE_LEN, "%s", connection->interface_name);
     netdevice_update_index(&face->face.netdevice);
     return 0;
@@ -1897,7 +1897,7 @@ hc_connection_to_local_listener(const hc_connection_t * connection, hc_listener_
         .local_addr = connection->local_addr,
         .local_port = connection->local_port,
     };
-    snprintf(listener->name, NAME_LEN, "lst%u", RANDBYTE()); // generate name
+    snprintf(listener->name, SYMBOLIC_NAME_LEN, "lst%u", RANDBYTE()); // generate name
     snprintf(listener->interface_name, INTERFACE_LEN, "%s", connection->interface_name);
     return 0;
 }
@@ -2238,7 +2238,7 @@ _hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
             .len = punting->prefix_len,
         }
     };
-    snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%d", punting->face_id);
+    snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", punting->face_id);
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,

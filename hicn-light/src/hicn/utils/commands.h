@@ -35,6 +35,8 @@
 #include <hicn/policy.h>
 #endif /* WITH_POLICY */
 
+#define SYMBOLIC_NAME_LEN 16
+
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;
 
@@ -115,8 +117,8 @@ typedef struct {
 typedef enum { ETHER_MODE, IP_MODE, HICN_MODE } listener_mode;
 
 typedef struct {
-  char symbolic[16];
-  char interfaceName[16];
+  char symbolic[SYMBOLIC_NAME_LEN];
+  char interfaceName[SYMBOLIC_NAME_LEN];
   union commandAddr address;
   uint16_t port;
   // uint16_t etherType;
@@ -130,8 +132,8 @@ typedef struct {
 //==========  [01]  ADD CONNECTION    ==========
 
 typedef struct {
-  char symbolic[16];
-  //char interfaceName[16];
+  char symbolic[SYMBOLIC_NAME_LEN];
+  //char interfaceName[SYMBOLIC_NAME_LEN];
   union commandAddr remoteIp;
   union commandAddr localIp;
   uint16_t remotePort;
@@ -168,8 +170,8 @@ typedef struct {
   uint32_t connid;
   uint8_t state;
   uint8_t admin_state;
-  char interfaceName[16];
-  char connectionName[16];
+  char interfaceName[SYMBOLIC_NAME_LEN];
+  char connectionName[SYMBOLIC_NAME_LEN];
 } list_connections_command;
 
 // SIZE=80
@@ -177,7 +179,7 @@ typedef struct {
 //==========  [03]  ADD ROUTE    ==========
 
 typedef struct {
-  char symbolicOrConnid[16];
+  char symbolicOrConnid[SYMBOLIC_NAME_LEN];
   union commandAddr address;
   uint16_t cost;
   uint8_t addressType;
@@ -200,12 +202,12 @@ typedef struct {
 
 //==========  [05]  REMOVE CONNECTION    ==========
 typedef struct {
-  char symbolicOrConnid[16];
+  char symbolicOrConnid[SYMBOLIC_NAME_LEN];
 } remove_connection_command;
 
 //==========  [06]  REMOVE LISTENER    ==========
 typedef struct {
-  char symbolicOrListenerid[16];
+  char symbolicOrListenerid[SYMBOLIC_NAME_LEN];
 } remove_listener_command;
 
 // SIZE=16
@@ -213,7 +215,7 @@ typedef struct {
 //==========  [07]  REMOVE ROUTE    ==========
 
 typedef struct {
-  char symbolicOrConnid[16];
+  char symbolicOrConnid[SYMBOLIC_NAME_LEN];
   union commandAddr address;
   uint8_t addressType;
   uint8_t len;
@@ -259,7 +261,7 @@ typedef struct {
 //==========  [11]  SET WLDR    ==========
 
 typedef struct {
-  char symbolicOrConnid[16];
+  char symbolicOrConnid[SYMBOLIC_NAME_LEN];
   uint8_t activate;
 } set_wldr_command;
 
@@ -268,7 +270,7 @@ typedef struct {
 //==========  [12]  ADD PUNTING    ==========
 
 typedef struct {
-  char symbolicOrConnid[16];
+  char symbolicOrConnid[SYMBOLIC_NAME_LEN];
   union commandAddr address;
   uint8_t addressType;
   uint8_t len;
@@ -280,8 +282,8 @@ typedef struct {
 
 typedef struct {
   union commandAddr address;
-  char listenerName[16];
-  char interfaceName[16];
+  char listenerName[SYMBOLIC_NAME_LEN];
+  char interfaceName[SYMBOLIC_NAME_LEN];
   uint32_t connid;
   uint16_t port;
   uint8_t addressType;
@@ -307,7 +309,7 @@ typedef struct {
 // SIZE=1
 
 typedef struct {
-  char symbolicOrConnid[16];
+  char symbolicOrConnid[SYMBOLIC_NAME_LEN];
   uint8_t admin_state;
   uint16_t pad16;
 } connection_set_admin_state_command;
@@ -335,7 +337,7 @@ typedef struct {
 } remove_policy_command;
 
 typedef struct {
-  char symbolicOrConnid[16];
+  char symbolicOrConnid[SYMBOLIC_NAME_LEN];
   uint8_t admin_state;
   policy_tags_t tags;
 } update_connection_command;
