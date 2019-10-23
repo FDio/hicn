@@ -67,6 +67,7 @@ int nl_process_state(interface_t * interface)
     switch(data->state) {
         case NL_STATE_UNDEFINED:
         {
+            DEBUG("[nl_process_state] UNDEFINED->LINK_SENT");
             struct {
                 struct nlmsghdr  header;
                 struct rtgenmsg payload;
@@ -93,6 +94,7 @@ int nl_process_state(interface_t * interface)
 
         case NL_STATE_LINK_SENT:
         {
+            DEBUG("[nl_process_state] LINK_SENT->ADDR_SENT");
             /* Issue a first query to receive static state */
             struct {
                 struct nlmsghdr  header;
@@ -120,6 +122,7 @@ int nl_process_state(interface_t * interface)
 
         case NL_STATE_ADDR_SENT:
         {
+            DEBUG("[nl_process_state] ADDR_SENT->DONE");
             data->state = NL_STATE_DONE;
             break;
         }
@@ -167,9 +170,13 @@ int nl_initialize(interface_t * interface, void * cfg)
 
     interface->data = data;
 
-    nl_process_state(interface);
+    interface_register_fd(interface, data->fd, NULL);
 
-    return data->fd; // 0;
+#if 1
+    nl_process_state(interface);
+#endif
+
+    return 0;
 
 ERR_BIND:
     close(data->fd);
@@ -205,7 +212,7 @@ int parse_link(struct nlmsghdr * h, facelet_t ** facelet,
     *facelet = facelet_create();
     netdevice_t * netdevice = netdevice_create_from_name(interface_name);
     if (!netdevice)
-        goto ERROR;
+        goto ERROR_ND;
     int rc = facelet_set_netdevice(*facelet, *netdevice);
     if (rc < 0)
         goto ERROR;
@@ -237,9 +244,12 @@ int parse_link(struct nlmsghdr * h, facelet_t ** facelet,
     //  - ifi_change
     //  - IFLA_PROTINFO
 
+    netdevice_free(netdevice);
     return 0;
 
 ERROR:
+    netdevice_free(netdevice);
+ERROR_ND:
     facelet_free(*facelet);
     *facelet = NULL;
 
@@ -303,7 +313,7 @@ int parse_addr(struct nlmsghdr * h, facelet_t ** facelet,
     netdevice_t * netdevice = netdevice_create_from_index(ifa->ifa_index);
     if (!netdevice) {
         ERROR("[netlink.parse_addr] error creating netdevice '%s'", interface_name);
-        goto ERROR;
+        goto ERROR_ND;
     }
 
     if (interface_name) {
@@ -324,16 +334,19 @@ int parse_addr(struct nlmsghdr * h, facelet_t ** facelet,
         goto ERROR;
     }
 
+    netdevice_free(netdevice);
     return 0;
 
 ERROR:
+    netdevice_free(netdevice);
+ERROR_ND:
     facelet_free(*facelet);
     *facelet = NULL;
 
     return -1;
 }
 
-int nl_callback(interface_t * interface)
+int nl_callback(interface_t * interface, int fd, void * unused)
 {
     nl_data_t * data = (nl_data_t*)interface->data;
 
@@ -403,10 +416,10 @@ int nl_callback(interface_t * interface)
                     break;
                 }
 
-                DEBUG("Interface %s: address was removed", interface_name);
+                //DEBUG("Interface %s: address was removed", interface_name);
                 if (facelet) {
                     facelet_set_event(facelet, FACELET_EVENT_DELETE);
-                    facelet_raise_event(facelet, interface);
+                    interface_raise_event(interface, facelet);
                 }
                 break;
             }
@@ -423,11 +436,11 @@ int nl_callback(interface_t * interface)
                     break;
                 }
 
-                DEBUG("Interface %s: new address was assigned: %s", interface_name, interface_address);
+                //DEBUG("Interface %s: new address was assigned: %s", interface_name, interface_address);
 
                 if (facelet) {
                     facelet_set_event(facelet, FACELET_EVENT_UPDATE);
-                    facelet_raise_event(facelet, interface);
+                    interface_raise_event(interface, facelet);
                 }
                 break;
             }
@@ -441,12 +454,15 @@ int nl_callback(interface_t * interface)
                     ERROR("Error parsing link message");
                     break;
                 }
-                if (facelet) {
-                    facelet_set_event(facelet, FACELET_EVENT_DELETE);
-                    facelet_raise_event(facelet, interface);
-                }
 
-                DEBUG("Network interface %s was removed", interface_name);
+                //DEBUG("Network interface %s was removed", interface_name);
+
+                if (!facelet)
+                    break;
+
+                facelet_set_event(facelet, FACELET_EVENT_DELETE);
+                interface_raise_event(interface, facelet);
+
                 break;
             }
 
@@ -464,11 +480,15 @@ int nl_callback(interface_t * interface)
                 // UP RUNNING
                 // UP NOT RUNNING
                 // DOWN NOT RUNNING
+#if 0
                 DEBUG("New network interface %s, state: %s %s", interface_name,
                         up ? "UP" : "DOWN",
                         running ? "RUNNING" : "NOT_RUNNING");
+#endif
 
-                if (facelet && up && running) {
+                if (!facelet)
+                    break;
+                if (up && running) {
                     facelet_set_event(facelet, FACELET_EVENT_CREATE);
                     facelet_t * facelet6 = facelet_dup(facelet);
                     if (!facelet6) {
@@ -477,10 +497,12 @@ int nl_callback(interface_t * interface)
                     }
 
                     facelet_set_family(facelet, AF_INET);
-                    facelet_raise_event(facelet, interface);
+                    interface_raise_event(interface, facelet);
 
                     facelet_set_family(facelet6, AF_INET6);
-                    facelet_raise_event(facelet6, interface);
+                    interface_raise_event(interface, facelet6);
+                } else {
+                    facelet_free(facelet);
                 }
                 break;
             }
@@ -507,6 +529,7 @@ int nl_finalize(interface_t * interface)
 {
     nl_data_t * data = (nl_data_t*)interface->data;
     close(data->fd);
+    free(interface->data);
     return 0;
 
 }
