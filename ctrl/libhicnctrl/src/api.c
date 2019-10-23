@@ -2062,7 +2062,7 @@ hc_face_delete(hc_sock_t * s, hc_face_t * face)
     /* If this is the last connection attached to the listener, remove it */
 
     hc_data_t * connections;
-    hc_listener_t listener = {0};
+    hc_listener_t listener = {{0}};
 
     /*
      * Ensure we have a corresponding local listener
