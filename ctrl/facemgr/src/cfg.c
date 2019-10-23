@@ -490,6 +490,20 @@ int
 facemgr_cfg_finalize(facemgr_cfg_t * cfg)
 {
     /* TODO Free all rules */
+    facemgr_cfg_rule_t ** rule_array;
+    int n = facemgr_cfg_rule_set_get_array(cfg->rule_set, &rule_array);
+    if (n < 0) {
+        ERROR("[facemgr_cfg_finalize] Could not retrieve rule set array from configuration");
+    } else {
+        for (unsigned i = 0; i < n; i++) {
+            facemgr_cfg_rule_t * rule = rule_array[i];
+            if (facemgr_cfg_rule_set_remove(cfg->rule_set, rule, NULL) < 0) {
+                ERROR("[facemgr_cfg_finalize] Could not remove rule from set");
+            }
+            facemgr_cfg_rule_free(rule);
+        }
+        free(rule_array);
+    }
     facemgr_cfg_rule_set_free(cfg->rule_set);
     return facemgr_cfg_override_finalize(&cfg->global);
 }
@@ -528,6 +542,38 @@ int
 facemgr_cfg_unset_discovery(facemgr_cfg_t * cfg)
 {
     cfg->global.is_discovery = false;
+    return 0;
+}
+
+int facemgr_cfg_set_ipv4(facemgr_cfg_t * cfg, bool status)
+{
+    cfg->global.is_ipv4 = true;
+    cfg->global.ipv4 = status;
+    DEBUG("<global>");
+    DEBUG("      <ipv4>%d</ipv4>", cfg->global.ipv4);
+    DEBUG("</global>");
+    return 0;
+}
+
+int facemgr_cfg_unset_ipv4(facemgr_cfg_t * cfg)
+{
+    cfg->global.is_ipv4 = false;
+    return 0;
+}
+
+int facemgr_cfg_set_ipv6(facemgr_cfg_t * cfg, bool status)
+{
+    cfg->global.is_ipv6 = true;
+    cfg->global.ipv6 = status;
+    DEBUG("<global>");
+    DEBUG("      <ipv6>%d</ipv6>", cfg->global.ipv6);
+    DEBUG("</global>");
+    return 0;
+}
+
+int facemgr_cfg_unset_ipv6(facemgr_cfg_t * cfg)
+{
+    cfg->global.is_ipv6 = false;
     return 0;
 }
 
@@ -689,12 +735,10 @@ facemgr_cfg_get_override(const facemgr_cfg_t * cfg,
 #endif /* __ANDROID__ */
         }
         /* Found match... do we have an override for face_type */
-        DEBUG("override found nd=%s, ndt=%s", rule_array[i]->match.interface_name, netdevice_type_str[rule_array[i]->match.interface_type]);
         *override = &rule_array[i]->override;
         goto FOUND;
     }
 
-    DEBUG("override not found");
     *override = NULL;
 
 FOUND:

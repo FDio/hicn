@@ -98,19 +98,18 @@ int
 ip_address_pton (const char *ip_address_str, ip_address_t * ip_address)
 {
   int pton_fd;
-  char *addr = strdup (ip_address_str);
   int family;
 
 
-  family = ip_address_get_family (addr);
+  family = ip_address_get_family (ip_address_str);
 
   switch (family)
     {
     case AF_INET6:
-      pton_fd = inet_pton (AF_INET6, addr, &ip_address->buffer);
+      pton_fd = inet_pton (AF_INET6, ip_address_str, &ip_address->buffer);
       break;
     case AF_INET:
-      pton_fd = inet_pton (AF_INET, addr, &ip_address->buffer);
+      pton_fd = inet_pton (AF_INET, ip_address_str, &ip_address->buffer);
       break;
     default:
       goto ERR;
@@ -125,7 +124,6 @@ ip_address_pton (const char *ip_address_str, ip_address_t * ip_address)
 
   return 1;
 ERR:
-  free (addr);
   return -1;
 }
 

@@ -124,7 +124,7 @@ int au_on_event(interface_t * interface, const facelet_t * facelet)
 
     DEBUG("sending AU udpate");
     facelet_set_event(facelet_new, FACELET_EVENT_UPDATE);
-    facelet_raise_event(facelet_new, interface);
+    interface_raise_event(interface, facelet_new);
 
     return 0;
 }
