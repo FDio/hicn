@@ -519,7 +519,7 @@ void RaaqmTransportProtocol::onContentReassembled(std::error_code ec) {
   interface::ConsumerSocket::ReadCallback *on_payload = VOID_HANDLER;
   socket_->getSocketOption(READ_CALLBACK, &on_payload);
 
-  if (on_payload) {
+  if (!on_payload) {
     throw errors::RuntimeException(
         "The read callback must be installed in the transport before "
         "starting "
