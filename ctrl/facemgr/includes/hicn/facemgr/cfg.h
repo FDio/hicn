@@ -91,7 +91,7 @@ typedef struct {
 #define FACEMGR_CFG_DEFAULT_DISCOVERY true
 //#define DEFAULT_IGNORE "lo"
 #define FACEMGR_CFG_DEFAULT_IPV4 true
-#define FACEMGR_CFG_DEFAULT_IPV6 true
+#define FACEMGR_CFG_DEFAULT_IPV6 false
 
 
 
@@ -140,6 +140,10 @@ int facemgr_cfg_set_face_type(facemgr_cfg_t * cfg, facemgr_face_type_t * face_ty
 int facemgr_cfg_unset_face_type(facemgr_cfg_t * cfg);
 int facemgr_cfg_set_discovery(facemgr_cfg_t * cfg, bool status);
 int facemgr_cfg_unset_discovery(facemgr_cfg_t * cfg);
+int facemgr_cfg_set_ipv4(facemgr_cfg_t * cfg, bool status);
+int facemgr_cfg_unset_ipv4(facemgr_cfg_t * cfg);
+int facemgr_cfg_set_ipv6(facemgr_cfg_t * cfg, bool status);
+int facemgr_cfg_unset_ipv6(facemgr_cfg_t * cfg);
 
 int facemgr_cfg_set_overlay(facemgr_cfg_t * cfg, int family,
     ip_address_t * local_addr, uint16_t local_port,

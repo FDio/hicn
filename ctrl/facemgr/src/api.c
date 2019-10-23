@@ -49,9 +49,12 @@
 
 #define DEFAULT_PORT 9695
 
+#define MAX_FDS 10
+
 typedef struct {
     interface_t * interface;
-    void * event;
+    int fds[MAX_FDS];
+    size_t num_fds;
 } interface_map_data_t;
 
 TYPEDEF_SET_H(facelet_cache, facelet_t *);
@@ -59,8 +62,6 @@ TYPEDEF_SET(facelet_cache, facelet_t *, facelet_cmp, facelet_snprintf);
 
 TYPEDEF_MAP_H(interface_map, const char *, interface_map_data_t *);
 TYPEDEF_MAP(interface_map, const char *, interface_map_data_t *, strcmp, string_snprintf, generic_snprintf);
-
-int int_cmp(int x, int y) { return x - y; }
 
 TYPEDEF_MAP_H(bonjour_map, netdevice_t *, interface_t *);
 TYPEDEF_MAP(bonjour_map, netdevice_t *, interface_t *, netdevice_cmp, generic_snprintf, generic_snprintf);
@@ -106,10 +107,9 @@ struct facemgr_s {
     JavaVM *jvm;
 #endif /* __ANDROID__ */
 
-    /* Event loop support */
-    void * loop;
-    void * (*loop_register_fd)(void * loop, int fd, void * cb, void * cb_args);
-    int (*loop_unregister_event)(void * loop, void * event);
+    /* Callback */
+    facemgr_cb_t callback;
+    void * callback_owner;
 
     /****************************/
     /* Internal data structures */
@@ -191,28 +191,42 @@ ERR_INTERFACE_MAP:
 int
 facemgr_finalize(facemgr_t * facemgr)
 {
+    int ret = 0;
     int rc;
 
-    /* TODO  Free all interfaces: pass free to map */
-
     rc = interface_map_finalize(&facemgr->interface_map);
-    if (rc < 0)
-        goto ERR;
+    if (rc < 0) {
+        ERROR("[facemgr_finalize] Could not finalize interface_map");
+        ret = -1;
+    }
+
+    /* Free all facelets from cache */
+    facelet_t ** facelet_array;
+    int n = facelet_cache_get_array(&facemgr->facelet_cache, &facelet_array);
+    if (n < 0) {
+        ERROR("[facemgr_finalize] Could not retrieve facelets in cache");
+    } else {
+        for (unsigned i = 0; i < n; i++) {
+            facelet_t * facelet = facelet_array[i];
+            if (facelet_cache_remove(&facemgr->facelet_cache, facelet, NULL)) {
+                ERROR("[facemgr_finalize] Could not purge facelet from cache");
+            }
+            facelet_free(facelet);
+        }
+        free(facelet_array);
+    }
 
     rc = facelet_cache_finalize(&facemgr->facelet_cache);
     if (rc < 0)
-        goto ERR;
+        ret = -1;
 
 #ifdef __linux__
     rc = bonjour_map_finalize(&facemgr->bonjour_map);
     if (rc < 0)
-        goto ERR;
+        ret = -1;
 #endif /* __linux__ */
 
-    return 0;
-
-ERR:
-    return -1;
+    return ret;
 }
 
 AUTOGENERATE_CREATE_FREE(facemgr);
@@ -251,13 +265,12 @@ facemgr_create_with_config(facemgr_cfg_t * cfg)
     return facemgr;
 }
 
-int facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet);
+int facemgr_callback(facemgr_t * facemgr, interface_cb_type_t type, void * data);
 
 int
 facemgr_create_interface(facemgr_t * facemgr, const char * name, const char * type, void * cfg, interface_t ** pinterface)
 {
-    int fd, rc;
-    void * event = NULL;
+    int fd;
     char rand_name[RAND_NAME_LEN+1];
     interface_t * interface;
 
@@ -276,29 +289,23 @@ facemgr_create_interface(facemgr_t * facemgr, const char * name, const char * ty
         ERROR("Error creating interface %s [%s]", name, type);
         goto ERR_CREATE;
     }
-    interface_set_callback(interface, facemgr_on_event, facemgr);
+    interface_set_callback(interface, facemgr, facemgr_callback);
 
     fd = interface_initialize(interface, cfg);
     if (fd < 0)
         goto ERR_INIT;
-    if (fd != 0) {
-        event = facemgr->loop_register_fd(facemgr->loop, fd, interface->ops->callback, interface);
-        if (event == NULL)
-            goto ERR_FD;
-    }
 
     interface_map_data_t * interface_map_data = malloc(sizeof(interface_map_data_t));
     if (!interface_map_data)
         goto ERR_MAP_DATA;
 
-
     *interface_map_data = (interface_map_data_t) {
         .interface = interface,
-        .event = event,
+        .fds = {0},
+        .num_fds = 0,
     };
 
-    rc = interface_map_add(&facemgr->interface_map, interface->name, interface_map_data);
-    if (rc < 0)
+    if (interface_map_add(&facemgr->interface_map, interface->name, interface_map_data) < 0)
         goto ERR_MAP_ADD;
 
     DEBUG("Interface %s created successfully.", name);
@@ -309,9 +316,6 @@ facemgr_create_interface(facemgr_t * facemgr, const char * name, const char * ty
 ERR_MAP_ADD:
     free(interface_map_data);
 ERR_MAP_DATA:
-    if (fd > 0)
-        facemgr->loop_unregister_event(facemgr->loop, interface_map_data->event);
-ERR_FD:
     interface_finalize(interface);
 ERR_INIT:
     interface_free(interface);
@@ -328,7 +332,7 @@ facemgr_delete_interface(facemgr_t * facemgr, interface_t * interface)
 
     interface_map_data_t * interface_map_data = NULL;
 
-    DEBUG("Removing interface %s\n", interface->name);
+    DEBUG("Removing interface %s", interface->name);
     rc = interface_map_remove(&facemgr->interface_map, interface->name, &interface_map_data);
     if (rc < 0)
         return -1;
@@ -336,12 +340,14 @@ facemgr_delete_interface(facemgr_t * facemgr, interface_t * interface)
     if (!interface_map_data)
         return -1;
 
+    for (unsigned i = 0; i < interface_map_data->num_fds; i++) {
+        int fd = interface_map_data->fds[i];
+        facemgr->callback(facemgr->callback_owner, FACEMGR_CB_TYPE_UNREGISTER_FD, &fd);
+        if (rc < 0)
+            WARN("[facemgr_delete_interface] Error unregistering fd %d for interface", fd);
+    }
+
     free(interface_map_data);
-
-    rc = facemgr->loop_unregister_event(facemgr->loop, interface_map_data->event);
-    if (rc < 0)
-        return -1;
-
 
     interface_finalize(interface);
     interface_free(interface);
@@ -445,26 +451,18 @@ facelet_cache_lookup(const facelet_cache_t * facelet_cache, facelet_t * facelet,
     }
     *cached_facelets = malloc(n * sizeof(facelet_t*));
 
-    DEBUG("cache match n = %d", n);
-
     int num_match = 0;
     for (unsigned i = 0; i < n; i++) {
         char buf[128];
         facelet_snprintf(buf, 128, facelet_array[i]);
-        DEBUG("- facelet_array[%d] %s", i, buf);
         facelet_snprintf(buf, 128, facelet);
-        DEBUG("  facelet %s", buf);
 
-        DEBUG("match ?");
         if (!facelet_match(facelet_array[i], facelet)) {
-            DEBUG("no match");
             continue;
         }
-        DEBUG("match!");
         (*cached_facelets)[num_match++] = facelet_array[i];
     }
     free(facelet_array);
-    DEBUG("return nummatch=%d", num_match);
     return num_match;
 }
 
@@ -519,24 +517,36 @@ facemgr_facelet_satisfy_rules(facemgr_t * facemgr, facelet_t * facelet)
         return -3;
     }
 
-    /* IPv4 */
-    bool ipv4;
-    if (facemgr_cfg_get_ipv4(facemgr->cfg, &netdevice, netdevice_type,
-                &ipv4) < 0)
-        return -1;
-    if (!ipv4) {
-        DEBUG("Ignored IPv4...");
-        return -3;
-    }
+    switch(family) {
+        case AF_INET:
+        {
+            bool ipv4;
+            if (facemgr_cfg_get_ipv4(facemgr->cfg, &netdevice, netdevice_type,
+                        &ipv4) < 0)
+                return -1;
+            if (!ipv4) {
+                DEBUG("Ignored IPv4 facelet...");
+                return -3;
+            }
+            break;
+        }
 
-    /* IPv6 */
-    bool ipv6;
-    if (facemgr_cfg_get_ipv6(facemgr->cfg, &netdevice, netdevice_type,
-                &ipv6) < 0)
-        return -1;
-    if (!ipv6) {
-        DEBUG("Ignored IPv6...");
-        return -3;
+        case AF_INET6:
+        {
+            bool ipv6;
+            if (facemgr_cfg_get_ipv6(facemgr->cfg, &netdevice, netdevice_type,
+                        &ipv6) < 0)
+                return -1;
+            if (!ipv6) {
+                DEBUG("Ignored IPv6 facelet...");
+                return -3;
+            }
+            break;
+        }
+
+        default:
+            DEBUG("Ignored facelet with unknown family");
+            return -2;
     }
 
     return 0;
@@ -839,6 +849,7 @@ facemgr_process_create(facemgr_t * facemgr, facelet_t * facelet)
      */
     rc = facemgr_facelet_satisfy_rules(facemgr, facelet);
     if (rc == -3) {
+        facelet_set_status(facelet, FACELET_STATUS_IGNORED);
         /* Does not satisfy rules */
         return 0;
     }
@@ -884,7 +895,7 @@ facemgr_process_create(facemgr_t * facemgr, facelet_t * facelet)
 
     char facelet_s[MAXSZ_FACELET];
     facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
-    DEBUG("---[ FACELET CREATE : %s ] ---", facelet_s);
+    //DEBUG("---[ FACELET CREATE : %s ] ---", facelet_s);
 
     /* Do we have enough information about the facelet ? */
     if (!facelet_validate_face(facelet)) {
@@ -921,6 +932,7 @@ facemgr_process_create(facemgr_t * facemgr, facelet_t * facelet)
  * \param [in] facemgr - Pointer to the face manager instance
  * \param [in] facelet - Pointer to the facelet event to process
  * \return 0 if everything went correctly, or -1 in case of error.
+ *         -2 means we ignored the face purposedly
  */
 int
 facemgr_process_get(facemgr_t * facemgr, facelet_t * facelet)
@@ -931,10 +943,10 @@ facemgr_process_get(facemgr_t * facemgr, facelet_t * facelet)
         if (facelet_get_netdevice(facelet, &netdevice) < 0)
             return -1;
         if (!IS_VALID_NETDEVICE(netdevice))
-            return 0;
+            return -2;
         return facelet_cache_add(&facemgr->facelet_cache, facelet);
     }
-    return 0;
+    return -2;
 }
 
 /**
@@ -959,7 +971,7 @@ facemgr_process_update(facemgr_t * facemgr, facelet_t * facelet)
 
     char facelet_s[MAXSZ_FACELET];
     facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
-    DEBUG("---[ FACELET UPDATE : %s ] ---", facelet_s);
+    //DEBUG("---[ FACELET UPDATE : %s ] ---", facelet_s);
 
     /* Sets face type */
     if (!facelet_has_face_type(facelet)) {
@@ -1013,6 +1025,7 @@ facemgr_process_update(facemgr_t * facemgr, facelet_t * facelet)
 
             rc = facemgr_facelet_satisfy_rules(facemgr, facelet);
             if (rc == -3) {
+                facelet_set_status(facelet, FACELET_STATUS_IGNORED);
                 /* Does not satisfy rules */
                 return 0;
             }
@@ -1048,6 +1061,7 @@ facemgr_process_update(facemgr_t * facemgr, facelet_t * facelet)
 
             rc = facemgr_facelet_satisfy_rules(facemgr, facelet);
             if (rc == -3) {
+                facelet_set_status(facelet, FACELET_STATUS_IGNORED);
                 /* Does not satisfy rules */
                 return 0;
             }
@@ -1067,6 +1081,15 @@ facemgr_process_update(facemgr_t * facemgr, facelet_t * facelet)
         case FACELET_STATUS_CONFLICT:
             ERROR("[facemgr_process_update] Conflict resolution (not) yet implemented");
             return -1;
+
+        case FACELET_STATUS_ERROR:
+            ERROR("[facemgr_process_update] Case ERROR (not) yet implemented");
+            break;
+
+        case FACELET_STATUS_IGNORED:
+            ERROR("[facemgr_process_update] Case IGNORED (not) yet implemented");
+            break;
+
         case FACELET_STATUS_N:
             ERROR("[facemgr_process_update] Facelet in error");
             return -1;
@@ -1117,13 +1140,15 @@ facemgr_process_delete(facemgr_t * facemgr, facelet_t * facelet)
 int
 facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
 {
+    bool remove_facelet = true;
     int ret = 0;
+    int rc;
     assert(facelet_in);
 
     char facelet_s[MAXSZ_FACELET];
     facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet_in);
-    DEBUG("----------------------------------");
-    DEBUG("EVENT %s\n", facelet_s);
+    //DEBUG("----------------------------------");
+    DEBUG("EVENT %s", facelet_s);
 
     facelet_t ** cached_facelets = NULL;
     int n = facelet_cache_lookup(&facemgr->facelet_cache, facelet_in, &cached_facelets);
@@ -1131,7 +1156,6 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
         ERROR("[facemgr_on_event] Error during cache lookup");
         goto ERR;
     }
-    DEBUG("num matches n=%d", n);
     if (n == 0) {
         /* This is a new facelet...  we expect a CREATE event. */
         switch(facelet_get_event(facelet_in)) {
@@ -1141,7 +1165,9 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                     ERROR("[facemgr_on_event] Error adding facelet to cache");
                     return -1;
                 }
-                DEBUG("Facelet added to cache");
+                //DEBUG("Facelet added to cache");
+
+                remove_facelet = false;
 
                 if (facemgr_process_create(facemgr, facelet_in) < 0) {
                     ERROR("[facemgr_on_event] Error processing CREATE event");
@@ -1151,7 +1177,10 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
 
             case FACELET_EVENT_GET:
                 /* Insert new facelet in cached */
-                if (facemgr_process_get(facemgr, facelet_in) < 0) {
+                rc = facemgr_process_get(facemgr, facelet_in);
+                if (rc == 0)
+                    remove_facelet = false;
+                if (rc == -1) {
                     ERROR("[facemgr_on_event] Error processing GET event");
                     goto ERR;
                 }
@@ -1189,7 +1218,6 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
          * reconciliation by sending appropriate updates to the forwarder
          */
         facelet_t * facelet = cached_facelets[i];
-        DEBUG("... match #%d", i);
         switch(facelet_get_event(facelet_in)) {
             case FACELET_EVENT_CREATE:
                 // This case will occur when we try to re-create existing faces,
@@ -1247,12 +1275,39 @@ ERR:
     ret = -1;
 
 DUMP_CACHE:
+#if 1
     DEBUG("    <CACHE>");
     facelet_cache_dump(&facemgr->facelet_cache);
     DEBUG("    </CACHE>");
     DEBUG("</EVENT ret=%d>", ret);
     DEBUG("----------------------------------");
+#endif
+
+    if (remove_facelet)
+        facelet_free(facelet_in);
+
     return ret;
+}
+
+int facemgr_callback(facemgr_t * facemgr, interface_cb_type_t type, void * data)
+{
+    switch(type) {
+        case INTERFACE_CB_TYPE_RAISE_EVENT:
+            return facemgr_on_event(facemgr, data);
+        case INTERFACE_CB_TYPE_REGISTER_FD:
+            return facemgr->callback(facemgr->callback_owner,
+                    FACEMGR_CB_TYPE_REGISTER_FD, data);
+        case INTERFACE_CB_TYPE_REGISTER_TIMER:
+            return facemgr->callback(facemgr->callback_owner,
+                    FACEMGR_CB_TYPE_REGISTER_TIMER, data);
+        case INTERFACE_CB_TYPE_UNREGISTER_TIMER:
+            return facemgr->callback(facemgr->callback_owner,
+                    FACEMGR_CB_TYPE_UNREGISTER_TIMER, data);
+        case INTERFACE_CB_TYPE_UNREGISTER_FD:
+            return facemgr->callback(facemgr->callback_owner,
+                    FACEMGR_CB_TYPE_UNREGISTER_FD, data);
+    }
+    return -1;
 }
 
 int
@@ -1395,15 +1450,15 @@ void facemgr_stop(facemgr_t * facemgr)
     facemgr_delete_interface(facemgr, facemgr->nl);
 
     /* Delete all bonjour interfaces */
-    interface_t ** bonjour_array;// = NULL; // NOTE: would allow avoiding tests
+    interface_t ** bonjour_array = NULL;
     int n = bonjour_map_get_value_array(&facemgr->bonjour_map, &bonjour_array);
-    if (n > 0) {
-        netdevice_t ** netdevice_array; // = NULL;
+    if (n >= 0) {
+        netdevice_t ** netdevice_array = NULL;
         int m = bonjour_map_get_key_array(&facemgr->bonjour_map, &netdevice_array);
-        if (m > 0) {
+        if (m >= 0) {
             assert(m == n);
             for (int i = 0; i < n; i++) { /* Fail silently */
-                DEBUG("Deleting bonjour interface associated to %s (%p)\n",
+                DEBUG("Deleting bonjour interface associated to %s (%p)",
                         netdevice_array[i]->name, bonjour_array[i]);
                 facemgr_delete_interface(facemgr, bonjour_array[i]);
             }
@@ -1435,11 +1490,11 @@ void facemgr_set_jvm(facemgr_t * facemgr, JavaVM *jvm)
 }
 #endif /* __ANDROID__ */
 
-void facemgr_set_event_loop_handler(facemgr_t * facemgr, void * loop, void * loop_register_fd, void * loop_unregister_event)
+void
+facemgr_set_callback(facemgr_t * facemgr, void * callback_owner, facemgr_cb_t callback)
 {
-    facemgr->loop = loop;
-    facemgr->loop_register_fd = loop_register_fd;
-    facemgr->loop_unregister_event = loop_unregister_event;
+    facemgr->callback = callback;
+    facemgr->callback_owner = callback_owner;
 }
 
 void facemgr_list_faces(facemgr_t * facemgr, facemgr_list_faces_cb_t cb, void * user_data)
