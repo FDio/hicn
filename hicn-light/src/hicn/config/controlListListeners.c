@@ -95,7 +95,7 @@ static CommandReturn _controlListListeners_Execute(CommandParser *parser,
 
   char *addrString = NULL;
   if (receivedHeader->length > 0) {
-    printf("%6.6s %16s %50.70s %6s %10s\n", "iface", "name", "address", "type", "interface");
+    printf("%6.6s %.*s %50.70s %6s %10s\n", "iface", SYMBOLIC_NAME_LEN, "name", "address", "type", "interface");
 
   } else {
     printf(" --- No entry in the list \n");
@@ -114,15 +114,17 @@ static CommandReturn _controlListListeners_Execute(CommandParser *parser,
 
     if (strcmp(listenerType[listListenersCommand->encapType], "UDP") == 0 ||
         strcmp(listenerType[listListenersCommand->encapType], "TCP") == 0) {
-      parcBufferComposer_Format(composer, "%6u %16s %50.70s %6s %10s",
+      parcBufferComposer_Format(composer, "%6u %.*s %50.70s %6s %10s",
 	      listListenersCommand->connid,
-	      listListenersCommand->listenerName,addrString,
+              SYMBOLIC_NAME_LEN, listListenersCommand->listenerName,
+              addrString,
 	      listenerType[listListenersCommand->encapType],
 	      listListenersCommand->interfaceName);
     } else {
-      parcBufferComposer_Format(composer, "%6u %16s %50.70s %6s",
+      parcBufferComposer_Format(composer, "%6u %.*s %50.70s %6s",
 	      listListenersCommand->connid,
-	      listListenersCommand->listenerName,addrString,
+              SYMBOLIC_NAME_LEN, listListenersCommand->listenerName,
+              addrString,
 	      listenerType[listListenersCommand->encapType]);
     }
 

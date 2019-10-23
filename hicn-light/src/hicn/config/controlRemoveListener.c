@@ -99,7 +99,7 @@ if (!utils_ValidateSymbolicName(listenerId) &&
       parcMemory_AllocateAndClear(sizeof(remove_listener_command));
   // fill payload
   //removeListenerCommand->listenerId = atoi(listenerId);
-  strncpy(removeListenerCommand->symbolicOrListenerid, listenerId, strlen(listenerId));
+  snprintf(removeListenerCommand->symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%s", listenerId);
 
   // send message and receive response
   struct iovec *response =

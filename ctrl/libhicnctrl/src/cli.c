@@ -147,7 +147,7 @@ parse_options(int argc, char *argv[], hc_command_t * command)
             switch(command->action) {
                 case ACTION_CREATE:
                     /* NAME TYPE LOCAL_ADDRESS LOCAL_PORT */
-                    snprintf(command->listener.name, NAME_LEN, "%s", argv[optind++]);
+                    snprintf(command->listener.name, SYMBOLIC_NAME_LEN, "%s", argv[optind++]);
                     // conn type
                     command->listener.type = connection_type_from_str(argv[optind++]);
                     if (command->listener.type == CONNECTION_TYPE_UNDEFINED)
@@ -174,7 +174,7 @@ parse_options(int argc, char *argv[], hc_command_t * command)
             switch(command->action) {
                 case ACTION_CREATE:
                     /* NAME TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT */
-                    snprintf(command->connection.name, NAME_LEN, "%s", argv[optind++]);
+                    snprintf(command->connection.name, SYMBOLIC_NAME_LEN, "%s", argv[optind++]);
                     command->connection.type = connection_type_from_str(argv[optind++]);
                     if (command->connection.type == CONNECTION_TYPE_UNDEFINED)
                         goto ERR_PARAM;

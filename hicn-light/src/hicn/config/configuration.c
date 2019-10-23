@@ -688,10 +688,10 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
     listConnectionsCommand->connid = connection_GetConnectionId(original);
 
     const char *connectionName = symbolicNameTable_GetNameByIndex(config->symbolicNameTable, connection_GetConnectionId(original));
-    snprintf(listConnectionsCommand->connectionName, 16, "%s", connectionName);
+    snprintf(listConnectionsCommand->connectionName, SYMBOLIC_NAME_LEN, "%s", connectionName);
     _strlwr(listConnectionsCommand->connectionName);
 
-    snprintf(listConnectionsCommand->interfaceName, 16, "%s", ioOperations_GetInterfaceName(connection_GetIoOperations(original)));
+    snprintf(listConnectionsCommand->interfaceName, SYMBOLIC_NAME_LEN, "%s", ioOperations_GetInterfaceName(connection_GetIoOperations(original)));
 
     listConnectionsCommand->state =
         connection_IsUp(original) ? IFACE_UP : IFACE_DOWN;
@@ -801,11 +801,11 @@ struct iovec *configuration_ProcessListenersList(Configuration *config,
     }
 
     const char * listenerName = listenerEntry->getListenerName(listenerEntry);
-    snprintf(listListenersCommand->listenerName, 16, "%s", listenerName);
+    snprintf(listListenersCommand->listenerName, SYMBOLIC_NAME_LEN, "%s", listenerName);
     if (listenerEntry->getEncapType(listenerEntry) == ENCAP_TCP ||
             listenerEntry->getEncapType(listenerEntry) == ENCAP_UDP) {
       const char * interfaceName = listenerEntry->getInterfaceName(listenerEntry);
-      snprintf(listListenersCommand->interfaceName, 16, "%s", interfaceName);
+      snprintf(listListenersCommand->interfaceName, SYMBOLIC_NAME_LEN, "%s", interfaceName);
     }
   }
 

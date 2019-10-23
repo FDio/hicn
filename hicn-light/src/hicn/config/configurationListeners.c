@@ -595,11 +595,11 @@ void configurationListeners_SetupAll(const Configuration *config, uint16_t port,
       const Address *address = addressListGetItem(addresses, j);
 
       // Do not start on link address
-      char listenerName[16];
+      char listenerName[SYMBOLIC_NAME_LEN];
 #ifdef __ANDROID__
-      snprintf(listenerName, 16, "local_%zu", i);
+      snprintf(listenerName, SYMBOLIC_NAME_LEN, "local_%zu", i);
 #else
-      snprintf(listenerName, 16, "local_%ld", i);
+      snprintf(listenerName, SYMBOLIC_NAME_LEN, "local_%ld", i);
 #endif
       if (addressGetType(address) != ADDR_LINK) {
         _setupListenersOnAddress(forwarder, listenerName, address, port,
@@ -617,8 +617,8 @@ void configurationListeners_SetutpLocalIPv4(const Configuration *config,
   in_addr_t addr = inet_addr("127.0.0.1");
   uint16_t network_byte_order_port = htons(port);
 
-  char listenerNameUdp[16] = "lo_udp";
-  char listenerNameTcp[16] = "lo_tcp";
+  char listenerNameUdp[SYMBOLIC_NAME_LEN] = "lo_udp";
+  char listenerNameTcp[SYMBOLIC_NAME_LEN] = "lo_tcp";
   char *loopback_interface = "lo";
   _setupUdpListenerOnInet(forwarder, listenerNameUdp,(ipv4_addr_t *)&(addr),
                           &network_byte_order_port, loopback_interface);
