@@ -121,37 +121,6 @@ asio::io_service &ConsumerSocket::getIoService() {
   return portal_->getIoService();
 }
 
-// If the thread calling lambda_func is not the same of io_service, this
-// function reschedule the function on it
-template <typename Lambda, typename arg2>
-int ConsumerSocket::rescheduleOnIOService(int socket_option_key,
-                                          arg2 socket_option_value,
-                                          Lambda lambda_func) {
-  // To enforce type check
-  std::function<int(int, arg2)> func = lambda_func;
-  int result = SOCKET_OPTION_SET;
-  if (transport_protocol_->isRunning()) {
-    std::mutex mtx;
-    /* Condition variable for the wait */
-    std::condition_variable cv;
-    bool done = false;
-    io_service_.dispatch([&socket_option_key, &socket_option_value, &mtx,
-                          &result, &done, &func]() {
-      std::unique_lock<std::mutex> lck(mtx);
-      done = true;
-      result = func(socket_option_key, socket_option_value);
-    });
-    std::unique_lock<std::mutex> lck(mtx);
-    if (!done) {
-      cv.wait(lck);
-    }
-  } else {
-    result = func(socket_option_key, socket_option_value);
-  }
-
-  return result;
-}
-
 int ConsumerSocket::setSocketOption(int socket_option_key,
                                     ReadCallback *socket_option_value) {
   // Reschedule the function on the io_service to avoid race condition in case
