@@ -222,8 +222,8 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                     ERROR("Face to update has not been found");
                     goto ERR;
                 }
-                char conn_id_or_name[NAME_LEN];
-                snprintf(conn_id_or_name, NAME_LEN, "%d", face_found->id);
+                char conn_id_or_name[SYMBOLIC_NAME_LEN];
+                snprintf(conn_id_or_name, SYMBOLIC_NAME_LEN, "%d", face_found->id);
                 free(face_found);
                 printf("Face id = %d\n", face_found->id);
 

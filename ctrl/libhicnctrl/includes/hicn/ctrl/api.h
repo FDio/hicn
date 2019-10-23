@@ -395,9 +395,9 @@ hc_sock_reset(hc_sock_t * s);
 #define NULLTERM 1
 #endif
 
-#define NAME_LEN 16 /* NULL-terminated right ? */
+#define SYMBOLIC_NAME_LEN 16 /* NULL-terminated right ? */
 #define INTERFACE_LEN 16
-#define MAXSZ_HC_NAME_ NAME_LEN
+#define MAXSZ_HC_NAME_ SYMBOLIC_NAME_LEN
 #define MAXSZ_HC_NAME MAXSZ_HC_NAME_ + NULLTERM
 
 #define MAXSZ_HC_ID_ 10 /* Number of digits for MAX_INT */
@@ -460,7 +460,7 @@ typedef int (*HC_PARSE)(const u8 *, u8 *);
 
 // FIXME the listener should not require any port for hICN...
 typedef struct {
-    char name[NAME_LEN];        /* K.w */ // XXX clarify what used for
+    char name[SYMBOLIC_NAME_LEN];        /* K.w */ // XXX clarify what used for
     char interface_name[INTERFACE_LEN];                     /* Kr. */
     u32 id;
     hc_connection_type_t type;  /* .rw */
@@ -500,7 +500,7 @@ int hc_listener_snprintf(char * s, size_t size, hc_listener_t * listener);
  */
 typedef struct {
     u32 id;                 /* Kr. */
-    char name[NAME_LEN];         /* K.w */
+    char name[SYMBOLIC_NAME_LEN];         /* K.w */
     char interface_name[INTERFACE_LEN];                     /* Kr. */
     hc_connection_type_t type;   /* .rw */
     int family;                  /* .rw */
@@ -562,7 +562,7 @@ int hc_connection_snprintf(char * s, size_t size, const hc_connection_t * connec
 
 typedef struct {
     u8 id;
-    char name[NAME_LEN];
+    char name[SYMBOLIC_NAME_LEN];
     face_t face; // or embed ?
     //face_id_t parent; /* Pointer from connection to listener */
 } hc_face_t;

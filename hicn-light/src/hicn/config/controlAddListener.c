@@ -120,7 +120,7 @@ static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
   }
 
   // Fill remaining payload fields
-  memcpy(addListenerCommand->interfaceName, interfaceName, 16);
+  memcpy(addListenerCommand->interfaceName, interfaceName, SYMBOLIC_NAME_LEN);
   addListenerCommand->listenerMode = mode;
   addListenerCommand->connectionType = type;
   addListenerCommand->port = htons((uint16_t)atoi(port));
