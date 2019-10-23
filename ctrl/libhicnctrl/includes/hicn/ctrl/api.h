@@ -571,7 +571,7 @@ int hc_face_list_async(hc_sock_t * s); //, hc_data_t ** pdata);
 #define MAX_FACE_ID 255
 #define MAXSZ_FACE_ID_ 3
 #define MAXSZ_FACE_ID MAXSZ_FACE_ID_ + NULLTERM
-#define MAXSZ_FACE_NAME_ NAME_LEN
+#define MAXSZ_FACE_NAME_ SYMBOLIC_NAME_LEN
 #define MAXSZ_FACE_NAME MAXSZ_FACE_NAME_ + NULLTERM
 
 #define MAXSZ_HC_FACE_ MAXSZ_FACE_ID_ + MAXSZ_FACE_NAME_ + MAXSZ_FACE_ + 5
