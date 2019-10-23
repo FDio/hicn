@@ -26,6 +26,18 @@
 #include <hicn/android_utility/android_utility.h>
 #endif
 
+/* facemgr callbacks */
+
+typedef enum {
+    FACEMGR_CB_TYPE_REGISTER_FD,
+    FACEMGR_CB_TYPE_UNREGISTER_FD,
+    FACEMGR_CB_TYPE_REGISTER_TIMER,
+    FACEMGR_CB_TYPE_UNREGISTER_TIMER,
+} facemgr_cb_type_t;
+
+typedef int (*facemgr_cb_t)(void * loop, facemgr_cb_type_t type, void * data);
+
+
 /*
  * \brief Manual overlay settings (alternative to service discovery)
  */
@@ -64,11 +76,11 @@ facemgr_t * facemgr_create_with_config(facemgr_cfg_t * cfg);
 void facemgr_stop(facemgr_t *);
 void facemgr_free(facemgr_t *);
 
+
+void facemgr_set_callback(facemgr_t * facemgr, void * callback_owner, facemgr_cb_t callback);
+
 int facemgr_set_config(facemgr_t * facemgr, facemgr_cfg_t * cfg);
 int facemgr_reset_config(facemgr_t * facemgr);
-void facemgr_set_event_loop_handler(facemgr_t * facemgr, void * loop,
-        void * loop_register_fd,
-        void * loop_unregister_event);
 int facemgr_bootstrap(facemgr_t * facemgr);
 #ifdef __ANDROID__
 void facemgr_set_jvm(facemgr_t * facemgr, JavaVM *jvm);

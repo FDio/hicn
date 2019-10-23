@@ -18,6 +18,8 @@
  * \brief Implementation of Network framework interface
  */
 
+#include "Availability.h"
+
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
@@ -35,6 +37,11 @@
 #include "../../util/map.h"
 
 #include "network_framework.h"
+
+#if !defined(MAC_OS_X_VERSION_10_14)
+#error "Network frameork requires MacOSX 10.14+"
+#endif /* !defined(MAC_OS_X_VERSION_10_14) */
+
 
 /*
  * Bonjour service discovery for hICN forwarder
@@ -59,7 +66,7 @@
 
 #define BONJOUR_PROTOCOL udp
 #define BONJOUR_SERVICE_DOMAIN "local"
-#define BONJOUR_SERVICE_NAME "hicn"
+#define BONJOUR_SERVICE_NAME "hicn node"
 
 /* Generated variables */
 #define BONJOUR_SERVICE_TYPE "_hicn._" STRINGIZE(BONJOUR_PROTOCOL)
@@ -80,7 +87,7 @@ const char * interface_type_str[] = {
     "OTHER", "WIFI", "CELLULAR", "WIRED", "LOOPBACK",
 };
 
-#if 0
+#if 1
 typedef enum {
     PATH_STATUS_INVALID,
     PATH_STATUS_SATISTIED,
@@ -212,6 +219,28 @@ dump_connection(nw_connection_t connection, int indent)
     nw_release(path);
 }
 
+#if defined(MAC_OS_X_VERSION_10_15)
+void
+dump_browse_result(nw_browse_result_t result, int indent)
+{
+    /* Endpoint */
+    nw_endpoint_t browse_endpoint = nw_browse_result_copy_endpoint(result);
+    if (!bendpoint) {
+        ERROR("[network_framework.dump_result] Failed to retrieve endpoint from Bonjour browse result");
+        return;
+    }
+    printfi(indent + 1, "Endpoint:")
+    dump_endpoint(browse_endpoint, indent + 2);
+
+    /* Interfaces */
+    printfi(indent + 1, "Interfaces:")
+    nw_browse_result_enumerate_interfaces(result, ^(nw_interface_t interface) {
+        dump_interface(interface, index + 2);
+        return true;
+    });
+}
+#endif /* defined(MAC_OS_X_VERSION_10_15) */
+
 facelet_t *
 facelet_create_from_connection(nw_connection_t connection)
 {
@@ -302,7 +331,7 @@ void
 on_connection_state_event(interface_t * interface, nw_interface_t iface,
         nw_connection_t cnx, nw_connection_state_t state, nw_error_t error)
 {
-#if 0
+#if 1
     DEBUG("Connection [new state = %s]:\n", connection_state_str[state]);
     nw_path_t path = nw_connection_copy_current_path(cnx);
     nw_path_enumerate_interfaces(path, (nw_path_enumerate_interfaces_block_t)^(nw_interface_t interface) {
@@ -331,7 +360,9 @@ on_connection_state_event(interface_t * interface, nw_interface_t iface,
 
         case nw_connection_state_ready:
             {
-#if 0
+                printf("info:\n");
+                warn("connection ready");
+#if 1
             WITH_DEBUG({
                 dump_connection(cnx, 1);
             });
@@ -371,10 +402,10 @@ void
 on_connection_path_event(interface_t * interface, nw_interface_t iface,
         nw_connection_t cnx, nw_path_t path)
 {
-#if 0
+#if 1
     DEBUG("Connection [path changed]:\n");
     WITH_DEBUG({
-        //dump_connection(cnx, 1);
+        dump_connection(cnx, 1);
     });
 #endif
     /* redundant *//*
@@ -418,15 +449,7 @@ void on_interface_event(interface_t * interface, nw_interface_t iface)
      *   time, if none is discovered, we cannot do any tunnel face.
      */
 
-    nw_endpoint_t endpoint;
-
-    endpoint = nw_endpoint_create_bonjour_service(
-            BONJOUR_SERVICE_NAME,
-            BONJOUR_SERVICE_TYPE,
-            BONJOUR_SERVICE_DOMAIN);
-
-    if (!endpoint)
-        goto ERR;
+    // OLD CODE
 
     /* nw_parameters_create_secure_{udp,tcp} */
     nw_parameters_t parameters = nw_parameters_create_fn(
@@ -434,14 +457,93 @@ void on_interface_event(interface_t * interface, nw_interface_t iface)
                 NW_PARAMETERS_DEFAULT_CONFIGURATION /* default udp/tcp */);
 
     if (!parameters)
-        goto ERR;
+        goto ERR_PARAMETERS;
 
     nw_parameters_require_interface(parameters, iface);
     nw_parameters_set_reuse_local_address(parameters, true);
 
+#if defined(MAC_OS_X_VERSION_10_15)
+    /*
+     * Before being able to create a bonjour endpoint, we need to browse for
+     * available services on the local network using the parameters specified
+     * before.
+     */
+    nw_browse_descriptor_t descriptor = nw_browse_descriptor_create_bonjour_service(BONJOUR_SERVICE_TYPE, BONJOUR_SERVICE_DOMAIN);
+    if (!descriptor) {
+        ERROR("[network_framework.on_interface_event] Failed to create a bonjour browse descriptor");
+        goto ERR_DESCRIPTOR;
+    }
+
+    nw_browser_t browser = nw_browser_create(descriptor, parameters);
+    nw_browser_set_queue(browser, dispatch_get_main_queue());
+    nw_browser_set_browse_results_changed_handler(browser, ^(nw_browse_result_t result, nw_browse_result_t result2, bool flag) {
+        /* Dump result */
+        printfi(0, "NEW BROWSE RESULT");
+        printfi(1, "Result:");
+        dump_browse_result(result, 2);
+        printfi(1, "Result2:");
+        dump_browse_result(result2, 2);
+        printfi("Flag: %s\n", flag?"ON":"OFF");
+
+        /* Changes */
+        nw_browse_result_change_t change = nw_browse_result_get_changes(result, result2);
+        switch(change) {
+            case nw_browse_result_change_identical:
+                printfi("The compared services are identical.");
+                break;
+            case nw_browse_result_change_result_added:
+                printfi(2, "A new service was discovered.");
+                break;
+
+            case nw_browse_result_change_result_removed:
+                printfi(2, "A previously discovered service was removed.");
+                break;
+
+            case nw_browse_result_change_txt_record_changed:
+                printfi(2, "The service's associated TXT record changed.");
+                break;
+
+            case nw_browse_result_change_interface_added:
+                printfi(2, "The service was discovered over a new interface.");
+                break;
+
+nw_browse_result_change_interface_removed
+                printfi(2, "The service was no longer discovered over a certain interface.");
+                break;
+        }
+    });
+
+    browser.browseResultsChangedHandler = { browseResults, _ in
+        for browseResult in browseResults {
+            print("Discovered \(browseResult.endpoint) over \(browseResult.interfaces)")
+        }
+    }
+    nw_browser_start(browser);
+#else
+#warning "Bonjour discovery only available in MacOS 10.15+"
+#endif /* defined(MAC_OS_X_VERSION_10_15) */
+
+    /*
+     * Now that we have resolve the name of a bonjour remote, we can create a
+     * connection to the corresponding endpoint identified by its name.
+     */
+    nw_endpoint_t endpoint;
+
+    DEBUG("Creating bonjour service towards NAME=%s TYPE=%s DOMAIN=%s",
+            BONJOUR_SERVICE_NAME, BONJOUR_SERVICE_TYPE, BONJOUR_SERVICE_DOMAIN);
+    endpoint = nw_endpoint_create_bonjour_service(
+            BONJOUR_SERVICE_NAME,
+            BONJOUR_SERVICE_TYPE,
+            BONJOUR_SERVICE_DOMAIN);
+
+    if (!endpoint) {
+        ERROR("[network_framework.on_interface_event] Failed to create bound Bonjour connection");
+        goto ERR_ENDPOINT;
+    }
+
     nw_connection_t connection = nw_connection_create(endpoint, parameters);
     if (!connection)
-        goto ERR;
+        goto ERR_CONNECTION;
 
     nw_release(endpoint);
     nw_release(parameters);
@@ -460,7 +562,7 @@ void on_interface_event(interface_t * interface, nw_interface_t iface)
     });
 
     nw_connection_set_better_path_available_handler(connection, ^(bool value) {
-#if 0
+#if 1
         DEBUG("Connection [better path = %s]\n", (value ? "true" : "false"));
         WITH_DEBUG({
             dump_connection(connection, 1);
@@ -469,7 +571,7 @@ void on_interface_event(interface_t * interface, nw_interface_t iface)
     });
 
     nw_connection_set_viability_changed_handler(connection, ^(bool value) {
-#if 0
+#if 1
         DEBUG("Connection [viable = %s]\n", (value ? "true" : "false"));
         WITH_DEBUG({
             //dump_connection(connection, 1);
@@ -493,14 +595,26 @@ void on_interface_event(interface_t * interface, nw_interface_t iface)
     nw_connection_set_queue(connection, dispatch_get_main_queue());
     nw_retain(connection); // Hold a reference until cancelled
 
-#if 0
-    DEBUG("Created Bonjour cnx on interface:\n");
+#if 1
+    DEBUG("Created Bonjour cnx on interface:");
     WITH_DEBUG({
         dump_interface(iface, 1);
     });
 #endif
 
-ERR:
+    return;
+
+   nw_release(connection);
+ERR_CONNECTION:
+    nw_release(endpoint);
+ERR_ENDPOINT:
+#if defined(MAC_OS_X_VERSION_10_15)
+    nw_release(descriptor);
+ERR_DESCRIPTOR:
+#endif /* defined(MAC_OS_X_VERSION_10_15) */
+    nw_release(parameters);
+
+ERR_PARAMETERS:
     return;
 }
 
@@ -509,7 +623,7 @@ void on_path_event(interface_t * interface, nw_path_t path)
     /* Simplification: we handle path event only once.
      * Ideally, test whether we discover new interfaces or not
      */
-#if 0
+#if 1
     DEBUG("Path [event]:\n");
     WITH_DEBUG({
         dump_path(path, 1);
@@ -528,6 +642,11 @@ int nf_initialize(interface_t * interface, void * cfg)
     nf_data_t * data = malloc(sizeof(nf_data_t));
     if (!data)
         goto ERR_MALLOC;
+
+    if (cfg)
+        data->cfg = * (network_framework_cfg_t *)cfg;
+    else
+        data->cfg.rules = NULL;
 
     data->pm = nw_path_monitor_create();
     if (!data->pm)

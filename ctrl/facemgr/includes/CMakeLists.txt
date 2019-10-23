@@ -22,8 +22,10 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 
   set(TO_INSTALL_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/facemgr.h
+  
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/api.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/cfg.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/loop.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/log.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/android_utility/android_utility.h
     PARENT_SCOPE
