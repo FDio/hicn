@@ -160,15 +160,6 @@ class ProducerSocket : public Socket<BasePortal>,
   virtual int getSocketOption(int socket_option_key,
                               std::string &socket_option_value);
 
-  template <typename Lambda, typename arg2>
-  int rescheduleOnIOService(int socket_option_key, arg2 socket_option_value,
-                            Lambda lambda_func);
-
-  template <typename Lambda, typename arg2>
-  int rescheduleOnIOServiceWithReference(int socket_option_key,
-                                         arg2 &socket_option_value,
-                                         Lambda lambda_func);
-
  protected:
   // Threads
   std::thread listening_thread_;
@@ -214,6 +205,38 @@ class ProducerSocket : public Socket<BasePortal>,
   ProducerContentObjectCallback on_content_object_evicted_from_output_buffer_;
 
   ProducerContentCallback on_content_produced_;
+
+  // If the thread calling lambda_func is not the same of io_service, this
+  // function reschedule the function on it
+  template <typename Lambda, typename arg2>
+  int rescheduleOnIOService(int socket_option_key, arg2 socket_option_value,
+                            Lambda lambda_func) {
+    // To enforce type check
+    std::function<int(int, arg2)> func = lambda_func;
+    int result = SOCKET_OPTION_SET;
+    if (listening_thread_.joinable() &&
+        std::this_thread::get_id() != listening_thread_.get_id()) {
+      std::mutex mtx;
+      /* Condition variable for the wait */
+      std::condition_variable cv;
+      bool done = false;
+      io_service_.dispatch([&socket_option_key, &socket_option_value,
+                            &mtx, &cv, &result, &done, &func]() {
+        std::unique_lock<std::mutex> lck(mtx);
+        done = true;
+        result = func(socket_option_key, socket_option_value);
+        cv.notify_all();
+      });
+      std::unique_lock<std::mutex> lck(mtx);
+      if (!done) {
+        cv.wait(lck);
+      }
+    } else {
+      result = func(socket_option_key, socket_option_value);
+    }
+
+    return result;
+  }
 
  private:
   void listen();
