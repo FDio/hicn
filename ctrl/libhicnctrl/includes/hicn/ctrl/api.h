@@ -73,11 +73,6 @@
 
 #define HICN_DEFAULT_PORT 9695
 
-#define LIBHICNCTRL_SUCCESS 0
-#define LIBHICNCTRL_FAILURE -1
-#define LIBHICNCTRL_NOT_IMPLEMENTED -99
-#define LIBHICNCTRL_IS_ERROR(x) (x < 0)
-
 /* Helper for avoiding warnings about type-punning */
 #define UNION_CAST(x, destType) \
    (((union {__typeof__(x) a; destType b;})x).b)
@@ -219,11 +214,11 @@ hc_ ## TYPE ## _find(hc_data_t * data, const hc_ ## TYPE ## _t * element,   \
     foreach_type(hc_ ## TYPE ## _t, x, data) {                              \
         if (hc_ ## TYPE ## _cmp(x, element) >= 0) {                         \
             *found = x;                                                     \
-            return LIBHICNCTRL_SUCCESS;                                     \
+            return 0;                                                       \
         }                                                                   \
     };                                                                      \
     *found = NULL; /* this is optional */                                   \
-    return LIBHICNCTRL_SUCCESS;                                             \
+    return 0;                                                               \
 }
 
 /******************************************************************************
@@ -236,113 +231,103 @@ hc_ ## TYPE ## _find(hc_data_t * data, const hc_ ## TYPE ## _t * element,   \
 /**
  * \brief Holds the state of an hICN control socket
  */
-typedef struct {
-    char * url;
-    int fd;
-    u32 seq;
-
-    /* Partial receive buffer */
-    u8 buf[RECV_BUFLEN];
-    size_t roff; /**< Read offset */
-    size_t woff; /**< Write offset */
-
-    /*
-     * Because received messages are potentially unbounded in size, we might not
-     * guarantee that we can store a full packet before processing it. We must
-     * implement a very simple state machine remembering the current parsing
-     * status in order to partially process the packet.
-     */
-    size_t remaining;
-    u32 send_id;
-    u32 send_seq;
-    u32 recv_seq;
-} hc_sock_t;
+typedef struct hc_sock_s hc_sock_t;
 
 /**
  * \brief Create an hICN control socket using the specified URL.
  * \param [in] url - The URL to connect to.
  * \return an hICN control socket
  */
-hc_sock_t *
-hc_sock_create_url(const char * url);
+hc_sock_t * hc_sock_create_url(const char * url);
 
 /**
  * \brief Create an hICN control socket using the default connection type.
  * \return an hICN control socket
  */
-hc_sock_t *
-hc_sock_create(void);
+hc_sock_t * hc_sock_create(void);
 
 /**
  * \brief Frees an hICN control socket
+ * \param [in] s - hICN control socket
  */
-void
-hc_sock_free(hc_sock_t *s);
+void hc_sock_free(hc_sock_t * s);
+
+/**
+ * \brief Returns the next available sequence number to use for requests to the
+ * API.
+ * \param [in] s - hICN control socket
+ */
+int hc_sock_get_next_seq(hc_sock_t * s);
 
 /**
  * \brief Sets the socket as non-blocking
+ * \param [in] s - hICN control socket
  * \return Error code
  */
-int
-hc_sock_set_nonblocking(hc_sock_t *s);
+int hc_sock_set_nonblocking(hc_sock_t * s);
+
+/**
+ * \brief Return the file descriptor associated to the hICN contorl sock
+ * \param [in] s - hICN control socket
+ * \return The file descriptor (positive value), or a negative integer in case
+ * of error
+ */
+int hc_sock_get_fd(hc_sock_t * s);
 
 /**
  * \brief Connect the socket
  * \return Error code
  */
 int
-hc_sock_connect(hc_sock_t *s);
+hc_sock_connect(hc_sock_t * s);
 
 /**
  * \brief Return the offset and size of available buffer space
- * \param [in] sock - hICN control socket
+ * \param [in] s - hICN control socket
  * \param [out] buffer - Offset in buffer
  * \param [out] size - Remaining size
  * \return Error code
  */
-int
-hc_sock_get_available(hc_sock_t * s, u8 ** buffer, size_t * size);
+int hc_sock_get_available(hc_sock_t * s, u8 ** buffer, size_t * size);
 
 /**
  * \brief Write/read iexchance on the control socket (internal helper function)
- * \param [in] sock - hICN control socket
+ * \param [in] s - hICN control socket
  * \param [in] msg - Message to send
  * \param [in] msglen - Length of the message to send
  * \return Error code
  */
-int
-hc_sock_send(hc_sock_t * s, hc_msg_t * msg, size_t msglen);
+int hc_sock_send(hc_sock_t * s, hc_msg_t * msg, size_t msglen, int seq);
 
 /**
  * \brief Helper for reading socket contents
- * \param [in] sock - hICN control socket
- * \param [in] data - Result data buffer
- * \param [in] parse - Parse function to convert remote types into lib native
- *      types, or NULL not to perform any translation.
+ * \param [in] s - hICN control socket
  * \return Error code
  */
-int
-hc_sock_recv(hc_sock_t * s, hc_data_t * data);
+int hc_sock_recv(hc_sock_t * s);
 
 /**
  * \brief Processing data received by socket
- * \param [in] sock - hICN control socket
- * \param [in] data - Result data buffer
+ * \param [in] s - hICN control socket
  * \param [in] parse - Parse function to convert remote types into lib native
  *      types, or NULL not to perform any translation.
  * \return Error code
  */
-int
-hc_sock_process(hc_sock_t * s, hc_data_t * data,
-        int (*parse)(const u8 * src, u8 * dst));
+int hc_sock_process(hc_sock_t * s,  hc_data_t ** data);
+
+/**
+ * \brief Callback used in async mode when data is available on the socket
+ * \param [in] s - hICN control socket
+ * \return Error code
+ */
+int hc_sock_callback(hc_sock_t * s, hc_data_t ** data);
 
 /**
  * \brief Reset the state of the sock (eg. to handle a reconnecton)
- * \param [in] sock - hICN control socket
+ * \param [in] s - hICN control socket
  * \return Error code
  */
-int
-hc_sock_reset(hc_sock_t * s);
+int hc_sock_reset(hc_sock_t * s);
 
 /******************************************************************************
  * Command-specific structures and functions
@@ -471,7 +456,7 @@ typedef struct {
 
 int hc_listener_create(hc_sock_t * s, hc_listener_t * listener);
 /* listener_found might eventually be allocated, and needs to be freed */
-int hc_listener_get(hc_sock_t *s, hc_listener_t * listener,
+int hc_listener_get(hc_sock_t * s, hc_listener_t * listener,
         hc_listener_t ** listener_found);
 int hc_listener_delete(hc_sock_t * s, hc_listener_t * listener);
 int hc_listener_list(hc_sock_t * s, hc_data_t ** pdata);
@@ -518,7 +503,7 @@ typedef struct {
 
 int hc_connection_create(hc_sock_t * s, hc_connection_t * connection);
 /* connection_found will be allocated, and must be freed */
-int hc_connection_get(hc_sock_t *s, hc_connection_t * connection,
+int hc_connection_get(hc_sock_t * s, hc_connection_t * connection,
         hc_connection_t ** connection_found);
 int hc_connection_update_by_id(hc_sock_t * s, int hc_connection_id,
         hc_connection_t * connection);
@@ -579,13 +564,14 @@ int hc_face_create(hc_sock_t * s, hc_face_t * face);
 int hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found);
 int hc_face_delete(hc_sock_t * s, hc_face_t * face);
 int hc_face_list(hc_sock_t * s, hc_data_t ** pdata);
+int hc_face_list_async(hc_sock_t * s); //, hc_data_t ** pdata);
 
 #define foreach_face(VAR, data) foreach_type(hc_face_t, VAR, data)
 
 #define MAX_FACE_ID 255
 #define MAXSZ_FACE_ID_ 3
 #define MAXSZ_FACE_ID MAXSZ_FACE_ID_ + NULLTERM
-#define MAXSZ_FACE_NAME_ NAMELEN
+#define MAXSZ_FACE_NAME_ NAME_LEN
 #define MAXSZ_FACE_NAME MAXSZ_FACE_NAME_ + NULLTERM
 
 #define MAXSZ_HC_FACE_ MAXSZ_FACE_ID_ + MAXSZ_FACE_NAME_ + MAXSZ_FACE_ + 5

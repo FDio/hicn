@@ -20,6 +20,7 @@
 
 #include <assert.h> // assert
 #include <math.h> // log2
+#include <stdbool.h>
 #include <stdio.h> // snprintf
 #include <string.h> // memmove, strcasecmp
 #include <sys/socket.h> // socket
@@ -30,9 +31,82 @@
 #include <hicn/ctrl/commands.h>
 #include <hicn/util/token.h>
 #include "util/log.h"
+#include "util/map.h"
 #include <strings.h>
 
 #define PORT 9695
+
+/*
+ * Internal state associated to a pending request
+ */
+typedef struct {
+    int seq;
+    hc_data_t * data;
+    /* Information used to process results */
+    int size_in;
+    int (*parse)(const u8 * src, u8 * dst);
+} hc_sock_request_t;
+
+/**
+ * Messages to the forwarder might be multiplexed thanks to the seqNum fields in
+ * the header_control_message structure. The forwarder simply answers back the
+ * original sequence number. We maintain a map of such sequence number to
+ * outgoing queries so that replied can be demultiplexed and treated
+ * appropriately.
+ */
+TYPEDEF_MAP_H(hc_sock_map, int, hc_sock_request_t *);
+TYPEDEF_MAP(hc_sock_map, int, hc_sock_request_t *, int_cmp, int_snprintf, generic_snprintf);
+
+struct hc_sock_s {
+    char * url;
+    int fd;
+
+    /* Partial receive buffer */
+    u8 buf[RECV_BUFLEN];
+    size_t roff; /**< Read offset */
+    size_t woff; /**< Write offset */
+
+    /*
+     * Because received messages are potentially unbounded in size, we might not
+     * guarantee that we can store a full packet before processing it. We must
+     * implement a very simple state machine remembering the current parsing
+     * status in order to partially process the packet.
+     */
+    size_t remaining;
+    u32 send_id;
+
+    /* Next sequence number to be used for requests */
+    int seq;
+
+    /* Request being parsed (NULL if none) */
+    hc_sock_request_t * cur_request;
+
+    bool async;
+    hc_sock_map_t * map;
+};
+
+
+hc_sock_request_t *
+hc_sock_request_create(int seq, hc_data_t * data, HC_PARSE parse)
+{
+    assert(seq >= 0);
+    assert(data);
+
+    hc_sock_request_t * request = malloc(sizeof(hc_sock_request_t));
+    if (!request)
+        return NULL;
+    request->seq = seq;
+    request->data = data;
+    request->parse = parse;
+    return request;
+}
+
+void
+hc_sock_request_free(hc_sock_request_t * request)
+{
+    free(request);
+}
+
 
 #if 0
 #ifdef __APPLE__
@@ -239,7 +313,7 @@ hc_data_create(size_t in_element_size, size_t out_element_size)
     data->in_element_size = in_element_size;
     data->out_element_size = out_element_size;
     data->size = 0;
-    data->complete = 0;
+    data->complete = false;
     data->command_id = 0; // TODO this could also be a busy mark in the socket
     /* No callback needed in blocking code for instance */
     data->complete_cb = NULL;
@@ -274,21 +348,21 @@ hc_data_ensure_available(hc_data_t * data, size_t count)
         data->max_size_log = new_size_log;
         data->buffer = realloc(data->buffer, (1 << new_size_log) * data->out_element_size);
         if (!data->buffer)
-             return LIBHICNCTRL_FAILURE;
+             return -1;
     }
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 int
 hc_data_push_many(hc_data_t * data, const void * elements, size_t count)
 {
     if (hc_data_ensure_available(data, count) < 0)
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     memcpy(data->buffer + data->size * data->out_element_size, elements,
             count * data->out_element_size);
     data->size += count;
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 int
@@ -316,7 +390,7 @@ hc_data_set_callback(hc_data_t * data, data_callback_t cb, void * cb_data)
 {
     data->complete_cb = cb;
     data->complete_cb_data = cb_data;
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 int
@@ -325,14 +399,14 @@ hc_data_set_complete(hc_data_t * data)
     data->complete = true;
     if (data->complete_cb)
         return data->complete_cb(data, data->complete_cb_data);
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 int
 hc_data_reset(hc_data_t * data)
 {
     data->size = 0;
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 /******************************************************************************
@@ -377,10 +451,10 @@ hc_sock_parse_url(const char * url, struct sockaddr * sa)
             break;
         }
         default:
-             return LIBHICNCTRL_FAILURE;
+             return -1;
     }
 
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 hc_sock_t *
@@ -399,9 +473,20 @@ hc_sock_create_url(const char * url)
     if (hc_sock_reset(s) < 0)
         goto ERR_RESET;
 
+    s->seq = 0;
+    s->cur_request = NULL;
+
+    s->map = hc_sock_map_create();
+    if (!s->map)
+        goto ERR_MAP;
+
     return s;
 
+    //hc_sock_map_free(s->map);
+ERR_MAP:
 ERR_RESET:
+    if (s->url)
+        free(s->url);
     close(s->fd);
 ERR_SOCKET:
     free(s);
@@ -418,6 +503,18 @@ hc_sock_create(void)
 void
 hc_sock_free(hc_sock_t * s)
 {
+    hc_sock_request_t ** request_array = NULL;
+    int n = hc_sock_map_get_value_array(s->map, &request_array);
+    if (n < 0) {
+       ERROR("Could not retrieve pending request array for freeing up resources"); 
+    } else {
+        for (unsigned i = 0; i < n; i++) {
+            hc_sock_request_t * request = request_array[i];
+            hc_sock_request_free(request);
+        }
+        free(request_array);
+    }
+    hc_sock_map_free(s->map);
     if (s->url)
         free(s->url);
     close(s->fd);
@@ -425,13 +522,25 @@ hc_sock_free(hc_sock_t * s)
 }
 
 int
-hc_sock_set_nonblocking(hc_sock_t *s)
+hc_sock_get_next_seq(hc_sock_t * s)
+{
+    return s->seq++;
+}
+
+int
+hc_sock_set_nonblocking(hc_sock_t * s)
 {
     return (fcntl(s->fd, F_SETFL, fcntl(s->fd, F_GETFL) | O_NONBLOCK) < 0);
 }
 
 int
-hc_sock_connect(hc_sock_t *s)
+hc_sock_get_fd(hc_sock_t * s)
+{
+    return s->fd;
+}
+
+int
+hc_sock_connect(hc_sock_t * s)
 {
     struct sockaddr_storage ss = { 0 };
 
@@ -444,17 +553,18 @@ hc_sock_connect(hc_sock_t *s)
     if (connect(s->fd, (struct sockaddr *)&ss, size) < 0) //sizeof(struct sockaddr)) < 0)
         goto ERR_CONNECT;
 
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 
 ERR_CONNECT:
 ERR_PARSE:
-     return LIBHICNCTRL_FAILURE;
+     return -1;
 }
 
 int
-hc_sock_send(hc_sock_t * s, hc_msg_t * msg, size_t msglen)
+hc_sock_send(hc_sock_t * s, hc_msg_t * msg, size_t msglen, int seq)
 {
     int rc;
+    msg->hdr.seqNum = seq;
     rc = send(s->fd, msg, msglen, 0);
     if (rc < 0) {
         perror("hc_sock_send");
@@ -469,11 +579,11 @@ hc_sock_get_available(hc_sock_t * s, u8 ** buffer, size_t * size)
     *buffer = s->buf + s->woff;
     *size = RECV_BUFLEN - s->woff;
 
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 int
-hc_sock_recv(hc_sock_t * s, hc_data_t * data)
+hc_sock_recv(hc_sock_t * s)
 {
     int rc;
 
@@ -485,24 +595,24 @@ hc_sock_recv(hc_sock_t * s, hc_data_t * data)
 
     rc = recv(s->fd, s->buf + s->woff, RECV_BUFLEN - s->woff, 0);
     if (rc == 0) {
-         return LIBHICNCTRL_FAILURE;
         /* Connection has been closed */
-        // XXX
+         return 0;
     }
     if (rc < 0) {
+        /*
+         * Let's not return 0 which currently means the socket has been closed
+         */
+        if (errno == EWOULDBLOCK)
+            return -1;
         perror("hc_sock_recv");
-        /* Error occurred */
-        // XXX check for EWOULDBLOCK;
-        // XXX
-         return LIBHICNCTRL_FAILURE;
+        return -1;
     }
     s->woff += rc;
-     return LIBHICNCTRL_SUCCESS;
+    return rc;
 }
 
 int
-hc_sock_process(hc_sock_t * s, hc_data_t * data,
-        int (*parse)(const u8 * src, u8 * dst))
+hc_sock_process(hc_sock_t * s, hc_data_t ** data)
 {
     int err = 0;
 
@@ -511,7 +621,7 @@ hc_sock_process(hc_sock_t * s, hc_data_t * data,
 
     while(available > 0) {
 
-        if (s->remaining == 0) {
+        if (!s->cur_request) { // No message being parsed, alternatively (remaining == 0)
             hc_msg_t * msg = (hc_msg_t*)(s->buf + s->roff);
 
             /* We expect a message header */
@@ -519,74 +629,82 @@ hc_sock_process(hc_sock_t * s, hc_data_t * data,
                 break;
 
             /* Sanity checks (might instead raise warnings) */
-            // TODO: sync check ?
             assert((msg->hdr.messageType == RESPONSE_LIGHT) ||
                    (msg->hdr.messageType == ACK_LIGHT) ||
                    (msg->hdr.messageType == NACK_LIGHT));
-            //assert(msg->hdr.commandID == data->command_id); // FIXME
-            assert(msg->hdr.seqNum == s->recv_seq++);
 
+            hc_sock_request_t * request = NULL;
+            if (hc_sock_map_get(s->map, msg->hdr.seqNum, &request) < 0) {
+                ERROR("[hc_sock_process] Error searching for matching request");
+                return -1;
+            }
+            if (!request) {
+                ERROR("[hc_sock_process] No request matching received sequence number");
+                return -1;
+            }
             s->remaining = msg->hdr.length;
             if (s->remaining == 0) {
-                /*
-                 * The protocol expects all sequence number to be reset after
-                 * each transaction. We reset before running the callback in
-                 * case it triggers new exchanges.
-                 */
-                s->send_seq = HICN_CTRL_SEND_SEQ_INIT;
-                s->recv_seq = HICN_CTRL_RECV_SEQ_INIT;
-
-                // TODO : check before even sending ?
-                /* Complete message without payload */
-                // TODO : is this correct ? no error code ?
-                hc_data_set_complete(data);
+                if (data) {
+                    *data = request->data;
+//                } else {
+//                    free(request->data);
+                }
+                hc_data_set_complete(request->data);
+                hc_sock_request_free(request);
+            } else {
+                /* We only remember it if there is still data to parse */
+                s->cur_request = request;
             }
 
             available -= sizeof(hc_msg_header_t);
             s->roff += sizeof(hc_msg_header_t);
         } else {
             /* We expect the complete payload, or at least a chunk of it */
-            size_t num_chunks = available / data->in_element_size;
+            size_t num_chunks = available / s->cur_request->data->in_element_size;
             if (num_chunks == 0)
                 break;
             if (num_chunks > s->remaining)
                 num_chunks = s->remaining;
 
-            if (!parse) {
-                hc_data_push_many(data, s->buf + s->roff, num_chunks);
+            if (!s->cur_request->parse) {
+                /* If we don't need to parse results, then we can directly push
+                 * all of them into the result data structure */
+                hc_data_push_many(s->cur_request->data, s->buf + s->roff, num_chunks);
             } else {
                 int rc;
-                rc = hc_data_ensure_available(data, num_chunks);
+                rc = hc_data_ensure_available(s->cur_request->data, num_chunks);
                 if (rc < 0)
-                     return LIBHICNCTRL_FAILURE;
+                     return -1;
                 for (int i = 0; i < num_chunks; i++) {
-                    u8 * dst = hc_data_get_next(data);
+                    u8 * dst = hc_data_get_next(s->cur_request->data);
                     if (!dst)
-                         return LIBHICNCTRL_FAILURE;
+                         return -1;
 
-                    rc = parse(s->buf + s->roff + i * data->in_element_size, dst);
+                    rc = s->cur_request->parse(s->buf + s->roff + i * s->cur_request->data->in_element_size, dst);
                     if (rc < 0)
                         err = -1; /* FIXME we let the loop complete (?) */
-                    data->size++;
+                    s->cur_request->data->size++;
                 }
             }
 
-
             s->remaining -= num_chunks;
+            available -= num_chunks * s->cur_request->data->in_element_size;
+            s->roff += num_chunks * s->cur_request->data->in_element_size;
             if (s->remaining == 0) {
-                /*
-                 * The protocol expects all sequence number to be reset after
-                 * each transaction. We reset before running the callback in
-                 * case it triggers new exchanges.
-                 */
-                s->send_seq = HICN_CTRL_SEND_SEQ_INIT;
-                s->recv_seq = HICN_CTRL_RECV_SEQ_INIT;
-
-                hc_data_set_complete(data);
+                if (hc_sock_map_remove(s->map, s->cur_request->seq, NULL) < 0) {
+                    ERROR("[hc_sock_process] Error removing request from map");
+                    return -1;
+                }
+                if (data) {
+                    *data = s->cur_request->data;
+//                } else {
+//                    free(s->cur_request->data);
+                }
+                hc_data_set_complete(s->cur_request->data);
+                hc_sock_request_free(s->cur_request);
+                s->cur_request = NULL;
             }
 
-            available -= num_chunks * data->in_element_size;
-            s->roff += num_chunks * data->in_element_size;
         }
     }
 
@@ -605,13 +723,48 @@ hc_sock_process(hc_sock_t * s, hc_data_t * data,
 }
 
 int
+hc_sock_callback(hc_sock_t * s, hc_data_t ** data)
+{
+    *data = NULL;
+
+    for (;;) {
+        int n = hc_sock_recv(s);
+        if (n == 0) {
+            DEBUG("EOF");
+            goto ERR_EOF;
+        }
+        if (n < 0) {
+            switch(errno) {
+                case ECONNRESET:
+                case ENODEV:
+                    /* Forwarder restarted */
+                    WARN("Forwarder likely restarted: not (yet) implemented");
+                    goto ERR_EOF;
+                case EWOULDBLOCK:
+                    //DEBUG("Would block... stop reading from socket");
+                    goto END;
+                default:
+                    perror("hc_sock_recv");
+                    goto ERR_EOF;
+            }
+        }
+        if (hc_sock_process(s, data) < 0) {
+            return -1;
+        }
+    }
+END:
+    return 0;
+
+ERR_EOF:
+    return -1;
+}
+
+int
 hc_sock_reset(hc_sock_t * s)
 {
     s->roff = s->woff = 0;
-    s->send_seq = HICN_CTRL_SEND_SEQ_INIT;
-    s->recv_seq = HICN_CTRL_RECV_SEQ_INIT;
     s->remaining = 0;
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 /******************************************************************************
@@ -630,8 +783,11 @@ typedef struct {
 
 int
 hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
-        hc_command_params_t * params, hc_data_t ** pdata)
+        hc_command_params_t * params, hc_data_t ** pdata, bool async)
 {
+    if (async)
+        assert(!pdata);
+
     /* Sanity check */
     switch(params->cmd) {
         case ACTION_CREATE:
@@ -655,35 +811,70 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
             assert(params->parse == NULL);
             break;
         default:
-             return LIBHICNCTRL_FAILURE;
+             return -1;
     }
 
-    hc_sock_reset(s);
+    //hc_sock_reset(s);
 
     /* XXX data will at least store the result (complete) */
     hc_data_t * data = hc_data_create(params->size_in, params->size_out);
-    if (!data)
+    if (!data) {
+        ERROR("[hc_execute_command] Could not create data storage");
         goto ERR_DATA;
+    }
 
-    if (hc_sock_send(s, msg, msg_len) < 0)
+    int seq = hc_sock_get_next_seq(s);
+    if (seq < 0) {
+        ERROR("[hc_execute_command] Could not get next sequence number");
+        goto ERR_SEQ;
+    }
+
+    /* Create state used to process the request */
+    hc_sock_request_t * request = NULL;
+    request = hc_sock_request_create(seq, data, params->parse);
+    if (!request) {
+        ERROR("[hc_execute_command] Could not create request state");
+        goto ERR_REQUEST;
+    }
+
+    /* Add state to map */
+    if (hc_sock_map_add(s->map, seq, request) < 0) {
+        ERROR("[hc_execute_command] Error adding request state to map");
+        goto ERR_MAP;
+    }
+
+    if (hc_sock_send(s, msg, msg_len, seq) < 0) {
+        ERROR("[hc_execute_command] Error sending message");
         goto ERR_PROCESS;
+    }
+
+    if (async)
+        return 0;
+
     while(!data->complete) {
-        if (hc_sock_recv(s, data) < 0)
-            break;
-        if (hc_sock_process(s, data, params->parse) < 0) {
+        /*
+         * As the socket is non blocking it might happen that we need to read
+         * several times before success... shall we alternate between blocking
+         * and non-blocking mode ?
+         */
+        if (hc_sock_recv(s) < 0)
+            continue; //break;
+        if (hc_sock_process(s, pdata) < 0) {
+            ERROR("[hc_execute_command] Error processing socket results");
             goto ERR_PROCESS;
         }
     }
 
-    if (pdata)
-        *pdata = data;
-
-     return LIBHICNCTRL_SUCCESS;
+    return 0;
 
 ERR_PROCESS:
+ERR_MAP:
+    hc_sock_request_free(request);
+ERR_REQUEST:
+ERR_SEQ:
     free(data);
 ERR_DATA:
-     return LIBHICNCTRL_FAILURE;
+     return -1;
 }
 
 /*----------------------------------------------------------------------------*
@@ -693,13 +884,13 @@ ERR_DATA:
 /* LISTENER CREATE */
 
 int
-hc_listener_create(hc_sock_t * s, hc_listener_t * listener)
+_hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
 {
     if (!IS_VALID_FAMILY(listener->family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     if (!IS_VALID_CONNECTION_TYPE(listener->type))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     struct {
         header_control_message hdr;
@@ -709,7 +900,7 @@ hc_listener_create(hc_sock_t * s, hc_listener_t * listener)
             .messageType = REQUEST_LIGHT,
             .commandID = ADD_LISTENER,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
         .payload = {
             .address = {
@@ -733,31 +924,43 @@ hc_listener_create(hc_sock_t * s, hc_listener_t * listener)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_listener_create(hc_sock_t * s, hc_listener_t * listener)
+{
+    return _hc_listener_create(s, listener, false);
+}
+
+int
+hc_listener_create_async(hc_sock_t * s, hc_listener_t * listener)
+{
+    return _hc_listener_create(s, listener, true);
 }
 
 /* LISTENER GET */
 
 int
-hc_listener_get(hc_sock_t *s, hc_listener_t * listener,
+hc_listener_get(hc_sock_t * s, hc_listener_t * listener,
         hc_listener_t ** listener_found)
 {
     hc_data_t * listeners;
     hc_listener_t * found;
 
     if (hc_listener_list(s, &listeners) < 0)
-        return LIBHICNCTRL_FAILURE;
+        return -1;
 
     /* Test */
     if (hc_listener_find(listeners, listener, &found) < 0) {
         hc_data_free(listeners);
-        return LIBHICNCTRL_FAILURE;
+        return -1;
     }
 
     if (found) {
         *listener_found = malloc(sizeof(hc_listener_t));
         if (!*listener_found)
-            return LIBHICNCTRL_FAILURE;
+            return -1;
         **listener_found = *found;
     } else {
         *listener_found = NULL;
@@ -765,14 +968,14 @@ hc_listener_get(hc_sock_t *s, hc_listener_t * listener,
 
     hc_data_free(listeners);
 
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 
 /* LISTENER DELETE */
 
 int
-hc_listener_delete(hc_sock_t * s, hc_listener_t * listener)
+_hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
 {
     struct {
         header_control_message hdr;
@@ -782,24 +985,20 @@ hc_listener_delete(hc_sock_t * s, hc_listener_t * listener)
             .messageType = REQUEST_LIGHT,
             .commandID = REMOVE_LISTENER,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
     };
 
     if (listener->id) {
-        printf("Delete by ID\n");
         snprintf(msg.payload.symbolicOrListenerid, NAME_LEN, "%d", listener->id);
     } else if (*listener->name) {
-        printf("Delete by name %s\n", listener->name);
         snprintf(msg.payload.symbolicOrListenerid, NAME_LEN, "%s", listener->name);
     } else {
-        printf("Delete after search\n");
         hc_listener_t * listener_found;
         if (hc_listener_get(s, listener, &listener_found) < 0)
-            return LIBHICNCTRL_FAILURE;
+            return -1;
         if (!listener_found)
-            return LIBHICNCTRL_FAILURE;
-        printf("Delete listener ID=%d\n", listener_found->id);
+            return -1;
         snprintf(msg.payload.symbolicOrListenerid, NAME_LEN, "%d", listener_found->id);
         free(listener_found);
     }
@@ -812,13 +1011,26 @@ hc_listener_delete(hc_sock_t * s, hc_listener_t * listener)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
 }
+
+int
+hc_listener_delete(hc_sock_t * s, hc_listener_t * listener)
+{
+    return _hc_listener_delete(s, listener, false);
+}
+
+int
+hc_listener_delete_async(hc_sock_t * s, hc_listener_t * listener)
+{
+    return _hc_listener_delete(s, listener, true);
+}
+
 
 /* LISTENER LIST */
 
 int
-hc_listener_list(hc_sock_t * s, hc_data_t ** pdata)
+_hc_listener_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
     struct {
         header_control_message hdr;
@@ -827,7 +1039,7 @@ hc_listener_list(hc_sock_t * s, hc_data_t ** pdata)
             .messageType = REQUEST_LIGHT,
             .commandID = LIST_LISTENERS,
             .length = 0,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
     };
 
@@ -839,7 +1051,19 @@ hc_listener_list(hc_sock_t * s, hc_data_t ** pdata)
         .parse = (HC_PARSE)hc_listener_parse,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata, async);
+}
+
+int
+hc_listener_list(hc_sock_t * s, hc_data_t ** pdata)
+{
+    return _hc_listener_list(s, pdata, false);
+}
+
+int
+hc_listener_list_async(hc_sock_t * s, hc_data_t ** pdata)
+{
+    return _hc_listener_list(s, pdata, true);
 }
 
 /* LISTENER VALIDATE */
@@ -848,12 +1072,12 @@ int
 hc_listener_validate(const hc_listener_t * listener)
 {
     if (!IS_VALID_FAMILY(listener->family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     if (!IS_VALID_CONNECTION_TYPE(listener->type))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 /* LISTENER CMP */
@@ -866,8 +1090,8 @@ hc_listener_cmp(const hc_listener_t * l1, const hc_listener_t * l2)
             (strncmp(l1->interface_name, l2->interface_name, INTERFACE_LEN) == 0) &&
             (ip_address_cmp(&l1->local_addr, &l2->local_addr, l1->family) == 0) &&
             (l1->local_port == l2->local_port))
-        ? LIBHICNCTRL_SUCCESS
-        : LIBHICNCTRL_FAILURE;
+        ? 0
+        : -1;
 }
 
 /* LISTENER PARSE */
@@ -878,18 +1102,18 @@ hc_listener_parse(void * in, hc_listener_t * listener)
     list_listeners_command * cmd = (list_listeners_command *)in;
 
     if (!IS_VALID_LIST_LISTENERS_TYPE(cmd->encapType))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     hc_connection_type_t type = map_from_encap_type[cmd->encapType];
     if (type == CONNECTION_TYPE_UNDEFINED)
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     if (!IS_VALID_ADDR_TYPE(cmd->addressType))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     int family = map_from_addr_type[cmd->addressType];
     if (!IS_VALID_FAMILY(family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     *listener = (hc_listener_t) {
         .id = cmd->connid,
@@ -900,7 +1124,7 @@ hc_listener_parse(void * in, hc_listener_t * listener)
     };
     snprintf(listener->name, NAME_LEN, "%s", cmd->listenerName);
     snprintf(listener->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 GENERATE_FIND(listener)
@@ -931,10 +1155,10 @@ hc_listener_snprintf(char * s, size_t size, hc_listener_t * listener)
 /* CONNECTION CREATE */
 
 int
-hc_connection_create(hc_sock_t * s, hc_connection_t * connection)
+_hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
 {
     if (hc_connection_validate(connection) < 0)
-        return LIBHICNCTRL_FAILURE;
+        return -1;
 
     struct {
         header_control_message hdr;
@@ -944,7 +1168,7 @@ hc_connection_create(hc_sock_t * s, hc_connection_t * connection)
             .messageType = REQUEST_LIGHT,
             .commandID = ADD_CONNECTION,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
         .payload = {
             /* we use IPv6 which is the longest address */
@@ -970,31 +1194,43 @@ hc_connection_create(hc_sock_t * s, hc_connection_t * connection)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_connection_create(hc_sock_t * s, hc_connection_t * connection)
+{
+    return _hc_connection_create(s, connection, false);
+}
+
+int
+hc_connection_create_async(hc_sock_t * s, hc_connection_t * connection)
+{
+    return _hc_connection_create(s, connection, true);
 }
 
 /* CONNECTION GET */
 
 int
-hc_connection_get(hc_sock_t *s, hc_connection_t * connection,
+hc_connection_get(hc_sock_t * s, hc_connection_t * connection,
         hc_connection_t ** connection_found)
 {
     hc_data_t * connections;
     hc_connection_t * found;
 
     if (hc_connection_list(s, &connections) < 0)
-        return LIBHICNCTRL_FAILURE;
+        return -1;
 
     /* Test */
     if (hc_connection_find(connections, connection, &found) < 0) {
         hc_data_free(connections);
-        return LIBHICNCTRL_FAILURE;
+        return -1;
     }
 
     if (found) {
         *connection_found = malloc(sizeof(hc_connection_t));
         if (!*connection_found)
-            return LIBHICNCTRL_FAILURE;
+            return -1;
         **connection_found = *found;
     } else {
         *connection_found = NULL;
@@ -1002,14 +1238,14 @@ hc_connection_get(hc_sock_t *s, hc_connection_t * connection,
 
     hc_data_free(connections);
 
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 
 /* CONNECTION DELETE */
 
 int
-hc_connection_delete(hc_sock_t * s, hc_connection_t * connection)
+_hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
 {
     struct {
         header_control_message hdr;
@@ -1019,24 +1255,20 @@ hc_connection_delete(hc_sock_t * s, hc_connection_t * connection)
             .messageType = REQUEST_LIGHT,
             .commandID = REMOVE_CONNECTION,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
     };
 
     if (connection->id) {
-        printf("Delete by ID\n");
         snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%d", connection->id);
     } else if (*connection->name) {
-        printf("Delete by name %s\n", connection->name);
         snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%s", connection->name);
     } else {
-        printf("Delete after search\n");
         hc_connection_t * connection_found;
         if (hc_connection_get(s, connection, &connection_found) < 0)
-            return LIBHICNCTRL_FAILURE;
+            return -1;
         if (!connection_found)
-            return LIBHICNCTRL_FAILURE;
-        printf("Delete connection ID=%d\n", connection_found->id);
+            return -1;
         snprintf(msg.payload.symbolicOrConnid, NAME_LEN, "%d", connection_found->id);
         free(connection_found);
     }
@@ -1049,14 +1281,25 @@ hc_connection_delete(hc_sock_t * s, hc_connection_t * connection)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
 }
 
+int
+hc_connection_delete(hc_sock_t * s, hc_connection_t * connection)
+{
+    return _hc_connection_delete(s, connection, false);
+}
+
+int
+hc_connection_delete_async(hc_sock_t * s, hc_connection_t * connection)
+{
+    return _hc_connection_delete(s, connection, true);
+}
 
 /* CONNECTION LIST */
 
 int
-hc_connection_list(hc_sock_t * s, hc_data_t ** pdata)
+_hc_connection_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
     struct {
         header_control_message hdr;
@@ -1065,7 +1308,7 @@ hc_connection_list(hc_sock_t * s, hc_data_t ** pdata)
             .messageType = REQUEST_LIGHT,
             .commandID = LIST_CONNECTIONS,
             .length = 0,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
     };
 
@@ -1077,7 +1320,19 @@ hc_connection_list(hc_sock_t * s, hc_data_t ** pdata)
         .parse = (HC_PARSE)hc_connection_parse,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata, async);
+}
+
+int
+hc_connection_list(hc_sock_t * s, hc_data_t ** pdata)
+{
+    return _hc_connection_list(s, pdata, false);
+}
+
+int
+hc_connection_list_async(hc_sock_t * s, hc_data_t ** pdata)
+{
+    return _hc_connection_list(s, pdata, true);
 }
 
 /* CONNECTION VALIDATE */
@@ -1086,14 +1341,14 @@ int
 hc_connection_validate(const hc_connection_t * connection)
 {
     if (!IS_VALID_FAMILY(connection->family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     if (!IS_VALID_CONNECTION_TYPE(connection->type))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     /* TODO assert both local and remote have the right family */
 
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 /* CONNECTION CMP */
@@ -1111,8 +1366,8 @@ int hc_connection_cmp(const hc_connection_t * c1, const hc_connection_t * c2)
             (c1->local_port == c2->local_port) &&
             (ip_address_cmp(&c1->remote_addr, &c2->remote_addr, c1->family) == 0) &&
             (c1->remote_port == c2->remote_port))
-        ? LIBHICNCTRL_SUCCESS
-        : LIBHICNCTRL_FAILURE;
+        ? 0
+        : -1;
 }
 
 /* CONNECTION PARSE */
@@ -1123,25 +1378,25 @@ hc_connection_parse(void * in, hc_connection_t * connection)
     list_connections_command * cmd = (list_connections_command *)in;
 
     if (!IS_VALID_LIST_CONNECTIONS_TYPE(cmd->connectionData.connectionType))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     hc_connection_type_t type = map_from_list_connections_type[cmd->connectionData.connectionType];
     if (type == CONNECTION_TYPE_UNDEFINED)
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     if (!IS_VALID_LIST_CONNECTIONS_STATE(cmd->state))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     hc_connection_state_t state = map_from_list_connections_state[cmd->state];
     if (state == HC_CONNECTION_STATE_UNDEFINED)
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     if (!IS_VALID_ADDR_TYPE(cmd->connectionData.ipType))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     int family = map_from_addr_type[cmd->connectionData.ipType];
     if (!IS_VALID_FAMILY(family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     *connection = (hc_connection_t) {
         .id = cmd->connid,
@@ -1159,7 +1414,7 @@ hc_connection_parse(void * in, hc_connection_t * connection)
     };
     snprintf(connection->name, NAME_LEN, "%s", cmd->connectionData.symbolic);
     snprintf(connection->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 GENERATE_FIND(connection)
@@ -1196,8 +1451,8 @@ hc_connection_snprintf(char * s, size_t size, const hc_connection_t * connection
 /* CONNECTION SET ADMIN STATE */
 
 int
-hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
-        face_state_t state)
+_hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
+        face_state_t state, bool async)
 {
     struct {
         header_control_message hdr;
@@ -1207,7 +1462,7 @@ hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
             .messageType = REQUEST_LIGHT,
             .commandID = CONNECTION_SET_ADMIN_STATE,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
         .payload = {
             .admin_state = state,
@@ -1223,7 +1478,21 @@ hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
+        face_state_t state)
+{
+    return _hc_connection_set_admin_state(s, conn_id_or_name, state, false);
+}
+
+int
+hc_connection_set_admin_state_async(hc_sock_t * s, const char * conn_id_or_name,
+        face_state_t state)
+{
+    return _hc_connection_set_admin_state(s, conn_id_or_name, state, true);
 }
 
 /*----------------------------------------------------------------------------*
@@ -1233,10 +1502,10 @@ hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
 /* ROUTE CREATE */
 
 int
-hc_route_create(hc_sock_t * s, hc_route_t * route)
+_hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
 {
     if (!IS_VALID_FAMILY(route->family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     struct {
         header_control_message hdr;
@@ -1246,7 +1515,7 @@ hc_route_create(hc_sock_t * s, hc_route_t * route)
             .messageType = REQUEST_LIGHT,
             .commandID = ADD_ROUTE,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
         .payload = {
             /* we use IPv6 which is the longest address */
@@ -1271,16 +1540,28 @@ hc_route_create(hc_sock_t * s, hc_route_t * route)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_route_create(hc_sock_t * s, hc_route_t * route)
+{
+    return _hc_route_create(s, route, false);
+}
+
+int
+hc_route_create_async(hc_sock_t * s, hc_route_t * route)
+{
+    return _hc_route_create(s, route, true);
 }
 
 /* ROUTE DELETE */
 
 int
-hc_route_delete(hc_sock_t * s, hc_route_t * route)
+_hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
 {
     if (!IS_VALID_FAMILY(route->family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     struct {
         header_control_message hdr;
@@ -1290,7 +1571,7 @@ hc_route_delete(hc_sock_t * s, hc_route_t * route)
             .messageType = REQUEST_LIGHT,
             .commandID = REMOVE_ROUTE,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
         .payload = {
             /* we use IPv6 which is the longest address */
@@ -1308,13 +1589,25 @@ hc_route_delete(hc_sock_t * s, hc_route_t * route)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_route_delete(hc_sock_t * s, hc_route_t * route)
+{
+    return _hc_route_delete(s, route, false);
+}
+
+int
+hc_route_delete_async(hc_sock_t * s, hc_route_t * route)
+{
+    return _hc_route_delete(s, route, true);
 }
 
 /* ROUTE LIST */
 
 int
-hc_route_list(hc_sock_t * s, hc_data_t ** pdata)
+_hc_route_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
     struct {
         header_control_message hdr;
@@ -1323,7 +1616,7 @@ hc_route_list(hc_sock_t * s, hc_data_t ** pdata)
             .messageType = REQUEST_LIGHT,
             .commandID = LIST_ROUTES,
             .length = 0,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
     };
 
@@ -1335,7 +1628,19 @@ hc_route_list(hc_sock_t * s, hc_data_t ** pdata)
         .parse = (HC_PARSE)hc_route_parse,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata, async);
+}
+
+int
+hc_route_list(hc_sock_t * s, hc_data_t ** pdata)
+{
+    return _hc_route_list(s, pdata, false);
+}
+
+int
+hc_route_list_async(hc_sock_t * s, hc_data_t ** pdata)
+{
+    return _hc_route_list(s, pdata, true);
 }
 
 /* ROUTE PARSE */
@@ -1346,11 +1651,11 @@ hc_route_parse(void * in, hc_route_t * route)
     list_routes_command * cmd = (list_routes_command *) in;
 
     if (!IS_VALID_ADDR_TYPE(cmd->addressType))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     int family = map_from_addr_type[cmd->addressType];
     if (!IS_VALID_FAMILY(family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     *route = (hc_route_t) {
         .face_id = cmd->connid,
@@ -1359,7 +1664,7 @@ hc_route_parse(void * in, hc_route_t * route)
         .len = cmd->len,
         .cost = cmd->cost,
     };
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 /* ROUTE SNPRINTF */
@@ -1416,9 +1721,9 @@ hc_face_to_listener(const hc_face_t * face, hc_listener_t * listener)
         case FACE_TYPE_UDP_LISTENER:
             break;
         default:
-             return LIBHICNCTRL_FAILURE;
+             return -1;
     }
-    return LIBHICNCTRL_FAILURE; /* XXX Not implemented */
+    return -1; /* XXX Not implemented */
 }
 
 /* LISTENER -> FACE */
@@ -1426,7 +1731,7 @@ hc_face_to_listener(const hc_face_t * face, hc_listener_t * listener)
 int
 hc_listener_to_face(const hc_listener_t * listener, hc_face_t * face)
 {
-    return LIBHICNCTRL_FAILURE; /* XXX Not implemented */
+    return -1; /* XXX Not implemented */
 }
 
 /* FACE -> CONNECTION */
@@ -1501,13 +1806,13 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
                     f->netdevice.name);
             break;
         default:
-             return LIBHICNCTRL_FAILURE;
+             return -1;
     }
 
     snprintf(connection->interface_name, INTERFACE_LEN, "%s",
             f->netdevice.name);
 
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 /* CONNECTION -> FACE */
@@ -1570,14 +1875,14 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
             };
             break;
         default:
-            return LIBHICNCTRL_FAILURE;
+            return -1;
     }
     face->face.netdevice.name[0] = '\0';
     face->face.netdevice.index = 0;
     snprintf(face->name, NAME_LEN, "%s", connection->name);
     snprintf(face->face.netdevice.name, INTERFACE_LEN, "%s", connection->interface_name);
     netdevice_update_index(&face->face.netdevice);
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 /* CONNECTION -> LISTENER */
@@ -1594,7 +1899,7 @@ hc_connection_to_local_listener(const hc_connection_t * connection, hc_listener_
     };
     snprintf(listener->name, NAME_LEN, "lst%u", RANDBYTE()); // generate name
     snprintf(listener->interface_name, INTERFACE_LEN, "%s", connection->interface_name);
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 /* FACE CREATE */
@@ -1615,18 +1920,18 @@ hc_face_create(hc_sock_t * s, hc_face_t * face)
         case FACE_TYPE_UDP:
             if (hc_face_to_connection(face, &connection, true) < 0) {
                 ERROR("[hc_face_create] Could not convert face to connection.");
-                return LIBHICNCTRL_FAILURE;
+                return -1;
             }
 
             /* Ensure we have a corresponding local listener */
             if (hc_connection_to_local_listener(&connection, &listener) < 0) {
                 ERROR("[hc_face_create] Could not convert face to local listener.");
-                return LIBHICNCTRL_FAILURE;
+                return -1;
             }
 
             if (hc_listener_get(s, &listener, &listener_found) < 0) {
                 ERROR("[hc_face_create] Could not retrieve listener");
-                return LIBHICNCTRL_FAILURE;
+                return -1;
             }
 
             if (!listener_found) {
@@ -1634,7 +1939,7 @@ hc_face_create(hc_sock_t * s, hc_face_t * face)
                 if (hc_listener_create(s, &listener) < 0) {
                     ERROR("[hc_face_create] Could not create listener.");
                     free(listener_found);
-                    return LIBHICNCTRL_FAILURE;
+                    return -1;
                 }
             } else {
                 free(listener_found);
@@ -1643,7 +1948,7 @@ hc_face_create(hc_sock_t * s, hc_face_t * face)
             /* Create corresponding connection */
             if (hc_connection_create(s, &connection) < 0) {
                 ERROR("[hc_face_create] Could not create connection.");
-                return LIBHICNCTRL_FAILURE;
+                return -1;
             }
 
             /*
@@ -1652,12 +1957,12 @@ hc_face_create(hc_sock_t * s, hc_face_t * face)
              */
             if (hc_connection_get(s, &connection, &connection_found) < 0) {
                 ERROR("[hc_face_create] Could not retrieve connection");
-                return LIBHICNCTRL_FAILURE;
+                return -1;
             }
 
             if (!connection_found) {
                 ERROR("[hc_face_create] Could not find newly created connection.");
-                return LIBHICNCTRL_FAILURE;
+                return -1;
             }
 
             face->id = connection_found->id;
@@ -1670,21 +1975,21 @@ hc_face_create(hc_sock_t * s, hc_face_t * face)
         case FACE_TYPE_UDP_LISTENER:
             if (hc_face_to_listener(face, &listener) < 0) {
                 ERROR("Could not convert face to listener.");
-                return LIBHICNCTRL_FAILURE;
+                return -1;
             }
             if (hc_listener_create(s, &listener) < 0) {
                 ERROR("[hc_face_create] Could not create listener.");
-                return LIBHICNCTRL_FAILURE;
+                return -1;
             }
-            return LIBHICNCTRL_FAILURE;
+            return -1;
             break;
         default:
             ERROR("[hc_face_create] Unknwon face type.");
 
-            return LIBHICNCTRL_FAILURE;
+            return -1;
     };
 
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 int
@@ -1702,12 +2007,12 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
         case FACE_TYPE_TCP:
         case FACE_TYPE_UDP:
             if (hc_face_to_connection(face, &connection, false) < 0)
-                 return LIBHICNCTRL_FAILURE;
+                 return -1;
             if (hc_connection_get(s, &connection, &connection_found) < 0)
-                 return LIBHICNCTRL_FAILURE;
+                 return -1;
             if (!connection_found) {
                 *face_found = NULL;
-                return LIBHICNCTRL_SUCCESS;
+                return 0;
             }
             *face_found = malloc(sizeof(face_t));
             hc_connection_to_face(connection_found, *face_found);
@@ -1718,12 +2023,12 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
         case FACE_TYPE_TCP_LISTENER:
         case FACE_TYPE_UDP_LISTENER:
             if (hc_face_to_listener(face, &listener) < 0)
-                 return LIBHICNCTRL_FAILURE;
+                 return -1;
             if (hc_listener_get(s, &listener, &listener_found) < 0)
-                 return LIBHICNCTRL_FAILURE;
+                 return -1;
             if (!listener_found) {
                 *face_found = NULL;
-                return LIBHICNCTRL_SUCCESS;
+                return 0;
             }
             *face_found = malloc(sizeof(face_t));
             hc_listener_to_face(listener_found, *face_found);
@@ -1731,10 +2036,10 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
             break;
 
         default:
-             return LIBHICNCTRL_FAILURE;
+             return -1;
     }
 
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 
 }
 
@@ -1747,7 +2052,7 @@ hc_face_delete(hc_sock_t * s, hc_face_t * face)
     hc_connection_t connection;
     if (hc_face_to_connection(face, &connection, false) < 0) {
         ERROR("[hc_face_delete] Could not convert face to connection.");
-        return LIBHICNCTRL_FAILURE;
+        return -1;
     }
     return hc_connection_delete(s, &connection);
 }
@@ -1762,7 +2067,7 @@ hc_face_list(hc_sock_t * s, hc_data_t ** pdata)
 
     if (hc_connection_list(s, &connection_data) < 0) {
         ERROR("[hc_face_list] Could not list connections.");
-        return LIBHICNCTRL_FAILURE;
+        return -1;
     }
 
     hc_data_t * face_data = hc_data_create(sizeof(hc_connection_t), sizeof(hc_face_t));
@@ -1776,11 +2081,55 @@ hc_face_list(hc_sock_t * s, hc_data_t ** pdata)
 
     *pdata = face_data;
     hc_data_free(connection_data);
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 
 ERR:
     hc_data_free(connection_data);
-    return LIBHICNCTRL_FAILURE;
+    return -1;
+}
+
+int
+hc_connection_parse_to_face(void * in, hc_face_t * face)
+{
+    hc_connection_t connection;
+
+    if (hc_connection_parse(in, &connection) < 0) {
+        ERROR("[hc_connection_parse_to_face] Could not parse connection");
+        return -1;
+    }
+
+    if (hc_connection_to_face(&connection, face) < 0) {
+        ERROR("[hc_connection_parse_to_face] Could not convert connection to face.");
+        return -1;
+    }
+
+    return 0;
+}
+
+
+int
+hc_face_list_async(hc_sock_t * s) //, hc_data_t ** pdata)
+{
+    struct {
+        header_control_message hdr;
+    } msg = {
+        .hdr = {
+            .messageType = REQUEST_LIGHT,
+            .commandID = LIST_CONNECTIONS,
+            .length = 0,
+            .seqNum = 0,
+        },
+    };
+
+    hc_command_params_t params = {
+        .cmd = ACTION_LIST,
+        .cmd_id = LIST_CONNECTIONS,
+        .size_in = sizeof(list_connections_command),
+        .size_out = sizeof(hc_face_t),
+        .parse = (HC_PARSE)hc_connection_parse_to_face,
+    };
+
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, true);
 }
 
 /* /!\ Please update constants in header file upon changes */
@@ -1824,7 +2173,7 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
                 return rc;
             break;
         default:
-            return LIBHICNCTRL_FAILURE;
+            return -1;
     }
 
     // [#ID NAME] TYPE LOCAL_URL REMOTE_URL STATE/ADMIN_STATE (TAGS)
@@ -1852,7 +2201,7 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
             face_state_str[face->face.state],
             face_state_str[face->face.admin_state]);
 #endif /* WITH_POLICY */
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 int
@@ -1866,10 +2215,11 @@ hc_face_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, // XXX wron
  * Punting
  *----------------------------------------------------------------------------*/
 
-int hc_punting_create(hc_sock_t * s, hc_punting_t * punting)
+int
+_hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
 {
     if (hc_punting_validate(punting) < 0)
-        return LIBHICNCTRL_FAILURE;
+        return -1;
 
     struct {
         header_control_message hdr;
@@ -1879,7 +2229,7 @@ int hc_punting_create(hc_sock_t * s, hc_punting_t * punting)
             .messageType = REQUEST_LIGHT,
             .commandID = ADD_PUNTING,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
         .payload = {
             /* we use IPv6 which is the longest address */
@@ -1898,37 +2248,54 @@ int hc_punting_create(hc_sock_t * s, hc_punting_t * punting)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_punting_create(hc_sock_t * s, hc_punting_t * punting)
+{
+    return _hc_punting_create(s, punting, false);
+}
+
+int
+hc_punting_create_async(hc_sock_t * s, hc_punting_t * punting)
+{
+    return _hc_punting_create(s, punting, true);
 }
 
 int hc_punting_get(hc_sock_t * s, hc_punting_t * punting, hc_punting_t ** punting_found)
 {
-    return LIBHICNCTRL_NOT_IMPLEMENTED;
+    ERROR("hc_punting_get not (yet) implemented.");
+    return -1;
 }
 
 int hc_punting_delete(hc_sock_t * s, hc_punting_t * punting)
 {
-    return LIBHICNCTRL_NOT_IMPLEMENTED;
+    ERROR("hc_punting_delete not (yet) implemented.");
+    return -1;
 }
 
 int hc_punting_list(hc_sock_t * s, hc_data_t ** pdata)
 {
-    return LIBHICNCTRL_NOT_IMPLEMENTED;
+    ERROR("hc_punting_list not (yet) implemented.");
+    return -1;
 }
 
 int hc_punting_validate(const hc_punting_t * punting)
 {
     if (!IS_VALID_FAMILY(punting->family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     /*
      * We might use the zero value to add punting on all faces but this is not
      * (yet) implemented
      */
-    if (punting->face_id == 0)
-        return LIBHICNCTRL_NOT_IMPLEMENTED;
+    if (punting->face_id == 0) {
+        ERROR("Punting on all faces is not (yet) implemented.");
+        return -1;
+    }
 
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 int hc_punting_cmp(const hc_punting_t * p1, const hc_punting_t * p2)
@@ -1937,18 +2304,20 @@ int hc_punting_cmp(const hc_punting_t * p1, const hc_punting_t * p2)
             (p1->family == p2->family) &&
             (ip_address_cmp(&p1->prefix, &p2->prefix, p1->family) == 0) &&
             (p1->prefix_len == p2->prefix_len))
-        ? LIBHICNCTRL_SUCCESS
-        : LIBHICNCTRL_FAILURE;
+        ? 0
+        : -1;
 }
 
 int hc_punting_parse(void * in, hc_punting_t * punting)
 {
-    return LIBHICNCTRL_NOT_IMPLEMENTED;
+    ERROR("hc_punting_parse not (yet) implemented.");
+    return -1;
 }
 
 int hc_punting_snprintf(char * s, size_t size, hc_punting_t * punting)
 {
-    return LIBHICNCTRL_NOT_IMPLEMENTED;
+    ERROR("hc_punting_snprintf not (yet) implemented.");
+    return -1;
 }
 
 
@@ -1957,7 +2326,7 @@ int hc_punting_snprintf(char * s, size_t size, hc_punting_t * punting)
  *----------------------------------------------------------------------------*/
 
 int
-hc_cache_set_store(hc_sock_t * s, int enabled)
+_hc_cache_set_store(hc_sock_t * s, int enabled, bool async)
 {
     struct {
         header_control_message hdr;
@@ -1967,7 +2336,7 @@ hc_cache_set_store(hc_sock_t * s, int enabled)
             .messageType = REQUEST_LIGHT,
             .commandID = CACHE_STORE,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
         .payload = {
             .activate = enabled,
@@ -1982,11 +2351,23 @@ hc_cache_set_store(hc_sock_t * s, int enabled)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
 }
 
 int
-hc_cache_set_serve(hc_sock_t * s, int enabled)
+hc_cache_set_store(hc_sock_t * s, int enabled)
+{
+    return _hc_cache_set_store(s, enabled, false);
+}
+
+int
+hc_cache_set_store_async(hc_sock_t * s, int enabled)
+{
+    return _hc_cache_set_store(s, enabled, true);
+}
+
+int
+_hc_cache_set_serve(hc_sock_t * s, int enabled, bool async)
 {
     struct {
         header_control_message hdr;
@@ -1996,7 +2377,7 @@ hc_cache_set_serve(hc_sock_t * s, int enabled)
             .messageType = REQUEST_LIGHT,
             .commandID = CACHE_SERVE,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
         .payload = {
             .activate = enabled,
@@ -2011,9 +2392,20 @@ hc_cache_set_serve(hc_sock_t * s, int enabled)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
 }
 
+int
+hc_cache_set_serve(hc_sock_t * s, int enabled)
+{
+    return _hc_cache_set_serve(s, enabled, false);
+}
+
+int
+hc_cache_set_serve_async(hc_sock_t * s, int enabled)
+{
+    return _hc_cache_set_serve(s, enabled, true);
+}
 
 /*----------------------------------------------------------------------------*
  * Strategy
@@ -2023,7 +2415,7 @@ hc_cache_set_serve(hc_sock_t * s, int enabled)
 int
 hc_strategy_set(hc_sock_t * s /* XXX */)
 {
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 /* How to retrieve that from the forwarder ? */
@@ -2042,12 +2434,12 @@ hc_strategy_list(hc_sock_t * s, hc_data_t ** data)
     for (unsigned i = 0; i < ARRAY_SIZE(strategies); i++) {
         hc_strategy_t * strategy = (hc_strategy_t*)hc_data_get_next(*data);
         if (!strategy)
-             return LIBHICNCTRL_FAILURE;
+             return -1;
         snprintf(strategy->name, MAXSZ_HC_STRATEGY, "%s", strategies[i]);
         (*data)->size++;
     }
 
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 /* /!\ Please update constants in header file upon changes */
@@ -2065,7 +2457,7 @@ hc_strategy_snprintf(char * s, size_t size, hc_strategy_t * strategy)
 int
 hc_wldr_set(hc_sock_t * s /* XXX */)
 {
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 /*----------------------------------------------------------------------------*
@@ -2075,25 +2467,25 @@ hc_wldr_set(hc_sock_t * s /* XXX */)
 int
 hc_mapme_set(hc_sock_t * s, int enabled)
 {
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 int
 hc_mapme_set_discovery(hc_sock_t * s, int enabled)
 {
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 int
 hc_mapme_set_timescale(hc_sock_t * s, double timescale)
 {
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 int
 hc_mapme_set_retx(hc_sock_t * s, double timescale)
 {
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 /*----------------------------------------------------------------------------*
@@ -2105,10 +2497,10 @@ hc_mapme_set_retx(hc_sock_t * s, double timescale)
 /* POLICY CREATE */
 
 int
-hc_policy_create(hc_sock_t * s, hc_policy_t * policy)
+_hc_policy_create(hc_sock_t * s, hc_policy_t * policy, bool async)
 {
     if (!IS_VALID_FAMILY(policy->family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     struct {
         header_control_message hdr;
@@ -2118,7 +2510,7 @@ hc_policy_create(hc_sock_t * s, hc_policy_t * policy)
             .messageType = REQUEST_LIGHT,
             .commandID = ADD_POLICY,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
         .payload = {
             /* we use IPv6 which is the longest address */
@@ -2137,16 +2529,28 @@ hc_policy_create(hc_sock_t * s, hc_policy_t * policy)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_policy_create(hc_sock_t * s, hc_policy_t * policy)
+{
+    return _hc_policy_create(s, policy, false);
+}
+
+int
+hc_policy_create_async(hc_sock_t * s, hc_policy_t * policy)
+{
+    return _hc_policy_create(s, policy, true);
 }
 
 /* POLICY DELETE */
 
 int
-hc_policy_delete(hc_sock_t * s, hc_policy_t * policy)
+_hc_policy_delete(hc_sock_t * s, hc_policy_t * policy, bool async)
 {
     if (!IS_VALID_FAMILY(policy->family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     struct {
         header_control_message hdr;
@@ -2156,7 +2560,7 @@ hc_policy_delete(hc_sock_t * s, hc_policy_t * policy)
             .messageType = REQUEST_LIGHT,
             .commandID = REMOVE_POLICY,
             .length = 1,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
         .payload = {
             /* we use IPv6 which is the longest address */
@@ -2174,13 +2578,25 @@ hc_policy_delete(hc_sock_t * s, hc_policy_t * policy)
         .parse = NULL,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_policy_delete(hc_sock_t * s, hc_policy_t * policy)
+{
+    return _hc_policy_delete(s, policy, false);
+}
+
+int
+hc_policy_delete_async(hc_sock_t * s, hc_policy_t * policy)
+{
+    return _hc_policy_delete(s, policy, true);
 }
 
 /* POLICY LIST */
 
 int
-hc_policy_list(hc_sock_t * s, hc_data_t ** pdata)
+_hc_policy_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
     struct {
         header_control_message hdr;
@@ -2189,7 +2605,7 @@ hc_policy_list(hc_sock_t * s, hc_data_t ** pdata)
             .messageType = REQUEST_LIGHT,
             .commandID = LIST_POLICIES,
             .length = 0,
-            .seqNum = s->send_seq,
+            .seqNum = 0,
         },
     };
 
@@ -2201,7 +2617,19 @@ hc_policy_list(hc_sock_t * s, hc_data_t ** pdata)
         .parse = (HC_PARSE)hc_policy_parse,
     };
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata);
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata, async);
+}
+
+int
+hc_policy_list(hc_sock_t * s, hc_data_t ** pdata)
+{
+    return _hc_policy_list(s, pdata, false);
+}
+
+int
+hc_policy_list_async(hc_sock_t * s, hc_data_t ** pdata)
+{
+    return _hc_policy_list(s, pdata, true);
 }
 
 /* POLICY PARSE */
@@ -2212,11 +2640,11 @@ hc_policy_parse(void * in, hc_policy_t * policy)
     list_policies_command * cmd = (list_policies_command *) in;
 
     if (!IS_VALID_ADDR_TYPE(cmd->addressType))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     int family = map_from_addr_type[cmd->addressType];
     if (!IS_VALID_FAMILY(family))
-         return LIBHICNCTRL_FAILURE;
+         return -1;
 
     *policy = (hc_policy_t) {
         .family = family,
@@ -2224,7 +2652,7 @@ hc_policy_parse(void * in, hc_policy_t * policy)
         .len = cmd->len,
         .policy = cmd->policy,
     };
-    return LIBHICNCTRL_SUCCESS;
+    return 0;
 }
 
 /* POLICY SNPRINTF */
@@ -2233,7 +2661,7 @@ hc_policy_parse(void * in, hc_policy_t * policy)
 int
 hc_policy_snprintf(char * s, size_t size, hc_policy_t * policy)
 {
-     return LIBHICNCTRL_SUCCESS;
+     return 0;
 }
 
 #endif /* WITH_POLICY */
