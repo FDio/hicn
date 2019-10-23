@@ -514,6 +514,7 @@ hc_sock_free(hc_sock_t * s)
         }
         free(request_array);
     }
+
     hc_sock_map_free(s->map);
     if (s->url)
         free(s->url);
@@ -730,7 +731,6 @@ hc_sock_callback(hc_sock_t * s, hc_data_t ** data)
     for (;;) {
         int n = hc_sock_recv(s);
         if (n == 0) {
-            DEBUG("EOF");
             goto ERR_EOF;
         }
         if (n < 0) {

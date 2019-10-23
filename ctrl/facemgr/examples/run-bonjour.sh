@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# Notes for MacOS:
+#
+#  - Browse all discoverable services
+#    dns-sd -B _services._dns-sd._udp local.
+#
+#  - Browse all hICN services
+#    dns-sd -B _hicn._udp local.
+#
+#  - Lookup for specific options
+#    dns-sd -L "hicn node" _hicn._udp local.
+#
+#  - Lookup addresses
+#    dns-sd -G v4v6 adreena.local.
+#
+# NOTE: trailing dot '.' is optional
+
 set -e
 
 PORT=9695

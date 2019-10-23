@@ -24,13 +24,19 @@
 //#else
 #define thread_local _Thread_local
 //#endif /* ! __ANDROID__ */
-#include "../common.h"
 
 #define ERR_SET_EXISTS -2
 #define ERR_SET_NOT_FOUND -3
 
 /* FIXME: buffer overflow when this is too small... investigate */
 #define BUFSIZE 1024
+
+static inline
+int
+int_cmp(const int x, const int y)
+{
+    return x - y;
+}
 
 static inline
 int
@@ -49,6 +55,8 @@ int
 generic_snprintf(char * buf, size_t size, const void * value) {
     return snprintf(buf, BUFSIZE, "%p", value);
 }
+
+typedef int(*cmp_t)(const void * x, const void * y);
 
 #define TYPEDEF_SET_H(NAME, T)                                          \
                                                                         \
@@ -87,8 +95,33 @@ NAME ## _initialize(NAME ## _t * set)                                   \
     return 0;                                                           \
 }                                                                       \
                                                                         \
-NO_FINALIZE(NAME);                                                      \
-AUTOGENERATE_CREATE_FREE(NAME);                                         \
+int                                                                     \
+NAME ## _finalize(NAME ## _t * set) { return 0; }                       \
+                                                                        \
+NAME ## _t *                                                            \
+NAME ## _create()                                                       \
+{                                                                       \
+    NAME ## _t * set = malloc(sizeof(NAME ## _t));                      \
+    if (!set)                                                           \
+        goto ERR_MALLOC;                                                \
+                                                                        \
+    if (NAME ## _initialize(set) < 0)                                   \
+        goto ERR_INITIALIZE;                                            \
+                                                                        \
+    return set;                                                         \
+                                                                        \
+ERR_INITIALIZE:                                                         \
+    free(set);                                                          \
+ERR_MALLOC:                                                             \
+    return NULL;                                                        \
+}                                                                       \
+                                                                        \
+void                                                                    \
+NAME ## _free(NAME ## _t * set)                                         \
+{                                                                       \
+    NAME ## _finalize(set);                                             \
+    free(set);                                                          \
+}                                                                       \
                                                                         \
 int                                                                     \
 NAME ## _add(NAME ## _t * set, const T element)                         \

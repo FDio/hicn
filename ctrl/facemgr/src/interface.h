@@ -29,15 +29,22 @@
 #define FACEMGR_INTERFACE_H
 
 #include <stdbool.h>
+#include <hicn/facemgr/loop.h>
 
-struct facelet_s;
-typedef int (*callback_t)(struct facelet_s * facelet, void * callback_data);
+typedef enum {
+    INTERFACE_CB_TYPE_REGISTER_FD,
+    INTERFACE_CB_TYPE_UNREGISTER_FD,
+    INTERFACE_CB_TYPE_RAISE_EVENT,
+    INTERFACE_CB_TYPE_REGISTER_TIMER,
+    INTERFACE_CB_TYPE_UNREGISTER_TIMER,
+} interface_cb_type_t;
 
-struct interface_s;
+typedef int (*interface_cb_t)(facemgr_t * facemgr, interface_cb_type_t type, void * data);
 
 /**
  * \brief Interface operations
  */
+struct interface_s;
 typedef struct {
     /** The type given to the interfaces */
     char * type;
@@ -46,7 +53,7 @@ typedef struct {
     /* Destructor */
     int (*finalize)(struct interface_s * interface);
     /* Callback upon file descriptor event (iif previously registered) */
-    int (*callback)(struct interface_s * interface);
+    int (*callback)(struct interface_s * interface, int fd, void * data);
     /* Callback upon face events coming from the face manager */
     int (*on_event)(struct interface_s * interface, const struct facelet_s * facelet);
 } interface_ops_t;
@@ -54,8 +61,10 @@ typedef struct {
 typedef struct interface_s {
     char * name;
     const interface_ops_t * ops;
-    callback_t callback;
-    void * callback_data;
+
+    interface_cb_t callback;
+    void * callback_owner;
+
     void * data;
 } interface_t;
 
@@ -83,19 +92,51 @@ interface_t * interface_create(const char * name, const char * type);
  */
 void interface_free(interface_t * interface);
 
-/**
- * This function is equivalent to interface_set_callback, which should be
- * preferred. The difference is the lack of explicit type casts which should
- * simplify the calling syntax.
- */
 
-void _interface_set_callback(interface_t * interface, callback_t callback, void * callback_data);
-#define interface_set_callback(interface, callback, callback_data) \
-    _interface_set_callback(interface, (callback_t)callback, (void*)callback_data)
+void interface_set_callback(interface_t * interface, void * callback_owner, interface_cb_t callback);
 
 int interface_initialize(interface_t * interface, void * cfg);
+
 int interface_finalize(interface_t * interface);
 
 int interface_on_event(interface_t * interface, const struct facelet_s * facelet);
+
+/**
+ * \brief Raises a facelet event to the face manager
+ * \param [in] interface - Interface that raised the event (or NULL if it was
+ *      created but the face manager itself, or is a joined event)
+ * \param [in] facelet - Facelet to communicate with the event
+ * \return Error code
+ */
+int interface_callback(interface_t * interface, interface_cb_type_t type, void * data);
+
+int interface_raise_event(interface_t * interface, facelet_t * facelet);
+
+int interface_register_fd(interface_t * interface, int fd, void * data);
+
+int interface_unregister_fd(interface_t * interface, int fd);
+
+typedef int (*interface_fd_callback_t)(interface_t * interface, int fd, void * unused);
+
+/**
+ * \brief Registers a timer event
+ * \param [in] interface - Pointer to the interface responsible for the timer
+ * \param [in] delay_ms - Delay in milliseconds between timer events (first
+ *      occurence happends after this delay)
+ * \param [in] callback - Callback function to be triggered
+ * \param [in] data - User data
+ * \return A positive value uniquely identifying the timer, or -1 in case of
+ *      error
+ */
+int interface_register_timer(interface_t * interface, unsigned delay_ms,
+        interface_fd_callback_t callback, void * data);
+
+/**
+ * \brief Unregisters a timer event
+ * \param [in] interface - Pointer to the interface responsible for the timer
+ * \param [in] fd - Timer identifier
+ * \return 0 in case of success, -1 otherwise
+ */
+int interface_unregister_timer(interface_t * interface, int fd);
 
 #endif /* FACEMGR_INTERFACE_H */

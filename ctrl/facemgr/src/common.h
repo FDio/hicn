@@ -28,9 +28,6 @@
 
 //#define DEBUG
 
-/* Useful types and macros for comparisons */
-typedef int(*cmp_t)(const void * x, const void * y);
-
 #define INT_CMP(x, y) x < y ? -1 : (x == y ? 0 : 1)
 
 /* Dump with indent */
