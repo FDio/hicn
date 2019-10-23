@@ -125,7 +125,7 @@ int updown_callback(interface_t * interface)
 
     facelet_set_event(facelet, FACELET_EVENT_UPDATE);
 
-    facelet_raise_event(facelet, interface);
+    interface_raise_event(interface, facelet);
 
     return 0;
 }

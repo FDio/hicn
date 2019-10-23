@@ -281,7 +281,7 @@ The facelet event can then be defined and raised to the face maanger for further
 processing through the following code:
 ```
     facelet_set_event(facelet, EVENT_TYPE_CREATE);
-    facelet_raise_event(facelet, interface);
+    interface_raise_event(interface, facelet);
 ```
 
 Here the event is a facelet creation (`EVENT_TYPE_CREATE`). The full facelet API

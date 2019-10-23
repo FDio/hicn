@@ -31,7 +31,7 @@
 #include <hicn/ctrl/face.h>
 #include <hicn/facemgr.h>
 
-#include "interface.h"
+#define MAXSZ_FACELET 1024
 
 /* NOTE: Any test should be sufficient */
 #define IS_VALID_NETDEVICE(netdevice) ((netdevice.index != 0) && (netdevice.name[0] != '\0'))
@@ -46,6 +46,8 @@ typedef struct facelet_s facelet_t;
     _(DIRTY)                    \
     _(CONFLICT)                 \
     _(DELETED)                  \
+    _(IGNORED)                  \
+    _(ERROR)                    \
     _(N)
 
 typedef enum {
@@ -170,10 +172,6 @@ int facelet_merge(facelet_t * facelet, const facelet_t * facelet_to_merge);
 facelet_status_t facelet_get_status(const facelet_t * facelet);
 void facelet_set_status(facelet_t * facelet, facelet_status_t status);
 
-int facelet_add_pending(facelet_t * facelet);
-int facelet_remove_pending(facelet_t * facelet);
-bool facelet_has_pending(const facelet_t * facelet);
-
 void facelet_set_bj_done(facelet_t * facelet);
 void facelet_unset_bj_done(facelet_t * facelet);
 bool facelet_is_bj_done(const facelet_t * facelet);
@@ -183,17 +181,12 @@ bool facelet_is_au_done(const facelet_t * facelet);
 facelet_event_t facelet_get_event(const facelet_t * facelet);
 void facelet_set_event(facelet_t * facelet, facelet_event_t event);
 
-/**
- * \brief Create and raises an event to the face manager
- * \param [in] event_type - Type of the event to create
- * \param [in] facelet - Facelet to communicate with the event
- * \param [in] interface - Interface that raised the event (or NULL if it was
- *      created but the face manager itself, or is a joined event)
- */
-int facelet_raise_event(facelet_t * facelet, const interface_t * interface);
-
 int facelet_snprintf(char * buf, size_t size, facelet_t * facelet);
 
-#define MAXSZ_FACELET 1024
+#define DUMP_FACELET(msg, facelet) do {                 \
+    char buf[MAXSZ_FACELET];                            \
+    facelet_snprintf(buf, MAXSZ_FACELET, facelet);      \
+    DEBUG("%s : %s", msg, buf);                         \
+} while(0)
 
 #endif /* FACEMGR_FACELET_H */

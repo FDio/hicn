@@ -18,7 +18,6 @@
 
 #include <stdlib.h>
 
-#include "../common.h"
 #include "set.h"
 
 #define ERR_MAP_EXISTS -2
@@ -112,7 +111,30 @@ NAME ## _finalize(NAME ## _t * map)                                             
     return NAME ## _pair_set_finalize(&map->pair_set);                          \
 }                                                                               \
                                                                                 \
-AUTOGENERATE_CREATE_FREE(NAME)                                                  \
+NAME ## _t *                                                                    \
+NAME ## _create()                                                               \
+{                                                                               \
+    NAME ## _t * map = malloc(sizeof(NAME ## _t));                              \
+    if (!map)                                                                   \
+        goto ERR_MALLOC;                                                        \
+                                                                                \
+    if (NAME ## _initialize(map) < 0)                                           \
+        goto ERR_INITIALIZE;                                                    \
+                                                                                \
+    return map;                                                                 \
+                                                                                \
+ERR_INITIALIZE:                                                                 \
+    free(map);                                                                  \
+ERR_MALLOC:                                                                     \
+    return NULL;                                                                \
+}                                                                               \
+                                                                                \
+void                                                                            \
+NAME ## _free(NAME ## _t * map)                                                 \
+{                                                                               \
+    NAME ## _finalize(map);                                                     \
+    free(map);                                                                  \
+}                                                                               \
                                                                                 \
 int                                                                             \
 NAME ## _add(NAME ## _t * map, KEY_T key, VAL_T value)                          \
@@ -122,22 +144,22 @@ NAME ## _add(NAME ## _t * map, KEY_T key, VAL_T value)                          
                                                                                 \
     NAME ## _pair_t * pair = NAME ## _pair_create(key, value);                  \
     if (!pair)                                                                  \
-        return -1;                                                 \
+        return -1;                                                              \
                                                                                 \
     rc = NAME ## _pair_set_get(&map->pair_set, pair, &found);                   \
-    if (rc < 0)                                                   \
-        return -1;                                                 \
+    if (rc < 0)                                                                 \
+        return -1;                                                              \
     if (found) {                                                                \
         NAME ## _pair_free(pair);                                               \
         return ERR_MAP_EXISTS;                                                  \
     }                                                                           \
                                                                                 \
     rc = NAME ## _pair_set_add(&map->pair_set, pair);                           \
-    if (rc < 0) {                                                 \
+    if (rc < 0) {                                                               \
         NAME ## _pair_free(pair);                                               \
-        return -1;                                                 \
+        return -1;                                                              \
     }                                                                           \
-    return 0;                                                     \
+    return 0;                                                                   \
 }                                                                               \
                                                                                 \
 int                                                                             \
@@ -146,12 +168,12 @@ NAME ## _remove(NAME ## _t * map, KEY_T key, VAL_T * value)                     
     NAME ## _pair_t * found = NULL;                                             \
     NAME ## _pair_t search = { .key = key };                                    \
     int rc = NAME ## _pair_set_remove(&map->pair_set, &search, &found);         \
-    if (rc < 0)                                                   \
+    if (rc < 0)                                                                 \
         return ERR_MAP_NOT_FOUND;                                               \
     if (value)                                                                  \
         *value = found->value;                                                  \
     NAME ## _pair_free(found);                                                  \
-    return 0;                                                     \
+    return 0;                                                                   \
 }                                                                               \
                                                                                 \
 int                                                                             \
@@ -159,11 +181,11 @@ NAME ## _get(NAME ## _t * map, KEY_T key, VAL_T * value)                        
 {                                                                               \
     NAME ## _pair_t * found = NULL, search = { .key = key };                    \
     int rc = NAME ## _pair_set_get(&map->pair_set, &search, &found);            \
-    if (rc < 0)                                                   \
-        return -1;                                                 \
+    if (rc < 0)                                                                 \
+        return -1;                                                              \
     if (found)                                                                  \
         *value = found->value;                                                  \
-    return 0;                                                     \
+    return 0;                                                                   \
 }                                                                               \
                                                                                 \
 void                                                                            \
@@ -176,18 +198,18 @@ NAME ## _get_key_array(NAME ## _t * map, KEY_T **array) {                       
     NAME ## _pair_t ** pair_array;                                              \
     int n = NAME ## _pair_set_get_array(&map->pair_set, &pair_array);           \
     if (n < 0)                                                                  \
-        return -1;                                                 \
+        return -1;                                                              \
     /* Allocate result array */                                                 \
-    array = malloc(n * sizeof(KEY_T));                                          \
+    *array = malloc(n * sizeof(KEY_T));                                         \
     if (!array) {                                                               \
         free(pair_array);                                                       \
-        return -1;                                                 \
+        return -1;                                                              \
     }                                                                           \
     /* Copy keys */                                                             \
     for (int i = 0; i < n; i++)                                                 \
-        array[i] = &pair_array[i]->key;                                         \
+        (*array)[i] = pair_array[i]->key;                                       \
     free(pair_array);                                                           \
-    return 0;                                                     \
+    return 0;                                                                   \
 }                                                                               \
                                                                                 \
 int                                                                             \
@@ -195,18 +217,18 @@ NAME ## _get_value_array(NAME ## _t * map, VAL_T **array) {                     
     NAME ## _pair_t ** pair_array;                                              \
     int n = NAME ## _pair_set_get_array(&map->pair_set, &pair_array);           \
     if (n < 0)                                                                  \
-        return -1;                                                 \
+        return -1;                                                              \
     /* Allocate result array */                                                 \
-    array = malloc(n * sizeof(VAL_T));                                          \
+    *array = malloc(n * sizeof(VAL_T));                                         \
     if (!array) {                                                               \
         free(pair_array);                                                       \
-        return -1;                                                 \
+        return -1;                                                              \
     }                                                                           \
     /* Copy values */                                                           \
     for (int i = 0; i < n; i++)                                                 \
-        array[i] = &pair_array[i]->value;                                       \
+        (*array)[i] = pair_array[i]->value;                                     \
     free(pair_array);                                                           \
-    return 0;                                                     \
+    return 0;                                                                   \
 }
 
 #endif /* UTIL_MAP_H */

@@ -18,10 +18,12 @@
  * \brief Implementation of interface base class.
  */
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include "facelet.h"
 #include "interface.h"
+#include <hicn/facemgr/loop.h> /* *_callback_data_t */
 #include "util/map.h"
 
 TYPEDEF_MAP_H(interface_ops_map, const char *, const interface_ops_t *);
@@ -39,6 +41,28 @@ interface_register(const interface_ops_t * ops)
     }
     interface_ops_map_add(interface_ops_map, ops->type, ops);
     return 0;
+}
+
+int
+interface_unregister_all()
+{
+    int ret = 0;
+    const char ** ops_name_array = NULL;
+    int n = interface_ops_map_get_key_array(interface_ops_map, &ops_name_array);
+    if (n < 0) {
+        ERROR("[interface_unregister_all] Could not get interface ops array");
+        ret = -1;
+    } else {
+        for (unsigned i = 0; i < n; i++) {
+            const char * ops_name = ops_name_array[i];
+            if (interface_ops_map_remove(interface_ops_map, ops_name, NULL) < 0) {
+                ERROR("[interface_unregister_all] Could not remove %s from interface ops map", ops_name);
+                ret = -1;
+            }
+        }
+        free(ops_name_array);
+    }
+    return ret;
 }
 
 interface_t *
@@ -60,7 +84,7 @@ interface_create(const char * name, const char * type)
     /* this should use type */
     interface->ops = ops;
     interface->callback = NULL;
-    interface->callback_data = NULL;
+    interface->callback_owner = NULL;
     interface->data = NULL;
 
     return interface;
@@ -74,10 +98,11 @@ interface_free(interface_t * interface)
 }
 
 void
-_interface_set_callback(interface_t * interface, callback_t callback, void * callback_data)
+interface_set_callback(interface_t * interface, void * callback_owner,
+        interface_cb_t callback)
 {
     interface->callback = callback;
-    interface->callback_data = callback_data;
+    interface->callback_owner = callback_owner;
 }
 
 int
@@ -102,4 +127,60 @@ interface_on_event(interface_t * interface, const facelet_t * facelet)
     if (!interface->ops->on_event)
         return -1;
     return interface->ops->on_event(interface, facelet);
+}
+
+int
+interface_raise_event(interface_t * interface, facelet_t * facelet)
+{
+    assert(interface->callback);
+    return interface->callback(interface->callback_owner,
+            INTERFACE_CB_TYPE_RAISE_EVENT, facelet);
+}
+
+int
+interface_register_fd(interface_t * interface, int fd, void * data)
+{
+    assert(interface->callback);
+    fd_callback_data_t fd_callback = {
+        .fd = fd,
+        .owner = interface,
+        .callback = (fd_callback_t)interface->ops->callback,
+        .data = data,
+    };
+    return interface->callback(interface->callback_owner,
+            INTERFACE_CB_TYPE_REGISTER_FD, &fd_callback);
+}
+
+int
+interface_unregister_fd(interface_t * interface, int fd)
+{
+    assert(interface->callback);
+    return interface->callback(interface->callback_owner,
+            INTERFACE_CB_TYPE_UNREGISTER_FD, &fd);
+}
+
+typedef int (*interface_fd_callback_t)(interface_t * interface, int fd, void * unused);
+
+int
+interface_register_timer(interface_t * interface, unsigned delay_ms,
+        interface_fd_callback_t callback, void * data)
+{
+    assert(interface->callback);
+    timer_callback_data_t timer_callback = {
+        .delay_ms = delay_ms,
+        .owner = interface,
+        .callback = (fd_callback_t)callback,
+        .data = data,
+    };
+    int rc = interface->callback(interface->callback_owner,
+            INTERFACE_CB_TYPE_REGISTER_TIMER, &timer_callback);
+    return rc;
+}
+
+int
+interface_unregister_timer(interface_t * interface, int fd)
+{
+    assert(interface->callback);
+    return interface->callback(interface->callback_owner,
+            INTERFACE_CB_TYPE_UNREGISTER_TIMER, &fd);
 }
