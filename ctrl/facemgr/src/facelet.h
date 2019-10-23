@@ -152,12 +152,12 @@ bool facelet_match(const facelet_t * facelet, const facelet_t * facelet_match);
  */
 bool facelet_has_key(const facelet_t * facelet);
 
-
 #define FACELET_ACCESSORS_H(TYPE, NAME)                                         \
 bool facelet_has_ ## NAME(const facelet_t * facelet);                           \
 facelet_attr_status_t facelet_get_ ## NAME ## _status(const facelet_t * facelet);\
 int facelet_get_ ## NAME(const facelet_t * facelet, TYPE * NAME);               \
-int facelet_set_ ## NAME(facelet_t * facelet, TYPE NAME);
+int facelet_set_ ## NAME(facelet_t * facelet, TYPE NAME);                       \
+int facelet_unset_ ## NAME(facelet_t * facelet);
 
 #define _(TYPE, NAME) FACELET_ACCESSORS_H(TYPE, NAME)
 foreach_facelet_attr
@@ -175,6 +175,7 @@ int facelet_remove_pending(facelet_t * facelet);
 bool facelet_has_pending(const facelet_t * facelet);
 
 void facelet_set_bj_done(facelet_t * facelet);
+void facelet_unset_bj_done(facelet_t * facelet);
 bool facelet_is_bj_done(const facelet_t * facelet);
 void facelet_set_au_done(facelet_t * facelet);
 bool facelet_is_au_done(const facelet_t * facelet);
