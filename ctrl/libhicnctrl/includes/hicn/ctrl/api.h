@@ -43,7 +43,7 @@
  * | MAP-Me     |                     |                 |
  * +------------+---------------------+-----------------+---------------------------
  * | connection |  O   O   !   O   O  |      O   O   O  | state [-S]
- * | listener   |  O   O   !   -   O  |  O   O   O   O  |
+ * | listener   |  O   O   !   O   O  |  O   O   O   O  |
  * +------------+---------------------+-----------------+---------------------------
  *
  * LEGEND: [O] implemented, [!] in progress / TODO, [-] not supported

@@ -2048,13 +2048,64 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
 int
 hc_face_delete(hc_sock_t * s, hc_face_t * face)
 {
-    /* XXX We currently do not delete the listener */
     hc_connection_t connection;
     if (hc_face_to_connection(face, &connection, false) < 0) {
         ERROR("[hc_face_delete] Could not convert face to connection.");
         return -1;
     }
-    return hc_connection_delete(s, &connection);
+
+    if (hc_connection_delete(s, &connection) < 0) {
+        ERROR("[hc_face_delete] Error removing connection");
+        return -1;
+    }
+
+    /* If this is the last connection attached to the listener, remove it */
+
+    hc_data_t * connections;
+    hc_listener_t listener = {0};
+
+    /*
+     * Ensure we have a corresponding local listener
+     * NOTE: hc_face_to_listener is not appropriate
+     */
+    if (hc_connection_to_local_listener(&connection, &listener) < 0) {
+        ERROR("[hc_face_create] Could not convert face to local listener.");
+        return -1;
+    }
+#if 1
+    /*
+     * The name is generated to prepare listener creation, we need it to be
+     * empty for deletion. The id should not need to be reset though.
+     */
+    listener.id = 0;
+    memset(listener.name, 0, sizeof(listener.name));
+#endif
+    if (hc_connection_list(s, &connections) < 0) {
+        ERROR("[hc_face_delete] Error getting the list of listeners");
+        return -1;
+    }
+
+    bool delete = true;
+    foreach_connection(c, connections) {
+        if ((ip_address_cmp(&c->local_addr, &listener.local_addr, c->family) == 0) &&
+            (c->local_port == listener.local_port) &&
+                (strcmp(c->interface_name, listener.interface_name) == 0)) {
+            delete = false;
+        }
+    }
+
+    if (delete) {
+        if (hc_listener_delete(s, &listener) < 0) {
+            ERROR("[hc_face_delete] Error removing listener");
+            return -1;
+        }
+    }
+
+    hc_data_free(connections);
+
+    return 0;
+
+
 }
 
 /* FACE LIST */

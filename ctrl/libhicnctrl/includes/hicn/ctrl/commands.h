@@ -168,8 +168,8 @@ typedef struct {
   uint32_t connid;
   uint8_t state;
   uint8_t admin_state;
-  char connectionName[16];
   char interfaceName[16];
+  char connectionName[16];
 } list_connections_command;
 
 // SIZE=64
