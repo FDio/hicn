@@ -24,6 +24,7 @@ set(HEADER_FILES
     error.h
     facelet.h
     interface.h
+    loop.h
     util/hash.h
     util/map.h
     util/set.h
@@ -32,11 +33,26 @@ set(HEADER_FILES
 set(SOURCE_FILES
     api.c
     cfg.c
+    cfg_file.c
     error.c
     facelet.c
     interface.c
     util/log.c
 )
+
+if(APPLE)
+set(SOURCE_FILES
+    ${SOURCE_FILES}
+    loop_dispatcher.c
+)
+endif()
+
+if (LINUX)
+set(SOURCE_FILES
+    ${SOURCE_FILES}
+    loop_libevent.c
+)
+endif()
 
 set(INCLUDE_DIRS
     ./

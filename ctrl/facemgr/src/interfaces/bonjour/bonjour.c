@@ -107,7 +107,9 @@ int bj_initialize(interface_t * interface, void * cfg)
     WSAStartup(versionWanted, &wsaData);
 #endif
 
-    return data->sock;
+    interface_register_fd(interface, data->sock, NULL);
+
+    return 0;
 
 ERR_BUFFER:
 #ifndef __ANDROID__
@@ -268,7 +270,7 @@ callback(const struct sockaddr* from, mdns_entry_type_t entry, uint16_t type,
             //facelet_set_remote_port(facelet, ((struct sockaddr_in*)&addr)->sin_port);
 
             facelet_set_event(facelet, FACELET_EVENT_UPDATE);
-            facelet_raise_event(facelet, interface);
+            interface_raise_event(interface, facelet);
             break;
         }
 
@@ -291,7 +293,7 @@ callback(const struct sockaddr* from, mdns_entry_type_t entry, uint16_t type,
             //facelet_set_remote_port(facelet, ((struct sockaddr_in6*)&addr)->sin6_port);
 
             facelet_set_event(facelet, FACELET_EVENT_UPDATE);
-            facelet_raise_event(facelet, interface);
+            interface_raise_event(interface, facelet);
             break;
         }
 
@@ -317,7 +319,7 @@ callback(const struct sockaddr* from, mdns_entry_type_t entry, uint16_t type,
             facelet_set_remote_port(facelet, srv.port);
 
             facelet_set_event(facelet, FACELET_EVENT_UPDATE);
-            facelet_raise_event(facelet, interface);
+            interface_raise_event(interface, facelet);
 
             facelet = facelet_create();
             facelet_set_netdevice(facelet, bj_data->cfg.netdevice);
@@ -325,7 +327,7 @@ callback(const struct sockaddr* from, mdns_entry_type_t entry, uint16_t type,
             facelet_set_remote_port(facelet, srv.port);
 
             facelet_set_event(facelet, FACELET_EVENT_UPDATE);
-            facelet_raise_event(facelet, interface);
+            interface_raise_event(interface, facelet);
             break;
         }
 
@@ -374,7 +376,7 @@ callback(const struct sockaddr* from, mdns_entry_type_t entry, uint16_t type,
  * The fact we use a single fd does not allow us to get user_data associated to
  * the query.
  */
-int bj_callback(interface_t * interface)
+int bj_callback(interface_t * interface, int fd, void * unused)
 {
     bj_data_t * data = (bj_data_t*)interface->data;
     DEBUG("Got an mDNS reply");

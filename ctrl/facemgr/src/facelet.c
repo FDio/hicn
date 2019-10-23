@@ -80,7 +80,6 @@ struct facelet_s {
     /* Joins */
     bool bj_done;
     bool au_done;
-    int num_pending;
 };
 
 const char * facelet_event_str[] = {
@@ -111,7 +110,6 @@ facelet_create()
 
     facelet->bj_done = false;
     facelet->au_done = false;
-    facelet->num_pending = 0;
 
     facelet->event = FACELET_EVENT_UNDEFINED;
 
@@ -305,7 +303,6 @@ facelet_create_from_face(face_t * face)
 
     facelet->bj_done = false;
     facelet->au_done = false;
-    facelet->num_pending = 0;
 
     facelet->event = FACELET_EVENT_UNDEFINED;
 
@@ -343,7 +340,6 @@ facelet_dup(const facelet_t * current_facelet)
 
     facelet->bj_done = current_facelet->bj_done;
     facelet->au_done = current_facelet->au_done;
-    facelet->num_pending = current_facelet->num_pending;
 
     return facelet;
 
@@ -752,32 +748,6 @@ facelet_set_status(facelet_t * facelet, facelet_status_t status)
     facelet->status = status;
 }
 
-int
-facelet_add_pending(facelet_t * facelet)
-{
-    assert(facelet);
-    facelet->num_pending++;
-    return 0;
-}
-
-int
-facelet_remove_pending(facelet_t * facelet)
-{
-    assert(facelet);
-    if (facelet->num_pending == 0)
-        return -1;
-    facelet->num_pending--;
-    return 0;
-}
-
-bool
-facelet_has_pending(const facelet_t * facelet)
-{
-    assert(facelet);
-    DEBUG("num pending=%d\n", facelet->num_pending);
-    return (facelet->num_pending > 0);
-}
-
 void
 facelet_set_bj_done(facelet_t * facelet)
 {
@@ -789,7 +759,6 @@ facelet_unset_bj_done(facelet_t * facelet)
 {
     facelet->bj_done = false;
 }
-
 
 bool
 facelet_is_bj_done(const facelet_t * facelet)
@@ -822,14 +791,6 @@ facelet_set_event(facelet_t * facelet, facelet_event_t event)
 }
 
 int
-facelet_raise_event(facelet_t * facelet, const interface_t * interface)
-{
-    if (interface->callback)
-        interface->callback(interface->callback_data, facelet);
-    return 0;
-}
-
-int
 facelet_snprintf(char * s, size_t size, facelet_t * facelet)
 {
     char * cur = s;
@@ -838,14 +799,13 @@ facelet_snprintf(char * s, size_t size, facelet_t * facelet)
     assert(facelet);
 
     /* Header + key attributes (netdevice + family) */
-    rc = snprintf(cur, s + size - cur, "<Facelet %s (%s) [%d]",
+    rc = snprintf(cur, s + size - cur, "<Facelet %s (%s)",
             // FIXME, better than the event would be the action to be performed next
             facelet_event_str[facelet->event],
             (facelet->family == AF_INET) ? "AF_INET" :
             (facelet->family == AF_INET6) ? "AF_INET6" :
             (facelet->family == AF_UNSPEC) ? "AF_UNSPEC" :
-            "unknown",
-            facelet->num_pending);
+            "unknown");
     if (rc < 0)
         return rc;
     cur += rc;
@@ -1000,7 +960,7 @@ HEURISTIC_END:
     }
 
     if (facelet_has_face_type(facelet)) {
-        rc = snprintf(cur, s + size - cur, " face_type=IP%s/%s",
+        rc = snprintf(cur, s + size - cur, " face_type=LAYER%s/%s",
             FACEMGR_FACE_TYPE_STR(facelet->face_type));
         if (rc < 0)
             return rc;

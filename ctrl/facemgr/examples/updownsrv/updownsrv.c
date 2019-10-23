@@ -112,6 +112,12 @@ int main() {
     fd = create_unix_server(UNIX_PATH);
     if (fd < 0)
         exit(EXIT_FAILURE);
+
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
+        perror("fcntl");
+        exit(EXIT_FAILURE);
+    }
+
     FD_SET (fd, &active_fd_set);
 
     /* Create timer */
@@ -121,7 +127,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
+    if (fcntl(tfd, F_SETFL, O_NONBLOCK) < 0) {
         perror("fcntl");
         exit(EXIT_FAILURE);
     }
