@@ -66,10 +66,11 @@ Build dependencies:
 
 - VPP 19.08
   - DEB packages (can be found https://packagecloud.io/fdio/release/install):
+  - vpp
   - libvppinfra-dev
   - vpp-dev
 
-Running dependencies:
+Runtime dependencies:
 
 - VPP 19.08
   - DEB packages (can be found https://packagecloud.io/fdio/release/install):
