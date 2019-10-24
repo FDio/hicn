@@ -21,8 +21,8 @@ Environment=LOG_FILE=/tmp/hicn_light.log
 Environment=CS_SIZE=1000
 Environment=CONFIG=/etc/hicn/hicn_light.conf
 # This will overrride the default environment
-EnvironmentFile=-/etc/default/source
-ExecStart=/usr/bin/hicnLightDaemon --port ${PORT} --log-file ${LOG_FILE} --capacity ${CS_SIZE} --config ${CONFIG}
+EnvironmentFile=-/etc/default/hicn-light
+ExecStart=/usr/bin/hicn-light --port ${PORT} --log-file ${LOG_FILE} --capacity ${CS_SIZE} --config ${CONFIG}
 Restart=on-failure
 
 [Install]
