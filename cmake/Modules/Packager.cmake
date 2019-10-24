@@ -183,6 +183,10 @@ macro(make_packages)
         if (NOT ${${lc}_RPM_POST_UNINSTALL_SCRIPT_FILE} STREQUAL "")
           set(CPACK_RPM_${uc}_POST_UNINSTALL_SCRIPT_FILE "${${lc}_RPM_POST_UNINSTALL_SCRIPT_FILE}")
         endif()
+
+        if (NOT ${${lc}_RPM_PRE_UNINSTALL_SCRIPT_FILE} STREQUAL "")
+          set(CPACK_RPM_${uc}_PRE_UNINSTALL_SCRIPT_FILE "${${lc}_RPM_PRE_UNINSTALL_SCRIPT_FILE}")
+        endif()
       endforeach()
     endif()
 
