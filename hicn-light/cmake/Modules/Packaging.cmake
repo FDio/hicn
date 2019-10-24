@@ -25,7 +25,22 @@ set(${HICN_LIGHT}_DEB_DEPENDENCIES
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
+set(${HICN_LIGHT}_DEB_PACKAGE_CONTROL_EXTRA
+  "${CMAKE_CURRENT_SOURCE_DIR}/config/postinst;${CMAKE_CURRENT_SOURCE_DIR}/config/postrm"
+  CACHE STRING "Control scripts conffiles, postinst, postrm, prerm."
+)
+
 set(${HICN_LIGHT}_RPM_DEPENDENCIES
   "lib${LIBHICN} >= stable_version, libparc >= 1.0"
   CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(${HICN_LIGHT}_RPM_POST_INSTALL_SCRIPT_FILE
+  "${CMAKE_CURRENT_SOURCE_DIR}/config/post"
+  CACHE STRING "Install script that will be copied in the %post section"
+)
+
+set(${HICN_LIGHT}_RPM_POST_UNINSTALL_SCRIPT_FILE
+  "${CMAKE_CURRENT_SOURCE_DIR}/config/postun"
+  CACHE STRING "Install script that will be copied in the %post section"
 )
