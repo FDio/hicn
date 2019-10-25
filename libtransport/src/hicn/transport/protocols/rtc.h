@@ -123,6 +123,7 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   // packet functions
   void sendInterest(Name *interest_name, bool rtx);
   void scheduleNextInterests() override;
+  void sentinelTimer();
   void addRetransmissions(uint32_t val);
   void addRetransmissions(uint32_t start, uint32_t stop);
   uint64_t retransmit();
@@ -163,6 +164,17 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   uint64_t lastReceivedTime_; //time at which we recevied the
                               //lastReceived_ packet
 
+  //sentinel
+  //if all packets in the window get lost we need something that
+  //wakes up our consumer socket. Interest timeouts set to 1 sec
+  //expire too late. This timers expire much sooner and if it
+  //detects that all the interest in the window may be lost
+  //it sends all of them again
+  std::unique_ptr<asio::steady_timer> sentinel_timer_;
+  uint64_t lastEvent_; //time at which we removed a pending
+                      //interest from the window
+  std::unordered_map<uint32_t, uint8_t> packets_in_window_;
+
   //rtt probes
   //the RTC transport tends to overestimate the RTT
   //du to the production time on the server side
@@ -188,6 +200,7 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   double avgPacketSize_;
   bool gotNack_;
   uint32_t gotFutureNack_;
+  uint32_t rounds_;
   uint32_t roundsWithoutNacks_;
 
   //we keep track of up two paths (if only one path is in use
