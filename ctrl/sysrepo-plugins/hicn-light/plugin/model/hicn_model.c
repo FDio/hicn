@@ -34,6 +34,7 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
 
   SRP_LOG_DBG_MSG("hicn face ip add received successfully");
 
+  
   hc_face_t face;
 
   if(strcmp(input[0].data.string_val,"-1")){
@@ -41,16 +42,16 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
   struct sockaddr_in sa;
   // store this IP address in sa:
   inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
-  face.face.hicn.family=AF_INET;
-  face.face.hicn.local_addr.v4.as_inaddr=sa.sin_addr;
+  face.face.family=AF_INET;
+  face.face.local_addr.v4.as_inaddr=sa.sin_addr;
 
 
   }else if(strcmp(input[1].data.string_val,"-1")){
 
     struct in6_addr *dst = malloc(sizeof(struct in6_addr));
     inet_pton(AF_INET6, input[1].data.string_val, dst);
-    face.face.hicn.family=AF_INET6;
-    face.face.hicn.local_addr.v6.as_in6addr = *dst;
+    face.face.family=AF_INET6;
+    face.face.local_addr.v6.as_in6addr = *dst;
 
   }else{
       SRP_LOG_DBG_MSG("Invalid local IP address");
@@ -62,16 +63,16 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
   struct sockaddr_in sa;
   // store this IP address in sa:
   inet_pton(AF_INET,  input[2].data.string_val, &(sa.sin_addr));
-  face.face.hicn.family=AF_INET;
-  face.face.hicn.remote_addr.v4.as_inaddr=sa.sin_addr;
+  face.face.family=AF_INET;
+  face.face.remote_addr.v4.as_inaddr=sa.sin_addr;
 
 
   }else if(strcmp(input[3].data.string_val,"-1")){
 
     struct in6_addr *dst = malloc(sizeof(struct in6_addr));
     inet_pton(AF_INET6, input[3].data.string_val, dst);
-    face.face.hicn.family=AF_INET6;
-    face.face.hicn.remote_addr.v6.as_in6addr = *dst;
+    face.face.family=AF_INET6;
+    face.face.remote_addr.v6.as_in6addr = *dst;
 
   }else{
       SRP_LOG_DBG_MSG("Invalid local IP address");
@@ -80,11 +81,10 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
 
 
   // strncpy(face.face.hicn.netdevice.name,"ens39"); // Can we work only with Idx number ?
-  face.face.hicn.netdevice.index = input[4].data.uint32_val;  // This is the idx number of interface
+  face.face.netdevice.index = input[4].data.uint32_val;  // This is the idx number of interface
 
 
   face.id=0;//can be empty
-  face.face.tags=0;//can be empty
   strcpy(face.name,"hicn_face");
   face.face.type=1;
 
@@ -96,7 +96,9 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
   }
 
   SRP_LOG_DBG_MSG("Operation Failed");
+  
   return SR_ERR_OPERATION_FAILED;
+  
 }
 
 /**
