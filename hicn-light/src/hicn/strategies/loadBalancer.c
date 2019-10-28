@@ -323,6 +323,10 @@ static void _strategyLoadBalancer_RemoveNexthop(StrategyImpl *strategy,
   PARCUnsigned *cid = parcUnsigned_Create(connectionId);
 
   if (parcHashMap_Contains(lb->strategy_state, cid)) {
+    StrategyNexthopState *state =
+        (StrategyNexthopState *)parcHashMap_Get(lb->strategy_state, cid);
+    parcObject_Release((void**)&state);
+
     parcHashMap_Remove(lb->strategy_state, cid);
 #ifndef WITH_POLICY
     numberSet_Remove(lb->nexthops, connectionId);
@@ -340,6 +344,15 @@ static void _strategyLoadBalancer_ImplDestroy(StrategyImpl **strategyPtr) {
 
   StrategyImpl *impl = *strategyPtr;
   StrategyLoadBalancer *strategy = (StrategyLoadBalancer *)impl->context;
+
+  PARCIterator *it = parcHashMap_CreateKeyIterator(strategy->strategy_state);
+  while (parcIterator_HasNext(it)) {
+    PARCUnsigned *cid = parcIterator_Next(it);
+    StrategyNexthopState *state =
+        (StrategyNexthopState *)parcHashMap_Get(strategy->strategy_state, cid);
+    parcObject_Release((void**)&state);
+  }
+  parcIterator_Release(&it);
 
   parcHashMap_Release(&(strategy->strategy_state));
 #ifndef WITH_POLICY

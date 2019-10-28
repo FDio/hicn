@@ -598,6 +598,7 @@ static void _conn_readcb(PARCEventQueue *event, PARCEventType type,
       // If received correctly the whole message, send to dispatcher
       if (message) {
         forwarder_ReceiveCommand(stream->forwarder, command, rx, stream->id);
+        parcMemory_Deallocate((void **)&rx);
         parcEventBuffer_Destroy(&message);
       }
 

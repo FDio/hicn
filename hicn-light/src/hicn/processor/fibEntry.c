@@ -42,7 +42,7 @@
 #include <hicn/policy.h>
 
 #ifdef WITH_MAPME
-#include <hicn/core/mapMe.h>
+#include <hicn/core/mapme.h>
 #endif /* WITH_MAPME */
 
 #define ALPHA 0.5
@@ -149,6 +149,9 @@ void fibEntry_Release(FibEntry **fibEntryPtr) {
       fibEntry->userDataRelease(&fibEntry->userData);
     }
 #endif /* WITH_MAPME */
+#ifdef WITH_POLICY
+  numberSet_Release(&fibEntry->nexthops);
+#endif /* WITH_POLICY */
     parcMemory_Deallocate((void **)&fibEntry);
   }
   *fibEntryPtr = NULL;
@@ -467,7 +470,7 @@ void fibEntry_ReconsiderPolicy(FibEntry *fibEntry) {
     fibEntry->previous_nexthop = nexthop;
     ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
     const Connection * conn = connectionTable_FindById(table, nexthop);
-    mapMe_onPolicyUpdate(forwarder_getMapmeInstance(fibEntry->forwarder), conn, fibEntry);
+    mapme_onPolicyUpdate(forwarder_getMapmeInstance(fibEntry->forwarder), conn, fibEntry);
   }
 
 END:
