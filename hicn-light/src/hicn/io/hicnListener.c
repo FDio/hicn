@@ -31,7 +31,7 @@
 #include <parc/algol/parc_Memory.h>
 #include <parc/algol/parc_Network.h>
 #include <parc/assert/parc_Assert.h>
-#include <hicn/core/mapMe.h>
+#include <hicn/core/mapme.h>
 #include <hicn/core/messagePacketType.h>
 #include <hicn/io/listener.h>
 #include <hicn/socket/api.h>

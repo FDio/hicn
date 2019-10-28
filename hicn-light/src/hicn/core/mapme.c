@@ -14,14 +14,14 @@
  */
 
 /**
- * @file mapMe.c
+ * @file mapme.c
  * @brief MAP-Me : AnchorLess Producer Mobility Management.
  */
 
 #ifdef WITH_MAPME
 
 #include <hicn/hicn.h>
-#include <hicn/core/mapMe.h>
+#include <hicn/core/mapme.h>
 #include <stdio.h>  // printf
 
 #include <hicn/core/connection.h>
@@ -88,7 +88,7 @@ static MapMe MapMeDefault = {.retx = MAPME_DEFAULT_RETX,
 
 /******************************************************************************/
 
-bool mapMe_Init(MapMe **mapme, Forwarder *forwarder) {
+bool mapme_create(MapMe **mapme, Forwarder *forwarder) {
   *mapme = malloc(sizeof(MapMe));
   if (!mapme) goto ERR_MALLOC;
 
@@ -108,6 +108,11 @@ ERR_MALLOC:
   return false;
 }
 
+void mapme_free(MapMe *mapme)
+{
+    free(mapme);
+}
+
 /******************************************************************************
  * TFIB
  ******************************************************************************/
@@ -122,7 +127,7 @@ typedef struct {
   Ticks lastAckedUpdate;
 } MapMeTFIB;
 
-static MapMeTFIB *mapMeTFIB_Create() {
+static MapMeTFIB *mapmeTFIB_Create() {
   MapMeTFIB *tfib;
   tfib = malloc(sizeof(MapMeTFIB));
   if (!tfib) goto ERR_MALLOC;
@@ -139,7 +144,7 @@ ERR_MALLOC:
   return NULL;
 }
 
-void mapMeTFIB_Release(MapMeTFIB **tfibPtr) {
+void mapmeTFIB_Release(MapMeTFIB **tfibPtr) {
   MapMeTFIB *tfib = *tfibPtr;
   parcHashMap_Release(&tfib->nexthops);
   free(tfib);
@@ -147,25 +152,25 @@ void mapMeTFIB_Release(MapMeTFIB **tfibPtr) {
 }
 
 /**
- * @function mapMe_CreateTFIB
+ * @function mapme_CreateTFIB
  * @abstract Associate a new TFIB entry to a FIB entry.
  * @param [in] - Pointer to the FIB entry.
  * @return Boolean indicating the success of the operation.
  */
-static void mapMe_CreateTFIB(FibEntry *fibEntry) {
+static void mapme_CreateTFIB(FibEntry *fibEntry) {
   MapMeTFIB *tfib;
 
   /* Make sure we don't already have an associated TFIB entry */
   tfib = fibEntry_getUserData(fibEntry);
   // assertNull(tfib);
 
-  tfib = mapMeTFIB_Create();
-  fibEntry_setUserData(fibEntry, tfib, (void (*)(void **))mapMeTFIB_Release);
+  tfib = mapmeTFIB_Create();
+  fibEntry_setUserData(fibEntry, tfib, (void (*)(void **))mapmeTFIB_Release);
 }
 
 #define TFIB(fibEntry) ((MapMeTFIB *)fibEntry_getUserData(fibEntry))
 
-static const PARCEventTimer *mapMeTFIB_Get(const MapMeTFIB *tfib,
+static const PARCEventTimer *mapmeTFIB_Get(const MapMeTFIB *tfib,
                                            unsigned conn_id) {
   const PARCEventTimer *timer;
   const PARCBuffer *buffer;
@@ -178,7 +183,7 @@ static const PARCEventTimer *mapMeTFIB_Get(const MapMeTFIB *tfib,
   return timer;
 }
 
-static void mapMeTFIB_Put(MapMeTFIB *tfib, unsigned conn_id,
+static void mapmeTFIB_Put(MapMeTFIB *tfib, unsigned conn_id,
                           const PARCEventTimer *timer) {
   /* NOTE: Timers are not objects (the only class not being an object in
    * fact), and as such, we cannot use them as values for the HashMap.
@@ -194,14 +199,14 @@ static void mapMeTFIB_Put(MapMeTFIB *tfib, unsigned conn_id,
   parcBuffer_Release(&buffer);
 }
 
-static void mapMeTFIB_Remove(MapMeTFIB *tfib, unsigned conn_id) {
+static void mapmeTFIB_Remove(MapMeTFIB *tfib, unsigned conn_id) {
   // Who releases the timer ?
   PARCUnsigned *cid = parcUnsigned_Create(conn_id);
   parcHashMap_Remove(tfib->nexthops, cid);
   parcUnsigned_Release(&cid);
 }
 
-static PARCIterator *mapMeTFIB_CreateKeyIterator(const MapMeTFIB *tfib) {
+static PARCIterator *mapmeTFIB_CreateKeyIterator(const MapMeTFIB *tfib) {
   return parcHashMap_CreateKeyIterator(tfib->nexthops);
 }
 
@@ -214,7 +219,7 @@ int hicn_prefix_from_name(const Name *name, hicn_prefix_t *prefix) {
   return hicn_prefix_create_from_ip_prefix(&ip_prefix, prefix);
 }
 
-static Message *mapMe_createMessage(const MapMe *mapme, const Name *name,
+static Message *mapme_createMessage(const MapMe *mapme, const Name *name,
                                     mapme_params_t *params) {
   Ticks now = forwarder_GetTicks(mapme->forwarder);
   Logger *logger = logger_Acquire(forwarder_GetLogger(mapme->forwarder));
@@ -250,7 +255,7 @@ ERR_NAME:
   return NULL;
 }
 
-static Message *mapMe_createAckMessage(const MapMe *mapme,
+static Message *mapme_createAckMessage(const MapMe *mapme,
                                        const uint8_t *msgBuffer,
                                        const mapme_params_t *params) {
   Ticks now = forwarder_GetTicks(mapme->forwarder);
@@ -281,11 +286,11 @@ struct setFacePendingArgs {
   uint32_t num_retx;
 };
 
-static bool mapMe_setFacePending(const MapMe *mapme, const Name *name,
+static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
                                  FibEntry *fibEntry, unsigned conn_id,
                                  bool send, bool is_first, uint32_t num_retx);
 
-static void mapMe_setFacePendingCallback(int fd, PARCEventType which_event,
+static void mapme_setFacePendingCallback(int fd, PARCEventType which_event,
                                          void *data) {
   struct setFacePendingArgs *args = (struct setFacePendingArgs *)data;
 
@@ -294,7 +299,7 @@ static void mapMe_setFacePendingCallback(int fd, PARCEventType which_event,
                  PARCEventType_Timeout, which_event);
 
   INFO(args->mapme, "Timeout during retransmission. Re-sending");
-  mapMe_setFacePending(args->mapme, args->name, args->fibEntry, args->conn_id,
+  mapme_setFacePending(args->mapme, args->name, args->fibEntry, args->conn_id,
                        args->send, args->is_first, args->num_retx);
 }
 
@@ -304,7 +309,7 @@ static void mapMe_setFacePendingCallback(int fd, PARCEventType which_event,
  * NOTE: IN are currently disabled until the proper placeholder is agreed in the
  * interest header.
  */
-static hicn_mapme_type_t mapMe_getTypeFromHeuristic(const MapMe *mapme,
+static hicn_mapme_type_t mapme_getTypeFromHeuristic(const MapMe *mapme,
                                                     FibEntry *fibEntry) {
 #if 0 /* interplay of IU/IN */
     if (TFIB(fibEntry)->lastAckedUpdate == 0) {
@@ -318,7 +323,7 @@ static hicn_mapme_type_t mapMe_getTypeFromHeuristic(const MapMe *mapme,
 #endif
 }
 
-static bool mapMe_setFacePending(const MapMe *mapme, const Name *name,
+static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
                                  FibEntry *fibEntry, unsigned conn_id,
                                  bool send, bool is_first, uint32_t num_retx) {
   int rc;
@@ -339,9 +344,9 @@ static bool mapMe_setFacePending(const MapMe *mapme, const Name *name,
   if (is_first || send) {
     mapme_params_t params = {
         .protocol = IPPROTO_IPV6,
-        .type = is_first ? mapMe_getTypeFromHeuristic(mapme, fibEntry) : UPDATE,
+        .type = is_first ? mapme_getTypeFromHeuristic(mapme, fibEntry) : UPDATE,
         .seq = TFIB(fibEntry)->seq};
-    Message *special_interest = mapMe_createMessage(mapme, name, &params);
+    Message *special_interest = mapme_createMessage(mapme, name, &params);
     if (!special_interest) {
       INFO(mapme, "[MAP-Me] Could not create special interest");
       return false;
@@ -377,7 +382,7 @@ static bool mapMe_setFacePending(const MapMe *mapme, const Name *name,
       args->num_retx = num_retx + 1;
 
       timer = dispatcher_CreateTimer(dispatcher, TIMER_NO_REPEAT,
-                                     mapMe_setFacePendingCallback, args);
+                                     mapme_setFacePendingCallback, args);
       struct timeval timeout = {mapme->retx / 1000,
                                 (mapme->retx % 1000) * 1000};
       rc = parcEventTimer_Start(timer, &timeout);
@@ -392,13 +397,13 @@ static bool mapMe_setFacePending(const MapMe *mapme, const Name *name,
   }
 
   PARCEventTimer *oldTimer =
-      (PARCEventTimer *)mapMeTFIB_Get(TFIB(fibEntry), conn_id);
+      (PARCEventTimer *)mapmeTFIB_Get(TFIB(fibEntry), conn_id);
   if (oldTimer) {
     INFO(mapme, "[MAP-Me]   - Found old timer, would need to cancel !");
     // parcEventTimer_Stop(oldTimer);
   }
   INFO(mapme, "[MAP-Me]   - Putting new timer in TFIB");
-  if (timer) mapMeTFIB_Put(TFIB(fibEntry), conn_id, timer);
+  if (timer) mapmeTFIB_Put(TFIB(fibEntry), conn_id, timer);
 
   return true;
 
@@ -414,7 +419,7 @@ ERR_TIMER:
 /*
  * Return true if we have at least one local connection as next hop
  */
-static bool mapMe_hasLocalNextHops(const MapMe *mapme,
+static bool mapme_hasLocalNextHops(const MapMe *mapme,
                                    const FibEntry *fibEntry) {
   const NumberSet *nexthops = fibEntry_GetNexthops(fibEntry);
   const ConnectionTable *table = forwarder_GetConnectionTable(mapme->forwarder);
@@ -438,7 +443,7 @@ static bool mapMe_hasLocalNextHops(const MapMe *mapme,
 /*
  * Callback called everytime a new connection is created by the control protocol
  */
-void mapMe_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, connection_event_t event) {
+void mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, connection_event_t event) {
   switch(event) {
     case CONNECTION_EVENT_CREATE:
     case CONNECTION_EVENT_SET_UP:
@@ -462,13 +467,13 @@ void mapMe_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, c
         const Name *name = fibEntry_GetPrefix(fibEntry);
 
         /* Skip entries that have no local connection as next hop */
-        if (!mapMe_hasLocalNextHops(mapme, fibEntry))
+        if (!mapme_hasLocalNextHops(mapme, fibEntry))
             continue;
 
         /* This entry corresponds to a locally served prefix, set
          * Special Interest */
         if (!TFIB(fibEntry)) /* Create TFIB associated to FIB entry */
-          mapMe_CreateTFIB(fibEntry);
+          mapme_CreateTFIB(fibEntry);
         TFIB(fibEntry)->seq++;
 
         char *name_str = name_ToString(name);
@@ -476,7 +481,7 @@ void mapMe_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, c
              conn_added_id);
         free(name_str);
 
-        mapMe_setFacePending(mapme, name, fibEntry, conn_added_id, true, true, 0);
+        mapme_setFacePending(mapme, name, fibEntry, conn_added_id, true, true, 0);
       }
       break;
     }
@@ -488,7 +493,7 @@ void mapMe_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, c
 }
 
 #ifdef WITH_POLICY
-void mapMe_onPolicyUpdate(const MapMe *mapme, const Connection *conn_selected, FibEntry * fibEntry)
+void mapme_onPolicyUpdate(const MapMe *mapme, const Connection *conn_selected, FibEntry * fibEntry)
 {
   /* Ignore local connections corresponding to applications for now */
   if (connection_IsLocal(conn_selected))
@@ -500,13 +505,13 @@ void mapMe_onPolicyUpdate(const MapMe *mapme, const Connection *conn_selected, F
   const Name *name = fibEntry_GetPrefix(fibEntry);
 
   /* Skip entries that have no local connection as next hop */
-  if (!mapMe_hasLocalNextHops(mapme, fibEntry))
+  if (!mapme_hasLocalNextHops(mapme, fibEntry))
       return;
 
   /* This entry corresponds to a locally served prefix, set
    * Special Interest */
   if (!TFIB(fibEntry)) /* Create TFIB associated to FIB entry */
-    mapMe_CreateTFIB(fibEntry);
+    mapme_CreateTFIB(fibEntry);
   TFIB(fibEntry)->seq++;
 
   char *name_str = name_ToString(name);
@@ -514,7 +519,7 @@ void mapMe_onPolicyUpdate(const MapMe *mapme, const Connection *conn_selected, F
        conn_selected_id);
   free(name_str);
 
-  mapMe_setFacePending(mapme, name, fibEntry, conn_selected_id, true, true, 0);
+  mapme_setFacePending(mapme, name, fibEntry, conn_selected_id, true, true, 0);
 }
 #endif /* WITH_POLICY */
 
@@ -525,7 +530,7 @@ void mapMe_onPolicyUpdate(const MapMe *mapme, const Connection *conn_selected, F
 /**
  * @discussion This function is way too long and should be cut out
  */
-static bool mapMe_onSpecialInterest(const MapMe *mapme,
+static bool mapme_onSpecialInterest(const MapMe *mapme,
                                     const uint8_t *msgBuffer,
                                     unsigned conn_in_id, hicn_prefix_t *prefix,
                                     mapme_params_t *params) {
@@ -551,7 +556,7 @@ static bool mapMe_onSpecialInterest(const MapMe *mapme,
    * Immediately send an acknowledgement back on the ingress connection
    * We always ack, even duplicates.
    */
-  Message *ack = mapMe_createAckMessage(mapme, msgBuffer, params);
+  Message *ack = mapme_createAckMessage(mapme, msgBuffer, params);
   if (!ack) goto ERR_ACK_CREATE;
   rv = connection_ReSend(conn_in, ack, NOT_A_NOTIFICATION);
   if (!rv) goto ERR_ACK_SEND;
@@ -584,7 +589,7 @@ static bool mapMe_onSpecialInterest(const MapMe *mapme,
     fibEntry = fibEntry_Create(name, fwdStrategy);
 #endif /* WITH_POLICY */
     FibEntry *lpm = fib_MatchName(fib, name);
-    mapMe_CreateTFIB(fibEntry);
+    mapme_CreateTFIB(fibEntry);
     fib_Add(fib, fibEntry);
     if (!lpm) {
       TFIB(fibEntry)->seq = seq;
@@ -606,7 +611,7 @@ static bool mapMe_onSpecialInterest(const MapMe *mapme,
     /* Create TFIB associated to FIB entry */
     INFO(mapme,
          "[MAP-Me]   - Creating TFIB entry with default sequence number");
-    mapMe_CreateTFIB(fibEntry);
+    mapme_CreateTFIB(fibEntry);
   }
 
   fibSeq = TFIB(fibEntry)->seq;
@@ -621,13 +626,13 @@ static bool mapMe_onSpecialInterest(const MapMe *mapme,
     /* Reliably forward the IU on all prevHops */
     INFO(mapme, "[MAP-Me]   - (1/3) processing prev hops");
     if (params->type == UPDATE) {
-      PARCIterator *iterator = mapMeTFIB_CreateKeyIterator(TFIB(fibEntry));
+      PARCIterator *iterator = mapmeTFIB_CreateKeyIterator(TFIB(fibEntry));
       while (parcIterator_HasNext(iterator)) {
         PARCUnsigned *cid = parcIterator_Next(iterator);
         unsigned conn_id = parcUnsigned_GetUnsigned(cid);
         INFO(mapme, "[MAP-Me]   - Re-sending IU to pending connection %d",
              conn_id);
-        mapMe_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
+        mapme_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
                              conn_id, false, false, 0);
       }
       parcIterator_Release(&iterator);
@@ -662,14 +667,14 @@ static bool mapMe_onSpecialInterest(const MapMe *mapme,
 
     INFO(mapme, "[MAP-Me]   - (3/3) next hops ~~> prev hops");
     PARCEventTimer *oldTimer =
-        (PARCEventTimer *)mapMeTFIB_Get(TFIB(fibEntry), conn_in_id);
+        (PARCEventTimer *)mapmeTFIB_Get(TFIB(fibEntry), conn_in_id);
     if (oldTimer) {
       /* This happens if we receive an IU while we are still sending
        * one in the other direction
        */
       INFO(mapme, "[MAP-Me]   - Canceled pending timer");
       parcEventTimer_Stop(oldTimer);
-      mapMeTFIB_Remove(TFIB(fibEntry), conn_in_id);
+      mapmeTFIB_Remove(TFIB(fibEntry), conn_in_id);
     }
 
     /* Remove all next hops */
@@ -692,7 +697,7 @@ static bool mapMe_onSpecialInterest(const MapMe *mapme,
 
       INFO(mapme, "[MAP-Me]   - Sending IU on current next hop connection %d",
            conn_id);
-      mapMe_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
+      mapme_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
                            conn_id, send, false, 0);
       complete = false;
     }
@@ -716,7 +721,7 @@ static bool mapMe_onSpecialInterest(const MapMe *mapme,
      * producer and that we received back our own IU. In that case, we just
      * need to Ack and ignore it.
      */
-    if (mapMe_hasLocalNextHops(mapme, fibEntry)) {
+    if (mapme_hasLocalNextHops(mapme, fibEntry)) {
       INFO(mapme, "[MAP-Me]   - Received original interest... Update complete");
       return true;
     }
@@ -736,7 +741,7 @@ static bool mapMe_onSpecialInterest(const MapMe *mapme,
         mapme,
         "[MAP-Me]   - Update interest %d -> %d sent backwards on connection %d",
         seq, fibSeq, conn_in_id);
-    mapMe_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
+    mapme_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
                          conn_in_id, send, false, 0);
   }
 
@@ -748,7 +753,7 @@ ERR_ACK_CREATE:
   return false;
 }
 
-void mapMe_onSpecialInterestAck(const MapMe *mapme, const uint8_t *msgBuffer,
+void mapme_onSpecialInterestAck(const MapMe *mapme, const uint8_t *msgBuffer,
                                 unsigned conn_in_id, hicn_prefix_t *prefix,
                                 mapme_params_t *params) {
   INFO(mapme, "[MAP-Me] Receive IU/IN Ack on connection %d", conn_in_id);
@@ -793,7 +798,7 @@ void mapMe_onSpecialInterestAck(const MapMe *mapme, const uint8_t *msgBuffer,
   }
 
   PARCEventTimer *timer =
-      (PARCEventTimer *)mapMeTFIB_Get(TFIB(fibEntry), conn_in_id);
+      (PARCEventTimer *)mapmeTFIB_Get(TFIB(fibEntry), conn_in_id);
   if (!timer) {
     INFO(mapme,
          "[MAP-Me]   - Ignored ACK for prefix not having the Connection in "
@@ -803,7 +808,7 @@ void mapMe_onSpecialInterestAck(const MapMe *mapme, const uint8_t *msgBuffer,
 
   /* Stop timer and remove entry from TFIB */
   parcEventTimer_Stop(timer);
-  mapMeTFIB_Remove(TFIB(fibEntry), conn_in_id);
+  mapmeTFIB_Remove(TFIB(fibEntry), conn_in_id);
 
   INFO(mapme, "[MAP-Me]   - Removing TFIB entry for ack on connection %d",
        conn_in_id);
@@ -831,7 +836,7 @@ void mapMe_onSpecialInterestAck(const MapMe *mapme, const uint8_t *msgBuffer,
 /*
  * Returns true iif the message corresponds to a MAP-Me packet
  */
-bool mapMe_isMapMe(const uint8_t *packet) {
+bool mapme_isMapMe(const uint8_t *packet) {
   hicn_mapme_header_t * mapme = (hicn_mapme_header_t*)packet;
 
   switch(HICN_IP_VERSION(packet)) {
@@ -859,7 +864,7 @@ bool mapMe_isMapMe(const uint8_t *packet) {
  * MAP-Me (eg. ICMP packets) and return higher level messages that can be
  * processed by MAP-Me core.
  */
-void mapMe_Process(const MapMe *mapme, const uint8_t *msgBuffer,
+void mapme_Process(const MapMe *mapme, const uint8_t *msgBuffer,
                    unsigned conn_id) {
   hicn_prefix_t prefix;
   mapme_params_t params;
@@ -868,11 +873,11 @@ void mapMe_Process(const MapMe *mapme, const uint8_t *msgBuffer,
   switch (params.type) {
     case UPDATE:
     case NOTIFICATION:
-      mapMe_onSpecialInterest(mapme, msgBuffer, conn_id, &prefix, &params);
+      mapme_onSpecialInterest(mapme, msgBuffer, conn_id, &prefix, &params);
       break;
     case UPDATE_ACK:
     case NOTIFICATION_ACK:
-      mapMe_onSpecialInterestAck(mapme, msgBuffer, conn_id, &prefix, &params);
+      mapme_onSpecialInterestAck(mapme, msgBuffer, conn_id, &prefix, &params);
       break;
     default:
       ERR(mapme, "[MAP-Me] Unknown message");

@@ -282,8 +282,13 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
                  myerrno, strerror(myerrno));
       parcMemory_Deallocate((void **)&str);
     }
-
+    parcMemory_Deallocate((void **)&udp->listenerName);
+    parcMemory_Deallocate((void **)&udp->interfaceName);
+#ifndef _WIN32
     close(udp->udp_socket);
+#else
+    closesocket(udp->udp_socket);
+#endif
     addressDestroy(&udp->localAddress);
     logger_Release(&udp->logger);
     parcMemory_Deallocate((void **)&udp);
@@ -304,6 +309,8 @@ static void udpListener_Destroy(UdpListener **listenerPtr) {
                "UdpListener %p destroyed", (void *)udp);
   }
 
+  parcMemory_Deallocate((void **)&udp->listenerName);
+  parcMemory_Deallocate((void **)&udp->interfaceName);
 #ifndef _WIN32
   close(udp->udp_socket);
 #else
