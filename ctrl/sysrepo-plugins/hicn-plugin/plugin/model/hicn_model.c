@@ -28,7 +28,7 @@
 /* Hicn headers */
 
 #include <vapi/hicn.api.vapi.h>
-#include <hicn/api/ip_address.h>
+#include <hicn/util/ip_address.h>
 #include "../hicn_plugin.h"
 #include "../hicn_vpp_comm.h"
 #include "hicn_model.h"
@@ -484,18 +484,6 @@ static int hicn_node_params_set_cb(sr_session_ctx_t *session, const char *xpath,
                  new_val ? new_val->xpath : old_val->xpath,
                  new_val->data.int32_val);
      msg->payload.cs_reserved_app = new_val->data.int32_val;
-   } else if (!strcmp(new_val->xpath,
-                      "/hicn:hicn-conf/params/pit_dflt_lifetime_sec")) {
-     SRP_LOG_DBG("A change detected in '%s', op=%d",
-                 new_val ? new_val->xpath : old_val->xpath,
-                 new_val->data.decimal64_val);
-     msg->payload.pit_dflt_lifetime_sec = new_val->data.decimal64_val;
-   } else if (!strcmp(new_val->xpath,
-                      "/hicn:hicn-conf/params/pit_min_lifetime_sec")) {
-     SRP_LOG_DBG("A change detected in '%s', op=%d",
-                 new_val ? new_val->xpath : old_val->xpath,
-                 new_val->data.decimal64_val);
-     msg->payload.pit_min_lifetime_sec = new_val->data.decimal64_val;
    } else if (!strcmp(new_val->xpath,
                       "/hicn:hicn-conf/params/pit_max_lifetime_sec")) {
      SRP_LOG_DBG("A change detected in '%s', op=%d",
