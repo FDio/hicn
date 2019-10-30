@@ -78,6 +78,11 @@ typedef struct interface_s {
 int interface_register(const interface_ops_t * ops);
 
 /**
+ * \brief Unregister all interface types
+ */
+int interface_unregister_all();
+
+/**
  * \brief Create a new instance of an interface of a given type.
  * \param [in] name - Name of the newly create interface instance.
  * \param [in] type - Name of the interface type to create.

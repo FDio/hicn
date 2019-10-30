@@ -20,9 +20,10 @@
 #ifndef HICN_FACEMGR_H
 #define HICN_FACEMGR_H
 
-#include <hicn/policy.h>
 #include <hicn/facemgr/api.h>
 #include <hicn/facemgr/cfg.h>
+#include <hicn/facemgr/facelet.h>
+#include <hicn/facemgr/loop.h>
 
 #endif /* HICN_FACEMGR_H */
 

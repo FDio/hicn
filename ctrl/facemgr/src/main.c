@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h> // sleep
 
 #include <hicn/facemgr.h>
 #include <hicn/policy.h>
@@ -43,6 +44,12 @@
 static struct event_base * loop;
 #endif
 static loop_t * loop = NULL;
+
+#ifdef __linux__
+#ifdef WITH_THREAD
+static bool stop = false;
+#endif /* WITH_THREAD */
+#endif /* __linux__ */
 
 static struct option long_options[] =
 {
@@ -69,6 +76,11 @@ void facemgr_signal_handler(int signal) {
     fprintf(stderr, "Received ^C... quitting !\n");
     if (loop) {
         loop_break(loop);
+#ifdef __linux__
+#ifdef WITH_THREAD
+    stop = true;
+#endif /* WITH_THREAD */
+#endif /* __linux__ */
     }
 }
 
@@ -94,6 +106,16 @@ int parse_cmdline(int argc, char ** argv, facemgr_options_t * opts)
 #ifdef __linux__
 
 #endif /* __linux__ */
+
+int
+dump_facelet(const facemgr_t * facemgr, const facelet_t * facelet,
+        void * user_data)
+{
+    char facelet_s[MAXSZ_FACELET];
+    facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
+    DEBUG("%s", facelet_s);
+    return 0;
+}
 
 int main(int argc, char ** argv)
 {
@@ -176,20 +198,41 @@ MAIN_LOOP:
     if (facemgr_bootstrap(facemgr) < 0 )
         goto ERR_BOOTSTRAP;
 
-    loop_dispatch(loop);
+    if (loop_dispatch(loop) < 0) {
+        ERROR("Failed to run main loop");
+        return EXIT_FAILURE;
+    }
 
 #ifdef __linux__
 #ifdef WITH_THREAD
-    for(;;) {
-        facemgr_list_faces(facemgr, NULL, NULL);
-        sleep(5);
+    unsigned cpt = 0;
+    while(!stop) {
+        if (cpt == 10) {
+            DEBUG("<facelets>");
+#if 1
+            facemgr_list_facelets(facemgr, dump_facelet, NULL);
+#else
+            char * buffer;
+            int n = facemgr_list_facelets_json(facemgr, &buffer);
+            printf("%s\n", buffer);
+            free(buffer);
+#endif
+
+            DEBUG("</facelets>");
+            cpt = 0;
+        }
+        usleep(500000);
+        cpt++;
     }
 #endif /* WITH_THREAD */
 #endif /* __linux__ */
 
     facemgr_stop(facemgr);
 
-    loop_undispatch(loop);
+    if (loop_undispatch(loop) < 0) {
+        ERROR("Failed to terminate main loop");
+        return EXIT_FAILURE;
+    }
 
     facemgr_free(facemgr);
 
