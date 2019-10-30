@@ -21,6 +21,7 @@
 #define FACEMGR_H
 
 #include <hicn/facemgr/cfg.h>
+#include <hicn/facemgr/facelet.h>
 #include <hicn/util/ip_address.h>
 #ifdef __ANDROID__
 #include <hicn/android_utility/android_utility.h>
@@ -86,8 +87,9 @@ int facemgr_bootstrap(facemgr_t * facemgr);
 void facemgr_set_jvm(facemgr_t * facemgr, JavaVM *jvm);
 #endif /* __ANDROID__ */
 
-typedef int (*facemgr_list_faces_cb_t)(face_t * face, void * user_data);
+typedef int (*facemgr_list_facelets_cb_t)(const facemgr_t * facemgr, const facelet_t * facelet, void * user_data);
 
-void facemgr_list_faces(facemgr_t * facemgr, facemgr_list_faces_cb_t cb, void * user_data);
+void facemgr_list_facelets(const facemgr_t * facemgr, facemgr_list_facelets_cb_t cb, void * user_data);
+int facemgr_list_facelets_json(const facemgr_t * facemgr, char ** buffer);
 
 #endif /* FACEMGR_H */

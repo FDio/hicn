@@ -26,7 +26,6 @@
 #include <hicn/util/log.h>
 
 #include "../../common.h"
-#include "../../facelet.h"
 #include "../../interface.h"
 #include "../../util/map.h"
 #include "mdns/mdns.h"
@@ -107,10 +106,15 @@ int bj_initialize(interface_t * interface, void * cfg)
     WSAStartup(versionWanted, &wsaData);
 #endif
 
-    interface_register_fd(interface, data->sock, NULL);
+    if (interface_register_fd(interface, data->sock, NULL) < 0) {
+        ERROR("[bj_initialize] Error registering fd");
+        goto ERR_FD;
+    }
 
     return 0;
 
+ERR_FD:
+    free(data->buffer);
 ERR_BUFFER:
 #ifndef __ANDROID__
 ERR_SOCK_OPT:

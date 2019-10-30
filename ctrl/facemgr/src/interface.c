@@ -21,9 +21,11 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include "facelet.h"
-#include "interface.h"
+
+#include <hicn/facemgr/facelet.h>
 #include <hicn/facemgr/loop.h> /* *_callback_data_t */
+
+#include "interface.h"
 #include "util/map.h"
 
 TYPEDEF_MAP_H(interface_ops_map, const char *, const interface_ops_t *);
@@ -62,6 +64,8 @@ interface_unregister_all()
         }
         free(ops_name_array);
     }
+    interface_ops_map_free(interface_ops_map);
+    interface_ops_map = NULL;
     return ret;
 }
 
@@ -155,8 +159,14 @@ int
 interface_unregister_fd(interface_t * interface, int fd)
 {
     assert(interface->callback);
+    fd_callback_data_t fd_callback = {
+        .fd = fd,
+        .owner = interface,
+        .callback = NULL,
+        .data = NULL,
+    };
     return interface->callback(interface->callback_owner,
-            INTERFACE_CB_TYPE_UNREGISTER_FD, &fd);
+            INTERFACE_CB_TYPE_UNREGISTER_FD, &fd_callback);
 }
 
 typedef int (*interface_fd_callback_t)(interface_t * interface, int fd, void * unused);
