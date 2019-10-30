@@ -93,7 +93,10 @@ setup() {
     echo DISTRIBUTION: ${PRETTY_NAME}
     echo ARCHITECTURE: $(uname -m)
 
-    install_cmake
+    ARCH=`uname -m`
+    if [ "$ARCH" == "x86_64" ] || [ "$ARCH" == "x86" ]; then
+        install_cmake
+    fi
     setup_fdio_repo ${DISTRIB_ID}
 
     if [ "${DISTRIB_ID}" == "ubuntu" ]; then
