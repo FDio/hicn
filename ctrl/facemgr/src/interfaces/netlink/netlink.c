@@ -29,7 +29,6 @@
 #include <hicn/util/log.h>
 
 #include "../../common.h"
-#include "../../facelet.h"
 #include "../../interface.h"
 
 typedef enum {
@@ -142,7 +141,7 @@ int nl_initialize(interface_t * interface, void * cfg)
 
     data->fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
     if (data->fd < 0) {
-        printf("Failed to create netlink socket: %s\n", (char*)strerror(errno));
+        ERROR("[nl_initialize] Failed to create netlink socket: %s", (char*)strerror(errno));
         goto ERR_SOCKET;
     }
 
@@ -164,13 +163,16 @@ int nl_initialize(interface_t * interface, void * cfg)
     local.nl_pid = getpid();    // set out id using current process id
 
     if (bind(data->fd, (struct sockaddr*)&local, sizeof(local)) < 0) {     // bind socket
-        printf("Failed to bind netlink socket: %s\n", (char*)strerror(errno));
+        ERROR("[nl_initialize] Failed to bind netlink socket: %s", (char*)strerror(errno));
         goto ERR_BIND;
     }
 
     interface->data = data;
 
-    interface_register_fd(interface, data->fd, NULL);
+    if (interface_register_fd(interface, data->fd, NULL) < 0) {
+        ERROR("[nl_initialize] Error registering fd");
+        goto ERR_FD;
+    }
 
 #if 1
     nl_process_state(interface);
@@ -178,6 +180,7 @@ int nl_initialize(interface_t * interface, void * cfg)
 
     return 0;
 
+ERR_FD:
 ERR_BIND:
     close(data->fd);
 ERR_SOCKET:

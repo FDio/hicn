@@ -28,7 +28,6 @@
 #include <hicn/facemgr.h>
 
 #include "../../common.h"
-#include "../../facelet.h"
 #include "../../interface.h"
 
 /**
@@ -71,7 +70,12 @@ int updown_initialize(interface_t * interface, void * cfg)
         return -1;
     }
 
-    return data->fd;
+    if (interface_register_fd(interface, data->fd, NULL) < 0) {
+        ERROR("[updown_initialize] Error registering fd");
+        goto ERR_FD;
+    }
+
+    return 0;
 
 ERR_MALLOC:
     return -1;

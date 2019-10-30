@@ -325,7 +325,7 @@ hc_data_create(size_t in_element_size, size_t out_element_size)
     return data;
 
 ERR_BUFFER:
-    free(data);
+    hc_data_free(data);
 ERR_MALLOC:
     return NULL;
 }
@@ -645,12 +645,9 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             }
             s->remaining = msg->hdr.length;
             if (s->remaining == 0) {
-                if (data) {
-                    *data = request->data;
-//                } else {
-//                    free(request->data);
-                }
                 hc_data_set_complete(request->data);
+                if (data)
+                    *data = request->data;
                 hc_sock_request_free(request);
             } else {
                 /* We only remember it if there is still data to parse */
@@ -696,12 +693,9 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                     ERROR("[hc_sock_process] Error removing request from map");
                     return -1;
                 }
-                if (data) {
-                    *data = s->cur_request->data;
-//                } else {
-//                    free(s->cur_request->data);
-                }
                 hc_data_set_complete(s->cur_request->data);
+                if (data)
+                    *data = s->cur_request->data;
                 hc_sock_request_free(s->cur_request);
                 s->cur_request = NULL;
             }
@@ -724,9 +718,9 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
 }
 
 int
-hc_sock_callback(hc_sock_t * s, hc_data_t ** data)
+hc_sock_callback(hc_sock_t * s, hc_data_t ** pdata)
 {
-    *data = NULL;
+    hc_data_t * data;
 
     for (;;) {
         int n = hc_sock_recv(s);
@@ -739,22 +733,28 @@ hc_sock_callback(hc_sock_t * s, hc_data_t ** data)
                 case ENODEV:
                     /* Forwarder restarted */
                     WARN("Forwarder likely restarted: not (yet) implemented");
-                    goto ERR_EOF;
+                    goto ERR;
                 case EWOULDBLOCK:
                     //DEBUG("Would block... stop reading from socket");
                     goto END;
                 default:
                     perror("hc_sock_recv");
-                    goto ERR_EOF;
+                    goto ERR;
             }
         }
-        if (hc_sock_process(s, data) < 0) {
-            return -1;
+        if (hc_sock_process(s, &data) < 0) {
+            goto ERR;
         }
     }
 END:
+    if (pdata)
+        *pdata = data;
+    else
+        hc_data_free(data);
     return 0;
 
+ERR:
+    hc_data_free(data);
 ERR_EOF:
     return -1;
 }
@@ -865,6 +865,9 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
         }
     }
 
+    if (!pdata)
+        hc_data_free(data);
+
     return 0;
 
 ERR_PROCESS:
@@ -872,7 +875,7 @@ ERR_MAP:
     hc_sock_request_free(request);
 ERR_REQUEST:
 ERR_SEQ:
-    free(data);
+    hc_data_free(data);
 ERR_DATA:
      return -1;
 }

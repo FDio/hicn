@@ -22,7 +22,6 @@ set(COMPILER_DEFINITIONS
 set(HEADER_FILES
     common.h
     error.h
-    facelet.h
     interface.h
     loop.h
     util/hash.h
