@@ -175,7 +175,7 @@ void listenerSet_RemoveById(const ListenerSet *set, unsigned id) {
     ListenerOps *ops = parcArrayList_Get(set->listOfListeners, i);
     parcAssertNotNull(ops, "Got null listener ops at index %zu", i);
     if (ops->getInterfaceIndex(ops) == id) {
-       parcArrayList_RemoveAtIndex(set->listOfListeners, i);
+       parcArrayList_RemoveAndDestroyAtIndex(set->listOfListeners, i);
        break;
     }
   }

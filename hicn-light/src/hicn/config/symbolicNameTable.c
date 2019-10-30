@@ -74,7 +74,7 @@ SymbolicNameTable *symbolicNameTable_Create(void) {
 void symbolicNameTable_Destroy(SymbolicNameTable **tablePtr) {
   SymbolicNameTable *table = *tablePtr;
   parcHashCodeTable_Destroy(&table->symbolicNameTable);
-  // parcHashCodeTable_Destroy(&table->indexToNameTable);
+  parcHashCodeTable_Destroy(&table->indexToNameTable);
   parcMemory_Deallocate((void **)&table);
   *tablePtr = NULL;
 }

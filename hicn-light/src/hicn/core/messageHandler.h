@@ -57,7 +57,7 @@
 #include <hicn/core/forwarder.h>
 
 #ifdef WITH_MAPME
-#include <hicn/core/mapMe.h>
+#include <hicn/core/mapme.h>
 #include <hicn/socket/api.h>
 #endif /* WITH_MAPME */
 
@@ -274,7 +274,7 @@ static inline bool messageHandler_handleHooks(Forwarder * forwarder,
   /* BEGIN Match */
 
 #ifdef WITH_MAPME
-  bool is_mapme = mapMe_isMapMe(packet);
+  bool is_mapme = mapme_isMapMe(packet);
   is_matched |= is_mapme;
 #endif /* WITH_MAPME */
 
@@ -310,7 +310,7 @@ static inline bool messageHandler_handleHooks(Forwarder * forwarder,
   /* BEGIN Process */
 
 #ifdef WITH_MAPME
-  if (mapMe_isMapMe(packet))
+  if (mapme_isMapMe(packet))
     forwarder_ProcessMapMe(forwarder, packet, conn_id);
 #endif /* WITH_MAPME */
 

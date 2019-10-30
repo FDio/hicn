@@ -52,7 +52,7 @@
 #include <hicn/core/forwarder.h>
 #include <hicn/core/messagePacketType.h>
 #ifdef WITH_MAPME
-#include <hicn/core/mapMe.h>
+#include <hicn/core/mapme.h>
 #endif /* WITH_MAPME */
 #include <hicn/config/configuration.h>
 #include <hicn/config/configurationFile.h>
@@ -197,10 +197,19 @@ Forwarder *forwarder_Create(Logger *logger) {
   dispatcher_StartSignalEvent(forwarder->dispatcher, forwarder->signal_usr1);
 #endif
 
-#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
+#if !defined(__APPLE__) && !defined(__ANDROID__) && !defined(_WIN32) && \
+    defined(PUNTING)
   forwarder->hicnSocketHelper = hicn_create();
-  if (forwarder->hicnSocketHelper == NULL) return NULL;
+  if (!forwarder->hicnSocketHelper)
+      goto ERR_SOCKET;
 #endif /* __APPLE__ */
+
+#ifdef WITH_MAPME
+  if (!(mapme_create(&forwarder->mapme, forwarder)))
+      goto ERR_MAPME;
+#endif /* WITH_MAPME */
+
+
        /* ignore child */
 #ifndef _WIN32
   signal(SIGCHLD, SIG_IGN);
@@ -220,10 +229,6 @@ Forwarder *forwarder_Create(Logger *logger) {
   wtnow_timeout.tv_sec = 0;
   wtnow_timeout.tv_usec = 50000;  // 20 Hz keepalive
 
-#ifdef WITH_MAPME
-  if (!(mapMe_Init(&forwarder->mapme, forwarder))) return NULL;
-#endif /* WITH_MAPME */
-
   PARCEventScheduler *base =
       dispatcher_GetEventScheduler(forwarder->dispatcher);
   forwarder->keepalive_event = parcEventTimer_Create(
@@ -231,6 +236,39 @@ Forwarder *forwarder_Create(Logger *logger) {
   parcEventTimer_Start(forwarder->keepalive_event, &wtnow_timeout);
 
   return forwarder;
+
+#ifdef WITH_MAPME
+ERR_MAPME:
+#endif /* WITH_MAPME */
+#if !defined(__APPLE__) && !defined(__ANDROID__) && !defined(_WIN32) && \
+    defined(PUNTING)
+  hicn_free(forwarder->hicnSocketHelper);
+ERR_SOCKET:
+#endif
+  listenerSet_Destroy(&(forwarder->listenerSet));
+  connectionManager_Destroy(&(forwarder->connectionManager));
+  connectionTable_Destroy(&(forwarder->connectionTable));
+  messageProcessor_Destroy(&(forwarder->processor));
+  configuration_Destroy(&(forwarder->config));
+  messenger_Destroy(&(forwarder->messenger));
+
+  dispatcher_DestroySignalEvent(forwarder->dispatcher,
+                                &(forwarder->signal_int));
+  dispatcher_DestroySignalEvent(forwarder->dispatcher,
+                                &(forwarder->signal_term));
+#ifndef _WIN32
+  dispatcher_DestroySignalEvent(forwarder->dispatcher,
+                                &(forwarder->signal_usr1));
+#endif
+
+  parcClock_Release(&forwarder->clock);
+  logger_Release(&forwarder->logger);
+
+  // do the dispatcher last
+  dispatcher_Destroy(&(forwarder->dispatcher));
+
+  parcMemory_Deallocate((void **)&forwarder);
+  return NULL;
 }
 
 void forwarder_Destroy(Forwarder **ptr) {
@@ -239,7 +277,7 @@ void forwarder_Destroy(Forwarder **ptr) {
   Forwarder *forwarder = *ptr;
 #if !defined(__APPLE__) && !defined(__ANDROID__) && !defined(_WIN32) && \
     defined(PUNTING)
-  hicn_destroy();
+  hicn_free(forwarder->hicnSocketHelper);
 #endif
   parcEventTimer_Destroy(&(forwarder->keepalive_event));
 
@@ -251,6 +289,10 @@ void forwarder_Destroy(Forwarder **ptr) {
 
   // the messenger is used by many of the other pieces, so destroy it last
   messenger_Destroy(&(forwarder->messenger));
+
+#ifdef WITH_MAPME
+  mapme_free(forwarder->mapme);
+#endif /* WITH_MAPME */
 
   dispatcher_DestroySignalEvent(forwarder->dispatcher,
                                 &(forwarder->signal_int));
@@ -532,13 +574,13 @@ void forwarder_onConnectionEvent(Forwarder *forwarder, const Connection *conn, c
 #ifdef WITH_POLICY
     messageProcessor_onConnectionEvent(forwarder->processor, conn, event);
 #else
-  mapMe_onConnectionEvent(forwarder->mapme, conn, event);
+  mapme_onConnectionEvent(forwarder->mapme, conn, event);
 #endif /* WITH_POLICY */
 }
 
 void forwarder_ProcessMapMe(Forwarder *forwarder, const uint8_t *msgBuffer,
                             unsigned conn_id) {
-  mapMe_Process(forwarder->mapme, msgBuffer, conn_id);
+  mapme_Process(forwarder->mapme, msgBuffer, conn_id);
 }
 
 MapMe *

@@ -403,6 +403,7 @@ void messageProcessor_onConnectionEvent(const MessageProcessor *processor,
     FibEntry *fibEntry = (FibEntry *)fibEntryList_Get(fiblist, i);
     fibEntry_ReconsiderPolicy(fibEntry);
   }
+  fibEntryList_Destroy(&fiblist);
 
 }
 #endif /* WITH_MAPME */

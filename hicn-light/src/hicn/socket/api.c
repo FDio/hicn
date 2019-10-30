@@ -72,7 +72,8 @@ hicn_socket_helper_t *hicn_create() {
   }
 
   hicn->conf = malloc(sizeof(hicn_conf_t));
-  if (hicn->conf < 0) goto ERR_CONF;
+  if (hicn->conf < 0)
+    goto ERR_CONF;
   memcpy(hicn->conf, &hicn_default_conf, sizeof(hicn_conf_t));
 
   /* Initialize socket tree to empty */
@@ -126,64 +127,56 @@ ERR_MALLOC:
 
 void hicn_destroy() {
   int rc;
+  int ret = 0;
   uint16_t i;
 
   /* Restore default rules */
   printf("Restoring default configuration.\n");
   rc = ops.del_lo_prio_rule(NULL, AF_INET6, LOCAL_PRIORITY);
-  if (rc < 0) {
-    goto ERR;
-  }
+  if (rc < 0)
+    ret = -1;
 
   rc = ops.del_lo_prio_rule(NULL, AF_INET, LOCAL_PRIORITY);
-  if (rc < 0) {
-    goto ERR;
-  }
+  if (rc < 0)
+    ret = -1;
 
   rc = ops.add_lo_prio_rule(NULL, AF_INET6, 0);
-  if (rc < 0) {
-    goto ERR;
-  }
+  if (rc < 0)
+    ret = -1;
 
   rc = ops.add_lo_prio_rule(NULL, AF_INET, 0);
-  if (rc < 0) {
-    goto ERR;
-  }
+  if (rc < 0)
+    ret = -1;
 
   for (i = 0; i < rules_counter; i++) {
     if (strcmp(rules_to_remove[i].tun_name, "NONE") != 0) {
       rc = ops.del_rule(rules_to_remove[i].tun_name,
                         rules_to_remove[i].address_family,
                         rules_to_remove[i].table_id);
-      if (rc < 0) {
-        goto ERR;
-      }
     } else {
       rc = ops.del_prio_rule(
           &rules_to_remove[i].prefix, rules_to_remove[i].address_family,
           rules_to_remove[i].priority, rules_to_remove[i].table_id);
-      if (rc < 0) {
-        goto ERR;
-      }
     }
+    if (rc < 0)
+      ret = -1;
   }
 
   for (i = 0; i < routes_counter; i++) {
     rc = ops.del_out_route(routes_to_remove[i].remote_ip_address,
                            routes_to_remove[i].address_family,
                            routes_to_remove[i].table_id);
-    if (rc < 0) {
-      goto ERR;
-    }
+    if (rc < 0)
+      ret = -1;
   }
 
-ERR:
-  if (rc < 0) printf("Unexpected exit. Some state may not be deleted.\n");
-  return;
+  if (ret < 0)
+      printf("Unexpected exit. Some state may not be deleted.\n");
 }
 
 void hicn_free(hicn_socket_helper_t *hicn) {
-  // close tun ?
+  hicn_destroy();
+  free(hicn->conf);
   free(hicn);
 }
 

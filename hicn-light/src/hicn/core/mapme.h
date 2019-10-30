@@ -14,12 +14,12 @@
  */
 
 /**
- * @file mapMe.h
+ * @file mapme.h
  * @brief MAP-Me : AnchorLess Producer Mobility Management
  */
 
-#ifndef mapMe_h
-#define mapMe_h
+#ifndef mapme_h
+#define mapme_h
 
 #ifdef WITH_MAPME
 
@@ -35,11 +35,17 @@ struct mapme;
 typedef struct mapme MapMe;
 
 /**
- * @function MapMe_Init
+ * @function mapme_create
  * @abstract Initializes MAP-Me state in the forwarder.
  * @return bool - Boolean informing about the success of MAP-Me initialization.
  */
-bool mapMe_Init(MapMe **mapme, Forwarder *Forwarder);
+bool mapme_create(MapMe **mapme, Forwarder *Forwarder);
+
+/**
+ * @function mapme_free
+ * @abstract Free MAP-Me state in the forwarder.
+ */
+void mapme_free(MapMe *mapme);
 
 /**
  * @function messageHandler_isMapMe
@@ -50,20 +56,20 @@ bool mapMe_Init(MapMe **mapme, Forwarder *Forwarder);
  * @param [in] msgBuffer - The buffer to match
  * @return A boolean indicating whether message is a MAP-Me control message.
  */
-bool mapMe_isMapMe(const uint8_t *msgBuffer);
+bool mapme_isMapMe(const uint8_t *msgBuffer);
 
 /**
- * @function mapMe_handleMapMeMessage
+ * @function mapme_handleMapMeMessage
  * @abstract Process a MAP-Me message.
  * @param [in] mapme - Pointer to the MAP-Me data structure.
  * @param [in] message - MAP-Me buffer
  * @param [in] conn_id - Ingress connection id
  */
-void mapMe_Process(const MapMe *mapme, const uint8_t *msgBuffer,
+void mapme_Process(const MapMe *mapme, const uint8_t *msgBuffer,
                    unsigned conn_id);
 
 /**
- * @function mapMe_onConnectionEvent
+ * @function mapme_onConnectionEvent
  * @abstract Callback following the addition of the face though the control
  * protocol.
  * @discussion This callback triggers the sending of control packets by MAP-Me.
@@ -71,28 +77,28 @@ void mapMe_Process(const MapMe *mapme, const uint8_t *msgBuffer,
  * @param [in] conn - The newly added connection.
  * @param [in] event - Connection event
  */
-void mapMe_onConnectionEvent(const MapMe *mapme, const Connection *conn, connection_event_t event);
+void mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn, connection_event_t event);
 
 #ifdef WITH_POLICY
 
 /**
- * @function mapMe_onPolicyUpdate
+ * @function mapme_onPolicyUpdate
  */
-void mapMe_onPolicyUpdate(const MapMe *mapme, const Connection *conn_added, FibEntry * fibEntry);
+void mapme_onPolicyUpdate(const MapMe *mapme, const Connection *conn_added, FibEntry * fibEntry);
 #endif /* WITH_POLICY */
 
 /**
- * @function mapMe_getNextHops
+ * @function mapme_getNextHops
  * @abstract return the nexthops to forward interests defined by mapme, it
  *   covers also the case where local discovery mechanisms are trriggered.
  */
-NumberSet *mapMe_getNextHops(const MapMe *mapme, FibEntry *fibEntry,
+NumberSet *mapme_getNextHops(const MapMe *mapme, FibEntry *fibEntry,
                              const Message *interest);
 
-hicn_mapme_type_t mapMe_PktType_To_LibHicnPktType(MessagePacketType type);
+hicn_mapme_type_t mapme_PktType_To_LibHicnPktType(MessagePacketType type);
 
-MessagePacketType mapMe_LibHicnPktType_To_PktType(hicn_mapme_type_t type);
+MessagePacketType mapme_LibHicnPktType_To_PktType(hicn_mapme_type_t type);
 
 #endif /* WITH_MAPME */
 
-#endif  // mapMe_h
+#endif  // mapme_h

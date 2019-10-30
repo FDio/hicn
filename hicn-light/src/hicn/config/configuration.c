@@ -44,7 +44,7 @@
 #include <hicn/core/forwarder.h>
 #include <hicn/core/system.h>
 #ifdef WITH_MAPME
-#include <hicn/core/mapMe.h>
+#include <hicn/core/mapme.h>
 #endif /* WITH_MAPME */
 
 #include <hicn/io/streamConnection.h>
@@ -498,8 +498,8 @@ struct iovec *configuration_ProcessRemoveListener(Configuration *config,
     ConnectionTable *connTable = forwarder_GetConnectionTable(config->forwarder);
     ListenerOps *listenerOps = listenerSet_FindById(listenerSet, listenerId);
     if (listenerOps) {
-      ConnectionList *connectionList =connectionTable_GetEntries(connTable);
-      for (size_t i =0; i < connectionList_Length(connectionList); i++) {
+      ConnectionList *connectionList = connectionTable_GetEntries(connTable);
+      for (size_t i = 0; i < connectionList_Length(connectionList); i++) {
         Connection *connection = connectionList_Get(connectionList, i);
         const AddressPair *addressPair = connection_GetAddressPair(connection);
         const Address *address = addressPair_GetLocal(addressPair);
@@ -514,6 +514,7 @@ struct iovec *configuration_ProcessRemoveListener(Configuration *config,
           symbolicNameTable_Remove(config->symbolicNameTable, symbolicConnection);
         }
       }
+      connectionList_Destroy(&connectionList);
       // remove listener
       listenerSet_RemoveById(listenerSet, listenerId);
       success = true;
@@ -1391,6 +1392,7 @@ void configuration_ReceiveCommand(Configuration *config, command_id command,
   switch (command) {
     case LIST_CONNECTIONS:
     case LIST_ROUTES:  // case LIST_INTERFACES: case ETC...:
+    case LIST_LISTENERS:
       parcMemory_Deallocate(
           &response[1]
                .iov_base);  // deallocate payload only if generated at fwd side
