@@ -726,13 +726,13 @@ facemgr_cfg_get_override(const facemgr_cfg_t * cfg,
             continue;
         /* Check match for interface type */
         if (rule_array[i]->match.interface_type != NETDEVICE_TYPE_UNDEFINED) {
-#ifdef __ANDROID__
+//#ifdef __ANDROID__
             if (netdevice_type != rule_array[i]->match.interface_type)
                 continue;
-#else
-            ERROR("Match on interface type is currently not implemented");
-            goto ERR_ARRAY;
-#endif /* __ANDROID__ */
+//#else
+//            ERROR("Match on interface type is currently not implemented");
+//            goto ERR_ARRAY;
+//#endif /* __ANDROID__ */
         }
         /* Found match... do we have an override for face_type */
         *override = &rule_array[i]->override;
@@ -745,11 +745,11 @@ FOUND:
     free(rule_array);
     return 0;
 
-#ifndef __ANDROID__
-ERR_ARRAY:
-    free(rule_array);
-    return -1;
-#endif /* __ANDROID__ */
+//#ifndef __ANDROID__
+//ERR_ARRAY:
+//    free(rule_array);
+//    return -1;
+//#endif /* __ANDROID__ */
 }
 
 int

@@ -24,17 +24,18 @@
 #include <hicn/ctrl/face.h>
 #include <hicn/util/log.h>
 #include "../../common.h"
-#include "../../facelet.h"
 #include "../../interface.h"
 #include <hicn/android_utility/android_utility.h>
 
 #define FACEMGR_ANDROID_UTILITY_CLASS "com/cisco/hicn/forwarder/supportlibrary/AndroidUtility"
 
+
 #define AU_INTERFACE_TYPE_UNDEFINED 0
 #define AU_INTERFACE_TYPE_WIRED     1
 #define AU_INTERFACE_TYPE_WIFI      2
 #define AU_INTERFACE_TYPE_CELLULAR  3
-#define AU_INTERFACE_TYPE_LOOPBACK  4 /* not supported yet */
+#define AU_INTERFACE_TYPE_LOOPBACK  4
+#define AU_INTERFACE_TYPE_UNAVAILABLE 5
 
 #define ERR_STR_JAVA "Java VM parameters are required in the interface configuration."
 
@@ -77,14 +78,12 @@ int au_on_event(interface_t * interface, const facelet_t * facelet)
      * correct interface type, based on the value returned by the Android
      * utility shipped with the Android forwarder.
      */
-    DEBUG("Android utility received request");
     au_data_t * data = (au_data_t*)interface->data;
 
     netdevice_t netdevice = NETDEVICE_EMPTY;
     int rc = facelet_get_netdevice(facelet, &netdevice);
     if (rc < 0)
         return -1;
-    DEBUG("[au_on_event] netdevice=%s", netdevice.name);
 
     JNIEnv *env;
     JavaVM *jvm = data->cfg.jvm;
@@ -94,8 +93,6 @@ int au_on_event(interface_t * interface, const facelet_t * facelet)
             "getNetworkType", "(Ljava/lang/String;)I");
     jint interface_type = (*env)->CallStaticIntMethod(env, cls, getNetworkType,
             (*env)->NewStringUTF(env, netdevice.name));
-
-    DEBUG("Processing results for interface %s", netdevice.name);
 
     netdevice_type_t netdevice_type = AU_INTERFACE_TYPE_UNDEFINED;
     switch(interface_type) {
@@ -114,15 +111,17 @@ int au_on_event(interface_t * interface, const facelet_t * facelet)
             netdevice_type = NETDEVICE_TYPE_LOOPBACK;
             break;
         default:
+            DEBUG("AU RETURNED ERROR");
             return -1;
     }
+
+    DEBUG("AU RETURNED %s : %s", netdevice.name, netdevice_type_str[netdevice_type]);
 
     facelet_t * facelet_new = facelet_create();
     facelet_set_netdevice(facelet_new, netdevice);
     facelet_set_status(facelet_new, FACELET_STATUS_CLEAN);
     facelet_set_netdevice_type(facelet_new, netdevice_type);
 
-    DEBUG("sending AU udpate");
     facelet_set_event(facelet_new, FACELET_EVENT_UPDATE);
     interface_raise_event(interface, facelet_new);
 

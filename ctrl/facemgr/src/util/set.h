@@ -96,7 +96,19 @@ NAME ## _initialize(NAME ## _t * set)                                   \
 }                                                                       \
                                                                         \
 int                                                                     \
-NAME ## _finalize(NAME ## _t * set) { return 0; }                       \
+NAME ## _finalize(NAME ## _t * set)                                     \
+{                                                                       \
+    T * array;                                                          \
+    int n = NAME ## _get_array(set, &array);                            \
+    if (n < 0)                                                          \
+        return -1;                                                      \
+    for (unsigned i = 0; i < n; i++) {                                  \
+        T element = array[i];                                           \
+        NAME ## _remove(set, element, NULL);                            \
+    }                                                                   \
+    free(array);                                                        \
+    return 0;                                                           \
+}                                                                       \
                                                                         \
 NAME ## _t *                                                            \
 NAME ## _create()                                                       \
