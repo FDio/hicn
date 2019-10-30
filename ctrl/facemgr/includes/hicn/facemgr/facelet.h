@@ -29,7 +29,7 @@
 #include <stdbool.h>
 
 #include <hicn/ctrl/face.h>
-#include <hicn/facemgr.h>
+#include <hicn/facemgr/cfg.h>
 
 #define MAXSZ_FACELET 1024
 
@@ -41,13 +41,14 @@ typedef struct facelet_s facelet_t;
 /* Facelet status */
 #define foreach_facelet_status  \
     _(UNDEFINED)                \
-    _(NEW)                      \
+    _(UNCERTAIN)                \
+    _(INCOMPLETE)               \
+    _(CREATE)                   \
     _(CLEAN)                    \
-    _(DIRTY)                    \
-    _(CONFLICT)                 \
-    _(DELETED)                  \
     _(IGNORED)                  \
-    _(ERROR)                    \
+    _(UPDATE)                   \
+    _(DELETE)                   \
+    _(DELETED)                  \
     _(N)
 
 typedef enum {
@@ -172,6 +173,9 @@ int facelet_merge(facelet_t * facelet, const facelet_t * facelet_to_merge);
 facelet_status_t facelet_get_status(const facelet_t * facelet);
 void facelet_set_status(facelet_t * facelet, facelet_status_t status);
 
+void facelet_set_status_error(facelet_t * facelet, bool value);
+bool facelet_get_status_error(const facelet_t * facelet);
+
 void facelet_set_bj_done(facelet_t * facelet);
 void facelet_unset_bj_done(facelet_t * facelet);
 bool facelet_is_bj_done(const facelet_t * facelet);
@@ -181,12 +185,14 @@ bool facelet_is_au_done(const facelet_t * facelet);
 facelet_event_t facelet_get_event(const facelet_t * facelet);
 void facelet_set_event(facelet_t * facelet, facelet_event_t event);
 
-int facelet_snprintf(char * buf, size_t size, facelet_t * facelet);
+int facelet_snprintf(char * buf, size_t size, const facelet_t * facelet);
 
 #define DUMP_FACELET(msg, facelet) do {                 \
     char buf[MAXSZ_FACELET];                            \
     facelet_snprintf(buf, MAXSZ_FACELET, facelet);      \
     DEBUG("%s : %s", msg, buf);                         \
 } while(0)
+
+int facelet_snprintf_json(char * buf, size_t size, const facelet_t * facelet, int indent);
 
 #endif /* FACEMGR_FACELET_H */

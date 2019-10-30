@@ -32,7 +32,6 @@
 
 #include "../../common.h"
 #include <hicn/ctrl/face.h>
-#include "../../facelet.h"
 #include "../../interface.h"
 #include "../../util/map.h"
 

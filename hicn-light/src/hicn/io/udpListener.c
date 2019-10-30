@@ -130,22 +130,35 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
 
   if (failure == 0) {
 #ifdef __linux__
-    int ret = setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
-                     interfaceName, strlen(interfaceName) + 1);
-    if (ret < 0) {
-      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "setsockopt(%d, SO_BINDTODEVICE, %s) failed (%d) %s",
-                 udp->udp_socket, interfaceName, errno, strerror(errno));
-#ifdef __ANDROID__
-      ret = bindSocket(udp->udp_socket, interfaceName);
+    if (strncmp("lo", interfaceName, 2) != 0) {
+      int ret = setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
+                       interfaceName, strlen(interfaceName) + 1);
       if (ret < 0) {
         logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "bindSocket(%d, %s) failed", udp->udp_socket, interfaceName);
-      } else {
-        logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "bindSocket(%d, %s) success", udp->udp_socket, interfaceName);
-      }
+                   "setsockopt(%d, SO_BINDTODEVICE, %s) failed (%d) %s",
+                   udp->udp_socket, interfaceName, errno, strerror(errno));
+#ifdef __ANDROID__
+        ret = bindSocket(udp->udp_socket, interfaceName);
+        if (ret < 0) {
+          logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
+                   "bindSocket(%d, %s) failed", udp->udp_socket, interfaceName);
+          close(udp->udp_socket);
+          addressDestroy(&udp->localAddress);
+          logger_Release(&udp->logger);
+          parcMemory_Deallocate((void **)&udp);
+          return NULL;
+        } else {
+          logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
+                   "bindSocket(%d, %s) success", udp->udp_socket, interfaceName);
+        }
+#else
+        close(udp->udp_socket);
+        addressDestroy(&udp->localAddress);
+        logger_Release(&udp->logger);
+        parcMemory_Deallocate((void **)&udp);
+        return NULL;
 #endif
+      }
     }
 #endif
 
@@ -236,22 +249,35 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
   failure = bind(udp->udp_socket, (struct sockaddr *)&sin, sizeof(sin));
   if (failure == 0) {
 #ifdef __linux__
-    int ret = setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
-                     interfaceName, strlen(interfaceName) + 1);
-    if (ret < 0) {
-      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "setsockopt(%d, SO_BINDTODEVICE, %s) failed (%d) %s",
-                 udp->udp_socket, interfaceName, errno, strerror(errno));
-#ifdef __ANDROID__
-      ret = bindSocket(udp->udp_socket, interfaceName);
+    if (strncmp("lo", interfaceName, 2) != 0) { 
+      int ret = setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
+                       interfaceName, strlen(interfaceName) + 1);
       if (ret < 0) {
         logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "bindSocket(%d, %s) failed", udp->udp_socket, interfaceName);
-      } else {
-        logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "bindSocket(%d, %s) success", udp->udp_socket, interfaceName);
-      }
+                   "setsockopt(%d, SO_BINDTODEVICE, %s) failed (%d) %s",
+                   udp->udp_socket, interfaceName, errno, strerror(errno));
+#ifdef __ANDROID__
+        ret = bindSocket(udp->udp_socket, interfaceName);
+        if (ret < 0) {
+          logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
+                   "bindSocket(%d, %s) failed", udp->udp_socket, interfaceName);
+          close(udp->udp_socket);
+          addressDestroy(&udp->localAddress);
+          logger_Release(&udp->logger);
+          parcMemory_Deallocate((void **)&udp);
+          return NULL;
+        } else {
+          logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
+                   "bindSocket(%d, %s) success", udp->udp_socket, interfaceName);
+        }
+#else
+        close(udp->udp_socket);
+        addressDestroy(&udp->localAddress);
+        logger_Release(&udp->logger);
+        parcMemory_Deallocate((void **)&udp);
+        return NULL;
 #endif
+      }
     }
 #endif
     ops = parcMemory_AllocateAndClear(sizeof(ListenerOps));
