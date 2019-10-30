@@ -108,7 +108,6 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
  private:
   // algo functions
   void reset() override;
-  void checkRound();
 
   // CC functions
   void updateDelayStats(const ContentObject &content_object);
@@ -129,6 +128,7 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   uint64_t retransmit();
   void checkRtx();
   void probeRtt();
+  void newRound();
   void onTimeout(Interest::Ptr &&interest) override;
   bool onNack(const ContentObject &content_object, bool rtx);
   void onContentObject(Interest::Ptr &&interest,
@@ -141,7 +141,7 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   }
 
   // controller var
-  std::chrono::steady_clock::time_point lastRoundBegin_;
+  std::unique_ptr<asio::steady_timer> round_timer_;
   unsigned currentState_;
 
   // cwin var
