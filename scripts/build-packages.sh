@@ -141,7 +141,7 @@ build_package() {
 
     rm -rf *
     cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ${SCRIPT_PATH}/..
-    make package
+    make -j 8 package
 
     rm -rf libtransport
 
