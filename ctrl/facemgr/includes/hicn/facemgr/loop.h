@@ -63,14 +63,15 @@ void loop_free(loop_t * loop);
 /**
  * \brief Runs the loop instance to process events
  * \param [in] loop - Pointer to the loop instance
+ * \return 0 if successful, -1 otherwise
  */
-void loop_dispatch(loop_t * loop);
+int loop_dispatch(loop_t * loop);
 
 /**
  * \brief Terminates the dispatching of events
  * \param [in] loop - Pointer to the loop instance
  */
-void loop_undispatch(loop_t * loop);
+int loop_undispatch(loop_t * loop);
 
 /**
  * \brief Breaks out of the loop

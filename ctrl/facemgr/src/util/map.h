@@ -108,6 +108,16 @@ NAME ## _initialize(NAME ## _t * map)                                           
 int                                                                             \
 NAME ## _finalize(NAME ## _t * map)                                             \
 {                                                                               \
+    NAME ## _pair_t ** array;                                                   \
+    int n = NAME ## _pair_set_get_array(&map->pair_set, &array);                \
+    if (n < 0)                                                                  \
+        return -1;                                                              \
+    for (unsigned i = 0; i < n; i++) {                                          \
+        NAME ## _pair_t * pair = array[i];                                      \
+        NAME ## _pair_set_remove(&map->pair_set, pair, NULL);                   \
+        NAME ## _pair_free(pair);                                               \
+    }                                                                           \
+    free(array);                                                                \
     return NAME ## _pair_set_finalize(&map->pair_set);                          \
 }                                                                               \
                                                                                 \

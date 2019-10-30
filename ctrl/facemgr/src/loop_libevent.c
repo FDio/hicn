@@ -160,30 +160,32 @@ loop_free(loop_t * loop)
     free(loop);
 }
 
-void
+int
 loop_dispatch(loop_t * loop)
 {
 #ifdef WITH_THREAD
-    if (pthread_create(loop->thread, NULL, start_dispatch, loop)) {
+    if (pthread_create(&loop->thread, NULL, (void * (*)(void *))event_base_dispatch, loop->event_base)) {
         fprintf(stderr, "Error creating thread\n");
-        return EXIT_FAILURE;
+        return -1;
     }
 #else
     event_base_dispatch(loop->event_base);
 #endif /* WITH_THREAD */
+    return 0;
 }
 
-void
+int
 loop_undispatch(loop_t * loop)
 {
 #ifdef WITH_THREAD
     DEBUG("Waiting for loop to terminate...");
     if(pthread_join(loop->thread, NULL)) {
         fprintf(stderr, "Error joining thread\n");
-        return EXIT_FAILURE;
+        return -1;
     }
     DEBUG("Loop terminated !");
 #endif /* WITH_THREAD */
+    return 0;
 }
 
 void
@@ -210,7 +212,7 @@ int
 _loop_register_fd(loop_t * loop, int fd, void * callback_owner,
         fd_callback_t callback, void * callback_data)
 {
-    /* This will be freed with the event */ 
+    /* This will be freed with the event */
     cb_wrapper_args_t * cb_wrapper_args = malloc(sizeof(cb_wrapper_args_t));
     *cb_wrapper_args = (cb_wrapper_args_t) {
         .owner = callback_owner,
@@ -220,14 +222,20 @@ _loop_register_fd(loop_t * loop, int fd, void * callback_owner,
 
     evutil_make_socket_nonblocking(fd);
     struct event * event = event_new(loop->event_base, fd, EV_READ | EV_PERSIST, cb_wrapper, cb_wrapper_args);
-    if (!event)
+    if (!event) {
+        ERROR("[_loop_register_fd] event_new");
         goto ERR_EVENT_NEW;
+    }
 
-    if (event_add(event, NULL) < 0)
+    if (event_add(event, NULL) < 0) {
+        ERROR("[_loop_register_fd] event_add");
         goto ERR_EVENT_ADD;
+    }
 
-    if (event_map_add(loop->event_map, fd, event) < 0)
+    if (event_map_add(loop->event_map, fd, event) < 0) {
+        ERROR("[_loop_register_fd] event_map_add");
         goto ERR_EVENT_MAP;
+    }
 
     return 0;
 
@@ -249,7 +257,7 @@ _loop_unregister_fd(loop_t * loop, int fd)
     struct event * event = NULL;
 
     if (event_map_remove(loop->event_map, fd, &event) < 0) {
-        ERROR("[loop_unregister_fd] Error removing event associated to fd");
+        ERROR("[_loop_unregister_fd] Error removing event associated to fd");
         return -1;
     }
 
@@ -317,13 +325,13 @@ _loop_register_timer(loop_t * loop, timer_callback_data_t * timer_callback_data)
     };
 
     if (timer_fd_map_add(loop->timer_fd_map, fd, cb_wrapper_args) < 0) {
-        ERROR("[loop_callback] Could not add cb_wrapper to timer map");
+        ERROR("[_loop_register_timer] Could not add cb_wrapper to timer map");
         return -1;
     }
 
     if (_loop_register_fd(loop, fd, loop,
                 (fd_callback_t) loop_timer_callback, cb_wrapper_args) < 0) {
-        ERROR("[loop_callback] Error registering fd to event loop");
+        ERROR("[_loop_register_timer] Error registering fd to event loop");
         return -1;
     }
 
@@ -352,14 +360,14 @@ _loop_unregister_timer(loop_t * loop, int fd)
 
     cb_wrapper_args_t * cb_wrapper_args;
     if (timer_fd_map_remove(loop->timer_fd_map, fd, &cb_wrapper_args) < 0) {
-        ERROR("[loop_callback] Could not remove cb_wrapper from timer map");
+        ERROR("[_loop_unregister_timer] Could not remove cb_wrapper from timer map");
         return -1;
     }
     assert(cb_wrapper_args);
     free(cb_wrapper_args);
 
     if (_loop_unregister_fd(loop, fd) < 0) {
-        ERROR("[loop_callback] Error unregistering fd from event loop");
+        ERROR("[_loop_unregister_timer] Error unregistering fd from event loop");
         return -1;
     }
 
@@ -386,10 +394,10 @@ loop_callback(loop_t * loop, facemgr_cb_type_t type, void * data)
 
         case FACEMGR_CB_TYPE_UNREGISTER_FD:
         {
-            int fd = *(int*)data;
+            fd_callback_data_t * fd_callback_data = (fd_callback_data_t *)data;
             /* We need a map to associate fd and events */
-            if (_loop_unregister_fd(loop, fd) < 0) {
-                ERROR("[loop_callback] Error registering fd to event loop");
+            if (_loop_unregister_fd(loop, fd_callback_data->fd) < 0) {
+                ERROR("[loop_callback] Error unregistering fd from event loop");
                 return -1;
             }
             break;

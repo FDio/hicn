@@ -22,9 +22,8 @@
 #include <stdbool.h>
 #include <hicn/ctrl/face.h>
 #include <hicn/facemgr/cfg.h>
+#include <hicn/facemgr/facelet.h>
 #include <hicn/util/log.h>
-
-#include "facelet.h"
 
 const char * face_type_layer_str[] = {
 #define _(x) [FACE_TYPE_LAYER_ ## x] = STRINGIZE(x),
@@ -75,6 +74,8 @@ struct facelet_s {
 #undef _
 
     facelet_status_t status;
+    bool status_error;
+
     facelet_event_t event;
 
     /* Joins */
@@ -106,7 +107,8 @@ facelet_create()
     facelet->state_status = FACELET_ATTR_STATUS_UNSET;
     facelet->face_type_status = FACELET_ATTR_STATUS_UNSET;
 
-    facelet->status = FACELET_STATUS_NEW;
+    facelet->status = FACELET_STATUS_UNDEFINED;
+    facelet->status_error = false;
 
     facelet->bj_done = false;
     facelet->au_done = false;
@@ -465,7 +467,7 @@ facelet_set_local_ ## NAME(facelet_t * facelet, TYPE NAME)                      
             facelet-> NAME = NAME;                                              \
             facelet->NAME ## _status = FACELET_ATTR_STATUS_DIRTY;               \
             if (facelet->status == FACELET_STATUS_CLEAN)                        \
-                facelet->status = FACELET_STATUS_DIRTY;                         \
+                facelet->status = FACELET_STATUS_UPDATE;                        \
             break;                                                              \
         case FACELET_ATTR_STATUS_CONFLICT:                                      \
             break;                                                              \
@@ -495,8 +497,9 @@ facelet_set_remote_ ## NAME(facelet_t * facelet, TYPE NAME)                     
         case FACELET_ATTR_STATUS_PENDING:                                       \
             ERROR("Received remote value on pending attribute");                \
             facelet->NAME ## _status = FACELET_ATTR_STATUS_CONFLICT;            \
-            if (facelet->status != FACELET_STATUS_CONFLICT)                     \
-                facelet->status = FACELET_STATUS_CONFLICT;                      \
+            /* We need to proceed to an update of the face */                   \
+            if (facelet->status != FACELET_STATUS_UPDATE)                       \
+                facelet->status = FACELET_STATUS_UPDATE;                        \
             break;                                                              \
         case FACELET_ATTR_STATUS_CONFLICT:                                      \
             return -1;                                                          \
@@ -686,32 +689,6 @@ facelet_get_face(const facelet_t * facelet, face_t ** pface)
                 goto ERR;
         }
     }
-#ifdef __linux__
-#ifndef __ANDROID__
-    else {
-        /*
-         * Heuristics to determine face type based on name, until a better
-         * solution is found
-         */
-        if (strncmp(facelet->netdevice.name, "eth", 3) == 0) {
-            policy_tags_add(&tags, POLICY_TAG_WIRED);
-            goto DONE;
-        }
-        if (strncmp(facelet->netdevice.name, "en", 2) == 0) {
-            policy_tags_add(&tags, POLICY_TAG_WIRED);
-            goto DONE;
-        }
-        if (strncmp(facelet->netdevice.name, "wl", 2) == 0) {
-            /* wlan* wlp* wlx* */
-            policy_tags_add(&tags, POLICY_TAG_WIFI);
-            goto DONE;
-        }
-
-DONE:
-        ;
-    }
-#endif /* ! __ANDROID__ */
-#endif /* __linux__ */
     face->tags = tags;
 
     *pface = face;
@@ -731,10 +708,10 @@ facelet_get_status(const facelet_t * facelet)
     return facelet->status;
 }
 
-#define SET_ATTR_STATUS_CLEAN(TYPE, NAME)                                               \
-do {                                                                                    \
-    if (facelet->NAME ## _status  == FACELET_ATTR_STATUS_DIRTY)                         \
-        facelet->NAME ## _status = FACELET_ATTR_STATUS_CLEAN;                               \
+#define SET_ATTR_STATUS_CLEAN(TYPE, NAME)                       \
+do {                                                            \
+    if (facelet->NAME ## _status  == FACELET_ATTR_STATUS_DIRTY) \
+        facelet->NAME ## _status = FACELET_ATTR_STATUS_CLEAN;   \
 } while (0)
 
 void
@@ -746,6 +723,18 @@ facelet_set_status(facelet_t * facelet, facelet_status_t status)
 #undef _
     }
     facelet->status = status;
+}
+
+void
+facelet_set_status_error(facelet_t * facelet, bool value)
+{
+    facelet->status_error = value;
+}
+
+bool
+facelet_get_status_error(const facelet_t * facelet)
+{
+    return facelet->status_error;
 }
 
 void
@@ -791,7 +780,7 @@ facelet_set_event(facelet_t * facelet, facelet_event_t event)
 }
 
 int
-facelet_snprintf(char * s, size_t size, facelet_t * facelet)
+facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
 {
     char * cur = s;
     int rc;
@@ -799,9 +788,9 @@ facelet_snprintf(char * s, size_t size, facelet_t * facelet)
     assert(facelet);
 
     /* Header + key attributes (netdevice + family) */
-    rc = snprintf(cur, s + size - cur, "<Facelet %s (%s)",
-            // FIXME, better than the event would be the action to be performed next
-            facelet_event_str[facelet->event],
+    rc = snprintf(cur, s + size - cur, "<Facelet %s %s (%s)",
+            facelet_status_str[facelet->status],
+            facelet_get_status_error(facelet) ? "/!\\" : "",
             (facelet->family == AF_INET) ? "AF_INET" :
             (facelet->family == AF_INET6) ? "AF_INET6" :
             (facelet->family == AF_UNSPEC) ? "AF_UNSPEC" :
@@ -848,36 +837,6 @@ facelet_snprintf(char * s, size_t size, facelet_t * facelet)
         if (size != 0 && cur >= s + size)
             return cur - s;
     }
-#ifdef __linux__
-#ifndef __ANDROID__
-    else {
-        /*
-         * Heuristics to determine face type based on name, until a better
-         * solution is found
-         */
-        if ((strncmp(facelet->netdevice.name, "eth", 3) == 0) ||
-            (strncmp(facelet->netdevice.name, "en", 2) == 0)) {
-            rc = snprintf(cur, s + size - cur, " [type=WIRED]");
-            goto HEURISTIC_DONE;
-        }
-        if (strncmp(facelet->netdevice.name, "wl", 2) == 0) {
-            /* wlan* wlp* wlx* */
-            rc = snprintf(cur, s + size - cur, " [type=WIFI]");
-            goto HEURISTIC_DONE;
-        }
-        goto HEURISTIC_END;
-
-HEURISTIC_DONE:
-        if (rc < 0)
-            return rc;
-        cur += rc;
-        if (size != 0 && cur >= s + size)
-            return cur - s;
-HEURISTIC_END:
-        ;
-    }
-#endif /* ! __ANDROID__ */
-#endif /* __linux__ */
 
     /* Local ip address */
     if (facelet_has_local_addr(facelet)) {
@@ -970,6 +929,207 @@ HEURISTIC_END:
     }
 
     rc = snprintf(cur, s + size - cur, ">");
+    if (rc < 0)
+        return rc;
+    cur += rc;
+    if (size != 0 && cur >= s + size)
+        return cur - s;
+
+    return cur - s;
+}
+
+int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int indent)
+{
+    char * cur = s;
+    int rc;
+
+    assert(facelet);
+
+    /* Header + key attributes (netdevice + family) */
+    rc = snprintf(cur, s + size - cur, "%*s%s", 4 * indent, "", "{\n");
+    if (rc < 0)
+        return rc;
+    cur += rc;
+    if (size != 0 && cur >= s + size)
+        return cur - s;
+
+    /* Status */
+    rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "", "\"status\"",
+            facelet_status_str[facelet->status]);
+    if (rc < 0)
+        return rc;
+    cur += rc;
+    if (size != 0 && cur >= s + size)
+        return cur - s;
+
+    /* Family */
+    rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "", "\"family\"",
+            (facelet->family == AF_INET) ? "AF_INET" :
+            (facelet->family == AF_INET6) ? "AF_INET6" :
+            (facelet->family == AF_UNSPEC) ? "AF_UNSPEC" :
+            "unknown");
+    if (rc < 0)
+        return rc;
+    cur += rc;
+    if (size != 0 && cur >= s + size)
+        return cur - s;
+
+    /* Netdevice */
+    if (facelet_has_netdevice(facelet)) {
+        rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "",
+                "\"netdevice\"",
+                facelet->netdevice.name[0] ? facelet->netdevice.name : "*");
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+
+    } else {
+        rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "",
+                "\"netdevice\"", "*");
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+    }
+
+    /* Netdevice type */
+    if (facelet_has_netdevice_type(facelet)) {
+        rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "",
+                "\"netdevice_type\"",
+                netdevice_type_str[facelet->netdevice_type]);
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+    }
+
+    /* Local ip address */
+    if (facelet_has_local_addr(facelet)) {
+        rc = snprintf(cur, s + size - cur, "%*s%s: \"", 4 * (indent+1), "",
+                "\"local_addr\"");
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+
+        rc = ip_address_snprintf(cur, s + size - cur, &facelet->local_addr,
+                facelet->family);
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+
+        rc = snprintf(cur, s + size - cur, "\",\n");
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+    }
+
+    /* Local port */
+    if (facelet_has_local_port(facelet)) {
+        rc = snprintf(cur, s + size - cur, "%*s%s: %d,\n", 4 * (indent+1), "",
+                "\"local_port\"",
+                facelet->local_port);
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+    }
+
+    /* Remote ip address */
+    if (facelet_has_remote_addr(facelet)) {
+        rc = snprintf(cur, s + size - cur, "%*s%s: \"", 4 * (indent+1), "",
+                "\"remote_addr\"");
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+
+        rc = ip_address_snprintf(cur, s + size - cur, &facelet->remote_addr,
+                facelet->family);
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+
+        rc = snprintf(cur, s + size - cur, "\",\n");
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+    }
+
+    /* Remote port */
+    if (facelet_has_remote_port(facelet)) {
+        rc = snprintf(cur, s + size - cur, "%*s%s: %d,\n", 4 * (indent+1), "",
+                "\"remote_port\"",
+                facelet->remote_port);
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+    }
+
+    /* Admin state */
+    if (facelet_has_admin_state(facelet)) {
+        rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "",
+                "\"admin_state\"",
+                face_state_str[facelet->admin_state]);
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+    }
+
+    /* State */
+    if (facelet_has_state(facelet)) {
+        rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "",
+                "\"state\"",
+                face_state_str[facelet->state]);
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+    }
+
+    if (facelet_has_face_type(facelet)) {
+        rc = snprintf(cur, s + size - cur, "%*s%s: \"LAYER%s/%s\",\n", 4 * (indent+1), "",
+                "\"face_type\"",
+            FACEMGR_FACE_TYPE_STR(facelet->face_type));
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (size != 0 && cur >= s + size)
+            return cur - s;
+    }
+
+    /* Status error */
+    rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\"\n", 4 * (indent+1), "",
+            "\"error\"",
+            facelet_get_status_error(facelet) ? "true" : "false");
+    if (rc < 0)
+        return rc;
+    cur += rc;
+    if (size != 0 && cur >= s + size)
+        return cur - s;
+
+
+    rc = snprintf(cur, s + size - cur, "%*s%s", 4 * indent, "", "}");
     if (rc < 0)
         return rc;
     cur += rc;
