@@ -29,7 +29,8 @@ VPP_VERSION_RPM="19.08.1-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
-DEPS_UBUNTU="libparc-dev libasio-dev libconfig-dev libcurl4-openssl-dev vpp=${VPP_VERSION_DEB} vpp-dev=${VPP_VERSION_DEB} libvppinfra=${VPP_VERSION_DEB} libvppinfra-dev=${VPP_VERSION_DEB} vpp-plugin-core=${VPP_VERSION_DEB}"
+DEPS_UBUNTU="libparc-dev libasio-dev libconfig-dev libcurl4-openssl-dev vpp=${VPP_VERSION_DEB} vpp-dev=${VPP_VERSION_DEB} libvppinfra=${VPP_VERSION_DEB} libvppinfra-dev=${VPP_VERSION_DEB} vpp-plugin-core=${VPP_VERSION_DEB} python3-ply"
+DEPS_CMAKE_UBUNTU="curl"
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
 DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM} vpp-lib-${VPP_VERSION_RPM} libparc-devel libcurl-devel asio-devel libconfig-devel centos-release-scl devtoolset-7"
@@ -37,6 +38,11 @@ DEPS_CENTOS_NOVERSION="vpp-devel vpp-lib libparc-devel libcurl-devel asio-devel 
 LATEST_EPEL_REPO="http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
 
 install_cmake() {
+    if [ "${DISTRIB_ID}" == "ubuntu" ]; then
+        sudo apt update
+        echo ${DEPS_CMAKE_UBUNTU} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
+    fi
+
     if ! grep -q "8.8.8.8" /etc/resolv.conf; then
         echo "nameserver 8.8.8.8" | sudo tee -a /etc/resolv.conf
     fi
