@@ -33,6 +33,7 @@ RTCTransportProtocol::RTCTransportProtocol(
   icnet_socket->getSocketOption(PORTAL, portal_);
   rtx_timer_ = std::make_unique<asio::steady_timer>(portal_->getIoService());
   probe_timer_ = std::make_unique<asio::steady_timer>(portal_->getIoService());
+  round_timer_ = std::make_unique<asio::steady_timer>(portal_->getIoService());
   reset();
 }
 
@@ -44,6 +45,7 @@ RTCTransportProtocol::~RTCTransportProtocol() {
 
 int RTCTransportProtocol::start() {
   probeRtt();
+  newRound();
   return TransportProtocol::start();
 }
 
@@ -59,10 +61,10 @@ void RTCTransportProtocol::resume() {
 
   is_running_ = true;
 
-  lastRoundBegin_ = std::chrono::steady_clock::now();
   inflightInterestsCount_ = 0;
 
   probeRtt();
+  newRound();
   scheduleNextInterests();
 
   portal_->runEventsLoop();
@@ -74,7 +76,6 @@ void RTCTransportProtocol::resume() {
 void RTCTransportProtocol::reset() {
   portal_->setConsumerCallback(this);
   // controller var
-  lastRoundBegin_ = std::chrono::steady_clock::now();
   currentState_ = HICN_RTC_SYNC_STATE;
 
   // cwin var
@@ -140,15 +141,14 @@ uint32_t min(uint32_t a, uint32_t b) {
     return b;
 }
 
-void RTCTransportProtocol::checkRound() {
-  uint32_t duration =
-      (uint32_t)std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::steady_clock::now() - lastRoundBegin_)
-          .count();
-  if (duration >= HICN_ROUND_LEN) {
-    lastRoundBegin_ = std::chrono::steady_clock::now();
-    updateStats(duration);  // update stats and window
-  }
+void RTCTransportProtocol::newRound() {
+  round_timer_->expires_from_now(std::chrono::milliseconds(
+                                          HICN_ROUND_LEN));
+  round_timer_->async_wait([this](std::error_code ec) {
+    if (ec) return;
+    updateStats(HICN_ROUND_LEN);
+    newRound();
+  });
 }
 
 void RTCTransportProtocol::updateDelayStats(
@@ -439,7 +439,6 @@ void RTCTransportProtocol::sendInterest(Name *interest_name, bool rtx) {
 }
 
 void RTCTransportProtocol::scheduleNextInterests() {
-  checkRound();
   if (!is_running_ && !is_first_) return;
 
   while (inflightInterestsCount_ < currentCWin_) {
@@ -495,7 +494,6 @@ void RTCTransportProtocol::scheduleNextInterests() {
     actualSegment_ = (actualSegment_ + 1) % HICN_MIN_PROBE_SEQ;
 
     sendInterest(interest_name, false);
-    checkRound();
   }
 }
 
