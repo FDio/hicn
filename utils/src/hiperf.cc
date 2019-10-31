@@ -191,6 +191,11 @@ class HIperfClient {
         rtc_callback_(configuration_.rtc_ ? new RTCCallback(*this) : nullptr),
         callback_(configuration_.rtc_ ? nullptr : new Callback(*this)) {}
 
+  ~HIperfClient() {
+    delete callback_;
+    delete rtc_callback_;
+  }
+
   void checkReceivedRtcContent(ConsumerSocket &c,
                                const ContentObject &contentObject) {
     if (!configuration_.test_mode_) return;
