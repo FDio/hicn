@@ -20,7 +20,7 @@
 #include <sysrepo/values.h>
 
 
-#include <hicn/api/api.h>
+#include <hicn/ctrl/api.h>
 
 #ifndef HICN_THIS_FUNC
 #ifdef __FUNCTION__
