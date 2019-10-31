@@ -302,7 +302,7 @@ static i32 ietf_interface_name2index(const char *name, u32* if_index)
 
   dump = vapi_alloc_sw_interface_dump(g_vapi_ctx_instance);
   dump->payload.name_filter_valid = true;
-  memcpy(dump->payload.name_filter, name, sizeof(dump->payload.name_filter));
+  memcpy(&dump->payload.name_filter, name, sizeof(dump->payload.name_filter));
 
   while (VAPI_EAGAIN == (rv = vapi_sw_interface_dump(g_vapi_ctx_instance, dump, ietf_sw_interface_dump_cb, &dctx)))
     ;
