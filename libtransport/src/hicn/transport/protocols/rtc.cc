@@ -46,6 +46,7 @@ RTCTransportProtocol::~RTCTransportProtocol() {
 
 int RTCTransportProtocol::start() {
   probeRtt();
+  sentinelTimer();
   newRound();
   return TransportProtocol::start();
 }
@@ -65,6 +66,7 @@ void RTCTransportProtocol::resume() {
   inflightInterestsCount_ = 0;
 
   probeRtt();
+  sentinelTimer();
   newRound();
   scheduleNextInterests();
 
@@ -230,11 +232,6 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
   if (pathTable_.find(producerPathLabels_[0]) == pathTable_.end() ||
       pathTable_.find(producerPathLabels_[1]) == pathTable_.end())
     return;  // this should not happen
-
-  //set sentinel timer if needed
-  if(rounds_ == 0){
-    sentinelTimer();
-  }
 
   // as a queuing delay we keep the lowest one among the two paths
   // if one path is congested the forwarder should decide to do not
@@ -508,24 +505,43 @@ void RTCTransportProtocol::scheduleNextInterests() {
 }
 
 void RTCTransportProtocol::sentinelTimer(){
-  uint32_t wait = 1;
-  if(pathTable_.find(producerPathLabels_[0]) != pathTable_.end()){
-    wait = round(
-            pathTable_[producerPathLabels_[0]]->getInterArrivalGap());
+  uint32_t wait = 10;
+
+  if(pathTable_.find(producerPathLabels_[0]) != pathTable_.end() &&
+        pathTable_.find(producerPathLabels_[1]) != pathTable_.end()){
+    //we have all the info to set the timers
+    wait = round(pathTable_[producerPathLabels_[0]]->getInterArrivalGap());
+    if(wait == 0)
+      wait = 1;
   }
-  if(wait == 0)
-    wait  = 1;
 
   sentinel_timer_->expires_from_now(std::chrono::milliseconds(wait));
   sentinel_timer_->async_wait([this](std::error_code ec) {
+
     if (ec) return;
-    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+
+     uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
                    std::chrono::steady_clock::now().time_since_epoch())
                    .count();
 
-    if(pathTable_.find(producerPathLabels_[0]) != pathTable_.end() ||
-        pathTable_.find(producerPathLabels_[1]) != pathTable_.end()){
+    if(pathTable_.find(producerPathLabels_[0]) == pathTable_.end() ||
+        pathTable_.find(producerPathLabels_[1]) == pathTable_.end()){
+        //we have no info, so we send again
 
+        for(auto it = packets_in_window_.begin();
+                  it != packets_in_window_.end(); it++){
+          uint32_t pkt = it->first & modMask_;
+          if (inflightInterests_[pkt].sequence == it->first) {
+              inflightInterests_[pkt].transmissionTime = now;
+              Name *interest_name = nullptr;
+              socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME,
+                               &interest_name);
+              interest_name->setSuffix(it->first);
+              it->second++;
+              sendInterest(interest_name, true);
+          }
+        }
+    }else{
       uint64_t max_waiting_time =
               round((pathTable_[producerPathLabels_[1]]->getMinRtt() -
                 pathTable_[producerPathLabels_[0]]->getMinRtt()) +
@@ -552,12 +568,11 @@ void RTCTransportProtocol::sentinelTimer(){
           }
         }
       }
-    }//esle not enough info to resend the packet, schedule the timer agian
+    }
 
     sentinelTimer();
   });
 }
-
 void RTCTransportProtocol::addRetransmissions(uint32_t val) {
   // add only val in the rtx list
   addRetransmissions(val, val + 1);
