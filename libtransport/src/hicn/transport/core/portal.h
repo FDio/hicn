@@ -451,11 +451,12 @@ class Portal {
       if (it != pending_interest_hash_table_.end()) {
         PendingInterest::Ptr ptr = std::move(it->second);
         pending_interest_hash_table_.erase(it);
+        auto _int = ptr->getInterest();
 
         if (ptr->getOnTimeoutCallback() != UNSET_CALLBACK) {
-          ptr->on_interest_timeout_callback_(std::move(ptr->getInterest()));
+          ptr->on_interest_timeout_callback_(std::move(_int));
         } else if (consumer_callback_) {
-          consumer_callback_->onTimeout(std::move(ptr->getInterest()));
+          consumer_callback_->onTimeout(std::move(_int));
         }
       }
     }
