@@ -242,7 +242,6 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
     if (!data->s) {
         /* We are not connected to the forwarder */
         goto ERR;
-
     }
 
     switch(facelet_get_event(facelet)) {

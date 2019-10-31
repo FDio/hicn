@@ -53,7 +53,7 @@ int updown_initialize(interface_t * interface, void * cfg)
     data->fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (data->fd == -1) {
         perror("socket error");
-        return -1;
+        goto ERR_SOCKET;
     }
 
     memset(&addr, 0, sizeof(addr));
@@ -67,7 +67,7 @@ int updown_initialize(interface_t * interface, void * cfg)
 
     if (connect(data->fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
         perror("connect error");
-        return -1;
+        goto ERR_CONNECT;
     }
 
     if (interface_register_fd(interface, data->fd, NULL) < 0) {
@@ -77,6 +77,11 @@ int updown_initialize(interface_t * interface, void * cfg)
 
     return 0;
 
+ERR_FD:
+ERR_CONNECT:
+    close(data->fd);
+ERR_SOCKET:
+    free(data);
 ERR_MALLOC:
     return -1;
 }
@@ -87,11 +92,12 @@ int updown_finalize(interface_t * interface)
 
     if (data->fd > 0)
         close(data->fd);
+    free(data);
 
     return 0;
 }
 
-int updown_callback(interface_t * interface)
+int updown_callback(interface_t * interface, int fd, void * unused)
 {
     updown_data_t * data = (updown_data_t*)interface->data;
     char buf[100];

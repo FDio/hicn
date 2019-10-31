@@ -1622,28 +1622,29 @@ facemgr_bootstrap(facemgr_t * facemgr)
 
     /* FIXME facemgr_delete_interface */
 #ifdef WITH_EXAMPLE_UPDOWN
-    interface_free(facemgr->updown);
+    facemgr_delete_interface(facemgr, facemgr->updown);
 ERR_UPDOWN_CREATE:
 #endif
 #ifdef WITH_EXAMPLE_DUMMY
-    interface_free(facemgr->dummy);
+    facemgr_delete_interface(facemgr, facemgr->dummy);
 ERR_DUMMY_CREATE:
 #endif
 #ifdef __ANDROID__
-    interface_free(facemgr->au);
+    facemgr_delete_interface(facemgr, facemgr->au);
 ERR_AU_CREATE:
 #endif /* __ANDROID__ */
 #ifdef __linux__
-    interface_free(facemgr->nl);
+    facemgr_delete_interface(facemgr, facemgr->nl);
 ERR_NL_CREATE:
 #endif /* __linux__ */
 #ifdef __APPLE__
-    interface_free(facemgr->nf);
+    facemgr_delete_interface(facemgr, facemgr->nf);
 ERR_NF_CREATE:
 #endif /* __APPLE__ */
-    interface_free(facemgr->hl);
+    facemgr_delete_interface(facemgr, facemgr->hl);
 ERR_HL_CREATE:
 ERR_REGISTER:
+    interface_unregister_all();
     return -1;
 }
 

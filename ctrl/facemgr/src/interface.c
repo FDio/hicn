@@ -53,19 +53,21 @@ interface_unregister_all()
     int n = interface_ops_map_get_key_array(interface_ops_map, &ops_name_array);
     if (n < 0) {
         ERROR("[interface_unregister_all] Could not get interface ops array");
-        ret = -1;
-    } else {
-        for (unsigned i = 0; i < n; i++) {
-            const char * ops_name = ops_name_array[i];
-            if (interface_ops_map_remove(interface_ops_map, ops_name, NULL) < 0) {
-                ERROR("[interface_unregister_all] Could not remove %s from interface ops map", ops_name);
-                ret = -1;
-            }
-        }
-        free(ops_name_array);
+        return -1;
     }
+
+    for (unsigned i = 0; i < n; i++) {
+        const char * ops_name = ops_name_array[i];
+        if (interface_ops_map_remove(interface_ops_map, ops_name, NULL) < 0) {
+            ERROR("[interface_unregister_all] Could not remove %s from interface ops map", ops_name);
+            ret = -1;
+        }
+    }
+    free(ops_name_array);
+
     interface_ops_map_free(interface_ops_map);
     interface_ops_map = NULL;
+
     return ret;
 }
 

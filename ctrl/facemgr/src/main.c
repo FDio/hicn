@@ -246,6 +246,7 @@ MAIN_LOOP:
 ERR_BOOTSTRAP:
 
     facemgr_free(facemgr);
+    loop_free(loop);
 ERR_FACEMGR_CONFIG:
 ERR_FACEMGR:
 ERR_PARSE:

@@ -27,7 +27,8 @@
 
 /**
  * \brief Default interval (in seconds) between timer events */
-#define DEFAULT_INTERVAL 100000
+#define DEFAULT_INTERVAL_SEC 5
+#define DEFAULT_INTERVAL_NSEC 0
 
 /**
  * \brief Maximum allowed number of connected clients
@@ -136,12 +137,12 @@ int main() {
 
     struct itimerspec ts = {
         .it_interval = {
-            .tv_sec = DEFAULT_INTERVAL,
-            .tv_nsec = 0,
+            .tv_sec = DEFAULT_INTERVAL_SEC,
+            .tv_nsec = DEFAULT_INTERVAL_NSEC,
         },
         .it_value = {
-            .tv_sec = DEFAULT_INTERVAL,
-            .tv_nsec = 0,
+            .tv_sec = DEFAULT_INTERVAL_SEC,
+            .tv_nsec = DEFAULT_INTERVAL_NSEC,
         }
     };
     rc = timerfd_settime(tfd, 0, &ts, NULL);
