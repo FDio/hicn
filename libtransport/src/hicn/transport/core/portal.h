@@ -312,10 +312,10 @@ class Portal {
 
   Portal(asio::io_service &io_service)
       : io_service_(io_service),
+        packet_pool_(io_service),
         app_name_("libtransport_application"),
         consumer_callback_(nullptr),
         producer_callback_(nullptr),
-        packet_pool_(io_service),
         connector_(std::bind(&Portal::processIncomingMessages, this,
                              std::placeholders::_1),
                    std::bind(&Portal::setLocalRoutes, this), io_service_,
@@ -367,7 +367,11 @@ class Portal {
   /**
    * Destructor.
    */
-  ~Portal() { killConnection(); }
+  ~Portal() {
+    std::cout << "Pending interest size: "
+              << pending_interest_hash_table_.size() << std::endl;
+    killConnection();
+  }
 
   /**
    * Check if there is already a pending interest for a given name.
@@ -419,10 +423,13 @@ class Portal {
                                           this, std::placeholders::_1, hash)));
 
     auto it = pending_interest_hash_table_.find(hash);
-    if(it != pending_interest_hash_table_.end()){
+    if (it != pending_interest_hash_table_.end()) {
       it->second->cancelTimer();
+
+      // Get reference to intrest packet destroyed.
+      auto _int = it->second->getInterest();
       it->second = std::move(pending_interest);
-    }else{
+    } else {
       pending_interest_hash_table_[hash] = std::move(pending_interest);
     }
   }
@@ -439,6 +446,7 @@ class Portal {
                                             uint32_t hash) {
     bool is_stopped = io_service_.stopped();
     if (TRANSPORT_EXPECT_FALSE(is_stopped)) {
+      std::cout << "Stopped!" << std::endl;
       return;
     }
 
@@ -562,6 +570,10 @@ class Portal {
   TRANSPORT_ALWAYS_INLINE void doClear() {
     for (auto &pend_interest : pending_interest_hash_table_) {
       pend_interest.second->cancelTimer();
+
+      // Get interest packet from pending interest and do nothing with it. It
+      // will get destroyed as it goes out of scope.
+      auto _int = pend_interest.second->getInterest();
     }
 
     pending_interest_hash_table_.clear();
@@ -641,13 +653,14 @@ class Portal {
       PendingInterest::Ptr interest_ptr = std::move(it->second);
       pending_interest_hash_table_.erase(it);
       interest_ptr->cancelTimer();
+      auto _int = interest_ptr->getInterest();
 
       if (interest_ptr->getOnDataCallback() != UNSET_CALLBACK) {
-        interest_ptr->on_content_object_callback_(
-            std::move(interest_ptr->getInterest()), std::move(content_object));
+        interest_ptr->on_content_object_callback_(std::move(_int),
+                                                  std::move(content_object));
       } else if (consumer_callback_) {
-        consumer_callback_->onContentObject(
-            std::move(interest_ptr->getInterest()), std::move(content_object));
+        consumer_callback_->onContentObject(std::move(_int),
+                                            std::move(content_object));
       }
     } else {
       TRANSPORT_LOGD("No pending interests for current content (%s)",
@@ -668,6 +681,7 @@ class Portal {
  private:
   asio::io_service &io_service_;
   asio::io_service internal_io_service_;
+  portal_details::Pool packet_pool_;
 
   std::string app_name_;
 
@@ -677,7 +691,6 @@ class Portal {
   ConsumerCallback *consumer_callback_;
   ProducerCallback *producer_callback_;
 
-  portal_details::Pool packet_pool_;
   portal_details::HandlerMemory async_callback_memory_;
 
   typename ForwarderInt::ConnectorType connector_;
