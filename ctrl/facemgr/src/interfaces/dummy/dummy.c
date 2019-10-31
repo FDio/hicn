@@ -24,7 +24,6 @@
 #include <hicn/facemgr.h>
 
 #include "../../common.h"
-#include "../../facelet.h"
 #include "../../interface.h"
 
 #include "dummy.h"
@@ -65,6 +64,12 @@ int dummy_initialize(interface_t * interface, void * cfg)
     /* ... */
 
     data->fd = 0;
+#if 0
+    if (interface_register_fd(interface, data->fd, NULL) < 0) {
+        ERROR("[dummy_initialize] Error registering fd");
+        goto ERR_FD;
+    }
+#endif
 
     /* ... */
 
@@ -74,8 +79,9 @@ int dummy_initialize(interface_t * interface, void * cfg)
      *  - a file descriptor (>0) will be added to the event loop; or
      *  - 0 if we don't use any file descriptor
      */
-    return data->fd;
+    return 0;
 
+ERR_FD:
 ERR_MALLOC:
     return -1;
 }

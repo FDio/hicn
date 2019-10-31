@@ -25,6 +25,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/api.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/cfg.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/facelet.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/loop.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/log.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/android_utility/android_utility.h
@@ -37,6 +38,8 @@ else ()
     ${CMAKE_CURRENT_SOURCE_DIR}/facemgr.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/api.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/cfg.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/facelet.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/loop.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/log.h
     PARENT_SCOPE
   )

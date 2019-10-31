@@ -49,16 +49,18 @@ loop_free(loop_t * loop)
     /* Nothing to do */
 }
 
-void
+int
 loop_dispatch(loop_t * loop)
 {
     dispatch_main();
+    return 0;
 }
 
-void
+int
 loop_undispatch(loop_t * loop)
 {
     /* Nothing to do */
+    return 0;
 }
 
 void

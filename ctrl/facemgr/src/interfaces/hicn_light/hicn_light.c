@@ -27,7 +27,6 @@
 #include <hicn/util/ip_address.h>
 #include <hicn/util/log.h>
 
-#include "../../facelet.h"
 #include "../../interface.h"
 #include "../../util/map.h"
 
@@ -69,18 +68,6 @@ int hl_process_state(interface_t * interface)
                 return -1;
             }
             break;
-#if 0
-            foreach_face(f, faces) {
-#if 0
-                hc_face_snprintf(buf, MAXSZ_FACE, f);
-                printf("Face: %s\n", buf);
-#endif
-                facelet_t * facelet = facelet_create_from_face(&f->face);
-                facelet_set_event(facelet, FACELET_EVENT_GET);
-                interface_raise_event(interface, facelet);
-            }
-            break;
-#endif
 
         case HL_STATE_FACES_SENT:
             break;
@@ -97,7 +84,6 @@ int
 hl_after_connect(interface_t * interface)
 {
     hl_data_t * data = interface->data;
-    // XXX cancel timer
 
     /* File descriptor for control socket operations */
     if (interface_register_fd(interface, hc_sock_get_fd(data->s), NULL) < 0) {
@@ -123,7 +109,7 @@ hl_connect_timeout(interface_t * interface, int fd, void * unused)
 {
     int rc = _hl_connect(interface);
     if (rc < 0) {
-        ERROR("[hl_initialize] Error during connection reattempt; next attempt in %ds", INTERVAL_MS / 1000);
+        DEBUG("[hl_initialize] Error during connection reattempt; next attempt in %ds", INTERVAL_MS / 1000);
         return -1;
     }
 
@@ -149,11 +135,11 @@ _hl_connect(interface_t * interface)
     }
 
     if (hc_sock_connect(data->s) < 0) {
-        ERROR("[hc_connect] Could not connect control socket");
+        DEBUG("[hc_connect] Could not connect control socket");
         goto ERR_CONNECT;
     }
 
-    return hl_after_connect(interface);
+    return 0;
 
 ERR_CONNECT:
     hc_sock_free(data->s);
@@ -183,7 +169,7 @@ hl_connect(interface_t * interface)
     hl_data_t * data = interface->data;
 
     if (_hl_connect(interface) >= 0)
-        return 0;
+        return hl_after_connect(interface);
 
     /* Timer for managing the connection to the forwarder */
     DEBUG("Connection to forwarder failed... next retry in %ds", INTERVAL_MS / 1000);
@@ -250,12 +236,12 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
      */
     if (facelet_get_face(facelet, &face) < 0) {
         ERROR("Could not retrieve face from facelet");
-        return -1;
+        goto ERR_FACE;
     }
 
     if (!data->s) {
         /* We are not connected to the forwarder */
-        return -1;
+        goto ERR;
 
     }
 
@@ -270,7 +256,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                 ERROR("Failed to create face\n");
                 goto ERR;
             }
-            INFO("Created face id=%d\n", hc_face.id);
+            INFO("Created face id=%d", hc_face.id);
 
             /* Adding default routs e*/
 #if 1
@@ -336,7 +322,6 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                 hc_face.face = *face;
                 hc_face_t * face_found;
 
-                printf("hc_face_get\n");
                 rc = hc_face_get(data->s, &hc_face, &face_found);
                 if (rc < 0) {
                     ERROR("Failed to find face\n");
@@ -356,8 +341,6 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                     goto ERR;
                 }
 
-                printf("Setting admin state");
-                printf("hc_connection_set_admin_state\n");
                 if (hc_connection_set_admin_state(data->s, conn_id_or_name, admin_state) < 0) {
                     ERROR("Failed to update admin state");
                     goto ERR;
@@ -377,6 +360,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
 
 ERR:
     face_free(face);
+ERR_FACE:
     return -1;
 }
 
@@ -398,15 +382,14 @@ int hl_callback(interface_t * interface, int fd, void * unused)
 
     if (faces->complete) {
         foreach_face(f, faces) {
-#if 1
+#if 0
             char buf[MAXSZ_FACE];
             hc_face_snprintf(buf, MAXSZ_FACE, f);
             printf("Face: %s\n", buf);
-#else
+#endif
             facelet_t * facelet = facelet_create_from_face(&f->face);
             facelet_set_event(facelet, FACELET_EVENT_GET);
             interface_raise_event(interface, facelet);
-#endif
         }
     }
     hc_data_free(faces);
