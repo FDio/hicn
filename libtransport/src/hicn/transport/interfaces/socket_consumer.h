@@ -282,9 +282,36 @@ class ConsumerSocket : public BaseSocket {
                               ConsumerTimerCallback **socket_option_value);
 
  protected:
+  // If the thread calling lambda_func is not the same of io_service, this
+  // function reschedule the function on it
   template <typename Lambda, typename arg2>
   int rescheduleOnIOService(int socket_option_key, arg2 socket_option_value,
-                            Lambda lambda_func);
+                            Lambda lambda_func) {
+    // To enforce type check
+    std::function<int(int, arg2)> func = lambda_func;
+    int result = SOCKET_OPTION_SET;
+    if (transport_protocol_->isRunning()) {
+      std::mutex mtx;
+      /* Condition variable for the wait */
+      std::condition_variable cv;
+      bool done = false;
+      io_service_.dispatch([&socket_option_key, &socket_option_value, &mtx, &cv,
+                            &result, &done, &func]() {
+        std::unique_lock<std::mutex> lck(mtx);
+        done = true;
+        result = func(socket_option_key, socket_option_value);
+        cv.notify_all();
+      });
+      std::unique_lock<std::mutex> lck(mtx);
+      if (!done) {
+        cv.wait(lck);
+      }
+    } else {
+      result = func(socket_option_key, socket_option_value);
+    }
+
+    return result;
+  }
 
  private:
   asio::io_service internal_io_service_;
