@@ -141,7 +141,7 @@ build_package() {
 
     rm -rf *
     cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ${SCRIPT_PATH}/..
-    make package
+    make -j8 package
 
     rm -rf libtransport
 
@@ -152,7 +152,7 @@ build_package() {
           -DBUILD_APPS=ON               \
           ${SCRIPT_PATH}/..
 
-    make package
+    make -j8 package
 
     find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
     rm *Unspecified*
