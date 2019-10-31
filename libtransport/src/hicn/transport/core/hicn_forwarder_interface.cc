@@ -63,7 +63,7 @@ void fillCommandHeader(CommandHeader *header) {
 
 RouteToSelfCommand createCommandRoute(std::unique_ptr<sockaddr> &&addr,
                                       uint8_t prefix_length) {
-  RouteToSelfCommand command;
+  RouteToSelfCommand command = {0};
 
   // check and set IP address
   if (addr->sa_family == AF_INET) {

@@ -47,7 +47,12 @@ class ObjectPool {
 
   ObjectPool() : destructor_(false) {}
 
-  ~ObjectPool() { destructor_ = true; }
+  ~ObjectPool() {
+    destructor_ = true;
+    for (auto &ptr : object_pool_) {
+      ptr.reset();
+    }
+  }
 
   std::pair<bool, Ptr> get() {
     if (object_pool_.empty()) {
@@ -65,6 +70,8 @@ class ObjectPool {
 
     if (TRANSPORT_EXPECT_TRUE(!destructor_)) {
       object_pool_.emplace_back(makePtr(object));
+    } else {
+      delete object;
     }
   }
 
