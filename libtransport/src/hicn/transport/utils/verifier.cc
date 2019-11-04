@@ -97,6 +97,8 @@ PARCKeyId *Verifier::addKeyFromCertificate(const std::string &file_name) {
 int Verifier::verify(const Packet &packet) {
   bool valid = false;
 
+  // initialize packet.payload_head_
+  const_cast<Packet*>(&packet)->separateHeaderPayload();
   // header chain points to the IP + TCP hicn header
   utils::MemBuf *header_chain = packet.header_head_;
   utils::MemBuf *payload_chain = packet.payload_head_;
