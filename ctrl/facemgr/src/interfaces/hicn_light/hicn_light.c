@@ -221,6 +221,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
     hc_face_t hc_face;
     hc_route_t route;
     int rc;
+    int ret = 0;
     hl_data_t * data = (hl_data_t *)interface->data;
 
     face_t * face = NULL;
@@ -232,11 +233,13 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
      */
     if (facelet_get_face(facelet, &face) < 0) {
         ERROR("Could not retrieve face from facelet");
+        ret = -FACELET_ERROR_REASON_INTERNAL_ERROR;
         goto ERR_FACE;
     }
 
     if (!data->s) {
         /* We are not connected to the forwarder */
+        ret = -FACELET_ERROR_REASON_FORWARDER_OFFLINE;
         goto ERR;
     }
 
@@ -249,6 +252,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
             rc = hc_face_create(data->s, &hc_face);
             if (rc < 0) {
                 ERROR("Failed to create face\n");
+                ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
                 goto ERR;
             }
             INFO("Created face id=%d", hc_face.id);
@@ -265,6 +269,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
             };
             if (hc_route_create(data->s, &route) < 0) {
                 ERROR("Failed to create default hICN/IPv4 route");
+                ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
                 goto ERR;
             }
 
@@ -277,6 +282,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
             };
             if (hc_route_create(data->s, &route) < 0) {
                 ERROR("Failed to create default hICN/IPv6 route");
+                ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
                 goto ERR;
             }
 
@@ -307,6 +313,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
             rc = hc_face_delete(data->s, &hc_face);
             if (rc < 0) {
                 ERROR("Failed to delete face\n");
+                ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
                 goto ERR;
             }
             break;
@@ -320,10 +327,12 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                 rc = hc_face_get(data->s, &hc_face, &face_found);
                 if (rc < 0) {
                     ERROR("Failed to find face\n");
+                    ret = -FACELET_ERROR_REASON_INTERNAL_ERROR;
                     goto ERR;
                 }
                 if (!face_found) {
                     ERROR("Face to update has not been found");
+                    ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
                     goto ERR;
                 }
                 char conn_id_or_name[SYMBOLIC_NAME_LEN];
@@ -333,11 +342,13 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                 face_state_t admin_state;
                 if (facelet_get_admin_state(facelet, &admin_state) < 0) {
                     ERROR("Failed to retrieve facelet admin state");
+                    ret = -FACELET_ERROR_REASON_INTERNAL_ERROR;
                     goto ERR;
                 }
 
                 if (hc_connection_set_admin_state(data->s, conn_id_or_name, admin_state) < 0) {
                     ERROR("Failed to update admin state");
+                    ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
                     goto ERR;
                 }
                 INFO("Admin state updated");
@@ -347,16 +358,15 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
         default:
             ERROR("Unknown event %s\n", facelet_event_str[facelet_get_event(facelet)]);
             /* Unsupported events */
+            ret = -FACELET_ERROR_REASON_INTERNAL_ERROR;
             goto ERR;
     }
 
-    face_free(face);
-    return 0;
 
 ERR:
     face_free(face);
 ERR_FACE:
-    return -1;
+    return ret;
 }
 
 int hl_callback(interface_t * interface, int fd, void * unused)
