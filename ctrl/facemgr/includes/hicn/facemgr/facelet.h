@@ -33,6 +33,8 @@
 
 #define MAXSZ_FACELET 1024
 
+#define FACELET_MAX_ERRORS 10
+
 /* NOTE: Any test should be sufficient */
 #define IS_VALID_NETDEVICE(netdevice) ((netdevice.index != 0) && (netdevice.name[0] != '\0'))
 
@@ -115,6 +117,23 @@ typedef enum {
 } facelet_status_t;
 
 extern const char * facelet_status_str[];
+
+/* Facelet error reason */
+#define foreach_facelet_error_reason    \
+    _(UNDEFINED)                        \
+    _(UNSPECIFIED_ERROR)                \
+    _(FORWARDER_OFFLINE)                \
+    _(PERMISSION_DENIED)                \
+    _(INTERNAL_ERROR)                   \
+    _(N)
+
+typedef enum {
+#define _(x) FACELET_ERROR_REASON_ ## x,
+    foreach_facelet_error_reason
+#undef _
+} facelet_error_reason_t;
+
+extern const char * facelet_error_reason_str[];
 
 /* Facelet attribute status */
 
@@ -234,8 +253,9 @@ int facelet_merge(facelet_t * facelet, const facelet_t * facelet_to_merge);
 facelet_status_t facelet_get_status(const facelet_t * facelet);
 void facelet_set_status(facelet_t * facelet, facelet_status_t status);
 
-void facelet_set_status_error(facelet_t * facelet, bool value);
-bool facelet_get_status_error(const facelet_t * facelet);
+void facelet_set_error(facelet_t * facelet, facelet_error_reason_t reason);
+void facelet_unset_error(facelet_t * facelet);
+bool facelet_get_error(const facelet_t * facelet);
 
 void facelet_set_bj_done(facelet_t * facelet);
 void facelet_unset_bj_done(facelet_t * facelet);
