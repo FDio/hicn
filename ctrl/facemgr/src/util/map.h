@@ -219,7 +219,7 @@ NAME ## _get_key_array(NAME ## _t * map, KEY_T **array) {                       
     for (int i = 0; i < n; i++)                                                 \
         (*array)[i] = pair_array[i]->key;                                       \
     free(pair_array);                                                           \
-    return 0;                                                                   \
+    return n;                                                                   \
 }                                                                               \
                                                                                 \
 int                                                                             \
@@ -238,7 +238,7 @@ NAME ## _get_value_array(NAME ## _t * map, VAL_T **array) {                     
     for (int i = 0; i < n; i++)                                                 \
         (*array)[i] = pair_array[i]->value;                                     \
     free(pair_array);                                                           \
-    return 0;                                                                   \
+    return n;                                                                   \
 }
 
 #endif /* UTIL_MAP_H */

@@ -77,6 +77,8 @@ typedef struct interface_s {
  */
 int interface_register(const interface_ops_t * ops);
 
+int interface_unregister_all();
+
 /**
  * \brief Unregister all interface types
  */
