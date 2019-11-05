@@ -8,6 +8,7 @@
 #include <hicn/facemgr/cfg.h>
 #include <hicn/policy.h>
 #include <hicn/util/ip_address.h>
+#include "facelet_array.h"
 #include "util/set.h"
 
 /* Overlay */
@@ -443,22 +444,30 @@ TYPEDEF_SET(facemgr_cfg_rule_set, facemgr_cfg_rule_t *, facemgr_cfg_rule_cmp, ge
 struct facemgr_cfg_s {
     facemgr_cfg_override_t global;
     facemgr_cfg_rule_set_t * rule_set;
+    facelet_array_t * static_facelets;
     //log_cfg_t log;
 };
 
 facemgr_cfg_t * facemgr_cfg_create()
 {
     facemgr_cfg_t * cfg = malloc(sizeof(facemgr_cfg_t));
-    if (!cfg)
-        return NULL;
+    if (!cfg) {
+        ERROR("[facemgr_cfg_create] Error allocating face manager configuration");
+        goto ERR_MALLOC;
+    }
 
     int rc = facemgr_cfg_initialize(cfg);
     if (rc < 0) {
-        free(cfg);
-        return NULL;
+        ERROR("[facemgr_cfg_create] Error initializing face manager configuration");
+        goto ERR_INIT;
     }
 
     return cfg;
+
+ERR_INIT:
+        free(cfg);
+ERR_MALLOC:
+    return NULL;
 }
 
 void facemgr_cfg_free(facemgr_cfg_t * cfg)
@@ -471,15 +480,27 @@ int
 facemgr_cfg_initialize(facemgr_cfg_t * cfg)
 {
     int rc = facemgr_cfg_override_initialize(&cfg->global);
-    if (rc < 0)
+    if (rc < 0) {
+        ERROR("[facemgr_cfg_initialize] Error initializing global values");
         goto ERR_OVERRIDE;
+    }
 
     cfg->rule_set = facemgr_cfg_rule_set_create();
-    if (!cfg->rule_set)
+    if (!cfg->rule_set) {
+        ERROR("[facemgr_cfg_initialize] Error creating rule set");
         goto ERR_RULE_SET;
+    }
+
+    cfg->static_facelets = facelet_array_create(cfg->static_facelets);
+    if (!cfg->static_facelets) {
+        ERROR("[facemgr_cfg_initialize] Error creating static facelet set");
+        goto ERR_STATIC;
+    }
 
     return 0;
 
+ERR_STATIC:
+    facemgr_cfg_rule_set_free(cfg->rule_set);
 ERR_RULE_SET:
     facemgr_cfg_override_finalize(&cfg->global);
 ERR_OVERRIDE:
@@ -505,6 +526,22 @@ facemgr_cfg_finalize(facemgr_cfg_t * cfg)
         free(rule_array);
     }
     facemgr_cfg_rule_set_free(cfg->rule_set);
+
+    /* Free all facelets from static array */
+    for (unsigned i = 0; i < facelet_array_len(cfg->static_facelets); i++) {
+        facelet_t * facelet;
+        if (facelet_array_get_index(cfg->static_facelets, i, &facelet) < 0) {
+            ERROR("[facemgr_cfg_finalize] Error getting facelet in array");
+            continue;
+        }
+        if (facelet_array_remove_index(cfg->static_facelets, i, NULL)) {
+            ERROR("[facemgr_cfg_finalize] Could not purge facelet from static set");
+        }
+        facelet_free(facelet);
+    }
+
+    facelet_array_free(cfg->static_facelets);
+
     return facemgr_cfg_override_finalize(&cfg->global);
 }
 
@@ -1037,4 +1074,30 @@ facemgr_cfg_get_overlay_remote_port(const facemgr_cfg_t * cfg,
 
     *port = HICN_DEFAULT_PORT;
     return 0;
+}
+
+int
+facemgr_cfg_add_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet)
+{
+    char buf[MAXSZ_FACELET];
+    facelet_snprintf(buf, MAXSZ_FACELET, facelet);
+    DEBUG("STATIC FACELET: %s", buf);
+    return facelet_array_add(cfg->static_facelets, facelet);
+}
+
+int
+facemgr_cfg_remove_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet,
+        facelet_t ** removed_facelet)
+{
+    return facelet_array_remove(cfg->static_facelets, facelet, removed_facelet);
+}
+
+int
+facemgr_cfg_get_static_facelet_array(const facemgr_cfg_t * cfg, facelet_t *** array)
+{
+    if (facelet_array_get_elements(cfg->static_facelets, array) < 0) {
+        ERROR("[facemgr_cfg_get_static_facelet_array] Error getting array elements");
+        return -1;
+    }
+    return facelet_array_len(cfg->static_facelets);
 }

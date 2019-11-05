@@ -28,6 +28,7 @@
 
 #include <hicn/facemgr/api.h>
 #include <hicn/facemgr/cfg.h>
+#include <hicn/facemgr/facelet.h>
 #include <hicn/util/log.h>
 
 #ifdef __APPLE__
@@ -45,6 +46,7 @@
 #include <hicn/ctrl/face.h>
 #include <hicn/facemgr/facelet.h>
 #include "common.h"
+#include "facelet_array.h"
 #include "interface.h"
 #include "util/map.h"
 #include "util/set.h"
@@ -62,8 +64,8 @@ typedef struct {
     size_t num_fds;
 } interface_map_data_t;
 
-TYPEDEF_SET_H(facelet_cache, facelet_t *);
-TYPEDEF_SET(facelet_cache, facelet_t *, facelet_cmp, facelet_snprintf);
+TYPEDEF_SET_H(facelet_set, facelet_t *);
+TYPEDEF_SET(facelet_set, facelet_t *, facelet_cmp, facelet_snprintf);
 
 TYPEDEF_MAP_H(interface_map, const char *, interface_map_data_t *);
 TYPEDEF_MAP(interface_map, const char *, interface_map_data_t *, strcmp, string_snprintf, generic_snprintf);
@@ -120,10 +122,13 @@ struct facemgr_s {
     /* Internal data structures */
 
     /* Map of interfaces index by name */
-    interface_map_t interface_map;
+    interface_map_t * interface_map;
 
     /* Faces under construction */
-    facelet_cache_t facelet_cache;
+    facelet_set_t * facelet_cache;
+
+    /* Static facelets */
+    facelet_array_t * static_facelets;
 
     /********************************************************/
     /* Interfaces - Those should be fully replaced by a map */
@@ -145,7 +150,7 @@ struct facemgr_s {
      * We maintain a map of dynamically created bonjour interfaces, one for each
      * found netdevice
      */
-    bonjour_map_t bonjour_map;
+    bonjour_map_t * bonjour_map;
 #endif /* __linux__ */
 
 #ifdef WITH_EXAMPLE_DUMMY
@@ -160,25 +165,37 @@ struct facemgr_s {
 int
 facemgr_initialize(facemgr_t * facemgr)
 {
-    int rc;
-
-    rc = interface_map_initialize(&facemgr->interface_map);
-    if (rc < 0)
+    facemgr->interface_map = interface_map_create();
+    if (!facemgr->interface_map) {
+        ERROR("[facemgr_initialize] Error creating interface map");
         goto ERR_INTERFACE_MAP;
+    }
 
-    rc = facelet_cache_initialize(&facemgr->facelet_cache);
-    if (rc < 0)
+    facemgr->facelet_cache = facelet_set_create();
+    if (!facemgr->facelet_cache) {
+        ERROR("[facemgr_initialize] Error creating interface map");
         goto ERR_FACE_CACHE_PENDING;
+    }
+
+    facemgr->static_facelets = facelet_array_create();
+    if (!facemgr->static_facelets) {
+        ERROR("[facemgr_initialize] Error creating interface map");
+        goto ERR_STATIC;
+    }
 
 #ifdef __linux__
-    rc = bonjour_map_initialize(&facemgr->bonjour_map);
-    if (rc < 0)
+    facemgr->bonjour_map = bonjour_map_create();
+    if (!facemgr->bonjour_map) {
+        ERROR("[facemgr_initialize] Error creating bonjour map");
         goto ERR_BJ;
+    }
 #endif /* __linux */
 
     facemgr->cfg = facemgr_cfg_create();
-    if (!facemgr->cfg)
+    if (!facemgr->cfg) {
+        ERROR("[facemgr_initialize] Error creating face manager configuration");
         goto ERR_CFG;
+    }
 
     facemgr->timer_fd = 0;
 
@@ -186,12 +203,14 @@ facemgr_initialize(facemgr_t * facemgr)
 
 ERR_CFG:
 #ifdef __linux__
-    bonjour_map_finalize(&facemgr->bonjour_map);
+    bonjour_map_free(facemgr->bonjour_map);
 ERR_BJ:
 #endif /* __linux__ */
-    facelet_cache_finalize(&facemgr->facelet_cache);
+    facelet_array_free(facemgr->static_facelets);
+ERR_STATIC:
+    facelet_set_free(facemgr->facelet_cache);
 ERR_FACE_CACHE_PENDING:
-    interface_map_finalize(&facemgr->interface_map);
+    interface_map_free(facemgr->interface_map);
 ERR_INTERFACE_MAP:
     return -1;
 }
@@ -212,21 +231,17 @@ facemgr_finalize(facemgr_t * facemgr)
         facemgr->timer_fd = 0;
     }
 
-    rc = interface_map_finalize(&facemgr->interface_map);
-    if (rc < 0) {
-        ERROR("[facemgr_finalize] Could not finalize interface_map");
-        ret = -1;
-    }
+    interface_map_free(facemgr->interface_map);
 
     /* Free all facelets from cache */
     facelet_t ** facelet_array;
-    int n = facelet_cache_get_array(&facemgr->facelet_cache, &facelet_array);
+    int n = facelet_set_get_array(facemgr->facelet_cache, &facelet_array);
     if (n < 0) {
         ERROR("[facemgr_finalize] Could not retrieve facelets in cache");
     } else {
         for (unsigned i = 0; i < n; i++) {
             facelet_t * facelet = facelet_array[i];
-            if (facelet_cache_remove(&facemgr->facelet_cache, facelet, NULL)) {
+            if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL)) {
                 ERROR("[facemgr_finalize] Could not purge facelet from cache");
             }
             facelet_free(facelet);
@@ -234,14 +249,25 @@ facemgr_finalize(facemgr_t * facemgr)
         free(facelet_array);
     }
 
-    rc = facelet_cache_finalize(&facemgr->facelet_cache);
-    if (rc < 0)
-        ret = -1;
+    facelet_set_free(facemgr->facelet_cache);
+
+    /* Free all facelets from static array */
+    for (unsigned i = 0; i < facelet_array_len(facemgr->static_facelets); i++) {
+        facelet_t * facelet;
+        if (facelet_array_get_index(facemgr->static_facelets, i, &facelet) < 0) {
+            ERROR("[facemgr_cfg_finalize] Error getting facelet in array");
+            continue;
+        }
+        if (facelet_array_remove_index(facemgr->static_facelets, i, NULL) < 0) {
+            ERROR("[facemgr_finalize] Could not purge facelet from static array");
+        }
+        facelet_free(facelet);
+    }
+
+    facelet_array_free(facemgr->static_facelets);
 
 #ifdef __linux__
-    rc = bonjour_map_finalize(&facemgr->bonjour_map);
-    if (rc < 0)
-        ret = -1;
+    bonjour_map_free(facemgr->bonjour_map);
 #endif /* __linux__ */
 
     interface_unregister_all();
@@ -258,6 +284,22 @@ facemgr_set_config(facemgr_t * facemgr, facemgr_cfg_t * cfg)
         facemgr_cfg_free(facemgr->cfg);
     }
     facemgr->cfg = cfg;
+
+    /* Populate the initial list of static facelets */
+    facelet_t ** facelet_array;
+    int n = facemgr_cfg_get_static_facelet_array(cfg, &facelet_array);
+    if (n < 0) {
+        ERROR("[facemgr_finalize] Could not retrieve static facelets from cfg");
+    } else {
+        for (unsigned i = 0; i < n; i++) {
+            facelet_t * facelet = facelet_dup(facelet_array[i]);
+            facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+            if (facelet_array_add(facemgr->static_facelets, facelet)) {
+                ERROR("[facemgr_finalize] Could not add static facelet to face manager");
+            }
+        }
+    }
+
     return 0;
 }
 
@@ -358,7 +400,7 @@ facemgr_create_interface(facemgr_t * facemgr, const char * name, const char * ty
         .num_fds = 0,
     };
 
-    if (interface_map_add(&facemgr->interface_map, interface->name, interface_map_data) < 0)
+    if (interface_map_add(facemgr->interface_map, interface->name, interface_map_data) < 0)
         goto ERR_MAP_ADD;
 
     /*
@@ -395,7 +437,7 @@ facemgr_delete_interface(facemgr_t * facemgr, interface_t * interface)
     interface_map_data_t * interface_map_data = NULL;
 
     DEBUG("Removing interface %s", interface->name);
-    rc = interface_map_remove(&facemgr->interface_map, interface->name, &interface_map_data);
+    rc = interface_map_remove(facemgr->interface_map, interface->name, &interface_map_data);
     if (rc < 0)
         return -1;
 
@@ -428,7 +470,7 @@ int facemgr_query_bonjour(facemgr_t * facemgr, netdevice_t * netdevice)
 {
     interface_t * bj = NULL;
 
-    int rc = bonjour_map_get(&facemgr->bonjour_map, netdevice, &bj);
+    int rc = bonjour_map_get(facemgr->bonjour_map, netdevice, &bj);
     if (rc < 0)
         return rc;
 
@@ -488,16 +530,17 @@ ERR_MALLOC:
  *      value), or -1 in case of error.
  */
 int
-facelet_cache_lookup(const facelet_cache_t * facelet_cache, facelet_t * facelet,
+facelet_cache_lookup(const facelet_set_t * facelet_cache, facelet_t * facelet,
         facelet_t ***cached_facelets)
 {
+#if 0 // key is no more sufficient now that we support multiple faces per interface
     /*
      * If the facelet is uniquely identified by its key, it is used to perform
      * an efficient lookup directly...
      */
     if (facelet_has_key(facelet)) {
         facelet_t * found = NULL;
-        if (facelet_cache_get(facelet_cache, facelet, &found) < 0) {
+        if (facelet_set_get(facelet_cache, facelet, &found) < 0) {
             ERROR("[facelet_cache_lookup] Error during cache lookup");
             return -1;
         }
@@ -507,12 +550,13 @@ facelet_cache_lookup(const facelet_cache_t * facelet_cache, facelet_t * facelet,
         *cached_facelets[0] = found;
         return 1;
     }
+#endif
 
     /* ...otherwise, we iterate over the facelet
      * cache to find matching elements.
      */
     facelet_t ** facelet_array;
-    int n = facelet_cache_get_array(facelet_cache, &facelet_array);
+    int n = facelet_set_get_array(facelet_cache, &facelet_array);
     if (n < 0) {
         ERROR("[facelet_cache_lookup] Error during cache match");
         return -1;
@@ -521,10 +565,6 @@ facelet_cache_lookup(const facelet_cache_t * facelet_cache, facelet_t * facelet,
 
     int num_match = 0;
     for (unsigned i = 0; i < n; i++) {
-        char buf[128];
-        facelet_snprintf(buf, 128, facelet_array[i]);
-        facelet_snprintf(buf, 128, facelet);
-
         if (!facelet_match(facelet_array[i], facelet)) {
             continue;
         }
@@ -781,6 +821,7 @@ facemgr_complement_facelet_manual(facemgr_t * facemgr, facelet_t * facelet)
         return -1;
     }
 
+#if 0 /* Wrong if we need to complement local addr / port */
     bool discovery_needed = (face_type.layer == FACE_TYPE_LAYER_4) &&
         ((!facelet_has_remote_addr(facelet)) || (!facelet_has_remote_port(facelet)));
 
@@ -788,6 +829,7 @@ facemgr_complement_facelet_manual(facemgr_t * facemgr, facelet_t * facelet)
         DEBUG("manual settings not considered as no discovery is needed");
         return -2;
     }
+#endif
 
     if (discovery && !facelet_is_bj_done(facelet)) {
         DEBUG("manual settings not considered as discovery is enabled and Bonjour has not yet been done");
@@ -883,6 +925,7 @@ facemgr_complement_facelet(facemgr_t * facemgr, facelet_t * facelet)
         }
         facelet_set_netdevice_type(facelet, facemgr_get_netdevice_type(facemgr, netdevice.name));
     }
+#endif
 
     /* We continue only if the current call was not applicable. In the current
      * setting we have no interface that can be requested in parallel, and no
@@ -1073,7 +1116,7 @@ facemgr_reattempt_timeout(facemgr_t * facemgr, int fd, void * data)
 
     /* Free all facelets from cache */
     facelet_t ** facelet_array;
-    int n = facelet_cache_get_array(&facemgr->facelet_cache, &facelet_array);
+    int n = facelet_set_get_array(facemgr->facelet_cache, &facelet_array);
     if (n < 0) {
         ERROR("[facemgr_reattempt_timeout] Could not retrieve facelets in cache");
     } else {
@@ -1200,7 +1243,7 @@ facemgr_process_facelet_get(facemgr_t * facemgr, facelet_t * facelet)
         if (!IS_VALID_NETDEVICE(netdevice))
             return -2;
         facelet_set_status(facelet, FACELET_STATUS_CLEAN);
-        return facelet_cache_add(&facemgr->facelet_cache, facelet);
+        return facelet_set_add(facemgr->facelet_cache, facelet);
     }
     return -2;
 }
@@ -1293,6 +1336,30 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
     return 0;
 }
 
+int facemgr_process_facelet_first_time(facemgr_t * facemgr, facelet_t * facelet)
+{
+    facelet_set_status(facelet, FACELET_STATUS_UNCERTAIN);
+
+    if (facelet_set_add(facemgr->facelet_cache, facelet) < 0) {
+        ERROR("[facemgr_process_facelet_first_time] Error adding facelet to cache");
+        goto ERR_CACHE;
+    }
+
+    if (facemgr_process_facelet_create(facemgr, facelet) < 0) {
+        ERROR("[facemgr_process_facelet_first_time] Error processing facelet CREATE event");
+        goto ERR_CREATE;
+    }
+
+    return 0;
+
+ERR_CREATE:
+    if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
+        ERROR("[facemgr_process_facelet_first_time] Error removing failed facelet from cache");
+    }
+ERR_CACHE:
+    return -1;
+}
+
 /**
  * \brief Process incoming events from interfaces
  *
@@ -1313,7 +1380,7 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
     DEBUG("EVENT %s", facelet_s);
 
     facelet_t ** cached_facelets = NULL;
-    int n = facelet_cache_lookup(&facemgr->facelet_cache, facelet_in, &cached_facelets);
+    int n = facelet_cache_lookup(facemgr->facelet_cache, facelet_in, &cached_facelets);
     if (n < 0) {
         ERROR("[facemgr_on_event] Error during cache lookup");
         free(facelet_in);
@@ -1323,24 +1390,105 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
         /* This is a new facelet...  we expect a CREATE event. */
         switch(facelet_get_event(facelet_in)) {
             case FACELET_EVENT_CREATE:
+            {
+                /*
+                 * This is the first time we hear about a facelet, it will
+                 * likely not have an address family
+                 *
+                 * Assumption: we should always see the link before the address
+                 * assignment
+                 */
+                assert(!facelet_has_family(facelet_in));
 
-                facelet_set_status(facelet_in, FACELET_STATUS_UNCERTAIN);
-                if (facelet_cache_add(&facemgr->facelet_cache, facelet_in) < 0) {
-                    ERROR("[facemgr_on_event] Error adding facelet to cache");
-                    free(facelet_in);
-                    free(cached_facelets);
-                    return -1;
+                if (!facelet_has_netdevice_type(facelet_in)) {
+                    netdevice_t netdevice = NETDEVICE_EMPTY;
+                    rc = facelet_get_netdevice(facelet_in, &netdevice);
+                    if (rc < 0) {
+                        ERROR("[facemgr_complement_facelet] Error retrieving netdevice from facelet");
+                        return -1;
+                    }
+                    facelet_set_netdevice_type(facelet_in, facemgr_get_netdevice_type(facemgr, netdevice.name));
                 }
 
-                remove_facelet = false;
-
-                if (facemgr_process_facelet_create(facemgr, facelet_in) < 0) {
-                    ERROR("[facemgr_on_event] Error processing facelet CREATE event");
-                    ret = -1;
-                    goto ERR;
+                /* Create default v4 and v6 facelets */
+                facelet_t * facelet_v4 = facelet_dup(facelet_in);
+                if (!facelet_v4) {
+                    ERROR("[facemgr_on_event] Error allocating default IPv4 face");
+                    facelet_free(facelet_v4);
+                } else {
+                    facelet_set_family(facelet_v4, AF_INET);
+                    facelet_set_status(facelet_v4, FACELET_STATUS_CLEAN);
+                    if (facemgr_process_facelet_first_time(facemgr, facelet_v4) < 0) {
+                        ERROR("[facemgr_on_event] Error creating default IPv4 face");
+                        facelet_free(facelet_v4);
+                    }
                 }
 
+                facelet_t * facelet_v6 = facelet_dup(facelet_in);
+                if (!facelet_v6) {
+                    ERROR("[facemgr_on_event] Error allocating default IPv6 face");
+                    facelet_free(facelet_v4);
+                } else {
+                    facelet_set_family(facelet_v6, AF_INET6);
+                    facelet_set_status(facelet_v6, FACELET_STATUS_CLEAN);
+                    if (facemgr_process_facelet_first_time(facemgr, facelet_v6) < 0) {
+                        ERROR("[facemgr_on_event] Error creating default IPv6 face");
+                        facelet_free(facelet_v6);
+                    }
+                }
+
+                /* Create additional connections
+                 *
+                 * This is where we spawn multiple facelets based on the
+                 * configured "static routes" in addition to the default
+                 * routes managed by the face manager.
+                 */
+                for (unsigned i = 0; i < facelet_array_len(facemgr->static_facelets); i++) {
+                    facelet_t * static_facelet;
+                    if (facelet_array_get_index(facemgr->static_facelets, i, &static_facelet) < 0) {
+                        ERROR("[facemgr_on_event] Error getting static facelet");
+                        goto ERR;
+                    }
+
+                    /*
+                     * We don't enforce any present or absent fields. A match
+                     * operation will be performed deciding whether to create
+                     * the facelet (if it bring additional information to the
+                     * ingress one) or not.
+                     */
+                    /* We try to apply static_facelet over facelet_in */
+                    if (!facelet_match(facelet_in, static_facelet)) {
+                        continue;
+                    }
+
+                    facelet_t * facelet_new = facelet_dup(facelet_in);
+                    if (!facelet_new) {
+                        ERROR("[facemgr_on_event] Error allocating static facelet");
+                        goto ERR;
+                    } else {
+                        if (facelet_merge(facelet_new, static_facelet) < 0) {
+                            ERROR("[facemgr_on_event] Error merging facelets");
+                            continue;
+                        }
+                        /* The id must be different than 0 */
+                        facelet_set_id(facelet_new, i+1);
+                        facelet_set_status(facelet_new, FACELET_STATUS_CLEAN);
+
+                        char buf[MAXSZ_FACELET];
+                        facelet_snprintf(buf, MAXSZ_FACELET, facelet_new);
+                        if (facemgr_process_facelet_first_time(facemgr, facelet_new) < 0) {
+                            ERROR("[facemgr_on_event] Error creating default IPv6 face");
+                            facelet_free(facelet_v6);
+                        }
+                    }
+                }
+
+                /*
+                 * We always remove the original facelet here, no need to
+                 * preserve it
+                 */
                 break;
+            }
 
             case FACELET_EVENT_GET:
                 /* Insert new facelet in cached */
@@ -1445,7 +1593,7 @@ ERR:
 DUMP_CACHE:
 #if 1
     DEBUG("    <CACHE>");
-    facelet_cache_dump(&facemgr->facelet_cache);
+    facelet_set_dump(facemgr->facelet_cache);
     DEBUG("    </CACHE>");
     DEBUG("</EVENT ret=%d>", ret);
     DEBUG("----------------------------------");
@@ -1475,7 +1623,7 @@ int facemgr_callback(facemgr_t * facemgr, interface_cb_type_t type, void * data)
             interface_t * interface = (interface_t*)(fd_callback_data->owner);
 
             interface_map_data_t * interface_map_data = NULL;
-            if (interface_map_get(&facemgr->interface_map, interface->name, &interface_map_data) < 0) {
+            if (interface_map_get(facemgr->interface_map, interface->name, &interface_map_data) < 0) {
                 ERROR("[facemgr_callback] Error getting interface map data");
                 return -1;
             }
@@ -1495,7 +1643,7 @@ int facemgr_callback(facemgr_t * facemgr, interface_cb_type_t type, void * data)
             interface_t * interface = (interface_t*)(fd_callback_data->owner);
 
             interface_map_data_t * interface_map_data = NULL;
-            if (interface_map_get(&facemgr->interface_map, interface->name, &interface_map_data) < 0) {
+            if (interface_map_get(facemgr->interface_map, interface->name, &interface_map_data) < 0) {
                 ERROR("[facemgr_callback] Error getting interface map data");
                 return -1;
             }
@@ -1669,10 +1817,10 @@ void facemgr_stop(facemgr_t * facemgr)
 
     /* Delete all bonjour interfaces */
     interface_t ** bonjour_array = NULL;
-    int n = bonjour_map_get_value_array(&facemgr->bonjour_map, &bonjour_array);
+    int n = bonjour_map_get_value_array(facemgr->bonjour_map, &bonjour_array);
     if (n >= 0) {
         netdevice_t ** netdevice_array = NULL;
-        int m = bonjour_map_get_key_array(&facemgr->bonjour_map, &netdevice_array);
+        int m = bonjour_map_get_key_array(facemgr->bonjour_map, &netdevice_array);
         if (m >= 0) {
             assert(m == n);
             for (int i = 0; i < n; i++) { /* Fail silently */
@@ -1720,7 +1868,7 @@ void facemgr_list_facelets(const facemgr_t * facemgr, facemgr_list_facelets_cb_t
     facelet_t ** facelet_array;
     if (!cb)
         return;
-    int n = facelet_cache_get_array(&facemgr->facelet_cache, &facelet_array);
+    int n = facelet_set_get_array(facemgr->facelet_cache, &facelet_array);
     if (n < 0) {
         ERROR("[facemgr_list_facelets] Could not retrieve facelets in cache");
         return;
@@ -1740,7 +1888,7 @@ facemgr_list_facelets_json(const facemgr_t * facemgr, char ** buffer)
     int rc;
 
     facelet_t ** facelet_array;
-    int n = facelet_cache_get_array(&facemgr->facelet_cache, &facelet_array);
+    int n = facelet_set_get_array(facemgr->facelet_cache, &facelet_array);
     if (n < 0) {
         ERROR("[facemgr_list_facelets_json] Could not retrieve facelets in cache");
         return -1;

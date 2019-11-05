@@ -20,6 +20,9 @@
 
 #include <unistd.h> // access
 #include <libconfig.h>
+
+#include <hicn/ctrl/route.h>
+
 #include "cfg_file.h"
 
 #define ARRAYSIZE(x) (sizeof(x)/sizeof(*x))
@@ -464,6 +467,178 @@ ERR_CHECK:
     return -1;
 }
 
+int parse_config_static_facelets(facemgr_cfg_t * cfg, config_setting_t * setting)
+{
+    int count = config_setting_length(setting);
+    for (unsigned i = 0; i < count; ++i) {
+        config_setting_t * static_setting = config_setting_get_elem(setting, i);
+
+        const char *face_type_str;
+        facemgr_face_type_t face_type;
+        const char * family_str;
+        int family;
+        const char * remote_addr_str;
+        ip_address_t remote_addr = IP_ADDRESS_EMPTY;
+        int remote_port = 0;
+        const char * interface_name;
+        const char * interface_type_str;
+
+        facelet_t * facelet = facelet_create();
+
+        /* Face type */
+        if (config_setting_lookup_string(static_setting, "face_type", &face_type_str)) {
+            if (strcasecmp(face_type_str, "auto") == 0) {
+                face_type = FACEMGR_FACE_TYPE_DEFAULT;
+            } else
+            if (strcasecmp(face_type_str, "native-udp") == 0) {
+                face_type = FACEMGR_FACE_TYPE_NATIVE_UDP;
+            } else
+            if (strcasecmp(face_type_str, "native-tcp") == 0) {
+                face_type = FACEMGR_FACE_TYPE_NATIVE_TCP;
+            } else
+            if (strcasecmp(face_type_str, "overlay-udp") == 0) {
+                face_type = FACEMGR_FACE_TYPE_OVERLAY_UDP;
+            } else
+            if (strcasecmp(face_type_str, "overlay-tcp") == 0) {
+                face_type = FACEMGR_FACE_TYPE_OVERLAY_TCP;
+            } else {
+                ERROR("Invalid face type in section 'global'");
+                goto ERR_FACELET;
+            }
+
+            int rc = facelet_set_face_type(facelet, face_type);
+            if (rc < 0)
+                goto ERR_FACELET;
+        }
+
+        /* Family */
+        if (config_setting_lookup_string(static_setting, "family", &family_str)) {
+            if (strcasecmp(family_str, "AF_INET") == 0) {
+                family = AF_INET;
+            } else
+            if (strcasecmp(family_str, "AF_INET6") == 0) {
+                family = AF_INET6;
+            } else {
+                ERROR("Invalid family in section 'static', items #%d", i+1);
+                goto ERR_FACELET;
+            }
+            int rc = facelet_set_family(facelet, family);
+            if (rc < 0)
+                goto ERR_FACELET;
+        }
+
+        /* Remote address */
+        if (config_setting_lookup_string(static_setting, "remote_addr", &remote_addr_str)) {
+            if (ip_address_pton(remote_addr_str, &remote_addr) < 0) {
+                ERROR("Error parsing v4 remote addr");
+                goto ERR_FACELET;
+            }
+
+            int rc = facelet_set_remote_addr(facelet, remote_addr);
+            if (rc < 0)
+                goto ERR_FACELET;
+        }
+
+        /* Remote port */
+        if (config_setting_lookup_int(static_setting, "remote_port", &remote_port)) {
+            if (!IS_VALID_PORT(remote_port))
+                goto ERR_FACELET;
+            int rc = facelet_set_remote_port(facelet, remote_port);
+            if (rc < 0)
+                goto ERR_FACELET;
+        }
+
+        /* Interface name */
+        if (config_setting_lookup_string(static_setting, "interface_name", &interface_name)) {
+            netdevice_t netdevice;
+            /* Warning: interface might not exist when we create the facelet */
+            snprintf(netdevice.name, IFNAMSIZ, "%s", interface_name);
+            netdevice.index = 0;
+            int rc = facelet_set_netdevice(facelet, netdevice);
+            if (rc < 0)
+                goto ERR_FACELET;
+        }
+
+        /* Interface type */
+        netdevice_type_t interface_type = NETDEVICE_TYPE_UNDEFINED;
+        if (config_setting_lookup_string(static_setting, "interface_type", &interface_type_str)) {
+            if (strcasecmp(interface_type_str, "wired") == 0) {
+                interface_type = NETDEVICE_TYPE_WIRED;
+            } else
+            if (strcasecmp(interface_type_str, "wifi") == 0) {
+                interface_type = NETDEVICE_TYPE_WIFI;
+            } else
+            if (strcasecmp(interface_type_str, "cellular") == 0) {
+                interface_type = NETDEVICE_TYPE_CELLULAR;
+            } else {
+                ERROR("Unknown interface type in rule #%d", i);
+                goto ERR_FACELET;
+            }
+
+            int rc = facelet_set_netdevice_type(facelet, interface_type);
+            if (rc < 0)
+                goto ERR_FACELET;
+        }
+
+        /* Routes */
+        config_setting_t * routes_static_setting = config_setting_get_member(static_setting, "routes");
+        if (routes_static_setting) {
+            /* ... */
+            int count_routes = config_setting_length(routes_static_setting);
+            for (unsigned j = 0; j < count_routes; ++j) {
+                config_setting_t * route_static_setting = config_setting_get_elem(routes_static_setting, j);
+
+                const char * prefix_str;
+                ip_prefix_t prefix;
+                int cost = 0; /* default */
+
+                if (config_setting_lookup_string(route_static_setting, "prefix", &prefix_str)) {
+                    if (ip_prefix_pton(prefix_str, &prefix) < 0) {
+                        ERROR("Error parsing prefix in route #%d, rule #%d", j, i);
+                        goto ERR_FACELET;
+                    }
+                } else {
+                    ERROR("Cannot add route without prefix");
+                    goto ERR_FACELET;
+                }
+
+                config_setting_lookup_int(static_setting, "cost", &cost);
+
+                hicn_route_t * route = hicn_route_create(&prefix, 0, cost);
+                if (!route) {
+                    ERROR("Could not create hICN route");
+                    goto ERR_FACELET;
+                }
+
+                int rc = facelet_add_route(facelet, route);
+                if (rc < 0) {
+                    ERROR("Could not add route to facelet");
+                    goto ERR_ROUTE;
+                }
+
+                continue;
+
+ERR_ROUTE:
+                hicn_route_free(route);
+                goto ERR_FACELET;
+            }
+        }
+
+        if (facemgr_cfg_add_static_facelet(cfg, facelet) < 0) {
+            ERROR("Could not add static facelet to configuration");
+            goto ERR_FACELET;
+        }
+
+        continue;
+
+ERR_FACELET:
+        facelet_free(facelet);
+        return -1;
+
+        }
+    return 0;
+}
+
 /* Currently not using facemgr_cfg_t */
 int
 parse_config_log(facemgr_cfg_t * cfg, config_setting_t * setting)
@@ -518,6 +693,13 @@ parse_config_file(const char * cfgpath, facemgr_cfg_t * cfg)
     setting = config_lookup(&cfgfile, "rules");
     if (setting) {
         int rc = parse_config_rules(cfg, setting);
+        if (rc < 0)
+            goto ERR_PARSE;
+    }
+
+    setting = config_lookup(&cfgfile, "static");
+    if (setting) {
+        int rc = parse_config_static_facelets(cfg, setting);
         if (rc < 0)
             goto ERR_PARSE;
     }
