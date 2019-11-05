@@ -44,7 +44,12 @@ typedef enum {
 typedef struct {
     hc_sock_t * s; /* NULL means no active socket */
     hl_state_t state;
-    int timer_fd; /* 0 means no active timer */
+
+    /* Timer used for forwarder reconnection */
+    int reconnect_timer_fd; /* 0 means no active timer */
+
+    /* Timer used to periodically poll the forwarder face and routing tables */
+    int poll_timer_fd;
 } hl_data_t;
 
 /* Forward declarations */
@@ -152,8 +157,8 @@ ERR_SOCK:
 int hl_disconnect(interface_t * interface)
 {
     hl_data_t * data = (hl_data_t *) interface->data;
-    if (data->timer_fd > 0)
-        interface_unregister_timer(interface, data->timer_fd);
+    if (data->reconnect_timer_fd > 0)
+        interface_unregister_timer(interface, data->reconnect_timer_fd);
 
     if (data->s) {
         interface_unregister_fd(interface, hc_sock_get_fd(data->s));
@@ -173,8 +178,8 @@ hl_connect(interface_t * interface)
 
     /* Timer for managing the connection to the forwarder */
     DEBUG("Connection to forwarder failed... next retry in %ds", INTERVAL_MS / 1000);
-    data->timer_fd = interface_register_timer(interface, INTERVAL_MS, hl_connect_timeout, NULL);
-    if (data->timer_fd < 0) {
+    data->reconnect_timer_fd = interface_register_timer(interface, INTERVAL_MS, hl_connect_timeout, NULL);
+    if (data->reconnect_timer_fd < 0) {
         ERROR("[hc_connect] Could not initialize reattempt timer");
         return -1;
     }
@@ -192,7 +197,7 @@ hl_initialize(interface_t * interface, void * cfg)
     }
 
     data->s = NULL;
-    data->timer_fd = 0;
+    data->reconnect_timer_fd = 0;
 
     interface->data = data;
 
@@ -225,6 +230,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
     hc_face_t hc_face;
     hc_route_t route;
     int rc;
+    int ret = 0;
     hl_data_t * data = (hl_data_t *)interface->data;
 
     face_t * face = NULL;
@@ -249,6 +255,11 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
         case FACELET_EVENT_CREATE:
 
             /* Create face */
+            {
+            char buf[MAXSZ_FACELET];
+            facelet_snprintf(buf, MAXSZ_FACELET, facelet);
+            printf("Create face %s\n", buf);
+            }
             hc_face.face = *face;
             rc = hc_face_create(data->s, &hc_face);
             if (rc < 0) {
@@ -257,50 +268,70 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
             }
             INFO("Created face id=%d", hc_face.id);
 
-            /* Adding default routes */
-#if 1
-            route = (hc_route_t) {
-                .face_id = hc_face.id,
-                .family = AF_INET,
-                .remote_addr = IPV4_ANY,
-                .len = 0,
-                .cost = DEFAULT_ROUTE_COST,
-
-            };
-            if (hc_route_create(data->s, &route) < 0) {
+            hicn_route_t ** route_array;
+            int n = facelet_get_route_array(facelet, &route_array);
+            if (n < 0) {
                 ERROR("Failed to create default hICN/IPv4 route");
                 goto ERR;
             }
+            if (n == 0) {
+                /* Adding default routes */
+                route = (hc_route_t) {
+                    .face_id = hc_face.id,
+                    .family = AF_INET,
+                    .remote_addr = IPV4_ANY,
+                    .len = 0,
+                    .cost = DEFAULT_ROUTE_COST,
 
-            route = (hc_route_t) {
-                .face_id = hc_face.id,
-                .family = AF_INET6,
-                .remote_addr = IPV6_ANY,
-                .len = 0,
-                .cost = DEFAULT_ROUTE_COST,
-            };
-            if (hc_route_create(data->s, &route) < 0) {
-                ERROR("Failed to create default hICN/IPv6 route");
-                goto ERR;
-            }
+                };
+                if (hc_route_create(data->s, &route) < 0) {
+                    ERROR("Failed to create default hICN/IPv4 route");
+                    ret = -1;
+                }
 
-#else
-            route = (hc_route_t) {
-                .face_id = hc_face.id,
-                .family = AF_INET6,
-                .len = 0,
-                .cost = DEFAULT_ROUTE_COST,
-            };
-            if (ip_address_pton("::", &route.remote_addr) < 0) {
-                ERROR("Failed to convert prefix");
-                goto ERR;
+                route = (hc_route_t) {
+                    .face_id = hc_face.id,
+                    .family = AF_INET6,
+                    .remote_addr = IPV6_ANY,
+                    .len = 0,
+                    .cost = DEFAULT_ROUTE_COST,
+                };
+                if (hc_route_create(data->s, &route) < 0) {
+                    ERROR("Failed to create default hICN/IPv6 route");
+                    ret = -1;
+                }
+
+                INFO("Successfully created default route(s).");
+            } else {
+                for (unsigned i = 0; i < n; i++) {
+                    hicn_route_t * hicn_route = route_array[i];
+                    ip_prefix_t prefix;
+                    int cost;
+                    if (hicn_route_get_prefix(hicn_route, &prefix) < 0) {
+                        ERROR("Failed to get route prefix");
+                        ret = -1;
+                        continue;
+                    }
+                    if (hicn_route_get_cost(hicn_route, &cost) < 0) {
+                        ERROR("Failed to get route cost");
+                        ret = -1;
+                        continue;
+                    }
+                    route = (hc_route_t) {
+                        .face_id = hc_face.id,
+                        .family = prefix.family,
+                        .remote_addr = prefix.address,
+                        .len = prefix.len,
+                        .cost = cost,
+                    };
+                    if (hc_route_create(data->s, &route) < 0) {
+                        ERROR("Failed to create static route route");
+                        ret = -1;
+                        continue;
+                    }
+                }
+
             }
-            if (hc_route_create(data->s, &route) < 0) {
-                ERROR("Failed to create hICN/IPv6 route");
-                goto ERR;
-            }
-#endif
-            INFO("Successfully created default route(s).");
 
             break;
 
@@ -355,7 +386,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
     }
 
     face_free(face);
-    return 0;
+    return ret;
 
 ERR:
     face_free(face);

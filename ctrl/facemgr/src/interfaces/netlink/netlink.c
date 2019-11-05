@@ -422,6 +422,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                 //DEBUG("Interface %s: address was removed", interface_name);
                 if (facelet) {
                     facelet_set_event(facelet, FACELET_EVENT_DELETE);
+                    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
                     interface_raise_event(interface, facelet);
                 }
                 break;
@@ -443,6 +444,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
 
                 if (facelet) {
                     facelet_set_event(facelet, FACELET_EVENT_UPDATE);
+                    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
                     interface_raise_event(interface, facelet);
                 }
                 break;
@@ -464,6 +466,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     break;
 
                 facelet_set_event(facelet, FACELET_EVENT_DELETE);
+                facelet_set_status(facelet, FACELET_STATUS_CLEAN);
                 interface_raise_event(interface, facelet);
 
                 break;
@@ -493,17 +496,19 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     break;
                 if (up && running) {
                     facelet_set_event(facelet, FACELET_EVENT_CREATE);
+                    //facelet_set_family(facelet, AF_INET);
+                    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+                    interface_raise_event(interface, facelet);
+
+#if 0
                     facelet_t * facelet6 = facelet_dup(facelet);
                     if (!facelet6) {
                         ERROR("Could not duplicate face for v6");
                         break;
                     }
-
-                    facelet_set_family(facelet, AF_INET);
-                    interface_raise_event(interface, facelet);
-
                     facelet_set_family(facelet6, AF_INET6);
                     interface_raise_event(interface, facelet6);
+#endif
                 } else {
                     facelet_free(facelet);
                 }

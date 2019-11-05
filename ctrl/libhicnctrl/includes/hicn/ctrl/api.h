@@ -213,7 +213,7 @@ hc_ ## TYPE ## _find(hc_data_t * data, const hc_ ## TYPE ## _t * element,   \
         hc_ ## TYPE ## _t **found)                                          \
 {                                                                           \
     foreach_type(hc_ ## TYPE ## _t, x, data) {                              \
-        if (hc_ ## TYPE ## _cmp(x, element) >= 0) {                         \
+        if (hc_ ## TYPE ## _cmp(x, element) == 0) {                         \
             *found = x;                                                     \
             return 0;                                                       \
         }                                                                   \

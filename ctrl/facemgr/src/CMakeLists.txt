@@ -22,9 +22,11 @@ set(COMPILER_DEFINITIONS
 set(HEADER_FILES
     common.h
     error.h
+    facelet_array.h
     interface.h
     loop.h
     util/hash.h
+    util/array.h
     util/map.h
     util/set.h
 )
@@ -35,6 +37,7 @@ set(SOURCE_FILES
     cfg_file.c
     error.c
     facelet.c
+    facelet_array.c
     interface.c
     util/log.c
 )
@@ -63,6 +66,7 @@ set(INCLUDE_DIRS
 )
 
 set(LIBRARIES
+    m
     ${HICN_LIBRARIES}
     ${LIBHICNCTRL_LIBRARIES}
     ${CONFIG_LIBRARY}
