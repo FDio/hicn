@@ -185,9 +185,7 @@ MAIN_LOOP:
 
     /* Main loop */
     loop = loop_create();
-#ifdef __linux__
     facemgr_set_callback(facemgr, loop, (void*)loop_callback);
-#endif /* __linux__ */
 
 #ifdef __ANDROID__
     facemgr_set_jvm(facemgr, NULL, NULL); // FIXME
