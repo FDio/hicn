@@ -224,17 +224,17 @@ dump_browse_result(nw_browse_result_t result, int indent)
 {
     /* Endpoint */
     nw_endpoint_t browse_endpoint = nw_browse_result_copy_endpoint(result);
-    if (!bendpoint) {
+    if (!browse_endpoint) {
         ERROR("[network_framework.dump_result] Failed to retrieve endpoint from Bonjour browse result");
         return;
     }
-    printfi(indent + 1, "Endpoint:")
+    printfi(indent + 1, "Endpoint:");
     dump_endpoint(browse_endpoint, indent + 2);
 
     /* Interfaces */
-    printfi(indent + 1, "Interfaces:")
-    nw_browse_result_enumerate_interfaces(result, ^(nw_interface_t interface) {
-        dump_interface(interface, index + 2);
+    printfi(indent + 1, "Interfaces:");
+    nw_browse_result_enumerate_interfaces(result, (nw_browse_result_enumerate_interface_t) ^(nw_interface_t interface) {
+        dump_interface(interface, indent + 2);
         return true;
     });
 }
@@ -482,13 +482,13 @@ void on_interface_event(interface_t * interface, nw_interface_t iface)
         dump_browse_result(result, 2);
         printfi(1, "Result2:");
         dump_browse_result(result2, 2);
-        printfi("Flag: %s\n", flag?"ON":"OFF");
+        printfi(1, "Flag: %s\n", (flag?"ON":"OFF"));
 
         /* Changes */
         nw_browse_result_change_t change = nw_browse_result_get_changes(result, result2);
         switch(change) {
             case nw_browse_result_change_identical:
-                printfi("The compared services are identical.");
+                printfi(2, "The compared services are identical.");
                 break;
             case nw_browse_result_change_result_added:
                 printfi(2, "A new service was discovered.");
@@ -506,17 +506,12 @@ void on_interface_event(interface_t * interface, nw_interface_t iface)
                 printfi(2, "The service was discovered over a new interface.");
                 break;
 
-nw_browse_result_change_interface_removed
+            case nw_browse_result_change_interface_removed:
                 printfi(2, "The service was no longer discovered over a certain interface.");
                 break;
         }
     });
 
-    browser.browseResultsChangedHandler = { browseResults, _ in
-        for browseResult in browseResults {
-            print("Discovered \(browseResult.endpoint) over \(browseResult.interfaces)")
-        }
-    }
     nw_browser_start(browser);
 //#else
 //#warning "Bonjour discovery only available in MacOS 10.15+"

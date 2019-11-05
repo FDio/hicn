@@ -39,7 +39,14 @@ struct loop_s {
 loop_t *
 loop_create()
 {
-    /* Nothing to do */
+    loop_t * loop = malloc(sizeof(loop_t));
+    if (!loop) {
+        ERROR("[loop_create] Failed to allocate memory");
+        goto ERR_MALLOC;
+    }
+    return loop;
+
+ERR_MALLOC:
     return NULL;
 }
 
