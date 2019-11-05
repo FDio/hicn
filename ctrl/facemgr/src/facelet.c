@@ -47,15 +47,19 @@ const char * face_type_encap_str[] = {
 #define FACEMGR_FACE_TYPE_STR(x)                                \
     face_type_layer_str[x.layer], face_type_encap_str[x.encap]
 
-
 const char * facelet_status_str[] = {
 #define _(x) [FACELET_STATUS_ ## x] = STRINGIZE(x),
     foreach_facelet_status
 #undef _
 };
 
-/* Facelet attribute status */
+const char * facelet_error_reason_str[] = {
+#define _(x) [FACELET_ERROR_REASON_ ## x] = STRINGIZE(x),
+    foreach_facelet_error_reason
+#undef _
+};
 
+/* Facelet attribute status */
 
 const char * facelet_attr_status_str[] = {
 #define _(x, str) [FACELET_ATTR_STATUS_ ## x] = STRINGIZE(x),
@@ -85,7 +89,7 @@ struct facelet_s {
 
 
     facelet_status_t status;
-    bool status_error;
+    int error;
 
     facelet_event_t event;
 
@@ -123,7 +127,7 @@ facelet_create()
     facelet->face_type_status = FACELET_ATTR_STATUS_UNSET;
 
     facelet->status = FACELET_STATUS_UNDEFINED;
-    facelet->status_error = false;
+    facelet->error = 0;
 
     facelet->bj_done = false;
     facelet->au_done = false;
@@ -330,7 +334,7 @@ facelet_create_from_face(face_t * face)
 
     /* Status */
     facelet->status = FACELET_STATUS_CLEAN;
-    facelet->status_error = false;
+    facelet->error = 0;
 
     /* TODO Consistency check between face type and found attributes */
     if (facelet_validate_face(facelet) < 0)
@@ -852,15 +856,35 @@ facelet_set_status(facelet_t * facelet, facelet_status_t status)
 }
 
 void
-facelet_set_status_error(facelet_t * facelet, bool value)
+facelet_set_error(facelet_t * facelet, facelet_error_reason_t reason)
 {
-    facelet->status_error = value;
+    facelet->error++;
+    switch(reason) {
+        case FACELET_ERROR_REASON_UNSPECIFIED_ERROR:
+        case FACELET_ERROR_REASON_INTERNAL_ERROR:
+        case FACELET_ERROR_REASON_PERMISSION_DENIED:
+            if (facelet->error >= FACELET_MAX_ERRORS)
+                facelet_set_status(facelet, FACELET_STATUS_IGNORED);
+            break;
+        case FACELET_ERROR_REASON_FORWARDER_OFFLINE:
+            break;
+        case FACELET_ERROR_REASON_UNDEFINED:
+        case FACELET_ERROR_REASON_N:
+            ERROR("facelet_set_error] Unexpected error reason");
+            break;
+    }
+}
+
+void
+facelet_unset_error(facelet_t * facelet)
+{
+    facelet->error = 0;
 }
 
 bool
-facelet_get_status_error(const facelet_t * facelet)
+facelet_get_error(const facelet_t * facelet)
 {
-    return facelet->status_error;
+    return facelet->error;
 }
 
 void
@@ -934,7 +958,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
     /* Header + key attributes (netdevice + family) */
     rc = snprintf(cur, s + size - cur, "<Facelet %s %s (%s)",
             facelet_status_str[facelet->status],
-            facelet_get_status_error(facelet) ? "/!\\" : "",
+            facelet_get_error(facelet) ? "/!\\" : "",
             (facelet->family == AF_INET) ? "AF_INET" :
             (facelet->family == AF_INET6) ? "AF_INET6" :
             (facelet->family == AF_UNSPEC) ? "AF_UNSPEC" :
@@ -1298,7 +1322,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
     /* Status error */
     rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\"\n", 4 * (indent+1), "",
             "\"error\"",
-            facelet_get_status_error(facelet) ? "true" : "false");
+            facelet_get_error(facelet) ? "true" : "false");
     if (rc < 0)
         return rc;
     cur += rc;

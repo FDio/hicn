@@ -491,6 +491,7 @@ int facemgr_query_bonjour(facemgr_t * facemgr, netdevice_t * netdevice)
     DEBUG("sending event to bonjour interface");
 
     /* Send an event to the interface (GET ?) */
+    // XXX error handling
     return interface_on_event(bj, NULL);
 }
 #endif /* __linux__ */
@@ -508,8 +509,10 @@ int facemgr_query_android_utility(facemgr_t * facemgr, netdevice_t netdevice)
         goto ERR_ND;
 
     rc = interface_on_event(facemgr->au, facelet);
-    if (rc < 0)
+    if (rc < 0) {
+        // XXX error handling
         goto ERR_EVENT;
+    }
 
     return 0;
 
@@ -957,7 +960,7 @@ int facemgr_assign_face_type(facemgr_t * facemgr, facelet_t * facelet)
     netdevice_t netdevice = NETDEVICE_EMPTY;
     int rc = facelet_get_netdevice(facelet, &netdevice);
     if (rc < 0) {
-        ERROR("[facemgr_facelet_satisfy_rules] Error retrieving netdevice from facelet");
+        ERROR("[facemgr_assign_face_type] Error retrieving netdevice from facelet");
         return -1;
     }
 
@@ -969,7 +972,7 @@ int facemgr_assign_face_type(facemgr_t * facemgr, facelet_t * facelet)
      */
     rc = facelet_get_netdevice_type(facelet, &netdevice_type);
     if (rc < 0) {
-        ERROR("[facemgr_facelet_satisfy_rules] Error retrieving netdevice_type from facelet");
+        ERROR("[facemgr_assign_face_type] Error retrieving netdevice_type from facelet");
         return -2;
     }
 #endif /* WITH_ANDROID_UTILITY */
@@ -991,6 +994,7 @@ int
 facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
 {
     int rc;
+    facelet_error_reason_t reason = FACELET_ERROR_REASON_INTERNAL_ERROR;
 
     switch(facelet_get_status(facelet)) {
         case FACELET_STATUS_UNCERTAIN:
@@ -1048,8 +1052,10 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
 
         case FACELET_STATUS_CREATE:
             facelet_set_event(facelet, FACELET_EVENT_CREATE);
-            if (interface_on_event(facemgr->hl, facelet) < 0) {
+            rc = interface_on_event(facemgr->hl, facelet);
+            if (rc < 0) {
                 ERROR("[facemgr_process_facelet] Failed to create face");
+                reason = -rc;
                 goto ERR;
             }
 
@@ -1060,8 +1066,10 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
 
         case FACELET_STATUS_UPDATE:
             facelet_set_event(facelet, FACELET_EVENT_UPDATE);
-            if (interface_on_event(facemgr->hl, facelet) < 0) {
+            rc = interface_on_event(facemgr->hl, facelet);
+            if (rc < 0) {
                 ERROR("[facemgr_process_facelet] Failed to update face");
+                reason = -rc;
                 goto ERR;
             }
 
@@ -1071,8 +1079,10 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
 
         case FACELET_STATUS_DELETE:
             facelet_set_event(facelet, FACELET_EVENT_DELETE);
-            if (interface_on_event(facemgr->hl, facelet) < 0) {
+            rc = interface_on_event(facemgr->hl, facelet);
+            if (rc < 0) {
                 ERROR("[facemgr_process_facelet] Failed to delete face");
+                reason = -rc;
                 goto ERR;
             }
 
@@ -1102,11 +1112,11 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
             goto ERR;
     }
 
-    facelet_set_status_error(facelet, false);
+    facelet_unset_error(facelet);
     return 0;
 
 ERR:
-    facelet_set_status_error(facelet, true);
+    facelet_set_error(facelet, reason);
     return -1;
 }
 
@@ -1122,11 +1132,12 @@ facemgr_reattempt_timeout(facemgr_t * facemgr, int fd, void * data)
     int n = facelet_set_get_array(facemgr->facelet_cache, &facelet_array);
     if (n < 0) {
         ERROR("[facemgr_reattempt_timeout] Could not retrieve facelets in cache");
+        has_error = true;
     } else {
         for (unsigned i = 0; i < n; i++) {
             facelet_t * facelet = facelet_array[i];
 
-            if (!facelet_get_status_error(facelet))
+            if (!facelet_get_error(facelet))
                 continue;
 
             char buf[MAXSZ_FACELET];
@@ -1137,7 +1148,7 @@ facemgr_reattempt_timeout(facemgr_t * facemgr, int fd, void * data)
                 has_error = true;
                 continue;
             }
-            facelet_set_status_error(facelet, false);
+            facelet_unset_error(facelet);
         }
         free(facelet_array);
     }
@@ -1686,41 +1697,54 @@ facemgr_bootstrap(facemgr_t * facemgr)
     DEBUG("Registering interfaces...");
     rc = interface_register(&hicn_light_ops);
     if (rc < 0) {
-        ERROR("Could not register interfaces");
+        ERROR("[facemgr_bootstrap] Error registering hicn_light interface");
         goto ERR_REGISTER;
     }
 
 #ifdef __APPLE__
     rc = interface_register(&network_framework_ops);
-    if (rc < 0)
+    if (rc < 0) {
+        ERROR("[facemgr_bootstrap] Error registering network_framework interface");
         goto ERR_REGISTER;
+    }
 #endif /* __APPLE__ */
 
 #ifdef __linux__
     rc = interface_register(&netlink_ops);
-    if (rc < 0)
+    if (rc < 0) {
+        ERROR("[facemgr_bootstrap] Error registering netlink interface");
         goto ERR_REGISTER;
+    }
+
     rc = interface_register(&bonjour_ops);
-    if (rc < 0)
+    if (rc < 0) {
+        ERROR("[facemgr_bootstrap] Error registering bonjour interface");
         goto ERR_REGISTER;
+    }
 #endif /* __linux__ */
 
 #ifdef WITH_ANDROID_UTILITY
     rc = interface_register(&android_utility_ops);
-    if (rc < 0)
+    if (rc < 0) {
+        ERROR("[facemgr_bootstrap] Error registering android_utility interface");
         goto ERR_REGISTER;
+    }
 #endif /* WITH_ANDROID_UTILITY */
 
 #ifdef WITH_EXAMPLE_DUMMY
     rc = interface_register(&dummy_ops);
-    if (rc < 0)
+    if (rc < 0) {
+        ERROR("[facemgr_bootstrap] Error registering dummy interface");
         goto ERR_REGISTER;
+    }
 #endif
 
 #ifdef WITH_EXAMPLE_UPDOWN
     rc = interface_register(&updown_ops);
-    if (rc < 0)
+    if (rc < 0) {
+        ERROR("[facemgr_bootstrap] Error registering updown interface");
         goto ERR_REGISTER;
+    }
 #endif
 
     rc = facemgr_create_interface(facemgr, "hl", "hicn_light", NULL, &facemgr->hl);
@@ -1778,7 +1802,6 @@ facemgr_bootstrap(facemgr_t * facemgr)
 
     return 0;
 
-    /* FIXME facemgr_delete_interface */
 #ifdef WITH_EXAMPLE_UPDOWN
     facemgr_delete_interface(facemgr, facemgr->updown);
 ERR_UPDOWN_CREATE:
