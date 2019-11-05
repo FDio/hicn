@@ -21,63 +21,8 @@
 #define FACEMGR_CFG_H
 
 #include <hicn/ctrl/face.h>
+#include <hicn/facemgr/facelet.h>
 #include <hicn/util/log.h>
-
-/* Face type */
-
-#define foreach_face_type_layer \
-    _(UNDEFINED)                \
-    _(3)                        \
-    _(4)                        \
-    _(N)
-
-typedef enum {
-#define _(x) FACE_TYPE_LAYER_ ## x,
-    foreach_face_type_layer
-#undef _
-} face_type_layer_t;
-
-#define foreach_face_type_encap \
-    _(UNDEFINED)                \
-    _(TCP)                      \
-    _(UDP)                      \
-    _(N)
-
-typedef enum {
-#define _(x) FACE_TYPE_ENCAP_ ## x,
-    foreach_face_type_encap
-#undef _
-} face_type_encap_t;
-
-typedef struct {
-   face_type_layer_t layer;
-   face_type_encap_t encap;
-} facemgr_face_type_t;
-
-#define FACEMGR_FACE_TYPE_UNDEFINED (facemgr_face_type_t) {     \
-    .layer = FACE_TYPE_LAYER_UNDEFINED,                         \
-    .encap = FACE_TYPE_ENCAP_UNDEFINED,                         \
-}
-
-#define FACEMGR_FACE_TYPE_NATIVE_UDP (facemgr_face_type_t) {    \
-    .layer = FACE_TYPE_LAYER_3,                                 \
-    .encap = FACE_TYPE_ENCAP_UDP,                               \
-}
-
-#define FACEMGR_FACE_TYPE_NATIVE_TCP (facemgr_face_type_t) {    \
-    .layer = FACE_TYPE_LAYER_3,                                 \
-    .encap = FACE_TYPE_ENCAP_TCP,                               \
-}
-
-#define FACEMGR_FACE_TYPE_OVERLAY_UDP (facemgr_face_type_t) {   \
-    .layer = FACE_TYPE_LAYER_4,                                 \
-    .encap = FACE_TYPE_ENCAP_UDP,                               \
-}
-
-#define FACEMGR_FACE_TYPE_OVERLAY_TCP (facemgr_face_type_t) {   \
-    .layer = FACE_TYPE_LAYER_4,                                 \
-    .encap = FACE_TYPE_ENCAP_TCP,                               \
-}
 
 /* Face manager configuration */
 
@@ -193,5 +138,10 @@ int facemgr_cfg_get_overlay_remote_addr(const facemgr_cfg_t * cfg,
 int facemgr_cfg_get_overlay_remote_port(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         int family, u16 * port);
+
+int facemgr_cfg_add_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet);
+int facemgr_cfg_remove_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet,
+        facelet_t ** removed_facelet);
+int facemgr_cfg_get_static_facelet_array(const facemgr_cfg_t * cfg, facelet_t *** array);
 
 #endif /* FACEMGR_CFG_H */

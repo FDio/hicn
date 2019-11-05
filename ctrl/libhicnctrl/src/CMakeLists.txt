@@ -30,6 +30,7 @@ set(UTIL_HEADER_FILES
 set(SOURCE_FILES
     api.c
     face.c
+    route.c
     util/log.c
 )
 
