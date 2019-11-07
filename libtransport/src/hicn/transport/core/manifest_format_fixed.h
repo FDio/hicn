@@ -116,6 +116,8 @@ class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
 
   static std::size_t getManifestHeaderSizeImpl();
 
+  static std::size_t getManifestEntrySizeImpl();
+
  private:
   void addSuffixHashBytes(uint32_t suffix, const uint8_t *hash,
                           std::size_t length);

@@ -17,6 +17,7 @@
 
 #include <hicn/transport/interfaces/socket.h>
 #include <hicn/transport/utils/content_store.h>
+#include <hicn/transport/utils/suffix_strategy.h>
 #include <hicn/transport/utils/event_thread.h>
 
 #include <atomic>
@@ -190,6 +191,8 @@ class ProducerSocket : public Socket<BasePortal>,
   std::atomic<utils::CryptoSuite> crypto_suite_;
   utils::SpinLock identity_lock_;
   std::shared_ptr<utils::Identity> identity_;
+  utils::SuffixManifest suffix_manifest_;
+  utils::SuffixContent suffix_content_;
 
   // callbacks
   ProducerInterestCallback on_interest_input_;
