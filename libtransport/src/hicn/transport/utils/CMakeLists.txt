@@ -19,6 +19,7 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/signer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/verifier.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/identity.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/suffix_strategy.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/log.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/membuf.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/content_store.cc
@@ -46,6 +47,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/crypto_hash.h
   ${CMAKE_CURRENT_SOURCE_DIR}/crypto_hash_type.h
   ${CMAKE_CURRENT_SOURCE_DIR}/identity.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/suffix_strategy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/conversions.h
   ${CMAKE_CURRENT_SOURCE_DIR}/linux.h
   ${CMAKE_CURRENT_SOURCE_DIR}/log.h
