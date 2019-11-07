@@ -112,15 +112,15 @@ Name *name_CreateFromPacket(const uint8_t *packet, MessagePacketType type) {
   return name;
 }
 
-Name *name_CreateFromAddress(address_type addressType, union commandAddr addr,
+Name *name_CreateFromAddress(address_type addressType, ip_address_t addr,
                              uint8_t len) {
   Name *name = parcMemory_AllocateAndClear(sizeof(Name));
   parcAssertNotNull(name, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(Name));
   if (addressType == ADDR_INET) {
-    name->content_name = nameBitvector_CreateFromInAddr(addr.ipv4, len);
+    name->content_name = nameBitvector_CreateFromInAddr(addr.v4.as_u32, len);
   } else if (addressType == ADDR_INET6) {
-    name->content_name = nameBitvector_CreateFromIn6Addr(&addr.ipv6, len);
+    name->content_name = nameBitvector_CreateFromIn6Addr(&addr.v6.as_in6addr, len);
   } else {
     parcTrapNotImplemented("Unkown packet type");
   }

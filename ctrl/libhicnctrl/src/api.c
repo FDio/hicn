@@ -906,9 +906,7 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
             .seqNum = 0,
         },
         .payload = {
-            .address = {
-                .ipv6 = listener->local_addr.v6.as_in6addr,
-            },
+            .address = listener->local_addr,
             .port = htons(listener->local_port),
             .addressType = (u8)map_to_addr_type[listener->family],
             .listenerMode = (u8)map_to_listener_mode[listener->type],
@@ -1174,9 +1172,8 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
             .seqNum = 0,
         },
         .payload = {
-            /* we use IPv6 which is the longest address */
-            .remoteIp.ipv6 = connection->remote_addr.v6.as_in6addr,
-            .localIp.ipv6 = connection->local_addr.v6.as_in6addr,
+            .remoteIp = connection->remote_addr,
+            .localIp = connection->local_addr,
             .remotePort = htons(connection->remote_port),
             .localPort = htons(connection->local_port),
             .ipType = (u8)map_to_addr_type[connection->family],
@@ -1405,9 +1402,11 @@ hc_connection_parse(void * in, hc_connection_t * connection)
         .id = cmd->connid,
         .type = type,
         .family = family,
-        .local_addr = UNION_CAST(cmd->connectionData.localIp, ip_address_t),
+        .local_addr = cmd->connectionData.localIp,
+        //.local_addr = UNION_CAST(cmd->connectionData.localIp, ip_address_t),
         .local_port = ntohs(cmd->connectionData.localPort),
-        .remote_addr = UNION_CAST(cmd->connectionData.remoteIp, ip_address_t),
+        .remote_addr = cmd->connectionData.remoteIp,
+        //.remote_addr = UNION_CAST(cmd->connectionData.remoteIp, ip_address_t),
         .remote_port = ntohs(cmd->connectionData.remotePort),
         .admin_state = cmd->connectionData.admin_state,
 #ifdef WITH_POLICY
@@ -1521,8 +1520,7 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
             .seqNum = 0,
         },
         .payload = {
-            /* we use IPv6 which is the longest address */
-            .address.ipv6 = route->remote_addr.v6.as_in6addr,
+            .address = route->remote_addr,
             .cost = route->cost,
             .addressType = (u8)map_to_addr_type[route->family],
             .len = route->len,
@@ -1577,8 +1575,7 @@ _hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
             .seqNum = 0,
         },
         .payload = {
-            /* we use IPv6 which is the longest address */
-            .address.ipv6 = route->remote_addr.v6.as_in6addr,
+            .address = route->remote_addr,
             .addressType = (u8)map_to_addr_type[route->family],
             .len = route->len,
         }
@@ -2286,8 +2283,7 @@ _hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
             .seqNum = 0,
         },
         .payload = {
-            /* we use IPv6 which is the longest address */
-            .address.ipv6 = punting->prefix.v6.as_in6addr,
+            .address = punting->prefix,
             .addressType = (u8)map_to_addr_type[punting->family],
             .len = punting->prefix_len,
         }
@@ -2567,8 +2563,7 @@ _hc_policy_create(hc_sock_t * s, hc_policy_t * policy, bool async)
             .seqNum = 0,
         },
         .payload = {
-            /* we use IPv6 which is the longest address */
-            .address.ipv6 = policy->remote_addr.v6.as_in6addr,
+            .address = policy->remote_addr,
             .addressType = (u8)map_to_addr_type[policy->family],
             .len = policy->len,
             .policy = policy->policy,
@@ -2617,8 +2612,7 @@ _hc_policy_delete(hc_sock_t * s, hc_policy_t * policy, bool async)
             .seqNum = 0,
         },
         .payload = {
-            /* we use IPv6 which is the longest address */
-            .address.ipv6 = policy->remote_addr.v6.as_in6addr,
+            .address = policy->remote_addr,
             .addressType = (u8)map_to_addr_type[policy->family],
             .len = policy->len,
         }

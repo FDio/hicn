@@ -131,18 +131,18 @@ char *utils_BuildStringFromInet6(struct in6_addr *addr6, in_port_t *port) {
 }
 
 char *utils_CommandAddressToString(address_type addressType,
-                                   union commandAddr *address,
+                                   ip_address_t *address,
                                    in_port_t *port) {
   char *result;
 
   switch (addressType) {
     case ADDR_INET: {
-      result = utils_BuildStringFromInet(&address->ipv4, port);
+      result = utils_BuildStringFromInet(&address->v4.as_u32, port);
       break;
     }
 
     case ADDR_INET6: {
-      result = utils_BuildStringFromInet6(&address->ipv6, port);
+      result = utils_BuildStringFromInet6(&address->v6.as_in6addr, port);
       break;
     }
 
@@ -217,7 +217,7 @@ struct iovec *utils_SendRequest(ControlState *state, command_id command,
 }
 
 const char *utils_PrefixLenToString(address_type addressType,
-                                    union commandAddr *address,
+                                    ip_address_t *address,
                                     uint8_t *prefixLen) {
   char len[4];  // max size + 1
   sprintf(len, "%u", (unsigned)*prefixLen);

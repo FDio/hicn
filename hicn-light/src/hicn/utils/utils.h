@@ -50,7 +50,7 @@ struct iovec *utils_CreateNack(header_control_message *header, void *payload,
  *to be a `in_addr_t * or `a struct in6_addr *.
  */
 char *utils_CommandAddressToString(address_type addressType,
-                                   union commandAddr *address, in_port_t *port);
+                                   ip_address_t *address, in_port_t *port);
 
 /**
  *Given a command payload, it generates the header and send the request to the
@@ -64,7 +64,7 @@ struct iovec *utils_SendRequest(ControlState *state, command_id command,
  *form [add]:[port]/[len].
  */
 const char *utils_PrefixLenToString(address_type addressType,
-                                    union commandAddr *address,
+                                    ip_address_t *address,
                                     uint8_t *prefixLen);
 
 #endif

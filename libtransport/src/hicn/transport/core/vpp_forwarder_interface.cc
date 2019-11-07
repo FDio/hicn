@@ -102,9 +102,9 @@ void VPPForwarderInterface::consumerConnection() {
     throw errors::RuntimeException(hicn_binary_api_get_error_string(ret));
   }
 
-  std::memcpy(inet_address_.v4.as_u8, output.src4->as_u8, IPV4_ADDR_LEN);
+  std::memcpy(inet_address_.v4.as_u8, output.src4->v4.as_u8, IPV4_ADDR_LEN);
 
-  std::memcpy(inet6_address_.v6.as_u8, output.src6->as_u8, IPV6_ADDR_LEN);
+  std::memcpy(inet6_address_.v6.as_u8, output.src6->v6.as_u8, IPV6_ADDR_LEN);
 }
 
 void VPPForwarderInterface::producerConnection() {
@@ -156,9 +156,8 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
     // memif_id, since this function should be called after the
     // memif creation.
     input.swif = sw_if_index_;
-    input.prefix->address.as_u64[0] = addr.address.as_u64[0];
-    input.prefix->address.as_u64[1] = addr.address.as_u64[1];
-    input.prefix->family = addr.family == AF_INET6 ? AF_INET6 : AF_INET;
+    input.prefix->address = addr.address;
+    input.prefix->family = addr.family;
     input.prefix->len = addr.len;
     input.cs_reserved = content_store_reserved_;
 
@@ -169,22 +168,14 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
       throw errors::RuntimeException(hicn_binary_api_get_error_string(ret));
     }
 
-    if (addr.family == AF_INET6) {
-      inet6_address_.v6.as_u64[0] = output.prod_addr->v6.as_u64[0];
-      inet6_address_.v6.as_u64[1] = output.prod_addr->v6.as_u64[1];
-    } else {
-      // The ipv4 is written in the last 4 bytes of the ipv6 address, so we need
-      // to copy from the byte 12
-      inet_address_.v4.as_u32 = output.prod_addr->v4.as_u32;
-    }
+    inet6_address_ = *output.prod_addr;
 
     face_id_ = output.face_id;
   } else {
     hicn_producer_set_route_params params;
     params.prefix = &producer_prefix;
-    params.prefix->address.as_u64[0] = addr.address.as_u64[0];
-    params.prefix->address.as_u64[1] = addr.address.as_u64[1];
-    params.prefix->family = addr.family == AF_INET6 ? AF_INET6 : AF_INET;
+    params.prefix->address = addr.address;
+    params.prefix->family = addr.family;
     params.prefix->len = addr.len;
     params.face_id = face_id_;
 

@@ -69,7 +69,6 @@ static CommandReturn _controlListPolicies_HelpExecute(CommandParser *parser,
 
 #define MAXSZ_STR_STAT 10
 #define MAXSZ_APP_NAME 25
-#define MAXSZ_PREFIX 25
 
 typedef struct {
   #define _(x, y) char x[MAXSZ_POLICY_TAG_STATE];
