@@ -85,6 +85,10 @@ class Manifest : public Base {
     return Encoder::getManifestHeaderSize();
   }
 
+  static std::size_t getManifestEntrySize() {
+    return Encoder::getManifestEntrySize();
+  }
+
   Manifest &setManifestType(ManifestType type) {
     manifest_type_ = type;
     encoder_.setManifestType(manifest_type_);
