@@ -257,7 +257,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
             }
             INFO("Created face id=%d", hc_face.id);
 
-            /* Adding default routs e*/
+            /* Adding default routes */
 #if 1
             route = (hc_route_t) {
                 .face_id = hc_face.id,

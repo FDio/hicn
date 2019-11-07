@@ -364,7 +364,7 @@ bool _addHicn(Configuration *config, add_listener_command *control,
   switch (control->addressType) {
     case ADDR_INET: {
       localAddress =
-          addressFromInaddr4Port(&control->address.ipv4, &control->port);
+          addressFromInaddr4Port(&control->address.v4.as_u32, &control->port);
       success = _setupHicnListenerOnInet4(configuration_GetForwarder(config),
                                           symbolic, localAddress);
       break;
@@ -372,7 +372,7 @@ bool _addHicn(Configuration *config, add_listener_command *control,
 
     case ADDR_INET6: {
       localAddress =
-          addressFromInaddr6Port(&control->address.ipv6, &control->port);
+          addressFromInaddr6Port(&control->address.v6.as_in6addr, &control->port);
       success = _setupHicnListenerOnInet6(configuration_GetForwarder(config),
                                           symbolic, localAddress);
       break;
@@ -416,11 +416,11 @@ bool _addIP(Configuration *config, add_listener_command *control,
       if (control->connectionType == UDP_CONN) {
         success =
             _setupUdpListenerOnInet(configuration_GetForwarder(config), symbolic,
-                                    &control->address.ipv4, &control->port, control->interfaceName);
+                                    &control->address.v4.as_u32, &control->port, control->interfaceName);
       } else if (control->connectionType == TCP_CONN) {
         success =
             _setupTcpListenerOnInet(configuration_GetForwarder(config), symbolic,
-                                    &control->address.ipv4, &control->port, control->interfaceName);
+                                    &control->address.v4.as_u32, &control->port, control->interfaceName);
       }
       break;
     }
@@ -428,11 +428,11 @@ bool _addIP(Configuration *config, add_listener_command *control,
     case ADDR_INET6: {
       if (control->connectionType == UDP_CONN) {
         success = _setupUdpListenerOnInet6Light(
-            configuration_GetForwarder(config), symbolic, &control->address.ipv6,
+            configuration_GetForwarder(config), symbolic, &control->address.v6.as_in6addr,
             &control->port, control->interfaceName);
       } else if (control->connectionType == TCP_CONN) {
         success = _setupTcpListenerOnInet6Light(
-            configuration_GetForwarder(config), symbolic, &control->address.ipv6,
+            configuration_GetForwarder(config), symbolic, &control->address.v6.as_in6addr,
             &control->port, control->interfaceName, 0);
       }
       break;
@@ -522,12 +522,12 @@ struct iovec *configurationListeners_AddPunting(Configuration *config,
   bool success = false;
 
   if (control->addressType == ADDR_INET) {
-    Address *address = addressFromInaddr4Port(&control->address.ipv4, &port);
+    Address *address = addressFromInaddr4Port(&control->address.v4.as_u32, &port);
     Punting *punting = puntingCreate(symbolicOrConnid, address, len);
     success = _AddPuntingInet(config, punting, ingressId);
     addressDestroy(&address);
   } else if (control->addressType == ADDR_INET6) {
-    Address *address = addressFromInaddr6Port(&control->address.ipv6, &port);
+    Address *address = addressFromInaddr6Port(&control->address.v6.as_in6addr, &port);
     Punting *punting = puntingCreate(symbolicOrConnid, address, len);
     success = _AddPuntingInet6(config, punting, ingressId);
     addressDestroy(&address);

@@ -305,11 +305,11 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
       if (addressGetType(addressEntry) == ADDR_INET) {
         addressGetInet(addressEntry, &tmpAddr);
         listRouteCommand->addressType = ADDR_INET;
-        listRouteCommand->address.ipv4 = tmpAddr.sin_addr.s_addr;
+        listRouteCommand->address.v4.as_inaddr = tmpAddr.sin_addr;
       } else if (addressGetType(addressEntry) == ADDR_INET6) {
         addressGetInet6(addressEntry, &tmpAddr6);
         listRouteCommand->addressType = ADDR_INET6;
-        listRouteCommand->address.ipv6 = tmpAddr6.sin6_addr;
+        listRouteCommand->address.v6.as_in6addr = tmpAddr6.sin6_addr;
       }
       listRouteCommand->connid = numberSet_GetItem(nexthops, j);
       listRouteCommand->len = nameBitvector_GetLength(prefix);
@@ -370,14 +370,14 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
 
   if (control->ipType == ADDR_INET) {
     source =
-        addressFromInaddr4Port(&control->localIp.ipv4, &control->localPort);
+        addressFromInaddr4Port(&control->localIp.v4.as_u32, &control->localPort);
     destination =
-        addressFromInaddr4Port(&control->remoteIp.ipv4, &control->remotePort);
+        addressFromInaddr4Port(&control->remoteIp.v4.as_u32, &control->remotePort);
   } else if (control->ipType == ADDR_INET6) {
     source =
-        addressFromInaddr6Port(&control->localIp.ipv6, &control->localPort);
+        addressFromInaddr6Port(&control->localIp.v6.as_in6addr, &control->localPort);
     destination =
-        addressFromInaddr6Port(&control->remoteIp.ipv6, &control->remotePort);
+        addressFromInaddr6Port(&control->remoteIp.v6.as_in6addr, &control->remotePort);
   } else {
     printf("Invalid IP type.\n");  // will generate a Nack
   }
@@ -714,14 +714,14 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
       // get local port/address
       addressGetInet(localAddress, &tmpAddr);
       listConnectionsCommand->connectionData.localPort = tmpAddr.sin_port;
-      listConnectionsCommand->connectionData.localIp.ipv4 =
-          tmpAddr.sin_addr.s_addr;
+      listConnectionsCommand->connectionData.localIp.v4.as_inaddr =
+          tmpAddr.sin_addr;
       memset(&tmpAddr, 0, sizeof(tmpAddr));
       // get remote port/address
       addressGetInet(remoteAddress, &tmpAddr);
       listConnectionsCommand->connectionData.remotePort = tmpAddr.sin_port;
-      listConnectionsCommand->connectionData.remoteIp.ipv4 =
-          tmpAddr.sin_addr.s_addr;
+      listConnectionsCommand->connectionData.remoteIp.v4.as_inaddr =
+          tmpAddr.sin_addr;
 
     } else if (addressGetType(localAddress) == ADDR_INET6 &&
                addressGetType(remoteAddress) == ADDR_INET6) {
@@ -730,12 +730,12 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
       // get local port/address
       addressGetInet6(localAddress, &tmpAddr6);
       listConnectionsCommand->connectionData.localPort = tmpAddr6.sin6_port;
-      listConnectionsCommand->connectionData.localIp.ipv6 = tmpAddr6.sin6_addr;
+      listConnectionsCommand->connectionData.localIp.v6.as_in6addr = tmpAddr6.sin6_addr;
       memset(&tmpAddr6, 0, sizeof(tmpAddr6));
       // get remote port/address
       addressGetInet6(remoteAddress, &tmpAddr6);
       listConnectionsCommand->connectionData.remotePort = tmpAddr6.sin6_port;
-      listConnectionsCommand->connectionData.remoteIp.ipv6 = tmpAddr6.sin6_addr;
+      listConnectionsCommand->connectionData.remoteIp.v6.as_in6addr = tmpAddr6.sin6_addr;
 
     }  // no need further else, control on the addressed already done at the
        // time of insertion in the connection table
@@ -789,7 +789,7 @@ struct iovec *configuration_ProcessListenersList(Configuration *config,
           (const Address *)listenerEntry->getListenAddress(listenerEntry),
           &tmpAddr);
       listListenersCommand->addressType = ADDR_INET;
-      listListenersCommand->address.ipv4 = tmpAddr.sin_addr.s_addr;
+      listListenersCommand->address.v4.as_inaddr = tmpAddr.sin_addr;
       listListenersCommand->port = tmpAddr.sin_port;
     } else if (addressGetType((const Address *)listenerEntry->getListenAddress(
                    listenerEntry)) == ADDR_INET6) {
@@ -797,7 +797,7 @@ struct iovec *configuration_ProcessListenersList(Configuration *config,
           (const Address *)listenerEntry->getListenAddress(listenerEntry),
           &tmpAddr6);
       listListenersCommand->addressType = ADDR_INET6;
-      listListenersCommand->address.ipv6 = tmpAddr6.sin6_addr;
+      listListenersCommand->address.v6.as_in6addr = tmpAddr6.sin6_addr;
       listListenersCommand->port = tmpAddr6.sin6_port;
     }
 
@@ -1209,11 +1209,11 @@ struct iovec *configuration_ProcessPolicyList(Configuration *config,
     if (addressGetType(addressEntry) == ADDR_INET) {
       addressGetInet(addressEntry, &tmpAddr);
       listPoliciesCommand->addressType = ADDR_INET;
-      listPoliciesCommand->address.ipv4 = tmpAddr.sin_addr.s_addr;
+      listPoliciesCommand->address.v4.as_inaddr = tmpAddr.sin_addr;
     } else if (addressGetType(addressEntry) == ADDR_INET6) {
       addressGetInet6(addressEntry, &tmpAddr6);
       listPoliciesCommand->addressType = ADDR_INET6;
-      listPoliciesCommand->address.ipv6 = tmpAddr6.sin6_addr;
+      listPoliciesCommand->address.v6.as_in6addr = tmpAddr6.sin6_addr;
     }
     listPoliciesCommand->len = nameBitvector_GetLength(prefix);
     listPoliciesCommand->policy = fibEntry_GetPolicy(entry);

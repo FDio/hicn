@@ -58,7 +58,7 @@ struct fib_entry {
   const Forwarder * forwarder;
   policy_t policy;
   policy_counters_t policy_counters;
-  NumberSet *available_nexthops;
+//  NumberSet *available_nexthops;
 #ifdef WITH_MAPME
   /* In case of no multipath, this stores the previous decision taken by policy */
   unsigned previous_nexthop;

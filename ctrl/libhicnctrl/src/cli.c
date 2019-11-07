@@ -48,41 +48,217 @@ foreach_object
 #undef _
 } hc_object_t;
 
+void
+usage_header()
+{
+    fprintf(stderr, "Usage:\n");
+}
+
+void
+usage_face_create(const char * prog, bool header, bool verbose)
+{
+
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -f TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT [INTERFACE_NAME]\n", prog);
+    if (verbose)
+        fprintf(stderr, "    Create a face on specified address and port.\n");
+}
+
+void
+usage_face_delete(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -df ID\n", prog);
+    //fprintf(stderr, "%s -df NAME\n", prog);
+    fprintf(stderr, "%s -df TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT [INTERFACE_NAME]\n", prog);
+    if (verbose)
+        fprintf(stderr, "    Delete a face...\n");
+}
+
+void
+usage_face_list(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -F\n", prog);
+    if (verbose)
+        fprintf(stderr, "    List all faces.\n");
+}
+
+void
+usage_face(const char * prog, bool header, bool verbose)
+{
+    usage_face_create(prog, header, verbose);
+    usage_face_delete(prog, header, verbose);
+    usage_face_list(prog, header, verbose);
+}
+
+void
+usage_route_create(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -r FACE_ID PREFIX [COST]\n", prog);
+    //fprintf(stderr, "%s -r [FACE_ID|NAME] PREFIX [COST]\n", prog);
+    if (verbose)
+        fprintf(stderr, "    Create a route...\n");
+}
+
+void
+usage_route_delete(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -dr FACE_ID PREFIX\n", prog);
+    //fprintf(stderr, "%s -dr [FACE_ID|NAME] PREFIX\n", prog);
+    if (verbose)
+        fprintf(stderr, "    Delete a route...\n");
+}
+
+void
+usage_route_list(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -R\n", prog);
+    if (verbose)
+        fprintf(stderr, "    List all routes.\n");
+}
+
+void
+usage_route(const char * prog, bool header, bool verbose)
+{
+    usage_route_create(prog, header, verbose);
+    usage_route_delete(prog, header, verbose);
+    usage_route_list(prog, header, verbose);
+}
+
+void
+usage_forwarding_strategy_create(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+}
+void
+usage_forwarding_strategy_delete(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+}
+
+void
+usage_forwarding_strategy_list(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -S\n", prog);
+    if (verbose)
+        fprintf(stderr, "    List all availble forwarding strategies.\n");
+}
+
+void
+usage_forwarding_strategy(const char * prog, bool header, bool verbose)
+{
+    usage_forwarding_strategy_create(prog, header, verbose);
+    usage_forwarding_strategy_delete(prog, header, verbose);
+    usage_forwarding_strategy_list(prog, header, verbose);
+}
+
+void
+usage_listener_create(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -l NAME TYPE LOCAL_ADDRESS LOCAL_PORT [INTERFACE_NAME]\n", prog);
+    if (verbose)
+        fprintf(stderr, "    Create a listener on specified address and port.\n");
+}
+
+void
+usage_listener_delete(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -dl ID\n", prog);
+    fprintf(stderr, "%s -dl NAME\n", prog);
+    fprintf(stderr, "%s -dl TYPE LOCAL_ADDRESS LOCAL_PORT [INTERFACE_NAME]\n", prog);
+    if (verbose)
+        fprintf(stderr, "    Delete a listener...\n");
+}
+
+void
+usage_listener_list(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -L\n", prog);
+    if (verbose)
+        fprintf(stderr, "    List all listeners.\n");
+}
+
+void
+usage_listener(const char * prog, bool header, bool verbose)
+{
+    usage_listener_create(prog, header, verbose);
+    usage_listener_delete(prog, header, verbose);
+    usage_listener_list(prog, header, verbose);
+}
+void
+usage_connection_create(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -c NAME TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT [INTERFACE_NAME]\n", prog);
+    if (verbose)
+        fprintf(stderr, "    Create a connection on specified address and port.\n");
+}
+
+void
+usage_connection_delete(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -dc ID\n", prog);
+    fprintf(stderr, "%s -dc NAME\n", prog);
+    fprintf(stderr, "%s -dc TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT [INTERFACE_NAME]\n", prog);
+    if (verbose)
+        fprintf(stderr, "    Delete a connection...\n");
+}
+
+void
+usage_connection_list(const char * prog, bool header, bool verbose)
+{
+    if (header)
+        usage_header();
+    fprintf(stderr, "%s -C\n", prog);
+    if (verbose)
+        fprintf(stderr, "    List all connections.\n");
+}
+
+void
+usage_connection(const char * prog, bool header, bool verbose)
+{
+    usage_connection_create(prog, header, verbose);
+    usage_connection_delete(prog, header, verbose);
+    usage_connection_list(prog, header, verbose);
+}
+
 void usage(const char * prog)
 {
     fprintf(stderr, "Usage: %s [ [-d] [-f|-l|-c|-r] PARAMETERS | [-F|-L|-C|-R] ]\n", prog);
     fprintf(stderr, "\n");
     fprintf(stderr, "High-level commands\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "%s -f <NAME> <TYPE> <LOCAL_ADDRESS> <LOCAL_PORT> <REMOTE_ADDRESS> <REMOTE_PORT>\n", prog);
-    fprintf(stderr, "    Create a face on specified address and port.\n");
-    fprintf(stderr, "%s -fc ...\n", prog);
-    fprintf(stderr, "    Delete a face...\n");
-    fprintf(stderr, "%s -F\n", prog);
-    fprintf(stderr, "    List all faces.\n");
-    fprintf(stderr, "%s -r ...>\n", prog);
-    fprintf(stderr, "    Create a route...\n");
-    fprintf(stderr, "%s -dr ...\n", prog);
-    fprintf(stderr, "    Delete a route...\n");
-    fprintf(stderr, "%s -R\n", prog);
-    fprintf(stderr, "    List all routes.\n");
-    fprintf(stderr, "%s -S\n", prog);
-    fprintf(stderr, "    List all availble forwarding strategies.\n");
+    usage_face(prog, false, true);
+    usage_route(prog, false, true);
+    usage_forwarding_strategy(prog, false, true);
     fprintf(stderr, "\n");
     fprintf(stderr, "Low level commands (hicn-light specific)\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "%s -l <NAME> <TYPE> <ADDRESS> <PORT> <INTERFACE_NAME>\n", prog);
-    fprintf(stderr, "    Create a listener on specified address and port.\n");
-    fprintf(stderr, "%s -dl ...\n", prog);
-    fprintf(stderr, "    Delete a listener...\n");
-    fprintf(stderr, "%s -L\n", prog);
-    fprintf(stderr, "    List all listeners.\n");
-    fprintf(stderr, "%s -c <NAME> <TYPE> <LOCAL_ADDRESS> <LOCAL_PORT> <REMOTE_ADDRESS> <REMOTE_PORT>\n", prog);
-    fprintf(stderr, "    Create a connection on specified address and port.\n");
-    fprintf(stderr, "%s -dc ...\n", prog);
-    fprintf(stderr, "    Delete a connection...\n");
-    fprintf(stderr, "%s -C\n", prog);
-    fprintf(stderr, "    List all connections.\n");
+    usage_listener(prog, false, true);
+    usage_connection(prog, false, true);
 }
 
 typedef struct {
@@ -147,7 +323,6 @@ parse_options(int argc, char *argv[], hc_command_t * command)
 {
     command->object = OBJECT_UNDEFINED;
     command->action = ACTION_CREATE;
-    int nargs = -1; /* unset */
     int opt;
     int family;
 
@@ -167,32 +342,26 @@ parse_options(int argc, char *argv[], hc_command_t * command)
                 break;
             case 'r':
                 command->object = OBJECT_ROUTE;
-                nargs = 0; // XXX
                 break;
             case 'F':
                 command->action = ACTION_LIST;
                 command->object = OBJECT_FACE;
-                nargs = 0;
                 break;
             case 'L':
                 command->action = ACTION_LIST;
                 command->object = OBJECT_LISTENER;
-                nargs = 0;
                 break;
             case 'C':
                 command->action = ACTION_LIST;
                 command->object = OBJECT_CONNECTION;
-                nargs = 0;
                 break;
             case 'R':
                 command->action = ACTION_LIST;
                 command->object = OBJECT_ROUTE;
-                nargs = 0;
                 break;
             case 'S':
                 command->action = ACTION_LIST;
                 command->object = OBJECT_STRATEGY;
-                nargs = 0;
                 break;
             default: /* "h" */
                 usage(argv[0]);
@@ -205,17 +374,13 @@ parse_options(int argc, char *argv[], hc_command_t * command)
         return -1;
     }
 
-    if (nargs == 0)
-        return 0;
-
     /* Parse and validate parameters for add/delete */
     switch(command->object) {
         case OBJECT_FACE:
             switch(command->action) {
                 case ACTION_CREATE:
                     if ((argc - optind != 6) && (argc - optind != 7)) {
-                        fprintf(stderr, "Usage:\n");
-                        fprintf(stderr, "%s -f TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT [INTERFACE_NAME]\n", argv[0]);
+                        usage_face_create(argv[0], true, false); 
                         goto ERR_PARAM;
                     }
                     /* NAME will be autogenerated (and currently not used) */
@@ -242,10 +407,7 @@ parse_options(int argc, char *argv[], hc_command_t * command)
                     break;
                 case ACTION_DELETE:
                     if ((argc - optind != 1) && (argc - optind != 5) && (argc - optind != 6)) {
-                        fprintf(stderr, "Usage:\n");
-                        fprintf(stderr, "%s -ld ID\n", argv[0]);
-                        //fprintf(stderr, "%s -ld NAME\n", argv[0]);
-                        fprintf(stderr, "%s -ld TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT [INTERFACE_NAME]\n", argv[0]);
+                        usage_face_delete(argv[0], true, false);
                         goto ERR_PARAM;
                     }
 
@@ -281,6 +443,14 @@ parse_options(int argc, char *argv[], hc_command_t * command)
                         }
                     }
                     break;
+
+                case ACTION_LIST:
+                    if (argc - optind != 0) {
+                        usage_face_list(argv[0], true, false);
+                        goto ERR_PARAM;
+                    }
+                    break;
+
                 default:
                     goto ERR_COMMAND;
                     break;
@@ -290,11 +460,51 @@ parse_options(int argc, char *argv[], hc_command_t * command)
         case OBJECT_ROUTE:
             switch(command->action) {
                 case ACTION_CREATE:
-                    goto ERR_COMMAND;
+                    if ((argc - optind != 2) && (argc - optind != 3)) {
+                        usage_route_create(argv[0], true, false);
+                        goto ERR_PARAM;
+                    }
+
+                    command->route.face_id = atoi(argv[optind++]);
+
+                    {
+                    ip_prefix_t prefix;
+                    ip_prefix_pton(argv[optind++], &prefix);
+                    command->route.family = prefix.family;
+                    command->route.remote_addr = prefix.address;
+                    command->route.len = prefix.len;
+                    }
+
+                    if (argc != optind) {
+                        printf("parse cost\n");
+                        command->route.cost = atoi(argv[optind++]);
+                    }
                     break;
+
                 case ACTION_DELETE:
-                    goto ERR_COMMAND;
+                    if (argc - optind != 2) {
+                        usage_route_delete(argv[0], true, false);
+                        goto ERR_PARAM;
+                    }
+
+                    command->route.face_id = atoi(argv[optind++]);
+
+                    {
+                    ip_prefix_t prefix;
+                    ip_prefix_pton(argv[optind++], &prefix);
+                    command->route.family = prefix.family;
+                    command->route.remote_addr = prefix.address;
+                    command->route.len = prefix.len;
+                    }
                     break;
+
+                case ACTION_LIST:
+                    if (argc - optind != 0) {
+                        usage_route_list(argv[0], true, false);
+                        goto ERR_PARAM;
+                    }
+                    break;
+
                 default:
                     goto ERR_COMMAND;
                     break;
@@ -304,6 +514,10 @@ parse_options(int argc, char *argv[], hc_command_t * command)
         case OBJECT_STRATEGY:
             switch(command->action) {
                 case ACTION_LIST:
+                    if (argc - optind != 0) {
+                        usage_forwarding_strategy_list(argv[0], true, false);
+                        goto ERR_PARAM;
+                    }
                     break;
                 default:
                     goto ERR_COMMAND;
@@ -315,8 +529,7 @@ parse_options(int argc, char *argv[], hc_command_t * command)
             switch(command->action) {
                 case ACTION_CREATE:
                     if ((argc - optind != 4) && (argc - optind != 5)) {
-                        fprintf(stderr, "Usage:\n");
-                        fprintf(stderr, "%s -l NAME TYPE LOCAL_ADDRESS LOCAL_PORT [INTERFACE_NAME]\n", argv[0]);
+                        usage_listener_create(argv[0], true, false);
                         goto ERR_PARAM;
                     }
                     snprintf(command->listener.name, SYMBOLIC_NAME_LEN, "%s", argv[optind++]);
@@ -336,10 +549,7 @@ parse_options(int argc, char *argv[], hc_command_t * command)
 
                 case ACTION_DELETE:
                     if ((argc - optind != 1) && (argc - optind != 3) && (argc - optind != 4)) {
-                        fprintf(stderr, "Usage:\n");
-                        fprintf(stderr, "%s -ld ID\n", argv[0]);
-                        fprintf(stderr, "%s -ld NAME\n", argv[0]);
-                        fprintf(stderr, "%s -ld TYPE LOCAL_ADDRESS LOCAL_PORT [INTERFACE_NAME]\n", argv[0]);
+                        usage_listener_delete(argv[0], true, false);
                         goto ERR_PARAM;
                     }
 
@@ -370,6 +580,13 @@ parse_options(int argc, char *argv[], hc_command_t * command)
                     }
                     break;
 
+                case ACTION_LIST:
+                    if (argc - optind != 0) {
+                        usage_listener_list(argv[0], true, false);
+                        goto ERR_PARAM;
+                    }
+                    break;
+
                 default:
                         goto ERR_COMMAND;
                     break;
@@ -381,8 +598,7 @@ parse_options(int argc, char *argv[], hc_command_t * command)
                 case ACTION_CREATE:
                     /* NAME TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT */
                     if ((argc - optind != 6) && (argc - optind != 7)) {
-                        fprintf(stderr, "Usage:\n");
-                        fprintf(stderr, "%s -c NAME TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT [INTERFACE_NAME]\n", argv[0]);
+                        usage_connection_create(argv[0], true, false);
                         goto ERR_PARAM;
                     }
                     snprintf(command->connection.name, SYMBOLIC_NAME_LEN, "%s", argv[optind++]);
@@ -403,12 +619,10 @@ parse_options(int argc, char *argv[], hc_command_t * command)
                     command->connection.remote_port = atoi(argv[optind++]);
 
                     break;
+
                 case ACTION_DELETE:
                     if ((argc - optind != 1) && (argc - optind != 5) && (argc - optind != 6)) {
-                        fprintf(stderr, "Usage:\n");
-                        fprintf(stderr, "%s -ld ID\n", argv[0]);
-                        fprintf(stderr, "%s -ld NAME\n", argv[0]);
-                        fprintf(stderr, "%s -ld TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT [INTERFACE_NAME]\n", argv[0]);
+                        usage_connection_delete(argv[0], true, false);
                         goto ERR_PARAM;
                     }
 
@@ -441,6 +655,14 @@ parse_options(int argc, char *argv[], hc_command_t * command)
                         command->connection.remote_port = atoi(argv[optind++]);
                     }
                     break;
+
+                case ACTION_LIST:
+                    if (argc - optind != 0) {
+                        usage_connection_list(argv[0], true, false);
+                        goto ERR_PARAM;
+                    }
+                    break;
+
                 default:
                     goto ERR_COMMAND;
                     break;
@@ -516,11 +738,17 @@ int main(int argc, char *argv[])
         case OBJECT_ROUTE:
             switch(command.action) {
                 case ACTION_CREATE:
-                    die(COMMAND, "Not implemented.");
+                    if (hc_route_create(s, &command.route) < 0)
+                        die(COMMAND, "Error creating route");
+                    printf("OK\n");
                     break;
+
                 case ACTION_DELETE:
-                    die(COMMAND, "Not implemented.");
+                    if (hc_route_delete(s, &command.route) < 0)
+                        die(COMMAND, "Error creating route");
+                    printf("OK\n");
                     break;
+
                 case ACTION_LIST:
                     if (hc_route_list(s, &data) < 0)
                         die(COMMAND, "Error getting routes.");
@@ -628,9 +856,6 @@ int main(int argc, char *argv[])
            die(COMMAND, "Unsupported object");
            break;
     }
-
-
-    /* ROUTES */
 
 ERR_COMMAND:
 ERR_CONNECT:

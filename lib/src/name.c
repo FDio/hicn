@@ -19,12 +19,12 @@
  */
 
 #ifndef _WIN32
-#include <arpa/inet.h>		// inet_ptin
+#include <arpa/inet.h>          // inet_ptin
 #endif
 #include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>		// strtoul
-#include <string.h>		// memcpy
+#include <stdlib.h>             // strtoul
+#include <string.h>             // memcpy
 
 #include <hicn/common.h>
 #include <hicn/error.h>
@@ -42,16 +42,16 @@ hicn_name_create (const char *ip_address, u32 id, hicn_name_t * name)
     {
     case AF_INET:
       if (name->type == HNT_UNSPEC)
-	{
-	  name->type = HNT_CONTIGUOUS_V4;
-	}
+        {
+          name->type = HNT_CONTIGUOUS_V4;
+        }
       name->len = IPV4_ADDR_LEN;
       break;
     case AF_INET6:
       if (name->type == HNT_UNSPEC)
-	{
-	  name->type = HNT_CONTIGUOUS_V6;
-	}
+        {
+          name->type = HNT_CONTIGUOUS_V6;
+        }
       name->len = IPV6_ADDR_LEN;
       break;
     default:
@@ -75,28 +75,25 @@ hicn_name_create (const char *ip_address, u32 id, hicn_name_t * name)
 
 int
 hicn_name_create_from_ip_prefix (const ip_prefix_t * prefix, u32 id,
-				  hicn_name_t * name)
+                                  hicn_name_t * name)
 {
   switch (prefix->family)
     {
-    case AF_INET:
-	    name->type = HNT_CONTIGUOUS_V4;
-      break;
-    case AF_INET6:
-	    name->type = HNT_CONTIGUOUS_V6;
-      break;
-    default:
-      return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
+      case AF_INET:
+        name->type = HNT_CONTIGUOUS_V4;
+        memcpy (name->buffer, prefix->address.v4.buffer,
+                ip_address_len(prefix->family));
+        break;
+      case AF_INET6:
+        name->type = HNT_CONTIGUOUS_V6;
+        memcpy (name->buffer, prefix->address.v6.buffer,
+                ip_address_len(prefix->family));
+        break;
+      default:
+        return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
     }
 
   name->len = (u8) (prefix->len);
-  if ((name->type != HNT_CONTIGUOUS_V4) && (name->type != HNT_CONTIGUOUS_V6))
-    {
-      return HICN_LIB_ERROR_NOT_IMPLEMENTED;
-    }
-
-  memcpy (name->buffer, prefix->address.buffer,
-          ip_address_len(prefix->family));
   *(u32 *) (name->buffer + name->len) = id;
 
   return HICN_LIB_ERROR_NONE;
@@ -110,14 +107,14 @@ hicn_name_get_length (const hicn_name_t * name)
 
 int
 hicn_name_compare (const hicn_name_t * name_1, const hicn_name_t * name_2,
-		   bool consider_segment)
+                   bool consider_segment)
 {
   hicn_name_t *name1 = (hicn_name_t *) name_1;
   hicn_name_t *name2 = (hicn_name_t *) name_2;
 
   if ((name1->type == HNT_CONTIGUOUS_V4 && name2->type == HNT_CONTIGUOUS_V6)
       || (name1->type == HNT_CONTIGUOUS_V6
-	  && name2->type == HNT_CONTIGUOUS_V4))
+          && name2->type == HNT_CONTIGUOUS_V4))
     {
       return -1;
     }
@@ -227,10 +224,10 @@ hicn_name_hash (const hicn_name_t * name, u32 * hash)
     case HNT_IOV_V4:
     case HNT_IOV_V6:
       *hash =
-	hash32 (name->iov.buffers[0].iov_base, name->iov.buffers[0].iov_len);
+        hash32 (name->iov.buffers[0].iov_base, name->iov.buffers[0].iov_len);
       *hash =
-	cumulative_hash32 (name->iov.buffers[1].iov_base,
-			   name->iov.buffers[1].iov_len, *hash);
+        cumulative_hash32 (name->iov.buffers[1].iov_base,
+                           name->iov.buffers[1].iov_len, *hash);
       break;
     default:
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
@@ -257,11 +254,11 @@ hicn_name_copy (hicn_name_t * dst, const hicn_name_t * src)
     case HNT_IOV_V4:
     case HNT_IOV_V6:
       dst->type =
-	src->type == HNT_IOV_V4 ? HNT_CONTIGUOUS_V4 : HNT_CONTIGUOUS_V6;
+        src->type == HNT_IOV_V4 ? HNT_CONTIGUOUS_V4 : HNT_CONTIGUOUS_V6;
       memcpy (dst->buffer, src->iov.buffers[0].iov_base,
-	      src->iov.buffers[0].iov_len);
+              src->iov.buffers[0].iov_len);
       memcpy (dst->buffer + src->iov.buffers[0].iov_len,
-	      src->iov.buffers[1].iov_base, src->iov.buffers[1].iov_len);
+              src->iov.buffers[1].iov_base, src->iov.buffers[1].iov_len);
       break;
     default:
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
@@ -272,7 +269,7 @@ hicn_name_copy (hicn_name_t * dst, const hicn_name_t * src)
 
 int
 hicn_name_copy_to_destination (u8 * dst, const hicn_name_t * src,
-			       bool copy_suffix)
+                               bool copy_suffix)
 {
   size_t length;
 
@@ -280,34 +277,34 @@ hicn_name_copy_to_destination (u8 * dst, const hicn_name_t * src,
     {
     case HNT_CONTIGUOUS_V4:
       if (copy_suffix)
-	{
-	  length = HICN_V4_NAME_LEN;
-	}
+        {
+          length = HICN_V4_NAME_LEN;
+        }
       else
-	{
-	  length = IPV4_ADDR_LEN;
-	}
+        {
+          length = IPV4_ADDR_LEN;
+        }
       memcpy (dst, src->buffer, length);
       break;
     case HNT_CONTIGUOUS_V6:
       if (copy_suffix)
-	{
-	  length = HICN_V6_NAME_LEN;
-	}
+        {
+          length = HICN_V6_NAME_LEN;
+        }
       else
-	{
-	  length = IPV6_ADDR_LEN;
-	}
+        {
+          length = IPV6_ADDR_LEN;
+        }
       memcpy (dst, src->buffer, length);
       break;
     case HNT_IOV_V4:
     case HNT_IOV_V6:
       memcpy (dst, src->iov.buffers[0].iov_base, src->iov.buffers[0].iov_len);
       if (copy_suffix)
-	{
-	  memcpy (dst + src->iov.buffers[0].iov_len,
-		  src->iov.buffers[1].iov_base, src->iov.buffers[1].iov_len);
-	}
+        {
+          memcpy (dst + src->iov.buffers[0].iov_len,
+                  src->iov.buffers[1].iov_base, src->iov.buffers[1].iov_len);
+        }
       break;
     default:
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
@@ -351,7 +348,7 @@ hicn_name_set_seq_number (hicn_name_t * name, u32 seq_number)
 
 int
 hicn_name_to_sockaddr_address (const hicn_name_t * name,
-			       struct sockaddr *ip_address)
+                               struct sockaddr *ip_address)
 {
   struct sockaddr_in6 *tmp6 = (struct sockaddr_in6 *) ip_address;
   struct sockaddr_in *tmp4 = (struct sockaddr_in *) ip_address;
@@ -369,7 +366,7 @@ hicn_name_to_sockaddr_address (const hicn_name_t * name,
       tmp6->sin6_scope_id = 0;
       tmp6->sin6_port = DUMMY_PORT;
       memcpy (&tmp6->sin6_addr, name->iov.buffers[0].iov_base,
-	      name->iov.buffers[0].iov_len);
+              name->iov.buffers[0].iov_len);
       break;
     case HNT_CONTIGUOUS_V4:
       tmp4->sin_family = AF_INET;
@@ -380,7 +377,7 @@ hicn_name_to_sockaddr_address (const hicn_name_t * name,
       tmp4->sin_family = AF_INET;
       tmp4->sin_port = DUMMY_PORT;
       memcpy (&tmp4->sin_addr, name->iov.buffers[0].iov_base,
-	      name->iov.buffers[0].iov_len);
+              name->iov.buffers[0].iov_len);
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -395,21 +392,21 @@ hicn_name_to_ip_prefix (const hicn_name_t * name, ip_prefix_t * prefix)
   switch (name->type)
     {
     case HNT_CONTIGUOUS_V6:
-      memcpy (&prefix->address.buffer, name->buffer, IPV6_ADDR_LEN);
+      memcpy (&prefix->address.v6.buffer, name->buffer, IPV6_ADDR_LEN);
       prefix->family = AF_INET6;
       break;
     case HNT_IOV_V6:
-      memcpy (&prefix->address.buffer, name->iov.buffers[0].iov_base,
-	      name->iov.buffers[0].iov_len);
+      memcpy (&prefix->address.v6.buffer, name->iov.buffers[0].iov_base,
+              name->iov.buffers[0].iov_len);
       prefix->family = AF_INET6;
       break;
     case HNT_CONTIGUOUS_V4:
-      memcpy (&prefix->address.buffer, name->buffer, IPV4_ADDR_LEN);
+      memcpy (&prefix->address.v4.buffer, name->buffer, IPV4_ADDR_LEN);
       prefix->family = AF_INET;
       break;
     case HNT_IOV_V4:
-      memcpy (&prefix->address.buffer, name->iov.buffers[0].iov_base,
-	      name->iov.buffers[0].iov_len);
+      memcpy (&prefix->address.v4.buffer, name->iov.buffers[0].iov_base,
+              name->iov.buffers[0].iov_len);
       prefix->family = AF_INET;
       break;
     default:
@@ -525,16 +522,16 @@ hicn_name_get_family (const hicn_name_t * name, int *family)
 
 int
 hicn_prefix_create_from_ip_prefix (const ip_prefix_t * ip_prefix,
-				    hicn_prefix_t * prefix)
+                                    hicn_prefix_t * prefix)
 {
   switch (ip_prefix->family)
     {
     case AF_INET:
-      prefix->name.ip4.as_u32 = ip_prefix->address.as_u32[0];
+      prefix->name.ip4.as_u32 = ip_prefix->address.v4.as_u32;
       break;
     case AF_INET6:
-      prefix->name.ip6.as_u64[0] = ip_prefix->address.as_u64[0];
-      prefix->name.ip6.as_u64[1] = ip_prefix->address.as_u64[1];
+      prefix->name.ip6.as_u64[0] = ip_prefix->address.v6.as_u64[0];
+      prefix->name.ip6.as_u64[1] = ip_prefix->address.v6.as_u64[1];
       break;
     default:
       return HICN_LIB_ERROR_INVALID_IP_ADDRESS;

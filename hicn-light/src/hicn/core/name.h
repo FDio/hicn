@@ -93,7 +93,7 @@ void name_setLen(Name *name, uint8_t len);
  * Creates a name from a Address
  *
  */
-Name *name_CreateFromAddress(address_type addressType, union commandAddr addr,
+Name *name_CreateFromAddress(address_type addressType, ip_address_t addr,
                              uint8_t len);
 
 #ifdef WITH_POLICY

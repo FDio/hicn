@@ -49,7 +49,7 @@ const ip_address_t IPV6_ANY = (ip_address_t) {
 };
 
 const ip_address_t IP_ADDRESS_EMPTY = {
-    .as_u64 = { 0 },
+    .v6.as_u64 = { 0 },
 };
 
 
@@ -87,7 +87,17 @@ int
 ip_address_ntop (const ip_address_t * ip_address, char *dst, const size_t len,
 		int family)
 {
-  const char * s = inet_ntop (family, ip_address->buffer, dst, len);
+  const char * s;
+  switch(family) {
+    case AF_INET:
+      s = inet_ntop (AF_INET, ip_address->v4.buffer, dst, len);
+      break;
+    case AF_INET6:
+      s = inet_ntop (AF_INET6, ip_address->v6.buffer, dst, len);
+      break;
+    default:
+      return -1;
+  }
   return (s ? 1 : -1);
 }
 
@@ -103,35 +113,39 @@ ip_address_pton (const char *ip_address_str, ip_address_t * ip_address)
 
   family = ip_address_get_family (ip_address_str);
 
-  switch (family)
-    {
-    case AF_INET6:
-      pton_fd = inet_pton (AF_INET6, ip_address_str, &ip_address->buffer);
-      break;
+  switch (family) {
     case AF_INET:
-      pton_fd = inet_pton (AF_INET, ip_address_str, &ip_address->buffer);
+      pton_fd = inet_pton (AF_INET, ip_address_str, &ip_address->v4.buffer);
+      break;
+    case AF_INET6:
+      pton_fd = inet_pton (AF_INET6, ip_address_str, &ip_address->v6.buffer);
       break;
     default:
-      goto ERR;
+      return -1;
     }
 
   //   0 = not in presentation format
   // < 0 = other error (use perror)
   if (pton_fd <= 0)
-    {
-      goto ERR;
-    }
+    return -1;
 
   return 1;
-ERR:
-  return -1;
 }
 
 int
 ip_address_snprintf(char * s, size_t size, const ip_address_t * ip_address, int family)
 {
-    size_t len = family == AF_INET ? INET_ADDRSTRLEN : INET6_ADDRSTRLEN;
-    const char * rc = inet_ntop (family, ip_address->buffer, s, len);
+    const char * rc;
+    switch(family) {
+        case AF_INET:
+            rc = inet_ntop (AF_INET, ip_address->v4.buffer, s, INET_ADDRSTRLEN);
+            break;
+        case AF_INET6:
+            rc = inet_ntop (AF_INET6, ip_address->v6.buffer, s, INET6_ADDRSTRLEN);
+            break;
+        default:
+            return -1;
+    }
     return rc ? strlen(rc) : -1;
 }
 
@@ -148,12 +162,12 @@ ip_address_to_sockaddr(const ip_address_t * ip_address,
       tmp6->sin6_family = AF_INET6;
       tmp6->sin6_port = DUMMY_PORT;
       tmp6->sin6_scope_id = 0;
-      memcpy (&tmp6->sin6_addr, ip_address->buffer, IPV6_ADDR_LEN);
+      memcpy (&tmp6->sin6_addr, ip_address->v4.buffer, IPV6_ADDR_LEN);
       break;
     case AF_INET:
       tmp4->sin_family = AF_INET;
       tmp4->sin_port = DUMMY_PORT;
-      memcpy (&tmp4->sin_addr, ip_address->buffer, IPV4_ADDR_LEN);
+      memcpy (&tmp4->sin_addr, ip_address->v6.buffer, IPV4_ADDR_LEN);
       break;
     default:
       return -1;
@@ -204,14 +218,14 @@ ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix)
           ip_prefix->len = IPV6_ADDR_LEN_BITS;
       if (ip_prefix->len > IPV6_ADDR_LEN_BITS)
 	goto ERR;
-      pton_fd = inet_pton (AF_INET6, addr, &ip_prefix->address.buffer);
+      pton_fd = inet_pton (AF_INET6, addr, &ip_prefix->address.v6.buffer);
       break;
     case AF_INET:
       if (ip_prefix->len == (u8)~0)
           ip_prefix->len = IPV4_ADDR_LEN_BITS;
       if (ip_prefix->len > IPV4_ADDR_LEN_BITS)
 	goto ERR;
-      pton_fd = inet_pton (AF_INET, addr, &ip_prefix->address.buffer);
+      pton_fd = inet_pton (AF_INET, addr, &ip_prefix->address.v4.buffer);
       break;
     default:
       goto ERR;
@@ -233,7 +247,17 @@ int
 ip_prefix_ntop_short(const ip_prefix_t * ip_prefix, char *dst, size_t size)
 {
   char ip_s[MAXSZ_IP_ADDRESS];
-  const char * s = inet_ntop (ip_prefix->family, ip_prefix->address.buffer, ip_s, MAXSZ_IP_ADDRESS);
+  const char * s;
+  switch(ip_prefix->family) {
+    case AF_INET:
+      s = inet_ntop (AF_INET, ip_prefix->address.v4.buffer, ip_s, MAXSZ_IP_ADDRESS);
+      break;
+    case AF_INET6:
+      s = inet_ntop (AF_INET6, ip_prefix->address.v6.buffer, ip_s, MAXSZ_IP_ADDRESS);
+      break;
+    default:
+      return -1;
+  }
   if (!s)
       return -1;
   size_t n = snprintf(dst, size, "%s", ip_s);
@@ -245,7 +269,17 @@ int
 ip_prefix_ntop(const ip_prefix_t * ip_prefix, char *dst, size_t size)
 {
   char ip_s[MAXSZ_IP_ADDRESS];
-  const char * s = inet_ntop (ip_prefix->family, ip_prefix->address.buffer, ip_s, MAXSZ_IP_ADDRESS);
+  const char * s;
+  switch(ip_prefix->family) {
+    case AF_INET:
+      s = inet_ntop (AF_INET, ip_prefix->address.v4.buffer, ip_s, MAXSZ_IP_ADDRESS);
+      break;
+    case AF_INET6:
+      s = inet_ntop (AF_INET6, ip_prefix->address.v6.buffer, ip_s, MAXSZ_IP_ADDRESS);
+      break;
+    default:
+      return -1;
+  }
   if (!s)
       return -1;
   size_t n = snprintf(dst, size, "%s/%d", ip_s, ip_prefix->len);
@@ -257,6 +291,19 @@ int
 ip_prefix_len (const ip_prefix_t * prefix)
 {
     return prefix->len; // ip_address_len(&prefix->address, prefix->family);
+}
+
+const u8 *
+ip_address_get_buffer(const ip_address_t * ip_address, int family)
+{
+  switch(family) {
+    case AF_INET:
+      return ip_address->v4.buffer;
+    case AF_INET6:
+      return ip_address->v6.buffer;
+    default:
+      return NULL;
+  }
 }
 
 bool

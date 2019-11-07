@@ -106,11 +106,10 @@ static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
       parcMemory_AllocateAndClear(sizeof(add_listener_command));
 
   // check and set IP address
-  if (inet_pton(AF_INET, addr, &addListenerCommand->address.ipv4) == 1) {
+  if (inet_pton(AF_INET, addr, &addListenerCommand->address.v4.as_u32) == 1) {
     addListenerCommand->addressType = ADDR_INET;
 
-  } else if (inet_pton(AF_INET6, addr, &addListenerCommand->address.ipv6) ==
-             1) {
+  } else if (inet_pton(AF_INET6, addr, &addListenerCommand->address.v6.as_in6addr) == 1) {
     addListenerCommand->addressType = ADDR_INET6;
 
   } else {
