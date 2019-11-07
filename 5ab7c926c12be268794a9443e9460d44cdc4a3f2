@@ -1,0 +1,50 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2915e3ae_c1d99661",
+        "filename": "lib/src/util/ip_address.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 165,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-11-07T18:18:20Z",
+      "side": 1,
+      "message": "ip_address-\u003ev6.buffer",
+      "range": {
+        "startLine": 165,
+        "startChar": 32,
+        "endLine": 165,
+        "endChar": 53
+      },
+      "revId": "5ab7c926c12be268794a9443e9460d44cdc4a3f2",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bc342366_0ae7ce9f",
+        "filename": "lib/src/util/ip_address.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 170,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-11-07T18:18:20Z",
+      "side": 1,
+      "message": "ip_address-\u003ev4.buffer",
+      "range": {
+        "startLine": 170,
+        "startChar": 31,
+        "endLine": 170,
+        "endChar": 52
+      },
+      "revId": "5ab7c926c12be268794a9443e9460d44cdc4a3f2",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
