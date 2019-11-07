@@ -104,7 +104,7 @@ static CommandReturn _controlAddPolicy_Execute(CommandParser *parser,
       parcMemory_AllocateAndClear(sizeof(add_policy_command));
 
   // check and set IP address
-  if (inet_pton(AF_INET, addr, &addPolicyCommand->address.ipv4) == 1) {
+  if (inet_pton(AF_INET, addr, &addPolicyCommand->address.v4.as_u32) == 1) {
     if (len > 32) {
       printf("ERROR: exceeded INET mask length, max=32\n");
       parcMemory_Deallocate(&addPolicyCommand);
@@ -112,7 +112,7 @@ static CommandReturn _controlAddPolicy_Execute(CommandParser *parser,
       return CommandReturn_Failure;
     }
     addPolicyCommand->addressType = ADDR_INET;
-  } else if (inet_pton(AF_INET6, addr, &addPolicyCommand->address.ipv6) == 1) {
+  } else if (inet_pton(AF_INET6, addr, &addPolicyCommand->address.v6.as_in6addr) == 1) {
     if (len > 128) {
       printf("ERROR: exceeded INET6 mask length, max=128\n");
       parcMemory_Deallocate(&addPolicyCommand);

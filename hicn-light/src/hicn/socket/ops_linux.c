@@ -574,7 +574,7 @@ int _nl_get_ip_addr(uint32_t interface_id, uint8_t address_family,
     if (address_family == AF_INET6) {
       if ((payload->ifa_index == interface_id) &&
           (payload->ifa_prefixlen < IPV6_ADDR_LEN * 8)) {
-        memcpy(prefix->address.buffer, RTA_DATA(payload + 1), IPV6_ADDR_LEN);
+        memcpy(prefix->address.v6.buffer, RTA_DATA(payload + 1), IPV6_ADDR_LEN);
         prefix->family = AF_INET6;
         prefix->len = IPV6_ADDR_LEN_BITS;
         return HICN_SOCKET_ERROR_NONE;
@@ -582,7 +582,7 @@ int _nl_get_ip_addr(uint32_t interface_id, uint8_t address_family,
     } else if (address_family == AF_INET) {
       if ((payload->ifa_index == interface_id) &&
           (payload->ifa_prefixlen < IPV4_ADDR_LEN * 8)) {
-        memcpy(prefix->address.buffer, RTA_DATA(payload + 1), IPV4_ADDR_LEN);
+        memcpy(prefix->address.v4.buffer, RTA_DATA(payload + 1), IPV4_ADDR_LEN);
         prefix->family = AF_INET;
         prefix->len = IPV4_ADDR_LEN_BITS;
         return HICN_SOCKET_ERROR_NONE;
@@ -621,10 +621,13 @@ int _nl_set_ip_addr(uint32_t interface_id, ip_prefix_t *prefix) {
   /* Set attributes = length/type/value */
   struct rtattr ifa_address = {RTA_LENGTH(ip_address_len(prefix->family)),
                                IFA_ADDRESS};
-  struct iovec iov[] = {
+  const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
+  if (!address)
+      goto ERR_ADDRESS;
+  const struct iovec iov[] = {
       {&msg, sizeof(msg)},
       {&ifa_address, sizeof(ifa_address)},
-      {(void *)&prefix->address.buffer, sizeof(prefix->address.buffer)},
+      {(void*)address, ip_address_len(prefix->family)},
   };
   msg.hdr.nlmsg_len = iov_length(iov, ARRAY_SIZE(iov));
 
@@ -658,6 +661,7 @@ ERR_NL:
 ERR_RECV:
 ERR_SEND:
 ERR_SOCKET:
+ERR_ADDRESS:
   return -1;
 }
 
@@ -989,11 +993,14 @@ int _nl_del_lo_route(const ip_prefix_t *prefix) {
   uint32_t one = 1;
   struct rtattr a_dst = {RTA_LENGTH(ip_address_len(prefix->family)), RTA_DST};
   struct rtattr a_ifid_lo = {RTA_LENGTH(sizeof(uint32_t)), RTA_OIF};
-  struct iovec iov[] = {
+  const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
+  if (!address)
+      goto ERR;
+  const struct iovec iov[] = {
       {&msg, sizeof(msg)},
       /* Ip address */
       {&a_dst, sizeof(a_dst)},
-      {(void *)&prefix->address.buffer, ip_address_len(prefix->family)},
+      {(void*)address, ip_address_len(prefix->family)},
       /* Interface id */
       {&a_ifid_lo, sizeof(a_ifid_lo)},
       {&one, sizeof(one)}};
@@ -1151,12 +1158,16 @@ int _nl_add_neigh_proxy(const ip_prefix_t *prefix,
   /* Message attributes = length/type/value */
   struct rtattr a_dst = {RTA_LENGTH(ip_address_len(prefix->family)), NDA_DST};
 
+  const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
+  if (!address)
+      goto ERR;
+
   /* Iovec describing the packets */
-  struct iovec iov[] = {
+  const struct iovec iov[] = {
       {&msg, sizeof(msg)},
       /* Ip address */
       {&a_dst, sizeof(a_dst)},
-      {(void *)&prefix->address.buffer, sizeof(prefix->address.buffer)},
+      {(void*)address, ip_address_len(prefix->family)},
   };
   msg.hdr.nlmsg_len = iov_length(iov, ARRAY_SIZE(iov));
 
@@ -1229,12 +1240,16 @@ int _nl_add_in_route_table(const ip_prefix_t *prefix,
   struct rtattr a_dst = {RTA_LENGTH(ip_address_len(prefix->family)), RTA_DST};
   struct rtattr a_oif = {RTA_LENGTH(sizeof(uint32_t)), RTA_OIF};
 
+  const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
+  if (!address)
+      goto ERR;
+
   /* Iovec describing the packets */
-  struct iovec iov[] = {
+  const struct iovec iov[] = {
       {&msg, sizeof(msg)},
       /* Destination prefix / ip address */
       {&a_dst, sizeof(a_dst)},
-      {(void *)&prefix->address.buffer, ip_address_len(prefix->family)},
+      {(void*)address, ip_address_len(prefix->family)},
       /* Output interface */
       {&a_oif, sizeof(a_oif)},
       {(void *)&interface_id, sizeof(uint32_t)},
@@ -1331,12 +1346,15 @@ int _nl_add_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
     struct rtattr a_src = {RTA_LENGTH(ip_address_len(prefix->family)), FRA_SRC};
     struct rtattr a_prio = {RTA_LENGTH(sizeof(uint32_t)), FRA_PRIORITY};
 
+    const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
+    if (!address)
+        goto ERR;
     /* Iovec describing the packets */
-    struct iovec iov[] = {
+    const struct iovec iov[] = {
         {&msg, sizeof(msg)},
         /* Source prefix / prefix */
         {&a_src, sizeof(a_src)},
-        {(void *)&prefix->address.buffer, ip_address_len(prefix->family)},
+        {(void*)address, ip_address_len(prefix->family)},
         /* Priority */
         {&a_prio, sizeof(a_prio)},
         {(void *)&priority, sizeof(uint32_t)},
@@ -1432,12 +1450,16 @@ int _nl_del_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
     struct rtattr a_src = {RTA_LENGTH(ip_address_len(prefix->family)), FRA_SRC};
     struct rtattr a_prio = {RTA_LENGTH(sizeof(uint32_t)), FRA_PRIORITY};
 
+    const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
+    if (!address)
+        goto ERR;
+
     /* Iovec describing the packets */
-    struct iovec iov[] = {
+    const struct iovec iov[] = {
         {&msg, sizeof(msg)},
         /* Source prefix / prefix */
         {&a_src, sizeof(a_src)},
-        {(void *)&prefix->address.buffer, ip_address_len(prefix->family)},
+        {(void*)address, ip_address_len(prefix->family)},
         /* Priority */
         {&a_prio, sizeof(a_prio)},
         {(void *)&priority, sizeof(uint32_t)},

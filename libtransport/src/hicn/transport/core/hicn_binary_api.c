@@ -112,7 +112,7 @@ int hicn_binary_api_register_prod_app(
   CONTEXT_SAVE(context_store, api, mp)
 
   fib_prefix_t prefix;
-  memcpy(&prefix.fp_addr.as_u64, &input_params->prefix->address.as_u64, sizeof(ip46_address_t));
+  memcpy(&prefix.fp_addr, &input_params->prefix->address, sizeof(ip46_address_t));
   prefix.fp_len = input_params->prefix->len;
   prefix.fp_proto = ip46_address_is_ip4(&prefix.fp_addr) ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
   ip_prefix_encode(&prefix, &mp->prefix);
@@ -185,7 +185,7 @@ int hicn_binary_api_register_route(
 
   CONTEXT_SAVE(context_store, api, mp)
   fib_prefix_t prefix;
-  memcpy(&prefix.fp_addr.as_u64, &input_params->prefix->address.as_u64, sizeof(ip46_address_t));
+  memcpy(&prefix.fp_addr, &input_params->prefix->address, sizeof(ip46_address_t));
   prefix.fp_len = input_params->prefix->len;
   mp->face_ids[0] = clib_host_to_net_u32(input_params->face_id);
   mp->n_faces = 1;

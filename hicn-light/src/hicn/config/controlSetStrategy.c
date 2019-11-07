@@ -123,7 +123,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
       parcMemory_AllocateAndClear(sizeof(set_strategy_command));
 
   // check and set IP address
-  if (inet_pton(AF_INET, addr, &setStrategyCommand->address.ipv4) == 1) {
+  if (inet_pton(AF_INET, addr, &setStrategyCommand->address.v4.as_u32) == 1) {
     if (len == UINT32_MAX) {
       printf("Netmask not specified: set to 32 by default\n");
       len = 32;
@@ -134,7 +134,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
       return CommandReturn_Failure;
     }
     setStrategyCommand->addressType = ADDR_INET;
-  } else if (inet_pton(AF_INET6, addr, &setStrategyCommand->address.ipv6) ==
+  } else if (inet_pton(AF_INET6, addr, &setStrategyCommand->address.v6.as_in6addr) ==
              1) {
     if (len == UINT32_MAX) {
       printf("Netmask not specified: set to 128 by default\n");

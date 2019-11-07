@@ -113,7 +113,7 @@ static CommandReturn _controlAddRoute_Execute(CommandParser *parser,
       parcMemory_AllocateAndClear(sizeof(add_route_command));
 
   // check and set IP address
-  if (inet_pton(AF_INET, addr, &addRouteCommand->address.ipv4) == 1) {
+  if (inet_pton(AF_INET, addr, &addRouteCommand->address.v4.as_u32) == 1) {
     if (len > 32) {
       printf("ERROR: exceeded INET mask length, max=32\n");
       parcMemory_Deallocate(&addRouteCommand);
@@ -121,7 +121,7 @@ static CommandReturn _controlAddRoute_Execute(CommandParser *parser,
       return CommandReturn_Failure;
     }
     addRouteCommand->addressType = ADDR_INET;
-  } else if (inet_pton(AF_INET6, addr, &addRouteCommand->address.ipv6) == 1) {
+  } else if (inet_pton(AF_INET6, addr, &addRouteCommand->address.v6.as_in6addr) == 1) {
     if (len > 128) {
       printf("ERROR: exceeded INET6 mask length, max=128\n");
       parcMemory_Deallocate(&addRouteCommand);

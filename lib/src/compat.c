@@ -323,24 +323,25 @@ int
 hicn_packet_get_locator (hicn_format_t format, const hicn_header_t * h,
 			 ip_address_t * address, bool is_interest)
 {
-  const void *locator;
   int is_ipv4 = (format & HFO_INET);
   int is_ipv6 = (format & HFO_INET6) >> 1;
 
   if (is_ipv4)
     {
-      locator = is_interest ? &h->v4.ip.saddr : &h->v4.ip.daddr;
+      address->v4.as_inaddr = is_interest
+          ? h->v4.ip.saddr.as_inaddr
+          : h->v4.ip.daddr.as_inaddr;
     }
   else if (is_ipv6)
     {
-      locator = is_interest ? &h->v6.ip.saddr : &h->v6.ip.daddr;
+      address->v6.as_in6addr = is_interest
+          ? h->v6.ip.saddr.as_in6addr
+          : h->v6.ip.daddr.as_in6addr;
     }
   else
     {
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;
     }
-
-  memcpy (address->as_u8, locator, is_ipv4 ? IPV4_ADDR_LEN : IPV6_ADDR_LEN);
 
   return HICN_LIB_ERROR_NONE;
 }
@@ -349,24 +350,27 @@ int
 hicn_packet_set_locator (hicn_format_t format, hicn_header_t * h,
 			 const ip_address_t * address, bool is_interest)
 {
-  void *locator;
   int is_ipv4 = (format & HFO_INET);
   int is_ipv6 = (format & HFO_INET6) >> 1;
 
   if (is_ipv6)
     {
-      locator = is_interest ? &h->v6.ip.saddr : &h->v6.ip.daddr;
+        if (is_interest)
+            h->v6.ip.saddr.as_in6addr = address->v6.as_in6addr;
+        else
+            h->v6.ip.daddr.as_in6addr = address->v6.as_in6addr;
     }
   else if (is_ipv4)
     {
-      locator = is_interest ? &h->v4.ip.saddr : &h->v4.ip.daddr;
+        if (is_interest)
+            h->v4.ip.saddr.as_inaddr = address->v4.as_inaddr;
+        else
+            h->v4.ip.daddr.as_inaddr = address->v4.as_inaddr;
     }
   else
     {
       return HICN_LIB_ERROR_INVALID_PARAMETER;
     }
-
-  memcpy (locator, address->as_u8, is_ipv4 ? IPV4_ADDR_LEN : IPV6_ADDR_LEN);
 
   return HICN_LIB_ERROR_NONE;
 }

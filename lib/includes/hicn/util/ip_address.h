@@ -69,6 +69,7 @@ typedef union {
         u32 pad[3];
         union {
                 struct in_addr as_inaddr;
+                u8 buffer[4];
                 u8 as_u8[4];
                 u16 as_u16[2];
                 u32 as_u32;
@@ -76,16 +77,19 @@ typedef union {
     };
     union {
         struct in6_addr as_in6addr;
+        u8 buffer[16];
         u8 as_u8[16];
         u16 as_u16[8];
         u32 as_u32[4];
         u64 as_u64[2];
     } v6;
+#if 0 /* removed as prone to error due to IPv4 padding */
     u8 buffer[IP_MAX_ADDR_LEN];
     u8 as_u8[IP_MAX_ADDR_LEN];
     u16 as_u16[IP_MAX_ADDR_LEN >> 1];
     u32 as_u32[IP_MAX_ADDR_LEN >> 2];
     u64 as_u64[IP_MAX_ADDR_LEN >> 3];
+#endif
 } ip_address_t;
 
 #define MAXSZ_IP4_ADDRESS_ INET_ADDRSTRLEN - 1
@@ -125,6 +129,7 @@ extern const ip_address_t IP_ADDRESS_EMPTY;
 
 int ip_address_get_family (const char * ip_address);
 int ip_address_len (int family);
+const u8 * ip_address_get_buffer(const ip_address_t * ip_address, int family);
 int ip_address_ntop (const ip_address_t * ip_address, char *dst,
         const size_t len, int family);
 int ip_address_pton (const char *ip_address_str, ip_address_t * ip_address);

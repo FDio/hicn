@@ -77,7 +77,17 @@ void Prefix::buildPrefix(std::string &prefix, uint16_t prefix_length,
     throw errors::InvalidIpAddressException();
   }
 
-  int ret = inet_pton(family, prefix.c_str(), ip_prefix_.address.buffer);
+  int ret;
+  switch (family) {
+    case AF_INET:
+        ret = inet_pton(AF_INET, prefix.c_str(), ip_prefix_.address.v4.buffer);
+        break;
+    case AF_INET6:
+        ret = inet_pton(AF_INET6, prefix.c_str(), ip_prefix_.address.v6.buffer);
+        break;
+    default:
+      throw errors::InvalidIpAddressException();
+  }
 
   if (ret != 1) {
     throw errors::InvalidIpAddressException();
@@ -147,7 +157,7 @@ Name Prefix::getName() const {
 }
 
 Prefix &Prefix::setNetwork(std::string &network) {
-  if (!inet_pton(AF_INET6, network.c_str(), ip_prefix_.address.buffer)) {
+  if (!inet_pton(AF_INET6, network.c_str(), ip_prefix_.address.v6.buffer)) {
     throw errors::RuntimeException("The network name is not valid.");
   }
 
@@ -165,8 +175,8 @@ Name Prefix::makeRandomName() const {
 
     uint32_t hash_size_bits = IPV6_ADDR_LEN_BITS - ip_prefix_.len;
     uint64_t ip_address[2];
-    memcpy(ip_address, ip_prefix_.address.buffer, sizeof(uint64_t));
-    memcpy(ip_address + 1, ip_prefix_.address.buffer + 8, sizeof(uint64_t));
+    memcpy(ip_address, ip_prefix_.address.v6.buffer, sizeof(uint64_t));
+    memcpy(ip_address + 1, ip_prefix_.address.v6.buffer + 8, sizeof(uint64_t));
     std::string network(IPV6_ADDR_LEN * 3, 0);
 
     // Let's do the magic ;)

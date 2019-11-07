@@ -69,6 +69,7 @@
 #include <stdint.h>
 
 #include <hicn/util/ip_address.h>
+#include <hicn/ctrl/commands.h>
 #include "face.h"
 
 #define HICN_DEFAULT_PORT 9695
@@ -380,8 +381,7 @@ int hc_sock_reset(hc_sock_t * s);
 #define NULLTERM 1
 #endif
 
-#define SYMBOLIC_NAME_LEN 16 /* NULL-terminated right ? */
-#define INTERFACE_LEN 16
+#define INTERFACE_LEN IFNAMSIZ
 #define MAXSZ_HC_NAME_ SYMBOLIC_NAME_LEN
 #define MAXSZ_HC_NAME MAXSZ_HC_NAME_ + NULLTERM
 

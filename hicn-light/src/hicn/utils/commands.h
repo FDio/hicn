@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <hicn/util/ip_address.h>
 #ifdef WITH_POLICY
 #include <hicn/policy.h>
 #endif /* WITH_POLICY */
@@ -39,11 +40,6 @@
 
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;
-
-union commandAddr {
-  ipv4_addr_t ipv4;
-  ipv6_addr_t ipv6;
-};
 
 typedef enum {
   REQUEST_LIGHT = 0xc0, // this is a command
@@ -119,7 +115,7 @@ typedef enum { ETHER_MODE, IP_MODE, HICN_MODE } listener_mode;
 typedef struct {
   char symbolic[SYMBOLIC_NAME_LEN];
   char interfaceName[SYMBOLIC_NAME_LEN];
-  union commandAddr address;
+  ip_address_t address;
   uint16_t port;
   // uint16_t etherType;
   uint8_t addressType;
@@ -134,8 +130,8 @@ typedef struct {
 typedef struct {
   char symbolic[SYMBOLIC_NAME_LEN];
   //char interfaceName[SYMBOLIC_NAME_LEN];
-  union commandAddr remoteIp;
-  union commandAddr localIp;
+  ip_address_t remoteIp;
+  ip_address_t localIp;
   uint16_t remotePort;
   uint16_t localPort;
   uint8_t ipType;
@@ -180,7 +176,7 @@ typedef struct {
 
 typedef struct {
   char symbolicOrConnid[SYMBOLIC_NAME_LEN];
-  union commandAddr address;
+  ip_address_t address;
   uint16_t cost;
   uint8_t addressType;
   uint8_t len;
@@ -191,7 +187,7 @@ typedef struct {
 //==========  [04]  LIST ROUTE    ==========
 
 typedef struct {
-  union commandAddr address;
+  ip_address_t address;
   uint32_t connid;
   uint16_t cost;
   uint8_t addressType;
@@ -216,7 +212,7 @@ typedef struct {
 
 typedef struct {
   char symbolicOrConnid[SYMBOLIC_NAME_LEN];
-  union commandAddr address;
+  ip_address_t address;
   uint8_t addressType;
   uint8_t len;
 } remove_route_command;
@@ -250,7 +246,7 @@ typedef enum {
 } strategy_type;
 
 typedef struct {
-  union commandAddr address;
+  ip_address_t address;
   uint8_t strategyType;
   uint8_t addressType;
   uint8_t len;
@@ -271,7 +267,7 @@ typedef struct {
 
 typedef struct {
   char symbolicOrConnid[SYMBOLIC_NAME_LEN];
-  union commandAddr address;
+  ip_address_t address;
   uint8_t addressType;
   uint8_t len;
 } add_punting_command;
@@ -281,7 +277,7 @@ typedef struct {
 //==========  [13]  LIST LISTENER    ==========
 
 typedef struct {
-  union commandAddr address;
+  ip_address_t address;
   char listenerName[SYMBOLIC_NAME_LEN];
   char interfaceName[SYMBOLIC_NAME_LEN];
   uint32_t connid;
@@ -311,27 +307,27 @@ typedef struct {
 typedef struct {
   char symbolicOrConnid[SYMBOLIC_NAME_LEN];
   uint8_t admin_state;
-  uint16_t pad16;
+  uint8_t pad8[3];
 } connection_set_admin_state_command;
 
 #ifdef WITH_POLICY
 
 typedef struct {
-  union commandAddr address;
+  ip_address_t address;
   uint8_t addressType;
   uint8_t len;
   policy_t policy;
 } add_policy_command;
 
 typedef struct {
-  union commandAddr address;
+  ip_address_t address;
   uint8_t addressType;
   uint8_t len;
   policy_t policy;
 } list_policies_command;
 
 typedef struct {
-  union commandAddr address;
+  ip_address_t address;
   uint8_t addressType;
   uint8_t len;
 } remove_policy_command;
@@ -358,7 +354,7 @@ static inline int payloadLengthDaemon(command_id id) {
     case ADD_ROUTE:
       return sizeof(add_route_command);
     case LIST_ROUTES:
-      return 0;  // list rout`es: payload always 0
+      return 0;  // list routes: payload always 0
     case REMOVE_CONNECTION:
       return sizeof(remove_connection_command);
     case REMOVE_LISTENER:

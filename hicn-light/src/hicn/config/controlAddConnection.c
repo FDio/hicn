@@ -228,15 +228,15 @@ static CommandReturn _controlAddConnection_CreateTunnel(
       parcMemory_AllocateAndClear(sizeof(add_connection_command));
 
   // check and set IP addresses
-  if (inet_pton(AF_INET, remote_ip, &addConnectionCommand->remoteIp.ipv4) ==
+  if (inet_pton(AF_INET, remote_ip, &addConnectionCommand->remoteIp.v4.as_u32) ==
           1 &&
-      inet_pton(AF_INET, local_ip, &addConnectionCommand->localIp.ipv4) == 1) {
+      inet_pton(AF_INET, local_ip, &addConnectionCommand->localIp.v4.as_u32) == 1) {
     addConnectionCommand->ipType = ADDR_INET;
 
   } else if (inet_pton(AF_INET6, remote_ip,
-                       &addConnectionCommand->remoteIp.ipv6) == 1 &&
+                       &addConnectionCommand->remoteIp.v6.as_in6addr) == 1 &&
              inet_pton(AF_INET6, local_ip,
-                       &addConnectionCommand->localIp.ipv6) == 1) {
+                       &addConnectionCommand->localIp.v6.as_in6addr) == 1) {
     addConnectionCommand->ipType = ADDR_INET6;
 
   } else {

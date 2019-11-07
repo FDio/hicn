@@ -266,7 +266,7 @@ void nameBitvector_clear(NameBitvector *a, uint8_t start_from){
 int nameBitvector_ToIPAddress(const NameBitvector *name,
                               ip_prefix_t *prefix) {
   if (name->IPversion == IPv4_TYPE) {
-    struct in_addr *addr = (struct in_addr *)(&prefix->address.buffer);
+    struct in_addr *addr = (struct in_addr *)(&prefix->address.v4.buffer);
     prefix->family = AF_INET;
     prefix->len = IPV4_ADDR_LEN_BITS;
 
@@ -283,7 +283,7 @@ int nameBitvector_ToIPAddress(const NameBitvector *name,
     addr->s_addr = (addr->s_addr | addr_1);
 
   } else {
-    struct in6_addr *addr = (struct in6_addr *)(&prefix->address.buffer);
+    struct in6_addr *addr = (struct in6_addr *)(&prefix->address.v6.buffer);
     prefix->family = AF_INET6;
     prefix->len = name->len;  // IPV6_ADDR_LEN_BITS;
 
