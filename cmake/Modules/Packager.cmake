@@ -104,6 +104,7 @@ macro(make_packages)
     endif()
 
     get_next_version(${tag} next_version)
+    get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
 
     get_cmake_property(components COMPONENTS)
 
