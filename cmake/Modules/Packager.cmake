@@ -105,7 +105,10 @@ macro(make_packages)
 
     get_next_version(${tag} next_version)
 
+    get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
     get_cmake_property(components COMPONENTS)
+
+    message("----------------> ${CPACK_COMPONENTS_ALL}")
 
     if(OS_ID MATCHES "debian" OR OS_ID_LIKE MATCHES "debian")
       set(CPACK_GENERATOR "DEB")
