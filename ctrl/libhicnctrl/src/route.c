@@ -43,6 +43,16 @@ hicn_route_create(ip_prefix_t * prefix, face_id_t face_id, route_cost_t cost)
     return route;
 }
 
+hicn_route_t *
+hicn_route_dup(const hicn_route_t * route)
+{
+    hicn_route_t * new_route = malloc(sizeof(hicn_route_t));
+    if (!route)
+        return NULL;
+    memcpy(new_route, route, sizeof(hicn_route_t));
+    return new_route;
+}
+
 void hicn_route_free(hicn_route_t * route)
 {
     free(route);

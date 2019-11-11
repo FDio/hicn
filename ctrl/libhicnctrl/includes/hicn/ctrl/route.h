@@ -31,6 +31,7 @@ typedef struct hicn_route_s hicn_route_t;
 #define MAXSZ_ROUTE MAXSZ_ROUTE_ + NULLTERM
 
 hicn_route_t * hicn_route_create(ip_prefix_t * prefix, face_id_t face_id, route_cost_t cost);
+hicn_route_t * hicn_route_dup(const hicn_route_t * route);
 void hicn_route_free(hicn_route_t * route);
 
 int hicn_route_cmp(const hicn_route_t * route1, const hicn_route_t * route2);

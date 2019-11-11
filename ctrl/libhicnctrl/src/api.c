@@ -715,7 +715,6 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             available -= num_chunks * s->cur_request->data->in_element_size;
             s->roff += num_chunks * s->cur_request->data->in_element_size;
             if (s->remaining == 0) {
-                printf("done, sock map remove\n");
                 if (hc_sock_map_remove(s->map, s->cur_request->seq, NULL) < 0) {
                     ERROR("[hc_sock_process] Error removing request from map");
                     return -1;
@@ -856,7 +855,6 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
         ERROR("[hc_execute_command] Could not get next sequence number");
         goto ERR_SEQ;
     }
-    printf("Sending message with seq %d\n", seq);
 
     /* Create state used to process the request */
     hc_sock_request_t * request = NULL;
@@ -867,7 +865,6 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
     }
 
     /* Add state to map */
-    printf("sock map add\n");
     if (hc_sock_map_add(s->map, seq, request) < 0) {
         ERROR("[hc_execute_command] Error adding request state to map");
         goto ERR_MAP;
@@ -1815,9 +1812,9 @@ hc_route_list(hc_sock_t * s, hc_data_t ** pdata)
 }
 
 int
-hc_route_list_async(hc_sock_t * s, hc_data_t ** pdata)
+hc_route_list_async(hc_sock_t * s)
 {
-    return _hc_route_list(s, pdata, true);
+    return _hc_route_list(s, NULL, true);
 }
 
 /* ROUTE PARSE */
@@ -1978,6 +1975,8 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
             } else {
                 memset(connection->name, 0, SYMBOLIC_NAME_LEN);
             }
+            snprintf(connection->interface_name, INTERFACE_LEN, "%s",
+                    f->netdevice.name);
             break;
         default:
              return -1;
@@ -2366,7 +2365,7 @@ hc_connection_parse_to_face(void * in, hc_face_t * face)
 
 
 int
-hc_face_list_async(hc_sock_t * s) //, hc_data_t ** pdata)
+hc_face_list_async(hc_sock_t * s)
 {
     struct {
         header_control_message hdr;
@@ -2451,9 +2450,10 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
     if (rc < 0)
         return rc;
 
-    return snprintf(s, size, "[#%d %s] %s %s %s %s/%s (%s)",
+    return snprintf(s, size, "[#%d %s] %s %s %s %s %s/%s (%s)",
             face->id,
             face->name,
+            face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
             face_type_str[face->face.type],
             local,
             remote,
@@ -2461,9 +2461,10 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
             face_state_str[face->face.admin_state],
             tags);
 #else
-    return snprintf(s, size, "[#%d %s] %s %s %s %s/%s",
+    return snprintf(s, size, "[#%d %s] %s %s %s %s %s/%s",
             face->id,
             face->name,
+            face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
             face_type_str[face->face.type],
             local,
             remote,

@@ -229,7 +229,8 @@ facelet_create_from_face(face_t * face)
     /* Attribute : netdevice */
     /* NOTE index is not set */
     if (IS_VALID_NETDEVICE(face->netdevice)) {
-        facelet->netdevice = face->netdevice;
+        /* /!\ A face has only the netdevice name */
+        netdevice_set_name(&facelet->netdevice, face->netdevice.name);
         facelet->netdevice_status = FACELET_ATTR_STATUS_CLEAN;
     } else {
         facelet->netdevice_status = FACELET_ATTR_STATUS_UNSET;
@@ -240,7 +241,7 @@ facelet_create_from_face(face_t * face)
     if (facelet->netdevice_type != NETDEVICE_TYPE_UNDEFINED) {
         facelet->netdevice_type_status = FACELET_ATTR_STATUS_CLEAN;
     } else {
-        facelet->netdevice = NETDEVICE_EMPTY;
+        facelet->netdevice_type = NETDEVICE_TYPE_UNDEFINED;
         facelet->netdevice_type_status = FACELET_ATTR_STATUS_UNSET;
     }
 
@@ -407,13 +408,32 @@ facelet_dup(const facelet_t * current_facelet)
     } else {
         for (unsigned i = 0; i < n; i++) {
             hicn_route_t * route = route_array[i];
-            route_set_add(facelet->routes, route);
+            hicn_route_t * new_route = hicn_route_dup(route);
+            if (!new_route)
+                goto ERR_ROUTE;
+            route_set_add(facelet->routes, new_route);
         }
     }
     free(route_array);
 
     return facelet;
 
+ERR_ROUTE:
+    {
+    /* Free all routes */
+    hicn_route_t ** new_route_array;
+    int n = route_set_get_array(facelet->routes, &new_route_array);
+    if (n < 0) {
+        ERROR("[facelet_free] Error getting route set associated to facelet");
+    } else {
+        for (unsigned i = 0; i < n; i++) {
+            hicn_route_t * new_route = new_route_array[i];
+            hicn_route_free(new_route);
+        }
+    }
+    free(route_array);
+    facelet_free(facelet);
+    }
 ERR_CREATE:
     return NULL;
 }
@@ -489,7 +509,6 @@ do {                                                                            
     }                                                                           \
 } while(0)
 
-/* facelet_match is the incoming one */
 bool
 facelet_equals(const facelet_t * facelet1, const facelet_t * facelet2)
 {
