@@ -108,6 +108,16 @@ NAME ## _initialize(NAME ## _t * map)                                           
 int                                                                             \
 NAME ## _finalize(NAME ## _t * map)                                             \
 {                                                                               \
+    NAME ## _pair_t ** array;                                                   \
+    int n = NAME ## _pair_set_get_array(&map->pair_set, &array);                \
+    if (n < 0)                                                                  \
+        return -1;                                                              \
+    for (unsigned i = 0; i < n; i++) {                                          \
+        NAME ## _pair_t * pair = array[i];                                      \
+        NAME ## _pair_set_remove(&map->pair_set, pair, NULL);                   \
+        NAME ## _pair_free(pair);                                               \
+    }                                                                           \
+    free(array);                                                                \
     return NAME ## _pair_set_finalize(&map->pair_set);                          \
 }                                                                               \
                                                                                 \
@@ -199,6 +209,8 @@ NAME ## _get_key_array(NAME ## _t * map, KEY_T **array) {                       
     int n = NAME ## _pair_set_get_array(&map->pair_set, &pair_array);           \
     if (n < 0)                                                                  \
         return -1;                                                              \
+    if (!array)                                                                 \
+        goto END;                                                               \
     /* Allocate result array */                                                 \
     *array = malloc(n * sizeof(KEY_T));                                         \
     if (!array) {                                                               \
@@ -209,7 +221,8 @@ NAME ## _get_key_array(NAME ## _t * map, KEY_T **array) {                       
     for (int i = 0; i < n; i++)                                                 \
         (*array)[i] = pair_array[i]->key;                                       \
     free(pair_array);                                                           \
-    return 0;                                                                   \
+END:                                                                            \
+    return n;                                                                   \
 }                                                                               \
                                                                                 \
 int                                                                             \
@@ -218,9 +231,11 @@ NAME ## _get_value_array(NAME ## _t * map, VAL_T **array) {                     
     int n = NAME ## _pair_set_get_array(&map->pair_set, &pair_array);           \
     if (n < 0)                                                                  \
         return -1;                                                              \
+    if (!array)                                                                 \
+        goto END;                                                               \
     /* Allocate result array */                                                 \
     *array = malloc(n * sizeof(VAL_T));                                         \
-    if (!*array) {                                                              \
+    if (!array) {                                                               \
         free(pair_array);                                                       \
         return -1;                                                              \
     }                                                                           \
@@ -228,7 +243,8 @@ NAME ## _get_value_array(NAME ## _t * map, VAL_T **array) {                     
     for (int i = 0; i < n; i++)                                                 \
         (*array)[i] = pair_array[i]->value;                                     \
     free(pair_array);                                                           \
-    return 0;                                                                   \
+END:                                                                            \
+    return n;                                                                   \
 }
 
 #endif /* UTIL_MAP_H */

@@ -30,14 +30,14 @@
 #include <hicn/ctrl/api.h>
 #include <hicn/ctrl/commands.h>
 #include <hicn/util/token.h>
-#include "util/log.h"
-#include "util/map.h"
+#include <hicn/util/log.h>
+#include <hicn/util/map.h>
 #include <strings.h>
 
 #define PORT 9695
 
 #define INT_CMP(x, y) ((x > y) ? 1 : (x < y) ? -1 : 0)
-
+#define BOOLSTR(x) ((x) ? "true" : "false")
 /*
  * Internal state associated to a pending request
  */
@@ -323,6 +323,7 @@ hc_data_create(size_t in_element_size, size_t out_element_size)
     data->buffer = malloc((1 << data->max_size_log) * data->out_element_size);
     if (!data->buffer)
         goto ERR_BUFFER;
+    data->ret = 0;
 
     return data;
 
@@ -399,6 +400,17 @@ int
 hc_data_set_complete(hc_data_t * data)
 {
     data->complete = true;
+    data->ret = 0;
+    if (data->complete_cb)
+        return data->complete_cb(data, data->complete_cb_data);
+     return 0;
+}
+
+int
+hc_data_set_error(hc_data_t * data)
+{
+    data->complete = true;
+    data->ret = -1;
     if (data->complete_cb)
         return data->complete_cb(data, data->complete_cb_data);
      return 0;
@@ -631,12 +643,8 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             if (available < sizeof(hc_msg_header_t))
                 break;
 
-            /* Sanity checks (might instead raise warnings) */
-            assert((msg->hdr.messageType == RESPONSE_LIGHT) ||
-                   (msg->hdr.messageType == ACK_LIGHT) ||
-                   (msg->hdr.messageType == NACK_LIGHT));
-
             hc_sock_request_t * request = NULL;
+            printf("Received message with seq %d\n", msg->hdr.seqNum);
             if (hc_sock_map_get(s->map, msg->hdr.seqNum, &request) < 0) {
                 ERROR("[hc_sock_process] Error searching for matching request");
                 return -1;
@@ -645,15 +653,33 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                 ERROR("[hc_sock_process] No request matching received sequence number");
                 return -1;
             }
+
             s->remaining = msg->hdr.length;
-            if (s->remaining == 0) {
-                hc_data_set_complete(request->data);
-                if (data)
-                    *data = request->data;
-                hc_sock_request_free(request);
-            } else {
-                /* We only remember it if there is still data to parse */
-                s->cur_request = request;
+            switch(msg->hdr.messageType) {
+                case ACK_LIGHT:
+                    assert(s->remaining == 1);
+                    assert(!data);
+                    hc_data_set_complete(request->data);
+                    break;
+                case NACK_LIGHT:
+                    assert(s->remaining == 1);
+                    assert(!data);
+                    hc_data_set_error(request->data);
+                    break;
+                case RESPONSE_LIGHT:
+                    assert(data);
+                    if (s->remaining == 0) {
+                        hc_data_set_complete(request->data);
+                        *data = request->data;
+                        hc_sock_request_free(request);
+                    } else {
+                        /* We only remember it if there is still data to parse */
+                        s->cur_request = request;
+                    }
+                    break;
+                default:
+                    ERROR("[hc_sock_process] Invalid response received");
+                    return -1;
             }
 
             available -= sizeof(hc_msg_header_t);
@@ -691,6 +717,7 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             available -= num_chunks * s->cur_request->data->in_element_size;
             s->roff += num_chunks * s->cur_request->data->in_element_size;
             if (s->remaining == 0) {
+                printf("done, sock map remove\n");
                 if (hc_sock_map_remove(s->map, s->cur_request->seq, NULL) < 0) {
                     ERROR("[hc_sock_process] Error removing request from map");
                     return -1;
@@ -830,6 +857,7 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
         ERROR("[hc_execute_command] Could not get next sequence number");
         goto ERR_SEQ;
     }
+    printf("Sending message with seq %d\n", seq);
 
     /* Create state used to process the request */
     hc_sock_request_t * request = NULL;
@@ -840,6 +868,7 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
     }
 
     /* Add state to map */
+    printf("sock map add\n");
     if (hc_sock_map_add(s->map, seq, request) < 0) {
         ERROR("[hc_execute_command] Error adding request state to map");
         goto ERR_MAP;
@@ -870,7 +899,7 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
     if (!pdata)
         hc_data_free(data);
 
-    return 0;
+    return data->ret;
 
 ERR_PROCESS:
 ERR_MAP:
@@ -891,6 +920,13 @@ ERR_DATA:
 int
 _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
 {
+    char listener_s[MAXSZ_HC_LISTENER];
+    int rc = hc_listener_snprintf(listener_s, MAXSZ_HC_LISTENER, listener);
+    if (rc >= MAXSZ_HC_LISTENER)
+        WARN("[_hc_listener_create] Unexpected truncation of listener string");
+    DEBUG("[_hc_listener_create] listener=%s async=%s\n", listener_s,
+            BOOLSTR(async));
+
     if (!IS_VALID_FAMILY(listener->family))
          return -1;
 
@@ -916,8 +952,13 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
         }
     };
 
-    snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", listener->name);
-    snprintf(msg.payload.interfaceName, INTERFACE_LEN, "%s", listener->interface_name);
+    rc = snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", listener->name);
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[_hc_listener_create] Unexpected truncation of symbolic name string");
+
+    rc = snprintf(msg.payload.interfaceName, INTERFACE_LEN, "%s", listener->interface_name);
+    if (rc >= INTERFACE_LEN)
+        WARN("[_hc_listener_create] Unexpected truncation of interface name string");
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
@@ -951,6 +992,12 @@ hc_listener_get(hc_sock_t * s, hc_listener_t * listener,
     hc_data_t * listeners;
     hc_listener_t * found;
 
+    char listener_s[MAXSZ_HC_LISTENER];
+    int rc = hc_listener_snprintf(listener_s, MAXSZ_HC_LISTENER, listener);
+    if (rc >= MAXSZ_HC_LISTENER)
+        WARN("[hc_listener_get] Unexpected truncation of listener string");
+    DEBUG("[hc_listener_get] listener=%s\n", listener_s);
+
     if (hc_listener_list(s, &listeners) < 0)
         return -1;
 
@@ -980,6 +1027,13 @@ hc_listener_get(hc_sock_t * s, hc_listener_t * listener,
 int
 _hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
 {
+    char listener_s[MAXSZ_HC_LISTENER];
+    int rc = hc_listener_snprintf(listener_s, MAXSZ_HC_LISTENER, listener);
+    if (rc >= MAXSZ_HC_LISTENER)
+        WARN("[_hc_listener_delete] Unexpected truncation of listener string");
+    DEBUG("[_hc_listener_delete] listener=%s async=%s\n", listener_s,
+            BOOLSTR(async));
+
     struct {
         header_control_message hdr;
         remove_listener_command payload;
@@ -993,16 +1047,22 @@ _hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
     };
 
     if (listener->id) {
-        snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%d", listener->id);
+        rc = snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%d", listener->id);
+        if (rc >= SYMBOLIC_NAME_LEN)
+            WARN("[_hc_listener_delete] Unexpected truncation of symbolic name string");
     } else if (*listener->name) {
-        snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%s", listener->name);
+        rc = snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%s", listener->name);
+        if (rc >= SYMBOLIC_NAME_LEN)
+            WARN("[_hc_listener_delete] Unexpected truncation of symbolic name string");
     } else {
         hc_listener_t * listener_found;
         if (hc_listener_get(s, listener, &listener_found) < 0)
             return -1;
         if (!listener_found)
             return -1;
-        snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%d", listener_found->id);
+        rc = snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%d", listener_found->id);
+        if (rc >= SYMBOLIC_NAME_LEN)
+            WARN("[_hc_listener_delete] Unexpected truncation of symbolic name string");
         free(listener_found);
     }
 
@@ -1035,6 +1095,8 @@ hc_listener_delete_async(hc_sock_t * s, hc_listener_t * listener)
 int
 _hc_listener_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
+    DEBUG("[hc_listener_list] async=%s\n", BOOLSTR(async));
+
     struct {
         header_control_message hdr;
     } msg = {
@@ -1118,6 +1180,8 @@ hc_listener_cmp(const hc_listener_t * l1, const hc_listener_t * l2)
 int
 hc_listener_parse(void * in, hc_listener_t * listener)
 {
+    int rc;
+
     list_listeners_command * cmd = (list_listeners_command *)in;
 
     if (!IS_VALID_LIST_LISTENERS_TYPE(cmd->encapType))
@@ -1141,8 +1205,12 @@ hc_listener_parse(void * in, hc_listener_t * listener)
         .local_addr = UNION_CAST(cmd->address, ip_address_t),
         .local_port = ntohs(cmd->port),
     };
-    snprintf(listener->name, SYMBOLIC_NAME_LEN, "%s", cmd->listenerName);
-    snprintf(listener->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
+    rc = snprintf(listener->name, SYMBOLIC_NAME_LEN, "%s", cmd->listenerName);
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[hc_listener_parse] Unexpected truncation of symbolic name string");
+    rc = snprintf(listener->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
+    if (rc >= INTERFACE_LEN)
+        WARN("[hc_listener_parse] Unexpected truncation of interface name string");
     return 0;
 }
 
@@ -1158,12 +1226,12 @@ hc_listener_snprintf(char * s, size_t size, hc_listener_t * listener)
     int rc;
     rc = url_snprintf(local, MAXSZ_URL,
          listener->family, &listener->local_addr, listener->local_port);
+    if (rc >= MAXSZ_URL)
+        WARN("[hc_listener_snprintf] Unexpected truncation of URL string");
     if (rc < 0)
         return rc;
 
-    return snprintf(s, size+17, "%s %s %s",
-            listener->interface_name,
-            local,
+    return snprintf(s, size, "%s %s %s", listener->interface_name, local,
             connection_type_str[listener->type]);
 }
 
@@ -1176,6 +1244,12 @@ hc_listener_snprintf(char * s, size_t size, hc_listener_t * listener)
 int
 _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
 {
+    char connection_s[MAXSZ_HC_CONNECTION];
+    int rc = hc_connection_snprintf(connection_s, MAXSZ_HC_CONNECTION, connection);
+    if (rc >= MAXSZ_HC_CONNECTION)
+        WARN("[_hc_connection_create] Unexpected truncation of connection string");
+    DEBUG("[_hc_connection_create] connection=%s async=%s\n", connection_s, BOOLSTR(async));
+
     if (hc_connection_validate(connection) < 0)
         return -1;
 
@@ -1195,14 +1269,17 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
             .remotePort = htons(connection->remote_port),
             .localPort = htons(connection->local_port),
             .ipType = (u8)map_to_addr_type[connection->family],
+            .connectionType = (u8)map_to_connection_type[connection->type],
             .admin_state = connection->admin_state,
 #ifdef WITH_POLICY
             .tags = connection->tags,
 #endif /* WITH_POLICY */
-            .connectionType = (u8)map_to_connection_type[connection->type],
         }
     };
-    snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", connection->name);
+    rc = snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", connection->name);
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[_hc_connection_create] Unexpected truncation of symbolic name string");
+    //snprintf(msg.payload.interfaceName, INTERFACE_NAME_LEN, "%s", connection->interface_name);
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
@@ -1236,6 +1313,12 @@ hc_connection_get(hc_sock_t * s, hc_connection_t * connection,
     hc_data_t * connections;
     hc_connection_t * found;
 
+    char connection_s[MAXSZ_HC_CONNECTION];
+    int rc = hc_connection_snprintf(connection_s, MAXSZ_HC_CONNECTION, connection);
+    if (rc >= MAXSZ_HC_CONNECTION)
+        WARN("[hc_connection_get] Unexpected truncation of connection string");
+    DEBUG("[hc_connection_get] connection=%s\n", connection_s);
+
     if (hc_connection_list(s, &connections) < 0)
         return -1;
 
@@ -1265,6 +1348,12 @@ hc_connection_get(hc_sock_t * s, hc_connection_t * connection,
 int
 _hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
 {
+    char connection_s[MAXSZ_HC_CONNECTION];
+    int rc = hc_connection_snprintf(connection_s, MAXSZ_HC_CONNECTION, connection);
+    if (rc >= MAXSZ_HC_CONNECTION)
+        WARN("[_hc_connection_delete] Unexpected truncation of connection string");
+    DEBUG("[_hc_connection_delete] connection=%s async=%s\n", connection_s, BOOLSTR(async));
+
     struct {
         header_control_message hdr;
         remove_connection_command payload;
@@ -1278,16 +1367,22 @@ _hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
     };
 
     if (connection->id) {
-        snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", connection->id);
+        rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", connection->id);
+        if (rc >= SYMBOLIC_NAME_LEN)
+            WARN("[_hc_connection_delete] Unexpected truncation of symbolic name string");
     } else if (*connection->name) {
-        snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", connection->name);
+        rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", connection->name);
+        if (rc >= SYMBOLIC_NAME_LEN)
+            WARN("[_hc_connection_delete] Unexpected truncation of symbolic name string");
     } else {
         hc_connection_t * connection_found;
         if (hc_connection_get(s, connection, &connection_found) < 0)
             return -1;
         if (!connection_found)
             return -1;
-        snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", connection_found->id);
+        rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", connection_found->id);
+        if (rc >= SYMBOLIC_NAME_LEN)
+            WARN("[_hc_connection_delete] Unexpected truncation of symbolic name string");
         free(connection_found);
     }
 
@@ -1319,6 +1414,8 @@ hc_connection_delete_async(hc_sock_t * s, hc_connection_t * connection)
 int
 _hc_connection_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
+    DEBUG("[hc_connection_list] async=%s\n", BOOLSTR(async));
+
     struct {
         header_control_message hdr;
     } msg = {
@@ -1416,6 +1513,7 @@ int hc_connection_cmp(const hc_connection_t * c1, const hc_connection_t * c2)
 int
 hc_connection_parse(void * in, hc_connection_t * connection)
 {
+    int rc;
     list_connections_command * cmd = (list_connections_command *)in;
 
     if (!IS_VALID_LIST_CONNECTIONS_TYPE(cmd->connectionData.connectionType))
@@ -1455,8 +1553,12 @@ hc_connection_parse(void * in, hc_connection_t * connection)
 #endif /* WITH_POLICY */
         .state = state,
     };
-    snprintf(connection->name, SYMBOLIC_NAME_LEN, "%s", cmd->connectionData.symbolic);
-    snprintf(connection->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
+    rc = snprintf(connection->name, SYMBOLIC_NAME_LEN, "%s", cmd->connectionData.symbolic);
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[hc_connection_parse] Unexpected truncation of symbolic name string");
+    rc = snprintf(connection->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
+    if (rc >= INTERFACE_LEN)
+        WARN("[hc_connection_parse] Unexpected truncation of interface name string");
     return 0;
 }
 
@@ -1476,10 +1578,14 @@ hc_connection_snprintf(char * s, size_t size, const hc_connection_t * connection
 
     rc = url_snprintf(local, MAXSZ_URL, connection->family,
             &connection->local_addr, connection->local_port);
+    if (rc >= MAXSZ_URL)
+        WARN("[hc_connection_snprintf] Unexpected truncation of URL string");
     if (rc < 0)
         return rc;
     rc = url_snprintf(remote, MAXSZ_URL, connection->family,
             &connection->remote_addr, connection->remote_port);
+    if (rc >= MAXSZ_URL)
+        WARN("[hc_connection_snprintf] Unexpected truncation of URL string");
     if (rc < 0)
         return rc;
 
@@ -1497,6 +1603,9 @@ int
 _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
         face_state_t state, bool async)
 {
+    int rc;
+    DEBUG("[hc_connection_set_admin_state] connection_id/name=%s admin_state=%s async=%s\n",
+            conn_id_or_name, face_state_str[state], BOOLSTR(async));
     struct {
         header_control_message hdr;
         connection_set_admin_state_command payload;
@@ -1511,7 +1620,9 @@ _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
             .admin_state = state,
         },
     };
-    snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", conn_id_or_name);
+    rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", conn_id_or_name);
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[_hc_connection_set_admin_state] Unexpected truncation of symbolic name string");
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
@@ -1547,6 +1658,12 @@ hc_connection_set_admin_state_async(hc_sock_t * s, const char * conn_id_or_name,
 int
 _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
 {
+    char route_s[MAXSZ_HC_ROUTE];
+    int rc = hc_route_snprintf(route_s, MAXSZ_HC_ROUTE, route);
+    if (rc >= MAXSZ_HC_ROUTE)
+        WARN("[_hc_route_create] Unexpected truncation of route string");
+    DEBUG("[hc_route_create] route=%s async=%s\n", route_s, BOOLSTR(async));
+
     if (!IS_VALID_FAMILY(route->family))
          return -1;
 
@@ -1572,7 +1689,9 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
      * The route commands expects the ID (or name that we don't use) as part of
      * the symbolicOrConnid attribute.
      */
-    snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", route->face_id);
+    rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", route->face_id);
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[_hc_route_create] Unexpected truncation of symbolic name string");
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
@@ -1602,6 +1721,12 @@ hc_route_create_async(hc_sock_t * s, hc_route_t * route)
 int
 _hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
 {
+    char route_s[MAXSZ_HC_ROUTE];
+    int rc = hc_route_snprintf(route_s, MAXSZ_HC_ROUTE, route);
+    if (rc >= MAXSZ_HC_ROUTE)
+        WARN("[_hc_route_delete] Unexpected truncation of route string");
+    DEBUG("[hc_route_delete] route=%s async=%s\n", route_s, BOOLSTR(async));
+
     if (!IS_VALID_FAMILY(route->family))
          return -1;
 
@@ -1621,6 +1746,12 @@ _hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
             .len = route->len,
         }
     };
+
+    /*
+     * The route commands expects the ID (or name that we don't use) as part of
+     * the symbolicOrConnid attribute.
+     */
+    snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", route->face_id);
 
     hc_command_params_t params = {
         .cmd = ACTION_DELETE,
@@ -1650,6 +1781,8 @@ hc_route_delete_async(hc_sock_t * s, hc_route_t * route)
 int
 _hc_route_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
+    DEBUG("[hc_route_list] async=%s\n", BOOLSTR(async));
+
     struct {
         header_control_message hdr;
     } msg = {
@@ -1721,17 +1854,13 @@ hc_route_snprintf(char * s, size_t size, hc_route_t * route)
 
     rc = ip_address_snprintf(prefix, MAXSZ_IP_ADDRESS, &route->remote_addr,
             route->family);
+    if (rc >= MAXSZ_IP_ADDRESS)
+        ;
     if (rc < 0)
         return rc;
 
-    return snprintf(s, size, "%*d %*d %s %*d",
-            MAXSZ_FACE_ID,
-            route->face_id,
-            MAXSZ_COST,
-            route->cost,
-            prefix,
-            MAXSZ_LEN,
-            route->len);
+    return snprintf(s, size, "%*d %*d %s %*d", MAXSZ_FACE_ID, route->face_id,
+            MAXSZ_COST, route->cost, prefix, MAXSZ_LEN, route->len);
 }
 
 /*----------------------------------------------------------------------------*
@@ -1780,6 +1909,7 @@ hc_listener_to_face(const hc_listener_t * listener, hc_face_t * face)
 int
 hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool generate_name)
 {
+    int rc;
     const face_t * f = &face->face;
 
     switch(f->type) {
@@ -1797,10 +1927,10 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
                 .tags = f->tags,
 #endif /* WITH_POLICY */
             };
-            snprintf(connection->name, SYMBOLIC_NAME_LEN, "%s",
+            rc = snprintf(connection->name, SYMBOLIC_NAME_LEN, "%s",
                     f->netdevice.name);
-            snprintf(connection->interface_name, INTERFACE_LEN, "%s",
-                    f->netdevice.name);
+            if (rc >= SYMBOLIC_NAME_LEN)
+                WARN("[hc_face_to_connection] Unexpected truncation of symbolic name string");
             break;
         case FACE_TYPE_TCP:
             *connection = (hc_connection_t) {
@@ -1817,12 +1947,12 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
 #endif /* WITH_POLICY */
             };
             if (generate_name) {
-                snprintf(connection->name, SYMBOLIC_NAME_LEN, "tcp%u", RANDBYTE());
+                rc = snprintf(connection->name, SYMBOLIC_NAME_LEN, "tcp%u", RANDBYTE());
+                if (rc >= SYMBOLIC_NAME_LEN)
+                    WARN("[hc_face_to_connection] Unexpected truncation of symbolic name string");
             } else {
                 memset(connection->name, 0, SYMBOLIC_NAME_LEN);
             }
-            snprintf(connection->interface_name, INTERFACE_LEN, "%s",
-                    f->netdevice.name);
             break;
         case FACE_TYPE_UDP:
             *connection = (hc_connection_t) {
@@ -1839,19 +1969,21 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
 #endif /* WITH_POLICY */
             };
             if (generate_name) {
-                snprintf(connection->name, SYMBOLIC_NAME_LEN, "udp%u", RANDBYTE());
+                rc = snprintf(connection->name, SYMBOLIC_NAME_LEN, "udp%u", RANDBYTE());
+                if (rc >= SYMBOLIC_NAME_LEN)
+                    WARN("[hc_face_to_connection] Unexpected truncation of symbolic name string");
             } else {
                 memset(connection->name, 0, SYMBOLIC_NAME_LEN);
             }
-            snprintf(connection->interface_name, INTERFACE_LEN, "%s",
-                    f->netdevice.name);
             break;
         default:
              return -1;
     }
 
-    snprintf(connection->interface_name, INTERFACE_LEN, "%s",
+    rc = snprintf(connection->interface_name, INTERFACE_LEN, "%s",
             f->netdevice.name);
+    if (rc >= INTERFACE_LEN)
+        WARN("hc_face_to_connection] Unexpected truncation of interface name string");
 
     return 0;
 }
@@ -1861,6 +1993,7 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
 int
 hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
 {
+    int rc;
     switch (connection->type) {
         case CONNECTION_TYPE_TCP:
             *face = (hc_face_t) {
@@ -1920,8 +2053,12 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
     }
     face->face.netdevice.name[0] = '\0';
     face->face.netdevice.index = 0;
-    snprintf(face->name, SYMBOLIC_NAME_LEN, "%s", connection->name);
-    snprintf(face->face.netdevice.name, INTERFACE_LEN, "%s", connection->interface_name);
+    rc = snprintf(face->name, SYMBOLIC_NAME_LEN, "%s", connection->name);
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[hc_connection_to_face] Unexpected truncation of symbolic name string");
+    rc = snprintf(face->face.netdevice.name, INTERFACE_LEN, "%s", connection->interface_name);
+    if (rc >= INTERFACE_LEN)
+        WARN("[hc_connection_to_face] Unexpected truncation of interface name string");
     netdevice_update_index(&face->face.netdevice);
     return 0;
 }
@@ -1931,6 +2068,7 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
 int
 hc_connection_to_local_listener(const hc_connection_t * connection, hc_listener_t * listener)
 {
+    int rc;
     *listener = (hc_listener_t) {
         .id = ~0,
         .type = connection->type,
@@ -1938,8 +2076,13 @@ hc_connection_to_local_listener(const hc_connection_t * connection, hc_listener_
         .local_addr = connection->local_addr,
         .local_port = connection->local_port,
     };
-    snprintf(listener->name, SYMBOLIC_NAME_LEN, "lst%u", RANDBYTE()); // generate name
-    snprintf(listener->interface_name, INTERFACE_LEN, "%s", connection->interface_name);
+    rc = snprintf(listener->name, SYMBOLIC_NAME_LEN, "lst%u", RANDBYTE()); // generate name
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[hc_connection_to_local_listener] Unexpected truncation of symbolic name string");
+    rc = snprintf(listener->interface_name, INTERFACE_LEN, "%s", connection->interface_name);
+    if (rc >= INTERFACE_LEN)
+        WARN("[hc_connection_to_local_listener] Unexpected truncation of interface name string");
+
     return 0;
 }
 
@@ -1953,6 +2096,12 @@ hc_face_create(hc_sock_t * s, hc_face_t * face)
 
     hc_connection_t connection;
     hc_connection_t * connection_found;
+
+    char face_s[MAXSZ_HC_FACE];
+    int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
+    if (rc >= MAXSZ_HC_FACE)
+        WARN("[hc_face_create] Unexpected truncation of face string");
+    DEBUG("[hc_face_create] face=%s\n", face_s);
 
     switch(face->face.type)
     {
@@ -2042,6 +2191,12 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
     hc_connection_t connection;
     hc_connection_t * connection_found;
 
+    char face_s[MAXSZ_HC_FACE];
+    int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
+    if (rc >= MAXSZ_HC_FACE)
+        WARN("[hc_face_get] Unexpected truncation of face string");
+    DEBUG("[hc_face_get] face=%s\n");
+
     switch(face->face.type)
     {
         case FACE_TYPE_HICN:
@@ -2089,6 +2244,12 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
 int
 hc_face_delete(hc_sock_t * s, hc_face_t * face)
 {
+    char face_s[MAXSZ_HC_FACE];
+    int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
+    if (rc >= MAXSZ_HC_FACE)
+        WARN("[hc_face_delete] Unexpected truncation of face string");
+    DEBUG("[hc_face_delete] face=%s\n");
+
     hc_connection_t connection;
     if (hc_face_to_connection(face, &connection, false) < 0) {
         ERROR("[hc_face_delete] Could not convert face to connection.");
@@ -2156,6 +2317,8 @@ hc_face_list(hc_sock_t * s, hc_data_t ** pdata)
 {
     hc_data_t * connection_data;
     hc_face_t face;
+
+    DEBUG("[hc_face_list]\n");
 
     if (hc_connection_list(s, &connection_data) < 0) {
         ERROR("[hc_face_list] Could not list connections.");
@@ -2242,11 +2405,15 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
             rc = ip_address_snprintf(local, MAXSZ_URL,
                     &face->face.local_addr,
                     face->face.family);
+            if (rc >= MAXSZ_URL)
+                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
             if (rc < 0)
                 return rc;
             rc = ip_address_snprintf(remote, MAXSZ_URL,
                     &face->face.remote_addr,
                     face->face.family);
+            if (rc >= MAXSZ_URL)
+                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
             if (rc < 0)
                 return rc;
             break;
@@ -2256,11 +2423,16 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
         case FACE_TYPE_UDP_LISTENER:
             rc = url_snprintf(local, MAXSZ_URL, face->face.family,
                     &face->face.local_addr,
-                    face->face.local_port); if (rc < 0)
+                    face->face.local_port);
+            if (rc >= MAXSZ_URL)
+                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
+            if (rc < 0)
                 return rc;
             rc = url_snprintf(remote, MAXSZ_URL, face->face.family,
                     &face->face.remote_addr,
-                    face->face.remote_port); if (rc < 0)
+                    face->face.remote_port);
+            if (rc >= MAXSZ_URL)
+                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
             if (rc < 0)
                 return rc;
             break;
@@ -2271,6 +2443,8 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
     // [#ID NAME] TYPE LOCAL_URL REMOTE_URL STATE/ADMIN_STATE (TAGS)
 #ifdef WITH_POLICY
     rc = policy_tags_snprintf(tags, MAXSZ_POLICY_TAGS, face->face.tags);
+    if (rc >= MAXSZ_POLICY_TAGS)
+        WARN("[hc_face_snprintf] Unexpected truncation of policy tags string");
     if (rc < 0)
         return rc;
 
@@ -2293,7 +2467,6 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
             face_state_str[face->face.state],
             face_state_str[face->face.admin_state]);
 #endif /* WITH_POLICY */
-    return 0;
 }
 
 int
@@ -2310,6 +2483,8 @@ hc_face_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, // XXX wron
 int
 _hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
 {
+    int rc;
+
     if (hc_punting_validate(punting) < 0)
         return -1;
 
@@ -2329,7 +2504,9 @@ _hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
             .len = punting->prefix_len,
         }
     };
-    snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", punting->face_id);
+    rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", punting->face_id);
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[_hc_punting_create] Unexpected truncation of symbolic name string");
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
@@ -2533,13 +2710,17 @@ static const char * strategies[] = {
 int
 hc_strategy_list(hc_sock_t * s, hc_data_t ** data)
 {
+    int rc;
+
     *data = hc_data_create(0, sizeof(hc_strategy_t));
 
     for (unsigned i = 0; i < ARRAY_SIZE(strategies); i++) {
         hc_strategy_t * strategy = (hc_strategy_t*)hc_data_get_next(*data);
         if (!strategy)
              return -1;
-        snprintf(strategy->name, MAXSZ_HC_STRATEGY, "%s", strategies[i]);
+        rc = snprintf(strategy->name, MAXSZ_HC_STRATEGY, "%s", strategies[i]);
+        if (rc >= MAXSZ_HC_STRATEGY)
+            WARN("[hc_strategy_list] Unexpected truncation of strategy name string");
         (*data)->size++;
     }
 

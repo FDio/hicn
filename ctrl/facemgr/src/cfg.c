@@ -9,7 +9,7 @@
 #include <hicn/policy.h>
 #include <hicn/util/ip_address.h>
 #include "facelet_array.h"
-#include "util/set.h"
+#include <hicn/util/set.h>
 
 /* Overlay */
 

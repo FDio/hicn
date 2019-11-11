@@ -23,15 +23,12 @@ set(HEADER_FILES
 
 set(UTIL_HEADER_FILES
     face.h
-    util/log.h
-    util/map.h
 )
 
 set(SOURCE_FILES
     api.c
     face.c
     route.c
-    util/log.c
 )
 
 set(LIBRARIES

@@ -27,16 +27,14 @@
 #include <unistd.h> // sleep
 
 #include <hicn/facemgr.h>
-#include <hicn/policy.h>
-
-#include <hicn/util/ip_address.h>
-#include <hicn/util/log.h>
-
 #include <hicn/facemgr/cfg.h>
 #include <hicn/facemgr/loop.h>
+#include <hicn/policy.h>
+#include <hicn/util/ip_address.h>
+#include <hicn/util/log.h>
+#include <hicn/util/map.h>
 
 #include "cfg_file.h"
-#include "util/map.h"
 
 #define FACEMGR_TIMEOUT 3
 

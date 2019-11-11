@@ -47,7 +47,11 @@ set(LIBHICN_HEADER_FILES_PROTOCOL
 )
 
 set(LIBHICN_HEADER_FILES_UTIL
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/array.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/ip_address.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/log.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/map.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/set.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/token.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/types.h
   PARENT_SCOPE
