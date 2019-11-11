@@ -124,6 +124,7 @@ typedef struct hc_data_s {
     /* Callbacks */
     data_callback_t complete_cb; // XXX int (*complete_cb)(struct hc_data_s * data);
     void * complete_cb_data;
+    int ret;
 } hc_data_t;
 
 /**

@@ -52,12 +52,14 @@ int get_local_info(char * if_name, ip_address_t * local_ip) {
         snprintf(if_name, IFNAMSIZ, "%s", tmp->ifa_name);
 
         snprintf(ifr.ifr_name, IFNAMSIZ, "%s", tmp->ifa_name);
-        if (ioctl(fd, SIOCGIFADDR, &ifr) == 1) {
-            perror("ioctl");
+        if (ioctl(fd, SIOCGIFADDR, &ifr) == -1) {
+            //perror("ioctl");
             continue;
         }
 
         local_ip->v4.as_inaddr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
+        if (ip_address_empty(local_ip))
+            continue;
 
         ret = 0;
         break;
@@ -71,7 +73,7 @@ int get_local_info(char * if_name, ip_address_t * local_ip) {
 int main() {
     char remote_ip_str[INET_ADDRSTRLEN] = "1.1.1.1";
 
-    ip_address_t local_ip;
+    ip_address_t local_ip = {0};
     ip_address_t remote_ip;
     char if_name[IFNAMSIZ];
 
@@ -97,6 +99,7 @@ int main() {
     hc_face_t face = {
         .face = {
             .type = FACE_TYPE_UDP,
+            .family = AF_INET,
             .local_addr = local_ip,
             .remote_addr = remote_ip,
             .local_port = 6000,
