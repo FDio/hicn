@@ -160,13 +160,6 @@ extern const char * facelet_attr_status_str_short[];
     _(CREATE)                   \
     _(UPDATE)                   \
     _(DELETE)                   \
-    _(SET_PARAMS)               \
-    _(SET_UP)                   \
-    _(SET_DOWN)                 \
-    _(SET_TAGS)                 \
-    _(CLEAR_TAGS)               \
-    _(ADD_TAG)                  \
-    _(REMOVE_TAG)               \
     _(N)
 
 #define MAXSZ_EVENT__ 10

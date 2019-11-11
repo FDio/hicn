@@ -138,10 +138,12 @@ NAME ## _free(NAME ## _t * set)                                         \
 int                                                                     \
 NAME ## _add(NAME ## _t * set, const T element)                         \
 {                                                                       \
+    T * found = tfind(element, &set->root, (cmp_t)CMP);                 \
     void * ptr = tsearch(element, &set->root, (cmp_t)CMP);              \
     if (!ptr)                                                           \
         return -1;                                                      \
-    set->size++;                                                        \
+    if (!found)                                                         \
+        set->size++;                                                    \
     return 0;                                                           \
 }                                                                       \
                                                                         \
@@ -214,7 +216,7 @@ int                                                                     \
 NAME ## _get_array(const NAME ## _t * set, T ** element)                \
 {                                                                       \
     if (!element)                                                       \
-       goto END;                                                        \
+        goto END;                                                       \
     *element = malloc(set->size * sizeof(T));                           \
     if (!*element)                                                      \
         return -1;                                                      \

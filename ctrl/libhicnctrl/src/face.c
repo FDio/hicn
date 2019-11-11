@@ -129,6 +129,7 @@ netdevice_get_name(const netdevice_t * netdevice, const char ** name)
 int
 netdevice_set_name(netdevice_t * netdevice, const char * name)
 {
+    memset(netdevice->name, 0, sizeof(netdevice->name));
     int rc = snprintf(netdevice->name, IFNAMSIZ, "%s", name);
     if (rc < 0)
         return -1;

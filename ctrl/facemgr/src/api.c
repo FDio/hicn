@@ -533,6 +533,9 @@ int
 facelet_cache_lookup(const facelet_set_t * facelet_cache, facelet_t * facelet,
         facelet_t ***cached_facelets)
 {
+    assert(facelet);
+    if (!facelet_has_family(facelet))
+        return 0;
 #if 0 // key is no more sufficient now that we support multiple faces per interface
     /*
      * If the facelet is uniquely identified by its key, it is used to perform
@@ -565,6 +568,9 @@ facelet_cache_lookup(const facelet_set_t * facelet_cache, facelet_t * facelet,
 
     int num_match = 0;
     for (unsigned i = 0; i < n; i++) {
+        char facelet_s[MAXSZ_FACELET];
+        facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet_array[i]);
+        printf("cache entry #%d/%di = %s\n", i+1, n, facelet_s);
         if (!facelet_match(facelet_array[i], facelet)) {
             continue;
         }
@@ -679,6 +685,7 @@ facemgr_complement_facelet_au(facemgr_t * facemgr, facelet_t * facelet)
         return -2;
 
     netdevice_t netdevice = NETDEVICE_EMPTY;
+
     int rc = facelet_get_netdevice(facelet, &netdevice);
     if (rc < 0) {
         ERROR("[facemgr_complement_facelet_bj] Error retrieving netdevice from facelet");
@@ -1227,6 +1234,77 @@ facemgr_process_facelet_create(facemgr_t * facemgr, facelet_t * facelet)
     return 0;
 }
 
+int
+facemgr_consider_static_facelet(facemgr_t * facemgr, facelet_t * facelet)
+{
+    /*
+     * We need to analyze the facelet and eventually:
+     *  - add it in our static list
+     *  - replicate it on multipath interfaces
+     */
+    netdevice_type_t netdevice_type;
+    if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0)
+        return -1;
+
+    if ((netdevice_type == NETDEVICE_TYPE_UNDEFINED) ||
+            (netdevice_type == NETDEVICE_TYPE_LOOPBACK))
+        return 0;
+
+    if ((facelet_get_route_array(facelet, NULL) == 0))
+        return 0;
+
+    /*
+     * How to differenciate facelet created by face manager from user
+     * created ones ? This cannot be a flag in the facelet as it needs
+     * to work across restarts of the face manager...
+     * Also we might have two default routes.
+     *
+     * TODO:
+     * - The static one should not be a duplicate of the one we would
+     * create by default....
+     * - This should anyways be detected...
+     *
+     * One solution would be to install the default ones as static but
+     * this requires to implement a priority scheme between some of the
+     * static routes so that the override mechanism continues to work as
+     * usual.
+     *
+     * Current, we recognize the routes created by default by the face
+     * maanger thanks to the routing prefixes (a single default route).
+     */
+
+    facelet_t * static_facelet = facelet_dup(facelet);
+    facelet_unset_netdevice(static_facelet);
+    facelet_unset_netdevice_type(static_facelet);
+    facelet_unset_local_addr(static_facelet);
+    facelet_unset_local_port(static_facelet);
+
+    facelet_t * facelet_found = NULL;
+    if (facelet_array_get(facemgr->static_facelets, static_facelet, &facelet_found) < 0) {
+        ERROR("[facemgr_consider_static_facelet] Error checking whether static facelet already exists or not");
+        return -1;
+    }
+
+    /* Skip addition if facelet exists */
+    if (facelet_found)
+        return 0;
+
+    if (facelet_array_add(facemgr->static_facelets, static_facelet) < 0) {
+        ERROR("[facemgr_consider_static_facelet] Could not add facelet to static array");
+        facelet_free(static_facelet);
+    }
+
+    char facelet_s[MAXSZ_FACELET];
+    int rc = facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
+    if (rc >= MAXSZ_FACELET)
+        ERROR("[facemgr_consider_static_facelet] Unexpected truncation of facelet string");
+    if (rc < 0)
+        ERROR("[facemgr_consider_static_facelet] Error during facelet string output");
+    DEBUG("[facemgr_consider_static_facelet] Successfully added facelet to static array %s", facelet_s);
+
+    return 0;
+}
+
 /**
  * \brief Process facelet GET event
  * \param [in] facemgr - Pointer to the face manager instance
@@ -1237,6 +1315,7 @@ facemgr_process_facelet_create(facemgr_t * facemgr, facelet_t * facelet)
 int
 facemgr_process_facelet_get(facemgr_t * facemgr, facelet_t * facelet)
 {
+    assert(facelet);
     if (facelet_has_netdevice(facelet)) {
         netdevice_t netdevice;
         if (facelet_get_netdevice(facelet, &netdevice) < 0)
@@ -1244,6 +1323,14 @@ facemgr_process_facelet_get(facemgr_t * facemgr, facelet_t * facelet)
         if (!IS_VALID_NETDEVICE(netdevice))
             return -2;
         facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+
+        if (facemgr_consider_static_facelet(facemgr, facelet) < 0) {
+            ERROR("[facemgr_process_facelet_get] Could not add facelet to static array");
+        }
+
+        char facelet_s[MAXSZ_FACELET];
+        facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
+        printf("adding facelet to cache %s\n", facelet_s);
         return facelet_set_add(facemgr->facelet_cache, facelet);
     }
     return -2;
@@ -1341,6 +1428,10 @@ int facemgr_process_facelet_first_time(facemgr_t * facemgr, facelet_t * facelet)
 {
     facelet_set_status(facelet, FACELET_STATUS_UNCERTAIN);
 
+    assert(facelet);
+    char facelet_s[MAXSZ_FACELET];
+    facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
+    printf("adding facelet to cache main %s\n", facelet_s);
     if (facelet_set_add(facemgr->facelet_cache, facelet) < 0) {
         ERROR("[facemgr_process_facelet_first_time] Error adding facelet to cache");
         goto ERR_CACHE;
@@ -1372,15 +1463,28 @@ int
 facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
 {
     bool remove_facelet = true;
+    bool dump = true;
     int ret = 0;
     int rc;
     assert(facelet_in);
 
+    /* Update Netdevice type */
+    if (facelet_has_netdevice(facelet_in) && (!facelet_has_netdevice_type(facelet_in))) {
+        netdevice_t netdevice = NETDEVICE_EMPTY;
+
+        rc = facelet_get_netdevice(facelet_in, &netdevice);
+        if (rc < 0) {
+            ERROR("[facemgr_on_event] Error retrieving netdevice from facelet");
+            return -1;
+        }
+        facelet_set_netdevice_type(facelet_in, facemgr_get_netdevice_type(facemgr, netdevice.name));
+    }
+
     char facelet_s[MAXSZ_FACELET];
     facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet_in);
-    DEBUG("EVENT %s", facelet_s);
 
     facelet_t ** cached_facelets = NULL;
+    assert(facelet_in);
     int n = facelet_cache_lookup(facemgr->facelet_cache, facelet_in, &cached_facelets);
     if (n < 0) {
         ERROR("[facemgr_on_event] Error during cache lookup");
@@ -1399,17 +1503,8 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                  * Assumption: we should always see the link before the address
                  * assignment
                  */
+                DEBUG("[facemgr_on_event] CREATE NEW %s", facelet_s);
                 assert(!facelet_has_family(facelet_in));
-
-                if (!facelet_has_netdevice_type(facelet_in)) {
-                    netdevice_t netdevice = NETDEVICE_EMPTY;
-                    rc = facelet_get_netdevice(facelet_in, &netdevice);
-                    if (rc < 0) {
-                        ERROR("[facemgr_complement_facelet] Error retrieving netdevice from facelet");
-                        return -1;
-                    }
-                    facelet_set_netdevice_type(facelet_in, facemgr_get_netdevice_type(facemgr, netdevice.name));
-                }
 
                 /* Create default v4 and v6 facelets */
                 facelet_t * facelet_v4 = facelet_dup(facelet_in);
@@ -1493,9 +1588,11 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
 
             case FACELET_EVENT_GET:
                 /* Insert new facelet in cached */
+                DEBUG("[facemgr_on_event] GET NEW %s", facelet_s);
                 rc = facemgr_process_facelet_get(facemgr, facelet_in);
                 if (rc == 0)
                     remove_facelet = false;
+                dump = false;
                 if (rc == -1) {
                     ERROR("[facemgr_on_event] Error processing GET event");
                     goto ERR;
@@ -1506,20 +1603,21 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                 /* Might be because we previously ignored the facelet... */
                 //ERROR("[facemgr_on_event] Unexpected UPDATE... face does not exist");
                 //goto ERR;
+                DEBUG("[facemgr_on_event] UPDATE NEW %s", facelet_s);
                 INFO("Ignored UPDATE for non-existing face");
                 break;
 
             case FACELET_EVENT_DELETE:
+                DEBUG("[facemgr_on_event] DELETE NEW %s", facelet_s);
                 ERROR("[facemgr_on_event] Unexpected DELETE... face does not exist");
                 goto ERR;
 
             case FACELET_EVENT_UNDEFINED:
+            case FACELET_EVENT_N:
                 ERROR("[facemgr_on_event] Unexpected UNDEFINED event.");
+                ret = -1;
                 goto ERR;
 
-            default: /* XXX Some events should be deprecated */
-                ERROR("[facemgr_on_event] Deprecated event");
-                goto ERR;
         }
         goto DUMP_CACHE;
     }
@@ -1534,8 +1632,14 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
          * reconciliation by sending appropriate updates to the forwarder
          */
         facelet_t * facelet = cached_facelets[i];
+
+        char facelet_s[MAXSZ_FACELET];
+        facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
+        //DEBUG("Facelet from cache #%d %s", i, facelet_s);
+
         switch(facelet_get_event(facelet_in)) {
             case FACELET_EVENT_CREATE:
+                DEBUG("[facemgr_on_event] CREATE EXISTING %s", facelet_s);
                 // This case will occur when we try to re-create existing faces,
                 // eg. in the situation of a forwarder restarting.
                 // likely this occurs when the interface receives a (potentially new) address
@@ -1552,13 +1656,17 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                 continue;
 
             case FACELET_EVENT_GET: /* should be an INFORM message */
-                // FIXME, this might occur if the forwarder restarts and we
-                // resync faces...
-                ERROR("[facemgr_on_event] GET event for a face that already exists...");
-                ret = -1;
+                /*
+                 * This happens due to polling of the forwarder (or when it
+                 * restarts)
+                 */
+                DEBUG("[facemgr_on_event] GET EXISTING %s", facelet_s);
+                //ERROR("[facemgr_on_event] GET event for a face that already exists...");
+                dump = false;
                 continue;
 
             case FACELET_EVENT_UPDATE:
+                DEBUG("[facemgr_on_event] UPDATE EXISTING %s", facelet_s);
                 if (facelet_merge(facelet, facelet_in) < 0) {
                     ERROR("[facemgr_on_event] Error merging facelets");
                     continue;
@@ -1570,6 +1678,7 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                 continue;
 
             case FACELET_EVENT_DELETE:
+                DEBUG("[facemgr_on_event] DELETE EXISTING %s", facelet_s);
                 if (facelet_merge(facelet, facelet_in) < 0) {
                     ERROR("[facemgr_on_event] Error merging facelets");
                     continue;
@@ -1580,9 +1689,12 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                 }
                 continue;
 
-            default: /* XXX Some events should be deprecated */
-                ERROR("[facemgr_on_event] Deprecated event");
+            case FACELET_EVENT_UNDEFINED:
+            case FACELET_EVENT_N:
+                ERROR("[facemgr_on_event] Unexpected UNDEFINED event.");
                 ret = -1;
+                goto ERR;
+
         }
 
     }
@@ -1593,11 +1705,13 @@ ERR:
 
 DUMP_CACHE:
 #if 1
-    DEBUG("    <CACHE>");
-    facelet_set_dump(facemgr->facelet_cache);
-    DEBUG("    </CACHE>");
-    DEBUG("</EVENT ret=%d>", ret);
-    DEBUG("----------------------------------");
+    if (dump) {
+        DEBUG("    <CACHE>");
+        facelet_set_dump(facemgr->facelet_cache);
+        DEBUG("    </CACHE>");
+        DEBUG("</EVENT ret=%d>", ret);
+        DEBUG("----------------------------------");
+    }
 #endif
 
     free(cached_facelets);

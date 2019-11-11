@@ -379,7 +379,7 @@ parse_options(int argc, char *argv[], hc_command_t * command)
         case OBJECT_FACE:
             switch(command->action) {
                 case ACTION_CREATE:
-                    if ((argc - optind != 6) && (argc - optind != 7)) {
+                    if ((argc - optind != 5) && (argc - optind != 6)) {
                         usage_face_create(argv[0], true, false); 
                         goto ERR_PARAM;
                     }

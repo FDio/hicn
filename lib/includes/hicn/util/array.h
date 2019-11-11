@@ -167,9 +167,10 @@ NAME ## _get(const NAME ## _t * array, const T search, T * element)             
 {                                                                               \
     assert(element);                                                            \
     for (unsigned i = 0; i < array->size; i++)                                  \
-        if (CMP(search, array->elements[i]) == 0)                               \
+        if (CMP(search, array->elements[i]) == 0) {                             \
             *element = array->elements[i];                                      \
             return 0;                                                           \
+        }                                                                       \
     /* Not found */                                                             \
     *element = NULL;                                                            \
     return 0;                                                                   \
