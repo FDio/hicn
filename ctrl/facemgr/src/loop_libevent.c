@@ -37,7 +37,7 @@
 #include <hicn/util/log.h>
 
 #include <hicn/facemgr/loop.h>
-#include "util/map.h"
+#include <hicn/util/map.h>
 
 /**
  * \brief Holds all callback parameters

@@ -24,10 +24,10 @@
 
 #include <hicn/facemgr.h>
 #include <hicn/util/log.h>
+#include <hicn/util/map.h>
 
 #include "../../common.h"
 #include "../../interface.h"
-#include "../../util/map.h"
 #include "mdns/mdns.h"
 
 #include "bonjour.h"

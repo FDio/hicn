@@ -25,8 +25,7 @@
 #include <hicn/facemgr/cfg.h>
 #include <hicn/facemgr/facelet.h>
 #include <hicn/util/log.h>
-
-#include "util/set.h"
+#include <hicn/util/set.h>
 
 #define FACELET_MAX_ROUTES 10
 
