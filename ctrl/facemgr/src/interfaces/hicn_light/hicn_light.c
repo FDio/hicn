@@ -54,10 +54,6 @@ int hl_process_state(interface_t * interface)
 {
     hl_data_t * data = (hl_data_t *)interface->data;
 
-#if 0
-    char buf[MAXSZ_FACE];
-#endif
-
     switch(data->state)
     {
         case HL_STATE_UNDEFINED: // FIXME

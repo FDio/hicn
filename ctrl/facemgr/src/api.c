@@ -18,6 +18,10 @@
  * \brief Implementation of Face manager library interface
  */
 
+#ifdef __ANDROID__
+//#define WITH_ANDROID_UTILITY
+#endif /* __ANDROID__ */
+
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -34,9 +38,9 @@
 #include "interfaces/bonjour/bonjour.h"
 #endif /* __linux__ */
 
-#ifdef __ANDROID__
+#ifdef WITH_ANDROID_UTILITY
 #include <hicn/android_utility/android_utility.h>
-#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
 #include <hicn/ctrl/face.h>
 #include <hicn/facemgr/facelet.h>
@@ -76,9 +80,9 @@ extern interface_ops_t network_framework_ops;
 extern interface_ops_t netlink_ops;
 extern interface_ops_t bonjour_ops;
 #endif
-#ifdef __ANDROID__
+#ifdef WITH_ANDROID_UTILITY
 extern interface_ops_t android_utility_ops;
-#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 #ifdef WITH_EXAMPLE_DUMMY
 extern interface_ops_t dummy_ops;
 #endif
@@ -126,9 +130,9 @@ struct facemgr_s {
 
     interface_t * hl;
 
-#ifdef __ANDROID__
+#ifdef WITH_ANDROID_UTILITY
     interface_t * au; /* android_utility */
-#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
 #ifdef __APPLE__
     interface_t * nf; /* network_framework */
@@ -447,7 +451,7 @@ int facemgr_query_bonjour(facemgr_t * facemgr, netdevice_t * netdevice)
 }
 #endif /* __linux__ */
 
-#ifdef __ANDROID__
+#ifdef WITH_ANDROID_UTILITY
 int facemgr_query_android_utility(facemgr_t * facemgr, netdevice_t netdevice)
 {
     /* Send an event to the interface */
@@ -471,7 +475,7 @@ ERR_ND:
 ERR_MALLOC:
     return -1;
 }
-#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
 
 /**
@@ -558,7 +562,7 @@ facemgr_facelet_satisfy_rules(facemgr_t * facemgr, facelet_t * facelet)
     }
 
     netdevice_type_t netdevice_type = NETDEVICE_TYPE_UNDEFINED;
-//#ifdef __ANDROID__
+#ifndef WITH_ANDROID_UTILITY
     /*
      * In addition to netdevice, netdevice_type should be present to correctly
      * apply rules
@@ -568,7 +572,7 @@ facemgr_facelet_satisfy_rules(facemgr_t * facemgr, facelet_t * facelet)
         ERROR("[facemgr_facelet_satisfy_rules] Error retrieving netdevice_type from facelet");
         return -2;
     }
-//#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
     /* Ignore */
     bool ignore;
@@ -616,7 +620,7 @@ facemgr_facelet_satisfy_rules(facemgr_t * facemgr, facelet_t * facelet)
     return 0;
 }
 
-#ifdef __ANDROID__
+#ifdef WITH_ANDROID_UTILITY
 /**
  * \brief Complements facelet information through Android Utility interface
  * \return 0 if request was successful, -1 in case of error, and -2 if the
@@ -651,7 +655,7 @@ facemgr_complement_facelet_au(facemgr_t * facemgr, facelet_t * facelet)
     facelet_set_au_done(facelet);
     return 0;
 }
-#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
 #ifdef __linux__
 /**
@@ -673,7 +677,7 @@ facemgr_complement_facelet_bj(facemgr_t * facemgr, facelet_t * facelet)
     }
 
     netdevice_type_t netdevice_type = NETDEVICE_TYPE_UNDEFINED;
-//#ifdef __ANDROID__
+#ifndef WITH_ANDROID_UTILITY
     /*
      * In addition to netdevice, netdevice_type should be present to correctly
      * apply rules
@@ -683,7 +687,7 @@ facemgr_complement_facelet_bj(facemgr_t * facemgr, facelet_t * facelet)
         ERROR("[facemgr_complement_facelet_bj] Error retrieving netdevice_type from facelet");
         return -2;
     }
-//#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
     bool discovery;
     if (facemgr_cfg_get_discovery(facemgr->cfg, &netdevice, netdevice_type,
@@ -745,7 +749,7 @@ facemgr_complement_facelet_manual(facemgr_t * facemgr, facelet_t * facelet)
     }
 
     netdevice_type_t netdevice_type = NETDEVICE_TYPE_UNDEFINED;
-//#ifdef __ANDROID__
+#ifndef WITH_ANDROID_UTILITY
     /*
      * In addition to netdevice, netdevice_type should be present to correctly
      * apply rules
@@ -755,7 +759,7 @@ facemgr_complement_facelet_manual(facemgr_t * facemgr, facelet_t * facelet)
         ERROR("[facemgr_complement_facelet_manual] Error retrieving netdevice_type from facelet");
         return -2;
     }
-//#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
     int family = AF_UNSPEC;
     if (facelet_has_family(facelet)) {
@@ -864,13 +868,12 @@ facemgr_complement_facelet(facemgr_t * facemgr, facelet_t * facelet)
     if (!facelet_has_key(facelet))
         return -2;
 
-#if 0
-#ifdef __ANDROID__
+#ifdef WITH_ANDROID_UTILITY
     rc = facemgr_complement_facelet_au(facemgr, facelet);
     if (rc != -2)
         return rc;
-#endif /* __ANDROID__ */
-#endif
+#endif /* WITH_ANDROID_UTILITY */
+
     if (!facelet_has_netdevice_type(facelet)) {
         netdevice_t netdevice = NETDEVICE_EMPTY;
         rc = facelet_get_netdevice(facelet, &netdevice);
@@ -913,7 +916,7 @@ int facemgr_assign_face_type(facemgr_t * facemgr, facelet_t * facelet)
     }
 
     netdevice_type_t netdevice_type = NETDEVICE_TYPE_UNDEFINED;
-//#ifdef __ANDROID__
+#ifndef WITH_ANDROID_UTILITY
     /*
      * In addition to netdevice, netdevice_type should be present to correctly
      * apply rules
@@ -923,7 +926,7 @@ int facemgr_assign_face_type(facemgr_t * facemgr, facelet_t * facelet)
         ERROR("[facemgr_facelet_satisfy_rules] Error retrieving netdevice_type from facelet");
         return -2;
     }
-//#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
     facemgr_face_type_t face_type = FACEMGR_FACE_TYPE_UNDEFINED;
     if (facemgr_cfg_get_face_type(facemgr->cfg, &netdevice, netdevice_type, &face_type) < 0)
@@ -1034,7 +1037,9 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
             facelet_unset_remote_addr(facelet);
             facelet_unset_remote_port(facelet);
             facelet_unset_bj_done(facelet);
-            //facelet_unset_au_done(facelet);
+#ifdef WITH_ANDROID_UTILITY
+            facelet_unset_au_done(facelet);
+#endif /* WITH_ANDROID_UTILITY */
 
             facelet_set_status(facelet, FACELET_STATUS_DELETED);
             break;
@@ -1259,7 +1264,9 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
             facelet_unset_remote_addr(facelet);
             facelet_unset_remote_port(facelet);
             facelet_unset_bj_done(facelet);
-            //facelet_unset_au_done(facelet);
+#ifdef WITH_ANDROID_UTILITY
+            facelet_unset_au_done(facelet);
+#endif /* WITH_ANDROID_UTILITY */
             facelet_set_status(facelet, FACELET_STATUS_DELETED);
             break;
         case FACELET_STATUS_UPDATE:
@@ -1547,11 +1554,11 @@ facemgr_bootstrap(facemgr_t * facemgr)
         goto ERR_REGISTER;
 #endif /* __linux__ */
 
-#ifdef __ANDROID__
+#ifdef WITH_ANDROID_UTILITY
     rc = interface_register(&android_utility_ops);
     if (rc < 0)
         goto ERR_REGISTER;
-#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
 #ifdef WITH_EXAMPLE_DUMMY
     rc = interface_register(&dummy_ops);
@@ -1589,7 +1596,7 @@ facemgr_bootstrap(facemgr_t * facemgr)
     }
 #endif /* __linux__ */
 
-#ifdef __ANDROID__
+#ifdef WITH_ANDROID_UTILITY
     android_utility_cfg_t au_cfg = {
         .jvm = facemgr->jvm,
     };
@@ -1598,7 +1605,7 @@ facemgr_bootstrap(facemgr_t * facemgr)
         ERROR("Error creating 'Android Utility' interface\n");
         goto ERR_AU_CREATE;
     }
-#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
 #ifdef WITH_EXAMPLE_DUMMY
     rc = facemgr_create_interface(facemgr, "dummy0", "dummy", NULL, &facemgr->dummy);
@@ -1629,10 +1636,10 @@ ERR_UPDOWN_CREATE:
     facemgr_delete_interface(facemgr, facemgr->dummy);
 ERR_DUMMY_CREATE:
 #endif
-#ifdef __ANDROID__
+#ifdef WITH_ANDROID_UTILITY
     facemgr_delete_interface(facemgr, facemgr->au);
 ERR_AU_CREATE:
-#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 #ifdef __linux__
     facemgr_delete_interface(facemgr, facemgr->nl);
 ERR_NL_CREATE:
@@ -1679,9 +1686,9 @@ void facemgr_stop(facemgr_t * facemgr)
     }
 #endif /* __linux__ */
 
-#ifdef __ANDROID__
+#ifdef WITH_ANDROID_UTILITY
     facemgr_delete_interface(facemgr, facemgr->au);
-#endif /* __ANDROID__ */
+#endif /* WITH_ANDROID_UTILITY */
 
     facemgr_delete_interface(facemgr, facemgr->hl);
 
