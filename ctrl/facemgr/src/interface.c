@@ -24,9 +24,9 @@
 
 #include <hicn/facemgr/facelet.h>
 #include <hicn/facemgr/loop.h> /* *_callback_data_t */
+#include <hicn/util/map.h>
 
 #include "interface.h"
-#include "util/map.h"
 
 TYPEDEF_MAP_H(interface_ops_map, const char *, const interface_ops_t *);
 TYPEDEF_MAP(interface_ops_map, const char *, const interface_ops_t *, strcmp, string_snprintf, generic_snprintf);

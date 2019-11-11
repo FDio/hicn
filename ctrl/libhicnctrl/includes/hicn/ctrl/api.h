@@ -74,6 +74,8 @@
 
 #define HICN_DEFAULT_PORT 9695
 
+#define HOTFIXMARGIN 0
+
 /* Helper for avoiding warnings about type-punning */
 #define UNION_CAST(x, destType) \
    (((union {__typeof__(x) a; destType b;})x).b)
@@ -124,6 +126,7 @@ typedef struct hc_data_s {
     /* Callbacks */
     data_callback_t complete_cb; // XXX int (*complete_cb)(struct hc_data_s * data);
     void * complete_cb_data;
+    int ret;
 } hc_data_t;
 
 /**
@@ -412,7 +415,7 @@ foreach_connection_type
 } hc_connection_type_t;
 
 #define MAXSZ_HC_CONNECTION_TYPE_ 9
-#define MAXSZ_HC_CONNECTION_TYPE MAXSZ_HC_CONNECTION_TYPE_ + NULLTERM
+#define MAXSZ_HC_CONNECTION_TYPE MAXSZ_HC_CONNECTION_TYPE_ + NULLTERM + HOTFIXMARGIN
 
 extern const char * connection_type_str[];
 
@@ -574,7 +577,7 @@ int hc_face_list_async(hc_sock_t * s); //, hc_data_t ** pdata);
 #define MAXSZ_FACE_NAME_ SYMBOLIC_NAME_LEN
 #define MAXSZ_FACE_NAME MAXSZ_FACE_NAME_ + NULLTERM
 
-#define MAXSZ_HC_FACE_ MAXSZ_FACE_ID_ + MAXSZ_FACE_NAME_ + MAXSZ_FACE_ + 5
+#define MAXSZ_HC_FACE_ MAXSZ_FACE_ID_ + MAXSZ_FACE_NAME_ + MAXSZ_FACE_ + 5 + HOTFIXMARGIN
 #define MAXSZ_HC_FACE MAXSZ_HC_FACE_ + NULLTERM
 
 int hc_face_snprintf(char * s, size_t size, hc_face_t * face);

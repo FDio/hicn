@@ -19,6 +19,7 @@
  */
 
 #include <hicn/util/ip_address.h>
+#include <hicn/util/log.h>
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #ifdef __ANDROID__
@@ -110,11 +111,13 @@ ip_address_pton (const char *ip_address_str, ip_address_t * ip_address)
   int pton_fd;
   int family;
 
-
   family = ip_address_get_family (ip_address_str);
 
   switch (family) {
     case AF_INET:
+      ip_address->pad[0] = 0;
+      ip_address->pad[1] = 0;
+      ip_address->pad[2] = 0;
       pton_fd = inet_pton (AF_INET, ip_address_str, &ip_address->v4.buffer);
       break;
     case AF_INET6:
@@ -135,18 +138,26 @@ ip_address_pton (const char *ip_address_str, ip_address_t * ip_address)
 int
 ip_address_snprintf(char * s, size_t size, const ip_address_t * ip_address, int family)
 {
+
     const char * rc;
     switch(family) {
         case AF_INET:
+            if (size <= INET_ADDRSTRLEN)
+                return -1;
             rc = inet_ntop (AF_INET, ip_address->v4.buffer, s, INET_ADDRSTRLEN);
-            break;
+            if (!rc)
+                return -1;
+            return INET_ADDRSTRLEN;
         case AF_INET6:
+            if (size <= INET6_ADDRSTRLEN)
+                return -1;
             rc = inet_ntop (AF_INET6, ip_address->v6.buffer, s, INET6_ADDRSTRLEN);
-            break;
+            if (!rc)
+                return -1;
+            return INET6_ADDRSTRLEN;
         default:
             return -1;
     }
-    return rc ? strlen(rc) : -1;
 }
 
 int
@@ -269,9 +280,10 @@ ip_prefix_ntop_short(const ip_prefix_t * ip_prefix, char *dst, size_t size)
   }
   if (!s)
       return -1;
-  size_t n = snprintf(dst, size, "%s", ip_s);
-
-  return (n > 0 ? 1 : -1);
+  int rc = snprintf(dst, size, "%s", ip_s);
+  if (rc >= size)
+      return size;
+  return rc;
 }
 
 int
@@ -291,9 +303,10 @@ ip_prefix_ntop(const ip_prefix_t * ip_prefix, char *dst, size_t size)
   }
   if (!s)
       return -1;
-  size_t n = snprintf(dst, size, "%s/%d", ip_s, ip_prefix->len);
-
-  return (n > 0 ? 1 : -1);
+  int rc = snprintf(dst, size, "%s/%d", ip_s, ip_prefix->len);
+  if (rc >= size)
+      return size;
+  return rc;
 }
 
 int
@@ -361,42 +374,19 @@ int
 url_snprintf(char * s, size_t size, int family,
         const ip_address_t * ip_address, u16 port)
 {
-    char * cur = s;
+    char ip_address_s[MAXSZ_IP_ADDRESS];
     int rc;
 
     /* Other address are currently not supported */
-    if (!IS_VALID_FAMILY(family)) {
+    if (!IS_VALID_FAMILY(family))
         return -1;
-    }
 
-    rc = snprintf(cur, s + size - cur, "inet%c://",
-            (family == AF_INET) ? '4' : '6');
+    rc = ip_address_snprintf(ip_address_s, MAXSZ_IP_ADDRESS, ip_address, family);
+    if (rc >= MAXSZ_IP_ADDRESS)
+        WARN("[url_snprintf] Unexpected ip_address truncation");
     if (rc < 0)
         return rc;
-    cur += rc;
-    if (size != 0 && cur >= s + size)
-        return cur - s;
 
-    rc = ip_address_snprintf(cur, s + size - cur, ip_address, family);
-    if (rc < 0)
-        return rc;
-    cur += rc;
-    if (size != 0 && cur >= s + size)
-        return cur - s;
-
-    rc = snprintf(cur, s + size - cur, ":");
-    if (rc < 0)
-        return rc;
-    cur += rc;
-    if (size != 0 && cur >= s + size)
-        return cur - s;
-
-    rc = snprintf(cur, s + size - cur, "%d", port);
-    if (rc < 0)
-        return rc;
-    cur += rc;
-    if (size != 0 && cur >= s + size)
-        return cur - s;
-
-    return cur - s;
+    return snprintf(s, size, "inet%c://%s:%d", (family == AF_INET) ? '4' : '6',
+            ip_address_s, port);
 }

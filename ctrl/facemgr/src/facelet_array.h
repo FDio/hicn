@@ -22,7 +22,7 @@
 
 #include <hicn/facemgr/facelet.h>
 
-#include "util/array.h"
+#include <hicn/util/array.h>
 
 TYPEDEF_ARRAY_H(facelet_array, facelet_t *);
 

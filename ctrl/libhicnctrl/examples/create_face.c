@@ -52,12 +52,15 @@ int get_local_info(char * if_name, ip_address_t * local_ip) {
         snprintf(if_name, IFNAMSIZ, "%s", tmp->ifa_name);
 
         snprintf(ifr.ifr_name, IFNAMSIZ, "%s", tmp->ifa_name);
-        if (ioctl(fd, SIOCGIFADDR, &ifr) == 1) {
-            perror("ioctl");
+        if (ioctl(fd, SIOCGIFADDR, &ifr) == -1) {
+            //perror("ioctl");
             continue;
         }
 
+        *local_ip = IP_ADDRESS_EMPTY;
         local_ip->v4.as_inaddr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
+        if (ip_address_empty(local_ip))
+            continue;
 
         ret = 0;
         break;
@@ -79,7 +82,7 @@ int main() {
 
     if (get_local_info(if_name, &local_ip) < 0) {
         DEBUG("Error getting local information");
-        return -1;
+        goto ERR_INIT;
     }
 
     char local_ip_str[MAXSZ_IP_ADDRESS];
@@ -90,22 +93,26 @@ int main() {
 
     if (ip_address_pton (remote_ip_str, &remote_ip) < 0){
         DEBUG("Error parsing remote IP address");
-        return -1;
+        goto ERR_INIT;
     }
 
     /* Filling face information */
     hc_face_t face = {
         .face = {
             .type = FACE_TYPE_UDP,
+            .family = AF_INET,
             .local_addr = local_ip,
             .remote_addr = remote_ip,
             .local_port = 6000,
             .remote_port = 6000,
+            .admin_state = FACE_STATE_UNDEFINED,
+            .state = FACE_STATE_UNDEFINED,
+            .tags = POLICY_TAGS_EMPTY,
         },
     };
     if (netdevice_set_name(&face.face.netdevice, if_name) < 0) {
         DEBUG("Error setting face netdevice name");
-        return -1;
+        goto ERR_INIT;
     }
 
     /* Connecting to socket and creating face */
@@ -113,22 +120,24 @@ int main() {
     hc_sock_t * socket = hc_sock_create();
     if (!socket){
         DEBUG("Error creating libhicnctrl socket");
-        return -1;
+        goto ERR_SOCK;
     }
 
     if (hc_sock_connect(socket) < 0){
         DEBUG("Error connecting to forwarder");
-        return -1;
+        goto ERR;
     }
 
     if (hc_face_create(socket, &face) < 0){
         DEBUG("Error creating face");
-        return -1;
+        goto ERR;
     }
 
     DEBUG("Face created successfully");
 
+ERR:
     hc_sock_free(socket);
-
+ERR_SOCK:
+ERR_INIT:
     return 0;
 }
