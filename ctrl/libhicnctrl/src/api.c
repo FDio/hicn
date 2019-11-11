@@ -321,6 +321,7 @@ hc_data_create(size_t in_element_size, size_t out_element_size)
     data->buffer = malloc((1 << data->max_size_log) * data->out_element_size);
     if (!data->buffer)
         goto ERR_BUFFER;
+    data->ret = 0;
 
     return data;
 
@@ -397,6 +398,17 @@ int
 hc_data_set_complete(hc_data_t * data)
 {
     data->complete = true;
+    data->ret = 0;
+    if (data->complete_cb)
+        return data->complete_cb(data, data->complete_cb_data);
+     return 0;
+}
+
+int
+hc_data_set_error(hc_data_t * data)
+{
+    data->complete = true;
+    data->ret = -1;
     if (data->complete_cb)
         return data->complete_cb(data, data->complete_cb_data);
      return 0;
@@ -629,11 +641,6 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             if (available < sizeof(hc_msg_header_t))
                 break;
 
-            /* Sanity checks (might instead raise warnings) */
-            assert((msg->hdr.messageType == RESPONSE_LIGHT) ||
-                   (msg->hdr.messageType == ACK_LIGHT) ||
-                   (msg->hdr.messageType == NACK_LIGHT));
-
             hc_sock_request_t * request = NULL;
             if (hc_sock_map_get(s->map, msg->hdr.seqNum, &request) < 0) {
                 ERROR("[hc_sock_process] Error searching for matching request");
@@ -643,15 +650,33 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                 ERROR("[hc_sock_process] No request matching received sequence number");
                 return -1;
             }
+
             s->remaining = msg->hdr.length;
-            if (s->remaining == 0) {
-                hc_data_set_complete(request->data);
-                if (data)
-                    *data = request->data;
-                hc_sock_request_free(request);
-            } else {
-                /* We only remember it if there is still data to parse */
-                s->cur_request = request;
+            switch(msg->hdr.messageType) {
+                case ACK_LIGHT:
+                    assert(s->remaining == 0);
+                    assert(!data);
+                    hc_data_set_complete(request->data);
+                    break;
+                case NACK_LIGHT:
+                    assert(s->remaining == 0);
+                    assert(!data);
+                    hc_data_set_error(request->data);
+                    break;
+                case RESPONSE_LIGHT:
+                    assert(data);
+                    if (s->remaining == 0) {
+                        hc_data_set_complete(request->data);
+                        *data = request->data;
+                        hc_sock_request_free(request);
+                    } else {
+                        /* We only remember it if there is still data to parse */
+                        s->cur_request = request;
+                    }
+                    break;
+                default:
+                    ERROR("[hc_sock_process] Invalid response received");
+                    return -1;
             }
 
             available -= sizeof(hc_msg_header_t);
@@ -868,7 +893,7 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
     if (!pdata)
         hc_data_free(data);
 
-    return 0;
+    return data->ret;
 
 ERR_PROCESS:
 ERR_MAP:
@@ -1177,11 +1202,11 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
             .remotePort = htons(connection->remote_port),
             .localPort = htons(connection->local_port),
             .ipType = (u8)map_to_addr_type[connection->family],
+            .connectionType = (u8)map_to_connection_type[connection->type],
             .admin_state = connection->admin_state,
 #ifdef WITH_POLICY
             .tags = connection->tags,
 #endif /* WITH_POLICY */
-            .connectionType = (u8)map_to_connection_type[connection->type],
         }
     };
     snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", connection->name);
