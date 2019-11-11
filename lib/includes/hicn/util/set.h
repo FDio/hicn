@@ -16,6 +16,7 @@
 #ifndef UTIL_SET_H
 #define UTIL_SET_H
 
+#include <hicn/util/log.h>
 #include <search.h>
 #include <string.h>
 //#if !defined(__ANDROID__) && !defined(__APPLE__)
@@ -23,7 +24,6 @@
 //#else
 #define thread_local _Thread_local
 //#endif /* ! __ANDROID__ */
-#include "util/log.h"
 
 #define ERR_SET_EXISTS -2
 #define ERR_SET_NOT_FOUND -3
@@ -96,7 +96,19 @@ NAME ## _initialize(NAME ## _t * set)                                   \
 }                                                                       \
                                                                         \
 int                                                                     \
-NAME ## _finalize(NAME ## _t * set) { return 0; }                       \
+NAME ## _finalize(NAME ## _t * set)                                     \
+{                                                                       \
+    T * array;                                                          \
+    int n = NAME ## _get_array(set, &array);                            \
+    if (n < 0)                                                          \
+        return -1;                                                      \
+    for (unsigned i = 0; i < n; i++) {                                  \
+        T element = array[i];                                           \
+        NAME ## _remove(set, element, NULL);                            \
+    }                                                                   \
+    free(array);                                                        \
+    return 0;                                                           \
+}                                                                       \
                                                                         \
 NAME ## _t *                                                            \
 NAME ## _create()                                                       \
@@ -201,12 +213,15 @@ NAME ## _add_node_to_array(const void *nodep, const VISIT which,        \
 int                                                                     \
 NAME ## _get_array(const NAME ## _t * set, T ** element)                \
 {                                                                       \
+    if (!element)                                                       \
+       goto END;                                                        \
     *element = malloc(set->size * sizeof(T));                           \
     if (!*element)                                                      \
         return -1;                                                      \
     NAME ## _array_pos = *element;                                      \
     twalk(set->root, NAME ## _add_node_to_array);                       \
     NAME ## _array_pos = NULL;                                          \
+END:                                                                    \
     return set->size;                                                   \
 }
 

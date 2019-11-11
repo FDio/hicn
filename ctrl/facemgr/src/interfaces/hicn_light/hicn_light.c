@@ -26,9 +26,9 @@
 #include <hicn/facemgr.h>
 #include <hicn/util/ip_address.h>
 #include <hicn/util/log.h>
+#include <hicn/util/map.h>
 
 #include "../../interface.h"
-#include "../../util/map.h"
 
 #define DEFAULT_ROUTE_COST 0
 
