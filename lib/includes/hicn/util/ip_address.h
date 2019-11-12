@@ -148,7 +148,7 @@ int ip_prefix_ntop (const ip_prefix_t * ip_prefix, char *dst, size_t size);
 int ip_prefix_len (const ip_prefix_t * prefix);
 bool ip_prefix_empty (const ip_prefix_t * prefix);
 int ip_prefix_to_sockaddr(const ip_prefix_t * prefix, struct sockaddr *sa);
-
+int ip_prefix_cmp(const ip_prefix_t * prefix1, const ip_prefix_t * prefix2);
 
 /* URL */
 

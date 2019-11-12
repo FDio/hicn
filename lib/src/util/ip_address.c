@@ -179,7 +179,16 @@ ip_address_to_sockaddr(const ip_address_t * ip_address,
 int
 ip_address_cmp(const ip_address_t * ip1, const ip_address_t * ip2, int family)
 {
-    return memcmp(ip1, ip2, ip_address_len(family));
+    switch(family) {
+        case AF_INET:
+            return memcmp(&ip1->v4, &ip2->v4, sizeof(ip1->v4));
+            break;
+        case AF_INET6:
+            return memcmp(&ip1->v6, &ip2->v6, sizeof(ip1->v6));
+            break;
+        default:
+            return memcmp(ip1, ip2, sizeof(ip_address_t));
+    }
 }
 
 int
@@ -312,13 +321,29 @@ ip_prefix_empty (const ip_prefix_t * prefix)
   return prefix->len == 0;
 }
 
-int ip_prefix_to_sockaddr(const ip_prefix_t * prefix,
+int
+ip_prefix_to_sockaddr(const ip_prefix_t * prefix,
         struct sockaddr *sa)
 {
     // XXX assert len == ip_address_len
     return ip_address_to_sockaddr(&prefix->address, sa, prefix->family);
 }
 
+int
+ip_prefix_cmp(const ip_prefix_t * prefix1, const ip_prefix_t * prefix2)
+{
+    if (prefix1->family < prefix2->family)
+        return -1;
+    else if (prefix1->family > prefix2->family)
+        return 1;
+
+    if (prefix1->len < prefix2->len)
+        return -1;
+    else if (prefix1->len > prefix2->len)
+        return 1;
+
+    return ip_address_cmp(&prefix1->address, &prefix2->address, prefix1->family);
+}
 
 /* URL */
 

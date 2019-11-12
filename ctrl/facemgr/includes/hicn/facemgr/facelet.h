@@ -29,7 +29,7 @@
 #include <stdbool.h>
 
 #include <hicn/ctrl/face.h>
-#include <hicn/facemgr/cfg.h>
+#include <hicn/ctrl/route.h>
 
 #define MAXSZ_FACELET 1024
 
@@ -37,6 +37,63 @@
 #define IS_VALID_NETDEVICE(netdevice) ((netdevice.index != 0) && (netdevice.name[0] != '\0'))
 
 typedef struct facelet_s facelet_t;
+
+/* Face type */
+
+#define foreach_face_type_layer \
+    _(UNDEFINED)                \
+    _(3)                        \
+    _(4)                        \
+    _(N)
+
+typedef enum {
+#define _(x) FACE_TYPE_LAYER_ ## x,
+    foreach_face_type_layer
+#undef _
+} face_type_layer_t;
+
+#define foreach_face_type_encap \
+    _(UNDEFINED)                \
+    _(TCP)                      \
+    _(UDP)                      \
+    _(N)
+
+typedef enum {
+#define _(x) FACE_TYPE_ENCAP_ ## x,
+    foreach_face_type_encap
+#undef _
+} face_type_encap_t;
+
+typedef struct {
+   face_type_layer_t layer;
+   face_type_encap_t encap;
+} facemgr_face_type_t;
+
+#define FACEMGR_FACE_TYPE_UNDEFINED (facemgr_face_type_t) {     \
+    .layer = FACE_TYPE_LAYER_UNDEFINED,                         \
+    .encap = FACE_TYPE_ENCAP_UNDEFINED,                         \
+}
+
+#define FACEMGR_FACE_TYPE_NATIVE_UDP (facemgr_face_type_t) {    \
+    .layer = FACE_TYPE_LAYER_3,                                 \
+    .encap = FACE_TYPE_ENCAP_UDP,                               \
+}
+
+#define FACEMGR_FACE_TYPE_NATIVE_TCP (facemgr_face_type_t) {    \
+    .layer = FACE_TYPE_LAYER_3,                                 \
+    .encap = FACE_TYPE_ENCAP_TCP,                               \
+}
+
+#define FACEMGR_FACE_TYPE_OVERLAY_UDP (facemgr_face_type_t) {   \
+    .layer = FACE_TYPE_LAYER_4,                                 \
+    .encap = FACE_TYPE_ENCAP_UDP,                               \
+}
+
+#define FACEMGR_FACE_TYPE_OVERLAY_TCP (facemgr_face_type_t) {   \
+    .layer = FACE_TYPE_LAYER_4,                                 \
+    .encap = FACE_TYPE_ENCAP_TCP,                               \
+}
+
 
 /* Facelet status */
 #define foreach_facelet_status  \
@@ -133,6 +190,8 @@ facelet_t * facelet_create();
 
 facelet_t * facelet_create_from_netdevice(netdevice_t * netdevice);
 
+void facelet_set_id(facelet_t * facelet, unsigned id);
+
 int facelet_validate_face(const facelet_t * facelet);
 
 facelet_t * facelet_create_from_face(face_t * face);
@@ -142,6 +201,8 @@ void facelet_free(facelet_t * facelet);
 facelet_t * facelet_dup(const facelet_t * current_facelet);
 
 int facelet_cmp(const facelet_t * f1, const facelet_t * f2);
+
+bool facelet_equals(const facelet_t * facelet1, const facelet_t * facelet2);
 
 /* NOTE: only clean attributes are matched */
 bool facelet_match(const facelet_t * facelet, const facelet_t * facelet_match);
@@ -184,6 +245,10 @@ bool facelet_is_au_done(const facelet_t * facelet);
 
 facelet_event_t facelet_get_event(const facelet_t * facelet);
 void facelet_set_event(facelet_t * facelet, facelet_event_t event);
+
+int facelet_add_route(facelet_t * facelet, hicn_route_t * route);
+int facelet_remove_route(facelet_t * facelet, hicn_route_t * route, hicn_route_t ** route_removed);
+int facelet_get_route_array(const facelet_t * facelet, hicn_route_t *** route_array);
 
 int facelet_snprintf(char * buf, size_t size, const facelet_t * facelet);
 

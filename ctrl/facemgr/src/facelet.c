@@ -21,9 +21,17 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <hicn/ctrl/face.h>
+#include <hicn/ctrl/route.h>
 #include <hicn/facemgr/cfg.h>
 #include <hicn/facemgr/facelet.h>
 #include <hicn/util/log.h>
+
+#include "util/set.h"
+
+#define FACELET_MAX_ROUTES 10
+
+TYPEDEF_SET_H(route_set, hicn_route_t *);
+TYPEDEF_SET(route_set, hicn_route_t *, hicn_route_cmp, generic_snprintf);
 
 const char * face_type_layer_str[] = {
 #define _(x) [FACE_TYPE_LAYER_ ## x] = STRINGIZE(x),
@@ -66,6 +74,8 @@ const char * facelet_attr_status_str_short[] = {
 /* Facelet */
 
 struct facelet_s {
+    unsigned id;
+
 #define _(TYPE, NAME) TYPE NAME;
     foreach_facelet_attr
 #undef _
@@ -73,12 +83,16 @@ struct facelet_s {
     foreach_facelet_attr
 #undef _
 
+
+
     facelet_status_t status;
     bool status_error;
 
     facelet_event_t event;
 
-    /* Joins */
+    route_set_t * routes;
+    bool routes_done;
+
     bool bj_done;
     bool au_done;
 };
@@ -95,6 +109,8 @@ facelet_create()
     facelet_t * facelet = calloc(1, sizeof(facelet_t));
     if (!facelet)
         goto ERR_MALLOC;
+
+    facelet->id = 0;
 
     facelet->netdevice_status = FACELET_ATTR_STATUS_UNSET;
     facelet->netdevice_type_status = FACELET_ATTR_STATUS_UNSET;
@@ -115,10 +131,25 @@ facelet_create()
 
     facelet->event = FACELET_EVENT_UNDEFINED;
 
+    facelet->routes = route_set_create();
+    if (!facelet->routes) {
+        ERROR("[facelet_create] Cannot create route set");
+        goto ERR_ROUTE_SET;
+    }
+    facelet->routes_done = false;
+
     return facelet;
 
+ERR_ROUTE_SET:
+    free(facelet);
 ERR_MALLOC:
     return NULL;
+}
+
+void
+facelet_set_id(facelet_t * facelet, unsigned id)
+{
+    facelet->id = id;
 }
 
 facelet_t *
@@ -143,7 +174,7 @@ ERR_FACELET:
 /**
  * \brief Validate whether the facelet has all required fields to construct a
  *      face of the given type
- * \param [in) facelet - Pointer to the facelet to verify
+ * \param [in] facelet - Pointer to the facelet to verify
  * \return 0 in case of success, -1 otherwise
  */
 int
@@ -191,6 +222,8 @@ facelet_create_from_face(face_t * face)
     facelet_t * facelet = malloc(sizeof(facelet_t));
     if (!facelet)
         goto ERR_MALLOC;
+
+    facelet->id = 0;
 
     /* Go through the face attributes to update the local representation */
 
@@ -309,8 +342,17 @@ facelet_create_from_face(face_t * face)
 
     facelet->event = FACELET_EVENT_UNDEFINED;
 
+    /* We need to get route set */
+    facelet->routes = route_set_create();
+    if (!facelet->routes) {
+        ERROR("[facelet_create] Cannot create route set");
+        goto ERR_ROUTE_SET;
+    }
+    facelet->routes_done = false;
+
     return facelet;
 
+ERR_ROUTE_SET:
 ERR_FACE:
     free(facelet);
 ERR_MALLOC:
@@ -321,6 +363,20 @@ ERR_MALLOC:
 void
 facelet_free(facelet_t * facelet)
 {
+    /* Free up routes */
+    hicn_route_t ** route_array;
+    int n = route_set_get_array(facelet->routes, &route_array);
+    if (n < 0) {
+        ERROR("[facelet_free] Error getting route set associated to facelet");
+    } else {
+        for (unsigned i = 0; i < n; i++) {
+            hicn_route_t * route = route_array[i];
+            route_set_remove(facelet->routes, route, NULL);
+            hicn_route_free(route);
+        }
+    }
+    free(route_array);
+    route_set_free(facelet->routes);
     free(facelet);
 }
 
@@ -344,6 +400,19 @@ facelet_dup(const facelet_t * current_facelet)
     facelet->bj_done = current_facelet->bj_done;
     facelet->au_done = current_facelet->au_done;
 
+    /* Routes */
+    hicn_route_t ** route_array;
+    int n = route_set_get_array(current_facelet->routes, &route_array);
+    if (n < 0) {
+        ERROR("[facelet_free] Error getting route set associated to facelet");
+    } else {
+        for (unsigned i = 0; i < n; i++) {
+            hicn_route_t * route = route_array[i];
+            route_set_add(facelet->routes, route);
+        }
+    }
+    free(route_array);
+
     return facelet;
 
 ERR_CREATE:
@@ -358,12 +427,17 @@ facelet_cmp(const facelet_t * f1, const facelet_t * f2)
      * facelet is uniquely identified by its netdevice attribute, and address
      * family if any.
      *
+     * Because of additional static faces, we introduce a unique facelet id
+     *
      * This function is mostly used for lookups into the cache, and the face
      * thus needs to have a netdevice associated, and optionally, an address
      * family.
      *
      * For other situations, the `facelet_match` function is more appropriate.
      */
+
+    if (f1->id != f2->id)
+        return f1->id > f2->id ?  1 : -1;
 
     if ((f1->netdevice_status != FACELET_ATTR_STATUS_UNSET) &&
             (f2->netdevice_status != FACELET_ATTR_STATUS_UNSET)) {
@@ -394,20 +468,58 @@ facelet_cmp(const facelet_t * f1, const facelet_t * f2)
  * If the match has a field set, then the facelet only matches iif it has the
  * same field set, and both values are equal
  */
+#define EQUALS_ATTRIBUTE(TYPE, NAME)                                            \
+do {                                                                            \
+    if (facelet_has_ ## NAME(facelet1)) {                                       \
+        if (facelet_has_ ## NAME(facelet2)) {                                   \
+            TYPE NAME ## 1;                                                     \
+            TYPE NAME ## 2;                                                     \
+            if (facelet_get_ ## NAME (facelet1, & NAME ## 1) < 0)               \
+                return false;                                                   \
+            if (facelet_get_ ## NAME (facelet2, & NAME ## 2) < 0)               \
+                return false;                                                   \
+            if (memcmp(& NAME ## 1, & NAME ## 2, sizeof(TYPE)) != 0)            \
+                return false;                                                   \
+        } else {                                                                \
+            return false;                                                       \
+        }                                                                       \
+    } else {                                                                    \
+        if (facelet_has_ ## NAME(facelet2)) {                                   \
+            return false;                                                       \
+        }                                                                       \
+    }                                                                           \
+} while(0)
+
+/* facelet_match is the incoming one */
+bool
+facelet_equals(const facelet_t * facelet1, const facelet_t * facelet2)
+{
+#define _(TYPE, NAME) EQUALS_ATTRIBUTE(TYPE, NAME);
+    foreach_facelet_attr
+#undef _
+    return true;
+}
+
+/*
+ * If the match has a field set, then the facelet only matches iif it has the
+ * same field set, and both values are equal
+ */
 #define MATCH_ATTRIBUTE(TYPE, NAME)                                             \
 do {                                                                            \
     if (facelet_match->NAME ## _status == FACELET_ATTR_STATUS_CLEAN) {          \
         if (facelet_has_ ## NAME(facelet_match)) {                              \
             TYPE NAME;                                                          \
             TYPE NAME ## _match;                                                \
-            if (!facelet_has_ ## NAME(facelet))                                 \
-                return false;                                                   \
+            if (!facelet_has_ ## NAME(facelet)) {                               \
+                continue; /* return false; */                                   \
+            }                                                                   \
             if (facelet_get_ ## NAME (facelet, & NAME) < 0)                     \
                 return false;                                                   \
             if (facelet_get_ ## NAME (facelet_match, & NAME ## _match) < 0)     \
                 return false;                                                   \
-            if (memcmp(& NAME, & NAME ## _match, sizeof(NAME)) != 0)            \
+            if (memcmp(& NAME, & NAME ## _match, sizeof(NAME)) != 0) {          \
                 return false;                                                   \
+            }                                                                   \
         }                                                                       \
     }                                                                           \
 } while(0)
@@ -561,6 +673,20 @@ int facelet_merge(facelet_t * facelet, const facelet_t * facelet_to_merge)
     foreach_facelet_attr
 #undef _
     facelet->event = facelet_to_merge->event;
+
+    /* Routes */
+    hicn_route_t ** route_array;
+    int n = route_set_get_array(facelet_to_merge->routes, &route_array);
+    if (n < 0) {
+        ERROR("[facelet_free] Error getting route set associated to facelet");
+    } else {
+        for (unsigned i = 0; i < n; i++) {
+            hicn_route_t * route = route_array[i];
+            route_set_add(facelet->routes, route);
+        }
+    }
+    free(route_array);
+
     return 0;
 }
 
@@ -781,6 +907,24 @@ facelet_set_event(facelet_t * facelet, facelet_event_t event)
 }
 
 int
+facelet_add_route(facelet_t * facelet, hicn_route_t * route)
+{
+    return route_set_add(facelet->routes, route);
+}
+
+int
+facelet_remove_route(facelet_t * facelet, hicn_route_t * route, hicn_route_t ** route_removed)
+{
+    return route_set_remove(facelet->routes, route, route_removed);
+}
+
+int
+facelet_get_route_array(const facelet_t * facelet, hicn_route_t *** route_array)
+{
+    return route_set_get_array(facelet->routes, route_array);
+}
+
+int
 facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
 {
     char * cur = s;
@@ -919,6 +1063,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return cur - s;
     }
 
+    /* Face type */
     if (facelet_has_face_type(facelet)) {
         rc = snprintf(cur, s + size - cur, " face_type=LAYER%s/%s",
             FACEMGR_FACE_TYPE_STR(facelet->face_type));
@@ -929,7 +1074,39 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return cur - s;
     }
 
-    rc = snprintf(cur, s + size - cur, ">");
+    /* Routes */
+    rc = snprintf(cur, s + size - cur, " routes={ ");
+    if (rc < 0)
+        return rc;
+    cur += rc;
+    if (cur >= s + size)
+        return cur - s;
+
+    hicn_route_t ** route_array;
+    int n = route_set_get_array(facelet->routes, &route_array);
+    if (n < 0) {
+        ERROR("[facelet_free] Error getting route set associated to facelet");
+    } else {
+        for (unsigned i = 0; i < n; i++) {
+            hicn_route_t * route = route_array[i];
+            rc = hicn_route_snprintf(cur, s + size - cur, route);
+            if (rc < 0)
+                return rc;
+            cur += rc;
+            if (cur >= s + size)
+                return cur - s;
+
+            rc = snprintf(cur, s + size - cur, ", ");
+            if (rc < 0)
+                return rc;
+            cur += rc;
+            if (cur >= s + size)
+                return cur - s;
+        }
+    }
+    free(route_array);
+
+    rc = snprintf(cur, s + size - cur, "}>");
     if (rc < 0)
         return rc;
     cur += rc;
@@ -1129,6 +1306,8 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
     if (cur >= s + size)
         return cur - s;
 
+    /* Routes */
+    // TODO
 
     rc = snprintf(cur, s + size - cur, "%*s%s", 4 * indent, "", "}");
     if (rc < 0)

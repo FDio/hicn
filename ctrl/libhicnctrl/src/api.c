@@ -36,6 +36,8 @@
 
 #define PORT 9695
 
+#define INT_CMP(x, y) ((x > y) ? 1 : (x < y) ? -1 : 0)
+
 /*
  * Internal state associated to a pending request
  */
@@ -1086,13 +1088,29 @@ hc_listener_validate(const hc_listener_t * listener)
 int
 hc_listener_cmp(const hc_listener_t * l1, const hc_listener_t * l2)
 {
-    return ((l1->type == l2->type) &&
-            (l1->family == l2->family) &&
-            (strncmp(l1->interface_name, l2->interface_name, INTERFACE_LEN) == 0) &&
-            (ip_address_cmp(&l1->local_addr, &l2->local_addr, l1->family) == 0) &&
-            (l1->local_port == l2->local_port))
-        ? 0
-        : -1;
+    int rc;
+
+    rc = INT_CMP(l1->type, l2->type);
+    if (rc != 0)
+        return rc;
+
+    rc = INT_CMP(l1->family, l2->family);
+    if (rc != 0)
+        return rc;
+
+    rc = strncmp(l1->interface_name, l2->interface_name, INTERFACE_LEN);
+    if (rc != 0)
+        return rc;
+
+    rc = ip_address_cmp(&l1->local_addr, &l2->local_addr, l1->family);
+    if (rc != 0)
+        return rc;
+
+    rc = INT_CMP(l1->local_port, l2->local_port);
+    if (rc != 0)
+        return rc;
+
+    return rc;
 }
 
 /* LISTENER PARSE */
@@ -1360,14 +1378,37 @@ hc_connection_validate(const hc_connection_t * connection)
  */
 int hc_connection_cmp(const hc_connection_t * c1, const hc_connection_t * c2)
 {
-    return ((c1->type == c2->type) &&
-            (c1->family == c2->family) &&
-            (ip_address_cmp(&c1->local_addr, &c2->local_addr, c1->family) == 0) &&
-            (c1->local_port == c2->local_port) &&
-            (ip_address_cmp(&c1->remote_addr, &c2->remote_addr, c1->family) == 0) &&
-            (c1->remote_port == c2->remote_port))
-        ? 0
-        : -1;
+    int rc;
+
+    rc = INT_CMP(c1->type, c2->type);
+    if (rc != 0)
+        return rc;
+
+    rc = INT_CMP(c1->family, c2->family);
+    if (rc != 0)
+        return rc;
+
+    rc = strncmp(c1->interface_name, c2->interface_name, INTERFACE_LEN);
+    if (rc != 0)
+        return rc;
+
+    rc = ip_address_cmp(&c1->local_addr, &c2->local_addr, c1->family);
+    if (rc != 0)
+        return rc;
+
+    rc = INT_CMP(c1->local_port, c2->local_port);
+    if (rc != 0)
+        return rc;
+
+    rc = ip_address_cmp(&c1->remote_addr, &c2->remote_addr, c1->family);
+    if (rc != 0)
+        return rc;
+
+    rc = INT_CMP(c1->remote_port, c2->remote_port);
+    if (rc != 0)
+        return rc;
+
+    return rc;
 }
 
 /* CONNECTION PARSE */
@@ -2350,12 +2391,25 @@ int hc_punting_validate(const hc_punting_t * punting)
 
 int hc_punting_cmp(const hc_punting_t * p1, const hc_punting_t * p2)
 {
-    return ((p1->face_id == p2->face_id) &&
-            (p1->family == p2->family) &&
-            (ip_address_cmp(&p1->prefix, &p2->prefix, p1->family) == 0) &&
-            (p1->prefix_len == p2->prefix_len))
-        ? 0
-        : -1;
+    int rc;
+
+    rc = INT_CMP(p1->face_id, p2->face_id);
+    if (rc != 0)
+        return rc;
+
+    rc = INT_CMP(p1->family, p2->family);
+    if (rc != 0)
+        return rc;
+
+    rc = ip_address_cmp(&p1->prefix, &p2->prefix, p1->family);
+    if (rc != 0)
+        return rc;
+
+    rc = INT_CMP(p1->prefix_len, p2->prefix_len);
+    if (rc != 0)
+        return rc;
+
+    return rc;
 }
 
 int hc_punting_parse(void * in, hc_punting_t * punting)
