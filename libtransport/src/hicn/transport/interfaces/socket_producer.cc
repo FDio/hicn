@@ -267,6 +267,12 @@ uint32_t ProducerSocket::produce(Name content_name,
         identity->getSigner().sign(*manifest);
         passContentObjectToCallbacks(manifest);
 
+        // Send content objects stored in the queue
+        while (!content_queue_.empty()) {
+          passContentObjectToCallbacks(content_queue_.front());
+          content_queue_.pop();
+        }
+
         // Create new manifest. The reference to the last manifest has been
         // acquired in the passContentObjectToCallbacks function, so we can
         // safely release this reference
@@ -317,11 +323,14 @@ uint32_t ProducerSocket::produce(Name content_name,
       using namespace std::chrono_literals;
       utils::CryptoHash hash = content_object->computeDigest(hash_algo);
       manifest->addSuffixHash(suffix_content.getSuffix(), hash);
-    } else if (identity) {
-      identity->getSigner().sign(*content_object);
+      content_queue_.push(content_object);
+    } else {
+      if (identity) {
+        identity->getSigner().sign(*content_object);
+      }
+      passContentObjectToCallbacks(content_object);
     }
 
-    passContentObjectToCallbacks(content_object);
     suffix_content++;
   }
 
@@ -337,6 +346,10 @@ uint32_t ProducerSocket::produce(Name content_name,
     manifest->encode();
     identity->getSigner().sign(*manifest);
     passContentObjectToCallbacks(manifest);
+    while (!content_queue_.empty()) {
+      passContentObjectToCallbacks(content_queue_.front());
+      content_queue_.pop();
+    }
   }
 
   if (on_content_produced_) {

@@ -24,12 +24,13 @@ namespace transport {
 namespace protocol {
 
 BaseReassembly::BaseReassembly(interface::ConsumerSocket *icn_socket,
-                               ContentReassembledCallback *content_callback)
+                               ContentReassembledCallback *content_callback,
+                               TransportProtocol *next_interest)
     : reassembly_consumer_socket_(icn_socket),
       incremental_index_manager_(
           std::make_unique<IncrementalIndexManager>(icn_socket)),
       manifest_index_manager_(
-          std::make_unique<ManifestIndexManager>(icn_socket)),
+          std::make_unique<ManifestIndexManager>(icn_socket, next_interest)),
       index_manager_(incremental_index_manager_.get()),
       index_(0),
       read_buffer_(nullptr) {

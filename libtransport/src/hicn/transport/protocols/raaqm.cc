@@ -28,7 +28,7 @@ using namespace interface;
 
 RaaqmTransportProtocol::RaaqmTransportProtocol(ConsumerSocket *icnet_socket)
     : TransportProtocol(icnet_socket),
-      BaseReassembly(icnet_socket, this),
+      BaseReassembly(icnet_socket, this, this),
       current_window_size_(1),
       interests_in_flight_(0),
       cur_path_(nullptr),

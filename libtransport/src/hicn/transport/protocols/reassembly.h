@@ -49,7 +49,8 @@ class Reassembly {
 class BaseReassembly : public Reassembly {
  public:
   BaseReassembly(interface::ConsumerSocket *icn_socket,
-                 ContentReassembledCallback *content_callback);
+                 ContentReassembledCallback *content_callback,
+                 TransportProtocol *next_interest);
 
  protected:
   virtual void reassemble(ContentObject::Ptr &&content_object) override;

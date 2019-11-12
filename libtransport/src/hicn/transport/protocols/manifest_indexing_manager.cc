@@ -26,12 +26,13 @@ namespace protocol {
 using namespace interface;
 
 ManifestIndexManager::ManifestIndexManager(
-    interface::ConsumerSocket *icn_socket)
+    interface::ConsumerSocket *icn_socket, TransportProtocol *next_interest)
     : IncrementalIndexManager(icn_socket),
       PacketManager<Interest>(1024),
       next_reassembly_segment_(suffix_queue_.end()),
       next_to_retrieve_segment_(suffix_queue_.end()),
-      next_manifest_(0) {}
+      suffix_manifest_(core::NextSegmentCalculationStrategy::INCREMENTAL, 0),
+      next_interest_(next_interest) {}
 
 bool ManifestIndexManager::onManifest(
     core::ContentObject::Ptr &&content_object) {
@@ -84,10 +85,13 @@ bool ManifestIndexManager::onManifest(
         if (TRANSPORT_EXPECT_FALSE(manifest->getName().getSuffix()) == 0) {
           // Set the iterators to the beginning of the suffix queue
           next_reassembly_segment_ = suffix_queue_.begin();
+          // Set number of segments in manifests assuming the first one is full
+          suffix_manifest_.setNbSegments(std::distance(_it, _end) - 1);
         }
 
         if (TRANSPORT_EXPECT_FALSE(manifest->isFinalManifest() ||
-                                   next_manifest_ > final_suffix_)) {
+                                   suffix_manifest_.getSuffix() >
+                                       final_suffix_)) {
           break;
         }
 
@@ -101,8 +105,6 @@ bool ManifestIndexManager::onManifest(
         socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal);
 
         // Number of segments in manifest
-        std::size_t segments_in_manifest = std::distance(
-            manifest->getSuffixList().begin(), manifest->getSuffixList().end());
         std::size_t segment_count = 0;
 
         // Manifest namespace
@@ -110,11 +112,11 @@ bool ManifestIndexManager::onManifest(
 
         // Send as many manifest as required for filling window.
         do {
-          segment_count += segments_in_manifest;
-          next_manifest_ += (uint32_t)segments_in_manifest;
+          segment_count += suffix_manifest_.getNbSegments();
+          suffix_manifest_++;
 
           Interest::Ptr interest = getPacket();
-          name.setSuffix(next_manifest_);
+          name.setSuffix(suffix_manifest_.getSuffix());
           interest->setName(name);
 
           uint32_t interest_lifetime;
@@ -131,7 +133,7 @@ bool ManifestIndexManager::onManifest(
               std::bind(&ManifestIndexManager::onManifestTimeout, this,
                         std::placeholders::_1));
         } while (segment_count < current_window_size &&
-                 next_manifest_ < final_suffix_);
+                 suffix_manifest_.getSuffix() < final_suffix_);
 
         break;
       }
@@ -147,8 +149,12 @@ bool ManifestIndexManager::onManifest(
   return manifest_verified;
 }
 
-void ManifestIndexManager::onManifestReceived(Interest::Ptr &&i, ContentObject::Ptr &&c) {
+void ManifestIndexManager::onManifestReceived(Interest::Ptr &&i,
+                                              ContentObject::Ptr &&c) {
   onManifest(std::move(c));
+  if (next_interest_) {
+    next_interest_->scheduleNextInterests();
+  }
 }
 
 void ManifestIndexManager::onManifestTimeout(Interest::Ptr &&i) {
@@ -239,6 +245,7 @@ uint32_t ManifestIndexManager::getNextReassemblySegment() {
 
 void ManifestIndexManager::reset() {
   IncrementalIndexManager::reset();
+  suffix_manifest_.reset(0);
   suffix_queue_.clear();
   suffix_hash_map_.clear();
 }

@@ -194,6 +194,9 @@ class ProducerSocket : public Socket<BasePortal>,
   utils::SuffixManifest suffix_manifest_;
   utils::SuffixContent suffix_content_;
 
+  // While manifests are being built, contents are stored in a queue
+  std::queue<std::shared_ptr<ContentObject>> content_queue_;
+
   // callbacks
   ProducerInterestCallback on_interest_input_;
   ProducerInterestCallback on_interest_dropped_input_buffer_;

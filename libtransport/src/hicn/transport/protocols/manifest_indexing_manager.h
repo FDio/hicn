@@ -17,6 +17,7 @@
 
 #include <hicn/transport/interfaces/socket.h>
 #include <hicn/transport/protocols/indexing_manager.h>
+#include <hicn/transport/utils/suffix_strategy.h>
 
 #include <list>
 
@@ -32,7 +33,8 @@ class ManifestIndexManager : public IncrementalIndexManager,
   using SuffixQueue = std::list<uint32_t>;
   using HashEntry = std::pair<std::vector<uint8_t>, core::HashAlgorithm>;
 
-  ManifestIndexManager(interface::ConsumerSocket *icn_socket);
+  ManifestIndexManager(interface::ConsumerSocket *icn_socket,
+                       TransportProtocol *next_interest);
 
   virtual ~ManifestIndexManager() = default;
 
@@ -64,8 +66,11 @@ class ManifestIndexManager : public IncrementalIndexManager,
                      std::pair<std::vector<uint8_t>, core::HashAlgorithm>>
       suffix_hash_map_;
 
-  // Next Manifest
-  std::uint32_t next_manifest_;
+  // Manifest Suffix
+  utils::SuffixManifest suffix_manifest_;
+
+  // (temporary) To call scheduleNextInterests() after receiving a manifest
+  TransportProtocol *next_interest_;
 };
 
 }  // end namespace protocol
