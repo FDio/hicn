@@ -1651,7 +1651,6 @@ ERR_NF_CREATE:
     facemgr_delete_interface(facemgr, facemgr->hl);
 ERR_HL_CREATE:
 ERR_REGISTER:
-    interface_unregister_all();
     return -1;
 }
 
