@@ -22,7 +22,9 @@ cmake_minimum_required(VERSION 2.8)
 project(sysrepo-vpp-plugins)
 
 # Cmake find modules
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake/Modules"
+"${CMAKE_CURRENT_LIST_DIR}/../../../cmake/Modules"
+)
 
 find_package(VPP)
 find_package(PkgConfig)
@@ -54,7 +56,7 @@ set(PLUGINS_SOURCES
 # build the source code into shared library
 add_library(hicn SHARED ${PLUGINS_SOURCES})
 target_include_directories(hicn PUBLIC ${VPP_INCLUDE_DIRS} ${HICNPLUGIN_INCLUDE_DIRS})
-target_link_libraries(hicn ${SYSREPO_LIBRARIES} ${VPP_LIBRARIES} ${HICNPLUGIN_LIBRARIES})
+target_link_libraries(hicn ${SYSREPO_LIBRARIES} ${VPP_LIBRARIES})
 
 #set_target_properties(hicn
 #        PROPERTIES
