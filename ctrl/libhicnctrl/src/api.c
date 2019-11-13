@@ -825,7 +825,7 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
         goto ERR_DATA;
     }
 
-    int seq = hc_sock_get_next_seq(s);
+    int seq = hc_sock_get_next_seq(s, NULL);
     if (seq < 0) {
         ERROR("[hc_execute_command] Could not get next sequence number");
         goto ERR_SEQ;

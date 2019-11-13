@@ -11,12 +11,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+set(HICNPLUGIN_SEARCH_PATH_LIST
+  ${VPP_SEARCH_PATH_LIST}
+  ${HICNPLUGIN_HOME}
+  $ENV{HICNPLUGIN_HOME}
+  /usr/local
+  /opt
+  /usr
+)
 
-project(ctrl)
+find_path(HICNPLUGIN_INCLUDE_DIR vapi/hicn.api.vapi.h
+	HINTS ${HICNPLUGIN_SEARCH_PATH_LIST}
+  PATH_SUFFIXES include
+  DOC "Find the hicn plugin includes"
+)
 
-add_subdirectory(libhicnctrl)
+set(HICNPLUGIN_INCLUDE_DIRS ${HICNPLUGIN_INCLUDE_DIR} ${HICNPLUGIN_INCLUDE_DIR}/vpp_plugins)
 
-if (NOT (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux"))
-    add_subdirectory(facemgr)
-endif ()
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(HicnBinaryApi DEFAULT_MSG VPP_LIBRARIES VPP_INCLUDE_DIRS)
