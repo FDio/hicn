@@ -18,7 +18,9 @@ project(hicn_sysrepo_plugin)
 
 include(GNUInstallDirs)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
+"${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Modules"
+)
 
 # set default build type if not specified by user
 if(NOT CMAKE_BUILD_TYPE)
@@ -40,5 +42,3 @@ if (BUILD_HICNLIGHT AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     add_subdirectory(hicn-light)
 endif ()
 include(Packaging)
-include(Packager)
-make_packages()

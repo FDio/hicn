@@ -24,7 +24,9 @@ cmake_minimum_required(VERSION 2.8)
 project(sysrepo-light-plugins)
 
 # Cmake find modules
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake/Modules"
+"${CMAKE_CURRENT_LIST_DIR}/../../../cmake/Modules"
+)
 
 find_package(PkgConfig)
 find_package(HicnLight)
