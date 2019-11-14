@@ -18,6 +18,7 @@
 #include <hicn/transport/interfaces/socket.h>
 #include <hicn/transport/utils/content_store.h>
 #include <hicn/transport/utils/event_thread.h>
+#include <hicn/transport/utils/suffix_strategy.h>
 
 #include <atomic>
 #include <cmath>
@@ -190,6 +191,8 @@ class ProducerSocket : public Socket<BasePortal>,
   std::atomic<utils::CryptoSuite> crypto_suite_;
   utils::SpinLock identity_lock_;
   std::shared_ptr<utils::Identity> identity_;
+  utils::SuffixManifest suffix_manifest_;
+  utils::SuffixContent suffix_content_;
 
   // callbacks
   ProducerInterestCallback on_interest_input_;
@@ -220,8 +223,8 @@ class ProducerSocket : public Socket<BasePortal>,
       /* Condition variable for the wait */
       std::condition_variable cv;
       bool done = false;
-      io_service_.dispatch([&socket_option_key, &socket_option_value,
-                            &mtx, &cv, &result, &done, &func]() {
+      io_service_.dispatch([&socket_option_key, &socket_option_value, &mtx, &cv,
+                            &result, &done, &func]() {
         std::unique_lock<std::mutex> lck(mtx);
         done = true;
         result = func(socket_option_key, socket_option_value);

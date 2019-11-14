@@ -135,6 +135,10 @@ class ManifestEncoder {
   static std::size_t getManifestHeaderSize() {
     return Implementation::getManifestHeaderSizeImpl();
   }
+
+  static std::size_t getManifestEntrySize() {
+    return Implementation::getManifestEntrySizeImpl();
+  }
 };
 
 template <typename Implementation>
