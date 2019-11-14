@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "c52e9240_112ce052",
+        "filename": "cmake/Modules/FindHicnPlugin.cmake",
+        "patchSetId": 2
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2019-11-14T08:02:39Z",
+      "side": 1,
+      "message": "remove",
+      "range": {
+        "startLine": 13,
+        "startChar": 0,
+        "endLine": 13,
+        "endChar": 32
+      },
+      "revId": "e6f9c7d4d8e92741d4b7b0053d91a9c22caa6b5b",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
