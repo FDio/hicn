@@ -37,6 +37,7 @@ macro(build_executable exec)
     ARCHIVE_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
     LIBRARY_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
     RUNTIME_OUTPUT_DIRECTORY "${BUILD_ROOT}/bin"
+    LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs"
   )
 
   if(ARG_LINK_LIBRARIES)
