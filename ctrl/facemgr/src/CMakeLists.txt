@@ -25,10 +25,6 @@ set(HEADER_FILES
     facelet_array.h
     interface.h
     loop.h
-    util/hash.h
-    util/array.h
-    util/map.h
-    util/set.h
 )
 
 set(SOURCE_FILES
@@ -39,7 +35,6 @@ set(SOURCE_FILES
     facelet.c
     facelet_array.c
     interface.c
-    util/log.c
 )
 
 if(APPLE)

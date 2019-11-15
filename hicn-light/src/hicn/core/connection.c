@@ -327,6 +327,8 @@ void connection_SetAdminState(Connection *conn, connection_state_t admin_state)
   parcAssertNotNull(conn, "Parameter conn must be non-null");
   if (!conn->ops)
     return;
+  if ((admin_state != CONNECTION_STATE_UP) && (admin_state != CONNECTION_STATE_DOWN))
+    return;
   ioOperations_SetAdminState(conn->ops, admin_state);
 }
 

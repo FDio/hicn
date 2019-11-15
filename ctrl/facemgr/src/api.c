@@ -30,6 +30,8 @@
 #include <hicn/facemgr/cfg.h>
 #include <hicn/facemgr/facelet.h>
 #include <hicn/util/log.h>
+#include <hicn/util/map.h>
+#include <hicn/util/set.h>
 
 #ifdef __APPLE__
 #include "interfaces/network_framework/network_framework.h"
@@ -48,8 +50,6 @@
 #include "common.h"
 #include "facelet_array.h"
 #include "interface.h"
-#include "util/map.h"
-#include "util/set.h"
 
 #define RAND_NAME_LEN 5
 

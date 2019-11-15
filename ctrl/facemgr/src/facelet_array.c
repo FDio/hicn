@@ -19,8 +19,8 @@
  */
 
 #include <hicn/facemgr/facelet.h>
+#include <hicn/util/array.h>
 #include "facelet_array.h"
-#include "util/array.h"
 
 TYPEDEF_ARRAY(facelet_array, facelet_t *, facelet_equals, facelet_snprintf);
 
