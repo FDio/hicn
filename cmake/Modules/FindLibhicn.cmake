@@ -43,6 +43,9 @@ find_library(HICN_LIBRARY NAMES hicn
 )
 
 set(HICN_LIBRARIES ${HICN_LIBRARY})
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+set(HICN_LIBRARIES ${HICN_LIBRARIES} log)
+endif()
 set(HICN_INCLUDE_DIRS ${HICN_INCLUDE_DIR})
 
 include(FindPackageHandleStandardArgs)

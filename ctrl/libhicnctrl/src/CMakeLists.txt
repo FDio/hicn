@@ -43,7 +43,7 @@ set(INCLUDE_DIRS
 )
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-    set(HICN_LIBRARIES ${LIBHICN_STATIC})
+    set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
     build_library(${LIBHICNCTRL}
         STATIC
         SOURCES ${SOURCE_FILES}
