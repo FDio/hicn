@@ -409,10 +409,7 @@ hc_data_set_complete(hc_data_t * data)
 int
 hc_data_set_error(hc_data_t * data)
 {
-    data->complete = true;
-    data->ret = -1;
-    if (data->complete_cb)
-        return data->complete_cb(data, data->complete_cb_data);
+     data->ret = -1;
      return 0;
 }
 
@@ -640,11 +637,11 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             hc_msg_t * msg = (hc_msg_t*)(s->buf + s->roff);
 
             /* We expect a message header */
-            if (available < sizeof(hc_msg_header_t))
+            if (available < sizeof(hc_msg_header_t)) {
                 break;
+            }
 
             hc_sock_request_t * request = NULL;
-            printf("Received message with seq %d\n", msg->hdr.seqNum);
             if (hc_sock_map_get(s->map, msg->hdr.seqNum, &request) < 0) {
                 ERROR("[hc_sock_process] Error searching for matching request");
                 return -1;
@@ -659,12 +656,13 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                 case ACK_LIGHT:
                     assert(s->remaining == 1);
                     assert(!data);
-                    hc_data_set_complete(request->data);
+                    s->cur_request = request;
                     break;
                 case NACK_LIGHT:
                     assert(s->remaining == 1);
                     assert(!data);
                     hc_data_set_error(request->data);
+                    s->cur_request = request;
                     break;
                 case RESPONSE_LIGHT:
                     assert(data);
@@ -814,6 +812,7 @@ int
 hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
         hc_command_params_t * params, hc_data_t ** pdata, bool async)
 {
+    int ret;
     if (async)
         assert(!pdata);
 
@@ -896,10 +895,11 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
         }
     }
 
+    ret = data->ret;
     if (!pdata)
         hc_data_free(data);
 
-    return data->ret;
+    return ret;
 
 ERR_PROCESS:
 ERR_MAP:
@@ -924,7 +924,7 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
     int rc = hc_listener_snprintf(listener_s, MAXSZ_HC_LISTENER, listener);
     if (rc >= MAXSZ_HC_LISTENER)
         WARN("[_hc_listener_create] Unexpected truncation of listener string");
-    DEBUG("[_hc_listener_create] listener=%s async=%s\n", listener_s,
+    DEBUG("[_hc_listener_create] listener=%s async=%s", listener_s,
             BOOLSTR(async));
 
     if (!IS_VALID_FAMILY(listener->family))
@@ -996,7 +996,7 @@ hc_listener_get(hc_sock_t * s, hc_listener_t * listener,
     int rc = hc_listener_snprintf(listener_s, MAXSZ_HC_LISTENER, listener);
     if (rc >= MAXSZ_HC_LISTENER)
         WARN("[hc_listener_get] Unexpected truncation of listener string");
-    DEBUG("[hc_listener_get] listener=%s\n", listener_s);
+    DEBUG("[hc_listener_get] listener=%s", listener_s);
 
     if (hc_listener_list(s, &listeners) < 0)
         return -1;
@@ -1031,7 +1031,7 @@ _hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
     int rc = hc_listener_snprintf(listener_s, MAXSZ_HC_LISTENER, listener);
     if (rc >= MAXSZ_HC_LISTENER)
         WARN("[_hc_listener_delete] Unexpected truncation of listener string");
-    DEBUG("[_hc_listener_delete] listener=%s async=%s\n", listener_s,
+    DEBUG("[_hc_listener_delete] listener=%s async=%s", listener_s,
             BOOLSTR(async));
 
     struct {
@@ -1095,7 +1095,7 @@ hc_listener_delete_async(hc_sock_t * s, hc_listener_t * listener)
 int
 _hc_listener_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
-    DEBUG("[hc_listener_list] async=%s\n", BOOLSTR(async));
+    DEBUG("[hc_listener_list] async=%s", BOOLSTR(async));
 
     struct {
         header_control_message hdr;
@@ -1248,7 +1248,7 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
     int rc = hc_connection_snprintf(connection_s, MAXSZ_HC_CONNECTION, connection);
     if (rc >= MAXSZ_HC_CONNECTION)
         WARN("[_hc_connection_create] Unexpected truncation of connection string");
-    DEBUG("[_hc_connection_create] connection=%s async=%s\n", connection_s, BOOLSTR(async));
+    DEBUG("[_hc_connection_create] connection=%s async=%s", connection_s, BOOLSTR(async));
 
     if (hc_connection_validate(connection) < 0)
         return -1;
@@ -1317,7 +1317,7 @@ hc_connection_get(hc_sock_t * s, hc_connection_t * connection,
     int rc = hc_connection_snprintf(connection_s, MAXSZ_HC_CONNECTION, connection);
     if (rc >= MAXSZ_HC_CONNECTION)
         WARN("[hc_connection_get] Unexpected truncation of connection string");
-    DEBUG("[hc_connection_get] connection=%s\n", connection_s);
+    DEBUG("[hc_connection_get] connection=%s", connection_s);
 
     if (hc_connection_list(s, &connections) < 0)
         return -1;
@@ -1352,7 +1352,7 @@ _hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
     int rc = hc_connection_snprintf(connection_s, MAXSZ_HC_CONNECTION, connection);
     if (rc >= MAXSZ_HC_CONNECTION)
         WARN("[_hc_connection_delete] Unexpected truncation of connection string");
-    DEBUG("[_hc_connection_delete] connection=%s async=%s\n", connection_s, BOOLSTR(async));
+    DEBUG("[_hc_connection_delete] connection=%s async=%s", connection_s, BOOLSTR(async));
 
     struct {
         header_control_message hdr;
@@ -1414,7 +1414,7 @@ hc_connection_delete_async(hc_sock_t * s, hc_connection_t * connection)
 int
 _hc_connection_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
-    DEBUG("[hc_connection_list] async=%s\n", BOOLSTR(async));
+    DEBUG("[hc_connection_list] async=%s", BOOLSTR(async));
 
     struct {
         header_control_message hdr;
@@ -1604,7 +1604,7 @@ _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
         face_state_t state, bool async)
 {
     int rc;
-    DEBUG("[hc_connection_set_admin_state] connection_id/name=%s admin_state=%s async=%s\n",
+    DEBUG("[hc_connection_set_admin_state] connection_id/name=%s admin_state=%s async=%s",
             conn_id_or_name, face_state_str[state], BOOLSTR(async));
     struct {
         header_control_message hdr;
@@ -1662,7 +1662,10 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
     int rc = hc_route_snprintf(route_s, MAXSZ_HC_ROUTE, route);
     if (rc >= MAXSZ_HC_ROUTE)
         WARN("[_hc_route_create] Unexpected truncation of route string");
-    DEBUG("[hc_route_create] route=%s async=%s\n", route_s, BOOLSTR(async));
+    if (rc < 0)
+        WARN("[_hc_route_create] Error building route string");
+    else
+        DEBUG("[hc_route_create] route=%s async=%s", route_s, BOOLSTR(async));
 
     if (!IS_VALID_FAMILY(route->family))
          return -1;
@@ -1725,7 +1728,7 @@ _hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
     int rc = hc_route_snprintf(route_s, MAXSZ_HC_ROUTE, route);
     if (rc >= MAXSZ_HC_ROUTE)
         WARN("[_hc_route_delete] Unexpected truncation of route string");
-    DEBUG("[hc_route_delete] route=%s async=%s\n", route_s, BOOLSTR(async));
+    DEBUG("[hc_route_delete] route=%s async=%s", route_s, BOOLSTR(async));
 
     if (!IS_VALID_FAMILY(route->family))
          return -1;
@@ -1781,7 +1784,7 @@ hc_route_delete_async(hc_sock_t * s, hc_route_t * route)
 int
 _hc_route_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
-    DEBUG("[hc_route_list] async=%s\n", BOOLSTR(async));
+    DEBUG("[hc_route_list] async=%s", BOOLSTR(async));
 
     struct {
         header_control_message hdr;
@@ -2101,7 +2104,7 @@ hc_face_create(hc_sock_t * s, hc_face_t * face)
     int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
     if (rc >= MAXSZ_HC_FACE)
         WARN("[hc_face_create] Unexpected truncation of face string");
-    DEBUG("[hc_face_create] face=%s\n", face_s);
+    DEBUG("[hc_face_create] face=%s", face_s);
 
     switch(face->face.type)
     {
@@ -2195,7 +2198,7 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
     int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
     if (rc >= MAXSZ_HC_FACE)
         WARN("[hc_face_get] Unexpected truncation of face string");
-    DEBUG("[hc_face_get] face=%s\n");
+    DEBUG("[hc_face_get] face=%s");
 
     switch(face->face.type)
     {
@@ -2248,7 +2251,7 @@ hc_face_delete(hc_sock_t * s, hc_face_t * face)
     int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
     if (rc >= MAXSZ_HC_FACE)
         WARN("[hc_face_delete] Unexpected truncation of face string");
-    DEBUG("[hc_face_delete] face=%s\n");
+    DEBUG("[hc_face_delete] face=%s");
 
     hc_connection_t connection;
     if (hc_face_to_connection(face, &connection, false) < 0) {
@@ -2318,7 +2321,7 @@ hc_face_list(hc_sock_t * s, hc_data_t ** pdata)
     hc_data_t * connection_data;
     hc_face_t face;
 
-    DEBUG("[hc_face_list]\n");
+    DEBUG("[hc_face_list]");
 
     if (hc_connection_list(s, &connection_data) < 0) {
         ERROR("[hc_face_list] Could not list connections.");

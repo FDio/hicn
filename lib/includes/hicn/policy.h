@@ -104,7 +104,7 @@ foreach_policy_tag
     return POLICY_TAG_N + 1;
 }
 
-#define MAXSZ_POLICY_TAGS_ POLICY_TAG_N
+#define MAXSZ_POLICY_TAGS_ POLICY_TAG_N + 1
 #define MAXSZ_POLICY_TAGS MAXSZ_POLICY_TAGS_ + 1
 
 /* POLICY STATE */

@@ -34,7 +34,7 @@ typedef struct {
 } log_conf_t;
 
 #define DEFAULT_LOG_CONF {      \
-    .log_level = LOG_DEBUG,     \
+    .log_level = LOG_INFO,      \
     .debug = 0,                 \
     .log_file = NULL,           \
 };

@@ -145,19 +145,18 @@ ip_address_snprintf(char * s, size_t size, const ip_address_t * ip_address, int 
             if (size <= INET_ADDRSTRLEN)
                 return -1;
             rc = inet_ntop (AF_INET, ip_address->v4.buffer, s, INET_ADDRSTRLEN);
-            if (!rc)
-                return -1;
-            return INET_ADDRSTRLEN;
+            break;
         case AF_INET6:
             if (size <= INET6_ADDRSTRLEN)
                 return -1;
             rc = inet_ntop (AF_INET6, ip_address->v6.buffer, s, INET6_ADDRSTRLEN);
-            if (!rc)
-                return -1;
-            return INET6_ADDRSTRLEN;
+            break;
         default:
             return -1;
     }
+    if (!rc)
+        return -1;
+    return strlen(s);
 }
 
 int
