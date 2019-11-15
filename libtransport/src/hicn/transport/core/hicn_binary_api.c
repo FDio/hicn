@@ -50,6 +50,12 @@
 /* Declare message IDs */
 #include <hicn/hicn_msg_enum.h>
 
+#define vl_endianfun
+#define vl_typedefs
+#include <vnet/ip/ip_types.api.h>
+#undef vl_typedefs
+#undef vl_endianfun
+
 #define vl_endianfun /* define message structures */
 #define vl_print(handle, ...)
 #define vl_printfun
@@ -115,7 +121,7 @@ int hicn_binary_api_register_prod_app(
   memcpy(&prefix.fp_addr, &input_params->prefix->address, sizeof(ip46_address_t));
   prefix.fp_len = input_params->prefix->len;
   prefix.fp_proto = ip46_address_is_ip4(&prefix.fp_addr) ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
-  ip_prefix_encode(&prefix, &mp->prefix);
+  ip_prefix_encode(&prefix, &(mp->prefix));
   mp->swif = clib_host_to_net_u32(input_params->swif);
   mp->cs_reserved = clib_host_to_net_u32(input_params->cs_reserved);
 

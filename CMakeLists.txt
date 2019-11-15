@@ -29,15 +29,16 @@ option(BUILD_CTRL "Build the hicn control tools" ON)
 option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
 option(BUILD_HICNEXTRAPLUGIN "Build the hicn extra plugin" OFF)
 option(BUILD_SYSREPOPLUGIN "Build the sysrepo plugin" OFF)
+option(BUILD_CTRL_HICNPLUGIN "Build the hicn control tools for hicn plugin" OFF)
 
 list(APPEND dir_options
   BUILD_LIBHICN
   BUILD_HICNLIGHT
+  BUILD_HICNPLUGIN
   BUILD_LIBTRANSPORT
   BUILD_UTILS
   BUILD_APPS
   BUILD_CTRL
-  BUILD_HICNPLUGIN
   BUILD_HICNEXTRAPLUGIN
   BUILD_SYSREPOPLUGIN
   BUILD_LIBMEMIF
@@ -91,11 +92,6 @@ if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     unset(LIBMEMIF_INCLUDE_DIRS)
     unset(LIBMEMIF_LIBRARIES)
   endif()
-
-  list(APPEND HICN_BINARY_API_INCLUDE_DIRS
-    ${PROJECT_BINARY_DIR}/hicn-plugin
-    ${PROJECT_BINARY_DIR}/hicn-plugin/vpp_plugins
-  )
 
   set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
 endif()
