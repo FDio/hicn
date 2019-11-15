@@ -16,4 +16,7 @@ cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 project(ctrl)
 
 add_subdirectory(libhicnctrl)
-add_subdirectory(facemgr)
+
+if (NOT (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux"))
+    add_subdirectory(facemgr)
+endif ()

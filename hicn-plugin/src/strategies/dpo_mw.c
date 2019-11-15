@@ -247,7 +247,7 @@ hicn_strategy_mw_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
 {
   hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
     (hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo_idx);
-  int ret = HICN_ERROR_NONE;
+  int ret = HICN_ERROR_DPO_CTX_NOT_FOUND;
   int nh_id = ~0;
   dpo_id_t invalid = NEXT_HOP_INVALID;
 
@@ -263,6 +263,7 @@ hicn_strategy_mw_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
 				next_hops[i]);
 	      hicn_strategy_mw_ctx->default_ctx.next_hops[i] = invalid;
 	      hicn_strategy_mw_ctx->default_ctx.entry_count--;
+        ret = HICN_ERROR_NONE;
 	    }
 	}
 

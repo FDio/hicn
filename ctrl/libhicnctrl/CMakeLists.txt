@@ -35,7 +35,11 @@ set(CMAKE_MACOSX_RPATH ON)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
 
-  find_package_wrapper(Libhicn REQUIRED)
+  if (BUILD_CTRL_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    find_package_wrapper(HicnPlugin REQUIRED)
+  else ()
+    find_package_wrapper(Libhicn REQUIRED)
+  endif()
 
   set(HICNCTRL hicnctrl)
   set(LIBHICNCTRL hicnctrl)
@@ -47,6 +51,16 @@ else()
     set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
     list(APPEND DEPENDENCIES
       ${LIBHICN_STATIC}
+    )
+  elseif (BUILD_CTRL_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    set(HICN_INCLUDE_DIRS
+        ${HICN_INCLUDE_DIRS}
+        ${HICNPLUGIN_INCLUDE_DIRS})
+
+    set(HICN_LIBRARIES ${HICNPLUGIN_LIBRARIES})
+
+    list(APPEND DEPENDENCIES
+        hicn_plugin
     )
   else ()
     set(HICN_LIBRARIES ${LIBHICN_SHARED})

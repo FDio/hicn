@@ -725,7 +725,7 @@ send_route_details (vl_api_registration_t * reg,
   mp->_vl_msg_id = htons (VL_API_HICN_API_ROUTES_DETAILS + hm->msg_id_base);
   mp->context = context;
 
-  clib_memcpy (&mp->prefix, &pfx, sizeof (fib_prefix_t));
+  ip_prefix_encode(pfx, &mp->prefix);
   mp->nfaces = 0;
 
   const dpo_id_t *hicn_dpo_id;
@@ -796,7 +796,7 @@ vl_api_hicn_api_route_dump_walk (fib_node_index_t fei, void *arg)
 
 static void
   vl_api_hicn_api_routes_dump_t_handler
-  (vl_api_hicn_api_face_stats_dump_t * mp)
+  (vl_api_hicn_api_routes_dump_t * mp)
 {
   vl_api_registration_t *reg;
   fib_table_t *fib_table;

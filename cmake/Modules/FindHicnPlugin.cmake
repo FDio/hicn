@@ -12,6 +12,7 @@
 # limitations under the License.
 
 set(HICNPLUGIN_SEARCH_PATH_LIST
+  ${VPP_SEARCH_PATH_LIST}
   ${HICNPLUGIN_HOME}
   $ENV{HICNPLUGIN_HOME}
   /usr/local
@@ -26,7 +27,7 @@ find_path(HICNPLUGIN_INCLUDE_DIR vapi/hicn.api.vapi.h
 )
 
 
-set(HICNPLUGIN_INCLUDE_DIRS ${HICNPLUGIN_INCLUDE_DIR})
+set(HICNPLUGIN_INCLUDE_DIRS ${HICNPLUGIN_INCLUDE_DIR} ${HICNPLUGIN_INCLUDE_DIR}/vpp_plugins)
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(HicnPlugin DEFAULT_MSG HICNPLUGIN_INCLUDE_DIRS)
