@@ -1269,6 +1269,7 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
             .connectionType = (u8)map_to_connection_type[connection->type],
             .admin_state = connection->admin_state,
 #ifdef WITH_POLICY
+            .priority = connection->priority,
             .tags = connection->tags,
 #endif /* WITH_POLICY */
         }
@@ -1546,6 +1547,7 @@ hc_connection_parse(void * in, hc_connection_t * connection)
         .remote_port = ntohs(cmd->connectionData.remotePort),
         .admin_state = cmd->connectionData.admin_state,
 #ifdef WITH_POLICY
+        .priority = cmd->connectionData.priority,
         .tags = cmd->connectionData.tags,
 #endif /* WITH_POLICY */
         .state = state,
@@ -1644,6 +1646,56 @@ hc_connection_set_admin_state_async(hc_sock_t * s, const char * conn_id_or_name,
         face_state_t state)
 {
     return _hc_connection_set_admin_state(s, conn_id_or_name, state, true);
+}
+
+int
+_hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
+        uint32_t priority, bool async)
+{
+    int rc;
+    DEBUG("[hc_connection_set_priority] connection_id/name=%s priority=%d async=%s",
+            conn_id_or_name, priority, BOOLSTR(async));
+    struct {
+        header_control_message hdr;
+        connection_set_priority_command payload;
+    } msg = {
+        .hdr = {
+            .messageType = REQUEST_LIGHT,
+            .commandID = CONNECTION_SET_ADMIN_STATE,
+            .length = 1,
+            .seqNum = 0,
+        },
+        .payload = {
+            .priority = priority,
+        },
+    };
+    rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", conn_id_or_name);
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[_hc_connection_set_priority] Unexpected truncation of symbolic name string");
+
+    hc_command_params_t params = {
+        .cmd = ACTION_SET,
+        .cmd_id = CONNECTION_SET_PRIORITY,
+        .size_in = sizeof(connection_set_priority_command),
+        .size_out = 0,
+        .parse = NULL,
+    };
+
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
+        uint32_t priority)
+{
+    return _hc_connection_set_priority(s, conn_id_or_name, priority, false);
+}
+
+int
+hc_connection_set_priority_async(hc_sock_t * s, const char * conn_id_or_name,
+        uint32_t priority)
+{
+    return _hc_connection_set_priority(s, conn_id_or_name, priority, true);
 }
 
 /*----------------------------------------------------------------------------*
@@ -1924,6 +1976,7 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
                 .admin_state = face_state_to_connection_state(f->admin_state),
                 .state = face_state_to_connection_state(f->state),
 #ifdef WITH_POLICY
+                .priority = f->priority,
                 .tags = f->tags,
 #endif /* WITH_POLICY */
             };
@@ -1943,6 +1996,7 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
                 .admin_state = face_state_to_connection_state(f->admin_state),
                 .state = face_state_to_connection_state(f->state),
 #ifdef WITH_POLICY
+                .priority = f->priority,
                 .tags = f->tags,
 #endif /* WITH_POLICY */
             };
@@ -1965,6 +2019,7 @@ hc_face_to_connection(const hc_face_t * face, hc_connection_t * connection, bool
                 .admin_state = face_state_to_connection_state(f->admin_state),
                 .state = face_state_to_connection_state(f->state),
 #ifdef WITH_POLICY
+                .priority = f->priority,
                 .tags = f->tags,
 #endif /* WITH_POLICY */
             };
@@ -2010,6 +2065,7 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
                     .admin_state = connection_state_to_face_state(connection->admin_state),
                     .state = connection_state_to_face_state(connection->state),
 #ifdef WITH_POLICY
+                    .priority = connection->priority,
                     .tags = connection->tags,
 #endif /* WITH_POLICY */
                 },
@@ -2028,6 +2084,7 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
                     .admin_state = connection_state_to_face_state(connection->admin_state),
                     .state = connection_state_to_face_state(connection->state),
 #ifdef WITH_POLICY
+                    .priority = connection->priority,
                     .tags = connection->tags,
 #endif /* WITH_POLICY */
                 },
@@ -2045,6 +2102,7 @@ hc_connection_to_face(const hc_connection_t * connection, hc_face_t * face)
                     .admin_state = connection_state_to_face_state(connection->admin_state),
                     .state = connection_state_to_face_state(connection->state),
 #ifdef WITH_POLICY
+                    .priority = connection->priority,
                     .tags = connection->tags,
 #endif /* WITH_POLICY */
                 },
@@ -2450,7 +2508,7 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
     if (rc < 0)
         return rc;
 
-    return snprintf(s, size, "[#%d %s] %s %s %s %s %s/%s (%s)",
+    return snprintf(s, size, "[#%d %s] %s %s %s %s %s/%s [%d] (%s)",
             face->id,
             face->name,
             face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
@@ -2459,6 +2517,7 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
             remote,
             face_state_str[face->face.state],
             face_state_str[face->face.admin_state],
+            face->face.priority,
             tags);
 #else
     return snprintf(s, size, "[#%d %s] %s %s %s %s %s/%s",
@@ -2474,10 +2533,17 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
 }
 
 int
-hc_face_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, // XXX wrong identifier
+hc_face_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
         face_state_t admin_state)
 {
     return hc_connection_set_admin_state(s, conn_id_or_name, admin_state);
+}
+
+int
+hc_face_set_priority(hc_sock_t * s, const char * conn_id_or_name,
+        uint32_t priority)
+{
+    return hc_connection_set_priority(s, conn_id_or_name, priority);
 }
 
 /*----------------------------------------------------------------------------*

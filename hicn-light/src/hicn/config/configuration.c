@@ -420,6 +420,7 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
       Connection *conn = connection_Create(ops);
 #ifdef WITH_POLICY
       connection_SetTags(conn, control->tags);
+      connection_SetPriority(conn, control->priority);
 #endif /* WITH_POLICY */
 
       connection_SetAdminState(conn, control->admin_state);
@@ -443,6 +444,7 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
   } else {
 #ifdef WITH_POLICY
     connection_SetTags(conn, control->tags);
+    connection_SetPriority(conn, control->priority);
     connection_SetAdminState(conn, control->admin_state);
 
 #ifdef WITH_MAPME
@@ -704,6 +706,7 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
     listConnectionsCommand->connectionData.admin_state = connection_GetAdminState(original);
 
 #ifdef WITH_POLICY
+    listConnectionsCommand->priority = connection_GetPriority(original);
     listConnectionsCommand->connectionData.tags = connection_GetTags(original);
 #endif /* WITH_POLICY */
 
@@ -1162,7 +1165,7 @@ struct iovec *configuration_ConnectionSetAdminState(Configuration *config,
   connection_SetAdminState(conn, control->admin_state);
 
 #ifdef WITH_MAPME
-  /* Hook: new connection created through the control protocol */
+  /* Hook: connection event */
   forwarder_onConnectionEvent(config->forwarder, conn,
       control->admin_state == CONNECTION_STATE_UP
               ? CONNECTION_EVENT_SET_UP
@@ -1173,6 +1176,27 @@ struct iovec *configuration_ConnectionSetAdminState(Configuration *config,
 }
 
 #ifdef WITH_POLICY
+
+struct iovec *configuration_ConnectionSetPriority(Configuration *config,
+                                      struct iovec *request) {
+  header_control_message *header = request[0].iov_base;
+  connection_set_priority_command *control = request[1].iov_base;
+
+  Connection * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
+  if (!conn)
+    return utils_CreateNack(header, control, sizeof(connection_set_priority_command));
+
+  connection_SetPriority(conn, control->priority);
+
+#ifdef WITH_MAPME
+  /* Hook: connection event */
+  forwarder_onConnectionEvent(config->forwarder, conn,
+          CONNECTION_EVENT_PRIORITY_CHANGED);
+#endif /* WITH_MAPME */
+
+  return utils_CreateAck(header, control, sizeof(connection_set_priority_command));
+}
+
 struct iovec *configuration_ProcessPolicyAdd(Configuration *config,
                                       struct iovec *request) {
   header_control_message *header = request[0].iov_base;
@@ -1256,12 +1280,14 @@ struct iovec *configuration_UpdateConnection(Configuration *config,
 
   Connection * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
   if (!conn)
-    return utils_CreateNack(header, control, sizeof(connection_set_admin_state_command));
+    return utils_CreateNack(header, control, sizeof(update_connection_command));
 
   connection_SetTags(conn, control->tags);
   connection_SetAdminState(conn, control->admin_state);
+  if (control->priority > 0)
+    connection_SetPriority(conn, control->priority);
 
-  return utils_CreateAck(header, control, sizeof(remove_policy_command));
+  return utils_CreateAck(header, control, sizeof(update_connection_command));
 }
 #endif /* WITH_POLICY */
 
@@ -1371,6 +1397,10 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
 
     case UPDATE_CONNECTION:
       response = configuration_UpdateConnection(config, control);
+      break;
+
+    case CONNECTION_SET_PRIORITY:
+      response = configuration_ConnectionSetPriority(config, control);
       break;
 #endif /* WITH_POLICY */
 

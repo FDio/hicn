@@ -294,8 +294,11 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
     int rc;
     int ret = 0;
     hl_data_t * data = (hl_data_t *)interface->data;
-
     face_t * face = NULL;
+
+    hc_face.id = 0;
+    memset(hc_face.name, 0, sizeof(hc_face.name));
+
 
     /* NOTE
      *  - One example where this fails (and it is normal) is when we delete a
@@ -324,8 +327,6 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
             facelet_snprintf(buf, MAXSZ_FACELET, facelet);
             DEBUG("Create facelet %s", buf);
             }
-            hc_face.id = 0;
-            memset(hc_face.name, 0, sizeof(hc_face.name));
             hc_face.face = *face;
             rc = hc_face_create(data->s, &hc_face);
             if (rc < 0) {
@@ -415,7 +416,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
             break;
 
         case FACELET_EVENT_UPDATE:
-            /* Currently, only admin_state is supported */
+            /* Currently, only admin_state & priority are supported */
             if (facelet_get_admin_state_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
                 hc_face.face = *face;
                 hc_face_t * face_found;
@@ -448,6 +449,35 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                     goto ERR;
                 }
                 INFO("Admin state updated");
+            }
+            if (facelet_get_admin_state_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
+                hc_face.face = *face;
+                hc_face_t * face_found;
+
+                rc = hc_face_get(data->s, &hc_face, &face_found);
+                if (rc < 0) {
+                    ERROR("Failed to find face\n");
+                    goto ERR;
+                }
+                if (!face_found) {
+                    ERROR("Face to update has not been found");
+                    goto ERR;
+                }
+                char conn_id_or_name[SYMBOLIC_NAME_LEN];
+                snprintf(conn_id_or_name, SYMBOLIC_NAME_LEN, "%d", face_found->id);
+                free(face_found);
+
+                uint32_t priority;
+                if (facelet_get_priority(facelet, &priority) < 0) {
+                    ERROR("Failed to retrieve facelet priority");
+                    goto ERR;
+                }
+
+                if (hc_connection_set_priority(data->s, conn_id_or_name, priority) < 0) {
+                    ERROR("Failed to update priority");
+                    goto ERR;
+                }
+                INFO("Priority updated");
             }
             break;
 

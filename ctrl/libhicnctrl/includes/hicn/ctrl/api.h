@@ -498,6 +498,7 @@ typedef struct {
     u16 remote_port;             /* .rw */
     hc_connection_state_t admin_state;  /* .rw */
 #ifdef WITH_POLICY
+    uint32_t priority;           /* .rw */
     policy_tags_t tags;          /* .rw */
 #endif /* WITH_POLICY */
     hc_connection_state_t state; /* .r. */
@@ -523,8 +524,9 @@ int hc_connection_validate(const hc_connection_t * connection);
 int hc_connection_cmp(const hc_connection_t * c1, const hc_connection_t * c2);
 int hc_connection_parse(void * in, hc_connection_t * connection);
 
-#ifdef WITH_POLICY
 int hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, face_state_t state);
+#ifdef WITH_POLICY
+int hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name, uint32_t priority);
 #endif /* WITH_POLICY */
 
 #define foreach_connection(VAR, data) foreach_type(hc_connection_t, VAR, data)

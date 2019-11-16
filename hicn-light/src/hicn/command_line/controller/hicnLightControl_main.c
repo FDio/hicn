@@ -82,6 +82,7 @@ static int payloadLengthController[LAST_COMMAND_VALUE] = {
     sizeof(list_policies_command),
     sizeof(remove_policy_command),
     sizeof(update_connection_command),
+    sizeof(connection_set_priority_command),
 #endif
 };
 
