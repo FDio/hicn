@@ -153,6 +153,7 @@ typedef struct {
     face_state_t admin_state;
     face_state_t state;
 #ifdef WITH_POLICY
+    uint32_t priority;
     policy_tags_t tags; /**< \see policy_tag_t */
 #endif /* WITH_POLICY */
 

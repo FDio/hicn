@@ -86,6 +86,16 @@ void ioOperations_SetAdminState(IoOperations *ops, connection_state_t admin_stat
   ops->setAdminState(ops, admin_state);
 }
 
+#ifdef WITH_POLICY
+uint32_t ioOperations_GetPriority(const IoOperations *ops) {
+  return ops->getPriority(ops);
+}
+
+void ioOperations_SetPriority(IoOperations *ops, uint32_t priority) {
+  ops->setPriority(ops, priority);
+}
+#endif /* WITH_POLICY */
+
 const char * ioOperations_GetInterfaceName(const IoOperations *ops) {
     return ops->getInterfaceName(ops);
 }

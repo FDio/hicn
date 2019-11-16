@@ -78,6 +78,9 @@ typedef struct hicn_state {
    * but it is currently not reachable from within the implementation. */
   connection_state_t state;
   connection_state_t admin_state;
+#ifdef WITH_POLICY
+  uint32_t priority;
+#endif /* WITH_POLICY */
 } _HicnState;
 
 // Prototypes
@@ -97,6 +100,10 @@ static connection_state_t _getState(const IoOperations *ops);
 static void _setState(IoOperations *ops, connection_state_t state);
 static connection_state_t _getAdminState(const IoOperations *ops);
 static void _setAdminState(IoOperations *ops, connection_state_t admin_state);
+#ifdef WITH_POLICY
+static uint32_t _getPriority(const IoOperations *ops);
+static void _setPriority(IoOperations *ops, uint32_t priority);
+#endif /* WITH_POLICY */
 static const char * _getInterfaceName(const IoOperations *ops);
 
 /*
@@ -129,6 +136,10 @@ static IoOperations _template = {
   .setState = &_setState,
   .getAdminState = &_getAdminState,
   .setAdminState = &_setAdminState,
+#ifdef WITH_POLICY
+  .getPriority = &_getPriority,
+  .setPriority = &_setPriority,
+#endif /* WITH_POLICY */
   .getInterfaceName = &_getInterfaceName,
 };
 
@@ -592,6 +603,22 @@ static void _setAdminState(IoOperations *ops, connection_state_t admin_state) {
   hicnConnState->admin_state = admin_state;
 }
 
+#ifdef WITH_POLICY
+static uint32_t _getPriority(const IoOperations *ops) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  const _HicnState *hicnConnState =
+      (const _HicnState *)ioOperations_GetClosure(ops);
+  return hicnConnState->priority;
+}
+
+static void _setPriority(IoOperations *ops, uint32_t priority) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  _HicnState *hicnConnState =
+      (_HicnState *)ioOperations_GetClosure(ops);
+  hicnConnState->priority = priority;
+}
+#endif /* WITH_POLICY
+*/
 static const char * _getInterfaceName(const IoOperations *ops)
 {
   parcAssertNotNull(ops, "Parameter must be non-null");

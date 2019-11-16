@@ -488,6 +488,7 @@ void mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, c
     case CONNECTION_EVENT_DELETE:
     case CONNECTION_EVENT_SET_DOWN:
     case CONNECTION_EVENT_UPDATE:
+    case CONNECTION_EVENT_PRIORITY_CHANGED:
       break;
   }
 }

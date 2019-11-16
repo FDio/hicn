@@ -66,6 +66,9 @@ typedef struct stream_state {
    * but it is currently not reachable from within the implementation. */
   connection_state_t state;
   connection_state_t admin_state;
+#ifdef WITH_POLICY
+  uint32_t priority;
+#endif /* WITH_POLICY */
 } _StreamState;
 
 // Prototypes
@@ -91,6 +94,10 @@ static connection_state_t _streamConnection_getState(const IoOperations *ops);
 static void _streamConnection_setState(IoOperations *ops, connection_state_t state);
 static connection_state_t _streamConnection_getAdminState(const IoOperations *ops);
 static void _streamConnection_setAdminState(IoOperations *ops, connection_state_t admin_state);
+#ifdef WITH_POLICY
+static uint32_t _streamConnection_getPriority(const IoOperations *ops);
+static void _streamConnection_setPriority(IoOperations *ops, uint32_t priority);
+#endif /* WITH_POLICY */
 static const char * _streamConnection_getInterfaceName(const IoOperations *ops);
 
 /*
@@ -123,6 +130,10 @@ static IoOperations _template = {
     .setState = &_streamConnection_setState,
     .getAdminState = &_streamConnection_getAdminState,
     .setAdminState = &_streamConnection_setAdminState,
+#ifdef WITH_POLICY
+    .getPriority = &_streamConnection_getPriority,
+    .setPriority = &_streamConnection_setPriority,
+#endif /* WITH_POLICY */
     .getInterfaceName = &_streamConnection_getInterfaceName,
 };
 
@@ -735,6 +746,22 @@ static void _streamConnection_setAdminState(IoOperations *ops, connection_state_
       (_StreamState *)ioOperations_GetClosure(ops);
   stream->admin_state = admin_state;
 }
+
+#ifdef WITH_POLICY
+static uint32_t _streamConnection_getPriority(const IoOperations *ops) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  const _StreamState *stream =
+      (const _StreamState *)ioOperations_GetClosure(ops);
+  return stream->priority;
+}
+
+static void _streamConnection_setPriority(IoOperations *ops, uint32_t priority) {
+  parcAssertNotNull(ops, "Parameter must be non-null");
+  _StreamState *stream =
+      (_StreamState *)ioOperations_GetClosure(ops);
+  stream->priority = priority;
+}
+#endif /* WITH_POLICY */
 
 static const char * _streamConnection_getInterfaceName(const IoOperations *ops)
 {

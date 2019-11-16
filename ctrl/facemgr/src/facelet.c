@@ -120,6 +120,9 @@ facelet_create()
     facelet->remote_port_status = FACELET_ATTR_STATUS_UNSET;
     facelet->admin_state_status = FACELET_ATTR_STATUS_UNSET;
     facelet->state_status = FACELET_ATTR_STATUS_UNSET;
+#ifdef WITH_POLICY
+    facelet->priority_status = FACELET_ATTR_STATUS_UNSET;
+#endif /* WITH_POLICY */
     facelet->face_type_status = FACELET_ATTR_STATUS_UNSET;
 
     facelet->status = FACELET_STATUS_UNDEFINED;
@@ -306,6 +309,16 @@ facelet_create_from_face(face_t * face)
     } else {
         facelet->state_status = FACELET_ATTR_STATUS_UNSET;
     }
+
+#ifdef WITH_POLICY
+    /* Attribute : priority */
+    if (face->priority > 0) {
+        facelet->priority = face->priority;
+        facelet->priority_status = FACELET_ATTR_STATUS_CLEAN;
+    } else {
+        facelet->priority_status = FACELET_ATTR_STATUS_UNSET;
+    }
+#endif /* WITH_POLICY */
 
     /* Attribute : face_type */
     if ((face->type != FACE_TYPE_UNDEFINED) && (face->type != FACE_TYPE_N)) {
@@ -786,6 +799,15 @@ facelet_get_face(const facelet_t * facelet, face_t ** pface)
         face->state = FACE_STATE_UP;
     }
 
+#ifdef WITH_POLICY
+    /* Priority */
+    if (facelet_has_priority(facelet)) {
+        if (facelet_get_priority(facelet, &face->priority) < 0)
+            goto ERR;
+    } else {
+        face->priority = 0;
+    }
+
     /* Tags */
 
     /* - based on netdevice type */
@@ -816,6 +838,7 @@ facelet_get_face(const facelet_t * facelet, face_t ** pface)
         }
     }
     face->tags = tags;
+#endif /* WITH_POLICY */
 
     *pface = face;
 
@@ -1062,6 +1085,18 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return cur - s;
     }
 
+#ifdef WITH_POLICY
+    /* Priority */
+    if (facelet_has_priority(facelet)) {
+        rc = snprintf(cur, s + size - cur, " priority=%d", facelet->priority);
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (cur >= s + size)
+            return cur - s;
+    }
+#endif /* WITH_POLICY */
+
     /* Face type */
     if (facelet_has_face_type(facelet)) {
         rc = snprintf(cur, s + size - cur, " face_type=LAYER%s/%s",
@@ -1283,6 +1318,19 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
         if (cur >= s + size)
             return cur - s;
     }
+
+#ifdef WITH_POLICY
+    /* Priority */
+    if (facelet_has_priority(facelet)) {
+        rc = snprintf(cur, s + size - cur, "%*s%s: %d,\n", 4 * (indent+1), "",
+                "\"priority\"", facelet->priority);
+        if (rc < 0)
+            return rc;
+        cur += rc;
+        if (cur >= s + size)
+            return cur - s;
+    }
+#endif /* WITH_POLICY */
 
     if (facelet_has_face_type(facelet)) {
         rc = snprintf(cur, s + size - cur, "%*s%s: \"LAYER%s/%s\",\n", 4 * (indent+1), "",
