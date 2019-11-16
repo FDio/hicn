@@ -576,16 +576,39 @@ const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
   if (numberSet_Length(available_nexthops) == 0) {
     out = numberSet_Create();
   } else {
+
+    /* Priority */
+    NumberSet * priority_nexthops = numberSet_Create();
+
+    uint32_t max_priority = 0;
+    for (size_t k = 0; k < numberSet_Length(priority_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(priority_nexthops, k);
+      const Connection * conn = connectionTable_FindById(table, conn_id);
+      uint32_t priority = connection_GetPriority(conn);
+      if (priority < max_priority) {
+          continue;
+      } else if (priority == max_priority) {
+        numberSet_Add(priority_nexthops, conn_id);
+      } else { /* priority > max_priority */
+        numberSet_Release(&priority_nexthops);
+        priority_nexthops = numberSet_Create();
+        numberSet_Add(priority_nexthops, conn_id);
+        max_priority = priority;
+      }
+    }
+
     /* Multipath */
     if ((policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_PROHIBIT) &&
         (policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_AVOID)) {
-      out = fibEntry->fwdStrategy->lookupNexthop(fibEntry->fwdStrategy, available_nexthops,
+      out = fibEntry->fwdStrategy->lookupNexthop(fibEntry->fwdStrategy, priority_nexthops,
           interestMessage);
     } else {
-      unsigned nexthop = numberSet_GetItem(available_nexthops, 0);
+      unsigned nexthop = numberSet_GetItem(priority_nexthops, 0);
       out = numberSet_Create();
       numberSet_Add(out, nexthop);
     }
+
+    numberSet_Release(&priority_nexthops);
   }
 
   numberSet_Release(&available_nexthops);

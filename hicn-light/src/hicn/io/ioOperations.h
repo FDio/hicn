@@ -89,6 +89,10 @@ struct io_ops {
   void (*setState)(IoOperations *ops, connection_state_t state);
   connection_state_t (*getAdminState)(const IoOperations *ops);
   void (*setAdminState)(IoOperations *ops, connection_state_t admin_state);
+#ifdef WITH_POLICY
+  uint32_t (*getPriority)(const IoOperations *ops);
+  void (*setPriority)(IoOperations *ops, uint32_t priority);
+#endif /* WITH_POLICY */
   const char * (*getInterfaceName)(const IoOperations *ops);
 };
 
@@ -415,6 +419,25 @@ connection_state_t ioOperations_GetAdminState(const IoOperations *ops);
  * @param [in] state New state to set (connection_state_t).
  */
 void ioOperations_SetAdminState(IoOperations *ops, connection_state_t admin_state);
+
+#ifdef WITH_POLICY
+/**
+ * Returns the priority of the connection
+ *
+ * @param [in] ops The connection implementation.
+ *
+ * @return Connection state (uint32_t).
+ */
+uint32_t ioOperations_GetPriority(const IoOperations *ops);
+
+/**
+ * Sets the priority of the connection
+ *
+ * @param [in] ops The connection implementation.
+ * @param [in] state New state to set (uint32_t).
+ */
+void ioOperations_SetPriority(IoOperations *ops, uint32_t priority);
+#endif /* WITH_POLICY */
 
 /**
  * Sets the interface name associated to the connection.

@@ -75,6 +75,7 @@ typedef enum {
   LIST_POLICIES,
   REMOVE_POLICY,
   UPDATE_CONNECTION,
+  CONNECTION_SET_PRIORITY,
 #endif /* WITH_POLICY */
   LAST_COMMAND_VALUE
 } command_id;
@@ -138,6 +139,7 @@ typedef struct {
   uint8_t connectionType;
   uint8_t admin_state;
 #ifdef WITH_POLICY
+  uint32_t priority;
   policy_tags_t tags;
 #endif /* WITH_POLICY */
 } add_connection_command;
@@ -166,6 +168,9 @@ typedef struct {
   uint32_t connid;
   uint8_t state;
   uint8_t admin_state;
+#ifdef WITH_POLICY
+  uint32_t priority;
+#endif /* WITH_POLICY */
   char interfaceName[SYMBOLIC_NAME_LEN];
   char connectionName[SYMBOLIC_NAME_LEN];
 } list_connections_command;
@@ -335,8 +340,14 @@ typedef struct {
 typedef struct {
   char symbolicOrConnid[SYMBOLIC_NAME_LEN];
   uint8_t admin_state;
+  uint32_t priority;
   policy_tags_t tags;
 } update_connection_command;
+
+typedef struct {
+  char symbolicOrConnid[SYMBOLIC_NAME_LEN];
+  uint32_t priority;
+} connection_set_priority_command;
 
 #endif /* WITH_POLICY */
 
@@ -394,6 +405,8 @@ static inline int payloadLengthDaemon(command_id id) {
       return sizeof(remove_policy_command);
     case UPDATE_CONNECTION:
       return sizeof(update_connection_command);
+    case CONNECTION_SET_PRIORITY:
+      return sizeof(connection_set_priority_command);
 #endif /* WITH_POLICY */
     case LAST_COMMAND_VALUE:
       return 0;

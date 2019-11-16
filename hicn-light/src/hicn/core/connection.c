@@ -332,6 +332,26 @@ void connection_SetAdminState(Connection *conn, connection_state_t admin_state)
   ioOperations_SetAdminState(conn->ops, admin_state);
 }
 
+#ifdef WITH_POLICY
+uint32_t connection_GetPriority(const Connection *conn)
+{
+  parcAssertNotNull(conn, "Parameter conn must be non-null");
+  if (!conn->ops)
+    return CONNECTION_STATE_UNDEFINED;
+  return ioOperations_GetPriority(conn->ops);
+}
+
+void connection_SetPriority(Connection *conn, uint32_t priority)
+{
+  parcAssertNotNull(conn, "Parameter conn must be non-null");
+  if (!conn->ops)
+    return;
+  if ((priority != CONNECTION_STATE_UP) && (priority != CONNECTION_STATE_DOWN))
+    return;
+  ioOperations_SetPriority(conn->ops, priority);
+}
+#endif /* WITH_POLICY */
+
 const char * connection_GetInterfaceName(const Connection * conn)
 {
   parcAssertNotNull(conn, "Parameter conn must be non-null");

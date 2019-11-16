@@ -36,6 +36,7 @@ typedef enum {
   CONNECTION_EVENT_UPDATE,
   CONNECTION_EVENT_SET_UP,
   CONNECTION_EVENT_SET_DOWN,
+  CONNECTION_EVENT_PRIORITY_CHANGED,
 } connection_event_t;
 
 #endif /* WITH_MAPME */
@@ -182,6 +183,12 @@ void connection_SetState(Connection *conn, connection_state_t state);
 connection_state_t connection_GetAdminState(const Connection *conn);
 
 void connection_SetAdminState(Connection *conn, connection_state_t admin_state);
+
+#ifdef WITH_POLICY
+uint32_t connection_GetPriority(const Connection *conn);
+
+void connection_SetPriority(Connection *conn, uint32_t priority);
+#endif /* WITH_POLICY */
 
 const char * connection_GetInterfaceName(const Connection * conn);
 
