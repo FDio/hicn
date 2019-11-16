@@ -417,11 +417,13 @@ facemgr_create_interface(facemgr_t * facemgr, const char * name, const char * ty
         *pinterface = interface;
     return 0;
 
+
+    //interface_finalize(interface);
+ERR_INIT:
+    interface_map_remove(facemgr->interface_map, interface->name, NULL);
 ERR_MAP_ADD:
     free(interface_map_data);
 ERR_MAP_DATA:
-    interface_finalize(interface);
-ERR_INIT:
     interface_free(interface);
 ERR_CREATE:
     if (pinterface)
