@@ -84,69 +84,97 @@ unformat_ip46_address (unformat_input_t * input, va_list * args)
   return 0;
 }
 
-/* static ip46_type_t */
-/* ip_address_union_decode (const vl_api_address_union_t *in, */
-/*                          vl_api_address_family_t af, */
-/*                          ip46_address_t *out) */
-/* { */
-/*   ip46_type_t type; */
+static ip46_type_t
+ip_address_union_decode (const vl_api_address_union_t *in,
+                         vl_api_address_family_t af,
+                         ip46_address_t *out)
+{
+  ip46_type_t type;
 
-/*   switch (clib_net_to_host_u32 (af)) */
-/*     { */
-/*     case ADDRESS_IP4: */
-/*       clib_memset (out, 0, sizeof (*out)); */
-/*       clib_memcpy (&out->ip4, &in->ip4, sizeof (out->ip4)); */
-/*       type = IP46_TYPE_IP4; */
-/*       break; */
-/*     case ADDRESS_IP6: */
-/*       clib_memcpy (&out->ip6, &in->ip6, sizeof (out->ip6)); */
-/*       type = IP46_TYPE_IP6; */
-/*       break; */
-/*     default: */
-/*       ASSERT (!"Unkown address family in API address type"); */
-/*       type = IP46_TYPE_ANY; */
-/*       break; */
-/*     } */
+  switch (clib_net_to_host_u32 (af))
+    {
+    case ADDRESS_IP4:
+      clib_memset (out, 0, sizeof (*out));
+      clib_memcpy (&out->ip4, &in->ip4, sizeof (out->ip4));
+      type = IP46_TYPE_IP4;
+      break;
+    case ADDRESS_IP6:
+      clib_memcpy (&out->ip6, &in->ip6, sizeof (out->ip6));
+      type = IP46_TYPE_IP6;
+      break;
+    default:
+      ASSERT (!"Unkown address family in API address type");
+      type = IP46_TYPE_ANY;
+      break;
+    }
 
-/*   return type; */
-/* } */
+  return type;
+}
 
-/* static void */
-/* ip_address_union_encode (const ip46_address_t * in, */
-/* 			 vl_api_address_family_t af, */
-/* 			 vl_api_address_union_t * out) */
-/* { */
-/*   if (ADDRESS_IP6 == clib_net_to_host_u32 (af)) */
-/*     memcpy (out->ip6.address, &in->ip6, sizeof (out->ip6)); */
-/*   else */
-/*     memcpy (out->ip4.address, &in->ip4, sizeof (out->ip4)); */
-/* } */
+void
+ip6_address_encode (const ip6_address_t * in, vl_api_ip6_address_t out)
+ {
+   clib_memcpy (out, in, sizeof (*in));
+ }
 
-/* ip46_type_t ip_address_decode (const vl_api_address_t *in, ip46_address_t *out) */
-/* { */
-/*   return (ip_address_union_decode (&in->un, in->af, out)); */
-/* } */
+void
+ip6_address_decode (const vl_api_ip6_address_t in, ip6_address_t * out)
+{
+  clib_memcpy (out, in, sizeof (*out));
+}
 
-/* void ip_address_encode (const ip46_address_t *in, ip46_type_t type, */
-/*                         vl_api_address_t *out) */
-/* { */
-/*   switch (type) */
-/*     { */
-/*     case IP46_TYPE_IP4: */
-/*       out->af = clib_net_to_host_u32 (ADDRESS_IP4); */
-/*       break; */
-/*     case IP46_TYPE_IP6: */
-/*       out->af = clib_net_to_host_u32 (ADDRESS_IP6); */
-/*       break; */
-/*     case IP46_TYPE_ANY: */
-/*       if (ip46_address_is_ip4 (in)) */
-/*         out->af = clib_net_to_host_u32 (ADDRESS_IP4); */
-/*       else */
-/*         out->af = clib_net_to_host_u32 (ADDRESS_IP6); */
-/*       break; */
-/*     } */
-/*   ip_address_union_encode (in, out->af, &out->un); */
-/* } */
+void
+ip4_address_encode (const ip4_address_t * in, vl_api_ip4_address_t out)
+{
+  clib_memcpy (out, in, sizeof (*in));
+}
+
+void
+ip4_address_decode (const vl_api_ip4_address_t in, ip4_address_t * out)
+{
+  clib_memcpy (out, in, sizeof (*out));
+}
+
+static void
+ip_address_union_encode (const ip46_address_t * in,
+			 vl_api_address_family_t af,
+			 vl_api_address_union_t * out)
+{
+  if (ADDRESS_IP6 == clib_net_to_host_u32 (af))
+    ip6_address_encode (&in->ip6, out->ip6);
+  else
+    ip4_address_encode (&in->ip4, out->ip4);
+  /* if (ADDRESS_IP6 == clib_net_to_host_u32 (af)) */
+  /*   memcpy (out->ip6.address, &in->ip6, sizeof (out->ip6)); */
+  /* else */
+  /*   memcpy (out->ip4.address, &in->ip4, sizeof (out->ip4)); */
+}
+
+ip46_type_t ip_address_decode (const vl_api_address_t *in, ip46_address_t *out)
+{
+  return (ip_address_union_decode (&in->un, in->af, out));
+}
+
+void ip_address_encode (const ip46_address_t *in, ip46_type_t type,
+                        vl_api_address_t *out)
+{
+  switch (type)
+    {
+    case IP46_TYPE_IP4:
+      out->af = clib_net_to_host_u32 (ADDRESS_IP4);
+      break;
+    case IP46_TYPE_IP6:
+      out->af = clib_net_to_host_u32 (ADDRESS_IP6);
+      break;
+    case IP46_TYPE_ANY:
+      if (ip46_address_is_ip4 (in))
+        out->af = clib_net_to_host_u32 (ADDRESS_IP4);
+      else
+        out->af = clib_net_to_host_u32 (ADDRESS_IP6);
+      break;
+    }
+  ip_address_union_encode (in, out->af, &out->un);
+}
 
 /////////////////////////////////////////////////////
 
@@ -165,6 +193,7 @@ hicn_test_main_t hicn_test_main;
 #define foreach_standard_reply_retval_handler            \
 _(hicn_api_node_params_set_reply)                        \
 _(hicn_api_face_ip_del_reply)                            \
+_(hicn_api_face_del_reply)                               \
 _(hicn_api_route_nhops_add_reply)                        \
 _(hicn_api_route_del_reply)                              \
 _(hicn_api_route_nhop_del_reply)
@@ -196,6 +225,8 @@ _(HICN_API_NODE_PARAMS_GET_REPLY, hicn_api_node_params_get_reply)       \
 _(HICN_API_NODE_STATS_GET_REPLY, hicn_api_node_stats_get_reply)         \
 _(HICN_API_FACE_IP_DEL_REPLY, hicn_api_face_ip_del_reply)               \
 _(HICN_API_FACE_IP_ADD_REPLY, hicn_api_face_ip_add_reply)               \
+_(HICN_API_FACE_ADD_REPLY, hicn_api_face_add_reply)                     \
+_(HICN_API_FACE_DEL_REPLY, hicn_api_face_del_reply)                     \
 _(HICN_API_FACE_STATS_DETAILS, hicn_api_face_stats_details)             \
 _(HICN_API_ROUTE_NHOPS_ADD_REPLY, hicn_api_route_nhops_add_reply)       \
 _(HICN_API_FACE_IP_PARAMS_GET_REPLY, hicn_api_face_ip_params_get_reply) \
@@ -393,22 +424,16 @@ api_hicn_api_face_ip_add (vat_main_t * vam)
   ip46_address_t remote_addr = { 0 };
   int ret = HICN_ERROR_NONE;
   int sw_if = 0;
-  vl_api_hicn_api_face_ip_add_t *mp;
+  vl_api_hicn_api_face_add_t *mp;
 
   /* Parse args required to build the message */
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat
-	  (input, "local %U", unformat_ip4_address, &local_addr.ip4));
+	  (input, "local %U", unformat_ip46_address, &local_addr, IP46_TYPE_ANY));
       else
 	if (unformat
-	    (input, "local %U", unformat_ip6_address, &local_addr.ip6));
-      else
-	if (unformat
-	    (input, "remote %U", unformat_ip4_address, &remote_addr.ip4));
-      else
-	if (unformat
-	    (input, "remote %U", unformat_ip6_address, &remote_addr.ip6));
+	    (input, "remote %U", unformat_ip46_address, &remote_addr, IP46_TYPE_ANY));
       else if (unformat (input, "intfc %d", &sw_if));
       else
 	{
@@ -423,10 +448,11 @@ api_hicn_api_face_ip_add (vat_main_t * vam)
       return (1);
     }
   /* Construct the API message */
-  M (HICN_API_FACE_IP_ADD, mp);
-  ip_address_decode (&mp->local_addr, &local_addr);
-  ip_address_decode (&mp->remote_addr, &remote_addr);
-  mp->swif = clib_host_to_net_u32 (sw_if);
+  M (HICN_API_FACE_ADD, mp);
+  mp->type = UDP_FACE;
+  ip_address_encode (&local_addr, IP46_TYPE_ANY, &mp->face.ip.local_addr);
+  ip_address_encode (&remote_addr, IP46_TYPE_ANY, &mp->face.ip.remote_addr);
+  mp->face.udp.swif = clib_host_to_net_u32 (sw_if);
 
   /* send it... */
   S (mp);
@@ -440,6 +466,81 @@ api_hicn_api_face_ip_add (vat_main_t * vam)
 static void
   vl_api_hicn_api_face_ip_add_reply_t_handler
   (vl_api_hicn_api_face_ip_add_reply_t * rmp)
+{
+  vat_main_t *vam = hicn_test_main.vat_main;
+  i32 retval = ntohl (rmp->retval);
+
+  if (vam->async_mode)
+    {
+      vam->async_errors += (retval < 0);
+      return;
+    }
+  vam->retval = retval;
+  vam->result_ready = 1;
+
+  if (vam->retval < 0)
+    {
+      //vpp_api_test infra will also print out string form of error
+      fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
+      return;
+    }
+  fformat (vam->ofp, "New Face ID: %d\n", ntohl (rmp->faceid));
+}
+
+static int
+api_hicn_api_face_udp_add (vat_main_t * vam)
+{
+  unformat_input_t *input = vam->input;
+  ip46_address_t local_addr = { 0 };
+  ip46_address_t remote_addr = { 0 };
+  u16 sport = 0;
+  u16 dport = 0;
+  int ret = HICN_ERROR_NONE;
+  int sw_if = ~0;
+  vl_api_hicn_api_face_add_t *mp;
+
+  /* Parse args required to build the message */
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat
+	  (input, "local %U port %u", unformat_ip46_address, &local_addr, IP46_TYPE_ANY, &sport));
+      else
+	if (unformat
+	    (input, "remote %U port %u", unformat_ip46_address, &remote_addr, IP46_TYPE_ANY, &dport));
+      else if (unformat (input, "intfc %d", &sw_if));
+      else
+	{
+	  break;
+	}
+    }
+
+  /* Check for presence of both addresses */
+  if (ip46_address_is_zero (&remote_addr) || ip46_address_is_zero (&local_addr) || sport == 0 || dport ==0)
+    {
+      clib_warning ("Incomplete UDP face. Please specify local and remote address and port");
+      return (1);
+    }
+  /* Construct the API message */
+  M (HICN_API_FACE_ADD, mp);
+  mp->type = UDP_FACE;
+  ip_address_encode (&local_addr, IP46_TYPE_ANY, &mp->face.udp.local_addr);
+  ip_address_encode (&remote_addr, IP46_TYPE_ANY, &mp->face.udp.remote_addr);
+  mp->face.udp.lport = clib_host_to_net_u16(sport);
+  mp->face.udp.rport = clib_host_to_net_u16(dport);
+  mp->face.udp.swif = clib_host_to_net_u32 (sw_if);
+
+  /* send it... */
+  S (mp);
+
+  /* Wait for a reply... */
+  W (ret);
+
+  return ret;
+}
+
+static void
+vl_api_hicn_api_face_add_reply_t_handler
+(vl_api_hicn_api_face_add_reply_t * rmp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (rmp->retval);
@@ -487,6 +588,43 @@ api_hicn_api_face_ip_del (vat_main_t * vam)
     }
   //Construct the API message
   M (HICN_API_FACE_IP_DEL, mp);
+  mp->faceid = clib_host_to_net_u32 (faceid);
+
+  //send it...
+  S (mp);
+
+  //Wait for a reply...
+  W (ret);
+
+  return ret;
+}
+
+static int
+api_hicn_api_face_del (vat_main_t * vam)
+{
+  unformat_input_t *input = vam->input;
+  vl_api_hicn_api_face_del_t *mp;
+  u32 faceid = 0, ret;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "face %d", &faceid))
+	{;
+	}
+      else
+	{
+	  break;
+	}
+    }
+
+  //Check for presence of face ID
+  if (faceid == ~0)
+    {
+      clib_warning ("Please specify face ID");
+      return 1;
+    }
+  //Construct the API message
+  M (HICN_API_FACE_DEL, mp);
   mp->faceid = clib_host_to_net_u32 (faceid);
 
   //send it...
@@ -1164,6 +1302,8 @@ _(hicn_api_node_params_get, "")                                         \
 _(hicn_api_node_stats_get, "")                                          \
 _(hicn_api_face_ip_del, "face <faceID>")                                \
 _(hicn_api_face_ip_add, "local <address> remote <address> intfc <swif>")\
+_(hicn_api_face_udp_add, "local <address> port <port> remote <address> port <port> intfc <swif>") \
+_(hicn_api_face_del, "face <faceID>")                                   \
 _(hicn_api_face_stats_dump, "")                                         \
 _(hicn_api_route_nhops_add, "add prefix <IP4/IP6>/<subnet> face <faceID> weight <weight>") \
 _(hicn_api_face_ip_params_get, "face <faceID>")                         \

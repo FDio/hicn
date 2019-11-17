@@ -366,7 +366,7 @@ format_hicn_face_udp (u8 * s, va_list * args)
 		      format_ip6_address, &udp_face->hdrs.ip6.ip.src_address,
 		      clib_net_to_host_u16 (udp_face->hdrs.ip6.udp.src_port));
 	  s =
-	    format (s, "remote %U|%u", format_ip6_address,
+	    format (s, "remote %U|%u ", format_ip6_address,
 		    &udp_face->hdrs.ip6.ip.dst_address,
 		    clib_net_to_host_u16 (udp_face->hdrs.ip6.udp.dst_port));
 	  s = format (s, "%U", format_vnet_link, adj->ia_link);
