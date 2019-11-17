@@ -16,6 +16,56 @@
 option version = "5.1.0";
 import "vnet/ip/ip_types.api";
 
+enum face_type : u8 {
+   IP_FACE = 0,
+   UDP_FACE,
+};
+
+typedef hicn_face_ip {
+  /* IP local address */
+  vl_api_address_t local_addr;
+
+  /* IP remote address */
+  vl_api_address_t remote_addr;
+
+  /* IPv4 local port number */
+  u32 swif;
+
+  /* Face flags */
+  u32 flags;
+
+  /* Name of the interface */
+  u8 if_name[30];
+};
+
+typedef hicn_face_udp {
+  /* IP local address */
+  vl_api_address_t local_addr;
+
+  /* IP remote address */
+  vl_api_address_t remote_addr;
+
+  /* Local port */
+  u16 lport;
+
+  /* Remote port */
+  u16 rport;
+
+  /* IPv4 local port number */
+  u32 swif;
+
+  /* Face flags */
+  u32 flags;
+
+  /* Name of the interface */
+  u8 if_name[30];
+};
+
+typedef hicn_face_union {
+  vl_api_hicn_face_ip_t ip;
+  vl_api_hicn_face_udp_t udp;
+};
+
 define hicn_api_node_params_set
 {
   /* Client identifier, set from api_main.my_client_index */
@@ -160,13 +210,7 @@ define hicn_api_face_ip_add
   u32 context;
 
   /* IP local address */
-  vl_api_address_t local_addr;
-
-  /* IP remote address */
-  vl_api_address_t remote_addr;
-
-  /* IPv4 local port number */
-  u32 swif;
+  vl_api_hicn_face_ip_t face;
 };
 
 define hicn_api_face_ip_add_reply
@@ -200,18 +244,6 @@ define hicn_api_face_ip_del_reply
 
   /* Return value, zero means all OK */
   i32 retval;
-};
-
-define hicn_api_face_ip_params_get
-{
-  /* Client identifier, set from api_main.my_client_index */
-  u32 client_index;
-
-  /* Arbitrary context, so client can match reply to request */
-  u32 context;
-
-  /* A Face to be retrieved */
-  u32 faceid;
 };
 
 define hicn_api_face_stats_details
@@ -255,6 +287,18 @@ define hicn_api_face_stats_dump
   u32 context;
 };
 
+define hicn_api_face_ip_params_get
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* A Face to be retrieved */
+  u32 faceid;
+};
+
 define hicn_api_face_ip_params_get_reply
 {
   /* From the request */
@@ -277,6 +321,111 @@ define hicn_api_face_ip_params_get_reply
 
   /* Face flags */
   u32 flags;
+};
+
+define hicn_api_face_add
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Type of face to add */
+  vl_api_face_type_t type;
+
+  /* Face to add */
+  vl_api_hicn_face_union_t face;
+};
+
+define hicn_api_face_add_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value: new Face ID, ~0 means no Face was created */
+  u32 faceid;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_face_del
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* A Face ID to be deleted */
+  u32 faceid;
+};
+
+define hicn_api_face_del_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
+define hicn_api_faces_details
+{
+/* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+
+  /* Id of the face */
+  u32 faceid;
+
+  /* Type of face to add */
+  vl_api_face_type_t type;
+
+  /* Face to add */
+  vl_api_hicn_face_union_t face;
+};
+
+define hicn_api_faces_dump
+{
+/* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+};
+
+define hicn_api_face_get
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* A Face to be retrieved */
+  u32 faceid;
+};
+
+define hicn_api_face_get_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+
+  /* Id of the face */
+  u32 faceid;
+
+  /* Type of face to add */
+  vl_api_face_type_t type;
+
+  /* Face to add */
+  vl_api_hicn_face_union_t face;
 };
 
 define hicn_api_route_nhops_add
