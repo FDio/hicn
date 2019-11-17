@@ -599,6 +599,7 @@ int hc_route_parse(void * in, hc_route_t * route);
 int hc_route_create(hc_sock_t * s, hc_route_t * route);
 int hc_route_delete(hc_sock_t * s, hc_route_t * route);
 int hc_route_list(hc_sock_t * s, hc_data_t ** pdata);
+int hc_route_list_async(hc_sock_t * s);
 
 #define foreach_route(VAR, data) foreach_type(hc_route_t, VAR, data)
 
