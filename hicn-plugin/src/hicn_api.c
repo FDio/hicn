@@ -26,6 +26,7 @@
 
 #include "hicn.h"
 #include "faces/ip/face_ip.h"
+#include "faces/udp/face_udp.h"
 #include "infra.h"
 #include "parser.h"
 #include "mgmt.h"
@@ -70,6 +71,7 @@
   _(HICN_API_FACE_IP_ADD, hicn_api_face_ip_add)                     \
   _(HICN_API_FACE_IP_DEL, hicn_api_face_ip_del)                     \
   _(HICN_API_FACE_IP_PARAMS_GET, hicn_api_face_ip_params_get)       \
+  _(HICN_API_FACE_UDP_ADD, hicn_api_face_udp_add)                   \
   _(HICN_API_FACE_STATS_DUMP, hicn_api_face_stats_dump)             \
   _(HICN_API_ROUTE_GET, hicn_api_route_get)                         \
   _(HICN_API_ROUTES_DUMP, hicn_api_routes_dump)                     \
@@ -288,6 +290,52 @@ static void
     {
       rv = hicn_face_api_entry_params_serialize(faceid, rmp);
       rmp->retval = clib_host_to_net_u32(rv);
+    }));
+  /* *INDENT-ON* */
+}
+
+static void
+vl_api_hicn_api_face_udp_add_t_handler (vl_api_hicn_api_face_udp_add_t * mp)
+{
+  vl_api_hicn_api_face_udp_add_reply_t *rmp;
+  hicn_error_t rv = HICN_ERROR_NONE;
+
+  hicn_main_t *sm = &hicn_main;
+
+  hicn_face_id_t faceid = HICN_FACE_NULL;
+  ip46_address_t saddr;
+  ip46_address_t daddr;
+  u16 sport;
+  u16 dport;
+  u32 sw_if;
+  ip_address_decode(&mp->saddr, &saddr);
+  ip_address_decode(&mp->daddr, &daddr);
+  //Do not byteswap. We store ports in network order
+  sport = mp->sport;
+  dport = mp->dport;
+  sw_if = clib_net_to_host_u32 (mp->swif);
+
+  int input_is_ok = !ip46_address_is_zero (&saddr) && !ip46_address_is_zero (&daddr) &&
+    ((ip46_address_is_ip4 (&saddr) && ip46_address_is_ip4 (&daddr)) ||
+     (!ip46_address_is_ip4 (&saddr) && !ip46_address_is_ip4 (&daddr))) &&
+    sport != 0 && dport !=0;
+
+  if (!input_is_ok)
+    {
+      rv = HICN_ERROR_UNSPECIFIED;
+    }
+  else
+    {
+      rv = hicn_face_udp_add (&saddr,
+                              &daddr, sport, dport,
+                              sw_if, &faceid);
+    }
+
+  /* *INDENT-OFF* */
+  REPLY_MACRO2 (VL_API_HICN_API_FACE_IP_ADD_REPLY /* , rmp, mp, rv */ ,(
+    {
+      rmp->faceid = clib_host_to_net_u32 ((u32) faceid);
+      rmp->retval = rv;
     }));
   /* *INDENT-ON* */
 }

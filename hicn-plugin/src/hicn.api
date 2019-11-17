@@ -279,6 +279,42 @@ define hicn_api_face_ip_params_get_reply
   u32 flags;
 };
 
+define hicn_api_face_udp_add
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* IP local address */
+  vl_api_address_t saddr;
+
+  /* Source port */
+  u16 sport;
+
+  /* IP remote address */
+  vl_api_address_t daddr;
+
+/* Source port */
+  u16 dport;
+
+  /* IPv4 local port number */
+  u32 swif;
+};
+
+define hicn_api_face_udp_add_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value: new Face ID, ~0 means no Face was created */
+  u32 faceid;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+};
+
 define hicn_api_route_nhops_add
 {
   /* Client identifier, set from api_main.my_client_index */
