@@ -225,7 +225,7 @@ hicn_face_ip_find_adj (const ip46_address_t * remote_addr,
       if (*adj != ~0)
         temp = adj_get(*adj);
 
-      if (temp == NULL || temp->lookup_next_index <= IP_LOOKUP_NEXT_REWRITE)
+      if (temp == NULL || temp->lookup_next_index <= IP_LOOKUP_NEXT_MIDCHAIN)
         {
           if(sw_if != ~0)
             *adj = adj_nbr_add_or_lock(fib_pfx.fp_proto, link_type, remote_addr, sw_if);
