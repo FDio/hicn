@@ -1053,16 +1053,16 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
      struct sockaddr_in sa;
      inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
      unsigned char * tmp = (unsigned char *) &sa.sin_addr.s_addr;
-     memcpy(&msg->payload.local_addr.un.ip4[0],tmp,B32);
-     msg->payload.local_addr.af = ADDRESS_IP4;
+     memcpy(&msg->payload.face.local_addr.un.ip4[0],tmp,B32);
+     msg->payload.face.local_addr.af = ADDRESS_IP4;
 
  }else if(strcmp(input[1].data.string_val,"-1")){
 
      void *dst = malloc(sizeof(struct in6_addr));
      inet_pton(AF_INET6, input[1].data.string_val, dst);
      unsigned char * tmp = (unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-     memcpy(&msg->payload.local_addr.un.ip6[0],tmp,B128);
-     msg->payload.local_addr.af = ADDRESS_IP6;
+     memcpy(&msg->payload.face.local_addr.un.ip6[0],tmp,B128);
+     msg->payload.face.local_addr.af = ADDRESS_IP6;
 
  }else{
      SRP_LOG_DBG_MSG("Invalid local IP address");
@@ -1074,8 +1074,8 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
      struct sockaddr_in sa;
      inet_pton(AF_INET,  input[2].data.string_val, &(sa.sin_addr));
      unsigned char * tmp = (unsigned char *)&sa.sin_addr.s_addr;
-     memcpy(&msg->payload.remote_addr.un.ip4[0],tmp,B32);
-     msg->payload.remote_addr.af = ADDRESS_IP4;
+     memcpy(&msg->payload.face.remote_addr.un.ip4[0],tmp,B32);
+     msg->payload.face.remote_addr.af = ADDRESS_IP4;
 
 
  }else if(strcmp(input[3].data.string_val,"-1")){
@@ -1083,8 +1083,8 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
      void *dst = malloc(sizeof(struct in6_addr));
      inet_pton(AF_INET6, input[3].data.string_val, dst);
      unsigned char * tmp =(unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-     memcpy(&msg->payload.remote_addr.un.ip6[0],tmp,B128);
-     msg->payload.remote_addr.af = ADDRESS_IP6;
+     memcpy(&msg->payload.face.remote_addr.un.ip6[0],tmp,B128);
+     msg->payload.face.remote_addr.af = ADDRESS_IP6;
 
  }else{
      SRP_LOG_DBG_MSG("Invalid local IP address");
