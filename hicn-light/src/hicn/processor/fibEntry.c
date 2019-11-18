@@ -581,8 +581,8 @@ const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
     NumberSet * priority_nexthops = numberSet_Create();
 
     uint32_t max_priority = 0;
-    for (size_t k = 0; k < numberSet_Length(priority_nexthops); k++) {
-      unsigned conn_id = numberSet_GetItem(priority_nexthops, k);
+    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
       const Connection * conn = connectionTable_FindById(table, conn_id);
       uint32_t priority = connection_GetPriority(conn);
       if (priority < max_priority) {
