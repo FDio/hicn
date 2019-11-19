@@ -34,7 +34,7 @@
 
 #include <hicn/util/ip_address.h>
 
-typedef unsigned int hash_t;
+//typedef unsigned int hash_t; //incompatible with vpp
 
 /* Netdevice type */
 
@@ -192,7 +192,7 @@ void face_free(face_t * face);
 typedef int (*face_cmp_t)(const face_t * f1, const face_t * f2);
 
 int face_cmp(const face_t * f1, const face_t * f2);
-hash_t face_hash(const face_t * face);
+unsigned int face_hash(const face_t * face);
 
 size_t
 face_snprintf(char * s, size_t size, const face_t * face);

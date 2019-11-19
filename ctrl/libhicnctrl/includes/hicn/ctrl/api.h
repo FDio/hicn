@@ -139,7 +139,7 @@ typedef struct hc_data_s {
  * Create a structure holding the results of an hICN control request.
  * \result The newly create data structure.
  */
-hc_data_t *hc_data_create(size_t in_element_size, size_t out_element_size);
+hc_data_t *hc_data_create(size_t in_element_size, size_t out_element_size, data_callback_t complete_cb);
 
 /**
  * Free a structure holding the results of an hICN control request.
@@ -382,7 +382,11 @@ int hc_sock_reset(hc_sock_t *s);
 #define NULLTERM 1
 #endif
 
-#define INTERFACE_LEN IFNAMSIZ
+#ifdef HICN_VPP_PLUGIN
+  #define INTERFACE_LEN 64
+#else
+  #define INTERFACE_LEN IFNAMSIZ
+#endif
 #define MAXSZ_HC_NAME_ SYMBOLIC_NAME_LEN
 #define MAXSZ_HC_NAME MAXSZ_HC_NAME_ + NULLTERM
 

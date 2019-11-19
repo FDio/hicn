@@ -351,7 +351,7 @@ vl_api_hicn_api_face_add_t_handler (vl_api_hicn_api_face_add_t * mp)
 
   hicn_main_t *sm = &hicn_main;
   hicn_face_id_t face_id;
-  vl_api_face_type_t face_type = mp->type;
+  vl_api_face_type_t face_type = clib_net_to_host_u32(mp->type);
 
   switch (face_type)
     {
@@ -370,7 +370,7 @@ vl_api_hicn_api_face_add_t_handler (vl_api_hicn_api_face_add_t * mp)
   REPLY_MACRO2 (VL_API_HICN_API_FACE_ADD_REPLY /* , rmp, mp, rv */ ,(
     {
       rmp->faceid = clib_host_to_net_u32 ((u32) face_id);
-      rmp->retval = rv;
+      rmp->retval = clib_host_to_net_u32 (rv);
     }));
   /* *INDENT-ON* */
 }

@@ -240,7 +240,8 @@ uint32_t hashlittle( const void *key, size_t length, uint32_t initval)
 /* Helpers */
 
 #define HASH_INITVAL 1
-#define hash(buf, len)  (hash_t)hashlittle(buf, len, HASH_INITVAL)
+//#define hash(buf, len)  (hash_t)hashlittle(buf, len, HASH_INITVAL)
+#define hash(buf, len)  hashlittle(buf, len, HASH_INITVAL)
 #define hash_struct(buf) hash(buf, sizeof(buf))
 
 #endif /* UTIL_JENKINS_HASH_H */

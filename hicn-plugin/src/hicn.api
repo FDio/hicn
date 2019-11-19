@@ -16,13 +16,13 @@
 option version = "5.1.0";
 import "vnet/ip/ip_types.api";
 
-enum face_type : u8
+enum face_type
 {
    IP_FACE = 0,
    UDP_FACE,
 };
 
-enum punt_type : u8
+enum punt_type
 {
    IP_PUNT = 0,
    UDP_PUNT,
