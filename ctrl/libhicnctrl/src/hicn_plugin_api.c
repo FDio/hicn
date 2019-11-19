@@ -32,19 +32,30 @@
 #include <hicn/util/token.h>
 #include <strings.h>
 #include <vapi/hicn.api.vapi.h>
+#include <vapi/ip.api.vapi.h>
+#include <vapi/interface.api.vapi.h>
 #include <hicn/util/log.h>
 #include <hicn/util/map.h>
+#include <vnet/ip/ip6_packet.h>
+#include <vnet/ip/ip_types_api.h>
 
 #define APP_NAME "hicn_plugin"
 #define MAX_OUTSTANDING_REQUESTS 4
 #define RESPONSE_QUEUE_SIZE 2
 
+// #define vl_typedefs
+// #include <vpp/api/vpe_all_api_h.h>
+// #undef vl_typedefs
+
 DEFINE_VAPI_MSG_IDS_HICN_API_JSON
+DEFINE_VAPI_MSG_IDS_INTERFACE_API_JSON
+DEFINE_VAPI_MSG_IDS_IP_API_JSON
 
 /*
  * Internal state associated to a pending request
  */
 typedef struct {
+  vapi_ctx_t g_vapi_ctx_instance;
   int seq;
   // Reusing the buffer of data to hold both the unparsed response from the
   // forwarder and the result of the parsing
@@ -104,13 +115,14 @@ void hc_sock_request_free(hc_sock_request_t *request) { free(request); }
   _(hicn_api_node_params_set_reply)    \
   _(hicn_api_node_params_get_reply)    \
   _(hicn_api_node_stats_get_reply)     \
-  _(hicn_api_face_ip_add)              \
-  _(hicn_api_face_ip_add_reply)        \
-  _(hicn_api_face_ip_del)              \
-  _(hicn_api_face_ip_del_reply)        \
-  _(hicn_api_face_ip_params_get)       \
+  _(hicn_api_face_add)                 \
+  _(hicn_api_face_add_reply)           \
+  _(hicn_api_face_del)                 \
+  _(hicn_api_face_del_reply)           \
+  _(hicn_api_face_get)                 \
+  _(hicn_api_faces_details)            \
   _(hicn_api_face_stats_details)       \
-  _(hicn_api_face_ip_params_get_reply) \
+  _(hicn_api_face_get_reply)           \
   _(hicn_api_route_nhops_add)          \
   _(hicn_api_route_nhops_add_reply)    \
   _(hicn_api_route_del)                \
@@ -136,7 +148,10 @@ typedef union {
 #undef _
 } hc_msg_payload_t;
 
-#define IS_DUMP_MSG(a) (a == vapi_msg_id_hicn_api_face_stats_dump || a == vapi_msg_id_hicn_api_routes_dump)
+#define IS_DUMP_MSG(a) (a == vapi_msg_id_hicn_api_face_stats_dump ||           \
+                        a == vapi_msg_id_hicn_api_routes_dump ||               \
+                        a == vapi_msg_id_hicn_api_faces_dump ||                \
+                        a == vapi_msg_id_sw_interface_dump)
 
 typedef struct __attribute__ ((__packed__)) {
   hc_msg_header_t hdr;
@@ -161,7 +176,7 @@ typedef struct __attribute__((__packed__)) {
  * Control Data
  ******************************************************************************/
 
-hc_data_t *hc_data_create(size_t in_element_size, size_t out_element_size) {
+hc_data_t *hc_data_create(size_t in_element_size, size_t out_element_size, data_callback_t complete_cb) {
   hc_data_t *data = malloc(sizeof(hc_data_t));
   if (!data) goto ERR_MALLOC;
 
@@ -173,7 +188,7 @@ hc_data_t *hc_data_create(size_t in_element_size, size_t out_element_size) {
   data->complete = false;
   data->command_id = 0;  // TODO this could also be a busy mark in the socket
   /* No callback needed in blocking code for instance */
-  data->complete_cb = NULL;
+  data->complete_cb = complete_cb;
 
   return data;
 
@@ -284,12 +299,8 @@ vapi_error_e vapi_cb(vapi_ctx_t ctx, void *callback_ctx, vapi_error_e error, boo
       request->data->size = 1;
       request->data->buffer = malloc(request->data->in_element_size * request->data->size);
     } else {
-      void *tmp =
-          malloc(request->data->in_element_size * request->data->size * 2);
-      memcpy(tmp, request->data->buffer, request->data->current * request->data->in_element_size);
-      free(request->data->buffer);
-      request->data->size *= 2;
-      request->data->buffer = tmp;
+      request->data->buffer = realloc(request->data->buffer, request->data->in_element_size * request->data->size * 2);
+      request->data->size *=2;
     }
   }
   memcpy(request->data->buffer +
@@ -349,7 +360,9 @@ int hc_sock_send(hc_sock_t *s, hc_msg_t *msg, size_t msglen, int seq) {
         vapi_store_request(s->g_vapi_ctx_instance, seq, false, (vapi_cb_t)callback, callback_ctx);
     }
   }
-    
+
+  free(callback_ctx);
+  free(msg); 
   if (rv != VAPI_OK) {
     if (VAPI_OK != vapi_producer_unlock (s->g_vapi_ctx_instance)) {
       abort (); /* this really shouldn't happen */
@@ -396,8 +409,11 @@ int hc_sock_process(hc_sock_t *s, hc_data_t **pdata) {
     return -1;
   }
 
-  err = request->parse((u8 *)request, NULL);
+  if(request->parse != NULL)
+    err = request->parse((u8 *)request, NULL);
   request->data->complete = 1;
+  if (!err && request->data->complete_cb != NULL)
+    err = request->data->complete_cb(request->data, s);
   s->roff++;
 
   if (pdata) *pdata = request->data;
@@ -465,6 +481,7 @@ typedef struct {
   size_t size_in;
   size_t size_out;
   HC_PARSE parse;
+  data_callback_t complete_cb;
 } hc_command_params_t;
 
 int hc_execute_command(hc_sock_t *s, hc_msg_t *msg, size_t msg_len,
@@ -476,7 +493,7 @@ int hc_execute_command(hc_sock_t *s, hc_msg_t *msg, size_t msg_len,
   switch (params->cmd) {
     case ACTION_CREATE:
       assert(params->size_in != 0); /* payload repeated */
-      assert(params->size_out == 0);
+      //assert(params->size_out == 0); //Face will return the face id
       //assert(params->parse == NULL);
       break;
     case ACTION_DELETE:
@@ -499,7 +516,7 @@ int hc_execute_command(hc_sock_t *s, hc_msg_t *msg, size_t msg_len,
   }
 
   /* XXX data will at least store the result (complete) */
-  hc_data_t *data = hc_data_create(params->size_in, params->size_out);
+  hc_data_t *data = hc_data_create(params->size_in, params->size_out, params->complete_cb);
   if (!data) {
     ERROR("[hc_execute_command] Could not create data storage");
     goto ERR_DATA;
@@ -578,7 +595,6 @@ int hc_listener_create_async(hc_sock_t *s, hc_listener_t *listener) {
 }
 
 /* LISTENER GET */
-
 int hc_listener_get(hc_sock_t *s, hc_listener_t *listener,
                     hc_listener_t **listener_found) {
   // NOT IMPLEMENTED
@@ -597,10 +613,110 @@ int hc_listener_delete_async(hc_sock_t *s, hc_listener_t *listener) {
   return -1;
 }
 
+vapi_error_e process_ip_info(struct vapi_ctx_s *ctx,
+                            void *callback_ctx,
+                            vapi_error_e rv,
+                            bool is_last,
+                            vapi_payload_ip_address_details *reply) {
+
+  if (is_last)
+    return 0;
+  hc_data_t *data = (hc_data_t *)callback_ctx;
+
+  if (data->size == data->current) {
+    data->buffer = realloc(data->buffer, sizeof(hc_listener_t) * data->size * 2);
+    data->size *=2;
+  }
+
+  hc_listener_t * listener = (hc_listener_t *)(data->buffer + data->current * sizeof(hc_listener_t));
+
+  if(reply->prefix.address.af == ADDRESS_IP4) {
+    memcpy(listener->local_addr.v4.as_u8, reply->prefix.address.un.ip4, IPV4_ADDR_LEN);
+    listener->family = AF_INET;
+  }
+  else {
+    memcpy(listener->local_addr.v6.as_u8, reply->prefix.address.un.ip6, IPV6_ADDR_LEN);
+    listener->family = AF_INET6;
+  }
+
+  listener->id = reply->sw_if_index;
+  data->current++;
+  return rv;
+}
+
+/* A listener in vpp is an interface with classify enabled */
+int listener_list_complete_cb(struct hc_data_s * data, void *ctx) {
+  // No need to write anything on the dst, no data expected
+
+  hc_sock_t *s = (hc_sock_t *)ctx;
+
+  int n_interfaces = data->current;
+  u32 *swifs = malloc(sizeof(u32) * n_interfaces);
+
+  for (int i = 0; i < n_interfaces; i++) {
+    vapi_payload_sw_interface_details *reply =
+      (vapi_payload_sw_interface_details *)(data->buffer + i * data->in_element_size);
+    swifs[i] = reply->sw_if_index;
+  }
+
+  vapi_payload_sw_interface_details * temp = (vapi_payload_sw_interface_details *)data->buffer;
+  data->buffer = malloc(sizeof(hc_listener_t));
+  data->size = 1;
+  data->current = 0;
+
+  /* Query the forwarder for each interface */
+  for(int i = 0; i < n_interfaces; i++) {
+    size_t index = data->current;
+    vapi_msg_ip_address_dump* msg = vapi_alloc_ip_address_dump(s->g_vapi_ctx_instance);
+    msg->payload.sw_if_index = swifs[i];
+    msg->payload.is_ipv6 = 0;
+    vapi_payload_sw_interface_details *reply =
+      &(temp[i]);
+    int retval = vapi_ip_address_dump(s->g_vapi_ctx_instance, msg, process_ip_info, data);
+    vapi_msg_ip_address_dump* msg2 = vapi_alloc_ip_address_dump(s->g_vapi_ctx_instance);
+    msg2->payload.sw_if_index = swifs[i];
+    msg2->payload.is_ipv6 = 1;
+    retval = vapi_ip_address_dump(s->g_vapi_ctx_instance, msg2, process_ip_info, data);
+    for (size_t j = index; j < data->current; j++) {
+      memcpy(((hc_listener_t *)(data->buffer))[j].interface_name, reply->interface_name, INTERFACE_LEN);
+    }
+    if (retval)
+      return retval;
+  }
+
+  data->size = data->current;
+  data->out_element_size = sizeof(hc_listener_t);
+  free(temp);
+  return 0;
+}
+
 /* LISTENER LIST */
 int hc_listener_list(hc_sock_t *s, hc_data_t **pdata) {
-  // NOT IMPLEMENTED
-  return -1;
+  hc_msg_s *msg = malloc(sizeof(hc_msg_s));
+//  vapi_msg_flow_classify_dump *hicnp_msg;
+  vapi_msg_sw_interface_dump *hicnp_msg;
+  hicnp_msg = vapi_alloc_sw_interface_dump(s->g_vapi_ctx_instance);
+  msg->hicnp_msg = (hc_hicnp_t *)hicnp_msg;
+  msg->callback = &vapi_cb;
+  msg->callback_ctx = malloc(sizeof(callback_ctx_t));
+  msg->callback_ctx->s = s;
+  msg->ntoh = (NTOH)&vapi_msg_sw_interface_dump_hton;
+
+  hicnp_msg->payload.sw_if_index = ~0;
+  hicnp_msg->payload.name_filter_valid = 0;
+
+  //hicnp_msg->payload.type = 1; //0 v4, 1 v6
+  hc_command_params_t params = {
+      .cmd = ACTION_LIST,
+      .cmd_id = LIST_LISTENERS,
+      .size_in = sizeof(vapi_msg_sw_interface_details),
+      .size_out = sizeof(hc_listener_t),
+      .parse = (HC_PARSE)NULL,
+      .complete_cb = listener_list_complete_cb,
+  };
+
+  return hc_execute_command(s, (hc_msg_t *)msg, sizeof(msg), &params, pdata,
+                            false);
 }
 
 int hc_listener_list_async(hc_sock_t *s, hc_data_t **pdata) {
@@ -634,9 +750,19 @@ GENERATE_FIND(listener)
 /* LISTENER SNPRINTF */
 
 /* /!\ Please update constants in header file upon changes */
-int hc_listener_snprintf(char *s, size_t size, hc_listener_t *listener) {
-  // NOT IMPLEMENTED
-  return -1;
+int
+hc_listener_snprintf(char * s, size_t size, hc_listener_t * listener)
+{
+    char local[MAXSZ_URL];
+    int rc;
+    rc = url_snprintf(local, MAXSZ_URL,
+         listener->family, &listener->local_addr, listener->local_port);
+    if (rc >= MAXSZ_URL)
+        WARN("[hc_listener_snprintf] Unexpected truncation of URL string");
+    if (rc < 0)
+        return rc;
+
+    return snprintf(s, size, "%s %s", listener->interface_name, local);
 }
 
 /*----------------------------------------------------------------------------*
@@ -1003,20 +1129,233 @@ int hc_connection_to_local_listener(const hc_connection_t *connection,
 }
 
 /* FACE CREATE */
+int parse_face_create(uint8_t *src, uint8_t *dst) {
+  // No need to write anything on the dst, no data expected
 
-int hc_face_create(hc_sock_t *s, hc_face_t *face) { return 0; }
+  hc_sock_request_t *request = (hc_sock_request_t *)src;
+  vapi_payload_hicn_api_face_add_reply *reply =
+      (vapi_payload_hicn_api_face_add_reply *)request->data->buffer;
 
-int hc_face_get(hc_sock_t *s, hc_face_t *face, hc_face_t **face_found) {
-  return 0;
+  hc_face_t *output = malloc(sizeof(hc_face_t));
+
+  output->id = reply->faceid;
+  int retval = reply->retval;
+  free(request->data->buffer);
+  request->data->buffer = (void *)output;
+  request->data->size = 1;
+  request->data->out_element_size = sizeof(hc_face_t);
+  return retval;
+}
+
+int hc_face_create(hc_sock_t *s, hc_face_t *face) {
+  hc_msg_s *msg = malloc(sizeof(hc_msg_s));
+  vapi_msg_hicn_api_face_add *hicnp_msg;
+  hicnp_msg = vapi_alloc_hicn_api_face_add(s->g_vapi_ctx_instance);
+  msg->hicnp_msg = (hc_hicnp_t *)hicnp_msg;
+  msg->callback = &vapi_cb;
+  msg->callback_ctx = malloc(sizeof(callback_ctx_t));
+  msg->callback_ctx->s = s;
+  msg->ntoh = (NTOH)&vapi_msg_hicn_api_face_add_hton;
+
+  switch(face->face.type) {
+    case FACE_TYPE_HICN:
+    {
+      u8 check = ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)) == ip46_address_is_ip4((ip46_address_t *)&(face->face.remote_addr));
+      if (!check)
+        return -1;
+
+      hicnp_msg->payload.type = IP_FACE;
+      if (ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)))
+      {
+        memcpy(hicnp_msg->payload.face.ip.local_addr.un.ip4, face->face.local_addr.v4.as_u8, 4);
+        memcpy(hicnp_msg->payload.face.ip.remote_addr.un.ip4, face->face.remote_addr.v4.as_u8, 4);
+        hicnp_msg->payload.face.ip.local_addr.af = ADDRESS_IP4;
+        hicnp_msg->payload.face.ip.remote_addr.af = ADDRESS_IP4;
+      }
+      else
+      {
+        memcpy(hicnp_msg->payload.face.ip.local_addr.un.ip6, face->face.local_addr.v6.as_u8, 16);
+        memcpy(hicnp_msg->payload.face.ip.remote_addr.un.ip6, face->face.remote_addr.v6.as_u8, 16);
+        hicnp_msg->payload.face.ip.local_addr.af = ADDRESS_IP6;
+        hicnp_msg->payload.face.ip.remote_addr.af = ADDRESS_IP6;
+      }
+      hicnp_msg->payload.face.ip.swif = face->face.netdevice.index;
+      memcpy(hicnp_msg->payload.face.ip.if_name, face->face.netdevice.name, IFNAMSIZ);
+      break;
+    }
+    case FACE_TYPE_UDP:
+    {
+      u8 check = ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)) == ip46_address_is_ip4((ip46_address_t *)&(face->face.remote_addr));
+      if (!check)
+        return -1;
+
+      hicnp_msg->payload.type = UDP_FACE;
+      if (ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)))
+      {
+        memcpy(hicnp_msg->payload.face.udp.local_addr.un.ip4, face->face.local_addr.v4.as_u8, 4);
+        memcpy(hicnp_msg->payload.face.udp.remote_addr.un.ip4, face->face.remote_addr.v4.as_u8, 4);
+        hicnp_msg->payload.face.udp.local_addr.af = ADDRESS_IP4;
+        hicnp_msg->payload.face.udp.remote_addr.af = ADDRESS_IP4;
+      }
+      else
+      {
+        memcpy(hicnp_msg->payload.face.udp.local_addr.un.ip6, face->face.local_addr.v6.as_u8, 16);
+        memcpy(hicnp_msg->payload.face.udp.remote_addr.un.ip6, face->face.remote_addr.v6.as_u8, 16);
+        hicnp_msg->payload.face.udp.local_addr.af = ADDRESS_IP6;
+        hicnp_msg->payload.face.udp.remote_addr.af = ADDRESS_IP6;
+      }
+      hicnp_msg->payload.face.udp.lport = face->face.local_port;
+      hicnp_msg->payload.face.udp.rport = face->face.remote_port;
+      hicnp_msg->payload.face.udp.swif = face->face.netdevice.index;
+      memcpy(hicnp_msg->payload.face.udp.if_name, face->face.netdevice.name, IFNAMSIZ);
+      break;
+    }
+    default:
+      return -1;
+  }
+
+  hc_command_params_t params = {
+      .cmd = ACTION_CREATE,
+      .cmd_id = ADD_CONNECTION,
+      .size_in =
+          sizeof(vapi_msg_hicn_api_face_add),
+      .size_out = sizeof(hc_face_t),
+      .parse = (HC_PARSE)parse_face_create,
+  };
+
+  return hc_execute_command(s, (hc_msg_t *)msg, sizeof(msg), &params, NULL,
+                            false);
 }
 
 /* FACE DELETE */
+int parse_face_delete(uint8_t *src, uint8_t *dst) {
+  // No need to write anything on the dst, no data expected
 
-int hc_face_delete(hc_sock_t *s, hc_face_t *face) { return 0; }
+  hc_sock_request_t *request = (hc_sock_request_t *)src;
+  vapi_payload_hicn_api_face_del_reply *reply =
+      (vapi_payload_hicn_api_face_del_reply *)request->data->buffer;
+
+  int retval = reply->retval;
+  free(reply);
+  return retval;
+}
+
+int hc_face_delete(hc_sock_t *s, hc_face_t *face) {
+
+  hc_msg_s *msg = malloc(sizeof(hc_msg_s));
+  vapi_msg_hicn_api_face_del *hicnp_msg;
+  hicnp_msg = vapi_alloc_hicn_api_face_del(s->g_vapi_ctx_instance);
+  msg->hicnp_msg = (hc_hicnp_t *)hicnp_msg;
+  msg->callback = &vapi_cb;
+  msg->callback_ctx = malloc(sizeof(callback_ctx_t));
+  msg->callback_ctx->s = s;
+  msg->ntoh = (NTOH)&vapi_msg_hicn_api_face_del_hton;
+
+  hicnp_msg->payload.faceid = face->id;
+
+  hc_command_params_t params = {
+      .cmd = ACTION_DELETE,
+      .cmd_id = REMOVE_ROUTE,
+      .size_in =
+          sizeof(vapi_msg_hicn_api_face_del), 
+      .size_out = 0,
+      .parse = (HC_PARSE)parse_route_delete,
+  };
+
+  return hc_execute_command(s, (hc_msg_t *)msg, sizeof(msg), &params, NULL,
+                            false);
+}
 
 /* FACE LIST */
 
-int hc_face_list(hc_sock_t *s, hc_data_t **pdata) { return 0; }
+int parse_face_list(uint8_t *src, uint8_t *dst) {
+  // No need to write anything on the dst, no data expected
+
+  hc_sock_request_t *request = (hc_sock_request_t *)src;
+  hc_face_t *output = malloc(sizeof(hc_face_t)*request->data->current);
+
+  int retval = 0;
+  int cur = 0;
+  for (int j = 0; j < request->data->current; j++) {
+    vapi_payload_hicn_api_faces_details *reply =
+        (vapi_payload_hicn_api_faces_details
+             *)(request->data->buffer + j * request->data->in_element_size);
+    retval = reply->retval;
+    switch(reply->type)
+    {
+      case IP_FACE:
+      {
+        if (reply->face.ip.local_addr.af == ADDRESS_IP4)
+        {
+          memcpy(output[j].face.local_addr.v4.as_u8, reply->face.ip.local_addr.un.ip4, IPV4_ADDR_LEN);
+          memcpy(output[j].face.remote_addr.v4.as_u8, reply->face.ip.remote_addr.un.ip4, IPV4_ADDR_LEN);
+        }
+        else
+        {
+          memcpy(output[j].face.local_addr.v6.as_u8, reply->face.ip.local_addr.un.ip6, IPV6_ADDR_LEN);
+          memcpy(output[j].face.remote_addr.v6.as_u8, reply->face.ip.remote_addr.un.ip6, IPV6_ADDR_LEN);
+        }
+        output[j].face.type = FACE_TYPE_HICN;
+        output[j].id = reply->faceid;
+        output[j].face.netdevice.index = reply->face.ip.swif;
+        memcpy(output[j].face.netdevice.name, reply->face.ip.if_name, IFNAMSIZ);
+        break;
+      }
+      case UDP_FACE:
+      {
+        if (reply->face.ip.local_addr.af == ADDRESS_IP4)
+        {
+          memcpy(output[j].face.local_addr.v4.as_u8, reply->face.udp.local_addr.un.ip4, IPV4_ADDR_LEN);
+          memcpy(output[j].face.remote_addr.v4.as_u8, reply->face.udp.remote_addr.un.ip4, IPV4_ADDR_LEN);
+        }
+        else
+        {
+          memcpy(output[j].face.local_addr.v6.as_u8, reply->face.udp.local_addr.un.ip6, IPV6_ADDR_LEN);
+          memcpy(output[j].face.remote_addr.v6.as_u8, reply->face.udp.remote_addr.un.ip6, IPV6_ADDR_LEN);
+        }
+        output[j].face.local_port = reply->face.udp.lport;
+        output[j].face.remote_port = reply->face.udp.rport;
+        output[j].face.type = FACE_TYPE_UDP;
+        output[j].id = reply->faceid;
+        output[j].face.netdevice.index = reply->face.udp.swif;
+        memcpy(output[j].face.netdevice.name, reply->face.udp.if_name, IFNAMSIZ);
+        break;
+      }
+      default:
+        retval = -1;
+    }
+    if (!retval)
+      cur++;
+  }
+
+  free(request->data->buffer);
+  request->data->buffer = (void *)output;
+  request->data->size = request->data->current;
+  request->data->out_element_size = sizeof(hc_face_t);
+  return retval;
+}
+
+int hc_face_list(hc_sock_t *s, hc_data_t **pdata) {
+  hc_msg_s *msg = malloc(sizeof(hc_msg_s));
+  vapi_msg_hicn_api_faces_dump *hicnp_msg;
+  hicnp_msg = vapi_alloc_hicn_api_faces_dump(s->g_vapi_ctx_instance);
+  msg->hicnp_msg = (hc_hicnp_t *)hicnp_msg;
+  msg->callback = &vapi_cb;
+  msg->callback_ctx = malloc(sizeof(callback_ctx_t));
+  msg->callback_ctx->s = s;
+  msg->ntoh = (NTOH)&vapi_msg_hicn_api_faces_dump_hton;
+
+  hc_command_params_t params = {
+      .cmd = ACTION_LIST,
+      .cmd_id = LIST_CONNECTIONS,
+      .size_in = sizeof(vapi_msg_hicn_api_faces_details),
+      .size_out = sizeof(hc_face_t),
+      .parse = (HC_PARSE)parse_face_list,
+  };
+
+  return hc_execute_command(s, (hc_msg_t *)msg, sizeof(msg), &params, (hc_data_t**)pdata,
+                            false);
+  }
 
 int hc_connection_parse_to_face(void *in, hc_face_t *face) { return 0; }
 

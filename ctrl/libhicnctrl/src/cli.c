@@ -401,7 +401,8 @@ parse_options(int argc, char *argv[], hc_command_t * command)
                         goto ERR_PARAM;
                     command->face.face.remote_port = atoi(argv[optind++]);
                     if (argc != optind) {
-                        netdevice_set_name(&command->face.face.netdevice, argv[optind++]);
+                        //netdevice_set_name(&command->face.face.netdevice, argv[optind++]);
+                        command->face.face.netdevice.index = atoi(argv[optind++]);
                     }
 
                     break;
@@ -439,7 +440,8 @@ parse_options(int argc, char *argv[], hc_command_t * command)
                             goto ERR_PARAM;
                         command->face.face.remote_port = atoi(argv[optind++]);
                         if (argc != optind) {
-                            netdevice_set_name(&command->face.face.netdevice, argv[optind++]);
+                            command->face.face.netdevice.index = atoi(argv[optind++]);
+                            //netdevice_set_name(&command->face.face.netdevice, argv[optind++]);
                         }
                     }
                     break;

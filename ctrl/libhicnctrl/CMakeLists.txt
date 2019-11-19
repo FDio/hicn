@@ -58,6 +58,7 @@ else()
         ${HICNPLUGIN_INCLUDE_DIRS})
 
     set(HICN_LIBRARIES ${HICNPLUGIN_LIBRARIES})
+    set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
 
     list(APPEND DEPENDENCIES
         hicn_plugin
