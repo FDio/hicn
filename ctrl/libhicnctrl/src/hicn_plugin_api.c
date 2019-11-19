@@ -34,10 +34,16 @@
 #include <vapi/hicn.api.vapi.h>
 #include <hicn/util/log.h>
 #include <hicn/util/map.h>
+#include <vnet/ip/ip6_packet.h>
+#include <vnet/ip/ip_types_api.h>
 
 #define APP_NAME "hicn_plugin"
 #define MAX_OUTSTANDING_REQUESTS 4
 #define RESPONSE_QUEUE_SIZE 2
+
+// #define vl_typedefs
+// #include <vpp/api/vpe_all_api_h.h>
+// #undef vl_typedefs
 
 DEFINE_VAPI_MSG_IDS_HICN_API_JSON
 
@@ -104,13 +110,13 @@ void hc_sock_request_free(hc_sock_request_t *request) { free(request); }
   _(hicn_api_node_params_set_reply)    \
   _(hicn_api_node_params_get_reply)    \
   _(hicn_api_node_stats_get_reply)     \
-  _(hicn_api_face_ip_add)              \
-  _(hicn_api_face_ip_add_reply)        \
-  _(hicn_api_face_ip_del)              \
-  _(hicn_api_face_ip_del_reply)        \
-  _(hicn_api_face_ip_params_get)       \
+  _(hicn_api_face_add)                 \
+  _(hicn_api_face_add_reply)           \
+  _(hicn_api_face_del)                 \
+  _(hicn_api_face_del_reply)           \
+  _(hicn_api_face_get)                 \
   _(hicn_api_face_stats_details)       \
-  _(hicn_api_face_ip_params_get_reply) \
+  _(hicn_api_face_get_reply)           \
   _(hicn_api_route_nhops_add)          \
   _(hicn_api_route_nhops_add_reply)    \
   _(hicn_api_route_del)                \
@@ -1003,12 +1009,173 @@ int hc_connection_to_local_listener(const hc_connection_t *connection,
 }
 
 /* FACE CREATE */
+int parse_face_create(uint8_t *src, uint8_t *dst) {
+  // No need to write anything on the dst, no data expected
 
-int hc_face_create(hc_sock_t *s, hc_face_t *face) { return 0; }
+  hc_sock_request_t *request = (hc_sock_request_t *)src;
+  vapi_payload_hicn_api_face_add_reply *reply =
+      (vapi_payload_hicn_api_face_add_reply *)request->data->buffer;
 
-int hc_face_get(hc_sock_t *s, hc_face_t *face, hc_face_t **face_found) {
-  return 0;
+  hc_face_t *output = malloc(sizeof(hc_face_t));
+
+  output->id = reply->faceid;
+  int retval = reply->retval;
+  free(request->data->buffer);
+  request->data->buffer = (void *)output;
+  request->data->size = 1;
+  request->data->out_element_size = sizeof(hc_face_t);
+  return retval;
 }
+
+int hc_face_create(hc_sock_t *s, hc_face_t *face) {
+  hc_msg_s *msg = malloc(sizeof(hc_msg_s));
+  vapi_msg_hicn_api_face_add *hicnp_msg;
+  hicnp_msg = vapi_alloc_hicn_api_face_add(s->g_vapi_ctx_instance);
+  msg->hicnp_msg = (hc_hicnp_t *)hicnp_msg;
+  msg->callback = &vapi_cb;
+  msg->callback_ctx = malloc(sizeof(callback_ctx_t));
+  msg->callback_ctx->s = s;
+  msg->ntoh = (NTOH)&vapi_msg_hicn_api_face_add_hton;
+
+  switch(face->face.type) {
+    case FACE_TYPE_HICN:
+    {
+      u8 check = ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)) == ip46_address_is_ip4((ip46_address_t *)&(face->face.remote_addr));
+      if (!check)
+        return -1;
+
+      hicnp_msg->payload.type = IP_FACE;
+      if (ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)))
+      {
+        memcpy(hicnp_msg->payload.face.ip.local_addr.un.ip4, face->face.local_addr.v4.as_u8, 4);
+        memcpy(hicnp_msg->payload.face.ip.remote_addr.un.ip4, face->face.remote_addr.v4.as_u8, 4);
+        hicnp_msg->payload.face.ip.local_addr.af = ADDRESS_IP4;
+        hicnp_msg->payload.face.ip.remote_addr.af = ADDRESS_IP4;
+      }
+      else
+      {
+        memcpy(hicnp_msg->payload.face.ip.local_addr.un.ip6, face->face.local_addr.v6.as_u8, 16);
+        memcpy(hicnp_msg->payload.face.ip.remote_addr.un.ip6, face->face.remote_addr.v6.as_u8, 16);
+        hicnp_msg->payload.face.ip.local_addr.af = ADDRESS_IP6;
+        hicnp_msg->payload.face.ip.remote_addr.af = ADDRESS_IP6;
+      }
+      hicnp_msg->payload.face.ip.swif = face->face.netdevice.index;
+      memcpy(hicnp_msg->payload.face.ip.if_name, face->face.netdevice.name, IFNAMSIZ);
+      break;
+    }
+    case FACE_TYPE_UDP:
+    {
+      u8 check = ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)) == ip46_address_is_ip4((ip46_address_t *)&(face->face.remote_addr));
+      if (!check)
+        return -1;
+
+      hicnp_msg->payload.type = UDP_FACE;
+      if (ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)))
+      {
+        memcpy(hicnp_msg->payload.face.udp.local_addr.un.ip4, face->face.local_addr.v4.as_u8, 4);
+        memcpy(hicnp_msg->payload.face.udp.remote_addr.un.ip4, face->face.remote_addr.v4.as_u8, 4);
+        hicnp_msg->payload.face.udp.local_addr.af = ADDRESS_IP4;
+        hicnp_msg->payload.face.udp.remote_addr.af = ADDRESS_IP4;
+      }
+      else
+      {
+        memcpy(hicnp_msg->payload.face.udp.local_addr.un.ip6, face->face.local_addr.v6.as_u8, 16);
+        memcpy(hicnp_msg->payload.face.udp.remote_addr.un.ip6, face->face.remote_addr.v6.as_u8, 16);
+        hicnp_msg->payload.face.ip.local_addr.af = ADDRESS_IP6;
+        hicnp_msg->payload.face.ip.remote_addr.af = ADDRESS_IP6;
+      }
+      hicnp_msg->payload.face.udp.lport = face->face.local_port;
+      hicnp_msg->payload.face.udp.rport = face->face.remote_port;
+      hicnp_msg->payload.face.udp.swif = face->face.netdevice.index;
+      memcpy(hicnp_msg->payload.face.udp.if_name, face->face.netdevice.name, IFNAMSIZ);
+      break;
+    }
+    default:
+      return -1;
+  }
+
+  hc_command_params_t params = {
+      .cmd = ACTION_CREATE,
+      .cmd_id = ADD_CONNECTION,
+      .size_in =
+          sizeof(vapi_msg_hicn_api_face_add),
+      .size_out = 0,
+      .parse = (HC_PARSE)parse_face_create,
+  };
+
+  return hc_execute_command(s, (hc_msg_t *)msg, sizeof(msg), &params, NULL,
+                            false);
+}
+
+/* FACE GET */
+// int parse_face_get(uint8_t *src, uint8_t *dst) {
+//   // No need to write anything on the dst, no data expected
+
+//   hc_sock_request_t *request = (hc_sock_request_t *)src;
+//   vapi_payload_hicn_api_face_get_reply *reply =
+//       (vapi_payload_hicn_api_face_get_reply *)request->data->buffer;
+
+//   hc_face_t *output = malloc(sizeof(hc_face_t));
+
+//   int retval = reply->retval;
+//   switch(reply->type)
+//   {
+//     case IP_FACE:
+//     {
+//       ip_address_decode((const struct _vl_api_address *)&(reply->face.ip.local_addr),(ip46_address_t *)&(output->face.local_addr));
+//       ip_address_decode((const struct _vl_api_address *)&(reply->face.ip.remote_addr),(ip46_address_t *)&(output->face.remote_addr));
+//       output->face.type = FACE_TYPE_HICN;
+//       output->id = reply->faceid;
+//       output->face.netdevice.index = reply->face.ip.swif;
+//       memcpy(output->face.netdevice.name, reply->face.ip.if_name, IFNAMSIZ);
+//       break;
+//     }
+//     case UDP_FACE:
+//     {
+//       ip_address_decode((const struct _vl_api_address *)&(reply->face.udp.local_addr),(ip46_address_t *)&(output->face.local_addr));
+//       ip_address_decode((const struct _vl_api_address *)&(reply->face.udp.remote_addr),(ip46_address_t *)&(output->face.remote_addr));
+//       output->face.local_port = reply->face.udp.lport;
+//       output->face.remote_port = reply->face.udp.rport;
+//       output->face.type = FACE_TYPE_UDP;
+//       output->id = reply->faceid;
+//       output->face.netdevice.index = reply->face.udp.swif;
+//       memcpy(output->face.netdevice.name, reply->face.udp.if_name, IFNAMSIZ);
+//       break;
+//     }
+//     default:
+//       retval = -1;
+//   }
+  
+//   free(request->data->buffer);
+//   request->data->buffer = (void *)output;
+//   request->data->size = 1;
+//   request->data->out_element_size = sizeof(hc_face_t);
+//   return retval;
+// }
+
+// int hc_face_get(hc_sock_t *s, hc_face_t *face, hc_face_t **pdata) {
+//   hc_msg_s *msg = malloc(sizeof(hc_msg_s));
+//   vapi_msg_hicn_api_face_get *hicnp_msg;
+//   hicnp_msg = vapi_alloc_hicn_api_face_get(s->g_vapi_ctx_instance);
+//   msg->hicnp_msg = (hc_hicnp_t *)hicnp_msg;
+//   msg->callback = &vapi_cb;
+//   msg->callback_ctx = malloc(sizeof(callback_ctx_t));
+//   msg->callback_ctx->s = s;
+//   msg->ntoh = (NTOH)&vapi_msg_hicn_api_face_get_hton;
+
+//   hicnp_msg->payload.faceid = face->id;
+
+//   hc_command_params_t params = {
+//       .cmd = ACTION_LIST,
+//       .cmd_id = LIST_CONNECTIONS,
+//       .size_in = sizeof(vapi_msg_hicn_api_face_get_reply),
+//       .size_out = sizeof(hc_face_t),
+//       .parse = (HC_PARSE)parse_face_get,
+//   };
+
+//   return hc_execute_command(s, (hc_msg_t *)msg, sizeof(msg), &params, (hc_data_t**)pdata,
+//                             false);
+// }
 
 /* FACE DELETE */
 
