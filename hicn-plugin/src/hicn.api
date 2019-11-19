@@ -16,12 +16,20 @@
 option version = "5.1.0";
 import "vnet/ip/ip_types.api";
 
-enum face_type : u8 {
+enum face_type : u8
+{
    IP_FACE = 0,
    UDP_FACE,
 };
 
-typedef hicn_face_ip {
+enum punt_type : u8
+{
+   IP_PUNT = 0,
+   UDP_PUNT,
+};
+
+typedef hicn_face_ip
+{
   /* IP local address */
   vl_api_address_t local_addr;
 
@@ -38,7 +46,8 @@ typedef hicn_face_ip {
   u8 if_name[30];
 };
 
-typedef hicn_face_udp {
+typedef hicn_face_udp
+{
   /* IP local address */
   vl_api_address_t local_addr;
 
@@ -61,9 +70,43 @@ typedef hicn_face_udp {
   u8 if_name[30];
 };
 
-typedef hicn_face_union {
+typedef hicn_face_union
+{
   vl_api_hicn_face_ip_t ip;
   vl_api_hicn_face_udp_t udp;
+};
+
+typedef hicn_punting_ip
+{
+  /* Prefix to match */
+  vl_api_prefix_t prefix;
+
+  /* Interface id */
+  u32 swif;
+};
+
+typedef hicn_punting_udp
+{
+  /* Prefix to match */
+  vl_api_prefix_t prefix;
+
+  /* Source port to match */
+  u16 sport;
+
+  /* Destination port to match */
+  u16 dport;
+
+  /* Ip version (4 or 6) of the tunnel */
+  vl_api_address_family_t ip_version;
+
+  /* Interface id */
+  u32 swif;
+};
+
+typedef hicn_punting_union
+{
+  vl_api_hicn_punting_ip_t ip;
+  vl_api_hicn_punting_udp_t udp;
 };
 
 define hicn_api_node_params_set
@@ -628,11 +671,11 @@ define hicn_api_punting_add
   /* Arbitrary context, so client can match reply to request */
   u32 context;
 
-  /* Prefix to match */
-  vl_api_prefix_t prefix;
+  /* Type of punting rule */
+  vl_api_punt_type_t type;
 
-  /* Interface id */
-  u32 swif;
+  /* Prefix to match */
+  vl_api_hicn_punting_union_t rule;
 };
 
 define hicn_api_punting_add_reply
@@ -652,11 +695,11 @@ define hicn_api_punting_del
   /* Arbitrary context, so client can match reply to request */
   u32 context;
 
-  /* Prefix to match */
-  vl_api_prefix_t prefix;
+  /* Type of punting rule */
+  vl_api_punt_type_t type;
 
-  /* Interface id */
-  u32 swif;
+  /* Prefix to match */
+  vl_api_hicn_punting_union_t rule;
 };
 
 define hicn_api_punting_del_reply

@@ -41,6 +41,8 @@
 #define HICN_PUNT_IP_TYPE 0
 #define HICN_PUNT_UDP4_TYPE 1
 #define HICN_PUNT_UDP6_TYPE 2
+
+#define HICN_PUNT_INVALID_PORT 0
 /*
  * u32 ip4_vnet_tbl_idx[HICN_MAX_INTFC][2][3][HICN_PUNT_IP4_MASK];
  * //[skip][src][mask],[skip][dst][mask] u32

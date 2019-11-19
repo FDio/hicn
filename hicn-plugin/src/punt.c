@@ -483,12 +483,31 @@ hicn_punt_add_del_vnetssn_udp (ip_version_t * outer, ip_version_t * inner,
 			       u8 base_offset, u8 protocol, u16 sport,
 			       u16 dport, int is_add)
 {
-  return _hicn_punt_add_del_vnetssn (outer, field->punt_id, prefix->fp_len,
-				     next_hit_index, intfc, base_offset,
-				     is_add, outer->protocol_field, &protocol,
-				     outer->udp_sport, &sport,
-				     outer->udp_dport, &dport, field,
-				     prefix->fp_addr.as_u8, NULL);
+  if(sport == HICN_PUNT_INVALID_PORT)
+    {
+      return _hicn_punt_add_del_vnetssn (outer, field->punt_id, prefix->fp_len,
+                                         next_hit_index, intfc, base_offset,
+                                         is_add, outer->protocol_field, &protocol,
+                                         outer->udp_dport, &dport, field,
+                                         prefix->fp_addr.as_u8, NULL);
+    }
+  else if(dport == HICN_PUNT_INVALID_PORT)
+    {
+      return _hicn_punt_add_del_vnetssn (outer, field->punt_id, prefix->fp_len,
+                                         next_hit_index, intfc, base_offset,
+                                         is_add, outer->protocol_field, &protocol,
+                                         outer->udp_sport, &sport, field,
+                                         prefix->fp_addr.as_u8, NULL);
+    }
+  else
+    {
+      return _hicn_punt_add_del_vnetssn (outer, field->punt_id, prefix->fp_len,
+                                         next_hit_index, intfc, base_offset,
+                                         is_add, outer->protocol_field, &protocol,
+                                         outer->udp_sport, &sport,
+                                         outer->udp_dport, &dport, field,
+                                         prefix->fp_addr.as_u8, NULL);
+    }
 }
 
 #define hicn_punt_add_vnetssn_udp(outer, inner, field, prefix, index, intfc, offset, protocol, sport, dport) \
@@ -773,10 +792,14 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
     HICN_CLASSIFY_CURRENT_DATA_FLAG;
   u8 base_offset = with_l2 ? ETH_L2 : NO_L2;
   u16 mask = prefix->fp_len;
+  vnet_main_t *vnm = vnet_get_main ();
 
   if (punt_type != HICN_PUNT_IP_TYPE && punt_type != HICN_PUNT_UDP4_TYPE
       && punt_type != HICN_PUNT_UDP6_TYPE)
     return HICN_ERROR_PUNT_INVAL;
+
+  if ((sport == 0 && dport == 0) || !vnet_sw_interface_is_valid (vnm, swif))
+    return  HICN_ERROR_PUNT_INVAL;
 
   if (ip46_address_is_ip4 (&prefix->fp_addr))
     {
@@ -940,9 +963,10 @@ hicn_punt_interest_data_for_ip (vlib_main_t * vm,
     HICN_CLASSIFY_CURRENT_DATA_FLAG;
   u8 base_offset = with_l2 ? ETH_L2 : NO_L2;
   u16 mask = prefix->fp_len;
+  vnet_main_t *vnm = vnet_get_main ();
 
-  if (punt_type != HICN_PUNT_IP_TYPE && punt_type != HICN_PUNT_UDP4_TYPE
-      && punt_type != HICN_PUNT_UDP6_TYPE)
+  if ((punt_type != HICN_PUNT_IP_TYPE && punt_type != HICN_PUNT_UDP4_TYPE
+       && punt_type != HICN_PUNT_UDP6_TYPE) || !vnet_sw_interface_is_valid (vnm, swif))
     return HICN_ERROR_PUNT_INVAL;
 
   if (ip46_address_is_ip4 (&prefix->fp_addr))

@@ -890,20 +890,50 @@ static void vl_api_hicn_api_strategy_get_t_handler
 
 /****** PUNTING *******/
 
+static hicn_error_t add_ip_punting (vl_api_hicn_punting_ip_t * mp)
+{
+  vlib_main_t *vm = vlib_get_main ();
+  fib_prefix_t prefix;
+  ip_prefix_decode (&mp->prefix, &prefix);
+  u32 swif = clib_net_to_host_u32 (mp->swif);
+
+  return hicn_punt_interest_data_for_ip (vm, &prefix, swif, HICN_PUNT_IP_TYPE, NO_L2);
+}
+
+static hicn_error_t add_udp_punting (vl_api_hicn_punting_udp_t * mp)
+{
+  vlib_main_t *vm = vlib_get_main ();
+  fib_prefix_t prefix;
+  ip_prefix_decode (&mp->prefix, &prefix);
+  u32 swif = clib_net_to_host_u32 (mp->swif);
+  u16 sport = clib_net_to_host_u16 (mp->sport);
+  u16 dport = clib_net_to_host_u16 (mp->sport);
+  u8 type = mp->ip_version == ADDRESS_IP6 ? HICN_PUNT_UDP6_TYPE : HICN_PUNT_UDP4_TYPE;
+
+  return hicn_punt_interest_data_for_udp (vm, &prefix, swif, type, sport, dport, NO_L2);
+}
+
 static void vl_api_hicn_api_punting_add_t_handler
   (vl_api_hicn_api_punting_add_t * mp)
 {
   vl_api_hicn_api_punting_add_reply_t *rmp;
   int rv = HICN_ERROR_NONE;
-  vlib_main_t *vm = vlib_get_main ();
 
   hicn_main_t *sm = &hicn_main;
 
-  fib_prefix_t prefix;
-  ip_prefix_decode (&mp->prefix, &prefix);
-  u32 swif = clib_net_to_host_u32 (mp->swif);
+  if (mp->type == IP_PUNT)
+    {
+      rv = add_ip_punting(&(mp->rule.ip));
+    }
+  else if (mp->type == UDP_PUNT)
+    {
+      rv = add_udp_punting(&(mp->rule.udp));
+    }
+  else
+    {
+      rv = HICN_ERROR_PUNT_INVAL;
+    }
 
-  rv = hicn_punt_interest_data_for_ip (vm, &prefix, swif, 0, NO_L2);
 
   REPLY_MACRO (VL_API_HICN_API_PUNTING_ADD_REPLY /* , rmp, mp, rv */ );
 }
