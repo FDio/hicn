@@ -2308,7 +2308,7 @@ hc_face_delete(hc_sock_t * s, hc_face_t * face)
     int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
     if (rc >= MAXSZ_HC_FACE)
         WARN("[hc_face_delete] Unexpected truncation of face string");
-    DEBUG("[hc_face_delete] face=%s");
+    DEBUG("[hc_face_delete] face=%s", face_s);
 
     hc_connection_t connection;
     if (hc_face_to_connection(face, &connection, false) < 0) {
