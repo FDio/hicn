@@ -194,6 +194,11 @@ bool name_Equals(const Name *a, const Name *b) {
   parcAssertNotNull(a, "Parameter a must be non-null");
   parcAssertNotNull(b, "Parameter b must be non-null");
 
+  /* BEGIN: Workaround for HICN-400 */
+  if ((!a->content_name) || (!b->content_name))
+      return false;
+  /* END: Workaround for HICN-400 */
+
   if ((nameBitvector_Equals(a->content_name, b->content_name) &&
        a->segment == b->segment))
     return true;
