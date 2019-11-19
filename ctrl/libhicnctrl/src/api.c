@@ -303,7 +303,7 @@ typedef struct hc_msg_s {
  ******************************************************************************/
 
 hc_data_t *
-hc_data_create(size_t in_element_size, size_t out_element_size)
+hc_data_create(size_t in_element_size, size_t out_element_size, data_callback_t complete_cb)
 {
     hc_data_t * data = malloc(sizeof(hc_data_t));
     if (!data)
@@ -317,7 +317,7 @@ hc_data_create(size_t in_element_size, size_t out_element_size)
     data->complete = false;
     data->command_id = 0; // TODO this could also be a busy mark in the socket
     /* No callback needed in blocking code for instance */
-    data->complete_cb = NULL;
+    data->complete_cb = complete_cb;
 
     data->buffer = malloc((1 << data->max_size_log) * data->out_element_size);
     if (!data->buffer)
@@ -843,7 +843,7 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
     //hc_sock_reset(s);
 
     /* XXX data will at least store the result (complete) */
-    hc_data_t * data = hc_data_create(params->size_in, params->size_out);
+    hc_data_t * data = hc_data_create(params->size_in, params->size_out, NULL);
     if (!data) {
         ERROR("[hc_execute_command] Could not create data storage");
         goto ERR_DATA;
