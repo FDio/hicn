@@ -356,7 +356,7 @@ face_cmp(const face_t * f1, const face_t * f2)
     return 0;
 }
 
-hash_t
+unsigned int
 face_hash(const face_t * face)
 {
     /* Assuming the unused part of the struct is set to zero */
