@@ -303,7 +303,7 @@ typedef struct hc_msg_s {
  ******************************************************************************/
 
 hc_data_t *
-hc_data_create(size_t in_element_size, size_t out_element_size)
+hc_data_create(size_t in_element_size, size_t out_element_size, data_callback_t complete_cb)
 {
     hc_data_t * data = malloc(sizeof(hc_data_t));
     if (!data)
@@ -317,7 +317,7 @@ hc_data_create(size_t in_element_size, size_t out_element_size)
     data->complete = false;
     data->command_id = 0; // TODO this could also be a busy mark in the socket
     /* No callback needed in blocking code for instance */
-    data->complete_cb = NULL;
+    data->complete_cb = complete_cb;
 
     data->buffer = malloc((1 << data->max_size_log) * data->out_element_size);
     if (!data->buffer)
@@ -851,7 +851,7 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
     //hc_sock_reset(s);
 
     /* XXX data will at least store the result (complete) */
-    hc_data_t * data = hc_data_create(params->size_in, params->size_out);
+    hc_data_t * data = hc_data_create(params->size_in, params->size_out, NULL);
     if (!data) {
         ERROR("[hc_execute_command] Could not create data storage");
         goto ERR_DATA;
@@ -2398,7 +2398,7 @@ hc_face_list(hc_sock_t * s, hc_data_t ** pdata)
         return -1;
     }
 
-    hc_data_t * face_data = hc_data_create(sizeof(hc_connection_t), sizeof(hc_face_t));
+    hc_data_t * face_data = hc_data_create(sizeof(hc_connection_t), sizeof(hc_face_t), NULL);
     foreach_connection(c, connection_data) {
         if (hc_connection_to_face(c, &face) < 0) {
             ERROR("[hc_face_list] Could not convert connection to face.");
@@ -2795,7 +2795,7 @@ hc_strategy_list(hc_sock_t * s, hc_data_t ** data)
 {
     int rc;
 
-    *data = hc_data_create(0, sizeof(hc_strategy_t));
+    *data = hc_data_create(0, sizeof(hc_strategy_t), NULL);
 
     for (unsigned i = 0; i < ARRAY_SIZE(strategies); i++) {
         hc_strategy_t * strategy = (hc_strategy_t*)hc_data_get_next(*data);
