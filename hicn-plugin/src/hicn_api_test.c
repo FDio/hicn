@@ -515,7 +515,7 @@ api_hicn_api_face_ip_add (vat_main_t * vam)
     }
   /* Construct the API message */
   M (HICN_API_FACE_ADD, mp);
-  mp->type = IP_FACE;
+  mp->type = clib_host_to_net_u32(IP_FACE);
   ip_address_encode (&local_addr, IP46_TYPE_ANY, &mp->face.ip.local_addr);
   ip_address_encode (&remote_addr, IP46_TYPE_ANY, &mp->face.ip.remote_addr);
   mp->face.ip.swif = clib_host_to_net_u32 (sw_if);
@@ -592,7 +592,7 @@ api_hicn_api_face_udp_add (vat_main_t * vam)
     }
   /* Construct the API message */
   M (HICN_API_FACE_ADD, mp);
-  mp->type = UDP_FACE;
+  mp->type = clib_host_to_net_u32(UDP_FACE);
   ip_address_encode (&local_addr, IP46_TYPE_ANY, &mp->face.udp.local_addr);
   ip_address_encode (&remote_addr, IP46_TYPE_ANY, &mp->face.udp.remote_addr);
   mp->face.udp.lport = clib_host_to_net_u16 (sport);
