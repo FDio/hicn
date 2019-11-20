@@ -698,7 +698,7 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
 
     listConnectionsCommand->state =
         connection_IsUp(original) ? IFACE_UP : IFACE_DOWN;
-    listConnectionsCommand->admin_state =
+    listConnectionsCommand->connectionData.admin_state =
         (connection_GetAdminState(original) == CONNECTION_STATE_UP) ? IFACE_UP : IFACE_DOWN;
     listConnectionsCommand->connectionData.connectionType =
         ioOperations_GetConnectionType(connection_GetIoOperations(original));
@@ -706,7 +706,7 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
     listConnectionsCommand->connectionData.admin_state = connection_GetAdminState(original);
 
 #ifdef WITH_POLICY
-    listConnectionsCommand->priority = connection_GetPriority(original);
+    listConnectionsCommand->connectionData.priority = connection_GetPriority(original);
     listConnectionsCommand->connectionData.tags = connection_GetTags(original);
 #endif /* WITH_POLICY */
 

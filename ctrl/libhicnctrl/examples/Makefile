@@ -9,7 +9,7 @@ EXEC     = $(SRC:.c=)
 
 all: $(EXEC)
 
-${EXEC}: $(SRC)
+%:%.c
 	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS)
 
 .PHONY: clean mrproper

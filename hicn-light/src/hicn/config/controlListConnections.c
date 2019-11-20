@@ -147,8 +147,8 @@ foreach_policy_tag
     *s = '\0';
 
     parcBufferComposer_Format(
-        composer, "%5d %10s %12s %6s %40s %40s %5s [%d] [%s]", listConnectionsCommand->connid, listConnectionsCommand->connectionName,
-        stateString[listConnectionsCommand->admin_state],
+        composer, "%5d %10s %12s %6s %40s %40s %5s [%6d] [%s]", listConnectionsCommand->connid, listConnectionsCommand->connectionName,
+        stateString[listConnectionsCommand->connectionData.admin_state],
         stateString[listConnectionsCommand->state], sourceString,
         destinationString,
         connTypeString[listConnectionsCommand->connectionData.connectionType],

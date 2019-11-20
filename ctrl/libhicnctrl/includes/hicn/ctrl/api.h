@@ -571,6 +571,11 @@ int hc_face_delete(hc_sock_t * s, hc_face_t * face);
 int hc_face_list(hc_sock_t * s, hc_data_t ** pdata);
 int hc_face_list_async(hc_sock_t * s); //, hc_data_t ** pdata);
 
+int hc_face_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, face_state_t state);
+#ifdef WITH_POLICY
+int hc_face_set_priority(hc_sock_t * s, const char * conn_id_or_name, uint32_t priority);
+#endif /* WITH_POLICY */
+
 #define foreach_face(VAR, data) foreach_type(hc_face_t, VAR, data)
 
 #define MAX_FACE_ID 255
