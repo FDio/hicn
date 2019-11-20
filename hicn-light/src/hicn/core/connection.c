@@ -337,7 +337,7 @@ uint32_t connection_GetPriority(const Connection *conn)
 {
   parcAssertNotNull(conn, "Parameter conn must be non-null");
   if (!conn->ops)
-    return CONNECTION_STATE_UNDEFINED;
+    return 0;
   return ioOperations_GetPriority(conn->ops);
 }
 
@@ -345,8 +345,6 @@ void connection_SetPriority(Connection *conn, uint32_t priority)
 {
   parcAssertNotNull(conn, "Parameter conn must be non-null");
   if (!conn->ops)
-    return;
-  if ((priority != CONNECTION_STATE_UP) && (priority != CONNECTION_STATE_DOWN))
     return;
   ioOperations_SetPriority(conn->ops, priority);
 }

@@ -167,10 +167,6 @@ typedef struct {
   add_connection_command connectionData;
   uint32_t connid;
   uint8_t state;
-  uint8_t admin_state;
-#ifdef WITH_POLICY
-  uint32_t priority;
-#endif /* WITH_POLICY */
   char interfaceName[SYMBOLIC_NAME_LEN];
   char connectionName[SYMBOLIC_NAME_LEN];
 } list_connections_command;
