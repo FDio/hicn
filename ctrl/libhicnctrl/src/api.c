@@ -521,6 +521,8 @@ hc_sock_free(hc_sock_t * s)
     } else {
         for (unsigned i = 0; i < n; i++) {
             hc_sock_request_t * request = request_array[i];
+            if (hc_sock_map_remove(s->map, request->seq, NULL) < 0)
+                ERROR("[hc_sock_process] Error removing request from map");
             hc_sock_request_free(request);
         }
         free(request_array);
@@ -669,6 +671,8 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                     if (s->remaining == 0) {
                         hc_data_set_complete(request->data);
                         *data = request->data;
+                        if (hc_sock_map_remove(s->map, request->seq, NULL) < 0)
+                            ERROR("[hc_sock_process] Error removing request from map");
                         hc_sock_request_free(request);
                     } else {
                         /* We only remember it if there is still data to parse */

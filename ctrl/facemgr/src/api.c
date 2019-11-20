@@ -2087,7 +2087,6 @@ facemgr_list_facelets_json(const facemgr_t * facemgr, char ** buffer)
         if (size != 0 && cur >= s + size)
             goto END;
     }
-    free(facelet_array);
 
     rc = snprintf(cur, s + size - cur, "]}\n");
     if (rc < 0)

@@ -101,7 +101,6 @@ int hl_process_state(interface_t * interface)
             }
             data->state = HL_STATE_FACES_SENT;
             break;
-            break;
 
         case HL_STATE_FACES_RECEIVED:
             data->state = HL_STATE_IDLE;
@@ -601,7 +600,7 @@ int hl_callback(interface_t * interface, int fd, void * unused)
                 facelet_set_event(facelet, FACELET_EVENT_GET);
                 interface_raise_event(interface, facelet);
             }
-
+            hc_data_free(results);
             hc_data_free(data->polled_routes);
             data->polled_routes = NULL;
             data->state = HL_STATE_FACES_RECEIVED;
