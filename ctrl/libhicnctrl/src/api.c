@@ -625,6 +625,9 @@ hc_sock_recv(hc_sock_t * s)
     return rc;
 }
 
+/*
+ * Returns -99 in case of internal error, -1 in case of API command failure
+ */
 int
 hc_sock_process(hc_sock_t * s, hc_data_t ** data)
 {
@@ -646,11 +649,11 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             hc_sock_request_t * request = NULL;
             if (hc_sock_map_get(s->map, msg->hdr.seqNum, &request) < 0) {
                 ERROR("[hc_sock_process] Error searching for matching request");
-                return -1;
+                return -99;
             }
             if (!request) {
                 ERROR("[hc_sock_process] No request matching received sequence number");
-                return -1;
+                return -99;
             }
 
             s->remaining = msg->hdr.length;
@@ -665,6 +668,7 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                     assert(!data);
                     hc_data_set_error(request->data);
                     s->cur_request = request;
+                    err = -1;
                     break;
                 case RESPONSE_LIGHT:
                     assert(data);
@@ -681,7 +685,7 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                     break;
                 default:
                     ERROR("[hc_sock_process] Invalid response received");
-                    return -1;
+                    return -99;
             }
 
             available -= sizeof(hc_msg_header_t);
@@ -702,15 +706,15 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                 int rc;
                 rc = hc_data_ensure_available(s->cur_request->data, num_chunks);
                 if (rc < 0)
-                     return -1;
+                     return -99;
                 for (int i = 0; i < num_chunks; i++) {
                     u8 * dst = hc_data_get_next(s->cur_request->data);
                     if (!dst)
-                         return -1;
+                         return -99;
 
                     rc = s->cur_request->parse(s->buf + s->roff + i * s->cur_request->data->in_element_size, dst);
                     if (rc < 0)
-                        err = -1; /* FIXME we let the loop complete (?) */
+                        err = -99; /* FIXME we let the loop complete (?) */
                     s->cur_request->data->size++;
                 }
             }
@@ -721,7 +725,7 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             if (s->remaining == 0) {
                 if (hc_sock_map_remove(s->map, s->cur_request->seq, NULL) < 0) {
                     ERROR("[hc_sock_process] Error removing request from map");
-                    return -1;
+                    return -99;
                 }
                 hc_data_set_complete(s->cur_request->data);
                 if (data)
@@ -890,9 +894,20 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
          */
         if (hc_sock_recv(s) < 0)
             continue; //break;
-        if (hc_sock_process(s, pdata) < 0) {
-            ERROR("[hc_execute_command] Error processing socket results");
-            goto ERR_PROCESS;
+        int rc = hc_sock_process(s, pdata);
+        switch(rc) {
+            case 0:
+                break;
+            case -1:
+                ret = rc;
+                break;
+            case -99:
+                ERROR("[hc_execute_command] Error processing socket results");
+                goto ERR_PROCESS;
+                break;
+            default:
+                ERROR("[hc_execute_command] Unexpected return value");
+                goto ERR_PROCESS;
         }
     }
 
@@ -909,7 +924,7 @@ ERR_REQUEST:
 ERR_SEQ:
     hc_data_free(data);
 ERR_DATA:
-     return -1;
+     return -99;
 }
 
 /*----------------------------------------------------------------------------*
@@ -1665,7 +1680,7 @@ _hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_ADMIN_STATE,
+            .commandID = CONNECTION_SET_PRIORITY,
             .length = 1,
             .seqNum = 0,
         },
