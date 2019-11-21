@@ -81,17 +81,15 @@ hicn_face_udp_init (vlib_main_t * vm)
   /* Default Strategy has index 0 and it always exists */
   strategy_face_udp4_vlib_edge = vlib_node_add_next (vm,
 						     hicn_dpo_get_strategy_vft
-						     (default_dpo.
-						      hicn_dpo_get_type ())->
-						     get_strategy_node_index
+						     (default_dpo.hicn_dpo_get_type
+						      ())->get_strategy_node_index
 						     (),
-						     hicn_face_udp4_output_node.
-						     index);
+						     hicn_face_udp4_output_node.index);
   strategy_face_udp6_vlib_edge =
     vlib_node_add_next (vm,
-			hicn_dpo_get_strategy_vft (default_dpo.
-						   hicn_dpo_get_type ())->
-			get_strategy_node_index (),
+			hicn_dpo_get_strategy_vft
+			(default_dpo.hicn_dpo_get_type
+			 ())->get_strategy_node_index (),
 			hicn_face_udp6_output_node.index);
 
   /*
@@ -145,7 +143,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       fib_prefix_t fib_pfx;
       fib_node_index_t fib_entry_index;
       fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
-      fib_pfx.fp_len = ip46_address_is_ip4(remote_addr)? 32 : 128;
+      fib_pfx.fp_len = ip46_address_is_ip4 (remote_addr) ? 32 : 128;
 
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
@@ -155,14 +153,14 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       ip_adj = fib_entry_get_adj (fib_entry_index);
 
       if (ip_adj == ~0)
-        return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
+	return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
       hicn_face_t *face =
 	hicn_face_udp4_get (&local_addr->ip4, &remote_addr->ip4, local_port,
 			    remote_port);
 
       if (face != NULL)
-        return HICN_ERROR_FACE_ALREADY_CREATED;
+	return HICN_ERROR_FACE_ALREADY_CREATED;
 
       pool_get (hicn_dpoi_face_pool, face);
 
@@ -211,7 +209,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       fib_prefix_t fib_pfx;
       fib_node_index_t fib_entry_index;
       fib_prefix_from_ip46_addr (remote_addr, &fib_pfx);
-      fib_pfx.fp_len = ip46_address_is_ip4(remote_addr)? 32 : 128;
+      fib_pfx.fp_len = ip46_address_is_ip4 (remote_addr) ? 32 : 128;
 
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
@@ -221,14 +219,14 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       ip_adj = fib_entry_get_adj (fib_entry_index);
 
       if (ip_adj == ~0)
-        return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
+	return HICN_ERROR_FACE_IP_ADJ_NOT_FOUND;
 
       hicn_face_t *face =
 	hicn_face_udp6_get (&local_addr->ip6, &remote_addr->ip6, local_port,
 			    remote_port);
 
       if (face != NULL)
-        return HICN_ERROR_FACE_ALREADY_CREATED;
+	return HICN_ERROR_FACE_ALREADY_CREATED;
 
       pool_get (hicn_dpoi_face_pool, face);
 
@@ -275,8 +273,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-						 hicn_mapme_eventmgr_process_node.
-						 index,
+						 hicn_mapme_eventmgr_process_node.index,
 						 HICN_MAPME_EVENT_FACE_ADD, 1,
 						 sizeof (retx_t));
   /* *INDENT-OFF* */
@@ -293,6 +290,9 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
   };
   /* *INDENT-ON* */
 
+  //Take a lock on the face which will be removed when the face is deleted
+  hicn_face_lock (&(retx->dpo));
+
   return ret;
 }
 
@@ -304,15 +304,20 @@ hicn_face_udp_del (u32 faceid)
   hicn_face_udp_key_t key;
   hicn_face_udp_key_t old_key;
 
-  if (face_udp->hdrs.ip4.ip.ip_version_and_header_length == IP4_VERSION_AND_HEADER_LENGTH_NO_OPTIONS)
+  if (face_udp->hdrs.ip4.ip.ip_version_and_header_length ==
+      IP4_VERSION_AND_HEADER_LENGTH_NO_OPTIONS)
     {
-      hicn_face_udp4_get_key (&face_udp->hdrs.ip4.ip.src_address, &face_udp->hdrs.ip4.ip.dst_address, face_udp->hdrs.ip4.udp.src_port,
+      hicn_face_udp4_get_key (&face_udp->hdrs.ip4.ip.src_address,
+			      &face_udp->hdrs.ip4.ip.dst_address,
+			      face_udp->hdrs.ip4.udp.src_port,
 			      face_udp->hdrs.ip4.udp.dst_port, &key);
       mhash_unset (&hicn_face_udp_hashtb, &key, (uword *) & old_key);
     }
   else
     {
-      hicn_face_udp6_get_key (&face_udp->hdrs.ip6.ip.src_address, &face_udp->hdrs.ip6.ip.dst_address, face_udp->hdrs.ip6.udp.src_port,
+      hicn_face_udp6_get_key (&face_udp->hdrs.ip6.ip.src_address,
+			      &face_udp->hdrs.ip6.ip.dst_address,
+			      face_udp->hdrs.ip6.udp.src_port,
 			      face_udp->hdrs.ip6.udp.dst_port, &key);
       mhash_unset (&hicn_face_udp_hashtb, &key, (uword *) & old_key);
     }

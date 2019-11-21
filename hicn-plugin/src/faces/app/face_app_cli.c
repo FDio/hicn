@@ -35,7 +35,8 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 {
   vnet_main_t *vnm = vnet_get_main ();
   fib_prefix_t prefix;
-  hicn_face_id_t face_id = HICN_FACE_NULL;
+  hicn_face_id_t face_id1 = HICN_FACE_NULL;
+  hicn_face_id_t face_id2 = HICN_FACE_NULL;
   u32 cs_reserved = HICN_PARAM_FACE_DFT_CS_RESERVED;
   int ret = HICN_ERROR_NONE;
   int sw_if;
@@ -57,7 +58,7 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 	  face_op = HICN_FACE_DELETE;
 	}
       else if (face_op == HICN_FACE_DELETE
-	       && unformat (line_input, "id %d", &face_id))
+	       && unformat (line_input, "id %d", &face_id1))
 	;
       else if (unformat (line_input, "add"))
 	{
@@ -95,13 +96,13 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 	}
     }
 
-  if (face_id != HICN_FACE_NULL)
+  if (face_id1 != HICN_FACE_NULL)
     {
 
-      if (!hicn_dpoi_idx_is_valid (face_id))
+      if (!hicn_dpoi_idx_is_valid (face_id1))
 	{
-	  return clib_error_return (0, "%s, face_id %d not valid",
-				    get_error_string (ret), face_id);
+	  return clib_error_return (0, "%s, face_id1 %d not valid",
+				    get_error_string (ret), face_id1);
 	}
     }
 
@@ -116,15 +117,18 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 
 	if (prod)
 	  {
-            prefix.fp_proto = ip46_address_is_ip4(&prefix.fp_addr) ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
+	    prefix.fp_proto =
+	      ip46_address_is_ip4 (&prefix.
+				   fp_addr) ? FIB_PROTOCOL_IP4 :
+	      FIB_PROTOCOL_IP6;
 	    rv =
-	      hicn_face_prod_add (&prefix, sw_if, &cs_reserved,
-				  &prod_addr, &face_id);
+	      hicn_face_prod_add (&prefix, sw_if, &cs_reserved, &prod_addr,
+				  &face_id1);
 	    if (rv == HICN_ERROR_NONE)
 	      {
 		u8 *sbuf = NULL;
 		sbuf =
-		  format (sbuf, "Face id: %d, producer address %U", face_id,
+		  format (sbuf, "Face id: %d, producer address %U", face_id1,
 			  format_ip46_address, &prod_addr,
 			  0 /*IP46_ANY_TYPE */ );
 		vlib_cli_output (vm, "%s", sbuf);
@@ -137,13 +141,15 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 	else
 	  {
 	    rv =
-	      hicn_face_cons_add (&cons_addr4, &cons_addr6, sw_if, &face_id);
+	      hicn_face_cons_add (&cons_addr4, &cons_addr6, sw_if, &face_id1,
+				  &face_id2);
 	    if (rv == HICN_ERROR_NONE)
 	      {
 		u8 *sbuf = NULL;
 		sbuf =
-		  format (sbuf, "Face id: %d, consumer addresses v4 %U v6 %U",
-			  face_id, format_ip4_address, &cons_addr4,
+		  format (sbuf,
+			  "Face id: %d, address v4 %U, face id: %d address v6 %U",
+			  face_id1, format_ip4_address, &cons_addr4, face_id2,
 			  format_ip6_address, &cons_addr6);
 		vlib_cli_output (vm, "%s", sbuf);
 	      }
@@ -156,15 +162,15 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
       }
     case HICN_FACE_DELETE:
       {
-	hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
+	hicn_face_t *face = hicn_dpoi_get_from_idx (face_id1);
 
 	if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_CONS)
-	  rv = hicn_face_cons_del (face_id);
+	  rv = hicn_face_cons_del (face_id1);
 	else
-	  rv = hicn_face_prod_del (face_id);
+	  rv = hicn_face_prod_del (face_id1);
 	if (rv == HICN_ERROR_NONE)
 	  {
-	    vlib_cli_output (vm, "Face %d deleted", face_id);
+	    vlib_cli_output (vm, "Face %d deleted", face_id1);
 	  }
 	else
 	  {

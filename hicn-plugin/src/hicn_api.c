@@ -86,8 +86,9 @@
   _(HICN_API_PUNTING_ADD, hicn_api_punting_add)                     \
   _(HICN_API_PUNTING_DEL, hicn_api_punting_del)                     \
   _(HICN_API_REGISTER_PROD_APP, hicn_api_register_prod_app)         \
-  _(HICN_API_REGISTER_CONS_APP, hicn_api_register_cons_app)
-
+  _(HICN_API_FACE_PROD_DEL, hicn_api_face_prod_del)                 \
+  _(HICN_API_REGISTER_CONS_APP, hicn_api_register_cons_app)         \
+  _(HICN_API_FACE_CONS_DEL, hicn_api_face_cons_del)
 
 /****** SUPPORTING FUNCTION DECLARATIONS ******/
 
@@ -392,7 +393,6 @@ vl_api_hicn_api_face_del_t_handler (vl_api_hicn_api_face_del_t * mp)
     }
 
   REPLY_MACRO (VL_API_HICN_API_FACE_DEL_REPLY /* , rmp, mp, rv */ );
-
 }
 
 static void
@@ -488,7 +488,7 @@ send_faces_details (vl_api_registration_t * reg,
 }
 
 static void
-  vl_api_hicn_api_faces_dump_t_handler (vl_api_hicn_api_faces_dump_t * mp)
+vl_api_hicn_api_faces_dump_t_handler (vl_api_hicn_api_faces_dump_t * mp)
 {
   hicn_face_t *face;
   vl_api_registration_t *reg;
@@ -506,7 +506,7 @@ static void
 }
 
 static void
-  vl_api_hicn_api_face_get_t_handler (vl_api_hicn_api_face_get_t * mp)
+vl_api_hicn_api_face_get_t_handler (vl_api_hicn_api_face_get_t * mp)
 {
   vl_api_hicn_api_face_get_reply_t *rmp;
   int rv = 0;
@@ -745,8 +745,8 @@ send_route_details (vl_api_registration_t * reg,
 	    {
 	      mp->faceids[i] =
 		clib_host_to_net_u32 (((dpo_id_t *) &
-				       hicn_dpo_ctx->next_hops[i])->
-				      dpoi_index);
+				       hicn_dpo_ctx->
+				       next_hops[i])->dpoi_index);
 	      mp->nfaces++;
 	    }
 	}
@@ -817,8 +817,7 @@ static void
 				       fib_table_walk (fib_table->ft_index,
 						       FIB_PROTOCOL_IP4,
 						       vl_api_hicn_api_route_dump_walk,
-						       &ctx);
-				       }
+						       &ctx);}
 		));
 
   pool_foreach (fib_table, im6->fibs, (
@@ -826,8 +825,7 @@ static void
 					fib_table_walk (fib_table->ft_index,
 							FIB_PROTOCOL_IP6,
 							vl_api_hicn_api_route_dump_walk,
-							&ctx);
-					}
+							&ctx);}
 		));
 
   vec_foreach (lfeip, ctx.feis)
@@ -890,17 +888,20 @@ static void vl_api_hicn_api_strategy_get_t_handler
 
 /****** PUNTING *******/
 
-static hicn_error_t add_ip_punting (vl_api_hicn_punting_ip_t * mp)
+static hicn_error_t
+add_ip_punting (vl_api_hicn_punting_ip_t * mp)
 {
   vlib_main_t *vm = vlib_get_main ();
   fib_prefix_t prefix;
   ip_prefix_decode (&mp->prefix, &prefix);
   u32 swif = clib_net_to_host_u32 (mp->swif);
 
-  return hicn_punt_interest_data_for_ip (vm, &prefix, swif, HICN_PUNT_IP_TYPE, NO_L2);
+  return hicn_punt_interest_data_for_ip (vm, &prefix, swif, HICN_PUNT_IP_TYPE,
+					 NO_L2);
 }
 
-static hicn_error_t add_udp_punting (vl_api_hicn_punting_udp_t * mp)
+static hicn_error_t
+add_udp_punting (vl_api_hicn_punting_udp_t * mp)
 {
   vlib_main_t *vm = vlib_get_main ();
   fib_prefix_t prefix;
@@ -908,9 +909,11 @@ static hicn_error_t add_udp_punting (vl_api_hicn_punting_udp_t * mp)
   u32 swif = clib_net_to_host_u32 (mp->swif);
   u16 sport = clib_net_to_host_u16 (mp->sport);
   u16 dport = clib_net_to_host_u16 (mp->sport);
-  u8 type = mp->ip_version == ADDRESS_IP6 ? HICN_PUNT_UDP6_TYPE : HICN_PUNT_UDP4_TYPE;
+  u8 type =
+    mp->ip_version == ADDRESS_IP6 ? HICN_PUNT_UDP6_TYPE : HICN_PUNT_UDP4_TYPE;
 
-  return hicn_punt_interest_data_for_udp (vm, &prefix, swif, type, sport, dport, NO_L2);
+  return hicn_punt_interest_data_for_udp (vm, &prefix, swif, type, sport,
+					  dport, NO_L2);
 }
 
 static void vl_api_hicn_api_punting_add_t_handler
@@ -923,11 +926,11 @@ static void vl_api_hicn_api_punting_add_t_handler
 
   if (mp->type == IP_PUNT)
     {
-      rv = add_ip_punting(&(mp->rule.ip));
+      rv = add_ip_punting (&(mp->rule.ip));
     }
   else if (mp->type == UDP_PUNT)
     {
-      rv = add_udp_punting(&(mp->rule.udp));
+      rv = add_udp_punting (&(mp->rule.udp));
     }
   else
     {
@@ -981,6 +984,20 @@ static void vl_api_hicn_api_register_prod_app_t_handler
   /* *INDENT-ON* */
 }
 
+static void
+vl_api_hicn_api_face_prod_del_t_handler (vl_api_hicn_api_face_prod_del_t * mp)
+{
+  vl_api_hicn_api_face_prod_del_reply_t *rmp;
+  int rv = HICN_ERROR_FACE_NOT_FOUND;
+
+  hicn_main_t *sm = &hicn_main;
+
+  hicn_face_id_t faceid = clib_net_to_host_u32 (mp->faceid);
+  rv = hicn_face_prod_del (faceid);
+
+  REPLY_MACRO (VL_API_HICN_API_FACE_PROD_DEL_REPLY /* , rmp, mp, rv */ );
+}
+
 static void vl_api_hicn_api_register_cons_app_t_handler
   (vl_api_hicn_api_register_cons_app_t * mp)
 {
@@ -992,19 +1009,38 @@ static void vl_api_hicn_api_register_cons_app_t_handler
   ip46_address_t src_addr6 = ip46_address_initializer;
 
   u32 swif = clib_net_to_host_u32 (mp->swif);
-  u32 faceid;
+  u32 faceid1;
+  u32 faceid2;
 
-  rv = hicn_face_cons_add (&src_addr4.ip4, &src_addr6.ip6, swif, &faceid);
+  rv =
+    hicn_face_cons_add (&src_addr4.ip4, &src_addr6.ip6, swif, &faceid1,
+			&faceid2);
 
   /* *INDENT-OFF* */
   REPLY_MACRO2 (VL_API_HICN_API_REGISTER_CONS_APP_REPLY, (
     {
       ip_address_encode(&src_addr4, IP46_TYPE_ANY, &rmp->src_addr4);
       ip_address_encode(&src_addr6, IP46_TYPE_ANY, &rmp->src_addr6);
-      rmp->faceid = clib_net_to_host_u32(faceid);
+      rmp->faceid1 = clib_net_to_host_u32(faceid1);
+      rmp->faceid2 = clib_net_to_host_u32(faceid2);
     }));
   /* *INDENT-ON* */
 }
+
+static void
+vl_api_hicn_api_face_cons_del_t_handler (vl_api_hicn_api_face_cons_del_t * mp)
+{
+  vl_api_hicn_api_face_cons_del_reply_t *rmp;
+  int rv = HICN_ERROR_FACE_NOT_FOUND;
+
+  hicn_main_t *sm = &hicn_main;
+
+  hicn_face_id_t faceid = clib_net_to_host_u32 (mp->faceid);
+  rv = hicn_face_cons_del (faceid);
+
+  REPLY_MACRO (VL_API_HICN_API_FACE_CONS_DEL_REPLY /* , rmp, mp, rv */ );
+}
+
 
 /************************************************************************************/
 

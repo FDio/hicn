@@ -173,11 +173,6 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 		  if (found)
 		    {
-		      /*
-		       * Remove lock on the dpo
-		       * stored in the vlib_buffer
-		       */
-		      dpo_unlock (&hicnb0->face_dpo_id);
 		      strategy_vft0->hicn_select_next_hop (dpo_ctx_id0,
 							   &nh_idx, &outface);
 		      /* Retransmission */

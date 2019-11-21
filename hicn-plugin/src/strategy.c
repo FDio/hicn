@@ -102,7 +102,7 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
       hicn_face_db_add_face_dpo (&hicnb0->face_dpo_id, &(pitp->u.pit.faces));
 
       /* Remove lock on the dpo stored in the vlib_buffer */
-      dpo_unlock (&hicnb0->face_dpo_id);
+      //dpo_unlock (&hicnb0->face_dpo_id);
 
       *next = outface->dpoi_next_node;
 
@@ -209,9 +209,8 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 	   */
 	  if (PREDICT_TRUE
 	      (ret == HICN_ERROR_NONE && HICN_IS_NAMEHASH_CACHED (b0)
-	       && strategy->hicn_select_next_hop (vnet_buffer (b0)->
-						  ip.adj_index[VLIB_TX],
-						  &nh_idx,
+	       && strategy->hicn_select_next_hop (vnet_buffer (b0)->ip.
+						  adj_index[VLIB_TX], &nh_idx,
 						  &outface) ==
 	       HICN_ERROR_NONE))
 	    {

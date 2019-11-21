@@ -41,11 +41,15 @@ void hicn_dpo_ip_module_init (void);
  */
 always_inline int
 hicn_dpo_ip4_lock_from_local (dpo_id_t * dpo,
-                              u32 * in_faces_vec_id,
+			      u32 * in_faces_vec_id,
 			      u8 * hicnb_flags,
 			      const ip4_address_t * local_addr, u32 sw_if)
 {
-  hicn_face_ip_input_faces_t * in_faces_vec =
+  dpo->dpoi_type = DPO_FIRST;
+  dpo->dpoi_proto = DPO_PROTO_NONE;
+  dpo->dpoi_index = INDEX_INVALID;
+  dpo->dpoi_next_node = 0;
+  hicn_face_ip_input_faces_t *in_faces_vec =
     hicn_face_ip4_get_vec (local_addr, sw_if, &hicn_face_ip_local_hashtb);
 
   if (PREDICT_FALSE (in_faces_vec == NULL))
@@ -61,7 +65,7 @@ hicn_dpo_ip4_lock_from_local (dpo_id_t * dpo,
 
   dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, in_faces_vec->face_id);
   dpo->dpoi_next_node = ~0;
-  dpo_lock (dpo);
+  dpo_unlock (dpo);
 
   return HICN_ERROR_NONE;
 }
@@ -80,11 +84,15 @@ hicn_dpo_ip4_lock_from_local (dpo_id_t * dpo,
  */
 always_inline int
 hicn_dpo_ip6_lock_from_local (dpo_id_t * dpo,
-                              u32 * in_faces_vec_id,
+			      u32 * in_faces_vec_id,
 			      u8 * hicnb_flags,
 			      const ip6_address_t * local_addr, u32 sw_if)
 {
-  hicn_face_ip_input_faces_t * in_faces_vec =
+  dpo->dpoi_type = DPO_FIRST;
+  dpo->dpoi_proto = DPO_PROTO_NONE;
+  dpo->dpoi_index = INDEX_INVALID;
+  dpo->dpoi_next_node = 0;
+  hicn_face_ip_input_faces_t *in_faces_vec =
     hicn_face_ip6_get_vec (local_addr, sw_if, &hicn_face_ip_local_hashtb);
 
   if (PREDICT_FALSE (in_faces_vec == NULL))
@@ -100,7 +108,7 @@ hicn_dpo_ip6_lock_from_local (dpo_id_t * dpo,
 
   dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP6, in_faces_vec->face_id);
   dpo->dpoi_next_node = ~0;
-  dpo_lock (dpo);
+  dpo_unlock (dpo);
 
   return HICN_ERROR_NONE;
 }
@@ -144,7 +152,7 @@ hicn_dpo_ip4_add_and_lock_from_remote (dpo_id_t * dpo,
 
       dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, dpoi_index);
       dpo->dpoi_next_node = node_index;
-      dpo_lock (dpo);
+      dpo_unlock (dpo);
 
       return;
     }
@@ -158,7 +166,7 @@ hicn_dpo_ip4_add_and_lock_from_remote (dpo_id_t * dpo,
   hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
   dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, dpoi_index);
   dpo->dpoi_next_node = node_index;
-  dpo_lock (dpo);
+  dpo_unlock (dpo);
 }
 
 /**
@@ -198,7 +206,7 @@ hicn_dpo_ip6_add_and_lock_from_remote (dpo_id_t * dpo,
 
       dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, dpoi_index);
       dpo->dpoi_next_node = node_index;
-      dpo_lock (dpo);
+      dpo_unlock (dpo);
 
       return;
     }
@@ -211,7 +219,7 @@ hicn_dpo_ip6_add_and_lock_from_remote (dpo_id_t * dpo,
   index_t dpoi_index = hicn_dpoi_get_index (face);
   dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP6, dpoi_index);
   dpo->dpoi_next_node = node_index;
-  dpo_lock (dpo);
+  dpo_unlock (dpo);
 }
 
 

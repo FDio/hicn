@@ -23,7 +23,8 @@
 
 int
 hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
-		    u32 swif, hicn_face_id_t * faceid)
+		    u32 swif, hicn_face_id_t * faceid1,
+		    hicn_face_id_t * faceid2)
 {
   /* Create the corresponding appif if */
   /* Retrieve a valid local ip address to assign to the appif */
@@ -56,9 +57,9 @@ hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
 
   ip46_address_t nh_addr = to_ip46 (0, (u8 *) nh_addr4);
 
-  hicn_iface_ip_add (&if_ip, &nh_addr, swif, faceid);
+  hicn_iface_ip_add (&if_ip, &nh_addr, swif, faceid1);
 
-  hicn_face_t *face = hicn_dpoi_get_from_idx (*faceid);
+  hicn_face_t *face = hicn_dpoi_get_from_idx (*faceid1);
   face->shared.flags |= HICN_FACE_FLAGS_APPFACE_CONS;
 
   get_two_ip6_addresses (&(if_ip.ip6), nh_addr6);
@@ -67,9 +68,9 @@ hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
 				 &(if_ip.ip6),
 				 ADDR_MGR_IP6_CONS_LEN, 0 /* is_del */ );
 
-  hicn_iface_ip_add (&if_ip, (ip46_address_t *) nh_addr6, swif, faceid);
+  hicn_iface_ip_add (&if_ip, (ip46_address_t *) nh_addr6, swif, faceid2);
 
-  face = hicn_dpoi_get_from_idx (*faceid);
+  face = hicn_dpoi_get_from_idx (*faceid2);
   face->shared.flags |= HICN_FACE_FLAGS_APPFACE_CONS;
 
   return vnet_feature_enable_disable ("ip6-unicast",
@@ -81,6 +82,9 @@ hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
 int
 hicn_face_cons_del (hicn_face_id_t face_id)
 {
+  if (!hicn_dpoi_idx_is_valid (face_id))
+    return HICN_ERROR_APPFACE_NOT_FOUND;
+
   hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
 
   if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_CONS)
