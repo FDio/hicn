@@ -169,7 +169,8 @@ static void vl_api_hicn_api_register_cons_app_reply_t_handler(
 
   ip_address_decode(&mp->src_addr4, (ip46_address_t *)params->src4);
   ip_address_decode(&mp->src_addr6, (ip46_address_t *)params->src6);
-  params->face_id = clib_host_to_net_u32(mp->faceid);
+  params->face_id1 = clib_host_to_net_u32(mp->faceid1);
+  params->face_id2 = clib_host_to_net_u32(mp->faceid2);
 
   vpp_binary_api_unlock_waiting_thread(binary_api->vpp_api);
 }

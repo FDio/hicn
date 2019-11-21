@@ -132,6 +132,7 @@ hicn_face_del (hicn_face_id_t face_id)
   if (hicn_dpoi_idx_is_valid (face_id))
     {
       hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
+      face->shared.locks--;
       if (face->shared.locks == 0)
 	pool_put_index (hicn_dpoi_face_pool, face_id);
       else

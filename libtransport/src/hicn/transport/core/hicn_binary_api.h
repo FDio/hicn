@@ -47,7 +47,8 @@ typedef struct {
 typedef struct {
   ip_address_t* src4;
   ip_address_t* src6;
-  uint32_t face_id;
+  uint32_t face_id1;
+  uint32_t face_id2;
 } hicn_consumer_output_params;
 
 typedef struct {

@@ -255,7 +255,7 @@ hicn_iface_ip_add (const ip46_address_t * local_addr,
   face->shared.pl_id = (u16) 0;
   face->shared.face_type = hicn_face_ip_type;
   face->shared.flags = HICN_FACE_FLAGS_IFACE;
-  face->shared.locks = 0;
+  face->shared.locks = 1;
 
   hicn_face_ip_key_t key;
   hicn_face_ip6_get_key (&(remote_addr->ip6), sw_if, &key);

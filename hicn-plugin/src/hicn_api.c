@@ -86,8 +86,9 @@
   _(HICN_API_PUNTING_ADD, hicn_api_punting_add)                     \
   _(HICN_API_PUNTING_DEL, hicn_api_punting_del)                     \
   _(HICN_API_REGISTER_PROD_APP, hicn_api_register_prod_app)         \
-  _(HICN_API_REGISTER_CONS_APP, hicn_api_register_cons_app)
-
+  _(HICN_API_FACE_PROD_DEL, hicn_api_face_prod_del)                 \
+  _(HICN_API_REGISTER_CONS_APP, hicn_api_register_cons_app)         \
+  _(HICN_API_FACE_CONS_DEL, hicn_api_face_cons_del)
 
 /****** SUPPORTING FUNCTION DECLARATIONS ******/
 
@@ -392,7 +393,6 @@ vl_api_hicn_api_face_del_t_handler (vl_api_hicn_api_face_del_t * mp)
     }
 
   REPLY_MACRO (VL_API_HICN_API_FACE_DEL_REPLY /* , rmp, mp, rv */ );
-
 }
 
 static void
@@ -981,6 +981,20 @@ static void vl_api_hicn_api_register_prod_app_t_handler
   /* *INDENT-ON* */
 }
 
+static void
+vl_api_hicn_api_face_prod_del_t_handler (vl_api_hicn_api_face_prod_del_t * mp)
+{
+  vl_api_hicn_api_face_prod_del_reply_t *rmp;
+  int rv = HICN_ERROR_FACE_NOT_FOUND;
+
+  hicn_main_t *sm = &hicn_main;
+
+  hicn_face_id_t faceid = clib_net_to_host_u32 (mp->faceid);
+  rv = hicn_face_prod_del(faceid);
+  
+  REPLY_MACRO (VL_API_HICN_API_FACE_PROD_DEL_REPLY /* , rmp, mp, rv */ );
+}
+
 static void vl_api_hicn_api_register_cons_app_t_handler
   (vl_api_hicn_api_register_cons_app_t * mp)
 {
@@ -992,19 +1006,36 @@ static void vl_api_hicn_api_register_cons_app_t_handler
   ip46_address_t src_addr6 = ip46_address_initializer;
 
   u32 swif = clib_net_to_host_u32 (mp->swif);
-  u32 faceid;
+  u32 faceid1;
+  u32 faceid2;
 
-  rv = hicn_face_cons_add (&src_addr4.ip4, &src_addr6.ip6, swif, &faceid);
+  rv = hicn_face_cons_add (&src_addr4.ip4, &src_addr6.ip6, swif, &faceid1, &faceid2);
 
   /* *INDENT-OFF* */
   REPLY_MACRO2 (VL_API_HICN_API_REGISTER_CONS_APP_REPLY, (
     {
       ip_address_encode(&src_addr4, IP46_TYPE_ANY, &rmp->src_addr4);
       ip_address_encode(&src_addr6, IP46_TYPE_ANY, &rmp->src_addr6);
-      rmp->faceid = clib_net_to_host_u32(faceid);
+      rmp->faceid1 = clib_net_to_host_u32(faceid1);
+      rmp->faceid2 = clib_net_to_host_u32(faceid2);
     }));
   /* *INDENT-ON* */
 }
+
+static void
+vl_api_hicn_api_face_cons_del_t_handler (vl_api_hicn_api_face_cons_del_t * mp)
+{
+  vl_api_hicn_api_face_cons_del_reply_t *rmp;
+  int rv = HICN_ERROR_FACE_NOT_FOUND;
+
+  hicn_main_t *sm = &hicn_main;
+
+  hicn_face_id_t faceid = clib_net_to_host_u32 (mp->faceid);
+  rv = hicn_face_cons_del(faceid);
+  
+  REPLY_MACRO (VL_API_HICN_API_FACE_CONS_DEL_REPLY /* , rmp, mp, rv */ );
+}
+
 
 /************************************************************************************/
 
