@@ -27,7 +27,7 @@ add_subdirectory(netlink)
 add_subdirectory(bonjour)
 endif()
 
-if(ANDROID)
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
 add_subdirectory(android_utility)
 endif()
 

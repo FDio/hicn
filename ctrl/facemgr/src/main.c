@@ -185,9 +185,9 @@ MAIN_LOOP:
     loop = loop_create();
     facemgr_set_callback(facemgr, loop, (void*)loop_callback);
 
-#ifdef __ANDROID__
-    facemgr_set_jvm(facemgr, NULL, NULL); // FIXME
-#endif /* __ ANDROID__ */
+#if defined(__ANDROID__) && ! defined(WITH_ANDROID_CLI)
+    facemgr_set_jvm(facemgr, NULL, NULL);
+#endif /* defined(__ANDROID__) && ! defined(WITH_ANDROID_CLI) */
 
     DEBUG("Bootstrap...");
 
