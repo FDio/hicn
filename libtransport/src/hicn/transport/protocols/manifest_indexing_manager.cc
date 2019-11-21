@@ -29,6 +29,7 @@ ManifestIndexManager::ManifestIndexManager(
     interface::ConsumerSocket *icn_socket, TransportProtocol *next_interest)
     : IncrementalIndexManager(icn_socket),
       PacketManager<Interest>(1024),
+      manifests_in_flight_(0),
       next_reassembly_segment_(suffix_queue_.end()),
       next_to_retrieve_segment_(suffix_queue_.end()),
       suffix_manifest_(core::NextSegmentCalculationStrategy::INCREMENTAL, 0),
@@ -86,7 +87,14 @@ bool ManifestIndexManager::onManifest(
           // Set the iterators to the beginning of the suffix queue
           next_reassembly_segment_ = suffix_queue_.begin();
           // Set number of segments in manifests assuming the first one is full
-          suffix_manifest_.setNbSegments(std::distance(_it, _end) - 1);
+          suffix_manifest_.setNbSegments(
+              std::distance(manifest->getSuffixList().begin(),
+                            manifest->getSuffixList().end()) -
+              1);
+          suffix_manifest_.setSuffixStrategy(
+              manifest->getNextSegmentCalculationStrategy());
+        } else if (manifests_in_flight_) {
+          manifests_in_flight_--;
         }
 
         if (TRANSPORT_EXPECT_FALSE(manifest->isFinalManifest() ||
@@ -110,6 +118,10 @@ bool ManifestIndexManager::onManifest(
         // Manifest namespace
         Name &name = manifest->getWritableName();
 
+        if (manifests_in_flight_ >= MAX_MANIFESTS_IN_FLIGHT) {
+          break;
+        }
+
         // Send as many manifest as required for filling window.
         do {
           segment_count += suffix_manifest_.getNbSegments();
@@ -132,8 +144,10 @@ bool ManifestIndexManager::onManifest(
                         std::placeholders::_1, std::placeholders::_2),
               std::bind(&ManifestIndexManager::onManifestTimeout, this,
                         std::placeholders::_1));
+          manifests_in_flight_++;
         } while (segment_count < current_window_size &&
-                 suffix_manifest_.getSuffix() < final_suffix_);
+                 suffix_manifest_.getSuffix() < final_suffix_ &&
+                 manifests_in_flight_ < MAX_MANIFESTS_IN_FLIGHT);
 
         break;
       }

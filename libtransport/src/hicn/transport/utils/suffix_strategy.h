@@ -31,6 +31,11 @@ class SuffixStrategy {
     return suffix_stragegy_;
   }
 
+  void setSuffixStrategy(
+      transport::core::NextSegmentCalculationStrategy strategy) {
+    suffix_stragegy_ = strategy;
+  }
+
   std::uint32_t getSuffix() { return suffix_; }
 
   virtual std::uint32_t getNextSuffix() = 0;
