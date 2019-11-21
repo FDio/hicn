@@ -1,8 +1,13 @@
-EXEC     = $(shell basename $$(pwd))
+SHELL   := /bin/bash
+
 CC       = gcc
 
 CFLAGS   = -std=gnu11 -g -Wall -Wextra -Wpedantic -Wstrict-aliasing -DWITH_POLICY=1
-LDFLAGS  = -lhicn -lhicnctrl
+LDFLAGS  = -lhicnctrl -lhicn
+
+# Android
+#CFLAGS  += -I../includes -I../../../lib/includes -L../../../build/build-root/lib
+#LDFLAGS += -lm -llog
 
 SRC      = $(wildcard *.c)
 EXEC     = $(SRC:.c=)
@@ -10,7 +15,7 @@ EXEC     = $(SRC:.c=)
 all: $(EXEC)
 
 %:%.c
-	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS)
+	@$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS)
 
 .PHONY: clean mrproper
 
