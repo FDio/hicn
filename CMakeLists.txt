@@ -32,6 +32,13 @@ option(BUILD_SYSREPOPLUGIN "Build the sysrepo plugin" OFF)
 option(BUILD_SYSREPOP "Build the sysrepo plugin" OFF)
 option(BUILD_LIBYANG "Build the sysrepo plugin" OFF)
 
+option(WITH_ANDROID_CLI "Build for Android CLI" OFF)
+
+if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Android" AND WITH_ANDROID_CLI)
+  message("Building for Android CLI")
+  set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -DWITH_ANDROID_CLI)
+endif()
+
 list(APPEND dir_options
   BUILD_LIBHICN
   BUILD_HICNLIGHT
@@ -129,5 +136,7 @@ foreach(dir ${subdirs})
   add_subdirectory(${dir})
 endforeach()
 
+if (NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
 include(Packager)
 make_packages()
+endif()

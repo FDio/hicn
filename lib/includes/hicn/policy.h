@@ -97,6 +97,8 @@ static inline
 int
 policy_tags_snprintf(char * s, size_t size, policy_tags_t tags)
 {
+    if (size <= POLICY_TAG_N)
+        return -1;
 #define _(x, y) s[POLICY_TAG_ ## x] = policy_tags_has(tags, POLICY_TAG_ ## x) ? y : '.';
 foreach_policy_tag
 #undef _

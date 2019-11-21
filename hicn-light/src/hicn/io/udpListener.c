@@ -79,9 +79,9 @@ static ListenerOps udpTemplate = {
 
 static void _readcb(int fd, PARCEventType what, void * listener_void);
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) && ! defined(WITH_ANDROID_CLI)
 extern int bindSocket(int sock, const char* ifname);
-#endif
+#endif /* defined(__ANDROID__) && ! defined(WITH_ANDROID_CLI) */
 
 ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
                                      struct sockaddr_in6 sin6, const char *interfaceName) {
@@ -137,7 +137,7 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
         logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
                    "setsockopt(%d, SO_BINDTODEVICE, %s) failed (%d) %s",
                    udp->udp_socket, interfaceName, errno, strerror(errno));
-#ifdef __ANDROID__
+#if defined(__ANDROID__) && ! defined(WITH_ANDROID_CLI)
         ret = bindSocket(udp->udp_socket, interfaceName);
         if (ret < 0) {
           logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
@@ -256,7 +256,7 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
         logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
                    "setsockopt(%d, SO_BINDTODEVICE, %s) failed (%d) %s",
                    udp->udp_socket, interfaceName, errno, strerror(errno));
-#ifdef __ANDROID__
+#if defined(__ANDROID__) && ! defined(WITH_ANDROID_CLI)
         ret = bindSocket(udp->udp_socket, interfaceName);
         if (ret < 0) {
           logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
