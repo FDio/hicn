@@ -294,7 +294,7 @@ hicn_iface_udp4_add (const ip4_address_t * local_addr,
   face->shared.pl_id = (u16) 0;
   face->shared.face_type = hicn_face_udp_type;
   face->shared.flags = HICN_FACE_FLAGS_IFACE;
-  face->shared.locks = 0;
+  face->shared.locks = 1;
   face->shared.sw_if = sw_if;
 
   hicn_face_udp_key_t key;
