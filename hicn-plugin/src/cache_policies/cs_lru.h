@@ -58,6 +58,8 @@ int hicn_cs_lru_trim (hicn_pit_cs_t * pcs, u32 * node_list, int sz,
 		      hicn_cs_policy_t * lru);
 
 
+int hicn_cs_lru_flush (vlib_main_t * vm, struct hicn_pit_cs_s * pitcs,
+		       hicn_cs_policy_t * state);
 #endif /* // __LRU_H__ */
 
 /*

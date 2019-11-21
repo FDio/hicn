@@ -102,7 +102,7 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
       hicn_face_db_add_face_dpo (&hicnb0->face_dpo_id, &(pitp->u.pit.faces));
 
       /* Remove lock on the dpo stored in the vlib_buffer */
-      dpo_unlock (&hicnb0->face_dpo_id);
+      //dpo_unlock (&hicnb0->face_dpo_id);
 
       *next = outface->dpoi_next_node;
 

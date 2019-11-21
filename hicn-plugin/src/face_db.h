@@ -110,9 +110,6 @@ hicn_face_db_add_face_dpo (dpo_id_t * dpo, hicn_face_db_t * face_db)
 
   clib_memcpy (face, dpo, sizeof (dpo_id_t));
 
-  /* This access the dpoi to increase the lock */
-  dpo_lock (dpo);
-
   u32 bitmap_index = dpo->dpoi_index % HICN_PIT_N_HOP_BITMAP_SIZE;
   u32 position_array = bitmap_index / 8;
   u8 bit_index = (u8) (bitmap_index - position_array * 8);

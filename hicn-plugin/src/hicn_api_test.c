@@ -253,7 +253,9 @@ _(hicn_api_face_del_reply)                               \
 _(hicn_api_route_nhops_add_reply)                        \
 _(hicn_api_route_del_reply)                              \
 _(hicn_api_route_nhop_del_reply)                         \
-_(hicn_api_punting_add_reply)
+_(hicn_api_punting_add_reply)                            \
+_(hicn_api_face_cons_del_reply)                          \
+_(hicn_api_face_prod_del_reply)
 
 #define _(n)                                            \
     static void vl_api_##n##_t_handler                  \
@@ -297,7 +299,9 @@ _(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)         \
 _(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)             \
 _(HICN_API_PUNTING_ADD_REPLY, hicn_api_punting_add_reply)               \
 _(HICN_API_REGISTER_PROD_APP_REPLY, hicn_api_register_prod_app_reply)   \
-_(HICN_API_REGISTER_CONS_APP_REPLY, hicn_api_register_cons_app_reply)
+_(HICN_API_FACE_PROD_DEL_REPLY, hicn_api_face_prod_del_reply)           \
+_(HICN_API_REGISTER_CONS_APP_REPLY, hicn_api_register_cons_app_reply)   \
+_(HICN_API_FACE_CONS_DEL_REPLY, hicn_api_face_cons_del_reply)
 
 
 static int
@@ -1579,6 +1583,8 @@ api_hicn_api_register_prod_app (vat_main_t * vam)
       clib_warning ("Please specify prefix...");
       return 1;
     }
+
+  prefix.fp_proto = ip46_address_is_ip4(&(prefix.fp_addr)) ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
   /* Construct the API message */
   M (HICN_API_REGISTER_PROD_APP, mp);
   ip_prefix_encode (&prefix, &mp->prefix);
@@ -1618,6 +1624,43 @@ static void
 }
 
 static int
+api_hicn_api_face_prod_del (vat_main_t * vam)
+{
+  unformat_input_t *input = vam->input;
+  vl_api_hicn_api_face_prod_del_t *mp;
+  u32 faceid = 0, ret;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "face %d", &faceid))
+	{;
+	}
+      else
+	{
+	  break;
+	}
+    }
+
+  //Check for presence of face ID
+  if (faceid == ~0)
+    {
+      clib_warning ("Please specify face ID");
+      return 1;
+    }
+  //Construct the API message
+  M (HICN_API_FACE_PROD_DEL, mp);
+  mp->faceid = clib_host_to_net_u32 (faceid);
+
+  //send it...
+  S (mp);
+
+  //Wait for a reply...
+  W (ret);
+
+  return ret;
+}
+
+static int
 api_hicn_api_register_cons_app (vat_main_t * vam)
 {
   vl_api_hicn_api_register_cons_app_t *mp;
@@ -1630,6 +1673,43 @@ api_hicn_api_register_cons_app (vat_main_t * vam)
   S (mp);
 
   /* Wait for a reply... */
+  W (ret);
+
+  return ret;
+}
+
+static int
+api_hicn_api_face_cons_del (vat_main_t * vam)
+{
+  unformat_input_t *input = vam->input;
+  vl_api_hicn_api_face_cons_del_t *mp;
+  u32 faceid = 0, ret;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "face %d", &faceid))
+	{;
+	}
+      else
+	{
+	  break;
+	}
+    }
+
+  //Check for presence of face ID
+  if (faceid == ~0)
+    {
+      clib_warning ("Please specify face ID");
+      return 1;
+    }
+  //Construct the API message
+  M (HICN_API_FACE_CONS_DEL, mp);
+  mp->faceid = clib_host_to_net_u32 (faceid);
+
+  //send it...
+  S (mp);
+
+  //Wait for a reply...
   W (ret);
 
   return ret;
@@ -1696,7 +1776,9 @@ _(hicn_api_strategy_get, "strategy <id>")                               \
 _(hicn_api_ip_punting_add, "prefix <IP4/IP6>/<subnet> intfc <swif>")    \
 _(hicn_api_udp_punting_add, "prefix <IP4/IP6>/<subnet> intfc <swif> sport <port> dport <port> ip4/ip6")  \
 _(hicn_api_register_prod_app, "prefix <IP4/IP6>/<subnet> id <appif_id>") \
-_(hicn_api_register_cons_app, "")
+_(hicn_api_face_prod_del, "face <faceID>")                              \
+_(hicn_api_register_cons_app, "")                                       \
+_(hicn_api_face_cons_del, "face <faceID>")
 
 void
 hicn_vat_api_hookup (vat_main_t * vam)

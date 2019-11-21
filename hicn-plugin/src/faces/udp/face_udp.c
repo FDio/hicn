@@ -293,6 +293,9 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
   };
   /* *INDENT-ON* */
 
+  //Take a lock on the face which will be removed when the face is deleted
+  hicn_face_lock(&(retx->dpo));
+  
   return ret;
 }
 
