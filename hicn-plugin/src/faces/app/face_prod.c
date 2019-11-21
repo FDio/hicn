@@ -16,6 +16,7 @@
 #include <vnet/ip/ip6_packet.h>
 #include <vlib/vlib.h>
 #include <vnet/vnet.h>
+#include <vnet/interface_funcs.h>
 
 #include "face_prod.h"
 #include "address_mgr.h"
@@ -139,6 +140,12 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
     {
       return HICN_ERROR_FWD_NOT_ENABLED;
     }
+
+  if (vnet_get_sw_interface_or_null(vnm, sw_if) == NULL)
+    {
+      return HICN_ERROR_FACE_HW_INT_NOT_FOUND;
+    }
+
   int ret = HICN_ERROR_NONE;
   hicn_face_t *face = NULL;
 
@@ -283,6 +290,9 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 int
 hicn_face_prod_del (hicn_face_id_t face_id)
 {
+  if(!hicn_dpoi_idx_is_valid(face_id))
+    return HICN_ERROR_APPFACE_NOT_FOUND;
+
   hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
 
   if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD)
@@ -297,6 +307,13 @@ hicn_face_prod_del (hicn_face_id_t face_id)
       hicn_route_del_nhop (&(face_state_vec[face->shared.sw_if].prefix),
 			   face_id);
 
+      /* 
+       * Delete the content in the CS before deleting the face.
+       * Mandatory to prevent hitting the CS and not having the lru list
+       * due to a early deletion of the face.
+       */
+      proc_face->policy
+      
       int ret = hicn_face_ip_del (face_id);
       return ret ==
 	HICN_ERROR_NONE ? hicn_app_state_del (face->shared.sw_if) : ret;

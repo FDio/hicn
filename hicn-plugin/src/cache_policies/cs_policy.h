@@ -68,6 +68,7 @@ typedef struct hicn_cs_policy_vft_s
 
   int (*hicn_cs_trim) (struct hicn_pit_cs_s * p, u32 * node_list, int sz,
 		       hicn_cs_policy_t * policy);
+  int (*hicn_cs_flash) (struct hicn_pit_cs_s * p);
 } hicn_cs_policy_vft_t;
 
 

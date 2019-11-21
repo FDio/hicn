@@ -86,6 +86,61 @@ hicn_route_get_dpo (const fib_prefix_t * prefix,
   return ret;
 }
 
+int
+hicn_route_add_nhops (hicn_face_id_t * face_id, u32 len,
+		      const fib_prefix_t * prefix)
+{
+  const dpo_id_t *hicn_dpo_id;
+  int ret = HICN_ERROR_NONE;
+  dpo_id_t faces_dpo_tmp[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
+  int n_face_dpo = 0;
+  const hicn_dpo_vft_t *dpo_vft;
+  u32 fib_index;
+  vlib_main_t *vm = vlib_get_main ();
+  hicn_face_vft_t *face_vft = NULL;
+
+  if (face_id == NULL)
+    {
+      return HICN_ERROR_ROUTE_INVAL;
+    }
+  /*
+   * Check is the faces are available, otherwise skip the face
+   * id_adjacency existance is not checked. It should be checked before
+   * sending a packet out
+   */
+  for (int i = 0; i < clib_min (HICN_PARAM_FIB_ENTRY_NHOPS_MAX, len); i++)
+    {
+      hicn_face_t *face = hicn_dpoi_get_from_idx (face_id[i]);
+      face_vft = hicn_face_get_vft (face->shared.face_type);
+      dpo_id_t face_dpo = DPO_INVALID;
+      face_vft->hicn_face_get_dpo (face, &face_dpo);
+
+      if (!dpo_id_is_valid (&face_dpo))
+	{
+	  vlib_cli_output (vm, "Face %d not found, skip...\n", face_id[i]);
+	  return ret;
+	}
+      else
+	{
+	  faces_dpo_tmp[n_face_dpo++] = face_dpo;
+	}
+    }
+
+  ret = hicn_route_get_dpo (prefix, &hicn_dpo_id, &fib_index);
+
+  if (ret == HICN_ERROR_NONE)
+    {
+      for (int i = 0; i < n_face_dpo && (ret == HICN_ERROR_NONE); i++)
+	{
+	  u32 vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
+	  dpo_vft = hicn_dpo_get_vft (vft_id);
+	  ret = dpo_vft->hicn_dpo_add_update_nh (&faces_dpo_tmp[i],
+						 hicn_dpo_id->dpoi_index);
+	}
+    }
+  return ret;
+}
+
 /* Add a new route for a name prefix */
 int
 hicn_route_add (hicn_face_id_t * face_id, u32 len,
@@ -187,62 +242,7 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
     }
   else if (ret == HICN_ERROR_NONE)
     {
-      ret = HICN_ERROR_ROUTE_ALREADY_EXISTS;
-    }
-  return ret;
-}
-
-int
-hicn_route_add_nhops (hicn_face_id_t * face_id, u32 len,
-		      const fib_prefix_t * prefix)
-{
-  const dpo_id_t *hicn_dpo_id;
-  int ret = HICN_ERROR_NONE;
-  dpo_id_t faces_dpo_tmp[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
-  int n_face_dpo = 0;
-  const hicn_dpo_vft_t *dpo_vft;
-  u32 fib_index;
-  vlib_main_t *vm = vlib_get_main ();
-  hicn_face_vft_t *face_vft = NULL;
-
-  if (face_id == NULL)
-    {
-      return HICN_ERROR_ROUTE_INVAL;
-    }
-  /*
-   * Check is the faces are available, otherwise skip the face
-   * id_adjacency existance is not checked. It should be checked before
-   * sending a packet out
-   */
-  for (int i = 0; i < clib_min (HICN_PARAM_FIB_ENTRY_NHOPS_MAX, len); i++)
-    {
-      hicn_face_t *face = hicn_dpoi_get_from_idx (face_id[i]);
-      face_vft = hicn_face_get_vft (face->shared.face_type);
-      dpo_id_t face_dpo = DPO_INVALID;
-      face_vft->hicn_face_get_dpo (face, &face_dpo);
-
-      if (!dpo_id_is_valid (&face_dpo))
-	{
-	  vlib_cli_output (vm, "Face %d not found, skip...\n", face_id[i]);
-	  return ret;
-	}
-      else
-	{
-	  faces_dpo_tmp[n_face_dpo++] = face_dpo;
-	}
-    }
-
-  ret = hicn_route_get_dpo (prefix, &hicn_dpo_id, &fib_index);
-
-  if (ret == HICN_ERROR_NONE)
-    {
-      for (int i = 0; i < n_face_dpo && (ret == HICN_ERROR_NONE); i++)
-	{
-	  u32 vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
-	  dpo_vft = hicn_dpo_get_vft (vft_id);
-	  ret = dpo_vft->hicn_dpo_add_update_nh (&faces_dpo_tmp[i],
-						 hicn_dpo_id->dpoi_index);
-	}
+      ret = hicn_route_add_nhops(face_id, len, prefix);
     }
   return ret;
 }
