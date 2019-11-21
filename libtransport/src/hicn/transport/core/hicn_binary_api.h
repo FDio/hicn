@@ -39,6 +39,10 @@ typedef struct {
 } hicn_consumer_input_params;
 
 typedef struct {
+  uint32_t face_id;
+} hicn_del_face_app_input_params;
+
+typedef struct {
   uint32_t cs_reserved;
   ip_address_t* prod_addr;
   uint32_t face_id;
@@ -47,7 +51,8 @@ typedef struct {
 typedef struct {
   ip_address_t* src4;
   ip_address_t* src6;
-  uint32_t face_id;
+  uint32_t face_id1;
+  uint32_t face_id2;
 } hicn_consumer_output_params;
 
 typedef struct {
@@ -67,6 +72,12 @@ int hicn_binary_api_register_cons_app(
 
 int hicn_binary_api_register_route(
     vpp_plugin_binary_api_t* api, hicn_producer_set_route_params* input_params);
+
+int hicn_binary_api_face_cons_del(
+    vpp_plugin_binary_api_t *api, hicn_del_face_app_input_params *input_params);
+
+int hicn_binary_api_face_prod_del(
+    vpp_plugin_binary_api_t *api, hicn_del_face_app_input_params *input_params);
 
 char* hicn_binary_api_get_error_string(int ret_val);
 

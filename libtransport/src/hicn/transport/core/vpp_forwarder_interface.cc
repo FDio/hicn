@@ -45,7 +45,9 @@ std::mutex VPPForwarderInterface::global_lock_;
 VPPForwarderInterface::VPPForwarderInterface(MemifConnector &connector)
     : ForwarderInterface<VPPForwarderInterface, MemifConnector>(connector),
       sw_if_index_(~0),
-      face_id_(~0) {}
+      face_id1_(~0),
+      face_id2_(~0),
+      is_consumer_(false) {}
 
 VPPForwarderInterface::~VPPForwarderInterface() {}
 
@@ -92,7 +94,6 @@ void VPPForwarderInterface::consumerConnection() {
 
   output.src4 = &ip4_address;
   output.src6 = &ip6_address;
-
   input.swif = sw_if_index_;
 
   int ret = hicn_binary_api_register_cons_app(VPPForwarderInterface::hicn_api_,
@@ -101,6 +102,10 @@ void VPPForwarderInterface::consumerConnection() {
   if (ret < 0) {
     throw errors::RuntimeException(hicn_binary_api_get_error_string(ret));
   }
+
+  face_id1_ = output.face_id1;
+  face_id2_ = output.face_id2;
+
 
   std::memcpy(inet_address_.v4.as_u8, output.src4->v4.as_u8, IPV4_ADDR_LEN);
 
@@ -129,7 +134,8 @@ void VPPForwarderInterface::connect(bool is_consumer) {
 
   sw_if_index_ = getMemifConfiguration();
 
-  if (is_consumer) {
+  is_consumer_ = is_consumer;
+  if (is_consumer_) {
     consumerConnection();
   }
 
@@ -142,7 +148,7 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
   ip_prefix_t producer_prefix;
   ip_address_t producer_locator;
 
-  if (face_id_ == uint32_t(~0)) {
+  if (face_id1_ == uint32_t(~0)) {
     hicn_producer_input_params input;
     std::memset(&input, 0, sizeof(input));
 
@@ -170,14 +176,14 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
 
     inet6_address_ = *output.prod_addr;
 
-    face_id_ = output.face_id;
+    face_id1_ = output.face_id;
   } else {
     hicn_producer_set_route_params params;
     params.prefix = &producer_prefix;
     params.prefix->address = addr.address;
     params.prefix->family = addr.family;
     params.prefix->len = addr.len;
-    params.face_id = face_id_;
+    params.face_id = face_id1_;
 
     int ret = hicn_binary_api_register_route(VPPForwarderInterface::hicn_api_,
                                              &params);
@@ -191,6 +197,19 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
 void VPPForwarderInterface::closeConnection() {
   if (VPPForwarderInterface::api_) {
     connector_.close();
+
+    if (is_consumer_) {
+      hicn_del_face_app_input_params params;
+      params.face_id = face_id1_;
+      hicn_binary_api_face_cons_del(VPPForwarderInterface::hicn_api_, &params);
+      params.face_id = face_id2_;
+      hicn_binary_api_face_cons_del(VPPForwarderInterface::hicn_api_, &params);
+    }
+    else {
+      hicn_del_face_app_input_params params;
+      params.face_id = face_id1_;
+      hicn_binary_api_face_prod_del(VPPForwarderInterface::hicn_api_, &params);
+    }
 
     if (sw_if_index_ != uint32_t(~0)) {
       int ret = memif_binary_api_delete_memif(VPPForwarderInterface::memif_api_,
