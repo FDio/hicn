@@ -21,9 +21,6 @@
 
 #include <list>
 
-/* #define MAX_MANIFESTS_IN_FLIGHT std::numeric_limits<uint32_t>::max() */
-#define MAX_MANIFESTS_IN_FLIGHT 10
-
 namespace transport {
 
 namespace protocol {
@@ -58,9 +55,9 @@ class ManifestIndexManager : public IncrementalIndexManager,
  private:
   void onManifestReceived(Interest::Ptr &&i, ContentObject::Ptr &&c);
   void onManifestTimeout(Interest::Ptr &&i);
+  void fillWindow(Name &name, uint32_t current_manifest);
 
  protected:
-  uint32_t manifests_in_flight_;
   SuffixQueue suffix_queue_;
   SuffixQueue::iterator next_reassembly_segment_;
   SuffixQueue::iterator next_to_retrieve_segment_;

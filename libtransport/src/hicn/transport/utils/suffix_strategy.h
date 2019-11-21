@@ -38,8 +38,6 @@ class SuffixStrategy {
 
   std::uint32_t getSuffix() { return suffix_; }
 
-  virtual std::uint32_t getNextSuffix() = 0;
-
   void updateSuffix(std::uint32_t new_suffix) { suffix_ = new_suffix; }
 
   std::size_t getNbSegments() { return nb_segments_; }
@@ -57,6 +55,7 @@ class SuffixStrategy {
   transport::core::NextSegmentCalculationStrategy suffix_stragegy_;
   std::uint32_t suffix_;
   std::size_t nb_segments_;
+  virtual std::uint32_t getNextSuffix() = 0;
 };
 
 class SuffixManifest : public SuffixStrategy {
@@ -66,27 +65,22 @@ class SuffixManifest : public SuffixStrategy {
       std::uint32_t start_offset)
       : SuffixStrategy(suffix_stragegy, start_offset) {}
 
-  std::uint32_t getNextSuffix();
-
   SuffixManifest operator++() {
-    uint32_t next_suffix = getNextSuffix();
-    updateSuffix(next_suffix);
-    return SuffixManifest(suffix_stragegy_, next_suffix);
+    updateSuffix(getNextSuffix());
+    SuffixManifest temp_suffix(suffix_stragegy_, suffix_);
+    temp_suffix.setNbSegments(getNbSegments());
+    return temp_suffix;
   }
 
   SuffixManifest operator++(int) {
     SuffixManifest temp_suffix(suffix_stragegy_, suffix_);
-    uint32_t next_suffix = getNextSuffix();
-    updateSuffix(next_suffix);
+    temp_suffix.setNbSegments(getNbSegments());
+    updateSuffix(getNextSuffix());
     return temp_suffix;
   }
 
-  SuffixManifest operator+(uint32_t shift) {
-    for (uint32_t i = 0; i < shift; i++) {
-      updateSuffix(getNextSuffix());
-    }
-    return SuffixManifest(suffix_stragegy_, getSuffix());
-  }
+ protected:
+  std::uint32_t getNextSuffix();
 };
 
 class SuffixContent : public SuffixStrategy {
@@ -101,26 +95,20 @@ class SuffixContent : public SuffixStrategy {
                 std::uint32_t start_offset)
       : SuffixContent(suffix_stragegy, start_offset, false) {}
 
-  std::uint32_t getNextSuffix();
-
   SuffixContent operator++() {
-    uint32_t next_suffix = getNextSuffix();
-    updateSuffix(next_suffix);
-    return SuffixContent(suffix_stragegy_, next_suffix, making_manifest_);
+    updateSuffix(getNextSuffix());
+    SuffixContent temp_suffix(suffix_stragegy_, suffix_, making_manifest_);
+    temp_suffix.setNbSegments(getNbSegments());
+    temp_suffix.content_counter_ = content_counter_;
+    return temp_suffix;
   }
 
   SuffixContent operator++(int) {
     SuffixContent temp_suffix(suffix_stragegy_, suffix_, making_manifest_);
-    uint32_t next_suffix = getNextSuffix();
-    updateSuffix(next_suffix);
+    temp_suffix.setNbSegments(getNbSegments());
+    temp_suffix.content_counter_ = content_counter_;
+    updateSuffix(getNextSuffix());
     return temp_suffix;
-  }
-
-  SuffixContent operator+(uint32_t shift) {
-    for (uint32_t i = 0; i < shift; i++) {
-      updateSuffix(getNextSuffix());
-    }
-    return SuffixContent(suffix_stragegy_, getSuffix(), making_manifest_);
   }
 
   void setUsingManifest(bool value) { making_manifest_ = value; }
@@ -135,5 +123,6 @@ class SuffixContent : public SuffixStrategy {
   /* content_counter_ keeps track of the number of segments */
   /* between two manifests */
   uint32_t content_counter_;
+  std::uint32_t getNextSuffix();
 };
 }  // namespace utils
