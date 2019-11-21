@@ -36,6 +36,19 @@
 #include <hicn/core/dispatcher.h>
 #include <hicn/core/forwarder.h>
 
+#if defined(__ANDROID__) && defined(WITH_ANDROID_CLI)
+#include <sys/resource.h>
+#include <sys/sysconf.h>
+int getdtablesize()
+{
+    struct rlimit r;
+    if (getrlimit(RLIMIT_NOFILE, &r) < 0) {
+        return sysconf(_SC_OPEN_MAX);
+    }
+    return r.rlim_cur;
+}
+#endif /* defined(__ANDROID__) && ! defined(WITH_ANDROID_CLI) */
+
 static void _printRed(const char *output) {
 #ifndef _WIN32
   printf("\033[0;31m%s", output);

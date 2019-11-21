@@ -13,7 +13,7 @@
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+if( ${CMAKE_SYSTEM_NAME} STREQUAL "Android" )
   list(APPEND SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/android/system.c
   )
