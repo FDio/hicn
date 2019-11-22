@@ -20,7 +20,7 @@
 #include <climits>
 
 #define ALPHA_RTC 0.125
-#define HISTORY_LEN 30
+#define HISTORY_LEN 20 //4 sec
 
 namespace transport {
 
