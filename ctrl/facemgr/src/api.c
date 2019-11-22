@@ -20,6 +20,7 @@
 
 #ifdef __ANDROID__
 //#define WITH_ANDROID_UTILITY
+#define WITH_PRIORITY_CONTROLLER
 #endif /* __ANDROID__ */
 
 #include <assert.h>
@@ -85,6 +86,9 @@ extern interface_ops_t bonjour_ops;
 #ifdef WITH_ANDROID_UTILITY
 extern interface_ops_t android_utility_ops;
 #endif /* WITH_ANDROID_UTILITY */
+#ifdef WITH_PRIORITY_CONTROLLER
+extern interface_ops_t priority_controller_ops;
+#endif
 #ifdef WITH_EXAMPLE_DUMMY
 extern interface_ops_t dummy_ops;
 #endif
@@ -139,13 +143,16 @@ struct facemgr_s {
     interface_t * au; /* android_utility */
 #endif /* WITH_ANDROID_UTILITY */
 
+#ifdef WITH_PRIORITY_CONTROLLER
+		interface_t * pc;
+#endif
+
 #ifdef __APPLE__
     interface_t * nf; /* network_framework */
 #endif /* __APPLE__ */
 
 #ifdef __linux__
     interface_t * nl; /* netlink */
-
     /*
      * We maintain a map of dynamically created bonjour interfaces, one for each
      * found netdevice
@@ -1865,6 +1872,15 @@ facemgr_bootstrap(facemgr_t * facemgr)
     }
 #endif /* WITH_ANDROID_UTILITY */
 
+#ifdef WITH_PRIORITY_CONTROLLER
+		INFO("[facemgr_bootstrap] registering priority_controller interface");
+    rc = interface_register(&priority_controller_ops);
+    if (rc < 0) {
+        ERROR("[facemgr_bootstrap] Error registering priority_controller interface");
+        goto ERR_REGISTER;
+    }
+#endif
+
 #ifdef WITH_EXAMPLE_DUMMY
     rc = interface_register(&dummy_ops);
     if (rc < 0) {
@@ -1916,6 +1932,15 @@ facemgr_bootstrap(facemgr_t * facemgr)
     }
 #endif /* WITH_ANDROID_UTILITY */
 
+#ifdef WITH_PRIORITY_CONTROLLER
+		INFO("[facemgr_bootstrap] creating priority_controller interface");
+    rc = facemgr_create_interface(facemgr, "pc", "priority_controller", NULL, &facemgr->pc);
+    if (rc < 0) {
+        ERROR("Error creating 'Priority Controller' interface\n");
+        goto ERR_PC_CREATE;
+    }
+#endif
+
 #ifdef WITH_EXAMPLE_DUMMY
     rc = facemgr_create_interface(facemgr, "dummy0", "dummy", NULL, &facemgr->dummy);
     if (rc < 0) {
@@ -1948,6 +1973,10 @@ ERR_DUMMY_CREATE:
     facemgr_delete_interface(facemgr, facemgr->au);
 ERR_AU_CREATE:
 #endif /* WITH_ANDROID_UTILITY */
+#ifdef WITH_PRIORITY_CONTROLLER
+		facemgr_delete_interface(facemgr, facemgr->pc);
+ERR_PC_CREATE:
+#endif
 #ifdef __linux__
     facemgr_delete_interface(facemgr, facemgr->nl);
 ERR_NL_CREATE:
@@ -1996,6 +2025,10 @@ void facemgr_stop(facemgr_t * facemgr)
 #ifdef WITH_ANDROID_UTILITY
     facemgr_delete_interface(facemgr, facemgr->au);
 #endif /* WITH_ANDROID_UTILITY */
+
+#ifdef WITH_PRIORITY_CONTROLLER
+		facemgr_delete_interface(facemgr, facemgr->pc);
+#endif
 
     facemgr_delete_interface(facemgr, facemgr->hl);
 
@@ -2103,3 +2136,4 @@ ERR:
     free(facelet_array);
     return rc;
 }
+
