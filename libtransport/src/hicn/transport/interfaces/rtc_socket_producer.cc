@@ -150,8 +150,9 @@ void RTCProducerSocket::produce(std::unique_ptr<utils::MemBuf> &&buffer) {
   producedBytes_ += (uint32_t)(buffer_size + headerSize_ + TIMESTAMP_LEN);
   producedPackets_++;
 
+  Name n(flowName_);
   auto content_object =
-      std::make_shared<ContentObject>(flowName_.setSuffix(currentSeg_.load()));
+      std::make_shared<ContentObject>(n.setSuffix(currentSeg_.load()));
   auto payload = utils::MemBuf::create(TIMESTAMP_LEN);
 
   memcpy(payload->writableData(), &now, TIMESTAMP_LEN);
@@ -340,8 +341,9 @@ void RTCProducerSocket::sendNack(uint32_t sequence) {
   nack_payload->append(NACK_HEADER_SIZE);
   ContentObject nack;
 
+  Name n(flowName_);
   nack.appendPayload(std::move(nack_payload));
-  nack.setName(flowName_.setSuffix(sequence));
+  nack.setName(n.setSuffix(sequence));
 
   uint32_t *payload_ptr = (uint32_t *)nack.getPayload()->data();
   *payload_ptr = currentSeg_.load();
