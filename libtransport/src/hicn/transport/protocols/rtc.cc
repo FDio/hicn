@@ -505,7 +505,7 @@ void RTCTransportProtocol::scheduleNextInterests() {
 }
 
 void RTCTransportProtocol::sentinelTimer(){
-  uint32_t wait = 10;
+  uint32_t wait = 50;
 
   if(pathTable_.find(producerPathLabels_[0]) != pathTable_.end() &&
         pathTable_.find(producerPathLabels_[1]) != pathTable_.end()){
@@ -545,7 +545,7 @@ void RTCTransportProtocol::sentinelTimer(){
       uint64_t max_waiting_time =
               round((pathTable_[producerPathLabels_[1]]->getMinRtt() -
                 pathTable_[producerPathLabels_[0]]->getMinRtt()) +
-                pathTable_[producerPathLabels_[0]]->getInterArrivalGap()) * 2;
+                (pathTable_[producerPathLabels_[0]]->getInterArrivalGap() * 10));
 
       if((currentState_ == HICN_RTC_NORMAL_STATE) &&
           (inflightInterestsCount_ >= currentCWin_) &&
