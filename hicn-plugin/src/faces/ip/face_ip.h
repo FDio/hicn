@@ -47,7 +47,7 @@ typedef struct hicn_ip_face_t_
  * @bried vector of faces used to collect faces having the same local address
  *
  */
-typedef hicn_face_id_t * hicn_face_ip_vec_t;
+typedef hicn_face_id_t *hicn_face_ip_vec_t;
 
 typedef struct hicn_ip_input_faces_s_
 {
@@ -77,7 +77,7 @@ extern mhash_t hicn_face_ip_remote_hashtb;
 /**
  * Pool containing the vector of possible incoming faces.
  */
-extern hicn_face_ip_vec_t * hicn_vec_pool;
+extern hicn_face_ip_vec_t *hicn_vec_pool;
 
 /**
  * Key definition for the mhash table. An ip face is uniquely identified by ip
@@ -161,12 +161,13 @@ hicn_face_ip4_get (const ip4_address_t * addr, u32 sw_if, mhash_t * hashtb)
  * @result Pointer to the face.
  */
 always_inline hicn_face_ip_input_faces_t *
-hicn_face_ip4_get_vec (const ip4_address_t * addr, u32 sw_if, mhash_t * hashtb)
+hicn_face_ip4_get_vec (const ip4_address_t * addr, u32 sw_if,
+		       mhash_t * hashtb)
 {
   hicn_face_ip_key_t key;
 
   hicn_face_ip4_get_key (addr, sw_if, &key);
-  return (hicn_face_ip_input_faces_t *) mhash_get (hashtb,&key);
+  return (hicn_face_ip_input_faces_t *) mhash_get (hashtb, &key);
 }
 
 /**
@@ -179,12 +180,13 @@ hicn_face_ip4_get_vec (const ip4_address_t * addr, u32 sw_if, mhash_t * hashtb)
  * @result Pointer to the face.
  */
 always_inline hicn_face_ip_input_faces_t *
-hicn_face_ip6_get_vec (const ip6_address_t * addr, u32 sw_if, mhash_t * hashtb)
+hicn_face_ip6_get_vec (const ip6_address_t * addr, u32 sw_if,
+		       mhash_t * hashtb)
 {
   hicn_face_ip_key_t key;
 
   hicn_face_ip6_get_key (addr, sw_if, &key);
-  return (hicn_face_ip_input_faces_t *) mhash_get (hashtb,&key);
+  return (hicn_face_ip_input_faces_t *) mhash_get (hashtb, &key);
 }
 
 /**
@@ -255,7 +257,7 @@ hicn_iface_ip_add (const ip46_address_t * local_addr,
   face->shared.pl_id = (u16) 0;
   face->shared.face_type = hicn_face_ip_type;
   face->shared.flags = HICN_FACE_FLAGS_IFACE;
-  face->shared.locks = 0;
+  face->shared.locks = 1;
 
   hicn_face_ip_key_t key;
   hicn_face_ip6_get_key (&(remote_addr->ip6), sw_if, &key);

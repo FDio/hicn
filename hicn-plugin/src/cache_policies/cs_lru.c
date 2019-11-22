@@ -25,6 +25,7 @@ hicn_cs_policy_vft_t hicn_cs_lru = {
   .hicn_cs_dequeue = &hicn_cs_lru_dequeue,
   .hicn_cs_delete_get = &hicn_cs_lru_delete_get,
   .hicn_cs_trim = &hicn_cs_lru_trim,
+  .hicn_cs_flush = &hicn_cs_lru_flush,
 };
 
 /*
@@ -151,10 +152,10 @@ hicn_cs_lru_update_head (hicn_pit_cs_t * pit, hicn_hash_node_t * pnode,
     {
       /* The element is already dequeue */
       if (pcs->u.cs.cs_lru_next == 0)
-        {
-          /* Now detached from the list; attach at head */
-          hicn_cs_lru_insert (pit, pnode, pcs, lru);
-        }
+	{
+	  /* Now detached from the list; attach at head */
+	  hicn_cs_lru_insert (pit, pnode, pcs, lru);
+	}
       ASSERT (lru->head ==
 	      hicn_hashtb_node_idx_from_node (pit->pcs_table, pnode));
     }
@@ -210,6 +211,56 @@ hicn_cs_lru_trim (hicn_pit_cs_t * pit, u32 * node_list, int sz,
     }
 
   return (i);
+}
+
+int
+hicn_cs_lru_flush (vlib_main_t * vm, struct hicn_pit_cs_s *pitcs,
+		   hicn_cs_policy_t * state)
+{
+  if (state->head == 0 && state->tail == 0)
+    return 0;
+
+  hicn_hash_node_t *lrunode;
+  hicn_pcs_entry_t *lrupcs;
+  u32 idx;
+  int i = 0;
+
+  idx = state->tail;
+
+  while (idx != 0)
+    {
+      lrunode = hicn_hashtb_node_from_idx (pitcs->pcs_table, idx);
+      lrupcs = hicn_pit_get_data (lrunode);
+
+      u64 hashval = 0;
+      hicn_hashtb_fullhash ((u8 *) & (lrunode->hn_key.ks.key),
+			    lrunode->hn_keysize, &hashval);
+      hicn_hash_bucket_t *bucket = NULL;
+      if ((hashval & (pitcs->pcs_table->ht_bucket_count - 1)) ==
+	  lrunode->bucket_id)
+	{
+	  //The bucket is in the non overflown
+	  bucket =
+	    pool_elt_at_index (pitcs->pcs_table->ht_buckets,
+			       lrunode->bucket_id);
+	}
+      else
+	{
+	  bucket =
+	    pool_elt_at_index (pitcs->pcs_table->ht_overflow_buckets,
+			       lrunode->bucket_id);
+	}
+      hicn_hash_entry_t *hash_entry =
+	&(bucket->hb_entries[lrunode->entry_idx]);
+      hash_entry->locks++;
+      hicn_pcs_cs_delete (vm, pitcs, &lrupcs, &lrunode, hash_entry, NULL,
+			  NULL);
+      idx = state->tail;
+      i++;
+    }
+
+  return (i);
+
 }
 
 /*

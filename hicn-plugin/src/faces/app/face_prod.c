@@ -16,6 +16,7 @@
 #include <vnet/ip/ip6_packet.h>
 #include <vlib/vlib.h>
 #include <vnet/vnet.h>
+#include <vnet/interface_funcs.h>
 
 #include "face_prod.h"
 #include "address_mgr.h"
@@ -53,8 +54,7 @@ hicn_app_state_create (u32 swif, fib_prefix_t * prefix)
 
   /* Create the appif and store in the vector */
   vec_validate (face_state_vec, swif);
-  clib_memcpy (&(face_state_vec[swif].prefix), prefix,
-	       sizeof (fib_prefix_t));
+  clib_memcpy (&(face_state_vec[swif].prefix), prefix, sizeof (fib_prefix_t));
 
   /* Set as busy the element in the vector */
   pool_get (face_state_pool, swif_app);
@@ -139,6 +139,12 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
     {
       return HICN_ERROR_FWD_NOT_ENABLED;
     }
+
+  if (vnet_get_sw_interface_or_null (vnm, sw_if) == NULL)
+    {
+      return HICN_ERROR_FACE_HW_INT_NOT_FOUND;
+    }
+
   int ret = HICN_ERROR_NONE;
   hicn_face_t *face = NULL;
 
@@ -146,8 +152,7 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
   vnet_sw_interface_set_flags (vnm, sw_if, if_flags);
 
   u8 *s0;
-  s0 = format (0, "Prefix %U", format_fib_prefix,
-	       prefix);
+  s0 = format (0, "Prefix %U", format_fib_prefix, prefix);
 
   vlib_cli_output (vm, "Received request for %s, swif %d\n", s0, sw_if);
 
@@ -218,7 +223,8 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 	  remote_app_ip = to_ip46 ( /* isv6 */ 0, remote_app_ip4.as_u8);
 
 	  ret =
-	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid, HICN_FACE_FLAGS_APPFACE_PROD);
+	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid,
+			      HICN_FACE_FLAGS_APPFACE_PROD);
 	}
       else
 	{
@@ -238,7 +244,8 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 	  remote_app_ip = to_ip46 ( /* isv6 */ 1, remote_app_ip6.as_u8);
 
 	  ret =
-	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid, HICN_FACE_FLAGS_APPFACE_PROD);
+	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid,
+			      HICN_FACE_FLAGS_APPFACE_PROD);
 	}
 
       face = hicn_dpoi_get_from_idx (*faceid);
@@ -257,6 +264,7 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
       prod_face->policy_vft.hicn_cs_delete_get =
 	hicn_cs_lru.hicn_cs_delete_get;
       prod_face->policy_vft.hicn_cs_trim = hicn_cs_lru.hicn_cs_trim;
+      prod_face->policy_vft.hicn_cs_flush = hicn_cs_lru.hicn_cs_flush;
 
     }
 
@@ -283,19 +291,30 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 int
 hicn_face_prod_del (hicn_face_id_t face_id)
 {
+  if (!hicn_dpoi_idx_is_valid (face_id))
+    return HICN_ERROR_APPFACE_NOT_FOUND;
+
   hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
 
   if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD)
     {
       hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data;
       /* Free the CS reserved for the face */
-      hicn_main.pitcs.pcs_app_max += prod_face->policy.max;
       hicn_main.pitcs.pcs_app_count -= prod_face->policy.max;
       prod_face->policy.max = 0;
 
       /* Remove the face from the fib */
       hicn_route_del_nhop (&(face_state_vec[face->shared.sw_if].prefix),
 			   face_id);
+
+      /* 
+       * Delete the content in the CS before deleting the face.
+       * Mandatory to prevent hitting the CS and not having the lru list
+       * due to a early deletion of the face.
+       */
+      vlib_main_t *vm = vlib_get_main ();
+      prod_face->policy_vft.hicn_cs_flush (vm, &(hicn_main.pitcs),
+					   &(prod_face->policy));
 
       int ret = hicn_face_ip_del (face_id);
       return ret ==

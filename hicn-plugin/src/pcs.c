@@ -41,6 +41,7 @@ hicn_pit_create (hicn_pit_cs_t * p, u32 num_elems)
   p->policy_vft.hicn_cs_dequeue = hicn_cs_lru.hicn_cs_dequeue;
   p->policy_vft.hicn_cs_delete_get = hicn_cs_lru.hicn_cs_delete_get;
   p->policy_vft.hicn_cs_trim = hicn_cs_lru.hicn_cs_trim;
+  p->policy_vft.hicn_cs_flush = hicn_cs_lru.hicn_cs_flush;
 
   return (ret);
 }

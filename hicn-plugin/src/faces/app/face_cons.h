@@ -47,7 +47,8 @@
  */
 int
 hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
-		    u32 swif, hicn_face_id_t * faceid);
+		    u32 swif, hicn_face_id_t * faceid1,
+		    hicn_face_id_t * faceid2);
 
 /**
  * @brief Delete an existing consumer application face
