@@ -29,7 +29,6 @@ ManifestIndexManager::ManifestIndexManager(
     interface::ConsumerSocket *icn_socket, TransportProtocol *next_interest)
     : IncrementalIndexManager(icn_socket),
       PacketManager<Interest>(1024),
-      manifests_in_flight_(0),
       next_reassembly_segment_(suffix_queue_.end()),
       next_to_retrieve_segment_(suffix_queue_.end()),
       suffix_manifest_(core::NextSegmentCalculationStrategy::INCREMENTAL, 0),
@@ -39,7 +38,6 @@ bool ManifestIndexManager::onManifest(
     core::ContentObject::Ptr &&content_object) {
   auto manifest =
       std::make_unique<ContentObjectManifest>(std::move(*content_object));
-
   bool manifest_verified = verification_manager_->onPacketToVerify(*manifest);
 
   if (manifest_verified) {
@@ -54,13 +52,11 @@ bool ManifestIndexManager::onManifest(
       case core::ManifestType::INLINE_MANIFEST: {
         auto _it = manifest->getSuffixList().begin();
         auto _end = --manifest->getSuffixList().end();
+        final_suffix_ = manifest->getFinalBlockNumber();  // final block number
 
         if (TRANSPORT_EXPECT_FALSE(manifest->isFinalManifest())) {
           _end++;
         }
-
-        // Get final block number
-        final_suffix_ = manifest->getFinalBlockNumber();
 
         suffix_hash_map_[_it->first] =
             std::make_pair(std::vector<uint8_t>(_it->second, _it->second + 32),
@@ -93,61 +89,12 @@ bool ManifestIndexManager::onManifest(
               1);
           suffix_manifest_.setSuffixStrategy(
               manifest->getNextSegmentCalculationStrategy());
-        } else if (manifests_in_flight_) {
-          manifests_in_flight_--;
         }
 
-        if (TRANSPORT_EXPECT_FALSE(manifest->isFinalManifest() ||
-                                   suffix_manifest_.getSuffix() >
-                                       final_suffix_)) {
-          break;
+        if (TRANSPORT_EXPECT_FALSE(manifest->isFinalManifest()) == 0) {
+          fillWindow(manifest->getWritableName(),
+                     manifest->getName().getSuffix());
         }
-
-        // Get current window size
-        double current_window_size = 0.;
-        socket_->getSocketOption(GeneralTransportOptions::CURRENT_WINDOW_SIZE,
-                                 current_window_size);
-
-        // Get portal
-        std::shared_ptr<interface::BasePortal> portal;
-        socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal);
-
-        // Number of segments in manifest
-        std::size_t segment_count = 0;
-
-        // Manifest namespace
-        Name &name = manifest->getWritableName();
-
-        if (manifests_in_flight_ >= MAX_MANIFESTS_IN_FLIGHT) {
-          break;
-        }
-
-        // Send as many manifest as required for filling window.
-        do {
-          segment_count += suffix_manifest_.getNbSegments();
-          suffix_manifest_++;
-
-          Interest::Ptr interest = getPacket();
-          name.setSuffix(suffix_manifest_.getSuffix());
-          interest->setName(name);
-
-          uint32_t interest_lifetime;
-          socket_->getSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
-                                   interest_lifetime);
-          interest->setLifetime(interest_lifetime);
-
-          // Send requests for manifest out of the congestion window (no
-          // in_flight_interests++)
-          portal->sendInterest(
-              std::move(interest),
-              std::bind(&ManifestIndexManager::onManifestReceived, this,
-                        std::placeholders::_1, std::placeholders::_2),
-              std::bind(&ManifestIndexManager::onManifestTimeout, this,
-                        std::placeholders::_1));
-          manifests_in_flight_++;
-        } while (segment_count < current_window_size &&
-                 suffix_manifest_.getSuffix() < final_suffix_ &&
-                 manifests_in_flight_ < MAX_MANIFESTS_IN_FLIGHT);
 
         break;
       }
@@ -191,6 +138,56 @@ void ManifestIndexManager::onManifestTimeout(Interest::Ptr &&i) {
                 std::placeholders::_1, std::placeholders::_2),
       std::bind(&ManifestIndexManager::onManifestTimeout, this,
                 std::placeholders::_1));
+}
+
+void ManifestIndexManager::fillWindow(Name &name, uint32_t current_manifest) {
+  /* Send as many manifest as required for filling window. */
+  uint32_t interest_lifetime;
+  double window_size;
+  std::shared_ptr<interface::BasePortal> portal;
+  Interest::Ptr interest;
+  uint32_t current_segment = *next_to_retrieve_segment_;
+  // suffix_manifest_ now points to the next manifest to request
+  uint32_t last_requested_manifest = (suffix_manifest_++).getSuffix();
+
+  socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal);
+  socket_->getSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
+                           interest_lifetime);
+  socket_->getSocketOption(GeneralTransportOptions::CURRENT_WINDOW_SIZE,
+                           window_size);
+
+  if (TRANSPORT_EXPECT_FALSE(suffix_manifest_.getSuffix() >= final_suffix_)) {
+    suffix_manifest_.updateSuffix(last_requested_manifest);
+    return;
+  }
+
+  if (current_segment + window_size < suffix_manifest_.getSuffix() &&
+      current_manifest != last_requested_manifest) {
+    suffix_manifest_.updateSuffix(last_requested_manifest);
+    return;
+  }
+
+  do {
+    interest = getPacket();
+    name.setSuffix(suffix_manifest_.getSuffix());
+    interest->setName(name);
+    interest->setLifetime(interest_lifetime);
+
+    // Send interests for manifest out of the congestion window (no
+    // in_flight_interests++)
+    portal->sendInterest(
+        std::move(interest),
+        std::bind(&ManifestIndexManager::onManifestReceived, this,
+                  std::placeholders::_1, std::placeholders::_2),
+        std::bind(&ManifestIndexManager::onManifestTimeout, this,
+                  std::placeholders::_1));
+
+    last_requested_manifest = (suffix_manifest_++).getSuffix();
+  } while (current_segment + window_size >= suffix_manifest_.getSuffix() &&
+           suffix_manifest_.getSuffix() < final_suffix_);
+
+  // suffix_manifest_ now points to the last requested manifest
+  suffix_manifest_.updateSuffix(last_requested_manifest);
 }
 
 bool ManifestIndexManager::onContentObject(
