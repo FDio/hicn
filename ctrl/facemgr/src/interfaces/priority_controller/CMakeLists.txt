@@ -11,34 +11,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-list(APPEND HEADER_FILES)
-list(APPEND SOURCE_FILES)
-list(APPEND INCLUDE_DIRS)
-list(APPEND LIBRARIES)
+list(APPEND HEADER_FILES
+)
 
-add_subdirectory(hicn_light)
+list(APPEND SOURCE_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/priority_controller.c
+)
 
-if(APPLE)
-add_subdirectory(network_framework)
-endif()
+list(APPEND INCLUDE_DIRS
+)
 
-if(LINUX)
-add_subdirectory(netlink)
-add_subdirectory(bonjour)
-endif()
-
-if(ANDROID)
-add_subdirectory(android_utility)
-add_subdirectory(priority_controller)
-endif()
-
-if(WITH_EXAMPLE_DUMMY)
-add_subdirectory(dummy)
-endif()
-
-if(WITH_EXAMPLE_UPDOWN)
-add_subdirectory(updown)
-endif()
+list(APPEND LIBRARIES
+)
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
 set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)
