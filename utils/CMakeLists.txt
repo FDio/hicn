@@ -47,7 +47,7 @@ endif()
 set(SUFFIX "")
 if (${LIBTRANSPORT_LIBRARIES} MATCHES ".*-memif.*")
   set(SUFFIX "-memif")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-unresolved-symbols=ignore-in-shared-libs")
+  set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
 endif()
 
 set(HICN_UTILS "${HICN_UTILS}${SUFFIX}")
@@ -66,6 +66,7 @@ build_executable(hiperf
   DEPENDS ${DEPENDENCIES}
   COMPONENT ${HICN_UTILS}
   DEFINITIONS ${COMPILER_DEFINITIONS}
+  LINK_FLAGS ${LINK_FLAGS}
 )
 
 build_executable(hicn-ping-server
@@ -74,6 +75,7 @@ build_executable(hicn-ping-server
   DEPENDS ${DEPENDENCIES}
   COMPONENT ${HICN_UTILS}
   DEFINITIONS ${COMPILER_DEFINITIONS}
+  LINK_FLAGS ${LINK_FLAGS}
 )
 
 build_executable(hicn-ping-client
@@ -82,4 +84,5 @@ build_executable(hicn-ping-client
   DEPENDS ${DEPENDENCIES}
   COMPONENT ${HICN_UTILS}
   DEFINITIONS ${COMPILER_DEFINITIONS}
+  LINK_FLAGS ${LINK_FLAGS}
 )

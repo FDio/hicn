@@ -21,7 +21,7 @@ macro(build_executable exec)
   cmake_parse_arguments(ARG
     "NO_INSTALL"
     "COMPONENT"
-    "SOURCES;LINK_LIBRARIES;DEPENDS;INCLUDE_DIRS;DEFINITIONS"
+    "SOURCES;LINK_LIBRARIES;DEPENDS;INCLUDE_DIRS;DEFINITIONS;LINK_FLAGS"
     ${ARGN}
   )
 
@@ -37,7 +37,7 @@ macro(build_executable exec)
     ARCHIVE_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
     LIBRARY_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
     RUNTIME_OUTPUT_DIRECTORY "${BUILD_ROOT}/bin"
-    LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs"
+    LINK_FLAGS "${ARG_LINK_FLAGS}"
   )
 
   if(ARG_LINK_LIBRARIES)

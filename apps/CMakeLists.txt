@@ -46,7 +46,7 @@ endif()
 set(SUFFIX "")
 if (${LIBTRANSPORT_LIBRARIES} MATCHES ".*-memif.*")
   set(SUFFIX "-memif")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,-unresolved-symbols=ignore-in-shared-libs")
+  set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
 endif()
 
 set(HICN_APPS "${HICN_APPS}${SUFFIX}")
