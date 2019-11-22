@@ -300,6 +300,16 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
   updateCCState();
   updateWindow();
 
+  if(queuingDelay_ > 100.0){
+    //this indicates that the client will go soon out of synch,
+    //switch to synch mode
+    if (currentState_ == HICN_RTC_NORMAL_STATE) {
+      currentState_ = HICN_RTC_SYNC_STATE;
+    }
+    computeMaxWindow(BW, 0);
+    increaseWindow();
+  }
+
   // in any case we reset all the counters
 
   gotNack_ = false;
@@ -351,7 +361,7 @@ void RTCTransportProtocol::computeMaxWindow(uint32_t productionRate,
 void RTCTransportProtocol::updateWindow() {
   if (currentState_ == HICN_RTC_SYNC_STATE) return;
 
-  if (currentCWin_ < maxCWin_ * 0.7) {
+  if (currentCWin_ < maxCWin_ * 0.9) {
     currentCWin_ =
         min(maxCWin_, (uint32_t)(currentCWin_ * HICN_WIN_INCREASE_FACTOR));
   } else if (currentCWin_ > maxCWin_) {
@@ -378,7 +388,7 @@ void RTCTransportProtocol::increaseWindow() {
   if (currentState_ == HICN_RTC_NORMAL_STATE) return;
 
   // we need to be carefull to do not increase the window to much
-  if (currentCWin_ < ((double)maxCWin_ * 0.5)) {
+  if (currentCWin_ < ((double)maxCWin_ * 0.7)) {
     currentCWin_ = currentCWin_ + 1;  // exponential
   } else {
     currentCWin_ = min(
@@ -542,14 +552,15 @@ void RTCTransportProtocol::sentinelTimer(){
           }
         }
     }else{
-      uint64_t max_waiting_time =
-              round((pathTable_[producerPathLabels_[1]]->getMinRtt() -
+      uint64_t max_waiting_time = //wait at least 50ms
+                (pathTable_[producerPathLabels_[1]]->getMinRtt() -
                 pathTable_[producerPathLabels_[0]]->getMinRtt()) +
-                (pathTable_[producerPathLabels_[0]]->getInterArrivalGap() * 10));
+                (ceil(pathTable_[producerPathLabels_[0]]->getInterArrivalGap()) * 50);
 
       if((currentState_ == HICN_RTC_NORMAL_STATE) &&
           (inflightInterestsCount_ >= currentCWin_) &&
-          ((now - lastEvent_) > max_waiting_time)){
+          ((now - lastEvent_) > max_waiting_time) &&
+          (lossRate_ > 10.0)){
 
         uint64_t RTT =  pathTable_[producerPathLabels_[1]]->getMinRtt();
 
@@ -859,8 +870,8 @@ void RTCTransportProtocol::onContentObject(
 
       uint32_t pathLabel = content_object->getPathLabel();
       if (pathTable_.find(pathLabel) == pathTable_.end()) {
-        // if this path does not exists we cannot create a new one so drop
-        return;
+        std::shared_ptr<RTCDataPath> newPath = std::make_shared<RTCDataPath>();
+        pathTable_[pathLabel] = newPath;
       }
 
       // this is the expected probe, update the RTT and drop the packet
