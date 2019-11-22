@@ -71,7 +71,7 @@ find_package_wrapper(Asio REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   if (__vpp__)
-    find_package_wrapper(HicnBinaryApi REQUIRED)
+    find_package_wrapper(HicnPlugin REQUIRED)
     find_package(Libmemif REQUIRED)
 
     list(APPEND LIBRARIES
@@ -147,7 +147,7 @@ list(APPEND LIBRARIES
 # Include dirs -- Order does matter!
 list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
   ${HICN_INCLUDE_DIRS}
-  ${HICN_BINARY_API_INCLUDE_DIRS}
+  ${HICNPLUGIN_INCLUDE_DIRS}
   ${LIBPARC_INCLUDE_DIRS}
   ${CMAKE_THREADS_INCLUDE_DIRS}
   ${ASIO_INCLUDE_DIRS}

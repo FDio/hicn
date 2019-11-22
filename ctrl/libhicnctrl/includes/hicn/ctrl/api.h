@@ -51,9 +51,9 @@
  * NOTES:
  *
  *  - Different extensions of the forwarder functionalities bring both new API
- *    calls, and new object attributes. While it is expected that the former will
- *    only raised NACK answers because of unsupported API calls, the latter will
- *    certainly trigger incompatibilities. It is expected that the forwarder
+ *    calls, and new object attributes. While it is expected that the former
+ * will only raised NACK answers because of unsupported API calls, the latter
+ * will certainly trigger incompatibilities. It is expected that the forwarder
  *    validates the message length and returns a NACK too. In that case, we
  *    provide a set of defines to preserve backwards compatibility. At the
  *    moment, those defines are :
@@ -77,25 +77,30 @@
 #define HOTFIXMARGIN 0
 
 /* Helper for avoiding warnings about type-punning */
+#ifndef UNION_CAST
 #define UNION_CAST(x, destType) \
-   (((union {__typeof__(x) a; destType b;})x).b)
-
+  (((union {                    \
+     __typeof__(x) a;           \
+     destType b;                \
+   })x)                         \
+       .b)
+#endif
 /******************************************************************************
  * Message helper types and aliases
  ******************************************************************************/
 
 #define foreach_command \
-    _(UNDEFINED)        \
-    _(CREATE)           \
-    _(UPDATE)           \
-    _(DELETE)           \
-    _(LIST)             \
-    _(SET)		\
-    _(N)
+  _(UNDEFINED)          \
+  _(CREATE)             \
+  _(UPDATE)             \
+  _(DELETE)             \
+  _(LIST)               \
+  _(SET)                \
+  _(N)
 
 typedef enum {
-#define _(x) ACTION_ ## x,
-foreach_command
+#define _(x) ACTION_##x,
+  foreach_command
 #undef _
 } hc_action_t;
 
@@ -115,33 +120,32 @@ typedef int (*data_callback_t)(struct hc_data_s *, void *);
  * \brief Holds the results of an hICN control request
  */
 typedef struct hc_data_s {
-    size_t size;
-    size_t max_size_log;
-    size_t in_element_size;
-    size_t out_element_size;
-    u8 command_id; /**< Expected message type (should give element size) */
-    u8 * buffer;
-    bool complete;
+  size_t size;
+  size_t current;
+  size_t max_size_log;
+  size_t in_element_size;
+  size_t out_element_size;
+  u8 command_id; /**< Expected message type (should give element size) */
+  u8 *buffer;
+  bool complete;
 
-    /* Callbacks */
-    data_callback_t complete_cb; // XXX int (*complete_cb)(struct hc_data_s * data);
-    void * complete_cb_data;
-    int ret;
+  /* Callbacks */
+  data_callback_t complete_cb;  // XXX int (*complete_cb)(struct hc_data_s * data);
+  void *complete_cb_data;
+  int ret;
 } hc_data_t;
 
 /**
  * Create a structure holding the results of an hICN control request.
  * \result The newly create data structure.
  */
-hc_data_t *
-hc_data_create(size_t in_element_size, size_t out_element_size);
+hc_data_t *hc_data_create(size_t in_element_size, size_t out_element_size);
 
 /**
  * Free a structure holding the results of an hICN control request.
  * \param [in] data - The data structure to free.
  */
-void
-hc_data_free(hc_data_t * data);
+void hc_data_free(hc_data_t *data);
 
 /**
  * \brief Adds many new results at the end of the data structure, eventually
@@ -154,8 +158,7 @@ hc_data_free(hc_data_t * data);
  * NOTE: The size of the element should match the one declared at structure
  * initialization.
  */
-int
-hc_data_push_many(hc_data_t * data, const void * elements, size_t count);
+int hc_data_push_many(hc_data_t *data, const void *elements, size_t count);
 
 /**
  * \brief Adds a new result at the end of the data structure, eventually
@@ -167,8 +170,7 @@ hc_data_push_many(hc_data_t * data, const void * elements, size_t count);
  * NOTE: The size of the element should match the one declared at structure
  * initialization.
  */
-int
-hc_data_push(hc_data_t * data, const void * element);
+int hc_data_push(hc_data_t *data, const void *element);
 
 /**
  * \brief Configure a callback (along with private data) to be called upon
@@ -177,8 +179,7 @@ hc_data_push(hc_data_t * data, const void * element);
  * \param [in] cb - Callback function
  * \param [in] cb_data - Callback private data
  */
-int
-hc_data_set_callback(hc_data_t * data, data_callback_t cb, void * cb_data);
+int hc_data_set_callback(hc_data_t *data, data_callback_t cb, void *cb_data);
 
 /**
  * \brief Mark the data structure as complete.
@@ -187,16 +188,14 @@ hc_data_set_callback(hc_data_t * data, data_callback_t cb, void * cb_data);
  * returned if the callback executed successfully, or if no callback were
  * defined.
  */
-int
-hc_data_set_complete(hc_data_t * data);
+int hc_data_set_complete(hc_data_t *data);
 
 /**
  * \brief Reset the data structure holding control data
  * \param [in] data - hICN control data
  * \return Error code
  */
-int
-hc_data_reset(hc_data_t * data);
+int hc_data_reset(hc_data_t *data);
 
 /**
  * \brief Find en element in the data structure
@@ -242,33 +241,33 @@ typedef struct hc_sock_s hc_sock_t;
  * \param [in] url - The URL to connect to.
  * \return an hICN control socket
  */
-hc_sock_t * hc_sock_create_url(const char * url);
+hc_sock_t *hc_sock_create_url(const char *url);
 
 /**
  * \brief Create an hICN control socket using the default connection type.
  * \return an hICN control socket
  */
-hc_sock_t * hc_sock_create(void);
+hc_sock_t *hc_sock_create(void);
 
 /**
  * \brief Frees an hICN control socket
  * \param [in] s - hICN control socket
  */
-void hc_sock_free(hc_sock_t * s);
+void hc_sock_free(hc_sock_t *s);
 
 /**
  * \brief Returns the next available sequence number to use for requests to the
  * API.
  * \param [in] s - hICN control socket
  */
-int hc_sock_get_next_seq(hc_sock_t * s);
+int hc_sock_get_next_seq(hc_sock_t *s);
 
 /**
  * \brief Sets the socket as non-blocking
  * \param [in] s - hICN control socket
  * \return Error code
  */
-int hc_sock_set_nonblocking(hc_sock_t * s);
+int hc_sock_set_nonblocking(hc_sock_t *s);
 
 /**
  * \brief Return the file descriptor associated to the hICN contorl sock
@@ -276,14 +275,13 @@ int hc_sock_set_nonblocking(hc_sock_t * s);
  * \return The file descriptor (positive value), or a negative integer in case
  * of error
  */
-int hc_sock_get_fd(hc_sock_t * s);
+int hc_sock_get_fd(hc_sock_t *s);
 
 /**
  * \brief Connect the socket
  * \return Error code
  */
-int
-hc_sock_connect(hc_sock_t * s);
+int hc_sock_connect(hc_sock_t *s);
 
 /**
  * \brief Return the offset and size of available buffer space
@@ -292,7 +290,7 @@ hc_sock_connect(hc_sock_t * s);
  * \param [out] size - Remaining size
  * \return Error code
  */
-int hc_sock_get_available(hc_sock_t * s, u8 ** buffer, size_t * size);
+int hc_sock_get_available(hc_sock_t *s, u8 **buffer, size_t *size);
 
 /**
  * \brief Write/read iexchance on the control socket (internal helper function)
@@ -301,14 +299,14 @@ int hc_sock_get_available(hc_sock_t * s, u8 ** buffer, size_t * size);
  * \param [in] msglen - Length of the message to send
  * \return Error code
  */
-int hc_sock_send(hc_sock_t * s, hc_msg_t * msg, size_t msglen, int seq);
+int hc_sock_send(hc_sock_t *s, hc_msg_t *msg, size_t msglen, int seq);
 
 /**
  * \brief Helper for reading socket contents
  * \param [in] s - hICN control socket
  * \return Error code
  */
-int hc_sock_recv(hc_sock_t * s);
+int hc_sock_recv(hc_sock_t *s);
 
 /**
  * \brief Processing data received by socket
@@ -317,21 +315,21 @@ int hc_sock_recv(hc_sock_t * s);
  *      types, or NULL not to perform any translation.
  * \return Error code
  */
-int hc_sock_process(hc_sock_t * s,  hc_data_t ** data);
+int hc_sock_process(hc_sock_t *s, hc_data_t **data);
 
 /**
  * \brief Callback used in async mode when data is available on the socket
  * \param [in] s - hICN control socket
  * \return Error code
  */
-int hc_sock_callback(hc_sock_t * s, hc_data_t ** data);
+int hc_sock_callback(hc_sock_t *s, hc_data_t **data);
 
 /**
  * \brief Reset the state of the sock (eg. to handle a reconnecton)
  * \param [in] s - hICN control socket
  * \return Error code
  */
-int hc_sock_reset(hc_sock_t * s);
+int hc_sock_reset(hc_sock_t *s);
 
 /******************************************************************************
  * Command-specific structures and functions
@@ -391,54 +389,52 @@ int hc_sock_reset(hc_sock_t * s);
 #define MAXSZ_HC_ID_ 10 /* Number of digits for MAX_INT */
 #define MAXSZ_HC_ID MAXSZ_HC_ID_ + NULLTERM
 
-
-#define foreach_type(TYPE, VAR, data) \
-    for (TYPE * VAR = (TYPE*)data->buffer; \
-            VAR < (TYPE*)(data->buffer + data->size * data->out_element_size); \
-            VAR++)
+#define foreach_type(TYPE, VAR, data)                                      \
+  for (TYPE *VAR = (TYPE *)data->buffer;                                   \
+       VAR < (TYPE *)(data->buffer + data->size * data->out_element_size); \
+       VAR++)
 
 /**
  * New type is defined to reconciliate different enum for add and list.
  * Also, values not implemented have been removed for clarity.
  */
 #define foreach_connection_type \
-    _(UNDEFINED)                \
-    _(TCP)                      \
-    _(UDP)                      \
-    _(HICN)                     \
-    _(N)
+  _(UNDEFINED)                  \
+  _(TCP)                        \
+  _(UDP)                        \
+  _(HICN)                       \
+  _(N)
 
 typedef enum {
-#define _(x) CONNECTION_TYPE_ ## x,
-foreach_connection_type
+#define _(x) CONNECTION_TYPE_##x,
+  foreach_connection_type
 #undef _
 } hc_connection_type_t;
 
 #define MAXSZ_HC_CONNECTION_TYPE_ 9
 #define MAXSZ_HC_CONNECTION_TYPE MAXSZ_HC_CONNECTION_TYPE_ + NULLTERM + HOTFIXMARGIN
 
-extern const char * connection_type_str[];
+extern const char *connection_type_str[];
 
-hc_connection_type_t
-connection_type_from_str(const char * str);
+hc_connection_type_t connection_type_from_str(const char *str);
 
 /* Same order as connection_state_t in hicn/core/connectionState.h */
 #define foreach_connection_state \
-    _(UNDEFINED)                \
-    _(DOWN)                     \
-    _(UP)                       \
-    _(N)
+  _(UNDEFINED)                   \
+  _(DOWN)                        \
+  _(UP)                          \
+  _(N)
 
 typedef enum {
-#define _(x) HC_CONNECTION_STATE_ ## x,
-foreach_connection_state
+#define _(x) HC_CONNECTION_STATE_##x,
+  foreach_connection_state
 #undef _
 } hc_connection_state_t;
 
 #define MAXSZ_HC_CONNECTION_STATE_ 9
 #define MAXSZ_HC_CONNECTION_STATE MAXSZ_HC_CONNECTION_STATE_ + NULLTERM
 
-extern const char * connection_state_str[];
+extern const char *connection_state_str[];
 
 typedef int (*HC_PARSE)(const u8 *, u8 *);
 
@@ -448,34 +444,35 @@ typedef int (*HC_PARSE)(const u8 *, u8 *);
 
 // FIXME the listener should not require any port for hICN...
 typedef struct {
-    char name[SYMBOLIC_NAME_LEN];        /* K.w */ // XXX clarify what used for
-    char interface_name[INTERFACE_LEN];                     /* Kr. */
-    u32 id;
-    hc_connection_type_t type;  /* .rw */
-    int family;                 /* .rw */
-    ip_address_t local_addr;    /* .rw */
-    u16 local_port;             /* .rw */
+  char name[SYMBOLIC_NAME_LEN]; /* K.w */  // XXX clarify what used for
+  char interface_name[INTERFACE_LEN];      /* Kr. */
+  u32 id;
+  hc_connection_type_t type; /* .rw */
+  int family;                /* .rw */
+  ip_address_t local_addr;   /* .rw */
+  u16 local_port;            /* .rw */
 } hc_listener_t;
 
-int hc_listener_create(hc_sock_t * s, hc_listener_t * listener);
+int hc_listener_create(hc_sock_t *s, hc_listener_t *listener);
 /* listener_found might eventually be allocated, and needs to be freed */
-int hc_listener_get(hc_sock_t * s, hc_listener_t * listener,
-        hc_listener_t ** listener_found);
-int hc_listener_delete(hc_sock_t * s, hc_listener_t * listener);
-int hc_listener_list(hc_sock_t * s, hc_data_t ** pdata);
+int hc_listener_get(hc_sock_t *s, hc_listener_t *listener,
+                    hc_listener_t **listener_found);
+int hc_listener_delete(hc_sock_t *s, hc_listener_t *listener);
+int hc_listener_list(hc_sock_t *s, hc_data_t **pdata);
 
-int hc_listener_validate(const hc_listener_t * listener);
-int hc_listener_cmp(const hc_listener_t * l1, const hc_listener_t * l2);
-int hc_listener_parse(void * in, hc_listener_t * listener);
+int hc_listener_validate(const hc_listener_t *listener);
+int hc_listener_cmp(const hc_listener_t *l1, const hc_listener_t *l2);
+int hc_listener_parse(void *in, hc_listener_t *listener);
 
 #define foreach_listener(VAR, data) foreach_type(hc_listener_t, VAR, data)
 
-#define MAXSZ_HC_LISTENER_ INTERFACE_LEN + SPACE + MAXSZ_URL_ + SPACE + MAXSZ_HC_CONNECTION_TYPE_
+#define MAXSZ_HC_LISTENER_ \
+  INTERFACE_LEN + SPACE + MAXSZ_URL_ + SPACE + MAXSZ_HC_CONNECTION_TYPE_
 #define MAXSZ_HC_LISTENER MAXSZ_HC_LISTENER_ + NULLTERM
 
 GENERATE_FIND_HEADER(listener);
 
-int hc_listener_snprintf(char * s, size_t size, hc_listener_t * listener);
+int hc_listener_snprintf(char *s, size_t size, hc_listener_t *listener);
 
 /*----------------------------------------------------------------------------*
  * Connections
@@ -487,16 +484,16 @@ int hc_listener_snprintf(char * s, size_t size, hc_listener_t * listener);
  *  not itself used to create connections.
  */
 typedef struct {
-    u32 id;                 /* Kr. */
-    char name[SYMBOLIC_NAME_LEN];         /* K.w */
-    char interface_name[INTERFACE_LEN];                     /* Kr. */
-    hc_connection_type_t type;   /* .rw */
-    int family;                  /* .rw */
-    ip_address_t local_addr;     /* .rw */
-    u16 local_port;              /* .rw */
-    ip_address_t remote_addr;    /* .rw */
-    u16 remote_port;             /* .rw */
-    hc_connection_state_t admin_state;  /* .rw */
+  u32 id;                             /* Kr. */
+  char name[SYMBOLIC_NAME_LEN];       /* K.w */
+  char interface_name[INTERFACE_LEN]; /* Kr. */
+  hc_connection_type_t type;          /* .rw */
+  int family;                         /* .rw */
+  ip_address_t local_addr;            /* .rw */
+  u16 local_port;                     /* .rw */
+  ip_address_t remote_addr;           /* .rw */
+  u16 remote_port;                    /* .rw */
+  hc_connection_state_t admin_state;  /* .rw */
 #ifdef WITH_POLICY
     uint32_t priority;           /* .rw */
     policy_tags_t tags;          /* .rw */
@@ -504,25 +501,24 @@ typedef struct {
     hc_connection_state_t state; /* .r. */
 } hc_connection_t;
 
-
-int hc_connection_create(hc_sock_t * s, hc_connection_t * connection);
+int hc_connection_create(hc_sock_t *s, hc_connection_t *connection);
 /* connection_found will be allocated, and must be freed */
-int hc_connection_get(hc_sock_t * s, hc_connection_t * connection,
-        hc_connection_t ** connection_found);
-int hc_connection_update_by_id(hc_sock_t * s, int hc_connection_id,
-        hc_connection_t * connection);
-int hc_connection_update(hc_sock_t * s, hc_connection_t * connection_current,
-        hc_connection_t * connection_updated);
-int hc_connection_delete(hc_sock_t * s, hc_connection_t * connection);
+int hc_connection_get(hc_sock_t *s, hc_connection_t *connection,
+                      hc_connection_t **connection_found);
+int hc_connection_update_by_id(hc_sock_t *s, int hc_connection_id,
+                               hc_connection_t *connection);
+int hc_connection_update(hc_sock_t *s, hc_connection_t *connection_current,
+                         hc_connection_t *connection_updated);
+int hc_connection_delete(hc_sock_t *s, hc_connection_t *connection);
 /*
 int hc_connection_remove_by_id(hc_sock_t * s, char * name);
 int hc_connection_remove_by_name(hc_sock_t * s, char * name);
 */
-int hc_connection_list(hc_sock_t * s, hc_data_t ** pdata);
+int hc_connection_list(hc_sock_t *s, hc_data_t **pdata);
 
-int hc_connection_validate(const hc_connection_t * connection);
-int hc_connection_cmp(const hc_connection_t * c1, const hc_connection_t * c2);
-int hc_connection_parse(void * in, hc_connection_t * connection);
+int hc_connection_validate(const hc_connection_t *connection);
+int hc_connection_cmp(const hc_connection_t *c1, const hc_connection_t *c2);
+int hc_connection_parse(void *in, hc_connection_t *connection);
 
 int hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, face_state_t state);
 #ifdef WITH_POLICY
@@ -531,14 +527,15 @@ int hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name, uint
 
 #define foreach_connection(VAR, data) foreach_type(hc_connection_t, VAR, data)
 
-#define MAXSZ_HC_CONNECTION_ MAXSZ_HC_CONNECTION_STATE_ +       \
-    INTERFACE_LEN + SPACE +                                     \
-    2 * MAXSZ_URL_ + MAXSZ_HC_CONNECTION_TYPE_ + SPACES(3)
+#define MAXSZ_HC_CONNECTION_                                            \
+  MAXSZ_HC_CONNECTION_STATE_ + INTERFACE_LEN + SPACE + 2 * MAXSZ_URL_ + \
+      MAXSZ_HC_CONNECTION_TYPE_ + SPACES(3)
 #define MAXSZ_HC_CONNECTION MAXSZ_HC_CONNECTION_ + NULLTERM
 
 GENERATE_FIND_HEADER(connection);
 
-int hc_connection_snprintf(char * s, size_t size, const hc_connection_t * connection);
+int hc_connection_snprintf(char *s, size_t size,
+                           const hc_connection_t *connection);
 
 /*----------------------------------------------------------------------------*
  * Faces
@@ -551,10 +548,10 @@ int hc_connection_snprintf(char * s, size_t size, const hc_connection_t * connec
  *----------------------------------------------------------------------------*/
 
 typedef struct {
-    u8 id;
-    char name[SYMBOLIC_NAME_LEN];
-    face_t face; // or embed ?
-    //face_id_t parent; /* Pointer from connection to listener */
+  u8 id;
+  char name[SYMBOLIC_NAME_LEN];
+  face_t face;  // or embed ?
+                // face_id_t parent; /* Pointer from connection to listener */
 } hc_face_t;
 
 /**
@@ -565,11 +562,11 @@ typedef struct {
  *
  * The face parameters will be updated with the face ID.
  */
-int hc_face_create(hc_sock_t * s, hc_face_t * face);
-int hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found);
-int hc_face_delete(hc_sock_t * s, hc_face_t * face);
-int hc_face_list(hc_sock_t * s, hc_data_t ** pdata);
-int hc_face_list_async(hc_sock_t * s); //, hc_data_t ** pdata);
+int hc_face_create(hc_sock_t *s, hc_face_t *face);
+int hc_face_get(hc_sock_t *s, hc_face_t *face, hc_face_t **face_found);
+int hc_face_delete(hc_sock_t *s, hc_face_t *face);
+int hc_face_list(hc_sock_t *s, hc_data_t **pdata);
+int hc_face_list_async(hc_sock_t *s);  //, hc_data_t ** pdata);
 
 int hc_face_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, face_state_t state);
 #ifdef WITH_POLICY
@@ -587,21 +584,21 @@ int hc_face_set_priority(hc_sock_t * s, const char * conn_id_or_name, uint32_t p
 #define MAXSZ_HC_FACE_ MAXSZ_FACE_ID_ + MAXSZ_FACE_NAME_ + MAXSZ_FACE_ + 5 + HOTFIXMARGIN
 #define MAXSZ_HC_FACE MAXSZ_HC_FACE_ + NULLTERM
 
-int hc_face_snprintf(char * s, size_t size, hc_face_t * face);
+int hc_face_snprintf(char *s, size_t size, hc_face_t *face);
 
 /*----------------------------------------------------------------------------*
  * Routes
  *----------------------------------------------------------------------------*/
 
 typedef struct {
-    u8 face_id;                  /* Kr. */
-    int family;                  /* Krw */
-    ip_address_t remote_addr;    /* krw */
-    u8 len;                      /* krw */
-    u16 cost;                    /* .rw */
+  u8 face_id;               /* Kr. */
+  int family;               /* Krw */
+  ip_address_t remote_addr; /* krw */
+  u8 len;                   /* krw */
+  u16 cost;                 /* .rw */
 } hc_route_t;
 
-int hc_route_parse(void * in, hc_route_t * route);
+int hc_route_parse(void *in, hc_route_t *route);
 
 int hc_route_create(hc_sock_t * s, hc_route_t * route);
 int hc_route_delete(hc_sock_t * s, hc_route_t * route);
@@ -615,31 +612,32 @@ int hc_route_list_async(hc_sock_t * s);
 #define MAX_LEN 255
 #define MAXSZ_LEN 3
 
-#define MAXSZ_HC_ROUTE_ MAXSZ_FACE_ID + 1 + MAXSZ_COST + 1 + MAXSZ_IP_ADDRESS + 1 + MAXSZ_LEN
+#define MAXSZ_HC_ROUTE_ \
+  MAXSZ_FACE_ID + 1 + MAXSZ_COST + 1 + MAXSZ_IP_ADDRESS + 1 + MAXSZ_LEN
 #define MAXSZ_HC_ROUTE MAXSZ_HC_ROUTE_ + NULLTERM
 
-int hc_route_snprintf(char * s, size_t size, hc_route_t * route);
-
+int hc_route_snprintf(char *s, size_t size, hc_route_t *route);
 
 /*----------------------------------------------------------------------------*
  * Punting
  *----------------------------------------------------------------------------*/
 
 typedef struct {
-    u8 face_id;                 /* Kr. */ // XXX listener id, could be NULL for all ?
-    int family;                 /* Krw */
-    ip_address_t prefix;        /* krw */
-    u8 prefix_len;              /* krw */
+  u8 face_id; /* Kr. */  // XXX listener id, could be NULL for all ?
+  int family;            /* Krw */
+  ip_address_t prefix;   /* krw */
+  u8 prefix_len;         /* krw */
 } hc_punting_t;
 
-int hc_punting_create(hc_sock_t * s, hc_punting_t * punting);
-int hc_punting_get(hc_sock_t * s, hc_punting_t * punting, hc_punting_t ** punting_found);
-int hc_punting_delete(hc_sock_t * s, hc_punting_t * punting);
-int hc_punting_list(hc_sock_t * s, hc_data_t ** pdata);
+int hc_punting_create(hc_sock_t *s, hc_punting_t *punting);
+int hc_punting_get(hc_sock_t *s, hc_punting_t *punting,
+                   hc_punting_t **punting_found);
+int hc_punting_delete(hc_sock_t *s, hc_punting_t *punting);
+int hc_punting_list(hc_sock_t *s, hc_data_t **pdata);
 
-int hc_punting_validate(const hc_punting_t * punting);
-int hc_punting_cmp(const hc_punting_t * c1, const hc_punting_t * c2);
-int hc_punting_parse(void * in, hc_punting_t * punting);
+int hc_punting_validate(const hc_punting_t *punting);
+int hc_punting_cmp(const hc_punting_t *c1, const hc_punting_t *c2);
+int hc_punting_parse(void *in, hc_punting_t *punting);
 
 #define foreach_punting(VAR, data) foreach_type(hc_punting_t, VAR, data)
 
@@ -648,15 +646,14 @@ int hc_punting_parse(void * in, hc_punting_t * punting);
 
 GENERATE_FIND_HEADER(punting);
 
-int hc_punting_snprintf(char * s, size_t size, hc_punting_t * punting);
-
+int hc_punting_snprintf(char *s, size_t size, hc_punting_t *punting);
 
 /*----------------------------------------------------------------------------*
  * Cache
  *----------------------------------------------------------------------------*/
 
-int hc_cache_set_store(hc_sock_t * s, int enabled);
-int hc_cache_set_serve(hc_sock_t * s, int enabled);
+int hc_cache_set_store(hc_sock_t *s, int enabled);
+int hc_cache_set_serve(hc_sock_t *s, int enabled);
 
 /*----------------------------------------------------------------------------*
  * Strategy
@@ -665,36 +662,36 @@ int hc_cache_set_serve(hc_sock_t * s, int enabled);
 #define MAXSZ_STRATEGY_NAME 255
 
 typedef struct {
-    char name[MAXSZ_STRATEGY_NAME];
+  char name[MAXSZ_STRATEGY_NAME];
 } hc_strategy_t;
 
-int hc_strategy_list(hc_sock_t * s, hc_data_t ** data);
+int hc_strategy_list(hc_sock_t *s, hc_data_t **data);
 
 #define foreach_strategy(VAR, data) foreach_type(hc_strategy_t, VAR, data)
 
 #define MAXSZ_HC_STRATEGY_ MAXSZ_STRATEGY_NAME
 #define MAXSZ_HC_STRATEGY MAXSZ_HC_STRATEGY_ + NULLTERM
 
-int hc_strategy_snprintf(char * s, size_t size, hc_strategy_t * strategy);
+int hc_strategy_snprintf(char *s, size_t size, hc_strategy_t *strategy);
 
 // per prefix
-int hc_strategy_set(hc_sock_t * s /* XXX */);
+int hc_strategy_set(hc_sock_t *s /* XXX */);
 
 /*----------------------------------------------------------------------------*
  * WLDR
  *----------------------------------------------------------------------------*/
 
 // per connection
-int hc_wldr_set(hc_sock_t * s /* XXX */);
+int hc_wldr_set(hc_sock_t *s /* XXX */);
 
 /*----------------------------------------------------------------------------*
  * MAP-Me
  *----------------------------------------------------------------------------*/
 
-int hc_mapme_set(hc_sock_t * s, int enabled);
-int hc_mapme_set_discovery(hc_sock_t * s, int enabled);
-int hc_mapme_set_timescale(hc_sock_t * s, double timescale);
-int hc_mapme_set_retx(hc_sock_t * s, double timescale);
+int hc_mapme_set(hc_sock_t *s, int enabled);
+int hc_mapme_set_discovery(hc_sock_t *s, int enabled);
+int hc_mapme_set_timescale(hc_sock_t *s, double timescale);
+int hc_mapme_set_retx(hc_sock_t *s, double timescale);
 
 /*----------------------------------------------------------------------------*
  * Policies
@@ -703,17 +700,17 @@ int hc_mapme_set_retx(hc_sock_t * s, double timescale);
 #ifdef WITH_POLICY
 
 typedef struct {
-    int family;                  /* Krw */
-    ip_address_t remote_addr;    /* krw */
-    u8 len;                      /* krw */
-    policy_t policy;             /* .rw */
+  int family;               /* Krw */
+  ip_address_t remote_addr; /* krw */
+  u8 len;                   /* krw */
+  policy_t policy;          /* .rw */
 } hc_policy_t;
 
-int hc_policy_parse(void * in, hc_policy_t * policy);
+int hc_policy_parse(void *in, hc_policy_t *policy);
 
-int hc_policy_create(hc_sock_t * s, hc_policy_t * policy);
-int hc_policy_delete(hc_sock_t * s, hc_policy_t * policy);
-int hc_policy_list(hc_sock_t * s, hc_data_t ** pdata);
+int hc_policy_create(hc_sock_t *s, hc_policy_t *policy);
+int hc_policy_delete(hc_sock_t *s, hc_policy_t *policy);
+int hc_policy_list(hc_sock_t *s, hc_data_t **pdata);
 
 #define foreach_policy(VAR, data) foreach_type(hc_policy_t, VAR, data)
 
@@ -721,7 +718,7 @@ int hc_policy_list(hc_sock_t * s, hc_data_t ** pdata);
 #define MAXSZ_HC_POLICY_ 0
 #define MAXSZ_HC_POLICY MAXSZ_HC_POLICY_ + NULLTERM
 
-int hc_policy_snprintf(char * s, size_t size, hc_policy_t * policy);
+int hc_policy_snprintf(char *s, size_t size, hc_policy_t *policy);
 
 #endif /* WITH_POLICY */
 

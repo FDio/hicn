@@ -91,7 +91,6 @@ struct hc_sock_s {
 hc_sock_request_t *
 hc_sock_request_create(int seq, hc_data_t * data, HC_PARSE parse)
 {
-    assert(seq >= 0);
     assert(data);
 
     hc_sock_request_t * request = malloc(sizeof(hc_sock_request_t));
@@ -859,11 +858,7 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
     }
 
     int seq = hc_sock_get_next_seq(s);
-    if (seq < 0) {
-        ERROR("[hc_execute_command] Could not get next sequence number");
-        goto ERR_SEQ;
-    }
-
+   
     /* Create state used to process the request */
     hc_sock_request_t * request = NULL;
     request = hc_sock_request_create(seq, data, params->parse);
@@ -921,7 +916,6 @@ ERR_PROCESS:
 ERR_MAP:
     hc_sock_request_free(request);
 ERR_REQUEST:
-ERR_SEQ:
     hc_data_free(data);
 ERR_DATA:
      return -99;
