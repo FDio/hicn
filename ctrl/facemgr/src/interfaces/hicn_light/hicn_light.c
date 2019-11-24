@@ -449,7 +449,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                 }
                 INFO("Admin state updated");
             }
-            if (facelet_get_admin_state_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
+            if (facelet_get_priority_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
                 hc_face.face = *face;
                 hc_face_t * face_found;
 

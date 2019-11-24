@@ -549,26 +549,6 @@ facelet_cache_lookup(const facelet_set_t * facelet_cache, facelet_t * facelet,
         facelet_t ***cached_facelets)
 {
     assert(facelet);
-    if (!facelet_has_family(facelet))
-        return 0;
-#if 0 // key is no more sufficient now that we support multiple faces per interface
-    /*
-     * If the facelet is uniquely identified by its key, it is used to perform
-     * an efficient lookup directly...
-     */
-    if (facelet_has_key(facelet)) {
-        facelet_t * found = NULL;
-        if (facelet_set_get(facelet_cache, facelet, &found) < 0) {
-            ERROR("[facelet_cache_lookup] Error during cache lookup");
-            return -1;
-        }
-        if (!found)
-            return 0;
-        *cached_facelets = malloc(sizeof(facelet_t*));
-        *cached_facelets[0] = found;
-        return 1;
-    }
-#endif
 
     /* ...otherwise, we iterate over the facelet
      * cache to find matching elements.

@@ -22,7 +22,7 @@ int priority_controller_initialize(interface_t * interface, void * cfg)
     pc_data_t * data = malloc(sizeof(pc_data_t));
     if (!data) {
         INFO("Priority controller data memory allocation error");
-        return -1;
+        goto ERR_MALLOC;
     }
 
     interface->data = data;
@@ -32,7 +32,7 @@ int priority_controller_initialize(interface_t * interface, void * cfg)
     if (data->fd < 0) {
         INFO("Priority controller socket error");
         perror("socket error");
-        return -1;
+        goto ERR_SOCKET;
     }
 
     memset(&addr, 0, sizeof(addr));
@@ -43,12 +43,23 @@ int priority_controller_initialize(interface_t * interface, void * cfg)
     if (bind(data->fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         INFO("Priority controller socket bind error");
         perror("bind error");
-        return -1;
+        goto ERR_BIND;
     }
-    interface_register_fd(interface, data->fd, NULL);
+    if (interface_register_fd(interface, data->fd, NULL) < 0) {
+        ERROR("[priority_controller_initialize] Error registering fd");
+        goto ERR_FD;
+    }
 
     INFO("Priority controller successfully initialized");
-    return data->fd;
+    return 0;
+
+ERR_FD:
+ERR_BIND:
+    close(data->fd);
+ERR_SOCKET:
+    free(data);
+ERR_MALLOC:
+    return -1;
 }
 
 int priority_controller_finalize(interface_t * interface)
@@ -66,12 +77,6 @@ int priority_controller_callback(interface_t * interface, int fd, void * unused)
     pc_data_t * data = (pc_data_t*)interface->data;
     char buf[100];
     int rc;
-
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    addr.sin_port = htons(9533);
 
     INFO("Priority controller receiving command");
 
@@ -119,8 +124,6 @@ int priority_controller_callback(interface_t * interface, int fd, void * unused)
     interface_raise_event(interface, facelet_w);
     interface_raise_event(interface, facelet_c);
 
-    facelet_free(facelet_w);
-    facelet_free(facelet_c);
     return 0;
 }
 

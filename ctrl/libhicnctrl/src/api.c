@@ -2283,7 +2283,7 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
                 *face_found = NULL;
                 return 0;
             }
-            *face_found = malloc(sizeof(face_t));
+            *face_found = malloc(sizeof(hc_face_t));
             hc_connection_to_face(connection_found, *face_found);
             free(connection_found);
             break;
@@ -2299,7 +2299,7 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
                 *face_found = NULL;
                 return 0;
             }
-            *face_found = malloc(sizeof(face_t));
+            *face_found = malloc(sizeof(hc_face_t));
             hc_listener_to_face(listener_found, *face_found);
             free(listener_found);
             break;
