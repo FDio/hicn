@@ -1,3 +1,23 @@
+/*
+ * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * \file priority_controller.c
+ * \brief Implementation of Priority Controller interface
+ */
+
 #include <assert.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -112,10 +132,10 @@ int priority_controller_callback(interface_t * interface, int fd, void * unused)
             INFO("Priority controller configuring both Cellular and Wi-Fi preferred");
             break;
         default:
-            INFO("Priority cntroller invalid data received from updown server. Ignoring...");
+            INFO("Priority controller invalid data received from updown server. Ignoring...");
             facelet_free(facelet_w);
             facelet_free(facelet_c);
-            return -1;
+            return 0;
     }
 
     facelet_set_event(facelet_w, FACELET_EVENT_UPDATE);

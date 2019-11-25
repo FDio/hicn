@@ -2268,7 +2268,7 @@ hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
     int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
     if (rc >= MAXSZ_HC_FACE)
         WARN("[hc_face_get] Unexpected truncation of face string");
-    DEBUG("[hc_face_get] face=%s");
+    DEBUG("[hc_face_get] face=%s", face_s);
 
     switch(face->face.type)
     {
