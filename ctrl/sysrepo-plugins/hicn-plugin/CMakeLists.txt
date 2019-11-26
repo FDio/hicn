@@ -14,7 +14,7 @@
 
 # set compiler options
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -std=gnu99")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -std=gnu99 -Wunused")
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O2")
 set(CMAKE_C_FLAGS_DEBUG   "-g -O0")
 
@@ -22,16 +22,14 @@ cmake_minimum_required(VERSION 2.8)
 project(sysrepo-vpp-plugins)
 
 # Cmake find modules
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake/Modules"
-"${CMAKE_CURRENT_LIST_DIR}/../../../cmake/Modules"
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../../cmake/Modules"
+     "${CMAKE_CURRENT_LIST_DIR}/../cmake/Modules"
 )
 
-find_package(VPP)
+find_package(Vpp)
 find_package(PkgConfig)
 find_package(HicnPlugin)
 find_package(Sysrepo)
-
-#pkg_check_modules(SYSREPO libsysrepo)
 
 # get sysrepo plugins directory from pkgconfig
 if (NOT SR_PLUGINS_DIR)
@@ -54,14 +52,9 @@ set(PLUGINS_SOURCES
 )
 
 # build the source code into shared library
-add_library(hicn SHARED ${PLUGINS_SOURCES})
-target_include_directories(hicn PUBLIC ${VPP_INCLUDE_DIRS} ${HICNPLUGIN_INCLUDE_DIRS})
-target_link_libraries(hicn ${SYSREPO_LIBRARIES} ${VPP_LIBRARIES})
-
-#set_target_properties(hicn
-#        PROPERTIES
-#        LINKER_LANGUAGE C
-#        INSTALL_RPATH ${VPP_HOME}/lib)
+add_library(sysrepohicn SHARED ${PLUGINS_SOURCES})
+target_include_directories(sysrepohicn PUBLIC ${VPP_INCLUDE_DIRS} ${HICNPLUGIN_INCLUDE_DIRS})
+target_link_libraries(sysrepohicn ${SYSREPO_LIBRARIES} ${VPP_LIBRARIES})
 
 # install the plugin into plugins dir
-install(TARGETS hicn DESTINATION ${SR_PLUGINS_DIR} COMPONENT hicn_sysrepo_plugin)
+install(TARGETS sysrepohicn DESTINATION ${SR_PLUGINS_DIR} COMPONENT hicn_sysrepo_plugin)
