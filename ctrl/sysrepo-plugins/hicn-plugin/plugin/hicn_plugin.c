@@ -27,12 +27,11 @@ sr_subscription_ctx_t *subscription = NULL;
 volatile int exit_application = 0;
 
 int sr_plugin_init_cb(sr_session_ctx_t *session, void **private_ctx) {
-  HICN_INVOKE_BEGIN;
+
   sr_subscription_ctx_t *subscription = NULL;
   int rc = SR_ERR_OK;
   rc = hicn_connect_vpp();
   if (SR_ERR_OK != rc) {
-    HICN_LOG_ERR("vpp connect error , with return %d.", rc);
     return SR_ERR_INTERNAL;
   }
 
@@ -40,24 +39,20 @@ int sr_plugin_init_cb(sr_session_ctx_t *session, void **private_ctx) {
   hicn_subscribe_events(session, &subscription);
 
   // IETF subscribe
-  ietf_subscribe_events(session, &subscription);
+ // ietf_subscribe_events(session, &subscription);
 
 
   /* set subscription as our private context */
   *private_ctx = subscription;
-  HICN_INVOKE_END;
+
   return SR_ERR_OK;
 }
 
 void sr_plugin_cleanup_cb(sr_session_ctx_t *session, void *private_ctx) {
-  HICN_INVOKE_BEGIN;
 
   /* subscription was set as our private context */
-  sr_unsubscribe(session, private_ctx);
-  HICN_LOG_DBG_MSG("hicn pligin unload plugin ok.");
+  sr_unsubscribe(private_ctx);
   hicn_disconnect_vpp();
-  HICN_LOG_DBG_MSG("hicn plugin disconnect vpp ok.");
-  HICN_INVOKE_END;
 }
 
 static void sigint_handler(int signum) { exit_application = 1; }
@@ -78,14 +73,14 @@ int main(int argc, char **argv) {
   }
 
   /* connect to sysrepo */
-  rc = sr_connect("cpe_application", SR_CONN_DEFAULT, &connection);
+  rc = sr_connect(SR_CONN_DEFAULT, &connection);
   if (SR_ERR_OK != rc) {
     fprintf(stderr, "Error by sr_connect: %s\n", sr_strerror(rc));
     goto cleanup;
   }
 
   /* start session */
-  rc = sr_session_start(connection, SR_DS_STARTUP, SR_SESS_DEFAULT, &session);
+  rc = sr_session_start(connection, SR_DS_STARTUP, &session);
   if (SR_ERR_OK != rc) {
     fprintf(stderr, "Error by sr_session_start: %s\n", sr_strerror(rc));
     goto cleanup;
@@ -110,7 +105,7 @@ int main(int argc, char **argv) {
 
 cleanup:
   if (NULL != subscription) {
-    sr_unsubscribe(session, subscription);
+    sr_unsubscribe(subscription);
   }
   if (NULL != session) {
     sr_session_stop(session);
