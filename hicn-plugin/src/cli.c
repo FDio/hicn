@@ -535,8 +535,10 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
   int ret = 0;
   vnet_main_t *vnm = NULL;
   u8 type = HICN_PUNT_IP_TYPE;
-  u32 src_port = 0, dst_port = 0;
+  u32 src_port = HICN_PUNT_INVALID_PORT, dst_port = HICN_PUNT_INVALID_PORT;
   vnm = vnet_get_main ();
+  u8 sport = 0;
+  u8 dport = 0;
   fib_prefix_t prefix;
 
   unformat_input_t _line_input, *line_input = &_line_input;
@@ -579,9 +581,13 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	    }
 
 	  if (unformat (line_input, "src_port %u", &src_port))
-	    ;
+	    {
+		  sport = 1;
+		}
 	  if (unformat (line_input, "dst_port %u", &dst_port))
-	    ;
+	    {
+		  dport = 1;
+		}
 	}
       else
 	{
@@ -614,7 +620,7 @@ hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
       {
 	if (type == HICN_PUNT_UDP4_TYPE || type == HICN_PUNT_UDP6_TYPE)
 	  {
-	    if (src_port != 0 && dst_port != 0)
+	    if (sport != 0 || dport != 0)
 	      ret =
 		hicn_punt_interest_data_for_udp (vm, &prefix,
 						 sw_if_index, type,

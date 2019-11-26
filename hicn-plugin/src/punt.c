@@ -54,6 +54,70 @@ ip_version_t ipv6 = {
   .ip_version = 0x60,
 };
 
+ip_version_t udp4_src_ipv4 = {
+  .tbl = (u32 *) hicn_punt_glb.udp44_vnet_tbl_idx,
+  .addr_len_bits = IPV4_ADDR_LEN_BITS,
+  .protocol_field = &udp4_protocol,
+  .udp_sport = &udp4_sport,
+  .ip_version = 0x40,
+};
+
+ip_version_t udp4_src_ipv6 = {
+  .tbl = (u32 *) hicn_punt_glb.udp46_vnet_tbl_idx,
+  .addr_len_bits = IPV6_ADDR_LEN_BITS,
+  .protocol_field = &udp4_protocol,
+  .udp_sport = &udp4_sport,
+  .ip_version = 0x60,
+};
+
+ip_version_t udp4_dst_ipv4 = {
+  .tbl = (u32 *) hicn_punt_glb.udp44_vnet_tbl_idx,
+  .addr_len_bits = IPV4_ADDR_LEN_BITS,
+  .protocol_field = &udp4_protocol,
+  .udp_dport = &udp4_dport,
+  .ip_version = 0x40,
+};
+
+ip_version_t udp4_dst_ipv6 = {
+  .tbl = (u32 *) hicn_punt_glb.udp46_vnet_tbl_idx,
+  .addr_len_bits = IPV6_ADDR_LEN_BITS,
+  .protocol_field = &udp4_protocol,
+  .udp_dport = &udp4_dport,
+  .ip_version = 0x60,
+};
+
+ip_version_t udp6_src_ipv4 = {
+  .tbl = (u32 *) hicn_punt_glb.udp64_vnet_tbl_idx,
+  .addr_len_bits = IPV4_ADDR_LEN_BITS,
+  .protocol_field = &udp6_protocol,
+  .udp_sport = &udp6_sport,
+  .ip_version = 0x40,
+};
+
+ip_version_t udp6_src_ipv6 = {
+  .tbl = (u32 *) hicn_punt_glb.udp66_vnet_tbl_idx,
+  .addr_len_bits = IPV6_ADDR_LEN_BITS,
+  .protocol_field = &udp6_protocol,
+  .udp_sport = &udp6_sport,
+  .ip_version = 0x60,
+};
+
+ip_version_t udp6_dst_ipv4 = {
+  .tbl = (u32 *) hicn_punt_glb.udp64_vnet_tbl_idx,
+  .addr_len_bits = IPV4_ADDR_LEN_BITS,
+  .protocol_field = &udp6_protocol,
+  .udp_dport = &udp6_dport,
+  .ip_version = 0x40,
+};
+
+ip_version_t udp6_dst_ipv6 = {
+  .tbl = (u32 *) hicn_punt_glb.udp66_vnet_tbl_idx,
+  .addr_len_bits = IPV6_ADDR_LEN_BITS,
+  .protocol_field = &udp6_protocol,
+  .udp_dport = &udp6_dport,
+  .ip_version = 0x60,
+};
+
 ip_version_t ipv44 = {
   .tbl = (u32 *) hicn_punt_glb.udp44_vnet_tbl_idx,
   .addr_len_bits = IPV4_ADDR_LEN_BITS,
@@ -379,7 +443,24 @@ hicn_punt_add_del_vnettbl_udp (ip_version_t * outer, ip_version_t * inner,
   u16 port_value = 0xffff;
   u8 protocol_value = 0xff;
 
-  return _hicn_punt_add_del_vnettbl (outer, field->punt_id, mask,
+  if (outer->udp_sport == NULL) {
+    return _hicn_punt_add_del_vnettbl (outer, field->punt_id, mask,
+				     next_tbl_index, intfc, base_offset,
+				     is_add,
+				     use_current_data,
+				     outer->protocol_field, &protocol_value,
+				     outer->udp_dport, &port_value, field,
+				     udp_mask, NULL);
+  } else if (outer->udp_dport == NULL) {
+    return _hicn_punt_add_del_vnettbl (outer, field->punt_id, mask,
+				     next_tbl_index, intfc, base_offset,
+				     is_add,
+				     use_current_data,
+				     outer->protocol_field, &protocol_value,
+				     outer->udp_sport, &port_value, field,
+				     udp_mask, NULL);
+  } else {
+    return _hicn_punt_add_del_vnettbl (outer, field->punt_id, mask,
 				     next_tbl_index, intfc, base_offset,
 				     is_add,
 				     use_current_data,
@@ -387,6 +468,7 @@ hicn_punt_add_del_vnettbl_udp (ip_version_t * outer, ip_version_t * inner,
 				     outer->udp_sport, &port_value,
 				     outer->udp_dport, &port_value, field,
 				     udp_mask, NULL);
+  }
 }
 
 #define hicn_punt_add_vnettbl_udp(outer, inner, field, mask, next_tbl_index, intfc, base_offset, use_current_data) \
@@ -798,7 +880,7 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
       && punt_type != HICN_PUNT_UDP6_TYPE)
     return HICN_ERROR_PUNT_INVAL;
 
-  if ((sport == 0 && dport == 0) || !vnet_sw_interface_is_valid (vnm, swif))
+  if ((sport == HICN_PUNT_INVALID_PORT && dport == HICN_PUNT_INVALID_PORT) || !vnet_sw_interface_is_valid (vnm, swif))
     return  HICN_ERROR_PUNT_INVAL;
 
   if (ip46_address_is_ip4 (&prefix->fp_addr))
@@ -811,13 +893,29 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 	  //If we consider ethernet we can skip 32 bytes, otherwise only 16
 	  skip = 1 + with_l2;
 	  /* Create Vnet table for a given mask */
-	  hicn_punt_add_vnettbl_udp (&ipv44, &ipv4, &udp44_src, mask, ~0,
-				     swif, base_offset, use_current_data);
+    if(sport == HICN_PUNT_INVALID_PORT)
+      hicn_punt_add_vnettbl_udp (&udp4_dst_ipv4, &ipv4, &udp44_src, mask, ~0,
+				      swif, base_offset, use_current_data);
+    else if (dport == HICN_PUNT_INVALID_PORT)
+      hicn_punt_add_vnettbl_udp (&udp4_src_ipv4, &ipv4, &udp44_src, mask, ~0,
+				      swif, base_offset, use_current_data);
+    else
+	    hicn_punt_add_vnettbl_udp (&ipv44, &ipv4, &udp44_src, mask, ~0,
+				      swif, base_offset, use_current_data);
 
 	  table_index =
 	    hicn_punt_glb.udp44_vnet_tbl_idx[swif][skip][HICN_PUNT_SRC][mask];
 
-	  hicn_punt_add_vnettbl_udp (&ipv44, &ipv4, &udp44_dst, mask,
+    if(sport == HICN_PUNT_INVALID_PORT)
+	    hicn_punt_add_vnettbl_udp (&udp4_dst_ipv4, &ipv4, &udp44_dst, mask,
+				     table_index, swif, base_offset,
+				     use_current_data);
+    else if (dport == HICN_PUNT_INVALID_PORT)
+      hicn_punt_add_vnettbl_udp (&udp4_src_ipv4, &ipv4, &udp44_dst, mask,
+				     table_index, swif, base_offset,
+				     use_current_data);
+    else
+      hicn_punt_add_vnettbl_udp (&ipv44, &ipv4, &udp44_dst, mask,
 				     table_index, swif, base_offset,
 				     use_current_data);
 	  /*
@@ -844,13 +942,29 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 	  //If we consider ethernet we can skip 48 bytes, otherwise only 32
 	  skip = 2 + with_l2;
 	  /* Create Vnet table for a given mask */
-	  hicn_punt_add_vnettbl_udp (&ipv64, &ipv6, &udp64_src, mask, ~0,
+    if(sport == HICN_PUNT_INVALID_PORT)
+	    hicn_punt_add_vnettbl_udp (&udp6_dst_ipv4, &ipv6, &udp64_src, mask, ~0,
+				     swif, base_offset, use_current_data);
+    else if(dport == HICN_PUNT_INVALID_PORT)
+      hicn_punt_add_vnettbl_udp (&udp6_src_ipv4, &ipv6, &udp64_src, mask, ~0,
+				     swif, base_offset, use_current_data);
+    else
+      hicn_punt_add_vnettbl_udp (&ipv64, &ipv6, &udp64_src, mask, ~0,
 				     swif, base_offset, use_current_data);
 
 	  table_index =
 	    hicn_punt_glb.udp64_vnet_tbl_idx[swif][skip][HICN_PUNT_SRC][mask];
 
-	  hicn_punt_add_vnettbl_udp (&ipv64, &ipv6, &udp64_dst, mask,
+    if(sport == HICN_PUNT_INVALID_PORT)
+      hicn_punt_add_vnettbl_udp (&udp6_dst_ipv4, &ipv6, &udp64_dst, mask,
+              table_index, swif, base_offset,
+              use_current_data);
+    else if (dport == HICN_PUNT_INVALID_PORT)
+      hicn_punt_add_vnettbl_udp (&udp6_src_ipv4, &ipv6, &udp64_dst, mask,
+              table_index, swif, base_offset,
+              use_current_data);
+    else
+      hicn_punt_add_vnettbl_udp (&ipv64, &ipv6, &udp64_dst, mask,
 				     table_index, swif, base_offset,
 				     use_current_data);
 
@@ -884,12 +998,29 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 	  if (mask > 96)
 	    return HICN_ERROR_PUNT_INVAL;
 
-	  hicn_punt_add_vnettbl_udp (&ipv46, &ipv4, &udp46_src, mask, ~0,
+    if(sport == HICN_PUNT_INVALID_PORT)
+	    hicn_punt_add_vnettbl_udp (&udp4_dst_ipv6, &ipv4, &udp46_src, mask, ~0,
+				     swif, base_offset, use_current_data);
+    else if (dport == HICN_PUNT_INVALID_PORT)
+      hicn_punt_add_vnettbl_udp (&udp4_src_ipv6, &ipv4, &udp46_src, mask, ~0,
+				     swif, base_offset, use_current_data);
+    else
+      hicn_punt_add_vnettbl_udp (&ipv46, &ipv4, &udp46_src, mask, ~0,
 				     swif, base_offset, use_current_data);
 
 	  table_index =
 	    hicn_punt_glb.udp46_vnet_tbl_idx[swif][skip][HICN_PUNT_SRC][mask];
-	  hicn_punt_add_vnettbl_udp (&ipv46, &ipv4, &udp46_dst, mask,
+
+    if(sport == HICN_PUNT_INVALID_PORT)
+	    hicn_punt_add_vnettbl_udp (&udp4_dst_ipv6, &ipv4, &udp46_dst, mask,
+				     table_index, swif, base_offset,
+				     use_current_data);
+    else if (dport == HICN_PUNT_INVALID_PORT)
+      hicn_punt_add_vnettbl_udp (&udp4_src_ipv6, &ipv4, &udp46_dst, mask,
+				     table_index, swif, base_offset,
+				     use_current_data);
+    else
+      hicn_punt_add_vnettbl_udp (&ipv46, &ipv4, &udp46_dst, mask,
 				     table_index, swif, base_offset,
 				     use_current_data);
 
@@ -917,12 +1048,28 @@ hicn_punt_interest_data_for_udp (vlib_main_t * vm,
 
 	  //If we consider ethernet we can skip 48 bytes, otherwise only 32
 	  skip = 2 + with_l2;
-	  hicn_punt_add_vnettbl_udp (&ipv66, &ipv6, &udp66_src, mask, ~0,
+    if(sport == HICN_PUNT_INVALID_PORT)
+	    hicn_punt_add_vnettbl_udp (&udp6_dst_ipv6, &ipv6, &udp66_src, mask, ~0,
+				     swif, base_offset, use_current_data);
+    else if (dport == HICN_PUNT_INVALID_PORT)
+      hicn_punt_add_vnettbl_udp (&udp6_src_ipv6, &ipv6, &udp66_src, mask, ~0,
+				     swif, base_offset, use_current_data);
+    else
+      hicn_punt_add_vnettbl_udp (&ipv66, &ipv6, &udp66_src, mask, ~0,
 				     swif, base_offset, use_current_data);
 
 	  table_index =
 	    hicn_punt_glb.udp66_vnet_tbl_idx[swif][skip][HICN_PUNT_SRC][mask];
-	  hicn_punt_add_vnettbl_udp (&ipv66, &ipv6, &udp66_dst, mask,
+    if(sport == HICN_PUNT_INVALID_PORT)
+	    hicn_punt_add_vnettbl_udp (&udp6_dst_ipv6, &ipv6, &udp66_dst, mask,
+				     table_index, swif, base_offset,
+				     use_current_data);
+    else if (dport == HICN_PUNT_INVALID_PORT)
+      hicn_punt_add_vnettbl_udp (&udp6_src_ipv6, &ipv6, &udp66_dst, mask,
+				     table_index, swif, base_offset,
+				     use_current_data);
+    else
+      hicn_punt_add_vnettbl_udp (&ipv66, &ipv6, &udp66_dst, mask,
 				     table_index, swif, base_offset,
 				     use_current_data);
 
