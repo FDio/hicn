@@ -39,6 +39,10 @@ find_library(SYSREPO_LIBRARY NAMES libsysrepo.so
 
 set(SYSREPO_LIBRARIES ${SYSREPO_LIBRARY})
 set(SYSREPO_INCLUDE_DIRS ${SYSREPO_INCLUDE_DIR} ${SYSREPO_INCLUDE_MAIN_DIR})
+if (NOT SR_PLUGINS_DIR)
+  string(REPLACE "/libsysrepo.so" "" SR_PLUGINS_DIR ${SYSREPO_LIBRARY})
+  set(SR_PLUGINS_DIR ${SR_PLUGINS_DIR}/sysrepo/plugins/)
+endif ()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Sysrepo DEFAULT_MSG SYSREPO_LIBRARIES SYSREPO_INCLUDE_DIRS)

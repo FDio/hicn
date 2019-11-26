@@ -16,29 +16,30 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 project(hicn_sysrepo_plugin)
 
-include(GNUInstallDirs)
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
 "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Modules"
 )
 
-# set default build type if not specified by user
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE debug)
-endif()
-string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_LOWER)
+include(GNUInstallDirs)
+include(BuildMacros)
 
-# set compiler options
-set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -std=gnu99")
-set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O2")
-set(CMAKE_C_FLAGS_DEBUG   "-g -O0")
+find_package(Sysrepo)
+
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+        find_package_wrapper(VPP REQUIRED)
+        find_package_wrapper(HicnPlugin REQUIRED)
+    endif ()
+else()
+    if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+        list(APPEND DEPENDENCIES
+            hicn_plugin
+        )
+    endif ()
+endif()
+
+
+add_subdirectory(hicn-plugin)
 
 # add subdirectories
-if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-    add_subdirectory(hicn-plugin)
-endif ()
-if (BUILD_HICNLIGHT AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-    add_subdirectory(hicn-light)
-endif ()
 include(Packaging)
