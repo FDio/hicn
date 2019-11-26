@@ -212,13 +212,22 @@ int parse_link(struct nlmsghdr * h, facelet_t ** facelet,
         *running = ifi->ifi_flags & IFF_RUNNING;
 
 
-    *facelet = facelet_create();
     netdevice_t * netdevice = netdevice_create_from_name(interface_name);
-    if (!netdevice)
-        goto ERROR_ND;
-    int rc = facelet_set_netdevice(*facelet, *netdevice);
-    if (rc < 0)
-        goto ERROR;
+    if (!netdevice) {
+        ERROR("[netlink.parse_addr] error creating netdevice '%s'", interface_name);
+        goto ERR_ND;
+    }
+
+    *facelet = facelet_create();
+    if (!*facelet) {
+        ERROR("[netlink.parse_addr] error creating facelet");
+        goto ERR_FACELET;
+    }
+
+    if (facelet_set_netdevice(*facelet, *netdevice) < 0) {
+        ERROR("[netlink.parse_addr] error setting netdevice");
+        goto ERR;
+    }
 
 // FIXME Tags
 #if 0
@@ -250,12 +259,12 @@ int parse_link(struct nlmsghdr * h, facelet_t ** facelet,
     netdevice_free(netdevice);
     return 0;
 
-ERROR:
-    netdevice_free(netdevice);
-ERROR_ND:
+ERR:
     facelet_free(*facelet);
     *facelet = NULL;
-
+ERR_FACELET:
+    netdevice_free(netdevice);
+ERR_ND:
     return -1;
 }
 
@@ -316,7 +325,7 @@ int parse_addr(struct nlmsghdr * h, facelet_t ** facelet,
     netdevice_t * netdevice = netdevice_create_from_index(ifa->ifa_index);
     if (!netdevice) {
         ERROR("[netlink.parse_addr] error creating netdevice '%s'", interface_name);
-        goto ERROR_ND;
+        goto ERR_ND;
     }
 
     if (interface_name) {
@@ -324,28 +333,32 @@ int parse_addr(struct nlmsghdr * h, facelet_t ** facelet,
     }
 
     *facelet = facelet_create();
+    if (!*facelet) {
+        ERROR("[netlink.parse_addr] error creating facelet");
+        goto ERR_FACELET;
+    }
     if (facelet_set_netdevice(*facelet, *netdevice) < 0) {
         ERROR("[netlink.parse_addr] error setting netdevice");
-        goto ERROR;
+        goto ERR;
     }
     if (facelet_set_family(*facelet, ifa->ifa_family) < 0) {
         ERROR("[netlink.parse_addr] error setting family");
-        goto ERROR;
+        goto ERR;
     }
     if (facelet_set_local_addr(*facelet, local_addr) < 0) {
         ERROR("[netlink.parse_addr] error setting local address");
-        goto ERROR;
+        goto ERR;
     }
 
     netdevice_free(netdevice);
     return 0;
 
-ERROR:
-    netdevice_free(netdevice);
-ERROR_ND:
+ERR:
     facelet_free(*facelet);
     *facelet = NULL;
-
+ERR_FACELET:
+    netdevice_free(netdevice);
+ERR_ND:
     return -1;
 }
 
