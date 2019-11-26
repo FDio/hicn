@@ -28,11 +28,10 @@
 /**
  * @brief API to add hicn face ip in hicn-light.
  */
-static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
-                               const size_t input_cnt, sr_val_t **output,
-                               size_t *output_cnt, void *private_ctx) {
+static int hicn_face_ip_add_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
+        sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
-  SRP_LOG_DBG_MSG("hicn face ip add received successfully");
+  SRP_LOG_DBGMSG("hicn face ip add received successfully");
   hc_face_t face;
   if(strcmp(input[0].data.string_val,"-1")){
 
@@ -51,7 +50,7 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
     face.face.local_addr.v6.as_in6addr = *dst;
 
   }else{
-      SRP_LOG_DBG_MSG("Invalid local IP address");
+      SRP_LOG_DBGMSG("Invalid local IP address");
       return SR_ERR_OPERATION_FAILED;
   }
 
@@ -72,7 +71,7 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
     face.face.remote_addr.v6.as_in6addr = *dst;
 
   }else{
-      SRP_LOG_DBG_MSG("Invalid local IP address");
+      SRP_LOG_DBGMSG("Invalid local IP address");
       return SR_ERR_OPERATION_FAILED;
   }
 
@@ -88,22 +87,21 @@ static int hicn_face_ip_add_cb(const char *xpath, const sr_val_t *input,
   int rc;
   rc = hc_face_create(hsocket, &face);
   if (rc > 0) {
-       SRP_LOG_DBG_MSG("Face added successfully");
+       SRP_LOG_DBGMSG("Face added successfully");
        return SR_ERR_OK;
   }
 
-  SRP_LOG_DBG_MSG("Operation Failed");
+  SRP_LOG_DBGMSG("Operation Failed");
   return SR_ERR_OPERATION_FAILED;
 }
 
 /**
  * @brief API to del hicn face ip in vpp.
  */
-static int hicn_face_ip_del_cb(const char *xpath, const sr_val_t *input,
-                               const size_t input_cnt, sr_val_t **output,
-                               size_t *output_cnt, void *private_ctx) {
+static int hicn_face_ip_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
+        sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
-  SRP_LOG_DBG_MSG("hicn face ip del received successfully");
+  SRP_LOG_DBGMSG("hicn face ip del received successfully");
   face_t * face=NULL;
 
   // msg->payload.faceid = input[0].data.uint16_val;
@@ -115,7 +113,7 @@ static int hicn_face_ip_del_cb(const char *xpath, const sr_val_t *input,
   //     return SR_ERR_OK;
   // }
 
-  SRP_LOG_DBG_MSG("Operation Failed");
+  SRP_LOG_DBGMSG("Operation Failed");
   return SR_ERR_OPERATION_FAILED;
 
 }
@@ -124,9 +122,8 @@ static int hicn_face_ip_del_cb(const char *xpath, const sr_val_t *input,
 /**
  * @brief API to del hicn face ip in vpp.
  */
-static int hicn_route_add_cb(const char *xpath, const sr_val_t *input,
-                               const size_t input_cnt, sr_val_t **output,
-                               size_t *output_cnt, void *private_ctx) {
+static int hicn_route_add_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
+        sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
 /*
 
@@ -169,34 +166,34 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
 
   int rc;
     rc = sr_rpc_subscribe(session, "/hicn:face-ip-add", hicn_face_ip_add_cb,
-    session, SR_SUBSCR_CTX_REUSE, subscription);
+    session, 100,SR_SUBSCR_CTX_REUSE, subscription);
      if (rc != SR_ERR_OK) {
-      SRP_LOG_DBG_MSG("Problem in subscription stat-get\n");
+      SRP_LOG_DBGMSG("Problem in subscription stat-get\n");
       goto error;
     }
 
 
     rc = sr_rpc_subscribe(session, "/hicn:face-ip-del", hicn_face_ip_del_cb,
-    session, SR_SUBSCR_CTX_REUSE, subscription);
+    session, 100,SR_SUBSCR_CTX_REUSE, subscription);
     if (rc != SR_ERR_OK) {
-      SRP_LOG_DBG_MSG("Problem in subscription face-ip-del\n");
+      SRP_LOG_DBGMSG("Problem in subscription face-ip-del\n");
       goto error;
     }
 
 
     rc = sr_rpc_subscribe(session, "/hicn:route-nhops-add",
-    hicn_route_add_cb, session, SR_SUBSCR_CTX_REUSE, subscription);
+    hicn_route_add_cb, session, 100,SR_SUBSCR_CTX_REUSE, subscription);
      if (rc!= SR_ERR_OK) {
-      SRP_LOG_DBG_MSG("Problem in subscription route-nhops-add\n");
+      SRP_LOG_DBGMSG("Problem in subscription route-nhops-add\n");
       goto error;
     }
 
 
-  SRP_LOG_INF_MSG("hicn light initialized successfully.");
+  SRP_LOG_DBGMSG("hicn light initialized successfully.");
   return SR_ERR_OK;
 
 error:
-  SRP_LOG_ERR_MSG("Error by initialization of the hicn plugin.");
+  SRP_LOG_ERRMSG("Error by initialization of the hicn plugin.");
   sr_plugin_cleanup_cb(session, hsocket);
   return rc;
 
