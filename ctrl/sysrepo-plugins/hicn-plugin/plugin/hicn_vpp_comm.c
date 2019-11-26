@@ -28,22 +28,21 @@ vapi_ctx_t g_vapi_ctx_instance=NULL;
 
 
 int hicn_connect_vpp() {
-  HICN_INVOKE_BEGIN;
+
   if (g_vapi_ctx_instance == NULL) {
     vapi_error_e rv = vapi_ctx_alloc(&g_vapi_ctx_instance);
     rv = vapi_connect(g_vapi_ctx_instance, APP_NAME, NULL,
                       MAX_OUTSTANDING_REQUESTS, RESPONSE_QUEUE_SIZE,
                       VAPI_MODE_BLOCKING, true);
     if (rv != VAPI_OK) {
-      HICN_LOG_ERR("*connect %s faild,with return %d", APP_NAME, rv);
+      SRP_LOG_DBGMSG("Error connection");
       vapi_ctx_free(g_vapi_ctx_instance);
       return -1;
     }
-    HICN_LOG_DBG("*connected %s ok", APP_NAME);
+    SRP_LOG_DBGMSG("*connected ok");
   } else {
-    HICN_LOG_DBG("connection %s keeping", APP_NAME);
-  }
-  HICN_INVOKE_END;
+    SRP_LOG_DBGMSG("connection keeping");
+  } 
   return 0;
 }
 
