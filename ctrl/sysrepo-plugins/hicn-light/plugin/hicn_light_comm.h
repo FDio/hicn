@@ -16,7 +16,6 @@
 #ifndef __HICN_LIGHT_COMMM_H__
 #define __HICN_LIGHT_COMMM_H__
 #include <sysrepo.h>
-#include <sysrepo/plugins.h>
 #include <sysrepo/values.h>
 
 
@@ -29,27 +28,6 @@
 #define HICN_THIS_FUNC __func__
 #endif
 #endif
-
-#ifndef _NOLOG
-#define HICN_LOG_DBG SRP_LOG_DBG
-#define HICN_LOG_ERR SRP_LOG_ERR
-#define HICN_LOG_DBG_MSG SRP_LOG_DBG_MSG
-#define HICN_LOG_ERR_MSG SRP_LOG_ERR_MSG
-#else
-#define HICN_LOG_DBG      // printf
-#define HICN_LOG_DBG      // SRP_LOG_DBG
-#define HICN_LOG_ERR      // SRP_LOG_ERR
-#define HICN_LOG_DBG_MSG  // SRP_LOG_DBG_MSG
-#define HICN_LOG_ERR_MSG  // SRP_LOG_ERR_MSG
-#endif
-
-//Here it is the definition
-
-#define HICN_INVOKE_BEGIN HICN_LOG_DBG("inovke %s bein.", HICN_THIS_FUNC);
-#define HICN_INVOKE_END \
-  HICN_LOG_DBG("inovke %s end,with return OK.", HICN_THIS_FUNC);
-#define HICN_INVOKE_ENDX(...) \
-  HICN_LOG_DBG("inovke %s end,with %s.", HICN_THIS_FUNC, ##__VA_ARGS__)
 
 #define ARG_CHECK(retval, arg)                        \
   do {                                                \
