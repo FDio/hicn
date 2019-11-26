@@ -19,7 +19,6 @@
 #include <arpa/inet.h>
 
 #include <sysrepo.h>
-#include <sysrepo/plugins.h>
 #include <sysrepo/values.h>
 #include <sysrepo/xpath.h>
 #include <vnet/interface.h>
@@ -117,30 +116,57 @@ interface_enable_disable(const char *if_name, bool enable)
     uint32_t if_index = ~0;
     int rc = 0;
 
-    SRP_LOG_DBG("%s interface '%s'", enable ? "Enabling" : "Disabling", if_name);
 
     /* get interface index */
     rc = ietf_interface_name2index(if_name, &if_index);
     if (0 != rc) {
-        SRP_LOG_ERR("Invalid interface name: %s", if_name);
+        SRP_LOG_ERRMSG("Invalid interface name");
         return SR_ERR_INVAL_ARG;
     }
 
     /* enable/disable interface */
     rc = ietf_setInterfaceFlags(if_index, (uint8_t)enable);
     if (0 != rc) {
-        SRP_LOG_ERR("Error by processing of the sw_interface_set_flags request, rc=%d", rc);
+       SRP_LOG_ERRMSG("Error by processing of the sw_interface_set_flags request");
         return SR_ERR_OPERATION_FAILED;
     } else {
         return SR_ERR_OK;
     }
 }
 
+
+vapi_error_e call_sw_interface_add_del_address(struct vapi_ctx_s *ctx,
+                           void *callback_ctx,
+                           vapi_error_e rv,
+                           bool is_last,
+                           vapi_payload_sw_interface_add_del_address_reply *reply){
+if(!reply->retval){
+  SRP_LOG_DBGMSG("Successfully done");
+  return VAPI_OK;
+ }else
+  return VAPI_EUSER;
+}
+
+vapi_error_e call_sw_interface_set_flags(struct vapi_ctx_s *ctx,
+                           void *callback_ctx,
+                           vapi_error_e rv,
+                           bool is_last,
+                           vapi_payload_sw_interface_set_flags_reply *reply){
+if(!reply->retval){
+  SRP_LOG_DBGMSG("Successfully done");
+  return VAPI_OK;
+ }else
+  return VAPI_EUSER;
+}
+
+
+
 /**
  * @brief Callback to be called by any config change of "/ietf-interfaces:interfaces/interface/enabled" leaf.
  */
 static int
-ietf_interface_enable_disable_cb(sr_session_ctx_t *session, const char *xpath, sr_notif_event_t event, void *private_ctx)
+ietf_interface_enable_disable_cb(sr_session_ctx_t *session, const char *module_name, const char *xpath, sr_event_t event,
+        uint32_t request_id, void *private_data)
 {
     char *if_name = NULL;
     sr_change_iter_t *iter = NULL;
@@ -151,15 +177,14 @@ ietf_interface_enable_disable_cb(sr_session_ctx_t *session, const char *xpath, s
     int rc = SR_ERR_OK, op_rc = SR_ERR_OK;
 
     /* no-op for apply, we only care about SR_EV_ENABLED, SR_EV_VERIFY, SR_EV_ABORT */
-    if (SR_EV_APPLY == event) {
+    if (SR_EV_DONE == event) {
         return SR_ERR_OK;
     }
-    SRP_LOG_DBG("'%s' modified, event=%d", xpath, event);
 
     /* get changes iterator */
     rc = sr_get_changes_iter(session, xpath, &iter);
     if (SR_ERR_OK != rc) {
-        SRP_LOG_ERR("Unable to retrieve change iterator: %s", sr_strerror(rc));
+        SRP_LOG_ERRMSG("Unable to retrieve change iterator");
         return rc;
     }
 
@@ -167,7 +192,7 @@ ietf_interface_enable_disable_cb(sr_session_ctx_t *session, const char *xpath, s
     while ((SR_ERR_OK == op_rc || event == SR_EV_ABORT) &&
             (SR_ERR_OK == (rc = sr_get_change_next(session, iter, &op, &old_val, &new_val)))) {
 
-        SRP_LOG_DBG("A change detected in '%s', op=%d", new_val ? new_val->xpath : old_val->xpath, op);
+        SRP_LOG_DBGMSG("A change detected");
         if_name = sr_xpath_key_value(new_val ? new_val->xpath : old_val->xpath, "interface", "name", &xpath_ctx);
         switch (op) {
             case SR_OP_CREATED:
@@ -201,19 +226,17 @@ interface_ipv46_config_add_remove(const char *if_name, uint8_t *addr, uint8_t pr
     uint32_t if_index = ~0;
     int rc = 0;
 
-    SRP_LOG_DBG("%s IP config on interface '%s'.", add ? "Adding" : "Removing", if_name);
-
     /* get interface index */
     rc = ietf_interface_name2index(if_name, &if_index);
     if (0 != rc) {
-        SRP_LOG_ERR("Invalid interface name: %s", if_name);
+       SRP_LOG_ERRMSG("Invalid interface name");
         return SR_ERR_INVAL_ARG;
     }
 
     /* add del addr */
     rc = ietf_interface_add_del_addr(if_index, (uint8_t)add, (uint8_t)is_ipv6, 0, prefix, addr);
     if (0 != rc) {
-        SRP_LOG_ERR("Error by processing of the sw_interface_set_flags request, rc=%d", rc);
+        SRP_LOG_ERRMSG("Error by processing of the sw_interface_set_flags request");
         return SR_ERR_OPERATION_FAILED;
     } else {
         return SR_ERR_OK;
@@ -333,17 +356,23 @@ i32 ietf_interface_add_del_addr( u32 sw_if_index, u8 is_add, u8 is_ipv6, u8 del_
   msg->payload.del_all = del_all;
   msg->payload.address_length = address_length;
   memcpy(msg->payload.address, address, VPP_IP6_ADDRESS_LEN);
+
+
+/*
   vapi_msg_sw_interface_add_del_address_hton (msg);
-
   vapi_send (g_vapi_ctx_instance, msg);
-
   vapi_msg_sw_interface_add_del_address_reply *resp;
-
   HICN_VPP_VAPI_RECV;
-
   vapi_msg_sw_interface_add_del_address_reply_hton(resp);
   ret = resp->payload.retval;
-  vapi_msg_free (g_vapi_ctx_instance, resp);
+  vapi_msg_free (g_vapi_ctx_instance, resp);*/
+
+
+  if(vapi_sw_interface_add_del_address(g_vapi_ctx_instance,msg,call_sw_interface_add_del_address,NULL)!=VAPI_OK){
+    SRP_LOG_DBGMSG("Operation failed");
+    return SR_ERR_OPERATION_FAILED;
+  }
+
   return ret;
 }
 
@@ -353,17 +382,24 @@ i32 ietf_setInterfaceFlags(u32 sw_if_index, u8 admin_up_down)
   vapi_msg_sw_interface_set_flags *msg = vapi_alloc_sw_interface_set_flags(g_vapi_ctx_instance);
   msg->payload.sw_if_index = sw_if_index;
   msg->payload.admin_up_down = admin_up_down;
+
+
+/*
   vapi_msg_sw_interface_set_flags_hton (msg);
-
   vapi_send (g_vapi_ctx_instance, msg);
-
   vapi_msg_sw_interface_set_flags_reply *resp;
-
   HICN_VPP_VAPI_RECV;
-
   vapi_msg_sw_interface_set_flags_reply_ntoh(resp);
   ret = resp->payload.retval;
   vapi_msg_free (g_vapi_ctx_instance, resp);
+*/
+
+ if(vapi_sw_interface_set_flags(g_vapi_ctx_instance,msg,call_sw_interface_set_flags,NULL)!=VAPI_OK){
+    SRP_LOG_DBGMSG("Operation failed");
+    return SR_ERR_OPERATION_FAILED;
+  }
+
+
   return ret;
 }
 
@@ -381,7 +417,7 @@ interface_ipv46_config_modify(sr_session_ctx_t *session, const char *if_name,
     uint8_t prefix = 0;
     int rc = SR_ERR_OK;
 
-    SRP_LOG_DBG("Updating IP config on interface '%s'.", if_name);
+    SRP_LOG_DBGMSG("Updating IP config on interface");
 
     /* get old config to be deleted */
     if (SR_UINT8_T == old_val->type) {
@@ -398,7 +434,7 @@ interface_ipv46_config_modify(sr_session_ctx_t *session, const char *if_name,
     /* delete old IP config */
     rc = interface_ipv46_config_add_remove(if_name, addr, prefix, is_ipv6, false /* remove */);
     if (SR_ERR_OK != rc) {
-        SRP_LOG_ERR("Unable to remove old IP address config, rc=%d", rc);
+        SRP_LOG_ERRMSG("Unable to remove old IP address config");
         return rc;
     }
 
@@ -412,7 +448,7 @@ interface_ipv46_config_modify(sr_session_ctx_t *session, const char *if_name,
     /* set new IP config */
     rc = interface_ipv46_config_add_remove(if_name, addr, prefix, is_ipv6, true /* add */);
     if (SR_ERR_OK != rc) {
-        SRP_LOG_ERR("Unable to remove old IP address config, rc=%d", rc);
+        SRP_LOG_ERRMSG("Unable to remove old IP address config");
         return rc;
     }
 
@@ -424,7 +460,8 @@ interface_ipv46_config_modify(sr_session_ctx_t *session, const char *if_name,
  * or "/ietf-interfaces:interfaces/interface/ietf-ip:ipv6/address".
  */
 static int
-ietf_interface_ipv46_address_change_cb(sr_session_ctx_t *session, const char *xpath, sr_notif_event_t event, void *private_ctx)
+ietf_interface_ipv46_address_change_cb(sr_session_ctx_t *session, const char *module_name, const char *xpath, sr_event_t event,
+        uint32_t request_id, void *private_data)
 {
     sr_change_iter_t *iter = NULL;
     sr_change_oper_t op = SR_OP_CREATED;
@@ -438,10 +475,9 @@ ietf_interface_ipv46_address_change_cb(sr_session_ctx_t *session, const char *xp
     int rc = SR_ERR_OK, op_rc = SR_ERR_OK;
 
     /* no-op for apply, we only care about SR_EV_ENABLED, SR_EV_VERIFY, SR_EV_ABORT */
-    if (SR_EV_APPLY == event) {
+    if (SR_EV_DONE == event) {
         return SR_ERR_OK;
     }
-    SRP_LOG_DBG("'%s' modified, event=%d", xpath, event);
 
     /* check whether we are handling ipv4 or ipv6 config */
     node_name = sr_xpath_node_idx((char*)xpath, 2, &xpath_ctx);
@@ -453,7 +489,7 @@ ietf_interface_ipv46_address_change_cb(sr_session_ctx_t *session, const char *xp
     /* get changes iterator */
     rc = sr_get_changes_iter(session, xpath, &iter);
     if (SR_ERR_OK != rc) {
-        SRP_LOG_ERR("Unable to retrieve change iterator: %s", sr_strerror(rc));
+       // SRP_LOG_ERR("Unable to retrieve change iterator: %s", sr_strerror(rc));
         return rc;
     }
 
@@ -461,7 +497,6 @@ ietf_interface_ipv46_address_change_cb(sr_session_ctx_t *session, const char *xp
     while ((SR_ERR_OK == op_rc || event == SR_EV_ABORT) &&
             (SR_ERR_OK == (rc = sr_get_change_next(session, iter, &op, &old_val, &new_val)))) {
 
-        SRP_LOG_DBG("A change detected in '%s', op=%d", new_val ? new_val->xpath : old_val->xpath, op);
         if_name = strdup(sr_xpath_key_value(new_val ? new_val->xpath : old_val->xpath, "interface", "name", &xpath_ctx));
         sr_xpath_recover(&xpath_ctx);
 
@@ -529,10 +564,9 @@ ietf_interface_ipv46_address_change_cb(sr_session_ctx_t *session, const char *xp
  * Does not provide any functionality, needed just to cover not supported config leaves.
  */
 static int
-ietf_interface_change_cb(sr_session_ctx_t *session, const char *xpath, sr_notif_event_t event, void *private_ctx)
+ietf_interface_change_cb(sr_session_ctx_t *session, const char *module_name, const char *xpath, sr_event_t event,
+        uint32_t request_id, void *private_data)
 {
-    SRP_LOG_DBG("'%s' modified, event=%d", xpath, event);
-
     return SR_ERR_OK;
 }
 
@@ -541,41 +575,41 @@ int ietf_subscribe_events(sr_session_ctx_t *session,
                           sr_subscription_ctx_t **subscription){
 
     int rc = SR_ERR_OK;
-    SRP_LOG_DBG_MSG("Subscriging ietf.");
+    SRP_LOG_DBGMSG("Subscriging ietf.");
 
     //
-    rc = sr_subtree_change_subscribe(session, "/ietf-interfaces:interfaces/interface", ietf_interface_change_cb,
+    rc = sr_module_change_subscribe(session, "ietf-interfaces","/ietf-interfaces:interfaces/interface", ietf_interface_change_cb,
                                              NULL,
-                                             0, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_EV_ENABLED, subscription);
+                                             0, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_ENABLED, subscription);
 
     if (rc != SR_ERR_OK) {
-        SRP_LOG_DBG_MSG("Problem in subscription /ietf-interfaces:interfaces/interface\n");
+        SRP_LOG_DBGMSG("Problem in subscription /ietf-interfaces:interfaces/interface\n");
         goto error;
     }
 
-    rc = sr_subtree_change_subscribe(session, "/ietf-interfaces:interfaces/interface/enabled", ietf_interface_enable_disable_cb,
+    rc = sr_module_change_subscribe(session, "ietf-interfaces","/ietf-interfaces:interfaces/interface/enabled", ietf_interface_enable_disable_cb,
                                              NULL,
-                                             100, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_EV_ENABLED, subscription);
+                                             100, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_ENABLED, subscription);
     if (rc != SR_ERR_OK) {
-        SRP_LOG_DBG_MSG("Problem in subscription /ietf-interfaces:interfaces/interface/enabled\n");
+        SRP_LOG_DBGMSG("Problem in subscription /ietf-interfaces:interfaces/interface/enabled\n");
         goto error;
     }
 
-    rc = sr_subtree_change_subscribe(session, "/ietf-interfaces:interfaces/interface/ietf-ip:ipv4/address", ietf_interface_ipv46_address_change_cb,
+    rc = sr_module_change_subscribe(session, "ietf-interfaces","/ietf-interfaces:interfaces/interface/ietf-ip:ipv4/address", ietf_interface_ipv46_address_change_cb,
                                              NULL,
-                                          99, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_EV_ENABLED, subscription);
+                                          99, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_ENABLED, subscription);
 
     if (rc != SR_ERR_OK) {
-        SRP_LOG_DBG_MSG("Problem in subscription /ietf-interfaces:interfaces/interface/ietf-ip:ipv4/address\n");
+        SRP_LOG_DBGMSG("Problem in subscription /ietf-interfaces:interfaces/interface/ietf-ip:ipv4/address\n");
         goto error;
     }
 
-    rc = sr_subtree_change_subscribe(session, "/ietf-interfaces:interfaces/interface/ietf-ip:ipv6/address", ietf_interface_ipv46_address_change_cb,
+    rc = sr_module_change_subscribe(session, "ietf-interfaces","/ietf-interfaces:interfaces/interface/ietf-ip:ipv6/address", ietf_interface_ipv46_address_change_cb,
                                              NULL,
-                                             98, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_EV_ENABLED, subscription);
+                                             98, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_ENABLED, subscription);
 
     if (rc != SR_ERR_OK) {
-        SRP_LOG_DBG_MSG("Problem in subscription /ietf-interfaces:interfaces/interface/ietf-ip:ipv6/address\n");
+        SRP_LOG_DBGMSG("Problem in subscription /ietf-interfaces:interfaces/interface/ietf-ip:ipv6/address\n");
         goto error;
     }
 
@@ -588,10 +622,10 @@ int ietf_subscribe_events(sr_session_ctx_t *session,
     }*/
 
 
-  SRP_LOG_INF_MSG("ietf initialized successfully.");
+  SRP_LOG_INFMSG("ietf initialized successfully.");
   return SR_ERR_OK;
 
   error:
-  SRP_LOG_ERR_MSG("Error by initialization of the ietf.");
+  SRP_LOG_ERRMSG("Error by initialization of the ietf.");
   return rc;
 }

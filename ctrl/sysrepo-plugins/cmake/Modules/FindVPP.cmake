@@ -14,9 +14,9 @@
 set(VPP_SEARCH_PATH_LIST
   ${VPP_HOME}
   $ENV{VPP_HOME}
-  /usr
   /usr/local
   /opt
+  /usr
 )
 
 find_path(VPP_INCLUDE_DIR vnet/vnet.h
@@ -61,7 +61,7 @@ find_library(VPP_LIBRARY_VATPLUGIN
 )
 
 find_library(VPP_LIBRARY_VLIB
-  NAMES vlib libvlib
+  NAMES vlib
   HINTS ${VPP_SEARCH_PATH_LIST}
   PATH_SUFFIXES lib lib64
   DOC "Find the Vpp vlib library"
@@ -71,25 +71,12 @@ find_library(VPP_LIBRARY_VPPAPICLIENT
   NAMES vppapiclient
   HINTS ${VPP_SEARCH_PATH_LIST}
   PATH_SUFFIXES lib lib64
-  DOC "Find the Vpp api library"
+  DOC "Find the Vpp vlib library"
 )
 
-find_library(VPP_LIBRARY_VAPICLIENT
-  NAMES vapiclient
-  HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
-  DOC "Find the Vpp vapi library"
-)
-
-find_library(VPP_LIBRARY_VLIBMEMORY
-  NAMES vlibmemory
-  HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
-  DOC "Find the Vpp vlibmemory library"
-)
-
-set(VPP_LIBRARIES ${VPP_LIBRARY_MEMORYCLIENT} ${VPP_LIBRARY_SVM} ${VPP_LIBRARY_INFRA} ${VPP_LIBRARY_VATPLUGIN} ${VPP_LIBRARY_VLIB} ${VPP_LIBRARY_VNET} ${VPP_LIBRARY_VAPICLIENT} ${VPP_LIBRARY_VLIBMEMORY})
+set(VPP_LIBRARIES ${VPP_LIBRARY_MEMORYCLIENT} ${VPP_LIBRARY_SVM} ${VPP_LIBRARY_INFRA} ${VPP_LIBRARY_VATPLUGIN} ${VPP_LIBRARY_VLIB} ${VPP_LIBRARY_VNET})
 set(VPP_INCLUDE_DIRS ${VPP_INCLUDE_DIR} ${VPP_INCLUDE_DIR}/vpp_plugins)
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Vpp DEFAULT_MSG VPP_LIBRARIES VPP_INCLUDE_DIRS)
+
