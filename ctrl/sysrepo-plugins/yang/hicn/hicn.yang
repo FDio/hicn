@@ -2,11 +2,11 @@ module hicn {
 namespace "urn:sysrepo:hicn";
 prefix hcn;
 
-revision 2019-05-7 {
+/* new data types and grouping definition to forward the remote request toward hicn controler--to-->hicn */
+
+revision 2019-10-29{
     description "Initial revision.";
 }
-
-/* new data types and grouping definition to forward the remote request toward hicn controler--to-->hicn */
 
 typedef float {
     type decimal64 {
@@ -41,20 +41,8 @@ leaf cs_reserved_app {
         default -1;
     }
 
-leaf pit_dflt_lifetime_sec {
-        description "Default PIT entry lifetime, otherwise -1 to assign default value.";
-        type float;
-        default -1;
-    }
-
 leaf pit_max_lifetime_sec {
-        description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value.";
-        type float;
-        default -1;
-    }
-
-leaf pit_min_lifetime_sec {
-        description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
+        description "Default PIT entry lifetime, otherwise -1 to assign default value.";
         type float;
         default -1;
     }
@@ -209,7 +197,7 @@ leaf len {
     }
 }
 
-grouping punting_add {
+grouping punting_add_ip {
 
 leaf ip4 {
         description "ip4 to be added to the FIB.";
@@ -405,16 +393,22 @@ grouping strategy-reply {
 
 grouping route-reply {
 
-    leaf faceids {
-            description "Enable / disable ICN forwarder in VPP.";
-            type uint32;
+   list route{
+     key routeid;
+     leaf routeid {
+                description "the unique key for each item.";
+                type uint32;
+     }
+     leaf prefix {
+            description "IP address.";
+            type string;
 
-        }
-
-    leaf strategy_id {
+     }
+     leaf strategy_id {
             description "compile-time plugin features.";
             type uint32;
-        }
+     } 
+   } 
 }
 
 grouping strategies-reply {
@@ -429,36 +423,24 @@ grouping strategies-reply {
 
 }
 
-/* Hicn configuration */
-
-container hicn-conf {
-    description "config data container for the hicn-vpp.";
-    container params{
-        uses params;
-    }
-}
-
 
 /* Hicn operational data */
 
 container hicn-state {
+
     config false;
     description "operational data container for the hicn.";
-
+    container faces{
+        uses face-stats-reply;
+    }
     container states{
         uses states-reply;
     }
     container routes{
         uses route-reply;
     }
-    container strategies{
-        uses strategies-reply;
-    }
-    container faces{
-        uses face-stats-reply;
-    }
-
 }
+
 
 /* RPC Definitions */
 
@@ -477,17 +459,6 @@ rpc node-params-get {
 
 rpc node-stat-get {
     description "Operation to get hicn status in vpp.";
-}
-
-
-rpc strategy-get {
-        description "Operation to get hicn strategy.";
-    input {
-        leaf strategy_id {
-            description "Upper bound on PIT entry lifetime, otherwise -1 to assign default value .";
-            type uint32;
-        }
-    }
 }
 
 rpc  strategies-get {
@@ -549,22 +520,18 @@ rpc  face-ip-del {
     }
 }
 
-rpc  punting-add {
+rpc  punting-add-ip {
         description "Operation to add hicn punt.";
     input {
-        uses punting_add;
+        uses punting_add_ip;
     }
 }
 
 rpc  punting-del {
         description "Operation to del hicn punt.";
     input {
-        uses punting_add; /* It uses the same payload as the add*/
+        uses punting_add_ip; /* It uses the same payload as the add*/
     }
-}
-
-rpc  face-stats-details {
-        description "Operation to take stat per face.";
 }
 
 
