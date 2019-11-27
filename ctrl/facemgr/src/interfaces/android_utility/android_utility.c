@@ -71,7 +71,7 @@ int au_finalize(interface_t * interface)
     return 0;
 }
 
-int au_on_event(interface_t * interface, const facelet_t * facelet)
+int au_on_event(interface_t * interface, facelet_t * facelet)
 {
     /*
      * This function is responsible to annotate every face we receive with the

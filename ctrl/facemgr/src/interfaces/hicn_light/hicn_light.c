@@ -286,7 +286,7 @@ int hl_finalize(interface_t * interface)
     return 0;
 }
 
-int hl_on_event(interface_t * interface, const facelet_t * facelet)
+int hl_on_event(interface_t * interface, facelet_t * facelet)
 {
     hc_face_t hc_face;
     hc_route_t route;
@@ -399,6 +399,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                     }
                 }
             }
+            free(route_array);
 
             break;
 
@@ -447,9 +448,71 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                     ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
                     goto ERR;
                 }
+                facelet_set_admin_state_status(facelet, FACELET_ATTR_STATUS_CLEAN);
                 INFO("Admin state updated");
             }
+#ifdef WITH_POLICY
+            if (facelet_get_netdevice_type_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
+                hc_face.face = *face;
+                hc_face_t * face_found;
+
+                rc = hc_face_get(data->s, &hc_face, &face_found);
+                if (rc < 0) {
+                    ERROR("Failed to find face\n");
+                    goto ERR;
+                }
+                if (!face_found) {
+                    ERROR("Face to update has not been found");
+                    goto ERR;
+                }
+                char conn_id_or_name[SYMBOLIC_NAME_LEN];
+                snprintf(conn_id_or_name, SYMBOLIC_NAME_LEN, "%d", face_found->id);
+                free(face_found);
+
+                netdevice_type_t netdevice_type;
+                if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0) {
+                    ERROR("Failed to retrieve facelet netdevice_type");
+                    goto ERR;
+                }
+
+                /* Encode netdevice type into tags */ 
+                policy_tags_t tags = POLICY_TAGS_EMPTY;
+                if (facelet_has_netdevice_type(facelet)) {
+                    netdevice_type_t netdevice_type;
+                    if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0) {
+                        ERROR("error getting netdevice_type");
+                        goto ERR;
+                    }
+
+
+                    switch(netdevice_type) {
+                        case NETDEVICE_TYPE_UNDEFINED:
+                        case NETDEVICE_TYPE_LOOPBACK:
+                            break;
+                        case NETDEVICE_TYPE_WIRED:
+                            policy_tags_add(&tags, POLICY_TAG_WIRED);
+                            break;
+                        case NETDEVICE_TYPE_WIFI:
+                            policy_tags_add(&tags, POLICY_TAG_WIFI);
+                            break;
+                        case NETDEVICE_TYPE_CELLULAR:
+                            policy_tags_add(&tags, POLICY_TAG_CELLULAR);
+                            break;
+                        default:
+                            goto ERR;
+                    }
+                }
+                //face->tags = tags;
+
+                if (hc_connection_set_tags(data->s, conn_id_or_name, tags) < 0) {
+                    ERROR("Failed to update tags");
+                    goto ERR;
+                }
+                facelet_set_netdevice_type_status(facelet, FACELET_ATTR_STATUS_CLEAN);
+                INFO("Tags updated");
+            }
             if (facelet_get_priority_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
+                INFO("Updating priority...");
                 hc_face.face = *face;
                 hc_face_t * face_found;
 
@@ -472,12 +535,15 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                     goto ERR;
                 }
 
+                INFO("Changing connection %s priority to %d", conn_id_or_name, priority);
                 if (hc_connection_set_priority(data->s, conn_id_or_name, priority) < 0) {
                     ERROR("Failed to update priority");
                     goto ERR;
                 }
+                facelet_set_priority_status(facelet, FACELET_ATTR_STATUS_CLEAN);
                 INFO("Priority updated");
             }
+#endif /* WITH_POLICY */
             break;
 
         default:
@@ -568,8 +634,6 @@ int hl_callback(interface_t * interface, int fd, void * unused)
                 /* We can ignore faces on localhost */
 
                 facelet_t * facelet = facelet_create_from_face(&f->face);
-                char facelet_s[MAXSZ_FACELET];
-                facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
                 foreach_route(r, data->polled_routes) {
                     if (r->face_id != f->id)
                         continue;
@@ -596,7 +660,6 @@ int hl_callback(interface_t * interface, int fd, void * unused)
                     facelet_add_route(facelet, route);
                 }
 
-                facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
                 facelet_set_event(facelet, FACELET_EVENT_GET);
                 interface_raise_event(interface, facelet);
             }

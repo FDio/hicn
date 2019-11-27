@@ -98,6 +98,7 @@ Name *name_CreateFromAddress(address_type addressType, ip_address_t addr,
 
 #ifdef WITH_POLICY
 uint32_t name_GetSuffix(const Name * name);
+uint8_t name_GetLen(const Name * name);
 #endif /* WITH_POLICY */
 
 #endif  // name_h

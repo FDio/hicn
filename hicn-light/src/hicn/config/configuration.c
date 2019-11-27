@@ -1197,6 +1197,26 @@ struct iovec *configuration_ConnectionSetPriority(Configuration *config,
   return utils_CreateAck(header, control, sizeof(connection_set_priority_command));
 }
 
+struct iovec *configuration_ConnectionSetTags(Configuration *config,
+                                      struct iovec *request) {
+  header_control_message *header = request[0].iov_base;
+  connection_set_tags_command *control = request[1].iov_base;
+
+  Connection * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
+  if (!conn)
+    return utils_CreateNack(header, control, sizeof(connection_set_tags_command));
+
+  connection_SetTags(conn, control->tags);
+
+#ifdef WITH_MAPME
+  /* Hook: connection event */
+  forwarder_onConnectionEvent(config->forwarder, conn,
+          CONNECTION_EVENT_TAGS_CHANGED);
+#endif /* WITH_MAPME */
+
+  return utils_CreateAck(header, control, sizeof(connection_set_tags_command));
+}
+
 struct iovec *configuration_ProcessPolicyAdd(Configuration *config,
                                       struct iovec *request) {
   header_control_message *header = request[0].iov_base;
@@ -1401,6 +1421,10 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
 
     case CONNECTION_SET_PRIORITY:
       response = configuration_ConnectionSetPriority(config, control);
+      break;
+
+    case CONNECTION_SET_TAGS:
+      response = configuration_ConnectionSetTags(config, control);
       break;
 #endif /* WITH_POLICY */
 
