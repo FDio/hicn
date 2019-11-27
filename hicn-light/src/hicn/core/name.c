@@ -256,4 +256,8 @@ void name_setLen(Name *name, uint8_t len) {
 uint32_t name_GetSuffix(const Name * name) {
     return name->segment;
 }
+
+uint8_t name_GetLen(const Name * name) {
+    return nameBitvector_GetLength(name->content_name);
+}
 #endif /* WITH_POLICY */

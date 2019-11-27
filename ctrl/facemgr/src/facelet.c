@@ -44,9 +44,6 @@ const char * face_type_encap_str[] = {
 #undef _
 };
 
-#define FACEMGR_FACE_TYPE_STR(x)                                \
-    face_type_layer_str[x.layer], face_type_encap_str[x.encap]
-
 const char * facelet_status_str[] = {
 #define _(x) [FACELET_STATUS_ ## x] = STRINGIZE(x),
     foreach_facelet_status
@@ -701,9 +698,10 @@ do {                                                                            
     }                                                                                   \
 } while (0)
 
-int facelet_merge(facelet_t * facelet, const facelet_t * facelet_to_merge)
+int facelet_merge(facelet_t * facelet, facelet_t * facelet_to_merge)
 {
     assert(facelet && facelet_to_merge);
+
 #define _(TYPE, NAME) MERGE_ATTRIBUTE(TYPE, NAME);
     foreach_facelet_attr
 #undef _
@@ -760,8 +758,10 @@ facelet_get_face(const facelet_t * facelet, face_t ** pface)
     assert(pface);
 
     /* Facelet has all the required information to create a face */
-    if (facelet_validate_face(facelet) < 0)
+    if (facelet_validate_face(facelet) < 0) {
+        ERROR("[facelet_get_face] Face does not validate");
         return 0;
+    }
 
     face_t * face = face_create();
     if (!face)
@@ -786,16 +786,26 @@ facelet_get_face(const facelet_t * facelet, face_t ** pface)
                     goto ERR;
             }
 
-            if (facelet_get_family(facelet, &face->family) < 0)
+            if (facelet_get_family(facelet, &face->family) < 0) {
+                ERROR("[facelet_get_face] Error retrieving face family");
                 goto ERR;
-            if (facelet_get_local_addr(facelet, &face->local_addr) < 0)
+            }
+            if (facelet_get_local_addr(facelet, &face->local_addr) < 0) {
+                ERROR("[facelet_get_face] Error retrieving face local address");
                 goto ERR;
-            if (facelet_get_local_port(facelet, &face->local_port) < 0)
+            }
+            if (facelet_get_local_port(facelet, &face->local_port) < 0) {
+                ERROR("[facelet_get_face] Error retrieving face local port");
                 goto ERR;
-            if (facelet_get_remote_addr(facelet, &face->remote_addr) < 0)
+            }
+            if (facelet_get_remote_addr(facelet, &face->remote_addr) < 0) {
+                ERROR("[facelet_get_face] Error retrieving face remote address");
                 goto ERR;
-            if (facelet_get_remote_port(facelet, &face->remote_port) < 0)
+            }
+            if (facelet_get_remote_port(facelet, &face->remote_port) < 0) {
+                ERROR("[facelet_get_face] Error retrieving face remote port");
                 goto ERR;
+            }
             break;
 
         case FACE_TYPE_LAYER_3:
@@ -809,15 +819,19 @@ facelet_get_face(const facelet_t * facelet, face_t ** pface)
     }
 
     if (facelet_has_admin_state(facelet)) {
-        if (facelet_get_admin_state(facelet, &face->admin_state) < 0)
+        if (facelet_get_admin_state(facelet, &face->admin_state) < 0) {
+            ERROR("[facelet_get_face] Error getting face admin state");
             goto ERR;
+        }
     } else {
         face->admin_state = FACE_STATE_UP;
     }
 
     if (facelet_has_state(facelet)) {
-        if (facelet_get_state(facelet, &face->state) < 0)
+        if (facelet_get_state(facelet, &face->state) < 0) {
+            ERROR("[facelet_get_face] Error getting face state");
             goto ERR;
+        }
     } else {
         face->state = FACE_STATE_UP;
     }
@@ -825,8 +839,10 @@ facelet_get_face(const facelet_t * facelet, face_t ** pface)
 #ifdef WITH_POLICY
     /* Priority */
     if (facelet_has_priority(facelet)) {
-        if (facelet_get_priority(facelet, &face->priority) < 0)
+        if (facelet_get_priority(facelet, &face->priority) < 0) {
+            ERROR("[facelet_get_face] Error getting face priority");
             goto ERR;
+        }
     } else {
         face->priority = 0;
     }
