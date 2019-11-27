@@ -76,6 +76,7 @@ typedef enum {
   REMOVE_POLICY,
   UPDATE_CONNECTION,
   CONNECTION_SET_PRIORITY,
+  CONNECTION_SET_TAGS,
 #endif /* WITH_POLICY */
   LAST_COMMAND_VALUE
 } command_id;
@@ -345,6 +346,11 @@ typedef struct {
   uint32_t priority;
 } connection_set_priority_command;
 
+typedef struct {
+  char symbolicOrConnid[SYMBOLIC_NAME_LEN];
+  policy_tags_t tags;
+} connection_set_tags_command;
+
 #endif /* WITH_POLICY */
 
 //===== size of commands ======
@@ -403,6 +409,8 @@ static inline int payloadLengthDaemon(command_id id) {
       return sizeof(update_connection_command);
     case CONNECTION_SET_PRIORITY:
       return sizeof(connection_set_priority_command);
+    case CONNECTION_SET_TAGS:
+      return sizeof(connection_set_tags_command);
 #endif /* WITH_POLICY */
     case LAST_COMMAND_VALUE:
       return 0;

@@ -955,6 +955,7 @@ facemgr_complement_facelet(facemgr_t * facemgr, facelet_t * facelet)
 
 int facemgr_assign_face_type(facemgr_t * facemgr, facelet_t * facelet)
 {
+    DEBUG("[facemgr_assign_face_type]");
     /* As key, netdevice and family should always be present */
     netdevice_t netdevice = NETDEVICE_EMPTY;
     int rc = facelet_get_netdevice(facelet, &netdevice);
@@ -980,6 +981,7 @@ int facemgr_assign_face_type(facemgr_t * facemgr, facelet_t * facelet)
     if (facemgr_cfg_get_face_type(facemgr->cfg, &netdevice, netdevice_type, &face_type) < 0)
         return rc;
     facelet_set_face_type(facelet, face_type);
+    DEBUG("[facemgr_assign_face_type] %s", FACEMGR_FACE_TYPE_STR(face_type));
     return 0;
 }
 
@@ -1085,6 +1087,14 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
                 goto ERR;
             }
 
+            if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
+                ERROR("[facemgr_process_facelet] Could not remove deleted facelet from cache");
+                goto ERR;
+            }
+            facelet_free(facelet);
+            goto END;
+
+#if 0
             /* This works assuming the call to hicn-light is blocking */
             DEBUG("[facemgr_process_facelet] Cleaning cached data");
             facelet_unset_local_addr(facelet);
@@ -1099,10 +1109,12 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
 #endif /* WITH_ANDROID_UTILITY */
 
             facelet_set_status(facelet, FACELET_STATUS_DELETED);
+#endif
             break;
 
         case FACELET_STATUS_CLEAN:
         case FACELET_STATUS_IGNORED:
+        case FACELET_STATUS_DOWN:
         case FACELET_STATUS_DELETED:
             /* Nothing to do */
             break;
@@ -1114,6 +1126,7 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
     }
 
     facelet_unset_error(facelet);
+END:
     return 0;
 
 ERR:
@@ -1219,6 +1232,7 @@ facemgr_process_facelet_create(facemgr_t * facemgr, facelet_t * facelet)
              */
             break;
 
+        case FACELET_STATUS_DOWN:
         case FACELET_STATUS_DELETED:
             /*
              * Unless rules have changed, we only need to recover
@@ -1339,6 +1353,43 @@ facemgr_process_facelet_get(facemgr_t * facemgr, facelet_t * facelet)
         return -2;
     facelet_set_status(facelet, FACELET_STATUS_CLEAN);
 
+    /* Process untagged faces */
+    netdevice_type_t netdevice_type;
+    if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0) {
+        facelet_set_netdevice_type(facelet, facemgr_get_netdevice_type(facemgr, netdevice.name));
+        if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0) {
+            /* Inspect local address */
+            int family;
+            ip_address_t local;
+            if (facelet_get_family(facelet, &family) < 0) {
+                ERROR("[facemgr_process_facelet_get] Error getting facelet family");
+                return -1;
+            }
+            if (facelet_get_local_addr(facelet, &local) < 0) {
+                ERROR("[facemgr_process_facelet_get] Error getting facelet local address");
+                return -1;
+            }
+            switch(family) {
+                case AF_INET:
+                    if (ip_address_cmp(&local, &IPV4_LOOPBACK, family) == 0) {
+                        facelet_set_netdevice_type(facelet, NETDEVICE_TYPE_LOOPBACK);
+                    } else {
+                        return -2;
+                    }
+                    break;
+                case AF_INET6:
+                    if (ip_address_cmp(&local, &IPV6_LOOPBACK, family) == 0) {
+                        facelet_set_netdevice_type(facelet, NETDEVICE_TYPE_LOOPBACK);
+                    } else {
+                        return -2;
+                    }
+                    break;
+                default:
+                    return -2;
+            }
+        }
+    }
+
     int n = facemgr_consider_static_facelet(facemgr, facelet);
     if (n < 0) {
         ERROR("[facemgr_process_facelet_get] Could not add facelet to static array");
@@ -1354,7 +1405,20 @@ facemgr_process_facelet_get(facemgr_t * facemgr, facelet_t * facelet)
 
     char facelet_s[MAXSZ_FACELET];
     facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
-    return facelet_set_add(facemgr->facelet_cache, facelet);
+    if (facelet_set_add(facemgr->facelet_cache, facelet) < 0) {
+        ERROR("[facemgr_process_facelet_get] Error adding received facelet to cache");
+        return -1;
+    }
+
+    /* Proceed to the update is the facelet status is not clean */
+    if (facelet_get_status(facelet) != FACELET_STATUS_CLEAN) {
+        if (facemgr_process_facelet(facemgr, facelet) < 0) {
+            ERROR("[facemgr_process_facelet_get] Error processing facelet");
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 /**
@@ -1377,6 +1441,7 @@ facemgr_process_facelet_update(facemgr_t * facemgr, facelet_t * facelet)
         case FACELET_STATUS_CLEAN:
             facelet_set_status(facelet, FACELET_STATUS_UPDATE);
             break;
+        case FACELET_STATUS_DOWN:
         case FACELET_STATUS_DELETE:
         case FACELET_STATUS_DELETED:
         case FACELET_STATUS_IGNORED:
@@ -1410,7 +1475,16 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
     switch(facelet_get_status(facelet)) {
         case FACELET_STATUS_UNCERTAIN:
         case FACELET_STATUS_INCOMPLETE:
-        case FACELET_STATUS_CREATE:
+        case FACELET_STATUS_IGNORED:
+        case FACELET_STATUS_DOWN:
+            if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
+                ERROR("[facemgr_process_facelet] Could not remove deleted facelet from cache");
+                return -1;
+            }
+
+            facelet_free(facelet);
+            return 0;
+#if 0
             facelet_unset_local_addr(facelet);
             facelet_unset_local_port(facelet);
             facelet_unset_remote_addr(facelet);
@@ -1420,13 +1494,14 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
             facelet_unset_au_done(facelet);
 #endif /* WITH_ANDROID_UTILITY */
             facelet_set_status(facelet, FACELET_STATUS_DELETED);
+#endif
             break;
+        case FACELET_STATUS_CREATE:
         case FACELET_STATUS_UPDATE:
         case FACELET_STATUS_CLEAN:
             facelet_set_status(facelet, FACELET_STATUS_DELETE);
             break;
         case FACELET_STATUS_DELETE:
-        case FACELET_STATUS_IGNORED:
         case FACELET_STATUS_DELETED:
             /* Nothing to do */
             DEBUG("%s\n", facelet_status_str[facelet_get_status(facelet)]);
@@ -1445,11 +1520,12 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
     return 0;
 }
 
+#if 0
 int facemgr_process_facelet_first_time(facemgr_t * facemgr, facelet_t * facelet)
 {
-    facelet_set_status(facelet, FACELET_STATUS_UNCERTAIN);
-
     assert(facelet);
+
+    facelet_set_status(facelet, FACELET_STATUS_UNCERTAIN);
     char facelet_s[MAXSZ_FACELET];
     facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
     if (facelet_set_add(facemgr->facelet_cache, facelet) < 0) {
@@ -1471,6 +1547,89 @@ ERR_CREATE:
 ERR_CACHE:
     return -1;
 }
+#endif
+
+int facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet);
+
+int
+facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facelet)
+{
+
+    DEBUG("[facemgr_process_facelet_create_no_family] Default v4");
+    /* Create default v4 and v6 facelets */
+    facelet_t * facelet_v4 = facelet_dup(facelet);
+    if (!facelet_v4) {
+        ERROR("[facemgr_process_facelet_create_no_family] Error allocating default IPv4 face");
+    } else {
+        facelet_set_family(facelet_v4, AF_INET);
+        facelet_set_status(facelet_v4, FACELET_STATUS_CLEAN);
+        if (facemgr_on_event(facemgr, facelet_v4) < 0) {
+            ERROR("[facemgr_process_facelet_create_no_family] Error creating default IPv4 face");
+            facelet_free(facelet_v4);
+        }
+    }
+
+    DEBUG("[facemgr_process_facelet_create_no_family] Default v6");
+    facelet_t * facelet_v6 = facelet_dup(facelet);
+    if (!facelet_v6) {
+        ERROR("[facemgr_process_facelet_create_no_family] Error allocating default IPv6 face");
+    } else {
+        facelet_set_family(facelet_v6, AF_INET6);
+        facelet_set_status(facelet_v6, FACELET_STATUS_CLEAN);
+        if (facemgr_on_event(facemgr, facelet_v6) < 0) {
+            ERROR("[facemgr_process_facelet_create_no_family] Error creating default IPv6 face");
+            facelet_free(facelet_v6);
+        }
+    }
+
+    /* Create additional connections
+     *
+     * This is where we spawn multiple facelets based on the
+     * configured "static routes" in addition to the default
+     * routes managed by the face manager.
+     */
+    DEBUG("[facemgr_process_facelet_create_no_family] Loop static");
+    for (unsigned i = 0; i < facelet_array_len(facemgr->static_facelets); i++) {
+        facelet_t * static_facelet;
+        if (facelet_array_get_index(facemgr->static_facelets, i, &static_facelet) < 0) {
+            ERROR("[facemgr_process_facelet_create_no_family] Error getting static facelet");
+            continue;
+        }
+
+        /*
+         * We don't enforce any present or absent fields. A match
+         * operation will be performed deciding whether to create
+         * the facelet (if it bring additional information to the
+         * ingress one) or not.
+         */
+        /* We try to apply static_facelet over facelet */
+        if (!facelet_match(facelet, static_facelet)) {
+            continue;
+        }
+
+        facelet_t * facelet_new = facelet_dup(facelet);
+        if (!facelet_new) {
+            ERROR("[facemgr_process_facelet_create_no_family] Error allocating static facelet");
+            continue;
+        } else {
+            if (facelet_merge(facelet_new, static_facelet) < 0) {
+                ERROR("[facemgr_process_facelet_create_no_family] Error merging facelets");
+                facelet_free(facelet_new);
+                continue;
+            }
+            /* The id must be different than 0 */
+            facelet_set_id(facelet_new, ++facemgr->cur_static_id);
+            facelet_set_status(facelet_new, FACELET_STATUS_CLEAN);
+
+            if (facemgr_on_event(facemgr, facelet_new) < 0) {
+                ERROR("[facemgr_process_facelet_create_no_family] Error creating default IPv6 face");
+                facelet_free(facelet_new);
+            }
+        }
+    }
+
+    return 0;
+}
 
 /**
  * \brief Process incoming events from interfaces
@@ -1489,7 +1648,9 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
     assert(facelet_in);
 
     /* Update Netdevice type */
-    if (facelet_has_netdevice(facelet_in) && (!facelet_has_netdevice_type(facelet_in))) {
+    if ((facelet_get_event(facelet_in) != FACELET_EVENT_GET) &&
+            facelet_has_netdevice(facelet_in) &&
+            (!facelet_has_netdevice_type(facelet_in))) {
         netdevice_t netdevice = NETDEVICE_EMPTY;
 
         rc = facelet_get_netdevice(facelet_in, &netdevice);
@@ -1524,85 +1685,29 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                  * assignment
                  */
                 DEBUG("[facemgr_on_event] CREATE NEW %s", facelet_s);
-                assert(!facelet_has_family(facelet_in));
-
-                /* Create default v4 and v6 facelets */
-                facelet_t * facelet_v4 = facelet_dup(facelet_in);
-                if (!facelet_v4) {
-                    ERROR("[facemgr_on_event] Error allocating default IPv4 face");
-                    facelet_free(facelet_v4);
-                } else {
-                    facelet_set_family(facelet_v4, AF_INET);
-                    facelet_set_status(facelet_v4, FACELET_STATUS_CLEAN);
-                    if (facemgr_process_facelet_first_time(facemgr, facelet_v4) < 0) {
-                        ERROR("[facemgr_on_event] Error creating default IPv4 face");
-                        facelet_free(facelet_v4);
-                    }
-                }
-
-                facelet_t * facelet_v6 = facelet_dup(facelet_in);
-                if (!facelet_v6) {
-                    ERROR("[facemgr_on_event] Error allocating default IPv6 face");
-                    facelet_free(facelet_v4);
-                } else {
-                    facelet_set_family(facelet_v6, AF_INET6);
-                    facelet_set_status(facelet_v6, FACELET_STATUS_CLEAN);
-                    if (facemgr_process_facelet_first_time(facemgr, facelet_v6) < 0) {
-                        ERROR("[facemgr_on_event] Error creating default IPv6 face");
-                        facelet_free(facelet_v6);
-                    }
-                }
-
-                /* Create additional connections
-                 *
-                 * This is where we spawn multiple facelets based on the
-                 * configured "static routes" in addition to the default
-                 * routes managed by the face manager.
-                 */
-                for (unsigned i = 0; i < facelet_array_len(facemgr->static_facelets); i++) {
-                    facelet_t * static_facelet;
-                    if (facelet_array_get_index(facemgr->static_facelets, i, &static_facelet) < 0) {
-                        ERROR("[facemgr_on_event] Error getting static facelet");
+                if (!facelet_has_family(facelet_in)) {
+                    facemgr_assign_face_type(facemgr, facelet_in);
+                    if (facemgr_process_facelet_create_no_family(facemgr, facelet_in) < 0) {
+                        ERROR("[facemgr_on_event] Error processing new interface event");
                         goto ERR;
                     }
-
-                    /*
-                     * We don't enforce any present or absent fields. A match
-                     * operation will be performed deciding whether to create
-                     * the facelet (if it bring additional information to the
-                     * ingress one) or not.
-                     */
-                    /* We try to apply static_facelet over facelet_in */
-                    if (!facelet_match(facelet_in, static_facelet)) {
-                        continue;
-                    }
-
-                    facelet_t * facelet_new = facelet_dup(facelet_in);
-                    if (!facelet_new) {
-                        ERROR("[facemgr_on_event] Error allocating static facelet");
-                        goto ERR;
-                    } else {
-                        if (facelet_merge(facelet_new, static_facelet) < 0) {
-                            ERROR("[facemgr_on_event] Error merging facelets");
-                            continue;
-                        }
-                        /* The id must be different than 0 */
-                        facelet_set_id(facelet_new, ++facemgr->cur_static_id);
-                        facelet_set_status(facelet_new, FACELET_STATUS_CLEAN);
-
-                        char buf[MAXSZ_FACELET];
-                        facelet_snprintf(buf, MAXSZ_FACELET, facelet_new);
-                        if (facemgr_process_facelet_first_time(facemgr, facelet_new) < 0) {
-                            ERROR("[facemgr_on_event] Error creating default IPv6 face");
-                            facelet_free(facelet_v6);
-                        }
-                    }
+                    goto DUMP_CACHE;
                 }
 
-                /*
-                 * We always remove the original facelet here, no need to
-                 * preserve it
-                 */
+                facelet_set_status(facelet_in, FACELET_STATUS_UNCERTAIN);
+
+                if (facelet_set_add(facemgr->facelet_cache, facelet_in) < 0) {
+                    ERROR("[facemgr_on_event] Error adding facelet to cache");
+                    goto ERR;
+                }
+
+                if (facemgr_process_facelet_create(facemgr, facelet_in) < 0) {
+                    ERROR("[facemgr_on_event] Error processing facelet CREATE event");
+                    ret = -1;
+                }
+
+                remove_facelet = false;
+
                 break;
             }
 
@@ -1632,6 +1737,11 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                 ERROR("[facemgr_on_event] Unexpected DELETE... face does not exist");
                 goto ERR;
 
+            case FACELET_EVENT_SET_UP:
+            case FACELET_EVENT_SET_DOWN:
+                ERROR("[facemgr_on_event] Unexpected event on a face that does not exist");
+                goto ERR;
+
             case FACELET_EVENT_UNDEFINED:
             case FACELET_EVENT_N:
                 ERROR("[facemgr_on_event] Unexpected UNDEFINED event.");
@@ -1653,13 +1763,27 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
          */
         facelet_t * facelet = cached_facelets[i];
 
-        char facelet_s[MAXSZ_FACELET];
-        facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
+        char facelet_old_s[MAXSZ_FACELET];
+        facelet_snprintf(facelet_old_s, MAXSZ_FACELET, facelet);
         //DEBUG("Facelet from cache #%d %s", i, facelet_s);
 
         switch(facelet_get_event(facelet_in)) {
             case FACELET_EVENT_CREATE:
+                /*
+                 * This can occur for a facelet already in cache but that has
+                 * been previously deleted... we need to be able to consider
+                 * static facelets in this situation too...
+                 */
                 DEBUG("[facemgr_on_event] CREATE EXISTING %s", facelet_s);
+
+                if (!facelet_has_family(facelet_in)) {
+                    if (facemgr_process_facelet_create_no_family(facemgr, facelet_in) < 0) {
+                        ERROR("[facemgr_on_event] Error processing new interface event");
+                        goto ERR;
+                    }
+                    goto DUMP_CACHE;
+                }
+
                 // This case will occur when we try to re-create existing faces,
                 // eg. in the situation of a forwarder restarting.
                 // likely this occurs when the interface receives a (potentially new) address
@@ -1680,13 +1804,15 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                  * This happens due to polling of the forwarder (or when it
                  * restarts)
                  */
-                DEBUG("[facemgr_on_event] GET EXISTING %s", facelet_s);
+                DEBUG("[facemgr_on_event] GET EXISTING %s", facelet_old_s);
+                DEBUG("                           WITH %s", facelet_s);
                 //ERROR("[facemgr_on_event] GET event for a face that already exists...");
                 dump = false;
                 continue;
 
             case FACELET_EVENT_UPDATE:
-                DEBUG("[facemgr_on_event] UPDATE EXISTING %s", facelet_s);
+                DEBUG("[facemgr_on_event] UPDATE EXISTING %s", facelet_old_s);
+                DEBUG("                              WITH %s", facelet_s);
                 if (facelet_merge(facelet, facelet_in) < 0) {
                     ERROR("[facemgr_on_event] Error merging facelets");
                     continue;
@@ -1698,7 +1824,8 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                 continue;
 
             case FACELET_EVENT_DELETE:
-                DEBUG("[facemgr_on_event] DELETE EXISTING %s", facelet_s);
+                DEBUG("[facemgr_on_event] DELETE EXISTING %s", facelet_old_s);
+                DEBUG("                              WITH %s", facelet_s);
                 if (facelet_merge(facelet, facelet_in) < 0) {
                     ERROR("[facemgr_on_event] Error merging facelets");
                     continue;
@@ -1707,6 +1834,31 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                         ERROR("[facemgr_on_event] Error processing facelet DELETE event");
                     ret = -1;
                 }
+                continue;
+
+            case FACELET_EVENT_SET_UP:
+                ERROR("[facemgr_on_event] Not implemented\n");
+                ret = -1;
+                continue;
+
+            case FACELET_EVENT_SET_DOWN:
+                DEBUG("[facemgr_on_event] SET DOWN EXISTING %s", facelet_old_s);
+                DEBUG("                                WITH %s", facelet_s);
+                /* We don't even need to merge */
+                if (facelet_merge(facelet, facelet_in) < 0) {
+                    ERROR("[facemgr_on_event] Error merging facelets");
+                    continue;
+                }
+                if (facemgr_process_facelet_delete(facemgr, facelet) < 0) {
+                    ERROR("[facemgr_on_event] Error processing facelet DELETE event");
+                    continue;
+                }
+                /*
+                if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
+                    ERROR("[facemgr_process_facelet] Could not remove down facelet from cache");
+                    goto ERR;
+                }
+                */
                 continue;
 
             case FACELET_EVENT_UNDEFINED:
