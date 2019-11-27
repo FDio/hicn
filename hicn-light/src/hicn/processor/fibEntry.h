@@ -81,16 +81,6 @@ FibEntry *fibEntry_Acquire(const FibEntry *fibEntry);
 
 void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy);
 
-#ifdef WITH_POLICY
-
-policy_t fibEntry_GetPolicy(const FibEntry *fibEntry);
-
-void fibEntry_ReconsiderPolicy(FibEntry *fibEntry);
-
-void fibEntry_SetPolicy(FibEntry *fibEntry, policy_t policy);
-
-#endif /* WITH_POLICY */
-
 void fibEntry_AddNexthop(FibEntry *fibEntry, unsigned connectionId);
 
 void fibEntry_RemoveNexthopByConnectionId(FibEntry *fibEntry,
@@ -123,14 +113,30 @@ void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
                                    const Message *objectMessage, Ticks rtt);
 
 #ifdef WITH_POLICY
+policy_t fibEntry_GetPolicy(const FibEntry *fibEntry);
+void fibEntry_ReconsiderPolicy(FibEntry *fibEntry);
+void fibEntry_SetPolicy(FibEntry *fibEntry, policy_t policy);
+void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now);
+NumberSet * fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection);
+NumberSet * fibEntry_GetPreviousNextHops(const FibEntry *fibEntry);
+void fibEntry_SetPreviousNextHops(FibEntry *fibEntry, NumberSet * nexthops);
+
 void fibEntry_OnTimeout(FibEntry *fibEntry, const NumberSet *egressId);
+const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
+    FibEntry *fibEntry, const Message *interestMessage, bool is_retransmission);
+
+void fibEntry_ReceiveObjectMessage(FibEntry *fibEntry,
+                                   const NumberSet *egressId,
+                                   const Message *objectMessage, Ticks rtt);
 #else
 void fibEntry_OnTimeout(const FibEntry *fibEntry, const NumberSet *egressId);
+const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
+    const FibEntry *fibEntry, const Message *interestMessage);
+void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
+                                   const NumberSet *egressId,
+                                   const Message *objectMessage, Ticks rtt);
 #endif /* WITH_POLICY */
 
-#ifdef WITH_POLICY
-void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now);
-#endif /* WITH_POLICY */
 
 strategy_type fibEntry_GetFwdStrategyType(const FibEntry *fibEntry);
 

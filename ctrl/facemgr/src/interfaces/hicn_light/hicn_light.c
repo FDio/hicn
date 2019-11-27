@@ -399,6 +399,7 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                     }
                 }
             }
+            free(route_array);
 
             break;
 
@@ -449,6 +450,66 @@ int hl_on_event(interface_t * interface, const facelet_t * facelet)
                 }
                 INFO("Admin state updated");
             }
+#ifdef WITH_POLICY
+            if (facelet_get_netdevice_type_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
+                hc_face.face = *face;
+                hc_face_t * face_found;
+
+                rc = hc_face_get(data->s, &hc_face, &face_found);
+                if (rc < 0) {
+                    ERROR("Failed to find face\n");
+                    goto ERR;
+                }
+                if (!face_found) {
+                    ERROR("Face to update has not been found");
+                    goto ERR;
+                }
+                char conn_id_or_name[SYMBOLIC_NAME_LEN];
+                snprintf(conn_id_or_name, SYMBOLIC_NAME_LEN, "%d", face_found->id);
+                free(face_found);
+
+                netdevice_type_t netdevice_type;
+                if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0) {
+                    ERROR("Failed to retrieve facelet netdevice_type");
+                    goto ERR;
+                }
+
+                /* Encode netdevice type into tags */ 
+                policy_tags_t tags = POLICY_TAGS_EMPTY;
+                if (facelet_has_netdevice_type(facelet)) {
+                    netdevice_type_t netdevice_type;
+                    if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0) {
+                        ERROR("error getting netdevice_type");
+                        goto ERR;
+                    }
+
+
+                    switch(netdevice_type) {
+                        case NETDEVICE_TYPE_UNDEFINED:
+                        case NETDEVICE_TYPE_LOOPBACK:
+                            break;
+                        case NETDEVICE_TYPE_WIRED:
+                            policy_tags_add(&tags, POLICY_TAG_WIRED);
+                            break;
+                        case NETDEVICE_TYPE_WIFI:
+                            policy_tags_add(&tags, POLICY_TAG_WIFI);
+                            break;
+                        case NETDEVICE_TYPE_CELLULAR:
+                            policy_tags_add(&tags, POLICY_TAG_CELLULAR);
+                            break;
+                        default:
+                            goto ERR;
+                    }
+                }
+                //face->tags = tags;
+
+                if (hc_connection_set_tags(data->s, conn_id_or_name, tags) < 0) {
+                    ERROR("Failed to update tags");
+                    goto ERR;
+                }
+                INFO("Tags updated");
+            }
+#endif /* WITH_POLICY */
             if (facelet_get_priority_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
                 hc_face.face = *face;
                 hc_face_t * face_found;
