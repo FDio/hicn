@@ -106,7 +106,7 @@ int dummy_callback(interface_t * interface)
     return 0;
 }
 
-int dummy_on_event(interface_t * interface, const facelet_t * facelet)
+int dummy_on_event(interface_t * interface, facelet_t * facelet)
 {
     dummy_data_t * data = (dummy_data_t*)interface->data;
     UNUSED(data);

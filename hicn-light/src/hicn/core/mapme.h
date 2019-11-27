@@ -69,6 +69,14 @@ void mapme_Process(const MapMe *mapme, const uint8_t *msgBuffer,
                    unsigned conn_id);
 
 /**
+ * @function mapme_reconsiderFibEntry
+ * @abstract Process a fib entry for changes that might trigger new updates
+ * @param [in] mapme - Pointer to the MAP-Me data structure.
+ * @param [in] fibEntry - The FIB entry to consider
+ */
+void mapme_reconsiderFibEntry(const MapMe *mapme, FibEntry * fibEntry);
+
+/**
  * @function mapme_onConnectionEvent
  * @abstract Callback following the addition of the face though the control
  * protocol.
@@ -78,14 +86,6 @@ void mapme_Process(const MapMe *mapme, const uint8_t *msgBuffer,
  * @param [in] event - Connection event
  */
 void mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn, connection_event_t event);
-
-#ifdef WITH_POLICY
-
-/**
- * @function mapme_onPolicyUpdate
- */
-void mapme_onPolicyUpdate(const MapMe *mapme, const Connection *conn_added, FibEntry * fibEntry);
-#endif /* WITH_POLICY */
 
 /**
  * @function mapme_getNextHops

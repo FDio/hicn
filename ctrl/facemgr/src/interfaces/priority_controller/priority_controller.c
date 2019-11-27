@@ -30,6 +30,8 @@
 #include "../../common.h"
 #include "../../interface.h"
 
+#define PC_DEFAULT_PORT 9533
+
 typedef struct {
     int fd;
 } pc_data_t;
@@ -58,7 +60,7 @@ int priority_controller_initialize(interface_t * interface, void * cfg)
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    addr.sin_port = htons(9533);
+    addr.sin_port = htons(PC_DEFAULT_PORT);
 
     if (bind(data->fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         INFO("Priority controller socket bind error");

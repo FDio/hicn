@@ -136,11 +136,6 @@ bool messageProcessor_AddOrUpdatePolicy(MessageProcessor *processor,
 bool messageProcessor_RemovePolicy(MessageProcessor *processor,
         remove_policy_command *control);
 
-#ifdef WITH_MAPME
-void messageProcessor_onConnectionEvent(const MessageProcessor *processor,
-        const Connection *conn_added, connection_event_t event);
-#endif /* WITH_MAPME */
-
 #endif /* WITH_POLICY */
 
 /**

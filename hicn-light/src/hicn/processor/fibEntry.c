@@ -61,10 +61,10 @@ struct fib_entry {
 //  NumberSet *available_nexthops;
 #ifdef WITH_MAPME
   /* In case of no multipath, this stores the previous decision taken by policy */
-  unsigned previous_nexthop;
 #endif /* WITH_MAPME */
 #endif /* WITH_POLICY */
 #ifdef WITH_MAPME
+  NumberSet * previous_nexthops;
   void *userData;
   void (*userDataRelease)(void **userData);
 #endif /* WITH_MAPME */
@@ -122,9 +122,6 @@ FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
   fibEntry->forwarder = forwarder;
   fibEntry->policy = POLICY_NONE;
   fibEntry->policy_counters = POLICY_COUNTERS_NONE;
-#ifdef WITH_MAPME
-  fibEntry->previous_nexthop = ~0;
-#endif /* WITH_MAPME */
 #endif /* WITH_POLICY */
 
   return fibEntry;
@@ -223,11 +220,11 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
     ConnectionList * list = connectionTable_GetEntries(table);
     for (size_t i = 0; i < connectionList_Length(list); i++) {
       Connection *conn = connectionList_Get(list, i);
+      if (connection_IsLocal(conn))
+        continue;
       if (connection_GetAdminState(conn) == CONNECTION_STATE_DOWN)
         continue;
       if (connection_GetState(conn) == CONNECTION_STATE_DOWN)
-        continue;
-      if (connection_IsLocal(conn))
         continue;
       numberSet_Add(nexthops, connection_GetConnectionId(conn));
     }
@@ -445,45 +442,56 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
     numberSet_Release(&filtered_nexthops);
   }
 
-  return available_nexthops;
+  /* Priority */
+  NumberSet * priority_nexthops = numberSet_Create();
+
+  uint32_t max_priority = 0;
+  for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
+    unsigned conn_id = numberSet_GetItem(available_nexthops, k);
+    const Connection * conn = connectionTable_FindById(table, conn_id);
+    uint32_t priority = connection_GetPriority(conn);
+    if (priority < max_priority) {
+        continue;
+    } else if (priority == max_priority) {
+      numberSet_Add(priority_nexthops, conn_id);
+    } else { /* priority > max_priority */
+      numberSet_Release(&priority_nexthops);
+      priority_nexthops = numberSet_Create();
+      numberSet_Add(priority_nexthops, conn_id);
+      max_priority = priority;
+    }
+  }
+
+  numberSet_Release(&available_nexthops);
+
+  return priority_nexthops;
 }
 
 policy_t fibEntry_GetPolicy(const FibEntry *fibEntry) {
   return fibEntry->policy;
 }
 
-void fibEntry_ReconsiderPolicy(FibEntry *fibEntry) {
-#ifdef WITH_MAPME
-  NumberSet * available_nexthops = fibEntry_GetAvailableNextHops(fibEntry, ~0);
-
-  if (numberSet_Length(available_nexthops) == 0)
-    goto END;
-
-  /* Multipath */
-  if ((fibEntry->policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_PROHIBIT) &&
-        (fibEntry->policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_AVOID))
-    goto END;
-
-  unsigned nexthop = numberSet_GetItem(available_nexthops, 0);
-  if (nexthop != fibEntry->previous_nexthop) {
-    /* Policy has elected a new nexthop, signal it using MAP-Me */
-    fibEntry->previous_nexthop = nexthop;
-    ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
-    const Connection * conn = connectionTable_FindById(table, nexthop);
-    mapme_onPolicyUpdate(forwarder_getMapmeInstance(fibEntry->forwarder), conn, fibEntry);
-  }
-
-END:
-  numberSet_Release(&available_nexthops);
-#endif /* WITH_MAPME */
-}
-
 void fibEntry_SetPolicy(FibEntry *fibEntry, policy_t policy) {
   fibEntry->policy = policy;
-  fibEntry_ReconsiderPolicy(fibEntry);
+  mapme_reconsiderFibEntry(forwarder_getMapmeInstance(fibEntry->forwarder), fibEntry);
 }
 
+NumberSet *
+fibEntry_GetPreviousNextHops(const FibEntry *fibEntry)
+{
+    return fibEntry->previous_nexthops;
+}
 #endif /* WITH_POLICY */
+
+void
+fibEntry_SetPreviousNextHops(FibEntry *fibEntry, NumberSet * nexthops)
+{
+    if (fibEntry->previous_nexthops)
+        numberSet_Release(&fibEntry->previous_nexthops);
+    fibEntry->previous_nexthops = numberSet_Create();
+    numberSet_AddSet(fibEntry->previous_nexthops, nexthops);
+}
+
 
 void fibEntry_AddNexthop(FibEntry *fibEntry, unsigned connectionId) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
@@ -576,39 +584,16 @@ const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
   if (numberSet_Length(available_nexthops) == 0) {
     out = numberSet_Create();
   } else {
-
-    /* Priority */
-    NumberSet * priority_nexthops = numberSet_Create();
-
-    uint32_t max_priority = 0;
-    for (size_t k = 0; k < numberSet_Length(available_nexthops); k++) {
-      unsigned conn_id = numberSet_GetItem(available_nexthops, k);
-      const Connection * conn = connectionTable_FindById(table, conn_id);
-      uint32_t priority = connection_GetPriority(conn);
-      if (priority < max_priority) {
-          continue;
-      } else if (priority == max_priority) {
-        numberSet_Add(priority_nexthops, conn_id);
-      } else { /* priority > max_priority */
-        numberSet_Release(&priority_nexthops);
-        priority_nexthops = numberSet_Create();
-        numberSet_Add(priority_nexthops, conn_id);
-        max_priority = priority;
-      }
-    }
-
     /* Multipath */
     if ((policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_PROHIBIT) &&
         (policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_AVOID)) {
-      out = fibEntry->fwdStrategy->lookupNexthop(fibEntry->fwdStrategy, priority_nexthops,
+      out = fibEntry->fwdStrategy->lookupNexthop(fibEntry->fwdStrategy, available_nexthops,
           interestMessage);
     } else {
-      unsigned nexthop = numberSet_GetItem(priority_nexthops, 0);
+      unsigned nexthop = numberSet_GetItem(available_nexthops, 0);
       out = numberSet_Create();
       numberSet_Add(out, nexthop);
     }
-
-    numberSet_Release(&priority_nexthops);
   }
 
   numberSet_Release(&available_nexthops);

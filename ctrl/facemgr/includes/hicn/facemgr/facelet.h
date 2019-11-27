@@ -71,6 +71,13 @@ typedef struct {
    face_type_encap_t encap;
 } facemgr_face_type_t;
 
+
+extern const char * face_type_layer_str[];
+extern const char * face_type_encap_str[];
+
+#define FACEMGR_FACE_TYPE_STR(x)                                \
+    face_type_layer_str[x.layer], face_type_encap_str[x.encap]
+
 #define FACEMGR_FACE_TYPE_UNDEFINED (facemgr_face_type_t) {     \
     .layer = FACE_TYPE_LAYER_UNDEFINED,                         \
     .encap = FACE_TYPE_ENCAP_UNDEFINED,                         \
@@ -96,10 +103,10 @@ typedef struct {
     .encap = FACE_TYPE_ENCAP_TCP,                               \
 }
 
-
 /* Facelet status */
 #define foreach_facelet_status  \
     _(UNDEFINED)                \
+    _(DOWN)                     \
     _(UNCERTAIN)                \
     _(INCOMPLETE)               \
     _(CREATE)                   \
@@ -194,6 +201,8 @@ extern const char * facelet_attr_status_str_short[];
     _(CREATE)                   \
     _(UPDATE)                   \
     _(DELETE)                   \
+    _(SET_UP)                   \
+    _(SET_DOWN)                 \
     _(N)
 
 #define MAXSZ_EVENT__ 10
@@ -246,6 +255,8 @@ bool facelet_has_key(const facelet_t * facelet);
 #define FACELET_ACCESSORS_H(TYPE, NAME)                                         \
 bool facelet_has_ ## NAME(const facelet_t * facelet);                           \
 facelet_attr_status_t facelet_get_ ## NAME ## _status(const facelet_t * facelet);\
+void facelet_set_ ## NAME ## _status(facelet_t * facelet,                       \
+        facelet_attr_status_t status);                                          \
 int facelet_get_ ## NAME(const facelet_t * facelet, TYPE * NAME);               \
 int facelet_set_ ## NAME(facelet_t * facelet, TYPE NAME);                       \
 int facelet_unset_ ## NAME(facelet_t * facelet);
@@ -256,7 +267,7 @@ foreach_facelet_attr
 
 int facelet_get_face(const facelet_t * facelet, face_t ** pface);
 
-int facelet_merge(facelet_t * facelet, const facelet_t * facelet_to_merge);
+int facelet_merge(facelet_t * facelet, facelet_t * facelet_to_merge);
 
 facelet_status_t facelet_get_status(const facelet_t * facelet);
 void facelet_set_status(facelet_t * facelet, facelet_status_t status);
