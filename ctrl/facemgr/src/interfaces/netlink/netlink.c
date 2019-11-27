@@ -309,13 +309,6 @@ int parse_addr(struct nlmsghdr * h, facelet_t ** facelet,
             return 0;
     }
 
-#if 0 /* Not working for v6 */
-    if (interface_name) {
-        assert(tba[IFLA_IFNAME]);
-        snprintf(interface_name, interface_name_size, "%s", (char*)RTA_DATA(tba[IFLA_IFNAME]));
-    }
-#endif
-
     /* See comment in parse_link */
     if (interface_address) {
         assert(tba[IFA_ADDRESS]);
@@ -324,7 +317,7 @@ int parse_addr(struct nlmsghdr * h, facelet_t ** facelet,
 
     netdevice_t * netdevice = netdevice_create_from_index(ifa->ifa_index);
     if (!netdevice) {
-        ERROR("[netlink.parse_addr] error creating netdevice '%s'", interface_name);
+        ERROR("[netlink.parse_addr] error creating netdevice from index '%d'", ifa->ifa_index);
         goto ERR_ND;
     }
 
@@ -432,9 +425,9 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     break;
                 }
 
-                //DEBUG("Interface %s: address was removed", interface_name);
+                DEBUG("Interface %s: address was removed", interface_name);
                 if (facelet) {
-                    facelet_set_event(facelet, FACELET_EVENT_DELETE);
+                    facelet_set_event(facelet, FACELET_EVENT_SET_DOWN);
                     facelet_set_status(facelet, FACELET_STATUS_CLEAN);
                     interface_raise_event(interface, facelet);
                 }
@@ -453,7 +446,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     break;
                 }
 
-                //DEBUG("Interface %s: new address was assigned: %s", interface_name, interface_address);
+                DEBUG("Interface %s: new address was assigned: %s", interface_name, interface_address);
 
                 if (facelet) {
                     facelet_set_event(facelet, FACELET_EVENT_UPDATE);
@@ -465,6 +458,8 @@ int nl_callback(interface_t * interface, int fd, void * unused)
 
             case RTM_DELLINK:
             {
+                /* This does not always seem to be called, hence we rely on
+                 * down, not running */
                 facelet_t * facelet = NULL;
                 char interface_name[IFNAMSIZ];
                 if (parse_link(h, &facelet, interface_name, IFNAMSIZ,
@@ -473,7 +468,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     break;
                 }
 
-                //DEBUG("Network interface %s was removed", interface_name);
+                DEBUG("Network interface %s was removed", interface_name);
 
                 if (!facelet)
                     break;
@@ -499,7 +494,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                 // UP RUNNING
                 // UP NOT RUNNING
                 // DOWN NOT RUNNING
-#if 0
+#if 1
                 DEBUG("New network interface %s, state: %s %s", interface_name,
                         up ? "UP" : "DOWN",
                         running ? "RUNNING" : "NOT_RUNNING");
@@ -523,7 +518,13 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     interface_raise_event(interface, facelet6);
 #endif
                 } else {
+#if 1
+                    facelet_set_event(facelet, FACELET_EVENT_DELETE);
+                    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+                    interface_raise_event(interface, facelet);
+#else
                     facelet_free(facelet);
+#endif
                 }
                 break;
             }

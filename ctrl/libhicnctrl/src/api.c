@@ -1711,6 +1711,56 @@ hc_connection_set_priority_async(hc_sock_t * s, const char * conn_id_or_name,
     return _hc_connection_set_priority(s, conn_id_or_name, priority, true);
 }
 
+int
+_hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name,
+        policy_tags_t tags, bool async)
+{
+    int rc;
+    DEBUG("[hc_connection_set_tags] connection_id/name=%s tags=%d async=%s",
+            conn_id_or_name, tags, BOOLSTR(async));
+    struct {
+        header_control_message hdr;
+        connection_set_tags_command payload;
+    } msg = {
+        .hdr = {
+            .messageType = REQUEST_LIGHT,
+            .commandID = CONNECTION_SET_TAGS,
+            .length = 1,
+            .seqNum = 0,
+        },
+        .payload = {
+            .tags = tags,
+        },
+    };
+    rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", conn_id_or_name);
+    if (rc >= SYMBOLIC_NAME_LEN)
+        WARN("[_hc_connection_set_tags] Unexpected truncation of symbolic name string");
+
+    hc_command_params_t params = {
+        .cmd = ACTION_SET,
+        .cmd_id = CONNECTION_SET_TAGS,
+        .size_in = sizeof(connection_set_tags_command),
+        .size_out = 0,
+        .parse = NULL,
+    };
+
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name,
+        policy_tags_t tags)
+{
+    return _hc_connection_set_tags(s, conn_id_or_name, tags, false);
+}
+
+int
+hc_connection_set_tags_async(hc_sock_t * s, const char * conn_id_or_name,
+        policy_tags_t tags)
+{
+    return _hc_connection_set_tags(s, conn_id_or_name, tags, true);
+}
+
 /*----------------------------------------------------------------------------*
  * Routes
  *----------------------------------------------------------------------------*/
@@ -2557,6 +2607,13 @@ hc_face_set_priority(hc_sock_t * s, const char * conn_id_or_name,
         uint32_t priority)
 {
     return hc_connection_set_priority(s, conn_id_or_name, priority);
+}
+
+int
+hc_face_set_tags(hc_sock_t * s, const char * conn_id_or_name,
+        policy_tags_t tags)
+{
+    return hc_connection_set_tags(s, conn_id_or_name, tags);
 }
 
 /*----------------------------------------------------------------------------*
