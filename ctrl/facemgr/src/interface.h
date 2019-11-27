@@ -55,7 +55,7 @@ typedef struct {
     /* Callback upon file descriptor event (iif previously registered) */
     int (*callback)(struct interface_s * interface, int fd, void * data);
     /* Callback upon face events coming from the face manager */
-    int (*on_event)(struct interface_s * interface, const struct facelet_s * facelet);
+    int (*on_event)(struct interface_s * interface, struct facelet_s * facelet);
 } interface_ops_t;
 
 typedef struct interface_s {
@@ -106,7 +106,7 @@ int interface_initialize(interface_t * interface, void * cfg);
 
 int interface_finalize(interface_t * interface);
 
-int interface_on_event(interface_t * interface, const struct facelet_s * facelet);
+int interface_on_event(interface_t * interface, struct facelet_s * facelet);
 
 /**
  * \brief Raises a facelet event to the face manager

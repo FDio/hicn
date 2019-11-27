@@ -133,7 +133,7 @@ ERR_MALLOC:
  * We reuse the callback to be triggered upon external events
  * TODO: move to a cleaner interface architecture later...
  */
-int bj_on_event(interface_t * interface, const facelet_t * facelet)
+int bj_on_event(interface_t * interface, facelet_t * facelet)
 {
     bj_data_t * data = (bj_data_t*)interface->data;
 

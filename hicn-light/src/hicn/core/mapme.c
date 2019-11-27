@@ -146,6 +146,7 @@ ERR_MALLOC:
 
 void mapmeTFIB_Release(MapMeTFIB **tfibPtr) {
   MapMeTFIB *tfib = *tfibPtr;
+  /* TODO; Release all timers */
   parcHashMap_Release(&tfib->nexthops);
   free(tfib);
   *tfibPtr = NULL;
@@ -282,13 +283,13 @@ struct setFacePendingArgs {
   FibEntry *fibEntry;
   unsigned conn_id;
   bool send;
-  bool is_first;
+  bool is_producer;
   uint32_t num_retx;
 };
 
 static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
                                  FibEntry *fibEntry, unsigned conn_id,
-                                 bool send, bool is_first, uint32_t num_retx);
+                                 bool send, bool is_producer, bool clear_tfib, uint32_t num_retx);
 
 static void mapme_setFacePendingCallback(int fd, PARCEventType which_event,
                                          void *data) {
@@ -300,7 +301,7 @@ static void mapme_setFacePendingCallback(int fd, PARCEventType which_event,
 
   INFO(args->mapme, "Timeout during retransmission. Re-sending");
   mapme_setFacePending(args->mapme, args->name, args->fibEntry, args->conn_id,
-                       args->send, args->is_first, args->num_retx);
+                       args->send, args->is_producer, false, args->num_retx);
 }
 
 /**
@@ -325,7 +326,7 @@ static hicn_mapme_type_t mapme_getTypeFromHeuristic(const MapMe *mapme,
 
 static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
                                  FibEntry *fibEntry, unsigned conn_id,
-                                 bool send, bool is_first, uint32_t num_retx) {
+                                 bool send, bool is_producer, bool clear_tfib, uint32_t num_retx) {
   int rc;
 
   INFO(mapme, "[MAP-Me] SetFacePending connection=%d prefix=XX retx=%d",
@@ -337,14 +338,46 @@ static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
   Dispatcher *dispatcher = forwarder_GetDispatcher(mapme->forwarder);
   PARCEventTimer *timer;
 
+  /*
+   * On the producer side, we have to clear the TFIB everytime we change the list
+   * of adjacencies, otherwise retransmissions will occur to preserve them.
+   */
+  if (clear_tfib) {
+    /*
+     * It is likely we cannot iterator and remove elements from the hashmap at
+     * the same time, so we proceed in two steps
+     */
+    NumberSet * conns = numberSet_Create();
+
+    PARCIterator *it = parcHashMap_CreateKeyIterator(TFIB(fibEntry)->nexthops);
+    while (parcIterator_HasNext(it)) {
+      PARCUnsigned *cid = parcIterator_Next(it);
+      unsigned conn_id = parcUnsigned_GetUnsigned(cid);
+      numberSet_Add(conns, conn_id);
+    }
+    parcIterator_Release(&it);
+
+    for (size_t i = 0; i < numberSet_Length(conns); i++) {
+      unsigned conn_id = numberSet_GetItem(conns, i);
+      PARCEventTimer *oldTimer = (PARCEventTimer *)mapmeTFIB_Get(TFIB(fibEntry), conn_id);
+      if (oldTimer)
+          parcEventTimer_Stop(oldTimer);
+      mapmeTFIB_Remove(TFIB(fibEntry), conn_id);
+    }
+
+    numberSet_Release(&conns);
+  }
+
+
   // NOTE
   // - at producer, send always true, we always send something reliably so we
   // set the timer.
   // - in the network, we always forward an IU, and never an IN
-  if (is_first || send) {
+  //if (is_producer || send) {
+  if (send) {
     mapme_params_t params = {
         .protocol = IPPROTO_IPV6,
-        .type = is_first ? mapme_getTypeFromHeuristic(mapme, fibEntry) : UPDATE,
+        .type = is_producer ? mapme_getTypeFromHeuristic(mapme, fibEntry) : UPDATE,
         .seq = TFIB(fibEntry)->seq};
     Message *special_interest = mapme_createMessage(mapme, name, &params);
     if (!special_interest) {
@@ -378,7 +411,7 @@ static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
       args->fibEntry = fibEntry;
       args->conn_id = conn_id;
       args->send = send;
-      args->is_first = is_first;
+      args->is_producer = is_producer;
       args->num_retx = num_retx + 1;
 
       timer = dispatcher_CreateTimer(dispatcher, TIMER_NO_REPEAT,
@@ -446,7 +479,6 @@ static bool mapme_hasLocalNextHops(const MapMe *mapme,
 void mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, connection_event_t event) {
   switch(event) {
     case CONNECTION_EVENT_CREATE:
-    case CONNECTION_EVENT_SET_UP:
     {
       FibEntryList *fiblist;
 
@@ -481,15 +513,94 @@ void mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, c
              conn_added_id);
         free(name_str);
 
-        mapme_setFacePending(mapme, name, fibEntry, conn_added_id, true, true, 0);
+        mapme_setFacePending(mapme, name, fibEntry, conn_added_id, true, true, true, 0);
       }
+      fibEntryList_Destroy(&fiblist);
       break;
     }
     case CONNECTION_EVENT_DELETE:
-    case CONNECTION_EVENT_SET_DOWN:
     case CONNECTION_EVENT_UPDATE:
-    case CONNECTION_EVENT_PRIORITY_CHANGED:
       break;
+
+    case CONNECTION_EVENT_SET_UP:
+    case CONNECTION_EVENT_SET_DOWN:
+    {
+        FibEntryList *fiblist = forwarder_GetFibEntries(mapme->forwarder);
+        for (size_t i = 0; i < fibEntryList_Length(fiblist); i++) {
+            FibEntry *fibEntry = (FibEntry *)fibEntryList_Get(fiblist, i);
+            fibEntry_ReconsiderPolicy(fibEntry);
+        }
+        fibEntryList_Destroy(&fiblist);
+        break;
+    }
+
+    case CONNECTION_EVENT_TAGS_CHANGED:
+    case CONNECTION_EVENT_PRIORITY_CHANGED:
+    {
+
+      /* Does the priority change impacts the default route selection; if so,
+       * advertise the prefix on this default route. If there are many default
+       * routes, either v4 v6, or many connections as next hops on this default
+       * route, then send to all.
+       */
+      if (connection_IsLocal(conn_added))
+          return;
+
+      // conn_changed in fact
+      unsigned conn_added_id = connection_GetConnectionId(conn_added);
+      INFO(mapme, "[MAP-Me/priority] Connection %d changed priority/tags to %d", conn_added_id, connection_GetPriority(conn_added));
+
+      /* We need to send a MapMe update on the newly selected connections for
+       * each concerned fibEntry : connection is involved, or no more involved */
+      FibEntryList *fiblist = forwarder_GetFibEntries(mapme->forwarder);
+
+      /* Iterate a first time on the FIB to get the locally served prefixes */
+      for (size_t i = 0; i < fibEntryList_Length(fiblist); i++) {
+        FibEntry *fibEntry = (FibEntry *)fibEntryList_Get(fiblist, i);
+
+        /*
+         * Skip entries that do not correspond to a producer ( / have a locally
+         * served prefix / have no local connection as next hop)
+         */
+        if (!mapme_hasLocalNextHops(mapme, fibEntry))
+            continue;
+
+        /* Apply the policy of the fibEntry over all neighbours */
+        NumberSet * available_nexthops = fibEntry_GetAvailableNextHops(fibEntry, ~0);
+        NumberSet * previous_nexthops = fibEntry_GetPreviousNextHops(fibEntry);
+
+        /* Detect change */
+        if (numberSet_Equals(available_nexthops, previous_nexthops)) {
+            numberSet_Release(&available_nexthops);
+            INFO(mapme, "[MAP-Me/priority] No change in nexthops");
+            continue;
+        }
+        fibEntry_SetPreviousNextHops(fibEntry, available_nexthops);
+
+
+        /* Advertise prefix on all available next hops */
+        if (!TFIB(fibEntry)) /* Create TFIB associated to FIB entry */
+          mapme_CreateTFIB(fibEntry);
+        TFIB(fibEntry)->seq++;
+
+        const Name *name = fibEntry_GetPrefix(fibEntry);
+        char *name_str = name_ToString(name);
+        bool clear_tfib = true;
+        for (size_t j = 0; j < numberSet_Length(available_nexthops); j++) {
+            unsigned nexthop_id = numberSet_GetItem(available_nexthops, j);
+            INFO(mapme, "[MAP-Me/priority] sending IU/IN for name %s on connection %d", name_str,
+                 nexthop_id);
+            mapme_setFacePending(mapme, name, fibEntry, nexthop_id, true, true, clear_tfib, 0);
+            clear_tfib = false;
+        }
+        free(name_str);
+
+        numberSet_Release(&available_nexthops);
+      }
+      INFO(mapme, "[MAP-Me/priority] Done");
+
+      break;
+    }
   }
 }
 
@@ -520,7 +631,7 @@ void mapme_onPolicyUpdate(const MapMe *mapme, const Connection *conn_selected, F
        conn_selected_id);
   free(name_str);
 
-  mapme_setFacePending(mapme, name, fibEntry, conn_selected_id, true, true, 0);
+  mapme_setFacePending(mapme, name, fibEntry, conn_selected_id, true, true, true, 0);
 }
 #endif /* WITH_POLICY */
 
@@ -615,6 +726,19 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
     mapme_CreateTFIB(fibEntry);
   }
 
+  /*
+   * In case of multihoming, we might receive a message about our own prefix, we
+   * should never take it into account, nor send the IU backwards as a sign of
+   * outdated propagation.
+   *
+   * Detection: we receive a message initially sent by ourselves, ie a message
+   * for which the prefix has a local next hop in the FIB.
+   */
+  if (mapme_hasLocalNextHops(mapme, fibEntry)) {
+    INFO(mapme, "[MAP-Me]   - Received original interest... Update complete");
+    return true;
+  }
+
   fibSeq = TFIB(fibEntry)->seq;
   if (seq > fibSeq) {
     INFO(mapme,
@@ -634,7 +758,7 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
         INFO(mapme, "[MAP-Me]   - Re-sending IU to pending connection %d",
              conn_id);
         mapme_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
-                             conn_id, false, false, 0);
+                             conn_id, false, false, false, 0);
       }
       parcIterator_Release(&iterator);
     }
@@ -675,8 +799,8 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
        */
       INFO(mapme, "[MAP-Me]   - Canceled pending timer");
       parcEventTimer_Stop(oldTimer);
-      mapmeTFIB_Remove(TFIB(fibEntry), conn_in_id);
     }
+    mapmeTFIB_Remove(TFIB(fibEntry), conn_in_id);
 
     /* Remove all next hops */
     for (size_t k = 0; k < numberSet_Length(nexthops_old); k++) {
@@ -699,7 +823,7 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
       INFO(mapme, "[MAP-Me]   - Sending IU on current next hop connection %d",
            conn_id);
       mapme_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
-                           conn_id, send, false, 0);
+                           conn_id, send, false, false, 0);
       complete = false;
     }
 
@@ -722,10 +846,12 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
      * producer and that we received back our own IU. In that case, we just
      * need to Ack and ignore it.
      */
+#if 0
     if (mapme_hasLocalNextHops(mapme, fibEntry)) {
       INFO(mapme, "[MAP-Me]   - Received original interest... Update complete");
       return true;
     }
+#endif
 
     INFO(mapme, "[MAP-Me]   - Adding multipath next hop on connection %d",
          conn_in_id);
@@ -743,7 +869,7 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
         "[MAP-Me]   - Update interest %d -> %d sent backwards on connection %d",
         seq, fibSeq, conn_in_id);
     mapme_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
-                         conn_in_id, send, false, 0);
+                         conn_in_id, send, false, false, 0);
   }
 
   return true;
@@ -781,6 +907,14 @@ void mapme_onSpecialInterestAck(const MapMe *mapme, const uint8_t *msgBuffer,
     seq_t fibSeq = TFIB(fibEntry)->seq;
 
     if (seq < fibSeq) {
+
+        /* If we receive an old ack:
+         *  - either the connection is still a next hop and we have to ignore
+         *  the ack until we receive a further update with higher seqno
+         *  - or the connection is no more to be informed and the ack is
+         *  sufficient and we can remove future retransmissions
+         */
+
       INFO(mapme,
            "[MAP-Me]   - Ignored special interest Ack with seq=%u, expected %u",
            seq, fibSeq);

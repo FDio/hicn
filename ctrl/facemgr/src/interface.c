@@ -128,7 +128,7 @@ interface_finalize(interface_t * interface)
 }
 
 int
-interface_on_event(interface_t * interface, const facelet_t * facelet)
+interface_on_event(interface_t * interface, facelet_t * facelet)
 {
     if (!interface->ops->on_event)
         return -1;

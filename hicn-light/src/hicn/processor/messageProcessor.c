@@ -393,21 +393,6 @@ bool messageProcessor_RemovePolicy(MessageProcessor *processor,
   return true;
 }
 
-
-#ifdef WITH_MAPME
-void messageProcessor_onConnectionEvent(const MessageProcessor *processor,
-        const Connection *conn_added, connection_event_t event)
-{
-  FibEntryList *fiblist = forwarder_GetFibEntries(processor->forwarder);
-  for (size_t i = 0; i < fibEntryList_Length(fiblist); i++) {
-    FibEntry *fibEntry = (FibEntry *)fibEntryList_Get(fiblist, i);
-    fibEntry_ReconsiderPolicy(fibEntry);
-  }
-  fibEntryList_Destroy(&fiblist);
-
-}
-#endif /* WITH_MAPME */
-
 #endif /* WITH_POLICY */
 
 void messageProcessor_RemoveConnectionIdFromRoutes(MessageProcessor *processor,
