@@ -51,6 +51,18 @@ DEFINE_VAPI_MSG_IDS_HICN_API_JSON
 DEFINE_VAPI_MSG_IDS_INTERFACE_API_JSON
 DEFINE_VAPI_MSG_IDS_IP_API_JSON
 
+typedef struct {
+  u32 sockets_count;
+  vapi_ctx_t g_vapi_ctx_instance;
+  bool async;
+} vapi_skc_ctx_t;
+
+vapi_skc_ctx_t vapi_skc = {
+  .sockets_count = 0,
+  .g_vapi_ctx_instance = NULL,
+  .async = false,
+};
+
 /*
  * Internal state associated to a pending request
  */
@@ -261,6 +273,12 @@ void hc_sock_free(hc_sock_t *s) {
   if (s->url) free(s->url);
   close(s->fd);
   free(s);
+  
+  vapi_skc.sockets_count--;
+  if (vapi_skc.sockets_count == 0) {
+    vapi_disconnect(vapi_skc.g_vapi_ctx_instance);
+    vapi_skc.g_vapi_ctx_instance = NULL;
+  }
 }
 
 int hc_sock_get_next_seq(hc_sock_t *s) {
@@ -332,20 +350,26 @@ END:
 }
 
 int hc_sock_connect(hc_sock_t *s) {
-  if (s->g_vapi_ctx_instance == NULL) {
-    vapi_error_e rv = vapi_ctx_alloc(&s->g_vapi_ctx_instance);
-    rv = vapi_connect(s->g_vapi_ctx_instance, APP_NAME, NULL,
+  if (vapi_skc.g_vapi_ctx_instance == NULL) {
+    vapi_error_e rv = vapi_ctx_alloc(&vapi_skc.g_vapi_ctx_instance);
+    rv = vapi_connect(vapi_skc.g_vapi_ctx_instance, APP_NAME, NULL,
                       MAX_OUTSTANDING_REQUESTS, RESPONSE_QUEUE_SIZE,
                       s->async ? VAPI_MODE_NONBLOCKING : VAPI_MODE_BLOCKING, true);
+    vapi_skc.async = s->async;
     if (rv != VAPI_OK) {
-      vapi_ctx_free(s->g_vapi_ctx_instance);
+      vapi_ctx_free(vapi_skc.g_vapi_ctx_instance);
       goto ERR_CONNECT;
     }
     printf("[hc_sock_connect] *connected %s ok", APP_NAME);
+  } else if (s->async == vapi_skc.async){
+    s->g_vapi_ctx_instance = vapi_skc.g_vapi_ctx_instance;
+    printf("[hc_sock_connect] *connected %s ok", APP_NAME);
   } else {
-    printf("connection %s keeping", APP_NAME);
+    printf("Unable to create %s socket", s->async ? "non blocking" : "blocking");
+    goto ERR_CONNECT;
   }
 
+  vapi_skc.sockets_count++;
   return 0;
 
 ERR_CONNECT:
