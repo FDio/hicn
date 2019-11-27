@@ -571,11 +571,11 @@ FIB *forwarder_getFib(Forwarder *forwarder) {
 }
 
 void forwarder_onConnectionEvent(Forwarder *forwarder, const Connection *conn, connection_event_t event) {
-#ifdef WITH_POLICY
-    messageProcessor_onConnectionEvent(forwarder->processor, conn, event);
-#else
+//#ifdef WITH_POLICY
+//    messageProcessor_onConnectionEvent(forwarder->processor, conn, event);
+//#else
   mapme_onConnectionEvent(forwarder->mapme, conn, event);
-#endif /* WITH_POLICY */
+//#endif /* WITH_POLICY */
 }
 
 void forwarder_ProcessMapMe(Forwarder *forwarder, const uint8_t *msgBuffer,

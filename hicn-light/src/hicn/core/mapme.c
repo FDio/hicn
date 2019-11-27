@@ -446,7 +446,6 @@ static bool mapme_hasLocalNextHops(const MapMe *mapme,
 void mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, connection_event_t event) {
   switch(event) {
     case CONNECTION_EVENT_CREATE:
-    case CONNECTION_EVENT_SET_UP:
     {
       FibEntryList *fiblist;
 
@@ -486,10 +485,83 @@ void mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, c
       break;
     }
     case CONNECTION_EVENT_DELETE:
-    case CONNECTION_EVENT_SET_DOWN:
     case CONNECTION_EVENT_UPDATE:
-    case CONNECTION_EVENT_PRIORITY_CHANGED:
       break;
+
+    case CONNECTION_EVENT_SET_UP:
+    case CONNECTION_EVENT_SET_DOWN:
+    {
+        FibEntryList *fiblist = forwarder_GetFibEntries(mapme->forwarder);
+        for (size_t i = 0; i < fibEntryList_Length(fiblist); i++) {
+            FibEntry *fibEntry = (FibEntry *)fibEntryList_Get(fiblist, i);
+            fibEntry_ReconsiderPolicy(fibEntry);
+        }
+        fibEntryList_Destroy(&fiblist);
+        break;
+    }
+
+    case CONNECTION_EVENT_PRIORITY_CHANGED:
+    {
+
+      /* Does the priority change impacts the default route selection; if so,
+       * advertise the prefix on this default route. If there are many default
+       * routes, either v4 v6, or many connections as next hops on this default
+       * route, then send to all.
+       */
+      if (connection_IsLocal(conn_added))
+          return;
+
+      // conn_changed in fact
+      unsigned conn_added_id = connection_GetConnectionId(conn_added);
+      INFO(mapme, "[MAP-Me] Connection changed priority %d", conn_added_id);
+
+      /* We need to send a MapMe update on the newly selected connections for
+       * each concerned fibEntry : connection is involved, or no more involved */
+      FibEntryList *fiblist = forwarder_GetFibEntries(mapme->forwarder);
+
+      /* Iterate a first time on the FIB to get the locally served prefixes */
+      for (size_t i = 0; i < fibEntryList_Length(fiblist); i++) {
+        FibEntry *fibEntry = (FibEntry *)fibEntryList_Get(fiblist, i);
+
+        /*
+         * Skip entries that do not correspond to a producer ( / have a locally
+         * served prefix / have no local connection as next hop)
+         */
+        if (!mapme_hasLocalNextHops(mapme, fibEntry))
+            continue;
+
+        /* Apply the policy of the fibEntry over all neighbours */
+        NumberSet * available_nexthops = fibEntry_GetAvailableNextHops(fibEntry, ~0);
+        NumberSet * previous_nexthops = fibEntry_GetPreviousNextHops(fibEntry);
+
+        /* Detect change */
+        if (numberSet_Equals(available_nexthops, previous_nexthops)) {
+            numberSet_Release(&available_nexthops);
+            continue;
+        }
+        fibEntry_SetPreviousNextHops(fibEntry, available_nexthops);
+
+
+        /* Advertise prefix on all available next hops */
+        if (!TFIB(fibEntry)) /* Create TFIB associated to FIB entry */
+          mapme_CreateTFIB(fibEntry);
+        TFIB(fibEntry)->seq++;
+
+        const Name *name = fibEntry_GetPrefix(fibEntry);
+        char *name_str = name_ToString(name);
+        for (size_t j = 0; j < numberSet_Length(available_nexthops); j++) {
+            unsigned nexthop_id = numberSet_GetItem(available_nexthops, j);
+            INFO(mapme, "[MAP-Me] sending IU/IN for name %s on connection %d", name_str,
+                 nexthop_id);
+            mapme_setFacePending(mapme, name, fibEntry, nexthop_id, true, true, 0);
+        }
+        free(name_str);
+
+        numberSet_Release(&available_nexthops);
+      }
+
+      break;
+    }
   }
 }
 
