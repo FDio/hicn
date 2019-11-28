@@ -1,0 +1,9 @@
+Verified+1: fd.io JJB <jobbuilder@projectrotterdam.info>
+Code-Review+2: Jordan Augé <jordan.auge+fdio@cisco.com>
+Verified+1: Jordan Augé <jordan.auge+fdio@cisco.com>
+Code-Review+2: Alberto Compagno <acompagn+fdio@cisco.com>
+Submitted-by: Alberto Compagno <acompagn+fdio@cisco.com>
+Submitted-at: Thu, 28 Nov 2019 12:17:53 +0000
+Reviewed-on: https://gerrit.fd.io/r/c/hicn/+/23658
+Project: hicn
+Branch: refs/heads/master
