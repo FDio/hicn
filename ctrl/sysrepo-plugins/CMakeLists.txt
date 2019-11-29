@@ -25,6 +25,7 @@ include(BuildMacros)
 
 find_package(PkgConfig)
 find_package(Sysrepo)
+find_package_wrapper(Vpp REQUIRED)
 
 if (NOT SRPD_PLUGINS_PATH)
     if (PKG_CONFIG_FOUND)
@@ -37,7 +38,6 @@ if (NOT SRPD_PLUGINS_PATH)
 endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-   find_package_wrapper(VPP REQUIRED)
    find_package_wrapper(HicnPlugin REQUIRED)
    add_subdirectory(hicn-plugin)
 else()
