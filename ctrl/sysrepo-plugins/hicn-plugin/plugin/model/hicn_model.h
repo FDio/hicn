@@ -17,6 +17,7 @@
 #define __IETF_HICN_H__
 
 #include "../hicn_vpp_comm.h"
+#include <vapi/hicn.api.vapi.h>
 
 #define MEM_ALIGN 4096
 #define B32 4
@@ -35,19 +36,11 @@ enum locks_name {lstate, lstrategy, lstrategies, lroute, lfaces};
 #define NSTATE_LEAVES 15
 #define NSTRATEGY_LEAVES 1
 #define NSTRATEGIES_LEAVES 2
-#define NROUTE_LEAVES 2
 #define MAX_FACE_POOL 100
-#define FACES_CHILDREN 9 /*this is the number of children of each leave*/
+#define MAX_ROUTE_POOL 100
 
-
-#define  params_send( msg , resp ) \
-{  \
- if (VAPI_OK != vapi_send(g_vapi_ctx_instance, (msg))) {  \
-   SRP_LOG_DBG_MSG("Sending msg to VPP failed"); \
-   return SR_ERR_OPERATION_FAILED; \
- }   \
- HICN_VPP_VAPI_RECV;   \
-};
+#define FACES_CHILDREN 9 /*this is the number of children of each leave in face except the key*/
+#define ROUTES_CHILDREN  2 /*this is the number of children of each leave in face except the key*/
 
 typedef struct __attribute__ ((__packed__)) {
 
@@ -110,6 +103,14 @@ typedef struct __attribute__ ((__packed__)) {
  uint64_t dtx_bytes;
 } hicn_face_inf_t;
 
+typedef struct __attribute__ ((__packed__)) {
+  u32 route_id;
+  vapi_type_prefix prefix;
+  u32 faceids[5];
+  u8 nfaces;
+  u32 strategy_id;
+} hicn_route_inf_t;
+
 
 struct  hicn_faces_s{
  hicn_face_inf_t face;
@@ -121,34 +122,16 @@ typedef struct  __attribute__ ((__packed__)) {
  struct hicn_faces_s * next;
 } hicn_faces_t;
 
-// typedef struct __attribute__ ((__packed__)) {
-//   int32_t retval;
-//   uint32_t faceid;
-//   uint64_t irx_packets;
-//   uint64_t irx_bytes;
-//   uint64_t itx_packets;
-//   uint64_t itx_bytes;
-//   uint64_t drx_packets;
-//   uint64_t drx_bytes;
-//   uint64_t dtx_packets;
-//   uint64_t dtx_bytes;
-// } hicn_face_stat_t;
+struct hicn_routes_s{
+ hicn_route_inf_t route;
+ struct hicn_routes_s * next;
+};
 
-// typedef struct __attribute__ ((__packed__)) {
 
-//   int32_t retval;
-//   uint32_t faceid;
-//   uint64_t irx_packets;
-//   uint64_t irx_bytes;
-//   uint64_t itx_packets;
-//   uint64_t itx_bytes;
-//   uint64_t drx_packets;
-//   uint64_t drx_bytes;
-//   uint64_t dtx_packets;
-//   uint64_t dtx_bytes;
-
-// } hicn_state_face_t;
-
+typedef struct  __attribute__ ((__packed__)) {
+ uint32_t nroute;
+ struct hicn_routes_s * next;
+} hicn_routes_t;
 
 int hicn_subscribe_events(sr_session_ctx_t *session,
                          sr_subscription_ctx_t **subscription);
