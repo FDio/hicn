@@ -62,7 +62,13 @@ void UdpSocketConnector::send(const uint8_t *packet, std::size_t len,
         });
   } else {
     if (state_ == ConnectorState::CONNECTED) {
-      socket_.send(asio::buffer(packet, len));
+      try {
+        socket_.send(asio::buffer(packet, len));
+      } catch (std::system_error &err) {
+        TRANSPORT_LOGE(
+            "Sending of disconnect message to forwarder failed. Reason: %s",
+            err.what());
+      }
     }
   }
 }
