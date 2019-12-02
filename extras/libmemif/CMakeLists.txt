@@ -26,7 +26,7 @@ endif()
 
 execute_process(
   COMMAND bash -c "if [ ! -d vpp ]; then
-                    git clone https://github.com/FDio/vpp.git -b stable/1908 vpp;
+                    git clone https://github.com/FDio/vpp.git -b stable/1908 --depth 1 vpp;
                    else
                     pushd vpp && git pull && popd;
                    fi"
