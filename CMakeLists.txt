@@ -29,6 +29,8 @@ option(BUILD_CTRL "Build the hicn control tools" ON)
 option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
 option(BUILD_HICNEXTRAPLUGIN "Build the hicn extra plugin" OFF)
 option(BUILD_SYSREPOPLUGIN "Build the sysrepo plugin" OFF)
+option(BUILD_SYSREPOP "Build the sysrepo plugin" OFF)
+option(BUILD_LIBYANG "Build the sysrepo plugin" OFF)
 option(BUILD_CTRL_HICNPLUGIN "Build the hicn control tools for hicn plugin" OFF)
 
 list(APPEND dir_options
@@ -41,6 +43,8 @@ list(APPEND dir_options
   BUILD_CTRL
   BUILD_HICNEXTRAPLUGIN
   BUILD_SYSREPOPLUGIN
+  BUILD_SYSREPO
+  BUILD_LIBYANG
   BUILD_LIBMEMIF
 )
 
@@ -52,8 +56,11 @@ set(BUILD_APPS_DIR apps)
 set(BUILD_CTRL_DIR ctrl)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
 set(BUILD_SYSREPOPLUGIN_DIR ctrl/sysrepo-plugins)
+set(BUILD_SYSREPO_DIR extras/sysrepo)
+set(BUILD_LIBYANG_DIR extras/libyang)
 set(BUILD_HICNEXTRAPLUGIN_DIR extras/hicn-extra-plugin)
 set(BUILD_LIBMEMIF_DIR extras/libmemif)
+
 
 ## Add enabled components
 foreach (opt ${dir_options})
