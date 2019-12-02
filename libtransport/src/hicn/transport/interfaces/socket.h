@@ -78,6 +78,8 @@ class Socket {
 
   virtual void connect() = 0;
 
+  virtual bool isRunning() = 0;
+
  protected:
   virtual ~Socket(){};
 

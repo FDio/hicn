@@ -159,6 +159,11 @@ class ConsumerSocket : public BaseSocket {
   void connect() override;
 
   /**
+   * @brief Check whether consumer socket is active or not.
+   */
+  bool isRunning() override { return transport_protocol_->isRunning(); }
+
+  /**
    * Retrieve a content using the protocol specified in the constructor.
    * This function blocks until the whole content is downloaded.
    * For monitoring the status of the download, the application MUST set the
