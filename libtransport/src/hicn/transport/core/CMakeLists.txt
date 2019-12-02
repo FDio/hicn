@@ -55,17 +55,15 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     list(APPEND HEADER_FILES
       ${CMAKE_CURRENT_SOURCE_DIR}/vpp_forwarder_interface.h
       ${CMAKE_CURRENT_SOURCE_DIR}/memif_connector.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/hicn_binary_api.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/vpp_binary_api.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/memif_binary_api.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/hicn_vapi.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/memif_vapi.h
     )
 
     list(APPEND SOURCE_FILES
       ${CMAKE_CURRENT_SOURCE_DIR}/vpp_forwarder_interface.cc
       ${CMAKE_CURRENT_SOURCE_DIR}/memif_connector.cc
-      ${CMAKE_CURRENT_SOURCE_DIR}/hicn_binary_api.c
-      ${CMAKE_CURRENT_SOURCE_DIR}/vpp_binary_api.c
-      ${CMAKE_CURRENT_SOURCE_DIR}/memif_binary_api.c
+      ${CMAKE_CURRENT_SOURCE_DIR}/hicn_vapi.c
+      ${CMAKE_CURRENT_SOURCE_DIR}/memif_vapi.c
     )
   endif()
 

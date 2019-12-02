@@ -17,7 +17,7 @@
 
 #include <hicn/transport/config.h>
 #include <hicn/transport/core/connector.h>
-#include <hicn/transport/core/hicn_binary_api.h>
+//#include <hicn/transport/core/hicn_vapi.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/epoll_event_reactor.h>
 #include <hicn/transport/utils/fd_deadline_timer.h>
