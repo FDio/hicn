@@ -717,7 +717,7 @@ define hicn_api_register_prod_app
   u32 client_index;
 
   /* Arbitrary context, so client can match reply to request */
-  u64 context;
+  u32 context;
 
   /* Prefix to match */
   vl_api_prefix_t prefix;
@@ -732,7 +732,7 @@ define hicn_api_register_prod_app
 define hicn_api_register_prod_app_reply
 {
   /* From the request */
-  u64 context;
+  u32 context;
 
   /* Return value, zero means all OK */
   i32 retval;
@@ -765,7 +765,7 @@ define hicn_api_register_cons_app
   u32 client_index;
 
   /* Arbitrary context, so client can match reply to request */
-  u64 context;
+  u32 context;
 
   /* swif */
   u32 swif;
@@ -774,7 +774,7 @@ define hicn_api_register_cons_app
 define hicn_api_register_cons_app_reply
 {
   /* From the request */
-  u64 context;
+  u32 context;
 
   /* Return value, zero means all OK */
   i32 retval;

@@ -20,11 +20,11 @@
 
 #ifdef __vpp__
 
-#include <hicn/transport/core/vpp_binary_api.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include <vapi/vapi.h>
 
 #include "stdint.h"
 
@@ -60,26 +60,24 @@ typedef struct {
   uint32_t face_id;
 } hicn_producer_set_route_params;
 
-vpp_plugin_binary_api_t* hicn_binary_api_init(vpp_binary_api_t* api);
-
-int hicn_binary_api_register_prod_app(
-    vpp_plugin_binary_api_t* api, hicn_producer_input_params* input_params,
+int hicn_vapi_register_prod_app(
+    vapi_ctx_t ctx, hicn_producer_input_params* input_params,
     hicn_producer_output_params* output_params);
 
-int hicn_binary_api_register_cons_app(
-    vpp_plugin_binary_api_t* api, hicn_consumer_input_params* input_params,
+int hicn_vapi_register_cons_app(
+    vapi_ctx_t ctx, hicn_consumer_input_params* input_params,
     hicn_consumer_output_params* output_params);
 
-int hicn_binary_api_register_route(
-    vpp_plugin_binary_api_t* api, hicn_producer_set_route_params* input_params);
+int hicn_vapi_register_route(
+    vapi_ctx_t ctx, hicn_producer_set_route_params* input_params);
 
-int hicn_binary_api_face_cons_del(
-    vpp_plugin_binary_api_t *api, hicn_del_face_app_input_params *input_params);
+int hicn_vapi_face_cons_del(
+    vapi_ctx_t ctx, hicn_del_face_app_input_params *input_params);
 
-int hicn_binary_api_face_prod_del(
-    vpp_plugin_binary_api_t *api, hicn_del_face_app_input_params *input_params);
+int hicn_vapi_face_prod_del(
+    vapi_ctx_t ctx, hicn_del_face_app_input_params *input_params);
 
-char* hicn_binary_api_get_error_string(int ret_val);
+char* hicn_vapi_get_error_string(int ret_val);
 
 #ifdef __cplusplus
 }
