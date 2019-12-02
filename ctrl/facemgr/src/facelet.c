@@ -998,7 +998,8 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
     assert(facelet);
 
     /* Header + key attributes (netdevice + family) */
-    rc = snprintf(cur, s + size - cur, "<Facelet %s %s (%s)",
+    rc = snprintf(cur, s + size - cur, "<Facelet [%d] %s %s (%s)",
+            facelet->id,
             facelet_status_str[facelet->status],
             facelet_get_error(facelet) ? "/!\\" : "",
             (facelet->family == AF_INET) ? "AF_INET" :
@@ -1202,6 +1203,15 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
 
     /* Header + key attributes (netdevice + family) */
     rc = snprintf(cur, s + size - cur, "%*s%s", 4 * indent, "", "{\n");
+    if (rc < 0)
+        return rc;
+    cur += rc;
+    if (cur >= s + size)
+        return cur - s;
+
+    /* id */
+    rc = snprintf(cur, s + size - cur, "%*s%s: %d,\n", 4 * (indent+1), "", "\"id\"",
+            facelet->id);
     if (rc < 0)
         return rc;
     cur += rc;
