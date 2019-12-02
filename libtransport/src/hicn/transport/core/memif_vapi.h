@@ -16,7 +16,6 @@
 #pragma once
 
 #include <hicn/transport/config.h>
-#include <hicn/transport/core/vpp_binary_api.h>
 
 #ifdef __vpp__
 
@@ -24,6 +23,7 @@
 extern "C" {
 #endif
 
+#include <vapi/memif.api.vapi.h>
 #include "stdint.h"
 
 typedef struct memif_create_params_s {
@@ -43,16 +43,14 @@ typedef struct memif_output_params_s {
   uint32_t sw_if_index;
 } memif_output_params_t;
 
-vpp_plugin_binary_api_t *memif_binary_api_init(vpp_binary_api_t *api);
-
-int memif_binary_api_get_next_memif_id(vpp_plugin_binary_api_t *api,
+int memif_vapi_get_next_memif_id(vapi_ctx_t ctx,
                                        uint32_t *memif_id);
 
-int memif_binary_api_create_memif(vpp_plugin_binary_api_t *api,
+int memif_vapi_create_memif(vapi_ctx_t ctx,
                                   memif_create_params_t *input_params,
                                   memif_output_params_t *output_params);
 
-int memif_binary_api_delete_memif(vpp_plugin_binary_api_t *api,
+int memif_vapi_delete_memif(vapi_ctx_t ctx,
                                   uint32_t sw_if_index);
 
 #ifdef __cplusplus
