@@ -296,7 +296,7 @@ vapi_error_e call_hicn_api_node_params_set(struct vapi_ctx_s *ctx,
 }
 
 static inline void  state_update(sr_val_t * vals, struct lyd_node **parent, sr_session_ctx_t *session){
- char buf[20]; 
+ char buf[20];
  //struct ly_ctx *ly_ctx = sr_get_context(sr_session_get_connection(session));
  sr_val_set_xpath(&vals[0], "/hicn:hicn-state/states/pkts_processed");
  vals[0].type = SR_UINT64_T;
@@ -420,12 +420,12 @@ static inline int  routes_update(sr_val_t * vals, uint32_t nleaves, struct lyd_n
    memset(buf, 0x00, 20);
    if (temp->route.prefix.address.af==ADDRESS_IP4){
      struct sockaddr_in sa;
-     memcpy(&sa.sin_addr.s_addr,temp->route.prefix.address.un.ip4,INET_ADDRSTRLEN);
+     memcpy(&sa.sin_addr.s_addr, temp->route.prefix.address.un.ip4, IPV4_ADDR_LEN);
      inet_ntop(AF_INET, &(sa.sin_addr), buf, INET_ADDRSTRLEN);
      vals[route].data.string_val =  buf;
    }else{
      struct sockaddr_in6 sa;
-     memcpy(&sa.sin6_addr,temp->route.prefix.address.un.ip6,INET6_ADDRSTRLEN);
+     memcpy(&sa.sin6_addr,temp->route.prefix.address.un.ip6, IPV6_ADDR_LEN);
      inet_ntop(AF_INET6, &(sa.sin6_addr), buf, INET6_ADDRSTRLEN);
      vals[route].data.string_val =  buf;
    }
@@ -443,7 +443,7 @@ static inline int  routes_update(sr_val_t * vals, uint32_t nleaves, struct lyd_n
    memset(buf, 0x00, 20);
    sprintf( buf, "%d", temp->route.strategy_id);
    lyd_new_path(*parent, NULL, vals[route].xpath, buf, 0, 0);
-  
+
    route++;
 
    temp=temp->next;
