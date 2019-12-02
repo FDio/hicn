@@ -17,6 +17,10 @@
 
 #include <hicn/transport/config.h>
 
+extern "C" {
+#include <hicn/ctrl.h>
+}
+
 #ifdef __vpp__
 
 #include <hicn/transport/core/forwarder_interface.h>
@@ -63,15 +67,13 @@ class VPPForwarderInterface
 
   void producerConnection();
 
-  static vpp_binary_api_t *api_;
-  static vpp_plugin_binary_api_t *memif_api_;
-  static vpp_plugin_binary_api_t *hicn_api_;
   uint32_t memif_id_;
   uint32_t sw_if_index_;
   //A consumer socket in vpp has two faces (ipv4 and ipv6)
   uint32_t face_id1_;
   uint32_t face_id2_;
   bool is_consumer_;
+  hc_sock_t *sock_;
   static std::mutex global_lock_;
 };
 
