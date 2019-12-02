@@ -356,6 +356,9 @@ void RTCTransportProtocol::computeMaxWindow(uint32_t productionRate,
   } else {
     maxCWin_ = min(maxWaintingInterest, maxCWin_);
   }
+
+  if(maxCWin_ < HICN_MIN_CWIN)
+    maxCWin_ = HICN_MIN_CWIN;
 }
 
 void RTCTransportProtocol::updateWindow() {
@@ -368,6 +371,9 @@ void RTCTransportProtocol::updateWindow() {
     currentCWin_ =
         max((uint32_t)(currentCWin_ * HICN_WIN_DECREASE_FACTOR), HICN_MIN_CWIN);
   }
+
+  if(currentCWin_ < HICN_MIN_CWIN)
+    currentCWin_ = HICN_MIN_CWIN;
 }
 
 void RTCTransportProtocol::decreaseWindow() {
