@@ -371,9 +371,6 @@ void RTCTransportProtocol::updateWindow() {
     currentCWin_ =
         max((uint32_t)(currentCWin_ * HICN_WIN_DECREASE_FACTOR), HICN_MIN_CWIN);
   }
-
-  if(currentCWin_ < HICN_MIN_CWIN)
-    currentCWin_ = HICN_MIN_CWIN;
 }
 
 void RTCTransportProtocol::decreaseWindow() {
