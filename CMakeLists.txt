@@ -31,7 +31,6 @@ option(BUILD_HICNEXTRAPLUGIN "Build the hicn extra plugin" OFF)
 option(BUILD_SYSREPOPLUGIN "Build the sysrepo plugin" OFF)
 option(BUILD_SYSREPOP "Build the sysrepo plugin" OFF)
 option(BUILD_LIBYANG "Build the sysrepo plugin" OFF)
-option(BUILD_CTRL_HICNPLUGIN "Build the hicn control tools for hicn plugin" OFF)
 
 list(APPEND dir_options
   BUILD_LIBHICN

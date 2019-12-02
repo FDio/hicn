@@ -17,8 +17,8 @@
 
 #ifdef __vpp__
 
-#include <hicn/transport/core/hicn_binary_api.h>
-#include <hicn/transport/core/memif_binary_api.h>
+#include <hicn/transport/core/hicn_vapi.h>
+#include <hicn/transport/core/memif_vapi.h>
 #include <hicn/transport/core/prefix.h>
 #include <hicn/transport/core/vpp_forwarder_interface.h>
 
@@ -37,9 +37,6 @@ namespace transport {
 
 namespace core {
 
-vpp_binary_api_t *VPPForwarderInterface::api_ = nullptr;
-vpp_plugin_binary_api_t *VPPForwarderInterface::memif_api_ = nullptr;
-vpp_plugin_binary_api_t *VPPForwarderInterface::hicn_api_ = nullptr;
 std::mutex VPPForwarderInterface::global_lock_;
 
 VPPForwarderInterface::VPPForwarderInterface(MemifConnector &connector)
@@ -47,7 +44,9 @@ VPPForwarderInterface::VPPForwarderInterface(MemifConnector &connector)
       sw_if_index_(~0),
       face_id1_(~0),
       face_id2_(~0),
-      is_consumer_(false) {}
+      is_consumer_(false){
+        sock_ = hc_sock_create();
+      }
 
 VPPForwarderInterface::~VPPForwarderInterface() {}
 
@@ -57,8 +56,8 @@ VPPForwarderInterface::~VPPForwarderInterface() {}
 uint32_t VPPForwarderInterface::getMemifConfiguration() {
   memif_create_params_t input_params = {0};
 
-  int ret = memif_binary_api_get_next_memif_id(
-      VPPForwarderInterface::memif_api_, &memif_id_);
+  int ret = memif_vapi_get_next_memif_id(
+      *(vapi_ctx_t *)VPPForwarderInterface::sock_, &memif_id_);
 
   if (ret < 0) {
     throw errors::RuntimeException(
@@ -75,7 +74,7 @@ uint32_t VPPForwarderInterface::getMemifConfiguration() {
 
   memif_output_params_t output_params = {0};
 
-  ret = memif_binary_api_create_memif(VPPForwarderInterface::memif_api_,
+  ret = memif_vapi_create_memif(*(vapi_ctx_t *)VPPForwarderInterface::sock_,
                                       &input_params, &output_params);
 
   if (ret < 0) {
@@ -96,11 +95,13 @@ void VPPForwarderInterface::consumerConnection() {
   output.src6 = &ip6_address;
   input.swif = sw_if_index_;
 
-  int ret = hicn_binary_api_register_cons_app(VPPForwarderInterface::hicn_api_,
+
+
+  int ret = hicn_vapi_register_cons_app(*(vapi_ctx_t *)VPPForwarderInterface::sock_,
                                               &input, &output);
 
   if (ret < 0) {
-    throw errors::RuntimeException(hicn_binary_api_get_error_string(ret));
+    throw errors::RuntimeException(hicn_vapi_get_error_string(ret));
   }
 
   face_id1_ = output.face_id1;
@@ -119,18 +120,7 @@ void VPPForwarderInterface::producerConnection() {
 void VPPForwarderInterface::connect(bool is_consumer) {
   std::lock_guard<std::mutex> connection_lock(global_lock_);
 
-  srand(time(nullptr));
-  int secret = rand() % (1 << 10);
-  std::stringstream app_name;
-  app_name << "Libtransport_" << secret;
-
-  if (!VPPForwarderInterface::memif_api_) {
-    VPPForwarderInterface::api_ = vpp_binary_api_init(app_name.str().c_str());
-    VPPForwarderInterface::memif_api_ =
-      memif_binary_api_init(VPPForwarderInterface::api_);
-    VPPForwarderInterface::hicn_api_ =
-      hicn_binary_api_init(VPPForwarderInterface::api_);
-  }
+  hc_sock_connect(sock_);
 
   sw_if_index_ = getMemifConfiguration();
 
@@ -167,11 +157,11 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
     input.prefix->len = addr.len;
     input.cs_reserved = content_store_reserved_;
 
-    int ret = hicn_binary_api_register_prod_app(
-        VPPForwarderInterface::hicn_api_, &input, &output);
+    int ret = hicn_vapi_register_prod_app(
+        *(vapi_ctx_t *)VPPForwarderInterface::sock_, &input, &output);
 
     if (ret < 0) {
-      throw errors::RuntimeException(hicn_binary_api_get_error_string(ret));
+      throw errors::RuntimeException(hicn_vapi_get_error_string(ret));
     }
 
     inet6_address_ = *output.prod_addr;
@@ -185,42 +175,42 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
     params.prefix->len = addr.len;
     params.face_id = face_id1_;
 
-    int ret = hicn_binary_api_register_route(VPPForwarderInterface::hicn_api_,
+    int ret = hicn_vapi_register_route(*(vapi_ctx_t *)VPPForwarderInterface::sock_,
                                              &params);
 
     if (ret < 0) {
-      throw errors::RuntimeException(hicn_binary_api_get_error_string(ret));
+      throw errors::RuntimeException(hicn_vapi_get_error_string(ret));
     }
   }
 }
 
 void VPPForwarderInterface::closeConnection() {
-  if (VPPForwarderInterface::api_) {
+  if (VPPForwarderInterface::sock_) {
     connector_.close();
 
     if (is_consumer_) {
       hicn_del_face_app_input_params params;
       params.face_id = face_id1_;
-      hicn_binary_api_face_cons_del(VPPForwarderInterface::hicn_api_, &params);
+      hicn_vapi_face_cons_del(*(vapi_ctx_t *)VPPForwarderInterface::sock_, &params);
       params.face_id = face_id2_;
-      hicn_binary_api_face_cons_del(VPPForwarderInterface::hicn_api_, &params);
+      hicn_vapi_face_cons_del(*(vapi_ctx_t *)VPPForwarderInterface::sock_, &params);
     }
     else {
       hicn_del_face_app_input_params params;
       params.face_id = face_id1_;
-      hicn_binary_api_face_prod_del(VPPForwarderInterface::hicn_api_, &params);
+      hicn_vapi_face_prod_del(*(vapi_ctx_t *)VPPForwarderInterface::sock_, &params);
     }
 
     if (sw_if_index_ != uint32_t(~0)) {
-      int ret = memif_binary_api_delete_memif(VPPForwarderInterface::memif_api_,
+      int ret = memif_vapi_delete_memif(*(vapi_ctx_t *)VPPForwarderInterface::sock_,
                                               sw_if_index_);
       if (ret < 0) {
         TRANSPORT_LOGE("Error deleting memif with sw idx %u.", sw_if_index_);
       }
     }
 
-    vpp_binary_api_destroy(VPPForwarderInterface::api_);
-    VPPForwarderInterface::api_ = nullptr;
+    hc_sock_free(sock_);
+    VPPForwarderInterface::sock_ = nullptr;
   }
 }
 

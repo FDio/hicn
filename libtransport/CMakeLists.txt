@@ -72,12 +72,14 @@ find_package_wrapper(Asio REQUIRED)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   set(LIBTRANSPORT hicntransport)
   if (__vpp__)
-    find_package_wrapper(HicnPlugin REQUIRED)
+    find_package(HicnPlugin REQUIRED)
     find_package(Libmemif REQUIRED)
+    find_package(Libhicnctrl REQUIRED)
     set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
 
     list(APPEND LIBRARIES
       ${LIBMEMIF_LIBRARIES}
+      ${LIBHICNCTRL_SHARED}
     )
   endif()
 
@@ -100,6 +102,7 @@ else()
     if (__vpp__)
       list(APPEND DEPENDENCIES
         hicn_plugin
+        ${LIBHICNCTRL_SHARED}
       )
 
       if (NOT Libmemif_FOUND)
@@ -108,6 +111,7 @@ else()
         )
       endif()
 
+      set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_SHARED})
       list(APPEND LIBRARIES
         ${LIBMEMIF_LIBRARIES}
       )
@@ -143,6 +147,7 @@ list(APPEND LIBRARIES
   ${ANDROID_LIBRARIES}
   ${OPENSSL_LIBRARIES}
   ${WINDOWS_LIBRARIES}
+  ${LIBHICNCTRL_LIBRARIES}
 )
 
 # Include dirs -- Order does matter!
