@@ -97,12 +97,22 @@ setup_fdio_repo() {
     # Install dependencies
     if [ ${DISTRIB_ID} == "ubuntu" ]; then
         echo ${BUILD_TOOLS_UBUNTU} ${DEPS_UBUNTU} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
-        curl -OL https://github.com/muscariello/build-scripts/raw/master/deb/libyang_0.16-r2_amd64.deb
-        curl -OL https://github.com/muscariello/build-scripts/raw/master/deb/sysrepo_0.7.7_amd64.deb
         sudo ${apt_get} clean && sudo ${apt_get} update
-        sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends ./libyang_0.16-r2_amd64.deb ./sysrepo_0.7.7_amd64.deb
+        sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends libpcre3-dev
     elif [ ${DISTRIB_ID} == "centos" ]; then
-        echo  "not supported yet"
+        # echo ${BUILD_TOOLS_GROUP_CENTOS} | xargs sudo yum groupinstall -y --nogpgcheck
+        echo ${DEPS_CENTOS} | xargs sudo yum install -y --nogpgcheck
+        sudo yum install devtoolset-7 pcre-devel
+
+        c++ --version
+
+        CXX_COMPILER="/opt/rh/devtoolset-7/root/usr/bin/c++"
+        CC_COMPILER="/opt/rh/devtoolset-7/root/usr/bin/cc"
+
+        ${CXX_COMPILER} --version
+        ${CC_COMPILER} --version
+
+        export CC=${CC_COMPILER} CXX=${CXX_COMPILER}
     fi
 
     # do nothing but check compiler version
@@ -122,9 +132,16 @@ build_package() {
     mkdir -p build && pushd build
 
     rm -rf *
-#    cp ${SCRIPT_PATH}/../cmake/Modules/Packager.cmake ${SCRIPT_PATH}/../ctrl/sysrepo-plugin/cmake/
-    cmake -DCMAKE_INSTALL_PREFIX=/usr ${SCRIPT_PATH}/../ctrl/sysrepo-plugins/ \
-          -DSR_PLUGINS_DIR=/usr/lib/x86_64-linux-gnu/sysrepo/plugins
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_LIBHICN=OFF -DBUILD_LIBYANG=ON ${SCRIPT_PATH}
+    make install
+    make package
+
+    find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
+    rm *Unspecified* || true
+
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_HICNPLUGIN=ON -DBUILD_LIBMEMIF=OFF \
+          -DBUILD_SYSREPOPLUGIN=ON  -DBUILD_SYSREPO=ON -DBUILD_LIBTRANSPORT=OFF \
+          -DBUILD_CTRL=OFF -DBUILD_UTILS=OFF ${SCRIPT_PATH}
     make package
 
     find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
