@@ -1,0 +1,90 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 19b7eb96..6567851f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,5 +1,11 @@
+ cmake_minimum_required(VERSION 2.8.12)
+
++set(CMAKE_MODULE_PATH
++  ${CMAKE_MODULE_PATH}
++  "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules"
++)
++
++
+ # force out-of-source build
+ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
+     message(FATAL_ERROR "In-source build is not allowed. Please make a standalone build directory and run CMake from there. You may need to remove CMakeCache.txt.")
+@@ -306,14 +312,14 @@ find_package(PCRE REQUIRED)
+ include_directories(${PCRE_INCLUDE_DIRS})
+ target_link_libraries(yang ${PCRE_LIBRARIES})
+
+-install(TARGETS yang DESTINATION ${CMAKE_INSTALL_LIBDIR})
+-install(FILES ${headers} ${PROJECT_BINARY_DIR}/src/libyang.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libyang)
++install(TARGETS yang DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT libyang)
++install(FILES ${headers} ${PROJECT_BINARY_DIR}/src/libyang.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libyang COMPONENT libyang)
+
+ find_package(PkgConfig)
+ if(PKG_CONFIG_FOUND)
+     # generate and install pkg-config file
+     configure_file("libyang.pc.in" "libyang.pc" @ONLY)
+-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libyang.pc" DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
++    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libyang.pc" DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig" COMPONENT libyang)
+     # check that pkg-config includes the used path
+     execute_process(COMMAND ${PKG_CONFIG_EXECUTABLE} --variable pc_path pkg-config RESULT_VARIABLE RETURN OUTPUT_VARIABLE PC_PATH ERROR_QUIET)
+     if(RETURN EQUAL 0)
+@@ -399,14 +405,14 @@ configure_file(${PROJECT_SOURCE_DIR}/src/plugin_config.h.in ${PROJECT_BINARY_DIR
+ # yanglint
+ add_executable(yanglint ${lintsrc})
+ target_link_libraries(yanglint yang)
+-install(TARGETS yanglint DESTINATION ${CMAKE_INSTALL_BINDIR})
+-install(FILES ${PROJECT_SOURCE_DIR}/tools/lint/yanglint.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
++install(TARGETS yanglint DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT libyang)
++install(FILES ${PROJECT_SOURCE_DIR}/tools/lint/yanglint.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 COMPONENT libyang)
+
+ #yangre
+ add_executable(yangre ${resrc})
+ target_link_libraries(yangre yang)
+-install(TARGETS yangre DESTINATION ${CMAKE_INSTALL_BINDIR})
+-install(FILES ${PROJECT_SOURCE_DIR}/tools/re/yangre.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
++install(TARGETS yangre DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT libyang)
++install(FILES ${PROJECT_SOURCE_DIR}/tools/re/yangre.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 COMPONENT libyang)
+
+ # yang2yin
+ add_executable(yang2yin ${yang2yinsrc})
+@@ -435,3 +441,10 @@ endif(ENABLE_BUILD_FUZZ_TARGETS)
+ if(GEN_LANGUAGE_BINDINGS AND GEN_CPP_BINDINGS)
+     add_subdirectory(swig)
+ endif()
++
++
++include(Packaging)
++if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
++    include(Packager)
++    make_packages()
++endif()
+diff --git a/src/extensions/CMakeLists.txt b/src/extensions/CMakeLists.txt
+index e2c18b5e..48885302 100644
+--- a/src/extensions/CMakeLists.txt
++++ b/src/extensions/CMakeLists.txt
+@@ -2,7 +2,7 @@ macro(EXTENSION_PLUGIN PLUGIN_NAME SRCS)
+     add_library(${PLUGIN_NAME} SHARED ${SRCS})
+     set_target_properties(${PLUGIN_NAME} PROPERTIES PREFIX "")
+     target_link_libraries(${PLUGIN_NAME} yang)
+-    install(TARGETS ${PLUGIN_NAME} DESTINATION ${EXTENSIONS_PLUGINS_DIR_MACRO})
++    install(TARGETS ${PLUGIN_NAME} DESTINATION ${EXTENSIONS_PLUGINS_DIR_MACRO} COMPONENT libyang)
+ endmacro(EXTENSION_PLUGIN)
+
+ foreach(EXTENSION ${EXTENSIONS_LIST})
+diff --git a/src/user_types/CMakeLists.txt b/src/user_types/CMakeLists.txt
+index 74aae322..e5f67bd7 100644
+--- a/src/user_types/CMakeLists.txt
++++ b/src/user_types/CMakeLists.txt
+@@ -2,7 +2,7 @@ macro(USER_TYPE_PLUGIN PLUGIN_NAME SRCS)
+     add_library(${PLUGIN_NAME} SHARED ${SRCS})
+     set_target_properties(${PLUGIN_NAME} PROPERTIES PREFIX "")
+     target_link_libraries(${PLUGIN_NAME} yang)
+-    install(TARGETS ${PLUGIN_NAME} DESTINATION ${USER_TYPES_PLUGINS_DIR_MACRO})
++    install(TARGETS ${PLUGIN_NAME} DESTINATION ${USER_TYPES_PLUGINS_DIR_MACRO} COMPONENT libyang)
+ endmacro(USER_TYPE_PLUGIN)
+
+ foreach(USER_TYPE ${USER_TYPE_LIST})
