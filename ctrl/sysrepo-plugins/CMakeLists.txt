@@ -23,9 +23,14 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Mo
 include(GNUInstallDirs)
 include(BuildMacros)
 
+<<<<<<< HEAD
 find_package(PkgConfig)
 find_package(Sysrepo)
 find_package_wrapper(Vpp REQUIRED)
+=======
+find_package(PkgConfig REQUIRED)
+find_package(Sysrepo REQUIRED)
+>>>>>>> a366bcf... to fix HICN-421 by adding cpack to libyang and sysrepo
 
 if (NOT SRPD_PLUGINS_PATH)
     if (PKG_CONFIG_FOUND)
@@ -38,7 +43,13 @@ if (NOT SRPD_PLUGINS_PATH)
 endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+<<<<<<< HEAD
    find_package_wrapper(HicnPlugin REQUIRED)
+=======
+   find_package(VPP REQUIRED)
+   find_package(HicnPlugin REQUIRED)
+   find_package(Libhicn REQUIRED)
+>>>>>>> a366bcf... to fix HICN-421 by adding cpack to libyang and sysrepo
    add_subdirectory(hicn-plugin)
 else()
     if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
@@ -49,4 +60,9 @@ else()
 endif()
 
 # add subdirectories
+
 include(Packaging)
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    include(Packager)
+    make_packages()
+endif()
