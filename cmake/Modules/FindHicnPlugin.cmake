@@ -30,6 +30,6 @@ find_path(HICNPLUGIN_INCLUDE_DIR vapi/hicn.api.vapi.h
 set(HICNPLUGIN_INCLUDE_DIRS ${HICNPLUGIN_INCLUDE_DIR} ${HICNPLUGIN_INCLUDE_DIR}/vpp_plugins)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(HicnPlugin DEFAULT_MSG HICNPLUGIN_INCLUDE_DIRS)
+find_package_handle_standard_args(HicnPlugin DEFAULT_MSG HICNPLUGIN_INCLUDE_DIR)
 
 mark_as_advanced(HICNPLUGIN_INCLUDE_DIR)
