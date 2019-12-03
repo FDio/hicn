@@ -94,6 +94,7 @@ if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   endif()
 
   set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
+  set(LIBHICNCTRL ${LIBHICNCTRL}-memif)
 endif()
 
 ## Libraries targets

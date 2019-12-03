@@ -25,22 +25,45 @@ set(${LIBHICNCTRL_COMPONENT}-dev_DESCRIPTION
   CACHE STRING "Description for deb/rpm package."
 )
 
-set(${LIBHICNCTRL_COMPONENT}_DEB_DEPENDENCIES
-  ""
-  CACHE STRING "Dependencies for deb/rpm package."
-)
+if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+  set(${LIBHICNCTRL_COMPONENT}_DEB_DEPENDENCIES
+    "hicn-plugin (>= stable_version-release), hicn-plugin (<< next_version-release)"
+    CACHE STRING "Dependencies for deb/rpm package."
+  )
 
-set(${LIBHICNCTRL_COMPONENT}-dev_DEB_DEPENDENCIES
-  "${LIBHICNCTRL_COMPONENT} (>= stable_version)"
-  CACHE STRING "Dependencies for deb/rpm package."
-)
+  set(${LIBHICNCTRL_COMPONENT}-dev_DEB_DEPENDENCIES
+    "${LIBHICNCTRL_COMPONENT} (>= stable_version), hicn-plugin-dev (>= stable_version-release), hicn-plugin-dev (<< next_version-release)"
+    CACHE STRING "Dependencies for deb/rpm package."
+  )
 
-set(${LIBHICNCTRL_COMPONENT}_RPM_DEPENDENCIES
-  ""
-  CACHE STRING "Dependencies for deb/rpm package."
-)
+  set(${LIBHICNCTRL_COMPONENT}_RPM_DEPENDENCIES
+    "hicn-plugin >= stable_version-release, hicn-plugin < next_version-release"
+    CACHE STRING "Dependencies for deb/rpm package."
+  )
 
-set(${LIBHICNCTRL_COMPONENT}-dev_RPM_DEPENDENCIES
-  "${LIBHICNCTRL_COMPONENT} >= stable_version"
-  CACHE STRING "Dependencies for deb/rpm package."
+  set(${LIBHICNCTRL_COMPONENT}-dev_RPM_DEPENDENCIES
+    "${LIBHICNCTRL_COMPONENT} >= stable_version, hicn-plugin-dev >= stable_version-release, hicn-plugin-dev < next_version-release"
+    CACHE STRING "Dependencies for deb/rpm package."
+  )
+
+else ()
+  set(${LIBHICNCTRL_COMPONENT}_DEB_DEPENDENCIES
+    ""
+    CACHE STRING "Dependencies for deb/rpm package."
+  )
+
+  set(${LIBHICNCTRL_COMPONENT}-dev_DEB_DEPENDENCIES
+    "${LIBHICNCTRL_COMPONENT} (>= stable_version)"
+    CACHE STRING "Dependencies for deb/rpm package."
+  )
+
+  set(${LIBHICNCTRL_COMPONENT}_RPM_DEPENDENCIES
+    ""
+    CACHE STRING "Dependencies for deb/rpm package."
+  )
+
+  set(${LIBHICNCTRL_COMPONENT}-dev_RPM_DEPENDENCIES
+    "${LIBHICNCTRL_COMPONENT} >= stable_version"
+    CACHE STRING "Dependencies for deb/rpm package."
 )
+endif()

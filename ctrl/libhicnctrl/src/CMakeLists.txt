@@ -30,7 +30,7 @@ set(SOURCE_FILES
     route.c
 )
 
-if(BUILD_CTRL_HICNPLUGIN)
+if(BUILD_HICNPLUGIN)
     set(SOURCE_FILES
         ${SOURCE_FILES}
         hicn_plugin_api.c

@@ -34,17 +34,25 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_MACOSX_RPATH ON)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-
-  if (BUILD_CTRL_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-    find_package_wrapper(HicnPlugin REQUIRED)
-  else ()
-    find_package_wrapper(Libhicn REQUIRED)
-  endif()
-
   set(HICNCTRL hicnctrl)
   set(LIBHICNCTRL hicnctrl)
+  if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    set(LIBHICNCTRL ${LIBHICNCTRL}-plugin)
+    find_package_wrapper(HicnPlugin REQUIRED)
+    list(APPEND HICN_LIBRARIES ${HICNPLUGIN_LIBRARIES})
+    set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
+  endif()
+
+  find_package_wrapper(Libhicn REQUIRED)
+  list(APPEND HICN_LIBRARIES ${LIBHICN_SHARED})
+  
+
   set(LIBHICNCTRL_SHARED ${LIBHICNCTRL}.shared)
   set(LIBHICNCTRL_STATIC ${LIBHICNCTRL}.static)
+
+  set(HICN_INCLUDE_DIRS
+      ${HICN_INCLUDE_DIRS}
+      ${HICNPLUGIN_INCLUDE_DIRS})
 
 else()
   if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
@@ -52,7 +60,7 @@ else()
     list(APPEND DEPENDENCIES
       ${LIBHICN_STATIC}
     )
-  elseif (BUILD_CTRL_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+  elseif (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     set(HICN_INCLUDE_DIRS
         ${HICN_INCLUDE_DIRS}
         ${HICNPLUGIN_INCLUDE_DIRS})

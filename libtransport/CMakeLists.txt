@@ -70,9 +70,11 @@ find_package_wrapper(Libparc REQUIRED)
 find_package_wrapper(Asio REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  set(LIBTRANSPORT hicntransport)
   if (__vpp__)
     find_package_wrapper(HicnPlugin REQUIRED)
     find_package(Libmemif REQUIRED)
+    set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
 
     list(APPEND LIBRARIES
       ${LIBMEMIF_LIBRARIES}
@@ -81,7 +83,6 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
 
   find_package_wrapper(Libhicn REQUIRED)
 
-  set(LIBTRANSPORT hicntransport)
   set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared)
   set(LIBTRANSPORT_STATIC ${LIBTRANSPORT}.static)
 else()
