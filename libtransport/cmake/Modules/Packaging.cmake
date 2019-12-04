@@ -42,12 +42,12 @@ if ((BUILD_MEMIF_CONNECTOR OR BUILD_HICNPLUGIN) AND "${CMAKE_SYSTEM_NAME}" STREQ
   )
 
   set(lib${LIBTRANSPORT}-dev_DEB_DEPENDENCIES
-    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), libhicn-dev (>= stable_version), libmemif-dev (>= stable_version), libparc-dev (>= 1.0), vpp-dev (>= stable_version-release), vpp-dev (<< next_version-release)"
+    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), libhicn-dev (>= stable_version), libmemif-dev (>= stable_version), libparc-dev (>= 1.0), vpp-dev (>= stable_version-release), vpp-dev (<< next_version-release), hicn-plugin-dev (>= stable_version-release), hicn-plugin-dev (<< next_version-release)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}-dev_RPM_DEPENDENCIES
-    "lib${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libmemif-devel >= stable_version, libparc-devel >= 1.0, vpp-devel >= stable_version-release, vpp-devel < next_version-release"
+    "lib${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libmemif-devel >= stable_version, libparc-devel >= 1.0, vpp-devel >= stable_version-release, vpp-devel < next_version-release, hicn-plugin-dev >= stable_version-release, hicn-plugin-dev < next_version-release"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 

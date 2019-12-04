@@ -360,6 +360,7 @@ int hc_sock_connect(hc_sock_t *s) {
       vapi_ctx_free(vapi_skc.g_vapi_ctx_instance);
       goto ERR_CONNECT;
     }
+    s->g_vapi_ctx_instance = vapi_skc.g_vapi_ctx_instance;
     printf("[hc_sock_connect] *connected %s ok", APP_NAME);
   } else if (s->async == vapi_skc.async){
     s->g_vapi_ctx_instance = vapi_skc.g_vapi_ctx_instance;

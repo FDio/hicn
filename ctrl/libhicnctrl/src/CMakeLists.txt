@@ -30,7 +30,7 @@ set(SOURCE_FILES
     route.c
 )
 
-if(BUILD_CTRL_HICNPLUGIN)
+if(BUILD_HICNPLUGIN)
     set(SOURCE_FILES
         ${SOURCE_FILES}
         hicn_plugin_api.c
@@ -53,7 +53,7 @@ set(INCLUDE_DIRS
     ${HICN_INCLUDE_DIRS}
 )
 
-# Android requires static libraries 
+# Android requires static libraries
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(LIBRARIES ${LIBRARIES} ${LIBHICN_STATIC})
     set(LINK_TYPE STATIC)
