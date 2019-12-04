@@ -300,7 +300,7 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
   updateCCState();
   updateWindow();
 
-  if(queuingDelay_ > 100.0){
+  if(queuingDelay_ > 25.0){
     //this indicates that the client will go soon out of synch,
     //switch to synch mode
     if (currentState_ == HICN_RTC_NORMAL_STATE) {
@@ -563,7 +563,7 @@ void RTCTransportProtocol::sentinelTimer(){
       if((currentState_ == HICN_RTC_NORMAL_STATE) &&
           (inflightInterestsCount_ >= currentCWin_) &&
           ((now - lastEvent_) > max_waiting_time) &&
-          (lossRate_ > 10.0)){
+          (lossRate_ >= 0.05)){
 
         uint64_t RTT =  pathTable_[producerPathLabels_[1]]->getMinRtt();
 
