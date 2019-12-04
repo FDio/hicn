@@ -37,7 +37,7 @@ if (NOT SRPD_PLUGINS_PATH)
 endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-   find_package(VPP REQUIRED)
+   find_package(Vpp REQUIRED)
    find_package(HicnPlugin REQUIRED)
    find_package(Libhicn REQUIRED)
    add_subdirectory(hicn-plugin)
