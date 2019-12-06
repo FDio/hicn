@@ -26,30 +26,34 @@ include(BuildMacros)
 find_package(PkgConfig REQUIRED)
 find_package(Sysrepo REQUIRED)
 
-if (NOT SRPD_PLUGINS_PATH)
-    if (PKG_CONFIG_FOUND)
-        execute_process(COMMAND ${PKG_CONFIG_EXECUTABLE} "--variable=SRPD_PLUGINS_PATH" "libsysrepo" OUTPUT_VARIABLE SRPD_PLUGINS_PATH)
-        string(STRIP ${SRPD_PLUGINS_PATH} SRPD_PLUGINS_PATH)
-    endif()
+if (NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+  message(FATAL_ERROR "Sysrepo plugin supported only on Linux systems")
 endif()
+
 if (NOT SRPD_PLUGINS_PATH)
-    message(FATAL_ERROR "Cannot get sysrepo plugins directory due to missing pkg-config, set SRPD_PLUGINS_PATH manually.")
+  if (PKG_CONFIG_FOUND)
+    execute_process(COMMAND ${PKG_CONFIG_EXECUTABLE} "--variable=SRPD_PLUGINS_PATH" "libsysrepo" OUTPUT_VARIABLE SRPD_PLUGINS_PATH)
+    string(STRIP ${SRPD_PLUGINS_PATH} SRPD_PLUGINS_PATH)
+  endif()
+endif()
+
+if (NOT SRPD_PLUGINS_PATH)
+  message(FATAL_ERROR "Cannot get sysrepo plugins directory due to missing pkg-config, set SRPD_PLUGINS_PATH manually.")
 endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-   find_package(Vpp REQUIRED)
-   find_package(HicnPlugin REQUIRED)
-   find_package(Libhicn REQUIRED)
-   add_subdirectory(hicn-plugin)
+  find_package(Vpp REQUIRED)
+  find_package(HicnPlugin REQUIRED)
+  find_package(Libhicn REQUIRED)
 else()
-    if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-        list(APPEND DEPENDENCIES
-            hicn_plugin)
-	add_subdirectory(hicn-plugin)
-    endif ()
+  list(APPEND DEPENDENCIES
+    ${LIBHICN_STATIC}
+    ${LIBHICN_SHARED}
+    hicn_plugin
+  )
 endif()
 
-# add subdirectories
+add_subdirectory(hicn-plugin)
 
 include(Packaging)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
