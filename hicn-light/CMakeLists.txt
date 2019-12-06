@@ -52,11 +52,12 @@ include(WindowsMacros)
 
 find_package_wrapper(Libparc REQUIRED)
 
+set(HICN_LIGHT hicn-light CACHE INTERNAL "" FORCE)
+set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control CACHE INTERNAL "" FORCE)
+set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon CACHE INTERNAL "" FORCE)
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package_wrapper(Libhicn REQUIRED)
-  set(HICN_LIGHT hicn-light)
-  set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control)
-  set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon)
 else()
   if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(HICN_LIBRARIES ${LIBHICN_STATIC} log)

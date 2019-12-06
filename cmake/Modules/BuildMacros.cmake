@@ -91,6 +91,9 @@ macro(build_library lib)
     add_library(${lib}.static STATIC ${ARG_SOURCES})
   endif()
 
+  # Create dummy target
+  add_custom_target(${lib} ${TARGET_LIBS})
+
   if(NOT ARG_COMPONENT)
     set(ARG_COMPONENT hicn)
   endif()
