@@ -25,11 +25,12 @@ set(CMAKE_MODULE_PATH
 include(BuildMacros)
 include(WindowsMacros)
 
+set(HICN_APPS hicn-apps CACHE INTERNAL "" FORCE)
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
   find_package(Threads REQUIRED)
   include_directories(${LIBTRANSPORT_INCLUDE_DIRS})
-  set(HICN_APPS hicn-apps)
 else()
   if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     find_package(OpenSSL REQUIRED)
@@ -38,6 +39,7 @@ else()
   else ()
     set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
   endif ()
+
   list(APPEND DEPENDENCIES
     ${LIBTRANSPORT_LIBRARIES}
   )
