@@ -10,35 +10,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 project(libyang)
 
-set(CMAKE_MODULE_PATH
+list(APPEND MODULE_PATH
   ${CMAKE_MODULE_PATH}
-  "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Modules"
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules
 )
+
+string(REPLACE ";" "|" MODULE_PATH "${MODULE_PATH}")
 
 include(ExternalProject)
-include(Packaging)
 
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  set(LIBYANG libyang)
-endif()
-
-execute_process(
-   COMMAND bash -c "if [ ! -d libyang ]; then
-                    git clone  https://github.com/CESNET/libyang.git -b devel --depth 1 libyang;
-                    cd libyang; git apply ${CMAKE_CURRENT_SOURCE_DIR}/libyang.patch;
-                   else
-                    pushd libyang && git pull && popd;
-                   fi"
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+ExternalProject_Add(libyang
+  GIT_REPOSITORY https://github.com/CESNET/libyang.git
+  GIT_TAG devel
+  GIT_SHALLOW TRUE
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/libyang
+  PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/libyang.patch
+  # Use the alternate list separator
+  # (https://cmake.org/cmake/help/latest/manual/cmake-language.7.html#lists)
+  LIST_SEPARATOR |
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_MODULE_PATH=${MODULE_PATH}
+  BUILD_COMMAND make package
+  INSTALL_COMMAND make DESTDIR=${DESTDIR} install
 )
 
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/libyang ${CMAKE_CURRENT_BINARY_DIR}/libyang)
-
-include(Packaging)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     include(Packager)
     make_packages()

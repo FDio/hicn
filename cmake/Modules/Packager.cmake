@@ -55,7 +55,7 @@ macro(extract_version)
 
   message(STATUS "Git describe output: ${VER}")
 
-  string(REGEX REPLACE "v([0-9]+).([0-9]+)-([0-9]+)-(g[0-9a-f]+)" "\\1;\\2;\\3;\\4" VER ${VER})
+  string(REGEX REPLACE "v([0-9]+).([0-9]+).*-([0-9]+)-(g[0-9a-f]+)" "\\1;\\2;\\3;\\4" VER ${VER})
   list(GET VER 0 VERSION_MAJOR)
   list(GET VER 1 VERSION_MINOR)
   list(GET VER 2 VERSION_REVISION)
