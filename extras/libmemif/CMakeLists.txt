@@ -11,58 +11,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(CMAKE_MODULE_PATH
+cmake_minimum_required(VERSION 3.5)
+project(libmemif)
+
+list(APPEND MODULE_PATH
   ${CMAKE_MODULE_PATH}
-  "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Modules"
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules
 )
+
+string(REPLACE ";" "|" MODULE_PATH "${MODULE_PATH}")
 
 include(ExternalProject)
-include(Packaging)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  set(LIBMEMIF memif)
+  set(LIBYANG libyang)
 endif()
 
-execute_process(
-  COMMAND bash -c "if [ ! -d vpp ]; then
-                    git clone https://github.com/FDio/vpp.git -b stable/1908 --depth 1 vpp;
-                   else
-                    pushd vpp && git pull && popd;
-                   fi"
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+ExternalProject_Add(libmemif
+  GIT_REPOSITORY https://github.com/FDio/vpp.git
+  GIT_TAG v19.08.1
+  GIT_SHALLOW TRUE
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/libmemif
+  PATCH_COMMAND bash -c "cp ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists1.patch ./extras/libmemif/CMakeLists.txt && cp ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists2.patch ./extras/libmemif/src/CMakeLists.txt"
+  # Use the alternate list separator
+  # (https://cmake.org/cmake/help/latest/manual/cmake-language.7.html#lists)
+  LIST_SEPARATOR |
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_MODULE_PATH=${MODULE_PATH}
+  SOURCE_SUBDIR ./extras/libmemif
+  BUILD_COMMAND make package
+  INSTALL_COMMAND make DESTDIR=${DESTDIR} install
 )
 
-execute_process(
-  COMMAND ${CMAKE_COMMAND} -E
-  remove_directory ${CMAKE_CURRENT_BINARY_DIR}/libmemif
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-execute_process(
-  COMMAND ${CMAKE_COMMAND} -E
-  copy_directory vpp/extras/libmemif ${CMAKE_CURRENT_BINARY_DIR}/libmemif
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-execute_process(
-  COMMAND ${CMAKE_COMMAND} -E rename ${CMAKE_CURRENT_BINARY_DIR}/libmemif/src
-          ${CMAKE_CURRENT_BINARY_DIR}/libmemif/memif
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-execute_process(
-  COMMAND
-  ${CMAKE_COMMAND} -E
-  copy ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists1.patch libmemif/CMakeLists.txt
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-execute_process(
-  COMMAND ${CMAKE_COMMAND} -E
-  copy ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists2.patch libmemif/memif/CMakeLists.txt
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-include(Packaging)
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/libmemif ${CMAKE_CURRENT_BINARY_DIR}/libmemif)
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    include(Packager)
+    make_packages()
+endif()

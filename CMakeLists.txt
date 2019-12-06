@@ -27,10 +27,30 @@ option(BUILD_UTILS "Build the hicn utils" ON)
 option(BUILD_APPS "Build the hicn apps" OFF)
 option(BUILD_CTRL "Build the hicn control tools" ON)
 option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
-option(BUILD_HICNEXTRAPLUGIN "Build the hicn extra plugin" OFF)
 option(BUILD_SYSREPOPLUGIN "Build the sysrepo plugin" OFF)
-option(BUILD_SYSREPOP "Build the sysrepo plugin" OFF)
-option(BUILD_LIBYANG "Build the sysrepo plugin" OFF)
+option(BUILD_EXTRAS "Build external projects." OFF)
+
+if ((BUILD_APPS OR BUILD_UTILS) AND NOT BUILD_LIBTRANSPORT)
+  message(STATUS "Libhicntransport required. Enabled by default.")
+  set (BUILD_LIBTRANSPORT ON)
+endif()
+
+if (BUILD_SYSREPOPLUGIN AND NOT BUILD_HICNPLUGIN)
+  message(STATUS "Hicn-plugin required. Enabled by default.")
+  set (BUILD_HICNPLUGIN ON)
+endif()
+
+if ((BUILD_HICNLIGHT OR
+     BUILD_LIBTRANSPORT OR
+     BUILD_UTILS OR
+     BUILD_APPS OR
+     BUILD_CTRL OR
+     BUILD_HICNPLUGIN OR
+     BUILD_SYSREPOPLUGIN)
+     AND NOT BUILD_LIBHICN)
+  message(STATUS "Libhicn required. Enabled by default.")
+  set(BUILD_LIBHICN ON)
+endif()
 
 list(APPEND dir_options
   BUILD_LIBHICN
@@ -40,11 +60,8 @@ list(APPEND dir_options
   BUILD_UTILS
   BUILD_APPS
   BUILD_CTRL
-  BUILD_HICNEXTRAPLUGIN
   BUILD_SYSREPOPLUGIN
-  BUILD_SYSREPO
-  BUILD_LIBYANG
-  BUILD_LIBMEMIF
+  BUILD_EXTRAS
 )
 
 set(BUILD_LIBHICN_DIR lib)
@@ -55,11 +72,7 @@ set(BUILD_APPS_DIR apps)
 set(BUILD_CTRL_DIR ctrl)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
 set(BUILD_SYSREPOPLUGIN_DIR ctrl/sysrepo-plugins)
-set(BUILD_SYSREPO_DIR extras/sysrepo)
-set(BUILD_LIBYANG_DIR extras/libyang)
-set(BUILD_HICNEXTRAPLUGIN_DIR extras/hicn-extra-plugin)
-set(BUILD_LIBMEMIF_DIR extras/libmemif)
-
+set(BUILD_EXTRAS_DIR extras/)
 
 ## Add enabled components
 foreach (opt ${dir_options})
@@ -76,7 +89,6 @@ set(HICN_LIGHT hicn-light)
 set(HICN_LIGHT_CONTROL hicn-light-control)
 set(HICN_LIGHT_DAEMON hicn-light-daemon)
 set(HICN_PLUGIN hicn-plugin)
-set(HICN_EXTRA_PLUGIN hicn-extra-plugin)
 set(LIBTRANSPORT hicntransport)
 set(HICN_UTILS hicn-utils)
 set(HICNCTRL hicnctrl)
@@ -85,23 +97,6 @@ set(HICN_APPS hicn-apps)
 set(LIBFACEMGR facemgr)
 set(FACEMGR facemgr)
 set(LIBMEMIF memif)
-
-if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-  find_package(Libmemif)
-
-  if (NOT Libmemif_FOUND)
-    message(STATUS "Libmemif not found in the system. Building it as external project.")
-    list(INSERT subdirs 0
-      ${BUILD_LIBMEMIF_DIR}
-    )
-
-    unset(LIBMEMIF_INCLUDE_DIRS)
-    unset(LIBMEMIF_LIBRARIES)
-  endif()
-
-  set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
-  set(LIBHICNCTRL ${LIBHICNCTRL}-memif)
-endif()
 
 ## Libraries targets
 set(LIBHICN_SHARED ${LIBHICN}.shared)
