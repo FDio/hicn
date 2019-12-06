@@ -12,7 +12,7 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-project(extra-plugin)
+project(router-plugin)
 
 include(GNUInstallDirs)
 
@@ -21,21 +21,11 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/"
 )
 
-set (CMAKE_CXX_STANDARD 11)
 set (CMAKE_C_STANDARD 11)
 
 include (Packaging)
 
-# Check for memfd_create syscall
-include(CheckSymbolExists)
-CHECK_SYMBOL_EXISTS ( "__NR_memfd_create" "sys/syscall.h" HAVE_MEMFD_CREATE )
-if ( HAVE_MEMFD_CREATE )
-  add_definitions ( -DHAVE_MEMFD_CREATE )
-endif()
-
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  set(HICN_EXTRA_PLUGIN extra-plugin)
-endif()
+set(HICN_EXTRA_PLUGIN hicn-router-plugin)
 
 # Dependencies
 
@@ -84,7 +74,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DEXTRA_VPP_PLUGIN=1")
 
-add_library(hicn_extra_plugin SHARED
+add_library(hicn_router_plugin SHARED
   ${HICN_EXTRA_PLUGIN_SOURCE_FILES}
 )
 
@@ -92,7 +82,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins)
 
 set(VPP_INSTALL_PLUGIN ${EXTRA_INSTALL_PREFIX}/vpp_plugins)
 
-set_target_properties(hicn_extra_plugin
+set_target_properties(hicn_router_plugin
   PROPERTIES
   LINKER_LANGUAGE C
   INSTALL_RPATH ${VPP_INSTALL_PLUGIN}
@@ -105,7 +95,7 @@ install(DIRECTORY
   COMPONENT ${HICN_EXTRA_PLUGIN}
 )
 
-install(TARGETS hicn_extra_plugin
+install(TARGETS hicn_router_plugin
   DESTINATION
   ${VPP_INSTALL_PLUGIN}
   COMPONENT ${HICN_EXTRA_PLUGIN}

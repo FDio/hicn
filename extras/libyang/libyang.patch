@@ -5,9 +5,9 @@ index 19b7eb96..6567851f 100644
 @@ -1,5 +1,11 @@
  cmake_minimum_required(VERSION 2.8.12)
 
-+set(CMAKE_MODULE_PATH
-+  ${CMAKE_MODULE_PATH}
-+  "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules"
++
++list(APPEND CMAKE_MODULE_PATH
++  ${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules
 +)
 +
 +
