@@ -18,7 +18,6 @@ SCRIPT_PATH=$( cd "$(dirname "${BASH_SOURCE}")" ; pwd -P )
 APT_PATH=`which apt-get` || true
 apt_get=${APT_PATH:-"/usr/local/bin/apt-get"}
 
-
 PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio/release/script.deb.sh"
 PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
 
@@ -30,10 +29,18 @@ VPP_VERSION_RPM="19.08.1-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
-DEPS_UBUNTU="hicn-light libhicn-dev libhicnctrl libhicnctrl-dev  hicn-plugin hicn-plugin-dev libvppinfra=${VPP_VERSION_DEB} libvppinfra-dev=${VPP_VERSION_DEB}  vpp=${VPP_VERSION_DEB} vpp-dev=${VPP_VERSION_DEB} vpp-plugin-core=${VPP_VERSION_DEB}"
+DEPS_UBUNTU="libvppinfra=${VPP_VERSION_DEB}     \
+             libvppinfra-dev=${VPP_VERSION_DEB} \
+             vpp=${VPP_VERSION_DEB}             \
+             vpp-dev=${VPP_VERSION_DEB}         \
+             vpp-plugin-core=${VPP_VERSION_DEB}"
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
-DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM} vpp-lib-${VPP_VERSION_RPM} libparc-devel asio-devel centos-release-scl devtoolset-7"
+DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM}   \
+             vpp-lib-${VPP_VERSION_RPM}     \
+             centos-release-scl             \
+             devtoolset-7"
+
 LATEST_EPEL_REPO="http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
 
 install_cmake() {
@@ -46,7 +53,6 @@ install_cmake() {
     CMAKE_INSTALL_SCRIPT_URL="https://cmake.org/files/v3.8/cmake-3.8.0-Linux-x86_64.sh"
     CMAKE_INSTALL_SCRIPT="/tmp/install_cmake.sh"
     curl ${CMAKE_INSTALL_SCRIPT_URL} > ${CMAKE_INSTALL_SCRIPT}
-
 
     sudo mkdir -p /opt/cmake
     sudo bash ${CMAKE_INSTALL_SCRIPT} --skip-license --prefix=/opt/cmake
@@ -73,7 +79,7 @@ setup_fdio_repo() {
     fi
 }
 
-    setup() {
+setup() {
     # Figure out what system we are running on
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -132,25 +138,21 @@ build_package() {
     mkdir -p build && pushd build
 
     rm -rf *
-    cmake -DCMAKE_INSTALL_PREFIX=/usr ${SCRIPT_PATH}/../extras/libyang
-    make install
+    cmake -DCMAKE_INSTALL_PREFIX=/usr   \
+          -DBUILD_LIBHICN=OFF           \
+          -DBUILD_UTILS=OFF             \
+          -DBUILD_HICNPLUGIN=OFF        \
+          -DBUILD_HICNLIGHT=OFF         \
+          -DBUILD_LIBTRANSPORT=OFF      \
+          -DBUILD_APPS=OFF              \
+          -DBUILD_CTRL=OFF              \
+          -DBUILD_SYSREPOPLUGIN=OFF     \
+          -DBUILD_EXTRAS=ON             \
+          ${SCRIPT_PATH}/..
     make package
 
-    find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
+    find . -type d -iname '_CPack_Packages' -print0 | xargs -0 rm -rf -- || true
     rm *Unspecified* || true
-
-    cmake -DCMAKE_INSTALL_PREFIX=/usr  ${SCRIPT_PATH}/../extras/sysrepo
-    make install
-    make package
-
-    find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
-    rm *Unspecified* || true
-
-    cmake -DCMAKE_INSTALL_PREFIX=/usr  -DBUILD_HICNPLUGIN=ON -DBUILD_HICNLIGHT=OFF \
-          -DBUILD_LIBTRANSPORT=OFF -DBUILD_UTILS=OFF -DBUILD_CTRL=OFF \
-          -DBUILD_SYSREPOPLUGIN=ON ${SCRIPT_PATH}/..
-    make install
-    make package
 
     popd
 

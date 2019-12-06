@@ -14,6 +14,15 @@ index 181387b0..356bf32c 100644
  # osx specific
  set(CMAKE_MACOSX_RPATH TRUE)
 
+@@ -81,7 +86,7 @@ endif()
+ option(GEN_LANGUAGE_BINDINGS "Enable library bindings for different languages." OFF)
+
+ option(GEN_CPP_BINDINGS "Enable C++ bindings." ON)
+-option(BUILD_CPP_EXAMPLES "Enable C++ example application compilation." ON)
++option(BUILD_CPP_EXAMPLES "Enable C++ example application compilation." OFF)
+
+ option(GEN_PYTHON_BINDINGS "Enable Python bindings." ON)
+ option(ENABLE_PYTHON_TESTS "Enable Python tests." ON)
 @@ -206,13 +211,13 @@ add_executable(sysrepo-plugind ${SYSREPOPLUGIND_SRC})
  target_link_libraries(sysrepo-plugind sysrepo dl)
 
@@ -33,6 +42,15 @@ index 181387b0..356bf32c 100644
 
  # doxygen documentation
  find_package(Doxygen)
+@@ -237,7 +242,7 @@ if(DOXYGEN_FOUND)
+ endif()
+
+ # examples
+-add_subdirectory(examples)
++# add_subdirectory(examples)
+
+ # tests
+ if(ENABLE_TESTS)
 @@ -266,3 +271,9 @@ add_custom_target(sr_clean
  add_custom_target(uninstall "${CMAKE_COMMAND}" -P "${CMAKE_MODULE_PATH}/uninstall.cmake")
  add_custom_target(uninstall_with_repo "${CMAKE_COMMAND}" -P "${CMAKE_MODULE_PATH}/uninstall.cmake"
