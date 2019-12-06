@@ -55,8 +55,10 @@ set(TRANSPORT_INTERFACES ${TRANSPORT_ROOT_PATH}/interfaces)
 # Install includes
 set(INSTALL_INCLUDE_DIR include/hicn/transport)
 
+set(LIBTRANSPORT hicntransport)
 if ((BUILD_HICNPLUGIN OR BUILD_MEMIF_CONNECTOR) AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   set(__vpp__ 1)
+  set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
   find_package(Vpp REQUIRED)
 
   list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
@@ -64,18 +66,24 @@ if ((BUILD_HICNPLUGIN OR BUILD_MEMIF_CONNECTOR) AND "${CMAKE_SYSTEM_NAME}" STREQ
   )
 endif ()
 
+set(LIBTRANSPORT ${LIBTRANSPORT} CACHE INTERNAL "" FORCE)
+set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared CACHE INTERNAL "" FORCE)
+set(LIBTRANSPORT_STATIC ${LIBTRANSPORT}.static CACHE INTERNAL "" FORCE)
+set(LIBTRANSPORT_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src CACHE INTERNAL "" FORCE)
+
 include(WindowsMacros)
 include(IosMacros)
 find_package_wrapper(Libparc REQUIRED)
 find_package_wrapper(Asio REQUIRED)
 
+if (__vpp__)
+  find_package(Libmemif REQUIRED)
+endif()
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  set(LIBTRANSPORT hicntransport)
   if (__vpp__)
     find_package(HicnPlugin REQUIRED)
-    find_package(Libmemif REQUIRED)
     find_package(Libhicnctrl REQUIRED)
-    set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
 
     list(APPEND LIBRARIES
       ${LIBMEMIF_LIBRARIES}
@@ -84,9 +92,6 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   endif()
 
   find_package_wrapper(Libhicn REQUIRED)
-
-  set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared)
-  set(LIBTRANSPORT_STATIC ${LIBTRANSPORT}.static)
 else()
   if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
@@ -105,12 +110,6 @@ else()
         ${LIBHICNCTRL_SHARED}
       )
 
-      if (NOT Libmemif_FOUND)
-        list(APPEND DEPENDENCIES
-          ${LIBMEMIF_SHARED}
-        )
-      endif()
-
       set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_SHARED})
       list(APPEND LIBRARIES
         ${LIBMEMIF_LIBRARIES}
@@ -121,6 +120,7 @@ endif()
 
 list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
   ${LIBMEMIF_INCLUDE_DIRS}
+  ${LIBHICNCTRL_INCLUSE_DIRS}
 )
 
 include(Packaging)
