@@ -69,11 +69,14 @@ include(IosMacros)
 find_package_wrapper(Libparc REQUIRED)
 find_package_wrapper(Asio REQUIRED)
 
+if (__vpp__)
+  find_package(Libmemif REQUIRED)
+endif()
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   set(LIBTRANSPORT hicntransport)
   if (__vpp__)
     find_package(HicnPlugin REQUIRED)
-    find_package(Libmemif REQUIRED)
     find_package(Libhicnctrl REQUIRED)
     set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
 
@@ -104,12 +107,6 @@ else()
         hicn_plugin
         ${LIBHICNCTRL_SHARED}
       )
-
-      if (NOT Libmemif_FOUND)
-        list(APPEND DEPENDENCIES
-          ${LIBMEMIF_SHARED}
-        )
-      endif()
 
       set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_SHARED})
       list(APPEND LIBRARIES
