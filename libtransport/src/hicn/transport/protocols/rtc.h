@@ -55,8 +55,8 @@
 #define HICN_INITIAL_CWIN 1           // packets
 #define HICN_INITIAL_CWIN_MAX 100000  // packets
 #define HICN_MIN_CWIN 10               // packets
-#define HICN_WIN_INCREASE_FACTOR 1.1
-#define HICN_WIN_DECREASE_FACTOR 0.8
+#define HICN_WIN_INCREASE_FACTOR 1.5
+#define HICN_WIN_DECREASE_FACTOR 0.9
 
 // statistics constants
 #define HICN_BANDWIDTH_SLACK_FACTOR 1.8

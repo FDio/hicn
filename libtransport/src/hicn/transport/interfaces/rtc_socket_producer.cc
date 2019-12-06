@@ -183,8 +183,8 @@ void RTCProducerSocket::produce(std::unique_ptr<utils::MemBuf> &&buffer) {
   // remove interests from the interest cache if it exists
   // this generates nacks that will tell to the consumer
   // that a new data packet was produced
+  utils::SpinLock::Acquire locked(interests_cache_lock_);
   if (!seqs_map_.empty()) {
-    utils::SpinLock::Acquire locked(interests_cache_lock_);
     for (auto it = seqs_map_.begin(); it != seqs_map_.end(); it++) {
       if (it->first != old_curr) sendNack(it->first);
     }
