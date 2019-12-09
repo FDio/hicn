@@ -28,6 +28,8 @@
 #include <parc/assert/parc_Assert.h>
 #include <hicn/utils/commands.h>
 
+#if 0
+
 struct interface {
   char *name;
   unsigned interfaceIndex;
@@ -166,3 +168,5 @@ unsigned interfaceGetMTU(const Interface *iface) {
   parcAssertNotNull(iface, "Parameter iface must be non-null");
   return iface->mtu;
 }
+
+#endif

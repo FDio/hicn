@@ -24,9 +24,9 @@
 #ifndef pit_h
 #define pit_h
 
+#include <hicn/base/nexthops.h>
 #include <hicn/core/forwarder.h>
 #include <hicn/core/message.h>
-#include <hicn/core/numberSet.h>
 #include <hicn/processor/pitEntry.h>
 #include <hicn/processor/pitVerdict.h>
 
@@ -35,10 +35,10 @@ typedef struct pit PIT;
 
 struct pit {
   void (*release)(PIT **pitPtr);
-  PITVerdict (*receiveInterest)(PIT *pit, Message *interestMessage);
-  NumberSet *(*satisfyInterest)(PIT *pit, const Message *objectMessage);
-  void (*removeInterest)(PIT *pit, const Message *interestMessage);
-  PitEntry *(*getPitEntry)(const PIT *pit, const Message *interestMessage);
+  PITVerdict (*receiveInterest)(PIT *pit, msgbuf_t *interestMessage);
+  nexthops_t * (*satisfyInterest)(PIT *pit, const msgbuf_t *objectMessage);
+  void (*removeInterest)(PIT *pit, const msgbuf_t *interestMessage);
+  PitEntry *(*getPitEntry)(const PIT *pit, const msgbuf_t *interestMessage);
   void *closure;
 };
 
@@ -70,7 +70,7 @@ void pit_Release(PIT **pitPtr);
  *
  * @return Verdict of receiving the interest
  */
-PITVerdict pit_ReceiveInterest(PIT *pit, Message *interestMessage);
+PITVerdict pit_ReceiveInterest(PIT *pit, msgbuf_t *interestMessage);
 
 /**
  * @function pit_SatisfyInterest
@@ -85,7 +85,7 @@ PITVerdict pit_ReceiveInterest(PIT *pit, Message *interestMessage);
  * @return Set of ConnectionTable id's to forward the message, may be empty or
  * NULL.  Must be destroyed.
  */
-NumberSet *pit_SatisfyInterest(PIT *pit, const Message *objectMessage);
+nexthops_t * pit_SatisfyInterest(PIT *pit, const msgbuf_t *objectMessage);
 
 /**
  * @function pit_RemoveInterest
@@ -99,7 +99,7 @@ NumberSet *pit_SatisfyInterest(PIT *pit, const Message *objectMessage);
  *   such as by name, by name and keyid, etc.
  *
  */
-void pit_RemoveInterest(PIT *pit, const Message *interestMessage);
+void pit_RemoveInterest(PIT *pit, const msgbuf_t *interestMessage);
 
 /**
  * @function pit_GetPitEntry
@@ -110,5 +110,5 @@ void pit_RemoveInterest(PIT *pit, const Message *interestMessage);
  *
  * @return NULL if not in table, otherwise a reference counted copy of the entry
  */
-PitEntry *pit_GetPitEntry(const PIT *pit, const Message *interestMessage);
+PitEntry *pit_GetPitEntry(const PIT *pit, const msgbuf_t *interestMessage);
 #endif  // pit_h

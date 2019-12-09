@@ -27,7 +27,9 @@
 #include <hicn/hicn-light/config.h>
 #include <hicn/core/connectionState.h>
 #include <hicn/io/ioOperations.h>
-#include <hicn/utils/address.h>
+#include <hicn/base/address_pair.h>
+#include <hicn/base/msgbuf.h>
+
 
 #ifdef WITH_MAPME
 typedef enum {
@@ -48,6 +50,9 @@ typedef enum {
 
 struct connection;
 typedef struct connection Connection;
+
+#define CONNECTION_ID_INVALID UINT32_MAX
+#define connection_id_is_valid(id) (id != CONNECTION_ID_INVALID)
 
 /**
  * Creates a connection object.
@@ -76,7 +81,7 @@ Connection *connection_Acquire(Connection *connection);
  * @abstract Sends the message on the connection
  * @return true if message sent, false if connection not up
  */
-bool connection_Send(const Connection *conn, Message *message);
+bool connection_Send(const Connection *conn, msgbuf_t *message, bool queue);
 
 /**
  * @function connection_SendIOVBuffer
@@ -114,7 +119,7 @@ unsigned connection_GetConnectionId(const Connection *conn);
  * @return non-null The connection's remote and local address
  * @return null Should never return NULL
  */
-const AddressPair *connection_GetAddressPair(const Connection *conn);
+const address_pair_t * connection_GetAddressPair(const Connection *conn);
 
 /**
  * Checks if the connection is in the "up" state
@@ -149,7 +154,7 @@ bool connection_IsLocal(const Connection *conn);
  */
 const void *connection_Class(const Connection *conn);
 
-bool connection_ReSend(const Connection *conn, Message *message,
+bool connection_ReSend(const Connection *conn, msgbuf_t *message,
                        bool notification);
 
 void connection_Probe(Connection *conn, uint8_t *probe);
@@ -166,9 +171,9 @@ bool connection_HasWldr(const Connection *conn);
 
 bool connection_WldrAutoStartAllowed(const Connection *conn);
 
-void connection_DetectLosses(Connection *conn, Message *message);
+void connection_DetectLosses(Connection *conn, msgbuf_t *message);
 
-void connection_HandleWldrNotification(Connection *conn, Message *message);
+void connection_HandleWldrNotification(Connection *conn, msgbuf_t *message);
 
 connection_state_t connection_GetState(const Connection *conn);
 

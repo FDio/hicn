@@ -25,9 +25,8 @@
 #define pitEntry_h
 
 #include <hicn/core/message.h>
-#include <hicn/core/numberSet.h>
 #include <hicn/core/ticks.h>
-#include <hicn/processor/fibEntry.h>
+#include <hicn/processor/fib_entry.h>
 
 struct pit_entry;
 typedef struct pit_entry PitEntry;
@@ -40,7 +39,7 @@ typedef struct pit_entry PitEntry;
  * on the message.
  *
  */
-PitEntry *pitEntry_Create(Message *message, Ticks expiryTime,
+PitEntry *pitEntry_Create(msgbuf_t *message, Ticks expiryTime,
                           Ticks CreationTime);
 
 /**
@@ -98,9 +97,9 @@ void pitEntry_AddIngressId(PitEntry *pitEntry, unsigned ingressId);
  */
 void pitEntry_AddEgressId(PitEntry *pitEntry, unsigned egressId);
 
-void pitEntry_AddFibEntry(PitEntry *pitEntry, FibEntry *fibEntry);
+void pitEntry_AddFibEntry(PitEntry *pitEntry, fib_entry_t *fibEntry);
 
-FibEntry *pitEntry_GetFibEntry(PitEntry *pitEntry);
+fib_entry_t *pitEntry_GetFibEntry(PitEntry *pitEntry);
 
 /**
  * @function pitEntry_GetIngressSet
@@ -111,7 +110,7 @@ FibEntry *pitEntry_GetFibEntry(PitEntry *pitEntry);
  *
  * @return May be empty, will not be null.  Must be destroyed.
  */
-const NumberSet *pitEntry_GetIngressSet(const PitEntry *pitEntry);
+const nexthops_t * pitEntry_GetIngressSet(const PitEntry *pitEntry);
 
 /**
  * @function pitEntry_GetEgressSet
@@ -123,7 +122,7 @@ const NumberSet *pitEntry_GetIngressSet(const PitEntry *pitEntry);
  * @param <#param1#>
  * @return May be empty, will not be null.  Must be destroyed.
  */
-const NumberSet *pitEntry_GetEgressSet(const PitEntry *pitEntry);
+const nexthops_t * pitEntry_GetEgressSet(const PitEntry *pitEntry);
 
 /**
  * @function pitEntry_GetMessage
@@ -133,7 +132,7 @@ const NumberSet *pitEntry_GetEgressSet(const PitEntry *pitEntry);
  *
  * @return A reference counted copy, call <code>Message_Release()</code> on it.
  */
-Message *pitEntry_GetMessage(const PitEntry *pitEntry);
+msgbuf_t *pitEntry_GetMessage(const PitEntry *pitEntry);
 
 /**
  * Returns the time (in ticks) at which the PIT entry is no longer valid

@@ -19,7 +19,6 @@
 #include <parc/algol/parc_ArrayList.h>
 #include <parc/algol/parc_Memory.h>
 #include <parc/assert/parc_Assert.h>
-#include <hicn/io/listenerSet.h>
 
 struct listener_set {
   PARCArrayList *listOfListeners;
@@ -63,7 +62,7 @@ bool listenerSet_Add(ListenerSet *set, ListenerOps *ops) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
 
   int opsEncap = ops->getEncapType(ops);
-  const Address *opsAddress = ops->getListenAddress(ops);
+  const address_t *opsAddress = ops->getListenAddress(ops);
 
   // make sure its not in the set
   size_t length = parcArrayList_Size(set->listOfListeners);
@@ -71,9 +70,9 @@ bool listenerSet_Add(ListenerSet *set, ListenerOps *ops) {
     ListenerOps *entry = parcArrayList_Get(set->listOfListeners, i);
 
     int entryEncap = entry->getEncapType(entry);
-    const Address *entryAddress = entry->getListenAddress(entry);
+    const address_t *entryAddress = entry->getListenAddress(entry);
 
-    if (opsEncap == entryEncap && addressEquals(opsAddress, entryAddress)) {
+    if (opsEncap == entryEncap && address_equals(opsAddress, entryAddress)) {
       // duplicate
       return false;
     }
@@ -110,7 +109,7 @@ ListenerOps *listenerSet_Get(const ListenerSet *set, size_t index) {
 }
 
 ListenerOps *listenerSet_Find(const ListenerSet *set, EncapType encapType,
-                              const Address *localAddress) {
+                              const address_t *localAddress) {
   parcAssertNotNull(set, "Parameter set must be non-null");
   parcAssertNotNull(localAddress, "Parameter localAddress must be non-null");
 
@@ -122,7 +121,7 @@ ListenerOps *listenerSet_Find(const ListenerSet *set, EncapType encapType,
     parcAssertNotNull(ops, "Got null listener ops at index %zu", i);
 
     if (ops->getEncapType(ops) == encapType) {
-      if (addressEquals(localAddress, ops->getListenAddress(ops))) {
+      if (address_equals(localAddress, ops->getListenAddress(ops))) {
         match = ops;
       }
     }

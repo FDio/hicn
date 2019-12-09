@@ -39,11 +39,35 @@
 // 128 KB output queue
 #define OUTPUT_QUEUE_BYTES (128 * 1024)
 
+#define DEBUG(FMT, ...) do {                                                       \
+    if (logger_IsLoggable(stream->logger, LoggerFacility_IO, PARCLogLevel_Debug))  \
+      logger_Log(stream->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,  \
+                 FMT, ## __VA_ARGS__);                                             \
+} while(0);
+
+#define INFO(FMT, ...) do {                                                        \
+    if (logger_IsLoggable(stream->logger, LoggerFacility_IO,  PARCLogLevel_Info))  \
+      logger_Log(stream->logger, LoggerFacility_IO, PARCLogLevel_Info, __func__,   \
+                 FMT, ## __VA_ARGS__);                                             \
+} while(0);
+
+#define WARN(FMT, ...) do {                                                        \
+    if (logger_IsLoggable(stream->logger, LoggerFacility_IO,  PARCLogLevel_Warning))\
+      logger_Log(stream->logger, LoggerFacility_IO, PARCLogLevel_Warning, __func__,\
+                 FMT, ## __VA_ARGS__);                                             \
+} while(0);
+
+#define ERROR(FMT, ...) do {                                                       \
+    if (logger_IsLoggable(stream->logger, LoggerFacility_IO,  PARCLogLevel_Error)) \
+      logger_Log(stream->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,  \
+                 FMT, ## __VA_ARGS__);                                             \
+} while(0);
+
 static void _conn_readcb(PARCEventQueue *bufferEventVector, PARCEventType type,
-                         void *ioOpsVoid);
+        void *ioOpsVoid);
 
 static void _conn_eventcb(PARCEventQueue *bufferEventVector,
-                          PARCEventQueueEventType events, void *ioOpsVoid);
+        PARCEventQueueEventType events, void *ioOpsVoid);
 
 typedef struct stream_state {
   Forwarder *forwarder;
@@ -52,7 +76,7 @@ typedef struct stream_state {
 
   int fd;
 
-  AddressPair *addressPair;
+  address_pair_t address_pair;
   PARCEventQueue *bufferEventVector;
 
   bool isLocal;
@@ -72,13 +96,13 @@ typedef struct stream_state {
 } _StreamState;
 
 // Prototypes
-static bool _streamConnection_Send(IoOperations *ops, const Address *nexthop,
-    Message *message);
+static bool _streamConnection_Send(IoOperations *ops, const address_t *nexthop,
+    msgbuf_t *message, bool queue);
 static bool _streamConnection_SendIOVBuffer(IoOperations *ops, struct
     iovec *msg, size_t size);
-static const Address *_streamConnection_GetRemoteAddress(
+static const address_t *_streamConnection_GetRemoteAddress(
     const IoOperations *ops);
-static const AddressPair *_streamConnection_GetAddressPair(
+static const address_pair_t *_streamConnection_GetAddressPair(
     const IoOperations *ops);
 static unsigned _streamConnection_GetConnectionId(const IoOperations *ops);
 static bool _streamConnection_IsUp(const IoOperations *ops);
@@ -136,9 +160,10 @@ static IoOperations _template = {
     .getInterfaceName = &_streamConnection_getInterfaceName,
 };
 
-IoOperations *streamConnection_AcceptConnection(Forwarder *forwarder, int fd,
-                                                AddressPair *pair,
-                                                bool isLocal) {
+IoOperations *
+streamConnection_AcceptConnection(Forwarder *forwarder, int fd,
+        address_pair_t *pair, bool isLocal)
+{
   _StreamState *stream = parcMemory_AllocateAndClear(sizeof(_StreamState));
   parcAssertNotNull(stream, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(_StreamState));
@@ -154,7 +179,7 @@ IoOperations *streamConnection_AcceptConnection(Forwarder *forwarder, int fd,
   stream->logger = logger_Acquire(forwarder_GetLogger(forwarder));
   stream->fd = fd;
   stream->id = forwarder_GetNextConnectionId(forwarder);
-  stream->addressPair = pair;
+  stream->address_pair = *pair;
   stream->isClosed = false;
 
 #ifdef WITH_POLICY
@@ -179,48 +204,58 @@ IoOperations *streamConnection_AcceptConnection(Forwarder *forwarder, int fd,
   // As we are acceting a connection, we begin in the UP state
   _setConnectionState(stream, true);
 
+// XXX TODO
+#if 0
   if (logger_IsLoggable(stream->logger, LoggerFacility_IO,
                         PARCLogLevel_Debug)) {
-    char *pair_str = addressPair_ToString(pair);
+    char *pair_str = address_pair_ToString(pair);
     logger_Log(stream->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
                "StreamConnection %p accept for address pair %s", (void *)stream,
                pair_str);
     free(pair_str);
   }
+#endif
 
   return io_ops;
 }
 
-IoOperations *streamConnection_OpenConnection(Forwarder *forwarder,
-                                              AddressPair *pair, bool isLocal) {
+IoOperations *
+streamConnection_OpenConnection(Forwarder *forwarder, address_pair_t *pair,
+        bool isLocal, unsigned connid)
+{
   parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");
   parcAssertNotNull(pair, "Parameter pair must be non-null");
 
   // if there's an error on the bind or connect, will return NULL
   PARCEventQueue *bufferEventVector =
       dispatcher_StreamBufferConnect(forwarder_GetDispatcher(forwarder), pair);
-  if (bufferEventVector == NULL) {
-    // error opening connection
-    return NULL;
-  }
+  if (!bufferEventVector)
+    goto ERR_BUFFER;
 
   _StreamState *stream = parcMemory_AllocateAndClear(sizeof(_StreamState));
-  parcAssertNotNull(stream, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(_StreamState));
+  if (!stream) {
+    ERROR("parcMemory_AllocateAndClear(%zu) returned NULL",
+            sizeof(_StreamState));
+    goto ERR_STREAM;
+  }
 
   stream->forwarder = forwarder;
   stream->interfaceName = NULL;
   stream->logger = logger_Acquire(forwarder_GetLogger(forwarder));
   stream->fd = parcEventQueue_GetFileDescriptor(bufferEventVector);
   stream->bufferEventVector = bufferEventVector;
-  stream->id = forwarder_GetNextConnectionId(forwarder);
-  stream->addressPair = pair;
+  stream->id = connid; //forwarder_GetNextConnectionId(forwarder);
+  stream->address_pair = *pair;
   stream->isClosed = false;
 
   // allocate a connection
   IoOperations *io_ops = parcMemory_AllocateAndClear(sizeof(IoOperations));
-  parcAssertNotNull(io_ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(IoOperations));
+  if (!io_ops) {
+    ERROR("parcMemory_AllocateAndClear(%zu) returned NULL",
+            sizeof(IoOperations));
+    goto ERR_IO_OPS;
+  }
+
   memcpy(io_ops, &_template, sizeof(IoOperations));
   io_ops->closure = stream;
   stream->isLocal = isLocal;
@@ -234,18 +269,30 @@ IoOperations *streamConnection_OpenConnection(Forwarder *forwarder,
                  missive_Create(MissiveType_ConnectionCreate, stream->id));
   _setConnectionState(stream, false);
 
+// XXX TODO
+#if 0
   if (logger_IsLoggable(stream->logger, LoggerFacility_IO, PARCLogLevel_Info)) {
-    char *pair_str = addressPair_ToString(pair);
+    char *pair_str = address_pair_ToString(pair);
     logger_Log(stream->logger, LoggerFacility_IO, PARCLogLevel_Info, __func__,
                "StreamConnection %p connect for address pair %s",
                (void *)stream, pair_str);
     free(pair_str);
   }
+#endif
 
   return io_ops;
+
+ERR_IO_OPS:
+ERR_STREAM:
+  // XXX TODO
+ERR_BUFFER:
+  return NULL;
 }
 
-static void _streamConnection_DestroyOperations(IoOperations **opsPtr) {
+static
+void
+_streamConnection_DestroyOperations(IoOperations **opsPtr)
+{
   parcAssertNotNull(opsPtr, "Parameter opsPtr must be non-null double pointer");
   parcAssertNotNull(*opsPtr,
                     "Parameter opsPtr must dereference to non-null pointer");
@@ -258,8 +305,6 @@ static void _streamConnection_DestroyOperations(IoOperations **opsPtr) {
 
   parcEventQueue_Destroy(&stream->bufferEventVector);
 
-  addressPair_Release(&stream->addressPair);
-
   if (!stream->isClosed) {
     stream->isClosed = true;
     messenger_Send(forwarder_GetMessenger(stream->forwarder),
@@ -269,10 +314,7 @@ static void _streamConnection_DestroyOperations(IoOperations **opsPtr) {
   messenger_Send(forwarder_GetMessenger(stream->forwarder),
                  missive_Create(MissiveType_ConnectionDestroyed, stream->id));
 
-  if (logger_IsLoggable(stream->logger, LoggerFacility_IO, PARCLogLevel_Info)) {
-    logger_Log(stream->logger, LoggerFacility_IO, PARCLogLevel_Info, __func__,
-               "StreamConnection %p destroyed", (void *)stream);
-  }
+  INFO("StreamConnection %p destroyed", (void *)stream);
 
   logger_Release(&stream->logger);
   parcMemory_Deallocate((void **)&stream);
@@ -295,20 +337,20 @@ static bool _streamConnection_IsLocal(const IoOperations *ops) {
   return stream->isLocal;
 }
 
-static const Address *_streamConnection_GetRemoteAddress(
+static const address_t *_streamConnection_GetRemoteAddress(
     const IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter must be non-null");
   const _StreamState *stream =
       (const _StreamState *)ioOperations_GetClosure(ops);
-  return addressPair_GetRemote(stream->addressPair);
+  return address_pair_remote(&stream->address_pair);
 }
 
-static const AddressPair *_streamConnection_GetAddressPair(
+static const address_pair_t *_streamConnection_GetAddressPair(
     const IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter must be non-null");
   const _StreamState *stream =
       (const _StreamState *)ioOperations_GetClosure(ops);
-  return stream->addressPair;
+  return &stream->address_pair;
 }
 
 static unsigned _streamConnection_GetConnectionId(const IoOperations *ops) {
@@ -383,52 +425,38 @@ bool _streamConnection_SendIOVBuffer(IoOperations *ops,
  * @param dummy is ignored.  A stream has only one peer.
  * @return <#return#>
  */
-static bool _streamConnection_Send(IoOperations *ops, const Address *dummy,
-                                   Message *message) {
+static bool _streamConnection_Send(IoOperations *ops, const address_t *nexthop,
+    msgbuf_t *message, bool queue) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
-  parcAssertNotNull(message, "Parameter message must be non-null");
+
+  /* No need to flush */
+  if (!message)
+    return true;
+
   _StreamState *stream = (_StreamState *)ioOperations_GetClosure(ops);
 
-  bool success = false;
-  if (stream->isUp) {
-    PARCEventBuffer *buffer =
-        parcEventBuffer_GetQueueBufferOutput(stream->bufferEventVector);
-    size_t buffer_backlog = parcEventBuffer_GetLength(buffer);
-    parcEventBuffer_Destroy(&buffer);
-
-    if (buffer_backlog < OUTPUT_QUEUE_BYTES) {
-      if (logger_IsLoggable(stream->logger, LoggerFacility_IO,
-                            PARCLogLevel_Debug)) {
-        logger_Log(
-            stream->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-            "connid %u Writing %zu bytes to buffer with backlog %zu bytes",
-            stream->id, message_Length(message), buffer_backlog);
-      }
-
-      int failure = message_Write(stream->bufferEventVector, message);
-      if (failure == 0) {
-        success = true;
-      }
-    } else {
-      if (logger_IsLoggable(stream->logger, LoggerFacility_IO,
-                            PARCLogLevel_Warning)) {
-        logger_Log(stream->logger, LoggerFacility_IO, PARCLogLevel_Warning,
-                   __func__,
-                   "connid %u Writing to buffer backlog %zu bytes DROP MESSAGE",
-                   stream->id, buffer_backlog);
-      }
-    }
-  } else {
-    if (logger_IsLoggable(stream->logger, LoggerFacility_IO,
-                          PARCLogLevel_Error)) {
-      logger_Log(
-          stream->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-          "connid %u tried to send to down connection (isUp %d isClosed %d)",
-          stream->id, stream->isUp, stream->isClosed);
-    }
+  if (!stream->isUp) {
+    ERROR("connid %u tried to send to down connection (isUp %d isClosed %d)",
+        stream->id, stream->isUp, stream->isClosed);
+    return false;
   }
 
-  return success;
+  PARCEventBuffer *buffer =
+      parcEventBuffer_GetQueueBufferOutput(stream->bufferEventVector);
+  size_t buffer_backlog = parcEventBuffer_GetLength(buffer);
+  parcEventBuffer_Destroy(&buffer);
+
+  if (buffer_backlog >= OUTPUT_QUEUE_BYTES) {
+    WARN("connid %u Writing to buffer backlog %zu bytes DROP MESSAGE",
+                 stream->id, buffer_backlog);
+    return false;
+  }
+
+  DEBUG("connid %u Writing %zu bytes to buffer with backlog %zu bytes",
+        stream->id, msgbuf_len(message), buffer_backlog);
+
+  return (parcEventQueue_Write(stream->bufferEventVector,
+              msgbuf_packet(message), msgbuf_len(message)) == 0);
 }
 
 list_connections_type _streamConnection_GetConnectionType(
@@ -518,14 +546,6 @@ static bool _isAnHicnPacket(PARCEventBuffer *input) {
   return messageHandler_IsValidHicnPacket(fh);
 }
 
-static Message *_readMessage(_StreamState *stream, Ticks time,
-                             PARCEventBuffer *input) {
-  Message *message = message_CreateFromEventBuffer(
-      input, stream->nextMessageLength, stream->id, time, stream->logger);
-
-  return message;
-}
-
 static void _startNewMessage(_StreamState *stream, PARCEventBuffer *input,
                              size_t inputBytesAvailable) {
   parcAssertTrue(stream->nextMessageLength == 0,
@@ -543,29 +563,48 @@ static void _startNewMessage(_StreamState *stream, PARCEventBuffer *input,
   stream->nextMessageLength = messageHandler_GetTotalPacketLength(fh);
 }
 
-static Message *_tryReadMessage(PARCEventBuffer *input, _StreamState *stream) {
+static
+int
+_tryReadMessage(PARCEventBuffer *input, _StreamState *stream, msgbuf_t * msgbuf)
+{
   size_t bytesAvailable = parcEventBuffer_GetLength(input);
   parcAssertTrue(bytesAvailable >= sizeof(header_control_message),
                  "Called with too short an input: %zu", bytesAvailable);
 
-  if (stream->nextMessageLength == 0) {
+  if (stream->nextMessageLength == 0)
     _startNewMessage(stream, input, bytesAvailable);
-  }
 
   // This is not an ELSE statement.  We can both start a new message then
   // check if there's enough bytes to read the whole thing.
 
-  if (bytesAvailable >= stream->nextMessageLength) {
-    Message *message =
-        _readMessage(stream, forwarder_GetTicks(stream->forwarder), input);
+  if (bytesAvailable < stream->nextMessageLength)
+    return -1;
 
-    // now reset message length for next packet
-    stream->nextMessageLength = 0;
+  uint8_t * packet = parcMemory_AllocateAndClear(stream->nextMessageLength);
+  if (!packet)
+    return -1;
 
-    return message;
+  // copy the data because *data is destroyed in the connection.
+  if (parcEventBuffer_Read(input, msgbuf_packet(msgbuf), stream->nextMessageLength) < 0)
+    return -1;
+
+  uint8_t packetType;
+  if (messageHandler_IsInterest(msgbuf->messageHead)) {
+    packetType = MessagePacketType_Interest;
+  } else if (messageHandler_IsData(msgbuf->messageHead)) {
+    packetType = MessagePacketType_ContentObject;
+  } else {
+    ERROR("Got a packet that is not a data nor an interest, drop it!");
+    return -1;
   }
 
-  return NULL;
+  Logger * logger = stream->logger;
+  msgbuf_from_packet(msgbuf, packet, packetType, stream->id,
+          forwarder_GetTicks(stream->forwarder), logger);
+
+  // now reset message length for next packet
+  stream->nextMessageLength = 0;
+  return 0;
 }
 
 /**
@@ -617,11 +656,10 @@ static void _conn_readcb(PARCEventQueue *event, PARCEventType type,
     } else if (_isAnHicnPacket(input)) {
       // this is an Hicn packet (here we should distinguish between IPv4 and
       // IPv6 tryReadMessage may set nextMessageLength
-      Message *message = _tryReadMessage(input, stream);
-
-      if (message) {
-        forwarder_Receive(stream->forwarder, message);
-      }
+      msgbuf_t msgbuf;
+      if (_tryReadMessage(input, stream, &msgbuf) < 0)
+          continue;
+      forwarder_Receive(stream->forwarder, &msgbuf, 1);
 
     } else {
       parcAssertTrue(false,

@@ -26,7 +26,7 @@
 #ifndef messageProcessor_h
 #define messageProcessor_h
 
-#include <hicn/content_store/contentStoreInterface.h>
+#include <hicn/base/content_store.h>
 #include <hicn/core/forwarder.h>
 #include <hicn/core/message.h>
 
@@ -37,6 +37,10 @@
 #include <hicn/core/connection.h>
 #endif /* WITH_MAPME */
 #endif /* WITH_POLICY */
+
+#define MTU_SIZE 2048
+#define MAX_MSG 64 //16 //32
+#define BATCH_SOCKET_BUFFER 512 * 1024 /* 256k */
 
 struct message_processor;
 typedef struct message_processor MessageProcessor;
@@ -72,7 +76,7 @@ void messageProcessor_Destroy(MessageProcessor **processorPtr);
  *
  *   Receive may modify some fields in the message, such as the HopLimit field.
  */
-void messageProcessor_Receive(MessageProcessor *procesor, Message *message);
+void messageProcessor_Receive(MessageProcessor *processor, msgbuf_t *message, unsigned new_batch);
 
 /**
  * Adds or updates a route in the FIB
@@ -154,7 +158,7 @@ void messageProcessor_RemoveConnectionIdFromRoutes(MessageProcessor *processor,
  * @retval non-null The list of FIB entries
  * @retval null An error
  */
-FibEntryList *messageProcessor_GetFibEntries(MessageProcessor *processor);
+fib_entry_list_t *messageProcessor_GetFibEntries(MessageProcessor *processor);
 
 /**
  * Adjusts the ContentStore to the given size.
@@ -173,8 +177,7 @@ void messageProcessor_SetContentObjectStoreSize(MessageProcessor *processor,
  * ContentStoreInterface.
  *
  */
-ContentStoreInterface *messageProcessor_GetContentObjectStore(
-    const MessageProcessor *processor);
+content_store_t *messageProcessor_GetContentStore(const MessageProcessor *processor);
 
 void messageProcessor_SetCacheStoreFlag(MessageProcessor *processor, bool val);
 
@@ -187,9 +190,7 @@ bool messageProcessor_GetCacheServeFlag(MessageProcessor *processor);
 void messageProcessor_ClearCache(MessageProcessor *processor);
 
 void processor_SetStrategy(MessageProcessor *processor, Name *prefix,
-                           strategy_type strategy,
-                           unsigned related_prefixes_len,
-                           Name **related_prefixes);
+        strategy_type_t strategy, strategy_options_t * strategy_options);
 
 #ifdef WITH_MAPME
 

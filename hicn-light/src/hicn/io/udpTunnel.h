@@ -25,18 +25,14 @@
 #include <hicn/core/forwarder.h>
 #include <hicn/io/ioOperations.h>
 #include <hicn/io/listener.h>
-#include <hicn/utils/address.h>
+#include <hicn/base/address.h>
+#include <hicn/base/address_pair.h>
 
-/**
- */
 IoOperations *udpTunnel_CreateOnListener(Forwarder *forwarder,
                                          ListenerOps *localListener,
-                                         const Address *remoteAddress);
+                                         const address_t * remote_addr);
 
-/**
- */
 IoOperations *udpTunnel_Create(Forwarder *forwarder,
-                               const Address *localAddress,
-                               const Address *remoteAddress);
+        const address_pair_t * pair, unsigned connid);
 
 #endif  // udpTunnel_h

@@ -26,11 +26,12 @@
 #endif
 #include <stdlib.h>
 
-#include <hicn/core/connectionTable.h>
+#include <hicn/base/msgbuf.h>
+#include <hicn/base/connection_table.h>
+#include <hicn/base/listener_table.h>
+
 #include <hicn/core/dispatcher.h>
 #include <hicn/messenger/messenger.h>
-
-#include <hicn/core/message.h>
 
 #include <hicn/config/configuration.h>
 
@@ -40,9 +41,8 @@
 
 #include <hicn/core/logger.h>
 #include <hicn/core/ticks.h>
-#include <hicn/io/listenerSet.h>
 
-#include <hicn/processor/fibEntryList.h>
+#include <hicn/processor/fib_entry_list.h>
 
 #include <parc/algol/parc_Clock.h>
 
@@ -147,7 +147,7 @@ Dispatcher *forwarder_GetDispatcher(Forwarder *forwarder);
  * @retval non-null The set of active listeners
  * @retval null An error
  */
-ListenerSet *forwarder_GetListenerSet(Forwarder *forwarder);
+listener_table_t * forwarder_GetListenerTable(Forwarder *forwarder);
 
 /**
  * Returns the forwrder's connection table
@@ -158,11 +158,7 @@ ListenerSet *forwarder_GetListenerSet(Forwarder *forwarder);
  * @retval null An error
  *
  */
-#ifdef WITH_POLICY
-ConnectionTable *forwarder_GetConnectionTable(const Forwarder *forwarder);
-#else
-ConnectionTable *forwarder_GetConnectionTable(Forwarder *forwarder);
-#endif /* WITH_POLICY */
+connection_table_t * forwarder_GetConnectionTable(const Forwarder *forwarder);
 
 /**
  * Returns a Tick-based clock
@@ -199,7 +195,10 @@ uint64_t forwarder_TicksToNanos(Ticks ticks);
 void forwarder_ReceiveCommand(Forwarder *forwarder, command_id command,
                               struct iovec *message, unsigned ingressId);
 
-void forwarder_Receive(Forwarder *forwarder, Message *mesage);
+void forwarder_ReceiveCommandBuffer(Forwarder * forwarder, command_id command,
+        uint8_t * packet, unsigned ingressId);
+
+void forwarder_Receive(Forwarder *forwarder, msgbuf_t * message, unsigned new_batch);
 
 /**
  * @function forwarder_AddOrUpdateRoute
@@ -244,7 +243,7 @@ void forwarder_RemoveConnectionIdFromRoutes(Forwarder *forwarder,
  */
 Configuration *forwarder_GetConfiguration(Forwarder *forwarder);
 
-FibEntryList *forwarder_GetFibEntries(Forwarder *forwarder);
+fib_entry_list_t *forwarder_GetFibEntries(Forwarder *forwarder);
 
 /**
  * Sets the maximum number of content objects in the content store
@@ -265,8 +264,8 @@ bool forwarder_GetChacheServeFlag(Forwarder *forwarder);
 void forwarder_ClearCache(Forwarder *forwarder);
 
 void forwarder_SetStrategy(Forwarder *forwarder, Name *prefix,
-                           strategy_type strategy, unsigned related_prefixes_len,
-                           Name **related_prefixes);
+        strategy_type_t strategy, strategy_options_t * options);
+
 #if !defined(__APPLE__)
 hicn_socket_helper_t *forwarder_GetHicnSocketHelper(Forwarder *forwarder);
 #endif
@@ -298,12 +297,19 @@ void forwarder_onConnectionEvent(Forwarder *forwarder, const Connection *conn, c
  * @param [in] msgBuffer - MAP-Me buffer
  * @param [in] conn_id - Ingress connection id
  */
-void forwarder_ProcessMapMe(Forwarder *forwarder, const uint8_t *msgBuffer,
+void forwarder_ProcessMapMe(const Forwarder *forwarder, const uint8_t *msgBuffer,
                             unsigned conn_id);
 
 struct mapme;
 struct mapme * forwarder_getMapmeInstance(const Forwarder *forwarder);
 
 #endif /* WITH_MAPME */
+
+#ifdef WITH_PREFIX_STATS
+const prefix_stats_mgr_t * forwarder_GetPrefixStatsMgr(const Forwarder * forwarder);
+#endif /* WITH_PREFIX_STATS */
+
+bool forwarder_handleHooks(const Forwarder * forwarder, const uint8_t * packet,
+        ListenerOps * listener, int fd, unsigned conn_id, address_pair_t * pair);
 
 #endif  // forwarder_h

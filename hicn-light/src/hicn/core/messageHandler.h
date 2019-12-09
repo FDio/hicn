@@ -18,9 +18,12 @@
 
 #include <stdlib.h>
 #include <unistd.h> // close
+#include <parc/algol/parc_Memory.h>
 
 #include <hicn/hicn.h>
 #include <hicn/core/messagePacketType.h>
+
+//#include <hicn/base/connection_table.h>
 
 #define H(packet) ((hicn_header_t *)packet)
 #define H6(packet) (H(packet)->v6.ip)
@@ -54,12 +57,12 @@
 #define expected_lbl wldr_notification_lbl.expected_lbl
 #define received_lbl wldr_notification_lbl.received_lbl
 
-#include <hicn/core/forwarder.h>
+//#include <hicn/core/forwarder.h>
 
-#ifdef WITH_MAPME
-#include <hicn/core/mapme.h>
-#include <hicn/socket/api.h>
-#endif /* WITH_MAPME */
+//#ifdef WITH_MAPME
+//#include <hicn/core/mapme.h>
+//#include <hicn/socket/api.h>
+//#endif /* WITH_MAPME */
 
 #define CONNECTION_ID_UNDEFINED -1
 
@@ -172,155 +175,6 @@ static inline uint8_t messageHandler_NextHeaderType(const uint8_t *message) {
     default:
       return 0;
   }
-}
-
-/* Forward declarations */
-static inline void * messageHandler_GetSource(const uint8_t *message);
-static inline void *messageHandler_GetDestination(const uint8_t *message);
-
-static const
-AddressPair *
-_createRecvAddressPairFromPacket(const uint8_t *msgBuffer) {
-  Address *packetSrcAddr = NULL; /* This one is in the packet */
-  Address *localAddr = NULL; /* This one is to be determined */
-
-  if (messageHandler_GetIPPacketType(msgBuffer) == IPv6_TYPE) {
-    struct sockaddr_in6 addr_in6;
-    addr_in6.sin6_family = AF_INET6;
-    addr_in6.sin6_port = htons(1234);
-    addr_in6.sin6_flowinfo = 0;
-    addr_in6.sin6_scope_id = 0;
-    memcpy(&addr_in6.sin6_addr,
-           (struct in6_addr *)messageHandler_GetSource(msgBuffer), 16);
-    packetSrcAddr = addressCreateFromInet6(&addr_in6);
-
-    /* We now determine the local address used to reach the packet src address */
-    int sock = socket (AF_INET6, SOCK_DGRAM, 0);
-    if (sock < 0)
-      goto ERR;
-
-    struct sockaddr_in6 remote, local;
-    memset(&remote, 0, sizeof(remote));
-    remote.sin6_family = AF_INET6;
-    remote.sin6_addr = addr_in6.sin6_addr;
-    remote.sin6_port = htons(1234);
-
-    socklen_t locallen = sizeof(local);
-    if (connect(sock, (const struct sockaddr*)&remote, sizeof(remote)) == -1)
-      goto ERR;
-    if (getsockname(sock, (struct sockaddr*) &local, &locallen) == -1)
-      goto ERR;
-
-    local.sin6_port = htons(1234);
-    localAddr = addressCreateFromInet6(&local);
-
-    close(sock);
-
-  } else if (messageHandler_GetIPPacketType(msgBuffer) == IPv4_TYPE) {
-    struct sockaddr_in addr_in;
-    addr_in.sin_family = AF_INET;
-    addr_in.sin_port = htons(1234);
-    memcpy(&addr_in.sin_addr,
-           (struct in_addr *)messageHandler_GetSource(msgBuffer), 4);
-    packetSrcAddr = addressCreateFromInet(&addr_in);
-
-    /* We now determine the local address used to reach the packet src address */
-
-    int sock = socket (AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-      perror("Socket error");
-      goto ERR;
-    }
-
-    struct sockaddr_in remote, local;
-    memset(&remote, 0, sizeof(remote));
-    remote.sin_family = AF_INET;
-    remote.sin_addr = addr_in.sin_addr;
-    remote.sin_port = htons(1234);
-
-    socklen_t locallen = sizeof(local);
-    if (connect(sock, (const struct sockaddr*)&remote, sizeof(remote)) == -1)
-      goto ERR;
-    if (getsockname(sock, (struct sockaddr*) &local, &locallen) == -1)
-      goto ERR;
-
-    local.sin_port = htons(1234);
-    localAddr = addressCreateFromInet(&local);
-
-    close(sock);
-  }
-  /* As this is a receive pair, we swap src and dst */
-  return addressPair_Create(localAddr, packetSrcAddr);
-
-ERR:
-  perror("Socket error");
-  return NULL;
-}
-
-/* Main hook handler */
-
-/**
- * \brief Handle incoming messages
- * \param [in] forwarder - Reference to the Forwarder instance
- * \param [in] packet - Packet buffer
- * \param [in] conn_id - A hint on the connection ID on which the packet
- *      was received
- * \return Flag indicating whether the packet matched a hook and was
- *      (successfully or not) processed.
- */
-static inline bool messageHandler_handleHooks(Forwarder * forwarder,
-        const uint8_t * packet, ListenerOps * listener, int fd, AddressPair * pair)
-{
-  bool is_matched = false;
-
-  /* BEGIN Match */
-
-#ifdef WITH_MAPME
-  bool is_mapme = mapme_isMapMe(packet);
-  is_matched |= is_mapme;
-#endif /* WITH_MAPME */
-
-  /* ... */
-
-  /* END Match */
-
-  if (!is_matched)
-    return false;
-
-  /*
-   * Find existing connection or create a new one (we assume all processing
-   * requires a valid connection.
-   */
-
-  if (!pair) {
-    /* The hICN listener does not provide any address pair while UDP does */
-    const AddressPair * pair = _createRecvAddressPairFromPacket(packet);
-    if (!pair)
-      return false;
-  }
-
-  /* Find connection and eventually create it */
-  const Connection * conn = connectionTable_FindByAddressPair(
-        forwarder_GetConnectionTable(forwarder), pair);
-  unsigned conn_id;
-  if (conn == NULL) {
-    conn_id = listener->createConnection(listener, fd, pair);
-  } else {
-    conn_id = connection_GetConnectionId(conn);
-  }
-
-  /* BEGIN Process */
-
-#ifdef WITH_MAPME
-  if (mapme_isMapMe(packet))
-    forwarder_ProcessMapMe(forwarder, packet, conn_id);
-#endif /* WITH_MAPME */
-
-  /* ... */
-
-  /* END Process */
-
-  return true;
 }
 
 static inline bool messageHandler_IsTCP(const uint8_t *message) {
@@ -658,25 +512,26 @@ static inline void messageHandler_SetWldrNotification(uint8_t *notification,
   hicn_header_t *h = (hicn_header_t *)notification;
   switch (messageHandler_GetIPPacketType(original)) {
     case IPv6_TYPE: {
-      *h = (hicn_header_t){.v6 = {
-                               .ip =
-                                   {
-                                       .version_class_flow = htonl(
-                                           (IPV6_DEFAULT_VERSION << 28) |
-                                           (IPV6_DEFAULT_TRAFFIC_CLASS << 20) |
-                                           (IPV6_DEFAULT_FLOW_LABEL & 0xfffff)),
-                                       .len = htons(ICMP_HDRLEN),
-                                       .nxt = IPPROTO_ICMPV6,
-                                       .hlim = 5,
-                                   },
-                               .wldr =
-                                   {
-                                       .type = ICMP_WLDR_TYPE,
-                                       .code = ICMP_WLDR_CODE,
-                                       .expected_lbl = htons(expected),
-                                       .received_lbl = htons(received),
-                                   },
-                           }};
+      *h = (hicn_header_t){
+        .v6 = {
+          .ip =
+              {
+                  .version_class_flow = htonl(
+                      (IPV6_DEFAULT_VERSION << 28) |
+                      (IPV6_DEFAULT_TRAFFIC_CLASS << 20) |
+                      (IPV6_DEFAULT_FLOW_LABEL & 0xfffff)),
+                  .len = htons(ICMP_HDRLEN),
+                  .nxt = IPPROTO_ICMPV6,
+                  .hlim = 5,
+              },
+          .wldr =
+              {
+                  .type = ICMP_WLDR_TYPE,
+                  .code = ICMP_WLDR_CODE,
+                  .expected_lbl = htons(expected),
+                  .received_lbl = htons(received),
+              },
+        }};
       messageHandler_SetSource_IPv6(
           notification,
           (struct in6_addr *)messageHandler_GetDestination(original));

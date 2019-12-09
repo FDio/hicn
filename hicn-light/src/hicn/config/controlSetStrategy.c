@@ -42,7 +42,8 @@ static CommandReturn _controlSetStrategy_HelpExecute(CommandParser *parser,
 static const char *_commandSetStrategy = "set strategy";
 static const char *_commandSetStrategyHelp = "help set strategy";
 
-static const char *_commandSetStrategyOptions[LAST_STRATEGY_VALUE] = {
+static const char *_commandSetStrategyOptions[STRATEGY_TYPE_N] = {
+    "(undefined)",
     "loadbalancer",
     "random",
     "low_latency",
@@ -62,10 +63,10 @@ CommandOps *controlSetStrategy_HelpCreate(ControlState *state) {
 
 // ====================================================
 
-strategy_type _validStrategy(const char *strategy) {
-  strategy_type validStrategy = LAST_STRATEGY_VALUE;
+strategy_type_t _validStrategy(const char *strategy) {
+  strategy_type_t validStrategy = STRATEGY_TYPE_UNDEFINED;
 
-  for (int i = 0; i < LAST_STRATEGY_VALUE; i++) {
+  for (int i = 0; i < STRATEGY_TYPE_N; i++) {
     if (strcmp(_commandSetStrategyOptions[i], strategy) == 0) {
       validStrategy = i;
       break;
@@ -92,7 +93,7 @@ static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
     res = inet_pton(AF_INET, addr, &setStrategyCommand->address.v4.as_u32);
   else
     res = inet_pton(AF_INET, addr,
-              &setStrategyCommand->addresses[index].v4.as_u32);
+              &setStrategyCommand->low_latency.addresses[index].v4.as_u32);
 
   if(res == 1) {
     if (len == UINT32_MAX) {
@@ -103,9 +104,9 @@ static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
       return false;
     }
     if(index == -1)
-      setStrategyCommand->addressType = ADDR_INET;
+      setStrategyCommand->family = AF_INET;
     else
-      setStrategyCommand->addresses_type[index] = ADDR_INET;
+      setStrategyCommand->low_latency.families[index] = AF_INET;
 
   } else {
 
@@ -114,7 +115,7 @@ static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
             &setStrategyCommand->address.v6.as_in6addr);
     else
       res = inet_pton(AF_INET6, addr,
-            &setStrategyCommand->addresses[index].v6.as_in6addr);
+            &setStrategyCommand->low_latency.addresses[index].v6.as_in6addr);
 
     if(res == 1) {
       if (len == UINT32_MAX) {
@@ -126,9 +127,9 @@ static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
       }
 
       if(index == -1)
-        setStrategyCommand->addressType = ADDR_INET6;
+        setStrategyCommand->family = AF_INET6;
       else
-        setStrategyCommand->addresses_type[index] = ADDR_INET6;
+        setStrategyCommand->low_latency.families[index] = AF_INET6;
 
     } else {
       printf("Error: %s is not a valid network address \n", addr);
@@ -191,8 +192,8 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
 
   const char *strategyStr = parcList_GetAtIndex(args, 3);
   // check valid strategy
-  strategy_type strategy;
-  if ((strategy = _validStrategy(strategyStr)) == LAST_STRATEGY_VALUE) {
+  strategy_type_t strategy;
+  if ((strategy = _validStrategy(strategyStr)) == STRATEGY_TYPE_UNDEFINED) {
     printf("Error: invalid strategy \n");
     parcMemory_Deallocate(&setStrategyCommand);
     _controlSetStrategy_HelpExecute(parser, ops, args);
@@ -204,7 +205,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
 
   // Fill remaining payload fields
   setStrategyCommand->len = len;
-  setStrategyCommand->strategyType = strategy;
+  setStrategyCommand->strategy_type = strategy;
 
   //check additional prefixes
   if(parcList_Size(args) > 4){
@@ -223,7 +224,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
         free(rel_addr);
         return CommandReturn_Failure;
       }
-      setStrategyCommand->lens[addr_index] = rel_len;
+      setStrategyCommand->low_latency.lens[addr_index] = rel_len;
       free(rel_addr);
       index++;
       addr_index++;

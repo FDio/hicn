@@ -13,6 +13,14 @@
  * limitations under the License.
  */
 
+/* This has to be included early as other modules are including socket.h */
+#define _GNU_SOURCE
+#include <sys/socket.h>
+#include <errno.h>
+
+#include <hicn/processor/messageProcessor.h>
+#include <hicn/base/msgbuf.h>
+
 #ifndef _WIN32
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -23,6 +31,14 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+
+#ifdef WITH_GSO
+#include <netinet/if_ether.h> // ETH_DATA_LEN
+#include <linux/ipv6.h> // struct ipv6hdr
+#include <netinet/udp.h> // struct udphdr, SOL_UDP
+//#include <linux/udp.h> // UDP_GRO
+#define UDP_GRO 104
+#endif /* WITH_GSO */
 
 #include <hicn/core/messageHandler.h>
 
@@ -39,6 +55,18 @@
 #define IPv4 4
 #define IPv6 6
 
+#define DEBUG(FMT, ...) do {                                                    \
+    if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug))  \
+      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,  \
+                 FMT, ## __VA_ARGS__);                                          \
+} while(0);
+
+#define ERROR(FMT, ...) do {                                                    \
+    if (logger_IsLoggable(udp->logger, LoggerFacility_IO,  PARCLogLevel_Error)) \
+      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,  \
+                 FMT, ## __VA_ARGS__);                                          \
+} while(0);
+
 struct udp_listener {
   char *listenerName;
   Forwarder *forwarder;
@@ -50,18 +78,30 @@ struct udp_listener {
 
   unsigned id;
   char *interfaceName;
-  Address *localAddress;
+  struct sockaddr_storage local_addr;
+
+  /* recvmmsg data structures */
+  struct mmsghdr msghdr[MAX_MSG]; // XXX = {0};
+  char buffers[MAX_MSG][MTU_SIZE];
+  struct iovec iovecs[MAX_MSG]; // XXX = {0};
+  struct sockaddr_storage addrs[MAX_MSG];
+  msgbuf_t messages[MAX_MSG];
+  Connection * messages_conn[MAX_MSG];
+
+  uint8_t * commands[MAX_MSG];
+  unsigned commands_connid[MAX_MSG];
+
 };
 
 static void _destroy(ListenerOps **listenerOpsPtr);
-static const char *_getListenerName(const ListenerOps *ops);
-static unsigned _getInterfaceIndex(const ListenerOps *ops);
-static const Address *_getListenAddress(const ListenerOps *ops);
-static EncapType _getEncapType(const ListenerOps *ops);
+static const char *_getListenerName(const ListenerOps *listener);
+static unsigned _getInterfaceIndex(const ListenerOps *listener);
+static const address_t * _getListenAddress(const ListenerOps *listener);
+static EncapType _getEncapType(const ListenerOps *listener);
 static const char *_getInterfaceName(const ListenerOps *ops);
-static int _getSocket(const ListenerOps *ops);
-static unsigned _createNewConnection(ListenerOps *listener, int fd, const AddressPair *pair);
-static const Connection * _lookupConnection(ListenerOps * listener, const AddressPair *pair);
+static int _getSocket(const ListenerOps *listener, const address_pair_t * pair);
+
+static unsigned _createNewConnection(ListenerOps *listener, int fd, const address_pair_t *pair);
 
 static ListenerOps udpTemplate = {
   .context = NULL,
@@ -72,255 +112,277 @@ static ListenerOps udpTemplate = {
   .getSocket = &_getSocket,
   .getListenerName = &_getListenerName,
   .createConnection = &_createNewConnection,
-  .lookupConnection = &_lookupConnection,
   .getInterfaceName = &_getInterfaceName,
 };
 
 
 static void _readcb(int fd, PARCEventType what, void * listener_void);
 
+#include <arpa/inet.h>
+char *get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen)
+{
+    switch(sa->sa_family) {
+        case AF_INET:
+            inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
+                    s, maxlen);
+            break;
+
+        case AF_INET6:
+            inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr),
+                    s, maxlen);
+            break;
+
+        default:
+            strncpy(s, "Unknown AF", maxlen);
+            return NULL;
+    }
+
+    return s;
+}
+
 #ifdef __ANDROID__
 extern int bindSocket(int sock, const char* ifname);
 #endif
 
-ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
-                                     struct sockaddr_in6 sin6, const char *interfaceName) {
-  ListenerOps *ops = NULL;
+/******************************************************************************
+ * Helpers
+ ******************************************************************************/
 
-  UdpListener *udp = parcMemory_AllocateAndClear(sizeof(UdpListener));
-  parcAssertNotNull(udp, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(UdpListener));
-  udp->forwarder = forwarder;
-  udp->listenerName = parcMemory_StringDuplicate(listenerName, strlen(listenerName));
-  udp->interfaceName = parcMemory_StringDuplicate(interfaceName, strlen(interfaceName));
-  udp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
-  udp->localAddress = addressCreateFromInet6(&sin6);
-  udp->id = forwarder_GetNextConnectionId(forwarder);
+int
+init_batch_buffers(UdpListener * udp)
+{
+  /* Setup recvmmsg data structures. */
+  for (unsigned i = 0; i < MAX_MSG; i++) {
+    char *buf = &udp->buffers[i][0];
+    struct iovec *iovec = &udp->iovecs[i];
+    struct mmsghdr *msg = &udp->msghdr[i];
 
-  udp->udp_socket = (SocketType)socket(AF_INET6, SOCK_DGRAM, 0);
-  parcAssertFalse(udp->udp_socket < 0, "Error opening UDP socket: (%d) %s",
-                  errno, strerror(errno));
+    msg->msg_hdr.msg_iov = iovec;
+    msg->msg_hdr.msg_iovlen = 1;
 
-  int failure = 0;
-#ifndef _WIN32
-  // Set non-blocking flag
-  int flags = fcntl(udp->udp_socket, F_GETFL, NULL);
-  parcAssertTrue(flags != -1,
-                 "fcntl failed to obtain file descriptor flags (%d)", errno);
-  failure = fcntl(udp->udp_socket, F_SETFL, flags | O_NONBLOCK);
-  parcAssertFalse(failure, "fcntl failed to set file descriptor flags (%d)",
-                  errno);
-#else
-  // Set non-blocking flag
-  u_long mode = 1;
-  int result = ioctlsocket(udp->udp_socket, FIONBIO, &mode);
-  if (result != NO_ERROR) {
-    parcAssertTrue(result != NO_ERROR,
-                   "ioctlsocket failed to set file descriptor");
+    msg->msg_hdr.msg_name = &udp->addrs[i];
+    msg->msg_hdr.msg_namelen = sizeof(struct sockaddr_storage);
+
+    iovec->iov_base = &buf[0];
+    iovec->iov_len = MTU_SIZE;
   }
-#endif
+  return 0;
 
-  int one = 1;
-  // don't hang onto address after listener has closed
-  failure = setsockopt(udp->udp_socket, SOL_SOCKET, SO_REUSEADDR, (void *)&one,
-                       (socklen_t)sizeof(one));
-  parcAssertFalse(failure, "failed to set REUSEADDR on socket(%d)", errno);
-
-  failure = bind(udp->udp_socket, (struct sockaddr *)&sin6, sizeof(sin6));
-
-  if (failure == 0) {
-#ifdef __linux__
-    if (strncmp("lo", interfaceName, 2) != 0) {
-      int ret = setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
-                       interfaceName, strlen(interfaceName) + 1);
-      if (ret < 0) {
-        logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                   "setsockopt(%d, SO_BINDTODEVICE, %s) failed (%d) %s",
-                   udp->udp_socket, interfaceName, errno, strerror(errno));
-#ifdef __ANDROID__
-        ret = bindSocket(udp->udp_socket, interfaceName);
-        if (ret < 0) {
-          logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                   "bindSocket(%d, %s) failed", udp->udp_socket, interfaceName);
-          close(udp->udp_socket);
-          addressDestroy(&udp->localAddress);
-          logger_Release(&udp->logger);
-          parcMemory_Deallocate((void **)&udp);
-          return NULL;
-        } else {
-          logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                   "bindSocket(%d, %s) success", udp->udp_socket, interfaceName);
-        }
-#else
-        close(udp->udp_socket);
-        addressDestroy(&udp->localAddress);
-        logger_Release(&udp->logger);
-        parcMemory_Deallocate((void **)&udp);
-        return NULL;
-#endif
-      }
-    }
-#endif
-
-    ops = parcMemory_AllocateAndClear(sizeof(ListenerOps));
-    parcAssertNotNull(ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                      sizeof(ListenerOps));
-    memcpy(ops, &udpTemplate, sizeof(ListenerOps));
-    ops->context = udp;
-
-    udp->udp_event =
-        dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(forwarder), true,
-                                      _readcb, (void*)ops, udp->udp_socket);
-    dispatcher_StartNetworkEvent(forwarder_GetDispatcher(forwarder),
-                                 udp->udp_event);
-
-    if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-      char *str = addressToString(udp->localAddress);
-      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "UdpListener %p created for address %s", (void *)udp, str);
-      parcMemory_Deallocate((void **)&str);
-    }
-  } else {
-    if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Error)) {
-      int myerrno = errno;
-      char *str = addressToString(udp->localAddress);
-      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-                 "Error binding UDP socket to address %s: (%d) %s", str,
-                 myerrno, strerror(myerrno));
-      parcMemory_Deallocate((void **)&str);
-    }
-    parcMemory_Deallocate((void **)&udp->listenerName);
-    parcMemory_Deallocate((void **)&udp->interfaceName);
-#ifndef _WIN32
-    close(udp->udp_socket);
-#else
-    closesocket(udp->udp_socket);
-#endif
-    addressDestroy(&udp->localAddress);
-    logger_Release(&udp->logger);
-    parcMemory_Deallocate((void **)&udp);
-  }
-
-  return ops;
 }
 
-ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
-                                    struct sockaddr_in sin, const char *interfaceName) {
-  ListenerOps *ops = NULL;
+/* socket options */
+int
+socket_set_options(int fd)
+{
+#ifndef _WIN32
+  // Set non-blocking flag
+  int flags = fcntl(fd, F_GETFL, NULL);
+  if (flags < 0) {
+    perror("fcntl");
+    return -1;
+  }
+
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+    perror("fcntl");
+    return -1;
+  }
+#else
+  // Set non-blocking flag
+  int result = ioctlsocket(fd, FIONBIO, &(int){1});
+  if (result != NO_ERROR) {
+    perror("ioctlsocket");
+    return -1;
+  }
+#endif
+
+  // don't hang onto address after listener has closed
+  if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0) {
+    perror("setsockopt");
+    return -1;
+ }
+
+#ifdef WITH_GSO
+//● choosing gso_size
+//○ ETH_DATA_LEN
+//○ IP_MTU_DISCOVER
+//● choosing number of segments
+//○ fit in network layer
+//○ <= UDP_MAX_SEGMENTS
+//○ > gso_size
+//● checksum offload
+//○ csum_and_copy_from_user
+  int gso_size = ETH_DATA_LEN - sizeof(struct ipv6hdr) - sizeof(struct udphdr);
+  if (setsockopt(fd, SOL_UDP, UDP_SEGMENT, &gso_size, sizeof(gso_size)) < 0) {
+    perror("setsockopt");
+    return -1;
+  }
+#endif /* WITH_GSO */
+
+#ifdef WITH_GRO
+  if (setsockopt(fd, IPPROTO_UDP, UDP_GRO, &(int){1}, sizeof(int)) < 0) {
+    perror("setsockopt");
+    return -1;
+  }
+#endif /* WITH_GRO */
+
+#ifdef WITH_ZEROCOPY
+  if (setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &(int){1}, sizeof(int))) {
+    perror("setsockopt");
+    return -1;
+  }
+#endif /* WITH_ZEROCOPY */
+
+  if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &(int){BATCH_SOCKET_BUFFER}, sizeof(int)) < 0) {
+    perror("setsockopt");
+    return -1;
+  }
+  if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &(int){BATCH_SOCKET_BUFFER}, sizeof(int)) < 0) {
+    perror("setsockopt");
+    return -1;
+  }
+  return 0;
+}
+
+#ifdef __linux__
+/* bind to device */
+int
+socket_bind_to_device(int fd, const char * interfaceName)
+{
+  if (strncmp("lo", interfaceName, 2) == 0)
+    return 0;
+
+  if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, interfaceName,
+              strlen(interfaceName) + 1) < 0) {
+      perror("setsockopt");
+      goto ERR_BIND_TO_DEVICE;
+  }
+
+  return 0;
+
+ERR_BIND_TO_DEVICE:
+#ifdef __ANDROID__
+  if (bindSocket(fd, interfaceName) < 0)
+      return -1;
+  return 0;
+#else
+  return -1;
+#endif /* __ANDROID__ */
+}
+#endif /* __linux__ */
+
+void
+socket_close(int fd)
+{
+#ifndef _WIN32
+  close(fd);
+#else
+  closesocket(fd);
+#endif
+}
+
+// TODO with address
+int
+make_socket(const address_t * local, const address_t * remote, const char * interfaceName)
+{
+  int fd = socket(address_family(remote), SOCK_DGRAM, 0);
+  if (fd < 0)
+    goto ERR_SOCKET;
+
+  if (socket_set_options(fd) < 0) {
+    goto ERR;
+  }
+
+  if (bind(fd, address_sa(local), address_socklen(remote)) < 0) {
+    perror("bind");
+    goto ERR;
+  }
+
+#ifdef __linux__
+  if (socket_bind_to_device(fd, interfaceName) < 0) {
+    goto ERR;
+  }
+#endif /* __linux__ */
+
+  if (remote) {
+    if (connect(fd, address_sa(remote), address_socklen(remote)) < 0) {
+      perror("connect");
+      goto ERR;
+    }
+  }
+
+  return fd;
+
+ERR:
+  socket_close(fd);
+ERR_SOCKET:
+  return -1;
+}
+
+/******************************************************************************/
+
+ListenerOps *
+udpListener_Create(Forwarder *forwarder, char *listenerName,
+        const address_t * address, const char *interfaceName)
+{
+
+//        int family, struct sockaddr * sa, socklen_t sl,
+
+  ListenerOps *listener = NULL;
 
   UdpListener *udp = parcMemory_AllocateAndClear(sizeof(UdpListener));
-  parcAssertNotNull(udp, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(UdpListener));
+  if (!udp) {
+    ERROR("parcMemory_AllocateAndClear(%zu) returned NULL", sizeof(UdpListener));
+    goto ERR_UDP;
+  }
   udp->forwarder = forwarder;
   udp->listenerName = parcMemory_StringDuplicate(listenerName, strlen(listenerName));
   udp->interfaceName = parcMemory_StringDuplicate(interfaceName, strlen(interfaceName));
   udp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
-  udp->localAddress = addressCreateFromInet(&sin);
+  udp->local_addr = *address;
   udp->id = forwarder_GetNextConnectionId(forwarder);
 
-  udp->udp_socket = (SocketType)socket(AF_INET, SOCK_DGRAM, 0);
-  parcAssertFalse(udp->udp_socket < 0, "Error opening UDP socket: (%d) %s",
-                  errno, strerror(errno));
+  init_batch_buffers(udp);
 
-  int failure = 0;
-#ifndef _WIN32
-  // Set non-blocking flag
-  int flags = fcntl(udp->udp_socket, F_GETFL, NULL);
-  parcAssertTrue(flags != -1,
-                 "fcntl failed to obtain file descriptor flags (%d)", errno);
-  failure = fcntl(udp->udp_socket, F_SETFL, flags | O_NONBLOCK);
-  parcAssertFalse(failure, "fcntl failed to set file descriptor flags (%d)",
-                  errno);
-#else
-  u_long mode = 1;
-  int result = ioctlsocket(udp->udp_socket, FIONBIO, &mode);
-  if (result != NO_ERROR) {
-    parcAssertTrue(result != NO_ERROR,
-                   "ioctlsocket failed to set file descriptor");
-  }
-#endif
-
-  int one = 1;
-  // don't hang onto address after listener has closed
-  failure = setsockopt(udp->udp_socket, SOL_SOCKET, SO_REUSEADDR, (void *)&one,
-                       (socklen_t)sizeof(one));
-  parcAssertFalse(failure, "failed to set REUSEADDR on socket(%d)", errno);
-
-  failure = bind(udp->udp_socket, (struct sockaddr *)&sin, sizeof(sin));
-  if (failure == 0) {
-#ifdef __linux__
-    if (strncmp("lo", interfaceName, 2) != 0) { 
-      int ret = setsockopt(udp->udp_socket, SOL_SOCKET, SO_BINDTODEVICE,
-                       interfaceName, strlen(interfaceName) + 1);
-      if (ret < 0) {
-        logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                   "setsockopt(%d, SO_BINDTODEVICE, %s) failed (%d) %s",
-                   udp->udp_socket, interfaceName, errno, strerror(errno));
-#ifdef __ANDROID__
-        ret = bindSocket(udp->udp_socket, interfaceName);
-        if (ret < 0) {
-          logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                   "bindSocket(%d, %s) failed", udp->udp_socket, interfaceName);
-          close(udp->udp_socket);
-          addressDestroy(&udp->localAddress);
-          logger_Release(&udp->logger);
-          parcMemory_Deallocate((void **)&udp);
-          return NULL;
-        } else {
-          logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                   "bindSocket(%d, %s) success", udp->udp_socket, interfaceName);
-        }
-#else
-        close(udp->udp_socket);
-        addressDestroy(&udp->localAddress);
-        logger_Release(&udp->logger);
-        parcMemory_Deallocate((void **)&udp);
-        return NULL;
-#endif
-      }
-    }
-#endif
-    ops = parcMemory_AllocateAndClear(sizeof(ListenerOps));
-    parcAssertNotNull(ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                      sizeof(ListenerOps));
-    memcpy(ops, &udpTemplate, sizeof(ListenerOps));
-    ops->context = udp;
-
-    udp->udp_event =
-        dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(forwarder), true,
-                                      _readcb, (void *)ops, udp->udp_socket);
-    dispatcher_StartNetworkEvent(forwarder_GetDispatcher(forwarder),
-                                 udp->udp_event);
-
-
-    if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-      char *str = addressToString(udp->localAddress);
-      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                 "UdpListener %p created for address %s", (void *)udp, str);
-      parcMemory_Deallocate((void **)&str);
-    }
-  } else {
-    if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Error)) {
-      int myerrno = errno;
-      char *str = addressToString(udp->localAddress);
-      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-                 "Error binding UDP socket to address %s: (%d) %s", str,
-                 myerrno, strerror(myerrno));
-      parcMemory_Deallocate((void **)&str);
-    }
-    parcMemory_Deallocate((void **)&udp->listenerName);
-    parcMemory_Deallocate((void **)&udp->interfaceName);
-#ifndef _WIN32
-    close(udp->udp_socket);
-#else
-    closesocket(udp->udp_socket);
-#endif
-    addressDestroy(&udp->localAddress);
-    logger_Release(&udp->logger);
-    parcMemory_Deallocate((void **)&udp);
+  udp->udp_socket = make_socket(address, NULL, interfaceName);
+  if (udp->udp_socket < 0) {
+    ERROR("Error creating UDP socket: (%d) %s", errno, strerror(errno));
+    goto ERR_SOCKET;
   }
 
-  return ops;
+  listener = parcMemory_AllocateAndClear(sizeof(ListenerOps));
+  if (!listener) {
+    ERROR("parcMemory_AllocateAndClear(%zu) returned NULL",
+            sizeof(ListenerOps));
+    goto ERR;
+  }
+  memcpy(listener, &udpTemplate, sizeof(ListenerOps));
+  listener->context = udp;
+
+  udp->udp_event = dispatcher_CreateNetworkEvent(
+          forwarder_GetDispatcher(forwarder), true, _readcb, (void*)listener,
+          udp->udp_socket);
+  dispatcher_StartNetworkEvent(forwarder_GetDispatcher(forwarder),
+          udp->udp_event);
+
+// XXX TODO
+#if 0
+  char *str = addressToString(udp->local_addr);
+  DEBUG("UdpListener %p created for address %s", (void *)udp, str);
+  parcMemory_Deallocate((void **)&str);
+#endif
+
+  return listener;
+
+ERR:
+  socket_close(udp->udp_socket);
+ERR_SOCKET:
+  logger_Release(&udp->logger);
+  parcMemory_Deallocate((void **)&udp->interfaceName);
+  parcMemory_Deallocate((void **)&udp->listenerName);
+  parcMemory_Deallocate((void **)&udp);
+ERR_UDP:
+  return NULL;
+
 }
 
 static void udpListener_Destroy(UdpListener **listenerPtr) {
@@ -330,10 +392,7 @@ static void udpListener_Destroy(UdpListener **listenerPtr) {
 
   UdpListener *udp = *listenerPtr;
 
-  if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-    logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-               "UdpListener %p destroyed", (void *)udp);
-  }
+  DEBUG("UdpListener %p destroyed", (void *)udp);
 
   parcMemory_Deallocate((void **)&udp->listenerName);
   parcMemory_Deallocate((void **)&udp->interfaceName);
@@ -343,7 +402,6 @@ static void udpListener_Destroy(UdpListener **listenerPtr) {
   closesocket(udp->udp_socket);
 #endif
 
-  addressDestroy(&udp->localAddress);
   dispatcher_DestroyNetworkEvent(forwarder_GetDispatcher(udp->forwarder),
                                  &udp->udp_event);
   logger_Release(&udp->logger);
@@ -362,76 +420,55 @@ static const char *_getInterfaceName(const ListenerOps *ops) {
 }
 
 static void _destroy(ListenerOps **listenerOpsPtr) {
-  ListenerOps *ops = *listenerOpsPtr;
-  UdpListener *udp = (UdpListener *)ops->context;
+  ListenerOps *listener = *listenerOpsPtr;
+  UdpListener *udp = (UdpListener *)listener->context;
   udpListener_Destroy(&udp);
-  parcMemory_Deallocate((void **)&ops);
+  parcMemory_Deallocate((void **)&listener);
   *listenerOpsPtr = NULL;
 }
 
-static unsigned _getInterfaceIndex(const ListenerOps *ops) {
-  UdpListener *udp = (UdpListener *)ops->context;
+static unsigned _getInterfaceIndex(const ListenerOps *listener) {
+  UdpListener *udp = (UdpListener *)listener->context;
   return udp->id;
 }
 
-static const Address *_getListenAddress(const ListenerOps *ops) {
-  UdpListener *udp = (UdpListener *)ops->context;
-  return udp->localAddress;
+static
+const address_t *
+_getListenAddress(const ListenerOps *listener) {
+  UdpListener *udp = (UdpListener *)listener->context;
+  return &udp->local_addr;
 }
 
 static EncapType _getEncapType(const ListenerOps *ops) { return ENCAP_UDP; }
 
-static int _getSocket(const ListenerOps *ops) {
-  UdpListener *udp = (UdpListener *)ops->context;
+static
+int
+_getSocket(const ListenerOps *listener, const address_pair_t * pair)
+{
+  UdpListener *udp = (UdpListener *)listener->context;
+
+  int fd = make_socket(&pair->local, &pair->remote, udp->interfaceName);
+  if (fd < 0) {
+    ERROR("Error creating socket");
+    goto ERR_SOCKET;
+  }
+
+  /* A new socket was created, register it to the event loop */
+  PARCEvent *udp_event = dispatcher_CreateNetworkEvent(
+          forwarder_GetDispatcher(udp->forwarder), true, _readcb,
+          (void *)listener, fd);
+  dispatcher_StartNetworkEvent(forwarder_GetDispatcher(udp->forwarder),
+          udp_event);
+
+  return fd;
+
+ERR_SOCKET:
+  ERROR("Failed to create connected socket, falling back to common socket");
   return (int)udp->udp_socket;
 }
 
 // =====================================================================
 
-/**
- * @function _constructAddressPair
- * @abstract Creates the address pair that uniquely identifies the connection
- * @discussion
- *   The peerIpAddress must be of AF_INET or AF_INET6 family.
- *
- * @param <#param1#>
- * @return Allocated MetisAddressPair, must be destroyed
- */
-static AddressPair *_constructAddressPair(UdpListener *udp,
-                                          struct sockaddr *peerIpAddress,
-                                          socklen_t peerIpAddressLength) {
-  Address *remoteAddress;
-
-  switch (peerIpAddress->sa_family) {
-    case AF_INET:
-      remoteAddress =
-          addressCreateFromInet((struct sockaddr_in *)peerIpAddress);
-      break;
-
-    case AF_INET6:
-      remoteAddress =
-          addressCreateFromInet6((struct sockaddr_in6 *)peerIpAddress);
-      break;
-
-    default:
-      parcTrapIllegalValue(peerIpAddress,
-                           "Peer address unrecognized family for IP: %d",
-                           peerIpAddress->sa_family);
-  }
-
-  AddressPair *pair = addressPair_Create(udp->localAddress, remoteAddress);
-  addressDestroy(&remoteAddress);
-
-  return pair;
-}
-
-static const Connection * _lookupConnection(ListenerOps * listener,
-                                const AddressPair *pair) {
-  UdpListener * udp = (UdpListener *)listener->context;
-  ConnectionTable *connTable = forwarder_GetConnectionTable(udp->forwarder);
-  return connectionTable_FindByAddressPair(connTable, pair);
-
-}
 
 /**
  * @function _createNewConnection
@@ -447,203 +484,151 @@ static const Connection * _lookupConnection(ListenerOps * listener,
  */
 
 static unsigned _createNewConnection(ListenerOps * listener, int fd,
-                                     const AddressPair *pair) {
+                                     const address_pair_t * pair)
+{
   UdpListener * udp = (UdpListener *)listener->context;
 
-  //check it the connection is local
-  bool isLocal = false;
-  const Address *localAddress = addressPair_GetLocal(pair);
-  if(addressGetType(localAddress) == ADDR_INET){
-    struct sockaddr_in tmpAddr;
-    addressGetInet(localAddress, &tmpAddr);
-    if(parcNetwork_IsSocketLocal((struct sockaddr *)&tmpAddr))
-      isLocal = true;
-  }else{
-    struct sockaddr_in6 tmpAddr6;
-    addressGetInet6(localAddress, &tmpAddr6);
-    if(parcNetwork_IsSocketLocal((struct sockaddr *)&tmpAddr6))
-      isLocal = true;
-  }
+  bool isLocal = address_is_local(address_pair_local(pair));
+  connection_table_t * table = forwarder_GetConnectionTable(udp->forwarder);
+  Connection ** conn_ptr;
+  connection_table_allocate(table, conn_ptr, pair);
 
-  // metisUdpConnection_Create takes ownership of the pair
-  IoOperations *ops = udpConnection_Create(udp->forwarder, udp->interfaceName, fd, pair, isLocal);
-  Connection *conn = connection_Create(ops);
+  unsigned connid = connection_table_get_connection_id(table, conn_ptr);
+
+  IoOperations *ioops = udpConnection_Create(udp->forwarder, udp->interfaceName, fd, pair, isLocal, connid);
+  *conn_ptr = connection_Create(ioops);
   // connection_AllowWldrAutoStart(conn);
-
-  connectionTable_Add(forwarder_GetConnectionTable(udp->forwarder), conn);
-  unsigned connid = ioOperations_GetConnectionId(ops);
 
   return connid;
 }
 
-static void _handleWldrNotification(UdpListener *udp, unsigned connId,
-                                    uint8_t *msgBuffer) {
-  const Connection *conn = connectionTable_FindById(
-      forwarder_GetConnectionTable(udp->forwarder), connId);
-  if (conn == NULL) {
-    return;
-  }
-
-  Message *message = message_CreateFromByteArray(
-      connId, msgBuffer, MessagePacketType_WldrNotification,
-      forwarder_GetTicks(udp->forwarder), forwarder_GetLogger(udp->forwarder));
-
-  connection_HandleWldrNotification((Connection *)conn, message);
-
-  message_Release(&message);
-}
-
-static Message *_readMessage(ListenerOps * listener, int fd,
-                      AddressPair *pair, uint8_t * packet, bool * processed) {
-  UdpListener * udp = (UdpListener *)listener->context;
-
-  Message *message = NULL;
-
-  unsigned connid;
-  bool foundConnection;
-
-  const Connection *conn = _lookupConnection(listener, pair);
-  if (conn) {
-    connid = connection_GetConnectionId(conn);
-    foundConnection = true;
-  } else {
-    connid = 0;
-    foundConnection = false;
-  }
-
-  if (messageHandler_IsTCP(packet)) {
-    *processed = true;
-    MessagePacketType pktType;
-
-    if (messageHandler_IsData(packet)) {
-      pktType = MessagePacketType_ContentObject;
-      if (!foundConnection) {
-        parcMemory_Deallocate((void **)&packet);
-        return message;
-      }
-    } else if (messageHandler_IsInterest(packet)) {
-      pktType = MessagePacketType_Interest;
-      if (!foundConnection) {
-        connid = _createNewConnection(listener, fd, pair);
-      }
-    } else {
-      printf("Got a packet that is not a data nor an interest, drop it!\n");
-      parcMemory_Deallocate((void **)&packet);
-      return message;
-    }
-
-    message = message_CreateFromByteArray(
-        connid, packet, pktType, forwarder_GetTicks(udp->forwarder),
-        forwarder_GetLogger(udp->forwarder));
-
-    if (message == NULL) {
-      parcMemory_Deallocate((void **)&packet);
-    }
-  } else if (messageHandler_IsWldrNotification(packet)) {
-    *processed = true;
-    _handleWldrNotification(udp, connid, packet);
-  } else {
-
-    *processed = messageHandler_handleHooks(udp->forwarder, packet, listener, fd, pair);
-  }
-
-  return message;
-}
-
-static void _readCommand(ListenerOps * listener, int fd,
-                        AddressPair *pair, uint8_t * command) {
-  UdpListener * udp = (UdpListener *)listener->context;
-
-  if (*command != REQUEST_LIGHT){
-    printf("the message received is not a command, drop\n");
-    return;
-  }
-
-  command_id id = *(command + 1);
-
-  if (id >= LAST_COMMAND_VALUE){
-    printf("the message received is not a valid command, drop\n");
-    return;
-  }
-
-  unsigned connid;
-
-  const Connection *conn = _lookupConnection(listener, pair);
-  if (conn) {
-    connid = connection_GetConnectionId(conn);
-  } else {
-    connid = _createNewConnection(listener, fd, pair);
-  }
-
-  struct iovec *request;
-  if (!(request = (struct iovec *) parcMemory_AllocateAndClear(
-              sizeof(struct iovec) * 2))) {
-    return;
-  }
-
-  request[0].iov_base = command;
-  request[0].iov_len = sizeof(header_control_message);
-  request[1].iov_base = command + sizeof(header_control_message);
-  request[1].iov_len = payloadLengthDaemon(id);
-
-  forwarder_ReceiveCommand(udp->forwarder, id, request, connid);
-  parcMemory_Deallocate((void **) &command);
-  parcMemory_Deallocate((void **) &request);
-}
-
-
-static bool _receivePacket(ListenerOps * listener, int fd,
-                           AddressPair *pair,
-                           uint8_t * packet) {
-  UdpListener * udp = (UdpListener *)listener->context;
-  bool processed = false;
-  Message *message = _readMessage(listener, fd, pair,
-                                   packet, &processed);
-  if (message) {
-    forwarder_Receive(udp->forwarder, message);
-  }
-  return processed;
-}
-
-static void _readcb(int fd, PARCEventType what, void * listener_void) {
+static void _readcb(int fd, PARCEventType what, void * listener_void)
+{
   ListenerOps * listener = (ListenerOps *)listener_void;
   UdpListener * udp = (UdpListener *)listener->context;
 
-  if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-    logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-               "%s socket %d what %s%s%s%s data %p", __func__, fd,
-               (what & PARCEventType_Timeout) ? " timeout" : "",
-               (what & PARCEventType_Read) ? " read" : "",
-               (what & PARCEventType_Write) ? " write" : "",
-               (what & PARCEventType_Signal) ? " signal" : "", udp);
+  DEBUG("%s socket %d what %s%s%s%s data %p", __func__, fd,
+          (what & PARCEventType_Timeout) ? " timeout" : "",
+          (what & PARCEventType_Read) ? " read" : "",
+          (what & PARCEventType_Write) ? " write" : "",
+          (what & PARCEventType_Signal) ? " signal" : "", udp);
+
+  if (!(what & PARCEventType_Read))
+    return;
+
+  int r = recvmmsg(fd, udp->msghdr, MAX_MSG, 0, NULL);
+  if (r == 0)
+      return;
+
+  if (r < 0) {
+      if (errno == EINTR)
+          return;
+      perror("recv()");
+      return;
   }
 
-  if (what & PARCEventType_Read) {
-    struct sockaddr_storage peerIpAddress;
-    socklen_t peerIpAddressLength = sizeof(peerIpAddress);
+  int valid = 0;
+  int interest_data = 0;
+  int commands = 0;
 
-    //packet it deallocated by _receivePacket or _readCommand
-    uint8_t * packet = parcMemory_AllocateAndClear(1500); //max MTU
-     ssize_t readLength = recvfrom(fd, packet, 1500, 0,
-      (struct sockaddr *)&peerIpAddress, &peerIpAddressLength);
+  for (int i = 0; i < r; i++) {
+    struct mmsghdr *msg = &udp->msghdr[i];
+    uint8_t * packet =  msg->msg_hdr.msg_iov->iov_base;
+
+    /* BEGIN packet processing */
 
 #ifdef __APPLE__
-    peerIpAddress.ss_len = 0x00;
+    msg->msg_hdr.msg_namelen = 0x00;
 #endif
 
-    if(readLength < 0) {
-      printf("unable to read the message\n");
-      return;
+    /* Construct address pair used for connection lookup */
+    address_pair_t pair;
+    pair.local = udp->local_addr;
+    pair.remote = *(address_t*)msg->msg_hdr.msg_name;
+
+    /* Connection lookup */
+    /* Most important here is a fast lookup, insertion removal will less
+     * important... */
+    connection_table_t * table = forwarder_GetConnectionTable(udp->forwarder);
+    Connection ** conn_ptr = connection_table_lookup(table, &pair);
+    Connection * conn = *conn_ptr;
+    unsigned connid = conn ? connection_table_get_connection_id(table, conn_ptr): CONNECTION_ID_INVALID;
+
+    /* Message type */
+
+    MessagePacketType pktType;
+    if (messageHandler_IsTCP(packet)) {
+      if (messageHandler_IsData(packet)) {
+        if (!conn)
+          continue;
+        pktType = MessagePacketType_ContentObject;
+      } else if (messageHandler_IsInterest(packet)) {
+        if (!conn) {
+          int fd = _getSocket(listener, &pair);
+          connid = _createNewConnection(listener, fd, &pair);
+        // XXX test + conn
+        }
+        pktType = MessagePacketType_Interest;
+      } else {
+        continue;
+      }
+    } else if (messageHandler_IsWldrNotification(packet)) {
+        if (!conn)
+          continue;
+        pktType = MessagePacketType_WldrNotification;
+    } else {
+      bool processed = forwarder_handleHooks(udp->forwarder, packet, listener, fd, connid, &pair);
+      if (processed)
+        continue;
+
+      /* Control message ? */
+      if (*packet != REQUEST_LIGHT)
+        continue;
+
+      if (!conn) {
+        int fd = _getSocket(listener, &pair);
+        connid = _createNewConnection(listener, fd, &pair);
+        // XXX test + conn
+      }
+
+      udp->commands[commands] = packet;
+      udp->commands_connid[commands++] = connid;
+      continue;
     }
 
-    AddressPair *pair = _constructAddressPair(
-      udp, (struct sockaddr *)&peerIpAddress, peerIpAddressLength);
+    msgbuf_from_packet(&udp->messages[valid], packet, pktType, connid,
+            forwarder_GetTicks(udp->forwarder),
+            forwarder_GetLogger(udp->forwarder));
+    udp->messages_conn[valid] = conn;
+    valid++;
 
-    bool done = _receivePacket(listener, fd, pair, packet);
-    if(!done){
-      _readCommand(listener, fd, pair, packet);
-    }
-
-    addressPair_Release(&pair);
+    if (pktType != MessagePacketType_WldrNotification)
+      interest_data++;
   }
+
+  /* Process messages */
+  bool first = true;
+  for (unsigned i = 0; i < valid; i++) {
+    switch(udp->messages[i].packetType) {
+        case MessagePacketType_Interest:
+        case MessagePacketType_ContentObject:
+          forwarder_Receive(udp->forwarder, &udp->messages[i], (first?interest_data:0));
+          first = false;
+          break;
+        case MessagePacketType_WldrNotification:
+          connection_HandleWldrNotification(udp->messages_conn[i], &udp->messages[i]);
+          break;
+    }
+  }
+
+  /* Process commands at the end */
+  for (unsigned i = 0; i < commands; i++) {
+      uint8_t * packet = udp->commands[i];
+      unsigned connid = udp->commands_connid[i];
+      command_id id = *(packet + 1);
+      if (id >= LAST_COMMAND_VALUE)
+        continue;
+      forwarder_ReceiveCommandBuffer(udp->forwarder, id, packet, connid);
+  }
+
 }

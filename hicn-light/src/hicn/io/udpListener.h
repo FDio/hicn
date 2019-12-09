@@ -27,9 +27,7 @@
 struct udp_listener;
 typedef struct udp_listener UdpListener;
 
-ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
-                                     struct sockaddr_in6 sin6, const char *if_bind);
-ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
-                                    struct sockaddr_in sin, const char *if_bind);
+ListenerOps *udpListener_Create(Forwarder *forwarder, char *listenerName,
+        const address_t * address, const char *if_bind);
 // void udpListener_SetPacketType(ListenerOps *ops, MessagePacketType type);
 #endif  // udpListener_h

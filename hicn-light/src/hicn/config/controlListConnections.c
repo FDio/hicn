@@ -127,12 +127,12 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
                                      (i * sizeof(list_connections_command)));
 
     sourceString = utils_CommandAddressToString(
-        listConnectionsCommand->connectionData.ipType,
+        listConnectionsCommand->connectionData.family,
         &listConnectionsCommand->connectionData.localIp,
         &listConnectionsCommand->connectionData.localPort);
 
     destinationString = utils_CommandAddressToString(
-        listConnectionsCommand->connectionData.ipType,
+        listConnectionsCommand->connectionData.family,
         &listConnectionsCommand->connectionData.remoteIp,
         &listConnectionsCommand->connectionData.remotePort);
 

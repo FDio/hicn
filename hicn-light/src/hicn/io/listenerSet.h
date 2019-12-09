@@ -133,7 +133,7 @@ ListenerOps *listenerSet_Get(const ListenerSet *set, size_t index);
  * @endcode
  */
 ListenerOps *listenerSet_Find(const ListenerSet *set, EncapType encapType,
-                              const Address *localAddress);
+                              const address_t *localAddress);
 
 /**
  * Looks up a listener by its id

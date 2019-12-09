@@ -26,11 +26,12 @@
 #ifndef io_h
 #define io_h
 
+#include <hicn/base/msgbuf.h>
+#include <hicn/base/address.h>
+#include <hicn/base/address_pair.h>
 #include <hicn/core/connectionState.h>
-#include <hicn/core/message.h>
 #include <hicn/core/ticks.h>
-#include <hicn/io/addressPair.h>
-#include <hicn/utils/address.h>
+#include <hicn/utils/commands.h> // list_connections_type
 
 // packet types for probing
 #define PACKET_TYPE_PROBE_REQUEST 5
@@ -73,11 +74,11 @@ typedef struct io_ops IoOperations;
  */
 struct io_ops {
   void *closure;
-  bool (*send)(IoOperations *ops, const Address *nexthop, Message *message);
+  bool (*send)(IoOperations *ops, const address_t *nexthop, msgbuf_t *message, bool queue);
   bool (*sendIOVBuffer)(IoOperations *ops, struct iovec *message, size_t
       size);
-  const Address *(*getRemoteAddress)(const IoOperations *ops);
-  const AddressPair *(*getAddressPair)(const IoOperations *ops);
+  const address_t *(*getRemoteAddress)(const IoOperations *ops);
+  const address_pair_t *(*getAddressPair)(const IoOperations *ops);
   bool (*isUp)(const IoOperations *ops);
   bool (*isLocal)(const IoOperations *ops);
   unsigned (*getConnectionId)(const IoOperations *ops);
@@ -146,7 +147,7 @@ void *ioOperations_GetClosure(const IoOperations *ops);
  *
  *   IoOperations *
  *   etherConnection_Create(Forwarder *forwarder, GenericEther *ether,
- * AddressPair *pair)
+ * address_pair_t *pair)
  *   {
  *      size_t allocationSize = sizeof(_EtherState) + sizeof(IoOperations);
  *      IoOperations *ops = parcMemory_AllocateAndClear(allocationSize);
@@ -188,8 +189,8 @@ void ioOperations_Release(IoOperations **opsPtr);
  * }
  * @endcode
  */
-bool ioOperations_Send(IoOperations *ops, const Address *nexthop,
-    Message *message);
+bool ioOperations_Send(IoOperations *ops, const address_t *nexthop,
+    msgbuf_t *message, bool queue);
 
 bool ioOperations_SendIOVBuffer(IoOperations *ops, struct iovec *message,
     size_t size);
@@ -208,13 +209,13 @@ bool ioOperations_SendIOVBuffer(IoOperations *ops, struct iovec *message,
  * Example:
  * @code
  * {
- *    Address *local =  addressCreateFromLink((uint8_t []) { 0x01, 0x02, 0x03,
- * 0x04, 0x05, 0x06 }, 6); Address *remote = addressCreateFromLink((uint8_t [])
- * { 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F }, 6); AddressPair *pair =
+ *    address_t *local =  addressCreateFromLink((uint8_t []) { 0x01, 0x02, 0x03,
+ * 0x04, 0x05, 0x06 }, 6); address_t *remote = addressCreateFromLink((uint8_t [])
+ * { 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F }, 6); address_pair_t *pair =
  * addressPair_Create(local, remote); IoOperations *ops =
  * etherConnection_Create(forwarder, ether, pair);
  *
- *    const Address *test = ioOperations_GetRemoteAddress(ops);
+ *    const address_t *test = ioOperations_GetRemoteAddress(ops);
  *    parcAssertTrue(addressEquals(test, remote), "Wrong remote address");
  *    ioOperations_Release(&ops);
  *    addressPair_Release(&pair);
@@ -223,7 +224,7 @@ bool ioOperations_SendIOVBuffer(IoOperations *ops, struct iovec *message,
  * }
  * @endcode
  */
-const Address *ioOperations_GetRemoteAddress(const IoOperations *ops);
+const address_t *ioOperations_GetRemoteAddress(const IoOperations *ops);
 
 /**
  * A connection is made up of a local and a remote address.  This function
@@ -239,13 +240,13 @@ const Address *ioOperations_GetRemoteAddress(const IoOperations *ops);
  * Example:
  * @code
  * {
- *    Address *local =  addressCreateFromLink((uint8_t []) { 0x01, 0x02, 0x03,
- * 0x04, 0x05, 0x06 }, 6); Address *remote = addressCreateFromLink((uint8_t [])
- * { 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F }, 6); AddressPair *pair =
+ *    address_t *local =  addressCreateFromLink((uint8_t []) { 0x01, 0x02, 0x03,
+ * 0x04, 0x05, 0x06 }, 6); address_t *remote = addressCreateFromLink((uint8_t [])
+ * { 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F }, 6); address_pair_t *pair =
  * addressPair_Create(local, remote); IoOperations *ops =
  * etherConnection_Create(forwarder, ether, pair);
  *
- *    const AddressPair *test = ioOperations_GetAddressPair(ops);
+ *    const address_pair_t *test = ioOperations_GetAddressPair(ops);
  *    parcAssertTrue(addressPair(test, pair), "Wrong address pair");
  *    ioOperations_Release(&ops);
  *    addressPair_Release(&pair);
@@ -254,7 +255,7 @@ const Address *ioOperations_GetRemoteAddress(const IoOperations *ops);
  * }
  * @endcode
  */
-const AddressPair *ioOperations_GetAddressPair(const IoOperations *ops);
+const address_pair_t *ioOperations_GetAddressPair(const IoOperations *ops);
 
 /**
  * Returns true if the underlying connection is in operation

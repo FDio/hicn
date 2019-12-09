@@ -124,96 +124,92 @@ char *utils_BuildStringFromInet6(struct in6_addr *addr6, in_port_t *port) {
   PARCBufferComposer *composer = parcBufferComposer_Create();
   PARCBuffer *tempBuffer = parcBufferComposer_ProduceBuffer(
       parcNetwork_SockInet6Address_BuildString(&addr, composer));
-  char *result = parcBuffer_ToString(tempBuffer);
-  parcBuffer_Release(&tempBuffer);
-  parcBufferComposer_Release(&composer);
-  return result;
+char *result = parcBuffer_ToString(tempBuffer);
+parcBuffer_Release(&tempBuffer);
+parcBufferComposer_Release(&composer);
+return result;
 }
 
-char *utils_CommandAddressToString(address_type addressType,
-                                   ip_address_t *address,
-                                   in_port_t *port) {
+char *
+utils_CommandAddressToString(int family, ip_address_t *address, in_port_t *port)
+{
   char *result;
-
   switch (addressType) {
-    case ADDR_INET: {
+    case ADDR_INET:
       result = utils_BuildStringFromInet(&address->v4.as_u32, port);
       break;
-    }
 
-    case ADDR_INET6: {
+    case ADDR_INET6:
       result = utils_BuildStringFromInet6(&address->v6.as_in6addr, port);
       break;
-    }
 
-    default: {
-      char *addrStr = (char *)parcMemory_Allocate(sizeof(char) * 32);
-      sprintf(addrStr, "Error: UNKNOWN address type = %d", addressType);
+    default:
+      addrStr = (char *)parcMemory_Allocate(sizeof(char) * 32);
+      snprintf(addrStr, 32, "Error: UNKNOWN address family = %d", family);
       result = addrStr;
       break;
-    }
   }
   return result;
 }
 
 struct iovec *utils_SendRequest(ControlState *state, command_id command,
-                                void *payload, size_t payloadLen) {
-  bool success = false;
+                            void *payload, size_t payloadLen) {
+bool success = false;
 
-  // get sequence number for the header
-  uint32_t currentSeqNum = utils_GetNextSequenceNumber();
+// get sequence number for the header
+uint32_t currentSeqNum = utils_GetNextSequenceNumber();
 
-  // Allocate and fill the header
-  header_control_message *headerControlMessage =
-      parcMemory_AllocateAndClear(sizeof(header_control_message));
-  headerControlMessage->messageType = REQUEST_LIGHT;
-  headerControlMessage->commandID = command;
-  headerControlMessage->seqNum = currentSeqNum;
-  if (payloadLen > 0) {
-    headerControlMessage->length = 1;
-  }
+// Allocate and fill the header
+header_control_message *headerControlMessage =
+  parcMemory_AllocateAndClear(sizeof(header_control_message));
+headerControlMessage->messageType = REQUEST_LIGHT;
+headerControlMessage->commandID = command;
+headerControlMessage->seqNum = currentSeqNum;
+if (payloadLen > 0) {
+headerControlMessage->length = 1;
+}
 
-  struct iovec msg[2];
-  msg[0].iov_base = headerControlMessage;
-  msg[0].iov_len = sizeof(header_control_message);
-  msg[1].iov_base = payload;
-  msg[1].iov_len = payloadLen;
+struct iovec msg[2];
+msg[0].iov_base = headerControlMessage;
+msg[0].iov_len = sizeof(header_control_message);
+msg[1].iov_base = payload;
+msg[1].iov_len = payloadLen;
 
-  struct iovec *response = controlState_WriteRead(state, msg);
+struct iovec *response = controlState_WriteRead(state, msg);
 
-  header_control_message *receivedHeader =
-      (header_control_message *)response[0].iov_base;
-  if (receivedHeader->seqNum != currentSeqNum) {
-    printf("Seq number is NOT correct: expected %d got %d  \n", currentSeqNum,
-           receivedHeader->seqNum);
-    // failure
+header_control_message *receivedHeader =
+  (header_control_message *)response[0].iov_base;
+if (receivedHeader->seqNum != currentSeqNum) {
+printf("Seq number is NOT correct: expected %d got %d  \n", currentSeqNum,
+       receivedHeader->seqNum);
+// failure
+} else {
+if (receivedHeader->messageType == RESPONSE_LIGHT) {
+  return response;  // command needs both payload and header
+} else {
+  if (receivedHeader->messageType == ACK_LIGHT) {
+    success = true;
+  } else if (receivedHeader->messageType == NACK_LIGHT) {
+    success = true;
   } else {
-    if (receivedHeader->messageType == RESPONSE_LIGHT) {
-      return response;  // command needs both payload and header
-    } else {
-      if (receivedHeader->messageType == ACK_LIGHT) {
-        success = true;
-      } else if (receivedHeader->messageType == NACK_LIGHT) {
-        success = true;
-      } else {
-        printf("Error: unrecognized message type");  // failure
-      }
-    }
+    printf("Error: unrecognized message type");  // failure
   }
+}
+}
 
-  // deallocate when payload & header of the response are not needed
-  if (receivedHeader->length > 0) {
-    parcMemory_Deallocate(&response[1].iov_base);  // free received payload
-  }
-  parcMemory_Deallocate(&response[0].iov_base);  // free receivedHeader
+// deallocate when payload & header of the response are not needed
+if (receivedHeader->length > 0) {
+parcMemory_Deallocate(&response[1].iov_base);  // free received payload
+}
+parcMemory_Deallocate(&response[0].iov_base);  // free receivedHeader
 
-  // return response
-  if (success) {
-    return response;
-  } else {
-    parcMemory_Deallocate(&response);  // free iovec pointer
-    return NULL;                       // will generate a failure
-  }
+// return response
+if (success) {
+return response;
+} else {
+parcMemory_Deallocate(&response);  // free iovec pointer
+return NULL;                       // will generate a failure
+}
 }
 
 const char *utils_PrefixLenToString(address_type addressType,

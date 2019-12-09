@@ -19,7 +19,7 @@
 struct punting;
 typedef struct punting Punting;
 
-#include <hicn/utils/address.h>
+#include <hicn/base/address.h>
 
 /**
  * Creates a Punting object
@@ -36,7 +36,7 @@ typedef struct punting Punting;
  * @return null An error
  *
  */
-Punting *puntingCreate(const char *symbolic, Address *prefix, uint32_t len);
+Punting *puntingCreate(const char *symbolic, address_t *prefix, uint32_t len);
 
 /**
  * Releases a reference count to the object
@@ -66,7 +66,7 @@ const char *puntingGetSymbolicName(const Punting *punting);
  * Returns the address (INET or INET6 ip address)
  *
  */
-Address *puntingGetAddress(const Punting *punting);
+address_t * puntingGetAddress(const Punting *punting);
 
 uint32_t puntingPrefixLen(const Punting *punting);
 #endif  // punting_h

@@ -55,7 +55,7 @@ IoOperations *hicnTunnel_CreateOnListener(Forwarder *forwarder,
 
       AddressPair *pair = addressPair_Create(localAddress, remoteAddress);
       bool isLocal = false;
-      int fd = localListener->getSocket(localListener);
+      int fd = localListener->getSocket(localListener, pair);
       ops = hicnConnection_Create(forwarder, localListener->getInterfaceName(localListener), fd, pair, isLocal);
 
       addressPair_Release(&pair);

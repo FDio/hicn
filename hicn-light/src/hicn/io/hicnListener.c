@@ -79,9 +79,9 @@ static const char *_getInterfaceName(const ListenerOps *ops);
 static unsigned _getInterfaceIndex(const ListenerOps *ops);
 static const Address *_getListenAddress(const ListenerOps *ops);
 static EncapType _getEncapType(const ListenerOps *ops);
-static int _getSocket(const ListenerOps *ops);
-static unsigned _createNewConnection(ListenerOps *listener, int fd, const AddressPair *pair);
-static const Connection * _lookupConnection(ListenerOps * listener, const AddressPair *pair);
+static int _getSocket(const ListenerOps *ops, address_pair_t * * pair);
+static unsigned _createNewConnection(ListenerOps *listener, int fd, const address_pair_t * *pair);
+static const Connection * _lookupConnection(ListenerOps * listener, const address_pair_t * *pair);
 static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer);
 static void _hicnListener_readcb(int fd, PARCEventType what, void *listener_void);
 static Address *_createAddressFromPacket(uint8_t *msgBuffer);
@@ -98,8 +98,87 @@ static ListenerOps _hicnTemplate = {
   .getInterfaceName = &_getInterfaceName,
   .getListenerName = &_getListenerName,
   .createConnection = &_createNewConnection,
-  .lookupConnection = &_lookupConnection,
 };
+
+static const
+address_pair_t *
+_createRecvAddressPairFromPacket(const uint8_t *msgBuffer) {
+  Address *packetSrcAddr = NULL; /* This one is in the packet */
+  Address *localAddr = NULL; /* This one is to be determined */
+
+  if (messageHandler_GetIPPacketType(msgBuffer) == IPv6_TYPE) {
+    struct sockaddr_in6 addr_in6;
+    addr_in6.sin6_family = AF_INET6;
+    addr_in6.sin6_port = htons(1234);
+    addr_in6.sin6_flowinfo = 0;
+    addr_in6.sin6_scope_id = 0;
+    memcpy(&addr_in6.sin6_addr,
+           (struct in6_addr *)messageHandler_GetSource(msgBuffer), 16);
+    packetSrcAddr = addressCreateFromInet6(&addr_in6);
+
+    /* We now determine the local address used to reach the packet src address */
+    int sock = socket (AF_INET6, SOCK_DGRAM, 0);
+    if (sock < 0)
+      goto ERR;
+
+    struct sockaddr_in6 remote, local;
+    memset(&remote, 0, sizeof(remote));
+    remote.sin6_family = AF_INET6;
+    remote.sin6_addr = addr_in6.sin6_addr;
+    remote.sin6_port = htons(1234);
+
+    socklen_t locallen = sizeof(local);
+    if (connect(sock, (const struct sockaddr*)&remote, sizeof(remote)) == -1)
+      goto ERR;
+    if (getsockname(sock, (struct sockaddr*) &local, &locallen) == -1)
+      goto ERR;
+
+    local.sin6_port = htons(1234);
+    localAddr = addressCreateFromInet6(&local);
+
+    close(sock);
+
+  } else if (messageHandler_GetIPPacketType(msgBuffer) == IPv4_TYPE) {
+    struct sockaddr_in addr_in;
+    addr_in.sin_family = AF_INET;
+    addr_in.sin_port = htons(1234);
+    memcpy(&addr_in.sin_addr,
+           (struct in_addr *)messageHandler_GetSource(msgBuffer), 4);
+    packetSrcAddr = addressCreateFromInet(&addr_in);
+
+    /* We now determine the local address used to reach the packet src address */
+
+    int sock = socket (AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+      perror("Socket error");
+      goto ERR;
+    }
+
+    struct sockaddr_in remote, local;
+    memset(&remote, 0, sizeof(remote));
+    remote.sin_family = AF_INET;
+    remote.sin_addr = addr_in.sin_addr;
+    remote.sin_port = htons(1234);
+
+    socklen_t locallen = sizeof(local);
+    if (connect(sock, (const struct sockaddr*)&remote, sizeof(remote)) == -1)
+      goto ERR;
+    if (getsockname(sock, (struct sockaddr*) &local, &locallen) == -1)
+      goto ERR;
+
+    local.sin_port = htons(1234);
+    localAddr = addressCreateFromInet(&local);
+
+    close(sock);
+  }
+  /* As this is a receive pair, we swap src and dst */
+  return addressPair_Create(localAddr, packetSrcAddr);
+
+ERR:
+  perror("Socket error");
+  return NULL;
+}
+
 
 static bool _isEmptyAddressIPv6(Address *address) {
   struct sockaddr_in6 *addr6 =
@@ -156,11 +235,11 @@ static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer)
       pktType = MessagePacketType_Interest;
       Address *packetAddr = _createAddressFromPacket(msgBuffer);
 
-      AddressPair *pair_find = addressPair_Create(packetAddr, /* dummy */ hicn->localAddress);
+      address_pair_t * *pair_find = addressPair_Create(packetAddr, /* dummy */ hicn->localAddress);
       const Connection *conn = _lookupConnection(listener, pair_find);
       addressPair_Release(&pair_find);
       if (conn == NULL) {
-        AddressPair *pair = addressPair_Create(hicn->localAddress, packetAddr);
+        address_pair_t * *pair = addressPair_Create(hicn->localAddress, packetAddr);
         connid = _createNewConnection(listener, fd, pair);
         addressPair_Release(&pair);
       } else {
@@ -182,7 +261,15 @@ static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer)
   } else if (messageHandler_IsWldrNotification(msgBuffer)) {
     _handleWldrNotification(listener, msgBuffer);
   } else {
-    messageHandler_handleHooks(hicn->forwarder, msgBuffer, listener, fd, NULL);
+
+    // TODO XXX XXX XXX XXX
+#if 0
+    const address_pair_t * pair = _createRecvaddress_pair_t * FromPacket(packet);
+    if (!pair)
+      return false;
+#endif
+      
+    messageHandler_handleHooks(hicn->forwarder, msgBuffer, listener, fd, connid, NULL);
     parcMemory_Deallocate((void **)&msgBuffer);
   }
 
@@ -196,7 +283,7 @@ static void _receivePacket(ListenerOps * listener, int fd) {
   msg = _readMessage(listener, fd, msgBuffer);
 
   if (msg) {
-    forwarder_Receive(hicn->forwarder, msg);
+    forwarder_Receive(hicn->forwarder, msg, 1);
   }
 }
 
@@ -546,7 +633,7 @@ static const Address *_getListenAddress(const ListenerOps *ops) {
 
 static EncapType _getEncapType(const ListenerOps *ops) { return ENCAP_HICN; }
 
-static int _getSocket(const ListenerOps *ops) {
+static int _getSocket(const ListenerOps *ops, address_pair_t * * pair) {
   HicnListener *hicn = (HicnListener *)ops->context;
   return hicn->hicn_fd;
 }
@@ -576,7 +663,7 @@ static void _readFrameToDiscard(HicnListener *hicn, int fd) {
 }
 
 static unsigned _createNewConnection(ListenerOps * listener, int fd,
-                                     const AddressPair *pair) {
+                                     const address_pair_t * *pair) {
   HicnListener * hicn = (HicnListener *)listener->context;
   bool isLocal = false;
 
@@ -591,7 +678,7 @@ static unsigned _createNewConnection(ListenerOps * listener, int fd,
 }
 
 static const Connection * _lookupConnection(ListenerOps * listener,
-                                const AddressPair *pair) {
+                                const address_pair_t * *pair) {
   HicnListener * hicn = (HicnListener*)listener->context;
   const Address * packetSourceAddress = addressPair_GetLocal(pair);
 
@@ -603,9 +690,9 @@ static const Connection * _lookupConnection(ListenerOps * listener,
     if (packetSourceAddress != NULL) {
       // in this first check we try to retrieve the standard connection
       // generated by the hicn-light
-      AddressPair *pair =
+      address_pair_t * *pair =
           addressPair_Create(hicn->localAddress, packetSourceAddress);
-      conn = connectionTable_FindByAddressPair(
+      conn = connectionTable_FindByaddress_pair_t * (
           forwarder_GetConnectionTable(hicn->forwarder), pair);
       addressPair_Release(&pair);
     }
@@ -646,7 +733,7 @@ static void _handleWldrNotification(ListenerOps *listener, uint8_t *msgBuffer) {
     return;
   }
 
-  AddressPair * pair = addressPair_Create(packetAddr, /* dummy */ hicn->localAddress);
+  address_pair_t * * pair = addressPair_Create(packetAddr, /* dummy */ hicn->localAddress);
 
   const Connection *conn = _lookupConnection(listener, pair);
 

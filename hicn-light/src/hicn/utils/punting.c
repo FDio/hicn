@@ -23,11 +23,11 @@
 
 struct punting {
   char *symbolic;
-  Address *prefix;
+  address_t *prefix;
   uint32_t len;
 };
 
-Punting *puntingCreate(const char *listenerName, Address *prefix,
+Punting *puntingCreate(const char *listenerName, address_t *prefix,
                        uint32_t len) {
   parcAssertNotNull(listenerName, "Parameter listenerName must be non-null");
   parcAssertNotNull(prefix, "Parameter prefix must be non-null");
@@ -87,7 +87,7 @@ const char *puntingGetSymbolicName(const Punting *punting) {
   return punting->symbolic;
 }
 
-Address *puntingGetAddress(const Punting *punting) {
+address_t * puntingGetAddress(const Punting *punting) {
   parcAssertNotNull(punting, "Parameter listener must be non-null");
   return punting->prefix;
 }
