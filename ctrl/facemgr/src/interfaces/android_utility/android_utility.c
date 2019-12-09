@@ -119,7 +119,7 @@ int au_on_event(interface_t * interface, facelet_t * facelet)
 
     facelet_t * facelet_new = facelet_create();
     facelet_set_netdevice(facelet_new, netdevice);
-    facelet_set_status(facelet_new, FACELET_STATUS_CLEAN);
+    facelet_set_attr_clean(facelet_new);
     facelet_set_netdevice_type(facelet_new, netdevice_type);
 
     facelet_set_event(facelet_new, FACELET_EVENT_UPDATE);
