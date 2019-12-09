@@ -115,8 +115,8 @@ int priority_controller_callback(interface_t * interface, int fd, void * unused)
     facelet_t * facelet_c = facelet_create();
     facelet_set_netdevice_type(facelet_w, NETDEVICE_TYPE_WIFI);
     facelet_set_netdevice_type(facelet_c, NETDEVICE_TYPE_CELLULAR);
-    facelet_set_status(facelet_w, FACELET_STATUS_CLEAN);
-    facelet_set_status(facelet_c, FACELET_STATUS_CLEAN);
+    facelet_set_attr_clean(facelet_w);
+    facelet_set_attr_clean(facelet_c);
     switch(buf[0]) {
         case '\0':
             facelet_set_priority(facelet_w, 0);

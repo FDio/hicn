@@ -118,7 +118,7 @@ int updown_callback(interface_t * interface, int fd, void * unused)
     /* Raise facelet update event */
     facelet_t * facelet = facelet_create();
     facelet_set_netdevice_type(facelet, NETDEVICE_TYPE_WIFI); //CELLULAR);
-    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+    facelet_set_attr_clean(facelet);
     switch(buf[0]) {
         case '\0':
             facelet_set_admin_state(facelet, FACE_STATE_DOWN);
