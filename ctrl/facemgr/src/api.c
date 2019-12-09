@@ -303,7 +303,8 @@ facemgr_set_config(facemgr_t * facemgr, facemgr_cfg_t * cfg)
     } else {
         for (unsigned i = 0; i < n; i++) {
             facelet_t * facelet = facelet_dup(facelet_array[i]);
-            facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+            facelet_set_status(facelet, FACELET_STATUS_UNDEFINED);
+            facelet_set_attr_clean(facelet);
             if (facelet_array_add(facemgr->static_facelets, facelet)) {
                 ERROR("[facemgr_finalize] Could not add static facelet to face manager");
             }
@@ -1087,14 +1088,13 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
                 goto ERR;
             }
 
+#if 0
             if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
                 ERROR("[facemgr_process_facelet] Could not remove deleted facelet from cache");
                 goto ERR;
             }
             facelet_free(facelet);
-            goto END;
-
-#if 0
+#else
             /* This works assuming the call to hicn-light is blocking */
             DEBUG("[facemgr_process_facelet] Cleaning cached data");
             facelet_unset_local_addr(facelet);
@@ -1126,7 +1126,6 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
     }
 
     facelet_unset_error(facelet);
-END:
     return 0;
 
 ERR:
@@ -1207,11 +1206,15 @@ facemgr_start_reattempts(facemgr_t * facemgr)
 int
 facemgr_process_facelet_create(facemgr_t * facemgr, facelet_t * facelet)
 {
+    char facelet_s[MAXSZ_FACELET];
+    facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet); 
+    DEBUG("[facemgr_process_facelet_create] %s", facelet_s);
     switch(facelet_get_status(facelet)) {
         case FACELET_STATUS_UNCERTAIN:
         case FACELET_STATUS_INCOMPLETE:
         case FACELET_STATUS_CREATE:
             /* No change */
+            DEBUG("[facemgr_process_facelet_create] UNCHANGED STATUS");
             break;
         case FACELET_STATUS_UPDATE:
         case FACELET_STATUS_DELETE:
@@ -1222,6 +1225,7 @@ facemgr_process_facelet_create(facemgr_t * facemgr, facelet_t * facelet)
              * correctly if the face is still present.
              * TODO What if some fields have been updated ?
              */
+            DEBUG("[facemgr_process_facelet_create] SET STATUS TO CREATE");
             facelet_set_status(facelet, FACELET_STATUS_CREATE);
             break;
         case FACELET_STATUS_CLEAN:
@@ -1230,6 +1234,7 @@ facemgr_process_facelet_create(facemgr_t * facemgr, facelet_t * facelet)
              * We should have nothing to do unless some fields have
              * been updated.
              */
+            DEBUG("[facemgr_process_facelet_create] NOTHING TO DO");
             break;
 
         case FACELET_STATUS_DOWN:
@@ -1239,6 +1244,7 @@ facemgr_process_facelet_create(facemgr_t * facemgr, facelet_t * facelet)
              * missing information, and proceed to face creation.
              * Rule changes should be handled separately.
              */
+            DEBUG("[facemgr_process_facelet_create] SET STATUS TO INCOMPLETE");
             facelet_set_status(facelet, FACELET_STATUS_INCOMPLETE);
             break;
         case FACELET_STATUS_UNDEFINED:
@@ -1247,6 +1253,8 @@ facemgr_process_facelet_create(facemgr_t * facemgr, facelet_t * facelet)
             return -1;
     }
 
+
+    DEBUG("[facemgr_process_facelet_create] Processing facelet");
     if (facemgr_process_facelet(facemgr, facelet) < 0) {
         ERROR("[facemgr_process_facelet_create] Error processing facelet");
         return -1;
@@ -1432,14 +1440,19 @@ facemgr_process_facelet_get(facemgr_t * facemgr, facelet_t * facelet)
 int
 facemgr_process_facelet_update(facemgr_t * facemgr, facelet_t * facelet)
 {
+    char facelet_s[MAXSZ_FACELET];
+    facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
+    DEBUG("[facemgr_process_facelet_update] %s", facelet_s);
     switch(facelet_get_status(facelet)) {
         case FACELET_STATUS_UNCERTAIN:
         case FACELET_STATUS_INCOMPLETE:
         case FACELET_STATUS_CREATE:
         case FACELET_STATUS_UPDATE:
             /* No change */
+            DEBUG("[facemgr_process_facelet_update] UNCHANGED STATUS");
             break;
         case FACELET_STATUS_CLEAN:
+            DEBUG("[facemgr_process_facelet_update] SET STATUS TO UPDATE");
             facelet_set_status(facelet, FACELET_STATUS_UPDATE);
             break;
         case FACELET_STATUS_DOWN:
@@ -1447,6 +1460,7 @@ facemgr_process_facelet_update(facemgr_t * facemgr, facelet_t * facelet)
         case FACELET_STATUS_DELETED:
         case FACELET_STATUS_IGNORED:
             /* Reconsider face creation in light of new information */
+            DEBUG("[facemgr_process_facelet_update] SET STATUS TO UNCERTAIN");
             facelet_set_status(facelet, FACELET_STATUS_UNCERTAIN);
             break;
         case FACELET_STATUS_UNDEFINED:
@@ -1455,6 +1469,7 @@ facemgr_process_facelet_update(facemgr_t * facemgr, facelet_t * facelet)
             return -1;
     }
 
+    DEBUG("[facemgr_process_facelet_update] Processing facelet");
     if (facemgr_process_facelet(facemgr, facelet) < 0) {
         ERROR("[facemgr_process_facelet_update] Error processing facelet");
         return -1;
@@ -1478,77 +1493,34 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
         case FACELET_STATUS_INCOMPLETE:
         case FACELET_STATUS_IGNORED:
         case FACELET_STATUS_DOWN:
-            if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
-                ERROR("[facemgr_process_facelet] Could not remove deleted facelet from cache");
-                return -1;
-            }
-
-            facelet_free(facelet);
-            return 0;
-#if 0
-            facelet_unset_local_addr(facelet);
-            facelet_unset_local_port(facelet);
-            facelet_unset_remote_addr(facelet);
-            facelet_unset_remote_port(facelet);
-            facelet_unset_bj_done(facelet);
-#ifdef WITH_ANDROID_UTILITY
-            facelet_unset_au_done(facelet);
-#endif /* WITH_ANDROID_UTILITY */
-            facelet_set_status(facelet, FACELET_STATUS_DELETED);
-#endif
-            break;
         case FACELET_STATUS_CREATE:
+            /* Face has not been created */
+            facelet_unset_error(facelet);
+            facelet_set_status(facelet, FACELET_STATUS_DELETED);
+            break;
+
         case FACELET_STATUS_UPDATE:
         case FACELET_STATUS_CLEAN:
             facelet_set_status(facelet, FACELET_STATUS_DELETE);
+            if (facemgr_process_facelet(facemgr, facelet) < 0) {
+                ERROR("[facemgr_process_facelet_delete] Error processing facelet");
+                return -1;
+            }
             break;
+
         case FACELET_STATUS_DELETE:
         case FACELET_STATUS_DELETED:
             /* Nothing to do */
-            DEBUG("%s\n", facelet_status_str[facelet_get_status(facelet)]);
             break;
+
         case FACELET_STATUS_UNDEFINED:
         case FACELET_STATUS_N:
             ERROR("[facemgr_process_facelet_delete] Unexpected facelet status");
             return -1;
     }
 
-    if (facemgr_process_facelet(facemgr, facelet) < 0) {
-        ERROR("[facemgr_process_facelet_delete] Error processing facelet");
-        return -1;
-    }
-
     return 0;
 }
-
-#if 0
-int facemgr_process_facelet_first_time(facemgr_t * facemgr, facelet_t * facelet)
-{
-    assert(facelet);
-
-    facelet_set_status(facelet, FACELET_STATUS_UNCERTAIN);
-    char facelet_s[MAXSZ_FACELET];
-    facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
-    if (facelet_set_add(facemgr->facelet_cache, facelet) < 0) {
-        ERROR("[facemgr_process_facelet_first_time] Error adding facelet to cache");
-        goto ERR_CACHE;
-    }
-
-    if (facemgr_process_facelet_create(facemgr, facelet) < 0) {
-        ERROR("[facemgr_process_facelet_first_time] Error processing facelet CREATE event");
-        goto ERR_CREATE;
-    }
-
-    return 0;
-
-ERR_CREATE:
-    if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
-        ERROR("[facemgr_process_facelet_first_time] Error removing failed facelet from cache");
-    }
-ERR_CACHE:
-    return -1;
-}
-#endif
 
 int facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet);
 
@@ -1563,10 +1535,10 @@ facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facele
         ERROR("[facemgr_process_facelet_create_no_family] Error allocating default IPv4 face");
     } else {
         facelet_set_family(facelet_v4, AF_INET);
-        facelet_set_status(facelet_v4, FACELET_STATUS_CLEAN);
+        facelet_set_attr_clean(facelet_v4);
         if (facemgr_on_event(facemgr, facelet_v4) < 0) {
             ERROR("[facemgr_process_facelet_create_no_family] Error creating default IPv4 face");
-            facelet_free(facelet_v4);
+            //facelet_free(facelet_v4);
         }
     }
 
@@ -1576,10 +1548,10 @@ facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facele
         ERROR("[facemgr_process_facelet_create_no_family] Error allocating default IPv6 face");
     } else {
         facelet_set_family(facelet_v6, AF_INET6);
-        facelet_set_status(facelet_v6, FACELET_STATUS_CLEAN);
+        facelet_set_attr_clean(facelet_v6);
         if (facemgr_on_event(facemgr, facelet_v6) < 0) {
             ERROR("[facemgr_process_facelet_create_no_family] Error creating default IPv6 face");
-            facelet_free(facelet_v6);
+            //facelet_free(facelet_v6);
         }
     }
 
@@ -1620,11 +1592,12 @@ facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facele
             }
             /* The id must be different than 0 */
             facelet_set_id(facelet_new, ++facemgr->cur_static_id);
-            facelet_set_status(facelet_new, FACELET_STATUS_CLEAN);
+            facelet_set_attr_clean(facelet_new);
+            facelet_set_status(facelet, FACELET_STATUS_UNDEFINED);
 
             if (facemgr_on_event(facemgr, facelet_new) < 0) {
                 ERROR("[facemgr_process_facelet_create_no_family] Error creating default IPv6 face");
-                facelet_free(facelet_new);
+                //facelet_free(facelet_new);
             }
         }
     }
@@ -1668,6 +1641,10 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
     facelet_t ** cached_facelets = NULL;
     assert(facelet_in);
 
+    if (facelet_get_status(facelet_in) == FACELET_STATUS_UNDEFINED) {
+        facelet_set_status(facelet_in, FACELET_STATUS_UNCERTAIN);
+    }
+
     int n = facelet_cache_lookup(facemgr->facelet_cache, facelet_in, &cached_facelets);
     if (n < 0) {
         ERROR("[facemgr_on_event] Error during cache lookup");
@@ -1687,6 +1664,7 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                  * assignment
                  */
                 DEBUG("[facemgr_on_event] CREATE NEW %s", facelet_s);
+
                 if (!facelet_has_family(facelet_in)) {
                     facemgr_assign_face_type(facemgr, facelet_in);
                     if (facemgr_process_facelet_create_no_family(facemgr, facelet_in) < 0) {
@@ -1695,8 +1673,6 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                     }
                     goto DUMP_CACHE;
                 }
-
-                facelet_set_status(facelet_in, FACELET_STATUS_UNCERTAIN);
 
                 if (facelet_set_add(facemgr->facelet_cache, facelet_in) < 0) {
                     ERROR("[facemgr_on_event] Error adding facelet to cache");
@@ -1715,7 +1691,7 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
 
             case FACELET_EVENT_GET:
                 /* Insert new facelet in cached */
-                DEBUG("[facemgr_on_event] GET NEW %s", facelet_s);
+                //DEBUG("[facemgr_on_event] GET NEW %s", facelet_s);
                 rc = facemgr_process_facelet_get(facemgr, facelet_in);
                 if (rc == 0)
                     remove_facelet = false;
@@ -1794,7 +1770,7 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                     continue;
                 }
 
-                if (facemgr_process_facelet_create(facemgr, facelet_in) < 0) {
+                if (facemgr_process_facelet_create(facemgr, facelet) < 0) {
                     ERROR("[facemgr_on_event] Error processing facelet CREATE event");
                     ret = -1;
                 }
@@ -1806,8 +1782,8 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                  * This happens due to polling of the forwarder (or when it
                  * restarts)
                  */
-                DEBUG("[facemgr_on_event] GET EXISTING %s", facelet_old_s);
-                DEBUG("                           WITH %s", facelet_s);
+                //DEBUG("[facemgr_on_event] GET EXISTING %s", facelet_old_s);
+                //DEBUG("                           WITH %s", facelet_s);
                 //ERROR("[facemgr_on_event] GET event for a face that already exists...");
                 dump = false;
                 continue;

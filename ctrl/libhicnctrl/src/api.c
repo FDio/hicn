@@ -1896,7 +1896,7 @@ hc_route_delete_async(hc_sock_t * s, hc_route_t * route)
 int
 _hc_route_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
-    DEBUG("[hc_route_list] async=%s", BOOLSTR(async));
+    //DEBUG("[hc_route_list] async=%s", BOOLSTR(async));
 
     struct {
         header_control_message hdr;
@@ -2441,7 +2441,7 @@ hc_face_list(hc_sock_t * s, hc_data_t ** pdata)
     hc_data_t * connection_data;
     hc_face_t face;
 
-    DEBUG("[hc_face_list]");
+    //DEBUG("[hc_face_list]");
 
     if (hc_connection_list(s, &connection_data) < 0) {
         ERROR("[hc_face_list] Could not list connections.");

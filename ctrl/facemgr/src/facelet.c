@@ -433,21 +433,8 @@ facelet_dup(const facelet_t * current_facelet)
     return facelet;
 
 ERR_ROUTE:
-    {
-    /* Free all routes */
-    hicn_route_t ** new_route_array;
-    int n = route_set_get_array(facelet->routes, &new_route_array);
-    if (n < 0) {
-        ERROR("[facelet_free] Error getting route set associated to facelet");
-    } else {
-        for (unsigned i = 0; i < n; i++) {
-            hicn_route_t * new_route = new_route_array[i];
-            hicn_route_free(new_route);
-        }
-    }
-    free(route_array);
+    /* This will free all routes */
     facelet_free(facelet);
-    }
 ERR_CREATE:
     return NULL;
 }
@@ -563,6 +550,14 @@ facelet_match(const facelet_t * facelet, const facelet_t * facelet_match)
 #define _(TYPE, NAME) MATCH_ATTRIBUTE(TYPE, NAME);
     foreach_facelet_attr
 #undef _
+
+#if 0
+    char facelet_s[MAXSZ_FACELET];
+    facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet_match);
+    DEBUG("MATCHED FACELET %s", facelet_s);
+    facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
+    DEBUG("         WITH %s", facelet_s);
+#endif
     return true;
 }
 
@@ -721,8 +716,15 @@ int facelet_merge(facelet_t * facelet, facelet_t * facelet_to_merge)
         ERROR("[facelet_free] Error getting route set associated to facelet");
     } else {
         for (unsigned i = 0; i < n; i++) {
-            hicn_route_t * route = hicn_route_dup(route_array[i]);
-            route_set_add(facelet->routes, route);
+            hicn_route_t * route = route_array[i];
+            hicn_route_t * route_found = NULL;
+            if (route_set_get(facelet->routes, route, &route_found) < 0) {
+                ERROR("Error searching for route");
+                continue;
+            }
+            if (route_found)
+                continue;
+            route_set_add(facelet->routes, hicn_route_dup(route));
         }
     }
     free(route_array);
@@ -903,6 +905,12 @@ facelet_get_status(const facelet_t * facelet)
     return facelet->status;
 }
 
+void
+facelet_set_status(facelet_t * facelet, facelet_status_t status)
+{
+    facelet->status = status;
+}
+
 #define SET_ATTR_STATUS_CLEAN(TYPE, NAME)                       \
 do {                                                            \
     if (facelet->NAME ## _status  == FACELET_ATTR_STATUS_DIRTY) \
@@ -910,14 +918,11 @@ do {                                                            \
 } while (0)
 
 void
-facelet_set_status(facelet_t * facelet, facelet_status_t status)
+facelet_set_attr_clean(facelet_t * facelet)
 {
-    if (status == FACELET_STATUS_CLEAN) {
 #define _(TYPE, NAME) SET_ATTR_STATUS_CLEAN(TYPE, NAME);
     foreach_facelet_attr
 #undef _
-    }
-    facelet->status = status;
 }
 
 void

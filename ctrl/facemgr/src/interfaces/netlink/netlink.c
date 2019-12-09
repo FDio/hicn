@@ -428,7 +428,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                 DEBUG("Interface %s: address was removed", interface_name);
                 if (facelet) {
                     facelet_set_event(facelet, FACELET_EVENT_SET_DOWN);
-                    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+                    facelet_set_attr_clean(facelet);
                     interface_raise_event(interface, facelet);
                 }
                 break;
@@ -450,7 +450,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
 
                 if (facelet) {
                     facelet_set_event(facelet, FACELET_EVENT_UPDATE);
-                    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+                    facelet_set_attr_clean(facelet);
                     interface_raise_event(interface, facelet);
                 }
                 break;
@@ -474,7 +474,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     break;
 
                 facelet_set_event(facelet, FACELET_EVENT_DELETE);
-                facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+                facelet_set_attr_clean(facelet);
                 interface_raise_event(interface, facelet);
 
                 break;
@@ -505,7 +505,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                 if (up && running) {
                     facelet_set_event(facelet, FACELET_EVENT_CREATE);
                     //facelet_set_family(facelet, AF_INET);
-                    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+                    facelet_set_attr_clean(facelet);
                     interface_raise_event(interface, facelet);
 
 #if 0
@@ -520,7 +520,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                 } else {
 #if 1
                     facelet_set_event(facelet, FACELET_EVENT_SET_DOWN);
-                    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+                    facelet_set_attr_clean(facelet);
                     interface_raise_event(interface, facelet);
 #else
                     facelet_free(facelet);
