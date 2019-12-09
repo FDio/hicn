@@ -46,6 +46,8 @@
 
 #include <pthread.h>
 
+#include <hicn/base/address_pair.h>
+
 #ifndef INPORT_ANY
 #define INPORT_ANY 0
 #endif
@@ -118,13 +120,13 @@ void dispatcher_RunCount(Dispatcher *dispatcher, unsigned count) {
   }
 }
 
-PARCEventSocket *dispatcher_CreateListener(Dispatcher *dispatcher,
-                                           PARCEventSocket_Callback *callback,
-                                           void *user_data, int backlog,
-                                           const struct sockaddr *sa,
-                                           int socklen) {
+PARCEventSocket *
+dispatcher_CreateListener(Dispatcher *dispatcher,
+        PARCEventSocket_Callback *callback, void *user_data, int backlog,
+        const address_t * address, int socklen)
+{
   PARCEventSocket *listener = parcEventSocket_Create(
-      dispatcher->Base, callback, NULL, user_data, sa, socklen);
+      dispatcher->Base, callback, NULL, user_data, (struct sockaddr *)address, socklen);
   if (listener == NULL) {
     perror("Problem creating listener");
   }
@@ -288,154 +290,16 @@ void dispatcher_StopSignalEvent(Dispatcher *dispatcher,
                   (void *)event, errno, strerror(errno));
 }
 
-/**
- * Bind to a local address/port then connect to peer.
- */
-static bool dispatcher_StreamBufferBindAndConnect(Dispatcher *dispatcher,
-                                                  PARCEventQueue *buffer,
-                                                  struct sockaddr *localSock,
-                                                  socklen_t localSockLength,
-                                                  struct sockaddr *remoteSock,
-                                                  socklen_t remoteSockLength) {
-  // we need to bind, then connect.  Special operation, so we make our
-  // own fd then pass it off to the buffer event
-
-#ifndef _WIN32
-  int fd = socket(localSock->sa_family, SOCK_STREAM, 0);
-  if (fd < 0) {
-    perror("socket");
-    return -1;
-  }
-
-  // Set non-blocking flag
-  int flags = fcntl(fd, F_GETFL, NULL);
-  if (flags < 0) {
-    perror("F_GETFL");
-    close(fd);
-    return -1;
-  }
-  int failure = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-  if (failure) {
-    perror("F_SETFL");
-    close(fd);
-    return -1;
-  }
-
-  failure = bind(fd, localSock, localSockLength);
-  if (failure) {
-    perror("bind");
-    close(fd);
-    return false;
-  }
-
-  parcEventQueue_SetFileDescriptor(buffer, fd);
-
-  failure = parcEventQueue_ConnectSocket(buffer, remoteSock, remoteSockLength);
-  if (failure && (errno != EINPROGRESS)) {
-    perror("connect");
-    close(fd);
-    return false;
-  }
-#else
-  SOCKET fd = socket(localSock->sa_family, SOCK_STREAM, 0);
-  if (fd == INVALID_SOCKET) {
-    perror("socket");
-    return -1;
-  }
-
-  // Set non-blocking flag
-  u_long mode = 1;
-  int result = ioctlsocket(fd, FIONBIO, &mode);
-  if (result == NO_ERROR) {
-    perror("ioctlsocket error");
-    closesocket(fd);
-    WSACleanup();
-    return -1;
-  }
-
-  int failure = bind(fd, localSock, (int)localSockLength);
-  if (failure) {
-    perror("bind");
-    closesocket(fd);
-    WSACleanup();
-    return false;
-  }
-
-  parcEventQueue_SetFileDescriptor(buffer, (int)fd);
-
-  failure = parcEventQueue_ConnectSocket(buffer, remoteSock, remoteSockLength);
-  if (failure && (errno != EINPROGRESS)) {
-    perror("connect");
-    closesocket(fd);
-    WSACleanup();
-    return false;
-  }
-#endif
-
-  return true;
-}
 
 /**
  * Connect to an INET peer
  * @return NULL on error, otherwise a streambuffer
  */
-static PARCEventQueue *dispatcher_StreamBufferConnect_INET(
-    Dispatcher *dispatcher, const Address *localAddress,
-    const Address *remoteAddress) {
-  struct sockaddr_in localSock, remoteSock;
-  addressGetInet(localAddress, &localSock);
-  addressGetInet(remoteAddress, &remoteSock);
-
-  PARCEventQueue *buffer = parcEventQueue_Create(
-      dispatcher->Base, -1, PARCEventQueueOption_CloseOnFree);
-  parcAssertNotNull(buffer, "got null buffer from parcEventQueue_Create()");
-
-  bool success = dispatcher_StreamBufferBindAndConnect(
-      dispatcher, buffer, (struct sockaddr *)&localSock, sizeof(localSock),
-      (struct sockaddr *)&remoteSock, sizeof(remoteSock));
-  if (!success) {
-    parcEventQueue_Destroy(&buffer);
-    buffer = NULL;
-  }
-
-  return buffer;
-}
-
-/**
- * Connect to an INET peer
- * @return NULL on error, otherwise a streambuffer
- */
-static PARCEventQueue *
-// static StreamBuffer *
-dispatcher_StreamBufferConnect_INET6(Dispatcher *dispatcher,
-                                     const Address *localAddress,
-                                     const Address *remoteAddress) {
-  struct sockaddr_in6 localSock, remoteSock;
-  addressGetInet6(localAddress, &localSock);
-  addressGetInet6(remoteAddress, &remoteSock);
-
-  PARCEventQueue *buffer = parcEventQueue_Create(
-      dispatcher->Base, -1, PARCEventQueueOption_CloseOnFree);
-  parcAssertNotNull(buffer, "got null buffer from parcEventQueue_Create()");
-
-  bool success = dispatcher_StreamBufferBindAndConnect(
-      dispatcher, buffer, (struct sockaddr *)&localSock, sizeof(localSock),
-      (struct sockaddr *)&remoteSock, sizeof(remoteSock));
-  if (!success) {
-    parcEventQueue_Destroy(&buffer);
-    buffer = NULL;
-  }
-
-  return buffer;
-}
-
-PARCEventQueue *dispatcher_StreamBufferConnect(Dispatcher *dispatcher,
-                                               const AddressPair *pair) {
-  const Address *localAddress = addressPair_GetLocal(pair);
-  const Address *remoteAddress = addressPair_GetRemote(pair);
-
-  // they must be of the same address family
-  if (addressGetType(localAddress) != addressGetType(remoteAddress)) {
+PARCEventQueue *
+dispatcher_StreamBufferConnect( Dispatcher *dispatcher, const address_pair_t * pair)
+{
+  if (!address_pair_valid(pair)) {
+#if 0
     char message[2048];
     char *localAddressString = addressToString(localAddress);
     char *remoteAddressString = addressToString(remoteAddress);
@@ -444,31 +308,78 @@ PARCEventQueue *dispatcher_StreamBufferConnect(Dispatcher *dispatcher,
              "%d\nlocal %s remote %s",
              addressGetType(localAddress), addressGetType(remoteAddress),
              localAddressString, remoteAddressString);
-
-    parcMemory_Deallocate((void **)&localAddressString);
-    parcMemory_Deallocate((void **)&remoteAddressString);
-
-    parcAssertTrue(
-        addressGetType(localAddress) == addressGetType(remoteAddress), "%s",
-        message);
+#endif
+    return NULL;
   }
 
-  address_type type = addressGetType(localAddress);
+  PARCEventQueue *buffer = parcEventQueue_Create( dispatcher->Base, -1,
+          PARCEventQueueOption_CloseOnFree);
+  parcAssertNotNull(buffer, "got null buffer from parcEventQueue_Create()");
 
-  PARCEventQueue *result = NULL;
+  // we need to bind, then connect.  Special operation, so we make our
+  // own fd then pass it off to the buffer event
 
-  switch (type) {
-    case ADDR_INET:
-      return dispatcher_StreamBufferConnect_INET(dispatcher, localAddress,
-                                                 remoteAddress);
-      break;
-    case ADDR_INET6:
-      return dispatcher_StreamBufferConnect_INET6(dispatcher, localAddress,
-                                                  remoteAddress);
-      break;
-    default:
-      parcTrapIllegalValue(type, "local address unsupported address type: %d",
-                           type);
+#ifndef _WIN32
+  int fd = socket(address_family(&pair->local), SOCK_STREAM, 0);
+  if (fd < 0) {
+    perror("socket");
+    goto ERR_SOCKET;
   }
-  return result;
+#else
+  SOCKET fd = socket(address_family(&pair->local), SOCK_STREAM, 0);
+  if (fd == INVALID_SOCKET) {
+    perror("socket");
+    goto ERR_SOCKET;
+  }
+#endif /* _WIN32 */
+
+  /* Set non-blocking flag */
+#ifndef _WIN32
+  int flags = fcntl(fd, F_GETFL, NULL);
+  if (flags == -1) {
+    perror("F_GETFL");
+    goto ERR_IOCTL;
+  }
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+    perror("F_SETFL");
+    goto ERR_IOCTL;
+  }
+#else
+  if (ioctlsocket(fd, FIONBIO, &(u_long){1}) != NO_ERROR) {
+    perror("ioctlsocket");
+    goto ERR_IOCTL;
+  }
+#endif /* _WIN32 */
+
+  if (bind(fd, address_sa(&pair->local), address_socklen(&pair->local)) == -1) {
+    perror("bind");
+    goto ERR_BIND;
+  }
+
+#ifndef _WIN32
+  parcEventQueue_SetFileDescriptor(buffer, fd);
+#else
+  parcEventQueue_SetFileDescriptor(buffer, (int)fd);
+#endif /* _WIN32 */
+
+  int failure = parcEventQueue_ConnectSocket(buffer, address_sa(&pair->remote), address_socklen(&pair->remote));
+  if (failure && (errno != EINPROGRESS)) {
+    perror("connect");
+    goto ERR_CONNECT;
+  }
+
+  return buffer;
+
+ERR_CONNECT:
+ERR_BIND:
+ERR_IOCTL:
+#ifndef _WIN32
+  close(fd);
+#else
+  closesocket(fd);
+  WSACleanup();
+#endif /* _WIN32 */
+ERR_SOCKET:
+    parcEventQueue_Destroy(&buffer);
+  return NULL;
 }

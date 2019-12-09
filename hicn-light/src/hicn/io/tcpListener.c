@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <hicn/core/connectionTable.h>
 #include <hicn/core/forwarder.h>
 #include <hicn/io/listener.h>
 #include <hicn/io/streamConnection.h>
@@ -29,6 +28,18 @@
 #include <parc/algol/parc_Network.h>
 #include <parc/assert/parc_Assert.h>
 
+#define DEBUG(FMT, ...) do {                                                    \
+    if (logger_IsLoggable(tcp->logger, LoggerFacility_IO, PARCLogLevel_Debug))  \
+      logger_Log(tcp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,  \
+                 FMT, ## __VA_ARGS__);                                          \
+} while(0);
+
+#define ERROR(FMT, ...) do {                                                    \
+    if (logger_IsLoggable(tcp->logger, LoggerFacility_IO,  PARCLogLevel_Error)) \
+      logger_Log(tcp->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,  \
+                 FMT, ## __VA_ARGS__);                                          \
+} while(0);
+
 typedef struct tcp_listener {
   char *listenerName;
   Forwarder *forwarder;
@@ -36,12 +47,12 @@ typedef struct tcp_listener {
 
   PARCEventSocket *listener;
 
-  Address *localAddress;
+  address_t local_address;
 
   unsigned id;
   char *interfaceName;
 
-  // is the localAddress as 127.0.0.0 address?
+  // is the local_address as 127.0.0.0 address?
   bool isLocalAddressLocal;
 } _TcpListener;
 
@@ -53,7 +64,7 @@ static const char *_tcpListener_ListenerName(const ListenerOps *ops);
 
 static unsigned _tcpListener_OpsGetInterfaceIndex(const ListenerOps *ops);
 
-static const Address *_tcpListener_OpsGetListenAddress(const ListenerOps *ops);
+static const address_t *_tcpListener_OpsGetListenAddress(const ListenerOps *ops);
 
 static const char *_tcpListener_InterfaceName(const ListenerOps *ops);
 
@@ -69,103 +80,66 @@ static ListenerOps _tcpTemplate = {
     .getInterfaceName = &_tcpListener_InterfaceName,
     .getSocket = NULL};
 
-// STREAM daemon listener callback
-static void _tcpListener_Listen(int, struct sockaddr *, int socklen,
-                                void *tcpVoid);
+/* STREAM daemon listener callback */
+static void _tcpListener_Listen(int fd, struct sockaddr *, int socklen, void
+        *tcpVoid);
 
-ListenerOps *tcpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
-                                     struct sockaddr_in6 sin6, char *interfaceName) {
-
+ListenerOps *
+tcpListener_Create(Forwarder *forwarder, char *listenerName,
+        const address_t * address, char *interfaceName)
+{
   _TcpListener *tcp = parcMemory_AllocateAndClear(sizeof(_TcpListener));
-  parcAssertNotNull(tcp, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(_TcpListener));
-
+  if (!tcp) {
+    ERROR("parcMemory_AllocateAndClear(%zu) returned NULL", sizeof(_TcpListener));
+    goto ERR_TCP;
+  }
   tcp->forwarder = forwarder;
   tcp->listenerName = parcMemory_StringDuplicate(listenerName, strlen(listenerName));
-  tcp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
   tcp->interfaceName = parcMemory_StringDuplicate(interfaceName, strlen(interfaceName));
+  tcp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
 
   tcp->listener = dispatcher_CreateListener(
       forwarder_GetDispatcher(forwarder), _tcpListener_Listen, (void *)tcp, -1,
-      (struct sockaddr *)&sin6, sizeof(sin6));
-
-  if (tcp->listener == NULL) {
-    logger_Log(tcp->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-               "dispatcher_CreateListener failed to create listener (%d) %s",
-               errno, strerror(errno));
-    logger_Release(&tcp->logger);
-    parcMemory_Deallocate((void **)&tcp);
-    return NULL;
+      address, address_socklen(address));
+  if (!tcp->listener) {
+    ERROR("dispatcher_CreateListener failed to create listener (%d) %s", errno,
+            strerror(errno));
+    goto ERR_LISTENER;
   }
 
-  tcp->localAddress = addressCreateFromInet6(&sin6);
+  tcp->local_address = *address;
   tcp->id = forwarder_GetNextConnectionId(forwarder);
-  tcp->isLocalAddressLocal =
-      parcNetwork_IsSocketLocal((struct sockaddr *)&sin6);
+  tcp->isLocalAddressLocal = address_is_local(address);
 
-  ListenerOps *ops = parcMemory_AllocateAndClear(sizeof(ListenerOps));
-  parcAssertNotNull(ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(ListenerOps));
-
-  memcpy(ops, &_tcpTemplate, sizeof(ListenerOps));
-  ops->context = tcp;
-
-  if (logger_IsLoggable(tcp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-    char *str = addressToString(tcp->localAddress);
-    logger_Log(tcp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-               "TcpListener %p created for address %s (isLocal %d)",
-               (void *)tcp, str, tcp->isLocalAddressLocal);
-    parcMemory_Deallocate((void **)&str);
+  ListenerOps *listener = parcMemory_AllocateAndClear(sizeof(ListenerOps));
+  if (!listener) {
+    ERROR("parcMemory_AllocateAndClear(%zu) returned NULL",
+            sizeof(ListenerOps));
+    goto ERR;
   }
+  memcpy(listener, &_tcpTemplate, sizeof(ListenerOps));
+  listener->context = tcp;
 
-  return ops;
-}
+// XXX TODO
+#if 0
+  char *str = addressToString(tcp->local_address);
+  DEBUG("TcpListener %p created for address %s (isLocal %d)", (void *)tcp,
+          str, tcp->isLocalAddressLocal);
+  parcMemory_Deallocate((void **)&str);
+#endif
 
-ListenerOps *tcpListener_CreateInet(Forwarder *forwarder, char *listenerName,
-                                    struct sockaddr_in sin, char *interfaceName) {
-  _TcpListener *tcp = parcMemory_AllocateAndClear(sizeof(_TcpListener));
-  parcAssertNotNull(tcp, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(_TcpListener));
+  return listener;
 
-  tcp->forwarder = forwarder;
-  tcp->listenerName = parcMemory_StringDuplicate(listenerName, strlen(listenerName));
-  tcp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
-  tcp->interfaceName = parcMemory_StringDuplicate(interfaceName, strlen(interfaceName));
-
-  tcp->listener = dispatcher_CreateListener(
-      forwarder_GetDispatcher(forwarder), _tcpListener_Listen, (void *)tcp, -1,
-      (struct sockaddr *)&sin, sizeof(sin));
-
-  if (tcp->listener == NULL) {
-    logger_Log(tcp->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-               "dispatcher_CreateListener failed to create listener (%d) %s",
-               errno, strerror(errno));
-
-    logger_Release(&tcp->logger);
-    parcMemory_Deallocate((void **)&tcp);
-    return NULL;
-  }
-
-  tcp->localAddress = addressCreateFromInet(&sin);
-  tcp->id = forwarder_GetNextConnectionId(forwarder);
-  tcp->isLocalAddressLocal = parcNetwork_IsSocketLocal((struct sockaddr *)&sin);
-
-  ListenerOps *ops = parcMemory_AllocateAndClear(sizeof(ListenerOps));
-  parcAssertNotNull(ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(ListenerOps));
-
-  memcpy(ops, &_tcpTemplate, sizeof(ListenerOps));
-  ops->context = tcp;
-
-  if (logger_IsLoggable(tcp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-    char *str = addressToString(tcp->localAddress);
-    logger_Log(tcp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-               "TcpListener %p created for address %s (isLocal %d)",
-               (void *)tcp, str, tcp->isLocalAddressLocal);
-    parcMemory_Deallocate((void **)&str);
-  }
-
-  return ops;
+ERR:
+  // XXX TODO
+  // Dispatcher_RemoveListener() ?
+ERR_LISTENER:
+  logger_Release(&tcp->logger);
+  parcMemory_Deallocate((void **)&tcp->interfaceName);
+  parcMemory_Deallocate((void **)&tcp->listenerName);
+  parcMemory_Deallocate((void **)&tcp);
+ERR_TCP:
+  return NULL;
 }
 
 static void _tcpListener_Destroy(_TcpListener **listenerPtr) {
@@ -174,19 +148,20 @@ static void _tcpListener_Destroy(_TcpListener **listenerPtr) {
                     "Parameter must derefernce to non-null pointer");
   _TcpListener *tcp = *listenerPtr;
 
+#if 0
   if (logger_IsLoggable(tcp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-    char *str = addressToString(tcp->localAddress);
+    char *str = addressToString(tcp->local_address);
     logger_Log(tcp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
                "TcpListener %p destroyed", (void *)tcp);
     parcMemory_Deallocate((void **)&str);
   }
+#endif
 
   parcMemory_Deallocate((void **)&tcp->listenerName);
   parcMemory_Deallocate((void **)&tcp->interfaceName);
   logger_Release(&tcp->logger);
   dispatcher_DestroyListener(forwarder_GetDispatcher(tcp->forwarder),
                              &tcp->listener);
-  addressDestroy(&tcp->localAddress);
   parcMemory_Deallocate((void **)&tcp);
   *listenerPtr = NULL;
 }
@@ -203,40 +178,30 @@ static const char *_tcpListener_InterfaceName(const ListenerOps *ops) {
   return tcp->interfaceName;
 }
 
-static void _tcpListener_Listen(int fd, struct sockaddr *sa, int socklen,
-                                void *tcpVoid) {
+/**
+ * @note The prototype should not change as it is a PARCEventSocket_Callback
+ */
+static
+void
+_tcpListener_Listen(int fd, struct sockaddr * sa, int socklen, void *tcpVoid)
+{
+  address_t * remote = (address_t *)sa;
   _TcpListener *tcp = (_TcpListener *)tcpVoid;
 
-  Address *remote;
+  address_pair_t pair = {
+    .local = tcp->local_address,
+    .remote = *remote,
+  };
 
-  switch (sa->sa_family) {
-    case AF_INET:
-      remote = addressCreateFromInet((struct sockaddr_in *)sa);
-      break;
+  IoOperations *ops = streamConnection_AcceptConnection( tcp->forwarder, fd,
+          &pair, tcp->isLocalAddressLocal);
 
-    case AF_INET6:
-      remote = addressCreateFromInet6((struct sockaddr_in6 *)sa);
-      break;
+  connection_table_t * table = forwarder_GetConnectionTable(tcp->forwarder);
+  Connection ** conn_ptr;
+  connection_table_allocate(table, conn_ptr, &pair);
+  *conn_ptr = connection_Create(ops);
 
-    default:
-      parcTrapIllegalValue(sa, "Expected INET or INET6, got %d", sa->sa_family);
-      abort();
-  }
-
-  AddressPair *pair = addressPair_Create(tcp->localAddress, remote);
-
-  IoOperations *ops = streamConnection_AcceptConnection(
-      tcp->forwarder, fd, pair, tcp->isLocalAddressLocal);
-  Connection *conn = connection_Create(ops);
-
-  connectionTable_Add(forwarder_GetConnectionTable(tcp->forwarder), conn);
-
-  if (logger_IsLoggable(tcp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-    logger_Log(tcp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-               "TcpListener %p listen started", (void *)tcp);
-  }
-
-  addressDestroy(&remote);
+  DEBUG("TcpListener %p listen started", (void *)tcp)
 }
 
 static void _tcpListener_OpsDestroy(ListenerOps **listenerOpsPtr) {
@@ -252,9 +217,9 @@ static unsigned _tcpListener_OpsGetInterfaceIndex(const ListenerOps *ops) {
   return tcp->id;
 }
 
-static const Address *_tcpListener_OpsGetListenAddress(const ListenerOps *ops) {
+static const address_t *_tcpListener_OpsGetListenAddress(const ListenerOps *ops) {
   _TcpListener *tcp = (_TcpListener *)ops->context;
-  return tcp->localAddress;
+  return &tcp->local_address;
 }
 
 static EncapType _tcpListener_OpsGetEncapType(const ListenerOps *ops) {

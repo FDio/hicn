@@ -14,29 +14,21 @@
  */
 
 #include <hicn/hicn-light/config.h>
+#include <hicn/util/log.h>
 #include <stdio.h>
 #include <string.h>
 
 #include <parc/algol/parc_ArrayList.h>
 #include <parc/algol/parc_Memory.h>
-#ifdef WITH_POLICY
-#include <parc/algol/parc_EventTimer.h>
-#ifdef WITH_MAPME
 #include <hicn/core/connection.h>
-#endif /* WITH_MAPME */
-#endif /* WITH_POLICY */
 #include <hicn/processor/messageProcessor.h>
 
 #include <hicn/processor/fib.h>
-#include <hicn/processor/pitStandard.h>
 
-#include <hicn/content_store/contentStoreInterface.h>
-#include <hicn/content_store/contentStoreLRU.h>
+#include <hicn/base/content_store.h>
+#include <hicn/base/pit.h>
 
-#include <hicn/strategies/loadBalancer.h>
-#include <hicn/strategies/lowLatency.h>
-#include <hicn/strategies/rnd.h>
-#include <hicn/strategies/strategyImpl.h>
+//#include <hicn/strategies/strategyImpl.h>
 
 #include <hicn/io/streamConnection.h>
 #include <hicn/io/udpListener.h>
@@ -46,358 +38,314 @@
 #include <hicn/utils/commands.h>
 #include <hicn/utils/utils.h>
 
-#include <hicn/utils/address.h>
 #include <hicn/core/messageHandler.h>
 
-#ifdef WITH_POLICY
-#define STATS_INTERVAL 1000 /* ms */
-#endif /* WITH_POLICY */
+#define DEFAULT_PIT_SIZE 65535
 
-/*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at:
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 typedef struct processor_stats {
-  uint32_t countReceived;
-  uint32_t countInterestsReceived;
-  uint32_t countObjectsReceived;
+    uint32_t countReceived;
+    uint32_t countInterestsReceived;
+    uint32_t countObjectsReceived;
 
-  uint32_t countInterestsAggregated;
+    uint32_t countInterestsAggregated;
 
-  uint32_t countDropped;
-  uint32_t countInterestsDropped;
-  uint32_t countDroppedNoRoute;
-  uint32_t countDroppedNoReversePath;
+    uint32_t countDropped;
+    uint32_t countInterestsDropped;
+    uint32_t countDroppedNoRoute;
+    uint32_t countDroppedNoReversePath;
 
-  uint32_t countDroppedConnectionNotFound;
-  uint32_t countObjectsDropped;
+    uint32_t countDroppedConnectionNotFound;
+    uint32_t countObjectsDropped;
 
-  uint32_t countSendFailures;
-  uint32_t countInterestForwarded;
-  uint32_t countObjectsForwarded;
-  uint32_t countInterestsSatisfiedFromStore;
+    uint32_t countSendFailures;
+    uint32_t countInterestForwarded;
+    uint32_t countObjectsForwarded;
+    uint32_t countInterestsSatisfiedFromStore;
 
-  uint32_t countDroppedNoHopLimit;
-  uint32_t countDroppedZeroHopLimitFromRemote;
-  uint32_t countDroppedZeroHopLimitToRemote;
+    uint32_t countDroppedNoHopLimit;
+    uint32_t countDroppedZeroHopLimitFromRemote;
+    uint32_t countDroppedZeroHopLimitToRemote;
 } _ProcessorStats;
 
 struct message_processor {
-  Forwarder *forwarder;
-  Logger *logger;
+    Forwarder *forwarder;
+    Logger *logger;
 
-  PIT *pit;
-  ContentStoreInterface *contentStore;
-  FIB *fib;
+    pit_t * pit;
+    content_store_t * content_store;
+    FIB *fib;
 
-  bool store_in_cache;
-  bool serve_from_cache;
+    bool store_in_cache;
+    bool serve_from_cache;
 
-  _ProcessorStats stats;
+    _ProcessorStats stats;
 
-#ifdef WITH_POLICY
-  void * timer;
-#endif /* WITH_POLICY */
+    /*
+     * The message processor has to decide whether to queue incoming packets for
+     * batching, or trigger the transmission on the connection
+     */
+    unsigned pending_batch;
+    unsigned pending_conn[MAX_MSG];
+    size_t num_pending_conn;
 };
 
 static void messageProcessor_Drop(MessageProcessor *processor,
-                                  Message *message);
+        msgbuf_t *message);
 static void messageProcessor_ReceiveInterest(MessageProcessor *processor,
-                                             Message *interestMessage);
+        msgbuf_t *interestMessage);
 static void messageProcessor_ReceiveContentObject(MessageProcessor *processor,
-                                                  Message *objectMessage);
+        msgbuf_t *objectMessage);
 static unsigned messageProcessor_ForwardToNexthops(MessageProcessor *processor,
-                                                   Message *message,
-                                                   const NumberSet *nexthops);
-
+        msgbuf_t *message, const nexthops_t * nexthops);
 static void messageProcessor_ForwardToInterfaceId(MessageProcessor *processor,
-                                                  Message *message,
-                                                  unsigned interfaceId);
+        msgbuf_t *message, unsigned interfaceId);
 
 // ============================================================
 // Public API
 
-#ifdef WITH_POLICY
-static void
-messageProcessor_Tick(int fd, PARCEventType type, void *user_data)
+    MessageProcessor *
+messageProcessor_Create(Forwarder *forwarder)
 {
-  MessageProcessor *processor = (MessageProcessor*)user_data;
-  uint64_t now = (uint64_t)forwarder_GetTicks(processor->forwarder);
+    size_t objectStoreSize =
+        configuration_GetObjectStoreSize(forwarder_GetConfiguration(forwarder));
 
-  /* Loop over FIB entries to compute statistics from counters */
-  FibEntryList *fibList = forwarder_GetFibEntries(processor->forwarder);
+    MessageProcessor *processor =
+        parcMemory_AllocateAndClear(sizeof(MessageProcessor));
+    parcAssertNotNull(processor, "parcMemory_AllocateAndClear(%zu) returned NULL",
+            sizeof(MessageProcessor));
+    memset(processor, 0, sizeof(MessageProcessor));
 
-  for (size_t i = 0; i < fibEntryList_Length(fibList); i++) {
-    FibEntry *entry = (FibEntry *)fibEntryList_Get(fibList, i);
-    fibEntry_UpdateStats(entry, now);
-  }
+    processor->forwarder = forwarder;
+    processor->logger = logger_Acquire(forwarder_GetLogger(forwarder));
+    processor->pit = pit_create(DEFAULT_PIT_SIZE);
 
-  fibEntryList_Destroy(&fibList);
-}
-#endif /* WITH_POLICY */
+    processor->fib = fib_Create(forwarder);
 
-MessageProcessor *messageProcessor_Create(Forwarder *forwarder) {
-  size_t objectStoreSize =
-      configuration_GetObjectStoreSize(forwarder_GetConfiguration(forwarder));
+    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
+                PARCLogLevel_Debug)) {
+        logger_Log(processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
+                __func__, "MessageProcessor %p created", (void *)processor);
+    }
 
-  MessageProcessor *processor =
-      parcMemory_AllocateAndClear(sizeof(MessageProcessor));
-  parcAssertNotNull(processor, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(MessageProcessor));
-  memset(processor, 0, sizeof(MessageProcessor));
+    processor->content_store = content_store_create(CONTENT_STORE_TYPE_LRU, objectStoreSize);
 
-  processor->forwarder = forwarder;
-  processor->logger = logger_Acquire(forwarder_GetLogger(forwarder));
-  processor->pit = pitStandard_Create(forwarder);
+    // the two flags for the cache are set to true by default. If the cache
+    // is active it always work as expected unless the use modifies this
+    // values using controller
+    processor->store_in_cache = true;
+    processor->serve_from_cache = true;
 
-  processor->fib = fib_Create(forwarder);
-
-  if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                        PARCLogLevel_Debug)) {
-    logger_Log(processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
-               __func__, "MessageProcessor %p created", (void *)processor);
-  }
-
-  ContentStoreConfig contentStoreConfig = {
-      .objectCapacity = objectStoreSize,
-  };
-
-  processor->contentStore =
-      contentStoreLRU_Create(&contentStoreConfig, processor->logger);
-
-  // the two flags for the cache are set to true by default. If the cache
-  // is active it always work as expected unless the use modifies this
-  // values using controller
-  processor->store_in_cache = true;
-  processor->serve_from_cache = true;
-
-#ifdef WITH_POLICY
-  /* Create statistics timer */
-  Dispatcher *dispatcher = forwarder_GetDispatcher(forwarder);
-  if (!dispatcher)
-    goto ERR;
-  processor->timer = dispatcher_CreateTimer(dispatcher, /* repeat */ true,
-          messageProcessor_Tick, processor);
-  if (!processor->timer)
-      goto ERR;
-  struct timeval timeout = {STATS_INTERVAL / 1000, (STATS_INTERVAL % 1000) * 1000};
-  dispatcher_StartTimer(dispatcher, processor->timer, &timeout);
-ERR:
-#endif /* WITH_POLICY */
-
-  return processor;
+    return processor;
 }
 
-void messageProcessor_SetContentObjectStoreSize(
-    MessageProcessor *processor, size_t maximumContentStoreSize) {
-  parcAssertNotNull(processor, "Parameter processor must be non-null");
-  contentStoreInterface_Release(&processor->contentStore);
+void
+messageProcessor_SetContentObjectStoreSize(MessageProcessor *processor, size_t maximumContentStoreSize)
+{
+    parcAssertNotNull(processor, "Parameter processor must be non-null");
+    content_store_free(processor->content_store);
 
-  ContentStoreConfig contentStoreConfig = {.objectCapacity =
-                                               maximumContentStoreSize};
+    // XXX TODO
+#if 0
+    ContentStoreConfig content_storeConfig = {.objectCapacity =
+        maximumContentStoreSize};
 
-  processor->contentStore =
-      contentStoreLRU_Create(&contentStoreConfig, processor->logger);
+    processor->content_store =
+        content_storeLRU_Create(&content_storeConfig, processor->logger);
+#endif
 }
 
-void messageProcessor_ClearCache(MessageProcessor *processor) {
-  parcAssertNotNull(processor, "Parameter processor must be non-null");
-  size_t objectStoreSize = configuration_GetObjectStoreSize(
-      forwarder_GetConfiguration(processor->forwarder));
-
-  contentStoreInterface_Release(&processor->contentStore);
-
-  ContentStoreConfig contentStoreConfig = {
-      .objectCapacity = objectStoreSize,
-  };
-
-  processor->contentStore =
-      contentStoreLRU_Create(&contentStoreConfig, processor->logger);
+void
+messageProcessor_ClearCache(MessageProcessor *processor)
+{
+    assert(processor);
+    content_store_clear(processor->content_store);
 }
 
-ContentStoreInterface *messageProcessor_GetContentObjectStore(
-    const MessageProcessor *processor) {
-  parcAssertNotNull(processor, "Parameter processor must be non-null");
-  return processor->contentStore;
+    content_store_t *
+messageProcessor_GetContentStore(const MessageProcessor *processor)
+{
+    parcAssertNotNull(processor, "Parameter processor must be non-null");
+    return processor->content_store;
 }
 
-void messageProcessor_Destroy(MessageProcessor **processorPtr) {
-  parcAssertNotNull(processorPtr, "Parameter must be non-null double pointer");
-  parcAssertNotNull(*processorPtr, "Parameter dereference to non-null pointer");
+void
+messageProcessor_Destroy(MessageProcessor **processorPtr)
+{
+    parcAssertNotNull(processorPtr, "Parameter must be non-null double pointer");
+    parcAssertNotNull(*processorPtr, "Parameter dereference to non-null pointer");
 
-  MessageProcessor *processor = *processorPtr;
+    MessageProcessor *processor = *processorPtr;
 
-  if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                        PARCLogLevel_Debug)) {
-    logger_Log(processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
-               __func__, "MessageProcessor %p destroyed", (void *)processor);
-  }
+    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
+                PARCLogLevel_Debug)) {
+        logger_Log(processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
+                __func__, "MessageProcessor %p destroyed", (void *)processor);
+    }
 
-  logger_Release(&processor->logger);
-  fib_Destroy(&processor->fib);
-  contentStoreInterface_Release(&processor->contentStore);
-  pit_Release(&processor->pit);
+    logger_Release(&processor->logger);
+    fib_Destroy(&processor->fib);
+    content_store_free(processor->content_store);
+    pit_free(processor->pit);
 
-#ifdef WITH_POLICY
-  Dispatcher *dispatcher = forwarder_GetDispatcher(processor->forwarder);
-  if (!dispatcher)
-    goto ERR;
-  dispatcher_StopTimer(dispatcher, processor->timer);
-  dispatcher_DestroyTimerEvent(dispatcher, (PARCEventTimer**)&processor->timer);
-ERR:
-#endif /* WITH_POLICY */
-
-  parcMemory_Deallocate((void **)&processor);
-  *processorPtr = NULL;
+    parcMemory_Deallocate((void **)&processor);
+    *processorPtr = NULL;
 }
 
-void messageProcessor_Receive(MessageProcessor *processor, Message *message) {
-  parcAssertNotNull(processor, "Parameter processor must be non-null");
-  parcAssertNotNull(message, "Parameter message must be non-null");
-
-  processor->stats.countReceived++;
-
-  if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                        PARCLogLevel_Debug)) {
-    char *nameString = name_ToString(message_GetName(message));
-    logger_Log(processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
-               __func__, "Message %p ingress %3u length %5u received name %s",
-               (void *)message, message_GetIngressConnectionId(message),
-               message_Length(message), nameString);
-    parcMemory_Deallocate((void **)&nameString);
-  }
-
-  switch (message_GetType(message)) {
-    case MessagePacketType_Interest:
-      messageProcessor_ReceiveInterest(processor, message);
-      break;
-
-    case MessagePacketType_ContentObject:
-      messageProcessor_ReceiveContentObject(processor, message);
-      break;
-
-    default:
-      messageProcessor_Drop(processor, message);
-      break;
-  }
-
-  // if someone wanted to save it, they made a copy
-  message_Release(&message);
+/* Flush connections that have pending packets to be sent */
+void
+messageProcessor_FlushConnections(MessageProcessor *processor)
+{
+    const connection_table_t * table = forwarder_GetConnectionTable(processor->forwarder);
+    for (unsigned i = 0; i < processor->num_pending_conn; i++) {
+        const Connection * conn = connection_table_at(table, processor->pending_conn[i]);
+        // flush
+        connection_Send(conn, NULL, false);
+    }
+    processor->num_pending_conn = 0;
 }
 
-bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
-                                       add_route_command *control,
-                                       unsigned ifidx) {
-  Configuration *config = forwarder_GetConfiguration(processor->forwarder);
+void
+messageProcessor_Receive(MessageProcessor *processor, msgbuf_t *message, unsigned new_batch)
+{
+    parcAssertNotNull(processor, "Parameter processor must be non-null");
+    parcAssertNotNull(message, "Parameter message must be non-null");
 
-  char *prefixStr = (char *) utils_PrefixLenToString(
-      control->addressType, &control->address, &control->len);
-  strategy_type fwdStrategy =
-      configuration_GetForwardingStrategy(config, prefixStr);
+    processor->stats.countReceived++;
 
-  Name *prefix = name_CreateFromAddress(control->addressType, control->address,
-                                        control->len);
-  FibEntry *entry = fib_Contains(processor->fib, prefix);
-  if (entry != NULL) {
-    fibEntry_AddNexthop(entry, ifidx);
-  } else {
-#ifdef WITH_POLICY
-    entry = fibEntry_Create(prefix, fwdStrategy, processor->forwarder);
-#else
-    entry = fibEntry_Create(prefix, fwdStrategy);
-#endif /* WITH_POLICY */
-    fibEntry_AddNexthop(entry, ifidx);
-    fib_Add(processor->fib, entry);
-  }
+    if (new_batch > 0) {
+        processor->pending_batch += new_batch - 1;
+    } else {
+        processor->pending_batch--;
+    }
 
-  free(prefixStr);
-  name_Release(&prefix);
+    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
+                PARCLogLevel_Debug)) {
+        char *nameString = name_ToString(msgbuf_name(message));
+        logger_Log(processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
+                __func__, "Message %p ingress %3u length %5u received name %s",
+                (void *)message, msgbuf_connection_id(message),
+                msgbuf_len(message), nameString);
+        parcMemory_Deallocate((void **)&nameString);
+    }
 
-  return true;
+    switch (msgbuf_type(message)) {
+        case MessagePacketType_Interest:
+            messageProcessor_ReceiveInterest(processor, message);
+            break;
+
+        case MessagePacketType_ContentObject:
+            messageProcessor_ReceiveContentObject(processor, message);
+            break;
+
+        default:
+            messageProcessor_Drop(processor, message);
+            break;
+    }
+
+    /* Send batch ? */
+    if (processor->pending_batch == 0)
+        messageProcessor_FlushConnections(processor);
 }
 
-bool messageProcessor_RemoveRoute(MessageProcessor *processor,
-                                  remove_route_command *control,
-                                  unsigned ifidx) {
-  Name *name = name_CreateFromAddress(control->addressType, control->address,
-                                      control->len);
-  fib_Remove(processor->fib, name, ifidx);
-  name_Release(&name);
+    bool
+messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
+        add_route_command *control, unsigned ifidx)
+{
+    Configuration *config = forwarder_GetConfiguration(processor->forwarder);
 
-  return true;
+    char *prefixStr = (char *) utils_PrefixLenToString( control->family,
+            &control->address, &control->len);
+    // XXX TODO this should store options too
+    strategy_type_t strategy_type = configuration_GetForwardingStrategy(config, prefixStr);
+
+    Name *prefix = name_CreateFromAddress(control->family, control->address,
+            control->len);
+    fib_entry_t *entry = fib_Contains(processor->fib, prefix);
+    if (!entry) {
+        entry = fib_entry_Create(prefix, strategy_type, NULL, processor->forwarder);
+        fib_entry_nexthops_add(entry, ifidx);
+        fib_Add(processor->fib, entry);
+    } else {
+        fib_entry_nexthops_add(entry, ifidx);
+    }
+
+    free(prefixStr);
+    name_Release(&prefix);
+
+    return true;
+}
+
+    bool
+messageProcessor_RemoveRoute(MessageProcessor *processor,
+        remove_route_command *control, unsigned ifidx)
+{
+    Name *name = name_CreateFromAddress(control->family, control->address,
+            control->len);
+    fib_Remove(processor->fib, name, ifidx);
+    name_Release(&name);
+
+    return true;
 }
 
 #ifdef WITH_POLICY
 
-bool messageProcessor_AddOrUpdatePolicy(MessageProcessor *processor,
-                                       add_policy_command *control) {
-  Configuration *config = forwarder_GetConfiguration(processor->forwarder);
+    bool
+messageProcessor_AddOrUpdatePolicy(MessageProcessor *processor,
+        add_policy_command *control)
+{
+    Name *prefix = name_CreateFromAddress(control->family, control->address,
+            control->len);
+    fib_entry_t *entry = fib_Contains(processor->fib, prefix);
+    if (!entry)
+        return false;
+    fib_entry_SetPolicy(entry, control->policy);
 
-  const char *prefixStr = utils_PrefixLenToString(
-      control->addressType, &control->address, &control->len);
+    name_Release(&prefix);
 
-  Name *prefix = name_CreateFromAddress(control->addressType, control->address,
-                                        control->len);
-  FibEntry *entry = fib_Contains(processor->fib, prefix);
-  if (!entry) {
-    strategy_type fwdStrategy =
-        configuration_GetForwardingStrategy(config, prefixStr);
-    entry = fibEntry_Create(prefix, fwdStrategy, processor->forwarder);
-    fib_Add(processor->fib, entry);
-  }
-  fibEntry_SetPolicy(entry, control->policy);
-
-  name_Release(&prefix);
-
-  return true;
+    return true;
 }
 
-bool messageProcessor_RemovePolicy(MessageProcessor *processor,
-                                  remove_policy_command *control) {
-  Name *prefix = name_CreateFromAddress(control->addressType, control->address,
-                                      control->len);
-  FibEntry *entry = fib_Contains(processor->fib, prefix);
-  name_Release(&prefix);
+    bool
+messageProcessor_RemovePolicy(MessageProcessor *processor,
+        remove_policy_command *control)
+{
+    Name *prefix = name_CreateFromAddress(control->family, control->address,
+            control->len);
+    fib_entry_t *entry = fib_Contains(processor->fib, prefix);
+    name_Release(&prefix);
 
-  if (!entry)
-      return false;
+    if (!entry)
+        return false;
 
-  fibEntry_SetPolicy(entry, POLICY_NONE);
+    fib_entry_SetPolicy(entry, POLICY_NONE);
 
-  return true;
+    return true;
 }
 
 #endif /* WITH_POLICY */
 
-void messageProcessor_RemoveConnectionIdFromRoutes(MessageProcessor *processor,
-                                                   unsigned connectionId) {
-  fib_RemoveConnectionId(processor->fib, connectionId);
+void
+messageProcessor_RemoveConnectionIdFromRoutes(MessageProcessor *processor,
+        unsigned connectionId)
+{
+    fib_RemoveConnectionId(processor->fib, connectionId);
 }
 
-void processor_SetStrategy(MessageProcessor *processor, Name *prefix,
-                           strategy_type strategy,
-                           unsigned related_prefixes_len,
-                           Name **related_prefixes){
-  FibEntry *entry = fib_Contains(processor->fib, prefix);
-  if (entry != NULL) {
-    fibEntry_SetStrategy(entry, strategy, related_prefixes_len,
-                        related_prefixes);
-  }
+void
+processor_SetStrategy(MessageProcessor *processor, Name *prefix,
+        strategy_type_t strategy_type, strategy_options_t * strategy_options)
+{
+    fib_entry_t *entry = fib_Contains(processor->fib, prefix);
+    if (entry != NULL) {
+        fib_entry_SetStrategy(entry, strategy_type, strategy_options);
+    }
 }
 
-FibEntryList *messageProcessor_GetFibEntries(MessageProcessor *processor) {
-  parcAssertNotNull(processor, "Parameter processor must be non-null");
-  return fib_GetEntries(processor->fib);
+    fib_entry_list_t *
+messageProcessor_GetFibEntries(MessageProcessor *processor)
+{
+    parcAssertNotNull(processor, "Parameter processor must be non-null");
+    return fib_GetEntries(processor->fib);
 }
 
 // ============================================================
@@ -414,24 +362,26 @@ FibEntryList *messageProcessor_GetFibEntries(MessageProcessor *processor) {
  * that.
  *
  */
-static void messageProcessor_Drop(MessageProcessor *processor,
-                                  Message *message) {
-  processor->stats.countDropped++;
+static
+void
+messageProcessor_Drop(MessageProcessor *processor, msgbuf_t *message)
+{
+    processor->stats.countDropped++;
 
-  switch (message_GetType(message)) {
-    case MessagePacketType_Interest:
-      processor->stats.countInterestsDropped++;
-      break;
+    switch (msgbuf_type(message)) {
+        case MessagePacketType_Interest:
+            processor->stats.countInterestsDropped++;
+            break;
 
-    case MessagePacketType_ContentObject:
-      processor->stats.countObjectsDropped++;
-      break;
+        case MessagePacketType_ContentObject:
+            processor->stats.countObjectsDropped++;
+            break;
 
-    default:
-      break;
-  }
+        default:
+            break;
+    }
 
-  // dont destroy message here, its done at end of receive
+    // dont destroy message here, its done at end of receive
 }
 
 /**
@@ -443,86 +393,60 @@ static void messageProcessor_Drop(MessageProcessor *processor,
  * @return true if interest aggregagted (no more forwarding needed), false if
  * need to keep processing it.
  */
-#ifdef WITH_POLICY
-static PITVerdict messageProcessor_AggregateInterestInPit(MessageProcessor *processor,
-                                                    Message *interestMessage) {
-#else
-static bool messageProcessor_AggregateInterestInPit(MessageProcessor *processor,
-                                                    Message *interestMessage) {
-#endif /* WITH_POLICY */
-  PITVerdict verdict = pit_ReceiveInterest(processor->pit, interestMessage);
+static
+pit_verdict_t
+messageProcessor_AggregateInterestInPit(MessageProcessor *processor,
+        msgbuf_t *msgbuf)
+{
+    assert(processor);
+    assert(msgbuf);
+    assert(msgbuf_type(msgbuf) == MessagePacketType_Interest);
 
-  if (verdict == PITVerdict_Aggregate) {
-    // PIT has it, we're done
-    processor->stats.countInterestsAggregated++;
-
-    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                          PARCLogLevel_Debug)) {
-      logger_Log(
-          processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
-          __func__, "Message %p aggregated in PIT (aggregated count %u)",
-          (void *)interestMessage, processor->stats.countInterestsAggregated);
+    pit_verdict_t verdict = pit_on_interest(processor->pit, msgbuf);
+    if (verdict == PIT_VERDICT_AGGREGATE) {
+        processor->stats.countInterestsAggregated++;
+        DEBUG("Message %p aggregated in PIT (aggregated count %u)",
+                msgbuf, processor->stats.countInterestsAggregated);
+        return true;
     }
 
-    return true;
-  }
-
-  if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                        PARCLogLevel_Debug)) {
-    logger_Log(
-        processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
-        __func__, "Message %p not aggregated in PIT (aggregated count %u)",
-        (void *)interestMessage, processor->stats.countInterestsAggregated);
-  }
-
-  return false;
+    DEBUG("Message %p not aggregated in PIT (aggregated count %u)",
+            msgbuf, processor->stats.countInterestsAggregated);
+    return false;
 }
 
-static bool _satisfyFromContentStore(MessageProcessor *processor,
-                                     Message *interestMessage) {
-  bool result = false;
+static
+bool
+_satisfyFromContentStore(MessageProcessor *processor, msgbuf_t *interestMessage)
+{
+    if (msgbuf_interest_lifetime(interestMessage) == 0)
+        return false;
 
-  if (message_GetInterestLifetimeTicks(interestMessage) == 0) {
-    return false;
-  }
+    if (!processor->serve_from_cache)
+        return false;
 
-  if (!processor->serve_from_cache) {
-    return result;
-  }
+    // See if there's a match in the store.
+    msgbuf_t *objectMessage = content_store_match(processor->content_store,
+            interestMessage, forwarder_GetTicks(processor->forwarder));
 
-  // See if there's a match in the store.
-  Message *objectMessage = contentStoreInterface_MatchInterest(
-      processor->contentStore, interestMessage,
-      forwarder_GetTicks(processor->forwarder));
+    if (!objectMessage)
+        return false;
 
-  if (objectMessage != NULL) {
     // Remove it from the PIT.  nexthops is allocated, so need to destroy
-    NumberSet *nexthops = pit_SatisfyInterest(processor->pit, objectMessage);
-    parcAssertNotNull(
-        nexthops,
-        "Illegal state: got a null nexthops for an interest we just inserted.");
+    nexthops_t * nexthops = pit_on_data(processor->pit, objectMessage);
+    assert(nexthops); // Illegal state: got a null nexthops for an interest we just inserted
 
     // send message in reply, then done
     processor->stats.countInterestsSatisfiedFromStore++;
 
-    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                          PARCLogLevel_Debug)) {
-      logger_Log(processor->logger, LoggerFacility_Processor,
-                 PARCLogLevel_Debug, __func__,
-                 "Message %p satisfied from content store (satisfied count %u)",
-                 (void *)interestMessage,
-                 processor->stats.countInterestsSatisfiedFromStore);
-    }
+    DEBUG("Message %p satisfied from content store (satisfied count %u)",
+            interestMessage, processor->stats.countInterestsSatisfiedFromStore);
 
-    message_ResetPathLabel(objectMessage);
+    msgbuf_reset_pathlabel(objectMessage);
 
     messageProcessor_ForwardToNexthops(processor, objectMessage, nexthops);
-    numberSet_Release(&nexthops);
 
-    result = true;
-  }
-
-  return result;
+    return true;
 }
 
 /**
@@ -540,86 +464,68 @@ static bool _satisfyFromContentStore(MessageProcessor *processor,
  *
  * @return true if we found a route and tried to forward it, false if no route
  */
-#ifdef WITH_POLICY
-static bool messageProcessor_ForwardViaFib(MessageProcessor *processor,
-    Message *interestMessage, PITVerdict verdict) {
-#else
-static bool messageProcessor_ForwardViaFib(MessageProcessor *processor,
-                                           Message *interestMessage) {
-#endif /* WITH_POLICY */
-  FibEntry *fibEntry = fib_MatchMessage(processor->fib, interestMessage);
-  if (fibEntry == NULL) {
-    return false;
-  }
+static
+bool
+messageProcessor_ForwardViaFib(MessageProcessor *processor,
+        msgbuf_t *msgbuf, pit_verdict_t verdict)
+{
+    assert(processor);
+    assert(msgbuf);
+    assert(msgbuf_type(msgbuf) == MessagePacketType_Interest);
 
-  if(messageHandler_IsAProbe(message_FixedHeader(interestMessage))){
-    bool reply_to_probe = false;
-    ConnectionTable * ct = forwarder_GetConnectionTable(processor->forwarder);
-    const NumberSet * nexthops = fibEntry_GetNexthops(fibEntry);
-    unsigned size = (unsigned) numberSet_Length(nexthops);
+    fib_entry_t *fib_entry = fib_MatchMessage(processor->fib, msgbuf);
+    if (!fib_entry)
+        return false;
 
-    for (unsigned i = 0; i < size; i++) {
-      unsigned nhop = numberSet_GetItem(nexthops, i);
-      Connection *conn =
-          (Connection *)connectionTable_FindById(ct, nhop);
-      if (!conn)
-        continue;
-      bool isLocal = connection_IsLocal(conn);
-      if(isLocal){
-        Connection * replyConn =
-                  (Connection *)connectionTable_FindById(ct,
-                    message_GetIngressConnectionId(interestMessage));
-        connection_HandleProbe(replyConn,
-                  (uint8_t *) message_FixedHeader(interestMessage));
-        reply_to_probe = true;
-        break;
-      }
+    // XXX TODO PROBE HOOK MIGHT BE HANDLED ELSEWHERE
+    if (msgbuf_is_probe(msgbuf)) {
+        connection_table_t * table = forwarder_GetConnectionTable(processor->forwarder);
+        const nexthops_t * nexthops = fib_entry_GetNexthops(fib_entry);
+
+        unsigned nexthop;
+        nexthops_foreach(nexthops, nexthop, {
+            Connection *conn = connection_table_at(table, nexthop);
+            if (!conn)
+                continue;
+            if (!connection_IsLocal(conn))
+                continue;
+            Connection * replyConn = connection_table_get_by_id(table,
+                    msgbuf_connection_id(msgbuf));
+            connection_HandleProbe(replyConn, msgbuf_packet(msgbuf));
+            return false;
+        });
     }
-    if(reply_to_probe)
-      return false;
-  }
 
+    pit_entry_t * entry = pit_lookup(processor->pit, msgbuf);
+    if (!entry)
+        return false;
 
-  PitEntry *pitEntry = pit_GetPitEntry(processor->pit, interestMessage);
-  if (pitEntry == NULL) {
-    return false;
-  }
+    pit_entry_fib_entry(entry) = fib_entry;
 
-  pitEntry_AddFibEntry(pitEntry, fibEntry);
+    const nexthops_t * nexthops = fib_entry_GetNexthopsFromForwardingStrategy(fib_entry,
+            msgbuf, verdict);
 
-  NumberSet *nexthops = (NumberSet *)fibEntry_GetNexthopsFromForwardingStrategy(
-#ifdef WITH_POLICY
-      fibEntry, interestMessage, verdict);
-#else
-      fibEntry, interestMessage);
-#endif /* WITH_POLICY */
+    unsigned nexthop;
+    nexthops_foreach(nexthops, nexthop, {
+        pit_entry_egress_add(entry, nexthop);
+    });
 
-  // this requires some additional checks. It may happen that some of the output
-  // faces selected by the forwarding strategy are not usable. So far all the
-  // forwarding strategy return only valid faces (or an empty list)
-  for (unsigned i = 0; i < numberSet_Length(nexthops); i++) {
-    pitEntry_AddEgressId(pitEntry, numberSet_GetItem(nexthops, i));
-  }
+    // this requires some additional checks. It may happen that some of the output
+    // faces selected by the forwarding strategy are not usable. So far all the
+    // forwarding strategy return only valid faces (or an empty list)
 
-  // The function GetPitEntry encreases the ref counter in the pit entry
-  // we need to decrease it
-  pitEntry_Release(&pitEntry);
+#if 0
+    // The function GetPitEntry encreases the ref counter in the pit entry
+    // we need to decrease it
+    entry_Release(&entry);
+#endif
 
-  if (messageProcessor_ForwardToNexthops(processor, interestMessage, nexthops) >
-      0) {
-    numberSet_Release(&nexthops);
+    if (messageProcessor_ForwardToNexthops(processor, msgbuf, nexthops) <= 0) {
+        DEBUG("Message %p returned an emtpy next hop set", msgbuf);
+        return false;
+    }
     return true;
-  } else {
-    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                          PARCLogLevel_Debug)) {
-      logger_Log(processor->logger, LoggerFacility_Processor,
-                 PARCLogLevel_Debug, __func__,
-                 "Message %p returned an emtpy next hop set",
-                 (void *)interestMessage);
-    }
-  }
 
-  return false;
 }
 
 /**
@@ -632,61 +538,52 @@ static bool messageProcessor_ForwardViaFib(MessageProcessor *processor,
  *   (4) drop
  *
  */
-static void messageProcessor_ReceiveInterest(MessageProcessor *processor,
-                                             Message *interestMessage) {
-  processor->stats.countInterestsReceived++;
+static
+void
+messageProcessor_ReceiveInterest(MessageProcessor *processor,
+        msgbuf_t *interestMessage)
+{
+    processor->stats.countInterestsReceived++;
 
-  // (1) Try to aggregate in PIT
-#ifdef WITH_POLICY
-  PITVerdict verdict = messageProcessor_AggregateInterestInPit(processor, interestMessage);
-  switch(verdict) {
-    case PITVerdict_Aggregate:
-      //done
-      return;
+    // (1) Try to aggregate in PIT
+    pit_verdict_t verdict = messageProcessor_AggregateInterestInPit(processor, interestMessage);
+    switch(verdict) {
+        case PIT_VERDICT_AGGREGATE:
+            return;
 
-    case PITVerdict_Forward:
-    case PITVerdict_Retransmit:
-      break;
-  }
-#else
-  if (messageProcessor_AggregateInterestInPit(processor, interestMessage)) {
-    // done
-    return;
-  }
-#endif /* WITH_POLICY */
+        case PIT_VERDICT_FORWARD:
+        case PIT_VERDICT_RETRANSMIT:
+            break;
+    }
 
-  // At this point, we just created a PIT entry.  If we don't forward the
-  // interest, we need to remove the PIT entry.
+    // At this point, we just created a PIT entry.  If we don't forward the
+    // interest, we need to remove the PIT entry.
 
-  // (2) Try to satisfy from content store
-  if (_satisfyFromContentStore(processor, interestMessage)) {
-    // done
-    // If we found a content object in the CS,
-    // messageProcess_SatisfyFromContentStore already cleared the PIT state
-    return;
-  }
+    // (2) Try to satisfy from content store
+    if (_satisfyFromContentStore(processor, interestMessage)) {
+        // done
+        // If we found a content object in the CS,
+        // messageProcess_SatisfyFromContentStore already cleared the PIT state
+        return;
+    }
 
-  // (3) Try to forward it
-#ifdef WITH_POLICY
-  if (messageProcessor_ForwardViaFib(processor, interestMessage, verdict)) {
-#else
-  if (messageProcessor_ForwardViaFib(processor, interestMessage)) {
-#endif /* WITH_POLICY */
-    // done
-    return;
-  }
+    // (3) Try to forward it
+    if (messageProcessor_ForwardViaFib(processor, interestMessage, verdict)) {
+        // done
+        return;
+    }
 
-  // Remove the PIT entry?
-  processor->stats.countDroppedNoRoute++;
+    // Remove the PIT entry?
+    processor->stats.countDroppedNoRoute++;
 
-  if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                        PARCLogLevel_Debug)) {
-    logger_Log(processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
-               __func__, "Message %p did not match FIB, no route (count %u)",
-               (void *)interestMessage, processor->stats.countDroppedNoRoute);
-  }
+    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
+                PARCLogLevel_Debug)) {
+        logger_Log(processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
+                __func__, "Message %p did not match FIB, no route (count %u)",
+                (void *)interestMessage, processor->stats.countDroppedNoRoute);
+    }
 
-  messageProcessor_Drop(processor, interestMessage);
+    messageProcessor_Drop(processor, interestMessage);
 }
 
 /**
@@ -699,71 +596,61 @@ static void messageProcessor_ReceiveInterest(MessageProcessor *processor,
  *
  * @param <#param1#>
  */
-static void messageProcessor_ReceiveContentObject(MessageProcessor *processor,
-                                                  Message *message) {
-  processor->stats.countObjectsReceived++;
+static
+void
+messageProcessor_ReceiveContentObject(MessageProcessor *processor,
+        msgbuf_t *msgbuf)
+{
+    processor->stats.countObjectsReceived++;
 
-  NumberSet *ingressSetUnion = pit_SatisfyInterest(processor->pit, message);
+    nexthops_t * ingressSetUnion = pit_on_data(processor->pit, msgbuf);
+    if (!ingressSetUnion) {
+        // (1) If it does not match anything in the PIT, drop it
+        processor->stats.countDroppedNoReversePath++;
 
-  if (numberSet_Length(ingressSetUnion) == 0) {
-    // (1) If it does not match anything in the PIT, drop it
-    processor->stats.countDroppedNoReversePath++;
+        DEBUG("Message %p did not match PIT, no reverse path (count %u)",
+                msgbuf, processor->stats.countDroppedNoReversePath);
 
-    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                          PARCLogLevel_Debug)) {
-      logger_Log(processor->logger, LoggerFacility_Processor,
-                 PARCLogLevel_Debug, __func__,
-                 "Message %p did not match PIT, no reverse path (count %u)",
-                 (void *)message, processor->stats.countDroppedNoReversePath);
+        // MOVE PROBE HOOK ELSEWHERE
+        // XXX relationship with forwarding strategy... insert hooks
+        // if the packet is a probe we need to analyze it
+        // NOTE : probes are not stored in PIT
+        if (msgbuf_is_probe(msgbuf)) {
+            fib_entry_t *fibEntry = fib_MatchMessage(processor->fib, msgbuf);
+            if(fibEntry && fib_entry_strategy_type(fibEntry) == STRATEGY_TYPE_LOW_LATENCY) {
+                nexthops_t probe_nexthops;
+                nexthops_add(&probe_nexthops, msgbuf_connection_id(msgbuf));
+                fib_entry_ReceiveObjectMessage(fibEntry, &probe_nexthops, msgbuf, 0,
+                        forwarder_GetTicks(processor->forwarder));
+
+                // XXX TODO CONFIRM WE DON'T EXIT HERE ?
+            }
+        }
+
+        // we store the packets in the content store enven in the case where there
+        // is no match in the PIT table in this way the applications can push the
+        // content in the CS of the forwarder. We allow this only for local faces
+        const connection_table_t * table = forwarder_GetConnectionTable(processor->forwarder);
+        const Connection * conn = connection_table_get_by_id(table, msgbuf_connection_id(msgbuf));
+
+        if (processor->store_in_cache && connection_IsLocal(conn)) {
+            uint64_t now = forwarder_GetTicks(processor->forwarder);
+            content_store_add(processor->content_store, msgbuf, now);
+            DEBUG("Message %p store in CS anyway", msgbuf);
+        }
+
+        messageProcessor_Drop(processor, msgbuf);
+    } else {
+        // (2) Add to Content Store. Store may remove expired content, if necessary,
+        // depending on store policy.
+        if (processor->store_in_cache) {
+            uint64_t now = forwarder_GetTicks(processor->forwarder);
+            content_store_add(processor->content_store, msgbuf, now);
+        }
+        // (3) Reverse path forward via PIT entries
+        messageProcessor_ForwardToNexthops(processor, msgbuf, ingressSetUnion);
+
     }
-
-    //if the packet is a probe we need to analyze it
-    if(messageHandler_IsAProbe(message_FixedHeader(message))){
-      FibEntry *fibEntry = fib_MatchMessage(processor->fib, message);
-      if(fibEntry &&
-          fibEntry_GetFwdStrategyType(fibEntry) == SET_STRATEGY_LOW_LATENCY){
-        unsigned connid = message_GetIngressConnectionId(message);
-        NumberSet *outFace = numberSet_Create();
-        numberSet_Add(outFace, connid);
-        fibEntry_ReceiveObjectMessage(fibEntry, outFace, message, 0,
-                                      forwarder_GetTicks(processor->forwarder));
-        numberSet_Release(&(outFace));
-      }
-    }
-
-    // we store the packets in the content store enven in the case where there
-    // is no match in the PIT table in this way the applications can push the
-    // content in the CS of the forwarder. We allow this only for local faces
-    bool isLocal = connection_IsLocal(connectionTable_FindById(
-        forwarder_GetConnectionTable(processor->forwarder),
-        message_GetIngressConnectionId((const Message *)message)));
-    if (processor->store_in_cache && isLocal) {
-      uint64_t currentTimeTicks = forwarder_GetTicks(processor->forwarder);
-      contentStoreInterface_PutContent(processor->contentStore, message,
-                                       currentTimeTicks);
-      if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                            PARCLogLevel_Debug)) {
-        logger_Log(processor->logger, LoggerFacility_Processor,
-                   PARCLogLevel_Debug, __func__,
-                   "Message %p sotred in the CS anyway", (void *)message);
-      }
-    }
-
-    messageProcessor_Drop(processor, message);
-  } else {
-    // (2) Add to Content Store. Store may remove expired content, if necessary,
-    // depending on store policy.
-    if (processor->store_in_cache) {
-      uint64_t currentTimeTicks = forwarder_GetTicks(processor->forwarder);
-      contentStoreInterface_PutContent(processor->contentStore, message,
-                                       currentTimeTicks);
-    }
-    // (3) Reverse path forward via PIT entries
-    messageProcessor_ForwardToNexthops(processor, message, ingressSetUnion);
-
-  }
-
-  numberSet_Release(&ingressSetUnion);
 }
 
 /**
@@ -774,81 +661,84 @@ static void messageProcessor_ReceiveContentObject(MessageProcessor *processor,
  *
  * @return The number of nexthops tried
  */
-static unsigned messageProcessor_ForwardToNexthops(MessageProcessor *processor,
-                                                   Message *message,
-                                                   const NumberSet *nexthops) {
-  unsigned forwardedCopies = 0;
+static
+    unsigned
+messageProcessor_ForwardToNexthops(MessageProcessor *processor,
+        msgbuf_t *msgbuf, const nexthops_t * nexthops)
+{
+    unsigned forwardedCopies = 0;
 
-  size_t length = numberSet_Length(nexthops);
+    unsigned ingressId = msgbuf_connection_id(msgbuf);
+    uint32_t old_path_label = 0;
 
-  unsigned ingressId = message_GetIngressConnectionId(message);
-  uint32_t old_path_label = 0;
+    if (msgbuf_type(msgbuf) == MessagePacketType_ContentObject)
+        old_path_label = msgbuf_get_pathlabel(msgbuf);
 
-  if (message_GetType(message) == MessagePacketType_ContentObject) {
-    old_path_label = message_GetPathLabel(message);
-  }
+    unsigned nexthop;
+    nexthops_foreach(nexthops, nexthop, {
+            if (nexthop == ingressId)
+            continue;
 
-  for (size_t i = 0; i < length; i++) {
-    unsigned egressId = numberSet_GetItem(nexthops, i);
-    if (egressId != ingressId) {
-      forwardedCopies++;
-      messageProcessor_ForwardToInterfaceId(processor, message, egressId);
+            forwardedCopies++;
+            messageProcessor_ForwardToInterfaceId(processor, msgbuf, nexthop);
 
-      if (message_GetType(message) == MessagePacketType_ContentObject) {
-        // everytime we send out a message we need to restore the original path
-        // label of the message this is important because we keep a single copy
-        // of the message (single pointer) and we modify the path label at each
-        // send.
-        message_SetPathLabel(message, old_path_label);
-      }
-    }
-  }
-  return forwardedCopies;
+            // everytime we send out a message we need to restore the original path
+            // label of the message this is important because we keep a single copy
+            // of the message (single pointer) and we modify the path label at each
+            // send.
+            if (msgbuf_type(msgbuf) == MessagePacketType_ContentObject)
+            msgbuf_set_pathlabel(msgbuf, old_path_label);
+            });
+
+    return forwardedCopies;
 }
 
 /**
  * caller has checked that the hop limit is ok.  Try to send out the connection.
  */
-static void messageProcessor_SendWithGoodHopLimit(MessageProcessor *processor,
-                                                  Message *message,
-                                                  unsigned interfaceId,
-                                                  const Connection *conn) {
-  bool success = connection_Send(conn, message);
-  if (success) {
-    switch (message_GetType(message)) {
-      case MessagePacketType_Interest:
-        processor->stats.countInterestForwarded++;
-        break;
+static
+void
+messageProcessor_SendWithGoodHopLimit(MessageProcessor *processor,
+        msgbuf_t * msgbuf, unsigned interfaceId, const Connection *conn)
+{
+    /* Always queue the packet... */
+    bool success = connection_Send(conn, msgbuf, true);
 
-      case MessagePacketType_ContentObject:
-        processor->stats.countObjectsForwarded++;
-        break;
+    /* ... and mark the connection as pending if this is not yet the case */
+    unsigned conn_id = connection_GetConnectionId(conn);
+    unsigned i;
+    for (i = 0; i < processor->num_pending_conn; i++) {
+        if (processor->pending_conn[i] == conn_id)
+            break;
+    }
+    if (i == processor->num_pending_conn)
+        processor->pending_conn[processor->num_pending_conn++] = conn_id;
 
-      default:
-        break;
+    if (!success) {
+        processor->stats.countSendFailures++;
+
+        DEBUG("forward msgbuf %p to interface %u send failure (count %u)", msgbuf,
+                interfaceId, processor->stats.countSendFailures);
+        messageProcessor_Drop(processor, msgbuf);
+        return;
     }
 
-    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                          PARCLogLevel_Debug)) {
-      logger_Log(
-          processor->logger, LoggerFacility_Processor, PARCLogLevel_Debug,
-          __func__, "forward message %p to interface %u (int %u, obj %u)",
-          (void *)message, interfaceId, processor->stats.countInterestForwarded,
-          processor->stats.countObjectsForwarded);
-    }
-  } else {
-    processor->stats.countSendFailures++;
+    switch (msgbuf_type(msgbuf)) {
+        case MessagePacketType_Interest:
+            processor->stats.countInterestForwarded++;
+            break;
 
-    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                          PARCLogLevel_Debug)) {
-      logger_Log(processor->logger, LoggerFacility_Processor,
-                 PARCLogLevel_Debug, __func__,
-                 "forward message %p to interface %u send failure (count %u)",
-                 (void *)message, interfaceId,
-                 processor->stats.countSendFailures);
+        case MessagePacketType_ContentObject:
+            processor->stats.countObjectsForwarded++;
+            break;
+
+        default:
+            break;
     }
-    messageProcessor_Drop(processor, message);
-  }
+
+    DEBUG("forward msgbuf %p to interface %u (int %u, obj %u)", msgbuf,
+            interfaceId, processor->stats.countInterestForwarded,
+            processor->stats.countObjectsForwarded);
 }
 
 /*
@@ -856,53 +746,54 @@ static void messageProcessor_SendWithGoodHopLimit(MessageProcessor *processor,
  * applications.  Otherwise, we may forward it off the system.
  *
  */
-static void messageProcessor_ForwardToInterfaceId(MessageProcessor *processor,
-                                                  Message *message,
-                                                  unsigned interfaceId) {
-  ConnectionTable *connectionTable =
-      forwarder_GetConnectionTable(processor->forwarder);
-  const Connection *conn =
-      connectionTable_FindById(connectionTable, interfaceId);
+static
+void
+messageProcessor_ForwardToInterfaceId(MessageProcessor *processor,
+        msgbuf_t *message, unsigned interfaceId)
+{
+    connection_table_t * table = forwarder_GetConnectionTable(processor->forwarder);
+    const Connection *conn = connection_table_get_by_id(table, interfaceId);
 
-  if (conn != NULL) {
-    messageProcessor_SendWithGoodHopLimit(processor, message, interfaceId,
-                                          conn);
-  } else {
-    processor->stats.countDroppedConnectionNotFound++;
-
-    if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
-                          PARCLogLevel_Debug)) {
-      logger_Log(processor->logger, LoggerFacility_Processor,
-                 PARCLogLevel_Debug, __func__,
-                 "forward message %p to interface %u not found (count %u)",
-                 (void *)message, interfaceId,
-                 processor->stats.countDroppedConnectionNotFound);
+    if (!conn) {
+        processor->stats.countDroppedConnectionNotFound++;
+        DEBUG("forward message %p to interface %u not found (count %u)",
+                message, interfaceId, processor->stats.countDroppedConnectionNotFound);
+        messageProcessor_Drop(processor, message);
+        return;
     }
-
-    messageProcessor_Drop(processor, message);
-  }
+    messageProcessor_SendWithGoodHopLimit(processor, message, interfaceId, conn);
 }
 
-void messageProcessor_SetCacheStoreFlag(MessageProcessor *processor, bool val) {
-  processor->store_in_cache = val;
+void
+messageProcessor_SetCacheStoreFlag(MessageProcessor *processor, bool val)
+{
+    processor->store_in_cache = val;
 }
 
-bool messageProcessor_GetCacheStoreFlag(MessageProcessor *processor) {
-  return processor->store_in_cache;
+bool
+messageProcessor_GetCacheStoreFlag(MessageProcessor *processor)
+{
+    return processor->store_in_cache;
 }
 
-void messageProcessor_SetCacheServeFlag(MessageProcessor *processor, bool val) {
-  processor->serve_from_cache = val;
+void
+messageProcessor_SetCacheServeFlag(MessageProcessor *processor, bool val)
+{
+    processor->serve_from_cache = val;
 }
 
-bool messageProcessor_GetCacheServeFlag(MessageProcessor *processor) {
-  return processor->serve_from_cache;
+bool
+messageProcessor_GetCacheServeFlag(MessageProcessor *processor)
+{
+    return processor->serve_from_cache;
 }
 
 #ifdef WITH_MAPME
 
-FIB *messageProcessor_getFib(MessageProcessor *processor) {
-  return processor->fib;
+FIB *
+messageProcessor_getFib(MessageProcessor *processor)
+{
+    return processor->fib;
 }
 
 #endif /* WITH_MAPME */

@@ -31,12 +31,10 @@
 struct hicn_listener;
 typedef struct hicn_listener HicnListener;
 
-ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
-                                     Address *address);
-ListenerOps *hicnListener_CreateInet6(Forwarder *forwarder, char *symbolic,
-                                      Address *address);
+ListenerOps *hicnListener_Create(Forwarder *forwarder, char *symbolic,
+        address_t * address);
 bool hicnListener_Punting(ListenerOps *ops, const char *prefix);
-bool hicnListener_Bind(ListenerOps *ops, const Address *remoteAddress);
+bool hicnListener_Bind(ListenerOps *ops, const address_t * remoteAddress);
 bool hicnListener_SetConnectionId(ListenerOps *ops, unsigned connId);
 // const Address *hicnListener_GetTunAddress(const ListenerOps *ops);
 #endif  // hicnListener_h

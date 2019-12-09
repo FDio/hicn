@@ -22,7 +22,7 @@
 #include <stdio.h>
 
 struct wldr_buffer {
-  Message *message;
+  msgbuf_t *message;
   uint8_t rtx_counter;
 };
 
@@ -35,6 +35,7 @@ struct wldr_state {
 };
 
 Wldr *wldr_Init() {
+#if 0
   Wldr *wldr = parcMemory_AllocateAndClear(sizeof(Wldr));
   parcAssertNotNull(wldr, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(Wldr));
@@ -51,18 +52,24 @@ Wldr *wldr_Init() {
     wldr->buffer[i] = entry;
   }
   return wldr;
+#else
+  return NULL;
+#endif
 }
 
 void wldr_ResetState(Wldr *wldr) {
+#if 0
   wldr->expected_label = 1;
   wldr->next_label = 1;
   for (int i = 0; i < BUFFER_SIZE; i++) {
     wldr->buffer[i]->message = NULL;
     wldr->buffer[i]->rtx_counter = 0;
   }
+#endif
 }
 
 void wldr_Destroy(Wldr **wldrPtr) {
+#if 0
   Wldr *wldr = *wldrPtr;
   for (unsigned i = 0; i < BUFFER_SIZE; i++) {
     if (wldr->buffer[i]->message != NULL) {
@@ -72,8 +79,10 @@ void wldr_Destroy(Wldr **wldrPtr) {
   }
   parcMemory_Deallocate((void **)&wldr);
   *wldrPtr = NULL;
+#endif
 }
 
+#if 0
 static void _wldr_RetransmitPacket(Wldr *wldr, const Connection *conn,
                                    uint16_t label) {
   if (wldr->buffer[label % BUFFER_SIZE]->message == NULL) {
@@ -82,7 +91,7 @@ static void _wldr_RetransmitPacket(Wldr *wldr, const Connection *conn,
   }
 
   if (wldr->buffer[label % BUFFER_SIZE]->rtx_counter < MAX_RTX) {
-    Message *msg = wldr->buffer[label % BUFFER_SIZE]->message;
+    msgbuf_t *msg = wldr->buffer[label % BUFFER_SIZE]->message;
     message_SetWldrLabel(msg, wldr->next_label);
 
     if (wldr->buffer[wldr->next_label % BUFFER_SIZE]->message != NULL) {
@@ -97,9 +106,11 @@ static void _wldr_RetransmitPacket(Wldr *wldr, const Connection *conn,
     connection_ReSend(conn, msg, false);
   }
 }
+#endif
 
-static void _wldr_SendWldrNotificaiton(Wldr *wldr, const Connection *conn,
-                                       Message *message, uint16_t expected_lbl,
+#if 0
+static void _wldr_SendWldrNotification(Wldr *wldr, const Connection *conn,
+                                       msgbuf_t *message, uint16_t expected_lbl,
                                        uint16_t received_lbl) {
   // here we need to create a new packet that is used to send the wldr
   // notification to the prevoius hop. the destionation address of the
@@ -113,13 +124,15 @@ static void _wldr_SendWldrNotificaiton(Wldr *wldr, const Connection *conn,
   // this way the notification packet will be dispaced to the right connection
   // at the next hop.
 
-  Message *notification =
+  msgbuf_t *notification =
       message_CreateWldrNotification(message, expected_lbl, received_lbl);
   parcAssertNotNull(notification, "Got null from CreateWldrNotification");
   connection_ReSend(conn, notification, true);
 }
+#endif
 
-void wldr_SetLabel(Wldr *wldr, Message *message) {
+void wldr_SetLabel(Wldr *wldr, msgbuf_t *message) {
+#if 0
   // in this function we send the packet for the first time
   // 1) we set the wldr label
   message_SetWldrLabel(message, wldr->next_label);
@@ -139,9 +152,11 @@ void wldr_SetLabel(Wldr *wldr, Message *message) {
   if (wldr->next_label ==
       0)  // we alwasy skip label 0 beacause it means that wldr is not active
     wldr->next_label++;
+#endif
 }
 
-void wldr_DetectLosses(Wldr *wldr, const Connection *conn, Message *message) {
+void wldr_DetectLosses(Wldr *wldr, const Connection *conn, msgbuf_t *message) {
+#if 0
   if (message_HasWldr(message)) {
     // this is a normal wldr packet
     uint16_t pkt_lbl = (uint16_t)message_GetWldrLabel(message);
@@ -165,10 +180,12 @@ void wldr_DetectLosses(Wldr *wldr, const Connection *conn, Message *message) {
         wldr->expected_label++;  // for the next_label we want to skip 0
     }
   }
+#endif
 }
 
 void wldr_HandleWldrNotification(Wldr *wldr, const Connection *conn,
-                                 Message *message) {
+                                 msgbuf_t *message) {
+#if 0
   uint16_t expected_lbl = (uint16_t)message_GetWldrExpectedLabel(message);
   uint16_t received_lbl = (uint16_t)message_GetWldrLastReceived(message);
   if ((wldr->next_label - expected_lbl) > BUFFER_SIZE) {
@@ -179,4 +196,5 @@ void wldr_HandleWldrNotification(Wldr *wldr, const Connection *conn,
     _wldr_RetransmitPacket(wldr, conn, expected_lbl);
     expected_lbl++;
   }
+#endif
 }

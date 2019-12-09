@@ -30,7 +30,7 @@ typedef struct node FibNode;
 struct node {
   FibNode *left;
   FibNode *right;
-  FibEntry *entry;
+  fib_entry_t *entry;
   bool is_used;
 };
 
@@ -43,7 +43,7 @@ struct fib {
 // =====================================================
 // Public API
 
-FibNode *_createNode(FibNode *left, FibNode *right, FibEntry *entry,
+FibNode *_createNode(FibNode *left, FibNode *right, fib_entry_t *entry,
                      bool is_used) {
   FibNode *n = parcMemory_AllocateAndClear(sizeof(FibNode));
   parcAssertNotNull(n, "parcMemory_AllocateAndClear(%zu) returned NULL",
@@ -70,7 +70,7 @@ FIB *fib_Create(Forwarder *forwarder) {
 }
 
 void _destroyNode(FibNode *n) {
-  fibEntry_Release(&n->entry);
+  fib_entry_Release(&n->entry);
   parcMemory_Deallocate((void **)&n);
   n = NULL;
 }
@@ -94,11 +94,11 @@ void fib_Destroy(FIB **fibPtr) {
   *fibPtr = NULL;
 }
 
-void fib_Add(FIB *fib, FibEntry *entry) {
+void fib_Add(FIB *fib, fib_entry_t *entry) {
   parcAssertNotNull(fib, "Parameter must be non-null");
   parcAssertNotNull(entry, "Parameter must be non-null");
 
-  NameBitvector *new_prefix = name_GetContentName(fibEntry_GetPrefix(entry));
+  NameBitvector *new_prefix = name_GetContentName(fib_entry_GetPrefix(entry));
   uint32_t new_prefix_len = nameBitvector_GetLength(new_prefix);
   FibNode * curr =  fib->root;
   FibNode * last =  NULL;
@@ -108,7 +108,7 @@ void fib_Add(FIB *fib, FibEntry *entry) {
   uint32_t match_len;
 
   while(curr != NULL){
-    curr_name = name_GetContentName(fibEntry_GetPrefix(curr->entry));
+    curr_name = name_GetContentName(fib_entry_GetPrefix(curr->entry));
 
     match_len =  nameBitvector_lpm(new_prefix, curr_name);
     curr_prefix_len = nameBitvector_GetLength(curr_name);
@@ -134,7 +134,7 @@ void fib_Add(FIB *fib, FibEntry *entry) {
       fib->root =  new_node;
     }else{
       uint32_t last_prefix_len = nameBitvector_GetLength(
-                      name_GetContentName(fibEntry_GetPrefix(last->entry)));
+                      name_GetContentName(fib_entry_GetPrefix(last->entry)));
       bool bit;
       int res = nameBitvector_testBit(new_prefix, last_prefix_len, &bit);
       parcAssertFalse(res < 0, "error testing name bit (fib_add)");
@@ -151,19 +151,20 @@ void fib_Add(FIB *fib, FibEntry *entry) {
 
   //the node already exist
   //if is not in use we turn it on and we set the rigth fib entry
-  if(curr_prefix_len == match_len && new_prefix_len == match_len){
-    if(!curr->is_used){
+  if (curr_prefix_len == match_len && new_prefix_len == match_len) {
+    if (!curr->is_used) {
       curr->is_used = true;
       curr->entry = entry;
       fib->size++;
       return;
-    }else{
+    } else {
       //this case should never happen beacuse of the way we add
       //entries in the fib
-      const NumberSet * next_hops = fibEntry_GetNexthops(entry);
-      unsigned size = (unsigned)fibEntry_NexthopCount(entry);
-      for(unsigned i = 0; i < size; i++)
-        fibEntry_AddNexthop(curr->entry,numberSet_GetItem(next_hops, i));
+      const nexthops_t * nexthops = fib_entry_GetNexthops(entry);
+      unsigned nexthop;
+      nexthops_foreach(nexthops, nexthop, {
+        fib_entry_nexthops_add(curr->entry, nexthop);
+      });
     }
   }
 
@@ -174,7 +175,7 @@ void fib_Add(FIB *fib, FibEntry *entry) {
       fib->root = new_node;
     }else{
       uint32_t last_prefix_len = nameBitvector_GetLength(
-                      name_GetContentName(fibEntry_GetPrefix(last->entry)));
+                      name_GetContentName(fib_entry_GetPrefix(last->entry)));
 
       bool bit;
       int res = nameBitvector_testBit(new_prefix, last_prefix_len, &bit);
@@ -196,14 +197,14 @@ void fib_Add(FIB *fib, FibEntry *entry) {
   }
 
   //in the last case we need to add an inner node
-  Name * inner_prefix = name_Copy(fibEntry_GetPrefix(entry));
+  Name * inner_prefix = name_Copy(fib_entry_GetPrefix(entry));
   nameBitvector_clear(name_GetContentName(inner_prefix), match_len);
   name_setLen(inner_prefix,  match_len);
 
   //this is an inner node, we don't want an acctive strategy
   //like low_latency that sends probes in this node
-  FibEntry * inner_entry = fibEntry_Create(inner_prefix,
-            SET_STRATEGY_LOADBALANCER, fib->forwarder);
+  fib_entry_t * inner_entry = fib_entry_Create(inner_prefix,
+          STRATEGY_TYPE_UNDEFINED, NULL, fib->forwarder);
 
   FibNode * inner_node = _createNode(NULL, NULL, inner_entry, false);
   FibNode * new_node = _createNode(NULL, NULL, entry, true);
@@ -213,7 +214,7 @@ void fib_Add(FIB *fib, FibEntry *entry) {
     fib->root = inner_node;
   }else{
     uint32_t last_prefix_len = nameBitvector_GetLength(
-                      name_GetContentName(fibEntry_GetPrefix(last->entry)));
+                      name_GetContentName(fib_entry_GetPrefix(last->entry)));
     bool bit;
     int res = nameBitvector_testBit(name_GetContentName(inner_prefix),
                                                 last_prefix_len, &bit);
@@ -238,7 +239,7 @@ void fib_Add(FIB *fib, FibEntry *entry) {
   fib->size ++;
 }
 
-FibEntry *fib_Contains(const FIB *fib, const Name *prefix) {
+fib_entry_t *fib_Contains(const FIB *fib, const Name *prefix) {
   parcAssertNotNull(fib, "Parameter must be non-null");
   parcAssertNotNull(prefix, "Parameter must be non-null");
 
@@ -249,7 +250,7 @@ FibEntry *fib_Contains(const FIB *fib, const Name *prefix) {
 
   while(curr != NULL){
     NameBitvector *curr_name =
-          name_GetContentName(fibEntry_GetPrefix(curr->entry));
+          name_GetContentName(fib_entry_GetPrefix(curr->entry));
     uint32_t match_len = nameBitvector_lpm(key_name, curr_name);
     uint32_t curr_prefix_len = nameBitvector_GetLength(curr_name);
 
@@ -299,7 +300,7 @@ void _removeNode(FIB *fib, const Name *prefix){
   uint32_t curr_prefix_len;
   while(curr != NULL){
     NameBitvector *curr_name =
-          name_GetContentName(fibEntry_GetPrefix(curr->entry));
+          name_GetContentName(fib_entry_GetPrefix(curr->entry));
     match_len = nameBitvector_lpm(key_name, curr_name);
     curr_prefix_len = nameBitvector_GetLength(curr_name);
 
@@ -419,28 +420,28 @@ void fib_Remove(FIB *fib, const Name *name, unsigned connId) {
   parcAssertNotNull(fib, "Parameter must be non-null");
   parcAssertNotNull(name, "Parameter must be non-null");
 
-  FibEntry *entry = fib_Contains(fib, name);
+  fib_entry_t *entry = fib_Contains(fib, name);
 
   if (entry == NULL) {
     return;
   }
 
-  fibEntry_RemoveNexthopByConnectionId(entry, connId);
+  fib_entry_nexthops_remove(entry, connId);
 #ifndef WITH_MAPME
-  if (fibEntry_NexthopCount(entry) == 0)
+  if (fib_entry_NexthopCount(entry) == 0)
     _removeNode(fib, name);
 #endif /* WITH_MAPME */
 
 }
 
 void _removeConnectionId(FibNode *n, unsigned connectionId,
-                         FibEntryList *list) {
+                         fib_entry_list_t *list) {
   if(n != NULL){
     if(n->is_used){
-      fibEntry_RemoveNexthopByConnectionId(n->entry, connectionId);
+      fib_entry_nexthops_remove(n->entry, connectionId);
 #ifndef WITH_MAPME
-      if (fibEntry_NexthopCount(n->entry) == 0) {
-        fibEntryList_Append(list, n->entry);
+      if (fib_entry_NexthopCount(n->entry) == 0) {
+        fib_entry_list_Append(list, n->entry);
       }
 #endif /* WITH_MAPME */
     }
@@ -452,14 +453,14 @@ void _removeConnectionId(FibNode *n, unsigned connectionId,
 void fib_RemoveConnectionId(FIB *fib, unsigned connectionId) {
   parcAssertNotNull(fib, "Parameter must be non-null");
 
-   FibEntryList *list = fibEntryList_Create();
+   fib_entry_list_t *list = fib_entry_list_Create();
    _removeConnectionId(fib->root, connectionId, list);
 
-  for (int i = 0; i < fibEntryList_Length(list); i++) {
-    _removeNode(fib, fibEntry_GetPrefix(fibEntryList_Get(list, i)));
+  for (int i = 0; i < fib_entry_list_Length(list); i++) {
+    _removeNode(fib, fib_entry_GetPrefix(fib_entry_list_Get(list, i)));
   }
 
-  fibEntryList_Destroy(&list);
+  fib_entry_list_Destroy(&list);
 }
 
 size_t fib_Length(const FIB *fib) {
@@ -467,21 +468,21 @@ size_t fib_Length(const FIB *fib) {
   return fib->size;
 }
 
-FibEntry *fib_MatchMessage(const FIB *fib, const Message *interestMessage) {
+fib_entry_t *fib_MatchMessage(const FIB *fib, const msgbuf_t *interestMessage) {
   parcAssertNotNull(fib, "Parameter must be non-null");
   parcAssertNotNull(interestMessage, "Parameter must be non-null");
   return fib_MatchBitvector(fib, name_GetContentName(
-                  message_GetName(interestMessage)));
+                  msgbuf_name(interestMessage)));
 }
 
-FibEntry *fib_MatchName(const FIB *fib, const Name *name) {
+fib_entry_t *fib_MatchName(const FIB *fib, const Name *name) {
   parcAssertNotNull(fib, "Parameter must be non-null");
   parcAssertNotNull(name, "Parameter must be non-null");
   return fib_MatchBitvector(fib, name_GetContentName(name));
 }
 
 
-FibEntry *fib_MatchBitvector(const FIB *fib, const NameBitvector *name){
+fib_entry_t *fib_MatchBitvector(const FIB *fib, const NameBitvector *name){
   parcAssertNotNull(fib, "Parameter must be non-null");
   parcAssertNotNull(name, "Parameter must be non-null");
 
@@ -492,7 +493,7 @@ FibEntry *fib_MatchBitvector(const FIB *fib, const NameBitvector *name){
 
   while(curr != NULL){
     NameBitvector *curr_name =
-          name_GetContentName(fibEntry_GetPrefix(curr->entry));
+          name_GetContentName(fib_entry_GetPrefix(curr->entry));
     uint32_t match_len = nameBitvector_lpm(name, curr_name);
     uint32_t curr_prefix_len = nameBitvector_GetLength(curr_name);
 
@@ -529,18 +530,18 @@ FibEntry *fib_MatchBitvector(const FIB *fib, const NameBitvector *name){
   return NULL;
 }
 
-void _collectFibEntries(FibNode *n, FibEntryList *list){
+void _collectFibEntries(FibNode *n, fib_entry_list_t *list){
   if(n != NULL){
     if(n->is_used)
-      fibEntryList_Append(list, n->entry);
+      fib_entry_list_Append(list, n->entry);
     _collectFibEntries(n->right, list);
     _collectFibEntries(n->left, list);
   }
 }
 
-FibEntryList *fib_GetEntries(const FIB *fib) {
+fib_entry_list_t *fib_GetEntries(const FIB *fib) {
   parcAssertNotNull(fib, "Parameter must be non-null");
-  FibEntryList *list = fibEntryList_Create();
+  fib_entry_list_t *list = fib_entry_list_Create();
 
   _collectFibEntries(fib->root, list);
 

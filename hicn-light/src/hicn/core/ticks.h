@@ -25,7 +25,31 @@
 
 #define __STDC_FORMAT_MACROS
 #include <stdint.h>
+#include <time.h>
 
 typedef uint64_t Ticks;
+
+static inline
+Ticks
+ticks_now()
+{
+#if __linux__
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1e6;
+#elif _WIN32
+    struct timespec ts;
+    _clock_gettime(TIME_UTC, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1e6;
+#else
+    clock_serv_t clockService;
+    mach_timespec_t ts;
+    host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &clockService);
+    clock_get_time(clockService, &mts);
+    mach_port_deallocate(mach_task_self(), clockService);
+#endif
+
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1e6;
+}
 
 #endif  // ticks_h

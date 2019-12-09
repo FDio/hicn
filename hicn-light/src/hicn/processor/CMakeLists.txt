@@ -14,26 +14,17 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 list(APPEND HEADER_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/fibEntry.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/fibEntryList.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/fib_entry.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/fib_entry_list.h
   ${CMAKE_CURRENT_SOURCE_DIR}/messageProcessor.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hashTableFunction.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/pit.h
   ${CMAKE_CURRENT_SOURCE_DIR}/fib.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/pitEntry.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/pitVerdict.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/pitStandard.h
 )
 
 list(APPEND SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/hashTableFunction.c
   ${CMAKE_CURRENT_SOURCE_DIR}/fib.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/fibEntry.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/fibEntryList.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/fib_entry.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/fib_entry_list.c
   ${CMAKE_CURRENT_SOURCE_DIR}/messageProcessor.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/pit.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/pitEntry.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/pitStandard.c
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
