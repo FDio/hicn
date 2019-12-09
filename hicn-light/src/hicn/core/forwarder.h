@@ -197,7 +197,11 @@ uint64_t forwarder_TicksToNanos(Ticks ticks);
 void forwarder_ReceiveCommand(Forwarder *forwarder, command_id command,
                               struct iovec *message, unsigned ingressId);
 
-void forwarder_Receive(Forwarder *forwarder, Message *mesage);
+#ifdef WITH_BATCH
+void forwarder_Receive(Forwarder *forwarder, Message *message, unsigned new_batch);
+#else
+void forwarder_Receive(Forwarder *forwarder, Message *message);
+#endif /* WITH_BATCH */
 
 /**
  * @function forwarder_AddOrUpdateRoute

@@ -84,7 +84,11 @@ typedef struct hicn_state {
 } _HicnState;
 
 // Prototypes
+#ifdef WITH_BATCH
+static bool _send(IoOperations *ops, const Address *nexthop, Message *message, bool queue);
+#else
 static bool _send(IoOperations *ops, const Address *nexthop, Message *message);
+#endif /* WITH_BATCH */
 static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
     size_t size);
 static const Address *_getRemoteAddress(const IoOperations *ops);
@@ -293,9 +297,22 @@ static unsigned _getConnectionId(const IoOperations *ops) {
  *
  * @param dummy is ignored. .
  */
-static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
+#ifdef WITH_BATCH
+/* @param queue is ignored for now */
+static bool _send(IoOperations *ops, const Address *nexthop, Message *message, bool queue) {
+#else
+static bool _send(IoOperations *ops, const Address *nexthop, Message *message) {
+#endif /* WITH_BATCH */
   parcAssertNotNull(ops, "Parameter ops must be non-null");
+
+#ifdef WITH_BATCH
+  /* No need to flush */
+  if (!message)
+    return true;
+#else
   parcAssertNotNull(message, "Parameter message must be non-null");
+#endif /* WITH_BATCH */
+
   _HicnState *hicnConnState = (_HicnState *)ioOperations_GetClosure(ops);
 
   // NAT for HICN

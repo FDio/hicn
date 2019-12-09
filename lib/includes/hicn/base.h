@@ -27,7 +27,7 @@
 #define HICN_DEFAULT_TTL 254
 
 typedef u32 hicn_faceid_t;
-typedef u8 hicn_pathlabel_t;
+typedef u32 hicn_pathlabel_t;
 typedef u32 hicn_lifetime_t;
 
 #define HICN_MAX_LIFETIME_SCALED 0xFFFF
@@ -95,12 +95,16 @@ HICN_TYPE(int x, int y, int z, int t)
 #endif
 
 #define HICN_TYPE_IPV4_TCP     HICN_TYPE(IPPROTO_IP,   IPPROTO_TCP,    IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_TYPE_IPV4_UDP     HICN_TYPE(IPPROTO_IP,   IPPROTO_UDP,    IPPROTO_NONE, IPPROTO_NONE)
 #define HICN_TYPE_IPV4_ICMP    HICN_TYPE(IPPROTO_IP,   IPPROTO_ICMP,   IPPROTO_NONE, IPPROTO_NONE)
 #define HICN_TYPE_IPV6_TCP     HICN_TYPE(IPPROTO_IPV6, IPPROTO_TCP,    IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_TYPE_IPV6_UDP     HICN_TYPE(IPPROTO_IPV6, IPPROTO_UDP,    IPPROTO_NONE, IPPROTO_NONE)
 #define HICN_TYPE_IPV6_ICMP    HICN_TYPE(IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_NONE, IPPROTO_NONE)
 #define HICN_TYPE_IPV4_TCP_AH  HICN_TYPE(IPPROTO_IP,   IPPROTO_TCP,    IPPROTO_NONE, IPPROTO_NONE)
+#define HICN_TYPE_IPV4_UDP_AH  HICN_TYPE(IPPROTO_IP,   IPPROTO_UDP,    IPPROTO_NONE, IPPROTO_NONE)
 #define HICN_TYPE_IPV4_ICMP_AH HICN_TYPE(IPPROTO_IP,   IPPROTO_ICMP,   IPPROTO_NONE, IPPROTO_NONE)
 #define HICN_TYPE_IPV6_TCP_AH  HICN_TYPE(IPPROTO_IPV6, IPPROTO_TCP,    IPPROTO_AH,   IPPROTO_NONE)
+#define HICN_TYPE_IPV6_UDP_AH  HICN_TYPE(IPPROTO_IPV6, IPPROTO_UDP,    IPPROTO_AH,   IPPROTO_NONE)
 #define HICN_TYPE_IPV6_ICMP_AH HICN_TYPE(IPPROTO_IPV6, IPPROTO_ICMPV6, IPPROTO_AH,   IPPROTO_NONE)
 #define HICN_TYPE_NONE         HICN_TYPE(IPPROTO_NONE, IPPROTO_NONE,   IPPROTO_NONE, IPPROTO_NONE)
 
@@ -127,8 +131,9 @@ typedef enum
  * NOTE: this computation is not (yet) part of the hICN specification.
  */
 
+// XXX TODO deprecate TODO XXX
 #define HICN_PATH_LABEL_MASK 0xF000	/* 1000 0000 0000 0000 */
-#define HICN_PATH_LABEL_SIZE 8
+#define HICN_PATH_LABEL_SIZE 8 /* XXX in bits ? */
 
 /**
  * @brief Path label update
@@ -149,6 +154,39 @@ update_pathlabel (hicn_pathlabel_t current_label, hicn_faceid_t face_id,
     ((current_label << 1) | (current_label >> (HICN_PATH_LABEL_SIZE - 1))) ^
     pl_face_id;
 }
+
+/*
+ * XXX remove !
+static inline void messageHandler_UpdatePathLabel(uint8_t *message,
+                                                  uint8_t outFace) {
+  if (!messageHandler_IsTCP(message)) return;
+
+  uint32_t pl_old_32bit = messageHandler_GetPathLabel(message);
+  uint8_t pl_old_8bit = (uint8_t)(pl_old_32bit >> 24UL);
+  uint32_t pl_new_32bit =
+      (uint32_t)((((pl_old_8bit << 1) | (pl_old_8bit >> 7)) ^ outFace) << 24UL);
+
+  hicn_data_set_path_label((hicn_header_t *)message, pl_new_32bit);
+
+  messageHandler_UpdateTCPCheckSum(message, (uint16_t *)&pl_old_32bit,
+                                   (uint16_t *)&pl_new_32bit, 2);
+}
+
+int
+udp_hicn_update_data_pathlabel (hicn_type_t type, hicn_protocol_t * h,
+			   const hicn_faceid_t face_id)
+{
+  hicn_pathlabel_t pl =
+    (hicn_pathlabel_t) ((h->udp_hicn.pathlabel & HICN_PATH_LABEL_MASK)
+            >> (32 - HICN_PATH_LABEL_SIZE));
+  hicn_pathlabel_t new_pl;
+
+  update_pathlabel (pl, face_id, &new_pl);
+  h->udp_hicn.pathlabel = new_pl;
+
+  return HICN_LIB_ERROR_NONE;
+}
+*/
 
 #endif /* HICN_BASE_H */
 
