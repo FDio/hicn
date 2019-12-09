@@ -80,7 +80,11 @@ Connection *connection_Acquire(Connection *connection);
  * @abstract Sends the message on the connection
  * @return true if message sent, false if connection not up
  */
+#ifdef WITH_BATCH
+bool connection_Send(const Connection *conn, Message *message, bool queue);
+#else
 bool connection_Send(const Connection *conn, Message *message);
+#endif /* WITH_BATCH */
 
 /**
  * @function connection_SendIOVBuffer

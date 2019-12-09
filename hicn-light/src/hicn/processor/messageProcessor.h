@@ -38,6 +38,12 @@
 #endif /* WITH_MAPME */
 #endif /* WITH_POLICY */
 
+#ifdef WITH_BATCH
+#define MTU_SIZE 2048
+#define MAX_MSG 2018 //16 //64  //32
+#define BATCH_SOCKET_BUFFER 65535
+#endif /* WITH_BATCH */
+
 struct message_processor;
 typedef struct message_processor MessageProcessor;
 
@@ -72,7 +78,11 @@ void messageProcessor_Destroy(MessageProcessor **processorPtr);
  *
  *   Receive may modify some fields in the message, such as the HopLimit field.
  */
-void messageProcessor_Receive(MessageProcessor *procesor, Message *message);
+#ifdef WITH_BATCH
+void messageProcessor_Receive(MessageProcessor *processor, Message *message, unsigned new_batch);
+#else
+void messageProcessor_Receive(MessageProcessor *processor, Message *message);
+#endif /* WITH_BATCH */
 
 /**
  * Adds or updates a route in the FIB

@@ -111,9 +111,20 @@ void connection_Release(Connection **connectionPtr) {
   *connectionPtr = NULL;
 }
 
+#ifdef WITH_BATCH
+bool connection_Send(const Connection *conn, Message *message, bool queue) {
+#else
 bool connection_Send(const Connection *conn, Message *message) {
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
   parcAssertNotNull(message, "Parameter message must be non-null");
+#endif /* WITH_BATCH */
+  parcAssertNotNull(conn, "Parameter conn must be non-null");
+
+#ifdef WITH_BATCH
+  /* NULL message means flush */
+  if (!message) {
+    return ioOperations_Send(conn->ops, NULL, NULL, false);
+  }
+#endif /* WITH_BATCH */
 
   if (ioOperations_IsUp(conn->ops)) {
     if (message_GetType(message) == MessagePacketType_ContentObject) {
@@ -125,7 +136,11 @@ bool connection_Send(const Connection *conn, Message *message) {
     } else {
       message_ResetWldrLabel(message);
     }
+#ifdef WITH_BATCH
+    return ioOperations_Send(conn->ops, NULL, message, queue);
+#else
     return ioOperations_Send(conn->ops, NULL, message);
+#endif /* WITH_BATCH */
   }
   return false;
 }
@@ -238,11 +253,19 @@ bool connection_ReSend(const Connection *conn, Message *message,
       uint32_t old_path_label = message_GetPathLabel(message);
       message_UpdatePathLabel(message, connectionId);
 
+#ifdef WITH_BATCH
+      res = ioOperations_Send(conn->ops, NULL, message, false); /* no queueing */
+#else
       res = ioOperations_Send(conn->ops, NULL, message);
+#endif /* WITH_BATCH */
 
       message_SetPathLabel(message, old_path_label);
     } else {
+#ifdef WITH_BATCH
+      res = ioOperations_Send(conn->ops, NULL, message, false); /* no queueing */
+#else
       res = ioOperations_Send(conn->ops, NULL, message);
+#endif /* WITH_BATCH */
     }
   }
 

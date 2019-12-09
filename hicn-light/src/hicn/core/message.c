@@ -142,7 +142,9 @@ void message_Release(Message **messagePtr) {
 
     logger_Release(&message->logger);
     if (message->name != NULL) name_Release(&message->name);
+#ifndef WITH_BATCH
     parcMemory_Deallocate((void **)&message->messageHead);
+#endif /* WITH_BATCH */
     parcMemory_Deallocate((void **)&message);
   }
   *messagePtr = NULL;

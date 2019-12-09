@@ -57,7 +57,11 @@ IoOperations *udpTunnel_CreateOnListener(Forwarder *forwarder,
         if(parcNetwork_IsSocketLocal((struct sockaddr *)&tmpAddr6))
           isLocal = true;
       }
+#ifdef WITH_BATCH
+      int fd = localListener->getSocket(localListener, pair);
+#else
       int fd = localListener->getSocket(localListener);
+#endif /* WITH_BATCH */
       // udpListener_SetPacketType(localListener,
       //                MessagePacketType_ContentObject);
       ops = udpConnection_Create(forwarder, localListener->getInterfaceName(localListener), fd, pair, isLocal);
