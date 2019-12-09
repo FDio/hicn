@@ -271,6 +271,7 @@ int facelet_merge(facelet_t * facelet, facelet_t * facelet_to_merge);
 
 facelet_status_t facelet_get_status(const facelet_t * facelet);
 void facelet_set_status(facelet_t * facelet, facelet_status_t status);
+void facelet_set_attr_clean(facelet_t * facelet);
 
 void facelet_set_error(facelet_t * facelet, facelet_error_reason_t reason);
 void facelet_unset_error(facelet_t * facelet);

@@ -903,6 +903,12 @@ facelet_get_status(const facelet_t * facelet)
     return facelet->status;
 }
 
+void
+facelet_set_status(facelet_t * facelet, facelet_status_t status)
+{
+    facelet->status = status;
+}
+
 #define SET_ATTR_STATUS_CLEAN(TYPE, NAME)                       \
 do {                                                            \
     if (facelet->NAME ## _status  == FACELET_ATTR_STATUS_DIRTY) \
@@ -910,14 +916,11 @@ do {                                                            \
 } while (0)
 
 void
-facelet_set_status(facelet_t * facelet, facelet_status_t status)
+facelet_set_attr_clean(facelet_t * facelet)
 {
-    if (status == FACELET_STATUS_CLEAN) {
 #define _(TYPE, NAME) SET_ATTR_STATUS_CLEAN(TYPE, NAME);
     foreach_facelet_attr
 #undef _
-    }
-    facelet->status = status;
 }
 
 void
