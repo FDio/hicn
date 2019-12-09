@@ -26,6 +26,7 @@ list(APPEND LIBHICN_SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/protocol/ipv4.c
   ${CMAKE_CURRENT_SOURCE_DIR}/protocol/ipv6.c
   ${CMAKE_CURRENT_SOURCE_DIR}/protocol/tcp.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/protocol/udp.c
   ${CMAKE_CURRENT_SOURCE_DIR}/util/ip_address.c
   ${CMAKE_CURRENT_SOURCE_DIR}/util/log.c
 )

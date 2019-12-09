@@ -19,19 +19,26 @@
 #include <hicn/error.h>
 #include <hicn/ops.h>
 
-#define TCP_DEFAULT_SRC_PORT           0x8000
-#define TCP_DEFAULT_DST_PORT           0x0080
-#define TCP_DEFAULT_WINDOW_SIZE        0	// In [2, 65535]
-#define TCP_DEFAULT_HLEN               20
-#define TCP_DEFAULT_DATA_OFFSET_RES    (TCP_DEFAULT_HLEN >> 2) << 4
-#define TCP_DEFAULT_CWR                0
-#define TCP_DEFAULT_ECE                0
-#define TCP_DEFAULT_URG                0
-#define TCP_DEFAULT_ACK                0
-#define TCP_DEFAULT_PSH                0
-#define TCP_DEFAULT_RST                0
-#define TCP_DEFAULT_SYN                1
-#define TCP_DEFAULT_FIN                0
+#define TCP_DEFAULT_SRC_PORT        0x8000
+#define TCP_DEFAULT_DST_PORT        0x0080
+#define TCP_DEFAULT_WINDOW_SIZE     0 // In [2, 65535]
+#define TCP_DEFAULT_HLEN            20
+#define TCP_DEFAULT_DATA_OFFSET_RES (TCP_DEFAULT_HLEN >> 2) << 4
+#define TCP_DEFAULT_CWR             0
+#define TCP_DEFAULT_ECE             0
+#define TCP_DEFAULT_URG             0
+#define TCP_DEFAULT_ACK             0
+#define TCP_DEFAULT_PSH             0
+#define TCP_DEFAULT_RST             0
+#define TCP_DEFAULT_SYN             1
+#define TCP_DEFAULT_FIN             0
+#define TCP_DEFAULT_URGPTR          65000
+
+#define TCP_OFFSET_MASK                13
+#define TCP_OFFSET_DATA_OFFSET         12
+#define TCP_OFFSET_IN_BITS_DATA_OFFSET 0
+#define TCP_OFFSET_IN_BITS_RESERVED    4
+#define TCP_OFFSET_IN_BITS_NS          7
 
 DECLARE_get_interest_locator (tcp, UNEXPECTED);
 DECLARE_set_interest_locator (tcp, UNEXPECTED);
@@ -48,15 +55,24 @@ DECLARE_set_payload_length (tcp, UNEXPECTED);
 int
 tcp_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
 {
-  h->tcp = (_tcp_header_t)
-  {
-  .sport = htons (TCP_DEFAULT_SRC_PORT),.dport =
-      htons (TCP_DEFAULT_DST_PORT),.seq = 0,.seq_ack =
-      0,.data_offset_and_reserved = TCP_DEFAULT_DATA_OFFSET_RES,.flags =
-      TCP_DEFAULT_CWR << 7 | TCP_DEFAULT_ECE << 6 | TCP_DEFAULT_URG << 5 |
-      TCP_DEFAULT_ACK << 4 | TCP_DEFAULT_PSH << 3 | TCP_DEFAULT_RST << 2 |
-      TCP_DEFAULT_SYN << 1 | TCP_DEFAULT_FIN << 0,.window =
-      htons (TCP_DEFAULT_WINDOW_SIZE),.csum = 0,.urg_ptr = 65000,};
+  h->tcp = (_tcp_header_t) {
+    .sport = htons (TCP_DEFAULT_SRC_PORT),
+    .dport = htons (TCP_DEFAULT_DST_PORT),
+    .seq = 0,
+    .seq_ack = 0,
+    .data_offset_and_reserved = TCP_DEFAULT_DATA_OFFSET_RES,
+    .flags = TCP_DEFAULT_CWR << 7
+           | TCP_DEFAULT_ECE << 6
+           | TCP_DEFAULT_URG << 5
+           | TCP_DEFAULT_ACK << 4
+           | TCP_DEFAULT_PSH << 3
+           | TCP_DEFAULT_RST << 2
+           | TCP_DEFAULT_SYN << 1
+           | TCP_DEFAULT_FIN << 0,
+    .window = htons (TCP_DEFAULT_WINDOW_SIZE),
+    .csum = 0,
+    .urg_ptr = TCP_DEFAULT_URGPTR,
+  };
 
   uint8_t ah_flag = type.l2 == IPPROTO_AH ? AH_FLAG : 0;
 
@@ -85,8 +101,11 @@ tcp_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t * h,
 int
 tcp_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t * h)
 {
-  memset (&(h->tcp), 0, 4);
-  memset (&(h->tcp.seq_ack), 0, 12);
+  /* We zero the fields up to name_suffix... */
+  memset (&(h->tcp), 0, offsetof(_tcp_header_t, name_suffix));
+  /* ... and after from pathlabel */
+  memset (&(h->tcp.pathlabel), 0,
+          sizeof(_tcp_header_t) - offsetof(_tcp_header_t, pathlabel));
 
   return CHILD_OPS (reset_interest_for_hash, type, h);
 }
@@ -128,13 +147,7 @@ int
 tcp_update_data_pathlabel (hicn_type_t type, hicn_protocol_t * h,
 			   const hicn_faceid_t face_id)
 {
-  hicn_pathlabel_t pl =
-    (hicn_pathlabel_t) ((h->tcp.pathlabel & HICN_PATH_LABEL_MASK) >> (32 -
-								      HICN_PATH_LABEL_SIZE));
-  hicn_pathlabel_t new_pl;
-
-  update_pathlabel (pl, face_id, &new_pl);
-  h->tcp.pathlabel = new_pl;
+  update_pathlabel(h->tcp.pathlabel, face_id, &h->tcp.pathlabel);
 
   return HICN_LIB_ERROR_NONE;
 }
@@ -142,8 +155,11 @@ tcp_update_data_pathlabel (hicn_type_t type, hicn_protocol_t * h,
 int
 tcp_reset_data_for_hash (hicn_type_t type, hicn_protocol_t * h)
 {
-  memset (&(h->tcp), 0, 4);
-  memset (&(h->tcp.seq_ack), 0, 12);
+  /* We zero the fields up to name_suffix... */
+  memset (&(h->tcp), 0, offsetof(_tcp_header_t, name_suffix));
+  /* ... and after from pathlabel */
+  memset (&(h->tcp.pathlabel), 0,
+          sizeof(_tcp_header_t) - offsetof(_tcp_header_t, pathlabel));
 
   return CHILD_OPS (reset_data_for_hash, type, h);
 }
@@ -212,25 +228,6 @@ tcp_verify_checksums (hicn_type_t type, hicn_protocol_t * h, u16 partial_csum,
     return HICN_LIB_ERROR_CORRUPTED_PACKET;
   return CHILD_OPS (verify_checksums, type, h, 0, payload_length);
 }
-
-#define TCP_OFFSET_MASK                13
-#define TCP_OFFSET_DATA_OFFSET         12
-#define TCP_OFFSET_IN_BITS_DATA_OFFSET 0
-#define TCP_OFFSET_IN_BITS_RESERVED    4
-#define TCP_OFFSET_IN_BITS_NS          7
-
-#define TCP_DEFAULT_SRC_PORT           0x8000
-#define TCP_DEFAULT_DST_PORT           0x0080
-#define TCP_DEFAULT_WINDOW_SIZE        0	// In [2, 65535]
-#define TCP_DEFAULT_DATA_OFFSET        5	// Size of the TCP header in words (= 4 bytes). Must be greater or equal than 5.
-#define TCP_DEFAULT_CWR                0
-#define TCP_DEFAULT_ECE                0
-#define TCP_DEFAULT_URG                0
-#define TCP_DEFAULT_ACK                0
-#define TCP_DEFAULT_PSH                0
-#define TCP_DEFAULT_RST                0
-#define TCP_DEFAULT_SYN                1
-#define TCP_DEFAULT_FIN                0
 
 int
 tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,

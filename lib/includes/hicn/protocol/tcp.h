@@ -16,6 +16,8 @@
 #ifndef HICN_PROTOCOL_TCP_H
 #define HICN_PROTOCOL_TCP_H
 
+#include <stddef.h>
+
 #include "../base.h"
 #include "../common.h"
 #include "../name.h"
@@ -42,11 +44,7 @@ typedef struct
   union
   {
     u32 seq_ack;
-    struct
-    {
-      hicn_pathlabel_t pathlabel;
-      u8 pad[3];
-    };
+    hicn_pathlabel_t pathlabel;
   };
 
   union
@@ -157,10 +155,6 @@ enum
 };
 
 #endif /* HICN_VPP_PLUGIN */
-
-// get_data_name_suffix
-// name->ip4.suffix = h->v4.tcp.seq;
-
 
 #endif /* HICN_PROTOCOL_TCP_H */
 
