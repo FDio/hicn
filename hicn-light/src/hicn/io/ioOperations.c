@@ -23,10 +23,17 @@ void *ioOperations_GetClosure(const IoOperations *ops) {
   return ops->closure;
 }
 
+#ifdef WITH_BATCH
+bool ioOperations_Send(IoOperations *ops, const Address *nexthop,
+                       Message *message, bool queue) {
+  return ops->send(ops, nexthop, message, queue);
+}
+#else
 bool ioOperations_Send(IoOperations *ops, const Address *nexthop,
                        Message *message) {
   return ops->send(ops, nexthop, message);
 }
+#endif /* WITH_BATCH */
 
 bool ioOperations_SendIOVBuffer(IoOperations *ops, struct iovec *message,
     size_t size) {

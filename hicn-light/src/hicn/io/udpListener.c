@@ -13,6 +13,15 @@
  * limitations under the License.
  */
 
+#ifdef WITH_BATCH
+/* This has to be included early as other modules are including socket.h */
+#define _GNU_SOURCE
+#include <sys/socket.h>
+#include <errno.h>
+
+#include <hicn/processor/messageProcessor.h>
+#endif /* WITH_BATCH */
+
 #ifndef _WIN32
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -51,15 +60,29 @@ struct udp_listener {
   unsigned id;
   char *interfaceName;
   Address *localAddress;
+
+#ifdef WITH_BATCH
+  /* recvmmsg data structures */
+  struct mmsghdr messages[MAX_MSG]; // XXX = {0};
+  char buffers[MAX_MSG][MTU_SIZE];
+  struct iovec iovecs[MAX_MSG]; // XXX = {0};
+  struct sockaddr_storage addrs[MAX_MSG];
+#endif /* WITH_BATCH */
+
 };
 
 static void _destroy(ListenerOps **listenerOpsPtr);
-static const char *_getListenerName(const ListenerOps *ops);
-static unsigned _getInterfaceIndex(const ListenerOps *ops);
-static const Address *_getListenAddress(const ListenerOps *ops);
-static EncapType _getEncapType(const ListenerOps *ops);
+static const char *_getListenerName(const ListenerOps *listener);
+static unsigned _getInterfaceIndex(const ListenerOps *listener);
+static const Address *_getListenAddress(const ListenerOps *listener);
+static EncapType _getEncapType(const ListenerOps *listener);
 static const char *_getInterfaceName(const ListenerOps *ops);
-static int _getSocket(const ListenerOps *ops);
+#ifdef WITH_BATCH
+static int _getSocket(const ListenerOps *listener, AddressPair * pair);
+#else
+static int _getSocket(const ListenerOps *listener);
+#endif /* WITH_BATCH */
+
 static unsigned _createNewConnection(ListenerOps *listener, int fd, const AddressPair *pair);
 static const Connection * _lookupConnection(ListenerOps * listener, const AddressPair *pair);
 
@@ -79,13 +102,37 @@ static ListenerOps udpTemplate = {
 
 static void _readcb(int fd, PARCEventType what, void * listener_void);
 
+#ifdef WITH_BATCH
+#include <arpa/inet.h>
+char *get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen)
+{
+    switch(sa->sa_family) {
+        case AF_INET:
+            inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
+                    s, maxlen);
+            break;
+
+        case AF_INET6:
+            inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr),
+                    s, maxlen);
+            break;
+
+        default:
+            strncpy(s, "Unknown AF", maxlen);
+            return NULL;
+    }
+
+    return s;
+}
+#endif /* WITH_BATCH */
+
 #ifdef __ANDROID__
 extern int bindSocket(int sock, const char* ifname);
 #endif
 
 ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
                                      struct sockaddr_in6 sin6, const char *interfaceName) {
-  ListenerOps *ops = NULL;
+  ListenerOps *listener = NULL;
 
   UdpListener *udp = parcMemory_AllocateAndClear(sizeof(UdpListener));
   parcAssertNotNull(udp, "parcMemory_AllocateAndClear(%zu) returned NULL",
@@ -96,6 +143,24 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
   udp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
   udp->localAddress = addressCreateFromInet6(&sin6);
   udp->id = forwarder_GetNextConnectionId(forwarder);
+
+#ifdef WITH_BATCH
+  /* Setup recvmmsg data structures. */
+  for (unsigned i = 0; i < MAX_MSG; i++) {
+    char *buf = &udp->buffers[i][0];
+    struct iovec *iovec = &udp->iovecs[i];
+    struct mmsghdr *msg = &udp->messages[i];
+
+    msg->msg_hdr.msg_iov = iovec;
+    msg->msg_hdr.msg_iovlen = 1;
+
+    msg->msg_hdr.msg_name = &udp->addrs[i];
+    msg->msg_hdr.msg_namelen = sizeof(struct sockaddr_storage);
+
+    iovec->iov_base = &buf[0];
+    iovec->iov_len = MTU_SIZE;
+  }
+#endif /* WITH_BATCH */
 
   udp->udp_socket = (SocketType)socket(AF_INET6, SOCK_DGRAM, 0);
   parcAssertFalse(udp->udp_socket < 0, "Error opening UDP socket: (%d) %s",
@@ -112,19 +177,23 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
                   errno);
 #else
   // Set non-blocking flag
-  u_long mode = 1;
-  int result = ioctlsocket(udp->udp_socket, FIONBIO, &mode);
+  int result = ioctlsocket(udp->udp_socket, FIONBIO, &(int){1});
   if (result != NO_ERROR) {
     parcAssertTrue(result != NO_ERROR,
                    "ioctlsocket failed to set file descriptor");
   }
 #endif
 
-  int one = 1;
   // don't hang onto address after listener has closed
-  failure = setsockopt(udp->udp_socket, SOL_SOCKET, SO_REUSEADDR, (void *)&one,
-                       (socklen_t)sizeof(one));
+  failure = setsockopt(udp->udp_socket, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
   parcAssertFalse(failure, "failed to set REUSEADDR on socket(%d)", errno);
+
+#ifdef WITH_BATCH
+  if (setsockopt(udp->udp_socket, SOL_SOCKET, SO_RCVBUF, &(int){BATCH_SOCKET_BUFFER}, sizeof(int)) == -1)
+      fprintf(stderr, "Error setting socket opts: %s\n", strerror(errno));
+  if (setsockopt(udp->udp_socket, SOL_SOCKET, SO_SNDBUF, &(int){BATCH_SOCKET_BUFFER}, sizeof(int)) == -1)
+      fprintf(stderr, "Error setting socket opts: %s\n", strerror(errno));
+#endif /* WITH_BATCH */
 
   failure = bind(udp->udp_socket, (struct sockaddr *)&sin6, sizeof(sin6));
 
@@ -162,15 +231,15 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
     }
 #endif
 
-    ops = parcMemory_AllocateAndClear(sizeof(ListenerOps));
-    parcAssertNotNull(ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
+    listener = parcMemory_AllocateAndClear(sizeof(ListenerOps));
+    parcAssertNotNull(listener, "parcMemory_AllocateAndClear(%zu) returned NULL",
                       sizeof(ListenerOps));
-    memcpy(ops, &udpTemplate, sizeof(ListenerOps));
-    ops->context = udp;
+    memcpy(listener, &udpTemplate, sizeof(ListenerOps));
+    listener->context = udp;
 
     udp->udp_event =
         dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(forwarder), true,
-                                      _readcb, (void*)ops, udp->udp_socket);
+                                      _readcb, (void*)listener, udp->udp_socket);
     dispatcher_StartNetworkEvent(forwarder_GetDispatcher(forwarder),
                                  udp->udp_event);
 
@@ -201,12 +270,12 @@ ListenerOps *udpListener_CreateInet6(Forwarder *forwarder, char *listenerName,
     parcMemory_Deallocate((void **)&udp);
   }
 
-  return ops;
+  return listener;
 }
 
 ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
                                     struct sockaddr_in sin, const char *interfaceName) {
-  ListenerOps *ops = NULL;
+  ListenerOps *listener = NULL;
 
   UdpListener *udp = parcMemory_AllocateAndClear(sizeof(UdpListener));
   parcAssertNotNull(udp, "parcMemory_AllocateAndClear(%zu) returned NULL",
@@ -217,6 +286,24 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
   udp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
   udp->localAddress = addressCreateFromInet(&sin);
   udp->id = forwarder_GetNextConnectionId(forwarder);
+
+#ifdef WITH_BATCH
+  /* Setup recvmmsg data structures. */
+  for (unsigned i = 0; i < MAX_MSG; i++) {
+    char *buf = &udp->buffers[i][0];
+    struct iovec *iovec = &udp->iovecs[i];
+    struct mmsghdr *msg = &udp->messages[i];
+
+    msg->msg_hdr.msg_iov = iovec;
+    msg->msg_hdr.msg_iovlen = 1;
+
+    msg->msg_hdr.msg_name = &udp->addrs[i];
+    msg->msg_hdr.msg_namelen = sizeof(struct sockaddr_storage);
+
+    iovec->iov_base = &buf[0];
+    iovec->iov_len = MTU_SIZE;
+  }
+#endif /* WITH_BATCH */
 
   udp->udp_socket = (SocketType)socket(AF_INET, SOCK_DGRAM, 0);
   parcAssertFalse(udp->udp_socket < 0, "Error opening UDP socket: (%d) %s",
@@ -232,19 +319,23 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
   parcAssertFalse(failure, "fcntl failed to set file descriptor flags (%d)",
                   errno);
 #else
-  u_long mode = 1;
-  int result = ioctlsocket(udp->udp_socket, FIONBIO, &mode);
+  int result = ioctlsocket(udp->udp_socket, FIONBIO, &(int){1});
   if (result != NO_ERROR) {
     parcAssertTrue(result != NO_ERROR,
                    "ioctlsocket failed to set file descriptor");
   }
 #endif
 
-  int one = 1;
   // don't hang onto address after listener has closed
-  failure = setsockopt(udp->udp_socket, SOL_SOCKET, SO_REUSEADDR, (void *)&one,
-                       (socklen_t)sizeof(one));
+  failure = setsockopt(udp->udp_socket, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
   parcAssertFalse(failure, "failed to set REUSEADDR on socket(%d)", errno);
+
+#ifdef WITH_BATCH
+  if (setsockopt(udp->udp_socket, SOL_SOCKET, SO_RCVBUF, &(int){BATCH_SOCKET_BUFFER}, sizeof(int)) == -1)
+      fprintf(stderr, "Error setting socket opts: %s\n", strerror(errno));
+  if (setsockopt(udp->udp_socket, SOL_SOCKET, SO_SNDBUF, &(int){BATCH_SOCKET_BUFFER}, sizeof(int)) == -1)
+      fprintf(stderr, "Error setting socket opts: %s\n", strerror(errno));
+#endif /* WITH_BATCH */
 
   failure = bind(udp->udp_socket, (struct sockaddr *)&sin, sizeof(sin));
   if (failure == 0) {
@@ -280,18 +371,17 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
       }
     }
 #endif
-    ops = parcMemory_AllocateAndClear(sizeof(ListenerOps));
-    parcAssertNotNull(ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
+    listener = parcMemory_AllocateAndClear(sizeof(ListenerOps));
+    parcAssertNotNull(listener, "parcMemory_AllocateAndClear(%zu) returned NULL",
                       sizeof(ListenerOps));
-    memcpy(ops, &udpTemplate, sizeof(ListenerOps));
-    ops->context = udp;
+    memcpy(listener, &udpTemplate, sizeof(ListenerOps));
+    listener->context = udp;
 
     udp->udp_event =
         dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(forwarder), true,
-                                      _readcb, (void *)ops, udp->udp_socket);
+                                      _readcb, (void *)listener, udp->udp_socket);
     dispatcher_StartNetworkEvent(forwarder_GetDispatcher(forwarder),
                                  udp->udp_event);
-
 
     if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
       char *str = addressToString(udp->localAddress);
@@ -320,7 +410,7 @@ ListenerOps *udpListener_CreateInet(Forwarder *forwarder, char *listenerName,
     parcMemory_Deallocate((void **)&udp);
   }
 
-  return ops;
+  return listener;
 }
 
 static void udpListener_Destroy(UdpListener **listenerPtr) {
@@ -362,29 +452,165 @@ static const char *_getInterfaceName(const ListenerOps *ops) {
 }
 
 static void _destroy(ListenerOps **listenerOpsPtr) {
-  ListenerOps *ops = *listenerOpsPtr;
-  UdpListener *udp = (UdpListener *)ops->context;
+  ListenerOps *listener = *listenerOpsPtr;
+  UdpListener *udp = (UdpListener *)listener->context;
   udpListener_Destroy(&udp);
-  parcMemory_Deallocate((void **)&ops);
+  parcMemory_Deallocate((void **)&listener);
   *listenerOpsPtr = NULL;
 }
 
-static unsigned _getInterfaceIndex(const ListenerOps *ops) {
-  UdpListener *udp = (UdpListener *)ops->context;
+static unsigned _getInterfaceIndex(const ListenerOps *listener) {
+  UdpListener *udp = (UdpListener *)listener->context;
   return udp->id;
 }
 
-static const Address *_getListenAddress(const ListenerOps *ops) {
-  UdpListener *udp = (UdpListener *)ops->context;
+static const Address *_getListenAddress(const ListenerOps *listener) {
+  UdpListener *udp = (UdpListener *)listener->context;
   return udp->localAddress;
 }
 
 static EncapType _getEncapType(const ListenerOps *ops) { return ENCAP_UDP; }
 
-static int _getSocket(const ListenerOps *ops) {
-  UdpListener *udp = (UdpListener *)ops->context;
+#ifdef WITH_BATCH
+static int _getSocket(const ListenerOps *listener, AddressPair * pair) {
+  UdpListener *udp = (UdpListener *)listener->context;
+  if (!pair)
+      return (int)udp->udp_socket;
+      //goto NO_ADDRESS ;
+
+  int rc;
+  int fd;
+  struct sockaddr_in sin;
+  struct sockaddr_in6 sin6;
+  struct sockaddr * sa;
+  socklen_t sl;
+  const Address * local = addressPair_GetLocal(pair);
+  const Address * remote = addressPair_GetRemote(pair);
+
+  switch(addressGetType(remote)) {
+    case ADDR_INET:
+      fd = socket(AF_INET, SOCK_DGRAM, 0);
+      break;
+    case ADDR_INET6:
+      fd = socket(AF_INET6, SOCK_DGRAM, 0);
+      break;
+    default:
+      goto ERR_SOCKET;
+  }
+
+  printf("Socket %d", fd);
+
+  if (fd < 0)
+    goto ERR_SOCKET;
+
+#ifndef _WIN32
+  // Set non-blocking flag
+  int flags = fcntl(fd, F_GETFL, NULL);
+  if (flags < 0) {
+    perror("fnctl"); // fcntl failed to obtain file descriptor flags
+    goto ERR_SOCKET_INIT;
+  }
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+    perror("fnctl"); // fcntl failed to set file descriptor flags
+    goto ERR_SOCKET_INIT;
+  }
+#else
+  // Set non-blocking flag
+  int result = ioctlsocket(fd, FIONBIO, &(int){1});
+  if (result != NO_ERROR) {
+    /*
+    parcAssertTrue(result != NO_ERROR,
+              "ioctlsocket failed to set file descriptor");
+    */
+    goto ERR_SOCKET_INIT;
+  }
+#endif
+
+  rc = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
+  parcAssertFalse(rc, "failed to set REUSEADDR on socket(%d)", errno);
+
+  if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &(int){BATCH_SOCKET_BUFFER}, sizeof(int)) == -1)
+      fprintf(stderr, "Error setting socket opts: %s\n", strerror(errno));
+  if (setsockopt(udp->udp_socket, SOL_SOCKET, SO_SNDBUF, &(int){BATCH_SOCKET_BUFFER}, sizeof(int)) == -1)
+      fprintf(stderr, "Error setting socket opts: %s\n", strerror(errno));
+
+  /* Bind the socket */
+  /* Create a per-connection connected socket for efficiency */
+  switch(addressGetType(local)) {
+    case ADDR_INET:
+      addressGetInet(local, &sin);
+      sa = (struct sockaddr *)&sin;
+      sl = sizeof(struct sockaddr_in);
+      break;
+    case ADDR_INET6:
+      addressGetInet6(local, &sin6);
+      sa = (struct sockaddr *)&sin6;
+      sl = sizeof(struct sockaddr_in6);
+      break;
+    default:
+      goto ERR_SOCKET_INIT;
+  }
+
+  if (bind(fd, sa, sl) < 0) {
+    perror("bind");
+    goto ERR_SOCKET_INIT;
+  }
+
+  char buf[INET6_ADDRSTRLEN];
+
+  get_ip_str(sa, buf, INET6_ADDRSTRLEN);
+  printf(" bound to %s", buf);
+
+  /* Connect the socket */
+  /* Create a per-connection connected socket for efficiency */
+  switch(addressGetType(remote)) {
+    case ADDR_INET:
+      addressGetInet(remote, &sin);
+      sa = (struct sockaddr *)&sin;
+      sl = sizeof(struct sockaddr_in);
+      break;
+    case ADDR_INET6:
+      addressGetInet6(remote, &sin6);
+      sa = (struct sockaddr *)&sin6;
+      sl = sizeof(struct sockaddr_in6);
+      break;
+    default:
+      goto ERR_SOCKET_INIT;
+  }
+
+  if (connect(fd, sa, sl) < 0) {
+    perror("connect");
+    goto ERR_SOCKET_INIT;
+  }
+
+  get_ip_str(sa, buf, INET6_ADDRSTRLEN);
+  printf(" connected to %s\n", buf);
+
+  /* A new socket was created, register it to the event loop */
+  PARCEvent *udp_event =
+      dispatcher_CreateNetworkEvent(forwarder_GetDispatcher(udp->forwarder),
+              true, _readcb, (void *)listener, fd);
+  dispatcher_StartNetworkEvent(forwarder_GetDispatcher(udp->forwarder),
+          udp_event);
+
+
+  return fd;
+
+ERR_SOCKET_INIT:
+  close(fd);
+ERR_SOCKET:
+  /* Fallback to shared socket */
+  printf("Failed to create connected socket, falling back to common socket\n");
+//NO_ADDRESS:
   return (int)udp->udp_socket;
 }
+
+#else
+static int _getSocket(const ListenerOps *listener) {
+  UdpListener *udp = (UdpListener *)listener->context;
+  return (int)udp->udp_socket;
+}
+#endif /* WITH_BATCH */
 
 // =====================================================================
 
@@ -397,9 +623,10 @@ static int _getSocket(const ListenerOps *ops) {
  * @param <#param1#>
  * @return Allocated MetisAddressPair, must be destroyed
  */
-static AddressPair *_constructAddressPair(UdpListener *udp,
+static AddressPair *_constructAddressPair(ListenerOps * listener,
                                           struct sockaddr *peerIpAddress,
                                           socklen_t peerIpAddressLength) {
+  UdpListener * udp = (UdpListener *)listener->context;
   Address *remoteAddress;
 
   switch (peerIpAddress->sa_family) {
@@ -466,23 +693,26 @@ static unsigned _createNewConnection(ListenerOps * listener, int fd,
   }
 
   // metisUdpConnection_Create takes ownership of the pair
-  IoOperations *ops = udpConnection_Create(udp->forwarder, udp->interfaceName, fd, pair, isLocal);
-  Connection *conn = connection_Create(ops);
+  IoOperations *ioops = udpConnection_Create(udp->forwarder, udp->interfaceName, fd, pair, isLocal);
+  Connection *conn = connection_Create(ioops);
   // connection_AllowWldrAutoStart(conn);
 
   connectionTable_Add(forwarder_GetConnectionTable(udp->forwarder), conn);
-  unsigned connid = ioOperations_GetConnectionId(ops);
+  unsigned connid = ioOperations_GetConnectionId(ioops);
 
   return connid;
 }
 
-static void _handleProbeMessage(UdpListener *udp, uint8_t *msgBuffer) {
+static void _handleProbeMessage(ListenerOps * listener, uint8_t *msgBuffer) {
   // TODO
+#ifndef WITH_BATCH
   parcMemory_Deallocate((void **)&msgBuffer);
+#endif /* ! WITH_BATCH */
 }
 
-static void _handleWldrNotification(UdpListener *udp, unsigned connId,
+static void _handleWldrNotification(ListenerOps * listener, unsigned connId,
                                     uint8_t *msgBuffer) {
+  UdpListener * udp = (UdpListener*)listener->context;
   const Connection *conn = connectionTable_FindById(
       forwarder_GetConnectionTable(udp->forwarder), connId);
   if (conn == NULL) {
@@ -523,17 +753,26 @@ static Message *_readMessage(ListenerOps * listener, int fd,
     if (messageHandler_IsData(packet)) {
       pktType = MessagePacketType_ContentObject;
       if (!foundConnection) {
+#ifndef WITH_BATCH
         parcMemory_Deallocate((void **)&packet);
+#endif /* ! WITH_BATCH */
         return message;
       }
     } else if (messageHandler_IsInterest(packet)) {
       pktType = MessagePacketType_Interest;
       if (!foundConnection) {
+#ifdef WITH_BATCH
+        connid = _createNewConnection(listener, _getSocket(listener, pair), pair);
+#else
         connid = _createNewConnection(listener, fd, pair);
+#endif /* WITH_BATCH */
       }
     } else {
+
       printf("Got a packet that is not a data nor an interest, drop it!\n");
+#ifndef WITH_BATCH
       parcMemory_Deallocate((void **)&packet);
+#endif /* ! WITH_BATCH */
       return message;
     }
 
@@ -542,14 +781,20 @@ static Message *_readMessage(ListenerOps * listener, int fd,
         forwarder_GetLogger(udp->forwarder));
 
     if (message == NULL) {
+#ifndef WITH_BATCH
       parcMemory_Deallocate((void **)&packet);
+#endif /* ! WITH_BATCH */
     }
   } else if (messageHandler_IsWldrNotification(packet)) {
     *processed = true;
-    _handleWldrNotification(udp, connid, packet);
+    _handleWldrNotification(listener, connid, packet);
+#ifndef WITH_BATCH
+    parcMemory_Deallocate((void **)&packet);
+#endif /* ! WITH_BATCH */
+
   } else if (messageHandler_IsLoadBalancerProbe(packet)) {
     *processed = true;
-    _handleProbeMessage(udp, packet);
+    _handleProbeMessage(listener, packet);
   } else {
 
 #if 0
@@ -600,11 +845,13 @@ static void _readCommand(ListenerOps * listener, int fd,
   request[1].iov_len = payloadLengthDaemon(id);
 
   forwarder_ReceiveCommand(udp->forwarder, id, request, connid);
+#ifndef WITH_BATCH
   parcMemory_Deallocate((void **) &command);
+#endif /* ! WITH_BATCH */
   parcMemory_Deallocate((void **) &request);
 }
 
-
+#ifndef WITH_BATCH
 static bool _receivePacket(ListenerOps * listener, int fd,
                            AddressPair *pair,
                            uint8_t * packet) {
@@ -615,8 +862,13 @@ static bool _receivePacket(ListenerOps * listener, int fd,
   if (message) {
     forwarder_Receive(udp->forwarder, message);
   }
+  /*
+   * Otherwise the packet will have been deallocated (or remaining packet count will
+   * have been decremented in case of batch treatment) if need be
+   */
   return processed;
 }
+#endif /* ! WITH_BATCH */
 
 static void _readcb(int fd, PARCEventType what, void * listener_void) {
   ListenerOps * listener = (ListenerOps *)listener_void;
@@ -632,6 +884,48 @@ static void _readcb(int fd, PARCEventType what, void * listener_void) {
   }
 
   if (what & PARCEventType_Read) {
+#ifdef WITH_BATCH
+    int r = recvmmsg(fd, udp->messages, MAX_MSG, 0, NULL);
+    if (r == 0)
+        return;
+
+    if (r < 0) {
+        if (errno == EINTR)
+            return;
+        perror("recv()");
+        return;
+    }
+
+    for (int i = 0; i < r; i++) {
+      struct mmsghdr *msg = &udp->messages[i];
+
+      /* BEGIN packet processing */
+
+#ifdef __APPLE__
+      msg->msg_hdr.msg_namelen = 0x00;
+#endif
+
+      bool done;
+      AddressPair *pair = _constructAddressPair(
+        listener, (struct sockaddr *)msg->msg_hdr.msg_name, msg->msg_hdr.msg_namelen);
+      Message *message = _readMessage(listener, fd, pair,
+              msg->msg_hdr.msg_iov->iov_base, &done);
+
+      if (message)
+        forwarder_Receive(udp->forwarder, message, (i==0)?r:0);
+
+      // FIXME confusing, could we remove done ?
+      if(!done)
+        _readCommand(listener, fd, pair, msg->msg_hdr.msg_iov->iov_base);
+
+      addressPair_Release(&pair);
+
+      /* END packet processing */
+      msg->msg_len = 0;
+    }
+
+#else /* WITH_BATCH */
+
     struct sockaddr_storage peerIpAddress;
     socklen_t peerIpAddressLength = sizeof(peerIpAddress);
 
@@ -650,7 +944,7 @@ static void _readcb(int fd, PARCEventType what, void * listener_void) {
     }
 
     AddressPair *pair = _constructAddressPair(
-      udp, (struct sockaddr *)&peerIpAddress, peerIpAddressLength);
+      listener, (struct sockaddr *)&peerIpAddress, peerIpAddressLength);
 
     bool done = _receivePacket(listener, fd, pair, packet);
     if(!done){
@@ -658,5 +952,6 @@ static void _readcb(int fd, PARCEventType what, void * listener_void) {
     }
 
     addressPair_Release(&pair);
+#endif /* WITH_BATCH */
   }
 }

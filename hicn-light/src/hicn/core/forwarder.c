@@ -394,7 +394,11 @@ void forwarder_ReceiveCommand(Forwarder *forwarder, command_id command,
   configuration_ReceiveCommand(forwarder->config, command, message, ingressId);
 }
 
+#ifdef WITH_BATCH
+void forwarder_Receive(Forwarder *forwarder, Message *message, unsigned new_batch) {
+#else
 void forwarder_Receive(Forwarder *forwarder, Message *message) {
+#endif /* WITH_BATCH */
   parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");
   parcAssertNotNull(message, "Parameter message must be non-null");
 
@@ -432,7 +436,11 @@ void forwarder_Receive(Forwarder *forwarder, Message *message) {
     }
   }
 
+#ifdef WITH_BATCH
+  messageProcessor_Receive(forwarder->processor, message, new_batch);
+#else
   messageProcessor_Receive(forwarder->processor, message);
+#endif /* WITH_BATCH */
 }
 
 Ticks forwarder_GetTicks(const Forwarder *forwarder) {

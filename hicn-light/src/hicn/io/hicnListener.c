@@ -79,7 +79,11 @@ static const char *_getInterfaceName(const ListenerOps *ops);
 static unsigned _getInterfaceIndex(const ListenerOps *ops);
 static const Address *_getListenAddress(const ListenerOps *ops);
 static EncapType _getEncapType(const ListenerOps *ops);
+#ifdef WITH_BATCH
+static int _getSocket(const ListenerOps *ops, AddressPair * pair);
+#else
 static int _getSocket(const ListenerOps *ops);
+#endif /* WITH_BATCH */
 static unsigned _createNewConnection(ListenerOps *listener, int fd, const AddressPair *pair);
 static const Connection * _lookupConnection(ListenerOps * listener, const AddressPair *pair);
 static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer);
@@ -199,7 +203,11 @@ static void _receivePacket(ListenerOps * listener, int fd) {
   msg = _readMessage(listener, fd, msgBuffer);
 
   if (msg) {
+#ifdef WITH_BATCH
+    forwarder_Receive(hicn->forwarder, msg, 1);
+#else
     forwarder_Receive(hicn->forwarder, msg);
+#endif /* WITH_BATCH */
   }
 }
 
@@ -549,7 +557,11 @@ static const Address *_getListenAddress(const ListenerOps *ops) {
 
 static EncapType _getEncapType(const ListenerOps *ops) { return ENCAP_HICN; }
 
+#ifdef WITH_BATCH
+static int _getSocket(const ListenerOps *ops, AddressPair * pair) {
+#else
 static int _getSocket(const ListenerOps *ops) {
+#endif /* WITH_BATCH */
   HicnListener *hicn = (HicnListener *)ops->context;
   return hicn->hicn_fd;
 }
@@ -693,8 +705,3 @@ static void _handleWldrNotification(ListenerOps *listener, uint8_t *msgBuffer) {
 
   message_Release(&message);
 }
-
-
-
-
-

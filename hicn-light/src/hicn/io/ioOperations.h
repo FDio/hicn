@@ -73,7 +73,11 @@ typedef struct io_ops IoOperations;
  */
 struct io_ops {
   void *closure;
+#ifdef WITH_BATCH
+  bool (*send)(IoOperations *ops, const Address *nexthop, Message *message, bool queue);
+#else
   bool (*send)(IoOperations *ops, const Address *nexthop, Message *message);
+#endif /* WITH_BATCH */
   bool (*sendIOVBuffer)(IoOperations *ops, struct iovec *message, size_t
       size);
   const Address *(*getRemoteAddress)(const IoOperations *ops);
@@ -188,8 +192,13 @@ void ioOperations_Release(IoOperations **opsPtr);
  * }
  * @endcode
  */
+#ifdef WITH_BATCH
+bool ioOperations_Send(IoOperations *ops, const Address *nexthop,
+    Message *message, bool queue);
+#else
 bool ioOperations_Send(IoOperations *ops, const Address *nexthop,
     Message *message);
+#endif /* WITH_BATCH */
 
 bool ioOperations_SendIOVBuffer(IoOperations *ops, struct iovec *message,
     size_t size);

@@ -120,7 +120,11 @@ struct listener_ops {
    * <#example#>
    * @endcode
    */
+#ifdef WITH_BATCH
+  int (*getSocket)(const ListenerOps *ops, AddressPair * pair);
+#else
   int (*getSocket)(const ListenerOps *ops);
+#endif /* WITH_BATCH */
 
   unsigned (*createConnection)(ListenerOps *listener, int fd, const AddressPair *pair);
   const Connection * (*lookupConnection)(ListenerOps * listener, const AddressPair *pair);

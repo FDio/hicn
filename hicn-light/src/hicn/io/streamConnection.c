@@ -72,8 +72,13 @@ typedef struct stream_state {
 } _StreamState;
 
 // Prototypes
+#ifdef WITH_BATCH
+static bool _streamConnection_Send(IoOperations *ops, const Address *nexthop,
+    Message *message, bool queue);
+#else
 static bool _streamConnection_Send(IoOperations *ops, const Address *nexthop,
     Message *message);
+#endif /* WITH_BATCH*/
 static bool _streamConnection_SendIOVBuffer(IoOperations *ops, struct
     iovec *msg, size_t size);
 static const Address *_streamConnection_GetRemoteAddress(
@@ -384,10 +389,22 @@ bool _streamConnection_SendIOVBuffer(IoOperations *ops,
  * @param dummy is ignored.  A stream has only one peer.
  * @return <#return#>
  */
-static bool _streamConnection_Send(IoOperations *ops, const Address *dummy,
-                                   Message *message) {
+#ifdef WITH_BATCH
+static bool _streamConnection_Send(IoOperations *ops, const Address *nexthop,
+    Message *message, bool queue) {
+#else
+static bool _streamConnection_Send(IoOperations *ops, const Address *nexthop,
+    Message *message) {
+#endif /* WITH_BATCH*/
   parcAssertNotNull(ops, "Parameter ops must be non-null");
+
+#ifdef WITH_BATCH
+  /* No need to flush */
+  if (!message)
+    return true;
+#else
   parcAssertNotNull(message, "Parameter message must be non-null");
+#endif /* WITH_BATCH */
   _StreamState *stream = (_StreamState *)ioOperations_GetClosure(ops);
 
   bool success = false;
@@ -623,7 +640,11 @@ static void _conn_readcb(PARCEventQueue *event, PARCEventType type,
       Message *message = _tryReadMessage(input, stream);
 
       if (message) {
+#ifdef WITH_BATCH
+        forwarder_Receive(stream->forwarder, message, 1);
+#else
         forwarder_Receive(stream->forwarder, message);
+#endif /* WITH_BATCH */
       }
 
     } else {

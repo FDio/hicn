@@ -108,6 +108,16 @@ struct message_processor {
 #ifdef WITH_POLICY
   void * timer;
 #endif /* WITH_POLICY */
+
+#ifdef WITH_BATCH
+  /*
+   * The message processor has to decide whether to queue incoming packets for
+   * batching, or trigger the transmission on the connection
+   */
+  unsigned pending_batch;
+  unsigned pending_conn[MAX_MSG];
+  size_t num_pending_conn;
+#endif /* WITH_BATCH */
 };
 
 static void messageProcessor_Drop(MessageProcessor *processor,
@@ -261,11 +271,34 @@ ERR:
   *processorPtr = NULL;
 }
 
+#ifdef WITH_BATCH
+/* Flush connections that have pending packets to be sent */
+void messageProcessor_FlushConnections(MessageProcessor *processor) {
+  ConnectionTable * table = forwarder_GetConnectionTable(processor->forwarder);
+  for (unsigned i = 0; i < processor->num_pending_conn; i++) {
+    const Connection * conn = connectionTable_FindById(table, processor->pending_conn[i]);
+    // flush
+    connection_Send(conn, NULL, false);
+  }
+  processor->num_pending_conn = 0;
+}
+
+void messageProcessor_Receive(MessageProcessor *processor, Message *message, unsigned new_batch) {
+#else
 void messageProcessor_Receive(MessageProcessor *processor, Message *message) {
+#endif /* WITH_BATCH */
   parcAssertNotNull(processor, "Parameter processor must be non-null");
   parcAssertNotNull(message, "Parameter message must be non-null");
 
   processor->stats.countReceived++;
+
+#ifdef WITH_BATCH
+  if (new_batch > 0) {
+    processor->pending_batch += new_batch - 1;
+  } else {
+    processor->pending_batch--;
+  }
+#endif /* WITH_BATCH */
 
   if (logger_IsLoggable(processor->logger, LoggerFacility_Processor,
                         PARCLogLevel_Debug)) {
@@ -293,6 +326,12 @@ void messageProcessor_Receive(MessageProcessor *processor, Message *message) {
 
   // if someone wanted to save it, they made a copy
   message_Release(&message);
+
+#ifdef WITH_BATCH
+  /* Send batch ? */
+  if (processor->pending_batch == 0)
+    messageProcessor_FlushConnections(processor);
+#endif /* WITH_BATCH */
 }
 
 bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
@@ -789,7 +828,25 @@ static void messageProcessor_SendWithGoodHopLimit(MessageProcessor *processor,
                                                   Message *message,
                                                   unsigned interfaceId,
                                                   const Connection *conn) {
+#ifdef WITH_BATCH
+  /* Always queue the packet... */
+  bool success = connection_Send(conn, message, true);
+
+  /* ... and mark the connection as pending if this is not yet the case */
+  unsigned conn_id = connection_GetConnectionId(conn);
+  unsigned i;
+  for (i = 0; i < processor->num_pending_conn; i++) {
+    if (processor->pending_conn[i] == conn_id)
+      break;
+  }
+  if (i == processor->num_pending_conn) {
+    processor->pending_conn[processor->num_pending_conn++] = conn_id;
+  } else {
+  }
+#else
   bool success = connection_Send(conn, message);
+#endif /* WITH_BATCH */
+
   if (success) {
     switch (message_GetType(message)) {
       case MessagePacketType_Interest:
