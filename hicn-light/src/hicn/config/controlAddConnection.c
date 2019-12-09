@@ -231,13 +231,13 @@ static CommandReturn _controlAddConnection_CreateTunnel(
   if (inet_pton(AF_INET, remote_ip, &addConnectionCommand->remoteIp.v4.as_u32) ==
           1 &&
       inet_pton(AF_INET, local_ip, &addConnectionCommand->localIp.v4.as_u32) == 1) {
-    addConnectionCommand->ipType = ADDR_INET;
+    addConnectionCommand->family = AF_INET;
 
   } else if (inet_pton(AF_INET6, remote_ip,
                        &addConnectionCommand->remoteIp.v6.as_in6addr) == 1 &&
              inet_pton(AF_INET6, local_ip,
                        &addConnectionCommand->localIp.v6.as_in6addr) == 1) {
-    addConnectionCommand->ipType = ADDR_INET6;
+    addConnectionCommand->family = AF_INET6;
 
   } else {
     printf("Error: local address %s not same type as remote address %s\n",

@@ -43,10 +43,10 @@ void wldr_Destroy(Wldr **wldrPtr);
 
 void wldr_ResetState(Wldr *wldr);
 
-void wldr_SetLabel(Wldr *wldr, Message *message);
+void wldr_SetLabel(Wldr *wldr, msgbuf_t *message);
 
-void wldr_DetectLosses(Wldr *wldr, const Connection *conn, Message *message);
+void wldr_DetectLosses(Wldr *wldr, const Connection *conn, msgbuf_t *message);
 
 void wldr_HandleWldrNotification(Wldr *wldr, const Connection *conn,
-                                 Message *message);
+                                 msgbuf_t *message);
 #endif  // wldr_h

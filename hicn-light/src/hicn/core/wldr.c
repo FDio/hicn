@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+#if 0
+
 #include <parc/assert/parc_Assert.h>
 #include <parc/logging/parc_LogReporterTextStdout.h>
 #include <hicn/core/connection.h>
@@ -22,7 +24,7 @@
 #include <stdio.h>
 
 struct wldr_buffer {
-  Message *message;
+  msgbuf_t *message;
   uint8_t rtx_counter;
 };
 
@@ -82,7 +84,7 @@ static void _wldr_RetransmitPacket(Wldr *wldr, const Connection *conn,
   }
 
   if (wldr->buffer[label % BUFFER_SIZE]->rtx_counter < MAX_RTX) {
-    Message *msg = wldr->buffer[label % BUFFER_SIZE]->message;
+    msgbuf_t *msg = wldr->buffer[label % BUFFER_SIZE]->message;
     message_SetWldrLabel(msg, wldr->next_label);
 
     if (wldr->buffer[wldr->next_label % BUFFER_SIZE]->message != NULL) {
@@ -99,7 +101,7 @@ static void _wldr_RetransmitPacket(Wldr *wldr, const Connection *conn,
 }
 
 static void _wldr_SendWldrNotificaiton(Wldr *wldr, const Connection *conn,
-                                       Message *message, uint16_t expected_lbl,
+                                       msgbuf_t *message, uint16_t expected_lbl,
                                        uint16_t received_lbl) {
   // here we need to create a new packet that is used to send the wldr
   // notification to the prevoius hop. the destionation address of the
@@ -113,13 +115,13 @@ static void _wldr_SendWldrNotificaiton(Wldr *wldr, const Connection *conn,
   // this way the notification packet will be dispaced to the right connection
   // at the next hop.
 
-  Message *notification =
+  msgbuf_t *notification =
       message_CreateWldrNotification(message, expected_lbl, received_lbl);
   parcAssertNotNull(notification, "Got null from CreateWldrNotification");
   connection_ReSend(conn, notification, true);
 }
 
-void wldr_SetLabel(Wldr *wldr, Message *message) {
+void wldr_SetLabel(Wldr *wldr, msgbuf_t *message) {
   // in this function we send the packet for the first time
   // 1) we set the wldr label
   message_SetWldrLabel(message, wldr->next_label);
@@ -141,7 +143,7 @@ void wldr_SetLabel(Wldr *wldr, Message *message) {
     wldr->next_label++;
 }
 
-void wldr_DetectLosses(Wldr *wldr, const Connection *conn, Message *message) {
+void wldr_DetectLosses(Wldr *wldr, const Connection *conn, msgbuf_t *message) {
   if (message_HasWldr(message)) {
     // this is a normal wldr packet
     uint16_t pkt_lbl = (uint16_t)message_GetWldrLabel(message);
@@ -168,7 +170,7 @@ void wldr_DetectLosses(Wldr *wldr, const Connection *conn, Message *message) {
 }
 
 void wldr_HandleWldrNotification(Wldr *wldr, const Connection *conn,
-                                 Message *message) {
+                                 msgbuf_t *message) {
   uint16_t expected_lbl = (uint16_t)message_GetWldrExpectedLabel(message);
   uint16_t received_lbl = (uint16_t)message_GetWldrLastReceived(message);
   if ((wldr->next_label - expected_lbl) > BUFFER_SIZE) {
@@ -180,3 +182,5 @@ void wldr_HandleWldrNotification(Wldr *wldr, const Connection *conn,
     expected_lbl++;
   }
 }
+
+#endif

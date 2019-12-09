@@ -20,6 +20,15 @@
  *
  */
 
+/* This has to be included early as other modules are including socket.h */
+#define _GNU_SOURCE
+#include <sys/socket.h>
+
+#include <unistd.h>
+#include <fcntl.h>
+
+#include <hicn/processor/messageProcessor.h>
+
 #ifndef _WIN32
 #include <sys/uio.h>
 #endif
@@ -28,6 +37,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <hicn/base/address_pair.h>
 #include <hicn/core/messageHandler.h>
 #include <hicn/io/udpConnection.h>
 
@@ -38,20 +48,27 @@
 #include <hicn/core/forwarder.h>
 #include <hicn/core/message.h>
 
+#define DEBUG(FMT, ...) do {                                                    \
+    if (logger_IsLoggable(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug))  \
+      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,  \
+                 FMT, ## __VA_ARGS__);                                          \
+} while(0);
+
+#define ERROR(FMT, ...) do {                                                    \
+    if (logger_IsLoggable(udp->logger, LoggerFacility_IO,  PARCLogLevel_Error)) \
+      logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,  \
+                 FMT, ## __VA_ARGS__);                                          \
+} while(0);
+
 typedef struct udp_state {
   Forwarder *forwarder;
   char * interfaceName;
   Logger *logger;
 
   // the udp listener socket we receive packets on
-  int udpListenerSocket;
+  int fd;
 
-  AddressPair *addressPair;
-
-  // We need to access this all the time, so grab it out
-  // of the addressPair;
-  struct sockaddr *peerAddress;
-  socklen_t peerAddressLength;
+  address_pair_t pair;
 
   bool isLocal;
   bool isUp;
@@ -66,19 +83,29 @@ typedef struct udp_state {
 #ifdef WITH_POLICY
   uint32_t priority;
 #endif /* WITH_POLICY */
+
+  /* Sending socket (connected) */
+  int queue_len;
+
+  /* sendmmsg data structures */ // TODO purge
+  struct mmsghdr messages[MAX_MSG];
+  struct iovec iovecs[MAX_MSG];
+  //char buffers[MAX_MSG][MTU_SIZE];
+  //struct sockaddr_storage addrs[MAX_MSG];
+
 } _UdpState;
 
 // Prototypes
-static bool _send(IoOperations *ops, const Address *nexthop, Message *message);
+static bool _send(IoOperations *ops, const address_t *nexthop, msgbuf_t *message, bool queue);
 static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
     size_t size);
-static const Address *_getRemoteAddress(const IoOperations *ops);
-static const AddressPair *_getAddressPair(const IoOperations *ops);
+static const address_t *_getRemoteAddress(const IoOperations *ops);
+static const address_pair_t *_getAddressPair(const IoOperations *ops);
 static unsigned _getConnectionId(const IoOperations *ops);
 static bool _isUp(const IoOperations *ops);
 static bool _isLocal(const IoOperations *ops);
 static void _destroy(IoOperations **opsPtr);
-static list_connections_type _getConnectionType(const IoOperations *ops);
+static connection_type_t _getConnectionType(const IoOperations *ops);
 static void _sendProbe(IoOperations *ops, uint8_t *message);
 static connection_state_t _getState(const IoOperations *ops);
 static void _setState(IoOperations *ops, connection_state_t state);
@@ -130,66 +157,64 @@ static IoOperations _template = {
 // =================================================================
 
 static void _setConnectionState(_UdpState *Udp, bool isUp);
-static bool _saveSockaddr(_UdpState *udpConnState, const AddressPair *pair);
 
 IoOperations *udpConnection_Create(Forwarder *forwarder, const char * interfaceName, int fd,
-                                   const AddressPair *pair, bool isLocal) {
-  IoOperations *io_ops = NULL;
-
-  _UdpState *udpConnState = parcMemory_AllocateAndClear(sizeof(_UdpState));
-  parcAssertNotNull(udpConnState,
+                                   const address_pair_t *pair, bool isLocal, unsigned connid) {
+  _UdpState *udp = parcMemory_AllocateAndClear(sizeof(_UdpState));
+  parcAssertNotNull(udp,
                     "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(_UdpState));
 
-  udpConnState->forwarder = forwarder;
-  udpConnState->interfaceName = strdup(interfaceName);
-  udpConnState->logger = logger_Acquire(forwarder_GetLogger(forwarder));
+  udp->forwarder = forwarder;
+  udp->interfaceName = strdup(interfaceName);
+  udp->logger = logger_Acquire(forwarder_GetLogger(forwarder));
+  udp->fd = fd;
+  udp->id = connid;
+  udp->pair = *pair;
+  udp->isLocal = isLocal;
 
-  bool saved = _saveSockaddr(udpConnState, pair);
-  if (saved) {
-    udpConnState->udpListenerSocket = fd;
-    udpConnState->id = forwarder_GetNextConnectionId(forwarder);
-    udpConnState->addressPair = addressPair_Acquire(pair);
-    udpConnState->isLocal = isLocal;
+  // allocate a connection
+  IoOperations * io_ops = parcMemory_AllocateAndClear(sizeof(IoOperations));
+  parcAssertNotNull(io_ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
+                    sizeof(IoOperations));
+  memcpy(io_ops, &_template, sizeof(IoOperations));
+  io_ops->closure = udp;
 
-    // allocate a connection
-    io_ops = parcMemory_AllocateAndClear(sizeof(IoOperations));
-    parcAssertNotNull(io_ops, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                      sizeof(IoOperations));
-    memcpy(io_ops, &_template, sizeof(IoOperations));
-    io_ops->closure = udpConnState;
-
-    _setConnectionState(udpConnState, true);
+  _setConnectionState(udp, true);
 
 #ifdef WITH_POLICY
-    udpConnState->priority = 0;
+  udp->priority = 0;
 #endif /* WITH_POLICY */
 
-    if (logger_IsLoggable(udpConnState->logger, LoggerFacility_IO,
-                          PARCLogLevel_Info)) {
-      char *str = addressPair_ToString(udpConnState->addressPair);
-      logger_Log(udpConnState->logger, LoggerFacility_IO, PARCLogLevel_Info,
-                 __func__,
-                 "UdpConnection %p created for address %s (isLocal %d)",
-                 (void *)udpConnState, str, udpConnState->isLocal);
-      free(str);
-    }
-
-    messenger_Send(
-        forwarder_GetMessenger(forwarder),
-        missive_Create(MissiveType_ConnectionCreate, udpConnState->id));
-    messenger_Send(forwarder_GetMessenger(forwarder),
-                   missive_Create(MissiveType_ConnectionUp, udpConnState->id));
-  } else {
-    // _saveSockaddr will already log an error, no need for extra log message
-    // here
-    logger_Release(&udpConnState->logger);
-
-    free(udpConnState->interfaceName);
-    parcMemory_Deallocate((void **)&udpConnState);
+  /* Setup sendmmsg data structures. */
+  for (unsigned i = 0; i < MAX_MSG; i++) {
+    struct mmsghdr *msg = &udp->messages[i];
+    struct iovec *iovec = &udp->iovecs[i];
+    msg->msg_hdr.msg_iov = iovec;
+    msg->msg_hdr.msg_iovlen = 1;
   }
 
+  udp->queue_len = 0;
+
+#if 0
+  if (logger_IsLoggable(udp->logger, LoggerFacility_IO,
+                        PARCLogLevel_Info)) {
+    char *str = pair_ToString(udp->pair);
+    logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Info,
+               __func__,
+               "UdpConnection %p created for address %s (isLocal %d)",
+               (void *)udp, str, udp->isLocal);
+    free(str);
+  }
+#endif
+
+  messenger_Send(
+      forwarder_GetMessenger(forwarder),
+      missive_Create(MissiveType_ConnectionCreate, udp->id));
+  messenger_Send(forwarder_GetMessenger(forwarder),
+                   missive_Create(MissiveType_ConnectionUp, udp->id));
   return io_ops;
+
 }
 
 // =================================================================
@@ -204,26 +229,24 @@ static void _destroy(IoOperations **opsPtr) {
   parcAssertNotNull(ioOperations_GetClosure(ops),
                     "ops->context must not be null");
 
-  _UdpState *udpConnState = (_UdpState *)ioOperations_GetClosure(ops);
-  addressPair_Release(&udpConnState->addressPair);
-  parcMemory_Deallocate((void **)&(udpConnState->peerAddress));
+  _UdpState *udp = (_UdpState *)ioOperations_GetClosure(ops);
 
   messenger_Send(
-      forwarder_GetMessenger(udpConnState->forwarder),
-      missive_Create(MissiveType_ConnectionDestroyed, udpConnState->id));
+      forwarder_GetMessenger(udp->forwarder),
+      missive_Create(MissiveType_ConnectionDestroyed, udp->id));
 
-  if (logger_IsLoggable(udpConnState->logger, LoggerFacility_IO,
+  if (logger_IsLoggable(udp->logger, LoggerFacility_IO,
                         PARCLogLevel_Info)) {
-    logger_Log(udpConnState->logger, LoggerFacility_IO, PARCLogLevel_Info,
-               __func__, "UdpConnection %p destroyed", (void *)udpConnState);
+    logger_Log(udp->logger, LoggerFacility_IO, PARCLogLevel_Info,
+               __func__, "UdpConnection %p destroyed", (void *)udp);
   }
 
-  // do not close udp->udpListenerSocket, the listener will close
+  // do not close udp->fd, the listener will close
   // that when its done
 
-  logger_Release(&udpConnState->logger);
-  free(udpConnState->interfaceName);
-  parcMemory_Deallocate((void **)&udpConnState);
+  logger_Release(&udp->logger);
+  free(udp->interfaceName);
+  parcMemory_Deallocate((void **)&udp);
   parcMemory_Deallocate((void **)&ops);
 
   *opsPtr = NULL;
@@ -231,37 +254,37 @@ static void _destroy(IoOperations **opsPtr) {
 
 static bool _isUp(const IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  const _UdpState *udpConnState =
+  const _UdpState *udp =
       (const _UdpState *)ioOperations_GetClosure(ops);
-  return udpConnState->isUp;
+  return udp->isUp;
 }
 
 static bool _isLocal(const IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  const _UdpState *udpConnState =
+  const _UdpState *udp =
       (const _UdpState *)ioOperations_GetClosure(ops);
-  return udpConnState->isLocal;
+  return udp->isLocal;
 }
 
-static const Address *_getRemoteAddress(const IoOperations *ops) {
+static const address_t *_getRemoteAddress(const IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  const _UdpState *udpConnState =
+  const _UdpState *udp =
       (const _UdpState *)ioOperations_GetClosure(ops);
-  return addressPair_GetRemote(udpConnState->addressPair);
+  return address_pair_remote(&udp->pair);
 }
 
-static const AddressPair *_getAddressPair(const IoOperations *ops) {
+static const address_pair_t *_getAddressPair(const IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  const _UdpState *udpConnState =
+  const _UdpState *udp =
       (const _UdpState *)ioOperations_GetClosure(ops);
-  return udpConnState->addressPair;
+  return &udp->pair;
 }
 
 static unsigned _getConnectionId(const IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  const _UdpState *udpConnState =
+  const _UdpState *udp =
       (const _UdpState *)ioOperations_GetClosure(ops);
-  return udpConnState->id;
+  return udp->id;
 }
 
 /**
@@ -273,29 +296,55 @@ static unsigned _getConnectionId(const IoOperations *ops) {
  * @param dummy is ignored.  A udp connection has only one peer.
  * @return <#return#>
  */
-static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
+static bool _send(IoOperations *ops, const address_t *dummy, msgbuf_t *message, bool queue) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
-  parcAssertNotNull(message, "Parameter message must be non-null");
-  _UdpState *udpConnState = (_UdpState *)ioOperations_GetClosure(ops);
+  _UdpState *udp = (_UdpState *)ioOperations_GetClosure(ops);
 
-  // NAT for HICN
-  // in this particular connection we don't need natting beacause we send the
-  // packet to the next hop using upd connection
-
-  ssize_t writeLength =
-      sendto(udpConnState->udpListenerSocket, message_FixedHeader(message),
-             (int)message_Length(message), 0, udpConnState->peerAddress,
-             udpConnState->peerAddressLength);
-
-  if (writeLength < 0) {
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      return false;
-    } else {
-      // this print is for debugging
-      printf("Incorrect write length %zd, expected %zd: (%d) %s\n", writeLength,
-             message_Length(message), errno, strerror(errno));
+  /* Flush if required or if queue is full */
+  if ((!message) || (queue && (udp->queue_len > MAX_MSG)))  {
+    /* Flush operation */
+    //DEBUG("udp->queue_len=%d", udp->queue_len);
+    //printf("Send queuelen=%d on socket %d\n", udp->queue_len, udp->fd);
+#ifdef WITH_ZEROCOPY
+    int n = sendmmsg(udp->fd, udp->messages, udp->queue_len, MSG_ZEROCOPY);
+#else
+    int n = sendmmsg(udp->fd, udp->messages, udp->queue_len, 0);
+#endif /* WITH_ZEROCOPY */
+    if (n == -1) {
+      perror("sendmmsg()");
+      udp->queue_len = 0;
       return false;
     }
+
+    if (n < udp->queue_len) {
+        // XXX TODO
+        printf("Unhandled Error after sending n=%d messages\n", n);
+    }
+
+    /* XXX check msglen */
+    udp->queue_len = 0;
+    return true;
+  }
+
+  if (queue) {
+    struct iovec *iovec = &udp->iovecs[udp->queue_len++];
+    iovec->iov_base = msgbuf_packet(message);
+    iovec->iov_len = msgbuf_len(message);
+
+  } else {
+    ssize_t writeLength = write(udp->fd, msgbuf_packet(message), msgbuf_len(message));
+
+    if (writeLength < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        return false;
+      } else {
+        // this print is for debugging
+        printf("Incorrect write length %zd, expected %u: (%d) %s\n", writeLength,
+               msgbuf_len(message), errno, strerror(errno));
+        return false;
+      }
+    }
+
   }
 
   return true;
@@ -305,23 +354,14 @@ static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
     size_t size) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
   parcAssertNotNull(message, "Parameter message must be non-null");
-  _UdpState *udpConnState = (_UdpState *)ioOperations_GetClosure(ops);
+  _UdpState *udp = (_UdpState *)ioOperations_GetClosure(ops);
 
 #ifndef _WIN32
   // Perform connect before to establish association between this peer and
   // the remote peer. This is required to use writev.
   // Connection association can be changed at any time.
-  connect(udpConnState->udpListenerSocket,
-          udpConnState->peerAddress,
-          udpConnState->peerAddressLength);
 
-  ssize_t writeLength = writev(udpConnState->udpListenerSocket, message, (int)size);
-
-  struct sockaddr any_address = {0};
-  any_address.sa_family = AF_UNSPEC;
-  connect(udpConnState->udpListenerSocket,
-          &any_address, (socklen_t)sizeof(any_address));
-
+  ssize_t writeLength = writev(udp->fd, message, (int)size);
   if (writeLength < 0) {
       return false;
   }
@@ -334,9 +374,9 @@ static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
     dataBuf[i].len = (ULONG)message[i].iov_len;
   }
 
-  int rc = WSASendTo(udpConnState->udpListenerSocket, dataBuf, ARRAY_SIZE(message),
-    &BytesSent, 0, (SOCKADDR *)udpConnState->peerAddress,
-    udpConnState->peerAddressLength, NULL, NULL);
+  int rc = WSASendTo(udp->fd, dataBuf, ARRAY_SIZE(message),
+    &BytesSent, 0, (SOCKADDR *)address_sa(address_pair_remote(&udp->pair)),
+    address_socklen(address_pair_remote(&udp->pair)), NULL, NULL);
 
   if (rc == SOCKET_ERROR) {
     return false;
@@ -345,22 +385,22 @@ static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
   return true;
 }
 
-static list_connections_type _getConnectionType(const IoOperations *ops) {
+static connection_type_t _getConnectionType(const IoOperations *ops) {
   return CONN_UDP;
 }
 
 static void _sendProbe(IoOperations *ops, uint8_t *message) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
   parcAssertNotNull(message, "Parameter message must be non-null");
-  _UdpState *udpConnState = (_UdpState *)ioOperations_GetClosure(ops);
+  _UdpState *udp = (_UdpState *)ioOperations_GetClosure(ops);
 
-  if(udpConnState->isLocal)
+  if(udp->isLocal)
     return;
 
-  ssize_t writeLength =
-    sendto(udpConnState->udpListenerSocket, message,
-             messageHandler_GetTotalPacketLength(message), 0, udpConnState->peerAddress,
-             udpConnState->peerAddressLength);
+  ssize_t writeLength = sendto(udp->fd, message,
+          messageHandler_GetTotalPacketLength(message), 0,
+          address_sa(address_pair_remote(&udp->pair)),
+          address_socklen(address_pair_remote(&udp->pair)));
 
   if (writeLength < 0) {
      return;
@@ -370,64 +410,18 @@ static void _sendProbe(IoOperations *ops, uint8_t *message) {
 // =================================================================
 // Internal API
 
-static bool _saveSockaddr(_UdpState *udpConnState, const AddressPair *pair) {
-  bool success = false;
-  const Address *remoteAddress = addressPair_GetRemote(pair);
+static void _setConnectionState(_UdpState *udp, bool isUp) {
+  parcAssertNotNull(udp, "Parameter Udp must be non-null");
 
-  switch (addressGetType(remoteAddress)) {
-    case ADDR_INET: {
-      size_t bytes = sizeof(struct sockaddr_in);
-      udpConnState->peerAddress = parcMemory_Allocate(bytes);
-      parcAssertNotNull(udpConnState->peerAddress,
-                        "parcMemory_Allocate(%zu) returned NULL", bytes);
+  Messenger *messenger = forwarder_GetMessenger(udp->forwarder);
 
-      addressGetInet(remoteAddress,
-                     (struct sockaddr_in *)udpConnState->peerAddress);
-      udpConnState->peerAddressLength = (socklen_t)bytes;
-
-      success = true;
-      break;
-    }
-
-    case ADDR_INET6: {
-      size_t bytes = sizeof(struct sockaddr_in6);
-      udpConnState->peerAddress = parcMemory_Allocate(bytes);
-      parcAssertNotNull(udpConnState->peerAddress,
-                        "parcMemory_Allocate(%zu) returned NULL", bytes);
-
-      addressGetInet6(remoteAddress,
-                      (struct sockaddr_in6 *)udpConnState->peerAddress);
-      udpConnState->peerAddressLength = (socklen_t)bytes;
-
-      success = true;
-      break;
-    }
-
-    default:
-      if (logger_IsLoggable(udpConnState->logger, LoggerFacility_IO,
-                            PARCLogLevel_Error)) {
-        char *str = addressToString(remoteAddress);
-        logger_Log(udpConnState->logger, LoggerFacility_IO, PARCLogLevel_Error,
-                   __func__, "Remote address is not INET or INET6: %s", str);
-        parcMemory_Deallocate((void **)&str);
-      }
-      break;
-  }
-  return success;
-}
-
-static void _setConnectionState(_UdpState *udpConnState, bool isUp) {
-  parcAssertNotNull(udpConnState, "Parameter Udp must be non-null");
-
-  Messenger *messenger = forwarder_GetMessenger(udpConnState->forwarder);
-
-  bool oldStateIsUp = udpConnState->isUp;
-  udpConnState->isUp = isUp;
+  bool oldStateIsUp = udp->isUp;
+  udp->isUp = isUp;
 
   if (oldStateIsUp && !isUp) {
     // bring connection DOWN
     Missive *missive =
-        missive_Create(MissiveType_ConnectionDown, udpConnState->id);
+        missive_Create(MissiveType_ConnectionDown, udp->id);
     messenger_Send(messenger, missive);
     return;
   }
@@ -435,7 +429,7 @@ static void _setConnectionState(_UdpState *udpConnState, bool isUp) {
   if (!oldStateIsUp && isUp) {
     // bring connection UP
     Missive *missive =
-        missive_Create(MissiveType_ConnectionUp, udpConnState->id);
+        missive_Create(MissiveType_ConnectionUp, udp->id);
     messenger_Send(messenger, missive);
     return;
   }
@@ -443,52 +437,52 @@ static void _setConnectionState(_UdpState *udpConnState, bool isUp) {
 
 static connection_state_t _getState(const IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  const _UdpState *udpConnState =
+  const _UdpState *udp =
       (const _UdpState *)ioOperations_GetClosure(ops);
-  return udpConnState->state;
+  return udp->state;
 }
 
 static void _setState(IoOperations *ops, connection_state_t state) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  _UdpState *udpConnState =
+  _UdpState *udp =
       (_UdpState *)ioOperations_GetClosure(ops);
-  udpConnState->state = state;
+  udp->state = state;
 }
 
 static connection_state_t _getAdminState(const IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  const _UdpState *udpConnState =
+  const _UdpState *udp =
       (const _UdpState *)ioOperations_GetClosure(ops);
-  return udpConnState->admin_state;
+  return udp->admin_state;
 }
 
 static void _setAdminState(IoOperations *ops, connection_state_t admin_state) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  _UdpState *udpConnState =
+  _UdpState *udp =
       (_UdpState *)ioOperations_GetClosure(ops);
-  udpConnState->admin_state = admin_state;
+  udp->admin_state = admin_state;
 }
 
 #ifdef WITH_POLICY
 static uint32_t _getPriority(const IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  const _UdpState *udpConnState =
+  const _UdpState *udp =
       (const _UdpState *)ioOperations_GetClosure(ops);
-  return udpConnState->priority;
+  return udp->priority;
 }
 
 static void _setPriority(IoOperations *ops, uint32_t priority) {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  _UdpState *udpConnState =
+  _UdpState *udp =
       (_UdpState *)ioOperations_GetClosure(ops);
-  udpConnState->priority = priority;
+  udp->priority = priority;
 }
 #endif /* WITH_POLICY */
 
 static const char * _getInterfaceName(const IoOperations *ops)
 {
   parcAssertNotNull(ops, "Parameter must be non-null");
-  _UdpState *udpConnState =
+  _UdpState *udp =
       (_UdpState *)ioOperations_GetClosure(ops);
-  return udpConnState->interfaceName;
+  return udp->interfaceName;
 }

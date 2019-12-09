@@ -22,9 +22,7 @@
 
 #include <hicn/core/forwarder.h>
 #include <hicn/core/messagePacketType.h>
-#include <hicn/io/addressPair.h>
 #include <hicn/io/ioOperations.h>
-#include <hicn/utils/address.h>
 
 /**
  * @function streamConnection_AcceptConnection
@@ -37,8 +35,7 @@
  * @return <#return#>
  */
 IoOperations *streamConnection_AcceptConnection(Forwarder *forwarder, int fd,
-                                                AddressPair *pair,
-                                                bool isLocal);
+        address_pair_t *pair, bool isLocal);
 
 /**
  * @function streamConnection_OpenConnection
@@ -68,9 +65,9 @@ IoOperations *streamConnection_AcceptConnection(Forwarder *forwarder, int fd,
  * @return NULL on error, otherwise the connections IO operations.
  */
 IoOperations *streamConnection_OpenConnection(Forwarder *forwarder,
-                                              AddressPair *pair, bool isLocal);
+        address_pair_t *pair, bool isLocal, unsigned connid);
 
 bool streamState_SendIOVBuffer(IoOperations *ops, struct iovec *response,
-    size_t size);
+        size_t size);
 
 #endif  // streamConnection_h

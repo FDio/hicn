@@ -44,6 +44,8 @@ typedef struct dispatcher Dispatcher;
 #include <parc/algol/parc_EventTimer.h>
 #include <parc/algol/parc_Memory.h>
 
+#include <hicn/base/address.h>
+
 #include <hicn/core/logger.h>
 
 PARCEventScheduler *dispatcher_GetEventScheduler(Dispatcher *dispatcher);
@@ -144,13 +146,11 @@ typedef void(ListenerCallback)(Listener *listener, SocketType client_socket,
  * @param socklen is the sizeof the actual sockaddr (e.g. sizeof(sockaddr_un))
  */
 PARCEventSocket *dispatcher_CreateListener(Dispatcher *dispatcher,
-                                           PARCEventSocket_Callback *callback,
-                                           void *user_data, int backlog,
-                                           const struct sockaddr *sa,
-                                           int socklen);
+        PARCEventSocket_Callback *callback, void *user_data, int backlog, const
+        address_t * address, int socklen);
 
-void dispatcher_DestroyListener(Dispatcher *dispatcher,
-                                PARCEventSocket **listenerPtr);
+void dispatcher_DestroyListener(Dispatcher *dispatcher, PARCEventSocket
+        **listenerPtr);
 
 typedef struct event TimerEvent;
 typedef struct event NetworkEvent;
@@ -254,7 +254,7 @@ void dispatcher_StopSignalEvent(Dispatcher *dispatcher, PARCEventSignal *event);
 // stream buffers
 
 #include <hicn/core/streamBuffer.h>
-#include <hicn/io/addressPair.h>
+#include <hicn/base/address_pair.h>
 
 /**
  * @function dispatcher_CreateStreamBuffer
@@ -284,5 +284,5 @@ PARCEventQueue *dispatcher_CreateStreamBufferFromSocket(Dispatcher *dispatcher,
  * @return NULL on error, otherwise a streambuffer.
  */
 PARCEventQueue *dispatcher_StreamBufferConnect(Dispatcher *dispatcher,
-                                               const AddressPair *pair);
+                                               const address_pair_t *pair);
 #endif  // dispatcher_h

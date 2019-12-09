@@ -16,6 +16,7 @@
 #include <parc/assert/parc_Assert.h>
 #include <hicn/hicn-light/config.h>
 #include <hicn/io/ioOperations.h>
+#include <hicn/base/msgbuf.h>
 #include <stdio.h>
 
 void *ioOperations_GetClosure(const IoOperations *ops) {
@@ -23,9 +24,9 @@ void *ioOperations_GetClosure(const IoOperations *ops) {
   return ops->closure;
 }
 
-bool ioOperations_Send(IoOperations *ops, const Address *nexthop,
-                       Message *message) {
-  return ops->send(ops, nexthop, message);
+bool ioOperations_Send(IoOperations *ops, const address_t *nexthop,
+                       msgbuf_t *message, bool queue) {
+  return ops->send(ops, nexthop, message, queue);
 }
 
 bool ioOperations_SendIOVBuffer(IoOperations *ops, struct iovec *message,
@@ -33,11 +34,11 @@ bool ioOperations_SendIOVBuffer(IoOperations *ops, struct iovec *message,
   return ops->sendIOVBuffer(ops, message, size);
 }
 
-const Address *ioOperations_GetRemoteAddress(const IoOperations *ops) {
+const address_t *ioOperations_GetRemoteAddress(const IoOperations *ops) {
   return ops->getRemoteAddress(ops);
 }
 
-const AddressPair *ioOperations_GetAddressPair(const IoOperations *ops) {
+const address_pair_t *ioOperations_GetAddressPair(const IoOperations *ops) {
   return ops->getAddressPair(ops);
 }
 
@@ -60,7 +61,7 @@ const void *ioOperations_Class(const IoOperations *ops) {
   return ops->class(ops);
 }
 
-list_connections_type ioOperations_GetConnectionType(const IoOperations *ops) {
+connection_type_t ioOperations_GetConnectionType(const IoOperations *ops) {
   return ops->getConnectionType(ops);
 }
 

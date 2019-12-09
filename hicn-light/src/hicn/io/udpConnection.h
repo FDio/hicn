@@ -24,10 +24,9 @@
 #ifndef udpConnection_h
 #define udpConnection_h
 
+#include <hicn/base/address_pair.h>
 #include <hicn/core/forwarder.h>
-#include <hicn/io/addressPair.h>
 #include <hicn/io/ioOperations.h>
-#include <hicn/utils/address.h>
 
 /**
  * Creates a UDP connection that can send to the remote address
@@ -48,6 +47,7 @@
  * <#example#>
  * @endcode
  */
-IoOperations *udpConnection_Create(Forwarder *forwarder, const char * interfaceName, int fd,
-                                   const AddressPair *pair, bool isLocal);
+IoOperations *udpConnection_Create(Forwarder *forwarder,
+        const char * interfaceName, int fd, const address_pair_t *pair,
+        bool isLocal, unsigned connection_id);
 #endif  // udpConnection_h

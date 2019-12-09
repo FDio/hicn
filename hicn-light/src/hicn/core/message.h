@@ -31,8 +31,6 @@
 #include <parc/algol/parc_EventBuffer.h>
 #include <parc/algol/parc_EventQueue.h>
 
-#include <hicn/utils/address.h>
-
 #include <hicn/core/ticks.h>
 
 struct message;

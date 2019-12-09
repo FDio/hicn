@@ -26,8 +26,8 @@
 #ifndef listener_h
 #define listener_h
 
-#include <hicn/utils/address.h>
-#include <hicn/io/addressPair.h>
+#include <hicn/base/address.h>
+#include <hicn/base/address_pair.h>
 #include <hicn/core/connection.h>
 
 struct listener_ops;
@@ -79,7 +79,7 @@ struct listener_ops {
    *
    * @return the (local, remote) pair of addresses
    */
-  const Address *(*getListenAddress)(const ListenerOps *ops);
+  const address_t *(*getListenAddress)(const ListenerOps *ops);
 
   /**
    * Returns the encapsulation type of the listener (e.g. TCP, UDP, HICN)
@@ -120,9 +120,8 @@ struct listener_ops {
    * <#example#>
    * @endcode
    */
-  int (*getSocket)(const ListenerOps *ops);
+  int (*getSocket)(const ListenerOps *ops, const address_pair_t * pair);
 
-  unsigned (*createConnection)(ListenerOps *listener, int fd, const AddressPair *pair);
-  const Connection * (*lookupConnection)(ListenerOps * listener, const AddressPair *pair);
+  unsigned (*createConnection)(ListenerOps *listener, int fd, const address_pair_t * pair);
 };
 #endif  // listener_h

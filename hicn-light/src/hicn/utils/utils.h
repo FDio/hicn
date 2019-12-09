@@ -17,7 +17,6 @@
 #define utils_h
 
 #include <hicn/config/controlState.h>
-#include <hicn/utils/address.h>
 #include <hicn/utils/commands.h>
 
 /**
@@ -49,8 +48,8 @@ struct iovec *utils_CreateNack(header_control_message *header, void *payload,
  *Convert IPv4/IPv6 address from binary to text string. `uint8_t *ipAddress` has
  *to be a `in_addr_t * or `a struct in6_addr *.
  */
-char *utils_CommandAddressToString(address_type addressType,
-                                   ip_address_t *address, in_port_t *port);
+char *utils_CommandAddressToString(int family, ip_address_t *address,
+        in_port_t *port);
 
 /**
  *Given a command payload, it generates the header and send the request to the
@@ -63,8 +62,7 @@ struct iovec *utils_SendRequest(ControlState *state, command_id command,
  *Convert a IPv4/IPv6 address plus Netmask len from binary to text string in the
  *form [add]:[port]/[len].
  */
-const char *utils_PrefixLenToString(address_type addressType,
-                                    ip_address_t *address,
-                                    uint8_t *prefixLen);
+const char *utils_PrefixLenToString(int family, ip_address_t *address,
+        uint8_t *prefixLen);
 
 #endif

@@ -16,9 +16,10 @@
 #define fib_h
 
 #include <hicn/core/message.h>
+#include <hicn/core/forwarder.h>
 #include <hicn/core/name.h>
-#include <hicn/processor/fibEntry.h>
-#include <hicn/processor/fibEntryList.h>
+#include <hicn/processor/fib_entry.h>
+#include <hicn/processor/fib_entry_list.h>
 
 struct fib;
 typedef struct fib FIB;
@@ -27,19 +28,19 @@ FIB *fib_Create(Forwarder *forwarder);
 
 void fib_Destroy(FIB **fibPtr);
 
-void fib_Add(FIB *fib, FibEntry *node);
+void fib_Add(FIB *fib, fib_entry_t *node);
 
-FibEntry *fib_Contains(const FIB *fib, const Name *prefix);
+fib_entry_t *fib_Contains(const FIB *fib, const Name *prefix);
 
 void fib_Remove(FIB *fib, const Name *prefix, unsigned connId);
 
 void fib_RemoveConnectionId(FIB *fib, unsigned connectionId);
 
-FibEntry *fib_MatchMessage(const FIB *fib, const Message *interestMessage);
-FibEntry *fib_MatchName(const FIB *fib, const Name *name);
-FibEntry *fib_MatchBitvector(const FIB *fib, const NameBitvector *name);
+fib_entry_t *fib_MatchMessage(const FIB *fib, const msgbuf_t *interestMessage);
+fib_entry_t *fib_MatchName(const FIB *fib, const Name *name);
+fib_entry_t *fib_MatchBitvector(const FIB *fib, const NameBitvector *name);
 
 size_t fib_Length(const FIB *fib);
 
-FibEntryList *fib_GetEntries(const FIB *fib);
+fib_entry_list_t *fib_GetEntries(const FIB *fib);
 #endif  // fib_h

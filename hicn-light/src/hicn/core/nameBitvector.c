@@ -27,6 +27,7 @@
 
 #include <hicn/utils/commands.h>
 
+#define DEFAULT_PORT 1234
 #define NAME_LEN 2
 
 const uint64_t BV_SIZE = 64;
@@ -46,7 +47,9 @@ struct name_bitvector {
   uint8_t IPversion;
 };
 
-NameBitvector *nameBitvector_CreateFromInAddr(uint32_t addr, uint8_t len) {
+NameBitvector *
+nameBitvector_CreateFromInAddr(uint32_t addr, uint8_t len)
+{
   NameBitvector *bitvector = parcMemory_AllocateAndClear(sizeof(NameBitvector));
   parcAssertNotNull(bitvector, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(NameBitvector));
@@ -72,8 +75,9 @@ NameBitvector *nameBitvector_CreateFromInAddr(uint32_t addr, uint8_t len) {
   return bitvector;
 }
 
-NameBitvector *nameBitvector_CreateFromIn6Addr(struct in6_addr *addr,
-                                               uint8_t len) {
+NameBitvector *
+nameBitvector_CreateFromIn6Addr(struct in6_addr *addr, uint8_t len)
+{
   parcAssertNotNull(addr, "addr cannot be null");
 
   NameBitvector *bitvector = parcMemory_AllocateAndClear(sizeof(NameBitvector));
@@ -98,33 +102,24 @@ NameBitvector *nameBitvector_CreateFromIn6Addr(struct in6_addr *addr,
   return bitvector;
 }
 
-NameBitvector *nameBitvector_CreateFromAddress(const Address *prefix,
-                                               uint8_t len) {
-  parcAssertNotNull(prefix, "prefix cannot be null");
+NameBitvector *
+nameBitvector_CreateFromAddress(const address_t * address, uint8_t len)
+{
+  parcAssertNotNull(address, "address cannot be null");
 
-  NameBitvector *bitvector = NULL;
-  switch (addressGetType(prefix)) {
-    case ADDR_INET: {
-      struct sockaddr_in addr;
-      addressGetInet(prefix, &addr);
-      bitvector = nameBitvector_CreateFromInAddr(addr.sin_addr.s_addr, len);
-      break;
-    }
-    case ADDR_INET6: {
-      struct sockaddr_in6 addr;
-      addressGetInet6(prefix, &addr);
-      bitvector = nameBitvector_CreateFromIn6Addr(&addr.sin6_addr, len);
-      break;
-    }
+  switch(address_family(address)) {
+    case AF_INET:
+      return nameBitvector_CreateFromInAddr(address4_ip(address).s_addr, len);
+    case AF_INET6:
+      return nameBitvector_CreateFromIn6Addr(&address6_ip(address), len);
     default:
-      parcTrapNotImplemented("Unkown packet type");
-      break;
+      return NULL;
   }
-
-  return bitvector;
 }
 
-NameBitvector *nameBitvector_Copy(const NameBitvector *original) {
+NameBitvector *
+nameBitvector_Copy(const NameBitvector *original)
+{
   parcAssertNotNull(original, "original cannot be null");
 
   NameBitvector *copy = parcMemory_AllocateAndClear(sizeof(NameBitvector));
@@ -138,7 +133,9 @@ NameBitvector *nameBitvector_Copy(const NameBitvector *original) {
   return copy;
 }
 
-void nameBitvector_Destroy(NameBitvector **bitvectorPtr) {
+void
+nameBitvector_Destroy(NameBitvector **bitvectorPtr)
+{
   parcAssertNotNull(bitvectorPtr, "Parameter must be non-null double pointer");
   parcAssertNotNull(*bitvectorPtr,
                     "Parameter must dereference to non-null pointer");
@@ -148,19 +145,29 @@ void nameBitvector_Destroy(NameBitvector **bitvectorPtr) {
   *bitvectorPtr = NULL;
 }
 
-uint8_t nameBitvector_GetLength(const NameBitvector *name) { return name->len; }
+uint8_t
+nameBitvector_GetLength(const NameBitvector *name)
+{
+  return name->len;
+}
 
-uint32_t nameBitvector_GetHash32(const NameBitvector *name) {
+uint32_t
+nameBitvector_GetHash32(const NameBitvector *name)
+{
   return parcHash32_Data_Cumulative((const uint8_t *)name->bits, 16, 0);
 }
 
-bool nameBitvector_Equals(const NameBitvector *a, const NameBitvector *b) {
+bool
+nameBitvector_Equals(const NameBitvector *a, const NameBitvector *b)
+{
   if (a->bits[0] == b->bits[0] && a->bits[1] == b->bits[1] && a->len == b->len)
     return true;
   return false;
 }
 
-int nameBitvector_Compare(const NameBitvector *a, const NameBitvector *b) {
+int
+nameBitvector_Compare(const NameBitvector *a, const NameBitvector *b)
+{
   if (a == NULL && b == NULL) {
     return 0;
   }
@@ -188,7 +195,9 @@ int nameBitvector_Compare(const NameBitvector *a, const NameBitvector *b) {
   }
 }
 
-int nameBitvector_testBit(const NameBitvector *name, uint8_t pos, bool *bit) {
+int
+nameBitvector_testBit(const NameBitvector *name, uint8_t pos, bool *bit)
+{
   if(pos >= name->len  || pos > (WIDTH -1))
     return -1;
 
@@ -197,7 +206,10 @@ int nameBitvector_testBit(const NameBitvector *name, uint8_t pos, bool *bit) {
   return 0;
 }
 
-uint64_t _diff_bit_log2(uint64_t val) {
+// TODO XXX use ffs(ll)
+uint64_t
+_diff_bit_log2(uint64_t val)
+{
   // base 2 log of an uint64_t. This is the same as get the position of
   // the highest bit set (or most significant bit set, MSB)
   uint64_t result = 0;
@@ -229,8 +241,9 @@ uint64_t _diff_bit_log2(uint64_t val) {
   return result;
 }
 
-uint32_t nameBitvector_lpm(const NameBitvector *a,
-                          const NameBitvector *b) {
+uint32_t
+nameBitvector_lpm(const NameBitvector *a, const NameBitvector *b)
+{
   uint32_t limit;
   uint32_t prefix_len;
   if (a->len < b->len)
@@ -258,13 +271,16 @@ uint32_t nameBitvector_lpm(const NameBitvector *a,
   return limit;
 }
 
-void nameBitvector_clear(NameBitvector *a, uint8_t start_from){
+void
+nameBitvector_clear(NameBitvector *a, uint8_t start_from)
+{
   for(uint8_t pos = start_from; pos < WIDTH; pos++)
       a->bits[pos / BV_SIZE] &= ~(ONE << ((BV_SIZE - 1) - (pos % BV_SIZE)));
 }
 
-int nameBitvector_ToIPAddress(const NameBitvector *name,
-                              ip_prefix_t *prefix) {
+int
+nameBitvector_ToIPAddress(const NameBitvector *name, ip_prefix_t *prefix)
+{
   if (name->IPversion == IPv4_TYPE) {
     struct in_addr *addr = (struct in_addr *)(&prefix->address.v4.buffer);
     prefix->family = AF_INET;
@@ -300,13 +316,19 @@ int nameBitvector_ToIPAddress(const NameBitvector *name,
   return true;
 }
 
-void nameBitvector_setLen(NameBitvector *name, uint8_t len) { name->len = len; }
+void
+nameBitvector_setLen(NameBitvector *name, uint8_t len)
+{
+  name->len = len;
+}
 
-Address *nameBitvector_ToAddress(const NameBitvector *name) {
+void
+nameBitvector_ToAddress(const NameBitvector *name, address_t * address)
+{
   if (name->IPversion == IPv4_TYPE) {
-    struct sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(1234);
+    struct sockaddr_in * sin = address4(address);
+    sin->sin_family = AF_INET;
+    sin->sin_port = htons(DEFAULT_PORT);
 
     uint32_t tmp_addr = name->bits[0] >> 32ULL;
     uint8_t addr_1 = (tmp_addr & 0xff000000) >> 24;
@@ -314,49 +336,44 @@ Address *nameBitvector_ToAddress(const NameBitvector *name) {
     uint8_t addr_3 = (tmp_addr & 0x0000ff00) >> 8;
     uint8_t addr_4 = (tmp_addr & 0x000000ff);
 
-    addr.sin_addr.s_addr = 0;
-    addr.sin_addr.s_addr = (addr.sin_addr.s_addr | addr_4) << 8;
-    addr.sin_addr.s_addr = (addr.sin_addr.s_addr | addr_3) << 8;
-    addr.sin_addr.s_addr = (addr.sin_addr.s_addr | addr_2) << 8;
-    addr.sin_addr.s_addr = (addr.sin_addr.s_addr | addr_1);
-
-    Address *packetAddr = addressCreateFromInet(&addr);
-
-    return packetAddr;
-
+    sin->sin_addr.s_addr = 0;
+    sin->sin_addr.s_addr = (sin->sin_addr.s_addr | addr_4) << 8;
+    sin->sin_addr.s_addr = (sin->sin_addr.s_addr | addr_3) << 8;
+    sin->sin_addr.s_addr = (sin->sin_addr.s_addr | addr_2) << 8;
+    sin->sin_addr.s_addr = (sin->sin_addr.s_addr | addr_1);
   } else {
-    struct sockaddr_in6 addr;
-    addr.sin6_family = AF_INET6;
-    addr.sin6_port = htons(1234);
-    addr.sin6_scope_id = 0;
-    addr.sin6_flowinfo = 0;
+    struct sockaddr_in6 * sin6 = address6(address);
+    sin6->sin6_family = AF_INET6;
+    sin6->sin6_port = htons(DEFAULT_PORT);
+    sin6->sin6_scope_id = 0;
+    sin6->sin6_flowinfo = 0;
 
     for (int i = 0; i < 8; i++) {
-      addr.sin6_addr.s6_addr[i] =
+      sin6->sin6_addr.s6_addr[i] =
           (uint8_t)((name->bits[0] >> 8 * (7 - i)) & 0xFF);
     }
 
     int x = 0;
     for (int i = 8; i < 16; ++i) {
-      addr.sin6_addr.s6_addr[i] =
+      sin6->sin6_addr.s6_addr[i] =
           (uint8_t)((name->bits[1] >> 8 * (7 - x)) & 0xFF);
       x++;
     }
-
-    Address *packetAddr = addressCreateFromInet6(&addr);
-
-    return packetAddr;
   }
 }
 
 char *nameBitvector_ToString(const NameBitvector *name) {
   char *output = malloc(WIDTH);
 
-  Address *packetAddr = nameBitvector_ToAddress(name);
+  address_t address;
+  nameBitvector_ToAddress(name, &address);
 
+// XXX TODO
+#if 0
   sprintf(output, "prefix: %s len: %u", addressToString(packetAddr), name->len);
-
-  addressDestroy(&packetAddr);
+#else
+  snprintf(output, WIDTH, "%s", "ENOIMPL");
+#endif
 
   return output;
 }

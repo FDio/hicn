@@ -27,8 +27,6 @@
 #include <hicn/config/configuration.h>
 #include <hicn/core/forwarder.h>
 
-#include <hicn/utils/address.h>
-
 /**
  * Setup udp, tcp, and local listeners
  *
@@ -47,7 +45,7 @@
 void configurationListeners_SetupAll(const Configuration *config, uint16_t port,
                                      const char *localPath);
 
-void configurationListeners_SetutpLocalIPv4(const Configuration *config,
+void configurationListeners_SetupLocalIPv4(const Configuration *config,
                                             uint16_t port);
 
 bool configurationListeners_Remove(const Configuration *config);

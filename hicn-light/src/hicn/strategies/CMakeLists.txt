@@ -14,20 +14,15 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 list(APPEND HEADER_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/strategyImpl.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/loadBalancer.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/lowLatency.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/nexthopState.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/nexthopStateLowLatency.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/rnd.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/load_balancer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/low_latency.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/random.h
 )
 
 list(APPEND SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/loadBalancer.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/lowLatency.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/nexthopState.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/nexthopStateLowLatency.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/rnd.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/load_balancer.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/low_latency.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/random.c
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

@@ -25,81 +25,37 @@
 #include <hicn/io/udpListener.h>
 #include <hicn/io/udpTunnel.h>
 
-IoOperations *udpTunnel_CreateOnListener(Forwarder *forwarder,
-                                         ListenerOps *localListener,
-                                         const Address *remoteAddress) {
-  parcAssertNotNull(forwarder, "Parameter metis must be non-null");
-  parcAssertNotNull(localListener, "Parameter localListener must be non-null");
-  parcAssertNotNull(remoteAddress, "Parameter remoteAddress must be non-null");
+#if 0
+#define ERROR(FMT, ...) do {                                                    \
+  Logger *logger = forwarder_GetLogger(forwarder);                              \
+  if (logger_IsLoggable(logger, LoggerFacility_IO, PARCLogLevel_Error))         \
+    logger_Log(logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,         \
+               FMT, ## __VA_ARGS__);                                            \
+} while(0);
+#endif
 
-  Logger *logger = forwarder_GetLogger(forwarder);
+IoOperations *
+udpTunnel_Create(Forwarder *forwarder, const address_pair_t * pair, unsigned connid)
+{
+  parcAssertNotNull(forwarder, "Parameter forwarder must be non-null");
+  parcAssertNotNull(pair, "Parameter address pair must be non-null");
 
-  IoOperations *ops = NULL;
-  if (localListener->getEncapType(localListener) == ENCAP_UDP) {
-    const Address *localAddress =
-        localListener->getListenAddress(localListener);
-    address_type localType = addressGetType(localAddress);
-    address_type remoteType = addressGetType(remoteAddress);
+  listener_table_t * table = forwarder_GetListenerTable(forwarder);
+  ListenerOps *listener = listener_table_lookup(table, ENCAP_UDP, &pair->local);
+  if (!listener)
+      goto ERR_NO_LISTENER;
 
-    if (localType == remoteType) {
-      AddressPair *pair = addressPair_Create(localAddress, remoteAddress);
+  const char * interface_name = listener->getInterfaceName(listener);
+  int fd = listener->getSocket(listener, pair);
+  bool is_local = address_is_local(&pair->local);
 
-      //check it the connection is local
-      bool isLocal = false;
-      if(localType == ADDR_INET){
-        struct sockaddr_in tmpAddr;
-        addressGetInet(localAddress, &tmpAddr);
-        if(parcNetwork_IsSocketLocal((struct sockaddr *)&tmpAddr))
-          isLocal = true;
-      }else{
-        struct sockaddr_in6 tmpAddr6;
-        addressGetInet6(localAddress, &tmpAddr6);
-        if(parcNetwork_IsSocketLocal((struct sockaddr *)&tmpAddr6))
-          isLocal = true;
-      }
-      int fd = localListener->getSocket(localListener);
-      // udpListener_SetPacketType(localListener,
-      //                MessagePacketType_ContentObject);
-      ops = udpConnection_Create(forwarder, localListener->getInterfaceName(localListener), fd, pair, isLocal);
+  return udpConnection_Create(forwarder, interface_name, fd, pair, is_local, connid);
 
-      addressPair_Release(&pair);
-    } else {
-      if (logger_IsLoggable(logger, LoggerFacility_IO, PARCLogLevel_Error)) {
-        logger_Log(logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-                   "Local listener of type %s and remote type %s, cannot "
-                   "establish tunnel",
-                   addressTypeToString(localType),
-                   addressTypeToString(remoteType));
-      }
-    }
-  } else {
-    if (logger_IsLoggable(logger, LoggerFacility_IO, PARCLogLevel_Error)) {
-      logger_Log(logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-                 "Local listener %p is not type UDP, cannot establish tunnel",
-                 (void *)localListener);
-    }
-  }
-
-  return ops;
-}
-
-IoOperations *udpTunnel_Create(Forwarder *forwarder,
-                               const Address *localAddress,
-                               const Address *remoteAddress) {
-  ListenerSet *set = forwarder_GetListenerSet(forwarder);
-  ListenerOps *listener = listenerSet_Find(set, ENCAP_UDP, localAddress);
-  IoOperations *ops = NULL;
-  if (listener) {
-    ops = udpTunnel_CreateOnListener(forwarder, listener, remoteAddress);
-  } else {
-    if (logger_IsLoggable(forwarder_GetLogger(forwarder), LoggerFacility_IO,
-                          PARCLogLevel_Error)) {
-      char *str = addressToString(localAddress);
-      logger_Log(forwarder_GetLogger(forwarder), LoggerFacility_IO,
-                 PARCLogLevel_Error, __func__,
-                 "Could not find listener to match address %s", str);
-      parcMemory_Deallocate((void **)&str);
-    }
-  }
-  return ops;
+ERR_NO_LISTENER:
+#if 0
+  char *str = addressToString(localAddress);
+  ERROR("Could not find listener to match address %s", str);
+  parcMemory_Deallocate((void **)&str);
+#endif
+  return NULL;
 }
