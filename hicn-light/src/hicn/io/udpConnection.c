@@ -79,8 +79,7 @@ static bool _isUp(const IoOperations *ops);
 static bool _isLocal(const IoOperations *ops);
 static void _destroy(IoOperations **opsPtr);
 static list_connections_type _getConnectionType(const IoOperations *ops);
-static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
-                        uint8_t *message);
+static void _sendProbe(IoOperations *ops, uint8_t *message);
 static connection_state_t _getState(const IoOperations *ops);
 static void _setState(IoOperations *ops, connection_state_t state);
 static connection_state_t _getAdminState(const IoOperations *ops);
@@ -350,10 +349,22 @@ static list_connections_type _getConnectionType(const IoOperations *ops) {
   return CONN_UDP;
 }
 
-static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
-                        uint8_t *message) {
-  //TODO
-  return 0;
+static void _sendProbe(IoOperations *ops, uint8_t *message) {
+  parcAssertNotNull(ops, "Parameter ops must be non-null");
+  parcAssertNotNull(message, "Parameter message must be non-null");
+  _UdpState *udpConnState = (_UdpState *)ioOperations_GetClosure(ops);
+
+  if(udpConnState->isLocal)
+    return;
+
+  ssize_t writeLength =
+    sendto(udpConnState->udpListenerSocket, message,
+             messageHandler_GetTotalPacketLength(message), 0, udpConnState->peerAddress,
+             udpConnState->peerAddressLength);
+
+  if (writeLength < 0) {
+     return;
+  }
 }
 
 // =================================================================
