@@ -499,10 +499,6 @@ void forwarder_SetStrategy(Forwarder *forwarder, Name *prefix,
   parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");
   parcAssertNotNull(prefix, "Parameter prefix must be non-null");
 
-  // if (strategy == NULL) {
-  //     strategy = SET_STRATEGY_RANDOM;
-  // }
-
   processor_SetStrategy(forwarder->processor, prefix, strategy);
 }
 

@@ -64,9 +64,8 @@ list_connections_type ioOperations_GetConnectionType(const IoOperations *ops) {
   return ops->getConnectionType(ops);
 }
 
-Ticks ioOperations_SendProbe(IoOperations *ops, unsigned probeType,
-                             uint8_t *message) {
-  return ops->sendProbe(ops, probeType, message);
+void ioOperations_SendProbe(IoOperations *ops, uint8_t *message) {
+  ops->sendProbe(ops, message);
 }
 
 
