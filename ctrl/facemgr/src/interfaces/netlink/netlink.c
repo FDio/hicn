@@ -428,7 +428,11 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                 DEBUG("Interface %s: address was removed", interface_name);
                 if (facelet) {
                     facelet_set_event(facelet, FACELET_EVENT_SET_DOWN);
+<<<<<<< HEAD
                     facelet_set_attr_clean(facelet);
+=======
+                    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
                     interface_raise_event(interface, facelet);
                 }
                 break;
@@ -520,7 +524,11 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                 } else {
 #if 1
                     facelet_set_event(facelet, FACELET_EVENT_SET_DOWN);
+<<<<<<< HEAD
                     facelet_set_attr_clean(facelet);
+=======
+                    facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
                     interface_raise_event(interface, facelet);
 #else
                     facelet_free(facelet);

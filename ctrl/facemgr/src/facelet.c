@@ -716,6 +716,7 @@ int facelet_merge(facelet_t * facelet, facelet_t * facelet_to_merge)
         ERROR("[facelet_free] Error getting route set associated to facelet");
     } else {
         for (unsigned i = 0; i < n; i++) {
+<<<<<<< HEAD
             hicn_route_t * route = route_array[i];
             hicn_route_t * route_found = NULL;
             if (route_set_get(facelet->routes, route, &route_found) < 0) {
@@ -725,6 +726,10 @@ int facelet_merge(facelet_t * facelet, facelet_t * facelet_to_merge)
             if (route_found)
                 continue;
             route_set_add(facelet->routes, hicn_route_dup(route));
+=======
+            hicn_route_t * route = hicn_route_dup(route_array[i]);
+            route_set_add(facelet->routes, route);
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
         }
     }
     free(route_array);

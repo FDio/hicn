@@ -1088,13 +1088,22 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
                 goto ERR;
             }
 
+<<<<<<< HEAD
 #if 0
+=======
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
             if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
                 ERROR("[facemgr_process_facelet] Could not remove deleted facelet from cache");
                 goto ERR;
             }
             facelet_free(facelet);
+<<<<<<< HEAD
 #else
+=======
+            goto END;
+
+#if 0
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
             /* This works assuming the call to hicn-light is blocking */
             DEBUG("[facemgr_process_facelet] Cleaning cached data");
             facelet_unset_local_addr(facelet);
@@ -1126,6 +1135,7 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
     }
 
     facelet_unset_error(facelet);
+END:
     return 0;
 
 ERR:
@@ -1493,12 +1503,36 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
         case FACELET_STATUS_INCOMPLETE:
         case FACELET_STATUS_IGNORED:
         case FACELET_STATUS_DOWN:
+<<<<<<< HEAD
         case FACELET_STATUS_CREATE:
             /* Face has not been created */
             facelet_unset_error(facelet);
-            facelet_set_status(facelet, FACELET_STATUS_DELETED);
-            break;
+=======
+            if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
+                ERROR("[facemgr_process_facelet] Could not remove deleted facelet from cache");
+                return -1;
+            }
 
+            facelet_free(facelet);
+            return 0;
+#if 0
+            facelet_unset_local_addr(facelet);
+            facelet_unset_local_port(facelet);
+            facelet_unset_remote_addr(facelet);
+            facelet_unset_remote_port(facelet);
+            facelet_unset_bj_done(facelet);
+#ifdef WITH_ANDROID_UTILITY
+            facelet_unset_au_done(facelet);
+#endif /* WITH_ANDROID_UTILITY */
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
+            facelet_set_status(facelet, FACELET_STATUS_DELETED);
+#endif
+            break;
+<<<<<<< HEAD
+
+=======
+        case FACELET_STATUS_CREATE:
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
         case FACELET_STATUS_UPDATE:
         case FACELET_STATUS_CLEAN:
             facelet_set_status(facelet, FACELET_STATUS_DELETE);
@@ -1522,6 +1556,7 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
     return 0;
 }
 
+<<<<<<< HEAD
 int facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet);
 
 int
@@ -1540,6 +1575,19 @@ facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facele
             ERROR("[facemgr_process_facelet_create_no_family] Error creating default IPv4 face");
             //facelet_free(facelet_v4);
         }
+=======
+#if 0
+int facemgr_process_facelet_first_time(facemgr_t * facemgr, facelet_t * facelet)
+{
+    assert(facelet);
+
+    facelet_set_status(facelet, FACELET_STATUS_UNCERTAIN);
+    char facelet_s[MAXSZ_FACELET];
+    facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
+    if (facelet_set_add(facemgr->facelet_cache, facelet) < 0) {
+        ERROR("[facemgr_process_facelet_first_time] Error adding facelet to cache");
+        goto ERR_CACHE;
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
     }
 
     DEBUG("[facemgr_process_facelet_create_no_family] Default v6");
@@ -1604,6 +1652,89 @@ facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facele
 
     return 0;
 }
+#endif
+
+int facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet);
+
+int
+facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facelet)
+{
+
+    DEBUG("[facemgr_process_facelet_create_no_family] Default v4");
+    /* Create default v4 and v6 facelets */
+    facelet_t * facelet_v4 = facelet_dup(facelet);
+    if (!facelet_v4) {
+        ERROR("[facemgr_process_facelet_create_no_family] Error allocating default IPv4 face");
+    } else {
+        facelet_set_family(facelet_v4, AF_INET);
+        facelet_set_status(facelet_v4, FACELET_STATUS_CLEAN);
+        if (facemgr_on_event(facemgr, facelet_v4) < 0) {
+            ERROR("[facemgr_process_facelet_create_no_family] Error creating default IPv4 face");
+            facelet_free(facelet_v4);
+        }
+    }
+
+    DEBUG("[facemgr_process_facelet_create_no_family] Default v6");
+    facelet_t * facelet_v6 = facelet_dup(facelet);
+    if (!facelet_v6) {
+        ERROR("[facemgr_process_facelet_create_no_family] Error allocating default IPv6 face");
+    } else {
+        facelet_set_family(facelet_v6, AF_INET6);
+        facelet_set_status(facelet_v6, FACELET_STATUS_CLEAN);
+        if (facemgr_on_event(facemgr, facelet_v6) < 0) {
+            ERROR("[facemgr_process_facelet_create_no_family] Error creating default IPv6 face");
+            facelet_free(facelet_v6);
+        }
+    }
+
+    /* Create additional connections
+     *
+     * This is where we spawn multiple facelets based on the
+     * configured "static routes" in addition to the default
+     * routes managed by the face manager.
+     */
+    DEBUG("[facemgr_process_facelet_create_no_family] Loop static");
+    for (unsigned i = 0; i < facelet_array_len(facemgr->static_facelets); i++) {
+        facelet_t * static_facelet;
+        if (facelet_array_get_index(facemgr->static_facelets, i, &static_facelet) < 0) {
+            ERROR("[facemgr_process_facelet_create_no_family] Error getting static facelet");
+            continue;
+        }
+
+        /*
+         * We don't enforce any present or absent fields. A match
+         * operation will be performed deciding whether to create
+         * the facelet (if it bring additional information to the
+         * ingress one) or not.
+         */
+        /* We try to apply static_facelet over facelet */
+        if (!facelet_match(facelet, static_facelet)) {
+            continue;
+        }
+
+        facelet_t * facelet_new = facelet_dup(facelet);
+        if (!facelet_new) {
+            ERROR("[facemgr_process_facelet_create_no_family] Error allocating static facelet");
+            continue;
+        } else {
+            if (facelet_merge(facelet_new, static_facelet) < 0) {
+                ERROR("[facemgr_process_facelet_create_no_family] Error merging facelets");
+                facelet_free(facelet_new);
+                continue;
+            }
+            /* The id must be different than 0 */
+            facelet_set_id(facelet_new, ++facemgr->cur_static_id);
+            facelet_set_status(facelet_new, FACELET_STATUS_CLEAN);
+
+            if (facemgr_on_event(facemgr, facelet_new) < 0) {
+                ERROR("[facemgr_process_facelet_create_no_family] Error creating default IPv6 face");
+                facelet_free(facelet_new);
+            }
+        }
+    }
+
+    return 0;
+}
 
 /**
  * \brief Process incoming events from interfaces
@@ -1641,10 +1772,13 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
     facelet_t ** cached_facelets = NULL;
     assert(facelet_in);
 
+<<<<<<< HEAD
     if (facelet_get_status(facelet_in) == FACELET_STATUS_UNDEFINED) {
         facelet_set_status(facelet_in, FACELET_STATUS_UNCERTAIN);
     }
 
+=======
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
     int n = facelet_cache_lookup(facemgr->facelet_cache, facelet_in, &cached_facelets);
     if (n < 0) {
         ERROR("[facemgr_on_event] Error during cache lookup");
@@ -1664,6 +1798,7 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                  * assignment
                  */
                 DEBUG("[facemgr_on_event] CREATE NEW %s", facelet_s);
+<<<<<<< HEAD
 
                 if (!facelet_has_family(facelet_in)) {
                     facemgr_assign_face_type(facemgr, facelet_in);
@@ -1673,6 +1808,18 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                     }
                     goto DUMP_CACHE;
                 }
+=======
+                if (!facelet_has_family(facelet_in)) {
+                    facemgr_assign_face_type(facemgr, facelet_in);
+                    if (facemgr_process_facelet_create_no_family(facemgr, facelet_in) < 0) {
+                        ERROR("[facemgr_on_event] Error processing new interface event");
+                        goto ERR;
+                    }
+                    goto DUMP_CACHE;
+                }
+
+                facelet_set_status(facelet_in, FACELET_STATUS_UNCERTAIN);
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
 
                 if (facelet_set_add(facemgr->facelet_cache, facelet_in) < 0) {
                     ERROR("[facemgr_on_event] Error adding facelet to cache");
@@ -1782,8 +1929,13 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                  * This happens due to polling of the forwarder (or when it
                  * restarts)
                  */
+<<<<<<< HEAD
                 //DEBUG("[facemgr_on_event] GET EXISTING %s", facelet_old_s);
                 //DEBUG("                           WITH %s", facelet_s);
+=======
+                DEBUG("[facemgr_on_event] GET EXISTING %s", facelet_old_s);
+                DEBUG("                           WITH %s", facelet_s);
+>>>>>>> b43da77... [HICN-440] Add comments to hicn sysrepo plugin code
                 //ERROR("[facemgr_on_event] GET event for a face that already exists...");
                 dump = false;
                 continue;
