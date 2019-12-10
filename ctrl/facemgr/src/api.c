@@ -1088,27 +1088,33 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
                 goto ERR;
             }
 
+            /* Facelets created from static get deleted */
 #if 0
-            if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
-                ERROR("[facemgr_process_facelet] Could not remove deleted facelet from cache");
-                goto ERR;
-            }
-            facelet_free(facelet);
-#else
-            /* This works assuming the call to hicn-light is blocking */
-            DEBUG("[facemgr_process_facelet] Cleaning cached data");
-            facelet_unset_local_addr(facelet);
-            facelet_unset_local_port(facelet);
-            facelet_unset_remote_addr(facelet);
-            facelet_unset_remote_port(facelet);
-            facelet_unset_admin_state(facelet);
-            facelet_unset_state(facelet);
-            facelet_unset_bj_done(facelet);
+            if (facelet_get_id(facelet) > 0) {
+                if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
+                    ERROR("[facemgr_process_facelet] Could not remove deleted facelet from cache");
+                    return -1;
+                }
+                facelet_free(facelet);
+            } else {
+#endif
+                /* This works assuming the call to hicn-light is blocking */
+                DEBUG("[facemgr_process_facelet] Cleaning cached data");
+                facelet_unset_local_addr(facelet);
+                facelet_unset_local_port(facelet);
+                facelet_unset_remote_addr(facelet);
+                facelet_unset_remote_port(facelet);
+                facelet_unset_admin_state(facelet);
+                facelet_unset_state(facelet);
+                facelet_unset_bj_done(facelet);
+                facelet_clear_routes(facelet);
 #ifdef WITH_ANDROID_UTILITY
-            facelet_unset_au_done(facelet);
+                facelet_unset_au_done(facelet);
 #endif /* WITH_ANDROID_UTILITY */
 
-            facelet_set_status(facelet, FACELET_STATUS_DELETED);
+                facelet_set_status(facelet, FACELET_STATUS_DELETED);
+#if 0
+            }
 #endif
             break;
 
@@ -1323,6 +1329,8 @@ facemgr_consider_static_facelet(facemgr_t * facemgr, facelet_t * facelet)
     if (facelet_found)
         return 0;
 
+    facelet_set_id(static_facelet, ++facemgr->cur_static_id);
+
     if (facelet_array_add(facemgr->static_facelets, static_facelet) < 0) {
         ERROR("[facemgr_consider_static_facelet] Could not add facelet to static array");
         facelet_free(static_facelet);
@@ -1494,9 +1502,34 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
         case FACELET_STATUS_IGNORED:
         case FACELET_STATUS_DOWN:
         case FACELET_STATUS_CREATE:
-            /* Face has not been created */
-            facelet_unset_error(facelet);
-            facelet_set_status(facelet, FACELET_STATUS_DELETED);
+#if 0
+            /* Facelets created from static get deleted */
+            if (facelet_get_id(facelet) > 0) {
+                if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
+                    ERROR("[facemgr_process_facelet] Could not remove deleted facelet from cache");
+                    return -1;
+                }
+                facelet_free(facelet);
+            } else {
+#endif
+                /* Face has not been created */
+                DEBUG("[facemgr_process_facelet] Cleaning cached data");
+                facelet_unset_local_addr(facelet);
+                facelet_unset_local_port(facelet);
+                facelet_unset_remote_addr(facelet);
+                facelet_unset_remote_port(facelet);
+                facelet_unset_admin_state(facelet);
+                facelet_unset_state(facelet);
+                facelet_unset_bj_done(facelet);
+                facelet_clear_routes(facelet);
+#ifdef WITH_ANDROID_UTILITY
+                facelet_unset_au_done(facelet);
+#endif /* WITH_ANDROID_UTILITY */
+                facelet_unset_error(facelet);
+                facelet_set_status(facelet, FACELET_STATUS_DELETED);
+#if 0
+            }
+#endif
             break;
 
         case FACELET_STATUS_UPDATE:
@@ -1590,8 +1623,8 @@ facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facele
                 facelet_free(facelet_new);
                 continue;
             }
+            facelet_set_id(facelet_new, facelet_get_id(static_facelet));
             /* The id must be different than 0 */
-            facelet_set_id(facelet_new, ++facemgr->cur_static_id);
             facelet_set_attr_clean(facelet_new);
             facelet_set_status(facelet, FACELET_STATUS_UNDEFINED);
 
