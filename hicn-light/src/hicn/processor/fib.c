@@ -200,8 +200,10 @@ void fib_Add(FIB *fib, FibEntry *entry) {
   nameBitvector_clear(name_GetContentName(inner_prefix), match_len);
   name_setLen(inner_prefix,  match_len);
 
-  FibEntry * inner_entry = fibEntry_Create(inner_prefix, SET_STRATEGY_LOADBALANCER,
-            fib->forwarder);
+  //this is an inner node, we don't want an acctive strategy
+  //like low_latency that sends probes in this node
+  FibEntry * inner_entry = fibEntry_Create(inner_prefix,
+            SET_STRATEGY_LOADBALANCER, fib->forwarder);
 
   FibNode * inner_node = _createNode(NULL, NULL, inner_entry, false);
   FibNode * new_node = _createNode(NULL, NULL, entry, true);
