@@ -56,18 +56,6 @@ typedef struct hicn_state {
   struct sockaddr *localAddress;
   socklen_t localAddressLength;
 
-  // this address contains one of the content names reachable
-  // throught the connection peer. We need this address beacuse it is
-  // the only way we have to conntact the next hop, since the main tun
-  // does not have address. Notice that a connection that sends probes
-  // is a connection that sends interest. In a "data" connection this
-  // value will remain NULL. We refresh the content address every time
-  // we send a probe, in this way we don't need to waste to much time in
-  // copy the address, but we can also react to the routing changes
-  struct sockaddr *probeDestAddress;
-  socklen_t probeDestAddressLength;
-  bool refreshProbeDestAddress;
-
   bool isLocal;
   bool isUp;
   unsigned id;
@@ -94,8 +82,7 @@ static bool _isUp(const IoOperations *ops);
 static bool _isLocal(const IoOperations *ops);
 static void _destroy(IoOperations **opsPtr);
 static list_connections_type _getConnectionType(const IoOperations *ops);
-static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
-                        uint8_t *message);
+static void _sendProbe(IoOperations *ops, uint8_t *message);
 static connection_state_t _getState(const IoOperations *ops);
 static void _setState(IoOperations *ops, connection_state_t state);
 static connection_state_t _getAdminState(const IoOperations *ops);
@@ -147,8 +134,6 @@ static IoOperations _template = {
 
 static void _setConnectionState(_HicnState *Hicn, bool isUp);
 static bool _saveSockaddr(_HicnState *hicnConnState, const AddressPair *pair);
-static void _refreshProbeDestAddress(_HicnState *hicnConnState,
-                                     const uint8_t *message);
 
 IoOperations *hicnConnection_Create(Forwarder *forwarder, const char * interfaceName, int fd,
                                     const AddressPair *pair, bool isLocal) {
@@ -225,8 +210,6 @@ static void _destroy(IoOperations **opsPtr) {
   addressPair_Release(&hicnConnState->addressPair);
   parcMemory_Deallocate((void **)&(hicnConnState->peerAddress));
   parcMemory_Deallocate((void **)&(hicnConnState->localAddress));
-  if (hicnConnState->probeDestAddress != NULL)
-    parcMemory_Deallocate((void **)&(hicnConnState->probeDestAddress));
 
   messenger_Send(
       forwarder_GetMessenger(hicnConnState->forwarder),
@@ -328,12 +311,6 @@ static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
           &(((struct sockaddr_in *)hicnConnState->localAddress)
                 ->sin_addr.s_addr));
     }
-
-    // only in this case we may need to set the probeDestAddress
-    if (hicnConnState->refreshProbeDestAddress) {
-      _refreshProbeDestAddress(hicnConnState, message_FixedHeader(message));
-    }
-
   } else if (message_GetType(message) == MessagePacketType_WldrNotification) {
     // here we don't need to do anything for now
   } else {
@@ -395,64 +372,31 @@ static list_connections_type _getConnectionType(const IoOperations *ops) {
   return CONN_HICN;
 }
 
-static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
-                        uint8_t *message) {
+static void _sendProbe(IoOperations *ops, uint8_t *message) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
+
   _HicnState *hicnConnState = (_HicnState *)ioOperations_GetClosure(ops);
 
-  if ((hicnConnState->peerAddressLength == sizeof(struct sockaddr_in)) ||
-      (hicnConnState->localAddressLength == sizeof(struct sockaddr_in)))
-    return false;
-
-  if (hicnConnState->probeDestAddress == NULL &&
-      probeType == PACKET_TYPE_PROBE_REPLY) {
-    uint8_t *pkt = parcMemory_AllocateAndClear(
-        messageHandler_GetICMPPacketSize(IPv6_TYPE));
-    messageHandler_SetProbePacket(
-        pkt, probeType,
-        (struct in6_addr *)messageHandler_GetDestination(message),
-        (struct in6_addr *)messageHandler_GetSource(message));
-
-    ssize_t writeLength = write(hicnConnState->hicnListenerSocket, pkt,
-                                messageHandler_GetICMPPacketSize(IPv6_TYPE));
-
-    parcMemory_Deallocate((void **)&pkt);
-
-    if (writeLength < 0) {
-      return 0;
+  if(messageHandler_IsInterest(message)){//
+    // this is an interest packet. We need to put the local address in the
+    // source field
+    if (messageHandler_GetIPPacketType(message) == IPv6_TYPE) {
+      messageHandler_SetSource_IPv6(message,
+          &((struct sockaddr_in6 *)hicnConnState->localAddress)->sin6_addr);
+    } else {
+      messageHandler_SetSource_IPv4(message,
+          &(((struct sockaddr_in *)hicnConnState->localAddress)
+                ->sin_addr.s_addr));
     }
+  }//if is a data packet the packet is already set (see
+   //messageHandler_CreateProbeReply)
 
-  } else if (hicnConnState->probeDestAddress != NULL &&
-             probeType == PACKET_TYPE_PROBE_REQUEST) {
-    hicnConnState->refreshProbeDestAddress = true;
+  ssize_t writeLength = write(hicnConnState->hicnListenerSocket, message,
+                                messageHandler_GetTotalPacketLength(message));
 
-    uint8_t *pkt = parcMemory_AllocateAndClear(
-        messageHandler_GetICMPPacketSize(IPv6_TYPE));
-    messageHandler_SetProbePacket(
-        pkt, probeType,
-        &((struct sockaddr_in6 *)hicnConnState->localAddress)->sin6_addr,
-        &((struct sockaddr_in6 *)hicnConnState->probeDestAddress)->sin6_addr);
-
-    ssize_t writeLength = write(hicnConnState->hicnListenerSocket, pkt,
-                                messageHandler_GetICMPPacketSize(IPv6_TYPE));
-
-    parcMemory_Deallocate((void **)&pkt);
-
-    if (writeLength < 0) {
-      return 0;
-    }
-
-  } else {
-    if (hicnConnState->probeDestAddress == NULL &&
-        probeType == PACKET_TYPE_PROBE_REQUEST) {
-      // this happen for the first probe
-      hicnConnState->refreshProbeDestAddress = true;
-    }
-    // do nothing
-    return 0;
+  if (writeLength < 0) {
+    return;
   }
-
-  return forwarder_GetTicks(hicnConnState->forwarder);
 }
 
 // =================================================================
@@ -481,11 +425,6 @@ static bool _saveSockaddr(_HicnState *hicnConnState, const AddressPair *pair) {
       addressGetInet(localAddress,
                      (struct sockaddr_in *)hicnConnState->localAddress);
       hicnConnState->localAddressLength = (socklen_t)bytes;
-
-      hicnConnState->probeDestAddress = NULL;
-      hicnConnState->probeDestAddressLength = (socklen_t)bytes;
-      hicnConnState->refreshProbeDestAddress = false;
-
       success = true;
       break;
     }
@@ -507,11 +446,6 @@ static bool _saveSockaddr(_HicnState *hicnConnState, const AddressPair *pair) {
       addressGetInet6(localAddress,
                       (struct sockaddr_in6 *)hicnConnState->localAddress);
       hicnConnState->localAddressLength = (socklen_t)bytes;
-
-      hicnConnState->probeDestAddress = NULL;
-      hicnConnState->probeDestAddressLength = (socklen_t)bytes;
-      hicnConnState->refreshProbeDestAddress = false;
-
       success = true;
       break;
     }
@@ -527,31 +461,6 @@ static bool _saveSockaddr(_HicnState *hicnConnState, const AddressPair *pair) {
       break;
   }
   return success;
-}
-
-static void _refreshProbeDestAddress(_HicnState *hicnConnState,
-                                     const uint8_t *message) {
-  if ((hicnConnState->peerAddressLength == sizeof(struct sockaddr_in)) ||
-      (hicnConnState->localAddressLength == sizeof(struct sockaddr_in)))
-    return;
-
-  if (hicnConnState->probeDestAddress == NULL) {
-    hicnConnState->probeDestAddress =
-        parcMemory_AllocateAndClear(sizeof(struct sockaddr_in6));
-    parcAssertNotNull(hicnConnState->probeDestAddress,
-                      "parcMemory_Allocate(%zu) returned NULL",
-                      sizeof(struct sockaddr_in6));
-  }
-
-  ((struct sockaddr_in6 *)hicnConnState->probeDestAddress)->sin6_family =
-      AF_INET6;
-  ((struct sockaddr_in6 *)hicnConnState->probeDestAddress)->sin6_port =
-      htons(1234);
-  ((struct sockaddr_in6 *)hicnConnState->probeDestAddress)->sin6_scope_id = 0;
-  ((struct sockaddr_in6 *)hicnConnState->probeDestAddress)->sin6_flowinfo = 0;
-  ((struct sockaddr_in6 *)hicnConnState->probeDestAddress)->sin6_addr =
-      *((struct in6_addr *)messageHandler_GetDestination(message));
-  hicnConnState->refreshProbeDestAddress = false;
 }
 
 static void _setConnectionState(_HicnState *hicnConnState, bool isUp) {
