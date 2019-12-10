@@ -200,7 +200,7 @@ void fib_Add(FIB *fib, FibEntry *entry) {
   nameBitvector_clear(name_GetContentName(inner_prefix), match_len);
   name_setLen(inner_prefix,  match_len);
 
-  FibEntry * inner_entry = fibEntry_Create(inner_prefix, SET_STRATEGY_LOADBALANCER,
+  FibEntry * inner_entry = fibEntry_Create(inner_prefix, LAST_STRATEGY_VALUE,
             fib->forwarder);
 
   FibNode * inner_node = _createNode(NULL, NULL, inner_entry, false);
