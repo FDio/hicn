@@ -88,8 +88,7 @@ static void _streamConnection_DestroyOperations(IoOperations **opsPtr);
 static void _setConnectionState(_StreamState *stream, bool isUp);
 static list_connections_type _streamConnection_GetConnectionType(
     const IoOperations *ops);
-static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
-                        uint8_t *message);
+static void _sendProbe(IoOperations *ops, uint8_t *message);
 static connection_state_t _streamConnection_getState(const IoOperations *ops);
 static void _streamConnection_setState(IoOperations *ops, connection_state_t state);
 static connection_state_t _streamConnection_getAdminState(const IoOperations *ops);
@@ -437,10 +436,8 @@ list_connections_type _streamConnection_GetConnectionType(
   return CONN_TCP;
 }
 
-static Ticks _sendProbe(IoOperations *ops, unsigned probeType,
-                        uint8_t *message) {
+static void _sendProbe(IoOperations *ops, uint8_t *message) {
   // we don't need to implemet this here, it is a local connection
-  return 0;
 }
 
 // =================================================================

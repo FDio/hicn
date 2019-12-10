@@ -45,8 +45,7 @@ static const char *_commandSetStrategyHelp = "help set strategy";
 static const char *_commandSetStrategyOptions[LAST_STRATEGY_VALUE] = {
     "loadbalancer",
     "random",
-    "random_per_dash_segment",
-    "loadbalancer_with_delay",
+    "low_delay",
 };
 
 // ====================================================
@@ -84,8 +83,7 @@ static CommandReturn _controlSetStrategy_HelpExecute(CommandParser *parser,
   printf("available strategies:\n");
   printf("    random\n");
   printf("    loadbalancer\n");
-  printf("    random_per_dash_segment\n");
-  printf("    loadbalancer_with_delay\n");
+  printf("    low_delay\n");
   printf("\n");
   return CommandReturn_Success;
 }

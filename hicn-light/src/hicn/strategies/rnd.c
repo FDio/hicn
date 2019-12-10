@@ -28,9 +28,12 @@
 
 static void _strategyRnd_ReceiveObject(StrategyImpl *strategy,
                                        const NumberSet *egressId,
-                                       const Message *objectMessage, Ticks rtt);
+                                       const Message *objectMessage,
+                                       Ticks pitEntryCreation,
+                                       Ticks objReception);
 static void _strategyRnd_OnTimeout(StrategyImpl *strategy,
                                    const NumberSet *egressId);
+
 static NumberSet *_strategyRnd_LookupNexthop(StrategyImpl *strategy,
 #ifdef WITH_POLICY
     NumberSet * nexthops,
@@ -62,21 +65,21 @@ static StrategyImpl _template = {
     .getStrategy = &_strategyRnd_GetStrategy,
 };
 
+#ifndef WITH_POLICY
 struct strategy_rnd;
 typedef struct strategy_rnd StrategyRnd;
 
 struct strategy_rnd {
-#ifndef WITH_POLICY
   NumberSet *nexthops;
-#endif /* ! WITH_POLICY */
 };
+#endif /* ! WITH_POLICY */
 
 StrategyImpl *strategyRnd_Create() {
+#ifndef WITH_POLICY
   StrategyRnd *strategy = parcMemory_AllocateAndClear(sizeof(StrategyRnd));
   parcAssertNotNull(strategy, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(StrategyRnd));
 
-#ifndef WITH_POLICY
   strategy->nexthops = numberSet_Create();
 #endif /* ! WITH_POLICY */
   srand((unsigned int)time(NULL));
@@ -85,7 +88,9 @@ StrategyImpl *strategyRnd_Create() {
   parcAssertNotNull(impl, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(StrategyImpl));
   memcpy(impl, &_template, sizeof(StrategyImpl));
+#ifndef WITH_POLICY
   impl->context = strategy;
+#endif /* ! WITH_POLICY */
   return impl;
 }
 
@@ -111,7 +116,8 @@ static int _select_Nexthop(StrategyRnd *strategy) {
 static void _strategyRnd_ReceiveObject(StrategyImpl *strategy,
                                        const NumberSet *egressId,
                                        const Message *objectMessage,
-                                       Ticks rtt) {}
+                                       Ticks pitEntryCreation,
+                                       Ticks objReception) {}
 
 static void _strategyRnd_OnTimeout(StrategyImpl *strategy,
                                    const NumberSet *egressId) {}
@@ -193,13 +199,13 @@ static void _strategyRnd_ImplDestroy(StrategyImpl **strategyPtr) {
                     "Parameter must dereference to non-null pointer");
 
   StrategyImpl *impl = *strategyPtr;
-  StrategyRnd *strategy = (StrategyRnd *)impl->context;
 
 #ifndef WITH_POLICY
+  StrategyRnd *strategy = (StrategyRnd *)impl->context;
   numberSet_Release(&(strategy->nexthops));
+  parcMemory_Deallocate((void **)&strategy);
 #endif /* ! WITH_POLICY */
 
-  parcMemory_Deallocate((void **)&strategy);
   parcMemory_Deallocate((void **)&impl);
   *strategyPtr = NULL;
 }
