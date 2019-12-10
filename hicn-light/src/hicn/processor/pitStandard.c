@@ -159,7 +159,6 @@ static PITVerdict _pitStandard_ReceiveInterest(PIT *generic,
                      ") and reverse path, forwarding",
                      (void *)interestMessage, pitEntry_GetExpiryTime(pitEntry));
         }
-
 #ifdef WITH_POLICY
         return PITVerdict_Retransmit;
 #else
@@ -215,12 +214,10 @@ static NumberSet *_pitStandard_SatisfyInterest(PIT *generic,
       // PIT entry is not expired, use it
       FibEntry *fibEntry = pitEntry_GetFibEntry(pitEntry);
       if (fibEntry != NULL) {
-        // this is a rough estimation of the residual RTT
-        Ticks rtt = forwarder_GetTicks(pit->forwarder) -
-                    pitEntry_GetCreationTime(pitEntry);
         fibEntry_ReceiveObjectMessage(fibEntry, pitEntry_GetEgressSet(pitEntry),
                                       objectMessage,
-                                      rtt);  // need to implement RTT
+                                      forwarder_GetTicks(pit->forwarder),
+                                      pitEntry_GetCreationTime(pitEntry));
       }
       const NumberSet *is = pitEntry_GetIngressSet(pitEntry);
       numberSet_AddSet(ingressSet, is);  // with this we do a copy so we can
