@@ -83,17 +83,18 @@ hicn_name_create_from_ip_prefix (const ip_prefix_t * prefix, u32 id,
         name->type = HNT_CONTIGUOUS_V4;
         memcpy (name->buffer, prefix->address.v4.buffer,
                 ip_address_len(prefix->family));
+        name->len = IPV4_ADDR_LEN;
         break;
       case AF_INET6:
         name->type = HNT_CONTIGUOUS_V6;
         memcpy (name->buffer, prefix->address.v6.buffer,
                 ip_address_len(prefix->family));
+        name->len = IPV6_ADDR_LEN;
         break;
       default:
         return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
     }
 
-  name->len = (u8) (prefix->len);
   *(u32 *) (name->buffer + name->len) = id;
 
   return HICN_LIB_ERROR_NONE;

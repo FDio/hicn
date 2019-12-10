@@ -567,6 +567,8 @@ mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn_added, connec
     mapme_reconsiderFibEntry(mapme, fibEntry);
   }
   INFO(mapme, "[MAP-Me] Done");
+
+  fibEntryList_Destroy(&fiblist);
 }
 
 #if 0
