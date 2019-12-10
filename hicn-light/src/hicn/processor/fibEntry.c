@@ -22,7 +22,7 @@
 #include <hicn/core/nameBitvector.h>
 
 #include <hicn/strategies/loadBalancer.h>
-#include <hicn/strategies/loadBalancerWithPD.h>
+#include <hicn/strategies/lowLatency.h>
 #include <hicn/strategies/rnd.h>
 #include <hicn/strategies/rndSegment.h>
 #include <hicn/strategies/strategyImpl.h>
@@ -88,14 +88,9 @@ FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
 
       case SET_STRATEGY_RANDOM:
         fibEntry->fwdStrategy = strategyRnd_Create();
-        break;
 
-      case SET_STRATEGY_RANDOM_PER_DASH_SEGMENT:
-        fibEntry->fwdStrategy = strategyRndSegment_Create();
-        break;
-
-      case SET_STRATEGY_LOADBALANCER_WITH_DELAY:
-        fibEntry->fwdStrategy = strategyLoadBalancerWithPD_Create();
+      case SET_STRATEGY_LOW_LATENCY:
+        fibEntry->fwdStrategy = strategyLowLatency_Create();
         break;
 
       default:
@@ -166,21 +161,17 @@ void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy) {
       fwdStrategyImpl = strategyRnd_Create();
       break;
 
-    case SET_STRATEGY_RANDOM_PER_DASH_SEGMENT:
-      fwdStrategyImpl = strategyRndSegment_Create();
-      break;
-
-    case SET_STRATEGY_LOADBALANCER_WITH_DELAY:
-      fwdStrategyImpl = strategyLoadBalancerWithPD_Create();
+    case SET_STRATEGY_LOW_LATENCY:
+      fwdStrategyImpl = strategyLowLatency_Create();
       break;
 
     default:
-      // LB is the defualt strategy
+      // LB is the default strategy
       fwdStrategyImpl = strategyLoadBalancer_Create();
       // the LB strategy is the default one
       // other strategies can be set using the appropiate function
       break;
-  }
+    }
 
   const NumberSet *nexthops = fibEntry_GetNexthops(fibEntry);
   unsigned size = (unsigned)fibEntry_NexthopCount(fibEntry);
@@ -611,7 +602,9 @@ void fibEntry_ReceiveObjectMessage(FibEntry *fibEntry,
 void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
 #endif /* WITH_POLICY */
                                    const NumberSet *egressId,
-                                   const Message *objectMessage, Ticks rtt) {
+                                   const Message *objectMessage,
+                                   Ticks pitEntryCreation,
+                                   Ticks objReception) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
 
 #ifdef WITH_POLICY
@@ -620,6 +613,7 @@ void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
   /* Update statistic counters : */
 
   size_t msg_size = message_Length(objectMessage);
+  Ticks rtt = objReception - pitEntryCreation;
 
   for (unsigned i = 0; i < numberSet_Length(egressId); i++) {
     unsigned conn_id = numberSet_GetItem(egressId, i);
@@ -664,7 +658,7 @@ void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
 #endif /* WITH_POLICY */
 
   fibEntry->fwdStrategy->receiveObject(fibEntry->fwdStrategy, egressId,
-                                       objectMessage, rtt);
+                                       objectMessage, pitEntryCreation, objReception);
 }
 
 #ifdef WITH_POLICY
