@@ -110,7 +110,9 @@ void fibEntry_ReceiveObjectMessage(FibEntry *fibEntry,
 void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
 #endif /* WITH_POLICY */
                                    const NumberSet *egressId,
-                                   const Message *objectMessage, Ticks rtt);
+                                   const Message *objectMessage,
+                                   Ticks pitEntryCreation,
+                                   Ticks objReception);
 
 #ifdef WITH_POLICY
 policy_t fibEntry_GetPolicy(const FibEntry *fibEntry);
@@ -125,16 +127,10 @@ void fibEntry_OnTimeout(FibEntry *fibEntry, const NumberSet *egressId);
 const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
     FibEntry *fibEntry, const Message *interestMessage, bool is_retransmission);
 
-void fibEntry_ReceiveObjectMessage(FibEntry *fibEntry,
-                                   const NumberSet *egressId,
-                                   const Message *objectMessage, Ticks rtt);
 #else
 void fibEntry_OnTimeout(const FibEntry *fibEntry, const NumberSet *egressId);
 const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
     const FibEntry *fibEntry, const Message *interestMessage);
-void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
-                                   const NumberSet *egressId,
-                                   const Message *objectMessage, Ticks rtt);
 #endif /* WITH_POLICY */
 
 

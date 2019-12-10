@@ -32,7 +32,8 @@
 static void _strategyLoadBalancer_ReceiveObject(StrategyImpl *strategy,
                                                 const NumberSet *egressId,
                                                 const Message *objectMessage,
-                                                Ticks rtt);
+                                                Ticks pitEntryCreation,
+                                                Ticks objReception);
 static void _strategyLoadBalancer_OnTimeout(StrategyImpl *strategy,
                                             const NumberSet *egressId);
 static NumberSet *_strategyLoadBalancer_LookupNexthop(
@@ -161,7 +162,8 @@ static unsigned _select_Nexthop(StrategyLoadBalancer *strategy) {
 static void _strategyLoadBalancer_ReceiveObject(StrategyImpl *strategy,
                                                 const NumberSet *egressId,
                                                 const Message *objectMessage,
-                                                Ticks rtt) {
+                                                Ticks pitEntryCreation,
+                                                Ticks objReception) {
   _strategyLoadBalancer_OnTimeout(strategy, egressId);
 }
 
