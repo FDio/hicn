@@ -14,15 +14,18 @@
  */
 
 /**
- * Forward randomly, selects a path every time the client ask for a new dash
- * segment
+ * Forward on the path with lowest latency
  */
 
-#ifndef rnd_Segment_h
-#define rnd_Segment_h
+#ifndef lowLatency_h
+#define lowLatency_h
 
 #include <hicn/strategies/strategyImpl.h>
+#include <hicn/core/forwarder.h>
 
-StrategyImpl *strategyRndSegment_Create();
+StrategyImpl *strategyLowLatency_Create();
 
-#endif  // rnd_Segment_h
+void strategyLowLatency_SetStrategy(StrategyImpl *strategy,
+                                          const Forwarder * forwarder,
+                                          const FibEntry * fibEntry);
+#endif  // lowLatency_h
