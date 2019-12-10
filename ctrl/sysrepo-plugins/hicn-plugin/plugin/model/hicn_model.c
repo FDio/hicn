@@ -13,6 +13,13 @@
 * limitations under the License.
 */
 
+
+
+/** @file hicn_model.c
+ *  @brief This file contains implementations of the main calls
+ */
+
+
 #define _GNU_SOURCE
 
 #include <stdio.h>
@@ -40,10 +47,7 @@ DEFINE_VAPI_MSG_IDS_HICN_API_JSON
 // Shared local variables between state and RPCs
 
 volatile hicn_state_t  * hicn_state = NULL;
-volatile hicn_strategy_t * hicn_strategy = NULL;
 volatile hicn_strategies_t * hicn_strategies =NULL;
-volatile hicn_route_t * hicn_route = NULL;
-volatile hicn_face_ip_params_t *  hicn_face_ip_params = NULL;
 volatile hicn_faces_t *  hicn_faces = NULL;
 volatile hicn_routes_t *  hicn_routes = NULL;
 struct hicn_faces_s * fcurrent = NULL;
@@ -55,14 +59,8 @@ static int init_buffer(void){
  hicn_state = memalign(MEM_ALIGN, sizeof(hicn_state_t) );
  memset((hicn_state_t *)hicn_state, 0 , sizeof(hicn_state_t) );
 
- hicn_strategy = memalign(MEM_ALIGN, sizeof(hicn_strategy_t) );
- memset((hicn_strategy_t *) hicn_strategy, 0 , sizeof(hicn_strategy_t) );
-
  hicn_strategies = memalign(MEM_ALIGN, sizeof(hicn_strategies_t) );
  memset((hicn_strategies_t *) hicn_strategies, 0 , sizeof(hicn_strategies_t) );
-
- hicn_route = memalign(MEM_ALIGN, sizeof(hicn_route_t) );
- memset((hicn_route_t *) hicn_route, 0 , sizeof(hicn_route_t) );
 
  hicn_faces = memalign(MEM_ALIGN, sizeof(hicn_faces_t) );
  hicn_faces->next=memalign(MEM_ALIGN, sizeof(struct hicn_faces_s));
@@ -75,7 +73,7 @@ static int init_buffer(void){
 
 
  int retval=-1;
- ARG_CHECK7(retval, hicn_state, hicn_strategy, hicn_strategies, hicn_route, fcurrent, hicn_faces, hicn_routes);
+ ARG_CHECK5(retval, hicn_state, hicn_strategies, fcurrent, hicn_faces, hicn_routes);
  hicn_routes->nroute=0;
  hicn_faces->nface=0;
  retval=0;
@@ -661,9 +659,6 @@ static int hicn_state_route_cb(sr_session_ctx_t *session, const char *module_nam
 
  }
 
-/**
-* @brief API to get hicn strategies in vpp.
-*/
 static int hicn_strategies_get_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -680,9 +675,6 @@ return SR_ERR_OK;
 
 }
 
-/**
-* @brief API to add hicn route nhops in vpp.
-*/
 static int hicn_route_nhops_add_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -730,9 +722,6 @@ if(vapi_hicn_api_route_nhops_add(g_vapi_ctx_instance,msg,call_hicn_api_route_nho
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to del hicn route in vpp.
-*/
 static int hicn_route_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -774,9 +763,6 @@ if(vapi_hicn_api_route_del(g_vapi_ctx_instance,msg,call_hicn_api_route_del,NULL)
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to get face ip params in hicn in vpp.
-*/
 static int hicn_face_ip_params_get_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -794,9 +780,6 @@ if (vapi_hicn_api_face_ip_params_get(g_vapi_ctx_instance,msg,call_hicn_api_face_
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to get face ip params in hicn in vpp.
-*/
 static int hicn_punting_add_ip_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -842,9 +825,6 @@ if (vapi_hicn_api_punting_add(g_vapi_ctx_instance, msg, call_hicn_api_punting_ad
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to del hicn route nhops in vpp.
-*/
 static int hicn_route_nhops_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -890,9 +870,6 @@ if (vapi_hicn_api_route_nhop_del(g_vapi_ctx_instance, msg, call_hicn_api_route_n
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to del hicn punting in vpp.
-*/
 static int hicn_punting_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -939,9 +916,7 @@ return SR_ERR_OK;
 
 }
 
-/**
-* @brief API to del hicn face ip in vpp.
-*/
+
 static int hicn_face_ip_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -960,9 +935,7 @@ if(vapi_hicn_api_face_ip_del(g_vapi_ctx_instance,msg, call_hicn_api_face_ip_del,
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to del hicn face ip in vpp.
-*/
+
 static int hicn_face_ip_add_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -1099,9 +1072,7 @@ hicn_api_face_stats_dump_cb(struct vapi_ctx_s *ctx, void *callback_ctx,
    return SR_ERR_OK;
 }
 
-/**
-* @brief Thread to update the state
-*/
+
 static void *state_thread(void *arg) {
 
  // mapping can be retrieved by cpuinfo
@@ -1154,9 +1125,7 @@ static void *state_thread(void *arg) {
  return NULL;
 }
 
-/**
-* @brief helper function for subscribing all hicn APIs.
-*/
+
 int hicn_subscribe_events(sr_session_ctx_t *session,
                          sr_subscription_ctx_t **subscription) {
    int rc = SR_ERR_OK;

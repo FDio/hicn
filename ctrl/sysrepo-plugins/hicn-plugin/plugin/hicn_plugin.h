@@ -13,13 +13,34 @@
  * limitations under the License.
  */
 
+/**
+ * @file hicn_plugin.h
+ * @brief This file contains init and cleanup for the sysrepo.
+ */
+
 #ifndef __HICN_PLUGIN_H__
 #define __HICN_PLUGIN_H__
 
 #include "hicn_vpp_comm.h"
 
-// functions that sysrepo-plugin need
+
+/**
+ * @brief initialize function for sysrepo plugin,
+ *  In this function we connect to vpp from one side
+ *  and subscribe for all hICN events as well as interface events (if any)
+ * @param param1  pointer to the sesssion context
+ * @param param2  pointer to the context
+ * @return in success the function returns SR_ERR_OK otherwise it pass error
+ */
 int sr_plugin_init_cb(sr_session_ctx_t *session, void **private_ctx);
+
+/**
+ * @brief cleanup function for sysrepo,
+ * In this function we connect to vpp from one side
+ * and and unsubscribe for all hICN events as well as interface events (if any)
+ * @param param1 pointer to the sesssion context
+ * @param param2 pointer to the  context
+ */
 void sr_plugin_cleanup_cb(sr_session_ctx_t *session, void *private_ctx);
 
 #endif  //__HICN_PLUGIN_H__
