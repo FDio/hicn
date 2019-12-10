@@ -85,7 +85,6 @@ static const Connection * _lookupConnection(ListenerOps * listener, const Addres
 static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer);
 static void _hicnListener_readcb(int fd, PARCEventType what, void *listener_void);
 static Address *_createAddressFromPacket(uint8_t *msgBuffer);
-static void _handleProbeMessage(ListenerOps * listener, uint8_t *msgBuffer);
 static void _handleWldrNotification(ListenerOps *listener, uint8_t *msgBuffer);
 static void _readFrameToDiscard(HicnListener *hicn, int fd);
 
@@ -182,8 +181,6 @@ static Message *_readMessage(ListenerOps * listener, int fd, uint8_t *msgBuffer)
     }
   } else if (messageHandler_IsWldrNotification(msgBuffer)) {
     _handleWldrNotification(listener, msgBuffer);
-  } else if (messageHandler_IsLoadBalancerProbe(msgBuffer)) {
-    _handleProbeMessage(listener, msgBuffer);
   } else {
     messageHandler_handleHooks(hicn->forwarder, msgBuffer, listener, fd, NULL);
     parcMemory_Deallocate((void **)&msgBuffer);
@@ -639,29 +636,6 @@ static Address *_createAddressFromPacket(uint8_t *msgBuffer) {
   return packetAddr;
 }
 
-static void _handleProbeMessage(ListenerOps * listener, uint8_t *msgBuffer) {
-  HicnListener * hicn = (HicnListener *)listener->context;
-
-  Address *packetAddr = _createAddressFromPacket(msgBuffer);
-  AddressPair * pair = addressPair_Create(packetAddr, /* dummy */ hicn->localAddress);
-
-  if (!packetAddr)
-    goto DROP;
-
-  // we drop all the probes for a connection that does not exists
-  const Connection *conn = _lookupConnection(listener, pair);
-  if (!conn)
-    goto DROP;
-
-  connection_HandleProbe((Connection *)conn, msgBuffer,
-        forwarder_GetTicks(hicn->forwarder));
-
-DROP:
-  addressPair_Release(&pair);
-  addressDestroy(&packetAddr);
-  parcMemory_Deallocate((void **)&msgBuffer);
-}
-
 static void _handleWldrNotification(ListenerOps *listener, uint8_t *msgBuffer) {
   HicnListener * hicn = (HicnListener *)listener->context;
 
@@ -693,8 +667,3 @@ static void _handleWldrNotification(ListenerOps *listener, uint8_t *msgBuffer) {
 
   message_Release(&message);
 }
-
-
-
-
-
