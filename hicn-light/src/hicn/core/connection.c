@@ -38,11 +38,11 @@ struct connection {
 
   unsigned refCount;
 
-  bool probing_active;
-  unsigned probing_interval;
+  //bool probing_active;
+  //unsigned probing_interval;
   unsigned counter;
-  Ticks last_sent;
-  Ticks delay;
+  //Ticks last_sent;
+  //Ticks delay;
 
   bool wldrAutoStart;  // if true, wldr can be set automatically
                        // by default this value is set to true.
@@ -66,13 +66,13 @@ Connection *connection_Create(IoOperations *ops) {
   conn->ops = ops;
   conn->refCount = 1;
   conn->wldr = NULL;
-  conn->probing_active = false;
+  ///conn->probing_active = false;
 
   conn->wldrAutoStart = true;
-  conn->probing_interval = 0;
+  //conn->probing_interval = 0;
   conn->counter = 0;
-  conn->last_sent = 0;
-  conn->delay = INT_MAX;
+  //conn->last_sent = 0;
+  //conn->delay = INT_MAX;
 
   /* By default, a connection will aim at the UP state */
   connection_SetAdminState(conn, CONNECTION_STATE_UP);
@@ -138,18 +138,22 @@ bool connection_SendIOVBuffer(const Connection *conn, struct iovec *msg,
   return ioOperations_SendIOVBuffer(conn->ops, msg, size);
 }
 
-static void _sendProbe(Connection *conn, unsigned probeType, uint8_t *message) {
+#if 0
+static void _sendProbe(Connection *conn, uint8_t *message) {
   parcAssertNotNull(conn, "Parameter conn must be non-null");
 
-  if (probeType == PACKET_TYPE_PROBE_REQUEST) {
-    Ticks now = ioOperations_SendProbe(conn->ops, probeType, message);
+  if (messageHandler_IsInterest(message)) { //this is a probe request
+    printf("probe is an interest\n");
+    Ticks now = ioOperations_SendProbe(conn->ops, message);
     if (now != 0) {
       conn->last_sent = now;
     }
-  } else {
-    ioOperations_SendProbe(conn->ops, probeType, message);
+  }else{ // this is a probe reply
+    printf("probe is an obj\n");
+    ioOperations_SendProbe(conn->ops, message);
   }
 }
+#endif
 
 bool connection_SendBuffer(const Connection *conn, u8 * buffer, size_t length)
 {
@@ -159,15 +163,23 @@ bool connection_SendBuffer(const Connection *conn, u8 * buffer, size_t length)
   return connection_SendIOVBuffer(conn, iov, 1);
 }
 
-void connection_Probe(Connection *conn) {
-  _sendProbe(conn, PACKET_TYPE_PROBE_REQUEST, NULL);
+void connection_Probe(Connection *conn, uint8_t * probe) {
+  //_sendProbe(conn, probe);
+  ioOperations_SendProbe(conn->ops, probe);
 }
 
-void connection_HandleProbe(Connection *conn, uint8_t *probe,
-                            Ticks actualTime) {
+void connection_HandleProbe(Connection *conn, uint8_t *probe){
+                            //Ticks actualTime) {
   parcAssertNotNull(conn, "Parameter conn must be non-null");
   parcAssertNotNull(probe, "Parameter pkt must be non-null");
 
+  if(messageHandler_IsInterest(probe)){
+    messageHandler_CreateProbeReply(probe, HF_INET6_TCP);
+    ioOperations_SendProbe(conn->ops, probe);
+    //_sendProbe(conn, probe);
+  }//else{
+  //}
+#if 0
   uint8_t probeType = messageHandler_GetProbePacketType(probe);
   if (probeType == PACKET_TYPE_PROBE_REQUEST) {
     _sendProbe(conn, PACKET_TYPE_PROBE_REPLY, probe);
@@ -182,9 +194,10 @@ void connection_HandleProbe(Connection *conn, uint8_t *probe,
   } else {
     printf("receivde unkwon probe type\n");
   }
+#endif
 }
 
-uint64_t connection_GetDelay(Connection *conn) { return (uint64_t)conn->delay; }
+//uint64_t connection_GetDelay(Connection *conn) { return (uint64_t)conn->delay; }
 
 IoOperations *connection_GetIoOperations(const Connection *conn) {
   return conn->ops;
