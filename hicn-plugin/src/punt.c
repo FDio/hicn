@@ -67,7 +67,7 @@ ip_version_t udp4_src_ipv6 = {
   .addr_len_bits = IPV6_ADDR_LEN_BITS,
   .protocol_field = &udp4_protocol,
   .udp_sport = &udp4_sport,
-  .ip_version = 0x60,
+  .ip_version = 0x40,
 };
 
 ip_version_t udp4_dst_ipv4 = {
@@ -83,7 +83,7 @@ ip_version_t udp4_dst_ipv6 = {
   .addr_len_bits = IPV6_ADDR_LEN_BITS,
   .protocol_field = &udp4_protocol,
   .udp_dport = &udp4_dport,
-  .ip_version = 0x60,
+  .ip_version = 0x40,
 };
 
 ip_version_t udp6_src_ipv4 = {
@@ -91,7 +91,7 @@ ip_version_t udp6_src_ipv4 = {
   .addr_len_bits = IPV4_ADDR_LEN_BITS,
   .protocol_field = &udp6_protocol,
   .udp_sport = &udp6_sport,
-  .ip_version = 0x40,
+  .ip_version = 0x60,
 };
 
 ip_version_t udp6_src_ipv6 = {
@@ -107,7 +107,7 @@ ip_version_t udp6_dst_ipv4 = {
   .addr_len_bits = IPV4_ADDR_LEN_BITS,
   .protocol_field = &udp6_protocol,
   .udp_dport = &udp6_dport,
-  .ip_version = 0x40,
+  .ip_version = 0x60,
 };
 
 ip_version_t udp6_dst_ipv6 = {
