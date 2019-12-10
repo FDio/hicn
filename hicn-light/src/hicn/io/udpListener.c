@@ -476,11 +476,6 @@ static unsigned _createNewConnection(ListenerOps * listener, int fd,
   return connid;
 }
 
-static void _handleProbeMessage(UdpListener *udp, uint8_t *msgBuffer) {
-  // TODO
-  parcMemory_Deallocate((void **)&msgBuffer);
-}
-
 static void _handleWldrNotification(UdpListener *udp, unsigned connId,
                                     uint8_t *msgBuffer) {
   const Connection *conn = connectionTable_FindById(
@@ -547,15 +542,7 @@ static Message *_readMessage(ListenerOps * listener, int fd,
   } else if (messageHandler_IsWldrNotification(packet)) {
     *processed = true;
     _handleWldrNotification(udp, connid, packet);
-  } else if (messageHandler_IsLoadBalancerProbe(packet)) {
-    *processed = true;
-    _handleProbeMessage(udp, packet);
   } else {
-
-#if 0
-    if (!foundConnection)
-      connid = _createNewConnection(listener, fd, pair);
-#endif
 
     *processed = messageHandler_handleHooks(udp->forwarder, packet, listener, fd, pair);
   }

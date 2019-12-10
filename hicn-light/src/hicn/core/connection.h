@@ -46,10 +46,6 @@ typedef enum {
 #include <hicn/policy.h>
 #endif /* WITH_POLICY */
 
-// packet types for probing
-#define PACKET_TYPE_PROBE_REQUEST 5
-#define PACKET_TYPE_PROBE_REPLY 6
-
 struct connection;
 typedef struct connection Connection;
 
@@ -156,12 +152,9 @@ const void *connection_Class(const Connection *conn);
 bool connection_ReSend(const Connection *conn, Message *message,
                        bool notification);
 
-void connection_Probe(Connection *conn);
+void connection_Probe(Connection *conn, uint8_t *probe);
 
-void connection_HandleProbe(Connection *conn, uint8_t *message,
-                            Ticks actualTime);
-
-uint64_t connection_GetDelay(Connection *conn);
+void connection_HandleProbe(Connection *conn, uint8_t *message);
 
 void connection_AllowWldrAutoStart(Connection *conn, bool allow);
 
