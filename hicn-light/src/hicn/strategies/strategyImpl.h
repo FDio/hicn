@@ -52,7 +52,8 @@ typedef struct strategy_impl StrategyImpl;
 struct strategy_impl {
   void *context;
   void (*receiveObject)(StrategyImpl *strategy, const NumberSet *egressId,
-                        const Message *objectMessage, Ticks rtt);
+                        const Message *objectMessage, Ticks pitEntryCreation,
+                        Ticks objReception);
   void (*onTimeout)(StrategyImpl *strategy, const NumberSet *egressId);
   NumberSet *(*lookupNexthop)(StrategyImpl *strategy,
 #ifdef WITH_POLICY
