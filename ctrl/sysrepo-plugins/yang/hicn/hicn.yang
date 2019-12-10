@@ -14,40 +14,6 @@ typedef float {
     }
 }
 
-
-grouping params {
-
-leaf enable_disable {
-        description "Enable / disable ICN forwarder in VPP.";
-        type boolean;
-        default false;
-    }
-
-leaf pit_max_size {
-        description "PIT maximum size, otherwise -1 to assign default value.";
-        type int32;
-        default -1;
-    }
-
-leaf cs_max_size {
-        description "CS maximum size, otherwise -1 to assign default value.";
-        type int32;
-        default -1;
-    }
-
-leaf cs_reserved_app {
-        description "Portion of CS reserved to application, otherwise -1 to assign default value.";
-        type int32;
-        default -1;
-    }
-
-leaf pit_max_lifetime_sec {
-        description "Default PIT entry lifetime, otherwise -1 to assign default value.";
-        type float;
-        default -1;
-    }
-}
-
 grouping face_ip_add {
 
 leaf lip4 {
@@ -444,13 +410,6 @@ container hicn-state {
 
 /* RPC Definitions */
 
-
-rpc node-params-set {
-    description "Operation to set hicn params in vpp.";
-    input {
-        uses params;
-    }
-}
 
 rpc node-params-get {
     description "Operation to get hicn parameter in vpp.";
