@@ -84,7 +84,7 @@ struct io_ops {
   void (*destroy)(IoOperations **opsPtr);
   const void *(*class)(const IoOperations *ops);
   list_connections_type (*getConnectionType)(const IoOperations *ops);
-  Ticks (*sendProbe)(IoOperations *ops, unsigned probeType, uint8_t *message);
+  void (*sendProbe)(IoOperations *ops, uint8_t *message);
   connection_state_t (*getState)(const IoOperations *ops);
   void (*setState)(IoOperations *ops, connection_state_t state);
   connection_state_t (*getAdminState)(const IoOperations *ops);
@@ -382,8 +382,7 @@ const void *ioOperations_Class(const IoOperations *ops);
  */
 list_connections_type ioOperations_GetConnectionType(const IoOperations *ops);
 
-Ticks ioOperations_SendProbe(IoOperations *ops, unsigned probeType,
-                             uint8_t *message);
+void ioOperations_SendProbe(IoOperations *ops, uint8_t *message);
 
 
 /**
