@@ -23,7 +23,7 @@
 struct fib;
 typedef struct fib FIB;
 
-FIB *fib_Create();
+FIB *fib_Create(Forwarder *forwarder);
 
 void fib_Destroy(FIB **fibPtr);
 
