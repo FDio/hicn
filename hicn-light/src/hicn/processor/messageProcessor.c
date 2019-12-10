@@ -34,9 +34,8 @@
 #include <hicn/content_store/contentStoreLRU.h>
 
 #include <hicn/strategies/loadBalancer.h>
-#include <hicn/strategies/loadBalancerWithPD.h>
+#include <hicn/strategies/lowLatency.h>
 #include <hicn/strategies/rnd.h>
-#include <hicn/strategies/rndSegment.h>
 #include <hicn/strategies/strategyImpl.h>
 
 #include <hicn/io/streamConnection.h>
@@ -48,6 +47,7 @@
 #include <hicn/utils/utils.h>
 
 #include <hicn/utils/address.h>
+#include <hicn/core/messageHandler.h>
 
 #ifdef WITH_POLICY
 #define STATS_INTERVAL 1000 /* ms */
@@ -304,18 +304,13 @@ bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
       control->addressType, &control->address, &control->len);
   strategy_type fwdStrategy =
       configuration_GetForwardingStrategy(config, prefixStr);
-  if (fwdStrategy == LAST_STRATEGY_VALUE) {
-    fwdStrategy = SET_STRATEGY_LOADBALANCER;
-  }
 
   Name *prefix = name_CreateFromAddress(control->addressType, control->address,
                                         control->len);
   FibEntry *entry = fib_Contains(processor->fib, prefix);
-  bool newEntry = false;
   if (entry != NULL) {
     fibEntry_AddNexthop(entry, ifidx);
   } else {
-    newEntry = true;
 #ifdef WITH_POLICY
     entry = fibEntry_Create(prefix, fwdStrategy, processor->forwarder);
 #else
@@ -327,14 +322,6 @@ bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
 
   free(prefixStr);
   name_Release(&prefix);
-
-  /* For policy implementation, we need access to the ConnectionTable in all
-   * Forwarding Strategies, so it is setup during FIB Entry creation */
-  if (newEntry && (fwdStrategy == SET_STRATEGY_LOADBALANCER_WITH_DELAY)) {
-    strategyLoadBalancerWithPD_SetConnectionTable(
-        fibEntry_GetFwdStrategy(entry),
-        forwarder_GetConnectionTable(processor->forwarder));
-  }
 
   return true;
 }
@@ -365,9 +352,6 @@ bool messageProcessor_AddOrUpdatePolicy(MessageProcessor *processor,
   if (!entry) {
     strategy_type fwdStrategy =
         configuration_GetForwardingStrategy(config, prefixStr);
-    if (fwdStrategy == LAST_STRATEGY_VALUE) {
-      fwdStrategy = SET_STRATEGY_LOADBALANCER;
-    }
     entry = fibEntry_Create(prefix, fwdStrategy, processor->forwarder);
     fib_Add(processor->fib, entry);
   }
@@ -405,11 +389,6 @@ void processor_SetStrategy(MessageProcessor *processor, Name *prefix,
   FibEntry *entry = fib_Contains(processor->fib, prefix);
   if (entry != NULL) {
     fibEntry_SetStrategy(entry, strategy);
-    if (strategy == SET_STRATEGY_LOADBALANCER_WITH_DELAY) {
-      strategyLoadBalancerWithPD_SetConnectionTable(
-          fibEntry_GetFwdStrategy(entry),
-          forwarder_GetConnectionTable(processor->forwarder));
-    }
   }
 }
 
@@ -570,6 +549,34 @@ static bool messageProcessor_ForwardViaFib(MessageProcessor *processor,
     return false;
   }
 
+  if(messageHandler_IsAProbe(message_FixedHeader(interestMessage))){
+    bool reply_to_probe = false;
+    ConnectionTable * ct = forwarder_GetConnectionTable(processor->forwarder);
+    const NumberSet * nexthops = fibEntry_GetNexthops(fibEntry);
+    unsigned size = (unsigned) numberSet_Length(nexthops);
+
+    for (unsigned i = 0; i < size; i++) {
+      unsigned nhop = numberSet_GetItem(nexthops, i);
+      Connection *conn =
+          (Connection *)connectionTable_FindById(ct, nhop);
+      if (!conn)
+        continue;
+      bool isLocal = connection_IsLocal(conn);
+      if(isLocal){
+        Connection * replyConn =
+                  (Connection *)connectionTable_FindById(ct,
+                    message_GetIngressConnectionId(interestMessage));
+        connection_HandleProbe(replyConn,
+                  (uint8_t *) message_FixedHeader(interestMessage));
+        reply_to_probe = true;
+        break;
+      }
+    }
+    if(reply_to_probe)
+      return false;
+  }
+
+
   PitEntry *pitEntry = pit_GetPitEntry(processor->pit, interestMessage);
   if (pitEntry == NULL) {
     return false;
@@ -705,6 +712,20 @@ static void messageProcessor_ReceiveContentObject(MessageProcessor *processor,
                  PARCLogLevel_Debug, __func__,
                  "Message %p did not match PIT, no reverse path (count %u)",
                  (void *)message, processor->stats.countDroppedNoReversePath);
+    }
+
+    //if the packet is a probe we need to analyze it
+    if(messageHandler_IsAProbe(message_FixedHeader(message))){
+      FibEntry *fibEntry = fib_MatchMessage(processor->fib, message);
+      if(fibEntry &&
+          fibEntry_GetFwdStrategyType(fibEntry) == SET_STRATEGY_LOW_LATENCY){
+        unsigned connid = message_GetIngressConnectionId(message);
+        NumberSet *outFace = numberSet_Create();
+        numberSet_Add(outFace, connid);
+        fibEntry_ReceiveObjectMessage(fibEntry, outFace, message, 0,
+                                      forwarder_GetTicks(processor->forwarder));
+        numberSet_Release(&(outFace));
+      }
     }
 
     // we store the packets in the content store enven in the case where there
