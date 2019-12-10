@@ -288,6 +288,9 @@ bool configurationFile_Process(ConfigurationFile *configFile) {
           }
           success = false;
         }
+        for(int i = 0; i < parcList_Size(args); i++){
+          free(parcList_GetAtIndex(args, i));
+        }
         parcList_Release(&args);
         parcMemory_Deallocate((void **)&copy);
       }
