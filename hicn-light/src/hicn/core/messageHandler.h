@@ -63,6 +63,8 @@
 
 #define CONNECTION_ID_UNDEFINED -1
 
+#define BFD_PORT 3784
+
 static inline uint8_t messageHandler_GetIPPacketType(const uint8_t *message) {
   return HICN_IP_VERSION(message);
 }
@@ -491,23 +493,6 @@ static inline bool messageHandler_HasWldr(const uint8_t *message) {
   return false;
 }
 
-static inline uint8_t messageHandler_GetProbePacketType(
-    const uint8_t *message) {
-  const uint8_t *icmp_ptr;
-  switch (messageHandler_GetIPPacketType(message)) {
-    case IPv6_TYPE:
-      icmp_ptr = message + IPV6_HDRLEN;
-      break;
-    case IPv4_TYPE:
-      icmp_ptr = message + IPV4_HDRLEN;
-      break;
-    default:
-      return 0;
-  }
-
-  return ((_icmp_header_t *)icmp_ptr)->code;
-}
-
 static inline uint32_t messageHandler_GetPathLabel(const uint8_t *message) {
   if (!messageHandler_IsTCP(message)) return 0;
 
@@ -707,31 +692,77 @@ static inline void messageHandler_SetWldrNotification(uint8_t *notification,
   }
 }
 
-static inline void messageHandler_SetProbePacket(uint8_t *message,
-                                                 uint8_t probeType,
-                                                 struct in6_addr *src,
-                                                 struct in6_addr *dst) {
-  hicn_header_t *h = (hicn_header_t *)message;
-  *h = (hicn_header_t){
-      .v6 = {
-          .ip =
-              {
-                  .version_class_flow =
-                      htonl((IPV6_DEFAULT_VERSION << 28) |
-                            (IPV6_DEFAULT_TRAFFIC_CLASS << 20) |
-                            (IPV6_DEFAULT_FLOW_LABEL & 0xfffff)),
-                  .len = htons(ICMP_HDRLEN),
-                  .nxt = IPPROTO_ICMPV6,
-                  .hlim = 5,  // this should be 1, but ... just to be safe
-              },
-          .icmp =
-              {
-                  .type = ICMP_LB_TYPE,
-                  .code = probeType,
-              },
-      }};
-  messageHandler_SetSource_IPv6(message, src);
-  messageHandler_SetDestination_IPv6(message, dst);
+static inline uint8_t * messageHandler_CreateProbePacket(hicn_format_t format,
+	uint32_t probe_lifetime){
+  size_t header_length;
+  hicn_packet_get_header_length_from_format(format, &header_length);
+
+  uint8_t *pkt = parcMemory_AllocateAndClear(header_length);
+
+  hicn_packet_init_header(format, (hicn_header_t *) pkt);
+
+  hicn_packet_set_dst_port((hicn_header_t *) pkt, BFD_PORT);
+  hicn_interest_set_lifetime ((hicn_header_t *) pkt, probe_lifetime);
+
+  return pkt;
+}
+
+static inline void messageHandler_CreateProbeReply(uint8_t * probe,
+                                                      hicn_format_t format){
+
+  hicn_name_t probe_name;
+  hicn_interest_get_name (format,
+          (const hicn_header_t *) probe, &probe_name);
+  ip_address_t probe_locator;
+  hicn_interest_get_locator (format,
+             (const hicn_header_t *) probe, &probe_locator);
+
+  uint16_t src_prt;
+  uint16_t dst_prt;
+  hicn_packet_get_src_port((const hicn_header_t *) probe, &src_prt);
+  hicn_packet_get_dst_port((const hicn_header_t *) probe, &dst_prt);
+  hicn_packet_set_src_port((hicn_header_t *) probe, dst_prt);
+  hicn_packet_set_dst_port((hicn_header_t *) probe, src_prt);
+
+  hicn_data_set_name (format, (hicn_header_t *) probe, &probe_name);
+  hicn_data_set_locator (format, (hicn_header_t *) probe, &probe_locator);
+  hicn_data_set_expiry_time ((hicn_header_t *) probe, 0);
+}
+
+static inline hicn_name_t * messageHandler_CreateProbeName(const ip_prefix_t *address){
+  hicn_name_t * name = parcMemory_AllocateAndClear(sizeof(hicn_name_t));
+  hicn_name_create_from_ip_prefix(address, 0, name);
+  return name;
+}
+
+static inline void messageHandler_SetProbeName(uint8_t * probe, hicn_format_t format,
+                                               hicn_name_t * name, uint32_t seq){
+  hicn_name_set_seq_number (name, seq);
+  hicn_interest_set_name(format, (hicn_header_t *) probe, name);
+}
+
+static inline bool messageHandler_IsAProbe(const uint8_t *packet){
+  uint16_t src_prt;
+  uint16_t dst_prt;
+  hicn_packet_get_src_port ((const hicn_header_t *) packet, &src_prt);
+  hicn_packet_get_dst_port ((const hicn_header_t *) packet, &dst_prt);
+
+  if(dst_prt == BFD_PORT){
+    //interest probe
+    return true;
+  }
+
+  if(src_prt == BFD_PORT){
+    //data (could be a probe)
+    uint32_t expiry_time;
+    hicn_data_get_expiry_time ((const hicn_header_t *) packet, &expiry_time);
+    if(expiry_time == 0){
+      //this is a probe
+      return true;
+    }
+  }
+
+  return false;
 }
 
 #endif  // Metis_metis_MessageHandler
