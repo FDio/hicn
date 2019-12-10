@@ -28,9 +28,12 @@
 
 static void _strategyRnd_ReceiveObject(StrategyImpl *strategy,
                                        const NumberSet *egressId,
-                                       const Message *objectMessage, Ticks rtt);
+                                       const Message *objectMessage,
+                                       Ticks pitEntryCreation,
+                                       Ticks objReception);
 static void _strategyRnd_OnTimeout(StrategyImpl *strategy,
                                    const NumberSet *egressId);
+
 static NumberSet *_strategyRnd_LookupNexthop(StrategyImpl *strategy,
 #ifdef WITH_POLICY
     NumberSet * nexthops,
@@ -111,7 +114,8 @@ static int _select_Nexthop(StrategyRnd *strategy) {
 static void _strategyRnd_ReceiveObject(StrategyImpl *strategy,
                                        const NumberSet *egressId,
                                        const Message *objectMessage,
-                                       Ticks rtt) {}
+                                       Ticks pitEntryCreation,
+                                       Ticks objReception) {}
 
 static void _strategyRnd_OnTimeout(StrategyImpl *strategy,
                                    const NumberSet *egressId) {}
