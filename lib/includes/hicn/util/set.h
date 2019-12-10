@@ -77,6 +77,8 @@ int NAME ## _add(NAME ## _t * set, const T element);                    \
                                                                         \
 int NAME ## _remove(NAME ## _t * set, const T search, T * element);     \
                                                                         \
+int NAME ## _clear(NAME ## _t * set);                                   \
+                                                                        \
 int NAME ## _get(const NAME ## _t * set, const T search, T * element);  \
                                                                         \
 int NAME ## _get_array(const NAME ## _t * set, T ** element);           \
@@ -98,16 +100,7 @@ NAME ## _initialize(NAME ## _t * set)                                   \
 int                                                                     \
 NAME ## _finalize(NAME ## _t * set)                                     \
 {                                                                       \
-    T * array;                                                          \
-    int n = NAME ## _get_array(set, &array);                            \
-    if (n < 0)                                                          \
-        return -1;                                                      \
-    for (unsigned i = 0; i < n; i++) {                                  \
-        T element = array[i];                                           \
-        NAME ## _remove(set, element, NULL);                            \
-    }                                                                   \
-    free(array);                                                        \
-    return 0;                                                           \
+    return NAME ## _clear(set);                                         \
 }                                                                       \
                                                                         \
 NAME ## _t *                                                            \
@@ -157,6 +150,21 @@ NAME ## _remove(NAME ## _t * set, const T search, T * element)          \
         *element = *found;                                              \
     tdelete(search, &set->root, (cmp_t)CMP);                            \
     set->size--;                                                        \
+    return 0;                                                           \
+}                                                                       \
+                                                                        \
+int                                                                     \
+NAME ## _clear(NAME ## _t * set)                                        \
+{                                                                       \
+    T * array;                                                          \
+    int n = NAME ## _get_array(set, &array);                            \
+    if (n < 0)                                                          \
+        return -1;                                                      \
+    for (unsigned i = 0; i < n; i++) {                                  \
+        T element = array[i];                                           \
+        NAME ## _remove(set, element, NULL);                            \
+    }                                                                   \
+    free(array);                                                        \
     return 0;                                                           \
 }                                                                       \
                                                                         \

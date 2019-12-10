@@ -149,6 +149,12 @@ ERR_MALLOC:
     return NULL;
 }
 
+unsigned
+facelet_get_id(facelet_t * facelet)
+{
+    return facelet->id;
+}
+
 void
 facelet_set_id(facelet_t * facelet, unsigned id)
 {
@@ -378,18 +384,7 @@ void
 facelet_free(facelet_t * facelet)
 {
     /* Free up routes */
-    hicn_route_t ** route_array;
-    int n = route_set_get_array(facelet->routes, &route_array);
-    if (n < 0) {
-        ERROR("[facelet_free] Error getting route set associated to facelet");
-    } else {
-        for (unsigned i = 0; i < n; i++) {
-            hicn_route_t * route = route_array[i];
-            route_set_remove(facelet->routes, route, NULL);
-            hicn_route_free(route);
-        }
-    }
-    free(route_array);
+    route_set_clear(facelet->routes);
     route_set_free(facelet->routes);
     free(facelet);
 }
@@ -1009,6 +1004,12 @@ int
 facelet_remove_route(facelet_t * facelet, hicn_route_t * route, hicn_route_t ** route_removed)
 {
     return route_set_remove(facelet->routes, route, route_removed);
+}
+
+int
+facelet_clear_routes(facelet_t * facelet)
+{
+    return route_set_clear(facelet->routes);
 }
 
 int

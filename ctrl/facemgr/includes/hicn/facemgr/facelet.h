@@ -226,6 +226,7 @@ facelet_t * facelet_create();
 
 facelet_t * facelet_create_from_netdevice(netdevice_t * netdevice);
 
+unsigned facelet_get_id(facelet_t * facelet);
 void facelet_set_id(facelet_t * facelet, unsigned id);
 
 int facelet_validate_face(const facelet_t * facelet);
@@ -288,6 +289,7 @@ void facelet_set_event(facelet_t * facelet, facelet_event_t event);
 
 int facelet_add_route(facelet_t * facelet, hicn_route_t * route);
 int facelet_remove_route(facelet_t * facelet, hicn_route_t * route, hicn_route_t ** route_removed);
+int facelet_clear_routes(facelet_t * facelet);
 int facelet_get_route_array(const facelet_t * facelet, hicn_route_t *** route_array);
 
 int facelet_snprintf(char * buf, size_t size, const facelet_t * facelet);
