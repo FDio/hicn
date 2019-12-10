@@ -1057,6 +1057,7 @@ struct iovec *configuration_SetForwardingStrategy(Configuration *config,
   struct iovec *response =
       utils_CreateAck(header, control, sizeof(set_strategy_command));
 
+  free((char *) prefix);
   return response;
 }
 
