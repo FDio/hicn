@@ -25,7 +25,7 @@
 #include <vnet/ip/ip4.h>	//ip4_add_del_ip_address
 #include <vnet/ip/ip6.h>	//ip6_add_del_ip_address
 #include <vnet/fib/fib_types.h>	//FIB_PROTOCOL_IP4/6, FIB_NODE_INDEX_INVALID
-#include <vnet/fib/fib_entry.h>	//FIB_SOURCE_PLUGIN_HI
+#include <vnet/fib/fib_entry.h>	//FIB_SOURCE_PRIORITY_HI
 #include <vnet/fib/fib_table.h>
 #include <vppinfra/format.h>
 #include <vnet/interface.h>	//appif_flags
@@ -89,19 +89,19 @@ get_two_ip4_addresses (ip4_address_t * appif_addr, ip4_address_t * nh_addr)
       fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 0, appif_addr->as_u8);
       fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 						     HICN_FIB_TABLE,
-						     FIB_SOURCE_PLUGIN_HI);
+						     FIB_SOURCE_PRIORITY_HI);
       fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
-      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
       if (fib_entry_index != FIB_NODE_INDEX_INVALID)
 	{
 	  fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 0, nh_addr->as_u8);
 	  fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
-							 FIB_SOURCE_PLUGIN_HI);
+							 FIB_SOURCE_PRIORITY_HI);
 	  fib_entry_index =
 	    fib_table_lookup_exact_match (fib_index, &fib_pfx);
 	  fib_table_unlock (fib_index, fib_pfx.fp_proto,
-			    FIB_SOURCE_PLUGIN_HI);
+			    FIB_SOURCE_PRIORITY_HI);
 	}
       if (fib_entry_index != FIB_NODE_INDEX_INVALID)
 	{
@@ -141,19 +141,19 @@ get_two_ip6_addresses (ip6_address_t * appif_addr, ip6_address_t * nh_addr)
       fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 1, appif_addr->as_u8);
       fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 						     HICN_FIB_TABLE,
-						     FIB_SOURCE_PLUGIN_HI);
+						     FIB_SOURCE_PRIORITY_HI);
       fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
-      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
       if (fib_entry_index != FIB_NODE_INDEX_INVALID)
 	{
 	  fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 0, nh_addr->as_u8);
 	  fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
-							 FIB_SOURCE_PLUGIN_HI);
+							 FIB_SOURCE_PRIORITY_HI);
 	  fib_entry_index =
 	    fib_table_lookup_exact_match (fib_index, &fib_pfx);
 	  fib_table_unlock (fib_index, fib_pfx.fp_proto,
-			    FIB_SOURCE_PLUGIN_HI);
+			    FIB_SOURCE_PRIORITY_HI);
 	}
       if (fib_entry_index != FIB_NODE_INDEX_INVALID)
 	{
@@ -184,9 +184,9 @@ get_ip4_address ()
       fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 0, prefix->as_u8);
       fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 						     HICN_FIB_TABLE,
-						     FIB_SOURCE_PLUGIN_HI);
+						     FIB_SOURCE_PRIORITY_HI);
       fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
-      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
       increment_v4_address (prefix, 1);
     }
   while (fib_entry_index != FIB_NODE_INDEX_INVALID);
@@ -211,9 +211,9 @@ get_ip6_address ()
       fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 1, prefix->as_u8);
       fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 						     HICN_FIB_TABLE,
-						     FIB_SOURCE_PLUGIN_HI);
+						     FIB_SOURCE_PRIORITY_HI);
       fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
-      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
       increment_v6_address (prefix, 1);
     }
   while (fib_entry_index != FIB_NODE_INDEX_INVALID);

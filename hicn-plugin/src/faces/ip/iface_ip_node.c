@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
-#include <hicn/hicn.h>
 #include "face_ip.h"
 #include "dpo_ip.h"
 #include "../../strategy_dpo_manager.h"
 #include "../face.h"
+#include "../../hicn.h"
 #include "../../infra.h"
 #include "../../cache_policies/cs_lru.h"
 
