@@ -24,45 +24,19 @@
 #include <vnet/ip/ip6_packet.h>
 #include <vnet/ip/format.h>
 #include <vnet/ip/ip_types_api.h>
+#include <vnet/ip/ip_format_fns.h>
 
 #define __plugin_msg_base hicn_test_main.msg_id_base
 #include <vlibapi/vat_helper_macros.h>
 
+#include <vpp/api/vpe.api_types.h>
+
 #include <hicn/hicn_api.h>
 #include "error.h"
 
-// uword unformat_sw_if_index(unformat_input_t * input, va_list * args);
 
 /* Declare message IDs */
 #include "hicn_msg_enum.h"
-
-/* define message structures */
-#define vl_typedefs
-#include <vpp/api/vpe_all_api_h.h>
-#include <hicn/hicn_all_api_h.h>
-#undef vl_typedefs
-
-/* Get CRC codes of the messages defined outside of this plugin */
-#define vl_msg_name_crc_list
-#include <vpp/api/vpe_all_api_h.h>
-#undef vl_msg_name_crc_list
-
-/* declare message handlers for each api */
-
-#define vl_endianfun		/* define message structures */
-#include "hicn_all_api_h.h"
-#undef vl_endianfun
-
-/* instantiate all the print functions we know about */
-#define vl_print(handle, ...)
-#define vl_printfun
-#include "hicn_all_api_h.h"
-#undef vl_printfun
-
-/* Get the API version number. */
-#define vl_api_version(n, v) static u32 api_version=(v);
-#include "hicn_all_api_h.h"
-#undef vl_api_version
 
 /* SUPPORTING FUNCTIONS NOT LOADED BY VPP_API_TEST */
 uword
@@ -253,9 +227,8 @@ _(hicn_api_face_del_reply)                               \
 _(hicn_api_route_nhops_add_reply)                        \
 _(hicn_api_route_del_reply)                              \
 _(hicn_api_route_nhop_del_reply)                         \
-_(hicn_api_punting_add_reply)                            \
-_(hicn_api_face_cons_del_reply)                          \
-_(hicn_api_face_prod_del_reply)
+_(hicn_api_punting_add_reply)				 \
+_(hicn_api_punting_del_reply)
 
 #define _(n)                                            \
     static void vl_api_##n##_t_handler                  \
@@ -604,6 +577,34 @@ api_hicn_api_face_udp_add (vat_main_t * vam)
 
   /* Wait for a reply... */
   W (ret);
+
+  return ret;
+}
+
+static int
+api_hicn_api_face_add (vat_main_t * vam)
+{
+  unformat_input_t *input = vam->input;
+  int ret = HICN_ERROR_NONE;
+  u32 type = ~0;
+
+  /* Parse args required to build the message */
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat
+	  (input, "type %d", &type));
+      else
+	{
+	  break;
+	}
+    }
+
+  vam->input = input;
+
+  if (type == IP_FACE)
+    ret = api_hicn_api_face_ip_add(vam);
+  else if (type == UDP_FACE)
+    ret = api_hicn_api_face_udp_add(vam);
 
   return ret;
 }
@@ -1553,6 +1554,38 @@ api_hicn_api_udp_punting_add (vat_main_t * vam)
   return ret;
 }
 
+static int
+api_hicn_api_punting_add (vat_main_t * vam)
+{
+  unformat_input_t *input = vam->input;
+  u32 type = ~0;
+  int ret = 0;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "type %d", &type))
+	{;
+	}
+      else
+	{
+	  break;
+	}
+    }
+
+  vam->input = input;
+  if (type == IP_PUNT)
+    ret = api_hicn_api_ip_punting_add (vam);
+  else if (type == UDP_PUNT)
+    ret = api_hicn_api_udp_punting_add (vam);
+
+  return ret;
+}
+
+static int
+api_hicn_api_punting_del (vat_main_t * vam)
+{
+  return 0;
+}
 
 static int
 api_hicn_api_register_prod_app (vat_main_t * vam)
@@ -1753,90 +1786,7 @@ static void
 	   format_ip46_address, IP46_TYPE_ANY, &src_addr6);
 }
 
-/*
- * List of messages that the api test plugin sends, and that the data plane
- * plugin processes
- */
-#define foreach_vpe_api_msg                                             \
-_(hicn_api_node_params_set, "PIT size <sz> CS size <sz>"                \
-  "PIT minlimit <f> PIT maxlimit <f> [disable] ")                       \
-_(hicn_api_node_params_get, "")                                         \
-_(hicn_api_node_stats_get, "")                                          \
-_(hicn_api_face_ip_del, "face <faceID>")                                \
-_(hicn_api_face_ip_add, "local <address> remote <address> intfc <swif>")\
-_(hicn_api_face_udp_add, "local <address> port <port> remote <address> port <port> intfc <swif>") \
-_(hicn_api_face_del, "face <faceID>")                                   \
-_(hicn_api_faces_dump, "")                                              \
-_(hicn_api_face_get, "face <faceID>")                                   \
-_(hicn_api_face_stats_dump, "")                                         \
-_(hicn_api_route_nhops_add, "add prefix <IP4/IP6>/<subnet> face <faceID> weight <weight>") \
-_(hicn_api_face_ip_params_get, "face <faceID>")                         \
-_(hicn_api_route_get, "prefix <IP4/IP6>/<subnet>")                      \
-_(hicn_api_routes_dump, "")                                             \
-_(hicn_api_route_del, "prefix <IP4/IP6>/<subnet>")                      \
-_(hicn_api_route_nhop_del, "del prefix <IP4/IP6>/<subnet> face <faceID>") \
-_(hicn_api_strategies_get, "")                                          \
-_(hicn_api_strategy_get, "strategy <id>")                               \
-_(hicn_api_ip_punting_add, "prefix <IP4/IP6>/<subnet> intfc <swif>")    \
-_(hicn_api_udp_punting_add, "prefix <IP4/IP6>/<subnet> intfc <swif> sport <port> dport <port> ip4/ip6")  \
-_(hicn_api_register_prod_app, "prefix <IP4/IP6>/<subnet> id <appif_id>") \
-_(hicn_api_face_prod_del, "face <faceID>")                              \
-_(hicn_api_register_cons_app, "")                                       \
-_(hicn_api_face_cons_del, "face <faceID>")
-
-void
-hicn_vat_api_hookup (vat_main_t * vam)
-{
-  hicn_test_main_t *sm = &hicn_test_main;
-  /* Hook up handlers for replies from the data plane plug-in */
-#define _(N, n)                                                  \
-  vl_msg_api_set_handlers((VL_API_##N + sm->msg_id_base),        \
-                          #n,                                    \
-                          vl_api_##n##_t_handler,                \
-                          vl_noop_handler,                       \
-                          vl_api_##n##_t_endian,                 \
-                          vl_api_##n##_t_print,                  \
-                          sizeof(vl_api_##n##_t), 1);
-  foreach_vpe_api_reply_msg;
-#undef _
-
-  /* API messages we can send */
-#define _(n, h) hash_set_mem (vam->function_by_name, #n, api_##n);
-  foreach_vpe_api_msg;
-#undef _
-
-  /* Help strings */
-#define _(n, h) hash_set_mem (vam->help_by_name, #n, h);
-  foreach_vpe_api_msg;
-#undef _
-}
-
-clib_error_t *
-vat_plugin_register (vat_main_t * vam)
-{
-  hicn_test_main_t *sm = &hicn_test_main;
-  u8 *name;
-
-  sm->vat_main = vam;
-
-  /* Ask the vpp engine for the first assigned message-id */
-  name = format (0, "hicn_%08x%c", api_version, 0);
-  sm->msg_id_base = vl_client_get_first_plugin_msg_id ((char *) name);
-
-  /* Get the control ping ID */
-#define _(id,n,crc)                                                     \
-  const char *id ## _CRC __attribute__ ((unused)) = #n "_" #crc;
-  foreach_vl_msg_name_crc_vpe;
-#undef _
-  sm->ping_id = vl_msg_api_get_msg_index ((u8 *) (VL_API_CONTROL_PING_CRC));
-
-  if (sm->msg_id_base != (u16) ~ 0)
-    hicn_vat_api_hookup (vam);
-
-  vec_free (name);
-
-  return 0;
-}
+#include <hicn/hicn.api_test.c>
 
 /*
  * fd.io coding-style-patch-verification: ON

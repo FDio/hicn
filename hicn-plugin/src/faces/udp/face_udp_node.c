@@ -557,7 +557,7 @@ hicn_face_udp4_encap (vlib_main_t * vm,
 
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
-							 FIB_SOURCE_PLUGIN_HI);
+							 FIB_SOURCE_PRIORITY_HI);
 
       fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
 
@@ -625,7 +625,7 @@ hicn_face_udp6_encap (vlib_main_t * vm,
 
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
-							 FIB_SOURCE_PLUGIN_HI);
+							 FIB_SOURCE_PRIORITY_HI);
 
       fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
 
