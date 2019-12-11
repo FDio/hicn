@@ -46,7 +46,6 @@ else()
 endif()
 
 set(SUFFIX "")
-message("~~~~~~~~~~~~~~~~~~~~~~> ${LIBTRANSPORT_LIBRARIES}")
 if (${LIBTRANSPORT_LIBRARIES} MATCHES ".*-memif.*")
   set(SUFFIX "-memif")
   set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
