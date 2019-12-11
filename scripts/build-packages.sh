@@ -18,14 +18,18 @@ SCRIPT_PATH=$( cd "$(dirname "${BASH_SOURCE}")" ; pwd -P )
 APT_PATH=`which apt-get` || true
 apt_get=${APT_PATH:-"/usr/local/bin/apt-get"}
 
-PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio/release/script.deb.sh"
-PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
+PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio/2001/script.deb.sh"
+PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/2001/script.rpm.sh"
 
 VPP_GIT_REPO="https://git.fd.io/vpp"
-VPP_BRANCH="stable/1908"
+VPP_BRANCH="master"
+#VPP_BRANCH="stable/2001"
 
-VPP_VERSION_DEB="19.08.1-release"
-VPP_VERSION_RPM="19.08.1-release.x86_64"
+#VPP_VERSION_DEB="19.08.1-release"
+#VPP_VERSION_RPM="19.08.1-release.x86_64"
+
+VPP_VERSION_DEB="20.01-rc2~1-g20398a368~b6"
+VPP_VERSION_RPM="20.01-rc2~1-g20398a368~b6.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
