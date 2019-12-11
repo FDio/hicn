@@ -113,8 +113,6 @@ setup() {
         echo ${DEPS_CENTOS} | xargs sudo yum install -y --nogpgcheck
         sudo yum install devtoolset-7 pcre-devel
 
-        c++ --version
-
         CXX_COMPILER="/opt/rh/devtoolset-7/root/usr/bin/c++"
         CC_COMPILER="/opt/rh/devtoolset-7/root/usr/bin/cc"
 
@@ -123,9 +121,6 @@ setup() {
 
         export CC=${CC_COMPILER} CXX=${CXX_COMPILER}
     fi
-
-    # do nothing but check compiler version
-    c++ --version
 }
 
 # Parameters:
