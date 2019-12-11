@@ -14,8 +14,8 @@
  */
 
 #include <vnet/ip/ip6_packet.h>
-#include <hicn/hicn.h>
 
+#include "hicn.h"
 #include "mapme.h"
 #include "mapme_ack.h"
 #include "mapme_eventmgr.h"

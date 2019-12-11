@@ -27,6 +27,7 @@
 #include "faces/app/address_mgr.h"
 #include "face_db.h"
 #include "faces/udp/face_udp.h"
+#include "route.h"
 
 hicn_main_t hicn_main;
 /* Module vars */
@@ -257,6 +258,9 @@ hicn_init (vlib_main_t * vm)
   address_mgr_init ();
 
   hicn_face_module_init (vm);
+
+  /* Init the route module*/
+  hicn_route_init();
 
   return error;
 }

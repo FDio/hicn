@@ -30,7 +30,6 @@
 #include "../hicn_vpp_comm.h"
 
 
-
 DEFINE_VAPI_MSG_IDS_INTERFACE_API_JSON;
 
 typedef struct hicn_interface_
@@ -38,8 +37,8 @@ typedef struct hicn_interface_
   u32 sw_if_index;
   char interface_name[VPP_INTFC_NAME_LEN];
   u8 l2_address[VPP_MAC_ADDRESS_LEN];
-  u32 l2_address_length;
   u64 link_speed;
+  u32 flags;
   u16 link_mtu;
   u8 admin_up_down;
   u8 link_up_down;
@@ -293,8 +292,7 @@ ietf_sw_interface_dump_cb (struct vapi_ctx_s *ctx, void *callback_ctx,
 
       thisIntfc->sw_if_index = reply->sw_if_index;
       memcpy(thisIntfc->interface_name, reply->interface_name, VPP_INTFC_NAME_LEN);
-      thisIntfc->l2_address_length = reply->l2_address_length;
-      memcpy(thisIntfc->l2_address, reply->l2_address, reply->l2_address_length );
+      memcpy(thisIntfc->l2_address, reply->l2_address, VPP_MAC_ADDRESS_LEN );
      //thisIntfc->link_speed = reply->link_speed;
 #define ONE_MEGABIT (uint64_t)1000000
       switch (reply->link_speed << VNET_HW_INTERFACE_FLAG_SPEED_SHIFT)
@@ -305,8 +303,7 @@ ietf_sw_interface_dump_cb (struct vapi_ctx_s *ctx, void *callback_ctx,
         }
 
         thisIntfc->link_mtu = reply->link_mtu;
-        thisIntfc->admin_up_down = reply->admin_up_down;
-        thisIntfc->link_up_down = reply->link_up_down;
+        thisIntfc->flags = reply->flags;
 
       dctx->num_ifs += 1;
     }
@@ -352,10 +349,10 @@ i32 ietf_interface_add_del_addr( u32 sw_if_index, u8 is_add, u8 is_ipv6, u8 del_
   vapi_msg_sw_interface_add_del_address *msg = vapi_alloc_sw_interface_add_del_address(g_vapi_ctx_instance);
   msg->payload.sw_if_index = sw_if_index;
   msg->payload.is_add = is_add;
-  msg->payload.is_ipv6 = is_ipv6;
+  msg->payload.prefix.address.af = is_ipv6 ? ADDRESS_IP6 : ADDRESS_IP4;
   msg->payload.del_all = del_all;
-  msg->payload.address_length = address_length;
-  memcpy(msg->payload.address, address, VPP_IP6_ADDRESS_LEN);
+  msg->payload.prefix.len = address_length;
+  memcpy(msg->payload.prefix.address.un.ip6, address, VPP_IP6_ADDRESS_LEN);
 
   if(vapi_sw_interface_add_del_address(g_vapi_ctx_instance,msg,call_sw_interface_add_del_address,NULL)!=VAPI_OK){
     SRP_LOG_DBGMSG("Operation failed");
@@ -370,7 +367,7 @@ i32 ietf_setInterfaceFlags(u32 sw_if_index, u8 admin_up_down)
   i32 ret = -1;
   vapi_msg_sw_interface_set_flags *msg = vapi_alloc_sw_interface_set_flags(g_vapi_ctx_instance);
   msg->payload.sw_if_index = sw_if_index;
-  msg->payload.admin_up_down = admin_up_down;
+  msg->payload.flags = admin_up_down? IF_STATUS_API_FLAG_ADMIN_UP : 0;
 
  if(vapi_sw_interface_set_flags(g_vapi_ctx_instance,msg,call_sw_interface_set_flags,NULL)!=VAPI_OK){
     SRP_LOG_DBGMSG("Operation failed");
