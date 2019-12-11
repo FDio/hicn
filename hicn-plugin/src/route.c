@@ -27,6 +27,10 @@
 #include "error.h"
 #include "strategies/dpo_mw.h"
 
+#define FIB_SOURCE_HICN 0x04	//Right after the FIB_SOURCE_INTERFACE priority
+
+fib_source_t hicn_fib_src;
+
 int
 hicn_route_get_dpo (const fib_prefix_t * prefix,
 		    const dpo_id_t ** hicn_dpo, u32 * fib_index)
@@ -44,7 +48,7 @@ hicn_route_get_dpo (const fib_prefix_t * prefix,
    */
   *fib_index = fib_table_find_or_create_and_lock (prefix->fp_proto,
 						  HICN_FIB_TABLE,
-						  FIB_SOURCE_PLUGIN_HI);
+						  hicn_fib_src);
   fib_entry_index = fib_table_lookup_exact_match (*fib_index, prefix);
 
   if (fib_entry_index != FIB_NODE_INDEX_INVALID)
@@ -81,7 +85,7 @@ hicn_route_get_dpo (const fib_prefix_t * prefix,
    * Remove the lock from the table. We keep one lock per route, not
    * per dpo
    */
-  fib_table_unlock (*fib_index, prefix->fp_proto, FIB_SOURCE_PLUGIN_HI);
+  fib_table_unlock (*fib_index, prefix->fp_proto, hicn_fib_src);
 
   return ret;
 }
@@ -220,12 +224,12 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
       fib_node_index_t new_fib_node_index =
 	fib_table_entry_special_dpo_add (fib_index,
 					 prefix,
-					 FIB_SOURCE_PLUGIN_HI,
+					 hicn_fib_src,
 					 FIB_ENTRY_FLAG_EXCLUSIVE,
 					 &dpo);
 
       /* We added a route, therefore add one lock to the table */
-      fib_table_lock (fib_index, prefix->fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_lock (fib_index, prefix->fp_proto, hicn_fib_src);
 
       dpo_unlock (&dpo);
       ret =
@@ -259,13 +263,12 @@ hicn_route_del (fib_prefix_t * prefix)
 
   if (ret == HICN_ERROR_NONE)
     {
-      fib_table_entry_special_remove (HICN_FIB_TABLE, prefix,
-				      FIB_SOURCE_PLUGIN_HI);
+      fib_table_entry_special_remove (HICN_FIB_TABLE, prefix, hicn_fib_src);
 
       /*
        * Remove the lock from the table. We keep one lock per route
        */
-      fib_table_unlock (fib_index, prefix->fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_unlock (fib_index, prefix->fp_proto, hicn_fib_src);
     }
   //Remember to remove the lock from the table when removing the entry
   return ret;
@@ -289,12 +292,13 @@ hicn_route_del_nhop (fib_prefix_t * prefix, hicn_face_id_t face_id)
       vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
       dpo_vft = hicn_dpo_get_vft (vft_id);
       ret = dpo_vft->hicn_dpo_del_nh (face_id, hicn_dpo_id->dpoi_index,
-                                       prefix);
+				      prefix);
 
-      hicn_dpo_ctx_t * dpo_ctx = dpo_vft->hicn_dpo_get_ctx(hicn_dpo_id->dpoi_index);
+      hicn_dpo_ctx_t *dpo_ctx =
+	dpo_vft->hicn_dpo_get_ctx (hicn_dpo_id->dpoi_index);
 
       if (ret == HICN_ERROR_NONE && !dpo_ctx->entry_count)
-        ret = hicn_route_del(prefix);
+	ret = hicn_route_del (prefix);
     }
   //Remember to remove the lock from the table when removing the entry
   return ret;
@@ -349,7 +353,7 @@ hicn_route_set_strategy (fib_prefix_t * prefix, u8 strategy_id)
       fib_node_index_t new_fib_node_index =
 	fib_table_entry_special_dpo_update (fib_index,
 					    prefix,
-					    FIB_SOURCE_PLUGIN_HI,
+					    hicn_fib_src,
 					    FIB_ENTRY_FLAG_EXCLUSIVE,
 					    &new_dpo_id);
 
@@ -362,6 +366,13 @@ hicn_route_set_strategy (fib_prefix_t * prefix, u8 strategy_id)
   //Remember to remove the lock from the table when removing the entry
   return ret;
 
+}
+
+void
+hicn_route_init ()
+{
+  hicn_fib_src = fib_source_allocate ("hicn",
+				      FIB_SOURCE_HICN, FIB_SOURCE_BH_API);
 }
 
 /*

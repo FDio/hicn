@@ -172,7 +172,7 @@ hicn_face_ip_del (hicn_face_id_t face_id)
  * @brief Helper for handling midchain adjacencies
  */
 void face_midchain_fixup_t (vlib_main_t * vm,
-                            struct ip_adjacency_t_ * adj,
+                            const struct ip_adjacency_t_ * adj,
                             vlib_buffer_t * b0,
                             const void *data) {
   vnet_buffer (b0)->sw_if_index[VLIB_TX] = 0;
@@ -213,7 +213,7 @@ hicn_face_ip_find_adj (const ip46_address_t * remote_addr,
     {
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
                                                          HICN_FIB_TABLE,
-                                                         FIB_SOURCE_PLUGIN_HI);
+                                                         FIB_SOURCE_PRIORITY_HI);
 
       fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
 
