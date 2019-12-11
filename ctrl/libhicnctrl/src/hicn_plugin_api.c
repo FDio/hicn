@@ -39,7 +39,7 @@
 #include <hicn/util/map.h>
 #include <hicn/error.h>
 #include <vnet/ip/ip6_packet.h>
-#include <vnet/ip/ip_types_api.h>
+#include <vnet/ip/ip46_address.h>
 
 #define APP_NAME "hicn_plugin"
 #define MAX_OUTSTANDING_REQUESTS 4

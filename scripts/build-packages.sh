@@ -22,10 +22,10 @@ PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio
 PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
 
 VPP_GIT_REPO="https://git.fd.io/vpp"
-VPP_BRANCH="stable/1908"
+VPP_BRANCH="stable/2001"
 
-VPP_VERSION_DEB="19.08.1-release"
-VPP_VERSION_RPM="19.08.1-release.x86_64"
+VPP_VERSION_DEB="20.01-release"
+VPP_VERSION_RPM="20.01-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
@@ -40,6 +40,22 @@ DEPS_UBUNTU="libparc-dev                        \
              libvppinfra=${VPP_VERSION_DEB}     \
              libvppinfra-dev=${VPP_VERSION_DEB} \
              vpp-plugin-core=${VPP_VERSION_DEB} \
+             libyang                            \
+             sysrepo                            \
+             python3-ply"
+
+
+DEPS_UBUNTU_NOVERSION="libparc-dev              \
+             libmemif-dev                       \
+             libmemif                           \
+             libasio-dev                        \
+             libconfig-dev                      \
+             libcurl4-openssl-dev               \
+             vpp                                \
+             vpp-dev                            \
+             libvppinfra                        \
+             libvppinfra-dev                    \
+             vpp-plugin-core                    \
              libyang                            \
              sysrepo                            \
              python3-ply"
@@ -102,7 +118,7 @@ setup_fdio_repo() {
 
     if [ "${DISTRIB_ID}" == "ubuntu" ]; then
     rm -r /etc/apt/sources.list.d/*
-        curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
+    curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
     elif [ "${DISTRIB_ID}" == "centos" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM} | sudo bash
         curl ${LATEST_EPEL_REPO} > epel-release-latest-7.noarch.rpm
@@ -140,7 +156,7 @@ setup() {
 
     # Install dependencies
     if [ ${DISTRIB_ID} == "ubuntu" ]; then
-        echo ${BUILD_TOOLS_UBUNTU} ${DEPS_UBUNTU} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
+        echo ${BUILD_TOOLS_UBUNTU} ${DEPS_UBUNTU_NOVERSION} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
     elif [ ${DISTRIB_ID} == "centos" ]; then
         # echo ${BUILD_TOOLS_GROUP_CENTOS} | xargs sudo yum groupinstall -y --nogpgcheck
         echo ${DEPS_CENTOS} | xargs sudo yum install -y --nogpgcheck

@@ -52,6 +52,9 @@ int hicn_route_del_nhop (fib_prefix_t * prefix, u32 face_id);
 int
 hicn_route_set_strategy (fib_prefix_t * prefix, u32 strategy_id);
 
+/* Init route internal strustures */
+void
+hicn_route_init();
 #endif /* //__HICN_ROUTE__ */
 
 /*
