@@ -32,12 +32,10 @@
 #include <vnet/ip/format.h>
 #include <vnet/ip/ip4_packet.h>
 #include <vnet/ip/ip6_packet.h>
-#include <vnet/ip/ip_types_api.h>
 #include <vnet/fib/fib_types.h>
 
 #include <vpp_plugins/hicn/error.h>
 #include <vapi/hicn.api.vapi.h>
-//#include <vpp_plugins/hicn/hicn_api.h>
 
 /////////////////////////////////////////////////////
 const char *HICN_ERROR_STRING[] = {
@@ -51,16 +49,6 @@ const char *HICN_ERROR_STRING[] = {
 u8 *
 format_vl_api_address_union (u8 * s, va_list * args)
 {
-  // const vl_api_address_union_t *addr =
-  //   va_arg (*args, vl_api_address_union_t *);
-  // vl_api_address_family_t af = va_arg (*args, vl_api_address_family_t);
-
-  // if (ADDRESS_IP6 == af)
-  //   s = format (s, "%U", format_ip6_address, addr->ip6);
-  // else
-  //   s = format (s, "%U", format_ip4_address, addr->ip4);
-
-  // return s;
   return NULL;
 }
 
@@ -96,7 +84,7 @@ int hicn_vapi_register_prod_app(
   
   vapi_msg_hicn_api_register_prod_app * msg = vapi_alloc_hicn_api_register_prod_app(ctx);
 
-  if(ip46_address_is_ip4(&input_params->prefix->address)) {
+  if(ip46_address_is_ip4((ip46_address_t *)&input_params->prefix->address)) {
     memcpy(&msg->payload.prefix.address.un.ip4, &input_params->prefix->address, sizeof(ip4_address_t));
     msg->payload.prefix.address.af = ADDRESS_IP4;
   } else {

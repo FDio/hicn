@@ -90,12 +90,12 @@ match_ip6_name (u32x4 * name, fib_prefix_t * prefix)
   } xor_sum __attribute__ ((aligned (sizeof (u32x4))));
 
 #ifdef CLIB_HAVE_VEC128
-  if (U32X4_ALIGNED (name))
+  //if (U32X4_ALIGNED (name))
     {				//SSE can't handle unaligned data
       xor_sum.as_u32x4 = *((u32x4 *) name) &
 	UNION_CAST (prefix->fp_addr.ip6.as_u64[0], u32x4);
     }
-  else
+  //else
 #endif /* CLIB_HAVE_VEC128 */
     {
       xor_sum.as_u64[0] = ((u64 *) name)[0] & prefix->fp_addr.ip6.as_u64[0];

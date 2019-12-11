@@ -181,22 +181,22 @@ void face_midchain_fixup_t (vlib_main_t * vm,
 /**
  * @brief Build a rewrite string for the face.
  */
-static u8*
-face_build_rewrite_i (void)
-{
-  /*
-   * passing the adj code a NULL rewrite means 'i don't have one cos
-   * t'other end is unresolved'. That's not the case here. For the mpls
-   * tunnel there are just no bytes of encap to apply in the adj. We'll impose
-   * the label stack once we choose a path. So return a zero length rewrite.
-   */
-  u8 *rewrite = NULL;
+// static u8*
+// face_build_rewrite_i (void)
+// {
+//   /*
+//    * passing the adj code a NULL rewrite means 'i don't have one cos
+//    * t'other end is unresolved'. That's not the case here. For the mpls
+//    * tunnel there are just no bytes of encap to apply in the adj. We'll impose
+//    * the label stack once we choose a path. So return a zero length rewrite.
+//    */
+//   u8 *rewrite = NULL;
 
-  vec_validate(rewrite, 0);
-  vec_reset_length(rewrite);
+//   vec_validate(rewrite, 0);
+//   vec_reset_length(rewrite);
 
-  return (rewrite);
-}
+//   return (rewrite);
+// }
 
 always_inline int
 hicn_face_ip_find_adj (const ip46_address_t * remote_addr,
@@ -213,7 +213,7 @@ hicn_face_ip_find_adj (const ip46_address_t * remote_addr,
     {
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
                                                          HICN_FIB_TABLE,
-                                                         FIB_SOURCE_PLUGIN_HI);
+                                                         FIB_SOURCE_PRIORITY_HI);
 
       fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
 
@@ -234,7 +234,7 @@ hicn_face_ip_find_adj (const ip46_address_t * remote_addr,
         }
       else
         {
-          adj_nbr_midchain_update_rewrite(*adj, &face_midchain_fixup_t, NULL, ADJ_FLAG_NONE, face_build_rewrite_i());
+          //adj_nbr_midchain_update_rewrite(*adj, &face_midchain_fixup_t, NULL, ADJ_FLAG_NONE, face_build_rewrite_i());
           adj_midchain_delegate_stack(*adj, fib_index, &fib_pfx);
         }
     }

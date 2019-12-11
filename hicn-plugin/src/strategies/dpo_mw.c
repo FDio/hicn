@@ -260,7 +260,7 @@ hicn_strategy_mw_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
 
   if (hicn_strategy_mw_ctx == NULL)
     return HICN_ERROR_STRATEGY_NOT_FOUND;
-
+ 
   for (int i = 0; i < hicn_strategy_mw_ctx->default_ctx.entry_count; i++)
     {
       if (hicn_strategy_mw_ctx->default_ctx.next_hops[i].dpoi_index ==

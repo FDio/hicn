@@ -64,6 +64,7 @@
 
 #define DUMMY_PORT 1234
 
+//#ifndef __vpp__
 typedef union {
     struct {
         u32 pad[3];
@@ -92,18 +93,44 @@ typedef union {
 #endif
 } ip_address_t;
 
+typedef struct {
+  int family;
+  ip_address_t address;
+  u8 len;
+} ip_prefix_t;
+
+int ip_address_get_family (const char * ip_address);
+int ip_address_len (int family);
+const u8 * ip_address_get_buffer(const ip_address_t * ip_address, int family);
+int ip_address_ntop (const ip_address_t * ip_address, char *dst,
+        const size_t len, int family);
+int ip_address_pton (const char *ip_address_str, ip_address_t * ip_address);
+int ip_address_snprintf(char * s, size_t size, const ip_address_t * ip_address,
+        int family);
+int ip_address_to_sockaddr(const ip_address_t * ip_address, struct sockaddr *sa,
+        int family);
+int ip_address_cmp(const ip_address_t * ip1, const ip_address_t * ip2, int family);
+int ip_address_empty(const ip_address_t * ip);
+
+int ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix);
+int ip_prefix_ntop_short (const ip_prefix_t * ip_prefix, char *dst, size_t size);
+int ip_prefix_ntop (const ip_prefix_t * ip_prefix, char *dst, size_t size);
+int ip_prefix_len (const ip_prefix_t * prefix);
+bool ip_prefix_empty (const ip_prefix_t * prefix);
+int ip_prefix_to_sockaddr(const ip_prefix_t * prefix, struct sockaddr *sa);
+int ip_prefix_cmp(const ip_prefix_t * prefix1, const ip_prefix_t * prefix2);
+
+/* #else */
+/* #include <vnet/ip/ip_types.h> */
+
+/* #endif */
+
 #define MAXSZ_IP4_ADDRESS_ INET_ADDRSTRLEN - 1
 #define MAXSZ_IP6_ADDRESS_ INET6_ADDRSTRLEN - 1
 #define MAXSZ_IP_ADDRESS_ MAXSZ_IP6_ADDRESS_
 #define MAXSZ_IP4_ADDRESS MAXSZ_IP4_ADDRESS_ + 1
 #define MAXSZ_IP6_ADDRESS MAXSZ_IP6_ADDRESS_ + 1
 #define MAXSZ_IP_ADDRESS MAXSZ_IP_ADDRESS_ + 1
-
-typedef struct {
-  int family;
-  ip_address_t address;
-  u8 len;
-} ip_prefix_t;
 
 #define MAXSZ_PREFIX_ MAXSZ_IP_ADDRESS_ + 1 + 3
 #define MAXSZ_PREFIX MAXSZ_PREFIX_ + 1
@@ -127,28 +154,9 @@ extern const ip_address_t IP_ADDRESS_EMPTY;
 
 /* IP address */
 
-int ip_address_get_family (const char * ip_address);
-int ip_address_len (int family);
-const u8 * ip_address_get_buffer(const ip_address_t * ip_address, int family);
-int ip_address_ntop (const ip_address_t * ip_address, char *dst,
-        const size_t len, int family);
-int ip_address_pton (const char *ip_address_str, ip_address_t * ip_address);
-int ip_address_snprintf(char * s, size_t size, const ip_address_t * ip_address,
-        int family);
-int ip_address_to_sockaddr(const ip_address_t * ip_address, struct sockaddr *sa,
-        int family);
-int ip_address_cmp(const ip_address_t * ip1, const ip_address_t * ip2, int family);
-int ip_address_empty(const ip_address_t * ip);
+
 
 /* Prefix */
-
-int ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix);
-int ip_prefix_ntop_short (const ip_prefix_t * ip_prefix, char *dst, size_t size);
-int ip_prefix_ntop (const ip_prefix_t * ip_prefix, char *dst, size_t size);
-int ip_prefix_len (const ip_prefix_t * prefix);
-bool ip_prefix_empty (const ip_prefix_t * prefix);
-int ip_prefix_to_sockaddr(const ip_prefix_t * prefix, struct sockaddr *sa);
-int ip_prefix_cmp(const ip_prefix_t * prefix1, const ip_prefix_t * prefix2);
 
 /* URL */
 
