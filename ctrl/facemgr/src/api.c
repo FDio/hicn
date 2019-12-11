@@ -97,6 +97,7 @@ extern interface_ops_t updown_ops;
 #endif
 extern interface_ops_t hicn_light_ops;
 
+int facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet);
 
 int
 facemgr_overlay_snprintf(char * s, size_t size, const facemgr_overlay_t * overlay)
@@ -560,7 +561,8 @@ facelet_cache_lookup(const facelet_set_t * facelet_cache, facelet_t * facelet,
         ERROR("[facelet_cache_lookup] Error during cache match");
         return -1;
     }
-    *cached_facelets = malloc(n * sizeof(facelet_t*));
+    if (cached_facelets)
+        *cached_facelets = malloc(n * sizeof(facelet_t*));
 
     int num_match = 0;
     for (unsigned i = 0; i < n; i++) {
@@ -572,7 +574,9 @@ facelet_cache_lookup(const facelet_set_t * facelet_cache, facelet_t * facelet,
         if (!facelet_match(facelet_array[i], facelet)) {
             continue;
         }
-        (*cached_facelets)[num_match++] = facelet_array[i];
+        if (cached_facelets)
+            (*cached_facelets)[num_match] = facelet_array[i];
+        num_match++;
     }
     free(facelet_array);
     return num_match;
@@ -617,6 +621,13 @@ facemgr_facelet_satisfy_rules(facemgr_t * facemgr, facelet_t * facelet)
         return -2;
     }
 #endif /* WITH_ANDROID_UTILITY */
+
+    /* Default ignore list */
+    if ((netdevice_type == NETDEVICE_TYPE_LOOPBACK) || (netdevice_type == NETDEVICE_TYPE_UNDEFINED)) {
+        DEBUG("Ignored interface '%s/%s'...", netdevice.name,
+                netdevice_type_str[netdevice_type]);
+        return -3;
+    }
 
     /* Ignore */
     bool ignore;
@@ -912,6 +923,7 @@ facemgr_complement_facelet(facemgr_t * facemgr, facelet_t * facelet)
 {
     int rc;
 
+    DEBUG("[facemgr_complement_facelet]");
     if (!facelet_has_key(facelet))
         return -2;
 
@@ -944,7 +956,7 @@ facemgr_complement_facelet(facemgr_t * facemgr, facelet_t * facelet)
         return rc;
 #endif /* __linux__ */
 
-    DEBUG("Complement manual");
+    DEBUG("[facemgr_complement_facelet] Complement manual");
 
     rc = facemgr_complement_facelet_manual(facemgr, facelet);
     if (rc != -2)
@@ -1011,11 +1023,12 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
             switch(rc) {
                 case -3:
                     /* Does not satisfy rules */
+                    DEBUG("[facemgr_process_facelet] Does not satisfy rules");
                     facelet_set_status(facelet, FACELET_STATUS_IGNORED);
                     return 0;
 
                 case -2:
-                    /* Not enough information: AU in fact */
+                    DEBUG("[facemgr_process_facelet] Complementing facelet is required");
                     if (facemgr_complement_facelet(facemgr, facelet) < 0) {
                         ERROR("[facemgr_process_facelet] Error while attempting to complement face for fields required by face creation");
                         goto ERR;
@@ -1088,7 +1101,6 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
                 goto ERR;
             }
 
-            /* Facelets created from static get deleted */
 #if 0
             if (facelet_get_id(facelet) > 0) {
                 if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
@@ -1102,12 +1114,15 @@ facemgr_process_facelet(facemgr_t * facemgr, facelet_t * facelet)
                 DEBUG("[facemgr_process_facelet] Cleaning cached data");
                 facelet_unset_local_addr(facelet);
                 facelet_unset_local_port(facelet);
-                facelet_unset_remote_addr(facelet);
-                facelet_unset_remote_port(facelet);
+                if (facelet_get_id(facelet) == 0) {
+                    facelet_unset_remote_addr(facelet);
+                    facelet_unset_remote_port(facelet);
+                    facelet_clear_routes(facelet);
+                }
+
                 facelet_unset_admin_state(facelet);
                 facelet_unset_state(facelet);
                 facelet_unset_bj_done(facelet);
-                facelet_clear_routes(facelet);
 #ifdef WITH_ANDROID_UTILITY
                 facelet_unset_au_done(facelet);
 #endif /* WITH_ANDROID_UTILITY */
@@ -1329,7 +1344,10 @@ facemgr_consider_static_facelet(facemgr_t * facemgr, facelet_t * facelet)
     if (facelet_found)
         return 0;
 
-    facelet_set_id(static_facelet, ++facemgr->cur_static_id);
+    facemgr->cur_static_id++;
+
+    facelet_set_id(static_facelet, facemgr->cur_static_id);
+    facelet_set_id(facelet, facemgr->cur_static_id);
 
     if (facelet_array_add(facemgr->static_facelets, static_facelet) < 0) {
         ERROR("[facemgr_consider_static_facelet] Could not add facelet to static array");
@@ -1344,6 +1362,78 @@ facemgr_consider_static_facelet(facemgr_t * facemgr, facelet_t * facelet)
     if (rc < 0)
         ERROR("[facemgr_consider_static_facelet] Error during facelet string output");
     DEBUG("[facemgr_consider_static_facelet] Successfully added facelet to static array %s", facelet_s);
+
+#if 1
+    /* Force application of the static face on all existing interfaces */
+    facelet_t ** facelet_array;
+    int n = facelet_set_get_array(facemgr->facelet_cache, &facelet_array);
+    if (n >= 0) {
+        for (unsigned i = 0; i < n; i++) {
+            facelet_t * cached_facelet = facelet_array[i];
+
+            netdevice_type_t netdevice_type;
+            if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0) {
+                ERROR("[facemgr_consider_static_facelet] Error retrieving netdevice type from cached facelet");
+                continue;
+            }
+            if ((netdevice_type == NETDEVICE_TYPE_LOOPBACK) || (netdevice_type == NETDEVICE_TYPE_UNDEFINED))
+                continue;
+
+            facelet_t * new_facelet = facelet_dup(cached_facelet);
+            facelet_unset_remote_addr(new_facelet);
+            facelet_unset_remote_port(new_facelet);
+            facelet_unset_admin_state(new_facelet);
+            facelet_unset_state(new_facelet);
+            facelet_unset_bj_done(new_facelet);
+            facelet_clear_routes(new_facelet);
+#ifdef WITH_ANDROID_UTILITY
+            facelet_unset_au_done(new_facelet);
+#endif /* WITH_ANDROID_UTILITY */
+
+            /* We try to apply static_facelet over facelet */
+            if (!facelet_match(new_facelet, static_facelet)) {
+                facelet_free(new_facelet);
+                continue;
+            }
+
+            if (facelet_merge(new_facelet, static_facelet) < 0) {
+                ERROR("[facemgr_consider_static_facelet] Error merging facelets");
+                facelet_free(new_facelet);
+                continue;
+            }
+
+            /*
+             * We need to set the id before checking for existence as tuple used
+             * is (id, netdevice, family)
+             */
+            facelet_set_id(new_facelet, facemgr->cur_static_id);
+
+            facelet_found = NULL;
+            if (facelet_set_get(facemgr->facelet_cache, new_facelet, &facelet_found) < 0) {
+                ERROR("[facemgr_consider_static_facelet] Error checking whether new static facelet already exists or not");
+                continue;
+            }
+
+
+            /* Skip addition if facelet exists */
+            if (facelet_found) {
+                facelet_free(new_facelet);
+                continue;
+            }
+
+            facelet_set_attr_clean(new_facelet);
+            facelet_set_status(facelet, FACELET_STATUS_UNDEFINED);
+
+            if (facemgr_on_event(facemgr, new_facelet) < 0) {
+                ERROR("[facemgr_process_facelet_create_no_family] Error creating static facelet for existing face");
+                continue;
+            }
+
+            INFO("Successfully created static facelet for existing face");
+        }
+        free(facelet_array);
+    }
+#endif
 
     return 1;
 }
@@ -1368,7 +1458,18 @@ facemgr_process_facelet_get(facemgr_t * facemgr, facelet_t * facelet)
         return -1;
     if (!IS_VALID_NETDEVICE(netdevice))
         return -2;
+
     facelet_set_status(facelet, FACELET_STATUS_CLEAN);
+
+    /* Skip if face exists */
+    int n = facelet_cache_lookup(facemgr->facelet_cache, facelet, NULL);
+    if (n < 0) {
+        ERROR("[facemgr_process_facelet_get] Error during cache lookup");
+        return -1;
+    }
+    assert (n <= 1);
+    if (n > 0)
+        return 0;
 
     /* Process untagged faces */
     netdevice_type_t netdevice_type;
@@ -1405,35 +1506,30 @@ facemgr_process_facelet_get(facemgr_t * facemgr, facelet_t * facelet)
                     return -2;
             }
         }
-    }
 
-    int n = facemgr_consider_static_facelet(facemgr, facelet);
-    if (n < 0) {
-        ERROR("[facemgr_process_facelet_get] Could not add facelet to static array");
-        return -1;
-    }
-    if (n == 1) {
-        /*
-         * As a static facelet, it receives a new id not to be confused in the
-         * cache with default facelets
-         */
-        facelet_set_id(facelet, ++facemgr->cur_static_id);
-    }
+        if ((netdevice_type == NETDEVICE_TYPE_UNDEFINED) || (netdevice_type == NETDEVICE_TYPE_LOOPBACK))
+            return 0;
 
-    char facelet_s[MAXSZ_FACELET];
-    facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet);
-    if (facelet_set_add(facemgr->facelet_cache, facelet) < 0) {
-        ERROR("[facemgr_process_facelet_get] Error adding received facelet to cache");
-        return -1;
-    }
-
-    /* Proceed to the update is the facelet status is not clean */
-    if (facelet_get_status(facelet) != FACELET_STATUS_CLEAN) {
         if (facemgr_process_facelet(facemgr, facelet) < 0) {
             ERROR("[facemgr_process_facelet_get] Error processing facelet");
             return -1;
         }
     }
+
+    if ((netdevice_type == NETDEVICE_TYPE_UNDEFINED) || (netdevice_type == NETDEVICE_TYPE_LOOPBACK))
+        return 0;
+
+    if (facelet_set_add(facemgr->facelet_cache, facelet) < 0) {
+        ERROR("[facemgr_process_facelet_get] Error adding received facelet to cache");
+        return -1;
+    }
+
+    n = facemgr_consider_static_facelet(facemgr, facelet);
+    if (n < 0) {
+        ERROR("[facemgr_process_facelet_get] Could not add facelet to static array");
+        return -1;
+    }
+
 
     return 0;
 }
@@ -1516,12 +1612,14 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
                 DEBUG("[facemgr_process_facelet] Cleaning cached data");
                 facelet_unset_local_addr(facelet);
                 facelet_unset_local_port(facelet);
-                facelet_unset_remote_addr(facelet);
-                facelet_unset_remote_port(facelet);
+                if (facelet_get_id(facelet) == 0) {
+                    facelet_unset_remote_addr(facelet);
+                    facelet_unset_remote_port(facelet);
+                    facelet_clear_routes(facelet);
+                }
                 facelet_unset_admin_state(facelet);
                 facelet_unset_state(facelet);
                 facelet_unset_bj_done(facelet);
-                facelet_clear_routes(facelet);
 #ifdef WITH_ANDROID_UTILITY
                 facelet_unset_au_done(facelet);
 #endif /* WITH_ANDROID_UTILITY */
@@ -1554,8 +1652,6 @@ facemgr_process_facelet_delete(facemgr_t * facemgr, facelet_t * facelet)
 
     return 0;
 }
-
-int facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet);
 
 int
 facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facelet)
@@ -1624,7 +1720,6 @@ facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facele
                 continue;
             }
             facelet_set_id(facelet_new, facelet_get_id(static_facelet));
-            /* The id must be different than 0 */
             facelet_set_attr_clean(facelet_new);
             facelet_set_status(facelet, FACELET_STATUS_UNDEFINED);
 
@@ -1667,6 +1762,17 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
         }
         facelet_set_netdevice_type(facelet_in, facemgr_get_netdevice_type(facemgr, netdevice.name));
     }
+
+#if 0
+    netdevice_type_t netdevice_type;
+    if (facelet_get_netdevice_type(facelet_in, &netdevice_type) < 0) {
+        return 0;
+    }
+
+    if ((netdevice_type == NETDEVICE_TYPE_UNDEFINED) ||
+            (netdevice_type == NETDEVICE_TYPE_LOOPBACK))
+        return 0;
+#endif
 
     char facelet_s[MAXSZ_FACELET];
     facelet_snprintf(facelet_s, MAXSZ_FACELET, facelet_in);
@@ -1864,12 +1970,6 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                     ERROR("[facemgr_on_event] Error processing facelet DELETE event");
                     continue;
                 }
-                /*
-                if (facelet_set_remove(facemgr->facelet_cache, facelet, NULL) < 0) {
-                    ERROR("[facemgr_process_facelet] Could not remove down facelet from cache");
-                    goto ERR;
-                }
-                */
                 continue;
 
             case FACELET_EVENT_UNDEFINED:
