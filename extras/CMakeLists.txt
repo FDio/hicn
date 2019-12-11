@@ -21,8 +21,8 @@ list(APPEND CMAKE_MODULE_PATH
 
 set (DESTDIR ${CMAKE_BINARY_DIR}/extras-root)
 
-add_subdirectory(router-plugin)
-add_subdirectory(libmemif)
+# add_subdirectory(router-plugin)
+# add_subdirectory(libmemif)
 add_subdirectory(libyang)
 add_subdirectory(sysrepo)
 
