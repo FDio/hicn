@@ -19,7 +19,6 @@
 #include <vnet/dpo/dpo.h>
 #include <vnet/fib/fib_table.h>
 
-#include "hicn.h"
 #include "params.h"
 #include "faces/face.h"
 

@@ -44,7 +44,7 @@ hicn_route_get_dpo (const fib_prefix_t * prefix,
    */
   *fib_index = fib_table_find_or_create_and_lock (prefix->fp_proto,
 						  HICN_FIB_TABLE,
-						  FIB_SOURCE_PLUGIN_HI);
+						  FIB_SOURCE_PRIORITY_HI);
   fib_entry_index = fib_table_lookup_exact_match (*fib_index, prefix);
 
   if (fib_entry_index != FIB_NODE_INDEX_INVALID)
@@ -81,7 +81,7 @@ hicn_route_get_dpo (const fib_prefix_t * prefix,
    * Remove the lock from the table. We keep one lock per route, not
    * per dpo
    */
-  fib_table_unlock (*fib_index, prefix->fp_proto, FIB_SOURCE_PLUGIN_HI);
+  fib_table_unlock (*fib_index, prefix->fp_proto, FIB_SOURCE_PRIORITY_HI);
 
   return ret;
 }
@@ -220,12 +220,12 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
       fib_node_index_t new_fib_node_index =
 	fib_table_entry_special_dpo_add (fib_index,
 					 prefix,
-					 FIB_SOURCE_PLUGIN_HI,
+					 FIB_SOURCE_PRIORITY_HI,
 					 FIB_ENTRY_FLAG_EXCLUSIVE,
 					 &dpo);
 
       /* We added a route, therefore add one lock to the table */
-      fib_table_lock (fib_index, prefix->fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_lock (fib_index, prefix->fp_proto, FIB_SOURCE_PRIORITY_HI);
 
       dpo_unlock (&dpo);
       ret =
@@ -260,12 +260,12 @@ hicn_route_del (fib_prefix_t * prefix)
   if (ret == HICN_ERROR_NONE)
     {
       fib_table_entry_special_remove (HICN_FIB_TABLE, prefix,
-				      FIB_SOURCE_PLUGIN_HI);
+				      FIB_SOURCE_PRIORITY_HI);
 
       /*
        * Remove the lock from the table. We keep one lock per route
        */
-      fib_table_unlock (fib_index, prefix->fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_unlock (fib_index, prefix->fp_proto, FIB_SOURCE_PRIORITY_HI);
     }
   //Remember to remove the lock from the table when removing the entry
   return ret;
@@ -349,7 +349,7 @@ hicn_route_set_strategy (fib_prefix_t * prefix, u8 strategy_id)
       fib_node_index_t new_fib_node_index =
 	fib_table_entry_special_dpo_update (fib_index,
 					    prefix,
-					    FIB_SOURCE_PLUGIN_HI,
+					    FIB_SOURCE_PRIORITY_HI,
 					    FIB_ENTRY_FLAG_EXCLUSIVE,
 					    &new_dpo_id);
 

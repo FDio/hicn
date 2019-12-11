@@ -18,7 +18,7 @@
 
 #include <vnet/dpo/load_balance.h>
 #include <vnet/buffer.h>
-#include <hicn/hicn.h>
+//#include <hicn/hicn.h>
 #include <hicn/mapme.h>
 
 #include "hicn.h"
