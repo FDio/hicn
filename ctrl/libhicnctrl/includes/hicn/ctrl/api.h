@@ -387,6 +387,7 @@ int hc_sock_reset(hc_sock_t *s);
 #else
   #define INTERFACE_LEN IFNAMSIZ
 #endif
+
 #define MAXSZ_HC_NAME_ SYMBOLIC_NAME_LEN
 #define MAXSZ_HC_NAME MAXSZ_HC_NAME_ + NULLTERM
 
