@@ -37,7 +37,7 @@ set(CMAKE_MACOSX_RPATH ON)
 set(LIBHICNCTRL hicnctrl)
 
 if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-  set(LIBHICNCTRL ${LIBHICNCTRL}-memif PARENT_SCOPE)
+  set(LIBHICNCTRL ${LIBHICNCTRL}-memif)
   set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
   list(APPEND HICN_LIBRARIES ${HICNPLUGIN_LIBRARIES})
 endif()

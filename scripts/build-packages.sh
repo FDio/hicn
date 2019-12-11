@@ -40,6 +40,8 @@ DEPS_UBUNTU="libparc-dev                        \
              libvppinfra=${VPP_VERSION_DEB}     \
              libvppinfra-dev=${VPP_VERSION_DEB} \
              vpp-plugin-core=${VPP_VERSION_DEB} \
+             libyang                            \
+             sysrepo                            \
              python3-ply"
 
 DEPS_CMAKE_UBUNTU="curl"
@@ -174,12 +176,14 @@ build_package() {
     cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ${SCRIPT_PATH}/..
     make -j8 package
 
-    rm -rf libtransport ctrl/libctrl
+    rm -rf libtransport ctrl/libhicnctrl
 
     cmake -DCMAKE_INSTALL_PREFIX=/usr   \
           -DBUILD_HICNPLUGIN=ON         \
           -DBUILD_LIBTRANSPORT=ON       \
           -DBUILD_APPS=ON               \
+          -DBUILD_HICNLIGHT=OFF         \
+          -DBUILD_SYSREPOPLUGIN=ON      \
           ${SCRIPT_PATH}/..
 
     make -j8 package
