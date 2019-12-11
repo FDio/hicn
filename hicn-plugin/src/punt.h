@@ -18,7 +18,8 @@
 
 #include <vppinfra/error.h>
 #include <vnet/fib/fib_types.h>
-#include <hicn/hicn.h>
+#include "hicn.h"
+#include <vnet/classify/vnet_classify.h>
 
 #define HICN_CLASSIFY_TABLE_MEMORY_SIZE (2*1024*1024)	// 2MB allocated for the classification table
 #define HICN_PUNTING_BUFFER_SIZE_32 (32)

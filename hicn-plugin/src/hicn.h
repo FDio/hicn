@@ -16,7 +16,19 @@
 #ifndef __HICN_H__
 #define __HICN_H__
 
+#define ip_address_t hicn_ip_address_t
+#define ip_address_cmp hicn_ip_address_cmp
+#define ip_prefix_t hicn_ip_prefix_t
+#define ip_prefix_cmp hicn_ip_prefix_cmp
+#undef ip_prefix_len
+#define ip_prefix_len hicn_ip_prefix_len
 #include <hicn/hicn.h>
+#undef ip_address_t
+#undef ip_address_cmp
+#undef ip_prefix_t
+#undef ip_prefix_cmp
+#undef ip_prefix_len
+#define ip_prefix_len(_a) (_a)->len
 
 #include <netinet/in.h>
 #include <vnet/ip/ip.h>
