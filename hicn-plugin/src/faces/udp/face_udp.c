@@ -147,7 +147,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
 
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
-							 FIB_SOURCE_PLUGIN_HI);
+							 FIB_SOURCE_PRIORITY_HI);
       fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
 
       ip_adj = fib_entry_get_adj (fib_entry_index);
@@ -201,7 +201,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
 
       *pfaceid = hicn_dpoi_get_index (face);
       dpo_proto = DPO_PROTO_IP4;
-      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
     }
   else if (!ip46_address_is_ip4 (local_addr)
 	   && !ip46_address_is_ip4 (remote_addr))
@@ -213,7 +213,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
 
       u32 fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
 							 HICN_FIB_TABLE,
-							 FIB_SOURCE_PLUGIN_HI);
+							 FIB_SOURCE_PRIORITY_HI);
       fib_entry_index = fib_table_lookup (fib_index, &fib_pfx);
 
       ip_adj = fib_entry_get_adj (fib_entry_index);
@@ -258,7 +258,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
 
       *pfaceid = hicn_dpoi_get_index (face);
       dpo_proto = DPO_PROTO_IP6;
-      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PLUGIN_HI);
+      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
     }
   else
     {

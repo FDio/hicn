@@ -38,7 +38,7 @@ endif()
 include (Packaging)
 
 # Dependencies
-
+set(__vpp__ 1)
 find_package(Vpp REQUIRED)
 
 include_directories(${VPP_INCLUDE_DIR})
@@ -84,7 +84,7 @@ set(LIBHICN_HEADER_FILES_UTIL
 
 set(HICN_PLUGIN_SOURCE_FILES
     src/hicn.c
-    src/hicn_api.c
+    #src/hicn_api.c
     src/cli.c
     src/hashtb.c
     src/mgmt.c
@@ -233,15 +233,15 @@ execute_process(
         curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_cpp_gen.py?h=stable/1908 -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api ]; then
-        curl https://git.fd.io/vpp/plain/src/vnet/ip/ip_types.api?h=stable/1908 -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api;
+        curl https://git.fd.io/vpp/plain/src/vnet/ip/ip_types.api?h=master -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api;
     fi;
     chmod +x ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py"
 )
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
-    COMMAND ${VPP_HOME}/bin/vppapigen ARGS --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/src/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h
-    COMMAND ${VPP_HOME}/bin/vppapigen ARGS JSON --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/src/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
+    COMMAND ${VPP_HOME}/bin/vppapigen ARGS --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/src/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/
+    COMMAND ${VPP_HOME}/bin/vppapigen ARGS JSON --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/src/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/
 )
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.h ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.hpp
     COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ARGS ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json

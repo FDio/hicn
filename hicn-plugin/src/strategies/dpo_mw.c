@@ -270,7 +270,7 @@ hicn_strategy_mw_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
       if (0 == hicn_strategy_mw_ctx->default_ctx.entry_count)
 	{
 	  fib_table_entry_special_remove (HICN_FIB_TABLE, fib_pfx,
-					  FIB_SOURCE_PLUGIN_HI);
+					  FIB_SOURCE_PRIORITY_HI);
 	}
     }
   else
