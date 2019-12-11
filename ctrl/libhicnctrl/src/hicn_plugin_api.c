@@ -1337,8 +1337,14 @@ int hc_face_create(hc_sock_t *s, hc_face_t *face) {
       .parse = (HC_PARSE)parse_face_create,
   };
 
-  return hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, NULL,
-                            false);
+  hc_data_t *data;
+  
+  int ret =  hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, &data,
+				false);
+  if (ret == 0)
+    face->id = ((hc_face_t *)data->buffer)->id;
+
+  return ret;
 }
 
 /* FACE DELETE */

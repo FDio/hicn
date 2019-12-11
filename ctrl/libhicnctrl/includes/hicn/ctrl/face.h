@@ -40,6 +40,11 @@
 
 #include <net/if.h> // IFNAMSIZ
 
+#ifdef HICN_VPP_PLUGIN
+  #undef IFNAMSIZ
+  #define IFNAMSIZ 64
+#endif
+
 #define foreach_netdevice_type  \
     _(UNDEFINED)                \
     _(LOOPBACK)                 \

@@ -382,11 +382,7 @@ int hc_sock_reset(hc_sock_t *s);
 #define NULLTERM 1
 #endif
 
-#ifdef HICN_VPP_PLUGIN
-  #define INTERFACE_LEN 64
-#else
-  #define INTERFACE_LEN IFNAMSIZ
-#endif
+#define INTERFACE_LEN IFNAMSIZ
 #define MAXSZ_HC_NAME_ SYMBOLIC_NAME_LEN
 #define MAXSZ_HC_NAME MAXSZ_HC_NAME_ + NULLTERM
 
