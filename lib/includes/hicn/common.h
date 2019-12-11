@@ -143,6 +143,7 @@ struct iovec
 
 #include <vnet/ip/ip4_packet.h>	// ip4_address_t
 #include <vnet/ip/ip6_packet.h>	// ip6_address_t
+#include <vnet/ip/ip46_address.h>
 
 #else
 
