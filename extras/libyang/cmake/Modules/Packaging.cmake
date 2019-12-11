@@ -23,11 +23,11 @@ set(libyang_DESCRIPTION
 )
 
 set(libyang_DEB_DEPENDENCIES
-    "libpcre3 (>= 2:8.39-9)"
+    "libpcre3 (>= 2:8.38-3.1)"
     CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(libyang_RPM_DEPENDENCIES
-    "libpcre3 (>= >= 2:8.39-9)"
+    "pcre >= 8.32-17"
     CACHE STRING "Dependencies for deb/rpm package."
 )

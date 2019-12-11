@@ -50,7 +50,7 @@ macro(extract_version)
   )
 
   if (NOT VER)
-    set(VER "v1.0-0-gcafe")
+    set(VER "v1.1-0-gcafe")
   endif()
 
   message(STATUS "Git describe output: ${VER}")
