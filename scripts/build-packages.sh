@@ -18,14 +18,20 @@ SCRIPT_PATH=$( cd "$(dirname "${BASH_SOURCE}")" ; pwd -P )
 APT_PATH=`which apt-get` || true
 apt_get=${APT_PATH:-"/usr/local/bin/apt-get"}
 
-PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio/release/script.deb.sh"
-PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
+PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio/2001/script.deb.sh"
+PACKAGECLOUD_RELEASE_REPO_DEB2="https://packagecloud.io/install/repositories/fdio/release/script.deb.sh"
+PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/2001/script.rpm.sh"
+PACKAGECLOUD_RELEASE_REPO_RPM2="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
 
 VPP_GIT_REPO="https://git.fd.io/vpp"
-VPP_BRANCH="stable/1908"
+VPP_BRANCH="master"
+#VPP_BRANCH="stable/2001"
 
-VPP_VERSION_DEB="19.08.1-release"
-VPP_VERSION_RPM="19.08.1-release.x86_64"
+#VPP_VERSION_DEB="19.08.1-release"
+#VPP_VERSION_RPM="19.08.1-release.x86_64"
+
+VPP_VERSION_DEB="20.01-rc2~1-g20398a368~b6"
+VPP_VERSION_RPM="20.01-rc2~1_g20398a3~b6.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
@@ -102,9 +108,11 @@ setup_fdio_repo() {
 
     if [ "${DISTRIB_ID}" == "ubuntu" ]; then
     rm -r /etc/apt/sources.list.d/*
-        curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
+    curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
+    curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB2} | sudo bash
     elif [ "${DISTRIB_ID}" == "centos" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM} | sudo bash
+        curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM2} | sudo bash
         curl ${LATEST_EPEL_REPO} > epel-release-latest-7.noarch.rpm
         rpm -ivh epel-release-latest-7.noarch.rpm || true
         rm epel-release-latest-7.noarch.rpm

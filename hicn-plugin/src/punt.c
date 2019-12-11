@@ -27,7 +27,6 @@
 #include <vnet/ethernet/packet.h>
 #include <vnet/fib/fib_types.h>
 #include <vlib/global_funcs.h>
-#include <hicn/hicn.h>
 
 #include "hicn.h"
 #include "infra.h"
