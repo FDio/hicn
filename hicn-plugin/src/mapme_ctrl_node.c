@@ -18,8 +18,8 @@
  */
 #include <vnet/ip/ip6_packet.h>
 #include <vnet/dpo/load_balance.h>
-#include <hicn/hicn.h>
 
+#include "hicn.h"
 #include "mapme.h"
 #include "mapme_ctrl.h"
 #include "mapme_eventmgr.h"

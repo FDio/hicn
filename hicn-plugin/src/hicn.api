@@ -16,13 +16,13 @@
 option version = "5.1.0";
 import "vnet/ip/ip_types.api";
 
-enum face_type
+enum hicn_face_type
 {
    IP_FACE = 0,
    UDP_FACE,
 };
 
-enum punt_type
+enum hicn_punt_type
 {
    IP_PUNT = 0,
    UDP_PUNT,
@@ -375,7 +375,7 @@ define hicn_api_face_add
   u32 context;
 
   /* Type of face to add */
-  vl_api_face_type_t type;
+  vl_api_hicn_face_type_t type;
 
   /* Face to add */
   vl_api_hicn_face_union_t face;
@@ -426,7 +426,7 @@ define hicn_api_faces_details
   u32 faceid;
 
   /* Type of face to add */
-  vl_api_face_type_t type;
+  vl_api_hicn_face_type_t type;
 
   /* Face to add */
   vl_api_hicn_face_union_t face;
@@ -465,7 +465,7 @@ define hicn_api_face_get_reply
   u32 faceid;
 
   /* Type of face to add */
-  vl_api_face_type_t type;
+  vl_api_hicn_face_type_t type;
 
   /* Face to add */
   vl_api_hicn_face_union_t face;
@@ -672,7 +672,7 @@ define hicn_api_punting_add
   u32 context;
 
   /* Type of punting rule */
-  vl_api_punt_type_t type;
+  vl_api_hicn_punt_type_t type;
 
   /* Prefix to match */
   vl_api_hicn_punting_union_t rule;
@@ -696,7 +696,7 @@ define hicn_api_punting_del
   u32 context;
 
   /* Type of punting rule */
-  vl_api_punt_type_t type;
+  vl_api_hicn_punt_type_t type;
 
   /* Prefix to match */
   vl_api_hicn_punting_union_t rule;

@@ -36,8 +36,17 @@
 #include <vapi/interface.api.vapi.h>
 #include <hicn/util/log.h>
 #include <hicn/util/map.h>
+#define ip_address_t vpp_ip_address_t
+#define ip_address_cmp vpp_ip_address_cmp
+#define ip_prefix_t vpp_ip_prefix_t
+#define ip_prefix_cmp vpp_ip_prefix_cmp
 #include <vnet/ip/ip6_packet.h>
-#include <vnet/ip/ip_types_api.h>
+#include <vnet/ip/ip46_address.h>
+//#include <vnet/ip/ip_types_api.h>
+#undef ip_address_t
+#undef ip_address_cmp
+#undef ip_prefix_t
+#undef ip_prefix_cmp
 
 #define APP_NAME "hicn_plugin"
 #define MAX_OUTSTANDING_REQUESTS 4
