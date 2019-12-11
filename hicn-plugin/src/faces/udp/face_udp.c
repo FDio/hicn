@@ -159,10 +159,8 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
 	hicn_face_udp4_get (&local_addr->ip4, &remote_addr->ip4, local_port,
 			    remote_port);
 
-      if (face != NULL)
-	return HICN_ERROR_FACE_ALREADY_CREATED;
-
-      pool_get (hicn_dpoi_face_pool, face);
+      if (face == NULL)
+	pool_get (hicn_dpoi_face_pool, face);
 
       hicn_face_udp_t *udp_face = (hicn_face_udp_t *) face->data;
 
@@ -225,10 +223,8 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
 	hicn_face_udp6_get (&local_addr->ip6, &remote_addr->ip6, local_port,
 			    remote_port);
 
-      if (face != NULL)
-	return HICN_ERROR_FACE_ALREADY_CREATED;
-
-      pool_get (hicn_dpoi_face_pool, face);
+      if (face == NULL)
+	pool_get (hicn_dpoi_face_pool, face);
 
       hicn_face_udp_t *udp_face = (hicn_face_udp_t *) face->data;
 
