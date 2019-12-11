@@ -23,8 +23,8 @@
 #include <vlibmemory/api.h>
 #include <vnet/dpo/load_balance.h>
 #include <vnet/ip/ip_types_api.h>
+#include <vnet/ip/ip_format_fns.h>
 
-#include "hicn.h"
 #include "faces/ip/face_ip.h"
 #include "faces/udp/face_udp.h"
 #include "infra.h"
@@ -41,54 +41,16 @@
 #include "route.h"
 
 /* define message IDs */
-#include <hicn/hicn_msg_enum.h>
+#include <hicn/hicn.api_enum.h>
+#include <hicn/hicn.api_types.h>
 
 /* define generated endian-swappers */
 #define vl_endianfun
 #include <hicn/hicn_all_api_h.h>
 #undef vl_endianfun
 
-/* instantiate all the print functions we know about */
-#define vl_print(handle, ...) vlib_cli_output (handle, __VA_ARGS__)
-#define vl_printfun
-#include <hicn/hicn_all_api_h.h>
-#undef vl_printfun
-
-/* Get the API version number */
-#define vl_api_version(n, v) static u32 api_version=(v);
-#include <hicn/hicn_all_api_h.h>
-#undef vl_api_version
-
 #define REPLY_MSG_ID_BASE sm->msg_id_base
 #include <vlibapi/api_helper_macros.h>
-
-/****** List of message types that this plugin understands ******/
-
-#define foreach_hicn_plugin_api_msg                                 \
-  _(HICN_API_NODE_PARAMS_SET, hicn_api_node_params_set)             \
-  _(HICN_API_NODE_PARAMS_GET, hicn_api_node_params_get)             \
-  _(HICN_API_NODE_STATS_GET, hicn_api_node_stats_get)               \
-  _(HICN_API_FACE_IP_ADD, hicn_api_face_ip_add)                     \
-  _(HICN_API_FACE_IP_DEL, hicn_api_face_ip_del)                     \
-  _(HICN_API_FACE_IP_PARAMS_GET, hicn_api_face_ip_params_get)       \
-  _(HICN_API_FACE_ADD, hicn_api_face_add)                           \
-  _(HICN_API_FACE_DEL, hicn_api_face_del)                           \
-  _(HICN_API_FACES_DUMP, hicn_api_faces_dump)                       \
-  _(HICN_API_FACE_GET, hicn_api_face_get)                           \
-  _(HICN_API_FACE_STATS_DUMP, hicn_api_face_stats_dump)             \
-  _(HICN_API_ROUTE_GET, hicn_api_route_get)                         \
-  _(HICN_API_ROUTES_DUMP, hicn_api_routes_dump)                     \
-  _(HICN_API_ROUTE_NHOPS_ADD, hicn_api_route_nhops_add)             \
-  _(HICN_API_ROUTE_DEL, hicn_api_route_del)                         \
-  _(HICN_API_ROUTE_NHOP_DEL, hicn_api_route_nhop_del)               \
-  _(HICN_API_STRATEGIES_GET, hicn_api_strategies_get)               \
-  _(HICN_API_STRATEGY_GET, hicn_api_strategy_get)                   \
-  _(HICN_API_PUNTING_ADD, hicn_api_punting_add)                     \
-  _(HICN_API_PUNTING_DEL, hicn_api_punting_del)                     \
-  _(HICN_API_REGISTER_PROD_APP, hicn_api_register_prod_app)         \
-  _(HICN_API_FACE_PROD_DEL, hicn_api_face_prod_del)                 \
-  _(HICN_API_REGISTER_CONS_APP, hicn_api_register_cons_app)         \
-  _(HICN_API_FACE_CONS_DEL, hicn_api_face_cons_del)
 
 /****** SUPPORTING FUNCTION DECLARATIONS ******/
 
@@ -352,7 +314,7 @@ vl_api_hicn_api_face_add_t_handler (vl_api_hicn_api_face_add_t * mp)
 
   hicn_main_t *sm = &hicn_main;
   hicn_face_id_t face_id;
-  vl_api_face_type_t face_type = clib_net_to_host_u32(mp->type);
+  vl_api_hicn_face_type_t face_type = clib_net_to_host_u32(mp->type);
 
   switch (face_type)
     {
@@ -1044,49 +1006,15 @@ vl_api_hicn_api_face_cons_del_t_handler (vl_api_hicn_api_face_cons_del_t * mp)
 
 /************************************************************************************/
 
-#define vl_msg_name_crc_list
-#include <hicn/hicn_all_api_h.h>
-#undef vl_msg_name_crc_list
-
-static void
-setup_message_id_table (hicn_main_t * hm, api_main_t * am)
-{
-#define _(id,n,crc)                                                     \
-  vl_msg_api_add_msg_name_crc (am, #n "_" #crc, id + hm->msg_id_base);
-  foreach_vl_msg_name_crc_hicn;
-#undef _
-}
-
+#include <hicn/hicn.api.c>
 
 /* Set up the API message handling tables */
 clib_error_t *
 hicn_api_plugin_hookup (vlib_main_t * vm)
 {
   hicn_main_t *hm = &hicn_main;
-  api_main_t *am = &api_main;
 
-  /* Get a correctly-sized block of API message decode slots */
-  u8 *name = format (0, "hicn_%08x%c", api_version, 0);
-  hm->msg_id_base = vl_msg_api_get_msg_ids ((char *) name,
-					    VL_MSG_FIRST_AVAILABLE);
-  vec_free (name);
-
-#define _(N, n)                                                  \
-    vl_msg_api_set_handlers(hm->msg_id_base + VL_API_##N,       \
-                            #n,                                 \
-                            vl_api_##n##_t_handler,             \
-                            vl_noop_handler,                    \
-                            vl_api_##n##_t_endian,              \
-                            vl_api_##n##_t_print,               \
-                            sizeof(vl_api_##n##_t), 1);
-  foreach_hicn_plugin_api_msg;
-#undef _
-
-  /*
-   * Set up the (msg_name, crc, message-id) table
-   */
-  setup_message_id_table (hm, am);
-
+  hm->msg_id_base = setup_message_id_table ();
   return 0;
 }
 
