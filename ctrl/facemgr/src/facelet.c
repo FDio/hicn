@@ -198,6 +198,8 @@ facelet_validate_face(const facelet_t * facelet)
             if (!facelet_has_remote_addr(facelet))
                 return false;
         case FACE_TYPE_LAYER_3:
+            if (!facelet_has_local_port(facelet))
+                return false;
             if (!facelet_has_local_addr(facelet))
                 return false;
             if (!facelet_has_netdevice(facelet))
