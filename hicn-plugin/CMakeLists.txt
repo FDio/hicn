@@ -31,9 +31,7 @@ if ( HAVE_MEMFD_CREATE )
     add_definitions ( -DHAVE_MEMFD_CREATE )
 endif()
 
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-	set(HICN_PLUGIN hicn-plugin)
-endif()
+set(HICN_PLUGIN hicn-plugin CACHE INTERNAL "" FORCE)
 
 include (Packaging)
 
@@ -314,5 +312,6 @@ install(FILES ${HICN_VAPI_GENERATED_FILES}
 #Set variables for other project depending on hicn-plugin
 set(HICNPLUGIN_INCLUDE_DIRS
     ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins PARENT_SCOPE)
-set(HICNPLUGIN_LIBRARIES ${VPP_LIBRARIES} PARENT_SCOPE)
+    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins
+    CACHE INTERNAL "" FORCE)
+set(HICNPLUGIN_LIBRARIES ${VPP_LIBRARIES} CACHE INTERNAL "" FORCE)
