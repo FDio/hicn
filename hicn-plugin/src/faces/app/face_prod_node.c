@@ -80,7 +80,7 @@ match_ip4_name (u32 * name, fib_prefix_t * prefix)
 }
 
 static_always_inline int
-match_ip6_name (u32x4 * name, fib_prefix_t * prefix)
+match_ip6_name (u8 * name, fib_prefix_t * prefix)
 {
   union
   {
@@ -90,18 +90,13 @@ match_ip6_name (u32x4 * name, fib_prefix_t * prefix)
   } xor_sum __attribute__ ((aligned (sizeof (u32x4))));
 
 #ifdef CLIB_HAVE_VEC128
-  if (U32X4_ALIGNED (name))
-    {				//SSE can't handle unaligned data
-      xor_sum.as_u32x4 = *((u32x4 *) name) &
-	UNION_CAST (prefix->fp_addr.ip6.as_u64[0], u32x4);
-    }
-  else
-#endif /* CLIB_HAVE_VEC128 */
-    {
+  u32x4u *data = (u32x4u *)name;
+  xor_sum.as_u32x4 = *(data) &
+    UNION_CAST (prefix->fp_addr.ip6.as_u64[0], u32x4);
+#else
       xor_sum.as_u64[0] = ((u64 *) name)[0] & prefix->fp_addr.ip6.as_u64[0];
       xor_sum.as_u64[1] = ((u64 *) name)[1] & prefix->fp_addr.ip6.as_u64[1];
-    }
-
+#endif /* CLIB_HAVE_VEC128 */
   return (xor_sum.as_u64[0] == prefix->fp_addr.ip6.as_u64[0]) &&
     (xor_sum.as_u64[1] == prefix->fp_addr.ip6.as_u64[1]);
 }
@@ -120,7 +115,7 @@ hicn_face_prod_next_from_data_hdr (vlib_node_runtime_t * node,
     }
   else if (PREDICT_TRUE (v == 0x60 && !ip46_address_is_ip4 (&prefix->fp_addr)))
     {
-      match_res = match_ip6_name ((u32x4 *) & (ptr[8]), prefix);
+      match_res = match_ip6_name (& (ptr[8]), prefix);
     }
 
   return match_res ? HICN_FACE_PROD_NEXT_DATA_IP4 + (v ==

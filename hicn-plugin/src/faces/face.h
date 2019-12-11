@@ -20,7 +20,6 @@
 #include <vlib/vlib.h>
 #include <vnet/dpo/dpo.h>
 #include <vnet/adj/adj_types.h>
-
 #include "../hicn.h"
 
 typedef u8 hicn_face_flags_t;
