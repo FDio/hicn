@@ -152,7 +152,7 @@ build_package() {
     make package
 
     find . -type d -iname '_CPack_Packages' -print0 | xargs -0 rm -rf -- || true
-    rm *Unspecified* || true
+    find . -iname '*Unspecified*' -print0 | xargs -0 rm -rf -- || true
 
     popd
 
