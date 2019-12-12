@@ -21,11 +21,11 @@ set(hicn-sysrepo-plugin_DESCRIPTION
 )
 
 set(hicn-sysrepo-plugin_DEB_DEPENDENCIES
-  "hicn-plugin (= stable_version-release), sysrepo (>= 1.0)"
+  "hicn-plugin (>= stable_version-release), sysrepo (>= 1.0)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(hicn-sysrepo-plugin_RPM_DEPENDENCIES
-  "hicn-plugin = stable_version-release, sysrepo >= 1.0"
+  "hicn-plugin >= stable_version-release, sysrepo >= 1.0"
   CACHE STRING "Dependencies for deb/rpm package."
 )
