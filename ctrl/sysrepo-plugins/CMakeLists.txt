@@ -41,14 +41,12 @@ if (NOT SRPD_PLUGINS_PATH)
   message(FATAL_ERROR "Cannot get sysrepo plugins directory due to missing pkg-config, set SRPD_PLUGINS_PATH manually.")
 endif()
 
+find_package(Vpp REQUIRED)
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  find_package(Vpp REQUIRED)
   find_package(HicnPlugin REQUIRED)
-  find_package(Libhicn REQUIRED)
 else()
   list(APPEND DEPENDENCIES
-    ${LIBHICN_SHARED}
-    ${LIBHICN_STATIC}
     hicn_plugin
   )
 endif()
