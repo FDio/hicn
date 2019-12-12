@@ -364,7 +364,7 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
 
   if (symbolicNameTable_Exists(config->symbolicNameTable, symbolicName)) {
       logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
-              __func__, "Listener symbolic name already exists");
+              __func__, "Connection symbolic name already exists");
       goto ERR;
   }
 

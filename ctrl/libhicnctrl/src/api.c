@@ -26,6 +26,12 @@
 #include <sys/socket.h> // socket
 #include <unistd.h> // close, fcntl
 #include <fcntl.h> // fcntl
+#include <sys/types.h> // getpid
+#include <unistd.h>    // getpid
+#ifdef __linux__
+#include <sys/syscall.h>
+#define gettid() syscall(SYS_gettid)
+#endif /* __linux__ */
 
 #include <hicn/ctrl/api.h>
 #include <hicn/ctrl/commands.h>
@@ -435,7 +441,11 @@ hc_sock_parse_url(const char * url, struct sockaddr * sa)
     /* FIXME URL parsing is currently not implemented */
     assert(!url);
 
-    srand(time(NULL));
+#ifdef __linux__
+    srand(time(NULL) ^ getpid() ^ gettid());
+#else
+    srand(time(NULL) ^ getpid());
+#endif /* __linux__ */
 
     /*
      * A temporary solution is to inspect the sa_family fields of the passed in
