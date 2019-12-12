@@ -109,6 +109,10 @@ int hl_process_state(interface_t * interface)
         case HL_STATE_ROUTES_SENT:
         case HL_STATE_FACES_SENT:
             INFO("[hl_process_state] Out of sync... resetting state");
+            if (data->polled_routes) {
+                hc_data_free(data->polled_routes);
+                data->polled_routes = NULL;
+            }
             data->state = HL_STATE_IDLE;
             break;
 
