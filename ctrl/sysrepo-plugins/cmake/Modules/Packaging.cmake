@@ -15,17 +15,17 @@
 # Packages section
 ######################
 
-set(hicn_sysrepo_plugin_DESCRIPTION
+set(hicn-sysrepo-plugin_DESCRIPTION
   "A Plugin to enable hICN VPP in sysrepo."
   CACHE STRING "Description for deb/rpm package."
 )
 
-set(hicn_sysrepo_plugin_DEB_DEPENDENCIES
-  "hicn-plugin (= stable_version-release), vpp (= stable_version-release), vpp-plugins (= stable_version-release)"
+set(hicn-sysrepo-plugin_DEB_DEPENDENCIES
+  "hicn-plugin (= stable_version-release), sysrepo (>= 1.0)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
-set(hicn_sysrepo_plugin_RPM_DEPENDENCIES
-"hicn-plugin (= stable_version-release), vpp (= stable_version-release), vpp-plugins (= stable_version-release)"
-CACHE STRING "Dependencies for deb/rpm package."
+set(hicn-sysrepo-plugin_RPM_DEPENDENCIES
+  "hicn-plugin = stable_version-release, sysrepo >= 1.0"
+  CACHE STRING "Dependencies for deb/rpm package."
 )

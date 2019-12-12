@@ -44,11 +44,8 @@ endif()
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Vpp REQUIRED)
   find_package(HicnPlugin REQUIRED)
-  find_package(Libhicn REQUIRED)
 else()
   list(APPEND DEPENDENCIES
-    ${LIBHICN_SHARED}
-    ${LIBHICN_STATIC}
     hicn_plugin
   )
 endif()
