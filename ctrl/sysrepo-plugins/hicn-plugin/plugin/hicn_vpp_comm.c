@@ -15,20 +15,14 @@
 #include "hicn_vpp_comm.h"
 #include <vapi/vapi.h>
 
-
-
-
 #define APP_NAME "hicn_plugin"
 #define MAX_OUTSTANDING_REQUESTS 4
 #define RESPONSE_QUEUE_SIZE 2
-vapi_ctx_t g_vapi_ctx_instance=NULL;
+vapi_ctx_t g_vapi_ctx_instance = NULL;
 
 // Use VAPI macros to define symbols
 
-
-
 int hicn_connect_vpp() {
-
   if (g_vapi_ctx_instance == NULL) {
     vapi_error_e rv = vapi_ctx_alloc(&g_vapi_ctx_instance);
     rv = vapi_connect(g_vapi_ctx_instance, APP_NAME, NULL,
