@@ -767,9 +767,8 @@ hc_sock_callback(hc_sock_t * s, hc_data_t ** pdata)
 
     for (;;) {
         int n = hc_sock_recv(s);
-        if (n == 0) {
+        if (n == 0)
             goto ERR_EOF;
-        }
         if (n < 0) {
             switch(errno) {
                 case ECONNRESET:
@@ -868,7 +867,7 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
     }
 
     int seq = hc_sock_get_next_seq(s);
-   
+
     /* Create state used to process the request */
     hc_sock_request_t * request = NULL;
     request = hc_sock_request_create(seq, data, params->parse);
@@ -897,8 +896,11 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
          * several times before success... shall we alternate between blocking
          * and non-blocking mode ?
          */
-        if (hc_sock_recv(s) < 0)
-            continue; //break;
+        int n = hc_sock_recv(s);
+        if (n == 0)
+            goto ERR_EOF;
+        if (n < 0)
+            break;
         int rc = hc_sock_process(s, pdata);
         switch(rc) {
             case 0:
@@ -916,7 +918,10 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
         }
     }
 
+ERR_EOF:
     ret = data->ret;
+    if (!data->complete)
+        return -1;
     if (!pdata)
         hc_data_free(data);
 
