@@ -424,8 +424,10 @@ void fib_Remove(FIB *fib, const Name *name, unsigned connId) {
   }
 
   fibEntry_RemoveNexthopByConnectionId(entry, connId);
+#ifndef WITH_MAPME
   if (fibEntry_NexthopCount(entry) == 0)
     _removeNode(fib, name);
+#endif /* WITH_MAPME */
 
 }
 
@@ -434,9 +436,11 @@ void _removeConnectionId(FibNode *n, unsigned connectionId,
   if(n != NULL){
     if(n->is_used){
       fibEntry_RemoveNexthopByConnectionId(n->entry, connectionId);
+#ifndef WITH_MAPME
       if (fibEntry_NexthopCount(n->entry) == 0) {
         fibEntryList_Append(list, n->entry);
       }
+#endif /* WITH_MAPME */
     }
     _removeConnectionId(n->right, connectionId, list);
     _removeConnectionId(n->left, connectionId, list);

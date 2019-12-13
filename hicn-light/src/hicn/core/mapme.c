@@ -338,6 +338,10 @@ static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
   Dispatcher *dispatcher = forwarder_GetDispatcher(mapme->forwarder);
   PARCEventTimer *timer;
 
+  /* Safeguard during retransmissions */
+  if (!TFIB(fibEntry))
+      return true;
+
   /*
    * On the producer side, we have to clear the TFIB everytime we change the list
    * of adjacencies, otherwise retransmissions will occur to preserve them.
