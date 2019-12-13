@@ -39,7 +39,7 @@ class ForwarderInterface {
   static_assert(std::is_base_of<Connector, ConnectorType>::value,
                 "T must inherit from connector!");
 
-  static constexpr uint32_t standard_cs_reserved = 5000;
+  static constexpr uint32_t standard_cs_reserved = 50000;
 
  protected:
   ForwarderInterface(ConnectorType &c)

@@ -117,6 +117,9 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 	  hicn_store_internal_state (b0, hicnb0->name_hash, node_id0,
 				     dpo_ctx_id0, vft_id0, hash_entry_id,
 				     bucket_id, bucket_is_overflow);
+	  // We need to take a lock as the lock is not taken on the hash
+	  // entry because it is a CS entry (hash_insert function).
+	  hash_entry->locks++;
 	  *next =
 	    is_cs0 ? HICN_STRATEGY_NEXT_INTEREST_HITCS :
 	    HICN_STRATEGY_NEXT_INTEREST_HITPIT;
