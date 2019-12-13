@@ -675,6 +675,8 @@ class HIperfServer {
       }
     }
 
+    producer_socket_->setSocketOption(GeneralTransportOptions::DATA_PACKET_SIZE,
+				      (uint32_t)(configuration_.payload_size_ + (configuration_.name.getAddressFamily() == AF_INET ? 40 : 60)))
     producer_socket_->registerPrefix(configuration_.name);
     producer_socket_->connect();
 
