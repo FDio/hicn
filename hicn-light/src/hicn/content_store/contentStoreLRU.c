@@ -240,6 +240,11 @@ static bool _contentStoreLRU_PutContent(ContentStoreInterface *storeImpl,
     return false;
   }
 
+  ContentStoreEntry *storeEntry = parcHashCodeTable_Get(store->storageByName, content);
+  if(storeEntry){
+    _contentStoreLRU_PurgeStoreEntry(store, storeEntry);
+  }
+
   uint64_t expiryTimeTicks = contentStoreEntry_MaxExpiryTime;
 
   if (message_HasContentExpiryTime(content)) {
