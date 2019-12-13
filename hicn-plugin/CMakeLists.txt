@@ -222,16 +222,16 @@ execute_process(
     COMMAND
     bash -c
     "if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py ]; then
-        curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_json_parser.py?h=stable/1908 -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/1908/src/vpp-api/vapi/vapi_json_parser.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ]; then
-        curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_c_gen.py?h=stable/1908 -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/1908/src/vpp-api/vapi/vapi_c_gen.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py ]; then
-        curl https://git.fd.io/vpp/plain/src/vpp-api/vapi/vapi_cpp_gen.py?h=stable/1908 -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/1908/src/vpp-api/vapi/vapi_cpp_gen.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api ]; then
-        curl https://git.fd.io/vpp/plain/src/vnet/ip/ip_types.api?h=stable/1908 -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/1908/src/vnet/ip/ip_types.api -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api;
     fi;
     chmod +x ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py"
 )
