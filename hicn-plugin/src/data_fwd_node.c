@@ -399,7 +399,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
    * Mark the buffer as smaller than TWO_CL. It will be stored as is in the CS, without excluding
    * the hicn_header. Cloning is not possible, it will be copied.
    */
-  if (b0->current_length < (buffer_advance + (CLIB_CACHE_LINE_BYTES * 2)))
+  if (b0->current_length <= (buffer_advance + (CLIB_CACHE_LINE_BYTES * 2)))
     {
       /* In this case the packet is copied. We don't need to add a reference as no buffer are
        * chained to it.
