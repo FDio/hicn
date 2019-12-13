@@ -165,7 +165,7 @@ struct ServerConfiguration {
         rtc_(false),
         interactive_(false),
         production_rate_(std::string("2048kbps")),
-        payload_size_(1400)
+        payload_size_(1440)
 #ifdef SECURE_HICNTRANSPORT
         ,
         secure_(false)
@@ -896,6 +896,8 @@ class HIperfServer {
       }
     }
 
+    producer_socket_->setSocketOption(GeneralTransportOptions::DATA_PACKET_SIZE,
+				      (uint32_t)(configuration_.payload_size_ + (configuration_.name.getAddressFamily() == AF_INET ? 40 : 60)));
     producer_socket_->registerPrefix(configuration_.name);
     producer_socket_->connect();
 

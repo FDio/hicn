@@ -454,7 +454,7 @@ class ProducerSocket : public Socket<BasePortal>,
                               uint32_t socket_option_value) {
     switch (socket_option_key) {
       case GeneralTransportOptions::DATA_PACKET_SIZE:
-        if (socket_option_value < default_values::max_content_object_size &&
+        if (socket_option_value <= default_values::max_content_object_size &&
             socket_option_value > 0) {
           data_packet_size_ = socket_option_value;
         }
