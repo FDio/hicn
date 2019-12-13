@@ -338,6 +338,9 @@ static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
   Dispatcher *dispatcher = forwarder_GetDispatcher(mapme->forwarder);
   PARCEventTimer *timer;
 
+  if (!TFIB(fibEntry))
+      return true;
+
   /*
    * On the producer side, we have to clear the TFIB everytime we change the list
    * of adjacencies, otherwise retransmissions will occur to preserve them.
@@ -650,6 +653,8 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
 
   FibEntry *fibEntry = fib_Contains(fib, name);
   if (!fibEntry) {
+    INFO(mapme, "[MAP-Me]   - Ignoring update for non-existing FIB entry");
+#if 0
     INFO(mapme,
          "[MAP-Me]   - Re-creating FIB entry with next hop on connection %d",
          conn_in_id);
@@ -688,6 +693,7 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
     for (size_t i = 0; i < numberSet_Length(lpm_nexthops); i++) {
         fibEntry_AddNexthop(fibEntry, numberSet_GetItem(lpm_nexthops, i));
     }
+#endif
 
   } else if (!TFIB(fibEntry)) {
     /* Create TFIB associated to FIB entry */
