@@ -275,6 +275,7 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
   FibEntryList *fibList = forwarder_GetFibEntries(config->forwarder);
 
   size_t payloadSize = fibEntryList_Length(fibList);
+  size_t effective_payloadSize = 0;
   size_t pointerLocation = 0;
   struct sockaddr_in tmpAddr;
   struct sockaddr_in6 tmpAddr6;
@@ -287,6 +288,9 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
     FibEntry *entry = (FibEntry *)fibEntryList_Get(fibList, i);
     NameBitvector *prefix = name_GetContentName(fibEntry_GetPrefix(entry));
     const NumberSet *nexthops = fibEntry_GetNexthops(entry);
+
+    if (numberSet_Length(nexthops) == 0)
+        continue;
 
     if (numberSet_Length(nexthops) > 1) {
       // payload extended, need reallocate, further entries via nexthops
@@ -316,6 +320,7 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
       listRouteCommand->cost = 1;  // cost
 
       pointerLocation++;
+      effective_payloadSize++;
       addressDestroy(&addressEntry);
     }
   }
@@ -323,7 +328,7 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
   // send response
   header_control_message *header = request[0].iov_base;
   header->messageType = RESPONSE_LIGHT;
-  header->length = (unsigned)payloadSize;
+  header->length = (unsigned)effective_payloadSize;
 
   struct iovec *response =
       parcMemory_AllocateAndClear(sizeof(struct iovec) * 2);
@@ -331,7 +336,7 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
   response[0].iov_base = header;
   response[0].iov_len = sizeof(header_control_message);
   response[1].iov_base = payloadResponse;
-  response[1].iov_len = sizeof(list_routes_command) * payloadSize;
+  response[1].iov_len = sizeof(list_routes_command) * effective_payloadSize;
 
   fibEntryList_Destroy(&fibList);
   return response;
