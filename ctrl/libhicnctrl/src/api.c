@@ -714,16 +714,22 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             } else {
                 int rc;
                 rc = hc_data_ensure_available(s->cur_request->data, num_chunks);
-                if (rc < 0)
-                     return -99;
+                if (rc < 0) {
+                    ERROR("[hc_sock_process] Error in hc_data_ensure_available");
+                    return -99;
+                }
                 for (int i = 0; i < num_chunks; i++) {
                     u8 * dst = hc_data_get_next(s->cur_request->data);
-                    if (!dst)
-                         return -99;
+                    if (!dst) {
+                        ERROR("[hc_sock_process] Error in hc_data_get_next");
+                        return -99;
+                    }
 
                     rc = s->cur_request->parse(s->buf + s->roff + i * s->cur_request->data->in_element_size, dst);
-                    if (rc < 0)
+                    if (rc < 0) {
+                        ERROR("[hc_sock_process] Error in parse");
                         err = -99; /* FIXME we let the loop complete (?) */
+                    }
                     s->cur_request->data->size++;
                 }
             }
@@ -900,7 +906,7 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
         if (n == 0)
             goto ERR_EOF;
         if (n < 0)
-            break;
+            continue; //break;
         int rc = hc_sock_process(s, pdata);
         switch(rc) {
             case 0:
@@ -910,11 +916,11 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
                 break;
             case -99:
                 ERROR("[hc_execute_command] Error processing socket results");
-                goto ERR_PROCESS;
+                goto ERR;
                 break;
             default:
                 ERROR("[hc_execute_command] Unexpected return value");
-                goto ERR_PROCESS;
+                goto ERR;
         }
     }
 
@@ -930,6 +936,7 @@ ERR_EOF:
 ERR_PROCESS:
 ERR_MAP:
     hc_sock_request_free(request);
+ERR:
 ERR_REQUEST:
     hc_data_free(data);
 ERR_DATA:
@@ -1954,12 +1961,16 @@ hc_route_parse(void * in, hc_route_t * route)
 {
     list_routes_command * cmd = (list_routes_command *) in;
 
-    if (!IS_VALID_ADDR_TYPE(cmd->addressType))
-         return -1;
+    if (!IS_VALID_ADDR_TYPE(cmd->addressType)) {
+        ERROR("[hc_route_parse] Invalid address type");
+        return -1;
+    }
 
     int family = map_from_addr_type[cmd->addressType];
-    if (!IS_VALID_FAMILY(family))
-         return -1;
+    if (!IS_VALID_FAMILY(family)) {
+        ERROR("[hc_route_parse] Invalid address family");
+        return -1;
+    }
 
     *route = (hc_route_t) {
         .face_id = cmd->connid,
