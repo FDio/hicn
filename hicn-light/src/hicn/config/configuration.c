@@ -275,6 +275,7 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
   FibEntryList *fibList = forwarder_GetFibEntries(config->forwarder);
 
   size_t payloadSize = fibEntryList_Length(fibList);
+  size_t effective_payloadSize = 0;
   size_t pointerLocation = 0;
   struct sockaddr_in tmpAddr;
   struct sockaddr_in6 tmpAddr6;
@@ -316,6 +317,7 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
       listRouteCommand->cost = 1;  // cost
 
       pointerLocation++;
+      effective_payloadSize++;
       addressDestroy(&addressEntry);
     }
   }
@@ -323,7 +325,7 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
   // send response
   header_control_message *header = request[0].iov_base;
   header->messageType = RESPONSE_LIGHT;
-  header->length = (unsigned)payloadSize;
+  header->length = (unsigned)effective_payloadSize;
 
   struct iovec *response =
       parcMemory_AllocateAndClear(sizeof(struct iovec) * 2);
