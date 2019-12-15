@@ -344,22 +344,23 @@ static void _strategyLoadBalancer_ImplDestroy(StrategyImpl **strategyPtr) {
 
   StrategyImpl *impl = *strategyPtr;
   StrategyLoadBalancer *strategy = (StrategyLoadBalancer *)impl->context;
+  if (parcHashMap_Size(strategy->strategy_state) > 0) {
+    PARCIterator *it = parcHashMap_CreateKeyIterator(strategy->strategy_state);
+    while (parcIterator_HasNext(it)) {
+      PARCUnsigned *cid = parcIterator_Next(it);
+      StrategyNexthopState *state =
+              (StrategyNexthopState *) parcHashMap_Get(strategy->strategy_state, cid);
+      parcObject_Release((void **) &state);
+    }
+    parcIterator_Release(&it);
 
-  PARCIterator *it = parcHashMap_CreateKeyIterator(strategy->strategy_state);
-  while (parcIterator_HasNext(it)) {
-    PARCUnsigned *cid = parcIterator_Next(it);
-    StrategyNexthopState *state =
-        (StrategyNexthopState *)parcHashMap_Get(strategy->strategy_state, cid);
-    parcObject_Release((void**)&state);
-  }
-  parcIterator_Release(&it);
-
-  parcHashMap_Release(&(strategy->strategy_state));
+    parcHashMap_Release(&(strategy->strategy_state));
 #ifndef WITH_POLICY
-  numberSet_Release(&(strategy->nexthops));
+    numberSet_Release(&(strategy->nexthops));
 #endif /* ! WITH_POLICY */
 
-  parcMemory_Deallocate((void **)&strategy);
-  parcMemory_Deallocate((void **)&impl);
-  *strategyPtr = NULL;
+    parcMemory_Deallocate((void **) &strategy);
+    parcMemory_Deallocate((void **) &impl);
+    *strategyPtr = NULL;
+  }
 }
