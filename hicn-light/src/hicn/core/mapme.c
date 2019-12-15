@@ -351,27 +351,29 @@ static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
      * It is likely we cannot iterator and remove elements from the hashmap at
      * the same time, so we proceed in two steps
      */
-    NumberSet * conns = numberSet_Create();
+    if (parcHashMap_Size(TFIB(fibEntry)->nexthops) > 0) {
 
-    PARCIterator *it = parcHashMap_CreateKeyIterator(TFIB(fibEntry)->nexthops);
-    while (parcIterator_HasNext(it)) {
-      PARCUnsigned *cid = parcIterator_Next(it);
-      unsigned conn_id = parcUnsigned_GetUnsigned(cid);
-      numberSet_Add(conns, conn_id);
-    }
-    parcIterator_Release(&it);
+      NumberSet * conns = numberSet_Create();
 
-    for (size_t i = 0; i < numberSet_Length(conns); i++) {
-      unsigned conn_id = numberSet_GetItem(conns, i);
-      PARCEventTimer *oldTimer = (PARCEventTimer *)mapmeTFIB_Get(TFIB(fibEntry), conn_id);
-      if (oldTimer)
+      PARCIterator *it = parcHashMap_CreateKeyIterator(TFIB(fibEntry)->nexthops);
+      while (parcIterator_HasNext(it)) {
+        PARCUnsigned *cid = parcIterator_Next(it);
+        unsigned conn_id = parcUnsigned_GetUnsigned(cid);
+        numberSet_Add(conns, conn_id);
+      }
+      parcIterator_Release(&it);
+
+      for (size_t i = 0; i < numberSet_Length(conns); i++) {
+        unsigned conn_id = numberSet_GetItem(conns, i);
+        PARCEventTimer *oldTimer = (PARCEventTimer *)mapmeTFIB_Get(TFIB(fibEntry), conn_id);
+        if (oldTimer)
           parcEventTimer_Stop(oldTimer);
-      mapmeTFIB_Remove(TFIB(fibEntry), conn_id);
+        mapmeTFIB_Remove(TFIB(fibEntry), conn_id);
+      }
+
+      numberSet_Release(&conns);
     }
-
-    numberSet_Release(&conns);
   }
-
 
   // NOTE
   // - at producer, send always true, we always send something reliably so we
