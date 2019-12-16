@@ -425,7 +425,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     break;
                 }
 
-                DEBUG("Interface %s: address was removed", interface_name);
+                DEBUG("[NETLINK] Interface %s: address was removed", interface_name);
                 if (facelet) {
                     facelet_set_event(facelet, FACELET_EVENT_SET_DOWN);
                     facelet_set_attr_clean(facelet);
@@ -446,7 +446,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     break;
                 }
 
-                DEBUG("Interface %s: new address was assigned: %s", interface_name, interface_address);
+                DEBUG("[NETLINK] Interface %s: new address was assigned: %s", interface_name, interface_address);
 
                 if (facelet) {
                     facelet_set_event(facelet, FACELET_EVENT_UPDATE);
@@ -468,7 +468,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     break;
                 }
 
-                DEBUG("Network interface %s was removed", interface_name);
+                DEBUG("[NETLINK] Network interface %s was removed", interface_name);
 
                 if (!facelet)
                     break;
@@ -495,7 +495,7 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                 // UP NOT RUNNING
                 // DOWN NOT RUNNING
 #if 1
-                DEBUG("New network interface %s, state: %s %s", interface_name,
+                DEBUG("[NETLINK] New network interface %s, state: %s %s", interface_name,
                         up ? "UP" : "DOWN",
                         running ? "RUNNING" : "NOT_RUNNING");
 #endif
@@ -517,14 +517,14 @@ int nl_callback(interface_t * interface, int fd, void * unused)
                     facelet_set_family(facelet6, AF_INET6);
                     interface_raise_event(interface, facelet6);
 #endif
-                } else {
-#if 1
-                    facelet_set_event(facelet, FACELET_EVENT_SET_DOWN);
-                    facelet_set_attr_clean(facelet);
-                    interface_raise_event(interface, facelet);
-#else
-                    facelet_free(facelet);
-#endif
+//                } else {
+//#if 1
+//                    facelet_set_event(facelet, FACELET_EVENT_SET_DOWN);
+//                    facelet_set_attr_clean(facelet);
+//                    interface_raise_event(interface, facelet);
+//#else
+//                    facelet_free(facelet);
+//#endif
                 }
                 break;
             }
