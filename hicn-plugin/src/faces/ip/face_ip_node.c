@@ -18,6 +18,7 @@
 #include "face_ip.h"
 #include "face_ip_node.h"
 #include "dpo_ip.h"
+#include "../app/face_prod.h"
 #include "../../strategy_dpo_manager.h"
 #include "../face.h"
 #include "../../cache_policies/cs_lru.h"
@@ -464,10 +465,98 @@ VLIB_REGISTER_NODE(hicn_face_ip6_input_node) =
 
 /**** FACE OUTPUT *****/
 
+typedef enum
+{
+  HICN_FACE_IP4_NEXT_ECHO_REPLY = IP4_LOOKUP_N_NEXT,
+  HICN_FACE_IP4_N_NEXT,
+} hicn_face_ip4_next_t;
+
+typedef enum
+{
+  HICN_FACE_IP6_NEXT_ECHO_REPLY = IP6_LOOKUP_N_NEXT,
+  HICN_FACE_IP6_N_NEXT,
+} hicn_face_ip6_next_t;
+
+static_always_inline void
+hicn_reply_probe_v4 (vlib_buffer_t * b, hicn_face_t * face)
+{
+  hicn_header_t *h0 = vlib_buffer_get_current (b);
+  hicn_face_ip_t * face_ip = (hicn_face_ip_t *)(&face->data);
+  h0->v4.ip.saddr = h0->v4.ip.daddr;
+  h0->v4.ip.daddr = face_ip->local_addr.ip4;
+  vnet_buffer (b)->sw_if_index[VLIB_RX] = face->shared.sw_if;
+
+  u16 * dst_port_ptr = (u16 *)(((u8*)h0) + sizeof(ip4_header_t) + sizeof(u16));
+  u16 dst_port = *dst_port_ptr;
+  u16 * src_port_ptr = (u16 *)(((u8*)h0) + sizeof(ip4_header_t));
+
+  *dst_port_ptr = *src_port_ptr;
+  *src_port_ptr = dst_port;
+
+  hicn_type_t type = hicn_get_buffer (b)->type;
+  hicn_ops_vft[type.l1]->set_lifetime (type, &h0->protocol, 0);
+}
+
+static_always_inline void
+hicn_reply_probe_v6 (vlib_buffer_t * b, hicn_face_t * face)
+{
+  hicn_header_t *h0 = vlib_buffer_get_current (b);
+  hicn_face_ip_t * face_ip = (hicn_face_ip_t *)(&face->data);
+  h0->v6.ip.saddr = h0->v6.ip.daddr;
+  h0->v6.ip.daddr = face_ip->local_addr.ip6;
+  vnet_buffer (b)->sw_if_index[VLIB_RX] = face->shared.sw_if;
+
+  u16 * dst_port_ptr = (u16 *)(((u8*)h0) + sizeof(ip6_header_t) + sizeof(u16));
+  u16 dst_port = *dst_port_ptr;
+  u16 * src_port_ptr = (u16 *)(((u8*)h0) + sizeof(ip6_header_t));
+
+  *dst_port_ptr = *src_port_ptr;
+  *src_port_ptr = dst_port;
+
+  hicn_type_t type = hicn_get_buffer (b)->type;
+  hicn_ops_vft[type.l1]->set_lifetime (type, &h0->protocol, 0);
+
+}
+
+static_always_inline u32
+hicn_face_match_probe (vlib_buffer_t * b, hicn_face_t * face, u32 * next)
+{
+
+  u8 *ptr = vlib_buffer_get_current (b);
+  u8 v = *ptr & 0xf0;
+  u8 res = 0;
+
+  if ( v == 0x40 )
+    {
+      u16 * dst_port = (u16 *)(ptr + sizeof(ip4_header_t) + sizeof(u16));
+      if (*dst_port == clib_net_to_host_u16(DEFAULT_PROBING_PORT))
+        {
+          hicn_reply_probe_v6(b, face);
+          *next = HICN_FACE_IP4_NEXT_ECHO_REPLY;
+          res = 1;
+        }
+    }
+  else if ( v == 0x60 )
+    {
+      u16 * dst_port = (u16 *)(ptr + sizeof(ip6_header_t) + sizeof(u16));
+      if (*dst_port == clib_net_to_host_u16(DEFAULT_PROBING_PORT))
+        {
+          hicn_reply_probe_v6(b, face);
+          *next = HICN_FACE_IP6_NEXT_ECHO_REPLY;
+          res = 1;
+        }
+    }
+  return res;
+}
+
+
 static inline void
 hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
 			    hicn_face_t * face, u32 * next)
 {
+
+  if ((face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) && hicn_face_match_probe(b0, face, next))
+    return;
 
   hicn_header_t *hicn = vlib_buffer_get_current (b0);
 
@@ -517,6 +606,8 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
 
   vnet_buffer (b0)->ip.adj_index[VLIB_TX] = face->shared.adj;
   *next = adj->lookup_next_index;
+
+
 }
 
 static char *hicn_face_ip4_output_error_strings[] = {
@@ -782,9 +873,23 @@ VLIB_REGISTER_NODE(hicn_face_ip4_output_node) =
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(hicn_face_ip4_output_error_strings),
   .error_strings = hicn_face_ip4_output_error_strings,
-  .n_next_nodes = IP4_LOOKUP_N_NEXT,
+  .n_next_nodes = HICN_FACE_IP4_N_NEXT,
   /* Reusing the list of nodes from lookup to be compatible with arp */
-  .next_nodes = IP4_LOOKUP_NEXT_NODES,
+  .next_nodes =
+  {
+   [IP_LOOKUP_NEXT_DROP] = "ip4-drop",
+   [IP_LOOKUP_NEXT_PUNT] = "ip4-punt",
+   [IP_LOOKUP_NEXT_LOCAL] = "ip4-local",
+   [IP_LOOKUP_NEXT_ARP] = "ip4-arp",
+   [IP_LOOKUP_NEXT_GLEAN] = "ip4-glean",
+   [IP_LOOKUP_NEXT_REWRITE] = "ip4-rewrite",
+   [IP_LOOKUP_NEXT_MCAST] = "ip4-rewrite-mcast",
+   [IP_LOOKUP_NEXT_BCAST] = "ip4-rewrite-bcast",
+   [IP_LOOKUP_NEXT_MIDCHAIN] = "ip4-midchain",
+   [IP_LOOKUP_NEXT_MCAST_MIDCHAIN] = "ip4-mcast-midchain",
+   [IP_LOOKUP_NEXT_ICMP_ERROR] = "ip4-icmp-error",
+   [HICN_FACE_IP4_NEXT_ECHO_REPLY] = "hicn-face-ip4-input",
+  }
 };
 /* *INDENT-ON* */
 
@@ -856,9 +961,26 @@ VLIB_REGISTER_NODE(hicn_face_ip6_output_node) =
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(hicn_face_ip6_output_error_strings),
   .error_strings = hicn_face_ip6_output_error_strings,
-  .n_next_nodes = IP6_LOOKUP_N_NEXT,
+  .n_next_nodes = HICN_FACE_IP6_N_NEXT,
   /* Reusing the list of nodes from lookup to be compatible with neighbour discovery */
-  .next_nodes = IP6_LOOKUP_NEXT_NODES,
+  .next_nodes =
+  {
+   [IP_LOOKUP_NEXT_DROP] = "ip6-drop",
+   [IP_LOOKUP_NEXT_PUNT] = "ip6-punt",
+   [IP_LOOKUP_NEXT_LOCAL] = "ip6-local",
+   [IP_LOOKUP_NEXT_ARP] = "ip6-discover-neighbor",
+   [IP_LOOKUP_NEXT_GLEAN] = "ip6-glean",
+   [IP_LOOKUP_NEXT_REWRITE] = "ip6-rewrite",
+   [IP_LOOKUP_NEXT_BCAST] = "ip6-rewrite-bcast",
+   [IP_LOOKUP_NEXT_MCAST] = "ip6-rewrite-mcast",
+   [IP_LOOKUP_NEXT_MIDCHAIN] = "ip6-midchain",
+   [IP_LOOKUP_NEXT_MCAST_MIDCHAIN] = "ip6-mcast-midchain",
+   [IP_LOOKUP_NEXT_ICMP_ERROR] = "ip6-icmp-error",
+   [IP6_LOOKUP_NEXT_HOP_BY_HOP] = "ip6-hop-by-hop",
+   [IP6_LOOKUP_NEXT_ADD_HOP_BY_HOP] = "ip6-add-hop-by-hop",
+   [IP6_LOOKUP_NEXT_POP_HOP_BY_HOP] = "ip6-pop-hop-by-hop",
+   [HICN_FACE_IP6_NEXT_ECHO_REPLY] = "hicn-face-ip6-input"
+  }
 };
 /* *INDENT-ON* */
 

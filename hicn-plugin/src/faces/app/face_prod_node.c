@@ -317,7 +317,6 @@ VLIB_REGISTER_NODE(hicn_face_prod_input_node) =
 };
 /* *INDENT-ON* */
 
-
 /*
  * fd.io coding-style-patch-verification: ON
  *
