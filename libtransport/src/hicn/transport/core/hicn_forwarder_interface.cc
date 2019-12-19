@@ -91,7 +91,7 @@ RouteToSelfCommand createCommandRoute(std::unique_ptr<sockaddr> &&addr,
 }
 
 DeleteSelfConnectionCommand createCommandDeleteConnection() {
-  DeleteSelfConnectionCommand command;
+  DeleteSelfConnectionCommand command = {0};
   fillCommandHeader((CommandHeader *)&command);
   command.command_id = delete_connection_command;
 
