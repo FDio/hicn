@@ -1104,15 +1104,6 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
    int rc = SR_ERR_OK;
    SRP_LOG_DBGMSG("Subscriging hicn.");
 
-   // Create state thread observation
-   pthread_t state_tid;
-   rc = pthread_create((pthread_t *)&state_tid, NULL, state_thread, NULL);
-   if (rc != 0) {
-         SRP_LOG_DBGMSG("Error making hicn state thread");
-         return SR_ERR_OPERATION_FAILED;
-   }
-   SRP_LOG_DBGMSG("State thread created successfully.");
-
    //Initializing the locks
    for (int i=0; i<NLOCKS; i++)
      ticket_init(i,LOCK_INIT);
@@ -1142,6 +1133,16 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
 
 
    SRP_LOG_DBGMSG("pools created successfully.");
+
+
+   // Create state thread observation
+   pthread_t state_tid;
+   rc = pthread_create((pthread_t *)&state_tid, NULL, state_thread, NULL);
+   if (rc != 0) {
+         SRP_LOG_DBGMSG("Error making hicn state thread");
+         return SR_ERR_OPERATION_FAILED;
+   }
+   SRP_LOG_DBGMSG("State thread created successfully.");
 
 
 /*
