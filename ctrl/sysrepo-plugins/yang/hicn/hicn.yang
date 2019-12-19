@@ -2,49 +2,16 @@ module hicn {
 namespace "urn:sysrepo:hicn";
 prefix hcn;
 
-/* new data types and grouping definition to forward the remote request toward hicn controler--to-->hicn */
 
-revision 2019-10-29{
-    description "Initial revision.";
+revision 2019-10-30{
+    description "revised revision focus on telemetry.";
 }
+
+/* new data types and grouping definition to forward the remote request toward hicn controler--to-->hicn */
 
 typedef float {
     type decimal64 {
         fraction-digits 2;
-    }
-}
-
-
-grouping params {
-
-leaf enable_disable {
-        description "Enable / disable ICN forwarder in VPP.";
-        type boolean;
-        default false;
-    }
-
-leaf pit_max_size {
-        description "PIT maximum size, otherwise -1 to assign default value.";
-        type int32;
-        default -1;
-    }
-
-leaf cs_max_size {
-        description "CS maximum size, otherwise -1 to assign default value.";
-        type int32;
-        default -1;
-    }
-
-leaf cs_reserved_app {
-        description "Portion of CS reserved to application, otherwise -1 to assign default value.";
-        type int32;
-        default -1;
-    }
-
-leaf pit_max_lifetime_sec {
-        description "Default PIT entry lifetime, otherwise -1 to assign default value.";
-        type float;
-        default -1;
     }
 }
 
@@ -177,26 +144,6 @@ leaf len {
     }
 }
 
-
-grouping route_get {
-
-
-leaf ip4 {
-        description "ip4 to be added to the FIB.";
-        type string;
-    }
-
-leaf ip6 {
-        description "ip6 to be added to the FIB.";
-        type string;
-    }
-
-leaf len {
-        description "Length of the prefix.";
-        type uint8;
-    }
-}
-
 grouping punting_add_ip {
 
 leaf ip4 {
@@ -219,33 +166,6 @@ leaf swif {
         type uint32;
     }
 }
-
-grouping register_prod_app {
-
-leaf-list prefix {
-        description "prefix to be matched to the FIB.";
-        type uint64;
-    }
-
-leaf len {
-        description "Length of the prefix.";
-        type uint8;
-    }
-
-leaf swif {
-        description "Interface id.";
-        type uint32;
-    }
-
-leaf cs_reserved {
-        description "CS memory reserved -- in number of packets.";
-        type uint32;
-    }
-
-}
-
-/* new data types and grouping definition to backward the remote response  hicn--to-->controler */
-
 
 grouping states-reply {
 
@@ -383,14 +303,6 @@ grouping face-stats-reply {
     }
 }
 
-grouping strategy-reply {
-
-    leaf description {
-            description "Enable / disable ICN forwarder in VPP.";
-            type uint8;
-        }
-}
-
 grouping route-reply {
 
    list route{
@@ -407,8 +319,8 @@ grouping route-reply {
      leaf strategy_id {
             description "compile-time plugin features.";
             type uint32;
-     } 
-   } 
+     }
+   }
 }
 
 grouping strategies-reply {
@@ -444,32 +356,8 @@ container hicn-state {
 
 /* RPC Definitions */
 
-
-rpc node-params-set {
-    description "Operation to set hicn params in vpp.";
-    input {
-        uses params;
-    }
-}
-
-rpc node-params-get {
-    description "Operation to get hicn parameter in vpp.";
-}
-
-
-rpc node-stat-get {
-    description "Operation to get hicn status in vpp.";
-}
-
 rpc  strategies-get {
         description "Operation to get hicn strategies.";
-}
-
-rpc route-get {
-        description "Operation to get hicn route.";
-    input {
-        uses route_get;
-    }
 }
 
 rpc  route-del {
@@ -527,7 +415,7 @@ rpc  punting-add-ip {
     }
 }
 
-rpc  punting-del {
+rpc  punting-del-ip {
         description "Operation to del hicn punt.";
     input {
         uses punting_add_ip; /* It uses the same payload as the add*/

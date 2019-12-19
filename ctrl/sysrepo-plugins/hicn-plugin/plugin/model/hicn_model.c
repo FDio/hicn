@@ -13,6 +13,13 @@
 * limitations under the License.
 */
 
+
+
+/** @file hicn_model.c
+ *  @brief This file contains implementations of the main calls
+ */
+
+
 #define _GNU_SOURCE
 
 #include <stdio.h>
@@ -39,14 +46,29 @@ DEFINE_VAPI_MSG_IDS_HICN_API_JSON
 
 // Shared local variables between state and RPCs
 
+/**
+ * @brief this shared variable keeps the hicn state
+ */
 volatile hicn_state_t  * hicn_state = NULL;
-volatile hicn_strategy_t * hicn_strategy = NULL;
+/**
+ * @brief  this shared variable keeps hicn strategies
+ */
 volatile hicn_strategies_t * hicn_strategies =NULL;
-volatile hicn_route_t * hicn_route = NULL;
-volatile hicn_face_ip_params_t *  hicn_face_ip_params = NULL;
+/**
+ * @brief this shared variable keeps  statistics of hicn faces
+ */
 volatile hicn_faces_t *  hicn_faces = NULL;
+/**
+ * @brief this shared variable keeps routes information in hicn
+ */
 volatile hicn_routes_t *  hicn_routes = NULL;
+/**
+ * @brief this shared variable is the link list to maintain all the faces (up to MAX_FACES)
+ */
 struct hicn_faces_s * fcurrent = NULL;
+/**
+ * @brief this shared variable is the link list to maintain all the routes
+ */
 struct hicn_routes_s * rcurrent = NULL;
 
 
@@ -55,14 +77,8 @@ static int init_buffer(void){
  hicn_state = memalign(MEM_ALIGN, sizeof(hicn_state_t) );
  memset((hicn_state_t *)hicn_state, 0 , sizeof(hicn_state_t) );
 
- hicn_strategy = memalign(MEM_ALIGN, sizeof(hicn_strategy_t) );
- memset((hicn_strategy_t *) hicn_strategy, 0 , sizeof(hicn_strategy_t) );
-
  hicn_strategies = memalign(MEM_ALIGN, sizeof(hicn_strategies_t) );
  memset((hicn_strategies_t *) hicn_strategies, 0 , sizeof(hicn_strategies_t) );
-
- hicn_route = memalign(MEM_ALIGN, sizeof(hicn_route_t) );
- memset((hicn_route_t *) hicn_route, 0 , sizeof(hicn_route_t) );
 
  hicn_faces = memalign(MEM_ALIGN, sizeof(hicn_faces_t) );
  hicn_faces->next=memalign(MEM_ALIGN, sizeof(struct hicn_faces_s));
@@ -75,14 +91,13 @@ static int init_buffer(void){
 
 
  int retval=-1;
- ARG_CHECK7(retval, hicn_state, hicn_strategy, hicn_strategies, hicn_route, fcurrent, hicn_faces, hicn_routes);
+ ARG_CHECK5(retval, hicn_state, hicn_strategies, fcurrent, hicn_faces, hicn_routes);
  hicn_routes->nroute=0;
  hicn_faces->nface=0;
  retval=0;
 
  return retval;
 }
-
 
 static int init_face_pool(struct hicn_faces_s * head){
 
@@ -95,7 +110,6 @@ static int init_face_pool(struct hicn_faces_s * head){
  return 0;
 
 }
-
 
 static int init_route_pool(struct hicn_routes_s * head){
 
@@ -111,20 +125,7 @@ static int init_route_pool(struct hicn_routes_s * head){
 
 /* VAPI CALLBACKS */
 
-vapi_error_e call_hicn_api_strategy_get(struct vapi_ctx_s *ctx,
-                           void *callback_ctx,
-                           vapi_error_e rv,
-                           bool is_last,
-                           vapi_payload_hicn_api_node_params_set_reply *reply){
-if(!reply->retval){
-  SRP_LOG_DBGMSG("Successfully done");
-  return VAPI_OK;
- }else
-  return VAPI_EUSER;
-}
-
-
-vapi_error_e call_hicn_api_strategies_get(struct vapi_ctx_s *ctx,
+static vapi_error_e call_hicn_api_strategies_get(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
@@ -136,20 +137,7 @@ if(!reply->retval){
   return VAPI_EUSER;
 }
 
-vapi_error_e call_hicn_api_route_get_hton(struct vapi_ctx_s *ctx,
-                           void *callback_ctx,
-                           vapi_error_e rv,
-                           bool is_last,
-                           vapi_payload_hicn_api_strategies_get_reply *reply){
-if(!reply->retval){
-  SRP_LOG_DBGMSG("Successfully done");
-  return VAPI_OK;
- }else
-  return VAPI_EUSER;
-}
-
-
-vapi_error_e call_hicn_api_route_nhops_add(struct vapi_ctx_s *ctx,
+static vapi_error_e call_hicn_api_route_nhops_add(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
@@ -161,7 +149,7 @@ if(!reply->retval){
   return VAPI_EUSER;
 }
 
-vapi_error_e call_hicn_api_route_del(struct vapi_ctx_s *ctx,
+static vapi_error_e call_hicn_api_route_del(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
@@ -174,7 +162,7 @@ if(!reply->retval){
   return VAPI_EUSER;
 }
 
-vapi_error_e call_hicn_api_face_ip_params_get(struct vapi_ctx_s *ctx,
+static vapi_error_e call_hicn_api_face_ip_params_get(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
@@ -190,8 +178,7 @@ if(!reply->retval){
   return VAPI_EUSER;
 }
 
-
-vapi_error_e call_hicn_api_punting_add(struct vapi_ctx_s *ctx,
+static vapi_error_e call_hicn_api_punting_add(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
@@ -204,7 +191,7 @@ if(!reply->retval){
 }
 
 
-vapi_error_e call_hicn_api_route_nhop_del(struct vapi_ctx_s *ctx,
+static vapi_error_e call_hicn_api_route_nhop_del(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
@@ -216,8 +203,7 @@ if(!reply->retval){
   return VAPI_EUSER;
 }
 
-
-vapi_error_e call_hicn_api_punting_del(struct vapi_ctx_s *ctx,
+static vapi_error_e call_hicn_api_punting_del(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
@@ -230,7 +216,7 @@ if(!reply->retval){
 }
 
 
-vapi_error_e call_hicn_api_face_ip_del(struct vapi_ctx_s *ctx,
+static vapi_error_e call_hicn_api_face_ip_del(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
@@ -243,7 +229,7 @@ if(!reply->retval){
 }
 
 
-vapi_error_e call_hicn_api_face_ip_add(struct vapi_ctx_s *ctx,
+static vapi_error_e call_hicn_api_face_ip_add(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
@@ -256,7 +242,7 @@ if(!reply->retval){
 
 }
 
-vapi_error_e call_vapi_hicn_api_node_stats_get(struct vapi_ctx_s *ctx,
+static vapi_error_e call_vapi_hicn_api_node_stats_get(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
@@ -283,21 +269,9 @@ if(!reply->retval){
    return VAPI_EUSER;
 }
 
-vapi_error_e call_hicn_api_node_params_set(struct vapi_ctx_s *ctx,
-                           void *callback_ctx,
-                           vapi_error_e rv,
-                           bool is_last,
-                           vapi_payload_hicn_api_node_params_set_reply *reply){
- if(!reply->retval){
-  SRP_LOG_DBGMSG("Successfully done");
-  return VAPI_OK;
- }else
-  return VAPI_EUSER;
-}
-
 static inline void  state_update(sr_val_t * vals, struct lyd_node **parent, sr_session_ctx_t *session){
  char buf[20];
- //struct ly_ctx *ly_ctx = sr_get_context(sr_session_get_connection(session));
+
  sr_val_set_xpath(&vals[0], "/hicn:hicn-state/states/pkts_processed");
  vals[0].type = SR_UINT64_T;
  vals[0].data.uint64_val = hicn_state->pkts_processed;
@@ -463,8 +437,6 @@ static inline int  faces_update(sr_val_t * vals, uint32_t nleaves, struct lyd_no
 
  for(int count=0; count<nleaves; count++){
 
-
-  // This part must be removed once the faceid is provided by the dump msg
    vapi_msg_hicn_api_face_ip_params_get *msg;
    msg = vapi_alloc_hicn_api_face_ip_params_get(g_vapi_ctx_instance);
 
@@ -661,9 +633,6 @@ static int hicn_state_route_cb(sr_session_ctx_t *session, const char *module_nam
 
  }
 
-/**
-* @brief API to get hicn strategies in vpp.
-*/
 static int hicn_strategies_get_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -680,9 +649,6 @@ return SR_ERR_OK;
 
 }
 
-/**
-* @brief API to add hicn route nhops in vpp.
-*/
 static int hicn_route_nhops_add_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -730,9 +696,6 @@ if(vapi_hicn_api_route_nhops_add(g_vapi_ctx_instance,msg,call_hicn_api_route_nho
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to del hicn route in vpp.
-*/
 static int hicn_route_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -774,9 +737,6 @@ if(vapi_hicn_api_route_del(g_vapi_ctx_instance,msg,call_hicn_api_route_del,NULL)
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to get face ip params in hicn in vpp.
-*/
 static int hicn_face_ip_params_get_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -794,9 +754,6 @@ if (vapi_hicn_api_face_ip_params_get(g_vapi_ctx_instance,msg,call_hicn_api_face_
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to get face ip params in hicn in vpp.
-*/
 static int hicn_punting_add_ip_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -842,9 +799,6 @@ if (vapi_hicn_api_punting_add(g_vapi_ctx_instance, msg, call_hicn_api_punting_ad
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to del hicn route nhops in vpp.
-*/
 static int hicn_route_nhops_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -890,9 +844,6 @@ if (vapi_hicn_api_route_nhop_del(g_vapi_ctx_instance, msg, call_hicn_api_route_n
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to del hicn punting in vpp.
-*/
 static int hicn_punting_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -939,9 +890,7 @@ return SR_ERR_OK;
 
 }
 
-/**
-* @brief API to del hicn face ip in vpp.
-*/
+
 static int hicn_face_ip_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -960,9 +909,7 @@ if(vapi_hicn_api_face_ip_del(g_vapi_ctx_instance,msg, call_hicn_api_face_ip_del,
 return SR_ERR_OK;
 }
 
-/**
-* @brief API to del hicn face ip in vpp.
-*/
+
 static int hicn_face_ip_add_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -1024,7 +971,7 @@ if(vapi_hicn_api_face_ip_add(g_vapi_ctx_instance,msg,call_hicn_api_face_ip_add,N
 return SR_ERR_OK;
 }
 
- vapi_error_e
+static vapi_error_e
 hicn_api_routes_dump_cb(struct vapi_ctx_s *ctx, void *callback_ctx,
                     vapi_error_e rv, bool is_last,
                     vapi_payload_hicn_api_routes_details *reply)
@@ -1058,7 +1005,6 @@ hicn_api_routes_dump_cb(struct vapi_ctx_s *ctx, void *callback_ctx,
    return SR_ERR_OK;
 
 }
-
 
 
 static vapi_error_e
@@ -1099,9 +1045,7 @@ hicn_api_face_stats_dump_cb(struct vapi_ctx_s *ctx, void *callback_ctx,
    return SR_ERR_OK;
 }
 
-/**
-* @brief Thread to update the state
-*/
+
 static void *state_thread(void *arg) {
 
  // mapping can be retrieved by cpuinfo
@@ -1154,9 +1098,7 @@ static void *state_thread(void *arg) {
  return NULL;
 }
 
-/**
-* @brief helper function for subscribing all hicn APIs.
-*/
+
 int hicn_subscribe_events(sr_session_ctx_t *session,
                          sr_subscription_ctx_t **subscription) {
    int rc = SR_ERR_OK;
@@ -1279,7 +1221,7 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
      goto error;
    }
 
- rc = sr_rpc_subscribe(session, "/hicn:punting-del", hicn_punting_del_cb,
+ rc = sr_rpc_subscribe(session, "/hicn:punting-del-ip", hicn_punting_del_cb,
                        session, 89,SR_SUBSCR_CTX_REUSE, subscription);
  if (rc != SR_ERR_OK) {
    SRP_LOG_DBGMSG("Problem in subscription punting-del\n");
