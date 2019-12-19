@@ -29,6 +29,67 @@ hicn_face_prod_state_t *face_state_vec;
 /* used to check if an interface is already in the vector */
 u32 *face_state_pool;
 
+u32 strategy_face_prod4_vlib_edge;
+u32 strategy_face_prod6_vlib_edge;
+
+
+void
+hicn_face_ip_init (vlib_main_t * vm)
+{
+  int strategy_nodes_n = hicn_strategy_get_all_available ();
+
+  /* Default Strategy has index 0 and it always exists */
+  strategy_face_ip4_vlib_edge = vlib_node_add_next (vm,
+						    hicn_dpo_get_strategy_vft
+						    (default_dpo.
+						     hicn_dpo_get_type ())->
+						    get_strategy_node_index
+						    (),
+						    hicn_face_prod4_output_node.
+						    index);
+
+  strategy_face_ip6_vlib_edge = vlib_node_add_next (vm,
+						    hicn_dpo_get_strategy_vft
+						    (default_dpo.
+						     hicn_dpo_get_type ())->
+						    get_strategy_node_index
+						    (),
+						    hicn_face_prod6_output_node.
+						    index);
+  /*
+   * Create and edge between al the other strategy nodes and the
+   * ip_encap nodes.
+   */
+  for (int i = 1; i < strategy_nodes_n; i++)
+    {
+      u32 temp_index4 = vlib_node_add_next (vm,
+					    hicn_dpo_get_strategy_vft_from_id
+					    (i)->get_strategy_node_index (),
+					    hicn_face_ip4_output_node.index);
+      u32 temp_index6 = vlib_node_add_next (vm,
+					    hicn_dpo_get_strategy_vft_from_id
+					    (i)->get_strategy_node_index (),
+					    hicn_face_ip6_output_node.index);
+      ASSERT (temp_index4 == strategy_face_ip4_vlib_edge);
+      ASSERT (temp_index6 == strategy_face_ip6_vlib_edge);
+    }
+
+  u32 temp_index4 = vlib_node_add_next (vm,
+					hicn_interest_hitpit_node.index,
+					hicn_face_ip4_output_node.index);
+  u32 temp_index6 = vlib_node_add_next (vm,
+					hicn_interest_hitpit_node.index,
+					hicn_face_ip6_output_node.index);
+
+  ASSERT (temp_index4 == strategy_face_ip4_vlib_edge);
+  ASSERT (temp_index6 == strategy_face_ip6_vlib_edge);
+
+
+  hicn_dpo_ip_module_init ();
+
+  register_face_type (hicn_face_ip_type, &ip_vft, "ip");
+}
+
 static int
 hicn_app_state_create (u32 swif, fib_prefix_t * prefix)
 {
@@ -307,7 +368,7 @@ hicn_face_prod_del (hicn_face_id_t face_id)
       hicn_route_del_nhop (&(face_state_vec[face->shared.sw_if].prefix),
 			   face_id);
 
-      /* 
+      /*
        * Delete the content in the CS before deleting the face.
        * Mandatory to prevent hitting the CS and not having the lru list
        * due to a early deletion of the face.
