@@ -307,7 +307,7 @@ hicn_face_prod_del (hicn_face_id_t face_id)
       hicn_route_del_nhop (&(face_state_vec[face->shared.sw_if].prefix),
 			   face_id);
 
-      /* 
+      /*
        * Delete the content in the CS before deleting the face.
        * Mandatory to prevent hitting the CS and not having the lru list
        * due to a early deletion of the face.

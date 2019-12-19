@@ -54,6 +54,8 @@ typedef enum
 } hicn_face_prod_next_t;
 
 vlib_node_registration_t hicn_face_prod_input_node;
+vlib_node_registration_t hicn_face_prod4_output_node;
+vlib_node_registration_t hicn_face_prod6_output_node;
 
 static __clib_unused u8 *
 format_face_prod_input_trace (u8 * s, va_list * args)
@@ -316,7 +318,6 @@ VLIB_REGISTER_NODE(hicn_face_prod_input_node) =
   },
 };
 /* *INDENT-ON* */
-
 
 /*
  * fd.io coding-style-patch-verification: ON
