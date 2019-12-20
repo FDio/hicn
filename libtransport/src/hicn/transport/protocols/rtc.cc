@@ -283,6 +283,7 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
     // Send the stats to the app
     stats_.updateQueuingDelay(queuingDelay_);
     stats_.updateLossRatio(lossRate_);
+    stats_.updateAverageRtt(pathTable_[producerPathLabels_[1]]->getMinRtt());
     (*stats_callback)(*socket_, stats_);
   }
 
