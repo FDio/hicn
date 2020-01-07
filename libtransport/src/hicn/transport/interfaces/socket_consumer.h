@@ -132,6 +132,8 @@ class ConsumerSocket : public BaseSocket {
      * the application when the transfer is done.
      */
     virtual void readSuccess(std::size_t total_size) noexcept = 0;
+
+    virtual void afterRead() {}
   };
 
   /**
@@ -181,8 +183,16 @@ class ConsumerSocket : public BaseSocket {
    * content retrieval succeeded. This information can be obtained from the
    * error code in CONTENT_RETRIEVED callback.
    */
-  int consume(const Name &name);
-  int asyncConsume(const Name &name);
+  virtual int consume(const Name &name);
+  virtual int asyncConsume(const Name &name);
+
+  /**
+   * Verify the packets containing a key after the origin of the key has been
+   * validated by the client.
+   *
+   * @return true if all packets are valid, false otherwise
+   */
+  virtual bool verifyKeyPackets();
 
   /**
    * Stops the consumer socket. If several downloads are queued (using
@@ -330,16 +340,14 @@ class ConsumerSocket : public BaseSocket {
     return result;
   }
 
- private:
+  // context inner state variables
   asio::io_service internal_io_service_;
   asio::io_service &io_service_;
 
   std::shared_ptr<Portal> portal_;
+
   utils::EventThread async_downloader_;
 
-  // No need to protect from multiple accesses in the async consumer
-  // The parameter is accessible only with a getSocketOption and
-  // set from the consume
   Name network_name_;
 
   int interest_lifetime_;
@@ -362,17 +370,22 @@ class ConsumerSocket : public BaseSocket {
   int rate_estimation_batching_parameter_;
   int rate_estimation_choice_;
 
+  bool is_async_;
+
   // Verification parameters
   std::shared_ptr<utils::Verifier> verifier_;
   PARCKeyId *key_id_;
   std::atomic_bool verify_signature_;
+  std::atomic_bool key_content_;
 
   ConsumerInterestCallback on_interest_retransmission_;
   ConsumerInterestCallback on_interest_output_;
   ConsumerInterestCallback on_interest_timeout_;
   ConsumerInterestCallback on_interest_satisfied_;
+
   ConsumerContentObjectCallback on_content_object_input_;
   ConsumerContentObjectVerificationCallback on_content_object_verification_;
+
   ConsumerContentObjectCallback on_content_object_;
   ConsumerManifestCallback on_manifest_;
   ConsumerTimerCallback stats_summary_;

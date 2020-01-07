@@ -81,8 +81,8 @@ typedef enum packetState packetState_t;
 
 struct sentInterest {
   uint64_t transmissionTime;
-  uint32_t sequence;    // sequence number of the interest sent
-                        // to handle seq % buffer_size
+  uint32_t sequence;  // sequence number of the interest sent
+                      // to handle seq % buffer_size
   packetState_t state;  // see packet state
 };
 
@@ -98,6 +98,8 @@ class RTCTransportProtocol : public TransportProtocol,
   void stop() override;
 
   void resume() override;
+
+  bool verifyKeyPackets() override;
 
  private:
   // algo functions

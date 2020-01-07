@@ -63,6 +63,10 @@ void IndexManager::onContentObject(core::Interest::Ptr &&interest,
   }
 }
 
+bool IndexManager::onKeyToVerify() {
+  return indexer_->onKeyToVerify();
+}
+
 void IndexManager::reset(std::uint32_t offset) {
   indexer_ = std::make_unique<IncrementalIndexer>(icn_socket_, transport_,
                                                   reassembly_);

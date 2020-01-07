@@ -212,23 +212,25 @@ hicn_name_compare (const hicn_name_t * name_1, const hicn_name_t * name_2,
 }
 
 int
-hicn_name_hash (const hicn_name_t * name, u32 * hash)
+hicn_name_hash (const hicn_name_t * name, u32 * hash, bool consider_suffix)
 {
   switch (name->type)
     {
     case HNT_CONTIGUOUS_V4:
-      *hash = hash32 (name->buffer, HICN_V4_NAME_LEN);
+      *hash = hash32 (name->buffer, consider_suffix ? HICN_V4_NAME_LEN : HICN_V4_PREFIX_LEN);
       break;
     case HNT_CONTIGUOUS_V6:
-      *hash = hash32 (name->buffer, HICN_V6_NAME_LEN);
+      *hash = hash32 (name->buffer, consider_suffix ? HICN_V6_NAME_LEN : HICN_V6_PREFIX_LEN);
       break;
     case HNT_IOV_V4:
     case HNT_IOV_V6:
       *hash =
-        hash32 (name->iov.buffers[0].iov_base, name->iov.buffers[0].iov_len);
-      *hash =
-        cumulative_hash32 (name->iov.buffers[1].iov_base,
-                           name->iov.buffers[1].iov_len, *hash);
+	hash32 (name->iov.buffers[0].iov_base, name->iov.buffers[0].iov_len);
+      if (consider_suffix)
+        {
+          *hash = cumulative_hash32 (name->iov.buffers[1].iov_base,
+			      name->iov.buffers[1].iov_len, *hash);
+        }
       break;
     default:
       return HICN_LIB_ERROR_NOT_IMPLEMENTED;

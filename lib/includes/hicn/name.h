@@ -186,9 +186,10 @@ int hicn_name_compare (const hicn_name_t * name_1, const hicn_name_t * name_2,
  * @brief Provides a 32-bit hash of an hICN name
  * @param [in] name - Name to hash
  * @param [out] hash - Resulting hash
+ * @param [in] consider_suffix - Consider the suffix in the hash computation
  * @return hICN error code
  */
-int hicn_name_hash (const hicn_name_t * name, u32 * hash);
+int hicn_name_hash (const hicn_name_t * name, u32 * hash, bool consider_suffix);
 
 /**
  * @brief Test whether an hICN name is empty

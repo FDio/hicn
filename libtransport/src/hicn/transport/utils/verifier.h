@@ -18,7 +18,11 @@
 #include <hicn/transport/core/packet.h>
 
 extern "C" {
+#include <parc/security/parc_CertificateFactory.h>
+#include <parc/security/parc_InMemoryVerifier.h>
 #include <parc/security/parc_KeyId.h>
+#include <parc/security/parc_Security.h>
+#include <parc/security/parc_SymmetricKeySigner.h>
 #include <parc/security/parc_Verifier.h>
 }
 
@@ -56,6 +60,9 @@ class Verifier {
    */
   bool addKey(PARCKey *key);
 
+  PARCKeyId *addKeyFromPassphrase(const std::string &passphrase,
+                                  CryptoSuite suite);
+
   PARCKeyId *addKeyFromCertificate(const std::string &file_name);
 
   /**
@@ -77,8 +84,19 @@ class Verifier {
    */
   int verify(const Packet &packet);
 
+  CryptoHash getPacketHash(const Packet &packet,
+                           std::shared_ptr<CryptoHasher> hasher);
+
  private:
-  PARCVerifier *verifier_;
+  PARCVerifier *verifier_ = nullptr;
+  PARCCertificateFactory *factory_ = nullptr;
+  PARCCertificate *certificate_ = nullptr;
+  PARCKeyId *keyId_ = nullptr;
+  PARCKey *key_ = nullptr;
+  PARCBuffer *key_buffer_ = nullptr;
+  PARCSymmetricKeyStore *symmetricKeyStore_ = nullptr;
+  PARCSigner *signer_ = nullptr;
+  PARCBufferComposer *composer_ = nullptr;
   static uint8_t zeros[200];
 };
 
