@@ -15,8 +15,8 @@
 
 #pragma once
 
-#include <queue>
 #include <map>
+#include <queue>
 #include <unordered_map>
 
 #include <hicn/transport/protocols/protocol.h>
@@ -35,21 +35,22 @@
 #define HICN_TIMESTAMP_SIZE 8            // bytes
 #define HICN_RTC_INTEREST_LIFETIME 1000  // ms
 
-//rtt measurement
-//normal interests for data goes from 0 to
-//HICN_MIN_PROBE_SEQ, the rest is reserverd for
-//probes
+// rtt measurement
+// normal interests for data goes from 0 to
+// HICN_MIN_PROBE_SEQ, the rest is reserverd for
+// probes
 #define HICN_MIN_PROBE_SEQ 0xefffffff
 #define HICN_MAX_PROBE_SEQ 0xffffffff
 
 // controller constant
-#define HICN_ROUND_LEN 200  // ms interval of time on which
-			    // we take decisions / measurements
+#define HICN_ROUND_LEN \
+  200  // ms interval of time on which
+       // we take decisions / measurements
 #define HICN_MAX_RTX 10
 #define HICN_MAX_RTX_SIZE 1024
 #define HICN_MAX_RTX_MAX_AGE 10000
-#define HICN_MIN_RTT_WIN 30  // rounds
-#define HICN_MIN_INTER_ARRIVAL_GAP 100 //ms
+#define HICN_MIN_RTT_WIN 30             // rounds
+#define HICN_MIN_INTER_ARRIVAL_GAP 100  // ms
 
 // cwin
 #define HICN_INITIAL_CWIN 1           // packets
@@ -70,27 +71,19 @@
 #define HICN_MICRO_IN_A_SEC 1000000
 #define HICN_MILLI_IN_A_SEC 1000
 
-
 namespace transport {
 
 namespace protocol {
 
-enum packetState {
-  sent_,
-  nacked_,
-  received_,
-  timeout1_,
-  timeout2_,
-  lost_
-};
+enum packetState { sent_, nacked_, received_, timeout1_, timeout2_, lost_ };
 
 typedef enum packetState packetState_t;
 
 struct sentInterest {
   uint64_t transmissionTime;
-  uint32_t sequence;  //sequence number of the interest sent
-                      //to handle seq % buffer_size
-  packetState_t state; //see packet state
+  uint32_t sequence;  // sequence number of the interest sent
+                      // to handle seq % buffer_size
+  packetState_t state;  // see packet state
 };
 
 class RTCTransportProtocol : public TransportProtocol, public Reassembly {
@@ -104,6 +97,8 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   void stop() override;
 
   void resume() override;
+
+  bool verifyKeyPackets() override;
 
  private:
   // algo functions
@@ -151,7 +146,7 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   // names/packets var
   uint32_t actualSegment_;
   uint32_t inflightInterestsCount_;
-  //map seq to rtx
+  // map seq to rtx
   std::map<uint32_t, uint8_t> interestRetransmissions_;
   bool rtx_timer_used_;
   std::unique_ptr<asio::steady_timer> rtx_timer_;
@@ -203,10 +198,10 @@ class RTCTransportProtocol : public TransportProtocol, public Reassembly {
   uint32_t rounds_;
   uint32_t roundsWithoutNacks_;
 
-  //we keep track of up two paths (if only one path is in use
-  //the two values in the vector will be the same)
-  //position 0 stores the path with minRTT
-  //position 1 stores the path with maxRTT
+  // we keep track of up two paths (if only one path is in use
+  // the two values in the vector will be the same)
+  // position 0 stores the path with minRTT
+  // position 1 stores the path with maxRTT
   uint32_t producerPathLabels_[2];
 
   std::unordered_map<uint32_t, std::shared_ptr<RTCDataPath>> pathTable_;
