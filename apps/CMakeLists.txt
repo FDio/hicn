@@ -47,6 +47,7 @@ endif()
 
 set(SUFFIX "")
 if (${LIBTRANSPORT_LIBRARIES} MATCHES ".*-memif.*")
+  set(DEPENDENCIES ${LIBMEMIF_SHARED})
   set(SUFFIX "-memif")
   set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
 endif()

@@ -44,9 +44,11 @@ ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service)
       /****** END RAAQM Parameters ******/
       rate_estimation_alpha_(default_values::rate_alpha),
       rate_estimation_observer_(nullptr),
+      rate_estimation_batching_parameter_(default_values::batch),
       rate_estimation_choice_(0),
       verifier_(std::make_shared<utils::Verifier>()),
       verify_signature_(false),
+      key_content_(false),
       on_interest_output_(VOID_HANDLER),
       on_interest_timeout_(VOID_HANDLER),
       on_interest_satisfied_(VOID_HANDLER),
@@ -105,9 +107,13 @@ int ConsumerSocket::asyncConsume(const Name &name) {
   return CONSUMER_RUNNING;
 }
 
+bool ConsumerSocket::verifyKeyPackets() {
+  return transport_protocol_->verifyKeyPackets();
+}
+
 void ConsumerSocket::stop() {
-  if (transport_protocol_->isRunning()) {
-    transport_protocol_->stop();
+  if (transport_protocol_) {
+    if (transport_protocol_->isRunning()) transport_protocol_->stop();
   }
 }
 
@@ -311,6 +317,11 @@ int ConsumerSocket::setSocketOption(int socket_option_key,
         result = SOCKET_OPTION_SET;
         break;
 
+      case GeneralTransportOptions::KEY_CONTENT:
+        key_content_ = socket_option_value;
+        result = SOCKET_OPTION_SET;
+        break;
+
       default:
         return result;
     }
@@ -438,6 +449,7 @@ int ConsumerSocket::setSocketOption(
   if (!transport_protocol_->isRunning()) {
     switch (socket_option_key) {
       case GeneralTransportOptions::VERIFIER:
+        verifier_.reset();
         verifier_ = socket_option_value;
         result = SOCKET_OPTION_SET;
         break;
@@ -456,10 +468,7 @@ int ConsumerSocket::setSocketOption(int socket_option_key,
     switch (socket_option_key) {
       case GeneralTransportOptions::CERTIFICATE:
         key_id_ = verifier_->addKeyFromCertificate(socket_option_value);
-
-        if (key_id_ != nullptr) {
-          result = SOCKET_OPTION_SET;
-        }
+        if (key_id_ != nullptr) result = SOCKET_OPTION_SET;
         break;
 
       case DataLinkOptions::OUTPUT_INTERFACE:
@@ -589,6 +598,10 @@ int ConsumerSocket::getSocketOption(int socket_option_key,
 
     case GeneralTransportOptions::VERIFY_SIGNATURE:
       socket_option_value = verify_signature_;
+      break;
+
+    case GeneralTransportOptions::KEY_CONTENT:
+      socket_option_value = key_content_;
       break;
 
     default:

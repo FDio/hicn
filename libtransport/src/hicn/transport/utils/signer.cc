@@ -39,54 +39,96 @@ namespace utils {
 uint8_t Signer::zeros[200] = {0};
 
 /*One signer_ per Private Key*/
-Signer::Signer(PARCKeyStore *keyStore, PARCCryptoSuite suite) {
-  switch (suite) {
-    case PARCCryptoSuite_NULL_CRC32C:
-      break;
-    case PARCCryptoSuite_ECDSA_SHA256:
-    case PARCCryptoSuite_RSA_SHA256:
-    case PARCCryptoSuite_DSA_SHA256:
-    case PARCCryptoSuite_RSA_SHA512:
-      this->signer_ =
-          parcSigner_Create(parcPublicKeySigner_Create(keyStore, suite),
-                            PARCPublicKeySignerAsSigner);
-      this->key_id_ = parcSigner_CreateKeyId(this->signer_);
-      break;
+Signer::Signer(PARCKeyStore *keyStore, CryptoSuite suite) {
+  parcSecurity_Init();
 
-    case PARCCryptoSuite_HMAC_SHA512:
-    case PARCCryptoSuite_HMAC_SHA256:
-    default:
-      this->signer_ = parcSigner_Create(
-          parcSymmetricKeySigner_Create((PARCSymmetricKeyStore *)keyStore,
-                                        parcCryptoSuite_GetCryptoHash(suite)),
-          PARCSymmetricKeySignerAsSigner);
-      this->key_id_ = parcSigner_CreateKeyId(this->signer_);
+  switch (suite) {
+    case CryptoSuite::DSA_SHA256:
+    case CryptoSuite::RSA_SHA256:
+    case CryptoSuite::RSA_SHA512:
+    case CryptoSuite::ECDSA_256K1: {
+      this->signer_ =
+          parcSigner_Create(parcPublicKeySigner_Create(
+                                keyStore, static_cast<PARCCryptoSuite>(suite)),
+                            PARCPublicKeySignerAsSigner);
       break;
+    }
+    case CryptoSuite::HMAC_SHA256:
+    case CryptoSuite::HMAC_SHA512: {
+      this->signer_ =
+          parcSigner_Create(parcSymmetricKeySigner_Create(
+                                (PARCSymmetricKeyStore *)keyStore,
+                                parcCryptoSuite_GetCryptoHash(
+                                    static_cast<PARCCryptoSuite>(suite))),
+                            PARCSymmetricKeySignerAsSigner);
+      break;
+    }
+    default: { return; }
   }
+
+  suite_ = suite;
+  key_id_ = parcSigner_CreateKeyId(this->signer_);
+  signature_length_ = parcSigner_GetSignatureSize(this->signer_);
+}
+
+Signer::Signer(const std::string &passphrase, CryptoSuite suite) {
+  parcSecurity_Init();
+
+  switch (suite) {
+    case CryptoSuite::HMAC_SHA256:
+    case CryptoSuite::HMAC_SHA512: {
+      composer_ = parcBufferComposer_Create();
+      parcBufferComposer_PutString(composer_, passphrase.c_str());
+      key_buffer_ = parcBufferComposer_ProduceBuffer(composer_);
+      symmetricKeyStore_ = parcSymmetricKeyStore_Create(key_buffer_);
+      this->signer_ = parcSigner_Create(
+          parcSymmetricKeySigner_Create(
+              symmetricKeyStore_, parcCryptoSuite_GetCryptoHash(
+                                      static_cast<PARCCryptoSuite>(suite))),
+          PARCSymmetricKeySignerAsSigner);
+      break;
+    }
+    default: { return; }
+  }
+
+  suite_ = suite;
+  key_id_ = parcSigner_CreateKeyId(this->signer_);
+  signature_length_ = parcSigner_GetSignatureSize(this->signer_);
+}
+
+Signer::Signer(const PARCSigner *signer, CryptoSuite suite)
+    : signer_(parcSigner_Acquire(signer)),
+      key_id_(parcSigner_CreateKeyId(this->signer_)),
+      suite_(suite),
+      signature_length_(parcSigner_GetSignatureSize(this->signer_)) {
+  parcSecurity_Init();
 }
 
 Signer::Signer(const PARCSigner *signer)
-    : signer_(parcSigner_Acquire(signer)),
-      key_id_(parcSigner_CreateKeyId(this->signer_)) {}
+    : Signer(signer, CryptoSuite::UNKNOWN) {}
 
 Signer::~Signer() {
-  parcSigner_Release(&signer_);
-  parcKeyId_Release(&key_id_);
+  if (signature_) parcSignature_Release(&signature_);
+  if (symmetricKeyStore_) parcSymmetricKeyStore_Release(&symmetricKeyStore_);
+  if (key_buffer_) parcBuffer_Release(&key_buffer_);
+  if (composer_) parcBufferComposer_Release(&composer_);
+  if (signer_) parcSigner_Release(&signer_);
+  if (key_id_) parcKeyId_Release(&key_id_);
+  parcSecurity_Fini();
 }
 
 void Signer::sign(Packet &packet) {
   // header chain points to the IP + TCP hicn header + AH Header
-  utils::MemBuf *header_chain = packet.header_head_;
-  utils::MemBuf *payload_chain = packet.payload_head_;
+  MemBuf *header_chain = packet.header_head_;
+  MemBuf *payload_chain = packet.payload_head_;
   uint8_t *hicn_packet = (uint8_t *)header_chain->writableData();
   Packet::Format format = packet.getFormat();
-  std::size_t sign_len_bytes = parcSigner_GetSignatureSize(signer_);
 
   if (!(format & HFO_AH)) {
     throw errors::MalformedAHPacketException();
   }
 
-  packet.setSignatureSize(sign_len_bytes);
+  packet.setSignatureSize(signature_length_);
 
   // Copy IP+TCP/ICMP header before zeroing them
   hicn_header_t header_copy;
@@ -102,8 +144,7 @@ void Signer::sign(Packet &packet) {
   auto now = duration_cast<milliseconds>(system_clock::now().time_since_epoch())
                  .count();
   packet.setSignatureTimestamp(now);
-  packet.setValidationAlgorithm(
-      CryptoSuite(parcSigner_GetCryptoSuite(this->signer_)));
+  packet.setValidationAlgorithm(suite_);
 
   KeyId key_id;
   key_id.first = (uint8_t *)parcBuffer_Overlay(
@@ -111,31 +152,33 @@ void Signer::sign(Packet &packet) {
   packet.setKeyId(key_id);
 
   // Calculate hash
-  utils::CryptoHasher hasher(parcSigner_GetCryptoHasher(signer_));
+  CryptoHasher hasher(parcSigner_GetCryptoHasher(signer_));
   hasher.init();
-  hasher.updateBytes(hicn_packet, header_len + sign_len_bytes);
+  hasher.updateBytes(hicn_packet, header_len + signature_length_);
 
-  for (utils::MemBuf *current = payload_chain; current != header_chain;
+  for (MemBuf *current = payload_chain; current != header_chain;
        current = current->next()) {
     hasher.updateBytes(current->data(), current->length());
   }
 
-  utils::CryptoHash hash = hasher.finalize();
+  CryptoHash hash = hasher.finalize();
 
-  PARCSignature *signature = parcSigner_SignDigestNoAlloc(
-      this->signer_, hash.hash_, packet.getSignature(),
-      (uint32_t)sign_len_bytes);
-  PARCBuffer *buffer = parcSignature_GetSignature(signature);
+  signature_ = parcSigner_SignDigestNoAlloc(this->signer_, hash.hash_,
+                                            packet.getSignature(),
+                                            (uint32_t)signature_length_);
+  PARCBuffer *buffer = parcSignature_GetSignature(signature_);
 
   size_t bytes_len = parcBuffer_Remaining(buffer);
 
-  if (bytes_len > sign_len_bytes) {
+  if (bytes_len > signature_length_) {
     throw errors::MalformedAHPacketException();
   }
 
   hicn_packet_copy_header(format, &header_copy,
                           (hicn_header_t *)packet.packet_start_, false);
 }
+
+size_t Signer::getSignatureLength() { return signature_length_; }
 
 PARCKeyStore *Signer::getKeyStore() {
   return parcSigner_GetKeyStore(this->signer_);

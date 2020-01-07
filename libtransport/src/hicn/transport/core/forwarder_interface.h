@@ -19,6 +19,8 @@
 #include <hicn/transport/core/udp_socket_connector.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
+#include <hicn/transport/utils/log.h>
+
 #include <deque>
 
 namespace transport {
@@ -95,6 +97,9 @@ class ForwarderInterface {
       packet.setLocator(inet6_address_);
     }
 
+    // TRANSPORT_LOGI("Sending packet %s at %lu",
+    // packet.getName().toString().c_str(),
+    // utils::SteadyClock::now().time_since_epoch().count());
     packet.setChecksum();
     connector_.send(packet.acquireMemBufReference());
   }

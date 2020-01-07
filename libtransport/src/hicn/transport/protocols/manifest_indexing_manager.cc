@@ -29,9 +29,11 @@ ManifestIndexManager::ManifestIndexManager(
     interface::ConsumerSocket *icn_socket, TransportProtocol *next_interest)
     : IncrementalIndexManager(icn_socket),
       PacketManager<Interest>(1024),
-      next_reassembly_segment_(suffix_queue_.end()),
       next_to_retrieve_segment_(suffix_queue_.end()),
       suffix_manifest_(core::NextSegmentCalculationStrategy::INCREMENTAL, 0),
+      next_reassembly_segment_(
+          core::NextSegmentCalculationStrategy::INCREMENTAL, 1, true),
+      ignored_segments_(),
       next_interest_(next_interest) {}
 
 bool ManifestIndexManager::onManifest(
@@ -51,13 +53,12 @@ bool ManifestIndexManager::onManifest(
     switch (manifest->getManifestType()) {
       case core::ManifestType::INLINE_MANIFEST: {
         auto _it = manifest->getSuffixList().begin();
-        auto _end = --manifest->getSuffixList().end();
+        auto _end = manifest->getSuffixList().end();
+        size_t nb_segments = std::distance(_it, _end);
         final_suffix_ = manifest->getFinalBlockNumber();  // final block number
 
-        if (TRANSPORT_EXPECT_FALSE(manifest->isFinalManifest())) {
-          _end++;
-        }
-
+        TRANSPORT_LOGD("Received manifest %u",
+                       manifest->getWritableName().getSuffix());
         suffix_hash_map_[_it->first] =
             std::make_pair(std::vector<uint8_t>(_it->second, _it->second + 32),
                            manifest->getHashAlgorithm());
@@ -80,15 +81,31 @@ bool ManifestIndexManager::onManifest(
         }
 
         if (TRANSPORT_EXPECT_FALSE(manifest->getName().getSuffix()) == 0) {
-          // Set the iterators to the beginning of the suffix queue
-          next_reassembly_segment_ = suffix_queue_.begin();
-          // Set number of segments in manifests assuming the first one is full
-          suffix_manifest_.setNbSegments(
-              std::distance(manifest->getSuffixList().begin(),
-                            manifest->getSuffixList().end()) -
-              1);
-          suffix_manifest_.setSuffixStrategy(
-              manifest->getNextSegmentCalculationStrategy());
+          core::NextSegmentCalculationStrategy strategy =
+              manifest->getNextSegmentCalculationStrategy();
+
+          suffix_manifest_.reset(0);
+          suffix_manifest_.setNbSegments(nb_segments);
+          suffix_manifest_.setSuffixStrategy(strategy);
+          TRANSPORT_LOGD("Capacity of 1st manifest %zu",
+                         suffix_manifest_.getNbSegments());
+
+          next_reassembly_segment_.reset(*suffix_queue_.begin());
+          next_reassembly_segment_.setNbSegments(nb_segments);
+          suffix_manifest_.setSuffixStrategy(strategy);
+        }
+
+        // If the manifest is not full, we add the suffixes of missing segments
+        // to the list of segments to ignore when computing the next reassembly
+        // index.
+        if (TRANSPORT_EXPECT_FALSE(
+                suffix_manifest_.getNbSegments() - nb_segments > 0)) {
+          auto start = manifest->getSuffixList().begin();
+          auto last = --_end;
+          for (uint32_t i = last->first + 1;
+               i < start->first + suffix_manifest_.getNbSegments(); i++) {
+            ignored_segments_.push_back(i);
+          }
         }
 
         if (TRANSPORT_EXPECT_FALSE(manifest->isFinalManifest()) == 0) {
@@ -126,6 +143,7 @@ void ManifestIndexManager::onManifestTimeout(Interest::Ptr &&i) {
     return;
   }
 
+  TRANSPORT_LOGD("Timeout on manifest %u", segment);
   // Get portal
   std::shared_ptr<interface::BasePortal> portal;
   socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal);
@@ -181,6 +199,7 @@ void ManifestIndexManager::fillWindow(Name &name, uint32_t current_manifest) {
                   std::placeholders::_1, std::placeholders::_2),
         std::bind(&ManifestIndexManager::onManifestTimeout, this,
                   std::placeholders::_1));
+    TRANSPORT_LOGD("Send manifest interest %u", name.getSuffix());
 
     last_requested_manifest = (suffix_manifest_++).getSuffix();
   } while (current_segment + window_size >= suffix_manifest_.getSuffix() &&
@@ -242,16 +261,28 @@ bool ManifestIndexManager::isFinalSuffixDiscovered() {
 }
 
 uint32_t ManifestIndexManager::getNextReassemblySegment() {
-  if (TRANSPORT_EXPECT_FALSE(next_reassembly_segment_ == suffix_queue_.end())) {
-    return invalid_index;
+  uint32_t current_reassembly_segment;
+
+  while (true) {
+    current_reassembly_segment = next_reassembly_segment_.getSuffix();
+    next_reassembly_segment_++;
+
+    if (TRANSPORT_EXPECT_FALSE(current_reassembly_segment > final_suffix_)) {
+      return invalid_index;
+    }
+
+    if (ignored_segments_.empty()) break;
+
+    auto is_ignored =
+        std::find(ignored_segments_.begin(), ignored_segments_.end(),
+                  current_reassembly_segment);
+
+    if (is_ignored == ignored_segments_.end()) break;
+
+    ignored_segments_.erase(is_ignored);
   }
 
-  if (TRANSPORT_EXPECT_TRUE(next_reassembly_segment_ !=
-                            suffix_queue_.begin())) {
-    suffix_queue_.erase(std::prev(next_reassembly_segment_));
-  }
-
-  return *next_reassembly_segment_++;
+  return current_reassembly_segment;
 }
 
 void ManifestIndexManager::reset() {

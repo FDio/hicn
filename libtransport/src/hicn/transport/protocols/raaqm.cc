@@ -115,7 +115,12 @@ void RaaqmTransportProtocol::reset() {
   t0_ = utils::SteadyClock::now();
 }
 
+bool RaaqmTransportProtocol::verifyKeyPackets() {
+  return index_manager_->onKeyToVerify();
+}
+
 void RaaqmTransportProtocol::increaseWindow() {
+  // return;
   double max_window_size = 0.;
   socket_->getSocketOption(GeneralTransportOptions::MAX_WINDOW_SIZE,
                            max_window_size);
@@ -131,6 +136,7 @@ void RaaqmTransportProtocol::increaseWindow() {
 }
 
 void RaaqmTransportProtocol::decreaseWindow() {
+  // return;
   double min_window_size = 0.;
   socket_->getSocketOption(GeneralTransportOptions::MIN_WINDOW_SIZE,
                            min_window_size);
@@ -340,8 +346,12 @@ void RaaqmTransportProtocol::onContentObject(
     }
 
     index_manager_->onManifest(std::move(content_object));
+    if (TRANSPORT_EXPECT_FALSE(incremental_suffix == 0)) {
+      BaseReassembly::index_ = index_manager_->getNextReassemblySegment();
+    }
 
   } else if (content_object->getPayloadType() == PayloadType::CONTENT_OBJECT) {
+    TRANSPORT_LOGD("Received content %u", incremental_suffix);
     onContentSegment(std::move(interest), std::move(content_object));
   }
 
@@ -389,7 +399,7 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
 
   const Name &n = interest->getName();
 
-  TRANSPORT_LOGW("Timeout on %s", n.toString().c_str());
+  TRANSPORT_LOGW("Timeout on content %s", n.toString().c_str());
 
   if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
     return;
@@ -459,21 +469,27 @@ void RaaqmTransportProtocol::scheduleNextInterests() {
     // send at least one interest if there are retransmissions to perform and
     // there is no space left in the window
     sendInterest(std::move(interest_to_retransmit_.front()));
+    TRANSPORT_LOGD("Window full, retransmit one content interest");
     interest_to_retransmit_.pop();
   }
 
   uint32_t index = IndexManager::invalid_index;
+
   // Send the interest needed for filling the window
   while (interests_in_flight_ < current_window_size_) {
     if (interest_to_retransmit_.size() > 0) {
       sendInterest(std::move(interest_to_retransmit_.front()));
+      TRANSPORT_LOGD("Retransmit content interest");
       interest_to_retransmit_.pop();
     } else {
       index = index_manager_->getNextSuffix();
       if (index == IndexManager::invalid_index) {
+        TRANSPORT_LOGE("INVALID INDEX %d", index);
         break;
       }
+
       sendInterest(index);
+      TRANSPORT_LOGD("Send content interest %u", index);
     }
   }
 }
@@ -534,6 +550,7 @@ void RaaqmTransportProtocol::onContentReassembled(std::error_code ec) {
 
   rate_estimator_->onDownloadFinished();
   stop();
+  on_payload->afterRead();
 }
 
 void RaaqmTransportProtocol::updateRtt(uint64_t segment) {

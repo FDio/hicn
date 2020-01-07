@@ -29,6 +29,8 @@ extern "C" {
 #include <memory>
 #include <random>
 
+#include <openssl/rand.h>
+
 namespace transport {
 
 namespace core {
@@ -80,11 +82,11 @@ void Prefix::buildPrefix(std::string &prefix, uint16_t prefix_length,
   int ret;
   switch (family) {
     case AF_INET:
-        ret = inet_pton(AF_INET, prefix.c_str(), ip_prefix_.address.v4.buffer);
-        break;
+      ret = inet_pton(AF_INET, prefix.c_str(), ip_prefix_.address.v4.buffer);
+      break;
     case AF_INET6:
-        ret = inet_pton(AF_INET6, prefix.c_str(), ip_prefix_.address.v6.buffer);
-        break;
+      ret = inet_pton(AF_INET6, prefix.c_str(), ip_prefix_.address.v6.buffer);
+      break;
     default:
       throw errors::InvalidIpAddressException();
   }
@@ -133,8 +135,7 @@ Prefix &Prefix::setAddressFamily(int address_family) {
 }
 
 std::string Prefix::getNetwork() const {
-  if (!checkPrefixLengthAndAddressFamily(ip_prefix_.len,
-                                         ip_prefix_.family)) {
+  if (!checkPrefixLengthAndAddressFamily(ip_prefix_.len, ip_prefix_.family)) {
     throw errors::InvalidIpAddressException();
   }
 
@@ -151,9 +152,121 @@ std::string Prefix::getNetwork() const {
   return network;
 }
 
+int Prefix::contains(const ip_address_t &content_name) const {
+  int res =
+      ip_address_cmp(&content_name, &(ip_prefix_.address), ip_prefix_.family);
+
+  if (ip_prefix_.len != (ip_prefix_.family == AF_INET6 ? IPV6_ADDR_LEN_BITS
+                                                       : IPV4_ADDR_LEN_BITS)) {
+    const u8 *ip_prefix_buffer =
+        ip_address_get_buffer(&(ip_prefix_.address), ip_prefix_.family);
+    const u8 *content_name_buffer =
+        ip_address_get_buffer(&content_name, ip_prefix_.family);
+    uint8_t mask = 0xFF >> (ip_prefix_.len % 8);
+    mask = ~mask;
+
+    res += (ip_prefix_buffer[ip_prefix_.len] & mask) ==
+           (content_name_buffer[ip_prefix_.len] & mask);
+  }
+
+  return res;
+}
+
+int Prefix::contains(const core::Name &content_name) const {
+  return contains(content_name.toIpAddress().address);
+}
+
 Name Prefix::getName() const {
   std::string s(getNetwork());
   return Name(s);
+}
+
+/*
+ * Mask is used to apply the components to a content name that belong to this
+ * prefix
+ */
+Name Prefix::getName(const core::Name &mask, const core::Name &components,
+                     const core::Name &content_name) const {
+  if (ip_prefix_.family != mask.getAddressFamily() ||
+      ip_prefix_.family != components.getAddressFamily() ||
+      ip_prefix_.family != content_name.getAddressFamily())
+    throw errors::RuntimeException(
+        "Prefix, mask, components and content name are not of the same address "
+        "family");
+
+  ip_address_t mask_ip = mask.toIpAddress().address;
+  ip_address_t component_ip = components.toIpAddress().address;
+  ip_address_t name_ip = content_name.toIpAddress().address;
+  const u8 *mask_ip_buffer = ip_address_get_buffer(&mask_ip, ip_prefix_.family);
+  const u8 *component_ip_buffer =
+      ip_address_get_buffer(&component_ip, ip_prefix_.family);
+  u8 *name_ip_buffer =
+      const_cast<u8 *>(ip_address_get_buffer(&name_ip, ip_prefix_.family));
+
+  int addr_len = ip_prefix_.family == AF_INET6 ? IPV6_ADDR_LEN : IPV4_ADDR_LEN;
+
+  for (int i = 0; i < addr_len; i++) {
+    if (mask_ip_buffer[i]) {
+      name_ip_buffer[i] = component_ip_buffer[i] & mask_ip_buffer[i];
+    }
+  }
+
+  if (this->contains(name_ip))
+    throw errors::RuntimeException("Mask overrides the prefix");
+  return Name(ip_prefix_.family, (uint8_t *)&name_ip);
+}
+
+Name Prefix::getRandomName() const {
+  ip_address_t name_ip = ip_prefix_.address;
+  u8 *name_ip_buffer =
+      const_cast<u8 *>(ip_address_get_buffer(&name_ip, ip_prefix_.family));
+
+  int addr_len =
+      (ip_prefix_.family == AF_INET6 ? IPV6_ADDR_LEN * 8 : IPV4_ADDR_LEN * 8) -
+      ip_prefix_.len;
+
+  size_t size = (size_t)ceil((float)addr_len / 8.0);
+  uint8_t buffer[size];
+
+  RAND_bytes(buffer, size);
+
+  int j = 0;
+  for (uint8_t i = (uint8_t)ceil((float)ip_prefix_.len / 8.0);
+       i < (ip_prefix_.family == AF_INET6 ? IPV6_ADDR_LEN : IPV4_ADDR_LEN);
+       i++) {
+    name_ip_buffer[i] = buffer[j];
+    j++;
+  }
+
+  return Name(ip_prefix_.family, (uint8_t *)&name_ip);
+}
+
+/*
+ * Map a name in a different name prefix to this name prefix
+ */
+Name Prefix::mapName(const core::Name &content_name) const {
+  if (ip_prefix_.family != content_name.getAddressFamily())
+    throw errors::RuntimeException(
+        "Prefix content name are not of the same address "
+        "family");
+
+  ip_address_t name_ip = content_name.toIpAddress().address;
+  const u8 *ip_prefix_buffer =
+      ip_address_get_buffer(&(ip_prefix_.address), ip_prefix_.family);
+  u8 *name_ip_buffer =
+      const_cast<u8 *>(ip_address_get_buffer(&name_ip, ip_prefix_.family));
+
+  memcpy(name_ip_buffer, ip_prefix_buffer, ip_prefix_.len / 8);
+
+  if (ip_prefix_.len != (ip_prefix_.family == AF_INET6 ? IPV6_ADDR_LEN_BITS
+                                                       : IPV4_ADDR_LEN_BITS)) {
+    uint8_t mask = 0xFF >> (ip_prefix_.len % 8);
+    name_ip_buffer[ip_prefix_.len / 8 + 1] =
+        (name_ip_buffer[ip_prefix_.len / 8 + 1] & mask) |
+        (ip_prefix_buffer[ip_prefix_.len / 8 + 1] & ~mask);
+  }
+
+  return Name(ip_prefix_.family, (uint8_t *)&name_ip);
 }
 
 Prefix &Prefix::setNetwork(std::string &network) {
