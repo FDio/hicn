@@ -40,7 +40,7 @@ typedef std::map<uint64_t, uint64_t> SendTimeMap;
 typedef utils::Verifier Verifier;
 
 class Configuration {
-public:
+ public:
   uint64_t interestLifetime_;
   uint64_t pingInterval_;
   uint64_t maxPing_;
@@ -61,11 +61,11 @@ public:
   uint8_t ttl_;
 
   Configuration() {
-    interestLifetime_ = 500; // ms
-    pingInterval_ = 1000000; // us
-    maxPing_ = 10;           // number of interests
+    interestLifetime_ = 500;  // ms
+    pingInterval_ = 1000000;  // us
+    maxPing_ = 10;            // number of interests
     first_suffix_ = 0;
-    name_ = "b001::1"; // string
+    name_ = "b001::1";  // string
     srcPort_ = 9695;
     dstPort_ = 8080;
     verbose_ = false;
@@ -82,7 +82,7 @@ public:
 };
 
 class Client : interface::BasePortal::ConsumerCallback {
-public:
+ public:
   Client(Configuration *c)
       : portal_(), signals_(portal_.getIoService(), SIGINT) {
     // Let the main thread to catch SIGINT
@@ -171,8 +171,7 @@ public:
       std::cout << "-------------------------" << std::endl;
     }
 
-    if (!config_->quiet_)
-      std::cout << std::endl;
+    if (!config_->quiet_) std::cout << std::endl;
 
     if (!config_->always_syn_) {
       if (object->testSyn() && object->testAck() && state_ == SYN_STATE) {
@@ -203,8 +202,7 @@ public:
       std::cout << "-------------------------" << std::endl;
     }
 
-    if (!config_->quiet_)
-      std::cout << std::endl;
+    if (!config_->quiet_) std::cout << std::endl;
 
     timedout_++;
     processed_++;
@@ -259,8 +257,7 @@ public:
       std::cout << "-------------------------" << std::endl;
     }
 
-    if (!config_->quiet_)
-      std::cout << std::endl;
+    if (!config_->quiet_) std::cout << std::endl;
 
     send_timestamps_[sequence_number_] =
         std::chrono::duration_cast<std::chrono::microseconds>(
@@ -297,7 +294,7 @@ public:
     timedout_ = 0;
   }
 
-private:
+ private:
   SendTimeMap send_timestamps_;
   interface::BasePortal portal_;
   asio::signal_set signals_;
@@ -315,45 +312,38 @@ private:
 };
 
 void help() {
-  std::cout << "usage: hicn-ping-client [options]" << std::endl;
-  std::cout << "PING client options:" << std::endl;
-  std::cout << "-i <ping_interval>          = ping interval in microseconds "
-               "(default 1000000ms)"
+  std::cout << "usage: hicn-consumer-ping [options]" << std::endl;
+  std::cout << "PING options" << std::endl;
+  std::cout
+      << "-i <val>          ping interval in microseconds (default 1000000ms)"
+      << std::endl;
+  std::cout << "-m <val>          maximum number of pings to send (default 10)"
             << std::endl;
-  std::cout << "-m <max_pings>              = maximum number of pings to send "
-               "(default 10)"
-            << std::endl;
-  std::cout << "-s <source_port>            = source port (default 9695)"
-            << std::endl;
-  std::cout << "-d <destination_port>       = destination port (default 8080)"
-            << std::endl;
-  std::cout << "-t <ttl>                    = set packet ttl (default 64)"
-            << std::endl;
-  std::cout << "-O                          = open tcp connection (three way "
-               "handshake) (default false)"
-            << std::endl;
-  std::cout << "-S                          = send always syn messages "
+  std::cout << "-s <val>          sorce port (default 9695)" << std::endl;
+  std::cout << "-d <val>          destination port (default 8080)" << std::endl;
+  std::cout << "-t <val>          set packet ttl (default 64)" << std::endl;
+  std::cout << "-O                open tcp connection (three way handshake) "
                "(default false)"
             << std::endl;
-  std::cout << "-A                          = send always ack messages "
-               "(default false)"
+  std::cout << "-S                send always syn messages (default false)"
+            << std::endl;
+  std::cout << "-A                send always ack messages (default false)"
             << std::endl;
   std::cout << "HICN options" << std::endl;
-  std::cout << "-n <hicn_name>              = hicn name (default b001::1)"
-            << std::endl;
-  std::cout << "-l <lifetime>               = interest lifetime in "
-               "milliseconds (default 500ms)"
-            << std::endl;
+  std::cout << "-n <val>          hicn name (default b001::1)" << std::endl;
+  std::cout
+      << "-l <val>          interest lifetime in milliseconds (default 500ms)"
+      << std::endl;
   std::cout << "OUTPUT options" << std::endl;
-  std::cout << "-V                          = verbose, prints statistics about "
-               "the messagges sent and received (default false)"
+  std::cout << "-V                verbose, prints statistics about the "
+               "messagges sent and received (default false)"
             << std::endl;
-  std::cout << "-D                          = dump, dumps sent and received "
-               "packets (default false)"
+  std::cout << "-D                dump, dumps sent and received packets "
+               "(default false)"
             << std::endl;
-  std::cout << "-q                          = quiet, not prints (default false)"
+  std::cout << "-q                quiet, not prints (default false)"
             << std::endl;
-  std::cout << "-H                          = prints this message" << std::endl;
+  std::cout << "-H                prints this message" << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -368,64 +358,64 @@ int main(int argc, char *argv[]) {
 
   while ((opt = getopt(argc, argv, "j::t:i:m:s:d:n:l:f:c:SAOqVDH")) != -1) {
     switch (opt) {
-    case 't':
-      c->ttl_ = (uint8_t)std::stoi(optarg);
-      break;
-    case 'i':
-      c->pingInterval_ = std::stoi(optarg);
-      break;
-    case 'm':
-      c->maxPing_ = std::stoi(optarg);
-      break;
-    case 'f':
-      c->first_suffix_ = std::stoul(optarg);
-      break;
-    case 's':
-      c->srcPort_ = std::stoi(optarg);
-      break;
-    case 'd':
-      c->dstPort_ = std::stoi(optarg);
-      break;
-    case 'n':
-      c->name_ = optarg;
-      break;
-    case 'l':
-      c->interestLifetime_ = std::stoi(optarg);
-      break;
-    case 'V':
-      c->verbose_ = true;
-      ;
-      break;
-    case 'D':
-      c->dump_ = true;
-      break;
-    case 'O':
-      c->always_syn_ = false;
-      c->always_ack_ = false;
-      c->open_ = true;
-      break;
-    case 'S':
-      c->always_syn_ = true;
-      c->always_ack_ = false;
-      c->open_ = false;
-      break;
-    case 'A':
-      c->always_syn_ = false;
-      c->always_ack_ = true;
-      c->open_ = false;
-      break;
-    case 'q':
-      c->quiet_ = true;
-      c->verbose_ = false;
-      c->dump_ = false;
-      break;
-    case 'c':
-      c->certificate_ = std::string(optarg);
-      break;
-    case 'H':
-    default:
-      help();
-      exit(EXIT_FAILURE);
+      case 't':
+        c->ttl_ = (uint8_t)std::stoi(optarg);
+        break;
+      case 'i':
+        c->pingInterval_ = std::stoi(optarg);
+        break;
+      case 'm':
+        c->maxPing_ = std::stoi(optarg);
+        break;
+      case 'f':
+        c->first_suffix_ = std::stoul(optarg);
+        break;
+      case 's':
+        c->srcPort_ = std::stoi(optarg);
+        break;
+      case 'd':
+        c->dstPort_ = std::stoi(optarg);
+        break;
+      case 'n':
+        c->name_ = optarg;
+        break;
+      case 'l':
+        c->interestLifetime_ = std::stoi(optarg);
+        break;
+      case 'V':
+        c->verbose_ = true;
+        ;
+        break;
+      case 'D':
+        c->dump_ = true;
+        break;
+      case 'O':
+        c->always_syn_ = false;
+        c->always_ack_ = false;
+        c->open_ = true;
+        break;
+      case 'S':
+        c->always_syn_ = true;
+        c->always_ack_ = false;
+        c->open_ = false;
+        break;
+      case 'A':
+        c->always_syn_ = false;
+        c->always_ack_ = true;
+        c->open_ = false;
+        break;
+      case 'q':
+        c->quiet_ = true;
+        c->verbose_ = false;
+        c->dump_ = false;
+        break;
+      case 'c':
+        c->certificate_ = std::string(optarg);
+        break;
+      case 'H':
+      default:
+        help();
+        exit(EXIT_FAILURE);
     }
   }
 
@@ -446,11 +436,11 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-} // namespace ping
+}  // namespace ping
 
-} // namespace core
+}  // namespace core
 
-} // namespace transport
+}  // namespace transport
 
 int main(int argc, char *argv[]) {
   return transport::core::ping::main(argc, argv);

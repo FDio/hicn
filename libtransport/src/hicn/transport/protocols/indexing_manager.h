@@ -72,6 +72,12 @@ class IndexVerificationManager : public IndexManager {
    * caller.
    */
   virtual bool onContentObject(const core::ContentObject &content_object) = 0;
+
+  /**
+   * The signatures of the packets containing the key must be verified;
+   * verifying the authenticity of the key is still on the caller.
+   */
+  virtual bool onKeyToVerify() = 0;
 };
 
 class IncrementalIndexManager : public IndexVerificationManager {
@@ -139,6 +145,10 @@ class IncrementalIndexManager : public IndexVerificationManager {
     }
 
     return ret;
+  }
+
+  TRANSPORT_ALWAYS_INLINE bool onKeyToVerify() override {
+    return verification_manager_->onKeyToVerify();
   }
 
  protected:

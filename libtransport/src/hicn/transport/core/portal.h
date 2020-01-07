@@ -658,9 +658,6 @@ class Portal {
         consumer_callback_->onContentObject(std::move(_int),
                                             std::move(content_object));
       }
-    } else {
-      TRANSPORT_LOGD("No pending interests for current content (%s)",
-                     content_object->getName().toString().c_str());
     }
   }
 
