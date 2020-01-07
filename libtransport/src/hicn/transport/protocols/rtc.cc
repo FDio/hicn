@@ -188,7 +188,6 @@ void RTCTransportProtocol::updateDelayStats(
   // we collect OWD only for datapackets
   if (payload->length() != HICN_NACK_HEADER_SIZE) {
     uint64_t *senderTimeStamp = (uint64_t *)payload->data();
-
     int64_t OWD = std::chrono::duration_cast<std::chrono::milliseconds>(
                       std::chrono::steady_clock::now().time_since_epoch())
                       .count() -
@@ -286,7 +285,6 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
     stats_.updateAverageRtt(pathTable_[producerPathLabels_[1]]->getMinRtt());
     (*stats_callback)(*socket_, stats_);
   }
-
   // bound also by interest lifitime* production rate
   if (!gotNack_) {
     roundsWithoutNacks_++;
@@ -516,6 +514,11 @@ void RTCTransportProtocol::scheduleNextInterests() {
 
     sendInterest(interest_name, false);
   }
+}
+
+bool RTCTransportProtocol::verifyKeyPackets() {
+  // Not yet implemented
+  return false;
 }
 
 void RTCTransportProtocol::sentinelTimer(){
@@ -924,8 +927,8 @@ void RTCTransportProtocol::onContentObject(
     // the nacked_ state is used only to avoid to decrease
     // inflightInterestsCount_ multiple times. In fact, every time that we
     // receive an event related to an interest (timeout, nacked, content) we
-    // cange the state. In this way we are sure that we do not decrease twice the
-    // counter
+    // cange the state. In this way we are sure that we do not decrease twice
+    // the counter
     if (old_nack) {
       inflightInterests_[pkt].state = lost_;
       interestRetransmissions_.erase(segmentNumber);

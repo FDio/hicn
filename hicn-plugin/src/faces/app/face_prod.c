@@ -346,8 +346,8 @@ hicn_face_prod_set_lru_max (hicn_face_id_t face_id, u32 * requested_size)
   if (face == NULL)
     return HICN_ERROR_FACE_NOT_FOUND;
 
-  if (*requested_size > HICN_PARAM_FACE_MAX_CS_RESERVED)
-    *requested_size = HICN_PARAM_FACE_MAX_CS_RESERVED;
+  //if (*requested_size > HICN_PARAM_FACE_MAX_CS_RESERVED)
+  *requested_size = HICN_PARAM_FACE_MAX_CS_RESERVED;
 
   uint32_t available =
     hicn_main.pitcs.pcs_app_max - hicn_main.pitcs.pcs_app_count;

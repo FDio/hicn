@@ -49,15 +49,14 @@ class Identity {
 
   std::string getPassword();
 
-  Signer &getSigner();
+  std::shared_ptr<Signer> getSigner();
 
-  unsigned int getSignatureLength() const;
+  size_t getSignatureLength() const;
 
  private:
   PARCIdentity *identity_;
   std::shared_ptr<Signer> signer_;
   transport::core::HashAlgorithm hash_algorithm_;
-  unsigned int signature_length_;
 };
 
 }  // namespace utils
