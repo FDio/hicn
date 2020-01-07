@@ -51,6 +51,8 @@ class TransportProtocol : public interface::BasePortal::ConsumerCallback,
 
   virtual void resume();
 
+  virtual bool verifyKeyPackets() = 0;
+
   virtual void scheduleNextInterests() = 0;
 
  protected:

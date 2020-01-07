@@ -18,10 +18,12 @@
 #include <hicn/transport/interfaces/socket.h>
 #include <hicn/transport/utils/content_store.h>
 #include <hicn/transport/utils/event_thread.h>
+#include <hicn/transport/utils/signer.h>
 #include <hicn/transport/utils/suffix_strategy.h>
 
 #include <atomic>
 #include <cmath>
+#include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -30,10 +32,6 @@
 #define REGISTRATION_SUCCESS 1
 #define REGISTRATION_FAILURE 2
 #define REGISTRATION_IN_PROGRESS 3
-
-namespace utils {
-class Identity;
-}
 
 namespace transport {
 
@@ -53,16 +51,19 @@ class ProducerSocket : public Socket<BasePortal>,
 
   bool isRunning() override { return !io_service_.stopped(); };
 
-  uint32_t produce(Name content_name, const uint8_t *buffer, size_t buffer_size,
-                   bool is_last = true, uint32_t start_offset = 0) {
-    return produce(content_name, utils::MemBuf::copyBuffer(buffer, buffer_size),
-                   is_last, start_offset);
+  virtual uint32_t produce(Name content_name, const uint8_t *buffer,
+                           size_t buffer_size, bool is_last = true,
+                           uint32_t start_offset = 0) {
+    return ProducerSocket::produce(
+        content_name, utils::MemBuf::copyBuffer(buffer, buffer_size), is_last,
+        start_offset);
   }
 
-  uint32_t produce(Name content_name, std::unique_ptr<utils::MemBuf> &&buffer,
-                   bool is_last = true, uint32_t start_offset = 0);
+  virtual uint32_t produce(Name content_name,
+                           std::unique_ptr<utils::MemBuf> &&buffer,
+                           bool is_last = true, uint32_t start_offset = 0);
 
-  void produce(ContentObject &content_object);
+  virtual void produce(ContentObject &content_object);
 
   virtual void produce(const uint8_t *buffer, size_t buffer_size) {
     produce(utils::MemBuf::copyBuffer(buffer, buffer_size));
@@ -74,11 +75,18 @@ class ProducerSocket : public Socket<BasePortal>,
     throw errors::NotImplementedException();
   }
 
-  void asyncProduce(const Name &suffix, const uint8_t *buf, size_t buffer_size);
+  virtual void asyncProduce(const Name &suffix, const uint8_t *buf,
+                            size_t buffer_size, bool is_last = true,
+                            uint32_t *start_offset = nullptr);
 
   void asyncProduce(const Name &suffix);
 
-  void asyncProduce(ContentObject &content_object);
+  virtual void asyncProduce(Name content_name,
+                            std::unique_ptr<utils::MemBuf> &&buffer,
+                            bool is_last, uint32_t offset,
+                            uint32_t **last_segment = nullptr);
+
+  virtual void asyncProduce(ContentObject &content_object);
 
   virtual void registerPrefix(const Prefix &producer_namespace);
 
@@ -124,7 +132,7 @@ class ProducerSocket : public Socket<BasePortal>,
 
   virtual int setSocketOption(
       int socket_option_key,
-      const std::shared_ptr<utils::Identity> &socket_option_value);
+      const std::shared_ptr<utils::Signer> &socket_option_value);
 
   virtual int setSocketOption(int socket_option_key,
                               const std::string &socket_option_value);
@@ -158,61 +166,10 @@ class ProducerSocket : public Socket<BasePortal>,
 
   virtual int getSocketOption(
       int socket_option_key,
-      std::shared_ptr<utils::Identity> &socket_option_value);
+      std::shared_ptr<utils::Signer> &socket_option_value);
 
   virtual int getSocketOption(int socket_option_key,
                               std::string &socket_option_value);
-
- protected:
-  // Threads
-  std::thread listening_thread_;
-
-  asio::io_service internal_io_service_;
-  asio::io_service &io_service_;
-  std::shared_ptr<Portal> portal_;
-  std::atomic<size_t> data_packet_size_;
-  std::list<Prefix>
-      served_namespaces_;  // No need to be threadsafe, this is always modified
-                           // by the application thread
-  std::atomic<uint32_t> content_object_expiry_time_;
-
-  // buffers
-  // ContentStore is thread-safe
-  utils::ContentStore output_buffer_;
-
-  utils::EventThread async_thread_;
-  int registration_status_;
-
-  std::atomic<bool> making_manifest_;
-
-  // map for storing sequence numbers for several calls of the publish
-  // function
-  std::unordered_map<Name, std::unordered_map<int, uint32_t>> seq_number_map_;
-
-  std::atomic<HashAlgorithm> hash_algorithm_;
-  std::atomic<utils::CryptoSuite> crypto_suite_;
-  utils::SpinLock identity_lock_;
-  std::shared_ptr<utils::Identity> identity_;
-  utils::SuffixManifest suffix_manifest_;
-  utils::SuffixContent suffix_content_;
-
-  // While manifests are being built, contents are stored in a queue
-  std::queue<std::shared_ptr<ContentObject>> content_queue_;
-
-  // callbacks
-  ProducerInterestCallback on_interest_input_;
-  ProducerInterestCallback on_interest_dropped_input_buffer_;
-  ProducerInterestCallback on_interest_inserted_input_buffer_;
-  ProducerInterestCallback on_interest_satisfied_output_buffer_;
-  ProducerInterestCallback on_interest_process_;
-
-  ProducerContentObjectCallback on_new_segment_;
-  ProducerContentObjectCallback on_content_object_to_sign_;
-  ProducerContentObjectCallback on_content_object_in_output_buffer_;
-  ProducerContentObjectCallback on_content_object_output_;
-  ProducerContentObjectCallback on_content_object_evicted_from_output_buffer_;
-
-  ProducerContentCallback on_content_produced_;
 
   // If the thread calling lambda_func is not the same of io_service, this
   // function reschedule the function on it
@@ -245,6 +202,87 @@ class ProducerSocket : public Socket<BasePortal>,
 
     return result;
   }
+
+  template <typename Lambda, typename arg2>
+  int rescheduleOnIOServiceWithReference(int socket_option_key,
+                                         arg2 &socket_option_value,
+                                         Lambda lambda_func) {
+    // To enforce type check
+    std::function<int(int, arg2 &)> func = lambda_func;
+    int result = SOCKET_OPTION_SET;
+    if (listening_thread_.joinable() &&
+        std::this_thread::get_id() != this->listening_thread_.get_id()) {
+      std::mutex mtx;
+      /* Condition variable for the wait */
+      std::condition_variable cv;
+
+      bool done = false;
+      io_service_.dispatch([&socket_option_key, &socket_option_value, &mtx, &cv,
+                            &result, &done, &func]() {
+        std::unique_lock<std::mutex> lck(mtx);
+        done = true;
+        result = func(socket_option_key, socket_option_value);
+        cv.notify_all();
+      });
+      std::unique_lock<std::mutex> lck(mtx);
+      if (!done) {
+        cv.wait(lck);
+      }
+    } else {
+      result = func(socket_option_key, socket_option_value);
+    }
+
+    return result;
+  }
+  // Threads
+ protected:
+  std::thread listening_thread_;
+  asio::io_service internal_io_service_;
+  asio::io_service &io_service_;
+  std::shared_ptr<Portal> portal_;
+  std::atomic<size_t> data_packet_size_;
+  std::list<Prefix>
+      served_namespaces_;  // No need to be threadsafe, this is always modified
+                           // by the application thread
+  std::atomic<uint32_t> content_object_expiry_time_;
+
+  // buffers
+  // ContentStore is thread-safe
+  utils::ContentStore output_buffer_;
+
+  utils::EventThread async_thread_;
+  int registration_status_;
+
+  std::atomic<bool> making_manifest_;
+
+  // map for storing sequence numbers for several calls of the publish
+  // function
+  std::unordered_map<Name, std::unordered_map<int, uint32_t>> seq_number_map_;
+
+  std::atomic<HashAlgorithm> hash_algorithm_;
+  std::atomic<utils::CryptoSuite> crypto_suite_;
+  utils::SpinLock signer_lock_;
+  std::shared_ptr<utils::Signer> signer_;
+  utils::SuffixManifest suffix_manifest_;
+  utils::SuffixContent suffix_content_;
+
+  // While manifests are being built, contents are stored in a queue
+  std::queue<std::shared_ptr<ContentObject>> content_queue_;
+
+  // callbacks
+  ProducerInterestCallback on_interest_input_;
+  ProducerInterestCallback on_interest_dropped_input_buffer_;
+  ProducerInterestCallback on_interest_inserted_input_buffer_;
+  ProducerInterestCallback on_interest_satisfied_output_buffer_;
+  ProducerInterestCallback on_interest_process_;
+
+  ProducerContentObjectCallback on_new_segment_;
+  ProducerContentObjectCallback on_content_object_to_sign_;
+  ProducerContentObjectCallback on_content_object_in_output_buffer_;
+  ProducerContentObjectCallback on_content_object_output_;
+  ProducerContentObjectCallback on_content_object_evicted_from_output_buffer_;
+
+  ProducerContentCallback on_content_produced_;
 
  private:
   void listen();

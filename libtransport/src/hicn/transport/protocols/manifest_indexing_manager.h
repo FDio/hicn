@@ -59,16 +59,19 @@ class ManifestIndexManager : public IncrementalIndexManager,
 
  protected:
   SuffixQueue suffix_queue_;
-  SuffixQueue::iterator next_reassembly_segment_;
   SuffixQueue::iterator next_to_retrieve_segment_;
+  utils::SuffixManifest suffix_manifest_;
+  utils::SuffixContent next_reassembly_segment_;
+
+  // Holds segments that should not be requested. Useful when
+  // computing the next reassembly segment because some manifests
+  // may be incomplete.
+  std::vector<uint32_t> ignored_segments_;
 
   // Hash verification
   std::unordered_map<uint32_t,
                      std::pair<std::vector<uint8_t>, core::HashAlgorithm>>
       suffix_hash_map_;
-
-  // Manifest Suffix
-  utils::SuffixManifest suffix_manifest_;
 
   // (temporary) To call scheduleNextInterests() after receiving a manifest
   TransportProtocol *next_interest_;

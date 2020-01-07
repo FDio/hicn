@@ -116,9 +116,9 @@ std::string Name::toString() const {
   return name_string;
 }
 
-uint32_t Name::getHash32() const {
+uint32_t Name::getHash32(bool consider_suffix) const {
   uint32_t hash;
-  if (hicn_name_hash((hicn_name_t *)&name_, &hash) < 0) {
+  if (hicn_name_hash(&name_, &hash, consider_suffix) < 0) {
     throw errors::RuntimeException("Error computing the hash of the name!");
   }
   return hash;
@@ -204,6 +204,17 @@ std::ostream &operator<<(std::ostream &os, const Name &name) {
   os << str;
 
   return os;
+}
+
+size_t hash<transport::core::Name>::operator()(
+    const transport::core::Name &name) const {
+  return name.getHash32(false);
+}
+
+size_t compare2<transport::core::Name>::operator()(
+  const transport::core::Name &name1, const transport::core::Name &name2) const {
+    return name1.equals(name2, false);
+
 }
 
 }  // end namespace core

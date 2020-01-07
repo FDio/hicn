@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/interfaces/socket.h>
+#include <hicn/transport/utils/spinlock.h>
 
 #include <mutex>
 
