@@ -45,6 +45,8 @@ class RaaqmTransportProtocol
 
   void reset() override;
 
+  virtual bool verifyKeyPackets() override;
+
  protected:
   static constexpr uint32_t buffer_size =
       1 << interface::default_values::log_2_default_buffer_size;

@@ -230,7 +230,7 @@ Packet::Format Packet::getFormat() const {
   return format_;
 }
 
-const std::shared_ptr<utils::MemBuf> Packet::acquireMemBufReference() {
+const std::shared_ptr<utils::MemBuf> Packet::acquireMemBufReference() const {
   return packet_;
 }
 

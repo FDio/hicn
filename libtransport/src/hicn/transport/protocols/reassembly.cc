@@ -38,11 +38,11 @@ BaseReassembly::BaseReassembly(interface::ConsumerSocket *icn_socket,
 }
 
 void BaseReassembly::reassemble(ContentObject::Ptr &&content_object) {
+
   if (TRANSPORT_EXPECT_TRUE(content_object != nullptr)) {
     received_packets_.emplace(std::make_pair(
         content_object->getName().getSuffix(), std::move(content_object)));
   }
-
   auto it = received_packets_.find((const unsigned int)index_);
   while (it != received_packets_.end()) {
     if (it->second->getPayloadType() == PayloadType::CONTENT_OBJECT) {
@@ -57,6 +57,7 @@ void BaseReassembly::reassemble(ContentObject::Ptr &&content_object) {
 
 void BaseReassembly::copyContent(const ContentObject &content_object) {
   auto a = content_object.getPayload();
+
   auto payload_length = a->length();
   auto write_size = std::min(payload_length, read_buffer_->tailroom());
   auto additional_bytes = payload_length > read_buffer_->tailroom()

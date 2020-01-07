@@ -81,8 +81,7 @@ class CallbackContainer {
     }
   }
 
-  void processInterest(ProducerSocket &p, const Interest &interest,
-                       uint32_t lifetime) {
+  void processInterest(ProducerSocket &p, const Interest &interest, uint32_t lifetime) {
     if (verbose_) {
       std::cout << "<<< received interest " << interest.getName()
                 << " src port: " << interest.getSrcPort()
@@ -146,7 +145,7 @@ class CallbackContainer {
       if (!quite_) std::cout << std::endl;
 
       if (sign_) {
-        identity_->getSigner().sign(*content_object);
+        identity_->getSigner()->sign(*content_object);
       }
 
       p.produce(*content_object);
@@ -169,35 +168,28 @@ class CallbackContainer {
 };
 
 void help() {
-  std::cout << "usage: hicn-ping-server [options]" << std::endl;
-  std::cout << "PING server options" << std::endl;
-  std::cout
-      << "-s <content_size>           = object content size (default 1350B)"
-      << std::endl;
-  std::cout << "-n <hicn_name>              = hicn name (default b001::/64)"
-            << std::endl;
-  std::cout << "-f                          = set tcp flags according to the "
-               "flag received (default false)"
-            << std::endl;
-  std::cout << "-l <lifetime>               = data lifetime" << std::endl;
-  std::cout << "-r                          = always reply with a reset flag "
+  std::cout << "usage: hicn-preoducer-ping [options]" << std::endl;
+  std::cout << "PING options" << std::endl;
+  std::cout << "-s <val>  object content size (default 1350B)" << std::endl;
+  std::cout << "-n <val>  hicn name (default b001::/64)" << std::endl;
+  std::cout << "-f        set tcp flags according to the flag received "
                "(default false)"
             << std::endl;
-  std::cout << "-t <ttl>                    = set ttl (default 64)"
+  std::cout << "-l        data lifetime" << std::endl;
+  std::cout << "-r        always reply with a reset flag (default false)"
             << std::endl;
+  std::cout << "-t        set ttl (default 64)" << std::endl;
   std::cout << "OUTPUT options" << std::endl;
-  std::cout << "-V                          = verbose, prints statistics about "
-               "the messagges sent and received (default false)"
+  std::cout << "-V        verbose, prints statistics about the messagges sent "
+               "and received (default false)"
             << std::endl;
-  std::cout << "-D                          = dump, dumps sent and received "
-               "packets (default false)"
+  std::cout << "-D        dump, dumps sent and received packets (default false)"
             << std::endl;
-  std::cout << "-q                          = quite, not prints (default false)"
-            << std::endl;
+  std::cout << "-q        quite, not prints (default false)" << std::endl;
 #ifndef _WIN32
-  std::cout << "-d                          = daemon mode" << std::endl;
+  std::cout << "-d        daemon mode" << std::endl;
 #endif
-  std::cout << "-H                          = prints help options" << std::endl;
+  std::cout << "-H        prints this message" << std::endl;
 }
 
 int main(int argc, char **argv) {
@@ -238,8 +230,8 @@ int main(int argc, char **argv) {
         ttl = (uint8_t)std::stoi(optarg);
         break;
       case 'l':
-        data_lifetime = std::stoi(optarg);
-        break;
+	data_lifetime = std::stoi(optarg);
+	break;
       case 'V':
         verbose = true;
         break;
@@ -307,11 +299,10 @@ int main(int argc, char **argv) {
   p.registerPrefix(producer_namespace);
 
   p.setSocketOption(GeneralTransportOptions::OUTPUT_BUFFER_SIZE, 0U);
-  p.setSocketOption(
-      ProducerCallbacksOptions::CACHE_MISS,
-      (ProducerInterestCallback)bind(&CallbackContainer::processInterest, stubs,
-                                     std::placeholders::_1,
-                                     std::placeholders::_2, data_lifetime));
+  p.setSocketOption(ProducerCallbacksOptions::CACHE_MISS,
+                    (ProducerInterestCallback)bind(
+                        &CallbackContainer::processInterest, stubs,
+                        std::placeholders::_1, std::placeholders::_2, data_lifetime));
 
   p.connect();
 

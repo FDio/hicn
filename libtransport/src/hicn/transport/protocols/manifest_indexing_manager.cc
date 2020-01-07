@@ -57,6 +57,8 @@ bool ManifestIndexManager::onManifest(
         size_t nb_segments = std::distance(_it, _end);
         final_suffix_ = manifest->getFinalBlockNumber();  // final block number
 
+        TRANSPORT_LOGD("Received manifest %u",
+                       manifest->getWritableName().getSuffix());
         suffix_hash_map_[_it->first] =
             std::make_pair(std::vector<uint8_t>(_it->second, _it->second + 32),
                            manifest->getHashAlgorithm());
@@ -141,6 +143,7 @@ void ManifestIndexManager::onManifestTimeout(Interest::Ptr &&i) {
     return;
   }
 
+  TRANSPORT_LOGD("Timeout on manifest %u", segment);
   // Get portal
   std::shared_ptr<interface::BasePortal> portal;
   socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal);
@@ -196,6 +199,7 @@ void ManifestIndexManager::fillWindow(Name &name, uint32_t current_manifest) {
                   std::placeholders::_1, std::placeholders::_2),
         std::bind(&ManifestIndexManager::onManifestTimeout, this,
                   std::placeholders::_1));
+    TRANSPORT_LOGD("Send manifest interest %u", name.getSuffix());
 
     last_requested_manifest = (suffix_manifest_++).getSuffix();
   } while (current_segment + window_size >= suffix_manifest_.getSuffix() &&
