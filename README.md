@@ -1,5 +1,4 @@
 Hybrid Information-Centric Networking (hICN)
-========================
 
 ## Introduction
 hicn is an open source implementation of Cisco's hICN. It includes a network stack, that implements
@@ -24,20 +23,31 @@ https://datatracker.ietf.org/doc/draft-muscariello-intarea-hicn/. The transport 
 implement the hicn host stack and makes use of libmemif as high performance connector between
 transport and the network stack. The transport library makes use of VPP binary API to configure the
 local namespace (local face management).
+=======
 
 ## Supported platforms
 
-- Ubuntu 16.04 LTS (amd64)
-- Ubuntu 18.04 LTS (amd64)
-- CentOS 7 (x86_64)
+- Ubuntu 16.04 LTS (x86_64)
+- Ubuntu 18.04 LTS (x86_64)
+- Debian Stable/Testing
+- Red Hat Enterprise Linux 7
+- CentOS 7
 - Android 8
 - iOS 12
 - macOS 10.12
 - Windows 10
 
-## Binaries
-# Ubuntu 16/18 (amd64) and CentOS 7 (x86_64)
-https://packagecloud.io/fdio/release
+## License ##
+
+This software is distributed under the following license:
+
+```
+Copyright (c) 2017-2019 Cisco and/or its affiliates.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
 
 ## Release note
 The current master branch provides the 19.08 release which is compatible with the 19.08 VPP stable.

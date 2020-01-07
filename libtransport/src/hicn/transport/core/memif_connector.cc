@@ -83,12 +83,11 @@ void MemifConnector::init() {
                        nullptr, nullptr, nullptr);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGI("memif_init: %s", memif_strerror(err));
+    TRANSPORT_LOGE("memif_init: %s", memif_strerror(err));
   }
 }
 
 void MemifConnector::connect(uint32_t memif_id, long memif_mode) {
-  TRANSPORT_LOGI("Creating memif");
   state_ = ConnectorState::CONNECTING;
 
   memif_id_ = memif_id;
@@ -108,7 +107,7 @@ void MemifConnector::connect(uint32_t memif_id, long memif_mode) {
   int fd = -1;
   err = memif_get_queue_efd(memif_connection_->conn, 0, &fd);
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGI("memif_get_queue_efd: %s", memif_strerror(err));
+    TRANSPORT_LOGE("memif_get_queue_efd: %s", memif_strerror(err));
     return;
   }
 
@@ -142,14 +141,11 @@ int MemifConnector::createMemif(uint32_t index, uint8_t mode, char *s) {
 
   int err;
 
-  err= memif_create_socket (&args.socket, socket_filename_.c_str(),
-                         nullptr);
+  err = memif_create_socket(&args.socket, socket_filename_.c_str(), nullptr);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-      throw errors::RuntimeException(memif_strerror(err));
+    throw errors::RuntimeException(memif_strerror(err));
   }
-
-  TRANSPORT_LOGD("Socket filename: %s", socket_filename_.c_str());
 
   args.interface_id = index;
   /* last argument for memif_create (void * private_ctx) is used by user
@@ -202,11 +198,11 @@ int MemifConnector::deleteMemif() {
   err = memif_delete(&c->conn);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGI("memif_delete: %s", memif_strerror(err));
+    TRANSPORT_LOGE("memif_delete: %s", memif_strerror(err));
   }
 
   if (TRANSPORT_EXPECT_FALSE(c->conn != nullptr)) {
-    TRANSPORT_LOGI("memif delete fail");
+    TRANSPORT_LOGE("memif delete fail");
   }
 
   return 0;
@@ -252,7 +248,7 @@ int MemifConnector::controlFdUpdate(int fd, uint8_t events, void *private_ctx) {
         memif_err = memif_control_fd_handler(evt.data.fd, event);
 
         if (TRANSPORT_EXPECT_FALSE(memif_err != MEMIF_ERR_SUCCESS)) {
-          TRANSPORT_LOGI("memif_control_fd_handler: %s",
+          TRANSPORT_LOGE("memif_control_fd_handler: %s",
                          memif_strerror(memif_err));
         }
 
@@ -269,12 +265,10 @@ int MemifConnector::bufferAlloc(long n, uint16_t qid) {
   err = memif_buffer_alloc(c->conn, qid, c->tx_bufs, n, &r, 2000);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGD("memif_buffer_alloc: %s", memif_strerror(err));
+    TRANSPORT_LOGE("memif_buffer_alloc: %s", memif_strerror(err));
   }
 
   c->tx_buf_num += r;
-  TRANSPORT_LOGD("allocated %d/%ld buffers, %u free buffers", r, n,
-                 MAX_MEMIF_BUFS - c->tx_buf_num);
   return r;
 }
 
@@ -287,18 +281,17 @@ int MemifConnector::txBurst(uint16_t qid) {
   err = memif_tx_burst(c->conn, qid, c->tx_bufs, c->tx_buf_num, &r);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGI("memif_tx_burst: %s", memif_strerror(err));
+    TRANSPORT_LOGE("memif_tx_burst: %s", memif_strerror(err));
   }
 
   // err = memif_refill_queue(c->conn, qid, r, 0);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGI("memif_tx_burst: %s", memif_strerror(err));
+    TRANSPORT_LOGE("memif_tx_burst: %s", memif_strerror(err));
     c->tx_buf_num -= r;
     return -1;
   }
 
-  TRANSPORT_LOGD("tx: %d/%u", r, c->tx_buf_num);
   c->tx_buf_num -= r;
   return 0;
 }
@@ -322,7 +315,6 @@ void MemifConnector::processInputBuffer() {
 /* informs user about connected status. private_ctx is used by user to identify
    connection (multiple connections WIP) */
 int MemifConnector::onConnect(memif_conn_handle_t conn, void *private_ctx) {
-  TRANSPORT_LOGI("memif connected!\n");
   MemifConnector *connector = (MemifConnector *)private_ctx;
   connector->state_ = ConnectorState::CONNECTED;
   memif_refill_queue(conn, 0, -1, 0);
@@ -333,11 +325,8 @@ int MemifConnector::onConnect(memif_conn_handle_t conn, void *private_ctx) {
 /* informs user about disconnected status. private_ctx is used by user to
    identify connection (multiple connections WIP) */
 int MemifConnector::onDisconnect(memif_conn_handle_t conn, void *private_ctx) {
-  TRANSPORT_LOGI("memif disconnected!");
   MemifConnector *connector = (MemifConnector *)private_ctx;
   connector->state_ = ConnectorState::CLOSED;
-  TRANSPORT_LOGI("Packet to process: %u",
-                 connector->memif_connection_->tx_buf_num);
   return 0;
 }
 
@@ -357,14 +346,14 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
 
     if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS &&
                                err != MEMIF_ERR_NOBUF)) {
-      TRANSPORT_LOGI("memif_rx_burst: %s", memif_strerror(err));
+      TRANSPORT_LOGE("memif_rx_burst: %s", memif_strerror(err));
       goto error;
     }
 
     c->rx_buf_num += rx;
 
     if (TRANSPORT_EXPECT_TRUE(connector->io_service_.stopped())) {
-      TRANSPORT_LOGD("socket stopped: ignoring %u packets", rx);
+      TRANSPORT_LOGE("socket stopped: ignoring %u packets", rx);
       goto error;
     }
 
@@ -378,7 +367,7 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
       packet->append(packet_length);
 
       if (!connector->input_buffer_.push(std::move(packet))) {
-        TRANSPORT_LOGI("Error pushing packet. Ring buffer full.");
+        TRANSPORT_LOGE("Error pushing packet. Ring buffer full.");
 
         // TODO Here we should consider the possibility to signal the congestion
         // to the application, that would react properly (e.g. slow down
@@ -392,13 +381,11 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
     err = memif_refill_queue(conn, qid, rx, 0);
 
     if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-      TRANSPORT_LOGI("memif_buffer_free: %s", memif_strerror(err));
+      TRANSPORT_LOGE("memif_buffer_free: %s", memif_strerror(err));
     }
 
     c->rx_buf_num -= rx;
 
-    TRANSPORT_LOGD("freed %d buffers. %u/%u alloc/free buffers", rx, rx,
-                   MAX_MEMIF_BUFS - rx);
   } while (ret_val == MEMIF_ERR_NOBUF);
 
   connector->io_service_.post(
@@ -410,12 +397,10 @@ error:
   err = memif_refill_queue(c->conn, qid, rx, 0);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGI("memif_buffer_free: %s", memif_strerror(err));
+    TRANSPORT_LOGE("memif_buffer_free: %s", memif_strerror(err));
   }
   c->rx_buf_num -= rx;
 
-  TRANSPORT_LOGD("freed %d buffers. %u/%u alloc/free buffers", rx,
-                 c->rx_buf_num, MAX_MEMIF_BUFS - c->rx_buf_num);
   return 0;
 }
 
@@ -430,9 +415,6 @@ void MemifConnector::close() {
 
     if (memif_worker_ && memif_worker_->joinable()) {
       memif_worker_->join();
-      TRANSPORT_LOGD("Memif worker joined");
-    } else {
-      TRANSPORT_LOGD("Memif worker not joined");
     }
   }
 }
@@ -467,7 +449,7 @@ int MemifConnector::doSend() {
 
     if (TRANSPORT_EXPECT_FALSE(
             (n = bufferAlloc(max, memif_connection_->tx_qid)) < 0)) {
-      TRANSPORT_LOGI("Error allocating buffers.");
+      TRANSPORT_LOGE("Error allocating buffers.");
       return -1;
     }
 
@@ -486,8 +468,6 @@ int MemifConnector::doSend() {
       } while (current != packet);
 
       memif_connection_->tx_bufs[i].len = uint32_t(offset);
-
-      TRANSPORT_LOGD("Packet size : %zu", offset);
 
       output_buffer_.pop_front();
     }
