@@ -25,6 +25,10 @@
 #cmakedefine ASIO_STANDALONE
 #endif
 
+#ifndef SECURE_HICNTRANSPORT
+#cmakedefine SECURE_HICNTRANSPORT
+#endif
+
 #define RAAQM_CONFIG_PATH "@raaqm_config_path@"
 
 #cmakedefine __vpp__

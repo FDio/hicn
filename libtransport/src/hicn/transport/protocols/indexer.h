@@ -57,6 +57,8 @@ class Indexer {
 
   virtual void onContentObject(core::Interest::Ptr &&interest,
                                core::ContentObject::Ptr &&content_object) = 0;
+
+  virtual bool onKeyToVerify() = 0;
 };
 
 class IndexManager : Indexer {
@@ -86,6 +88,8 @@ class IndexManager : Indexer {
 
   void onContentObject(core::Interest::Ptr &&interest,
                        core::ContentObject::Ptr &&content_object) override;
+
+  bool onKeyToVerify() override;
 
  private:
   std::unique_ptr<Indexer> indexer_;

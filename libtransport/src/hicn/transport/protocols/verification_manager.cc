@@ -13,9 +13,8 @@
  * limitations under the License.
  */
 
-#include <hicn/transport/protocols/verification_manager.h>
-
 #include <hicn/transport/interfaces/socket_consumer.h>
+#include <hicn/transport/protocols/verification_manager.h>
 
 namespace transport {
 
@@ -25,20 +24,30 @@ interface::VerificationPolicy SignatureVerificationManager::onPacketToVerify(
     const Packet& packet) {
   using namespace interface;
 
-  bool verify_signature;
+  bool verify_signature = false, key_content = false;
   VerificationPolicy ret = VerificationPolicy::DROP_PACKET;
 
-  ConsumerContentObjectVerificationFailedCallback*
-      verification_failed_callback = VOID_HANDLER;
   icn_socket_->getSocketOption(GeneralTransportOptions::VERIFY_SIGNATURE,
                                verify_signature);
+  icn_socket_->getSocketOption(GeneralTransportOptions::KEY_CONTENT,
+                               key_content);
 
   if (!verify_signature) {
     return VerificationPolicy::ACCEPT_PACKET;
   }
 
+  if (key_content) {
+    key_packets_.push(copyPacket(packet));
+    return VerificationPolicy::ACCEPT_PACKET;
+  } else if (!key_packets_.empty()) {
+    std::queue<ContentObjectPtr>().swap(key_packets_);
+  }
+
+  ConsumerContentObjectVerificationFailedCallback*
+      verification_failed_callback = VOID_HANDLER;
   icn_socket_->getSocketOption(ConsumerCallbacksOptions::VERIFICATION_FAILED,
                                &verification_failed_callback);
+
   if (!verification_failed_callback) {
     throw errors::RuntimeException(
         "No verification failed callback provided by application. "
@@ -64,6 +73,22 @@ interface::VerificationPolicy SignatureVerificationManager::onPacketToVerify(
   }
 
   return ret;
+}
+
+bool SignatureVerificationManager::onKeyToVerify() {
+  if (TRANSPORT_EXPECT_FALSE(key_packets_.empty())) {
+    throw errors::RuntimeException("No key to verify.");
+  }
+
+  while (!key_packets_.empty()) {
+    ContentObjectPtr packet_to_verify = key_packets_.front();
+    key_packets_.pop();
+    if (onPacketToVerify(*packet_to_verify) !=
+        VerificationPolicy::ACCEPT_PACKET)
+      return false;
+  }
+
+  return true;
 }
 
 }  // end namespace protocol

@@ -40,41 +40,48 @@ void ContentStore::insert(
                    content_store_hash_table_.size(), fifo_list_.size());
   }
 
-  // Check if the content can be cached
-  if (content_object->getLifetime() > 0) {
-    if (content_store_hash_table_.size() >= max_content_store_size_) {
-      content_store_hash_table_.erase(fifo_list_.back());
-      fifo_list_.pop_back();
-    }
-
-    // Insert new item
-
-    auto it = content_store_hash_table_.find(content_object->getName());
-    if (it != content_store_hash_table_.end()) {
-      fifo_list_.erase(it->second.second);
-      content_store_hash_table_.erase(content_object->getName());
-    }
-
-    fifo_list_.push_front(std::cref(content_object->getName()));
-    auto pos = fifo_list_.begin();
-    content_store_hash_table_[content_object->getName()] = ContentStoreEntry(
-        ObjectTimeEntry(content_object, std::chrono::steady_clock::now()), pos);
+  if (content_store_hash_table_.size() >= max_content_store_size_) {
+    content_store_hash_table_.erase(fifo_list_.back());
+    fifo_list_.pop_back();
   }
+
+  // Insert new item
+  auto it = content_store_hash_table_.find(content_object->getName());
+  if (it != content_store_hash_table_.end()) {
+    fifo_list_.erase(it->second.second);
+    content_store_hash_table_.erase(content_object->getName());
+  }
+
+  fifo_list_.push_front(std::cref(content_object->getName()));
+  auto pos = fifo_list_.begin();
+  content_store_hash_table_[content_object->getName()] = ContentStoreEntry(
+      ObjectTimeEntry(content_object, std::chrono::steady_clock::now()), pos);
 }
 
 const std::shared_ptr<ContentObject> ContentStore::find(
     const Interest &interest) {
   utils::SpinLock::Acquire locked(cs_mutex_);
+
+  std::shared_ptr<ContentObject> ret = empty_reference_;
   auto it = content_store_hash_table_.find(interest.getName());
   if (it != content_store_hash_table_.end()) {
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(
+
+    auto content_lifetime = it->second.first.first->getLifetime();
+    auto time_passed_since_creation =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - it->second.first.second)
-            .count() < it->second.first.first->getLifetime()) {
-      return it->second.first.first;
+            .count();
+
+    if (time_passed_since_creation > content_lifetime) {
+      fifo_list_.erase(it->second.second);
+      content_store_hash_table_.erase(it);
+    }
+    else {
+      ret = it->second.first.first;
     }
   }
 
-  return empty_reference_;
+  return ret;
 }
 
 void ContentStore::erase(const Name &exact_name) {
@@ -103,7 +110,10 @@ void ContentStore::printContent() {
   for (auto &item : content_store_hash_table_) {
     if (item.second.first.first->getPayloadType() ==
         transport::core::PayloadType::MANIFEST) {
-      TRANSPORT_LOGI("Manifest: %s\n",
+      TRANSPORT_LOGI("Manifest: %s",
+                     item.second.first.first->getName().toString().c_str());
+    } else {
+      TRANSPORT_LOGI("Data Packet: %s",
                      item.second.first.first->getName().toString().c_str());
     }
   }

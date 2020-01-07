@@ -251,7 +251,7 @@ build_doc() {
     echo "*******************************************************************"
 
     # Make the package
-    python3 -m pip install --user virtualenv 
+    python3 -m pip install --user virtualenv
     python3 -m virtualenv env
     source env/bin/activate
     pip install -r docs/etc/requirements.txt

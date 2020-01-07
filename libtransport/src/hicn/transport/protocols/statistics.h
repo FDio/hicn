@@ -82,9 +82,7 @@ class TransportStatistics {
     return interest_tx_;
   }
 
-  TRANSPORT_ALWAYS_INLINE double getLossRatio() const {
-    return loss_ratio_;
-  }
+  TRANSPORT_ALWAYS_INLINE double getLossRatio() const { return loss_ratio_; }
 
   TRANSPORT_ALWAYS_INLINE double getQueuingDelay() const {
     return queuing_delay_;

@@ -22,6 +22,7 @@ extern "C" {
 #include <parc/security/parc_CryptoSuite.h>
 #include <parc/security/parc_KeyStore.h>
 #include <parc/security/parc_Signer.h>
+#include <parc/security/parc_SymmetricKeySigner.h>
 }
 
 namespace utils {
@@ -42,7 +43,17 @@ class Signer {
    * use to sign packet with this Signer.
    * @param suite CryptoSuite to use to verify the signature
    */
-  Signer(PARCKeyStore *keyStore, PARCCryptoSuite suite);
+  Signer(PARCKeyStore *keyStore, CryptoSuite suite);
+
+  /**
+   * Create a Signer
+   *
+   * @param passphrase A string from which the symmetric key will be derived
+   * @param suite CryptoSuite to use to verify the signature
+   */
+  Signer(const std::string &passphrase, CryptoSuite suite);
+
+  Signer(const PARCSigner *signer, CryptoSuite suite);
 
   Signer(const PARCSigner *signer);
 
@@ -60,11 +71,19 @@ class Signer {
    */
   void sign(Packet &packet);
 
+  size_t getSignatureLength();
+
   PARCKeyStore *getKeyStore();
 
  private:
-  PARCSigner *signer_;
-  PARCKeyId *key_id_;
+  PARCBufferComposer *composer_ = nullptr;
+  PARCBuffer *key_buffer_ = nullptr;
+  PARCSymmetricKeyStore *symmetricKeyStore_ = nullptr;
+  PARCSigner *signer_ = nullptr;
+  PARCSignature *signature_ = nullptr;
+  PARCKeyId *key_id_ = nullptr;
+  CryptoSuite suite_;
+  size_t signature_length_;
   static uint8_t zeros[200];
 };
 

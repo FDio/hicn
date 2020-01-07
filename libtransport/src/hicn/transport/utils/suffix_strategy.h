@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/core/manifest_format.h>
+#include <limits>
 
 namespace utils {
 
