@@ -75,6 +75,7 @@ include(WindowsMacros)
 include(IosMacros)
 find_package_wrapper(Libparc REQUIRED)
 find_package_wrapper(Asio REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 if (__vpp__)
   find_package(Libmemif REQUIRED)
@@ -158,6 +159,7 @@ list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
   ${CMAKE_THREADS_INCLUDE_DIRS}
   ${ASIO_INCLUDE_DIRS}
   ${WINDOWS_INCLUDE_DIRS}
+  ${OPENSSL_INCLUDE_DIR}
 )
 
 add_subdirectory(${TRANSPORT_ROOT_PATH})
