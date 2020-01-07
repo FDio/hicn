@@ -171,6 +171,7 @@ void RTCProducerSocket::produce(std::unique_ptr<utils::MemBuf> &&buffer) {
     on_content_object_in_output_buffer_(*this, *content_object);
   }
 
+  TRANSPORT_LOGD("Send content %u (produce)", content_object->getName().getSuffix());
   portal_->sendContentObject(*content_object);
 
   if (on_content_object_output_) {
@@ -222,6 +223,7 @@ void RTCProducerSocket::onInterest(Interest::Ptr &&interest) {
       on_content_object_output_(*this, *content_object);
     }
 
+    TRANSPORT_LOGD("Send content %u (onInterest)", content_object->getName().getSuffix());
     portal_->sendContentObject(*content_object);
     return;
   } else {
@@ -357,6 +359,7 @@ void RTCProducerSocket::sendNack(uint32_t sequence) {
     on_content_object_output_(*this, nack);
   }
 
+  TRANSPORT_LOGD("Send nack %u", sequence);
   portal_->sendContentObject(nack);
 }
 

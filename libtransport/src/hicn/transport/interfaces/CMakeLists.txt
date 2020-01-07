@@ -17,6 +17,11 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/socket.h
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_consumer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_producer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/tls_socket_producer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/tls_rtc_socket_producer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/p2psecure_socket_producer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/tls_socket_consumer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/p2psecure_socket_consumer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_socket_producer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/publication_options.h
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_options_default_values.h
@@ -27,8 +32,13 @@ list(APPEND HEADER_FILES
 list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_socket_producer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_producer.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/tls_socket_producer.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/tls_rtc_socket_producer.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/p2psecure_socket_producer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_consumer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/callbacks.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/tls_socket_consumer.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/p2psecure_socket_consumer.cc
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

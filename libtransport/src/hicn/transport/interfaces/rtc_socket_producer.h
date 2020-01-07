@@ -26,7 +26,7 @@ namespace transport {
 
 namespace interface {
 
-class RTCProducerSocket : public ProducerSocket {
+class RTCProducerSocket : virtual public ProducerSocket {
  public:
   RTCProducerSocket(asio::io_service &io_service);
 
@@ -36,7 +36,7 @@ class RTCProducerSocket : public ProducerSocket {
 
   void registerPrefix(const Prefix &producer_namespace) override;
 
-  void produce(std::unique_ptr<utils::MemBuf> &&buffer) override;
+  virtual void produce(std::unique_ptr<utils::MemBuf> &&buffer) override;
 
   void onInterest(Interest::Ptr &&interest) override;
 
