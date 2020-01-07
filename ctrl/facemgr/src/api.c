@@ -19,8 +19,25 @@
  */
 
 #ifdef __ANDROID__
+
+/*
+ * Use AndroidUtility to determine interface types
+ *
+ * NOTE: this is currently disabled as SDK APIs do not allow to determine the
+ * type of interfaces that are DOWN
+ */
 //#define WITH_ANDROID_UTILITY
+
+/*
+ * Use priority controller interface
+ */
 #define WITH_PRIORITY_CONTROLLER
+
+/*
+ * Allow priority setting before interface is actually created
+ */
+#define WITH_DEFAULT_PRIORITIES
+
 #endif /* __ANDROID__ */
 
 #include <assert.h>
@@ -135,6 +152,11 @@ struct facemgr_s {
     /* Static facelets */
     facelet_array_t * static_facelets;
 
+#ifdef WITH_DEFAULT_PRIORITIES
+    /* Default priorities */
+    u32 default_priority[NETDEVICE_TYPE_N+1];
+#endif /* WITH_DEFAULT_PRIORITIES */
+
     /********************************************************/
     /* Interfaces - Those should be fully replaced by a map */
 
@@ -209,6 +231,14 @@ facemgr_initialize(facemgr_t * facemgr)
 
     facemgr->timer_fd = 0;
     facemgr->cur_static_id = 0;
+
+#ifdef WITH_DEFAULT_PRIORITIES
+
+#define _(x) facemgr->default_priority[NETDEVICE_TYPE_ ## x] = 0;
+foreach_netdevice_type
+#undef _
+
+#endif /* WITH_DEFAULT_PRIORITIES */
 
     return 0;
 
@@ -1657,6 +1687,19 @@ int
 facemgr_process_facelet_create_no_family(facemgr_t * facemgr, facelet_t * facelet)
 {
 
+#ifdef WITH_DEFAULT_PRIORITIES
+    /* Assign default priority based on face type */
+    netdevice_type_t netdevice_type = NETDEVICE_TYPE_UNDEFINED;
+    if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0) {
+        ERROR("[facemgr_process_facelet_create_no_family] Error getting netdevice_type: no default priority set.");
+        goto ERR_PRIORITY;
+    }
+    if (facelet_set_priority(facelet, facemgr->default_priority[netdevice_type]) < 0) {
+        ERROR("[facemgr_process_facelet_create_no_family] Error setting default priority");
+    }
+ERR_PRIORITY:
+#endif /* WITH_DEFAULT_PRIORITIES */
+
     DEBUG("[facemgr_process_facelet_create_no_family] Default v4");
     /* Create default v4 and v6 facelets */
     facelet_t * facelet_v4 = facelet_dup(facelet);
@@ -1845,6 +1888,24 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                 /* Might be because we previously ignored the facelet... */
                 //ERROR("[facemgr_on_event] Unexpected UPDATE... face does not exist");
                 //goto ERR;
+
+#ifdef WITH_DEFAULT_PRIORITIES
+                if (facelet_has_netdevice_type(facelet_in) && !facelet_has_netdevice(facelet_in) && facelet_has_priority(facelet_in)) {
+                    /* Remember last priority choice for newly created facelets */
+                    netdevice_type_t netdevice_type = NETDEVICE_TYPE_UNDEFINED;
+                    u32 priority = 0;
+                    if (facelet_get_netdevice_type(facelet_in, &netdevice_type) < 0) {
+                        ERROR("[facelet_on_event] Error getting netdevice_type");
+                        goto ERR;
+                    }
+                    if (facelet_get_priority(facelet_in, &priority) < 0) {
+                        ERROR("[facelet_on_event] Error getting priority");
+                        goto ERR;
+                    }
+                    facemgr->default_priority[netdevice_type] = priority;
+                }
+#endif /* WITH_DEFAULT_PRIORITIES */
+
                 DEBUG("[facemgr_on_event] UPDATE NEW %s", facelet_s);
                 INFO("Ignored UPDATE for non-existing face");
                 break;

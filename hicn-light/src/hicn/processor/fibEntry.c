@@ -249,10 +249,12 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
       numberSet_Add(available_nexthops, conn_id);
     }
 
+    /* Terminate selection if there are any local face available */
     if (numberSet_Length(available_nexthops) > 0){
       if(dealloc_nexthops){
         numberSet_Release(&nexthops);
       }
+      /* No filtering as all local faces are considered equivalent */
       return available_nexthops;
     }
   }
