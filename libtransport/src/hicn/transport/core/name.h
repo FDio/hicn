@@ -81,7 +81,7 @@ class Name {
 
   bool equals(const Name &name, bool consider_segment = true) const;
 
-  uint32_t getHash32() const;
+  uint32_t getHash32(bool consider_suffix = true) const;
 
   void clear();
 
@@ -112,9 +112,26 @@ class Name {
 
 std::ostream &operator<<(std::ostream &os, const Name &name);
 
+template <typename T>
+struct hash {};
+
+template <>
+struct hash<transport::core::Name> {
+  size_t operator()(const transport::core::Name &name) const;
+};
+
+template <typename T>
+struct compare2 {};
+
+template <>
+struct compare2<transport::core::Name> {
+  size_t operator()(const transport::core::Name &name1, const transport::core::Name &name2) const;
+};
+
 }  // end namespace core
 
 }  // end namespace transport
+
 
 namespace std {
 template <>

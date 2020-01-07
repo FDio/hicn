@@ -967,7 +967,7 @@ static void vl_api_hicn_api_register_prod_app_t_handler
   fib_prefix_t prefix;
   ip_prefix_decode (&mp->prefix, &prefix);
   u32 swif = clib_net_to_host_u32 (mp->swif);
-  u32 cs_reserved = clib_net_to_host_u32 (mp->cs_reserved);
+  u32 cs_reserved = HICN_PARAM_FACE_DFT_CS_RESERVED;//clib_net_to_host_u32 (mp->cs_reserved);
   u32 faceid;
 
   ip46_address_t prod_addr;
