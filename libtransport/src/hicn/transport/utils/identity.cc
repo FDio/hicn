@@ -49,18 +49,14 @@ Identity::Identity(const std::string &keystore_name,
       identity_,
       parcCryptoSuite_GetCryptoHash(static_cast<PARCCryptoSuite>(suite)));
 
-  signer_ = std::make_shared<Signer>(signer);
-
-  signature_length_ = (unsigned int)parcSigner_GetSignatureSize(signer);
+  signer_ = std::make_shared<Signer>(signer, suite);
 
   parcSigner_Release(&signer);
   parcIdentityFile_Release(&identity_file);
 }
 
 Identity::Identity(const Identity &other)
-    : signer_(other.signer_),
-      hash_algorithm_(other.hash_algorithm_),
-      signature_length_(other.signature_length_) {
+    : signer_(other.signer_), hash_algorithm_(other.hash_algorithm_) {
   parcSecurity_Init();
   identity_ = parcIdentity_Acquire(other.identity_);
 }
@@ -90,26 +86,12 @@ Identity::Identity(std::string &file_name, std::string &password,
   PARCSigner *signer = parcIdentity_CreateSigner(
       identity_, static_cast<PARCCryptoHashType>(hash_algorithm));
 
-  signer_ = std::make_shared<Signer>(signer);
-
-  signature_length_ = (unsigned int)parcSigner_GetSignatureSize(signer);
+  signer_ = std::make_shared<Signer>(
+      signer, CryptoSuite(parcSigner_GetCryptoSuite(signer)));
 
   parcSigner_Release(&signer);
   parcIdentityFile_Release(&identity_file);
 }
-
-// Identity::Identity(Identity &&other) {
-//  identity_ = parcIdentity_Acquire(other.identity_);
-//}
-
-// Identity& Identity::operator=(const Identity& other) {
-//   signer_ = other.signer_;
-//   hash_algorithm_ = other.hash_algorithm_;
-//   signature_length_ = other.signature_length_;
-//   identity_ = parcIdentity_Acquire(other.identity_);
-
-//   parcSecurity_Init();
-// }
 
 Identity::~Identity() {
   parcIdentity_Release(&identity_);
@@ -124,8 +106,10 @@ std::string Identity::getPassword() {
   return std::string(parcIdentity_GetPassWord(identity_));
 }
 
-Signer &Identity::getSigner() { return *signer_; }
+std::shared_ptr<Signer> Identity::getSigner() { return signer_; }
 
-unsigned int Identity::getSignatureLength() const { return signature_length_; }
+size_t Identity::getSignatureLength() const {
+  return signer_->getSignatureLength();
+}
 
 }  // namespace utils

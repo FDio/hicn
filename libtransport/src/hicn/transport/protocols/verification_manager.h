@@ -27,22 +27,33 @@ class VerificationManager {
  public:
   virtual ~VerificationManager() = default;
   virtual bool onPacketToVerify(const Packet& packet) = 0;
+  virtual bool onKeyToVerify() { return false; }
 };
 
 class SignatureVerificationManager : public VerificationManager {
  public:
+  using ContentObjectPtr = std::shared_ptr<ContentObject>;
+
   SignatureVerificationManager(interface::ConsumerSocket* icn_socket)
-      : icn_socket_(icn_socket) {}
+      : icn_socket_(icn_socket), key_packets_() {}
 
   TRANSPORT_ALWAYS_INLINE bool onPacketToVerify(const Packet& packet) override {
     using namespace interface;
 
-    bool verify_signature, ret = false;
+    bool verify_signature = false, key_content = false, ret = false;
+
     icn_socket_->getSocketOption(GeneralTransportOptions::VERIFY_SIGNATURE,
                                  verify_signature);
+    icn_socket_->getSocketOption(GeneralTransportOptions::KEY_CONTENT,
+                                 key_content);
 
-    if (!verify_signature) {
+    if (!verify_signature) return true;
+
+    if (key_content) {
+      key_packets_.push(copyPacket(packet));
       return true;
+    } else if (!key_packets_.empty()) {
+      std::queue<ContentObjectPtr>().swap(key_packets_);
     }
 
     std::shared_ptr<utils::Verifier> verifier;
@@ -50,7 +61,7 @@ class SignatureVerificationManager : public VerificationManager {
 
     if (TRANSPORT_EXPECT_FALSE(!verifier)) {
       throw errors::RuntimeException(
-          "No certificate provided by the application.");
+          "No verifier provided by the application.");
     }
 
     ret = verifier->verify(packet);
@@ -63,8 +74,35 @@ class SignatureVerificationManager : public VerificationManager {
     return ret;
   }
 
+  TRANSPORT_ALWAYS_INLINE bool onKeyToVerify() override {
+    using namespace interface;
+
+    if (TRANSPORT_EXPECT_FALSE(key_packets_.empty())) {
+      throw errors::RuntimeException("No key to verify.");
+    }
+
+    while (!key_packets_.empty()) {
+      ContentObjectPtr packet_to_verify = key_packets_.front();
+      key_packets_.pop();
+      if (!onPacketToVerify(*packet_to_verify)) return false;
+    }
+
+    return true;
+  }
+
  private:
   interface::ConsumerSocket* icn_socket_;
+  std::queue<ContentObjectPtr> key_packets_;
+
+  ContentObjectPtr copyPacket(const Packet& packet) {
+    std::shared_ptr<utils::MemBuf> packet_copy =
+        packet.acquireMemBufReference();
+    ContentObjectPtr content_object_copy =
+        std::make_shared<ContentObject>(std::move(packet_copy));
+    std::unique_ptr<utils::MemBuf> payload_copy = packet.getPayload();
+    content_object_copy->appendPayload(std::move(payload_copy));
+    return content_object_copy;
+  }
 };
 
 }  // end namespace protocol

@@ -186,7 +186,7 @@ void ALaTcpEstimator::onDataReceived(int packet_size) {
 SimpleEstimator::SimpleEstimator(double alphaArg, int batching_param) {
   this->estimation_ = 0.0;
   this->estimated_ = false;
-  this->observer_ = NULL;
+  this->observer_ = nullptr;
   this->batching_param_ = batching_param;
   this->total_size_ = 0.0;
   this->number_of_packets_ = 0;
@@ -260,7 +260,7 @@ void SimpleEstimator::onDataReceived(int packet_size) {
 void SimpleEstimator::onRttUpdate(double rtt) {
   this->number_of_packets_++;
 
-  if (number_of_packets_ == this->batching_param_) {
+  if (this->number_of_packets_ == this->batching_param_) {
     TimePoint end = std::chrono::steady_clock::now();
     auto delay =
         std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
