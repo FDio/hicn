@@ -54,6 +54,8 @@ typedef struct
 
 extern hicn_face_prod_state_t *face_state_vec;
 
+#define DEFAULT_PROBING_PORT 3784
+
 typedef struct __attribute__ ((packed)) hicn_face_prod_t_
 {
   hicn_face_ip_t ip_face;
