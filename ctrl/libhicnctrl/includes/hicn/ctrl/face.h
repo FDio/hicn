@@ -148,6 +148,8 @@ extern const char * face_type_str[];
 
 /* Face */
 
+typedef u32 face_id_t;
+
 typedef struct {
     face_type_t type;
     face_state_t admin_state;

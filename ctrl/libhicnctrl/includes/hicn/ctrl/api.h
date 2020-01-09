@@ -554,7 +554,7 @@ int hc_connection_snprintf(char *s, size_t size,
  *----------------------------------------------------------------------------*/
 
 typedef struct {
-  u8 id;
+  face_id_t id;
   char name[SYMBOLIC_NAME_LEN];
   face_t face;  // or embed ?
                 // face_id_t parent; /* Pointer from connection to listener */
@@ -598,7 +598,7 @@ int hc_face_snprintf(char *s, size_t size, hc_face_t *face);
  *----------------------------------------------------------------------------*/
 
 typedef struct {
-  u8 face_id;               /* Kr. */
+  face_id_t face_id;               /* Kr. */
   int family;               /* Krw */
   ip_address_t remote_addr; /* krw */
   u8 len;                   /* krw */
@@ -630,7 +630,7 @@ int hc_route_snprintf(char *s, size_t size, hc_route_t *route);
  *----------------------------------------------------------------------------*/
 
 typedef struct {
-  u8 face_id; /* Kr. */  // XXX listener id, could be NULL for all ?
+  face_id_t face_id; /* Kr. */  // XXX listener id, could be NULL for all ?
   int family;            /* Krw */
   ip_address_t prefix;   /* krw */
   u8 prefix_len;         /* krw */
