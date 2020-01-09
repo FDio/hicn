@@ -328,7 +328,7 @@ void RaaqmTransportProtocol::onContentObject(
   ConsumerInterestCallback *callback_interest = VOID_HANDLER;
   socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_SATISFIED,
                            &callback_interest);
-  if (*callback_content_object) {
+  if (*callback_interest) {
     (*callback_interest)(*socket_, *interest);
   }
 
