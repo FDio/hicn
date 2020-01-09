@@ -32,6 +32,9 @@
 
 #include <hicn/utils/commands.h>
 
+#define SRV_CTRL_IP "127.0.0.1"
+#define SRV_CTRL_PORT 9695
+
 struct controller_state;
 typedef struct controller_state ControlState;
 
@@ -59,7 +62,8 @@ typedef struct controller_state ControlState;
 ControlState *controlState_Create(
     void *userdata,
     struct iovec *(*writeRead)(ControlState *state, struct iovec *msg),
-    bool openControllerConnetion);
+    bool openControllerConnetion,
+    char * server_ip, uint16_t port);
 
 /**
  * Destroys the control state, closing all network connections
