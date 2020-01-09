@@ -14,6 +14,7 @@
  */
 
 #include <hicn/hicn-light/config.h>
+#include <hicn/utils/utils.h>
 
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -47,6 +48,8 @@
 #include <hicn/config/controlState.h>
 
 #include <hicn/utils/commands.h>
+
+#include <arpa/inet.h>
 
 size_t commandOutputLen = 0;  // preserve the number of structs composing
                               // payload in case on not interactive call.
@@ -155,12 +158,12 @@ static void _displayUsage(char *programName) {
   printf("\n");
 }
 
-static int _parseArgs(int argc, char *argv[], char **keystorePath,
-                      char **keystorePassword, PARCList *commandList) {
+static int _parseArgs(int argc, char *argv[], char **server_ip,
+                      uint16_t *server_port, PARCList *commandList){
   static struct option longFormOptions[] = {
       {"help", no_argument, 0, 'h'},
-      {"keystore", required_argument, 0, 'k'},
-      {"password", required_argument, 0, 'p'},
+      {"server", required_argument, 0, 'S'},
+      {"port", required_argument, 0, 'P'},
       {0, 0, 0, 0}};
 
   int c;
@@ -169,7 +172,7 @@ static int _parseArgs(int argc, char *argv[], char **keystorePath,
     // getopt_long stores the option index here.
     int optionIndex = 0;
 
-    c = getopt_long(argc, argv, "hk:p:", longFormOptions, &optionIndex);
+    c = getopt_long(argc, argv, "hS:P:", longFormOptions, &optionIndex);
 
     // Detect the end of the options.
     if (c == -1) {
@@ -177,22 +180,33 @@ static int _parseArgs(int argc, char *argv[], char **keystorePath,
     }
 
     switch (c) {
-      case 'k':
-        *keystorePath = optarg;
-        break;
-
-      case 'p':
-        *keystorePassword = optarg;
-        break;
-
+      case 'S':
+        {
+          *server_ip = optarg;
+          struct sockaddr_in sa;
+          int result = inet_pton(AF_INET, *server_ip, &(sa.sin_addr));
+          //inet_pton() returns 1 on success
+          if(result != 1){
+            return 0;
+          }
+          break;
+        }
+      case 'P':
+        {
+          char * port_str = optarg;
+          if(utils_IsNumber(port_str)){
+            *server_port = (uint16_t) strtol(port_str, NULL, 10);
+          } else {
+            return 0;
+          }
+          break;
+        }
       case 'h':
       default:
-        _displayUsage(argv[0]);
         return 0;
     }
   }
 
-  // Any remaining parameters get put in the command list.
   if (optind < argc) {
     while (optind < argc) {
       parcList_Add(commandList, argv[optind]);
@@ -311,14 +325,19 @@ int main(int argc, char *argv[]) {
   PARCList *commands =
       parcList(parcArrayList_Create(NULL), PARCArrayListAsPARCList);
 
-  if (!_parseArgs(argc, argv, NULL, NULL, commands)) {
+  char *server_ip = SRV_CTRL_IP;
+  uint16_t server_port = SRV_CTRL_PORT;
+  if (!_parseArgs(argc, argv, &server_ip,
+            &server_port, commands)) {
+    _displayUsage(argv[0]);
     parcList_Release(&commands);
     exit(EXIT_FAILURE);
   }
 
   ControlMainState mainState;
   mainState.controlState =
-      controlState_Create(&mainState, _writeAndReadMessage, true);
+      controlState_Create(&mainState, _writeAndReadMessage, true,
+                          server_ip, server_port);
 
   controlState_RegisterCommand(mainState.controlState,
                                controlRoot_HelpCreate(mainState.controlState));

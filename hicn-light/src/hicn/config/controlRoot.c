@@ -62,11 +62,11 @@ static CommandReturn _controlRoot_HelpExecute(CommandParser *parser,
                                               CommandOps *ops, PARCList *args) {
   printf("Command-line execution:\n");
   printf(
-      "   controller [--keystore <keystorepath>] [--password <password>] "
+      "   controller [--server <server-ip>] [--port <server-port>] "
       "command\n");
   printf("\n");
   printf("Interactive execution:\n");
-  printf("   controller [--keystore <keystorepath>] [--password <password>]\n");
+  printf("   controller [--server <server-ip>] [--port <server-port>]\n");
   printf("\n");
   printf(
       "If the keystore is not specified, the default path is used. Keystore "
