@@ -783,8 +783,8 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
     mapmeTFIB_Remove(TFIB(fibEntry), conn_in_id);
 
     /* Remove all next hops */
-    for (size_t k = 0; k < numberSet_Length(nexthops_old); k++) {
-      unsigned conn_id = numberSet_GetItem(nexthops_old, k);
+    for (size_t k = 0; k < numberSet_Length(nexthops); k++) {
+      unsigned conn_id = numberSet_GetItem(nexthops, k);
       INFO(mapme, "[MAP-Me]   - Replaced next hops by connection %d", conn_id);
       fibEntry_RemoveNexthopByConnectionId(fibEntry, conn_id);
     }
