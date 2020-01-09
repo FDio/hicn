@@ -72,9 +72,9 @@ static CommandReturn _controlAdd_HelpExecute(CommandParser *parser,
   printf("   %s\n", ops_add_route->command);
   printf("   %s\n", ops_add_punting->command);
   printf("   %s\n", ops_add_listener->command);
-#ifdef WITH_POLICIES
+#ifdef WITH_POLICY
   printf("   %s\n", ops_add_policy->command);
-#endif /* WITH_POLICIES */
+#endif /* WITH_POLICY */
   printf("\n");
 
   commandOps_Destroy(&ops_add_connection);
