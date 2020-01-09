@@ -210,7 +210,8 @@ ConfigurationFile *configurationFile_Create(Forwarder *forwarder,
     // because
     // writeRead still not implemented from configuration file.
     configFile->controlState =
-        controlState_Create(configFile, _writeRead, false);
+        controlState_Create(configFile, _writeRead, false,
+                            "127.0.0.1", 9695);
 
     // we do not register Help commands
     controlState_RegisterCommand(configFile->controlState,

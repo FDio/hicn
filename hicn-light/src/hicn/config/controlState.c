@@ -37,9 +37,6 @@
 
 #include <hicn/utils/commands.h>
 
-#define SRV_IP "127.0.0.1"
-#define PORT 9695
-
 struct controller_state {
   CommandParser *parser;
   bool debugFlag;
@@ -51,7 +48,7 @@ struct controller_state {
   bool isInteractive;
 };
 
-int controlState_connectToFwdDeamon() {
+int controlState_connectToFwdDeamon(char *server_ip, uint16_t port) {
   int sockfd;
   struct sockaddr_in servaddr;
 
@@ -64,8 +61,8 @@ int controlState_connectToFwdDeamon() {
 
   // Filling server information
   servaddr.sin_family = AF_INET;
-  servaddr.sin_port = htons(PORT);
-  inet_pton(AF_INET, SRV_IP, &(servaddr.sin_addr.s_addr));
+  servaddr.sin_port = htons(port);
+  inet_pton(AF_INET, server_ip, &(servaddr.sin_addr.s_addr));
 
   // Establish connection
   if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
@@ -79,7 +76,8 @@ int controlState_connectToFwdDeamon() {
 ControlState *controlState_Create(
     void *userdata,
     struct iovec *(*writeRead)(ControlState *state, struct iovec *msg),
-    bool openControllerConnetion) {
+    bool openControllerConnetion,
+    char *server_ip, uint16_t port) {
   ControlState *state = parcMemory_AllocateAndClear(sizeof(ControlState));
   parcAssertNotNull(state, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(ControlState));
@@ -92,7 +90,7 @@ ControlState *controlState_Create(
   state->isInteractive = true;
 
   if (openControllerConnetion) {
-    state->sockfd = controlState_connectToFwdDeamon();
+    state->sockfd = controlState_connectToFwdDeamon(server_ip, port);
   } else {
     state->sockfd = 2;  // stderr
   }
