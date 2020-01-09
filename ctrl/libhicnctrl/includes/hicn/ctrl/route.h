@@ -21,8 +21,8 @@
 #define HICN_ROUTE_H
 
 #include <hicn/util/ip_address.h>
+#include <hicn/ctrl/face.h>
 
-typedef u8 face_id_t;
 typedef u16 route_cost_t;
 
 typedef struct hicn_route_s hicn_route_t;
