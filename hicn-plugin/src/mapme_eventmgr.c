@@ -322,6 +322,7 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
   u8 idle = 0;
 
   retx_t retx_array[NUM_RETX_SLOT][NUM_RETX_ENTRIES];
+  memset(retx_array, 0, NUM_RETX_SLOT*NUM_RETX_ENTRIES);
   u8 retx_len[NUM_RETX_SLOT] = { 0 };
   u8 cur = 0;			/* current slot */
 
@@ -415,6 +416,7 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 		 */
 		retx_t *retx = (retx_t *) & retx_events[i];
 
+		retx->rtx_count = 0;
 		/*
 		 * Transmit IU for all TFIB entries with latest seqno (we have
 		 * at least one for sure!)
@@ -510,12 +512,21 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 
 	      hicn_mapme_send_updates (vm, &retx->prefix, retx->dpo, true);
 
-	      /*
-	       * We did some retransmissions, so let's reschedule a check in the
-	       * next slot
-	       */
-	      NXT[NXTLEN++] = CUR[pos];
-	      idle = 0;
+	      retx->rtx_count++;
+	      // If we exceed the numver of retransmittion it means that all tfib entries have seens at least HICN_PARAM_RTX_MAX of retransmission
+	      if (retx->rtx_count < HICN_PARAM_RTX_MAX)
+		{
+		/*
+		 * We did some retransmissions, so let's reschedule a check in the
+		 * next slot
+		 */
+		  NXT[NXTLEN++] = CUR[pos];
+		  idle = 0;
+		}
+	      else
+		{
+		  hicn_mapme_tfib_clear(tfib);
+		}
 	    }
 
 	  /* Reset events in this slot and prepare for next one */
