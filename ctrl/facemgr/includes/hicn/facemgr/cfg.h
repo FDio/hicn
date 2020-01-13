@@ -139,6 +139,20 @@ int facemgr_cfg_get_overlay_remote_port(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         int family, u16 * port);
 
+int facemgr_cfg_rule_get_face_type(const facemgr_cfg_rule_t * cfg_rule, facemgr_face_type_t * face_type);
+int facemgr_cfg_rule_get_discovery(const facemgr_cfg_rule_t * cfg_rule, bool * status);
+int facemgr_cfg_rule_get_ignore(const facemgr_cfg_rule_t * cfg_rule, bool * status);
+int facemgr_cfg_rule_get_ipv4(const facemgr_cfg_rule_t * cfg_rule, bool * status);
+int facemgr_cfg_rule_get_ipv6(const facemgr_cfg_rule_t * cfg_rule, bool * status);
+int facemgr_cfg_rule_get_overlay_local_addr(const facemgr_cfg_rule_t * rule, int family,
+        ip_address_t * addr);
+int facemgr_cfg_rule_get_overlay_local_port(const facemgr_cfg_rule_t * rule, int family,
+        uint16_t * port);
+int facemgr_cfg_rule_get_overlay_remote_addr(const facemgr_cfg_rule_t * rule, int family,
+        ip_address_t * addr);
+int facemgr_cfg_rule_get_overlay_remote_port(const facemgr_cfg_rule_t * rule, int family,
+        uint16_t * port);
+
 int facemgr_cfg_add_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet);
 int facemgr_cfg_remove_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet,
         facelet_t ** removed_facelet);
