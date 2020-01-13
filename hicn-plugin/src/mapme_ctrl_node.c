@@ -152,7 +152,11 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
       for (u8 pos = 0; pos < tfib->entry_count; pos++)
 	{
 	  if (dpo_cmp (&tfib->next_hops[pos], in_face) == 0)
-	    continue;
+	    {
+	      tfib->entry_count = 0;
+	      break;
+	    }
+	  DEBUG ("Adding nexthop to the tfib, dpo index in_face %d, dpo index tfib %d", in_face->dpoi_index, tfib->next_hops[pos].dpoi_index);
 	  hicn_mapme_tfib_add (tfib, &tfib->next_hops[pos]);
 	}
 

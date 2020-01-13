@@ -62,6 +62,9 @@ STATIC_ASSERT ((ceil (log2 ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4)))) ==
 STATIC_ASSERT ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX <= HICN_PARAM_FACES_MAX),
 	       "HICN_PARAM_PIT_ENTRY_PHOP_MAX must be <= than HICN_PARAM_FACES_MAX");
 
+//tFIB parameters
+#define HICN_PARAM_RTX_MAX 10
+
 // PIT lifetime limits on API override this(in seconds, integer type)
 #define HICN_PARAM_PIT_LIFETIME_BOUND_MIN_SEC   0
 #define HICN_PARAM_PIT_LIFETIME_BOUND_MAX_SEC  200
