@@ -134,8 +134,19 @@ format_hicn_strategy_rr_ctx (u8 * s, va_list * ap)
   s =
     format (s, "hicn-rr, next hop Face %d",
 	    dpo->default_ctx.next_hops[dpo->current_nhop].dpoi_index);
+
   for (i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
     {
+      u8 *buf = NULL;
+      if (i < dpo->default_ctx.entry_count)
+	buf = format(NULL, "FIB");
+      else if (i >= HICN_PARAM_FIB_ENTRY_NHOPS_MAX - dpo->default_ctx.tfib_entry_count)
+	buf = format(NULL, "TFIB");
+      else
+        {
+          continue;
+        }
+
       next_hop = &dpo->default_ctx.next_hops[i];
       face_vft = hicn_face_get_vft (next_hop->dpoi_type);
       if (face_vft != NULL)
@@ -144,6 +155,7 @@ format_hicn_strategy_rr_ctx (u8 * s, va_list * ap)
 	  s =
 	    format (s, "%U ", face_vft->format_face, next_hop->dpoi_index,
 		    indent);
+          s = format (s, " %s", buf);
 	}
     }
 

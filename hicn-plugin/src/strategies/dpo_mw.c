@@ -134,6 +134,16 @@ format_hicn_strategy_mw_ctx (u8 * s, va_list * ap)
   s = format (s, "hicn-mw");
   for (i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
     {
+      u8 *buf = NULL;
+      if (i < dpo->default_ctx.entry_count)
+	buf = format(buf, "FIB");
+      else if (i >= HICN_PARAM_FIB_ENTRY_NHOPS_MAX - dpo->default_ctx.tfib_entry_count)
+	buf = format(buf, "TFIB");
+      else
+        {
+          buf = NULL; //to silent the compiler
+          continue;
+        }
       next_hop = &dpo->default_ctx.next_hops[i];
       face_vft = hicn_face_get_vft (next_hop->dpoi_type);
       if (face_vft != NULL)
@@ -143,6 +153,7 @@ format_hicn_strategy_mw_ctx (u8 * s, va_list * ap)
 	    format (s, "%U ", face_vft->format_face, next_hop->dpoi_index,
 		    indent);
 	  s = format (s, "weight %u", dpo->weight[i]);
+	  s = format (s, " %s", buf);
 	}
     }
 
