@@ -302,11 +302,11 @@ _loop_register_timer(loop_t * loop, timer_callback_data_t * timer_callback_data)
 
     struct itimerspec ts = {
         .it_interval = {
-            .tv_sec = 1, //timer_callback_data->delay_ms / 1000,
+            .tv_sec = timer_callback_data->delay_ms / 1000,
             .tv_nsec = (timer_callback_data->delay_ms % 1000) * 1000000,
         },
         .it_value = {
-            .tv_sec = 1, //timer_callback_data->delay_ms / 1000,
+            .tv_sec = timer_callback_data->delay_ms / 1000,
             .tv_nsec = (timer_callback_data->delay_ms % 1000) * 1000000,
         }
     };
