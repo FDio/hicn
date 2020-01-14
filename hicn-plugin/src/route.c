@@ -320,7 +320,7 @@ hicn_route_set_strategy (fib_prefix_t * prefix, u8 strategy_id)
 
       new_dpo_vft = hicn_dpo_get_vft_from_id (strategy_id);
 
-      if (new_dpo_vft == NULL)
+      if (new_dpo_vft == NULL || old_hicn_dpo_ctx == NULL)
 	return HICN_ERROR_STRATEGY_NOT_FOUND;
 
       /* Create a new dpo for the new strategy */

@@ -702,7 +702,7 @@ static void vl_api_hicn_api_route_get_t_handler
 	{
 	  hicn_dpo_vft = hicn_dpo_get_vft(hicn_dpo_id->dpoi_type);
 	  hicn_dpo_ctx = hicn_dpo_vft->hicn_dpo_get_ctx(hicn_dpo_id->dpoi_index);
-	  for (int i = 0; i < hicn_dpo_ctx->entry_count; i++)
+	  for (int i = 0; hicn_dpo_ctx != NULL && i < hicn_dpo_ctx->entry_count; i++)
 	    {
 	      if (dpo_id_is_valid(&hicn_dpo_ctx->next_hops[i]))
 		{
@@ -739,7 +739,7 @@ send_route_details (vl_api_registration_t * reg,
     {
       hicn_dpo_vft = hicn_dpo_get_vft (hicn_dpo_id->dpoi_type);
       hicn_dpo_ctx = hicn_dpo_vft->hicn_dpo_get_ctx (hicn_dpo_id->dpoi_index);
-      for (int i = 0; i < hicn_dpo_ctx->entry_count; i++)
+      for (int i = 0; hicn_dpo_ctx != NULL && i < hicn_dpo_ctx->entry_count; i++)
 	{
 	  if (dpo_id_is_valid (&hicn_dpo_ctx->next_hops[i]))
 	    {
