@@ -283,12 +283,13 @@ hicn_mapme_send_updates (vlib_main_t * vm, hicn_prefix_t * prefix,
 {
   const hicn_dpo_vft_t *dpo_vft = hicn_dpo_get_vft (dpo.dpoi_type);
   hicn_mapme_tfib_t *tfib = TFIB (dpo_vft->hicn_dpo_get_ctx (dpo.dpoi_index));
-  u8 tfib_last_idx = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
   if (!tfib)
     {
       DEBUG ("NULL TFIB entry id=%d", dpo.dpoi_index);
       return;
     }
+
+  u8 tfib_last_idx = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
 
   mapme_params_t params = {
     .protocol = ip46_address_is_ip4 (&prefix->name)

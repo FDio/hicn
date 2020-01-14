@@ -73,6 +73,9 @@ hicn_select_next_hop_mw (index_t dpo_idx, int *nh_idx, dpo_id_t ** outface)
   hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
     (hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo_idx);
 
+  if(hicn_strategy_mw_ctx == NULL)
+    return HICN_ERROR_STRATEGY_NOT_FOUND;
+
   u8 next_hop_index = 0;
   for (int i = 0; i < hicn_strategy_mw_ctx->default_ctx.entry_count; i++)
     {

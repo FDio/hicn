@@ -95,10 +95,11 @@ hicn_dpo_strategy_mw_get_type (void)
 void
 hicn_strategy_mw_ctx_lock (dpo_id_t * dpo)
 {
-  if (dpo->dpoi_index != 0)
+  hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
+    (hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo->dpoi_index);
+
+  if (hicn_strategy_mw_ctx != NULL)
     {
-      hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
-	(hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo->dpoi_index);
       hicn_strategy_mw_ctx->default_ctx.locks++;
     }
 }
@@ -106,10 +107,11 @@ hicn_strategy_mw_ctx_lock (dpo_id_t * dpo)
 void
 hicn_strategy_mw_ctx_unlock (dpo_id_t * dpo)
 {
-  if (dpo->dpoi_index != 0)
+  hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
+    (hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo->dpoi_index);
+
+  if (hicn_strategy_mw_ctx != NULL)
     {
-      hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
-	(hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo->dpoi_index);
       hicn_strategy_mw_ctx->default_ctx.locks--;
 
       if (0 == hicn_strategy_mw_ctx->default_ctx.locks)
@@ -132,7 +134,7 @@ format_hicn_strategy_mw_ctx (u8 * s, va_list * ap)
   dpo = (hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (index);
 
   s = format (s, "hicn-mw");
-  for (i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
+  for (i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX && dpo != NULL; i++)
     {
       u8 *buf = NULL;
       if (i < dpo->default_ctx.entry_count)
@@ -196,9 +198,10 @@ hicn_strategy_mw_ctx_get (index_t index)
   if (!pool_is_free_index (hicn_strategy_mw_ctx_pool, index))
     {
       hicn_strategy_mw_ctx =
-	(pool_elt_at_index (hicn_strategy_mw_ctx_pool, index));
+        (pool_elt_at_index (hicn_strategy_mw_ctx_pool, index));
     }
-  return &hicn_strategy_mw_ctx->default_ctx;
+
+  return hicn_strategy_mw_ctx;
 }
 
 int
@@ -207,46 +210,43 @@ hicn_strategy_mw_ctx_add_nh (const dpo_id_t * nh, index_t dpo_idx)
   hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx =
     (hicn_strategy_mw_ctx_t *) hicn_strategy_mw_ctx_get (dpo_idx);
 
-  if (hicn_strategy_mw_ctx != NULL)
+  if (hicn_strategy_mw_ctx == NULL)
     {
-
-      int empty = hicn_strategy_mw_ctx->default_ctx.entry_count;
-
-      /* Iterate through the list of faces to add new faces */
-      for (int i = 0; i < hicn_strategy_mw_ctx->default_ctx.entry_count; i++)
-	{
-	  if (!memcmp
-	      (nh, &hicn_strategy_mw_ctx->default_ctx.next_hops[i],
-	       sizeof (dpo_id_t)))
-	    {
-	      /* If face is marked as deleted, ignore it */
-	      hicn_face_t *face =
-		hicn_dpoi_get_from_idx (hicn_strategy_mw_ctx->
-					default_ctx.next_hops[i].dpoi_index);
-	      if (face->shared.flags & HICN_FACE_FLAGS_DELETED)
-		{
-		  continue;
-		}
-	      return HICN_ERROR_DPO_CTX_NHOPS_EXISTS;
-	    }
-	}
-
-      /* Get an empty place */
-      if (empty > HICN_PARAM_FIB_ENTRY_NHOPS_MAX)
-	{
-	  return HICN_ERROR_DPO_CTX_NHOPS_NS;
-	}
-      if (PREDICT_FALSE (empty > HICN_PARAM_FIB_ENTRY_NHOPS_MAX))
-	{
-	  return HICN_ERROR_DPO_CTX_NHOPS_NS;
-	}
-      clib_memcpy (&hicn_strategy_mw_ctx->default_ctx.next_hops[empty], nh,
-		   sizeof (dpo_id_t));
-      hicn_strategy_mw_ctx->default_ctx.entry_count++;
-
-      return HICN_ERROR_NONE;
+      return HICN_ERROR_STRATEGY_NOT_FOUND;
     }
-  return HICN_ERROR_DPO_CTX_NOT_FOUND;
+
+  int empty = hicn_strategy_mw_ctx->default_ctx.entry_count;
+
+  /* Iterate through the list of faces to add new faces */
+  for (int i = 0; i < hicn_strategy_mw_ctx->default_ctx.entry_count; i++)
+    {
+      if (!memcmp
+          (nh, &hicn_strategy_mw_ctx->default_ctx.next_hops[i],
+           sizeof (dpo_id_t)))
+        {
+          /* If face is marked as deleted, ignore it */
+          hicn_face_t *face =
+            hicn_dpoi_get_from_idx (hicn_strategy_mw_ctx->
+                                    default_ctx.next_hops[i].dpoi_index);
+          if (face->shared.flags & HICN_FACE_FLAGS_DELETED)
+            {
+              continue;
+            }
+          return HICN_ERROR_DPO_CTX_NHOPS_EXISTS;
+        }
+    }
+
+  /* Get an empty place */
+  if (empty > HICN_PARAM_FIB_ENTRY_NHOPS_MAX)
+    {
+      return HICN_ERROR_DPO_CTX_NHOPS_NS;
+    }
+
+  clib_memcpy (&hicn_strategy_mw_ctx->default_ctx.next_hops[empty], nh,
+               sizeof (dpo_id_t));
+  hicn_strategy_mw_ctx->default_ctx.entry_count++;
+
+  return HICN_ERROR_NONE;
 }
 
 int
@@ -260,48 +260,30 @@ hicn_strategy_mw_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
   dpo_id_t invalid = NEXT_HOP_INVALID;
 
   if (hicn_strategy_mw_ctx != NULL)
-    {
-      for (int i = 0; i < hicn_strategy_mw_ctx->default_ctx.entry_count; i++)
-	{
-	  if (hicn_strategy_mw_ctx->default_ctx.next_hops[i].dpoi_index ==
-	      face_id)
-	    {
-	      nh_id = i;
-	      hicn_face_unlock (&hicn_strategy_mw_ctx->default_ctx.
-				next_hops[i]);
-	      hicn_strategy_mw_ctx->default_ctx.next_hops[i] = invalid;
-	      hicn_strategy_mw_ctx->default_ctx.entry_count--;
-        ret = HICN_ERROR_NONE;
-	    }
-	}
+    return HICN_ERROR_STRATEGY_NOT_FOUND;
 
-      if (0 == hicn_strategy_mw_ctx->default_ctx.entry_count)
-	{
-	  fib_table_entry_special_remove (HICN_FIB_TABLE, fib_pfx,
-					  FIB_SOURCE_PLUGIN_HI);
-	}
-    }
-  else
+  for (int i = 0; i < hicn_strategy_mw_ctx->default_ctx.entry_count; i++)
     {
-      ret = HICN_ERROR_DPO_CTX_NOT_FOUND;
+      if (hicn_strategy_mw_ctx->default_ctx.next_hops[i].dpoi_index ==
+          face_id)
+        {
+          nh_id = i;
+          hicn_face_unlock (&hicn_strategy_mw_ctx->default_ctx.
+                            next_hops[i]);
+          hicn_strategy_mw_ctx->default_ctx.entry_count--;
+          hicn_strategy_mw_ctx->default_ctx.next_hops[i] = hicn_strategy_mw_ctx->default_ctx.next_hops[hicn_strategy_mw_ctx->default_ctx.entry_count];
+          hicn_strategy_mw_ctx->default_ctx.next_hops[hicn_strategy_rr_ctx->default_ctx.entry_count] = invalid;
+          ret = HICN_ERROR_NONE;
+          break;
+        }
     }
 
-  /*
-   * Remove any possible hole in the arrays of dpos
-   */
-  if (hicn_strategy_mw_ctx->default_ctx.entry_count > 0 && nh_id != ~0
-      && nh_id < hicn_strategy_mw_ctx->default_ctx.entry_count - 1)
+  if (0 == hicn_strategy_mw_ctx->default_ctx.entry_count)
     {
-      int i;
-      for (i = nh_id; i < hicn_strategy_mw_ctx->default_ctx.entry_count; i++)
-	{
-	  clib_memcpy (&hicn_strategy_mw_ctx->default_ctx.next_hops[i],
-		       &hicn_strategy_mw_ctx->default_ctx.next_hops[i + 1],
-		       sizeof (dpo_id_t));
-	}
-      /* Set as invalid the last dpo */
-      hicn_strategy_mw_ctx->default_ctx.next_hops[i] = invalid;
+      fib_table_entry_special_remove (HICN_FIB_TABLE, fib_pfx,
+                                      FIB_SOURCE_PLUGIN_HI);
     }
+
   return ret;
 }
 
