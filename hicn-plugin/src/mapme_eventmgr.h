@@ -15,7 +15,7 @@
 
 #include <vlib/vlib.h>		// vlib_node_registration_t (vlib/node.h)
 
-/* 
+/*
  * Structure carrying all necessary information for managing Special Interest
  * (re)transmissions.
  */
@@ -23,6 +23,7 @@ typedef struct
 {
   hicn_prefix_t prefix;
   dpo_id_t dpo;
+  u8 rtx_count; // Number of retransmissions since last tfib addition
 } retx_t;
 
 #define HASH32(x) ((u16)x ^ (x << 16))

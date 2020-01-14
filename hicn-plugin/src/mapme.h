@@ -122,6 +122,28 @@ hicn_mapme_tfib_add (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
 }
 
 static_always_inline int
+hicn_mapme_tfib_clear (hicn_mapme_tfib_t * tfib)
+{
+  dpo_id_t invalid = NEXT_HOP_INVALID;
+  /*
+   * We need to do a linear scan of TFIB entries to find the one to
+   * remove
+   */
+  u8 start_pos = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
+  u8 pos = ~0;
+  for (pos = start_pos; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos++)
+      {
+	hicn_face_unlock (&tfib->next_hops[pos]);
+	tfib->next_hops[pos] = invalid;
+	break;
+      }
+
+  tfib->tfib_entry_count = 0;
+
+  return 0;
+}
+
+static_always_inline int
 hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
 {
   dpo_id_t invalid = NEXT_HOP_INVALID;
