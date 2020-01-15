@@ -1991,6 +1991,24 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
             case FACELET_EVENT_UPDATE:
                 DEBUG("[facemgr_on_event] UPDATE EXISTING %s", facelet_old_s);
                 DEBUG("                              WITH %s", facelet_s);
+
+#ifdef WITH_DEFAULT_PRIORITIES
+                if (facelet_has_netdevice_type(facelet_in) && !facelet_has_netdevice(facelet_in) && facelet_has_priority(facelet_in)) {
+                    /* Remember last priority choice for newly created facelets */
+                    netdevice_type_t netdevice_type = NETDEVICE_TYPE_UNDEFINED;
+                    u32 priority = 0;
+                    if (facelet_get_netdevice_type(facelet_in, &netdevice_type) < 0) {
+                        ERROR("[facelet_on_event] Error getting netdevice_type");
+                        goto ERR;
+                    }
+                    if (facelet_get_priority(facelet_in, &priority) < 0) {
+                        ERROR("[facelet_on_event] Error getting priority");
+                        goto ERR;
+                    }
+                    facemgr->default_priority[netdevice_type] = priority;
+                }
+#endif /* WITH_DEFAULT_PRIORITIES */
+
                 if (facelet_merge(facelet, facelet_in) < 0) {
                     ERROR("[facemgr_on_event] Error merging facelets");
                     continue;
