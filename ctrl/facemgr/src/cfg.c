@@ -24,8 +24,7 @@ typedef struct {
     ip_address_t remote_addr;
 } facemgr_cfg_overlay_t;
 
-int
-facemgr_cfg_overlay_initialize(facemgr_cfg_overlay_t * overlay)
+int facemgr_cfg_overlay_initialize(facemgr_cfg_overlay_t * overlay)
 {
     overlay->is_local_port = false;
     overlay->local_port = 0;
@@ -40,8 +39,7 @@ facemgr_cfg_overlay_initialize(facemgr_cfg_overlay_t * overlay)
     return 0;
 }
 
-int
-facemgr_cfg_overlay_finalize(facemgr_cfg_overlay_t * overlay)
+int facemgr_cfg_overlay_finalize(facemgr_cfg_overlay_t * overlay)
 {
     return 0;
 }
@@ -101,8 +99,7 @@ struct facemgr_cfg_rule_s {
     facemgr_cfg_override_t override;
 };
 
-int
-facemgr_cfg_override_initialize(facemgr_cfg_override_t * override)
+int facemgr_cfg_override_initialize(facemgr_cfg_override_t * override)
 {
     override->is_face_type = false;
     override->face_type = FACEMGR_FACE_TYPE_UNDEFINED;
@@ -124,8 +121,7 @@ facemgr_cfg_override_initialize(facemgr_cfg_override_t * override)
     return 0;
 }
 
-int
-facemgr_cfg_override_finalize(facemgr_cfg_override_t * override)
+int facemgr_cfg_override_finalize(facemgr_cfg_override_t * override)
 {
     if (override->overlays.v4) {
         facemgr_cfg_overlay_free(override->overlays.v4);
@@ -160,8 +156,7 @@ void facemgr_cfg_rule_free(facemgr_cfg_rule_t * rule)
     free(rule);
 }
 
-int
-facemgr_cfg_rule_initialize(facemgr_cfg_rule_t * rule)
+int facemgr_cfg_rule_initialize(facemgr_cfg_rule_t * rule)
 {
     rule->match.interface_name = NULL;
     rule->match.interface_type = NETDEVICE_TYPE_UNDEFINED;
@@ -173,8 +168,7 @@ facemgr_cfg_rule_initialize(facemgr_cfg_rule_t * rule)
     return 0;
 }
 
-int
-facemgr_cfg_rule_finalize(facemgr_cfg_rule_t * rule)
+int facemgr_cfg_rule_finalize(facemgr_cfg_rule_t * rule)
 {
     if (rule->match.interface_name) {
         free((void*)rule->match.interface_name);
@@ -260,8 +254,7 @@ facemgr_cfg_rule_dump(facemgr_cfg_rule_t * rule)
     DEBUG("  </rule>");
 }
 
-int
-facemgr_cfg_rule_set_match(facemgr_cfg_rule_t * rule, const char * interface_name,
+int facemgr_cfg_rule_set_match(facemgr_cfg_rule_t * rule, const char * interface_name,
         netdevice_type_t interface_type)
 {
     rule->match.interface_name = interface_name ? strdup(interface_name) : NULL;
@@ -269,84 +262,73 @@ facemgr_cfg_rule_set_match(facemgr_cfg_rule_t * rule, const char * interface_nam
     return 0;
 }
 
-int
-facemgr_cfg_rule_set_face_type(facemgr_cfg_rule_t * rule, facemgr_face_type_t * face_type)
+int facemgr_cfg_rule_set_face_type(facemgr_cfg_rule_t * rule, facemgr_face_type_t * face_type)
 {
     rule->override.is_face_type = true;
     rule->override.face_type = *face_type;
     return 0;
 }
 
-int
-facemgr_cfg_rule_unset_face_type(facemgr_cfg_rule_t * rule)
+int facemgr_cfg_rule_unset_face_type(facemgr_cfg_rule_t * rule)
 {
     rule->override.is_face_type = false;
     rule->override.face_type = FACEMGR_FACE_TYPE_UNDEFINED; /* optional */
     return 0;
 }
 
-int
-facemgr_cfg_rule_set_discovery(facemgr_cfg_rule_t * rule, bool status)
+intvfacemgr_cfg_rule_set_discovery(facemgr_cfg_rule_t * rule, bool status)
 {
     rule->override.is_discovery = true;
     rule->override.discovery = status;
     return 0;
 }
 
-int
-facemgr_cfg_rule_unset_discovery(facemgr_cfg_rule_t * rule)
+int facemgr_cfg_rule_unset_discovery(facemgr_cfg_rule_t * rule)
 {
     rule->override.is_discovery = false;
     return 0;
 }
 
-int
-facemgr_cfg_rule_set_ignore(facemgr_cfg_rule_t * rule, bool status)
+int facemgr_cfg_rule_set_ignore(facemgr_cfg_rule_t * rule, bool status)
 {
     rule->override.is_ignore = true;
     rule->override.ignore = status;
     return 0;
 }
 
-int
-facemgr_cfg_rule_unset_ignore(facemgr_cfg_rule_t * rule)
+int facemgr_cfg_rule_unset_ignore(facemgr_cfg_rule_t * rule)
 {
     rule->override.is_ignore = false;
     return 0;
 }
 
-int
-facemgr_cfg_rule_set_ipv4(facemgr_cfg_rule_t * rule, bool status)
+int facemgr_cfg_rule_set_ipv4(facemgr_cfg_rule_t * rule, bool status)
 {
     rule->override.is_ipv4 = true;
     rule->override.ipv4 = status;
     return 0;
 }
 
-int
-facemgr_cfg_rule_unset_ipv4(facemgr_cfg_rule_t * rule)
+int facemgr_cfg_rule_unset_ipv4(facemgr_cfg_rule_t * rule)
 {
     rule->override.is_ipv4 = false;
     return 0;
 }
 
-int
-facemgr_cfg_rule_set_ipv6(facemgr_cfg_rule_t * rule, bool status)
+int facemgr_cfg_rule_set_ipv6(facemgr_cfg_rule_t * rule, bool status)
 {
     rule->override.is_ipv6 = true;
     rule->override.ipv6 = status;
     return 0;
 }
 
-int
-facemgr_cfg_rule_unset_ipv6(facemgr_cfg_rule_t * rule)
+int facemgr_cfg_rule_unset_ipv6(facemgr_cfg_rule_t * rule)
 {
     rule->override.is_ipv6 = false;
     return 0;
 }
 
-int
-facemgr_cfg_rule_set_overlay(facemgr_cfg_rule_t * rule, int family,
+int facemgr_cfg_rule_set_overlay(facemgr_cfg_rule_t * rule, int family,
     ip_address_t * local_addr, uint16_t local_port,
     ip_address_t * remote_addr, uint16_t remote_port) {
     if ((family != AF_INET) && (family != AF_INET6))
@@ -386,8 +368,7 @@ facemgr_cfg_rule_set_overlay(facemgr_cfg_rule_t * rule, int family,
     return 0;
 }
 
-int
-facemgr_rule_unset_overlay(facemgr_cfg_rule_t * rule, int family)
+int facemgr_rule_unset_overlay(facemgr_cfg_rule_t * rule, int family)
 {
     if ((family != AF_INET) && (family != AF_INET6) && (family != AF_UNSPEC))
         return -1;
@@ -407,8 +388,7 @@ facemgr_rule_unset_overlay(facemgr_cfg_rule_t * rule, int family)
     return 0;
 }
 
-int
-facemgr_cfg_rule_cmp(const facemgr_cfg_rule_t * r1, const facemgr_cfg_rule_t * r2)
+int facemgr_cfg_rule_cmp(const facemgr_cfg_rule_t * r1, const facemgr_cfg_rule_t * r2)
 {
     /*
      * We implement a lexicographic order on the tuple (interface_name,
@@ -476,8 +456,7 @@ void facemgr_cfg_free(facemgr_cfg_t * cfg)
     free(cfg);
 }
 
-int
-facemgr_cfg_initialize(facemgr_cfg_t * cfg)
+int facemgr_cfg_initialize(facemgr_cfg_t * cfg)
 {
     int rc = facemgr_cfg_override_initialize(&cfg->global);
     if (rc < 0) {
@@ -507,8 +486,7 @@ ERR_OVERRIDE:
     return -1;
 }
 
-int
-facemgr_cfg_finalize(facemgr_cfg_t * cfg)
+int facemgr_cfg_finalize(facemgr_cfg_t * cfg)
 {
     /* TODO Free all rules */
     facemgr_cfg_rule_t ** rule_array;
@@ -551,32 +529,28 @@ void facemgr_cfg_dump(facemgr_cfg_t * cfg)
 }
 
 /* General */
-int
-facemgr_cfg_set_face_type(facemgr_cfg_t * cfg, facemgr_face_type_t * face_type)
+int facemgr_cfg_set_face_type(facemgr_cfg_t * cfg, facemgr_face_type_t * face_type)
 {
     cfg->global.is_face_type = true;
     cfg->global.face_type = *face_type;
     return 0;
 }
 
-int
-facemgr_cfg_unset_face_type(facemgr_cfg_t * cfg)
+int facemgr_cfg_unset_face_type(facemgr_cfg_t * cfg)
 {
     cfg->global.is_face_type = false;
     cfg->global.face_type = FACEMGR_FACE_TYPE_UNDEFINED; /* optional */
     return 0;
 }
 
-int
-facemgr_cfg_set_discovery(facemgr_cfg_t * cfg, bool status)
+int facemgr_cfg_set_discovery(facemgr_cfg_t * cfg, bool status)
 {
     cfg->global.is_discovery = true;
     cfg->global.discovery = status;
     return 0;
 }
 
-int
-facemgr_cfg_unset_discovery(facemgr_cfg_t * cfg)
+int facemgr_cfg_unset_discovery(facemgr_cfg_t * cfg)
 {
     cfg->global.is_discovery = false;
     return 0;
@@ -614,8 +588,7 @@ int facemgr_cfg_unset_ipv6(facemgr_cfg_t * cfg)
     return 0;
 }
 
-int
-facemgr_cfg_set_overlay(facemgr_cfg_t * cfg, int family,
+int facemgr_cfg_set_overlay(facemgr_cfg_t * cfg, int family,
     ip_address_t * local_addr, uint16_t local_port,
     ip_address_t * remote_addr, uint16_t remote_port)
 {
@@ -687,8 +660,7 @@ facemgr_cfg_set_overlay(facemgr_cfg_t * cfg, int family,
     return 0;
 }
 
-int
-facemgr_cfg_unset_overlay(facemgr_cfg_t * cfg, int family)
+int facemgr_cfg_unset_overlay(facemgr_cfg_t * cfg, int family)
 {
     if ((family != AF_INET) && (family != AF_INET6) && (family != AF_UNSPEC))
         return -1;
@@ -708,15 +680,13 @@ facemgr_cfg_unset_overlay(facemgr_cfg_t * cfg, int family)
     return 0;
 }
 
-int
-facemgr_cfg_add_rule(facemgr_cfg_t * cfg, facemgr_cfg_rule_t * rule)
+int facemgr_cfg_add_rule(facemgr_cfg_t * cfg, facemgr_cfg_rule_t * rule)
 {
     facemgr_cfg_rule_dump(rule);
     return facemgr_cfg_rule_set_add(cfg->rule_set, rule);
 }
 
-int
-facemgr_cfg_del_rule(facemgr_cfg_t * cfg, facemgr_cfg_rule_t * rule)
+int facemgr_cfg_del_rule(facemgr_cfg_t * cfg, facemgr_cfg_rule_t * rule)
 {
     return facemgr_cfg_rule_set_remove(cfg->rule_set, rule, NULL);
 }
@@ -740,8 +710,7 @@ int facemgr_cfg_get_rule(const facemgr_cfg_t * cfg, const char * interface_name,
  * TODO:
  *  - until we have proper indexes we loop through the whole structure
  */
-int
-facemgr_cfg_get_override(const facemgr_cfg_t * cfg,
+int facemgr_cfg_get_override(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         facemgr_cfg_override_t ** override)
 {
@@ -789,8 +758,7 @@ FOUND:
 //#endif /* __ANDROID__ */
 }
 
-int
-facemgr_cfg_get_face_type(const facemgr_cfg_t * cfg,
+int facemgr_cfg_get_face_type(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         facemgr_face_type_t * face_type)
 {
@@ -814,8 +782,7 @@ facemgr_cfg_get_face_type(const facemgr_cfg_t * cfg,
     return 0;
 }
 
-int
-facemgr_cfg_get_discovery(const facemgr_cfg_t * cfg,
+int facemgr_cfg_get_discovery(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         bool * discovery)
 {
@@ -836,8 +803,7 @@ facemgr_cfg_get_discovery(const facemgr_cfg_t * cfg,
     return 0;
 }
 
-int
-facemgr_cfg_get_ipv4(const facemgr_cfg_t * cfg,
+int facemgr_cfg_get_ipv4(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         bool * ipv4)
 {
@@ -858,8 +824,7 @@ facemgr_cfg_get_ipv4(const facemgr_cfg_t * cfg,
     return 0;
 }
 
-int
-facemgr_cfg_get_ipv6(const facemgr_cfg_t * cfg,
+int facemgr_cfg_get_ipv6(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         bool * ipv6)
 {
@@ -880,8 +845,7 @@ facemgr_cfg_get_ipv6(const facemgr_cfg_t * cfg,
     return 0;
 }
 
-int
-facemgr_cfg_get_ignore(const facemgr_cfg_t * cfg,
+int facemgr_cfg_get_ignore(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         bool * ignore)
 {
@@ -903,8 +867,7 @@ facemgr_cfg_get_ignore(const facemgr_cfg_t * cfg,
     return 0;
 }
 
-int
-facemgr_cfg_get_overlay_local_addr(const facemgr_cfg_t * cfg,
+int facemgr_cfg_get_overlay_local_addr(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         int family, ip_address_t * addr)
 {
@@ -945,8 +908,7 @@ facemgr_cfg_get_overlay_local_addr(const facemgr_cfg_t * cfg,
     return 0;
 }
 
-int
-facemgr_cfg_get_overlay_local_port(const facemgr_cfg_t * cfg,
+int facemgr_cfg_get_overlay_local_port(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         int family, u16 * port)
 {
@@ -987,8 +949,7 @@ facemgr_cfg_get_overlay_local_port(const facemgr_cfg_t * cfg,
     return 0;
 }
 
-int
-facemgr_cfg_get_overlay_remote_addr(const facemgr_cfg_t * cfg,
+int facemgr_cfg_get_overlay_remote_addr(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         int family, ip_address_t * addr)
 {
@@ -1034,8 +995,7 @@ facemgr_cfg_get_overlay_remote_addr(const facemgr_cfg_t * cfg,
     return 0;
 }
 
-int
-facemgr_cfg_get_overlay_remote_port(const facemgr_cfg_t * cfg,
+int facemgr_cfg_get_overlay_remote_port(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         int family, u16 * port)
 {
@@ -1073,6 +1033,40 @@ facemgr_cfg_get_overlay_remote_port(const facemgr_cfg_t * cfg,
     }
 
     *port = HICN_DEFAULT_PORT;
+    return 0;
+}
+
+int facemgr_cfg_rule_get(const facemgr_cfg_t * cfg, const netdevice_t netdevice, netdevice_type_t
+        netdevice_type, facemgr_cfg_rule_t ** rule)
+{
+    facemgr_cfg_rule_t **rule_array;
+    *rule = NULL;
+    int n = facemgr_cfg_rule_set_get_array(cfg->rule_set, &rule_array);
+    if (n < 0) {
+        ERROR("facemgr_cfg_rule_set_get_array failed");
+        return n;
+    }
+    for (unsigned i = 0; i < n; i++) {
+        const char * interface_name = rule_array[i]->match.interface_name;
+        /* Check match for interface name */
+        if (netdevice.name[0] != '\0') {
+            if (!interface_name)
+                continue;
+            if (strcmp(netdevice.name, interface_name) != 0)
+                continue;
+        } else {
+            if (interface_name && interface_name[0] != '\0')
+                continue;
+        }
+
+        /* Check match for netdevice_type */
+        if (netdevice_type != rule_array[i]->match.interface_type)
+            continue;
+
+        /* Found */
+        *rule = rule_array[i];
+        break;
+    }
     return 0;
 }
 
@@ -1197,8 +1191,7 @@ int facemgr_cfg_rule_get_overlay_remote_port(const facemgr_cfg_rule_t * rule, in
     return 0;
 }
 
-int
-facemgr_cfg_add_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet)
+int facemgr_cfg_add_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet)
 {
     char buf[MAXSZ_FACELET];
     facelet_snprintf(buf, MAXSZ_FACELET, facelet);
@@ -1206,15 +1199,13 @@ facemgr_cfg_add_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet)
     return facelet_array_add(cfg->static_facelets, facelet);
 }
 
-int
-facemgr_cfg_remove_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet,
+int facemgr_cfg_remove_static_facelet(facemgr_cfg_t * cfg, facelet_t * facelet,
         facelet_t ** removed_facelet)
 {
     return facelet_array_remove(cfg->static_facelets, facelet, removed_facelet);
 }
 
-int
-facemgr_cfg_get_static_facelet_array(const facemgr_cfg_t * cfg, facelet_t *** array)
+int facemgr_cfg_get_static_facelet_array(const facemgr_cfg_t * cfg, facelet_t *** array)
 {
     if (facelet_array_get_elements(cfg->static_facelets, array) < 0) {
         ERROR("[facemgr_cfg_get_static_facelet_array] Error getting array elements");
