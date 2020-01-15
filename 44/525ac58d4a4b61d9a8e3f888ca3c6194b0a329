@@ -1,0 +1,9 @@
+Verified+1: fd.io JJB <jobbuilder@projectrotterdam.info>
+Code-Review+1: Angelo Mantellini <angelo.mantellini@cisco.com>
+Code-Review+2: Jordan Augé <jordan.auge+fdio@cisco.com>
+Verified+1: Jordan Augé <jordan.auge+fdio@cisco.com>
+Submitted-by: Jordan Augé <jordan.auge+fdio@cisco.com>
+Submitted-at: Wed, 15 Jan 2020 12:16:30 +0000
+Reviewed-on: https://gerrit.fd.io/r/c/hicn/+/24343
+Project: hicn
+Branch: refs/heads/master
