@@ -139,6 +139,8 @@ int facemgr_cfg_get_overlay_remote_port(const facemgr_cfg_t * cfg,
         const netdevice_t * netdevice, netdevice_type_t netdevice_type,
         int family, u16 * port);
 
+int facemgr_cfg_rule_get(const facemgr_cfg_t * cfg, const netdevice_t netdevice,
+        netdevice_type_t netdevice_type, facemgr_cfg_rule_t ** rule);
 int facemgr_cfg_rule_get_face_type(const facemgr_cfg_rule_t * cfg_rule, facemgr_face_type_t * face_type);
 int facemgr_cfg_rule_get_discovery(const facemgr_cfg_rule_t * cfg_rule, bool * status);
 int facemgr_cfg_rule_get_ignore(const facemgr_cfg_rule_t * cfg_rule, bool * status);
