@@ -565,7 +565,8 @@ hc_sock_get_fd(hc_sock_t * s)
 int
 hc_sock_connect(hc_sock_t * s)
 {
-    struct sockaddr_storage ss = { 0 };
+    struct sockaddr_storage ss;
+    memset(&ss, 0, sizeof(struct sockaddr_storage));
 
     if (hc_sock_parse_url(s->url, (struct sockaddr *)&ss) < 0)
         goto ERR_PARSE;
