@@ -401,7 +401,9 @@ void messageProcessor_RemoveConnectionIdFromRoutes(MessageProcessor *processor,
 }
 
 void processor_SetStrategy(MessageProcessor *processor, Name *prefix,
-                           strategy_type strategy) {
+                           strategy_type strategy,
+                           unsigned related_prefixes_len,
+                           Name **related_prefixes){
   FibEntry *entry = fib_Contains(processor->fib, prefix);
   if (entry != NULL) {
     fibEntry_SetStrategy(entry, strategy);

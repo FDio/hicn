@@ -37,6 +37,7 @@
 #endif /* WITH_POLICY */
 
 #define SYMBOLIC_NAME_LEN 16
+#define MAX_FWD_STRATEGY_RELATED_PREFIXES 10
 
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;
@@ -252,9 +253,13 @@ typedef struct {
   uint8_t strategyType;
   uint8_t addressType;
   uint8_t len;
+  uint8_t related_prefixes;
+  ip_address_t addresses[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  uint8_t lens[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  uint8_t addresses_type[MAX_FWD_STRATEGY_RELATED_PREFIXES];
 } set_strategy_command;
 
-// SIZE=20
+// SIZE=208
 
 //==========  [11]  SET WLDR    ==========
 

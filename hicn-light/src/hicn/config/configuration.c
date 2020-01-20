@@ -295,7 +295,7 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
     if (numberSet_Length(nexthops) > 1) {
       // payload extended, need reallocate, further entries via nexthops
       payloadSize = payloadSize + numberSet_Length(nexthops) - 1;
-      payloadResponse = (uint8_t *)parcMemory_Reallocate(
+      payloadResponse = (uint8_t *) parcMemory_Reallocate(
           payloadResponse, sizeof(list_routes_command) * payloadSize);
     }
 
@@ -1035,10 +1035,25 @@ struct iovec *configuration_SetForwardingStrategy(Configuration *config,
     _configuration_StoreFwdStrategy(config, prefix, strategy);
     Name *hicnPrefix = name_CreateFromAddress(control->addressType,
                                               control->address, control->len);
-    forwarder_SetStrategy(config->forwarder, hicnPrefix, strategy);
+    Name *related_prefixes[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+    if(control->related_prefixes != 0){
+      for(int i = 0; i < control->related_prefixes; i++){
+        related_prefixes[i] = name_CreateFromAddress(
+                                  control->addresses_type[i],
+                                  control->addresses[i], control->lens[i]);
+      }
+    }
+    forwarder_SetStrategy(config->forwarder, hicnPrefix, strategy,
+                          control->related_prefixes, related_prefixes);
     name_Release(&hicnPrefix);
+    if(control->related_prefixes != 0){
+      for(int i = 0; i < control->related_prefixes; i++){
+        name_Release(&related_prefixes[i]);
+      }
+    }
   }
 
+  free((char *) prefix);
   struct iovec *response =
       utils_CreateAck(header, control, sizeof(set_strategy_command));
 

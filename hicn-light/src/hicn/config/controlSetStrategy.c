@@ -75,12 +75,79 @@ strategy_type _validStrategy(const char *strategy) {
   return validStrategy;
 }
 
+static void _getAddressAndLen(const char * prefixStr, char *addr, uint32_t *len){
+  char *slash;
+  strcpy(addr, prefixStr);
+  slash = strrchr(addr, '/');
+  if (slash != NULL) {
+    *len = atoi(slash + 1);
+    *slash = '\0';
+  }
+}
+
+static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
+                          int index, char * addr, uint32_t len){
+  // check and set IP address
+  int res;
+  if(index == -1)
+    res = inet_pton(AF_INET, addr, &setStrategyCommand->address.v4.as_u32);
+  else
+    res = inet_pton(AF_INET, addr,
+              &setStrategyCommand->addresses[index].v4.as_u32);
+
+  if(res == 1) {
+    if (len == UINT32_MAX) {
+      printf("Netmask not specified: set to 32 by default\n");
+      len = 32;
+    } else if (len > 32) {
+      printf("ERROR: exceeded INET mask length, max=32\n");
+      return false;
+    }
+    if(index == -1)
+      setStrategyCommand->addressType = ADDR_INET;
+    else
+      setStrategyCommand->addresses_type[index] = ADDR_INET;
+
+  } else {
+
+    if(index == -1)
+      res = inet_pton(AF_INET6, addr,
+            &setStrategyCommand->address.v6.as_in6addr);
+    else
+      res = inet_pton(AF_INET6, addr,
+            &setStrategyCommand->addresses[index].v6.as_in6addr);
+
+    if(res == 1) {
+      if (len == UINT32_MAX) {
+        printf("Netmask not specified: set to 128 by default\n");
+        len = 128;
+      } else if (len > 128) {
+        printf("ERROR: exceeded INET6 mask length, max=128\n");
+        return false;
+      }
+
+      if(index == -1)
+        setStrategyCommand->addressType = ADDR_INET6;
+      else
+        setStrategyCommand->addresses_type[index] = ADDR_INET6;
+
+    } else {
+      printf("Error: %s is not a valid network address \n", addr);
+      return false;
+    }
+  }
+  return true;
+}
+
 static CommandReturn _controlSetStrategy_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
                                                      PARCList *args) {
-  printf("set strategy <prefix> <strategy>\n");
+  printf("set strategy <prefix> <strategy> ");
+  printf("[related_prefix1 related_preifx2  ...]\n");
   printf("prefix: ipv4/ipv6 address (ex: 1234::/64)\n");
   printf("strategy: strategy identifier\n");
+  printf("optinal: list of related prefixes (max %u)\n",
+                          MAX_FWD_STRATEGY_RELATED_PREFIXES);
   printf("available strategies:\n");
   printf("    random\n");
   printf("    loadbalancer\n");
@@ -90,12 +157,14 @@ static CommandReturn _controlSetStrategy_HelpExecute(CommandParser *parser,
   return CommandReturn_Success;
 }
 
+
 static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
                                                  CommandOps *ops,
                                                  PARCList *args) {
   ControlState *state = ops->closure;
 
-  if (parcList_Size(args) != 4) {
+  if (parcList_Size(args) < 4 ||
+          parcList_Size(args) > (4 + MAX_FWD_STRATEGY_RELATED_PREFIXES)) {
     _controlSetStrategy_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
@@ -108,47 +177,17 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
 
   const char *prefixStr = parcList_GetAtIndex(args, 2);
   char *addr = (char *)malloc(sizeof(char) * (strlen(prefixStr) + 1));
-  // separate address and len
-  char *slash;
   uint32_t len = UINT32_MAX;
-  strcpy(addr, prefixStr);
-  slash = strrchr(addr, '/');
-  if (slash != NULL) {
-    len = atoi(slash + 1);
-    *slash = '\0';
-  }
+  _getAddressAndLen(prefixStr, addr, &len);
 
   // allocate command payload
   set_strategy_command *setStrategyCommand =
       parcMemory_AllocateAndClear(sizeof(set_strategy_command));
 
-  // check and set IP address
-  if (inet_pton(AF_INET, addr, &setStrategyCommand->address.v4.as_u32) == 1) {
-    if (len == UINT32_MAX) {
-      printf("Netmask not specified: set to 32 by default\n");
-      len = 32;
-    } else if (len > 32) {
-      printf("ERROR: exceeded INET mask length, max=32\n");
-      parcMemory_Deallocate(&setStrategyCommand);
-      free(addr);
-      return CommandReturn_Failure;
-    }
-    setStrategyCommand->addressType = ADDR_INET;
-  } else if (inet_pton(AF_INET6, addr, &setStrategyCommand->address.v6.as_in6addr) ==
-             1) {
-    if (len == UINT32_MAX) {
-      printf("Netmask not specified: set to 128 by default\n");
-      len = 128;
-    } else if (len > 128) {
-      printf("ERROR: exceeded INET6 mask length, max=128\n");
-      parcMemory_Deallocate(&setStrategyCommand);
-      free(addr);
-      return CommandReturn_Failure;
-    }
-    setStrategyCommand->addressType = ADDR_INET6;
-  } else {
-    printf("Error: %s is not a valid network address \n", addr);
+  bool success = _checkAndSetIp(setStrategyCommand, -1, addr, len);
+  if(!success){
     parcMemory_Deallocate(&setStrategyCommand);
+    free(addr);
     return CommandReturn_Failure;
   }
 
@@ -168,6 +207,32 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
   // Fill remaining payload fields
   setStrategyCommand->len = len;
   setStrategyCommand->strategyType = strategy;
+
+  //check additional prefixes
+  if(parcList_Size(args) > 4){
+    uint32_t index = 4; //first realted prefix
+    uint32_t addr_index = 0;
+    setStrategyCommand->related_prefixes = parcList_Size(args) - 4;
+    while(index < parcList_Size(args)){
+      const char *str = parcList_GetAtIndex(args, index);
+      char *rel_addr = (char *)malloc(sizeof(char) * (strlen(str) + 1));
+      uint32_t rel_len = UINT32_MAX;
+      _getAddressAndLen(str, rel_addr, &rel_len);
+      bool success = _checkAndSetIp(setStrategyCommand, addr_index,
+                                          rel_addr, rel_len);
+      if(!success){
+        parcMemory_Deallocate(&setStrategyCommand);
+        free(rel_addr);
+        return CommandReturn_Failure;
+      }
+      setStrategyCommand->lens[addr_index] = rel_len;
+      free(rel_addr);
+      index++;
+      addr_index++;
+    }
+  }else{
+    setStrategyCommand->related_prefixes = 0;
+  }
 
   // send message and receive response
   struct iovec *response = utils_SendRequest(

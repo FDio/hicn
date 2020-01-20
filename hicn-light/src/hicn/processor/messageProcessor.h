@@ -187,7 +187,9 @@ bool messageProcessor_GetCacheServeFlag(MessageProcessor *processor);
 void messageProcessor_ClearCache(MessageProcessor *processor);
 
 void processor_SetStrategy(MessageProcessor *processor, Name *prefix,
-                           strategy_type strategy);
+                           strategy_type strategy,
+                           unsigned related_prefixes_len,
+                           Name **related_prefixes);
 
 #ifdef WITH_MAPME
 
