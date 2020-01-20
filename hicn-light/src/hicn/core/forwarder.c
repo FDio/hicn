@@ -495,15 +495,14 @@ void forwarder_RemoveConnectionIdFromRoutes(Forwarder *forwarder,
 }
 
 void forwarder_SetStrategy(Forwarder *forwarder, Name *prefix,
-                           strategy_type strategy) {
+                           strategy_type strategy,
+                           unsigned related_prefixes_len,
+                           Name **related_prefixes) {
   parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");
   parcAssertNotNull(prefix, "Parameter prefix must be non-null");
 
-  // if (strategy == NULL) {
-  //     strategy = SET_STRATEGY_RANDOM;
-  // }
-
-  processor_SetStrategy(forwarder->processor, prefix, strategy);
+  processor_SetStrategy(forwarder->processor, prefix, strategy,
+                        related_prefixes_len, related_prefixes);
 }
 
 FibEntryList *forwarder_GetFibEntries(Forwarder *forwarder) {
