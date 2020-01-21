@@ -288,8 +288,13 @@ hicn_route_del_nhop (fib_prefix_t * prefix, hicn_face_id_t face_id)
     {
       vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
       dpo_vft = hicn_dpo_get_vft (vft_id);
-      return dpo_vft->hicn_dpo_del_nh (face_id, hicn_dpo_id->dpoi_index,
-				       prefix);
+      ret = dpo_vft->hicn_dpo_del_nh (face_id, hicn_dpo_id->dpoi_index,
+                                       prefix);
+
+      hicn_dpo_ctx_t * dpo_ctx = dpo_vft->hicn_dpo_get_ctx(hicn_dpo_id->dpoi_index);
+
+      if (ret == HICN_ERROR_NONE && !dpo_ctx->entry_count)
+        ret = hicn_route_del(prefix);
     }
   //Remember to remove the lock from the table when removing the entry
   return ret;

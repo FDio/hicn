@@ -258,7 +258,7 @@ hicn_strategy_mw_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
   int ret = HICN_ERROR_DPO_CTX_NOT_FOUND;
   dpo_id_t invalid = NEXT_HOP_INVALID;
 
-  if (hicn_strategy_mw_ctx != NULL)
+  if (hicn_strategy_mw_ctx == NULL)
     return HICN_ERROR_STRATEGY_NOT_FOUND;
 
   for (int i = 0; i < hicn_strategy_mw_ctx->default_ctx.entry_count; i++)
@@ -274,12 +274,6 @@ hicn_strategy_mw_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
           ret = HICN_ERROR_NONE;
           break;
         }
-    }
-
-  if (0 == hicn_strategy_mw_ctx->default_ctx.entry_count)
-    {
-      fib_table_entry_special_remove (HICN_FIB_TABLE, fib_pfx,
-                                      FIB_SOURCE_PLUGIN_HI);
     }
 
   return ret;
