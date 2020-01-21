@@ -82,6 +82,13 @@ hicn_mapme_process_ack (vlib_main_t * vm, vlib_buffer_t * b,
   const hicn_dpo_vft_t *dpo_vft = hicn_dpo_get_vft (dpo->dpoi_type);
   hicn_mapme_tfib_t *tfib =
     TFIB (dpo_vft->hicn_dpo_get_ctx (dpo->dpoi_index));
+
+  if (tfib == NULL)
+    {
+      WARN ("Unable to get strategy ctx.");
+      return false;
+    }
+
   fib_seq = tfib->seq;
 
   /*
