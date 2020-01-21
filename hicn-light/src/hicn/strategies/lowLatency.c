@@ -92,7 +92,6 @@ struct strategy_low_latency {
   //hash map from sequence number to face id
   PARCHashMap *pending_probes_faces;
   const Forwarder * forwarder;
-  const FibEntry * fibEntry;
   PARCEventTimer *sendProbes;
   PARCEventTimer *computeBestFace;
   uint8_t * probe;
@@ -104,6 +103,8 @@ struct strategy_low_latency {
   unsigned rounds_avoiding_multipath;
   bool use2paths;
   bool avoid_multipath;
+  unsigned related_prefixes_len;
+  Name **related_prefixes;
 #ifndef WITH_POLICY
   NumberSet *nexthops;
 #endif /* ! WITH_POLICY */
@@ -184,8 +185,26 @@ static void strategyLowLatency_SendProbesCB(int fd, PARCEventType which_event,
   parcEventTimer_Start(ll->sendProbes, &timeout);
 }
 
+static void strategyLowLatency_SendMapmeUpdate(StrategyLowLatency *ll,
+                                               const NumberSet * nexthops){
+  MapMe * mapme = forwarder_getMapmeInstance(ll->forwarder);
+  FIB * fib = forwarder_getFib((Forwarder*) ll->forwarder);
+  if(fib != NULL){
+    for(unsigned i = 0; i < ll->related_prefixes_len; i++){
+      FibEntry *fibEntry = fib_MatchName(fib, ll->related_prefixes[i]);
+      if(fibEntry != NULL){
+        mapme_send_updates(mapme, fibEntry, nexthops);
+      }
+    }
+  }
+}
+
 static void strategyLowLatency_SelectBestFaces(StrategyLowLatency *ll,
                                                         bool new_round){
+
+  StrategyNexthopStateLL * old_faces[2];
+  old_faces[0] = ll->bestFaces[0];
+  old_faces[1] = ll->bestFaces[1];
 
   if(new_round){
     ll->round++;
@@ -416,7 +435,7 @@ static void strategyLowLatency_SelectBestFaces(StrategyLowLatency *ll,
   }
 
   NEW_ROUND:
-#if 1
+#if 0
     if(ll->use2paths){
       printf("use 2 paths. rtt face %d = %f queue = %f is_lossy = %d,"
              "rtt face %d = %f queue = %f is_lossy = %d\n",
@@ -440,16 +459,61 @@ static void strategyLowLatency_SelectBestFaces(StrategyLowLatency *ll,
       }
     }
 #endif
-    //update the round only at the end for all the faces
-    if(new_round){
-      PARCIterator * iterator = parcHashMap_CreateKeyIterator(ll->strategy_state);
-      while (parcIterator_HasNext(iterator)) {
-        PARCUnsigned *cid = (PARCUnsigned *) parcIterator_Next(iterator);
-        strategyNexthopStateLL_StartNewRound((StrategyNexthopStateLL *)
-            parcHashMap_Get(ll->strategy_state, cid));
-      }
-      parcIterator_Release(&iterator);
+  //update the round only at the end for all the faces
+  if(new_round){
+    PARCIterator * iterator = parcHashMap_CreateKeyIterator(ll->strategy_state);
+    while (parcIterator_HasNext(iterator)) {
+      PARCUnsigned *cid = (PARCUnsigned *) parcIterator_Next(iterator);
+      strategyNexthopStateLL_StartNewRound((StrategyNexthopStateLL *)
+          parcHashMap_Get(ll->strategy_state, cid));
     }
+    parcIterator_Release(&iterator);
+  }
+
+  //mapme updates
+  //if ll->bestFaces[0] == NULL we don't have any output faces
+  //so don't need to send any updates since we are disconnected
+  if(ll->related_prefixes_len != 0){
+    if(ll->bestFaces[0] != NULL){
+      NumberSet *out = numberSet_Create();
+      if(old_faces[0] == NULL ||
+         (strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]) !=
+         strategyNexthopStateLL_GetFaceId(old_faces[0]))){
+          //there is a new face 0 so we need a map me update
+          //if ll->bestFaces[1] != NULL we need to send the update
+          //even if it is the same as before
+        numberSet_Add(out,
+          strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]));
+        if(ll->bestFaces[1] != NULL){
+          numberSet_Add(out,
+            strategyNexthopStateLL_GetFaceId(ll->bestFaces[1]));
+        }
+        strategyLowLatency_SendMapmeUpdate(ll,out);
+      }else{
+        if(ll->bestFaces[1] != NULL){
+          if(old_faces[1] == NULL ||
+              (strategyNexthopStateLL_GetFaceId(ll->bestFaces[1]) !=
+              strategyNexthopStateLL_GetFaceId(old_faces[1]))){
+            //send a mapme both with face 0 and face 1
+            numberSet_Add(out,
+              strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]));
+            numberSet_Add(out,
+              strategyNexthopStateLL_GetFaceId(ll->bestFaces[1]));
+            strategyLowLatency_SendMapmeUpdate(ll,out);
+          }
+        }else{
+          if(old_faces[1] != NULL){
+            //in the previuos orund we were using two faces, now only one
+            //send update with only face 0
+            numberSet_Add(out,
+              strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]));
+            strategyLowLatency_SendMapmeUpdate(ll,out);
+          }
+        }
+      }
+      numberSet_Release(&out);
+    }
+  }
 }
 
 static void strategyLowLatency_BestFaceCB(int fd, PARCEventType which_event,
@@ -489,12 +553,13 @@ StrategyImpl *strategyLowLatency_Create() {
 }
 
 void strategyLowLatency_SetStrategy(StrategyImpl *strategy,
-                                          const Forwarder * forwarder,
-                                          const FibEntry * fibEntry){
+                                    const Forwarder * forwarder,
+                                    const FibEntry * fibEntry,
+                                    unsigned related_prefixes_len,
+                                    Name **related_prefixes) {
   StrategyLowLatency *ll =
       (StrategyLowLatency *)strategy->context;
   ll->forwarder = forwarder;
-  ll->fibEntry = fibEntry;
 
   //create probe packet
   ll->probe = messageHandler_CreateProbePacket(HF_INET6_TCP, PROBE_LIFETIME);
@@ -514,6 +579,12 @@ void strategyLowLatency_SetStrategy(StrategyImpl *strategy,
   ll->rounds_avoiding_multipath = 0;
   ll->use2paths = false;
   ll->avoid_multipath = false;
+
+  ll->related_prefixes_len = related_prefixes_len;
+  ll->related_prefixes = malloc(sizeof(Name *) * ll->related_prefixes_len);
+  for(unsigned i = 0; i < ll->related_prefixes_len; i++){
+    ll->related_prefixes[i] = name_Copy(related_prefixes[i]);
+  }
 
   ll->computeBestFace = dispatcher_CreateTimer(dispatcher, false,
                                      strategyLowLatency_BestFaceCB, ll);
@@ -755,6 +826,12 @@ static void _strategyLowLatency_ImplDestroy(StrategyImpl **strategyPtr) {
 
   parcMemory_Deallocate(&(strategy->probe));
   parcMemory_Deallocate(&(strategy->name));
+
+  for(unsigned i = 0; i < strategy->related_prefixes_len; i++){
+    name_Release(&(strategy->related_prefixes[i]));
+  }
+  free(strategy->related_prefixes);
+
 #ifndef WITH_POLICY
   numberSet_Release(&(strategy->nexthops));
 #endif /* ! WITH_POLICY */

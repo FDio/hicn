@@ -390,7 +390,8 @@ void processor_SetStrategy(MessageProcessor *processor, Name *prefix,
                            Name **related_prefixes){
   FibEntry *entry = fib_Contains(processor->fib, prefix);
   if (entry != NULL) {
-    fibEntry_SetStrategy(entry, strategy);
+    fibEntry_SetStrategy(entry, strategy, related_prefixes_len,
+                        related_prefixes);
   }
 }
 
