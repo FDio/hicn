@@ -79,7 +79,9 @@ void fibEntry_Release(FibEntry **fibEntryPtr);
  */
 FibEntry *fibEntry_Acquire(const FibEntry *fibEntry);
 
-void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy);
+void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy,
+                           unsigned related_prefixes_len,
+                           Name **related_prefixes);
 
 void fibEntry_AddNexthop(FibEntry *fibEntry, unsigned connectionId);
 
