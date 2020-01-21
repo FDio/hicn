@@ -114,7 +114,8 @@ FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
 
   if(fwdStrategy == SET_STRATEGY_LOW_LATENCY){
     strategyLowLatency_SetStrategy(fibEntry->fwdStrategy,
-                                     fibEntry->forwarder, fibEntry);
+                                     fibEntry->forwarder, fibEntry,
+                                     0, NULL);
   }
   return fibEntry;
 }
@@ -146,7 +147,9 @@ void fibEntry_Release(FibEntry **fibEntryPtr) {
   *fibEntryPtr = NULL;
 }
 
-void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy) {
+void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy,
+                          unsigned related_prefixes_len,
+                          Name **related_prefixes) {
   StrategyImpl *fwdStrategyImpl;
 
   switch (strategy) {
@@ -171,7 +174,8 @@ void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy) {
 
   if(strategy == SET_STRATEGY_LOW_LATENCY){
     strategyLowLatency_SetStrategy(fwdStrategyImpl,
-                                    fibEntry->forwarder, fibEntry);
+                       fibEntry->forwarder, fibEntry,
+                       related_prefixes_len, related_prefixes);
   }
 
   const NumberSet *nexthops = fibEntry_GetNexthops(fibEntry);
