@@ -121,7 +121,7 @@ void fibEntry_SetPolicy(FibEntry *fibEntry, policy_t policy);
 void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now);
 NumberSet * fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection);
 NumberSet * fibEntry_GetPreviousNextHops(const FibEntry *fibEntry);
-void fibEntry_SetPreviousNextHops(FibEntry *fibEntry, NumberSet * nexthops);
+void fibEntry_SetPreviousNextHops(FibEntry *fibEntry, const NumberSet * nexthops);
 
 void fibEntry_OnTimeout(FibEntry *fibEntry, const NumberSet *egressId);
 const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
