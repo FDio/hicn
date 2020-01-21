@@ -478,7 +478,7 @@ fibEntry_GetPreviousNextHops(const FibEntry *fibEntry)
 #endif /* WITH_POLICY */
 
 void
-fibEntry_SetPreviousNextHops(FibEntry *fibEntry, NumberSet * nexthops)
+fibEntry_SetPreviousNextHops(FibEntry *fibEntry, const NumberSet * nexthops)
 {
     if (fibEntry->previous_nexthops)
         numberSet_Release(&fibEntry->previous_nexthops);

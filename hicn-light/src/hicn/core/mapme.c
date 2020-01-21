@@ -480,6 +480,34 @@ static bool mapme_hasLocalNextHops(const MapMe *mapme,
 }
 
 void
+mapme_send_updates(const MapMe * mapme, FibEntry * fibEntry, const NumberSet * nexthops)
+{
+  /* Detect change */
+  NumberSet * previous_nexthops = fibEntry_GetPreviousNextHops(fibEntry);
+  if (numberSet_Equals(nexthops, previous_nexthops)) {
+      INFO(mapme, "[MAP-Me] No change in nexthops");
+      return;
+  }
+  fibEntry_SetPreviousNextHops(fibEntry, nexthops);
+
+  if (!TFIB(fibEntry)) /* Create TFIB associated to FIB entry */
+    mapme_CreateTFIB(fibEntry);
+  TFIB(fibEntry)->seq++;
+
+  const Name *name = fibEntry_GetPrefix(fibEntry);
+  char *name_str = name_ToString(name);
+  bool clear_tfib = true;
+  for (size_t j = 0; j < numberSet_Length(nexthops); j++) {
+      unsigned nexthop_id = numberSet_GetItem(nexthops, j);
+      INFO(mapme, "[MAP-Me] sending IU/IN for name %s on connection %d", name_str,
+           nexthop_id);
+      mapme_setFacePending(mapme, name, fibEntry, nexthop_id, true, true, clear_tfib, 0);
+      clear_tfib = false;
+  }
+  free(name_str);
+}
+
+void
 mapme_reconsiderFibEntry(const MapMe *mapme, FibEntry * fibEntry)
 {
   /*
@@ -491,33 +519,9 @@ mapme_reconsiderFibEntry(const MapMe *mapme, FibEntry * fibEntry)
 
   /* Apply the policy of the fibEntry over all neighbours */
   NumberSet * available_nexthops = fibEntry_GetAvailableNextHops(fibEntry, ~0);
-  NumberSet * previous_nexthops = fibEntry_GetPreviousNextHops(fibEntry);
 
-  /* Detect change */
-  if (numberSet_Equals(available_nexthops, previous_nexthops)) {
-      numberSet_Release(&available_nexthops);
-      INFO(mapme, "[MAP-Me] No change in nexthops");
-      return;
-  }
-  fibEntry_SetPreviousNextHops(fibEntry, available_nexthops);
-
-
-  /* Advertise prefix on all available next hops */
-  if (!TFIB(fibEntry)) /* Create TFIB associated to FIB entry */
-    mapme_CreateTFIB(fibEntry);
-  TFIB(fibEntry)->seq++;
-
-  const Name *name = fibEntry_GetPrefix(fibEntry);
-  char *name_str = name_ToString(name);
-  bool clear_tfib = true;
-  for (size_t j = 0; j < numberSet_Length(available_nexthops); j++) {
-      unsigned nexthop_id = numberSet_GetItem(available_nexthops, j);
-      INFO(mapme, "[MAP-Me] sending IU/IN for name %s on connection %d", name_str,
-           nexthop_id);
-      mapme_setFacePending(mapme, name, fibEntry, nexthop_id, true, true, clear_tfib, 0);
-      clear_tfib = false;
-  }
-  free(name_str);
+  /* Advertise prefix on all available next hops (if needed) */
+  mapme_send_updates(mapme, fibEntry, available_nexthops);
 
   numberSet_Release(&available_nexthops);
 }
