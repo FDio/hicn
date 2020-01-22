@@ -474,12 +474,12 @@ send_faces_details (vl_api_registration_t * reg,
 
   if (face->shared.face_type == hicn_face_ip_type)
     {
-      mp->type = IP_FACE;
+      mp->type = clib_host_to_net_u32(IP_FACE);
       send_face_ip_details (face, &(mp->face.ip));
     }
   else if (face->shared.face_type == hicn_face_udp_type)
     {
-      mp->type = UDP_FACE;
+      mp->type = clib_host_to_net_u32(UDP_FACE);
       send_face_udp_details (face, &(mp->face.udp));
     }
 
