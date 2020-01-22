@@ -50,6 +50,7 @@ typedef enum {
   LoggerFacility_IO,
   LoggerFacility_Processor,
   LoggerFacility_Message,
+  LoggerFacility_Strategy,
   LoggerFacility_END  // sentinel value
 } LoggerFacility;
 

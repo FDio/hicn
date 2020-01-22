@@ -49,6 +49,7 @@ static const struct facility_to_string {
     {.facility = LoggerFacility_IO, .string = "IO"},
     {.facility = LoggerFacility_Message, .string = "Message"},
     {.facility = LoggerFacility_Processor, .string = "Processor"},
+    {.facility = LoggerFacility_Strategy, .string = "Strategy"},
     {.facility = 0, .string = NULL}};
 
 const char *logger_FacilityString(LoggerFacility facility) {
