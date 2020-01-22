@@ -1383,9 +1383,9 @@ int hc_face_delete(hc_sock_t *s, hc_face_t *face) {
       .cmd = ACTION_DELETE,
       .cmd_id = REMOVE_ROUTE,
       .size_in =
-          sizeof(vapi_msg_hicn_api_face_del), 
+          sizeof(vapi_msg_hicn_api_face_del),
       .size_out = 0,
-      .parse = (HC_PARSE)parse_route_delete,
+      .parse = (HC_PARSE)parse_face_delete,
   };
 
   return hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, NULL,
