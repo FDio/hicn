@@ -434,30 +434,40 @@ static void strategyLowLatency_SelectBestFaces(StrategyLowLatency *ll,
   }
 
   NEW_ROUND:
-#if 0
-    if(ll->use2paths){
-      printf("use 2 paths. rtt face %d = %f queue = %f is_lossy = %d,"
-             "rtt face %d = %f queue = %f is_lossy = %d\n",
-        strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]),
-        strategyNexthopStateLL_GetRTTLive(ll->bestFaces[0]),
-        strategyNexthopStateLL_GetQueuing(ll->bestFaces[0]),
-        strategyNexthopStateLL_IsLossy(ll->bestFaces[0]),
-        strategyNexthopStateLL_GetFaceId(ll->bestFaces[1]),
-        strategyNexthopStateLL_GetRTTLive(ll->bestFaces[1]),
-        strategyNexthopStateLL_GetQueuing(ll->bestFaces[1]),
-        strategyNexthopStateLL_IsLossy(ll->bestFaces[1]));
-    }else{
-      if(ll->bestFaces[0] != NULL){
-        printf("use 1 path. rtt face %d = %f is_lossy = %d (avoid multipath = %d)\n",
-          strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]),
-          strategyNexthopStateLL_GetRTTLive(ll->bestFaces[0]),
-          strategyNexthopStateLL_IsLossy(ll->bestFaces[0]),
-          ll->avoid_multipath);
-      }else{
-        printf("no face to use!\n");
+    {
+      Logger * log = forwarder_GetLogger(ll->forwarder);
+      if(log != NULL &&
+        logger_IsLoggable(log, LoggerFacility_Strategy, PARCLogLevel_Info)){
+      if(ll->use2paths){
+          logger_Log(log, LoggerFacility_Strategy, PARCLogLevel_Info,
+            __func__, "use 2 paths. rtt face %d = %f queue = %f is_lossy = %d,"
+            "rtt face %d = %f queue = %f is_lossy = %d\n",
+            strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]),
+            strategyNexthopStateLL_GetRTTLive(ll->bestFaces[0]),
+            strategyNexthopStateLL_GetQueuing(ll->bestFaces[0]),
+            strategyNexthopStateLL_IsLossy(ll->bestFaces[0]),
+            strategyNexthopStateLL_GetFaceId(ll->bestFaces[1]),
+            strategyNexthopStateLL_GetRTTLive(ll->bestFaces[1]),
+            strategyNexthopStateLL_GetQueuing(ll->bestFaces[1]),
+            strategyNexthopStateLL_IsLossy(ll->bestFaces[1]));
+        }else{
+          if(ll->bestFaces[0] != NULL){
+            logger_Log(log, LoggerFacility_Strategy,
+              PARCLogLevel_Info, __func__,
+              "use 1 path. rtt face %d = %f is_lossy = %d ",
+              "(avoid multipath = %d)\n",
+              strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]),
+              strategyNexthopStateLL_GetRTTLive(ll->bestFaces[0]),
+              strategyNexthopStateLL_IsLossy(ll->bestFaces[0]),
+              ll->avoid_multipath);
+          }else{
+            logger_Log(log, LoggerFacility_Strategy, PARCLogLevel_Info,
+                     __func__, "no face to use!\n");
+          }
+        }
       }
     }
-#endif
+
   //update the round only at the end for all the faces
   if(new_round){
     PARCIterator * iterator = parcHashMap_CreateKeyIterator(ll->strategy_state);
