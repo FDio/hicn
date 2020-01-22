@@ -31,7 +31,7 @@ const unsigned MAX_ROUNS_WITHOUT_PROBES = 4;
 const unsigned MIN_NON_LOSSY_ROUNDS = 10;
         //number of rounds in non lossy mode before switch to
         //no lossy state
-const double MAX_LOSS_RATE = 0.15; //15%
+const double MAX_LOSS_RATE = 0.10; //10%
 
 struct strategy_nexthop_state_ll {
   bool in_use;
