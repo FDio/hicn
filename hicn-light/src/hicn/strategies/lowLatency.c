@@ -454,7 +454,7 @@ static void strategyLowLatency_SelectBestFaces(StrategyLowLatency *ll,
           if(ll->bestFaces[0] != NULL){
             logger_Log(log, LoggerFacility_Strategy,
               PARCLogLevel_Info, __func__,
-              "use 1 path. rtt face %d = %f is_lossy = %d ",
+              "use 1 path. rtt face %d = %f is_lossy = %d, "
               "(avoid multipath = %d)\n",
               strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]),
               strategyNexthopStateLL_GetRTTLive(ll->bestFaces[0]),
