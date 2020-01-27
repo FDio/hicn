@@ -16,6 +16,7 @@
 
 #ifdef __vpp__
 
+#include <vapi/vapi_safe.h>
 #include <vppinfra/clib.h>
 #include <hicn/transport/core/memif_vapi.h>
 #include <fcntl.h>
@@ -49,9 +50,11 @@ static vapi_error_e memif_details_cb(vapi_ctx_t ctx,
 
 int memif_vapi_get_next_memif_id(vapi_ctx_t ctx,
                                 uint32_t *memif_id) {
-
+  vapi_lock();
   vapi_msg_memif_dump * msg = vapi_alloc_memif_dump(ctx);
-  return vapi_memif_dump(ctx, msg, memif_details_cb, memif_id);
+  int ret = vapi_memif_dump(ctx, msg, memif_details_cb, memif_id);
+  vapi_unlock();
+  return ret;
 }
 
 static vapi_error_e memif_create_cb(vapi_ctx_t ctx,
@@ -72,26 +75,32 @@ static vapi_error_e memif_create_cb(vapi_ctx_t ctx,
 int memif_vapi_create_memif(vapi_ctx_t ctx,
                             memif_create_params_t *input_params,
                             memif_output_params_t *output_params) {
+  vapi_lock();
   vapi_msg_memif_create * msg = vapi_alloc_memif_create(ctx);
 
+  int ret = 0;
   if (input_params->socket_id == ~0) {
     // invalid socket-id
-    return -1;
+    ret = -1;
+    goto END;
   }
 
   if (!is_pow2(input_params->ring_size)) {
     // ring size must be power of 2
-    return -1;
+    ret = -1;
+    goto END;
   }
 
   if (input_params->rx_queues > 255 || input_params->rx_queues < 1) {
     // rx queue must be between 1 - 255
-    return -1;
+    ret = -1;
+    goto END;
   }
 
   if (input_params->tx_queues > 255 || input_params->tx_queues < 1) {
     // tx queue must be between 1 - 255
-    return -1;
+    ret = -1;
+    goto END;
   }
 
   msg->payload.role = input_params->role;
@@ -103,8 +112,10 @@ int memif_vapi_create_memif(vapi_ctx_t ctx,
   msg->payload.ring_size = input_params->ring_size;
   msg->payload.buffer_size = input_params->buffer_size;
 
-  return vapi_memif_create(ctx, msg, memif_create_cb, output_params);
-
+  ret = vapi_memif_create(ctx, msg, memif_create_cb, output_params);
+ END:
+  vapi_unlock();
+  return ret;
 }
 
 static vapi_error_e memif_delete_cb(vapi_ctx_t ctx,
@@ -120,11 +131,14 @@ static vapi_error_e memif_delete_cb(vapi_ctx_t ctx,
 
 int memif_vapi_delete_memif(vapi_ctx_t ctx,
                                   uint32_t sw_if_index) {
+  vapi_lock();
   vapi_msg_memif_delete * msg = vapi_alloc_memif_delete(ctx);
 
   msg->payload.sw_if_index = sw_if_index;
 
-  return vapi_memif_delete(ctx, msg, memif_delete_cb, NULL);
+  int ret = vapi_memif_delete(ctx, msg, memif_delete_cb, NULL);
+  vapi_unlock();
+  return ret;
 }
 
 #endif  // __vpp__

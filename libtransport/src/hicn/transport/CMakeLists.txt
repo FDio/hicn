@@ -60,6 +60,8 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -isystem -lm")
 endif()
 
+message (STATUS "======================================================================Library to link ${LIBRARIES}")
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   build_library(${LIBTRANSPORT}
     STATIC
