@@ -83,11 +83,11 @@ endif()
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   if (__vpp__)
     find_package(HicnPlugin REQUIRED)
-    find_package(Libhicnctrl REQUIRED)
+    find_package(SafeVapi REQUIRED)
 
     list(APPEND LIBRARIES
       ${LIBMEMIF_LIBRARIES}
-      ${LIBHICNCTRL_SHARED}
+      ${SAFE_VAPI_SHARED}
     )
   endif()
 
@@ -107,10 +107,10 @@ else()
     if (__vpp__)
       list(APPEND DEPENDENCIES
         hicn_plugin
-        ${LIBHICNCTRL_SHARED}
+        ${SAFE_VAPI_SHARED}
       )
 
-      set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_SHARED})
+      set(SAFE_VAPI_LIBRARIES lib${VAPI_SAFE})
       list(APPEND LIBRARIES
         ${LIBMEMIF_LIBRARIES}
       )
@@ -120,7 +120,7 @@ endif()
 
 list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
   ${LIBMEMIF_INCLUDE_DIRS}
-  ${LIBHICNCTRL_INCLUSE_DIRS}
+  ${SAFE_VAPI_INCLUDE_DIRS}
 )
 
 include(Packaging)
