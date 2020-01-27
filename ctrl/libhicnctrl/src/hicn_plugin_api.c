@@ -26,6 +26,7 @@
 #include <string.h>      // memmove, strcasecmp
 #include <sys/socket.h>  // socket
 #include <unistd.h>      // close, fcntl
+#include <vapi/vapi_safe.h>
 
 #include <hicn/ctrl/api.h>
 #include <hicn/ctrl/commands.h>
@@ -36,6 +37,7 @@
 #include <vapi/interface.api.vapi.h>
 #include <hicn/util/log.h>
 #include <hicn/util/map.h>
+#include <hicn/error.h>
 #include <vnet/ip/ip6_packet.h>
 #include <vnet/ip/ip_types_api.h>
 
@@ -43,39 +45,19 @@
 #define MAX_OUTSTANDING_REQUESTS 4
 #define RESPONSE_QUEUE_SIZE 2
 
-// #define vl_typedefs
-// #include <vpp/api/vpe_all_api_h.h>
-// #undef vl_typedefs
-
 DEFINE_VAPI_MSG_IDS_HICN_API_JSON
 DEFINE_VAPI_MSG_IDS_INTERFACE_API_JSON
 DEFINE_VAPI_MSG_IDS_IP_API_JSON
 
 typedef struct {
-  u32 sockets_count;
   vapi_ctx_t g_vapi_ctx_instance;
   bool async;
 } vapi_skc_ctx_t;
 
 vapi_skc_ctx_t vapi_skc = {
-  .sockets_count = 0,
   .g_vapi_ctx_instance = NULL,
   .async = false,
 };
-
-/*
- * Internal state associated to a pending request
- */
-typedef struct {
-  vapi_ctx_t g_vapi_ctx_instance;
-  int seq;
-  // Reusing the buffer of data to hold both the unparsed response from the
-  // forwarder and the result of the parsing
-  hc_data_t *data;
-  /* Information used to process results */
-  int size_in;
-  HC_PARSE parse;
-} hc_sock_request_t;
 
 /**
  * Messages to the forwarder might be multiplexed thanks to the seqNum fields in
@@ -84,9 +66,9 @@ typedef struct {
  * outgoing queries so that replied can be demultiplexed and treated
  * appropriately.
  */
-TYPEDEF_MAP_H(hc_sock_map, int, hc_sock_request_t *);
-TYPEDEF_MAP(hc_sock_map, int, hc_sock_request_t *, int_cmp, int_snprintf,
-            generic_snprintf);
+/* TYPEDEF_MAP_H(hc_sock_map, int, hc_sock_request_t *); */
+/* TYPEDEF_MAP(hc_sock_map, int, hc_sock_request_t *, int_cmp, int_snprintf, */
+/*             generic_snprintf); */
 
 struct hc_sock_s {
   vapi_ctx_t g_vapi_ctx_instance;
@@ -100,23 +82,8 @@ struct hc_sock_s {
   int seq;
 
   bool async;
-  hc_sock_map_t *map;
 };
 
-hc_sock_request_t *hc_sock_request_create(int seq, hc_data_t *data,
-                                          HC_PARSE parse) {
-  assert(data);
-
-  hc_sock_request_t *request = malloc(sizeof(hc_sock_request_t));
-  if (!request) return NULL;
-  request->seq = seq;
-  request->data = data;
-  request->parse = parse;
-  request->size_in = 0;
-  return request;
-}
-
-void hc_sock_request_free(hc_sock_request_t *request) { free(request); }
 
 /******************************************************************************
  * Message helper types and aliases
@@ -160,11 +127,6 @@ typedef union {
 #undef _
 } hc_msg_payload_t;
 
-#define IS_DUMP_MSG(a) (a == vapi_msg_id_hicn_api_face_stats_dump ||           \
-                        a == vapi_msg_id_hicn_api_routes_dump ||               \
-                        a == vapi_msg_id_hicn_api_faces_dump ||                \
-                        a == vapi_msg_id_sw_interface_dump)
-
 typedef struct __attribute__ ((__packed__)) {
   hc_msg_header_t hdr;
   hc_msg_payload_t payload;
@@ -173,8 +135,8 @@ typedef struct __attribute__ ((__packed__)) {
 typedef void (* NTOH)(void *msg);
 
 typedef struct __attribute__((__packed__)) {
-  hc_sock_t *s;
-  uint32_t ctx_msg;
+  hc_data_t *data;
+  uint32_t curr_msg;
 } callback_ctx_t;
 
 typedef struct __attribute__((__packed__)) {
@@ -242,43 +204,22 @@ hc_sock_t *hc_sock_create(void) {
 
   memset(s, 0, sizeof(hc_sock_t));
 
-  s->map = hc_sock_map_create();
-  if (!s->map) goto ERR_MAP;
-
   //By default the socket is blocking -- not async
   s->async = 0;
 
   return s;
 
-ERR_MAP:
-  free(s);
 ERR_SOCK:
   return NULL;
 }
 
 void hc_sock_free(hc_sock_t *s) {
-  hc_sock_request_t **request_array = NULL;
-  int n = hc_sock_map_get_value_array(s->map, &request_array);
-  if (n < 0) {
-    ERROR("Could not retrieve pending request array for freeing up resources");
-  } else {
-    for (unsigned i = 0; i < n; i++) {
-      hc_sock_request_t *request = request_array[i];
-      hc_sock_request_free(request);
-    }
-    free(request_array);
-  }
-
-  hc_sock_map_free(s->map);
   if (s->url) free(s->url);
   close(s->fd);
   free(s);
 
-  vapi_skc.sockets_count--;
-  if (vapi_skc.sockets_count == 0) {
-    vapi_disconnect(vapi_skc.g_vapi_ctx_instance);
-    vapi_skc.g_vapi_ctx_instance = NULL;
-  }
+  vapi_disconnect_safe();
+  vapi_skc.g_vapi_ctx_instance = NULL;
 }
 
 int hc_sock_get_next_seq(hc_sock_t *s) {
@@ -292,126 +233,21 @@ int hc_sock_set_nonblocking(hc_sock_t *s) {
 
 int hc_sock_get_fd(hc_sock_t *s) { return 1; }
 
-vapi_error_e vapi_cb(vapi_ctx_t ctx, void *callback_ctx, vapi_error_e error, bool is_last, void *payload) {
-  callback_ctx_t *ctx_call = (callback_ctx_t *)callback_ctx;
-  hc_sock_t *s = ctx_call->s;
-  int ret = VAPI_OK;
-
-  if ((s->woff != s->roff) && (s->woff % RECV_BUFLEN == 0)) {
-    ERROR("[hc_sock_process] No more space on the buffer to store responces");
-    ret = VAPI_ENOMEM;
-    goto END;
-  }
-
-  if (is_last) {
-    s->buffer[s->woff % RECV_BUFLEN] = ctx_call->ctx_msg;
-    s->woff++;
-  }
-
-  if(!payload) {
-    ret = VAPI_ENOMEM;
-    goto END;
-  }
-
-  hc_sock_request_t *request = NULL;
-  if (hc_sock_map_get(s->map, ctx_call->ctx_msg, &request) <
-      0) {
-    ERROR("[hc_sock_process] Error searching for matching request");
-    ret = VAPI_ENOMEM;
-    goto END;
-  }
-
-  if (request->data->current == request->data->size) {
-    if (request->data->size == 0){
-      request->data->size = 1;
-      request->data->buffer = malloc(request->data->in_element_size * request->data->size);
-    } else {
-      request->data->buffer = realloc(request->data->buffer, request->data->in_element_size * request->data->size * 2);
-      request->data->size *=2;
-    }
-  }
-
-  if (!request->data->buffer) {
-    request->data->size = 0;
-    ret = VAPI_ENOMEM;
-    goto END;
-  }
-
-  memcpy(request->data->buffer +
-             request->data->current * request->data->in_element_size,
-         payload, request->data->in_element_size);
-  request->data->current++;
-
-END:
-  if (is_last)
-    free(callback_ctx);
-
-  return ret;
-}
-
 int hc_sock_connect(hc_sock_t *s) {
-  if (vapi_skc.g_vapi_ctx_instance == NULL) {
-    vapi_error_e rv = vapi_ctx_alloc(&vapi_skc.g_vapi_ctx_instance);
-    rv = vapi_connect(vapi_skc.g_vapi_ctx_instance, APP_NAME, NULL,
-                      MAX_OUTSTANDING_REQUESTS, RESPONSE_QUEUE_SIZE,
-                      s->async ? VAPI_MODE_NONBLOCKING : VAPI_MODE_BLOCKING, true);
-    vapi_skc.async = s->async;
-    if (rv != VAPI_OK) {
-      vapi_ctx_free(vapi_skc.g_vapi_ctx_instance);
-      goto ERR_CONNECT;
-    }
-    s->g_vapi_ctx_instance = vapi_skc.g_vapi_ctx_instance;
-    printf("[hc_sock_connect] *connected %s ok", APP_NAME);
-  } else if (s->async == vapi_skc.async){
-    s->g_vapi_ctx_instance = vapi_skc.g_vapi_ctx_instance;
-    printf("[hc_sock_connect] *connected %s ok", APP_NAME);
-  } else {
-    printf("Unable to create %s socket", s->async ? "non blocking" : "blocking");
-    goto ERR_CONNECT;
-  }
 
-  vapi_skc.sockets_count++;
+  vapi_error_e rv = vapi_connect_safe(&s->g_vapi_ctx_instance, s->async);
+  if (rv != VAPI_OK)
+    goto ERR_CONNECT;
+
   return 0;
 
 ERR_CONNECT:
-  ERROR("[hc_sock_connect] connection %s failes", APP_NAME);
+  ERROR("[hc_sock_connect] connection failed");
   return -1;
 }
 
 int hc_sock_send(hc_sock_t *s, hc_msg_t *msg, size_t msglen, int seq) {
-  vapi_cb_t callback = ((hc_msg_s *)msg)->callback;
-  callback_ctx_t *callback_ctx = ((hc_msg_s *)msg)->callback_ctx;
-
-  if (!msg || !callback) {
-    return VAPI_EINVAL;
-  }
-  if (vapi_is_nonblocking(s->g_vapi_ctx_instance) && vapi_requests_full(s->g_vapi_ctx_instance)) {
-    return VAPI_EAGAIN;
-  }
-  vapi_error_e rv;
-  if (VAPI_OK != (rv = vapi_producer_lock (s->g_vapi_ctx_instance))) {
-    return rv;
-  }
-  ((hc_msg_s *)msg)->hicnp_msg->hdr.context = seq;
-  callback_ctx->ctx_msg = seq;
-  vapi_msg_id_t msg_id = vapi_lookup_vapi_msg_id_t(s->g_vapi_ctx_instance, ((hc_msg_s *)msg)->hicnp_msg->hdr._vl_msg_id);
-  ((hc_msg_s *)msg)->ntoh(((hc_msg_s *)msg)->hicnp_msg);
-  if (IS_DUMP_MSG(msg_id)) {
-    if (VAPI_OK == (rv = vapi_send_with_control_ping (s->g_vapi_ctx_instance, ((hc_msg_s *)msg)->hicnp_msg, seq))) {
-      vapi_store_request(s->g_vapi_ctx_instance, seq, true, (vapi_cb_t)callback, callback_ctx);
-    }
-  } else {
-    if (VAPI_OK == (rv = vapi_send (s->g_vapi_ctx_instance, ((hc_msg_s *)msg)->hicnp_msg))) {
-        vapi_store_request(s->g_vapi_ctx_instance, seq, false, (vapi_cb_t)callback, callback_ctx);
-    }
-  }
-
-  if (rv != VAPI_OK) {
-    if (VAPI_OK != vapi_producer_unlock (s->g_vapi_ctx_instance)) {
-      abort (); /* this really shouldn't happen */
-    }
-  }
-  return rv;
+  return -1;
 }
 
 int hc_sock_get_available(hc_sock_t *s, u8 **buffer, size_t *size) {
@@ -420,201 +256,19 @@ int hc_sock_get_available(hc_sock_t *s, u8 **buffer, size_t *size) {
 }
 
 int hc_sock_recv(hc_sock_t *s) {
-  vapi_error_e rv;
-  if (VAPI_OK != vapi_producer_unlock (s->g_vapi_ctx_instance)) {
-    abort (); /* this really shouldn't happen */
-  }
-  if (vapi_is_nonblocking(s->g_vapi_ctx_instance)) {
-    rv = VAPI_OK;
-  } else {
-    rv = vapi_dispatch(s->g_vapi_ctx_instance);
-  }
-
-  return rv;
-}
-
-int hc_sock_process(hc_sock_t *s, hc_data_t **pdata) {
-  int err = 0;
-  int seq = s->buffer[s->roff % RECV_BUFLEN];
-
-  hc_sock_request_t *request = NULL;
-  if (hc_sock_map_get(s->map, seq, &request) < 0) {
-    ERROR("[hc_sock_process] Error searching for matching request");
-    return -1;
-  }
-  if (!request) {
-    ERROR("[hc_sock_process] No request matching received sequence number");
-    return -1;
-  }
-
-  if (s->roff == s->woff) {
-    ERROR("[hc_sock_process] No data received for the corresponding request");
-    return -1;
-  }
-
-  if(request->parse != NULL)
-    err = request->parse((u8 *)request, NULL);
-  request->data->complete = 1;
-  if (!err && request->data->complete_cb != NULL)
-    err = request->data->complete_cb(request->data, s);
-  s->roff++;
-
-  if (pdata) *pdata = request->data;
-
-  hc_sock_map_remove(s->map, seq, NULL);
-  hc_sock_request_free(request);
-
-  return err;
-}
-
-int hc_sock_callback(hc_sock_t *s, hc_data_t **pdata) {
-  hc_data_t *data = NULL;
-
-  for (;;) {
-    int n = hc_sock_recv(s);
-    if (n == 0) {
-      goto ERR_EOF;
-    }
-    if (n < 0) {
-      switch (errno) {
-        case ECONNRESET:
-        case ENODEV:
-          /* Forwarder restarted */
-          WARN("Forwarder likely restarted: not (yet) implemented");
-          goto ERR;
-        case EWOULDBLOCK:
-          // DEBUG("Would block... stop reading from socket");
-          goto END;
-        default:
-          perror("hc_sock_recv");
-          goto ERR;
-      }
-    }
-    if (hc_sock_process(s, &data) < 0) {
-      goto ERR;
-    }
-  }
-END:
-  if (pdata)
-    *pdata = data;
-  else
-    hc_data_free(data);
-  return 0;
-
-ERR:
-  hc_data_free(data);
-ERR_EOF:
+  // NOT IMPLEMENTED
   return -1;
 }
 
-int hc_sock_reset(hc_sock_t *s) {
-  s->roff = s->woff = 0;
-  return 0;
+int hc_sock_process(hc_sock_t *s, hc_data_t **pdata) {
+  //NOT IMPLEMENTED
+  return -1;
 }
 
 /******************************************************************************
  * Command-specific structures and functions
  ******************************************************************************/
 
-typedef int (*HC_PARSE)(const u8 *, u8 *);
-
-typedef struct {
-  hc_action_t cmd;
-  command_id cmd_id;
-  size_t size_in;
-  size_t size_out;
-  HC_PARSE parse;
-  data_callback_t complete_cb;
-} hc_command_params_t;
-
-int hc_execute_command(hc_sock_t *s, hc_msg_t *msg, size_t msg_len,
-                       hc_command_params_t *params, hc_data_t **pdata,
-                       bool async) {
-  if (async) assert(!pdata);
-
-  /* Sanity check */
-  switch (params->cmd) {
-    case ACTION_CREATE:
-      assert(params->size_in != 0); /* payload repeated */
-      //assert(params->size_out == 0); //Face will return the face id
-      //assert(params->parse == NULL);
-      break;
-    case ACTION_DELETE:
-      assert(params->size_in != 0); /* payload repeated */
-      assert(params->size_out == 0);
-      //assert(params->parse == NULL);
-      break;
-    case ACTION_LIST:
-      assert(params->size_in != 0);
-      assert(params->size_out != 0);
-      //assert(params->parse != NULL);
-      break;
-    case ACTION_SET:
-      assert(params->size_in != 0);
-      assert(params->size_out == 0);
-      //assert(params->parse == NULL);
-      break;
-    default:
-      return -1;
-  }
-
-  /* XXX data will at least store the result (complete) */
-  hc_data_t *data = hc_data_create(params->size_in, params->size_out, params->complete_cb);
-  if (!data) {
-    ERROR("[hc_execute_command] Could not create data storage");
-    goto ERR_DATA;
-  }
-
-  int seq = hc_sock_get_next_seq(s);
-
-  /* Create state used to process the request */
-  hc_sock_request_t *request = NULL;
-  request = hc_sock_request_create(seq, data, params->parse);
-  if (!request) {
-    ERROR("[hc_execute_command] Could not create request state");
-    goto ERR_REQUEST;
-  }
-
-  /* Add state to map */
-  if (hc_sock_map_add(s->map, seq, request) < 0) {
-    ERROR("[hc_execute_command] Error adding request state to map");
-    goto ERR_MAP;
-  }
-
-  if (hc_sock_send(s, msg, msg_len, seq) < 0) {
-    ERROR("[hc_execute_command] Error sending message");
-    goto ERR_PROCESS;
-  }
-
-  if (async) return 0;
-
-  while (!data->complete) {
-    // CAN WE COLLAPSE THEM INTO A SINGLE COMMAND? Ideally the process would be
-    // done in the recv
-    /*
-     * As the socket is non blocking it might happen that we need to read
-     * several times before success... shall we alternate between blocking
-     * and non-blocking mode ?
-     */
-    if (hc_sock_recv(s) < 0) continue;  // break;
-    if (hc_sock_process(s, pdata) < 0) {
-      ERROR("[hc_execute_command] Error processing socket results");
-      goto ERR_PROCESS;
-    }
-  }
-
-  if (!pdata) hc_data_free(data);
-
-  return 0;
-
-ERR_PROCESS:
-ERR_MAP:
-  hc_sock_request_free(request);
-ERR_REQUEST:
-  hc_data_free(data);
-ERR_DATA:
-  return -1;
-}
 
 /*----------------------------------------------------------------------------*
  * Listeners
@@ -691,102 +345,135 @@ vapi_error_e process_ip_info(struct vapi_ctx_s *ctx,
   return rv;
 }
 
-/* A listener in vpp is an interface with classify enabled */
-int listener_list_complete_cb(struct hc_data_s * data, void *ctx) {
-  // No need to write anything on the dst, no data expected
+typedef struct {
+  u32 swif;
+  char interface_name[INTERFACE_LEN];
+} hc_vapi_interface_t;
 
-  hc_sock_t *s = (hc_sock_t *)ctx;
+vapi_error_e listener_list_complete_cb (struct vapi_ctx_s *ctx,
+					void *callback_ctx,
+					vapi_error_e rv,
+					bool is_last,
+				        vapi_payload_sw_interface_details *reply) {
 
-  int n_interfaces = data->current;
-  u32 *swifs = malloc(sizeof(u32) * n_interfaces);
+  if (reply == NULL || rv != VAPI_OK)
+    return rv;
+
+  if (is_last)
+    return 0;
+
+  hc_data_t *data = (hc_data_t *)callback_ctx;
+
+  if (data->size == data->current) {
+    data->buffer = realloc(data->buffer, sizeof(hc_vapi_interface_t) * data->size * 2);
+
+    if (!data->buffer)
+      return VAPI_ENOMEM;
+
+    data->size *=2;
+  }
+
+  hc_vapi_interface_t *swif = &((hc_vapi_interface_t*)data->buffer)[data->current];
+
+  swif[0].swif = reply->sw_if_index;
+  memcpy(swif[0].interface_name, reply->interface_name, INTERFACE_LEN);
+
+  data->current++;
+
+  return rv;
+}
+
+
+/* LISTENER LIST */
+int hc_listener_list(hc_sock_t *s, hc_data_t **pdata) {
   int retval = VAPI_OK;
+  vapi_lock();
+  vapi_msg_sw_interface_dump *hicnp_msg;
+  hicnp_msg = vapi_alloc_sw_interface_dump(s->g_vapi_ctx_instance);
 
-  if (!swifs) {
+  if (!hicnp_msg) {
     retval = VAPI_ENOMEM;
     goto END;
   }
 
-  for (int i = 0; i < n_interfaces; i++) {
-    vapi_payload_sw_interface_details *reply =
-      (vapi_payload_sw_interface_details *)(data->buffer + i * data->in_element_size);
-    swifs[i] = reply->sw_if_index;
+  hicnp_msg->payload.sw_if_index = ~0;
+  hicnp_msg->payload.name_filter_valid = 0;
+
+  hc_data_t *data = hc_data_create(0, sizeof(hc_vapi_interface_t),NULL);
+
+  if (!data) {
+    retval = -1;
+    goto END;
   }
 
-  vapi_payload_sw_interface_details * temp = (vapi_payload_sw_interface_details *)data->buffer;
-  data->buffer = malloc(sizeof(hc_listener_t));
+  hc_data_t *data2 = hc_data_create(0, 1,NULL);
+
+  if (!data2) {
+    retval = -1;
+    goto END;
+  }
+
+  data->buffer = malloc(sizeof(hc_vapi_interface_t));
   data->size = 1;
-  data->current = 0;
 
   if (!data->buffer) {
-    data->current = 0;
-    retval = VAPI_ENOMEM;
+    free (data);
+    retval = -1;
+    goto FREE_DATA;
+  }
+
+  int ret = vapi_sw_interface_dump(s->g_vapi_ctx_instance, hicnp_msg, listener_list_complete_cb, data);
+
+  if (ret != VAPI_OK) {
+    free(data->buffer);
+    free(data);
+    retval = -1;
+    goto FREE_DATA_BUFFER;
+  }
+
+  data2->buffer = malloc(sizeof(hc_listener_t));
+  data2->size = 1;
+  data2->out_element_size = 1;
+
+  if (!data2->buffer) {
+    free (data2->buffer);
+    retval =1 -1;
     goto CLEAN;
   }
 
   /* Query the forwarder for each interface */
-  for(int i = 0; i < n_interfaces; i++) {
-    size_t index = data->current;
+  for(int i = 0; i < data->current; i++) {
+    int index = data2->current;
     vapi_msg_ip_address_dump* msg = vapi_alloc_ip_address_dump(s->g_vapi_ctx_instance);
-    msg->payload.sw_if_index = swifs[i];
+    msg->payload.sw_if_index = ((hc_vapi_interface_t *)data->buffer)[i].swif;
     msg->payload.is_ipv6 = 0;
-    vapi_payload_sw_interface_details *reply =
-      &(temp[i]);
-    int retval = vapi_ip_address_dump(s->g_vapi_ctx_instance, msg, process_ip_info, data);
+    retval = vapi_ip_address_dump(s->g_vapi_ctx_instance, msg, process_ip_info, data2);
     vapi_msg_ip_address_dump* msg2 = vapi_alloc_ip_address_dump(s->g_vapi_ctx_instance);
-    
+
     if (retval) goto CLEAN;
-    
-    msg2->payload.sw_if_index = swifs[i];
+
+    msg2->payload.sw_if_index = ((hc_vapi_interface_t *)data->buffer)[i].swif;
     msg2->payload.is_ipv6 = 1;
-    retval = vapi_ip_address_dump(s->g_vapi_ctx_instance, msg2, process_ip_info, data);
-    for (size_t j = index; j < data->current; j++) {
-      memcpy(((hc_listener_t *)(data->buffer))[j].interface_name, reply->interface_name, INTERFACE_LEN);
+    retval = vapi_ip_address_dump(s->g_vapi_ctx_instance, msg2, process_ip_info, data2);
+    for (size_t j = index; j < data2->current; j++) {
+      memcpy(((hc_listener_t *)(data2->buffer))[j].interface_name, ((hc_vapi_interface_t*)(data->buffer))[i].interface_name, INTERFACE_LEN);
     }
-    
+
     if (retval) goto CLEAN;
   }
 
 CLEAN:
-  free(swifs);
-  free(temp);
+FREE_DATA_BUFFER:
+  free(data->buffer);
+FREE_DATA:
+  free(data);
 
-END:
-  data->size = data->current;
-  data->out_element_size = sizeof(hc_listener_t);
+  data2->size = data2->current;
+  data2->out_element_size = sizeof(hc_listener_t);
+  *pdata = data2;
+ END:
+  vapi_unlock();
   return retval;
-}
-
-/* LISTENER LIST */
-int hc_listener_list(hc_sock_t *s, hc_data_t **pdata) {
-  hc_msg_s msg;
-  vapi_msg_sw_interface_dump *hicnp_msg;
-  hicnp_msg = vapi_alloc_sw_interface_dump(s->g_vapi_ctx_instance);
-
-  if (!hicnp_msg) return VAPI_ENOMEM;
-
-  msg.hicnp_msg = (hc_hicnp_t *)hicnp_msg;
-  msg.callback = &vapi_cb;
-  msg.callback_ctx = malloc(sizeof(callback_ctx_t));
-  msg.callback_ctx->s = s;
-  msg.ntoh = (NTOH)&vapi_msg_sw_interface_dump_hton;
-
-  if (!(msg.callback_ctx)) return VAPI_ENOMEM;
-
-  hicnp_msg->payload.sw_if_index = ~0;
-  hicnp_msg->payload.name_filter_valid = 0;
-
-  //hicnp_msg->payload.type = 1; //0 v4, 1 v6
-  hc_command_params_t params = {
-      .cmd = ACTION_LIST,
-      .cmd_id = LIST_LISTENERS,
-      .size_in = sizeof(vapi_msg_sw_interface_details),
-      .size_out = sizeof(hc_listener_t),
-      .parse = (HC_PARSE)NULL,
-      .complete_cb = listener_list_complete_cb,
-  };
-
-  return hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, pdata,
-                            false);
 }
 
 int hc_listener_list_async(hc_sock_t *s, hc_data_t **pdata) {
@@ -940,35 +627,28 @@ int hc_connection_set_admin_state_async(hc_sock_t *s,
  *----------------------------------------------------------------------------*/
 
 /* ROUTE CREATE */
-int parse_route_create(uint8_t *src, uint8_t *dst) {
-  // No need to write anything on the dst, no data expected
+vapi_error_e parse_route_create( vapi_ctx_t ctx,
+				void *callback_ctx,
+				vapi_error_e rv,
+				bool is_last,
+				vapi_payload_hicn_api_route_nhops_add_reply *reply) {
+  if (reply == NULL || rv != VAPI_OK)
+    return rv;
 
-  hc_sock_request_t *request = (hc_sock_request_t *)src;
-  vapi_payload_hicn_api_route_nhops_add_reply *reply =
-      (vapi_payload_hicn_api_route_nhops_add_reply *)request->data->buffer;
+  if (reply->retval != VAPI_OK)
+    return reply->retval;
 
-  int retval = reply->retval;
-  free(reply);
-  return retval;
+  return reply->retval;
 }
 
 int _hc_route_create(hc_sock_t *s, hc_route_t *route, bool async) {
   if (!IS_VALID_FAMILY(route->family)) return -1;
 
-  hc_msg_s msg;
-
+  vapi_lock();
   vapi_msg_hicn_api_route_nhops_add *hicnp_msg;
   hicnp_msg = vapi_alloc_hicn_api_route_nhops_add(s->g_vapi_ctx_instance);
 
   if (!hicnp_msg) return VAPI_ENOMEM;
-
-  msg.hicnp_msg = (hc_hicnp_t *)hicnp_msg;
-  msg.callback = &vapi_cb;
-  msg.callback_ctx = malloc(sizeof(callback_ctx_t));
-  msg.callback_ctx->s = s;
-  msg.ntoh = (NTOH)&vapi_msg_hicn_api_route_nhops_add_hton;
-
-  if (!(msg.callback_ctx)) return VAPI_ENOMEM;
 
   if (route->family == AF_INET) {
     memcpy(&hicnp_msg->payload.prefix.address.un.ip4[0], &route->remote_addr.v4, 4);
@@ -982,17 +662,10 @@ int _hc_route_create(hc_sock_t *s, hc_route_t *route, bool async) {
   hicnp_msg->payload.face_ids[0] = route->face_id;
   hicnp_msg->payload.n_faces = 1;
 
-  hc_command_params_t params = {
-      .cmd = ACTION_CREATE,
-      .cmd_id = ADD_ROUTE,
-      .size_in =
-          sizeof(vapi_msg_hicn_api_route_nhops_add),
-      .size_out = 0,
-      .parse = (HC_PARSE)parse_route_create,
-  };
+  vapi_error_e ret = vapi_hicn_api_route_nhops_add(s->g_vapi_ctx_instance, hicnp_msg, parse_route_create, NULL);
+  vapi_unlock();
+  return ret;
 
-  return hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, NULL,
-                            async);
 }
 
 int hc_route_create(hc_sock_t *s, hc_route_t *route) {
@@ -1004,36 +677,28 @@ int hc_route_create_async(hc_sock_t *s, hc_route_t *route) {
 }
 
 /* ROUTE DELETE */
+vapi_error_e parse_route_delete( vapi_ctx_t ctx,
+				void *callback_ctx,
+				vapi_error_e rv,
+				bool is_last,
+				vapi_payload_hicn_api_route_nhop_del_reply *reply) {
+  if (reply == NULL || rv != VAPI_OK)
+    return rv;
 
-int parse_route_delete(uint8_t *src, uint8_t *dst) {
-  // No need to write anything on the dst, no data expected
+  if (reply->retval != VAPI_OK)
+    return reply->retval;
 
-  hc_sock_request_t *request = (hc_sock_request_t *)src;
-  vapi_payload_hicn_api_route_nhop_del_reply *reply =
-      (vapi_payload_hicn_api_route_nhop_del_reply *)request->data->buffer;
-
-  int retval = reply->retval;
-  free(reply);
-  return retval;
+  return reply->retval;
 }
 
 int _hc_route_delete(hc_sock_t *s, hc_route_t *route, bool async) {
   if (!IS_VALID_FAMILY(route->family)) return -1;
 
-  hc_msg_s msg;
-
+  vapi_lock();
   vapi_msg_hicn_api_route_nhop_del *hicnp_msg;
   hicnp_msg = vapi_alloc_hicn_api_route_nhop_del(s->g_vapi_ctx_instance);
 
   if (!hicnp_msg) return VAPI_ENOMEM;
-
-  msg.hicnp_msg = (hc_hicnp_t *)hicnp_msg;
-  msg.callback = &vapi_cb;
-  msg.callback_ctx = malloc(sizeof(callback_ctx_t));
-  msg.callback_ctx->s = s;
-  msg.ntoh = (NTOH)&vapi_msg_hicn_api_route_nhop_del_hton;
-
-  if (!(msg.callback_ctx)) return VAPI_ENOMEM;
 
   memcpy(&hicnp_msg->payload.prefix.address.un.ip6[0], &route->remote_addr, 16);
   hicnp_msg->payload.prefix.address.af =
@@ -1041,17 +706,9 @@ int _hc_route_delete(hc_sock_t *s, hc_route_t *route, bool async) {
   hicnp_msg->payload.prefix.len = route->len;
   hicnp_msg->payload.faceid = route->face_id;
 
-  hc_command_params_t params = {
-      .cmd = ACTION_DELETE,
-      .cmd_id = REMOVE_ROUTE,
-      .size_in =
-          sizeof(vapi_msg_hicn_api_route_nhop_del), 
-      .size_out = 0,
-      .parse = (HC_PARSE)parse_route_delete,
-  };
-
-  return hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, NULL,
-                            async);
+  int retval = vapi_hicn_api_route_nhop_del(s->g_vapi_ctx_instance, hicnp_msg, parse_route_delete, NULL);
+  vapi_unlock();
+  return retval;
 }
 
 int hc_route_delete(hc_sock_t *s, hc_route_t *route) {
@@ -1063,84 +720,83 @@ int hc_route_delete_async(hc_sock_t *s, hc_route_t *route) {
 }
 
 /* ROUTE LIST */
-int parse_route_list(uint8_t *src, uint8_t *dst) {
-  // No need to write anything on the dst, no data expected
+vapi_error_e parse_route_list( vapi_ctx_t ctx,
+			      void *callback_ctx,
+			      vapi_error_e rv,
+			      bool is_last,
+			      vapi_payload_hicn_api_routes_details *reply) {
 
-  hc_sock_request_t *request = (hc_sock_request_t *)src;
+  if (reply == NULL || rv != VAPI_OK)
+    return rv;
 
-  int size = 0;
-  for (int i = 0; i < request->data->current; i++) {
-    vapi_payload_hicn_api_routes_details *reply =
-        (vapi_payload_hicn_api_routes_details
-             *)(request->data->buffer + i * request->data->in_element_size);
-    size += reply->nfaces;
+  if (reply->retval != VAPI_OK)
+    return reply->retval;
+
+  hc_data_t *data = (hc_data_t *)callback_ctx;
+
+  int empty_spots = data->size - data->current;
+  if (empty_spots < reply->nfaces) {
+    int new_size = data->size + (reply->nfaces - empty_spots);
+    data->buffer = realloc(data->buffer, sizeof(hc_route_t) * (new_size));
+    if (!data->buffer)
+      return VAPI_ENOMEM;
+
+    data->size =new_size;
   }
-  hc_route_t *output = malloc(sizeof(hc_route_t) * size);
 
-  int res = VAPI_OK;
-
-  if (!output) {
-    size = 0;
-    res = VAPI_ENOMEM;
-    goto END;
-  }
-
-  int cur = 0;
-  for (int j = 0; j < request->data->current; j++) {
-    vapi_payload_hicn_api_routes_details *reply =
-        (vapi_payload_hicn_api_routes_details
-             *)(request->data->buffer + j * request->data->in_element_size);
-    for (int i = 0; i < reply->nfaces; i++) {
-      output[cur].face_id = reply->faceids[i];
-      output[cur].cost = 1;
-      output[cur].len = reply->prefix.len;
-      if (reply->prefix.address.af == ADDRESS_IP6)
+  for (int i = 0; i < reply->nfaces; i++) {
+    hc_route_t * route = &((hc_route_t*)(data->buffer))[data->current];
+    route->face_id = reply->faceids[i];
+    route->cost = 1;
+    route->len = reply->prefix.len;
+    if (reply->prefix.address.af == ADDRESS_IP6)
       {
-        memcpy(output[cur].remote_addr.v6.as_u8, reply->prefix.address.un.ip6, 16);
+        memcpy(route->remote_addr.v6.as_u8, reply->prefix.address.un.ip6, 16);
       }
       else
       {
-        memcpy(output[cur].remote_addr.v4.as_u8, reply->prefix.address.un.ip4, 4);
+        memcpy(route->remote_addr.v4.as_u8, reply->prefix.address.un.ip4, 4);
       }
-      output[cur].family = reply->prefix.address.af == ADDRESS_IP6? AF_INET6 : AF_INET;
-      cur++;
-    }
+    route->family = reply->prefix.address.af == ADDRESS_IP6? AF_INET6 : AF_INET;
+    data->current++;
   }
 
-END:
-  free(request->data->buffer);
-  request->data->buffer = (void *)output;
-  request->data->size = size;
-  request->data->out_element_size = sizeof(hc_route_t);
-  return res;
+  return reply->retval;
 }
 
 int _hc_route_list(hc_sock_t *s, hc_data_t **pdata, bool async) {
-  hc_msg_s msg;
-
+  vapi_lock();
   vapi_msg_hicn_api_routes_dump *hicnp_msg;
   hicnp_msg = vapi_alloc_hicn_api_routes_dump(s->g_vapi_ctx_instance);
 
-  if (!hicnp_msg) return VAPI_ENOMEM;
+  hc_data_t *data = hc_data_create(0, sizeof(hc_route_t),NULL);
+  int ret = VAPI_OK;
 
-  msg.hicnp_msg = (hc_hicnp_t *)hicnp_msg;
-  msg.callback = &vapi_cb;
-  msg.callback_ctx = malloc(sizeof(callback_ctx_t));
-  msg.callback_ctx->s = s;
-  msg.ntoh = (NTOH)&vapi_msg_hicn_api_routes_dump_hton;
+  if (!data){
+    ret = -1;
+    goto err;
+  }
 
-  if (!(msg.callback_ctx)) return VAPI_ENOMEM;
+  data->buffer = malloc(sizeof(hc_route_t));
+  data->size = 1;
 
-  hc_command_params_t params = {
-      .cmd = ACTION_LIST,
-      .cmd_id = LIST_ROUTES,
-      .size_in = sizeof(vapi_msg_hicn_api_routes_details),
-      .size_out = sizeof(hc_route_t),
-      .parse = (HC_PARSE)parse_route_list,
-  };
+  if (!data->buffer) {
+    ret = -1;
+    goto err_free;
+  }
 
-  return hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, pdata,
-                            async);
+  ret = vapi_hicn_api_routes_dump(s->g_vapi_ctx_instance, hicnp_msg, parse_route_list, data);
+
+  if (ret != VAPI_OK)
+    goto err_free;
+
+  *pdata = data;
+
+ err_free:
+  free(data);
+ err:
+  vapi_unlock();
+  return ret;
 }
 
 int hc_route_list(hc_sock_t *s, hc_data_t **pdata) {
@@ -1226,57 +882,46 @@ int hc_connection_to_local_listener(const hc_connection_t *connection,
 }
 
 /* FACE CREATE */
-int parse_face_create(uint8_t *src, uint8_t *dst) {
-  // No need to write anything on the dst, no data expected
+vapi_error_e parse_face_create( vapi_ctx_t ctx,
+			       void *callback_ctx,
+			       vapi_error_e rv,
+			       bool is_last,
+			       vapi_payload_hicn_api_face_add_reply *reply) {
 
-  hc_sock_request_t *request = (hc_sock_request_t *)src;
-  vapi_payload_hicn_api_face_add_reply *reply =
-      (vapi_payload_hicn_api_face_add_reply *)request->data->buffer;
+  if (reply == NULL || rv != VAPI_OK)
+    return rv;
 
-  hc_face_t *output = malloc(sizeof(hc_face_t));
+  if (reply->retval != VAPI_OK)
+    return reply->retval;
 
-  int retval = VAPI_OK;
-  int size = 1;
+  hc_data_t *data = (hc_data_t *)callback_ctx;
 
-  if (!output) {
-    size = 0;
-    retval = VAPI_ENOMEM;
-    goto END;
-  }
+  hc_face_t *output = (hc_face_t *)data->buffer;
 
   output->id = reply->faceid;
-  retval = reply->retval;
-
-END:
-  free(request->data->buffer);
-  request->data->buffer = (void *)output;
-  request->data->size = size;
-  request->data->out_element_size = sizeof(hc_face_t);
-  return retval;
+  return reply->retval;
 }
 
 int hc_face_create(hc_sock_t *s, hc_face_t *face) {
-  hc_msg_s msg;
 
+  vapi_lock();
   vapi_msg_hicn_api_face_add *hicnp_msg;
   hicnp_msg = vapi_alloc_hicn_api_face_add(s->g_vapi_ctx_instance);
 
-  if (!hicnp_msg) return VAPI_ENOMEM;
-
-  msg.hicnp_msg = (hc_hicnp_t *)hicnp_msg;
-  msg.callback = &vapi_cb;
-  msg.callback_ctx = malloc(sizeof(callback_ctx_t));
-  msg.callback_ctx->s = s;
-  msg.ntoh = (NTOH)&vapi_msg_hicn_api_face_add_hton;
-
-  if (!msg.callback_ctx) return VAPI_ENOMEM;
+  int retval = VAPI_OK;
+  if (!hicnp_msg) {
+    retval = VAPI_ENOMEM;
+    goto END;
+  }
 
   switch(face->face.type) {
     case FACE_TYPE_HICN:
     {
       u8 check = ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)) == ip46_address_is_ip4((ip46_address_t *)&(face->face.remote_addr));
-      if (!check)
-        return -1;
+      if (!check) {
+	  retval = -1;
+	  goto END;
+	}
 
       hicnp_msg->payload.type = IP_FACE;
       if (ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)))
@@ -1297,11 +942,13 @@ int hc_face_create(hc_sock_t *s, hc_face_t *face) {
       memcpy(hicnp_msg->payload.face.ip.if_name, face->face.netdevice.name, IFNAMSIZ);
       break;
     }
-    case FACE_TYPE_UDP:
+  case FACE_TYPE_UDP:
     {
       u8 check = ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)) == ip46_address_is_ip4((ip46_address_t *)&(face->face.remote_addr));
-      if (!check)
-        return -1;
+      if (!check) {
+	  retval = -1;
+	  goto END;
+	}
 
       hicnp_msg->payload.type = UDP_FACE;
       if (ip46_address_is_ip4((ip46_address_t *)&(face->face.local_addr)))
@@ -1325,178 +972,188 @@ int hc_face_create(hc_sock_t *s, hc_face_t *face) {
       break;
     }
     default:
-      return -1;
+      {
+	retval = -1;
+	goto END;
+      }
   }
 
-  hc_command_params_t params = {
-      .cmd = ACTION_CREATE,
-      .cmd_id = ADD_CONNECTION,
-      .size_in =
-          sizeof(vapi_msg_hicn_api_face_add),
-      .size_out = sizeof(hc_face_t),
-      .parse = (HC_PARSE)parse_face_create,
-  };
+  hc_data_t *data = hc_data_create(0, sizeof(hc_face_t),NULL);
 
-  hc_data_t *data;
+  if (!data) {
+    retval = -1;
+    goto END;
+  }
 
-  int ret =  hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, &data,
-				false);
-  if (ret == 0)
-    face->id = ((hc_face_t *)data->buffer)->id;
+  data->buffer = malloc(sizeof(hc_face_t));
+  data->out_element_size = sizeof(hc_face_t);
 
-  return ret;
+  if (!data->buffer) {
+    free (data);
+    retval = -1;
+    goto END;
+  }
+
+  retval = vapi_hicn_api_face_add(s->g_vapi_ctx_instance, hicnp_msg, parse_face_create, data);
+
+  if (retval != VAPI_OK)
+    goto END;
+
+  face->id = ((hc_face_t *)data->buffer)->id;
+
+ END:
+  vapi_unlock();
+  return retval;
 }
 
-/* FACE DELETE */
-int parse_face_delete(uint8_t *src, uint8_t *dst) {
-  // No need to write anything on the dst, no data expected
+vapi_error_e parse_face_delete( vapi_ctx_t ctx,
+			       void *callback_ctx,
+			       vapi_error_e rv,
+			       bool is_last,
+			       vapi_payload_hicn_api_face_del_reply *reply) {
 
-  hc_sock_request_t *request = (hc_sock_request_t *)src;
-  vapi_payload_hicn_api_face_del_reply *reply =
-      (vapi_payload_hicn_api_face_del_reply *)request->data->buffer;
+  if (reply == NULL || rv != VAPI_OK)
+    return rv;
 
-  int retval = reply->retval;
-  free(reply);
-  return retval;
+  return reply->retval;
 }
 
 int hc_face_delete(hc_sock_t *s, hc_face_t *face) {
 
-  hc_msg_s msg;
-
   vapi_msg_hicn_api_face_del *hicnp_msg;
+  vapi_lock();
   hicnp_msg = vapi_alloc_hicn_api_face_del(s->g_vapi_ctx_instance);
 
   if (!hicnp_msg) return VAPI_ENOMEM;
 
-  msg.hicnp_msg = (hc_hicnp_t *)hicnp_msg;
-  msg.callback = &vapi_cb;
-  msg.callback_ctx = malloc(sizeof(callback_ctx_t));
-  msg.callback_ctx->s = s;
-  msg.ntoh = (NTOH)&vapi_msg_hicn_api_face_del_hton;
-
-  if (!msg.callback_ctx) return VAPI_ENOMEM;
-
   hicnp_msg->payload.faceid = face->id;
 
-  hc_command_params_t params = {
-      .cmd = ACTION_DELETE,
-      .cmd_id = REMOVE_ROUTE,
-      .size_in =
-          sizeof(vapi_msg_hicn_api_face_del),
-      .size_out = 0,
-      .parse = (HC_PARSE)parse_face_delete,
-  };
-
-  return hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, NULL,
-                            false);
+  int retval = vapi_hicn_api_face_del(s->g_vapi_ctx_instance, hicnp_msg, parse_face_delete, NULL);
+  vapi_unlock();
+  return retval;
 }
 
 /* FACE LIST */
 
-int parse_face_list(uint8_t *src, uint8_t *dst) {
-  // No need to write anything on the dst, no data expected
+vapi_error_e parse_face_list( vapi_ctx_t ctx,
+			       void *callback_ctx,
+			       vapi_error_e rv,
+			       bool is_last,
+			       vapi_payload_hicn_api_faces_details *reply) {
 
-  hc_sock_request_t *request = (hc_sock_request_t *)src;
-  hc_face_t *output = malloc(sizeof(hc_face_t)*request->data->current);
+  if (reply == NULL || rv != VAPI_OK)
+    return rv;
 
-  int retval = VAPI_OK;
-  int cur = 0;
+  if (reply->retval != VAPI_OK)
+    return reply->retval;
 
-  if (!output) {
-    retval = VAPI_ENOMEM;
-    request->data->current = 0;
-    goto END;
+  hc_data_t *data = (hc_data_t *)callback_ctx;
+
+  if (data->size == data->current) {
+    int new_size = data->size *2;
+    data->buffer = realloc(data->buffer, sizeof(hc_face_t) * (new_size));
+    if (!data->buffer)
+      return VAPI_ENOMEM;
+
+    data->size =new_size;
   }
 
-  for (int j = 0; j < request->data->current; j++) {
-    vapi_payload_hicn_api_faces_details *reply =
-        (vapi_payload_hicn_api_faces_details
-             *)(request->data->buffer + j * request->data->in_element_size);
-    retval = reply->retval;
-    switch(reply->type)
+  int retval = VAPI_OK;
+
+  hc_face_t * face = &((hc_face_t *)(data->buffer))[data->current];
+  switch(reply->type)
     {
-      case IP_FACE:
+    case IP_FACE:
       {
         if (reply->face.ip.local_addr.af == ADDRESS_IP4)
         {
-          memcpy(output[j].face.local_addr.v4.as_u8, reply->face.ip.local_addr.un.ip4, IPV4_ADDR_LEN);
-          memcpy(output[j].face.remote_addr.v4.as_u8, reply->face.ip.remote_addr.un.ip4, IPV4_ADDR_LEN);
+          memcpy(face->face.local_addr.v4.as_u8, reply->face.ip.local_addr.un.ip4, IPV4_ADDR_LEN);
+          memcpy(face->face.remote_addr.v4.as_u8, reply->face.ip.remote_addr.un.ip4, IPV4_ADDR_LEN);
         }
         else
         {
-          memcpy(output[j].face.local_addr.v6.as_u8, reply->face.ip.local_addr.un.ip6, IPV6_ADDR_LEN);
-          memcpy(output[j].face.remote_addr.v6.as_u8, reply->face.ip.remote_addr.un.ip6, IPV6_ADDR_LEN);
+          memcpy(face->face.local_addr.v6.as_u8, reply->face.ip.local_addr.un.ip6, IPV6_ADDR_LEN);
+          memcpy(face->face.remote_addr.v6.as_u8, reply->face.ip.remote_addr.un.ip6, IPV6_ADDR_LEN);
         }
-        output[j].face.type = FACE_TYPE_HICN;
-        output[j].id = reply->faceid;
-        output[j].face.netdevice.index = reply->face.ip.swif;
-        memcpy(output[j].face.netdevice.name, reply->face.ip.if_name, IFNAMSIZ);
+        face->face.type = FACE_TYPE_HICN;
+        face->id = reply->faceid;
+        face->face.netdevice.index = reply->face.ip.swif;
+        memcpy(face->face.netdevice.name, reply->face.ip.if_name, IFNAMSIZ);
         break;
       }
       case UDP_FACE:
       {
         if (reply->face.ip.local_addr.af == ADDRESS_IP4)
         {
-          memcpy(output[j].face.local_addr.v4.as_u8, reply->face.udp.local_addr.un.ip4, IPV4_ADDR_LEN);
-          memcpy(output[j].face.remote_addr.v4.as_u8, reply->face.udp.remote_addr.un.ip4, IPV4_ADDR_LEN);
+          memcpy(face->face.local_addr.v4.as_u8, reply->face.udp.local_addr.un.ip4, IPV4_ADDR_LEN);
+          memcpy(face->face.remote_addr.v4.as_u8, reply->face.udp.remote_addr.un.ip4, IPV4_ADDR_LEN);
         }
         else
         {
-          memcpy(output[j].face.local_addr.v6.as_u8, reply->face.udp.local_addr.un.ip6, IPV6_ADDR_LEN);
-          memcpy(output[j].face.remote_addr.v6.as_u8, reply->face.udp.remote_addr.un.ip6, IPV6_ADDR_LEN);
+          memcpy(face->face.local_addr.v6.as_u8, reply->face.udp.local_addr.un.ip6, IPV6_ADDR_LEN);
+          memcpy(face->face.remote_addr.v6.as_u8, reply->face.udp.remote_addr.un.ip6, IPV6_ADDR_LEN);
         }
-        output[j].face.local_port = reply->face.udp.lport;
-        output[j].face.remote_port = reply->face.udp.rport;
-        output[j].face.type = FACE_TYPE_UDP;
-        output[j].id = reply->faceid;
-        output[j].face.netdevice.index = reply->face.udp.swif;
-        memcpy(output[j].face.netdevice.name, reply->face.udp.if_name, IFNAMSIZ);
+        face->face.local_port = reply->face.udp.lport;
+        face->face.remote_port = reply->face.udp.rport;
+        face->face.type = FACE_TYPE_UDP;
+        face->id = reply->faceid;
+        face->face.netdevice.index = reply->face.udp.swif;
+        memcpy(face->face.netdevice.name, reply->face.udp.if_name, IFNAMSIZ);
         break;
       }
       default:
         retval = -1;
     }
     if (!retval)
-      cur++;
-  }
+      data->current++;
 
-END:
-  free(request->data->buffer);
-  request->data->buffer = (void *)output;
-  request->data->size = request->data->current;
-  request->data->out_element_size = sizeof(hc_face_t);
-  return retval;
+    return reply->retval;
 }
 
 int hc_face_list(hc_sock_t *s, hc_data_t **pdata) {
-  hc_msg_s msg;
-
+  vapi_lock();
   vapi_msg_hicn_api_faces_dump *hicnp_msg;
   hicnp_msg = vapi_alloc_hicn_api_faces_dump(s->g_vapi_ctx_instance);
 
-  if (!hicnp_msg) return VAPI_ENOMEM;
-
-  msg.hicnp_msg = (hc_hicnp_t *)hicnp_msg;
-  msg.callback = &vapi_cb;
-  msg.callback_ctx = malloc(sizeof(callback_ctx_t));
-  msg.callback_ctx->s = s;
-  msg.ntoh = (NTOH)&vapi_msg_hicn_api_faces_dump_hton;
-
-  if (!msg.callback_ctx) return VAPI_ENOMEM;
-
-
-  hc_command_params_t params = {
-      .cmd = ACTION_LIST,
-      .cmd_id = LIST_CONNECTIONS,
-      .size_in = sizeof(vapi_msg_hicn_api_faces_details),
-      .size_out = sizeof(hc_face_t),
-      .parse = (HC_PARSE)parse_face_list,
-  };
-
-  return hc_execute_command(s, (hc_msg_t *)&msg, sizeof(msg), &params, (hc_data_t**)pdata,
-                            false);
+  int retval = 0;
+  if (!hicnp_msg) {
+    retval = VAPI_ENOMEM;
+    goto END;
   }
+
+  hc_data_t *data = hc_data_create(0, sizeof(hc_face_t),NULL);
+
+  if (!data) {
+    retval = -1;
+    goto END;
+  }
+
+  data->buffer = malloc(sizeof(hc_face_t));
+  data->size = 1;
+
+  if (!data->buffer) {
+    free (data);
+    retval = -1;
+    goto err;
+  }
+
+
+  retval = vapi_hicn_api_faces_dump(s->g_vapi_ctx_instance, hicnp_msg, parse_face_list, data);
+  *pdata = data;
+
+  if (retval != VAPI_OK)
+    goto err;
+
+  data->size = data->current;
+  vapi_unlock();
+  return retval;
+
+ err:
+  free(data);
+ END:
+  vapi_unlock();
+  return retval;
+}
 
 int hc_connection_parse_to_face(void *in, hc_face_t *face) { return 0; }
 

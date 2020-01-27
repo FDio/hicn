@@ -17,11 +17,14 @@
 
 #include <hicn/transport/config.h>
 
-extern "C" {
-#include <hicn/ctrl.h>
-}
-
 #ifdef __vpp__
+
+#ifdef always_inline
+#undef always_inline
+#endif
+extern "C" {
+#include <vapi/vapi_safe.h>
+};
 
 #include <hicn/transport/core/forwarder_interface.h>
 #include <hicn/transport/core/memif_connector.h>
@@ -73,7 +76,7 @@ class VPPForwarderInterface
   uint32_t face_id1_;
   uint32_t face_id2_;
   bool is_consumer_;
-  hc_sock_t *sock_;
+  vapi_ctx_t *sock_;
   static std::mutex global_lock_;
 };
 
