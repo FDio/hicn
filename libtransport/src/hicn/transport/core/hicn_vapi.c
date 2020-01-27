@@ -24,6 +24,7 @@
 #include <hicn/name.h>
 #undef HICN_VPP_PLUGIN
 
+#include <vapi/vapi_safe.h>
 #include <vlib/vlib.h>
 #include <vlibapi/api.h>
 #include <vlibmemory/api.h>
@@ -93,7 +94,8 @@ static vapi_error_e register_prod_app_cb(vapi_ctx_t ctx,
 int hicn_vapi_register_prod_app(
     vapi_ctx_t ctx, hicn_producer_input_params *input_params,
     hicn_producer_output_params *output_params) {
-  
+
+  vapi_lock();
   vapi_msg_hicn_api_register_prod_app * msg = vapi_alloc_hicn_api_register_prod_app(ctx);
 
   if(ip46_address_is_ip4(&input_params->prefix->address)) {
@@ -108,7 +110,9 @@ int hicn_vapi_register_prod_app(
   msg->payload.swif = input_params->swif;
   msg->payload.cs_reserved = input_params->cs_reserved;
 
-  return vapi_hicn_api_register_prod_app(ctx, msg, register_prod_app_cb, output_params);
+  int ret = vapi_hicn_api_register_prod_app(ctx, msg, register_prod_app_cb, output_params);
+  vapi_unlock();
+  return ret;
 }
 
 static vapi_error_e face_prod_del_cb(vapi_ctx_t ctx,
@@ -124,12 +128,16 @@ static vapi_error_e face_prod_del_cb(vapi_ctx_t ctx,
 
 int hicn_vapi_face_prod_del(
     vapi_ctx_t ctx, hicn_del_face_app_input_params *input_params) {
-  
+  vapi_lock();
   vapi_msg_hicn_api_face_prod_del * msg = vapi_alloc_hicn_api_face_prod_del(ctx);
 
   msg->payload.faceid = input_params->face_id;
 
-  return vapi_hicn_api_face_prod_del(ctx, msg, face_prod_del_cb, NULL);
+  printf("Deleting producer face %d\n", msg->payload.faceid);
+  int ret = vapi_hicn_api_face_prod_del(ctx, msg, face_prod_del_cb, NULL);
+  printf("DONE Deleting producer face %d\n", input_params->face_id);
+  vapi_unlock();
+  return ret;
 }
 
 static vapi_error_e register_cons_app_cb(vapi_ctx_t ctx,
@@ -159,11 +167,14 @@ int hicn_vapi_register_cons_app(
     vapi_ctx_t ctx, hicn_consumer_input_params *input_params,
     hicn_consumer_output_params *output_params) {
 
+  vapi_lock();
   vapi_msg_hicn_api_register_cons_app * msg = vapi_alloc_hicn_api_register_cons_app(ctx);
 
   msg->payload.swif = input_params->swif;
 
-  return vapi_hicn_api_register_cons_app(ctx, msg, register_cons_app_cb, output_params);
+  int ret = vapi_hicn_api_register_cons_app(ctx, msg, register_cons_app_cb, output_params);
+  vapi_unlock();
+  return ret;
 }
 
 static vapi_error_e face_cons_del_cb(vapi_ctx_t ctx,
@@ -179,12 +190,15 @@ static vapi_error_e face_cons_del_cb(vapi_ctx_t ctx,
 
 int hicn_vapi_face_cons_del(
     vapi_ctx_t ctx, hicn_del_face_app_input_params *input_params) {
-  
+
+  vapi_lock();
   vapi_msg_hicn_api_face_cons_del * msg = vapi_alloc_hicn_api_face_cons_del(ctx);
 
   msg->payload.faceid = input_params->face_id;
 
-  return vapi_hicn_api_face_cons_del(ctx, msg, face_cons_del_cb, NULL);
+  int ret = vapi_hicn_api_face_cons_del(ctx, msg, face_cons_del_cb, NULL);
+  vapi_unlock();
+  return ret;
 }
 
 static vapi_error_e reigster_route_cb(vapi_ctx_t ctx,
@@ -201,7 +215,8 @@ static vapi_error_e reigster_route_cb(vapi_ctx_t ctx,
 int hicn_vapi_register_route(
     vapi_ctx_t ctx,
     hicn_producer_set_route_params *input_params) {
-    
+
+  vapi_lock();
   vapi_msg_hicn_api_route_nhops_add * msg = vapi_alloc_hicn_api_route_nhops_add(ctx);
 
   fib_prefix_t prefix;
@@ -210,7 +225,10 @@ int hicn_vapi_register_route(
   msg->payload.face_ids[0] = input_params->face_id;
   msg->payload.n_faces = 1;
 
-  return vapi_hicn_api_route_nhops_add(ctx, msg, reigster_route_cb, NULL);
+  int ret = vapi_hicn_api_route_nhops_add(ctx, msg, reigster_route_cb, NULL);
+
+  vapi_unlock();
+  return ret;
 }
 
 char *hicn_vapi_get_error_string(int ret_val) {
