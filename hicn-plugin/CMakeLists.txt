@@ -13,6 +13,30 @@
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
+project(hicn-plugin)
+
+include(GNUInstallDirs)
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
+    "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules/"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/"
+)
+include(BuildMacros)
+
+set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_C_STANDARD 11)
+
+# Check for memfd_create syscall
+include(CheckSymbolExists)
+CHECK_SYMBOL_EXISTS ( "__NR_memfd_create" "sys/syscall.h" HAVE_MEMFD_CREATE )
+if ( HAVE_MEMFD_CREATE )
+    add_definitions ( -DHAVE_MEMFD_CREATE )
+endif()
+
+set(HICN_PLUGIN hicn-plugin CACHE INTERNAL "" FORCE)
+
+include (Packaging)
+
 add_subdirectory(src)
 
 add_subdirectory(vapi)

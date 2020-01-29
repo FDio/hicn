@@ -16,16 +16,6 @@ set(SAFE_VAPI safe_vapi CACHE INTERNAL "" FORCE)
 set(SAFE_VAPI_SHARED ${SAFE_VAPI}.shared CACHE INTERNAL "" FORCE)
 set(SAFE_VAPI_STATIC ${SAFE_VAPI}.static CACHE INTERNAL "" FORCE)
 
-project(${SAFE_VAPI})
-
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Modules/"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules/"
-)
-
-include (Packaging)
-include (BuildMacros)
-
 # Dependencies
 
 find_package(Vpp REQUIRED)
