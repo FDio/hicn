@@ -94,7 +94,7 @@ NAME ## _pair_snprintf(char * buf, size_t size, const NAME ## _pair_t * pair) { 
     if (rc < 0)                                                                 \
         return rc;                                                              \
     rc = VALUE_SNPRINTF(buf+rc, BUFSIZE/2, (VAL_T)pair->value);                 \
-    return rc;                                                                  \
+    return (int)rc;                                                                  \
 }                                                                               \
                                                                                 \
 TYPEDEF_SET(NAME ## _pair_set, NAME ## _pair_t *, NAME ## _pair_cmp, NAME ## _pair_snprintf); \

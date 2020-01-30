@@ -232,7 +232,7 @@ NAME ## _get_array(const NAME ## _t * set, T ** element)                \
     twalk(set->root, NAME ## _add_node_to_array);                       \
     NAME ## _array_pos = NULL;                                          \
 END:                                                                    \
-    return set->size;                                                   \
+    return (int)(set->size);                                                   \
 }
 
 #endif /* UTIL_SET_H */

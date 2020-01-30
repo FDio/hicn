@@ -1210,5 +1210,5 @@ int facemgr_cfg_get_static_facelet_array(const facemgr_cfg_t * cfg, facelet_t **
         ERROR("[facemgr_cfg_get_static_facelet_array] Error getting array elements");
         return -1;
     }
-    return facelet_array_len(cfg->static_facelets);
+    return (int)facelet_array_len(cfg->static_facelets);
 }

@@ -49,13 +49,13 @@ policy_tag_state_snprintf(char * s, size_t size, const policy_tag_state_t * tag_
         return -1;
 
     rc = snprintf(cur, s + size - cur, "%s%s", (tag_state->disabled == 1) ? "!" : "", policy_state_str[tag_state->state]);
-    if (rc >=  s + size - cur)
-        return s + size - cur;
+    if (rc >=  (int)(s + size - cur))
+        return (int)(s + size - cur);
     if (rc < 0)
         return rc;
     cur += rc;
     if (size != 0 && cur >= s + size)
-        return cur - s;
+        return (int)(cur - s);
 
-    return cur - s;
+    return (int)(cur - s);
 }

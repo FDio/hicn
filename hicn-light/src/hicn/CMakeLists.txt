@@ -14,10 +14,8 @@ list(APPEND COMPILER_DEFINITIONS
   "-DWITH_POLICY"
 )
 
-if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Android" AND NOT COMPILE_FOR_IOS)
+if (NOT DISABLE_EXECUTABLES)
   add_subdirectory(command_line)
-else ()
-  add_subdirectory(command_line/controller)
 endif()
 
 add_subdirectory(config)

@@ -444,7 +444,7 @@ hc_sock_parse_url(const char * url, struct sockaddr * sa)
 #ifdef __linux__
     srand(time(NULL) ^ getpid() ^ gettid());
 #else
-    srand(time(NULL) ^ getpid());
+    srand((unsigned int )(time(NULL) ^ getpid()));
 #endif /* __linux__ */
 
     /*
@@ -574,7 +574,7 @@ hc_sock_connect(hc_sock_t * s)
     size_t size = ss.ss_family == AF_INET
         ? sizeof(struct sockaddr_in)
         : sizeof(struct sockaddr_in6);
-    if (connect(s->fd, (struct sockaddr *)&ss, size) < 0) //sizeof(struct sockaddr)) < 0)
+    if (connect(s->fd, (struct sockaddr *)&ss, (socklen_t)size) < 0) //sizeof(struct sockaddr)) < 0)
         goto ERR_CONNECT;
 
      return 0;
@@ -589,7 +589,7 @@ hc_sock_send(hc_sock_t * s, hc_msg_t * msg, size_t msglen, int seq)
 {
     int rc;
     msg->hdr.seqNum = seq;
-    rc = send(s->fd, msg, msglen, 0);
+    rc = (int)send(s->fd, msg, msglen, 0);
     if (rc < 0) {
         perror("hc_sock_send");
         return -1;
@@ -617,7 +617,7 @@ hc_sock_recv(hc_sock_t * s)
      */
     assert(RECV_BUFLEN - s->woff > MIN_BUFLEN);
 
-    rc = recv(s->fd, s->buf + s->woff, RECV_BUFLEN - s->woff, 0);
+    rc = (int)recv(s->fd, s->buf + s->woff, RECV_BUFLEN - s->woff, 0);
     if (rc == 0) {
         /* Connection has been closed */
          return 0;
