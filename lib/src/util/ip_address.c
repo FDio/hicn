@@ -91,10 +91,10 @@ ip_address_ntop (const ip_address_t * ip_address, char *dst, const size_t len,
   const char * s;
   switch(family) {
     case AF_INET:
-      s = inet_ntop (AF_INET, ip_address->v4.buffer, dst, len);
+      s = inet_ntop (AF_INET, ip_address->v4.buffer, dst, (socklen_t)len);
       break;
     case AF_INET6:
-      s = inet_ntop (AF_INET6, ip_address->v6.buffer, dst, len);
+      s = inet_ntop (AF_INET6, ip_address->v6.buffer, dst, (socklen_t)len);
       break;
     default:
       return -1;
@@ -156,7 +156,7 @@ ip_address_snprintf(char * s, size_t size, const ip_address_t * ip_address, int 
     }
     if (!rc)
         return -1;
-    return strlen(s);
+    return (int)strlen(s);
 }
 
 int
@@ -281,7 +281,7 @@ ip_prefix_ntop_short(const ip_prefix_t * ip_prefix, char *dst, size_t size)
       return -1;
   int rc = snprintf(dst, size, "%s", ip_s);
   if (rc >= size)
-      return size;
+      return (int)size;
   return rc;
 }
 
@@ -304,7 +304,7 @@ ip_prefix_ntop(const ip_prefix_t * ip_prefix, char *dst, size_t size)
       return -1;
   int rc = snprintf(dst, size, "%s/%d", ip_s, ip_prefix->len);
   if (rc >= size)
-      return size;
+      return (int)size;
   return rc;
 }
 

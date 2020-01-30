@@ -460,19 +460,19 @@ hicn_name_ntop (const hicn_name_t * src, char *dst, size_t len)
   switch (src->type)
     {
     case HNT_CONTIGUOUS_V6:
-      rc = inet_ntop (AF_INET6, src->buffer, dst, len);
+      rc = inet_ntop (AF_INET6, src->buffer, dst, (socklen_t)len);
       seg_number = (u8 *) src->buffer + IPV6_ADDR_LEN;
       break;
     case HNT_CONTIGUOUS_V4:
-      rc = inet_ntop (AF_INET, src->buffer, dst, len);
+      rc = inet_ntop (AF_INET, src->buffer, dst, (socklen_t)len);
       seg_number = (u8 *) src->buffer + IPV4_ADDR_LEN;
       break;
     case HNT_IOV_V6:
-      rc = inet_ntop (AF_INET6, src->iov.buffers[0].iov_base, dst, len);
+      rc = inet_ntop (AF_INET6, src->iov.buffers[0].iov_base, dst, (socklen_t)len);
       seg_number = src->iov.buffers[1].iov_base;
       break;
     case HNT_IOV_V4:
-      rc = inet_ntop (AF_INET, src->iov.buffers[0].iov_base, dst, len);
+      rc = inet_ntop (AF_INET, src->iov.buffers[0].iov_base, dst, (socklen_t)len);
       seg_number = src->iov.buffers[1].iov_base;
       break;
     default:
