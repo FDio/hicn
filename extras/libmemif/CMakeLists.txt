@@ -25,7 +25,7 @@ include(ExternalProject)
 
 ExternalProject_Add(libmemif
   GIT_REPOSITORY https://github.com/FDio/vpp.git
-  GIT_TAG v19.08.1
+  GIT_TAG v20.01
   GIT_SHALLOW TRUE
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/libmemif
   PATCH_COMMAND bash -c "cp ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists1.patch ./extras/libmemif/CMakeLists.txt && cp ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists2.patch ./extras/libmemif/src/CMakeLists.txt"
