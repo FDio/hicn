@@ -171,7 +171,7 @@ static void strategyLowLatency_SendProbesCB(int fd, PARCEventType which_event,
 
     PARCUnsigned *parc_seq = parcUnsigned_Create(seq);
     Ticks now = forwarder_GetTicks(ll->forwarder);
-    PARCUnsigned *parc_time = parcUnsigned_Create(now);
+    PARCUnsigned *parc_time = parcUnsigned_Create((unsigned int)now);
     parcHashMap_Put(ll->pending_probes_ticks, parc_seq, parc_time);
     parcHashMap_Put(ll->pending_probes_faces, parc_seq, cid);
     strategyNexthopStateLL_SentProbe(state);
@@ -656,7 +656,7 @@ static void _strategyLowLatency_ReceiveObject(StrategyImpl *strategy,
       if(RTT <= 0)
         RTT = 1;
       strategyNexthopStateLL_AddRttSample(
-                          (StrategyNexthopStateLL *) state, RTT);
+                          (StrategyNexthopStateLL *) state, (unsigned int)RTT);
       parcHashMap_Remove(ll->pending_probes_ticks, parc_seq);
     } else {
       // this may happen if we remove a face/route while downloading a file

@@ -97,7 +97,7 @@ if(WITH_EXAMPLE_UPDOWN)
     )
 endif()
 
-if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+if (DISABLE_SHARED_LIBRARIES)
     build_library(${LIBFACEMGR}
         STATIC
         SOURCES ${SOURCE_FILES}
@@ -123,7 +123,7 @@ else ()
     )
 endif ()
 
-if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Android" AND NOT COMPILE_FOR_IOS)
+if(NOT DISABLE_EXECUTABLES)
     list(APPEND DAEMON_SRC
       main.c
     )

@@ -315,7 +315,7 @@ static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
           udpConnState->peerAddress,
           udpConnState->peerAddressLength);
 
-  ssize_t writeLength = writev(udpConnState->udpListenerSocket, message, size);
+  ssize_t writeLength = writev(udpConnState->udpListenerSocket, message, (int)size);
 
   struct sockaddr any_address = {0};
   any_address.sa_family = AF_UNSPEC;
