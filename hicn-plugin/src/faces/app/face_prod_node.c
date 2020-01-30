@@ -89,14 +89,9 @@ match_ip6_name (u8 * name, fib_prefix_t * prefix)
     u32 as_u32[4];
   } xor_sum __attribute__ ((aligned (sizeof (u32x4))));
 
-#ifdef CLIB_HAVE_VEC128
-  u32x4u *data = (u32x4u *)name;
-  xor_sum.as_u32x4 = *(data) &
-    UNION_CAST (prefix->fp_addr.ip6.as_u64[0], u32x4);
-#else
-      xor_sum.as_u64[0] = ((u64 *) name)[0] & prefix->fp_addr.ip6.as_u64[0];
-      xor_sum.as_u64[1] = ((u64 *) name)[1] & prefix->fp_addr.ip6.as_u64[1];
-#endif /* CLIB_HAVE_VEC128 */
+  xor_sum.as_u64[0] = ((u64 *) name)[0] & prefix->fp_addr.ip6.as_u64[0];
+  xor_sum.as_u64[1] = ((u64 *) name)[1] & prefix->fp_addr.ip6.as_u64[1];
+
   return (xor_sum.as_u64[0] == prefix->fp_addr.ip6.as_u64[0]) &&
     (xor_sum.as_u64[1] == prefix->fp_addr.ip6.as_u64[1]);
 }
