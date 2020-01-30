@@ -792,6 +792,9 @@ int _hc_route_list(hc_sock_t *s, hc_data_t **pdata, bool async) {
 
   *pdata = data;
 
+  vapi_unlock();
+  return ret;
+
  err_free:
   free(data);
  err:
