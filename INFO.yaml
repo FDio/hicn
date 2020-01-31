@@ -57,6 +57,11 @@ committers:
       email: 'jsamain+fdio@cisco.com'
       id: 'jsamain'
       timezone: ''
+    - name: 'Angelo Mantellini'
+      company: 'Cisco'
+      email:'manangel@cisco.com'
+      id: 'manang'
+      timezone: ''
 tsc:
     # yamllint disable rule:line-length
     approval: ''
