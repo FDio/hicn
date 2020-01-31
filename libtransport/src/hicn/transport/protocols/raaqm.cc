@@ -104,7 +104,6 @@ void RaaqmTransportProtocol::reset() {
   index_manager_->setFirstSuffix(name->getSuffix());
   std::queue<Interest::Ptr> empty;
   std::swap(interest_to_retransmit_, empty);
-  current_window_size_ = 1;
   stats_.reset();
 
   // Reset reassembly component
