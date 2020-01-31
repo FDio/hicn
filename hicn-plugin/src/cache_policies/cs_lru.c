@@ -240,9 +240,7 @@ hicn_cs_lru_flush (vlib_main_t * vm, struct hicn_pit_cs_s *pitcs,
 	  lrunode->bucket_id)
 	{
 	  //The bucket is in the non overflown
-	  bucket =
-	    pool_elt_at_index (pitcs->pcs_table->ht_buckets,
-			       lrunode->bucket_id);
+	  bucket = pitcs->pcs_table->ht_buckets + lrunode->bucket_id;
 	}
       else
 	{
