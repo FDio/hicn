@@ -218,10 +218,15 @@ static void _daemonize(void) {
   setsid();
 
   /* close all descriptors */
+#ifdef __ANDROID__
+  for (int i = sysconf(_SC_OPEN_MAX); i >= 0; --i) {
+    close(i);
+  }
+#else
   for (int i = getdtablesize(); i >= 0; --i) {
     close(i);
   }
-
+#endif
   // reset errno because it might be seg to EBADF from the close calls above
   errno = 0;
 

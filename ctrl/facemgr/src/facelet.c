@@ -1041,7 +1041,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
         return rc;
     cur += rc;
     if (cur >= s + size)
-        return cur - s;
+        return (int)(cur - s);
 
     /* Netdevice */
     if (facelet_has_netdevice(facelet)) {
@@ -1051,14 +1051,14 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
 
         rc = snprintf(cur, s + size - cur, "/%d", facelet->netdevice.index);
         if (rc < 0)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
 
     } else {
         rc = snprintf(cur, s + size - cur, " netdevice=*/*");
@@ -1066,7 +1066,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Netdevice type */
@@ -1077,7 +1077,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Local ip address */
@@ -1087,7 +1087,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
 
         rc = ip_address_snprintf(cur, s + size - cur, &facelet->local_addr,
                 facelet->family);
@@ -1095,7 +1095,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Local port */
@@ -1106,7 +1106,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Remote ip address */
@@ -1116,7 +1116,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
 
         rc = ip_address_snprintf(cur, s + size - cur, &facelet->remote_addr,
                 facelet->family);
@@ -1124,7 +1124,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Remote port */
@@ -1135,7 +1135,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Admin state */
@@ -1146,7 +1146,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* State */
@@ -1157,7 +1157,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
 #ifdef WITH_POLICY
@@ -1168,7 +1168,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 #endif /* WITH_POLICY */
 
@@ -1180,7 +1180,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Routes */
@@ -1189,7 +1189,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
         return rc;
     cur += rc;
     if (cur >= s + size)
-        return cur - s;
+        return (int)(cur - s);
 
     hicn_route_t ** route_array;
     int n = route_set_get_array(facelet->routes, &route_array);
@@ -1198,19 +1198,19 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
     } else {
         for (unsigned i = 0; i < n; i++) {
             hicn_route_t * route = route_array[i];
-            rc = hicn_route_snprintf(cur, s + size - cur, route);
+            rc = (int)hicn_route_snprintf(cur, s + size - cur, route);
             if (rc < 0)
                 return rc;
             cur += rc;
             if (cur >= s + size)
-                return cur - s;
+                return (int)(cur - s);
 
             rc = snprintf(cur, s + size - cur, ", ");
             if (rc < 0)
                 return rc;
             cur += rc;
             if (cur >= s + size)
-                return cur - s;
+                return (int)(cur - s);
         }
     }
     free(route_array);
@@ -1220,9 +1220,9 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
         return rc;
     cur += rc;
     if (cur >= s + size)
-        return cur - s;
+        return (int)(cur - s);
 
-    return cur - s;
+    return (int)(cur - s);
 }
 
 int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int indent)
@@ -1238,7 +1238,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
         return rc;
     cur += rc;
     if (cur >= s + size)
-        return cur - s;
+        return (int)(cur - s);
 
     /* id */
     rc = snprintf(cur, s + size - cur, "%*s%s: %d,\n", 4 * (indent+1), "", "\"id\"",
@@ -1247,7 +1247,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
         return rc;
     cur += rc;
     if (cur >= s + size)
-        return cur - s;
+        return (int)(cur - s);
 
     /* Status */
     rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "", "\"status\"",
@@ -1256,7 +1256,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
         return rc;
     cur += rc;
     if (cur >= s + size)
-        return cur - s;
+        return (int)(cur - s);
 
     /* Family */
     rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "", "\"family\"",
@@ -1268,7 +1268,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
         return rc;
     cur += rc;
     if (cur >= s + size)
-        return cur - s;
+        return (int)(cur - s);
 
     /* Netdevice */
     if (facelet_has_netdevice(facelet)) {
@@ -1279,7 +1279,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
 
     } else {
         rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "",
@@ -1288,7 +1288,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Netdevice type */
@@ -1300,7 +1300,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Local ip address */
@@ -1311,7 +1311,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
 
         rc = ip_address_snprintf(cur, s + size - cur, &facelet->local_addr,
                 facelet->family);
@@ -1319,14 +1319,14 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
 
         rc = snprintf(cur, s + size - cur, "\",\n");
         if (rc < 0)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Local port */
@@ -1338,7 +1338,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Remote ip address */
@@ -1349,7 +1349,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
 
         rc = ip_address_snprintf(cur, s + size - cur, &facelet->remote_addr,
                 facelet->family);
@@ -1357,14 +1357,14 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
 
         rc = snprintf(cur, s + size - cur, "\",\n");
         if (rc < 0)
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Remote port */
@@ -1376,7 +1376,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Admin state */
@@ -1388,7 +1388,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* State */
@@ -1400,7 +1400,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
 #ifdef WITH_POLICY
@@ -1412,7 +1412,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 #endif /* WITH_POLICY */
 
@@ -1424,7 +1424,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
             return rc;
         cur += rc;
         if (cur >= s + size)
-            return cur - s;
+            return (int)(cur - s);
     }
 
     /* Status error */
@@ -1435,7 +1435,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
         return rc;
     cur += rc;
     if (cur >= s + size)
-        return cur - s;
+        return (int)(cur - s);
 
     /* Routes */
     // TODO
@@ -1445,7 +1445,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
         return rc;
     cur += rc;
     if (cur >= s + size)
-        return cur - s;
+        return (int)(cur - s);
 
-    return cur - s;
+    return (int)(cur - s);
 }

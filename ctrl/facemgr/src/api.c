@@ -2454,7 +2454,7 @@ facemgr_list_facelets_json(const facemgr_t * facemgr, char ** buffer)
 
 END:
     free(facelet_array);
-    return cur - s;
+    return (int)(cur - s);
 
 ERR:
     free(facelet_array);
