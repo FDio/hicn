@@ -59,7 +59,7 @@ committers:
       timezone: ''
     - name: 'Angelo Mantellini'
       company: 'Cisco'
-      email:'manangel@cisco.com'
+      email: 'manangel@cisco.com'
       id: 'manang'
       timezone: ''
 tsc:
