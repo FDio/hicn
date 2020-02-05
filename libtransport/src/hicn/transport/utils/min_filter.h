@@ -35,7 +35,7 @@ class MinFilter {
 
   template <typename R>
   TRANSPORT_ALWAYS_INLINE void pushBack(R&& value) {
-    if (by_arrival_.size() > size_) {
+    if (by_arrival_.size() >= size_) {
       by_order_.erase(by_arrival_.back());
       by_arrival_.pop_back();
     }
