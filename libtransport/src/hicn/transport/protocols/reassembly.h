@@ -70,7 +70,7 @@ class BaseReassembly : public Reassembly {
   IndexVerificationManager *index_manager_;
   std::unordered_map<std::uint32_t, ContentObject::Ptr> received_packets_;
 
-  uint64_t index_;
+  uint32_t index_;
   std::unique_ptr<utils::MemBuf> read_buffer_;
 };
 

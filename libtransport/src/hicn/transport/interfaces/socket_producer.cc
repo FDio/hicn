@@ -165,7 +165,6 @@ uint32_t ProducerSocket::produce(Name content_name,
   getSocketOption(GeneralTransportOptions::IDENTITY, identity);
 
   auto buffer_size = buffer->length();
-  const std::size_t hash_size = 32;
   int bytes_segmented = 0;
   std::size_t header_size;
   std::size_t manifest_header_size = 0;
@@ -176,7 +175,6 @@ uint32_t ProducerSocket::produce(Name content_name,
   core::Packet::Format format;
   std::shared_ptr<ContentObjectManifest> manifest;
   bool is_last_manifest = false;
-  std::unique_ptr<utils::CryptoHash> zero_hash;
   suffix_content.updateSuffix(start_offset);
   suffix_content.setUsingManifest(making_manifest);
 
@@ -249,10 +247,6 @@ uint32_t ProducerSocket::produce(Name content_name,
       manifest->setFinalBlockNumber(std::numeric_limits<uint32_t>::max());
     }
 
-    uint8_t hash[hash_size];
-    std::memset(hash, 0, hash_size);
-    zero_hash = std::make_unique<utils::CryptoHash>(
-        hash, hash_size, static_cast<utils::CryptoHashType>(hash_algo));
   }
 
   for (unsigned int packaged_segments = 0;
@@ -260,8 +254,6 @@ uint32_t ProducerSocket::produce(Name content_name,
     if (making_manifest) {
       if (manifest->estimateManifestSize(2) >
           data_packet_size - manifest_header_size) {
-        // Add next manifest
-        manifest->addSuffixHash(suffix_manifest.getSuffix(), *zero_hash);
         // Send the current manifest
         manifest->encode();
         identity->getSigner().sign(*manifest);
@@ -337,10 +329,6 @@ uint32_t ProducerSocket::produce(Name content_name,
   if (making_manifest) {
     if (is_last_manifest) {
       manifest->setFinalManifest(is_last_manifest);
-    }
-
-    if (!is_last) {
-      manifest->addSuffixHash(suffix_content.getSuffix(), *zero_hash);
     }
 
     manifest->encode();
