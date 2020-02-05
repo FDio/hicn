@@ -567,7 +567,8 @@ void RaaqmTransportProtocol::RAAQM() {
     // Change drop probability according to RTT statistics
     cur_path_->updateDropProb();
 
-    if (std::rand() % 10000 <= cur_path_->getDropProb() * 10000) {
+    double coin = ((double) rand() / (RAND_MAX));
+    if (coin <= cur_path_->getDropProb()) {
       decreaseWindow();
     }
   }
