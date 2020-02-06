@@ -216,8 +216,8 @@ static NumberSet *_pitStandard_SatisfyInterest(PIT *generic,
       if (fibEntry != NULL) {
         fibEntry_ReceiveObjectMessage(fibEntry, pitEntry_GetEgressSet(pitEntry),
                                       objectMessage,
-                                      forwarder_GetTicks(pit->forwarder),
-                                      pitEntry_GetCreationTime(pitEntry));
+                                      pitEntry_GetCreationTime(pitEntry),
+                                      forwarder_GetTicks(pit->forwarder));
       }
       const NumberSet *is = pitEntry_GetIngressSet(pitEntry);
       numberSet_AddSet(ingressSet, is);  // with this we do a copy so we can
