@@ -53,6 +53,15 @@ endif()
 
 add_subdirectory(hicn-plugin)
 
+INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/yang/hicn/hicn.yang
+        ${CMAKE_CURRENT_SOURCE_DIR}/yang/ietf/iana-if-type@2014-05-08.yang
+        ${CMAKE_CURRENT_SOURCE_DIR}/yang/ietf/ietf-interfaces.yang
+        ${CMAKE_CURRENT_SOURCE_DIR}/yang/ietf/ietf-ip@2014-06-16.yang
+        ${CMAKE_CURRENT_SOURCE_DIR}/yang/ietf/ietf-yang-types@2013-07-15.yang
+      DESTINATION ${CMAKE_INSTALL_LIBDIR}/modules_yang/
+      COMPONENT hicn-sysrepo-plugin)
+
+
 include(Packaging)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     include(Packager)
