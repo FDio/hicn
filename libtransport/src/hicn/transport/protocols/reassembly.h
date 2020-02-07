@@ -15,16 +15,19 @@
 
 #pragma once
 
-#include <hicn/transport/core/content_object.h>
-#include <hicn/transport/protocols/manifest_indexing_manager.h>
+#include <hicn/transport/core/facade.h>
 
 namespace transport {
 
 namespace interface {
 class ConsumerReadCallback;
-}
+class ConsumerSocket;
+}  // namespace interface
 
 namespace protocol {
+
+class TransportProtocol;
+class IndexManager;
 
 // Forward Declaration
 class ManifestManager;
@@ -36,41 +39,28 @@ class Reassembly {
     virtual void onContentReassembled(std::error_code ec) = 0;
   };
 
-  virtual void reassemble(ContentObject::Ptr &&content_object) = 0;
-  virtual void reset() = 0;
-  virtual void setContentCallback(ContentReassembledCallback *callback) {
-    content_callback_ = callback;
+  Reassembly(interface::ConsumerSocket *icn_socket,
+             TransportProtocol *transport_protocol)
+      : reassembly_consumer_socket_(icn_socket),
+        transport_protocol_(transport_protocol) {}
+
+  virtual ~Reassembly() = default;
+
+  virtual void reassemble(core::ContentObject::Ptr &&content_object) = 0;
+  virtual void reassemble(
+      std::unique_ptr<core::ContentObjectManifest> &&manifest) = 0;
+  virtual void reInitialize() = 0;
+  virtual void setIndexManager(IndexManager *index_manager) {
+    index_manager_ = index_manager;
   }
 
  protected:
-  ContentReassembledCallback *content_callback_;
-};
-
-class BaseReassembly : public Reassembly {
- public:
-  BaseReassembly(interface::ConsumerSocket *icn_socket,
-                 ContentReassembledCallback *content_callback,
-                 TransportProtocol *next_interest);
+  virtual void notifyApplication();
 
  protected:
-  virtual void reassemble(ContentObject::Ptr &&content_object) override;
-
-  virtual void copyContent(const ContentObject &content_object);
-
-  virtual void reset() override;
-
- private:
-  void notifyApplication();
-
- protected:
-  // The consumer socket
   interface::ConsumerSocket *reassembly_consumer_socket_;
-  std::unique_ptr<IncrementalIndexManager> incremental_index_manager_;
-  std::unique_ptr<ManifestIndexManager> manifest_index_manager_;
-  IndexVerificationManager *index_manager_;
-  std::unordered_map<std::uint32_t, ContentObject::Ptr> received_packets_;
-
-  uint32_t index_;
+  TransportProtocol *transport_protocol_;
+  IndexManager *index_manager_;
   std::unique_ptr<utils::MemBuf> read_buffer_;
 };
 

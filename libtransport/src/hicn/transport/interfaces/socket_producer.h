@@ -193,8 +193,7 @@ class ProducerSocket : public Socket<BasePortal>,
   std::atomic<utils::CryptoSuite> crypto_suite_;
   utils::SpinLock identity_lock_;
   std::shared_ptr<utils::Identity> identity_;
-  utils::SuffixManifest suffix_manifest_;
-  utils::SuffixContent suffix_content_;
+  core::NextSegmentCalculationStrategy suffix_strategy_;
 
   // While manifests are being built, contents are stored in a queue
   std::queue<std::shared_ptr<ContentObject>> content_queue_;
