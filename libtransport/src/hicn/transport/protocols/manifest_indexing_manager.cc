@@ -26,228 +26,180 @@ namespace protocol {
 using namespace interface;
 
 ManifestIndexManager::ManifestIndexManager(
-    interface::ConsumerSocket *icn_socket, TransportProtocol *next_interest)
-    : IncrementalIndexManager(icn_socket),
-      PacketManager<Interest>(1024),
-      next_to_retrieve_segment_(suffix_queue_.end()),
-      suffix_manifest_(core::NextSegmentCalculationStrategy::INCREMENTAL, 0),
-      next_reassembly_segment_(
-          core::NextSegmentCalculationStrategy::INCREMENTAL, 1, true),
-      ignored_segments_(),
-      next_interest_(next_interest) {}
+    interface::ConsumerSocket *icn_socket, TransportProtocol *transport,
+    Reassembly *reassembly)
+    : IncrementalIndexManager(icn_socket, transport, reassembly),
+      suffix_strategy_(nullptr) {}
 
-bool ManifestIndexManager::onManifest(
-    core::ContentObject::Ptr &&content_object) {
+void ManifestIndexManager::onContentObject(
+    core::Interest::Ptr &&interest, core::ContentObject::Ptr &&content_object) {
+  // Check if mainfiest or not
+  if (content_object->getPayloadType() == PayloadType::MANIFEST) {
+    onUntrustedManifest(std::move(interest), std::move(content_object));
+  } else if (content_object->getPayloadType() == PayloadType::CONTENT_OBJECT) {
+    onUntrustedContentObject(std::move(interest), std::move(content_object));
+  }
+}
+
+void ManifestIndexManager::onUntrustedManifest(
+    core::Interest::Ptr &&interest, core::ContentObject::Ptr &&content_object) {
+  auto ret = verification_manager_->onPacketToVerify(*content_object);
+
+  switch (ret) {
+    case VerificationPolicy::ACCEPT_PACKET: {
+      processTrustedManifest(std::move(content_object));
+      break;
+    }
+    case VerificationPolicy::DROP_PACKET:
+    case VerificationPolicy::ABORT_SESSION: {
+      transport_protocol_->onContentReassembled(
+          make_error_code(protocol_error::session_aborted));
+      break;
+    }
+  }
+}
+
+void ManifestIndexManager::processTrustedManifest(
+    ContentObject::Ptr &&content_object) {
   auto manifest =
       std::make_unique<ContentObjectManifest>(std::move(*content_object));
-  bool manifest_verified = verification_manager_->onPacketToVerify(*manifest);
+  manifest->decode();
 
-  if (manifest_verified) {
-    manifest->decode();
+  if (TRANSPORT_EXPECT_FALSE(manifest->getVersion() !=
+                             core::ManifestVersion::VERSION_1)) {
+    throw errors::RuntimeException("Received manifest with unknown version.");
+  }
 
-    if (TRANSPORT_EXPECT_FALSE(manifest->getVersion() !=
-                               core::ManifestVersion::VERSION_1)) {
-      throw errors::RuntimeException("Received manifest with unknown version.");
-    }
+  switch (manifest->getManifestType()) {
+    case core::ManifestType::INLINE_MANIFEST: {
+      auto _it = manifest->getSuffixList().begin();
+      auto _end = manifest->getSuffixList().end();
+      final_suffix_ = manifest->getFinalBlockNumber();  // final block number
 
-    switch (manifest->getManifestType()) {
-      case core::ManifestType::INLINE_MANIFEST: {
-        auto _it = manifest->getSuffixList().begin();
-        auto _end = manifest->getSuffixList().end();
-        size_t nb_segments = std::distance(_it, _end);
-        final_suffix_ = manifest->getFinalBlockNumber();  // final block number
+      if (TRANSPORT_EXPECT_FALSE(manifest->getName().getSuffix() == 0)) {
+        suffix_strategy_ = utils::SuffixStrategyFactory::getSuffixStrategy(
+            manifest->getNextSegmentCalculationStrategy(),
+            next_download_suffix_, std::distance(_it, _end));
+      }
 
-        suffix_hash_map_[_it->first] =
+      for (; _it != _end; _it++) {
+        auto hash =
             std::make_pair(std::vector<uint8_t>(_it->second, _it->second + 32),
                            manifest->getHashAlgorithm());
-        suffix_queue_.push_back(_it->first);
 
-        // If the transport protocol finished the list of segments to retrieve,
-        // reset the next_to_retrieve_segment_ iterator to the next segment
-        // provided by this manifest.
-        if (TRANSPORT_EXPECT_FALSE(next_to_retrieve_segment_ ==
-                                   suffix_queue_.end())) {
-          next_to_retrieve_segment_ = --suffix_queue_.end();
+        if (!checkUnverifiedSegments(_it->first, hash)) {
+          suffix_hash_map_[_it->first] = std::move(hash);
         }
-
-        std::advance(_it, 1);
-        for (; _it != _end; _it++) {
-          suffix_hash_map_[_it->first] = std::make_pair(
-              std::vector<uint8_t>(_it->second, _it->second + 32),
-              manifest->getHashAlgorithm());
-          suffix_queue_.push_back(_it->first);
-        }
-
-        if (TRANSPORT_EXPECT_FALSE(manifest->getName().getSuffix()) == 0) {
-          core::NextSegmentCalculationStrategy strategy =
-              manifest->getNextSegmentCalculationStrategy();
-
-          suffix_manifest_.reset(0);
-          suffix_manifest_.setNbSegments(nb_segments);
-          suffix_manifest_.setSuffixStrategy(strategy);
-          TRANSPORT_LOGD("Capacity of 1st manifest %zu",
-                         suffix_manifest_.getNbSegments());
-
-          next_reassembly_segment_.reset(*suffix_queue_.begin());
-          next_reassembly_segment_.setNbSegments(nb_segments);
-          suffix_manifest_.setSuffixStrategy(strategy);
-        }
-
-        // If the manifest is not full, we add the suffixes of missing segments
-        // to the list of segments to ignore when computing the next reassembly
-        // index.
-        if (TRANSPORT_EXPECT_FALSE(
-                suffix_manifest_.getNbSegments() - nb_segments > 0)) {
-          auto start = manifest->getSuffixList().begin();
-          auto last = --_end;
-          for (uint32_t i = last->first + 1;
-               i < start->first + suffix_manifest_.getNbSegments(); i++) {
-            ignored_segments_.push_back(i);
-          }
-        }
-
-        if (TRANSPORT_EXPECT_FALSE(manifest->isFinalManifest()) == 0) {
-          fillWindow(manifest->getWritableName(),
-                     manifest->getName().getSuffix());
-        }
-
-        break;
       }
-      case core::ManifestType::FLIC_MANIFEST: {
-        throw errors::NotImplementedException();
-      }
-      case core::ManifestType::FINAL_CHUNK_NUMBER: {
-        throw errors::NotImplementedException();
-      }
+
+      reassembly_->reassemble(std::move(manifest));
+
+      break;
+    }
+    case core::ManifestType::FLIC_MANIFEST: {
+      throw errors::NotImplementedException();
+    }
+    case core::ManifestType::FINAL_CHUNK_NUMBER: {
+      throw errors::NotImplementedException();
     }
   }
-
-  return manifest_verified;
 }
 
-void ManifestIndexManager::onManifestReceived(Interest::Ptr &&i,
-                                              ContentObject::Ptr &&c) {
-  onManifest(std::move(c));
-  if (next_interest_) {
-    next_interest_->scheduleNextInterests();
-  }
-}
+bool ManifestIndexManager::checkUnverifiedSegments(std::uint32_t suffix,
+                                                   const HashEntry &hash) {
+  auto it = unverified_segments_.find(suffix);
 
-void ManifestIndexManager::onManifestTimeout(Interest::Ptr &&i) {
-  const Name &n = i->getName();
-  uint32_t segment = n.getSuffix();
+  if (it != unverified_segments_.end()) {
+    auto ret = verifyContentObject(hash, *it->second.second);
 
-  if (segment > final_suffix_) {
-    return;
-  }
+    switch (ret) {
+      case VerificationPolicy::ACCEPT_PACKET: {
+        reassembly_->reassemble(std::move(it->second.second));
+        break;
+      }
+      case VerificationPolicy::DROP_PACKET: {
+        transport_protocol_->onPacketDropped(std::move(it->second.first),
+                                             std::move(it->second.second));
+        break;
+      }
+      case VerificationPolicy::ABORT_SESSION: {
+        transport_protocol_->onContentReassembled(
+            make_error_code(protocol_error::session_aborted));
+        break;
+      }
+    }
 
-  // Get portal
-  std::shared_ptr<interface::BasePortal> portal;
-  socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal);
-
-  // Send requests for manifest out of the congestion window (no
-  // in_flight_interests++)
-  portal->sendInterest(
-      std::move(i),
-      std::bind(&ManifestIndexManager::onManifestReceived, this,
-                std::placeholders::_1, std::placeholders::_2),
-      std::bind(&ManifestIndexManager::onManifestTimeout, this,
-                std::placeholders::_1));
-}
-
-void ManifestIndexManager::fillWindow(Name &name, uint32_t current_manifest) {
-  /* Send as many manifest as required for filling window. */
-  uint32_t interest_lifetime;
-  double window_size;
-  std::shared_ptr<interface::BasePortal> portal;
-  Interest::Ptr interest;
-  uint32_t current_segment = *next_to_retrieve_segment_;
-  // suffix_manifest_ now points to the next manifest to request
-  uint32_t last_requested_manifest = (suffix_manifest_++).getSuffix();
-
-  socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal);
-  socket_->getSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
-                           interest_lifetime);
-  socket_->getSocketOption(GeneralTransportOptions::CURRENT_WINDOW_SIZE,
-                           window_size);
-
-  if (TRANSPORT_EXPECT_FALSE(suffix_manifest_.getSuffix() >= final_suffix_)) {
-    suffix_manifest_.updateSuffix(last_requested_manifest);
-    return;
-  }
-
-  if (current_segment + window_size < suffix_manifest_.getSuffix() &&
-      current_manifest != last_requested_manifest) {
-    suffix_manifest_.updateSuffix(last_requested_manifest);
-    return;
-  }
-
-  do {
-    interest = getPacket();
-    name.setSuffix(suffix_manifest_.getSuffix());
-    interest->setName(name);
-    interest->setLifetime(interest_lifetime);
-
-    // Send interests for manifest out of the congestion window (no
-    // in_flight_interests++)
-    portal->sendInterest(
-        std::move(interest),
-        std::bind(&ManifestIndexManager::onManifestReceived, this,
-                  std::placeholders::_1, std::placeholders::_2),
-        std::bind(&ManifestIndexManager::onManifestTimeout, this,
-                  std::placeholders::_1));
-
-    last_requested_manifest = (suffix_manifest_++).getSuffix();
-  } while (current_segment + window_size >= suffix_manifest_.getSuffix() &&
-           suffix_manifest_.getSuffix() < final_suffix_);
-
-  // suffix_manifest_ now points to the last requested manifest
-  suffix_manifest_.updateSuffix(last_requested_manifest);
-}
-
-bool ManifestIndexManager::onContentObject(
-    const core::ContentObject &content_object) {
-  bool verify_signature;
-  socket_->getSocketOption(GeneralTransportOptions::VERIFY_SIGNATURE,
-                           verify_signature);
-
-  if (!verify_signature) {
+    unverified_segments_.erase(it);
     return true;
   }
 
-  uint64_t segment = content_object.getName().getSuffix();
+  return false;
+}
 
-  bool ret = false;
+VerificationPolicy ManifestIndexManager::verifyContentObject(
+    const HashEntry &manifest_hash, const ContentObject &content_object) {
+  VerificationPolicy ret;
 
-  auto it = suffix_hash_map_.find((const unsigned int)segment);
-  if (it != suffix_hash_map_.end()) {
-    auto hash_type = static_cast<utils::CryptoHashType>(it->second.second);
-    auto data_packet_digest = content_object.computeDigest(it->second.second);
-    auto data_packet_digest_bytes =
-        data_packet_digest.getDigest<uint8_t>().data();
-    std::vector<uint8_t> &manifest_digest_bytes = it->second.first;
+  auto hash_type = static_cast<utils::CryptoHashType>(manifest_hash.second);
+  auto data_packet_digest = content_object.computeDigest(manifest_hash.second);
+  auto data_packet_digest_bytes =
+      data_packet_digest.getDigest<uint8_t>().data();
+  const std::vector<uint8_t> &manifest_digest_bytes = manifest_hash.first;
 
-    if (utils::CryptoHash::compareBinaryDigest(data_packet_digest_bytes,
-                                               manifest_digest_bytes.data(),
-                                               hash_type)) {
-      suffix_hash_map_.erase(it);
-      ret = true;
-    } else {
-      throw errors::RuntimeException(
-          "Verification failure policy has to be implemented.");
-    }
+  if (utils::CryptoHash::compareBinaryDigest(
+          data_packet_digest_bytes, manifest_digest_bytes.data(), hash_type)) {
+    ret = VerificationPolicy::ACCEPT_PACKET;
+  } else {
+    ConsumerContentObjectVerificationFailedCallback
+        *verification_failed_callback = VOID_HANDLER;
+    socket_->getSocketOption(ConsumerCallbacksOptions::VERIFICATION_FAILED,
+                             &verification_failed_callback);
+    ret = (*verification_failed_callback)(
+        *socket_, content_object,
+        make_error_code(protocol_error::integrity_verification_failed));
   }
 
   return ret;
 }
 
+void ManifestIndexManager::onUntrustedContentObject(Interest::Ptr &&i,
+                                                    ContentObject::Ptr &&c) {
+  auto suffix = c->getName().getSuffix();
+  auto it = suffix_hash_map_.find(suffix);
+
+  if (it != suffix_hash_map_.end()) {
+    auto ret = verifyContentObject(it->second, *c);
+
+    switch (ret) {
+      case VerificationPolicy::ACCEPT_PACKET: {
+        suffix_hash_map_.erase(it);
+        reassembly_->reassemble(std::move(c));
+        break;
+      }
+      case VerificationPolicy::DROP_PACKET: {
+        transport_protocol_->onPacketDropped(std::move(i), std::move(c));
+        break;
+      }
+      case VerificationPolicy::ABORT_SESSION: {
+        transport_protocol_->onContentReassembled(
+            make_error_code(protocol_error::session_aborted));
+        break;
+      }
+    }
+  } else {
+    unverified_segments_[suffix] = std::make_pair(std::move(i), std::move(c));
+  }
+}
+
 uint32_t ManifestIndexManager::getNextSuffix() {
-  if (TRANSPORT_EXPECT_FALSE(next_to_retrieve_segment_ ==
-                             suffix_queue_.end())) {
-    return invalid_index;
+  auto ret = suffix_strategy_->getNextSuffix();
+
+  if (ret <= final_suffix_ && ret != IndexManager::invalid_index) {
+    suffix_queue_.push(ret);
+    return ret;
   }
 
-  return *next_to_retrieve_segment_++;
+  return IndexManager::invalid_index;
 }
 
 uint32_t ManifestIndexManager::getFinalSuffix() { return final_suffix_; }
@@ -257,37 +209,24 @@ bool ManifestIndexManager::isFinalSuffixDiscovered() {
 }
 
 uint32_t ManifestIndexManager::getNextReassemblySegment() {
-  uint32_t current_reassembly_segment;
-
-  while (true) {
-    current_reassembly_segment = next_reassembly_segment_.getSuffix();
-    next_reassembly_segment_++;
-
-    if (TRANSPORT_EXPECT_FALSE(current_reassembly_segment > final_suffix_)) {
-      return invalid_index;
-    }
-
-    if (ignored_segments_.empty()) break;
-
-    auto is_ignored =
-        std::find(ignored_segments_.begin(), ignored_segments_.end(),
-                  current_reassembly_segment);
-
-    if (is_ignored == ignored_segments_.end()) break;
-
-    ignored_segments_.erase(is_ignored);
+  if (suffix_queue_.empty()) {
+    return IndexManager::invalid_index;
   }
 
-  return current_reassembly_segment;
+  auto ret = suffix_queue_.front();
+  suffix_queue_.pop();
+  return ret;
 }
 
-void ManifestIndexManager::reset() {
-  IncrementalIndexManager::reset();
-  suffix_manifest_.reset(0);
-  suffix_queue_.clear();
+void ManifestIndexManager::reset(std::uint32_t offset) {
+  IncrementalIndexManager::reset(offset);
   suffix_hash_map_.clear();
+  unverified_segments_.clear();
+  SuffixQueue empty;
+  std::swap(suffix_queue_, empty);
+  suffix_strategy_->reset(offset);
 }
 
-}  // end namespace protocol
+}  // namespace protocol
 
-}  // end namespace transport
+}  // namespace transport

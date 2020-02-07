@@ -36,7 +36,7 @@ typedef std::deque<
     BufferQueue;
 
 class ATSConnector {
-  static constexpr uint32_t buffer_size = 1024 * 64;
+  static constexpr uint32_t buffer_size = 1024 * 512;
 
   enum class ConnectorState {
     CLOSED,

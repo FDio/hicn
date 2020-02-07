@@ -18,111 +18,134 @@
 #include <hicn/transport/core/manifest_format.h>
 
 namespace utils {
+
+using transport::core::NextSegmentCalculationStrategy;
+
 class SuffixStrategy {
  public:
-  SuffixStrategy(
-      transport::core::NextSegmentCalculationStrategy suffix_stragegy,
-      std::uint32_t start_offset)
-      : suffix_stragegy_(suffix_stragegy),
-        suffix_(start_offset),
-        nb_segments_(0) {}
+  SuffixStrategy(NextSegmentCalculationStrategy strategy)
+      : suffix_stragegy_(strategy), total_count_(0) {}
 
-  transport::core::NextSegmentCalculationStrategy getSuffixStrategy() {
+  virtual ~SuffixStrategy() = default;
+
+  virtual uint32_t getNextSuffix() = 0;
+
+  virtual uint32_t getNextManifestSuffix() = 0;
+
+  virtual uint32_t getNextContentSuffix() = 0;
+
+  virtual void reset(uint32_t offset = 0) = 0;
+
+  virtual uint32_t getManifestCapacity() = 0;
+
+  virtual void setManifestCapacity(uint32_t capacity) = 0;
+
+  virtual uint32_t getTotalCount() { return total_count_; };
+
+  NextSegmentCalculationStrategy getSuffixStrategy() {
     return suffix_stragegy_;
   }
 
-  void setSuffixStrategy(
-      transport::core::NextSegmentCalculationStrategy strategy) {
-    suffix_stragegy_ = strategy;
-  }
-
-  std::uint32_t getSuffix() { return suffix_; }
-
-  void updateSuffix(std::uint32_t new_suffix) { suffix_ = new_suffix; }
-
-  std::size_t getNbSegments() { return nb_segments_; }
-
-  void setNbSegments(std::size_t nb_segments) { nb_segments_ = nb_segments; }
-
-  void reset(std::uint32_t reset_suffix) {
-    suffix_ = reset_suffix;
-    nb_segments_ = 0;
-  }
-
-  ~SuffixStrategy() {}
+ protected:
+  inline void incrementTotalCount() { total_count_++; };
 
  protected:
-  transport::core::NextSegmentCalculationStrategy suffix_stragegy_;
-  std::uint32_t suffix_;
-  std::size_t nb_segments_;
-  virtual std::uint32_t getNextSuffix() = 0;
+  NextSegmentCalculationStrategy suffix_stragegy_;
+  std::uint32_t total_count_;
 };
 
-class SuffixManifest : public SuffixStrategy {
+class IncrementalSuffixStrategy : public SuffixStrategy {
  public:
-  SuffixManifest(
-      transport::core::NextSegmentCalculationStrategy suffix_stragegy,
-      std::uint32_t start_offset)
-      : SuffixStrategy(suffix_stragegy, start_offset) {}
+  IncrementalSuffixStrategy(std::uint32_t start_offset)
+      : SuffixStrategy(NextSegmentCalculationStrategy::INCREMENTAL),
+        next_suffix_(start_offset) {}
 
-  SuffixManifest operator++() {
-    updateSuffix(getNextSuffix());
-    SuffixManifest temp_suffix(suffix_stragegy_, suffix_);
-    temp_suffix.setNbSegments(getNbSegments());
-    return temp_suffix;
+  TRANSPORT_ALWAYS_INLINE std::uint32_t getNextSuffix() override {
+    incrementTotalCount();
+    return next_suffix_++;
   }
 
-  SuffixManifest operator++(int) {
-    SuffixManifest temp_suffix(suffix_stragegy_, suffix_);
-    temp_suffix.setNbSegments(getNbSegments());
-    updateSuffix(getNextSuffix());
-    return temp_suffix;
+  TRANSPORT_ALWAYS_INLINE std::uint32_t getNextContentSuffix() override {
+    return getNextSuffix();
   }
+
+  TRANSPORT_ALWAYS_INLINE std::uint32_t getNextManifestSuffix() override {
+    return getNextSuffix();
+  }
+
+  uint32_t getManifestCapacity() override {
+    throw errors::RuntimeException(
+        "No manifest capacity in IncrementalSuffixStrategy.");
+  }
+
+  void setManifestCapacity(uint32_t capacity) override {
+    throw errors::RuntimeException(
+        "No manifest capacity in IncrementalSuffixStrategy.");
+  }
+
+  void reset(std::uint32_t offset = 0) override { next_suffix_ = offset; }
 
  protected:
-  std::uint32_t getNextSuffix();
+  std::uint32_t next_suffix_;
 };
 
-class SuffixContent : public SuffixStrategy {
+class CapacityBasedSuffixStrategy : public SuffixStrategy {
  public:
-  SuffixContent(transport::core::NextSegmentCalculationStrategy suffix_stragegy,
-                std::uint32_t start_offset, bool making_manifest)
-      : SuffixStrategy(suffix_stragegy, start_offset),
-        making_manifest_(making_manifest),
-        content_counter_(0) {}
+  CapacityBasedSuffixStrategy(std::uint32_t start_offset,
+                              std::uint32_t manifest_capacity)
+      : SuffixStrategy(NextSegmentCalculationStrategy::INCREMENTAL),
+        next_suffix_(start_offset),
+        segments_in_manifest_(manifest_capacity),
+        current_manifest_iteration_(0) {}
 
-  SuffixContent(transport::core::NextSegmentCalculationStrategy suffix_stragegy,
-                std::uint32_t start_offset)
-      : SuffixContent(suffix_stragegy, start_offset, false) {}
-
-  SuffixContent operator++() {
-    updateSuffix(getNextSuffix());
-    SuffixContent temp_suffix(suffix_stragegy_, suffix_, making_manifest_);
-    temp_suffix.setNbSegments(getNbSegments());
-    temp_suffix.content_counter_ = content_counter_;
-    return temp_suffix;
+  TRANSPORT_ALWAYS_INLINE std::uint32_t getNextSuffix() override {
+    incrementTotalCount();
+    return next_suffix_++;
   }
 
-  SuffixContent operator++(int) {
-    SuffixContent temp_suffix(suffix_stragegy_, suffix_, making_manifest_);
-    temp_suffix.setNbSegments(getNbSegments());
-    temp_suffix.content_counter_ = content_counter_;
-    updateSuffix(getNextSuffix());
-    return temp_suffix;
+  TRANSPORT_ALWAYS_INLINE std::uint32_t getNextContentSuffix() override {
+    incrementTotalCount();
+    return next_suffix_ % segments_in_manifest_ == 0 ? next_suffix_++
+                                                     : ++next_suffix_;
   }
 
-  void setUsingManifest(bool value) { making_manifest_ = value; }
-
-  void reset(std::uint32_t reset_suffix) {
-    SuffixStrategy::reset(reset_suffix);
-    content_counter_ = 0;
+  TRANSPORT_ALWAYS_INLINE std::uint32_t getNextManifestSuffix() override {
+    incrementTotalCount();
+    return (current_manifest_iteration_++) * (segments_in_manifest_ + 1);
   }
+
+  TRANSPORT_ALWAYS_INLINE uint32_t getManifestCapacity() override {
+    return segments_in_manifest_;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void setManifestCapacity(uint32_t capacity) override {
+    segments_in_manifest_ = capacity;
+  }
+
+  void reset(std::uint32_t offset = 0) override { next_suffix_ = offset; }
 
  protected:
-  bool making_manifest_;
-  /* content_counter_ keeps track of the number of segments */
-  /* between two manifests */
-  uint32_t content_counter_;
-  std::uint32_t getNextSuffix();
+  std::uint32_t next_suffix_;
+  std::uint32_t segments_in_manifest_;
+  std::uint32_t current_manifest_iteration_;
 };
+
+class SuffixStrategyFactory {
+ public:
+  static std::unique_ptr<SuffixStrategy> getSuffixStrategy(
+      NextSegmentCalculationStrategy strategy, uint32_t start_offset,
+      uint32_t manifest_capacity = 0) {
+    switch (strategy) {
+      case NextSegmentCalculationStrategy::INCREMENTAL:
+        return std::make_unique<IncrementalSuffixStrategy>(start_offset);
+      case NextSegmentCalculationStrategy::MANIFEST_CAPACITY_BASED:
+        return std::make_unique<CapacityBasedSuffixStrategy>(start_offset,
+                                                             manifest_capacity);
+      default:
+        throw errors::RuntimeException(
+            "No valid NextSegmentCalculationStrategy specified.");
+    }
+  }
+};
+
 }  // namespace utils
