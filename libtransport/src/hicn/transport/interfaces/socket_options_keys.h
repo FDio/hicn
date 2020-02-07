@@ -77,8 +77,9 @@ typedef enum {
   CONTENT_OBJECT_INPUT = 411,
   MANIFEST_INPUT = 412,
   CONTENT_OBJECT_TO_VERIFY = 413,
-  READ_CALLBACK = 414,
-  STATS_SUMMARY = 415
+  VERIFICATION_FAILED = 414,
+  READ_CALLBACK = 415,
+  STATS_SUMMARY = 416
 } ConsumerCallbacksOptions;
 
 typedef enum {
@@ -96,7 +97,11 @@ typedef enum {
 
 typedef enum { OUTPUT_INTERFACE = 601 } DataLinkOptions;
 
-typedef enum { VIRTUAL_DOWNLOAD = 701, USE_CFG_FILE = 702 } OtherOptions;
+typedef enum {
+  VIRTUAL_DOWNLOAD = 701,
+  USE_CFG_FILE = 702,
+  STATISTICS
+} OtherOptions;
 
 typedef enum {
   SHA_256 = 801,

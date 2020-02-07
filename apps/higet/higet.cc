@@ -156,7 +156,33 @@ int main(int argc, char **argv) {
 
   t1 = std::chrono::system_clock::now();
 
-  connection.get(name, headers, {}, nullptr, nullptr, conf.ipv6_first_word);
+  connection.get("http://httpserver/sintel/3000/seg_init.mp4", headers, {},
+                 nullptr, nullptr, conf.ipv6_first_word);
+  conf.file_name = "seg_init.mp4";
+  processResponse(conf, connection.response());
+
+  connection.get("http://httpserver/sintel/3000/seg_1.m4s", headers, {},
+                 nullptr, nullptr, conf.ipv6_first_word);
+  conf.file_name = "seg_1.m4s";
+  processResponse(conf, connection.response());
+
+  connection.get("http://httpserver/sintel/3000/seg_2.m4s", headers, {},
+                 nullptr, nullptr, conf.ipv6_first_word);
+  conf.file_name = "seg_2.m4s";
+  processResponse(conf, connection.response());
+
+  connection.get("http://httpserver/sintel/3000/seg_3.m4s", headers, {},
+                 nullptr, nullptr, conf.ipv6_first_word);
+  conf.file_name = "seg_3.m4s";
+  processResponse(conf, connection.response());
+
+  connection.get("http://httpserver/sintel/3000/seg_4.m4s", headers, {},
+                 nullptr, nullptr, conf.ipv6_first_word);
+  conf.file_name = "seg_4.m4s";
+  processResponse(conf, connection.response());
+  connection.get("http://httpserver/sintel/3000/seg_5.m4s", headers, {},
+                 nullptr, nullptr, conf.ipv6_first_word);
+  conf.file_name = "seg_5.m4s";
   processResponse(conf, connection.response());
 
 #ifdef _WIN32
