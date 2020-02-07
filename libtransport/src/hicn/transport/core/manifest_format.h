@@ -51,8 +51,18 @@ enum class HashAlgorithm : uint8_t {
   CRC32C = static_cast<uint8_t>(utils::CryptoHashType::CRC32C),
 };
 
+/**
+ * INCREMENTAL: Manifests will be received inline with the data with no specific
+ * assumption regarding the manifest capacity. Consumers can send interests
+ * using a +1 heuristic.
+ *
+ * MANIFEST_CAPACITY_BASED: manifests with capacity N have a suffix multiple of
+ * N+1: 0, N+1, 2(N+1) etc. Contents have a suffix incremented by 1 except when
+ * it conflicts with a manifest: 1, 2, ..., N, N+2, N+3, ..., 2N+1, 2N+3
+ */
 enum class NextSegmentCalculationStrategy : uint8_t {
   INCREMENTAL = 1,
+  MANIFEST_CAPACITY_BASED = 2,
 };
 
 template <typename T>

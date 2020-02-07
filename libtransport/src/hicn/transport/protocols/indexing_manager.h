@@ -17,7 +17,7 @@
 
 #include <hicn/transport/errors/runtime_exception.h>
 #include <hicn/transport/errors/unexpected_manifest_exception.h>
-#include <hicn/transport/interfaces/socket_consumer.h>
+#include <hicn/transport/protocols/reassembly.h>
 #include <hicn/transport/protocols/verification_manager.h>
 #include <hicn/transport/utils/literals.h>
 
@@ -25,7 +25,13 @@
 
 namespace transport {
 
+namespace interface {
+class ConsumerSocket;
+}
+
 namespace protocol {
+
+class Reassembly;
 
 class IndexManager {
  public:
@@ -51,7 +57,7 @@ class IndexManager {
 
   virtual uint32_t getFinalSuffix() = 0;
 
-  virtual void reset() = 0;
+  virtual void reset(std::uint32_t offset = 0) = 0;
 };
 
 class IndexVerificationManager : public IndexManager {
@@ -62,37 +68,49 @@ class IndexVerificationManager : public IndexManager {
   virtual ~IndexVerificationManager() = default;
 
   /**
-   * The ownership of the ContentObjectManifest is moved
+   * The ownership of the ContentObject is moved
    * from the caller to the VerificationManager
    */
-  virtual bool onManifest(core::ContentObject::Ptr &&content_object) = 0;
-
-  /**
-   * The content object must just be verified; the ownership is still of the
-   * caller.
-   */
-  virtual bool onContentObject(const core::ContentObject &content_object) = 0;
+  virtual void onContentObject(core::Interest::Ptr &&interest,
+                               core::ContentObject::Ptr &&content_object) = 0;
 };
 
 class IncrementalIndexManager : public IndexVerificationManager {
  public:
-  IncrementalIndexManager(interface::ConsumerSocket *icn_socket)
+  IncrementalIndexManager(interface::ConsumerSocket *icn_socket,
+                          TransportProtocol *transport, Reassembly *reassembly)
       : socket_(icn_socket),
+        reassembly_(reassembly),
+        transport_protocol_(transport),
         final_suffix_(std::numeric_limits<uint32_t>::max()),
+        first_suffix_(0),
         next_download_suffix_(0),
         next_reassembly_suffix_(0),
         verification_manager_(
             std::make_unique<SignatureVerificationManager>(icn_socket)) {}
+
+  IncrementalIndexManager(const IncrementalIndexManager &) = delete;
+
+  IncrementalIndexManager(IncrementalIndexManager &&other)
+      : socket_(other.socket_),
+        reassembly_(other.reassembly_),
+        transport_protocol_(other.transport_protocol_),
+        final_suffix_(other.final_suffix_),
+        first_suffix_(other.first_suffix_),
+        next_download_suffix_(other.next_download_suffix_),
+        next_reassembly_suffix_(other.next_reassembly_suffix_),
+        verification_manager_(std::move(other.verification_manager_)) {}
 
   /**
    *
    */
   virtual ~IncrementalIndexManager() {}
 
-  TRANSPORT_ALWAYS_INLINE virtual void reset() override {
+  TRANSPORT_ALWAYS_INLINE virtual void reset(
+      std::uint32_t offset = 0) override {
     final_suffix_ = std::numeric_limits<uint32_t>::max();
-    next_download_suffix_ = first_suffix_;
-    next_reassembly_suffix_ = 0;
+    next_download_suffix_ = offset;
+    next_reassembly_suffix_ = offset;
   }
 
   /**
@@ -125,24 +143,17 @@ class IncrementalIndexManager : public IndexVerificationManager {
     return final_suffix_;
   }
 
-  TRANSPORT_ALWAYS_INLINE bool onManifest(
-      core::ContentObject::Ptr &&content_object) override {
-    throw errors::UnexpectedManifestException();
-  }
+  void onContentObject(core::Interest::Ptr &&interest,
+                       core::ContentObject::Ptr &&content_object) override;
 
-  TRANSPORT_ALWAYS_INLINE bool onContentObject(
-      const core::ContentObject &content_object) override {
-    auto ret = verification_manager_->onPacketToVerify(content_object);
-
-    if (TRANSPORT_EXPECT_FALSE(content_object.testRst())) {
-      final_suffix_ = content_object.getName().getSuffix();
-    }
-
-    return ret;
+  TRANSPORT_ALWAYS_INLINE void setReassembly(Reassembly *reassembly) {
+    reassembly_ = reassembly;
   }
 
  protected:
   interface::ConsumerSocket *socket_;
+  Reassembly *reassembly_;
+  TransportProtocol *transport_protocol_;
   uint32_t final_suffix_;
   uint32_t first_suffix_;
   uint32_t next_download_suffix_;

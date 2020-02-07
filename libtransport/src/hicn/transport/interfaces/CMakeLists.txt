@@ -22,6 +22,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_options_default_values.h
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_options_keys.h
   ${CMAKE_CURRENT_SOURCE_DIR}/callbacks.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/verification_policy.h
 )
 
 list(APPEND SOURCE_FILES

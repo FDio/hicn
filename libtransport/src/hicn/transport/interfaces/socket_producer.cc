@@ -38,8 +38,7 @@ ProducerSocket::ProducerSocket(asio::io_service &io_service)
       registration_status_(REGISTRATION_NOT_ATTEMPTED),
       making_manifest_(false),
       hash_algorithm_(HashAlgorithm::SHA_256),
-      suffix_manifest_(core::NextSegmentCalculationStrategy::INCREMENTAL, 0),
-      suffix_content_(core::NextSegmentCalculationStrategy::INCREMENTAL, 0),
+      suffix_strategy_(core::NextSegmentCalculationStrategy::INCREMENTAL),
       on_interest_input_(VOID_HANDLER),
       on_interest_dropped_input_buffer_(VOID_HANDLER),
       on_interest_inserted_input_buffer_(VOID_HANDLER),
@@ -159,8 +158,8 @@ uint32_t ProducerSocket::produce(Name content_name,
   uint32_t content_object_expiry_time = content_object_expiry_time_;
   HashAlgorithm hash_algo = hash_algorithm_;
   bool making_manifest = making_manifest_;
-  utils::SuffixContent suffix_content = suffix_content_;
-  utils::SuffixManifest suffix_manifest = suffix_manifest_;
+  auto suffix_strategy = utils::SuffixStrategyFactory::getSuffixStrategy(
+      suffix_strategy_, start_offset);
   std::shared_ptr<utils::Identity> identity;
   getSocketOption(GeneralTransportOptions::IDENTITY, identity);
 
@@ -169,19 +168,16 @@ uint32_t ProducerSocket::produce(Name content_name,
   std::size_t header_size;
   std::size_t manifest_header_size = 0;
   std::size_t signature_length = 0;
-  std::uint32_t final_block_number = 0;
+  std::uint32_t final_block_number = start_offset;
   uint64_t free_space_for_content = 0;
 
   core::Packet::Format format;
   std::shared_ptr<ContentObjectManifest> manifest;
   bool is_last_manifest = false;
-  suffix_content.updateSuffix(start_offset);
-  suffix_content.setUsingManifest(making_manifest);
 
   // TODO Manifest may still be used for indexing
   if (making_manifest && !identity) {
-    throw errors::RuntimeException(
-        "Making manifests without setting producer identity. Aborting.");
+    TRANSPORT_LOGD("Making manifests without setting producer identity.");
   }
 
   core::Packet::Format hf_format = core::Packet::Format::HF_UNSPEC;
@@ -200,9 +196,9 @@ uint32_t ProducerSocket::produce(Name content_name,
 
   format = hf_format;
   if (making_manifest) {
-    format = hf_format;
     manifest_header_size = core::Packet::getHeaderSizeFromFormat(
-        hf_format_ah, identity->getSignatureLength());
+        identity ? hf_format_ah : hf_format,
+        identity ? identity->getSignatureLength() : 0);
   } else if (identity) {
     format = hf_format_ah;
     signature_length = identity->getSignatureLength();
@@ -225,28 +221,20 @@ uint32_t ProducerSocket::produce(Name content_name,
         1.0);
     uint32_t number_of_manifests = static_cast<uint32_t>(
         std::ceil(float(number_of_segments) / segment_in_manifest));
-    final_block_number = number_of_segments + number_of_manifests - 1;
-
-    suffix_manifest.updateSuffix(start_offset);
-    suffix_manifest.setNbSegments(segment_in_manifest);
-    suffix_content.updateSuffix(start_offset + 1);
-    suffix_content.setNbSegments(segment_in_manifest);
+    final_block_number += number_of_segments + number_of_manifests - 1;
 
     manifest.reset(ContentObjectManifest::createManifest(
-        content_name.setSuffix(suffix_manifest.getSuffix()),
+        content_name.setSuffix(suffix_strategy->getNextManifestSuffix()),
         core::ManifestVersion::VERSION_1, core::ManifestType::INLINE_MANIFEST,
-        hash_algo, is_last_manifest, content_name,
-        core::NextSegmentCalculationStrategy::INCREMENTAL,
-        identity->getSignatureLength()));
+        hash_algo, is_last_manifest, content_name, suffix_strategy_,
+        identity ? identity->getSignatureLength() : 0));
     manifest->setLifetime(content_object_expiry_time);
-    suffix_manifest++;
 
     if (is_last) {
       manifest->setFinalBlockNumber(final_block_number);
     } else {
-      manifest->setFinalBlockNumber(std::numeric_limits<uint32_t>::max());
+      manifest->setFinalBlockNumber(utils::SuffixStrategy::INVALID_SUFFIX);
     }
-
   }
 
   for (unsigned int packaged_segments = 0;
@@ -256,7 +244,12 @@ uint32_t ProducerSocket::produce(Name content_name,
           data_packet_size - manifest_header_size) {
         // Send the current manifest
         manifest->encode();
-        identity->getSigner().sign(*manifest);
+
+        // If identity set, sign manifest
+        if (identity) {
+          identity->getSigner().sign(*manifest);
+        }
+
         passContentObjectToCallbacks(manifest);
 
         // Send content objects stored in the queue
@@ -269,25 +262,22 @@ uint32_t ProducerSocket::produce(Name content_name,
         // acquired in the passContentObjectToCallbacks function, so we can
         // safely release this reference
         manifest.reset(ContentObjectManifest::createManifest(
-            content_name.setSuffix(suffix_manifest.getSuffix()),
+            content_name.setSuffix(suffix_strategy->getNextManifestSuffix()),
             core::ManifestVersion::VERSION_1,
             core::ManifestType::INLINE_MANIFEST, hash_algo, is_last_manifest,
-            content_name, core::NextSegmentCalculationStrategy::INCREMENTAL,
-            identity->getSignatureLength()));
+            content_name, suffix_strategy_,
+            identity ? identity->getSignatureLength() : 0));
+
         manifest->setLifetime(content_object_expiry_time);
-
-        if (is_last) {
-          manifest->setFinalBlockNumber(final_block_number);
-        } else {
-          manifest->setFinalBlockNumber(std::numeric_limits<uint32_t>::max());
-        }
-
-        suffix_manifest++;
+        manifest->setFinalBlockNumber(
+            is_last ? final_block_number
+                    : utils::SuffixStrategy::INVALID_SUFFIX);
       }
     }
 
+    auto content_suffix = suffix_strategy->getNextContentSuffix();
     auto content_object = std::make_shared<ContentObject>(
-        content_name.setSuffix(suffix_content.getSuffix()), format);
+        content_name.setSuffix(content_suffix), format);
     content_object->setLifetime(content_object_expiry_time);
 
     auto b = buffer->cloneOne();
@@ -299,6 +289,7 @@ uint32_t ProducerSocket::produce(Name content_name,
       bytes_segmented += (int)(buffer_size - bytes_segmented);
 
       if (is_last && making_manifest) {
+        TRANSPORT_LOGI("Setting last manifest true");
         is_last_manifest = true;
       } else if (is_last) {
         content_object->setRst();
@@ -314,7 +305,7 @@ uint32_t ProducerSocket::produce(Name content_name,
     if (making_manifest) {
       using namespace std::chrono_literals;
       utils::CryptoHash hash = content_object->computeDigest(hash_algo);
-      manifest->addSuffixHash(suffix_content.getSuffix(), hash);
+      manifest->addSuffixHash(content_suffix, hash);
       content_queue_.push(content_object);
     } else {
       if (identity) {
@@ -322,8 +313,6 @@ uint32_t ProducerSocket::produce(Name content_name,
       }
       passContentObjectToCallbacks(content_object);
     }
-
-    suffix_content++;
   }
 
   if (making_manifest) {
@@ -332,7 +321,10 @@ uint32_t ProducerSocket::produce(Name content_name,
     }
 
     manifest->encode();
-    identity->getSigner().sign(*manifest);
+    if (identity) {
+      identity->getSigner().sign(*manifest);
+    }
+
     passContentObjectToCallbacks(manifest);
     while (!content_queue_.empty()) {
       passContentObjectToCallbacks(content_queue_.front());
@@ -347,7 +339,7 @@ uint32_t ProducerSocket::produce(Name content_name,
     });
   }
 
-  return suffix_content.getSuffix() - start_offset;
+  return suffix_strategy->getTotalCount();
 }
 
 void ProducerSocket::asyncProduce(ContentObject &content_object) {
