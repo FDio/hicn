@@ -20,6 +20,7 @@
 #include <hicn/transport/http/response.h>
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_producer.h>
+#include <hicn/transport/interfaces/verification_policy.h>
 #include <hicn/transport/utils/uri.h>
 
 #include <vector>
@@ -68,6 +69,8 @@ class HTTPClientConnection : public ConsumerSocket::ReadCallback {
 
   HTTPClientConnection &setCertificate(const std::string &cert_path);
 
+  void verifyPacketSignature(bool verify);
+
  private:
   void sendRequestGetReply(const HTTPRequest &request,
                            std::shared_ptr<HTTPResponse> &response,
@@ -79,6 +82,10 @@ class HTTPClientConnection : public ConsumerSocket::ReadCallback {
   void processLeavingInterest(interface::ConsumerSocket &c,
                               const core::Interest &interest,
                               std::string &payload);
+
+  VerificationPolicy onSignatureVerificationFailed(
+      ConsumerSocket &consumer, const core::ContentObject &content_object,
+      std::error_code reason);
 
   // Read callback
   bool isBufferMovable() noexcept override { return true; }
