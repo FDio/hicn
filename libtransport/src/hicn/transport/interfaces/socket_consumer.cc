@@ -417,6 +417,28 @@ int ConsumerSocket::setSocketOption(
       });
 }
 
+int ConsumerSocket::setSocketOption(
+    int socket_option_key,
+    ConsumerContentObjectVerificationFailedCallback socket_option_value) {
+  return rescheduleOnIOService(
+      socket_option_key, socket_option_value,
+      [this](
+          int socket_option_key,
+          ConsumerContentObjectVerificationFailedCallback socket_option_value)
+          -> int {
+        switch (socket_option_key) {
+          case ConsumerCallbacksOptions::VERIFICATION_FAILED:
+            verification_failed_callback_ = socket_option_value;
+            break;
+
+          default:
+            return SOCKET_OPTION_NOT_SET;
+        }
+
+        return SOCKET_OPTION_SET;
+      });
+}
+
 int ConsumerSocket::setSocketOption(int socket_option_key,
                                     IcnObserver *socket_option_value) {
   utils::SpinLock::Acquire locked(guard_raaqm_params_);
@@ -712,6 +734,29 @@ int ConsumerSocket::getSocketOption(
 }
 
 int ConsumerSocket::getSocketOption(
+    int socket_option_key,
+    ConsumerContentObjectVerificationFailedCallback **socket_option_value) {
+  // Reschedule the function on the io_service to avoid race condition in case
+  // setSocketOption is called while the io_service is running.
+  return rescheduleOnIOService(
+      socket_option_key, socket_option_value,
+      [this](
+          int socket_option_key,
+          ConsumerContentObjectVerificationFailedCallback **socket_option_value)
+          -> int {
+        switch (socket_option_key) {
+          case ConsumerCallbacksOptions::VERIFICATION_FAILED:
+            *socket_option_value = &verification_failed_callback_;
+            break;
+          default:
+            return SOCKET_OPTION_NOT_GET;
+        }
+
+        return SOCKET_OPTION_GET;
+      });
+}
+
+int ConsumerSocket::getSocketOption(
     int socket_option_key, std::shared_ptr<Portal> &socket_option_value) {
   switch (socket_option_key) {
     case PORTAL:
@@ -767,6 +812,19 @@ int ConsumerSocket::getSocketOption(int socket_option_key,
   return SOCKET_OPTION_GET;
 }
 
+int ConsumerSocket::getSocketOption(int socket_option_key,
+                                    TransportStatistics **socket_option_value) {
+  switch (socket_option_key) {
+    case OtherOptions::STATISTICS:
+      *socket_option_value = &stats_;
+      break;
+    default:
+      return SOCKET_OPTION_NOT_GET;
+  }
+
+  return SOCKET_OPTION_GET;
+}
+
 int ConsumerSocket::getSocketOption(
     int socket_option_key, ConsumerTimerCallback **socket_option_value) {
   // Reschedule the function on the io_service to avoid race condition in case
@@ -789,4 +847,4 @@ int ConsumerSocket::getSocketOption(
 
 }  // namespace interface
 
-}  // end namespace transport
+}  // namespace transport

@@ -15,10 +15,11 @@
 
 #pragma once
 
+#include <hicn/transport/core/facade.h>
+#include <hicn/transport/interfaces/verification_policy.h>
+
 #include <functional>
 #include <system_error>
-
-#include <hicn/transport/core/facade.h>
 
 namespace utils {
 class MemBuf;
@@ -83,6 +84,16 @@ using ConsumerContentObjectCallback =
  */
 using ConsumerContentObjectVerificationCallback =
     std::function<bool(ConsumerSocket &, const core::ContentObject &)>;
+
+/**
+ * The ConsumerContentObjectVerificationFailedCallback will be caled by the
+ * transport if a data packet (either manifest or content object) cannot be
+ * verified. The application here decides what to do by returning a
+ * VerificationFailedPolicy object.
+ */
+using ConsumerContentObjectVerificationFailedCallback =
+    std::function<VerificationPolicy(
+        ConsumerSocket &, const core::ContentObject &, std::error_code ec)>;
 
 /**
  * The ConsumerManifestCallback will be called by the consumer socket when a

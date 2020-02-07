@@ -80,6 +80,13 @@ AsyncConsumerProducer::AsyncConsumerProducer(
   }
 
   ret = producer_socket_.setSocketOption(
+      interface::GeneralTransportOptions::MAKE_MANIFEST, true);
+
+  if (ret != SOCKET_OPTION_SET) {
+    TRANSPORT_LOGD("Warning: impossible to enable signatures.");
+  }
+
+  ret = producer_socket_.setSocketOption(
       interface::GeneralTransportOptions::DATA_PACKET_SIZE, mtu_);
 
   if (ret != SOCKET_OPTION_SET) {
@@ -130,6 +137,8 @@ void AsyncConsumerProducer::manageIncomingInterest(
   auto _it = chunk_number_map_.find(name);
   auto _end = chunk_number_map_.end();
 
+  std::cout << "Received interest " << seg << std::endl;
+
   if (_it != _end) {
     if (_it->second.second) {
       // Content is in production
@@ -137,13 +146,15 @@ void AsyncConsumerProducer::manageIncomingInterest(
     }
 
     if (seg >= _it->second.first) {
-      TRANSPORT_LOGD(
+      TRANSPORT_LOGI(
           "Ignoring interest with name %s for a content object which does not "
           "exist. (Request: %u, max: %u)",
           name.toString().c_str(), (uint32_t)seg, (uint32_t)_it->second.first);
       return;
     }
   }
+
+  std::cout << "Received interest " << seg << std::endl;
 
   bool is_mpd =
       HTTPMessageFastParser::isMpdRequest(payload->data(), payload->length());
@@ -194,6 +205,7 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
   if (headers) {
     request_counter_++;
   }
+
   it->second.first +=
       producer_socket_.produce(name, data, size, is_last, start_suffix);
 
