@@ -18,6 +18,7 @@
 #include <hicn/transport/interfaces/socket.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/protocols/protocol.h>
+#include <hicn/transport/protocols/statistics.h>
 #include <hicn/transport/utils/event_thread.h>
 #include <hicn/transport/utils/verifier.h>
 
@@ -224,6 +225,10 @@ class ConsumerSocket : public BaseSocket {
 
   virtual int setSocketOption(
       int socket_option_key,
+      ConsumerContentObjectVerificationFailedCallback socket_option_value);
+
+  virtual int setSocketOption(
+      int socket_option_key,
       ConsumerContentObjectVerificationCallback socket_option_value);
 
   virtual int setSocketOption(int socket_option_key,
@@ -262,6 +267,10 @@ class ConsumerSocket : public BaseSocket {
 
   virtual int getSocketOption(
       int socket_option_key,
+      ConsumerContentObjectVerificationFailedCallback **socket_option_value);
+
+  virtual int getSocketOption(
+      int socket_option_key,
       ConsumerContentObjectVerificationCallback **socket_option_value);
 
   virtual int getSocketOption(int socket_option_key,
@@ -285,6 +294,9 @@ class ConsumerSocket : public BaseSocket {
 
   virtual int getSocketOption(int socket_option_key,
                               ConsumerTimerCallback **socket_option_value);
+
+  virtual int getSocketOption(int socket_option_key,
+                              TransportStatistics **socket_option_value);
 
  protected:
   // If the thread calling lambda_func is not the same of io_service, this
@@ -364,6 +376,7 @@ class ConsumerSocket : public BaseSocket {
   ConsumerContentObjectCallback on_content_object_;
   ConsumerManifestCallback on_manifest_;
   ConsumerTimerCallback stats_summary_;
+  ConsumerContentObjectVerificationFailedCallback verification_failed_callback_;
 
   ReadCallback *read_callback_;
 
@@ -374,6 +387,9 @@ class ConsumerSocket : public BaseSocket {
 
   // Transport protocol
   std::unique_ptr<TransportProtocol> transport_protocol_;
+
+  // Statistic
+  TransportStatistics stats_;
 
   utils::SpinLock guard_raaqm_params_;
 };
