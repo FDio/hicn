@@ -15,56 +15,37 @@
 
 #pragma once
 
-#include <hicn/transport/interfaces/socket_consumer.h>
-
-#include <deque>
+#include <hicn/transport/interfaces/callbacks.h>
+#include <hicn/transport/interfaces/verification_policy.h>
+#include <hicn/transport/protocols/errors.h>
 
 namespace transport {
 
+namespace interface {
+class ConsumerSocket;
+}
+
 namespace protocol {
+
+using Packet = core::Packet;
+using interface::ConsumerSocket;
+using interface::VerificationPolicy;
 
 class VerificationManager {
  public:
   virtual ~VerificationManager() = default;
-  virtual bool onPacketToVerify(const Packet& packet) = 0;
+  virtual VerificationPolicy onPacketToVerify(const Packet& packet) = 0;
 };
 
 class SignatureVerificationManager : public VerificationManager {
  public:
-  SignatureVerificationManager(interface::ConsumerSocket* icn_socket)
+  SignatureVerificationManager(ConsumerSocket* icn_socket)
       : icn_socket_(icn_socket) {}
 
-  TRANSPORT_ALWAYS_INLINE bool onPacketToVerify(const Packet& packet) override {
-    using namespace interface;
-
-    bool verify_signature, ret = false;
-    icn_socket_->getSocketOption(GeneralTransportOptions::VERIFY_SIGNATURE,
-                                 verify_signature);
-
-    if (!verify_signature) {
-      return true;
-    }
-
-    std::shared_ptr<utils::Verifier> verifier;
-    icn_socket_->getSocketOption(GeneralTransportOptions::VERIFIER, verifier);
-
-    if (TRANSPORT_EXPECT_FALSE(!verifier)) {
-      throw errors::RuntimeException(
-          "No certificate provided by the application.");
-    }
-
-    ret = verifier->verify(packet);
-
-    if (!ret) {
-      throw errors::RuntimeException(
-          "Verification failure policy has to be implemented.");
-    }
-
-    return ret;
-  }
+  interface::VerificationPolicy onPacketToVerify(const Packet& packet) override;
 
  private:
-  interface::ConsumerSocket* icn_socket_;
+  ConsumerSocket* icn_socket_;
 };
 
 }  // end namespace protocol

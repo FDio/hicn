@@ -22,9 +22,16 @@ namespace protocol {
 
 using namespace interface;
 
-TransportProtocol::TransportProtocol(interface::ConsumerSocket *icn_socket)
-    : socket_(icn_socket), is_running_(false), is_first_(false) {
+TransportProtocol::TransportProtocol(interface::ConsumerSocket *icn_socket,
+                                     Reassembly *reassembly_protocol,
+                                     IndexVerificationManager *index_manager)
+    : socket_(icn_socket),
+      reassembly_protocol_(reassembly_protocol),
+      index_manager_(index_manager),
+      is_running_(false),
+      is_first_(false) {
   socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal_);
+  socket_->getSocketOption(OtherOptions::STATISTICS, &stats_);
 }
 
 int TransportProtocol::start() {
@@ -69,6 +76,26 @@ void TransportProtocol::resume() {
   portal_->runEventsLoop();
 
   is_running_ = false;
+}
+
+void TransportProtocol::onContentReassembled(std::error_code ec) {
+  interface::ConsumerSocket::ReadCallback *on_payload = VOID_HANDLER;
+  socket_->getSocketOption(READ_CALLBACK, &on_payload);
+
+  if (!on_payload) {
+    throw errors::RuntimeException(
+        "The read callback must be installed in the transport before "
+        "starting "
+        "the content retrieval.");
+  }
+
+  if (!ec) {
+    on_payload->readSuccess(stats_->getBytesRecv());
+  } else {
+    on_payload->readError(ec);
+  }
+
+  stop();
 }
 
 }  // end namespace protocol

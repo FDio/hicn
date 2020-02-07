@@ -16,6 +16,8 @@
 #include <hicn/transport/http/client_connection.h>
 #include <hicn/transport/utils/hash.h>
 
+#include <fstream>
+
 #define DEFAULT_BETA 0.99
 #define DEFAULT_GAMMA 0.07
 
@@ -38,6 +40,12 @@ HTTPClientConnection::HTTPClientConnection()
           std::placeholders::_2));
 
   consumer_.setSocketOption(ConsumerCallbacksOptions::READ_CALLBACK, this);
+  consumer_.setSocketOption(
+      ConsumerCallbacksOptions::VERIFICATION_FAILED,
+      (ConsumerContentObjectVerificationFailedCallback)std::bind(
+          &HTTPClientConnection::onSignatureVerificationFailed, this,
+          std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+  consumer_.setSocketOption(GeneralTransportOptions::VERIFY_SIGNATURE, false);
 
   consumer_.connect();
   std::shared_ptr<typename ConsumerSocket::Portal> portal;
@@ -85,6 +93,10 @@ HTTPClientConnection::RC HTTPClientConnection::sendRequest(
 
   sendRequestGetReply(request, response, ipv6_first_word);
   return return_code_;
+}
+
+void HTTPClientConnection::verifyPacketSignature(bool verify) {
+  consumer_.setSocketOption(GeneralTransportOptions::VERIFY_SIGNATURE, verify);
 }
 
 void HTTPClientConnection::sendRequestGetReply(
@@ -184,6 +196,12 @@ HTTPClientConnection &HTTPClientConnection::setCertificate(
   }
 
   return *this;
+}
+
+VerificationPolicy HTTPClientConnection::onSignatureVerificationFailed(
+    ConsumerSocket &consumer, const core::ContentObject &content_object,
+    std::error_code reason) {
+  return VerificationPolicy::ACCEPT_PACKET;
 }
 
 // Read buffer management

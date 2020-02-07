@@ -15,11 +15,11 @@
 
 #pragma once
 
+#include <hicn/transport/protocols/byte_stream_reassembly.h>
 #include <hicn/transport/protocols/congestion_window_protocol.h>
 #include <hicn/transport/protocols/protocol.h>
 #include <hicn/transport/protocols/raaqm_data_path.h>
 #include <hicn/transport/protocols/rate_estimation.h>
-#include <hicn/transport/protocols/reassembly.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
 
 #include <queue>
@@ -29,11 +29,8 @@ namespace transport {
 
 namespace protocol {
 
-class RaaqmTransportProtocol
-    : public TransportProtocol,
-      public BaseReassembly,
-      public CWindowProtocol,
-      public BaseReassembly::ContentReassembledCallback {
+class RaaqmTransportProtocol : public TransportProtocol,
+                               public CWindowProtocol {
  public:
   RaaqmTransportProtocol(interface::ConsumerSocket *icnet_socket);
 
@@ -69,6 +66,9 @@ class RaaqmTransportProtocol
 
   void onContentSegment(Interest::Ptr &&interest,
                         ContentObject::Ptr &&content_object);
+
+  void onPacketDropped(Interest::Ptr &&interest,
+                       ContentObject::Ptr &&content_object) override;
 
   void onTimeout(Interest::Ptr &&i) override;
 

@@ -25,24 +25,30 @@ namespace transport {
 
 namespace protocol {
 
-class ManifestIndexManager : public IncrementalIndexManager,
-                             public PacketManager<Interest> {
+class ManifestIndexManager : public IncrementalIndexManager {
   static constexpr double alpha = 0.3;
 
  public:
-  using SuffixQueue = std::list<uint32_t>;
+  using SuffixQueue = std::queue<uint32_t>;
   using HashEntry = std::pair<std::vector<uint8_t>, core::HashAlgorithm>;
 
   ManifestIndexManager(interface::ConsumerSocket *icn_socket,
-                       TransportProtocol *next_interest);
+                       TransportProtocol *transport, Reassembly *reassembly);
+
+  ManifestIndexManager(IncrementalIndexManager &&index_manager)
+      : IncrementalIndexManager(std::move(index_manager)),
+        suffix_strategy_(nullptr) {
+    for (uint32_t i = first_suffix_; i < next_download_suffix_; i++) {
+      suffix_queue_.push(i);
+    }
+  }
 
   virtual ~ManifestIndexManager() = default;
 
-  void reset() override;
+  void reset(std::uint32_t offset = 0) override;
 
-  bool onManifest(core::ContentObject::Ptr &&content_object) override;
-
-  bool onContentObject(const core::ContentObject &content_object) override;
+  void onContentObject(core::Interest::Ptr &&interest,
+                       core::ContentObject::Ptr &&content_object) override;
 
   uint32_t getNextSuffix() override;
 
@@ -53,28 +59,29 @@ class ManifestIndexManager : public IncrementalIndexManager,
   uint32_t getFinalSuffix() override;
 
  private:
-  void onManifestReceived(Interest::Ptr &&i, ContentObject::Ptr &&c);
-  void onManifestTimeout(Interest::Ptr &&i);
-  void fillWindow(Name &name, uint32_t current_manifest);
+  void onUntrustedManifest(core::Interest::Ptr &&interest,
+                           core::ContentObject::Ptr &&content_object);
+  void onUntrustedContentObject(core::Interest::Ptr &&interest,
+                                core::ContentObject::Ptr &&content_object);
+  void processTrustedManifest(core::ContentObject::Ptr &&content_object);
+  void onManifestReceived(core::Interest::Ptr &&i,
+                          core::ContentObject::Ptr &&c);
+  void onManifestTimeout(core::Interest::Ptr &&i);
+  VerificationPolicy verifyContentObject(
+      const HashEntry &manifest_hash,
+      const core::ContentObject &content_object);
+  bool checkUnverifiedSegments(std::uint32_t suffix, const HashEntry &hash);
 
  protected:
+  std::unique_ptr<utils::SuffixStrategy> suffix_strategy_;
   SuffixQueue suffix_queue_;
-  SuffixQueue::iterator next_to_retrieve_segment_;
-  utils::SuffixManifest suffix_manifest_;
-  utils::SuffixContent next_reassembly_segment_;
-
-  // Holds segments that should not be requested. Useful when
-  // computing the next reassembly segment because some manifests
-  // may be incomplete.
-  std::vector<uint32_t> ignored_segments_;
 
   // Hash verification
-  std::unordered_map<uint32_t,
-                     std::pair<std::vector<uint8_t>, core::HashAlgorithm>>
-      suffix_hash_map_;
+  std::unordered_map<uint32_t, HashEntry> suffix_hash_map_;
 
-  // (temporary) To call scheduleNextInterests() after receiving a manifest
-  TransportProtocol *next_interest_;
+  std::unordered_map<uint32_t,
+                     std::pair<core::Interest::Ptr, core::ContentObject::Ptr>>
+      unverified_segments_;
 };
 
 }  // end namespace protocol
