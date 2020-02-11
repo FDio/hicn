@@ -42,7 +42,8 @@ DEPS_UBUNTU="libparc-dev                        \
              vpp-plugin-core=${VPP_VERSION_DEB} \
              libyang                            \
              sysrepo                            \
-             python3-ply"
+             python3-ply                        \
+             collectd-dev"
 
 
 DEPS_UBUNTU_NOVERSION="libparc-dev              \
@@ -58,7 +59,8 @@ DEPS_UBUNTU_NOVERSION="libparc-dev              \
              vpp-plugin-core                    \
              libyang                            \
              sysrepo                            \
-             python3-ply"
+             python3-ply                        \
+             collectd-dev"
 
 DEPS_CMAKE_UBUNTU="curl"
 
@@ -202,6 +204,7 @@ build_package() {
           -DBUILD_APPS=ON               \
           -DBUILD_HICNLIGHT=OFF         \
           -DBUILD_SYSREPOPLUGIN=ON      \
+          -DBUILD_TELEMETRY=ON          \
           ${SCRIPT_PATH}/..
 
     make VERBOSE=1 -j8 package
