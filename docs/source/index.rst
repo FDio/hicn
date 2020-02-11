@@ -10,6 +10,7 @@ Hybrid Information-Centric Networking
    hicn-light
    interface
    control
+   telemetry
    utils
    apps
 
