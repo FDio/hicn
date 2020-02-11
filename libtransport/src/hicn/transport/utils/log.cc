@@ -42,16 +42,14 @@
  * will be provided by Android log. Android log features will be used to output
  * log level and tag.
  */
-#ifdef TRANSPORT_LOG_USE_ANDROID_LOG
-#undef TRANSPORT_LOG_USE_ANDROID_LOG
+
 #if defined(__ANDROID__)
 #define TRANSPORT_LOG_USE_ANDROID_LOG 1
+#define ANDROID_TAG "HicnTransport"
 #else
 #define TRANSPORT_LOG_USE_ANDROID_LOG 0
 #endif
-#else
-#define TRANSPORT_LOG_USE_ANDROID_LOG 0
-#endif
+
 /* When defined, NSLog (uses Apple System Log) will be used instead of stderr
  * (ignored on non-Apple platforms). Date, time, pid and tid (context) will be
  * provided by NSLog. Curiously, doesn't use NSLog() directly, but piggybacks on
@@ -619,7 +617,7 @@ static void out_android_callback(const transport_log_message *const msg,
     tag = msg->tag_b;
     *msg->tag_e = 0;
   }
-  __android_log_print(android_lvl(msg->lvl), tag, "%s", msg->msg_b);
+  __android_log_print(android_lvl(msg->lvl), ANDROID_TAG, "%s", msg->msg_b);
 }
 
 enum { OUT_ANDROID_MASK = TRANSPORT_LOG_PUT_STD & ~TRANSPORT_LOG_PUT_CTX };
