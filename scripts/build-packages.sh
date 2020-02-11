@@ -177,6 +177,36 @@ setup() {
     c++ --version
 }
 
+
+install_collectd_headers() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+    else
+        echo "ERROR: System configuration not recognized. Build failed"
+        exit -1
+    fi
+
+    if [ "${VERSION_CODENAME}" == "xenial" ]; then
+        echo "deb [trusted=yes] http://pkg.ci.collectd.org/deb xenial collectd-5.7" | sudo tee /etc/apt/sources.list.d/collectd.list
+        sudo apt download collectd-dev
+        FILENAME=$(ls collectd*)
+        sudo dpkg-deb -x $FILENAME tmp
+        sudo dpkg-deb --control $FILENAME tmp/DEBIAN
+        sed 's/5.6/5.8/g' tmp/DEBIAN/control > control.tmp
+        sudo mv control.tmp tmp/DEBIAN/control
+        sudo dpkg -b tmp collectd-dev-5.7.2~xenial_all.deb
+        sudo rm -rf tmp
+        sudo rm -f $FILENAME
+        sudo apt-get install collectd-core
+        sudo dpkg -i collectd-dev-5.7.2~xenial_all.deb
+    elif [ "${DISTRIB_ID}" == "centos" ]; then
+        sudo yum install epel-release.noarch
+        sudo yum install collectd-dev
+    else
+        sudo apt-get install collectd-dev
+    fi
+}
+
 # Parameters:
 # $1 = Package name
 #
@@ -196,12 +226,15 @@ build_package() {
 
     rm -rf libtransport ctrl/libhicnctrl
 
+    install_collectd_headers
+
     cmake -DCMAKE_INSTALL_PREFIX=/usr   \
           -DBUILD_HICNPLUGIN=ON         \
           -DBUILD_LIBTRANSPORT=ON       \
           -DBUILD_APPS=ON               \
           -DBUILD_HICNLIGHT=OFF         \
           -DBUILD_SYSREPOPLUGIN=ON      \
+          -DBUILD_TELEMETRY=ON          \
           ${SCRIPT_PATH}/..
 
     make VERBOSE=1 -j8 package
