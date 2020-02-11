@@ -2,7 +2,7 @@ Hybrid Information-Centric Networking
 =====================================
 
 .. toctree::
-   
+
    started
    lib
    vpp-plugin
@@ -10,6 +10,7 @@ Hybrid Information-Centric Networking
    hicn-light
    interface
    control
+   telemetry
    utils
    apps
 
