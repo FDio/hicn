@@ -191,10 +191,10 @@ build_package() {
     mkdir -p build && pushd build
 
     rm -rf *
-    cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ${SCRIPT_PATH}/..
-    make VERBOSE=1 -j8 package
+    # cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ${SCRIPT_PATH}/..
+    # make VERBOSE=1 -j8 package
 
-    rm -rf libtransport ctrl/libhicnctrl
+    # rm -rf libtransport ctrl/libhicnctrl
 
     cmake -DCMAKE_INSTALL_PREFIX=/usr   \
           -DBUILD_HICNPLUGIN=ON         \
@@ -202,6 +202,7 @@ build_package() {
           -DBUILD_APPS=ON               \
           -DBUILD_HICNLIGHT=OFF         \
           -DBUILD_SYSREPOPLUGIN=ON      \
+          -DBUILD_TELEMETRY=ON          \
           ${SCRIPT_PATH}/..
 
     make VERBOSE=1 -j8 package
