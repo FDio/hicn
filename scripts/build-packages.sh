@@ -177,6 +177,27 @@ setup() {
     c++ --version
 }
 
+
+install_collectd_headers() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+    else
+        echo "ERROR: System configuration not recognized. Build failed"
+        exit -1
+    fi
+
+    if [ "${DISTRIB_ID}" == "centos" ]; then
+        sudo yum install epel-release.noarch
+        sudo yum install collectd-dev
+    else
+        sudo apt-get install collectd-dev -y --allow-unauthenticated
+    
+        if [ "${VERSION_CODENAME}" == "xenial" ]; then
+            awk '/config.h/ { print; print "#include \"collectd/liboconfig/oconfig.h\""; next }1' /usr/include/collectd/core/daemon/configfile.h | sudo tee /usr/include/collectd/core/daemon/configfile.h
+        fi            
+    fi
+}
+
 # Parameters:
 # $1 = Package name
 #
@@ -196,12 +217,15 @@ build_package() {
 
     rm -rf libtransport ctrl/libhicnctrl
 
+    install_collectd_headers
+
     cmake -DCMAKE_INSTALL_PREFIX=/usr   \
           -DBUILD_HICNPLUGIN=ON         \
           -DBUILD_LIBTRANSPORT=ON       \
           -DBUILD_APPS=ON               \
           -DBUILD_HICNLIGHT=OFF         \
           -DBUILD_SYSREPOPLUGIN=ON      \
+          -DBUILD_TELEMETRY=ON          \
           ${SCRIPT_PATH}/..
 
     make VERBOSE=1 -j8 package
