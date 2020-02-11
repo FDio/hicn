@@ -121,9 +121,7 @@ int hicn_vapi_face_prod_del(
 
   msg->payload.faceid = input_params->face_id;
 
-  printf("Deleting producer face %d\n", msg->payload.faceid);
   int ret = vapi_hicn_api_face_prod_del(ctx, msg, face_prod_del_cb, NULL);
-  printf("DONE Deleting producer face %d\n", input_params->face_id);
   vapi_unlock();
   return ret;
 }
