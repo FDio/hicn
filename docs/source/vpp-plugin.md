@@ -1,4 +1,4 @@
-Hybrid ICN project: VPP plugin
+VPP plugin
 ==============================
 
 The hICN-plugin forwarder
