@@ -30,15 +30,40 @@
 #include <hicn/utils/address.h>
 
 #ifdef WITH_MAPME
+
+#define foreach_face_event      \
+    _(UNDEFINED)                \
+    _(CREATE)                   \
+    _(DELETE)                   \
+    _(UPDATE)                   \
+    _(SET_UP)                   \
+    _(SET_DOWN)                 \
+    _(PRIORITY_CHANGED)         \
+    _(TAGS_CHANGED)             \
+    _(N)
+
 typedef enum {
-  CONNECTION_EVENT_CREATE,
-  CONNECTION_EVENT_DELETE,
-  CONNECTION_EVENT_UPDATE,
-  CONNECTION_EVENT_SET_UP,
-  CONNECTION_EVENT_SET_DOWN,
-  CONNECTION_EVENT_PRIORITY_CHANGED,
-  CONNECTION_EVENT_TAGS_CHANGED,
-} connection_event_t;
+#define _(x) FACE_EVENT_ ## x,
+foreach_face_event
+#undef _
+} face_event_t;
+
+extern const char * FACE_EVENT_STR[];
+
+#define foreach_route_event     \
+    _(UNDEFINED)                \
+    _(CREATE)                   \
+    _(DELETE)                   \
+    _(UPDATE)                   \
+    _(N)
+
+typedef enum {
+#define _(x) ROUTE_EVENT_ ## x,
+foreach_route_event
+#undef _
+} route_event_t;
+
+extern const char * ROUTE_EVENT_STR[];
 
 #endif /* WITH_MAPME */
 

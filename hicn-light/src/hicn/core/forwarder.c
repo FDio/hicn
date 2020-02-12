@@ -569,12 +569,12 @@ FIB *forwarder_getFib(Forwarder *forwarder) {
   return messageProcessor_getFib(forwarder->processor);
 }
 
-void forwarder_onConnectionEvent(Forwarder *forwarder, const Connection *conn, connection_event_t event) {
-//#ifdef WITH_POLICY
-//    messageProcessor_onConnectionEvent(forwarder->processor, conn, event);
-//#else
-  mapme_onConnectionEvent(forwarder->mapme, conn, event);
-//#endif /* WITH_POLICY */
+void forwarder_onFaceEvent(Forwarder *forwarder, unsigned conn_id, face_event_t event) {
+  mapme_onFaceEvent(forwarder->mapme, conn_id, event);
+}
+
+void forwarder_onRouteEvent(Forwarder *forwarder, Name * name, unsigned conn_id, route_event_t event) {
+  mapme_onRouteEvent(forwarder->mapme, name, conn_id, event);
 }
 
 void forwarder_ProcessMapMe(Forwarder *forwarder, const uint8_t *msgBuffer,

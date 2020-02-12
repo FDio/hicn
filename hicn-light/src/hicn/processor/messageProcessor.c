@@ -320,6 +320,10 @@ bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
     fib_Add(processor->fib, entry);
   }
 
+#ifdef WITH_MAPME
+  forwarder_onRouteEvent(processor->forwarder, prefix, ifidx, ROUTE_EVENT_CREATE);
+#endif /* WITH_MAPME */
+
   free(prefixStr);
   name_Release(&prefix);
 
@@ -332,6 +336,11 @@ bool messageProcessor_RemoveRoute(MessageProcessor *processor,
   Name *name = name_CreateFromAddress(control->addressType, control->address,
                                       control->len);
   fib_Remove(processor->fib, name, ifidx);
+
+#ifdef WITH_MAPME
+  forwarder_onRouteEvent(processor->forwarder, name, ifidx, ROUTE_EVENT_CREATE);
+#endif /* WITH_MAPME */
+
   name_Release(&name);
 
   return true;
