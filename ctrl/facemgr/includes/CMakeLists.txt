@@ -26,7 +26,6 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/cfg.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/facelet.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/loop.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/hicn/android_utility/android_utility.h
     PARENT_SCOPE
   )
 

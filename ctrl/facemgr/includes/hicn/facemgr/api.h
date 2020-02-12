@@ -24,7 +24,7 @@
 #include <hicn/facemgr/facelet.h>
 #include <hicn/util/ip_address.h>
 #ifdef __ANDROID__
-#include <hicn/android_utility/android_utility.h>
+#include <jni.h>
 #endif
 
 /* facemgr callbacks */

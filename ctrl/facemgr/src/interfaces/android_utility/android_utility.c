@@ -25,7 +25,8 @@
 #include <hicn/util/log.h>
 #include "../../common.h"
 #include "../../interface.h"
-#include <hicn/android_utility/android_utility.h>
+
+#include "android_utility.h"
 
 #define FACEMGR_ANDROID_UTILITY_CLASS "com/cisco/hicn/forwarder/supportlibrary/AndroidUtility"
 

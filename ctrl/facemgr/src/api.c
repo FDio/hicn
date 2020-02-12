@@ -60,7 +60,7 @@
 #endif /* __linux__ */
 
 #ifdef WITH_ANDROID_UTILITY
-#include <hicn/android_utility/android_utility.h>
+#include "interfaces/android_utility/android_utility.h"
 #endif /* WITH_ANDROID_UTILITY */
 
 #include <hicn/ctrl/face.h>
