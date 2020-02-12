@@ -423,6 +423,7 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
 
     if (ops != NULL) {
       Connection *conn = connection_Create(ops);
+      unsigned conn_id = connection_GetConnectionId(conn);
 #ifdef WITH_POLICY
       connection_SetTags(conn, control->tags);
       connection_SetPriority(conn, control->priority);
@@ -432,12 +433,10 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
 
       connectionTable_Add(forwarder_GetConnectionTable(config->forwarder),
                           conn);
-      symbolicNameTable_Add(config->symbolicNameTable, symbolicName,
-                            connection_GetConnectionId(conn));
+      symbolicNameTable_Add(config->symbolicNameTable, symbolicName, conn_id);
 
 #ifdef WITH_MAPME
-       /* Hook: new connection created through the control protocol */
-      forwarder_onConnectionEvent(config->forwarder, conn, CONNECTION_EVENT_CREATE);
+      forwarder_onFaceEvent(config->forwarder, conn_id, FACE_EVENT_CREATE);
 #endif /* WITH_MAPME */
 
       success = true;
@@ -453,8 +452,8 @@ struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
     connection_SetAdminState(conn, control->admin_state);
 
 #ifdef WITH_MAPME
-    /* Hook: new connection created through the control protocol */
-    forwarder_onConnectionEvent(config->forwarder, conn, CONNECTION_EVENT_UPDATE);
+    unsigned conn_id = connection_GetConnectionId(conn);
+    forwarder_onFaceEvent(config->forwarder, conn_id, FACE_EVENT_UPDATE);
 #endif /* WITH_MAPME */
     if (source)
       addressDestroy(&source);
@@ -515,6 +514,7 @@ struct iovec *configuration_ProcessRemoveListener(Configuration *config,
           unsigned connid = connection_GetConnectionId(connection);
           // remove connection from the FIB
           forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
+// XXX MACCHA
           // remove connection
           connectionTable_RemoveById(connTable, connid);
           const char *symbolicConnection = symbolicNameTable_GetNameByIndex(config->symbolicNameTable,connid);
@@ -569,13 +569,11 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
   const char *symbolicOrConnid = control->symbolicOrConnid;
   ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
   if (strcmp(symbolicOrConnid, "SELF") == 0) {
+#ifdef WITH_MAPME
+    forwarder_onFaceEvent(config->forwarder, ingressId, FACE_EVENT_DELETE);
+#endif /* WITH_MAPME */
     forwarder_RemoveConnectionIdFromRoutes(config->forwarder, ingressId);
     connectionTable_RemoveById(table, ingressId);
-
-#ifdef WITH_MAPME
-       /* Hook: new connection created through the control protocol */
-      forwarder_onConnectionEvent(config->forwarder, NULL, CONNECTION_EVENT_DELETE);
-#endif /* WITH_MAPME */
 
     success = true;
   } else if (utils_IsNumber(symbolicOrConnid)) {
@@ -585,6 +583,9 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
     // check if interface index present in the fwd table
     //(it was missing and therefore caused a program crash)
     if (connectionTable_FindById(table, connid)) {
+#ifdef WITH_MAPME
+      forwarder_onFaceEvent(config->forwarder, connid, FACE_EVENT_DELETE);
+#endif /* WITH_MAPME */
       // remove connection from the FIB
       forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
       // remove connection
@@ -593,10 +594,6 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
       const char *symbolicConnection = symbolicNameTable_GetNameByIndex(config->symbolicNameTable,connid);
       symbolicNameTable_Remove(config->symbolicNameTable, symbolicConnection);
 
-#ifdef WITH_MAPME
-       /* Hook: new connection created through the control protocol */
-      forwarder_onConnectionEvent(config->forwarder, NULL, CONNECTION_EVENT_DELETE);
-#endif /* WITH_MAPME */
 
       success = true;
     } else {
@@ -620,6 +617,9 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
                    symbolicOrConnid, connid);
       }
 
+#ifdef WITH_MAPME
+      forwarder_onFaceEvent(config->forwarder, connid, FACE_EVENT_DELETE);
+#endif /* WITH_MAPME */
       // remove connection from the FIB
       forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
       // remove connection
@@ -627,10 +627,6 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
       // remove connection from symbolicNameTable since we have symbolic input
       symbolicNameTable_Remove(config->symbolicNameTable, symbolicOrConnid);
 
-#ifdef WITH_MAPME
-       /* Hook: new connection created through the control protocol */
-      forwarder_onConnectionEvent(config->forwarder, NULL, CONNECTION_EVENT_DELETE);
-#endif /* WITH_MAPME */
 
       success = true;  // to write
     } else {
@@ -1208,11 +1204,11 @@ struct iovec *configuration_ConnectionSetAdminState(Configuration *config,
   connection_SetAdminState(conn, control->admin_state);
 
 #ifdef WITH_MAPME
-  /* Hook: connection event */
-  forwarder_onConnectionEvent(config->forwarder, conn,
+  unsigned conn_id = connection_GetConnectionId(conn);
+  forwarder_onFaceEvent(config->forwarder, conn_id,
       control->admin_state == CONNECTION_STATE_UP
-              ? CONNECTION_EVENT_SET_UP
-              : CONNECTION_EVENT_SET_DOWN);
+              ? FACE_EVENT_SET_UP
+              : FACE_EVENT_SET_DOWN);
 #endif /* WITH_MAPME */
 
   return utils_CreateAck(header, control, sizeof(connection_set_admin_state_command));
@@ -1232,9 +1228,9 @@ struct iovec *configuration_ConnectionSetPriority(Configuration *config,
   connection_SetPriority(conn, control->priority);
 
 #ifdef WITH_MAPME
-  /* Hook: connection event */
-  forwarder_onConnectionEvent(config->forwarder, conn,
-          CONNECTION_EVENT_PRIORITY_CHANGED);
+  unsigned conn_id = connection_GetConnectionId(conn);
+  forwarder_onFaceEvent(config->forwarder, conn_id,
+          FACE_EVENT_PRIORITY_CHANGED);
 #endif /* WITH_MAPME */
 
   return utils_CreateAck(header, control, sizeof(connection_set_priority_command));
@@ -1252,9 +1248,9 @@ struct iovec *configuration_ConnectionSetTags(Configuration *config,
   connection_SetTags(conn, control->tags);
 
 #ifdef WITH_MAPME
-  /* Hook: connection event */
-  forwarder_onConnectionEvent(config->forwarder, conn,
-          CONNECTION_EVENT_TAGS_CHANGED);
+  unsigned conn_id = connection_GetConnectionId(conn);
+  forwarder_onFaceEvent(config->forwarder, conn_id,
+          FACE_EVENT_TAGS_CHANGED);
 #endif /* WITH_MAPME */
 
   return utils_CreateAck(header, control, sizeof(connection_set_tags_command));

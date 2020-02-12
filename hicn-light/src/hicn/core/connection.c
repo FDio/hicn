@@ -53,6 +53,18 @@ struct connection {
 
 };
 
+const char * FACE_EVENT_STR[] = {
+#define _(x) [FACE_EVENT_ ## x] = #x,
+  foreach_face_event
+#undef _
+};
+
+const char * ROUTE_EVENT_STR[] = {
+#define _(x) [ROUTE_EVENT_ ## x] = #x,
+  foreach_route_event
+#undef _
+};
+
 Connection *connection_Create(IoOperations *ops) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
   Connection *conn = parcMemory_AllocateAndClear(sizeof(Connection));

@@ -279,14 +279,24 @@ hicn_socket_helper_t *forwarder_GetHicnSocketHelper(Forwarder *forwarder);
 FIB *forwarder_getFib(Forwarder *forwarder);
 
 /**
- * @function forwarder_onConnectionEvent
- * @abstract Callback fired upon addition of a new connection through the
- *   control protocol.
+ * @function forwarder_onFaceEvent
+ * @abstract Callback fired upon change associated to a face.
  * @param [in] forwarder - Pointer to the hICN forwarder.
- * @param [in] conn - Pointer to the newly added connection.
- * @param [in] event - Connection event
+ * @param [in] conn_id - ID of the connection to which the event is related
+ * @param [in] event - Face event
  */
-void forwarder_onConnectionEvent(Forwarder *forwarder, const Connection *conn, connection_event_t event);
+void forwarder_onFaceEvent(Forwarder *forwarder, unsigned conn_id, face_event_t event);
+
+/**
+ * @function forwarder_onRouteEvent
+ * @abstract Callback fired upon change associated to a route.
+ * @param [in] forwarder - Pointer to the hICN forwarder.
+ * @param [in] name - Name of the route to which the event is related
+ * @param [in] conn_id - ID of the connection to which the event is related
+ * @param [in] event - Face event
+ */
+void forwarder_onRouteEvent(Forwarder *forwarder, Name * name, unsigned conn_id,
+        route_event_t event);
 
 /**
  * @function forwarder_ProcessMapMe

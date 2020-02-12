@@ -97,15 +97,24 @@ void mapme_maybe_send_updates(const MapMe * mapme, FibEntry * fibEntry, const Nu
 void mapme_reconsiderFibEntry(const MapMe *mapme, FibEntry * fibEntry);
 
 /**
- * @function mapme_onConnectionEvent
- * @abstract Callback following the addition of the face though the control
- * protocol.
- * @discussion This callback triggers the sending of control packets by MAP-Me.
- * @param [in] mapme - Pointer to the MAP-Me data structure.
- * @param [in] conn - The newly added connection.
- * @param [in] event - Connection event
+ * @function mapme_onFaceEvent
+ * @abstract Callback fired upon change associated to a face.
+ * @param [in] forwarder - Pointer to the hICN forwarder.
+ * @param [in] conn_id - ID of the connection to which the event is related
+ * @param [in] event - Face event
  */
-void mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn, connection_event_t event);
+void mapme_onFaceEvent(const MapMe *mapme, unsigned conn_id, face_event_t event);
+
+/**
+ * @function mapme_onRouteEvent
+ * @abstract Callback fired upon change associated to a route.
+ * @param [in] forwarder - Pointer to the hICN forwarder.
+ * @param [in] name - Name of the route to which the event is related
+ * @param [in] conn_id - ID of the connection to which the event is related
+ * @param [in] event - Face event
+ */
+void mapme_onRouteEvent(const MapMe *mapme, Name * name, unsigned conn_id,
+        route_event_t event);
 
 /**
  * @function mapme_getNextHops
