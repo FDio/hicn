@@ -48,7 +48,7 @@ static void _strategyRnd_AddNexthop(StrategyImpl *strategy,
 static void _strategyRnd_RemoveNexthop(StrategyImpl *strategy,
                                        unsigned connectionId);
 static void _strategyRnd_ImplDestroy(StrategyImpl **strategyPtr);
-static strategy_type _strategyRnd_GetStrategy(StrategyImpl *strategy);
+static hicn_strategy_t _strategyRnd_GetStrategy(StrategyImpl *strategy);
 
 static StrategyImpl _template = {
     .context = NULL,
@@ -97,8 +97,8 @@ StrategyImpl *strategyRnd_Create() {
 // =======================================================
 // Dispatch API
 
-strategy_type _strategyRnd_GetStrategy(StrategyImpl *strategy) {
-  return SET_STRATEGY_RANDOM;
+hicn_strategy_t _strategyRnd_GetStrategy(StrategyImpl *strategy) {
+  return HICN_STRATEGY_RANDOM;
 }
 
 #ifndef WITH_POLICY

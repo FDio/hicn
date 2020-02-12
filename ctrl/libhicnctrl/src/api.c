@@ -2861,45 +2861,205 @@ hc_cache_set_serve_async(hc_sock_t * s, int enabled)
 
 // per prefix
 int
-hc_strategy_set(hc_sock_t * s /* XXX */)
+_hc_strategy_create(hc_sock_t * s, hc_strategy_t * strategy, bool async)
 {
-     return 0;
-}
+    if ((strategy->strategy_id == HICN_STRATEGY_UNDEFINED) ||
+            (strategy->strategy_id == HICN_STRATEGY_N))
+        return -1;
 
-/* How to retrieve that from the forwarder ? */
-static const char * strategies[] = {
-    "random",
-    "load_balancer",
-};
+    if (strategy->num_related_prefixes > MAX_FWD_STRATEGY_RELATED_PREFIXES)
+        return -1;
 
-#define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
+    struct {
+        header_control_message hdr;
+        set_strategy_command payload;
+    } msg = {
+        .hdr = {
+            .messageType = REQUEST_LIGHT,
+            .commandID = SET_STRATEGY,
+            .length = 1,
+            .seqNum = 0,
+        },
+        .payload = {
+            .strategyType = (u8)(strategy->strategy_id) - 1,
+            .address = strategy->prefix.address,
+            .addressType = (u8)map_to_addr_type[strategy->prefix.family],
+            .len = strategy->prefix.len,
+            .related_prefixes = strategy->num_related_prefixes,
+        }
+    };
 
-int
-hc_strategy_list(hc_sock_t * s, hc_data_t ** data)
-{
-    int rc;
-
-    *data = hc_data_create(0, sizeof(hc_strategy_t), NULL);
-
-    for (unsigned i = 0; i < ARRAY_SIZE(strategies); i++) {
-        hc_strategy_t * strategy = (hc_strategy_t*)hc_data_get_next(*data);
-        if (!strategy)
-             return -1;
-        rc = snprintf(strategy->name, MAXSZ_HC_STRATEGY, "%s", strategies[i]);
-        if (rc >= MAXSZ_HC_STRATEGY)
-            WARN("[hc_strategy_list] Unexpected truncation of strategy name string");
-        (*data)->size++;
+    for (uint8_t i = 0; i < strategy->num_related_prefixes; i++) {
+        msg.payload.addresses_type[i] =  (u8)map_to_addr_type[strategy->related_prefixes[i].family];
+        msg.payload.lens[i] = strategy->related_prefixes[i].len;
+        msg.payload.addresses[i] = strategy->related_prefixes[i].address;
     }
 
+    hc_command_params_t params = {
+        .cmd = ACTION_SET,
+        .cmd_id = CACHE_SERVE,
+        .size_in = sizeof(cache_serve_command),
+        .size_out = 0,
+        .parse = NULL,
+    };
+
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+}
+
+int
+hc_strategy_create(hc_sock_t * s, hc_strategy_t * strategy)
+{
+    return _hc_strategy_create(s, strategy, false);
+}
+
+int
+hc_strategy_create_async(hc_sock_t * s, hc_strategy_t * strategy)
+{
+    return _hc_strategy_create(s, strategy, true);
+}
+
+int
+_hc_strategy_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
+{
+    //DEBUG("[hc_strategy_list] async=%s", BOOLSTR(async));
+
+    struct {
+        header_control_message hdr;
+    } msg = {
+        .hdr = {
+            .messageType = REQUEST_LIGHT,
+            .commandID = LIST_STRATEGIES,
+            .length = 0,
+            .seqNum = 0,
+        },
+    };
+
+    hc_command_params_t params = {
+        .cmd = ACTION_LIST,
+        .cmd_id = LIST_ROUTES,
+        .size_in = sizeof(list_strategies_command),
+        .size_out = sizeof(hc_strategy_t),
+        .parse = (HC_PARSE)hc_strategy_parse,
+    };
+
+    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata, async);
+}
+
+int
+hc_strategy_list(hc_sock_t * s, hc_data_t ** pdata)
+{
+    return _hc_strategy_list(s, pdata, false);
+}
+
+int
+hc_strategy_list_async(hc_sock_t * s)
+{
+    return _hc_strategy_list(s, NULL, true);
+}
+
+int
+hc_strategy_parse(void * in, hc_strategy_t * strategy)
+{
+    list_strategies_command * cmd = (list_strategies_command *) in;
+
+    if (!IS_VALID_ADDR_TYPE(cmd->addressType)) {
+        ERROR("[hc_strategy_parse] Invalid address type");
+        return -1;
+    }
+
+    int family = map_from_addr_type[cmd->addressType];
+    if (!IS_VALID_FAMILY(family)) {
+        ERROR("[hc_strategy_parse] Invalid address family");
+        return -1;
+    }
+
+    if (!HICN_STRATEGY_IS_VALID(cmd->strategyType)) {
+        ERROR("[hc_strategy_parse] Invalid strategy identifier");
+        return -1;
+
+    }
+
+    *strategy = (hc_strategy_t) {
+        .prefix = {
+            .address = cmd->address,
+            .family = family,
+            .len = cmd->len,
+        },
+        .strategy_id = cmd->strategyType,
+        .num_related_prefixes = cmd->related_prefixes,
+        .related_prefixes = {{0}},
+    };
+
+    if (cmd->related_prefixes > 0) {
+        assert(cmd->related_prefixes <= MAX_FWD_STRATEGY_RELATED_PREFIXES);
+        for (unsigned j = 0; j < cmd->related_prefixes; j++) {
+            if (!IS_VALID_ADDR_TYPE(cmd->addresses_type[j])) {
+                ERROR("[hc_strategy_parse] Invalid address type");
+                return -1;
+            }
+
+            int family = map_from_addr_type[cmd->addresses_type[j]];
+            if (!IS_VALID_FAMILY(family)) {
+                ERROR("[hc_strategy_parse] Invalid address family");
+                return -1;
+            }
+
+            strategy->related_prefixes[j] = (ip_prefix_t) {
+                .address = cmd->addresses[j],
+                .family = family,
+                .len = cmd->lens[j],
+            };
+        }
+    }
     return 0;
 }
+
+/* ROUTE SNPRINTF */
 
 /* /!\ Please update constants in header file upon changes */
 int
 hc_strategy_snprintf(char * s, size_t size, hc_strategy_t * strategy)
 {
-    return snprintf(s, size, "%s", strategy->name);
+    /* interface cost prefix length */
+
+    char prefix[MAXSZ_PREFIX];
+    int rc;
+
+    rc = ip_prefix_ntop(&strategy->prefix, prefix, MAXSZ_IP_PREFIX);
+    if (rc >= MAXSZ_IP_PREFIX)
+        ;
+    if (rc < 0)
+        return rc;
+
+#define MAXSZ_RELATED_PREFIXES MAXSZ_HC_STRATEGY_RELATED_PREFIXES_HEADER + \
+    (SPACE + MAXSZ_IP_PREFIX_) * MAX_FWD_STRATEGY_RELATED_PREFIXES + NULLTERM
+
+    char related_prefixes_str[MAXSZ_RELATED_PREFIXES];
+    size_t pos = 0;
+    related_prefixes_str[0] = '\0'; /* safeguard */
+    if (strategy->num_related_prefixes > 0) {
+        rc = snprintf(related_prefixes_str+pos,
+                MAXSZ_RELATED_PREFIXES - pos,
+                HC_STRATEGY_RELATED_PREFIXES_HEADER);
+        if (rc >= MAXSZ_RELATED_PREFIXES);
+            ;
+        if (rc < 0)
+            return rc;
+        pos+= rc;
+        for (unsigned j = 0; j < strategy->num_related_prefixes; j++) {
+            related_prefixes_str[pos++] = ' ';
+            rc = ip_prefix_ntop(&strategy->related_prefixes[j], related_prefixes_str + pos, MAXSZ_IP_PREFIX);
+            if (rc >= MAXSZ_RELATED_PREFIXES)
+                ;
+            if (rc < 0)
+                return rc;
+            pos += rc;
+        }
+    }
+
+    return snprintf(s, size, "%s %s %s", prefix, HICN_STRATEGY_STR[strategy->strategy_id], related_prefixes_str);
 }
+
 
 /*----------------------------------------------------------------------------*
  * WLDR

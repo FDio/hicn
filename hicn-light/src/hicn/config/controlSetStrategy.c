@@ -32,6 +32,8 @@
 #include <hicn/utils/commands.h>
 #include <hicn/utils/utils.h>
 
+#include <hicn/strategy.h>
+
 static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
                                                  CommandOps *ops,
                                                  PARCList *args);
@@ -41,12 +43,6 @@ static CommandReturn _controlSetStrategy_HelpExecute(CommandParser *parser,
 
 static const char *_commandSetStrategy = "set strategy";
 static const char *_commandSetStrategyHelp = "help set strategy";
-
-static const char *_commandSetStrategyOptions[LAST_STRATEGY_VALUE] = {
-    "loadbalancer",
-    "random",
-    "low_latency",
-};
 
 // ====================================================
 
@@ -61,18 +57,6 @@ CommandOps *controlSetStrategy_HelpCreate(ControlState *state) {
 }
 
 // ====================================================
-
-strategy_type _validStrategy(const char *strategy) {
-  strategy_type validStrategy = LAST_STRATEGY_VALUE;
-
-  for (int i = 0; i < LAST_STRATEGY_VALUE; i++) {
-    if (strcmp(_commandSetStrategyOptions[i], strategy) == 0) {
-      validStrategy = i;
-      break;
-    }
-  }
-  return validStrategy;
-}
 
 static void _getAddressAndLen(const char * prefixStr, char *addr, uint32_t *len){
   char *slash;
@@ -191,8 +175,8 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
 
   const char *strategyStr = parcList_GetAtIndex(args, 3);
   // check valid strategy
-  strategy_type strategy;
-  if ((strategy = _validStrategy(strategyStr)) == LAST_STRATEGY_VALUE) {
+  hicn_strategy_t strategy;
+  if (hicn_strategy_get_by_name(strategyStr, &strategy) < 0) {
     printf("Error: invalid strategy \n");
     parcMemory_Deallocate(&setStrategyCommand);
     _controlSetStrategy_HelpExecute(parser, ops, args);

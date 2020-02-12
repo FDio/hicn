@@ -70,6 +70,7 @@
 
 #include <hicn/util/ip_address.h>
 #include <hicn/ctrl/commands.h>
+#include <hicn/strategy.h>
 #include "face.h"
 
 #define HICN_DEFAULT_PORT 9695
@@ -666,23 +667,33 @@ int hc_cache_set_serve(hc_sock_t *s, int enabled);
  * Strategy
  *----------------------------------------------------------------------------*/
 
-#define MAXSZ_STRATEGY_NAME 255
-
 typedef struct {
-  char name[MAXSZ_STRATEGY_NAME];
+  ip_prefix_t prefix;
+  hicn_strategy_t strategy_id;
+  uint8_t num_related_prefixes;
+  ip_prefix_t related_prefixes[MAX_FWD_STRATEGY_RELATED_PREFIXES];
 } hc_strategy_t;
 
-int hc_strategy_list(hc_sock_t *s, hc_data_t **data);
+int hc_strategy_create(hc_sock_t * s, hc_strategy_t * strategy);
+int hc_strategy_create_async(hc_sock_t * s, hc_strategy_t * strategy);
+
+int hc_strategy_list(hc_sock_t * s, hc_data_t ** pdata);
+int hc_strategy_list_async(hc_sock_t * s);
 
 #define foreach_strategy(VAR, data) foreach_type(hc_strategy_t, VAR, data)
 
-#define MAXSZ_HC_STRATEGY_ MAXSZ_STRATEGY_NAME
+#define HC_STRATEGY_RELATED_PREFIXES_HEADER " Related prefixes:"
+#define MAXSZ_HC_STRATEGY_RELATED_PREFIXES_HEADER 18
+#define MAXSZ_HC_STRATEGY_ MAXSZ_IP_PREFIX_ + SPACE +                        \
+    MAXSZ_HICN_STRATEGY_NAME_ +                                              \
+    SPACE + MAXSZ_HC_STRATEGY_RELATED_PREFIXES_HEADER +                      \
+    ((SPACE + MAXSZ_IP_PREFIX_) * MAX_FWD_STRATEGY_RELATED_PREFIXES)
 #define MAXSZ_HC_STRATEGY MAXSZ_HC_STRATEGY_ + NULLTERM
 
+int hc_strategy_parse(void *in, hc_strategy_t *strategy);
 int hc_strategy_snprintf(char *s, size_t size, hc_strategy_t *strategy);
 
-// per prefix
-int hc_strategy_set(hc_sock_t *s /* XXX */);
+int hc_strategies_get_by_name(const char * name, hicn_strategy_t * strategy);
 
 /*----------------------------------------------------------------------------*
  * WLDR

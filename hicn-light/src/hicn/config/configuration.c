@@ -59,6 +59,9 @@
 #include <hicn/utils/commands.h>
 #include <hicn/utils/utils.h>
 
+#include <hicn/strategies/lowLatency.h>
+
+#include <hicn/strategy.h>
 #include <hicn/utils/address.h>
 
 #define ETHERTYPE 0x0801
@@ -337,6 +340,88 @@ struct iovec *configuration_ProcessRegistrationList(Configuration *config,
   response[0].iov_len = sizeof(header_control_message);
   response[1].iov_base = payloadResponse;
   response[1].iov_len = sizeof(list_routes_command) * effective_payloadSize;
+
+  fibEntryList_Destroy(&fibList);
+  return response;
+}
+
+struct iovec *configuration_ProcessStrategyList(Configuration *config,
+                                                    struct iovec *request) {
+  FibEntryList *fibList = forwarder_GetFibEntries(config->forwarder);
+
+  size_t payloadSize = fibEntryList_Length(fibList);
+  struct sockaddr_in tmpAddr;
+  struct sockaddr_in6 tmpAddr6;
+
+  // allocate payload, cast from void* to uint8_t* = bytes granularity
+  list_strategies_command * listStrategiesCommand = parcMemory_AllocateAndClear(sizeof(list_strategies_command) * payloadSize);
+
+  for (size_t i = 0; i < fibEntryList_Length(fibList); i++) {
+    FibEntry *entry = (FibEntry *)fibEntryList_Get(fibList, i);
+    NameBitvector *prefix = name_GetContentName(fibEntry_GetPrefix(entry));
+    hicn_strategy_t strategyType = fibEntry_GetFwdStrategyType(entry);
+    StrategyImpl * strategy = fibEntry_GetFwdStrategy(entry);
+
+    listStrategiesCommand[i].strategyType = strategyType;
+
+    Address *addressEntry = nameBitvector_ToAddress(prefix);
+    if (addressGetType(addressEntry) == ADDR_INET) {
+      addressGetInet(addressEntry, &tmpAddr);
+      listStrategiesCommand[i].addressType = ADDR_INET;
+      listStrategiesCommand[i].address.v4.as_inaddr = tmpAddr.sin_addr;
+    } else if (addressGetType(addressEntry) == ADDR_INET6) {
+      addressGetInet6(addressEntry, &tmpAddr6);
+      listStrategiesCommand[i].addressType = ADDR_INET6;
+      listStrategiesCommand[i].address.v6.as_in6addr = tmpAddr6.sin6_addr;
+    }
+    listStrategiesCommand[i].len = nameBitvector_GetLength(prefix);
+    addressDestroy(&addressEntry);
+
+    /* The low latency strategy is the only one with parameters so far */
+    if (strategyType == HICN_STRATEGY_LOW_LATENCY) {
+      unsigned int related_prefixes_len = 0;
+      Name ** related_prefixes;
+
+      strategyLowLatency_GetStrategy(strategy, config->forwarder, entry,
+              &related_prefixes_len, &related_prefixes);
+
+      assert(listStrategiesCommand[i].related_prefixes <=
+              MAX_FWD_STRATEGY_RELATED_PREFIXES);
+
+      listStrategiesCommand[i].related_prefixes = related_prefixes_len;
+      for (uint8_t j = 0; j < related_prefixes_len; j++) {
+        NameBitvector *related_prefix = name_GetContentName(related_prefixes[j]);
+
+        addressEntry = nameBitvector_ToAddress(related_prefix);
+        if (addressGetType(addressEntry) == ADDR_INET) {
+            addressGetInet(addressEntry, &tmpAddr);
+            listStrategiesCommand[i].addresses_type[j] = ADDR_INET;
+            listStrategiesCommand[i].addresses[j].v4.as_inaddr = tmpAddr.sin_addr;
+        } else if (addressGetType(addressEntry) == ADDR_INET6) {
+            addressGetInet6(addressEntry, &tmpAddr6);
+            listStrategiesCommand[i].addresses_type[j] = ADDR_INET6;
+            listStrategiesCommand[i].addresses[j].v6.as_in6addr = tmpAddr6.sin6_addr;
+        }
+        listStrategiesCommand[i].lens[j] = nameBitvector_GetLength(related_prefix);
+        addressDestroy(&addressEntry);
+      }
+    } else {
+        listStrategiesCommand[i].related_prefixes = 0;
+    }
+  }
+
+  // send response
+  header_control_message *header = request[0].iov_base;
+  header->messageType = RESPONSE_LIGHT;
+  header->length = payloadSize;
+
+  struct iovec *response =
+      parcMemory_AllocateAndClear(sizeof(struct iovec) * 2);
+
+  response[0].iov_base = header;
+  response[0].iov_len = sizeof(header_control_message);
+  response[1].iov_base = listStrategiesCommand;
+  response[1].iov_len = sizeof(list_strategies_command) * payloadSize;
 
   fibEntryList_Destroy(&fibList);
   return response;
@@ -924,7 +1009,7 @@ size_t configuration_GetObjectStoreSize(Configuration *config) {
 }
 
 void _configuration_StoreFwdStrategy(Configuration *config, const char *prefix,
-                                     strategy_type strategy) {
+                                     hicn_strategy_t strategy) {
   PARCString *prefixStr = parcString_Create(prefix);
   PARCUnsigned *strategyValue = parcUnsigned_Create((unsigned)strategy);
   parcHashMap_Put(config->strategy_map, prefixStr, strategyValue);
@@ -1004,16 +1089,16 @@ struct iovec *configuration_SetWldr(Configuration *config,
   return response;
 }
 
-strategy_type configuration_GetForwardingStrategy(Configuration *config,
+hicn_strategy_t configuration_GetForwardingStrategy(Configuration *config,
                                                   const char *prefix) {
   PARCString *prefixStr = parcString_Create(prefix);
   const unsigned *val = parcHashMap_Get(config->strategy_map, prefixStr);
   parcString_Release(&prefixStr);
 
   if (val == NULL) {
-    return LAST_STRATEGY_VALUE;
+    return HICN_STRATEGY_UNDEFINED;
   } else {
-    return (strategy_type)*val;
+    return (hicn_strategy_t)*val;
   }
 }
 
@@ -1024,11 +1109,11 @@ struct iovec *configuration_SetForwardingStrategy(Configuration *config,
 
   const char *prefix = utils_PrefixLenToString(
       control->addressType, &control->address, &control->len);
-  strategy_type strategy = control->strategyType;
-  strategy_type existingFwdStrategy =
+  hicn_strategy_t strategy = control->strategyType;
+  hicn_strategy_t existingFwdStrategy =
       configuration_GetForwardingStrategy(config, prefix);
 
-  if (existingFwdStrategy == LAST_STRATEGY_VALUE ||
+  if (existingFwdStrategy == HICN_STRATEGY_UNDEFINED ||
       strategy != existingFwdStrategy) {
     // means such a new strategy is not present in the hash table or has to be
     // updated
@@ -1422,6 +1507,10 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
       response = configuration_ConnectionSetAdminState(config, control);
       break;
 
+    case LIST_STRATEGIES:
+      response = configuration_ProcessStrategyList(config, control);
+      break;
+
 #ifdef WITH_POLICY
     case ADD_POLICY:
       response = configuration_ProcessPolicyAdd(config, control);
@@ -1459,6 +1548,7 @@ void configuration_ReceiveCommand(Configuration *config, command_id command,
                                   struct iovec *request, unsigned ingressId) {
   parcAssertNotNull(config, "Parameter config must be non-null");
   parcAssertNotNull(request, "Parameter request must be non-null");
+
   struct iovec *response =
       configuration_DispatchCommand(config, command, request, ingressId);
   configuration_SendResponse(config, response, ingressId);
@@ -1467,6 +1557,7 @@ void configuration_ReceiveCommand(Configuration *config, command_id command,
     case LIST_CONNECTIONS:
     case LIST_ROUTES:  // case LIST_INTERFACES: case ETC...:
     case LIST_LISTENERS:
+    case LIST_STRATEGIES:
       parcMemory_Deallocate(
           &response[1]
                .iov_base);  // deallocate payload only if generated at fwd side

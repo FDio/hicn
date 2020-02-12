@@ -14,16 +14,16 @@
  */
 
 /**
- * @file control_ListRoutes.h
- * @brief List the hicn-light routes
+ * @file control_ListStrategies.h
+ * @brief List the hicn-light strategies
  *
- * Implements the "list routes" and "help list routes" nodes of the command tree
+ * Implements the "list strategies" and "help list strategies" nodes of the command tree
  *
  */
-#ifndef Control_ListRoutes_h
-#define Control_ListRoutes_h
+#ifndef Control_ListStrategies_h
+#define Control_ListStrategies_h
 
 #include <hicn/config/controlState.h>
-CommandOps *controlListRoutes_Create(ControlState *state);
-CommandOps *controlListRoutes_HelpCreate(ControlState *state);
-#endif  // Control_ListRoutes_h
+CommandOps *controlListStrategies_Create(ControlState *state);
+CommandOps *controlListStrategies_HelpCreate(ControlState *state);
+#endif  // Control_ListStrategies_h

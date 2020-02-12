@@ -67,7 +67,7 @@ struct strategy_impl {
   void (*addNexthop)(StrategyImpl *strategy, unsigned connectionId);
   void (*removeNexthop)(StrategyImpl *strategy, unsigned connectionId);
   void (*destroy)(StrategyImpl **strategyPtr);
-  strategy_type (*getStrategy)(StrategyImpl *strategy);
+  hicn_strategy_t (*getStrategy)(StrategyImpl *strategy);
 };
 
 #endif  // strategyImpl_h

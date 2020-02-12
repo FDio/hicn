@@ -25,6 +25,12 @@
 
 StrategyImpl *strategyLowLatency_Create();
 
+void strategyLowLatency_GetStrategy(StrategyImpl *strategy,
+                                    const Forwarder * forwarder,
+                                    const FibEntry * fibEntry,
+                                    unsigned * related_prefixes_len,
+                                    Name ***related_prefixes);
+
 void strategyLowLatency_SetStrategy(StrategyImpl *strategy,
                                     const Forwarder * forwarder,
                                     const FibEntry * fibEntry,

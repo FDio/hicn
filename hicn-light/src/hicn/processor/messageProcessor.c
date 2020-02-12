@@ -302,7 +302,7 @@ bool messageProcessor_AddOrUpdateRoute(MessageProcessor *processor,
 
   char *prefixStr = (char *) utils_PrefixLenToString(
       control->addressType, &control->address, &control->len);
-  strategy_type fwdStrategy =
+  hicn_strategy_t fwdStrategy =
       configuration_GetForwardingStrategy(config, prefixStr);
 
   Name *prefix = name_CreateFromAddress(control->addressType, control->address,
@@ -350,7 +350,7 @@ bool messageProcessor_AddOrUpdatePolicy(MessageProcessor *processor,
                                         control->len);
   FibEntry *entry = fib_Contains(processor->fib, prefix);
   if (!entry) {
-    strategy_type fwdStrategy =
+    hicn_strategy_t fwdStrategy =
         configuration_GetForwardingStrategy(config, prefixStr);
     entry = fibEntry_Create(prefix, fwdStrategy, processor->forwarder);
     fib_Add(processor->fib, entry);
@@ -385,7 +385,7 @@ void messageProcessor_RemoveConnectionIdFromRoutes(MessageProcessor *processor,
 }
 
 void processor_SetStrategy(MessageProcessor *processor, Name *prefix,
-                           strategy_type strategy,
+                           hicn_strategy_t strategy,
                            unsigned related_prefixes_len,
                            Name **related_prefixes){
   FibEntry *entry = fib_Contains(processor->fib, prefix);
@@ -721,7 +721,7 @@ static void messageProcessor_ReceiveContentObject(MessageProcessor *processor,
     if(messageHandler_IsAProbe(message_FixedHeader(message))){
       FibEntry *fibEntry = fib_MatchMessage(processor->fib, message);
       if(fibEntry &&
-          fibEntry_GetFwdStrategyType(fibEntry) == SET_STRATEGY_LOW_LATENCY){
+          fibEntry_GetFwdStrategyType(fibEntry) == HICN_STRATEGY_LOW_LATENCY){
         unsigned connid = message_GetIngressConnectionId(message);
         NumberSet *outFace = numberSet_Create();
         numberSet_Add(outFace, connid);

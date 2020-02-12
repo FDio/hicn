@@ -57,6 +57,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemovePunting.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlUpdate.h
   ${CMAKE_CURRENT_SOURCE_DIR}/controlUpdateConnection.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlListStrategies.h
 )
 
 list(APPEND SOURCE_FILES
@@ -103,6 +104,7 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/controlRemovePunting.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlUpdate.c
   ${CMAKE_CURRENT_SOURCE_DIR}/controlUpdateConnection.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/controlListStrategies.c
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

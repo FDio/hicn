@@ -495,7 +495,7 @@ void forwarder_RemoveConnectionIdFromRoutes(Forwarder *forwarder,
 }
 
 void forwarder_SetStrategy(Forwarder *forwarder, Name *prefix,
-                           strategy_type strategy,
+                           hicn_strategy_t strategy,
                            unsigned related_prefixes_len,
                            Name **related_prefixes) {
   parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");

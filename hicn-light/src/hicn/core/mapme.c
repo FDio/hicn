@@ -671,7 +671,7 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
      * Destroying the face has led to removing all corresponding FIB
      * entries. In that case, we need to correctly restore the FIB entries.
      */
-    strategy_type fwdStrategy = LAST_STRATEGY_VALUE;
+    hicn_strategy_t fwdStrategy = HICN_STRATEGY_UNDEFINED;
 
     /*
      * It might also be due to the announcement of a more specific prefix. In

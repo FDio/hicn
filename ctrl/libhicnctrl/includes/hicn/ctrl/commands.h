@@ -37,6 +37,7 @@
 #endif /* WITH_POLICY */
 
 #define SYMBOLIC_NAME_LEN 16
+#define MAX_FWD_STRATEGY_RELATED_PREFIXES 10
 
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;
@@ -70,6 +71,7 @@ typedef enum {
   MAPME_TIMESCALE,
   MAPME_RETX,
   CONNECTION_SET_ADMIN_STATE,
+  LIST_STRATEGIES,
 #ifdef WITH_POLICY
   ADD_POLICY,
   LIST_POLICIES,
@@ -251,9 +253,13 @@ typedef struct {
   uint8_t strategyType;
   uint8_t addressType;
   uint8_t len;
+  uint8_t related_prefixes;
+  ip_address_t addresses[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  uint8_t lens[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  uint8_t addresses_type[MAX_FWD_STRATEGY_RELATED_PREFIXES];
 } set_strategy_command;
 
-// SIZE=20
+// SIZE=208
 
 //==========  [11]  SET WLDR    ==========
 
@@ -310,6 +316,17 @@ typedef struct {
   uint8_t admin_state;
   uint8_t pad8[3];
 } connection_set_admin_state_command;
+
+typedef struct {
+  ip_address_t address;
+  uint8_t strategyType;
+  uint8_t addressType;
+  uint8_t len;
+  uint8_t related_prefixes;
+  ip_address_t addresses[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  uint8_t lens[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  uint8_t addresses_type[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+} list_strategies_command;
 
 #ifdef WITH_POLICY
 
@@ -397,6 +414,8 @@ static inline int payloadLengthDaemon(command_id id) {
       return sizeof(mapme_timing_command);
     case CONNECTION_SET_ADMIN_STATE:
       return sizeof(connection_set_admin_state_command);
+    case LIST_STRATEGIES:
+      return sizeof(list_strategies_command);
 #ifdef WITH_POLICY
     case ADD_POLICY:
       return sizeof(add_policy_command);

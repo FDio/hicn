@@ -70,9 +70,9 @@ struct fib_entry {
 };
 
 #ifdef WITH_POLICY
-FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy, const Forwarder * forwarder) {
+FibEntry *fibEntry_Create(Name *name, hicn_strategy_t fwdStrategy, const Forwarder * forwarder) {
 #else
-FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
+FibEntry *fibEntry_Create(Name *name, hicn_strategy_t fwdStrategy) {
 #endif /* WITH_POLICY */
   FibEntry *fibEntry = parcMemory_AllocateAndClear(sizeof(FibEntry));
   parcAssertNotNull(fibEntry, "parcMemory_AllocateAndClear(%zu) returned NULL",
@@ -80,20 +80,20 @@ FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
   fibEntry->name = name_Acquire(name);
 
   switch (fwdStrategy) {
-    case SET_STRATEGY_LOADBALANCER:
+    case HICN_STRATEGY_LOAD_BALANCER:
       fibEntry->fwdStrategy = strategyLoadBalancer_Create();
       break;
 
-    case SET_STRATEGY_RANDOM:
+    case HICN_STRATEGY_RANDOM:
       fibEntry->fwdStrategy = strategyRnd_Create();
 
-    case SET_STRATEGY_LOW_LATENCY:
+    case HICN_STRATEGY_LOW_LATENCY:
       fibEntry->fwdStrategy = strategyLowLatency_Create();
       break;
 
     default:
       // LB is the default strategy
-      fwdStrategy = SET_STRATEGY_LOADBALANCER;
+      fwdStrategy = HICN_STRATEGY_LOAD_BALANCER;
       fibEntry->fwdStrategy = strategyLoadBalancer_Create();
       break;
   }
@@ -112,7 +112,7 @@ FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
   fibEntry->policy_counters = POLICY_COUNTERS_NONE;
 #endif /* WITH_POLICY */
 
-  if(fwdStrategy == SET_STRATEGY_LOW_LATENCY){
+  if(fwdStrategy == HICN_STRATEGY_LOW_LATENCY){
     strategyLowLatency_SetStrategy(fibEntry->fwdStrategy,
                                      fibEntry->forwarder, fibEntry,
                                      0, NULL);
@@ -147,32 +147,32 @@ void fibEntry_Release(FibEntry **fibEntryPtr) {
   *fibEntryPtr = NULL;
 }
 
-void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy,
+void fibEntry_SetStrategy(FibEntry *fibEntry, hicn_strategy_t strategy,
                           unsigned related_prefixes_len,
                           Name **related_prefixes) {
   StrategyImpl *fwdStrategyImpl;
 
   switch (strategy) {
-    case SET_STRATEGY_LOADBALANCER:
+    case HICN_STRATEGY_LOAD_BALANCER:
       fwdStrategyImpl = strategyLoadBalancer_Create();
       break;
 
-    case SET_STRATEGY_RANDOM:
+    case HICN_STRATEGY_RANDOM:
       fwdStrategyImpl = strategyRnd_Create();
       break;
 
-    case SET_STRATEGY_LOW_LATENCY:
+    case HICN_STRATEGY_LOW_LATENCY:
       fwdStrategyImpl = strategyLowLatency_Create();
       break;
 
     default:
       // LB is the default strategy
-      strategy = SET_STRATEGY_LOADBALANCER;
+      strategy = HICN_STRATEGY_LOAD_BALANCER;
       fwdStrategyImpl = strategyLoadBalancer_Create();
       break;
     }
 
-  if(strategy == SET_STRATEGY_LOW_LATENCY){
+  if(strategy == HICN_STRATEGY_LOW_LATENCY){
     strategyLowLatency_SetStrategy(fwdStrategyImpl,
                        fibEntry->forwarder, fibEntry,
                        related_prefixes_len, related_prefixes);
@@ -866,7 +866,7 @@ Name *fibEntry_GetPrefix(const FibEntry *fibEntry) {
   // return metisName_Acquire(fibEntry->name);
 }
 
-strategy_type fibEntry_GetFwdStrategyType(const FibEntry *fibEntry) {
+hicn_strategy_t fibEntry_GetFwdStrategyType(const FibEntry *fibEntry) {
   return fibEntry->fwdStrategy->getStrategy(fibEntry->fwdStrategy);
 }
 

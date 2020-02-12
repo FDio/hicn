@@ -32,6 +32,7 @@
 #include <stdlib.h>
 
 #include <hicn/util/ip_address.h>
+#include <hicn/strategy.h>
 #ifdef WITH_POLICY
 #include <hicn/policy.h>
 #endif /* WITH_POLICY */
@@ -71,6 +72,7 @@ typedef enum {
   MAPME_TIMESCALE,
   MAPME_RETX,
   CONNECTION_SET_ADMIN_STATE,
+  LIST_STRATEGIES,
 #ifdef WITH_POLICY
   ADD_POLICY,
   LIST_POLICIES,
@@ -240,13 +242,6 @@ typedef struct {
 
 //==========  [10]  SET STRATEGY    ==========
 
-typedef enum {
-  SET_STRATEGY_LOADBALANCER,
-  SET_STRATEGY_RANDOM,
-  SET_STRATEGY_LOW_LATENCY,
-  LAST_STRATEGY_VALUE
-} strategy_type;
-
 typedef struct {
   ip_address_t address;
   uint8_t strategyType;
@@ -315,6 +310,17 @@ typedef struct {
   uint8_t admin_state;
   uint8_t pad8[3];
 } connection_set_admin_state_command;
+
+typedef struct {
+  ip_address_t address;
+  uint8_t strategyType;
+  uint8_t addressType;
+  uint8_t len;
+  uint8_t related_prefixes;
+  ip_address_t addresses[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  uint8_t lens[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  uint8_t addresses_type[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+} list_strategies_command;
 
 #ifdef WITH_POLICY
 
@@ -402,6 +408,8 @@ static inline int payloadLengthDaemon(command_id id) {
       return sizeof(mapme_timing_command);
     case CONNECTION_SET_ADMIN_STATE:
       return sizeof(connection_set_admin_state_command);
+    case LIST_STRATEGIES:
+      return 0;
 #ifdef WITH_POLICY
     case ADD_POLICY:
       return sizeof(add_policy_command);

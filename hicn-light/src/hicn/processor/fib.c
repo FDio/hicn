@@ -203,7 +203,7 @@ void fib_Add(FIB *fib, FibEntry *entry) {
   //this is an inner node, we don't want an acctive strategy
   //like low_latency that sends probes in this node
   FibEntry * inner_entry = fibEntry_Create(inner_prefix,
-            SET_STRATEGY_LOADBALANCER, fib->forwarder);
+            HICN_STRATEGY_LOAD_BALANCER, fib->forwarder);
 
   FibNode * inner_node = _createNode(NULL, NULL, inner_entry, false);
   FibNode * new_node = _createNode(NULL, NULL, entry, true);

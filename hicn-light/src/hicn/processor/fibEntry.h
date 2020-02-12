@@ -54,9 +54,9 @@ typedef struct fib_entry FibEntry;
 
 #ifdef WITH_POLICY
 struct forwarder;
-FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy, const struct forwarder * table);
+FibEntry *fibEntry_Create(Name *name, hicn_strategy_t fwdStrategy, const struct forwarder * table);
 #else
-FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy);
+FibEntry *fibEntry_Create(Name *name, hicn_strategy_t fwdStrategy);
 #endif
 
 /**
@@ -79,7 +79,7 @@ void fibEntry_Release(FibEntry **fibEntryPtr);
  */
 FibEntry *fibEntry_Acquire(const FibEntry *fibEntry);
 
-void fibEntry_SetStrategy(FibEntry *fibEntry, strategy_type strategy,
+void fibEntry_SetStrategy(FibEntry *fibEntry, hicn_strategy_t strategy,
                            unsigned related_prefixes_len,
                            Name **related_prefixes);
 
@@ -136,7 +136,7 @@ const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
 #endif /* WITH_POLICY */
 
 
-strategy_type fibEntry_GetFwdStrategyType(const FibEntry *fibEntry);
+hicn_strategy_t fibEntry_GetFwdStrategyType(const FibEntry *fibEntry);
 
 StrategyImpl *fibEntry_GetFwdStrategy(const FibEntry *fibEntry);
 

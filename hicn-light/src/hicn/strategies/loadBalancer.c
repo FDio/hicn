@@ -51,7 +51,7 @@ static void _strategyLoadBalancer_AddNexthop(StrategyImpl *strategy,
 static void _strategyLoadBalancer_RemoveNexthop(StrategyImpl *strategy,
                                                 unsigned connectionId);
 static void _strategyLoadBalancer_ImplDestroy(StrategyImpl **strategyPtr);
-static strategy_type _strategyLoadBalancer_GetStrategy(StrategyImpl *strategy);
+static hicn_strategy_t _strategyLoadBalancer_GetStrategy(StrategyImpl *strategy);
 
 static StrategyImpl _template = {
     .context = NULL,
@@ -109,8 +109,8 @@ StrategyImpl *strategyLoadBalancer_Create() {
 // =======================================================
 // Dispatch API
 
-strategy_type _strategyLoadBalancer_GetStrategy(StrategyImpl *strategy) {
-  return SET_STRATEGY_LOADBALANCER;
+hicn_strategy_t _strategyLoadBalancer_GetStrategy(StrategyImpl *strategy) {
+  return HICN_STRATEGY_LOAD_BALANCER;
 }
 
 static void _update_Stats(StrategyLoadBalancer *strategy,

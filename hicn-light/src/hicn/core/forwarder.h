@@ -263,7 +263,7 @@ bool forwarder_GetChacheServeFlag(Forwarder *forwarder);
 void forwarder_ClearCache(Forwarder *forwarder);
 
 void forwarder_SetStrategy(Forwarder *forwarder, Name *prefix,
-                           strategy_type strategy, unsigned related_prefixes_len,
+                           hicn_strategy_t strategy, unsigned related_prefixes_len,
                            Name **related_prefixes);
 
 hicn_socket_helper_t *forwarder_GetHicnSocketHelper(Forwarder *forwarder);

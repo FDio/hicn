@@ -267,6 +267,7 @@ typedef struct {
     union {
         hc_face_t face;
         hc_route_t route;
+        hc_strategy_t strategy;
         hc_connection_t connection;
         hc_listener_t listener;
     };
@@ -772,13 +773,18 @@ int main(int argc, char *argv[])
 
         case OBJECT_STRATEGY:
             switch(command.action) {
+                case ACTION_CREATE:
+                    if (hc_strategy_create(s, &command.strategy) < 0)
+                        die(COMMAND, "Error creating strategy.");
+                    printf("OK\n");
+                    break;
                 case ACTION_LIST:
                     if (hc_strategy_list(s, &data) < 0)
-                        die(COMMAND, "Error getting routes.");
+                        die(COMMAND, "Error getting strategies.");
 
-                    printf("Forwarding strategies:\n");
-                    foreach_strategy(st, data) {
-                        if (hc_strategy_snprintf(buf_strategy, MAXSZ_HC_STRATEGY, st) >= MAXSZ_HC_STRATEGY)
+                    printf("Forwarding Strategies:\n");
+                    foreach_strategy(r, data) {
+                        if (hc_strategy_snprintf(buf_strategy, MAXSZ_HC_STRATEGY, r) >= MAXSZ_HC_STRATEGY)
                             die(COMMAND, "Display error");
                         printf("%s\n", buf_strategy);
                     }

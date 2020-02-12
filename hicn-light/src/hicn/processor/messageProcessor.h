@@ -187,7 +187,7 @@ bool messageProcessor_GetCacheServeFlag(MessageProcessor *processor);
 void messageProcessor_ClearCache(MessageProcessor *processor);
 
 void processor_SetStrategy(MessageProcessor *processor, Name *prefix,
-                           strategy_type strategy,
+                           hicn_strategy_t strategy,
                            unsigned related_prefixes_len,
                            Name **related_prefixes);
 

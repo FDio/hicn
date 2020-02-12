@@ -29,9 +29,10 @@ set(LIBHICN_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/header.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/mapme.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/name.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ops.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/policy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ops.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/strategy.h
   PARENT_SCOPE
 )
 

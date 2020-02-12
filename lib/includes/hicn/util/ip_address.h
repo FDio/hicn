@@ -140,6 +140,9 @@ int ip_address_to_sockaddr(const ip_address_t * ip_address, struct sockaddr *sa,
 int ip_address_cmp(const ip_address_t * ip1, const ip_address_t * ip2, int family);
 int ip_address_empty(const ip_address_t * ip);
 
+#define MAXSZ_IP_PREFIX_ MAXSZ_IP_ADDRESS_ + 4
+#define MAXSZ_IP_PREFIX MAXSZ_PREFIX_ + 1
+
 /* Prefix */
 
 int ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix);

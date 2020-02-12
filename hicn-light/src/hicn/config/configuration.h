@@ -104,7 +104,7 @@ size_t configuration_GetObjectStoreSize(Configuration *config);
 void configuration_SetObjectStoreSize(Configuration *config,
                                       size_t maximumContentObjectCount);
 
-strategy_type configuration_GetForwardingStrategy(Configuration *config,
+hicn_strategy_t configuration_GetForwardingStrategy(Configuration *config,
                                                   const char *prefix);
 
 /**

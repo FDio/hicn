@@ -63,7 +63,7 @@ static void _strategyLowLatency_AddNexthop(StrategyImpl *strategy,
 static void _strategyLowLatency_RemoveNexthop(StrategyImpl *strategy,
                                                 unsigned connectionId);
 static void _strategyLowLatency_ImplDestroy(StrategyImpl **strategyPtr);
-static strategy_type _strategyLowLatency_GetStrategy(StrategyImpl *strategy);
+static hicn_strategy_t _strategyLowLatency_GetStrategy(StrategyImpl *strategy);
 
 static StrategyImpl _template = {
     .context = NULL,
@@ -561,6 +561,18 @@ StrategyImpl *strategyLowLatency_Create() {
   return impl;
 }
 
+void strategyLowLatency_GetStrategy(StrategyImpl *strategy,
+                                    const Forwarder * forwarder,
+                                    const FibEntry * fibEntry,
+                                    unsigned * related_prefixes_len,
+                                    Name ***related_prefixes)
+{
+  StrategyLowLatency *ll =
+      (StrategyLowLatency *)strategy->context;
+  *related_prefixes_len = ll->related_prefixes_len;
+  *related_prefixes = ll->related_prefixes;
+}
+
 void strategyLowLatency_SetStrategy(StrategyImpl *strategy,
                                     const Forwarder * forwarder,
                                     const FibEntry * fibEntry,
@@ -620,8 +632,8 @@ void _stopTimers(StrategyImpl *strategy){
 // =======================================================
 // Dispatch API
 
-strategy_type _strategyLowLatency_GetStrategy(StrategyImpl *strategy) {
-  return SET_STRATEGY_LOW_LATENCY;
+hicn_strategy_t _strategyLowLatency_GetStrategy(StrategyImpl *strategy) {
+  return HICN_STRATEGY_LOW_LATENCY;
 }
 
 static void _strategyLowLatency_ReceiveObject(StrategyImpl *strategy,
