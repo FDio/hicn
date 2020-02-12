@@ -216,6 +216,28 @@ build_package() {
     echo "*******************************************************************"
 }
 
+build_doc() {
+    setup
+
+    echo "*******************************************************************"
+    echo "********************* STARTING DOC BUILD **************************"
+    echo "*******************************************************************"
+
+    # Make the package
+    python3 -m pip install --user virtualenv 
+    python3 -m virtualenv env
+    source env/usr/local/bin/activate
+    pip install -r docs/etc/requirements.txt
+    cd docs
+    make html
+
+    popd
+
+    echo "*******************************************************************"
+    echo "*****************  BUILD COMPLETED SUCCESSFULLY *******************"
+    echo "*******************************************************************"
+}
+
 build_package
 
 exit 0
