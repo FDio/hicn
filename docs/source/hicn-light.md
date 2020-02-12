@@ -1,4 +1,5 @@
-# hicn-light
+The Hybrid ICN Portable Forwarder
+==============================
 
 ## Introduction
 
