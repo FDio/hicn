@@ -1,4 +1,6 @@
-# libhicn
+
+The Hybrid ICN Core Library
+==============================
 
 ## Introduction
 

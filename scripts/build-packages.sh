@@ -58,7 +58,8 @@ DEPS_UBUNTU_NOVERSION="libparc-dev              \
              vpp-plugin-core                    \
              libyang                            \
              sysrepo                            \
-             python3-ply"
+             python3-ply                        \
+             python3-pip"
 
 DEPS_CMAKE_UBUNTU="curl"
 
@@ -208,6 +209,28 @@ build_package() {
 
     find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
     rm *Unspecified*
+
+    popd
+
+    echo "*******************************************************************"
+    echo "*****************  BUILD COMPLETED SUCCESSFULLY *******************"
+    echo "*******************************************************************"
+}
+
+build_doc() {
+    setup
+
+    echo "*******************************************************************"
+    echo "********************* STARTING DOC BUILD **************************"
+    echo "*******************************************************************"
+
+    # Make the package
+    python3 -m pip install --user virtualenv 
+    python3 -m virtualenv env
+    source env/bin/activate
+    pip install -r docs/etc/requirements.txt
+    cd docs
+    make html
 
     popd
 
