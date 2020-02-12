@@ -44,6 +44,7 @@ ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service)
       /****** END RAAQM Parameters ******/
       rate_estimation_alpha_(default_values::rate_alpha),
       rate_estimation_observer_(nullptr),
+      rate_estimation_batching_parameter_(default_values::batch),
       rate_estimation_choice_(0),
       verifier_(std::make_shared<utils::Verifier>()),
       verify_signature_(false),
