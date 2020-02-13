@@ -1,7 +1,6 @@
-Libtransport: data transport library for hICN
-====================================================
+# The Transport Library
 
-## Introduction ##
+## Introduction
 
 This library provides transport services and socket API for applications willing to communicate
 using the hICN protocol stack.
@@ -14,19 +13,11 @@ Overview:
 - Transport services (authentication, integrity, segmentation, reassembly, naming)
 - Interfaces for Applications (from low-level interfaces for interest-data interaction to high level interfaces for Application Data Unit interaction)
 
-## Build Dependencies ##
+## Build Dependencies
 
 - libparc
 - libmemif (linux only, if compiling with VPP support)
 - libasio
-
-### Ubuntu 16.04 and Ubuntu 18.04 ###
-
-```bash
- $ echo "deb [trusted=yes] https://nexus.fd.io/content/repositories/fd.io.master.ubuntu.$(lsb_release -sc).main/ ./" \
-          | sudo tee -a /etc/apt/sources.list.d/99fd.io.list
- $ sudo apt-get install libparc libasio-dev
-```
 
 If you wish to use the library for connecting to the vpp hicn-plugin, you will need to also install vpp, the vpp libraries and the libmemif libraries:
 
@@ -39,39 +30,40 @@ You can get them either from from the vpp packages ot the source code. Check the
 
 Libmemif is in the vpp-lib and vpp-dev packages.
 
-### Mac OSX ###
+### macOS
 
 We recommend to use [HomeBrew](https://brew.sh/) for installing the libasio dependency:
 
 ```bash
- $ brew install asio
+ brew install asio
 ```
 
 Download, compile and install libparc:
 
 ```bash
- $ git clone -b cframework/master https://gerrit.fd.io/r/cicn cframework && cd cframework
- $ mkdir -p libparc.build && cd libparc.build
- $ cmake ../libparc
- $ make
- $ make install
+ git clone -b cframework/master https://gerrit.fd.io/r/cicn cframework && cd cframework
+ mkdir -p libparc.build && cd libparc.build
+ cmake ../libparc
+ make
+ make install
 ```
 
 Libparc will be installed by default under `/usr/local/lib` and `/usr/local/include`.
 
-Since VPP does not support MAC OS, the hicn-plugin connector is not built.
+Since VPP does not support macOS, the hicn-plugin connector is not built.
 
-## Build The library ##
+## Build the library
 
 From the project root folder:
 
 ```bash
- $ cd libtransport
- $ mkdir build && cd build
- $ cmake ..
- $ make
+ cd libtransport
+ mkdir build && cd build
+ cmake ..
+ make
 ```
-### Compile options ###
+
+### Compile options
 
 The build process can be customized with the following options:
 
@@ -85,42 +77,10 @@ The build process can be customized with the following options:
 
 An option can be set using cmake -D`OPTION`=`VALUE`.
 
-Install the library
--------------------
+### Install the library
 
 For installing the library, from the cmake build folder:
 
 ```bash
- $ sudo make install
-```
-
-## Supported platforms
-
-- Ubuntu 16.04 LTS (x86_64)
-- Ubuntu 18.04 LTS (x86_64)
-- Debian Stable/Testing
-- Red Hat Enterprise Linux 7
-- CentOS 7
-- Android 8
-- iOS 12
-- macOS 10.12
-- Windows 10
-
-## License ##
-
-This software is distributed under the following license:
-
-```
-Copyright (c) 2017-2019 Cisco and/or its affiliates.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at:
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+ sudo make install
 ```

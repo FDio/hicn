@@ -1,21 +1,21 @@
-VPP plugin
-==============================
+# VPP plugin
 
 The hICN-plugin forwarder
 
-## Introduction ##
+## Introduction
 
 A high-performance Hybrid ICN forwarder as a plugin to VPP.
 
 The plugin provides the following functionalities:
 
- - Fast packet processing
- - Interest aggregation
- - Content caching
- - Forwarding strategies
+- Fast packet processing
+- Interest aggregation
+- Content caching
+- Forwarding strategies
 
-## Quick Start ##
-```
+## Quick Start
+
+```bash
 From the code tree root
 
 (VPP installed with DEB pkg)
@@ -47,42 +47,32 @@ CMAKE variables:
 - VPP_HOME -- set the directory containing the include and lib directories of vpp.
 ```
 
-## Using hICN plugin ##
+## Using hICN plugin
 
-### Platforms ###
-
-hICN-plugin has been tested in:
-
-- Ubuntu 16.04 LTS (x86_64)
-- Ubuntu 18.04 LTS (x86_64)
-- Debian Stable/Testing
-- Red Hat Enterprise Linux 7
-- CentOS 7
-
-
-### Dependencies ###
+### Dependencies
 
 Build dependencies:
 
-- VPP 19.08
-  - DEB packages (can be found https://packagecloud.io/fdio/release/install):
+- VPP 20.01
+  - DEB packages (can be found <https://packagecloud.io/fdio/release/install):>
   - vpp
   - libvppinfra-dev
   - vpp-dev
 
 Runtime dependencies:
 
-- VPP 19.08
-  - DEB packages (can be found https://packagecloud.io/fdio/release/install):
+- VPP 20.01
+  - DEB packages (can be found <https://packagecloud.io/fdio/release/install):>
   - vpp
   - vpp-plugin-core
   - vpp-plugin-dpdk (only to use DPDK compatible nics)
 
 Hardware support (not mandatory):
 
-- [DPDK](http://DPDK.org/) compatible nics
+- [DPDK](http://DPDK.org/) compatible NICs
 
-## Getting started ##
+## Getting started
+
 In order to start, the hICN plugin requires a running instance of VPP
 The steps required to successfully start hICN are:
 
@@ -94,33 +84,36 @@ The steps required to successfully start hICN are:
 
 Detailed information for configuring VPP can be found at [https://wiki.fd.io/view/VPP](https://wiki.fd.io/view/VPP).
 
-### Setup the host for VPP ###
+### Setup the host for VPP
 
 Hugepages must be enabled in the system
 
-```
-$ sudo sysctl -w vm.nr_hugepages=1024
+```shell
+sudo sysctl -w vm.nr_hugepages=1024
 ```
 
 In order to use a DPDK interface, the `uio` and `uio_pci_generic` or `vfio_pci` modules need to be loaded in the kernel
 
-```
-$ sudo modprobe uio
-$ sudo modprobe uio_pci_generic
-$ sudo modprobe vfio_pci
+```shell
+sudo modprobe uio
+sudo modprobe uio_pci_generic
+sudo modprobe vfio_pci
 ```
 
 If the DPDK interface we want to assign to VPP is up, we must bring it down
 
-```
-$ sudo ifconfig <interface_name> down
-```
-or
-```
-$ sudo ip link set <interface_name> down
+```bash
+sudo ifconfig <interface_name> down
 ```
 
-### Configure VPP ###
+or
+
+```bash
+sudo ip link set <interface_name> down
+```
+
+### Configure VPP
+
 The file /etc/VPP/startup.conf contains a set of parameters to setup VPP at startup.
 The following example sets up VPP to use a DPDK interfaces:
 
@@ -156,9 +149,10 @@ plugins {
         # plugin acl_plugin.so { disable }
 }
 ```
+
 Where `0000:08:00.0` must be replaced with the actual PCI address of the DPDK interface
 
-### Start VPP ###
+### Start VPP
 
 VPP can be started as a process or a service:
 
@@ -171,10 +165,11 @@ $ sudo vpp -c /etc/vpp/startup.conf
 
 ```
 
-### Configure hICN plugin ###
+### Configure hICN plugin
+
 The hICN plugin can be configured either using the VPP command-line interface (CLI), through a configuration file or through the VPP binary api
 
-#### hICN plugin CLI ####
+#### hICN plugin CLI
 
 The CLI commands for the hICN plugin start all with the hicn keyword. To see the full list of command available type:
 
@@ -185,9 +180,9 @@ vpp# hicn ?
 
 `hicn control param`: configures the internal parameter of the hICN plugin. This command must be run before hicn control start.
 
-```
+```shell
 hicn control param { pit { size <entries> | { dfltlife | minlife | maxlife } <seconds> } | cs {size <entries> | app <portion to reserved to app>} }
-  <entries>                     :set the maximum number of entry in the PIT or CS. Default for PIT is 131072, for CS is 4096. CS size cannot be grater than PIT size. Moreover CS size must be smaller than (# of vlib buffer - 8196). 
+  <entries>                     :set the maximum number of entry in the PIT or CS. Default for PIT is 131072, for CS is 4096. CS size cannot be grater than PIT size. Moreover CS size must be smaller than (# of vlib buffer - 8196).
   <seconds>                     :set the default, maximum or minimum lifetime of pit entries. Default value 2s (default), 0.2s (minumum), 20s (maximum)
   <portion to reserved to app>  :set the portion of CS to reserve to application running locally on the forwarder. Default is 30% of the cs size.
 ```
@@ -198,7 +193,7 @@ hicn control param { pit { size <entries> | { dfltlife | minlife | maxlife } <se
 
 `hicn face app` : manipulates producer and consumer application faces in the forwarder.
 
-```
+```shell
 hicn face app {add intfc <sw_if> {prod prefix <hicn_prefix> cs_size <size_in_packets>} {cons}} | {del <face_id>}
   <sw_if>                     :software interface existing in vpp on top of which to create an application face
   <hicn_prefix>               :prefix to bound to the producer application face. Only content matching the prefix will be allowed through such face.
@@ -209,7 +204,7 @@ hicn face app {add intfc <sw_if> {prod prefix <hicn_prefix> cs_size <size_in_pac
 
 `hicn face ip`: manipulates ip application faces in the forwarder.
 
-```
+```shell
 hicn face ip {add [local <src_address>] remote <dst_address> intfc <sw_if>} | {del id <face_id>}
   <src_address>               :the IPv4 or IPv6 local IP address to bind to (not mandatory, if not specified the local address is one of the address assigned to sw_if)
   <dst_address>               :the IPv4 or IPv6 address of the remote system
@@ -217,10 +212,9 @@ hicn face ip {add [local <src_address>] remote <dst_address> intfc <sw_if>} | {d
   <face_id>                   :id of the face to remove
 ```
 
-
 `hicn face show`: list the available faces in the forwarder.
 
-```
+```shell
 hicn face show [<face_id>| type <ip/udp>]
   <face_id>                   :face id of which we want to display the informations
   <ip/udp>                    :shows all the ip or udp faces available
@@ -228,7 +222,7 @@ hicn face show [<face_id>| type <ip/udp>]
 
 `hicn face udp`: manipulates udp application faces in the forwarder.
 
-```
+```shell
 hicn face udp {add src_addr <src_address> port <src_port > dst_addr <dst_address> port <dst_port>} intfc <sw_if> | {del id <face_id>}
   <src_address>             :the IPv4 or IPv6 local IP address to bind to
   <src_port>                :the local UDP port
@@ -241,7 +235,7 @@ hicn face udp {add src_addr <src_address> port <src_port > dst_addr <dst_address
 
 `hicn fib`: manipulates hicn fib entries.
 
-```
+```shell
 hicn fib {{add | delete } prefix <prefix> face <face_id> } | set strategy <strategy_id> prefix <prefix>
   <prefix>                  :prefix to add to the FIB
   <face_id>                 :face id to add as nexto hop in the FIB entry
@@ -250,7 +244,7 @@ hicn fib {{add | delete } prefix <prefix> face <face_id> } | set strategy <strat
 
 `hicn pgen client`: set an vpp forwarder as an hicn packet generator client
 
-```
+```shell
 hicn pgen client fwd <ip|hicn> src <addr> n_ifaces <n_ifaces> name <prefix> lifetime <interest-lifetime> intfc <data in-interface> max_seq <max sequence number> n_flows <number of flows>
   <ip|hicn>                 :set if the underlying forwarder is configured as ip or hicn
   <src_addr>                :source address to use in the interests, i.e., the locator for routing the data packet back
@@ -264,7 +258,7 @@ hicn pgen client fwd <ip|hicn> src <addr> n_ifaces <n_ifaces> name <prefix> life
 
 `hicn pgen server`: set an vpp forwarder as an hicn packet generator client
 
-```
+```shell
 hicn pgen server fwd <ip|hicn> name <prefix> intfc <interest in-interface> size <payload_size>
   <ip|hicn>                     :set if the underlying forwarder is configured as ip or hicn
   <prefix>                      :prefix to use to reply to interest
@@ -274,7 +268,7 @@ hicn pgen server fwd <ip|hicn> name <prefix> intfc <interest in-interface> size 
 
 `hicn punting`: manipulates punting rules
 
-```
+```shell
 hicn punting {add|delete} prefix <prefix> intfc <sw_if> {type ip | type <udp4|udp6> src_port <src_port> dst_port <dst_port>}
   <prefix>                      :prefix to punt to the hICN plugin
   <sw_if>                       :software interface where to apply the punting
@@ -284,7 +278,8 @@ hicn punting {add|delete} prefix <prefix> intfc <sw_if> {type ip | type <udp4|ud
 ```
 
 `hicn show`: show forwarder information.
-```
+
+```shell
 hicn show [detail] [strategies]
   <detail>                      :shows additional details as pit,cs entries allocation/deallocation
   <strategies>                  :shows only the available strategies int he forwarder
@@ -292,18 +287,18 @@ hicn show [detail] [strategies]
 
 `hicn strategy mw set`: set the weight for a face.
 
-```
+```shell
 hicn strategy mw set prefix <prefix> face <face_id> weight <weight>
   <prefix>                      :prefix to which the strategy applies
   <face_id>                     :id of the face to set the weight
   <weight>                       :weight
 ```
 
-#### hICN plugin configuration file ####
+#### hICN plugin configuration file
 
 A configuration can be use to setup the hicn plugin when vpp starts. The configuration file is made of a list of CLI commands. In order to set vpp to read the configuration file, the file /etc/vpp/startup.conf needs to be modified as follows:
 
-```
+```shell
 unix {
   nodaemon
   log /tmp/vpp.log
@@ -311,15 +306,16 @@ unix {
   startup-config <path to configuration file>
 }
 ```
-#### hICN plugin binary api ####
+
+#### hICN plugin binary API
 
 The binary api, or the vapi, can be used as well to configure the hicn plugin. For each cli command there is a corresponding message in the binary api. The list of messages is available in the file hicn.api (located in hicn/hicn-plugin/src/)
 
-### Example: consumer and producer Ping ###
+### Example: consumer and producer Ping
 
 In this example, we connect two vpp forwarders, A and B, each of them running the hicn plugin. On top of forwarder A we run the ping_client application, on top of forwarder B we run the ping_server application. Each application connects to the underlying forwarder through a memif-interface. The two forwarders are connected through a dpdk link.
 
-#### Forwarder A ####
+#### Forwarder A
 
 ```shell
 $ sudo vppctl
@@ -331,7 +327,7 @@ vpp# hicn fib add prefix b002::1/64 face 0
 vpp# hicn punting add prefix b002::1/64 intfc TenGigabitEtherneta/0/0 type ip
 ```
 
-#### Forwarder B ####
+#### Forwarder B
 
 ```shell
 $ sudo vppctl
@@ -344,30 +340,11 @@ vpp# hicn punting add prefix b002::1/64 intfc TenGigabitEtherneta/0/1 type ip
 Once the two forwarder are started, run the ping_server application on the host where the forwarder B is running
 
 ```shell
-$ sudo ping_server -n b002::1
+sudo ping_server -n b002::1
 ```
 
 and the client on the host where forwarder B is running
 
 ```shell
-$ sudo ping_client -n b002::1
-```
-
-## License ##
-
-This software is distributed under the following license:
-
-```
-Copyright (c) 2017-2019 Cisco and/or its affiliates.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at:
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+sudo ping_client -n b002::1
 ```

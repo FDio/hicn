@@ -6,22 +6,11 @@ hicn-ping-server, hicn-ping-client and hiperf are three utility applications for
 
 ## Using hICN Utils applications
 
-### Platforms
-
-hicn-light has been tested in:
-
-- Ubuntu 16.04 / 18.04 (x86_64)
-- Debian Testing
-- Centos 7
-- MacOSX 10.12
-- Android
-- iOS
-
 ### Dependencies
 
 Build dependencies:
 
-- c++14 ( clang++ / g++ )
+- C++14 ( clang++ / g++ )
 - CMake 3.4
 
 Basic dependencies:
@@ -41,7 +30,7 @@ The utility applications are a set of binary executables consisting of a client/
 The command `hicn-ping-server` runs the server side ping application. hicn-ping-server can be executed
 with the following options:
 
-```
+```shell
 usage: hicn-ping-server [options]
 
 Options:
@@ -66,7 +55,7 @@ hicn-ping-server -n c001::/64
 The command `hicn-ping-client` runs the client side ping application. hicn-ping-client can be executed
 with the following options:
 
-```
+```shell
 usage: hicn-ping-client [options]
 
 Options:
@@ -93,7 +82,7 @@ hicn-ping-client -n c001::1
 
 The command `hiperf` is a tool for performing network throughput measurements with hicn. It can be executed as server or client using the following options:
 
-```
+```shell
 usage: hiperf [-S|-C] [options] [prefix|name]
 
 Options:
@@ -110,9 +99,9 @@ Server specific:
 -k <keystore_path>          = path of p12 file containing the crypto material used for signing the packets
 -y <hash_algorithm>         = use the selected hash algorithm for calculating manifest digests
 -p <password>               = password for p12 keystore
--x                          = produce a content of <download_size>, then after downloading it produces a new content of
-					          <download_size> without resetting the suffix to 0
--B	<bitrate>			          = bitrate for RTC producer, to be used with the -R option, in kbps (example: 64kbps)
+-x                          = produce a content of <download_size>, then after downloading it produces a new 
+                              content of <download_size> without resetting the suffix to 0
+-B  <bitrate>               = bitrate for RTC producer, to be used with the -R option, in kbps (example: 64kbps)
 
 Client specific:
 -b <beta_parameter>         = RAAQM beta parameter
@@ -229,7 +218,7 @@ This will run the client with a fixed window of 50 interests.
 
 For sending hICN packets directly over the network, using hicn faces, change the configuration of the two forwarders and restart them.
 
-##### Server Configuration
+#### Server
 
 ```bash
 server$ mkdir -p ${HICN_ROOT}/etc
@@ -241,7 +230,7 @@ add listener hicn list0 ${LOCAL_IP}
 EOF
 ```
 
-#### Client Configuration
+#### Client
 
 ```bash
 client$ mkdir -p ${HICN_ROOT}/etc
@@ -284,42 +273,23 @@ $ export HICN_ROOT=${PWD}/../hicn-install
 Make sure vpp is running:
 
 ```bash
-$ sudo systemctl restart vpp
+sudo systemctl restart vpp
 ```
 
 Run the hicn-plugin:
 
 ```bash
-$ vppctl hicn control start
+vppctl hicn control start
 ```
 
 Run hiperf server:
 
 ```bash
-$ hiperf -S b001::/64
+hiperf -S b001::/64
 ```
 
 Run hiperf client:
 
 ```bash
-$ hiperf -C b001::1 -W 300
-```
-
-## License
-
-This software is distributed under the following license:
-
-```
-Copyright (c) 2017-2019 Cisco and/or its affiliates.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at:
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+hiperf -C b001::1 -W 300
 ```
