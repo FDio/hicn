@@ -70,13 +70,23 @@ void mapme_Process(const MapMe *mapme, const uint8_t *msgBuffer,
 
 /**
  * @function mapme_send_updates
- * @abstract Trigger the update for specified FIB entry and nexthops
+ * @abstract Trigger (if needed) the update for specified FIB entry and nexthops
  * @param [in] mapme - Pointer to the MAP-Me data structure.
  * @param [in] fibEntry - The FIB entry to consider
  * @param [in] nexthops - NumberSet holding the next hops on which to send the
  * update.
  */
 void mapme_send_updates(const MapMe * mapme, FibEntry * fibEntry, const NumberSet * nexthops);
+
+/**
+ * @function mapme_send_updates
+ * @abstract Trigger the update for specified FIB entry and nexthops, only if needed
+ * @param [in] mapme - Pointer to the MAP-Me data structure.
+ * @param [in] fibEntry - The FIB entry to consider
+ * @param [in] nexthops - NumberSet holding the next hops on which to send the
+ * update.
+ */
+void mapme_maybe_send_updates(const MapMe * mapme, FibEntry * fibEntry, const NumberSet * nexthops);
 
 /**
  * @function mapme_reconsiderFibEntry

@@ -482,14 +482,6 @@ static bool mapme_hasLocalNextHops(const MapMe *mapme,
 void
 mapme_send_updates(const MapMe * mapme, FibEntry * fibEntry, const NumberSet * nexthops)
 {
-  /* Detect change */
-  NumberSet * previous_nexthops = fibEntry_GetPreviousNextHops(fibEntry);
-  if (numberSet_Equals(nexthops, previous_nexthops)) {
-      INFO(mapme, "[MAP-Me] No change in nexthops");
-      return;
-  }
-  fibEntry_SetPreviousNextHops(fibEntry, nexthops);
-
   if (!TFIB(fibEntry)) /* Create TFIB associated to FIB entry */
     mapme_CreateTFIB(fibEntry);
   TFIB(fibEntry)->seq++;
@@ -505,6 +497,21 @@ mapme_send_updates(const MapMe * mapme, FibEntry * fibEntry, const NumberSet * n
       clear_tfib = false;
   }
   free(name_str);
+}
+
+
+void
+mapme_maybe_send_updates(const MapMe * mapme, FibEntry * fibEntry, const NumberSet * nexthops)
+{
+  /* Detect change */
+  NumberSet * previous_nexthops = fibEntry_GetPreviousNextHops(fibEntry);
+  if (numberSet_Equals(nexthops, previous_nexthops)) {
+      INFO(mapme, "[MAP-Me] No change in nexthops");
+      return;
+  }
+  fibEntry_SetPreviousNextHops(fibEntry, nexthops);
+
+  mapme_send_updates(mapme, fibEntry, nexthops);
 }
 
 void

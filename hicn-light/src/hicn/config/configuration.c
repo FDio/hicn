@@ -1094,10 +1094,7 @@ struct iovec *configuration_MapMeEnable(Configuration *config,
   parcMemory_Deallocate((void **)&result);
   parcBufferComposer_Release(&composer);
 
-  struct iovec *response =
-      utils_CreateAck(header, control, sizeof(mapme_activator_command));
-
-  return response;
+  return utils_CreateAck(header, control, sizeof(mapme_timing_command));
 }
 
 struct iovec *configuration_MapMeDiscovery(Configuration *config,
@@ -1118,10 +1115,7 @@ struct iovec *configuration_MapMeDiscovery(Configuration *config,
   parcMemory_Deallocate((void **)&result);
   parcBufferComposer_Release(&composer);
 
-  struct iovec *response =
-      utils_CreateAck(header, control, sizeof(mapme_activator_command));
-
-  return response;
+  return utils_CreateAck(header, control, sizeof(mapme_timing_command));
 }
 
 struct iovec *configuration_MapMeTimescale(Configuration *config,
@@ -1141,10 +1135,7 @@ struct iovec *configuration_MapMeTimescale(Configuration *config,
   parcMemory_Deallocate((void **)&result);
   parcBufferComposer_Release(&composer);
 
-  struct iovec *response =
-      utils_CreateAck(header, control, sizeof(mapme_timing_command));
-
-  return response;
+  return utils_CreateAck(header, control, sizeof(mapme_timing_command));
 }
 
 struct iovec *configuration_MapMeRetx(Configuration *config,
@@ -1164,11 +1155,43 @@ struct iovec *configuration_MapMeRetx(Configuration *config,
   parcMemory_Deallocate((void **)&result);
   parcBufferComposer_Release(&composer);
 
-  struct iovec *response =
-      utils_CreateAck(header, control, sizeof(mapme_timing_command));
-
-  return response;
+  return utils_CreateAck(header, control, sizeof(mapme_timing_command));
 }
+
+struct iovec * configuration_MapMeSendUpdate(Configuration *config,
+                                      struct iovec *request, unsigned ingressId) {
+  header_control_message *header = request[0].iov_base;
+  mapme_send_update_command *control = request[1].iov_base;
+
+  FIB * fib = forwarder_getFib(config->forwarder);
+  if (!fib)
+      goto ERR;
+  Name *prefix = name_CreateFromAddress(control->addressType, control->address,
+                                        control->len);
+  if (!prefix)
+      goto ERR;
+  FibEntry *entry = fib_Contains(fib, prefix);
+  name_Release(&prefix);
+  if (!entry)
+      goto ERR;
+
+  const NumberSet * nexthops = fibEntry_GetNexthops(entry);
+  unsigned size = (unsigned) numberSet_Length(nexthops);
+
+  /* The command is accepted iif triggered by (one of) the producer of this prefix */
+  for (unsigned i = 0; i < size; i++) {
+    unsigned nhop = numberSet_GetItem(nexthops, i);
+    if (nhop == ingressId) {
+        MapMe * mapme = forwarder_getMapmeInstance(config->forwarder);
+        mapme_send_updates(mapme, entry, nexthops);
+        return utils_CreateAck(header, control, sizeof(mapme_timing_command));
+    }
+  }
+
+ERR:
+  return utils_CreateNack(header, control, sizeof(connection_set_admin_state_command));
+}
+
 
 struct iovec *configuration_ConnectionSetAdminState(Configuration *config,
                                       struct iovec *request) {
@@ -1416,6 +1439,10 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
 
     case MAPME_RETX:
       response = configuration_MapMeRetx(config, control);
+      break;
+
+    case MAPME_SEND_UPDATE:
+      response = configuration_MapMeSendUpdate(config, control, ingressId);
       break;
 
     case CONNECTION_SET_ADMIN_STATE:
