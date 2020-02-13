@@ -1,23 +1,33 @@
-# Sysrepo plugin for hicn-plugin  (2019)
+# Sysrepo plugin for hicn-plugin
 
 These plugins serve as a data management agent. They provide yang models via
-NETCONF to allow the management of hicn-light, and hicn-plugin which runs in VPP
-instance from out-of-box.
+NETCONF to allow the management of hicn-light, and hicn VPP plugin.
 
 ## Software Requirement
 
 - VPP
-
 - sysrepo
-
 - hicn-plugin
-
 - hicn-light
+
+- libyang
+- sysrepo
+- libnetconf
+- netopeer2
+
+To install libyang, sysrepo, libnetconf and netopeer2 for Ubuntu18 amd64/arm64
+and ad-hoc repository is available and maintained in bintray.
+
+```shell
+echo "deb [trusted=yes] https://dl.bintray.com/icn-team/apt-hicn-extras bionic main" | tee -a /etc/apt/sources.list
+apt-get update && apt-get install -y libyang sysrepo libnetconf2 netopeer2-server
+```
 
 ## hICN yang model
 
 You can install the yang model using the following bash script:
-```
+
+```shell
 EXIT_CODE=0
 command -v sysrepoctl > /dev/null
 if [ $? != 0 ]; then
@@ -27,6 +37,7 @@ else
 sysrepoctl --install --yang=path_to_hicn_yang_model
 fi
 ```
+
 hicn.yang can be found in the yang-model. It consists of two container nodes:
 hicn-conf and hicn-state. One is used to hold the configuration data (i.e.,
 hicn-conf) and one for providing the state data (i.e., hicn-state). The
@@ -40,7 +51,8 @@ to allow controller to communicate with the hicn-plugin as well as update the st
 data in hicn-state.
 
 To setup the startup configuration you can use the following script:
-```
+
+```shell
 EXIT_CODE=0
 command -v sysrepocfg > /dev/null
 if [ $? != 0 ]; then
@@ -52,7 +64,8 @@ fi
 ```
 
 startup.xml is placed in the yang-model. Here you can find the content:
-```
+
+```shell
 <hicn-conf  xmlns="urn:sysrepo:hicn">
 <params>
     <enable_disable>false</enable_disable>
@@ -65,6 +78,7 @@ startup.xml is placed in the yang-model. Here you can find the content:
 </params>
 </hicn-conf>
 ```
+
 As can be seen, it contains the leaves of the params in hicn-conf node which is
 used as the startup configuration. This configuration can be changed through the
 controller by subscribing which changes the target to the running state. hicn
@@ -74,7 +88,8 @@ state data.
 
 In order to run different RPCs from controller you can use the examples in the
 controler_rpcs_instances.xml in the yang-model. Here you can find the content:
-```
+
+```shell
 <node-params-get xmlns="urn:sysrepo:hicn"/>
 
 <node-stat-get xmlns="urn:sysrepo:hicn"/>
@@ -164,8 +179,10 @@ In order to connect through the netopeer client run the netopeer2-cli. Then, fol
 - get (you can get the configuration and operational data)
 - get-config (you can get the configuration data)
 - edit-config --target running --config
-  you can modify the configuration but it needs an xml configuration input
-```
+
+You can modify the configuration but it needs an xml configuration input
+
+```shell
 <hicn-conf  xmlns="urn:sysrepo:hicn">
 <params>
     <enable_disable>false</enable_disable>
@@ -178,6 +195,7 @@ In order to connect through the netopeer client run the netopeer2-cli. Then, fol
 </params>
 </hicn-conf>
 ```
+
 - user-rpc (you can call one of the rpc proposed by hicn model but it needs an xml input)
 
 ## Connect from OpenDaylight (ODL) controller
@@ -191,10 +209,11 @@ In order to connect through the OpenDaylight follow these procedure:
 - run a rest client program (e.g., postman or RESTClient)
 - mount the remote netopeer2-server to the OpenDaylight by the following REST API:
 
-PUT http://localhost:8181/restconf/config/network-topology:network-topology/topology/topology-netconf/node/hicn-node
+PUT <http://localhost:8181/restconf/config/network-topology:network-topology/topology/topology-netconf/node/hicn-node>
 
 with the following body
-```
+
+```shell
  <node xmlns="urn:TBD:params:xml:ns:yang:network-topology">
    <node-id>hicn-node</node-id>
    <host xmlns="urn:opendaylight:netconf-node-topology">Remote_NETCONF_SERVER_IP</host>
@@ -205,11 +224,12 @@ with the following body
    <keepalive-delay xmlns="urn:opendaylight:netconf-node-topology">1</keepalive-delay>
  </node>
 ```
+
 Note that the header files must be set to Content-Type: application/xml, Accept: application/xml.
 
 - send the operation through the following REST API:
 
-POST http://localhost:8181/restconf/operations/network-topology:network-topology/topology/topology-netconf/node/hicn-node/yang-ext:mount/ietf-netconf:edit-config
+POST <http://localhost:8181/restconf/operations/network-topology:network-topology/topology/topology-netconf/node/hicn-node/yang-ext:mount/ietf-netconf:edit-config>
 
 The body can be used the same as edit-config in netopeer2-cli.
 
@@ -238,4 +258,4 @@ At this point, we are able to connect to the remote device.
 
 ## Release note
 
-The current version is compatible with the 19.01 VPP stable and sysrepo 0.7.7.
+The current version is compatible with the 20.01 VPP stable and sysrepo devel.

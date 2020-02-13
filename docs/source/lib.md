@@ -1,6 +1,5 @@
 
-The Hybrid ICN Core Library
-==============================
+# The Hybrid ICN Core Library
 
 ## Introduction
 
@@ -16,6 +15,7 @@ userspace according to the available APIs and permissions that each system
 offers.
 
 The library consists in several layers:
+
 - the core library (hicn.h) provides a standard hICN packet format, as well as
 an API allowing manipulation of packet headers;
 - an hICN helper, allowing an hICN stack to be built in userspace in a portable
@@ -32,53 +32,38 @@ either a consumer, a producer, or a simple forwarder.
 
 ## Folder content
 
-CMakeLists.txt          CMkake global build file
-doc                     Package documentation
-README.md               This file
-src
-    base.h		Base definitions for hICN implementation
-    CMakeLists.txt      CMake library build file
-    common.{h,c}	Harmonization layer across supported platforms
-    compat.{h,c}	Compatibility layer for former API
-    error.{h,c}		Error management files
-    header.h		hICN header definitions
-    hicn.h		Master include file
-    mapme.{h,c}		MAP-Me : anchorless producer mobility mechanisms 
-    name.{h,c}		hICN naming conventions and name processing + IP helpers
-    ops.{h,c}		Protocol-independent hICN operations
-    protocol/*		Protocol headers + protocol-dependent implementations
-    protocol.h		Common file for protocols
+```shell
+.
++-- CMakeLists.txt          CMkake global build file
++-- doc                     Package documentation
++-- README.md               This file
++-- src
+|   +-- base.h              Base definitions for hICN implementation
+|   +-- CMakeLists.txt      CMake library build file
+|   +-- common.{h,c}        Harmonization layer across supported platforms
+|   +-- compat.{h,c}        Compatibility layer for former API
+|   +-- error.{h,c}         Error management files
+|   +-- header.h            hICN header definitions
+|   +-- hicn.h              Master include file
+|   +-- mapme.{h,c}         MAP-Me : anchorless producer mobility mechanisms 
+|   +-- name.{h,c}          hICN naming conventions and name processing + IP helpers
+|   +-- ops.{h,c}           Protocol-independent hICN operations
+|   +-- protocol/*          Protocol headers + protocol-dependent implementations
+|   +-- protocol.h          Common file for protocols
+```
 
 ## Using libhicn
-
-### Platforms ###
-
-libhicn has been tested in:
-
-- Ubuntu 16.04 LTS (x86_64)
-- Ubuntu 18.04 LTS (x86_64)
-- Debian Stable/Testing
-- Red Hat Enterprise Linux 7
-- CentOS 7
-- Android 8
-- iOS 12
-- macOS 10.12
-- Windows 10
-
-Other platforms and architectures may work.
 
 ### Dependencies
 
 Build dependencies:
 
-- c11 ( clang / gcc )
+- C11 ( clang / gcc )
 - CMake 3.4
 
 Basic dependencies: None
 
 ## Installation
-
-You can either use released packages, or compile libhicn from sources.
 
 ### Release mode
 
@@ -95,22 +80,3 @@ cd debug
 cmake .. -DCMAKE_BUILD_TYPE=Debug
 make
 sudo make install
-
-## License
-
-This software is distributed under the following license:
-
-```
-Copyright (c) 2017-2019 Cisco and/or its affiliates.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at:
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```
