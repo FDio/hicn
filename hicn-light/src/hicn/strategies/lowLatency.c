@@ -192,7 +192,7 @@ static void strategyLowLatency_SendMapmeUpdate(StrategyLowLatency *ll,
     for(unsigned i = 0; i < ll->related_prefixes_len; i++){
       FibEntry *fibEntry = fib_MatchName(fib, ll->related_prefixes[i]);
       if(fibEntry != NULL){
-        mapme_send_updates(mapme, fibEntry, nexthops);
+        mapme_maybe_send_updates(mapme, fibEntry, nexthops);
       }
     }
   }

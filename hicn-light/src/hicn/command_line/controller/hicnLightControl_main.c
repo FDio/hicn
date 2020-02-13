@@ -79,6 +79,7 @@ static int payloadLengthController[LAST_COMMAND_VALUE] = {
     sizeof(mapme_activator_command),
     sizeof(mapme_timing_command),
     sizeof(mapme_timing_command),
+    sizeof(mapme_send_update_command),
     sizeof(connection_set_admin_state_command),
 #ifdef WITH_POLICY
     sizeof(add_policy_command),

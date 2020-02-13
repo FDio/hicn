@@ -70,6 +70,7 @@ typedef enum {
   MAPME_DISCOVERY,
   MAPME_TIMESCALE,
   MAPME_RETX,
+  MAPME_SEND_UPDATE,
   CONNECTION_SET_ADMIN_STATE,
 #ifdef WITH_POLICY
   ADD_POLICY,
@@ -308,6 +309,12 @@ typedef struct {
   uint32_t timePeriod;
 } mapme_timing_command;
 
+typedef struct {
+  ip_address_t address;
+  uint8_t addressType;
+  uint8_t len;
+} mapme_send_update_command;
+
 // SIZE=1
 
 typedef struct {
@@ -400,6 +407,8 @@ static inline int payloadLengthDaemon(command_id id) {
       return sizeof(mapme_timing_command);
     case MAPME_RETX:
       return sizeof(mapme_timing_command);
+    case MAPME_SEND_UPDATE:
+      return sizeof(mapme_send_update_command);
     case CONNECTION_SET_ADMIN_STATE:
       return sizeof(connection_set_admin_state_command);
 #ifdef WITH_POLICY

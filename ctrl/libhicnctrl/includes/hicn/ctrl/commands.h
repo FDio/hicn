@@ -37,6 +37,7 @@
 #endif /* WITH_POLICY */
 
 #define SYMBOLIC_NAME_LEN 16
+#define MAX_FWD_STRATEGY_RELATED_PREFIXES 10
 
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;
@@ -69,6 +70,7 @@ typedef enum {
   MAPME_DISCOVERY,
   MAPME_TIMESCALE,
   MAPME_RETX,
+  MAPME_SEND_UPDATE,
   CONNECTION_SET_ADMIN_STATE,
 #ifdef WITH_POLICY
   ADD_POLICY,
@@ -251,9 +253,13 @@ typedef struct {
   uint8_t strategyType;
   uint8_t addressType;
   uint8_t len;
+  uint8_t related_prefixes;
+  ip_address_t addresses[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  uint8_t lens[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  uint8_t addresses_type[MAX_FWD_STRATEGY_RELATED_PREFIXES];
 } set_strategy_command;
 
-// SIZE=20
+// SIZE=208
 
 //==========  [11]  SET WLDR    ==========
 
@@ -302,6 +308,12 @@ typedef struct {
 typedef struct {
   uint32_t timePeriod;
 } mapme_timing_command;
+
+typedef struct {
+  ip_address_t address;
+  uint8_t addressType;
+  uint8_t len;
+} mapme_send_update_command;
 
 // SIZE=1
 
@@ -395,6 +407,8 @@ static inline int payloadLengthDaemon(command_id id) {
       return sizeof(mapme_timing_command);
     case MAPME_RETX:
       return sizeof(mapme_timing_command);
+    case MAPME_SEND_UPDATE:
+      return sizeof(mapme_send_update_command);
     case CONNECTION_SET_ADMIN_STATE:
       return sizeof(connection_set_admin_state_command);
 #ifdef WITH_POLICY
