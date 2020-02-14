@@ -1,5 +1,5 @@
 
-# The Hybrid ICN Core Library
+# Core Library
 
 ## Introduction
 
@@ -30,7 +30,7 @@ A commandline interface (hicnc) is also provided that uses the library and can
 for instance be used as a test traffic generator. This interface can be run as
 either a consumer, a producer, or a simple forwarder.
 
-## Folder content
+## Directory Layout
 
 ```shell
 .

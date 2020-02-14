@@ -1,12 +1,12 @@
-# Application examples using hICN stack
+# Applications
 
-## Introduction
+The open source distribution provides a few application examples:
+one MPEG-DASH video player, and an HTTP reverse proxy a command line
+HTTP GET client.
+hICN sockets have been succesfully used to serve HTTP, RTP and
+RSockets application protocols.
 
-higet and hicn-http-proxy are two application examples that use hicn stack.
-
-## Using hICN Application Examples
-
-### Dependencies
+## Dependencies
 
 Build dependencies:
 
@@ -73,7 +73,7 @@ Example:
 
 The hICN names used by higet for naming the HTTP requests are composed the same way as described in [hicn-http-proxy](#hicn-http-proxy).
 
-### How To Setup A Simple HTTP Client-Server Scenario using the hicn-http-proxy
+## HTTP Client-Server with hicn-http-proxy
 
 We consider the following topology, consisting on two linux VM which are able to communicate through an IP network (you can also use containers or physical machines):
 
@@ -94,29 +94,15 @@ For running the hicn-plugin at the server there are two main alternatives:
 - Use a docker container
 - Run the hicn-plugin directly in a VM or Bare Metal Server
 
-#### Docker
+### Docker
 
 Install docker in the server VM:
 
 ```bash
-server$ sudo apt-get update
-server$ sudo apt-get install \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg-agent \
-    software-properties-common
-
-server$ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-server$ sudo add-apt-repository \
-   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-   $(lsb_release -cs) \
-   stable"
-server$ sudo apt-get update
-server$ sudo apt-get install docker-ce docker-ce-cli containerd.io
+server$ curl get.docker.com | bash
 ```
 
-Run the hicn-http-proxy container. Here we use a public server [example.com](example.com) as origin:
+Run the hicn-http-proxy container. Here we use a public server "example.com" as origin:
 
 ```bash
 server$ docker run -e ORIGIN_ADDRESS=example.com    \
@@ -204,7 +190,7 @@ Run the http client [higet](#higet) and print the http response on stdout:
 client$ /usr/bin/higet -O - http://webserver/index.html -P c001
 ```
 
-#### Host/VM
+### Host/VM
 
 You can install the hicn-plugin of vpp on your VM and directly use DPDK compatible nics, forwarding hicn packets directly over the network. DPDK compatible nics can be used inside a container as well.
 

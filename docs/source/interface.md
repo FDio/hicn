@@ -1,4 +1,4 @@
-# Face manager : Interfaces
+# Face Manager
 
 ## Overview
 
@@ -8,7 +8,6 @@ which allows for a modular and extensible deployment.
 Interfaces are used to implement in isolation various sources of information
 which help with the construction of faces (such as network interface and service
 discovery), and with handling the heterogeneity of host platforms.
-
 
 ### Platform and supported interfaces
 
@@ -46,14 +45,16 @@ interfaces:
     link and address information, interface types, and bonjour service
     discovery.
 
-
 ### Architectural overview
 
 #### Facelets
 
 TODO:
+
+```text
 - Key attributes (netdevice and protocol family)
 - Facelet API
+```
 
 #### Events
 
@@ -62,9 +63,12 @@ TODO
 #### Facelet cache & event scheduling
 
 TODO:
+
+```text
  - Facelet cache
  - Joins
  - How synchronization work
+```
 
 ### Interface API
 
@@ -91,7 +95,8 @@ as such the header file is only used to specify the configuration parameters of
 the interface, if any.
 
 In the template, these configuration options are empty:
-```
+
+```C#
 /*
  * Configuration data
  */
@@ -103,6 +108,8 @@ typedef struct {
 #### Overview of the interface template
 
 The file starts with useful includes:
+
+```text
 - the global include `<hicn/facemgr.h>` : this provides public facing elements
     of the face manager, such the standard definition of faces (`face_t` from
     `libhicnctrl`), helper classes (such as `ip_address_t` from `libhicn`), etc.
@@ -112,10 +119,12 @@ manager and the different interfaces. They are used to construct the faces
 incrementally.
 - interface.h : the parent class of interfaces, such as the current dummy
 interface.
+```
 
 Each interface can hold a pointer to an internal data structure, which is
 declared as follows:
-```
+
+```C#
 /*
  * Internal data
  */
@@ -141,7 +150,7 @@ particular the different function required by the registration of a new
 interface to the system. They are grouped as part of the `interface_ops_t` data
 structure declared at the end of the file:
 
-```
+```C#
 interface\_ops\_t dummy\_ops = {
     .type = "dummy",
     .initialize = dummy_initialize,
@@ -152,7 +161,8 @@ interface\_ops\_t dummy\_ops = {
 ```
 
 The structure itself is declared and documented in `src/interface.h`
-```
+
+```C
 /**
  * \brief Interface operations
  */
@@ -176,7 +186,7 @@ can be created (see `src/interface.c` for the function prototypes, and
 
 - interface registration:
 
-```
+```text
 extern interface\_ops\_t dummy\_ops;
 
 /* [...] */
@@ -188,7 +198,7 @@ if (rc < 0)
 
 - interface instanciation:
 
-```
+```C++
 #include "interfaces/dummy/dummy.h"
 
 /* [...] */
@@ -200,7 +210,7 @@ if (rc < 0) {
 }
 ```
 
-#### Implementation of the interface API
+#### Implementation of the Interface API
 
 We now quickly go other the different functions, but their usage will be better
 understood through the hands-on example treated in the following section.
@@ -209,7 +219,7 @@ In the template, the constructor is the most involved as it need to:
 
 - initialize the internal data structure:
 
-```
+```C#
     dummy_data_t * data = malloc(sizeof(dummy_data_t));
     if (!data)
         goto ERR_MALLOC;
@@ -218,7 +228,7 @@ In the template, the constructor is the most involved as it need to:
 
 - process configuration parameters, eventually setting some default values:
 
-```
+```C#
     /* Use default values for unspecified configuration parameters */
     if (cfg) {
         data->cfg = *(dummy_cfg_t *)cfg;
@@ -236,7 +246,7 @@ event loop for read events. A return value of 0 means the interface does not
 require any file descriptor. As usual, a negative return value indicates an
 error.
 
-```
+```C#
     data->fd = 0;
 
     /* ... */
@@ -263,11 +273,11 @@ In order to retrieve the internal data structure, that should in particular
 store such a file descriptor, all other function but the constructor can
 dereference it from the interface pointer they receive as parameter:
 
-```
+```C++
 dummy\_data\_t * data = (dummy\_data\_t*)interface->data;
 ```
 
-#### Raising and receiving events
+#### Raising and Receiving Events
 
 An interface will receive events in the form of a facelet through the `*_on_event`
 function. It can then use the facelet API we have describe above to read
@@ -279,7 +289,8 @@ clone it.
 
 The facelet event can then be defined and raised to the face maanger for further
 processing through the following code:
-```
+
+```C++
     facelet_set_event(facelet, EVENT_TYPE_CREATE);
     interface_raise_event(interface, facelet);
 ```
@@ -287,8 +298,7 @@ processing through the following code:
 Here the event is a facelet creation (`EVENT_TYPE_CREATE`). The full facelet API
 and the list of possible event types is available in `src/facelet.h`
 
-
-#### Integration in the build system
+#### Integration in the Build System
 
 The build system is based on CMake. Each interface should declare its source
 files, private and public header files, as well as link dependencies in the
@@ -296,10 +306,9 @@ local `CMakeLists.txt` file.
 
 TODO: detail the structure of the file
 
+### Hands-On
 
-### Hands-on example
-
-#### Overview
+#### Architecture
 
 In order to better illustrate the development of a new interface, we will
 consider the integration of a sample server providing a signal instructing the
@@ -322,12 +331,12 @@ the forwarder establishes the set of available next hops for a given prefix).
 The actual realization of such queries will be ultimately performed by the
 hicn-light interface.
 
-#### Sample server and client
+#### Sample Server and Client
 
 In the folder containing the source code of hICN, the following commands allow
 to run the sample server:
 
-```
+```shell
 cd ctrl/facemgr/examples/updownsrv
 make
 ./updownsrv
@@ -336,7 +345,8 @@ make
 The server should display "Waiting for clients..."
 
 Similar commands allow to run the sample client:
-```
+
+```shell
 cd ctrl/facemgr/examples/updowncli
 make
 ./updowncli
@@ -345,7 +355,7 @@ make
 The client should display "Waiting for server data...", then every couple of
 seconds display either "WiFi" or "LTE".
 
-#### Facemanager interface
+#### Face Manager Interface
 
 An example illustrating how to connect to the dummy service from `updownsrv` is
 provided as the `updown` interface in the facemgr source code.
@@ -353,6 +363,3 @@ provided as the `updown` interface in the facemgr source code.
 This interface periodically swaps the status of the LTE interface up and down.
 It is instanciated as part of the facemgr codebase when the code is compiled
 with the ``-DWITH_EXAMPLE_UPDOWN` cmake option.
-
-
-

@@ -116,7 +116,7 @@ Example:
 hiperf -S c001::/64
 ```
 
-## How To Benchmark Client-Server Throughput using hiperf
+## Client-Server Benchmarking using hiperf
 
 ### hicn-light-daemon
 
@@ -151,7 +151,7 @@ $ export HICN_ROOT=${PWD}/../hicn-install
 
 It should install the hICN suite under hicn-install.
 
-#### hICN stack based on hicn-light forwarder with UDP faces
+#### hicn-light forwarder with UDP faces
 
 ##### Server Configuration
 
@@ -214,7 +214,7 @@ EOF
 
 This will run the client with a fixed window of 50 interests.
 
-#### Using hicn-light forwarder with hICN faces
+#### hicn-light forwarder with hICN faces
 
 For sending hICN packets directly over the network, using hicn faces, change the configuration of the two forwarders and restart them.
 
@@ -245,7 +245,7 @@ add route conn0 b001::/16 1
 EOF
 ```
 
-### vpp based hicn-plugin
+### VPP based hicn-plugin
 
 Compile the hicn stack enabling the [vpp](https://github.com/FDio/vpp) support.
 

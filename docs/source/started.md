@@ -1,5 +1,41 @@
 # Getting started
 
+## Introduction
+
+hicn is an open source implementation of Cisco's hICN. It includes a network stack, that implements
+ICN forwarding path in IPv6, and a transport stack that implements two main transport protocols and
+a socket API. The transport protocols provide one reliable transport service implementaton and a
+real-time transport service for audio/video media.
+
+## Directory Layout
+
+```text
+| Directory name | Description                                               |
+| -------------- | --------------------------------------------------------- |
+| lib            | Core support library                                      |
+| hicn-plugin    | VPP plugin                                                |
+| hicn-light     | Lightweight packet forwarder                              |
+| libtransport   | Support library with transport layer and API              |
+| utils          | Tools for testing                                         |
+| apps           | Application examples using hicn stack                     |
+| ctrl           | Tools and libraries for network management and control    |
+```
+
+hicn plugin is a VPP plugin that implement hicn packet processing as specified in
+<https://datatracker.ietf.org/doc/draft-muscariello-intarea-hicn/.> The transport library is used to
+implement the hicn host stack and makes use of libmemif as high performance connector between
+transport and the network stack. The transport library makes use of VPP binary API to configure the
+local namespace (local face management).
+
+## Release note
+
+The current master branch provides the latest release which is compatible with the lates VPP stable.
+No other VPP releases are supported nor maintained. At every new VPP release distribution hicn
+master branch is updated to work with the latest stable release. All previous stable releases
+are discontinued and not maintained. The user who is interested in a specific release can always
+checkout the rigth code tree by searching the latest commit under a given git tag carrying the
+release version.
+
 The Hybrid ICN software distribution can be installed for several platforms.
 The network stack comes in two different implementations: one scalable based
 on VPP and one portable based on IPC and sockets.
@@ -7,7 +43,7 @@ on VPP and one portable based on IPC and sockets.
 The transport stack is a unique library that is used for both the scalable
 and portable network stacks.
 
-## Platforms
+## Supported Platforms
 
 - Ubuntu 18.04 LTS (amd64, arm64)
 - Debian Stable/Testing
@@ -21,13 +57,13 @@ and portable network stacks.
 Other platforms and architectures may work.
 You can either use released packages, or compile hicn from sources.
 
-### Ubuntu 18.04/16.04 amd64/arm64
+### Ubuntu
 
 ```shell
 curl -s https://packagecloud.io/install/repositories/fdio/release/script.deb.sh | sudo bash
 ```
 
-### CentOS 7 amd64
+### CentOS
 
 ```shell
 curl -s https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh | sudo bash
@@ -48,9 +84,19 @@ Install the applications via the Google Play Store
 
 Coming soon.
 
-### Windows 10
+### Windows
 
 Coming soon.
+
+### Docker
+
+Several docker images are nightly built with the latest software  for Ubuntu 18 LTS (amd64/arm64), and available on docker hub
+at  <https://hub.docker.com/u/icnteam>.
+
+### Vagrant
+
+Vagrant boxes for a virtual switch are available at <https://app.vagrantup.com/icnteam/boxes/vswitch>.
+Supported providers are kvm, vmware and virtualbox.
 
 ## License
 
