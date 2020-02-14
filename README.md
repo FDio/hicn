@@ -40,7 +40,7 @@ local namespace (local face management).
 https://packagecloud.io/fdio/release
 
 ## Release note
-The current master branch provides the 19.08 release which is compatible with the 19.08 VPP stable.
+The current master branch provides the latest release which is compatible with the latest VPP stable.
 No other VPP releases are supported nor maintained. At every new VPP release distribution hicn
 master branch is updated to work with the latest stable release. All previous stable releases
 are discontinued and not maintained. The user who is interested in a specific release can always
