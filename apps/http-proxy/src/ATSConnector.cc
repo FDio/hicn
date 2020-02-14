@@ -139,7 +139,8 @@ void ATSConnector::doReadHeader() {
           std::size_t size = HTTPMessageFastParser::hasBody(buffer, length);
 
           auto additional_bytes = input_buffer_.size() - length;
-          auto bytes_to_read = size - additional_bytes;
+          auto bytes_to_read =
+              size >= additional_bytes ? (size - additional_bytes) : size;
 
           receive_callback_(buffer, length, !size, true);
           input_buffer_.consume(length);
