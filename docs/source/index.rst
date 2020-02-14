@@ -1,5 +1,5 @@
-Hybrid ICN software distribution
-=================================
+Hybrid Information-Centric Networking
+=====================================
 
 .. toctree::
    
