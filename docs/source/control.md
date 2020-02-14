@@ -1,19 +1,12 @@
-# Sysrepo plugin for hicn-plugin
+# NETCONF/YANG support for hICN
 
-These plugins serve as a data management agent. They provide yang models via
-NETCONF to allow the management of hicn-light, and hicn VPP plugin.
-
-## Software Requirement
-
-- VPP
-- sysrepo
-- hicn-plugin
-- hicn-light
-
-- libyang
-- sysrepo
-- libnetconf
-- netopeer2
+NETCONF/YANG support is provided via several external components such as
+libyang, sysrepo, libnetconf and netopeer.
+The hicn project provides a sysrepo plugin and a YANG model for two devices:
+the VPP based hicn virtual switch and the portable forwarder.
+The YANG model for the VPP based hICN vSwitch is based the full hICN C API
+exported by the VPP plugin with the addition of some VPP APIs such as
+interface and FIB management which are required by the hICN plugin.
 
 To install libyang, sysrepo, libnetconf and netopeer2 for Ubuntu18 amd64/arm64
 and ad-hoc repository is available and maintained in bintray.
