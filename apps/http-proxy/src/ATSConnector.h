@@ -63,7 +63,7 @@ class ATSConnector {
 
   void doReadHeader();
 
-  void doReadBody(std::size_t size);
+  void doReadBody(std::size_t body_size, std::size_t additional_bytes);
 
   void doWrite();
 
