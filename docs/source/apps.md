@@ -99,21 +99,7 @@ For running the hicn-plugin at the server there are two main alternatives:
 Install docker in the server VM:
 
 ```bash
-server$ sudo apt-get update
-server$ sudo apt-get install \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg-agent \
-    software-properties-common
-
-server$ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-server$ sudo add-apt-repository \
-   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-   $(lsb_release -cs) \
-   stable"
-server$ sudo apt-get update
-server$ sudo apt-get install docker-ce docker-ce-cli containerd.io
+server$ curl get.docker.com | bash
 ```
 
 Run the hicn-http-proxy container. Here we use a public server [example.com](example.com) as origin:

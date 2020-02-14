@@ -1,31 +1,43 @@
-# Sysrepo plugin for hicn-plugin
+# NETCONF/YANG support for hICN
 
-These plugins serve as a data management agent. They provide yang models via
-NETCONF to allow the management of hicn-light, and hicn VPP plugin.
-
-## Software Requirement
-
-- VPP
-- sysrepo
-- hicn-plugin
-- hicn-light
-
-- libyang
-- sysrepo
-- libnetconf
-- netopeer2
+NETCONF/YANG support is provided via several external components such as
+libyang, sysrepo, libnetconf and netopeer.
+The hicn project provides a sysrepo plugin and a YANG model for two devices:
+the VPP based hicn virtual switch and the portable forwarder.
+The YANG model for the VPP based hICN vSwitch is based the full hICN C API
+exported by the VPP plugin with the addition of some VPP APIs such as
+interface and FIB management which are required by the hICN plugin.
 
 To install libyang, sysrepo, libnetconf and netopeer2 for Ubuntu18 amd64/arm64
-and ad-hoc repository is available and maintained in bintray.
+or CentOS 7 and ad-hoc repository is available and maintained in bintray
+at <https://dl.bintray.com/icn-team/apt-hicn-extras>.
+
+For instance in Ubuntu 18 LTS:
+
+Install the sysrepo YANG data store and a NETCONF server.
 
 ```shell
-echo "deb [trusted=yes] https://dl.bintray.com/icn-team/apt-hicn-extras bionic main" | tee -a /etc/apt/sources.list
+echo "deb [trusted=yes] https://dl.bintray.com/icn-team/apt-hicn-extras bionic main" \
+                                            | tee -a /etc/apt/sources.list
 apt-get update && apt-get install -y libyang sysrepo libnetconf2 netopeer2-server
 ```
 
-## hICN yang model
+Install the VPP based hICN virtual switch.
 
-You can install the yang model using the following bash script:
+```shell
+curl -s https://packagecloud.io/install/repositories/fdio/release/script.deb.sh | bash
+apt-get update && apt-get install -y hicn-plugin vpp-plugin-dpdk hicn-sysrepo-plugin
+```
+The hICN YANG models are install under '/usr/lib/$(uname -m)-linux-gnu/modules_yang'.
+Configure the NETCONF/YANG components
+
+```shell
+bash /usr/bin/setup.sh sysrepoctl /usr/lib/$(uname -m)-linux-gnu/modules_yang root
+bash /usr/bin/merge_hostkey.sh sysrepocfg openssl
+bash /usr/bin/merge_config.sh sysrepocfg genkey
+```
+
+You can manually install the yang model using the following bash script:
 
 ```shell
 EXIT_CODE=0
