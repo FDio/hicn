@@ -1,8 +1,9 @@
-# The Hybrid ICN Portable Forwarder
+# Portable Forwarder
 
 ## Introduction
 
-hicn-light is a socket based forwarder
+hicn-light is a portable forwarder that makes use of IPC and standard sockets
+to communicate.
 
 ## Using hicn-light
 

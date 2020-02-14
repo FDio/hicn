@@ -1,31 +1,45 @@
-# Sysrepo plugin for hicn-plugin
+# NETCONF/YANG support for hICN
 
-These plugins serve as a data management agent. They provide yang models via
-NETCONF to allow the management of hicn-light, and hicn VPP plugin.
+## Getting started
 
-## Software Requirement
-
-- VPP
-- sysrepo
-- hicn-plugin
-- hicn-light
-
-- libyang
-- sysrepo
-- libnetconf
-- netopeer2
+NETCONF/YANG support is provided via several external components such as
+libyang, sysrepo, libnetconf and netopeer.
+The hicn project provides a sysrepo plugin and a YANG model for two devices:
+the VPP based hicn virtual switch and the portable forwarder.
+The YANG model for the VPP based hICN vSwitch is based the full hICN C API
+exported by the VPP plugin with the addition of some VPP APIs such as
+interface and FIB management which are required by the hICN plugin.
 
 To install libyang, sysrepo, libnetconf and netopeer2 for Ubuntu18 amd64/arm64
-and ad-hoc repository is available and maintained in bintray.
+or CentOS 7 and ad-hoc repository is available and maintained in bintray
+at <https://dl.bintray.com/icn-team/apt-hicn-extras>.
+
+For instance in Ubuntu 18 LTS:
+
+Install the sysrepo YANG data store and a NETCONF server.
 
 ```shell
-echo "deb [trusted=yes] https://dl.bintray.com/icn-team/apt-hicn-extras bionic main" | tee -a /etc/apt/sources.list
+echo "deb [trusted=yes] https://dl.bintray.com/icn-team/apt-hicn-extras bionic main" \
+                                            | tee -a /etc/apt/sources.list
 apt-get update && apt-get install -y libyang sysrepo libnetconf2 netopeer2-server
 ```
 
-## hICN yang model
+Install the VPP based hICN virtual switch.
 
-You can install the yang model using the following bash script:
+```shell
+curl -s https://packagecloud.io/install/repositories/fdio/release/script.deb.sh | bash
+apt-get update && apt-get install -y hicn-plugin vpp-plugin-dpdk hicn-sysrepo-plugin
+```
+The hICN YANG models are install under '/usr/lib/$(uname -m)-linux-gnu/modules_yang'.
+Configure the NETCONF/YANG components
+
+```shell
+bash /usr/bin/setup.sh sysrepoctl /usr/lib/$(uname -m)-linux-gnu/modules_yang root
+bash /usr/bin/merge_hostkey.sh sysrepocfg openssl
+bash /usr/bin/merge_config.sh sysrepocfg genkey
+```
+
+You can manually install the yang model using the following bash script:
 
 ```shell
 EXIT_CODE=0
@@ -38,17 +52,31 @@ sysrepoctl --install --yang=path_to_hicn_yang_model
 fi
 ```
 
+## YANG model
+
 hicn.yang can be found in the yang-model. It consists of two container nodes:
-hicn-conf and hicn-state. One is used to hold the configuration data (i.e.,
-hicn-conf) and one for providing the state data (i.e., hicn-state). The
-hicn-conf has one node, params, which contains the hICN configuration
-parameters. A controller can configure these parameters through the edit-config RPC
+
+```text
+|--+ hicn-conf: holds the configuration data;
+|  |--+ params: contains all configuration parameters; 
+|--+ hicn-state: provides the state data 
+|  |--+ state,
+|  |--+ strategy,
+|  |--+ strategies,
+|  |--+ route,
+|  |--+ face-ip-params
+and corresponding leaves.
+```
+
+A controller can configure these parameters through the edit-config RPC
 call. This node can be used to enable and to initialize the hicn-plugin in VPP
-instance. Hicn-state container is used to provide the state data to the
+instance. hicn-state container is used to provide the state data to the
 controller. It consists of state, strategy, strategies, route, and face-ip-params
 nodes with the corresponding leaves. In the hicn model a variety of RPCs are provided
 to allow controller to communicate with the hicn-plugin as well as update the state
 data in hicn-state.
+
+## Example
 
 To setup the startup configuration you can use the following script:
 
@@ -79,7 +107,7 @@ startup.xml is placed in the yang-model. Here you can find the content:
 </hicn-conf>
 ```
 
-As can be seen, it contains the leaves of the params in hicn-conf node which is
+It contains the leaves of the params in hicn-conf node which is
 used as the startup configuration. This configuration can be changed through the
 controller by subscribing which changes the target to the running state. hicn
 yang model provides a list of RPCs which allows controller to communicate
@@ -162,7 +190,7 @@ controler_rpcs_instances.xml in the yang-model. Here you can find the content:
 </punting-del>
 ```
 
-## Run the plugin
+### Run the plugin
 
 Firstly, verify the plugin and binary libraries are located correctly, then run
 the vpp through (service vpp start). Next, run the sysrepo daemon (sysrepod),
@@ -171,7 +199,7 @@ sysrepo plugin (sysrepo-plugind), for debug mode: sysrep-plugind -d -l 4 which
 runs with high verbosity. Now, the hicn sysrepo plugin is loaded. Then, run the
 netopeer2-server which serves as NETCONF server.
 
-## Connect from netopeer2-cli
+### Connect from netopeer2-cli
 
 In order to connect through the netopeer client run the netopeer2-cli. Then, follow these steps:
 
@@ -198,7 +226,7 @@ You can modify the configuration but it needs an xml configuration input
 
 - user-rpc (you can call one of the rpc proposed by hicn model but it needs an xml input)
 
-## Connect from OpenDaylight (ODL) controller
+### Connect from OpenDaylight (ODL) controller
 
 In order to connect through the OpenDaylight follow these procedure:
 
@@ -233,7 +261,7 @@ POST <http://localhost:8181/restconf/operations/network-topology:network-topolog
 
 The body can be used the same as edit-config in netopeer2-cli.
 
-## Connect from Network Services Orchestrator (NSO)
+### Connect from Cisco Network Services Orchestrator (NSO)
 
 To connect NSO to the netopeer2-server, first, you need to write a NED package
 for your device. The procedure to create NED for hicn is explained in the

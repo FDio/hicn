@@ -1,5 +1,5 @@
 
-# The Hybrid ICN Core Library
+# Core Library
 
 ## Introduction
 
