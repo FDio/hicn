@@ -120,13 +120,27 @@ void ATSConnector::handleRead(std::error_code ec, std::size_t length,
   }
 }
 
-void ATSConnector::doReadBody(std::size_t size) {
-  auto to_read =
-      size >= buffer_size ? (buffer_size - input_buffer_.size()) : size;
-  asio::async_read(
-      socket_, input_buffer_, asio::transfer_exactly(to_read),
-      std::bind(&ATSConnector::handleRead, this, std::placeholders::_1,
-                std::placeholders::_2, size));
+void ATSConnector::doReadBody(std::size_t body_size,
+                              std::size_t additional_bytes) {
+  auto bytes_to_read =
+      body_size > additional_bytes ? (body_size - additional_bytes) : 0;
+
+  auto to_read = bytes_to_read >= buffer_size
+                     ? (buffer_size - input_buffer_.size())
+                     : bytes_to_read;
+
+  if (to_read > 0) {
+    asio::async_read(
+        socket_, input_buffer_, asio::transfer_exactly(to_read),
+        std::bind(&ATSConnector::handleRead, this, std::placeholders::_1,
+                  std::placeholders::_2, bytes_to_read));
+  } else {
+    const uint8_t *buffer =
+        asio::buffer_cast<const uint8_t *>(input_buffer_.data());
+    receive_callback_(buffer, body_size, !to_read, false);
+    input_buffer_.consume(body_size);
+    doReadHeader();
+  }
 }
 
 void ATSConnector::doReadHeader() {
@@ -139,13 +153,11 @@ void ATSConnector::doReadHeader() {
           std::size_t size = HTTPMessageFastParser::hasBody(buffer, length);
 
           auto additional_bytes = input_buffer_.size() - length;
-          auto bytes_to_read =
-              size >= additional_bytes ? (size - additional_bytes) : size;
 
           receive_callback_(buffer, length, !size, true);
           input_buffer_.consume(length);
 
-          doReadBody(bytes_to_read);
+          doReadBody(size, additional_bytes);
         } else {
           input_buffer_.consume(input_buffer_.size());
           tryReconnection();
