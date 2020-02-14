@@ -9,11 +9,13 @@ Overview:
 
 - Implementation of the hICN core objects (interest, data, name..) exploiting the API provided by [libhicn](../lib).
 - Connectors for connecting the application to either the hicn-plugin or the hicn-light forwarder.
-- Transport protocols (RAAQM, CBR, RTP)
+- Transport protocols (RAAQM, CBR, RTC)
 - Transport services (authentication, integrity, segmentation, reassembly, naming)
-- Interfaces for Applications (from low-level interfaces for interest-data interaction to high level interfaces for Application Data Unit interaction)
+- Interfaces for applications (from low-level interfaces for interest-data interaction to high level interfaces for Application Data Unit interaction)
 
 ## Build Dependencies
+
+### Ubuntu
 
 - libparc
 - libmemif (linux only, if compiling with VPP support)
@@ -27,8 +29,6 @@ If you wish to use the library for connecting to the vpp hicn-plugin, you will n
   - vpp-dev
 
 You can get them either from from the vpp packages ot the source code. Check the [VPP wiki](https://wiki.fd.io/view/VPP) for instructions.
-
-Libmemif is in the vpp-lib and vpp-dev packages.
 
 ### macOS
 
@@ -49,7 +49,6 @@ Download, compile and install libparc:
 ```
 
 Libparc will be installed by default under `/usr/local/lib` and `/usr/local/include`.
-
 Since VPP does not support macOS, the hicn-plugin connector is not built.
 
 ## Build the library
