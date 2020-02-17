@@ -36,7 +36,8 @@ class AsyncConsumerProducer {
   explicit AsyncConsumerProducer(const std::string& prefix,
                                  std::string& ip_address, std::string& port,
                                  std::string& cache_size, std::string& mtu,
-                                 std::string& first_ipv6_word);
+                                 std::string& first_ipv6_word,
+                                 unsigned long default_content_lifetime, bool manifest);
 
   void start();
 
@@ -68,6 +69,8 @@ class AsyncConsumerProducer {
   // std::unordered_map<core::Name, std::shared_ptr<ATSConnector>>
   // connection_map_;
   ATSConnector connector_;
+
+  unsigned long default_content_lifetime_;
 
   // ResponseInfoMap --> max_seq_number + bool indicating whether request is in
   // production
