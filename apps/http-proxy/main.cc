@@ -19,11 +19,11 @@ using namespace transport;
 
 int usage(char* program) {
   std::cerr << "ICN Plugin not loaded!" << std::endl;
-  std::cerr
-      << "USAGE: " << program << "\n"
-      << "[HTTP_PREFIX] -a [SERVER_IP_ADDRESS] "
-         "-p [SERVER_PORT] -c [CACHE_SIZE] -m [MTU] -P [FIRST_IPv6_WORD_HEX]"
-      << std::endl;
+  std::cerr << "USAGE: " << program << "\n"
+            << "[HTTP_PREFIX] -a [SERVER_IP_ADDRESS] "
+               "-p [SERVER_PORT] -c [CACHE_SIZE] -m [MTU] -l [DEFAULT_LIFETIME "
+               "(seconds)] -P [FIRST_IPv6_WORD_HEX] -M (for enabling manifest)"
+            << std::endl;
   return -1;
 }
 
@@ -34,9 +34,11 @@ int main(int argc, char** argv) {
   std::string cache_size("50000");
   std::string mtu("1500");
   std::string first_ipv6_word("b001");
+  std::string default_content_lifetime("7200");  // seconds
+  bool manifest = false;
 
   int opt;
-  while ((opt = getopt(argc, argv, "a:p:c:m:P:")) != -1) {
+  while ((opt = getopt(argc, argv, "a:p:c:m:P:l:M")) != -1) {
     switch (opt) {
       case 'a':
         ip_address = optarg;
@@ -52,6 +54,12 @@ int main(int argc, char** argv) {
         break;
       case 'P':
         first_ipv6_word = optarg;
+        break;
+      case 'l':
+        default_content_lifetime = optarg;
+        break;
+      case 'M':
+        manifest = true;
         break;
       case 'h':
       default:
@@ -69,8 +77,9 @@ int main(int argc, char** argv) {
   std::cout << "Connecting to " << ip_address << " port " << port
             << " Cache size " << cache_size << " Prefix " << prefix << " MTU "
             << mtu << " IPv6 first word " << first_ipv6_word << std::endl;
-  transport::AsyncConsumerProducer proxy(prefix, ip_address, port, cache_size,
-                                         mtu, first_ipv6_word);
+  transport::AsyncConsumerProducer proxy(
+      prefix, ip_address, port, cache_size, mtu, first_ipv6_word,
+      std::stoul(default_content_lifetime) * 1000, manifest);
 
   proxy.run();
 
