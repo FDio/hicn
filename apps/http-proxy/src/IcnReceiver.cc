@@ -55,7 +55,8 @@ core::Prefix generatePrefix(const std::string& prefix_url,
 
 AsyncConsumerProducer::AsyncConsumerProducer(
     const std::string& prefix, std::string& ip_address, std::string& port,
-    std::string& cache_size, std::string& mtu, std::string& first_ipv6_word)
+    std::string& cache_size, std::string& mtu, std::string& first_ipv6_word,
+    unsigned long default_lifetime, bool manifest)
     : prefix_(generatePrefix(prefix, first_ipv6_word)),
       producer_socket_(),
       ip_address_(ip_address),
@@ -71,7 +72,8 @@ AsyncConsumerProducer::AsyncConsumerProducer(
                  [this]() {
                    std::queue<interface::PublicationOptions> empty;
                    std::swap(response_name_queue_, empty);
-                 }) {
+                 }),
+      default_content_lifetime_(default_lifetime) {
   int ret = producer_socket_.setSocketOption(
       interface::GeneralTransportOptions::OUTPUT_BUFFER_SIZE, cache_size_);
 
@@ -80,7 +82,7 @@ AsyncConsumerProducer::AsyncConsumerProducer(
   }
 
   ret = producer_socket_.setSocketOption(
-      interface::GeneralTransportOptions::MAKE_MANIFEST, true);
+      interface::GeneralTransportOptions::MAKE_MANIFEST, manifest);
 
   if (ret != SOCKET_OPTION_SET) {
     TRANSPORT_LOGD("Warning: impossible to enable signatures.");
@@ -166,7 +168,8 @@ void AsyncConsumerProducer::manageIncomingInterest(
 
   pair.first->second.second = true;
 
-  response_name_queue_.emplace(std::move(name), is_mpd ? 1000 : 100000);
+  response_name_queue_.emplace(std::move(name),
+                               is_mpd ? 1000 : default_content_lifetime_);
 
   connector_.send(payload, [packet = std::move(packet)]() {});
 }
