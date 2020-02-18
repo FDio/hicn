@@ -208,7 +208,7 @@ build_package() {
     make VERBOSE=1 -j8 package
 
     find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
-    rm *Unspecified*
+    rm *Unspecified* || true
 
     popd
 
