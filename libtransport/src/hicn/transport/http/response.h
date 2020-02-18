@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -26,26 +26,21 @@ namespace transport {
 
 namespace http {
 
-class HTTPResponse : public HTTPMessage, public std::vector<uint8_t> {
+class HTTPResponse : public HTTPMessage {
  public:
-  HTTPResponse(const HTTPHeaders &headers, const HTTPPayload &payload);
-
   HTTPResponse();
 
-  const HTTPHeaders &getHeaders() override;
+  HTTPResponse(std::unique_ptr<utils::MemBuf> &&response);
 
-  const HTTPPayload &getPayload() override;
+  void appendResponseChunk(std::unique_ptr<utils::MemBuf> &&response_chunk);
 
   const std::string &getStatusCode() const;
 
   const std::string &getStatusString() const;
 
-  const std::string &getHttpVersion() const override;
+  void parse(std::unique_ptr<utils::MemBuf> &&response);
 
-  void parse();
-
- private:
-  bool parseHeaders();
+  bool parseHeaders(std::unique_ptr<utils::MemBuf> &&buffer);
 
  private:
   std::string status_code_;

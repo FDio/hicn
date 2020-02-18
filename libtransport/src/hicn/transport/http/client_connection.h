@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,7 +20,6 @@
 #include <hicn/transport/http/response.h>
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_producer.h>
-#include <hicn/transport/interfaces/verification_policy.h>
 #include <hicn/transport/utils/uri.h>
 
 #include <vector>
@@ -48,18 +47,18 @@ class HTTPClientConnection : public ConsumerSocket::ReadCallback {
   HTTPClientConnection();
 
   RC get(const std::string &url, HTTPHeaders headers = {},
-         HTTPPayload payload = {},
+         HTTPPayload &&payload = nullptr,
          std::shared_ptr<HTTPResponse> response = nullptr,
          ReadBytesCallback *callback = nullptr,
          std::string ipv6_first_word = "b001");
 
   RC sendRequest(const std::string &url, HTTPMethod method,
-                 HTTPHeaders headers = {}, HTTPPayload payload = {},
+                 HTTPHeaders headers = {}, HTTPPayload &&payload = nullptr,
                  std::shared_ptr<HTTPResponse> response = nullptr,
                  ReadBytesCallback *callback = nullptr,
                  std::string ipv6_first_word = "b001");
 
-  HTTPResponse response();
+  std::shared_ptr<HTTPResponse> response();
 
   HTTPClientConnection &stop();
 
@@ -69,23 +68,14 @@ class HTTPClientConnection : public ConsumerSocket::ReadCallback {
 
   HTTPClientConnection &setCertificate(const std::string &cert_path);
 
-  void verifyPacketSignature(bool verify);
-
  private:
-  void sendRequestGetReply(const HTTPRequest &request,
-                           std::shared_ptr<HTTPResponse> &response,
-                           std::string &ipv6_first_word);
+  void sendRequestGetReply(std::string &ipv6_first_word);
 
   bool verifyData(interface::ConsumerSocket &c,
                   const core::ContentObject &contentObject);
 
   void processLeavingInterest(interface::ConsumerSocket &c,
-                              const core::Interest &interest,
-                              std::string &payload);
-
-  VerificationPolicy onSignatureVerificationFailed(
-      ConsumerSocket &consumer, const core::ContentObject &content_object,
-      std::error_code reason);
+                              const core::Interest &interest);
 
   // Read callback
   bool isBufferMovable() noexcept override { return true; }
@@ -106,7 +96,7 @@ class HTTPClientConnection : public ConsumerSocket::ReadCallback {
   // The current hICN name used for downloading
   std::stringstream name_;
   // Function to be called when the read is successful
-  std::function<std::shared_ptr<HTTPResponse>(std::size_t)> success_callback_;
+  std::function<void(std::size_t)> success_callback_;
   // Return code for current download
   RC return_code_;
 
@@ -114,6 +104,8 @@ class HTTPClientConnection : public ConsumerSocket::ReadCallback {
   // the download. If this callback is used, the HTTPClient will NOT save
   // any byte internally.
   ReadBytesCallback *read_bytes_callback_;
+
+  HTTPRequest request_;
 
   // Internal read buffer and HTTP response, to be used if the application does
   // not provide any read_bytes_callback

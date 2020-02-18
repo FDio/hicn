@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,7 +16,8 @@
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/http/response.h>
 
-#include <algorithm>
+#include <experimental/algorithm>
+#include <experimental/functional>
 
 #include <cstring>
 
@@ -26,30 +27,32 @@ namespace http {
 
 HTTPResponse::HTTPResponse() {}
 
-HTTPResponse::HTTPResponse(const HTTPHeaders &headers,
-                           const HTTPPayload &payload) {
-  headers_ = headers;
-  payload_ = payload;
+HTTPResponse::HTTPResponse(std::unique_ptr<utils::MemBuf> &&response) {
+  parse(std::move(response));
 }
 
-const HTTPHeaders &HTTPResponse::getHeaders() {
-  parse();
-  return headers_;
+void HTTPResponse::appendResponseChunk(
+    std::unique_ptr<utils::MemBuf> &&response_chunk) {
+  if (headers_.empty()) {
+    parse(std::move(response_chunk));
+  } else {
+    payload_->prependChain(std::move(response_chunk));
+  }
 }
 
-const HTTPPayload &HTTPResponse::getPayload() {
-  parse();
-  return payload_;
-}
-
-bool HTTPResponse::parseHeaders() {
+bool HTTPResponse::parseHeaders(std::unique_ptr<utils::MemBuf> &&buffer) {
   const char *crlf2 = "\r\n\r\n";
+  const char *begin = (const char *)buffer->data();
+  const char *end = begin + buffer->length();
   auto it =
-      std::search(this->begin(), this->end(), crlf2, crlf2 + strlen(crlf2));
+      std::experimental::search(begin, end,
+                                std::experimental::make_boyer_moore_searcher(
+                                    crlf2, crlf2 + strlen(crlf2)));
 
-  if (it != end()) {
+  if (it != end) {
+    buffer->trimStart(it + strlen(crlf2) - begin);
     std::stringstream ss;
-    ss.str(std::string(begin(), it + 1));
+    ss.str(std::string(begin, it));
 
     std::string line;
     getline(ss, line);
@@ -99,23 +102,14 @@ bool HTTPResponse::parseHeaders() {
     }
   }
 
+  payload_ = std::move(buffer);
+
   return true;
 }
 
-void HTTPResponse::parse() {
-  if (!parseHeaders()) {
+void HTTPResponse::parse(std::unique_ptr<utils::MemBuf> &&response) {
+  if (!parseHeaders(std::move(response))) {
     throw errors::RuntimeException("Malformed HTTP response");
-  }
-
-  if (payload_.empty()) {
-    const char *crlf2 = "\r\n\r\n";
-    auto it =
-        std::search(this->begin(), this->end(), crlf2, crlf2 + strlen(crlf2));
-
-    if (it != this->end()) {
-      erase(begin(), it + strlen(crlf2));
-      payload_ = std::move(*dynamic_cast<std::vector<uint8_t> *>(this));
-    }
   }
 }
 
@@ -123,10 +117,6 @@ const std::string &HTTPResponse::getStatusCode() const { return status_code_; }
 
 const std::string &HTTPResponse::getStatusString() const {
   return status_string_;
-}
-
-const std::string &HTTPResponse::getHttpVersion() const {
-  return http_version_;
 }
 
 }  // namespace http
