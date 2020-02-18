@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,11 +20,15 @@ namespace transport {
 
 namespace http {
 
-// std::map<HTTPMethod, std::string> method_map
+HTTPRequest::HTTPRequest() {}
 
 HTTPRequest::HTTPRequest(HTTPMethod method, const std::string &url,
-                         const HTTPHeaders &headers,
-                         const HTTPPayload &payload) {
+                         const HTTPHeaders &headers, HTTPPayload &&payload) {
+  init(method, url, headers, std::move(payload));
+}
+
+void HTTPRequest::init(HTTPMethod method, const std::string &url,
+                       const HTTPHeaders &headers, HTTPPayload &&payload) {
   utils::Uri uri;
   uri.parse(url);
 
@@ -36,7 +40,7 @@ HTTPRequest::HTTPRequest(HTTPMethod method, const std::string &url,
   http_version_ = HTTP_VERSION;
 
   headers_ = headers;
-  payload_ = payload;
+  payload_ = std::move(payload);
 
   std::transform(locator_.begin(), locator_.end(), locator_.begin(), ::tolower);
 
@@ -50,33 +54,20 @@ HTTPRequest::HTTPRequest(HTTPMethod method, const std::string &url,
     stream << item.first << ": " << item.second << "\r\n";
   }
   stream << "\r\n";
-
-  if (payload.size() > 0) {
-    stream << payload.data();
-  }
-
   request_string_ = stream.str();
 }
 
-const std::string &HTTPRequest::getPort() const { return port_; }
+std::string HTTPRequest::getPort() const { return port_; }
 
-const std::string &HTTPRequest::getLocator() const { return locator_; }
+std::string HTTPRequest::getLocator() const { return locator_; }
 
-const std::string &HTTPRequest::getProtocol() const { return protocol_; }
+std::string HTTPRequest::getProtocol() const { return protocol_; }
 
-const std::string &HTTPRequest::getPath() const { return path_; }
+std::string HTTPRequest::getPath() const { return path_; }
 
-const std::string &HTTPRequest::getQueryString() const { return query_string_; }
+std::string HTTPRequest::getQueryString() const { return query_string_; }
 
-const HTTPHeaders &HTTPRequest::getHeaders() { return headers_; }
-
-const HTTPPayload &HTTPRequest::getPayload() { return payload_; }
-
-const std::string &HTTPRequest::getRequestString() const {
-  return request_string_;
-}
-
-const std::string &HTTPRequest::getHttpVersion() const { return http_version_; }
+std::string HTTPRequest::getRequestString() const { return request_string_; }
 
 }  // namespace http
 

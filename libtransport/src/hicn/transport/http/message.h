@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -19,6 +19,8 @@
 #include <hicn/transport/portability/win_portability.h>
 #endif
 
+#include <hicn/transport/utils/membuf.h>
+
 #include <map>
 #include <sstream>
 #include <vector>
@@ -37,17 +39,25 @@ static std::map<HTTPMethod, std::string> method_map = {
 };
 
 typedef std::map<std::string, std::string> HTTPHeaders;
-typedef std::vector<uint8_t> HTTPPayload;
+typedef std::unique_ptr<utils::MemBuf> HTTPPayload;
 
 class HTTPMessage {
  public:
   virtual ~HTTPMessage() = default;
 
-  virtual const HTTPHeaders &getHeaders() = 0;
+  const HTTPHeaders getHeaders() { return headers_; };
 
-  virtual const HTTPPayload &getPayload() = 0;
+  void coalescePayloadBuffer() {
+    auto it = headers_.find("Content-Length");
+    if (it != headers_.end()) {
+      auto content_length = std::stoul(it->second);
+      payload_->gather(content_length);
+    }
+  }
 
-  virtual const std::string &getHttpVersion() const = 0;
+  HTTPPayload &&getPayload() { return std::move(payload_); }
+
+  std::string getHttpVersion() const { return http_version_; };
 
  protected:
   HTTPHeaders headers_;

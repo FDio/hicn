@@ -526,12 +526,11 @@ class MemBuf {
   //  *
   //  * Returns ByteRange that points to the data MemBuf stores.
   //  */
-  // ByteRange coalesceWithHeadroomTailroom(
-  //     std::size_t newHeadroom,
-  //     std::size_t newTailroom) {
+  // ByteRange coalesceWithHeadroomTailroom(std::size_t newHeadroom,
+  //                                        std::size_t newTailroom) {
   //   if (isChained()) {
-  //     coalesceAndReallocate(
-  //         newHeadroom, computeChainDataLength(), this, newTailroom);
+  //     coalesceAndReallocate(newHeadroom, computeChainDataLength(), this,
+  //                           newTailroom);
   //   }
   //   return ByteRange(data_, length_);
   // }
