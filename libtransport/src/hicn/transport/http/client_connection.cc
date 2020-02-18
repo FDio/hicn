@@ -16,8 +16,6 @@
 #include <hicn/transport/http/client_connection.h>
 #include <hicn/transport/utils/hash.h>
 
-#include <fstream>
-
 #define DEFAULT_BETA 0.99
 #define DEFAULT_GAMMA 0.07
 
@@ -40,12 +38,6 @@ HTTPClientConnection::HTTPClientConnection()
           std::placeholders::_2));
 
   consumer_.setSocketOption(ConsumerCallbacksOptions::READ_CALLBACK, this);
-  consumer_.setSocketOption(
-      ConsumerCallbacksOptions::VERIFICATION_FAILED,
-      (ConsumerContentObjectVerificationFailedCallback)std::bind(
-          &HTTPClientConnection::onSignatureVerificationFailed, this,
-          std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  consumer_.setSocketOption(GeneralTransportOptions::VERIFY_SIGNATURE, false);
 
   consumer_.connect();
   std::shared_ptr<typename ConsumerSocket::Portal> portal;
@@ -54,31 +46,30 @@ HTTPClientConnection::HTTPClientConnection()
 }
 
 HTTPClientConnection::RC HTTPClientConnection::get(
-    const std::string &url, HTTPHeaders headers, HTTPPayload payload,
+    const std::string &url, HTTPHeaders headers, HTTPPayload &&payload,
     std::shared_ptr<HTTPResponse> response, ReadBytesCallback *callback,
     std::string ipv6_first_word) {
-  return sendRequest(url, HTTPMethod::GET, headers, payload, response, callback,
-                     ipv6_first_word);
+  return sendRequest(url, HTTPMethod::GET, headers, std::move(payload),
+                     response, callback, ipv6_first_word);
 }
 
 HTTPClientConnection::RC HTTPClientConnection::sendRequest(
     const std::string &url, HTTPMethod method, HTTPHeaders headers,
-    HTTPPayload payload, std::shared_ptr<HTTPResponse> response,
+    HTTPPayload &&payload, std::shared_ptr<HTTPResponse> response,
     ReadBytesCallback *callback, std::string ipv6_first_word) {
   current_url_ = url;
   read_bytes_callback_ = callback;
   if (!response) {
-    response = response_;
+    response_ = std::make_shared<HTTPResponse>();
+  } else {
+    response_ = response;
   }
 
   auto start = std::chrono::steady_clock::now();
-  HTTPRequest request(method, url, headers, payload);
-  response->clear();
+  request_.init(method, url, headers, std::move(payload));
 
   success_callback_ = [this, method = std::move(method), url = std::move(url),
-                       start = std::move(start),
-                       response = std::move(response)](
-                          std::size_t size) -> std::shared_ptr<HTTPResponse> {
+                       start = std::move(start)](std::size_t size) -> void {
     auto end = std::chrono::steady_clock::now();
     TRANSPORT_LOGI(
         "%s %s [%s] duration: %llu [usec] %zu [bytes]\n",
@@ -87,23 +78,15 @@ HTTPClientConnection::RC HTTPClientConnection::sendRequest(
             std::chrono::duration_cast<std::chrono::microseconds>(end - start)
                 .count(),
         size);
-
-    return response;
   };
 
-  sendRequestGetReply(request, response, ipv6_first_word);
+  sendRequestGetReply(ipv6_first_word);
   return return_code_;
 }
 
-void HTTPClientConnection::verifyPacketSignature(bool verify) {
-  consumer_.setSocketOption(GeneralTransportOptions::VERIFY_SIGNATURE, verify);
-}
-
-void HTTPClientConnection::sendRequestGetReply(
-    const HTTPRequest &request, std::shared_ptr<HTTPResponse> &response,
-    std::string &ipv6_first_word) {
-  const std::string &request_string = request.getRequestString();
-  const std::string &locator = request.getLocator();
+void HTTPClientConnection::sendRequestGetReply(std::string &ipv6_first_word) {
+  const std::string &request_string = request_.getRequestString();
+  const std::string &locator = request_.getLocator();
 
   // Hash it
 
@@ -116,7 +99,7 @@ void HTTPClientConnection::sendRequestGetReply(
       ConsumerCallbacksOptions::INTEREST_OUTPUT,
       (ConsumerInterestCallback)std::bind(
           &HTTPClientConnection::processLeavingInterest, this,
-          std::placeholders::_1, std::placeholders::_2, request_string));
+          std::placeholders::_1, std::placeholders::_2));
 
   // Factor hicn name using hash
   name_.str("");
@@ -142,9 +125,9 @@ void HTTPClientConnection::sendRequestGetReply(
   consumer_.stop();
 }
 
-HTTPResponse HTTPClientConnection::response() {
-  // response_->parse();
-  return std::move(*response_);
+std::shared_ptr<HTTPResponse> HTTPClientConnection::response() {
+  response_->coalescePayloadBuffer();
+  return response_;
 }
 
 bool HTTPClientConnection::verifyData(
@@ -159,10 +142,14 @@ bool HTTPClientConnection::verifyData(
 }
 
 void HTTPClientConnection::processLeavingInterest(
-    ConsumerSocket &c, const core::Interest &interest, std::string &payload) {
+    ConsumerSocket &c, const core::Interest &interest) {
   if (interest.payloadSize() == 0) {
     Interest &int2 = const_cast<Interest &>(interest);
+    auto payload = request_.getRequestString();
+    auto payload2 = request_.getPayload();
     int2.appendPayload((uint8_t *)payload.data(), payload.size());
+    if (payload2)
+      int2.appendPayload((uint8_t *)payload2->data(), payload2->length());
   }
 }
 
@@ -198,21 +185,11 @@ HTTPClientConnection &HTTPClientConnection::setCertificate(
   return *this;
 }
 
-VerificationPolicy HTTPClientConnection::onSignatureVerificationFailed(
-    ConsumerSocket &consumer, const core::ContentObject &content_object,
-    std::error_code reason) {
-  return VerificationPolicy::ACCEPT_PACKET;
-}
-
 // Read buffer management
 void HTTPClientConnection::readBufferAvailable(
     std::unique_ptr<utils::MemBuf> &&buffer) noexcept {
   if (!read_bytes_callback_) {
-    if (!read_buffer_) {
-      read_buffer_ = std::move(buffer);
-    } else {
-      read_buffer_->prependChain(std::move(buffer));
-    }
+    response_->appendResponseChunk(std::move(buffer));
   } else {
     read_bytes_callback_->onBytesReceived(std::move(buffer));
   }
@@ -230,18 +207,9 @@ void HTTPClientConnection::readError(const std::error_code ec) noexcept {
 }
 
 void HTTPClientConnection::readSuccess(std::size_t total_size) noexcept {
-  auto response = success_callback_(total_size);
+  success_callback_(total_size);
   if (read_bytes_callback_) {
     read_bytes_callback_->onSuccess(total_size);
-  } else {
-    response->reserve(total_size);
-    const utils::MemBuf *head = read_buffer_.get(), *current = head;
-    do {
-      response->insert(response->end(), current->data(), current->tail());
-      current = current->next();
-    } while (current != head);
-
-    read_buffer_.reset();
   }
 
   return_code_ = HTTPClientConnection::RC::DOWNLOAD_SUCCESS;

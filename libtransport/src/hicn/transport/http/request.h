@@ -27,32 +27,28 @@ namespace http {
 
 class HTTPRequest : public HTTPMessage {
  public:
+  HTTPRequest();
   HTTPRequest(HTTPMethod method, const std::string &url,
-              const HTTPHeaders &headers, const HTTPPayload &payload);
+              const HTTPHeaders &headers, HTTPPayload &&payload);
 
-  const std::string &getQueryString() const;
+  void init(HTTPMethod method, const std::string &url,
+            const HTTPHeaders &headers, HTTPPayload &&payload);
 
-  const std::string &getPath() const;
+  std::string getQueryString() const;
 
-  const std::string &getProtocol() const;
+  std::string getPath() const;
 
-  const std::string &getLocator() const;
+  std::string getProtocol() const;
 
-  const std::string &getPort() const;
+  std::string getLocator() const;
 
-  const std::string &getRequestString() const;
+  std::string getPort() const;
 
-  const HTTPHeaders &getHeaders() override;
-
-  const HTTPPayload &getPayload() override;
-
-  const std::string &getHttpVersion() const override;
+  std::string getRequestString() const;
 
  private:
   std::string query_string_, path_, protocol_, locator_, port_;
   std::string request_string_;
-  HTTPHeaders headers_;
-  HTTPPayload payload_;
 };
 
 }  // end namespace http
