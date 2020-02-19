@@ -17,6 +17,9 @@
 #include <fstream>
 #include <map>
 
+#include <experimental/algorithm>
+#include <experimental/functional>
+
 #ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -41,12 +44,16 @@ typedef struct {
 
 class ReadBytesCallbackImplementation
     : public transport::http::HTTPClientConnection::ReadBytesCallback {
+  static std::string chunk_separator;
+
  public:
   ReadBytesCallbackImplementation(std::string file_name, long yet_downloaded)
       : file_name_(file_name),
         temp_file_name_(file_name_ + ".temp"),
         yet_downloaded_(yet_downloaded),
         byte_downloaded_(yet_downloaded),
+        chunked_(false),
+        chunk_size_(0),
         work_(std::make_unique<asio::io_service::work>(io_service_)),
         thread_(
             std::make_unique<std::thread>([this]() { io_service_.run(); })) {
@@ -71,21 +78,72 @@ class ReadBytesCallbackImplementation
     auto buffer_ptr = buffer.release();
     io_service_.post([this, buffer_ptr]() {
       auto buffer = std::unique_ptr<utils::MemBuf>(buffer_ptr);
+      std::unique_ptr<utils::MemBuf> payload;
       if (!first_chunk_read_) {
         transport::http::HTTPResponse http_response(std::move(buffer));
-        auto payload = http_response.getPayload();
+        payload = http_response.getPayload();
         auto header = http_response.getHeaders();
+        content_size_ = yet_downloaded_;
         std::map<std::string, std::string>::iterator it =
             header.find("Content-Length");
         if (it != header.end()) {
-          content_size_ = yet_downloaded_ + std::stol(it->second);
+          content_size_ += std::stol(it->second);
+        } else {
+          it = header.find("Transfer-Encoding");
+          if (it != header.end() && it->second.compare("chunked") == 0) {
+            chunked_ = true;
+          }
         }
-        out_->write((char *)payload->data(), payload->length());
         first_chunk_read_ = true;
-        byte_downloaded_ += payload->length();
       } else {
-        out_->write((char *)buffer->data(), buffer->length());
-        byte_downloaded_ += buffer->length();
+        payload = std::move(buffer);
+      }
+
+      if (chunked_) {
+        if (chunk_size_ > 0) {
+          out_->write((char *)payload->data(), chunk_size_);
+          payload->trimStart(chunk_size_);
+
+          if (payload->length() >= chunk_separator.size()) {
+            payload->trimStart(chunk_separator.size());
+          }
+        }
+
+        while (payload->length() > 0) {
+          // read next chunk size
+          const char *begin = (const char *)payload->data();
+          const char *end = (const char *)payload->tail();
+
+          using std::experimental::make_boyer_moore_searcher;
+          auto it = std::experimental::search(
+              begin, end,
+              make_boyer_moore_searcher(chunk_separator.begin(),
+                                        chunk_separator.end()));
+          if (it != end) {
+            chunk_size_ = std::stoul(begin, 0, 16);
+            content_size_ += chunk_size_;
+            payload->trimStart(it + chunk_separator.size() - begin);
+
+            std::size_t to_write;
+            if (payload->length() >= chunk_size_) {
+              to_write = chunk_size_;
+            } else {
+              to_write = payload->length();
+              chunk_size_ -= payload->length();
+            }
+
+            out_->write((char *)payload->data(), to_write);
+            byte_downloaded_ += to_write;
+            payload->trimStart(to_write);
+
+            if (payload->length() >= chunk_separator.size()) {
+              payload->trimStart(chunk_separator.size());
+            }
+          }
+        }
+      } else {
+        out_->write((char *)payload->data(), payload->length());
+        byte_downloaded_ += payload->length();
       }
 
       if (file_name_ != "-") {
@@ -174,10 +232,14 @@ class ReadBytesCallbackImplementation
   long content_size_;
   bool first_chunk_read_ = false;
   long byte_downloaded_ = 0;
+  bool chunked_;
+  std::size_t chunk_size_;
   asio::io_service io_service_;
   std::unique_ptr<asio::io_service::work> work_;
   std::unique_ptr<std::thread> thread_;
 };
+
+std::string ReadBytesCallbackImplementation::chunk_separator = "\r\n";
 
 long checkFileStatus(std::string file_name) {
   struct stat stat_buf;

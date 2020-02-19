@@ -15,16 +15,35 @@
 
 #include "HTTP1.xMessageFastParser.h"
 
+#include <hicn/transport/http/response.h>
+
 #include <experimental/algorithm>
 #include <experimental/functional>
 #include <iostream>
 
 std::string HTTPMessageFastParser::numbers = "0123456789";
 std::string HTTPMessageFastParser::content_length = "Content-Length";
+std::string HTTPMessageFastParser::transfer_encoding = "Transfer-Encoding";
+std::string HTTPMessageFastParser::chunked = "chunked";
 std::string HTTPMessageFastParser::cache_control = "Cache-Control";
 std::string HTTPMessageFastParser::mpd = "mpd";
 std::string HTTPMessageFastParser::connection = "Connection";
 std::string HTTPMessageFastParser::separator = "\r\n\r\n";
+
+HTTPHeaders HTTPMessageFastParser::getHeaders(const uint8_t *headers,
+                                              std::size_t length) {
+  HTTPHeaders ret;
+  std::string http_version;
+  std::string status_code;
+  std::string status_string;
+
+  if (transport::http::HTTPResponse::parseHeaders(headers, length, ret, http_version,
+                                                  status_code, status_string)) {
+    return ret;
+  }
+
+  throw std::runtime_error("Error parsing response headers.");
+}
 
 std::size_t HTTPMessageFastParser::hasBody(const uint8_t *headers,
                                            std::size_t length) {

@@ -18,15 +18,21 @@
 #include <algorithm>
 #include <string>
 
+#include <hicn/transport/http/message.h>
+
+using transport::http::HTTPHeaders;
+
 class HTTPMessageFastParser {
  public:
+  static HTTPHeaders getHeaders(const uint8_t* headers, std::size_t length);
   static std::size_t hasBody(const uint8_t* headers, std::size_t length);
   static bool isMpdRequest(const uint8_t* headers, std::size_t length);
   static uint32_t parseCacheControl(const uint8_t* headers, std::size_t length);
 
- private:
   static std::string numbers;
   static std::string content_length;
+  static std::string transfer_encoding;
+  static std::string chunked;
   static std::string cache_control;
   static std::string connection;
   static std::string mpd;
