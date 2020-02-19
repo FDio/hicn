@@ -65,12 +65,17 @@ class ATSConnector {
 
   void doReadBody(std::size_t body_size, std::size_t additional_bytes);
 
+  // void handleReadChunked(std::error_code ec, std::size_t length,
+  //                        std::size_t size);
+
+  void doReadChunkedHeader();
+
   void doWrite();
 
   bool checkConnected();
 
  private:
-  void handleRead(std::error_code ec, std::size_t length, std::size_t bytes);
+  void handleRead(std::error_code ec, std::size_t length);
   void tryReconnection();
   void startConnectionTimer();
   void handleDeadline(const std::error_code &ec);
@@ -87,6 +92,12 @@ class ATSConnector {
 
   bool is_reconnection_;
   bool data_available_;
+
+  std::size_t content_length_;
+
+  // Chunked encoding
+  bool is_last_chunk_;
+  bool chunked_;
 
   ContentReceivedCallback receive_callback_;
   OnReconnect on_reconnect_callback_;

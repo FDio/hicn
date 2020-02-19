@@ -41,16 +41,33 @@ void HTTPResponse::appendResponseChunk(
 }
 
 bool HTTPResponse::parseHeaders(std::unique_ptr<utils::MemBuf> &&buffer) {
+  auto ret =
+      HTTPResponse::parseHeaders(buffer->data(), buffer->length(), headers_,
+                                 http_version_, status_code_, status_string_);
+
+  if (ret) {
+    buffer->trimStart(ret);
+    payload_ = std::move(buffer);
+    return true;
+  }
+
+  return false;
+}
+
+std::size_t HTTPResponse::parseHeaders(const uint8_t *buffer, std::size_t size,
+                                       HTTPHeaders &headers,
+                                       std::string &http_version,
+                                       std::string &status_code,
+                                       std::string &status_string) {
   const char *crlf2 = "\r\n\r\n";
-  const char *begin = (const char *)buffer->data();
-  const char *end = begin + buffer->length();
+  const char *begin = (const char *)buffer;
+  const char *end = begin + size;
   auto it =
       std::experimental::search(begin, end,
                                 std::experimental::make_boyer_moore_searcher(
                                     crlf2, crlf2 + strlen(crlf2)));
 
   if (it != end) {
-    buffer->trimStart(it + strlen(crlf2) - begin);
     std::stringstream ss;
     ss.str(std::string(begin, it));
 
@@ -58,29 +75,28 @@ bool HTTPResponse::parseHeaders(std::unique_ptr<utils::MemBuf> &&buffer) {
     getline(ss, line);
     std::istringstream line_s(line);
     std::string _http_version;
-    std::string http_version;
 
     line_s >> _http_version;
     std::size_t separator;
     if ((separator = _http_version.find('/')) != std::string::npos) {
       if (_http_version.substr(0, separator) != "HTTP") {
-        return false;
+        return 0;
       }
-      http_version_ =
+      http_version =
           line.substr(separator + 1, _http_version.length() - separator - 1);
     } else {
-      return false;
+      return 0;
     }
 
-    std::string status_code, status_string;
+    std::string _status_string;
 
-    line_s >> status_code_;
-    line_s >> status_string;
+    line_s >> status_code;
+    line_s >> _status_string;
 
     auto _it = std::search(line.begin(), line.end(), status_string.begin(),
                            status_string.end());
 
-    status_string_ = std::string(_it, line.end() - 1);
+    status_string = std::string(_it, line.end() - 1);
 
     std::size_t param_end;
     std::size_t value_start;
@@ -92,19 +108,17 @@ bool HTTPResponse::parseHeaders(std::unique_ptr<utils::MemBuf> &&buffer) {
             value_start++;
           }
           if (value_start < line.size()) {
-            headers_[line.substr(0, param_end)] =
+            headers[line.substr(0, param_end)] =
                 line.substr(value_start, line.size() - value_start - 1);
           }
         }
       } else {
-        return false;
+        return 0;
       }
     }
   }
 
-  payload_ = std::move(buffer);
-
-  return true;
+  return it + strlen(crlf2) - begin;
 }
 
 void HTTPResponse::parse(std::unique_ptr<utils::MemBuf> &&response) {

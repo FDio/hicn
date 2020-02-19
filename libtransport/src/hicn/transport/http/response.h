@@ -42,6 +42,12 @@ class HTTPResponse : public HTTPMessage {
 
   bool parseHeaders(std::unique_ptr<utils::MemBuf> &&buffer);
 
+  static std::size_t parseHeaders(const uint8_t *buffer, std::size_t size,
+                                  HTTPHeaders &headers,
+                                  std::string &http_version,
+                                  std::string &status_code,
+                                  std::string &status_string);
+
  private:
   std::string status_code_;
   std::string status_string_;
