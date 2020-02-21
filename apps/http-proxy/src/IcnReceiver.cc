@@ -16,8 +16,10 @@
 #include "IcnReceiver.h"
 #include "HTTP1.xMessageFastParser.h"
 
+#include <hicn/transport/core/interest.h>
 #include <hicn/transport/http/default_values.h>
 #include <hicn/transport/utils/hash.h>
+#include <hicn/transport/utils/log.h>
 
 #include <functional>
 #include <memory>
