@@ -38,7 +38,7 @@ interfaces:
     protocol to discover a remote hICN forwarder that might be needed to
     establish overlay faces.
 
-- network\_framework [MacOS, iOS]
+- network_framework [MacOS, iOS]
 
     This component uses the recommended Network framework on Apple devices,
     which provided all required information to query faces in a unified API:
@@ -82,11 +82,11 @@ The face manager source code includes a template that can be used as a skeleton
 to develop new faces. It can be found in `src/interface/dummy/dummy.{h,c}`. Both
 include guard and specific interface functions are prefixed by a (short)
 identifier which acts as a namespace for interface specific code (in our case
-the string 'dummy\_').
+the string 'dummy_').
 
-Registration and instanciation of the different interfaces is currently done at
+Registration and instantiation of the different interfaces is currently done at
 compile time in the file `src/api.c`, and the appropriate hooks to use the dummy
-interface are avaialble in the code between `#if 0/#endif` tags.
+interface are available in the code between `#if 0/#endif` tags.
 
 #### Interface template header; configuration parameters
 
@@ -96,7 +96,7 @@ the interface, if any.
 
 In the template, these configuration options are empty:
 
-```C#
+```C
 /*
  * Configuration data
  */
@@ -124,7 +124,7 @@ interface.
 Each interface can hold a pointer to an internal data structure, which is
 declared as follows:
 
-```C#
+```C
 /*
  * Internal data
  */
@@ -142,7 +142,7 @@ typedef struct {
 ```
 
 We find here a copy of the configuration settings (which allows the called to
-instanciate the structure on the stack), as well as a file descriptor
+instantiate the structure on the stack), as well as a file descriptor
 (assuming most interfaces will react on events on a file descriptor).
 
 The rest of the file consists in the implementation of the interface, in
@@ -150,8 +150,8 @@ particular the different function required by the registration of a new
 interface to the system. They are grouped as part of the `interface_ops_t` data
 structure declared at the end of the file:
 
-```C#
-interface\_ops\_t dummy\_ops = {
+```C
+interface_ops_t dummy_ops = {
     .type = "dummy",
     .initialize = dummy_initialize,
     .finalize = dummy_finalize,
@@ -170,14 +170,14 @@ typedef struct {
     /** The type given to the interfaces */
     char * type;
     /* Constructor */
-    int (*initialize)(struct interface\_s * interface, void * cfg);
+    int (*initialize)(struct interface_s * interface, void * cfg);
     /* Destructor */
     int (*finalize)(struct interface_s * interface);
     /* Callback upon file descriptor event (iif previously registered) */
     int (*callback)(struct interface_s * interface);
     /* Callback upon facelet events coming from the face manager */
     int (*on_event)(struct interface_s * interface, const struct facelet_s * facelet);
-} interface\_ops\_t;
+} interface_ops_t;
 ```
 
 Such an interface has to be registered first, then one (or multiple) instance(s)
@@ -196,9 +196,9 @@ if (rc < 0)
     goto ERR_REGISTER;
 ```
 
-- interface instanciation:
+- interface instantiation:
 
-```C++
+```C
 #include "interfaces/dummy/dummy.h"
 
 /* [...] */
@@ -219,7 +219,7 @@ In the template, the constructor is the most involved as it need to:
 
 - initialize the internal data structure:
 
-```C#
+```C
     dummy_data_t * data = malloc(sizeof(dummy_data_t));
     if (!data)
         goto ERR_MALLOC;
@@ -228,7 +228,7 @@ In the template, the constructor is the most involved as it need to:
 
 - process configuration parameters, eventually setting some default values:
 
-```C#
+```C
     /* Use default values for unspecified configuration parameters */
     if (cfg) {
         data->cfg = *(dummy_cfg_t *)cfg;
@@ -246,7 +246,7 @@ event loop for read events. A return value of 0 means the interface does not
 require any file descriptor. As usual, a negative return value indicates an
 error.
 
-```C#
+```C
     data->fd = 0;
 
     /* ... */
@@ -273,14 +273,14 @@ In order to retrieve the internal data structure, that should in particular
 store such a file descriptor, all other function but the constructor can
 dereference it from the interface pointer they receive as parameter:
 
-```C++
-dummy\_data\_t * data = (dummy\_data\_t*)interface->data;
+```C
+dummy_data_t * data = (dummy_data_t*)interface->data;
 ```
 
 #### Raising and Receiving Events
 
 An interface will receive events in the form of a facelet through the `*_on_event`
-function. It can then use the facelet API we have describe above to read
+function. It can then use the facelet API we have described above to read
 information about the face.
 
 As this information is declared const, the interface can either create a new
@@ -290,7 +290,7 @@ clone it.
 The facelet event can then be defined and raised to the face maanger for further
 processing through the following code:
 
-```C++
+```C
     facelet_set_event(facelet, EVENT_TYPE_CREATE);
     interface_raise_event(interface, facelet);
 ```
@@ -361,5 +361,5 @@ An example illustrating how to connect to the dummy service from `updownsrv` is
 provided as the `updown` interface in the facemgr source code.
 
 This interface periodically swaps the status of the LTE interface up and down.
-It is instanciated as part of the facemgr codebase when the code is compiled
+It is instantiated as part of the facemgr codebase when the code is compiled
 with the ``-DWITH_EXAMPLE_UPDOWN` cmake option.
