@@ -19,9 +19,15 @@
 #else
 #include <openssl/applink.c>
 #endif
-#include <hicn/transport/utils/identity.h>
-#include <hicn/transport/utils/signer.h>
+
+#include <hicn/transport/core/content_object.h>
+#include <hicn/transport/core/interest.h>
+#include <hicn/transport/security/identity.h>
+#include <hicn/transport/security/signer.h>
 #include <hicn/transport/utils/string_tokenizer.h>
+
+#include <unistd.h>
+#include <asio.hpp>
 
 namespace transport {
 
@@ -81,7 +87,8 @@ class CallbackContainer {
     }
   }
 
-  void processInterest(ProducerSocket &p, const Interest &interest, uint32_t lifetime) {
+  void processInterest(ProducerSocket &p, const Interest &interest,
+                       uint32_t lifetime) {
     if (verbose_) {
       std::cout << "<<< received interest " << interest.getName()
                 << " src port: " << interest.getSrcPort()
@@ -230,8 +237,8 @@ int main(int argc, char **argv) {
         ttl = (uint8_t)std::stoi(optarg);
         break;
       case 'l':
-	data_lifetime = std::stoi(optarg);
-	break;
+        data_lifetime = std::stoi(optarg);
+        break;
       case 'V':
         verbose = true;
         break;
@@ -299,10 +306,11 @@ int main(int argc, char **argv) {
   p.registerPrefix(producer_namespace);
 
   p.setSocketOption(GeneralTransportOptions::OUTPUT_BUFFER_SIZE, 0U);
-  p.setSocketOption(ProducerCallbacksOptions::CACHE_MISS,
-                    (ProducerInterestCallback)bind(
-                        &CallbackContainer::processInterest, stubs,
-                        std::placeholders::_1, std::placeholders::_2, data_lifetime));
+  p.setSocketOption(
+      ProducerCallbacksOptions::CACHE_MISS,
+      (ProducerInterestCallback)bind(&CallbackContainer::processInterest, stubs,
+                                     std::placeholders::_1,
+                                     std::placeholders::_2, data_lifetime));
 
   p.connect();
 
