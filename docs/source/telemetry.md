@@ -27,9 +27,9 @@ $ make
 $ sudo make install
 ```
 
-## Using hICN collectd plugins ##
+## Using hICN collectd plugins
 
-### Platforms ###
+### Platforms
 
 hICN collectd plugins have been tested in:
 
@@ -40,7 +40,7 @@ hICN collectd plugins have been tested in:
 - CentOS 7
 
 
-### Dependencies ###
+### Dependencies
 
 Build dependencies:
 
@@ -51,7 +51,7 @@ Build dependencies:
   - vpp-dev
   - hicn-plugin-dev
 
-## Getting started ##
+## Getting started
 
 Collectd needs to be configured in order to use the hICN collectd plugins.
 The configuration can be achieved editing the file '/etc/collectd/collectd.conf' and adding the following lines:
@@ -67,7 +67,7 @@ Before running collectd, a vpp forwarder must be started. If the vpp-hicn plugin
 
 Edit the configuration file as the following:
 
-```
+```html
 ######################################################################
 # Global                                                             #
 ######################################################################

@@ -90,13 +90,30 @@ Coming soon.
 
 ### Docker
 
-Several docker images are nightly built with the latest software  for Ubuntu 18 LTS (amd64/arm64), and available on docker hub
-at  <https://hub.docker.com/u/icnteam>.
+Several docker images are nightly built with the latest software  for Ubuntu 18 LTS (amd64/arm64), and available on docker hub at  <https://hub.docker.com/u/icnteam>.
+
+The following images are nightly built and maintained.
+
+```shell
+docker pull icnteam/vswitch:amd64
+docker pull icnteam/vswitch:arm64
+
+docker pull icnteam/vserver:amd64
+docker pull icnteam/vserver:arm64
+
+docker pull icnteam/vhttpproxy:amd64
+docker pull icnteam/vhttpproxy:arm64
+```
 
 ### Vagrant
 
-Vagrant boxes for a virtual switch are available at <https://app.vagrantup.com/icnteam/boxes/vswitch>.
-Supported providers are kvm, vmware and virtualbox.
+Vagrant boxes for a virtual switch are available at
+<https://app.vagrantup.com/icnteam>
+
+```shell
+vagrant box add icnteam/vswitch
+```
+Supported providers are libvirt, vmware and virtualbox.
 
 ## License
 

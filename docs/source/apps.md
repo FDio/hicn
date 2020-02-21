@@ -3,7 +3,7 @@
 The open source distribution provides a few application examples:
 one MPEG-DASH video player, and an HTTP reverse proxy a command line
 HTTP GET client.
-hICN sockets have been succesfully used to serve HTTP, RTP and
+hICN sockets have been successfully used to serve HTTP, RTP and
 RSockets application protocols.
 
 ## Dependencies
@@ -94,7 +94,7 @@ For running the hicn-plugin at the server there are two main alternatives:
 - Use a docker container
 - Run the hicn-plugin directly in a VM or Bare Metal Server
 
-### Docker
+### Docker VPP hICN proxy
 
 Install docker in the server VM:
 
@@ -102,86 +102,77 @@ Install docker in the server VM:
 server$ curl get.docker.com | bash
 ```
 
-Run the hicn-http-proxy container. Here we use a public server "example.com" as origin:
+Run the hicn-http-proxy container. Here we use a public server at "localhost" as origin and 
+HTTP traffic is server with an IPv6 name prefix b001.
 
 ```bash
-server$ docker run -e ORIGIN_ADDRESS=example.com    \
-             -e ORIGIN_PORT=80                      \
-             -e CACHE_SIZE=10000                    \
-             -e HICN_MTU=1200                       \
-             -e FIRST_IPV6_WORD=c001                \
-             -e HICN_PREFIX=http://webserver        \
-             --privileged                           \
-             --name vhttpproxy                      \
-             -d icnteam/vhttpproxy
+#!/bin/bash
+
+#Http proxy options
+ORIGIN_ADDRESS=${ORIGIN_ADDRESS:-"localhost"}
+ORIGIN_PORT=${ORIGIN_PORT:-"80"}
+CACHE_SIZE=${CACHE_SIZE:-"10000"}
+DEFAULT_CONTENT_LIFETIME=${DEFAULT_CONTENT_LIFETIME:-"7200"}
+HICN_MTU=${HICN_MTU:-"1300"}
+FIRST_IPV6_WORD=${FIRST_IPV6_WORD:-"b001"}
+USE_MANIFEST=${USE_MANIFEST:-"true"}
+HICN_PREFIX=${HICN_PREFIX:-"http://webserver"}
+
+# UDP Punting
+HICN_LISTENER_PORT=${HICN_LISTENER_PORT:-33567}
+TAP_ADDRESS_VPP=192.168.0.2
+TAP_ADDRESS_KER=192.168.0.1
+TAP_ADDRESS_NET=192.168.0.0/24
+TAP_ID=0
+TAP_NAME=tap${TAP_ID}
+
+vppctl create tap id ${TAP_ID}
+vppctl set int state ${TAP_NAME} up
+vppctl set interface ip address tap0 ${TAP_ADDRESS_VPP}/24
+ip addr add ${TAP_ADDRESS_KER}/24 brd + dev ${TAP_NAME}
+
+# Redirect the udp traffic on port 33567 (The one used for hicn) to VPP
+iptables -t nat -A PREROUTING -p udp --dport ${HICN_LISTENER_PORT} -j DNAT \
+                   --to-destination ${TAP_ADDRESS_VPP}:${HICN_LISTENER_PORT}
+# Masquerade all the traffic coming from VPP
+iptables -t nat -A POSTROUTING -j MASQUERADE --src ${TAP_ADDRESS_NET} ! \
+                                 --dst ${TAP_ADDRESS_NET} -o eth0
+# Add default route to vpp
+vppctl ip route add 0.0.0.0/0 via ${TAP_ADDRESS_KER} ${TAP_NAME}
+# Set UDP punting
+vppctl hicn punting add prefix ${FIRST_IPV6_WORD}::/16 intfc ${TAP_NAME}\
+                                type udp4 dst_port ${HICN_LISTENER_PORT}
+
+# Run the http proxy
+PARAMS="-a ${ORIGIN_ADDRESS} "
+PARAMS+="-p ${ORIGIN_PORT} "
+PARAMS+="-c ${CACHE_SIZE} "
+PARAMS+="-m ${HICN_MTU} "
+PARAMS+="-P ${FIRST_IPV6_WORD} "
+PARAMS+="-l ${DEFAULT_CONTENT_LIFETIME} "
+if [ "${USE_MANIFEST}" = "true" ]; then
+  PARAMS+="-M "
+fi
+
+hicn-http-proxy ${PARAMS} ${HICN_PREFIX}
 ```
 
-Create a hicn private network:
+Docker images of the example above are available at
+<https://hub.docker.com/r/icnteam/vhttpproxy>.
+Images can be pulled using the following tags.
 
-```bash
-server$ GATEWAY=192.168.0.254
-server$ docker network create --subnet 192.168.0.0/24 --gateway ${GATEWAY} hicn-network
+```shell
+docker pull icnteam/vhttpproxy:amd64
+docker pull icnteam/vhttpproxy:arm64
 ```
 
-Connect the proxy container to the hicn network:
-
-```bash
-server$ docker network connect hicn-network vhttpproxy
-```
-
-Connect the hicn network to the vpp forwarder:
-
-```bash
-server$ IP_ADDRESS=$(docker inspect -f "{{with index .NetworkSettings.Networks \"hicn-network\"}}{{.IPAddress}}{{end}}" vhttpproxy)
-server$ INTERFACE=$(docker exec -it vhttpproxy ifconfig | grep -B 1 ${IP_ADDRESS} | awk 'NR==1 {gsub(":","",$1); print $1}')
-server$ docker exec -it vhttpproxy ip addr flush dev ${INTERFACE}
-server$ docker exec -it vhttpproxy ethtool -K ${INTERFACE} tx off rx off ufo off gso off gro off tso off
-server$ docker exec -it vhttpproxy vppctl create host-interface name ${INTERFACE}
-server$ docker exec -it vhttpproxy vppctl set interface state host-${INTERFACE} up
-server$ docker exec -it vhttpproxy vppctl set interface ip address host-${INTERFACE} ${IP_ADDRESS}/24
-server$ docker exec -it vhttpproxy vppctl ip route add 10.0.0.0/24 via ${GATEWAY} host-eth1
-```
-
-Set the punting:
-
-```bash
-server$ PORT=12345
-server$ docker exec -it vhttpproxy vppctl hicn punting add prefix c001::/16 intfc host-${INTERFACE} type udp4 src_port ${PORT} dst_port ${PORT}
-```
-
-Docker containers are cool, but sometimes they do not allow you to do simple operations like expose ports while the container is already running. But we have a workaround for this :)
-
-```bash
-server$ sudo iptables -t nat -A DOCKER -p udp --dport ${PORT} -j DNAT --to-destination ${IP_ADDRESS}:${PORT}
-server$ sudo iptables -t nat -A POSTROUTING -j MASQUERADE -p udp --source ${IP_ADDRESS} --destination ${IP_ADDRESS} --dport ${PORT}
-server$ sudo iptables -A DOCKER -j ACCEPT -p udp --destination ${IP_ADDRESS} --dport ${PORT}
-```
-
-In the client, install the hicn stack:
-
-```bash
-client$ sudo apt-get install -y hicn-light hicn-apps
-```
-
-Create a configuration file for the hicn-light forwarder. Here we are configuring UDP faces:
-
-```bash
-client$ mkdir -p ${HOME}/etc
-client$ LOCAL_IP="10.0.0.2" # Put here the actual IPv4 of the local interface
-client$ LOCAL_PORT="12345"
-client$ REMOTE_IP="10.0.0.1" # Put here the actual IPv4 of the remote interface
-client$ REMOTE_PORT="12345"
-client$ cat << EOF > ${HOME}/etc/hicn-light.conf
-add listener udp list0 ${LOCAL_IP} ${LOCAL_PORT}
-add connection udp conn0 ${REMOTE_IP} ${REMOTE_PORT} ${LOCAL_IP} ${LOCAL_PORT}
-add route conn0 c001::/16 1
-EOF
-```
+#### Client side
 
 Run the hicn-light forwarder
 
 ```bash
-client$ sudo /usr/bin/hicn-light-daemon --daemon --capacity 1000 --log-file ${HOME}/hicn-light.log --config ${HOME}/etc/hicn-light.conf
+client$ sudo /usr/bin/hicn-light-daemon --daemon --capacity 1000 --log-file \
+                   ${HOME}/hicn-light.log --config ${HOME}/etc/hicn-light.conf
 ```
 
 Run the http client [higet](#higet) and print the http response on stdout:
