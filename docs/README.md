@@ -26,7 +26,7 @@ $ source env/bin/activate
 $ pip install -r docs/etc/requirements.txt
 $ cd docs
 
-Which installs all the required applications into it's own, isolated,
+Which installs all the required applications into its own, isolated,
 virtual environment, so as to not interfere with other builds that may
 use different versions of software.
 
