@@ -14,12 +14,15 @@
  */
 
 #include <hicn/transport/config.h>
+#include <hicn/transport/core/content_object.h>
+#include <hicn/transport/core/interest.h>
 #include <hicn/transport/interfaces/rtc_socket_producer.h>
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_producer.h>
+#include <hicn/transport/security/identity.h>
+#include <hicn/transport/security/signer.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
-#include <hicn/transport/utils/identity.h>
-#include <hicn/transport/utils/signer.h>
+#include <hicn/transport/utils/literals.h>
 
 #ifdef SECURE_HICNTRANSPORT
 #include <hicn/transport/interfaces/p2psecure_socket_consumer.h>
@@ -29,8 +32,8 @@
 #ifndef _WIN32
 #include <hicn/transport/utils/daemonizator.h>
 #endif
-#include <hicn/transport/utils/literals.h>
 
+#include <asio.hpp>
 #include <fstream>
 #include <iomanip>
 #include <unordered_set>
@@ -294,7 +297,7 @@ class HIperfClient {
   void processLeavingInterest(ConsumerSocket &c, const Interest &interest) {}
 
   void handleTimerExpiration(ConsumerSocket &c,
-                             const protocol::TransportStatistics &stats) {
+                             const TransportStatistics &stats) {
     if (configuration_.rtc_) return;
 
     const char separator = ' ';
@@ -642,9 +645,10 @@ class HIperfClient {
 
     void readSuccess(std::size_t total_size) noexcept override {
       std::cout << "Key size: " << total_size << " bytes" << std::endl;
+      afterRead();
     }
 
-    void afterRead() override {
+    void afterRead() {
       std::shared_ptr<utils::Verifier> verifier =
           std::make_shared<utils::Verifier>();
       verifier->addKeyFromPassphrase(*key_, utils::CryptoSuite::HMAC_SHA256);
@@ -1355,9 +1359,6 @@ int main(int argc, char *argv[]) {
       case 'B': {
         auto str = std::string(optarg);
         std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-        std::cout << "---------------------------------------------------------"
-                     "---------------------->"
-                  << str << std::endl;
         server_configuration.production_rate_ = str;
         options = -1;
         break;
