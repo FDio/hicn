@@ -96,6 +96,8 @@ void TransportProtocol::onContentReassembled(std::error_code ec) {
   }
 
   stop();
+
+  on_payload->afterRead();
 }
 
 }  // end namespace protocol

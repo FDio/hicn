@@ -123,6 +123,10 @@ class IncrementalIndexer : public Indexer {
     }
   }
 
+  TRANSPORT_ALWAYS_INLINE bool onKeyToVerify() override {
+    return verification_manager_->onKeyToVerify();
+  }
+
  protected:
   interface::ConsumerSocket *socket_;
   Reassembly *reassembly_;

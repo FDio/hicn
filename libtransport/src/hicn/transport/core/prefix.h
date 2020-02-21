@@ -42,7 +42,18 @@ class Prefix {
 
   std::string getNetwork() const;
 
+  int contains(const ip_address_t &content_name) const;
+
+  int contains(const core::Name &content_name) const;
+
   Name getName() const;
+
+  Name getRandomName() const;
+
+  Name getName(const core::Name &mask, const core::Name &components,
+               const core::Name &content_name) const;
+
+  Name mapName(const core::Name &content_name) const;
 
   Prefix &setNetwork(std::string &network);
 

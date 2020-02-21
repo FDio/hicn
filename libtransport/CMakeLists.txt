@@ -75,6 +75,11 @@ include(WindowsMacros)
 include(IosMacros)
 find_package_wrapper(Libparc REQUIRED)
 find_package_wrapper(Asio REQUIRED)
+find_package(OpenSSL REQUIRED)
+
+if (${OPENSSL_VERSION} VERSION_EQUAL "1.1.1a" OR ${OPENSSL_VERSION} VERSION_GREATER "1.1.1a")
+  set(SECURE_HICNTRANSPORT 1)
+endif()
 
 if (__vpp__)
   find_package(Libmemif REQUIRED)
@@ -139,6 +144,8 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   find_package(OpenSSL REQUIRED)
 endif ()
 
+message ("---------------------------> ${OPENSSL_LIBRARIES}")
+
 list(APPEND LIBRARIES
   ${LIBPARC_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
@@ -158,6 +165,7 @@ list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
   ${CMAKE_THREADS_INCLUDE_DIRS}
   ${ASIO_INCLUDE_DIRS}
   ${WINDOWS_INCLUDE_DIRS}
+  ${OPENSSL_INCLUDE_DIR}
 )
 
 add_subdirectory(${TRANSPORT_ROOT_PATH})

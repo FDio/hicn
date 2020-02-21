@@ -48,10 +48,22 @@ RTCTransportProtocol::~RTCTransportProtocol() {
 }
 
 int RTCTransportProtocol::start() {
+  if (is_running_) return -1;
+
+  reset();
+  is_first_ = true;
+
   probeRtt();
   sentinelTimer();
   newRound();
-  return TransportProtocol::start();
+  scheduleNextInterests();
+
+  is_first_ = false;
+  is_running_ = true;
+  portal_->runEventsLoop();
+  is_running_ = false;
+
+  return 0;
 }
 
 void RTCTransportProtocol::stop() {
@@ -65,7 +77,6 @@ void RTCTransportProtocol::resume() {
   if (is_running_) return;
 
   is_running_ = true;
-
   inflightInterestsCount_ = 0;
 
   probeRtt();
@@ -74,7 +85,6 @@ void RTCTransportProtocol::resume() {
   scheduleNextInterests();
 
   portal_->runEventsLoop();
-
   is_running_ = false;
 }
 
@@ -190,7 +200,6 @@ void RTCTransportProtocol::updateDelayStats(
   // we collect OWD only for datapackets
   if (payload->length() != HICN_NACK_HEADER_SIZE) {
     uint64_t *senderTimeStamp = (uint64_t *)payload->data();
-
     int64_t OWD = std::chrono::duration_cast<std::chrono::milliseconds>(
                       std::chrono::steady_clock::now().time_since_epoch())
                       .count() -
@@ -288,7 +297,6 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
     stats_->updateAverageRtt(pathTable_[producerPathLabels_[1]]->getMinRtt());
     (*stats_callback)(*socket_, *stats_);
   }
-
   // bound also by interest lifitime* production rate
   if (!gotNack_) {
     roundsWithoutNacks_++;
@@ -403,6 +411,15 @@ void RTCTransportProtocol::increaseWindow() {
 }
 
 void RTCTransportProtocol::probeRtt() {
+  probe_timer_->expires_from_now(std::chrono::milliseconds(1000));
+  probe_timer_->async_wait([this](std::error_code ec) {
+    if (ec) return;
+    probeRtt();
+  });
+
+  // To avoid sending the first probe, because the transport is not running yet
+  if (is_first_ && !is_running_) return;
+
   time_sent_probe_ = std::chrono::duration_cast<std::chrono::milliseconds>(
                          std::chrono::steady_clock::now().time_since_epoch())
                          .count();
@@ -419,13 +436,9 @@ void RTCTransportProtocol::probeRtt() {
 
   // we considere the probe as a rtx so that we do not incresea inFlightInt
   received_probe_ = false;
+  TRANSPORT_LOGD("Send content interest %u (probeRtt)",
+                 interest_name->getSuffix());
   sendInterest(interest_name, true);
-
-  probe_timer_->expires_from_now(std::chrono::milliseconds(1000));
-  probe_timer_->async_wait([this](std::error_code ec) {
-    if (ec) return;
-    probeRtt();
-  });
 }
 
 void RTCTransportProtocol::sendInterest(Name *interest_name, bool rtx) {
@@ -463,6 +476,10 @@ void RTCTransportProtocol::sendInterest(Name *interest_name, bool rtx) {
 void RTCTransportProtocol::scheduleNextInterests() {
   if (!is_running_ && !is_first_) return;
 
+  TRANSPORT_LOGD("----- [window %u - inflight_interests %u = %d] -----",
+                 currentCWin_, inflightInterestsCount_,
+                 currentCWin_ - inflightInterestsCount_);
+
   while (inflightInterestsCount_ < currentCWin_) {
     Name *interest_name = nullptr;
     socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME,
@@ -479,6 +496,9 @@ void RTCTransportProtocol::scheduleNextInterests() {
       inflightInterests_[pkt].state = sent_;
       inflightInterests_[pkt].sequence = actualSegment_;
       actualSegment_ = (actualSegment_ + 1) % HICN_MIN_PROBE_SEQ;
+      TRANSPORT_LOGD(
+          "Send content interest %u (scheduleNextInterests no replies)",
+          interest_name->getSuffix());
       sendInterest(interest_name, false);
       return;
     }
@@ -515,8 +535,17 @@ void RTCTransportProtocol::scheduleNextInterests() {
     inflightInterests_[pkt].sequence = actualSegment_;
     actualSegment_ = (actualSegment_ + 1) % HICN_MIN_PROBE_SEQ;
 
+    TRANSPORT_LOGD("Send content interest %u (scheduleNextInterests)",
+                   interest_name->getSuffix());
     sendInterest(interest_name, false);
   }
+
+  TRANSPORT_LOGD("----- end of scheduleNextInterest -----");
+}
+
+bool RTCTransportProtocol::verifyKeyPackets() {
+  // Not yet implemented
+  return false;
 }
 
 void RTCTransportProtocol::sentinelTimer() {
@@ -703,6 +732,8 @@ uint64_t RTCTransportProtocol::retransmit() {
       socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME,
                                &interest_name);
       interest_name->setSuffix(it->first);
+      TRANSPORT_LOGD("Send content interest %u (retransmit)",
+                     interest_name->getSuffix());
       sendInterest(interest_name, true);
     } else if (rtx_time < smallest_timeout) {
       smallest_timeout = rtx_time;
@@ -866,6 +897,7 @@ void RTCTransportProtocol::onContentObject(
   }
 
   if (segmentNumber >= HICN_MIN_PROBE_SEQ) {
+    TRANSPORT_LOGD("Received probe %u", segmentNumber);
     if (segmentNumber == probe_seq_number_ && !received_probe_) {
       received_probe_ = true;
 
@@ -899,6 +931,8 @@ void RTCTransportProtocol::onContentObject(
   }
 
   if (payload_size == HICN_NACK_HEADER_SIZE) {
+    TRANSPORT_LOGD("Received nack %u", segmentNumber);
+
     if (inflightInterests_[pkt].state == sent_) {
       lastEvent_ = std::chrono::duration_cast<std::chrono::milliseconds>(
                        std::chrono::steady_clock::now().time_since_epoch())
@@ -930,6 +964,8 @@ void RTCTransportProtocol::onContentObject(
     }
 
   } else {
+    TRANSPORT_LOGD("Received content %u", segmentNumber);
+
     avgPacketSize_ = (HICN_ESTIMATED_PACKET_SIZE * avgPacketSize_) +
                      ((1 - HICN_ESTIMATED_PACKET_SIZE) * payload->length());
 

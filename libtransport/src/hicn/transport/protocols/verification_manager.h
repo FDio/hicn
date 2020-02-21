@@ -30,22 +30,36 @@ namespace protocol {
 using Packet = core::Packet;
 using interface::ConsumerSocket;
 using interface::VerificationPolicy;
+using ContentObjectPtr = std::shared_ptr<core::ContentObject>;
 
 class VerificationManager {
  public:
   virtual ~VerificationManager() = default;
   virtual VerificationPolicy onPacketToVerify(const Packet& packet) = 0;
+  virtual bool onKeyToVerify() { return false; }
 };
 
 class SignatureVerificationManager : public VerificationManager {
  public:
-  SignatureVerificationManager(ConsumerSocket* icn_socket)
-      : icn_socket_(icn_socket) {}
+  SignatureVerificationManager(interface::ConsumerSocket* icn_socket)
+      : icn_socket_(icn_socket), key_packets_() {}
 
   interface::VerificationPolicy onPacketToVerify(const Packet& packet) override;
+  bool onKeyToVerify() override;
 
  private:
   ConsumerSocket* icn_socket_;
+  std::queue<ContentObjectPtr> key_packets_;
+
+  ContentObjectPtr copyPacket(const Packet& packet) {
+    std::shared_ptr<utils::MemBuf> packet_copy =
+        packet.acquireMemBufReference();
+    ContentObjectPtr content_object_copy =
+        std::make_shared<core::ContentObject>(std::move(packet_copy));
+    std::unique_ptr<utils::MemBuf> payload_copy = packet.getPayload();
+    content_object_copy->appendPayload(std::move(payload_copy));
+    return content_object_copy;
+  }
 };
 
 }  // end namespace protocol
