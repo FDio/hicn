@@ -194,10 +194,10 @@ install_collectd_headers() {
             awk '/config.h/ { print; print "#include \"collectd/liboconfig/oconfig.h\""; next }1' /usr/include/collectd/core/daemon/configfile.h | sudo tee /usr/include/collectd/core/daemon/configfile.h
         fi
     elif [ "${DISTRIB_ID}" == "centos" ]; then
-	wget https://storage.googleapis.com/collectd-tarballs/collectd-5.9.2.tar.bz2
-	tar -xf collectd-5.9.2.tar.bz2
-	cd collectd-5.9.2 && ./configure && make && cd -
-	export COLLECTD_HOME=${PWD}/collectd-5.9.2/src
+        wget https://storage.googleapis.com/collectd-tarballs/collectd-5.9.2.tar.bz2
+        tar -xf collectd-5.9.2.tar.bz2
+        cd collectd-5.9.2 && ./configure && make && cd -
+        export COLLECTD_HOME=${PWD}/collectd-5.9.2/src
     fi
 }
 
@@ -265,6 +265,24 @@ build_doc() {
     echo "*******************************************************************"
 }
 
-build_package
+function usage() {
+    echo "Usage: ${0} [doc|packages]"
+    exit 1
+}
+
+if [ -z ${1+x} ]; then
+    set -- "packages"
+fi
+
+case "${1}" in
+  doc)
+    build_doc
+    ;;
+  packages)
+    build_package
+    ;;
+  *)
+    usage
+esac
 
 exit 0
