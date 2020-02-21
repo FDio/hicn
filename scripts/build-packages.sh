@@ -59,6 +59,7 @@ DEPS_UBUNTU_NOVERSION="libparc-dev              \
              libyang                            \
              sysrepo                            \
              python3-ply                        \
+             python3-setuptools                 \
              python3-pip"
 
 DEPS_CMAKE_UBUNTU="curl"
@@ -194,10 +195,10 @@ install_collectd_headers() {
             awk '/config.h/ { print; print "#include \"collectd/liboconfig/oconfig.h\""; next }1' /usr/include/collectd/core/daemon/configfile.h | sudo tee /usr/include/collectd/core/daemon/configfile.h
         fi
     elif [ "${DISTRIB_ID}" == "centos" ]; then
-	wget https://storage.googleapis.com/collectd-tarballs/collectd-5.9.2.tar.bz2
-	tar -xf collectd-5.9.2.tar.bz2
-	cd collectd-5.9.2 && ./configure && make && cd -
-	export COLLECTD_HOME=${PWD}/collectd-5.9.2/src
+        wget https://storage.googleapis.com/collectd-tarballs/collectd-5.9.2.tar.bz2
+        tar -xf collectd-5.9.2.tar.bz2
+        cd collectd-5.9.2 && ./configure && make && cd -
+        export COLLECTD_HOME=${PWD}/collectd-5.9.2/src
     fi
 }
 
@@ -212,10 +213,10 @@ build_package() {
     echo "*******************************************************************"
 
     # Make the package
-    mkdir -p build && pushd build
+    mkdir -p ${SCRIPT_PATH}/../build && pushd ${SCRIPT_PATH}/../build
 
     rm -rf *
-    cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ${SCRIPT_PATH}/..
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ..
     make VERBOSE=1 -j8 package
 
     rm -rf libtransport ctrl/libhicnctrl
@@ -243,7 +244,7 @@ build_package() {
     echo "*******************************************************************"
 }
 
-build_doc() {
+build_sphinx() {
     setup
 
     echo "*******************************************************************"
@@ -251,11 +252,12 @@ build_doc() {
     echo "*******************************************************************"
 
     # Make the package
-    python3 -m pip install --user virtualenv 
+    python3 -m pip install --user virtualenv
     python3 -m virtualenv env
+    cat env/bin/activate
     source env/bin/activate
-    pip install -r docs/etc/requirements.txt
-    cd docs
+    pip install -r ${SCRIPT_PATH}/../docs/etc/requirements.txt
+    pushd ${SCRIPT_PATH}/../docs
     make html
 
     popd
@@ -265,6 +267,37 @@ build_doc() {
     echo "*******************************************************************"
 }
 
-build_package
+build_doxygen() {
+    setup
+
+    mkdir -p ${SCRIPT_PATH}/../build-doxygen
+    pushd ${SCRIPT_PATH}/../build-doxygen
+    cmake -DBUILD_HICNPLUGIN=OFF -DBUILD_HICNLIGHT=OFF -DBUILD_LIBTRANSPORT=OFF -DBUILD_UTILS=OFF -DBUILD_APPS=OFF -DBUILD_CTRL=OFF ..
+    make doc
+    popd
+}
+
+function usage() {
+    echo "Usage: ${0} [doc|sphinx|doxygen]"
+    exit 1
+}
+
+if [ -z ${1+x} ]; then
+    set -- "packages"
+fi
+
+case "${1}" in
+  sphinx)
+    build_sphinx
+    ;;
+  doxygen)
+    build_doxygen
+    ;;
+  packages)
+    build_package
+    ;;
+  *)
+    usage
+esac
 
 exit 0
