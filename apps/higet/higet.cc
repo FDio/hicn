@@ -20,10 +20,11 @@
 #include <experimental/algorithm>
 #include <experimental/functional>
 
-#ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE
 #include <asio.hpp>
-#endif
+#undef ASIO_STANDALONE
+
+#include <thread>
 
 typedef std::chrono::time_point<std::chrono::system_clock> Time;
 typedef std::chrono::milliseconds TimeDuration;

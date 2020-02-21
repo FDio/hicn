@@ -13,8 +13,10 @@
  * limitations under the License.
  */
 
-#include <hicn/transport/interfaces/socket.h>
-#include <hicn/transport/utils/verifier.h>
+#include <hicn/transport/core/interest.h>
+#include <hicn/transport/security/verifier.h>
+
+#include <implementation/socket_consumer.h>
 
 // Let's make the linker happy
 #if !TRANSPORT_LOG_EXTERN_GLOBAL_OUTPUT_LEVEL
@@ -81,7 +83,7 @@ class Configuration {
   }
 };
 
-class Client : interface::BasePortal::ConsumerCallback {
+class Client : implementation::BasePortal::ConsumerCallback {
  public:
   Client(Configuration *c)
       : portal_(), signals_(portal_.getIoService(), SIGINT) {
@@ -296,7 +298,7 @@ class Client : interface::BasePortal::ConsumerCallback {
 
  private:
   SendTimeMap send_timestamps_;
-  interface::BasePortal portal_;
+  implementation::BasePortal portal_;
   asio::signal_set signals_;
   uint64_t sequence_number_;
   uint64_t last_jump_;

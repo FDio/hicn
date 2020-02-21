@@ -42,7 +42,7 @@ endif ()
 # Default: INFO
 set(TRANSPORT_LOG_LEVEL "INFO" CACHE STRING "Set log level")
 
-set(TRANSPORT_ROOT_PATH "src/hicn/transport")
+set(TRANSPORT_ROOT_PATH "src")
 
 set(TRANSPORT_CORE ${TRANSPORT_ROOT_PATH}/core)
 set(TRANSPORT_TRANSPORT ${TRANSPORT_ROOT_PATH}/transport)
@@ -168,4 +168,5 @@ list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
   ${OPENSSL_INCLUDE_DIR}
 )
 
+add_subdirectory(includes/hicn/transport)
 add_subdirectory(${TRANSPORT_ROOT_PATH})
