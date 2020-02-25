@@ -55,5 +55,5 @@ The current master branch provides the latest release which is compatible with t
 No other VPP releases are supported nor maintained. At every new VPP release distribution hicn
 master branch is updated to work with the latest stable release. All previous stable releases
 are discontinued and not maintained. The user who is interested in a specific release can always
-checkout the rigth code tree by searching the latest commit under a given git tag carrying the
+checkout the right code tree by searching the latest commit under a given git tag carrying the
 release version.

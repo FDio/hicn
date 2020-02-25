@@ -4,10 +4,10 @@
 
 hicn is an open source implementation of Cisco's hICN. It includes a network stack, that implements
 ICN forwarding path in IPv6, and a transport stack that implements two main transport protocols and
-a socket API. The transport protocols provide one reliable transport service implementaton and a
+a socket API. The transport protocols provide one reliable transport service implementation and a
 real-time transport service for audio/video media.
 
-## Directory Layout
+## Directory layout
 
 ```text
 | Directory name | Description                                               |
@@ -29,11 +29,11 @@ local namespace (local face management).
 
 ## Release note
 
-The current master branch provides the latest release which is compatible with the lates VPP stable.
+The current master branch provides the latest release which is compatible with the latest VPP stable.
 No other VPP releases are supported nor maintained. At every new VPP release distribution hicn
 master branch is updated to work with the latest stable release. All previous stable releases
 are discontinued and not maintained. The user who is interested in a specific release can always
-checkout the rigth code tree by searching the latest commit under a given git tag carrying the
+checkout the right code tree by searching the latest commit under a given git tag carrying the
 release version.
 
 The Hybrid ICN software distribution can be installed for several platforms.
@@ -43,7 +43,7 @@ on VPP and one portable based on IPC and sockets.
 The transport stack is a unique library that is used for both the scalable
 and portable network stacks.
 
-## Supported Platforms
+## Supported platforms
 
 - Ubuntu 18.04 LTS (amd64, arm64)
 - Debian Stable/Testing
@@ -59,19 +59,19 @@ You can either use released packages, or compile hicn from sources.
 
 ### Ubuntu
 
-```shell
+```bash
 curl -s https://packagecloud.io/install/repositories/fdio/release/script.deb.sh | sudo bash
 ```
 
 ### CentOS
 
-```shell
+```bash
 curl -s https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh | sudo bash
 ```
 
 ### macOS
 
-```shell
+```bash
 brew install hicn
 ```
 
@@ -90,11 +90,12 @@ Coming soon.
 
 ### Docker
 
-Several docker images are nightly built with the latest software  for Ubuntu 18 LTS (amd64/arm64), and available on docker hub at  <https://hub.docker.com/u/icnteam>.
+Several docker images are nightly built with the latest software  for Ubuntu 18 LTS (amd64/arm64),
+and available on docker hub at  <https://hub.docker.com/u/icnteam>.
 
 The following images are nightly built and maintained.
 
-```shell
+```bash
 docker pull icnteam/vswitch:amd64
 docker pull icnteam/vswitch:arm64
 
@@ -110,16 +111,17 @@ docker pull icnteam/vhttpproxy:arm64
 Vagrant boxes for a virtual switch are available at
 <https://app.vagrantup.com/icnteam>
 
-```shell
+```bash
 vagrant box add icnteam/vswitch
 ```
+
 Supported providers are libvirt, vmware and virtualbox.
 
 ## License
 
 This software is distributed under the following license:
 
-```shell
+```bash
 Copyright (c) 2017-2020 Cisco and/or its affiliates.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

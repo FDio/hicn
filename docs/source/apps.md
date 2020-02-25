@@ -1,10 +1,10 @@
 # Applications
 
-The open source distribution provides a few application examples:
-one MPEG-DASH video player, and an HTTP reverse proxy a command line
-HTTP GET client.
-hICN sockets have been successfully used to serve HTTP, RTP and
-RSockets application protocols.
+The open source distribution provides a few application examples: a MPEG-DASH
+video player, a HTTP reverse proxy, a command line HTTP GET client.
+
+hICN sockets have been successfully used to serve HTTP, RTP and RSockets
+application protocols.
 
 ## Dependencies
 
@@ -26,12 +26,13 @@ Basic dependencies:
 
 ### hicn-http-proxy
 
-`hicn-http-proxy` is a reverse proxy which can be used for augmenting the performance of a legacy HTTP/TCP server
-by making use of hICN. It performs the following operations:
+`hicn-http-proxy` is a reverse proxy which can be used for augmenting the
+performance of a legacy HTTP/TCP server by making use of hICN. It performs
+the following operations:
 
-- Receives a HTTP request from a hICN client
-- Forwards it to a HTTP server over TCP
-- Receives the response from the server and send it back to the client
+- Receive a HTTP request from a hICN client
+- Forward it to a HTTP server over TCP
+- Receive the response from the server and send it back to the client
 
 ```bash
 hicn-http-proxy [HTTP_PREFIX] [OPTIONS]
@@ -44,17 +45,21 @@ Options:
 -c <cache_size>       = cache size of the proxy, in number of hicn data packets
 -m <mtu>              = mtu of hicn packets
 -P <prefix>           = optional most significant 16 bits of hicn prefix, in hexadecimal format
+```
 
 Example:
+```bash
 ./hicn-http-proxy http://webserver -a 127.0.0.1 -p 8080 -c 10000 -m 1200 -P b001
 ```
 
-The hICN names used by the hicn-http-proxy for naming the HTTP responses are composed in the following way,
-starting from the most significant byte:
+The hICN names used by the hicn-http-proxy for naming the HTTP responses are
+composed in the following way, starting from the most significant byte:
 
 - The first 2 bytes are the prefix specified in the -P option
-- The next 6 bytes are the hash (Fowler–Noll–Vo non-crypto hash) of the locator (in the example `webserver`, without the `http://` part)
-- The last 8 bytes are the hash (Fowler–Noll–Vo non-crypto hash) of the http request corresponding to the response being forwarded back to the client.
+- The next 6 bytes are the hash (Fowler–Noll–Vo non-crypto hash) of the locator
+  (in the example `webserver`, without the `http://` part)
+- The last 8 bytes are the hash (Fowler–Noll–Vo non-crypto hash) of the http
+  request corresponding to the response being forwarded back to the client.
 
 ### higet
 
@@ -71,23 +76,30 @@ Example:
 ./higet -P b001 -O - http://webserver/index.html
 ```
 
-The hICN names used by higet for naming the HTTP requests are composed the same way as described in [hicn-http-proxy](#hicn-http-proxy).
+The hICN names used by higet for naming the HTTP requests are composed the
+way described in [hicn-http-proxy](#hicn-http-proxy).
 
-## HTTP Client-Server with hicn-http-proxy
+## HTTP client-server with hicn-http-proxy
 
-We consider the following topology, consisting on two linux VM which are able to communicate through an IP network (you can also use containers or physical machines):
+We consider the following topology, consisting on two linux VMs which are able
+to communicate through an IP network (you can also use containers or physical
+machines):
 
 ```text
 |client (10.0.0.1/24; 9001::1/64)|======|server (10.0.0.2/24; 9001::2/64)|
 ```
 
-Install the hICN suite on two linux VM. This tutorial makes use of Ubuntu 18.04, but it could easily be adapted to other platforms.
-You can either install the hICN stack using binaries or compile the code. In this tutorial we will make use of docker container and binaries packages.
+Install the hICN suite on two linux VM. This tutorial makes use of Ubuntu 18.04,
+but it could easily be adapted to other platforms. You can either install the hICN
+stack using binaries or compile the code. In this tutorial we will make use of
+docker container and binaries packages.
 
-The client will use of the hicn-light forwarder, which is lightweight and tailored for devices such as android and laptops.
-The server will use the hicn-plugin of vpp, which guarantees better performances and it is the best choice for server applications.
+The client will use of the hicn-light forwarder, which is lightweight and tailored
+for devices such as android and laptops. The server will use the hicn-plugin of vpp,
+which guarantees better performances and it is the best choice for server applications.
 
-Keep in mind that on the same system the stack based on vpp forwarder cannot coexist with the stack based on hicn light.
+Keep in mind that on the same system the stack based on vpp forwarder cannot
+coexist with the stack based on hicn light.
 
 For running the hicn-plugin at the server there are two main alternatives:
 
@@ -102,13 +114,13 @@ Install docker in the server VM:
 server$ curl get.docker.com | bash
 ```
 
-Run the hicn-http-proxy container. Here we use a public server at "localhost" as origin and 
-HTTP traffic is server with an IPv6 name prefix b001.
+Run the hicn-http-proxy container. Here we use a public server at `localhost` as
+origin and HTTP traffic is server with an IPv6 name prefix `b001`.
 
 ```bash
 #!/bin/bash
 
-#Http proxy options
+# http proxy options
 ORIGIN_ADDRESS=${ORIGIN_ADDRESS:-"localhost"}
 ORIGIN_PORT=${ORIGIN_PORT:-"80"}
 CACHE_SIZE=${CACHE_SIZE:-"10000"}
@@ -118,7 +130,7 @@ FIRST_IPV6_WORD=${FIRST_IPV6_WORD:-"b001"}
 USE_MANIFEST=${USE_MANIFEST:-"true"}
 HICN_PREFIX=${HICN_PREFIX:-"http://webserver"}
 
-# UDP Punting
+# udp punting
 HICN_LISTENER_PORT=${HICN_LISTENER_PORT:-33567}
 TAP_ADDRESS_VPP=192.168.0.2
 TAP_ADDRESS_KER=192.168.0.1
@@ -131,10 +143,10 @@ vppctl set int state ${TAP_NAME} up
 vppctl set interface ip address tap0 ${TAP_ADDRESS_VPP}/24
 ip addr add ${TAP_ADDRESS_KER}/24 brd + dev ${TAP_NAME}
 
-# Redirect the udp traffic on port 33567 (The one used for hicn) to VPP
+# Redirect the udp traffic on port 33567 (The one used for hicn) to vpp
 iptables -t nat -A PREROUTING -p udp --dport ${HICN_LISTENER_PORT} -j DNAT \
                    --to-destination ${TAP_ADDRESS_VPP}:${HICN_LISTENER_PORT}
-# Masquerade all the traffic coming from VPP
+# Masquerade all the traffic coming from vpp
 iptables -t nat -A POSTROUTING -j MASQUERADE --src ${TAP_ADDRESS_NET} ! \
                                  --dst ${TAP_ADDRESS_NET} -o eth0
 # Add default route to vpp
@@ -161,14 +173,14 @@ Docker images of the example above are available at
 <https://hub.docker.com/r/icnteam/vhttpproxy>.
 Images can be pulled using the following tags.
 
-```shell
+```bash
 docker pull icnteam/vhttpproxy:amd64
 docker pull icnteam/vhttpproxy:arm64
 ```
 
 #### Client side
 
-Run the hicn-light forwarder
+Run the hicn-light forwarder:
 
 ```bash
 client$ sudo /usr/bin/hicn-light-daemon --daemon --capacity 1000 --log-file \
@@ -183,20 +195,26 @@ client$ /usr/bin/higet -O - http://webserver/index.html -P c001
 
 ### Host/VM
 
-You can install the hicn-plugin of vpp on your VM and directly use DPDK compatible nics, forwarding hicn packets directly over the network. DPDK compatible nics can be used inside a container as well.
+You can install the hicn-plugin of vpp on your VM and directly use DPDK
+compatible nics, forwarding hicn packets directly over the network. DPDK
+compatible nics can be used inside a container as well.
 
 ```bash
 server$ sudo apt-get install -y hicn-plugin vpp-plugin-dpdk hicn-apps-memif
 ```
 
-It will install all the required deps (vpp, hicn apps and libraries compiled for communicating with vpp using shared memories). Configure VPP following the steps described [here](https://github.com/FDio/hicn/blob/master/hicn-plugin/README.md#configure-vpp).
+It will install all the required deps (vpp, hicn apps and libraries compiled for
+communicating with vpp using shared memories). Configure VPP following the steps
+described [here](https://github.com/FDio/hicn/blob/master/hicn-plugin/README.md#configure-vpp).
 
 This tutorial assumes you configured two interfaces in your server VM:
 
 - One interface which uses the DPDK driver, to be used by VPP
 - One interface which is still owned by the kernel
 
-The DPDK interface will be used for connecting the server with the hicn client, while the other interface will guarantee connectivity to the applications running in the VM, including the hicn-http-proxy. If you run the commands:
+The DPDK interface will be used for connecting the server with the hicn client,
+while the other interface will guarantee connectivity to the applications running
+in the VM, including the hicn-http-proxy. If you run the commands:
 
 ```bash
 server$ sudo systemctl restart vpp
@@ -218,7 +236,8 @@ server$ vppctl set int state GigabitEthernetb/0/0 up
 server$ vppctl set interface ip address GigabitEthernetb/0/0 9001::1/64
 ```
 
-Take care of replacing the interface name (`GigabitEthernetb/0/0`) with the actual name of your interface.
+Take care of replacing the interface name (`GigabitEthernetb/0/0`) with the
+actual name of your interface.
 
 Now enable the hicn plugin and set the punting for the hicn packets:
 

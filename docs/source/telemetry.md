@@ -2,29 +2,27 @@
 
 Tools to collect telemetry from hICN forwarders.
 
-## Introduction ##
+## Introduction
 
-The project containes two plugins for [collectd](https://github.com/collectd/collectd):
+The project contains two plugins for [collectd](https://github.com/collectd/collectd):
 * vpp: to collect statistics for VPP
 * vpp-hicn: to collect statistics for [hICN](https://github.com/FDio/hicn)
 
+Currently the two plugins provide the following functionalities:
+* vpp: statistics (rx/tx bytes and packets) for each available interface.
+* vpp-hicn: statistics (rx/tx bytes and packets) for each available face.
 
-Currently the two plugins provide the followign funtionalities:
+## Quick start
 
-* VPP: statistics (rx/tx bytes and packets) for each available interface.
-* HICN-VPP: statistics (rx/tx bytes and packets) for each available face.
+From the code tree root:
 
-## Quick Start ##
-
-```
-From the code tree root
-
-$ cd telemetry
-$ mkdir -p build
-$ cd build
-$ cmake .. -DCMAKE_INSTALL_PREFIX=/usr
-$ make
-$ sudo make install
+```bash
+cd telemetry
+mkdir -p build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+make
+sudo make install
 ```
 
 ## Using hICN collectd plugins
@@ -38,7 +36,6 @@ hICN collectd plugins have been tested in:
 - Debian Stable/Testing
 - Red Hat Enterprise Linux 7
 - CentOS 7
-
 
 ### Dependencies
 
@@ -54,16 +51,19 @@ Build dependencies:
 ## Getting started
 
 Collectd needs to be configured in order to use the hICN collectd plugins.
-The configuration can be achieved editing the file '/etc/collectd/collectd.conf' and adding the following lines:
-
+The configuration can be achieved editing the file '/etc/collectd/collectd.conf'
+and adding the following lines:
 ```
 LoadPlugin vpp
 LoadPlugin vpp_hicn
 ```
 
-Before running collectd, a vpp forwarder must be started. If the vpp-hicn plugin is used, the hicn-plugin must be available in the vpp forwarder
+Before running collectd, a vpp forwarder must be started. If the vpp-hicn plugin
+is used, the hicn-plugin must be available in the vpp forwarder.
 
-### Example: use rrdtool and csv plugin to store statistics from vpp and vpp-hicn plugins
+### Example: storing statistics from vpp and vpp-hicn
+
+We'll use the rrdtool and csv plugins to store statistics from vpp and vpp-hicn.
 
 Edit the configuration file as the following:
 
@@ -73,7 +73,7 @@ Edit the configuration file as the following:
 ######################################################################
 FQDNLookup true
 BaseDir "/collectd"
-Interval 2
+Interval 1
 
 ######################################################################
 # Logging                                                            #
@@ -104,13 +104,13 @@ LoadPlugin vpp_hicn
 </Plugin>
 
 <Plugin rrdtool>
-  DataDir "/collectd/rrd" # the folder under which statistics are written in csv
+  DataDir "/collectd/rrd" # the folder under which statistics are written in rrd
 </Plugin>
 ```
 
-Run vpp and collectd
+Run vpp and collectd:
 
 ```
-$ systemctl start vpp
-$ systemctl start collectd
+systemctl start vpp
+systemctl start collectd
 ```

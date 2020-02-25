@@ -1,12 +1,13 @@
-# Control Plane Support
+# Control plane support
 
 Control plane functionalities are provides via SDN controllers or via standard
 IP routing protocols. SDN support is provided by using the NETCONF/YANG protocol
 for network management, control and telemetry.
 
 Routing is supported via synchronization of the IP FIB and the IP RIB as implemented
-by one of the routng protocols in FRR. Without loss of generality we have reported
+by one of the routing protocols in FRR. Without loss of generality we have reported
 below one example of IGP routing via OSPF for IPv6.
+
 The VPP IP FIB can be controlled and updated by one FRR routing protocol which
 is used for routing over locators and also over hICN name prefixes.
 
@@ -28,24 +29,26 @@ at <https://dl.bintray.com/icn-team/apt-hicn-extras>.
 
 For instance in Ubuntu 18 LTS:
 
-Install the sysrepo YANG data store and a NETCONF server.
+Install the sysrepo YANG data store and a NETCONF server:
 
-```shell
+```bash
 echo "deb [trusted=yes] https://dl.bintray.com/icn-team/apt-hicn-extras bionic main" \
                                             | tee -a /etc/apt/sources.list
 apt-get update && apt-get install -y libyang sysrepo libnetconf2 netopeer2-server
 ```
 
-Install the VPP based hICN virtual switch.
+Install the VPP based hICN virtual switch:
 
-```shell
+```bash
 curl -s https://packagecloud.io/install/repositories/fdio/release/script.deb.sh | bash
 apt-get update && apt-get install -y hicn-plugin vpp-plugin-dpdk hicn-sysrepo-plugin
 ```
-The hICN YANG models are install under '/usr/lib/$(uname -m)-linux-gnu/modules_yang'.
-Configure the NETCONF/YANG components
 
-```shell
+The hICN YANG models are installed under `/usr/lib/$(uname -m)-linux-gnu/modules_yang`.
+
+Configure the NETCONF/YANG components:
+
+```bash
 bash /usr/bin/setup.sh sysrepoctl /usr/lib/$(uname -m)-linux-gnu/modules_yang root
 bash /usr/bin/merge_hostkey.sh sysrepocfg openssl
 bash /usr/bin/merge_config.sh sysrepocfg genkey
@@ -53,7 +56,7 @@ bash /usr/bin/merge_config.sh sysrepocfg genkey
 
 You can manually install the yang model using the following bash script:
 
-```shell
+```bash
 EXIT_CODE=0
 command -v sysrepoctl > /dev/null
 if [ $? != 0 ]; then
@@ -70,8 +73,8 @@ hicn.yang can be found in the yang-model. It consists of two container nodes:
 
 ```text
 |--+ hicn-conf: holds the configuration data;
-|  |--+ params: contains all configuration parameters; 
-|--+ hicn-state: provides the state data 
+|  |--+ params: contains all configuration parameters;
+|--+ hicn-state: provides the state data
 |  |--+ state,
 |  |--+ strategy,
 |  |--+ strategies,
@@ -92,7 +95,7 @@ data in hicn-state.
 
 To setup the startup configuration you can use the following script:
 
-```shell
+```bash
 EXIT_CODE=0
 command -v sysrepocfg > /dev/null
 if [ $? != 0 ]; then
@@ -105,7 +108,7 @@ fi
 
 startup.xml is placed in the yang-model. Here you can find the content:
 
-```shell
+```xml
 <hicn-conf  xmlns="urn:sysrepo:hicn">
 <params>
     <enable_disable>false</enable_disable>
@@ -119,7 +122,7 @@ startup.xml is placed in the yang-model. Here you can find the content:
 </hicn-conf>
 ```
 
-It contains the leaves of the params in hicn-conf node which is
+It contains the leaves of the parameters in hicn-conf node which is
 used as the startup configuration. This configuration can be changed through the
 controller by subscribing which changes the target to the running state. hicn
 yang model provides a list of RPCs which allows controller to communicate
@@ -129,7 +132,7 @@ state data.
 In order to run different RPCs from controller you can use the examples in the
 controler_rpcs_instances.xml in the yang-model. Here you can find the content:
 
-```shell
+```xml
 <node-params-get xmlns="urn:sysrepo:hicn"/>
 
 <node-stat-get xmlns="urn:sysrepo:hicn"/>
@@ -213,16 +216,17 @@ netopeer2-server which serves as NETCONF server.
 
 #### Connect from netopeer2-cli
 
-In order to connect through the netopeer client run the netopeer2-cli. Then, follow these steps:
+In order to connect through the netopeer client run the netopeer2-cli. Then,
+follow these steps:
 
 - connect --host XXX --login XXX
 - get (you can get the configuration and operational data)
 - get-config (you can get the configuration data)
 - edit-config --target running --config
 
-You can modify the configuration but it needs an xml configuration input
+You can modify the configuration but it needs an xml configuration input.
 
-```shell
+```xml
 <hicn-conf  xmlns="urn:sysrepo:hicn">
 <params>
     <enable_disable>false</enable_disable>
@@ -249,23 +253,24 @@ In order to connect through the OpenDaylight follow these procedure:
 - run a rest client program (e.g., postman or RESTClient)
 - mount the remote netopeer2-server to the OpenDaylight by the following REST API:
 
-PUT <http://localhost:8181/restconf/config/network-topology:network-topology/topology/topology-netconf/node/hicn-node>
+  ```
+  PUT <http://localhost:8181/restconf/config/network-topology:network-topology/topology/topology-netconf/node/hicn-node>`
+  ```
+  with the following body:
 
-with the following body
+  ```xml
+  <node xmlns="urn:TBD:params:xml:ns:yang:network-topology">
+    <node-id>hicn-node</node-id>
+    <host xmlns="urn:opendaylight:netconf-node-topology">Remote_NETCONF_SERVER_IP</host>
+    <port xmlns="urn:opendaylight:netconf-node-topology">830</port>
+    <username xmlns="urn:opendaylight:netconf-node-topology">username</username>
+    <password xmlns="urn:opendaylight:netconf-node-topology">password</password>
+    <tcp-only xmlns="urn:opendaylight:netconf-node-topology">false</tcp-only>
+    <keepalive-delay xmlns="urn:opendaylight:netconf-node-topology">1</keepalive-delay>
+  </node>
+  ```
 
-```shell
- <node xmlns="urn:TBD:params:xml:ns:yang:network-topology">
-   <node-id>hicn-node</node-id>
-   <host xmlns="urn:opendaylight:netconf-node-topology">Remote_NETCONF_SERVER_IP</host>
-   <port xmlns="urn:opendaylight:netconf-node-topology">830</port>
-   <username xmlns="urn:opendaylight:netconf-node-topology">username</username>
-   <password xmlns="urn:opendaylight:netconf-node-topology">password</password>
-   <tcp-only xmlns="urn:opendaylight:netconf-node-topology">false</tcp-only>
-   <keepalive-delay xmlns="urn:opendaylight:netconf-node-topology">1</keepalive-delay>
- </node>
-```
-
-Note that the header files must be set to Content-Type: application/xml, Accept: application/xml.
+  Note that the header files must be set to `Content-Type: application/xml, Accept: application/xml`.
 
 - send the operation through the following REST API:
 
@@ -302,44 +307,44 @@ The current version is compatible with the 20.01 VPP stable and sysrepo devel.
 
 ## Routing plugin for VPP and FRRouting for OSPF6
 
-This document describes how to configure the VPP with hicn_router 
+This document describes how to configure the VPP with hicn_router
 plugin and FRR to enable the OSPF protocol. The VPP and FRR
 are configured in a docker file.
 
 ### DPDK configuration on host machine
 
-```text
-- Install and configure DPDK
-- make install T=x86_64-native-linux-gcc && cd x86_64-native-linux-gcc && sudo make install
-    - modprobe uio
-    - modprobe uio_pci_generic
-    - dpdk-devbind --status
-    - the PCIe number of the desired device can be observed ("xxx")
-    - sudo dpdk-devbind -b uio_pci_generic "xxx"
+Install and configure DPDK:
+```bash
+make install T=x86_64-native-linux-gcc && cd x86_64-native-linux-gcc && sudo make install
+modprobe uio
+modprobe uio_pci_generic
+dpdk-devbind --status
+the PCIe number of the desired device can be observed ("xxx")
+sudo dpdk-devbind -b uio_pci_generic "xxx"
 ```
 
 ### VPP configuration
 
-```text
-- Run and configure the VPP (hICN router plugin is required to be installed in VPP)
-    - set int state TenGigabitEtherneta/0/0 up
-    - set int ip address TenGigabitEtherneta/0/0 a001::1/24
-    - create loopback interface
-    - set interface state loop0 up
-    - set interface ip address loop0 b001::1/128
-    - enable tap-inject  # This creates the taps by router plugin
-    - show tap-inject # This shows the created taps
-    - ip mroute add ff02::/64 via local Forward  # ff02:: is multicast ip address
-    - ip mroute add ff02::/64 via TenGigabitEtherneta/0/0 Accept
-    - ip mroute add ff02::/64 via loop0 Accept
+Run and configure the VPP (hICN router plugin is required to be installed in VPP):
+```bash
+vpp# set int state TenGigabitEtherneta/0/0 up
+vpp# set int ip address TenGigabitEtherneta/0/0 a001::1/24
+vpp# create loopback interface
+vpp# set interface state loop0 up
+vpp# set interface ip address loop0 b001::1/128
+vpp# enable tap-inject  # This creates the taps by router plugin
+vpp# show tap-inject # This shows the created taps
+vpp# ip mroute add ff02::/64 via local Forward  # ff02:: is multicast ip address
+vpp# ip mroute add ff02::/64 via TenGigabitEtherneta/0/0 Accept
+vpp# ip mroute add ff02::/64 via loop0 Accept
 ```
 
-```text
-- Setup the tap interface
-    - ip addr add a001::1/24 dev vpp0
-    - ip addr add b001::1/128 dev vpp1
-    - ip link set dev vpp0 up
-    - ip link set dev vpp1 up
+Setup the tap interface:
+```bash
+ip addr add a001::1/24 dev vpp0
+ip addr add b001::1/128 dev vpp1
+ip link set dev vpp0 up
+ip link set dev vpp1 up
 ```
 
 ### FRR configuration
@@ -347,20 +352,21 @@ are configured in a docker file.
 Install FRR in Ubuntu 18 LTS:
 <http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-ubuntu1804.html>
 
+Run and configure FRRouting (ospf):
 ```text
-- Run and configure FRRouting (ospf)
-    - /usr/lib/frr/frrinit.sh start &
-    - vtysh
-    - configure terminal
-    - router ospf6
-    - area 0.0.0.0 range a001::1/24
-    - area 0.0.0.0 range b001::1/128
-    - interface vpp0 area 0.0.0.0
-    - interface vpp1 area 0.0.0.0
-    - end
-    - wr
-    - add  "no ipv6 nd suppress-ra" to the first configurtion part of the /etc/frr/frr.conf
+/usr/lib/frr/frrinit.sh start &
+vtysh
+configure terminal
+router ospf6
+area 0.0.0.0 range a001::1/24
+area 0.0.0.0 range b001::1/128
+interface vpp0 area 0.0.0.0
+interface vpp1 area 0.0.0.0
+end
+wr
+add  "no ipv6 nd suppress-ra" to the first configurtion part of the /etc/frr/frr.conf
 ```
 
-After the following configuration, the traffic over tap interface can be observered through "tcpdump- i vpp1".
-The neighborhood and route can be seen by the "show ipv6 ospf6 neighbor/route".
+After the following configuration, the traffic over tap interface can be observed
+via `tcpdump- i vpp1`. The neighborhood and route can be seen with the
+`show ipv6 ospf6 neighbor/route` command.

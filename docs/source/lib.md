@@ -1,5 +1,4 @@
-
-# Core Library
+# Core library
 
 ## Introduction
 
@@ -30,9 +29,9 @@ A commandline interface (hicnc) is also provided that uses the library and can
 for instance be used as a test traffic generator. This interface can be run as
 either a consumer, a producer, or a simple forwarder.
 
-## Directory Layout
+## Directory layout
 
-```shell
+```bash
 .
 +-- CMakeLists.txt          CMkake global build file
 +-- doc                     Package documentation
@@ -45,7 +44,7 @@ either a consumer, a producer, or a simple forwarder.
 |   +-- error.{h,c}         Error management files
 |   +-- header.h            hICN header definitions
 |   +-- hicn.h              Master include file
-|   +-- mapme.{h,c}         MAP-Me : anchorless producer mobility mechanisms 
+|   +-- mapme.{h,c}         MAP-Me : anchorless producer mobility mechanisms
 |   +-- name.{h,c}          hICN naming conventions and name processing + IP helpers
 |   +-- ops.{h,c}           Protocol-independent hICN operations
 |   +-- protocol/*          Protocol headers + protocol-dependent implementations
@@ -67,16 +66,20 @@ Basic dependencies: None
 
 ### Release mode
 
+```bash
 mkdir build
 cd build
 cmake ..
 make
 sudo make install
+```
 
 ### Debug mode
 
+```bash
 mkdir debug
 cd debug
 cmake .. -DCMAKE_BUILD_TYPE=Debug
 make
 sudo make install
+```

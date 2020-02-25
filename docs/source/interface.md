@@ -1,4 +1,4 @@
-# Face Manager
+# Face manager
 
 ## Overview
 
@@ -88,7 +88,7 @@ Registration and instantiation of the different interfaces is currently done at
 compile time in the file `src/api.c`, and the appropriate hooks to use the dummy
 interface are available in the code between `#if 0/#endif` tags.
 
-#### Interface template header; configuration parameters
+#### Interface template header and configuration parameters
 
 All interfaces have a standard interface defined in `src/interface.{h,c}`, and
 as such the header file is only used to specify the configuration parameters of
@@ -210,7 +210,7 @@ if (rc < 0) {
 }
 ```
 
-#### Implementation of the Interface API
+#### Implementation of the interface API
 
 We now quickly go other the different functions, but their usage will be better
 understood through the hands-on example treated in the following section.
@@ -277,7 +277,7 @@ dereference it from the interface pointer they receive as parameter:
 dummy_data_t * data = (dummy_data_t*)interface->data;
 ```
 
-#### Raising and Receiving Events
+#### Raising and receiving events
 
 An interface will receive events in the form of a facelet through the `*_on_event`
 function. It can then use the facelet API we have described above to read
@@ -287,7 +287,7 @@ As this information is declared const, the interface can either create a new
 facelet (identified by the same netdevice and protocol family), or eventually
 clone it.
 
-The facelet event can then be defined and raised to the face maanger for further
+The facelet event can then be defined and raised to the face manager for further
 processing through the following code:
 
 ```C
@@ -298,7 +298,7 @@ processing through the following code:
 Here the event is a facelet creation (`EVENT_TYPE_CREATE`). The full facelet API
 and the list of possible event types is available in `src/facelet.h`
 
-#### Integration in the Build System
+#### Integration in the build system
 
 The build system is based on CMake. Each interface should declare its source
 files, private and public header files, as well as link dependencies in the
@@ -306,7 +306,7 @@ local `CMakeLists.txt` file.
 
 TODO: detail the structure of the file
 
-### Hands-On
+### Hands-on
 
 #### Architecture
 
@@ -325,18 +325,18 @@ equal to either \0 (which we might interpret as enable LTE, disable WiFi), or \1
 
 Our objective is to develop a new face manager interface that would listen to
 such event in order to update the administrative status of the current faces.
-This would thus alternatively set the different interfaces admnistratively up
+This would thus alternatively set the different interfaces administratively up
 and down (which takes precedence over the actual status of the interface when
 the forwarder establishes the set of available next hops for a given prefix).
 The actual realization of such queries will be ultimately performed by the
 hicn-light interface.
 
-#### Sample Server and Client
+#### Sample server and client
 
 In the folder containing the source code of hICN, the following commands allow
 to run the sample server:
 
-```shell
+```bash
 cd ctrl/facemgr/examples/updownsrv
 make
 ./updownsrv
@@ -346,7 +346,7 @@ The server should display "Waiting for clients..."
 
 Similar commands allow to run the sample client:
 
-```shell
+```bash
 cd ctrl/facemgr/examples/updowncli
 make
 ./updowncli
@@ -355,7 +355,7 @@ make
 The client should display "Waiting for server data...", then every couple of
 seconds display either "WiFi" or "LTE".
 
-#### Face Manager Interface
+#### Face manager interface
 
 An example illustrating how to connect to the dummy service from `updownsrv` is
 provided as the `updown` interface in the facemgr source code.
