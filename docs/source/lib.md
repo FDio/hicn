@@ -1,4 +1,3 @@
-
 # Core Library
 
 ## Introduction
@@ -32,7 +31,7 @@ either a consumer, a producer, or a simple forwarder.
 
 ## Directory Layout
 
-```shell
+```bash
 .
 +-- CMakeLists.txt          CMkake global build file
 +-- doc                     Package documentation
@@ -67,16 +66,20 @@ Basic dependencies: None
 
 ### Release mode
 
+```bash
 mkdir build
 cd build
 cmake ..
 make
 sudo make install
+```
 
 ### Debug mode
 
+```bash
 mkdir debug
 cd debug
 cmake .. -DCMAKE_BUILD_TYPE=Debug
 make
 sudo make install
+```
