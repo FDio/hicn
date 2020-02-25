@@ -24,19 +24,19 @@ Basic dependencies:
 ## hicn-light Executables
 
 hicn-light is a set of binary executables that are used to run a forwarder instance.
-The forwarder can be run and configured using the commands
+The forwarder can be run and configured using the commands:
 
 - `hicn-light-daemon`
 - `hicn-light-control`
 
-Use the `-h` option to display the help messages
+Use the `-h` option to display the help messages.
 
 ### hicn-light Daemon
 
 The command `hicn-light-daemon` runs the hicn-light forwarder. The forwarder can be executed
 with the following options:
 
-```shell
+```bash
 hicn-light-daemon [--port port] [--daemon] [--capacity objectStoreSize] [--log facility=level]
                 [--log-file filename] [--config file]
 
@@ -68,7 +68,7 @@ default port for hicn-light is 9695. Commands are expected on port 2001.
 `hicn-light-control` can be used to send command to the hicn-light forwarder and configure it.
 The command can be executed in the following way:
 
-```shell
+```bash
 hicn-light-control [commands]
 
 Options:
@@ -88,29 +88,27 @@ Information about the commands are also available in the `hicn-light-control` he
 For local connections (application to hicn-light) we expect a TCP listener. The default port for
 the local listener is 9695.
 
-```shell
+```bash
 add listener <protocol> <symbolic> <local_adress> <local_port>
 
   <symbolic>        :User defined name for listener, must start with alpha and bealphanum
   <protocol>        :tcp | udp
   <localAddress>    :IPv4 or IPv6 address
   <local_port>      :TCP/UDP port
-
 ```
 
 `add listener hicn`: creates a hicn listener with the specified options on the local forwarder.
 
-```shell
+```bash
 add listener hicn <symbolic> <local_adress>
 
   <symbolic>        :User defined name for listener, must start with alpha and be alphanum
   <localAddress>    :IPv4 or IPv6 address
-
 ```
 
 `add connection`: creates a TCP or UDP connection on the local forwarder with the specified options.
 
-```shell
+```bash
 add connection <protocol> <symbolic> <remote_ip> <remote_port> <local_ip> <local_port>
 
   <protocol>              : tcp | udp
@@ -119,12 +117,11 @@ add connection <protocol> <symbolic> <remote_ip> <remote_port> <local_ip> <local
   <remote_port>           : the remote TCP/UDP port
   <local_ip>              : local IP address to bind to
   <local_port>            : local TCP/UDP port
-
 ```
 
 `add connection hicn`: creates an hicn connection on the local forwarder with the specified options.
 
-```shell
+```bash
 add connection hicn <symbolic> <remote_ip> <local_ip>
 
   <symbolic>            : symbolic name, e.g. 'conn1' (must be unique, start with alpha)
@@ -133,16 +130,15 @@ add connection hicn <symbolic> <remote_ip> <local_ip>
 
 ```
 
-`list`: lists the connections, routes or listeners available on the local hicn-light forwarder
+`list`: lists the connections, routes or listeners available on the local hicn-light forwarder.
 
-```shell
+```bash
 list <connections | routes | listeners>
-
 ```
 
-`add route`: adds a route to the specified connection
+`add route`: adds a route to the specified connection.
 
-```shell
+```bash
 add route <symbolic | connid> <prefix> <cost>
 
   <symbolic>   :The symbolic name for an exgress (must be unique, start with alpha)
@@ -154,7 +150,7 @@ add route <symbolic | connid> <prefix> <cost>
 `remove connection`: removes the specified connection. At the moment, this commands is available
 only for UDP connections, TCP is ignored.
 
-```shell
+```bash
 remove connection <protocol> <symbolic | connid>
 
   <protocol>   : tcp | upd. This is the protocol used to create the connection.
@@ -163,48 +159,49 @@ remove connection <protocol> <symbolic | connid>
 
 ```
 
-`remove route`: remove the specified prefix for a local connection
+`remove route`: remove the specified prefix for a local connection.
 
-```shell
+```bash
 remove route <symbolic | connid> <prefix>
 
   <connid>    : the alphanumeric name of a local connection
   <prefix>    : the prefix (ipAddress/netmask) to remove
 ```
 
-`cache serve`: enables/disables replies from local content store (if available)
+`cache serve`: enables/disables replies from local content store (if available).
 
-```shell
+```bash
 cache serve <on|off>
 ```
 
 `cache store`:  enables/disables the storage of incoming data packets in the local content store
-(if available)
+(if available).
 
-```shell
+```bash
 cache store <on|off>
 
 ```
 
-`cache clear`: removes all the cached data form the local content store (if available)
+`cache clear`: removes all the cached data form the local content store (if available).
 
-```shell
+```bash
 cache clear
 ```
 
 `set strategy`: sets the forwarding strategy for a give prefix. There are 4 different strategies
 implemented in hicn-light:
 
-- random: each interest is forwarded randomly to one of the available output connections
-- loadbalancer: each interest is forwarded toward the output connection with the lowest number
+- **random**: each interest is forwarded randomly to one of the available output connections.
+- **loadbalancer**: each interest is forwarded toward the output connection with the lowest number
   of pending interests. The pending interest are the interest sent on a certain connection but
   not yet satisfied. More information are available in: 
   G. Carofiglio, M. Gallo, L. Muscariello, M. Papalini, S. Wang, 
   "Optimal multipath congestion control and request forwarding in information-centric networks", 
   ICNP 2013.
-- low_latency: uses the face with the lowest latency. In case more faces have similar latency the  strategy uses them in parallel
+- **low_latency**: uses the face with the lowest latency. In case more faces have similar
+  latency the  strategy uses them in parallel.
 
-```shell
+```bash
 set strategy <prefix> <strategy>
 
   <preifx>    : the prefix to which apply the forwarding strategy
@@ -219,7 +216,7 @@ set strategy <prefix> <strategy>
  ICN 2016. Notice that WLDR is currently available only for UDP connections. In order to work
  properly, WLDR needs to be activated on both side of the connection.
 
-```shell
+```bash
 set wldr <on|off> <symbolic | connid>
 
   <symbolic>   :The symbolic name for an exgress (must be unique, start with alpha)
@@ -227,46 +224,46 @@ set wldr <on|off> <symbolic | connid>
 
 ```
 
-`add punting`: Add punting rules to the forwarders.
+`add punting`: add punting rules to the forwarders.
 
-```shell
+```bash
 add punting <symbolic> <prefix>
 
  <symbolic> : listener symbolic name
  <address>  : prefix to add as a punting rule. (example 1234::0/64)
 ```
 
-`mapme enable`: enables/disables mapme
+`mapme enable`: enables/disables mapme.
 
-```shell
+```bash
 mapme enable <on|off>
 ```
-`mapme discovery`: enables/disables mapme discovery
+`mapme discovery`: enables/disables mapme discovery.
 
-```shell
+```bash
 mapme discovery <on|off>
 ```
 
-`mapme timescale`: set the timescale value expressed in millisencods
+`mapme timescale`: set the timescale value expressed in milliseconds.
 
-```shell
+```bash
 mapme timescale <milliseconds>
 ```
 
-`mapme retx`: set the retrasmission time value expressed in millisecond
+`mapme retx`: set the retransmission time value expressed in millisecond.
 
-```shell
+```bash
 mapme retx <milliseconds>
 ```
 
-`quit`: Exits the interactive shell
+`quit`: exits the interactive bash.
 
 ### hicn-light Configuration File Example
 
 This is an example of a simple configuration file for hicn-light. It can be loaded by running
-the command `hicn-light-daemon --config configFile.cfg`, assuming the file name is configFile.cfg
+the command `hicn-light-daemon --config configFile.cfg`, assuming the file name is `configFile.cfg`.
 
-```shell
+```bash
 #create a local listener on port 9199. This will be used by the applications to talk
 with the forwarder
 add listener udp local0 192.168.0.1 9199

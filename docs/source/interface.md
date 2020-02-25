@@ -287,7 +287,7 @@ As this information is declared const, the interface can either create a new
 facelet (identified by the same netdevice and protocol family), or eventually
 clone it.
 
-The facelet event can then be defined and raised to the face maanger for further
+The facelet event can then be defined and raised to the face manager for further
 processing through the following code:
 
 ```C
@@ -325,7 +325,7 @@ equal to either \0 (which we might interpret as enable LTE, disable WiFi), or \1
 
 Our objective is to develop a new face manager interface that would listen to
 such event in order to update the administrative status of the current faces.
-This would thus alternatively set the different interfaces admnistratively up
+This would thus alternatively set the different interfaces administratively up
 and down (which takes precedence over the actual status of the interface when
 the forwarder establishes the set of available next hops for a given prefix).
 The actual realization of such queries will be ultimately performed by the
@@ -336,7 +336,7 @@ hicn-light interface.
 In the folder containing the source code of hICN, the following commands allow
 to run the sample server:
 
-```shell
+```bash
 cd ctrl/facemgr/examples/updownsrv
 make
 ./updownsrv
@@ -346,7 +346,7 @@ The server should display "Waiting for clients..."
 
 Similar commands allow to run the sample client:
 
-```shell
+```bash
 cd ctrl/facemgr/examples/updowncli
 make
 ./updowncli
