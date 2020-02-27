@@ -53,7 +53,7 @@ class ProducerSocket : public Socket<BasePortal>,
         async_thread_(),
         registration_status_(REGISTRATION_NOT_ATTEMPTED),
         making_manifest_(false),
-        hash_algorithm_(HashAlgorithm::SHA_256),
+        hash_algorithm_(utils::CryptoHashType::SHA_256),
         suffix_strategy_(core::NextSegmentCalculationStrategy::INCREMENTAL),
         on_interest_input_(VOID_HANDLER),
         on_interest_dropped_input_buffer_(VOID_HANDLER),
@@ -108,7 +108,7 @@ class ProducerSocket : public Socket<BasePortal>,
     // during the production
     std::size_t data_packet_size = data_packet_size_;
     uint32_t content_object_expiry_time = content_object_expiry_time_;
-    HashAlgorithm hash_algo = hash_algorithm_;
+    utils::CryptoHashType hash_algo = hash_algorithm_;
     bool making_manifest = making_manifest_;
     auto suffix_strategy = utils::SuffixStrategyFactory::getSuffixStrategy(
         suffix_strategy_, start_offset);
@@ -648,7 +648,7 @@ class ProducerSocket : public Socket<BasePortal>,
   }
 
   virtual int setSocketOption(int socket_option_key,
-                              HashAlgorithm socket_option_value) {
+                              utils::CryptoHashType socket_option_value) {
     switch (socket_option_key) {
       case GeneralTransportOptions::HASH_ALGORITHM:
         hash_algorithm_ = socket_option_value;
@@ -848,7 +848,7 @@ class ProducerSocket : public Socket<BasePortal>,
   }
 
   virtual int getSocketOption(int socket_option_key,
-                              HashAlgorithm &socket_option_value) {
+                              utils::CryptoHashType &socket_option_value) {
     switch (socket_option_key) {
       case GeneralTransportOptions::HASH_ALGORITHM:
         socket_option_value = hash_algorithm_;
@@ -983,7 +983,7 @@ class ProducerSocket : public Socket<BasePortal>,
   // function
   std::unordered_map<Name, std::unordered_map<int, uint32_t>> seq_number_map_;
 
-  std::atomic<HashAlgorithm> hash_algorithm_;
+  std::atomic<utils::CryptoHashType> hash_algorithm_;
   std::atomic<utils::CryptoSuite> crypto_suite_;
   utils::SpinLock signer_lock_;
   std::shared_ptr<utils::Signer> signer_;

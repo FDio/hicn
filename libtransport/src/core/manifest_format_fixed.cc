@@ -55,7 +55,7 @@ FixedManifestEncoder &FixedManifestEncoder::clearImpl() {
 }
 
 FixedManifestEncoder &FixedManifestEncoder::setHashAlgorithmImpl(
-    HashAlgorithm algorithm) {
+    utils::CryptoHashType algorithm) {
   manifest_header_->hash_algorithm = static_cast<uint8_t>(algorithm);
   return *this;
 }
@@ -170,8 +170,8 @@ ManifestType FixedManifestDecoder::getManifestTypeImpl() const {
   return static_cast<ManifestType>(manifest_header_->manifest_type);
 }
 
-HashAlgorithm FixedManifestDecoder::getHashAlgorithmImpl() const {
-  return static_cast<HashAlgorithm>(manifest_header_->hash_algorithm);
+utils::CryptoHashType FixedManifestDecoder::getHashAlgorithmImpl() const {
+  return static_cast<utils::CryptoHashType>(manifest_header_->hash_algorithm);
 }
 
 NextSegmentCalculationStrategy

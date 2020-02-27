@@ -38,7 +38,7 @@ using CryptoSuite = utils::CryptoSuite;
 
 utils::Identity setProducerIdentity(std::string keystore_name,
                                     std::string keystore_password,
-                                    HashAlgorithm hash_algorithm) {
+                                    utils::CryptoHashType hash_algorithm) {
   if (access(keystore_name.c_str(), F_OK) != -1) {
     return utils::Identity(keystore_name, keystore_password, hash_algorithm);
   } else {
@@ -291,7 +291,7 @@ int main(int argc, char **argv) {
 
   CallbackContainer *stubs;
   utils::Identity identity = setProducerIdentity(
-      keystore_path, keystore_password, HashAlgorithm::SHA_256);
+      keystore_path, keystore_password, utils::CryptoHashType::SHA_256);
 
   if (sign) {
     stubs = new CallbackContainer(n, object_size, verbose, dump, quite, flags,

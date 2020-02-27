@@ -45,12 +45,6 @@ enum class ManifestType : uint8_t {
   FLIC_MANIFEST = 3,
 };
 
-enum class HashAlgorithm : uint8_t {
-  SHA_256 = static_cast<uint8_t>(utils::CryptoHashType::SHA_256),
-  SHA_512 = static_cast<uint8_t>(utils::CryptoHashType::SHA_512),
-  CRC32C = static_cast<uint8_t>(utils::CryptoHashType::CRC32C),
-};
-
 /**
  * INCREMENTAL: Manifests will be received inline with the data with no specific
  * assumption regarding the manifest capacity. Consumers can send interests
@@ -92,7 +86,7 @@ class ManifestEncoder {
     return static_cast<Implementation &>(*this).setManifestTypeImpl(type);
   }
 
-  ManifestEncoder &setHashAlgorithm(HashAlgorithm hash) {
+  ManifestEncoder &setHashAlgorithm(utils::CryptoHashType hash) {
     return static_cast<Implementation &>(*this).setHashAlgorithmImpl(hash);
   }
 
@@ -166,7 +160,7 @@ class ManifestDecoder {
     return static_cast<const Implementation &>(*this).getManifestTypeImpl();
   }
 
-  HashAlgorithm getHashAlgorithm() const {
+  utils::CryptoHashType getHashAlgorithm() const {
     return static_cast<const Implementation &>(*this).getHashAlgorithmImpl();
   }
 

@@ -103,7 +103,8 @@ class ProducerSocket {
   int setSocketOption(int socket_option_key,
                       ProducerContentCallback socket_option_value);
 
-  int setSocketOption(int socket_option_key, HashAlgorithm socket_option_value);
+  int setSocketOption(int socket_option_key,
+                      utils::CryptoHashType socket_option_value);
 
   int setSocketOption(int socket_option_key,
                       utils::CryptoSuite socket_option_value);
@@ -132,7 +133,7 @@ class ProducerSocket {
                       ProducerInterestCallback **socket_option_value);
 
   int getSocketOption(int socket_option_key,
-                      HashAlgorithm &socket_option_value);
+                      utils::CryptoHashType &socket_option_value);
 
   int getSocketOption(int socket_option_key,
                       utils::CryptoSuite &socket_option_value);

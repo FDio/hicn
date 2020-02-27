@@ -30,7 +30,7 @@ class ManifestIncrementalIndexer : public IncrementalIndexer {
 
  public:
   using SuffixQueue = std::queue<uint32_t>;
-  using HashEntry = std::pair<std::vector<uint8_t>, core::HashAlgorithm>;
+  using HashEntry = std::pair<std::vector<uint8_t>, utils::CryptoHashType>;
 
   ManifestIncrementalIndexer(implementation::ConsumerSocket *icn_socket,
                              TransportProtocol *transport,

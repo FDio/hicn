@@ -344,7 +344,7 @@ utils::KeyId Packet::getKeyId() const {
   return return_value;
 }
 
-utils::CryptoHash Packet::computeDigest(HashAlgorithm algorithm) const {
+utils::CryptoHash Packet::computeDigest(utils::CryptoHashType algorithm) const {
   utils::CryptoHasher hasher(static_cast<utils::CryptoHashType>(algorithm));
   hasher.init();
 

@@ -157,7 +157,7 @@ struct ServerConfiguration {
         content_lifetime(600000000_U32),
         content_object_size(1440),
         download_size(20 * 1024 * 1024),
-        hash_algorithm(HashAlgorithm::SHA_256),
+        hash_algorithm(utils::CryptoHashType::SHA_256),
         keystore_name(""),
         passphrase(""),
         keystore_password("cisco"),
@@ -181,7 +181,7 @@ struct ServerConfiguration {
   std::uint32_t content_lifetime;
   std::uint16_t content_object_size;
   std::uint32_t download_size;
-  HashAlgorithm hash_algorithm;
+  utils::CryptoHashType hash_algorithm;
   std::string keystore_name;
   std::string passphrase;
   std::string keystore_password;
@@ -841,7 +841,7 @@ class HIperfServer {
 
   std::shared_ptr<utils::Identity> getProducerIdentity(
       std::string &keystore_name, std::string &keystore_password,
-      HashAlgorithm &hash_algorithm) {
+      utils::CryptoHashType &hash_algorithm) {
     if (access(keystore_name.c_str(), F_OK) != -1) {
       return std::make_shared<utils::Identity>(keystore_name, keystore_password,
                                                hash_algorithm);
@@ -1335,11 +1335,11 @@ int main(int argc, char *argv[]) {
       }
       case 'y': {
         if (strncasecmp(optarg, "sha256", 6) == 0) {
-          server_configuration.hash_algorithm = HashAlgorithm::SHA_256;
+          server_configuration.hash_algorithm = utils::CryptoHashType::SHA_256;
         } else if (strncasecmp(optarg, "sha512", 6) == 0) {
-          server_configuration.hash_algorithm = HashAlgorithm::SHA_512;
+          server_configuration.hash_algorithm = utils::CryptoHashType::SHA_512;
         } else if (strncasecmp(optarg, "crc32", 5) == 0) {
-          server_configuration.hash_algorithm = HashAlgorithm::CRC32C;
+          server_configuration.hash_algorithm = utils::CryptoHashType::CRC32C;
         } else {
           std::cerr << "Ignored unknown hash algorithm. Using SHA 256."
                     << std::endl;

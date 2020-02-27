@@ -73,7 +73,7 @@ Identity Identity::generateIdentity(const std::string &subject_name) {
 }
 
 Identity::Identity(std::string &file_name, std::string &password,
-                   transport::core::HashAlgorithm hash_algorithm)
+                   utils::CryptoHashType hash_algorithm)
     : hash_algorithm_(hash_algorithm) {
   parcSecurity_Init();
 

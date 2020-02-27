@@ -96,13 +96,13 @@ class Manifest : public Base {
     return *this;
   }
 
-  Manifest &setHashAlgorithm(HashAlgorithm hash_algorithm) {
+  Manifest &setHashAlgorithm(utils::CryptoHashType hash_algorithm) {
     hash_algorithm_ = hash_algorithm;
     encoder_.setHashAlgorithm(hash_algorithm_);
     return *this;
   }
 
-  HashAlgorithm getHashAlgorithm() { return hash_algorithm_; }
+  utils::CryptoHashType getHashAlgorithm() { return hash_algorithm_; }
 
   ManifestType getManifestType() const { return manifest_type_; }
 
@@ -138,7 +138,7 @@ class Manifest : public Base {
 
  protected:
   ManifestType manifest_type_;
-  HashAlgorithm hash_algorithm_;
+  utils::CryptoHashType hash_algorithm_;
   bool is_last_;
 
   Encoder encoder_;

@@ -84,7 +84,7 @@ class P2PSecureProducerSocket : public ProducerSocket {
                       ProducerContentCallback socket_option_value) override;
 
   int setSocketOption(int socket_option_key,
-                      HashAlgorithm socket_option_value) override;
+                      utils::CryptoHashType socket_option_value) override;
 
   int setSocketOption(int socket_option_key,
                       utils::CryptoSuite socket_option_value) override;
