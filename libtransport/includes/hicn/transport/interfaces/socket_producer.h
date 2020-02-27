@@ -23,9 +23,11 @@
 #include <hicn/transport/interfaces/socket_options_keys.h>
 #include <hicn/transport/security/signer.h>
 
+#ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE
+#endif
 #include <asio/io_service.hpp>
-#undef ASIO_STANDALONE
+
 namespace transport {
 
 namespace implementation {
