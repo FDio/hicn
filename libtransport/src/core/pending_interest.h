@@ -19,6 +19,7 @@
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/core/name.h>
+#include <hicn/transport/interfaces/portal.h>
 #include <hicn/transport/portability/portability.h>
 
 #include <utils/deadline_timer.h>
@@ -36,10 +37,8 @@ class RawSocketInterface;
 template <typename ForwarderInt>
 class Portal;
 
-typedef std::function<void(Interest::Ptr &&, ContentObject::Ptr &&)>
-    OnContentObjectCallback;
-typedef std::function<void(Interest::Ptr &&)> OnInterestTimeoutCallback;
-typedef std::function<void(const std::error_code &)> TimerCallback;
+using OnContentObjectCallback = interface::Portal::OnContentObjectCallback;
+using OnInterestTimeoutCallback = interface::Portal::OnInterestTimeoutCallback;
 
 class PendingInterest {
   friend class Portal<HicnForwarderInterface>;

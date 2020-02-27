@@ -426,6 +426,8 @@ class ProducerSocket : public Socket<BasePortal>,
     onInterest(*interest);
   };
 
+  virtual void onError(std::error_code ec) override {}
+
   virtual int setSocketOption(int socket_option_key,
                               uint32_t socket_option_value) {
     switch (socket_option_key) {
