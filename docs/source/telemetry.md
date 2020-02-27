@@ -41,18 +41,18 @@ hICN collectd plugins have been tested in:
 
 Build dependencies:
 
-- VPP 20.01
-  - DEB packages (can be found https://packagecloud.io/fdio/release/install):
+- VPP 20.01 - DEB packages (can be found on [packagecloud](https://packagecloud.io/fdio/release/install)):
   - vpp
   - libvppinfra-dev
   - vpp-dev
   - hicn-plugin-dev
+- `collectd`: `sudo apt install collectd`
 
 ## Getting started
 
-Collectd needs to be configured in order to use the hICN collectd plugins.
-The configuration can be achieved editing the file '/etc/collectd/collectd.conf'
-and adding the following lines:
+Collectd needs to be configured in order to use the hICN plugins.
+To enable the plugins, add the following lines to `/etc/collectd/collectd.conf`:
+
 ```
 LoadPlugin vpp
 LoadPlugin vpp_hicn
