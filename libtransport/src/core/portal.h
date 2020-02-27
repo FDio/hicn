@@ -21,6 +21,7 @@
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/core/prefix.h>
 #include <hicn/transport/errors/errors.h>
+#include <hicn/transport/interfaces/portal.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/log.h>
 
@@ -38,8 +39,6 @@
 #include <memory>
 #include <queue>
 #include <unordered_map>
-
-#define UNSET_CALLBACK 0
 
 namespace transport {
 namespace core {
@@ -230,36 +229,7 @@ class Pool {
 using PendingInterestHashTable =
     std::unordered_map<uint32_t, PendingInterest::Ptr>;
 
-template <typename PrefixType>
-class BasicBindConfig {
-  static_assert(std::is_same<Prefix, PrefixType>::value,
-                "Prefix must be a Prefix type.");
-
-  const uint32_t standard_cs_reserved = 5000;
-
- public:
-  template <typename T>
-  BasicBindConfig(T &&prefix)
-      : prefix_(std::forward<T &&>(prefix)),
-        content_store_reserved_(standard_cs_reserved) {}
-
-  template <typename T>
-  BasicBindConfig(T &&prefix, uint32_t cs_reserved)
-      : prefix_(std::forward<T &&>(prefix)),
-        content_store_reserved_(cs_reserved) {}
-
-  TRANSPORT_ALWAYS_INLINE const PrefixType &prefix() const { return prefix_; }
-
-  TRANSPORT_ALWAYS_INLINE uint32_t csReserved() const {
-    return content_store_reserved_;
-  }
-
- private:
-  PrefixType prefix_;
-  uint32_t content_store_reserved_;
-};
-
-using BindConfig = BasicBindConfig<Prefix>;
+using interface::BindConfig;
 
 /**
  * Portal is a opaque class which is used for sending/receiving interest/data
@@ -290,24 +260,8 @@ class Portal {
       "ForwarderInt must inherit from ForwarderInterface!");
 
  public:
-  /**
-   * Consumer callback is an abstract class containing two methods to be
-   * implemented by a consumer application.
-   */
-  class ConsumerCallback {
-   public:
-    virtual void onContentObject(Interest::Ptr &&i, ContentObject::Ptr &&c) = 0;
-    virtual void onTimeout(Interest::Ptr &&i) = 0;
-  };
-
-  /**
-   * Producer callback is an abstract class containing two methods to be
-   * implemented by a producer application.
-   */
-  class ProducerCallback {
-   public:
-    virtual void onInterest(Interest::Ptr &&i) = 0;
-  };
+  using ConsumerCallback = interface::Portal::ConsumerCallback;
+  using ProducerCallback = interface::Portal::ProducerCallback;
 
   Portal() : Portal(internal_io_service_) {}
 
