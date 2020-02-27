@@ -17,6 +17,7 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_socket_producer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_producer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/socket_consumer.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/portal.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/callbacks.cc
 )
 
