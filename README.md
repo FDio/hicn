@@ -4,7 +4,7 @@
 
 hicn is an open source implementation of Cisco's hICN. It includes a network stack, that implements
 ICN forwarding path in IPv6, and a transport stack that implements two main transport protocols and
-a socket API. The transport protocols provide one reliable transport service implementaton and a
+a socket API. The transport protocols provide one reliable transport service implementation and a
 real-time transport service for audio/video media.
 
 ## Directory layout
