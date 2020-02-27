@@ -149,7 +149,8 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   utils::KeyId getKeyId() const;
 
-  virtual utils::CryptoHash computeDigest(HashAlgorithm algorithm) const;
+  virtual utils::CryptoHash computeDigest(
+      utils::CryptoHashType algorithm) const;
 
   void setChecksum();
 

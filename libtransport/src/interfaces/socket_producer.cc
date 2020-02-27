@@ -126,7 +126,7 @@ int ProducerSocket::setSocketOption(
 }
 
 int ProducerSocket::setSocketOption(int socket_option_key,
-                                    HashAlgorithm socket_option_value) {
+                                    utils::CryptoHashType socket_option_value) {
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
@@ -177,8 +177,8 @@ int ProducerSocket::getSocketOption(
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 
-int ProducerSocket::getSocketOption(int socket_option_key,
-                                    HashAlgorithm &socket_option_value) {
+int ProducerSocket::getSocketOption(
+    int socket_option_key, utils::CryptoHashType &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 

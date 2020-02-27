@@ -18,8 +18,6 @@
 #include <hicn/transport/security/crypto_suite.h>
 #include <hicn/transport/security/signer.h>
 
-#include <core/manifest_format.h>
-
 extern "C" {
 #include <parc/security/parc_Identity.h>
 #include <parc/security/parc_IdentityFile.h>
@@ -40,7 +38,7 @@ class Identity {
   Identity(const Identity &other);
 
   Identity(std::string &file_name, std::string &password,
-           transport::core::HashAlgorithm hash_algorithm);
+           utils::CryptoHashType hash_algorithm);
 
   ~Identity();
 
@@ -57,7 +55,7 @@ class Identity {
  private:
   PARCIdentity *identity_;
   std::shared_ptr<Signer> signer_;
-  transport::core::HashAlgorithm hash_algorithm_;
+  utils::CryptoHashType hash_algorithm_;
 };
 
 }  // namespace utils

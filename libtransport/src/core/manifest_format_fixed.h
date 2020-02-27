@@ -94,7 +94,7 @@ class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
 
   FixedManifestEncoder &setManifestTypeImpl(ManifestType manifest_type);
 
-  FixedManifestEncoder &setHashAlgorithmImpl(HashAlgorithm algorithm);
+  FixedManifestEncoder &setHashAlgorithmImpl(utils::CryptoHashType algorithm);
 
   FixedManifestEncoder &setNextSegmentCalculationStrategyImpl(
       NextSegmentCalculationStrategy strategy);
@@ -144,7 +144,7 @@ class FixedManifestDecoder : public ManifestDecoder<FixedManifestDecoder> {
 
   ManifestType getManifestTypeImpl() const;
 
-  HashAlgorithm getHashAlgorithmImpl() const;
+  utils::CryptoHashType getHashAlgorithmImpl() const;
 
   NextSegmentCalculationStrategy getNextSegmentCalculationStrategyImpl() const;
 

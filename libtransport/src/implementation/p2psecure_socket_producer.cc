@@ -367,7 +367,7 @@ int P2PSecureProducerSocket::setSocketOption(
 }
 
 int P2PSecureProducerSocket::setSocketOption(
-    int socket_option_key, HashAlgorithm socket_option_value) {
+    int socket_option_key, utils::CryptoHashType socket_option_value) {
   if (!list_secure_producers.empty())
     for (auto it = list_secure_producers.cbegin();
          it != list_secure_producers.cend(); it++)
