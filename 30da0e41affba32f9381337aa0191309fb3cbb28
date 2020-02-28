@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ab4c9b8_fb38678e",
+        "filename": "docs/source/telemetry.md",
+        "patchSetId": 1
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2020-02-28T16:15:55Z",
+      "side": 1,
+      "message": "collectd-dev looks mandatory to me.",
+      "revId": "30da0e41affba32f9381337aa0191309fb3cbb28",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
