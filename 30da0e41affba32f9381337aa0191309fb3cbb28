@@ -16,6 +16,24 @@
       "revId": "30da0e41affba32f9381337aa0191309fb3cbb28",
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "4ffdca5c_20b88802",
+        "filename": "docs/source/telemetry.md",
+        "patchSetId": 1
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 1962
+      },
+      "writtenOn": "2020-02-28T16:23:57Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8ab4c9b8_fb38678e",
+      "revId": "30da0e41affba32f9381337aa0191309fb3cbb28",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": false
     }
   ]
 }
