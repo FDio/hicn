@@ -86,15 +86,6 @@ ContentObject::ContentObject(ContentObject &&other) : Packet(std::move(other)) {
 
 ContentObject::~ContentObject() {}
 
-void ContentObject::replace(MemBufPtr &&buffer) {
-  Packet::replace(std::move(buffer));
-
-  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
-      0) {
-    throw errors::RuntimeException("Error getting name from content object.");
-  }
-}
-
 const Name &ContentObject::getName() const {
   if (!name_) {
     if (hicn_data_get_name(format_, packet_start_,

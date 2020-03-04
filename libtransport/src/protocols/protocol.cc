@@ -31,7 +31,16 @@ TransportProtocol::TransportProtocol(implementation::ConsumerSocket *icn_socket,
       index_manager_(
           std::make_unique<IndexManager>(socket_, this, reassembly_protocol)),
       is_running_(false),
-      is_first_(false) {
+      is_first_(false),
+      on_interest_retransmission_(VOID_HANDLER),
+      on_interest_output_(VOID_HANDLER),
+      on_interest_timeout_(VOID_HANDLER),
+      on_interest_satisfied_(VOID_HANDLER),
+      on_content_object_input_(VOID_HANDLER),
+      on_content_object_verification_(VOID_HANDLER),
+      stats_summary_(VOID_HANDLER),
+      verification_failed_callback_(VOID_HANDLER),
+      on_payload_(VOID_HANDLER) {
   socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal_);
   socket_->getSocketOption(OtherOptions::STATISTICS, &stats_);
 }
@@ -45,6 +54,26 @@ int TransportProtocol::start() {
 
   // Set it is the first time we schedule an interest
   is_first_ = true;
+
+  // Get all callbacks references before starting
+  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_RETRANSMISSION,
+                           &on_interest_retransmission_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
+                           &on_interest_output_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_EXPIRED,
+                           &on_interest_timeout_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_SATISFIED,
+                           &on_interest_satisfied_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
+                           &on_content_object_input_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_TO_VERIFY,
+                           &on_content_object_verification_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::STATS_SUMMARY,
+                           &stats_summary_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::VERIFICATION_FAILED,
+                           &verification_failed_callback_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::READ_CALLBACK,
+                           &on_payload_);
 
   // Schedule next interests
   scheduleNextInterests();
@@ -81,10 +110,7 @@ void TransportProtocol::resume() {
 }
 
 void TransportProtocol::onContentReassembled(std::error_code ec) {
-  interface::ConsumerSocket::ReadCallback *on_payload = VOID_HANDLER;
-  socket_->getSocketOption(READ_CALLBACK, &on_payload);
-
-  if (!on_payload) {
+  if (!on_payload_) {
     throw errors::RuntimeException(
         "The read callback must be installed in the transport before "
         "starting "
@@ -92,9 +118,9 @@ void TransportProtocol::onContentReassembled(std::error_code ec) {
   }
 
   if (!ec) {
-    on_payload->readSuccess(stats_->getBytesRecv());
+    on_payload_->readSuccess(stats_->getBytesRecv());
   } else {
-    on_payload->readError(ec);
+    on_payload_->readError(ec);
   }
 
   stop();

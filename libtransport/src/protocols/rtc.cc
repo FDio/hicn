@@ -288,15 +288,12 @@ void RTCTransportProtocol::updateStats(uint32_t round_duration) {
   uint32_t BW = (uint32_t)ceil(estimatedBw_);
   computeMaxWindow(BW, BDP);
 
-  ConsumerTimerCallback *stats_callback = nullptr;
-  socket_->getSocketOption(ConsumerCallbacksOptions::STATS_SUMMARY,
-                           &stats_callback);
-  if (*stats_callback) {
+  if (*stats_summary_) {
     // Send the stats to the app
     stats_->updateQueuingDelay(queuingDelay_);
     stats_->updateLossRatio(lossRate_);
     stats_->updateAverageRtt(pathTable_[producerPathLabels_[1]]->getMinRtt());
-    (*stats_callback)(*socket_->getInterface(), *stats_);
+    (*stats_summary_)(*socket_->getInterface(), *stats_);
   }
   // bound also by interest lifitime* production rate
   if (!gotNack_) {
@@ -451,13 +448,8 @@ void RTCTransportProtocol::sendInterest(Name *interest_name, bool rtx) {
                            interestLifetime);
   interest->setLifetime(uint32_t(interestLifetime));
 
-  ConsumerInterestCallback *on_interest_output = nullptr;
-
-  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
-                           &on_interest_output);
-
-  if (*on_interest_output) {
-    (*on_interest_output)(*socket_->getInterface(), *interest);
+  if (*on_interest_output_) {
+    (*on_interest_output_)(*socket_->getInterface(), *interest);
   }
 
   if (TRANSPORT_EXPECT_FALSE(!is_running_ && !is_first_)) {
@@ -890,11 +882,8 @@ void RTCTransportProtocol::onContentObject(
   uint32_t segmentNumber = content_object->getName().getSuffix();
   uint32_t pkt = segmentNumber & modMask_;
 
-  ConsumerContentObjectCallback *callback_content_object = nullptr;
-  socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
-                           &callback_content_object);
-  if (*callback_content_object) {
-    (*callback_content_object)(*socket_->getInterface(), *content_object);
+  if (*on_content_object_input_) {
+    (*on_content_object_input_)(*socket_->getInterface(), *content_object);
   }
 
   if (segmentNumber >= HICN_MIN_PROBE_SEQ) {

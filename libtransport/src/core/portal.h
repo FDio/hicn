@@ -627,6 +627,8 @@ class Portal {
   }
 
  private:
+  portal_details::HandlerMemory async_callback_memory_;
+
   asio::io_service &io_service_;
   asio::io_service internal_io_service_;
   portal_details::Pool packet_pool_;
@@ -638,8 +640,6 @@ class Portal {
 
   ConsumerCallback *consumer_callback_;
   ProducerCallback *producer_callback_;
-
-  portal_details::HandlerMemory async_callback_memory_;
 
   typename ForwarderInt::ConnectorType connector_;
   ForwarderInt forwarder_interface_;

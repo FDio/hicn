@@ -32,7 +32,7 @@ class ByteStreamReassembly : public Reassembly {
   virtual void reassemble(
       std::unique_ptr<core::ContentObjectManifest> &&manifest) override;
 
-  virtual void copyContent(const core::ContentObject &content_object);
+  virtual void copyContent(core::ContentObject &content_object);
 
   virtual void reInitialize() override;
 

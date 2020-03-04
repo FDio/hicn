@@ -69,14 +69,6 @@ Packet::Packet(Packet &&other)
 
 Packet::~Packet() {}
 
-std::size_t Packet::getHeaderSizeFromFormat(Format format,
-                                            size_t signature_size) {
-  std::size_t header_length;
-  hicn_packet_get_header_length_from_format(format, &header_length);
-  int is_ah = _is_ah(format);
-  return is_ah * (header_length + signature_size) + (!is_ah) * header_length;
-}
-
 std::size_t Packet::getHeaderSizeFromBuffer(Format format,
                                             const uint8_t *buffer) {
   size_t header_length;
@@ -99,17 +91,6 @@ bool Packet::isInterest(const uint8_t *buffer) {
   return !is_interest;
 }
 
-Packet::Format Packet::getFormatFromBuffer(const uint8_t *buffer) {
-  Format format = HF_UNSPEC;
-
-  if (TRANSPORT_EXPECT_FALSE(
-          hicn_packet_get_format((const hicn_header_t *)buffer, &format) < 0)) {
-    throw errors::MalformedPacketException();
-  }
-
-  return format;
-}
-
 std::size_t Packet::getPayloadSizeFromBuffer(Format format,
                                              const uint8_t *buffer) {
   std::size_t payload_length;
@@ -120,14 +101,6 @@ std::size_t Packet::getPayloadSizeFromBuffer(Format format,
   }
 
   return payload_length;
-}
-
-void Packet::replace(MemBufPtr &&buffer) {
-  packet_ = std::move(buffer);
-  packet_start_ = reinterpret_cast<hicn_header_t *>(packet_->writableData());
-  header_head_ = packet_.get();
-  payload_head_ = nullptr;
-  format_ = getFormatFromBuffer(reinterpret_cast<uint8_t *>(packet_start_));
 }
 
 std::size_t Packet::payloadSize() const {
@@ -270,17 +243,6 @@ uint8_t *Packet::getSignature() const {
   return signature;
 }
 
-std::size_t Packet::getSignatureSize() const {
-  size_t size_bytes;
-  int ret = hicn_packet_get_signature_size(format_, packet_start_, &size_bytes);
-
-  if (ret < 0) {
-    throw errors::RuntimeException("Packet without Authentication Header.");
-  }
-
-  return size_bytes;
-}
-
 void Packet::setSignatureTimestamp(const uint64_t &timestamp) {
   int ret =
       hicn_packet_set_signature_timestamp(format_, packet_start_, timestamp);
@@ -364,22 +326,6 @@ utils::CryptoHash Packet::computeDigest(utils::CryptoHashType algorithm) const {
   hicn_packet_copy_header(format_, &header_copy, packet_start_, false);
 
   return hasher.finalize();
-}
-
-void Packet::setChecksum() {
-  uint16_t partial_csum = 0;
-
-  for (utils::MemBuf *current = header_head_->next();
-       current && current != header_head_; current = current->next()) {
-    if (partial_csum != 0) {
-      partial_csum = ~partial_csum;
-    }
-    partial_csum = csum(current->data(), current->length(), partial_csum);
-  }
-  if (hicn_packet_compute_header_checksum(format_, packet_start_,
-                                          partial_csum) < 0) {
-    throw errors::MalformedPacketException();
-  }
 }
 
 bool Packet::checkIntegrity() const {
