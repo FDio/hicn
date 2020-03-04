@@ -72,15 +72,6 @@ Interest::Interest(Interest &&other_interest)
 
 Interest::~Interest() {}
 
-void Interest::replace(MemBufPtr &&buffer) {
-  Packet::replace(std::move(buffer));
-
-  if (hicn_interest_get_name(format_, packet_start_,
-                             name_.getStructReference()) < 0) {
-    throw errors::MalformedPacketException();
-  }
-}
-
 const Name &Interest::getName() const {
   if (!name_) {
     if (hicn_interest_get_name(format_, packet_start_,

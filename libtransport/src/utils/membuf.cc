@@ -102,8 +102,6 @@ struct MemBuf::HeapStorage {
 };
 
 struct MemBuf::HeapFullStorage {
-  // Make sure jemalloc allocates from the 64-byte class.  Putting this here
-  // because HeapStorage is private so it can't be at namespace level.
   static_assert(sizeof(HeapStorage) <= 64,
                 "MemBuf may not grow over 56 bytes!");
 

@@ -28,6 +28,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/object_pool.h
   ${CMAKE_CURRENT_SOURCE_DIR}/membuf.h
   ${CMAKE_CURRENT_SOURCE_DIR}/spinlock.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/fixed_block_allocator.h
 )
 
 if(NOT WIN32)

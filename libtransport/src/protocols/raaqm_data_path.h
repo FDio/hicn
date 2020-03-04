@@ -45,7 +45,7 @@ class RaaqmDataPath {
    * max of RTT.
    * @param new_rtt is the value of the new RTT
    */
-  RaaqmDataPath &insertNewRtt(uint64_t new_rtt);
+  RaaqmDataPath &insertNewRtt(uint64_t new_rtt, const utils::TimePoint &now);
 
   /**
    * @brief Update the path statistics

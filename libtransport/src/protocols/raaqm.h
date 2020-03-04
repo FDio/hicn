@@ -79,7 +79,7 @@ class RaaqmTransportProtocol : public TransportProtocol,
 
   virtual void scheduleNextInterests() override;
 
-  void sendInterest(std::uint64_t next_suffix);
+  bool sendInterest(std::uint64_t next_suffix);
 
   void sendInterest(Interest::Ptr &&interest);
 

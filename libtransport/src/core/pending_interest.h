@@ -47,17 +47,29 @@ class PendingInterest {
 
  public:
   using Ptr = utils::ObjectPool<PendingInterest>::Ptr;
-  PendingInterest();
+  PendingInterest()
+      : interest_(nullptr, nullptr),
+        timer_(),
+        on_content_object_callback_(),
+        on_interest_timeout_callback_() {}
 
   PendingInterest(Interest::Ptr &&interest,
-                  std::unique_ptr<asio::steady_timer> &&timer);
+                  std::unique_ptr<asio::steady_timer> &&timer)
+      : interest_(std::move(interest)),
+        timer_(std::move(timer)),
+        on_content_object_callback_(),
+        on_interest_timeout_callback_() {}
 
   PendingInterest(Interest::Ptr &&interest,
                   OnContentObjectCallback &&on_content_object,
                   OnInterestTimeoutCallback &&on_interest_timeout,
-                  std::unique_ptr<asio::steady_timer> &&timer);
+                  std::unique_ptr<asio::steady_timer> &&timer)
+      : interest_(std::move(interest)),
+        timer_(std::move(timer)),
+        on_content_object_callback_(std::move(on_content_object)),
+        on_interest_timeout_callback_(std::move(on_interest_timeout)) {}
 
-  ~PendingInterest();
+  ~PendingInterest() = default;
 
   template <typename Handler>
   TRANSPORT_ALWAYS_INLINE void startCountdown(Handler &&cb) {
@@ -66,19 +78,35 @@ class PendingInterest {
     timer_->async_wait(std::forward<Handler &&>(cb));
   }
 
-  void cancelTimer();
+  TRANSPORT_ALWAYS_INLINE void cancelTimer() { timer_->cancel(); }
 
-  Interest::Ptr &&getInterest();
+  TRANSPORT_ALWAYS_INLINE Interest::Ptr &&getInterest() {
+    return std::move(interest_);
+  }
 
-  void setInterest(Interest::Ptr &&interest);
+  TRANSPORT_ALWAYS_INLINE void setInterest(Interest::Ptr &&interest) {
+    interest_ = std::move(interest);
+  }
 
-  const OnContentObjectCallback &getOnDataCallback() const;
+  TRANSPORT_ALWAYS_INLINE const OnContentObjectCallback &getOnDataCallback()
+      const {
+    return on_content_object_callback_;
+  }
 
-  void setOnContentObjectCallback(OnContentObjectCallback &&on_content_object);
+  TRANSPORT_ALWAYS_INLINE void setOnContentObjectCallback(
+      OnContentObjectCallback &&on_content_object) {
+    PendingInterest::on_content_object_callback_ = on_content_object;
+  }
 
-  const OnInterestTimeoutCallback &getOnTimeoutCallback() const;
+  TRANSPORT_ALWAYS_INLINE const OnInterestTimeoutCallback &
+  getOnTimeoutCallback() const {
+    return on_interest_timeout_callback_;
+  }
 
-  void setOnTimeoutCallback(OnInterestTimeoutCallback &&on_interest_timeout);
+  TRANSPORT_ALWAYS_INLINE void setOnTimeoutCallback(
+      OnInterestTimeoutCallback &&on_interest_timeout) {
+    PendingInterest::on_interest_timeout_callback_ = on_interest_timeout;
+  }
 
  private:
   Interest::Ptr interest_;

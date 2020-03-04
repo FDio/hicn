@@ -48,7 +48,8 @@ RaaqmDataPath::RaaqmDataPath(double drop_factor,
       average_rtt_(0),
       alpha_(ALPHA) {}
 
-RaaqmDataPath &RaaqmDataPath::insertNewRtt(uint64_t new_rtt) {
+RaaqmDataPath &RaaqmDataPath::insertNewRtt(uint64_t new_rtt,
+                                           const utils::TimePoint &now) {
   rtt_ = new_rtt;
   rtt_samples_.pushBack(new_rtt);
 
@@ -60,7 +61,7 @@ RaaqmDataPath &RaaqmDataPath::insertNewRtt(uint64_t new_rtt) {
     prop_delay_ = rtt_min_;
   }
 
-  last_received_pkt_ = utils::SteadyClock::now();
+  last_received_pkt_ = now;
 
   return *this;
 }
