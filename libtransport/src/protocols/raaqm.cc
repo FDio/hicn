@@ -325,18 +325,12 @@ void RaaqmTransportProtocol::onContentObject(
   }
 
   // Call application-defined callbacks
-  ConsumerContentObjectCallback *callback_content_object = VOID_HANDLER;
-  socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
-                           &callback_content_object);
-  if (*callback_content_object) {
-    (*callback_content_object)(*socket_->getInterface(), *content_object);
+  if (*on_content_object_input_) {
+    (*on_content_object_input_)(*socket_->getInterface(), *content_object);
   }
 
-  ConsumerInterestCallback *callback_interest = VOID_HANDLER;
-  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_SATISFIED,
-                           &callback_interest);
-  if (*callback_interest) {
-    (*callback_interest)(*socket_->getInterface(), *interest);
+  if (*on_interest_satisfied_) {
+    (*on_interest_satisfied_)(*socket_->getInterface(), *interest);
   }
 
   if (content_object->getPayloadType() == PayloadType::CONTENT_OBJECT) {
@@ -369,23 +363,17 @@ void RaaqmTransportProtocol::onPacketDropped(
   socket_->getSocketOption(GeneralTransportOptions::MAX_INTEREST_RETX, max_rtx);
 
   uint64_t segment = interest->getName().getSuffix();
-  ConsumerInterestCallback *callback = VOID_HANDLER;
+
   if (TRANSPORT_EXPECT_TRUE(interest_retransmissions_[segment & mask] <
                             max_rtx)) {
     stats_->updateRetxCount(1);
 
-    callback = VOID_HANDLER;
-    socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_RETRANSMISSION,
-                             &callback);
-    if (*callback) {
-      (*callback)(*socket_->getInterface(), *interest);
+    if (*on_interest_retransmission_) {
+      (*on_interest_retransmission_)(*socket_->getInterface(), *interest);
     }
 
-    callback = VOID_HANDLER;
-    socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
-                             &callback);
-    if (*callback) {
-      (*callback)(*socket_->getInterface(), *interest);
+    if (*on_interest_output_) {
+      (*on_interest_output_)(*socket_->getInterface(), *interest);
     }
 
     if (!is_running_) {
@@ -393,7 +381,6 @@ void RaaqmTransportProtocol::onPacketDropped(
     }
 
     interest_retransmissions_[segment & mask]++;
-
     interest_to_retransmit_.push(std::move(interest));
   } else {
     TRANSPORT_LOGE(
@@ -428,11 +415,8 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
     return;
   }
 
-  ConsumerInterestCallback *callback = VOID_HANDLER;
-  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_EXPIRED,
-                           &callback);
-  if (*callback) {
-    (*callback)(*socket_->getInterface(), *interest);
+  if (*on_interest_timeout_) {
+    (*on_interest_timeout_)(*socket_->getInterface(), *interest);
   }
 
   afterDataUnsatisfied(segment);
@@ -444,18 +428,12 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
                             max_rtx)) {
     stats_->updateRetxCount(1);
 
-    callback = VOID_HANDLER;
-    socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_RETRANSMISSION,
-                             &callback);
-    if (*callback) {
-      (*callback)(*socket_->getInterface(), *interest);
+    if (*on_interest_retransmission_) {
+      (*on_interest_retransmission_)(*socket_->getInterface(), *interest);
     }
 
-    callback = VOID_HANDLER;
-    socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
-                             &callback);
-    if (*callback) {
-      (*callback)(*socket_->getInterface(), *interest);
+    if (*on_interest_output_) {
+      (*on_interest_output_)(*socket_->getInterface(), *interest);
     }
 
     if (!is_running_) {
@@ -463,7 +441,6 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
     }
 
     interest_retransmissions_[segment & mask]++;
-
     interest_to_retransmit_.push(std::move(interest));
 
     scheduleNextInterests();
@@ -519,11 +496,8 @@ void RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
                            interest_lifetime);
   interest->setLifetime(interest_lifetime);
 
-  ConsumerInterestCallback *callback = VOID_HANDLER;
-  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
-                           &callback);
-  if (*callback) {
-    callback->operator()(*socket_->getInterface(), *interest);
+  if (*on_interest_output_) {
+    on_interest_output_->operator()(*socket_->getInterface(), *interest);
   }
 
   if (TRANSPORT_EXPECT_FALSE(!is_running_ && !is_first_)) {
@@ -564,7 +538,7 @@ void RaaqmTransportProtocol::updateRtt(uint64_t segment) {
       rate_estimator_->onRttUpdate((double)rtt.count());
     }
 
-    cur_path_->insertNewRtt(rtt.count());
+    cur_path_->insertNewRtt(rtt.count(), now);
     cur_path_->smoothTimer();
 
     if (cur_path_->newPropagationDelayAvailable()) {
@@ -595,18 +569,15 @@ void RaaqmTransportProtocol::updateStats(uint32_t suffix, uint64_t rtt,
   stats_->updateAverageWindowSize(current_window_size_);
 
   // Call statistics callback
-  ConsumerTimerCallback *stats_callback = VOID_HANDLER;
-  socket_->getSocketOption(ConsumerCallbacksOptions::STATS_SUMMARY,
-                           &stats_callback);
-  if (*stats_callback) {
+  if (*stats_summary_) {
     auto dt = std::chrono::duration_cast<utils::Milliseconds>(now - t0_);
 
     uint32_t timer_interval_milliseconds = 0;
     socket_->getSocketOption(GeneralTransportOptions::STATS_INTERVAL,
                              timer_interval_milliseconds);
     if (dt.count() > timer_interval_milliseconds) {
-      (*stats_callback)(*socket_->getInterface(), *stats_);
-      t0_ = utils::SteadyClock::now();
+      (*stats_summary_)(*socket_->getInterface(), *stats_);
+      t0_ = now;
     }
   }
 }

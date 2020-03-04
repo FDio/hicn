@@ -62,10 +62,8 @@ class ConsumerSocket : public Socket<BasePortal> {
         on_interest_satisfied_(VOID_HANDLER),
         on_content_object_input_(VOID_HANDLER),
         on_content_object_verification_(VOID_HANDLER),
-        on_content_object_(VOID_HANDLER),
         stats_summary_(VOID_HANDLER),
         read_callback_(nullptr),
-        virtual_download_(false),
         timer_interval_milliseconds_(0),
         guard_raaqm_params_() {
     switch (protocol) {
@@ -323,11 +321,6 @@ class ConsumerSocket : public Socket<BasePortal> {
     int result = SOCKET_OPTION_NOT_SET;
     if (!transport_protocol_->isRunning()) {
       switch (socket_option_key) {
-        case OtherOptions::VIRTUAL_DOWNLOAD:
-          virtual_download_ = socket_option_value;
-          result = SOCKET_OPTION_SET;
-          break;
-
         case GeneralTransportOptions::VERIFY_SIGNATURE:
           verify_signature_ = socket_option_value;
           result = SOCKET_OPTION_SET;
@@ -631,10 +624,6 @@ class ConsumerSocket : public Socket<BasePortal> {
         socket_option_value = transport_protocol_->isRunning();
         break;
 
-      case OtherOptions::VIRTUAL_DOWNLOAD:
-        socket_option_value = virtual_download_;
-        break;
-
       case GeneralTransportOptions::VERIFY_SIGNATURE:
         socket_option_value = verify_signature_;
         break;
@@ -925,14 +914,10 @@ class ConsumerSocket : public Socket<BasePortal> {
   ConsumerInterestCallback on_interest_satisfied_;
   ConsumerContentObjectCallback on_content_object_input_;
   ConsumerContentObjectVerificationCallback on_content_object_verification_;
-  ConsumerContentObjectCallback on_content_object_;
   ConsumerTimerCallback stats_summary_;
   ConsumerContentObjectVerificationFailedCallback verification_failed_callback_;
 
   ReadCallback *read_callback_;
-
-  // Virtual download for traffic generator
-  bool virtual_download_;
 
   uint32_t timer_interval_milliseconds_;
 

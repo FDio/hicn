@@ -33,7 +33,6 @@ list(APPEND HEADER_FILES
 list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/content_object.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/interest.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/pending_interest.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/packet.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/name.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/prefix.cc
