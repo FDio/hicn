@@ -72,7 +72,7 @@ Edit the configuration file as the following:
 # Global                                                             #
 ######################################################################
 FQDNLookup true
-BaseDir "/collectd"
+BaseDir "/var/lib/collectd"
 Interval 1
 
 ######################################################################
@@ -99,12 +99,12 @@ LoadPlugin vpp_hicn
 # Plugin configuration                                               #
 ######################################################################
 <Plugin csv>
-  DataDir "/collectd/csv" # the folder under which statistics are written in csv
+  DataDir "/var/lib/collectd/csv"  # the folder where statistics are stored in csv
   StoreRates true
 </Plugin>
 
 <Plugin rrdtool>
-  DataDir "/collectd/rrd" # the folder under which statistics are written in rrd
+  DataDir "/var/lib/collectd/rrd"  # the folder where statistics are stored in rrd
 </Plugin>
 ```
 
