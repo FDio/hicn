@@ -353,7 +353,7 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
 
     c->rx_buf_num += rx;
 
-    if (TRANSPORT_EXPECT_TRUE(connector->io_service_.stopped())) {
+    if (TRANSPORT_EXPECT_FALSE(connector->io_service_.stopped())) {
       TRANSPORT_LOGE("socket stopped: ignoring %u packets", rx);
       goto error;
     }

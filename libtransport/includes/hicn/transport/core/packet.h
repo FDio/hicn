@@ -17,6 +17,7 @@
 
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/core/payload_type.h>
+#include <hicn/transport/errors/malformed_packet_exception.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/security/crypto_hasher.h>
 #include <hicn/transport/security/crypto_suite.h>
@@ -81,7 +82,12 @@ class Packet : public std::enable_shared_from_this<Packet> {
   virtual ~Packet();
 
   static std::size_t getHeaderSizeFromFormat(Format format,
-                                             std::size_t signature_size = 0);
+                                             std::size_t signature_size = 0) {
+    std::size_t header_length;
+    hicn_packet_get_header_length_from_format(format, &header_length);
+    int is_ah = _is_ah(format);
+    return is_ah * (header_length + signature_size) + (!is_ah) * header_length;
+  }
 
   static std::size_t getHeaderSizeFromBuffer(Format format,
                                              const uint8_t *buffer);
@@ -91,9 +97,26 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   static bool isInterest(const uint8_t *buffer);
 
-  static Format getFormatFromBuffer(const uint8_t *buffer);
+  static Format getFormatFromBuffer(const uint8_t *buffer) {
+    Format format = HF_UNSPEC;
 
-  virtual void replace(MemBufPtr &&buffer);
+    if (TRANSPORT_EXPECT_FALSE(
+            hicn_packet_get_format((const hicn_header_t *)buffer, &format) <
+            0)) {
+      throw errors::MalformedPacketException();
+    }
+
+    return format;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void replace(MemBufPtr &&buffer) {
+    packet_ = std::move(buffer);
+    packet_start_ = reinterpret_cast<hicn_header_t *>(packet_->writableData());
+    header_head_ = packet_.get();
+    payload_head_ = nullptr;
+    format_ = getFormatFromBuffer(reinterpret_cast<uint8_t *>(packet_start_));
+    name_.clear();
+  }
 
   std::size_t payloadSize() const;
 
@@ -122,6 +145,19 @@ class Packet : public std::enable_shared_from_this<Packet> {
   Packet &appendHeader(const uint8_t *buffer, std::size_t length);
 
   std::unique_ptr<utils::MemBuf> getPayload() const;
+
+  std::pair<const uint8_t *, std::size_t> getPayloadReference() const {
+    int signature_size = 0;
+    if (_is_ah(format_)) {
+      signature_size = (uint32_t)getSignatureSize();
+    }
+
+    auto header_size = getHeaderSizeFromFormat(format_, signature_size);
+    auto payload_length = packet_->length() - header_size;
+
+    return std::make_pair(packet_->data() + header_size,
+                          payload_length);
+  }
 
   Packet &updateLength(std::size_t length = 0);
 
@@ -152,7 +188,21 @@ class Packet : public std::enable_shared_from_this<Packet> {
   virtual utils::CryptoHash computeDigest(
       utils::CryptoHashType algorithm) const;
 
-  void setChecksum();
+  void setChecksum() {
+    uint16_t partial_csum = 0;
+
+    for (utils::MemBuf *current = header_head_->next();
+         current && current != header_head_; current = current->next()) {
+      if (partial_csum != 0) {
+        partial_csum = ~partial_csum;
+      }
+      partial_csum = csum(current->data(), current->length(), partial_csum);
+    }
+    if (hicn_packet_compute_header_checksum(format_, packet_start_,
+                                            partial_csum) < 0) {
+      throw errors::MalformedPacketException();
+    }
+  }
 
   bool checkIntegrity() const;
 
@@ -184,7 +234,19 @@ class Packet : public std::enable_shared_from_this<Packet> {
  private:
   virtual void resetForHash() = 0;
   void setSignatureSize(std::size_t size_bytes);
-  std::size_t getSignatureSize() const;
+
+  std::size_t getSignatureSize() const {
+    size_t size_bytes;
+    int ret =
+        hicn_packet_get_signature_size(format_, packet_start_, &size_bytes);
+
+    if (ret < 0) {
+      throw errors::RuntimeException("Packet without Authentication Header.");
+    }
+
+    return size_bytes;
+  }
+
   uint8_t *getSignature() const;
   void separateHeaderPayload();
 
