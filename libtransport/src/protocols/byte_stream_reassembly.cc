@@ -79,20 +79,20 @@ void ByteStreamReassembly::assembleContent() {
   }
 }
 
-void ByteStreamReassembly::copyContent(const ContentObject &content_object) {
-  auto a = content_object.getPayload();
-  auto payload_length = a->length();
+void ByteStreamReassembly::copyContent(ContentObject &content_object) {
+  auto payload = content_object.getPayloadReference();
+  auto payload_length = payload.second;
   auto write_size = std::min(payload_length, read_buffer_->tailroom());
   auto additional_bytes = payload_length > read_buffer_->tailroom()
                               ? payload_length - read_buffer_->tailroom()
                               : 0;
 
-  std::memcpy(read_buffer_->writableTail(), a->data(), write_size);
+  std::memcpy(read_buffer_->writableTail(), payload.first, write_size);
   read_buffer_->append(write_size);
 
   if (!read_buffer_->tailroom()) {
     notifyApplication();
-    std::memcpy(read_buffer_->writableTail(), a->data() + write_size,
+    std::memcpy(read_buffer_->writableTail(), payload.first + write_size,
                 additional_bytes);
     read_buffer_->append(additional_bytes);
   }

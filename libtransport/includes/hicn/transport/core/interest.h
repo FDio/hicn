@@ -44,8 +44,6 @@ class Interest
 
   ~Interest() override;
 
-  void replace(MemBufPtr &&buffer) override;
-
   const Name &getName() const override;
 
   Name &getWritableName() override;

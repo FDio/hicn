@@ -95,15 +95,11 @@ class ForwarderInterface {
       packet.setLocator(inet6_address_);
     }
 
-    // TRANSPORT_LOGI("Sending packet %s at %lu",
-    // packet.getName().toString().c_str(),
-    // utils::SteadyClock::now().time_since_epoch().count());
     packet.setChecksum();
     connector_.send(packet.acquireMemBufReference());
   }
 
   TRANSPORT_ALWAYS_INLINE void send(const uint8_t *packet, std::size_t len) {
-    // ASIO_COMPLETION_HANDLER_CHECK(Handler, packet_sent) type_check;
     counters_.tx_packets++;
     counters_.tx_bytes += len;
 

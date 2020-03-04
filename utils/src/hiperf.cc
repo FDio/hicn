@@ -69,7 +69,6 @@ struct ClientConfiguration {
         beta(-1.f),
         drop_factor(-1.f),
         window(-1),
-        virtual_download(true),
         producer_certificate(""),
         passphrase(""),
         receive_buffer(nullptr),
@@ -90,7 +89,6 @@ struct ClientConfiguration {
   double beta;
   double drop_factor;
   double window;
-  bool virtual_download;
   std::string producer_certificate;
   std::string passphrase;
   std::shared_ptr<utils::MemBuf> receive_buffer;
@@ -423,12 +421,6 @@ class HIperfClient {
       }
     }
 
-    if (consumer_socket_->setSocketOption(OtherOptions::VIRTUAL_DOWNLOAD,
-                                          configuration_.virtual_download) ==
-        SOCKET_OPTION_NOT_SET) {
-      return ERROR_SETUP;
-    }
-
     if (configuration_.verify) {
       std::shared_ptr<utils::Verifier> verifier =
           std::make_shared<utils::Verifier>();
@@ -570,15 +562,21 @@ class HIperfClient {
   };
 
   class Callback : public ConsumerSocket::ReadCallback {
-    static constexpr std::size_t read_size = 16 * 1024;
+    static constexpr std::size_t read_size = 128 * 1024;
 
    public:
-    Callback(HIperfClient &hiperf_client) : client_(hiperf_client) {}
+    Callback(HIperfClient &hiperf_client) : client_(hiperf_client) {
+      client_.configuration_.receive_buffer = utils::MemBuf::create(read_size);
+    }
 
-    bool isBufferMovable() noexcept override { return true; }
+    bool isBufferMovable() noexcept override { return false; }
 
     void getReadBuffer(uint8_t **application_buffer,
-                       size_t *max_length) override {}
+                       size_t *max_length) override {
+      *application_buffer =
+          client_.configuration_.receive_buffer->writableData();
+      *max_length = read_size;
+    }
 
     void readDataAvailable(std::size_t length) noexcept override {}
 
@@ -1149,8 +1147,6 @@ void usage() {
             << std::endl;
   std::cerr << "-L\t<interest lifetime>\t\t"
             << "Set interest lifetime." << std::endl;
-  std::cerr << "-M\t<Download for real>\t\t"
-            << "Store the content downloaded." << std::endl;
   std::cerr << "-W\t<window_size>\t\t\t"
             << "Use a fixed congestion window "
                "for retrieving the data."
@@ -1261,11 +1257,6 @@ int main(int argc, char *argv[]) {
       }
       case 'W': {
         client_configuration.window = std::stod(optarg);
-        options = 1;
-        break;
-      }
-      case 'M': {
-        client_configuration.virtual_download = false;
         options = 1;
         break;
       }
