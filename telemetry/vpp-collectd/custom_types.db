@@ -1,0 +1,39 @@
+# vpp
+if_drops                 packets:DERIVE:0:U
+if_punt                  packets:DERIVE:0:U
+if_ip4                   packets:DERIVE:0:U
+if_ip6                   packets:DERIVE:0:U
+if_rx_no_buf             packets:DERIVE:0:U
+if_rx_miss               packets:DERIVE:0:U
+if_rx_error              packets:DERIVE:0:U
+if_tx_error              packets:DERIVE:0:U
+if_mpls                  packets:DERIVE:0:U
+if_rx                    packets:DERIVE:0:U, bytes:DERIVE:0:U
+if_rx_unicast            packets:DERIVE:0:U, bytes:DERIVE:0:U
+if_rx_multicast          packets:DERIVE:0:U, bytes:DERIVE:0:U
+if_rx_broadcast          packets:DERIVE:0:U, bytes:DERIVE:0:U
+if_tx                    packets:DERIVE:0:U, bytes:DERIVE:0:U
+if_tx_unicast            packets:DERIVE:0:U, bytes:DERIVE:0:U
+if_tx_multicast          packets:DERIVE:0:U, bytes:DERIVE:0:U
+if_tx_broadcast          packets:DERIVE:0:U, bytes:DERIVE:0:U
+
+# vpp-hicn
+pkts_processed           packets:GAUGE:0:U
+pkts_interest_count      packets:GAUGE:0:U
+pkts_data_count          packets:GAUGE:0:U
+pkts_from_cache_count    packets:GAUGE:0:U
+pkts_no_pit_count        packets:GAUGE:0:U
+pit_expired_count        interests:GAUGE:0:U
+cs_expired_count         data:GAUGE:0:U
+cs_lru_count             data:GAUGE:0:U
+pkts_drop_no_buf         packets:GAUGE:0:U
+interests_aggregated     interests:GAUGE:0:U
+interests_retx           interests:GAUGE:0:U
+interests_hash_collision interests:GAUGE:0:U
+pit_entries_count        interests:GAUGE:0:U
+cs_entries_count         data:GAUGE:0:U
+cs_entries_ntw_count     data:GAUGE:0:U
+irx                      packets:DERIVE:0:U, bytes:DERIVE:0:U
+itx                      packets:DERIVE:0:U, bytes:DERIVE:0:U
+drx                      packets:DERIVE:0:U, bytes:DERIVE:0:U
+dtx                      packets:DERIVE:0:U, bytes:DERIVE:0:U

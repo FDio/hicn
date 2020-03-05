@@ -61,19 +61,26 @@ LoadPlugin vpp_hicn
 Before running collectd, a vpp forwarder must be started. If the vpp-hicn plugin
 is used, the hicn-plugin must be available in the vpp forwarder.
 
+If you need the custom types that the two plugins define, they are present in
+`telemetry/custom_types.db`. It is useful if you are using InfluxDB as it requires
+the type database for multi-value metrics
+(see [CollectD protocol support in InfluxDB](https://docs.influxdata.com/influxdb/v1.7/supported_protocols/collectd/)).
+
 ### Example: storing statistics from vpp and vpp-hicn
 
 We'll use the rrdtool and csv plugins to store statistics from vpp and vpp-hicn.
+Copy the configuration below in a file called `collectd.conf` and move
+it to `/etc/collectd`:
 
-Edit the configuration file as the following:
-
-```html
+```
 ######################################################################
 # Global                                                             #
 ######################################################################
 FQDNLookup true
 BaseDir "/var/lib/collectd"
 Interval 1
+# if you are using custom_types.db, you can specify it
+TypesDB "/usr/share/collectd/types.db" "/etc/collectd/custom_types.db"
 
 ######################################################################
 # Logging                                                            #
