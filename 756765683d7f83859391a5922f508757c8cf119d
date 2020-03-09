@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e94f2bf_d2640cda",
+        "filename": "libtransport/src/protocols/byte_stream_reassembly.h",
+        "patchSetId": 3
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 793
+      },
+      "writtenOn": "2020-03-09T12:52:37Z",
+      "side": 1,
+      "message": "no need to remove const",
+      "range": {
+        "startLine": 35,
+        "startChar": 27,
+        "endLine": 35,
+        "endChar": 62
+      },
+      "revId": "756765683d7f83859391a5922f508757c8cf119d",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
