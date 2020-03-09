@@ -38,7 +38,8 @@ static hicn_strategy_vft_t hicn_strategy_mw_vft = {
   .hicn_add_interest = &hicn_add_interest_mw,
   .hicn_on_interest_timeout = &hicn_on_interest_timeout_mw,
   .hicn_select_next_hop = &hicn_select_next_hop_mw,
-  .get_strategy_node_index = get_strategy_node_index_mw
+  .get_strategy_node_index = get_strategy_node_index_mw,
+  .hicn_format_strategy = hicn_strategy_format_trace_mw
 };
 
 /* Stats string values */
@@ -58,7 +59,7 @@ hicn_mw_strategy_get_vft (void)
 }
 
 /* Registration struct for a graph node */
-vlib_node_registration_t hicn_mw_strategy_node;
+//vlib_node_registration_t hicn_mw_strategy_node;
 
 u32
 get_strategy_node_index_mw (void)
@@ -132,13 +133,9 @@ hicn_receive_data_mw (index_t dpo_idx, int nh_idx)
 
 
 /* packet trace format function */
-static u8 *
-hicn_strategy_format_trace_mw (u8 * s, va_list * args)
+u8 *
+hicn_strategy_format_trace_mw (u8 * s, hicn_strategy_trace_t * t)
 {
-  CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
-  CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
-  hicn_strategy_trace_t *t = va_arg (*args, hicn_strategy_trace_t *);
-
   s = format (s, "Strategy_mw: pkt: %d, sw_if_index %d, next index %d",
 	      (int) t->pkt_type, t->sw_if_index, t->next_index);
   return (s);
@@ -148,24 +145,24 @@ hicn_strategy_format_trace_mw (u8 * s, va_list * args)
  * Node registration for the forwarder node
  */
 /* *INDENT-OFF* */
-VLIB_REGISTER_NODE (hicn_mw_strategy_node) =
-{
-  .name = "hicn-mw-strategy",
-  .function = hicn_mw_strategy_node_fn,
-  .vector_size = sizeof (u32),
-  .runtime_data_bytes = sizeof (int) + sizeof(hicn_pit_cs_t *),
-  .format_trace = hicn_strategy_format_trace_mw,
-  .type = VLIB_NODE_TYPE_INTERNAL,
-  .n_errors = ARRAY_LEN (hicn_strategy_error_strings),
-  .error_strings = hicn_strategy_error_strings,
-  .n_next_nodes = HICN_STRATEGY_N_NEXT,
-  .next_nodes = {
-    [HICN_STRATEGY_NEXT_INTEREST_HITPIT] = "hicn-interest-hitpit",
-    [HICN_STRATEGY_NEXT_INTEREST_HITCS] = "hicn-interest-hitcs",
-    [HICN_STRATEGY_NEXT_ERROR_DROP] = "error-drop",
-    [HICN_STRATEGY_NEXT_EMPTY] = "ip4-lookup",
-  },
-};
+/* VLIB_REGISTER_NODE (hicn_mw_strategy_node) = */
+/* { */
+/*   .name = "hicn-mw-strategy", */
+/*   .function = hicn_mw_strategy_node_fn, */
+/*   .vector_size = sizeof (u32), */
+/*   .runtime_data_bytes = sizeof (int) + sizeof(hicn_pit_cs_t *), */
+/*   .format_trace = hicn_strategy_format_trace_mw, */
+/*   .type = VLIB_NODE_TYPE_INTERNAL, */
+/*   .n_errors = ARRAY_LEN (hicn_strategy_error_strings), */
+/*   .error_strings = hicn_strategy_error_strings, */
+/*   .n_next_nodes = HICN_STRATEGY_N_NEXT, */
+/*   .next_nodes = { */
+/*     [HICN_STRATEGY_NEXT_INTEREST_HITPIT] = "hicn-interest-hitpit", */
+/*     [HICN_STRATEGY_NEXT_INTEREST_HITCS] = "hicn-interest-hitcs", */
+/*     [HICN_STRATEGY_NEXT_ERROR_DROP] = "error-drop", */
+/*     [HICN_STRATEGY_NEXT_EMPTY] = "ip4-lookup", */
+/*   }, */
+/* }; */
 /* *INDENT-ON* */
 
 /*

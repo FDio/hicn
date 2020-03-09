@@ -16,7 +16,7 @@
 #ifndef __HICN_STRATEGY_MW_H__
 #define __HICN_STRATEGY_MW_H__
 
-#include "../strategy.h"
+//#include "../strategy.h"
 
 hicn_strategy_vft_t *hicn_mw_strategy_get_vft (void);
 
