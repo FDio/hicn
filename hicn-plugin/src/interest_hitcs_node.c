@@ -172,9 +172,7 @@ hicn_interest_hitcs_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 			       dpo_vft0, &hicn_dpo_id0);
 	      stats.cs_expired_count++;
 	      /* Forward interest to the strategy node */
-	      next0 =
-		isv6 ? HICN_INTEREST_HITCS_NEXT_V6_LOOKUP :
-		HICN_INTEREST_HITCS_NEXT_V4_LOOKUP;
+	      next0 = HICN_INTEREST_HITCS_NEXT_STRATEGY;
 	    }
 	  else
 	    {
@@ -278,10 +276,10 @@ VLIB_REGISTER_NODE(hicn_interest_hitcs_node) =
   /* edit / add dispositions here */
   .next_nodes =
   {
-    [HICN_INTEREST_HITCS_NEXT_V4_LOOKUP] = "ip4-lookup",
-    [HICN_INTEREST_HITCS_NEXT_V6_LOOKUP] = "ip6-lookup",
+    [HICN_INTEREST_HITCS_NEXT_STRATEGY] = "hicn-strategy",
     [HICN_INTEREST_HITCS_NEXT_PUSH] = "hicn-data-push",
     [HICN_INTEREST_HITCS_NEXT_ERROR_DROP] = "error-drop",
+    [HICN_INTEREST_HITCS_NEXT_EMPTY] = "ip6-lookup"
   },
 };
 /* *INDENT-ON* */

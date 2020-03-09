@@ -186,7 +186,7 @@ always_inline int
 hicn_pcs_cs_insert (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 		    hicn_pcs_entry_t * entry, hicn_hash_node_t * node,
 		    hicn_hash_entry_t ** hash_entry, u64 hashval,
-		    u32 * node_id, u8 * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
+		    u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
 		    u8 * hash_entry_id, u32 * bucket_id,
 		    u8 * bucket_is_overflow);
 
@@ -194,14 +194,14 @@ always_inline int
 hicn_pcs_cs_insert_update (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 			   hicn_pcs_entry_t * entry, hicn_hash_node_t * node,
 			   hicn_hash_entry_t ** hash_entry, u64 hashval,
-			   u32 * node_id, u8 * dpo_ctx_id, u8 * vft_id,
+			   u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id,
 			   u8 * is_cs, u8 * hash_entry_id, u32 * bucket_id,
 			   u8 * bucket_is_overflow, dpo_id_t * inface);
 
 always_inline int
 hicn_pcs_pit_insert (hicn_pit_cs_t * pitcs, hicn_pcs_entry_t * entry,
 		     hicn_hash_node_t * node, hicn_hash_entry_t ** hash_entry,
-		     u64 hashval, u32 * node_id, u8 * dpo_ctx_id, u8 * vft_id,
+		     u64 hashval, u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id,
 		     u8 * is_cs, u8 * hash_entry_id, u32 * bucket_id,
 		     u8 * bucket_is_overflow);
 
@@ -215,7 +215,7 @@ always_inline int
 hicn_pcs_insert (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 		 hicn_pcs_entry_t * entry, hicn_hash_node_t * node,
 		 hicn_hash_entry_t ** hash_entry, u64 hashval, u32 * node_id,
-		 u8 * dpo_ctx_id, u8 * vft_id, u8 * is_cs, u8 * hash_entry_id,
+		 index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs, u8 * hash_entry_id,
 		 u32 * bucket_id, u8 * bucket_is_overflow);
 
 always_inline void
@@ -365,7 +365,7 @@ hicn_pcs_delete_internal (hicn_pit_cs_t * pitcs,
   else
     {
       pitcs->pcs_pit_dealloc++;
-      dpo_vft->hicn_dpo_unlock_dpo_ctx (hicn_dpo_id);
+      hicn_strategy_dpo_ctx_unlock (hicn_dpo_id);
 
       /* Flush faces */
       hicn_faces_flush (&(pcs->u.pit.faces));
@@ -391,7 +391,7 @@ hicn_pit_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
    * hash entry.
    */
   pitcs->pcs_pit_count--;
-  dpo_vft->hicn_dpo_unlock_dpo_ctx (hicn_dpo_id);
+  hicn_strategy_dpo_ctx_unlock (hicn_dpo_id);
   /* Flush faces */
   hicn_faces_flush (&(pcs_entry->u.pit.faces));
 
@@ -565,7 +565,7 @@ always_inline int
 hicn_pcs_cs_insert (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 		    hicn_pcs_entry_t * entry, hicn_hash_node_t * node,
 		    hicn_hash_entry_t ** hash_entry, u64 hashval,
-		    u32 * node_id, u8 * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
+		    u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
 		    u8 * hash_entry_id, u32 * bucket_id,
 		    u8 * bucket_is_overflow)
 {
@@ -634,7 +634,7 @@ always_inline int
 hicn_pcs_cs_insert_update (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 			   hicn_pcs_entry_t * entry, hicn_hash_node_t * node,
 			   hicn_hash_entry_t ** hash_entry, u64 hashval,
-			   u32 * node_id, u8 * dpo_ctx_id, u8 * vft_id,
+			   u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id,
 			   u8 * is_cs, u8 * hash_entry_id, u32 * bucket_id,
 			   u8 * bucket_is_overflow, dpo_id_t * inface)
 {
@@ -677,7 +677,7 @@ hicn_pcs_cs_insert_update (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 always_inline int
 hicn_pcs_pit_insert (hicn_pit_cs_t * pitcs, hicn_pcs_entry_t * entry,
 		     hicn_hash_node_t * node, hicn_hash_entry_t ** hash_entry,
-		     u64 hashval, u32 * node_id, u8 * dpo_ctx_id, u8 * vft_id,
+		     u64 hashval, u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id,
 		     u8 * is_cs, u8 * hash_entry_id, u32 * bucket_id,
 		     u8 * bucket_is_overflow)
 {
@@ -724,7 +724,7 @@ always_inline int
 hicn_pcs_insert (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 		 hicn_pcs_entry_t * entry, hicn_hash_node_t * node,
 		 hicn_hash_entry_t ** hash_entry, u64 hashval, u32 * node_id,
-		 u8 * dpo_ctx_id, u8 * vft_id, u8 * is_cs, u8 * hash_entry_id,
+		 index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs, u8 * hash_entry_id,
 		 u32 * bucket_id, u8 * bucket_is_overflow)
 {
   int ret;

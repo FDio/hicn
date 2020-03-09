@@ -38,8 +38,6 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
   u32 weight = HICN_PARAM_FIB_ENTRY_NHOP_WGHT_DFLT;
   hicn_dpo_ctx_t *hicn_dpo_ctx;
   const dpo_id_t *hicn_dpo_id;
-  u32 vft_id;
-  const hicn_dpo_vft_t *dpo_vft;
 
   /* Get a line of input. */
   unformat_input_t _line_input, *line_input = &_line_input;
@@ -84,9 +82,7 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
 
   if (ret == HICN_ERROR_NONE)
     {
-      vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
-      dpo_vft = hicn_dpo_get_vft (vft_id);
-      hicn_dpo_ctx = dpo_vft->hicn_dpo_get_ctx (hicn_dpo_id->dpoi_index);
+      hicn_dpo_ctx = hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index);
 
       if (hicn_dpo_ctx == NULL
 	  || hicn_dpo_id->dpoi_type != hicn_dpo_strategy_mw_get_type ())
