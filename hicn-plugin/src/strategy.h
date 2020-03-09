@@ -36,36 +36,36 @@
  *    interest and calling hicn_select_next_hop)
  */
 
-typedef struct hicn_strategy_vft_s
-{
-  void (*hicn_receive_data) (index_t dpo_idx, int nh_idx);
-  void (*hicn_on_interest_timeout) (index_t dpo_idx);
-  void (*hicn_add_interest) (index_t dpo_idx, hicn_hash_entry_t * pit_entry);
-    u32 (*hicn_select_next_hop) (index_t dpo_idx, int *nh_idx,
-				 dpo_id_t ** outface);
-    u32 (*get_strategy_node_index) (void);
-					 /**< Return the vlib node index implementing the strategy */
-} hicn_strategy_vft_t;
-
-hicn_face_vft_t *hicn_strategy_get_face_vft (u16 index);
-
-/* Strategy node API */
-/* Basic interest processing function. To be called in all the strategy nodes */
-uword
-hicn_forward_interest_fn (vlib_main_t * vm,
-			  vlib_node_runtime_t * node,
-			  vlib_frame_t * frame,
-			  hicn_strategy_vft_t * strategy,
-			  dpo_type_t dpo_type,
-			  vlib_node_registration_t * hicn_strategy_node);
-
 /* Trace context struct */
 typedef struct
 {
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
+  dpo_type_t dpo_type;
 } hicn_strategy_trace_t;
+
+typedef struct hicn_strategy_vft_s
+{
+  void (*hicn_receive_data) (index_t dpo_idx, int nh_idx);
+  void (*hicn_on_interest_timeout) (index_t dpo_idx);
+  void (*hicn_add_interest) (index_t dpo_idx, hicn_hash_entry_t * pit_entry);
+  u32 (*hicn_select_next_hop) (index_t dpo_idx, int *nh_idx,
+                               dpo_id_t ** outface);
+  u8 * (*hicn_format_strategy) (u8 *, hicn_strategy_trace_t *);
+} hicn_strategy_vft_t;
+
+hicn_face_vft_t *hicn_strategy_get_face_vft (u16 index);
+
+/* Strategy node API */
+/* Basic interest processing function. To be called in all the strategy nodes */
+/* uword */
+/* hicn_forward_interest_fn (vlib_main_t * vm, */
+/* 			  vlib_node_runtime_t * node, */
+/* 			  vlib_frame_t * frame, */
+/* 			  hicn_strategy_vft_t * strategy, */
+/* 			  dpo_type_t dpo_type, */
+/* 			  vlib_node_registration_t * hicn_strategy_node); */
 
 typedef enum
 {
@@ -75,6 +75,8 @@ typedef enum
   HICN_STRATEGY_NEXT_EMPTY,
   HICN_STRATEGY_N_NEXT,
 } hicn_strategy_next_t;
+
+extern vlib_node_registration_t hicn_strategy_node;
 
 #endif /* //__HICN_STRATEGY__ */
 
