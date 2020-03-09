@@ -31,21 +31,15 @@ void hicn_add_interest_rr (index_t dpo_idx, hicn_hash_entry_t * pit_entry);
 void hicn_on_interest_timeout_rr (index_t dpo_idx);
 u32 hicn_select_next_hop_rr (index_t dpo_idx, int *nh_idx,
 			     dpo_id_t ** outface);
-u32 get_strategy_node_index_rr (void);
+u8 * hicn_strategy_format_trace_rr (u8 * s, hicn_strategy_trace_t * t);
+
 
 static hicn_strategy_vft_t hicn_strategy_rr_vft = {
   .hicn_receive_data = &hicn_receive_data_rr,
   .hicn_add_interest = &hicn_add_interest_rr,
   .hicn_on_interest_timeout = &hicn_on_interest_timeout_rr,
   .hicn_select_next_hop = &hicn_select_next_hop_rr,
-  .get_strategy_node_index = get_strategy_node_index_rr
-};
-
-/* Stats string values */
-static char *hicn_strategy_error_strings[] = {
-#define _(sym, string) string,
-  foreach_hicnfwd_error
-#undef _
+  .hicn_format_strategy = hicn_strategy_format_trace_rr
 };
 
 /*
@@ -55,15 +49,6 @@ hicn_strategy_vft_t *
 hicn_rr_strategy_get_vft (void)
 {
   return &hicn_strategy_rr_vft;
-}
-
-/* Registration struct for a graph node */
-vlib_node_registration_t hicn_rr_strategy_node;
-
-u32
-get_strategy_node_index_rr (void)
-{
-  return hicn_rr_strategy_node.index;
 }
 
 /* DPO should be give in input as it containes all the information to calculate the next hops*/
@@ -92,14 +77,14 @@ hicn_select_next_hop_rr (index_t dpo_idx, int *nh_idx, dpo_id_t ** outface)
   return HICN_ERROR_NONE;
 }
 
-uword
-hicn_rr_strategy_node_fn (vlib_main_t * vm,
-			  vlib_node_runtime_t * node, vlib_frame_t * frame)
-{
-  return hicn_forward_interest_fn (vm, node, frame, &hicn_strategy_rr_vft,
-				   hicn_dpo_strategy_rr_get_type (),
-				   &hicn_rr_strategy_node);
-}
+/* uword */
+/* hicn_rr_strategy_node_fn (vlib_main_t * vm, */
+/* 			  vlib_node_runtime_t * node, vlib_frame_t * frame) */
+/* { */
+/*   return hicn_forward_interest_fn (vm, node, frame, &hicn_strategy_rr_vft, */
+/* 				   hicn_dpo_strategy_rr_get_type (), */
+/* 				   &hicn_rr_strategy_node); */
+/* } */
 
 void
 hicn_add_interest_rr (index_t dpo_ctx_idx, hicn_hash_entry_t * hash_entry)
@@ -124,40 +109,36 @@ hicn_receive_data_rr (index_t dpo_idx, int nh_idx)
 
 
 /* packet trace format function */
-static u8 *
-hicn_strategy_format_trace_rr (u8 * s, va_list * args)
+u8 *
+hicn_strategy_format_trace_rr (u8 * s, hicn_strategy_trace_t * t)
 {
-  CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
-  CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
-  hicn_strategy_trace_t *t = va_arg (*args, hicn_strategy_trace_t *);
-
   s = format (s, "Strategy_rr: pkt: %d, sw_if_index %d, next index %d",
 	      (int) t->pkt_type, t->sw_if_index, t->next_index);
   return (s);
 }
 
-/*
- * Node registration for the forwarder node
- */
-/* *INDENT-OFF* */
-VLIB_REGISTER_NODE (hicn_rr_strategy_node) =
-{
-  .name = "hicn-rr-strategy",
-  .function = hicn_rr_strategy_node_fn,
-  .vector_size = sizeof (u32),
-  .runtime_data_bytes = sizeof (int) + sizeof(hicn_pit_cs_t *),
-  .format_trace = hicn_strategy_format_trace_rr,
-  .type = VLIB_NODE_TYPE_INTERNAL,
-  .n_errors = ARRAY_LEN (hicn_strategy_error_strings),
-  .error_strings = hicn_strategy_error_strings,
-  .n_next_nodes = HICN_STRATEGY_N_NEXT,
-  .next_nodes = {
-    [HICN_STRATEGY_NEXT_INTEREST_HITPIT] = "hicn-interest-hitpit",
-    [HICN_STRATEGY_NEXT_INTEREST_HITCS] = "hicn-interest-hitcs",
-    [HICN_STRATEGY_NEXT_ERROR_DROP] = "error-drop",
-    [HICN_STRATEGY_NEXT_EMPTY] = "ip4-lookup",
-  },
-};
+/* /\* */
+/*  * Node registration for the forwarder node */
+/*  *\/ */
+/* /\* *INDENT-OFF* *\/ */
+/* VLIB_REGISTER_NODE (hicn_rr_strategy_node) = */
+/* { */
+/*   .name = "hicn-rr-strategy", */
+/*   .function = hicn_rr_strategy_node_fn, */
+/*   .vector_size = sizeof (u32), */
+/*   .runtime_data_bytes = sizeof (int) + sizeof(hicn_pit_cs_t *), */
+/*   .format_trace = hicn_strategy_format_trace_rr, */
+/*   .type = VLIB_NODE_TYPE_INTERNAL, */
+/*   .n_errors = ARRAY_LEN (hicn_strategy_error_strings), */
+/*   .error_strings = hicn_strategy_error_strings, */
+/*   .n_next_nodes = HICN_STRATEGY_N_NEXT, */
+/*   .next_nodes = { */
+/*     [HICN_STRATEGY_NEXT_INTEREST_HITPIT] = "hicn-interest-hitpit", */
+/*     [HICN_STRATEGY_NEXT_INTEREST_HITCS] = "hicn-interest-hitcs", */
+/*     [HICN_STRATEGY_NEXT_ERROR_DROP] = "error-drop", */
+/*     [HICN_STRATEGY_NEXT_EMPTY] = "ip4-lookup", */
+/*   }, */
+/* }; */
 /* *INDENT-ON* */
 
 /*
