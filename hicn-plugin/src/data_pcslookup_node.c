@@ -73,7 +73,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm,
 	  hicn_name_t name;
 	  hicn_header_t *hicn0 = NULL;
 	  u32 node_id0 = 0;
-	  u8 dpo_ctx_id0 = 0;
+	  index_t dpo_ctx_id0 = 0;
 	  int ret0;
 	  u8 vft_id0;
 	  u8 is_cs0;

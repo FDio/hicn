@@ -66,8 +66,9 @@ set(HICN_PLUGIN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/mgmt.c
     ${CMAKE_CURRENT_SOURCE_DIR}/pcs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/route.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategy_dpo_ctx.c
     ${CMAKE_CURRENT_SOURCE_DIR}/strategy_dpo_manager.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/strategy.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategy_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/interest_pcslookup_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/interest_hitpit_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/interest_hitcs_node.c
