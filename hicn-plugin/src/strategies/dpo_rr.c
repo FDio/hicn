@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,12 +21,12 @@
 hicn_strategy_rr_ctx_t *hicn_strategy_rr_ctx_pool;
 
 const static char *const hicn_ip6_nodes[] = {
-  "hicn-rr-strategy",		// this is the name you give your node in VLIB_REGISTER_NODE
+  "hicn-iface-ip6-input",		// this is the name you give your node in VLIB_REGISTER_NODE
   NULL,
 };
 
 const static char *const hicn_ip4_nodes[] = {
-  "hicn-rr-strategy",		// this is the name you give your node in VLIB_REGISTER_NODE
+  "hicn-iface-ip4-input",		// this is the name you give your node in VLIB_REGISTER_NODE
   NULL,
 };
 
