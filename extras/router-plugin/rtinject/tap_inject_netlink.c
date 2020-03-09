@@ -16,13 +16,14 @@
 
 #include "../devices/rtnetlink/netns.h"
 #include <vlibmemory/api.h>
-#include <vnet/ip/ip6_neighbor.h>
+#include <vnet/ip-neighbor/ip_neighbor.h>
 #include <vnet/ip/lookup.h>
 #include <vnet/fib/fib.h>
-#include <vnet/ethernet/arp.h>
+#include <vnet/arp/arp.h>
 #include <arpa/inet.h>
 #include <linux/mpls.h>
 #include <vnet/mpls/packet.h>
+#include <vnet/ip-neighbor/ip_neighbor_types.h>
 
 #include "tap_inject.h"
 

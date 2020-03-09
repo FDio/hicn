@@ -1,3 +1,5 @@
 build*
 .ccls-cache/
 compile_commands.json
+.devcontainer
+.gitmodules

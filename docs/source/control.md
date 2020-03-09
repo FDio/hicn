@@ -305,6 +305,47 @@ At this point, we are able to connect to the remote device.
 
 The current version is compatible with the 20.01 VPP stable and sysrepo devel.
 
+## Configure VPP and FRRouting for OSPF4
+This document describes how to configure the VPP with hicn_router plugin and FRR to enable the OSPF protocol. The VPP and FRR
+are configured in a docker file.
+
+### DPDK configuration on host machine:
+```
+- Install and configure dpdk
+    - make install T=x86_64-native-linux-gcc && cd x86_64-native-linux-gcc && sudo make install
+    - modprobe uio
+    - modprobe uio_pci_generic
+    - dpdk-devbind --status
+    - the PCIe number of the desired device can be observed ("xxx")
+    - sudo dpdk-devbind -b uio_pci_generic "xxx"
+```
+### VPP configuration:
+```
+- Run and configure the VPP (hICN router plugin is required to be installed in VPP)
+    - set int state TenGigabitEtherneta/0/0 up
+    - set int ip address TenGigabitEtherneta/0/0 10.0.10.1/24
+    - enable tap-inject  # This creates the taps by router plugin
+    - show tap-inject # This shows the created taps
+    - ip mroute add 224.0.0.4/32 via local Forward
+    - ip mroute add 224.0.0.4/32 via TenGigabitEtherneta/0/0 Accept
+
+- Setup the tap interface
+    - ip addr add 10.0.10.1/24 dev vpp0
+    - ip link set dev vpp0 up
+```
+### FRR configuration:
+```
+- Run and configure FRRouting (ospf)
+    - /usr/lib/frr/frrinit.sh start &
+    - vtysh
+    - configure terminal
+    - router ospf
+    - network 10.0.10.1/24 area 0.0.0.0
+    - end
+    - wr
+```
+After the following configuration, the traffic over tap interface can be observered through "tcpdump- i vpp0".
+
 ## Routing plugin for VPP and FRRouting for OSPF6
 
 This document describes how to configure the VPP with hicn_router
@@ -364,9 +405,51 @@ interface vpp0 area 0.0.0.0
 interface vpp1 area 0.0.0.0
 end
 wr
-add  "no ipv6 nd suppress-ra" to the first configurtion part of the /etc/frr/frr.conf
+add  "no ipv6 nd suppress-ra" to the first configuration part of the /etc/frr/frr.conf
 ```
 
 After the following configuration, the traffic over tap interface can be observed
 via `tcpdump- i vpp1`. The neighborhood and route can be seen with the
 `show ipv6 ospf6 neighbor/route` command.
+
+## Configure VPP and FRRouting for BGP
+This document describes how to configure the VPP with hicn_router plugin and FRR to enable the BGP protocol. The VPP and FRR
+are configured in a docker file.
+
+### DPDK configuration on host machine:
+```
+- Install and configure dpdk
+    - make install T=x86_64-native-linux-gcc && cd x86_64-native-linux-gcc && sudo make install
+    - modprobe uio
+    - modprobe uio_pci_generic
+    - dpdk-devbind --status
+    - the PCIe number of the desired device can be observed ("xxx")
+    - sudo dpdk-devbind -b uio_pci_generic "xxx"
+```
+### VPP configuration:
+
+```
+- Run and configure the VPP (hICN router plugin is required to be installed in VPP)
+    - set int state TenGigabitEtherneta/0/0 up
+    - set int ip address TenGigabitEtherneta/0/0 10.0.10.1/24
+    - enable tap-inject  # This creates the taps by router plugin
+    - show tap-inject # This shows the created taps
+
+- Setup the tap interface
+    - ip addr add 10.0.10.1/24 dev vpp0
+    - ip link set dev vpp0 up
+```
+### FRR configuration:
+Assume there are two nodes with 1234,5678 AS numbers. This is the configuration of node A with AS number 1234
+
+                                             (1234)A(2001::1) ====== (2001::2)B(5678)
+```
+   - /usr/lib/frr/frrinit.sh start &
+   - vtysh
+   - configure terminal
+   - router bgp 1234
+   - neighbor 2001::2 remote-as 5678
+   - address-family ipv6 unicast
+   - neighbor 2001::2 activate
+   - exit-address-family
+```
