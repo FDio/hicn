@@ -365,7 +365,7 @@ hicn_pcs_delete_internal (hicn_pit_cs_t * pitcs,
   else
     {
       pitcs->pcs_pit_dealloc++;
-      dpo_vft->hicn_dpo_unlock_dpo_ctx (hicn_dpo_id);
+      hicn_strategy_dpo_ctx_unlock (hicn_dpo_id);
 
       /* Flush faces */
       hicn_faces_flush (&(pcs->u.pit.faces));
@@ -391,7 +391,7 @@ hicn_pit_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
    * hash entry.
    */
   pitcs->pcs_pit_count--;
-  dpo_vft->hicn_dpo_unlock_dpo_ctx (hicn_dpo_id);
+  hicn_strategy_dpo_ctx_unlock (hicn_dpo_id);
   /* Flush faces */
   hicn_faces_flush (&(pcs_entry->u.pit.faces));
 

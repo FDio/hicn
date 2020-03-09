@@ -79,9 +79,8 @@ hicn_mapme_process_ack (vlib_main_t * vm, vlib_buffer_t * b,
   /* We are only expecting ACKs for hICN DPOs */
   ASSERT (dpo_is_hicn (dpo));
 
-  const hicn_dpo_vft_t *dpo_vft = hicn_dpo_get_vft (dpo->dpoi_type);
   hicn_mapme_tfib_t *tfib =
-    TFIB (dpo_vft->hicn_dpo_get_ctx (dpo->dpoi_index));
+    TFIB (hicn_strategy_dpo_ctx_get (dpo->dpoi_index));
 
   if (tfib == NULL)
     {

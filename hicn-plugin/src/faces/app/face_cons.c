@@ -73,10 +73,7 @@ hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
   face = hicn_dpoi_get_from_idx (*faceid2);
   face->shared.flags |= HICN_FACE_FLAGS_APPFACE_CONS;
 
-  return vnet_feature_enable_disable ("ip6-unicast",
-				      "hicn-iface-ip6-input", swif, 1, 0,
-				      0) ==
-    0 ? HICN_ERROR_NONE : HICN_ERROR_APPFACE_FEATURE;
+  return HICN_ERROR_NONE;
 }
 
 int
@@ -89,13 +86,7 @@ hicn_face_cons_del (hicn_face_id_t face_id)
 
   if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_CONS)
     {
-      int ret = hicn_face_ip_del (face_id);
-
-      return ret ==
-	HICN_ERROR_NONE
-	? (vnet_feature_enable_disable
-	   ("ip6-unicast", "hicn-iface-ip6-input", face->shared.sw_if, 0,
-	    0, 0) == 0 ? HICN_ERROR_NONE : HICN_ERROR_APPFACE_FEATURE) : ret;
+      return hicn_face_ip_del (face_id);
     }
   else
     {
@@ -113,15 +104,6 @@ format_hicn_face_cons (u8 * s, va_list * args)
 
   return s;
 }
-
-/* *INDENT-OFF* */
-VNET_FEATURE_INIT(hicn_cons_app, static)=
-{
-  .arc_name = "ip6-unicast",
-  .node_name = "hicn-iface-ip6-input",
-  .runs_before = VNET_FEATURES("ip6-inacl"),
-};
-/* *INDENT-ON* */
 
 /*
  * fd.io coding-style-patch-verification: ON

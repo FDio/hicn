@@ -281,8 +281,7 @@ static_always_inline void
 hicn_mapme_send_updates (vlib_main_t * vm, hicn_prefix_t * prefix,
 			 dpo_id_t dpo, bool send_all)
 {
-  const hicn_dpo_vft_t *dpo_vft = hicn_dpo_get_vft (dpo.dpoi_type);
-  hicn_mapme_tfib_t *tfib = TFIB (dpo_vft->hicn_dpo_get_ctx (dpo.dpoi_index));
+  hicn_mapme_tfib_t *tfib = TFIB (hicn_strategy_dpo_ctx_get (dpo.dpoi_index));
   if (!tfib)
     {
       DEBUG ("NULL TFIB entry id=%d", dpo.dpoi_index);
@@ -500,10 +499,8 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	      if (retx->dpo.dpoi_index == ~0)	/* deleted entry */
 		continue;
 
-	      const hicn_dpo_vft_t *dpo_vft =
-		hicn_dpo_get_vft (retx->dpo.dpoi_type);
 	      hicn_mapme_tfib_t *tfib =
-		TFIB (dpo_vft->hicn_dpo_get_ctx (retx->dpo.dpoi_index));
+		TFIB (hicn_strategy_dpo_ctx_get (retx->dpo.dpoi_index));
 	      if (!tfib)
 		{
 		  DEBUG ("NULL TFIB entry for dpoi_index=%d",

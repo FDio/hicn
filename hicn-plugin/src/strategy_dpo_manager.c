@@ -97,16 +97,13 @@ hicn_dpos_init (void)
   hicn_dpo_strategy_mw_module_init ();
   hicn_dpo_strategy_rr_module_init ();
 
-  default_dpo.hicn_dpo_get_ctx = &hicn_strategy_mw_ctx_get;
   default_dpo.hicn_dpo_is_type = &hicn_dpo_is_type_strategy_mw;
   default_dpo.hicn_dpo_get_type = &hicn_dpo_strategy_mw_get_type;
   default_dpo.hicn_dpo_module_init = &hicn_dpo_strategy_mw_module_init;
   default_dpo.hicn_dpo_create = &hicn_strategy_mw_ctx_create;
   default_dpo.hicn_dpo_add_update_nh = &hicn_strategy_mw_ctx_add_nh;
   default_dpo.hicn_dpo_del_nh = &hicn_strategy_mw_ctx_del_nh;
-  default_dpo.hicn_dpo_lock_dpo_ctx = &hicn_strategy_mw_ctx_lock;
-  default_dpo.hicn_dpo_unlock_dpo_ctx = hicn_strategy_mw_ctx_unlock;
-  default_dpo.format_hicn_dpo = &format_hicn_strategy_mw_ctx;
+  default_dpo.hicn_dpo_format = &hicn_strategy_mw_format_ctx;
 }
 
 u8 *
@@ -123,7 +120,7 @@ format_hicn_strategy_list (u8 * s, int n, ...)
   vec_foreach_index (i, strategies_id)
   {
     s = format (s, "(%d) ", i, indent);
-    s = hicn_dpo_vfts[strategies_id[i]]->format_hicn_dpo (s, &ap);
+    s = hicn_strategy_vfts[strategies_id[i]]->hicn_format_strategy (s, &ap);
   }
 
   return (s);
