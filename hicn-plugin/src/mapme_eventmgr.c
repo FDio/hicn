@@ -261,12 +261,11 @@ hicn_mapme_send_message (vlib_main_t * vm, const hicn_prefix_t * prefix,
   vlib_node_t *node = vlib_get_node_by_name (vm, (u8 *) node_name);
   u32 node_index = node->index;
 
-  u8 *buffer =
-    get_packet_buffer (vm, node_index, face->dpoi_index,
-		       (ip46_address_t *) prefix,
-		       (params->protocol ==
-			IPPROTO_IPV6) ? HICN_TYPE_IPV6_ICMP :
-		       HICN_TYPE_IPV4_ICMP);
+  u8 *buffer = get_packet_buffer (vm, node_index, face->dpoi_index,
+				  (ip46_address_t *) prefix,
+				  (params->protocol ==
+				   IPPROTO_IPV6) ? HICN_TYPE_IPV6_ICMP :
+				  HICN_TYPE_IPV4_ICMP);
   n = hicn_mapme_create_packet (buffer, prefix, params);
   if (n <= 0)
     {
@@ -281,8 +280,7 @@ static_always_inline void
 hicn_mapme_send_updates (vlib_main_t * vm, hicn_prefix_t * prefix,
 			 dpo_id_t dpo, bool send_all)
 {
-  const hicn_dpo_vft_t *dpo_vft = hicn_dpo_get_vft (dpo.dpoi_type);
-  hicn_mapme_tfib_t *tfib = TFIB (dpo_vft->hicn_dpo_get_ctx (dpo.dpoi_index));
+  hicn_mapme_tfib_t *tfib = TFIB (hicn_strategy_dpo_ctx_get (dpo.dpoi_index));
   if (!tfib)
     {
       DEBUG ("NULL TFIB entry id=%d", dpo.dpoi_index);
@@ -323,7 +321,7 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
   u8 idle = 0;
 
   retx_t retx_array[NUM_RETX_SLOT][NUM_RETX_ENTRIES];
-  memset(retx_array, 0, NUM_RETX_SLOT*NUM_RETX_ENTRIES);
+  memset (retx_array, 0, NUM_RETX_SLOT * NUM_RETX_ENTRIES);
   u8 retx_len[NUM_RETX_SLOT] = { 0 };
   u8 cur = 0;			/* current slot */
 
@@ -500,10 +498,8 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	      if (retx->dpo.dpoi_index == ~0)	/* deleted entry */
 		continue;
 
-	      const hicn_dpo_vft_t *dpo_vft =
-		hicn_dpo_get_vft (retx->dpo.dpoi_type);
 	      hicn_mapme_tfib_t *tfib =
-		TFIB (dpo_vft->hicn_dpo_get_ctx (retx->dpo.dpoi_index));
+		TFIB (hicn_strategy_dpo_ctx_get (retx->dpo.dpoi_index));
 	      if (!tfib)
 		{
 		  DEBUG ("NULL TFIB entry for dpoi_index=%d",
@@ -517,16 +513,16 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	      // If we exceed the numver of retransmittion it means that all tfib entries have seens at least HICN_PARAM_RTX_MAX of retransmission
 	      if (retx->rtx_count < HICN_PARAM_RTX_MAX)
 		{
-		/*
-		 * We did some retransmissions, so let's reschedule a check in the
-		 * next slot
-		 */
+		  /*
+		   * We did some retransmissions, so let's reschedule a check in the
+		   * next slot
+		   */
 		  NXT[NXTLEN++] = CUR[pos];
 		  idle = 0;
 		}
 	      else
 		{
-		  hicn_mapme_tfib_clear(tfib);
+		  hicn_mapme_tfib_clear (tfib);
 		}
 	    }
 

@@ -270,7 +270,7 @@ hicn_hashtb_free (hicn_hashtb_h * ph)
 int
 hicn_hashtb_lookup_node (hicn_hashtb_h h, const u8 * key,
 			 u32 keylen, u64 hashval, u8 is_data,
-			 u32 * node_id, u8 * dpo_ctx_id, u8 * vft_id,
+			 u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id,
 			 u8 * is_cs, u8 * hash_entry_id, u32 * bucket_id,
 			 u8 * bucket_is_overflow)
 {
@@ -295,7 +295,7 @@ int
 hicn_hashtb_lookup_node_ex (hicn_hashtb_h h, const u8 * key,
 			    u32 keylen, u64 hashval, u8 is_data,
 			    int include_deleted_p, u32 * node_id,
-			    u8 * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
+			    index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
 			    u8 * hash_entry_id, u32 * bucket_id,
 			    u8 * bucket_is_overflow)
 {
@@ -423,7 +423,7 @@ int
 hicn_hashtb_insert (hicn_hashtb_h h, hicn_hash_node_t * node,
 		    hicn_hash_entry_t ** hash_entry, u64 hash,
 		    u32 * node_id,
-		    u8 * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
+		    index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
 		    u8 * hash_entry_id, u32 * bucket_id,
 		    u8 * bucket_is_overflow)
 {
@@ -485,8 +485,8 @@ loop_buckets:
 	   * If we are doing lookup for a data, do not take a
 	   * lock in case of a hit with a CS entry
 	   */
-          if (!(*is_cs))
-            bucket->hb_entries[i].locks++;
+	  if (!(*is_cs))
+	    bucket->hb_entries[i].locks++;
 	  *bucket_is_overflow = is_overflow;
 	  ret = HICN_ERROR_HASHTB_EXIST;
 	  goto done;

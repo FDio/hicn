@@ -85,7 +85,7 @@ hicn_interest_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  hicn_name_t name;
 	  hicn_header_t *hicn0;
 	  u32 node_id0 = 0;
-	  u8 dpo_ctx_id0 = 0;
+	  index_t dpo_ctx_id0 = 0;
 	  u8 vft_id0 = 0;
 	  u8 is_cs0 = 0;
 	  u8 hash_entry_id = 0;
@@ -113,9 +113,7 @@ hicn_interest_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  if (PREDICT_TRUE (ret == HICN_ERROR_NONE))
 	    {
-	      next0 =
-		isv6 ? HICN_INTEREST_PCSLOOKUP_NEXT_V6_LOOKUP :
-		HICN_INTEREST_PCSLOOKUP_NEXT_V4_LOOKUP;
+	      next0 = HICN_INTEREST_PCSLOOKUP_NEXT_STRATEGY;
 	    }
 	  nameptr = (u8 *) (&name);
 	  stats.pkts_processed++;
@@ -224,8 +222,7 @@ VLIB_REGISTER_NODE(hicn_interest_pcslookup_node) =
   .n_next_nodes = HICN_INTEREST_PCSLOOKUP_N_NEXT,
   .next_nodes =
   {
-    [HICN_INTEREST_PCSLOOKUP_NEXT_V4_LOOKUP] = "ip4-lookup",
-    [HICN_INTEREST_PCSLOOKUP_NEXT_V6_LOOKUP] = "ip6-lookup",
+    [HICN_INTEREST_PCSLOOKUP_NEXT_STRATEGY] = "hicn-strategy",
     [HICN_INTEREST_PCSLOOKUP_NEXT_INTEREST_HITPIT] = "hicn-interest-hitpit",
     [HICN_INTEREST_PCSLOOKUP_NEXT_INTEREST_HITCS] = "hicn-interest-hitcs",
     [HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP] = "error-drop",

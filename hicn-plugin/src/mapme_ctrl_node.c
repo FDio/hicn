@@ -27,6 +27,7 @@
 #include "parser.h"
 #include "infra.h"
 #include "strategy_dpo_manager.h"
+#include "strategy_dpo_ctx.h"
 #include "error.h"
 #include "state.h"
 
@@ -93,7 +94,7 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
   /* if (params.seq == INVALID_SEQ) */
   /*   { */
   /*     vlib_log_warn (mapme_main.log_class, */
-  /*       	     "Invalid sequence number found in IU"); */
+  /*                 "Invalid sequence number found in IU"); */
 
   /*     return true; */
   /*   } */
@@ -129,9 +130,8 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 #endif
 
   /* Process the hICN DPO */
-  const hicn_dpo_vft_t *dpo_vft = hicn_dpo_get_vft (dpo->dpoi_type);
   hicn_mapme_tfib_t *tfib =
-    TFIB (dpo_vft->hicn_dpo_get_ctx (dpo->dpoi_index));
+    TFIB (hicn_strategy_dpo_ctx_get (dpo->dpoi_index));
 
   if (tfib == NULL)
     {
@@ -163,7 +163,9 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 	      tfib->entry_count = 0;
 	      break;
 	    }
-	  DEBUG ("Adding nexthop to the tfib, dpo index in_face %d, dpo index tfib %d", in_face->dpoi_index, tfib->next_hops[pos].dpoi_index);
+	  DEBUG
+	    ("Adding nexthop to the tfib, dpo index in_face %d, dpo index tfib %d",
+	     in_face->dpoi_index, tfib->next_hops[pos].dpoi_index);
 	  hicn_mapme_tfib_add (tfib, &tfib->next_hops[pos]);
 	}
 
@@ -173,7 +175,8 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 
       /* We transmit both the prefix and the full dpo (type will be needed to pick the right transmit node */
       retx_t *retx = vlib_process_signal_event_data (vm,
-						     hicn_mapme_eventmgr_process_node.index,
+						     hicn_mapme_eventmgr_process_node.
+						     index,
 						     HICN_MAPME_EVENT_FACE_NH_SET,
 						     1,
 						     sizeof (retx_t));
@@ -195,7 +198,8 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 
       /* Multipath, multihoming, multiple producers or duplicate interest */
       retx_t *retx = vlib_process_signal_event_data (vm,
-						     hicn_mapme_eventmgr_process_node.index,
+						     hicn_mapme_eventmgr_process_node.
+						     index,
 						     HICN_MAPME_EVENT_FACE_NH_ADD,
 						     1,
 						     sizeof (retx_t));
@@ -212,7 +216,8 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
       hicn_mapme_tfib_add (tfib, in_face);
 
       retx_t *retx = vlib_process_signal_event_data (vm,
-						     hicn_mapme_eventmgr_process_node.index,
+						     hicn_mapme_eventmgr_process_node.
+						     index,
 						     HICN_MAPME_EVENT_FACE_PH_ADD,
 						     1,
 						     sizeof (retx_t));
@@ -277,7 +282,7 @@ hicn_mapme_ctrl_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  preprocess_in_face (hb->type, &hb->face_dpo_id, &in_face);
 	  hicn_mapme_process_ctrl (vm, b0, &in_face);
 
-          vnet_buffer (b0)->ip.adj_index[VLIB_TX] = in_face.dpoi_index;
+	  vnet_buffer (b0)->ip.adj_index[VLIB_TX] = in_face.dpoi_index;
 
 	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
 					   n_left_to_next, bi0, next0);
