@@ -17,6 +17,8 @@
 
 #include <atomic>
 
+#include <hicn/transport/interfaces/callbacks.h>
+#include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/statistics.h>
 #include <hicn/transport/utils/object_pool.h>
 
@@ -33,6 +35,8 @@ namespace protocol {
 using namespace core;
 
 class IndexVerificationManager;
+
+using ReadCallback = interface::ConsumerSocket::ReadCallback;
 
 class TransportProtocolCallback {
   virtual void onContentObject(const core::Interest &interest,
@@ -89,6 +93,20 @@ class TransportProtocol : public implementation::BasePortal::ConsumerCallback,
   // True if it si the first time we schedule an interest
   std::atomic<bool> is_first_;
   interface::TransportStatistics *stats_;
+
+  // Callbacks
+  interface::ConsumerInterestCallback *on_interest_retransmission_;
+  interface::ConsumerInterestCallback *on_interest_output_;
+  interface::ConsumerInterestCallback *on_interest_timeout_;
+  interface::ConsumerInterestCallback *on_interest_satisfied_;
+  interface::ConsumerContentObjectCallback *on_content_object_input_;
+  interface::ConsumerContentObjectVerificationCallback
+      *on_content_object_verification_;
+  interface::ConsumerContentObjectCallback *on_content_object_;
+  interface::ConsumerTimerCallback *stats_summary_;
+  interface::ConsumerContentObjectVerificationFailedCallback
+      *verification_failed_callback_;
+  ReadCallback *on_payload_;
 };
 
 }  // end namespace protocol
