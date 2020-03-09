@@ -651,7 +651,6 @@ static void vl_api_hicn_api_route_get_t_handler
   fib_prefix_t prefix;
   ip_prefix_decode (&mp->prefix, &prefix);
   const dpo_id_t *hicn_dpo_id;
-  const hicn_dpo_vft_t *hicn_dpo_vft;
   hicn_dpo_ctx_t *hicn_dpo_ctx;
   u32 fib_index;
 
@@ -662,8 +661,7 @@ static void vl_api_hicn_api_route_get_t_handler
     {
       if (rv == HICN_ERROR_NONE)
 	{
-	  hicn_dpo_vft = hicn_dpo_get_vft(hicn_dpo_id->dpoi_type);
-	  hicn_dpo_ctx = hicn_dpo_vft->hicn_dpo_get_ctx(hicn_dpo_id->dpoi_index);
+	  hicn_dpo_ctx = hicn_strategy_dpo_ctx_get(hicn_dpo_id->dpoi_index);
 	  for (int i = 0; hicn_dpo_ctx != NULL && i < hicn_dpo_ctx->entry_count; i++)
 	    {
 	      if (dpo_id_is_valid(&hicn_dpo_ctx->next_hops[i]))
@@ -691,7 +689,6 @@ send_route_details (vl_api_registration_t * reg,
   mp->nfaces = 0;
 
   const dpo_id_t *hicn_dpo_id;
-  const hicn_dpo_vft_t *hicn_dpo_vft;
   hicn_dpo_ctx_t *hicn_dpo_ctx;
   u32 fib_index;
 
@@ -699,8 +696,7 @@ send_route_details (vl_api_registration_t * reg,
 
   if (rv == HICN_ERROR_NONE)
     {
-      hicn_dpo_vft = hicn_dpo_get_vft (hicn_dpo_id->dpoi_type);
-      hicn_dpo_ctx = hicn_dpo_vft->hicn_dpo_get_ctx (hicn_dpo_id->dpoi_index);
+      hicn_dpo_ctx = hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index);
       for (int i = 0; hicn_dpo_ctx != NULL && i < hicn_dpo_ctx->entry_count; i++)
 	{
 	  if (dpo_id_is_valid (&hicn_dpo_ctx->next_hops[i]))
@@ -841,9 +837,9 @@ static void vl_api_hicn_api_strategy_get_t_handler
     {
       if (rv == HICN_ERROR_NONE)
 	{
-	  const hicn_dpo_vft_t * hicn_dpo_vft =
-	    hicn_dpo_get_vft (strategy_id);
-	  hicn_dpo_vft->format_hicn_dpo (rmp->description, 0);}
+	  const hicn_strategy_vft_t * hicn_strategy_vft =
+	    hicn_dpo_get_strategy_vft (strategy_id);
+	  hicn_strategy_vft->hicn_format_strategy (rmp->description, 0);}
     }));
   /* *INDENT-ON* */
 }

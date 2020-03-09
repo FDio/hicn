@@ -25,6 +25,10 @@
 #include "mgmt.h"
 #include "pcs.h"
 #include "state.h"
+#include "strategies/strategy_mw.h"
+
+/* Registration struct for a graph node */
+vlib_node_registration_t hicn_strategy_node;
 
 /*
  * Node context data (to be used in all the strategy nodes); we think this is
@@ -36,11 +40,32 @@ typedef struct hicn_strategy_runtime_s
   hicn_pit_cs_t *pitcs;
 } hicn_strategy_runtime_t;
 
+/* Stats string values */
+static char *hicn_strategy_error_strings[] = {
+#define _(sym, string) string,
+  foreach_hicnfwd_error
+#undef _
+};
+
+/* packet trace format function */
+u8 *
+hicn_strategy_format_trace (u8 * s, va_list * args)
+{
+  CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
+  CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
+  hicn_strategy_trace_t *t = va_arg (*args, hicn_strategy_trace_t *);
+
+  const hicn_strategy_vft_t * vft = hicn_dpo_get_strategy_vft(t->dpo_type);
+
+  return vft->hicn_format_strategy_trace(s, t);
+}
+
+
 always_inline int
 hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 		   u32 * next, f64 tnow, u8 * nameptr,
 		   u16 namelen, dpo_id_t * outface, int nh_idx,
-		   index_t hicn_dpo_idx, hicn_strategy_vft_t * strategy,
+		   index_t dpo_ctx_id0, const hicn_strategy_vft_t * strategy,
 		   dpo_type_t dpo_type, u8 isv6,
 		   vl_api_hicn_api_node_stats_get_reply_t * stats)
 {
@@ -51,7 +76,6 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
   hicn_main_t *sm = &hicn_main;
   hicn_buffer_t *hicnb0 = hicn_get_buffer (b0);
   u32 node_id0 = 0;
-  u8 dpo_ctx_id0 = vnet_buffer (b0)->ip.adj_index[VLIB_TX];
   u8 vft_id0 = dpo_type;
   u8 is_cs0 = 0;
   u8 hash_entry_id = 0;
@@ -142,24 +166,21 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
  * ipv6/tcp
  */
 uword
-hicn_forward_interest_fn (vlib_main_t * vm,
-			  vlib_node_runtime_t * node,
-			  vlib_frame_t * frame,
-			  hicn_strategy_vft_t * strategy,
-			  dpo_type_t dpo_type,
-			  vlib_node_registration_t * hicn_strategy_node)
+hicn_strategy_fn (vlib_main_t * vm,
+                  vlib_node_runtime_t * node,
+                  vlib_frame_t * frame)
 {
 
   u32 n_left_from, *from, *to_next, n_left_to_next;
   hicn_strategy_next_t next_index;
-  hicn_strategy_runtime_t *rt;
+  hicn_strategy_runtime_t *rt = NULL;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
   f64 tnow;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
   next_index = (hicn_strategy_next_t) node->cached_next_index;
-  rt = vlib_node_get_runtime_data (vm, hicn_strategy_node->index);
+  rt = vlib_node_get_runtime_data (vm, hicn_strategy_node.index);
   rt->pitcs = &hicn_main.pitcs;
   /* Capture time in vpp terms */
   tnow = vlib_time_now (vm);
@@ -202,6 +223,9 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 	  b0 = vlib_get_buffer (vm, bi0);
 	  next0 = HICN_STRATEGY_NEXT_ERROR_DROP;
 
+          hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get(vnet_buffer (b0)->ip.adj_index[VLIB_TX]);
+          const hicn_strategy_vft_t * strategy = hicn_dpo_get_strategy_vft(dpo_ctx->dpo_type);
+
 	  ret = hicn_interest_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
 	  stats.pkts_processed++;
 	  /* Select next hop */
@@ -226,7 +250,7 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 	      hicn_new_interest (rt, b0, &next0, tnow, nameptr, namelen,
 				 outface, nh_idx,
 				 vnet_buffer (b0)->ip.adj_index[VLIB_TX],
-				 strategy, dpo_type, isv6, &stats);
+				 strategy, dpo_ctx->dpo_type, isv6, &stats);
 	    }
 	  /* Maybe trace */
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
@@ -237,6 +261,7 @@ hicn_forward_interest_fn (vlib_main_t * vm,
 	      t->pkt_type = HICN_PKT_TYPE_CONTENT;
 	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
+              t->dpo_type = dpo_ctx->dpo_type;
 	    }
 	  /*
 	   * Verify speculative enqueue, maybe switch current
@@ -254,14 +279,38 @@ hicn_forward_interest_fn (vlib_main_t * vm,
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
 
-  vlib_node_increment_counter (vm, hicn_strategy_node->index,
+  vlib_node_increment_counter (vm, hicn_strategy_node.index,
 			       HICNFWD_ERROR_PROCESSED, stats.pkts_processed);
-  vlib_node_increment_counter (vm, hicn_strategy_node->index,
+  vlib_node_increment_counter (vm, hicn_strategy_node.index,
 			       HICNFWD_ERROR_INTERESTS,
 			       stats.pkts_interest_count);
 
   return (frame->n_vectors);
 }
+
+/*
+ * Node registration for the forwarder node
+ */
+/* *INDENT-OFF* */
+VLIB_REGISTER_NODE (hicn_strategy_node) =
+  {
+   .name = "hicn-strategy",
+   .function = hicn_strategy_fn,
+   .vector_size = sizeof (u32),
+   .runtime_data_bytes = sizeof (int) + sizeof(hicn_pit_cs_t *),
+   .format_trace = hicn_strategy_format_trace,
+   .type = VLIB_NODE_TYPE_INTERNAL,
+   .n_errors = ARRAY_LEN (hicn_strategy_error_strings),
+   .error_strings = hicn_strategy_error_strings,
+   .n_next_nodes = HICN_STRATEGY_N_NEXT,
+   .next_nodes =
+   {
+    [HICN_STRATEGY_NEXT_INTEREST_HITPIT] = "hicn-interest-hitpit",
+    [HICN_STRATEGY_NEXT_INTEREST_HITCS] = "hicn-interest-hitcs",
+    [HICN_STRATEGY_NEXT_ERROR_DROP] = "error-drop",
+   },
+  };
+
 
 /*
  * fd.io coding-style-patch-verification: ON

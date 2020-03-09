@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,15 +22,21 @@
 #include "params.h"
 #include "faces/face.h"
 
+//FIB table for hicn. 0 is the default one used by ip
 #define HICN_FIB_TABLE 0
-
-#define DATA_LEN 8
 
 #define NEXT_HOP_INVALID DPO_INVALID
 
 #define INIT_SEQ 0
-/*
- * An hicn dpo is a list of next hops (face + weight).
+
+/**
+ * @brief Definition of the general hICN DPO ctx (shared among all the strategies).
+ *
+ * An hICN DPO ctx contains the list of next hops, auxiliaries fields to maintain the dpo, map-me
+ * specifics (tfib_entry_count and seq), the dpo_type and 64B to let each strategy to store additional
+ * information. Each next hop is a dpo_id_t that refers to an hICN face. The dpo_type is used to
+ * identify the strategy and to retrieve the vft corresponding to the strategy (see strategy.h)
+ * and to the dpo ctx (see strategy_dpo_manager.h)
  */
 typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
 {
@@ -48,39 +54,125 @@ typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
   /* 46B + 2B = 48B */
   u16 padding;			/* To align to 8B */
 
-#ifdef HICN_MAPME_NOTIFICATIONS
-  /* (8B) last acked update for IU/IN heuristic on producer */
-  f64 last_iu_ack;
-#endif
-  /* (4B) last sequence number */
+  /* 48 + 4B = 52; last sequence number */
   seq_t seq;
+
+  /* 48 + 1B = 53; last sequence number */
+  dpo_type_t dpo_type;
+
+  CLIB_CACHE_LINE_ALIGN_MARK (cacheline1);
+  u8 data[CLIB_CACHE_LINE_BYTES];
 
 } hicn_dpo_ctx_t;
 
+extern hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
+
+/**
+ * @brief Initialize the hICN dpo ctx
+ *
+ * @param dpo_ctx Pointer to the hICN dpo ctx to initialize
+ * @param next_hop List of netx hops to store in the dpo ctx
+ * @param nh_len Number of elements in the list of next hops
+ * @param dpo_type Type of dpo. It identifies the strategy.
+ */
 always_inline void
-init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx)
+init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx, const dpo_id_t * next_hop,
+              int nh_len, dpo_type_t dpo_type)
 {
   dpo_id_t invalid = NEXT_HOP_INVALID;
-
-  for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
-    {
-      dpo_ctx->next_hops[i] = invalid;
-    }
 
   dpo_ctx->entry_count = 0;
   dpo_ctx->locks = 0;
 
   dpo_ctx->tfib_entry_count = 0;
 
-#ifdef HICN_MAPME_NOTIFICATIONS
-  last_iu_ack = 0;
-#endif
-
   dpo_ctx->seq = INIT_SEQ;
+  dpo_ctx->dpo_type = dpo_type;
+
+  for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX && i < nh_len; i++)
+    {
+      clib_memcpy (&dpo_ctx->next_hops[i],
+		   &next_hop[i], sizeof (dpo_id_t));
+      dpo_ctx->entry_count++;
+    }
+
+
+  for (int i = nh_len; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
+    {
+      dpo_ctx->next_hops[i] = invalid;
+    }
+
 }
 
-STATIC_ASSERT (sizeof (hicn_dpo_ctx_t) <= CLIB_CACHE_LINE_BYTES,
-	       "sizeof hicn_dpo_ctx_t is greater than 64B");
+/**
+ * @brief Initialize the pool containing the hICN dpo ctx
+ *
+ */
+void hicn_strategy_init_dpo_ctx_pool (void);
+
+/**
+ * @brief Allocate a new hICN dpo ctx from the pool
+ */
+hicn_dpo_ctx_t *
+hicn_strategy_dpo_ctx_alloc ();
+
+/**
+ * @brief Retrieve an existing hICN dpo ctx from the pool
+ */
+hicn_dpo_ctx_t *
+hicn_strategy_dpo_ctx_get (index_t index);
+
+/**
+ * @brief Retrieve the index of the hICN dpo ctx
+ */
+index_t
+hicn_strategy_dpo_ctx_get_index (hicn_dpo_ctx_t * cd);
+
+/**
+ * @brief Lock the dpo of a strategy ctx
+ *
+ * @param dpo Identifier of the dpo of the strategy ctx
+ */
+void
+hicn_strategy_dpo_ctx_lock (dpo_id_t * dpo);
+
+/**
+ * @brief Unlock the dpo of a strategy ctx
+ *
+ * @param dpo Identifier of the dpo of the strategy ctx
+ */
+void
+hicn_strategy_dpo_ctx_unlock (dpo_id_t * dpo);
+
+/**
+ * @brief Add or update a next hop in the dpo ctx.
+ *
+ * This function is meant to be used in the control plane and not in the data plane,
+ * as it is not optimized for the latter.
+ *
+ * @param nh Next hop to insert in the dpo ctx
+ * @param dpo_ctx Dpo ctx to update with the new or updated next hop
+ * @param pos Return the position of the nh that has been added
+ * @return HICN_ERROR_NONE if the update or insert was fine,
+ * otherwise HICN_ERROR_DPO_CTX_NOT_FOUND
+ */
+int
+hicn_strategy_dpo_ctx_add_nh (const dpo_id_t * nh, hicn_dpo_ctx_t * dpo_ctx, u8 * pos);
+
+/**
+ * @brief Delete a next hop in the dpo ctx.
+ *
+ * @param face_id Face identifier of the next hop
+ * @param dpo_ctx Dpo ctx to update by removing the face
+ * @return HICN_ERROR_NONE if the update or insert was fine,
+ * otherwise HICN_ERROR_DPO_CTS_NOT_FOUND
+ */
+int
+hicn_strategy_dpo_ctx_del_nh (hicn_face_id_t face_id, hicn_dpo_ctx_t * dpo_ctx);
+
+
+STATIC_ASSERT (sizeof (hicn_dpo_ctx_t) <= 2*CLIB_CACHE_LINE_BYTES,
+	       "sizeof hicn_dpo_ctx_t is greater than 128B");
 
 #endif /* // __HICN_STRATEGY_DPO_CTX_H__ */
 

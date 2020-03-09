@@ -42,7 +42,7 @@ const char *HICN_FACE_CTRX_STRING[] = {
 u8 *
 face_show (u8 * s, int face_id, u32 indent)
 {
-  s = format (s, "Faces:\n", indent);
+  s = format (s, "%U Faces:\n", format_white_space, indent);
   indent += 4;
   int i;
   vec_foreach_index (i, face_dpo_vec)
@@ -97,7 +97,7 @@ format_hicn_face_all (u8 * s, int n, ...)
   va_start (ap, n);
   u32 indent = va_arg (ap, u32);
 
-  s = format (s, "Faces: %d\n", indent);
+  s = format (s, "%U Faces:\n", format_white_space, indent);
 
   hicn_face_t *face;
 

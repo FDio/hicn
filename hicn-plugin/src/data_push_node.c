@@ -99,7 +99,7 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
   hicn_header_t *hicn0 = vlib_buffer_get_current (b0);
   hicn_buffer_t *hicnb0 = hicn_get_buffer (b0);
   u32 node_id0 = 0;
-  u8 dpo_ctx_id0 = ~0;
+  index_t dpo_ctx_id0 = ~0;
   u8 vft_id0 = default_dpo.hicn_dpo_get_type ();
   u8 is_cs0 = 1;
   u8 hash_entry_id = 0;

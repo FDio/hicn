@@ -189,6 +189,9 @@ typedef struct __attribute__ ((packed)) hicn_hash_entry_s
    */
   u32 locks;
 
+  /* Index of dpo (4B) */
+  index_t dpo_ctx_id;
+
   /* A few flags, including 'this points to a chain of buckets' */
   u8 he_flags;
 
@@ -198,10 +201,11 @@ typedef struct __attribute__ ((packed)) hicn_hash_entry_s
    */
   u8 vft_id;
 
-  /* Index of dpo */
-  u8 dpo_ctx_id;
+} hicn_hash_entry_t; //size 22B
 
-} hicn_hash_entry_t;
+STATIC_ASSERT (sizeof (index_t) <= 4,
+	       "sizeof index_t is greater than 4B");
+
 
 #define HICN_HASH_ENTRY_FLAGS_DEFAULT  0x00
 
@@ -231,13 +235,13 @@ typedef struct __attribute__ ((packed)) hicn_hash_entry_s
  * Overflow bucket ratio as a fraction of the fixed/configured count; a pool
  * of hash buckets used if a row in the fixed table overflows.
  */
-#define HICN_HASHTB_BUCKET_ENTRIES 6
+#define HICN_HASHTB_BUCKET_ENTRIES 5
 
 typedef struct __attribute__ ((packed))
 {
   hicn_hash_entry_t hb_entries[HICN_HASHTB_BUCKET_ENTRIES];
   u64 align1;
-  u32 align2;
+  u64 align2;
   u16 align3;
 } hicn_hash_bucket_t;
 
@@ -400,7 +404,7 @@ int
 hicn_hashtb_insert (hicn_hashtb_h h, hicn_hash_node_t * node,
 		    hicn_hash_entry_t ** hash_entry, u64 hash,
 		    u32 * node_id,
-		    u8 * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
+		    index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
 		    u8 * hash_entry_id, u32 * bucket_id,
 		    u8 * bucket_is_overflow);
 
@@ -414,7 +418,7 @@ hicn_hashtb_insert (hicn_hashtb_h h, hicn_hash_node_t * node,
 int
 hicn_hashtb_lookup_node (hicn_hashtb_h h, const u8 * key,
 			 u32 keylen, u64 hashval, u8 is_data,
-			 u32 * node_id, u8 * dpo_ctx_id, u8 * vft_id,
+			 u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id,
 			 u8 * is_cs, u8 * hash_entry_id, u32 * bucket_id,
 			 u8 * bucket_is_overflow);
 
@@ -432,7 +436,7 @@ int
 hicn_hashtb_lookup_node_ex (hicn_hashtb_h h, const u8 * key,
 			    u32 keylen, u64 hashval, u8 is_data,
 			    int include_deleted_p, u32 * node_id,
-			    u8 * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
+			    index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
 			    u8 * hash_entry_id, u32 * bucket_id,
 			    u8 * bucket_is_overflow);
 
