@@ -305,11 +305,13 @@ void MemifConnector::sendCallback(const std::error_code &ec) {
   }
 }
 
-void MemifConnector::processInputBuffer() {
+void MemifConnector::processInputBuffer(std::uint16_t total_packets) {
   Packet::MemBufPtr ptr;
 
-  while (input_buffer_.pop(ptr)) {
-    receive_callback_(std::move(ptr));
+  for (; total_packets > 0; total_packets--) {
+    if (input_buffer_.pop(ptr)) {
+      receive_callback_(std::move(ptr));
+    }
   }
 }
 
@@ -339,6 +341,7 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
 
   memif_connection_t *c = connector->memif_connection_.get();
   int err = MEMIF_ERR_SUCCESS, ret_val;
+  uint16_t total_packets = 0;
   uint16_t rx;
 
   do {
@@ -386,11 +389,12 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
     }
 
     c->rx_buf_num -= rx;
+    total_packets += rx;
 
   } while (ret_val == MEMIF_ERR_NOBUF);
 
   connector->io_service_.post(
-      std::bind(&MemifConnector::processInputBuffer, connector));
+      std::bind(&MemifConnector::processInputBuffer, connector, total_packets));
 
   return 0;
 
