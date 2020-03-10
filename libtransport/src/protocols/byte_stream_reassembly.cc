@@ -39,7 +39,7 @@ ByteStreamReassembly::ByteStreamReassembly(
 
 void ByteStreamReassembly::reassemble(
     std::unique_ptr<ContentObjectManifest> &&manifest) {
-  if (TRANSPORT_EXPECT_TRUE(manifest != nullptr)) {
+  if (TRANSPORT_EXPECT_TRUE(manifest != nullptr) && read_buffer_->capacity()) {
     received_packets_.emplace(
         std::make_pair(manifest->getName().getSuffix(), nullptr));
     assembleContent();
@@ -47,7 +47,8 @@ void ByteStreamReassembly::reassemble(
 }
 
 void ByteStreamReassembly::reassemble(ContentObject::Ptr &&content_object) {
-  if (TRANSPORT_EXPECT_TRUE(content_object != nullptr)) {
+  if (TRANSPORT_EXPECT_TRUE(content_object != nullptr) &&
+      read_buffer_->capacity()) {
     received_packets_.emplace(std::make_pair(
         content_object->getName().getSuffix(), std::move(content_object)));
     assembleContent();

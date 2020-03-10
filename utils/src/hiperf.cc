@@ -72,6 +72,7 @@ struct ClientConfiguration {
         producer_certificate(""),
         passphrase(""),
         receive_buffer(nullptr),
+        receive_buffer_size_(128 * 1024),
         download_size(0),
         report_interval_milliseconds_(1000),
         transport_protocol_(CBR),
@@ -92,6 +93,7 @@ struct ClientConfiguration {
   std::string producer_certificate;
   std::string passphrase;
   std::shared_ptr<utils::MemBuf> receive_buffer;
+  std::size_t receive_buffer_size_;
   std::size_t download_size;
   std::uint32_t report_interval_milliseconds_;
   TransportProtocolAlgorithms transport_protocol_;
@@ -562,11 +564,10 @@ class HIperfClient {
   };
 
   class Callback : public ConsumerSocket::ReadCallback {
-    static constexpr std::size_t read_size = 128 * 1024;
-
    public:
     Callback(HIperfClient &hiperf_client) : client_(hiperf_client) {
-      client_.configuration_.receive_buffer = utils::MemBuf::create(read_size);
+      client_.configuration_.receive_buffer =
+          utils::MemBuf::create(client_.configuration_.receive_buffer_size_);
     }
 
     bool isBufferMovable() noexcept override { return false; }
@@ -575,7 +576,7 @@ class HIperfClient {
                        size_t *max_length) override {
       *application_buffer =
           client_.configuration_.receive_buffer->writableData();
-      *max_length = read_size;
+      *max_length = client_.configuration_.receive_buffer_size_;
     }
 
     void readDataAvailable(std::size_t length) noexcept override {}
@@ -583,7 +584,9 @@ class HIperfClient {
     void readBufferAvailable(
         std::unique_ptr<utils::MemBuf> &&buffer) noexcept override {}
 
-    size_t maxBufferSize() const override { return read_size; }
+    size_t maxBufferSize() const override {
+      return client_.configuration_.receive_buffer_size_;
+    }
 
     void readError(const std::error_code ec) noexcept override {
       std::cerr << "Error " << ec.message() << " while reading from socket"
@@ -740,6 +743,7 @@ class HIperfServer {
   }
 
   void virtualProcessInterest(ProducerSocket &p, const Interest &interest) {
+    // std::cout << "Received interest " << interest.getName() << std::endl;
     content_objects_[content_objects_index_ & mask_]->setName(
         interest.getName());
     producer_socket_->produce(
@@ -1147,6 +1151,10 @@ void usage() {
             << std::endl;
   std::cerr << "-L\t<interest lifetime>\t\t"
             << "Set interest lifetime." << std::endl;
+  std::cerr << "-M\t<input_buffer_size>\t\t"
+            << "Size of consumer input buffer. If 0, reassembly of packets "
+               "will be disabled."
+            << std::endl;
   std::cerr << "-W\t<window_size>\t\t\t"
             << "Use a fixed congestion window "
                "for retrieving the data."
@@ -1200,7 +1208,7 @@ int main(int argc, char *argv[]) {
   int opt;
 #ifndef _WIN32
   while ((opt = getopt(argc, argv,
-                       "DSCf:b:d:W:RMc:vA:s:rmlK:k:y:p:hi:xE:P:B:ItL:")) !=
+                       "DSCf:b:d:W:RM:c:vA:s:rmlK:k:y:p:hi:xE:P:B:ItL:")) !=
          -1) {
     switch (opt) {
       // Common
@@ -1214,7 +1222,7 @@ int main(int argc, char *argv[]) {
       }
 #else
   while ((opt = getopt(argc, argv,
-                       "SCf:b:d:W:RMc:vA:s:rmlK:k:y:p:hi:xB:E:P:tL:")) != -1) {
+                       "SCf:b:d:W:RM:c:vA:s:rmlK:k:y:p:hi:xB:E:P:tL:")) != -1) {
     switch (opt) {
 #endif
       case 'f': {
@@ -1257,6 +1265,11 @@ int main(int argc, char *argv[]) {
       }
       case 'W': {
         client_configuration.window = std::stod(optarg);
+        options = 1;
+        break;
+      }
+      case 'M': {
+        client_configuration.receive_buffer_size_ = std::stoull(optarg);
         options = 1;
         break;
       }

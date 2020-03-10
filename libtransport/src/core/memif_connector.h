@@ -96,7 +96,7 @@ class MemifConnector : public Connector {
 
   void sendCallback(const std::error_code &ec);
 
-  void processInputBuffer();
+  void processInputBuffer(std::uint16_t total_packets);
 
  private:
   static utils::EpollEventReactor main_event_reactor_;

@@ -24,6 +24,7 @@
 #include <hicn/transport/interfaces/portal.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/log.h>
+#include <hicn/transport/utils/fixed_block_allocator.h>
 
 #include <core/forwarder_interface.h>
 #include <core/pending_interest.h>
@@ -52,21 +53,20 @@ class HandlerMemory {
   static constexpr std::size_t memory_size = 1024 * 1024;
 
  public:
-  HandlerMemory() : index_(0) {}
+  HandlerMemory() {}
 
   HandlerMemory(const HandlerMemory &) = delete;
   HandlerMemory &operator=(const HandlerMemory &) = delete;
 
   TRANSPORT_ALWAYS_INLINE void *allocate(std::size_t size) {
-    return &storage_[index_++ % memory_size];
+    return utils::FixedBlockAllocator<128, 4096>::getInstance()
+        ->allocateBlock();
   }
 
-  TRANSPORT_ALWAYS_INLINE void deallocate(void *pointer) {}
-
- private:
-  // Storage space used for handler-based custom memory allocation.
-  typename std::aligned_storage<128>::type storage_[memory_size];
-  uint32_t index_;
+  TRANSPORT_ALWAYS_INLINE void deallocate(void *pointer) {
+    utils::FixedBlockAllocator<128, 4096>::getInstance()->deallocateBlock(
+        pointer);
+  }
 #else
  public:
   HandlerMemory() {}
