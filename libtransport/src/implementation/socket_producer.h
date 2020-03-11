@@ -43,12 +43,15 @@ using namespace interface;
 
 class ProducerSocket : public Socket<BasePortal>,
                        public BasePortal::ProducerCallback {
+  static constexpr uint32_t burst_size = 256;
+
  public:
   explicit ProducerSocket(interface::ProducerSocket *producer_socket)
       : producer_interface_(producer_socket),
         portal_(std::make_shared<Portal>(io_service_)),
         data_packet_size_(default_values::content_object_packet_size),
         content_object_expiry_time_(default_values::content_object_expiry_time),
+        object_counter_(0),
         output_buffer_(default_values::producer_socket_output_buffer_size),
         async_thread_(),
         registration_status_(REGISTRATION_NOT_ATTEMPTED),
@@ -293,6 +296,27 @@ class ProducerSocket : public Socket<BasePortal>,
       }
     }
 
+    io_service_.post([this]() {
+      std::shared_ptr<ContentObject> co;
+      while (object_queue_for_callbacks_.pop(co)) {
+        if (on_new_segment_) {
+          on_new_segment_(*producer_interface_, *co);
+        }
+
+        if (on_content_object_to_sign_) {
+          on_content_object_to_sign_(*producer_interface_, *co);
+        }
+
+        if (on_content_object_in_output_buffer_) {
+          on_content_object_in_output_buffer_(*producer_interface_, *co);
+        }
+
+        if (on_content_object_output_) {
+          on_content_object_output_(*producer_interface_, *co);
+        }
+      }
+    });
+
     io_service_.dispatch([this, buffer_size]() {
       if (on_content_produced_) {
         on_content_produced_(*producer_interface_,
@@ -300,7 +324,6 @@ class ProducerSocket : public Socket<BasePortal>,
       }
     });
 
-    TRANSPORT_LOGD("--------- END PRODUCE ------------");
     return suffix_strategy->getTotalCount();
   }
 
@@ -498,12 +521,6 @@ class ProducerSocket : public Socket<BasePortal>,
                 break;
               }
 
-            case ProducerCallbacksOptions::CONTENT_OBJECT_SIGN:
-              if (socket_option_value == VOID_HANDLER) {
-                on_content_object_to_sign_ = VOID_HANDLER;
-                break;
-              }
-
             case ProducerCallbacksOptions::CONTENT_OBJECT_READY:
               if (socket_option_value == VOID_HANDLER) {
                 on_content_object_in_output_buffer_ = VOID_HANDLER;
@@ -567,10 +584,6 @@ class ProducerSocket : public Socket<BasePortal>,
           switch (socket_option_key) {
             case ProducerCallbacksOptions::NEW_CONTENT_OBJECT:
               on_new_segment_ = socket_option_value;
-              break;
-
-            case ProducerCallbacksOptions::CONTENT_OBJECT_SIGN:
-              on_content_object_to_sign_ = socket_option_value;
               break;
 
             case ProducerCallbacksOptions::CONTENT_OBJECT_READY:
@@ -753,10 +766,6 @@ class ProducerSocket : public Socket<BasePortal>,
           switch (socket_option_key) {
             case ProducerCallbacksOptions::NEW_CONTENT_OBJECT:
               *socket_option_value = &on_new_segment_;
-              break;
-
-            case ProducerCallbacksOptions::CONTENT_OBJECT_SIGN:
-              *socket_option_value = &on_content_object_to_sign_;
               break;
 
             case ProducerCallbacksOptions::CONTENT_OBJECT_READY:
@@ -972,6 +981,10 @@ class ProducerSocket : public Socket<BasePortal>,
                            // by the application thread
   std::atomic<uint32_t> content_object_expiry_time_;
 
+  std::uint16_t object_counter_;
+  utils::CircularFifo<std::shared_ptr<ContentObject>, 2048>
+      object_queue_for_callbacks_;
+
   // buffers
   // ContentStore is thread-safe
   utils::ContentStore output_buffer_;
@@ -1027,36 +1040,46 @@ class ProducerSocket : public Socket<BasePortal>,
     portal_->runEventsLoop();
   }
 
+  void scheduleSendBurst() {
+    asio::post(io_service_, [this]() {
+      std::shared_ptr<ContentObject> co;
+
+      for (uint32_t i = 0; i < burst_size; i++) {
+        if (object_queue_for_callbacks_.pop(co)) {
+          if (on_new_segment_) {
+            on_new_segment_(*producer_interface_, *co);
+          }
+
+          if (on_content_object_to_sign_) {
+            on_content_object_to_sign_(*producer_interface_, *co);
+          }
+
+          if (on_content_object_in_output_buffer_) {
+            on_content_object_in_output_buffer_(*producer_interface_, *co);
+          }
+
+          if (on_content_object_output_) {
+            on_content_object_output_(*producer_interface_, *co);
+          }
+        } else {
+          break;
+        }
+      }
+    });
+  }
+
   void passContentObjectToCallbacks(
       const std::shared_ptr<ContentObject> &content_object) {
-    if (content_object) {
-      io_service_.dispatch([this, content_object]() {
-        if (on_new_segment_) {
-          on_new_segment_(*producer_interface_, *content_object);
-        }
+    output_buffer_.insert(content_object);
+    portal_->sendContentObject(*content_object);
+    object_queue_for_callbacks_.push(std::move(content_object));
 
-        if (on_content_object_to_sign_) {
-          on_content_object_to_sign_(*producer_interface_, *content_object);
-        }
-
-        if (on_content_object_in_output_buffer_) {
-          on_content_object_in_output_buffer_(*producer_interface_,
-                                              *content_object);
-        }
-      });
-
-      output_buffer_.insert(content_object);
-
-      io_service_.dispatch([this, content_object]() {
-        if (on_content_object_output_) {
-          on_content_object_output_(*producer_interface_, *content_object);
-        }
-      });
-
-      portal_->sendContentObject(*content_object);
+    if (object_queue_for_callbacks_.size() >= burst_size) {
+      object_counter_ = 0;
+      scheduleSendBurst();
     }
   }
-};  // namespace implementation
+};
 
 }  // namespace implementation
 
