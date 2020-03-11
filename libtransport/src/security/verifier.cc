@@ -116,17 +116,10 @@ PARCKeyId *Verifier::addKeyFromCertificate(const std::string &file_name) {
 }
 
 int Verifier::verify(const Packet &packet) {
-  // to initialize packet.payload_head_
+  // Initialize packet.payload_head_
   const_cast<Packet *>(&packet)->separateHeaderPayload();
-  bool valid = false;
-
-  // initialize packet.payload_head_
-  const_cast<Packet *>(&packet)->separateHeaderPayload();
-  // header chain points to the IP + TCP hicn header
-  // utils::MemBuf *header_chain = packet.header_head_;
-  // utils::MemBuf *payload_chain = packet.payload_head_;
-  // uint8_t *hicn_packet = header_chain->writableData();
   Packet::Format format = packet.getFormat();
+  bool valid = false;
 
   if (!(packet.format_ & HFO_AH)) {
     throw errors::MalformedAHPacketException();
@@ -149,11 +142,12 @@ int Verifier::verify(const Packet &packet) {
   int ah_payload_len = (int)packet.getSignatureSize();
   uint8_t *_signature = packet.getSignature();
   uint8_t *signature = new uint8_t[ah_payload_len];
+  std::shared_ptr<CryptoHasher> hasher;
+
   // TODO Remove signature copy at this point, by not setting to zero
   // the validation payload.
   std::memcpy(signature, _signature, ah_payload_len);
 
-  std::shared_ptr<CryptoHasher> hasher;
   switch (CryptoSuite(suite)) {
     case CryptoSuite::DSA_SHA256:
     case CryptoSuite::RSA_SHA256:
@@ -178,7 +172,7 @@ int Verifier::verify(const Packet &packet) {
       parcBuffer_Wrap(signature, ah_payload_len, 0, ah_payload_len);
   parcBuffer_Rewind(bits);
 
-  /* IF the signature algo is ECDSA, the signature might be shorter than the
+  /* If the signature algo is ECDSA, the signature might be shorter than the
    * signature field */
   PARCSigningAlgorithm algo = parcCryptoSuite_GetSigningAlgorithm(suite);
   while (algo == PARCSigningAlgorithm_ECDSA && parcBuffer_HasRemaining(bits) &&

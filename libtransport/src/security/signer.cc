@@ -162,12 +162,10 @@ void Signer::sign(Packet &packet) {
   }
 
   CryptoHash hash = hasher.finalize();
-
   signature_ = parcSigner_SignDigestNoAlloc(this->signer_, hash.hash_,
                                             packet.getSignature(),
                                             (uint32_t)signature_length_);
   PARCBuffer *buffer = parcSignature_GetSignature(signature_);
-
   size_t bytes_len = parcBuffer_Remaining(buffer);
 
   if (bytes_len > signature_length_) {
@@ -176,6 +174,8 @@ void Signer::sign(Packet &packet) {
 
   hicn_packet_copy_header(format, &header_copy,
                           (hicn_header_t *)packet.packet_start_, false);
+
+  parcSignature_Release(&signature_);
 }
 
 size_t Signer::getSignatureLength() { return signature_length_; }
