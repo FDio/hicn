@@ -84,9 +84,7 @@ typedef struct __attribute__ ((packed)) hicn_face_s
   /* Additional space to fill with face_type specific information */
   u8 data[2 * CLIB_CACHE_LINE_BYTES - sizeof (hicn_face_shared_t)];
   hicn_face_shared_t shared;
-}
-
-hicn_face_t;
+} hicn_face_t;
 
 /* Pool of faces */
 extern hicn_face_t *hicn_dpoi_face_pool;
