@@ -72,6 +72,7 @@ set(HICN_PLUGIN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/interest_pcslookup_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/interest_hitpit_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/interest_hitcs_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/data_input_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/data_pcslookup_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/data_fwd_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/data_push_node.c
