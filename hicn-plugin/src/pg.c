@@ -57,8 +57,6 @@ typedef enum
 {
   HICNPG_INTEREST_NEXT_V4_LOOKUP,
   HICNPG_INTEREST_NEXT_V6_LOOKUP,
-  HICNPG_INTEREST_NEXT_IFACE_IP4_INPUT,
-  HICNPG_INTEREST_NEXT_IFACE_IP6_INPUT,
   HICNPG_INTEREST_NEXT_DROP,
   HICNPG_N_NEXT,
 } hicnpg_interest_next_t;
@@ -79,12 +77,11 @@ hicnpg_main_t hicnpg_main = {
   .interest_lifetime = 4,
   .n_flows = (u32) 0,
   .n_ifaces = (u32) 1,
-  .hicn_underneath = 0
+  .sw_if = (u32) 0
 };
 
 hicnpg_server_main_t hicnpg_server_main = {
   .node_index = 0,
-  .hicn_underneath = 0
 };
 
 /* packet trace format function */
@@ -193,6 +190,8 @@ hicnpg_client_interest_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  sw_if_index0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	  sw_if_index1 = vnet_buffer (b1)->sw_if_index[VLIB_RX];
+	  vnet_buffer (b0)->sw_if_index[VLIB_RX] = hpgm->sw_if;
+	  vnet_buffer (b1)->sw_if_index[VLIB_RX] = hpgm->sw_if;
 
 	  /* Check icn packets, locate names */
 	  if (hicn_interest_parse_pkt (b0, &name0, &namelen0, &hicn0, &isv6_0)
@@ -225,7 +224,6 @@ hicnpg_client_interest_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      next0 =
 		isv6_0 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
 		HICNPG_INTEREST_NEXT_V4_LOOKUP;
-	      next0 += 2 * hpgm->hicn_underneath;
 	    }
 	  if (hicn_interest_parse_pkt (b1, &name1, &namelen1, &hicn1, &isv6_1)
 	      == HICN_ERROR_NONE)
@@ -257,7 +255,6 @@ hicnpg_client_interest_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      next1 =
 		isv6_1 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
 		HICNPG_INTEREST_NEXT_V4_LOOKUP;
-	      next1 += 2 * hpgm->hicn_underneath;
 	    }
 	  /* Send pkt to next node */
 	  vnet_buffer (b0)->sw_if_index[VLIB_TX] = ~0;
@@ -320,6 +317,7 @@ hicnpg_client_interest_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  b0 = vlib_get_buffer (vm, bi0);
 
 	  sw_if_index0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];
+	  vnet_buffer (b0)->sw_if_index[VLIB_RX] = hpgm->sw_if;
 
 	  /* Check icn packets, locate names */
 	  if (hicn_interest_parse_pkt (b0, &name0, &namelen0, &hicn0, &isv6_0)
@@ -353,7 +351,6 @@ hicnpg_client_interest_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      next0 =
 		isv6_0 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
 		HICNPG_INTEREST_NEXT_V4_LOOKUP;
-	      next0 += 2 * hpgm->hicn_underneath;
 	    }
 	  /* Send pkt to ip lookup */
 	  vnet_buffer (b0)->sw_if_index[VLIB_TX] = ~0;
@@ -407,7 +404,7 @@ hicn_rewrite_interestv4 (vlib_main_t * vm, vlib_buffer_t * b0, u32 seq_number,
     .ip4 = hicnpg_main.pgen_clt_src_addr.ip4,
   };
   hicn_name_t dst_name = {
-    .ip4.prefix_as_ip4 = hicnpg_main.pgen_clt_hicn_name.ip4,
+    .ip4.prefix_as_ip4 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip4,
     .ip4.suffix = seq_number,
   };
 
@@ -453,7 +450,7 @@ hicn_rewrite_interestv6 (vlib_main_t * vm, vlib_buffer_t * b0, u32 seq_number,
     .ip6 = hicnpg_main.pgen_clt_src_addr.ip6,
   };
   hicn_name_t dst_name = {
-    .ip6.prefix_as_ip6 = hicnpg_main.pgen_clt_hicn_name.ip6,
+    .ip6.prefix_as_ip6 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip6,
     .ip6.suffix = seq_number,
   };
   src_addr.ip6.as_u32[3] += clib_host_to_net_u32 (iface);
@@ -559,8 +556,6 @@ VLIB_REGISTER_NODE(hicn_pg_interest_node) ={
   {
     [HICNPG_INTEREST_NEXT_V4_LOOKUP] = "ip4-lookup",
     [HICNPG_INTEREST_NEXT_V6_LOOKUP] = "ip6-lookup",
-    [HICNPG_INTEREST_NEXT_IFACE_IP4_INPUT] = "hicn-iface-ip4-input",
-    [HICNPG_INTEREST_NEXT_IFACE_IP6_INPUT] = "hicn-iface-ip6-input",
     [HICNPG_INTEREST_NEXT_DROP] = "error-drop"
   },
 };
@@ -573,6 +568,8 @@ VLIB_REGISTER_NODE(hicn_pg_interest_node) ={
 typedef enum
 {
   HICNPG_DATA_NEXT_DROP,
+  HICNPG_DATA_NEXT_LOOKUP4,
+  HICNPG_DATA_NEXT_LOOKUP6,
   HICNPG_DATA_N_NEXT,
 } hicnpg_data_next_t;
 
@@ -600,6 +597,93 @@ format_hicnpg_data_trace (u8 * s, va_list * args)
 }
 
 
+static_always_inline int
+match_ip4_name (u32 * name, fib_prefix_t * prefix)
+{
+  u32 xor = 0;
+
+  xor = *name & prefix->fp_addr.ip4.data_u32;
+
+  return xor == prefix->fp_addr.ip4.data_u32;
+}
+
+static_always_inline int
+match_ip6_name (u8 * name, fib_prefix_t * prefix)
+{
+  union
+  {
+    u32x4 as_u32x4;
+    u64 as_u64[2];
+    u32 as_u32[4];
+  } xor_sum __attribute__ ((aligned (sizeof (u32x4))));
+
+  xor_sum.as_u64[0] = ((u64 *) name)[0] & prefix->fp_addr.ip6.as_u64[0];
+  xor_sum.as_u64[1] = ((u64 *) name)[1] & prefix->fp_addr.ip6.as_u64[1];
+
+  return (xor_sum.as_u64[0] == prefix->fp_addr.ip6.as_u64[0]) &&
+    (xor_sum.as_u64[1] == prefix->fp_addr.ip6.as_u64[1]);
+}
+
+
+/*
+ * Return 0,1,2.
+ * 0 matches
+ * 1 does not match and the prefix is ip4
+ * 2 does not match and the prefix is ip6
+ */
+static_always_inline u32
+match_data (vlib_buffer_t * b, fib_prefix_t * prefix)
+{
+  u8 *ptr = vlib_buffer_get_current (b);
+  u8 v = *ptr & 0xf0;
+  u32 next = 0;
+
+  if (PREDICT_TRUE (v == 0x40 && ip46_address_is_ip4 (&prefix->fp_addr)))
+    {
+      if (!match_ip4_name ((u32 *) & (ptr[12]), prefix))
+	next = 1;
+    }
+  else
+    if (PREDICT_TRUE (v == 0x60 && !ip46_address_is_ip4 (&prefix->fp_addr)))
+    {
+      if (!match_ip6_name (&(ptr[8]), prefix))
+	next = 2;
+    }
+
+  return next;
+}
+
+/*
+ * Return 0,1,2.
+ * 0 matches
+ * 1 does not match and the prefix is ip4
+ * 2 does not match and the prefix is ip6
+ */
+static_always_inline u32
+match_interest (vlib_buffer_t * b, fib_prefix_t * prefix)
+{
+  u8 *ptr = vlib_buffer_get_current (b);
+  u8 v = *ptr & 0xf0;
+  u32 next = 0;
+
+  if (PREDICT_TRUE (v == 0x40 && ip46_address_is_ip4 (&prefix->fp_addr)))
+    {
+      if (!match_ip4_name ((u32 *) & (ptr[16]), prefix))
+	next = 1;
+    }
+  else
+    if (PREDICT_TRUE (v == 0x60 && !ip46_address_is_ip4 (&prefix->fp_addr)))
+    {
+      if (!match_ip6_name (&(ptr[24]), prefix))
+	next = 2;
+    }
+
+  return next;
+}
+
+
+
+
 /*
  * Node function for the icn packet-generator client. The goal here is to
  * manipulate/tweak a stream of packets that have been injected by the vpp
@@ -617,6 +701,7 @@ hicnpg_client_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
   vlib_buffer_t *b0, *b1;
   u8 pkt_type0 = 0, pkt_type1 = 0;
   u16 msg_type0 = 1, msg_type1 = 1;
+  hicnpg_main_t *hpgm = &hicnpg_main;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -664,8 +749,33 @@ hicnpg_client_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  sw_if_index0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	  sw_if_index1 = vnet_buffer (b1)->sw_if_index[VLIB_RX];
 
-	  /* Increment a counter */
-	  content_msgs_received += 2;
+	  next0 =
+	    HICNPG_DATA_NEXT_DROP + match_data (b0, hpgm->pgen_clt_hicn_name);
+	  next1 =
+	    HICNPG_DATA_NEXT_DROP + match_data (b1, hpgm->pgen_clt_hicn_name);
+
+	  if (PREDICT_FALSE (vnet_get_feature_count
+			     (vnet_buffer (b0)->feature_arc_index,
+			      vnet_buffer (b0)->sw_if_index[VLIB_RX]) > 1))
+	    vnet_feature_next (&next0, b0);
+
+	  if (PREDICT_FALSE (vnet_get_feature_count
+			     (vnet_buffer (b1)->feature_arc_index,
+			      vnet_buffer (b1)->sw_if_index[VLIB_RX]) > 1))
+	    vnet_feature_next (&next1, b1);
+
+
+	  if (next0 == HICNPG_DATA_NEXT_DROP)
+	    {
+	      /* Increment a counter */
+	      content_msgs_received++;
+	    }
+
+	  if (next1 == HICNPG_DATA_NEXT_DROP)
+	    {
+	      /* Increment a counter */
+	      content_msgs_received++;
+	    }
 
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE)))
 	    {
@@ -688,6 +798,10 @@ hicnpg_client_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  t->next_index = next1;
 		}
 	    }
+
+	  vlib_validate_buffer_enqueue_x2 (vm, node, next_index,
+					   to_next, n_left_to_next,
+					   bi0, bi1, next0, next1);
 	  pkts_processed += 2;
 	}
 
@@ -708,8 +822,19 @@ hicnpg_client_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  sw_if_index0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 
-	  /* Increment a counter */
-	  content_msgs_received++;
+	  next0 =
+	    HICNPG_DATA_NEXT_DROP + match_data (b0, hpgm->pgen_clt_hicn_name);
+
+	  if (PREDICT_FALSE (vnet_get_feature_count
+			     (vnet_buffer (b0)->feature_arc_index,
+			      vnet_buffer (b0)->sw_if_index[VLIB_RX]) > 1))
+	    vnet_feature_next (&next0, b0);
+
+	  if (next0 == HICNPG_DATA_NEXT_DROP)
+	    {
+	      /* Increment a counter */
+	      content_msgs_received++;
+	    }
 
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE)
 			     && (b0->flags & VLIB_BUFFER_IS_TRACED)))
@@ -721,6 +846,10 @@ hicnpg_client_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      t->sw_if_index = sw_if_index0;
 	      t->next_index = next0;
 	    }
+
+	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+					   n_left_to_next, bi0, next0);
+
 	  pkts_processed++;
 	}
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
@@ -747,10 +876,32 @@ VLIB_REGISTER_NODE(hicn_pg_data_node) =
   .n_next_nodes = HICNPG_DATA_N_NEXT,
   .next_nodes =
   {
-    [HICNPG_DATA_NEXT_DROP] = "error-drop"
+   [HICNPG_DATA_NEXT_DROP] = "error-drop",
+   [HICNPG_DATA_NEXT_LOOKUP4] = "ip4-lookup",
+   [HICNPG_DATA_NEXT_LOOKUP6] = "ip6-lookup",
   },
 };
 /* *INDENT-ON* */
+
+/* *INDENT-OFF* */
+VNET_FEATURE_INIT(hicn_data_input_ip4_arc, static)=
+  {
+   .arc_name = "ip4-unicast",
+   .node_name = "hicnpg-data",
+   .runs_before = VNET_FEATURES("ip4-inacl"),
+  };
+/* *INDENT-ON* */
+
+
+/* *INDENT-OFF* */
+VNET_FEATURE_INIT(hicn_data_input_ip6_arc, static)=
+  {
+   .arc_name = "ip6-unicast",
+   .node_name = "hicnpg-data",
+   .runs_before = VNET_FEATURES("ip6-inacl"),
+  };
+/* *INDENT-ON* */
+
 
 /*
  * End of packet-generator client node
@@ -790,8 +941,6 @@ typedef enum
 {
   HICNPG_SERVER_NEXT_V4_LOOKUP,
   HICNPG_SERVER_NEXT_V6_LOOKUP,
-  HICNPG_SERVER_NEXT_FACE_IP4_INPUT,
-  HICNPG_SERVER_NEXT_FACE_IP6_INPUT,
   HICNPG_SERVER_NEXT_DROP,
   HICNPG_SERVER_N_NEXT,
 } icnpg_server_next_t;
@@ -892,8 +1041,19 @@ hicnpg_node_server_fn (vlib_main_t * vm,
 	  sw_if_index0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	  sw_if_index1 = vnet_buffer (b1)->sw_if_index[VLIB_RX];
 
-	  if (hicn_interest_parse_pkt (b0, &name0, &namelen0, &hicn0, &isv6_0)
-	      == HICN_ERROR_NONE)
+	  vnet_buffer (b0)->sw_if_index[VLIB_TX] = ~0;
+	  vnet_buffer (b1)->sw_if_index[VLIB_TX] = ~0;
+
+	  u32 match0 = match_interest (b0, hpgsm->pgen_srv_hicn_name);
+	  u32 match1 = match_interest (b1, hpgsm->pgen_srv_hicn_name);
+
+	  if (match0)
+	    {
+	      next0 = match0 - 1;
+	    }
+	  else
+	    if (hicn_interest_parse_pkt
+		(b0, &name0, &namelen0, &hicn0, &isv6_0) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
 	      vlib_buffer_t *rb = NULL;
@@ -906,11 +1066,15 @@ hicnpg_node_server_fn (vlib_main_t * vm,
 	      next0 =
 		isv6_0 ? HICNPG_SERVER_NEXT_V6_LOOKUP :
 		HICNPG_SERVER_NEXT_V4_LOOKUP;
-	      /* if hicn_underneath ,the following will results as next0 = HICNPG_SERVER_NEXT_DATA_LOOKUP */
-	      next0 += 2 * hpgsm->hicn_underneath;
 	    }
-	  if (hicn_interest_parse_pkt (b1, &name1, &namelen1, &hicn1, &isv6_1)
-	      == HICN_ERROR_NONE)
+
+	  if (match1)
+	    {
+	      next1 = match1 - 1;
+	    }
+	  else
+	    if (hicn_interest_parse_pkt
+		(b1, &name1, &namelen1, &hicn1, &isv6_1) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
 	      vlib_buffer_t *rb = NULL;
@@ -923,8 +1087,6 @@ hicnpg_node_server_fn (vlib_main_t * vm,
 	      next1 =
 		isv6_1 ? HICNPG_SERVER_NEXT_V6_LOOKUP :
 		HICNPG_SERVER_NEXT_V4_LOOKUP;
-	      /* if hicn_underneath ,the following will results as next0 = HICNPG_SERVER_NEXT_DATA_LOOKUP */
-	      next1 += 2 * hpgsm->hicn_underneath;
 	    }
 	  pkts_processed += 2;
 
@@ -983,10 +1145,17 @@ hicnpg_node_server_fn (vlib_main_t * vm,
 	  b0 = vlib_get_buffer (vm, bi0);
 
 	  sw_if_index0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];
+	  vnet_buffer (b0)->sw_if_index[VLIB_TX] = ~0;
 
+	  u32 match0 = match_interest (b0, hpgsm->pgen_srv_hicn_name);
 
-	  if (hicn_interest_parse_pkt (b0, &name0, &namelen0, &hicn0, &isv6_0)
-	      == HICN_ERROR_NONE)
+	  if (match0)
+	    {
+	      next0 = match0 - 1;
+	    }
+	  else
+	    if (hicn_interest_parse_pkt
+		(b0, &name0, &namelen0, &hicn0, &isv6_0) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
 	      vlib_buffer_t *rb = NULL;
@@ -999,8 +1168,6 @@ hicnpg_node_server_fn (vlib_main_t * vm,
 	      next0 =
 		isv6_0 ? HICNPG_SERVER_NEXT_V6_LOOKUP :
 		HICNPG_SERVER_NEXT_V4_LOOKUP;
-	      /* if hicn_underneath ,the following will results as next0 = HICNPG_SERVER_NEXT_DATA_LOOKUP */
-	      next0 += 2 * hpgsm->hicn_underneath;
 	    }
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE)
 			     && (b0->flags & VLIB_BUFFER_IS_TRACED)))
@@ -1122,14 +1289,30 @@ VLIB_REGISTER_NODE(hicn_pg_server_node) =
   .n_next_nodes = HICNPG_SERVER_N_NEXT,
   /* edit / add dispositions here */
   .next_nodes =
-  {  
+  {
     [HICNPG_SERVER_NEXT_V4_LOOKUP] = "ip4-lookup",
     [HICNPG_SERVER_NEXT_V6_LOOKUP] = "ip6-lookup",
-    [HICNPG_SERVER_NEXT_FACE_IP4_INPUT] = "hicn-face-ip4-input",
-    [HICNPG_SERVER_NEXT_FACE_IP6_INPUT] = "hicn-face-ip6-input",
     [HICNPG_SERVER_NEXT_DROP] = "error-drop",
   },
 };
+/* *INDENT-ON* */
+
+/* *INDENT-OFF* */
+VNET_FEATURE_INIT(hicn_pg_server_ip6, static)=
+  {
+   .arc_name = "ip6-unicast",
+   .node_name = "hicnpg-server",
+   .runs_before = VNET_FEATURES("ip6-inacl"),
+  };
+/* *INDENT-ON* */
+
+/* *INDENT-OFF* */
+VNET_FEATURE_INIT(hicn_pg_server_ip4, static)=
+  {
+   .arc_name = "ip4-unicast",
+   .node_name = "hicnpg-server",
+   .runs_before = VNET_FEATURES("ip4-inacl"),
+  };
 /* *INDENT-ON* */
 
 /*
