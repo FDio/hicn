@@ -27,10 +27,10 @@ typedef struct hicnpg_main_s
   u32 max_seq_number;
   u32 n_flows;
   u32 n_ifaces;
-  u32 hicn_underneath;
   ip46_address_t pgen_clt_src_addr;
   ip46_address_t pgen_clt_hicn_name;
   u16 interest_lifetime;
+  u32 sw_if;
 } hicnpg_main_t;
 
 extern hicnpg_main_t hicnpg_main;
@@ -38,12 +38,14 @@ extern hicnpg_main_t hicnpg_main;
 typedef struct hicnpg_server_main_s
 {
   u32 node_index;
-  u32 hicn_underneath;
   /* Arbitrary content */
   u32 pgen_svr_buffer_idx;
 } hicnpg_server_main_t;
 
 extern hicnpg_server_main_t hicnpg_server_main;
+
+extern vlib_node_registration_t hicn_pg_interest_node;
+extern vlib_node_registration_t hicn_pg_data_node;
 
 #endif // __HICN_PG_H__
 
