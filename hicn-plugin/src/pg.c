@@ -57,8 +57,6 @@ typedef enum
 {
   HICNPG_INTEREST_NEXT_V4_LOOKUP,
   HICNPG_INTEREST_NEXT_V6_LOOKUP,
-  HICNPG_INTEREST_NEXT_IFACE_IP4_INPUT,
-  HICNPG_INTEREST_NEXT_IFACE_IP6_INPUT,
   HICNPG_INTEREST_NEXT_DROP,
   HICNPG_N_NEXT,
 } hicnpg_interest_next_t;
@@ -79,12 +77,10 @@ hicnpg_main_t hicnpg_main = {
   .interest_lifetime = 4,
   .n_flows = (u32) 0,
   .n_ifaces = (u32) 1,
-  .hicn_underneath = 0
 };
 
 hicnpg_server_main_t hicnpg_server_main = {
   .node_index = 0,
-  .hicn_underneath = 0
 };
 
 /* packet trace format function */
@@ -225,7 +221,6 @@ hicnpg_client_interest_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      next0 =
 		isv6_0 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
 		HICNPG_INTEREST_NEXT_V4_LOOKUP;
-	      next0 += 2 * hpgm->hicn_underneath;
 	    }
 	  if (hicn_interest_parse_pkt (b1, &name1, &namelen1, &hicn1, &isv6_1)
 	      == HICN_ERROR_NONE)
@@ -257,7 +252,6 @@ hicnpg_client_interest_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      next1 =
 		isv6_1 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
 		HICNPG_INTEREST_NEXT_V4_LOOKUP;
-	      next1 += 2 * hpgm->hicn_underneath;
 	    }
 	  /* Send pkt to next node */
 	  vnet_buffer (b0)->sw_if_index[VLIB_TX] = ~0;
@@ -353,7 +347,6 @@ hicnpg_client_interest_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	      next0 =
 		isv6_0 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
 		HICNPG_INTEREST_NEXT_V4_LOOKUP;
-	      next0 += 2 * hpgm->hicn_underneath;
 	    }
 	  /* Send pkt to ip lookup */
 	  vnet_buffer (b0)->sw_if_index[VLIB_TX] = ~0;
@@ -559,8 +552,6 @@ VLIB_REGISTER_NODE(hicn_pg_interest_node) ={
   {
     [HICNPG_INTEREST_NEXT_V4_LOOKUP] = "ip4-lookup",
     [HICNPG_INTEREST_NEXT_V6_LOOKUP] = "ip6-lookup",
-    [HICNPG_INTEREST_NEXT_IFACE_IP4_INPUT] = "hicn-iface-ip4-input",
-    [HICNPG_INTEREST_NEXT_IFACE_IP6_INPUT] = "hicn-iface-ip6-input",
     [HICNPG_INTEREST_NEXT_DROP] = "error-drop"
   },
 };
@@ -790,8 +781,6 @@ typedef enum
 {
   HICNPG_SERVER_NEXT_V4_LOOKUP,
   HICNPG_SERVER_NEXT_V6_LOOKUP,
-  HICNPG_SERVER_NEXT_FACE_IP4_INPUT,
-  HICNPG_SERVER_NEXT_FACE_IP6_INPUT,
   HICNPG_SERVER_NEXT_DROP,
   HICNPG_SERVER_N_NEXT,
 } icnpg_server_next_t;
@@ -906,8 +895,6 @@ hicnpg_node_server_fn (vlib_main_t * vm,
 	      next0 =
 		isv6_0 ? HICNPG_SERVER_NEXT_V6_LOOKUP :
 		HICNPG_SERVER_NEXT_V4_LOOKUP;
-	      /* if hicn_underneath ,the following will results as next0 = HICNPG_SERVER_NEXT_DATA_LOOKUP */
-	      next0 += 2 * hpgsm->hicn_underneath;
 	    }
 	  if (hicn_interest_parse_pkt (b1, &name1, &namelen1, &hicn1, &isv6_1)
 	      == HICN_ERROR_NONE)
@@ -923,8 +910,6 @@ hicnpg_node_server_fn (vlib_main_t * vm,
 	      next1 =
 		isv6_1 ? HICNPG_SERVER_NEXT_V6_LOOKUP :
 		HICNPG_SERVER_NEXT_V4_LOOKUP;
-	      /* if hicn_underneath ,the following will results as next0 = HICNPG_SERVER_NEXT_DATA_LOOKUP */
-	      next1 += 2 * hpgsm->hicn_underneath;
 	    }
 	  pkts_processed += 2;
 
@@ -999,8 +984,6 @@ hicnpg_node_server_fn (vlib_main_t * vm,
 	      next0 =
 		isv6_0 ? HICNPG_SERVER_NEXT_V6_LOOKUP :
 		HICNPG_SERVER_NEXT_V4_LOOKUP;
-	      /* if hicn_underneath ,the following will results as next0 = HICNPG_SERVER_NEXT_DATA_LOOKUP */
-	      next0 += 2 * hpgsm->hicn_underneath;
 	    }
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE)
 			     && (b0->flags & VLIB_BUFFER_IS_TRACED)))
@@ -1122,14 +1105,30 @@ VLIB_REGISTER_NODE(hicn_pg_server_node) =
   .n_next_nodes = HICNPG_SERVER_N_NEXT,
   /* edit / add dispositions here */
   .next_nodes =
-  {  
+  {
     [HICNPG_SERVER_NEXT_V4_LOOKUP] = "ip4-lookup",
     [HICNPG_SERVER_NEXT_V6_LOOKUP] = "ip6-lookup",
-    [HICNPG_SERVER_NEXT_FACE_IP4_INPUT] = "hicn-face-ip4-input",
-    [HICNPG_SERVER_NEXT_FACE_IP6_INPUT] = "hicn-face-ip6-input",
     [HICNPG_SERVER_NEXT_DROP] = "error-drop",
   },
 };
+/* *INDENT-ON* */
+
+/* *INDENT-OFF* */
+VNET_FEATURE_INIT(hicn_pg_server_ip6, static)=
+  {
+   .arc_name = "ip6-unicast",
+   .node_name = "hicnpg-server",
+   .runs_before = VNET_FEATURES("ip6-inacl"),
+  };
+/* *INDENT-ON* */
+
+/* *INDENT-OFF* */
+VNET_FEATURE_INIT(hicn_pg_server_ip4, static)=
+  {
+   .arc_name = "ip4-unicast",
+   .node_name = "hicnpg-server",
+   .runs_before = VNET_FEATURES("ip4-inacl"),
+  };
 /* *INDENT-ON* */
 
 /*
