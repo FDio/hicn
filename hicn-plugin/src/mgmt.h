@@ -45,16 +45,6 @@ typedef enum
   HICN_MGMT_FACE_OP_HELLO,
 } hicn_mgmt_face_op_e;
 
-
-typedef enum
-{
-  HICN_MGMT_PUNTING_OP_NONE = 0,
-  HICN_MGMT_PUNTING_OP_CREATE,
-  HICN_MGMT_PUNTING_OP_DELETE,
-  HICN_MGMT_PUNTING_OP_ENABLE,
-  HICN_MGMT_PUNTING_OP_DISABLE
-} hicn_mgmt_punting_op_e;
-
 typedef enum
 {
   HICN_MGMT_MAPME_OP_NONE = 0,

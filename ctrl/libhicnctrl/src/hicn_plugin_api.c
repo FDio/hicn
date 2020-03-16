@@ -113,11 +113,7 @@ struct hc_sock_s {
   _(hicn_api_routes_details)           \
   _(hicn_api_strategies_get_reply)     \
   _(hicn_api_strategy_get)             \
-  _(hicn_api_strategy_get_reply)       \
-  _(hicn_api_punting_add)              \
-  _(hicn_api_punting_add_reply)        \
-  _(hicn_api_punting_del)              \
-  _(hicn_api_punting_del_reply)
+  _(hicn_api_strategy_get_reply)
 
 typedef vapi_type_msg_header2_t hc_msg_header_t;
 
