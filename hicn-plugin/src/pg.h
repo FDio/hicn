@@ -16,10 +16,6 @@
 #ifndef __HICN_PG_H__
 #define __HICN_PG_H__
 
-/* Subnet-mask for punting data in the client node */
-#define SUBNET_MASK4 32
-#define SUBNET_MASK6 128
-
 typedef struct hicnpg_main_s
 {
   u32 index;
@@ -38,12 +34,15 @@ extern hicnpg_main_t hicnpg_main;
 typedef struct hicnpg_server_main_s
 {
   u32 node_index;
-  u32 hicn_underneath;
   /* Arbitrary content */
   u32 pgen_svr_buffer_idx;
+  fib_prefix_t *pgen_srv_hicn_name;
 } hicnpg_server_main_t;
 
 extern hicnpg_server_main_t hicnpg_server_main;
+
+extern vlib_node_registration_t hicn_pg_interest_node;
+extern vlib_node_registration_t hicn_pg_data_node;
 
 #endif // __HICN_PG_H__
 
