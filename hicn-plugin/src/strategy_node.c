@@ -200,7 +200,6 @@ hicn_strategy_fn (vlib_main_t * vm,
 	  dpo_id_t *outface = NULL;
 	  int nh_idx;
 	  u32 next0 = next_index;
-	  int ret;
 
 	  /* Prefetch for next iteration. */
 	  if (n_left_from > 1)
@@ -223,26 +222,21 @@ hicn_strategy_fn (vlib_main_t * vm,
 	  next0 = HICN_STRATEGY_NEXT_ERROR_DROP;
 
 	  hicn_dpo_ctx_t *dpo_ctx =
-	    hicn_strategy_dpo_ctx_get (vnet_buffer (b0)->ip.
-				       adj_index[VLIB_TX]);
+	    hicn_strategy_dpo_ctx_get (vnet_buffer (b0)->
+				       ip.adj_index[VLIB_TX]);
 	  const hicn_strategy_vft_t *strategy =
 	    hicn_dpo_get_strategy_vft (dpo_ctx->dpo_type);
 
-	  ret = hicn_interest_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
+	  int ret =
+	    hicn_interest_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
 	  stats.pkts_processed++;
 	  /* Select next hop */
-	  /*
-	   * Double check that the interest has been through
-	   * the interest-pcslookup node due to misconfiguration in
-	   * the punting rules.
-	   */
 	  if (PREDICT_TRUE
-	      (ret == HICN_ERROR_NONE && HICN_IS_NAMEHASH_CACHED (b0)
-	       && strategy->hicn_select_next_hop (vnet_buffer (b0)->
-						  ip.adj_index[VLIB_TX],
-						  &nh_idx,
-						  &outface) ==
-	       HICN_ERROR_NONE))
+	      ((ret == HICN_ERROR_NONE)
+	       && (strategy->
+		   hicn_select_next_hop (vnet_buffer (b0)->
+					 ip.adj_index[VLIB_TX], &nh_idx,
+					 &outface) == HICN_ERROR_NONE)))
 	    {
 	      /*
 	       * No need to check if parsing was successful
