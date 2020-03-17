@@ -356,15 +356,16 @@ sudo ping_client -n b002::1
 
 ### Example: packet generator
 
-The packet generator can be used to test the performace of the hICN plugin, as 
-well as a tool to inject packet in a forwarder or network for other test use cases 
-It is made of two entities, a client that inject interest into a vpp forwarder and a 
-server that replies to any interest with the corresponding data. Both client and 
-server can run on a vpp that is configured to forward interest and data as if they 
-were regular ip packet or exploiting the hICN forwarding pipeline (through the hICN 
-plugin). In the following examples we show how to configure the packet generator in 
-both cases. We use two forwarder A and B as in the previous example. However, both 
-the client and server packet generator can run on the same vpp forwarder is needed.
+The packet generator can be used to test the performace of the hICN plugin, as
+well as a tool to inject packet in a forwarder or network for other test use
+cases It is made of two entities, a client that inject interest into a vpp
+forwarder and a server that replies to any interest with the corresponding
+data. Both client and server can run on a vpp that is configured to forward
+interest and data as if they were regular ip packet or exploiting the hICN
+forwarding pipeline (through the hICN plugin). In the following examples we show
+how to configure the packet generator in both cases. We use two forwarder A and
+B as in the previous example. However, both the client and server packet
+generator can run on the same vpp forwarder is needed.
 
 
 #### IP Forwarding
@@ -376,22 +377,21 @@ sudo vppctl
 vpp# set interface ip address TenGigabitEtherneta/0/0 2001::2/64
 vpp# set interface state TenGigabitEtherneta/0/0 up
 vpp# ip route add b001::/64 via 2001::3 TenGigabitEtherneta/0/0
-vpp# hicn pgen client src 2001::2 name b001::1 intfc TenGigabitEtherneta/0/0
+vpp# hicn pgen client src 2001::2 name b001::1/64 intfc TenGigabitEtherneta/0/0
 vpp# exec /<path_to>pg.conf
 vpp# packet-generator enable-stream hicn-pg
 ```
 
-Where the file pg.conf contains the description of the stream to generate packets.
-In this case the stream sends 10 millions packets at a rate of 1Mpps
+Where the file pg.conf contains the description of the stream to generate
+packets.  In this case the stream sends 10 millions packets at a rate of 1Mpps
 
 ```bash
 packet-generator new {
   name hicn-pg
-  limit 10000000000
+  limit 10000000
   size 74-74
   node hicnpg-interest
   rate 1e6
-  interface loop0
   data {
     TCP: 5001::2 -> 5001::1
     hex 0x000000000000000050020000000001f4
@@ -405,7 +405,7 @@ packet-generator new {
 sudo vppctl
 vpp# set interface ip address TenGigabitEtherneta/0/1 2001::3/64
 vpp# set interface state TenGigabitEtherneta/0/1 up
-vpp# hicn pgen server intfc TenGigabitEtherneta/0/1
+vpp# hicn pgen server name b001::1/64 intfc TenGigabitEtherneta/0/1
 ```
 
 #### hICN Forwarding
@@ -422,7 +422,7 @@ vpp# create loopback interface
 vpp# set interface state loop0 up
 vpp# set interface ip address loop0 5002::1/64
 vpp# ip neighbor loop0 5002::2 de:ad:00:00:00:00
-vpp# hicn pgen client src 5001::2 name b001::1 intfc TenGigabitEtherneta/0/0
+vpp# hicn pgen client src 5001::2 name b001::1/64 intfc TenGigabitEtherneta/0/0
 vpp# exec /<path_to>pg.conf
 vpp# packet-generator enable-stream hicn-pg
 ```
@@ -441,5 +441,5 @@ vpp# set interface ip address loop0 2002::1/64
 vpp# ip neighbor loop1 2002::2 de:ad:00:00:00:00
 vpp# hicn face ip add remote 2002::2 intfc loop0
 vpp# hicn fib add prefix b001::/64 face 0
-vpp# hicn pgen server intfc loop0
+vpp# hicn pgen server name b001::1/64 intfc loop0
 ```
