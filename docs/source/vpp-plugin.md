@@ -255,8 +255,7 @@ hicn fib {{add | delete } prefix <prefix> face <face_id> } | set strategy <strat
 `hicn pgen client`: set an vpp forwarder as an hicn packet generator client.
 
 ```bash
-hicn pgen client fwd <ip|hicn> src <addr> n_ifaces <n_ifaces> name <prefix> lifetime <interest-lifetime> intfc <data in-interface> max_seq <max sequence number> n_flows <number of flows>
-  <ip|hicn>                 :set if the underlying forwarder is configured as ip or hicn
+hicn pgen client src <addr> n_ifaces <n_ifaces> name <prefix> lifetime <interest-lifetime> intfc <data in-interface> max_seq <max sequence number> n_flows <number of flows>
   <src_addr>                :source address to use in the interests, i.e., the locator for routing the data packet back
   <n_ifaces>                :set the number of ifaces (consumer faces) to emulate. If more than one, each interest is sent <n_ifaces> times, each of it with a different source address calculated from <src_addr>
   <prefix>                  :prefix to use to generate hICN names
@@ -269,22 +268,10 @@ hicn pgen client fwd <ip|hicn> src <addr> n_ifaces <n_ifaces> name <prefix> life
 `hicn pgen server`: set an vpp forwarder as an hicn packet generator client.
 
 ```bash
-hicn pgen server fwd <ip|hicn> name <prefix> intfc <interest in-interface> size <payload_size>
-  <ip|hicn>                     :set if the underlying forwarder is configured as ip or hicn
+hicn pgen server name <prefix> intfc <interest in-interface> size <payload_size>
   <prefix>                      :prefix to use to reply to interest
   <interest in-interface>       :interface through which the forwarder receives interest
   <payload_size>                :size of the data payload
-```
-
-`hicn punting`: manipulates punting rules.
-
-```bash
-hicn punting {add|delete} prefix <prefix> intfc <sw_if> {type ip | type <udp4|udp6> src_port <src_port> dst_port <dst_port>}
-  <prefix>                      :prefix to punt to the hICN plugin
-  <sw_if>                       :software interface where to apply the punting
-  <ip|udp4|udp6>                :creates a punting rule for hICN packet encapsulated into a ip4/6|udp tunnel or for regular hicn packet
-  <src_port>                    :source port of the udp4/6 tunnel
-  <dst_port>                    :destination port of the udp4/6 tunnel
 ```
 
 `hicn show`: show forwarder information.
@@ -368,4 +355,94 @@ Then `ping_client` on the host where forwarder B is running:
 
 ```bash
 sudo ping_client -n b002::1
+```
+
+### Example: packet generator
+
+The packet generator can be used to test the performace of the hICN plugin, as
+well as a tool to inject packet in a forwarder or network for other test use
+cases It is made of two entities, a client that inject interest into a vpp
+forwarder and a server that replies to any interest with the corresponding
+data. Both client and server can run on a vpp that is configured to forward
+interest and data as if they were regular ip packet or exploiting the hICN
+forwarding pipeline (through the hICN plugin). In the following examples we show
+how to configure the packet generator in both cases. We use two forwarder A and
+B as in the previous example. However, both the client and server packet
+generator can run on the same vpp forwarder is needed.
+
+
+#### IP Forwarding
+
+##### Forwarder A (client)
+
+```bash
+sudo vppctl
+vpp# set interface ip address TenGigabitEtherneta/0/0 2001::2/64
+vpp# set interface state TenGigabitEtherneta/0/0 up
+vpp# ip route add b001::/64 via 2001::3 TenGigabitEtherneta/0/0
+vpp# hicn pgen client src 2001::2 name b001::1/64 intfc TenGigabitEtherneta/0/0
+vpp# exec /<path_to>pg.conf
+vpp# packet-generator enable-stream hicn-pg
+```
+
+Where the file pg.conf contains the description of the stream to generate
+packets.  In this case the stream sends 10 millions packets at a rate of 1Mpps
+
+```bash
+packet-generator new {
+  name hicn-pg
+  limit 10000000
+  size 74-74
+  node hicnpg-interest
+  rate 1e6
+  data {
+    TCP: 5001::2 -> 5001::1
+    hex 0x000000000000000050020000000001f4
+    }
+}
+```
+
+##### Forwarder B (server)
+
+```bash
+sudo vppctl
+vpp# set interface ip address TenGigabitEtherneta/0/1 2001::3/64
+vpp# set interface state TenGigabitEtherneta/0/1 up
+vpp# hicn pgen server name b001::1/64 intfc TenGigabitEtherneta/0/1
+```
+
+#### hICN Forwarding
+
+##### Forwarder A (client)
+
+```bash
+sudo vppctl
+vpp# set interface ip address TenGigabitEtherneta/0/0 2001::2/64
+vpp# set interface state TenGigabitEtherneta/0/0 up
+vpp# hicn face ip add remote 2001::3 intfc TenGigabitEtherneta/0/0
+vpp# hicn fib add prefix b001::/64 face 0
+vpp# create loopback interface
+vpp# set interface state loop0 up
+vpp# set interface ip address loop0 5002::1/64
+vpp# ip neighbor loop0 5002::2 de:ad:00:00:00:00
+vpp# hicn pgen client src 5001::2 name b001::1/64 intfc TenGigabitEtherneta/0/0
+vpp# exec /<path_to>pg.conf
+vpp# packet-generator enable-stream hicn-pg
+```
+
+The file pg.conf is the same showed in the previous example
+
+##### Forwarder B (server)
+
+```bash
+sudo vppctl
+vpp# set interface ip address TenGigabitEtherneta/0/1 2001::3/64
+vpp# set interface state TenGigabitEtherneta/0/1 up
+vpp# create loopback interface
+vpp# set interface state loop0 up
+vpp# set interface ip address loop0 2002::1/64
+vpp# ip neighbor loop1 2002::2 de:ad:00:00:00:00
+vpp# hicn face ip add remote 2002::2 intfc loop0
+vpp# hicn fib add prefix b001::/64 face 0
+vpp# hicn pgen server name b001::1/64 intfc loop0
 ```
