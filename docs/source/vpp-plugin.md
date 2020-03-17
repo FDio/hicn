@@ -276,17 +276,6 @@ hicn pgen server fwd <ip|hicn> name <prefix> intfc <interest in-interface> size 
   <payload_size>                :size of the data payload
 ```
 
-`hicn punting`: manipulates punting rules.
-
-```bash
-hicn punting {add|delete} prefix <prefix> intfc <sw_if> {type ip | type <udp4|udp6> src_port <src_port> dst_port <dst_port>}
-  <prefix>                      :prefix to punt to the hICN plugin
-  <sw_if>                       :software interface where to apply the punting
-  <ip|udp4|udp6>                :creates a punting rule for hICN packet encapsulated into a ip4/6|udp tunnel or for regular hicn packet
-  <src_port>                    :source port of the udp4/6 tunnel
-  <dst_port>                    :destination port of the udp4/6 tunnel
-```
-
 `hicn show`: show forwarder information.
 
 ```bash
@@ -344,7 +333,6 @@ vpp# set interface state TenGigabitEtherneta/0/0 up
 vpp# hicn control start
 vpp# hicn face ip add local 2001::2 remote 2001::3 intfc TenGigabitEtherneta/0/0
 vpp# hicn fib add prefix b002::1/64 face 0
-vpp# hicn punting add prefix b002::1/64 intfc TenGigabitEtherneta/0/0 type ip
 ```
 
 #### Forwarder B (server)
@@ -354,7 +342,6 @@ sudo vppctl
 vpp# set interface ip address TenGigabitEtherneta/0/1 2001::3/64
 vpp# set interface state TenGigabitEtherneta/0/1 up
 vpp# hicn control start
-vpp# hicn punting add prefix b002::1/64 intfc TenGigabitEtherneta/0/1 type ip
 ```
 
 Once the two forwarder are started, run the `ping_server` application on the
