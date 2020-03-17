@@ -58,25 +58,18 @@
  _(ROUTE_NOT_UPDATED, -165, "Unable to update route")                   \
  _(ROUTE_ALREADY_EXISTS, -166, "Route already in FIB")                  \
  _(CLI_INVAL, -167, "Invalid input")                                    \
- _(PUNT_INVAL, -168, "Invalid prefix or subnet or interface")           \
- _(PUNT_TBL_NOT_FOUND, -169, "Vnet table not found")                    \
- _(PUNT_TBL_EXIST, -170, "Vnet table already created")                  \
- _(PUNT_SSN_NOT_FOUND, -171, "Vnet session not found")                  \
- _(PUNT_SSN_EXIST, -172, "Vnet session already created")                \
- _(PUNT_SKIP_NOT_SUPPORTED, -173, "Skip size not supported. Skip must be <= 1") \
- _(PUNT_NOMEM, -174, "Unable to allocate skip_mask")                    \
- _(IPS_ADDR_TYPE_NONUNIFORM, -175, "Src and dst addr have different ip types") \
- _(FACE_TYPE_EXISTS, -176, "Face type already registered")              \
- _(NO_BUFFERS, -177, "No vlib_buffer available for packet cloning.")    \
- _(NOT_IMPLEMENTED, -178, "Function not yet implemented")               \
- _(IFACE_IP_ADJ_NOT_FOUND, -179, "IP adjacency on incomplete face not available") \
- _(APPFACE_ALREADY_ENABLED, -180, "Application face already enabled on interface") \
- _(APPFACE_FEATURE, -181, "Error while enabling app face feature")      \
- _(APPFACE_NOT_FOUND, -182, "Application face not found")               \
- _(APPFACE_PROD_PREFIX_NULL, -183, "Prefix must not be null for producer face") \
- _(STRATEGY_NH_NOT_FOUND, -184, "Next hop not found")		        \
- _(MW_STRATEGY_SET, -185, "Error while setting weight for next hop")	\
- _(STRATEGY_NOT_FOUND, -186, "Strategy not found")
+ _(IPS_ADDR_TYPE_NONUNIFORM, -168, "Src and dst addr have different ip types") \
+ _(FACE_TYPE_EXISTS, -169, "Face type already registered")              \
+ _(NO_BUFFERS, -170, "No vlib_buffer available for packet cloning.")    \
+ _(NOT_IMPLEMENTED, -171, "Function not yet implemented")               \
+ _(IFACE_IP_ADJ_NOT_FOUND, -172, "IP adjacency on incomplete face not available") \
+ _(APPFACE_ALREADY_ENABLED, -173, "Application face already enabled on interface") \
+ _(APPFACE_FEATURE, -174, "Error while enabling app face feature")      \
+ _(APPFACE_NOT_FOUND, -175, "Application face not found")               \
+ _(APPFACE_PROD_PREFIX_NULL, -176, "Prefix must not be null for producer face") \
+ _(STRATEGY_NH_NOT_FOUND, -177, "Next hop not found")		        \
+ _(MW_STRATEGY_SET, -178, "Error while setting weight for next hop")	\
+ _(STRATEGY_NOT_FOUND, -179, "Strategy not found")
 
 
 typedef enum
