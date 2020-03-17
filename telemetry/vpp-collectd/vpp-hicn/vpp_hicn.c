@@ -28,6 +28,7 @@
 #endif /* DISABLE_ISOC99 */
 #endif /* ! HAVE_CONFIG */
 
+/* Keep order as it is */
 #include <config.h>
 #include <collectd.h>
 #include <common.h>
@@ -40,6 +41,15 @@
 
 DEFINE_VAPI_MSG_IDS_HICN_API_JSON
 vapi_ctx_t vapi_ctx;
+
+/************** OPTIONS ***********************************/
+static const char *config_keys[2] = {
+    "Verbose",
+    "Tag",
+};
+static int config_keys_num = STATIC_ARRAY_SIZE(config_keys);
+static bool verbose = false;
+static char *tag = NULL;
 
 /************** DATA SOURCES ******************************/
 static data_source_t packets_dsrc[1] = {
@@ -184,8 +194,7 @@ static data_set_t dtx_ds = {
  * value_list_t and pass it to plugin_dispatch_values.
  */
 static int submit(const char *plugin_instance, const char *type,
-                  const char *type_instance, value_t *values, size_t values_len,
-                  cdtime_t *timestamp) {
+                  value_t *values, size_t values_len, cdtime_t *timestamp) {
   value_list_t vl = VALUE_LIST_INIT;
   vl.values = values;
   vl.values_len = values_len;
@@ -198,8 +207,8 @@ static int submit(const char *plugin_instance, const char *type,
   sstrncpy(vl.plugin_instance, plugin_instance, sizeof(vl.plugin_instance));
   sstrncpy(vl.type, type, sizeof(vl.type));
 
-  if (type_instance != NULL)
-    sstrncpy(vl.type_instance, type_instance, sizeof(vl.type_instance));
+  if (tag != NULL)
+    sstrncpy(vl.type_instance, tag, sizeof(vl.type_instance));
 
   return plugin_dispatch_values(&vl);
 }
@@ -207,6 +216,28 @@ static int submit(const char *plugin_instance, const char *type,
 /**********************************************************/
 /********** CALLBACK FUNCTIONS ****************************/
 /**********************************************************/
+
+/*
+ * This function is called for each configuration item.
+ */
+static int vpp_hicn_config(const char *key, const char *value) {
+  if (strcasecmp(key, "Verbose") == 0) {
+    verbose = IS_TRUE(value);
+  } else if (strcasecmp(key, "Tag") == 0) {
+    if (tag != NULL) {
+      free(tag);
+      tag = NULL;
+    }
+
+    if (strcasecmp(value, "None")) {
+      tag = strdup(value);
+    }
+  } else {
+    return 1;
+  }
+
+  return 0;
+}
 
 /*
  * Callback called by the hICN plugin API when node stats are ready.
@@ -226,36 +257,38 @@ parse_node_stats(vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv,
   cdtime_t timestamp = cdtime();
 
   values[0] = (value_t){.gauge = reply->pkts_processed};
-  submit(node_name, pkts_processed_ds.type, NULL, values, 1, &timestamp);
+  submit(node_name, pkts_processed_ds.type, values, 1, &timestamp);
   values[0] = (value_t){.gauge = reply->pkts_interest_count};
-  submit(node_name, pkts_interest_count_ds.type, NULL, values, 1, &timestamp);
+  submit(node_name, pkts_interest_count_ds.type, values, 1, &timestamp);
   values[0] = (value_t){.gauge = reply->pkts_data_count};
-  submit(node_name, pkts_data_count_ds.type, NULL, values, 1, &timestamp);
-  values[0] = (value_t){.gauge = reply->pkts_from_cache_count};
-  submit(node_name, pkts_from_cache_count_ds.type, NULL, values, 1, &timestamp);
-  values[0] = (value_t){.gauge = reply->pkts_no_pit_count};
-  submit(node_name, pkts_no_pit_count_ds.type, NULL, values, 1, &timestamp);
-  values[0] = (value_t){.gauge = reply->pit_expired_count};
-  submit(node_name, pit_expired_count_ds.type, NULL, values, 1, &timestamp);
-  values[0] = (value_t){.gauge = reply->cs_expired_count};
-  submit(node_name, cs_expired_count_ds.type, NULL, values, 1, &timestamp);
-  values[0] = (value_t){.gauge = reply->cs_lru_count};
-  submit(node_name, cs_lru_count_ds.type, NULL, values, 1, &timestamp);
-  values[0] = (value_t){.gauge = reply->pkts_drop_no_buf};
-  submit(node_name, pkts_drop_no_buf_ds.type, NULL, values, 1, &timestamp);
-  values[0] = (value_t){.gauge = reply->interests_aggregated};
-  submit(node_name, interests_aggregated_ds.type, NULL, values, 1, &timestamp);
+  submit(node_name, pkts_data_count_ds.type, values, 1, &timestamp);
   values[0] = (value_t){.gauge = reply->interests_retx};
-  submit(node_name, interests_retx_ds.type, NULL, values, 1, &timestamp);
-  values[0] = (value_t){.gauge = reply->interests_hash_collision};
-  submit(node_name, interests_hash_collision_ds.type, NULL, values, 1,
-         &timestamp);
+  submit(node_name, interests_retx_ds.type, values, 1, &timestamp);
   values[0] = (value_t){.gauge = reply->pit_entries_count};
-  submit(node_name, pit_entries_count_ds.type, NULL, values, 1, &timestamp);
+  submit(node_name, pit_entries_count_ds.type, values, 1, &timestamp);
   values[0] = (value_t){.gauge = reply->cs_entries_count};
-  submit(node_name, cs_entries_count_ds.type, NULL, values, 1, &timestamp);
-  values[0] = (value_t){.gauge = reply->cs_entries_ntw_count};
-  submit(node_name, cs_entries_ntw_count_ds.type, NULL, values, 1, &timestamp);
+  submit(node_name, cs_entries_count_ds.type, values, 1, &timestamp);
+
+  if (verbose) {
+    values[0] = (value_t){.gauge = reply->pkts_from_cache_count};
+    submit(node_name, pkts_from_cache_count_ds.type, values, 1, &timestamp);
+    values[0] = (value_t){.gauge = reply->interests_aggregated};
+    submit(node_name, interests_aggregated_ds.type, values, 1, &timestamp);
+    values[0] = (value_t){.gauge = reply->cs_expired_count};
+    submit(node_name, cs_expired_count_ds.type, values, 1, &timestamp);
+    values[0] = (value_t){.gauge = reply->cs_lru_count};
+    submit(node_name, cs_lru_count_ds.type, values, 1, &timestamp);
+    values[0] = (value_t){.gauge = reply->pit_expired_count};
+    submit(node_name, pit_expired_count_ds.type, values, 1, &timestamp);
+    values[0] = (value_t){.gauge = reply->pkts_no_pit_count};
+    submit(node_name, pkts_no_pit_count_ds.type, values, 1, &timestamp);
+    values[0] = (value_t){.gauge = reply->pkts_drop_no_buf};
+    submit(node_name, pkts_drop_no_buf_ds.type, values, 1, &timestamp);
+    values[0] = (value_t){.gauge = reply->interests_hash_collision};
+    submit(node_name, interests_hash_collision_ds.type, values, 1, &timestamp);
+    values[0] = (value_t){.gauge = reply->cs_entries_ntw_count};
+    submit(node_name, cs_entries_ntw_count_ds.type, values, 1, &timestamp);
+  }
 
   return VAPI_OK;
 }
@@ -280,16 +313,16 @@ parse_face_stats(vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv,
 
   values[0] = (value_t){.derive = reply->irx_packets};
   values[1] = (value_t){.derive = reply->irx_bytes};
-  submit(face_name, irx_ds.type, NULL, values, 2, &timestamp);
+  submit(face_name, irx_ds.type, values, 2, &timestamp);
   values[0] = (value_t){.derive = reply->itx_packets};
   values[1] = (value_t){.derive = reply->itx_bytes};
-  submit(face_name, itx_ds.type, NULL, values, 2, &timestamp);
+  submit(face_name, itx_ds.type, values, 2, &timestamp);
   values[0] = (value_t){.derive = reply->drx_packets};
   values[1] = (value_t){.derive = reply->drx_bytes};
-  submit(face_name, drx_ds.type, NULL, values, 2, &timestamp);
+  submit(face_name, drx_ds.type, values, 2, &timestamp);
   values[0] = (value_t){.derive = reply->dtx_packets};
   values[1] = (value_t){.derive = reply->dtx_bytes};
-  submit(face_name, dtx_ds.type, NULL, values, 2, &timestamp);
+  submit(face_name, dtx_ds.type, values, 2, &timestamp);
 
   return VAPI_OK;
 }
@@ -297,7 +330,7 @@ parse_face_stats(vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv,
 /*
  * This function is called once upon startup to initialize the plugin.
  */
-static int my_init(void) {
+static int vpp_hicn_init(void) {
   int ret = vapi_connect_safe(&vapi_ctx, 0);
 
   if (ret)
@@ -309,7 +342,7 @@ static int my_init(void) {
 /*
  * This function is called in regular intervalls to collect the data.
  */
-static int my_read(void) {
+static int vpp_hicn_read(void) {
   int err = VAPI_OK;
 
   vapi_lock();
@@ -365,7 +398,7 @@ END:
 /*
  * This function is called when plugin_log () has been used.
  */
-static void my_log(int severity, const char *msg, user_data_t *ud) {
+static void vpp_hicn_log(int severity, const char *msg, user_data_t *ud) {
   printf("[LOG %i] %s\n", severity, msg);
   return;
 }
@@ -373,11 +406,18 @@ static void my_log(int severity, const char *msg, user_data_t *ud) {
 /*
  * This function is called before shutting down collectd.
  */
-static int my_shutdown(void) {
+static int vpp_hicn_shutdown(void) {
   plugin_log(LOG_INFO, "vpp_hicn plugin: shutting down");
+
   int ret = vapi_disconnect_safe();
   plugin_log(LOG_INFO, "vpp_hicn plugin: disconnect vapi %s",
              ret == 0 ? "ok" : "error");
+
+  if (tag != NULL) {
+    free(tag);
+    tag = NULL;
+  }
+
   return ret;
 }
 
@@ -408,9 +448,11 @@ void module_register(void) {
   plugin_register_data_set(&cs_entries_count_ds);
   plugin_register_data_set(&cs_entries_ntw_count_ds);
   // callbacks
-  plugin_register_log("vpp_hicn", my_log, /* user data */ NULL);
-  plugin_register_init("vpp_hicn", my_init);
-  plugin_register_read("vpp_hicn", my_read);
-  plugin_register_shutdown("vpp_hicn", my_shutdown);
+  plugin_register_log("vpp_hicn", vpp_hicn_log, /* user data */ NULL);
+  plugin_register_config("vpp_hicn", vpp_hicn_config, config_keys,
+                         config_keys_num);
+  plugin_register_init("vpp_hicn", vpp_hicn_init);
+  plugin_register_read("vpp_hicn", vpp_hicn_read);
+  plugin_register_shutdown("vpp_hicn", vpp_hicn_shutdown);
   return;
 }

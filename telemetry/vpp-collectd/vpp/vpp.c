@@ -28,6 +28,7 @@
 #endif /* DISABLE_ISOC99 */
 #endif /* ! HAVE_CONFIG */
 
+/* Keep order as it is */
 #include <config.h>
 #include <collectd.h>
 #include <common.h>
@@ -37,6 +38,15 @@
 #include <vpp-api/client/stat_client.h>
 #include <vppinfra/vec.h>
 #undef counter_t
+
+/************** OPTIONS ***********************************/
+static const char *config_keys[2] = {
+    "Verbose",
+    "Tag",
+};
+static int config_keys_num = STATIC_ARRAY_SIZE(config_keys);
+static bool verbose = false;
+static char *tag = NULL;
 
 /************** DATA SOURCES ******************************/
 static data_source_t combined_dsrc[2] = {
@@ -160,8 +170,7 @@ static data_set_t if_tx_broadcast_ds = {
  * value_list_t and pass it to plugin_dispatch_values.
  */
 static int submit(const char *plugin_instance, const char *type,
-                  const char *type_instance, value_t *values, size_t values_len,
-                  cdtime_t *timestamp) {
+                  value_t *values, size_t values_len, cdtime_t *timestamp) {
   value_list_t vl = VALUE_LIST_INIT;
   vl.values = values;
   vl.values_len = values_len;
@@ -174,8 +183,8 @@ static int submit(const char *plugin_instance, const char *type,
   sstrncpy(vl.plugin_instance, plugin_instance, sizeof(vl.plugin_instance));
   sstrncpy(vl.type, type, sizeof(vl.type));
 
-  if (type_instance != NULL)
-    sstrncpy(vl.type_instance, type_instance, sizeof(vl.type_instance));
+  if (tag != NULL)
+    sstrncpy(vl.type_instance, tag, sizeof(vl.type_instance));
 
   return plugin_dispatch_values(&vl);
 }
@@ -188,42 +197,48 @@ static int get_data_set(const char *stat_name, data_set_t *data_set_ptr) {
     return 1;
   }
 
-  if (strcmp(stat_name, "/if/drops") == 0) {
-    *data_set_ptr = if_drops_ds;
-  } else if (strcmp(stat_name, "/if/punt") == 0) {
-    *data_set_ptr = if_punt_ds;
+  if (strcmp(stat_name, "/if/rx") == 0) {
+    *data_set_ptr = if_rx_ds;
+  } else if (strcmp(stat_name, "/if/tx") == 0) {
+    *data_set_ptr = if_tx_ds;
   } else if (strcmp(stat_name, "/if/ip4") == 0) {
     *data_set_ptr = if_ip4_ds;
   } else if (strcmp(stat_name, "/if/ip6") == 0) {
     *data_set_ptr = if_ip6_ds;
-  } else if (strcmp(stat_name, "/if/rx-no-buf") == 0) {
-    *data_set_ptr = if_rx_no_buf_ds;
-  } else if (strcmp(stat_name, "/if/rx-miss") == 0) {
-    *data_set_ptr = if_rx_miss_ds;
-  } else if (strcmp(stat_name, "/if/rx-error") == 0) {
-    *data_set_ptr = if_rx_error_ds;
-  } else if (strcmp(stat_name, "/if/tx-error") == 0) {
-    *data_set_ptr = if_tx_error_ds;
-  } else if (strcmp(stat_name, "/if/mpls") == 0) {
-    *data_set_ptr = if_mpls_ds;
-  } else if (strcmp(stat_name, "/if/rx") == 0) {
-    *data_set_ptr = if_rx_ds;
-  } else if (strcmp(stat_name, "/if/rx-unicast") == 0) {
-    *data_set_ptr = if_rx_unicast_ds;
-  } else if (strcmp(stat_name, "/if/rx-multicast") == 0) {
-    *data_set_ptr = if_rx_multicast_ds;
-  } else if (strcmp(stat_name, "/if/rx-broadcast") == 0) {
-    *data_set_ptr = if_rx_broadcast_ds;
-  } else if (strcmp(stat_name, "/if/tx") == 0) {
-    *data_set_ptr = if_tx_ds;
-  } else if (strcmp(stat_name, "/if/tx-unicast") == 0) {
-    *data_set_ptr = if_tx_unicast_ds;
-  } else if (strcmp(stat_name, "/if/tx-multicast") == 0) {
-    *data_set_ptr = if_tx_multicast_ds;
-  } else if (strcmp(stat_name, "/if/tx-broadcast") == 0) {
-    *data_set_ptr = if_tx_broadcast_ds;
-  } else {
+  } else if (strcmp(stat_name, "/if/drops") == 0) {
+    *data_set_ptr = if_drops_ds;
+  } else if (!verbose) {
     return 1;
+  }
+
+  if (verbose) {
+    if (strcmp(stat_name, "/if/punt") == 0) {
+      *data_set_ptr = if_punt_ds;
+    } else if (strcmp(stat_name, "/if/mpls") == 0) {
+      *data_set_ptr = if_mpls_ds;
+    } else if (strcmp(stat_name, "/if/rx-no-buf") == 0) {
+      *data_set_ptr = if_rx_no_buf_ds;
+    } else if (strcmp(stat_name, "/if/rx-miss") == 0) {
+      *data_set_ptr = if_rx_miss_ds;
+    } else if (strcmp(stat_name, "/if/rx-error") == 0) {
+      *data_set_ptr = if_rx_error_ds;
+    } else if (strcmp(stat_name, "/if/rx-unicast") == 0) {
+      *data_set_ptr = if_rx_unicast_ds;
+    } else if (strcmp(stat_name, "/if/rx-multicast") == 0) {
+      *data_set_ptr = if_rx_multicast_ds;
+    } else if (strcmp(stat_name, "/if/rx-broadcast") == 0) {
+      *data_set_ptr = if_rx_broadcast_ds;
+    } else if (strcmp(stat_name, "/if/tx-error") == 0) {
+      *data_set_ptr = if_tx_error_ds;
+    } else if (strcmp(stat_name, "/if/tx-unicast") == 0) {
+      *data_set_ptr = if_tx_unicast_ds;
+    } else if (strcmp(stat_name, "/if/tx-multicast") == 0) {
+      *data_set_ptr = if_tx_multicast_ds;
+    } else if (strcmp(stat_name, "/if/tx-broadcast") == 0) {
+      *data_set_ptr = if_tx_broadcast_ds;
+    } else {
+      return 1;
+    }
   }
 
   return 0;
@@ -234,9 +249,31 @@ static int get_data_set(const char *stat_name, data_set_t *data_set_ptr) {
 /**********************************************************/
 
 /*
+ * This function is called for each configuration item.
+ */
+static int vpp_config(const char *key, const char *value) {
+  if (strcasecmp(key, "Verbose") == 0) {
+    verbose = IS_TRUE(value);
+  } else if (strcasecmp(key, "Tag") == 0) {
+    if (tag != NULL) {
+      free(tag);
+      tag = NULL;
+    }
+
+    if (strcasecmp(value, "None")) {
+      tag = strdup(value);
+    }
+  } else {
+    return 1;
+  }
+
+  return 0;
+}
+
+/*
  * This function is called once upon startup to initialize the plugin.
  */
-static int my_init(void) {
+static int vpp_init(void) {
   u8 *stat_segment_name = (u8 *)STAT_SEGMENT_SOCKET_FILE;
   int ret = stat_segment_connect((char *)stat_segment_name);
 
@@ -249,7 +286,7 @@ static int my_init(void) {
 /*
  * This function is called in regular intervalls to collect the data.
  */
-static int my_read(void) {
+static int vpp_read(void) {
   uint8_t **patterns = {0};
   char **interfaces = {0};
 
@@ -258,7 +295,6 @@ static int my_read(void) {
 
   uint32_t *dir = stat_segment_ls(patterns);
   stat_segment_data_t *res = stat_segment_dump(dir);
-  plugin_log(LOG_INFO, "vpp plugin: performed ls and dump");
 
   /* Read all available interfaces */
   for (int k = 0; k < vec_len(res); k++) {
@@ -291,8 +327,7 @@ static int my_read(void) {
             continue;
           }
 
-          err =
-              submit(interfaces[j], data_set.type, NULL, values, 1, &timestamp);
+          err = submit(interfaces[j], data_set.type, values, 1, &timestamp);
 
           if (err)
             goto END;
@@ -314,8 +349,7 @@ static int my_read(void) {
             continue;
           }
 
-          err =
-              submit(interfaces[j], data_set.type, NULL, values, 2, &timestamp);
+          err = submit(interfaces[j], data_set.type, values, 2, &timestamp);
 
           if (err)
             goto END;
@@ -354,7 +388,7 @@ END:
 /*
  * This function is called when plugin_log () has been used.
  */
-static void my_log(int severity, const char *msg, user_data_t *ud) {
+static void vpp_log(int severity, const char *msg, user_data_t *ud) {
   printf("[LOG %i] %s\n", severity, msg);
   return;
 }
@@ -362,9 +396,16 @@ static void my_log(int severity, const char *msg, user_data_t *ud) {
 /*
  * This function is called before shutting down collectd.
  */
-static int my_shutdown(void) {
+static int vpp_shutdown(void) {
   plugin_log(LOG_INFO, "vpp plugin: shutting down");
+
+  if (tag != NULL) {
+    free(tag);
+    tag = NULL;
+  }
+
   stat_segment_disconnect();
+
   return 0;
 }
 
@@ -390,9 +431,10 @@ void module_register(void) {
   plugin_register_data_set(&if_tx_unicast_ds);
   plugin_register_data_set(&if_tx_multicast_ds);
   plugin_register_data_set(&if_tx_broadcast_ds);
-  plugin_register_log("vpp", my_log, /* user data */ NULL);
-  plugin_register_init("vpp", my_init);
-  plugin_register_read("vpp", my_read);
-  plugin_register_shutdown("vpp", my_shutdown);
+  plugin_register_log("vpp", vpp_log, /* user data */ NULL);
+  plugin_register_config("vpp", vpp_config, config_keys, config_keys_num);
+  plugin_register_init("vpp", vpp_init);
+  plugin_register_read("vpp", vpp_read);
+  plugin_register_shutdown("vpp", vpp_shutdown);
   return;
 }

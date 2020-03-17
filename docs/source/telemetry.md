@@ -66,6 +66,11 @@ If you need the custom types that the two plugins define, they are present in
 the type database for multi-value metrics
 (see [CollectD protocol support in InfluxDB](https://docs.influxdata.com/influxdb/v1.7/supported_protocols/collectd/)).
 
+## Plugin options
+`vpp` and `vpp-hicn` have the same two options:
+- `Verbose` enables additional statistics. You can check the sources to have an exact list of available metrics.
+- `Tag` tags the data with the given string. Useful for identifying the context in which the data was retrieved in InfluxDB for instance. If the tag value is `None`, no tag is applied.
+
 ### Example: storing statistics from vpp and vpp-hicn
 
 We'll use the rrdtool and csv plugins to store statistics from vpp and vpp-hicn.
@@ -112,6 +117,16 @@ LoadPlugin vpp_hicn
 
 <Plugin rrdtool>
   DataDir "/var/lib/collectd/rrd"  # the folder where statistics are stored in rrd
+</Plugin>
+
+<Plugin vpp>
+  Verbose true
+  Tag "None"
+</Plugin>
+
+<Plugin vpp_hicn>
+  Verbose true
+  Tag "None"
 </Plugin>
 ```
 
