@@ -226,9 +226,7 @@ _(hicn_api_face_ip_del_reply)                            \
 _(hicn_api_face_del_reply)                               \
 _(hicn_api_route_nhops_add_reply)                        \
 _(hicn_api_route_del_reply)                              \
-_(hicn_api_route_nhop_del_reply)                         \
-_(hicn_api_punting_add_reply)				 \
-_(hicn_api_punting_del_reply)
+_(hicn_api_route_nhop_del_reply)
 
 #define _(n)                                            \
     static void vl_api_##n##_t_handler                  \
@@ -270,7 +268,6 @@ _(HICN_API_ROUTE_DEL_REPLY, hicn_api_route_del_reply)                   \
 _(HICN_API_ROUTE_NHOP_DEL_REPLY, hicn_api_route_nhop_del_reply)         \
 _(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)         \
 _(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)             \
-_(HICN_API_PUNTING_ADD_REPLY, hicn_api_punting_add_reply)               \
 _(HICN_API_REGISTER_PROD_APP_REPLY, hicn_api_register_prod_app_reply)   \
 _(HICN_API_FACE_PROD_DEL_REPLY, hicn_api_face_prod_del_reply)           \
 _(HICN_API_REGISTER_CONS_APP_REPLY, hicn_api_register_cons_app_reply)   \
@@ -1416,175 +1413,6 @@ static void
       return;
     }
   fformat (vam->ofp, "%s", mp->description);
-}
-
-static int
-api_hicn_api_ip_punting_add (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_punting_add_t *mp;
-  fib_prefix_t prefix;
-  u32 swif = ~0;
-  int ret;
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "prefix %U/%d", unformat_ip46_address,
-		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
-	{;
-	}
-      else if (unformat (input, "intfc %d", &swif))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  /* Check parse */
-  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0))
-      || (prefix.fp_len == 0))
-    {
-      clib_warning ("Please specify prefix...");
-      return 1;
-    }
-
-  if (swif == ~0)
-    {
-      clib_warning ("Please specify interface...");
-      return 1;
-    }
-  /* Construct the API message */
-  M (HICN_API_PUNTING_ADD, mp);
-  mp->type = IP_PUNT;
-  if (!ip46_address_is_ip4 (&(prefix.fp_addr)))
-    {
-      prefix.fp_proto = fib_proto_from_ip46 (IP46_TYPE_IP6);
-    }
-  ip_prefix_encode (&prefix, &mp->rule.ip.prefix);
-
-  mp->rule.ip.swif = clib_host_to_net_u32 (swif);
-
-  /* send it... */
-  S (mp);
-
-  /* Wait for a reply... */
-  W (ret);
-
-  return ret;
-}
-
-static int
-api_hicn_api_udp_punting_add (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_punting_add_t *mp;
-  fib_prefix_t prefix;
-  u32 swif = ~0;
-  u16 sport = 0;
-  u16 dport = 0;
-  vl_api_address_family_t ip_version = ~0;
-  int ret;
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "prefix %U/%d", unformat_ip46_address,
-		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
-	{;
-	}
-      else if (unformat (input, "sport %u", &sport));
-      else if (unformat (input, "dport %u", &dport));
-      else if (unformat (input, "ip4"))
-	{
-	  ip_version = ADDRESS_IP4;
-	}
-      else if (unformat (input, "ip6"))
-	{
-	  ip_version = ADDRESS_IP6;
-	}
-      else if (unformat (input, "intfc %d", &swif))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  /* Check parse */
-  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0))
-      || (prefix.fp_len == 0))
-    {
-      clib_warning ("Please specify prefix...");
-      return 1;
-    }
-
-  if (swif == ~0)
-    {
-      clib_warning ("Please specify interface...");
-      return 1;
-    }
-  if (ip_version == ~0)
-    {
-      clib_warning ("Please specify ip version of the udp tunnel...");
-      return 1;
-    }
-  /* Construct the API message */
-  M (HICN_API_PUNTING_ADD, mp);
-  mp->type = UDP_PUNT;
-  if (!ip46_address_is_ip4 (&(prefix.fp_addr)))
-    {
-      prefix.fp_proto = fib_proto_from_ip46 (IP46_TYPE_IP6);
-    }
-  ip_prefix_encode (&prefix, &mp->rule.ip.prefix);
-
-  mp->rule.udp.ip_version = ip_version;
-
-  mp->rule.udp.swif = clib_host_to_net_u32 (swif);
-  mp->rule.udp.sport = clib_host_to_net_u16 (sport);
-  mp->rule.udp.sport = clib_host_to_net_u16 (dport);
-
-  /* send it... */
-  S (mp);
-
-  /* Wait for a reply... */
-  W (ret);
-
-  return ret;
-}
-
-static int
-api_hicn_api_punting_add (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  u32 type = ~0;
-  int ret = 0;
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "type %d", &type))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  vam->input = input;
-  if (type == IP_PUNT)
-    ret = api_hicn_api_ip_punting_add (vam);
-  else if (type == UDP_PUNT)
-    ret = api_hicn_api_udp_punting_add (vam);
-
-  return ret;
-}
-
-static int
-api_hicn_api_punting_del (vat_main_t * vam)
-{
-  return 0;
 }
 
 static int

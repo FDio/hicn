@@ -16,10 +16,6 @@
 #ifndef __HICN_PG_H__
 #define __HICN_PG_H__
 
-/* Subnet-mask for punting data in the client node */
-#define SUBNET_MASK4 32
-#define SUBNET_MASK6 128
-
 typedef struct hicnpg_main_s
 {
   u32 index;
