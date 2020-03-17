@@ -65,7 +65,6 @@ typedef struct hicnpg_main_s
   u32 max_seq_number;		//Use to limit the max sequence number
   u32 n_flows;			//Use to simulate multiple flows (a flow always have the same hICN name)
   ip46_address_t pgen_clt_src_addr;	//Source addess base to use in the interest
-
   u16 interest_lifetime;	// Interest lifetime
   u32 sw_if;			//Interface where to send interest and receives data
 } hicnpg_main_t;
