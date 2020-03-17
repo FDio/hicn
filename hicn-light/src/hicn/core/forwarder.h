@@ -46,7 +46,9 @@
 
 #include <parc/algol/parc_Clock.h>
 
+#if !defined(__APPLE__)
 #include <hicn/socket/api.h>
+#endif
 
 #define PORT_NUMBER 9695
 #define PORT_NUMBER_AS_STRING "9695"
@@ -265,9 +267,9 @@ void forwarder_ClearCache(Forwarder *forwarder);
 void forwarder_SetStrategy(Forwarder *forwarder, Name *prefix,
                            strategy_type strategy, unsigned related_prefixes_len,
                            Name **related_prefixes);
-
+#if !defined(__APPLE__)
 hicn_socket_helper_t *forwarder_GetHicnSocketHelper(Forwarder *forwarder);
-
+#endif
 #ifdef WITH_MAPME
 
 /**

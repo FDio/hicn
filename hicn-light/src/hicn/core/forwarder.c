@@ -103,9 +103,10 @@ struct forwarder {
 
   PARCClock *clock;
 
+#if !defined(__APPLE__)
   hicn_socket_helper_t
       *hicnSocketHelper;  // state required to manage hicn connections
-
+#endif
   // used by seed48 and nrand48
   unsigned short seed[3];
 
@@ -523,9 +524,11 @@ PARCClock *forwarder_GetClock(const Forwarder *forwarder) {
   return forwarder->clock;
 }
 
+#if !defined(__APPLE__)
 hicn_socket_helper_t *forwarder_GetHicnSocketHelper(Forwarder *forwarder) {
   return forwarder->hicnSocketHelper;
 }
+#endif
 
 // =======================================================
 
