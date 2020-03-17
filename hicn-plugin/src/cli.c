@@ -33,11 +33,7 @@
 #include "error.h"
 #include "faces/face.h"
 #include "route.h"
-#include "punt.h"
 #include "hicn_api.h"
-
-extern ip_version_t ipv4;
-extern ip_version_t ipv6;
 
 static vl_api_hicn_api_node_params_set_t node_ctl_params = {
   .pit_max_size = -1,
@@ -51,26 +47,6 @@ typedef enum
   IP,
   ETHERNET,
 } interface_type_t;
-
-/*
- * Supporting function that return if the interface is IP or ethernet
- */
-static interface_type_t
-hicn_cli_is_ip_interface (vlib_main_t * vm,
-			  vnet_main_t * vnm, u32 sw_if_index)
-{
-
-  vnet_hw_interface_t *hi = vnet_get_hw_interface (vnm, sw_if_index);
-
-  vnet_device_class_t *dev_class =
-    vnet_get_device_class (vnm, hi->dev_class_index);
-  if (!strcmp (dev_class->name, "Loopback"))
-    {
-      return IP;
-    }
-  return ETHERNET;
-
-}
 
 /*
  * cli handler for 'control start'
@@ -527,154 +503,6 @@ done:
   return (cl_err);
 }
 
-static clib_error_t *
-hicn_cli_punting_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
-			     vlib_cli_command_t * cmd)
-{
-  hicn_mgmt_punting_op_e punting_op = HICN_MGMT_PUNTING_OP_NONE;
-  unsigned int subnet_mask = 0;
-  ip46_address_t address;
-  u32 sw_if_index = ~0;
-  int ret = 0;
-  vnet_main_t *vnm = NULL;
-  u8 type = HICN_PUNT_IP_TYPE;
-  u32 src_port = HICN_PUNT_INVALID_PORT, dst_port = HICN_PUNT_INVALID_PORT;
-  vnm = vnet_get_main ();
-  u8 sport = 0;
-  u8 dport = 0;
-  fib_prefix_t prefix;
-
-  unformat_input_t _line_input, *line_input = &_line_input;
-  if (!unformat_user (main_input, unformat_line_input, line_input))
-    {
-      return (0);
-    }
-  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (line_input, "add"))
-	{
-	  punting_op = HICN_MGMT_PUNTING_OP_CREATE;
-	}
-      else if (unformat (line_input, "delete"))
-	{
-	  punting_op = HICN_MGMT_PUNTING_OP_DELETE;
-	}
-      else if (unformat (line_input, "intfc %U",
-			 unformat_vnet_sw_interface, vnm, &sw_if_index))
-	{;
-	}
-      else if (unformat
-	       (line_input, "prefix %U/%d", unformat_ip46_address,
-		&address, IP46_TYPE_ANY, &subnet_mask))
-	{;
-	}
-      else if (unformat (line_input, "type ip"))
-	{
-	  type = HICN_PUNT_IP_TYPE;
-	}
-      else if (unformat (line_input, "type"))
-	{
-	  if (unformat (line_input, "udp4"))
-	    {
-	      type = HICN_PUNT_UDP4_TYPE;
-	    }
-	  else if (unformat (line_input, "udp6"))
-	    {
-	      type = HICN_PUNT_UDP6_TYPE;
-	    }
-
-	  if (unformat (line_input, "src_port %u", &src_port))
-	    {
-		  sport = 1;
-		}
-	  if (unformat (line_input, "dst_port %u", &dst_port))
-	    {
-		  dport = 1;
-		}
-	}
-      else
-	{
-	  return (clib_error_return (0, "invalid option"));
-	}
-    }
-
-  fib_prefix_from_ip46_addr(&address, &prefix);
-  prefix.fp_len = subnet_mask;
-  if (punting_op == HICN_MGMT_PUNTING_OP_CREATE
-      && (ip46_address_is_zero (&prefix.fp_addr) || sw_if_index == ~0))
-    {
-      return (clib_error_return
-	      (0, "Please specify valid prefix and interface"));
-    }
-  else if ((punting_op == HICN_MGMT_PUNTING_OP_DELETE) &&
-	   ip46_address_is_zero (&prefix.fp_addr))
-    {
-      return (clib_error_return
-	      (0, "Please specify valid prefix and optionally an interface"));
-    }
-  else if (punting_op == HICN_MGMT_PUNTING_OP_NONE)
-    {
-      return (clib_error_return
-	      (0, "Please specify valid operation, add or delete"));
-    }
-  switch (punting_op)
-    {
-    case HICN_MGMT_PUNTING_OP_CREATE:
-      {
-	if (type == HICN_PUNT_UDP4_TYPE || type == HICN_PUNT_UDP6_TYPE)
-	  {
-	    if (sport != 0 || dport != 0)
-	      ret =
-		hicn_punt_interest_data_for_udp (vm, &prefix,
-						 sw_if_index, type,
-						 clib_host_to_net_u16
-						 (src_port),
-						 clib_host_to_net_u16
-						 (dst_port), NO_L2);
-	    else
-	      return (clib_error_return
-		      (0,
-		       "Please specify valid source and destination udp port"));
-	  }
-	else
-	  {
-	    ret =
-	      hicn_punt_interest_data_for_ip (vm, &prefix, sw_if_index, type, NO_L2);
-	  }
-      }
-      break;
-    case HICN_MGMT_PUNTING_OP_DELETE:
-      {
-	if (sw_if_index != ~0)
-	  {
-	    ip46_address_is_ip4 (&prefix.fp_addr) ?
-	      hicn_punt_enable_disable_vnet_ip4_table_on_intf (vm,
-							       sw_if_index,
-							       0) :
-	      hicn_punt_enable_disable_vnet_ip6_table_on_intf (vm,
-							       sw_if_index,
-							       0);
-	  }
-	else if (!(ip46_address_is_zero (&prefix.fp_addr)))
-	  {
-	    ret = ip46_address_is_ip4 (&prefix.fp_addr) ?
-	      hicn_punt_remove_ip4_address (vm, &prefix, 1,
-					    sw_if_index,
-					    0, NO_L2) :
-	      hicn_punt_remove_ip6_address (vm, &prefix, 1, sw_if_index, 0,
-					    NO_L2);
-	  }
-      }
-      break;
-    default:
-      break;
-    }
-
-  return (ret == HICN_ERROR_NONE) ? 0 : clib_error_return (0,
-							   get_error_string
-							   (ret));
-}
-
 /*
  * cli handler for 'pgen'
  */
@@ -1007,14 +835,6 @@ VLIB_CLI_COMMAND(hicn_cli_show_command, static)=
         "[strategies]",
         .function = hicn_cli_show_command_fn,
 };
-
-/* cli declaration for 'punting' */
-VLIB_CLI_COMMAND(hicn_cli_punting_command, static)=
-  {
-   .path = "hicn punting",
-   .short_help = "hicn punting {add|delete} prefix <prefix> intfc <sw_if> {type ip | type <udp4|udp6> src_port <port> dst_port <port>}",
-   .function = hicn_cli_punting_command_fn,
-  };
 
 /* cli declaration for 'hicn pgen client' */
 VLIB_CLI_COMMAND(hicn_cli_pgen_client_set_command, static)=

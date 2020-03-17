@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2019 Cisco and/or its affiliates.
+* Copyright (c) 2019-2020 Cisco and/or its affiliates.
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
 * You may obtain a copy of the License at:
@@ -178,19 +178,6 @@ if(!reply->retval){
   return VAPI_EUSER;
 }
 
-static vapi_error_e call_hicn_api_punting_add(struct vapi_ctx_s *ctx,
-                           void *callback_ctx,
-                           vapi_error_e rv,
-                           bool is_last,
-                           vapi_payload_hicn_api_punting_add_reply *reply){
-if(!reply->retval){
-  SRP_LOG_DBGMSG("Successfully done");
-  return VAPI_OK;
- }else
-  return VAPI_EUSER;
-}
-
-
 static vapi_error_e call_hicn_api_route_nhop_del(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
@@ -202,19 +189,6 @@ if(!reply->retval){
  }else
   return VAPI_EUSER;
 }
-
-static vapi_error_e call_hicn_api_punting_del(struct vapi_ctx_s *ctx,
-                           void *callback_ctx,
-                           vapi_error_e rv,
-                           bool is_last,
-                           vapi_payload_hicn_api_punting_del_reply *reply){
-if(!reply->retval){
-  SRP_LOG_DBGMSG("Successfully done");
-  return VAPI_OK;
- }else
-  return VAPI_EUSER;
-}
-
 
 static vapi_error_e call_hicn_api_face_ip_del(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
@@ -754,51 +728,6 @@ if (vapi_hicn_api_face_ip_params_get(g_vapi_ctx_instance,msg,call_hicn_api_face_
 return SR_ERR_OK;
 }
 
-static int hicn_punting_add_ip_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
-        sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
-
- SRP_LOG_DBGMSG("hicn punting add received successfully");
- // allocate memory msg and resp
- vapi_msg_hicn_api_punting_add *msg;
-
- msg = vapi_alloc_hicn_api_punting_add(g_vapi_ctx_instance);
-
- msg->payload.type=IP_PUNT;
-
- if(strcmp(input[0].data.string_val,"-1")){
-
-   struct sockaddr_in sa;
-   // store this IP address in sa:
-   inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
-   unsigned char * tmp =  (unsigned char *) &sa.sin_addr.s_addr;
-   memcpy(&msg->payload.rule.ip.prefix.address.un.ip4[0],tmp,B32);
-   msg->payload.rule.ip.prefix.address.af = ADDRESS_IP4;
-
-
- }else if(strcmp(input[1].data.string_val,"-1")){
-
-   void *dst = malloc(sizeof(struct in6_addr));
-   inet_pton(AF_INET6, input[1].data.string_val, dst);
-   unsigned char * tmp =(unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-   memcpy(&msg->payload.rule.ip.prefix.address.un.ip6[0],tmp,B128);
-   msg->payload.rule.ip.prefix.address.af = ADDRESS_IP6;
-
- }else{
-     SRP_LOG_DBGMSG("Invalid local IP address");
-     return SR_ERR_OPERATION_FAILED;
- }
-
- msg->payload.rule.ip.prefix.len = input[2].data.uint8_val;
- msg->payload.rule.ip.swif = input[3].data.uint32_val;
-
-
-if (vapi_hicn_api_punting_add(g_vapi_ctx_instance, msg, call_hicn_api_punting_add, NULL)!=VAPI_OK){
- SRP_LOG_DBGMSG("Operation failed");
- return SR_ERR_OPERATION_FAILED;
-}
-return SR_ERR_OK;
-}
-
 static int hicn_route_nhops_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
@@ -843,53 +772,6 @@ if (vapi_hicn_api_route_nhop_del(g_vapi_ctx_instance, msg, call_hicn_api_route_n
 }
 return SR_ERR_OK;
 }
-
-static int hicn_punting_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
-        sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
-
- SRP_LOG_DBGMSG("hicn punting del received successfully");
- // allocate memory msg
- vapi_msg_hicn_api_punting_del *msg;
-
- msg = vapi_alloc_hicn_api_punting_del(g_vapi_ctx_instance);
-
- msg->payload.type=IP_PUNT;
-
- if(strcmp(input[0].data.string_val,"-1")){
-
-   struct sockaddr_in sa;
-   inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
-   unsigned char * tmp = (unsigned char *) &sa.sin_addr.s_addr;
-   memcpy(&msg->payload.rule.ip.prefix.address.un.ip4[0],tmp,B32);
-   msg->payload.rule.ip.prefix.address.af = ADDRESS_IP4;
-
-
- }else if(strcmp(input[1].data.string_val,"-1")){
-
-   void *dst = malloc(sizeof(struct in6_addr));
-   inet_pton(AF_INET6, input[1].data.string_val, dst);
-   unsigned char * tmp = (unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-   memcpy(&msg->payload.rule.ip.prefix.address.un.ip6[0],tmp,B128);
-   msg->payload.rule.ip.prefix.address.af = ADDRESS_IP6;
-
- }else{
-     SRP_LOG_DBGMSG("Invalid local IP address");
-     return SR_ERR_OPERATION_FAILED;
- }
-
-
- msg->payload.rule.ip.prefix.len = input[2].data.uint8_val;
- msg->payload.rule.ip.swif = input[3].data.uint32_val;
-
-
-if (vapi_hicn_api_punting_del(g_vapi_ctx_instance, msg, call_hicn_api_punting_del,NULL)!=VAPI_OK){
-   SRP_LOG_DBGMSG("Operation failed");
-   return SR_ERR_OPERATION_FAILED;
-}
-return SR_ERR_OK;
-
-}
-
 
 static int hicn_face_ip_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
@@ -1212,22 +1094,6 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
      SRP_LOG_DBGMSG("Problem in subscription face-ip-del\n");
      goto error;
    }
-
-   // punting subscriptions
-
-   rc = sr_rpc_subscribe(session, "/hicn:punting-add-ip", hicn_punting_add_ip_cb,
-   session, 90,SR_SUBSCR_CTX_REUSE, subscription);
-   if (rc != SR_ERR_OK) {
-     SRP_LOG_DBGMSG("Problem in subscription punting-add\n");
-     goto error;
-   }
-
- rc = sr_rpc_subscribe(session, "/hicn:punting-del-ip", hicn_punting_del_cb,
-                       session, 89,SR_SUBSCR_CTX_REUSE, subscription);
- if (rc != SR_ERR_OK) {
-   SRP_LOG_DBGMSG("Problem in subscription punting-del\n");
-   goto error;
- }
 
  // subscribe as hicn state data provider
 
