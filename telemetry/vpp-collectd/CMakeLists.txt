@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 set (COLLECTD_PLUGINS hicn-collectd-plugins)
 project(hicn-collectd-plugins)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/" "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake/Modules/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/" "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Modules/")
 
 include(BuildMacros)
 
