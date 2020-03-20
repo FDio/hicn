@@ -271,6 +271,24 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
   if (ret == HICN_ERROR_NONE
       && hicn_face_prod_set_lru_max (*faceid, cs_reserved) == HICN_ERROR_NONE)
     {
+      if (ip46_address_is_ip4(&(prefix->fp_addr)))
+        {
+          ip4_address_t mask;
+          ip4_preflen_to_mask (prefix->fp_len, &mask);
+          prefix->fp_addr.ip4.as_u32 = prefix->fp_addr.ip4.as_u32 & mask.as_u32;
+          prefix->fp_proto = FIB_PROTOCOL_IP4;
+        }
+      else
+        {
+          ip6_address_t mask;
+          ip6_preflen_to_mask (prefix->fp_len, &mask);
+          prefix->fp_addr.ip6.as_u64[0] =
+            prefix->fp_addr.ip6.as_u64[0] & mask.as_u64[0];
+          prefix->fp_addr.ip6.as_u64[1] =
+            prefix->fp_addr.ip6.as_u64[1] & mask.as_u64[1];
+          prefix->fp_proto = FIB_PROTOCOL_IP6;
+        }
+
       hicn_app_state_create (sw_if, prefix);
       ret = hicn_route_add (faceid, 1, prefix);
     }
