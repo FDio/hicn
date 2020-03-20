@@ -322,8 +322,6 @@ static int vpp_read(void) {
               (value_t){.derive = res[i].simple_counter_vec[k][j]}};
 
           if (get_data_set(res[i].name, &data_set)) {
-            plugin_log(LOG_INFO, "vpp plugin: ignored stat name %s",
-                       res[i].name);
             continue;
           }
 
@@ -344,8 +342,6 @@ static int vpp_read(void) {
           };
 
           if (get_data_set(res[i].name, &data_set)) {
-            plugin_log(LOG_INFO, "vpp plugin: ignored stat name %s",
-                       res[i].name);
             continue;
           }
 

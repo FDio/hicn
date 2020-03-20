@@ -84,20 +84,11 @@ class Verifier {
    */
   int verify(const Packet &packet);
 
-  CryptoHash getPacketHash(const Packet &packet,
-                           std::shared_ptr<CryptoHasher> hasher);
+  CryptoHash getPacketHash(const Packet &packet, CryptoHasher &hasher);
 
  private:
   PARCVerifier *verifier_ = nullptr;
-  PARCCertificateFactory *factory_ = nullptr;
-  PARCCertificate *certificate_ = nullptr;
-  PARCKeyId *keyId_ = nullptr;
-  PARCKey *key_ = nullptr;
-  PARCBuffer *key_buffer_ = nullptr;
-  PARCSymmetricKeyStore *symmetricKeyStore_ = nullptr;
   PARCSigner *signer_ = nullptr;
-  PARCBufferComposer *composer_ = nullptr;
-  static uint8_t zeros[200];
 };
 
 }  // namespace utils

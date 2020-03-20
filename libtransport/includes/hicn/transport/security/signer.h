@@ -76,15 +76,10 @@ class Signer {
   PARCKeyStore *getKeyStore();
 
  private:
-  PARCBufferComposer *composer_ = nullptr;
-  PARCBuffer *key_buffer_ = nullptr;
-  PARCSymmetricKeyStore *symmetricKeyStore_ = nullptr;
-  PARCSigner *signer_ = nullptr;
-  PARCSignature *signature_ = nullptr;
-  PARCKeyId *key_id_ = nullptr;
   CryptoSuite suite_;
+  PARCSigner *signer_ = nullptr;
+  PARCKeyId *key_id_ = nullptr;
   size_t signature_length_;
-  static uint8_t zeros[200];
 };
 
 }  // namespace utils

@@ -36,8 +36,6 @@ TRANSPORT_ALWAYS_INLINE bool file_exists(const std::string &name) {
   return (stat(name.c_str(), &buffer) == 0);
 }
 
-uint8_t Verifier::zeros[200] = {0};
-
 Verifier::Verifier() {
   parcSecurity_Init();
   PARCInMemoryVerifier *in_memory_verifier = parcInMemoryVerifier_Create();
@@ -46,14 +44,7 @@ Verifier::Verifier() {
 }
 
 Verifier::~Verifier() {
-  if (key_) parcKey_Release(&key_);
-  if (keyId_) parcKeyId_Release(&keyId_);
   if (signer_) parcSigner_Release(&signer_);
-  if (symmetricKeyStore_) parcSymmetricKeyStore_Release(&symmetricKeyStore_);
-  if (key_buffer_) parcBuffer_Release(&key_buffer_);
-  if (composer_) parcBufferComposer_Release(&composer_);
-  if (certificate_) parcCertificate_Release(&certificate_);
-  if (factory_) parcCertificateFactory_Release(&factory_);
   if (verifier_) parcVerifier_Release(&verifier_);
   parcSecurity_Fini();
 }
@@ -61,10 +52,10 @@ Verifier::~Verifier() {
 /*
  * TODO: Unsupported in libparc
  */
-bool Verifier::hasKey(PARCKeyId *keyId) { return false; }
+bool Verifier::hasKey(PARCKeyId *key_id) { return false; }
 
 /*
- * TODO: signal errors without trap.
+ * TODO: Signal errors without trap.
  */
 bool Verifier::addKey(PARCKey *key) {
   parcVerifier_AddKey(this->verifier_, key);
@@ -73,28 +64,36 @@ bool Verifier::addKey(PARCKey *key) {
 
 PARCKeyId *Verifier::addKeyFromPassphrase(const std::string &passphrase,
                                           CryptoSuite suite) {
-  composer_ = parcBufferComposer_Create();
-  parcBufferComposer_PutString(composer_, passphrase.c_str());
-  key_buffer_ = parcBufferComposer_ProduceBuffer(composer_);
+  PARCBufferComposer *composer = parcBufferComposer_Create();
+  parcBufferComposer_PutString(composer, passphrase.c_str());
+  PARCBuffer *key_buffer = parcBufferComposer_ProduceBuffer(composer);
 
-  symmetricKeyStore_ = parcSymmetricKeyStore_Create(key_buffer_);
+  PARCSymmetricKeyStore *symmetricKeyStore =
+      parcSymmetricKeyStore_Create(key_buffer);
   signer_ = parcSigner_Create(
       parcSymmetricKeySigner_Create(
-          symmetricKeyStore_,
+          symmetricKeyStore,
           parcCryptoSuite_GetCryptoHash(static_cast<PARCCryptoSuite>(suite))),
       PARCSymmetricKeySignerAsSigner);
-  keyId_ = parcSigner_CreateKeyId(signer_);
-  key_ = parcKey_CreateFromSymmetricKey(
-      keyId_, parcSigner_GetSigningAlgorithm(signer_), key_buffer_);
 
-  addKey(key_);
-  return keyId_;
+  PARCKeyId *key_id = parcSigner_CreateKeyId(signer_);
+  PARCKey *key = parcKey_CreateFromSymmetricKey(
+      key_id, parcSigner_GetSigningAlgorithm(signer_), key_buffer);
+
+  addKey(key);
+
+  parcKey_Release(&key);
+  parcSymmetricKeyStore_Release(&symmetricKeyStore);
+  parcBuffer_Release(&key_buffer);
+  parcBufferComposer_Release(&composer);
+
+  return key_id;
 }
 
 PARCKeyId *Verifier::addKeyFromCertificate(const std::string &file_name) {
-  factory_ = parcCertificateFactory_Create(PARCCertificateType_X509,
-                                           PARCContainerEncoding_PEM);
-  parcAssertNotNull(factory_, "Expected non-NULL factory");
+  PARCCertificateFactory *factory = parcCertificateFactory_Create(
+      PARCCertificateType_X509, PARCContainerEncoding_PEM);
+  parcAssertNotNull(factory, "Expected non-NULL factory");
 
   if (!file_exists(file_name)) {
     TRANSPORT_LOGW("Warning! The certificate %s file does not exist",
@@ -102,72 +101,86 @@ PARCKeyId *Verifier::addKeyFromCertificate(const std::string &file_name) {
     return nullptr;
   }
 
-  certificate_ = parcCertificateFactory_CreateCertificateFromFile(
-      factory_, (char *)file_name.c_str(), NULL);
+  PARCCertificate *certificate =
+      parcCertificateFactory_CreateCertificateFromFile(
+          factory, (char *)file_name.c_str(), NULL);
   PARCBuffer *derEncodedVersion =
-      parcCertificate_GetDEREncodedPublicKey(certificate_);
-  PARCCryptoHash *keyDigest = parcCertificate_GetPublicKeyDigest(certificate_);
-  keyId_ = parcKeyId_Create(parcCryptoHash_GetDigest(keyDigest));
-  key_ = parcKey_CreateFromDerEncodedPublicKey(keyId_, PARCSigningAlgorithm_RSA,
-                                               derEncodedVersion);
+      parcCertificate_GetDEREncodedPublicKey(certificate);
+  PARCCryptoHash *keyDigest = parcCertificate_GetPublicKeyDigest(certificate);
 
-  addKey(key_);
-  return keyId_;
+  PARCKeyId *key_id = parcKeyId_Create(parcCryptoHash_GetDigest(keyDigest));
+  PARCKey *key = parcKey_CreateFromDerEncodedPublicKey(
+      key_id, PARCSigningAlgorithm_RSA, derEncodedVersion);
+
+  addKey(key);
+
+  parcKey_Release(&key);
+  parcCertificate_Release(&certificate);
+  parcCertificateFactory_Release(&factory);
+
+  return key_id;
 }
 
 int Verifier::verify(const Packet &packet) {
-  // Initialize packet.payload_head_
+  /* Initialize packet.payload_head_ */
   const_cast<Packet *>(&packet)->separateHeaderPayload();
-  Packet::Format format = packet.getFormat();
-  bool valid = false;
 
-  if (!(packet.format_ & HFO_AH)) {
+  bool valid = false;
+  Packet::Format format = packet.getFormat();
+
+  if (!(format & HFO_AH)) {
     throw errors::MalformedAHPacketException();
   }
 
-  // Copy IP+TCP/ICMP header before zeroing them
+  /* Copy IP+TCP/ICMP header before zeroing them */
   hicn_header_t header_copy;
   hicn_packet_copy_header(format, (const hicn_header_t *)packet.packet_start_,
                           &header_copy, false);
 
+  /* Get crypto suite */
   PARCCryptoSuite suite =
       static_cast<PARCCryptoSuite>(packet.getValidationAlgorithm());
   PARCCryptoHashType hashtype = parcCryptoSuite_GetCryptoHash(suite);
+
+  /* Fetch the key that we will use to verify the signature */
   KeyId _key_id = packet.getKeyId();
   PARCBuffer *buffer =
       parcBuffer_Wrap(_key_id.first, _key_id.second, 0, _key_id.second);
   PARCKeyId *key_id = parcKeyId_Create(buffer);
   parcBuffer_Release(&buffer);
 
+  /* Fetch signature */
   int ah_payload_len = (int)packet.getSignatureSize();
   uint8_t *_signature = packet.getSignature();
   uint8_t *signature = new uint8_t[ah_payload_len];
-  std::shared_ptr<CryptoHasher> hasher;
-
-  // TODO Remove signature copy at this point, by not setting to zero
-  // the validation payload.
+  /* TODO Remove signature copy at this point, by not setting to zero */
+  /* the validation payload. */
   std::memcpy(signature, _signature, ah_payload_len);
 
+  /* Prepare local computation of the signature based on the crypto suite */
+  PARCCryptoHasher *hasher_ptr = nullptr;
   switch (CryptoSuite(suite)) {
     case CryptoSuite::DSA_SHA256:
     case CryptoSuite::RSA_SHA256:
     case CryptoSuite::RSA_SHA512:
     case CryptoSuite::ECDSA_256K1: {
-      hasher = std::make_shared<CryptoHasher>(
-          parcVerifier_GetCryptoHasher(verifier_, key_id, hashtype));
+      hasher_ptr = parcVerifier_GetCryptoHasher(verifier_, key_id, hashtype);
       break;
     }
     case CryptoSuite::HMAC_SHA256:
     case CryptoSuite::HMAC_SHA512: {
       if (!signer_) return false;
-      hasher =
-          std::make_shared<CryptoHasher>(parcSigner_GetCryptoHasher(signer_));
+      hasher_ptr = parcSigner_GetCryptoHasher(signer_);
       break;
     }
     default: { return false; }
   }
-  CryptoHash hash_computed_locally = getPacketHash(packet, hasher);
 
+  /* Compute the packet signature locally */
+  CryptoHasher crypto_hasher(hasher_ptr);
+  CryptoHash hash_computed_locally = getPacketHash(packet, crypto_hasher);
+
+  /* Create a signature object from the raw packet signature */
   PARCBuffer *bits =
       parcBuffer_Wrap(signature, ah_payload_len, 0, ah_payload_len);
   parcBuffer_Rewind(bits);
@@ -184,6 +197,7 @@ int Verifier::verify(const Packet &packet) {
   }
 
   if (!parcBuffer_HasRemaining(bits)) {
+    delete[] signature;
     parcKeyId_Release(&key_id);
     parcBuffer_Release(&bits);
     return valid;
@@ -196,10 +210,11 @@ int Verifier::verify(const Packet &packet) {
     parcBuffer_SetPosition(bits, 0);
   }
 
+  /* Compare the packet signature to the locally computed one */
   valid = parcVerifier_VerifyDigestSignature(
       verifier_, key_id, hash_computed_locally.hash_, suite, signatureToVerify);
 
-  /* Restore the resetted fields */
+  /* Restore the fields that were reset */
   hicn_packet_copy_header(format, &header_copy,
                           (hicn_header_t *)packet.packet_start_, false);
 
@@ -212,7 +227,7 @@ int Verifier::verify(const Packet &packet) {
 }
 
 CryptoHash Verifier::getPacketHash(const Packet &packet,
-                                   std::shared_ptr<CryptoHasher> hasher) {
+                                   CryptoHasher &crypto_hasher) {
   MemBuf *header_chain = packet.header_head_;
   MemBuf *payload_chain = packet.payload_head_;
   Packet::Format format = packet.getFormat();
@@ -220,16 +235,16 @@ CryptoHash Verifier::getPacketHash(const Packet &packet,
   uint8_t *hicn_packet = header_chain->writableData();
   std::size_t header_len = Packet::getHeaderSizeFromFormat(format);
 
-  // Reset fields that should not appear in the signature
+  /* Reset fields that should not appear in the signature */
   const_cast<Packet &>(packet).resetForHash();
-  hasher->init().updateBytes(hicn_packet, header_len + ah_payload_len);
+  crypto_hasher.init().updateBytes(hicn_packet, header_len + ah_payload_len);
 
   for (MemBuf *current = payload_chain; current != header_chain;
        current = current->next()) {
-    hasher->updateBytes(current->data(), current->length());
+    crypto_hasher.updateBytes(current->data(), current->length());
   }
 
-  return hasher->finalize();
+  return crypto_hasher.finalize();
 }
 
 }  // namespace utils
