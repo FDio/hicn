@@ -73,7 +73,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm,
 	  hicn_name_t name;
 	  hicn_header_t *hicn0 = NULL;
 	  u32 node_id0 = 0;
-	  u8 dpo_ctx_id0 = 0;
+	  index_t dpo_ctx_id0 = 0;
 	  int ret0;
 	  u8 vft_id0;
 	  u8 is_cs0;
@@ -117,7 +117,9 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm,
 	      int res =
 		hicn_hashtb_lookup_node (rt->pitcs->pcs_table, nameptr,
 					 namelen, name_hash,
-					 1 /*is_data. Do not take lock if hit CS */ ,
+					 1
+					 /*is_data. Do not take lock if hit CS */
+					 ,
 					 &node_id0, &dpo_ctx_id0, &vft_id0,
 					 &is_cs0, &hash_entry_id, &bucket_id,
 					 &bucket_is_overflown);

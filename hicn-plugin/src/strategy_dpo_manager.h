@@ -29,21 +29,16 @@
  */
 typedef struct hicn_dpo_vft_s
 {
-  hicn_dpo_ctx_t *(*hicn_dpo_get_ctx) (index_t dpo_idx);	/**< Retrieve the dpo ctx*/
   int (*hicn_dpo_is_type) (const dpo_id_t * dpo);
 	/**< Check if the type of the
            hICN DPO is the expected */
     dpo_type_t (*hicn_dpo_get_type) (void);
 	/**< Return the type of the hICN dpo */
   void (*hicn_dpo_module_init) (void);			/**< Initialize the hICN dpo */
-  int (*hicn_dpo_create) (dpo_proto_t proto, const dpo_id_t * nh, int nh_len, index_t * dpo_idx);			/**< Create the context of the hICN dpo */
+  void (*hicn_dpo_create) (dpo_proto_t proto, const dpo_id_t * nh, int nh_len, index_t * dpo_idx);			/**< Create the context of the hICN dpo */
   int (*hicn_dpo_add_update_nh) (const dpo_id_t * nh, index_t dpo_idx);				/**< Add a next hop to the hICN dpo context */
-  int (*hicn_dpo_del_nh) (hicn_face_id_t face_id, index_t dpo_idx,
-			  fib_prefix_t * fib_pfx);
-	/**< Add a next hop to the hICN dpo context */
-  void (*hicn_dpo_lock_dpo_ctx) (dpo_id_t * dpo);
-  void (*hicn_dpo_unlock_dpo_ctx) (dpo_id_t * dpo);
-  u8 *(*format_hicn_dpo) (u8 * s, va_list * ap);
+  int (*hicn_dpo_del_nh) (hicn_face_id_t face_id, index_t dpo_idx);
+  u8 *(*hicn_dpo_format) (u8 * s, int, ...);
 	/**< Format an hICN dpo*/
 } hicn_dpo_vft_t;
 
@@ -52,6 +47,21 @@ typedef struct hicn_dpo_vft_s
  * specified
  */
 extern hicn_dpo_vft_t default_dpo;
+
+const static char *const hicn_ip6_nodes[] = {
+  "hicn-iface-ip6-input",	// this is the name you give your node in VLIB_REGISTER_NODE
+  NULL,
+};
+
+const static char *const hicn_ip4_nodes[] = {
+  "hicn-iface-ip4-input",	// this is the name you give your node in VLIB_REGISTER_NODE
+  NULL,
+};
+
+const static char *const *const hicn_nodes_strategy[DPO_PROTO_NUM] = {
+  [DPO_PROTO_IP6] = hicn_ip6_nodes,
+  [DPO_PROTO_IP4] = hicn_ip4_nodes,
+};
 
 /**
  *  @brief Register a new hICN dpo to the manager.

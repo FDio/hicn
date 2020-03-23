@@ -197,14 +197,9 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
 	  clib_memcpy (&nhops[i], &face_dpo_tmp[i], sizeof (dpo_id_t));
 	}
 
-      ret =
-	default_dpo.hicn_dpo_create (prefix->fp_proto, nhops, n_face_dpo,
-				     &dpo_idx);
+      default_dpo.hicn_dpo_create (prefix->fp_proto, nhops, n_face_dpo,
+				   &dpo_idx);
 
-      if (ret)
-	{
-	  return ret;
-	}
       /* the value we got when we registered */
       /*
        * This should be taken from the name?!? the index of the
@@ -291,11 +286,10 @@ hicn_route_del_nhop (fib_prefix_t * prefix, hicn_face_id_t face_id)
     {
       vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
       dpo_vft = hicn_dpo_get_vft (vft_id);
-      ret = dpo_vft->hicn_dpo_del_nh (face_id, hicn_dpo_id->dpoi_index,
-				      prefix);
+      ret = dpo_vft->hicn_dpo_del_nh (face_id, hicn_dpo_id->dpoi_index);
 
       hicn_dpo_ctx_t *dpo_ctx =
-	dpo_vft->hicn_dpo_get_ctx (hicn_dpo_id->dpoi_index);
+	hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index);
 
       if (ret == HICN_ERROR_NONE && !dpo_ctx->entry_count)
 	ret = hicn_route_del (prefix);
@@ -311,21 +305,15 @@ hicn_route_set_strategy (fib_prefix_t * prefix, u8 strategy_id)
   dpo_id_t new_dpo_id = DPO_INVALID;
   int ret;
   hicn_dpo_ctx_t *old_hicn_dpo_ctx;
-  const hicn_dpo_vft_t *old_dpo_vft;
   const hicn_dpo_vft_t *new_dpo_vft;
   index_t new_hicn_dpo_idx;
   u32 fib_index;
-  u32 old_vft_id;
-
 
   ret = hicn_route_get_dpo (prefix, &hicn_dpo_id, &fib_index);
 
   if (ret == HICN_ERROR_NONE)
     {
-      old_vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
-      old_dpo_vft = hicn_dpo_get_vft (old_vft_id);
-      old_hicn_dpo_ctx =
-	old_dpo_vft->hicn_dpo_get_ctx (hicn_dpo_id->dpoi_index);
+      old_hicn_dpo_ctx = hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index);
 
       new_dpo_vft = hicn_dpo_get_vft_from_id (strategy_id);
 

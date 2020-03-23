@@ -25,24 +25,8 @@
 
 typedef struct hicn_strategy_rr_ctx_s
 {
-  hicn_dpo_ctx_t default_ctx;
-
   u8 current_nhop;
 } hicn_strategy_rr_ctx_t;
-
-/**
- * @brief Lock the round robin ctx
- *
- * @param dpo Identifier of the dpo of the rr ctx
- */
-void hicn_strategy_rr_ctx_lock (dpo_id_t * dpo);
-
-/**
- * @brief Unlock the round robin ctx
- *
- * @param dpo Identifier of the dpo of the rr ctx
- */
-void hicn_strategy_rr_ctx_unlock (dpo_id_t * dpo);
 
 /**
  * @brief Format the dpo ctx for a human-readable string
@@ -55,8 +39,8 @@ void hicn_strategy_rr_ctx_unlock (dpo_id_t * dpo);
 u8 *format_hicn_strategy_rr_ctx (u8 * s, va_list * ap);
 
 const static dpo_vft_t dpo_strategy_rr_ctx_vft = {
-  .dv_lock = hicn_strategy_rr_ctx_lock,
-  .dv_unlock = hicn_strategy_rr_ctx_unlock,
+  .dv_lock = hicn_strategy_dpo_ctx_lock,
+  .dv_unlock = hicn_strategy_dpo_ctx_unlock,
   .dv_format = format_hicn_strategy_rr_ctx,
 };
 
@@ -77,7 +61,7 @@ hicn_dpo_ctx_t *hicn_strategy_rr_ctx_get (index_t index);
  * @param dpo_idx index_t that will hold the index of the created dpo ctx
  * @return HICN_ERROR_NONE if the creation was fine, otherwise EINVAL
  */
-int
+void
 hicn_strategy_rr_ctx_create (dpo_proto_t proto, const dpo_id_t * next_hop,
 			     int nh_len, index_t * dpo_idx);
 
@@ -104,9 +88,7 @@ int hicn_strategy_rr_ctx_add_nh (const dpo_id_t * nh, index_t dpo_idx);
  * @return HICN_ERROR_NONE if the update or insert was fine,
  * otherwise HICN_ERROR_DPO_CTS_NOT_FOUND
  */
-int
-hicn_strategy_rr_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
-			     fib_prefix_t * fib_pfx);
+int hicn_strategy_rr_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx);
 
 /**
  * @brief Prefetch a dpo
@@ -115,13 +97,39 @@ hicn_strategy_rr_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx,
  */
 void hicn_strategy_rr_ctx_prefetch (index_t dpo_idx);
 
+/**
+ * @brief Return true if the dpo is of type strategy rr
+ *
+ * @param dpo Dpo to check the type
+ */
 int hicn_dpo_is_type_strategy_rr (const dpo_id_t * dpo);
 
+/**
+ * @brief Initialize the Round Robin strategy
+ */
 void hicn_dpo_strategy_rr_module_init (void);
 
+/**
+ * @brief Return the dpo type for the Round Robin strategy
+ */
 dpo_type_t hicn_dpo_strategy_rr_get_type (void);
 
+/**
+ * @brief Format the dpo ctx for the strategy Round Robin
+ *
+ * @param s String to append the formatted dpo ctx
+ * @param ap List of arguments to format
+ */
 u8 *format_hicn_dpo_strategy_rr (u8 * s, va_list * ap);
+
+/**
+ * @brief Format the dpo ctx for the strategy Round Robin. To
+ * call from other functions
+ *
+ * @param s String to append the formatted dpo ctx
+ * @param ... List of arguments to format
+ */
+u8 *hicn_strategy_rr_format_ctx (u8 * s, int n, ...);
 
 
 #endif // __HICN_DPO_RR_H__

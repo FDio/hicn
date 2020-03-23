@@ -18,6 +18,9 @@
 
 #include "../strategy.h"
 
+/**
+ * @brief Return the vft for the Round Robin strategy
+ */
 hicn_strategy_vft_t *hicn_rr_strategy_get_vft (void);
 
 #endif // __HICN_STRATEGY_RR_H__
