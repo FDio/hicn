@@ -207,12 +207,11 @@ controler_rpcs_instances.xml in the yang-model. Here you can find the content:
 
 #### Run the plugin
 
-Firstly, verify the plugin and binary libraries are located correctly, then run
-the vpp through (service vpp start). Next, run the sysrepo daemon (sysrepod),
-for debug mode: sysrepo -d -l 4 which runs with high verbosity. Then, run the
-sysrepo plugin (sysrepo-plugind), for debug mode: sysrep-plugind -d -l 4 which
-runs with high verbosity. Now, the hicn sysrepo plugin is loaded. Then, run the
-netopeer2-server which serves as NETCONF server.
+First, verify the plugin and binary libraries are located correctly, then run
+the vpp through (service vpp start). Next, run the sysrepo plugin
+(sysrepo-plugind), for debug mode: sysrep-plugind -d -v 4 which runs with high
+verbosity. Now, the hicn sysrepo plugin is loaded. Then, run the
+netopeer2-server which serves as NETCONF server
 
 #### Connect from netopeer2-cli
 
@@ -223,6 +222,11 @@ follow these steps:
 - get (you can get the configuration and operational data)
 - get-config (you can get the configuration data)
 - edit-config --target running --config
+
+With the default netopeer2-server configuration the authentication required by
+netopeer2-cli reflects the ssh authentication (username and password or public
+key). For other means of authentication please refer to netopeer2-server
+documentation (e.g., netopeer2/server/configuration/README.md).
 
 You can modify the configuration but it needs an xml configuration input.
 
