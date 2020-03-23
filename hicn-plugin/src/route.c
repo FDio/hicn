@@ -138,6 +138,17 @@ hicn_route_add_nhops (hicn_face_id_t * face_id, u32 len,
 	{
 	  u32 vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
 	  dpo_vft = hicn_dpo_get_vft (vft_id);
+
+	  hicn_face_t *face =
+	    hicn_dpoi_get_from_idx (faces_dpo_tmp[i].dpoi_index);
+	  //Disable feature on the interface
+	  if (prefix->fp_proto == FIB_PROTOCOL_IP4)
+	    vnet_feature_enable_disable ("ip4-local", "hicn-data-input-ip4",
+					 face->shared.sw_if, 1, 0, 0);
+	  else if (prefix->fp_proto == FIB_PROTOCOL_IP6)
+	    vnet_feature_enable_disable ("ip6-local", "hicn-data-input-ip6",
+					 face->shared.sw_if, 1, 0, 0);
+
 	  ret = dpo_vft->hicn_dpo_add_update_nh (&faces_dpo_tmp[i],
 						 hicn_dpo_id->dpoi_index);
 	}
@@ -195,6 +206,15 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
       for (int i = 0; i < n_face_dpo; i++)
 	{
 	  clib_memcpy (&nhops[i], &face_dpo_tmp[i], sizeof (dpo_id_t));
+	  hicn_face_t *face =
+	    hicn_dpoi_get_from_idx (face_dpo_tmp[i].dpoi_index);
+	  //Disable feature on the interface
+	  if (prefix->fp_proto == FIB_PROTOCOL_IP4)
+	    vnet_feature_enable_disable ("ip4-local", "hicn-data-input-ip4",
+					 face->shared.sw_if, 1, 0, 0);
+	  else if (prefix->fp_proto == FIB_PROTOCOL_IP6)
+	    vnet_feature_enable_disable ("ip6-local", "hicn-data-input-ip6",
+					 face->shared.sw_if, 1, 0, 0);
 	}
 
       default_dpo.hicn_dpo_create (prefix->fp_proto, nhops, n_face_dpo,
@@ -220,7 +240,8 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
 	fib_table_entry_special_dpo_add (fib_index,
 					 prefix,
 					 hicn_fib_src,
-					 FIB_ENTRY_FLAG_EXCLUSIVE,
+					 (FIB_ENTRY_FLAG_EXCLUSIVE |
+					  FIB_ENTRY_FLAG_LOOSE_URPF_EXEMPT),
 					 &dpo);
 
       /* We added a route, therefore add one lock to the table */
@@ -286,10 +307,21 @@ hicn_route_del_nhop (fib_prefix_t * prefix, hicn_face_id_t face_id)
     {
       vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
       dpo_vft = hicn_dpo_get_vft (vft_id);
+
+      hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
+      //Disable feature on the interface
+      if (prefix->fp_proto == FIB_PROTOCOL_IP4)
+	vnet_feature_enable_disable ("ip4-local", "hicn-data-input-ip4",
+				     face->shared.sw_if, 0, 0, 0);
+      else if (prefix->fp_proto == FIB_PROTOCOL_IP6)
+	vnet_feature_enable_disable ("ip6-local", "hicn-data-input-ip6",
+				     face->shared.sw_if, 0, 0, 0);
+
       ret = dpo_vft->hicn_dpo_del_nh (face_id, hicn_dpo_id->dpoi_index);
 
       hicn_dpo_ctx_t *dpo_ctx =
 	hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index);
+
 
       if (ret == HICN_ERROR_NONE && !dpo_ctx->entry_count)
 	ret = hicn_route_del (prefix);
