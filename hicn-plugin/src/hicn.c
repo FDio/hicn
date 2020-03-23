@@ -22,7 +22,6 @@
 #include "infra.h"
 #include "strategy_dpo_manager.h"
 #include "mgmt.h"
-#include "punt.h"
 #include "error.h"
 #include "faces/app/address_mgr.h"
 #include "face_db.h"
@@ -216,9 +215,9 @@ hicn_configure (vlib_main_t * vm, unformat_input_t * input)
       else if (unformat (input, "cs-reserved-app %u", &cs_reserved))
 	;
       else
-  break;
+	break;
 //  clib_error_return (0, 
-//							      "hICN parameter unknown");
+//                                                            "hICN parameter unknown");
     }
 
   unformat_free (input);
@@ -248,9 +247,6 @@ hicn_init (vlib_main_t * vm)
 
   error = hicn_api_plugin_hookup (vm);
 
-  /* Init the hash table */
-  hicn_punt_init (vm);
-
   /* Init the dpo module */
   hicn_dpos_init ();
 
@@ -259,8 +255,8 @@ hicn_init (vlib_main_t * vm)
 
   hicn_face_module_init (vm);
 
-  /* Init the route module*/
-  hicn_route_init();
+  /* Init the route module */
+  hicn_route_init ();
 
   return error;
 }
