@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2019 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef __HICN_H__
-#define __HICN_H__
+#ifndef __HICN_BUFFER_H__
+#define __HICN_BUFFER_H__
 
 #define ip_address_t hicn_ip_address_t
 #define ip_address_cmp hicn_ip_address_cmp
@@ -29,8 +29,6 @@
 #undef ip_prefix_cmp
 #undef ip_prefix_len
 #define ip_prefix_len(_a) (_a)->len
-
-#include "faces/face.h"
 
 #include <netinet/in.h>
 #include <vnet/ip/ip.h>
@@ -52,6 +50,7 @@
  * vppapigen
  */
 typedef u8 weight_t;
+typedef index_t hicn_face_id_t;
 
 #define ISV6(isv6, dov6, dov4) isv6 ? dov6 : dov4
 #define HICN_IS_NAMEHASH_CACHED(b) (((u64)(b->opaque2)[0] != 0) || ((u64)(b->opaque2)[1] != 0))
@@ -60,11 +59,30 @@ typedef u8 weight_t;
 #define VLIB_BUFFER_MIN_CHAIN_SEG_SIZE (128)
 #endif
 
+#define HICN_BUFFER_FLAGS_DEFAULT 0x0
 /* vlib_buffer cloning utilities impose that current_lentgh is more that 2*CLIB_CACHE_LINE_BYTES.  */
-/* This flag is used to mark packets whose lenght is less that 2*CLIB_CACHE_LINE_BYTES. */
-#define HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL 0x02
-#define HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL 0x04
-#define HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL 0x08
+#define foreach_hicn_buffer_flags						\
+  _(FACE_IS_APP, "Packet belong to application face")				\
+  _(PKT_LESS_TWO_CL, "Packets lenght is less that 2 * CLIB_CACHE_LINE_BYTES.")	\
+  _(IS_INTEREST, "Packet is interest")						\
+  _(FLUSH, "Packet must be flush to next node. Used by host stack")		\
+  _(IS_IP4, "Packet is IP4")							\
+  _(FROM_UDP4_TUNNEL, "Interest comes from UDP4 tunnel")			\
+  _(FROM_UDP6_TUNNEL, "Interest comes from UDP6 tunnel")			\
+
+typedef enum _hicn_buffer_options
+{
+#define _(sym, str) HICN_BUFFER_##sym,
+  foreach_hicn_buffer_flags
+#undef _
+} hicn_buffer_options_t;
+
+typedef enum _hicn_buffer_flags
+{
+#define _(sym, str) HICN_BUFFER_FLAGS_##sym = 1 << HICN_BUFFER_##sym,
+  foreach_hicn_buffer_flags
+#undef _
+} hicn_buffer_flags_t;
 
 /* The following is stored in the opaque2 field in the vlib_buffer_t */
 typedef struct
@@ -85,7 +103,10 @@ typedef struct
   hicn_face_id_t face_id;	/* ingress iface, sizeof(u32) */
   u32 in_faces_vec_id;          /* vector of possible input face for a data packet */
 
-  hicn_type_t type;
+  u32 ctx_index;		/* Host stack context index */
+  u32 seq_number;		/* Reassembly information */
+
+  hicn_type_t type; 
 } hicn_buffer_t;
 
 STATIC_ASSERT (sizeof (hicn_buffer_t) <=
@@ -105,7 +126,7 @@ hicn_is_v6 (hicn_header_t * pkt_hdr)
   return ((pkt_hdr->v4.ip.version_ihl >> 4) != 4);
 }
 
-#endif /* __HICN_H__ */
+#endif /* __HICN_BUFFER_H__ */
 
 
 /*

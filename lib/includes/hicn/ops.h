@@ -122,6 +122,16 @@ typedef struct hicn_ops_s
   int (*mark_packet_as_data) (hicn_type_t type, hicn_protocol_t * h);
 
   /**
+   * @brief Check if currentpacket is interest
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest packet
+   * @param [out] ret - Return 1 if interest
+   * @return hICN error code
+   */
+  int (*test_packet_is_interest) (hicn_type_t type, hicn_protocol_t * h,
+                                  u8 *ret);
+
+  /**
    * @brief Clear the necessary Interest fields in order to hash it
    * @param [in] type - hICN packet type
    * @param [in,out] h - Buffer holding the Interest packet
@@ -456,6 +466,7 @@ typedef struct hicn_ops_s
     ATTR_INIT(set_interest_name_suffix, protocol ## _set_interest_name_suffix), \
     ATTR_INIT(mark_packet_as_interest,  protocol ## _mark_packet_as_interest),  \
     ATTR_INIT(mark_packet_as_data,      protocol ## _mark_packet_as_data),      \
+    ATTR_INIT(test_packet_is_interest,  protocol ## _test_packet_is_interest),      \
     ATTR_INIT(reset_interest_for_hash,  protocol ## _reset_interest_for_hash),  \
     ATTR_INIT(get_data_locator,         protocol ## _get_data_locator),         \
     ATTR_INIT(set_data_locator,         protocol ## _set_data_locator),         \
@@ -560,6 +571,9 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t * h)
 
 #define DECLARE_mark_packet_as_data(protocol, error) \
     int protocol ## _mark_packet_as_data(hicn_type_t type, hicn_protocol_t * h) { return HICN_LIB_ERROR_ ## error ; }
+
+#define DECLARE_test_packet_is_interest(protocol, error) \
+    int protocol ## _test_packet_is_interest(hicn_type_t type, hicn_protocol_t * h, u8 *ret) { return HICN_LIB_ERROR_ ## error ; }
 
 #define DECLARE_reset_interest_for_hash(protocol, error) \
     int protocol ## _reset_interest_for_hash(hicn_type_t type, hicn_protocol_t * h) { return HICN_LIB_ERROR_ ## error ; }
