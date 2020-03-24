@@ -1,0 +1,9 @@
+---
+name: Hicn host stack
+maintainer: Mauro Sardara <msardara@cisco.com>
+features:
+  - Hicn host stack integration via session layer
+description: "IETF QUIC Protocol implementation"
+state: experimental
+properties: [API, CLI, STATS, MULTITHREAD]
+

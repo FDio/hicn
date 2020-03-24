@@ -404,12 +404,12 @@ hicn_rewrite_interestv4 (vlib_main_t * vm, vlib_buffer_t * b0, u32 seq_number,
     .ip4 = hicnpg_main.pgen_clt_src_addr.ip4,
   };
   hicn_name_t dst_name = {
-    .ip4.prefix_as_ip4 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip4,
-    .ip4.suffix = seq_number,
+    .prefix.ip4 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip4,
+    .suffix = seq_number,
   };
 
   src_addr.ip4.as_u32 += clib_host_to_net_u32 (iface);
-  dst_name.ip4.prefix_as_ip4.as_u32 += clib_net_to_host_u32 (next_flow);
+  dst_name.prefix.ip4.as_u32 += clib_net_to_host_u32 (next_flow);
 
   /* Update locator and name */
   hicn_type_t type = hicn_get_buffer (b0)->type;
@@ -450,11 +450,11 @@ hicn_rewrite_interestv6 (vlib_main_t * vm, vlib_buffer_t * b0, u32 seq_number,
     .ip6 = hicnpg_main.pgen_clt_src_addr.ip6,
   };
   hicn_name_t dst_name = {
-    .ip6.prefix_as_ip6 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip6,
-    .ip6.suffix = seq_number,
+    .prefix.ip6 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip6,
+    .suffix = seq_number,
   };
   src_addr.ip6.as_u32[3] += clib_host_to_net_u32 (iface);
-  dst_name.ip6.prefix_as_ip6.as_u32[3] += clib_net_to_host_u32 (next_flow);
+  dst_name.prefix.ip6.as_u32[3] += clib_net_to_host_u32 (next_flow);
 
   /* Update locator and name */
   hicn_type_t type = hicn_get_buffer (b0)->type;
