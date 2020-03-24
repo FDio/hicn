@@ -1,0 +1,6 @@
+create interface memif id 0 master
+set int state memif0/0 up
+set int ip addr memif0/0 192.168.10.1/24
+set int ip addr memif0/0 2001::1/64
+ip route add b001::/64 via 2001::2 memif0/0
+#hicn enable b001::/64

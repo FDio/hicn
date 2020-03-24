@@ -218,46 +218,6 @@ hicn_configure (vlib_main_t * vm, unformat_input_t * input)
 VLIB_CONFIG_FUNCTION (hicn_configure, "hicn");
 
 /*
- * Init entry-point for the icn plugin
- */
-static clib_error_t *
-hicn_init (vlib_main_t * vm)
-{
-  clib_error_t *error = 0;
-
-  hicn_main_t *sm = &hicn_main;
-
-  /* Init other elements in the 'main' struct */
-  sm->is_enabled = 0;
-
-  error = hicn_api_plugin_hookup (vm);
-
-  /* Init the dpo module */
-  hicn_dpos_init ();
-
-  /* Init the app manager */
-  address_mgr_init ();
-
-  hicn_face_module_init (vm);
-
-  /* Init the route module */
-  hicn_route_init ();
-
-  udp_tunnel_init ();
-
-  return error;
-}
-
-VLIB_INIT_FUNCTION (hicn_init);
-
-/* *INDENT-OFF* */
-VLIB_PLUGIN_REGISTER() =
-{
-	.description = "hICN forwarder"
-};
-/* *INDENT-ON* */
-
-/*
  * fd.io coding-style-patch-verification: ON
  *
  * Local Variables: eval: (c-set-style "gnu") End:

@@ -32,7 +32,8 @@ DECLARE_set_interest_name (ah, UNEXPECTED);
 DECLARE_get_interest_name_suffix (ah, UNEXPECTED);
 DECLARE_set_interest_name_suffix (ah, UNEXPECTED);
 DECLARE_mark_packet_as_interest (ah, UNEXPECTED)
-DECLARE_mark_packet_as_data (ah, UNEXPECTED)
+DECLARE_mark_packet_as_data (ah, UNEXPECTED);
+DECLARE_test_packet_is_interest (ah, UNEXPECTED);
 DECLARE_get_data_locator (ah, UNEXPECTED);
 DECLARE_set_data_locator (ah, UNEXPECTED);
 DECLARE_get_data_name (ah, UNEXPECTED);
