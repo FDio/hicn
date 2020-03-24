@@ -117,6 +117,12 @@ ipv4_mark_packet_as_data (hicn_type_t type, hicn_protocol_t * h)
 }
 
 int
+ipv4_test_packet_is_interest (hicn_type_t type, hicn_protocol_t * h, u8 *ret)
+{
+  return CHILD_OPS (test_packet_is_interest, type, h, ret);
+}
+
+int
 ipv4_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t * h)
 {
   /* Sets everything to 0 up to IP destination address */

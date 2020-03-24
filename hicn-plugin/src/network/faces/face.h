@@ -16,6 +16,8 @@
 #ifndef __HICN_FACE_H__
 #define __HICN_FACE_H__
 
+#include "hicn_buffer.h"
+
 #include <vnet/fib/fib_node.h>
 #include <vnet/vnet.h>
 #include <vlib/vlib.h>
@@ -127,10 +129,6 @@ extern hicn_face_t *hicn_dpoi_face_pool;
 
 #define HICN_FACE_FLAGS_APPFACE_PROD_BIT 2
 #define HICN_FACE_FLAGS_APPFACE_CONS_BIT 3
-
-
-#define HICN_BUFFER_FLAGS_DEFAULT 0x00
-#define HICN_BUFFER_FLAGS_FACE_IS_APP 0x01
 
 STATIC_ASSERT ((1 << HICN_FACE_FLAGS_APPFACE_PROD_BIT) ==
 	       HICN_FACE_FLAGS_APPFACE_PROD,
