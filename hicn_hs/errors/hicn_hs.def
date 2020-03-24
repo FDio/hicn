@@ -1,0 +1,26 @@
+/*
+ * hicn_hs_input_node_error.def: Errors in hicn_hs input node
+ *
+ * Copyright (c) 2013-2019 Cisco and/or its affiliates.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+hicn_hs_error (NONE, "no error")
+hicn_hs_error (ROUTE_NOT_FOUND, "no route found for given prefix")
+hicn_hs_error (ROUTE_DPO_NO_HICN, "DPO for route is not hicn dpo")
+hicn_hs_error (ROUTE_NO_LB_DPO, "DPO is not load balance")
+hicn_hs_error (ROUTE_NO_INSERT, "Route not inserted in FIB.")
+hicn_hs_error (NO_CONTEXT, "No context found for received packet")
+hicn_hs_error (PACKETS_SENT, "Packets sent")
+hicn_hs_error (NO_HICN, "Packet is not hicn")
+hicn_hs_error (DISPATCH, "Not possible to dispatch hicn packet")
