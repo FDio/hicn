@@ -17,11 +17,11 @@
 
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/statistics.h>
+#include <hicn/transport/protocols/transport_algorithm.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
 #include <protocols/congestion_window_protocol.h>
 #include <protocols/raaqm_data_path.h>
 #include <protocols/rate_estimation.h>
-#include <protocols/transport_algorithm.h>
 
 #include <array>
 #include <queue>

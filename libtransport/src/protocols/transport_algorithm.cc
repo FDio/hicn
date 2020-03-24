@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
+#include <hicn/transport/protocols/transport_algorithm.h>
 #include <hicn/transport/utils/log.h>
 #include <protocols/raaqm_transport_algorithm.h>
-#include <protocols/transport_algorithm.h>
 
 #include <stdexcept>
 
@@ -44,17 +44,17 @@ void custom_deallocate(void *p) {
 
 }  // namespace
 
-void transportAlgorithm_Init(allocator_t *allocator,
-                             deallocator_t *deallocator) {
+extern "C" void transportAlgorithm_Init(allocator_t *allocator,
+                                        deallocator_t *deallocator) {
   algorithm_allocator = allocator;
   algorithm_deallocator = deallocator;
 }
 
-void transportAlgorithm_Destroy(TransportAlgorithm *algorithm) {
+extern "C" void transportAlgorithm_Destroy(TransportAlgorithm *algorithm) {
   custom_deallocate(algorithm);
 }
 
-TransportAlgorithm *transportAlgorithm_CreateRaaqm(
+extern "C" TransportAlgorithm *transportAlgorithm_CreateRaaqm(
     double drop_factor, double minimum_drop_probability, double gamma,
     double beta, uint32_t sample_number, uint32_t interest_lifetime,
     double beta_wifi, double drop_wifi, double beta_lte, double drop_lte,
@@ -71,13 +71,12 @@ TransportAlgorithm *transportAlgorithm_CreateRaaqm(
   return ret;
 }
 
-uint32_t transportAlgorithm_OnContentObject(TransportAlgorithm *algorithm,
-                                            uint32_t suffix,
-                                            uint32_t path_label) {
+extern "C" uint32_t transportAlgorithm_OnContentObject(
+    TransportAlgorithm *algorithm, uint32_t suffix, uint32_t path_label) {
   return algorithm->onContentObject(suffix, path_label);
 }
 
-uint32_t transportAlgorithm_OnInterestTimeout(TransportAlgorithm *algorithm,
-                                              uint32_t suffix) {
+extern "C" uint32_t transportAlgorithm_OnInterestTimeout(
+    TransportAlgorithm *algorithm, uint32_t suffix) {
   return algorithm->onInterestTimeout(suffix);
 }

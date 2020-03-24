@@ -21,7 +21,7 @@ macro(build_executable exec)
   cmake_parse_arguments(ARG
     "NO_INSTALL"
     "COMPONENT"
-    "SOURCES;LINK_LIBRARIES;DEPENDS;INCLUDE_DIRS;DEFINITIONS;LINK_FLAGS"
+    "SOURCES;LINK_LIBRARIES;DEPENDS;INCLUDE_DIRS;DEFINITIONS;LINK_FLAGS;COMPILE_FLAGS"
     ${ARGN}
   )
 
@@ -38,6 +38,7 @@ macro(build_executable exec)
     LIBRARY_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
     RUNTIME_OUTPUT_DIRECTORY "${BUILD_ROOT}/bin"
     LINK_FLAGS "${ARG_LINK_FLAGS}"
+    COMPILE_FLAGS "${ARG_COMPILE_FLAGS}"
   )
 
   if(ARG_LINK_LIBRARIES)
@@ -73,9 +74,13 @@ macro(build_library lib)
   cmake_parse_arguments(ARG
     "SHARED;STATIC;NO_DEV"
     "COMPONENT;"
-    "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;INSTALL_ROOT_DIR;INSTALL_FULL_PATH_DIR;EMPTY_PREFIX;"
+    "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;HEADER_ROOT_DIR;LIBRARY_ROOT_DIR;INSTALL_FULL_PATH_DIR;EMPTY_PREFIX;LINK_FLAGS;COMPILE_FLAGS"
     ${ARGN}
   )
+
+  message("Building library ${lib}")
+
+  unset(TARGET_LIBS)
 
   if (ARG_SHARED)
     list(APPEND TARGET_LIBS
@@ -115,6 +120,8 @@ macro(build_library lib)
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
         LIBRARY_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
         RUNTIME_OUTPUT_DIRECTORY "${BUILD_ROOT}/bin"
+        LINK_FLAGS "${ARG_LINK_FLAGS}"
+        COMPILE_FLAGS "${ARG_COMPILE_FLAGS}"
       )
     else ()
       set_target_properties(${library}
@@ -124,6 +131,8 @@ macro(build_library lib)
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
         LIBRARY_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
         RUNTIME_OUTPUT_DIRECTORY "${BUILD_ROOT}/bin"
+        LINK_FLAGS "${ARG_LINK_FLAGS}"
+        COMPILE_FLAGS "${ARG_COMPILE_FLAGS}"
       )
     endif()
 
@@ -139,6 +148,7 @@ macro(build_library lib)
         PROPERTIES
         OUTPUT_NAME ${lib}
       )
+      message(STATUS "Output name will be ${lib}")
     endif ()
 
     # library deps
@@ -157,7 +167,7 @@ macro(build_library lib)
       )
     endif()
 
-    set(INSTALL_LIB_PATH ${CMAKE_INSTALL_LIBDIR})
+    set(INSTALL_LIB_PATH "${CMAKE_INSTALL_LIBDIR}/${ARG_LIBRARY_ROOT_DIR}")
 
     if (ARG_INSTALL_FULL_PATH_DIR)
       set(INSTALL_LIB_PATH ${ARG_INSTALL_FULL_PATH_DIR})
@@ -178,8 +188,8 @@ macro(build_library lib)
 
   # install headers
   if(ARG_INSTALL_HEADERS)
-    if (NOT ARG_INSTALL_ROOT_DIR)
-      set(ARG_INSTALL_ROOT_DIR "hicn")
+    if (NOT ARG_HEADER_ROOT_DIR)
+      set(ARG_HEADER_ROOT_DIR "hicn")
     endif()
 
     list(APPEND local_comps
@@ -197,7 +207,7 @@ macro(build_library lib)
         if ("${dir}" STREQUAL includes)
           set(dir "")
         endif()
-        if ("${dir}" STREQUAL ${ARG_INSTALL_ROOT_DIR})
+        if ("${dir}" STREQUAL ${ARG_HEADER_ROOT_DIR})
           set(dir "")
         endif()
       else()
@@ -210,7 +220,7 @@ macro(build_library lib)
       endif()
       install(
         FILES ${file}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${ARG_INSTALL_ROOT_DIR}/${dir}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${ARG_HEADER_ROOT_DIR}/${dir}
         COMPONENT ${COMPONENT}
       )
     endforeach()
@@ -233,3 +243,4 @@ endmacro(AddTest)
 
 include(IosMacros)
 include(WindowsMacros)
+

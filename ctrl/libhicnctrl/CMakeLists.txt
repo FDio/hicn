@@ -81,7 +81,7 @@ else()
     )
 
     list(APPEND DEPENDENCIES
-        hicn_plugin
+        hicn_plugin.shared
         ${SAFE_VAPI_SHARED}
     )
   else ()

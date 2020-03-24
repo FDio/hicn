@@ -33,7 +33,6 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/verification_manager.h
   ${CMAKE_CURRENT_SOURCE_DIR}/data_processing_events.h
   ${CMAKE_CURRENT_SOURCE_DIR}/raaqm_transport_algorithm.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/transport_algorithm.h
 )
 
 list(APPEND SOURCE_FILES
