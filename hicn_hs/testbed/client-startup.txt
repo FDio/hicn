@@ -1,0 +1,2 @@
+set int state TenGigabitEthernet13/0/0 up
+set int ip address TenGigabitEthernet13/0/0 192.168.10.1/24
