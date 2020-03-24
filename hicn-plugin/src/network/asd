@@ -59,133 +59,101 @@ set(LIBHICN_HEADER_FILES_UTIL
 )
 
 set(HICN_PLUGIN_SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_api.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/cli.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/hashtb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/mgmt.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/pcs.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/route.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategy_dpo_ctx.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategy_dpo_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategy_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/interest_pcslookup_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/interest_hitpit_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/interest_hitcs_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/data_input_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/data_pcslookup_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/data_fwd_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/data_push_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/error.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_cli.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/iface_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/dpo_face.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_app_cli.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/pg.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_mw.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_mw.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_mw_cli.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_rr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_rr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_lru.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp_tunnels/udp_decap_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp_tunnels/udp_tunnel.c
 )
 
 set(HICN_PLUGIN_HEADER_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_buffer.h
-)
-
-set(HICN_NETWORK_PLUGIN_SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_config.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_api.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/cli.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hashtb.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/mgmt.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/pcs.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/route.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategy_dpo_ctx.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategy_dpo_manager.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategy_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/interest_pcslookup_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/interest_hitpit_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/interest_hitcs_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/data_input_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/data_pcslookup_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/data_fwd_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/data_push_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/error.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/face_cli.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/face.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/face_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/iface_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/dpo_face.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/address_mgr.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/face_cons.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/face_prod.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/face_prod_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/face_app_cli.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/pg.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/dpo_mw.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/strategy_mw.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/strategy_mw_cli.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/dpo_rr.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/strategy_rr.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/cache_policies/cs_lru.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/mapme_ack_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/mapme_ctrl_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/mapme_eventmgr.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/udp_tunnels/udp_decap_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/udp_tunnels/udp_tunnel.c
-)
-
-set(HICN_NETWORK_PLUGIN_HEADER_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_all_api_h.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hashtb.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/mgmt.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/params.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/pcs.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_api.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/state.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/infra.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_msg_enum.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/parser.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/route.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategy_dpo_ctx.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategy_dpo_manager.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategy.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/interest_pcslookup.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/interest_hitpit.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/interest_hitcs.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/data_pcslookup.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/data_fwd.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/error.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/face_db.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/face.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/face_node.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/iface_node.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/face_dpo.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/address_mgr.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/face_cons.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/face_prod.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/pg.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/dpo_mw.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/strategy_mw.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/dpo_rr.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/strategy_rr.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/cache_policies/cs_policy.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/cache_policies/cs_lru.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/mapme.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/mapme_ack.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/mapme_ctrl.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/mapme_eventmgr.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/udp_tunnels/udp_tunnel.h
-)
-
-set(HICN_HS_PLUGIN_SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/host_stack.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/error.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/cbr_proto.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/cli.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/input_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/output_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/producer_dpo.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/route.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/test/hicn_hs_client.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/test/hicn_hs_server.c
-)
-
-set(HICN_HS_PLUGIN_HEADER_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/error.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/debug.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/host_stack.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/inlines.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/producer_dpo.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/proto.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/route.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/host_stack/utils.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_all_api_h.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hashtb.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mgmt.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/params.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/pcs.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_api.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/state.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/infra.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_msg_enum.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/parser.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/route.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategy_dpo_ctx.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategy_dpo_manager.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategy.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/interest_pcslookup.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/interest_hitpit.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/interest_hitcs.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/data_pcslookup.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/data_fwd.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/error.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/face_db.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_node.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/iface_node.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_dpo.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/pg.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_mw.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_mw.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_rr.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_rr.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_policy.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_lru.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp_tunnels/udp_tunnel.h
 )
 
 set(HICN_API_TEST_SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_api_test.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/error.c)
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_api_test.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/error.c)
 
 set(HICN_API_HEADER_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_msg_enum.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_all_api_h.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_api.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/error.h)
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_msg_enum.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_all_api_h.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_api.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/error.h)
 
 set(HICN_API_GENERATED_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h
@@ -254,8 +222,8 @@ execute_process(
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_types.h ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_enum.h ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
-    COMMAND ${VPP_HOME}/bin/vppapigen ARGS --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/
-    COMMAND ${VPP_HOME}/bin/vppapigen ARGS JSON --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vapi/
+    COMMAND ${VPP_HOME}/bin/vppapigen ARGS --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/
+    COMMAND ${VPP_HOME}/bin/vppapigen ARGS JSON --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vapi/
 )
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.h ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.hpp
     COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ARGS ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
@@ -265,14 +233,11 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.h ${CMA
 
 include_directories(SYSTEM)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHICN_VPP_PLUGIN=1")
 add_library(hicn_plugin SHARED
     ${LIBHICN_FILES}
     ${HICN_PLUGIN_SOURCE_FILES}
-    ${HICN_NETWORK_PLUGIN_SOURCE_FILES}
-    ${HICN_HS_PLUGIN_SOURCE_FILES}
     ${HICN_API_GENERATED_FILES}
     ${HICN_VAPI_GENERATED_FILES})
 
@@ -330,7 +295,7 @@ install(FILES ${HICN_VAPI_GENERATED_FILES}
         DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/vapi
         COMPONENT ${HICN_PLUGIN}-dev)
 
-# Set variables for other project depending on hicn-plugin
+#Set variables for other project depending on hicn-plugin
 set(HICNPLUGIN_INCLUDE_DIRS
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins
