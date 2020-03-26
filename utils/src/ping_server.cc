@@ -16,6 +16,7 @@
 #include <hicn/transport/interfaces/socket_producer.h>
 #ifndef _WIN32
 #include <hicn/transport/utils/daemonizator.h>
+#include <unistd.h>
 #else
 #include <openssl/applink.c>
 #endif
@@ -26,7 +27,7 @@
 #include <hicn/transport/security/signer.h>
 #include <hicn/transport/utils/string_tokenizer.h>
 
-#include <unistd.h>
+
 #include <asio.hpp>
 
 namespace transport {

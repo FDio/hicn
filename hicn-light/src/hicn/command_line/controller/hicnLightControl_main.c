@@ -23,6 +23,7 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 #endif
 #include <stdbool.h>
 #include <stdint.h>
@@ -49,7 +50,7 @@
 
 #include <hicn/utils/commands.h>
 
-#include <arpa/inet.h>
+
 
 size_t commandOutputLen = 0;  // preserve the number of structs composing
                               // payload in case on not interactive call.

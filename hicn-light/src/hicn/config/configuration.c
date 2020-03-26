@@ -87,7 +87,7 @@ getConnectionBySymbolicOrId(Configuration * config, const char * symbolicOrConni
 
   /* Try to resolve an eventual symbolic name as input */
   if (utils_IsNumber(symbolicOrConnid)) {
-    connid = strtold(symbolicOrConnid, NULL);
+    connid = (unsigned int)strtold(symbolicOrConnid, NULL);
 
   } else {
     connid = symbolicNameTable_Get(config->symbolicNameTable, symbolicOrConnid);
@@ -661,7 +661,7 @@ struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
   return response;
 }
 
-void _strlwr(char *string) {
+void _parc_strlwr(char *string) {
   char *p = string;
   while ((*p = tolower(*p))) {
     p++;
@@ -697,7 +697,7 @@ struct iovec *configuration_ProcessConnectionList(Configuration *config,
 
     const char *connectionName = symbolicNameTable_GetNameByIndex(config->symbolicNameTable, connection_GetConnectionId(original));
     snprintf(listConnectionsCommand->connectionName, SYMBOLIC_NAME_LEN, "%s", connectionName);
-    _strlwr(listConnectionsCommand->connectionName);
+    _parc_strlwr(listConnectionsCommand->connectionName);
 
     snprintf(listConnectionsCommand->interfaceName, SYMBOLIC_NAME_LEN, "%s", ioOperations_GetInterfaceName(connection_GetIoOperations(original)));
 

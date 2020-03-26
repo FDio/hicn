@@ -33,19 +33,19 @@
 
 
 /* No htonl() with const */
-const ip_address_t IPV4_LOOPBACK = (ip_address_t) {
+const ip_address_t IPV4_LOOPBACK = {
     .v4.as_inaddr.s_addr = SWAP(INADDR_LOOPBACK),
 };
 
-const ip_address_t IPV6_LOOPBACK = (ip_address_t) {
+const ip_address_t IPV6_LOOPBACK ={
     .v6.as_in6addr = IN6ADDR_LOOPBACK_INIT,
 };
 
-const ip_address_t IPV4_ANY = (ip_address_t) {
+const ip_address_t IPV4_ANY =  {
     .v4.as_inaddr.s_addr = INADDR_ANY,
 };
 
-const ip_address_t IPV6_ANY = (ip_address_t) {
+const ip_address_t IPV6_ANY = {
     .v6.as_in6addr = IN6ADDR_ANY_INIT,
 };
 
@@ -86,7 +86,7 @@ ip_address_len (int family)
 
 int
 ip_address_ntop (const ip_address_t * ip_address, char *dst, const size_t len,
-		int family)
+        int family)
 {
   const char * s;
   switch(family) {
@@ -161,7 +161,7 @@ ip_address_snprintf(char * s, size_t size, const ip_address_t * ip_address, int 
 
 int
 ip_address_to_sockaddr(const ip_address_t * ip_address,
-		struct sockaddr *sa, int family)
+        struct sockaddr *sa, int family)
 {
   struct sockaddr_in6 *tmp6 = (struct sockaddr_in6 *) sa;
   struct sockaddr_in *tmp4 = (struct sockaddr_in *) sa;
@@ -222,9 +222,9 @@ ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix)
 
   p = strchr (addr, '/');
   if (!p) {
-      ip_prefix->len = ~0;		// until we get the ip address family
+      ip_prefix->len = ~0;        // until we get the ip address family
   } else {
-    ip_prefix->len = strtoul (p + 1, &eptr, 10);
+    ip_prefix->len = (u8)strtoul (p + 1, &eptr, 10);
     *p = 0;
   }
 
@@ -236,14 +236,14 @@ ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix)
       if (ip_prefix->len == (u8)~0)
           ip_prefix->len = IPV6_ADDR_LEN_BITS;
       if (ip_prefix->len > IPV6_ADDR_LEN_BITS)
-	goto ERR;
+    goto ERR;
       pton_fd = inet_pton (AF_INET6, addr, &ip_prefix->address.v6.buffer);
       break;
     case AF_INET:
       if (ip_prefix->len == (u8)~0)
           ip_prefix->len = IPV4_ADDR_LEN_BITS;
       if (ip_prefix->len > IPV4_ADDR_LEN_BITS)
-	goto ERR;
+    goto ERR;
       pton_fd = inet_pton (AF_INET, addr, &ip_prefix->address.v4.buffer);
       break;
     default:
