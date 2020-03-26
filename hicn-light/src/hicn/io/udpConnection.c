@@ -326,18 +326,19 @@ static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
       return false;
   }
 #else
-  WSABUF dataBuf[ARRAY_SIZE(message)];
+
+  WSABUF *dataBuf = (WSABUF *) malloc(size * sizeof (dataBuf));
   DWORD BytesSent = 0;
 
-  for (int i = 0; i < ARRAY_SIZE(message); i++) {
+  for (int i = 0; i < size; i++) {
     dataBuf[i].buf = message[i].iov_base;
     dataBuf[i].len = (ULONG)message[i].iov_len;
   }
 
-  int rc = WSASendTo(udpConnState->udpListenerSocket, dataBuf, ARRAY_SIZE(message),
+  int rc = WSASendTo(udpConnState->udpListenerSocket, dataBuf, size,
     &BytesSent, 0, (SOCKADDR *)udpConnState->peerAddress,
     udpConnState->peerAddressLength, NULL, NULL);
-
+  free(dataBuf);
   if (rc == SOCKET_ERROR) {
     return false;
   }
