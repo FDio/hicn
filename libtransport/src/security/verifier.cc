@@ -212,7 +212,8 @@ int Verifier::verify(const Packet &packet) {
 
   /* Compare the packet signature to the locally computed one */
   valid = parcVerifier_VerifyDigestSignature(
-      verifier_, key_id, hash_computed_locally.hash_, suite, signatureToVerify);
+      verifier_, key_id, hash_computed_locally.crypto_hash_.parc, suite,
+      signatureToVerify);
 
   /* Restore the fields that were reset */
   hicn_packet_copy_header(format, &header_copy,

@@ -913,6 +913,12 @@ class HIperfServer {
         return ERROR_SETUP;
       }
 
+      std::cout << "Hash algorithm: BLAKE3" << std::endl;
+      if (producer_socket_->setSocketOption(GeneralTransportOptions::HASH_ALGORITHM,
+              utils::CryptoHashType::BLAKE3) == SOCKET_OPTION_NOT_SET) {
+        return ERROR_SETUP;
+      }
+
       if (producer_socket_->setSocketOption(
               GeneralTransportOptions::MAKE_MANIFEST,
               configuration_.manifest) == SOCKET_OPTION_NOT_SET) {
