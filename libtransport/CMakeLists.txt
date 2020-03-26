@@ -144,8 +144,6 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   find_package(OpenSSL REQUIRED)
 endif ()
 
-message ("---------------------------> ${OPENSSL_LIBRARIES}")
-
 list(APPEND LIBRARIES
   ${LIBPARC_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}

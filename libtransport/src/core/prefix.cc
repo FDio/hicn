@@ -226,7 +226,7 @@ Name Prefix::getRandomName() const {
       ip_prefix_.len;
 
   size_t size = (size_t)ceil((float)addr_len / 8.0);
-  uint8_t buffer[size];
+  uint8_t *buffer = (uint8_t *) malloc(sizeof(uint8_t) * size);
 
   RAND_bytes(buffer, size);
 
@@ -237,6 +237,7 @@ Name Prefix::getRandomName() const {
     name_ip_buffer[i] = buffer[j];
     j++;
   }
+  free(buffer);
 
   return Name(ip_prefix_.family, (uint8_t *)&name_ip);
 }

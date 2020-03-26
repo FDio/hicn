@@ -15,6 +15,9 @@
 
 #ifndef UTIL_TYPES
 #define UTIL_TYPES
+#ifdef _WIN32
+#include <hicn/util/windows/windows_Utils.h>
+#endif
 
 typedef uint8_t u8;
 typedef uint16_t u16;
