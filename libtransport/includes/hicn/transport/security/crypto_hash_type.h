@@ -25,7 +25,8 @@ enum class CryptoHashType : uint8_t {
   SHA_256 = PARCCryptoHashType_SHA256,
   SHA_512 = PARCCryptoHashType_SHA512,
   CRC32C = PARCCryptoHashType_CRC32C,
-  NULL_HASH = PARCCryptoHashType_NULL
+  NULL_HASH = PARCCryptoHashType_NULL,
+  BLAKE3
 };
 
 }

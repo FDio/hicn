@@ -21,6 +21,7 @@
 #include <hicn/transport/utils/array.h>
 
 extern "C" {
+#include <blake3/blake3.h>
 #include <parc/security/parc_CryptoHash.h>
 };
 
@@ -41,7 +42,8 @@ struct EnumClassHash {
 static std::unordered_map<CryptoHashType, std::size_t, EnumClassHash>
     hash_size_map = {{CryptoHashType::SHA_256, 32},
                      {CryptoHashType::CRC32C, 4},
-                     {CryptoHashType::SHA_512, 64}};
+                     {CryptoHashType::SHA_512, 64},
+                     {CryptoHashType::BLAKE3, BLAKE3_OUT_LEN}};
 
 class Signer;
 class Verifier;
@@ -52,35 +54,56 @@ class CryptoHash {
   friend class Verifier;
 
  public:
-  CryptoHash() : hash_(nullptr) {}
+  CryptoHash() { crypto_hash_.type = CryptoHashType::NULL_HASH; }
 
   CryptoHash(const CryptoHash& other) {
-    if (other.hash_) {
-      hash_ = parcCryptoHash_Acquire(other.hash_);
+    crypto_hash_.type = other.crypto_hash_.type;
+
+    if (crypto_hash_.type == CryptoHashType::BLAKE3) {
+      memcpy(crypto_hash_.blake3, other.crypto_hash_.blake3, BLAKE3_OUT_LEN);
+    } else {
+      crypto_hash_.parc = parcCryptoHash_Acquire(other.crypto_hash_.parc);
     }
   }
 
   CryptoHash(CryptoHash&& other) {
-    if (other.hash_) {
-      hash_ = parcCryptoHash_Acquire(other.hash_);
+    crypto_hash_.type = other.crypto_hash_.type;
+
+    if (crypto_hash_.type == CryptoHashType::BLAKE3) {
+      memcpy(crypto_hash_.blake3, other.crypto_hash_.blake3, BLAKE3_OUT_LEN);
+    } else {
+      crypto_hash_.parc = parcCryptoHash_Acquire(other.crypto_hash_.parc);
     }
   }
 
   template <typename T>
   CryptoHash(const T* buffer, std::size_t length, CryptoHashType hash_type) {
-    hash_ = parcCryptoHash_CreateFromArray(
-        static_cast<PARCCryptoHashType>(hash_type), buffer, length);
+    crypto_hash_.type = hash_type;
+
+    if (hash_type == CryptoHashType::BLAKE3) {
+      memcpy(crypto_hash_.blake3, static_cast<uint8_t*>(buffer),
+             BLAKE3_OUT_LEN);
+    } else {
+      crypto_hash_.parc = parcCryptoHash_CreateFromArray(
+          static_cast<PARCCryptoHashType>(hash_type), buffer, length);
+    }
   }
 
   ~CryptoHash() {
-    if (hash_) {
-      parcCryptoHash_Release(&hash_);
+    if (crypto_hash_.type != CryptoHashType::BLAKE3) {
+      if (crypto_hash_.parc) {
+        parcCryptoHash_Release(&crypto_hash_.parc);
+      }
     }
   }
 
   CryptoHash& operator=(const CryptoHash& other) {
-    if (other.hash_) {
-      hash_ = parcCryptoHash_Acquire(other.hash_);
+    crypto_hash_.type = other.crypto_hash_.type;
+
+    if (crypto_hash_.type == CryptoHashType::BLAKE3) {
+      memcpy(crypto_hash_.blake3, other.crypto_hash_.blake3, BLAKE3_OUT_LEN);
+    } else {
+      crypto_hash_.parc = parcCryptoHash_Acquire(other.crypto_hash_.parc);
     }
 
     return *this;
@@ -88,14 +111,18 @@ class CryptoHash {
 
   template <typename T>
   utils::Array<T> getDigest() const {
-    return utils::Array<T>(
-        static_cast<T*>(parcBuffer_Overlay(parcCryptoHash_GetDigest(hash_), 0)),
-        parcBuffer_Remaining(parcCryptoHash_GetDigest(hash_)));
+    if (crypto_hash_.type == CryptoHashType::BLAKE3) {
+      return utils::Array<T>(const_cast<T*>(crypto_hash_.blake3),
+                             BLAKE3_OUT_LEN);
+    } else {
+      return utils::Array<T>(
+          static_cast<T*>(parcBuffer_Overlay(
+              parcCryptoHash_GetDigest(crypto_hash_.parc), 0)),
+          parcBuffer_Remaining(parcCryptoHash_GetDigest(crypto_hash_.parc)));
+    }
   }
 
-  CryptoHashType getType() {
-    return static_cast<CryptoHashType>(parcCryptoHash_GetDigestType(hash_));
-  }
+  CryptoHashType getType() { return crypto_hash_.type; }
 
   template <typename T>
   static bool compareBinaryDigest(const T* digest1, const T* digest2,
@@ -109,11 +136,26 @@ class CryptoHash {
   }
 
   TRANSPORT_ALWAYS_INLINE void display() {
-    parcBuffer_Display(parcCryptoHash_GetDigest(hash_), 2);
+    if (crypto_hash_.type == CryptoHashType::BLAKE3) {
+      for (size_t i = 0; i < BLAKE3_OUT_LEN; i++) {
+        printf("%02x", crypto_hash_.blake3[i]);
+      }
+      printf("\n");
+    } else {
+      parcBuffer_Display(parcCryptoHash_GetDigest(crypto_hash_.parc), 0);
+    }
   }
 
  private:
-  PARCCryptoHash* hash_;
+  typedef struct {
+    CryptoHashType type;
+    union {
+      uint8_t blake3[BLAKE3_OUT_LEN];
+      PARCCryptoHash* parc;
+    };
+  } crypto_hash_t;
+
+  crypto_hash_t crypto_hash_;
 };
 
 }  // namespace utils
