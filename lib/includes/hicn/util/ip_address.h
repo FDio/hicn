@@ -20,22 +20,23 @@
 #ifndef UTIL_IP_ADDRESS_H
 #define UTIL_IP_ADDRESS_H
 
-#include <arpa/inet.h>  // inet_ntop
+
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
 #define __bswap_constant_32(x) OSSwapInt32(x)
 #include <machine/endian.h>
 #else
-#include <endian.h>
 #ifdef __ANDROID__
 #include <byteswap.h>
 #endif
-#include <endian.h>
+
 #endif
 #include <errno.h>
-#include <netdb.h> // struct addrinfo
+
 #ifndef _WIN32
-#include <netinet/in.h>		// struct sockadd
+#include <netinet/in.h>        // struct sockadd
+#include <arpa/inet.h>  // inet_ntop
+#include <netdb.h> // struct addrinfo
 #endif
 #include <stdbool.h>
 #include <stdlib.h>
@@ -45,8 +46,8 @@
 #include "types.h"
 
 #define bytes_to_bits(x) (x * 8)
-#define IPV6_ADDR_LEN 16	/* bytes */
-#define IPV4_ADDR_LEN 4		/* bytes */
+#define IPV6_ADDR_LEN 16    /* bytes */
+#define IPV4_ADDR_LEN 4        /* bytes */
 #define IPV6_ADDR_LEN_BITS bytes_to_bits(IPV6_ADDR_LEN)
 #define IPV4_ADDR_LEN_BITS bytes_to_bits(IPV4_ADDR_LEN)
 

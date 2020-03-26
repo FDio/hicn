@@ -20,7 +20,11 @@
 #ifndef HICN_POLICY_H
 #define HICN_POLICY_H
 
+#ifndef _WIN32
 #include <netinet/in.h> // INET*_ADDRSTRLEN
+#else
+#include <hicn/util/win_portability.h>
+#endif
 #include <string.h> // strcasecmp
 #include <hicn/util/token.h>
 

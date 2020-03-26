@@ -59,7 +59,7 @@ static CommandReturn _controlAddPolicy_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
                                                   PARCList *args) {
   printf("commands:\n");
-  printf("   add policy <prefix> <app_name>"
+ /* printf("   add policy <prefix> <app_name>"
             #define _(x, y) " FLAG:%s"
             foreach_policy_tag
             #undef _
@@ -67,7 +67,7 @@ static CommandReturn _controlAddPolicy_HelpExecute(CommandParser *parser,
             #define _(x, y) policy_tag_str[POLICY_TAG_ ## x],
             foreach_policy_tag
             #undef _
-      "\n");
+      "\n");*/
   printf("\n");
   printf(
       "   prefix:    The hicn name as IPv4 or IPv6 address (e.g 1234::0/64)\n");
