@@ -26,7 +26,7 @@
 
 #include <stdbool.h>
 #ifndef _WIN32
-#include <netinet/in.h>		// struct sockadd
+#include <netinet/in.h>        // struct sockadd
 #endif
 #include <hicn/util/ip_address.h>
 #include "common.h"
@@ -35,12 +35,12 @@
  * hICN names
  ******************************************************************************/
 
-#define TCP_SEQNO_LEN 4		/* bytes */
+#define TCP_SEQNO_LEN 4        /* bytes */
 #define HICN_V4_PREFIX_LEN IPV4_ADDR_LEN
 #define HICN_V6_PREFIX_LEN IPV6_ADDR_LEN
 #define HICN_SEGMENT_LEN TCP_SEQNO_LEN
-#define HICN_V6_NAME_LEN (HICN_V6_PREFIX_LEN + HICN_SEGMENT_LEN)	/* 20 bytes */
-#define HICN_V4_NAME_LEN (HICN_V4_PREFIX_LEN + HICN_SEGMENT_LEN)	/*  8 bytes */
+#define HICN_V6_NAME_LEN (HICN_V6_PREFIX_LEN + HICN_SEGMENT_LEN)    /* 20 bytes */
+#define HICN_V4_NAME_LEN (HICN_V4_PREFIX_LEN + HICN_SEGMENT_LEN)    /*  8 bytes */
 
 /* Prefix */
 
@@ -88,11 +88,6 @@ typedef union
   u8 buffer[HICN_V6_NAME_LEN];
 } hicn_v6_name_t;
 
-typedef struct
-{
-  u8 buffer[0];
-} hicn_v46_name_t;
-
 #ifndef HICN_VPP_PLUGIN
 #define HICN_NAME_COMPONENT_SIZE 2
 
@@ -122,7 +117,7 @@ typedef struct
 #ifndef HICN_VPP_PLUGIN
   hicn_name_type_t type;
   u8 len;
-#endif				/* HICN_VPP_PLUGIN */
+#endif                /* HICN_VPP_PLUGIN */
   union
   {
     hicn_v4_name_t ip4;
@@ -130,8 +125,8 @@ typedef struct
     ip46_address_t ip46;
 #ifndef HICN_VPP_PLUGIN
     hicn_iov_name_t iov;
-    u8 buffer[0];
-#endif				/* HICN_VPP_PLUGIN */
+    u8 buffer[HICN_V6_NAME_LEN];
+#endif                /* HICN_VPP_PLUGIN */
   };
 } hicn_name_t;
 
@@ -160,7 +155,7 @@ int hicn_name_create (const char *ip_address, u32 id, hicn_name_t * name);
  * @return hICN error code
  */
 int hicn_name_create_from_ip_prefix (const ip_prefix_t * prefix, u32 id,
-				      hicn_name_t * name);
+                      hicn_name_t * name);
 
 /**
  * @brief Returns the length of an hICN name
@@ -180,7 +175,7 @@ u8 hicn_name_get_length (const hicn_name_t * name);
  *   based on numeric order.
  */
 int hicn_name_compare (const hicn_name_t * name_1, const hicn_name_t * name_2,
-		       bool consider_segment);
+               bool consider_segment);
 
 /**
  * @brief Provides a 32-bit hash of an hICN name
@@ -215,7 +210,7 @@ int hicn_name_copy (hicn_name_t * dst, const hicn_name_t * src);
  *   considered
  */
 int hicn_name_copy_to_destination (u8 * dst, const hicn_name_t * src,
-				   bool copy_suffix);
+                   bool copy_suffix);
 
 /**
  * @brief Sets the segment part of an hICN name
@@ -240,7 +235,7 @@ int hicn_name_get_seq_number (const hicn_name_t * name, u32 * seq_number);
  * @return hICN error code
  */
 int hicn_name_to_sockaddr_address (const hicn_name_t * name,
-				   struct sockaddr *ip_address);
+                   struct sockaddr *ip_address);
 
 /**
  * @brief Convert an hICN name to an IP address
@@ -249,7 +244,7 @@ int hicn_name_to_sockaddr_address (const hicn_name_t * name,
  * @return hICN error code
  */
 int hicn_name_to_ip_prefix (const hicn_name_t * name,
-			     ip_prefix_t * ip_prefix);
+                 ip_prefix_t * ip_prefix);
 
 /**
  * @brief Convert an hICN name to presentation format
@@ -283,7 +278,7 @@ int hicn_name_get_family (const hicn_name_t * name, int *family);
  * @return hICN error code
  */
 int hicn_prefix_create_from_ip_prefix (const ip_prefix_t * ip_prefix,
-					hicn_prefix_t * prefix);
+                    hicn_prefix_t * prefix);
 
 #endif /* HICN_NAME_H */
 

@@ -257,7 +257,6 @@ class Packet : public std::enable_shared_from_this<Packet> {
   utils::MemBuf *header_head_;
   utils::MemBuf *payload_head_;
   mutable Format format_;
-
   static const core::Name base_name;
 };
 

@@ -46,6 +46,9 @@ extern log_conf_t log_conf;
         BLOCK
 
 #define FATAL(fmt, ...) (_log(LOG_FATAL, fmt, ##__VA_ARGS__ ))
+#ifdef ERROR
+#undef ERROR
+#endif
 #define ERROR(fmt, ...) (_log(LOG_ERROR, fmt, ##__VA_ARGS__ ))
 #define WARN(fmt,  ...) (_log(LOG_WARN,  fmt, ##__VA_ARGS__ ))
 #define INFO(fmt,  ...) (_log(LOG_INFO,  fmt, ##__VA_ARGS__ ))
