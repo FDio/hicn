@@ -16,8 +16,10 @@
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/http/response.h>
 
-#include <experimental/algorithm>
-#include <experimental/functional>
+//#ifndef _WIN32
+#include <algorithm>
+#include <functional>
+//#endif
 
 #include <cstring>
 
@@ -62,11 +64,9 @@ std::size_t HTTPResponse::parseHeaders(const uint8_t *buffer, std::size_t size,
   const char *crlf2 = "\r\n\r\n";
   const char *begin = (const char *)buffer;
   const char *end = begin + size;
-  auto it =
-      std::experimental::search(begin, end,
-                                std::experimental::make_boyer_moore_searcher(
-                                    crlf2, crlf2 + strlen(crlf2)));
-
+  const char *begincrlf2 = (const char *)crlf2;
+  const char *endcrlf2 = begincrlf2 + strlen(crlf2);
+  auto it = std::search(begin, end, begincrlf2, endcrlf2);
   if (it != end) {
     std::stringstream ss;
     ss.str(std::string(begin, it));
