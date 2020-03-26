@@ -18,6 +18,7 @@
 #include <hicn/transport/security/crypto_hash.h>
 
 extern "C" {
+#include <blake3/blake3.h>
 #include <parc/security/parc_CryptoHasher.h>
 };
 
@@ -25,22 +26,35 @@ namespace utils {
 
 class CryptoHasher {
  public:
-  CryptoHasher(CryptoHashType hash_type)
-      : hasher_(parcCryptoHasher_Create(
-            static_cast<PARCCryptoHashType>(hash_type))),
-        managed_(true) {}
+  CryptoHasher(CryptoHashType hash_type) : managed_(true) {
+    crypto_hasher_.type = hash_type;
 
-  CryptoHasher(PARCCryptoHasher* hasher) : hasher_(hasher), managed_(false) {}
+    if (hash_type != CryptoHashType::BLAKE3) {
+      crypto_hasher_.parc =
+          parcCryptoHasher_Create(static_cast<PARCCryptoHashType>(hash_type));
+    }
+  }
+
+  CryptoHasher(PARCCryptoHasher* parc_hasher) : managed_(false) {
+    crypto_hasher_.type = CryptoHashType::NULL_HASH;
+    crypto_hasher_.parc = parc_hasher;
+  }
 
   ~CryptoHasher() {
-    if (managed_) {
-      parcCryptoHasher_Release(&hasher_);
+    if (crypto_hasher_.type != CryptoHashType::BLAKE3) {
+      if (managed_) {
+        parcCryptoHasher_Release(&crypto_hasher_.parc);
+      }
     }
   }
 
   CryptoHasher& init() {
-    if (parcCryptoHasher_Init(hasher_) == -1) {
-      throw errors::RuntimeException("Cryptohash init failed.");
+    if (crypto_hasher_.type == CryptoHashType::BLAKE3) {
+      blake3_hasher_init(&crypto_hasher_.blake3);
+    } else {
+      if (parcCryptoHasher_Init(crypto_hasher_.parc) == -1) {
+        throw errors::RuntimeException("Cryptohash init failed.");
+      }
     }
 
     return *this;
@@ -48,21 +62,44 @@ class CryptoHasher {
 
   template <typename T>
   CryptoHasher& updateBytes(const T* buffer, std::size_t length) {
-    if (parcCryptoHasher_UpdateBytes(hasher_, buffer, length) == -1) {
-      throw errors::RuntimeException("Cryptohash updateBytes failed.");
+    if (crypto_hasher_.type == CryptoHashType::BLAKE3) {
+      blake3_hasher_update(&crypto_hasher_.blake3, buffer, length);
+    } else {
+      if (parcCryptoHasher_UpdateBytes(crypto_hasher_.parc, buffer, length) ==
+          -1) {
+        throw errors::RuntimeException("Cryptohash updateBytes failed.");
+      }
     }
     return *this;
   }
 
   CryptoHash finalize() {
-    CryptoHash hash;
-    hash.hash_ = parcCryptoHasher_Finalize(hasher_);
-    return hash;
+    CryptoHash crypto_hash;
+
+    crypto_hash.crypto_hash_.type = crypto_hasher_.type;
+
+    if (crypto_hasher_.type == CryptoHashType::BLAKE3) {
+      blake3_hasher_finalize(&crypto_hasher_.blake3,
+                             crypto_hash.crypto_hash_.blake3, BLAKE3_OUT_LEN);
+    } else {
+      crypto_hash.crypto_hash_.parc =
+          parcCryptoHasher_Finalize(crypto_hasher_.parc);
+    }
+
+    return crypto_hash;
   }
 
  private:
-  PARCCryptoHasher* hasher_;
+  typedef struct {
+    CryptoHashType type;
+    union {
+      PARCCryptoHasher* parc;
+      blake3_hasher blake3;
+    };
+  } crypto_hasher_t;
+
   bool managed_;
+  crypto_hasher_t crypto_hasher_;
 };
 
 }  // namespace utils
