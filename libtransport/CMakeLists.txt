@@ -99,7 +99,11 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package_wrapper(Libhicn REQUIRED)
 else()
   if (DISABLE_SHARED_LIBRARIES)
-    set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
+    if (WIN32)
+      set(HICN_LIBRARIES ${LIBHICN_STATIC})
+    else ()
+      set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
+    endif ()
     list(APPEND DEPENDENCIES
       ${LIBHICN_STATIC}
     )
@@ -143,8 +147,6 @@ endif()
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   find_package(OpenSSL REQUIRED)
 endif ()
-
-message ("---------------------------> ${OPENSSL_LIBRARIES}")
 
 list(APPEND LIBRARIES
   ${LIBPARC_LIBRARIES}

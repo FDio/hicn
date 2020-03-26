@@ -11,14 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# XXX
-
 set(HICN_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR} ""
   CACHE INTERNAL
   "" FORCE
 )
-
 
 set(LIBHICN_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/hicn.h

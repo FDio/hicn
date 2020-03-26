@@ -60,7 +60,11 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package_wrapper(Libhicn REQUIRED)
 else()
   if (DISABLE_SHARED_LIBRARIES)
-    set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
+    if (WIN32) 
+      set(HICN_LIBRARIES ${LIBHICN_STATIC})
+    else ()
+      set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
+    endif ()
     list(APPEND DEPENDENCIES
       ${LIBHICN_STATIC}
     )
@@ -87,11 +91,12 @@ set(HICN_LIGHT_LINK_LIBRARIES
   ${WINDOWS_LIBRARIES}
 )
 
+
 # Include dirs -- Order does matter!
 list(APPEND HICN_LIGHT_INCLUDE_DIRS
   ${HICN_INCLUDE_DIRS}
   ${LIBPARC_INCLUDE_DIRS}
-  ${PTHREAD_INCLUDE_DIRS}
+  ${WINDOWS_INCLUDE_DIRS}
 )
 
 if (UNIX)

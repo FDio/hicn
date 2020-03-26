@@ -17,7 +17,9 @@
 #define messageHandler
 
 #include <stdlib.h>
+#ifndef _WIN32
 #include <unistd.h> // close
+#endif
 
 #include <hicn/hicn.h>
 #include <hicn/core/messagePacketType.h>
@@ -195,7 +197,7 @@ _createRecvAddressPairFromPacket(const uint8_t *msgBuffer) {
     packetSrcAddr = addressCreateFromInet6(&addr_in6);
 
     /* We now determine the local address used to reach the packet src address */
-    int sock = socket (AF_INET6, SOCK_DGRAM, 0);
+    int sock = (int)socket (AF_INET6, SOCK_DGRAM, 0);
     if (sock < 0)
       goto ERR;
 
@@ -226,7 +228,7 @@ _createRecvAddressPairFromPacket(const uint8_t *msgBuffer) {
 
     /* We now determine the local address used to reach the packet src address */
 
-    int sock = socket (AF_INET, SOCK_DGRAM, 0);
+    int sock = (int)socket (AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
       perror("Socket error");
       goto ERR;
@@ -693,7 +695,7 @@ static inline void messageHandler_SetWldrNotification(uint8_t *notification,
 }
 
 static inline uint8_t * messageHandler_CreateProbePacket(hicn_format_t format,
-	uint32_t probe_lifetime){
+    uint32_t probe_lifetime){
   size_t header_length;
   hicn_packet_get_header_length_from_format(format, &header_length);
 
