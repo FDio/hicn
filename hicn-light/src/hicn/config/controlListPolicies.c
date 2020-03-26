@@ -14,7 +14,6 @@
  */
 
 #ifdef WITH_POLICY
-
 #include <hicn/hicn-light/config.h>
 
 #include <stdbool.h>
@@ -115,16 +114,16 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
   in_port_t port = htons(1234);  // this is a random port number that is ignored
 
   if (receivedHeader->length > 0) {
-    printf("%*s %*s"
-            #define _(x, y) " %*s"
-            foreach_policy_tag
-            #undef _
-            "%s",
-            MAXSZ_PREFIX, "prefix", MAXSZ_APP_NAME /*APP_NAME_LEN*/, "app_name",
-            #define _(x, y) MAXSZ_COLUMN, policy_tag_str[POLICY_TAG_ ## x],
-            foreach_policy_tag
-            #undef _
-            "\n");
+  //  printf("%*s %*s"
+  //          #define _(x, y) " %*s"
+  //          foreach_policy_tag
+  //          #undef _
+  //          "%s",
+  //         MAXSZ_PREFIX, "prefix", MAXSZ_APP_NAME /*APP_NAME_LEN*/, "app_name",
+  //          #define _(x, y) MAXSZ_COLUMN, policy_tag_str[POLICY_TAG_ ## x],
+  //          foreach_policy_tag
+  //          #undef _
+  //          "\n");
   } else {
     printf(" --- No entry in the list \n");
   }

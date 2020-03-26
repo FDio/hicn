@@ -251,12 +251,14 @@ class Packet : public std::enable_shared_from_this<Packet> {
   void separateHeaderPayload();
 
  protected:
-  Name name_;
+ 
   MemBufPtr packet_;
   hicn_header_t *packet_start_;
+  Name name_;
   utils::MemBuf *header_head_;
   utils::MemBuf *payload_head_;
   mutable Format format_;
+ 
 
   static const core::Name base_name;
 };
