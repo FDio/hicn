@@ -925,13 +925,6 @@ class HIperfServer {
       }
 
       if (producer_socket_->setSocketOption(
-              GeneralTransportOptions::DATA_PACKET_SIZE,
-              (uint32_t)(configuration_.payload_size_)) ==
-          SOCKET_OPTION_NOT_SET) {
-        return ERROR_SETUP;
-      }
-
-      if (producer_socket_->setSocketOption(
               GeneralTransportOptions::OUTPUT_BUFFER_SIZE, 200000U) ==
           SOCKET_OPTION_NOT_SET) {
         return ERROR_SETUP;
