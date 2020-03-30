@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "254e0199_01ef4eed",
+        "filename": "hicn-light/src/hicn/base/address.h",
+        "patchSetId": 6
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2020-03-30T12:01:36Z",
+      "side": 1,
+      "message": "test",
+      "revId": "c784dce343e7260533e6b627ea48576f78b03481",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
