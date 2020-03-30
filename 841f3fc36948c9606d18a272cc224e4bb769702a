@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4259f65d_ceb0ae41",
+        "filename": "libtransport/includes/hicn/transport/core/packet.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 254,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2020-03-30T08:59:45Z",
+      "side": 1,
+      "message": "Whitespace",
+      "revId": "841f3fc36948c9606d18a272cc224e4bb769702a",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "808cba2a_66d16d3a",
+        "filename": "libtransport/includes/hicn/transport/core/packet.h",
+        "patchSetId": 8
+      },
+      "lineNbr": 261,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2020-03-30T08:59:45Z",
+      "side": 1,
+      "message": "Whitespace",
+      "revId": "841f3fc36948c9606d18a272cc224e4bb769702a",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
