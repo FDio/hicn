@@ -718,10 +718,12 @@ class HIperfServer {
         content_objects_index_(0),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
         last_segment_(0),
-        ptr_last_segment_(&last_segment_),
 #ifndef _WIN32
+        ptr_last_segment_(&last_segment_),
         input_(io_service_),
         rtc_running_(false)
+#else
+        ptr_last_segment_(&last_segment_)
 #endif
   {
     std::string buffer(configuration_.payload_size_, 'X');

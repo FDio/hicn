@@ -307,6 +307,7 @@ hicn_mapme_send_updates (vlib_main_t * vm, hicn_prefix_t * prefix,
     }
   else
     {
+        // XXX BUG are we sure it is always the last ??
       hicn_mapme_send_message (vm, prefix, &params,
 			       &tfib->next_hops[tfib_last_idx]);
     }
@@ -510,7 +511,7 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	      hicn_mapme_send_updates (vm, &retx->prefix, retx->dpo, true);
 
 	      retx->rtx_count++;
-	      // If we exceed the numver of retransmittion it means that all tfib entries have seens at least HICN_PARAM_RTX_MAX of retransmission
+	      // If we exceed the numver of retransmission it means that all tfib entries have seens at least HICN_PARAM_RTX_MAX of retransmission
 	      if (retx->rtx_count < HICN_PARAM_RTX_MAX)
 		{
 		  /*

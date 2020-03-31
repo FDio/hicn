@@ -61,7 +61,7 @@ typedef struct controller_state ControlState;
 
 ControlState *controlState_Create(
     void *userdata,
-    struct iovec *(*writeRead)(ControlState *state, struct iovec *msg),
+    uint8_t *(*writeRead)(ControlState *state, uint8_t * msg),
     bool openControllerConnetion,
     char * server_ip, uint16_t port);
 
