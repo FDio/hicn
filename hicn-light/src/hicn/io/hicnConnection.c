@@ -72,7 +72,7 @@ typedef struct hicn_state {
 } _HicnState;
 
 // Prototypes
-static bool _send(IoOperations *ops, const Address *nexthop, Message *message);
+static bool _send(IoOperations *ops, const Address *nexthop, Message *message, bool queue);
 static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
     size_t size);
 static const Address *_getRemoteAddress(const IoOperations *ops);
@@ -276,13 +276,18 @@ static unsigned _getConnectionId(const IoOperations *ops) {
  *
  * @param dummy is ignored. .
  */
-static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
+/* @param queue is ignored for now */
+static bool _send(IoOperations *ops, const Address *nexthop, Message *message, bool queue) {
   parcAssertNotNull(ops, "Parameter ops must be non-null");
-  parcAssertNotNull(message, "Parameter message must be non-null");
+
+  /* No need to flush */
+  if (!message)
+    return true;
+
   _HicnState *hicnConnState = (_HicnState *)ioOperations_GetClosure(ops);
 
   // NAT for HICN
-  if (message_GetType(message) == MessagePacketType_ContentObject) {
+  if (message_GetType(message) == MESSAGE_TYPE_DATA) {
     // this is a data packet. We need to put the remote address in the
     // destination field
 
@@ -297,7 +302,7 @@ static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
           &(((struct sockaddr_in *)hicnConnState->peerAddress)
                 ->sin_addr.s_addr));
     }
-  } else if (message_GetType(message) == MessagePacketType_Interest) {
+  } else if (message_GetType(message) == MESSAGE_TYPE_INTEREST) {
     // this si an interest packet. We need to put the local address in the
     // source field
     if (messageHandler_GetIPPacketType(message_FixedHeader(message)) ==
@@ -311,7 +316,7 @@ static bool _send(IoOperations *ops, const Address *dummy, Message *message) {
           &(((struct sockaddr_in *)hicnConnState->localAddress)
                 ->sin_addr.s_addr));
     }
-  } else if (message_GetType(message) == MessagePacketType_WldrNotification) {
+  } else if (message_GetType(message) == MESSAGE_TYPE_WLDR_NOTIFICATION) {
     // here we don't need to do anything for now
   } else {
     // unkown packet

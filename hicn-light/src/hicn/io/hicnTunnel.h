@@ -28,7 +28,6 @@
 #include <hicn/core/forwarder.h>
 #include <hicn/io/ioOperations.h>
 #include <hicn/io/listener.h>
-#include <hicn/utils/address.h>
 
 /**
  * Establishes a connection to a remote system over HICN
@@ -55,11 +54,10 @@
  * @endcode
  */
 IoOperations *hicnTunnel_Create(Forwarder *forwarder,
-                                const Address *localAddress,
-                                const Address *remoteAddress);
+        const address_pair_t * pair);
 
 IoOperations *hicnTunnel_CreateOnListener(Forwarder *forwarder,
                                           ListenerOps *localListener,
-                                          const Address *remoteAddress);
+                                          const address_t *remoteaddress_t);
 
 #endif  // hicnTunnel_h

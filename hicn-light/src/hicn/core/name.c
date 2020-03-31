@@ -75,10 +75,10 @@ Name *name_CreateFromPacket(const uint8_t *packet, MessagePacketType type) {
                     sizeof(Name));
 
   if (messageHandler_GetIPPacketType(packet) == IPv6_TYPE) {
-    if (type == MessagePacketType_Interest) {
+    if (type == MESSAGE_TYPE_INTEREST) {
       name->content_name = nameBitvector_CreateFromIn6Addr(
           (struct in6_addr *)messageHandler_GetDestination(packet), 128);
-    } else if (type == MessagePacketType_ContentObject) {
+    } else if (type == MESSAGE_TYPE_DATA) {
       name->content_name = nameBitvector_CreateFromIn6Addr(
           (struct in6_addr *)messageHandler_GetSource(packet), 128);
     } else {
@@ -86,10 +86,10 @@ Name *name_CreateFromPacket(const uint8_t *packet, MessagePacketType type) {
       return NULL;
     }
   } else if (messageHandler_GetIPPacketType(packet) == IPv4_TYPE) {
-    if (type == MessagePacketType_Interest) {
+    if (type == MESSAGE_TYPE_INTEREST) {
       name->content_name = nameBitvector_CreateFromInAddr(
           *((uint32_t *)messageHandler_GetDestination(packet)), 32);
-    } else if (type == MessagePacketType_ContentObject) {
+    } else if (type == MESSAGE_TYPE_DATA) {
       name->content_name = nameBitvector_CreateFromInAddr(
           *((uint32_t *)messageHandler_GetSource(packet)), 32);
     } else {
@@ -112,17 +112,22 @@ Name *name_CreateFromPacket(const uint8_t *packet, MessagePacketType type) {
   return name;
 }
 
-Name *name_CreateFromAddress(address_type addressType, ip_address_t addr,
+Name *name_CreateFromAddress(int family, ip_address_t addr,
                              uint8_t len) {
   Name *name = parcMemory_AllocateAndClear(sizeof(Name));
   parcAssertNotNull(name, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(Name));
-  if (addressType == ADDR_INET) {
-    name->content_name = nameBitvector_CreateFromInAddr(addr.v4.as_u32, len);
-  } else if (addressType == ADDR_INET6) {
-    name->content_name = nameBitvector_CreateFromIn6Addr(&addr.v6.as_in6addr, len);
-  } else {
-    parcTrapNotImplemented("Unkown packet type");
+
+  switch(family) {
+    case AF_INET:
+      name->content_name = nameBitvector_CreateFromInAddr(addr.v4.as_u32, len);
+      break;
+    case AF_INET6:
+      name->content_name = nameBitvector_CreateFromIn6Addr(&addr.v6.as_in6addr, len);
+      break;
+    default:
+      parcTrapNotImplemented("Unkown packet type");
+      break;
   }
 
   name->segment = 0;
@@ -237,12 +242,16 @@ int name_Compare(const Name *a, const Name *b) {
 char *name_ToString(const Name *name) {
   char *output = malloc(128);
 
-  Address *packetAddr = nameBitvector_ToAddress(name_GetContentName(name));
+  address_t address;
+  nameBitvector_ToAddress(name_GetContentName(name), &address);
 
-  sprintf(output, "name: %s seq: %u", addressToString(packetAddr),
+// XXX TODO
+#if 0
+  sprintf(output, "name: %s seq: %u", addressToString(address),
           name->segment);
-
-  addressDestroy(&packetAddr);
+#else
+  snprintf(output, 128, "%s", "Not implemented");
+#endif
 
   return output;
 }

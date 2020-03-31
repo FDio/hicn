@@ -1072,7 +1072,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
     /* Netdevice type */
     if (facelet_has_netdevice_type(facelet)) {
         rc = snprintf(cur, s + size - cur, " type=%s",
-                netdevice_type_str[facelet->netdevice_type]);
+                netdevice_type_str(facelet->netdevice_type));
         if (rc < 0)
             return rc;
         cur += rc;
@@ -1141,7 +1141,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
     /* Admin state */
     if (facelet_has_admin_state(facelet)) {
         rc = snprintf(cur, s + size - cur, " admin_state=%s",
-                face_state_str[facelet->admin_state]);
+                face_state_str(facelet->admin_state));
         if (rc < 0)
             return rc;
         cur += rc;
@@ -1152,7 +1152,7 @@ facelet_snprintf(char * s, size_t size, const facelet_t * facelet)
     /* State */
     if (facelet_has_state(facelet)) {
         rc = snprintf(cur, s + size - cur, " state=%s",
-                face_state_str[facelet->state]);
+                face_state_str(facelet->state));
         if (rc < 0)
             return rc;
         cur += rc;
@@ -1295,7 +1295,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
     if (facelet_has_netdevice_type(facelet)) {
         rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "",
                 "\"netdevice_type\"",
-                netdevice_type_str[facelet->netdevice_type]);
+                netdevice_type_str(facelet->netdevice_type));
         if (rc < 0)
             return rc;
         cur += rc;
@@ -1383,7 +1383,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
     if (facelet_has_admin_state(facelet)) {
         rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "",
                 "\"admin_state\"",
-                face_state_str[facelet->admin_state]);
+                face_state_str(facelet->admin_state));
         if (rc < 0)
             return rc;
         cur += rc;
@@ -1395,7 +1395,7 @@ int facelet_snprintf_json(char * s, size_t size, const facelet_t * facelet, int 
     if (facelet_has_state(facelet)) {
         rc = snprintf(cur, s + size - cur, "%*s%s: \"%s\",\n", 4 * (indent+1), "",
                 "\"state\"",
-                face_state_str[facelet->state]);
+                face_state_str(facelet->state));
         if (rc < 0)
             return rc;
         cur += rc;
