@@ -38,8 +38,10 @@ static CommandReturn _controlListConnections_HelpExecute(CommandParser *parser,
 
 static const char *_commandListConnections = "list connections";
 static const char *_commandListConnectionsHelp = "help list connections";
+
+// XXX TODO in connection{_state}.h
 const char *connTypeString[6] = {"GRE", "TCP", "UDP", "MCAST", "L2", "HICN"};
-const char *stateString[3] = {"UP", "DOWN", "UNKNOWN"};
+const char *stateString[3] = {"UNKNOWN", "DOWN", "UP"};
 
 CommandOps *controlListConnections_Create(ControlState *state) {
   return commandOps_Create(state, _commandListConnections, NULL,
@@ -127,12 +129,12 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
                                      (i * sizeof(list_connections_command)));
 
     sourceString = utils_CommandAddressToString(
-        listConnectionsCommand->connectionData.ipType,
+        listConnectionsCommand->connectionData.family,
         &listConnectionsCommand->connectionData.localIp,
         &listConnectionsCommand->connectionData.localPort);
 
     destinationString = utils_CommandAddressToString(
-        listConnectionsCommand->connectionData.ipType,
+        listConnectionsCommand->connectionData.family,
         &listConnectionsCommand->connectionData.remoteIp,
         &listConnectionsCommand->connectionData.remotePort);
 

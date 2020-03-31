@@ -1640,7 +1640,7 @@ _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
 {
     int rc;
     DEBUG("[hc_connection_set_admin_state] connection_id/name=%s admin_state=%s async=%s",
-            conn_id_or_name, face_state_str[state], BOOLSTR(async));
+            conn_id_or_name, face_state_str(state), BOOLSTR(async));
     struct {
         header_control_message hdr;
         connection_set_admin_state_command payload;
@@ -2602,11 +2602,11 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
             face->id,
             face->name,
             face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
-            face_type_str[face->face.type],
+            face_type_str(face->face.type),
             local,
             remote,
-            face_state_str[face->face.state],
-            face_state_str[face->face.admin_state],
+            face_state_str(face->face.state),
+            face_state_str(face->face.admin_state),
             face->face.priority,
             tags);
 #else
@@ -2614,11 +2614,11 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
             face->id,
             face->name,
             face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
-            face_type_str[face->face.type],
+            face_type_str(face->face.type),
             local,
             remote,
-            face_state_str[face->face.state],
-            face_state_str[face->face.admin_state]);
+            face_state_str(face->face.state),
+            face_state_str(face->face.admin_state));
 #endif /* WITH_POLICY */
 }
 

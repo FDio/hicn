@@ -26,7 +26,9 @@ typedef struct
   u8 rtx_count; // Number of retransmissions since last tfib addition
 } retx_t;
 
+#if 0
 #define HASH32(x) ((u16)x ^ (x << 16))
+#endif
 
 /**
  * @brief This is a process node reacting to face events.
