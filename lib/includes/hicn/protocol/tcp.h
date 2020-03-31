@@ -42,11 +42,7 @@ typedef struct
   union
   {
     u32 seq_ack;
-    struct
-    {
-      hicn_pathlabel_t pathlabel;
-      u8 pad[3];
-    };
+    hicn_pathlabel_t pathlabel;
   };
 
   union

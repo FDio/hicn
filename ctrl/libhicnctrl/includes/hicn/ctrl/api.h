@@ -70,7 +70,7 @@
 
 #include <hicn/util/ip_address.h>
 #include <hicn/ctrl/commands.h>
-#include "face.h"
+#include <hicn/face.h>
 
 #define HICN_DEFAULT_PORT 9695
 
