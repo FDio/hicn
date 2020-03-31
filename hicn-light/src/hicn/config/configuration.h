@@ -26,7 +26,6 @@
 #ifndef configuration_h
 #define configuration_h
 
-#include <hicn/core/logger.h>
 #include <hicn/utils/commands.h>
 
 struct configuration;
@@ -70,8 +69,8 @@ void configuration_Destroy(Configuration **configPtr);
 void configuration_SetupAllListeners(Configuration *config, uint16_t port,
                                      const char *localPath);
 
-void configuration_ReceiveCommand(Configuration *config, command_id command,
-                                  struct iovec *request, unsigned ingressId);
+void configuration_ReceiveCommand(Configuration *config, command_type_t command,
+        struct iovec *request, unsigned ingressId);
 
 /**
  * Returns the configured size of the content store
@@ -104,7 +103,7 @@ size_t configuration_GetObjectStoreSize(Configuration *config);
 void configuration_SetObjectStoreSize(Configuration *config,
                                       size_t maximumContentObjectCount);
 
-strategy_type configuration_GetForwardingStrategy(Configuration *config,
+strategy_type_t configuration_GetForwardingStrategy(Configuration *config,
                                                   const char *prefix);
 
 /**
@@ -127,25 +126,8 @@ strategy_type configuration_GetForwardingStrategy(Configuration *config,
  */
 Forwarder *configuration_GetForwarder(const Configuration *config);
 
-/**
- * Returns the logger used by the Configuration subsystem
- *
- * Returns the logger specified when the Configuration was created.
- *
- * @param [in] config An allocated Configuration
- *
- * @retval non-null The logger
- * @retval null An error
- *
- * Example:
- * @code
- * <#example#>
- * @endcode
- */
-Logger *configuration_GetLogger(const Configuration *config);
-
 struct iovec *configuration_DispatchCommand(Configuration *config,
-                                            command_id command,
+                                            command_type_t command,
                                             struct iovec *control,
                                             unsigned ingressId);
 

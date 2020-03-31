@@ -19,88 +19,68 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <parc/assert/parc_Assert.h>
 #include <hicn/io/hicnConnection.h>
 #include <hicn/io/hicnListener.h>
 #include <hicn/io/hicnTunnel.h>
+#include <hicn/util/log.h>
 
-IoOperations *hicnTunnel_CreateOnListener(Forwarder *forwarder,
-                                          ListenerOps *localListener,
-                                          const Address *remoteAddress) {
-  parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");
-  parcAssertNotNull(localListener, "Parameter localListener must be non-null");
-  parcAssertNotNull(remoteAddress, "Parameter remoteAddress must be non-null");
+IoOperations *
+hicnTunnel_CreateOnListener(Forwarder *forwarder, ListenerOps *localListener,
+        const address_t * remoteAddress)
+{
+    assert(forwarder);
+    assert(localListener);
+    assert(remoteAddress);
 
-  Logger *logger = forwarder_GetLogger(forwarder);
-
-  IoOperations *ops = NULL;
-  if (localListener->getEncapType(localListener) == ENCAP_HICN) {
-    const Address *localAddress =
-        localListener->getListenAddress(localListener);
-    address_type localType = addressGetType(localAddress);
-    address_type remoteType = addressGetType(remoteAddress);
-
-    if (localType == remoteType) {
-      bool res = hicnListener_Bind(localListener, remoteAddress);
-      if (res == false) {
-        if (logger_IsLoggable(logger, LoggerFacility_IO, PARCLogLevel_Error)) {
-          logger_Log(logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-                     "Unable to bind local listener to remote node");
-        }
-        return ops;
-      }
-
-      // localAddress = hicnListener_GetTunAddress(localListener); //This is the
-      // true local address
-
-      AddressPair *pair = addressPair_Create(localAddress, remoteAddress);
-      bool isLocal = false;
-      int fd = localListener->getSocket(localListener);
-      ops = hicnConnection_Create(forwarder, localListener->getInterfaceName(localListener), fd, pair, isLocal);
-
-      addressPair_Release(&pair);
-    } else {
-      if (logger_IsLoggable(logger, LoggerFacility_IO, PARCLogLevel_Error)) {
-        logger_Log(logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-                   "Local listener of type %s and remote type %s, cannot "
-                   "establish tunnel",
-                   addressTypeToString(localType),
-                   addressTypeToString(remoteType));
-      }
+    if (localListener->getEncapType(localListener) != ENCAP_HICN) {
+        ERROR("Local listener %p is not type hICN, cannot establish tunnel", localListener);
+        return NULL;
     }
-  } else {
-    if (logger_IsLoggable(logger, LoggerFacility_IO, PARCLogLevel_Error)) {
-      logger_Log(logger, LoggerFacility_IO, PARCLogLevel_Error, __func__,
-                 "Local listener %p is not type UDP, cannot establish tunnel",
-                 (void *)localListener);
-    }
-  }
 
-  return ops;
+    const address_t * localAddress = localListener->getListenAddress(localListener);
+    const address_pair_t pair = {
+        .local = *localAddress,
+        .remote = *remoteAddress,
+    };
+
+    if (!address_pair_valid(&pair)) {
+        ERROR("Local listener address families differ (%s != %s, cannot establish tunnel",
+                address_family_str(localAddress), address_family_str(remoteAddress));
+        return NULL;
+    }
+
+    if (!hicnListener_Bind(localListener, remoteAddress)) {
+        ERROR("Unable to bind local listener to remote node");
+        return NULL;
+    }
+
+    // XXX ?
+    // localAddress = hicnListener_GetTunAddress(localListener); //This is the
+    // true local address
+
+    int fd = localListener->getSocket(localListener, &pair);
+
+    return hicnConnection_Create(forwarder, localListener->getInterfaceName(localListener), fd, &pair, false);
 }
 
-IoOperations *hicnTunnel_Create(Forwarder *forwarder,
-                                const Address *localAddress,
-                                const Address *remoteAddress) {
-  ListenerSet *set = forwarder_GetListenerSet(forwarder);
-  ListenerOps *listener = listenerSet_Find(set, ENCAP_HICN, localAddress);
-  IoOperations *ops = NULL;
-  if (listener) {
-    ops = hicnTunnel_CreateOnListener(forwarder, listener, remoteAddress);
-  } else {
-    if (logger_IsLoggable(forwarder_GetLogger(forwarder), LoggerFacility_IO,
-                          PARCLogLevel_Error)) {
-      char *str = addressToString(localAddress);
-      logger_Log(forwarder_GetLogger(forwarder), LoggerFacility_IO,
-                 PARCLogLevel_Error, __func__,
-                 "Could not find listener to match address %s", str);
-      parcMemory_Deallocate((void **)&str);
+IoOperations *
+hicnTunnel_Create(Forwarder *forwarder, const address_pair_t * pair)
+{
+    listener_table_t * table = forwarder_GetListenerTable(forwarder);
+    ListenerOps * listener = listener_table_lookup(table, ENCAP_HICN, address_pair_local(pair));
+    if (!listener) {
+        // XXX TOOD
+        //char *str = addressToString(localAddress);
+        ERROR("Could not find listener to match address %p", address_pair_local(pair));
+        //parcMemory_Deallocate((void **)&str);
     }
-  }
 
-  if (ops) {
+    IoOperations *ops = hicnTunnel_CreateOnListener(forwarder, listener,
+            address_pair_remote(pair));
+    if (!ops)
+        return NULL;
+
     hicnListener_SetConnectionId(listener, ops->getConnectionId(ops));
-  }
 
-  return ops;
+    return ops;
 }

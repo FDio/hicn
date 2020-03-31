@@ -49,105 +49,6 @@ struct message {
   unsigned refcount;
 };
 
-Message *message_Acquire(const Message *message) {
-  Message *copy = (Message *)message;
-  copy->refcount++;
-  return copy;
-}
-
-Message *message_CreateFromEventBuffer(PARCEventBuffer *data, size_t dataLength,
-                                       unsigned ingressConnectionId,
-                                       Ticks receiveTime, Logger *logger) {
-  // used by applications, we can get only interest or data packets
-  Message *message = parcMemory_AllocateAndClear(sizeof(Message));
-  parcAssertNotNull(message, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(Message));
-
-  message->logger = logger_Acquire(logger);
-  message->receiveTime = receiveTime;
-  message->ingressConnectionId = ingressConnectionId;
-  message->length = (unsigned int)dataLength;
-
-  message->messageHead = parcMemory_AllocateAndClear(dataLength);
-  parcAssertNotNull(message->messageHead,
-                    "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    dataLength);
-
-  // copy the data because *data is destroyed in the connection.
-  int res = parcEventBuffer_Read(data, message->messageHead, dataLength);
-  if (res == -1) {
-    return NULL;
-  }
-
-  if (messageHandler_IsInterest(message->messageHead)) {
-    message->packetType = MessagePacketType_Interest;
-  } else if (messageHandler_IsData(message->messageHead)) {
-    message->packetType = MessagePacketType_ContentObject;
-  } else {
-    printf("Got a packet that is not a data nor an interest, drop it!\n");
-    return NULL;
-  }
-  message->name =
-      name_CreateFromPacket(message->messageHead, message->packetType);
-
-  message->refcount = 1;
-
-  return message;
-}
-
-Message *message_CreateFromByteArray(unsigned connid, uint8_t *pckt,
-                                     MessagePacketType type, Ticks receiveTime,
-                                     Logger *logger) {
-  Message *message = parcMemory_AllocateAndClear(sizeof(Message));
-  parcAssertNotNull(message, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(Message));
-
-  message->logger = logger_Acquire(logger);
-  message->receiveTime = receiveTime;
-  message->ingressConnectionId = connid;
-  message->messageHead = pckt;
-  message->length = messageHandler_GetTotalPacketLength(pckt);
-  message->packetType = type;
-
-  if (messageHandler_IsWldrNotification(pckt)) {
-    message->name = NULL;
-  } else {
-    message->name =
-        name_CreateFromPacket(message->messageHead, message->packetType);
-  }
-
-  message->refcount = 1;
-
-  return message;
-}
-
-void message_Release(Message **messagePtr) {
-  parcAssertNotNull(messagePtr, "Parameter must be non-null double pointer");
-  parcAssertNotNull(*messagePtr,
-                    "Parameter must dereference to non-null pointer");
-
-  Message *message = *messagePtr;
-  parcAssertTrue(
-      message->refcount > 0,
-      "Invalid state: message_Release called on message with 0 references %p",
-      (void *)message);
-
-  message->refcount--;
-  if (message->refcount == 0) {
-    if (logger_IsLoggable(message->logger, LoggerFacility_Message,
-                          PARCLogLevel_Debug)) {
-      logger_Log(message->logger, LoggerFacility_Message, PARCLogLevel_Debug,
-                 __func__, "Message %p destroyed", (void *)message);
-    }
-
-    logger_Release(&message->logger);
-    if (message->name != NULL) name_Release(&message->name);
-    parcMemory_Deallocate((void **)&message->messageHead);
-    parcMemory_Deallocate((void **)&message);
-  }
-  *messagePtr = NULL;
-}
-
 bool message_Write(PARCEventQueue *parcEventQueue, const Message *message) {
   parcAssertNotNull(message, "Message parameter must be non-null");
   parcAssertNotNull(parcEventQueue, "Buffer parameter must be non-null");
@@ -169,31 +70,6 @@ bool message_HasWldr(const Message *message) {
 bool message_IsWldrNotification(const Message *message) {
   parcAssertNotNull(message, "Parameter must be non-null");
   return messageHandler_IsWldrNotification(message->messageHead);
-}
-
-void message_ResetWldrLabel(Message *message) {
-  parcAssertNotNull(message, "Parameter must be non-null");
-  messageHandler_ResetWldrLabel(message->messageHead);
-}
-
-unsigned message_GetWldrLabel(const Message *message) {
-  parcAssertNotNull(message, "Parameter must be non-null");
-  return messageHandler_GetWldrLabel(message->messageHead);
-}
-
-unsigned message_GetWldrExpectedLabel(const Message *message) {
-  parcAssertNotNull(message, "Parameter must be non-null");
-  return messageHandler_GetExpectedWldrLabel(message->messageHead);
-}
-
-unsigned message_GetWldrLastReceived(const Message *message) {
-  parcAssertNotNull(message, "Parameter must be non-null");
-  return messageHandler_GetWldrLastReceived(message->messageHead);
-}
-
-void message_SetWldrLabel(Message *message, uint16_t label) {
-  parcAssertNotNull(message, "Parameter must be non-null");
-  messageHandler_SetWldrLabel(message->messageHead, label);
 }
 
 Message *message_CreateWldrNotification(Message *original, uint16_t expected,

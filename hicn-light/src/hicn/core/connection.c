@@ -22,7 +22,7 @@
 #include <hicn/core/messageHandler.h>
 #include <hicn/core/ticks.h>
 #include <hicn/core/wldr.h>
-#include <hicn/io/addressPair.h>
+#include <hicn/base/address_pair.h>
 #include <hicn/io/ioOperations.h>
 
 #include <parc/algol/parc_Memory.h>
@@ -33,7 +33,7 @@
 
 struct connection {
 
-  const AddressPair *addressPair;
+  address_pair_t pair;
   IoOperations *ops;
 
   unsigned refCount;
@@ -53,12 +53,14 @@ struct connection {
 
 };
 
-Connection *connection_Create(IoOperations *ops) {
+Connection *
+connection_Create(void /* IoOperations */ * ops)
+{
   parcAssertNotNull(ops, "Parameter ops must be non-null");
   Connection *conn = parcMemory_AllocateAndClear(sizeof(Connection));
   parcAssertNotNull(conn, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(Connection));
-  conn->addressPair = ioOperations_GetAddressPair(ops);
+  conn->pair = *ioOperations_GetAddressPair(ops);
   conn->ops = ops;
   conn->refCount = 1;
   conn->wldr = NULL;
@@ -93,7 +95,7 @@ void connection_Release(Connection **connectionPtr) {
       "Invalid state, connection reference count should be positive, got 0.");
   conn->refCount--;
   if (conn->refCount == 0) {
-    // don't destroy addressPair, its part of ops.
+    // don't destroy pair, its part of ops.
     ioOperations_Release(&conn->ops);
     if (conn->wldr != NULL) {
       wldr_Destroy(&(conn->wldr));
@@ -103,21 +105,25 @@ void connection_Release(Connection **connectionPtr) {
   *connectionPtr = NULL;
 }
 
-bool connection_Send(const Connection *conn, Message *message) {
+bool connection_Send(const Connection *conn, msgbuf_t *message, bool queue) {
   parcAssertNotNull(conn, "Parameter conn must be non-null");
-  parcAssertNotNull(message, "Parameter message must be non-null");
+
+  /* NULL message means flush */
+  if (!message) {
+    return ioOperations_Send(conn->ops, NULL, NULL, false);
+  }
 
   if (ioOperations_IsUp(conn->ops)) {
-    if (message_GetType(message) == MessagePacketType_ContentObject) {
+    if (msgbuf_type(message) == MessagePacketType_ContentObject) {
       uint8_t connectionId = (uint8_t)connection_GetConnectionId(conn);
-      message_UpdatePathLabel(message, connectionId);
+      msgbuf_update_pathlabel(message, connectionId);
     }
     if (conn->wldr != NULL) {
       wldr_SetLabel(conn->wldr, message);
     } else {
-      message_ResetWldrLabel(message);
+      msgbuf_reset_wldr_label(message);
     }
-    return ioOperations_Send(conn->ops, NULL, message);
+    return ioOperations_Send(conn->ops, NULL, message, queue);
   }
   return false;
 }
@@ -152,8 +158,8 @@ void connection_HandleProbe(Connection *conn, uint8_t *probe){
   }
 }
 
-IoOperations *connection_GetIoOperations(const Connection *conn) {
-  return conn->ops;
+void /* IoOperations */ * connection_GetIoOperations(const Connection *conn) {
+  return (void*)conn->ops;
 }
 
 unsigned connection_GetConnectionId(const Connection *conn) {
@@ -161,7 +167,7 @@ unsigned connection_GetConnectionId(const Connection *conn) {
   return ioOperations_GetConnectionId(conn->ops);
 }
 
-const AddressPair *connection_GetAddressPair(const Connection *conn) {
+const address_pair_t * connection_GetAddressPair(const Connection *conn) {
   parcAssertNotNull(conn, "Parameter conn must be non-null");
   return ioOperations_GetAddressPair(conn->ops);
 }
@@ -182,7 +188,7 @@ const void *connection_Class(const Connection *conn) {
   return ioOperations_Class(conn->ops);
 }
 
-bool connection_ReSend(const Connection *conn, Message *message,
+bool connection_ReSend(const Connection *conn, msgbuf_t *message,
                        bool notification) {
   parcAssertNotNull(conn, "Parameter conn must be non-null");
   parcAssertNotNull(message, "Parameter message must be non-null");
@@ -199,22 +205,17 @@ bool connection_ReSend(const Connection *conn, Message *message,
     // That case is handled insied the MessageProcessor. This is specific to
     // WLDR retransmittions. This is done only for data packets
 
-    if (message_GetType(message) == MessagePacketType_ContentObject) {
+    if (msgbuf_type(message) == MessagePacketType_ContentObject) {
       uint8_t connectionId = (uint8_t)connection_GetConnectionId(conn);
-      uint32_t old_path_label = message_GetPathLabel(message);
-      message_UpdatePathLabel(message, connectionId);
+      uint32_t old_path_label = msgbuf_get_pathlabel(message);
+      msgbuf_update_pathlabel(message, connectionId);
 
-      res = ioOperations_Send(conn->ops, NULL, message);
+      res = ioOperations_Send(conn->ops, NULL, message, false); /* no queueing */
 
-      message_SetPathLabel(message, old_path_label);
+      msgbuf_set_pathlabel(message, old_path_label);
     } else {
-      res = ioOperations_Send(conn->ops, NULL, message);
+      res = ioOperations_Send(conn->ops, NULL, message, false); /* no queueing */
     }
-  }
-
-  if (notification) {
-    // the notification is never destroyed
-    message_Release(&message);
   }
 
   return res;
@@ -255,11 +256,11 @@ bool connection_WldrAutoStartAllowed(const Connection *conn) {
   return conn->wldrAutoStart;
 }
 
-void connection_DetectLosses(Connection *conn, Message *message) {
+void connection_DetectLosses(Connection *conn, msgbuf_t *message) {
   if (conn->wldr != NULL) wldr_DetectLosses(conn->wldr, conn, message);
 }
 
-void connection_HandleWldrNotification(Connection *conn, Message *message) {
+void connection_HandleWldrNotification(const Connection *conn, msgbuf_t *message) {
   if (conn->wldr != NULL)
     wldr_HandleWldrNotification(conn->wldr, conn, message);
 }

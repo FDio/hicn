@@ -38,7 +38,7 @@ typedef struct configuration_file ConfigurationFile;
  * Prepares the object and opens the file.  Makes sure we can read the file.
  * Does not read the file or process any commands from the file.
  *
- * @param [in] hicn-light An allocated Forwarder to configure with the file
+ * @param [in] hicn-light An allocated forwarder_t * to configure with the file
  * @param [in] filename The file to use
  *
  * @retval non-null An allocated ConfigurationFile that is readable
@@ -49,7 +49,7 @@ typedef struct configuration_file ConfigurationFile;
  * <#example#>
  * @endcode
  */
-ConfigurationFile *configurationFile_Create(Forwarder *forwarder,
+ConfigurationFile *configurationFile_Create(forwarder_t * *forwarder,
                                             const char *filename);
 
 /**
