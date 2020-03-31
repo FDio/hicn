@@ -14,7 +14,7 @@
  */
 
 #ifdef _WIN32
-#include <portability/win_portability.h>
+#include <hicn/transport/portability/win_portability.h>
 #endif
 
 #include <hicn/transport/errors/errors.h>
