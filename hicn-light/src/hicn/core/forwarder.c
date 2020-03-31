@@ -46,8 +46,8 @@
 #include <parc/algol/parc_Object.h>
 #include <parc/logging/parc_LogReporterTextStdout.h>
 
-#include <hicn/core/connectionManager.h>
-#include <hicn/core/connectionTable.h>
+#include <hicn/base/connection_table.h>
+#include <hicn/base/listener_table.h>
 #include <hicn/core/dispatcher.h>
 #include <hicn/core/forwarder.h>
 #include <hicn/core/messagePacketType.h>
@@ -58,6 +58,10 @@
 #include <hicn/config/configurationFile.h>
 #include <hicn/config/configurationListeners.h>
 #include <hicn/processor/messageProcessor.h>
+
+#ifdef WITH_PREFIX_STATS
+#include <hicn/base/prefix_stats.h>
+#endif /* WITH_PREFIX_STATS */
 
 #include <hicn/core/wldr.h>
 
@@ -91,9 +95,8 @@ struct forwarder {
 
   unsigned nextConnectionid;
   Messenger *messenger;
-  ConnectionManager *connectionManager;
-  ConnectionTable *connectionTable;
-  ListenerSet *listenerSet;
+  connection_table_t * connection_table;
+  listener_table_t * listener_table;
   Configuration *config;
 
   // we'll eventually want to setup a threadpool of these
@@ -113,6 +116,11 @@ struct forwarder {
 #ifdef WITH_MAPME
   MapMe *mapme;
 #endif /* WITH_MAPME */
+
+#ifdef WITH_PREFIX_STATS
+  prefix_stats_mgr_t prefix_stats_mgr;
+#endif /* WITH_PREFIX_STATS */
+
 };
 
 // signal traps through the event scheduler
@@ -179,9 +187,8 @@ Forwarder *forwarder_Create(Logger *logger) {
   forwarder->nextConnectionid = 1;
   forwarder->dispatcher = dispatcher_Create(forwarder->logger);
   forwarder->messenger = messenger_Create(forwarder->dispatcher);
-  forwarder->connectionManager = connectionManager_Create(forwarder);
-  forwarder->connectionTable = connectionTable_Create();
-  forwarder->listenerSet = listenerSet_Create();
+  forwarder->connection_table = connection_table_create();
+  forwarder->listener_table = listener_table_create();
   forwarder->config = configuration_Create(forwarder);
   forwarder->processor = messageProcessor_Create(forwarder);
 
@@ -236,6 +243,10 @@ Forwarder *forwarder_Create(Logger *logger) {
       base, PARCEventType_Persist, _keepalive_cb, (void *)forwarder);
   parcEventTimer_Start(forwarder->keepalive_event, &wtnow_timeout);
 
+#ifdef WITH_PREFIX_STATS
+  prefix_stats_mgr_initialize(&forwarder->prefix_stats_mgr, forwarder);
+#endif /* WITH_PREFIX_STATS */
+
   return forwarder;
 
 #ifdef WITH_MAPME
@@ -246,9 +257,8 @@ ERR_MAPME:
   hicn_free(forwarder->hicnSocketHelper);
 ERR_SOCKET:
 #endif
-  listenerSet_Destroy(&(forwarder->listenerSet));
-  connectionManager_Destroy(&(forwarder->connectionManager));
-  connectionTable_Destroy(&(forwarder->connectionTable));
+  listener_table_free(forwarder->listener_table);
+  connection_table_free(forwarder->connection_table);
   messageProcessor_Destroy(&(forwarder->processor));
   configuration_Destroy(&(forwarder->config));
   messenger_Destroy(&(forwarder->messenger));
@@ -272,19 +282,23 @@ ERR_SOCKET:
   return NULL;
 }
 
-void forwarder_Destroy(Forwarder **ptr) {
+void
+forwarder_Destroy(Forwarder **ptr)
+{
   parcAssertNotNull(ptr, "Parameter must be non-null double pointer");
   parcAssertNotNull(*ptr, "Parameter must dereference to non-null pointer");
   Forwarder *forwarder = *ptr;
+
+  prefix_stats_mgr_finalize(&forwarder->prefix_stats_mgr);
+
 #if !defined(__APPLE__) && !defined(__ANDROID__) && !defined(_WIN32) && \
     defined(PUNTING)
   hicn_free(forwarder->hicnSocketHelper);
 #endif
   parcEventTimer_Destroy(&(forwarder->keepalive_event));
 
-  listenerSet_Destroy(&(forwarder->listenerSet));
-  connectionManager_Destroy(&(forwarder->connectionManager));
-  connectionTable_Destroy(&(forwarder->connectionTable));
+  listener_table_free(forwarder->listener_table);
+  connection_table_free(forwarder->connection_table);
   messageProcessor_Destroy(&(forwarder->processor));
   configuration_Destroy(&(forwarder->config));
 
@@ -323,7 +337,7 @@ void forwarder_SetupAllListeners(Forwarder *forwarder, uint16_t port,
 
 void forwarder_SetupLocalListeners(Forwarder *forwarder, uint16_t port) {
   parcAssertNotNull(forwarder, "Parameter must be non-null");
-  configurationListeners_SetutpLocalIPv4(forwarder->config, port);
+  configurationListeners_SetupLocalIPv4(forwarder->config, port);
 }
 
 void forwarder_SetupFromConfigFile(Forwarder *forwarder, const char *filename) {
@@ -356,18 +370,15 @@ Dispatcher *forwarder_GetDispatcher(Forwarder *forwarder) {
   return forwarder->dispatcher;
 }
 
-#ifdef WITH_POLICY
-ConnectionTable *forwarder_GetConnectionTable(const Forwarder *forwarder) {
-#else
-ConnectionTable *forwarder_GetConnectionTable(Forwarder *forwarder) {
-#endif /* WITH_POLICY */
+connection_table_t * forwarder_GetConnectionTable(const Forwarder *forwarder) {
   parcAssertNotNull(forwarder, "Parameter must be non-null");
-  return forwarder->connectionTable;
+  return forwarder->connection_table;
 }
 
-ListenerSet *forwarder_GetListenerSet(Forwarder *forwarder) {
+listener_table_t * forwarder_GetListenerTable(Forwarder *forwarder)
+{
   parcAssertNotNull(forwarder, "Parameter must be non-null");
-  return forwarder->listenerSet;
+  return forwarder->listener_table;
 }
 
 void forwarder_SetChacheStoreFlag(Forwarder *forwarder, bool val) {
@@ -390,12 +401,32 @@ bool forwarder_GetChacheServeFlag(Forwarder *forwarder) {
   return messageProcessor_GetCacheServeFlag(forwarder->processor);
 }
 
-void forwarder_ReceiveCommand(Forwarder *forwarder, command_id command,
-                              struct iovec *message, unsigned ingressId) {
-  configuration_ReceiveCommand(forwarder->config, command, message, ingressId);
+void forwarder_ReceiveCommand(Forwarder *forwarder, command_type_t command_type,
+        uint8_t * packet, unsigned connection_id)
+{
+  configuration_ReceiveCommand(forwarder->config, command_type, packet, connection_id);
 }
 
-void forwarder_Receive(Forwarder *forwarder, Message *message) {
+/* Transient function until further optimizations */
+
+void forwarder_ReceiveCommandBuffer(Forwarder * forwarder, command_id command,
+        uint8_t * packet, unsigned ingressId)
+{
+  struct iovec *request;
+  if (!(request = (struct iovec *) parcMemory_AllocateAndClear(
+              sizeof(struct iovec) * 2)))
+    return;
+
+  request[0].iov_base = packet;
+  request[0].iov_len = sizeof(header_control_message);
+  request[1].iov_base = packet + sizeof(header_control_message);
+  request[1].iov_len = payloadLengthDaemon(command);
+
+  forwarder_ReceiveCommand(forwarder, command, request, ingressId);
+  parcMemory_Deallocate((void **) &request);
+}
+
+void forwarder_Receive(Forwarder *forwarder, msgbuf_t * message, unsigned new_batch) {
   parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");
   parcAssertNotNull(message, "Parameter message must be non-null");
 
@@ -408,14 +439,12 @@ void forwarder_Receive(Forwarder *forwarder, Message *message) {
   // WLDR should be enabled only on the STAs using the command line
   // TODO
   // disable WLDR command line on the AP
-  const Connection *conn = connectionTable_FindById(
-      forwarder->connectionTable, message_GetIngressConnectionId(message));
-
-  if (!conn) {
+  connection_table_t * table = forwarder_GetConnectionTable(forwarder);
+  const Connection *conn = connection_table_get_by_id(table, msgbuf_connection_id(message));
+  if (!conn)
     return;
-  }
 
-  if (message_HasWldr(message)) {
+  if (msgbuf_has_wldr(message)) {
     if (connection_HasWldr(conn)) {
       // case 1: WLDR is enabled
       connection_DetectLosses((Connection *)conn, message);
@@ -433,7 +462,7 @@ void forwarder_Receive(Forwarder *forwarder, Message *message) {
     }
   }
 
-  messageProcessor_Receive(forwarder->processor, message);
+  messageProcessor_Receive(forwarder->processor, message, new_batch);
 }
 
 Ticks forwarder_GetTicks(const Forwarder *forwarder) {
@@ -447,36 +476,36 @@ uint64_t forwarder_TicksToNanos(Ticks ticks) {
   return (1000000000ULL) * ticks / HZ;
 }
 
-bool forwarder_AddOrUpdateRoute(Forwarder *forwarder,
+bool forwarder_add_or_update_route(Forwarder *forwarder,
                                 add_route_command *control, unsigned ifidx) {
   parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");
   parcAssertNotNull(control, "Parameter route must be non-null");
 
   // we only have one message processor
   bool res =
-      messageProcessor_AddOrUpdateRoute(forwarder->processor, control, ifidx);
+      messageProcessor_add_or_update_route(forwarder->processor, control, ifidx);
 
   return res;
 }
 
 
-bool forwarder_RemoveRoute(Forwarder *forwarder, remove_route_command *control,
+bool forwarder_remove_route(Forwarder *forwarder, remove_route_command *control,
                            unsigned ifidx) {
   parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");
   parcAssertNotNull(control, "Parameter route must be non-null");
 
   // we only have one message processor
-  return messageProcessor_RemoveRoute(forwarder->processor, control, ifidx);
+  return messageProcessor_remove_route(forwarder->processor, control, ifidx);
 }
 
 #ifdef WITH_POLICY
 
-bool forwarder_AddOrUpdatePolicy(Forwarder *forwarder,
+bool forwarder_add_or_update_policy(Forwarder *forwarder,
                                 add_policy_command *control) {
   parcAssertNotNull(forwarder, "Parameter forwarder must be non-null");
   parcAssertNotNull(control, "Parameter control must be non-null");
 
-  return messageProcessor_AddOrUpdatePolicy(forwarder->processor, control);
+  return messageProcessor_add_or_update_policy(forwarder->processor, control);
 }
 
 bool forwarder_RemovePolicy(Forwarder *forwarder, remove_policy_command *control) {
@@ -495,18 +524,18 @@ void forwarder_RemoveConnectionIdFromRoutes(Forwarder *forwarder,
                                                 connectionId);
 }
 
-void forwarder_SetStrategy(Forwarder *forwarder, Name *prefix,
-                           strategy_type strategy,
-                           unsigned related_prefixes_len,
-                           Name **related_prefixes) {
+void
+forwarder_SetStrategy(Forwarder *forwarder, Name *prefix,
+        strategy_type_t strategy_type, strategy_options_t * strategy_options)
+{
   parcAssertNotNull(forwarder, "Parameter hicn-light must be non-null");
   parcAssertNotNull(prefix, "Parameter prefix must be non-null");
 
-  processor_SetStrategy(forwarder->processor, prefix, strategy,
-                        related_prefixes_len, related_prefixes);
+  processor_SetStrategy(forwarder->processor, prefix, strategy_type,
+          strategy_options);
 }
 
-FibEntryList *forwarder_GetFibEntries(Forwarder *forwarder) {
+fib_entry_list_t *forwarder_GetFibEntries(Forwarder *forwarder) {
   return messageProcessor_GetFibEntries(forwarder->processor);
 }
 
@@ -573,15 +602,13 @@ FIB *forwarder_getFib(Forwarder *forwarder) {
 }
 
 void forwarder_onConnectionEvent(Forwarder *forwarder, const Connection *conn, connection_event_t event) {
-//#ifdef WITH_POLICY
-//    messageProcessor_onConnectionEvent(forwarder->processor, conn, event);
-//#else
   mapme_onConnectionEvent(forwarder->mapme, conn, event);
-//#endif /* WITH_POLICY */
 }
 
-void forwarder_ProcessMapMe(Forwarder *forwarder, const uint8_t *msgBuffer,
-                            unsigned conn_id) {
+void
+forwarder_ProcessMapMe(const Forwarder * forwarder, const uint8_t *msgBuffer,
+        unsigned conn_id)
+{
   mapme_Process(forwarder->mapme, msgBuffer, conn_id);
 }
 
@@ -591,3 +618,66 @@ forwarder_getMapmeInstance(const Forwarder *forwarder) {
 }
 
 #endif /* WITH_MAPME */
+
+#ifdef WITH_PREFIX_STATS
+const prefix_stats_mgr_t *
+forwarder_GetPrefixStatsMgr(const Forwarder * forwarder)
+{
+    return &forwarder->prefix_stats_mgr;
+}
+#endif /* WITH_PREFIX_STATS */
+
+/* Main hook handler */
+
+/**
+ * \brief Handle incoming messages
+ * \param [in] forwarder - Reference to the Forwarder instance
+ * \param [in] packet - Packet buffer
+ * \param [in] conn_id - A hint on the connection ID on which the packet
+ *      was received
+ * \return Flag indicating whether the packet matched a hook and was
+ *      (successfully or not) processed.
+ */
+bool
+forwarder_handleHooks(const Forwarder * forwarder, const uint8_t * packet,
+        ListenerOps * listener, int fd, unsigned conn_id, address_pair_t * pair)
+{
+  bool is_matched = false;
+
+  /* BEGIN Match */
+
+#ifdef WITH_MAPME
+  bool is_mapme = mapme_isMapMe(packet);
+  is_matched |= is_mapme;
+#endif /* WITH_MAPME */
+
+  /* ... */
+
+  /* END Match */
+
+  if (!is_matched)
+    return false;
+
+  /*
+   * Find existing connection or create a new one (we assume all processing
+   * requires a valid connection.
+   */
+
+  /* Find connection and eventually create it */
+  if (conn_id == ~0)
+    conn_id = listener->createConnection(listener, fd, pair);
+
+  /* BEGIN Process */
+
+#ifdef WITH_MAPME
+  if (mapme_isMapMe(packet))
+    forwarder_ProcessMapMe(forwarder, packet, conn_id);
+#endif /* WITH_MAPME */
+
+  /* ... */
+
+  /* END Process */
+
+  return true;
+}
+

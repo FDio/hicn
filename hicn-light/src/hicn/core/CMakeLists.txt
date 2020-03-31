@@ -14,20 +14,12 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 list(APPEND HEADER_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/connectionManager.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/connectionState.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ticks.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/connectionList.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/connectionTable.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/connection.h
   ${CMAKE_CURRENT_SOURCE_DIR}/forwarder.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/logger.h
   ${CMAKE_CURRENT_SOURCE_DIR}/dispatcher.h
   ${CMAKE_CURRENT_SOURCE_DIR}/message.h
   ${CMAKE_CURRENT_SOURCE_DIR}/messagePacketType.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/numberSet.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/streamBuffer.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/system.h
+# ${CMAKE_CURRENT_SOURCE_DIR}/system.h
   ${CMAKE_CURRENT_SOURCE_DIR}/mapme.h
   ${CMAKE_CURRENT_SOURCE_DIR}/wldr.h
   ${CMAKE_CURRENT_SOURCE_DIR}/messageHandler.h
@@ -36,16 +28,9 @@ list(APPEND HEADER_FILES
 )
 
 list(APPEND SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/connection.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/connectionList.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/connectionManager.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/connectionTable.c
   ${CMAKE_CURRENT_SOURCE_DIR}/dispatcher.c
   ${CMAKE_CURRENT_SOURCE_DIR}/forwarder.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/logger.c
   ${CMAKE_CURRENT_SOURCE_DIR}/message.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/numberSet.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/streamBuffer.c
   ${CMAKE_CURRENT_SOURCE_DIR}/mapme.c
   ${CMAKE_CURRENT_SOURCE_DIR}/wldr.c
   ${CMAKE_CURRENT_SOURCE_DIR}/nameBitvector.c

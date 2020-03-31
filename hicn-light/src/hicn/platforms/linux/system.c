@@ -37,8 +37,6 @@
 
 #include <parc/assert/parc_Assert.h>
 
-#include <hicn/utils/addressList.h>
-
 /**
  * Returns the MTU for a named interface
  *
@@ -69,8 +67,6 @@ static int getMtu(const char *ifname) {
 InterfaceSet *system_Interfaces(Forwarder *forwarder) {
   InterfaceSet *set = interfaceSetCreate();
 
-  Logger *logger = forwarder_GetLogger(forwarder);
-
   // this is the dynamically allocated head of the list
   struct ifaddrs *ifaddr;
   int failure = getifaddrs(&ifaddr);
@@ -93,60 +89,18 @@ InterfaceSet *system_Interfaces(Forwarder *forwarder) {
       interfaceSetAdd(set, iface);
     }
 
-    int family = next->ifa_addr->sa_family;
-    switch (family) {
-      case AF_INET: {
-        Address *address =
-            addressCreateFromInet((struct sockaddr_in *)next->ifa_addr);
-        interfaceAddAddress(iface, address);
-        break;
-      }
-
-      case AF_INET6: {
-        Address *address =
-            addressCreateFromInet6((struct sockaddr_in6 *)next->ifa_addr);
-        interfaceAddAddress(iface, address);
-        break;
-      }
-
-      case AF_PACKET: {
-        struct sockaddr_ll *addr_ll = (struct sockaddr_ll *)next->ifa_addr;
-
-        if (logger_IsLoggable(logger, LoggerFacility_IO, PARCLogLevel_Debug)) {
-          logger_Log(logger, LoggerFacility_IO, PARCLogLevel_Debug, __func__,
-                     "sockaddr_ll family %d proto %d ifindex %d hatype %d "
-                     "pkttype %d halen %d",
-                     addr_ll->sll_family, addr_ll->sll_protocol,
-                     addr_ll->sll_ifindex, addr_ll->sll_hatype,
-                     addr_ll->sll_pkttype, addr_ll->sll_halen);
-        }
-
-        switch (addr_ll->sll_hatype) {
-          // list of the ARP hatypes we can extract a MAC address from
-          case ARPHRD_ETHER:
-          // fallthrough
-          case ARPHRD_IEEE802: {
-            Address *address = addressCreateFromLink(
-                (uint8_t *)addr_ll->sll_addr, addr_ll->sll_halen);
-            interfaceAddAddress(iface, address);
-            break;
-          }
-          default:
-            break;
-        }
-
-        break;
-      }
-    }
+    address_t * address = (address_t *)next->ifa_addr;
+    interfaceAddAddress(iface, address);
   }
 
   freeifaddrs(ifaddr);
   return set;
 }
 
-Address *system_GetMacAddressByName(Forwarder *forwarder,
+#if 0
+address_t *system_GetMacAddressByName(Forwarder *forwarder,
                                     const char *interfaceName) {
-  Address *linkAddress = NULL;
+  address_t *linkAddress = NULL;
 
   InterfaceSet *interfaceSet = system_Interfaces(forwarder);
   Interface *interface = interfaceSetGetByName(interfaceSet, interfaceName);
@@ -156,7 +110,7 @@ Address *system_GetMacAddressByName(Forwarder *forwarder,
 
     size_t length = addressListLength(addressList);
     for (size_t i = 0; i < length && !linkAddress; i++) {
-      const Address *a = addressListGetItem(addressList, i);
+      const address_t *a = addressListGetItem(addressList, i);
       if (addressGetType(a) == ADDR_LINK) {
         linkAddress = addressCopy(a);
       }
@@ -167,6 +121,7 @@ Address *system_GetMacAddressByName(Forwarder *forwarder,
 
   return linkAddress;
 }
+#endif 
 
 unsigned system_InterfaceMtu(Forwarder *forwarder, const char *interfaceName) {
   unsigned mtu = 0;

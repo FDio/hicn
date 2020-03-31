@@ -22,11 +22,13 @@
 #include <parc/algol/parc_BufferComposer.h>
 #include <parc/algol/parc_Memory.h>
 #include <parc/algol/parc_Object.h>
-#include <hicn/utils/addressList.h>
+//#include <hicn/utils/addressList.h>
 #include <hicn/utils/interface.h>
 
 #include <parc/assert/parc_Assert.h>
 #include <hicn/utils/commands.h>
+
+#if 0
 
 struct interface {
   char *name;
@@ -166,3 +168,5 @@ unsigned interfaceGetMTU(const Interface *iface) {
   parcAssertNotNull(iface, "Parameter iface must be non-null");
   return iface->mtu;
 }
+
+#endif
