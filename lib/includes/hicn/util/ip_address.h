@@ -108,6 +108,7 @@ typedef struct {
 
 #define MAXSZ_PREFIX_ MAXSZ_IP_ADDRESS_ + 1 + 3
 #define MAXSZ_PREFIX MAXSZ_PREFIX_ + 1
+#define MAXSZ_IP_PREFIX MAXSZ_PREFIX
 
 extern const ip_address_t IPV4_LOOPBACK;
 extern const ip_address_t IPV6_LOOPBACK;
@@ -146,6 +147,7 @@ int ip_address_empty(const ip_address_t * ip);
 int ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix);
 int ip_prefix_ntop_short (const ip_prefix_t * ip_prefix, char *dst, size_t size);
 int ip_prefix_ntop (const ip_prefix_t * ip_prefix, char *dst, size_t size);
+int ip_prefix_snprintf(char * s, size_t size, const ip_prefix_t * prefix);
 int ip_prefix_len (const ip_prefix_t * prefix);
 bool ip_prefix_empty (const ip_prefix_t * prefix);
 int ip_prefix_to_sockaddr(const ip_prefix_t * prefix, struct sockaddr *sa);

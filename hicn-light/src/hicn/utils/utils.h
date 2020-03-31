@@ -17,7 +17,6 @@
 #define utils_h
 
 #include <hicn/config/controlState.h>
-#include <hicn/utils/address.h>
 #include <hicn/utils/commands.h>
 
 /**
@@ -32,39 +31,18 @@ bool utils_IsNumber(const char *string);
 bool utils_ValidateSymbolicName(const char *symbolic);
 
 /**
- *Create an Ack message instance as a response of a control successfully
- *completed.
- */
-struct iovec *utils_CreateAck(header_control_message *header, void *payload,
-                              size_t payloadLen);
-
-/**
- *Create a Nack message instance as a response of a control unsuccessfully
- *completed.
- */
-struct iovec *utils_CreateNack(header_control_message *header, void *payload,
-                               size_t payloadLen);
-
-/**
  *Convert IPv4/IPv6 address from binary to text string. `uint8_t *ipAddress` has
  *to be a `in_addr_t * or `a struct in6_addr *.
  */
-char *utils_CommandAddressToString(address_type addressType,
-                                   ip_address_t *address, in_port_t *port);
+char *utils_CommandAddressToString(int family, ip_address_t *address,
+        in_port_t *port);
 
 /**
  *Given a command payload, it generates the header and send the request to the
  *deamon.
  */
-struct iovec *utils_SendRequest(ControlState *state, command_id command,
-                                void *payload, size_t payloadLen);
-
-/**
- *Convert a IPv4/IPv6 address plus Netmask len from binary to text string in the
- *form [add]:[port]/[len].
- */
-const char *utils_PrefixLenToString(address_type addressType,
-                                    ip_address_t *address,
-                                    uint8_t *prefixLen);
+struct iovec *
+utils_SendRequest(ControlState *state, command_type_t
+        command_type, void *payload, size_t payloadLen);
 
 #endif
