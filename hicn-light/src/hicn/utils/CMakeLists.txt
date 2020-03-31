@@ -14,21 +14,17 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 list(APPEND HEADER_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/address.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/addressList.h
   ${CMAKE_CURRENT_SOURCE_DIR}/commands.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/interface.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/interfaceSet.h
+#  ${CMAKE_CURRENT_SOURCE_DIR}/interface.h
+#  ${CMAKE_CURRENT_SOURCE_DIR}/interfaceSet.h
   ${CMAKE_CURRENT_SOURCE_DIR}/punting.h
   ${CMAKE_CURRENT_SOURCE_DIR}/token.h
   ${CMAKE_CURRENT_SOURCE_DIR}/utils.h
 )
 
 list(APPEND SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/address.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/addressList.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/interface.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/interfaceSet.c
+#  ${CMAKE_CURRENT_SOURCE_DIR}/interface.c
+#  ${CMAKE_CURRENT_SOURCE_DIR}/interfaceSet.c
   ${CMAKE_CURRENT_SOURCE_DIR}/punting.c
   ${CMAKE_CURRENT_SOURCE_DIR}/utils.c
 )

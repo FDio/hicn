@@ -42,7 +42,7 @@ struct controller_state {
   bool debugFlag;
 
   void *userdata;
-  struct iovec *(*writeRead)(ControlState *state, struct iovec *msg);
+  uint8_t *(*writeRead)(ControlState *state, uint8_t *msg);
   int sockfd;
   char **commandOutput;
   bool isInteractive;
@@ -75,7 +75,7 @@ int controlState_connectToFwdDeamon(char *server_ip, uint16_t port) {
 
 ControlState *controlState_Create(
     void *userdata,
-    struct iovec *(*writeRead)(ControlState *state, struct iovec *msg),
+    uint8_t *(*writeRead)(ControlState *state, uint8_t * msg),
     bool openControllerConnetion,
     char *server_ip, uint16_t port) {
   ControlState *state = parcMemory_AllocateAndClear(sizeof(ControlState));
@@ -128,11 +128,13 @@ void controlState_RegisterCommand(ControlState *state, CommandOps *ops) {
   commandParser_RegisterCommand(state->parser, ops);
 }
 
-struct iovec *controlState_WriteRead(ControlState *state, struct iovec *msg) {
-  parcAssertNotNull(state, "Parameter state must be non-null");
-  parcAssertNotNull(msg, "Parameter msg must be non-null");
+uint8_t *
+controlState_write_read(ControlState *state, uint8_t *packet)
+{
+    assert(state);
+    assert(packet);
 
-  return state->writeRead(state, msg);
+    return state->writeRead(state, packet);
 }
 
 static PARCList *_controlState_ParseStringIntoTokens(

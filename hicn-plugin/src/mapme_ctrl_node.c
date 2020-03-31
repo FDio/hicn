@@ -130,7 +130,7 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 #endif
 
   /* Process the hICN DPO */
-  hicn_mapme_tfib_t *tfib =
+  hicn_mapme_tfib_t * tfib =
     TFIB (hicn_strategy_dpo_ctx_get (dpo->dpoi_index));
 
   if (tfib == NULL)
@@ -158,6 +158,7 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
       /* Move next hops to TFIB... but in_face... */
       for (u8 pos = 0; pos < tfib->entry_count; pos++)
 	{
+            // XXX BUG
 	  if (dpo_cmp (&tfib->next_hops[pos], in_face) == 0)
 	    {
 	      tfib->entry_count = 0;
@@ -180,10 +181,10 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 						     HICN_MAPME_EVENT_FACE_NH_SET,
 						     1,
 						     sizeof (retx_t));
-      *retx = (retx_t)
-      {
-      .prefix = prefix,.dpo = *dpo};
-
+      *retx = (retx_t) {
+          .prefix = prefix,
+          .dpo = *dpo
+      };
     }
   else if (params.seq == fib_seq)
     {
@@ -213,6 +214,7 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
        * face is propagating outdated information, we can just consider it as a
        * prevHops
        */
+        // XXX BUG
       hicn_mapme_tfib_add (tfib, in_face);
 
       retx_t *retx = vlib_process_signal_event_data (vm,
