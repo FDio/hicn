@@ -21,7 +21,7 @@
 #define HICN_ROUTE_H
 
 #include <hicn/util/ip_address.h>
-#include <hicn/ctrl/face.h>
+#include <hicn/face.h>
 
 typedef u16 route_cost_t;
 

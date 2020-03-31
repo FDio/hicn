@@ -41,7 +41,6 @@
 #include <parc/algol/parc_Memory.h>
 #include <parc/algol/parc_SafeMemory.h>
 
-#include <hicn/core/dispatcher.h>
 #include <hicn/core/forwarder.h>
 
 #include <errno.h>
