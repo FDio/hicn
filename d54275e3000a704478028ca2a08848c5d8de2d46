@@ -1,0 +1,78 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "9c67abfb_afbbe265",
+        "filename": "hicn-light/src/hicn/config/configuration.c",
+        "patchSetId": 10
+      },
+      "lineNbr": 90,
+      "author": {
+        "id": 797
+      },
+      "writtenOn": "2020-03-31T09:07:45Z",
+      "side": 1,
+      "message": "strtold seems the problem as it returns a long double",
+      "range": {
+        "startLine": 90,
+        "startChar": 29,
+        "endLine": 90,
+        "endChar": 30
+      },
+      "revId": "d54275e3000a704478028ca2a08848c5d8de2d46",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "b2e67001_93f5b4a7",
+        "filename": "hicn-light/src/hicn/io/udpConnection.c",
+        "patchSetId": 10
+      },
+      "lineNbr": 330,
+      "author": {
+        "id": 797
+      },
+      "writtenOn": "2020-03-31T09:07:45Z",
+      "side": 1,
+      "message": "sizeof(WSABUF) otherwise it refers to the pointer",
+      "revId": "d54275e3000a704478028ca2a08848c5d8de2d46",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0845134c_3133338e",
+        "filename": "lib/src/util/ip_address.c",
+        "patchSetId": 10
+      },
+      "lineNbr": 239,
+      "author": {
+        "id": 797
+      },
+      "writtenOn": "2020-03-31T09:07:45Z",
+      "side": 1,
+      "message": "indent was correct",
+      "revId": "d54275e3000a704478028ca2a08848c5d8de2d46",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "f9381159_d4cf5449",
+        "filename": "lib/src/util/ip_address.c",
+        "patchSetId": 10
+      },
+      "lineNbr": 246,
+      "author": {
+        "id": 797
+      },
+      "writtenOn": "2020-03-31T09:07:45Z",
+      "side": 1,
+      "message": "indent was correct",
+      "revId": "d54275e3000a704478028ca2a08848c5d8de2d46",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
