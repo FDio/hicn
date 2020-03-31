@@ -148,7 +148,7 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
     #undef _
 
     addrString = utils_CommandAddressToString(
-        listPoliciesCommand->addressType, &listPoliciesCommand->address, &port);
+        listPoliciesCommand->family, &listPoliciesCommand->address, &port);
 
 #if 0
     PARCBufferComposer *composer = parcBufferComposer_Create();
@@ -191,6 +191,7 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
 #endif
   }
 
+#if 0
   printf("\nSTATISTICS\n\n");
   // STATISTICS
   printf("%*s %*s %*s | %*s | %*s | %*s\n",
@@ -207,22 +208,23 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
         (list_policies_command *)(receivedPayload +
                                 (i * sizeof(list_policies_command)));
     addrString = utils_CommandAddressToString(
-        listPoliciesCommand->addressType, &listPoliciesCommand->address, &port);
+        listPoliciesCommand->family, &listPoliciesCommand->address, &port);
     printf("%*s %*s %*.2f %*.2f %*.2f | %*.2f %*.2f %*.2f | %*.2f %*.2f %*.2f | %*.2f %*.2f %*.2f\n",
         MAXSZ_PREFIX, addrString, MAXSZ_APP_NAME, listPoliciesCommand->policy.app_name,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wired.throughput,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wired.latency,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wired.loss_rate,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wifi.throughput,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wifi.latency,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wifi.loss_rate,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.cellular.throughput,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.cellular.latency,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.cellular.loss_rate,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.all.throughput,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.all.latency,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.all.loss_rate);
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wired.throughput,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wired.latency,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wired.loss_rate,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wifi.throughput,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wifi.latency,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wifi.loss_rate,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.cellular.throughput,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.cellular.latency,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.cellular.loss_rate,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.all.throughput,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.all.latency,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.all.loss_rate);
  }
+#endif
 
   controlState_SetCommandOutput(state, commandOutputMain);
 

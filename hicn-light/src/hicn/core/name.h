@@ -21,9 +21,9 @@
 
 #include <hicn/core/messagePacketType.h>
 #include <hicn/core/nameBitvector.h>
-#include <hicn/utils/address.h>
+//#include <hicn/utils/address.h>
 
-#include <hicn/utils/commands.h>
+//#include <hicn/utils/commands.h>
 
 struct name;
 typedef struct name Name;
@@ -93,8 +93,7 @@ void name_setLen(Name *name, uint8_t len);
  * Creates a name from a Address
  *
  */
-Name *name_CreateFromAddress(address_type addressType, ip_address_t addr,
-                             uint8_t len);
+Name *name_CreateFromAddress(int family, ip_address_t addr, uint8_t len);
 
 #ifdef WITH_POLICY
 uint32_t name_GetSuffix(const Name * name);

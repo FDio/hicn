@@ -25,9 +25,8 @@
 #define hicnConnection_h
 
 #include <hicn/core/forwarder.h>
-#include <hicn/io/addressPair.h>
 #include <hicn/io/ioOperations.h>
-#include <hicn/utils/address.h>
+#include <hicn/base/address_pair.h>
 
 /**
  * Creates a Hicn connection that can send to the remote address
@@ -48,6 +47,7 @@
  * <#example#>
  * @endcode
  */
-IoOperations *hicnConnection_Create(Forwarder *forwarder, const char * interfaceName, int fd,
-                                    const AddressPair *pair, bool isLocal);
+IoOperations *hicnConnection_Create(Forwarder *forwarder,
+        const char * interfaceName, int fd, const address_pair_t * pair,
+        bool isLocal);
 #endif  // hicnConnection_h

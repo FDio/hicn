@@ -22,7 +22,6 @@
 #define message_h
 
 #include <hicn/hicn-light/config.h>
-#include <hicn/core/logger.h>
 #include <hicn/core/messagePacketType.h>
 #include <hicn/core/streamBuffer.h>
 
@@ -30,8 +29,6 @@
 
 #include <parc/algol/parc_EventBuffer.h>
 #include <parc/algol/parc_EventQueue.h>
-
-#include <hicn/utils/address.h>
 
 #include <hicn/core/ticks.h>
 
@@ -46,7 +43,7 @@ typedef struct message Message;
 
 Message *message_CreateFromEventBuffer(PARCEventBuffer *data, size_t dataLength,
                                        unsigned ingressConnectionId,
-                                       Ticks receiveTime, Logger *logger);
+                                       Ticks receiveTime);
 
 /**
  * @function message_CreateFromByteArray
@@ -54,8 +51,7 @@ Message *message_CreateFromEventBuffer(PARCEventBuffer *data, size_t dataLength,
  */
 
 Message *message_CreateFromByteArray(unsigned connid, uint8_t *pckt,
-                                     MessagePacketType type, Ticks receiveTime,
-                                     Logger *logger);
+                                     MessagePacketType type, Ticks receiveTime);
 
 /**
  * @function message_Copy

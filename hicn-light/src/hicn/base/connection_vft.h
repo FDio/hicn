@@ -1,0 +1,53 @@
+/*
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file connection_vft.h
+ * @brief Connection VFT
+ */
+
+#ifndef HICNLIGHT_CONNECTION_VFT_H
+#define HICNLIGHT_CONNECTION_VFT_H
+
+#include "connection.h"
+
+#include <hicn/io/udp.h>
+
+typedef struct {
+    int (*initialize)(connection_t * connection,
+        const char * interface_name, int fd, const address_pair_t * pair,
+        bool local, unsigned connection_id);
+    int (*finalize)(connection_t * connection);
+    int (*send)(const connection_t * connection, const address_t * dummy,
+            msgbuf_t * msgbuf, bool queue);
+    bool (*sendv)(const connection_t * connection, struct iovec * iov,
+            size_t size);
+    void (*send_packet)(const connection_t * connection,
+            const uint8_t * packet);
+} connection_ops_t;
+
+const connection_ops_t connection_vft[] = {
+    [CONNECTION_TYPE_UDP] = connection_udp,
+};
+
+#define DECLARE_CONNECTION(NAME)                                \
+const connection_ops_t connection_ ## NAME = {                  \
+    .initialize = connection_ ## NAME ## _initialize,           \
+    .finalize = connection_ ## NAME ## _finalize,               \
+    .send = connection_ ## NAME ## _send,                       \
+    .data_size = sizeof(connection_ ## NAME ## _data_t);        \
+};
+
+#endif /* HICNLIGHT_CONNECTION_VFT_H */
