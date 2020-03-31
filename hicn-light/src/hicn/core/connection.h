@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,19 +15,22 @@
 
 /**
  * @file connection.h
- * @brief Wrapper for different types of connections
- *
- * A connection wraps a specific set of {@link IoOperations}.  Those operations
- * allow for input and output.  Connections get stored in the Connection Table.
- *
+ * @brief hICN connections
  */
 
-#ifndef connection_h
-#define connection_h
-#include <hicn/hicn-light/config.h>
-#include <hicn/core/connectionState.h>
-#include <hicn/io/ioOperations.h>
-#include <hicn/utils/address.h>
+#ifndef HICNLIGHT_CONNECTION_H
+#define HICNLIGHT_CONNECTION_H
+
+#include <hicn/core/address_pair.h>
+#include <hicn/core/listener.h>
+#include <hicn/core/msgbuf.h>
+#include <hicn/face.h>
+
+#ifdef WITH_POLICY
+#include <hicn/policy.h>
+#endif /* WITH_POLICY */
+
+#define CONNECTION_ID_UNDEFINED ~0
 
 #ifdef WITH_MAPME
 typedef enum {
@@ -42,157 +45,169 @@ typedef enum {
 
 #endif /* WITH_MAPME */
 
+struct forwarder_s;
+struct wldr_s;
+
+typedef struct {
+    unsigned id;
+    char * name;
+    char * interface_name;
+    face_type_t type;
+    address_pair_t pair;
+    int fd;
+//    bool up;
+    bool local;
+    face_state_t state;
+    face_state_t admin_state;
 #ifdef WITH_POLICY
-#include <hicn/policy.h>
+    policy_tags_t tags;
+    uint32_t priority;
 #endif /* WITH_POLICY */
+    void * data;
 
-struct connection;
-typedef struct connection Connection;
+    struct forwarder_s * forwarder; // recv only
+    bool closed;
 
-/**
- * Creates a connection object.
- */
-Connection *connection_Create(IoOperations *ops);
+    /* WLDR */
 
-/**
- * @function connection_Release
- * @abstract Releases a reference count, destroying on last release
- * @discussion
- *   Only frees the memory on the final reference count.  The pointer will
- *   always be NULL'd.
- */
-void connection_Release(Connection **connectionPtr);
+    bool wldr_autostart;
+    /*
+     * if true, wldr can be set automatically by default this value is set to
+     * true. if wldr is activated using a command (config file/hicnLightControl)
+     * this value is set to false so that a base station can not disable wldr at
+     * the client.
+     */
+    struct wldr_s * wldr;
 
-/**
- * @function connection_Acquire
- * @abstract A reference counted copy.
- * @discussion
- *   A shallow copy, they share the same memory.
- */
-Connection *connection_Acquire(Connection *connection);
+} connection_t;
 
-/**
- * @function connection_Send
- * @abstract Sends the message on the connection
- * @return true if message sent, false if connection not up
- */
-bool connection_Send(const Connection *conn, Message *message);
-
-/**
- * @function connection_SendIOVBuffer
- * @abstract Sends an IOV buffer
- */
-bool connection_SendIOVBuffer(const Connection *conn, struct iovec *msg,
-    size_t size);
-
-/**
- * @function connection_SendBuffer
- * @abstract Sends a buffer
- */
-bool connection_SendBuffer(const Connection *conn, u8 * buffer, size_t length);
-
-/**
- * Return the `IoOperations` instance associated with the specified `Connection`
- * instance.
- * @param [in] connection The allocated connection
- * @return a pointer to the IoOperations instance associated by th specified
- * connection.
- */
-IoOperations *connection_GetIoOperations(const Connection *conn);
-
-/**
- * Returns the unique identifier of the connection
- * Calls the underlying IoOperations to fetch the connection id
- * @param [in] connection The allocated connection
- * @return unsigned The unique connection id
- */
-unsigned connection_GetConnectionId(const Connection *conn);
-
-/**
- * Returns the (remote, local) address pair that describes the connection
- * @param [in] connection The allocated connection
- * @return non-null The connection's remote and local address
- * @return null Should never return NULL
- */
-const AddressPair *connection_GetAddressPair(const Connection *conn);
-
-/**
- * Checks if the connection is in the "up" state
- * @param [in] connection The allocated connection
- * @return true The connection is in the "up" state
- * @return false The connection is not in the "up" state
- */
-bool connection_IsUp(const Connection *conn);
-
-/**
- * Checks if the connection is to a Local/Loopback address
- *
- * A local connection is PF_LOCAL (PF_UNIX) and a loopback connection is
- * 127.0.0.0/8 or ::1 for IPv6.
- *
- * @param [in] connection The allocated connection
- *
- * @retval true The connection is local or loopback
- * @retval false The connection is not local or loopback
- */
-bool connection_IsLocal(const Connection *conn);
-
-/**
- * Returns an opaque pointer representing the class of the Io Operations
- *
- * Returns an opaque pointer that an implementation can use to detect if
- * the connection is based on that class.
- *
- * @param [in] conn The Connection to analyze
- *
- * @return non-null An opaque pointer for each concrete implementation
- */
-const void *connection_Class(const Connection *conn);
-
-bool connection_ReSend(const Connection *conn, Message *message,
-                       bool notification);
-
-void connection_Probe(Connection *conn, uint8_t *probe);
-
-void connection_HandleProbe(Connection *conn, uint8_t *message);
-
-void connection_AllowWldrAutoStart(Connection *conn, bool allow);
-
-void connection_EnableWldr(Connection *conn);
-
-void connection_DisableWldr(Connection *conn);
-
-bool connection_HasWldr(const Connection *conn);
-
-bool connection_WldrAutoStartAllowed(const Connection *conn);
-
-void connection_DetectLosses(Connection *conn, Message *message);
-
-void connection_HandleWldrNotification(Connection *conn, Message *message);
-
-connection_state_t connection_GetState(const Connection *conn);
-
-void connection_SetState(Connection *conn, connection_state_t state);
-
-connection_state_t connection_GetAdminState(const Connection *conn);
-
-void connection_SetAdminState(Connection *conn, connection_state_t admin_state);
+#if 1
+#define connection_get_id(C) ((C)->id)
+#define connection_id_is_valid(ID) (ID != CONNECTION_ID_UNDEFINED)
+#define connection_get_name(C) ((C)->name)
+#define connection_get_type(C) ((C)->type)
+#define connection_has_valid_id(C) (connection_id_is_valid(connection_get_id(C))
+#define connection_get_pair(C) (&(C)->pair)
+#define connection_get_local(C) (address_pair_local(connection_get_pair(C)))
+#define connection_get_remote(C) (address_pair_remote(connection_get_pair(C)))
+#define connection_get_local(C) (address_pair_local(connection_get_pair(C)))
+#define connection_get_remote(C) (address_pair_remote(connection_get_pair(C)))
+#define connection_is_up(C) ((C)->state == FACE_STATE_UP)
+#define connection_is_closed(C) ((C)->closed == true)
+#define connection_is_local(C) ((C)->local)
+#define connection_get_state(C) ((C)->state)
+#define connection_set_state(C, STATE) (C)->state = STATE
+#define connection_get_admin_state(C) ((C)->admin_state)
+#define connection_set_admin_state(C, STATE) (C)->admin_state = STATE
+#define connection_get_interface_name(C) ((C)->interface_name)
 
 #ifdef WITH_POLICY
-uint32_t connection_GetPriority(const Connection *conn);
+#define connection_get_priority(C) ((C)->priority)
+#define connection_set_priority(C, PRIORITY) (C)->priority = PRIORITY
+#define connection_get_tags(C) ((C)->tags)
+#define connection_set_tags(C, TAGS) (C)->tags = TAGS
+#define connection_has_tag(C, TAG) policy_tags_has(connection_get_tags(C), TAG)
+#define connection_add_tag(C, TAG) policy_tags_add(connection_get_tags(X), TAG)
+#define connection_remove_tag(C, TAG)           \
+do {                                            \
+    policy_tags_t _conn_var(tags);              \
+    _conn_var(tags) = connection_get_tags(C);   \
+    policy_tags_remove(_conn_var(tags), (TAG)); \
+    connection_set_tags((C), _conn_var(tags));  \
+} while(0)
+#define connection_clear_tags(C) connection_set_tags(C, POLICY_TAGS_EMPTY)
 
-void connection_SetPriority(Connection *conn, uint32_t priority);
 #endif /* WITH_POLICY */
 
-const char * connection_GetInterfaceName(const Connection * conn);
+
+#else
+
+/* Accessors */
+static inline unsigned connection_get_id(const connection_t * connection);
+
+#define connection_id_is_valid(id) (id != CONNECTION_ID_UNDEFINED)
+#define connection_has_valid_id(C) (connection_id_is_valid(connection_get_id(C))
+
+static inline char * connection_get_name(const connection_t * connection);
+
+static inline face_type_t connection_get_type(const connection_t * connection);
+
+static inline address_pair_t * connection_get_pair(const connection_t * connection);
+
+#define connection_get_local(C) (address_pair_local(connection_get_pair(C)))
+#define connection_get_remote(C) (address_pair_remote(connection_get_pair(C)))
+
+static inline bool connection_is_up(const connection_t * connection);
+
+static inline bool connection_is_local(const connection_t * connection);
+
+static inline face_state_t connection_get_state(const connection_t * connection);
+
+static inline void connection_set_state(connection_t * connection, face_state_t state);
+
+static inline face_state_t connection_get_admin_state(const connection_t * connection);
+
+static inline void connection_set_admin_state(connection_t * connection, face_state_t state);
+
+static inline const char * connection_get_interface_name(const connection_t * connection);
 
 #ifdef WITH_POLICY
-void connection_AddTag(Connection *conn, policy_tag_t tag);
-void connection_RemoveTag(Connection *conn, policy_tag_t tag);
-policy_tags_t connection_GetTags(const Connection *conn);
-void connection_SetTags(Connection *conn, policy_tags_t tags);
-void connection_ClearTags(Connection *conn);
-int connection_HasTag(const Connection *conn, policy_tag_t tag);
+
+static inline uint32_t connection_get_priority(const connection_t * connection);
+
+static inline void connection_set_priority(connection_t * connection, uint32_t priority);
+
+static inline policy_tags_t connection_get_tags(const connection_t * connection);
+
+static inline void connection_set_tags(connection_t * connection, policy_tags_t tags);
+
+#define connection_has_tag(C, TAG) policy_tags_has(connection_get_tags(C), TAG)
+
+#define connection_add_tag(C, TAG) policy_tags_add(connection_get_tags(X), TAG)
+
+#define connection_remove_tag(C, TAG)           \
+do {                                            \
+    policy_tags_t _conn_var(tags);              \
+    _conn_var(tags) = connection_get_tags(C);   \
+    policy_tags_remove(_conn_var(tags), (TAG)); \
+    connection_set_tags((C), _conn_var(tags));  \
+} while(0)
+
+#define connection_clear_tags(C) connection_set_tags(C, POLICY_TAGS_EMPTY)
+
 #endif /* WITH_POLICY */
 
-#endif  // connection_h
+#endif
+
+connection_t * connection_create(face_type_t type, const char * name,
+        const address_pair_t * pair, struct forwarder_s * forwarder);
+
+int connection_initialize(connection_t * connection, face_type_t type, const char * name,
+        const char * interface_name, int fd, const address_pair_t * pair,
+        bool local, unsigned connection_id, struct forwarder_s * forwarder);
+
+int connection_finalize(connection_t * connection);
+
+int connection_send_packet(const connection_t * connection,
+        const uint8_t * packet, size_t size);
+
+bool connection_send(const connection_t * connection, msgbuf_t * msgbuf,
+        bool queue);
+
+size_t connection_process_buffer(connection_t * connection, const uint8_t * buffer, size_t size);
+
+/* WLDR */
+
+void connection_wldr_allow_autostart(connection_t * connection, bool value);
+
+bool connection_wldr_autostart_is_allowed(connection_t * connection);
+
+void connection_wldr_enable(connection_t * connection, bool value);
+
+bool connection_has_wldr(const connection_t * connection);
+
+void connection_wldr_detect_losses(const connection_t * connection, msgbuf_t * msgbuf);
+
+void connection_wldr_handle_notification(const connection_t * connection, msgbuf_t * msgbuf);
+
+#endif /* HICNLIGHT_CONNECTION_H */

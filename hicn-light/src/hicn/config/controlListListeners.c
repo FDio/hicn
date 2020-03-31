@@ -106,7 +106,7 @@ static CommandReturn _controlListListeners_Execute(CommandParser *parser,
         (list_listeners_command *)(receivedPayload +
                                    (i * sizeof(list_listeners_command)));
 
-    addrString = utils_CommandAddressToString(listListenersCommand->addressType,
+    addrString = utils_CommandAddressToString(listListenersCommand->family,
                                               &listListenersCommand->address,
                                               &listListenersCommand->port);
 
