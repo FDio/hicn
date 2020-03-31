@@ -188,24 +188,6 @@ class Packet : public std::enable_shared_from_this<Packet> {
   virtual utils::CryptoHash computeDigest(
       utils::CryptoHashType algorithm) const;
 
-  void setChecksum() {
-    uint16_t partial_csum = 0;
-
-    for (utils::MemBuf *current = header_head_->next();
-         current && current != header_head_; current = current->next()) {
-      if (partial_csum != 0) {
-        partial_csum = ~partial_csum;
-      }
-      partial_csum = csum(current->data(), current->length(), partial_csum);
-    }
-    if (hicn_packet_compute_header_checksum(format_, packet_start_,
-                                            partial_csum) < 0) {
-      throw errors::MalformedPacketException();
-    }
-  }
-
-  bool checkIntegrity() const;
-
   Packet &setSyn();
   Packet &resetSyn();
   bool testSyn() const;

@@ -95,7 +95,6 @@ class ForwarderInterface {
       packet.setLocator(inet6_address_);
     }
 
-    packet.setChecksum();
     connector_.send(packet.acquireMemBufReference());
   }
 

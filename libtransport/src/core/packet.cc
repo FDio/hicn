@@ -328,14 +328,6 @@ utils::CryptoHash Packet::computeDigest(utils::CryptoHashType algorithm) const {
   return hasher.finalize();
 }
 
-bool Packet::checkIntegrity() const {
-  if (hicn_packet_check_integrity(format_, packet_start_) < 0) {
-    return false;
-  }
-
-  return true;
-}
-
 Packet &Packet::setSyn() {
   if (hicn_packet_set_syn(packet_start_) < 0) {
     throw errors::RuntimeException("Error setting syn bit in the packet.");
