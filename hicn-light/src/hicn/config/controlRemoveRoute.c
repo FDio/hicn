@@ -25,8 +25,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <hicn/utils/address.h>
-
 #include <hicn/config/controlRemoveRoute.h>
 
 #include <hicn/utils/commands.h>
@@ -111,7 +109,7 @@ static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
       free(addr);
       return CommandReturn_Failure;
     }
-    removeRouteCommand->addressType = ADDR_INET;
+    removeRouteCommand->family = AF_INET;
   } else if (inet_pton(AF_INET6, addr, &removeRouteCommand->address.v6.as_in6addr) ==
              1) {
     if (len > 128) {
@@ -120,7 +118,7 @@ static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
       free(addr);
       return CommandReturn_Failure;
     }
-    removeRouteCommand->addressType = ADDR_INET6;
+    removeRouteCommand->family = AF_INET6;
   } else {
     printf("Error: %s is not a valid network address \n", addr);
     parcMemory_Deallocate(&removeRouteCommand);

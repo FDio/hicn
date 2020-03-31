@@ -12,7 +12,7 @@
 # limitations under the License.
 
 list(APPEND CONTROLLER_SRC
-  hicnLightControl_main.c
+hicnLightControl_main.c
 )
 if (NOT DISABLE_EXECUTABLES)
   build_executable(${HICN_LIGHT_CONTROL}

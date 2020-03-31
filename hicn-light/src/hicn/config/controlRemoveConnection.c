@@ -25,7 +25,6 @@
 
 #include <parc/algol/parc_Memory.h>
 #include <parc/algol/parc_Network.h>
-#include <hicn/utils/address.h>
 
 #include <hicn/config/controlRemoveConnection.h>
 
