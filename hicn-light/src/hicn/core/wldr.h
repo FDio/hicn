@@ -17,8 +17,8 @@
 #define wldr_h
 
 #include <hicn/hicn-light/config.h>
-#include <hicn/core/connection.h>
-#include <hicn/core/message.h>
+#include <hicn/base/connection.h>
+#include <hicn/base/msgbuf.h>
 
 #define BUFFER_SIZE 8192
 #define MAX_RTX 3
@@ -34,19 +34,18 @@
 //                        ATTENTION!!! in order to detect a notificaiton the
 //                        source and destination ports must be set to 0
 
-struct wldr_state;
-typedef struct wldr_state Wldr;
+typedef struct wldr_s wldr_t;
 
-Wldr *wldr_Init();
+wldr_t *wldr_create();
 
-void wldr_Destroy(Wldr **wldrPtr);
+void wldr_free(wldr_t * wldr);
 
-void wldr_ResetState(Wldr *wldr);
+void wldr_reset_state(wldr_t * wldr);
 
-void wldr_SetLabel(Wldr *wldr, Message *message);
+void wldr_set_label(wldr_t * wldr, msgbuf_t * msgbuf);
 
-void wldr_DetectLosses(Wldr *wldr, const Connection *conn, Message *message);
+void wldr_detect_losses(wldr_t * wldr, const connection_t * conn, msgbuf_t * msgbuf);
 
-void wldr_HandleWldrNotification(Wldr *wldr, const Connection *conn,
-                                 Message *message);
+void wldr_handle_notification(wldr_t *wldr, const connection_t * conn,
+        msgbuf_t * msgbuf);
 #endif  // wldr_h

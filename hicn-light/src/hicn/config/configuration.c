@@ -26,531 +26,424 @@
 #include <unistd.h>
 #endif
 #include <ctype.h>
-#include <parc/assert/parc_Assert.h>
 #include <hicn/hicn-light/config.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <parc/algol/parc_HashMap.h>
-#include <parc/algol/parc_Memory.h>
-#include <parc/algol/parc_String.h>
-
-#include <hicn/config/configurationListeners.h>
-#include <hicn/config/symbolicNameTable.h>
-
-#include <hicn/core/connection.h>
-#include <hicn/core/connectionTable.h>
+#include <hicn/base/connection.h>
+#include <hicn/base/connection_table.h>
 #include <hicn/core/forwarder.h>
-#include <hicn/core/system.h>
+//#include <hicn/core/system.h>
 #ifdef WITH_MAPME
 #include <hicn/core/mapme.h>
 #endif /* WITH_MAPME */
 
-#include <hicn/io/streamConnection.h>
-
-#include <hicn/io/hicnTunnel.h>
-#include <hicn/io/tcpTunnel.h>
-#include <hicn/io/udpTunnel.h>
-
-#include <parc/algol/parc_Unsigned.h>
-#include <hicn/io/listener.h>     //the listener list
-#include <hicn/io/listenerSet.h>  //   needed to print
+#include <hicn/base/listener.h>     //the listener list
+#include <hicn/base/listener_table.h>
 #include <hicn/utils/commands.h>
 #include <hicn/utils/utils.h>
-
-#include <hicn/utils/address.h>
+#include <hicn/utils/punting.h>
+#include <hicn/util/log.h>
+#include <hicn/face.h>
 
 #define ETHERTYPE 0x0801
+#define DEFAULT_COST 1
+#define DEFAULT_PORT 1234
 
-struct configuration {
-  Forwarder *forwarder;
-  Logger *logger;
+#define make_ack(msg)  msg->header.messageType =  ACK_LIGHT
+#define make_nack(msg) msg->header.messageType = NACK_LIGHT
 
-  size_t maximumContentObjectStoreSize;
+#define msg_malloc_list(msg, N)                                         \
+do {                                                                    \
+    msg = malloc(sizeof((msg)->header) + N * sizeof((msg)->payload));   \
+    (msg)->header.messageType = RESPONSE_LIGHT;                         \
+    (msg)->header.length = (uint16_t)(N);                               \
+} while(0);
 
-  // map from prefix (parcString) to strategy (parcString)
-  PARCHashMap *strategy_map;
+/*
+ * XXX TODO
+ *
+ * Currently the strategy map only stores the strategy type, but it should be
+ * extended with strategy options.
+ *
+ * Or maybe we simply remove this map like in VPP.
+ *
+ * prefix_str -> strategy_type
+ */
+KHASH_INIT(strategy_map, const char *, unsigned, 0, str_hash, str_hash_eq);
 
-  // translates between a symblic name and a connection id
-  SymbolicNameTable *symbolicNameTable;
+struct configuration_s {
+    forwarder_t * forwarder;
+
+    size_t maximumContentObjectStoreSize;
+
+    // map from prefix (parcString) to strategy (parcString)
+    kh_strategy_map_t * strategy_map;
+
+#if 0
+    // translates between a symblic name and a connection id
+    // XXX This might be moved as two indices in the listener and connection
+    // tables to be widely reachable... this has nothing to do with
+    // configuration.
+    SymbolicNameTable *symbolic_nameTable;
+#endif
 };
 
 // ========================================================================================
 
-Connection *
-getConnectionBySymbolicOrId(Configuration * config, const char * symbolicOrConnid)
+// conn_id = UINT_MAX when symbolic_name is not found
+static inline
+unsigned
+_symbolic_to_conn_id(configuration_t * config, const char * symbolicOrConnid,
+        bool allow_self, unsigned ingress_id)
 {
-  ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
-  unsigned connid;
-  Connection *conn = NULL;
+    unsigned conn_id;
+    const connection_table_t * table = forwarder_get_connection_table(config->forwarder);
 
-  /* Try to resolve an eventual symbolic name as input */
-  if (utils_IsNumber(symbolicOrConnid)) {
-    connid = (unsigned int)strtold(symbolicOrConnid, NULL);
+    if (allow_self && strcmp(symbolicOrConnid, "SELF") == 0) {
+        conn_id = ingress_id;
+    } else if (utils_IsNumber(symbolicOrConnid)) {
+        // case for conn_id as input
+        // XXX type issue ! XXX No check, see man
+        int id = atoi(symbolicOrConnid);
+        if (id < 0)
+            return CONNECTION_ID_UNDEFINED;
+        conn_id = id;
 
-  } else {
-    connid = symbolicNameTable_Get(config->symbolicNameTable, symbolicOrConnid);
-    if (connid == UINT32_MAX) {
-      if (logger_IsLoggable(config->logger, LoggerFacility_Config,
-                            PARCLogLevel_Warning)) {
-        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
-                   __func__, "Symbolic name '%s' could not be resolved",
-                   symbolicOrConnid);
-      }
+        if (!connection_table_validate_id(table, conn_id)) {
+            ERROR("ConnID not found, check list connections");
+            conn_id = CONNECTION_ID_UNDEFINED;
+        }
+    } else {
+        // case for symbolic as input: check if symbolic name can be resolved
+        conn_id = connection_table_get_id_by_name(table, symbolicOrConnid);
+        if (connection_id_is_valid(conn_id)) {
+            DEBUG("Resolved symbolic name '%s' to conn_id %u", symbolicOrConnid, conn_id);
+        } else {
+            WARN("Symbolic name '%s' could not be resolved", symbolicOrConnid);
+        }
     }
-  }
 
-  /* Get connection by ID */
-  conn = (Connection *)connectionTable_FindById( table, connid);
-  if (!conn) {
-    if (logger_IsLoggable(config->logger, LoggerFacility_Config,
-                          PARCLogLevel_Warning)) {
-      logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
-              __func__, "ConnID not found, check list connections");
-    }
-  }
+    return conn_id;
+}
 
-  return conn;
+#define symbolic_to_conn_id(config, symbolic) _symbolic_to_conn_id(config, symbolic, false, 0)
+
+#define symbolic_to_conn_id_self(config, symbolic, ingress_id) \
+    _symbolic_to_conn_id(config, symbolic, true, ingress_id)
+
+connection_t *
+getConnectionBySymbolicOrId(configuration_t * config, const char * symbolicOrConnid)
+{
+    connection_table_t * table = forwarder_get_connection_table(config->forwarder);
+    unsigned conn_id = symbolic_to_conn_id(config, symbolicOrConnid);
+    if (!connection_id_is_valid(conn_id))
+        return NULL;
+
+    /* conn_id is assumed validated here */
+    return connection_table_at(table, conn_id);
 }
 
 // ========================================================================================
 
-Configuration *configuration_Create(Forwarder *forwarder) {
-  parcAssertNotNull(forwarder, "Parameter hicn-fwd must be non-null");
-  Configuration *config = parcMemory_AllocateAndClear(sizeof(Configuration));
-  parcAssertNotNull(config, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(Configuration));
-  config->forwarder = forwarder;
-  config->logger = logger_Acquire(forwarder_GetLogger(forwarder));
-  config->maximumContentObjectStoreSize = 100000;
-  config->strategy_map = parcHashMap_Create();
-  config->symbolicNameTable = symbolicNameTable_Create();
+configuration_t *
+configuration_create(forwarder_t * forwarder)
+{
+    assert(forwarder);
 
-  return config;
+    configuration_t * config = malloc(sizeof(configuration_t));
+    if (!config)
+        return NULL;
+
+    config->forwarder = forwarder;
+    config->maximumContentObjectStoreSize = 100000;
+    config->strategy_map = kh_init_strategy_map();
+#if 0
+    config->symbolic_nameTable = symbolic_nameTable_Create();
+#endif
+
+    return config;
 }
 
-void configuration_Destroy(Configuration **configPtr) {
-  parcAssertNotNull(configPtr, "Parameter must be non-null double poitner");
-  parcAssertNotNull(*configPtr,
-                    "Parameter must dereference to non-null pointer");
+void
+configuration_free(configuration_t * config)
+{
+    assert(config);
 
-  Configuration *config = *configPtr;
-  logger_Release(&config->logger);
-  parcHashMap_Release(&(config->strategy_map));
-  symbolicNameTable_Destroy(&config->symbolicNameTable);
-  parcMemory_Deallocate((void **)&config);
-  *configPtr = NULL;
+    kh_destroy_strategy_map(config->strategy_map);
+#if 0
+    symbolic_nameTable_Destroy(&config->symbolic_nameTable);
+#endif
+    free(config);
 }
 
-struct iovec *configuration_ProcessRegisterHicnPrefix(Configuration *config,
-                                                      struct iovec *request,
-                                                      unsigned ingressId) {
-  header_control_message *header = request[0].iov_base;
-  add_route_command *control = request[1].iov_base;
+/* Listener */
 
-  bool success = false;
+uint8_t *
+configuration_on_listener_add(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-  const char *symbolicOrConnid = control->symbolicOrConnid;
+    msg_listener_add_t * msg = (msg_listener_add_t *)packet;
+    cmd_listener_add_t * control = &msg->payload;
 
-  if (strcmp(symbolicOrConnid, "SELF") == 0) {
-    success = forwarder_AddOrUpdateRoute(config->forwarder, control, ingressId);
-  } else if (utils_IsNumber(symbolicOrConnid)) {
-    // case for connid as input
-    unsigned connid = (unsigned)strtold(symbolicOrConnid, NULL);
-    ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
+    forwarder_t * forwarder = configuration_get_forwarder(config);
+    assert(forwarder);
 
-    // check if iconnID present in the fwd table
-    if (connectionTable_FindById(table, connid)) {
-      success = forwarder_AddOrUpdateRoute(config->forwarder, control, connid);
+    listener_table_t * table = forwarder_get_listener_table(forwarder);
+    assert(table);
+
+    /* Verify that the listener DOES NOT exist */
+    listener_t * listener = listener_table_get_by_name(table, control->symbolic);
+    if (listener)
+        goto NACK;
+
+    address_t address;
+    if (address_from_ip_port(&address, control->family, &control->address,
+                control->port) < 0) {
+        WARN("Unsupported address type for HICN (ingress id %u): "
+                "must be either IPV4 or IPV6", ingress_id);
+        return false;
+    }
+
+    // NOTE: interface_name is expected NULL for hICN listener
+    face_type_t face_type;
+    if (!face_type_is_defined(control->listener_type))
+        goto NACK;
+    face_type = (face_type_t)control->listener_type;
+
+
+    listener = listener_create(face_type, &address, control->interface_name, control->symbolic, forwarder);
+    if (!listener)
+        goto NACK;
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
+}
+
+uint8_t *
+configuration_on_listener_remove(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    msg_listener_remove_t * msg = (msg_listener_remove_t*)packet;
+    cmd_listener_remove_t * control = &msg->payload;
+
+    const char *symbolicOrListenerid = control->symbolicOrListenerid;
+    off_t listener_id;
+    listener_t * listener;
+
+    listener_table_t * listener_table = forwarder_get_listener_table(config->forwarder);
+
+    // Factor like for connections
+    if (utils_IsNumber(symbolicOrListenerid)) {
+        // XXX no check
+        int id = atoi(symbolicOrListenerid);
+        if (id < 0)
+            goto NACK;
+        listener_id = id;
+
+        listener = listener_table_get_by_id(listener_table, listener_id);
+        if (!listener) {
+            ERROR("Listener Id not found, check list listeners");
+            goto NACK;
+        }
     } else {
-      logger_Log(forwarder_GetLogger(config->forwarder), LoggerFacility_IO,
-                 PARCLogLevel_Error, __func__,
-                 "ConnID not found, check list connections");
-      // failure
+        listener = listener_table_get_by_name(listener_table, symbolicOrListenerid);
+        listener_id = listener_table_get_listener_id(listener_table, listener);
     }
 
-  } else {
-    // case for symbolic as input: check if symbolic name can be resolved
-    unsigned connid =
-        symbolicNameTable_Get(config->symbolicNameTable, symbolicOrConnid);
-    // connid = UINT_MAX when symbolicName is not found
-    if (connid != UINT32_MAX) {
-      if (logger_IsLoggable(config->logger, LoggerFacility_Config,
-                            PARCLogLevel_Debug)) {
-        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Debug,
-                   __func__, "Add route resolve name '%s' to connid %u",
-                   symbolicOrConnid, connid);
-      }
+    connection_table_t * table = forwarder_get_connection_table(config->forwarder);
+    connection_t * connection;
+    connection_table_foreach(table, connection, {
+        const address_pair_t * pair = connection_get_pair(connection);
+        if (!address_equals(listener_get_address(listener),
+                    address_pair_get_local(pair)))
+            continue;
 
-      success = forwarder_AddOrUpdateRoute(config->forwarder, control, connid);
+        unsigned conn_id = connection_table_get_connection_id(table, connection);
+        /* Remove connection from the FIB */
+        forwarder_remove_connection_id_from_routes(config->forwarder, conn_id);
 
-    } else {
-      if (logger_IsLoggable(config->logger, LoggerFacility_Config,
-                            PARCLogLevel_Warning)) {
-        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Warning,
-                   __func__,
-                   "Add route symbolic name '%s' could not be resolved",
-                   symbolicOrConnid);
-      }
-      // failure
-    }
-  }
+        /* Remove connection */
+        connection_table_remove_by_id(table, conn_id);
 
-  // generate ACK/NACK
-  struct iovec *response;
+#if 0
+        const char *symbolicConnection =
+                symbolic_nameTable_GetNameByIndex(config->symbolic_nameTable, conn_id);
+        symbolic_nameTable_Remove(config->symbolic_nameTable, symbolicConnection);
+#endif
+    });
 
-  if (success) {  // ACK
-    response = utils_CreateAck(header, control, sizeof(add_route_command));
-  } else {  // NACK
-    response = utils_CreateNack(header, control, sizeof(add_route_command));
-  }
+    /* Remove listener */
+    listener_table_remove_by_id(listener_table, listener_id);
 
-  return response;
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-struct iovec *configuration_ProcessUnregisterHicnPrefix(Configuration *config,
-                                                        struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  remove_route_command *control = request[1].iov_base;
+static inline
+void
+fill_listener_command(configuration_t * config, listener_t * listener,
+        cmd_listener_list_item_t * cmd)
+{
+    assert(config);
+    assert(listener);
+    assert(cmd);
 
-  bool success = false;
+    struct sockaddr_in * sin;
+    struct sockaddr_in6 * sin6;
 
-  const char *symbolicOrConnid = control->symbolicOrConnid;
+    const address_t * addr = listener_get_address(listener);
 
-  if (utils_IsNumber(symbolicOrConnid)) {
-    // case for connid as input
-    unsigned connid = (unsigned)strtold(symbolicOrConnid, NULL);
-    ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
+    cmd->id = (uint32_t)listener_get_id(listener);
+    cmd->type = (uint8_t)listener_get_type(listener);
 
-    // check if interface index present in the fwd table
-    if (connectionTable_FindById(table, connid)) {
-      success = forwarder_RemoveRoute(config->forwarder, control, connid);
-    } else {
-      logger_Log(forwarder_GetLogger(config->forwarder), LoggerFacility_IO,
-                 PARCLogLevel_Error, __func__,
-                 "ConnID not found, check list connections");
-      // failure
+    switch(addr->ss_family) {
+        case AF_INET:
+            sin = (struct sockaddr_in *) addr;
+            cmd->family = AF_INET;
+            cmd->address.v4.as_inaddr = sin->sin_addr;
+            cmd->port = sin->sin_port;
+            break;
+        case AF_INET6:
+            sin6 = (struct sockaddr_in6 *) addr;
+            cmd->family = AF_INET6;
+            cmd->address.v6.as_in6addr = sin6->sin6_addr;
+            cmd->port = sin6->sin6_port;
+            break;
+        default:
+            break;
     }
 
-  } else {
-    // case for symbolic as input: chech if symbolic name can be resolved
-    unsigned connid =
-        symbolicNameTable_Get(config->symbolicNameTable, symbolicOrConnid);
-    // connid = UINT_MAX when symbolicName is not found
-    if (connid != UINT32_MAX) {
-      if (logger_IsLoggable(config->logger, LoggerFacility_Config,
-                            PARCLogLevel_Debug)) {
-        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Debug,
-                   __func__, "Remove route resolve name '%s' to connid %u",
-                   symbolicOrConnid, connid);
-      }
-      success = forwarder_RemoveRoute(config->forwarder, control, connid);
-    } else {
-      if (logger_IsLoggable(config->logger, LoggerFacility_Config,
-                            PARCLogLevel_Warning)) {
-        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Warning,
-                   __func__,
-                   "Remove route symbolic name '%s' could not be resolved",
-                   symbolicOrConnid);
-      }
-      // failure
-    }
-  }
-
-  // generate ACK/NACK
-  struct iovec *response;
-
-  if (success) {  // ACK
-    response = utils_CreateAck(header, control, sizeof(remove_route_command));
-  } else {  // NACK
-    response = utils_CreateNack(header, control, sizeof(remove_route_command));
-  }
-
-  return response;
+    const char * name = listener_get_name(listener);
+    snprintf(cmd->name, SYMBOLIC_NAME_LEN, "%s", name);
+    const char * interface_name = listener_get_interface_name(listener);
+    snprintf(cmd->interface_name, SYMBOLIC_NAME_LEN, "%s", interface_name);
 }
 
-struct iovec *configuration_ProcessRegistrationList(Configuration *config,
-                                                    struct iovec *request) {
-  FibEntryList *fibList = forwarder_GetFibEntries(config->forwarder);
+uint8_t *
+configuration_on_listener_list(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-  size_t payloadSize = fibEntryList_Length(fibList);
-  size_t effective_payloadSize = 0;
-  size_t pointerLocation = 0;
-  struct sockaddr_in tmpAddr;
-  struct sockaddr_in6 tmpAddr6;
+    listener_table_t * table = forwarder_get_listener_table(config->forwarder);
+    size_t n = listener_table_len(table);
 
-  // allocate payload, cast from void* to uint8_t* = bytes granularity
-  uint8_t *payloadResponse =
-      parcMemory_AllocateAndClear(sizeof(list_routes_command) * payloadSize);
+    msg_listener_list_reply_t * msg;
+    msg_malloc_list(msg, n)
+    if (!msg)
+        return NULL;
 
-  for (size_t i = 0; i < fibEntryList_Length(fibList); i++) {
-    FibEntry *entry = (FibEntry *)fibEntryList_Get(fibList, i);
-    NameBitvector *prefix = name_GetContentName(fibEntry_GetPrefix(entry));
-    const NumberSet *nexthops = fibEntry_GetNexthops(entry);
+    cmd_listener_list_item_t * payload = &msg->payload;
+    listener_t * listener;
+    listener_table_foreach(table, listener, {
+        fill_listener_command(config, listener, payload);
+        payload++;
+    });
 
-    if (numberSet_Length(nexthops) == 0)
-        continue;
-
-    if (numberSet_Length(nexthops) > 1) {
-      // payload extended, need reallocate, further entries via nexthops
-      payloadSize = payloadSize + numberSet_Length(nexthops) - 1;
-      payloadResponse = (uint8_t *) parcMemory_Reallocate(
-          payloadResponse, sizeof(list_routes_command) * payloadSize);
-    }
-
-    for (size_t j = 0; j < numberSet_Length(nexthops); j++) {
-      list_routes_command *listRouteCommand =
-          (list_routes_command *)(payloadResponse +
-                                  (pointerLocation *
-                                   sizeof(list_routes_command)));
-
-      Address *addressEntry = nameBitvector_ToAddress(prefix);
-      if (addressGetType(addressEntry) == ADDR_INET) {
-        addressGetInet(addressEntry, &tmpAddr);
-        listRouteCommand->addressType = ADDR_INET;
-        listRouteCommand->address.v4.as_inaddr = tmpAddr.sin_addr;
-      } else if (addressGetType(addressEntry) == ADDR_INET6) {
-        addressGetInet6(addressEntry, &tmpAddr6);
-        listRouteCommand->addressType = ADDR_INET6;
-        listRouteCommand->address.v6.as_in6addr = tmpAddr6.sin6_addr;
-      }
-      listRouteCommand->connid = numberSet_GetItem(nexthops, j);
-      listRouteCommand->len = nameBitvector_GetLength(prefix);
-      listRouteCommand->cost = 1;  // cost
-
-      pointerLocation++;
-      effective_payloadSize++;
-      addressDestroy(&addressEntry);
-    }
-  }
-
-  // send response
-  header_control_message *header = request[0].iov_base;
-  header->messageType = RESPONSE_LIGHT;
-  header->length = (unsigned)effective_payloadSize;
-
-  struct iovec *response =
-      parcMemory_AllocateAndClear(sizeof(struct iovec) * 2);
-
-  response[0].iov_base = header;
-  response[0].iov_len = sizeof(header_control_message);
-  response[1].iov_base = payloadResponse;
-  response[1].iov_len = sizeof(list_routes_command) * effective_payloadSize;
-
-  fibEntryList_Destroy(&fibList);
-  return response;
+    return (uint8_t*)msg;
 }
 
-static void configuration_SendResponse(Configuration *config, struct iovec *msg,
-                                       unsigned egressId) {
-  ConnectionTable *connectionTable =
-      forwarder_GetConnectionTable(config->forwarder);
-  const Connection *conn = connectionTable_FindById(connectionTable, egressId);
+/* Connection */
 
-  if (conn == NULL) {
-    return;
-  }
-  connection_SendIOVBuffer(conn, msg, 2);
-}
+uint8_t *
+configuration_on_connection_add(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-struct iovec *configuration_ProcessCreateTunnel(Configuration *config,
-                                                struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  add_connection_command *control = request[1].iov_base;
+    msg_connection_add_t * msg = (msg_connection_add_t*)packet;
+    cmd_connection_add_t * control = &msg->payload;
 
-  bool success = false;
+    const char *symbolic_name = control->symbolic;
 
-  Connection *conn;
-  const char *symbolicName = control->symbolic;
+    face_type_t face_type;
+    if (!face_type_is_defined(control->type))
+        goto NACK;
+    face_type = (face_type_t)control->type;
 
-  Address *source = NULL;
-  Address *destination = NULL;
-
-  if (symbolicNameTable_Exists(config->symbolicNameTable, symbolicName)) {
-      logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
-              __func__, "Connection symbolic name already exists");
-      goto ERR;
-  }
-
-  if (control->ipType == ADDR_INET) {
-    source =
-        addressFromInaddr4Port(&control->localIp.v4.as_u32, &control->localPort);
-    destination =
-        addressFromInaddr4Port(&control->remoteIp.v4.as_u32, &control->remotePort);
-  } else if (control->ipType == ADDR_INET6) {
-    source =
-        addressFromInaddr6Port(&control->localIp.v6.as_in6addr, &control->localPort);
-    destination =
-        addressFromInaddr6Port(&control->remoteIp.v6.as_in6addr, &control->remotePort);
-  } else {
-    printf("Invalid IP type.\n");  // will generate a Nack
-  }
-
-  AddressPair *pair = addressPair_Create(source, destination);
-  conn = (Connection *)connectionTable_FindByAddressPair(
-      forwarder_GetConnectionTable(config->forwarder), pair);
-
-  addressPair_Release(&pair);
-
-  if (!conn) {
-    IoOperations *ops = NULL;
-    switch (control->connectionType) {
-      case TCP_CONN:
-        // logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
-        // __func__,
-        //                  "Unsupported tunnel protocol: TCP");
-        ops = tcpTunnel_Create(config->forwarder, source, destination);
-        break;
-      case UDP_CONN:
-        ops = udpTunnel_Create(config->forwarder, source, destination);
-        break;
-      case GRE_CONN:
-        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
-                   __func__, "Unsupported tunnel protocol: GRE");
-        break;
-#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
-      case HICN_CONN:
-        ops = hicnTunnel_Create(config->forwarder, source, destination);
-        break;
-#endif /* __APPLE__  _WIN32*/
-      default:
-        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
-                   __func__, "Unsupported tunnel protocol: %d",
-                   control->connectionType);
-        break;
+    connection_table_t * table = forwarder_get_connection_table(config->forwarder);
+    if (connection_table_get_by_name(table, symbolic_name)) {
+        ERROR("Connection symbolic name already exists");
+        goto NACK;
     }
 
-    if (ops != NULL) {
-      Connection *conn = connection_Create(ops);
-#ifdef WITH_POLICY
-      connection_SetTags(conn, control->tags);
-      connection_SetPriority(conn, control->priority);
-#endif /* WITH_POLICY */
+    address_pair_t pair;
+    if (address_pair_from_ip_port(&pair, control->family,
+                &control->local_ip, control->local_port,
+                &control->remote_ip, control->remote_port) < 0)
+        goto NACK;
 
-      connection_SetAdminState(conn, control->admin_state);
-
-      connectionTable_Add(forwarder_GetConnectionTable(config->forwarder),
-                          conn);
-      symbolicNameTable_Add(config->symbolicNameTable, symbolicName,
-                            connection_GetConnectionId(conn));
-
+    connection_t * connection = connection_table_get_by_pair(table, &pair);
 #ifdef WITH_MAPME
-       /* Hook: new connection created through the control protocol */
-      forwarder_onConnectionEvent(config->forwarder, conn, CONNECTION_EVENT_CREATE);
+    connection_event_t event;
 #endif /* WITH_MAPME */
 
-      success = true;
+    if (!connection) {
+        connection = connection_create(face_type, symbolic_name, &pair, config->forwarder);
+        if (!connection) {
+            ERROR("Failed to create %s connection",
+                    face_type_str(connection->type));
+            goto NACK;
+        }
+
+#ifdef WITH_MAPME
+        event = CONNECTION_EVENT_CREATE;
+#endif /* WITH_MAPME */
 
     } else {
-      printf("failed, could not create IoOperations");
+#ifdef WITH_POLICY
+#ifdef WITH_MAPME
+        event = CONNECTION_EVENT_UPDATE;
+#endif /* WITH_MAPME */
+#else
+        ERROR("failed, symbolic name or connection already exist\n");
+        goto NACK;
+#endif /* WITH_POLICY */
     }
 
-  } else {
 #ifdef WITH_POLICY
-    connection_SetTags(conn, control->tags);
-    connection_SetPriority(conn, control->priority);
-    connection_SetAdminState(conn, control->admin_state);
+    connection_set_tags(connection, control->tags);
+    connection_set_priority(connection, control->priority);
+#endif /* WITH_POLICY */
+
+    connection_set_admin_state(connection, control->admin_state);
 
 #ifdef WITH_MAPME
     /* Hook: new connection created through the control protocol */
-    forwarder_onConnectionEvent(config->forwarder, conn, CONNECTION_EVENT_UPDATE);
+    forwarder_on_connection_event(config->forwarder, connection, event);
 #endif /* WITH_MAPME */
-    if (source)
-      addressDestroy(&source);
-    if (destination)
-      addressDestroy(&destination);
 
-    success = true;
-#else
-    printf("failed, symbolic name or connection already exist\n");
-#endif /* WITH_POLICY */
-  }
+    make_ack(msg);
+    return (uint8_t*)msg;
 
-  if (source)
-    addressDestroy(&source);
-  if (destination)
-    addressDestroy(&destination);
-
-  if (!success)
-    goto ERR;
-
-  // ACK
-  return utils_CreateAck(header, control, sizeof(add_connection_command));
-
-ERR:
-    return utils_CreateNack(header, control, sizeof(add_connection_command));
-}
-
-struct iovec *configuration_ProcessRemoveListener(Configuration *config,
-                                                struct iovec *request,
-                                                unsigned ingressId) {
-  header_control_message *header = request[0].iov_base;
-  remove_listener_command *control = request[1].iov_base;
-
-  bool success = false;
-
-  const char *symbolicOrListenerid = control->symbolicOrListenerid;
-  int listenerId = -1;
-  ListenerSet *listenerSet = forwarder_GetListenerSet(config->forwarder);
-  if (utils_IsNumber(symbolicOrListenerid)) {
-    // case for connid as input
-    listenerId = (unsigned)strtold(symbolicOrListenerid, NULL);
-  } else {
-    listenerId = listenerSet_FindIdByListenerName(listenerSet, symbolicOrListenerid);
-  }
-
-  if (listenerId >= 0) {
-
-    ConnectionTable *connTable = forwarder_GetConnectionTable(config->forwarder);
-    ListenerOps *listenerOps = listenerSet_FindById(listenerSet, listenerId);
-    if (listenerOps) {
-      ConnectionList *connectionList = connectionTable_GetEntries(connTable);
-      for (size_t i = 0; i < connectionList_Length(connectionList); i++) {
-        Connection *connection = connectionList_Get(connectionList, i);
-        const AddressPair *addressPair = connection_GetAddressPair(connection);
-        const Address *address = addressPair_GetLocal(addressPair);
-        if (addressEquals(listenerOps->getListenAddress(listenerOps),address)) {
-          // case for connid as input
-          unsigned connid = connection_GetConnectionId(connection);
-          // remove connection from the FIB
-          forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
-          // remove connection
-          connectionTable_RemoveById(connTable, connid);
-          const char *symbolicConnection = symbolicNameTable_GetNameByIndex(config->symbolicNameTable,connid);
-          symbolicNameTable_Remove(config->symbolicNameTable, symbolicConnection);
-        }
-      }
-      connectionList_Destroy(&connectionList);
-      // remove listener
-      listenerSet_RemoveById(listenerSet, listenerId);
-      success = true;
-    } else {
-      logger_Log(forwarder_GetLogger(config->forwarder), LoggerFacility_IO,
-        PARCLogLevel_Error, __func__,
-        "Listener Id not found, check list listeners");
-    }
-  }
-
-  // generate ACK/NACK
-  struct iovec *response;
-
-  if (success) {  // ACK
-    response =
-        utils_CreateAck(header, control, sizeof(remove_listener_command));
-  } else {  // NACK
-    response =
-        utils_CreateNack(header, control, sizeof(remove_connection_command));
-  }
-
-  return response;
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
 
 /**
  * Add an IP-based tunnel.
  *
- * The call cal fail if the symbolic name is a duplicate.  It could also fail if
+ * The call can fail if the symbolic name is a duplicate.  It could also fail if
  * there's an problem creating the local side of the tunnel (i.e. the local
  * socket address is not usable).
  *
@@ -558,952 +451,964 @@ struct iovec *configuration_ProcessRemoveListener(Configuration *config,
  * @return false Tunnel not added (an error)
  */
 
-struct iovec *configuration_ProcessRemoveTunnel(Configuration *config,
-                                                struct iovec *request,
-                                                unsigned ingressId) {
-  header_control_message *header = request[0].iov_base;
-  remove_connection_command *control = request[1].iov_base;
+uint8_t *
+configuration_on_connection_remove(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-  bool success = false;
+    msg_connection_remove_t * msg = (msg_connection_remove_t*)packet;
+    cmd_connection_remove_t * control = &msg->payload;
 
-  const char *symbolicOrConnid = control->symbolicOrConnid;
-  ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
-  if (strcmp(symbolicOrConnid, "SELF") == 0) {
-    forwarder_RemoveConnectionIdFromRoutes(config->forwarder, ingressId);
-    connectionTable_RemoveById(table, ingressId);
+    unsigned conn_id = symbolic_to_conn_id_self(config, control->symbolicOrConnid,
+            ingress_id);
+    if (!connection_id_is_valid(conn_id))
+        goto NACK;
 
-#ifdef WITH_MAPME
-       /* Hook: new connection created through the control protocol */
-      forwarder_onConnectionEvent(config->forwarder, NULL, CONNECTION_EVENT_DELETE);
-#endif /* WITH_MAPME */
+    /* Remove connection from the FIB */
+    forwarder_remove_connection_id_from_routes(config->forwarder, conn_id);
 
-    success = true;
-  } else if (utils_IsNumber(symbolicOrConnid)) {
-    // case for connid as input
-    unsigned connid = (unsigned)strtold(symbolicOrConnid, NULL);
+    /* Remove connection */
+    connection_table_t *table = forwarder_get_connection_table(config->forwarder);
+    connection_table_remove_by_id(table, conn_id);
 
-    // check if interface index present in the fwd table
-    //(it was missing and therefore caused a program crash)
-    if (connectionTable_FindById(table, connid)) {
-      // remove connection from the FIB
-      forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
-      // remove connection
-      connectionTable_RemoveById(table, connid);
-      // remove connection from symbolicNameTable
-      const char *symbolicConnection = symbolicNameTable_GetNameByIndex(config->symbolicNameTable,connid);
-      symbolicNameTable_Remove(config->symbolicNameTable, symbolicConnection);
+#if 0
+    /* Remove connection from symbolic_nameTable */
+    const char *symbolicConnection = symbolic_nameTable_GetNameByIndex(config->symbolic_nameTable, conn_id);
+    symbolic_nameTable_Remove(config->symbolic_nameTable, symbolicConnection);
+#endif
 
 #ifdef WITH_MAPME
-       /* Hook: new connection created through the control protocol */
-      forwarder_onConnectionEvent(config->forwarder, NULL, CONNECTION_EVENT_DELETE);
+    /* Hook: new connection created through the control protocol */
+    forwarder_on_connection_event(config->forwarder, NULL, CONNECTION_EVENT_DELETE);
 #endif /* WITH_MAPME */
 
-      success = true;
-    } else {
-      logger_Log(forwarder_GetLogger(config->forwarder), LoggerFacility_IO,
-                 PARCLogLevel_Error, __func__,
-                 "ConnID not found, check list connections");
-      // failure
-    }
+    make_ack(msg);
+    return (uint8_t*)msg;
 
-  } else {
-    // case for symbolic as input
-    // chech if symbolic name can be resolved
-    unsigned connid =
-        symbolicNameTable_Get(config->symbolicNameTable, symbolicOrConnid);
-    // connid = UINT_MAX when symbolicName is not found
-    if (connid != UINT32_MAX) {
-      if (logger_IsLoggable(config->logger, LoggerFacility_Config,
-                            PARCLogLevel_Debug)) {
-        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Debug,
-                   __func__, "Remove connection resolve name '%s' to connid %u",
-                   symbolicOrConnid, connid);
-      }
-
-      // remove connection from the FIB
-      forwarder_RemoveConnectionIdFromRoutes(config->forwarder, connid);
-      // remove connection
-      connectionTable_RemoveById(table, connid);
-      // remove connection from symbolicNameTable since we have symbolic input
-      symbolicNameTable_Remove(config->symbolicNameTable, symbolicOrConnid);
-
-#ifdef WITH_MAPME
-       /* Hook: new connection created through the control protocol */
-      forwarder_onConnectionEvent(config->forwarder, NULL, CONNECTION_EVENT_DELETE);
-#endif /* WITH_MAPME */
-
-      success = true;  // to write
-    } else {
-      if (logger_IsLoggable(config->logger, LoggerFacility_Config,
-                            PARCLogLevel_Warning)) {
-        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
-                   __func__,
-                   "Remove connection symbolic name '%s' could not be resolved",
-                   symbolicOrConnid);
-      }
-      // failure
-    }
-  }
-
-
-
-  // generate ACK/NACK
-  struct iovec *response;
-
-  if (success) {  // ACK
-    response =
-        utils_CreateAck(header, control, sizeof(remove_connection_command));
-  } else {  // NACK
-    response =
-        utils_CreateNack(header, control, sizeof(remove_connection_command));
-  }
-
-  return response;
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-void _parc_strlwr(char *string) {
-  char *p = string;
-  while ((*p = tolower(*p))) {
-    p++;
-  }
+static inline
+void
+tolower_str(char * str) {
+    char * p = str;
+    for (; *p; p++)
+        *p = tolower(*p);
 }
 
-struct iovec *configuration_ProcessConnectionList(Configuration *config,
-                                                  struct iovec *request) {
-  ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
-  ConnectionList *connList = connectionTable_GetEntries(table);
-  struct sockaddr_in tmpAddr;
-  struct sockaddr_in6 tmpAddr6;
+static inline
+void
+fill_connections_command(configuration_t * config, connection_t * connection,
+        cmd_connection_list_item_t * cmd)
+{
 
-  // allocate payload, cast from void* to uint8_t* fot bytes granularity
-  uint8_t *payloadResponse = parcMemory_AllocateAndClear(
-      sizeof(list_connections_command) * connectionList_Length(connList));
+    assert(config);
+    assert(connection);
+    assert(cmd);
 
-  for (size_t i = 0; i < connectionList_Length(connList); i++) {
-    // Don't release original, it is not stored
-    Connection *original = connectionList_Get(connList, i);
+    struct sockaddr_in * sin;
+    struct sockaddr_in6 * sin6;
+    const address_pair_t * pair = connection_get_pair(connection);
+#if 0
+    const char *name = symbolic_nameTable_GetNameByIndex(config->symbolic_nameTable,
+            connection_get_id(connection));
+#endif
 
-    const AddressPair *addressPair = connection_GetAddressPair(original);
-    Address *localAddress = addressCopy(addressPair_GetLocal(addressPair));
-    Address *remoteAddress = addressCopy(addressPair_GetRemote(addressPair));
+    *cmd = (cmd_connection_list_item_t) {
+        .id = connection_get_id(connection),
+        .state = connection_get_state(connection),
+        .admin_state = connection_get_admin_state(connection),
+        .type = connection_get_type(connection),
+#ifdef WITH_POLICY
+        .priority = connection_get_priority(connection),
+        .tags = connection_get_tags(connection),
+#endif /* WITH_POLICY */
+    };
 
-    // Fill payload by shifting and casting at each 'i' step.
-    list_connections_command *listConnectionsCommand =
-        (list_connections_command *)(payloadResponse +
-                                     (i * sizeof(list_connections_command)));
-    // set structure fields
+    snprintf(cmd->name, SYMBOLIC_NAME_LEN, "%s", connection_get_name(connection));
+    tolower_str(cmd->name);
 
-    listConnectionsCommand->connid = connection_GetConnectionId(original);
+    snprintf(cmd->interface_name, SYMBOLIC_NAME_LEN, "%s",
+            connection_get_interface_name(connection));
 
-    const char *connectionName = symbolicNameTable_GetNameByIndex(config->symbolicNameTable, connection_GetConnectionId(original));
-    snprintf(listConnectionsCommand->connectionName, SYMBOLIC_NAME_LEN, "%s", connectionName);
-    _parc_strlwr(listConnectionsCommand->connectionName);
+    switch(pair->local.ss_family) {
+        case AF_INET:
+            cmd->family = AF_INET;
 
-    snprintf(listConnectionsCommand->interfaceName, SYMBOLIC_NAME_LEN, "%s", ioOperations_GetInterfaceName(connection_GetIoOperations(original)));
+            sin = (struct sockaddr_in *)(&pair->local);
+            cmd->local_port = sin->sin_port;
+            cmd->local_ip.v4.as_inaddr = sin->sin_addr;
 
-    listConnectionsCommand->state =
-        connection_IsUp(original) ? IFACE_UP : IFACE_DOWN;
-    listConnectionsCommand->connectionData.admin_state =
-        (connection_GetAdminState(original) == CONNECTION_STATE_UP) ? IFACE_UP : IFACE_DOWN;
-    listConnectionsCommand->connectionData.connectionType =
-        ioOperations_GetConnectionType(connection_GetIoOperations(original));
+            sin = (struct sockaddr_in *)(&pair->remote);
+            cmd->remote_port = sin->sin_port;
+            cmd->remote_ip.v4.as_inaddr = sin->sin_addr;
+            break;
 
-    listConnectionsCommand->connectionData.admin_state = connection_GetAdminState(original);
+        case AF_INET6:
+            cmd->family = AF_INET6;
+
+            sin6 = (struct sockaddr_in6 *)(&pair->local);
+            cmd->local_port = sin6->sin6_port;
+            cmd->local_ip.v6.as_in6addr = sin6->sin6_addr;
+
+            sin6 = (struct sockaddr_in6 *)(&pair->remote);
+            cmd->remote_port = sin6->sin6_port;
+            cmd->remote_ip.v6.as_in6addr = sin6->sin6_addr;
+            break;
+
+        default:
+            break;
+    }
+}
+
+uint8_t *
+configuration_on_connection_list(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    connection_table_t *table = forwarder_get_connection_table(config->forwarder);
+    size_t n = connection_table_len(table);
+
+    msg_connection_list_reply_t * msg;
+    msg_malloc_list(msg, n)
+    if (!msg)
+        return NULL;
+
+    cmd_connection_list_item_t * payload = &msg->payload;
+    connection_t * connection;
+    connection_table_foreach(table, connection, {
+        fill_connections_command(config, connection, payload);
+        payload++;
+    });
+
+    return (uint8_t*)msg;
+}
+
+uint8_t *
+configuration_on_connection_set_admin_state(configuration_t * config,
+        uint8_t * packet, unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    msg_connection_set_admin_state_t * msg = (msg_connection_set_admin_state_t *)packet;
+    cmd_connection_set_admin_state_t *control = &msg->payload;
+
+    if ((control->admin_state != FACE_STATE_UP) &&
+            (control->admin_state != FACE_STATE_DOWN))
+        goto NACK;
+
+    connection_t * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
+    if (!conn)
+        goto NACK;
+
+    connection_set_admin_state(conn, control->admin_state);
+
+#ifdef WITH_MAPME
+    /* Hook: connection event */
+    forwarder_on_connection_event(config->forwarder, conn,
+            control->admin_state == FACE_STATE_UP
+            ? CONNECTION_EVENT_SET_UP
+            : CONNECTION_EVENT_SET_DOWN);
+#endif /* WITH_MAPME */
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
+}
+
+
+uint8_t *
+configuration_on_connection_update(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
 #ifdef WITH_POLICY
-    listConnectionsCommand->connectionData.priority = connection_GetPriority(original);
-    listConnectionsCommand->connectionData.tags = connection_GetTags(original);
+    msg_connection_update_t * msg = (msg_connection_update_t *)packet;
+    cmd_connection_update_t * control = &msg->payload;
+
+    connection_t * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
+    if (!conn)
+        goto NACK;
+
+    connection_set_tags(conn, control->tags);
+    connection_set_admin_state(conn, control->admin_state);
+    if (control->priority > 0)
+        connection_set_priority(conn, control->priority);
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
 #endif /* WITH_POLICY */
-
-    if (addressGetType(localAddress) == ADDR_INET &&
-        addressGetType(remoteAddress) == ADDR_INET) {
-      listConnectionsCommand->connectionData.ipType = ADDR_INET;
-
-      // get local port/address
-      addressGetInet(localAddress, &tmpAddr);
-      listConnectionsCommand->connectionData.localPort = tmpAddr.sin_port;
-      listConnectionsCommand->connectionData.localIp.v4.as_inaddr =
-          tmpAddr.sin_addr;
-      memset(&tmpAddr, 0, sizeof(tmpAddr));
-      // get remote port/address
-      addressGetInet(remoteAddress, &tmpAddr);
-      listConnectionsCommand->connectionData.remotePort = tmpAddr.sin_port;
-      listConnectionsCommand->connectionData.remoteIp.v4.as_inaddr =
-          tmpAddr.sin_addr;
-
-    } else if (addressGetType(localAddress) == ADDR_INET6 &&
-               addressGetType(remoteAddress) == ADDR_INET6) {
-      listConnectionsCommand->connectionData.ipType = ADDR_INET6;
-
-      // get local port/address
-      addressGetInet6(localAddress, &tmpAddr6);
-      listConnectionsCommand->connectionData.localPort = tmpAddr6.sin6_port;
-      listConnectionsCommand->connectionData.localIp.v6.as_in6addr = tmpAddr6.sin6_addr;
-      memset(&tmpAddr6, 0, sizeof(tmpAddr6));
-      // get remote port/address
-      addressGetInet6(remoteAddress, &tmpAddr6);
-      listConnectionsCommand->connectionData.remotePort = tmpAddr6.sin6_port;
-      listConnectionsCommand->connectionData.remoteIp.v6.as_in6addr = tmpAddr6.sin6_addr;
-
-    }  // no need further else, control on the addressed already done at the
-       // time of insertion in the connection table
-    addressDestroy(&localAddress);
-    addressDestroy(&remoteAddress);
-  }
-
-  // send response
-  header_control_message *header = request[0].iov_base;
-  header->messageType = RESPONSE_LIGHT;
-  header->length = (uint16_t)connectionList_Length(connList);
-
-  struct iovec *response =
-      parcMemory_AllocateAndClear(sizeof(struct iovec) * 2);
-
-  response[0].iov_base = header;
-  response[0].iov_len = sizeof(header_control_message);
-  response[1].iov_base = payloadResponse;
-  response[1].iov_len =
-      sizeof(list_connections_command) * connectionList_Length(connList);
-
-  connectionList_Destroy(&connList);
-  return response;
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-struct iovec *configuration_ProcessListenersList(Configuration *config,
-                                                 struct iovec *request) {
-  ListenerSet *listenerList = forwarder_GetListenerSet(config->forwarder);
-  struct sockaddr_in tmpAddr;
-  struct sockaddr_in6 tmpAddr6;
+uint8_t *
+configuration_on_connection_set_priority(configuration_t * config,
+        uint8_t * packet, unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-  // allocate payload, cast from void* to uint8_t* fot bytes granularity
-  uint8_t *payloadResponse = parcMemory_AllocateAndClear(
-      sizeof(list_listeners_command) * listenerSet_Length(listenerList));
+#ifdef WITH_POLICY
+    msg_connection_set_priority_t * msg = (msg_connection_set_priority_t *)packet;
+    cmd_connection_set_priority_t * control = &msg->payload;
 
-  for (size_t i = 0; i < listenerSet_Length(listenerList); i++) {
-    ListenerOps *listenerEntry = listenerSet_Get(listenerList, i);
+    connection_t * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
+    if (!conn)
+        goto NACK;
 
-    // Fill payload by shifting and casting at each 'i' step.
-    list_listeners_command *listListenersCommand =
-        (list_listeners_command *)(payloadResponse +
-                                   (i * sizeof(list_listeners_command)));
+    connection_set_priority(conn, control->priority);
 
-    listListenersCommand->connid =
-        (uint32_t)listenerEntry->getInterfaceIndex(listenerEntry);
-    listListenersCommand->encapType =
-        (uint8_t)listenerEntry->getEncapType(listenerEntry);
-    if (addressGetType((const Address *)listenerEntry->getListenAddress(
-            listenerEntry)) == ADDR_INET) {
-      addressGetInet(
-          (const Address *)listenerEntry->getListenAddress(listenerEntry),
-          &tmpAddr);
-      listListenersCommand->addressType = ADDR_INET;
-      listListenersCommand->address.v4.as_inaddr = tmpAddr.sin_addr;
-      listListenersCommand->port = tmpAddr.sin_port;
-    } else if (addressGetType((const Address *)listenerEntry->getListenAddress(
-                   listenerEntry)) == ADDR_INET6) {
-      addressGetInet6(
-          (const Address *)listenerEntry->getListenAddress(listenerEntry),
-          &tmpAddr6);
-      listListenersCommand->addressType = ADDR_INET6;
-      listListenersCommand->address.v6.as_in6addr = tmpAddr6.sin6_addr;
-      listListenersCommand->port = tmpAddr6.sin6_port;
-    }
+#ifdef WITH_MAPME
+    /* Hook: connection event */
+    forwarder_on_connection_event(config->forwarder, conn,
+            CONNECTION_EVENT_PRIORITY_CHANGED);
+#endif /* WITH_MAPME */
 
-    const char * listenerName = listenerEntry->getListenerName(listenerEntry);
-    snprintf(listListenersCommand->listenerName, SYMBOLIC_NAME_LEN, "%s", listenerName);
-    if (listenerEntry->getEncapType(listenerEntry) == ENCAP_TCP ||
-            listenerEntry->getEncapType(listenerEntry) == ENCAP_UDP) {
-      const char * interfaceName = listenerEntry->getInterfaceName(listenerEntry);
-      snprintf(listListenersCommand->interfaceName, SYMBOLIC_NAME_LEN, "%s", interfaceName);
-    }
-  }
+    make_ack(msg);
+    return (uint8_t*)msg;
 
-  // send response
-  header_control_message *header = request[0].iov_base;
-  header->messageType = RESPONSE_LIGHT;
-  header->length = (uint16_t)listenerSet_Length(listenerList);
-
-  struct iovec *response =
-      parcMemory_AllocateAndClear(sizeof(struct iovec) * 2);
-
-  response[0].iov_base = header;
-  response[0].iov_len = sizeof(header_control_message);
-  response[1].iov_base = payloadResponse;
-  response[1].iov_len =
-      sizeof(list_listeners_command) * listenerSet_Length(listenerList);
-
-  return response;
+NACK:
+#endif /* WITH_POLICY */
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-struct iovec *configuration_ProcessCacheStore(Configuration *config,
-                                              struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  ;
-  cache_store_command *control = request[1].iov_base;
-  ;
+uint8_t *
+configuration_on_connection_set_tags(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-  bool success = false;
+#ifdef WITH_POLICY
+    msg_connection_set_tags_t * msg = (msg_connection_set_tags_t *)packet;
+    cmd_connection_set_tags_t * control = &msg->payload;
 
-  switch (control->activate) {
-    case ACTIVATE_ON:
-      forwarder_SetChacheStoreFlag(config->forwarder, true);
-      if (forwarder_GetChacheStoreFlag(config->forwarder)) {
-        success = true;
-      }
-      break;
+    connection_t * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
+    if (!conn)
+        goto NACK;
 
-    case ACTIVATE_OFF:
-      forwarder_SetChacheStoreFlag(config->forwarder, false);
-      if (!forwarder_GetChacheStoreFlag(config->forwarder)) {
-        success = true;
-      }
-      break;
+    connection_set_tags(conn, control->tags);
 
-    default:
-      break;
-  }
+#ifdef WITH_MAPME
+    /* Hook: connection event */
+    forwarder_on_connection_event(config->forwarder, conn,
+            CONNECTION_EVENT_TAGS_CHANGED);
+#endif /* WITH_MAPME */
 
-  struct iovec *response;
-  if (success) {  // ACK
-    response = utils_CreateAck(header, control, sizeof(cache_store_command));
-  } else {  // NACK
-    response = utils_CreateNack(header, control, sizeof(cache_store_command));
-  }
+    make_ack(msg);
+    return (uint8_t*)msg;
 
-  return response;
+NACK:
+#endif /* WITH_POLICY */
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-struct iovec *configuration_ProcessCacheServe(Configuration *config,
-                                              struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  cache_serve_command *control = request[1].iov_base;
 
-  bool success = false;
+/* Route */
 
-  switch (control->activate) {
-    case ACTIVATE_ON:
-      forwarder_SetChacheServeFlag(config->forwarder, true);
-      if (forwarder_GetChacheServeFlag(config->forwarder)) {
-        success = true;
-      }
-      break;
+uint8_t *
+configuration_on_route_add(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-    case ACTIVATE_OFF:
-      forwarder_SetChacheServeFlag(config->forwarder, false);
-      if (!forwarder_GetChacheServeFlag(config->forwarder)) {
-        success = true;
-      }
-      break;
+    msg_route_add_t * msg = (msg_route_add_t *)packet;
+    cmd_route_add_t * control = &msg->payload;
 
-    default:
-      break;
-  }
+    unsigned conn_id = symbolic_to_conn_id_self(config,
+            control->symbolicOrConnid, ingress_id);
+    if (!connection_id_is_valid(conn_id))
+        goto NACK;
 
-  struct iovec *response;
-  if (success) {  // ACK
-    response = utils_CreateAck(header, control, sizeof(cache_store_command));
-  } else {  // NACK
-    response = utils_CreateNack(header, control, sizeof(cache_store_command));
-  }
+    ip_prefix_t prefix = {
+        .family = control->family,
+        .address = control->address,
+        .len = control->len
+    };
 
-  return response;
+    if (!forwarder_add_or_update_route(config->forwarder, &prefix, conn_id))
+        goto NACK;
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-struct iovec *configuration_ProcessCacheClear(Configuration *config,
-                                              struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
+uint8_t *
+configuration_on_route_remove(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-  forwarder_ClearCache(config->forwarder);
+    msg_route_remove_t * msg = (msg_route_remove_t *)packet;
+    cmd_route_remove_t * control = &msg->payload;
 
-  struct iovec *response = utils_CreateAck(header, NULL, 0);
-  return response;
+    unsigned conn_id = symbolic_to_conn_id(config, control->symbolicOrConnid);
+    if (!connection_id_is_valid(conn_id))
+        goto NACK;
+
+    ip_prefix_t prefix = {
+        .family = control->family,
+        .address = control->address,
+        .len = control->len
+    };
+
+    if (!forwarder_remove_route(config->forwarder, &prefix, conn_id))
+        goto NACK;
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-size_t configuration_GetObjectStoreSize(Configuration *config) {
-  return config->maximumContentObjectStoreSize;
+uint8_t *
+configuration_on_route_list(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    const fib_t * fib = forwarder_get_fib(config->forwarder);
+    fib_entry_t * entry;
+
+    /*
+     * Two step approach to precompute the number of entries to allocate
+     *
+     * NOTE: we might have routes with no or multiple next hops.
+     */
+    size_t n = 0;
+    fib_foreach_entry(fib, entry, {
+        const nexthops_t * nexthops = fib_entry_get_nexthops(entry);
+        assert(nexthops_get_len(nexthops) == nexthops_get_curlen(nexthops));
+        n += nexthops_get_len(nexthops);
+    });
+
+    msg_route_list_reply_t * msg;
+    msg_malloc_list(msg, n);
+    if (!msg)
+        return NULL;
+
+    cmd_route_list_item_t * payload = &msg->payload;
+    fib_foreach_entry(fib, entry, {
+        const nexthops_t * nexthops = fib_entry_get_nexthops(entry);
+        assert(nexthops_get_len(nexthops) == nexthops_get_curlen(nexthops));
+        size_t num_nexthops = nexthops_get_len(nexthops);
+
+        if (num_nexthops == 0)
+            continue;
+
+        NameBitvector *prefix = name_GetContentName(fib_entry_get_prefix(entry));
+
+        unsigned nexthop;
+        nexthops_foreach(nexthops, nexthop, {
+
+            address_t address;
+            nameBitvector_ToAddress(prefix, &address);
+            switch(address_family(&address)) {
+                case AF_INET:
+                    payload->family = AF_INET;
+                    payload->address.v4.as_inaddr = address4_ip(&address);
+                    break;
+                case AF_INET6:
+                    payload->family = AF_INET6;
+                    payload->address.v6.as_in6addr = address6_ip(&address);
+                    break;
+                default:
+                    break;
+            }
+            payload->connection_id = nexthop;
+            payload->len = nameBitvector_GetLength(prefix);
+            payload->cost = DEFAULT_COST;
+
+            payload++;
+        });
+    });
+
+    return (uint8_t*)msg;
 }
 
-void _configuration_StoreFwdStrategy(Configuration *config, const char *prefix,
-                                     strategy_type strategy) {
-  PARCString *prefixStr = parcString_Create(prefix);
-  PARCUnsigned *strategyValue = parcUnsigned_Create((unsigned)strategy);
-  parcHashMap_Put(config->strategy_map, prefixStr, strategyValue);
-  parcUnsigned_Release(&strategyValue);
-  parcString_Release(&prefixStr);
+
+/* Cache */
+
+uint8_t *
+configuration_on_cache_set_store(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    msg_cache_set_store_t * msg = (msg_cache_set_store_t *)packet;
+    cmd_cache_set_store_t * control = &msg->payload;
+
+    if ((control->activate != 0) && (control->activate != 1))
+        goto NACK;
+    bool value = (bool)control->activate;
+
+    forwarder_content_store_set_store(config->forwarder, value);
+    /* XXX Why do we need to check ? */
+    if (forwarder_content_store_get_store(config->forwarder) != value)
+        goto NACK;
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-struct iovec *configuration_SetWldr(Configuration *config,
-                                    struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  set_wldr_command *control = request[1].iov_base;
-  ConnectionTable *table = forwarder_GetConnectionTable(config->forwarder);
-  Connection *conn = NULL;
-  bool success = false;
+uint8_t *
+configuration_on_cache_set_serve(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-  const char *symbolicOrConnid = control->symbolicOrConnid;
+    msg_cache_set_serve_t * msg = (msg_cache_set_serve_t *)packet;
+    cmd_cache_set_serve_t * control = &msg->payload;
 
-  if (utils_IsNumber(symbolicOrConnid)) {
-    // case for connid as input: check if connID present in the fwd table
-    conn = (Connection *)connectionTable_FindById(
-        table, (unsigned)strtold(symbolicOrConnid, NULL));
-    if (conn) {
-      success = true;
-    } else {
-      logger_Log(forwarder_GetLogger(config->forwarder), LoggerFacility_IO,
-                 PARCLogLevel_Error, __func__,
-                 "ConnID not found, check list connections");  // failure
-    }
-  } else {
-    // case for symbolic as input: check if symbolic name can be resolved
-    unsigned connid =
-        symbolicNameTable_Get(config->symbolicNameTable, symbolicOrConnid);
-    if (connid != UINT32_MAX) {
-      conn = (Connection *)connectionTable_FindById(table, connid);
-      if (conn) {
-        if (logger_IsLoggable(config->logger, LoggerFacility_Config,
-                              PARCLogLevel_Debug)) {
-          logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Debug,
-                     __func__, "Set wldr resolve name '%s' to connid %u",
-                     symbolicOrConnid, connid);
+    if ((control->activate != 0) && (control->activate != 1))
+        goto NACK;
+    bool value = (bool)control->activate;
+
+    forwarder_content_store_set_serve(config->forwarder, value);
+    /* XXX Why do we need to check ? */
+    if (forwarder_content_store_get_serve(config->forwarder) != value)
+        goto NACK;
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
+}
+
+uint8_t *
+configuration_on_cache_clear(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    msg_cache_clear_t * msg = (msg_cache_clear_t *)packet;
+
+    forwarder_content_store_clear(config->forwarder);
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+}
+
+/* Strategy */
+
+strategy_type_t
+configuration_get_strategy(configuration_t * config, const char *prefix)
+{
+    khiter_t k = kh_get_strategy_map(config->strategy_map, prefix);
+    if (k == kh_end(config->strategy_map))
+        return STRATEGY_TYPE_UNDEFINED;
+    return kh_val(config->strategy_map, k);
+}
+
+uint8_t *
+configuration_on_strategy_set(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    msg_strategy_set_t * msg = (msg_strategy_set_t *)packet;
+    cmd_strategy_set_t * control = &msg->payload;
+
+    char prefix_s[MAXSZ_IP_PREFIX];
+    ip_prefix_t prefix = {
+        .family = control->family,
+        .address = control->address,
+        .len = control->len,
+    };
+    int rc = ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, &prefix);
+    assert(rc < MAXSZ_IP_PREFIX);
+    if (rc < 0)
+        goto NACK;
+
+    strategy_type_t strategy = control->strategy_type;
+    strategy_type_t existingFwdStrategy =
+        configuration_get_strategy(config, prefix_s);
+
+    strategy_options_t options;
+
+    if (existingFwdStrategy == STRATEGY_TYPE_UNDEFINED ||
+            strategy != existingFwdStrategy) {
+        // means such a new strategy is not present in the hash table or has to be
+        // updated
+        int res;
+        khiter_t k = kh_put_strategy_map(config->strategy_map, prefix_s, &res);
+        kh_value(config->strategy_map, k) = strategy;
+
+        Name *name_prefix = name_CreateFromAddress(control->family,
+                control->address, control->len);
+        // XXX TODO error handling
+
+        switch(control->strategy_type) {
+            case STRATEGY_TYPE_LOW_LATENCY:
+                options.low_latency.related_prefixes_len = control->related_prefixes;
+                Name **related_prefixes = options.low_latency.related_prefixes;
+
+                if(control->related_prefixes != 0){
+                    for(int i = 0; i < control->related_prefixes; i++){
+                        related_prefixes[i] = name_CreateFromAddress(
+                                control->low_latency.families[i],
+                                control->low_latency.addresses[i],
+                                control->low_latency.lens[i]);
+                    }
+                    // XXX TODO error handling
+                }
+                forwarder_set_strategy(config->forwarder, name_prefix, strategy, &options);
+
+                if (control->related_prefixes != 0) {
+                    for(int i = 0; i < control->related_prefixes; i++)
+                        name_Release(&related_prefixes[i]);
+                }
+                break;
+            default:
+                break;
         }
-        success = true;
-      }
-    } else {
-      if (logger_IsLoggable(config->logger, LoggerFacility_Config,
-                            PARCLogLevel_Warning)) {
-        logger_Log(config->logger, LoggerFacility_Config, PARCLogLevel_Error,
-                   __func__, "Symbolic name '%s' could not be resolved",
-                   symbolicOrConnid);
-      }  // failure
+        name_Release(&name_prefix);
     }
-  }
 
-  // generate ACK/NACK
-  struct iovec *response;
+    make_ack(msg);
+    return (uint8_t*)msg;
 
-  if (success) {
-    switch (control->activate) {
-      case ACTIVATE_ON:
-        connection_EnableWldr(conn);
-        response = utils_CreateAck(header, control, sizeof(set_wldr_command));
-        break;
+NACK:
+    make_nack(msg);
+    return (uint8_t*)msg;
+}
 
-      case ACTIVATE_OFF:
-        connection_DisableWldr(conn);
-        response = utils_CreateAck(header, control, sizeof(set_wldr_command));
-        break;
+/* WLDR */
 
-      default:  // received wrong value
-        response = utils_CreateNack(header, control, sizeof(set_wldr_command));
-        break;
+uint8_t *
+configuration_on_wldr_set(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    msg_wldr_set_t * msg = (msg_wldr_set_t *)packet;
+    cmd_wldr_set_t * control = &msg->payload;
+
+    if ((control->activate != 0) && (control->activate != 1))
+        goto NACK;
+    bool value = (bool)control->activate;
+
+    unsigned conn_id = symbolic_to_conn_id(config, control->symbolicOrConnid);
+    if (!connection_id_is_valid(conn_id))
+        goto NACK;
+
+    connection_table_t * table = forwarder_get_connection_table(config->forwarder);
+    connection_t * conn = connection_table_at(table, conn_id);
+
+    if (value)
+        connection_wldr_enable(conn, value);
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
+}
+
+/* Punting */
+
+uint8_t *
+configuration_on_punting_add(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
+    msg_punting_add_t * msg = (msg_punting_add_t *)packet;
+    cmd_punting_add_t * control = &msg->payload;
+
+    if (ip_address_empty(&control->address))
+        goto NACK;
+
+    /* This is for hICN listeners only */
+    // XXX add check !
+    // comments:
+    // EncapType: I use the Hicn encap since the punting is available only for
+    // Hicn listeners LocalAddress: The only listern for which we need punting
+    // rules is the main one, which has no address
+    //              so I create a fake empty address. This need to be consistent
+    //              with the address set at creation time
+    address_t fakeaddr = ADDRESS_ANY(control->family, DEFAULT_PORT);
+
+    forwarder_t * forwarder = configuration_get_forwarder(config);
+    listener_table_t * table = forwarder_get_listener_table(forwarder);
+    listener_t * listener = listener_table_get_by_address(table, FACE_TYPE_HICN, &fakeaddr);
+    if (!listener) {
+        ERROR("the main listener does not exist");
+        goto NACK;
     }
-  } else {
-    response = utils_CreateNack(header, control, sizeof(set_wldr_command));
-  }
 
-  return response;
-}
 
-strategy_type configuration_GetForwardingStrategy(Configuration *config,
-                                                  const char *prefix) {
-  PARCString *prefixStr = parcString_Create(prefix);
-  const unsigned *val = parcHashMap_Get(config->strategy_map, prefixStr);
-  parcString_Release(&prefixStr);
+    ip_prefix_t prefix = {
+        .family = control->family,
+        .address = control->address,
+        .len = control->len
+    };
+    char prefix_s[MAXSZ_IP_PREFIX];
+    int rc = ip_prefix_snprintf(prefix_s, MAXSZ_IP_PREFIX, &prefix);
+    assert(rc < MAXSZ_IP_PREFIX);
+    if (rc < 0)
+        goto NACK;
 
-  if (val == NULL) {
-    return LAST_STRATEGY_VALUE;
-  } else {
-    return (strategy_type)*val;
-  }
-}
-
-struct iovec *configuration_SetForwardingStrategy(Configuration *config,
-                                                  struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  set_strategy_command *control = request[1].iov_base;
-
-  const char *prefix = utils_PrefixLenToString(
-      control->addressType, &control->address, &control->len);
-  strategy_type strategy = control->strategyType;
-  strategy_type existingFwdStrategy =
-      configuration_GetForwardingStrategy(config, prefix);
-
-  if (existingFwdStrategy == LAST_STRATEGY_VALUE ||
-      strategy != existingFwdStrategy) {
-    // means such a new strategy is not present in the hash table or has to be
-    // updated
-    _configuration_StoreFwdStrategy(config, prefix, strategy);
-    Name *hicnPrefix = name_CreateFromAddress(control->addressType,
-                                              control->address, control->len);
-    Name *related_prefixes[MAX_FWD_STRATEGY_RELATED_PREFIXES];
-    if(control->related_prefixes != 0){
-      for(int i = 0; i < control->related_prefixes; i++){
-        related_prefixes[i] = name_CreateFromAddress(
-                                  control->addresses_type[i],
-                                  control->addresses[i], control->lens[i]);
-      }
+    if (listener_punt(listener, prefix_s) < 0) {
+        ERROR("error while adding the punting rule\n");
+        goto NACK;
     }
-    forwarder_SetStrategy(config->forwarder, hicnPrefix, strategy,
-                          control->related_prefixes, related_prefixes);
-    name_Release(&hicnPrefix);
-    if(control->related_prefixes != 0){
-      for(int i = 0; i < control->related_prefixes; i++){
-        name_Release(&related_prefixes[i]);
-      }
-    }
-  }
 
-  free((char *) prefix);
-  struct iovec *response =
-      utils_CreateAck(header, control, sizeof(set_strategy_command));
+    make_ack(msg);
+    return (uint8_t*)msg;
 
-  return response;
+NACK:
+#endif
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-void configuration_SetObjectStoreSize(Configuration *config,
-                                      size_t maximumObjectCount) {
-  config->maximumContentObjectStoreSize = maximumObjectCount;
+/* MAP-Me */
 
-  forwarder_SetContentObjectStoreSize(config->forwarder,
-                                      config->maximumContentObjectStoreSize);
+uint8_t *
+configuration_on_mapme_enable(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    msg_mapme_enable_t * msg = (msg_mapme_enable_t *)packet;
+    cmd_mapme_enable_t * control = &msg->payload;
+
+    if ((control->activate != 0) && (control->activate != 1))
+        goto NACK;
+    bool value = (bool)control->activate;
+
+    INFO("MAP-Me SET enable: %s", value ? "on" : "off");
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-Forwarder *configuration_GetForwarder(const Configuration *config) {
-  return config->forwarder;
+uint8_t *
+configuration_on_mapme_set_discovery(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    msg_mapme_set_discovery_t * msg = (msg_mapme_set_discovery_t *)packet;
+    cmd_mapme_set_discovery_t * control = &msg->payload;
+
+    if ((control->activate != 0) && (control->activate != 1))
+        goto NACK;
+    bool value = (bool)control->activate;
+
+    INFO("MAP-Me SET discovery: %s", value ? "on" : "off");
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-Logger *configuration_GetLogger(const Configuration *config) {
-  return config->logger;
+uint8_t *
+configuration_on_mapme_set_timescale(configuration_t * config, uint8_t * packet,
+    unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    msg_mapme_set_timescale_t * msg = (msg_mapme_set_timescale_t *)packet;
+    cmd_mapme_set_timescale_t * control = &msg->payload;
+
+    INFO("MAP-Me SET timescale: %u", control->timePeriod);
+
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
-struct iovec *configuration_MapMeEnable(Configuration *config,
-                                        struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  mapme_activator_command *control = request[1].iov_base;
-  const char *stateString[2] = {"on", "off"};
+uint8_t *
+configuration_on_mapme_set_retx(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-  PARCBufferComposer *composer = parcBufferComposer_Create();
-  parcBufferComposer_Format(composer,
-                            "The mapme enable setting received is: %s",
-                            stateString[control->activate]);
+    msg_mapme_set_retx_t * msg = (msg_mapme_set_retx_t *)packet;
+    cmd_mapme_set_retx_t * control = &msg->payload;
 
-  PARCBuffer *tempBuffer = parcBufferComposer_ProduceBuffer(composer);
-  char *result = parcBuffer_ToString(tempBuffer);
-  parcBuffer_Release(&tempBuffer);
-  puts(result);
-  parcMemory_Deallocate((void **)&result);
-  parcBufferComposer_Release(&composer);
+    INFO("MAP-Me SET retx: %u", control->timePeriod);
 
-  return utils_CreateAck(header, control, sizeof(mapme_timing_command));
-}
-
-struct iovec *configuration_MapMeDiscovery(Configuration *config,
-                                           struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  mapme_activator_command *control = request[1].iov_base;
-  const char *stateString[2] = {"on", "off"};
-
-  PARCBufferComposer *composer = parcBufferComposer_Create();
-  parcBufferComposer_Format(composer,
-                            "The mapme discovery setting received is: %s",
-                            stateString[control->activate]);
-
-  PARCBuffer *tempBuffer = parcBufferComposer_ProduceBuffer(composer);
-  char *result = parcBuffer_ToString(tempBuffer);
-  parcBuffer_Release(&tempBuffer);
-  puts(result);
-  parcMemory_Deallocate((void **)&result);
-  parcBufferComposer_Release(&composer);
-
-  return utils_CreateAck(header, control, sizeof(mapme_timing_command));
-}
-
-struct iovec *configuration_MapMeTimescale(Configuration *config,
-                                           struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  mapme_timing_command *control = request[1].iov_base;
-
-  PARCBufferComposer *composer = parcBufferComposer_Create();
-  parcBufferComposer_Format(composer,
-                            "The mapme timescale value received is: %u",
-                            control->timePeriod);
-
-  PARCBuffer *tempBuffer = parcBufferComposer_ProduceBuffer(composer);
-  char *result = parcBuffer_ToString(tempBuffer);
-  parcBuffer_Release(&tempBuffer);
-  puts(result);
-  parcMemory_Deallocate((void **)&result);
-  parcBufferComposer_Release(&composer);
-
-  return utils_CreateAck(header, control, sizeof(mapme_timing_command));
-}
-
-struct iovec *configuration_MapMeRetx(Configuration *config,
-                                      struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  mapme_timing_command *control = request[1].iov_base;
-
-  PARCBufferComposer *composer = parcBufferComposer_Create();
-  parcBufferComposer_Format(
-      composer, "The mapme retransmission time value received is: %u",
-      control->timePeriod);
-
-  PARCBuffer *tempBuffer = parcBufferComposer_ProduceBuffer(composer);
-  char *result = parcBuffer_ToString(tempBuffer);
-  parcBuffer_Release(&tempBuffer);
-  puts(result);
-  parcMemory_Deallocate((void **)&result);
-  parcBufferComposer_Release(&composer);
-
-  return utils_CreateAck(header, control, sizeof(mapme_timing_command));
-}
-
-struct iovec * configuration_MapMeSendUpdate(Configuration *config,
-                                      struct iovec *request, unsigned ingressId) {
-  header_control_message *header = request[0].iov_base;
-  mapme_send_update_command *control = request[1].iov_base;
-
-  FIB * fib = forwarder_getFib(config->forwarder);
-  if (!fib)
-      goto ERR;
-  Name *prefix = name_CreateFromAddress(control->addressType, control->address,
-                                        control->len);
-  if (!prefix)
-      goto ERR;
-  FibEntry *entry = fib_Contains(fib, prefix);
-  name_Release(&prefix);
-  if (!entry)
-      goto ERR;
-
-  const NumberSet * nexthops = fibEntry_GetNexthops(entry);
-  unsigned size = (unsigned) numberSet_Length(nexthops);
-
-  /* The command is accepted iif triggered by (one of) the producer of this prefix */
-  for (unsigned i = 0; i < size; i++) {
-    unsigned nhop = numberSet_GetItem(nexthops, i);
-    if (nhop == ingressId) {
-        MapMe * mapme = forwarder_getMapmeInstance(config->forwarder);
-        mapme_send_updates(mapme, entry, nexthops);
-        return utils_CreateAck(header, control, sizeof(mapme_timing_command));
-    }
-  }
-
-ERR:
-  return utils_CreateNack(header, control, sizeof(connection_set_admin_state_command));
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
 
 
-struct iovec *configuration_ConnectionSetAdminState(Configuration *config,
-                                      struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  connection_set_admin_state_command *control = request[1].iov_base;
+uint8_t *
+configuration_on_mapme_send_update(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
-  if ((control->admin_state != CONNECTION_STATE_UP) && (control->admin_state != CONNECTION_STATE_DOWN))
-    return utils_CreateNack(header, control, sizeof(connection_set_admin_state_command));
+    msg_mapme_send_update_t * msg = (msg_mapme_send_update_t *)packet;
+    cmd_mapme_send_update_t * control = &msg->payload;
 
-  Connection * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
-  if (!conn)
-    return utils_CreateNack(header, control, sizeof(connection_set_admin_state_command));
+    fib_t * fib = forwarder_get_fib(config->forwarder);
+    if (!fib)
+        goto NACK;
+    Name *prefix = name_CreateFromAddress(control->family, control->address,
+            control->len);
+    if (!prefix)
+        goto NACK;
+    fib_entry_t *entry = fib_contains(fib, prefix);
+    name_Release(&prefix);
+    if (!entry)
+        goto NACK;
 
-  connection_SetAdminState(conn, control->admin_state);
+    /* The command is accepted iif triggered by (one of) the producer of this prefix */
+    const nexthops_t * nexthops = fib_entry_get_nexthops(entry);
 
-#ifdef WITH_MAPME
-  /* Hook: connection event */
-  forwarder_onConnectionEvent(config->forwarder, conn,
-      control->admin_state == CONNECTION_STATE_UP
-              ? CONNECTION_EVENT_SET_UP
-              : CONNECTION_EVENT_SET_DOWN);
-#endif /* WITH_MAPME */
+    unsigned nexthop;
+    nexthops_foreach(nexthops, nexthop, {
+        if (nexthop != ingress_id)
+            continue;
+        mapme_t * mapme = forwarder_get_mapme(config->forwarder);
+        mapme_send_to_all_nexthops(mapme, entry);
+        make_ack(msg);
+        return (uint8_t*)msg;
+    });
 
-  return utils_CreateAck(header, control, sizeof(connection_set_admin_state_command));
+NACK:
+    make_ack(msg);
+    return (uint8_t*)msg;
 }
+
+/* Policy */
+
+uint8_t *
+configuration_on_policy_add(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
 
 #ifdef WITH_POLICY
+    msg_policy_add_t * msg = (msg_policy_add_t *)packet;
+    cmd_policy_add_t * control = &msg->payload;
 
-struct iovec *configuration_ConnectionSetPriority(Configuration *config,
-                                      struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  connection_set_priority_command *control = request[1].iov_base;
+    ip_prefix_t prefix = {
+        .family = control->family,
+        .address = control->address,
+        .len = control->len
+    };
 
-  Connection * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
-  if (!conn)
-    return utils_CreateNack(header, control, sizeof(connection_set_priority_command));
+    if (!forwarder_add_or_update_policy(config->forwarder, &prefix, &control->policy))
+        goto NACK;
 
-  connection_SetPriority(conn, control->priority);
+    make_ack(msg);
+    return (uint8_t*)msg;
 
-#ifdef WITH_MAPME
-  /* Hook: connection event */
-  forwarder_onConnectionEvent(config->forwarder, conn,
-          CONNECTION_EVENT_PRIORITY_CHANGED);
-#endif /* WITH_MAPME */
-
-  return utils_CreateAck(header, control, sizeof(connection_set_priority_command));
-}
-
-struct iovec *configuration_ConnectionSetTags(Configuration *config,
-                                      struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  connection_set_tags_command *control = request[1].iov_base;
-
-  Connection * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
-  if (!conn)
-    return utils_CreateNack(header, control, sizeof(connection_set_tags_command));
-
-  connection_SetTags(conn, control->tags);
-
-#ifdef WITH_MAPME
-  /* Hook: connection event */
-  forwarder_onConnectionEvent(config->forwarder, conn,
-          CONNECTION_EVENT_TAGS_CHANGED);
-#endif /* WITH_MAPME */
-
-  return utils_CreateAck(header, control, sizeof(connection_set_tags_command));
-}
-
-struct iovec *configuration_ProcessPolicyAdd(Configuration *config,
-                                      struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  add_policy_command *control = request[1].iov_base;
-
-  if (forwarder_AddOrUpdatePolicy(config->forwarder, control)) {
-    return utils_CreateAck(header, control, sizeof(add_policy_command));
-  } else {
-    return utils_CreateNack(header, control, sizeof(add_policy_command));
-  }
-}
-
-struct iovec *configuration_ProcessPolicyList(Configuration *config,
-                                                    struct iovec *request) {
-  FibEntryList *fibList = forwarder_GetFibEntries(config->forwarder);
-
-  size_t payloadSize = fibEntryList_Length(fibList);
-  struct sockaddr_in tmpAddr;
-  struct sockaddr_in6 tmpAddr6;
-
-  // allocate payload, cast from void* to uint8_t* = bytes granularity
-  uint8_t *payloadResponse =
-      parcMemory_AllocateAndClear(sizeof(list_policies_command) * payloadSize);
-
-  for (size_t i = 0; i < fibEntryList_Length(fibList); i++) {
-    FibEntry *entry = (FibEntry *)fibEntryList_Get(fibList, i);
-    NameBitvector *prefix = name_GetContentName(fibEntry_GetPrefix(entry));
-
-    list_policies_command *listPoliciesCommand =
-        (list_policies_command *)(payloadResponse +
-                (i * sizeof(list_policies_command)));
-
-    Address *addressEntry = nameBitvector_ToAddress(prefix);
-    if (addressGetType(addressEntry) == ADDR_INET) {
-      addressGetInet(addressEntry, &tmpAddr);
-      listPoliciesCommand->addressType = ADDR_INET;
-      listPoliciesCommand->address.v4.as_inaddr = tmpAddr.sin_addr;
-    } else if (addressGetType(addressEntry) == ADDR_INET6) {
-      addressGetInet6(addressEntry, &tmpAddr6);
-      listPoliciesCommand->addressType = ADDR_INET6;
-      listPoliciesCommand->address.v6.as_in6addr = tmpAddr6.sin6_addr;
-    }
-    listPoliciesCommand->len = nameBitvector_GetLength(prefix);
-    listPoliciesCommand->policy = fibEntry_GetPolicy(entry);
-
-    addressDestroy(&addressEntry);
-  }
-
-  // send response
-  header_control_message *header = request[0].iov_base;
-  header->messageType = RESPONSE_LIGHT;
-  header->length = (unsigned)payloadSize;
-
-  struct iovec *response =
-      parcMemory_AllocateAndClear(sizeof(struct iovec) * 2);
-
-  response[0].iov_base = header;
-  response[0].iov_len = sizeof(header_control_message);
-  response[1].iov_base = payloadResponse;
-  response[1].iov_len = sizeof(list_policies_command) * payloadSize;
-
-  fibEntryList_Destroy(&fibList);
-  return response;
-}
-
-struct iovec *configuration_ProcessPolicyRemove(Configuration *config,
-                                                        struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  remove_policy_command *control = request[1].iov_base;
-
-  if (forwarder_RemovePolicy(config->forwarder, control))
-    return utils_CreateAck(header, control, sizeof(remove_policy_command));
-  else
-    return utils_CreateNack(header, control, sizeof(remove_policy_command));
-}
-
-struct iovec *configuration_UpdateConnection(Configuration *config,
-                                                        struct iovec *request) {
-  header_control_message *header = request[0].iov_base;
-  update_connection_command *control = request[1].iov_base;
-
-  Connection * conn = getConnectionBySymbolicOrId(config, control->symbolicOrConnid);
-  if (!conn)
-    return utils_CreateNack(header, control, sizeof(update_connection_command));
-
-  connection_SetTags(conn, control->tags);
-  connection_SetAdminState(conn, control->admin_state);
-  if (control->priority > 0)
-    connection_SetPriority(conn, control->priority);
-
-  return utils_CreateAck(header, control, sizeof(update_connection_command));
-}
+NACK:
 #endif /* WITH_POLICY */
+    make_ack(msg);
+    return (uint8_t*)msg;
+}
+
+
+uint8_t *
+configuration_on_policy_remove(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+#ifdef WITH_POLICY
+    msg_policy_remove_t * msg = (msg_policy_remove_t *)packet;
+    cmd_policy_remove_t * control = &msg->payload;
+
+    ip_prefix_t prefix = {
+        .family = control->family,
+        .address = control->address,
+        .len = control->len
+    };
+
+    if (!forwarder_remove_policy(config->forwarder, &prefix))
+        goto NACK;
+
+    make_ack(msg);
+    return (uint8_t*)msg;
+
+NACK:
+#endif /* WITH_POLICY */
+    make_ack(msg);
+    return (uint8_t*)msg;
+}
+
+uint8_t *
+configuration_on_policy_list(configuration_t * config, uint8_t * packet,
+        unsigned ingress_id)
+{
+    assert(config);
+    assert(packet);
+
+    const fib_t * fib = forwarder_get_fib(config->forwarder);
+    assert(fib);
+    size_t n = fib_get_size(fib);
+
+#ifdef WITH_POLICY
+    msg_policy_list_reply_t * msg;
+    msg_malloc_list(msg, n);
+    if (!msg)
+        return NULL;
+
+    cmd_policy_list_item_t * payload = &msg->payload;
+
+    fib_entry_t * entry;
+
+    fib_foreach_entry(fib, entry, {
+        NameBitvector *prefix = name_GetContentName(fib_entry_get_prefix(entry));
+        address_t address;
+        nameBitvector_ToAddress(prefix, &address);
+
+        switch(address_family(&address)) {
+            case AF_INET:
+                payload->family = AF_INET;
+                payload->address.v4.as_inaddr = address4_ip(&address);
+                break;
+
+            case AF_INET6:
+                payload->family = AF_INET6;
+                payload->address.v6.as_in6addr = address6_ip(&address);
+                break;
+
+            default:
+                break;
+        }
+        payload->len = nameBitvector_GetLength(prefix);
+        payload->policy = fib_entry_get_policy(entry);
+
+        payload++;
+    });
+
+    return (uint8_t*)msg;
+#else
+    return NULL;
+#endif /* WITH_POLICY */
+}
+
+size_t
+configuration_content_store_get_size(configuration_t * config)
+{
+    return config->maximumContentObjectStoreSize;
+}
+
+void
+configuration_content_store_set_size(configuration_t * config, size_t size)
+{
+    config->maximumContentObjectStoreSize = size;
+
+    forwarder_content_store_set_size(config->forwarder,
+            config->maximumContentObjectStoreSize);
+}
+
+forwarder_t *
+configuration_get_forwarder(const configuration_t * config) {
+    return config->forwarder;
+}
+
 
 // ===========================
 // Main functions that deal with receiving commands, executing them, and sending
 // ACK/NACK
 
-struct iovec *configuration_DispatchCommand(Configuration *config,
-                                            command_id command,
-                                            struct iovec *control,
-                                            unsigned ingressId) {
-  struct iovec *response = NULL;
-  switch (command) {
-    case ADD_LISTENER:
-      response = configurationListeners_Add(config, control, ingressId);
-      break;
-
-    case ADD_CONNECTION:
-      response = configuration_ProcessCreateTunnel(config, control);
-      break;
-
-    case LIST_CONNECTIONS:
-      response = configuration_ProcessConnectionList(config, control);
-      break;
-
-    case ADD_ROUTE:
-      response =
-          configuration_ProcessRegisterHicnPrefix(config, control, ingressId);
-      break;
-
-    case LIST_ROUTES:
-      response = configuration_ProcessRegistrationList(config, control);
-      break;
-
-    case REMOVE_CONNECTION:
-      response = configuration_ProcessRemoveTunnel(config, control, ingressId);
-      break;
-
-    case REMOVE_LISTENER:
-      response = configuration_ProcessRemoveListener(config, control, ingressId);
-      break;
-
-    case REMOVE_ROUTE:
-      response = configuration_ProcessUnregisterHicnPrefix(config, control);
-      break;
-
-    case CACHE_STORE:
-      response = configuration_ProcessCacheStore(config, control);
-      break;
-
-    case CACHE_SERVE:
-      response = configuration_ProcessCacheServe(config, control);
-      break;
-
-    case CACHE_CLEAR:
-      response = configuration_ProcessCacheClear(config, control);
-      break;
-
-    case SET_STRATEGY:
-      response = configuration_SetForwardingStrategy(config, control);
-      break;
-
-    case SET_WLDR:
-      response = configuration_SetWldr(config, control);
-      break;
-
-    case ADD_PUNTING:
-      response = configurationListeners_AddPunting(config, control, ingressId);
-      break;
-
-    case LIST_LISTENERS:
-      response = configuration_ProcessListenersList(config, control);
-      break;
-
-    case MAPME_ENABLE:
-      response = configuration_MapMeEnable(config, control);
-      break;
-
-    case MAPME_DISCOVERY:
-      response = configuration_MapMeDiscovery(config, control);
-      break;
-
-    case MAPME_TIMESCALE:
-      response = configuration_MapMeTimescale(config, control);
-      break;
-
-    case MAPME_RETX:
-      response = configuration_MapMeRetx(config, control);
-      break;
-
-    case MAPME_SEND_UPDATE:
-      response = configuration_MapMeSendUpdate(config, control, ingressId);
-      break;
-
-    case CONNECTION_SET_ADMIN_STATE:
-      response = configuration_ConnectionSetAdminState(config, control);
-      break;
-
-#ifdef WITH_POLICY
-    case ADD_POLICY:
-      response = configuration_ProcessPolicyAdd(config, control);
-      break;
-
-    case LIST_POLICIES:
-      response = configuration_ProcessPolicyList(config, control);
-      break;
-
-    case REMOVE_POLICY:
-      response = configuration_ProcessPolicyRemove(config, control);
-      break;
-
-    case UPDATE_CONNECTION:
-      response = configuration_UpdateConnection(config, control);
-      break;
-
-    case CONNECTION_SET_PRIORITY:
-      response = configuration_ConnectionSetPriority(config, control);
-      break;
-
-    case CONNECTION_SET_TAGS:
-      response = configuration_ConnectionSetTags(config, control);
-      break;
-#endif /* WITH_POLICY */
-
-    default:
-      break;
-  }
-
-  return response;
+uint8_t *
+configuration_dispatch_command(configuration_t * config, command_type_t command_type,
+        uint8_t * packet, unsigned ingress_id)
+{
+    switch (command_type) {
+#define _(l, u)                                                         \
+        case COMMAND_TYPE_ ## u:                                        \
+            return configuration_on_ ## l(config, packet, ingress_id);
+    foreach_command_type
+#undef _
+        case COMMAND_TYPE_UNDEFINED:
+        case COMMAND_TYPE_N:
+            ERROR("Unexpected command type");
+            break;
+    }
+    return NULL;
 }
 
-void configuration_ReceiveCommand(Configuration *config, command_id command,
-                                  struct iovec *request, unsigned ingressId) {
-  parcAssertNotNull(config, "Parameter config must be non-null");
-  parcAssertNotNull(request, "Parameter request must be non-null");
-  struct iovec *response =
-      configuration_DispatchCommand(config, command, request, ingressId);
-  configuration_SendResponse(config, response, ingressId);
+void configuration_receive_command(configuration_t * config,
+        command_type_t command_type, uint8_t * packet, unsigned ingress_id)
+{
+    assert(config);
+    assert(command_type_is_valid(command_type));
+    assert(packet);
 
-  switch (command) {
-    case LIST_CONNECTIONS:
-    case LIST_ROUTES:  // case LIST_INTERFACES: case ETC...:
-    case LIST_LISTENERS:
-      parcMemory_Deallocate(
-          &response[1]
-               .iov_base);  // deallocate payload only if generated at fwd side
-      break;
-    default:
-      break;
-  }
+    bool nack = false;
 
-  // deallocate received request. It coincides with response[0].iov_base memory
-  // parcMemory_Deallocate(&request);    //deallocate header and payload (if
-  // same sent by controller)
-  parcMemory_Deallocate(&response);  // deallocate iovec pointer
+    uint8_t * reply = configuration_dispatch_command(config, command_type, packet, ingress_id);
+    if (!reply) {
+        reply = packet;
+        msg_header_t * hdr = (msg_header_t *)reply;
+        make_nack(hdr);
+        nack = true;
+    }
+
+    connection_table_t * table = forwarder_get_connection_table(config->forwarder);
+    const connection_t *connection = connection_table_at(table, ingress_id);
+    connection_send_packet(connection, reply, false);
+
+    switch (command_type) {
+        case COMMAND_TYPE_LISTENER_LIST:
+        case COMMAND_TYPE_CONNECTION_LIST:
+        case COMMAND_TYPE_ROUTE_LIST:
+        case COMMAND_TYPE_POLICY_LIST:
+            if (!nack)
+                free(reply);
+            break;
+        default:
+            break;
+    }
 }
