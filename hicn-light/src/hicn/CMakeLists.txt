@@ -10,21 +10,26 @@ if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND ENABLE_PUNTING)
 endif()
 
 list(APPEND COMPILER_DEFINITIONS
+#  "-DWITH_GRO"
+#  "-DWITH_GSO"
+#  "-DWITH_ZEROCOPY"
   "-DWITH_MAPME"
-  "-DWITH_POLICY"
+  "-DWITH_POLICY" # XXX Requires WITH_MAPME... enforce
+  "-DWITH_PREFIX_STATS"
+  "-DWITH_CLI"
+#  "-DNDEBUG=1" # disable assertions
 )
 
 if (NOT DISABLE_EXECUTABLES)
   add_subdirectory(command_line)
 endif()
 
+add_subdirectory(base)
 add_subdirectory(config)
 add_subdirectory(content_store)
 add_subdirectory(core)
 add_subdirectory(io)
-add_subdirectory(messenger)
 add_subdirectory(platforms)
-add_subdirectory(processor)
 add_subdirectory(socket)
 add_subdirectory(strategies)
 add_subdirectory(utils)

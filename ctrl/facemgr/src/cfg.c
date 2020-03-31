@@ -182,7 +182,7 @@ void facemgr_cfg_rule_dump(facemgr_cfg_rule_t * rule)
     DEBUG("  <rule>");
     DEBUG("    <match interface_name=%s interface_type=%s>",
             rule->match.interface_name,
-            netdevice_type_str[rule->match.interface_type]);
+            netdevice_type_str(rule->match.interface_type));
     DEBUG("    <override>");
     if (rule->override.is_face_type) {
         DEBUG("      <face_type>%d</face_type>", rule->override.face_type);
