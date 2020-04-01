@@ -53,7 +53,7 @@ list(APPEND SOURCE_FILES
 )
 
 set(RAAQM_CONFIG_INSTALL_PREFIX
-${CMAKE_INSTALL_PREFIX}/etc/hicn
+  ${CMAKE_INSTALL_FULL_SYSCONFDIR}/hicn
 )
 
 set(raaqm_config_path
