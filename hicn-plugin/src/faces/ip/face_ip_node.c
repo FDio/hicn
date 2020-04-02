@@ -565,8 +565,14 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
   ip46_address_t temp_addr;
   ip46_address_reset (&temp_addr);
   hicn_type_t type = hicn_get_buffer (b0)->type;
+
   hicn_ops_vft[type.l1]->rewrite_interest (type, &hicn->protocol,
-					   &ip_face->local_addr, &temp_addr);
+  					   &ip_face->local_addr, &temp_addr);
+
+  if (ip46_address_is_ip4(&ip_face->local_addr))
+    b0->flags |= VNET_BUFFER_F_OFFLOAD_IP_CKSUM;
+
+  b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
 
   int is_iface = 0;
   ip_adjacency_t *adj;

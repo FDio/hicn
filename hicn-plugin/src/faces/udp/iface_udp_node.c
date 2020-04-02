@@ -544,8 +544,10 @@ hicn_iface_udp4_encap (vlib_main_t * vm,
 			  sizeof (*ip0));
   udp0->length = new_l0;
 
+  outer_b0->flags |= VNET_BUFFER_F_OFFLOAD_UDP_CKSUM;
+  outer_b0->flags |= VNET_BUFFER_F_OFFLOAD_IP_CKSUM;
+
   ip0->length = clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b0));
-  ip0->checksum = ip4_header_checksum (ip0);
 }
 
 always_inline void
@@ -576,12 +578,7 @@ hicn_iface_udp6_encap (vlib_main_t * vm,
   udp0 = (udp_header_t *) (ip0 + 1);
   udp0->length = new_l0;
 
-  udp0->checksum = ip6_tcp_udp_icmp_compute_checksum (vm, b0, ip0, &bogus0);
-
-  ASSERT (bogus0 == 0);
-
-  if (udp0->checksum == 0)
-    udp0->checksum = 0xffff;
+  outer_b0->flags |= VNET_BUFFER_F_OFFLOAD_UDP_CKSUM;
 }
 
 static char *hicn_iface_udp4_output_error_strings[] = {
