@@ -489,7 +489,7 @@ hicn_rewrite_iface_data4 (vlib_main_t * vm, vlib_buffer_t * b0,
   /* Get the pointer to the old ip and tcp header */
   ip0 = vlib_buffer_get_current (b0);
 
-  /* Set up the ip6 header */
+  /* Set up the ip4 header */
   /* IP4 lenght contains the size of the ip4 header too */
   u16 sval = (vlib_buffer_length_in_chain (vm, b0));
   ip0->length = clib_host_to_net_u16 (sval);
@@ -502,9 +502,13 @@ hicn_rewrite_iface_data4 (vlib_main_t * vm, vlib_buffer_t * b0,
   ip46_address_reset (&temp_addr);
   hicn_face_ip_t *iface_ip = (hicn_face_ip_t *) iface->data;
   hicn_type_t type = hicn_get_buffer (b0)->type;
+
+  b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
+
   hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
-				       &(iface_ip->remote_addr), &(temp_addr),
-				       iface->shared.pl_id);
+        			       &(iface_ip->remote_addr), &(temp_addr),
+        			       iface->shared.pl_id);
+
 }
 
 static inline void
@@ -530,9 +534,15 @@ hicn_rewrite_iface_data6 (vlib_main_t * vm, vlib_buffer_t * b0,
   ip46_address_reset (&temp_addr);
   hicn_face_ip_t *iface_ip = (hicn_face_ip_t *) iface->data;
   hicn_type_t type = hicn_get_buffer (b0)->type;
+
+  if (ip46_address_is_ip4(&iface_ip->local_addr))
+    b0->flags |= VNET_BUFFER_F_OFFLOAD_IP_CKSUM;
+
+  b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
+
   hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
-				       &(iface_ip->remote_addr), &(temp_addr),
-				       iface->shared.pl_id);
+        			       &(iface_ip->remote_addr), &(temp_addr),
+        			       iface->shared.pl_id);
 }
 
 static char *hicn_iface_ip4_output_error_strings[] = {

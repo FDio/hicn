@@ -502,8 +502,6 @@ hicn_face_udp4_encap (vlib_main_t * vm,
 		      vlib_buffer_t * outer_b0,
 		      hicn_face_t * face, u32 * next)
 {
-  u16 old_l0 = 0, new_l0;
-  ip_csum_t sum0;
   ip4_header_t *ip0;
   udp_header_t *udp0;
   hicn_face_udp_t *face_udp = (hicn_face_udp_t *) face->data;
@@ -516,23 +514,14 @@ hicn_face_udp4_encap (vlib_main_t * vm,
   /* Fix UDP length */
   udp0 = (udp_header_t *) (ip0 + 1);
 
-  new_l0 =
-    clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, outer_b0) -
-			  sizeof (*ip0));
-  udp0->length = new_l0;
+  udp0->length = clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, outer_b0) -
+                                       sizeof (*ip0));
 
-  old_l0 = ip0->length;
   ip0->length =
     clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, outer_b0));
 
-  sum0 = ip0->checksum;
-
-  //old_l0 always 0, see the rewrite setup
-  new_l0 = ip0->length;
-
-  sum0 = ip_csum_update (sum0, old_l0, new_l0, ip4_header_t,
-			 length /* changed member */ );
-  ip0->checksum = sum0;
+  outer_b0->flags |= VNET_BUFFER_F_OFFLOAD_UDP_CKSUM;
+  outer_b0->flags |= VNET_BUFFER_F_OFFLOAD_IP_CKSUM;
 
   int is_iface = 0;
   ip_adjacency_t *adj;
@@ -600,8 +589,7 @@ hicn_face_udp6_encap (vlib_main_t * vm,
 
   ASSERT (bogus0 == 0);
 
-  if (udp0->checksum == 0)
-    udp0->checksum = 0xffff;
+  outer_b0->flags |= VNET_BUFFER_F_OFFLOAD_UDP_CKSUM;
 
   int is_iface = 0;
   ip_adjacency_t *adj;
