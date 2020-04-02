@@ -65,7 +65,7 @@ icmp_reset_data_for_hash (hicn_type_t type, hicn_protocol_t * h)
 
   return CHILD_OPS (reset_data_for_hash, type, h);
 }
-
+#if 0
 int
 icmp_update_checksums (hicn_type_t type, hicn_protocol_t * h,
 		       u16 partial_csum, size_t payload_length)
@@ -86,6 +86,7 @@ icmp_verify_checksums (hicn_type_t type, hicn_protocol_t * h,
 //        return HICN_LIB_ERROR_CORRUPTED_PACKET;
 //    return CHILD_OPS(verify_checksums, type, h->icmp, 0, payload_length);
 }
+#endif
 
 int
 icmp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
