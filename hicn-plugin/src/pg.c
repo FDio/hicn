@@ -113,12 +113,6 @@ convert_interest_to_data_v4 (vlib_main_t * vm, vlib_buffer_t * b0,
 always_inline void
 convert_interest_to_data_v6 (vlib_main_t * vm, vlib_buffer_t * b0,
 			     vlib_buffer_t * rb, u32 bi0);
-
-always_inline void
-calculate_tcp_checksum_v4 (vlib_main_t * vm, vlib_buffer_t * b0);
-
-always_inline void
-calculate_tcp_checksum_v6 (vlib_main_t * vm, vlib_buffer_t * b0);
 /*
  * Node function for the icn packet-generator client. The goal here is to
  * manipulate/tweak a stream of packets that have been injected by the vpp
@@ -419,8 +413,10 @@ hicn_rewrite_interestv4 (vlib_main_t * vm, vlib_buffer_t * b0, u32 seq_number,
   /* Update lifetime  (currently L4 checksum is not updated) */
   HICN_OPS4->set_lifetime (type, &h0->protocol, interest_lifetime);
 
+
   /* Update checksums */
-  HICN_OPS4->update_checksums (type, &h0->protocol, 0, 0);
+  b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
+  b0->flags |= VNET_BUFFER_F_OFFLOAD_IP_CKSUM;
 }
 
 /**
@@ -465,81 +461,7 @@ hicn_rewrite_interestv6 (vlib_main_t * vm, vlib_buffer_t * b0, u32 seq_number,
   HICN_OPS6->set_lifetime (type, &h0->protocol, interest_lifetime);
 
   /* Update checksums */
-  calculate_tcp_checksum_v6 (vm, b0);
-}
-
-
-
-void
-calculate_tcp_checksum_v4 (vlib_main_t * vm, vlib_buffer_t * b0)
-{
-  ip4_header_t *ip0;
-  tcp_header_t *tcp0;
-  ip_csum_t sum0;
-  u32 tcp_len0;
-
-  ip0 = (ip4_header_t *) (vlib_buffer_get_current (b0));
-  tcp0 =
-    (tcp_header_t *) (vlib_buffer_get_current (b0) + sizeof (ip4_header_t));
-  tcp_len0 = clib_net_to_host_u16 (ip0->length) - sizeof (ip4_header_t);
-
-  /* Initialize checksum with header. */
-  if (BITS (sum0) == 32)
-    {
-      sum0 = clib_mem_unaligned (&ip0->src_address, u32);
-      sum0 =
-	ip_csum_with_carry (sum0,
-			    clib_mem_unaligned (&ip0->dst_address, u32));
-    }
-  else
-    sum0 = clib_mem_unaligned (&ip0->src_address, u64);
-
-  sum0 = ip_csum_with_carry
-    (sum0, clib_host_to_net_u32 (tcp_len0 + (ip0->protocol << 16)));
-
-  /* Invalidate possibly old checksum. */
-  tcp0->checksum = 0;
-
-  u32 tcp_offset = sizeof (ip4_header_t);
-  sum0 = ip_incremental_checksum_buffer (vm, b0, tcp_offset, tcp_len0, sum0);
-
-  tcp0->checksum = ~ip_csum_fold (sum0);
-}
-
-void
-calculate_tcp_checksum_v6 (vlib_main_t * vm, vlib_buffer_t * b0)
-{
-  ip6_header_t *ip0;
-  tcp_header_t *tcp0;
-  ip_csum_t sum0;
-  u32 tcp_len0;
-
-  ip0 = (ip6_header_t *) (vlib_buffer_get_current (b0));
-  tcp0 =
-    (tcp_header_t *) (vlib_buffer_get_current (b0) + sizeof (ip6_header_t));
-  tcp_len0 = clib_net_to_host_u16 (ip0->payload_length);
-
-  /* Initialize checksum with header. */
-  if (BITS (sum0) == 32)
-    {
-      sum0 = clib_mem_unaligned (&ip0->src_address, u32);
-      sum0 =
-	ip_csum_with_carry (sum0,
-			    clib_mem_unaligned (&ip0->dst_address, u32));
-    }
-  else
-    sum0 = clib_mem_unaligned (&ip0->src_address, u64);
-
-  sum0 = ip_csum_with_carry
-    (sum0, clib_host_to_net_u32 (tcp_len0 + (ip0->protocol << 16)));
-
-  /* Invalidate possibly old checksum. */
-  tcp0->checksum = 0;
-
-  u32 tcp_offset = sizeof (ip6_header_t);
-  sum0 = ip_incremental_checksum_buffer (vm, b0, tcp_offset, tcp_len0, sum0);
-
-  tcp0->checksum = ~ip_csum_fold (sum0);
+  b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
 }
 
 /* *INDENT-OFF* */
@@ -1234,8 +1156,9 @@ convert_interest_to_data_v4 (vlib_main_t * vm, vlib_buffer_t * b0,
   h0->v4.ip.daddr = src_addr;
 
   h0->v4.ip.len = clib_host_to_net_u16 (vlib_buffer_length_in_chain (vm, b0));
-  h0->v4.ip.csum = ip4_header_checksum ((ip4_header_t *) & (h0->v4.ip));
-  calculate_tcp_checksum_v4 (vm, b0);
+
+  b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
+  b0->flags |= VNET_BUFFER_F_OFFLOAD_IP_CKSUM;
 }
 
 void
@@ -1273,7 +1196,7 @@ convert_interest_to_data_v6 (vlib_main_t * vm, vlib_buffer_t * b0,
   h0->v6.tcp.data_offset_and_reserved |= 0x0f;
   h0->v6.tcp.urg_ptr = htons (0xffff);
 
-  calculate_tcp_checksum_v6 (vm, b0);
+  b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
 }
 
 /* *INDENT-OFF* */
