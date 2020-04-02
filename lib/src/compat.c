@@ -136,6 +136,7 @@ hicn_packet_init_header (hicn_format_t format, hicn_header_t * packet)
   return hicn_ops_vft[type.l1]->init_packet_header (type, &packet->protocol);
 }
 
+#if 0
 int
 hicn_packet_compute_checksum (hicn_format_t format, hicn_header_t * h)
 {
@@ -159,6 +160,7 @@ hicn_packet_check_integrity (hicn_format_t format, hicn_header_t * h)
   hicn_type_t type = hicn_format_to_type (format);
   return hicn_ops_vft[type.l1]->verify_checksums (type, &h->protocol, 0, 0);
 }
+#endif
 
 int
 hicn_packet_get_header_length_from_format (hicn_format_t format,

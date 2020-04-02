@@ -86,6 +86,7 @@ int hicn_packet_init_header (hicn_format_t format, hicn_header_t * packet);
 int hicn_packet_get_format (const hicn_header_t * packet,
 			    hicn_format_t * format);
 
+#if 0
 /**
  * @brief Update checksums in packet headers
  * @param [in] format - hICN format
@@ -115,6 +116,7 @@ int hicn_packet_compute_header_checksum (hicn_format_t format,
 int hicn_packet_check_integrity (hicn_format_t format,
 				 hicn_header_t * packet);
 
+#endif
 // this is not accounted here
 /**
  * @brief Return total length of hicn headers (but signature payload)

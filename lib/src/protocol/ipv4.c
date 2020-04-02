@@ -213,6 +213,7 @@ ipv4_set_lifetime (hicn_type_t type, hicn_protocol_t * h,
   return CHILD_OPS (set_lifetime, type, h, lifetime);
 }
 
+#if 0
 int
 ipv4_update_checksums (hicn_type_t type, hicn_protocol_t * h,
 		       u16 partial_csum, size_t payload_length)
@@ -290,6 +291,7 @@ ipv4_verify_checksums (hicn_type_t type, hicn_protocol_t * h,
 
   return CHILD_OPS (update_checksums, type, h, partial_csum, payload_length);
 }
+#endif
 
 int
 ipv4_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
@@ -303,8 +305,10 @@ ipv4_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
   addr_old->pad[2] = 0;
 
   h->ipv4.saddr = addr_new->ip4;
+#if 0
   h->ipv4.csum = 0;
   h->ipv4.csum = csum (&h->ipv4, IPV4_HDRLEN, 0);
+#endif
 
   return CHILD_OPS (rewrite_interest, type, h, addr_new, addr_old);
 }
