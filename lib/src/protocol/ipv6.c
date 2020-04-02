@@ -203,6 +203,7 @@ ipv6_set_lifetime (hicn_type_t type, hicn_protocol_t * h,
   return CHILD_OPS (set_lifetime, type, h, lifetime);
 }
 
+#if 0
 int
 ipv6_update_checksums (hicn_type_t type, hicn_protocol_t * h,
 		       u16 partial_csum, size_t payload_length)
@@ -268,6 +269,7 @@ ipv6_verify_checksums (hicn_type_t type, hicn_protocol_t * h,
 
   return CHILD_OPS (verify_checksums, type, h, partial_csum, payload_length);
 }
+#endif
 
 int
 ipv6_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,

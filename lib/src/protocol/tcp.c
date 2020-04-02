@@ -188,6 +188,7 @@ tcp_set_lifetime (hicn_type_t type, hicn_protocol_t * h,
   return HICN_LIB_ERROR_NONE;
 }
 
+#if 0
 int
 tcp_update_checksums (hicn_type_t type, hicn_protocol_t * h, u16 partial_csum,
 		      size_t payload_length)
@@ -212,6 +213,7 @@ tcp_verify_checksums (hicn_type_t type, hicn_protocol_t * h, u16 partial_csum,
     return HICN_LIB_ERROR_CORRUPTED_PACKET;
   return CHILD_OPS (verify_checksums, type, h, 0, payload_length);
 }
+#endif
 
 #define TCP_OFFSET_MASK                13
 #define TCP_OFFSET_DATA_OFFSET         12
@@ -237,6 +239,7 @@ tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 		      const ip46_address_t * addr_new,
 		      ip46_address_t * addr_old)
 {
+  #if 0
   u16 *tcp_checksum = &(h->tcp.csum);
 
   /*
@@ -253,7 +256,7 @@ tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
   csum = ip_csum_add_even (csum, (ip_csum_t) (h->ipv6.saddr.as_u64[1]));
 
   *tcp_checksum = ip_csum_fold (csum);
-
+  #endif
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -262,6 +265,7 @@ tcp_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
 		  const ip46_address_t * addr_new, ip46_address_t * addr_old,
 		  const hicn_faceid_t face_id)
 {
+  #if 0
   u16 *tcp_checksum = &(h->tcp.csum);
 
   /*
@@ -282,7 +286,7 @@ tcp_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
   csum = ip_csum_add_even (csum, h->tcp.pathlabel);
 
   *tcp_checksum = ip_csum_fold (csum);
-
+  #endif
   return HICN_LIB_ERROR_NONE;
 }
 

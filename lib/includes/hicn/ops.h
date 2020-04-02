@@ -231,6 +231,7 @@ typedef struct hicn_ops_s
   int (*set_lifetime) (hicn_type_t type, hicn_protocol_t * h,
 		       const hicn_lifetime_t lifetime);
 
+#if 0
   /**
    * @brief Update all checksums in packet headers
    * @param [in] type - hICN packet type
@@ -257,6 +258,7 @@ typedef struct hicn_ops_s
   int (*verify_checksums) (hicn_type_t type, hicn_protocol_t * h,
 			   u16 partial_csum, size_t payload_length);
 
+#endif
   /**
    * @brief Rewrite an Interest packet header (locator)
    * @param [in] type - hICN packet type
@@ -451,8 +453,6 @@ typedef struct hicn_ops_s
     ATTR_INIT(reset_data_for_hash,      protocol ## _reset_data_for_hash),      \
     ATTR_INIT(get_lifetime,             protocol ## _get_lifetime),             \
     ATTR_INIT(set_lifetime,             protocol ## _set_lifetime),             \
-    ATTR_INIT(update_checksums,         protocol ## _update_checksums),         \
-    ATTR_INIT(verify_checksums,         protocol ## _verify_checksums),         \
     ATTR_INIT(rewrite_interest,         protocol ## _rewrite_interest),         \
     ATTR_INIT(rewrite_data,             protocol ## _rewrite_data),             \
     ATTR_INIT(get_length,               protocol ## _get_length),               \
@@ -576,11 +576,13 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t * h)
 #define DECLARE_set_lifetime(protocol, error) \
     int protocol ## _set_lifetime(hicn_type_t type, hicn_protocol_t * h, const hicn_lifetime_t lifetime) { return HICN_LIB_ERROR_ ## error ; }
 
+#if 0
 #define DECLARE_update_checksums(protocol, error) \
     int protocol ## _update_checksums(hicn_type_t type, hicn_protocol_t * h, u16 partial_csum, size_t payload_length) { return HICN_LIB_ERROR_ ## error ; }
 
 #define DECLARE_verify_checksums(protocol, error) \
     int protocol ## _verify_checksums(hicn_type_t type, hicn_protocol_t * h, u16 partial_csum, size_t payload_length) { return HICN_LIB_ERROR_ ## error ; }
+#endif
 
 #define DECLARE_rewrite_interest(protocol, error) \
     int protocol ## _rewrite_interest(hicn_type_t type, hicn_protocol_t * h, const ip46_address_t * addr_new, ip46_address_t * addr_old) { return HICN_LIB_ERROR_ ## error ; }

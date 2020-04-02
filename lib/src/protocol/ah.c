@@ -83,6 +83,7 @@ ah_reset_data_for_hash (hicn_type_t type, hicn_protocol_t * h)
   return CHILD_OPS (reset_interest_for_hash, type, h);
 }
 
+#if 0
 int
 ah_update_checksums (hicn_type_t type, hicn_protocol_t * h, u16 partial_csum,
 		     size_t payload_length)
@@ -98,6 +99,7 @@ ah_verify_checksums (hicn_type_t type, hicn_protocol_t * h, u16 partial_csum,
   /* Nothing to do as there is no checksum in AH */
   return HICN_LIB_ERROR_NONE;
 }
+#endif
 
 int
 ah_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,

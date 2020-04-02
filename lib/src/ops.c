@@ -53,8 +53,10 @@ DECLARE_update_data_pathlabel (none, NONE);
 DECLARE_reset_data_for_hash (none, NONE);
 DECLARE_get_lifetime (none, NONE);
 DECLARE_set_lifetime (none, NONE);
+#if 0
 DECLARE_update_checksums (none, NONE);
 DECLARE_verify_checksums (none, NONE);
+#endif
 DECLARE_rewrite_interest (none, NONE);
 DECLARE_rewrite_data (none, NONE);
 DECLARE_get_length (none, NONE);
