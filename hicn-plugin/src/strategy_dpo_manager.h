@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -35,8 +35,8 @@ typedef struct hicn_dpo_vft_s
     dpo_type_t (*hicn_dpo_get_type) (void);
 	/**< Return the type of the hICN dpo */
   void (*hicn_dpo_module_init) (void);			/**< Initialize the hICN dpo */
-  void (*hicn_dpo_create) (dpo_proto_t proto, const dpo_id_t * nh, int nh_len, index_t * dpo_idx);			/**< Create the context of the hICN dpo */
-  int (*hicn_dpo_add_update_nh) (const dpo_id_t * nh, index_t dpo_idx);				/**< Add a next hop to the hICN dpo context */
+  void (*hicn_dpo_create) (dpo_proto_t proto, const hicn_face_id_t * nh, int nh_len, index_t * dpo_idx);			/**< Create the context of the hICN dpo */
+  int (*hicn_dpo_add_update_nh) (hicn_face_id_t nh, index_t dpo_idx);				/**< Add a next hop to the hICN dpo context */
   int (*hicn_dpo_del_nh) (hicn_face_id_t face_id, index_t dpo_idx);
   u8 *(*hicn_dpo_format) (u8 * s, int, ...);
 	/**< Format an hICN dpo*/

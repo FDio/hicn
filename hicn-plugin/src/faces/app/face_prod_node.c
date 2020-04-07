@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -300,8 +300,8 @@ VLIB_REGISTER_NODE(hicn_face_prod_input_node) =
   .n_next_nodes = HICN_FACE_PROD_N_NEXT,
   .next_nodes =
   {
-    [HICN_FACE_PROD_NEXT_DATA_IP4] = "hicn-face-ip4-input",
-    [HICN_FACE_PROD_NEXT_DATA_IP6] = "hicn-face-ip6-input",
+    [HICN_FACE_PROD_NEXT_DATA_IP4] = "hicn4-face-input",
+    [HICN_FACE_PROD_NEXT_DATA_IP6] = "hicn6-face-input",
     [HICN_FACE_PROD_NEXT_ERROR_DROP] = "error-drop",
   },
 };

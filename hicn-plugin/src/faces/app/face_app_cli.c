@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -18,8 +18,7 @@
 #include <vlib/vlib.h>
 #include <vnet/ip/ip6_packet.h>
 
-#include "../ip/face_ip.h"
-#include "../ip/dpo_ip.h"
+//#include "../face_dpo.h"
 #include "../face.h"
 #include "face_prod.h"
 #include "face_cons.h"
@@ -164,7 +163,7 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
       {
 	hicn_face_t *face = hicn_dpoi_get_from_idx (face_id1);
 
-	if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_CONS)
+	if (face->flags & HICN_FACE_FLAGS_APPFACE_CONS)
 	  rv = hicn_face_cons_del (face_id1);
 	else
 	  rv = hicn_face_prod_del (face_id1);

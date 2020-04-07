@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -17,7 +17,7 @@
 #define _FACE_PRODUCER_H_
 
 #include "../../cache_policies/cs_policy.h"
-#include "../ip/face_ip.h"
+#include "../face.h"
 
 /**
  * @file
@@ -55,15 +55,6 @@ typedef struct
 extern hicn_face_prod_state_t *face_state_vec;
 
 #define DEFAULT_PROBING_PORT 3784
-
-typedef struct __attribute__ ((packed)) hicn_face_prod_t_
-{
-  hicn_face_ip_t ip_face;
-
-  hicn_cs_policy_t policy;
-  hicn_cs_policy_vft_t policy_vft;
-
-} hicn_face_prod_t;
 
 /**
  * @brief Add a new producer application face

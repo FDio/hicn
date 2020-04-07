@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -34,7 +34,6 @@ hicn_pit_create (hicn_pit_cs_t * p, u32 num_elems)
     (HICN_PARAM_CS_LRU_DEFAULT * HICN_PARAM_CS_RESERVED_APP / 100);
   p->policy_state.count = 0;
   p->policy_state.head = p->policy_state.tail = 0;
-  p->pcs_app_max = HICN_PARAM_CS_LRU_DEFAULT - p->policy_state.max;
 
   p->policy_vft.hicn_cs_insert = hicn_cs_lru.hicn_cs_insert;
   p->policy_vft.hicn_cs_update = hicn_cs_lru.hicn_cs_update;

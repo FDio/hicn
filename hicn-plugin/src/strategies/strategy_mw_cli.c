@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -97,7 +97,7 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
 	(hicn_strategy_mw_ctx_t *) hicn_dpo_ctx;
       int idx = ~0;
       for (int i = 0; i < hicn_dpo_ctx->entry_count; i++)
-	if (hicn_dpo_ctx->next_hops[i].dpoi_index == (index_t) faceid)
+	if (hicn_dpo_ctx->next_hops[i] == faceid)
 	  idx = i;
 
       if (idx == ~0)
