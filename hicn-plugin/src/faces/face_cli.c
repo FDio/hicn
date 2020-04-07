@@ -74,8 +74,7 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
 				  (HICN_ERROR_FACE_NOT_FOUND));
 
       hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
-      hicn_face_vft_t *vft = hicn_face_get_vft (face->shared.face_type);
-      vlib_cli_output (vm, "%U\n", vft->format_face, face_id, 0 /*indent */ );
+      vlib_cli_output (vm, "%U\n", format_hicn_face, face_id, 0 /*indent */ );
 
       u32 indent = 3;
 
@@ -107,16 +106,14 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
       if (found != ~0)
 	{
 	  hicn_face_t *face;
-	  dpo_type_t type = (dpo_type_t) (found + first_type);
-	  hicn_face_vft_t *vft = hicn_face_get_vft (type);
 	  /* *INDENT-OFF* */
           pool_foreach(face, hicn_dpoi_face_pool,
                        {
-                         if (!((face->shared.flags & HICN_FACE_FLAGS_DELETED) && !deleted))
+                         if (!((face->flags & HICN_FACE_FLAGS_DELETED) && !deleted))
                            {
-                             if ((face->shared.face_type == type) && (face->shared.flags))
+                             if (face->flags)
                                {
-                                 vlib_cli_output(vm, "%U\n", vft->format_face, hicn_dpoi_get_index(face), 0);
+                                 vlib_cli_output(vm, "%U\n", format_hicn_face, hicn_dpoi_get_index(face), 0);
                                  u8 * s = 0;
                                  u32 indent = 3;
 
@@ -147,10 +144,9 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
 	  /* *INDENT-OFF* */
           pool_foreach(face, hicn_dpoi_face_pool,
                        {
-                         if (!((face->shared.flags & HICN_FACE_FLAGS_DELETED) && !deleted))
+                         if (!((face->flags & HICN_FACE_FLAGS_DELETED) && !deleted))
                            {
-                             hicn_face_vft_t * vft = hicn_face_get_vft(face->shared.face_type);
-                             vlib_cli_output(vm, "%U\n", vft->format_face, hicn_dpoi_get_index(face), 0);
+                             vlib_cli_output(vm, "%U\n", format_hicn_face, hicn_dpoi_get_index(face), 0);
                              u32 indent = 3;
                              u8 * s = 0;
 
@@ -184,7 +180,7 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
 VLIB_CLI_COMMAND (hicn_face_cli_show_command, static) =
 {
   .path = "hicn face show",
-  .short_help = "hicn face show [<face_id>| type <ip/udp>]",
+  .short_help = "hicn face show [<face_id>]",
   .function = hicn_face_cli_show_command_fn,
 };
 /* *INDENT-ON* */

@@ -25,7 +25,7 @@
 #include "error.h"
 #include "faces/app/address_mgr.h"
 #include "face_db.h"
-#include "faces/udp/face_udp.h"
+//#include "faces/udp/face_udp.h"
 #include "route.h"
 
 hicn_main_t hicn_main;
@@ -45,8 +45,7 @@ hicn_face_bucket_t *hicn_face_bucket_pool;
  * Init hicn forwarder with configurable PIT, CS sizes
  */
 static int
-hicn_infra_fwdr_init (uint32_t shard_pit_size, uint32_t shard_cs_size,
-		      uint32_t cs_reserved)
+hicn_infra_fwdr_init (uint32_t shard_pit_size, uint32_t shard_cs_size)
 {
   int ret = 0;
 
@@ -64,12 +63,7 @@ hicn_infra_fwdr_init (uint32_t shard_pit_size, uint32_t shard_cs_size,
   hicn_infra_slow_timer = 1;
 
   ret = hicn_pit_create (&hicn_main.pitcs, hicn_infra_pit_size);
-  hicn_pit_set_lru_max (&hicn_main.pitcs,
-			hicn_infra_cs_size -
-			(hicn_infra_cs_size * cs_reserved / 100));
-  hicn_pit_set_lru_app_max (&hicn_main.pitcs,
-			    hicn_infra_cs_size * cs_reserved / 100);
-
+  hicn_pit_set_lru_max (&hicn_main.pitcs, hicn_infra_cs_size);
 done:
   if ((ret == HICN_ERROR_NONE) && !hicn_infra_fwdr_initialized)
     {
@@ -86,12 +80,12 @@ int
 hicn_infra_plugin_enable_disable (int enable_disable,
 				  int pit_size_req,
 				  f64 pit_max_lifetime_sec_req,
-				  int cs_size_req, int cs_reserved_app)
+				  int cs_size_req)
 {
   int ret = 0;
 
   hicn_main_t *sm = &hicn_main;
-  uint32_t pit_size, cs_size, cs_reserved;
+  uint32_t pit_size, cs_size;
 
   /* Notice if we're already enabled... */
   if (sm->is_enabled)
@@ -168,18 +162,7 @@ hicn_infra_plugin_enable_disable (int enable_disable,
       cs_size = (uint32_t) cs_size_req;
     }
 
-  if (cs_reserved_app < 0)
-    {
-      cs_reserved = HICN_PARAM_CS_RESERVED_APP;
-    }
-  else
-    {
-      if (cs_reserved_app >= 100)
-	ret = HICN_ERROR_CS_CONFIG_RESERVED_OOB;
-      cs_reserved = cs_reserved_app;
-    }
-
-  ret = hicn_infra_fwdr_init (pit_size, cs_size, cs_reserved);
+  ret = hicn_infra_fwdr_init (pit_size, cs_size);
 
   hicn_face_db_init (pit_size);
 
@@ -189,7 +172,7 @@ hicn_infra_plugin_enable_disable (int enable_disable,
     }
   sm->is_enabled = 1;
 
-  hicn_face_udp_init_internal ();
+  //hicn_face_udp_init_internal ();
 
 done:
 
@@ -202,7 +185,6 @@ hicn_configure (vlib_main_t * vm, unformat_input_t * input)
   u32 pit_size = HICN_PARAM_PIT_ENTRIES_DFLT;
   u32 cs_size = HICN_PARAM_CS_ENTRIES_DFLT;
   u64 pit_lifetime_max_sec = HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS / SEC_MS;
-  int cs_reserved = HICN_PARAM_CS_RESERVED_APP;
 
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
@@ -212,19 +194,15 @@ hicn_configure (vlib_main_t * vm, unformat_input_t * input)
 	;
       else if (unformat (input, "pit-lifetime-max %u", &pit_lifetime_max_sec))
 	;
-      else if (unformat (input, "cs-reserved-app %u", &cs_reserved))
-	;
       else
 	break;
-//  clib_error_return (0, 
-//                                                            "hICN parameter unknown");
     }
 
   unformat_free (input);
 
   hicn_infra_plugin_enable_disable (1, pit_size,
 				    pit_lifetime_max_sec,
-				    cs_size, cs_reserved);
+				    cs_size);
 
 
   return 0;
