@@ -37,7 +37,7 @@ STATIC_ASSERT ((HICN_PARAM_FACES_MAX & (HICN_PARAM_FACES_MAX - 1)) == 0,
 #define HICN_PARAM_HICN_NAME_LEN_MAX 20	//bytes
 
 // Max next - hops supported in a FIB entry
-#define HICN_PARAM_FIB_ENTRY_NHOPS_MAX   5
+#define HICN_PARAM_FIB_ENTRY_NHOPS_MAX   10
 
 // Default and limit on weight, whatever weight means
 #define HICN_PARAM_FIB_ENTRY_NHOP_WGHT_DFLT   0x10

@@ -76,8 +76,6 @@ format_hicn_strategy_rr_ctx (u8 * s, va_list * ap)
   index_t index = va_arg (*ap, index_t);
   hicn_dpo_ctx_t *dpo_ctx = NULL;
   hicn_strategy_rr_ctx_t *rr_dpo_ctx = NULL;
-  dpo_id_t *next_hop = NULL;
-  hicn_face_vft_t *face_vft = NULL;
   u32 indent = va_arg (*ap, u32);
 
   dpo_ctx = hicn_strategy_dpo_ctx_get (index);
@@ -88,7 +86,7 @@ format_hicn_strategy_rr_ctx (u8 * s, va_list * ap)
 
   s =
     format (s, "hicn-rr, next hop Face %d",
-	    dpo_ctx->next_hops[rr_dpo_ctx->current_nhop].dpoi_index);
+	    dpo_ctx->next_hops[rr_dpo_ctx->current_nhop]);
 
   for (i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
     {
@@ -101,23 +99,18 @@ format_hicn_strategy_rr_ctx (u8 * s, va_list * ap)
       else
 	continue;
 
-      next_hop = &dpo_ctx->next_hops[i];
-      face_vft = hicn_face_get_vft (next_hop->dpoi_type);
-      if (face_vft != NULL)
-	{
-	  s = format (s, "\n");
-	  s =
-	    format (s, "%U ", face_vft->format_face, next_hop->dpoi_index,
-		    indent);
-	  s = format (s, " %s", buf);
-	}
+      s = format (s, "\n");
+      s =
+        format (s, "%U ", format_hicn_face, dpo_ctx->next_hops[i],
+                indent);
+      s = format (s, " %s", buf);
     }
 
   return (s);
 }
 
 void
-hicn_strategy_rr_ctx_create (dpo_proto_t proto, const dpo_id_t * next_hop,
+hicn_strategy_rr_ctx_create (dpo_proto_t proto, const hicn_face_id_t * next_hop,
 			     int nh_len, index_t * dpo_idx)
 {
   hicn_strategy_rr_ctx_t *hicn_strategy_rr_ctx;
@@ -135,7 +128,7 @@ hicn_strategy_rr_ctx_create (dpo_proto_t proto, const dpo_id_t * next_hop,
 }
 
 int
-hicn_strategy_rr_ctx_add_nh (const dpo_id_t * nh, index_t dpo_idx)
+hicn_strategy_rr_ctx_add_nh (hicn_face_id_t nh, index_t dpo_idx)
 {
   hicn_dpo_ctx_t *hicn_strategy_dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
   u8 pos = 0;

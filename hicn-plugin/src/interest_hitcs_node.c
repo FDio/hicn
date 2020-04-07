@@ -184,9 +184,10 @@ hicn_interest_hitcs_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	       * Retrieve the incoming iface and forward
 	       * the data through it
 	       */
-	      next0 = hicnb0->face_dpo_id.dpoi_next_node;
+	      next0 = hicnb0->face_id;
 	      vnet_buffer (b0)->ip.adj_index[VLIB_TX] =
-		hicnb0->face_dpo_id.dpoi_index;
+		isv6 ? HICN_INTEREST_HITCS_NEXT_IFACE6_OUT :
+                HICN_INTEREST_HITCS_NEXT_IFACE4_OUT;
 
 	      clone_from_cs (vm, &pitp->u.cs.cs_pkt_buf, b0, isv6);
 
@@ -277,9 +278,9 @@ VLIB_REGISTER_NODE(hicn_interest_hitcs_node) =
   .next_nodes =
   {
     [HICN_INTEREST_HITCS_NEXT_STRATEGY] = "hicn-strategy",
-    [HICN_INTEREST_HITCS_NEXT_PUSH] = "hicn-data-push",
-    [HICN_INTEREST_HITCS_NEXT_ERROR_DROP] = "error-drop",
-    [HICN_INTEREST_HITCS_NEXT_EMPTY] = "ip6-lookup"
+    [HICN_INTEREST_HITCS_NEXT_IFACE4_OUT] = "hicn4-iface-output",
+    [HICN_INTEREST_HITCS_NEXT_IFACE6_OUT] = "hicn6-iface-output",
+    [HICN_INTEREST_HITCS_NEXT_ERROR_DROP] = "error-drop"
   },
 };
 /* *INDENT-ON* */
