@@ -339,7 +339,7 @@ extern mhash_t hicn_face_vec_hashtb;
  * interface. The former is used to retrieve the incoming face when an interest
  * is received, the latter when the arring packet is a data.
  */
-typedef struct hicn_face_key_s
+typedef struct __attribute__ ((packed)) hicn_face_key_s
 {
   ip46_address_t addr;
   union {
@@ -396,6 +396,15 @@ hicn_face_get (const ip46_address_t * addr, u32 sw_if, mhash_t * hashtb)
   return NULL;
 }
 
+/**
+ * @brief Get the dpoi from the nat address. Does not add any lock.
+ *
+ * @param addr Ip v4 address used to create the key for the hash table.
+ * @param sw_if Software interface id used to create the key for the hash table.
+ * @param hashtb Hash table (remote or local) where to perform the lookup.
+ *
+ * @result Pointer to the face.
+ */
 always_inline hicn_face_t *
 hicn_face_get_with_dpo (const ip46_address_t * addr, u32 sw_if, const dpo_id_t * dpo, mhash_t * hashtb)
 {
