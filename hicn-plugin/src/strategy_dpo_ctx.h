@@ -23,7 +23,7 @@
 #include "faces/face.h"
 
 //FIB table for hicn. 0 is the default one used by ip
-#define HICN_FIB_TABLE 0
+#define HICN_FIB_TABLE 10
 
 #define NEXT_HOP_INVALID ~0
 
@@ -51,17 +51,30 @@ typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
   /* Number of TFIB entries (stored at the end of the next_hops array */
   u8 tfib_entry_count;
 
+  dpo_type_t dpo_type;
+
   /* 46B + 2B = 48B */
-  u16 padding;			/* To align to 8B */
+  u8 padding;			/* To align to 8B */
 
   /* 48 + 4B = 52; last sequence number */
   u32 seq;
 
-  /* 48 + 1B = 53; last sequence number */
-  dpo_type_t dpo_type;
+  /* 52 + 12 = 64 */
+  fib_node_t fib_node;
 
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline1);
-  u8 data[CLIB_CACHE_LINE_BYTES];
+
+  fib_node_index_t fib_entry_index;
+
+  u32 fib_sibling;
+
+  union
+  {
+    u32 padding_proto;
+    fib_protocol_t proto;
+  };
+
+  u8 data[CLIB_CACHE_LINE_BYTES - 12];
 
 } hicn_dpo_ctx_t;
 
@@ -77,7 +90,7 @@ extern hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
  */
 always_inline void
 init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx, const hicn_face_id_t * next_hop,
-	      int nh_len, dpo_type_t dpo_type)
+	      int nh_len, dpo_type_t dpo_type, dpo_proto_t proto)
 {
   hicn_face_id_t invalid = NEXT_HOP_INVALID;
 
@@ -88,6 +101,8 @@ init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx, const hicn_face_id_t * next_hop,
 
   dpo_ctx->seq = INIT_SEQ;
   dpo_ctx->dpo_type = dpo_type;
+
+  dpo_ctx->proto = proto;
 
   for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX && i < nh_len; i++)
     {
