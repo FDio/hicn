@@ -252,7 +252,7 @@ long checkFileStatus(std::string file_name) {
 void usage(char *program_name) {
   std::cerr << "usage:" << std::endl;
   std::cerr << program_name << " [option]... [url]..." << std::endl;
-  std::cerr << program_name << "options:" << std::endl;
+  std::cerr << program_name << " options:" << std::endl;
   std::cerr
       << "-O <out_put_path>            = write documents to <out_put_file>"
       << std::endl;
@@ -303,8 +303,11 @@ int main(int argc, char **argv) {
     }
   }
 
-  name = argv[optind];
+  if (!argv[optind]) {
+    usage(argv[0]);
+  }
 
+  name = argv[optind];
   std::cerr << "Using name " << name << " and name first word "
             << conf.ipv6_first_word << std::endl;
 
