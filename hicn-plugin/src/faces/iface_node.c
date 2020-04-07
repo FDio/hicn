@@ -13,13 +13,12 @@
  * limitations under the License.
  */
 
-#include "face_ip.h"
-#include "dpo_ip.h"
-#include "../../strategy_dpo_manager.h"
-#include "../face.h"
-#include "../../hicn.h"
-#include "../../infra.h"
-#include "../../cache_policies/cs_lru.h"
+#include "face.h"
+#include "dpo_face.h"
+#include "../strategy_dpo_manager.h"
+#include "../hicn.h"
+#include "../infra.h"
+#include "../cache_policies/cs_lru.h"
 
 /**
  * @File
@@ -27,10 +26,10 @@
  * Definition of the nodes for ip incomplete faces.
  */
 
-vlib_node_registration_t hicn_iface_ip4_input_node;
-vlib_node_registration_t hicn_iface_ip4_output_node;
-vlib_node_registration_t hicn_iface_ip6_input_node;
-vlib_node_registration_t hicn_iface_ip6_output_node;
+vlib_node_registration_t hicn4_iface_input_node;
+vlib_node_registration_t hicn4_iface_output_node;
+vlib_node_registration_t hicn6_iface_input_node;
+vlib_node_registration_t hicn6_iface_output_node;
 
 u32 data_fwd_iface_ip4_vlib_edge;
 u32 data_fwd_iface_ip6_vlib_edge;
@@ -40,30 +39,30 @@ hicn_iface_ip_init (vlib_main_t * vm)
 {
   u32 temp_index4 = vlib_node_add_next (vm,
 					hicn_interest_hitcs_node.index,
-					hicn_iface_ip4_output_node.index);
+					hicn4_iface_output_node.index);
   u32 temp_index6 = vlib_node_add_next (vm,
 					hicn_interest_hitcs_node.index,
-					hicn_iface_ip6_output_node.index);
+					hicn6_iface_output_node.index);
 
   data_fwd_iface_ip4_vlib_edge = vlib_node_add_next (vm,
 						     hicn_data_fwd_node.index,
-						     hicn_iface_ip4_output_node.index);
+						     hicn4_iface_output_node.index);
 
   data_fwd_iface_ip6_vlib_edge = vlib_node_add_next (vm,
 						     hicn_data_fwd_node.index,
-						     hicn_iface_ip6_output_node.index);
+						     hicn6_iface_output_node.index);
 
   ASSERT (temp_index4 == data_fwd_iface_ip4_vlib_edge);
   ASSERT (temp_index6 == data_fwd_iface_ip6_vlib_edge);
 }
 
-static char *hicn_iface_ip4_input_error_strings[] = {
+static char *hicn4_iface_input_error_strings[] = {
 #define _(sym, string) string,
   foreach_hicnfwd_error
 #undef _
 };
 
-static char *hicn_iface_ip6_input_error_strings[] = {
+static char *hicn6_iface_input_error_strings[] = {
 #define _(sym, string) string,
   foreach_hicnfwd_error
 #undef _
@@ -76,15 +75,15 @@ typedef struct
   u32 sw_if_index;
   u8 pkt_type;
   u8 packet_data[60];
-} hicn_iface_ip4_input_trace_t;
+} hicn4_iface_input_trace_t;
 
 typedef enum
 {
-  HICN_IFACE_IP4_INPUT_NEXT_INTEREST,
-  HICN_IFACE_IP4_INPUT_NEXT_MAPME,
-  HICN_IFACE_IP4_INPUT_NEXT_ERROR_DROP,
-  HICN_IFACE_IP4_INPUT_N_NEXT,
-} hicn_iface_ip4_input_next_t;
+  HICN4_IFACE_INPUT_NEXT_INTEREST,
+  //HICN4_IFACE_INPUT_NEXT_MAPME,
+  HICN4_IFACE_INPUT_NEXT_ERROR_DROP,
+  HICN4_IFACE_INPUT_N_NEXT,
+} hicn4_iface_input_next_t;
 
 /* Trace context struct */
 typedef struct
@@ -93,21 +92,21 @@ typedef struct
   u32 sw_if_index;
   u8 pkt_type;
   u8 packet_data[60];
-} hicn_iface_ip6_input_trace_t;
+} hicn6_iface_input_trace_t;
 
 typedef enum
 {
-  HICN_IFACE_IP6_INPUT_NEXT_INTEREST,
-  HICN_IFACE_IP6_INPUT_NEXT_MAPME,
-  HICN_IFACE_IP6_INPUT_NEXT_ERROR_DROP,
-  HICN_IFACE_IP6_INPUT_N_NEXT,
-} hicn_iface_ip6_input_next_t;
+  HICN6_IFACE_INPUT_NEXT_INTEREST,
+  //HICN6_IFACE_INPUT_NEXT_MAPME,
+  HICN6_IFACE_INPUT_NEXT_ERROR_DROP,
+  HICN6_IFACE_INPUT_N_NEXT,
+} hicn6_iface_input_next_t;
 
-#define NEXT_MAPME_IP4 HICN_IFACE_IP4_INPUT_NEXT_MAPME
-#define NEXT_MAPME_IP6 HICN_IFACE_IP6_INPUT_NEXT_MAPME
+#define NEXT_MAPME_IP4 HICN4_IFACE_INPUT_NEXT_ERROR_DROP//HICN4_IFACE_INPUT_NEXT_MAPME
+#define NEXT_MAPME_IP6 HICN4_IFACE_INPUT_NEXT_ERROR_DROP//HICN6_IFACE_INPUT_NEXT_MAPME
 
-#define NEXT_INTEREST_IP4 HICN_IFACE_IP6_INPUT_NEXT_INTEREST
-#define NEXT_INTEREST_IP6 HICN_IFACE_IP6_INPUT_NEXT_INTEREST
+#define NEXT_INTEREST_IP4 HICN6_IFACE_INPUT_NEXT_INTEREST
+#define NEXT_INTEREST_IP6 HICN6_IFACE_INPUT_NEXT_INTEREST
 
 #define ADDRESS_IP4 ip_interface_address_t *ia = 0;ip4_address_t *local_address = ip4_interface_first_address(&ip4_main, swif, &ia)
 #define ADDRESS_IP6 ip6_address_t *local_address = ip6_interface_first_address(&ip6_main, swif)
@@ -119,17 +118,78 @@ typedef enum
 #define ADDRESSX2_IP6 ip6_address_t *local_address0 = ip6_interface_first_address(&ip6_main, swif0); \
   ip6_address_t *local_address1 = ip6_interface_first_address(&ip6_main, swif1);
 
-#define DPO_ADD_LOCK_IP4 hicn_dpo_ip4_add_and_lock_from_remote
-#define DPO_ADD_LOCK_IP6 hicn_dpo_ip6_add_and_lock_from_remote
+#define DPO_ADD_LOCK_IFACE_IP4 hicn_dpo_iface_ip4_add_and_lock
+#define DPO_ADD_LOCK_IFACE_IP6 hicn_dpo_iface_ip6_add_and_lock
 
-#define VLIB_EDGE_IP4 data_fwd_iface_ip4_vlib_edge
-#define VLIB_EDGE_IP6 data_fwd_iface_ip6_vlib_edge
+//#define VLIB_EDGE_IP4 data_fwd_iface_ip4_vlib_edge
+//#define VLIB_EDGE_IP6 data_fwd_iface_ip6_vlib_edge
 
 #define IP_HEADER_4 ip4_header_t
 #define IP_HEADER_6 ip6_header_t
 
-#define TRACE_INPUT_PKT_IP4 hicn_iface_ip4_input_trace_t
-#define TRACE_INPUT_PKT_IP6 hicn_iface_ip6_input_trace_t
+#define TRACE_INPUT_PKT_IP4 hicn4_iface_input_trace_t
+#define TRACE_INPUT_PKT_IP6 hicn6_iface_input_trace_t
+
+// NODE OUTPUT
+
+static char *hicn4_iface_output_error_strings[] = {
+#define _(sym, string) string,
+  foreach_hicnfwd_error
+#undef _
+};
+
+static char *hicn6_iface_output_error_strings[] = {
+#define _(sym, string) string,
+  foreach_hicnfwd_error
+#undef _
+};
+
+
+/* Trace context struct */
+typedef struct
+{
+  u32 next_index;
+  u32 sw_if_index;
+  u8 pkt_type;
+  u8 packet_data[60];
+} hicn4_iface_output_trace_t;
+
+typedef enum
+{
+  HICN4_IFACE_OUTPUT_NEXT_LOOKUP,
+  HICN4_IFACE_OUTPUT_NEXT_ERROR_DROP,
+  HICN4_IFACE_OUTPUT_N_NEXT,
+} hicn4_iface_output_next_t;
+
+/* Trace context struct */
+typedef struct
+{
+  u32 next_index;
+  u32 sw_if_index;
+  u8 pkt_type;
+  u8 packet_data[60];
+} hicn6_iface_output_trace_t;
+
+typedef enum
+{
+  HICN6_IFACE_OUTPUT_NEXT_LOOKUP,
+  HICN6_IFACE_OUTPUT_NEXT_ERROR_DROP,
+  HICN6_IFACE_OUTPUT_N_NEXT,
+} hicn6_iface_output_next_t;
+
+#define ERROR_OUTPUT_IP4 HICN4_IFACE_OUTPUT_NEXT_ERROR_DROP
+#define ERROR_OUTPUT_IP6 HICN6_IFACE_OUTPUT_NEXT_ERROR_DROP
+
+#define NEXT_DATA_LOOKUP_IP4 HICN4_IFACE_OUTPUT_NEXT_LOOKUP
+#define NEXT_DATA_LOOKUP_IP6 HICN6_IFACE_OUTPUT_NEXT_LOOKUP
+
+#define HICN_REWRITE_DATA_IP4 hicn_rewrite_iface_data4
+#define HICN_REWRITE_DATA_IP6 hicn_rewrite_iface_data6
+
+#define TRACE_OUTPUT_PKT_IP4 hicn4_iface_output_trace_t
+#define TRACE_OUTPUT_PKT_IP6 hicn6_iface_output_trace_t
+
+// NODES IMPLEMENTATIONS
 
 #define iface_input_x1(ipv)                                             \
   do {                                                                  \
@@ -137,7 +197,6 @@ typedef enum
   u32 bi0, next0;                                                       \
   IP_HEADER_##ipv * ip_hdr = NULL;                                      \
   hicn_buffer_t * hicnb0;                                               \
-  u32 swif;                                                             \
   /* Prefetch for next iteration. */                                    \
   if (n_left_from > 1)                                                  \
     {                                                                   \
@@ -165,17 +224,13 @@ typedef enum
   next0 = is_icmp*NEXT_MAPME_IP##ipv +                                  \
     (1-is_icmp)*NEXT_INTEREST_IP##ipv;                                  \
                                                                         \
-  swif = vnet_buffer (b0)->sw_if_index[VLIB_RX];                        \
                                                                         \
-  ADDRESS_IP##ipv;                                                      \
-                                                                        \
-  DPO_ADD_LOCK_IP##ipv                                                  \
-  (&(hicnb0->face_dpo_id),                                              \
-   &hicnb0->flags,                                                      \
-   local_address,                                                       \
-   &(ip_hdr->src_address),                                              \
-   vnet_buffer(b0)->sw_if_index[VLIB_RX],                               \
-   VLIB_EDGE_IP##ipv);                                                  \
+  DPO_ADD_LOCK_IFACE_IP##ipv                                            \
+    (&(hicnb0->face_id),                                                \
+     &hicnb0->flags,                                                    \
+     &(ip_hdr->src_address),                                            \
+     vnet_buffer(b0)->sw_if_index[VLIB_RX],                             \
+     NEXT_DATA_LOOKUP_IP##ipv);                                         \
                                                                         \
   if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&            \
                      (b0->flags & VLIB_BUFFER_IS_TRACED)))              \
@@ -192,11 +247,11 @@ typedef enum
     }                                                                   \
                                                                         \
   vlib_increment_combined_counter (                                     \
-          &counters[hicnb0->face_dpo_id.dpoi_index                      \
-          * HICN_N_COUNTER], thread_index,                              \
-          HICN_FACE_COUNTERS_INTEREST_RX,                               \
-          1,                                                            \
-          vlib_buffer_length_in_chain(vm, b0));                         \
+                                  &counters[hicnb0->face_id             \
+                                      * HICN_N_COUNTER], thread_index,  \
+                                  HICN_FACE_COUNTERS_INTEREST_RX,       \
+                                  1,                                    \
+                                  vlib_buffer_length_in_chain(vm, b0)); \
                                                                         \
   /* Verify speculative enqueue, maybe switch current next frame */     \
   vlib_validate_buffer_enqueue_x1 (vm, node, next_index,                \
@@ -212,7 +267,6 @@ typedef enum
     IP_HEADER_##ipv * ip_hdr0 = NULL;                                   \
     IP_HEADER_##ipv * ip_hdr1 = NULL;                                   \
     hicn_buffer_t *hicnb0, *hicnb1;                                     \
-    u32 swif0, swif1;                                                   \
                                                                         \
     /* Prefetch for next iteration. */                                  \
     vlib_buffer_t *b2, *b3;                                             \
@@ -251,26 +305,20 @@ typedef enum
     next1 = is_icmp1*NEXT_MAPME_IP##ipv +                               \
       (1-is_icmp1)*NEXT_INTEREST_IP##ipv;                               \
                                                                         \
-    swif0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];                     \
-    swif1 = vnet_buffer (b1)->sw_if_index[VLIB_RX];                     \
                                                                         \
-    ADDRESSX2_IP##ipv;                                                  \
-                                                                        \
-    DPO_ADD_LOCK_IP##ipv                                                \
-      (&(hicnb0->face_dpo_id),                                          \
+    DPO_ADD_LOCK_IFACE_IP##ipv                                          \
+      (&(hicnb0->face_id),                                              \
        &hicnb0->flags,                                                  \
-       local_address0,                                                  \
        &(ip_hdr0->src_address),                                         \
        vnet_buffer(b0)->sw_if_index[VLIB_RX],                           \
-       VLIB_EDGE_IP##ipv);                                              \
+       NEXT_DATA_LOOKUP_IP##ipv);                                       \
                                                                         \
-    DPO_ADD_LOCK_IP##ipv                                                \
-      (&(hicnb1->face_dpo_id),                                          \
+    DPO_ADD_LOCK_IFACE_IP##ipv                                          \
+      (&(hicnb1->face_id),                                              \
        &hicnb1->flags,                                                  \
-       local_address1,                                                  \
        &(ip_hdr1->src_address),                                         \
        vnet_buffer(b1)->sw_if_index[VLIB_RX],                           \
-       VLIB_EDGE_IP##ipv);                                              \
+       NEXT_DATA_LOOKUP_IP##ipv);                                       \
                                                                         \
     if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&          \
                        (b0->flags & VLIB_BUFFER_IS_TRACED)))            \
@@ -299,14 +347,14 @@ typedef enum
       }                                                                 \
                                                                         \
     vlib_increment_combined_counter (                                   \
-                             &counters[hicnb0->face_dpo_id.dpoi_index   \
+                                     &counters[hicnb0->face_id          \
                                        * HICN_N_COUNTER], thread_index, \
                              HICN_FACE_COUNTERS_INTEREST_RX,            \
                              1,                                         \
                              vlib_buffer_length_in_chain(vm, b0));      \
                                                                         \
     vlib_increment_combined_counter (                                   \
-                             &counters[hicnb1->face_dpo_id.dpoi_index   \
+                                     &counters[hicnb1->face_id          \
                                        * HICN_N_COUNTER], thread_index, \
                              HICN_FACE_COUNTERS_INTEREST_RX,            \
                              1,                                         \
@@ -319,7 +367,7 @@ typedef enum
   }while(0)
 
 static uword
-hicn_iface_ip4_input_node_fn (vlib_main_t * vm,
+hicn4_iface_input_node_fn (vlib_main_t * vm,
 			      vlib_node_runtime_t * node,
 			      vlib_frame_t * frame)
 {
@@ -359,12 +407,12 @@ hicn_iface_ip4_input_node_fn (vlib_main_t * vm,
 
 /* packet trace format function */
 static u8 *
-hicn_iface_ip4_input_format_trace (u8 * s, va_list * args)
+hicn4_iface_input_format_trace (u8 * s, va_list * args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
-  hicn_iface_ip4_input_trace_t *t =
-    va_arg (*args, hicn_iface_ip4_input_trace_t *);
+  hicn4_iface_input_trace_t *t =
+    va_arg (*args, hicn4_iface_input_trace_t *);
 
   s =
     format (s, "IFACE_IP4_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
@@ -377,28 +425,28 @@ hicn_iface_ip4_input_format_trace (u8 * s, va_list * args)
  * Node registration for the interest forwarder node
  */
 /* *INDENT-OFF* */
-VLIB_REGISTER_NODE (hicn_iface_ip4_input_node) =
+VLIB_REGISTER_NODE (hicn4_iface_input_node) =
 {
-  .function = hicn_iface_ip4_input_node_fn,
-  .name = "hicn-iface-ip4-input",
+  .function = hicn4_iface_input_node_fn,
+  .name = "hicn4-iface-input",
   .vector_size =  sizeof (u32),
-  .format_trace = hicn_iface_ip4_input_format_trace,
+  .format_trace = hicn4_iface_input_format_trace,
   .type = VLIB_NODE_TYPE_INTERNAL,
-  .n_errors = ARRAY_LEN (hicn_iface_ip4_input_error_strings),
-  .error_strings = hicn_iface_ip4_input_error_strings,
-  .n_next_nodes = HICN_IFACE_IP4_INPUT_N_NEXT,
+  .n_errors = ARRAY_LEN (hicn4_iface_input_error_strings),
+  .error_strings = hicn4_iface_input_error_strings,
+  .n_next_nodes = HICN4_IFACE_INPUT_N_NEXT,
   /* edit / add dispositions*/
   .next_nodes =
   {
-    [HICN_IFACE_IP4_INPUT_NEXT_INTEREST] = "hicn-interest-pcslookup",
-    [HICN_IFACE_IP4_INPUT_NEXT_MAPME] = "hicn-mapme-ctrl",
-    [HICN_IFACE_IP4_INPUT_NEXT_ERROR_DROP] = "error-drop",
+    [HICN4_IFACE_INPUT_NEXT_INTEREST] = "hicn-interest-pcslookup",
+    //[HICN4_IFACE_INPUT_NEXT_MAPME] = "hicn-mapme-ctrl",
+    [HICN4_IFACE_INPUT_NEXT_ERROR_DROP] = "error-drop",
   },
 };
 /* *INDENT-ON* */
 
 static uword
-hicn_iface_ip6_input_node_fn (vlib_main_t * vm,
+hicn6_iface_input_node_fn (vlib_main_t * vm,
 			      vlib_node_runtime_t * node,
 			      vlib_frame_t * frame)
 {
@@ -439,12 +487,12 @@ hicn_iface_ip6_input_node_fn (vlib_main_t * vm,
 
 /* packet trace format function */
 static u8 *
-hicn_iface_ip6_input_format_trace (u8 * s, va_list * args)
+hicn6_iface_input_format_trace (u8 * s, va_list * args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
-  hicn_iface_ip6_input_trace_t *t =
-    va_arg (*args, hicn_iface_ip6_input_trace_t *);
+  hicn6_iface_input_trace_t *t =
+    va_arg (*args, hicn6_iface_input_trace_t *);
 
   s =
     format (s, "IFACE_IP6_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
@@ -457,22 +505,22 @@ hicn_iface_ip6_input_format_trace (u8 * s, va_list * args)
  * Node registration for the interest forwarder node
  */
 /* *INDENT-OFF* */
-VLIB_REGISTER_NODE (hicn_iface_ip6_input_node) =
+VLIB_REGISTER_NODE (hicn6_iface_input_node) =
 {
-  .function = hicn_iface_ip6_input_node_fn,
-  .name = "hicn-iface-ip6-input",
+  .function = hicn6_iface_input_node_fn,
+  .name = "hicn6-iface-input",
   .vector_size =  sizeof (u32),
-  .format_trace = hicn_iface_ip6_input_format_trace,
+  .format_trace = hicn6_iface_input_format_trace,
   .type = VLIB_NODE_TYPE_INTERNAL,
-  .n_errors = ARRAY_LEN (hicn_iface_ip6_input_error_strings),
-  .error_strings = hicn_iface_ip6_input_error_strings,
-  .n_next_nodes = HICN_IFACE_IP6_INPUT_N_NEXT,
+  .n_errors = ARRAY_LEN (hicn6_iface_input_error_strings),
+  .error_strings = hicn6_iface_input_error_strings,
+  .n_next_nodes = HICN6_IFACE_INPUT_N_NEXT,
   /* edit / add dispositions*/
   .next_nodes =
   {
-    [HICN_IFACE_IP6_INPUT_NEXT_INTEREST] = "hicn-interest-pcslookup",
-    [HICN_IFACE_IP6_INPUT_NEXT_MAPME] = "hicn-mapme-ctrl",
-    [HICN_IFACE_IP6_INPUT_NEXT_ERROR_DROP] = "error-drop",
+    [HICN6_IFACE_INPUT_NEXT_INTEREST] = "hicn-interest-pcslookup",
+    //[HICN6_IFACE_INPUT_NEXT_MAPME] = "hicn-mapme-ctrl",
+    [HICN6_IFACE_INPUT_NEXT_ERROR_DROP] = "error-drop",
   },
 };
 /* *INDENT-ON* */
@@ -482,7 +530,7 @@ VLIB_REGISTER_NODE (hicn_iface_ip6_input_node) =
 
 static inline void
 hicn_rewrite_iface_data4 (vlib_main_t * vm, vlib_buffer_t * b0,
-			  const hicn_face_t * iface)
+			  const hicn_face_t * iface, u32 * next)
 {
   ip4_header_t *ip0;
 
@@ -495,21 +543,21 @@ hicn_rewrite_iface_data4 (vlib_main_t * vm, vlib_buffer_t * b0,
   ip0->length = clib_host_to_net_u16 (sval);
   ip0->ttl = 254;		// FIXME TTL
 
-  vnet_buffer (b0)->ip.adj_index[VLIB_TX] = ~0;
+  vnet_buffer (b0)->ip.adj_index[VLIB_TX] = iface->dpo.dpoi_index;
+  *next = iface->dpo.dpoi_next_node;
   hicn_header_t *hicn = vlib_buffer_get_current (b0);
 
   ip46_address_t temp_addr;
   ip46_address_reset (&temp_addr);
-  hicn_face_ip_t *iface_ip = (hicn_face_ip_t *) iface->data;
   hicn_type_t type = hicn_get_buffer (b0)->type;
   hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
-				       &(iface_ip->remote_addr), &(temp_addr),
-				       iface->shared.pl_id);
+				       &(iface->nat_addr), &(temp_addr),
+				       iface->pl_id);
 }
 
 static inline void
 hicn_rewrite_iface_data6 (vlib_main_t * vm, vlib_buffer_t * b0,
-			  const hicn_face_t * iface)
+			  const hicn_face_t * iface, u32 * next)
 {
   ip6_header_t *ip0;
 
@@ -523,74 +571,18 @@ hicn_rewrite_iface_data6 (vlib_main_t * vm, vlib_buffer_t * b0,
   ip0->payload_length = clib_host_to_net_u16 (sval);
   ip0->hop_limit = HICN_IP6_HOP_LIMIT;
 
-  vnet_buffer (b0)->ip.adj_index[VLIB_TX] = ~0;
+  vnet_buffer (b0)->ip.adj_index[VLIB_TX] = iface->dpo.dpoi_index;
+  *next = iface->dpo.dpoi_next_node;
+
   hicn_header_t *hicn = vlib_buffer_get_current (b0);
 
   ip46_address_t temp_addr;
   ip46_address_reset (&temp_addr);
-  hicn_face_ip_t *iface_ip = (hicn_face_ip_t *) iface->data;
   hicn_type_t type = hicn_get_buffer (b0)->type;
   hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
-				       &(iface_ip->remote_addr), &(temp_addr),
-				       iface->shared.pl_id);
+				       &(iface->nat_addr), &(temp_addr),
+				       iface->pl_id);
 }
-
-static char *hicn_iface_ip4_output_error_strings[] = {
-#define _(sym, string) string,
-  foreach_hicnfwd_error
-#undef _
-};
-
-static char *hicn_iface_ip6_output_error_strings[] = {
-#define _(sym, string) string,
-  foreach_hicnfwd_error
-#undef _
-};
-
-
-/* Trace context struct */
-typedef struct
-{
-  u32 next_index;
-  u32 sw_if_index;
-  u8 pkt_type;
-  u8 packet_data[60];
-} hicn_iface_ip4_output_trace_t;
-
-typedef enum
-{
-  HICN_IFACE_IP4_OUTPUT_NEXT_LOOKUP,
-  HICN_IFACE_IP4_OUTPUT_NEXT_ERROR_DROP,
-  HICN_IFACE_IP4_OUTPUT_N_NEXT,
-} hicn_iface_ip4_output_next_t;
-
-/* Trace context struct */
-typedef struct
-{
-  u32 next_index;
-  u32 sw_if_index;
-  u8 pkt_type;
-  u8 packet_data[60];
-} hicn_iface_ip6_output_trace_t;
-
-typedef enum
-{
-  HICN_IFACE_IP6_OUTPUT_NEXT_LOOKUP,
-  HICN_IFACE_IP6_OUTPUT_NEXT_ERROR_DROP,
-  HICN_IFACE_IP6_OUTPUT_N_NEXT,
-} hicn_iface_ip6_output_next_t;
-
-#define ERROR_OUTPUT_IP4 HICN_IFACE_IP4_OUTPUT_NEXT_ERROR_DROP
-#define ERROR_OUTPUT_IP6 HICN_IFACE_IP6_OUTPUT_NEXT_ERROR_DROP
-
-#define NEXT_DATA_LOOKUP_IP4 HICN_IFACE_IP4_OUTPUT_NEXT_LOOKUP
-#define NEXT_DATA_LOOKUP_IP6 HICN_IFACE_IP6_OUTPUT_NEXT_LOOKUP
-
-#define HICN_REWRITE_DATA_IP4 hicn_rewrite_iface_data4
-#define HICN_REWRITE_DATA_IP6 hicn_rewrite_iface_data6
-
-#define TRACE_OUTPUT_PKT_IP4 hicn_iface_ip4_output_trace_t
-#define TRACE_OUTPUT_PKT_IP6 hicn_iface_ip6_output_trace_t
 
 #define iface_output_x1(ipv)                                            \
   do {                                                                  \
@@ -624,7 +616,7 @@ typedef enum
     if (PREDICT_TRUE(face != NULL))                                     \
       {                                                                 \
         HICN_REWRITE_DATA_IP##ipv					\
-          (vm, b0, face);                                               \
+          (vm, b0, face, &next0);                                       \
 	next0 = NEXT_DATA_LOOKUP_IP##ipv;				\
 	stats.pkts_data_count += 1;					\
         vlib_increment_combined_counter (                               \
@@ -698,7 +690,7 @@ typedef enum
     if (PREDICT_TRUE(face0 != NULL))                                    \
       {                                                                 \
         HICN_REWRITE_DATA_IP##ipv					\
-          (vm, b0, face0);                                              \
+          (vm, b0, face0, &next0);                                      \
 	next0 = NEXT_DATA_LOOKUP_IP##ipv;				\
 	stats.pkts_data_count += 1;					\
         vlib_increment_combined_counter (                               \
@@ -712,7 +704,7 @@ typedef enum
     if (PREDICT_TRUE(face1 != NULL))                                    \
       {                                                                 \
         HICN_REWRITE_DATA_IP##ipv					\
-          (vm, b1, face1);                                              \
+          (vm, b1, face1, &next1);                                      \
         next1 = NEXT_DATA_LOOKUP_IP##ipv;				\
 	stats.pkts_data_count += 1;					\
         vlib_increment_combined_counter (                               \
@@ -759,7 +751,7 @@ typedef enum
 
 
 static uword
-hicn_iface_ip4_output_node_fn (vlib_main_t * vm,
+hicn4_iface_output_node_fn (vlib_main_t * vm,
 			       vlib_node_runtime_t * node,
 			       vlib_frame_t * frame)
 {
@@ -797,12 +789,12 @@ hicn_iface_ip4_output_node_fn (vlib_main_t * vm,
 
 /* packet trace format function */
 static u8 *
-hicn_iface_ip4_output_format_trace (u8 * s, va_list * args)
+hicn4_iface_output_format_trace (u8 * s, va_list * args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
-  hicn_iface_ip4_output_trace_t *t =
-    va_arg (*args, hicn_iface_ip4_output_trace_t *);
+  hicn4_iface_output_trace_t *t =
+    va_arg (*args, hicn4_iface_output_trace_t *);
 
   s =
     format (s, "IFACE_IP4_OUTPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
@@ -815,28 +807,28 @@ hicn_iface_ip4_output_format_trace (u8 * s, va_list * args)
  * Node registration for the interest forwarder node
  */
 /* *INDENT-OFF* */
-VLIB_REGISTER_NODE (hicn_iface_ip4_output_node) =
+VLIB_REGISTER_NODE (hicn4_iface_output_node) =
 {
-  .function = hicn_iface_ip4_output_node_fn,
-  .name = "hicn-iface-ip4-output",
+  .function = hicn4_iface_output_node_fn,
+  .name = "hicn4-iface-output",
   .vector_size =  sizeof (u32),
-  .format_trace = hicn_iface_ip4_output_format_trace,
+  .format_trace = hicn4_iface_output_format_trace,
   .type = VLIB_NODE_TYPE_INTERNAL,
-  .n_errors = ARRAY_LEN (hicn_iface_ip4_output_error_strings),
-  .error_strings = hicn_iface_ip4_output_error_strings,
-  .n_next_nodes = HICN_IFACE_IP4_OUTPUT_N_NEXT,
+  .n_errors = ARRAY_LEN (hicn4_iface_output_error_strings),
+  .error_strings = hicn4_iface_output_error_strings,
+  .n_next_nodes = HICN4_IFACE_OUTPUT_N_NEXT,
   /* edit / add dispositions here */
   .next_nodes =
   {
-    [HICN_IFACE_IP4_OUTPUT_NEXT_LOOKUP] = "ip4-lookup",
-    [HICN_IFACE_IP4_OUTPUT_NEXT_ERROR_DROP] = "error-drop",
+    [HICN4_IFACE_OUTPUT_NEXT_LOOKUP] = "ip4-lookup",
+    [HICN4_IFACE_OUTPUT_NEXT_ERROR_DROP] = "error-drop",
   },
 };
 /* *INDENT-ON* */
 
 
 static uword
-hicn_iface_ip6_output_node_fn (vlib_main_t * vm,
+hicn6_iface_output_node_fn (vlib_main_t * vm,
 			       vlib_node_runtime_t * node,
 			       vlib_frame_t * frame)
 {
@@ -873,12 +865,12 @@ hicn_iface_ip6_output_node_fn (vlib_main_t * vm,
 
 /* packet trace format function */
 static u8 *
-hicn_iface_ip6_output_format_trace (u8 * s, va_list * args)
+hicn6_iface_output_format_trace (u8 * s, va_list * args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
-  hicn_iface_ip6_output_trace_t *t =
-    va_arg (*args, hicn_iface_ip6_output_trace_t *);
+  hicn6_iface_output_trace_t *t =
+    va_arg (*args, hicn6_iface_output_trace_t *);
 
   s =
     format (s, "IFACE_IP6_OUTPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
@@ -891,21 +883,21 @@ hicn_iface_ip6_output_format_trace (u8 * s, va_list * args)
  * Node registration for the interest forwarder node
  */
 /* *INDENT-OFF* */
-VLIB_REGISTER_NODE (hicn_iface_ip6_output_node) =
+VLIB_REGISTER_NODE (hicn6_iface_output_node) =
 {
-  .function = hicn_iface_ip6_output_node_fn,
-  .name = "hicn-iface-ip6-output",
+  .function = hicn6_iface_output_node_fn,
+  .name = "hicn6-iface-output",
   .vector_size =  sizeof (u32),
-  .format_trace = hicn_iface_ip6_output_format_trace,
+  .format_trace = hicn6_iface_output_format_trace,
   .type = VLIB_NODE_TYPE_INTERNAL,
-  .n_errors = ARRAY_LEN (hicn_iface_ip6_output_error_strings),
-  .error_strings = hicn_iface_ip6_output_error_strings,
-  .n_next_nodes = HICN_IFACE_IP6_OUTPUT_N_NEXT,
+  .n_errors = ARRAY_LEN (hicn6_iface_output_error_strings),
+  .error_strings = hicn6_iface_output_error_strings,
+  .n_next_nodes = HICN6_IFACE_OUTPUT_N_NEXT,
   /* edit / add dispositions here */
   .next_nodes =
   {
-    [HICN_IFACE_IP6_OUTPUT_NEXT_LOOKUP] = "ip6-lookup",
-    [HICN_IFACE_IP6_OUTPUT_NEXT_ERROR_DROP] = "error-drop",
+    [HICN6_IFACE_OUTPUT_NEXT_LOOKUP] = "ip6-lookup",
+    [HICN6_IFACE_OUTPUT_NEXT_ERROR_DROP] = "error-drop",
   },
 };
 /* *INDENT-ON* */
