@@ -22,8 +22,8 @@
 #include "error.h"
 #include "cache_policies/cs_policy.h"
 #include "faces/face.h"
-#include "faces/ip/dpo_ip.h"
-#include "faces/app/face_prod.h"
+#include "faces/dpo_face.h"
+//#include "faces/app/face_prod.h"
 
 /* The PIT and CS are stored as a union */
 #define HICN_PIT_NULL_TYPE 0
@@ -84,36 +84,37 @@ typedef struct __attribute__ ((packed)) hicn_pit_entry_s
 
 } hicn_pit_entry_t;
 
-#define HICN_CS_ENTRY_OPAQUE_SIZE HICN_HASH_NODE_APP_DATA_SIZE - 40
+#define HICN_CS_ENTRY_OPAQUE_SIZE HICN_HASH_NODE_APP_DATA_SIZE - 36
 
 /*
  * CS entry, unioned with a PIT entry below
  */
 typedef struct __attribute__ ((packed)) hicn_cs_entry_s
 {
-  /* 22B + 2B = 24B */
+  /* 18B + 2B = 20B */
   u16 align;
 
   /* Packet buffer, if held */
-  /* 18B + 4B = 22B */
+  /* 20B + 4B = 24B */
   u32 cs_pkt_buf;
 
   /* Ingress face */
-  /* 24B + 8B = 32B */
-  //Fix alignment issues
-  union
-  {
-    dpo_id_t cs_rxface;
-    u64 cs_rxface_u64;
-  };
+  /* 24B + 4B = 28B */
+  hicn_face_id_t cs_rxface;
+  /* //Fix alignment issues */
+  /* union */
+  /* { */
+  /*   dpo_id_t cs_rxface; */
+  /*   u64 cs_rxface_u64; */
+  /* }; */
 
   /* Linkage for LRU, in the form of hashtable node indexes */
-  /* 32B + 8B = 40B */
+  /* 28B + 8B = 36B */
   u32 cs_lru_prev;
   u32 cs_lru_next;
 
   /* Reserved for implementing cache policy different than LRU */
-  /* 40B + (64 - 40)B = 64B */
+  /* 36B + (64 - 36)B = 64B */
   u8 opaque[HICN_CS_ENTRY_OPAQUE_SIZE];
 
 
@@ -170,7 +171,7 @@ always_inline void
 hicn_pit_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 		hicn_pcs_entry_t * pcs_entry, hicn_hash_entry_t * hash_entry,
 		hicn_hash_node_t * node, const hicn_dpo_vft_t * dpo_vft,
-		dpo_id_t * hicn_dpo_id, dpo_id_t * inface_id, u8 is_appface);
+		dpo_id_t * hicn_dpo_id, hicn_face_id_t inface_id, u8 is_appface);
 
 always_inline void
 hicn_pcs_cs_update (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
@@ -197,7 +198,7 @@ hicn_pcs_cs_insert_update (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 			   hicn_hash_entry_t ** hash_entry, u64 hashval,
 			   u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id,
 			   u8 * is_cs, u8 * hash_entry_id, u32 * bucket_id,
-			   u8 * bucket_is_overflow, dpo_id_t * inface);
+			   u8 * bucket_is_overflow, hicn_face_id_t inface);
 
 always_inline int
 hicn_pcs_pit_insert (hicn_pit_cs_t * pitcs, hicn_pcs_entry_t * entry,
@@ -385,7 +386,7 @@ always_inline void
 hicn_pit_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 		hicn_pcs_entry_t * pcs_entry, hicn_hash_entry_t * hash_entry,
 		hicn_hash_node_t * node, const hicn_dpo_vft_t * dpo_vft,
-		dpo_id_t * hicn_dpo_id, dpo_id_t * inface_id, u8 is_appface)
+		dpo_id_t * hicn_dpo_id, hicn_face_id_t inface_id, u8 is_appface)
 {
 
   /*
@@ -401,25 +402,25 @@ hicn_pit_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
   node->hn_flags |= HICN_HASH_NODE_CS_FLAGS;
   pcs_entry->shared.entry_flags |= HICN_PCS_ENTRY_CS_FLAG;
 
-  pcs_entry->u.cs.cs_rxface = *inface_id;
+  pcs_entry->u.cs.cs_rxface = inface_id;
 
   /* Update the CS according to the policy */
   hicn_cs_policy_t *policy_state;
   hicn_cs_policy_vft_t *policy_vft;
 
-  if (is_appface)
-    {
-      dpo_id_t *face_dpo = (dpo_id_t *) & (pcs_entry->u.cs.cs_rxface);
-      hicn_face_t *face = hicn_dpoi_get_from_idx (face_dpo->dpoi_index);
-      hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data;
-      policy_state = &prod_face->policy;
-      policy_vft = &prod_face->policy_vft;
-    }
-  else
-    {
+  /* if (is_appface) */
+  /*   { */
+  /*     dpo_id_t *face_dpo = (dpo_id_t *) & (pcs_entry->u.cs.cs_rxface); */
+  /*     hicn_face_t *face = hicn_dpoi_get_from_idx (face_dpo->dpoi_index); */
+  /*     hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data; */
+  /*     policy_state = &prod_face->policy; */
+  /*     policy_vft = &prod_face->policy_vft; */
+  /*   } */
+  /* else */
+  /*   { */
       policy_state = &pitcs->policy_state;
       policy_vft = &pitcs->policy_vft;
-    }
+    /* } */
 
   policy_vft->hicn_cs_insert (pitcs, node, pcs_entry, policy_state);
   pitcs->pcs_cs_count++;
@@ -456,41 +457,36 @@ hicn_pcs_cs_update (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
   hicn_cs_policy_t *policy_state;
   hicn_cs_policy_vft_t *policy_vft;
 
-  dpo_id_t *face_dpo = (dpo_id_t *) & (old_entry->u.cs.cs_rxface);
   policy_state = &pitcs->policy_state;
   policy_vft = &pitcs->policy_vft;
 
-  if (face_dpo->dpoi_type == hicn_face_ip_type)
-    {
-      hicn_face_t *face = hicn_dpoi_get_from_idx (face_dpo->dpoi_index);
-      if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD)
-	{
-	  hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data;
-	  policy_state = &prod_face->policy;
-	  policy_vft = &prod_face->policy_vft;
-	}
-    }
+  //hicn_face_t *face = hicn_dpoi_get_from_idx (old_entry->u.cs.cs_rxface);
+  /* if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) */
+  /*   { */
+  /*     hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data; */
+  /*     policy_state = &prod_face->policy; */
+  /*     policy_vft = &prod_face->policy_vft; */
+  /*   } */
 
-  if (dpo_cmp (&entry->u.cs.cs_rxface, &old_entry->u.cs.cs_rxface) != 0)
+  if (entry->u.cs.cs_rxface != old_entry->u.cs.cs_rxface)
     {
       /* Dequeue content from the old queue */
       policy_vft->hicn_cs_dequeue (pitcs, node, old_entry, policy_state);
 
-      dpo_copy (&old_entry->u.cs.cs_rxface, &entry->u.cs.cs_rxface);
-      face_dpo = (dpo_id_t *) & (old_entry->u.cs.cs_rxface);
+      old_entry->u.cs.cs_rxface = entry->u.cs.cs_rxface;
       policy_state = &pitcs->policy_state;
       policy_vft = &pitcs->policy_vft;
 
-      if (face_dpo->dpoi_type == hicn_face_ip_type)
-	{
-	  hicn_face_t *face = hicn_dpoi_get_from_idx (face_dpo->dpoi_index);
-	  if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD)
-	    {
-	      hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data;
-	      policy_state = &prod_face->policy;
-	      policy_vft = &prod_face->policy_vft;
-	    }
-	}
+      /* if (face_dpo->dpoi_type == hicn_face_ip_type) */
+      /*   { */
+      /*     hicn_face_t *face = hicn_dpoi_get_from_idx (face_dpo->dpoi_index); */
+      /*     if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) */
+      /*       { */
+      /*         hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data; */
+      /*         policy_state = &prod_face->policy; */
+      /*         policy_vft = &prod_face->policy_vft; */
+      /*       } */
+      /*   } */
 
       policy_vft->hicn_cs_insert (pitcs, node, old_entry, policy_state);
 
@@ -530,20 +526,20 @@ hicn_pcs_cs_delete (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
       hicn_cs_policy_t *policy_state;
       hicn_cs_policy_vft_t *policy_vft;
 
-      dpo_id_t *face_dpo = (dpo_id_t *) & ((*pcs_entryp)->u.cs.cs_rxface);
+      //dpo_id_t *face_dpo = (dpo_id_t *) & ((*pcs_entryp)->u.cs.cs_rxface);
       policy_state = &pitcs->policy_state;
       policy_vft = &pitcs->policy_vft;
 
-      if (face_dpo->dpoi_type == hicn_face_ip_type)
-	{
-	  hicn_face_t *face = hicn_dpoi_get_from_idx (face_dpo->dpoi_index);
-	  if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD)
-	    {
-	      hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data;
-	      policy_state = &prod_face->policy;
-	      policy_vft = &prod_face->policy_vft;
-	    }
-	}
+      /* if (face_dpo->dpoi_type == hicn_face_ip_type) */
+      /*   { */
+      /*     hicn_face_t *face = hicn_dpoi_get_from_idx (face_dpo->dpoi_index); */
+      /*     if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) */
+      /*       { */
+      /*         hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data; */
+      /*         policy_state = &prod_face->policy; */
+      /*         policy_vft = &prod_face->policy_vft; */
+      /*       } */
+      /*   } */
       policy_vft->hicn_cs_dequeue (pitcs, (*nodep), (*pcs_entryp),
 				   policy_state);
 
@@ -589,20 +585,20 @@ hicn_pcs_cs_insert (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
       hicn_cs_policy_t *policy_state;
       hicn_cs_policy_vft_t *policy_vft;
 
-      dpo_id_t *face_dpo = (dpo_id_t *) & (entry->u.cs.cs_rxface);
+      //dpo_id_t *face_dpo = (dpo_id_t *) & (entry->u.cs.cs_rxface);
       policy_state = &pitcs->policy_state;
       policy_vft = &pitcs->policy_vft;
 
-      if (face_dpo->dpoi_type == hicn_face_ip_type)
-	{
-	  hicn_face_t *face = hicn_dpoi_get_from_idx (face_dpo->dpoi_index);
-	  if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD)
-	    {
-	      hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data;
-	      policy_state = &prod_face->policy;
-	      policy_vft = &prod_face->policy_vft;
-	    }
-	}
+      /* if (face_dpo->dpoi_type == hicn_face_ip_type) */
+      /*   { */
+      /*     hicn_face_t *face = hicn_dpoi_get_from_idx (face_dpo->dpoi_index); */
+      /*     if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) */
+      /*       { */
+      /*         hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data; */
+      /*         policy_state = &prod_face->policy; */
+      /*         policy_vft = &prod_face->policy_vft; */
+      /*       } */
+      /*   } */
       policy_vft->hicn_cs_insert (pitcs, node, entry, policy_state);
       pitcs->pcs_cs_count++;
 
@@ -639,13 +635,13 @@ hicn_pcs_cs_insert_update (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
 			   hicn_hash_entry_t ** hash_entry, u64 hashval,
 			   u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id,
 			   u8 * is_cs, u8 * hash_entry_id, u32 * bucket_id,
-			   u8 * bucket_is_overflow, dpo_id_t * inface)
+			   u8 * bucket_is_overflow, hicn_face_id_t inface)
 {
   int ret;
 
   ASSERT (entry == hicn_hashtb_node_data (node));
 
-  entry->u.cs.cs_rxface = *inface;
+  entry->u.cs.cs_rxface = inface;
   ret =
     hicn_pcs_cs_insert (vm, pitcs, entry, node, hash_entry, hashval, node_id,
 			dpo_ctx_id, vft_id, is_cs, hash_entry_id, bucket_id,

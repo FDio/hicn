@@ -26,7 +26,7 @@ void hicn_receive_data_rr (index_t dpo_idx, int nh_idx);
 void hicn_add_interest_rr (index_t dpo_idx, hicn_hash_entry_t * pit_entry);
 void hicn_on_interest_timeout_rr (index_t dpo_idx);
 u32 hicn_select_next_hop_rr (index_t dpo_idx, int *nh_idx,
-			     dpo_id_t ** outface);
+			     hicn_face_id_t* outface);
 u8 *hicn_strategy_format_trace_rr (u8 * s, hicn_strategy_trace_t * t);
 u8 *hicn_strategy_format_rr (u8 * s, va_list * ap);
 
@@ -51,7 +51,7 @@ hicn_rr_strategy_get_vft (void)
 
 /* DPO should be give in input as it containes all the information to calculate the next hops*/
 u32
-hicn_select_next_hop_rr (index_t dpo_idx, int *nh_idx, dpo_id_t ** outface)
+hicn_select_next_hop_rr (index_t dpo_idx, int *nh_idx, hicn_face_id_t* outface)
 {
   hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
 
@@ -61,15 +61,8 @@ hicn_select_next_hop_rr (index_t dpo_idx, int *nh_idx, dpo_id_t ** outface)
   hicn_strategy_rr_ctx_t *hicn_strategy_rr_ctx =
     (hicn_strategy_rr_ctx_t *) dpo_ctx->data;
 
-  if (dpo_id_is_valid
-      (&dpo_ctx->next_hops[hicn_strategy_rr_ctx->current_nhop]))
-    {
-      *outface =
-	(dpo_id_t *) & dpo_ctx->next_hops[hicn_strategy_rr_ctx->current_nhop];
-
-    }
-  else
-    return HICN_ERROR_STRATEGY_NH_NOT_FOUND;
+  *outface =
+    dpo_ctx->next_hops[hicn_strategy_rr_ctx->current_nhop];
 
   hicn_strategy_rr_ctx->current_nhop =
     (hicn_strategy_rr_ctx->current_nhop + 1) % dpo_ctx->entry_count;
