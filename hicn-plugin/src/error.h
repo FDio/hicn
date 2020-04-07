@@ -71,7 +71,6 @@
  _(MW_STRATEGY_SET, -178, "Error while setting weight for next hop")	\
  _(STRATEGY_NOT_FOUND, -179, "Strategy not found")
 
-
 typedef enum
 {
 #define _(a,b,c) HICN_ERROR_##a = (b),

@@ -275,6 +275,7 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
                                  FIB_SOURCE_CLI,
                                  FIB_ENTRY_FLAG_NONE, rpaths);
 
+      hicn_route_enable(prefix);
       hicn_app_state_create (sw_if, prefix);
     }
 
@@ -307,6 +308,7 @@ hicn_face_prod_del (hicn_face_id_t face_id)
   if (face->flags & HICN_FACE_FLAGS_APPFACE_PROD)
     {
       /* Remove the face from the fib */
+      hicn_route_disable(&(face_state_vec[face->sw_if].prefix));
       //hicn_route_del_nhop (&(face_state_vec[face->sw_if].prefix),
       //			   face_id);
 

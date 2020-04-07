@@ -110,7 +110,7 @@ format_hicn_strategy_rr_ctx (u8 * s, va_list * ap)
 }
 
 void
-hicn_strategy_rr_ctx_create (dpo_proto_t proto, const hicn_face_id_t * next_hop,
+hicn_strategy_rr_ctx_create (fib_protocol_t proto, const hicn_face_id_t * next_hop,
 			     int nh_len, index_t * dpo_idx)
 {
   hicn_strategy_rr_ctx_t *hicn_strategy_rr_ctx;
@@ -122,7 +122,7 @@ hicn_strategy_rr_ctx_create (dpo_proto_t proto, const hicn_face_id_t * next_hop,
 
   *dpo_idx = hicn_strategy_dpo_ctx_get_index (hicn_strategy_ctx);
 
-  init_dpo_ctx (hicn_strategy_ctx, next_hop, nh_len, hicn_dpo_type_rr);
+  init_dpo_ctx (hicn_strategy_ctx, next_hop, nh_len, hicn_dpo_type_rr, proto);
 
   hicn_strategy_rr_ctx->current_nhop = 0;
 }
