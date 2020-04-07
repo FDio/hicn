@@ -150,7 +150,7 @@ hicn_new_data (vlib_main_t * vm, hicn_data_push_runtime_t * rt,
     hicn_pcs_cs_insert_update (vm, rt->pitcs, pitp, nodep, &hash_entry,
 			       hicnb0->name_hash, &node_id0, &dpo_ctx_id0,
 			       &vft_id0, &is_cs0, &hash_entry_id, &bucket_id,
-			       &bucket_is_overflow, &(hicnb0->face_dpo_id));
+			       &bucket_is_overflow, hicnb0->face_id);
 
   if (ret != HICN_ERROR_NONE)
     {
