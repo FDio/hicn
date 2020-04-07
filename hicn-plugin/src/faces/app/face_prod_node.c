@@ -300,8 +300,8 @@ VLIB_REGISTER_NODE(hicn_face_prod_input_node) =
   .n_next_nodes = HICN_FACE_PROD_N_NEXT,
   .next_nodes =
   {
-    [HICN_FACE_PROD_NEXT_DATA_IP4] = "hicn-face-ip4-input",
-    [HICN_FACE_PROD_NEXT_DATA_IP6] = "hicn-face-ip6-input",
+    [HICN_FACE_PROD_NEXT_DATA_IP4] = "hicn4-face-input",
+    [HICN_FACE_PROD_NEXT_DATA_IP6] = "hicn6-face-input",
     [HICN_FACE_PROD_NEXT_ERROR_DROP] = "error-drop",
   },
 };

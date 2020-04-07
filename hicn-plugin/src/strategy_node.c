@@ -64,7 +64,7 @@ hicn_strategy_format_trace (u8 * s, va_list * args)
 always_inline int
 hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 		   u32 * next, f64 tnow, u8 * nameptr,
-		   u16 namelen, dpo_id_t * outface, int nh_idx,
+		   u16 namelen, hicn_face_id_t outface, int nh_idx,
 		   index_t dpo_ctx_id0, const hicn_strategy_vft_t * strategy,
 		   dpo_type_t dpo_type, u8 isv6,
 		   vl_api_hicn_api_node_stats_get_reply_t * stats)
@@ -123,14 +123,12 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 				   hash_entry);
 
       /* Add face */
-      hicn_face_db_add_face_dpo (&hicnb0->face_dpo_id, &(pitp->u.pit.faces));
+      hicn_face_db_add_face (hicnb0->face_id, &(pitp->u.pit.faces));
 
-      /* Remove lock on the dpo stored in the vlib_buffer */
-      //dpo_unlock (&hicnb0->face_dpo_id);
+      *next = isv6 ? HICN_STRATEGY_NEXT_INTEREST_FACE6 :
+        HICN_STRATEGY_NEXT_INTEREST_FACE4;
 
-      *next = outface->dpoi_next_node;
-
-      vnet_buffer (b0)->ip.adj_index[VLIB_TX] = outface->dpoi_index;
+      vnet_buffer (b0)->ip.adj_index[VLIB_TX] = outface;
       stats->pkts_interest_count++;
     }
   else
@@ -197,7 +195,7 @@ hicn_strategy_fn (vlib_main_t * vm,
 	  hicn_header_t *hicn0;
 	  vlib_buffer_t *b0;
 	  u32 bi0;
-	  dpo_id_t *outface = NULL;
+	  hicn_face_id_t outface;
 	  int nh_idx;
 	  u32 next0 = next_index;
 	  int ret;
@@ -310,6 +308,8 @@ VLIB_REGISTER_NODE (hicn_strategy_node) =
    {
     [HICN_STRATEGY_NEXT_INTEREST_HITPIT] = "hicn-interest-hitpit",
     [HICN_STRATEGY_NEXT_INTEREST_HITCS] = "hicn-interest-hitcs",
+    [HICN_STRATEGY_NEXT_INTEREST_FACE4] = "hicn4-face-output",
+    [HICN_STRATEGY_NEXT_INTEREST_FACE6] = "hicn6-face-output",
     [HICN_STRATEGY_NEXT_ERROR_DROP] = "error-drop",
    },
   };
