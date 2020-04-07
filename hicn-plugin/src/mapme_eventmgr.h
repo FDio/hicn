@@ -15,6 +15,7 @@
 
 #include <vlib/vlib.h>		// vlib_node_registration_t (vlib/node.h)
 
+#include <hicn/name.h>
 /*
  * Structure carrying all necessary information for managing Special Interest
  * (re)transmissions.
