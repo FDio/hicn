@@ -36,7 +36,6 @@
 #include "../../infra.h"
 #include "../../error.h"
 #include "../face.h"
-#include "../ip/face_ip.h"
 #include "../../strategy_dpo_ctx.h"
 #include "../../route.h"
 

@@ -39,7 +39,6 @@ static vl_api_hicn_api_node_params_set_t node_ctl_params = {
   .pit_max_size = -1,
   .pit_max_lifetime_sec = -1.0f,
   .cs_max_size = -1,
-  .cs_reserved_app = -1,
 };
 
 typedef enum
@@ -62,8 +61,7 @@ hicn_cli_node_ctl_start_set_command_fn (vlib_main_t * vm,
 					  node_ctl_params.pit_max_size,
 					  node_ctl_params.
 					  pit_max_lifetime_sec,
-					  node_ctl_params.cs_max_size,
-					  node_ctl_params.cs_reserved_app);
+					  node_ctl_params.cs_max_size);
 
   vlib_cli_output (vm, "hicn: fwdr initialize => %s\n",
 		   get_error_string (ret));
@@ -106,8 +104,7 @@ hicn_cli_node_ctl_stop_set_command_fn (vlib_main_t * vm,
 					  node_ctl_params.pit_max_size,
 					  node_ctl_params.
 					  pit_max_lifetime_sec,
-					  node_ctl_params.cs_max_size,
-					  node_ctl_params.cs_reserved_app);
+					  node_ctl_params.cs_max_size);
 
   return (ret == HICN_ERROR_NONE) ? 0 : clib_error_return (0,
 							   get_error_string
@@ -135,7 +132,6 @@ hicn_cli_node_ctl_param_set_command_fn (vlib_main_t * vm,
 
   int table_size;
   f64 lifetime;
-  int cs_reserved_app;
 
   if (hicn_main.is_enabled)
     {
@@ -192,15 +188,6 @@ hicn_cli_node_ctl_param_set_command_fn (vlib_main_t * vm,
 		  break;
 		}
 	      node_ctl_params.cs_max_size = table_size;
-	    }
-	  else if (unformat (line_input, "app %d", &cs_reserved_app))
-	    {
-	      if (!DFLTD_RANGE_OK (cs_reserved_app, 0, 100))
-		{
-		  rv = HICN_ERROR_CS_CONFIG_SIZE_OOB;
-		  break;
-		}
-	      node_ctl_params.cs_reserved_app = cs_reserved_app;
 	    }
 	  else
 	    {
@@ -278,8 +265,7 @@ hicn_cli_show_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
     {
       if (node_ctl_params.pit_max_size == -1 &&
 	  node_ctl_params.pit_max_lifetime_sec == -1 &&
-	  node_ctl_params.cs_max_size == -1 &&
-	  node_ctl_params.cs_reserved_app == -1)
+	  node_ctl_params.cs_max_size == -1)
 	{
 	  ret = HICN_ERROR_FWD_NOT_ENABLED;
 	  goto done;
@@ -302,11 +288,6 @@ hicn_cli_show_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	  vlib_cli_output (vm, "  CS:: max entries:%d\n",
 			   node_ctl_params.cs_max_size);
 	}
-      if (node_ctl_params.cs_reserved_app != -1)
-	{
-	  vlib_cli_output (vm, "  CS:: reserved to app:%d\n",
-			   node_ctl_params.cs_reserved_app);
-	}
       goto done;
     }
   /* Globals */
@@ -314,16 +295,11 @@ hicn_cli_show_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 		   "Forwarder: %sabled\n"
 		   "  PIT:: max entries:%d,"
 		   " lifetime default: max:%05.3f\n"
-		   "  CS::  max entries:%d, network entries:%d, app entries:%d (allocated %d, free %d)\n",
+		   "  CS::  max entries:%d\n",
 		   hicn_main.is_enabled ? "en" : "dis",
 		   hicn_infra_pit_size,
 		   ((f64) hicn_main.pit_lifetime_max_ms) / SEC_MS,
-		   hicn_infra_cs_size,
-		   hicn_infra_cs_size - hicn_main.pitcs.pcs_app_max,
-		   hicn_main.pitcs.pcs_app_max,
-		   hicn_main.pitcs.pcs_app_count,
-		   hicn_main.pitcs.pcs_app_max -
-		   hicn_main.pitcs.pcs_app_count);
+		   hicn_infra_cs_size);
 
   vl_api_hicn_api_node_stats_get_reply_t rm = { 0, }
   , *rmp = &rm;
