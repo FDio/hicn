@@ -268,7 +268,7 @@ hicn_face_del (hicn_face_id_t face_id)
   return ret;
 }
 
-static void
+void
 hicn_iface_to_face(hicn_face_t *face, const dpo_id_t * dpo)
 {
   face->dpo = *dpo;

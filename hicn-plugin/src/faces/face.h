@@ -374,6 +374,15 @@ hicn_face_get (const ip46_address_t * addr, u32 sw_if, mhash_t * hashtb)
   return dpoi_index == NULL ? NULL : hicn_dpoi_get_from_idx (*dpoi_index);
 }
 
+/**
+ * @brief Get the dpoi from the nat address. Does not add any lock.
+ *
+ * @param addr Ip v4 address used to create the key for the hash table.
+ * @param sw_if Software interface id used to create the key for the hash table.
+ * @param hashtb Hash table (remote or local) where to perform the lookup.
+ *
+ * @result Pointer to the face.
+ */
 always_inline hicn_face_t *
 hicn_face_get_with_dpo (const ip46_address_t * addr, u32 sw_if, const dpo_id_t * dpo, mhash_t * hashtb)
 {
@@ -444,6 +453,9 @@ int hicn_face_add (const dpo_id_t * dpo_nh,
                    int sw_if,
                    hicn_face_id_t * pfaceid,
                    u8 is_app_prod);
+
+void
+hicn_iface_to_face(hicn_face_t *face, const dpo_id_t * dpo);
 
 /**
  * @brief Create a new incomplete face ip. (Meant to be used by the data plane)
