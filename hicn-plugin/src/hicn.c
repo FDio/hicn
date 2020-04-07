@@ -25,7 +25,7 @@
 #include "error.h"
 #include "faces/app/address_mgr.h"
 #include "face_db.h"
-#include "faces/udp/face_udp.h"
+//#include "faces/udp/face_udp.h"
 #include "route.h"
 
 hicn_main_t hicn_main;
@@ -189,7 +189,7 @@ hicn_infra_plugin_enable_disable (int enable_disable,
     }
   sm->is_enabled = 1;
 
-  hicn_face_udp_init_internal ();
+  //hicn_face_udp_init_internal ();
 
 done:
 
@@ -251,7 +251,7 @@ hicn_init (vlib_main_t * vm)
   hicn_dpos_init ();
 
   /* Init the app manager */
-  address_mgr_init ();
+  //address_mgr_init ();
 
   hicn_face_module_init (vm);
 

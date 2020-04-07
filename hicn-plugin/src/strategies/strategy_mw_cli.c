@@ -97,7 +97,7 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
 	(hicn_strategy_mw_ctx_t *) hicn_dpo_ctx;
       int idx = ~0;
       for (int i = 0; i < hicn_dpo_ctx->entry_count; i++)
-	if (hicn_dpo_ctx->next_hops[i].dpoi_index == (index_t) faceid)
+	if (hicn_dpo_ctx->next_hops[i] == faceid)
 	  idx = i;
 
       if (idx == ~0)
