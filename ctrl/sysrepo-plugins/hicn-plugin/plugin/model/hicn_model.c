@@ -162,11 +162,11 @@ if(!reply->retval){
   return VAPI_EUSER;
 }
 
-static vapi_error_e call_hicn_api_face_ip_params_get(struct vapi_ctx_s *ctx,
+static vapi_error_e call_hicn_api_face_params_get(struct vapi_ctx_s *ctx,
                            void *callback_ctx,
                            vapi_error_e rv,
                            bool is_last,
-                           vapi_payload_hicn_api_face_ip_params_get_reply *reply){
+                           vapi_payload_hicn_api_face_params_get_reply *reply){
 if(!reply->retval){
   if (callback_ctx!=NULL){
       struct hicn_faces_s * tmp;
@@ -188,32 +188,6 @@ if(!reply->retval){
   return VAPI_OK;
  }else
   return VAPI_EUSER;
-}
-
-static vapi_error_e call_hicn_api_face_ip_del(struct vapi_ctx_s *ctx,
-                           void *callback_ctx,
-                           vapi_error_e rv,
-                           bool is_last,
-                           vapi_payload_hicn_api_face_ip_del_reply *reply){
-if(!reply->retval){
-  SRP_LOG_DBGMSG("Successfully done");
-  return VAPI_OK;
- }else
-  return VAPI_EUSER;
-}
-
-
-static vapi_error_e call_hicn_api_face_ip_add(struct vapi_ctx_s *ctx,
-                           void *callback_ctx,
-                           vapi_error_e rv,
-                           bool is_last,
-                           vapi_payload_hicn_api_face_ip_add_reply *reply){
-if(!reply->retval){
-  SRP_LOG_DBGMSG("Successfully done");
-  return VAPI_OK;
- }else
-  return VAPI_EUSER;
-
 }
 
 static vapi_error_e call_vapi_hicn_api_node_stats_get(struct vapi_ctx_s *ctx,
@@ -411,13 +385,13 @@ static inline int  faces_update(sr_val_t * vals, uint32_t nleaves, struct lyd_no
 
  for(int count=0; count<nleaves; count++){
 
-   vapi_msg_hicn_api_face_ip_params_get *msg;
-   msg = vapi_alloc_hicn_api_face_ip_params_get(g_vapi_ctx_instance);
+   vapi_msg_hicn_api_face_params_get *msg;
+   msg = vapi_alloc_hicn_api_face_params_get(g_vapi_ctx_instance);
 
 
    msg->payload.faceid = temp->face.faceid;
 
-   if(vapi_hicn_api_face_ip_params_get(g_vapi_ctx_instance,msg,call_hicn_api_face_ip_params_get, (void *)temp)!=VAPI_OK){
+   if(vapi_hicn_api_face_params_get(g_vapi_ctx_instance,msg,call_hicn_api_face_params_get, (void *)temp)!=VAPI_OK){
      SRP_LOG_DBGMSG("Operation failed");
      return SR_ERR_OPERATION_FAILED;
    }
@@ -711,17 +685,17 @@ if(vapi_hicn_api_route_del(g_vapi_ctx_instance,msg,call_hicn_api_route_del,NULL)
 return SR_ERR_OK;
 }
 
-static int hicn_face_ip_params_get_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
+static int hicn_face_params_get_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
         sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
 
  SRP_LOG_DBGMSG("hicn face ip params get received successfully");
- vapi_msg_hicn_api_face_ip_params_get *msg;
+ vapi_msg_hicn_api_face_params_get *msg;
 
- msg = vapi_alloc_hicn_api_face_ip_params_get(g_vapi_ctx_instance);
+ msg = vapi_alloc_hicn_api_face_params_get(g_vapi_ctx_instance);
 
  msg->payload.faceid = input[0].data.uint32_val;
 
-if (vapi_hicn_api_face_ip_params_get(g_vapi_ctx_instance,msg,call_hicn_api_face_ip_params_get,NULL)!=VAPI_OK){
+if (vapi_hicn_api_face_params_get(g_vapi_ctx_instance,msg,call_hicn_api_face_params_get,NULL)!=VAPI_OK){
  SRP_LOG_DBGMSG("Operation failed");
  return SR_ERR_OPERATION_FAILED;
 }
@@ -767,86 +741,6 @@ static int hicn_route_nhops_del_cb(sr_session_ctx_t *session, const char *path, 
 
 
 if (vapi_hicn_api_route_nhop_del(g_vapi_ctx_instance, msg, call_hicn_api_route_nhop_del,NULL)!=VAPI_OK){
- SRP_LOG_DBGMSG("Operation failed");
- return SR_ERR_OPERATION_FAILED;
-}
-return SR_ERR_OK;
-}
-
-static int hicn_face_ip_del_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
-        sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
-
- SRP_LOG_DBGMSG("hicn face ip del received successfully");
- // allocate memory msg
- vapi_msg_hicn_api_face_ip_del *msg;
-
- msg = vapi_alloc_hicn_api_face_ip_del(g_vapi_ctx_instance);
- msg->payload.faceid = input[0].data.uint32_val;
-
-
-if(vapi_hicn_api_face_ip_del(g_vapi_ctx_instance,msg, call_hicn_api_face_ip_del,NULL)!=VAPI_OK){
- SRP_LOG_DBGMSG("Operation failed");
- return SR_ERR_OPERATION_FAILED;
-}
-return SR_ERR_OK;
-}
-
-
-static int hicn_face_ip_add_cb(sr_session_ctx_t *session, const char *path, const sr_val_t *input, const size_t input_cnt,
-        sr_event_t event, uint32_t request_id, sr_val_t **output, size_t *output_cnt, void *private_data) {
-
- SRP_LOG_DBGMSG("hicn face ip add received successfully");
-
-
- vapi_msg_hicn_api_face_ip_add *msg;
-
- msg = vapi_alloc_hicn_api_face_ip_add(g_vapi_ctx_instance);
- if(strcmp(input[0].data.string_val,"-1")){
-     struct sockaddr_in sa;
-     inet_pton(AF_INET,  input[0].data.string_val, &(sa.sin_addr));
-     unsigned char * tmp = (unsigned char *) &sa.sin_addr.s_addr;
-     memcpy(&msg->payload.face.local_addr.un.ip4[0],tmp,B32);
-     msg->payload.face.local_addr.af = ADDRESS_IP4;
-
- }else if(strcmp(input[1].data.string_val,"-1")){
-
-     void *dst = malloc(sizeof(struct in6_addr));
-     inet_pton(AF_INET6, input[1].data.string_val, dst);
-     unsigned char * tmp = (unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-     memcpy(&msg->payload.face.local_addr.un.ip6[0],tmp,B128);
-     msg->payload.face.local_addr.af = ADDRESS_IP6;
-
- }else{
-     SRP_LOG_DBGMSG("Invalid local IP address");
-     return SR_ERR_OPERATION_FAILED;
- }
-
- if(strcmp(input[2].data.string_val,"-1")){
-
-     struct sockaddr_in sa;
-     inet_pton(AF_INET,  input[2].data.string_val, &(sa.sin_addr));
-     unsigned char * tmp = (unsigned char *)&sa.sin_addr.s_addr;
-     memcpy(&msg->payload.face.remote_addr.un.ip4[0],tmp,B32);
-     msg->payload.face.remote_addr.af = ADDRESS_IP4;
-
-
- }else if(strcmp(input[3].data.string_val,"-1")){
-
-     void *dst = malloc(sizeof(struct in6_addr));
-     inet_pton(AF_INET6, input[3].data.string_val, dst);
-     unsigned char * tmp =(unsigned char *) ((struct in6_addr *)dst)->s6_addr;
-     memcpy(&msg->payload.face.remote_addr.un.ip6[0],tmp,B128);
-     msg->payload.face.remote_addr.af = ADDRESS_IP6;
-
- }else{
-     SRP_LOG_DBGMSG("Invalid local IP address");
-     return SR_ERR_OPERATION_FAILED;
- }
-
- msg->payload.face.swif = input[4].data.uint32_val;  // This is the idx number of interface
-
-
-if(vapi_hicn_api_face_ip_add(g_vapi_ctx_instance,msg,call_hicn_api_face_ip_add,NULL)!=VAPI_OK){
  SRP_LOG_DBGMSG("Operation failed");
  return SR_ERR_OPERATION_FAILED;
 }
@@ -1073,25 +967,10 @@ int hicn_subscribe_events(sr_session_ctx_t *session,
 
    // face ip subscriptions
 
-   rc = sr_rpc_subscribe(session, "/hicn:face-ip-params-get",
-   hicn_face_ip_params_get_cb, session, 93,SR_SUBSCR_CTX_REUSE, subscription);
+   rc = sr_rpc_subscribe(session, "/hicn:face-params-get",
+   hicn_face_params_get_cb, session, 93,SR_SUBSCR_CTX_REUSE, subscription);
    if (rc != SR_ERR_OK) {
      SRP_LOG_DBGMSG("Problem in subscription face-ip-params-get\n");
-     goto error;
-   }
-
-
-   rc = sr_rpc_subscribe(session, "/hicn:face-ip-add", hicn_face_ip_add_cb,
-   session, 92,SR_SUBSCR_CTX_REUSE, subscription);
-   if (rc != SR_ERR_OK) {
-     SRP_LOG_DBGMSG("Problem in subscription face-ip-add\n");
-     goto error;
-   }
-
-   rc = sr_rpc_subscribe(session, "/hicn:face-ip-del", hicn_face_ip_del_cb,
-   session, 91,SR_SUBSCR_CTX_REUSE, subscription);
-   if (rc != SR_ERR_OK) {
-     SRP_LOG_DBGMSG("Problem in subscription face-ip-del\n");
      goto error;
    }
 
