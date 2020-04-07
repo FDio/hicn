@@ -224,7 +224,8 @@ hicn_test_main_t hicn_test_main;
 _(hicn_api_node_params_set_reply)                        \
 _(hicn_api_route_nhops_add_reply)                        \
 _(hicn_api_route_del_reply)                              \
-_(hicn_api_route_nhop_del_reply)
+_(hicn_api_route_nhop_del_reply)                         \
+_(hicn_api_enable_disable_reply)
 
 #define _(n)                                            \
     static void vl_api_##n##_t_handler                  \
@@ -261,7 +262,8 @@ _(HICN_API_ROUTES_DETAILS, hicn_api_routes_details)                     \
 _(HICN_API_ROUTE_DEL_REPLY, hicn_api_route_del_reply)                   \
 _(HICN_API_ROUTE_NHOP_DEL_REPLY, hicn_api_route_nhop_del_reply)         \
 _(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)         \
-_(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)
+_(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)             \
+_(HICN_API_ENABLE_DISABLE_REPLY, hicn_api_enable_disable_reply)
 
 static int
 api_hicn_api_node_params_set (vat_main_t * vam)
@@ -1106,6 +1108,59 @@ static void
     }
   fformat (vam->ofp, "%s", mp->description);
 }
+
+static int
+api_hicn_api_enable_disable (vat_main_t * vam)
+{
+  unformat_input_t *input = vam->input;
+  vl_api_hicn_api_enable_disable_t *mp;
+  int ret;
+
+  fib_prefix_t prefix;
+  vl_api_hicn_action_type_t en_dis = HICN_ENABLE;
+
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "prefix %U/%d", unformat_ip46_address,
+		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
+	{;
+	}
+      else if (unformat (input, "disable"))
+          {;
+            en_dis = HICN_DISABLE;
+          }
+      else
+	{
+	  break;
+	}
+    }
+
+  /* Check parse */
+  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0))
+      || (prefix.fp_len == 0))
+    {
+      clib_warning ("Please specify a valid prefix...");
+      return 1;
+    }
+
+  prefix.fp_proto = ip46_address_is_ip4 (&(prefix.fp_addr)) ? FIB_PROTOCOL_IP4 :
+                                         FIB_PROTOCOL_IP6;
+
+  //Construct the API message
+  M (HICN_API_ENABLE_DISABLE, mp);
+
+  ip_prefix_encode (&prefix, &mp->prefix);
+  mp->enable_disable = en_dis;
+
+  //send it...
+  S (mp);
+
+  //Wait for a reply...
+  W (ret);
+
+  return ret;
+}
+
 
 #include <hicn/hicn.api_test.c>
 
