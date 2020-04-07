@@ -60,7 +60,7 @@ hicn_dpo_ctx_t *hicn_strategy_mw_ctx_get (index_t index);
  * @return HICN_ERROR_NONE if the creation was fine, otherwise EINVAL
  */
 void
-hicn_strategy_mw_ctx_create (dpo_proto_t proto, const hicn_face_id_t * next_hop,
+hicn_strategy_mw_ctx_create (fib_protocol_t proto, const hicn_face_id_t * next_hop,
 			     int nh_len, index_t * dpo_idx);
 
 /**
