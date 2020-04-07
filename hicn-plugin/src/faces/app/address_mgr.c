@@ -36,7 +36,6 @@
 #include "../../infra.h"
 #include "../../error.h"
 #include "../face.h"
-#include "../ip/face_ip.h"
 #include "../../strategy_dpo_ctx.h"
 #include "../../route.h"
 
@@ -134,26 +133,25 @@ get_two_ip6_addresses (ip6_address_t * appif_addr, ip6_address_t * nh_addr)
 
   fib_pfx.fp_proto = FIB_PROTOCOL_IP6;
   fib_pfx.fp_len = ADDR_MGR_IP6_LEN;
+
+  fib_index = fib_table_find (fib_pfx.fp_proto, 0);
+
   /* At this point the face exists in the face table */
   do
     {
       /* Check if the route already exist in the fib */
       fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 1, appif_addr->as_u8);
-      fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
-						     HICN_FIB_TABLE,
-						     FIB_SOURCE_PRIORITY_HI);
+
       fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
-      fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
+      //fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
       if (fib_entry_index != FIB_NODE_INDEX_INVALID)
 	{
 	  fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 0, nh_addr->as_u8);
-	  fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
-							 HICN_FIB_TABLE,
-							 FIB_SOURCE_PRIORITY_HI);
+
 	  fib_entry_index =
 	    fib_table_lookup_exact_match (fib_index, &fib_pfx);
-	  fib_table_unlock (fib_index, fib_pfx.fp_proto,
-			    FIB_SOURCE_PRIORITY_HI);
+          //	  fib_table_unlock (fib_index, fib_pfx.fp_proto,
+          //		    FIB_SOURCE_PRIORITY_HI);
 	}
       if (fib_entry_index != FIB_NODE_INDEX_INVALID)
 	{

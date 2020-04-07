@@ -434,7 +434,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 	{
 	  vlib_buffer_t *h0, *h1;
 	  u32 hi0, hi1;
-	  dpo_id_t *face0, *face1;
+	  hicn_face_id_t face0, face1;
 
 	  /* Prefetch for next iteration. */
 	  {
@@ -458,10 +458,13 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 	  n_left_from -= 2;
 	  clones += 2;
 
-	  next0 = face0->dpoi_next_node;
-	  next1 = face1->dpoi_next_node;
-	  vnet_buffer (h0)->ip.adj_index[VLIB_TX] = face0->dpoi_index;
-	  vnet_buffer (h1)->ip.adj_index[VLIB_TX] = face1->dpoi_index;
+	  next0 = isv6 ? HICN_DATA_FWD_NEXT_IFACE6_OUT :
+            HICN_DATA_FWD_NEXT_IFACE4_OUT;
+	  next1 = isv6 ? HICN_DATA_FWD_NEXT_IFACE6_OUT :
+            HICN_DATA_FWD_NEXT_IFACE4_OUT;
+
+          vnet_buffer (h0)->ip.adj_index[VLIB_TX] = face0;
+	  vnet_buffer (h1)->ip.adj_index[VLIB_TX] = face1;
 
 	  stats->pkts_data_count += 2;
 
@@ -499,7 +502,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 	{
 	  vlib_buffer_t *h0;
 	  u32 hi0;
-	  dpo_id_t *face0;
+	  hicn_face_id_t face0;
 
 	  face0 = hicn_face_db_get_dpo_face (i++, &pitp->u.pit.faces);
 
@@ -511,8 +514,9 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 	  n_left_from -= 1;
 	  clones += 1;
 
-	  next0 = face0->dpoi_next_node;
-	  vnet_buffer (h0)->ip.adj_index[VLIB_TX] = face0->dpoi_index;
+	  next0 = isv6 ? HICN_DATA_FWD_NEXT_IFACE6_OUT :
+            HICN_DATA_FWD_NEXT_IFACE4_OUT;
+	  vnet_buffer (h0)->ip.adj_index[VLIB_TX] = face0;
 
 	  stats->pkts_data_count++;
 
@@ -584,7 +588,7 @@ clone_data_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
    */
   hicn_buffer_t *hicnb0 = hicn_get_buffer (b0);
   hicn_pit_to_cs (vm, pitcs, pitp, hash_entry, nodep, dpo_vft, hicn_dpo_id,
-		  &hicnb->face_dpo_id,
+		  hicnb->face_id,
 		  hicnb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP);
 
   pitp->shared.create_time = tnow;
@@ -636,6 +640,8 @@ VLIB_REGISTER_NODE(hicn_data_fwd_node) =
     [HICN_DATA_FWD_NEXT_V4_LOOKUP] = "ip4-lookup",
     [HICN_DATA_FWD_NEXT_V6_LOOKUP] = "ip6-lookup",
     [HICN_DATA_FWD_NEXT_PUSH] = "hicn-data-push",
+    [HICN_DATA_FWD_NEXT_IFACE4_OUT] = "hicn4-iface-output",
+    [HICN_DATA_FWD_NEXT_IFACE6_OUT] = "hicn6-iface-output",
     [HICN_DATA_FWD_NEXT_ERROR_DROP] = "error-drop",
   },
 };

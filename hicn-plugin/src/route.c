@@ -96,12 +96,11 @@ hicn_route_add_nhops (hicn_face_id_t * face_id, u32 len,
 {
   const dpo_id_t *hicn_dpo_id;
   int ret = HICN_ERROR_NONE;
-  dpo_id_t faces_dpo_tmp[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
-  int n_face_dpo = 0;
+  hicn_face_id_t faces_id_tmp[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
+  int n_face_id = 0;
   const hicn_dpo_vft_t *dpo_vft;
   u32 fib_index;
   vlib_main_t *vm = vlib_get_main ();
-  hicn_face_vft_t *face_vft = NULL;
 
   if (face_id == NULL)
     {
@@ -114,19 +113,16 @@ hicn_route_add_nhops (hicn_face_id_t * face_id, u32 len,
    */
   for (int i = 0; i < clib_min (HICN_PARAM_FIB_ENTRY_NHOPS_MAX, len); i++)
     {
-      hicn_face_t *face = hicn_dpoi_get_from_idx (face_id[i]);
-      face_vft = hicn_face_get_vft (face->shared.face_type);
-      dpo_id_t face_dpo = DPO_INVALID;
-      face_vft->hicn_face_get_dpo (face, &face_dpo);
+      hicn_face_t *face = hicn_dpoi_get_from_idx_safe (face_id[i]);
 
-      if (!dpo_id_is_valid (&face_dpo))
+      if (face == NULL)
 	{
 	  vlib_cli_output (vm, "Face %d not found, skip...\n", face_id[i]);
 	  return ret;
 	}
       else
 	{
-	  faces_dpo_tmp[n_face_dpo++] = face_dpo;
+	  faces_id_tmp[n_face_id++] = face_id[i];
 	}
     }
 
@@ -134,22 +130,22 @@ hicn_route_add_nhops (hicn_face_id_t * face_id, u32 len,
 
   if (ret == HICN_ERROR_NONE)
     {
-      for (int i = 0; i < n_face_dpo && (ret == HICN_ERROR_NONE); i++)
+      for (int i = 0; i < n_face_id && (ret == HICN_ERROR_NONE); i++)
 	{
 	  u32 vft_id = hicn_dpo_get_vft_id (hicn_dpo_id);
 	  dpo_vft = hicn_dpo_get_vft (vft_id);
 
 	  hicn_face_t *face =
-	    hicn_dpoi_get_from_idx (faces_dpo_tmp[i].dpoi_index);
+	    hicn_dpoi_get_from_idx (faces_id_tmp[i]);
 	  //Disable feature on the interface
 	  if (prefix->fp_proto == FIB_PROTOCOL_IP4)
 	    vnet_feature_enable_disable ("ip4-local", "hicn-data-input-ip4",
-					 face->shared.sw_if, 1, 0, 0);
+					 face->sw_if, 1, 0, 0);
 	  else if (prefix->fp_proto == FIB_PROTOCOL_IP6)
 	    vnet_feature_enable_disable ("ip6-local", "hicn-data-input-ip6",
-					 face->shared.sw_if, 1, 0, 0);
+					 face->sw_if, 1, 0, 0);
 
-	  ret = dpo_vft->hicn_dpo_add_update_nh (&faces_dpo_tmp[i],
+	  ret = dpo_vft->hicn_dpo_add_update_nh (faces_id_tmp[i],
 						 hicn_dpo_id->dpoi_index);
 	}
     }
@@ -164,12 +160,11 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
   dpo_id_t dpo = DPO_INVALID;
   const dpo_id_t *hicn_dpo_id;
   int ret = HICN_ERROR_NONE;
-  dpo_id_t face_dpo_tmp[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
-  int n_face_dpo = 0;
+  hicn_face_id_t face_id_tmp[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
+  int n_face_id = 0;
   index_t dpo_idx;
   u32 fib_index;
   vlib_main_t *vm = vlib_get_main ();
-  hicn_face_vft_t *face_vft = NULL;
 
   if (face_id == NULL || !hicn_dpoi_idx_is_valid (*face_id))
     {
@@ -183,18 +178,15 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
   for (int i = 0; i < clib_min (HICN_PARAM_FIB_ENTRY_NHOPS_MAX, len); i++)
     {
       hicn_face_t *face = hicn_dpoi_get_from_idx (face_id[i]);
-      face_vft = hicn_face_get_vft (face->shared.face_type);
-      dpo_id_t face_dpo = DPO_INVALID;
-      face_vft->hicn_face_get_dpo (face, &face_dpo);
 
-      if (!dpo_id_is_valid (&face_dpo))
+      if (face == NULL)
 	{
 	  vlib_cli_output (vm, "Face %d not found, skip...\n", face_id[i]);
 	  return ret;
 	}
       else
 	{
-	  face_dpo_tmp[n_face_dpo++] = face_dpo;
+	  face_id_tmp[n_face_id++] = face_id[i];
 	}
     }
 
@@ -202,22 +194,22 @@ hicn_route_add (hicn_face_id_t * face_id, u32 len,
 
   if (ret == HICN_ERROR_ROUTE_NOT_FOUND)
     {
-      dpo_id_t nhops[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
-      for (int i = 0; i < n_face_dpo; i++)
+      hicn_face_id_t nhops[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
+      for (int i = 0; i < n_face_id; i++)
 	{
-	  clib_memcpy (&nhops[i], &face_dpo_tmp[i], sizeof (dpo_id_t));
+	  nhops[i] = face_id_tmp[i];
 	  hicn_face_t *face =
-	    hicn_dpoi_get_from_idx (face_dpo_tmp[i].dpoi_index);
+	    hicn_dpoi_get_from_idx (face_id_tmp[i]);
 	  //Disable feature on the interface
 	  if (prefix->fp_proto == FIB_PROTOCOL_IP4)
 	    vnet_feature_enable_disable ("ip4-local", "hicn-data-input-ip4",
-					 face->shared.sw_if, 1, 0, 0);
+					 face->sw_if, 1, 0, 0);
 	  else if (prefix->fp_proto == FIB_PROTOCOL_IP6)
 	    vnet_feature_enable_disable ("ip6-local", "hicn-data-input-ip6",
-					 face->shared.sw_if, 1, 0, 0);
+					 face->sw_if, 1, 0, 0);
 	}
 
-      default_dpo.hicn_dpo_create (prefix->fp_proto, nhops, n_face_dpo,
+      default_dpo.hicn_dpo_create (prefix->fp_proto, nhops, n_face_id,
 				   &dpo_idx);
 
       /* the value we got when we registered */
@@ -312,10 +304,10 @@ hicn_route_del_nhop (fib_prefix_t * prefix, hicn_face_id_t face_id)
       //Disable feature on the interface
       if (prefix->fp_proto == FIB_PROTOCOL_IP4)
 	vnet_feature_enable_disable ("ip4-local", "hicn-data-input-ip4",
-				     face->shared.sw_if, 0, 0, 0);
+				     face->sw_if, 0, 0, 0);
       else if (prefix->fp_proto == FIB_PROTOCOL_IP6)
 	vnet_feature_enable_disable ("ip6-local", "hicn-data-input-ip6",
-				     face->shared.sw_if, 0, 0, 0);
+				     face->sw_if, 0, 0, 0);
 
       ret = dpo_vft->hicn_dpo_del_nh (face_id, hicn_dpo_id->dpoi_index);
 

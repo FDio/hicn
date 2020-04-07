@@ -88,7 +88,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  u8 dpo_ctx_id0;
 	  u8 found = 0;
 	  int nh_idx;
-	  dpo_id_t *outface;
+	  hicn_face_id_t outface;
 	  hicn_hash_entry_t *hash_entry0;
 	  hicn_buffer_t *hicnb0;
 	  int ret;
@@ -166,7 +166,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		   */
 
 		  found =
-		    hicn_face_search (&(hicnb0->face_dpo_id),
+		    hicn_face_search (hicnb0->face_id,
 				      &(pitp->u.pit.faces));
 
 		  if (found)
@@ -178,9 +178,10 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		       * Prepare the packet for the
 		       * forwarding
 		       */
-		      next0 = outface->dpoi_next_node;
+		      next0 = isv6 ? HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT :
+                        HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT;
 		      vnet_buffer (b0)->ip.adj_index[VLIB_TX] =
-			outface->dpoi_index;
+			outface;
 
 		      /*
 		       * Update the egress face in
@@ -191,8 +192,8 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		    }
 		  else
 		    {
-		      hicn_face_db_add_face_dpo (&hicnb0->face_dpo_id,
-						 &pitp->u.pit.faces);
+		      hicn_face_db_add_face (hicnb0->face_id,
+                                             &pitp->u.pit.faces);
 
 		      /* Aggregation */
 		      drop_packet (&next0);
@@ -293,6 +294,8 @@ VLIB_REGISTER_NODE(hicn_interest_hitpit_node) =
   {
     [HICN_INTEREST_HITPIT_NEXT_INTEREST_HITCS] = "hicn-interest-hitcs",
     [HICN_INTEREST_HITPIT_NEXT_STRATEGY] = "hicn-strategy",
+    [HICN_INTEREST_HITPIT_NEXT_STRATEGY] = "hicn4-face-output",
+    [HICN_INTEREST_HITPIT_NEXT_STRATEGY] = "hicn6-face-output",
     [HICN_INTEREST_HITPIT_NEXT_ERROR_DROP] = "error-drop",
   },
 };

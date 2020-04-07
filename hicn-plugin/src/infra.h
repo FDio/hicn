@@ -67,7 +67,7 @@ int
 hicn_infra_plugin_enable_disable (int enable_disable,
 				  int pit_max_size,
 				  f64 pit_max_lifetime_sec_req,
-				  int cs_max_size, int cs_reserved_app);
+				  int cs_max_size);
 
 
 /* vlib nodes that compose the hICN forwarder */

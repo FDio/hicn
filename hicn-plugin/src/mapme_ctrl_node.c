@@ -74,7 +74,7 @@ preprocess_in_face (hicn_type_t type, dpo_id_t * in, dpo_id_t * out)
  */
 static_always_inline bool
 hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
-			 dpo_id_t * in_face)
+			 hicn_face_id_t in_face)
 {
   seq_t fib_seq;
   const dpo_id_t *dpo;
@@ -158,19 +158,21 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
       /* Move next hops to TFIB... but in_face... */
       for (u8 pos = 0; pos < tfib->entry_count; pos++)
 	{
-	  if (dpo_cmp (&tfib->next_hops[pos], in_face) == 0)
+	  if (tfib->next_hops[pos] == in_face)
 	    {
 	      tfib->entry_count = 0;
 	      break;
 	    }
 	  DEBUG
 	    ("Adding nexthop to the tfib, dpo index in_face %d, dpo index tfib %d",
-	     in_face->dpoi_index, tfib->next_hops[pos].dpoi_index);
-	  hicn_mapme_tfib_add (tfib, &tfib->next_hops[pos]);
+	     in_face, tfib->next_hops[pos]);
+	  hicn_mapme_tfib_add (tfib, tfib->next_hops[pos]);
 	}
 
       /* ... and set ingress face as next_hop */
       in_face->dpoi_next_node = hicn_mapme_get_dpo_vlib_edge (in_face);
+
+      /* Convert possible iFate into a face TODO!!!*/
       hicn_mapme_nh_set (tfib, in_face);
 
       /* We transmit both the prefix and the full dpo (type will be needed to pick the right transmit node */
@@ -273,7 +275,7 @@ hicn_mapme_ctrl_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  hb = hicn_get_buffer (b0);
 
 	  /* This determines the next node on which the ack will be sent back */
-	  u32 next0 = hicn_mapme_get_dpo_iface_node (&hb->face_dpo_id);
+	  u32 next0 = hicn_mapme_get_dpo_iface_node (&hb->face_id);
 
 	  /* Preprocessing is needed to precompute in the dpo the next node
 	   * that will have to be followed by regular interests when being

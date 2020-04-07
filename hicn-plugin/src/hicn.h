@@ -30,6 +30,8 @@
 #undef ip_prefix_len
 #define ip_prefix_len(_a) (_a)->len
 
+#include "faces/face.h"
+
 #include <netinet/in.h>
 #include <vnet/ip/ip.h>
 #include <vnet/tcp/tcp_packet.h>
@@ -54,8 +56,6 @@ typedef u8 weight_t;
 #define VLIB_BUFFER_MIN_CHAIN_SEG_SIZE (128)
 #endif
 
-#define HICN_BUFFER_FLAGS_DEFAULT 0x00
-#define HICN_BUFFER_FLAGS_FACE_IS_APP 0x01
 /* vlib_buffer cloning utilities impose that current_lentgh is more that 2*CLIB_CACHE_LINE_BYTES.  */
 /* This flag is used to mark packets whose lenght is less that 2*CLIB_CACHE_LINE_BYTES. */
 #define HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL 0x02
@@ -76,8 +76,7 @@ typedef struct
   u8 dpo_ctx_id;		/* used for data path */
   u8 vft_id;			/* " */
 
-  dpo_id_t face_dpo_id;	/* ingress iface, sizeof(dpo_id_t)
-                                 * <= sizeof(u64) */
+  hicn_face_id_t face_id;	/* ingress iface, sizeof(u32) */
   u32 in_faces_vec_id;          /* vector of possible input face for a data packet */
 
   hicn_type_t type;

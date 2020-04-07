@@ -98,9 +98,10 @@ hicn_app_state_del (u32 swif)
   );
   /* *INDENT-ON* */
 
-  prefix = &(face_state_vec[swif].prefix);
   if (!found)
     return HICN_ERROR_APPFACE_NOT_FOUND;
+
+  prefix = &(face_state_vec[swif].prefix);
 
   int ret = HICN_ERROR_NONE;
   if (ip46_address_is_ip4 (&prefix->fp_addr))
@@ -132,7 +133,7 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
   hicn_main_t *hm = &hicn_main;
 
   ip46_address_t local_app_ip;
-  ip46_address_t remote_app_ip;
+  CLIB_UNUSED(ip46_address_t remote_app_ip);
   u32 if_flags = 0;
 
   if (!hm->is_enabled)
@@ -164,24 +165,12 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
    * Check if a producer face is already existing for the same prefix
    * and sw_if
    */
-  if (ip46_address_is_ip4 (&prefix->fp_addr))
-    {
-      face =
-	hicn_face_ip4_get (&(prefix->fp_addr.ip4), sw_if,
-			   &hicn_face_ip_remote_hashtb);
-    }
-  else
-    {
-      face =
-	hicn_face_ip6_get (&(prefix->fp_addr.ip6), sw_if,
-			   &hicn_face_ip_remote_hashtb);
-      if (face != NULL)
-	return HICN_ERROR_FACE_ALREADY_CREATED;
-    }
+  face = hicn_face_get (&(prefix->fp_addr), sw_if,
+                            &hicn_face_hashtb);
 
   if (face != NULL)
     {
-      if (!(face->shared.flags & HICN_FACE_FLAGS_DELETED))
+      if (!(face->flags & HICN_FACE_FLAGS_DELETED))
 	return HICN_ERROR_FACE_ALREADY_CREATED;
 
       /*
@@ -189,19 +178,17 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
        * producer's prefix.
        */
       /* It should never happens, this is a safety check. */
-      if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_CONS)
+      if (face->flags & HICN_FACE_FLAGS_APPFACE_CONS)
 	return HICN_ERROR_FACE_ALREADY_CREATED;
 
       /* If the face exists but is marked as deleted, undelete it */
-      if (face->shared.flags & HICN_FACE_FLAGS_DELETED)
+      if (face->flags & HICN_FACE_FLAGS_DELETED)
 	{
 	  /*
 	   * remove the deleted flag and retrieve the face
 	   * local addr
 	   */
-	  face->shared.flags &= HICN_FACE_FLAGS_DELETED;
-	  hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data;
-	  local_app_ip = prod_face->ip_face.local_addr;
+	  face->flags &= HICN_FACE_FLAGS_DELETED;
 	}
     }
   else
@@ -221,10 +208,6 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 					 &local_app_ip4, 31, 0 /* is_del */ );
 	  local_app_ip = to_ip46 ( /* isv6 */ 0, local_app_ip4.as_u8);
 	  remote_app_ip = to_ip46 ( /* isv6 */ 0, remote_app_ip4.as_u8);
-
-	  ret =
-	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid,
-			      HICN_FACE_FLAGS_APPFACE_PROD);
 	}
       else
 	{
@@ -242,41 +225,29 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 					 0 /* is_del */ );
 	  local_app_ip = to_ip46 ( /* isv6 */ 1, local_app_ip6.as_u8);
 	  remote_app_ip = to_ip46 ( /* isv6 */ 1, remote_app_ip6.as_u8);
-
-	  ret =
-	    hicn_face_ip_add (&local_app_ip, &remote_app_ip, sw_if, faceid,
-			      HICN_FACE_FLAGS_APPFACE_PROD);
 	}
-
-      face = hicn_dpoi_get_from_idx (*faceid);
-
-      face->shared.flags |= HICN_FACE_FLAGS_APPFACE_PROD;
-
-      hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data;
-
-      /*
-       * For the moment we keep them here although it would be good
-       * to create a different face for appface
-       */
-      prod_face->policy_vft.hicn_cs_insert = hicn_cs_lru.hicn_cs_insert;
-      prod_face->policy_vft.hicn_cs_update = hicn_cs_lru.hicn_cs_update;
-      prod_face->policy_vft.hicn_cs_dequeue = hicn_cs_lru.hicn_cs_dequeue;
-      prod_face->policy_vft.hicn_cs_delete_get =
-	hicn_cs_lru.hicn_cs_delete_get;
-      prod_face->policy_vft.hicn_cs_trim = hicn_cs_lru.hicn_cs_trim;
-      prod_face->policy_vft.hicn_cs_flush = hicn_cs_lru.hicn_cs_flush;
-
     }
 
-  if (ret == HICN_ERROR_NONE
-      && hicn_face_prod_set_lru_max (*faceid, cs_reserved) == HICN_ERROR_NONE)
+  if (ret == HICN_ERROR_NONE)
+    //    && hicn_face_prod_set_lru_max (*faceid, cs_reserved) == HICN_ERROR_NONE)
     {
+      fib_route_path_t rpath = {0};
+      fib_route_path_t * rpaths = NULL;
+
       if (ip46_address_is_ip4(&(prefix->fp_addr)))
         {
           ip4_address_t mask;
           ip4_preflen_to_mask (prefix->fp_len, &mask);
           prefix->fp_addr.ip4.as_u32 = prefix->fp_addr.ip4.as_u32 & mask.as_u32;
           prefix->fp_proto = FIB_PROTOCOL_IP4;
+
+          rpath.frp_weight = 1;
+          rpath.frp_sw_if_index = ~0;
+          rpath.frp_addr.ip4.as_u32 = remote_app_ip.ip4.as_u32;
+          rpath.frp_sw_if_index = sw_if;
+          rpath.frp_proto = DPO_PROTO_IP4;
+
+          vec_add1 (rpaths, rpath);
         }
       else
         {
@@ -287,11 +258,33 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
           prefix->fp_addr.ip6.as_u64[1] =
             prefix->fp_addr.ip6.as_u64[1] & mask.as_u64[1];
           prefix->fp_proto = FIB_PROTOCOL_IP6;
+
+          rpath.frp_weight = 1;
+          rpath.frp_sw_if_index = ~0;
+          rpath.frp_addr.ip6.as_u64[0] = remote_app_ip.ip6.as_u64[0];
+          rpath.frp_addr.ip6.as_u64[1] = remote_app_ip.ip6.as_u64[1];
+          rpath.frp_sw_if_index = sw_if;
+          rpath.frp_proto = DPO_PROTO_IP6;
+
+          vec_add1 (rpaths, rpath);
         }
 
+      u32 fib_index = fib_table_find (prefix->fp_proto, 0);
+      fib_table_entry_path_add2 (fib_index,
+                                 prefix,
+                                 FIB_SOURCE_CLI,
+                                 FIB_ENTRY_FLAG_NONE, rpaths);
+
       hicn_app_state_create (sw_if, prefix);
-      ret = hicn_route_add (faceid, 1, prefix);
     }
+
+  face = hicn_face_get(&local_app_ip, sw_if, &hicn_face_hashtb);//HICN_FACE_FLAGS_APPFACE_PROD);
+
+  *faceid = hicn_dpoi_get_index (face);
+
+  face->flags |= HICN_FACE_FLAGS_APPFACE_PROD;
+
+  hicn_face_unlock_with_id(*faceid);
 
   *prod_addr = local_app_ip;
 
@@ -299,9 +292,6 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
   if (ret)
     {
       hicn_app_state_del (sw_if);
-
-      if (*faceid != HICN_FACE_NULL)
-	hicn_face_ip_del (*faceid);
     }
   return ret;
 }
@@ -314,88 +304,32 @@ hicn_face_prod_del (hicn_face_id_t face_id)
 
   hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
 
-  if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD)
+  if (face->flags & HICN_FACE_FLAGS_APPFACE_PROD)
     {
-      hicn_face_prod_t *prod_face = (hicn_face_prod_t *) face->data;
-      /* Free the CS reserved for the face */
-      hicn_main.pitcs.pcs_app_count -= prod_face->policy.max;
-      prod_face->policy.max = 0;
-
       /* Remove the face from the fib */
-      hicn_route_del_nhop (&(face_state_vec[face->shared.sw_if].prefix),
-			   face_id);
+      //hicn_route_del_nhop (&(face_state_vec[face->sw_if].prefix),
+      //			   face_id);
 
-      /*
-       * Delete the content in the CS before deleting the face.
-       * Mandatory to prevent hitting the CS and not having the lru list
-       * due to a early deletion of the face.
-       */
-      vlib_main_t *vm = vlib_get_main ();
-      prod_face->policy_vft.hicn_cs_flush (vm, &(hicn_main.pitcs),
-					   &(prod_face->policy));
-
-      int ret = hicn_face_ip_del (face_id);
-      return ret ==
-	HICN_ERROR_NONE ? hicn_app_state_del (face->shared.sw_if) : ret;
+      //int ret = hicn_face_del (face_id);
+      return hicn_app_state_del (face->sw_if);
+        //ret == HICN_ERROR_NONE ? hicn_app_state_del (face->sw_if) : ret;
     }
   else
     {
       return HICN_ERROR_APPFACE_NOT_FOUND;
     }
-}
 
-int
-hicn_face_prod_set_lru_max (hicn_face_id_t face_id, u32 * requested_size)
-{
-  int ret = HICN_ERROR_NONE;
-  vlib_main_t *vm = vlib_get_main ();
-  hicn_face_t *face;
-  hicn_face_prod_t *face_prod;
-
-  if (!hicn_infra_fwdr_initialized)
-    {
-      ret = HICN_ERROR_FWD_NOT_ENABLED;
-      vlib_cli_output (vm, "hicn: %s\n", get_error_string (ret));
-      return ret;
-    }
-  face = hicn_dpoi_get_from_idx (face_id);
-  face_prod = (hicn_face_prod_t *) face->data;
-
-  if (face == NULL)
-    return HICN_ERROR_FACE_NOT_FOUND;
-
-  if (*requested_size > HICN_PARAM_FACE_MAX_CS_RESERVED)
-    *requested_size = HICN_PARAM_FACE_MAX_CS_RESERVED;
-
-  uint32_t available =
-    hicn_main.pitcs.pcs_app_max - hicn_main.pitcs.pcs_app_count;
-
-  if (*requested_size > available)
-    *requested_size = available;
-
-  face_prod->policy.max = *requested_size;
-  face_prod->policy.count = 0;
-  face_prod->policy.head = face_prod->policy.tail = 0;
-
-  hicn_main.pitcs.pcs_app_count += *requested_size;
-
-  return ret;
+  return HICN_ERROR_NONE;
 }
 
 u8 *
 format_hicn_face_prod (u8 * s, va_list * args)
 {
-  index_t index = va_arg (*args, index_t);
+  CLIB_UNUSED (index_t index) = va_arg (*args, index_t);
   CLIB_UNUSED (u32 indent) = va_arg (*args, u32);
-  hicn_face_t *face;
-  hicn_face_prod_t *prod_face;
-
-  face = hicn_dpoi_get_from_idx (index);
-  prod_face = (hicn_face_prod_t *) face->data;
 
   s =
-    format (s, " (producer face: CS size %d, data cached %d)",
-	    prod_face->policy.max, prod_face->policy.count);
+    format (s, " (producer)");
 
   return s;
 }
