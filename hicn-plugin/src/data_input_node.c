@@ -310,7 +310,7 @@ VLIB_REGISTER_NODE(hicn_data_input_ip6) =
      .n_next_nodes = HICN_DATA_INPUT_IP6_N_NEXT,
      .next_nodes =
      {
-      [HICN_DATA_INPUT_IP6_NEXT_FACE] = "hicn-face-ip6-input",
+      [HICN_DATA_INPUT_IP6_NEXT_FACE] = "hicn6-face-input",
       [HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL] = "ip6-local-end-of-arc"
      },
     };
@@ -681,7 +681,7 @@ VLIB_REGISTER_NODE(hicn_data_input_ip4) =
      .n_next_nodes = HICN_DATA_INPUT_IP4_N_NEXT,
      .next_nodes =
      {
-      [HICN_DATA_INPUT_IP4_NEXT_FACE] = "hicn-face-ip4-input",
+      [HICN_DATA_INPUT_IP4_NEXT_FACE] = "hicn4-face-input",
       [HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL] = "ip4-local-end-of-arc"
      },
     };

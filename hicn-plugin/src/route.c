@@ -15,8 +15,11 @@
 
 #include <vnet/fib/fib_entry.h>
 #include <vnet/fib/fib_table.h>
+#include <vnet/fib/fib_entry_track.h>
 #include <vnet/ip/ip6_packet.h>
+#include <vnet/ip/ip.h>
 #include <vnet/dpo/dpo.h>
+#include <vnet/dpo/drop_dpo.h>
 #include <vnet/dpo/load_balance.h>
 #include <vlib/global_funcs.h>
 
@@ -30,6 +33,8 @@
 #define FIB_SOURCE_HICN 0x04	//Right after the FIB_SOURCE_INTERFACE priority
 
 fib_source_t hicn_fib_src;
+
+fib_node_type_t hicn_fib_node_type;
 
 int
 hicn_route_get_dpo (const fib_prefix_t * prefix,
@@ -380,11 +385,365 @@ hicn_route_set_strategy (fib_prefix_t * prefix, u8 strategy_id)
 
 }
 
+static void
+sync_hicn_fib_entry(hicn_dpo_ctx_t *fib_entry)
+{
+  const dpo_id_t * dpo_loadbalance = fib_entry_contribute_ip_forwarding (fib_entry->fib_entry_index);
+  const load_balance_t *lb0 = load_balance_get(dpo_loadbalance->dpoi_index);
+  index_t hicn_fib_entry_index = hicn_strategy_dpo_ctx_get_index(fib_entry);
+  hicn_face_id_t * vec_faces = 0;
+
+  dpo_id_t temp = DPO_INVALID;
+  const dpo_id_t *former_dpo = &temp;
+  int index = 0;
+  for (int j = 0; j < lb0->lb_n_buckets; j++) {
+    const dpo_id_t * dpo = load_balance_get_bucket_i(lb0,j);
+
+    int dpo_comparison = dpo_cmp(former_dpo, dpo);
+    former_dpo = dpo;
+    /*
+     * Loadbalancing in ip replicate the dpo in multiple buckets
+     * in order to honor the assigned weights.
+     */
+    if (dpo_comparison == 0)
+        continue;
+
+    u32 sw_if = ~0;
+    ip46_address_t * nh = NULL;
+    hicn_face_id_t face_id = HICN_FACE_NULL;
+
+    if (dpo_is_adj(dpo))
+      {
+        ip_adjacency_t * adj = adj_get (dpo->dpoi_index);
+        sw_if = adj->rewrite_header.sw_if_index;
+        nh = &(adj->sub_type.nbr.next_hop);
+      }
+    else if (dpo_is_drop(dpo))
+      {
+        nh = calloc (1, sizeof(ip46_address_t));
+      }
+
+    hicn_face_add(dpo, nh, sw_if, &face_id, 0);
+
+    vec_validate(vec_faces, index);
+    vec_faces[index] = face_id;
+    index++;
+  }
+
+  const hicn_dpo_vft_t * strategy_vft = hicn_dpo_get_vft(fib_entry->dpo_type);
+  for (int i = 0; i < fib_entry->entry_count; i++)
+    {
+      u32 idx_nh = vec_search(vec_faces, fib_entry->next_hops[i]);
+      if (idx_nh == ~0)
+        {
+          strategy_vft->hicn_dpo_del_nh(fib_entry->next_hops[i], hicn_fib_entry_index);
+        }
+      else
+        {
+         hicn_face_t * face = hicn_dpoi_get_from_idx(fib_entry->next_hops[i]);
+
+         if (fib_entry->proto == FIB_PROTOCOL_IP4 && face->sw_if != ~0)
+           vnet_feature_enable_disable ("ip4-local", "hicn-data-input-ip4",
+                                        face->sw_if, 1, 0, 0);
+         else if (fib_entry->proto == FIB_PROTOCOL_IP6 && face->sw_if != ~0)
+           vnet_feature_enable_disable ("ip6-local", "hicn-data-input-ip6",
+                                        face->sw_if, 1, 0, 0);
+
+         vec_del1(vec_faces, idx_nh);
+        }
+    }
+
+  hicn_face_id_t *face_id;
+  vec_foreach(face_id, vec_faces)
+    {
+      strategy_vft->hicn_dpo_add_update_nh(*face_id, hicn_fib_entry_index);
+
+      hicn_face_t * face = hicn_dpoi_get_from_idx(*face_id);
+
+      if (fib_entry->proto == FIB_PROTOCOL_IP4 && face->sw_if != ~0)
+        vnet_feature_enable_disable ("ip4-local", "hicn-data-input-ip4",
+                                     face->sw_if, 1, 0, 0);
+      else if (fib_entry->proto == FIB_PROTOCOL_IP6 && face->sw_if != ~0)
+        vnet_feature_enable_disable ("ip6-local", "hicn-data-input-ip6",
+                                     face->sw_if, 1, 0, 0);
+
+    }
+  vec_free(vec_faces);
+}
+
+int
+hicn_route_enable (fib_prefix_t *prefix) {
+
+  int ret = HICN_ERROR_NONE;
+  fib_node_index_t fib_entry_index;
+
+  /* Check if the route already exist in the fib */
+  /*
+   * ASSUMPTION: we use table 0 which is the default table and it is
+   * already existing and locked
+   */
+  u32 fib_index = fib_table_find(prefix->fp_proto, 0);
+
+  fib_entry_index = fib_table_lookup_exact_match (fib_index, prefix);
+
+  if (fib_entry_index == FIB_NODE_INDEX_INVALID)
+    {
+      fib_entry_index = fib_table_lookup (fib_index, prefix);
+
+      fib_route_path_t * paths = fib_entry_encode(fib_entry_index);
+
+      fib_table_entry_path_add2(fib_index, prefix, FIB_SOURCE_CLI, FIB_ENTRY_FLAG_NONE, paths);
+    }
+
+  /* Check if the prefix is already enabled */
+  u32 fib_hicn_index = fib_table_find(prefix->fp_proto, HICN_FIB_TABLE);
+
+  fib_node_index_t fib_hicn_entry_index = fib_table_lookup_exact_match (fib_hicn_index, prefix);
+
+  if (fib_hicn_entry_index == FIB_NODE_INDEX_INVALID)
+    {
+      dpo_id_t dpo = DPO_INVALID;
+      index_t dpo_idx;
+      default_dpo.hicn_dpo_create (prefix->fp_proto, 0, NEXT_HOP_INVALID,
+                                   &dpo_idx);
+
+      /* the value we got when we registered */
+      /*
+       * This should be taken from the name?!? the index of the
+       * object
+       */
+      dpo_set (&dpo,
+               default_dpo.hicn_dpo_get_type (),
+               (ip46_address_is_ip4 (&prefix->fp_addr) ? DPO_PROTO_IP4 :
+                DPO_PROTO_IP6), dpo_idx);
+
+      hicn_dpo_ctx_t * fib_entry = hicn_strategy_dpo_ctx_get(dpo_idx);
+
+      fib_node_init (&fib_entry->fib_node, hicn_fib_node_type);
+      fib_node_lock (&fib_entry->fib_node);
+
+      fib_entry->fib_entry_index = fib_entry_track (fib_index,
+                                                    prefix,
+                                                    hicn_fib_node_type,
+                                                    dpo_idx, &fib_entry->fib_sibling);
+
+
+      /* Here is where we create the "via" like route */
+      /*
+       * For the moment we use the global one the prefix you want
+       * to match Neale suggested -- FIB_SOURCE_HICN the client
+       * that is adding them -- no easy explanation at this time…
+       */
+      CLIB_UNUSED (fib_node_index_t new_fib_node_index) =
+        fib_table_entry_special_dpo_add (fib_hicn_index,
+                                         prefix,
+                                         hicn_fib_src,
+                                         (FIB_ENTRY_FLAG_EXCLUSIVE |
+                                          FIB_ENTRY_FLAG_LOOSE_URPF_EXEMPT),
+                                         &dpo);
+
+      sync_hicn_fib_entry(fib_entry);
+
+      /* We added a route, therefore add one lock to the table */
+      fib_table_lock (fib_index, prefix->fp_proto, hicn_fib_src);
+
+      dpo_unlock (&dpo);
+    }
+  else
+    {
+      const dpo_id_t *load_balance_dpo_id;
+      const dpo_id_t *strategy_dpo_id;
+
+      /* Route already existing. We need to update the dpo. */
+      load_balance_dpo_id =
+	fib_entry_contribute_ip_forwarding (fib_hicn_entry_index);
+
+      /* The dpo is not a load balance dpo as expected */
+      if (load_balance_dpo_id->dpoi_type != DPO_LOAD_BALANCE)
+        {
+          ret = HICN_ERROR_ROUTE_NO_LD;
+          goto done;
+        }
+      else
+	{
+	  load_balance_t *lb =
+	    load_balance_get (load_balance_dpo_id->dpoi_index);
+
+          strategy_dpo_id = load_balance_get_bucket_i (lb, 0);
+
+          if (!dpo_is_hicn (strategy_dpo_id))
+            {
+              ret = HICN_ERROR_ROUTE_DPO_NO_HICN;
+              goto done;
+            }
+
+          if (lb->lb_n_buckets > 1)
+            {
+              ret = HICN_ERROR_ROUTE_MLT_LD;
+              goto done;
+            }
+
+          hicn_dpo_ctx_t * hicn_fib_entry = hicn_strategy_dpo_ctx_get(strategy_dpo_id->dpoi_index);
+
+          sync_hicn_fib_entry(hicn_fib_entry);
+        }
+    }
+
+ done:
+  return ret;
+}
+
+int
+hicn_route_disable (fib_prefix_t *prefix) {
+
+  int ret = HICN_ERROR_NONE;
+
+  /* Check if the prefix is already enabled */
+  u32 fib_hicn_index = fib_table_find(prefix->fp_proto, HICN_FIB_TABLE);
+
+  fib_node_index_t fib_hicn_entry_index = fib_table_lookup_exact_match (fib_hicn_index, prefix);
+
+  if (fib_hicn_entry_index == FIB_NODE_INDEX_INVALID)
+    {
+      return HICN_ERROR_ROUTE_NOT_FOUND;
+    }
+  else
+    {
+      const dpo_id_t *load_balance_dpo_id;
+      const dpo_id_t *strategy_dpo_id;
+      hicn_dpo_ctx_t * hicn_fib_entry;
+
+      /* Route already existing. We need to update the dpo. */
+      load_balance_dpo_id =
+	fib_entry_contribute_ip_forwarding (fib_hicn_entry_index);
+
+      /* The dpo is not a load balance dpo as expected */
+      if (load_balance_dpo_id->dpoi_type != DPO_LOAD_BALANCE)
+        {
+          ret = HICN_ERROR_ROUTE_NO_LD;
+          goto done;
+        }
+      else
+	{
+	  load_balance_t *lb =
+	    load_balance_get (load_balance_dpo_id->dpoi_index);
+
+          strategy_dpo_id = load_balance_get_bucket_i (lb, 0);
+
+          if (!dpo_is_hicn (strategy_dpo_id))
+            {
+              ret = HICN_ERROR_ROUTE_DPO_NO_HICN;
+              goto done;
+            }
+
+          if (lb->lb_n_buckets > 1)
+            {
+              ret = HICN_ERROR_ROUTE_MLT_LD;
+              goto done;
+            }
+
+          hicn_fib_entry = hicn_strategy_dpo_ctx_get(strategy_dpo_id->dpoi_index);
+
+          for (int i = 0; i < hicn_fib_entry->entry_count; i++)
+            {
+              hicn_strategy_dpo_ctx_del_nh(hicn_fib_entry->next_hops[i], hicn_fib_entry);
+            }
+        }
+
+      fib_entry_untrack(hicn_fib_entry->fib_entry_index, hicn_fib_entry->fib_sibling);
+
+      fib_table_entry_special_remove (fib_hicn_index, prefix, hicn_fib_src);
+    }
+
+ done:
+  return ret;
+}
+
+
+static fib_node_t *
+hicn_ctx_node_get (fib_node_index_t index)
+{
+  hicn_dpo_ctx_t * hicn_ctx;
+
+  hicn_ctx = hicn_strategy_dpo_ctx_get(index);
+
+  return (&hicn_ctx->fib_node);
+}
+
+static void
+hicn_fib_last_lock_gone (fib_node_t *node)
+{
+}
+
+static hicn_dpo_ctx_t *
+hicn_ctx_from_fib_node (fib_node_t * node)
+{
+  //ASSERT (FIB_NODE_TYPE_UDP_ENCAP == node->fn_type);
+  return ((hicn_dpo_ctx_t *) (((char *) node) -
+                              STRUCT_OFFSET_OF (hicn_dpo_ctx_t, fib_node)));
+}
+
+static fib_node_back_walk_rc_t
+hicn_fib_back_walk_notify (fib_node_t *node,
+                            fib_node_back_walk_ctx_t *ctx)
+{
+
+  hicn_dpo_ctx_t *fib_entry = hicn_ctx_from_fib_node (node);
+
+  sync_hicn_fib_entry(fib_entry);
+
+  return (FIB_NODE_BACK_WALK_CONTINUE);
+}
+
+static void
+hicn_fib_show_memory (void)
+{
+}
+
+
+static const fib_node_vft_t hicn_fib_vft =
+{
+ .fnv_get = hicn_ctx_node_get,
+ .fnv_last_lock = hicn_fib_last_lock_gone,
+ .fnv_back_walk = hicn_fib_back_walk_notify,
+ .fnv_mem_show = hicn_fib_show_memory,
+};
+
+static clib_error_t *
+set_table_interface_add_del (vnet_main_t * vnm, u32 sw_if_index, u32 is_add)
+{
+
+  if (!is_add)
+    return HICN_ERROR_NONE;
+
+  int rv = ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, HICN_FIB_TABLE, 1);
+
+  if (!rv)
+    {
+      rv = ip_table_bind (FIB_PROTOCOL_IP6, sw_if_index, HICN_FIB_TABLE, 1);
+
+      if (rv)
+        {
+          /* An error occurred. Bind the interface back to the default fib */
+          ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, 0, 1);
+        }
+    }
+
+  return rv ? clib_error_return (0, "unable to add hicn table to interface") : 0;
+}
+
+VNET_SW_INTERFACE_ADD_DEL_FUNCTION (set_table_interface_add_del);
+
 void
 hicn_route_init ()
 {
   hicn_fib_src = fib_source_allocate ("hicn",
 				      FIB_SOURCE_HICN, FIB_SOURCE_BH_API);
+
+  hicn_fib_node_type = fib_node_register_new_type(&hicn_fib_vft);
+
+  ip_table_create(FIB_PROTOCOL_IP4, HICN_FIB_TABLE, 1, (const u8 *)"hicn4");
+  ip_table_create(FIB_PROTOCOL_IP6, HICN_FIB_TABLE, 1, (const u8 *)"hicn6");
 }
 
 /*

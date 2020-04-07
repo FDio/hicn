@@ -294,8 +294,8 @@ VLIB_REGISTER_NODE(hicn_interest_hitpit_node) =
   {
     [HICN_INTEREST_HITPIT_NEXT_INTEREST_HITCS] = "hicn-interest-hitcs",
     [HICN_INTEREST_HITPIT_NEXT_STRATEGY] = "hicn-strategy",
-    [HICN_INTEREST_HITPIT_NEXT_STRATEGY] = "hicn4-face-output",
-    [HICN_INTEREST_HITPIT_NEXT_STRATEGY] = "hicn6-face-output",
+    [HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT] = "hicn4-face-output",
+    [HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT] = "hicn6-face-output",
     [HICN_INTEREST_HITPIT_NEXT_ERROR_DROP] = "error-drop",
   },
 };

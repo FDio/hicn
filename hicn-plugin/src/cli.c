@@ -783,6 +783,98 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
   return cl_err;
 }
 
+static clib_error_t *
+hicn_enable_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
+			     vlib_cli_command_t * cmd)
+{
+  clib_error_t *cl_err = 0;
+
+  int rv = HICN_ERROR_NONE;
+  fib_prefix_t pfx;
+
+  /* Get a line of input. */
+  unformat_input_t _line_input, *line_input = &_line_input;
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    {
+      return (0);
+    }
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (line_input, "%U/%d",
+                    unformat_ip4_address, &pfx.fp_addr.ip4, &pfx.fp_len))
+	{
+          pfx.fp_proto = FIB_PROTOCOL_IP4;
+	}
+      else if (unformat (line_input, "%U/%d",
+			 unformat_ip6_address, &pfx.fp_addr.ip6, &pfx.fp_len))
+	{
+	  pfx.fp_proto = FIB_PROTOCOL_IP6;
+	}
+      else
+	{
+	  cl_err = clib_error_return (0, "%s '%U'",
+				      get_error_string (HICN_ERROR_CLI_INVAL),
+				      format_unformat_error, line_input);
+	  goto done;
+	}
+    }
+  rv = hicn_route_enable(&pfx);
+ done:
+
+  cl_err =
+    (rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
+                                                        get_error_string
+                                                        (rv));
+  return cl_err;
+}
+
+static clib_error_t *
+hicn_disable_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
+                         vlib_cli_command_t * cmd)
+{
+  clib_error_t *cl_err = 0;
+
+  int rv = HICN_ERROR_NONE;
+  fib_prefix_t pfx;
+
+  /* Get a line of input. */
+  unformat_input_t _line_input, *line_input = &_line_input;
+  if (!unformat_user (main_input, unformat_line_input, line_input))
+    {
+      return (0);
+    }
+  while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (line_input, "%U/%d",
+                    unformat_ip4_address, &pfx.fp_addr.ip4, &pfx.fp_len))
+	{
+          pfx.fp_proto = FIB_PROTOCOL_IP4;
+	}
+      else if (unformat (line_input, "%U/%d",
+			 unformat_ip6_address, &pfx.fp_addr.ip6, &pfx.fp_len))
+	{
+	  pfx.fp_proto = FIB_PROTOCOL_IP6;
+	}
+      else
+	{
+	  cl_err = clib_error_return (0, "%s '%U'",
+				      get_error_string (HICN_ERROR_CLI_INVAL),
+				      format_unformat_error, line_input);
+	  goto done;
+	}
+    }
+
+  rv = hicn_route_disable (&pfx);
+
+ done:
+  cl_err =
+    (rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
+                                                        get_error_string
+                                                        (rv));
+  return cl_err;
+}
+
+
 /* cli declaration for 'control start' */
 /* *INDENT-OFF* */
 VLIB_CLI_COMMAND(hicn_cli_node_ctl_start_set_command, static)=
@@ -853,6 +945,25 @@ VLIB_CLI_COMMAND(hicn_cli_pgen_server_set_command, static)=
         .long_help = "Run hicn in packet-gen server mode\n",
         .function = hicn_cli_pgen_server_set_command_fn,
 };
+
+/* cli declaration for 'hicn pgen client' */
+VLIB_CLI_COMMAND(hicn_enable_command, static)=
+  {
+   .path = "hicn enable",
+   .short_help = "hicn enable <prefix>",
+   .long_help = "Enable hicn for the give prefix\n",
+   .function = hicn_enable_command_fn,
+  };
+
+/* cli declaration for 'hicn pgen client' */
+VLIB_CLI_COMMAND(hicn_disable_command, static)=
+  {
+   .path = "hicn disable",
+   .short_help = "hicn disable <prefix>",
+   .long_help = "Disable hicn for the give prefix\n",
+   .function = hicn_disable_command_fn,
+  };
+
 /* *INDENT-ON* */
 
 /*
