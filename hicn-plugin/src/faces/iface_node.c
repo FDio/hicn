@@ -34,28 +34,6 @@ vlib_node_registration_t hicn6_iface_output_node;
 u32 data_fwd_iface_ip4_vlib_edge;
 u32 data_fwd_iface_ip6_vlib_edge;
 
-void
-hicn_iface_ip_init (vlib_main_t * vm)
-{
-  u32 temp_index4 = vlib_node_add_next (vm,
-					hicn_interest_hitcs_node.index,
-					hicn4_iface_output_node.index);
-  u32 temp_index6 = vlib_node_add_next (vm,
-					hicn_interest_hitcs_node.index,
-					hicn6_iface_output_node.index);
-
-  data_fwd_iface_ip4_vlib_edge = vlib_node_add_next (vm,
-						     hicn_data_fwd_node.index,
-						     hicn4_iface_output_node.index);
-
-  data_fwd_iface_ip6_vlib_edge = vlib_node_add_next (vm,
-						     hicn_data_fwd_node.index,
-						     hicn6_iface_output_node.index);
-
-  ASSERT (temp_index4 == data_fwd_iface_ip4_vlib_edge);
-  ASSERT (temp_index6 == data_fwd_iface_ip6_vlib_edge);
-}
-
 static char *hicn4_iface_input_error_strings[] = {
 #define _(sym, string) string,
   foreach_hicnfwd_error
