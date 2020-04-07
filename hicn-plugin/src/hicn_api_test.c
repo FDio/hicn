@@ -222,8 +222,6 @@ hicn_test_main_t hicn_test_main;
 
 #define foreach_standard_reply_retval_handler            \
 _(hicn_api_node_params_set_reply)                        \
-_(hicn_api_face_ip_del_reply)                            \
-_(hicn_api_face_del_reply)                               \
 _(hicn_api_route_nhops_add_reply)                        \
 _(hicn_api_route_del_reply)                              \
 _(hicn_api_route_nhop_del_reply)
@@ -253,26 +251,17 @@ foreach_standard_reply_retval_handler;
 _(HICN_API_NODE_PARAMS_SET_REPLY, hicn_api_node_params_set_reply)       \
 _(HICN_API_NODE_PARAMS_GET_REPLY, hicn_api_node_params_get_reply)       \
 _(HICN_API_NODE_STATS_GET_REPLY, hicn_api_node_stats_get_reply)         \
-_(HICN_API_FACE_IP_DEL_REPLY, hicn_api_face_ip_del_reply)               \
-_(HICN_API_FACE_IP_ADD_REPLY, hicn_api_face_ip_add_reply)               \
-_(HICN_API_FACE_ADD_REPLY, hicn_api_face_add_reply)                     \
-_(HICN_API_FACE_DEL_REPLY, hicn_api_face_del_reply)                     \
 _(HICN_API_FACE_GET_REPLY, hicn_api_face_get_reply)                     \
 _(HICN_API_FACES_DETAILS, hicn_api_faces_details)                       \
 _(HICN_API_FACE_STATS_DETAILS, hicn_api_face_stats_details)             \
 _(HICN_API_ROUTE_NHOPS_ADD_REPLY, hicn_api_route_nhops_add_reply)       \
-_(HICN_API_FACE_IP_PARAMS_GET_REPLY, hicn_api_face_ip_params_get_reply) \
+_(HICN_API_FACE_PARAMS_GET_REPLY, hicn_api_face_params_get_reply) \
 _(HICN_API_ROUTE_GET_REPLY, hicn_api_route_get_reply)                   \
 _(HICN_API_ROUTES_DETAILS, hicn_api_routes_details)                     \
 _(HICN_API_ROUTE_DEL_REPLY, hicn_api_route_del_reply)                   \
 _(HICN_API_ROUTE_NHOP_DEL_REPLY, hicn_api_route_nhop_del_reply)         \
 _(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)         \
-_(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)             \
-_(HICN_API_REGISTER_PROD_APP_REPLY, hicn_api_register_prod_app_reply)   \
-_(HICN_API_FACE_PROD_DEL_REPLY, hicn_api_face_prod_del_reply)           \
-_(HICN_API_REGISTER_CONS_APP_REPLY, hicn_api_register_cons_app_reply)   \
-_(HICN_API_FACE_CONS_DEL_REPLY, hicn_api_face_cons_del_reply)
-
+_(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)
 
 static int
 api_hicn_api_node_params_set (vat_main_t * vam)
@@ -451,263 +440,10 @@ static void
 }
 
 static int
-api_hicn_api_face_ip_add (vat_main_t * vam)
+api_hicn_api_face_params_get (vat_main_t * vam)
 {
   unformat_input_t *input = vam->input;
-  ip46_address_t local_addr = { 0 };
-  ip46_address_t remote_addr = { 0 };
-  int ret = HICN_ERROR_NONE;
-  int sw_if = 0;
-  vl_api_hicn_api_face_add_t *mp;
-
-  /* Parse args required to build the message */
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat
-	  (input, "local %U", unformat_ip46_address, &local_addr,
-	   IP46_TYPE_ANY));
-      else
-	if (unformat
-	    (input, "remote %U", unformat_ip46_address, &remote_addr,
-	     IP46_TYPE_ANY));
-      else if (unformat (input, "intfc %d", &sw_if));
-      else
-	{
-	  break;
-	}
-    }
-
-  /* Check for presence of both addresses */
-  if (ip46_address_is_zero (&remote_addr))
-    {
-      clib_warning ("Incomplete IP face. Please specify remote address");
-      return (1);
-    }
-  /* Construct the API message */
-  M (HICN_API_FACE_ADD, mp);
-  mp->type = clib_host_to_net_u32 (IP_FACE);
-  ip_address_encode (&local_addr, IP46_TYPE_ANY, &mp->face.ip.local_addr);
-  ip_address_encode (&remote_addr, IP46_TYPE_ANY, &mp->face.ip.remote_addr);
-  mp->face.ip.swif = clib_host_to_net_u32 (sw_if);
-
-  /* send it... */
-  S (mp);
-
-  /* Wait for a reply... */
-  W (ret);
-
-  return ret;
-}
-
-static void
-  vl_api_hicn_api_face_ip_add_reply_t_handler
-  (vl_api_hicn_api_face_ip_add_reply_t * rmp)
-{
-  vat_main_t *vam = hicn_test_main.vat_main;
-  i32 retval = ntohl (rmp->retval);
-
-  if (vam->async_mode)
-    {
-      vam->async_errors += (retval < 0);
-      return;
-    }
-  vam->retval = retval;
-  vam->result_ready = 1;
-
-  if (vam->retval < 0)
-    {
-      //vpp_api_test infra will also print out string form of error
-      fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
-      return;
-    }
-  fformat (vam->ofp, "New Face ID: %d\n", ntohl (rmp->faceid));
-}
-
-static int
-api_hicn_api_face_udp_add (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  ip46_address_t local_addr = ip46_address_initializer;
-  ip46_address_t remote_addr = ip46_address_initializer;
-  u32 sport = 0;
-  u32 dport = 0;
-  int ret = HICN_ERROR_NONE;
-  int sw_if = ~0;
-  vl_api_hicn_api_face_add_t *mp;
-
-  /* Parse args required to build the message */
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat
-	  (input, "local %U port %u", unformat_ip46_address, &local_addr,
-	   IP46_TYPE_ANY, &sport));
-      else
-	if (unformat
-	    (input, "remote %U port %u", unformat_ip46_address, &remote_addr,
-	     IP46_TYPE_ANY, &dport));
-      else if (unformat (input, "intfc %d", &sw_if));
-      else
-	{
-	  break;
-	}
-    }
-
-  /* Check for presence of both addresses */
-  if (ip46_address_is_zero (&remote_addr)
-      || ip46_address_is_zero (&local_addr) || sport == 0 || dport == 0)
-    {
-      clib_warning
-	("Incomplete UDP face. Please specify local and remote address and port");
-      return (1);
-    }
-  /* Construct the API message */
-  M (HICN_API_FACE_ADD, mp);
-  mp->type = clib_host_to_net_u32 (UDP_FACE);
-  ip_address_encode (&local_addr, IP46_TYPE_ANY, &mp->face.udp.local_addr);
-  ip_address_encode (&remote_addr, IP46_TYPE_ANY, &mp->face.udp.remote_addr);
-  mp->face.udp.lport = clib_host_to_net_u16 (sport);
-  mp->face.udp.rport = clib_host_to_net_u16 (dport);
-  mp->face.udp.swif = clib_host_to_net_u32 (sw_if);
-
-  /* send it... */
-  S (mp);
-
-  /* Wait for a reply... */
-  W (ret);
-
-  return ret;
-}
-
-static int
-api_hicn_api_face_add (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  int ret = HICN_ERROR_NONE;
-  u32 type = ~0;
-
-  /* Parse args required to build the message */
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "type %d", &type));
-      else
-	{
-	  break;
-	}
-    }
-
-  vam->input = input;
-
-  if (type == IP_FACE)
-    ret = api_hicn_api_face_ip_add (vam);
-  else if (type == UDP_FACE)
-    ret = api_hicn_api_face_udp_add (vam);
-
-  return ret;
-}
-
-static void
-  vl_api_hicn_api_face_add_reply_t_handler
-  (vl_api_hicn_api_face_add_reply_t * rmp)
-{
-  vat_main_t *vam = hicn_test_main.vat_main;
-  i32 retval = ntohl (rmp->retval);
-
-  if (vam->async_mode)
-    {
-      vam->async_errors += (retval < 0);
-      return;
-    }
-  vam->retval = retval;
-  vam->result_ready = 1;
-
-  if (vam->retval < 0)
-    {
-      //vpp_api_test infra will also print out string form of error
-      fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
-      return;
-    }
-  fformat (vam->ofp, "New Face ID: %d\n", ntohl (rmp->faceid));
-}
-
-static int
-api_hicn_api_face_ip_del (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_face_ip_del_t *mp;
-  u32 faceid = 0, ret;
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "face %d", &faceid))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  //Check for presence of face ID
-  if (faceid == ~0)
-    {
-      clib_warning ("Please specify face ID");
-      return 1;
-    }
-  //Construct the API message
-  M (HICN_API_FACE_IP_DEL, mp);
-  mp->faceid = clib_host_to_net_u32 (faceid);
-
-  //send it...
-  S (mp);
-
-  //Wait for a reply...
-  W (ret);
-
-  return ret;
-}
-
-static int
-api_hicn_api_face_del (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_face_del_t *mp;
-  u32 faceid = 0, ret;
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "face %d", &faceid))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  //Check for presence of face ID
-  if (faceid == ~0)
-    {
-      clib_warning ("Please specify face ID");
-      return 1;
-    }
-  //Construct the API message
-  M (HICN_API_FACE_DEL, mp);
-  mp->faceid = clib_host_to_net_u32 (faceid);
-
-  //send it...
-  S (mp);
-
-  //Wait for a reply...
-  W (ret);
-
-  return ret;
-}
-
-static int
-api_hicn_api_face_ip_params_get (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_face_ip_params_get_t *mp;
+  vl_api_hicn_api_face_params_get_t *mp;
   u32 faceid = HICN_FACE_NULL, ret;
 
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
@@ -728,7 +464,7 @@ api_hicn_api_face_ip_params_get (vat_main_t * vam)
       return 1;
     }
   //Construct the API message
-  M (HICN_API_FACE_IP_PARAMS_GET, mp);
+  M (HICN_API_FACE_PARAMS_GET, mp);
   mp->faceid = clib_host_to_net_u32 (faceid);
 
   //send it...
@@ -741,14 +477,13 @@ api_hicn_api_face_ip_params_get (vat_main_t * vam)
 }
 
 static void
-  vl_api_hicn_api_face_ip_params_get_reply_t_handler
-  (vl_api_hicn_api_face_ip_params_get_reply_t * rmp)
+  vl_api_hicn_api_face_params_get_reply_t_handler
+  (vl_api_hicn_api_face_params_get_reply_t * rmp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (rmp->retval);
   u8 *sbuf = 0;
-  ip46_address_t remote_addr;
-  ip46_address_t local_addr;
+  ip46_address_t nat_addr;
 
   if (vam->async_mode)
     {
@@ -765,12 +500,10 @@ static void
       return;
     }
   vec_reset_length (sbuf);
-  ip_address_decode (&rmp->local_addr, &local_addr);
-  ip_address_decode (&rmp->remote_addr, &remote_addr);
+  ip_address_decode (&rmp->nat_addr, &nat_addr);
   sbuf =
-    format (0, "local_addr %U remote_addr %U", format_ip46_address,
-	    &local_addr, 0 /*IP46_ANY_TYPE */ , format_ip46_address,
-	    &remote_addr, 0 /*IP46_ANY_TYPE */ );
+    format (0, "nat_addr %U", format_ip46_address,
+	    &nat_addr, 0 /*IP46_ANY_TYPE */);
 
   fformat (vam->ofp, "%s swif %d flags %d\n",
 	   sbuf,
@@ -779,48 +512,23 @@ static void
 }
 
 static void
-format_ip_face (vl_api_hicn_face_ip_t * rmp)
+format_face (vl_api_hicn_face_t * rmp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   u8 *sbuf = 0;
-  ip46_address_t remote_addr;
+  ip46_address_t nat_addr;
   ip46_address_t local_addr;
 
   vec_reset_length (sbuf);
-  ip_address_decode (&rmp->local_addr, &local_addr);
-  ip_address_decode (&rmp->remote_addr, &remote_addr);
+  ip_address_decode (&rmp->nat_addr, &nat_addr);
+
   sbuf =
-    format (0, "local_addr %U remote_addr %U", format_ip46_address,
-	    &local_addr, 0 /*IP46_ANY_TYPE */ , format_ip46_address,
-	    &remote_addr, 0 /*IP46_ANY_TYPE */ );
+    format (0, "nat_addr %U", format_ip46_address,
+	    &local_addr, 0 /*IP46_ANY_TYPE */);
 
   fformat (vam->ofp, "%s swif %d flags %d name %s\n",
 	   sbuf,
 	   clib_net_to_host_u32 (rmp->swif),
-	   clib_net_to_host_i32 (rmp->flags), rmp->if_name);
-}
-
-static void
-format_udp_face (vl_api_hicn_face_udp_t * rmp)
-{
-  vat_main_t *vam = hicn_test_main.vat_main;
-  u8 *sbuf = 0;
-  ip46_address_t remote_addr;
-  ip46_address_t local_addr;
-
-  vec_reset_length (sbuf);
-  ip_address_decode (&rmp->local_addr, &local_addr);
-  ip_address_decode (&rmp->remote_addr, &remote_addr);
-  u16 lport = clib_net_to_host_u16 (rmp->lport);
-  u16 rport = clib_net_to_host_u16 (rmp->rport);;
-  sbuf =
-    format (0, "local_addr %U port %u remote_addr %U port %u",
-	    format_ip46_address, &local_addr, 0 /*IP46_ANY_TYPE */ , lport,
-	    format_ip46_address, &remote_addr, 0 /*IP46_ANY_TYPE */ , rport);
-
-  fformat (vam->ofp, "%s swif %d flags %d name %s\n",
-	   sbuf,
-	   clib_net_to_host_u16 (rmp->swif),
 	   clib_net_to_host_i32 (rmp->flags), rmp->if_name);
 }
 
@@ -859,14 +567,7 @@ static void
   vl_api_hicn_api_faces_details_t_handler
   (vl_api_hicn_api_faces_details_t * mp)
 {
-  if (mp->type == IP_FACE)
-    {
-      format_ip_face (&(mp->face.ip));
-    }
-  else
-    {
-      format_udp_face (&(mp->face.udp));
-    }
+  format_face (&(mp->face));
 }
 
 static int
@@ -929,15 +630,7 @@ static void
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
-
-  if (rmp->type == IP_FACE)
-    {
-      format_ip_face (&(rmp->face.ip));
-    }
-  else
-    {
-      format_udp_face (&(rmp->face.udp));
-    }
+  format_face (&(rmp->face));
 }
 
 
@@ -1412,205 +1105,6 @@ static void
       return;
     }
   fformat (vam->ofp, "%s", mp->description);
-}
-
-static int
-api_hicn_api_register_prod_app (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_register_prod_app_t *mp;
-  fib_prefix_t prefix;
-  u32 swif = ~0;
-  int ret;
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "prefix %U/%d", unformat_ip46_address,
-		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
-	{;
-	}
-      else if (unformat (input, "id %d", &swif))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  /* Check parse */
-  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0))
-      || (prefix.fp_len == 0))
-    {
-      clib_warning ("Please specify prefix...");
-      return 1;
-    }
-
-  prefix.fp_proto =
-    ip46_address_is_ip4 (&(prefix.fp_addr)) ? FIB_PROTOCOL_IP4 :
-    FIB_PROTOCOL_IP6;
-  /* Construct the API message */
-  M (HICN_API_REGISTER_PROD_APP, mp);
-  ip_prefix_encode (&prefix, &mp->prefix);
-
-  mp->swif = clib_host_to_net_u32 (swif);
-
-  /* send it... */
-  S (mp);
-
-  /* Wait for a reply... */
-  W (ret);
-
-  return ret;
-}
-
-static void
-  vl_api_hicn_api_register_prod_app_reply_t_handler
-  (vl_api_hicn_api_register_prod_app_reply_t * mp)
-{
-  vat_main_t *vam = hicn_test_main.vat_main;
-  i32 retval = ntohl (mp->retval);
-
-  if (vam->async_mode)
-    {
-      vam->async_errors += (retval < 0);
-      return;
-    }
-  vam->retval = retval;
-  vam->result_ready = 1;
-
-  if (vam->retval < 0)
-    {
-      //vpp_api_test infra will also print out string form of error
-      fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
-      return;
-    }
-}
-
-static int
-api_hicn_api_face_prod_del (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_face_prod_del_t *mp;
-  u32 faceid = 0, ret;
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "face %d", &faceid))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  //Check for presence of face ID
-  if (faceid == ~0)
-    {
-      clib_warning ("Please specify face ID");
-      return 1;
-    }
-  //Construct the API message
-  M (HICN_API_FACE_PROD_DEL, mp);
-  mp->faceid = clib_host_to_net_u32 (faceid);
-
-  //send it...
-  S (mp);
-
-  //Wait for a reply...
-  W (ret);
-
-  return ret;
-}
-
-static int
-api_hicn_api_register_cons_app (vat_main_t * vam)
-{
-  vl_api_hicn_api_register_cons_app_t *mp;
-  int ret;
-
-  /* Construct the API message */
-  M (HICN_API_REGISTER_CONS_APP, mp);
-
-  /* send it... */
-  S (mp);
-
-  /* Wait for a reply... */
-  W (ret);
-
-  return ret;
-}
-
-static int
-api_hicn_api_face_cons_del (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_face_cons_del_t *mp;
-  u32 faceid = 0, ret;
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "face %d", &faceid))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  //Check for presence of face ID
-  if (faceid == ~0)
-    {
-      clib_warning ("Please specify face ID");
-      return 1;
-    }
-  //Construct the API message
-  M (HICN_API_FACE_CONS_DEL, mp);
-  mp->faceid = clib_host_to_net_u32 (faceid);
-
-  //send it...
-  S (mp);
-
-  //Wait for a reply...
-  W (ret);
-
-  return ret;
-}
-
-static void
-  vl_api_hicn_api_register_cons_app_reply_t_handler
-  (vl_api_hicn_api_register_cons_app_reply_t * mp)
-{
-  vat_main_t *vam = hicn_test_main.vat_main;
-  i32 retval = ntohl (mp->retval);
-
-  if (vam->async_mode)
-    {
-      vam->async_errors += (retval < 0);
-      return;
-    }
-  vam->retval = retval;
-  vam->result_ready = 1;
-
-  if (vam->retval < 0)
-    {
-      //vpp_api_test infra will also print out string form of error
-      fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
-      return;
-    }
-  ip46_address_t src_addr4 = ip46_address_initializer;
-  ip46_address_t src_addr6 = ip46_address_initializer;
-  ip_address_decode (&mp->src_addr4, &src_addr4);
-  ip_address_decode (&mp->src_addr6, &src_addr6);
-
-  fformat (vam->ofp,
-	   "ip4 address %U\n"
-	   "ip6 address :%U\n"
-	   "appif id :%d\n",
-	   format_ip46_address, IP46_TYPE_ANY, &src_addr4,
-	   format_ip46_address, IP46_TYPE_ANY, &src_addr6);
 }
 
 #include <hicn/hicn.api_test.c>

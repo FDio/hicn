@@ -54,7 +54,7 @@ typedef struct hicn_strategy_vft_s
   void (*hicn_on_interest_timeout) (index_t dpo_idx);
   void (*hicn_add_interest) (index_t dpo_idx, hicn_hash_entry_t * pit_entry);
     u32 (*hicn_select_next_hop) (index_t dpo_idx, int *nh_idx,
-				 dpo_id_t ** outface);
+				 hicn_face_id_t* outface);
   u8 *(*hicn_format_strategy_trace) (u8 *, hicn_strategy_trace_t *);
   u8 *(*hicn_format_strategy) (u8 * s, va_list * ap);
   /**< Format an hICN dpo*/
@@ -64,6 +64,8 @@ typedef enum
 {
   HICN_STRATEGY_NEXT_INTEREST_HITPIT,
   HICN_STRATEGY_NEXT_INTEREST_HITCS,
+  HICN_STRATEGY_NEXT_INTEREST_FACE4,
+  HICN_STRATEGY_NEXT_INTEREST_FACE6,
   HICN_STRATEGY_NEXT_ERROR_DROP,
   HICN_STRATEGY_N_NEXT,
 } hicn_strategy_next_t;
