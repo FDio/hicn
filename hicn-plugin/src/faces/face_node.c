@@ -467,15 +467,15 @@ VLIB_REGISTER_NODE(hicn6_face_input_node) =
 
 typedef enum
 {
-  HICN4_FACE_NEXT_ECHO_REPLY = IP4_LOOKUP_N_NEXT,
-  HICN4_FACE_N_NEXT,
-} hicn4_face_next_t;
+  HICN4_FACE_OUTPUT_NEXT_ECHO_REPLY,
+  HICN4_FACE_OUTPUT_N_NEXT,
+} hicn4_face_output_next_t;
 
 typedef enum
 {
-  HICN6_FACE_NEXT_ECHO_REPLY = IP6_LOOKUP_N_NEXT,
-  HICN6_FACE_N_NEXT,
-} hicn6_face_next_t;
+  HICN6_FACE_OUTPUT_NEXT_ECHO_REPLY,
+  HICN6_FACE_OUTPUT_N_NEXT,
+} hicn6_face_output_next_t;
 
 /* static_always_inline void */
 /* hicn_reply_probe_v4 (vlib_buffer_t * b, hicn_face_t * face) */
@@ -842,11 +842,11 @@ VLIB_REGISTER_NODE(hicn4_face_output_node) =
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(hicn4_face_output_error_strings),
   .error_strings = hicn4_face_output_error_strings,
-  .n_next_nodes = HICN4_FACE_N_NEXT,
+  .n_next_nodes = HICN4_FACE_OUTPUT_N_NEXT,
   /* Reusing the list of nodes from lookup to be compatible with arp */
   .next_nodes =
   {
-   [HICN4_FACE_NEXT_ECHO_REPLY] = "hicn4-face-input",
+   [HICN4_FACE_OUTPUT_NEXT_ECHO_REPLY] = "hicn4-face-input",
   }
 };
 /* *INDENT-ON* */
@@ -919,11 +919,11 @@ VLIB_REGISTER_NODE(hicn6_face_output_node) =
   .type = VLIB_NODE_TYPE_INTERNAL,
   .n_errors = ARRAY_LEN(hicn6_face_output_error_strings),
   .error_strings = hicn6_face_output_error_strings,
-  .n_next_nodes = HICN6_FACE_N_NEXT,
+  .n_next_nodes = HICN6_FACE_OUTPUT_N_NEXT,
   /* Reusing the list of nodes from lookup to be compatible with neighbour discovery */
   .next_nodes =
   {
-   [HICN6_FACE_NEXT_ECHO_REPLY] = "hicn6-face-input"
+   [HICN6_FACE_OUTPUT_NEXT_ECHO_REPLY] = "hicn6-face-input"
   }
 };
 /* *INDENT-ON* */
