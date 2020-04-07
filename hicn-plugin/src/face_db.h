@@ -28,7 +28,7 @@
  */
 
 /* Must be power of two */
-#define HICN_FACE_DB_INLINE_FACES 4
+#define HICN_FACE_DB_INLINE_FACES 8
 
 #define HICN_PIT_BITMAP_SIZE_BYTE HICN_PARAM_FACES_MAX/8
 #define HICN_PIT_N_HOP_BITMAP_SIZE HICN_PARAM_FACES_MAX
@@ -38,7 +38,7 @@
 typedef struct hicn_face_bucket_s
 {
   /* Array of indexes of virtual faces */
-  dpo_id_t faces[HICN_PIT_N_HOP_BUCKET];
+  hicn_face_id_t faces[HICN_PIT_N_HOP_BUCKET];
 
   /* Used to check if interests are retransmission */
   u8 bitmap[HICN_PIT_BITMAP_SIZE_BYTE];
@@ -60,7 +60,7 @@ typedef struct __attribute__ ((packed)) hicn_face_db_s
 
   /* 24B + 32B (8*4) = 56B */
   /* Array of indexes of virtual faces */
-  dpo_id_t inline_faces[HICN_FACE_DB_INLINE_FACES];
+  hicn_face_id_t inline_faces[HICN_FACE_DB_INLINE_FACES];
 
   /* 56B + 4B = 60B */
   u32 next_bucket;
@@ -71,13 +71,13 @@ typedef struct __attribute__ ((packed)) hicn_face_db_s
 
 } hicn_face_db_t;
 
-always_inline dpo_id_t *
+always_inline hicn_face_id_t
 hicn_face_db_get_dpo_face (u32 index, hicn_face_db_t * face_db)
 {
   ASSERT (index < face_db->n_faces);
 
-  return index < HICN_FACE_DB_INLINE_FACES ? &(face_db->inline_faces[index]) :
-    &(pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket)->faces
+  return index < HICN_FACE_DB_INLINE_FACES ? (face_db->inline_faces[index]) :
+    (pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket)->faces
       [(index - HICN_FACE_DB_INLINE_FACES) & (HICN_PIT_N_HOP_BUCKET - 1)]);
 }
 
@@ -94,23 +94,23 @@ hicn_face_db_get_bucket (u32 bucket_index)
 }
 
 always_inline void
-hicn_face_db_add_face_dpo (dpo_id_t * dpo, hicn_face_db_t * face_db)
+hicn_face_db_add_face (hicn_face_id_t face_id, hicn_face_db_t * face_db)
 {
-  ASSERT (dpo->dpoi_index != ~0);
+  //ASSERT (dpo->dpoi_index != ~0);
 
   hicn_face_bucket_t *faces_bkt =
     pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket);
 
-  dpo_id_t *face =
+  hicn_face_id_t *element =
     face_db->n_faces <
     HICN_FACE_DB_INLINE_FACES ? &(face_db->inline_faces[face_db->n_faces]) :
     &(faces_bkt->faces
       [(face_db->n_faces -
 	HICN_FACE_DB_INLINE_FACES) & (HICN_PIT_N_HOP_BUCKET - 1)]);
 
-  clib_memcpy (face, dpo, sizeof (dpo_id_t));
+  *element = face_id;
 
-  u32 bitmap_index = dpo->dpoi_index % HICN_PIT_N_HOP_BITMAP_SIZE;
+  u32 bitmap_index = face_id % HICN_PIT_N_HOP_BITMAP_SIZE;
   u32 position_array = bitmap_index / 8;
   u8 bit_index = (u8) (bitmap_index - position_array * 8);
 
@@ -119,11 +119,11 @@ hicn_face_db_add_face_dpo (dpo_id_t * dpo, hicn_face_db_t * face_db)
 }
 
 always_inline u8
-hicn_face_search (dpo_id_t * dpo, hicn_face_db_t * face_db)
+hicn_face_search (hicn_face_id_t index, hicn_face_db_t * face_db)
 {
   hicn_face_bucket_t *faces_bkt =
     pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket);
-  u32 bitmap_index = dpo->dpoi_index % HICN_PIT_N_HOP_BITMAP_SIZE;
+  u32 bitmap_index = index % HICN_PIT_N_HOP_BITMAP_SIZE;
 
   u32 position_array = bitmap_index / 8;
   u8 bit_index = bitmap_index - position_array * 8;

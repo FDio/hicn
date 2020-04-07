@@ -34,6 +34,9 @@
 
 #define INVALID_SEQ 0
 
+STATIC_ASSERT (sizeof(u32) == sizeof(seq_t),
+               "seq_t is not 4 bytes");
+
 typedef struct hicn_mapme_conf_s
 {
   hicn_mapme_conf_t conf;
@@ -86,12 +89,12 @@ hicn_mapme_nh_set (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
  * @brief Add a next hop iif it is not already a next hops
  */
 static_always_inline int
-hicn_mapme_nh_add (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
+hicn_mapme_nh_add (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
 {
   for (u8 pos = 0; pos < tfib->entry_count; pos++)
-    if (dpo_cmp (&tfib->next_hops[pos], face_id) == 0)
+    if (tfib->next_hops[pos] == face_id)
       return 0;
-  tfib->next_hops[tfib->entry_count++] = *face_id;
+  tfib->next_hops[tfib->entry_count++] = face_id;
   return 0;
 }
 
@@ -144,9 +147,9 @@ hicn_mapme_tfib_clear (hicn_mapme_tfib_t * tfib)
 }
 
 static_always_inline int
-hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
+hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
 {
-  dpo_id_t invalid = NEXT_HOP_INVALID;
+  hicn_face_id_t invalid = NEXT_HOP_INVALID;
   /*
    * We need to do a linear scan of TFIB entries to find the one to
    * remove
@@ -154,7 +157,7 @@ hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
   u8 start_pos = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
   u8 pos = ~0;
   for (pos = start_pos; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos++)
-    if (dpo_cmp (&tfib->next_hops[pos], face_id) == 0)
+    if (tfib->next_hops[pos] == face_id)
       {
 	hicn_face_unlock (&tfib->next_hops[pos]);
 	tfib->next_hops[pos] = invalid;
@@ -169,7 +172,7 @@ hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
   /* Likely we won't receive a new IU twice from the same face */
   if (PREDICT_TRUE (pos > start_pos))
     memmove (tfib->next_hops + start_pos, tfib->next_hops + start_pos + 1,
-	     (pos - start_pos) * sizeof (dpo_id_t));
+	     (pos - start_pos) * sizeof (hicn_face_id_t));
 
   return 0;
 }
