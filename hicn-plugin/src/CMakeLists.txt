@@ -79,21 +79,14 @@ set(HICN_PLUGIN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/error.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_cli.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/face_ip.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/face_ip_cli.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/face_ip_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/iface_ip_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/dpo_ip.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/face_udp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/face_udp_cli.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/face_udp_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/iface_udp_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/dpo_udp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_app_cli.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/iface_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/dpo_face.h
+#    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.c
+#    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.c
+#    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod.c
+#    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod_node.c
+#    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_app_cli.c
     ${CMAKE_CURRENT_SOURCE_DIR}/pg.c
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_mw.c
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_mw.c
@@ -101,9 +94,9 @@ set(HICN_PLUGIN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_rr.c
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_rr.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_lru.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.c
+#    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack_node.c
+#    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl_node.c
+#    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.c
 )
 
 set(HICN_PLUGIN_HEADER_FILES
@@ -130,17 +123,12 @@ set(HICN_PLUGIN_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/error.h
     ${CMAKE_CURRENT_SOURCE_DIR}/face_db.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/face_ip.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/face_ip_node.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/iface_ip_node.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/dpo_ip.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/face_udp.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/face_udp_node.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/iface_udp_node.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/dpo_udp.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_node.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/iface_node.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_dpo.h
+ #   ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.h
+ #   ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.h
+ #   ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod.h
     ${CMAKE_CURRENT_SOURCE_DIR}/pg.h
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_mw.h
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_mw.h
@@ -148,10 +136,10 @@ set(HICN_PLUGIN_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_rr.h
     ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_policy.h
     ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_lru.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/mapme.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.h
+ #   ${CMAKE_CURRENT_SOURCE_DIR}/mapme.h
+ #   ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack.h
+ #   ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl.h
+ #   ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.h
 )
 
 set(HICN_API_TEST_SOURCE_FILES

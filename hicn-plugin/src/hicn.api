@@ -16,19 +16,10 @@
 option version = "5.1.0";
 import "vnet/ip/ip_types.api";
 
-enum hicn_face_type
-{
-   IP_FACE = 0,
-   UDP_FACE,
-};
-
-typedef hicn_face_ip
+typedef hicn_face
 {
   /* IP local address */
-  vl_api_address_t local_addr;
-
-  /* IP remote address */
-  vl_api_address_t remote_addr;
+  vl_api_address_t nat_addr;
 
   /* IPv4 local port number */
   u32 swif;
@@ -38,36 +29,6 @@ typedef hicn_face_ip
 
   /* Name of the interface */
   u8 if_name[30];
-};
-
-typedef hicn_face_udp
-{
-  /* IP local address */
-  vl_api_address_t local_addr;
-
-  /* IP remote address */
-  vl_api_address_t remote_addr;
-
-  /* Local port */
-  u16 lport;
-
-  /* Remote port */
-  u16 rport;
-
-  /* IPv4 local port number */
-  u32 swif;
-
-  /* Face flags */
-  u32 flags;
-
-  /* Name of the interface */
-  u8 if_name[30];
-};
-
-typedef hicn_face_union
-{
-  vl_api_hicn_face_ip_t ip;
-  vl_api_hicn_face_udp_t udp;
 };
 
 define hicn_api_node_params_set
@@ -205,51 +166,6 @@ define hicn_api_node_stats_get_reply
   u64 cs_entries_ntw_count;
 };
 
-define hicn_api_face_ip_add
-{
-  /* Client identifier, set from api_main.my_client_index */
-  u32 client_index;
-
-  /* Arbitrary context, so client can match reply to request */
-  u32 context;
-
-  /* IP local address */
-  vl_api_hicn_face_ip_t face;
-};
-
-define hicn_api_face_ip_add_reply
-{
-  /* From the request */
-  u32 context;
-
-  /* Return value: new Face ID, ~0 means no Face was created */
-  u32 faceid;
-
-  /* Return value, zero means all OK */
-  i32 retval;
-};
-
-define hicn_api_face_ip_del
-{
-  /* Client identifier, set from api_main.my_client_index */
-  u32 client_index;
-
-  /* Arbitrary context, so client can match reply to request */
-  u32 context;
-
-  /* A Face ID to be deleted */
-  u32 faceid;
-};
-
-define hicn_api_face_ip_del_reply
-{
-  /* From the request */
-  u32 context;
-
-  /* Return value, zero means all OK */
-  i32 retval;
-};
-
 define hicn_api_face_stats_details
 {
 /* From the request */
@@ -291,7 +207,7 @@ define hicn_api_face_stats_dump
   u32 context;
 };
 
-define hicn_api_face_ip_params_get
+define hicn_api_face_params_get
 {
   /* Client identifier, set from api_main.my_client_index */
   u32 client_index;
@@ -303,7 +219,7 @@ define hicn_api_face_ip_params_get
   u32 faceid;
 };
 
-define hicn_api_face_ip_params_get_reply
+define hicn_api_face_params_get_reply
 {
   /* From the request */
   u32 context;
@@ -315,64 +231,13 @@ define hicn_api_face_ip_params_get_reply
   u32 faceid;
 
   /* IP local address */
-  vl_api_address_t local_addr;
-
-  /* IP remote address */
-  vl_api_address_t remote_addr;
+  vl_api_address_t nat_addr;
 
   /* VPP interface (index) associated with the face */
   u32 swif;
 
   /* Face flags */
   u32 flags;
-};
-
-define hicn_api_face_add
-{
-  /* Client identifier, set from api_main.my_client_index */
-  u32 client_index;
-
-  /* Arbitrary context, so client can match reply to request */
-  u32 context;
-
-  /* Type of face to add */
-  vl_api_hicn_face_type_t type;
-
-  /* Face to add */
-  vl_api_hicn_face_union_t face;
-};
-
-define hicn_api_face_add_reply
-{
-  /* From the request */
-  u32 context;
-
-  /* Return value: new Face ID, ~0 means no Face was created */
-  u32 faceid;
-
-  /* Return value, zero means all OK */
-  i32 retval;
-};
-
-define hicn_api_face_del
-{
-  /* Client identifier, set from api_main.my_client_index */
-  u32 client_index;
-
-  /* Arbitrary context, so client can match reply to request */
-  u32 context;
-
-  /* A Face ID to be deleted */
-  u32 faceid;
-};
-
-define hicn_api_face_del_reply
-{
-  /* From the request */
-  u32 context;
-
-  /* Return value, zero means all OK */
-  i32 retval;
 };
 
 define hicn_api_faces_details
@@ -386,11 +251,8 @@ define hicn_api_faces_details
   /* Id of the face */
   u32 faceid;
 
-  /* Type of face to add */
-  vl_api_hicn_face_type_t type;
-
   /* Face to add */
-  vl_api_hicn_face_union_t face;
+  vl_api_hicn_face_t face;
 };
 
 define hicn_api_faces_dump
@@ -425,11 +287,8 @@ define hicn_api_face_get_reply
   /* Id of the face */
   u32 faceid;
 
-  /* Type of face to add */
-  vl_api_hicn_face_type_t type;
-
   /* Face to add */
-  vl_api_hicn_face_union_t face;
+  vl_api_hicn_face_t face;
 };
 
 define hicn_api_route_nhops_add
@@ -622,99 +481,6 @@ define hicn_api_strategy_get_reply
 
   /* Return value, zero means all OK */
   i32 retval;
-};
-
-define hicn_api_register_prod_app
-{
-  /* Client identifier, set from api_main.my_client_index */
-  u32 client_index;
-
-  /* Arbitrary context, so client can match reply to request */
-  u32 context;
-
-  /* Prefix to match */
-  vl_api_prefix_t prefix;
-
-  /* sw_if id */
-  u32 swif;
-
-  /* CS memory reserved -- in number of packets */
-  u32 cs_reserved;
-};
-
-define hicn_api_register_prod_app_reply
-{
-  /* From the request */
-  u32 context;
-
-  /* Return value, zero means all OK */
-  i32 retval;
-
-  /* Actual CS memory reserved -- in number of packets */
-  u32 cs_reserved;
-
-  /* Prod address (ipv4 or ipv6) */
-  vl_api_address_t prod_addr;
-
-  /* Return value: new Face ID, ~0 means no Face was created */
-  u32 faceid;
-};
-
-autoreply define hicn_api_face_prod_del
-{
-  /* Client identifier, set from api_main.my_client_index */
-  u32 client_index;
-
-  /* Arbitrary context, so client can match reply to request */
-  u32 context;
-
-  /* A Face ID to be deleted */
-  u32 faceid;
-};
-
-define hicn_api_register_cons_app
-{
-  /* Client identifier, set from api_main.my_client_index */
-  u32 client_index;
-
-  /* Arbitrary context, so client can match reply to request */
-  u32 context;
-
-  /* swif */
-  u32 swif;
-};
-
-define hicn_api_register_cons_app_reply
-{
-  /* From the request */
-  u32 context;
-
-  /* Return value, zero means all OK */
-  i32 retval;
-
-  /* Ip4 address */
-  vl_api_address_t src_addr4;
-
-  /* Ip6 address */
-  vl_api_address_t src_addr6;
-
-  /* Return value: new Face ID, ~0 means no Face was created */
-  u32 faceid1;
-
-  /* Return value: new Face ID, ~0 means no Face was created */
-  u32 faceid2;
-};
-
-autoreply define hicn_api_face_cons_del
-{
-  /* Client identifier, set from api_main.my_client_index */
-  u32 client_index;
-
-  /* Arbitrary context, so client can match reply to request */
-  u32 context;
-
-  /* A Face ID to be deleted */
-  u32 faceid;
 };
 
 /*

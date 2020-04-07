@@ -13,19 +13,20 @@
  * limitations under the License.
  */
 
-#ifndef __HICN_DPO_IP_H__
-#define __HICN_DPO_IP_H__
+#ifndef __HICN_DPO_H__
+#define __HICN_DPO_H__
 
 #include <vnet/vnet.h>
 #include <vnet/ip/ip4_packet.h>
+#include <vnet/adj/adj_midchain.h>
 
-#include "face_ip.h"
-#include "../face.h"
+#include "face.h"
+#include "../error.h"
 
 /**
  * @brief Initialize the internal structures of the dpo ip face module.
  */
-void hicn_dpo_ip_module_init (void);
+//void hicn_dpo_ip_module_init (void);
 
 
 /**
@@ -34,23 +35,21 @@ void hicn_dpo_ip_module_init (void);
  * @param vec: Result of the lookup. If no face exists for the local address vec = NULL
  * @param hicnb_flags: Flags that indicate whether the face is an application
  * face or not
- * @param local_addr: Ip v4 local address of the face
+ * @param local_addr: Ip v4 nat address of the face
  * @param sw_if: software interface id of the face
  *
  * @result HICN_ERROR_FACE_NOT_FOUND if the face does not exist, otherwise HICN_ERROR_NONE.
  */
 always_inline int
-hicn_dpo_ip4_lock_from_local (dpo_id_t * dpo,
-			      u32 * in_faces_vec_id,
-			      u8 * hicnb_flags,
-			      const ip4_address_t * local_addr, u32 sw_if)
+hicn_dpo_face_ip4_lock (hicn_face_id_t * face_id,
+                        u32 * in_faces_vec_id,
+                        u8 * hicnb_flags,
+                        const ip4_address_t * nat_addr, u32 sw_if)
 {
-  dpo->dpoi_type = DPO_FIRST;
-  dpo->dpoi_proto = DPO_PROTO_NONE;
-  dpo->dpoi_index = INDEX_INVALID;
-  dpo->dpoi_next_node = 0;
-  hicn_face_ip_input_faces_t *in_faces_vec =
-    hicn_face_ip4_get_vec (local_addr, sw_if, &hicn_face_ip_local_hashtb);
+  ip46_address_t ip_address = {0};
+  ip46_address_set_ip4(&ip_address, nat_addr);
+  hicn_face_input_faces_t *in_faces_vec =
+    hicn_face_get_vec (&ip_address, sw_if, &hicn_face_vec_hashtb);
 
   if (PREDICT_FALSE (in_faces_vec == NULL))
     return HICN_ERROR_FACE_NOT_FOUND;
@@ -60,12 +59,10 @@ hicn_dpo_ip4_lock_from_local (dpo_id_t * dpo,
 
   *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
   *hicnb_flags |=
-    (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
+    (face->flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
     HICN_FACE_FLAGS_APPFACE_PROD_BIT;
 
-  dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, in_faces_vec->face_id);
-  dpo->dpoi_next_node = ~0;
-  dpo_unlock (dpo);
+  *face_id = in_faces_vec->face_id;
 
   return HICN_ERROR_NONE;
 }
@@ -77,23 +74,19 @@ hicn_dpo_ip4_lock_from_local (dpo_id_t * dpo,
  * @param dpo: Result of the lookup. If the face doesn't exist dpo = NULL
  * @param hicnb_flags: Flags that indicate whether the face is an application
  * face or not
- * @param local_addr: Ip v6 local address of the face
+ * @param nat_addr: Ip v6 nat address of the face
  * @param sw_if: software interface id of the face
  *
  * @result HICN_ERROR_FACE_NOT_FOUND if the face does not exist, otherwise HICN_ERROR_NONE.
  */
 always_inline int
-hicn_dpo_ip6_lock_from_local (dpo_id_t * dpo,
-			      u32 * in_faces_vec_id,
-			      u8 * hicnb_flags,
-			      const ip6_address_t * local_addr, u32 sw_if)
+hicn_dpo_face_ip6_lock (hicn_face_id_t * face_id,
+                        u32 * in_faces_vec_id,
+                        u8 * hicnb_flags,
+                        const ip6_address_t * nat_addr, u32 sw_if)
 {
-  dpo->dpoi_type = DPO_FIRST;
-  dpo->dpoi_proto = DPO_PROTO_NONE;
-  dpo->dpoi_index = INDEX_INVALID;
-  dpo->dpoi_next_node = 0;
-  hicn_face_ip_input_faces_t *in_faces_vec =
-    hicn_face_ip6_get_vec (local_addr, sw_if, &hicn_face_ip_local_hashtb);
+  hicn_face_input_faces_t *in_faces_vec =
+    hicn_face_get_vec ((ip46_address_t *)nat_addr, sw_if, &hicn_face_vec_hashtb);
 
   if (PREDICT_FALSE (in_faces_vec == NULL))
     return HICN_ERROR_FACE_NOT_FOUND;
@@ -103,70 +96,28 @@ hicn_dpo_ip6_lock_from_local (dpo_id_t * dpo,
 
   *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
   *hicnb_flags |=
-    (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
+    (face->flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
     HICN_FACE_FLAGS_APPFACE_PROD_BIT;
 
-  dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP6, in_faces_vec->face_id);
-  dpo->dpoi_next_node = ~0;
-  dpo_unlock (dpo);
+  *face_id = in_faces_vec->face_id;
 
   return HICN_ERROR_NONE;
 }
 
-
 /**
- * @brief Retrieve, or create if it doesn't exist, a face from the ip6 local
- * address and returns its dpo. This method adds a lock on the face state.
- *
- * @param dpo: Result of the lookup
- * @param hicnb_flags: Flags that indicate whether the face is an application
- * face or not
- * @param local_addr: Ip v4 local address of the face
- * @param remote_addr: Ip v4 remote address of the face
- * @param sw_if: software interface id of the face
- * @param node_index: vlib edge index to use in the packet processing
+ * @brief Call back to get the adj of the tunnel
  */
-always_inline void
-hicn_dpo_ip4_add_and_lock_from_remote (dpo_id_t * dpo,
-				       u8 * hicnb_flags,
-				       const ip4_address_t * local_addr,
-				       const ip4_address_t * remote_addr,
-				       u32 sw_if, u32 node_index)
+static adj_walk_rc_t
+hicn4_iface_adj_walk_cb (adj_index_t ai,
+                        void *ctx)
 {
-  dpo->dpoi_type = DPO_FIRST;
-  dpo->dpoi_proto = DPO_PROTO_NONE;
-  dpo->dpoi_index = INDEX_INVALID;
-  dpo->dpoi_next_node = 0;
-  /*All (complete) faces are indexed by remote addess as well */
-  hicn_face_t *face =
-    hicn_face_ip4_get (remote_addr, sw_if, &hicn_face_ip_remote_hashtb);
 
-  if (face == NULL)
-    {
-      hicn_face_id_t dpoi_index;
-      ip46_address_t local_addr46 = to_ip46 (0, (u8 *) local_addr);
-      ip46_address_t remote_addr46 = to_ip46 (0, (u8 *) remote_addr);
-      hicn_iface_ip_add (&local_addr46, &remote_addr46, sw_if, &dpoi_index);
+  hicn_face_t *face = (hicn_face_t *)ctx;
 
-      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+  dpo_set(&face->dpo, DPO_ADJACENCY_MIDCHAIN, DPO_PROTO_IP4, ai);
+  adj_nbr_midchain_stack(ai, &face->dpo);
 
-      dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, dpoi_index);
-      dpo->dpoi_next_node = node_index;
-      dpo_unlock (dpo);
-
-      return;
-    }
-
-  /* Code replicated on purpose */
-  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
-  *hicnb_flags |=
-    (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
-    HICN_FACE_FLAGS_APPFACE_PROD_BIT;
-
-  hicn_face_id_t dpoi_index = hicn_dpoi_get_index (face);
-  dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, dpoi_index);
-  dpo->dpoi_next_node = node_index;
-  dpo_unlock (dpo);
+  return (ADJ_WALK_RC_CONTINUE);
 }
 
 /**
@@ -176,50 +127,131 @@ hicn_dpo_ip4_add_and_lock_from_remote (dpo_id_t * dpo,
  * @param dpo: Result of the lookup
  * @param hicnb_flags: Flags that indicate whether the face is an application
  * face or not
- * @param local_addr: Ip v6 local address of the face
- * @param remote_addr: Ip v6 remote address of the face
+ * @param nat_addr: Ip v4 remote address of the face
  * @param sw_if: software interface id of the face
  * @param node_index: vlib edge index to use in the packet processing
  */
 always_inline void
-hicn_dpo_ip6_add_and_lock_from_remote (dpo_id_t * dpo,
-				       u8 * hicnb_flags,
-				       const ip6_address_t * local_addr,
-				       const ip6_address_t * remote_addr,
-				       u32 sw_if, u32 node_index)
+hicn_dpo_iface_ip4_add_and_lock (hicn_face_id_t * index,
+                                 u8 * hicnb_flags,
+                                 const ip4_address_t * nat_addr,
+                                 u32 sw_if, u32 node_index)
 {
-  dpo->dpoi_type = DPO_FIRST;
-  dpo->dpoi_proto = DPO_PROTO_NONE;
-  dpo->dpoi_index = INDEX_INVALID;
-  dpo->dpoi_next_node = 0;
   /*All (complete) faces are indexed by remote addess as well */
+
+  ip46_address_t ip_address = {0};
+  ip46_address_set_ip4(&ip_address, nat_addr);
+
   hicn_face_t *face =
-    hicn_face_ip6_get (remote_addr, sw_if, &hicn_face_ip_remote_hashtb);
+    hicn_face_get (&ip_address, sw_if, &hicn_face_hashtb);
 
   if (face == NULL)
     {
-      hicn_face_id_t dpoi_index;
-      hicn_iface_ip_add ((ip46_address_t *) local_addr,
-			 (ip46_address_t *) remote_addr, sw_if, &dpoi_index);
+      hicn_face_id_t idx;
+      hicn_iface_add (&ip_address, sw_if, &idx, DPO_PROTO_IP4);
+
+      if (nat_addr->as_u32 == 0)
+        {
+          adj_nbr_walk(face->sw_if,
+                       FIB_PROTOCOL_IP4,
+                       hicn4_iface_adj_walk_cb,
+                       face);
+        }
+      else
+        {
+          face->dpo.dpoi_type = DPO_FIRST;
+          face->dpo.dpoi_proto = DPO_PROTO_IP4;
+          face->dpo.dpoi_index = ~0;
+          face->dpo.dpoi_next_node = node_index;
+        }
 
       *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
 
-      dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP4, dpoi_index);
-      dpo->dpoi_next_node = node_index;
-      dpo_unlock (dpo);
+      *index = idx;
+      return;
+    }
+
+  /* Code replicated on purpose */
+  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+  *hicnb_flags |=
+    (face->flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
+    HICN_FACE_FLAGS_APPFACE_PROD_BIT;
+
+  *index = hicn_dpoi_get_index (face);
+}
+
+/**
+ * @brief Call back to get the adj of the tunnel
+ */
+static adj_walk_rc_t
+hicn6_iface_adj_walk_cb (adj_index_t ai,
+                         void *ctx)
+{
+
+  hicn_face_t *face = (hicn_face_t *)ctx;
+
+  dpo_set(&face->dpo, DPO_ADJACENCY_MIDCHAIN, DPO_PROTO_IP6, ai);
+  adj_nbr_midchain_stack(ai, &face->dpo);
+
+  return (ADJ_WALK_RC_CONTINUE);
+}
+
+
+/**
+ * @brief Retrieve, or create if it doesn't exist, a face from the ip6 local
+ * address and returns its dpo. This method adds a lock on the face state.
+ *
+ * @param dpo: Result of the lookup
+ * @param hicnb_flags: Flags that indicate whether the face is an application
+ * face or not
+ * @param nat_addr: Ip v6 remote address of the face
+ * @param sw_if: software interface id of the face
+ * @param node_index: vlib edge index to use in the packet processing
+ */
+always_inline void
+hicn_dpo_iface_ip6_add_and_lock (hicn_face_id_t * index,
+                                 u8 * hicnb_flags,
+                                 const ip6_address_t * nat_addr,
+                                 u32 sw_if, u32 node_index)
+{
+  /*All (complete) faces are indexed by remote addess as well */
+  hicn_face_t *face =
+    hicn_face_get ((ip46_address_t *)nat_addr, sw_if, &hicn_face_hashtb);
+
+  if (face == NULL)
+    {
+      hicn_face_id_t idx;
+      hicn_iface_add ((ip46_address_t *) nat_addr, sw_if, &idx, DPO_PROTO_IP6);
+
+      if (ip46_address_is_zero((ip46_address_t *)nat_addr))
+        {
+          adj_nbr_walk(face->sw_if,
+                       FIB_PROTOCOL_IP6,
+                       hicn6_iface_adj_walk_cb,
+                       face);
+        }
+      else
+        {
+          face->dpo.dpoi_type = DPO_FIRST;
+          face->dpo.dpoi_proto = DPO_PROTO_IP6;
+          face->dpo.dpoi_index = ~0;
+          face->dpo.dpoi_next_node = node_index;
+        }
+
+
+      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+
+      *index = idx;
 
       return;
     }
   /* Code replicated on purpose */
   *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
   *hicnb_flags |=
-    (face->shared.flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
+    (face->flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
     HICN_FACE_FLAGS_APPFACE_PROD_BIT;
 
-  index_t dpoi_index = hicn_dpoi_get_index (face);
-  dpo_set (dpo, hicn_face_ip_type, DPO_PROTO_IP6, dpoi_index);
-  dpo->dpoi_next_node = node_index;
-  dpo_unlock (dpo);
+  *index = hicn_dpoi_get_index (face);
 }
 
 
@@ -266,16 +298,6 @@ hicn_dpo_ip6_add_and_lock_from_remote (dpo_id_t * dpo,
 /* 			 adj_index_t adj, */
 /* 			 u32 node_index, */
 /* 			 hicn_face_flags_t flags, hicn_face_id_t * face_id); */
-
-/**
- * @brief Create a dpo from an ip face
- *
- * @param face Face from which to create the dpo
- * @param dpoi_next_node Edge index that connects a node to the iface or face nodes
- * @return the dpo
- */
-void hicn_dpo_ip_create_from_face (hicn_face_t * face, dpo_id_t * dpo,
-				   u16 dpoi_next_node);
 
 #endif // __HICN_DPO_IP_H__
 
