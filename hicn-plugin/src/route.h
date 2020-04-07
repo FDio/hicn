@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -51,6 +51,12 @@ int hicn_route_del_nhop (fib_prefix_t * prefix, u32 face_id);
 /* Remove a next hop route for a name prefix */
 int
 hicn_route_set_strategy (fib_prefix_t * prefix, u32 strategy_id);
+
+int
+hicn_route_enable (fib_prefix_t *prefix);
+
+int
+hicn_route_disable (fib_prefix_t *prefix);
 
 /* Init route internal strustures */
 void

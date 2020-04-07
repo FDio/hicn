@@ -35,7 +35,7 @@ typedef struct hicn_dpo_vft_s
     dpo_type_t (*hicn_dpo_get_type) (void);
 	/**< Return the type of the hICN dpo */
   void (*hicn_dpo_module_init) (void);			/**< Initialize the hICN dpo */
-  void (*hicn_dpo_create) (dpo_proto_t proto, const hicn_face_id_t * nh, int nh_len, index_t * dpo_idx);			/**< Create the context of the hICN dpo */
+  void (*hicn_dpo_create) (fib_protocol_t proto, const hicn_face_id_t * nh, int nh_len, index_t * dpo_idx);			/**< Create the context of the hICN dpo */
   int (*hicn_dpo_add_update_nh) (hicn_face_id_t nh, index_t dpo_idx);				/**< Add a next hop to the hICN dpo context */
   int (*hicn_dpo_del_nh) (hicn_face_id_t face_id, index_t dpo_idx);
   u8 *(*hicn_dpo_format) (u8 * s, int, ...);
@@ -49,12 +49,12 @@ typedef struct hicn_dpo_vft_s
 extern hicn_dpo_vft_t default_dpo;
 
 const static char *const hicn_ip6_nodes[] = {
-  "hicn-iface-ip6-input",	// this is the name you give your node in VLIB_REGISTER_NODE
+  "hicn6-iface-input",	// this is the name you give your node in VLIB_REGISTER_NODE
   NULL,
 };
 
 const static char *const hicn_ip4_nodes[] = {
-  "hicn-iface-ip4-input",	// this is the name you give your node in VLIB_REGISTER_NODE
+  "hicn4-iface-input",	// this is the name you give your node in VLIB_REGISTER_NODE
   NULL,
 };
 
