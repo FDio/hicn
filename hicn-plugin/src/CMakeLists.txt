@@ -155,7 +155,8 @@ set(HICN_API_HEADER_FILES
 set(HICN_API_GENERATED_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h
     ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_types.h
-    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_enum.h)
+    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_enum.h
+)
 
 set(HICN_VAPI_GENERATED_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.h
@@ -184,6 +185,7 @@ endif()
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hicn)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vapi)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib)
 
 # These files are missing from vpp binary distribution
 execute_process(
@@ -203,6 +205,9 @@ execute_process(
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_format_fns.h ]; then
         curl https://raw.githubusercontent.com/FDio/vpp/master/src/vnet/ip/ip_format_fns.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_format_fns.h;
+    fi;
+    if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib/fib_entry_track.h ]; then
+        curl https://raw.githubusercontent.com/FDio/vpp/master/src/vnet/fib/fib_entry_track.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib/fib_entry_track.h;
     fi;
     chmod +x ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py"
 )
