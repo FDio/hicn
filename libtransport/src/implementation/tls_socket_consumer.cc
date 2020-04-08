@@ -46,11 +46,13 @@ int readOldTLS(BIO *b, char *buf, int size) {
       socket->network_name_.setSuffix(socket->random_suffix_);
       socket->ConsumerSocket::asyncConsume(socket->network_name_);
     }
+
     if (!socket->something_to_read_) socket->cv_.wait(lck);
   }
 
   size_t size_to_read, read;
   size_t chain_size = socket->head_->length();
+
   if (socket->head_->isChained())
     chain_size = socket->head_->computeChainDataLength();
 
@@ -101,6 +103,7 @@ int writeOldTLS(BIO *b, const char *buf, int num) {
   socket = (TLSConsumerSocket *)BIO_get_data(b);
 
   socket->payload_ = utils::MemBuf::copyBuffer(buf, num);
+
   socket->ConsumerSocket::setSocketOption(
       ConsumerCallbacksOptions::INTEREST_OUTPUT,
       (ConsumerInterestCallback)std::bind(
@@ -191,10 +194,8 @@ TLSConsumerSocket::TLSConsumerSocket(interface::ConsumerSocket *consumer_socket,
                                         this);
 };
 
-/*
- * The producer interface is not owned by the application, so is TLSSocket task
- * to deallocate the memory
- */
+/* The producer interface is not owned by the application, so is TLSSocket task
+ * to deallocate the memory */
 TLSConsumerSocket::~TLSConsumerSocket() { delete consumer_interface_; }
 
 int TLSConsumerSocket::consume(const Name &name,
@@ -254,19 +255,19 @@ int TLSConsumerSocket::download_content(const Name &name) {
     if (result >= 0) {
       size += result;
       decrypted_content_->prepend(result);
-    } else
+    } else {
       throw errors::RuntimeException("Unable to download content");
+    }
 
     if (size >= read_callback_decrypted_->maxBufferSize()) {
       if (read_callback_decrypted_->isBufferMovable()) {
-        // No need to perform an additional copy. The whole buffer will be
-        // tranferred to the application.
-
+        /* No need to perform an additional copy. The whole buffer will be
+         * tranferred to the application. */
         read_callback_decrypted_->readBufferAvailable(
             std::move(decrypted_content_));
         decrypted_content_ = utils::MemBuf::create(SSL3_RT_MAX_PLAIN_LENGTH);
       } else {
-        // The buffer will be copied into the application-provided buffer
+        /* The buffer will be copied into the application-provided buffer */
         uint8_t *buffer;
         std::size_t length;
         std::size_t total_length = decrypted_content_->length();
@@ -358,6 +359,7 @@ size_t TLSConsumerSocket::maxBufferSize() const {
 void TLSConsumerSocket::readBufferAvailable(
     std::unique_ptr<utils::MemBuf> &&buffer) noexcept {
   std::unique_lock<std::mutex> lck(this->mtx_);
+
   if (head_) {
     head_->prependChain(std::move(buffer));
   } else {
@@ -380,5 +382,4 @@ void TLSConsumerSocket::readSuccess(std::size_t total_size) noexcept {
 bool TLSConsumerSocket::isBufferMovable() noexcept { return true; }
 
 }  // namespace implementation
-
 }  // namespace transport
