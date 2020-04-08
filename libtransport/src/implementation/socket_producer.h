@@ -131,7 +131,7 @@ class ProducerSocket : public Socket<BasePortal>,
 
     // TODO Manifest may still be used for indexing
     if (making_manifest && !signer) {
-      TRANSPORT_LOGD("Making manifests without setting producer identity.");
+      TRANSPORT_LOGE("Making manifests without setting producer identity.");
     }
 
     core::Packet::Format hf_format = core::Packet::Format::HF_UNSPEC;
@@ -192,7 +192,6 @@ class ProducerSocket : public Socket<BasePortal>,
       }
     }
 
-    TRANSPORT_LOGD("--------- START PRODUCE ----------");
     for (unsigned int packaged_segments = 0;
          packaged_segments < number_of_segments; packaged_segments++) {
       if (making_manifest) {
@@ -207,13 +206,12 @@ class ProducerSocket : public Socket<BasePortal>,
           }
 
           passContentObjectToCallbacks(manifest);
-          TRANSPORT_LOGD("Send manifest %u", manifest->getName().getSuffix());
+          TRANSPORT_LOGD("Send manifest %s", manifest->getName().toString().c_str());
 
           // Send content objects stored in the queue
           while (!content_queue_.empty()) {
             passContentObjectToCallbacks(content_queue_.front());
-            TRANSPORT_LOGD("Send content %u",
-                           content_queue_.front()->getName().getSuffix());
+            TRANSPORT_LOGD("Send content %s", content_queue_.front()->getName().toString().c_str());
             content_queue_.pop();
           }
 
@@ -270,8 +268,7 @@ class ProducerSocket : public Socket<BasePortal>,
           signer->sign(*content_object);
         }
         passContentObjectToCallbacks(content_object);
-        TRANSPORT_LOGD("Send content %u",
-                       content_object->getName().getSuffix());
+        TRANSPORT_LOGD("Send content %s", content_object->getName().toString().c_str());
       }
     }
 
@@ -286,11 +283,11 @@ class ProducerSocket : public Socket<BasePortal>,
       }
 
       passContentObjectToCallbacks(manifest);
-      TRANSPORT_LOGD("Send manifest %u", manifest->getName().getSuffix());
+      TRANSPORT_LOGD("Send manifest %s", manifest->getName().toString().c_str());
+
       while (!content_queue_.empty()) {
         passContentObjectToCallbacks(content_queue_.front());
-        TRANSPORT_LOGD("Send content %u",
-                       content_queue_.front()->getName().getSuffix());
+        TRANSPORT_LOGD("Send content %s", content_queue_.front()->getName().toString().c_str());
         content_queue_.pop();
       }
     }
@@ -949,18 +946,19 @@ class ProducerSocket : public Socket<BasePortal>,
       std::mutex mtx;
       /* Condition variable for the wait */
       std::condition_variable cv;
-      std::unique_lock<std::mutex> lck(mtx);
+
       bool done = false;
       io_service_.dispatch([&socket_option_key, &socket_option_value, &mtx, &cv,
                             &result, &done, &func]() {
         std::unique_lock<std::mutex> lck(mtx);
         done = true;
         result = func(socket_option_key, socket_option_value);
-
-        if (!done) {
-          cv.wait(lck);
-        }
+        cv.notify_all();
       });
+      std::unique_lock<std::mutex> lck(mtx);
+      if (!done) {
+        cv.wait(lck);
+      }
     } else {
       result = func(socket_option_key, socket_option_value);
     }
