@@ -84,47 +84,44 @@ class TLSProducerSocket : virtual public ProducerSocket {
   using ProducerSocket::setSocketOption;
 
  protected:
+  enum HandshakeState {
+    UNINITIATED,
+    CLIENT_HELLO,     // when CLIENT_HELLO interest has been received
+    CLIENT_FINISHED,  // when CLIENT_FINISHED interest has been received
+    SERVER_FINISHED,  // when handshake is done
+  };
   /* Callback invoked once an interest has been received and its payload
    * decrypted */
   ProducerInterestCallback on_interest_input_decrypted_;
   ProducerInterestCallback on_interest_process_decrypted_;
   ProducerContentCallback on_content_produced_application_;
-
   std::mutex mtx_;
-
   /* Condition variable for the wait */
   std::condition_variable cv_;
-
   /* Bool variable, true if there is something to read (an interest arrived) */
   bool something_to_read_;
-
+  /* Bool variable, true if CLIENT_FINISHED interest has been received */
+  HandshakeState handshake_state_;
   /* First interest that open a secure connection */
   transport::core::Name name_;
-
   /* SSL handle */
   SSL *ssl_;
   SSL_CTX *ctx_;
-
-  Packet::MemBufPtr packet_;
-
+  Packet::MemBufPtr handshake_packet_;
   std::unique_ptr<utils::MemBuf> head_;
   std::uint32_t last_segment_;
-  std::shared_ptr<utils::MemBuf> payload_;
   std::uint32_t key_id_;
-
   std::thread *handshake;
   P2PSecureProducerSocket *parent_;
-
   bool first_;
   Name handshake_name_;
   int tls_chunks_;
   int to_call_oncontentproduced_;
-
   bool still_writing_;
-
   utils::EventThread encryption_thread_;
 
   void onInterest(ProducerSocket &p, Interest &interest);
+
   void cacheMiss(interface::ProducerSocket &p, Interest &interest);
 
   /* Return the number of read bytes in readbytes */
@@ -156,8 +153,9 @@ class TLSProducerSocket : virtual public ProducerSocket {
 
   void onContentProduced(interface::ProducerSocket &p,
                          const std::error_code &err, uint64_t bytes_written);
+
+  HandshakeState getHandshakeState();
 };
 
 }  // namespace implementation
-
 }  // end namespace transport

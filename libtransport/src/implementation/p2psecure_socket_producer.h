@@ -37,9 +37,11 @@ class P2PSecureProducerSocket : public ProducerSocket {
 
  public:
   explicit P2PSecureProducerSocket(interface::ProducerSocket *producer_socket);
+
   explicit P2PSecureProducerSocket(
       interface::ProducerSocket *producer_socket, bool rtc,
       const std::shared_ptr<utils::Identity> &identity);
+
   ~P2PSecureProducerSocket();
 
   void produce(const uint8_t *buffer, size_t buffer_size) override;
@@ -96,7 +98,6 @@ class P2PSecureProducerSocket : public ProducerSocket {
   using ProducerSocket::onInterest;
 
  protected:
-  bool rtc_;
   /* Callback invoked once an interest has been received and its payload
    * decrypted */
   ProducerInterestCallback on_interest_input_decrypted_;
@@ -104,27 +105,23 @@ class P2PSecureProducerSocket : public ProducerSocket {
   ProducerContentCallback on_content_produced_application_;
 
  private:
+  bool rtc_;
   std::mutex mtx_;
-
   /* Condition variable for the wait */
   std::condition_variable cv_;
-
   PARCBuffer *der_cert_;
   PARCBuffer *der_prk_;
   X509 *cert_509_;
   EVP_PKEY *pkey_rsa_;
   std::unordered_map<core::Name, std::unique_ptr<TLSProducerSocket>,
                      core::hash<core::Name>, core::compare2<core::Name>>
-      map_secure_producers;
-  std::unordered_map<core::Name, std::unique_ptr<TLSRTCProducerSocket>,
-                     core::hash<core::Name>, core::compare2<core::Name>>
-      map_secure_rtc_producers;
-  std::list<std::unique_ptr<TLSProducerSocket>> list_secure_producers;
-  std::list<std::unique_ptr<TLSRTCProducerSocket>> list_secure_rtc_producers;
+      map_producers;
+  std::list<std::unique_ptr<TLSProducerSocket>> list_producers;
 
   void onInterestCallback(interface::ProducerSocket &p, Interest &interest);
+
+  void initSessionSocket(std::unique_ptr<TLSProducerSocket> &producer);
 };
 
 }  // namespace implementation
-
 }  // namespace transport

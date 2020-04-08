@@ -25,6 +25,8 @@ void IncrementalIndexer::onContentObject(
     core::Interest::Ptr &&interest, core::ContentObject::Ptr &&content_object) {
   using namespace interface;
 
+  TRANSPORT_LOGD("Receive content %s", content_object->getName().toString().c_str());
+
   if (TRANSPORT_EXPECT_FALSE(content_object->testRst())) {
     final_suffix_ = content_object->getName().getSuffix();
   }

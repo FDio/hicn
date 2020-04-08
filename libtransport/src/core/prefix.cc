@@ -211,8 +211,8 @@ Name Prefix::getName(const core::Name &mask, const core::Name &components,
     }
   }
 
-  if (this->contains(name_ip))
-    throw errors::RuntimeException("Mask overrides the prefix");
+  // if (this->contains(name_ip))
+  //   throw errors::RuntimeException("Mask overrides the prefix");
   return Name(ip_prefix_.family, (uint8_t *)&name_ip);
 }
 
