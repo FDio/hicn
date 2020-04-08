@@ -20,12 +20,16 @@
 namespace transport {
 namespace interface {
 
-P2PSecureConsumerSocket::P2PSecureConsumerSocket(int handshake_protocol,
-                                                 int protocol)
+P2PSecureConsumerSocket::P2PSecureConsumerSocket(int protocol)
     : ConsumerSocket() {
   socket_ = std::unique_ptr<implementation::ConsumerSocket>(
-      new implementation::P2PSecureConsumerSocket(this, handshake_protocol,
-                                                  protocol));
+      new implementation::P2PSecureConsumerSocket(this, protocol));
+}
+
+void P2PSecureConsumerSocket::registerPrefix(const Prefix &producer_namespace) {
+  implementation::P2PSecureConsumerSocket &secure_consumer_socket =
+      *(static_cast<implementation::P2PSecureConsumerSocket *>(socket_.get()));
+  secure_consumer_socket.registerPrefix(producer_namespace);
 }
 
 }  // namespace interface

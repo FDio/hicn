@@ -93,8 +93,9 @@ int TLSRTCProducerSocket::writeOld(BIO *b, const char *buf, int num) {
 
   if ((SSL_in_before(socket->ssl_) || SSL_in_init(socket->ssl_)) &&
       socket->first_) {
-    socket->tls_chunks_--;
     bool making_manifest = socket->parent_->making_manifest_;
+
+    socket->tls_chunks_--;
     socket->parent_->setSocketOption(GeneralTransportOptions::MAKE_MANIFEST,
                                      false);
     socket->parent_->ProducerSocket::produce(
@@ -107,13 +108,17 @@ int TLSRTCProducerSocket::writeOld(BIO *b, const char *buf, int num) {
     std::unique_ptr<utils::MemBuf> mbuf =
         utils::MemBuf::copyBuffer(buf, (std::size_t)num, 0, 0);
     auto a = mbuf.release();
+
     socket->async_thread_.add([socket = socket, a]() {
       socket->to_call_oncontentproduced_--;
       auto mbuf = std::unique_ptr<utils::MemBuf>(a);
+
       socket->RTCProducerSocket::produce(std::move(mbuf));
+
       ProducerContentCallback on_content_produced_application;
       socket->getSocketOption(ProducerCallbacksOptions::CONTENT_PRODUCED,
                               on_content_produced_application);
+
       if (socket->to_call_oncontentproduced_ == 0 &&
           on_content_produced_application) {
         on_content_produced_application(
@@ -147,14 +152,16 @@ void TLSRTCProducerSocket::accept() {
   if (SSL_in_before(ssl_) || SSL_in_init(ssl_)) {
     tls_chunks_ = 1;
     int result = SSL_accept(ssl_);
+
     if (result != 1)
       throw errors::RuntimeException("Unable to perform client handshake");
   }
 
   TRANSPORT_LOGD("Handshake performed!");
-  parent_->list_secure_rtc_producers.push_front(
-      std::move(parent_->map_secure_rtc_producers[handshake_name_]));
-  parent_->map_secure_rtc_producers.erase(handshake_name_);
+
+  parent_->list_producers.push_front(
+      std::move(parent_->map_producers[handshake_name_]));
+  parent_->map_producers.erase(handshake_name_);
 
   ProducerInterestCallback on_interest_process_decrypted;
   getSocketOption(ProducerCallbacksOptions::CACHE_MISS,
@@ -197,5 +204,4 @@ void TLSRTCProducerSocket::produce(std::unique_ptr<utils::MemBuf> &&buffer) {
 }
 
 }  // namespace implementation
-
 }  // namespace transport
