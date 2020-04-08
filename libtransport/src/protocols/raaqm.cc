@@ -479,7 +479,6 @@ void RaaqmTransportProtocol::scheduleNextInterests() {
       }
 
       sendInterest(index);
-      TRANSPORT_LOGD("Send content interest %u", index);
     }
   }
 }
@@ -508,6 +507,8 @@ bool RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
   // performed by sendInterest, will result in 0
   interest_retransmissions_[next_suffix & mask] = ~0;
   interest_timepoints_[next_suffix & mask] = utils::SteadyClock::now();
+
+  TRANSPORT_LOGD("Send content interest %s", name->toString().c_str());
   sendInterest(std::move(interest));
 
   return true;
