@@ -106,7 +106,7 @@ class ConsumerSocket {
 
     /**
      * This method will be called by the transport for understanding how many
-     * bytes it should read (at most) before notifying the application.
+     * bytes it should read before notifying the application.
      *
      * By default it reads 64 KB.
      */

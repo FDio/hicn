@@ -460,7 +460,6 @@ void RaaqmTransportProtocol::scheduleNextInterests() {
     // send at least one interest if there are retransmissions to perform and
     // there is no space left in the window
     sendInterest(std::move(interest_to_retransmit_.front()));
-    TRANSPORT_LOGD("Window full, retransmit one content interest");
     interest_to_retransmit_.pop();
   }
 
@@ -470,7 +469,6 @@ void RaaqmTransportProtocol::scheduleNextInterests() {
   while (interests_in_flight_ < current_window_size_) {
     if (interest_to_retransmit_.size() > 0) {
       sendInterest(std::move(interest_to_retransmit_.front()));
-      TRANSPORT_LOGD("Retransmit content interest");
       interest_to_retransmit_.pop();
     } else {
       index = index_manager_->getNextSuffix();
@@ -479,7 +477,6 @@ void RaaqmTransportProtocol::scheduleNextInterests() {
       }
 
       sendInterest(index);
-      TRANSPORT_LOGD("Send content interest %u", index);
     }
   }
 }
@@ -508,6 +505,7 @@ bool RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
   // performed by sendInterest, will result in 0
   interest_retransmissions_[next_suffix & mask] = ~0;
   interest_timepoints_[next_suffix & mask] = utils::SteadyClock::now();
+
   sendInterest(std::move(interest));
 
   return true;
@@ -517,6 +515,7 @@ void RaaqmTransportProtocol::sendInterest(Interest::Ptr &&interest) {
   interests_in_flight_++;
   interest_retransmissions_[interest->getName().getSuffix() & mask]++;
 
+  TRANSPORT_LOGD("Send interest %s", interest->getName().toString().c_str());
   portal_->sendInterest(std::move(interest));
 }
 
