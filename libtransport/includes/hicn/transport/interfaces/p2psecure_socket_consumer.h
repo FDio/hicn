@@ -23,10 +23,10 @@ namespace interface {
 
 class P2PSecureConsumerSocket : public ConsumerSocket {
  public:
-  P2PSecureConsumerSocket(int handshake_protocol, int protocol);
+  P2PSecureConsumerSocket(int protocol);
   ~P2PSecureConsumerSocket() = default;
+  void registerPrefix(const Prefix &producer_namespace);
 };
 
 }  // namespace interface
-
 }  // end namespace transport
