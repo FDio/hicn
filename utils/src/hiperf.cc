@@ -361,7 +361,7 @@ class HIperfClient {
       configuration_.transport_protocol_ = CBR;
     }
 
-#ifdef SECURE_HICNSOCKET
+#ifdef SECURE_HICNTRANSPORT
     if (configuration_.secure_) {
       consumer_socket_ = std::make_shared<P2PSecureConsumerSocket>(
           RAAQM, configuration_.transport_protocol_);
@@ -378,7 +378,7 @@ class HIperfClient {
 #endif
       consumer_socket_ =
           std::make_shared<ConsumerSocket>(configuration_.transport_protocol_);
-#ifdef SECURE_HICNSOCKET
+#ifdef SECURE_HICNTRANSPORT
     }
 #endif
 
@@ -643,14 +643,13 @@ class HIperfClient {
       client_.io_service_.stop();
     }
 
-    bool verifyKey() { return !key_->empty(); }
+    bool validateKey() { return !key_->empty(); }
 
     void readSuccess(std::size_t total_size) noexcept override {
       std::cout << "Key size: " << total_size << " bytes" << std::endl;
-      afterRead();
     }
 
-    void afterRead() {
+    void readKey() {
       std::shared_ptr<utils::Verifier> verifier =
           std::make_shared<utils::Verifier>();
       verifier->addKeyFromPassphrase(*key_, utils::CryptoSuite::HMAC_SHA256);
@@ -661,19 +660,23 @@ class HIperfClient {
         consumer_socket_->setSocketOption(GeneralTransportOptions::VERIFIER,
                                           verifier);
       } else {
-        std::cout << "Could not set verifier" << std::endl;
+        std::cout << "Consumer socket not set" << std::endl;
+        return;
+      }
+
+      if (validateKey()) {
+        std::cout << "Key has been authenticated" << std::endl;
+      } else {
+        std::cout << "Key could not be authenticated" << std::endl;
         return;
       }
 
       if (consumer_socket_->verifyKeyPackets()) {
-        std::cout << "Verification of packet signatures successful"
-                  << std::endl;
+        std::cout << "Signatures of key packets are valid" << std::endl;
       } else {
-        std::cout << "Could not verify packet signatures" << std::endl;
+        std::cout << "Signatures of key packets are not valid" << std::endl;
         return;
       }
-
-      std::cout << "Key retrieval done" << std::endl;
     }
 
     void setConsumer(std::shared_ptr<ConsumerSocket> consumer_socket) {
@@ -859,7 +862,7 @@ class HIperfServer {
   int setup() {
     int ret;
 
-#ifdef SECURE_HICNSOCKET
+#ifdef SECURE_HICNTRANSPORT
     if (configuration_.secure_) {
       auto identity = getProducerIdentity(configuration_.keystore_name,
                                           configuration_.keystore_password,
@@ -873,7 +876,7 @@ class HIperfServer {
       } else {
         producer_socket_ = std::make_unique<ProducerSocket>();
       }
-#ifdef SECURE_HICNSOCKET
+#ifdef SECURE_HICNTRANSPORT
     }
 #endif
 

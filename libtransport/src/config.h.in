@@ -29,6 +29,10 @@
 #cmakedefine SECURE_HICNTRANSPORT
 #endif
 
+#ifndef SECURE_HICNSOCKET
+#cmakedefine SECURE_HICNSOCKET
+#endif
+
 #define RAAQM_CONFIG_PATH "@raaqm_config_path@"
 
 #cmakedefine __vpp__
