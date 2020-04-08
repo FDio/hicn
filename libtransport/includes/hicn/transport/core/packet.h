@@ -155,8 +155,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
     auto header_size = getHeaderSizeFromFormat(format_, signature_size);
     auto payload_length = packet_->length() - header_size;
 
-    return std::make_pair(packet_->data() + header_size,
-                          payload_length);
+    return std::make_pair(packet_->data() + header_size, payload_length);
   }
 
   Packet &updateLength(std::size_t length = 0);
@@ -229,6 +228,7 @@ class Packet : public std::enable_shared_from_this<Packet> {
   Packet &setTTL(uint8_t hops);
   uint8_t getTTL() const;
 
+  void separateHeaderPayload();
   void resetPayload();
 
  private:
@@ -248,7 +248,6 @@ class Packet : public std::enable_shared_from_this<Packet> {
   }
 
   uint8_t *getSignature() const;
-  void separateHeaderPayload();
 
  protected:
   Name name_;

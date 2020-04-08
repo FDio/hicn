@@ -37,10 +37,12 @@ ManifestIncrementalIndexer::ManifestIncrementalIndexer(
 
 void ManifestIncrementalIndexer::onContentObject(
     core::Interest::Ptr &&interest, core::ContentObject::Ptr &&content_object) {
-  // Check if mainfiest or not
+  // Check if manifest or not
   if (content_object->getPayloadType() == PayloadType::MANIFEST) {
+    TRANSPORT_LOGD("Receive content %s", content_object->getName().toString().c_str());
     onUntrustedManifest(std::move(interest), std::move(content_object));
   } else if (content_object->getPayloadType() == PayloadType::CONTENT_OBJECT) {
+    TRANSPORT_LOGD("Receive manifest %s", content_object->getName().toString().c_str());
     onUntrustedContentObject(std::move(interest), std::move(content_object));
   }
 }
