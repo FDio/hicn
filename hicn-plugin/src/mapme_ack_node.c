@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -48,7 +48,7 @@ static char *hicn_mapme_ack_error_strings[] = {
  */
 bool
 hicn_mapme_process_ack (vlib_main_t * vm, vlib_buffer_t * b,
-			dpo_id_t * in_face)
+			hicn_face_id_t in_face)
 {
   seq_t fib_seq;
   const dpo_id_t *dpo;
@@ -113,8 +113,11 @@ hicn_mapme_process_ack (vlib_main_t * vm, vlib_buffer_t * b,
 						 1,
 						 sizeof (retx_t));
   *retx = (retx_t)
-  {
-  .prefix = prefix,.dpo = *dpo};
+    {
+     .prefix = prefix,
+     .dpo = *dpo
+    };
+
   return true;
 
 ERR_PARSE:
@@ -159,7 +162,7 @@ hicn_mapme_ack_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 	  vlib_cli_output (vm, "Received IUAck");
 	  hb = hicn_get_buffer (b0);
-	  hicn_mapme_process_ack (vm, b0, &hb->face_dpo_id);
+	  hicn_mapme_process_ack (vm, b0, hb->face_id);
 
 	  /* Single loop: process 1 packet here */
 	  sw_if_index0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];
