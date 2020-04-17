@@ -12,13 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <vnet/fib/fib_entry_track.h>
 
 #include "face.h"
 #include "../hicn.h"
 #include "../params.h"
 #include "../error.h"
-/* #include "../mapme.h" */
-/* #include "../mapme_eventmgr.h" */
+#include "../mapme.h"
+#include "../mapme_eventmgr.h"
 
 dpo_id_t *face_dpo_vec;
 hicn_face_vft_t *face_vft_vec;
@@ -31,6 +32,8 @@ dpo_type_t first_type = DPO_FIRST;
 vlib_combined_counter_main_t *counters;
 
 dpo_type_t hicn_face_type;
+
+fib_node_type_t hicn_face_fib_node_type;
 
 const char *HICN_FACE_CTRX_STRING[] = {
 #define _(a,b,c) c,
@@ -55,25 +58,6 @@ face_show (u8 * s, int face_id, u32 indent)
 
 }
 
-/* void */
-/* register_face_type (hicn_face_type_t face_type, hicn_face_vft_t * vft, */
-/* 		    char *name) */
-/* { */
-/*   if (first_type == DPO_FIRST) */
-/*     first_type = face_type; */
-
-/*   int idx = face_type - first_type; */
-/*   ASSERT (idx >= 0); */
-/*   vec_validate (face_vft_vec, idx); */
-/*   vec_validate (face_type_names_vec, idx); */
-
-/*   /\* Copy the null char as well *\/ */
-/*   char *name_str = (char *) malloc ((strlen (name) + 1) * sizeof (char)); */
-/*   strcpy (name_str, name); */
-/*   face_vft_vec[idx] = *vft; */
-/*   face_type_names_vec[idx] = name_str; */
-/* } */
-
 mhash_t hicn_face_vec_hashtb;
 mhash_t hicn_face_hashtb;
 
@@ -94,19 +78,85 @@ const static char *const hicn_face4_nodes[] =
 };
 
 
-const static char *const *const hicn_ip_nodes[DPO_PROTO_NUM] =
+const static char *const *const hicn_face_nodes[DPO_PROTO_NUM] =
 {
  [DPO_PROTO_IP4] = hicn_face4_nodes,
  [DPO_PROTO_IP6] = hicn_face6_nodes
 };
 
-const static dpo_vft_t hicn_face_ip_vft =
+const static dpo_vft_t hicn_face_dpo_vft =
 {
  .dv_lock = hicn_face_lock,
  .dv_unlock = hicn_face_unlock,
  .dv_format = format_hicn_face,
 };
 
+static fib_node_t *
+hicn_face_node_get (fib_node_index_t index)
+{
+  hicn_face_t * face;
+
+  face = hicn_dpoi_get_from_idx(index);
+
+  return (&face->fib_node);
+}
+
+static void
+hicn_face_last_lock_gone (fib_node_t *node)
+{
+}
+
+static hicn_face_t *
+hicn_face_from_fib_node (fib_node_t * node)
+{
+  return ((hicn_face_t *) (((char *) node) -
+                           STRUCT_OFFSET_OF (hicn_face_t, fib_node)));
+}
+
+static fib_node_back_walk_rc_t
+hicn_face_back_walk_notify (fib_node_t *node,
+                            fib_node_back_walk_ctx_t *ctx)
+{
+
+  hicn_face_t *face = hicn_face_from_fib_node (node);
+
+  const dpo_id_t * dpo_loadbalance = fib_entry_contribute_ip_forwarding (face->fib_entry_index);
+  const load_balance_t *lb0 = load_balance_get(dpo_loadbalance->dpoi_index);
+
+  const dpo_id_t *dpo = load_balance_get_bucket_i(lb0,0);
+
+  dpo_stack(hicn_face_type, face->dpo.dpoi_proto, &face->dpo, dpo);
+  /* if (dpo_is_adj(dpo)) */
+  /*   { */
+  /*     ip_adjacency_t * adj = adj_get (dpo->dpoi_index); */
+
+  /*     if (dpo->dpoi_type == DPO_ADJACENCY_MIDCHAIN || */
+  /*         dpo->dpoi_type == DPO_ADJACENCY_MCAST_MIDCHAIN) */
+  /*       { */
+  /*         adj_nbr_midchain_stack(dpo->dpoi_index, &face->dpo); */
+  /*       } */
+  /*     else */
+  /*       { */
+  /*         dpo_stack(hicn_face_type, face->dpo.dpoi_proto, &face->dpo, dpo); */
+  /*       } */
+  /*   } */
+
+  return (FIB_NODE_BACK_WALK_CONTINUE);
+}
+
+static void
+hicn_face_show_memory (void)
+{
+}
+
+
+static const fib_node_vft_t hicn_face_fib_node_vft =
+  {
+   .fnv_get = hicn_face_node_get,
+   .fnv_last_lock = hicn_face_last_lock_gone,
+   .fnv_back_walk = hicn_face_back_walk_notify,
+   .fnv_mem_show = hicn_face_show_memory,
+  };
 
 // Make this more flexible for future types face
 void
@@ -132,7 +182,13 @@ hicn_face_module_init (vlib_main_t * vm)
    * So far it seems that we need it only for setting the dpo_type.
    */
   hicn_face_type =
-    dpo_register_new_type (&hicn_face_ip_vft, hicn_ip_nodes);
+    dpo_register_new_type (&hicn_face_dpo_vft, hicn_face_nodes);
+
+  /*
+   * We register a new node type to get informed when the adjacency corresponding
+   * to a face is updated
+   */
+  hicn_face_fib_node_type = fib_node_register_new_type(&hicn_face_fib_node_vft);
 }
 
 u8 *
@@ -206,19 +262,6 @@ format_hicn_face_all (u8 * s, int n, ...)
   return s;
 }
 
-/* hicn_face_vft_t * */
-/* hicn_face_get_vft (hicn_face_type_t face_type) */
-/* { */
-/*   int idx = face_type - first_type; */
-/*   if (idx >= 0) */
-/*     return &face_vft_vec[idx]; */
-/*   else */
-/*     return NULL; */
-
-/* } */
-
-/* FACE IP CODE */
-
 int
 hicn_face_del (hicn_face_id_t face_id)
 {
@@ -285,6 +328,32 @@ hicn_iface_to_face(hicn_face_t *face, const dpo_id_t * dpo)
 
   face->flags &=  ~HICN_FACE_FLAGS_IFACE;
   face->flags |=  HICN_FACE_FLAGS_FACE;
+
+  if (dpo_is_adj(dpo))
+    {
+      fib_node_init (&face->fib_node, hicn_face_fib_node_type);
+      fib_node_lock (&face->fib_node);
+
+      if (dpo->dpoi_type != DPO_ADJACENCY_MIDCHAIN ||
+          dpo->dpoi_type != DPO_ADJACENCY_MCAST_MIDCHAIN)
+        {
+          ip_adjacency_t * adj = adj_get (dpo->dpoi_index);
+          ip46_address_t * nh = &(adj->sub_type.nbr.next_hop);
+          fib_prefix_t prefix;
+
+          fib_prefix_from_ip46_addr(nh, &prefix);
+
+          u32 fib_index = fib_table_find(prefix.fp_proto, HICN_FIB_TABLE);
+
+          face->fib_entry_index = fib_entry_track (fib_index,
+                                                   &prefix,
+                                                   hicn_face_fib_node_type,
+                                                   hicn_dpoi_get_index(face), &face->fib_sibling);
+        }
+    }
+
+
+  //adj_child_add(face->dpo.dpoi_index, hicn_face_fib_node_type, hicn_dpoi_get_index(face));
 }
 
 /*
@@ -295,7 +364,6 @@ int
 hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
                int sw_if, hicn_face_id_t * pfaceid, u8 is_app_prod)
 {
-  //  dpo_proto_t dpo_proto;
 
   hicn_face_flags_t flags = (hicn_face_flags_t) 0;
   flags |= HICN_FACE_FLAGS_FACE;
@@ -335,7 +403,7 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
     }
   else
     {
-      /* *We found an iface and we convert it to a face */
+      /* We found an iface and we convert it to a face */
       *pfaceid = hicn_dpoi_get_index (face);
       mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid,
                      0);
@@ -357,9 +425,6 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
       in_faces_temp.vec_id = index;
       vec_add1 (*vec, *pfaceid);
 
-
-      //      dpo_proto = DPO_PROTO_IP4;
-
       in_faces_temp.face_id = *pfaceid;
 
       hicn_face_get_key (nat_address, 0, &temp_dpo, &key);
@@ -380,8 +445,6 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
 
       hicn_iface_to_face(face, dpo_nh);
 
-      //      dpo_proto = DPO_PROTO_IP4;
-
       hicn_face_get_key (nat_address, 0, &temp_dpo, &key);
 
       mhash_set_mem (&hicn_face_vec_hashtb, &key, (uword *) in_faces,
@@ -395,40 +458,19 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
         }
     }
 
-  /* retx_t *retx = vlib_process_signal_event_data (vlib_get_main (), */
-  /*       					 hicn_mapme_eventmgr_process_node.index, */
-  /*       					 HICN_MAPME_EVENT_FACE_ADD, 1, */
-  /*       					 sizeof (retx_t)); */
+  retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
+        					 hicn_mapme_eventmgr_process_node.index,
+        					 HICN_MAPME_EVENT_FACE_ADD, 1,
+        					 sizeof (retx_t));
 
-  /* /\* *INDENT-OFF* *\/ */
-  /* *retx = (retx_t) */
-  /* { */
-  /*   .prefix = 0, */
-  /*   .dpo = (dpo_id_t) */
-  /*   { */
-  /*     .dpoi_type = 0, */
-  /*     .dpoi_proto = dpo_proto, */
-  /*     .dpoi_next_node = 0, */
-  /*     .dpoi_index = *pfaceid, */
-  /*   } */
-  /* }; */
-  /* /\* *INDENT-ON* *\/ */
+  /* *INDENT-OFF* */
+  *retx = (retx_t) {
+    .face_id = *pfaceid,
+  };
+  /* *INDENT-ON* */
 
   return HICN_ERROR_NONE;
 }
-
-/* void */
-/* hicn_face_get_dpo (hicn_face_t * face, dpo_id_t * dpo) */
-/* { */
-
-/*   hicn_face_ip_t *face_ip = (hicn_face_ip_t *) face->data; */
-/*   return hicn_dpo_ip_create_from_face (face, dpo, */
-/* 				       ip46_address_is_ip4 */
-/* 				       (&face_ip->remote_addr) ? */
-/* 				       strategy_face_ip4_vlib_edge : */
-/* 				       strategy_face_ip6_vlib_edge); */
-/* } */
-
 
 
 /*
