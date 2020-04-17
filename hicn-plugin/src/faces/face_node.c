@@ -64,7 +64,7 @@ hicn4_face_input_trace_t;
 typedef enum
 {
   HICN4_FACE_INPUT_NEXT_DATA,
-  //HICN4_FACE_INPUT_NEXT_MAPME,
+  HICN4_FACE_INPUT_NEXT_MAPME,
   HICN4_FACE_INPUT_NEXT_ERROR_DROP,
   HICN4_FACE_INPUT_N_NEXT,
 } hicn4_face_input_next_t;
@@ -82,13 +82,13 @@ hicn6_face_input_trace_t;
 typedef enum
 {
   HICN6_FACE_INPUT_NEXT_DATA,
-  //HICN6_FACE_INPUT_NEXT_MAPME,
+  HICN6_FACE_INPUT_NEXT_MAPME,
   HICN6_FACE_INPUT_NEXT_ERROR_DROP,
   HICN6_FACE_INPUT_N_NEXT,
 } hicn6_face_input_next_t;
 
-#define NEXT_MAPME_IP4 HICN4_FACE_INPUT_NEXT_ERROR_DROP//HICN4_FACE_INPUT_NEXT_MAPME
-#define NEXT_MAPME_IP6 HICN6_FACE_INPUT_NEXT_ERROR_DROP//HICN6_FACE_INPUT_NEXT_MAPME
+#define NEXT_MAPME_IP4 HICN4_FACE_INPUT_NEXT_MAPME
+#define NEXT_MAPME_IP6 HICN6_FACE_INPUT_NEXT_MAPME
 #define NEXT_DATA_IP4 HICN4_FACE_INPUT_NEXT_DATA
 #define NEXT_DATA_IP6 HICN6_FACE_INPUT_NEXT_DATA
 
@@ -374,7 +374,7 @@ VLIB_REGISTER_NODE(hicn4_face_input_node) =
   .next_nodes =
   {
     [HICN4_FACE_INPUT_NEXT_DATA] = "hicn-data-pcslookup",
-    //[HICN4_FACE_INPUT_NEXT_MAPME] = "hicn-mapme-ack",
+    [HICN4_FACE_INPUT_NEXT_MAPME] = "hicn-mapme-ack",
     [HICN4_FACE_INPUT_NEXT_ERROR_DROP] = "error-drop",
   },
 };
@@ -454,7 +454,7 @@ VLIB_REGISTER_NODE(hicn6_face_input_node) =
   .next_nodes =
   {
     [HICN6_FACE_INPUT_NEXT_DATA] = "hicn-data-pcslookup",
-    //[HICN6_FACE_INPUT_NEXT_MAPME] = "hicn-mapme-ack",
+    [HICN6_FACE_INPUT_NEXT_MAPME] = "hicn-mapme-ack",
     [HICN6_FACE_INPUT_NEXT_ERROR_DROP] = "error-drop",
   },
 };

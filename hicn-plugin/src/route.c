@@ -478,7 +478,8 @@ sync_hicn_fib_entry(hicn_dpo_ctx_t *fib_entry)
   }
 
   const hicn_dpo_vft_t * strategy_vft = hicn_dpo_get_vft(fib_entry->dpo_type);
-  for (int i = 0; i < fib_entry->entry_count; i++)
+  int i = 0;
+  while (i < fib_entry->entry_count)
     {
       u32 idx_nh = vec_search(vec_faces, fib_entry->next_hops[i]);
       if (idx_nh == ~0)
@@ -500,7 +501,7 @@ sync_hicn_fib_entry(hicn_dpo_ctx_t *fib_entry)
 
          /* Remove the lock added by hicn_face_add */
          hicn_face_unlock_with_id (fib_entry->next_hops[i]);
-
+         i++;
         }
     }
 
