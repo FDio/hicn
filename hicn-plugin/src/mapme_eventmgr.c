@@ -71,7 +71,7 @@ ip6_fib_table_show_walk (fib_node_index_t fib_entry_index, void *arg)
 }
 
 void
-hicn_mapme_process_fib_entry (vlib_main_t * vm, dpo_id_t face,
+hicn_mapme_process_fib_entry (vlib_main_t * vm, hicn_face_id_t face,
 			      const fib_node_index_t * fib_entry_index)
 {
   const dpo_id_t *load_balance_dpo_id;
@@ -103,7 +103,7 @@ hicn_mapme_process_fib_entry (vlib_main_t * vm, dpo_id_t face,
 }
 
 void
-hicn_mapme_process_ip4_fib (vlib_main_t * vm, dpo_id_t face)
+hicn_mapme_process_ip4_fib (vlib_main_t * vm, hicn_face_id_t face)
 {
   ip4_main_t *im4 = &ip4_main;
   fib_table_t *fib_table;
@@ -138,7 +138,7 @@ hicn_mapme_process_ip4_fib (vlib_main_t * vm, dpo_id_t face)
 }
 
 void
-hicn_mapme_process_ip6_fib (vlib_main_t * vm, dpo_id_t face)
+hicn_mapme_process_ip6_fib (vlib_main_t * vm, hicn_face_id_t face)
 {
   /* Walk IPv6 FIB */
   ip6_main_t *im6 = &ip6_main;
@@ -182,7 +182,7 @@ hicn_mapme_process_ip6_fib (vlib_main_t * vm, dpo_id_t face)
  * Callback called everytime a new face is created (not including app faces)
  */
 void
-hicn_mapme_on_face_added (vlib_main_t * vm, dpo_id_t face)
+hicn_mapme_on_face_added (vlib_main_t * vm, hicn_face_id_t face)
 {
   hicn_mapme_process_ip4_fib (vm, face);
   hicn_mapme_process_ip6_fib (vm, face);
@@ -242,7 +242,7 @@ get_packet_buffer (vlib_main_t * vm, u32 node_index, u32 dpoi_index,
 
 static_always_inline bool
 hicn_mapme_send_message (vlib_main_t * vm, const hicn_prefix_t * prefix,
-			 mapme_params_t * params, dpo_id_t * face)
+			 mapme_params_t * params, hicn_face_id_t face)
 {
   size_t n;
 
@@ -261,7 +261,7 @@ hicn_mapme_send_message (vlib_main_t * vm, const hicn_prefix_t * prefix,
   vlib_node_t *node = vlib_get_node_by_name (vm, (u8 *) node_name);
   u32 node_index = node->index;
 
-  u8 *buffer = get_packet_buffer (vm, node_index, face->dpoi_index,
+  u8 *buffer = get_packet_buffer (vm, node_index, face,
 				  (ip46_address_t *) prefix,
 				  (params->protocol ==
 				   IPPROTO_IPV6) ? HICN_TYPE_IPV6_ICMP :
@@ -302,13 +302,13 @@ hicn_mapme_send_updates (vlib_main_t * vm, hicn_prefix_t * prefix,
 	   pos++)
 	{
 	  hicn_mapme_send_message (vm, prefix, &params,
-				   &tfib->next_hops[pos]);
+				   tfib->next_hops[pos]);
 	}
     }
   else
     {
       hicn_mapme_send_message (vm, prefix, &params,
-			       &tfib->next_hops[tfib_last_idx]);
+			       tfib->next_hops[tfib_last_idx]);
     }
 }
 
@@ -372,7 +372,7 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	    retx_t *retx_events = event_data;
 	    for (u8 i = 0; i < vec_len (retx_events); i++)
 	      {
-		hicn_mapme_on_face_added (vm, retx_events[i].dpo);
+		hicn_mapme_on_face_added (vm, retx_events[i].face_id);
 	      }
 	    idle = 0;
 	  }

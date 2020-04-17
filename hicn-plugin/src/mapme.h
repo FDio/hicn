@@ -18,12 +18,33 @@
 
 #include <vnet/dpo/load_balance.h>
 #include <vnet/buffer.h>
-//#include <hicn/hicn.h>
 #include <hicn/mapme.h>
 
 #include "hicn.h"
+#include "route.h"
 #include "strategy_dpo_ctx.h"
 #include "strategy_dpo_manager.h"	// dpo_is_hicn
+
+/**
+ * @file
+ *
+ * @brief Mapme
+ *
+ * Mapme implementation follows the "Anchorless mobility through hICN" document
+ * specification. In particular, the implementation is made of:
+ *   - two internal nodes: hicn-mapme-ctrl and hicn-mapme-ack. The former processes
+ *     IU and the latter IU acknowledgment.
+ *   - a process node, mapme-eventmgr-process, that is signaled every time a face is
+ *     added or deleted, as well as when a new next hop is added to a fib entry as a
+ *     result of a mobility event.
+ *
+ * TFIB implementation is done as an extension of an hICN fib entry. In particular,
+ * the list of next hops hold the list of next hops in the tfib as well (stored at the
+ * end of the list of regualt next hops). Mapme implementation follows the hICN vrf
+ * implementation and consider the vrf 0 (default fib) as the control-plane fib to
+ * update every time a new next hop must be added or removed.
+ */
+
 
 #define HICN_MAPME_ALLOW_LOCATORS 1
 
@@ -46,6 +67,9 @@ typedef struct hicn_mapme_conf_s
   vlib_log_class_t log_class;
 } hicn_mapme_main_t;
 
+/**
+ * @brief List of event to signat to the procesing node (eventmgr)
+ */
 #define foreach_hicn_mapme_event  \
   _(FACE_ADD)                     \
   _(FACE_DEL)                     \
@@ -75,13 +99,24 @@ typedef hicn_dpo_ctx_t hicn_mapme_tfib_t;
 STATIC_ASSERT (sizeof (hicn_mapme_tfib_t) <= sizeof (hicn_dpo_ctx_t),
 	       "hicn_mapme_tfib_t is greater than hicn_dpo_ctx_t");
 
-#define TFIB(dpo) ((hicn_mapme_tfib_t*)(dpo))
+#define TFIB(dpo_ctx) ((hicn_mapme_tfib_t*)(dpo_ctx))
 
 static_always_inline int
-hicn_mapme_nh_set (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
+hicn_mapme_nh_set (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
 {
-  tfib->next_hops[0] = *face_id;
-  tfib->entry_count = 1;
+  hicn_dpo_ctx_t * strategy_ctx = (hicn_dpo_ctx_t *)tfib;
+  const fib_prefix_t * prefix = fib_entry_get_prefix(strategy_ctx->fib_entry_index);
+
+  u32 n_entries = tfib->entry_count;
+  /* Remove all the existing next hops and set the new one */
+  for (int i = 0; i < n_entries; i++)
+    {
+      hicn_face_t * face = hicn_dpoi_get_from_idx(strategy_ctx->next_hops[0]);
+      ip_adjacency_t * adj = adj_get (face->dpo.dpoi_index);
+      ip_nh_del_helper(face->dpo.dpoi_proto, prefix, &adj->sub_type.nbr.next_hop, face->sw_if);
+    }
+  hicn_face_t * face = hicn_dpoi_get_from_idx(face_id);
+  ip_nh_add_helper(face->dpo.dpoi_proto, prefix, &face->nat_addr, face->sw_if);
   return 0;
 }
 
@@ -94,7 +129,13 @@ hicn_mapme_nh_add (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
   for (u8 pos = 0; pos < tfib->entry_count; pos++)
     if (tfib->next_hops[pos] == face_id)
       return 0;
-  tfib->next_hops[tfib->entry_count++] = face_id;
+
+  /* Add the next hop in the vrf 0 which will add it to the entry in the hICN vrf */
+  hicn_dpo_ctx_t * strategy_ctx = (hicn_dpo_ctx_t *)tfib;
+  const fib_prefix_t * prefix = fib_entry_get_prefix(strategy_ctx->fib_entry_index);
+  hicn_face_t * face = hicn_dpoi_get_from_idx(face_id);
+  ip_nh_add_helper(face->dpo.dpoi_proto, prefix, &face->nat_addr, face->sw_if);
+
   return 0;
 }
 
@@ -104,22 +145,28 @@ hicn_mapme_nh_add (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
  * XXX we should have the for look in the reverse order for simpler code.
  */
 static_always_inline int
-hicn_mapme_tfib_add (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
+hicn_mapme_tfib_add (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
 {
   u8 pos = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
 
   //XXX don 't add if it already exist
   // eg.an old IU received on a face on which we are retransmitting
   for (u8 pos2 = pos; pos2 < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos2++)
-    if (dpo_cmp (&tfib->next_hops[pos2], face_id) == 0)
+    if (tfib->next_hops[pos2] == face_id)
       return 0;
 
   //Make sure we have enough room
   if (pos <= tfib->entry_count)
     return -1;
 
-  tfib->next_hops[pos - 1] = *face_id;
+  tfib->next_hops[pos - 1] = face_id;
   tfib->tfib_entry_count++;
+
+  /*
+   * Take a lock on the face as if it will be removed from the next_hops a
+   * lock will be removed.
+   */
+  hicn_face_lock_with_id(face_id);
 
   return 0;
 }
@@ -127,7 +174,7 @@ hicn_mapme_tfib_add (hicn_mapme_tfib_t * tfib, dpo_id_t * face_id)
 static_always_inline int
 hicn_mapme_tfib_clear (hicn_mapme_tfib_t * tfib)
 {
-  dpo_id_t invalid = NEXT_HOP_INVALID;
+  hicn_face_id_t invalid = NEXT_HOP_INVALID;
   /*
    * We need to do a linear scan of TFIB entries to find the one to
    * remove
@@ -136,7 +183,7 @@ hicn_mapme_tfib_clear (hicn_mapme_tfib_t * tfib)
   u8 pos = ~0;
   for (pos = start_pos; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos++)
       {
-	hicn_face_unlock_with_id (&tfib->next_hops[pos]);
+	hicn_face_unlock_with_id (tfib->next_hops[pos]);
 	tfib->next_hops[pos] = invalid;
 	break;
       }
@@ -159,7 +206,7 @@ hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
   for (pos = start_pos; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos++)
     if (tfib->next_hops[pos] == face_id)
       {
-	hicn_face_unlock_with_id (&tfib->next_hops[pos]);
+	hicn_face_unlock_with_id (tfib->next_hops[pos]);
 	tfib->next_hops[pos] = invalid;
 	break;
       }
@@ -171,7 +218,7 @@ hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
 
   /* Likely we won't receive a new IU twice from the same face */
   if (PREDICT_TRUE (pos > start_pos))
-    memmove (tfib->next_hops + start_pos, tfib->next_hops + start_pos + 1,
+    memmove (tfib->next_hops + start_pos +1 , tfib->next_hops + start_pos,
 	     (pos - start_pos) * sizeof (hicn_face_id_t));
 
   return 0;
@@ -290,34 +337,17 @@ hicn_mapme_get_dpo_vlib_edge (dpo_id_t * dpo)
  * @brief Returns the next hop node on which we can send an Update packet
  */
 always_inline char *
-hicn_mapme_get_dpo_face_node (dpo_id_t * dpo)
+hicn_mapme_get_dpo_face_node (hicn_face_id_t face_id)
 {
-  if (dpo->dpoi_type == hicn_face_ip_type)
+  hicn_face_t * face  = hicn_dpoi_get_from_idx(face_id);
+
+  switch (face->dpo.dpoi_proto)
     {
-      switch (dpo->dpoi_proto)
-	{
-	case DPO_PROTO_IP4:
-	  return "hicn-face-ip4-output";
-	case DPO_PROTO_IP6:
-	  return "hicn-face-ip6-output";
-	default:
-	  return NULL;
-	}
-    }
-  else if (dpo->dpoi_type == hicn_face_udp_type)
-    {
-      switch (dpo->dpoi_proto)
-	{
-	case DPO_PROTO_IP4:
-	  return "hicn-face-udp4-output";
-	case DPO_PROTO_IP6:
-	  return "hicn-face-udp6-output";
-	default:
-	  return NULL;
-	}
-    }
-  else
-    {
+    case DPO_PROTO_IP4:
+      return "hicn4-face-output";
+    case DPO_PROTO_IP6:
+      return "hicn6-face-output";
+    default:
       return NULL;
     }
 }
