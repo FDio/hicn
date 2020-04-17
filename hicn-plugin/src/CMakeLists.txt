@@ -94,9 +94,9 @@ set(HICN_PLUGIN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_rr.c
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_rr.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_lru.c
-#    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack_node.c
-#    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl_node.c
-#    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.c
 )
 
 set(HICN_PLUGIN_HEADER_FILES
@@ -136,10 +136,10 @@ set(HICN_PLUGIN_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_rr.h
     ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_policy.h
     ${CMAKE_CURRENT_SOURCE_DIR}/cache_policies/cs_lru.h
- #   ${CMAKE_CURRENT_SOURCE_DIR}/mapme.h
- #   ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack.h
- #   ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl.h
- #   ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.h
 )
 
 set(HICN_API_TEST_SOURCE_FILES

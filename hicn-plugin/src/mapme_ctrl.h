@@ -42,8 +42,6 @@ typedef enum
 {
   HICN_MAPME_CTRL_NEXT_IP4_OUTPUT,
   HICN_MAPME_CTRL_NEXT_IP6_OUTPUT,
-  HICN_MAPME_CTRL_NEXT_UDP46_OUTPUT,
-  HICN_MAPME_CTRL_NEXT_UDP66_OUTPUT,
   HICN_MAPME_CTRL_NEXT_ERROR_DROP,
   HICN_MAPME_CTRL_N_NEXT,
 } hicn_mapme_ctrl_next_t;
@@ -51,11 +49,11 @@ typedef enum
  * @brief Returns the next hop node on which we can send an ACK packet
  */
 always_inline hicn_mapme_ctrl_next_t
-hicn_mapme_get_dpo_iface_node (hicn_face_id_t face_id)
+hicn_mapme_ctrl_get_iface_node (hicn_face_id_t face_id)
 {
   hicn_face_t * face  = hicn_dpoi_get_from_idx(face_id);
 
-  switch (dpo->dpoi_proto)
+  switch (face->dpo.dpoi_proto)
     {
     case DPO_PROTO_IP4:
       return HICN_MAPME_CTRL_NEXT_IP4_OUTPUT;

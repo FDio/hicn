@@ -16,6 +16,7 @@
 #ifndef __HICN_FACE_H__
 #define __HICN_FACE_H__
 
+#include <vnet/fib/fib_node.h>
 #include <vnet/vnet.h>
 #include <vlib/vlib.h>
 #include <vnet/ip/ip46_address.h>
@@ -74,9 +75,11 @@ typedef struct __attribute__ ((packed)) hicn_face_s
   /* local interface for the local ip address */
   u32 sw_if;
 
-  /* To align a face to 8 bytes */
-  u32 padding;
+  fib_node_t fib_node;
 
+  fib_node_index_t fib_entry_index;
+
+  u32 fib_sibling;
 } hicn_face_t;
 
 /* Pool of faces */
