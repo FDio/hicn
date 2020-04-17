@@ -21,6 +21,7 @@
 #include "hicn.h"
 #include "faces/face.h"
 
+extern fib_source_t hicn_fib_src;
 /*
  * Retrieve the hicn dpo corresponding to a hicn prefix
  */

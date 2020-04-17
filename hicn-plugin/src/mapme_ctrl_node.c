@@ -48,18 +48,6 @@ static char *hicn_mapme_ctrl_error_strings[] = {
 #undef _
 };
 
-/**
- * Preprocess the ingress face so as to make it a candidate next hop, which is
- * what MAP-Me will handle
- */
-static_always_inline void
-preprocess_in_face (hicn_type_t type, dpo_id_t * in, dpo_id_t * out)
-{
-  u32 vlib_edge = hicn_mapme_get_dpo_vlib_edge (in);
-  *out = *in;
-  out->dpoi_next_node = vlib_edge;
-}
-
 /*
  * @brief Process incoming control messages (Interest Update)
  * @param vm vlib main data structure
@@ -74,7 +62,7 @@ preprocess_in_face (hicn_type_t type, dpo_id_t * in, dpo_id_t * out)
  */
 static_always_inline bool
 hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
-			 hicn_face_id_t in_face)
+			 hicn_face_id_t in_face_id)
 {
   seq_t fib_seq;
   const dpo_id_t *dpo;
@@ -153,27 +141,26 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
       // in_face and next_hops are face_id_t
 
       /* Remove ingress face from TFIB in case it was present */
-      hicn_mapme_tfib_del (tfib, in_face);
+      hicn_mapme_tfib_del (tfib, in_face_id);
 
       /* Move next hops to TFIB... but in_face... */
       for (u8 pos = 0; pos < tfib->entry_count; pos++)
 	{
-	  if (tfib->next_hops[pos] == in_face)
-	    {
-	      tfib->entry_count = 0;
-	      break;
-	    }
+          hicn_face_t * face = hicn_dpoi_get_from_idx(tfib->next_hops[pos]);
+          hicn_face_t * in_face = hicn_dpoi_get_from_idx(in_face_id);
+          if (dpo_is_adj(&face->dpo))
+            {
+              ip_adjacency_t * adj = adj_get (dpo->dpoi_index);
+              if (ip46_address_cmp(&(adj->sub_type.nbr.next_hop), &(in_face->nat_addr))== 0)
+                  break;
+            }
 	  DEBUG
 	    ("Adding nexthop to the tfib, dpo index in_face %d, dpo index tfib %d",
-	     in_face, tfib->next_hops[pos]);
+	     in_face_id, tfib->next_hops[pos]);
 	  hicn_mapme_tfib_add (tfib, tfib->next_hops[pos]);
 	}
 
-      /* ... and set ingress face as next_hop */
-      in_face->dpoi_next_node = hicn_mapme_get_dpo_vlib_edge (in_face);
-
-      /* Convert possible iFate into a face TODO!!!*/
-      hicn_mapme_nh_set (tfib, in_face);
+      hicn_mapme_nh_set (tfib, in_face_id);
 
       /* We transmit both the prefix and the full dpo (type will be needed to pick the right transmit node */
       retx_t *retx = vlib_process_signal_event_data (vm,
@@ -183,8 +170,10 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 						     1,
 						     sizeof (retx_t));
       *retx = (retx_t)
-      {
-      .prefix = prefix,.dpo = *dpo};
+        {
+         .prefix = prefix,
+         .dpo = *dpo
+        };
 
     }
   else if (params.seq == fib_seq)
@@ -193,10 +182,10 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 	     params.seq, fib_seq);
 
       /* Remove ingress face from TFIB in case it was present */
-      hicn_mapme_tfib_del (tfib, in_face);
+      hicn_mapme_tfib_del (tfib, in_face_id);
 
       /* Add ingress face to next hops */
-      hicn_mapme_nh_add (tfib, in_face);
+      hicn_mapme_nh_add (tfib, in_face_id);
 
       /* Multipath, multihoming, multiple producers or duplicate interest */
       retx_t *retx = vlib_process_signal_event_data (vm,
@@ -206,8 +195,10 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 						     1,
 						     sizeof (retx_t));
       *retx = (retx_t)
-      {
-      .prefix = prefix,.dpo = *dpo};
+        {
+         .prefix = prefix,
+         .dpo = *dpo
+        };
     }
   else				// params.seq < fib_seq
     {
@@ -215,7 +206,7 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
        * face is propagating outdated information, we can just consider it as a
        * prevHops
        */
-      hicn_mapme_tfib_add (tfib, in_face);
+      hicn_mapme_tfib_add (tfib, in_face_id);
 
       retx_t *retx = vlib_process_signal_event_data (vm,
 						     hicn_mapme_eventmgr_process_node.
@@ -224,8 +215,10 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 						     1,
 						     sizeof (retx_t));
       *retx = (retx_t)
-      {
-      .prefix = prefix,.dpo = *dpo};
+        {
+         .prefix = prefix,
+         .dpo = *dpo
+        };
     }
 
   /* We just raise events, the event_mgr is in charge of forging packet. */
@@ -247,7 +240,7 @@ hicn_mapme_ctrl_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
   hicn_mapme_ctrl_next_t next_index;
   u32 n_left_from, *from, *to_next;
   n_left_from = frame->n_vectors;
-  dpo_id_t in_face;
+  //hicn_face_id_t in_face;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -275,16 +268,11 @@ hicn_mapme_ctrl_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  hb = hicn_get_buffer (b0);
 
 	  /* This determines the next node on which the ack will be sent back */
-	  u32 next0 = hicn_mapme_get_dpo_iface_node (&hb->face_id);
+	  u32 next0 = hicn_mapme_ctrl_get_iface_node (hb->face_id);
 
-	  /* Preprocessing is needed to precompute in the dpo the next node
-	   * that will have to be followed by regular interests when being
-	   * forwarder on a given next hop
-	   */
-	  preprocess_in_face (hb->type, &hb->face_dpo_id, &in_face);
-	  hicn_mapme_process_ctrl (vm, b0, &in_face);
+	  hicn_mapme_process_ctrl (vm, b0, hb->face_id);
 
-	  vnet_buffer (b0)->ip.adj_index[VLIB_TX] = in_face.dpoi_index;
+	  vnet_buffer (b0)->ip.adj_index[VLIB_TX] = hb->face_id;
 
 	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
 					   n_left_to_next, bi0, next0);
@@ -333,10 +321,8 @@ VLIB_REGISTER_NODE (hicn_mapme_ctrl_node) =
      * Manager. This node is only responsible for sending ACK back,
      * Acks are like data packets are output on iface's
      */
-    [HICN_MAPME_CTRL_NEXT_IP4_OUTPUT]   = "hicn-iface-ip4-output",
-    [HICN_MAPME_CTRL_NEXT_IP6_OUTPUT]   = "hicn-iface-ip6-output",
-    [HICN_MAPME_CTRL_NEXT_UDP46_OUTPUT] = "hicn-iface-udp4-output",
-    [HICN_MAPME_CTRL_NEXT_UDP66_OUTPUT] = "hicn-iface-udp6-output",
+    [HICN_MAPME_CTRL_NEXT_IP4_OUTPUT]   = "hicn4-iface-output",
+    [HICN_MAPME_CTRL_NEXT_IP6_OUTPUT]   = "hicn6-iface-output",
     [HICN_MAPME_CTRL_NEXT_ERROR_DROP]   = "error-drop",
   },
 };
