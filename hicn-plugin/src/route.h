@@ -21,6 +21,7 @@
 #include "hicn.h"
 #include "faces/face.h"
 
+extern fib_source_t hicn_fib_src;
 /*
  * Retrieve the hicn dpo corresponding to a hicn prefix
  */
@@ -52,11 +53,36 @@ int hicn_route_del_nhop (fib_prefix_t * prefix, u32 face_id);
 int
 hicn_route_set_strategy (fib_prefix_t * prefix, u32 strategy_id);
 
+/**
+ * @Brief Helper to add a nex hop in the vrf 0. If there are no entries in the
+ * vrf 0 that matches with the prefix (epm), a new one is created.
+ *
+ * @param fib_proto FIB_PROTOCOL_IP6 or FIB_PROTOCOL_IP4 (mpls not supported)
+ * @param pfx Prefix for which to add a next hop
+ * @param nh Next hop to add
+ * @param sw_if Software interface index to add in the next hop
+ */
+int
+ip_nh_add_helper (fib_protocol_t fib_proto, const fib_prefix_t * pfx, ip46_address_t * nh, u32 sw_if);
+
+/**
+ * @Brief Helper to remove a nex hop in the vrf 0. If there are no entries in the
+ * vrf 0 nothing happens.
+ *
+ * @param fib_proto FIB_PROTOCOL_IP6 or FIB_PROTOCOL_IP4 (mpls not supported)
+ * @param pfx Prefix for which to remove a next hop
+ * @param nh Next hop to remove
+ * @param sw_if Software interface index in the next hop definition
+ */
+int
+ip_nh_del_helper (fib_protocol_t fib_proto, const fib_prefix_t * rpfx, ip46_address_t * nh, u32 sw_if);
+
 int
 hicn_route_enable (fib_prefix_t *prefix);
 
 int
 hicn_route_disable (fib_prefix_t *prefix);
+
 
 /* Init route internal strustures */
 void
