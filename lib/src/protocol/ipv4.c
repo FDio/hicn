@@ -109,6 +109,18 @@ ipv4_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t * h,
 }
 
 int
+ipv4_mark_packet_as_interest (hicn_type_t type, hicn_protocol_t * h)
+{
+  return CHILD_OPS (mark_packet_as_interest, type, h);
+}
+
+int
+ipv4_mark_packet_as_data (hicn_type_t type, hicn_protocol_t * h)
+{
+  return CHILD_OPS (mark_packet_as_data, type, h);
+}
+
+int
 ipv4_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t * h)
 {
   /* Sets everything to 0 up to IP destination address */
