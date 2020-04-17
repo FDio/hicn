@@ -385,6 +385,51 @@ hicn_route_set_strategy (fib_prefix_t * prefix, u8 strategy_id)
 
 }
 
+int
+ip_nh_add_helper (fib_protocol_t fib_proto, const fib_prefix_t * rpfx, ip46_address_t * nh, u32 sw_if)
+{
+  fib_route_path_t *rpaths = NULL, rpath;
+
+  u32 fib_index = fib_table_find(fib_proto, 0);
+
+  clib_memset(&rpath, 0, sizeof(rpath));
+  rpath.frp_weight = 1;
+  rpath.frp_sw_if_index = sw_if;
+  rpath.frp_addr = *nh;
+  rpath.frp_proto = ip46_address_is_ip4(nh) ? DPO_PROTO_IP4 : DPO_PROTO_IP6;
+
+  vec_add1(rpaths, rpath);
+
+  fib_table_entry_path_add2 (fib_index,
+                             rpfx,
+                             FIB_SOURCE_CLI,
+                             FIB_ENTRY_FLAG_NONE, rpaths);
+  return 0;
+}
+
+int
+ip_nh_del_helper (fib_protocol_t fib_proto, const fib_prefix_t * rpfx, ip46_address_t * nh, u32 sw_if)
+{
+  fib_route_path_t *rpaths = NULL, rpath;
+
+  u32 fib_index = fib_table_find(fib_proto, 0);
+
+  clib_memset(&rpath, 0, sizeof(rpath));
+  rpath.frp_weight = 1;
+  rpath.frp_sw_if_index = sw_if;
+  rpath.frp_addr = *nh;
+  rpath.frp_proto = ip46_address_is_ip4(nh) ? DPO_PROTO_IP4 : DPO_PROTO_IP6;
+
+  vec_add1(rpaths, rpath);
+
+  fib_table_entry_path_remove2 (fib_index,
+                                rpfx,
+                                FIB_SOURCE_CLI,
+                                rpaths);
+  return 0;
+}
+
+
 static ip46_address_t * get_address(ip46_address_t * nh, u32 sw_if, fib_protocol_t proto)
 {
   ip46_address_t * local_address = calloc(1, sizeof(ip46_address_t));
@@ -478,7 +523,8 @@ sync_hicn_fib_entry(hicn_dpo_ctx_t *fib_entry)
   }
 
   const hicn_dpo_vft_t * strategy_vft = hicn_dpo_get_vft(fib_entry->dpo_type);
-  for (int i = 0; i < fib_entry->entry_count; i++)
+  int i = 0;
+  while (i < fib_entry->entry_count)
     {
       u32 idx_nh = vec_search(vec_faces, fib_entry->next_hops[i]);
       if (idx_nh == ~0)
@@ -500,7 +546,7 @@ sync_hicn_fib_entry(hicn_dpo_ctx_t *fib_entry)
 
          /* Remove the lock added by hicn_face_add */
          hicn_face_unlock_with_id (fib_entry->next_hops[i]);
-
+         i++;
         }
     }
 

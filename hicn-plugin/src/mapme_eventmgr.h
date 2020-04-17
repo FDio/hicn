@@ -24,6 +24,7 @@ typedef struct
 {
   hicn_prefix_t prefix;
   dpo_id_t dpo;
+  hicn_face_id_t face_id;
   u8 rtx_count; // Number of retransmissions since last tfib addition
 } retx_t;
 
