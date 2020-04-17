@@ -143,15 +143,15 @@ static_assert (EXPECTED_TCP_HDRLEN == TCP_HDRLEN,
 
 enum
 {
-#define _(f) HICN_TCP_FLAG_BIT_##f,
+#define _(f) TCP_FLAG_BIT_##f,
   foreach_tcp_flag
 #undef _
-    HICN_TCP_N_FLAG_BITS,
+    TCP_N_FLAG_BITS,
 };
 
 enum
 {
-#define _(f) HICN_TCP_FLAG_##f = 1 << HICN_TCP_FLAG_BIT_##f,
+#define _(f) TCP_FLAG_##f = 1 << TCP_FLAG_BIT_##f,
   foreach_tcp_flag
 #undef _
 };
