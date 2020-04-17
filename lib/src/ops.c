@@ -40,6 +40,8 @@ DECLARE_get_interest_name (none, NONE);
 DECLARE_set_interest_name (none, NONE);
 DECLARE_get_interest_name_suffix (none, NONE);
 DECLARE_set_interest_name_suffix (none, NONE);
+DECLARE_mark_packet_as_interest (none, NONE);
+DECLARE_mark_packet_as_data (none, NONE);
 DECLARE_reset_interest_for_hash (none, NONE);
 DECLARE_get_data_locator (none, NONE);
 DECLARE_set_data_locator (none, NONE);
