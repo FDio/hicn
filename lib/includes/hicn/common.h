@@ -154,6 +154,7 @@ struct iovec
 
 typedef union
 {
+  u8 as_u8[4];
   u32 as_u32;
   struct in_addr as_inaddr;
 } ip4_address_t;

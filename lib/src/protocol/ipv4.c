@@ -78,20 +78,16 @@ int
 ipv4_get_interest_name (hicn_type_t type, const hicn_protocol_t * h,
 			hicn_name_t * name)
 {
-  name->ip4.prefix_as_ip4 = h->ipv4.daddr;
-#ifndef HICN_VPP_PLUGIN
-  name->type = HNT_CONTIGUOUS_V4;
-  name->len = HICN_V4_NAME_LEN;
-#endif /* HICN_VPP_PLUGIN */
-  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->ip4.suffix));
+  name->prefix.ip4.as_u32 = h->ipv4.daddr.as_u32;
+  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->suffix));
 }
 
 int
 ipv4_set_interest_name (hicn_type_t type, hicn_protocol_t * h,
 			const hicn_name_t * name)
 {
-  h->ipv4.daddr = name->ip4.prefix_as_ip4;
-  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->ip4.suffix));
+  h->ipv4.daddr.as_u32 = name->prefix.ip4.as_u32;
+  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->suffix));
 }
 
 int
@@ -149,20 +145,16 @@ int
 ipv4_get_data_name (hicn_type_t type, const hicn_protocol_t * h,
 		    hicn_name_t * name)
 {
-  name->ip4.prefix_as_ip4 = h->ipv4.saddr;
-#ifndef HICN_VPP_PLUGIN
-  name->type = HNT_CONTIGUOUS_V4;
-  name->len = HICN_V4_NAME_LEN;
-#endif /* HICN_VPP_PLUGIN */
-  return CHILD_OPS (get_data_name_suffix, type, h, &(name->ip4.suffix));
+  name->prefix.ip4.as_u32 = h->ipv4.saddr.as_u32;
+  return CHILD_OPS (get_data_name_suffix, type, h, &(name->suffix));
 }
 
 int
 ipv4_set_data_name (hicn_type_t type, hicn_protocol_t * h,
 		    const hicn_name_t * name)
 {
-  h->ipv4.saddr = name->ip4.prefix_as_ip4;
-  return CHILD_OPS (set_data_name_suffix, type, h, &(name->ip4.suffix));
+  h->ipv4.saddr.as_u32 = name->prefix.ip4.as_u32;
+  return CHILD_OPS (set_data_name_suffix, type, h, &(name->suffix));
 }
 
 int
