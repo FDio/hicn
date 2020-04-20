@@ -62,81 +62,18 @@ typedef union
 {
   struct
   {
-    union
-    {
-      u32 prefix;
-      u8 prefix_as_u8[4];
-      ip4_address_t prefix_as_ip4;
-    };
-    hicn_name_suffix_t suffix;
-  };
-  u8 buffer[HICN_V4_NAME_LEN];
-} hicn_v4_name_t;
-
-typedef union
-{
-  struct
-  {
-    union
-    {
-      u64 prefix[2];
-      u8 prefix_as_u8[16];
-      ip6_address_t prefix_as_ip6;
-    };
+    ip46_address_t prefix;
     hicn_name_suffix_t suffix;
   };
   u8 buffer[HICN_V6_NAME_LEN];
-} hicn_v6_name_t;
-
-#ifndef HICN_VPP_PLUGIN
-#define HICN_NAME_COMPONENT_SIZE 2
-
-typedef struct
-{
-  struct iovec buffers[HICN_NAME_COMPONENT_SIZE];
-} hicn_iov_name_t;
-
-#define UNSPEC            1 << 0
-#define HNT_CONTIGUOUS    1 << 1
-#define HNT_IOV           1 << 2
-#define HNT_INET          1 << 3
-#define HNT_INET6         1 << 4
-
-typedef enum
-{
-  HNT_UNSPEC = UNSPEC,
-  HNT_CONTIGUOUS_V4 = HNT_CONTIGUOUS | HNT_INET,
-  HNT_CONTIGUOUS_V6 = HNT_CONTIGUOUS | HNT_INET6,
-  HNT_IOV_V4 = HNT_IOV | HNT_INET,
-  HNT_IOV_V6 = HNT_IOV | HNT_INET6,
-} hicn_name_type_t;
-#endif /* HICN_VPP_PLUGIN */
-
-typedef struct
-{
-#ifndef HICN_VPP_PLUGIN
-  hicn_name_type_t type;
-  u8 len;
-#endif                /* HICN_VPP_PLUGIN */
-  union
-  {
-    hicn_v4_name_t ip4;
-    hicn_v6_name_t ip6;
-    ip46_address_t ip46;
-#ifndef HICN_VPP_PLUGIN
-    hicn_iov_name_t iov;
-    u8 buffer[HICN_V6_NAME_LEN];
-#endif                /* HICN_VPP_PLUGIN */
-  };
 } hicn_name_t;
 
-#ifndef HICN_VPP_PLUGIN
-#define _is_unspec(name)     ((name->type & UNSPEC))
-#define _is_contiguous(name) ((name->type & HNT_CONTIGUOUS) >> 1)
-#define _is_iov(name)        ((name->type & HNT_IOV) >> 2)
-#define _is_inet4(name)      ((name->type & HNT_INET) >> 3)
-#define _is_inet6(name)      ((name->type & HNT_INET6) >> 4)
-#endif /* HICN_VPP_PLUGIN */
+always_inline
+int hicn_name_is_ip4 (const hicn_name_t * name)
+{
+  const ip46_address_t *ip46 = &name->prefix;
+  return (((ip46)->pad[0] | (ip46)->pad[1] | (ip46)->pad[2]) == 0);
+}
 
 /**
  * @brief Create an hICN name from IP address in presentation format
@@ -192,7 +129,10 @@ int hicn_name_hash (const hicn_name_t * name, u32 * hash, bool consider_suffix);
  * @return 0 if the name is empty, any other value otherwise (implementation
  *   returns 1)
  */
-int hicn_name_empty (hicn_name_t * name);
+always_inline int hicn_name_empty (hicn_name_t * name)
+{
+  return ((name->prefix.ip6.as_u64[0] | name->prefix.ip6.as_u64[1] | (u64)name->suffix) == 0);
+}
 
 /**
  * @brief Copy an hICN name
