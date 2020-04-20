@@ -68,20 +68,16 @@ int
 ipv6_get_interest_name (hicn_type_t type, const hicn_protocol_t * h,
 			hicn_name_t * name)
 {
-  name->ip6.prefix_as_ip6 = h->ipv6.daddr;
-#ifndef HICN_VPP_PLUGIN
-  name->type = HNT_CONTIGUOUS_V6;
-  name->len = HICN_V6_NAME_LEN;
-#endif /* HICN_VPP_PLUGIN */
-  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->ip6.suffix));
+  name->prefix.ip6 = h->ipv6.daddr;
+  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->suffix));
 }
 
 int
 ipv6_set_interest_name (hicn_type_t type, hicn_protocol_t * h,
 			const hicn_name_t * name)
 {
-  h->ipv6.daddr = name->ip6.prefix_as_ip6;
-  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->ip6.suffix));
+  h->ipv6.daddr = name->prefix.ip6;
+  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->suffix));
 }
 
 int
@@ -127,20 +123,16 @@ int
 ipv6_get_data_name (hicn_type_t type, const hicn_protocol_t * h,
 		    hicn_name_t * name)
 {
-  name->ip6.prefix_as_ip6 = h->ipv6.saddr;
-#ifndef HICN_VPP_PLUGIN
-  name->type = HNT_CONTIGUOUS_V6;
-  name->len = HICN_V6_NAME_LEN;
-#endif /* HICN_VPP_PLUGIN */
-  return CHILD_OPS (get_data_name_suffix, type, h, &(name->ip6.suffix));
+  name->prefix.ip6 = h->ipv6.saddr;
+  return CHILD_OPS (get_data_name_suffix, type, h, &(name->suffix));
 }
 
 int
 ipv6_set_data_name (hicn_type_t type, hicn_protocol_t * h,
 		    const hicn_name_t * name)
 {
-  h->ipv6.saddr = name->ip6.prefix_as_ip6;
-  return CHILD_OPS (set_data_name_suffix, type, h, &(name->ip6.suffix));
+  h->ipv6.saddr = name->prefix.ip6;
+  return CHILD_OPS (set_data_name_suffix, type, h, &(name->suffix));
 }
 
 int

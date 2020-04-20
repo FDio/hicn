@@ -136,16 +136,12 @@ class ProducerSocket : public Socket<BasePortal>,
 
     core::Packet::Format hf_format = core::Packet::Format::HF_UNSPEC;
     core::Packet::Format hf_format_ah = core::Packet::Format::HF_UNSPEC;
-    if (content_name.getType() == HNT_CONTIGUOUS_V4 ||
-        content_name.getType() == HNT_IOV_V4) {
+    if (content_name.isIp4()) {
       hf_format = core::Packet::Format::HF_INET_TCP;
       hf_format_ah = core::Packet::Format::HF_INET_TCP_AH;
-    } else if (content_name.getType() == HNT_CONTIGUOUS_V6 ||
-               content_name.getType() == HNT_IOV_V6) {
+    } else {
       hf_format = core::Packet::Format::HF_INET6_TCP;
       hf_format_ah = core::Packet::Format::HF_INET6_TCP_AH;
-    } else {
-      throw errors::RuntimeException("Unknown name format.");
     }
 
     format = hf_format;

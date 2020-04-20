@@ -255,11 +255,6 @@ hicn_packet_set_name (hicn_format_t format, hicn_header_t * h,
 {
   hicn_type_t type = hicn_format_to_type (format);
 
-#ifndef HICN_VPP_PLUGIN
-  if (name->type & HNT_IOV)
-    return HICN_LIB_ERROR_NOT_IMPLEMENTED;
-#endif /* HICN_VPP_PLUGIN */
-
   if (is_interest)
     return hicn_ops_vft[type.l1]->set_interest_name (type, &h->protocol,
 						     name);
