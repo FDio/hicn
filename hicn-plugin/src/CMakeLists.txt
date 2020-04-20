@@ -165,7 +165,9 @@ set(HICN_API_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/error.h)
 
 set(HICN_API_GENERATED_FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h)
+    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h
+    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_types.h
+    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_enum.h)
 
 set(HICN_VAPI_GENERATED_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.h
@@ -218,7 +220,7 @@ execute_process(
 )
 
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_types.h ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_enum.h ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
     COMMAND ${VPP_HOME}/bin/vppapigen ARGS --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/
     COMMAND ${VPP_HOME}/bin/vppapigen ARGS JSON --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vapi/
 )
