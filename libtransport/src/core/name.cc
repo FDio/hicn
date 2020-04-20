@@ -29,28 +29,19 @@ Name::Name() { name_ = {}; }
 
 Name::Name(int family, const uint8_t *ip_address, std::uint32_t suffix)
     : name_({}) {
-  name_.type = HNT_UNSPEC;
-  std::size_t length;
-  uint8_t *dst = NULL;
-
   if (family == AF_INET) {
-    dst = name_.ip4.prefix_as_u8;
-    length = IPV4_ADDR_LEN;
-    name_.type = HNT_CONTIGUOUS_V4;
+    name_.prefix.ip4.as_u32 = *(u32*)(ip_address);
   } else if (family == AF_INET6) {
-    dst = name_.ip6.prefix_as_u8;
-    length = IPV6_ADDR_LEN;
-    name_.type = HNT_CONTIGUOUS_V6;
+    std::memcpy(&name_.prefix.ip6.as_u64[0], ip_address, IPV6_ADDR_LEN);
   } else {
     throw errors::RuntimeException("Specified name family does not exist.");
   }
 
-  std::memcpy(dst, ip_address, length);
-  *reinterpret_cast<std::uint32_t *>(dst + length) = suffix;
+  name_.suffix = suffix;
 }
 
 Name::Name(const char *name, uint32_t segment) {
-  name_.type = HNT_UNSPEC;
+  name_ = {};
   if (hicn_name_create(name, segment, &name_) < 0) {
     throw errors::InvalidIpAddressException();
   }
@@ -60,7 +51,7 @@ Name::Name(const std::string &uri, uint32_t segment)
     : Name(uri.c_str(), segment) {}
 
 Name::Name(const std::string &uri) {
-  name_.type = HNT_UNSPEC;
+  name_ = {};
   utils::StringTokenizer tokenizer(uri, "|");
   std::string ip_address;
   std::string seq_number;
@@ -125,9 +116,7 @@ uint32_t Name::getHash32(bool consider_suffix) const {
   return hash;
 }
 
-void Name::clear() { name_.type = HNT_UNSPEC; };
-
-Name::Type Name::getType() const { return name_.type; }
+void Name::clear() { name_ = {}; };
 
 uint32_t Name::getSuffix() const {
   uint32_t ret = 0;
@@ -148,20 +137,7 @@ Name &Name::setSuffix(uint32_t seq_number) {
 }
 
 std::shared_ptr<Sockaddr> Name::getAddress() const {
-  Sockaddr *ret = nullptr;
-
-  switch (name_.type) {
-    case HNT_CONTIGUOUS_V4:
-    case HNT_IOV_V4:
-      ret = (Sockaddr *)new Sockaddr4;
-      break;
-    case HNT_CONTIGUOUS_V6:
-    case HNT_IOV_V6:
-      ret = (Sockaddr *)new Sockaddr6;
-      break;
-    default:
-      throw errors::MalformedNameException();
-  }
+  Sockaddr *ret = (Sockaddr *)(new sockaddr_storage());
 
   if (hicn_name_to_sockaddr_address((hicn_name_t *)&name_, ret) < 0) {
     throw errors::MalformedNameException();

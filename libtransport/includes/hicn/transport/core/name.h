@@ -51,7 +51,6 @@ class Name {
 
  public:
   using NameStruct = hicn_name_t;
-  using Type = hicn_name_type_t;
 
   Name();
 
@@ -81,11 +80,13 @@ class Name {
 
   bool equals(const Name &name, bool consider_segment = true) const;
 
+  TRANSPORT_ALWAYS_INLINE bool isIp4() {
+    return hicn_name_is_ip4 (&name_);
+  }
+
   uint32_t getHash32(bool consider_suffix = true) const;
 
   void clear();
-
-  Type getType() const;
 
   uint32_t getSuffix() const;
 
