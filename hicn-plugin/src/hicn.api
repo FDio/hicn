@@ -22,7 +22,6 @@ enum hicn_action_type
    HICN_ENABLE,
 };
 
-
 typedef hicn_face
 {
   /* IP local address */
@@ -605,6 +604,42 @@ autoreply define hicn_api_face_cons_del
 
   /* A Face ID to be deleted */
   u32 faceid;
+};
+
+define hicn_api_udp_tunnel_add_del
+{
+  /* Client identifier, set from api_main.my_client_index */
+  u32 client_index;
+
+  /* Arbitrary context, so client can match reply to request */
+  u32 context;
+
+  /* Source address */
+  vl_api_address_t src_addr;
+
+  /* Destination address */
+  vl_api_address_t dst_addr;
+
+  /* Source port */
+  u16 src_port;
+
+  /* Destination port */
+  u16 dst_port;
+
+  /* Add or remove the tunnel*/
+  u8 is_add;
+};
+
+define hicn_api_udp_tunnel_add_del_reply
+{
+  /* From the request */
+  u32 context;
+
+  /* Return value, zero means all OK */
+  i32 retval;
+
+  /* Udp encap index */
+  u32 uei;
 };
 
 /*

@@ -341,19 +341,19 @@ hicn_iface_to_face(hicn_face_t *face, const dpo_id_t * dpo)
           ip46_address_t * nh = &(adj->sub_type.nbr.next_hop);
           fib_prefix_t prefix;
 
-          fib_prefix_from_ip46_addr(nh, &prefix);
+          if (!ip46_address_is_zero(nh))
+            {
+              fib_prefix_from_ip46_addr(nh, &prefix);
 
-          u32 fib_index = fib_table_find(prefix.fp_proto, HICN_FIB_TABLE);
+              u32 fib_index = fib_table_find(prefix.fp_proto, HICN_FIB_TABLE);
 
-          face->fib_entry_index = fib_entry_track (fib_index,
-                                                   &prefix,
-                                                   hicn_face_fib_node_type,
-                                                   hicn_dpoi_get_index(face), &face->fib_sibling);
+              face->fib_entry_index = fib_entry_track (fib_index,
+                                                       &prefix,
+                                                       hicn_face_fib_node_type,
+                                                       hicn_dpoi_get_index(face), &face->fib_sibling);
+            }
         }
     }
-
-
-  //adj_child_add(face->dpo.dpoi_index, hicn_face_fib_node_type, hicn_dpoi_get_index(face));
 }
 
 /*
