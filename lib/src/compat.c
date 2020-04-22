@@ -543,10 +543,10 @@ hicn_packet_get_payload_type (const hicn_header_t * h,
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      *payload_type = ((h->v6.tcp.flags & TCP_FLAG_URG) == TCP_FLAG_URG);
+      *payload_type = ((h->v6.tcp.flags & HICN_TCP_FLAG_URG) == HICN_TCP_FLAG_URG);
       break;
     case 4:
-      *payload_type = ((h->v4.tcp.flags & TCP_FLAG_URG) == TCP_FLAG_URG);
+      *payload_type = ((h->v4.tcp.flags & HICN_TCP_FLAG_URG) == HICN_TCP_FLAG_URG);
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -573,15 +573,15 @@ hicn_packet_set_payload_type (hicn_header_t * h,
     {
     case 6:
       if (payload_type)
-	h->v6.tcp.flags = h->v6.tcp.flags | TCP_FLAG_URG;
+	h->v6.tcp.flags = h->v6.tcp.flags | HICN_TCP_FLAG_URG;
       else
-	h->v6.tcp.flags = h->v6.tcp.flags & ~TCP_FLAG_URG;
+	h->v6.tcp.flags = h->v6.tcp.flags & ~HICN_TCP_FLAG_URG;
       break;
     case 4:
       if (payload_type)
-	h->v4.tcp.flags = h->v4.tcp.flags | TCP_FLAG_URG;
+	h->v4.tcp.flags = h->v4.tcp.flags | HICN_TCP_FLAG_URG;
       else
-	h->v4.tcp.flags = h->v4.tcp.flags & ~TCP_FLAG_URG;
+	h->v4.tcp.flags = h->v4.tcp.flags & ~HICN_TCP_FLAG_URG;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -596,10 +596,10 @@ hicn_packet_set_syn (hicn_header_t * h)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      h->v6.tcp.flags = h->v6.tcp.flags | TCP_FLAG_SYN;
+      h->v6.tcp.flags = h->v6.tcp.flags | HICN_TCP_FLAG_SYN;
       break;
     case 4:
-      h->v4.tcp.flags = h->v4.tcp.flags | TCP_FLAG_SYN;
+      h->v4.tcp.flags = h->v4.tcp.flags | HICN_TCP_FLAG_SYN;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -613,10 +613,10 @@ hicn_packet_reset_syn (hicn_header_t * h)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      h->v6.tcp.flags = h->v6.tcp.flags & ~TCP_FLAG_SYN;
+      h->v6.tcp.flags = h->v6.tcp.flags & ~HICN_TCP_FLAG_SYN;
       break;
     case 4:
-      h->v4.tcp.flags = h->v4.tcp.flags & ~TCP_FLAG_SYN;
+      h->v4.tcp.flags = h->v4.tcp.flags & ~HICN_TCP_FLAG_SYN;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -630,10 +630,10 @@ hicn_packet_test_syn (const hicn_header_t * h, bool * flag)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      *flag = h->v6.tcp.flags & TCP_FLAG_SYN;
+      *flag = h->v6.tcp.flags & HICN_TCP_FLAG_SYN;
       break;
     case 4:
-      *flag = h->v4.tcp.flags & TCP_FLAG_SYN;
+      *flag = h->v4.tcp.flags & HICN_TCP_FLAG_SYN;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -647,10 +647,10 @@ hicn_packet_set_ack (hicn_header_t * h)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      h->v6.tcp.flags = h->v6.tcp.flags | TCP_FLAG_ACK;
+      h->v6.tcp.flags = h->v6.tcp.flags | HICN_TCP_FLAG_ACK;
       break;
     case 4:
-      h->v4.tcp.flags = h->v4.tcp.flags | TCP_FLAG_ACK;
+      h->v4.tcp.flags = h->v4.tcp.flags | HICN_TCP_FLAG_ACK;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -664,10 +664,10 @@ hicn_packet_reset_ack (hicn_header_t * h)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      h->v6.tcp.flags = h->v6.tcp.flags & ~TCP_FLAG_ACK;
+      h->v6.tcp.flags = h->v6.tcp.flags & ~HICN_TCP_FLAG_ACK;
       break;
     case 4:
-      h->v4.tcp.flags = h->v4.tcp.flags & ~TCP_FLAG_ACK;
+      h->v4.tcp.flags = h->v4.tcp.flags & ~HICN_TCP_FLAG_ACK;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -681,10 +681,10 @@ hicn_packet_test_ack (const hicn_header_t * h, bool * flag)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      *flag = h->v6.tcp.flags & TCP_FLAG_ACK;
+      *flag = h->v6.tcp.flags & HICN_TCP_FLAG_ACK;
       break;
     case 4:
-      *flag = h->v4.tcp.flags & TCP_FLAG_ACK;
+      *flag = h->v4.tcp.flags & HICN_TCP_FLAG_ACK;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -698,10 +698,10 @@ hicn_packet_set_rst (hicn_header_t * h)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      h->v6.tcp.flags = h->v6.tcp.flags | TCP_FLAG_RST;
+      h->v6.tcp.flags = h->v6.tcp.flags | HICN_TCP_FLAG_RST;
       break;
     case 4:
-      h->v4.tcp.flags = h->v4.tcp.flags | TCP_FLAG_RST;
+      h->v4.tcp.flags = h->v4.tcp.flags | HICN_TCP_FLAG_RST;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -715,10 +715,10 @@ hicn_packet_reset_rst (hicn_header_t * h)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      h->v6.tcp.flags = h->v6.tcp.flags & ~TCP_FLAG_RST;
+      h->v6.tcp.flags = h->v6.tcp.flags & ~HICN_TCP_FLAG_RST;
       break;
     case 4:
-      h->v4.tcp.flags = h->v4.tcp.flags & ~TCP_FLAG_RST;
+      h->v4.tcp.flags = h->v4.tcp.flags & ~HICN_TCP_FLAG_RST;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -732,10 +732,10 @@ hicn_packet_test_rst (const hicn_header_t * h, bool * flag)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      *flag = h->v6.tcp.flags & TCP_FLAG_RST;
+      *flag = h->v6.tcp.flags & HICN_TCP_FLAG_RST;
       break;
     case 4:
-      *flag = h->v4.tcp.flags & TCP_FLAG_RST;
+      *flag = h->v4.tcp.flags & HICN_TCP_FLAG_RST;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -749,10 +749,10 @@ hicn_packet_set_fin (hicn_header_t * h)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      h->v6.tcp.flags = h->v6.tcp.flags | TCP_FLAG_FIN;
+      h->v6.tcp.flags = h->v6.tcp.flags | HICN_TCP_FLAG_FIN;
       break;
     case 4:
-      h->v4.tcp.flags = h->v4.tcp.flags | TCP_FLAG_FIN;
+      h->v4.tcp.flags = h->v4.tcp.flags | HICN_TCP_FLAG_FIN;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -766,10 +766,10 @@ hicn_packet_reset_fin (hicn_header_t * h)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      h->v6.tcp.flags = h->v6.tcp.flags & ~TCP_FLAG_FIN;
+      h->v6.tcp.flags = h->v6.tcp.flags & ~HICN_TCP_FLAG_FIN;
       break;
     case 4:
-      h->v4.tcp.flags = h->v4.tcp.flags & ~TCP_FLAG_FIN;
+      h->v4.tcp.flags = h->v4.tcp.flags & ~HICN_TCP_FLAG_FIN;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -783,10 +783,10 @@ hicn_packet_test_fin (const hicn_header_t * h, bool * flag)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      *flag = h->v6.tcp.flags & TCP_FLAG_FIN;
+      *flag = h->v6.tcp.flags & HICN_TCP_FLAG_FIN;
       break;
     case 4:
-      *flag = h->v4.tcp.flags & TCP_FLAG_FIN;
+      *flag = h->v4.tcp.flags & HICN_TCP_FLAG_FIN;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -800,10 +800,10 @@ hicn_packet_set_ece (hicn_header_t * h)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      h->v6.tcp.flags = h->v6.tcp.flags | TCP_FLAG_ECE;
+      h->v6.tcp.flags = h->v6.tcp.flags | HICN_TCP_FLAG_ECE;
       break;
     case 4:
-      h->v4.tcp.flags = h->v4.tcp.flags | TCP_FLAG_ECE;
+      h->v4.tcp.flags = h->v4.tcp.flags | HICN_TCP_FLAG_ECE;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -817,10 +817,10 @@ hicn_packet_reset_ece (hicn_header_t * h)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      h->v6.tcp.flags = h->v6.tcp.flags & ~TCP_FLAG_ECE;
+      h->v6.tcp.flags = h->v6.tcp.flags & ~HICN_TCP_FLAG_ECE;
       break;
     case 4:
-      h->v4.tcp.flags = h->v4.tcp.flags & ~TCP_FLAG_ECE;
+      h->v4.tcp.flags = h->v4.tcp.flags & ~HICN_TCP_FLAG_ECE;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
@@ -834,10 +834,10 @@ hicn_packet_test_ece (const hicn_header_t * h, bool * flag)
   switch (HICN_IP_VERSION (h))
     {
     case 6:
-      *flag = h->v6.tcp.flags & TCP_FLAG_ECE;
+      *flag = h->v6.tcp.flags & HICN_TCP_FLAG_ECE;
       break;
     case 4:
-      *flag = h->v4.tcp.flags & TCP_FLAG_ECE;
+      *flag = h->v4.tcp.flags & HICN_TCP_FLAG_ECE;
       break;
     default:
       return HICN_LIB_ERROR_UNEXPECTED;
