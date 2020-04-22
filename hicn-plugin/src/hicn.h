@@ -59,6 +59,7 @@ typedef u8 weight_t;
 /* vlib_buffer cloning utilities impose that current_lentgh is more that 2*CLIB_CACHE_LINE_BYTES.  */
 /* This flag is used to mark packets whose lenght is less that 2*CLIB_CACHE_LINE_BYTES. */
 #define HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL 0x02
+#define HICN_BUFFER_FLAGS_FROM_UDP_TUNNEL 0x04
 
 /* The following is stored in the opaque2 field in the vlib_buffer_t */
 typedef struct
