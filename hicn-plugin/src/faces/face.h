@@ -379,11 +379,13 @@ hicn_face_get_key (const ip46_address_t * addr,
  * @result Pointer to the face.
  */
 always_inline hicn_face_t *
-hicn_face_get (const ip46_address_t * addr, u32 sw_if, mhash_t * hashtb)
+hicn_face_get (const ip46_address_t * addr, u32 sw_if, mhash_t * hashtb, index_t adj_index)
 {
   hicn_face_key_t key;
 
   dpo_id_t dpo = DPO_INVALID;
+
+  dpo.dpoi_index = adj_index;
 
   hicn_face_get_key (addr, sw_if, &dpo, &key);
 
@@ -478,7 +480,8 @@ int hicn_face_add (const dpo_id_t * dpo_nh,
  */
 always_inline void
 hicn_iface_add (ip46_address_t * nat_address, int sw_if,
-                hicn_face_id_t * pfaceid, dpo_proto_t proto)
+                hicn_face_id_t * pfaceid, dpo_proto_t proto,
+                u32 adj_index)
 {
   hicn_face_t *face;
   pool_get (hicn_dpoi_face_pool, face);
@@ -489,7 +492,7 @@ hicn_iface_add (ip46_address_t * nat_address, int sw_if,
 
   face->dpo.dpoi_type = DPO_FIRST;
   face->dpo.dpoi_proto = DPO_PROTO_NONE;
-  face->dpo.dpoi_index = INDEX_INVALID;
+  face->dpo.dpoi_index = adj_index;
   face->dpo.dpoi_next_node = 0;
   face->pl_id = (u16) 0;
   face->flags = HICN_FACE_FLAGS_IFACE;
