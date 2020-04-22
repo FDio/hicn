@@ -341,19 +341,19 @@ hicn_iface_to_face(hicn_face_t *face, const dpo_id_t * dpo)
           ip46_address_t * nh = &(adj->sub_type.nbr.next_hop);
           fib_prefix_t prefix;
 
-          fib_prefix_from_ip46_addr(nh, &prefix);
+          if (!ip46_address_is_zero(nh))
+            {
+              fib_prefix_from_ip46_addr(nh, &prefix);
 
-          u32 fib_index = fib_table_find(prefix.fp_proto, HICN_FIB_TABLE);
+              u32 fib_index = fib_table_find(prefix.fp_proto, HICN_FIB_TABLE);
 
-          face->fib_entry_index = fib_entry_track (fib_index,
-                                                   &prefix,
-                                                   hicn_face_fib_node_type,
-                                                   hicn_dpoi_get_index(face), &face->fib_sibling);
+              face->fib_entry_index = fib_entry_track (fib_index,
+                                                       &prefix,
+                                                       hicn_face_fib_node_type,
+                                                       hicn_dpoi_get_index(face), &face->fib_sibling);
+            }
         }
     }
-
-
-  //adj_child_add(face->dpo.dpoi_index, hicn_face_fib_node_type, hicn_dpoi_get_index(face));
 }
 
 /*
@@ -382,16 +382,17 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
 
   face =
     hicn_face_get (nat_address, sw_if,
-                   &hicn_face_hashtb);
+                   &hicn_face_hashtb, dpo_nh->dpoi_index);
 
   dpo_id_t temp_dpo = DPO_INVALID;
+  temp_dpo.dpoi_index = dpo_nh->dpoi_index;
   hicn_face_key_t key;
   hicn_face_get_key (nat_address, sw_if, dpo_nh, &key);
 
   if (face == NULL)
     {
 
-      hicn_iface_add (nat_address, sw_if, pfaceid, dpo_nh->dpoi_proto);
+      hicn_iface_add (nat_address, sw_if, pfaceid, dpo_nh->dpoi_proto, dpo_nh->dpoi_index);
       face = hicn_dpoi_get_from_idx (*pfaceid);
 
       mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid,
@@ -411,6 +412,7 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
 
   hicn_iface_to_face(face, dpo_nh);
 
+  temp_dpo.dpoi_index = ~0;
 
   hicn_face_input_faces_t *in_faces =
     hicn_face_get_vec (nat_address, &hicn_face_vec_hashtb);

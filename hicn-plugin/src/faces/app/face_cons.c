@@ -57,7 +57,9 @@ hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
 
   ip46_address_t nh_addr = to_ip46 (0, (u8 *) nh_addr4);
 
-  hicn_iface_add (&nh_addr, swif, faceid1, DPO_PROTO_IP4);
+  index_t adj_index = adj_nbr_find(FIB_PROTOCOL_IP4, VNET_LINK_IP4, &nh_addr, swif);
+
+  hicn_iface_add (&nh_addr, swif, faceid1, DPO_PROTO_IP4, adj_index);
 
   hicn_face_t *face = hicn_dpoi_get_from_idx (*faceid1);
   face->flags |= HICN_FACE_FLAGS_APPFACE_CONS;
@@ -68,7 +70,9 @@ hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
 				 &(if_ip.ip6),
 				 ADDR_MGR_IP6_CONS_LEN, 0 /* is_del */ );
 
-  hicn_iface_add ((ip46_address_t *) nh_addr6, swif, faceid2, DPO_PROTO_IP6);
+  adj_index = adj_nbr_find(FIB_PROTOCOL_IP6, VNET_LINK_IP6, &nh_addr, swif);
+
+  hicn_iface_add ((ip46_address_t *) nh_addr6, swif, faceid2, DPO_PROTO_IP6, adj_index);
 
   face = hicn_dpoi_get_from_idx (*faceid2);
   face->flags |= HICN_FACE_FLAGS_APPFACE_CONS;

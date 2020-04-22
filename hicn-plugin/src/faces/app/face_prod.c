@@ -161,12 +161,16 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
     {
       return HICN_ERROR_APPFACE_PROD_PREFIX_NULL;
     }
+
+  u8 isv6 = ip46_address_is_ip4(prod_addr);
+  index_t adj_index = adj_nbr_find(isv6 ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4, isv6 ? VNET_LINK_IP6 : VNET_LINK_IP4, prod_addr, sw_if);
+
   /*
    * Check if a producer face is already existing for the same prefix
    * and sw_if
    */
   face = hicn_face_get (&(prefix->fp_addr), sw_if,
-                            &hicn_face_hashtb);
+                        &hicn_face_hashtb, adj_index);
 
   if (face != NULL)
     {
@@ -208,6 +212,8 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 					 &local_app_ip4, 31, 0 /* is_del */ );
 	  local_app_ip = to_ip46 ( /* isv6 */ 0, local_app_ip4.as_u8);
 	  remote_app_ip = to_ip46 ( /* isv6 */ 0, remote_app_ip4.as_u8);
+
+          vnet_build_rewrite_for_sw_interface(vnm, sw_if, VNET_LINK_IP4, &remote_app_ip4);
 	}
       else
 	{
@@ -279,7 +285,8 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
       hicn_app_state_create (sw_if, prefix);
     }
 
-  face = hicn_face_get(&local_app_ip, sw_if, &hicn_face_hashtb);//HICN_FACE_FLAGS_APPFACE_PROD);
+  adj_index = adj_nbr_find(isv6 ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4, isv6 ? VNET_LINK_IP6 : VNET_LINK_IP4, prod_addr, sw_if);
+  face = hicn_face_get(&local_app_ip, sw_if, &hicn_face_hashtb, adj_index);//HICN_FACE_FLAGS_APPFACE_PROD);
 
   *faceid = hicn_dpoi_get_index (face);
 
