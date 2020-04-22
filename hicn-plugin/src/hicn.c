@@ -25,7 +25,7 @@
 #include "error.h"
 #include "faces/app/address_mgr.h"
 #include "face_db.h"
-//#include "faces/udp/face_udp.h"
+#include "udp_tunnels/udp_tunnel.h"
 #include "route.h"
 
 hicn_main_t hicn_main;
@@ -235,6 +235,8 @@ hicn_init (vlib_main_t * vm)
 
   /* Init the route module */
   hicn_route_init ();
+
+  udp_tunnel_init ();
 
   return error;
 }
