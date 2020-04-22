@@ -21,6 +21,8 @@
 #include <vnet/dpo/dpo.h>
 #include <vnet/dpo/drop_dpo.h>
 #include <vnet/dpo/load_balance.h>
+#include <vnet/udp/udp.h>
+#include <vnet/udp/udp_encap.h>
 #include <vlib/global_funcs.h>
 
 #include "strategy_dpo_ctx.h"
@@ -29,12 +31,17 @@
 #include "faces/face.h"
 #include "error.h"
 #include "strategies/dpo_mw.h"
+#include "infra.h"
+#include "udp_tunnels/udp_tunnel.h"
 
 #define FIB_SOURCE_HICN 0x04	//Right after the FIB_SOURCE_INTERFACE priority
 
 fib_source_t hicn_fib_src;
 
 fib_node_type_t hicn_fib_node_type;
+
+ip4_address_t localhost4 = {0};
+ip6_address_t localhost6 = {0};
 
 int
 hicn_route_get_dpo (const fib_prefix_t * prefix,
@@ -508,6 +515,23 @@ sync_hicn_fib_entry(hicn_dpo_ctx_t *fib_entry)
         sw_if = adj->rewrite_header.sw_if_index;
         nh = get_address (&(adj->sub_type.nbr.next_hop), sw_if, fib_entry->proto);
       }
+    else if (dpo->dpoi_type == dpo_type_udp_ip4 || dpo->dpoi_type == dpo_type_udp_ip6)
+      {
+        udp_encap_t * udp_encap = udp_encap_get(dpo->dpoi_index);
+        switch (dpo->dpoi_proto)
+          {
+          case FIB_PROTOCOL_IP6:
+            nh = calloc (1, sizeof(ip46_address_t));
+            ip46_address_set_ip6(nh, &(udp_encap->ue_hdrs.ip6.ue_ip6.dst_address));
+            break;
+          case FIB_PROTOCOL_IP4:
+            nh = calloc (1, sizeof(ip46_address_t));
+            ip46_address_set_ip4(nh, &(udp_encap->ue_hdrs.ip4.ue_ip4.dst_address));
+            break;
+          default:
+            nh = calloc (1, sizeof(ip46_address_t));
+          }
+      }
     else //if (dpo_is_drop(dpo))
       {
         sw_if = dpo_get_urpf(dpo);
@@ -941,6 +965,8 @@ VNET_SW_INTERFACE_ADD_DEL_FUNCTION (set_table_interface_add_del);
 void
 hicn_route_init ()
 {
+  vnet_main_t * vnm = vnet_get_main ();
+  vlib_main_t * vm = vlib_get_main ();
   hicn_fib_src = fib_source_allocate ("hicn",
 				      FIB_SOURCE_HICN, FIB_SOURCE_BH_API);
 
@@ -948,6 +974,26 @@ hicn_route_init ()
 
   ip_table_create(FIB_PROTOCOL_IP4, HICN_FIB_TABLE, 1, (const u8 *)"hicn4");
   ip_table_create(FIB_PROTOCOL_IP6, HICN_FIB_TABLE, 1, (const u8 *)"hicn6");
+
+  u32 sw_if_index;
+  u8 mac_address[6];
+  u8 is_specified = 0;
+  u32 user_instance = 0;
+
+  vnet_create_loopback_interface (&sw_if_index, mac_address,
+                                  is_specified, user_instance);
+
+  localhost4.as_u8[0] = 127;
+  localhost4.as_u8[3] = 1;
+  u32 length4 = 32, length6 = 128, is_del = 0, flags = 0;
+
+  localhost6.as_u8[15] = 1;
+
+  ip4_add_del_interface_address (vm, sw_if_index, &localhost4, length4, is_del);
+  ip6_add_del_interface_address (vm, sw_if_index, &localhost6, length6, is_del);
+
+  flags |= VNET_SW_INTERFACE_FLAG_ADMIN_UP;
+  vnet_sw_interface_set_flags (vnm, sw_if_index, flags);
 }
 
 /*
