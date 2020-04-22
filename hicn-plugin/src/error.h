@@ -69,7 +69,9 @@
  _(APPFACE_PROD_PREFIX_NULL, -176, "Prefix must not be null for producer face") \
  _(STRATEGY_NH_NOT_FOUND, -177, "Next hop not found")		        \
  _(MW_STRATEGY_SET, -178, "Error while setting weight for next hop")	\
- _(STRATEGY_NOT_FOUND, -179, "Strategy not found")
+ _(STRATEGY_NOT_FOUND, -179, "Strategy not found")                      \
+ _(UDP_TUNNEL_NOT_FOUND, -180, "Udp tunnel not found")                  \
+ _(UDP_TUNNEL_SRC_DST_TYPE, -181, "Src and dst addresses have different type (ipv4 and ipv6)")
 
 typedef enum
 {
