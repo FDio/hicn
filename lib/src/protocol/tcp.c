@@ -85,14 +85,14 @@ tcp_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t * h,
 int
 tcp_mark_packet_as_interest (hicn_type_t type, hicn_protocol_t * h)
 {
-  h->tcp.flags &= ~TCP_FLAG_ECE;
+  h->tcp.flags &= ~HICN_TCP_FLAG_ECE;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
 tcp_mark_packet_as_data (hicn_type_t type, hicn_protocol_t * h)
 {
-  h->tcp.flags |= TCP_FLAG_ECE;
+  h->tcp.flags |= HICN_TCP_FLAG_ECE;
   return HICN_LIB_ERROR_NONE;
 }
 

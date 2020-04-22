@@ -128,8 +128,6 @@ typedef struct
 static_assert (EXPECTED_TCP_HDRLEN == TCP_HDRLEN,
 	       "Size of TCP struct does not match its expected size.");
 
-#ifndef HICN_VPP_PLUGIN
-
 /* TCP flags bit 0 first. */
 #define foreach_tcp_flag                                \
           _ (FIN) /**< No more data from sender. */             \
@@ -143,24 +141,18 @@ static_assert (EXPECTED_TCP_HDRLEN == TCP_HDRLEN,
 
 enum
 {
-#define _(f) TCP_FLAG_BIT_##f,
+#define _(f) HICN_TCP_FLAG_BIT_##f,
   foreach_tcp_flag
 #undef _
-    TCP_N_FLAG_BITS,
+    HICN_TCP_N_FLAG_BITS,
 };
 
 enum
 {
-#define _(f) TCP_FLAG_##f = 1 << TCP_FLAG_BIT_##f,
+#define _(f) HICN_TCP_FLAG_##f = 1 << HICN_TCP_FLAG_BIT_##f,
   foreach_tcp_flag
 #undef _
 };
-
-#endif /* HICN_VPP_PLUGIN */
-
-// get_data_name_suffix
-// name->ip4.suffix = h->v4.tcp.seq;
-
 
 #endif /* HICN_PROTOCOL_TCP_H */
 
