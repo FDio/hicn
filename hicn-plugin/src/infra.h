@@ -80,6 +80,9 @@ extern vlib_node_registration_t hicn_interest_hitcs_node;
 extern vlib_node_registration_t hicn_pg_interest_node;
 extern vlib_node_registration_t hicn_pg_data_node;
 extern vlib_node_registration_t hicn_pg_server_node;
+extern vlib_node_registration_t hicn_data_input_ip6_node;
+extern vlib_node_registration_t hicn_data_input_ip4_node;
+
 
 
 #endif /* // __HICN_INFRA_H__ */
