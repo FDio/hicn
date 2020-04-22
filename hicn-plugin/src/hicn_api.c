@@ -26,7 +26,7 @@
 #include <vnet/ip/ip_format_fns.h>
 
 #include "faces/face.h"
-//#include "faces/udp/face_udp.h"
+#include "udp_tunnels/udp_tunnel.h"
 #include "infra.h"
 #include "parser.h"
 #include "mgmt.h"
@@ -684,6 +684,59 @@ static void vl_api_hicn_api_enable_disable_t_handler
   REPLY_MACRO (VL_API_HICN_API_ENABLE_DISABLE_REPLY/* , rmp, mp, rv */ );
 }
 
+/*********************************** UDP TUNNELS ************************************/
+
+static void vl_api_hicn_api_udp_tunnel_add_del_t_handler
+(vl_api_hicn_api_udp_tunnel_add_del_t * mp)
+{
+  vl_api_hicn_api_udp_tunnel_add_del_reply_t *rmp;
+  int rv = HICN_ERROR_NONE;
+
+  hicn_main_t *sm = &hicn_main;
+
+  ip46_address_t src_addr;
+  ip46_address_t dst_addr;
+  u16 src_port;
+  u16 dst_port;
+  index_t uei = ~0;
+
+  ip46_type_t type = ip_address_decode (&mp->src_addr, &src_addr);
+  if (type != ip_address_decode (&mp->dst_addr, &dst_addr))
+    {
+      rv = HICN_ERROR_UDP_TUNNEL_SRC_DST_TYPE;
+      goto done;
+    }
+
+  src_port = clib_net_to_host_u16(mp->src_port);
+  dst_port = clib_net_to_host_u16(mp->dst_port);
+
+  fib_protocol_t proto = ip46_address_is_ip4(&src_addr) ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
+
+  index_t fib_index = fib_table_find (proto, HICN_FIB_TABLE);
+
+  if (mp->is_add)
+    {
+      uei = udp_tunnel_add(proto,
+                           fib_index, &src_addr, &dst_addr, src_port, dst_port,
+                           UDP_ENCAP_FIXUP_NONE);
+    }
+  else
+    {
+      udp_tunnel_del(proto,
+                     fib_index, &src_addr, &dst_addr, src_port, dst_port,
+                     UDP_ENCAP_FIXUP_NONE);
+    }
+
+
+ done:
+
+  /* *INDENT-OFF* */
+  REPLY_MACRO2 (VL_API_HICN_API_UDP_TUNNEL_ADD_DEL_REPLY, (
+    {
+      rmp->uei = clib_host_to_net_u32(uei);
+    }));
+  /* *INDENT-ON* */
+}
 
 /************************************************************************************/
 
