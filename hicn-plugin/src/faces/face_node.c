@@ -18,7 +18,6 @@
 #include "face.h"
 #include "face_node.h"
 #include "dpo_face.h"
-//#include "app/face_prod.h"
 #include "../strategy_dpo_manager.h"
 #include "face.h"
 #include "../cache_policies/cs_lru.h"
@@ -465,12 +464,14 @@ VLIB_REGISTER_NODE(hicn6_face_input_node) =
 typedef enum
 {
   HICN4_FACE_OUTPUT_NEXT_ECHO_REPLY,
+  HICN4_FACE_OUTPUT_NEXT_UDP_ENCAP,
   HICN4_FACE_OUTPUT_N_NEXT,
 } hicn4_face_output_next_t;
 
 typedef enum
 {
   HICN6_FACE_OUTPUT_NEXT_ECHO_REPLY,
+  HICN6_FACE_OUTPUT_NEXT_UDP_ENCAP,
   HICN6_FACE_OUTPUT_N_NEXT,
 } hicn6_face_output_next_t;
 
@@ -616,7 +617,7 @@ hicn6_face_output_trace_t;
   do {                                                              \
     vlib_buffer_t *b0;                                              \
     u32 bi0;                                                        \
-    u32 next0 = IP_LOOKUP_NEXT_DROP;				    \
+    u32 next0 = ~0;                                                 \
     hicn_face_t * face;                                             \
                                                                     \
     /* Prefetch for next iteration. */                              \
@@ -678,8 +679,8 @@ hicn6_face_output_trace_t;
   do {                                                              \
     vlib_buffer_t *b0, *b1;                                         \
     u32 bi0, bi1;                                                   \
-    u32 next0 = IP_LOOKUP_NEXT_DROP;				    \
-    u32 next1 = IP_LOOKUP_NEXT_DROP;				    \
+    u32 next0 = ~0;                                                 \
+    u32 next1 = ~0;                                                 \
     hicn_face_t *face0, *face1;                                     \
                                                                     \
     /* Prefetch for next iteration. */                              \
@@ -844,6 +845,7 @@ VLIB_REGISTER_NODE(hicn4_face_output_node) =
   .next_nodes =
   {
    [HICN4_FACE_OUTPUT_NEXT_ECHO_REPLY] = "hicn4-face-input",
+   [HICN4_FACE_OUTPUT_NEXT_UDP_ENCAP] = "udp4-encap",
   }
 };
 /* *INDENT-ON* */
@@ -920,7 +922,8 @@ VLIB_REGISTER_NODE(hicn6_face_output_node) =
   /* Reusing the list of nodes from lookup to be compatible with neighbour discovery */
   .next_nodes =
   {
-   [HICN6_FACE_OUTPUT_NEXT_ECHO_REPLY] = "hicn6-face-input"
+   [HICN6_FACE_OUTPUT_NEXT_ECHO_REPLY] = "hicn6-face-input",
+   [HICN6_FACE_OUTPUT_NEXT_UDP_ENCAP] = "udp6-encap",
   }
 };
 /* *INDENT-ON* */

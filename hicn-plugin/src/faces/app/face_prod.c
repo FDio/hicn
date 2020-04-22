@@ -208,6 +208,8 @@ hicn_face_prod_add (fib_prefix_t * prefix, u32 sw_if, u32 * cs_reserved,
 					 &local_app_ip4, 31, 0 /* is_del */ );
 	  local_app_ip = to_ip46 ( /* isv6 */ 0, local_app_ip4.as_u8);
 	  remote_app_ip = to_ip46 ( /* isv6 */ 0, remote_app_ip4.as_u8);
+
+          vnet_build_rewrite_for_sw_interface(vnm, sw_if, VNET_LINK_IP4, &remote_app_ip4);
 	}
       else
 	{
