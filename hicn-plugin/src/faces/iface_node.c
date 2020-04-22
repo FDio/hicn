@@ -135,6 +135,7 @@ typedef struct
 typedef enum
 {
   HICN4_IFACE_OUTPUT_NEXT_LOOKUP,
+  HICN4_IFACE_OUTPUT_NEXT_UDP_ENCAP,
   HICN4_IFACE_OUTPUT_N_NEXT,
 } hicn4_iface_output_next_t;
 
@@ -150,6 +151,7 @@ typedef struct
 typedef enum
 {
   HICN6_IFACE_OUTPUT_NEXT_LOOKUP,
+  HICN6_IFACE_OUTPUT_NEXT_UDP_ENCAP,
   HICN6_IFACE_OUTPUT_N_NEXT,
 } hicn6_iface_output_next_t;
 
@@ -158,6 +160,9 @@ typedef enum
 
 #define NEXT_DATA_LOOKUP_IP4 HICN4_IFACE_OUTPUT_NEXT_LOOKUP
 #define NEXT_DATA_LOOKUP_IP6 HICN6_IFACE_OUTPUT_NEXT_LOOKUP
+
+#define NEXT_UDP_ENCAP_IP4 HICN4_IFACE_OUTPUT_NEXT_UDP_ENCAP
+#define NEXT_UDP_ENCAP_IP6 HICN6_IFACE_OUTPUT_NEXT_UDP_ENCAP
 
 #define HICN_REWRITE_DATA_IP4 hicn_rewrite_iface_data4
 #define HICN_REWRITE_DATA_IP6 hicn_rewrite_iface_data6
@@ -170,7 +175,7 @@ typedef enum
 #define iface_input_x1(ipv)                                             \
   do {                                                                  \
   vlib_buffer_t *b0;                                                    \
-  u32 bi0, next0;                                                       \
+  u32 bi0, next0, next_iface0;                                          \
   IP_HEADER_##ipv * ip_hdr = NULL;                                      \
   hicn_buffer_t * hicnb0;                                               \
   /* Prefetch for next iteration. */                                    \
@@ -200,13 +205,16 @@ typedef enum
   next0 = is_icmp*NEXT_MAPME_IP##ipv +                                  \
     (1-is_icmp)*NEXT_INTEREST_IP##ipv;                                  \
                                                                         \
+  next_iface0 = hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP_TUNNEL ?     \
+    NEXT_UDP_ENCAP_IP##ipv : NEXT_DATA_LOOKUP_IP##ipv;                  \
                                                                         \
   DPO_ADD_LOCK_IFACE_IP##ipv                                            \
     (&(hicnb0->face_id),                                                \
      &hicnb0->flags,                                                    \
      &(ip_hdr->src_address),                                            \
      vnet_buffer(b0)->sw_if_index[VLIB_RX],                             \
-     NEXT_DATA_LOOKUP_IP##ipv);                                         \
+     vnet_buffer(b0)->ip.adj_index[VLIB_RX],                            \
+     next_iface0);                                                      \
                                                                         \
   if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&            \
                      (b0->flags & VLIB_BUFFER_IS_TRACED)))              \
@@ -239,7 +247,7 @@ typedef enum
 #define iface_input_x2(ipv)                                             \
   do {                                                                  \
     vlib_buffer_t *b0, *b1;                                             \
-    u32 bi0, bi1, next0, next1;                                         \
+    u32 bi0, bi1, next0, next1, next_iface0, next_iface1;               \
     IP_HEADER_##ipv * ip_hdr0 = NULL;                                   \
     IP_HEADER_##ipv * ip_hdr1 = NULL;                                   \
     hicn_buffer_t *hicnb0, *hicnb1;                                     \
@@ -281,20 +289,27 @@ typedef enum
     next1 = is_icmp1*NEXT_MAPME_IP##ipv +                               \
       (1-is_icmp1)*NEXT_INTEREST_IP##ipv;                               \
                                                                         \
+    next_iface0 = hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP_TUNNEL ?   \
+      NEXT_UDP_ENCAP_IP##ipv : NEXT_DATA_LOOKUP_IP##ipv;                \
+                                                                        \
+    next_iface1 = hicnb1->flags & HICN_BUFFER_FLAGS_FROM_UDP_TUNNEL ?   \
+      NEXT_UDP_ENCAP_IP##ipv : NEXT_DATA_LOOKUP_IP##ipv;                \
                                                                         \
     DPO_ADD_LOCK_IFACE_IP##ipv                                          \
       (&(hicnb0->face_id),                                              \
        &hicnb0->flags,                                                  \
        &(ip_hdr0->src_address),                                         \
        vnet_buffer(b0)->sw_if_index[VLIB_RX],                           \
-       NEXT_DATA_LOOKUP_IP##ipv);                                       \
+       vnet_buffer(b0)->ip.adj_index[VLIB_RX],                          \
+       next_iface0);                                                    \
                                                                         \
     DPO_ADD_LOCK_IFACE_IP##ipv                                          \
       (&(hicnb1->face_id),                                              \
        &hicnb1->flags,                                                  \
        &(ip_hdr1->src_address),                                         \
        vnet_buffer(b1)->sw_if_index[VLIB_RX],                           \
-       NEXT_DATA_LOOKUP_IP##ipv);                                       \
+       vnet_buffer(b1)->ip.adj_index[VLIB_RX],                          \
+       next_iface1);                                                    \
                                                                         \
     if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&          \
                        (b0->flags & VLIB_BUFFER_IS_TRACED)))            \
@@ -794,6 +809,7 @@ VLIB_REGISTER_NODE (hicn4_iface_output_node) =
   .next_nodes =
   {
    [HICN4_IFACE_OUTPUT_NEXT_LOOKUP] = "ip4-lookup",
+   [HICN4_IFACE_OUTPUT_NEXT_UDP_ENCAP] = "udp4-encap",
   },
 };
 /* *INDENT-ON* */
@@ -869,6 +885,7 @@ VLIB_REGISTER_NODE (hicn6_iface_output_node) =
   .next_nodes =
   {
    [HICN6_IFACE_OUTPUT_NEXT_LOOKUP] = "ip6-lookup",
+   [HICN6_IFACE_OUTPUT_NEXT_UDP_ENCAP] = "udp6-encap"
   },
 };
 /* *INDENT-ON* */

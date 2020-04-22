@@ -22,6 +22,9 @@
 #include "faces/face.h"
 
 extern fib_source_t hicn_fib_src;
+
+extern dpo_type_t udp_encap_dpo_types[FIB_PROTOCOL_MAX];
+
 /*
  * Retrieve the hicn dpo corresponding to a hicn prefix
  */
