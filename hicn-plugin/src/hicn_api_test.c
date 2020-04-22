@@ -263,7 +263,8 @@ _(HICN_API_ROUTE_DEL_REPLY, hicn_api_route_del_reply)                   \
 _(HICN_API_ROUTE_NHOP_DEL_REPLY, hicn_api_route_nhop_del_reply)         \
 _(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)         \
 _(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)             \
-_(HICN_API_ENABLE_DISABLE_REPLY, hicn_api_enable_disable_reply)
+_(HICN_API_ENABLE_DISABLE_REPLY, hicn_api_enable_disable_reply)         \
+_(HICN_API_UDP_TUNNEL_ADD_DEL_REPLY, hicn_api_udp_tunnel_add_del_reply)
 
 static int
 api_hicn_api_node_params_set (vat_main_t * vam)
@@ -1354,11 +1355,104 @@ static void
 
   fformat (vam->ofp,
 	   "ip4 address %U\n"
-	   "ip6 address :%U\n"
-	   "appif id :%d\n",
+	   "ip6 address :%U\n",
 	   format_ip46_address, IP46_TYPE_ANY, &src_addr4,
 	   format_ip46_address, IP46_TYPE_ANY, &src_addr6);
 }
+
+static int
+api_hicn_api_udp_tunnel_add_del (vat_main_t * vam)
+{
+  unformat_input_t *input = vam->input;
+  vl_api_hicn_api_udp_tunnel_add_del_t *mp;
+
+  ip46_address_t src_ip, dst_ip;
+  u32 src_port, dst_port;
+  fib_protocol_t fproto;
+  u8 is_del;
+  int ret;
+
+  is_del = 0;
+  fproto = FIB_PROTOCOL_MAX;
+
+  /* Get a line of input. */
+  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
+    {
+      if (unformat (input, "add"))
+        is_del = 0;
+      else if (unformat (input, "del"))
+        is_del = 1;
+      else if (unformat (input, "%U %U",
+                         unformat_ip4_address,
+                         &src_ip.ip4, unformat_ip4_address, &dst_ip.ip4))
+        fproto = FIB_PROTOCOL_IP4;
+      else if (unformat (input, "%U %U",
+                         unformat_ip6_address,
+                         &src_ip.ip6, unformat_ip6_address, &dst_ip.ip6))
+        fproto = FIB_PROTOCOL_IP6;
+      else if (unformat (input, "%d %d", &src_port, &dst_port))
+        ;
+      else
+        {
+          break;
+        }
+    }
+
+
+  if (fproto == FIB_PROTOCOL_MAX)
+    {
+      clib_warning ("Please specify face ID");
+      return 1;
+    }
+
+  /* Construct the API message */
+  M (HICN_API_UDP_TUNNEL_ADD_DEL, mp);
+  ip_address_encode (&src_ip, fproto == FIB_PROTOCOL_IP4 ? IP46_TYPE_IP4 : IP46_TYPE_IP6 ,&mp->src_addr);
+  ip_address_encode (&dst_ip, fproto == FIB_PROTOCOL_IP4 ? IP46_TYPE_IP4 : IP46_TYPE_IP6 ,&mp->dst_addr);
+  mp->src_port = clib_host_to_net_u16(src_port);
+  mp->dst_port = clib_host_to_net_u16(dst_port);
+  mp->is_add = !is_del;
+
+  /* send it... */
+  S (mp);
+
+  /* Wait for a reply... */
+  W (ret);
+
+  return ret;
+}
+
+static void
+vl_api_hicn_api_udp_tunnel_add_del_reply_t_handler
+(vl_api_hicn_api_udp_tunnel_add_del_reply_t * mp)
+{
+  vat_main_t *vam = hicn_test_main.vat_main;
+  i32 retval = ntohl (mp->retval);
+
+  if (vam->async_mode)
+    {
+      vam->async_errors += (retval < 0);
+      return;
+    }
+  vam->retval = retval;
+  vam->result_ready = 1;
+
+  if (vam->retval < 0)
+    {
+      //vpp_api_test infra will also print out string form of error
+      fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
+      return;
+    }
+
+  index_t uei = clib_net_to_host_u32(mp->uei);
+
+  fformat (vam->ofp,
+	   "udp-encap %d\n",
+	   uei);
+}
+
+
+
 #include <hicn/hicn.api_test.c>
 
 /*

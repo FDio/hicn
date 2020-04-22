@@ -135,7 +135,7 @@ always_inline void
 hicn_dpo_iface_ip4_add_and_lock (hicn_face_id_t * index,
                                  u8 * hicnb_flags,
                                  const ip4_address_t * nat_addr,
-                                 u32 sw_if, u32 node_index)
+                                 u32 sw_if, u32 adj_index, u32 node_index)
 {
   /*All (complete) faces are indexed by remote addess as well */
 
@@ -153,20 +153,18 @@ hicn_dpo_iface_ip4_add_and_lock (hicn_face_id_t * index,
 
       face = hicn_dpoi_get_from_idx(idx);
 
-      if (nat_addr->as_u32 == 0)
-        {
+      face->dpo.dpoi_type = DPO_FIRST;
+      face->dpo.dpoi_proto = DPO_PROTO_IP4;
+      face->dpo.dpoi_index = adj_index;
+      face->dpo.dpoi_next_node = node_index;
+
+      /* if (nat_addr->as_u32 == 0) */
+      /*   { */
           adj_nbr_walk(face->sw_if,
                        FIB_PROTOCOL_IP4,
                        hicn4_iface_adj_walk_cb,
                        face);
-        }
-      else
-        {
-          face->dpo.dpoi_type = DPO_FIRST;
-          face->dpo.dpoi_proto = DPO_PROTO_IP4;
-          face->dpo.dpoi_index = ~0;
-          face->dpo.dpoi_next_node = node_index;
-        }
+        /* } */
 
       *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
 
@@ -226,7 +224,7 @@ always_inline void
 hicn_dpo_iface_ip6_add_and_lock (hicn_face_id_t * index,
                                  u8 * hicnb_flags,
                                  const ip6_address_t * nat_addr,
-                                 u32 sw_if, u32 node_index)
+                                 u32 sw_if, u32 adj_index, u32 node_index)
 {
   /*All (complete) faces are indexed by remote addess as well */
   /* if the face exists, it adds a lock */
@@ -242,7 +240,7 @@ hicn_dpo_iface_ip6_add_and_lock (hicn_face_id_t * index,
 
       face->dpo.dpoi_type = DPO_FIRST;
       face->dpo.dpoi_proto = DPO_PROTO_IP6;
-      face->dpo.dpoi_index = ~0;
+      face->dpo.dpoi_index = adj_index;
       face->dpo.dpoi_next_node = node_index;
 
       //if (ip46_address_is_zero((ip46_address_t *)nat_addr))

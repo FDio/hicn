@@ -97,6 +97,8 @@ set(HICN_PLUGIN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp_tunnels/udp_decap_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp_tunnels/udp_tunnel.c
 )
 
 set(HICN_PLUGIN_HEADER_FILES
@@ -140,6 +142,7 @@ set(HICN_PLUGIN_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp_tunnels/udp_tunnel.h
 )
 
 set(HICN_API_TEST_SOURCE_FILES
@@ -186,6 +189,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hicn)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vapi)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/udp)
 
 # These files are missing from vpp binary distribution
 execute_process(
@@ -209,6 +213,10 @@ execute_process(
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib/fib_entry_track.h ]; then
         curl https://raw.githubusercontent.com/FDio/vpp/master/src/vnet/fib/fib_entry_track.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib/fib_entry_track.h;
     fi;
+    if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/udp/udp_encap.h ]; then
+        curl https://raw.githubusercontent.com/FDio/vpp/master/src/vnet/udp/udp_encap.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/udp/udp_encap.h;
+    fi;
+
     chmod +x ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py"
 )
 
