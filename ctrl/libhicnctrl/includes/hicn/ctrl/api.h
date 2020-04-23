@@ -603,6 +603,7 @@ typedef struct {
   ip_address_t remote_addr; /* krw */
   u8 len;                   /* krw */
   u16 cost;                 /* .rw */
+  hc_face_t face;
 } hc_route_t;
 
 int hc_route_parse(void *in, hc_route_t *route);
