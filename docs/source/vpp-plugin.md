@@ -188,68 +188,12 @@ sudo vppctl
 vpp# hicn ?
 ```
 
-`hicn control param`: configures the internal parameter of the hICN plugin.
-This command must be run before hicn control start.
-
-```bash
-hicn control param { pit { size <entries> | { dfltlife | minlife | maxlife } <seconds> } | cs {size <entries> | app <portion to reserved to app>} }
-  <entries>                     :set the maximum number of entry in the PIT or CS. Default for PIT is 131072, for CS is 4096. CS size cannot be grater than PIT size. Moreover CS size must be smaller than (# of vlib buffer - 8196).
-  <seconds>                     :set the default, maximum or minimum lifetime of pit entries. Default value 2s (default), 0.2s (minumum), 20s (maximum)
-  <portion to reserved to app>  :set the portion of CS to reserve to application running locally on the forwarder. Default is 30% of the cs size.
-```
-
-`hicn control start`: starts the hICN plugin in VPP.
-
-`hicn control stop` : stops the hICN plugin in VPP. Currently not supported.
-
-`hicn face app` : manipulates producer and consumer application faces in the forwarder.
-
-```bash
-hicn face app {add intfc <sw_if> {prod prefix <hicn_prefix> cs_size <size_in_packets>} {cons}} | {del <face_id>}
-  <sw_if>                     :software interface existing in vpp on top of which to create an application face
-  <hicn_prefix>               :prefix to bound to the producer application face. Only content matching the prefix will be allowed through such face.
-  <size_in_packets>           :content store size associated to the producer face.
-  <face_id>                   :id of the face to remove
-```
-
-`hicn face ip`: manipulates ip application faces in the forwarder.
-
-```bash
-hicn face ip {add [local <src_address>] remote <dst_address> intfc <sw_if>} | {del id <face_id>}
-  <src_address>               :the IPv4 or IPv6 local IP address to bind to (not mandatory, if not specified the local address is one of the address assigned to sw_if)
-  <dst_address>               :the IPv4 or IPv6 address of the remote system
-  <sw_if>                     :software interface on thop of which we create the face
-  <face_id>                   :id of the face to remove
-```
-
 `hicn face show`: list the available faces in the forwarder.
 
 ```bash
 hicn face show [<face_id>| type <ip/udp>]
   <face_id>                   :face id of which we want to display the informations
   <ip/udp>                    :shows all the ip or udp faces available
-```
-
-`hicn face udp`: manipulates udp application faces in the forwarder.
-
-```bash
-hicn face udp {add src_addr <src_address> port <src_port > dst_addr <dst_address> port <dst_port>} intfc <sw_if> | {del id <face_id>}
-  <src_address>             :the IPv4 or IPv6 local IP address to bind to
-  <src_port>                :the local UDP port
-  <dst_address>             :the IPv4 or IPv6 address of the remote system
-  <dst_port>                :the remote UDP port
-  <sw_if>                   :software interface on thop of which we create the face
-  <face_id>                 :id of the face to remove
-
-```
-
-`hicn fib`: manipulates hicn fib entries.
-
-```bash
-hicn fib {{add | delete } prefix <prefix> face <face_id> } | set strategy <strategy_id> prefix <prefix>
-  <prefix>                  :prefix to add to the FIB
-  <face_id>                 :face id to add as nexto hop in the FIB entry
-  <strategy_id>             :set a strategy for the corresponding prefix
 ```
 
 `hicn pgen client`: set an vpp forwarder as an hicn packet generator client.
@@ -291,6 +235,21 @@ hicn strategy mw set prefix <prefix> face <face_id> weight <weight>
   <weight>                       :weight
 ```
 
+`hicn enable`: enable hICN forwarding pipeline for an ip prefix.
+
+```bash
+hicn enable <prefix>
+  <prefix>                      :prefix for which the hICN forwarding pipeline is enabled
+```
+
+`hicn disable`: disable hICN forwarding pipeline for an ip prefix.
+
+```bash
+hicn enable <prefix>
+  <prefix>                      :prefix for which the hICN forwarding pipeline is disable
+```
+
+
 #### hICN plugin configuration file
 
 A configuration can be use to setup the hicn plugin when vpp starts.
@@ -328,10 +287,8 @@ forwarders are connected through a dpdk link.
 sudo vppctl
 vpp# set interface ip address TenGigabitEtherneta/0/0 2001::2/64
 vpp# set interface state TenGigabitEtherneta/0/0 up
-vpp# hicn control start
-vpp# hicn face ip add local 2001::2 remote 2001::3 intfc TenGigabitEtherneta/0/0
-vpp# hicn fib add prefix b002::1/64 face 0
-vpp# hicn punting add prefix b002::1/64 intfc TenGigabitEtherneta/0/0 type ip
+vpp# ip route add b002::1/64 via remote 2001::3 TenGigabitEtherneta/0/0
+vpp# hicn enable b002::1/64
 ```
 
 #### Forwarder B (server)
@@ -340,8 +297,6 @@ vpp# hicn punting add prefix b002::1/64 intfc TenGigabitEtherneta/0/0 type ip
 sudo vppctl
 vpp# set interface ip address TenGigabitEtherneta/0/1 2001::3/64
 vpp# set interface state TenGigabitEtherneta/0/1 up
-vpp# hicn control start
-vpp# hicn punting add prefix b002::1/64 intfc TenGigabitEtherneta/0/1 type ip
 ```
 
 Once the two forwarder are started, run the `ping_server` application on the
@@ -380,6 +335,7 @@ sudo vppctl
 vpp# set interface ip address TenGigabitEtherneta/0/0 2001::2/64
 vpp# set interface state TenGigabitEtherneta/0/0 up
 vpp# ip route add b001::/64 via 2001::3 TenGigabitEtherneta/0/0
+vpp# ip route add 2001::3 via TenGigabitEtherneta/0/0
 vpp# hicn pgen client src 2001::2 name b001::1/64 intfc TenGigabitEtherneta/0/0
 vpp# exec /<path_to>pg.conf
 vpp# packet-generator enable-stream hicn-pg
@@ -419,8 +375,8 @@ vpp# hicn pgen server name b001::1/64 intfc TenGigabitEtherneta/0/1
 sudo vppctl
 vpp# set interface ip address TenGigabitEtherneta/0/0 2001::2/64
 vpp# set interface state TenGigabitEtherneta/0/0 up
-vpp# hicn face ip add remote 2001::3 intfc TenGigabitEtherneta/0/0
-vpp# hicn fib add prefix b001::/64 face 0
+vpp# ip route add b001::/64 via 2001::3 TenGigabitEtherneta/0/0
+vpp# hicn enable b001::/64
 vpp# create loopback interface
 vpp# set interface state loop0 up
 vpp# set interface ip address loop0 5002::1/64
@@ -442,7 +398,7 @@ vpp# create loopback interface
 vpp# set interface state loop0 up
 vpp# set interface ip address loop0 2002::1/64
 vpp# ip neighbor loop1 2002::2 de:ad:00:00:00:00
-vpp# hicn face ip add remote 2002::2 intfc loop0
-vpp# hicn fib add prefix b001::/64 face 0
+vpp# ip route add b001::/64 via 2002::2 loop0
+vpp# hicn enable b001::/64
 vpp# hicn pgen server name b001::1/64 intfc loop0
 ```
