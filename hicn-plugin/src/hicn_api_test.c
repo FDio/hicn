@@ -222,9 +222,6 @@ hicn_test_main_t hicn_test_main;
 
 #define foreach_standard_reply_retval_handler            \
 _(hicn_api_node_params_set_reply)                        \
-_(hicn_api_route_nhops_add_reply)                        \
-_(hicn_api_route_del_reply)                              \
-_(hicn_api_route_nhop_del_reply)                         \
 _(hicn_api_enable_disable_reply)
 
 #define _(n)                                            \
@@ -255,12 +252,9 @@ _(HICN_API_NODE_STATS_GET_REPLY, hicn_api_node_stats_get_reply)         \
 _(HICN_API_FACE_GET_REPLY, hicn_api_face_get_reply)                     \
 _(HICN_API_FACES_DETAILS, hicn_api_faces_details)                       \
 _(HICN_API_FACE_STATS_DETAILS, hicn_api_face_stats_details)             \
-_(HICN_API_ROUTE_NHOPS_ADD_REPLY, hicn_api_route_nhops_add_reply)       \
 _(HICN_API_FACE_PARAMS_GET_REPLY, hicn_api_face_params_get_reply) \
 _(HICN_API_ROUTE_GET_REPLY, hicn_api_route_get_reply)                   \
 _(HICN_API_ROUTES_DETAILS, hicn_api_routes_details)                     \
-_(HICN_API_ROUTE_DEL_REPLY, hicn_api_route_del_reply)                   \
-_(HICN_API_ROUTE_NHOP_DEL_REPLY, hicn_api_route_nhop_del_reply)         \
 _(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)         \
 _(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)             \
 _(HICN_API_ENABLE_DISABLE_REPLY, hicn_api_enable_disable_reply)         \
@@ -552,6 +546,9 @@ api_hicn_api_faces_dump (vat_main_t * vam)
   M (HICN_API_FACES_DUMP, mp);
   S (mp);
 
+  if (!hm->ping_id)
+    hm->ping_id = vl_msg_api_get_msg_index ((u8 *) (VL_API_CONTROL_PING_CRC));
+
   /* Use a control ping for synchronization */
   mp_ping = vl_msg_api_alloc_as_if_client (sizeof (*mp_ping));
   mp_ping->_vl_msg_id = htons (hm->ping_id);
@@ -655,6 +652,9 @@ api_hicn_api_face_stats_dump (vat_main_t * vam)
   M (HICN_API_FACE_STATS_DUMP, mp);
   S (mp);
 
+  if (!hm->ping_id)
+    hm->ping_id = vl_msg_api_get_msg_index ((u8 *) (VL_API_CONTROL_PING_CRC));
+
   /* Use a control ping for synchronization */
   mp_ping = vl_msg_api_alloc_as_if_client (sizeof (*mp_ping));
   mp_ping->_vl_msg_id = htons (hm->ping_id);
@@ -757,6 +757,9 @@ api_hicn_api_routes_dump (vat_main_t * vam)
   M (HICN_API_ROUTES_DUMP, mp);
   S (mp);
 
+  if (!hm->ping_id)
+    hm->ping_id = vl_msg_api_get_msg_index ((u8 *) (VL_API_CONTROL_PING_CRC));
+
   /* Use a control ping for synchronization */
   mp_ping = vl_msg_api_alloc_as_if_client (sizeof (*mp_ping));
   mp_ping->_vl_msg_id = htons (hm->ping_id);
@@ -844,152 +847,6 @@ static void
 
   fformat (vam->ofp, "%sStrategy: %d\n",
 	   sbuf, clib_net_to_host_u32 (mp->strategy_id));
-}
-
-static int
-api_hicn_api_route_nhops_add (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_route_nhops_add_t *mp;
-
-  fib_prefix_t prefix;
-  u32 faceid = 0;
-  int ret;
-
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "add prefix %U/%d", unformat_ip46_address,
-		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
-	{;
-	}
-      else if (unformat (input, "face %d", &faceid))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  /* Check parse */
-  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0))
-      || (prefix.fp_len == 0) || (faceid == 0))
-    {
-      clib_warning ("Please specify prefix and faceid...");
-      return 1;
-    }
-  /* Construct the API message */
-  M (HICN_API_ROUTE_NHOPS_ADD, mp);
-  ip_prefix_encode (&prefix, &mp->prefix);
-
-  if (!ip46_address_is_ip4 (&(prefix.fp_addr)))
-    prefix.fp_proto = fib_proto_from_ip46 (IP46_TYPE_IP6);
-
-  mp->face_ids[0] = clib_host_to_net_u32 (faceid);
-  mp->n_faces = 1;
-
-  /* send it... */
-  S (mp);
-
-  /* Wait for a reply... */
-  W (ret);
-
-  return ret;
-}
-
-static int
-api_hicn_api_route_del (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_route_del_t *mp;
-
-  fib_prefix_t prefix;
-  int ret;
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "prefix %U/%d", unformat_ip46_address,
-		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  /* Check parse */
-  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0))
-      || (prefix.fp_len == 0))
-    {
-      clib_warning ("Please specify prefix...");
-      return 1;
-    }
-  /* Construct the API message */
-  M (HICN_API_ROUTE_DEL, mp);
-  ip_prefix_encode (&prefix, &mp->prefix);
-
-  if (!ip46_address_is_ip4 (&(prefix.fp_addr)))
-    prefix.fp_proto = fib_proto_from_ip46 (IP46_TYPE_IP6);
-
-  /* send it... */
-  S (mp);
-
-  /* Wait for a reply... */
-  W (ret);
-
-  return ret;
-
-}
-
-static int
-api_hicn_api_route_nhop_del (vat_main_t * vam)
-{
-  unformat_input_t *input = vam->input;
-  vl_api_hicn_api_route_nhop_del_t *mp;
-
-  fib_prefix_t prefix;
-  int faceid = 0, ret;
-
-  while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
-    {
-      if (unformat (input, "del prefix %U/%d", unformat_ip46_address,
-		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
-	{;
-	}
-      else if (unformat (input, "face %d", &faceid))
-	{;
-	}
-      else
-	{
-	  break;
-	}
-    }
-
-  /* Check parse */
-  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0))
-      || (prefix.fp_len == 0) || (faceid == HICN_FACE_NULL))
-    {
-      clib_warning ("Please specify prefix and faceid...");
-      return 1;
-    }
-  /* Construct the API message */
-  M (HICN_API_ROUTE_NHOP_DEL, mp);
-  ip_prefix_encode (&prefix, &mp->prefix);
-
-  if (!ip46_address_is_ip4 (&(prefix.fp_addr)))
-    prefix.fp_proto = fib_proto_from_ip46 (IP46_TYPE_IP6);
-
-  mp->faceid = clib_host_to_net_u32 (faceid);
-
-  /* send it... */
-  S (mp);
-
-  /* Wait for a reply... */
-  W (ret);
-
-  return ret;
 }
 
 static int

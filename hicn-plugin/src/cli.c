@@ -364,17 +364,16 @@ done:
  * cli handler for 'fib'
  */
 static clib_error_t *
-hicn_cli_fib_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
-			     vlib_cli_command_t * cmd)
+hicn_cli_strategy_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
+                                  vlib_cli_command_t * cmd)
 {
   clib_error_t *cl_err = 0;
 
   int rv = HICN_ERROR_NONE;
   int addpfx = -1;
   ip46_address_t address;
-  hicn_face_id_t faceid = HICN_FACE_NULL;
   u32 strategy_id;
-  u8 plen = 0;
+  u32 plen = 0;
   fib_prefix_t prefix;
 
   /* Get a line of input. */
@@ -385,24 +384,13 @@ hicn_cli_fib_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
     }
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
-      if (addpfx == -1 && unformat (line_input, "add"))
-	{
-	  addpfx = 1;
-	}
-      else if (addpfx == -1 && unformat (line_input, "delete"))
-	{
-	  addpfx = 0;
-	}
-      else if (unformat (line_input, "set strategy %d", &strategy_id))
+      if (unformat (line_input, "set %d", &strategy_id))
 	{
 	  addpfx = 2;
 	}
       else if (addpfx != -1
 	       && unformat (line_input, "prefix %U/%d", unformat_ip46_address,
 			    &address, IP46_TYPE_ANY, &plen))
-	{;
-	}
-      else if (addpfx <= 1 && unformat (line_input, "face %u", &faceid))
 	{;
 	}
       else
@@ -417,63 +405,18 @@ hicn_cli_fib_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
   fib_prefix_from_ip46_addr (&address, &prefix);
   prefix.fp_len = plen;
   /* Check parse */
-  if (addpfx <= 1
-      && ((ip46_address_is_zero (&prefix.fp_addr))
-	  || faceid == HICN_FACE_NULL))
-    {
-      cl_err =
-	clib_error_return (0, "Please specify prefix and a valid faceid...");
-      goto done;
-    }
-  /* Check parse */
-  if ((ip46_address_is_zero (&prefix.fp_addr))
-      || (addpfx == 2 && hicn_dpo_strategy_id_is_valid (strategy_id)))
+  if (hicn_dpo_strategy_id_is_valid (strategy_id) == HICN_ERROR_DPO_MGR_ID_NOT_VALID)
     {
       cl_err = clib_error_return (0,
-				  "Please specify prefix and strategy_id...");
+				  "Please specify a valid strategy...");
       goto done;
     }
-  if (addpfx == 0)
-    {
-      if (ip46_address_is_zero (&prefix.fp_addr))
-	{
-	  cl_err = clib_error_return (0, "Please specify prefix");
-	  goto done;
-	}
-      if (faceid == HICN_FACE_NULL)
-	{
-	  rv = hicn_route_del (&prefix);
-	}
-      else
-	{
-	  rv = hicn_route_del_nhop (&prefix, faceid);
-	}
-      cl_err =
-	(rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
-							    get_error_string
-							    (rv));
 
-    }
-  else if (addpfx == 1)
-    {
-      rv = hicn_route_add (&faceid, 1, &prefix);
-      if (rv == HICN_ERROR_ROUTE_ALREADY_EXISTS)
-	{
-	  rv = hicn_route_add_nhops (&faceid, 1, &prefix);
-	}
-      cl_err =
-	(rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
-							    get_error_string
-							    (rv));
-    }
-  else if (addpfx == 2)
-    {
-      rv = hicn_route_set_strategy (&prefix, strategy_id);
-      cl_err =
-	(rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
-							    get_error_string
-							    (rv));
-    }
+  rv = hicn_route_set_strategy (&prefix, strategy_id);
+  cl_err =
+    (rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
+                                                        get_error_string
+                                                        (rv));
 done:
 
   return (cl_err);
@@ -886,13 +829,12 @@ VLIB_CLI_COMMAND(hicn_cli_node_ctl_command, static)=
 };
 
 /* cli declaration for 'fib' */
-VLIB_CLI_COMMAND(hicn_cli_fib_set_command, static)=
-{
-	.path = "hicn fib",
-        .short_help = "hicn fib {{add | delete } prefix <prefix> face <facei_d> }"
-        " | set strategy <strategy_id> prefix <prefix>",
-        .function = hicn_cli_fib_set_command_fn,
-};
+VLIB_CLI_COMMAND(hicn_cli_strategy_set_command, static)=
+  {
+   .path = "hicn strategy",
+   .short_help = "hicn strategy set <strategy_id> prefix <prefix>",
+   .function = hicn_cli_strategy_set_command_fn,
+  };
 
 /* cli declaration for 'show' */
 VLIB_CLI_COMMAND(hicn_cli_show_command, static)=
