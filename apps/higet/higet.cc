@@ -16,9 +16,8 @@
 #include <hicn/transport/http/client_connection.h>
 #include <fstream>
 #include <map>
-
-#include <experimental/algorithm>
-#include <experimental/functional>
+#include <algorithm>
+#include <functional>
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -114,12 +113,9 @@ class ReadBytesCallbackImplementation
           // read next chunk size
           const char *begin = (const char *)payload->data();
           const char *end = (const char *)payload->tail();
-
-          using std::experimental::make_boyer_moore_searcher;
-          auto it = std::experimental::search(
-              begin, end,
-              make_boyer_moore_searcher(chunk_separator.begin(),
-                                        chunk_separator.end()));
+          const char *begincrlf2 = (const char *)chunk_separator.c_str();
+          const char *endcrlf2 = begincrlf2 + chunk_separator.size();
+          auto it = std::search(begin, end, begincrlf2, endcrlf2);
           if (it != end) {
             chunk_size_ = std::stoul(begin, 0, 16);
             content_size_ += chunk_size_;
@@ -200,9 +196,15 @@ class ReadBytesCallbackImplementation
 
   void print_bar(long value, long max_value, bool last) {
     float progress = (float)value / max_value;
+#ifdef _WIN32
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+    int barWidth = csbi.srWindow.Right - csbi.srWindow.Left + 7;
+#else
     struct winsize size;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
     int barWidth = size.ws_col - 8;
+#endif
 
     std::cout << "[";
     int pos = barWidth * progress;
