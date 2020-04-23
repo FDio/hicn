@@ -20,6 +20,8 @@
 
 #ifdef __vpp__
 
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -57,7 +59,7 @@ typedef struct {
 
 typedef struct {
   ip_prefix_t* prefix;
-  uint32_t face_id;
+  ip_address_t* prod_addr;
 } hicn_producer_set_route_params;
 
 int hicn_vapi_register_prod_app(
