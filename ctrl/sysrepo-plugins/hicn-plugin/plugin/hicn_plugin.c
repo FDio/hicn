@@ -38,8 +38,10 @@ int sr_plugin_init_cb(sr_session_ctx_t *session, void **private_ctx) {
   // HICN subscribe
   hicn_subscribe_events(session, &subscription);
 
+  //sr_subscription_ctx_t *subscription2 = NULL;
+
   // IETF subscribe
-  ietf_subscribe_events(session, &subscription);
+  //ietf_subscribe_events(session, &subscription2);
 
 
   /* set subscription as our private context */
