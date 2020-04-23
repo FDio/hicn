@@ -98,12 +98,6 @@ struct hc_sock_s {
   _(hicn_api_faces_details)            \
   _(hicn_api_face_stats_details)       \
   _(hicn_api_face_get_reply)           \
-  _(hicn_api_route_nhops_add)          \
-  _(hicn_api_route_nhops_add_reply)    \
-  _(hicn_api_route_del)                \
-  _(hicn_api_route_del_reply)          \
-  _(hicn_api_route_nhop_del)           \
-  _(hicn_api_route_nhop_del_reply)     \
   _(hicn_api_route_get)                \
   _(hicn_api_route_get_reply)          \
   _(hicn_api_routes_details)           \
@@ -619,12 +613,29 @@ int hc_connection_set_admin_state_async(hc_sock_t *s,
  * Routes
  *----------------------------------------------------------------------------*/
 
+vapi_error_e  create_udp_tunnel_cb( vapi_ctx_t ctx,
+				void *callback_ctx,
+				vapi_error_e rv,
+				bool is_last,
+				vapi_payload_hicn_api_udp_tunnel_add_del_reply *reply) {
+  if (reply == NULL || rv != VAPI_OK)
+    return rv;
+
+  if (reply->retval != VAPI_OK)
+    return reply->retval;
+
+  u32 * uei = (u32*) callback_ctx;
+  *uei = reply->uei;
+
+  return reply->retval;
+}
+
 /* ROUTE CREATE */
 vapi_error_e parse_route_create( vapi_ctx_t ctx,
 				void *callback_ctx,
 				vapi_error_e rv,
 				bool is_last,
-				vapi_payload_hicn_api_route_nhops_add_reply *reply) {
+				vapi_payload_ip_route_add_del_reply *reply) {
   if (reply == NULL || rv != VAPI_OK)
     return rv;
 
@@ -638,27 +649,93 @@ int _hc_route_create(hc_sock_t *s, hc_route_t *route, bool async) {
   if (!IS_VALID_FAMILY(route->family)) return -1;
 
   vapi_lock();
-  vapi_msg_hicn_api_route_nhops_add *hicnp_msg;
-  hicnp_msg = vapi_alloc_hicn_api_route_nhops_add(s->g_vapi_ctx_instance);
 
-  if (!hicnp_msg) return VAPI_ENOMEM;
+  vapi_msg_ip_route_add_del *hicnp_msg = vapi_alloc_ip_route_add_del(s->g_vapi_ctx_instance, 1);
 
+  hicnp_msg->payload.is_add = 1;
   if (route->family == AF_INET) {
-    memcpy(&hicnp_msg->payload.prefix.address.un.ip4[0], &route->remote_addr.v4, 4);
+    memcpy(&hicnp_msg->payload.route.prefix.address.un.ip4[0], &route->remote_addr.v4, 4);
+    hicnp_msg->payload.route.prefix.address.af = ADDRESS_IP4;
   }
   else {
-    memcpy(&hicnp_msg->payload.prefix.address.un.ip6[0], &route->remote_addr.v6, 16);
+    memcpy(&hicnp_msg->payload.route.prefix.address.un.ip6[0], &route->remote_addr.v6, 16);
+    hicnp_msg->payload.route.prefix.address.af = ADDRESS_IP6;
   }
-  hicnp_msg->payload.prefix.address.af =
-      route->family == AF_INET ? ADDRESS_IP4 : ADDRESS_IP6;
-  hicnp_msg->payload.prefix.len = route->len;
-  hicnp_msg->payload.face_ids[0] = route->face_id;
-  hicnp_msg->payload.n_faces = 1;
 
-  vapi_error_e ret = vapi_hicn_api_route_nhops_add(s->g_vapi_ctx_instance, hicnp_msg, parse_route_create, NULL);
+  hicnp_msg->payload.route.prefix.len = route->len;
+
+  hicnp_msg->payload.route.paths[0].sw_if_index = ~0;
+  hicnp_msg->payload.route.paths[0].table_id = 0;
+
+  hc_face_t *face = &(route->face);
+  switch (face->face.type) {
+    case FACE_TYPE_HICN:
+      {
+        if (ip46_address_is_ip4((ip46_address_t *)(&(face->face.remote_addr)))) {
+          memcpy(&(hicnp_msg->payload.route.paths[0].nh.address.ip4), &face->face.remote_addr.v4, sizeof(ip4_address_t));
+          hicnp_msg->payload.route.paths[0].proto = FIB_API_PATH_NH_PROTO_IP4;
+        }
+        else{
+          memcpy(&(hicnp_msg->payload.route.paths[0].nh.address.ip6), &face->face.remote_addr.v6, sizeof(ip6_address_t));
+          hicnp_msg->payload.route.paths[0].proto = FIB_API_PATH_NH_PROTO_IP6;
+        }
+
+        hicnp_msg->payload.route.paths[0].type = FIB_API_PATH_FLAG_NONE;
+        hicnp_msg->payload.route.paths[0].flags = FIB_API_PATH_FLAG_NONE;
+
+        break;
+      }
+    case FACE_TYPE_UDP:
+      {
+        vapi_msg_hicn_api_udp_tunnel_add_del *msg = NULL;
+        u32 uei = ~0;
+
+        if (ip46_address_is_ip4((ip46_address_t *)(&(face->face.remote_addr))) &&
+            ip46_address_is_ip4((ip46_address_t *)(&(face->face.local_addr)))) {
+
+          msg = vapi_alloc_hicn_api_udp_tunnel_add_del(s->g_vapi_ctx_instance);
+          memcpy(msg->payload.src_addr.un.ip4, &face->face.local_addr.v4, sizeof(ip4_address_t));
+          msg->payload.src_addr.af = ADDRESS_IP4;
+
+          memcpy(msg->payload.dst_addr.un.ip4, &face->face.remote_addr.v4, sizeof(ip4_address_t));
+          msg->payload.dst_addr.af = ADDRESS_IP4;
+
+        } else if (!ip46_address_is_ip4((ip46_address_t *)(&(route->face.face.remote_addr))) &&
+                  !ip46_address_is_ip4((ip46_address_t *)(&(route->face.face.local_addr)))) {
+
+          msg = vapi_alloc_hicn_api_udp_tunnel_add_del(s->g_vapi_ctx_instance);
+          memcpy(msg->payload.src_addr.un.ip6, &face->face.local_addr.v6, sizeof(ip6_address_t));
+          msg->payload.src_addr.af = ADDRESS_IP4;
+
+          memcpy(msg->payload.dst_addr.un.ip6, &face->face.remote_addr.v6, sizeof(ip6_address_t));
+          msg->payload.dst_addr.af = ADDRESS_IP6;
+
+        } else {
+          //NOT IMPLEMENTED
+          return -1;
+        }
+
+        msg->payload.src_port = face->face.local_port;
+        msg->payload.dst_port = face->face.remote_port;
+        msg->payload.is_add = 1;
+
+        int ret = vapi_hicn_api_udp_tunnel_add_del(s->g_vapi_ctx_instance, msg, create_udp_tunnel_cb, &uei);
+
+        if(ret)
+          vapi_msg_free(s->g_vapi_ctx_instance, hicnp_msg);
+
+        hicnp_msg->payload.route.paths[0].type = FIB_API_PATH_TYPE_UDP_ENCAP;
+        hicnp_msg->payload.route.paths[0].flags = FIB_API_PATH_FLAG_NONE;
+        hicnp_msg->payload.route.paths[0].nh.obj_id = uei;
+        break;
+      }
+    default:
+      return -1;
+  }
+
+  vapi_error_e ret = vapi_ip_route_add_del(s->g_vapi_ctx_instance, hicnp_msg, parse_route_create, NULL);
   vapi_unlock();
   return ret;
-
 }
 
 int hc_route_create(hc_sock_t *s, hc_route_t *route) {
@@ -670,38 +747,41 @@ int hc_route_create_async(hc_sock_t *s, hc_route_t *route) {
 }
 
 /* ROUTE DELETE */
-vapi_error_e parse_route_delete( vapi_ctx_t ctx,
-				void *callback_ctx,
-				vapi_error_e rv,
-				bool is_last,
-				vapi_payload_hicn_api_route_nhop_del_reply *reply) {
-  if (reply == NULL || rv != VAPI_OK)
-    return rv;
+// vapi_error_e parse_route_delete( vapi_ctx_t ctx,
+// 				void *callback_ctx,
+// 				vapi_error_e rv,
+// 				bool is_last,
+// 				vapi_payload_hicn_api_route_nhop_del_reply *reply) {
+//   if (reply == NULL || rv != VAPI_OK)
+//     return rv;
 
-  if (reply->retval != VAPI_OK)
-    return reply->retval;
+//   if (reply->retval != VAPI_OK)
+//     return reply->retval;
 
-  return reply->retval;
-}
+//   return reply->retval;
+// }
 
 int _hc_route_delete(hc_sock_t *s, hc_route_t *route, bool async) {
-  if (!IS_VALID_FAMILY(route->family)) return -1;
+  // if (!IS_VALID_FAMILY(route->family)) return -1;
 
-  vapi_lock();
-  vapi_msg_hicn_api_route_nhop_del *hicnp_msg;
-  hicnp_msg = vapi_alloc_hicn_api_route_nhop_del(s->g_vapi_ctx_instance);
+  // vapi_lock();
+  // vapi_msg_hicn_api_route_nhop_del *hicnp_msg;
+  // hicnp_msg = vapi_alloc_hicn_api_route_nhop_del(s->g_vapi_ctx_instance);
 
-  if (!hicnp_msg) return VAPI_ENOMEM;
+  // if (!hicnp_msg) return VAPI_ENOMEM;
 
-  memcpy(&hicnp_msg->payload.prefix.address.un.ip6[0], &route->remote_addr, 16);
-  hicnp_msg->payload.prefix.address.af =
-      route->family == AF_INET ? ADDRESS_IP4 : ADDRESS_IP6;
-  hicnp_msg->payload.prefix.len = route->len;
-  hicnp_msg->payload.faceid = route->face_id;
+  // memcpy(&hicnp_msg->payload.prefix.address.un.ip6[0], &route->remote_addr, 16);
+  // hicnp_msg->payload.prefix.address.af =
+  //     route->family == AF_INET ? ADDRESS_IP4 : ADDRESS_IP6;
+  // hicnp_msg->payload.prefix.len = route->len;
+  // hicnp_msg->payload.faceid = route->face_id;
 
-  int retval = vapi_hicn_api_route_nhop_del(s->g_vapi_ctx_instance, hicnp_msg, parse_route_delete, NULL);
-  vapi_unlock();
-  return retval;
+  // int retval = vapi_hicn_api_route_nhop_del(s->g_vapi_ctx_instance, hicnp_msg, parse_route_delete, NULL);
+  // vapi_unlock();
+  // return retval;
+
+  // NOT IMPLEMENTED
+  return -1;
 }
 
 int hc_route_delete(hc_sock_t *s, hc_route_t *route) {
