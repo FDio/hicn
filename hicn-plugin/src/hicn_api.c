@@ -304,76 +304,76 @@ static void
 
 /****** ROUTE *******/
 
-static void
-vl_api_hicn_api_route_nhops_add_t_handler (vl_api_hicn_api_route_nhops_add_t
-					   * mp)
-{
-  vl_api_hicn_api_route_nhops_add_reply_t *rmp;
-  int rv = HICN_ERROR_NONE;
-  hicn_face_id_t face_ids[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
+/* static void */
+/* vl_api_hicn_api_route_nhops_add_t_handler (vl_api_hicn_api_route_nhops_add_t */
+/* 					   * mp) */
+/* { */
+/*   vl_api_hicn_api_route_nhops_add_reply_t *rmp; */
+/*   int rv = HICN_ERROR_NONE; */
+/*   hicn_face_id_t face_ids[HICN_PARAM_FIB_ENTRY_NHOPS_MAX]; */
 
-  hicn_main_t *sm = &hicn_main;
+/*   hicn_main_t *sm = &hicn_main; */
 
-  fib_prefix_t prefix;
-  ip_prefix_decode (&mp->prefix, &prefix);
+/*   fib_prefix_t prefix; */
+/*   ip_prefix_decode (&mp->prefix, &prefix); */
 
-  u8 n_faces = mp->n_faces;
+/*   u8 n_faces = mp->n_faces; */
 
-  for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
-    {
-      face_ids[i] = clib_net_to_host_u32 (mp->face_ids[i]);
-    }
+/*   for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++) */
+/*     { */
+/*       face_ids[i] = clib_net_to_host_u32 (mp->face_ids[i]); */
+/*     } */
 
-  if ((face_ids == NULL) || (n_faces > HICN_PARAM_FIB_ENTRY_NHOPS_MAX))
-    {
-      rv = VNET_API_ERROR_INVALID_ARGUMENT;
-    }
-  if (rv == HICN_ERROR_NONE)
-    {
-      rv = hicn_route_add (face_ids, n_faces, &prefix);
+/*   if ((face_ids == NULL) || (n_faces > HICN_PARAM_FIB_ENTRY_NHOPS_MAX)) */
+/*     { */
+/*       rv = VNET_API_ERROR_INVALID_ARGUMENT; */
+/*     } */
+/*   if (rv == HICN_ERROR_NONE) */
+/*     { */
+/*       rv = hicn_route_add (face_ids, n_faces, &prefix); */
 
-      if (rv == HICN_ERROR_ROUTE_ALREADY_EXISTS)
-	{
-	  rv = hicn_route_add_nhops (face_ids, n_faces, &prefix);
-	}
-    }
-  REPLY_MACRO (VL_API_HICN_API_ROUTE_NHOPS_ADD_REPLY /* , rmp, mp, rv */ );
-}
-
-
-static void vl_api_hicn_api_route_del_t_handler
-  (vl_api_hicn_api_route_del_t * mp)
-{
-  vl_api_hicn_api_route_del_reply_t *rmp;
-  int rv = HICN_ERROR_NONE;
-
-  hicn_main_t *sm = &hicn_main;
-
-  fib_prefix_t prefix;
-  ip_prefix_decode (&mp->prefix, &prefix);
-
-  rv = hicn_route_del (&prefix);
-
-  REPLY_MACRO (VL_API_HICN_API_ROUTE_DEL_REPLY /* , rmp, mp, rv */ );
-}
-
-static void vl_api_hicn_api_route_nhop_del_t_handler
-  (vl_api_hicn_api_route_nhop_del_t * mp)
-{
-  vl_api_hicn_api_route_nhop_del_reply_t *rmp;
-  int rv = HICN_ERROR_NONE;
-
-  hicn_main_t *sm = &hicn_main;
-
-  fib_prefix_t prefix;
-  ip_prefix_decode (&mp->prefix, &prefix);
-  hicn_face_id_t faceid = clib_net_to_host_u32 (mp->faceid);
+/*       if (rv == HICN_ERROR_ROUTE_ALREADY_EXISTS) */
+/* 	{ */
+/* 	  rv = hicn_route_add_nhops (face_ids, n_faces, &prefix); */
+/* 	} */
+/*     } */
+/*   REPLY_MACRO (VL_API_HICN_API_ROUTE_NHOPS_ADD_REPLY /\* , rmp, mp, rv *\/ ); */
+/* } */
 
 
-  rv = hicn_route_del_nhop (&prefix, faceid);
+/* static void vl_api_hicn_api_route_del_t_handler */
+/*   (vl_api_hicn_api_route_del_t * mp) */
+/* { */
+/*   vl_api_hicn_api_route_del_reply_t *rmp; */
+/*   int rv = HICN_ERROR_NONE; */
 
-  REPLY_MACRO (VL_API_HICN_API_ROUTE_NHOP_DEL_REPLY /* , rmp, mp, rv */ );
-}
+/*   hicn_main_t *sm = &hicn_main; */
+
+/*   fib_prefix_t prefix; */
+/*   ip_prefix_decode (&mp->prefix, &prefix); */
+
+/*   rv = hicn_route_del (&prefix); */
+
+/*   REPLY_MACRO (VL_API_HICN_API_ROUTE_DEL_REPLY /\* , rmp, mp, rv *\/ ); */
+/* } */
+
+/* static void vl_api_hicn_api_route_nhop_del_t_handler */
+/*   (vl_api_hicn_api_route_nhop_del_t * mp) */
+/* { */
+/*   vl_api_hicn_api_route_nhop_del_reply_t *rmp; */
+/*   int rv = HICN_ERROR_NONE; */
+
+/*   hicn_main_t *sm = &hicn_main; */
+
+/*   fib_prefix_t prefix; */
+/*   ip_prefix_decode (&mp->prefix, &prefix); */
+/*   hicn_face_id_t faceid = clib_net_to_host_u32 (mp->faceid); */
+
+
+/*   rv = hicn_route_del_nhop (&prefix, faceid); */
+
+/*   REPLY_MACRO (VL_API_HICN_API_ROUTE_NHOP_DEL_REPLY /\* , rmp, mp, rv *\/ ); */
+/* } */
 
 static void vl_api_hicn_api_route_get_t_handler
   (vl_api_hicn_api_route_get_t * mp)
