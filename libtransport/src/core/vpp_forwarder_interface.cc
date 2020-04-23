@@ -167,7 +167,7 @@ void VPPForwarderInterface::registerRoute(Prefix &prefix) {
     params.prefix->address = addr.address;
     params.prefix->family = addr.family;
     params.prefix->len = addr.len;
-    params.face_id = face_id1_;
+    params.prod_addr = &producer_locator;
 
     int ret = hicn_vapi_register_route(VPPForwarderInterface::sock_, &params);
 

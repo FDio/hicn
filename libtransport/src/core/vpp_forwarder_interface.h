@@ -21,6 +21,7 @@
 
 #include <hicn/transport/core/prefix.h>
 
+
 #ifdef always_inline
 #undef always_inline
 #endif

@@ -18,7 +18,6 @@
 #ifdef __vpp__
 
 #include <hicn/transport/utils/log.h>
-
 #include <core/hicn_vapi.h>
 
 #define HICN_VPP_PLUGIN
@@ -31,10 +30,10 @@
 #include <vlibmemory/api.h>
 #include <vppinfra/error.h>
 
-#include <vnet/fib/fib_types.h>
 #include <vnet/ip/format.h>
 #include <vnet/ip/ip4_packet.h>
 #include <vnet/ip/ip6_packet.h>
+#include <vapi/ip.api.vapi.h>
 
 #include <vapi/hicn.api.vapi.h>
 #include <vpp_plugins/hicn/error.h>
@@ -54,6 +53,7 @@ u8 *format_vl_api_address_union(u8 *s, va_list *args) { return NULL; }
 /*********************************************************************************/
 
 DEFINE_VAPI_MSG_IDS_HICN_API_JSON
+DEFINE_VAPI_MSG_IDS_IP_API_JSON
 
 static vapi_error_e register_prod_app_cb(
     vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv, bool is_last,
@@ -184,7 +184,7 @@ int hicn_vapi_face_cons_del(vapi_ctx_t ctx,
 
 static vapi_error_e reigster_route_cb(
     vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv, bool is_last,
-    vapi_payload_hicn_api_route_nhops_add_reply *reply) {
+    vapi_payload_ip_route_add_del_reply *reply) {
   if (reply == NULL) return rv;
 
   return reply->retval;
@@ -193,17 +193,36 @@ static vapi_error_e reigster_route_cb(
 int hicn_vapi_register_route(vapi_ctx_t ctx,
                              hicn_producer_set_route_params *input_params) {
   vapi_lock();
-  vapi_msg_hicn_api_route_nhops_add *msg =
-      vapi_alloc_hicn_api_route_nhops_add(ctx);
+  vapi_msg_ip_route_add_del *msg = vapi_alloc_ip_route_add_del(ctx, 1);
 
-  fib_prefix_t prefix;
-  memcpy(&prefix.fp_addr, &input_params->prefix->address,
-         sizeof(ip46_address_t));
-  prefix.fp_len = input_params->prefix->len;
-  msg->payload.face_ids[0] = input_params->face_id;
-  msg->payload.n_faces = 1;
+  msg->payload.is_add = 1;
+  if (ip46_address_is_ip4((ip46_address_t *)(input_params->prod_addr))) {
+    memcpy(&msg->payload.route.prefix.address.un.ip4, &input_params->prefix->address.v4,
+         sizeof(ip4_address_t));
+    msg->payload.route.prefix.address.af = ADDRESS_IP4;
+    msg->payload.route.prefix.len = input_params->prefix->len;
+  } else {
+    memcpy(&msg->payload.route.prefix.address.un.ip6, &input_params->prefix->address.v6,
+         sizeof(ip6_address_t));
+    msg->payload.route.prefix.address.af = ADDRESS_IP6;
+    msg->payload.route.prefix.len = input_params->prefix->len;
+  }
 
-  int ret = vapi_hicn_api_route_nhops_add(ctx, msg, reigster_route_cb, NULL);
+  msg->payload.route.paths[0].sw_if_index = ~0;
+  msg->payload.route.paths[0].table_id = 0;
+  if (ip46_address_is_ip4((ip46_address_t *)(input_params->prod_addr))) {
+    memcpy(&(msg->payload.route.paths[0].nh.address.ip4), input_params->prod_addr->v4.as_u8, sizeof(ip4_address_t));
+    msg->payload.route.paths[0].proto = FIB_API_PATH_NH_PROTO_IP4;
+  }
+  else{
+    memcpy(&(msg->payload.route.paths[0].nh.address.ip6), input_params->prod_addr->v6.as_u8, sizeof(ip6_address_t));
+    msg->payload.route.paths[0].proto = FIB_API_PATH_NH_PROTO_IP6;
+  }
+
+  msg->payload.route.paths[0].type = FIB_API_PATH_FLAG_NONE;
+  msg->payload.route.paths[0].flags = FIB_API_PATH_FLAG_NONE;
+
+  int ret = vapi_ip_route_add_del(ctx, msg, reigster_route_cb, NULL);
 
   vapi_unlock();
   return ret;
