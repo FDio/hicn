@@ -18,15 +18,12 @@ list(APPEND COMPILER_DEFINITIONS
 set(HEADER_FILES
     api.h
     commands.h
-    face.h
 )
 
 set(UTIL_HEADER_FILES
-    face.h
 )
 
 set(SOURCE_FILES
-    face.c
     route.c
 )
 

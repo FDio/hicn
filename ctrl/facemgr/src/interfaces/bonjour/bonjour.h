@@ -25,7 +25,7 @@
  *  queries...
  */
 
-#include <hicn/ctrl/face.h> /* netdevice_t */
+#include <hicn/face.h> /* netdevice_t */
 
 typedef struct {
     netdevice_t netdevice;

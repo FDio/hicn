@@ -29,6 +29,7 @@
 
 #include <hicn/utils/commands.h>
 #include <hicn/utils/utils.h>
+#include <hicn/face.h>
 
 // ===================================================
 
@@ -189,7 +190,7 @@ static CommandReturn _controlAddConnection_Execute(CommandParser *parser,
  * @param [in] localAddress the local IP and port.  The port may be the wildcard
  * value.
  * @param [in] remoteAddress The remote IP and port (both must be specified)
- * @param [in] tunnelType The tunneling protocol
+ * @param [in] type The tunneling protocol
  * @param [in] symbolic The symbolic name for the connection (must be unique)
  *
  * @return <#value#> <#explanation#>
@@ -218,44 +219,44 @@ static CommandReturn _controlAddConnection_Execute(CommandParser *parser,
 static CommandReturn _controlAddConnection_CreateTunnel(
     CommandParser *parser, CommandOps *ops, const char *local_ip,
     const char *local_port, const char *remote_ip, const char *remote_port,
-    connection_type tunnelType, const char *symbolic) {
+    face_type_t type, const char *symbolic) {
   ControlState *state = ops->closure;
   // a request like this always has an interface index of 0 [FIELD REMOVED]
   // unsigned int interfaceIndex = 0;
 
   // allocate command payload
-  add_connection_command *addConnectionCommand =
-      parcMemory_AllocateAndClear(sizeof(add_connection_command));
+  cmd_connection_add_t *cmd =
+      parcMemory_AllocateAndClear(sizeof(cmd_connection_add_t));
 
   // check and set IP addresses
-  if (inet_pton(AF_INET, remote_ip, &addConnectionCommand->remoteIp.v4.as_u32) ==
+  if (inet_pton(AF_INET, remote_ip, &cmd->remote_ip.v4.as_u32) ==
           1 &&
-      inet_pton(AF_INET, local_ip, &addConnectionCommand->localIp.v4.as_u32) == 1) {
-    addConnectionCommand->ipType = ADDR_INET;
+      inet_pton(AF_INET, local_ip, &cmd->local_ip.v4.as_u32) == 1) {
+    cmd->family = AF_INET;
 
   } else if (inet_pton(AF_INET6, remote_ip,
-                       &addConnectionCommand->remoteIp.v6.as_in6addr) == 1 &&
+                       &cmd->remote_ip.v6.as_in6addr) == 1 &&
              inet_pton(AF_INET6, local_ip,
-                       &addConnectionCommand->localIp.v6.as_in6addr) == 1) {
-    addConnectionCommand->ipType = ADDR_INET6;
+                       &cmd->local_ip.v6.as_in6addr) == 1) {
+    cmd->family = AF_INET6;
 
   } else {
     printf("Error: local address %s not same type as remote address %s\n",
            local_ip, remote_ip);
-    parcMemory_Deallocate(&addConnectionCommand);
+    parcMemory_Deallocate(&cmd);
     return CommandReturn_Failure;
   }
 
   // Fill remaining payload fields
-  addConnectionCommand->connectionType = tunnelType;
-  strcpy(addConnectionCommand->symbolic, symbolic);
-  addConnectionCommand->remotePort = htons((uint16_t)atoi(remote_port));
-  addConnectionCommand->localPort = htons((uint16_t)atoi(local_port));
+  cmd->type = type;
+  strcpy(cmd->symbolic, symbolic);
+  cmd->remote_port = htons((uint16_t)atoi(remote_port));
+  cmd->local_port = htons((uint16_t)atoi(local_port));
 
   // send message and receive response
   struct iovec *response =
-      utils_SendRequest(state, ADD_CONNECTION, addConnectionCommand,
-                        sizeof(add_connection_command));
+      utils_SendRequest(state, COMMAND_TYPE_CONNECTION_ADD, cmd,
+                        sizeof(cmd_connection_add_t));
 
   if (!response) {  // get NULL pointer
     return CommandReturn_Failure;
@@ -318,7 +319,7 @@ static CommandReturn _controlAddConnection_HicnExecute(CommandParser *parser,
   char *port = "1234";  // this is a random port number that will be ignored
 
   return _controlAddConnection_CreateTunnel(
-      parser, ops, local_ip, port, remote_ip, port, HICN_CONN, symbolic);
+      parser, ops, local_ip, port, remote_ip, port, FACE_TYPE_HICN, symbolic);
 }
 #endif
 
@@ -360,7 +361,7 @@ static CommandReturn _controlAddConnection_UdpExecute(CommandParser *parser,
   char *local_port = parcList_GetAtIndex(args, _indexLocPort);
 
   return _controlAddConnection_CreateTunnel(parser, ops, local_ip, local_port,
-                                            remote_ip, remote_port, UDP_CONN,
+                                            remote_ip, remote_port, FACE_TYPE_UDP,
                                             symbolic);
 }
 
@@ -402,6 +403,6 @@ static CommandReturn _controlAddConnection_TcpExecute(CommandParser *parser,
   char *local_port = parcList_GetAtIndex(args, _indexLocPort);
 
   return _controlAddConnection_CreateTunnel(parser, ops, local_ip, local_port,
-                                            remote_ip, remote_port, TCP_CONN,
+                                            remote_ip, remote_port, FACE_TYPE_TCP,
                                             symbolic);
 }

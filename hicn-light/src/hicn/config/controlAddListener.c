@@ -107,10 +107,10 @@ static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
 
   // check and set IP address
   if (inet_pton(AF_INET, addr, &addListenerCommand->address.v4.as_u32) == 1) {
-    addListenerCommand->addressType = ADDR_INET;
+    addListenerCommand->family = AF_INET;
 
   } else if (inet_pton(AF_INET6, addr, &addListenerCommand->address.v6.as_in6addr) == 1) {
-    addListenerCommand->addressType = ADDR_INET6;
+    addListenerCommand->family = AF_INET6;
 
   } else {
     printf("Error: %s is not a valid network address \n", addr);

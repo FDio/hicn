@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <hicn/utils/address.h>
+#include <hicn/core/address.h>
 
 struct name_bitvector;
 typedef struct name_bitvector NameBitvector;
@@ -51,7 +51,7 @@ void nameBitvector_clear(NameBitvector *a, uint8_t start_from);
 int nameBitvector_ToIPAddress(const NameBitvector *name, ip_prefix_t *prefix);
 void nameBitvector_setLen(NameBitvector *name, uint8_t len);
 
-Address *nameBitvector_ToAddress(const NameBitvector *name);
+void nameBitvector_ToAddress(const NameBitvector *name, address_t * address);
 
 char *nameBitvector_ToString(const NameBitvector *name);
 

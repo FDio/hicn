@@ -26,14 +26,11 @@
 #ifndef configuration_h
 #define configuration_h
 
-#include <hicn/core/logger.h>
 #include <hicn/utils/commands.h>
 
-struct configuration;
-typedef struct configuration Configuration;
+typedef struct configuration_s configuration_t;
 
-struct forwarder;
-typedef struct forwarder Forwarder;
+struct forwarder_s;
 
 /**
  * <#One Line Description#>
@@ -49,7 +46,7 @@ typedef struct forwarder Forwarder;
  * <#example#>
  * @endcode
  */
-Configuration *configuration_Create(Forwarder *forwarder);
+configuration_t * configuration_create(struct forwarder_s * forwarder);
 
 /**
  * <#One Line Description#>
@@ -65,13 +62,13 @@ Configuration *configuration_Create(Forwarder *forwarder);
  * <#example#>
  * @endcode
  */
-void configuration_Destroy(Configuration **configPtr);
+void configuration_free(configuration_t * config);
 
-void configuration_SetupAllListeners(Configuration *config, uint16_t port,
+void configuration_setup_all_listeners(configuration_t *config, uint16_t port,
                                      const char *localPath);
 
-void configuration_ReceiveCommand(Configuration *config, command_id command,
-                                  struct iovec *request, unsigned ingressId);
+void configuration_receive_command(configuration_t *config, command_type_t command,
+        uint8_t * packet, unsigned ingress_id);
 
 /**
  * Returns the configured size of the content store
@@ -87,7 +84,7 @@ void configuration_ReceiveCommand(Configuration *config, command_id command,
  * <#example#>
  * @endcode
  */
-size_t configuration_GetObjectStoreSize(Configuration *config);
+size_t configuration_content_store_get_size(configuration_t *config);
 
 /**
  * Sets the size of the content store (in objects, not bytes)
@@ -101,11 +98,9 @@ size_t configuration_GetObjectStoreSize(Configuration *config);
  * <#example#>
  * @endcode
  */
-void configuration_SetObjectStoreSize(Configuration *config,
-                                      size_t maximumContentObjectCount);
+void configuration_content_store_set_size(configuration_t *config, size_t size);
 
-strategy_type configuration_GetForwardingStrategy(Configuration *config,
-                                                  const char *prefix);
+strategy_type_t configuration_get_strategy(configuration_t *config, const char *prefix);
 
 /**
  * Returns the Forwarder that owns the Configuration
@@ -125,28 +120,10 @@ strategy_type configuration_GetForwardingStrategy(Configuration *config,
  * }
  * @endcode
  */
-Forwarder *configuration_GetForwarder(const Configuration *config);
+struct forwarder_s * configuration_get_forwarder(const configuration_t *config);
 
-/**
- * Returns the logger used by the Configuration subsystem
- *
- * Returns the logger specified when the Configuration was created.
- *
- * @param [in] config An allocated Configuration
- *
- * @retval non-null The logger
- * @retval null An error
- *
- * Example:
- * @code
- * <#example#>
- * @endcode
- */
-Logger *configuration_GetLogger(const Configuration *config);
-
-struct iovec *configuration_DispatchCommand(Configuration *config,
-                                            command_id command,
-                                            struct iovec *control,
-                                            unsigned ingressId);
+uint8_t *
+configuration_dispatch_command(configuration_t * config, command_type_t command_type,
+        uint8_t * packet, unsigned ingress_id);
 
 #endif  // configuration_h

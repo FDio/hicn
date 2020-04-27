@@ -23,10 +23,13 @@
 #define message_packet_type_h
 
 typedef enum message_type {
-  MessagePacketType_Unknown,
-  MessagePacketType_Interest,
-  MessagePacketType_ContentObject,
-  MessagePacketType_WldrNotification
+    MESSAGE_TYPE_UNDEFINED,
+    MESSAGE_TYPE_INTEREST,
+    MESSAGE_TYPE_DATA,
+    MESSAGE_TYPE_WLDR_NOTIFICATION,
+    MESSAGE_TYPE_MAPME,
+    MESSAGE_TYPE_COMMAND,
+    MESSAGE_TYPE_N,
 } MessagePacketType;
 
 #endif  // message_packet_type_h

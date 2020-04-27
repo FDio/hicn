@@ -20,8 +20,8 @@
 
 #include <assert.h>
 
+#include <hicn/face.h>
 #include <hicn/facemgr.h>
-#include <hicn/ctrl/face.h>
 #include <hicn/util/log.h>
 #include "../../common.h"
 #include "../../interface.h"

@@ -20,7 +20,7 @@
 #ifndef FACEMGR_CFG_H
 #define FACEMGR_CFG_H
 
-#include <hicn/ctrl/face.h>
+#include <hicn/face.h>
 #include <hicn/facemgr/facelet.h>
 #include <hicn/util/log.h>
 

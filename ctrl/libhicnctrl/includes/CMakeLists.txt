@@ -21,7 +21,6 @@ set(TO_INSTALL_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/ctrl.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/api.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/commands.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/face.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ctrl/route.h
   PARENT_SCOPE
 )

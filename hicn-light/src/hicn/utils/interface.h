@@ -22,8 +22,7 @@
 #ifndef interface_h
 #define interface_h
 
-#include <hicn/utils/address.h>
-#include <hicn/utils/addressList.h>
+#include <hicn/core/address.h>
 
 struct interface;
 typedef struct interface Interface;
@@ -59,7 +58,7 @@ void interfaceDestroy(Interface **interfacePtr);
  * <#example#>
  * @endcode
  */
-void interfaceAddAddress(Interface *iface, Address *address);
+void interfaceAddAddress(Interface *iface, address_t *address);
 
 /**
  * Retrieves a list of interface addresses
@@ -74,7 +73,7 @@ void interfaceAddAddress(Interface *iface, Address *address);
  * <#example#>
  * @endcode
  */
-const AddressList *interfaceGetAddresses(const Interface *iface);
+const address_t ** interfaceGetAddresses(const Interface *iface);
 
 /**
  * The interface index

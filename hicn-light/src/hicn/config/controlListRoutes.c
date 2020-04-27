@@ -120,7 +120,7 @@ static CommandReturn _controlListRoutes_Execute(CommandParser *parser,
                                 (i * sizeof(list_routes_command)));
 
     addrString = utils_CommandAddressToString(
-        listRoutesCommand->addressType, &listRoutesCommand->address, &port);
+        listRoutesCommand->family, &listRoutesCommand->address, &port);
 
     PARCBufferComposer *composer = parcBufferComposer_Create();
 

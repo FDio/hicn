@@ -116,7 +116,7 @@ static CommandReturn _controlAddPunting_Execute(CommandParser *parser,
       free(addr);
       return CommandReturn_Failure;
     }
-    addPuntingCommand->addressType = ADDR_INET;
+    addPuntingCommand->family = AF_INET;
   } else if (inet_pton(AF_INET6, addr, &addPuntingCommand->address.v6.as_in6addr) == 1) {
     if (len > 128) {
       printf("ERROR: exceeded INET6 mask length, max=128\n");
@@ -124,7 +124,7 @@ static CommandReturn _controlAddPunting_Execute(CommandParser *parser,
       free(addr);
       return CommandReturn_Failure;
     }
-    addPuntingCommand->addressType = ADDR_INET6;
+    addPuntingCommand->family = AF_INET6;
   } else {
     printf("Error: %s is not a valid network address \n", addr);
     parcMemory_Deallocate(&addPuntingCommand);
