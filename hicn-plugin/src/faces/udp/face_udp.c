@@ -196,7 +196,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       dpo_proto = DPO_PROTO_IP4;
       fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
 
-      udp_register_dst_port(vm, local_port, hicn_iface_udp4_input_node.index, 1);
+      udp_register_dst_port(vm, clib_net_to_host_u16(local_port), hicn_iface_udp4_input_node.index, 1);
     }
   else if (!ip46_address_is_ip4 (local_addr)
 	   && !ip46_address_is_ip4 (remote_addr))
@@ -253,7 +253,7 @@ hicn_face_udp_add (const ip46_address_t * local_addr,
       dpo_proto = DPO_PROTO_IP6;
       fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
 
-      udp_register_dst_port(vm, local_port, hicn_iface_udp6_input_node.index, 0);
+      udp_register_dst_port(vm, clib_net_to_host_u16(local_port), hicn_iface_udp6_input_node.index, 0);
     }
   else
     {
