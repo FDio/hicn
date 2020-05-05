@@ -18,6 +18,9 @@
 
 #include <vppinfra/byte_order.h>
 
+/**
+ * @file
+ */
 #define vl_msg_id(n, h) n,
 typedef enum
 {

@@ -19,12 +19,6 @@
 #include "../hicn.h"
 #include "../strategy_dpo_ctx.h"
 
-/**
- * @File
- *
- * Definition of the nodes for ip incomplete faces.
- */
-
 vlib_node_registration_t udp_decap_node;
 
 static char *udp_decap_error_strings[] = {

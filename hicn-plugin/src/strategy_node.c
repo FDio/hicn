@@ -130,6 +130,7 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 
       vnet_buffer (b0)->ip.adj_index[VLIB_TX] = outface;
       stats->pkts_interest_count++;
+      pitp->u.pit.pe_txnh = nh_idx;
     }
   else
     {

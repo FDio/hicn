@@ -21,6 +21,9 @@
 #include "hicn.h"
 #include "error.h"
 
+/**
+ * @file parser.h
+ */
 
 /*
  * Key type codes for header, header tlvs, body tlvs, and child tlvs
@@ -33,6 +36,15 @@ enum hicn_pkt_type_e
   HICN_PKT_TYPE_CONTENT = 1,
 };
 
+/**
+ * @brief Parse an interest packet
+ *
+ * @param pkt vlib buffer holding the interest
+ * @param name return variable that will point to the hicn name
+ * @param namelen return valiable that will hold the length of the name
+ * @param pkt_hdrp return valiable that will point to the packet header
+ * @param isv6 return variable that will be equale to 1 is the header is ipv6
+ */
 always_inline int
 hicn_interest_parse_pkt (vlib_buffer_t * pkt, hicn_name_t * name,
 			 u16 * namelen, hicn_header_t ** pkt_hdrp, u8 * isv6)
@@ -61,6 +73,15 @@ hicn_interest_parse_pkt (vlib_buffer_t * pkt, hicn_name_t * name,
   return HICN_ERROR_NONE;
 }
 
+/**
+ * @brief Parse a data packet
+ *
+ * @param pkt vlib buffer holding the interest
+ * @param name return variable that will point to the hicn name
+ * @param namelen return valiable that will hold the length of the name
+ * @param pkt_hdrp return valiable that will point to the packet header
+ * @param isv6 return variable that will be equale to 1 is the header is ipv6
+ */
 always_inline int
 hicn_data_parse_pkt (vlib_buffer_t * pkt, hicn_name_t * name,
 		     u16 * namelen, hicn_header_t ** pkt_hdrp, u8 * isv6)
