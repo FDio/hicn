@@ -22,21 +22,20 @@
 #include "faces/face.h"
 
 /**
- * @File
+ * @file strategy.h
  *
  * A strategy is defined as a dpo and a set of function (vft) that will be called
  * during the packet processing. A strategy is associated to an entry in the fib by
  * assigning the corresponding dpo to the fib entry. The dpo points to a hICN dpo
  * context (ctx) which contains the information needed by the strategy to compute
  * the next hop. Each strategy hash its own dpo type, which means that the dpo_type
- * uniquely identify a strategy and its vft. The strategy node will use the dpo_type
+ * uniquely identifies a strategy and its vft. The strategy node will use the dpo_type
  * to retrieve the corresponding vft.
  * Here we provide:
  * - a template for the callbacks to implement in order to create a new strategy
  *   (hicn_fwd_strategy_t)
- * - the base structure for a strategy node
- *   (list of next vpp nodes, errors, tracing and the main function processing an
- *    interest and calling hicn_select_next_hop)
+ * - a default implementation for the strategy node which will call the strategy
+ *   functions while processing the interest packets
  */
 
 /* Trace context struct */
@@ -69,6 +68,25 @@ typedef enum
   HICN_STRATEGY_NEXT_ERROR_DROP,
   HICN_STRATEGY_N_NEXT,
 } hicn_strategy_next_t;
+
+const static char *const hicn_ip6_nodes[] =
+{
+ "hicn6-iface-input",	// this is the name you give your node in VLIB_REGISTER_NODE
+ NULL,
+};
+
+const static char *const hicn_ip4_nodes[] =
+{
+ "hicn4-iface-input",	// this is the name you give your node in VLIB_REGISTER_NODE
+ NULL,
+};
+
+const static char *const *const hicn_nodes_strategy[DPO_PROTO_NUM] =
+{
+ [DPO_PROTO_IP6] = hicn_ip6_nodes,
+ [DPO_PROTO_IP4] = hicn_ip4_nodes,
+};
+
 
 extern vlib_node_registration_t hicn_strategy_node;
 

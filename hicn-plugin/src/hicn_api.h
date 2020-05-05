@@ -16,6 +16,11 @@
 #ifndef __HICN_API_H__
 #define __HICN_API_H__
 
+/**
+ * @file
+ */
+
+
 #define HICN_STRATEGY_NULL ~0
 #define HICN_FIB_TABLE 10
 

@@ -20,6 +20,15 @@
 #include "../strategy_dpo_ctx.h"
 
 /**
+ * @file dpo_rr.h
+ *
+ * This file implements the strategy vtf (see strategy.h) and
+ * the dpo vft (see strategy_dpo_manager.h) for the strategy
+ * round robin.
+ */
+
+
+/**
  * Context for the Round Robin strategy
  */
 

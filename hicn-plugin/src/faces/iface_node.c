@@ -14,7 +14,6 @@
  */
 
 #include "face.h"
-#include "dpo_face.h"
 #include "../strategy_dpo_manager.h"
 #include "../hicn.h"
 #include "../infra.h"
@@ -96,8 +95,8 @@ typedef enum
 #define ADDRESSX2_IP6 ip6_address_t *local_address0 = ip6_interface_first_address(&ip6_main, swif0); \
   ip6_address_t *local_address1 = ip6_interface_first_address(&ip6_main, swif1);
 
-#define DPO_ADD_LOCK_IFACE_IP4 hicn_dpo_iface_ip4_add_and_lock
-#define DPO_ADD_LOCK_IFACE_IP6 hicn_dpo_iface_ip6_add_and_lock
+#define DPO_ADD_LOCK_IFACE_IP4 hicn_iface_ip4_add_and_lock
+#define DPO_ADD_LOCK_IFACE_IP6 hicn_iface_ip6_add_and_lock
 
 //#define VLIB_EDGE_IP4 data_fwd_iface_ip4_vlib_edge
 //#define VLIB_EDGE_IP6 data_fwd_iface_ip6_vlib_edge

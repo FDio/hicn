@@ -22,8 +22,12 @@
 #include "pcs.h"
 
 /**
- * hICN plugin global state: see also
- * - fib and pits
+ * @file infra.h
+ *
+ */
+
+/**
+ * @brief hICN plugin global state.
  */
 typedef struct hicn_main_s
 {

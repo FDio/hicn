@@ -21,6 +21,16 @@
 
 #include "pcs.h"
 
+/**
+ * @file interest_hitcs.h
+ *
+ * This is the node encoutered by interest packets after the hicn-interest-pcslookup.
+ * This node satisfies an interest with a data stored in the CS and send the data back
+ * from the incoming iface of the interest (i.e., the vlib buffer is sent to the
+ * hicn6-iface-output or hicn4-iface-output node). In case the data is expired, the
+ * vlib buffer is sent to the hicn-strategy node.
+ */
+
 /*
  * Node context data; we think this is per-thread/instance
  */

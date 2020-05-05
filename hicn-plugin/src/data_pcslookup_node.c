@@ -63,7 +63,6 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm,
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
 	  vlib_buffer_t *b0;
-	  hicn_buffer_t *hb0;
 	  u8 isv6;
 	  u8 *nameptr;
 	  u16 namelen;
@@ -100,7 +99,6 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm,
 	  n_left_to_next -= 1;
 
 	  b0 = vlib_get_buffer (vm, bi0);
-	  hb0 = hicn_get_buffer (b0);
 	  next0 = HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP;
 
 	  /* Incr packet counter */
@@ -126,14 +124,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm,
 
 	      stats.pkts_data_count += 1;
 
-#if HICN_FEATURE_CS
-	      if ((res == HICN_ERROR_HASHTB_HASH_NOT_FOUND ||
-		   (res == HICN_ERROR_NONE && is_cs0)) &&
-		  ((hb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP)))
-		{
-		  next0 = HICN_DATA_PCSLOOKUP_NEXT_STORE_DATA;
-		}
-	      else if (res == HICN_ERROR_NONE)
+              if (res == HICN_ERROR_NONE)
 		{
 		  /*
 		   * In case the result of the lookup
@@ -143,18 +134,6 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm,
 		  next0 = HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD + is_cs0;
 		}
 	    }
-#else
-	      if (res == HICN_ERROR_NONE)
-		{
-		  /*
-		   * In case the result of the lookup
-		   * is a CS entry, the packet is
-		   * dropped
-		   */
-		  next0 = HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD + is_cs0;
-		}
-	    }
-#endif
 
 	  hicn_store_internal_state (b0, name_hash, node_id0, dpo_ctx_id0,
 				     vft_id0, hash_entry_id, bucket_id,
@@ -231,9 +210,6 @@ VLIB_REGISTER_NODE(hicn_data_pcslookup_node) =
   .error_strings = hicn_data_pcslookup_error_strings,
   .n_next_nodes = HICN_DATA_PCSLOOKUP_N_NEXT,
   .next_nodes = {
-    [HICN_DATA_PCSLOOKUP_NEXT_V4_LOOKUP] = "ip4-lookup",
-    [HICN_DATA_PCSLOOKUP_NEXT_V6_LOOKUP] = "ip6-lookup",
-    [HICN_DATA_PCSLOOKUP_NEXT_STORE_DATA] = "hicn-data-push",
     [HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD] = "hicn-data-fwd",
     [HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP] = "error-drop",
   },
