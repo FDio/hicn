@@ -676,6 +676,13 @@ set_table_interface_add_del (vnet_main_t * vnm, u32 sw_if_index, u32 is_add)
   if (!is_add)
     return HICN_ERROR_NONE;
 
+  vnet_sw_interface_t *  sw_int = vnet_get_sw_interface(vnm, sw_if_index);
+  vnet_hw_interface_t *  hw_int = vnet_get_hw_interface(vnm, sw_int->hw_if_index);
+
+  char * mpls = "mpls";
+  if (strstr((char *)hw_int->name, mpls) == NULL)
+    return 0;
+
   int rv = ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, HICN_FIB_TABLE, 1);
 
   if (!rv)
