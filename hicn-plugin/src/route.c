@@ -716,7 +716,7 @@ set_table_interface_add_del (vnet_main_t * vnm, u32 sw_if_index, u32 is_add)
   return rv ? clib_error_return (0, "unable to add hicn table to interface") : 0;
 }
 
-VNET_SW_INTERFACE_ADD_DEL_FUNCTION (set_table_interface_add_del);
+//VNET_SW_INTERFACE_ADD_DEL_FUNCTION (set_table_interface_add_del);
 
 void
 hicn_route_init ()
