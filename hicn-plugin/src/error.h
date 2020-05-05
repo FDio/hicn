@@ -16,6 +16,13 @@
 #ifndef __HICN_ERROR_H__
 #define __HICN_ERROR_H__
 
+/**
+ * @file error.h
+ *
+ * Error codes for the hICN plugin.
+ */
+
+
 #define foreach_hicn_error                                              \
  _(NONE, 0, "Ok")                                                       \
  _(UNSPECIFIED, -128, "Unspecified Error")                              \

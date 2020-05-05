@@ -22,8 +22,17 @@
 #include "error.h"
 #include "cache_policies/cs_policy.h"
 #include "faces/face.h"
-#include "faces/dpo_face.h"
-//#include "faces/app/face_prod.h"
+
+/**
+ * @file pcs.h
+ *
+ * This file implement the PIT and CS which are collapsed in the same
+ * structure, thereore an entry is either a PIT entry of a CS entry.
+ * The implementation consist of a hash table where each entry of the
+ * hash table contains a PIT or CS entry, some counters to maintain the
+ * status of the PIT/CS and the reference to the eviction policy for
+ * the CS. The default eviction policy id FIFO.
+ */
 
 /* The PIT and CS are stored as a union */
 #define HICN_PIT_NULL_TYPE 0
@@ -32,7 +41,7 @@
 
 /*
  * Definitions and Forward refs for the time counters we're trying out.
- * Counters are maintained by the background process.
+ * Counters are maintained by the background process. TODO.
  */
 #define SEC_MS 1000
 #define HICN_INFRA_FAST_TIMER_SECS  1
@@ -41,8 +50,7 @@
 #define HICN_INFRA_SLOW_TIMER_MSECS (HICN_INFRA_SLOW_TIMER_SECS * SEC_MS)
 
 /*
- * Max number of incoming (interest) faces supported, for now. Note that
- * changing this may change alignment within the PIT struct, so be careful.
+ * Note that changing this may change alignment within the PIT struct, so be careful.
  */
 typedef struct __attribute__ ((packed)) hicn_pcs_shared_s
 {
@@ -72,13 +80,11 @@ typedef struct __attribute__ ((packed)) hicn_pit_entry_s
 
   /*
    * Egress next hop (containes the egress face) This id refers to the
-   * nh
-   */
-  /* choosen in the next_hops array of the dpo */
+   * position of the choosen face in the next_hops array of the dpo */
   /* 18B + 1B = 19B */
   u8 pe_txnh;
 
-  /* Array of faces */
+  /* Array of incoming ifaces */
   /* 24B + 32B (8B*4) =56B */
   hicn_face_db_t faces;
 
@@ -101,12 +107,6 @@ typedef struct __attribute__ ((packed)) hicn_cs_entry_s
   /* Ingress face */
   /* 24B + 4B = 28B */
   hicn_face_id_t cs_rxface;
-  /* //Fix alignment issues */
-  /* union */
-  /* { */
-  /*   dpo_id_t cs_rxface; */
-  /*   u64 cs_rxface_u64; */
-  /* }; */
 
   /* Linkage for LRU, in the form of hashtable node indexes */
   /* 28B + 8B = 36B */

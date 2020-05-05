@@ -19,6 +19,14 @@
 #include <vnet/dpo/dpo.h>
 #include "../strategy_dpo_ctx.h"
 
+/**
+ * @file dpo_mw.h
+ *
+ * This file implements the strategy vtf (see strategy.h) and
+ * the dpo vft (see strategy_dpo_manager.h) for the strategy
+ * maximum weight
+ */
+
 #define DEFAULT_WEIGHT 0
 
 typedef struct hicn_strategy_mw_ctx_s

@@ -19,6 +19,13 @@
 #include "../strategy.h"
 
 /**
+ * @file strategy_mw.h
+ *
+ * This file implements the maximum weight strategy. In this
+ * strategy the choosen next hop is one with the maximum weight.
+ */
+
+/**
  * @brief Return the vft for the Maximum Weight strategy
  */
 hicn_strategy_vft_t *hicn_mw_strategy_get_vft (void);
