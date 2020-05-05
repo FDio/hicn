@@ -34,9 +34,9 @@
  *
  * An hICN DPO ctx contains the list of next hops, auxiliaries fields to maintain the dpo, map-me
  * specifics (tfib_entry_count and seq), the dpo_type and 64B to let each strategy to store additional
- * information. Each next hop is a dpo_id_t that refers to an hICN face. The dpo_type is used to
- * identify the strategy and to retrieve the vft corresponding to the strategy (see strategy.h)
- * and to the dpo ctx (see strategy_dpo_manager.h)
+ * information. Each next hop is an hicn_face_id_t that refers to an index for an hICN face. The
+ * dpo_type is used to identify the strategy and to retrieve the vft corresponding to the strategy
+ * (see strategy.h) and to the dpo ctx (see strategy_dpo_manager.h)
  */
 typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
 {
