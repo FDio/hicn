@@ -48,21 +48,6 @@ typedef struct hicn_dpo_vft_s
  */
 extern hicn_dpo_vft_t default_dpo;
 
-const static char *const hicn_ip6_nodes[] = {
-  "hicn6-iface-input",	// this is the name you give your node in VLIB_REGISTER_NODE
-  NULL,
-};
-
-const static char *const hicn_ip4_nodes[] = {
-  "hicn4-iface-input",	// this is the name you give your node in VLIB_REGISTER_NODE
-  NULL,
-};
-
-const static char *const *const hicn_nodes_strategy[DPO_PROTO_NUM] = {
-  [DPO_PROTO_IP6] = hicn_ip6_nodes,
-  [DPO_PROTO_IP4] = hicn_ip4_nodes,
-};
-
 /**
  *  @brief Register a new hICN dpo to the manager.
  *
@@ -78,7 +63,9 @@ const static char *const *const hicn_nodes_strategy[DPO_PROTO_NUM] = {
  * @param hicn_nodes A list of vpp to which pass an interest that matches with
  * the FIB entry to which the hICN DPO is applied. This list must contain the
  * name of the strategy node (or nodes in case of differentiation between IPv4
- * and IPv6).
+ * and IPv6). Unless really needed otherwise (i.e., different implementation of
+ * iface input), the list of node to use should be one provided in the strategy.h
+ * (hicn_nodes_strategy)
  * @param hicn_dpo_vft The structure holding the virtual function table to
  * interact with the hICN dpo and its context.
  * @param hicn_strategy_vft The structure holding the virtual function table
