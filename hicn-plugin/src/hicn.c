@@ -16,6 +16,7 @@
 #include <vnet/vnet.h>
 #include <vnet/plugin/plugin.h>
 #include <vlib/vlib.h>
+#include <vnet/interface.h>
 
 #include "hicn.h"
 #include "params.h"
@@ -80,7 +81,8 @@ int
 hicn_infra_plugin_enable_disable (int enable_disable,
 				  int pit_size_req,
 				  f64 pit_max_lifetime_sec_req,
-				  int cs_size_req)
+				  int cs_size_req,
+                                  vnet_link_t link)
 {
   int ret = 0;
 
@@ -171,7 +173,7 @@ hicn_infra_plugin_enable_disable (int enable_disable,
       goto done;
     }
   sm->is_enabled = 1;
-
+  sm->link = link;
   //hicn_face_udp_init_internal ();
 
 done:
@@ -186,6 +188,9 @@ hicn_configure (vlib_main_t * vm, unformat_input_t * input)
   u32 cs_size = HICN_PARAM_CS_ENTRIES_DFLT;
   u64 pit_lifetime_max_sec = HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS / SEC_MS;
 
+  vnet_link_t link;
+
+
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (input, "pit-size %u", &pit_size))
@@ -194,6 +199,8 @@ hicn_configure (vlib_main_t * vm, unformat_input_t * input)
 	;
       else if (unformat (input, "pit-lifetime-max %u", &pit_lifetime_max_sec))
 	;
+      else if (unformat (input, "grab mpls-tunnels"))
+	link = VNET_LINK_MPLS;
       else
 	break;
     }
@@ -202,7 +209,7 @@ hicn_configure (vlib_main_t * vm, unformat_input_t * input)
 
   hicn_infra_plugin_enable_disable (1, pit_size,
 				    pit_lifetime_max_sec,
-				    cs_size);
+				    cs_size, link);
 
 
   return 0;

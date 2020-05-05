@@ -91,7 +91,8 @@ vl_api_hicn_api_node_params_set_t_handler (vl_api_hicn_api_node_params_set_t *
   rv = hicn_infra_plugin_enable_disable ((int) (mp->enable_disable),
 					 pit_max_size,
 					 pit_max_lifetime_sec,
-					 cs_max_size);
+					 cs_max_size,
+                                         ~0);
 
   REPLY_MACRO (VL_API_HICN_API_NODE_PARAMS_SET_REPLY /* , rmp, mp, rv */ );
 }

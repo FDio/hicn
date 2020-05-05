@@ -18,6 +18,7 @@
 
 #include <vlib/vlib.h>
 #include <vnet/vnet.h>
+#include <vnet/interface.h>
 
 #include "pcs.h"
 
@@ -43,6 +44,8 @@ typedef struct hicn_main_s
    */
   u64 pit_lifetime_max_ms;
 
+  vnet_link_t link;
+
 } hicn_main_t;
 
 extern hicn_main_t hicn_main;
@@ -67,7 +70,8 @@ int
 hicn_infra_plugin_enable_disable (int enable_disable,
 				  int pit_max_size,
 				  f64 pit_max_lifetime_sec_req,
-				  int cs_max_size);
+				  int cs_max_size,
+                                  vnet_link_t link);
 
 
 /* vlib nodes that compose the hICN forwarder */

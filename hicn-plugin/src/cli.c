@@ -61,7 +61,8 @@ hicn_cli_node_ctl_start_set_command_fn (vlib_main_t * vm,
 					  node_ctl_params.pit_max_size,
 					  node_ctl_params.
 					  pit_max_lifetime_sec,
-					  node_ctl_params.cs_max_size);
+					  node_ctl_params.cs_max_size,
+                                          ~0);
 
   vlib_cli_output (vm, "hicn: fwdr initialize => %s\n",
 		   get_error_string (ret));
@@ -104,7 +105,8 @@ hicn_cli_node_ctl_stop_set_command_fn (vlib_main_t * vm,
 					  node_ctl_params.pit_max_size,
 					  node_ctl_params.
 					  pit_max_lifetime_sec,
-					  node_ctl_params.cs_max_size);
+					  node_ctl_params.cs_max_size,
+                                          ~0);
 
   return (ret == HICN_ERROR_NONE) ? 0 : clib_error_return (0,
 							   get_error_string
