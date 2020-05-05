@@ -17,7 +17,6 @@
 
 #include "face.h"
 #include "face_node.h"
-#include "dpo_face.h"
 #include "../strategy_dpo_manager.h"
 #include "face.h"
 #include "../cache_policies/cs_lru.h"
@@ -97,8 +96,8 @@ typedef enum
 #define IP_HEADER_4 ip4_header_t
 #define IP_HEADER_6 ip6_header_t
 
-#define LOCK_DPO_FACE_IP4 hicn_dpo_face_ip4_lock
-#define LOCK_DPO_FACE_IP6 hicn_dpo_face_ip6_lock
+#define LOCK_DPO_FACE_IP4 hicn_face_ip4_lock
+#define LOCK_DPO_FACE_IP6 hicn_face_ip6_lock
 
 #define TRACE_INPUT_PKT_IP4 hicn4_face_input_trace_t
 #define TRACE_INPUT_PKT_IP6 hicn6_face_input_trace_t

@@ -40,3 +40,5 @@ include (Packaging)
 add_subdirectory(src)
 
 add_subdirectory(vapi)
+
+add_subdirectory (doc)

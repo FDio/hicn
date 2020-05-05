@@ -75,13 +75,11 @@ set(HICN_PLUGIN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/data_input_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/data_pcslookup_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/data_fwd_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/data_push_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/error.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_cli.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/iface_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/dpo_face.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod.c
