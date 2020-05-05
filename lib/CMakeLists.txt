@@ -48,5 +48,4 @@ endif ()
 
 add_subdirectory(includes)
 add_subdirectory (src)
-add_subdirectory (doc)
 

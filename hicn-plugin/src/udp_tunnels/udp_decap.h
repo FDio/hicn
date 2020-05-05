@@ -13,4 +13,20 @@
  * limitations under the License.
  */
 
+#ifndef __UDP_DECAP_H__
+#define __UDP_DECAP_H__
+
+/**
+ * @file udp_decap.h
+ *
+ * Implements the udp decapsulation for udp tunnels
+ *
+ * Udp decap nodes follow the ip4/6-local nodes and their purpose
+ * is to retrieve the udp tunnel for the incoming packet. If a tunnel does
+ * not exist the packet is dropped.
+ * The following node to the udp decap nodes are the ip4/6-lookup nodes.
+ */
+
 extern vlib_node_registration_t udp_decap_node;
+
+#endif // __UDP_DECAP_H__

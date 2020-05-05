@@ -20,7 +20,7 @@
 #include "faces/face.h"
 
 /**
- * @File
+ * @file face_db.h
  *
  * Define a face db that is store in every pit entry. A face db containes a list
  * of incoming faces for interest packets that are used to forward data packets

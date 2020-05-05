@@ -19,6 +19,13 @@
 #include "../strategy.h"
 
 /**
+ * @file strategy_rr.h
+ *
+ * This file implements the round robin strategy. In this
+ * strategy the next hop is choosen in a round robin way.
+ */
+
+/**
  * @brief Return the vft for the Round Robin strategy
  */
 hicn_strategy_vft_t *hicn_rr_strategy_get_vft (void);

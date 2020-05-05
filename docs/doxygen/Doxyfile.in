@@ -1,4 +1,4 @@
-PROJECT_NAME           = "Hybrid ICN (hICN)"
+PROJECT_NAME           = "Hybrid ICN (hICN) plugin"
 PROJECT_NUMBER         = @VERSION@
 STRIP_FROM_PATH        = @PROJECT_SOURCE_DIR@ \
                          @PROJECT_BINARY_DIR@
@@ -7,6 +7,6 @@ INPUT                  = @doxy_main_page@ \
                          @PROJECT_BINARY_DIR@
 FILE_PATTERNS          = *.md \
                          *.h \
-                         *.cc
+                         *.hpp
 RECURSIVE              = YES
 USE_MDFILE_AS_MAINPAGE = @doxy_main_page@

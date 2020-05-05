@@ -22,6 +22,18 @@
 #include "params.h"
 #include "faces/face.h"
 
+/**
+ * @file strategy_dpo_ctx.h
+ *
+ * This file implements the general hICN DPO ctx (shared among all the strategies).
+ *
+ * An hICN DPO ctx contains the list of next hops, auxiliaries fields to maintain the dpo, map-me
+ * specifics (tfib_entry_count and seq), the dpo_type and 64B to let each strategy to store additional
+ * information. Each next hop is an hicn_face_id_t that refers to an index for an hICN face. The
+ * dpo_type is used to identify the strategy and to retrieve the vft corresponding to the strategy
+ * (see strategy.h) and to the dpo ctx (see strategy_dpo_manager.h)
+ */
+
 //FIB table for hicn. 0 is the default one used by ip
 #define HICN_FIB_TABLE 10
 
@@ -29,15 +41,6 @@
 
 #define INIT_SEQ 0
 
-/**
- * @brief Definition of the general hICN DPO ctx (shared among all the strategies).
- *
- * An hICN DPO ctx contains the list of next hops, auxiliaries fields to maintain the dpo, map-me
- * specifics (tfib_entry_count and seq), the dpo_type and 64B to let each strategy to store additional
- * information. Each next hop is a dpo_id_t that refers to an hICN face. The dpo_type is used to
- * identify the strategy and to retrieve the vft corresponding to the strategy (see strategy.h)
- * and to the dpo ctx (see strategy_dpo_manager.h)
- */
 typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
 {
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
