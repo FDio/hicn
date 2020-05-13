@@ -19,6 +19,23 @@
 #include <vlib/vlib.h>
 #include <vnet/vnet.h>
 
+/**
+ * @file face_node.h
+ *
+ * Implements the input and output face nodes. Input face nodes
+ * process incoming data while output face nodes process outgoing
+ * interests packets.
+ *
+ * Input face nodes follow hicn-face-input nodes and their purpose
+ * is to retrieve the list of possible incoming faces for each the data packet.
+ * The following node to the input face nodes is the hicn-data-pcslookup.
+ * Output face nodes follow the strategy and the hicn-interest-hitpit nodes and
+ * they perform the src nat on each interest packet. The node following the
+ * output face nodes depends on the adjacency type. In case of ip, the following
+ * node is the ip-rewrite, in case of tunnels the next node is the one implementing
+ * the tunnel encapsulation (udp-encap, mpls, etc).
+ */
+
 extern vlib_node_registration_t hicn4_face_input_node;
 extern vlib_node_registration_t hicn4_face_output_node;
 extern vlib_node_registration_t hicn6_face_input_node;

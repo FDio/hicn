@@ -20,6 +20,11 @@
 #include "faces/face.h"
 #include "hicn_api.h"
 
+/**
+ * @file mgmt.h
+ *
+ */
+
 typedef struct icn_stats_s
 {
   u32 pkts_processed;

@@ -39,6 +39,10 @@
 #include <vnet/ip/ip4_packet.h>
 #include <vnet/buffer.h>
 
+/**
+ * @file
+ */
+
 /* Helper for avoiding warnings about type-punning */
 #define UNION_CAST(x, destType) \
    (((union {__typeof__(x) a; destType b;})x).b)

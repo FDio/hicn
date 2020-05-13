@@ -18,6 +18,12 @@
 
 #include <math.h>
 
+/**
+ * @file params.h
+ *
+ */
+
+
 /*
  * Features
  */

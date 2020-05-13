@@ -24,6 +24,11 @@
 #include <vlib/vlib.h>
 #include <vnet/vnet.h>
 
+/**
+ * @file mapme_ctrl.h
+ *
+ */
+
 /* Node context data */
 typedef struct hicn_mapme_ctrl_runtime_s
 {

@@ -103,5 +103,7 @@ foreach(dir ${subdirs})
   add_subdirectory(${dir})
 endforeach()
 
+add_subdirectory(docs/doxygen)
+
 include(Packager)
 make_packages()
