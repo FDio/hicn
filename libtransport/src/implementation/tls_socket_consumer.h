@@ -69,42 +69,27 @@ class TLSConsumerSocket : public ConsumerSocket,
 
  private:
   Name name_;
-
   /* SSL handle */
   SSL *ssl_;
   SSL_CTX *ctx_;
-
   /* Chain of MemBuf to be used as a temporary buffer to pass descypted data
    * from the underlying layer to the application */
   utils::ObjectPool<utils::MemBuf> buf_pool_;
   std::unique_ptr<utils::MemBuf> decrypted_content_;
-
-  /* Chain of MemBuf holding the payload to be written into interest or data
-   */
+  /* Chain of MemBuf holding the payload to be written into interest or data */
   std::unique_ptr<utils::MemBuf> payload_;
-
   /* Chain of MemBuf holding the data retrieved from the underlying layer */
   std::unique_ptr<utils::MemBuf> head_;
-
   bool something_to_read_;
-
   bool content_downloaded_;
-
   double old_max_win_;
-
   double old_current_win_;
-
   uint32_t random_suffix_;
-
   Prefix producer_namespace_;
-
   interface::ConsumerSocket::ReadCallback *read_callback_decrypted_;
-
   std::mutex mtx_;
-
   /* Condition variable for the wait */
   std::condition_variable cv_;
-
   utils::EventThread async_downloader_tls_;
 
   void setInterestPayload(interface::ConsumerSocket &c,
@@ -123,11 +108,11 @@ class TLSConsumerSocket : public ConsumerSocket,
   virtual void readError(const std::error_code ec) noexcept override;
 
   virtual void readSuccess(std::size_t total_size) noexcept override;
+
   virtual bool isBufferMovable() noexcept override;
 
   int download_content(const Name &name);
 };
 
 }  // namespace implementation
-
 }  // end namespace transport
