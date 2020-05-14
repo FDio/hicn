@@ -93,9 +93,9 @@ class RTCTransportProtocol : public TransportProtocol,
 
   ~RTCTransportProtocol();
 
-  int start() override;
+  int start(bool is_async) override;
 
-  void stop() override;
+  void stop(bool is_async) override;
 
   void resume() override;
 

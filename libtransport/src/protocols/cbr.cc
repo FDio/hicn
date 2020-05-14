@@ -14,7 +14,6 @@
  */
 
 #include <implementation/socket_consumer.h>
-
 #include <protocols/cbr.h>
 
 namespace transport {
@@ -27,7 +26,9 @@ CbrTransportProtocol::CbrTransportProtocol(
     implementation::ConsumerSocket *icnet_socket)
     : RaaqmTransportProtocol(icnet_socket) {}
 
-int CbrTransportProtocol::start() { return RaaqmTransportProtocol::start(); }
+int CbrTransportProtocol::start(bool is_async) {
+  return RaaqmTransportProtocol::start(is_async);
+}
 
 void CbrTransportProtocol::reset() {
   RaaqmTransportProtocol::reset();

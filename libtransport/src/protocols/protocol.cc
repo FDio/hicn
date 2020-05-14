@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/interfaces/socket_consumer.h>
-
 #include <implementation/socket_consumer.h>
 #include <protocols/protocol.h>
 
@@ -45,7 +44,7 @@ TransportProtocol::TransportProtocol(implementation::ConsumerSocket *icn_socket,
   socket_->getSocketOption(OtherOptions::STATISTICS, &stats_);
 }
 
-int TransportProtocol::start() {
+int TransportProtocol::start(bool is_async) {
   // If the protocol is already running, return otherwise set as running
   if (is_running_) return -1;
 
@@ -83,18 +82,23 @@ int TransportProtocol::start() {
   // Set the protocol as running
   is_running_ = true;
 
-  // Start Event loop
-  portal_->runEventsLoop();
+  if (!is_async) {
+    // Start Event loop
+    portal_->runEventsLoop();
 
-  // Not running anymore
-  is_running_ = false;
+    // Not running anymore
+    is_running_ = false;
+  }
 
   return 0;
 }
 
-void TransportProtocol::stop() {
+void TransportProtocol::stop(bool is_async) {
   is_running_ = false;
-  portal_->stopEventsLoop();
+
+  if (!is_async) {
+    portal_->stopEventsLoop();
+  }
 }
 
 void TransportProtocol::resume() {

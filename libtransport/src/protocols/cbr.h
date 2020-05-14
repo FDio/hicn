@@ -25,7 +25,7 @@ class CbrTransportProtocol : public RaaqmTransportProtocol {
  public:
   CbrTransportProtocol(implementation::ConsumerSocket *icnet_socket);
 
-  int start() override;
+  int start(bool is_async) override;
 
   void reset() override;
 

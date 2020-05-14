@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/interfaces/socket_consumer.h>
-
 #include <implementation/socket_consumer.h>
 #include <protocols/errors.h>
 #include <protocols/indexer.h>
@@ -46,7 +45,7 @@ RaaqmTransportProtocol::~RaaqmTransportProtocol() {
   }
 }
 
-int RaaqmTransportProtocol::start() {
+int RaaqmTransportProtocol::start(bool is_async) {
   if (rate_estimator_) {
     rate_estimator_->onStart();
   }

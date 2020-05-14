@@ -15,18 +15,17 @@
 
 #pragma once
 
-#include <atomic>
-
 #include <hicn/transport/interfaces/callbacks.h>
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/statistics.h>
 #include <hicn/transport/utils/object_pool.h>
-
 #include <implementation/socket.h>
 #include <protocols/data_processing_events.h>
 #include <protocols/indexer.h>
 #include <protocols/packet_manager.h>
 #include <protocols/reassembly.h>
+
+#include <atomic>
 
 namespace transport {
 
@@ -59,9 +58,9 @@ class TransportProtocol : public implementation::BasePortal::ConsumerCallback,
 
   TRANSPORT_ALWAYS_INLINE bool isRunning() { return is_running_; }
 
-  virtual int start();
+  virtual int start(bool async = false);
 
-  virtual void stop();
+  virtual void stop(bool async = false);
 
   virtual void resume();
 
