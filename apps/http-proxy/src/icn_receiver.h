@@ -13,17 +13,18 @@
  * limitations under the License.
  */
 
-#include "ATSConnector.h"
-
 #include <hicn/transport/core/prefix.h>
 #include <hicn/transport/interfaces/publication_options.h>
 #include <hicn/transport/interfaces/socket_producer.h>
 #include <hicn/transport/utils/spinlock.h>
 
+#include <asio.hpp>
 #include <cassert>
 #include <cstring>
 #include <queue>
 #include <utility>
+
+#include "http_session.h"
 
 namespace transport {
 
@@ -33,17 +34,29 @@ class AsyncConsumerProducer {
   using RequestQueue = std::queue<interface::PublicationOptions>;
 
  public:
-  explicit AsyncConsumerProducer(const std::string& prefix,
-                                 std::string& ip_address, std::string& port,
-                                 std::string& cache_size, std::string& mtu,
-                                 std::string& first_ipv6_word,
-                                 unsigned long default_content_lifetime, bool manifest);
+  explicit AsyncConsumerProducer(
+      asio::io_service& io_service, const std::string& prefix,
+      const std::string& first_ipv6_word, const std::string& origin_address,
+      const std::string& origin_port, const std::string& cache_size,
+      const std::string& mtu, const std::string& content_lifetime,
+      bool manifest);
 
-  void start();
+  explicit AsyncConsumerProducer(
+      const std::string& prefix, const std::string& first_ipv6_word,
+      const std::string& origin_address, const std::string& origin_port,
+      const std::string& cache_size, const std::string& mtu,
+      const std::string& content_lifetime, bool manifest)
+      : AsyncConsumerProducer(internal_io_service_, prefix, first_ipv6_word,
+                              origin_address, origin_port, cache_size, mtu,
+                              content_lifetime, manifest) {
+    external_io_service_ = false;
+  }
 
   void run();
 
  private:
+  void start();
+
   void doSend();
 
   void doReceive();
@@ -55,7 +68,9 @@ class AsyncConsumerProducer {
                               utils::MemBuf* payload);
 
   core::Prefix prefix_;
-  asio::io_service io_service_;
+  asio::io_service& io_service_;
+  asio::io_service internal_io_service_;
+  bool external_io_service_;
   interface::ProducerSocket producer_socket_;
 
   std::string ip_address_;
@@ -68,7 +83,7 @@ class AsyncConsumerProducer {
 
   // std::unordered_map<core::Name, std::shared_ptr<ATSConnector>>
   // connection_map_;
-  ATSConnector connector_;
+  HTTPSession connector_;
 
   unsigned long default_content_lifetime_;
 
