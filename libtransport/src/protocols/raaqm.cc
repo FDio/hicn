@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/interfaces/socket_consumer.h>
-
 #include <implementation/socket_consumer.h>
 #include <protocols/errors.h>
 #include <protocols/indexer.h>
@@ -36,7 +35,8 @@ RaaqmTransportProtocol::RaaqmTransportProtocol(
       interests_in_flight_(0),
       cur_path_(nullptr),
       t0_(utils::SteadyClock::now()),
-      rate_estimator_(nullptr) {
+      rate_estimator_(nullptr),
+      schedule_interests_(true) {
   init();
 }
 
@@ -451,7 +451,9 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
 }
 
 void RaaqmTransportProtocol::scheduleNextInterests() {
-  if (TRANSPORT_EXPECT_FALSE(!is_running_ && !is_first_)) {
+  bool cancel = (!is_running_ && !is_first_) || !schedule_interests_;
+  if (TRANSPORT_EXPECT_FALSE(cancel)) {
+    schedule_interests_ = true;
     return;
   }
 
@@ -522,6 +524,7 @@ void RaaqmTransportProtocol::sendInterest(Interest::Ptr &&interest) {
 void RaaqmTransportProtocol::onContentReassembled(std::error_code ec) {
   rate_estimator_->onDownloadFinished();
   TransportProtocol::onContentReassembled(ec);
+  schedule_interests_ = false;
 }
 
 void RaaqmTransportProtocol::updateRtt(uint64_t segment) {

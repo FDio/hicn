@@ -14,7 +14,6 @@
  */
 
 #include <implementation/socket_consumer.h>
-
 #include <protocols/cbr.h>
 
 namespace transport {

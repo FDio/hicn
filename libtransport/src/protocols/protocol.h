@@ -15,18 +15,17 @@
 
 #pragma once
 
-#include <atomic>
-
 #include <hicn/transport/interfaces/callbacks.h>
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/statistics.h>
 #include <hicn/transport/utils/object_pool.h>
-
 #include <implementation/socket.h>
 #include <protocols/data_processing_events.h>
 #include <protocols/indexer.h>
 #include <protocols/packet_manager.h>
 #include <protocols/reassembly.h>
+
+#include <atomic>
 
 namespace transport {
 
@@ -107,6 +106,8 @@ class TransportProtocol : public implementation::BasePortal::ConsumerCallback,
   interface::ConsumerContentObjectVerificationFailedCallback
       *verification_failed_callback_;
   ReadCallback *on_payload_;
+
+  bool is_async_;
 };
 
 }  // end namespace protocol

@@ -27,7 +27,6 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/min_filter.h
   ${CMAKE_CURRENT_SOURCE_DIR}/stream_buffer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/suffix_strategy.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/event_thread.h
   ${CMAKE_CURRENT_SOURCE_DIR}/content_store.h
   ${CMAKE_CURRENT_SOURCE_DIR}/deadline_timer.h
 )

@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/interfaces/socket_consumer.h>
-
 #include <implementation/socket_consumer.h>
 #include <protocols/protocol.h>
 
@@ -74,6 +73,7 @@ int TransportProtocol::start() {
                            &verification_failed_callback_);
   socket_->getSocketOption(ConsumerCallbacksOptions::READ_CALLBACK,
                            &on_payload_);
+  socket_->getSocketOption(GeneralTransportOptions::ASYNC_MODE, is_async_);
 
   // Schedule next interests
   scheduleNextInterests();
@@ -83,18 +83,25 @@ int TransportProtocol::start() {
   // Set the protocol as running
   is_running_ = true;
 
-  // Start Event loop
-  portal_->runEventsLoop();
+  if (!is_async_) {
+    // Start Event loop
+    portal_->runEventsLoop();
 
-  // Not running anymore
-  is_running_ = false;
+    // Not running anymore
+    is_running_ = false;
+  }
 
   return 0;
 }
 
 void TransportProtocol::stop() {
   is_running_ = false;
-  portal_->stopEventsLoop();
+
+  if (!is_async_) {
+    portal_->stopEventsLoop();
+  } else {
+    portal_->clear();
+  }
 }
 
 void TransportProtocol::resume() {
@@ -110,6 +117,8 @@ void TransportProtocol::resume() {
 }
 
 void TransportProtocol::onContentReassembled(std::error_code ec) {
+  stop();
+
   if (!on_payload_) {
     throw errors::RuntimeException(
         "The read callback must be installed in the transport before "
@@ -122,8 +131,6 @@ void TransportProtocol::onContentReassembled(std::error_code ec) {
   } else {
     on_payload_->readError(ec);
   }
-
-  stop();
 }
 
 }  // end namespace protocol

@@ -15,6 +15,9 @@
 
 #pragma once
 
+#include <core/forwarder_interface.h>
+#include <core/pending_interest.h>
+#include <core/udp_socket_connector.h>
 #include <hicn/transport/config.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
@@ -23,12 +26,8 @@
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/interfaces/portal.h>
 #include <hicn/transport/portability/portability.h>
-#include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/fixed_block_allocator.h>
-
-#include <core/forwarder_interface.h>
-#include <core/pending_interest.h>
-#include <core/udp_socket_connector.h>
+#include <hicn/transport/utils/log.h>
 
 #ifdef __vpp__
 #include <core/memif_connector.h>
