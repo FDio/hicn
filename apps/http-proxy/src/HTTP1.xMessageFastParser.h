@@ -15,16 +15,17 @@
 
 #pragma once
 
+#include <hicn/transport/http/message.h>
+
 #include <algorithm>
 #include <string>
-
-#include <hicn/transport/http/message.h>
 
 using transport::http::HTTPHeaders;
 
 class HTTPMessageFastParser {
  public:
-  static HTTPHeaders getHeaders(const uint8_t* headers, std::size_t length);
+  static HTTPHeaders getHeaders(const uint8_t* headers, std::size_t length,
+                                bool request);
   static std::size_t hasBody(const uint8_t* headers, std::size_t length);
   static bool isMpdRequest(const uint8_t* headers, std::size_t length);
   static uint32_t parseCacheControl(const uint8_t* headers, std::size_t length);
