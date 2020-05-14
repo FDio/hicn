@@ -15,10 +15,12 @@
 
 #pragma once
 
+#include <hicn/transport/config.h>
 #include <hicn/transport/errors/runtime_exception.h>
-#include <memory>
 
 #include <asio.hpp>
+#include <memory>
+#include <thread>
 
 namespace utils {
 

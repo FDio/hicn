@@ -16,7 +16,6 @@
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/utils/array.h>
 #include <hicn/transport/utils/membuf.h>
-
 #include <implementation/socket_consumer.h>
 #include <protocols/byte_stream_reassembly.h>
 #include <protocols/errors.h>
@@ -67,7 +66,9 @@ void ByteStreamReassembly::assembleContent() {
   while (it != received_packets_.end()) {
     // Check if valid packet
     if (it->second) {
-      copyContent(*it->second);
+      if (TRANSPORT_EXPECT_FALSE(copyContent(*it->second))) {
+        return;
+      }
     }
 
     received_packets_.erase(it);
@@ -80,7 +81,9 @@ void ByteStreamReassembly::assembleContent() {
   }
 }
 
-void ByteStreamReassembly::copyContent(const ContentObject &content_object) {
+bool ByteStreamReassembly::copyContent(const ContentObject &content_object) {
+  bool ret = false;
+
   auto payload = content_object.getPayloadReference();
   auto payload_length = payload.second;
   auto write_size = std::min(payload_length, read_buffer_->tailroom());
@@ -102,10 +105,13 @@ void ByteStreamReassembly::copyContent(const ContentObject &content_object) {
       index_manager_->getFinalSuffix() == content_object.getName().getSuffix();
 
   if (TRANSPORT_EXPECT_FALSE(download_complete_)) {
+    ret = download_complete_;
     notifyApplication();
     transport_protocol_->onContentReassembled(
         make_error_code(protocol_error::success));
   }
+
+  return ret;
 }
 
 void ByteStreamReassembly::reInitialize() {

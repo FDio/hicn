@@ -16,7 +16,6 @@
 #pragma once
 
 #include <hicn/transport/utils/chrono_typedefs.h>
-
 #include <protocols/byte_stream_reassembly.h>
 #include <protocols/congestion_window_protocol.h>
 #include <protocols/protocol.h>
@@ -135,6 +134,8 @@ class RaaqmTransportProtocol : public TransportProtocol,
   double drop_lte_;
   unsigned int wifi_delay_;
   unsigned int lte_delay_;
+
+  bool schedule_interests_;
 };
 
 }  // end namespace protocol

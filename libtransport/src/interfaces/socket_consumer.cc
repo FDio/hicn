@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/interfaces/socket_consumer.h>
-
 #include <implementation/socket_consumer.h>
 
 namespace transport {
@@ -22,6 +21,11 @@ namespace interface {
 
 ConsumerSocket::ConsumerSocket(int protocol) {
   socket_ = std::make_unique<implementation::ConsumerSocket>(this, protocol);
+}
+
+ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service) {
+  socket_ = std::make_unique<implementation::ConsumerSocket>(this, protocol,
+                                                             io_service);
 }
 
 ConsumerSocket::ConsumerSocket() {}

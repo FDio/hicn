@@ -17,12 +17,11 @@
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/statistics.h>
 #include <hicn/transport/security/verifier.h>
-
+#include <hicn/transport/utils/event_thread.h>
 #include <protocols/cbr.h>
 #include <protocols/protocol.h>
 #include <protocols/raaqm.h>
 #include <protocols/rtc.h>
-#include <utils/event_thread.h>
 
 namespace transport {
 namespace implementation {
@@ -32,10 +31,11 @@ using namespace interface;
 using ReadCallback = interface::ConsumerSocket::ReadCallback;
 
 class ConsumerSocket : public Socket<BasePortal> {
- public:
-  ConsumerSocket(interface::ConsumerSocket *consumer, int protocol)
+ private:
+  ConsumerSocket(interface::ConsumerSocket *consumer, int protocol,
+                 std::shared_ptr<Portal> &&portal)
       : consumer_interface_(consumer),
-        portal_(std::make_shared<Portal>()),
+        portal_(portal),
         async_downloader_(),
         interest_lifetime_(default_values::interest_lifetime),
         min_window_size_(default_values::min_window_size),
@@ -83,6 +83,17 @@ class ConsumerSocket : public Socket<BasePortal> {
     }
   }
 
+ public:
+  ConsumerSocket(interface::ConsumerSocket *consumer, int protocol)
+      : ConsumerSocket(consumer, protocol, std::make_shared<Portal>()) {}
+
+  ConsumerSocket(interface::ConsumerSocket *consumer, int protocol,
+                 asio::io_service &io_service)
+      : ConsumerSocket(consumer, protocol,
+                       std::make_shared<Portal>(io_service)) {
+    is_async_ = true;
+  }
+
   ~ConsumerSocket() {
     stop();
     async_downloader_.stop();
@@ -110,7 +121,7 @@ class ConsumerSocket : public Socket<BasePortal> {
 
     transport_protocol_->start();
 
-    return CONSUMER_FINISHED;
+    return is_async_ ? CONSUMER_RUNNING : CONSUMER_FINISHED;
   }
 
   virtual int asyncConsume(const Name &name) {
@@ -630,6 +641,10 @@ class ConsumerSocket : public Socket<BasePortal> {
 
       case GeneralTransportOptions::KEY_CONTENT:
         socket_option_value = key_content_;
+        break;
+
+      case GeneralTransportOptions::ASYNC_MODE:
+        socket_option_value = is_async_;
         break;
 
       default:

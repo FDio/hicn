@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
-#include <hicn/transport/errors/not_implemented_exception.h>
-
 #include <core/memif_connector.h>
+#include <hicn/transport/errors/not_implemented_exception.h>
 
 #ifdef __vpp__
 
 #include <sys/epoll.h>
+
 #include <cstdlib>
 
 extern "C" {
