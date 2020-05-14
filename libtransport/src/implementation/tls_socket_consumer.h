@@ -82,8 +82,6 @@ class TLSConsumerSocket : public ConsumerSocket,
   std::unique_ptr<utils::MemBuf> head_;
   bool something_to_read_;
   bool content_downloaded_;
-  double old_max_win_;
-  double old_current_win_;
   uint32_t random_suffix_;
   Prefix producer_namespace_;
   interface::ConsumerSocket::ReadCallback *read_callback_decrypted_;
