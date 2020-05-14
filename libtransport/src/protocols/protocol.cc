@@ -44,7 +44,7 @@ TransportProtocol::TransportProtocol(implementation::ConsumerSocket *icn_socket,
   socket_->getSocketOption(OtherOptions::STATISTICS, &stats_);
 }
 
-int TransportProtocol::start(bool is_async) {
+int TransportProtocol::start() {
   // If the protocol is already running, return otherwise set as running
   if (is_running_) return -1;
 
@@ -73,6 +73,7 @@ int TransportProtocol::start(bool is_async) {
                            &verification_failed_callback_);
   socket_->getSocketOption(ConsumerCallbacksOptions::READ_CALLBACK,
                            &on_payload_);
+  socket_->getSocketOption(GeneralTransportOptions::ASYNC_MODE, is_async_);
 
   // Schedule next interests
   scheduleNextInterests();
@@ -82,7 +83,7 @@ int TransportProtocol::start(bool is_async) {
   // Set the protocol as running
   is_running_ = true;
 
-  if (!is_async) {
+  if (!is_async_) {
     // Start Event loop
     portal_->runEventsLoop();
 
@@ -93,10 +94,10 @@ int TransportProtocol::start(bool is_async) {
   return 0;
 }
 
-void TransportProtocol::stop(bool is_async) {
+void TransportProtocol::stop() {
   is_running_ = false;
 
-  if (!is_async) {
+  if (!is_async_) {
     portal_->stopEventsLoop();
   }
 }
@@ -114,6 +115,8 @@ void TransportProtocol::resume() {
 }
 
 void TransportProtocol::onContentReassembled(std::error_code ec) {
+  stop();
+
   if (!on_payload_) {
     throw errors::RuntimeException(
         "The read callback must be installed in the transport before "
@@ -126,8 +129,6 @@ void TransportProtocol::onContentReassembled(std::error_code ec) {
   } else {
     on_payload_->readError(ec);
   }
-
-  stop();
 }
 
 }  // end namespace protocol

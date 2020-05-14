@@ -15,6 +15,7 @@
 
 #include "HTTP1.xMessageFastParser.h"
 
+#include <hicn/transport/http/request.h>
 #include <hicn/transport/http/response.h>
 
 #include <experimental/algorithm>
@@ -31,15 +32,27 @@ std::string HTTPMessageFastParser::connection = "Connection";
 std::string HTTPMessageFastParser::separator = "\r\n\r\n";
 
 HTTPHeaders HTTPMessageFastParser::getHeaders(const uint8_t *headers,
-                                              std::size_t length) {
+                                              std::size_t length,
+                                              bool request) {
   HTTPHeaders ret;
   std::string http_version;
-  std::string status_code;
-  std::string status_string;
 
-  if (transport::http::HTTPResponse::parseHeaders(headers, length, ret, http_version,
-                                                  status_code, status_string)) {
-    return ret;
+  if (request) {
+    std::string method;
+    std::string url;
+
+    if (transport::http::HTTPRequest::parseHeaders(headers, length, ret,
+                                                   http_version, method, url)) {
+      return ret;
+    }
+  } else {
+    std::string status_code;
+    std::string status_string;
+
+    if (transport::http::HTTPResponse::parseHeaders(
+            headers, length, ret, http_version, status_code, status_string)) {
+      return ret;
+    }
   }
 
   throw std::runtime_error("Error parsing response headers.");

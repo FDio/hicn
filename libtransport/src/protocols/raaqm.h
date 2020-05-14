@@ -36,7 +36,7 @@ class RaaqmTransportProtocol : public TransportProtocol,
 
   ~RaaqmTransportProtocol();
 
-  int start(bool is_async) override;
+  int start() override;
 
   void resume() override;
 
