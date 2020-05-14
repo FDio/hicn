@@ -13,48 +13,75 @@
  * limitations under the License.
  */
 
-#include "ATSConnector.h"
-#include "HTTP1.xMessageFastParser.h"
+#include "http_session.h"
 
 #include <hicn/transport/utils/branch_prediction.h>
 #include <hicn/transport/utils/log.h>
+
 #include <iostream>
+
+#include "HTTP1.xMessageFastParser.h"
 
 namespace transport {
 
-ATSConnector::ATSConnector(asio::io_service &io_service,
-                           std::string &ip_address, std::string &port,
-                           ContentReceivedCallback receive_callback,
-                           OnReconnect on_reconnect_callback)
+HTTPSession::HTTPSession(asio::io_service &io_service, std::string &ip_address,
+                         std::string &port,
+                         ContentReceivedCallback receive_callback,
+                         OnConnectionClosed on_connection_closed_callback,
+                         bool reverse)
     : io_service_(io_service),
       socket_(io_service_),
       resolver_(io_service_),
       endpoint_iterator_(resolver_.resolve({ip_address, port})),
       timer_(io_service),
+      reverse_(reverse),
       is_reconnection_(false),
       data_available_(false),
       content_length_(0),
       is_last_chunk_(false),
       chunked_(false),
       receive_callback_(receive_callback),
-      on_reconnect_callback_(on_reconnect_callback) {
+      on_connection_closed_callback_(on_connection_closed_callback) {
   input_buffer_.prepare(buffer_size + 2048);
   state_ = ConnectorState::CONNECTING;
   doConnect();
 }
 
-ATSConnector::~ATSConnector() {}
+HTTPSession::HTTPSession(asio::ip::tcp::socket socket,
+                         ContentReceivedCallback receive_callback,
+                         OnConnectionClosed on_connection_closed_callback,
+                         bool reverse)
+    : io_service_(socket.get_io_service()),
+      socket_(std::move(socket)),
+      resolver_(io_service_),
+      timer_(io_service_),
+      reverse_(reverse),
+      is_reconnection_(false),
+      data_available_(false),
+      content_length_(0),
+      is_last_chunk_(false),
+      chunked_(false),
+      receive_callback_(receive_callback),
+      on_connection_closed_callback_(on_connection_closed_callback) {
+  input_buffer_.prepare(buffer_size + 2048);
+  state_ = ConnectorState::CONNECTED;
+  asio::ip::tcp::no_delay noDelayOption(true);
+  socket_.set_option(noDelayOption);
+  doReadHeader();
+}
 
-void ATSConnector::send(const uint8_t *packet, std::size_t len,
-                        ContentSentCallback &&content_sent) {
+HTTPSession::~HTTPSession() {}
+
+void HTTPSession::send(const uint8_t *packet, std::size_t len,
+                       ContentSentCallback &&content_sent) {
   asio::async_write(
       socket_, asio::buffer(packet, len),
       [content_sent = std::move(content_sent)](
           std::error_code ec, std::size_t /*length*/) { content_sent(); });
 }
 
-void ATSConnector::send(utils::MemBuf *buffer,
-                        ContentSentCallback &&content_sent) {
+void HTTPSession::send(utils::MemBuf *buffer,
+                       ContentSentCallback &&content_sent) {
   io_service_.dispatch([this, buffer, callback = std::move(content_sent)]() {
     bool write_in_progress = !write_msgs_.empty();
     write_msgs_.emplace_back(std::unique_ptr<utils::MemBuf>(buffer),
@@ -70,24 +97,25 @@ void ATSConnector::send(utils::MemBuf *buffer,
   });
 }
 
-void ATSConnector::close() {
+void HTTPSession::close() {
   if (state_ != ConnectorState::CLOSED) {
     state_ = ConnectorState::CLOSED;
     if (socket_.is_open()) {
-      socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+      // socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
       socket_.close();
       // on_disconnect_callback_();
     }
   }
 }
 
-void ATSConnector::doWrite() {
+void HTTPSession::doWrite() {
   auto &buffer = write_msgs_.front().first;
 
   asio::async_write(socket_, asio::buffer(buffer->data(), buffer->length()),
                     [this](std::error_code ec, std::size_t length) {
                       if (TRANSPORT_EXPECT_FALSE(!ec)) {
-                        TRANSPORT_LOGD("Content successfully sent!");
+                        TRANSPORT_LOGD("Content successfully sent! %zu",
+                                       length);
                         write_msgs_.front().second();
                         write_msgs_.pop_front();
                         if (!write_msgs_.empty()) {
@@ -99,12 +127,14 @@ void ATSConnector::doWrite() {
                     });
 }  // namespace transport
 
-void ATSConnector::handleRead(std::error_code ec, std::size_t length) {
+void HTTPSession::handleRead(std::error_code ec, std::size_t length) {
   if (TRANSPORT_EXPECT_TRUE(!ec)) {
     content_length_ -= length;
     const uint8_t *buffer =
         asio::buffer_cast<const uint8_t *>(input_buffer_.data());
-    receive_callback_(buffer, input_buffer_.size(), !content_length_, false);
+    bool is_last = chunked_ ? (is_last_chunk_ ? !content_length_ : false)
+                            : !content_length_;
+    receive_callback_(buffer, input_buffer_.size(), is_last, false);
     input_buffer_.consume(input_buffer_.size());
 
     if (!content_length_) {
@@ -117,7 +147,7 @@ void ATSConnector::handleRead(std::error_code ec, std::size_t length) {
       auto to_read =
           content_length_ >= buffer_size ? buffer_size : content_length_;
       asio::async_read(socket_, input_buffer_, asio::transfer_exactly(to_read),
-                       std::bind(&ATSConnector::handleRead, this,
+                       std::bind(&HTTPSession::handleRead, this,
                                  std::placeholders::_1, std::placeholders::_2));
     }
   } else if (ec == asio::error::eof) {
@@ -126,8 +156,8 @@ void ATSConnector::handleRead(std::error_code ec, std::size_t length) {
   }
 }
 
-void ATSConnector::doReadBody(std::size_t body_size,
-                              std::size_t additional_bytes) {
+void HTTPSession::doReadBody(std::size_t body_size,
+                             std::size_t additional_bytes) {
   auto bytes_to_read =
       body_size > additional_bytes ? (body_size - additional_bytes) : 0;
 
@@ -140,14 +170,16 @@ void ATSConnector::doReadBody(std::size_t body_size,
   if (to_read > 0) {
     content_length_ = bytes_to_read;
     asio::async_read(socket_, input_buffer_, asio::transfer_exactly(to_read),
-                     std::bind(&ATSConnector::handleRead, this,
+                     std::bind(&HTTPSession::handleRead, this,
                                std::placeholders::_1, std::placeholders::_2));
   } else {
-    const uint8_t *buffer =
-        asio::buffer_cast<const uint8_t *>(input_buffer_.data());
-    receive_callback_(buffer, body_size, chunked_ ? is_last_chunk_ : !to_read,
-                      false);
-    input_buffer_.consume(body_size);
+    if (body_size) {
+      const uint8_t *buffer =
+          asio::buffer_cast<const uint8_t *>(input_buffer_.data());
+      receive_callback_(buffer, body_size, chunked_ ? is_last_chunk_ : !to_read,
+                        false);
+      input_buffer_.consume(body_size);
+    }
 
     if (!chunked_ || is_last_chunk_) {
       doReadHeader();
@@ -157,7 +189,7 @@ void ATSConnector::doReadBody(std::size_t body_size,
   }
 }
 
-void ATSConnector::doReadChunkedHeader() {
+void HTTPSession::doReadChunkedHeader() {
   asio::async_read_until(
       socket_, input_buffer_, "\r\n",
       [this](std::error_code ec, std::size_t length) {
@@ -176,14 +208,15 @@ void ATSConnector::doReadChunkedHeader() {
       });
 }
 
-void ATSConnector::doReadHeader() {
+void HTTPSession::doReadHeader() {
   asio::async_read_until(
       socket_, input_buffer_, "\r\n\r\n",
       [this](std::error_code ec, std::size_t length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           const uint8_t *buffer =
               asio::buffer_cast<const uint8_t *>(input_buffer_.data());
-          auto headers = HTTPMessageFastParser::getHeaders(buffer, length);
+          auto headers =
+              HTTPMessageFastParser::getHeaders(buffer, length, reverse_);
 
           // Try to get content length, if available
           auto it = headers.find(HTTPMessageFastParser::content_length);
@@ -215,23 +248,25 @@ void ATSConnector::doReadHeader() {
       });
 }
 
-void ATSConnector::tryReconnection() {
-  TRANSPORT_LOGD("Connection lost. Trying to reconnect...\n");
-  if (state_ == ConnectorState::CONNECTED) {
-    state_ = ConnectorState::CONNECTING;
-    is_reconnection_ = true;
-    io_service_.post([this]() {
-      if (socket_.is_open()) {
-        // socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
-        socket_.close();
-      }
-      startConnectionTimer();
-      doConnect();
-    });
+void HTTPSession::tryReconnection() {
+  if (on_connection_closed_callback_(socket_)) {
+    if (state_ == ConnectorState::CONNECTED) {
+      TRANSPORT_LOGD("Connection lost. Trying to reconnect...\n");
+      state_ = ConnectorState::CONNECTING;
+      is_reconnection_ = true;
+      io_service_.post([this]() {
+        if (socket_.is_open()) {
+          // socket_.shutdown(asio::ip::tcp::socket::shutdown_type::shutdown_both);
+          socket_.close();
+        }
+        startConnectionTimer();
+        doConnect();
+      });
+    }
   }
 }
 
-void ATSConnector::doConnect() {
+void HTTPSession::doConnect() {
   asio::async_connect(socket_, endpoint_iterator_,
                       [this](std::error_code ec, tcp::resolver::iterator) {
                         if (!ec) {
@@ -263,17 +298,17 @@ void ATSConnector::doConnect() {
                       });
 }
 
-bool ATSConnector::checkConnected() {
+bool HTTPSession::checkConnected() {
   return state_ == ConnectorState::CONNECTED;
 }
 
-void ATSConnector::startConnectionTimer() {
+void HTTPSession::startConnectionTimer() {
   timer_.expires_from_now(std::chrono::seconds(10));
   timer_.async_wait(
-      std::bind(&ATSConnector::handleDeadline, this, std::placeholders::_1));
+      std::bind(&HTTPSession::handleDeadline, this, std::placeholders::_1));
 }
 
-void ATSConnector::handleDeadline(const std::error_code &ec) {
+void HTTPSession::handleDeadline(const std::error_code &ec) {
   if (!ec) {
     io_service_.post([this]() {
       socket_.close();

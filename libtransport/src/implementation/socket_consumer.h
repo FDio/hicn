@@ -119,7 +119,7 @@ class ConsumerSocket : public Socket<BasePortal> {
     network_name_ = name;
     network_name_.setSuffix(0);
 
-    transport_protocol_->start(is_async_);
+    transport_protocol_->start();
 
     return is_async_ ? CONSUMER_RUNNING : CONSUMER_FINISHED;
   }
@@ -641,6 +641,10 @@ class ConsumerSocket : public Socket<BasePortal> {
 
       case GeneralTransportOptions::KEY_CONTENT:
         socket_option_value = key_content_;
+        break;
+
+      case GeneralTransportOptions::ASYNC_MODE:
+        socket_option_value = is_async_;
         break;
 
       default:

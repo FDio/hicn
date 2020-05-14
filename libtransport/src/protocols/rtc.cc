@@ -43,7 +43,7 @@ RTCTransportProtocol::RTCTransportProtocol(
 
 RTCTransportProtocol::~RTCTransportProtocol() {}
 
-int RTCTransportProtocol::start(bool is_async) {
+int RTCTransportProtocol::start() {
   if (is_running_) return -1;
 
   reset();
@@ -57,7 +57,7 @@ int RTCTransportProtocol::start(bool is_async) {
   is_first_ = false;
   is_running_ = true;
 
-  if (is_async) {
+  if (is_async_) {
     portal_->runEventsLoop();
     is_running_ = false;
   }
@@ -65,11 +65,11 @@ int RTCTransportProtocol::start(bool is_async) {
   return 0;
 }
 
-void RTCTransportProtocol::stop(bool is_async) {
+void RTCTransportProtocol::stop() {
   if (!is_running_) return;
   is_running_ = false;
 
-  if (is_async) {
+  if (is_async_) {
     portal_->stopEventsLoop();
   }
 }

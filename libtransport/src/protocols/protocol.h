@@ -58,9 +58,9 @@ class TransportProtocol : public implementation::BasePortal::ConsumerCallback,
 
   TRANSPORT_ALWAYS_INLINE bool isRunning() { return is_running_; }
 
-  virtual int start(bool async = false);
+  virtual int start();
 
-  virtual void stop(bool async = false);
+  virtual void stop();
 
   virtual void resume();
 
@@ -106,6 +106,8 @@ class TransportProtocol : public implementation::BasePortal::ConsumerCallback,
   interface::ConsumerContentObjectVerificationFailedCallback
       *verification_failed_callback_;
   ReadCallback *on_payload_;
+
+  bool is_async_;
 };
 
 }  // end namespace protocol

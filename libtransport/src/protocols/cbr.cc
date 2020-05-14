@@ -26,9 +26,7 @@ CbrTransportProtocol::CbrTransportProtocol(
     implementation::ConsumerSocket *icnet_socket)
     : RaaqmTransportProtocol(icnet_socket) {}
 
-int CbrTransportProtocol::start(bool is_async) {
-  return RaaqmTransportProtocol::start(is_async);
-}
+int CbrTransportProtocol::start() { return RaaqmTransportProtocol::start(); }
 
 void CbrTransportProtocol::reset() {
   RaaqmTransportProtocol::reset();

@@ -204,12 +204,15 @@ class ProducerSocket : public Socket<BasePortal>,
           }
 
           passContentObjectToCallbacks(manifest);
-          TRANSPORT_LOGD("Send manifest %s", manifest->getName().toString().c_str());
+          TRANSPORT_LOGD("Send manifest %s",
+                         manifest->getName().toString().c_str());
 
           // Send content objects stored in the queue
           while (!content_queue_.empty()) {
             passContentObjectToCallbacks(content_queue_.front());
-            TRANSPORT_LOGD("Send content %s", content_queue_.front()->getName().toString().c_str());
+            TRANSPORT_LOGD(
+                "Send content %s",
+                content_queue_.front()->getName().toString().c_str());
             content_queue_.pop();
           }
 
@@ -266,7 +269,8 @@ class ProducerSocket : public Socket<BasePortal>,
           signer->sign(*content_object);
         }
         passContentObjectToCallbacks(content_object);
-        TRANSPORT_LOGD("Send content %s", content_object->getName().toString().c_str());
+        TRANSPORT_LOGD("Send content %s",
+                       content_object->getName().toString().c_str());
       }
     }
 
@@ -281,11 +285,13 @@ class ProducerSocket : public Socket<BasePortal>,
       }
 
       passContentObjectToCallbacks(manifest);
-      TRANSPORT_LOGD("Send manifest %s", manifest->getName().toString().c_str());
+      TRANSPORT_LOGD("Send manifest %s",
+                     manifest->getName().toString().c_str());
 
       while (!content_queue_.empty()) {
         passContentObjectToCallbacks(content_queue_.front());
-        TRANSPORT_LOGD("Send content %s", content_queue_.front()->getName().toString().c_str());
+        TRANSPORT_LOGD("Send content %s",
+                       content_queue_.front()->getName().toString().c_str());
         content_queue_.pop();
       }
     }

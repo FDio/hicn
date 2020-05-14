@@ -20,6 +20,7 @@
 
 #include <asio.hpp>
 #include <memory>
+#include <thread>
 
 namespace utils {
 
