@@ -29,13 +29,13 @@ using asio::ip::tcp;
 typedef std::function<void(const uint8_t *data, std::size_t size, bool is_last,
                            bool headers)>
     ContentReceivedCallback;
-typedef std::function<void()> OnReconnect;
+typedef std::function<bool(asio::ip::tcp::socket &socket)> OnConnectionClosed;
 typedef std::function<void()> ContentSentCallback;
 typedef std::deque<
     std::pair<std::unique_ptr<utils::MemBuf>, ContentSentCallback>>
     BufferQueue;
 
-class ATSConnector {
+class HTTPSession {
   static constexpr uint32_t buffer_size = 1024 * 512;
 
   enum class ConnectorState {
@@ -45,11 +45,15 @@ class ATSConnector {
   };
 
  public:
-  ATSConnector(asio::io_service &io_service, std::string &ip_address,
-               std::string &port, ContentReceivedCallback receive_callback,
-               OnReconnect on_reconnect_callback);
+  HTTPSession(asio::io_service &io_service, std::string &ip_address,
+              std::string &port, ContentReceivedCallback receive_callback,
+              OnConnectionClosed on_reconnect_callback, bool reverse = false);
 
-  ~ATSConnector();
+  HTTPSession(asio::ip::tcp::socket socket,
+              ContentReceivedCallback receive_callback,
+              OnConnectionClosed on_reconnect_callback, bool reverse = true);
+
+  ~HTTPSession();
 
   void send(const uint8_t *buffer, std::size_t len,
             ContentSentCallback &&content_sent = 0);
@@ -64,9 +68,6 @@ class ATSConnector {
   void doReadHeader();
 
   void doReadBody(std::size_t body_size, std::size_t additional_bytes);
-
-  // void handleReadChunked(std::error_code ec, std::size_t length,
-  //                        std::size_t size);
 
   void doReadChunkedHeader();
 
@@ -90,6 +91,7 @@ class ATSConnector {
 
   asio::streambuf input_buffer_;
 
+  bool reverse_;
   bool is_reconnection_;
   bool data_available_;
 
@@ -100,7 +102,7 @@ class ATSConnector {
   bool chunked_;
 
   ContentReceivedCallback receive_callback_;
-  OnReconnect on_reconnect_callback_;
+  OnConnectionClosed on_connection_closed_callback_;
 
   // Connector state
   ConnectorState state_;
