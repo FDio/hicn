@@ -16,7 +16,6 @@
 #pragma once
 
 #include <hicn/transport/utils/chrono_typedefs.h>
-
 #include <protocols/byte_stream_reassembly.h>
 #include <protocols/congestion_window_protocol.h>
 #include <protocols/protocol.h>
@@ -37,7 +36,7 @@ class RaaqmTransportProtocol : public TransportProtocol,
 
   ~RaaqmTransportProtocol();
 
-  int start() override;
+  int start(bool is_async) override;
 
   void resume() override;
 

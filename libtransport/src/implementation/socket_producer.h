@@ -16,11 +16,9 @@
 #pragma once
 
 #include <hicn/transport/security/signer.h>
-
+#include <hicn/transport/utils/event_thread.h>
 #include <implementation/socket.h>
-
 #include <utils/content_store.h>
-#include <utils/event_thread.h>
 #include <utils/suffix_strategy.h>
 
 #include <atomic>

@@ -14,7 +14,6 @@
  */
 
 #include <implementation/tls_socket_consumer.h>
-
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/tls1.h>
@@ -304,10 +303,7 @@ int TLSConsumerSocket::asyncConsume(const Name &name) {
   }
 
   if (!async_downloader_tls_.stopped()) {
-    async_downloader_tls_.add([this, name]() {
-      is_async_ = true;
-      download_content(name);
-    });
+    async_downloader_tls_.add([this, name]() { download_content(name); });
   }
 
   return CONSUMER_RUNNING;

@@ -145,13 +145,32 @@ class ConsumerSocket {
    * @param protocol - The transport protocol to use. So far the following
    * transport are supported:
    *  - CBR: Constant bitrate
-   *  - Raaqm: Based on paper: Optimal multipath congestion control and request
+   *  - RAAQM: Based on paper: Optimal multipath congestion control and request
    * forwarding in information-centric networks: Protocol design and
    * experimentation. G Carofiglio, M Gallo, L Muscariello. Computer Networks
    * 110, 104-117
    *  - RTC: Real time communication
    */
   explicit ConsumerSocket(int protocol);
+
+  /**
+   * @brief Create a new consumer socket, passing an io_service to it.
+   * Passing an io_service means that the caller must explicitely call
+   * io_service.run() for the consumer to start. Any call to consume won't be
+   * blocking. This can be used in case we want to share a single thread
+   * among multiple consumer sockets. The caller MUST ensure the provided
+   * io_service will outlive the ConsumerSocket.
+   *
+   * @param protocol - The transport protocol to use. So far the following
+   * transport are supported:
+   *  - CBR: Constant bitrate
+   *  - RAAQM: Based on paper: Optimal multipath congestion control and request
+   * forwarding in information-centric networks: Protocol design and
+   * experimentation. G Carofiglio, M Gallo, L Muscariello. Computer Networks
+   * 110, 104-117
+   *  - RTC: Real time communication
+   */
+  explicit ConsumerSocket(int protocol, asio::io_service &io_service);
 
   /**
    * @brief Destroy the consumer socket.
