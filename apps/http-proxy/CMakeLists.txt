@@ -31,14 +31,16 @@ include_directories(
 )
 
 set(LIB_SOURCE_FILES
-  src/ATSConnector.cc
+  src/http_session.cc
+  src/http_proxy.cc
   src/HTTP1.xMessageFastParser.cc
-  src/IcnReceiver.cc
+  src/icn_receiver.cc
 )
 
 set(LIB_SERVER_HEADER_FILES
-  src/IcnReceiver.h
-  src/ATSConnector.h
+  src/icn_receiver.h
+  src/http_session.h
+  src/http_proxy.h
   src/HTTP1.xMessageFastParser.h
 )
 
