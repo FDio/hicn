@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/IcnReceiver.h"
+#include "src/http_proxy.h"
 
 using namespace transport;
 
@@ -28,38 +28,48 @@ int usage(char* program) {
 }
 
 int main(int argc, char** argv) {
-  std::string prefix("http://hicn-http-proxy");
-  std::string ip_address("127.0.0.1");
-  std::string port("80");
-  std::string cache_size("50000");
-  std::string mtu("1500");
-  std::string first_ipv6_word("b001");
-  std::string default_content_lifetime("7200");  // seconds
-  bool manifest = false;
+  transport::AsyncConsumerProducer::Params params;
+  params.prefix = "http://hicn-http-proxy";
+  params.ip_address = "127.0.0.1";
+  params.port = "80";
+  params.cache_size = "50000";
+  params.mtu = "1500";
+  params.first_ipv6_word = "b001";
+  params.default_content_lifetime = 7200;  // seconds
+  params.manifest = false;
+
+  std::uint16_t tcp_listen_port = 8080;
+  std::uint16_t n_thread = 1;
 
   int opt;
-  while ((opt = getopt(argc, argv, "a:p:c:m:P:l:M")) != -1) {
+  while ((opt = getopt(argc, argv, "a:p:c:m:P:l:ML:t:")) != -1) {
     switch (opt) {
       case 'a':
-        ip_address = optarg;
+        params.ip_address = optarg;
         break;
       case 'p':
-        port = optarg;
+        params.port = optarg;
         break;
       case 'c':
-        cache_size = optarg;
+        params.cache_size = optarg;
         break;
       case 'm':
-        mtu = optarg;
+        params.mtu = optarg;
         break;
       case 'P':
-        first_ipv6_word = optarg;
+        params.first_ipv6_word = optarg;
         break;
       case 'l':
-        default_content_lifetime = optarg;
+        params.default_content_lifetime = std::stoul(optarg);
+        break;
+      case 'L':
+        tcp_listen_port = std::stoul(optarg);
         break;
       case 'M':
-        manifest = true;
+        params.manifest = true;
+        break;
+      case 't':
+        n_thread = std::stoul(optarg);
         break;
       case 'h':
       default:
@@ -69,17 +79,17 @@ int main(int argc, char** argv) {
   }
 
   if (argv[optind] == 0) {
-    std::cerr << "Using default prefix " << prefix << std::endl;
+    std::cerr << "Using default prefix " << params.prefix << std::endl;
   } else {
-    prefix = argv[optind];
+    params.prefix = argv[optind];
   }
 
-  std::cout << "Connecting to " << ip_address << " port " << port
-            << " Cache size " << cache_size << " Prefix " << prefix << " MTU "
-            << mtu << " IPv6 first word " << first_ipv6_word << std::endl;
-  transport::AsyncConsumerProducer proxy(
-      prefix, ip_address, port, cache_size, mtu, first_ipv6_word,
-      std::stoul(default_content_lifetime) * 1000, manifest);
+  std::cout << "Connecting to " << params.ip_address << " port " << params.port
+            << " Cache size " << params.cache_size << " Prefix "
+            << params.prefix << " MTU " << params.mtu << " IPv6 first word "
+            << params.first_ipv6_word << std::endl;
+
+  transport::HTTPProxy proxy(params, tcp_listen_port, n_thread);
 
   proxy.run();
 

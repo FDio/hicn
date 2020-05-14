@@ -13,8 +13,6 @@
  * limitations under the License.
  */
 
-#include "ATSConnector.h"
-
 #include <hicn/transport/core/prefix.h>
 #include <hicn/transport/interfaces/publication_options.h>
 #include <hicn/transport/interfaces/socket_producer.h>
@@ -25,6 +23,8 @@
 #include <queue>
 #include <utility>
 
+#include "http_session.h"
+
 namespace transport {
 
 class AsyncConsumerProducer {
@@ -33,11 +33,20 @@ class AsyncConsumerProducer {
   using RequestQueue = std::queue<interface::PublicationOptions>;
 
  public:
-  explicit AsyncConsumerProducer(const std::string& prefix,
-                                 std::string& ip_address, std::string& port,
-                                 std::string& cache_size, std::string& mtu,
-                                 std::string& first_ipv6_word,
-                                 unsigned long default_content_lifetime, bool manifest);
+  struct Params {
+    std::string prefix;
+    std::string ip_address;
+    std::string port;
+    std::string cache_size;
+    std::string mtu;
+    std::string first_ipv6_word;
+    unsigned long default_content_lifetime;
+    bool manifest;
+  };
+
+  explicit AsyncConsumerProducer(Params& params, asio::io_service& io_service);
+  explicit AsyncConsumerProducer(Params& params)
+      : AsyncConsumerProducer(params, internal_io_service_) {}
 
   void start();
 
@@ -55,7 +64,8 @@ class AsyncConsumerProducer {
                               utils::MemBuf* payload);
 
   core::Prefix prefix_;
-  asio::io_service io_service_;
+  asio::io_service& io_service_;
+  asio::io_service internal_io_service_;
   interface::ProducerSocket producer_socket_;
 
   std::string ip_address_;
@@ -68,7 +78,7 @@ class AsyncConsumerProducer {
 
   // std::unordered_map<core::Name, std::shared_ptr<ATSConnector>>
   // connection_map_;
-  ATSConnector connector_;
+  HTTPSession connector_;
 
   unsigned long default_content_lifetime_;
 
