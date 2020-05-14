@@ -13,8 +13,7 @@
  * limitations under the License.
  */
 
-#include "IcnReceiver.h"
-#include "HTTP1.xMessageFastParser.h"
+#include "icn_receiver.h"
 
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/http/default_values.h>
@@ -24,58 +23,34 @@
 #include <functional>
 #include <memory>
 
+#include "HTTP1.xMessageFastParser.h"
+#include "utils.h"
+
 namespace transport {
 
-core::Prefix generatePrefix(const std::string& prefix_url,
-                            std::string& first_ipv6_word) {
-  const char* str = prefix_url.c_str();
-  uint16_t pos = 0;
-
-  if (strncmp("http://", str, 7) == 0) {
-    pos = 7;
-  } else if (strncmp("https://", str, 8) == 0) {
-    pos = 8;
-  }
-
-  str += pos;
-
-  uint32_t locator_hash = utils::hash::fnv32_buf(str, strlen(str));
-
-  std::stringstream stream;
-  stream << first_ipv6_word << ":0";
-
-  for (uint16_t* word = (uint16_t*)&locator_hash;
-       std::size_t(word) < (std::size_t(&locator_hash) + sizeof(locator_hash));
-       word++) {
-    stream << ":" << std::hex << *word;
-  }
-
-  stream << "::0";
-
-  return core::Prefix(stream.str(), 64);
-}
-
-AsyncConsumerProducer::AsyncConsumerProducer(
-    const std::string& prefix, std::string& ip_address, std::string& port,
-    std::string& cache_size, std::string& mtu, std::string& first_ipv6_word,
-    unsigned long default_lifetime, bool manifest)
-    : prefix_(generatePrefix(prefix, first_ipv6_word)),
+AsyncConsumerProducer::AsyncConsumerProducer(Params& params,
+                                             asio::io_service& io_service)
+    : prefix_(core::Prefix(
+          generatePrefix(params.prefix, params.first_ipv6_word), 64)),
+      io_service_(io_service),
       producer_socket_(),
-      ip_address_(ip_address),
-      port_(port),
-      cache_size_(std::stoul(cache_size)),
-      mtu_(std::stoul(mtu)),
+      ip_address_(params.ip_address),
+      port_(params.port),
+      cache_size_(std::stoul(params.cache_size)),
+      mtu_(std::stoul(params.mtu)),
       request_counter_(0),
       signals_(io_service_, SIGINT, SIGQUIT),
       connector_(io_service_, ip_address_, port_,
                  std::bind(&AsyncConsumerProducer::publishContent, this,
                            std::placeholders::_1, std::placeholders::_2,
                            std::placeholders::_3, std::placeholders::_4),
-                 [this]() {
+                 [this]() -> bool {
                    std::queue<interface::PublicationOptions> empty;
                    std::swap(response_name_queue_, empty);
+
+                   return true;
                  }),
-      default_content_lifetime_(default_lifetime) {
+      default_content_lifetime_(params.default_content_lifetime) {
   int ret = producer_socket_.setSocketOption(
       interface::GeneralTransportOptions::OUTPUT_BUFFER_SIZE, cache_size_);
 
@@ -84,7 +59,7 @@ AsyncConsumerProducer::AsyncConsumerProducer(
   }
 
   ret = producer_socket_.setSocketOption(
-      interface::GeneralTransportOptions::MAKE_MANIFEST, manifest);
+      interface::GeneralTransportOptions::MAKE_MANIFEST, params.manifest);
 
   if (ret != SOCKET_OPTION_SET) {
     TRANSPORT_LOGD("Warning: impossible to enable signatures.");
@@ -141,8 +116,6 @@ void AsyncConsumerProducer::manageIncomingInterest(
   auto _it = chunk_number_map_.find(name);
   auto _end = chunk_number_map_.end();
 
-  std::cout << "Received interest " << seg << std::endl;
-
   if (_it != _end) {
     if (_it->second.second) {
       // Content is in production
@@ -157,8 +130,6 @@ void AsyncConsumerProducer::manageIncomingInterest(
       return;
     }
   }
-
-  std::cout << "Received interest " << seg << std::endl;
 
   bool is_mpd =
       HTTPMessageFastParser::isMpdRequest(payload->data(), payload->length());

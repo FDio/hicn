@@ -45,7 +45,7 @@ RaaqmTransportProtocol::~RaaqmTransportProtocol() {
   }
 }
 
-int RaaqmTransportProtocol::start(bool is_async) {
+int RaaqmTransportProtocol::start() {
   if (rate_estimator_) {
     rate_estimator_->onStart();
   }
