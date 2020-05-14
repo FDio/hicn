@@ -13,12 +13,11 @@
  * limitations under the License.
  */
 
-#include <protocols/rtc.h>
-
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <implementation/socket_consumer.h>
-
 #include <math.h>
+#include <protocols/rtc.h>
+
 #include <random>
 
 namespace transport {
@@ -42,11 +41,7 @@ RTCTransportProtocol::RTCTransportProtocol(
   reset();
 }
 
-RTCTransportProtocol::~RTCTransportProtocol() {
-  if (is_running_) {
-    stop();
-  }
-}
+RTCTransportProtocol::~RTCTransportProtocol() {}
 
 int RTCTransportProtocol::start() {
   if (is_running_) return -1;
@@ -61,17 +56,22 @@ int RTCTransportProtocol::start() {
 
   is_first_ = false;
   is_running_ = true;
-  portal_->runEventsLoop();
-  is_running_ = false;
+
+  if (is_async_) {
+    portal_->runEventsLoop();
+    is_running_ = false;
+  }
 
   return 0;
 }
 
 void RTCTransportProtocol::stop() {
   if (!is_running_) return;
-
   is_running_ = false;
-  portal_->stopEventsLoop();
+
+  if (is_async_) {
+    portal_->stopEventsLoop();
+  }
 }
 
 void RTCTransportProtocol::resume() {

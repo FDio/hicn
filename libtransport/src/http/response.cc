@@ -17,9 +17,8 @@
 #include <hicn/transport/http/response.h>
 
 #include <algorithm>
-#include <functional>
-
 #include <cstring>
+#include <functional>
 
 namespace transport {
 
@@ -67,7 +66,7 @@ std::size_t HTTPResponse::parseHeaders(const uint8_t *buffer, std::size_t size,
   auto it = std::search(begin, end, begincrlf2, endcrlf2);
   if (it != end) {
     std::stringstream ss;
-    ss.str(std::string(begin, it));
+    ss.str(std::string(begin, it + 2));
 
     std::string line;
     getline(ss, line);
@@ -86,15 +85,8 @@ std::size_t HTTPResponse::parseHeaders(const uint8_t *buffer, std::size_t size,
       return 0;
     }
 
-    std::string _status_string;
-
     line_s >> status_code;
-    line_s >> _status_string;
-
-    auto _it = std::search(line.begin(), line.end(), status_string.begin(),
-                           status_string.end());
-
-    status_string = std::string(_it, line.end() - 1);
+    line_s >> status_string;
 
     std::size_t param_end;
     std::size_t value_start;
