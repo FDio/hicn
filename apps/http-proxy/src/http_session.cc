@@ -51,7 +51,12 @@ HTTPSession::HTTPSession(asio::ip::tcp::socket socket,
                          ContentReceivedCallback receive_callback,
                          OnConnectionClosed on_connection_closed_callback,
                          bool reverse)
-    : io_service_(socket.get_io_service()),
+    :
+#if ((ASIO_VERSION / 100 % 1000) < 12)
+      io_service_(socket.get_io_service()),
+#else
+      io_service_((asio::io_context &)(socket.get_executor().context())),
+#endif
       socket_(std::move(socket)),
       resolver_(io_service_),
       timer_(io_service_),
