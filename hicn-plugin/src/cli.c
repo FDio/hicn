@@ -59,10 +59,8 @@ hicn_cli_node_ctl_start_set_command_fn (vlib_main_t * vm,
 
   ret = hicn_infra_plugin_enable_disable (1 /* enable */ ,
 					  node_ctl_params.pit_max_size,
-					  node_ctl_params.
-					  pit_max_lifetime_sec,
-					  node_ctl_params.cs_max_size,
-                                          ~0);
+					  node_ctl_params.pit_max_lifetime_sec,
+					  node_ctl_params.cs_max_size, ~0);
 
   vlib_cli_output (vm, "hicn: fwdr initialize => %s\n",
 		   get_error_string (ret));
@@ -103,10 +101,8 @@ hicn_cli_node_ctl_stop_set_command_fn (vlib_main_t * vm,
     }
   ret = hicn_infra_plugin_enable_disable (0 /* !enable */ ,
 					  node_ctl_params.pit_max_size,
-					  node_ctl_params.
-					  pit_max_lifetime_sec,
-					  node_ctl_params.cs_max_size,
-                                          ~0);
+					  node_ctl_params.pit_max_lifetime_sec,
+					  node_ctl_params.cs_max_size, ~0);
 
   return (ret == HICN_ERROR_NONE) ? 0 : clib_error_return (0,
 							   get_error_string
@@ -366,8 +362,9 @@ done:
  * cli handler for 'fib'
  */
 static clib_error_t *
-hicn_cli_strategy_set_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
-                                  vlib_cli_command_t * cmd)
+hicn_cli_strategy_set_command_fn (vlib_main_t * vm,
+				  unformat_input_t * main_input,
+				  vlib_cli_command_t * cmd)
 {
   clib_error_t *cl_err = 0;
 
@@ -407,18 +404,18 @@ hicn_cli_strategy_set_command_fn (vlib_main_t * vm, unformat_input_t * main_inpu
   fib_prefix_from_ip46_addr (&address, &prefix);
   prefix.fp_len = plen;
   /* Check parse */
-  if (hicn_dpo_strategy_id_is_valid (strategy_id) == HICN_ERROR_DPO_MGR_ID_NOT_VALID)
+  if (hicn_dpo_strategy_id_is_valid (strategy_id) ==
+      HICN_ERROR_DPO_MGR_ID_NOT_VALID)
     {
-      cl_err = clib_error_return (0,
-				  "Please specify a valid strategy...");
+      cl_err = clib_error_return (0, "Please specify a valid strategy...");
       goto done;
     }
 
   rv = hicn_route_set_strategy (&prefix, strategy_id);
   cl_err =
     (rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
-                                                        get_error_string
-                                                        (rv));
+							get_error_string
+							(rv));
 done:
 
   return (cl_err);
@@ -672,7 +669,13 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
     }
 
   /* Allocate the buffer with the actual content payload TLV */
-  vlib_buffer_alloc (vm, &pg_main->pgen_svr_buffer_idx, 1);
+  int n_buf = vlib_buffer_alloc (vm, &pg_main->pgen_svr_buffer_idx, 1);
+
+  if (n_buf == 0)
+    {
+      return (clib_error_return (0, "Impossible to allocate paylod buffer."));
+    }
+
   vlib_buffer_t *rb = NULL;
   rb = vlib_get_buffer (vm, pg_main->pgen_svr_buffer_idx);
 
@@ -706,7 +709,7 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t * vm,
 
 static clib_error_t *
 hicn_enable_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
-			     vlib_cli_command_t * cmd)
+			vlib_cli_command_t * cmd)
 {
   clib_error_t *cl_err = 0;
 
@@ -722,9 +725,9 @@ hicn_enable_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "%U/%d",
-                    unformat_ip4_address, &pfx.fp_addr.ip4, &pfx.fp_len))
+		    unformat_ip4_address, &pfx.fp_addr.ip4, &pfx.fp_len))
 	{
-          pfx.fp_proto = FIB_PROTOCOL_IP4;
+	  pfx.fp_proto = FIB_PROTOCOL_IP4;
 	}
       else if (unformat (line_input, "%U/%d",
 			 unformat_ip6_address, &pfx.fp_addr.ip6, &pfx.fp_len))
@@ -739,19 +742,19 @@ hicn_enable_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 	  goto done;
 	}
     }
-  rv = hicn_route_enable(&pfx);
- done:
+  rv = hicn_route_enable (&pfx);
+done:
 
   cl_err =
     (rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
-                                                        get_error_string
-                                                        (rv));
+							get_error_string
+							(rv));
   return cl_err;
 }
 
 static clib_error_t *
 hicn_disable_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
-                         vlib_cli_command_t * cmd)
+			 vlib_cli_command_t * cmd)
 {
   clib_error_t *cl_err = 0;
 
@@ -767,9 +770,9 @@ hicn_disable_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
   while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (line_input, "%U/%d",
-                    unformat_ip4_address, &pfx.fp_addr.ip4, &pfx.fp_len))
+		    unformat_ip4_address, &pfx.fp_addr.ip4, &pfx.fp_len))
 	{
-          pfx.fp_proto = FIB_PROTOCOL_IP4;
+	  pfx.fp_proto = FIB_PROTOCOL_IP4;
 	}
       else if (unformat (line_input, "%U/%d",
 			 unformat_ip6_address, &pfx.fp_addr.ip6, &pfx.fp_len))
@@ -787,11 +790,11 @@ hicn_disable_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 
   rv = hicn_route_disable (&pfx);
 
- done:
+done:
   cl_err =
     (rv == HICN_ERROR_NONE) ? NULL : clib_error_return (0,
-                                                        get_error_string
-                                                        (rv));
+							get_error_string
+							(rv));
   return cl_err;
 }
 
