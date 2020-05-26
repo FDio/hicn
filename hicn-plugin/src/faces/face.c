@@ -61,48 +61,44 @@ face_show (u8 * s, int face_id, u32 indent)
 mhash_t hicn_face_vec_hashtb;
 mhash_t hicn_face_hashtb;
 
-hicn_face_vec_t * hicn_vec_pool;
+hicn_face_vec_t *hicn_vec_pool;
 
-const static char *const hicn_face6_nodes[] =
-  {
-   "hicn6-face-output",	// this is the name you give your node in VLIB_REGISTER_NODE
-   "hicn6-iface-output",	// this is the name you give your node in VLIB_REGISTER_NODE
-   NULL,
+const static char *const hicn_face6_nodes[] = {
+  "hicn6-face-output",		// this is the name you give your node in VLIB_REGISTER_NODE
+  "hicn6-iface-output",		// this is the name you give your node in VLIB_REGISTER_NODE
+  NULL,
 };
 
-const static char *const hicn_face4_nodes[] =
-  {
-   "hicn4-face-output",	// this is the name you give your node in VLIB_REGISTER_NODE
-   "hicn4-iface-output",	// this is the name you give your node in VLIB_REGISTER_NODE
-   NULL,
+const static char *const hicn_face4_nodes[] = {
+  "hicn4-face-output",		// this is the name you give your node in VLIB_REGISTER_NODE
+  "hicn4-iface-output",		// this is the name you give your node in VLIB_REGISTER_NODE
+  NULL,
 };
 
 
-const static char *const *const hicn_face_nodes[DPO_PROTO_NUM] =
-{
- [DPO_PROTO_IP4] = hicn_face4_nodes,
- [DPO_PROTO_IP6] = hicn_face6_nodes
+const static char *const *const hicn_face_nodes[DPO_PROTO_NUM] = {
+  [DPO_PROTO_IP4] = hicn_face4_nodes,
+  [DPO_PROTO_IP6] = hicn_face6_nodes
 };
 
-const static dpo_vft_t hicn_face_dpo_vft =
-{
- .dv_lock = hicn_face_lock,
- .dv_unlock = hicn_face_unlock,
- .dv_format = format_hicn_face,
+const static dpo_vft_t hicn_face_dpo_vft = {
+  .dv_lock = hicn_face_lock,
+  .dv_unlock = hicn_face_unlock,
+  .dv_format = format_hicn_face,
 };
 
 static fib_node_t *
 hicn_face_node_get (fib_node_index_t index)
 {
-  hicn_face_t * face;
+  hicn_face_t *face;
 
-  face = hicn_dpoi_get_from_idx(index);
+  face = hicn_dpoi_get_from_idx (index);
 
   return (&face->fib_node);
 }
 
 static void
-hicn_face_last_lock_gone (fib_node_t *node)
+hicn_face_last_lock_gone (fib_node_t * node)
 {
 }
 
@@ -110,22 +106,22 @@ static hicn_face_t *
 hicn_face_from_fib_node (fib_node_t * node)
 {
   return ((hicn_face_t *) (((char *) node) -
-                           STRUCT_OFFSET_OF (hicn_face_t, fib_node)));
+			   STRUCT_OFFSET_OF (hicn_face_t, fib_node)));
 }
 
 static fib_node_back_walk_rc_t
-hicn_face_back_walk_notify (fib_node_t *node,
-                            fib_node_back_walk_ctx_t *ctx)
+hicn_face_back_walk_notify (fib_node_t * node, fib_node_back_walk_ctx_t * ctx)
 {
 
   hicn_face_t *face = hicn_face_from_fib_node (node);
 
-  const dpo_id_t * dpo_loadbalance = fib_entry_contribute_ip_forwarding (face->fib_entry_index);
-  const load_balance_t *lb0 = load_balance_get(dpo_loadbalance->dpoi_index);
+  const dpo_id_t *dpo_loadbalance =
+    fib_entry_contribute_ip_forwarding (face->fib_entry_index);
+  const load_balance_t *lb0 = load_balance_get (dpo_loadbalance->dpoi_index);
 
-  const dpo_id_t *dpo = load_balance_get_bucket_i(lb0,0);
+  const dpo_id_t *dpo = load_balance_get_bucket_i (lb0, 0);
 
-  dpo_stack(hicn_face_type, face->dpo.dpoi_proto, &face->dpo, dpo);
+  dpo_stack (hicn_face_type, face->dpo.dpoi_proto, &face->dpo, dpo);
   /* if (dpo_is_adj(dpo)) */
   /*   { */
   /*     ip_adjacency_t * adj = adj_get (dpo->dpoi_index); */
@@ -150,13 +146,12 @@ hicn_face_show_memory (void)
 }
 
 
-static const fib_node_vft_t hicn_face_fib_node_vft =
-  {
-   .fnv_get = hicn_face_node_get,
-   .fnv_last_lock = hicn_face_last_lock_gone,
-   .fnv_back_walk = hicn_face_back_walk_notify,
-   .fnv_mem_show = hicn_face_show_memory,
-  };
+static const fib_node_vft_t hicn_face_fib_node_vft = {
+  .fnv_get = hicn_face_node_get,
+  .fnv_last_lock = hicn_face_last_lock_gone,
+  .fnv_back_walk = hicn_face_back_walk_notify,
+  .fnv_mem_show = hicn_face_show_memory,
+};
 
 // Make this more flexible for future types face
 void
@@ -171,11 +166,10 @@ hicn_face_module_init (vlib_main_t * vm)
   mhash_init (&hicn_face_vec_hashtb,
 	      sizeof (hicn_face_input_faces_t) /* value */ ,
 	      sizeof (hicn_face_key_t) /* key */ );
-  mhash_init (&hicn_face_hashtb,
-	      sizeof (hicn_face_id_t) /* value */ ,
+  mhash_init (&hicn_face_hashtb, sizeof (hicn_face_id_t) /* value */ ,
 	      sizeof (hicn_face_key_t) /* key */ );
 
-  pool_alloc(hicn_vec_pool, 100);
+  pool_alloc (hicn_vec_pool, 100);
 
   /*
    * How much useful is the following registration?
@@ -188,7 +182,8 @@ hicn_face_module_init (vlib_main_t * vm)
    * We register a new node type to get informed when the adjacency corresponding
    * to a face is updated
    */
-  hicn_face_fib_node_type = fib_node_register_new_type(&hicn_face_fib_node_vft);
+  hicn_face_fib_node_type =
+    fib_node_register_new_type (&hicn_face_fib_node_vft);
 }
 
 u8 *
@@ -206,19 +201,19 @@ format_hicn_face (u8 * s, va_list * args)
       s = format (s, "%U Face %d: ", format_white_space, indent, face_id);
       s = format (s, "nat address %U locks %u, path_label %u",
 		  format_ip46_address, &face->nat_addr, IP46_TYPE_ANY,
-                  face->locks, face->pl_id);
+		  face->locks, face->pl_id);
 
       if ((face->flags & HICN_FACE_FLAGS_APPFACE_PROD))
-        s = format (s, " (producer)");
+	s = format (s, " (producer)");
       else if ((face->flags & HICN_FACE_FLAGS_APPFACE_CONS))
-        s = format (s, " (consumer)");
+	s = format (s, " (consumer)");
 
       if ((face->flags & HICN_FACE_FLAGS_DELETED))
 	s = format (s, " (deleted)");
 
       s = format (s, "\n%U%U",
-                  format_white_space, indent + 2,
-                  format_dpo_id, &face->dpo, indent + 3);
+		  format_white_space, indent + 2,
+		  format_dpo_id, &face->dpo, indent + 3);
     }
   else
     {
@@ -226,12 +221,12 @@ format_hicn_face (u8 * s, va_list * args)
       s = format (s, "%U iFace %d: ", format_white_space, indent, face_id);
       s = format (s, "nat address %U locks %u, path_label %u",
 		  format_ip46_address, &face->nat_addr, IP46_TYPE_ANY,
-                  face->locks, face->pl_id);
+		  face->locks, face->pl_id);
 
       if ((face->flags & HICN_FACE_FLAGS_APPFACE_PROD))
-        s = format (s, " (producer)");
+	s = format (s, " (producer)");
       else if ((face->flags & HICN_FACE_FLAGS_APPFACE_CONS))
-        s = format (s, " (consumer)");
+	s = format (s, " (consumer)");
 
       if ((face->flags & HICN_FACE_FLAGS_DELETED))
 	s = format (s, " (deleted)");
@@ -270,37 +265,34 @@ hicn_face_del (hicn_face_id_t face_id)
   hicn_face_key_t old_key;
   hicn_face_key_t old_key2;
 
-  hicn_face_get_key (&(face->nat_addr), face->sw_if, &(face->dpo),
-                     &key);
+  hicn_face_get_key (&(face->nat_addr), face->sw_if, &(face->dpo), &key);
   hicn_face_input_faces_t *in_faces_vec =
     hicn_face_get_vec (&(face->nat_addr),
-                           &hicn_face_vec_hashtb);
+		       &hicn_face_vec_hashtb);
   if (in_faces_vec != NULL)
     {
       hicn_face_vec_t *vec =
-        pool_elt_at_index (hicn_vec_pool, in_faces_vec->vec_id);
+	pool_elt_at_index (hicn_vec_pool, in_faces_vec->vec_id);
       u32 index_face = vec_search (*vec, face_id);
       vec_del1 (*vec, index_face);
 
       if (vec_len (*vec) == 0)
-        {
-          pool_put_index (hicn_vec_pool, in_faces_vec->vec_id);
-          mhash_unset (&hicn_face_vec_hashtb, &key,
-                       (uword *) & old_key);
-          vec_free (*vec);
-        }
+	{
+	  pool_put_index (hicn_vec_pool, in_faces_vec->vec_id);
+	  mhash_unset (&hicn_face_vec_hashtb, &key, (uword *) & old_key);
+	  vec_free (*vec);
+	}
       else
-        {
-          /* Check if the face we are deleting is the preferred one. */
-          /* If so, repleace with another. */
-          if (in_faces_vec->face_id == face_id)
-            {
-              in_faces_vec->face_id = (*vec)[0];
-            }
-        }
+	{
+	  /* Check if the face we are deleting is the preferred one. */
+	  /* If so, repleace with another. */
+	  if (in_faces_vec->face_id == face_id)
+	    {
+	      in_faces_vec->face_id = (*vec)[0];
+	    }
+	}
 
-      mhash_unset (&hicn_face_hashtb, &key,
-                   (uword *) & old_key2);
+      mhash_unset (&hicn_face_hashtb, &key, (uword *) & old_key2);
     }
 
   int ret = HICN_ERROR_NONE;
@@ -322,37 +314,40 @@ hicn_face_del (hicn_face_id_t face_id)
 }
 
 static void
-hicn_iface_to_face(hicn_face_t *face, const dpo_id_t * dpo)
+hicn_iface_to_face (hicn_face_t * face, const dpo_id_t * dpo)
 {
-  dpo_stack(hicn_face_type, dpo->dpoi_proto, &face->dpo, dpo);
+  dpo_stack (hicn_face_type, dpo->dpoi_proto, &face->dpo, dpo);
 
-  face->flags &=  ~HICN_FACE_FLAGS_IFACE;
-  face->flags |=  HICN_FACE_FLAGS_FACE;
+  face->flags &= ~HICN_FACE_FLAGS_IFACE;
+  face->flags |= HICN_FACE_FLAGS_FACE;
 
-  if (dpo_is_adj(dpo))
+  if (dpo_is_adj (dpo))
     {
       fib_node_init (&face->fib_node, hicn_face_fib_node_type);
       fib_node_lock (&face->fib_node);
 
       if (dpo->dpoi_type != DPO_ADJACENCY_MIDCHAIN ||
-          dpo->dpoi_type != DPO_ADJACENCY_MCAST_MIDCHAIN)
-        {
-          ip_adjacency_t * adj = adj_get (dpo->dpoi_index);
-          ip46_address_t * nh = &(adj->sub_type.nbr.next_hop);
-          fib_prefix_t prefix;
+	  dpo->dpoi_type != DPO_ADJACENCY_MCAST_MIDCHAIN)
+	{
+	  ip_adjacency_t *adj = adj_get (dpo->dpoi_index);
+	  ip46_address_t *nh = &(adj->sub_type.nbr.next_hop);
+	  fib_prefix_t prefix;
 
-          if (!ip46_address_is_zero(nh))
-            {
-              fib_prefix_from_ip46_addr(nh, &prefix);
+	  if (!ip46_address_is_zero (nh))
+	    {
+	      fib_prefix_from_ip46_addr (nh, &prefix);
 
-              u32 fib_index = fib_table_find(prefix.fp_proto, HICN_FIB_TABLE);
+	      u32 fib_index =
+		fib_table_find (prefix.fp_proto, HICN_FIB_TABLE);
 
-              face->fib_entry_index = fib_entry_track (fib_index,
-                                                       &prefix,
-                                                       hicn_face_fib_node_type,
-                                                       hicn_dpoi_get_index(face), &face->fib_sibling);
-            }
-        }
+	      face->fib_entry_index = fib_entry_track (fib_index,
+						       &prefix,
+						       hicn_face_fib_node_type,
+						       hicn_dpoi_get_index
+						       (face),
+						       &face->fib_sibling);
+	    }
+	}
     }
 }
 
@@ -362,7 +357,7 @@ hicn_iface_to_face(hicn_face_t *face, const dpo_id_t * dpo)
  */
 int
 hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
-               int sw_if, hicn_face_id_t * pfaceid, u8 is_app_prod)
+	       int sw_if, hicn_face_id_t * pfaceid, u8 is_app_prod)
 {
 
   hicn_face_flags_t flags = (hicn_face_flags_t) 0;
@@ -371,8 +366,7 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
   hicn_face_t *face;
 
   face =
-    hicn_face_get_with_dpo (nat_address, sw_if, dpo_nh,
-                            &hicn_face_hashtb);
+    hicn_face_get_with_dpo (nat_address, sw_if, dpo_nh, &hicn_face_hashtb);
 
   if (face != NULL)
     {
@@ -381,8 +375,7 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
     }
 
   face =
-    hicn_face_get (nat_address, sw_if,
-                   &hicn_face_hashtb, dpo_nh->dpoi_index);
+    hicn_face_get (nat_address, sw_if, &hicn_face_hashtb, dpo_nh->dpoi_index);
 
   dpo_id_t temp_dpo = DPO_INVALID;
   temp_dpo.dpoi_index = dpo_nh->dpoi_index;
@@ -392,25 +385,23 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
   if (face == NULL)
     {
 
-      hicn_iface_add (nat_address, sw_if, pfaceid, dpo_nh->dpoi_proto, dpo_nh->dpoi_index);
+      hicn_iface_add (nat_address, sw_if, pfaceid, dpo_nh->dpoi_proto,
+		      dpo_nh->dpoi_index);
       face = hicn_dpoi_get_from_idx (*pfaceid);
 
-      mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid,
-                     0);
+      mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid, 0);
 
       hicn_face_get_key (nat_address, sw_if, &temp_dpo, &key);
-      mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid,
-                     0);
+      mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid, 0);
     }
   else
     {
       /* We found an iface and we convert it to a face */
       *pfaceid = hicn_dpoi_get_index (face);
-      mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid,
-                     0);
+      mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid, 0);
     }
 
-  hicn_iface_to_face(face, dpo_nh);
+  hicn_iface_to_face (face, dpo_nh);
 
   temp_dpo.dpoi_index = ~0;
 
@@ -422,7 +413,7 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
       hicn_face_input_faces_t in_faces_temp;
       hicn_face_vec_t *vec;
       pool_get (hicn_vec_pool, vec);
-      *vec = vec_new (hicn_face_vec_t, 0);
+      *vec = vec_new (hicn_face_id_t, 0);
       u32 index = vec - hicn_vec_pool;
       in_faces_temp.vec_id = index;
       vec_add1 (*vec, *pfaceid);
@@ -432,38 +423,38 @@ hicn_face_add (const dpo_id_t * dpo_nh, ip46_address_t * nat_address,
       hicn_face_get_key (nat_address, 0, &temp_dpo, &key);
 
       mhash_set_mem (&hicn_face_vec_hashtb, &key,
-                     (uword *) & in_faces_temp, 0);
+		     (uword *) & in_faces_temp, 0);
     }
   else
     {
       hicn_face_vec_t *vec =
-        pool_elt_at_index (hicn_vec_pool, in_faces->vec_id);
+	pool_elt_at_index (hicn_vec_pool, in_faces->vec_id);
 
       /* */
       if (vec_search (*vec, *pfaceid) != ~0)
-        return HICN_ERROR_FACE_ALREADY_CREATED;
+	return HICN_ERROR_FACE_ALREADY_CREATED;
 
       vec_add1 (*vec, *pfaceid);
 
-      hicn_iface_to_face(face, dpo_nh);
+      hicn_iface_to_face (face, dpo_nh);
 
       hicn_face_get_key (nat_address, 0, &temp_dpo, &key);
 
-      mhash_set_mem (&hicn_face_vec_hashtb, &key, (uword *) in_faces,
-                     0);
+      mhash_set_mem (&hicn_face_vec_hashtb, &key, (uword *) in_faces, 0);
 
       /* If the face is an application producer face, we set it as the preferred incoming face. */
       /* This is required to handle the CS separation, and the push api in a lightway */
       if (is_app_prod)
-        {
-          in_faces->face_id = *pfaceid;
-        }
+	{
+	  in_faces->face_id = *pfaceid;
+	}
     }
 
   retx_t *retx = vlib_process_signal_event_data (vlib_get_main (),
-        					 hicn_mapme_eventmgr_process_node.index,
-        					 HICN_MAPME_EVENT_FACE_ADD, 1,
-        					 sizeof (retx_t));
+						 hicn_mapme_eventmgr_process_node.
+						 index,
+						 HICN_MAPME_EVENT_FACE_ADD, 1,
+						 sizeof (retx_t));
 
   /* *INDENT-OFF* */
   *retx = (retx_t) {
