@@ -97,14 +97,15 @@ std::size_t HTTPRequest::parseHeaders(const uint8_t *buffer, std::size_t size,
       if (_http_version.substr(0, separator) != "HTTP") {
         return 0;
       }
-      http_version =
-          line.substr(separator + 1, _http_version.length() - separator - 1);
+      http_version = _http_version.substr(
+          separator + 1, _http_version.length() - separator - 1);
     } else {
       return 0;
     }
 
     std::size_t param_end;
     std::size_t value_start;
+    std::string header_key, header_value;
     while (getline(ss, line)) {
       if ((param_end = line.find(':')) != std::string::npos) {
         value_start = param_end + 1;
@@ -113,8 +114,16 @@ std::size_t HTTPRequest::parseHeaders(const uint8_t *buffer, std::size_t size,
             value_start++;
           }
           if (value_start < line.size()) {
-            headers[line.substr(0, param_end)] =
+            header_key = line.substr(0, param_end);
+            header_value =
                 line.substr(value_start, line.size() - value_start - 1);
+            std::transform(header_key.begin(), header_key.end(),
+                           header_key.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            std::transform(header_value.begin(), header_value.end(),
+                           header_value.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            headers[header_key] = header_value;
           }
         }
       } else {
