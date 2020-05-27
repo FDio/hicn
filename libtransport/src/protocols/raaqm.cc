@@ -432,10 +432,6 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
       (*on_interest_retransmission_)(*socket_->getInterface(), *interest);
     }
 
-    if (*on_interest_output_) {
-      (*on_interest_output_)(*socket_->getInterface(), *interest);
-    }
-
     if (!is_running_) {
       return;
     }

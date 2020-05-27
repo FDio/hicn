@@ -105,11 +105,13 @@ void AsyncConsumerProducer::doReceive() {
       interface::ProducerCallbacksOptions::CACHE_MISS,
       [this](interface::ProducerSocket& producer,
              interface::Interest& interest) {
-        // core::Name n(interest.getWritableName(), true);
-        io_service_.post(std::bind(
-            &AsyncConsumerProducer::manageIncomingInterest, this,
-            interest.getWritableName(), interest.acquireMemBufReference(),
-            interest.getPayload().release()));
+        if (interest.payloadSize() > 0) {
+          // Interest may contain http request
+          io_service_.post(std::bind(
+              &AsyncConsumerProducer::manageIncomingInterest, this,
+              interest.getWritableName(), interest.acquireMemBufReference(),
+              interest.getPayload().release()));
+        }
       });
 
   producer_socket_.connect();
@@ -125,7 +127,7 @@ void AsyncConsumerProducer::manageIncomingInterest(
   if (_it != _end) {
     if (_it->second.second) {
       TRANSPORT_LOGD(
-          "Content is in production, interest will be satisfied shortly.");
+          "Content is in production, interests will be satisfied shortly.");
       return;
     }
 
