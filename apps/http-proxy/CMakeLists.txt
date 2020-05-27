@@ -24,17 +24,12 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
-include_directories(
-  SYSTEM
-  ${CMAKE_BINARY_DIR}
-  ${LIB${TRANSPORT_LIBRARY}_INCLUDE_DIR}
-)
-
 set(LIB_SOURCE_FILES
   src/http_session.cc
   src/http_proxy.cc
   src/HTTP1.xMessageFastParser.cc
   src/icn_receiver.cc
+  src/forwarder_interface.cc
 )
 
 set(LIB_SERVER_HEADER_FILES
@@ -42,6 +37,8 @@ set(LIB_SERVER_HEADER_FILES
   src/http_session.h
   src/http_proxy.h
   src/HTTP1.xMessageFastParser.h
+  src/forwarder_interface.h
+  src/forwarder_config.h
 )
 
 set(APP_SOURCE_FILES
@@ -51,14 +48,19 @@ set(APP_SOURCE_FILES
 set(LIBHTTP_PROXY hicnhttpproxy)
 set(LIBHTTP_PROXY_STATIC ${LIBHTTP_PROXY}.static)
 
+list(APPEND COMPILER_DEFINITIONS
+  -DWITH_POLICY
+)
+
 build_library(${LIBHTTP_PROXY}
   STATIC
   SOURCES ${LIB_SOURCE_FILES}
   LINK_LIBRARIES ${LIBRARIES}
   DEPENDS ${DEPENDENCIES}
-  INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS}
+  INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS} ${LIBHICNCTRL_INCLUDE_DIRS}
   COMPONENT ${HICN_APPS}
   LINK_FLAGS ${LINK_FLAGS}
+  DEFINITIONS ${COMPILER_DEFINITIONS}
 )
 
 if (NOT DISABLE_EXECUTABLES)
