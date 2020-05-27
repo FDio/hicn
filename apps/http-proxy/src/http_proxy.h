@@ -18,6 +18,7 @@
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/utils/event_thread.h>
 
+#include "forwarder_config.h"
 #include "http_session.h"
 #include "icn_receiver.h"
 
@@ -37,11 +38,10 @@ class TcpListener {
         socket_(io_service),
 #endif
         callback_(callback) {
-    do_accept();
   }
 
- private:
-  void do_accept() {
+ public:
+  void doAccept() {
 #if ((ASIO_VERSION / 100 % 1000) >= 12)
     acceptor_.async_accept(
         [this](std::error_code ec, asio::ip::tcp::socket socket) {
@@ -53,7 +53,7 @@ class TcpListener {
             callback_(std::move(socket));
           }
 
-          do_accept();
+          doAccept();
         });
   }
 
@@ -87,11 +87,18 @@ class TcpReceiver : public Receiver {
   void onNewConnection(asio::ip::tcp::socket&& socket);
   void onClientDisconnect(HTTPClientConnectionCallback* client);
 
+  template <typename Callback>
+  void parseHicnHeader(std::string& hicn_header, Callback&& callback) {
+    forwarder_config_.parseHicnHeader(hicn_header,
+                                      std::forward<Callback>(callback));
+  }
+
   TcpListener listener_;
   std::string prefix_;
   std::string ipv6_first_word_;
   std::deque<HTTPClientConnectionCallback*> http_clients_;
   std::unordered_set<HTTPClientConnectionCallback*> used_http_clients_;
+  ForwarderConfig forwarder_config_;
 };
 
 class IcnReceiver : public Receiver {
