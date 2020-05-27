@@ -20,21 +20,19 @@
 
 #include <iostream>
 
-#include "HTTP1.xMessageFastParser.h"
-
 namespace transport {
 
 HTTPSession::HTTPSession(asio::io_service &io_service, std::string &ip_address,
                          std::string &port,
                          ContentReceivedCallback receive_callback,
                          OnConnectionClosed on_connection_closed_callback,
-                         bool reverse)
+                         bool client)
     : io_service_(io_service),
       socket_(io_service_),
       resolver_(io_service_),
       endpoint_iterator_(resolver_.resolve({ip_address, port})),
       timer_(io_service),
-      reverse_(reverse),
+      reverse_(client),
       is_reconnection_(false),
       data_available_(false),
       content_length_(0),
@@ -44,13 +42,20 @@ HTTPSession::HTTPSession(asio::io_service &io_service, std::string &ip_address,
       on_connection_closed_callback_(on_connection_closed_callback) {
   input_buffer_.prepare(buffer_size + 2048);
   state_ = ConnectorState::CONNECTING;
+
+  if (reverse_) {
+    header_info_ = std::make_unique<RequestMetadata>();
+  } else {
+    header_info_ = std::make_unique<ResponseMetadata>();
+  }
+
   doConnect();
 }
 
 HTTPSession::HTTPSession(asio::ip::tcp::socket socket,
                          ContentReceivedCallback receive_callback,
                          OnConnectionClosed on_connection_closed_callback,
-                         bool reverse)
+                         bool client)
     :
 #if ((ASIO_VERSION / 100 % 1000) < 12)
       io_service_(socket.get_io_service()),
@@ -60,7 +65,7 @@ HTTPSession::HTTPSession(asio::ip::tcp::socket socket,
       socket_(std::move(socket)),
       resolver_(io_service_),
       timer_(io_service_),
-      reverse_(reverse),
+      reverse_(client),
       is_reconnection_(false),
       data_available_(false),
       content_length_(0),
@@ -72,6 +77,12 @@ HTTPSession::HTTPSession(asio::ip::tcp::socket socket,
   state_ = ConnectorState::CONNECTED;
   asio::ip::tcp::no_delay noDelayOption(true);
   socket_.set_option(noDelayOption);
+
+  if (reverse_) {
+    header_info_ = std::make_unique<RequestMetadata>();
+  } else {
+    header_info_ = std::make_unique<ResponseMetadata>();
+  }
   doReadHeader();
 }
 
@@ -139,7 +150,7 @@ void HTTPSession::handleRead(std::error_code ec, std::size_t length) {
         asio::buffer_cast<const uint8_t *>(input_buffer_.data());
     bool is_last = chunked_ ? (is_last_chunk_ ? !content_length_ : false)
                             : !content_length_;
-    receive_callback_(buffer, input_buffer_.size(), is_last, false);
+    receive_callback_(buffer, input_buffer_.size(), is_last, false, nullptr);
     input_buffer_.consume(input_buffer_.size());
 
     if (!content_length_) {
@@ -182,7 +193,7 @@ void HTTPSession::doReadBody(std::size_t body_size,
       const uint8_t *buffer =
           asio::buffer_cast<const uint8_t *>(input_buffer_.data());
       receive_callback_(buffer, body_size, chunked_ ? is_last_chunk_ : !to_read,
-                        false);
+                        false, nullptr);
       input_buffer_.consume(body_size);
     }
 
@@ -220,8 +231,10 @@ void HTTPSession::doReadHeader() {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           const uint8_t *buffer =
               asio::buffer_cast<const uint8_t *>(input_buffer_.data());
-          auto headers =
-              HTTPMessageFastParser::getHeaders(buffer, length, reverse_);
+          HTTPMessageFastParser::getHeaders(buffer, length, reverse_,
+                                            header_info_.get());
+
+          auto &headers = header_info_->headers;
 
           // Try to get content length, if available
           auto it = headers.find(HTTPMessageFastParser::content_length);
@@ -237,7 +250,8 @@ void HTTPSession::doReadHeader() {
             }
           }
 
-          receive_callback_(buffer, length, !size && !chunked_, true);
+          receive_callback_(buffer, length, !size && !chunked_, true,
+                            header_info_.get());
           auto additional_bytes = input_buffer_.size() - length;
           input_buffer_.consume(length);
 
