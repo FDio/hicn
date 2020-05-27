@@ -22,10 +22,20 @@
 
 using transport::http::HTTPHeaders;
 
+namespace transport {
+struct Metadata;
+}
+
 class HTTPMessageFastParser {
  public:
-  static HTTPHeaders getHeaders(const uint8_t* headers, std::size_t length,
-                                bool request);
+  static constexpr char http_ok[] =
+      "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+  static constexpr char http_failed[] =
+      "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: "
+      "close\r\n\r\n";
+
+  static void getHeaders(const uint8_t* headers, std::size_t length,
+                         bool request, transport::Metadata* metadata);
   static std::size_t hasBody(const uint8_t* headers, std::size_t length);
   static bool isMpdRequest(const uint8_t* headers, std::size_t length);
   static uint32_t parseCacheControl(const uint8_t* headers, std::size_t length);
