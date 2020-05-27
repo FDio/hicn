@@ -40,6 +40,8 @@ DEPS_UBUNTU="libparc-dev                        \
              libvppinfra=${VPP_VERSION_DEB}     \
              libvppinfra-dev=${VPP_VERSION_DEB} \
              vpp-plugin-core=${VPP_VERSION_DEB} \
+             libyang                            \
+             sysrepo                            \
              python3-ply"
 
 
@@ -54,6 +56,8 @@ DEPS_UBUNTU_NOVERSION="libparc-dev              \
              libvppinfra                        \
              libvppinfra-dev                    \
              vpp-plugin-core                    \
+             libyang                            \
+             sysrepo                            \
              python3-ply                        \
              python3-setuptools                 \
              python3-pip"
@@ -70,6 +74,8 @@ DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM}   \
              asio-devel                     \
              libconfig-devel                \
              centos-release-scl             \
+             libyang                        \
+             sysrepo                        \
              devtoolset-7"
 
 DEPS_CENTOS_NOVERSION="vpp-devel            \
@@ -113,8 +119,8 @@ setup_fdio_repo() {
     DISTRIB_ID=${1}
 
     if [ "${DISTRIB_ID}" == "ubuntu" ]; then
-    rm -r /etc/apt/sources.list.d/*
-    curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
+        rm -r /etc/apt/sources.list.d/*
+        curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
     elif [ "${DISTRIB_ID}" == "centos" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM} | sudo bash
         curl ${LATEST_EPEL_REPO} > epel-release-latest-7.noarch.rpm
@@ -222,7 +228,7 @@ build_package() {
           -DBUILD_LIBTRANSPORT=ON       \
           -DBUILD_APPS=ON               \
           -DBUILD_HICNLIGHT=OFF         \
-          -DBUILD_SYSREPOPLUGIN=OFF      \
+          -DBUILD_SYSREPOPLUGIN=ON      \
           -DBUILD_TELEMETRY=ON          \
           ${SCRIPT_PATH}/..
 
@@ -262,7 +268,7 @@ build_doxygen() {
 
     mkdir -p ${SCRIPT_PATH}/../build-doxygen
     pushd ${SCRIPT_PATH}/../build-doxygen
-    cmake -DBUILD_HICNPLUGIN=On -DBUILD_HICNLIGHT=OFF -DBUILD_LIBTRANSPORT=OFF -DBUILD_UTILS=OFF -DBUILD_APPS=OFF -DBUILD_CTRL=OFF ..
+    cmake -DBUILD_HICNPLUGIN=OFF -DBUILD_HICNLIGHT=OFF -DBUILD_LIBTRANSPORT=OFF -DBUILD_UTILS=OFF -DBUILD_APPS=OFF -DBUILD_CTRL=OFF ..
     make doc
     popd
 }
