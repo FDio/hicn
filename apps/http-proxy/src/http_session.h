@@ -17,6 +17,8 @@
 
 #include <hicn/transport/core/packet.h>
 
+#include "HTTP1.xMessageFastParser.h"
+
 #define ASIO_STANDALONE
 #include <asio.hpp>
 #include <deque>
@@ -26,8 +28,10 @@ namespace transport {
 
 using asio::ip::tcp;
 
+struct Metadata;
+
 typedef std::function<void(const uint8_t *data, std::size_t size, bool is_last,
-                           bool headers)>
+                           bool headers, Metadata *metadata)>
     ContentReceivedCallback;
 typedef std::function<bool(asio::ip::tcp::socket &socket)> OnConnectionClosed;
 typedef std::function<void()> ContentSentCallback;
@@ -35,7 +39,25 @@ typedef std::deque<
     std::pair<std::unique_ptr<utils::MemBuf>, ContentSentCallback>>
     BufferQueue;
 
+struct Metadata {
+  std::string http_version;
+  HTTPHeaders headers;
+};
+
+struct RequestMetadata : Metadata {
+  std::string method;
+  std::string path;
+};
+
+struct ResponseMetadata : Metadata {
+  std::string status_code;
+  std::string status_string;
+};
+
+class HTTPClientConnectionCallback;
+
 class HTTPSession {
+  friend class HTTPClientConnectionCallback;
   static constexpr uint32_t buffer_size = 1024 * 512;
 
   enum class ConnectorState {
@@ -47,11 +69,11 @@ class HTTPSession {
  public:
   HTTPSession(asio::io_service &io_service, std::string &ip_address,
               std::string &port, ContentReceivedCallback receive_callback,
-              OnConnectionClosed on_reconnect_callback, bool reverse = false);
+              OnConnectionClosed on_reconnect_callback, bool client = false);
 
   HTTPSession(asio::ip::tcp::socket socket,
               ContentReceivedCallback receive_callback,
-              OnConnectionClosed on_reconnect_callback, bool reverse = true);
+              OnConnectionClosed on_reconnect_callback, bool client = true);
 
   ~HTTPSession();
 
@@ -103,6 +125,9 @@ class HTTPSession {
 
   ContentReceivedCallback receive_callback_;
   OnConnectionClosed on_connection_closed_callback_;
+
+  // HTTP headers
+  std::unique_ptr<Metadata> header_info_;
 
   // Connector state
   ConnectorState state_;
