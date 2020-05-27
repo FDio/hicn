@@ -22,36 +22,40 @@
 #include <experimental/functional>
 #include <iostream>
 
+#include "http_session.h"
+
+constexpr char HTTPMessageFastParser::http_ok[];
+constexpr char HTTPMessageFastParser::http_failed[];
+
 std::string HTTPMessageFastParser::numbers = "0123456789";
-std::string HTTPMessageFastParser::content_length = "Content-Length";
-std::string HTTPMessageFastParser::transfer_encoding = "Transfer-Encoding";
+std::string HTTPMessageFastParser::content_length = "content-length";
+std::string HTTPMessageFastParser::transfer_encoding = "transfer-encoding";
 std::string HTTPMessageFastParser::chunked = "chunked";
-std::string HTTPMessageFastParser::cache_control = "Cache-Control";
+std::string HTTPMessageFastParser::cache_control = "cache-control";
 std::string HTTPMessageFastParser::mpd = "mpd";
-std::string HTTPMessageFastParser::connection = "Connection";
+std::string HTTPMessageFastParser::connection = "connection";
 std::string HTTPMessageFastParser::separator = "\r\n\r\n";
 
-HTTPHeaders HTTPMessageFastParser::getHeaders(const uint8_t *headers,
-                                              std::size_t length,
-                                              bool request) {
-  HTTPHeaders ret;
-  std::string http_version;
-
+void HTTPMessageFastParser::getHeaders(const uint8_t *headers,
+                                       std::size_t length, bool request,
+                                       transport::Metadata *metadata) {
   if (request) {
-    std::string method;
-    std::string url;
+    transport::RequestMetadata *_metadata =
+        (transport::RequestMetadata *)(metadata);
 
-    if (transport::http::HTTPRequest::parseHeaders(headers, length, ret,
-                                                   http_version, method, url)) {
-      return ret;
+    if (transport::http::HTTPRequest::parseHeaders(
+            headers, length, _metadata->headers, _metadata->http_version,
+            _metadata->method, _metadata->path)) {
+      return;
     }
   } else {
-    std::string status_code;
-    std::string status_string;
+    transport::ResponseMetadata *_metadata =
+        (transport::ResponseMetadata *)(metadata);
 
     if (transport::http::HTTPResponse::parseHeaders(
-            headers, length, ret, http_version, status_code, status_string)) {
-      return ret;
+            headers, length, _metadata->headers, _metadata->http_version,
+            _metadata->status_code, _metadata->status_string)) {
+      return;
     }
   }
 
