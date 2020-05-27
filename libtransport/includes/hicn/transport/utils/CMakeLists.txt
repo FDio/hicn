@@ -30,6 +30,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/spinlock.h
   ${CMAKE_CURRENT_SOURCE_DIR}/fixed_block_allocator.h
   ${CMAKE_CURRENT_SOURCE_DIR}/event_thread.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/string_utils.h
 )
 
 if(NOT WIN32)

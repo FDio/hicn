@@ -17,6 +17,7 @@
 
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/utils/log.h>
+#include <hicn/transport/utils/string_utils.h>
 
 #include "utils.h"
 
@@ -55,7 +56,8 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
         std::move(socket),
         std::bind(&HTTPClientConnectionCallback::readDataFromTcp, this,
                   std::placeholders::_1, std::placeholders::_2,
-                  std::placeholders::_3, std::placeholders::_4),
+                  std::placeholders::_3, std::placeholders::_4,
+                  std::placeholders::_5),
         [this](asio::ip::tcp::socket& socket) -> bool {
           try {
             std::string remote_address =
@@ -78,7 +80,7 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
  private:
   void consumeNextRequest() {
     if (request_buffer_queue_.size() == 0) {
-      // No additiona requests to process.
+      // No additional requests to process.
       return;
     }
 
@@ -105,10 +107,24 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
   // tcp callbacks
 
   void readDataFromTcp(const uint8_t* data, std::size_t size, bool is_last,
-                       bool headers) {
+                       bool headers, Metadata* metadata) {
     if (headers) {
       // Add the request to the request queue
       tmp_buffer_ = utils::MemBuf::copyBuffer(data, size);
+
+      RequestMetadata* _metadata = reinterpret_cast<RequestMetadata*>(metadata);
+      if (TRANSPORT_EXPECT_FALSE(_metadata->path.compare("isHicnProxyOn") &&
+                                 is_last)) {
+        auto it = metadata->headers.find("hicn");
+        if (it != metadata->headers.end()) {
+          /**
+           * It seems this request is for us.
+           * Get hicn parameters.
+           */
+          processClientRequest(it->second, _metadata);
+          return;
+        }
+      }
     } else {
       // Append payload chunk to last request added. Here we are assuming
       // HTTP/1.1.
@@ -134,7 +150,8 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
 
       if (!consumer_.isRunning()) {
         TRANSPORT_LOGD(
-            "Consumer stopped, triggering consume from TCP session handler..");
+            "Consumer stopped, triggering consume from TCP session "
+            "handler..");
         consumeNextRequest();
       }
 
@@ -174,6 +191,29 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
     consumeNextRequest();
   }
 
+  void processClientRequest(std::string& hicn_header,
+                            RequestMetadata* metadata) {
+    tcp_receiver_.parseHicnHeader(hicn_header, [this](bool result) {
+      auto buffer = utils::MemBuf::create(128);
+      const char* reply = nullptr;
+      if (result) {
+        reply = HTTPMessageFastParser::http_ok;
+      } else {
+        reply = HTTPMessageFastParser::http_failed;
+      }
+
+      /* Route created. Send back a 200 OK to client */
+      std::strncpy((char*)buffer->writableData(), reply, 128);
+      buffer->append(std::strlen(reply));
+      session_->send(buffer.release(), [this, result]() {
+        auto& socket = session_->socket_;
+        TRANSPORT_LOGI("Sent %d response to client %s:%d", result,
+                       socket.remote_endpoint().address().to_string().c_str(),
+                       socket.remote_endpoint().port());
+      });
+    });
+  }
+
  private:
   TcpReceiver& tcp_receiver_;
   utils::EventThread& thread_;
@@ -192,11 +232,17 @@ TcpReceiver::TcpReceiver(std::uint16_t port, const std::string& prefix,
                 std::bind(&TcpReceiver::onNewConnection, this,
                           std::placeholders::_1)),
       prefix_(prefix),
-      ipv6_first_word_(ipv6_first_word) {
-  for (int i = 0; i < 10; i++) {
-    http_clients_.emplace_back(new HTTPClientConnectionCallback(
-        *this, thread_, prefix, ipv6_first_word));
-  }
+      ipv6_first_word_(ipv6_first_word),
+      forwarder_config_(thread_.getIoService(), [this](std::error_code ec) {
+        if (!ec) {
+          listener_.doAccept();
+          for (int i = 0; i < 10; i++) {
+            http_clients_.emplace_back(new HTTPClientConnectionCallback(
+                *this, thread_, prefix_, ipv6_first_word_));
+          }
+        }
+      }) {
+  forwarder_config_.tryToConnectToForwarder();
 }
 
 void TcpReceiver::onClientDisconnect(HTTPClientConnectionCallback* client) {
