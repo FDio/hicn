@@ -20,6 +20,9 @@ extern "C" {
 #include <hicn/util/ip_address.h>
 }
 
+#ifnderf ASIO_STANDALONE
+#define ASIO_STANDALONE 1
+#endif
 #include <asio.hpp>
 #include <asio/steady_timer.hpp>
 #include <functional>
