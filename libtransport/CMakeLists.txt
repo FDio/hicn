@@ -52,9 +52,6 @@ set(TRANSPORT_HTTP ${TRANSPORT_ROOT_PATH}/http)
 set(TRANSPORT_PORTABILITY ${TRANSPORT_ROOT_PATH}/portability)
 set(TRANSPORT_INTERFACES ${TRANSPORT_ROOT_PATH}/interfaces)
 
-# Install includes
-set(INSTALL_INCLUDE_DIR include/hicn/transport)
-
 set(LIBTRANSPORT hicntransport)
 if ((BUILD_HICNPLUGIN OR BUILD_MEMIF_CONNECTOR) AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   set(__vpp__ 1)
