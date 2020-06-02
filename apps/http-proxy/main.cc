@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/http_proxy.h"
+#include <hicn/http-proxy/http_proxy.h>
 
 using namespace transport;
 
@@ -41,13 +41,13 @@ struct Params : HTTPProxy::ClientParams, HTTPProxy::ServerParams {
               << "N Threads: " << n_thread << std::endl;
   }
 
-  HTTPProxy instantiateProxyAsValue() {
+  HTTPProxy* instantiateProxyAsValue() {
     if (client) {
       HTTPProxy::ClientParams* p = dynamic_cast<HTTPProxy::ClientParams*>(this);
-      return transport::HTTPProxy(*p, n_thread);
+      return new transport::HTTPProxy(*p, n_thread);
     } else if (server) {
       HTTPProxy::ServerParams* p = dynamic_cast<HTTPProxy::ServerParams*>(this);
-      return transport::HTTPProxy(*p, n_thread);
+      return new transport::HTTPProxy(*p, n_thread);
     } else {
       throw std::runtime_error(
           "Proxy configured as client and server at the same time.");
@@ -134,8 +134,9 @@ int main(int argc, char** argv) {
   }
 
   params.printParams();
-  transport::HTTPProxy proxy = params.instantiateProxyAsValue();
-  proxy.run();
+  auto proxy = params.instantiateProxyAsValue();
+  proxy->run();
+  delete proxy;
 
   return 0;
 }

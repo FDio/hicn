@@ -13,8 +13,7 @@
  * limitations under the License.
  */
 
-#include "http_session.h"
-
+#include <hicn/http-proxy/http_proxy.h>
 #include <hicn/transport/utils/branch_prediction.h>
 #include <hicn/transport/utils/log.h>
 

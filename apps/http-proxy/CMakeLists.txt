@@ -32,19 +32,11 @@ set(LIB_SOURCE_FILES
   src/forwarder_interface.cc
 )
 
-set(LIB_SERVER_HEADER_FILES
-  src/icn_receiver.h
-  src/http_session.h
-  src/http_proxy.h
-  src/HTTP1.xMessageFastParser.h
-  src/forwarder_interface.h
-  src/forwarder_config.h
-)
-
 set(APP_SOURCE_FILES
   main.cc
 )
 
+add_subdirectory(includes/hicn/http-proxy)
 set(LIBHTTP_PROXY hicnhttpproxy)
 set(LIBHTTP_PROXY_STATIC ${LIBHTTP_PROXY}.static)
 
@@ -57,7 +49,8 @@ build_library(${LIBHTTP_PROXY}
   SOURCES ${LIB_SOURCE_FILES}
   LINK_LIBRARIES ${LIBRARIES}
   DEPENDS ${DEPENDENCIES}
-  INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS} ${LIBHICNCTRL_INCLUDE_DIRS}
+  INSTALL_HEADERS ${LIBPROXY_TO_INSTALL_HEADER_FILES}
+  INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS} ${LIBHICNCTRL_INCLUDE_DIRS} ${LIBPROXY_INCLUDE_DIRS}
   COMPONENT ${HICN_APPS}
   LINK_FLAGS ${LINK_FLAGS}
   DEFINITIONS ${COMPILER_DEFINITIONS}
