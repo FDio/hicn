@@ -34,7 +34,7 @@ class EventThread {
   explicit EventThread(asio::io_service& io_service)
       : internal_io_service_(nullptr),
         io_service_(io_service),
-        work_(io_service_),
+        work_(std::make_unique<asio::io_service::work>(io_service_)),
         thread_(nullptr) {
     run();
   }
@@ -42,7 +42,7 @@ class EventThread {
   explicit EventThread()
       : internal_io_service_(std::make_unique<asio::io_service>()),
         io_service_(*internal_io_service_),
-        work_(io_service_),
+        work_(std::make_unique<asio::io_service::work>(io_service_)),
         thread_(nullptr) {
     run();
   }
@@ -78,7 +78,7 @@ class EventThread {
   }
 
   void stop() {
-    io_service_.stop();
+    work_.reset();
 
     if (thread_ && thread_->joinable()) {
       thread_->join();
@@ -94,7 +94,7 @@ class EventThread {
  private:
   std::unique_ptr<asio::io_service> internal_io_service_;
   asio::io_service& io_service_;
-  asio::io_service::work work_;
+  std::unique_ptr<asio::io_service::work> work_;
   std::unique_ptr<std::thread> thread_;
 };
 
