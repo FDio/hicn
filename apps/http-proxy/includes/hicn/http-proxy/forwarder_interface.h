@@ -53,7 +53,8 @@ class ForwarderInterface {
             [this]() { internal_ioservice_.run(); })),
         check_routes_timer_(nullptr),
         pending_add_route_counter_(0),
-        route_id_(0) {}
+        route_id_(0),
+        closed_(false) {}
 
   ~ForwarderInterface();
 
@@ -100,6 +101,7 @@ class ForwarderInterface {
   std::unique_ptr<asio::steady_timer> check_routes_timer_;
   uint32_t pending_add_route_counter_;
   uint32_t route_id_;
+  bool closed_;
 };
 
 }  // namespace transport
