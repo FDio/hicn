@@ -42,7 +42,6 @@ AsyncConsumerProducer::AsyncConsumerProducer(
       cache_size_(std::stoul(cache_size)),
       mtu_(std::stoul(mtu)),
       request_counter_(0),
-      signals_(io_service_, SIGINT, SIGQUIT),
       connector_(io_service_, ip_address_, port_,
                  std::bind(&AsyncConsumerProducer::publishContent, this,
                            std::placeholders::_1, std::placeholders::_2,
@@ -76,15 +75,6 @@ AsyncConsumerProducer::AsyncConsumerProducer(
   }
 
   producer_socket_.registerPrefix(prefix_);
-
-  // Let the main thread to catch SIGINT and SIGQUIT
-  signals_.async_wait(
-      [this](const std::error_code& errorCode, int signal_number) {
-        TRANSPORT_LOGI("Number of requests processed by plugin: %lu",
-                       (unsigned long)request_counter_);
-        producer_socket_.stop();
-        connector_.close();
-      });
 }
 
 void AsyncConsumerProducer::start() {
@@ -98,6 +88,15 @@ void AsyncConsumerProducer::run() {
   if (!external_io_service_) {
     io_service_.run();
   }
+}
+
+void AsyncConsumerProducer::stop() {
+  io_service_.post([this]() {
+    TRANSPORT_LOGI("Number of requests processed by plugin: %lu",
+                   (unsigned long)request_counter_);
+    producer_socket_.stop();
+    connector_.close();
+  });
 }
 
 void AsyncConsumerProducer::doReceive() {
