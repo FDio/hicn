@@ -41,16 +41,18 @@ int ForwarderInterface::connectToForwarder() {
 }
 
 void ForwarderInterface::close() {
-  internal_ioservice_.post([this]() {
-    work_.reset();
-    if (sock_) {
-      hc_sock_free(sock_);
-      sock_ = nullptr;
-    }
-  });
+  if (!closed_) {
+    internal_ioservice_.post([this]() {
+      work_.reset();
+      if (sock_) {
+        hc_sock_free(sock_);
+        sock_ = nullptr;
+      }
+    });
 
-  if (thread_->joinable()) {
-    thread_->join();
+    if (thread_->joinable()) {
+      thread_->join();
+    }
   }
 }
 

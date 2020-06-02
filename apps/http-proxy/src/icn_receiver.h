@@ -54,6 +54,8 @@ class AsyncConsumerProducer {
 
   void run();
 
+  void stop();
+
  private:
   void start();
 
@@ -79,7 +81,6 @@ class AsyncConsumerProducer {
   uint32_t mtu_;
 
   uint64_t request_counter_;
-  asio::signal_set signals_;
 
   // std::unordered_map<core::Name, std::shared_ptr<ATSConnector>>
   // connection_map_;

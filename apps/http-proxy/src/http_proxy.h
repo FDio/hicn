@@ -51,11 +51,12 @@ class TcpListener {
 #endif
           if (!ec) {
             callback_(std::move(socket));
+            doAccept();
           }
-
-          doAccept();
         });
   }
+
+  void stop() { acceptor_.close(); }
 
   asio::ip::tcp::acceptor acceptor_;
 #if ((ASIO_VERSION / 100 % 1000) < 12)
@@ -71,6 +72,9 @@ class HTTPClientConnectionCallback;
 class Receiver {
  public:
   Receiver() : thread_() {}
+  virtual ~Receiver() = default;
+  void stopAndJoinThread() { thread_.stop(); }
+  virtual void stop() = 0;
 
  protected:
   utils::EventThread thread_;
@@ -82,6 +86,8 @@ class TcpReceiver : public Receiver {
  public:
   TcpReceiver(std::uint16_t port, const std::string& prefix,
               const std::string& ipv6_first_word);
+
+  void stop() override;
 
  private:
   void onNewConnection(asio::ip::tcp::socket&& socket);
@@ -99,6 +105,7 @@ class TcpReceiver : public Receiver {
   std::deque<HTTPClientConnectionCallback*> http_clients_;
   std::unordered_set<HTTPClientConnectionCallback*> used_http_clients_;
   ForwarderConfig forwarder_config_;
+  bool stopped_;
 };
 
 class IcnReceiver : public Receiver {
@@ -109,6 +116,13 @@ class IcnReceiver : public Receiver {
         icn_consum_producer_(thread_.getIoService(),
                              std::forward<Args>(args)...) {
     icn_consum_producer_.run();
+  }
+
+  void stop() override {
+    thread_.add([this]() {
+      /* Stop the listener */
+      icn_consum_producer_.stop();
+    });
   }
 
  private:
@@ -175,13 +189,15 @@ class HTTPProxy {
   HTTPProxy(ClientParams& icn_params, std::size_t n_thread = 1);
   HTTPProxy(ServerParams& icn_params, std::size_t n_thread = 1);
 
-  void run() { sleep(1000000); }
+  void run() { main_io_context_.run(); }
+  void stop();
 
  private:
-  void acceptTCPClient(asio::ip::tcp::socket&& socket);
+  void setupSignalHandler();
 
- private:
   std::vector<std::unique_ptr<Receiver>> receivers_;
+  asio::io_service main_io_context_;
+  asio::signal_set signals_;
 };
 
 }  // namespace transport
