@@ -33,12 +33,10 @@ using interface::TransportProtocolAlgorithms;
 class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
  public:
   HTTPClientConnectionCallback(TcpReceiver& tcp_receiver,
-                               utils::EventThread& thread,
-                               const std::string& prefix,
-                               const std::string& ipv6_first_word)
+                               utils::EventThread& thread)
       : tcp_receiver_(tcp_receiver),
         thread_(thread),
-        prefix_hash_(generatePrefix(prefix, ipv6_first_word)),
+        prefix_hash_(tcp_receiver_.prefix_hash_),
         consumer_(TransportProtocolAlgorithms::RAAQM, thread_.getIoService()),
         session_(nullptr),
         current_size_(0) {
@@ -221,31 +219,33 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
             });
       }
     } else {
-      tcp_receiver_.parseHicnHeader(it->second, [this](bool result) {
-        const char* reply = nullptr;
-        if (result) {
-          reply = HTTPMessageFastParser::http_ok;
-        } else {
-          reply = HTTPMessageFastParser::http_failed;
-        }
+      tcp_receiver_.parseHicnHeader(
+          it->second, [this](bool result, std::string configured_prefix) {
+            const char* reply = nullptr;
+            if (result) {
+              reply = HTTPMessageFastParser::http_ok;
+              prefix_hash_ = configured_prefix;
+            } else {
+              reply = HTTPMessageFastParser::http_failed;
+            }
 
-        /* Route created. Send back a 200 OK to client */
-        session_->send(
-            (const uint8_t*)reply, std::strlen(reply), [this, result]() {
-              auto& socket = session_->socket_;
-              TRANSPORT_LOGI(
-                  "Sent %d response to client %s:%d", result,
-                  socket.remote_endpoint().address().to_string().c_str(),
-                  socket.remote_endpoint().port());
-            });
-      });
+            /* Route created. Send back a 200 OK to client */
+            session_->send(
+                (const uint8_t*)reply, std::strlen(reply), [this, result]() {
+                  auto& socket = session_->socket_;
+                  TRANSPORT_LOGI(
+                      "Sent %d response to client %s:%d", result,
+                      socket.remote_endpoint().address().to_string().c_str(),
+                      socket.remote_endpoint().port());
+                });
+          });
     }
   }
 
  private:
   TcpReceiver& tcp_receiver_;
   utils::EventThread& thread_;
-  std::string prefix_hash_;
+  std::string& prefix_hash_;
   ConsumerSocket consumer_;
   std::unique_ptr<HTTPSession> session_;
   std::deque<std::pair<std::unique_ptr<utils::MemBuf>, std::string>>
@@ -262,12 +262,13 @@ TcpReceiver::TcpReceiver(std::uint16_t port, const std::string& prefix,
                           std::placeholders::_1)),
       prefix_(prefix),
       ipv6_first_word_(ipv6_first_word),
+      prefix_hash_(generatePrefix(prefix_, ipv6_first_word_)),
       forwarder_config_(thread_.getIoService(), [this](std::error_code ec) {
         if (!ec) {
           listener_.doAccept();
           for (int i = 0; i < 10; i++) {
-            http_clients_.emplace_back(new HTTPClientConnectionCallback(
-                *this, thread_, prefix_, ipv6_first_word_));
+            http_clients_.emplace_back(
+                new HTTPClientConnectionCallback(*this, thread_));
           }
         }
       }) {
@@ -283,8 +284,8 @@ void TcpReceiver::onNewConnection(asio::ip::tcp::socket&& socket) {
   if (http_clients_.size() == 0) {
     // Create new HTTPClientConnectionCallback
     TRANSPORT_LOGD("Creating new HTTPClientConnectionCallback.");
-    http_clients_.emplace_back(new HTTPClientConnectionCallback(
-        *this, thread_, prefix_, ipv6_first_word_));
+    http_clients_.emplace_back(
+        new HTTPClientConnectionCallback(*this, thread_));
   }
 
   // Get new HTTPClientConnectionCallback

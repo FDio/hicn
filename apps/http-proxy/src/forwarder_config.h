@@ -157,17 +157,19 @@ class ForwarderConfig {
     auto& it = results;
     while (it != end) {
 #else
-    for (auto it = results.begin(); it != results.end();
-         it++) {
+    for (auto it = results.begin(); it != results.end(); it++) {
 #endif
       if (it->endpoint().address().is_v4()) {
         // Use this v4 address to configure the forwarder.
         ret->remote_addr = it->endpoint().address().to_string();
         ret->family = AF_INET;
+        std::string _prefix = ret->route_addr;
         forwarder_interface_.createFaceAndRoute(
-            RouteInfoPtr(ret),
-            [callback = std::forward<Callback>(callback)](
-                uint32_t route_id, bool result) { callback(result); });
+            RouteInfoPtr(ret), [callback = std::forward<Callback>(callback),
+                                configured_prefix = std::move(_prefix)](
+                                   uint32_t route_id, bool result) {
+              callback(result, configured_prefix);
+            });
 
         return true;
       }
