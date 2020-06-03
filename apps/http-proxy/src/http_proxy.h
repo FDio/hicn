@@ -96,6 +96,7 @@ class TcpReceiver : public Receiver {
   TcpListener listener_;
   std::string prefix_;
   std::string ipv6_first_word_;
+  std::string prefix_hash_;
   std::deque<HTTPClientConnectionCallback*> http_clients_;
   std::unordered_set<HTTPClientConnectionCallback*> used_http_clients_;
   ForwarderConfig forwarder_config_;
