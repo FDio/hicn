@@ -95,7 +95,7 @@ class RTCTransportProtocol : public TransportProtocol,
 
   int start() override;
 
-  void stop() override;
+  using TransportProtocol::stop;
 
   void resume() override;
 

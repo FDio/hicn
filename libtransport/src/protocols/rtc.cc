@@ -52,26 +52,8 @@ int RTCTransportProtocol::start() {
   probeRtt();
   sentinelTimer();
   newRound();
-  scheduleNextInterests();
 
-  is_first_ = false;
-  is_running_ = true;
-
-  if (is_async_) {
-    portal_->runEventsLoop();
-    is_running_ = false;
-  }
-
-  return 0;
-}
-
-void RTCTransportProtocol::stop() {
-  if (!is_running_) return;
-  is_running_ = false;
-
-  if (is_async_) {
-    portal_->stopEventsLoop();
-  }
+  return TransportProtocol::start();
 }
 
 void RTCTransportProtocol::resume() {
