@@ -13,13 +13,14 @@
  * limitations under the License.
  */
 
-#include "http_proxy.h"
+#include <hicn/http-proxy/http_proxy.h>
+#include <hicn/http-proxy/http_session.h>
 
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/string_utils.h>
 
-#include "utils.h"
+#include <hicn/http-proxy/utils.h>
 
 namespace transport {
 
@@ -53,6 +54,8 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
             std::placeholders::_1, std::placeholders::_2));
     consumer_.connect();
   }
+
+  void stop() { session_->close(); }
 
   void setHttpSession(asio::ip::tcp::socket&& socket) {
     session_ = std::make_unique<HTTPSession>(
@@ -271,11 +274,39 @@ TcpReceiver::TcpReceiver(std::uint16_t port, const std::string& prefix,
                 new HTTPClientConnectionCallback(*this, thread_));
           }
         }
-      }) {
+      }),
+      stopped_(false) {
   forwarder_config_.tryToConnectToForwarder();
 }
 
+void TcpReceiver::stop() {
+  thread_.add([this](){
+    stopped_ = true;
+
+    /* Stop the listener */
+    listener_.stop();
+
+    /* Close connection with forwarder */
+    forwarder_config_.close();
+
+    /* Stop the used http clients */
+    for (auto& client : used_http_clients_) {
+      client->stop();
+    }
+
+    /* Delete unused clients */
+     for (auto& client : http_clients_) {
+       delete client;
+     }
+  });
+}
+
 void TcpReceiver::onClientDisconnect(HTTPClientConnectionCallback* client) {
+  if (stopped_) {
+    delete client;
+    return;
+  }
+
   http_clients_.emplace_front(client);
   used_http_clients_.erase(client);
 }
@@ -299,21 +330,46 @@ void TcpReceiver::onNewConnection(asio::ip::tcp::socket&& socket) {
   used_http_clients_.insert(c);
 }
 
-HTTPProxy::HTTPProxy(ClientParams& params, std::size_t n_thread) {
+void HTTPProxy::setupSignalHandler() {
+  signals_.async_wait([this](const std::error_code& ec, int signal_number) {
+    if (!ec) {
+      TRANSPORT_LOGI("Received signal %d. Stopping gracefully.", signal_number);
+      stop();
+    }
+  });
+}
+
+void HTTPProxy::stop() {
+  for (auto& receiver : receivers_) {
+    receiver->stop();
+  }
+
+  for (auto& receiver : receivers_) {
+    receiver->stopAndJoinThread();
+  }
+}
+
+HTTPProxy::HTTPProxy(ClientParams& params, std::size_t n_thread)
+    : signals_(main_io_context_, SIGINT, SIGQUIT) {
   for (uint16_t i = 0; i < n_thread; i++) {
     // icn_receivers_.emplace_back(std::make_unique<IcnReceiver>(icn_params));
     receivers_.emplace_back(std::make_unique<TcpReceiver>(
         params.tcp_listen_port, params.prefix, params.first_ipv6_word));
   }
+
+  setupSignalHandler();
 }
 
-HTTPProxy::HTTPProxy(ServerParams& params, std::size_t n_thread) {
+HTTPProxy::HTTPProxy(ServerParams& params, std::size_t n_thread)
+    : signals_(main_io_context_, SIGINT, SIGQUIT) {
   for (uint16_t i = 0; i < n_thread; i++) {
     receivers_.emplace_back(std::make_unique<IcnReceiver>(
         params.prefix, params.first_ipv6_word, params.origin_address,
         params.origin_port, params.cache_size, params.mtu,
         params.content_lifetime, params.manifest));
   }
+
+  setupSignalHandler();
 }
 
 }  // namespace transport

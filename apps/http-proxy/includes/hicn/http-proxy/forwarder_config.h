@@ -27,6 +27,7 @@
 
 #include "forwarder_interface.h"
 
+
 #define RETRY_INTERVAL 300
 
 namespace transport {
@@ -50,6 +51,12 @@ class ForwarderConfig {
         hicn_listen_port_(~0),
         listener_retrieved_callback_(std::forward<Callback>(callback)) {}
 
+  void close() {
+    timer_.cancel();
+    resolver_.cancel();
+    forwarder_interface_.close();
+  }
+
   void tryToConnectToForwarder() {
     doTryToConnectToForwarder(std::make_error_code(std::errc(0)));
   }
@@ -72,7 +79,7 @@ class ForwarderConfig {
         doGetMainListener(std::make_error_code(std::errc(0)));
       }
     } else {
-      TRANSPORT_LOGI("Timer for re-trying forwarder connection canceled.");
+      TRANSPORT_LOGD("Timer for re-trying forwarder connection canceled.");
     }
   }
 
