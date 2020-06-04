@@ -347,6 +347,8 @@ void HTTPProxy::stop() {
   for (auto& receiver : receivers_) {
     receiver->stopAndJoinThread();
   }
+
+  signals_.cancel();
 }
 
 HTTPProxy::HTTPProxy(ClientParams& params, std::size_t n_thread)
