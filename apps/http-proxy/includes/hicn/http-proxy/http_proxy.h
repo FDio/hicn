@@ -33,7 +33,8 @@ class TcpListener {
 
   TcpListener(asio::io_service& io_service, short port, AcceptCallback callback)
       : acceptor_(io_service,
-                  asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)),
+                  asio::ip::tcp::endpoint(
+                      asio::ip::address::from_string("127.0.0.1"), port)),
 #if ((ASIO_VERSION / 100 % 1000) < 12)
         socket_(io_service),
 #endif
