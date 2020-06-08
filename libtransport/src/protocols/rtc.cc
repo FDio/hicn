@@ -38,23 +38,12 @@ RTCTransportProtocol::RTCTransportProtocol(
   sentinel_timer_ =
       std::make_unique<asio::steady_timer>(portal_->getIoService());
   round_timer_ = std::make_unique<asio::steady_timer>(portal_->getIoService());
-  reset();
+  initParams();
 }
 
 RTCTransportProtocol::~RTCTransportProtocol() {}
 
-int RTCTransportProtocol::start() {
-  if (is_running_) return -1;
-
-  reset();
-  is_first_ = true;
-
-  probeRtt();
-  sentinelTimer();
-  newRound();
-
-  return TransportProtocol::start();
-}
+int RTCTransportProtocol::start() { return TransportProtocol::start(); }
 
 void RTCTransportProtocol::resume() {
   if (is_running_) return;
@@ -72,7 +61,7 @@ void RTCTransportProtocol::resume() {
 }
 
 // private
-void RTCTransportProtocol::reset() {
+void RTCTransportProtocol::initParams() {
   portal_->setConsumerCallback(this);
   // controller var
   currentState_ = HICN_RTC_SYNC_STATE;
@@ -125,7 +114,14 @@ void RTCTransportProtocol::reset() {
 
   socket_->setSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
                            (uint32_t)HICN_RTC_INTEREST_LIFETIME);
-  // XXX this should be done by the application
+}
+
+// private
+void RTCTransportProtocol::reset() {
+  initParams();
+  probeRtt();
+  sentinelTimer();
+  newRound();
 }
 
 uint32_t max(uint32_t a, uint32_t b) {
