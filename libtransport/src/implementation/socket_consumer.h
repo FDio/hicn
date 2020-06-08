@@ -54,6 +54,7 @@ class ConsumerSocket : public Socket<BasePortal> {
         rate_estimation_observer_(nullptr),
         rate_estimation_batching_parameter_(default_values::batch),
         rate_estimation_choice_(0),
+        is_async_(false),
         verifier_(std::make_shared<utils::Verifier>()),
         verify_signature_(false),
         key_content_(false),

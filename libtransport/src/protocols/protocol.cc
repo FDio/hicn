@@ -48,12 +48,6 @@ int TransportProtocol::start() {
   // If the protocol is already running, return otherwise set as running
   if (is_running_) return -1;
 
-  // Reset the protocol state machine
-  reset();
-
-  // Set it is the first time we schedule an interest
-  is_first_ = true;
-
   // Get all callbacks references before starting
   socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_RETRANSMISSION,
                            &on_interest_retransmission_);
@@ -75,6 +69,11 @@ int TransportProtocol::start() {
                            &on_payload_);
   socket_->getSocketOption(GeneralTransportOptions::ASYNC_MODE, is_async_);
 
+  // Set it is the first time we schedule an interest
+  is_first_ = true;
+
+  // Reset the protocol state machine
+  reset();
   // Schedule next interests
   scheduleNextInterests();
 
