@@ -103,6 +103,7 @@ class RTCTransportProtocol : public TransportProtocol,
 
  private:
   // algo functions
+  void initParams();
   void reset() override;
 
   // CC functions
