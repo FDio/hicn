@@ -37,9 +37,15 @@
 
 static void _controlList_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlList_Execute(CommandParser *parser,
-                                          CommandOps *ops, PARCList *args);
+                                          CommandOps *ops,
+                                          PARCList *args,
+                                          char *output,
+                                          size_t output_size);
 static CommandReturn _controlList_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args);
+                                              CommandOps *ops,
+                                              PARCList *args,
+                                              char *output,
+                                              size_t output_size);
 
 static const char *_commandList = "list";
 static const char *_commandListHelp = "help list";
@@ -57,7 +63,10 @@ CommandOps *controlList_HelpCreate(ControlState *state) {
 // =====================================================
 
 static CommandReturn _controlList_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args) {
+                                              CommandOps *ops,
+                                              PARCList *args,
+                                              char *output,
+                                              size_t output_size) {
   CommandOps *ops_list_connections = controlListConnections_HelpCreate(NULL);
   // CommandOps *ops_list_interfaces = controlListInterfaces_HelpCreate(NULL);
   CommandOps *ops_list_routes = controlListRoutes_HelpCreate(NULL);
@@ -66,15 +75,21 @@ static CommandReturn _controlList_HelpExecute(CommandParser *parser,
   CommandOps *ops_list_policies = controlListPolicies_HelpCreate(NULL);
 #endif /* WITH_POLICY */
 
-  printf("Available commands:\n");
-  printf("   %s\n", ops_list_connections->command);
-  // printf("   %s\n", ops_list_interfaces->command);
-  printf("   %s\n", ops_list_routes->command);
-  printf("   %s\n", ops_list_listeners->command);
+  snprintf(output, output_size, "Available commands:\n"
+                                "   %s\n"
+                                "   %s\n"
+                                "   %s\n"
 #ifdef WITH_POLICY
-  printf("   %s\n", ops_list_policies->command);
+                                "   %s\n"
 #endif /* WITH_POLICY */
-  printf("\n");
+                                "\n",
+                                ops_list_connections->command,
+                                ops_list_routes->command,
+                                ops_list_listeners->command
+#ifdef WITH_POLICY
+                                , ops_list_policies->command
+#endif /* WITH_POLICY */
+  );
 
   commandOps_Destroy(&ops_list_connections);
   // commandOps_Destroy(&ops_list_interfaces);
@@ -105,8 +120,8 @@ static void _controlList_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlList_Execute(CommandParser *parser,
-                                          CommandOps *ops, PARCList *args) {
-  return _controlList_HelpExecute(parser, ops, args);
+                                          CommandOps *ops, PARCList *args, char *output, size_t output_size) {
+  return _controlList_HelpExecute(parser, ops, args, output, output_size);
 }
 
 // ======================================================================

@@ -36,10 +36,14 @@
 
 static CommandReturn _controlRemovePolicy_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args);
+                                                 PARCList *args,
+                                                 char *output,
+                                                 size_t output_size);
 static CommandReturn _controlRemovePolicy_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args);
+                                                     PARCList *args,
+                                                     char *output,
+                                                     size_t output_size);
 
 // ===================================================
 
@@ -62,19 +66,23 @@ CommandOps *controlRemovePolicy_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlRemovePolicy_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args) {
-  printf("commands:\n");
-  printf("    remove policy <prefix>\n");
+                                                     PARCList *args,
+                                                     char *output,
+                                                     size_t output_size) {
+  snprintf(output, output_size, "commands:\n"
+                                "    remove policy <prefix>\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlRemovePolicy_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args) {
+                                                 PARCList *args,
+                                                 char *output,
+                                                 size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 3) {
-    _controlRemovePolicy_HelpExecute(parser, ops, args);
+    _controlRemovePolicy_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -98,7 +106,7 @@ static CommandReturn _controlRemovePolicy_Execute(CommandParser *parser,
   // check and set IP address
   if (inet_pton(AF_INET, addr, &removePolicyCommand->address.v4.as_u32) == 1) {
     if (len > 32) {
-      printf("ERROR: exceeded INET mask length, max=32\n");
+      snprintf(output, output_size, "ERROR: exceeded INET mask length, max=32\n");
       parcMemory_Deallocate(&removePolicyCommand);
       free(addr);
       return CommandReturn_Failure;
@@ -107,14 +115,14 @@ static CommandReturn _controlRemovePolicy_Execute(CommandParser *parser,
   } else if (inet_pton(AF_INET6, addr, &removePolicyCommand->address.v6.as_in6addr) ==
              1) {
     if (len > 128) {
-      printf("ERROR: exceeded INET6 mask length, max=128\n");
+      snprintf(output, output_size, "ERROR: exceeded INET6 mask length, max=128\n");
       parcMemory_Deallocate(&removePolicyCommand);
       free(addr);
       return CommandReturn_Failure;
     }
     removePolicyCommand->addressType = ADDR_INET6;
   } else {
-    printf("Error: %s is not a valid network address \n", addr);
+    snprintf(output, output_size, "Error: %s is not a valid network address \n", addr);
     parcMemory_Deallocate(&removePolicyCommand);
     free(addr);
     return CommandReturn_Failure;

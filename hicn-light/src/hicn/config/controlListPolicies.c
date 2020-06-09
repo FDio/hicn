@@ -33,10 +33,14 @@
 
 static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args);
+                                                PARCList *args,
+                                                char *output,
+                                                size_t output_size);
 static CommandReturn _controlListPolicies_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args);
+                                                    PARCList *args,
+                                                    char *output,
+                                                    size_t output_size);
 
 static const char *_commandListPolicies = "list policies";
 static const char *_commandListPoliciesHelp = "help list policies";
@@ -57,9 +61,10 @@ CommandOps *controlListPolicies_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlListPolicies_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args) {
-  printf("command: list policies\n");
-  printf("\n");
+                                                    PARCList *args,
+                                                    char *output,
+                                                    size_t output_size) {
+  snprintf(output, output_size, "command: list policies\n\n");
   return CommandReturn_Success;
 }
 
@@ -77,9 +82,11 @@ typedef struct {
 
 static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args) {
+                                                PARCList *args,
+                                                char *output,
+                                                size_t output_size) {
   if (parcList_Size(args) != 2) {
-    _controlListPolicies_HelpExecute(parser, ops, args);
+    _controlListPolicies_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -96,7 +103,7 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
       (header_control_message *)response[0].iov_base;
   uint8_t *receivedPayload = (uint8_t *)response[1].iov_base;
   if (!receivedPayload) {
-      printf("No payload!\n");
+      snprintf(output, output_size, "No payload!\n");
       return CommandReturn_Failure;
   }
 

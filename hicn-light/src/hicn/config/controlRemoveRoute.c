@@ -34,10 +34,14 @@
 
 static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args);
+                                                 PARCList *args,
+                                                 char *output,
+                                                 size_t output_size);
 static CommandReturn _controlRemoveRoute_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args);
+                                                     PARCList *args,
+                                                     char *output,
+                                                     size_t output_size);
 
 // ===================================================
 
@@ -60,7 +64,9 @@ CommandOps *controlRemoveRoute_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlRemoveRoute_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args) {
+                                                     PARCList *args,
+                                                     char *output,
+                                                     size_t output_size) {
   printf("commands:\n");
   printf("    remove route <symbolic | connid> <prefix>\n");
   return CommandReturn_Success;
@@ -68,11 +74,13 @@ static CommandReturn _controlRemoveRoute_HelpExecute(CommandParser *parser,
 
 static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args) {
+                                                 PARCList *args,
+                                                 char *output,
+                                                 size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 4) {
-    _controlRemoveRoute_HelpExecute(parser, ops, args);
+    _controlRemoveRoute_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
