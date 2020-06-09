@@ -29,10 +29,14 @@
 
 static CommandReturn _controlMapMeTimescale_Execute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args);
+                                                    PARCList *args,
+                                                    char *output,
+                                                    size_t output_size);
 static CommandReturn _controlMapMeTimescale_HelpExecute(CommandParser *parser,
                                                         CommandOps *ops,
-                                                        PARCList *args);
+                                                        PARCList *args,
+                                                        char *output,
+                                                        size_t output_size);
 
 static const char *_commandMapMeTimescale = "mapme timescale";
 static const char *_commandMapMeTimescaleHelp = "help mapme timescale";
@@ -54,24 +58,26 @@ CommandOps *controlMapMeTimescale_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlMapMeTimescale_HelpExecute(CommandParser *parser,
                                                         CommandOps *ops,
-                                                        PARCList *args) {
-  printf("mapme timescale <milliseconds>n");
-  printf("\n");
-
+                                                        PARCList *args,
+                                                        char *output,
+                                                        size_t output_size) {
+  snprintf(output, output_size, "mapme timescale <milliseconds>\n\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlMapMeTimescale_Execute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args) {
+                                                    PARCList *args,
+                                                    char *output,
+                                                    size_t output_size) {
   if (parcList_Size(args) != 3) {
-    _controlMapMeTimescale_HelpExecute(parser, ops, args);
+    _controlMapMeTimescale_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
   const char *ts = parcList_GetAtIndex(args, 2);
   if (!utils_IsNumber(ts)) {
-    printf(
+    snprintf(output, output_size, 
         "ERROR: timescale value (expressed in ms) must be a positive integer "
         "\n");
     return CommandReturn_Failure;

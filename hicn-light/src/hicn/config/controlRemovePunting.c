@@ -31,10 +31,14 @@
 
 static CommandReturn _controlRemovePunting_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args);
+                                                   PARCList *args,
+                                                   char *output,
+                                                   size_t output_size);
 static CommandReturn _controlRemovePunting_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args);
+                                                       PARCList *args,
+                                                       char *output,
+                                                       size_t output_size);
 
 // ===================================================
 
@@ -60,16 +64,20 @@ CommandOps *controlRemovePunting_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlRemovePunting_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args) {
-  printf("remove punting <symbolic> <prefix>\n");
+                                                       PARCList *args,
+                                                       char *output,
+                                                       size_t output_size) {
+  snprintf(output, output_size, "remove punting <symbolic> <prefix>\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlRemovePunting_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args) {
-  printf("command not implemented\n");
-  return _controlRemovePunting_HelpExecute(parser, ops, args);
+                                                   PARCList *args,
+                                                   char *output,
+                                                   size_t output_size) {
+  snprintf(output, output_size, "command not implemented\n");
+  return _controlRemovePunting_HelpExecute(parser, ops, args, output, output_size);
 }
 
 // ==================================================

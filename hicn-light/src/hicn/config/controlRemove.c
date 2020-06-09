@@ -37,10 +37,15 @@
 
 static void _controlRemove_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlRemove_Execute(CommandParser *parser,
-                                            CommandOps *ops, PARCList *args);
+                                            CommandOps *ops,
+                                            PARCList *args,
+                                            char *output,
+                                            size_t output_size);
 static CommandReturn _controlRemove_HelpExecute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args);
+                                                PARCList *args,
+                                                char *output,
+                                                size_t output_size);
 
 static const char *_commandRemove = "remove";
 static const char *_commandRemoveHelp = "help remove";
@@ -61,7 +66,9 @@ CommandOps *controlRemove_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlRemove_HelpExecute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args) {
+                                                PARCList *args,
+                                                char *output,
+                                                size_t output_size) {
   CommandOps *ops_remove_connection = controlRemoveConnection_Create(NULL);
   CommandOps *ops_remove_listener = controlRemoveListener_Create(NULL);
   CommandOps *ops_remove_route = controlRemoveRoute_Create(NULL);
@@ -70,15 +77,23 @@ static CommandReturn _controlRemove_HelpExecute(CommandParser *parser,
   CommandOps *ops_remove_policy = controlRemovePolicy_Create(NULL);
 #endif /* WITH_POLICY */
 
-  printf("Available commands:\n");
-  printf("   %s\n", ops_remove_connection->command);
-  printf("   %s\n", ops_remove_listener->command);
-  printf("   %s\n", ops_remove_route->command);
-  printf("   %s\n", ops_remove_punting->command);
+  snprintf(output, output_size, "Available commands:\n"
+                                "   %s\n"
+                                "   %s\n"
+                                "   %s\n"
+                                "   %s\n"
 #ifdef WITH_POLICY
-  printf("   %s\n", ops_remove_policy->command);
+                                "   %s\n"
 #endif /* WITH_POLICY */
-  printf("\n");
+                                "\n",
+                                ops_remove_connection->command,
+                                ops_remove_listener->command,
+                                ops_remove_route->command,
+                                ops_remove_punting->command
+#ifdef WITH_POLICY
+                                , ops_remove_policy->command
+#endif /* WITH_POLICY */
+  );
 
   commandOps_Destroy(&ops_remove_connection);
   commandOps_Destroy(&ops_remove_listener);
@@ -109,6 +124,9 @@ static void _controlRemove_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlRemove_Execute(CommandParser *parser,
-                                            CommandOps *ops, PARCList *args) {
-  return _controlRemove_HelpExecute(parser, ops, args);
+                                            CommandOps *ops,
+                                            PARCList *args,
+                                            char *output,
+                                            size_t output_size) {
+  return _controlRemove_HelpExecute(parser, ops, args, output, output_size);
 }

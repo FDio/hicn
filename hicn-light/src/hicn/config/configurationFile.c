@@ -273,8 +273,9 @@ bool configurationFile_Process(ConfigurationFile *configFile) {
         char *copy =
             parcMemory_StringDuplicate(stripedBuffer, strlen(stripedBuffer));
         PARCList *args = _parseArgs(copy);
+        char output[8192];
         CommandReturn result =
-            controlState_DispatchCommand(configFile->controlState, args);
+            controlState_DispatchCommand(configFile->controlState, args, output, sizeof(output));
 
         // we ignore EXIT from the configuration file
         if (result == CommandReturn_Failure) {
