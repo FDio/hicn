@@ -29,10 +29,10 @@
 
 static CommandReturn _controlListListeners_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args);
+                                                   PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlListListeners_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args);
+                                                       PARCList *args, char *output, size_t output_size);
 
 static const char *_commandListListeners = "list listeners";
 static const char *_commandListListenersHelp = "help list listeners";
@@ -55,7 +55,7 @@ CommandOps *controlListListeners_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlListListeners_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args) {
+                                                       PARCList *args, char *output, size_t output_size) {
   printf("list listeners\n");
   printf("\n");
 
@@ -64,9 +64,9 @@ static CommandReturn _controlListListeners_HelpExecute(CommandParser *parser,
 
 static CommandReturn _controlListListeners_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args) {
+                                                   PARCList *args, char *output, size_t output_size) {
   if (parcList_Size(args) != 2) {
-    _controlListListeners_HelpExecute(parser, ops, args);
+    _controlListListeners_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
