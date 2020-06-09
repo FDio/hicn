@@ -28,10 +28,10 @@
 #include <hicn/utils/utils.h>
 
 static CommandReturn _controlMapMeRetx_Execute(CommandParser *parser,
-                                               CommandOps *ops, PARCList *args);
+                                               CommandOps *ops, PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlMapMeRetx_HelpExecute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args);
+                                                   PARCList *args, char *output, size_t output_size);
 
 static const char *_commandMapMeRetx = "mapme retx";
 static const char *_commandMapMeRetxHelp = "help mapme retx";
@@ -52,7 +52,7 @@ CommandOps *controlMapMeRetx_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlMapMeRetx_HelpExecute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args) {
+                                                   PARCList *args, char *output, size_t output_size) {
   printf("mapme retx <milliseconds>n");
   printf("\n");
 
@@ -61,9 +61,9 @@ static CommandReturn _controlMapMeRetx_HelpExecute(CommandParser *parser,
 
 static CommandReturn _controlMapMeRetx_Execute(CommandParser *parser,
                                                CommandOps *ops,
-                                               PARCList *args) {
+                                               PARCList *args, char *output, size_t output_size) {
   if (parcList_Size(args) != 3) {
-    _controlMapMeRetx_HelpExecute(parser, ops, args);
+    _controlMapMeRetx_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
