@@ -131,6 +131,8 @@ void commandParser_RegisterCommand(CommandParser *state, CommandOps *command);
  *
  * @param [in] state The allocated ControlState
  * @param [in] args  Each command_line word parsed to the ordered list
+ * @param [in] output The allocated output string, if null, the normal printf is executed
+ * @param [in] output_size the size of output array string. It is ignored if the output string is null
  *
  * @return CommandReturn_Success the command was successful
  * @return CommandReturn_Failure the command failed or was not found
@@ -143,7 +145,7 @@ void commandParser_RegisterCommand(CommandParser *state, CommandOps *command);
  * @endcode
  */
 CommandReturn commandParser_DispatchCommand(CommandParser *state,
-                                            PARCList *args);
+                                            PARCList *args, char *output, size_t output_size);
 
 /**
  * Sets the Debug mode, which will print out much more information.
