@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "1202f4db_3ec8ca64",
+        "filename": "hicn-light/src/hicn/config/controlListConnections.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2020-06-09T12:59:25Z",
+      "side": 1,
+      "message": "Put the arguments in columns to follow the code style",
+      "revId": "35a7c4041274f1a8a826ecd3b4e4a91d3d238278",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "784ff2e4_28df26ff",
+        "filename": "hicn-light/src/hicn/config/controlListConnections.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 37,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2020-06-09T12:59:25Z",
+      "side": 1,
+      "message": "Same here",
+      "revId": "35a7c4041274f1a8a826ecd3b4e4a91d3d238278",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "0d8fb08a_d22f01bf",
+        "filename": "hicn-light/src/hicn/config/controlListConnections.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 59,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2020-06-09T12:59:25Z",
+      "side": 1,
+      "message": "Same here",
+      "revId": "35a7c4041274f1a8a826ecd3b4e4a91d3d238278",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "29ccd9d6_1a1225f3",
+        "filename": "hicn-light/src/hicn/config/controlListConnections.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 139,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2020-06-09T12:59:25Z",
+      "side": 1,
+      "message": "The first is sprintf, while the second is snprintf. Is it wanted?",
+      "revId": "35a7c4041274f1a8a826ecd3b4e4a91d3d238278",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "34c07b90_3cbac9a5",
+        "filename": "hicn-light/src/hicn/config/controlListConnections.c",
+        "patchSetId": 1
+      },
+      "lineNbr": 202,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2020-06-09T12:59:25Z",
+      "side": 1,
+      "message": "Missing line",
+      "revId": "35a7c4041274f1a8a826ecd3b4e4a91d3d238278",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
