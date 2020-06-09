@@ -29,10 +29,14 @@
 
 static CommandReturn _controlListListeners_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args);
+                                                   PARCList *args,
+                                                   char *output,
+                                                   size_t output_size);
 static CommandReturn _controlListListeners_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args);
+                                                       PARCList *args,
+                                                       char *output,
+                                                       size_t output_size);
 
 static const char *_commandListListeners = "list listeners";
 static const char *_commandListListenersHelp = "help list listeners";
@@ -55,18 +59,21 @@ CommandOps *controlListListeners_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlListListeners_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args) {
-  printf("list listeners\n");
-  printf("\n");
+                                                       PARCList *args,
+                                                       char *output,
+                                                       size_t output_size) {
+  snprintf(output, output_size, "list listeners\n\n");
 
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlListListeners_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args) {
+                                                   PARCList *args,
+                                                   char *output,
+                                                   size_t output_size) {
   if (parcList_Size(args) != 2) {
-    _controlListListeners_HelpExecute(parser, ops, args);
+    _controlListListeners_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -94,11 +101,12 @@ static CommandReturn _controlListListeners_Execute(CommandParser *parser,
   }
 
   char *addrString = NULL;
+  size_t output_offset = 0;
   if (receivedHeader->length > 0) {
-    printf("%6.6s %.*s %50.70s %6s %10s\n", "iface", SYMBOLIC_NAME_LEN, "name", "address", "type", "interface");
+    output_offset = snprintf(output, output_size, "%6.6s %.*s %50.70s %6s %10s\n", "iface", SYMBOLIC_NAME_LEN, "name", "address", "type", "interface");
 
   } else {
-    printf(" --- No entry in the list \n");
+    output_offset = snprintf(output, output_size, " --- No entry in the list \n");
   }
 
   for (int i = 0; i < receivedHeader->length; i++) {
@@ -135,8 +143,7 @@ static CommandReturn _controlListListeners_Execute(CommandParser *parser,
     if (!controlState_IsInteractive(state)) {
       strncpy(commandOutputMain[i], result, 128);
     }
-
-    puts(result);
+    output_offset += snprintf(output + output_offset, output_size - output_offset, "%s\n", result);
     parcMemory_Deallocate((void **)&result);
     parcBufferComposer_Release(&composer);
   }
