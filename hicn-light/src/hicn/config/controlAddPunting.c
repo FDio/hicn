@@ -34,10 +34,10 @@
 
 static CommandReturn _controlAddPunting_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args);
+                                                PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlAddPunting_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args);
+                                                    PARCList *args, char *output, size_t output_size);
 
 static const char *_commandAddPunting = "add punting";
 static const char *_commandAddPuntingHelp = "help add punting";
@@ -59,7 +59,7 @@ CommandOps *controlAddPunting_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlAddPunting_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args) {
+                                                    PARCList *args, char *output, size_t output_size) {
   printf("add punting <symbolic> <prefix>\n");
   printf("    <symbolic> : listener symbolic name\n");
   printf(
@@ -72,11 +72,11 @@ static CommandReturn _controlAddPunting_HelpExecute(CommandParser *parser,
 
 static CommandReturn _controlAddPunting_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args) {
+                                                PARCList *args, char *output, size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 4) {
-    _controlAddPunting_HelpExecute(parser, ops, args);
+    _controlAddPunting_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 

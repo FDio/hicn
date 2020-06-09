@@ -35,10 +35,10 @@
 #include <hicn/utils/token.h>
 
 static CommandReturn _controlAddPolicy_Execute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args);
+                                              CommandOps *ops, PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlAddPolicy_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
-                                                  PARCList *args);
+                                                  PARCList *args, char *output, size_t output_size);
 
 static const char *_commandAddPolicy = "add policy";
 static const char *_commandAddPolicyHelp = "help add policy";
@@ -57,7 +57,7 @@ CommandOps *controlAddPolicy_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlAddPolicy_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
-                                                  PARCList *args) {
+                                                  PARCList *args, char *output, size_t output_size) {
   printf("commands:\n");
   printf("   add policy <prefix> <app_name>"
             #define _(x, y) " FLAG:%s"
@@ -78,11 +78,11 @@ static CommandReturn _controlAddPolicy_HelpExecute(CommandParser *parser,
 }
 
 static CommandReturn _controlAddPolicy_Execute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args) {
+                                              CommandOps *ops, PARCList *args, char *output, size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 11) {
-    _controlAddPolicy_HelpExecute(parser, ops, args);
+    _controlAddPolicy_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 

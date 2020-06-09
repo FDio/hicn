@@ -34,10 +34,10 @@
 
 static CommandReturn _controlAddListener_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args);
+                                                 PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlAddListener_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args);
+                                                     PARCList *args, char *output, size_t output_size);
 
 static const char *command_add_listener = "add listener";
 static const char *command_help_add_listener = "help add listener";
@@ -62,7 +62,7 @@ static const int _indexInterfaceName = 6;
 
 static CommandReturn _controlAddListener_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args) {
+                                                     PARCList *args, char *output, size_t output_size) {
   printf("commands:\n");
 #ifdef __linux__
   printf("   add listener hicn <symbolic> <localAddress> \n");
@@ -145,9 +145,9 @@ static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
 
 static CommandReturn _controlAddListener_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args) {
+                                                 PARCList *args, char *output, size_t output_size) {
   if (parcList_Size(args) != 5 && parcList_Size(args) != 7) {
-    _controlAddListener_HelpExecute(parser, ops, args);
+    _controlAddListener_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -183,7 +183,7 @@ static CommandReturn _controlAddListener_Execute(CommandParser *parser,
     return _CreateListener(parser, ops, symbolic, host, port, interfaceName, IP_MODE,
                            TCP_CONN);
   } else {
-    _controlAddListener_HelpExecute(parser, ops, args);
+    _controlAddListener_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 

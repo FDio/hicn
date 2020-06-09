@@ -28,9 +28,9 @@
 #include <hicn/config/controlQuit.h>
 
 static CommandReturn _controlQuit_Execute(CommandParser *parser,
-                                          CommandOps *ops, PARCList *args);
+                                          CommandOps *ops, PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlQuit_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args);
+                                              CommandOps *ops, PARCList *args, char *output, size_t output_size);
 
 static const char *_commandQuit = "quit";
 static const char *_commandQuitHelp = "help quit";
@@ -50,13 +50,13 @@ CommandOps *controlQuit_HelpCreate(ControlState *state) {
 // ==============================================
 
 static CommandReturn _controlQuit_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args) {
+                                              CommandOps *ops, PARCList *args, char *output, size_t output_size) {
   printf("Exits the interactive control program\n\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlQuit_Execute(CommandParser *parser,
-                                          CommandOps *ops, PARCList *args) {
+                                          CommandOps *ops, PARCList *args, char *output, size_t output_size) {
   printf("exiting interactive shell\n");
   return CommandReturn_Exit;
 }
