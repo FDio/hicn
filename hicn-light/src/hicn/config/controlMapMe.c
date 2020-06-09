@@ -31,9 +31,15 @@
 
 static void _controlMapMe_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlMapMe_Execute(CommandParser *parser,
-                                           CommandOps *ops, PARCList *args);
+                                           CommandOps *ops,
+                                           PARCList *args,
+                                           char *output,
+                                           size_t output_size);
 static CommandReturn _controlMapMe_HelpExecute(CommandParser *parser,
-                                               CommandOps *ops, PARCList *args);
+                                               CommandOps *ops,
+                                               PARCList *args,
+                                               char *output,
+                                               size_t output_size);
 
 static const char *_commandMapMe = "mapme";
 static const char *_commandMapMeHelp = "help mapme";
@@ -52,7 +58,7 @@ CommandOps *controlMapMe_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlMapMe_HelpExecute(CommandParser *parser,
                                                CommandOps *ops,
-                                               PARCList *args) {
+                                               PARCList *args, char *output, size_t output_size) {
   CommandOps *ops_mapme_enable = controlMapMeEnable_HelpCreate(NULL);
   CommandOps *ops_mapme_discovery = controlMapMeDiscovery_HelpCreate(NULL);
   CommandOps *ops_mapme_timescale = controlMapMeTimescale_HelpCreate(NULL);
@@ -86,8 +92,8 @@ static void _controlMapMe_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlMapMe_Execute(CommandParser *parser,
-                                           CommandOps *ops, PARCList *args) {
-  return _controlMapMe_HelpExecute(parser, ops, args);
+                                           CommandOps *ops, PARCList *args, char *output, size_t output_size) {
+  return _controlMapMe_HelpExecute(parser, ops, args, output, output_size);
 }
 
 // ======================================================================
