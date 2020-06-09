@@ -35,10 +35,14 @@
 #include <hicn/utils/token.h>
 
 static CommandReturn _controlAddPolicy_Execute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args);
+                                              CommandOps *ops, PARCList *args,
+                                              char *output,
+                                              size_t output_size);
 static CommandReturn _controlAddPolicy_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
-                                                  PARCList *args);
+                                                  PARCList *args,
+                                                  char *output,
+                                                  size_t output_size);
 
 static const char *_commandAddPolicy = "add policy";
 static const char *_commandAddPolicyHelp = "help add policy";
@@ -57,32 +61,27 @@ CommandOps *controlAddPolicy_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlAddPolicy_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
-                                                  PARCList *args) {
-  printf("commands:\n");
-  printf("   add policy <prefix> <app_name>"
-            #define _(x, y) " FLAG:%s"
-            foreach_policy_tag
-            #undef _
-            "%s",
-            #define _(x, y) policy_tag_str[POLICY_TAG_ ## x],
-            foreach_policy_tag
-            #undef _
-      "\n");
-  printf("\n");
-  printf(
-      "   prefix:    The hicn name as IPv4 or IPv6 address (e.g 1234::0/64)\n");
-  printf("   app_name:      The application name associated to this policy\n");
-  printf("   FLAG:*:  A value among [neutral|require|prefer|avoid|prohibit] with an optional '!' character prefix for disabling changes\n");
-  printf("\n");
+                                                  PARCList *args,
+                                                  char *output,
+                                                  size_t output_size) {
+  snprintf(output, output_size, "commands:\n"
+             "   add policy <prefix> <app_name>"
+             "FLAG:WIRED FLAG:WIFI FLAG:CELLULAR FLAG:BEST_EFFORT FLAG:REALTIME FLAG:MULTIPATH FLAG:TRUSTED"
+             "\n"
+             "\n"
+             "   prefix:    The hicn name as IPv4 or IPv6 address (e.g 1234::0/64)\n"
+             "   app_name:      The application name associated to this policy\n"
+             "   FLAG:*:  A value among [neutral|require|prefer|avoid|prohibit] with an optional '!' character prefix for disabling changes\n"
+             "\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlAddPolicy_Execute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args) {
+                                              CommandOps *ops, PARCList *args, char *output, size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 11) {
-    _controlAddPolicy_HelpExecute(parser, ops, args);
+    _controlAddPolicy_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -106,7 +105,7 @@ static CommandReturn _controlAddPolicy_Execute(CommandParser *parser,
   // check and set IP address
   if (inet_pton(AF_INET, addr, &addPolicyCommand->address.v4.as_u32) == 1) {
     if (len > 32) {
-      printf("ERROR: exceeded INET mask length, max=32\n");
+      snprintf(output, output_size, "ERROR: exceeded INET mask length, max=32\n");
       parcMemory_Deallocate(&addPolicyCommand);
       free(addr);
       return CommandReturn_Failure;
@@ -114,14 +113,14 @@ static CommandReturn _controlAddPolicy_Execute(CommandParser *parser,
     addPolicyCommand->addressType = ADDR_INET;
   } else if (inet_pton(AF_INET6, addr, &addPolicyCommand->address.v6.as_in6addr) == 1) {
     if (len > 128) {
-      printf("ERROR: exceeded INET6 mask length, max=128\n");
+      snprintf(output, output_size, "ERROR: exceeded INET6 mask length, max=128\n");
       parcMemory_Deallocate(&addPolicyCommand);
       free(addr);
       return CommandReturn_Failure;
     }
     addPolicyCommand->addressType = ADDR_INET6;
   } else {
-    printf("Error: %s is not a valid network address \n", addr);
+    snprintf(output, output_size, "Error: %s is not a valid network address \n", addr);
     parcMemory_Deallocate(&addPolicyCommand);
     free(addr);
     return CommandReturn_Failure;
@@ -148,7 +147,7 @@ static CommandReturn _controlAddPolicy_Execute(CommandParser *parser,
     } else if (strcmp(&tag[tag_state.disabled], "prohibit") == 0) {
       tag_state.state = POLICY_STATE_PROHIBIT;
     } else {
-      printf("ERROR: invalid tag value '%s'\n", tag);
+      snprintf(output, output_size, "ERROR: invalid tag value '%s'\n", tag);
       parcMemory_Deallocate(&addPolicyCommand);
       free(addr);
       return CommandReturn_Failure;

@@ -29,10 +29,10 @@
 
 static CommandReturn _controlMapMeTimescale_Execute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args);
+                                                    PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlMapMeTimescale_HelpExecute(CommandParser *parser,
                                                         CommandOps *ops,
-                                                        PARCList *args);
+                                                        PARCList *args, char *output, size_t output_size);
 
 static const char *_commandMapMeTimescale = "mapme timescale";
 static const char *_commandMapMeTimescaleHelp = "help mapme timescale";
@@ -54,7 +54,7 @@ CommandOps *controlMapMeTimescale_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlMapMeTimescale_HelpExecute(CommandParser *parser,
                                                         CommandOps *ops,
-                                                        PARCList *args) {
+                                                        PARCList *args, char *output, size_t output_size) {
   printf("mapme timescale <milliseconds>n");
   printf("\n");
 
@@ -63,9 +63,9 @@ static CommandReturn _controlMapMeTimescale_HelpExecute(CommandParser *parser,
 
 static CommandReturn _controlMapMeTimescale_Execute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args) {
+                                                    PARCList *args, char *output, size_t output_size) {
   if (parcList_Size(args) != 3) {
-    _controlMapMeTimescale_HelpExecute(parser, ops, args);
+    _controlMapMeTimescale_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
