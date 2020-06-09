@@ -32,10 +32,10 @@
 #include <hicn/utils/utils.h>
 
 static CommandReturn _controlAddRoute_Execute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args);
+                                              CommandOps *ops, PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlAddRoute_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
-                                                  PARCList *args);
+                                                  PARCList *args, char *output, size_t output_size);
 
 static const char *_commandAddRoute = "add route";
 static const char *_commandAddRouteHelp = "help add route";
@@ -54,7 +54,7 @@ CommandOps *controlAddRoute_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlAddRoute_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
-                                                  PARCList *args) {
+                                                  PARCList *args, char *output, size_t output_size) {
   printf("commands:\n");
   printf("   add route <symbolic | connid> <prefix> <cost>\n");
   printf("\n");
@@ -69,11 +69,11 @@ static CommandReturn _controlAddRoute_HelpExecute(CommandParser *parser,
 }
 
 static CommandReturn _controlAddRoute_Execute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args) {
+                                              CommandOps *ops, PARCList *args, char *output, size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 5) {
-    _controlAddRoute_HelpExecute(parser, ops, args);
+    _controlAddRoute_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 

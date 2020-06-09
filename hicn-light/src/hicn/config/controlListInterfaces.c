@@ -28,10 +28,14 @@
 
 static CommandReturn _controlListInterfaces_Execute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args);
+                                                    PARCList *args,
+                                                    char *output,
+                                                    size_t output_size);
 static CommandReturn _controlListInterfaces_HelpExecute(CommandParser *parser,
                                                         CommandOps *ops,
-                                                        PARCList *args);
+                                                        PARCList *args,
+                                                        char *output,
+                                                        size_t output_size);
 
 static const char *_commandListInterfaces = "list interfaces";
 static const char *_commandListInterfacesHelp = "help list interfaces";
@@ -53,18 +57,27 @@ CommandOps *controlListInterfaces_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlListInterfaces_HelpExecute(CommandParser *parser,
                                                         CommandOps *ops,
-                                                        PARCList *args) {
-  printf("list interfaces\n");
-  printf("\n");
+                                                        PARCList *args,
+                                                        char *output,
+                                                        size_t output_size) {
+
+  if (!output) {
+    printf("list interfaces\n");
+    printf("\n");
+  } else {
+    snprintf(output, output_size, "list interfaces\n\n")
+  }
 
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlListInterfaces_Execute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args) {
+                                                    PARCList *args,
+                                                    char *output,
+                                                    size_t output_size) {
   if (parcList_Size(args) != 2) {
-    _controlListInterfaces_HelpExecute(parser, ops, args);
+    _controlListInterfaces_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 

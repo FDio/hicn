@@ -33,9 +33,9 @@
 
 static void _controlCache_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlCache_Execute(CommandParser *parser,
-                                           CommandOps *ops, PARCList *args);
+                                           CommandOps *ops, PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlCache_HelpExecute(CommandParser *parser,
-                                               CommandOps *ops, PARCList *args);
+                                               CommandOps *ops, PARCList *args, char *output, size_t output_size);
 
 static const char *_commandCache = "cache";
 static const char *_commandCacheHelp = "help cache";
@@ -54,7 +54,7 @@ CommandOps *controlCache_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlCache_HelpExecute(CommandParser *parser,
                                                CommandOps *ops,
-                                               PARCList *args) {
+                                               PARCList *args, char *output, size_t output_size) {
   CommandOps *ops_cache_serve = controlCacheServe_HelpCreate(NULL);
   CommandOps *ops_cache_store = controlCacheStore_HelpCreate(NULL);
   CommandOps *ops_cache_clear = controlCacheClear_HelpCreate(NULL);
@@ -83,8 +83,8 @@ static void _controlCache_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlCache_Execute(CommandParser *parser,
-                                           CommandOps *ops, PARCList *args) {
-  return _controlCache_HelpExecute(parser, ops, args);
+                                           CommandOps *ops, PARCList *args, char *output, size_t output_size) {
+  return _controlCache_HelpExecute(parser, ops, args, output, output_size);
 }
 
 // ======================================================================

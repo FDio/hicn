@@ -32,10 +32,10 @@
 
 static CommandReturn _controlListRoutes_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args);
+                                                PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlListRoutes_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args);
+                                                    PARCList *args, char *output, size_t output_size);
 
 static const char *_commandListRoutes = "list routes";
 static const char *_commandListRoutesHelp = "help list routes";
@@ -56,7 +56,7 @@ CommandOps *controlListRoutes_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlListRoutes_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args) {
+                                                    PARCList *args, char *output, size_t output_size) {
   printf("command: list routes\n");
   printf("\n");
   printf(
@@ -76,9 +76,9 @@ static CommandReturn _controlListRoutes_HelpExecute(CommandParser *parser,
 
 static CommandReturn _controlListRoutes_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args) {
+                                                PARCList *args, char *output, size_t output_size) {
   if (parcList_Size(args) != 2) {
-    _controlListRoutes_HelpExecute(parser, ops, args);
+    _controlListRoutes_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
