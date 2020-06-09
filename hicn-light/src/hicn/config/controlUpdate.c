@@ -33,9 +33,15 @@
 
 static void _controlUpdate_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlUpdate_Execute(CommandParser *parser,
-                                          CommandOps *ops, PARCList *args);
+                                          CommandOps *ops,
+                                          PARCList *args,
+                                          char *output,
+                                          size_t output_size);
 static CommandReturn _controlUpdate_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args);
+                                              CommandOps *ops,
+                                              PARCList *args,
+                                              char *output,
+                                              size_t output_size);
 
 static const char *_commandUpdate = "update";
 static const char *_commandUpdateHelp = "help update";
@@ -53,18 +59,27 @@ CommandOps *controlUpdate_HelpCreate(ControlState *state) {
 // =====================================================
 
 static CommandReturn _controlUpdate_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args) {
+                                              CommandOps *ops,
+                                              PARCList *args,
+                                              char *output,
+                                              size_t output_size) {
   //CommandOps *ops_update_connections = controlUpdateConnections_HelpCreate(NULL);
   // CommandOps *ops_update_interfaces = controlUpdateInterfaces_HelpCreate(NULL);
   //CommandOps *ops_update_routes = controlUpdateRoutes_HelpCreate(NULL);
   CommandOps *ops_update_listeners = controlUpdateConnection_HelpCreate(NULL);
-
-  printf("Available commands:\n");
-  //printf("   %s\n", ops_update_connections->command);
-  // printf("   %s\n", ops_update_interfaces->command);
-  //printf("   %s\n", ops_update_routes->command);
-  printf("   %s\n", ops_update_listeners->command);
-  printf("\n");
+  if (!output) {
+    printf("Available commands:\n");
+    //printf("   %s\n", ops_update_connections->command);
+    // printf("   %s\n", ops_update_interfaces->command);
+    //printf("   %s\n", ops_update_routes->command);
+    printf("   %s\n", ops_update_listeners->command);
+    printf("\n");
+  } else {
+    snprintf(output, output_size,
+                     "Available commands:\n   %s\n\n",
+                     ops_update_listeners->command);
+  }
+  
 
  // commandOps_Destroy(&ops_update_connections);
   // commandOps_Destroy(&ops_update_interfaces);
@@ -88,8 +103,8 @@ static void _controlUpdate_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlUpdate_Execute(CommandParser *parser,
-                                          CommandOps *ops, PARCList *args) {
-  return _controlUpdate_HelpExecute(parser, ops, args);
+                                          CommandOps *ops, PARCList *args, char *output, size_t output_size) {
+  return _controlUpdate_HelpExecute(parser, ops, args, output, output_size);
 }
 
 #endif /* WITH_POLICY */

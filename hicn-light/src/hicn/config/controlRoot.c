@@ -37,9 +37,9 @@
 
 static void _controlRoot_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlRoot_Execute(CommandParser *parser,
-                                          CommandOps *ops, PARCList *args);
+                                          CommandOps *ops, PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlRoot_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args);
+                                              CommandOps *ops, PARCList *args, char *output, size_t output_size);
 
 static const char *_commandRoot = "";
 static const char *_commandRootHelp = "help";
@@ -59,7 +59,7 @@ CommandOps *controlRoot_HelpCreate(ControlState *state) {
 // ===================================================
 
 static CommandReturn _controlRoot_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args) {
+                                              CommandOps *ops, PARCList *args, char *output, size_t output_size) {
   printf("Command-line execution:\n");
   printf(
       "   controller [--server <server-ip>] [--port <server-port>] "
@@ -144,7 +144,7 @@ static void _controlRoot_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlRoot_Execute(CommandParser *parser,
-                                          CommandOps *ops, PARCList *args) {
+                                          CommandOps *ops, PARCList *args, char *output, size_t output_size) {
   return CommandReturn_Success;
 }
 
