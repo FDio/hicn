@@ -34,10 +34,14 @@
 
 static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args);
+                                                 PARCList *args,
+                                                 char *output,
+                                                 size_t output_size);
 static CommandReturn _controlSetStrategy_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args);
+                                                     PARCList *args,
+                                                     char *output,
+                                                     size_t output_size);
 
 static const char *_commandSetStrategy = "set strategy";
 static const char *_commandSetStrategyHelp = "help set strategy";
@@ -86,7 +90,11 @@ static void _getAddressAndLen(const char * prefixStr, char *addr, uint32_t *len)
 }
 
 static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
-                          int index, char * addr, uint32_t len){
+                           int index,
+                           char * addr,
+                           uint32_t len,
+                           char *output,
+                          size_t output_size){
   // check and set IP address
   int res;
   if(index == -1)
@@ -97,10 +105,10 @@ static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
 
   if(res == 1) {
     if (len == UINT32_MAX) {
-      printf("Netmask not specified: set to 32 by default\n");
+      snprintf(output, output_size, "Netmask not specified: set to 32 by default\n");
       len = 32;
     } else if (len > 32) {
-      printf("ERROR: exceeded INET mask length, max=32\n");
+      snprintf(output, output_size, "ERROR: exceeded INET mask length, max=32\n");
       return false;
     }
     if(index == -1)
@@ -119,10 +127,10 @@ static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
 
     if(res == 1) {
       if (len == UINT32_MAX) {
-        printf("Netmask not specified: set to 128 by default\n");
+        snprintf(output, output_size, "Netmask not specified: set to 128 by default\n");
         len = 128;
       } else if (len > 128) {
-        printf("ERROR: exceeded INET6 mask length, max=128\n");
+        snprintf(output, output_size, "ERROR: exceeded INET6 mask length, max=128\n");
         return false;
       }
 
@@ -132,7 +140,8 @@ static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
         setStrategyCommand->low_latency.families[index] = AF_INET6;
 
     } else {
-      printf("Error: %s is not a valid network address \n", addr);
+      snprintf(output, output_size, "Error: %s is not a valid network address \n", addr);
+
       return false;
     }
   }
@@ -141,36 +150,43 @@ static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
 
 static CommandReturn _controlSetStrategy_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args) {
-  printf("set strategy <prefix> <strategy> ");
-  printf("[related_prefix1 related_preifx2  ...]\n");
-  printf("prefix: ipv4/ipv6 address (ex: 1234::/64)\n");
-  printf("strategy: strategy identifier\n");
-  printf("optinal: list of related prefixes (max %u)\n",
-                          MAX_FWD_STRATEGY_RELATED_PREFIXES);
-  printf("available strategies:\n");
-  printf("    random\n");
-  printf("    loadbalancer\n");
-  printf("    low_latency\n");
-  printf("\n");
+                                                     PARCList *args,
+                                                     char *output,
+                                                     size_t output_size) {
+  snprintf(output, output_size,
+                     "set strategy <prefix> <strategy> "
+                     "[related_prefix1 related_preifx2  ...]\n"
+                     "prefix: ipv4/ipv6 address (ex: 1234::/64)\n"
+                     "strategy: strategy identifier\n"
+                     "optinal: list of related prefixes (max %u)\n"
+                     "available strategies:\n"
+                     "    random\n"
+                     "    loadbalancer\n"
+                     "    low_latency\n\n",
+                     MAX_FWD_STRATEGY_RELATED_PREFIXES);
   return CommandReturn_Success;
 }
 
 
 static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args) {
+                                                 PARCList *args,
+                                                 char *output,
+                                                 size_t output_size) {
+  if (output) {
+    output[0] = '\0';
+  }
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) < 4 ||
           parcList_Size(args) > (4 + MAX_FWD_STRATEGY_RELATED_PREFIXES)) {
-    _controlSetStrategy_HelpExecute(parser, ops, args);
+    _controlSetStrategy_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
   if (((strcmp(parcList_GetAtIndex(args, 0), "set") != 0) ||
        (strcmp(parcList_GetAtIndex(args, 1), "strategy") != 0))) {
-    _controlSetStrategy_HelpExecute(parser, ops, args);
+    _controlSetStrategy_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -183,7 +199,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
   set_strategy_command *setStrategyCommand =
       parcMemory_AllocateAndClear(sizeof(set_strategy_command));
 
-  bool success = _checkAndSetIp(setStrategyCommand, -1, addr, len);
+  bool success = _checkAndSetIp(setStrategyCommand, -1, addr, len, output, output_size);
   if(!success){
     parcMemory_Deallocate(&setStrategyCommand);
     free(addr);
@@ -192,11 +208,12 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
 
   const char *strategyStr = parcList_GetAtIndex(args, 3);
   // check valid strategy
-  strategy_type_t strategy;
-  if ((strategy = _validStrategy(strategyStr)) == STRATEGY_TYPE_UNDEFINED) {
-    printf("Error: invalid strategy \n");
+  strategy_type strategy;
+  if ((strategy = _validStrategy(strategyStr)) == LAST_STRATEGY_VALUE) {
+    size_t output_offset = strlen(output);
+    output_offset += snprintf(output + output_offset, output_size - output_offset, "Error: invalid strategy \n");
     parcMemory_Deallocate(&setStrategyCommand);
-    _controlSetStrategy_HelpExecute(parser, ops, args);
+    _controlSetStrategy_HelpExecute(parser, ops, args, output + output_offset, output_size - output_offset);
     free(addr);
     return CommandReturn_Failure;
   }
@@ -205,8 +222,13 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
 
   // Fill remaining payload fields
   setStrategyCommand->len = len;
+<<<<<<< HEAD
   setStrategyCommand->strategy_type = strategy;
 
+=======
+  setStrategyCommand->strategyType = strategy;
+  size_t output_offset = strlen(output);
+>>>>>>> 9e2c045... [HICN-626] Return output from libhicnlight
   //check additional prefixes
   if(parcList_Size(args) > 4){
     uint32_t index = 4; //first realted prefix
@@ -218,13 +240,18 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
       uint32_t rel_len = UINT32_MAX;
       _getAddressAndLen(str, rel_addr, &rel_len);
       bool success = _checkAndSetIp(setStrategyCommand, addr_index,
-                                          rel_addr, rel_len);
+                                          rel_addr, rel_len, output + output_offset, output_size - output_offset);
       if(!success){
         parcMemory_Deallocate(&setStrategyCommand);
         free(rel_addr);
         return CommandReturn_Failure;
       }
+<<<<<<< HEAD
       setStrategyCommand->low_latency.lens[addr_index] = rel_len;
+=======
+      output_offset = strlen(output);
+      setStrategyCommand->lens[addr_index] = rel_len;
+>>>>>>> 9e2c045... [HICN-626] Return output from libhicnlight
       free(rel_addr);
       index++;
       addr_index++;

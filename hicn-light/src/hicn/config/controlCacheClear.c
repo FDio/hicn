@@ -31,10 +31,14 @@
 
 static CommandReturn _controlCacheClear_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args);
+                                                PARCList *args,
+                                                char *output,
+                                                size_t output_size);
 static CommandReturn _controlCacheClear_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args);
+                                                    PARCList *args,
+                                                    char *output,
+                                                    size_t output_size);
 
 static const char *_commandCacheClear = "cache clear";
 static const char *_commandCacheClearHelp = "help cache clear";
@@ -55,18 +59,21 @@ CommandOps *controlCacheClear_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlCacheClear_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args) {
-  printf("cache clear\n");
-  printf("\n");
+                                                    PARCList *args,
+                                                    char *output,
+                                                    size_t output_size) {
+  snprintf(output, output_size, "cache clear\n\n");
 
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlCacheClear_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args) {
+                                                PARCList *args,
+                                                char *output,
+                                                size_t output_size) {
   if (parcList_Size(args) != 2) {
-    _controlCacheClear_HelpExecute(parser, ops, args);
+    _controlCacheClear_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 

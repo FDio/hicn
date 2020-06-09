@@ -32,10 +32,14 @@
 #include <hicn/utils/utils.h>
 
 static CommandReturn _controlAddRoute_Execute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args);
+                                              CommandOps *ops, PARCList *args,
+                                              char *output,
+                                              size_t output_size);
 static CommandReturn _controlAddRoute_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
-                                                  PARCList *args);
+                                                  PARCList *args,
+                                                  char *output,
+                                                  size_t output_size);
 
 static const char *_commandAddRoute = "add route";
 static const char *_commandAddRouteHelp = "help add route";
@@ -54,26 +58,29 @@ CommandOps *controlAddRoute_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlAddRoute_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
-                                                  PARCList *args) {
-  printf("commands:\n");
-  printf("   add route <symbolic | connid> <prefix> <cost>\n");
-  printf("\n");
-  printf("   symbolic:  The symbolic name for an exgress\n");
-  printf(
-      "   connid:    The egress connection id (see 'help list connections')\n");
-  printf(
-      "   prefix:    The hicn name as IPv4 or IPv6 address (e.g 1234::0/64)\n");
-  printf("   cost:      positive integer representing cost\n");
-  printf("\n");
+                                                  PARCList *args,
+                                                  char *output,
+                                                  size_t output_size) {
+  snprintf(output, output_size, "commands:\n"
+                                "   add route <symbolic | connid> <prefix> <cost>\n"
+                                "\n"
+                                "   symbolic:  The symbolic name for an exgress\n"
+                                "   connid:    The egress connection id (see 'help list connections')\n"
+                                "   prefix:    The hicn name as IPv4 or IPv6 address (e.g 1234::0/64)\n"
+                                "   cost:      positive integer representing cost\n"
+                                "\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlAddRoute_Execute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args) {
+                                              CommandOps *ops,
+                                              PARCList *args,
+                                              char *output,
+                                              size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 5) {
-    _controlAddRoute_HelpExecute(parser, ops, args);
+    _controlAddRoute_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -81,16 +88,15 @@ static CommandReturn _controlAddRoute_Execute(CommandParser *parser,
 
   if (!utils_ValidateSymbolicName(symbolicOrConnid) &&
       !utils_IsNumber(symbolicOrConnid)) {
-    printf(
-        "ERROR: Invalid symbolic or connid:\nsymbolic name must begin with an "
-        "alpha followed by alphanum;\nconnid must be an integer\n");
+    snprintf(output, output_size, "ERROR: Invalid symbolic or connid:\nsymbolic name must begin with an "
+                                  "alpha followed by alphanum;\nconnid must be an integer\n");
     return CommandReturn_Failure;
   }
 
   unsigned cost = atoi(parcList_GetAtIndex(args, 4));
 
   if (cost == 0) {
-    printf("ERROR: cost must be positive integer, got %u from '%s'\n", cost,
+    snprintf(output, output_size, "ERROR: cost must be positive integer, got %u from '%s'\n", cost,
            (char *)parcList_GetAtIndex(args, 4));
     return CommandReturn_Failure;
   }
@@ -115,23 +121,23 @@ static CommandReturn _controlAddRoute_Execute(CommandParser *parser,
   // check and set IP address
   if (inet_pton(AF_INET, addr, &cmd->address.v4.as_u32) == 1) {
     if (len > 32) {
-      printf("ERROR: exceeded INET mask length, max=32\n");
-      parcMemory_Deallocate(&cmd);
+      snprintf(output, output_size, "ERROR: exceeded INET mask length, max=32\n");
+      parcMemory_Deallocate(&addRouteCommand);
       free(addr);
       return CommandReturn_Failure;
     }
     cmd->family = AF_INET;
   } else if (inet_pton(AF_INET6, addr, &cmd->address.v6.as_in6addr) == 1) {
     if (len > 128) {
-      printf("ERROR: exceeded INET6 mask length, max=128\n");
-      parcMemory_Deallocate(&cmd);
+      snprintf(output, output_size, "ERROR: exceeded INET6 mask length, max=128\n");
+      parcMemory_Deallocate(&addRouteCommand);
       free(addr);
       return CommandReturn_Failure;
     }
     cmd->family = AF_INET6;
   } else {
-    printf("Error: %s is not a valid network address \n", addr);
-    parcMemory_Deallocate(&cmd);
+    snprintf(output, output_size, "Error: %s is not a valid network address \n", addr);
+    parcMemory_Deallocate(&addRouteCommand);
     free(addr);
     return CommandReturn_Failure;
   }

@@ -32,10 +32,14 @@
 
 static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args);
+                                                 PARCList *args,
+                                                 char *output,
+                                                 size_t output_size);
 static CommandReturn _controlRemoveRoute_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args);
+                                                     PARCList *args,
+                                                     char *output,
+                                                     size_t output_size);
 
 // ===================================================
 
@@ -58,19 +62,23 @@ CommandOps *controlRemoveRoute_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlRemoveRoute_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args) {
-  printf("commands:\n");
-  printf("    remove route <symbolic | connid> <prefix>\n");
+                                                     PARCList *args,
+                                                     char *output,
+                                                     size_t output_size) {
+  snprintf(output, output_size, "commands:\n"
+                                "    remove route <symbolic | connid> <prefix>\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args) {
+                                                 PARCList *args,
+                                                 char *output,
+                                                 size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 4) {
-    _controlRemoveRoute_HelpExecute(parser, ops, args);
+    _controlRemoveRoute_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -78,7 +86,7 @@ static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
 
   if (!utils_ValidateSymbolicName(symbolicOrConnid) &&
       !utils_IsNumber(symbolicOrConnid)) {
-    printf(
+    snprintf(output, output_size,
         "ERROR: Invalid symbolic or connid:\nsymbolic name must begin with an "
         "alpha followed by alphanum;\nconnid must be an integer\n");
     return CommandReturn_Failure;
@@ -104,7 +112,7 @@ static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
   // check and set IP address
   if (inet_pton(AF_INET, addr, &removeRouteCommand->address.v4.as_u32) == 1) {
     if (len > 32) {
-      printf("ERROR: exceeded INET mask length, max=32\n");
+      snprintf(output, output_size, "ERROR: exceeded INET mask length, max=32\n");
       parcMemory_Deallocate(&removeRouteCommand);
       free(addr);
       return CommandReturn_Failure;
@@ -113,14 +121,14 @@ static CommandReturn _controlRemoveRoute_Execute(CommandParser *parser,
   } else if (inet_pton(AF_INET6, addr, &removeRouteCommand->address.v6.as_in6addr) ==
              1) {
     if (len > 128) {
-      printf("ERROR: exceeded INET6 mask length, max=128\n");
+      snprintf(output, output_size, "ERROR: exceeded INET6 mask length, max=128\n");
       parcMemory_Deallocate(&removeRouteCommand);
       free(addr);
       return CommandReturn_Failure;
     }
     removeRouteCommand->family = AF_INET6;
   } else {
-    printf("Error: %s is not a valid network address \n", addr);
+    snprintf(output, output_size, "Error: %s is not a valid network address \n", addr);
     parcMemory_Deallocate(&removeRouteCommand);
     free(addr);
     return CommandReturn_Failure;

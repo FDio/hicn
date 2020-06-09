@@ -33,10 +33,14 @@
 
 static CommandReturn _controlRemoveConnection_Execute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args);
+                                                      PARCList *args,
+                                                      char *output,
+                                                      size_t output_size);
 static CommandReturn _controlRemoveConnection_HelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args);
+                                                          PARCList *args,
+                                                          char *output,
+                                                          size_t output_size);
 
 // ===================================================
 
@@ -61,25 +65,29 @@ CommandOps *controlRemoveConnection_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlRemoveConnection_HelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args) {
-  printf("command:\n");
-  printf("    remove connection <symbolic|id>\n");
+                                                          PARCList *args,
+                                                          char *output,
+                                                          size_t output_size) {
+  snprintf(output, output_size, "command:\n"
+                                "    remove connection <symbolic|id>\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlRemoveConnection_Execute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args) {
+                                                      PARCList *args,
+                                                      char *output,
+                                                      size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 3) {
-    _controlRemoveConnection_HelpExecute(parser, ops, args);
+    _controlRemoveConnection_HelpExecute(parser, ops, args, output, output_size);
     return false;
   }
 
   if ((strcmp(parcList_GetAtIndex(args, 0), "remove") != 0) ||
       (strcmp(parcList_GetAtIndex(args, 1), "connection") != 0)) {
-    _controlRemoveConnection_HelpExecute(parser, ops, args);
+    _controlRemoveConnection_HelpExecute(parser, ops, args, output, output_size);
     return false;
   }
 
@@ -87,7 +95,7 @@ static CommandReturn _controlRemoveConnection_Execute(CommandParser *parser,
 
   if (!utils_ValidateSymbolicName(symbolicOrConnid) &&
       !utils_IsNumber(symbolicOrConnid)) {
-    printf(
+    snprintf(output, output_size, 
         "ERROR: Invalid symbolic or connid:\nsymbolic name must begin with an "
         "alpha followed by alphanum;\nconnid must be an integer\n");
     return CommandReturn_Failure;

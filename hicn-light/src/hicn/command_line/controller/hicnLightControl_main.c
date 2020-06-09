@@ -339,6 +339,9 @@ int main(int argc, char *argv[]) {
   mainState.controlState =
       controlState_Create(&mainState, _writeAndReadMessage, true,
                           server_ip, server_port);
+  if (mainState.controlState == NULL) {
+      exit(EXIT_FAILURE);
+  }
 
   controlState_RegisterCommand(mainState.controlState,
                                controlRoot_HelpCreate(mainState.controlState));
@@ -347,7 +350,9 @@ int main(int argc, char *argv[]) {
 
   if (parcList_Size(commands) > 0) {
     controlState_SetInteractiveFlag(mainState.controlState, false);
-    controlState_DispatchCommand(mainState.controlState, commands);
+    char output[8192];
+    controlState_DispatchCommand(mainState.controlState, commands, output, sizeof(output));
+    printf("%s", output);
     char **commandOutputMain =
         controlState_GetCommandOutput(mainState.controlState);
     if (commandOutputMain != NULL && commandOutputLen > 0) {

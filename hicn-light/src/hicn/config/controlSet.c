@@ -31,10 +31,16 @@
 #include <hicn/config/controlSetWldr.h>
 
 static void _controlSet_Init(CommandParser *parser, CommandOps *ops);
-static CommandReturn _controlSet_Execute(CommandParser *parser, CommandOps *ops,
-                                         PARCList *args);
+static CommandReturn _controlSet_Execute(CommandParser *parser,
+                                         CommandOps *ops,
+                                         PARCList *args,
+                                         char *output,
+                                         size_t output_size);
 static CommandReturn _controlSet_HelpExecute(CommandParser *parser,
-                                             CommandOps *ops, PARCList *args);
+                                             CommandOps *ops,
+                                             PARCList *args,
+                                             char *output,
+                                             size_t output_size);
 
 static const char *_commandSet = "set";
 static const char *_commandSetHelp = "help set";
@@ -64,16 +70,18 @@ static void _controlSet_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlSet_HelpExecute(CommandParser *parser,
-                                             CommandOps *ops, PARCList *args) {
+                                             CommandOps *ops,
+                                             PARCList *args,
+                                             char *output,
+                                             size_t output_size) {
   CommandOps *ops_help_set_debug = controlSetDebug_HelpCreate(NULL);
   CommandOps *ops_help_set_strategy = controlSetStrategy_HelpCreate(NULL);
   CommandOps *ops_help_set_wldr = controlSetWldr_HelpCreate(NULL);
 
-  printf("Available commands:\n");
-  printf("   %s\n", ops_help_set_debug->command);
-  printf("   %s\n", ops_help_set_strategy->command);
-  printf("   %s\n", ops_help_set_wldr->command);
-  printf("\n");
+  snprintf(output, output_size, "Available commands:\n   %s\n   %s\n   %s\n\n",
+                                ops_help_set_debug->command,
+                                ops_help_set_strategy->command,
+                                ops_help_set_wldr->command);
 
   commandOps_Destroy(&ops_help_set_debug);
   commandOps_Destroy(&ops_help_set_strategy);
@@ -81,7 +89,10 @@ static CommandReturn _controlSet_HelpExecute(CommandParser *parser,
   return CommandReturn_Success;
 }
 
-static CommandReturn _controlSet_Execute(CommandParser *parser, CommandOps *ops,
-                                         PARCList *args) {
-  return _controlSet_HelpExecute(parser, ops, args);
+static CommandReturn _controlSet_Execute(CommandParser *parser,
+                                         CommandOps *ops,
+                                         PARCList *args,
+                                         char *output,
+                                         size_t output_size) {
+  return _controlSet_HelpExecute(parser, ops, args, output, output_size);
 }

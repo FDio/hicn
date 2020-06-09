@@ -34,10 +34,14 @@
 
 static CommandReturn _controlAddListener_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args);
+                                                 PARCList *args,
+                                                 char *output,
+                                                 size_t output_size);
 static CommandReturn _controlAddListener_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args);
+                                                     PARCList *args,
+                                                     char *output,
+                                                     size_t output_size);
 
 static const char *command_add_listener = "add listener";
 static const char *command_help_add_listener = "help add listener";
@@ -62,43 +66,45 @@ static const int _indexInterfaceName = 6;
 
 static CommandReturn _controlAddListener_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args) {
-  printf("commands:\n");
+                                                     PARCList *args,
+                                                     char *output,
+                                                     size_t output_size) {
+  snprintf(output, output_size,
+                  "commands:\n"
 #ifdef __linux__
-  printf("   add listener hicn <symbolic> <localAddress> \n");
+                  "   add listener hicn <symbolic> <localAddress> \n"
 #endif
-  printf("   add listener udp <symbolic> <localAddress> <port> <interface>\n");
-  printf("   add listener tcp <symbolic> <localAddress> <port> <interface>\n");
-  printf("\n");
-  printf(
-      "   symbolic:        User defined name for listener, must start with "
-      "alpha and be alphanum\n");
+                  "   add listener udp <symbolic> <localAddress> <port> <interface>\n"
+                  "   add listener tcp <symbolic> <localAddress> <port> <interface>\n"
+                  "\n"
+                  "   symbolic:        User defined name for listener, must start with "
+                  "alpha and be alphanum\n"
 #ifdef __linux__
-  printf("   protocol:        hicn | udp\n");
+                  "   protocol:        hicn | udp\n"
 #else
-  printf("   protocol:        udp\n");
+                  "   protocol:        udp\n"
 #endif
-  printf(
-      "   localAddress:    IPv4 or IPv6 address (or prefix protocol = hicn) "
-      "assigend to the local interface\n");
-  printf("   port:            Udp port\n");
-
-  printf("   interface:            interface\n");
-  printf("\n");
-  printf("Notes:\n");
-  printf("   The symblic name must be unique or the source will reject it.\n");
+                  "   localAddress:    IPv4 or IPv6 address (or prefix protocol = hicn) "
+                  "assigend to the local interface\n"
+                  "   port:            Udp port\n"
+                  "   interface:            interface\n"
+                  "\n"
+                  "Notes:\n"
+                  "   The symblic name must be unique or the source will reject it.\n"
 #ifdef __linux__
-  printf(
-      "    If protocol = hicn: the address 0::0 indicates the main listern, "
-      "for which we can set punting rules.\n");
+                  "    If protocol = hicn: the address 0::0 indicates the main listern, "
+                  "for which we can set punting rules.\n"
 #endif
+  );
   return CommandReturn_Success;
 }
 
 static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
                                      const char *symbolic, const char *addr,
                                      const char *port, char *interfaceName, listener_mode mode,
-                                     connection_type type) {
+                                     connection_type type,
+                                     char *output,
+                                     size_t output_size) {
   ControlState *state = ops->closure;
 
   // allocate command payload
@@ -113,7 +119,7 @@ static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
     addListenerCommand->family = AF_INET6;
 
   } else {
-    printf("Error: %s is not a valid network address \n", addr);
+    snprintf(output, output_size, "Error: %s is not a valid network address \n", addr);
     parcMemory_Deallocate(&addListenerCommand);
     return CommandReturn_Failure;
   }
@@ -145,9 +151,11 @@ static CommandReturn _CreateListener(CommandParser *parser, CommandOps *ops,
 
 static CommandReturn _controlAddListener_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args) {
+                                                 PARCList *args,
+                                                 char *output,
+                                                 size_t output_size) {
   if (parcList_Size(args) != 5 && parcList_Size(args) != 7) {
-    _controlAddListener_HelpExecute(parser, ops, args);
+    _controlAddListener_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -156,7 +164,7 @@ static CommandReturn _controlAddListener_Execute(CommandParser *parser,
   const char *symbolic = parcList_GetAtIndex(args, _indexSymbolic);
 
   if (!utils_ValidateSymbolicName(symbolic)) {
-    printf(
+    snprintf(output, output_size,
         "Error: symbolic name must begin with an alpha and be alphanum "
         "after\n");
     return result;
@@ -172,22 +180,22 @@ static CommandReturn _controlAddListener_Execute(CommandParser *parser,
     // here we discard the prefix len if it exists, since we don't use it in
     // code but we let libhicn to find the right ip address.
     return _CreateListener(parser, ops, symbolic, host, port, "hicn", HICN_MODE,
-                           HICN_CONN);
+                           HICN_CONN, output, output_size);
   }
   const char *port = parcList_GetAtIndex(args, _indexPort);
 
   if ((strcasecmp("udp", protocol) == 0)) {
     return _CreateListener(parser, ops, symbolic, host, port, interfaceName, IP_MODE,
-                           UDP_CONN);
+                           UDP_CONN, output, output_size);
   } else if ((strcasecmp("tcp", protocol) == 0)) {
     return _CreateListener(parser, ops, symbolic, host, port, interfaceName, IP_MODE,
-                           TCP_CONN);
+                           TCP_CONN, output, output_size);
   } else {
-    _controlAddListener_HelpExecute(parser, ops, args);
+    _controlAddListener_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
-  if (result == CommandReturn_Failure) printf("creation failed\n");
+  if (result == CommandReturn_Failure) snprintf(output, output_size, "creation failed\n");
 
   return result;
 }
