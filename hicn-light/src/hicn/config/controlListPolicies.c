@@ -33,10 +33,10 @@
 
 static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args);
+                                                PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlListPolicies_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args);
+                                                    PARCList *args, char *output, size_t output_size);
 
 static const char *_commandListPolicies = "list policies";
 static const char *_commandListPoliciesHelp = "help list policies";
@@ -57,7 +57,7 @@ CommandOps *controlListPolicies_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlListPolicies_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args) {
+                                                    PARCList *args, char *output, size_t output_size) {
   printf("command: list policies\n");
   printf("\n");
   return CommandReturn_Success;
@@ -77,9 +77,9 @@ typedef struct {
 
 static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args) {
+                                                PARCList *args, char *output, size_t output_size) {
   if (parcList_Size(args) != 2) {
-    _controlListPolicies_HelpExecute(parser, ops, args);
+    _controlListPolicies_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 

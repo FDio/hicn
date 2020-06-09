@@ -54,7 +54,7 @@ int controlState_connectToFwdDeamon(char *server_ip, uint16_t port) {
 
   if ((sockfd = (int)socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     printf("\nSocket Creation Failed \n");
-    exit(EXIT_FAILURE);
+      return EXIT_FAILURE;
   }
 
   memset(&servaddr, 0, sizeof(servaddr));
@@ -67,7 +67,7 @@ int controlState_connectToFwdDeamon(char *server_ip, uint16_t port) {
   // Establish connection
   if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
     printf("\nConnection Failed: hicn-light Daemon is not running \n");
-    exit(EXIT_FAILURE);
+    return EXIT_FAILURE;
   }
 
   return sockfd;
@@ -91,6 +91,8 @@ ControlState *controlState_Create(
 
   if (openControllerConnetion) {
     state->sockfd = controlState_connectToFwdDeamon(server_ip, port);
+    if (state->sockfd == -1)
+        return NULL;
   } else {
     state->sockfd = 2;  // stderr
   }
@@ -161,9 +163,9 @@ static PARCList *_controlState_ParseStringIntoTokens(
 }
 
 CommandReturn controlState_DispatchCommand(ControlState *state,
-                                           PARCList *args) {
+                                           PARCList *args, char *output, size_t output_size) {
   parcAssertNotNull(state, "Parameter state must be non-null");
-  return commandParser_DispatchCommand(state->parser, args);
+  return commandParser_DispatchCommand(state->parser, args, output, output_size);
 }
 
 int controlState_Interactive(ControlState *state) {
@@ -171,7 +173,7 @@ int controlState_Interactive(ControlState *state) {
   char *line = NULL;
   size_t linecap = 0;
   CommandReturn controlReturn = CommandReturn_Success;
-
+  char output[8192];
   while (controlReturn != CommandReturn_Exit && !feof(stdin)) {
     fputs("> ", stdout);
     fflush(stdout);
@@ -179,7 +181,9 @@ int controlState_Interactive(ControlState *state) {
     parcAssertTrue(failure > -1, "Error getline");
 
     PARCList *args = _controlState_ParseStringIntoTokens(line);
-    controlReturn = controlState_DispatchCommand(state, args);
+    
+    controlReturn = controlState_DispatchCommand(state, args, output, 8192);
+    printf("%s", output);
     // release and get command
     parcList_Release(&args);
   }

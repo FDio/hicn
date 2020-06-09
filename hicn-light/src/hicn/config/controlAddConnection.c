@@ -35,10 +35,10 @@
 static void _controlAddConnection_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlAddConnection_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args);
+                                                       PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlAddConnection_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args);
+                                                   PARCList *args, char *output, size_t output_size);
 
 // ===================================================
 
@@ -47,22 +47,22 @@ static CommandReturn _controlAddConnection_HicnHelpExecute(
     CommandParser *parser, CommandOps *ops, PARCList *args);
 static CommandReturn _controlAddConnection_HicnExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args);
+                                                       PARCList *args, size_t output_size);
 #endif
 
 static CommandReturn _controlAddConnection_UdpHelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args);
+                                                          PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlAddConnection_UdpExecute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args);
+                                                      PARCList *args, char *output, size_t output_size);
 
 static CommandReturn _controlAddConnection_TcpHelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args);
+                                                          PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlAddConnection_TcpExecute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args);
+                                                      PARCList *args, char *output, size_t output_size);
 
 // ===================================================
 
@@ -140,7 +140,7 @@ static CommandOps *_controlAddConnection_TcpHelpCreate(ControlState *state) {
 
 static CommandReturn _controlAddConnection_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args) {
+                                                       PARCList *args, char *output, size_t output_size) {
   printf("Available commands:\n");
 #ifdef __linux__
   printf("   %s\n", _commandAddConnectionHicn);
@@ -170,8 +170,8 @@ static void _controlAddConnection_Init(CommandParser *parser, CommandOps *ops) {
 
 static CommandReturn _controlAddConnection_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args) {
-  return _controlAddConnection_HelpExecute(parser, ops, args);
+                                                   PARCList *args, char *output, size_t output_size) {
+  return _controlAddConnection_HelpExecute(parser, ops, args, output, output_size);
 }
 
 // ===================================================
@@ -286,7 +286,7 @@ static CommandReturn _controlAddConnection_IpHelp(CommandParser *parser,
 
 #ifdef __linux__
 static CommandReturn _controlAddConnection_HicnHelpExecute(
-    CommandParser *parser, CommandOps *ops, PARCList *args) {
+    CommandParser *parser, CommandOps *ops, PARCList *args, size_t output_size) {
   _controlAddConnection_IpHelp(parser, ops, args, "hicn");
 
   return CommandReturn_Success;
@@ -324,7 +324,7 @@ static CommandReturn _controlAddConnection_HicnExecute(CommandParser *parser,
 
 static CommandReturn _controlAddConnection_UdpHelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args) {
+                                                          PARCList *args, char *output, size_t output_size) {
   _controlAddConnection_IpHelp(parser, ops, args, "udp");
 
   return CommandReturn_Success;
@@ -332,7 +332,7 @@ static CommandReturn _controlAddConnection_UdpHelpExecute(CommandParser *parser,
 
 static CommandReturn _controlAddConnection_UdpExecute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args) {
+                                                      PARCList *args, char *output, size_t output_size) {
   static const int _indexSymbolic = 3;
   static const int _indexRemAddr = 4;
   static const int _indexRemPort = 5;
@@ -340,7 +340,7 @@ static CommandReturn _controlAddConnection_UdpExecute(CommandParser *parser,
   static const int _indexLocPort = 7;
 
   if (parcList_Size(args) != 8) {
-    _controlAddConnection_UdpHelpExecute(parser, ops, args);
+    _controlAddConnection_UdpHelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -366,7 +366,7 @@ static CommandReturn _controlAddConnection_UdpExecute(CommandParser *parser,
 
 static CommandReturn _controlAddConnection_TcpHelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args) {
+                                                          PARCList *args, char *output, size_t output_size) {
   _controlAddConnection_IpHelp(parser, ops, args, "tcp");
 
   return CommandReturn_Success;
@@ -374,7 +374,7 @@ static CommandReturn _controlAddConnection_TcpHelpExecute(CommandParser *parser,
 
 static CommandReturn _controlAddConnection_TcpExecute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args) {
+                                                      PARCList *args, char *output, size_t output_size) {
   static const int _indexSymbolic = 3;
   static const int _indexRemAddr = 4;
   static const int _indexRemPort = 5;
@@ -382,7 +382,7 @@ static CommandReturn _controlAddConnection_TcpExecute(CommandParser *parser,
   static const int _indexLocPort = 7;
 
   if (parcList_Size(args) != 8) {
-    _controlAddConnection_UdpHelpExecute(parser, ops, args);
+    _controlAddConnection_UdpHelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 

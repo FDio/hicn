@@ -37,10 +37,10 @@
 
 static CommandReturn _controlUpdateConnection_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args);
+                                                 PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlUpdateConnection_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args);
+                                                     PARCList *args, char *output, size_t output_size);
 
 static const char *command_update_connection = "update connection";
 static const char *command_help_update_connection = "help update connection";
@@ -62,7 +62,7 @@ static const int _indexTags = 3;
 
 static CommandReturn _controlUpdateConnection_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args) {
+                                                     PARCList *args, char *output, size_t output_size) {
   printf("commands:\n");
   printf("   update connection <symbolic | id> <tags> \n");
   printf("\n");
@@ -77,9 +77,9 @@ static CommandReturn _controlUpdateConnection_HelpExecute(CommandParser *parser,
 
 static CommandReturn _controlUpdateConnection_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args) {
+                                                 PARCList *args, char *output, size_t output_size) {
   if ((parcList_Size(args) != 3) && (parcList_Size(args) != 4)) {
-    _controlUpdateConnection_HelpExecute(parser, ops, args);
+    _controlUpdateConnection_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 

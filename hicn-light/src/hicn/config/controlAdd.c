@@ -36,9 +36,9 @@
 
 static void _controlAdd_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlAdd_Execute(CommandParser *parser, CommandOps *ops,
-                                         PARCList *args);
+                                         PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlAdd_HelpExecute(CommandParser *parser,
-                                             CommandOps *ops, PARCList *args);
+                                             CommandOps *ops, PARCList *args, char *output, size_t output_size);
 
 // ===================================================
 
@@ -58,7 +58,7 @@ CommandOps *controlAdd_CreateHelp(ControlState *state) {
 // ===================================================
 
 static CommandReturn _controlAdd_HelpExecute(CommandParser *parser,
-                                             CommandOps *ops, PARCList *args) {
+                                             CommandOps *ops, PARCList *args, char *output, size_t output_size) {
   CommandOps *ops_add_connection = controlAddConnection_Create(NULL);
   CommandOps *ops_add_route = controlAddRoute_Create(NULL);
   CommandOps *ops_add_punting = controlAddPunting_Create(NULL);
@@ -104,6 +104,6 @@ static void _controlAdd_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlAdd_Execute(CommandParser *parser, CommandOps *ops,
-                                         PARCList *args) {
-  return _controlAdd_HelpExecute(parser, ops, args);
+                                         PARCList *args, char *output, size_t output_size) {
+  return _controlAdd_HelpExecute(parser, ops, args, output, output_size);
 }

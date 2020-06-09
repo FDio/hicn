@@ -34,10 +34,10 @@
 
 static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args);
+                                                 PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlSetStrategy_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args);
+                                                     PARCList *args, char *output, size_t output_size);
 
 static const char *_commandSetStrategy = "set strategy";
 static const char *_commandSetStrategyHelp = "help set strategy";
@@ -140,7 +140,7 @@ static bool _checkAndSetIp(set_strategy_command * setStrategyCommand,
 
 static CommandReturn _controlSetStrategy_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args) {
+                                                     PARCList *args, char *output, size_t output_size) {
   printf("set strategy <prefix> <strategy> ");
   printf("[related_prefix1 related_preifx2  ...]\n");
   printf("prefix: ipv4/ipv6 address (ex: 1234::/64)\n");
@@ -158,18 +158,18 @@ static CommandReturn _controlSetStrategy_HelpExecute(CommandParser *parser,
 
 static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args) {
+                                                 PARCList *args, char *output, size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) < 4 ||
           parcList_Size(args) > (4 + MAX_FWD_STRATEGY_RELATED_PREFIXES)) {
-    _controlSetStrategy_HelpExecute(parser, ops, args);
+    _controlSetStrategy_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
   if (((strcmp(parcList_GetAtIndex(args, 0), "set") != 0) ||
        (strcmp(parcList_GetAtIndex(args, 1), "strategy") != 0))) {
-    _controlSetStrategy_HelpExecute(parser, ops, args);
+    _controlSetStrategy_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -195,7 +195,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
   if ((strategy = _validStrategy(strategyStr)) == LAST_STRATEGY_VALUE) {
     printf("Error: invalid strategy \n");
     parcMemory_Deallocate(&setStrategyCommand);
-    _controlSetStrategy_HelpExecute(parser, ops, args);
+    _controlSetStrategy_HelpExecute(parser, ops, args, output, output_size);
     free(addr);
     return CommandReturn_Failure;
   }
