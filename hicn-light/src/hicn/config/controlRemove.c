@@ -37,10 +37,10 @@
 
 static void _controlRemove_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlRemove_Execute(CommandParser *parser,
-                                            CommandOps *ops, PARCList *args);
+                                            CommandOps *ops, PARCList *args, char *output, size_t output_size);
 static CommandReturn _controlRemove_HelpExecute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args);
+                                                PARCList *args, char *output, size_t output_size);
 
 static const char *_commandRemove = "remove";
 static const char *_commandRemoveHelp = "help remove";
@@ -61,7 +61,7 @@ CommandOps *controlRemove_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlRemove_HelpExecute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args) {
+                                                PARCList *args, char *output, size_t output_size) {
   CommandOps *ops_remove_connection = controlRemoveConnection_Create(NULL);
   CommandOps *ops_remove_listener = controlRemoveListener_Create(NULL);
   CommandOps *ops_remove_route = controlRemoveRoute_Create(NULL);
@@ -109,6 +109,6 @@ static void _controlRemove_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlRemove_Execute(CommandParser *parser,
-                                            CommandOps *ops, PARCList *args) {
-  return _controlRemove_HelpExecute(parser, ops, args);
+                                            CommandOps *ops, PARCList *args, char *output, size_t output_size) {
+  return _controlRemove_HelpExecute(parser, ops, args, output, output_size);
 }
