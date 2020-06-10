@@ -93,7 +93,7 @@ class RTCTransportProtocol : public TransportProtocol,
 
   ~RTCTransportProtocol();
 
-  using TransportProtocol::start;
+  int start() override;
 
   using TransportProtocol::stop;
 

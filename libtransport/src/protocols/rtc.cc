@@ -43,6 +43,51 @@ RTCTransportProtocol::RTCTransportProtocol(
 
 RTCTransportProtocol::~RTCTransportProtocol() {}
 
+int RTCTransportProtocol::start() {
+  if (is_running_) return -1;
+
+  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_RETRANSMISSION,
+                           &on_interest_retransmission_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_OUTPUT,
+                           &on_interest_output_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_EXPIRED,
+                           &on_interest_timeout_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::INTEREST_SATISFIED,
+                           &on_interest_satisfied_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT,
+                           &on_content_object_input_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::CONTENT_OBJECT_TO_VERIFY,
+                           &on_content_object_verification_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::STATS_SUMMARY,
+                           &stats_summary_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::VERIFICATION_FAILED,
+                           &verification_failed_callback_);
+  socket_->getSocketOption(ConsumerCallbacksOptions::READ_CALLBACK,
+                           &on_payload_);
+  socket_->getSocketOption(GeneralTransportOptions::ASYNC_MODE, is_async_);
+
+  reset();
+  is_first_ = true;
+
+  probeRtt();
+  sentinelTimer();
+  newRound();
+  scheduleNextInterests();
+
+  is_first_ = false;
+  is_running_ = true;
+
+  if (!is_async_) {
+    // Start Event loop
+    portal_->runEventsLoop();
+
+    // Not running anymore
+    is_running_ = false;
+  }
+
+  return 0;
+}
+
 void RTCTransportProtocol::resume() {
   if (is_running_) return;
 
@@ -117,9 +162,9 @@ void RTCTransportProtocol::initParams() {
 // private
 void RTCTransportProtocol::reset() {
   initParams();
-  probeRtt();
-  sentinelTimer();
-  newRound();
+  // probeRtt();
+  // sentinelTimer();
+  // newRound();
 }
 
 uint32_t max(uint32_t a, uint32_t b) {
@@ -391,7 +436,8 @@ void RTCTransportProtocol::probeRtt() {
     probeRtt();
   });
 
-  // To avoid sending the first probe, because the transport is not running yet
+  // To avoid sending the first probe, because the transport is not running
+  // yet
   if (is_first_ && !is_running_) return;
 
   time_sent_probe_ = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -798,8 +844,8 @@ bool RTCTransportProtocol::onNack(const ContentObject &content_object,
 
   bool old_nack = false;
 
-  // if we did not received anything between lastReceived_ + 1 and productionSeg
-  // most likelly some packets got lost
+  // if we did not received anything between lastReceived_ + 1 and
+  // productionSeg most likelly some packets got lost
   if (lastReceived_ != 0) {
     addRetransmissions(lastReceived_ + 1, productionSeg);
   }
@@ -979,4 +1025,4 @@ void RTCTransportProtocol::onContentObject(
 
 }  // end namespace protocol
 
-}  // end namespace transport
+}  // namespace transport
