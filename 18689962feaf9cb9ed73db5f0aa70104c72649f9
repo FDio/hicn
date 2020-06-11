@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "29dc0a21_faf9f18f",
+        "filename": "hicn-light/src/hicn/config/controlAddPolicy.c",
+        "patchSetId": 15
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2020-06-11T15:00:02Z",
+      "side": 1,
+      "message": "printf?",
+      "revId": "18689962feaf9cb9ed73db5f0aa70104c72649f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6691aa9c_23388655",
+        "filename": "hicn-light/src/hicn/config/controlListPolicies.c",
+        "patchSetId": 15
+      },
+      "lineNbr": 189,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2020-06-11T15:00:02Z",
+      "side": 1,
+      "message": "Shouldn\u0027t be +\u003d?",
+      "revId": "18689962feaf9cb9ed73db5f0aa70104c72649f9",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
