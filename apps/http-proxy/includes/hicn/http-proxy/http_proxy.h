@@ -32,13 +32,18 @@ class TcpListener {
   using AcceptCallback = std::function<void(asio::ip::tcp::socket&&)>;
 
   TcpListener(asio::io_service& io_service, short port, AcceptCallback callback)
-      : acceptor_(io_service,
-                  asio::ip::tcp::endpoint(
-                      asio::ip::address::from_string("127.0.0.1"), port)),
+      : acceptor_(io_service),
 #if ((ASIO_VERSION / 100 % 1000) < 12)
         socket_(io_service),
 #endif
         callback_(callback) {
+    acceptor_.open(asio::ip::tcp::v4());
+    typedef asio::detail::socket_option::boolean<SOL_SOCKET, SO_REUSEPORT>
+        reuse_port;
+    acceptor_.set_option(reuse_port(true));
+    acceptor_.bind(asio::ip::tcp::endpoint(
+        asio::ip::address::from_string("127.0.0.1"), port));
+    acceptor_.listen();
   }
 
  public:
