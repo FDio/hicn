@@ -34,10 +34,14 @@
 
 static CommandReturn _controlAddPunting_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args);
+                                                PARCList *args,
+                                                char *output,
+                                                size_t output_size);
 static CommandReturn _controlAddPunting_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args);
+                                                    PARCList *args,
+                                                    char *output,
+                                                    size_t output_size);
 
 static const char *_commandAddPunting = "add punting";
 static const char *_commandAddPuntingHelp = "help add punting";
@@ -59,24 +63,26 @@ CommandOps *controlAddPunting_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlAddPunting_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args) {
-  printf("add punting <symbolic> <prefix>\n");
-  printf("    <symbolic> : listener symbolic name\n");
-  printf(
-      "    <address>  : prefix to add as a punting rule. (example "
-      "1234::0/64)\n");
-  printf("\n");
-
+                                                    PARCList *args,
+                                                    char *output,
+                                                    size_t output_size) {
+    snprintf(output, output_size, "add punting <symbolic> <prefix>\n"
+                                  "    <symbolic> : listener symbolic name\n"
+                                  "    <address>  : prefix to add as a punting rule. (example "
+                                  "1234::0/64)\n"
+                                  "\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlAddPunting_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args) {
+                                                PARCList *args,
+                                                char *output,
+                                                size_t output_size) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 4) {
-    _controlAddPunting_HelpExecute(parser, ops, args);
+    _controlAddPunting_HelpExecute(parser, ops, args, output, output_size);
     return CommandReturn_Failure;
   }
 
@@ -84,7 +90,7 @@ static CommandReturn _controlAddPunting_Execute(CommandParser *parser,
 
   if (!utils_ValidateSymbolicName(symbolicOrConnid) &&
       !utils_IsNumber(symbolicOrConnid)) {
-    printf(
+    snprintf(output, output_size,
         "ERROR: Invalid symbolic or connid:\n"
         "symbolic name must begin with an alpha followed by alphanum;\nconnid "
         "must be an integer\n");
@@ -111,7 +117,7 @@ static CommandReturn _controlAddPunting_Execute(CommandParser *parser,
   // check and set IP address
   if (inet_pton(AF_INET, addr, &addPuntingCommand->address.v4.as_u32) == 1) {
     if (len > 32) {
-      printf("ERROR: exceeded INET mask length, max=32\n");
+      snprintf(output, output_size, "ERROR: exceeded INET mask length, max=32\n");
       parcMemory_Deallocate(&addPuntingCommand);
       free(addr);
       return CommandReturn_Failure;
@@ -119,14 +125,14 @@ static CommandReturn _controlAddPunting_Execute(CommandParser *parser,
     addPuntingCommand->addressType = ADDR_INET;
   } else if (inet_pton(AF_INET6, addr, &addPuntingCommand->address.v6.as_in6addr) == 1) {
     if (len > 128) {
-      printf("ERROR: exceeded INET6 mask length, max=128\n");
+      snprintf(output, output_size, "ERROR: exceeded INET6 mask length, max=128\n");
       parcMemory_Deallocate(&addPuntingCommand);
       free(addr);
       return CommandReturn_Failure;
     }
     addPuntingCommand->addressType = ADDR_INET6;
   } else {
-    printf("Error: %s is not a valid network address \n", addr);
+    snprintf(output, output_size, "Error: %s is not a valid network address \n", addr);
     parcMemory_Deallocate(&addPuntingCommand);
     free(addr);
     return CommandReturn_Failure;
