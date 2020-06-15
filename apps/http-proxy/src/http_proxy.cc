@@ -15,12 +15,10 @@
 
 #include <hicn/http-proxy/http_proxy.h>
 #include <hicn/http-proxy/http_session.h>
-
+#include <hicn/http-proxy/utils.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/string_utils.h>
-
-#include <hicn/http-proxy/utils.h>
 
 namespace transport {
 
@@ -266,21 +264,23 @@ TcpReceiver::TcpReceiver(std::uint16_t port, const std::string& prefix,
       prefix_(prefix),
       ipv6_first_word_(ipv6_first_word),
       prefix_hash_(generatePrefix(prefix_, ipv6_first_word_)),
-      forwarder_config_(thread_.getIoService(), [this](std::error_code ec) {
-        if (!ec) {
-          listener_.doAccept();
-          for (int i = 0; i < 10; i++) {
-            http_clients_.emplace_back(
-                new HTTPClientConnectionCallback(*this, thread_));
-          }
-        }
-      }),
+      forwarder_config_(
+          thread_.getIoService(),
+          [this](std::error_code ec) {
+            if (!ec) {
+              listener_.doAccept();
+              for (int i = 0; i < 10; i++) {
+                http_clients_.emplace_back(
+                    new HTTPClientConnectionCallback(*this, thread_));
+              }
+            }
+          }),
       stopped_(false) {
   forwarder_config_.tryToConnectToForwarder();
 }
 
 void TcpReceiver::stop() {
-  thread_.add([this](){
+  thread_.add([this]() {
     stopped_ = true;
 
     /* Stop the listener */
@@ -295,9 +295,9 @@ void TcpReceiver::stop() {
     }
 
     /* Delete unused clients */
-     for (auto& client : http_clients_) {
-       delete client;
-     }
+    for (auto& client : http_clients_) {
+      delete client;
+    }
   });
 }
 
