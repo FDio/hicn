@@ -18,10 +18,26 @@
 using namespace transport;
 
 int usage(char* program) {
-  std::cerr << "USAGE: " << program << "\n"
-            << "[HTTP_PREFIX] -a [SERVER_IP_ADDRESS] "
-               "-p [SERVER_PORT] -c [CACHE_SIZE] -m [MTU] -l [DEFAULT_LIFETIME "
-               "(seconds)] -P [FIRST_IPv6_WORD_HEX] -M (enable manifest)"
+  std::cerr << "USAGE: " << program << "[-C|-S] [options] <http_prefix>\n"
+            << "Server or Client: \n"
+            << "  -P [FIRST_IPv6_WORD_HEX]\n"
+            << "  -t [number of threads]\n"
+            << "Client Options: \n"
+            << "  -L [PROXY_LISTEN_PORT]\n"
+            << "Server Options: \n"
+            << "  -a [ORIGIN_IP_ADDRESS]\n"
+            << "  -p [ORIGIN_PORT]\n"
+            << "  -c [CACHE_SIZE]\n"
+            << "  -m [MTU]"
+            << "  -l [DEFAULT_CONTENT_LIFETIME] (seconds)\n"
+            << "  -M (enable manifest)\n"
+            << std::endl
+            << "Example Server:\n"
+            << "  " << program
+            << " -S -a example.com -p 80 -c 10000 -m 1300 -l 7200 -M -t 1 "
+               "http://httpserver\n"
+            << "Example Client:\n"
+            << "  " << program << " -C -L 9091 http://httpserver\n"
             << std::endl;
   return -1;
 }
