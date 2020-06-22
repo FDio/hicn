@@ -27,7 +27,7 @@ endif ()
 set(LIB_SOURCE_FILES
   src/http_session.cc
   src/http_proxy.cc
-  src/HTTP1.xMessageFastParser.cc
+  src/http_1x_message_fast_parser.cc
   src/icn_receiver.cc
   src/forwarder_interface.cc
 )

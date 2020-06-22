@@ -13,16 +13,13 @@
  * limitations under the License.
  */
 
-#include <hicn/http-proxy/HTTP1.xMessageFastParser.h>
-
+#include <hicn/http-proxy/http_session.h>
 #include <hicn/transport/http/request.h>
 #include <hicn/transport/http/response.h>
 
 #include <experimental/algorithm>
 #include <experimental/functional>
 #include <iostream>
-
-#include <hicn/http-proxy/http_session.h>
 
 constexpr char HTTPMessageFastParser::http_ok[];
 constexpr char HTTPMessageFastParser::http_cors[];

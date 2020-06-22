@@ -13,8 +13,9 @@
  * limitations under the License.
  */
 
+#include <hicn/http-proxy/http_1x_message_fast_parser.h>
 #include <hicn/http-proxy/icn_receiver.h>
-
+#include <hicn/http-proxy/utils.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/http/default_values.h>
 #include <hicn/transport/utils/hash.h>
@@ -22,9 +23,6 @@
 
 #include <functional>
 #include <memory>
-
-#include <hicn/http-proxy/HTTP1.xMessageFastParser.h>
-#include <hicn/http-proxy/utils.h>
 
 namespace transport {
 
