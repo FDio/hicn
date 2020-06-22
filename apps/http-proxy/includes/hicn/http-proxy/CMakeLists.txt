@@ -18,7 +18,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/forwarder_interface.h
   ${CMAKE_CURRENT_SOURCE_DIR}/http_proxy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/http_session.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/HTTP1.xMessageFastParser.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/http_1x_message_fast_parser.h
   ${CMAKE_CURRENT_SOURCE_DIR}/icn_receiver.h
   ${CMAKE_CURRENT_SOURCE_DIR}/utils.h
 )

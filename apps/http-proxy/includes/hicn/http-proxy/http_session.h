@@ -17,7 +17,7 @@
 
 #include <hicn/transport/core/packet.h>
 
-#include "HTTP1.xMessageFastParser.h"
+#include "http_1x_message_fast_parser.h"
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
