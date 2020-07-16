@@ -64,15 +64,25 @@ namespace interface {
  */
 struct ClientConfiguration {
   ClientConfiguration()
-      : name("b001::abcd", 0), verify(false), beta(-1.f), drop_factor(-1.f),
-        window(-1), producer_certificate(""), passphrase(""),
-        receive_buffer(nullptr), receive_buffer_size_(128 * 1024),
-        download_size(0), report_interval_milliseconds_(1000),
-        transport_protocol_(CBR), rtc_(false), test_mode_(false),
+      : name("b001::abcd", 0),
+        verify(false),
+        beta(-1.f),
+        drop_factor(-1.f),
+        window(-1),
+        producer_certificate(""),
+        passphrase(""),
+        receive_buffer(nullptr),
+        receive_buffer_size_(128 * 1024),
+        download_size(0),
+        report_interval_milliseconds_(1000),
+        transport_protocol_(CBR),
+        rtc_(false),
+        test_mode_(false),
 #ifdef SECURE_HICNTRANSPORT
         secure_(false),
 #endif
-        producer_prefix_(), interest_lifetime_(500) {
+        producer_prefix_(),
+        interest_lifetime_(500) {
   }
 
   Name name;
@@ -100,7 +110,7 @@ struct ClientConfiguration {
  * Class for handling the production rate for the RTC producer.
  */
 class Rate {
-public:
+ public:
   Rate() : rate_kbps_(0) {}
 
   Rate(const std::string &rate) {
@@ -130,7 +140,7 @@ public:
         (uint32_t)std::round(packet_size * 1000.0 * 8.0 / (double)rate_kbps_));
   }
 
-private:
+ private:
   float rate_kbps_;
 };
 
@@ -139,13 +149,22 @@ private:
  */
 struct ServerConfiguration {
   ServerConfiguration()
-      : name("b001::abcd/64"), virtual_producer(true), manifest(false),
-        live_production(false), sign(false), content_lifetime(600000000_U32),
-        content_object_size(1440), download_size(20 * 1024 * 1024),
-        hash_algorithm(utils::CryptoHashType::SHA_256), keystore_name(""),
-        passphrase(""), keystore_password("cisco"), multiphase_produce_(false),
-        rtc_(false), interactive_(false),
-        production_rate_(std::string("2048kbps")), payload_size_(1440)
+      : name("b001::abcd/64"),
+        virtual_producer(true),
+        manifest(false),
+        live_production(false),
+        sign(false),
+        content_lifetime(600000000_U32),
+        download_size(20 * 1024 * 1024),
+        hash_algorithm(utils::CryptoHashType::SHA_256),
+        keystore_name(""),
+        passphrase(""),
+        keystore_password("cisco"),
+        multiphase_produce_(false),
+        rtc_(false),
+        interactive_(false),
+        production_rate_(std::string("2048kbps")),
+        payload_size_(1400)
 #ifdef SECURE_HICNTRANSPORT
         ,
         secure_(false)
@@ -159,7 +178,6 @@ struct ServerConfiguration {
   bool live_production;
   bool sign;
   std::uint32_t content_lifetime;
-  std::uint16_t content_object_size;
   std::uint32_t download_size;
   utils::CryptoHashType hash_algorithm;
   std::string keystore_name;
@@ -194,10 +212,13 @@ class HIperfClient {
   friend class KeyCallback;
   friend class RTCCallback;
 
-public:
+ public:
   HIperfClient(const ClientConfiguration &conf)
-      : configuration_(conf), total_duration_milliseconds_(0),
-        old_bytes_value_(0), signals_(io_service_, SIGINT), expected_seg_(0),
+      : configuration_(conf),
+        total_duration_milliseconds_(0),
+        old_bytes_value_(0),
+        signals_(io_service_, SIGINT),
+        expected_seg_(0),
         lost_packets_(std::unordered_set<uint32_t>()),
         rtc_callback_(configuration_.rtc_ ? new RTCCallback(*this) : nullptr),
         callback_(configuration_.rtc_ ? nullptr : new Callback(*this)),
@@ -211,14 +232,13 @@ public:
 
   void checkReceivedRtcContent(ConsumerSocket &c,
                                const ContentObject &contentObject) {
-    if (!configuration_.test_mode_)
-      return;
+    if (!configuration_.test_mode_) return;
 
     uint32_t receivedSeg = contentObject.getName().getSuffix();
     auto payload = contentObject.getPayload();
 
-    if ((uint32_t)payload->length() == 8) { // 8 is the size of the NACK
-                                            // payload
+    if ((uint32_t)payload->length() == 8) {  // 8 is the size of the NACK
+                                             // payload
       uint32_t *payloadPtr = (uint32_t *)payload->data();
       uint32_t productionSeg = *(payloadPtr);
       uint32_t productionRate = *(++payloadPtr);
@@ -277,8 +297,7 @@ public:
 
   void handleTimerExpiration(ConsumerSocket &c,
                              const TransportStatistics &stats) {
-    if (configuration_.rtc_)
-      return;
+    if (configuration_.rtc_) return;
 
     const char separator = ' ';
     const int width = 20;
@@ -410,15 +429,13 @@ public:
       if (!configuration_.producer_certificate.empty()) {
         key_id_ = verifier->addKeyFromCertificate(
             configuration_.producer_certificate);
-        if (key_id_ == nullptr)
-          return ERROR_SETUP;
+        if (key_id_ == nullptr) return ERROR_SETUP;
       }
 
       if (!configuration_.passphrase.empty()) {
         key_id_ = verifier->addKeyFromPassphrase(
             configuration_.passphrase, utils::CryptoSuite::HMAC_SHA256);
-        if (key_id_ == nullptr)
-          return ERROR_SETUP;
+        if (key_id_ == nullptr) return ERROR_SETUP;
       }
 
       if (consumer_socket_->setSocketOption(GeneralTransportOptions::VERIFIER,
@@ -509,11 +526,11 @@ public:
     return ERROR_SUCCESS;
   }
 
-private:
+ private:
   class RTCCallback : public ConsumerSocket::ReadCallback {
     static constexpr std::size_t mtu = 1500;
 
-  public:
+   public:
     RTCCallback(HIperfClient &hiperf_client) : client_(hiperf_client) {
       client_.configuration_.receive_buffer = utils::MemBuf::create(mtu);
     }
@@ -540,12 +557,12 @@ private:
       std::cout << "Data successfully read" << std::endl;
     }
 
-  private:
+   private:
     HIperfClient &client_;
   };
 
   class Callback : public ConsumerSocket::ReadCallback {
-  public:
+   public:
     Callback(HIperfClient &hiperf_client) : client_(hiperf_client) {
       client_.configuration_.receive_buffer =
           utils::MemBuf::create(client_.configuration_.receive_buffer_size_);
@@ -591,14 +608,14 @@ private:
       client_.io_service_.stop();
     }
 
-  private:
+   private:
     HIperfClient &client_;
   };
 
   class KeyCallback : public ConsumerSocket::ReadCallback {
     static constexpr std::size_t read_size = 16 * 1024;
 
-  public:
+   public:
     KeyCallback(HIperfClient &hiperf_client)
         : client_(hiperf_client), key_(nullptr) {}
 
@@ -664,7 +681,7 @@ private:
       consumer_socket_ = consumer_socket;
     }
 
-  private:
+   private:
     HIperfClient &client_;
     std::unique_ptr<std::string> key_;
     std::shared_ptr<ConsumerSocket> consumer_socket_;
@@ -683,7 +700,7 @@ private:
   RTCCallback *rtc_callback_;
   Callback *callback_;
   KeyCallback *key_callback_;
-}; // namespace interface
+};  // namespace interface
 
 /**
  * Hiperf server class: configure and setup an hicn producer following the
@@ -692,16 +709,19 @@ private:
 class HIperfServer {
   const std::size_t log2_content_object_buffer_size = 8;
 
-public:
+ public:
   HIperfServer(ServerConfiguration &conf)
-      : configuration_(conf), signals_(io_service_, SIGINT),
-        rtc_timer_(io_service_), unsatisfied_interests_(),
+      : configuration_(conf),
+        signals_(io_service_, SIGINT),
+        rtc_timer_(io_service_),
+        unsatisfied_interests_(),
         content_objects_((std::uint16_t)(1 << log2_content_object_buffer_size)),
         content_objects_index_(0),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
         last_segment_(0),
 #ifndef _WIN32
-        ptr_last_segment_(&last_segment_), input_(io_service_),
+        ptr_last_segment_(&last_segment_),
+        input_(io_service_),
         rtc_running_(false)
 #else
         ptr_last_segment_(&last_segment_)
@@ -824,10 +844,9 @@ public:
                           std::placeholders::_1, std::placeholders::_2));
   }
 
-  std::shared_ptr<utils::Identity>
-  getProducerIdentity(std::string &keystore_name,
-                      std::string &keystore_password,
-                      utils::CryptoHashType &hash_algorithm) {
+  std::shared_ptr<utils::Identity> getProducerIdentity(
+      std::string &keystore_name, std::string &keystore_password,
+      utils::CryptoHashType &hash_algorithm) {
     if (access(keystore_name.c_str(), F_OK) != -1) {
       return std::make_shared<utils::Identity>(keystore_name, keystore_password,
                                                hash_algorithm);
@@ -956,8 +975,7 @@ public:
   }
 
   void sendRTCContentObjectCallback(std::error_code ec) {
-    if (ec)
-      return;
+    if (ec) return;
     rtc_timer_.expires_from_now(
         configuration_.production_rate_.getMicrosecondsForPacket(
             configuration_.payload_size_));
@@ -965,7 +983,8 @@ public:
                                     this, std::placeholders::_1));
     auto payload =
         content_objects_[content_objects_index_++ & mask_]->getPayload();
-    producer_socket_->produce(payload->data(), payload->length());
+    producer_socket_->produce(
+        payload->data(), payload->length() < 1400 ? payload->length() : 1400);
   }
 
 #ifndef _WIN32
@@ -990,11 +1009,11 @@ public:
                     std::placeholders::_1));
     }
 
-    input_buffer_.consume(length); // Remove newline from input.
-    asio::async_read_until(input_, input_buffer_, '\n',
-                           std::bind(&HIperfServer::handleInput, this,
-                                     std::placeholders::_1,
-                                     std::placeholders::_2));
+    input_buffer_.consume(length);  // Remove newline from input.
+    asio::async_read_until(
+        input_, input_buffer_, '\n',
+        std::bind(&HIperfServer::handleInput, this, std::placeholders::_1,
+                  std::placeholders::_2));
   }
 #endif
 
@@ -1010,10 +1029,10 @@ public:
     if (configuration_.rtc_) {
 #ifndef _WIN32
       if (configuration_.interactive_) {
-        asio::async_read_until(input_, input_buffer_, '\n',
-                               std::bind(&HIperfServer::handleInput, this,
-                                         std::placeholders::_1,
-                                         std::placeholders::_2));
+        asio::async_read_until(
+            input_, input_buffer_, '\n',
+            std::bind(&HIperfServer::handleInput, this, std::placeholders::_1,
+                      std::placeholders::_2));
       } else {
         rtc_running_ = true;
         rtc_timer_.expires_from_now(
@@ -1038,7 +1057,7 @@ public:
     return ERROR_SUCCESS;
   }
 
-private:
+ private:
   ServerConfiguration configuration_;
   asio::io_service io_service_;
   asio::signal_set signals_;
@@ -1055,7 +1074,7 @@ private:
   asio::streambuf input_buffer_;
   bool rtc_running_;
 #endif
-}; // namespace interface
+};  // namespace interface
 
 void usage() {
   std::cerr << "HIPERF - A tool for performing network throughput "
@@ -1194,174 +1213,174 @@ int main(int argc, char *argv[]) {
                        "DSCf:b:d:W:RM:c:vA:s:rmlK:k:y:p:hi:xE:P:B:ItL:")) !=
          -1) {
     switch (opt) {
-    // Common
-    case 'D': {
-      daemon = true;
-      break;
-    }
-    case 'I': {
-      server_configuration.interactive_ = true;
-      break;
-    }
+      // Common
+      case 'D': {
+        daemon = true;
+        break;
+      }
+      case 'I': {
+        server_configuration.interactive_ = true;
+        break;
+      }
 #else
   while ((opt = getopt(argc, argv,
                        "SCf:b:d:W:RM:c:vA:s:rmlK:k:y:p:hi:xB:E:P:tL:")) != -1) {
     switch (opt) {
 #endif
-    case 'f': {
-      log_file = optarg;
-      break;
-    }
-    case 'R': {
-      client_configuration.rtc_ = true;
-      server_configuration.rtc_ = true;
-      break;
-    }
-
-    // Server or Client
-    case 'S': {
-      role -= 1;
-      break;
-    }
-    case 'C': {
-      role += 1;
-      break;
-    }
-    case 'k': {
-      server_configuration.passphrase = std::string(optarg);
-      client_configuration.passphrase = std::string(optarg);
-      server_configuration.sign = true;
-      options = -1;
-      break;
-    }
-
-    // Client specifc
-    case 'b': {
-      client_configuration.beta = std::stod(optarg);
-      options = 1;
-      break;
-    }
-    case 'd': {
-      client_configuration.drop_factor = std::stod(optarg);
-      options = 1;
-      break;
-    }
-    case 'W': {
-      client_configuration.window = std::stod(optarg);
-      options = 1;
-      break;
-    }
-    case 'M': {
-      client_configuration.receive_buffer_size_ = std::stoull(optarg);
-      options = 1;
-      break;
-    }
-#ifdef SECURE_HICNTRANSPORT
-    case 'P': {
-      client_configuration.producer_prefix_ = Prefix(optarg);
-      client_configuration.secure_ = true;
-      break;
-    }
-#endif
-    case 'c': {
-      client_configuration.producer_certificate = std::string(optarg);
-      options = 1;
-      break;
-    }
-    case 'v': {
-      client_configuration.verify = true;
-      options = 1;
-      break;
-    }
-    case 'i': {
-      client_configuration.report_interval_milliseconds_ = std::stoul(optarg);
-      options = 1;
-      break;
-    }
-    case 't': {
-      client_configuration.test_mode_ = true;
-      options = 1;
-      break;
-    }
-    case 'L': {
-      client_configuration.interest_lifetime_ = std::stoul(optarg);
-      options = 1;
-      break;
-    }
-    // Server specific
-    case 'A': {
-      server_configuration.download_size = std::stoul(optarg);
-      options = -1;
-      break;
-    }
-    case 's': {
-      server_configuration.payload_size_ = std::stoul(optarg);
-      options = -1;
-      break;
-    }
-    case 'r': {
-      server_configuration.virtual_producer = false;
-      options = -1;
-      break;
-    }
-    case 'm': {
-      server_configuration.manifest = true;
-      options = -1;
-      break;
-    }
-    case 'l': {
-      server_configuration.live_production = true;
-      options = -1;
-      break;
-    }
-    case 'K': {
-      server_configuration.keystore_name = std::string(optarg);
-      server_configuration.sign = true;
-      options = -1;
-      break;
-    }
-    case 'y': {
-      if (strncasecmp(optarg, "sha256", 6) == 0) {
-        server_configuration.hash_algorithm = utils::CryptoHashType::SHA_256;
-      } else if (strncasecmp(optarg, "sha512", 6) == 0) {
-        server_configuration.hash_algorithm = utils::CryptoHashType::SHA_512;
-      } else if (strncasecmp(optarg, "crc32", 5) == 0) {
-        server_configuration.hash_algorithm = utils::CryptoHashType::CRC32C;
-      } else {
-        std::cerr << "Ignored unknown hash algorithm. Using SHA 256."
-                  << std::endl;
+      case 'f': {
+        log_file = optarg;
+        break;
       }
-      options = -1;
-      break;
-    }
-    case 'p': {
-      server_configuration.keystore_password = std::string(optarg);
-      options = -1;
-      break;
-    }
-    case 'x': {
-      server_configuration.multiphase_produce_ = true;
-      options = -1;
-      break;
-    }
-    case 'B': {
-      auto str = std::string(optarg);
-      std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-      server_configuration.production_rate_ = str;
-      options = -1;
-      break;
-    }
+      case 'R': {
+        client_configuration.rtc_ = true;
+        server_configuration.rtc_ = true;
+        break;
+      }
+
+      // Server or Client
+      case 'S': {
+        role -= 1;
+        break;
+      }
+      case 'C': {
+        role += 1;
+        break;
+      }
+      case 'k': {
+        server_configuration.passphrase = std::string(optarg);
+        client_configuration.passphrase = std::string(optarg);
+        server_configuration.sign = true;
+        options = -1;
+        break;
+      }
+
+      // Client specifc
+      case 'b': {
+        client_configuration.beta = std::stod(optarg);
+        options = 1;
+        break;
+      }
+      case 'd': {
+        client_configuration.drop_factor = std::stod(optarg);
+        options = 1;
+        break;
+      }
+      case 'W': {
+        client_configuration.window = std::stod(optarg);
+        options = 1;
+        break;
+      }
+      case 'M': {
+        client_configuration.receive_buffer_size_ = std::stoull(optarg);
+        options = 1;
+        break;
+      }
 #ifdef SECURE_HICNTRANSPORT
-    case 'E': {
-      server_configuration.keystore_name = std::string(optarg);
-      server_configuration.secure_ = true;
-      break;
-    }
+      case 'P': {
+        client_configuration.producer_prefix_ = Prefix(optarg);
+        client_configuration.secure_ = true;
+        break;
+      }
 #endif
-    case 'h':
-    default:
-      usage();
-      return EXIT_FAILURE;
+      case 'c': {
+        client_configuration.producer_certificate = std::string(optarg);
+        options = 1;
+        break;
+      }
+      case 'v': {
+        client_configuration.verify = true;
+        options = 1;
+        break;
+      }
+      case 'i': {
+        client_configuration.report_interval_milliseconds_ = std::stoul(optarg);
+        options = 1;
+        break;
+      }
+      case 't': {
+        client_configuration.test_mode_ = true;
+        options = 1;
+        break;
+      }
+      case 'L': {
+        client_configuration.interest_lifetime_ = std::stoul(optarg);
+        options = 1;
+        break;
+      }
+      // Server specific
+      case 'A': {
+        server_configuration.download_size = std::stoul(optarg);
+        options = -1;
+        break;
+      }
+      case 's': {
+        server_configuration.payload_size_ = std::stoul(optarg);
+        options = -1;
+        break;
+      }
+      case 'r': {
+        server_configuration.virtual_producer = false;
+        options = -1;
+        break;
+      }
+      case 'm': {
+        server_configuration.manifest = true;
+        options = -1;
+        break;
+      }
+      case 'l': {
+        server_configuration.live_production = true;
+        options = -1;
+        break;
+      }
+      case 'K': {
+        server_configuration.keystore_name = std::string(optarg);
+        server_configuration.sign = true;
+        options = -1;
+        break;
+      }
+      case 'y': {
+        if (strncasecmp(optarg, "sha256", 6) == 0) {
+          server_configuration.hash_algorithm = utils::CryptoHashType::SHA_256;
+        } else if (strncasecmp(optarg, "sha512", 6) == 0) {
+          server_configuration.hash_algorithm = utils::CryptoHashType::SHA_512;
+        } else if (strncasecmp(optarg, "crc32", 5) == 0) {
+          server_configuration.hash_algorithm = utils::CryptoHashType::CRC32C;
+        } else {
+          std::cerr << "Ignored unknown hash algorithm. Using SHA 256."
+                    << std::endl;
+        }
+        options = -1;
+        break;
+      }
+      case 'p': {
+        server_configuration.keystore_password = std::string(optarg);
+        options = -1;
+        break;
+      }
+      case 'x': {
+        server_configuration.multiphase_produce_ = true;
+        options = -1;
+        break;
+      }
+      case 'B': {
+        auto str = std::string(optarg);
+        std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+        server_configuration.production_rate_ = str;
+        options = -1;
+        break;
+      }
+#ifdef SECURE_HICNTRANSPORT
+      case 'E': {
+        server_configuration.keystore_name = std::string(optarg);
+        server_configuration.secure_ = true;
+        break;
+      }
+#endif
+      case 'h':
+      default:
+        usage();
+        return EXIT_FAILURE;
     }
   }
 
@@ -1440,9 +1459,9 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-} // end namespace interface
+}  // end namespace interface
 
-} // end namespace transport
+}  // end namespace transport
 
 int main(int argc, char *argv[]) {
   return transport::interface::main(argc, argv);
