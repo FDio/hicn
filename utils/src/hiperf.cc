@@ -899,10 +899,13 @@ class HIperfServer {
       }
     }
 
+    uint32_t rtc_header_size = 0;
+    if(configuration_.rtc_)
+      rtc_header_size = 8;
     producer_socket_->setSocketOption(
         GeneralTransportOptions::DATA_PACKET_SIZE,
         (uint32_t)(
-            configuration_.payload_size_ +
+            configuration_.payload_size_ + rtc_header_size +
             (configuration_.name.getAddressFamily() == AF_INET ? 40 : 60)));
     producer_socket_->registerPrefix(configuration_.name);
     producer_socket_->connect();
