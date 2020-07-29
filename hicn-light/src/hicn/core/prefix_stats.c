@@ -5,6 +5,7 @@
 
 #include <hicn/core/connection_table.h>
 #include <hicn/base/loop.h>
+#include <hicn/util/log.h>
 #include <hicn/core/ticks.h>
 #include <hicn/policy.h>
 #include <hicn/core/fib.h>
@@ -15,10 +16,10 @@
 #define STATS_INTERVAL 1000 /* ms */
 
 static
-void
-prefix_stats_mgr_tick(prefix_stats_mgr_t * mgr, int fd, void * data)
+int
+prefix_stats_mgr_tick(void * mgr_arg, int fd, void * data)
 {
-
+    prefix_stats_mgr_t * mgr = mgr_arg;
     assert(mgr);
     assert(!data);
 
@@ -31,15 +32,25 @@ prefix_stats_mgr_tick(prefix_stats_mgr_t * mgr, int fd, void * data)
     fib_foreach_entry(fib, entry, {
         prefix_stats_update(&entry->prefix_stats, &entry->prefix_counters, now);
     });
+
+    return 0;
 }
 
 int
 prefix_stats_mgr_initialize(prefix_stats_mgr_t * mgr, void * forwarder)
 {
     mgr->forwarder = forwarder;
-    mgr->timer_fd = loop_register_timer(MAIN_LOOP, STATS_INTERVAL, mgr, prefix_stats_mgr_tick, NULL);
-    if (mgr->timer_fd < 0)
+
+    loop_timer_create(&mgr->timer, MAIN_LOOP, mgr, prefix_stats_mgr_tick, NULL);
+    if (!mgr->timer) {
+        ERROR("Error allocating prefix stats mgr timer.");
         return -1;
+    }
+
+    if (loop_timer_register(mgr->timer, STATS_INTERVAL) < 0) {
+        ERROR("Error registering prefix stats mgr timer.");
+        return -1;
+    }
 
     return 0;
 }
@@ -47,9 +58,8 @@ prefix_stats_mgr_initialize(prefix_stats_mgr_t * mgr, void * forwarder)
 void
 prefix_stats_mgr_finalize(prefix_stats_mgr_t * mgr)
 {
-    loop_unregister_timer(MAIN_LOOP, mgr->timer_fd);
+    loop_timer_unregister(mgr->timer);
 }
-
 
 void
 prefix_stats_on_retransmission(const prefix_stats_mgr_t * mgr, prefix_counters_t * counters,

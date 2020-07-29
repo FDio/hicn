@@ -224,7 +224,7 @@ int
 connection_tcp_initialize(connection_t * connection)
 {
     assert(connection);
-    assert(connection->type = FACE_TYPE_TCP);
+    assert(connection->type == FACE_TYPE_TCP);
 
     connection_tcp_data_t * data = connection->data;
     assert(data);
@@ -328,7 +328,7 @@ connection_tcp_send(const connection_t * connection, //const address_t * address
         msgbuf_t * msgbuf, bool queue)
 {
     assert(connection);
-    assert(address);
+    // assert(address);
     /* msgbuf can be NULL */
 
     /* No need to flush */
@@ -463,8 +463,8 @@ static
 void
 connection_tcp_read_callback(connection_t * connection, int fd, void * user_data)
 {
-    assert(!!(what & PARCEventType_Read));
-    assert(connection_void);
+    // assert(!!(what & PARCEventType_Read));
+    assert(connection);
 
     connection_tcp_data_t * data = connection->data;
     assert(RECV_BUFLEN - data->woff > MTU);
