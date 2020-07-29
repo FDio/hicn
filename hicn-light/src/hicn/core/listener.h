@@ -23,6 +23,7 @@
 
 #include <hicn/core/address_pair.h>
 #include <hicn/face.h>
+#include <hicn/base/loop.h>
 
 struct forwarder_s;
 struct batch_buffer_s;
@@ -48,6 +49,7 @@ typedef struct {
     unsigned interface_index;
     unsigned family;
     int fd;
+    event_t *event_data;
     void * data; /* Listener specific data */
     struct forwarder_s * forwarder;
 } listener_t;

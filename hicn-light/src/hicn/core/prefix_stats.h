@@ -4,9 +4,11 @@
 
 #ifdef WITH_PREFIX_STATS
 
+#include <hicn/base/loop.h>
+
 typedef struct prefix_stats_mgr_s {
     void * forwarder;
-    int timer_fd;
+    event_t * timer;
 } prefix_stats_mgr_t;
 
 

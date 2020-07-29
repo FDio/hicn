@@ -40,8 +40,6 @@ DEPS_UBUNTU="libparc-dev                        \
              libvppinfra=${VPP_VERSION_DEB}     \
              libvppinfra-dev=${VPP_VERSION_DEB} \
              vpp-plugin-core=${VPP_VERSION_DEB} \
-             libyang                            \
-             sysrepo                            \
              python3-ply"
 
 
@@ -56,8 +54,6 @@ DEPS_UBUNTU_NOVERSION="libparc-dev              \
              libvppinfra                        \
              libvppinfra-dev                    \
              vpp-plugin-core                    \
-             libyang                            \
-             sysrepo                            \
              python3-ply                        \
              python3-setuptools                 \
              python3-pip"
