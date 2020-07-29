@@ -80,7 +80,6 @@ set(BUILD_UTILS_DIR utils)
 set(BUILD_APPS_DIR apps)
 set(BUILD_CTRL_DIR ctrl)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
-set(BUILD_SYSREPOPLUGIN_DIR ctrl/sysrepo-plugins)
 set(BUILD_EXTRAS_DIR extras/)
 set(BUILD_TELEMETRY_DIR telemetry)
 
