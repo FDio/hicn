@@ -426,7 +426,7 @@ listener_hicn_get_socket(const listener_t * listener, const address_t * local,
 {
     assert(listener);
     assert(listener_get_type(listener) == FACE_TYPE_HICN);
-    assert(pair);
+    // assert(pair);
 
     /* ... */
 
@@ -503,7 +503,7 @@ static
 int
 connection_hicn_send_packet(const connection_t * connection, const uint8_t * packet, size_t size)
 {
-    assert(ops);
+    // assert(ops);
     assert(packet);
 
     /* ... */

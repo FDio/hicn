@@ -37,12 +37,12 @@ int address_pair_from_ip_port(address_pair_t * pair, int family,
 #define address_pair_get_remote(pair) (&(pair)->remote)
 
 #define address_pair_get_local_family(pair) \
-    (address_family(address_pair_local(pair)))
+    (address_family(address_pair_get_local(pair)))
 #define address_pair_get_remote_family(pair) \
-    (address_family(address_pair_remote(pair)))
+    (address_family(address_pair_get_remote(pair)))
 #define address_pair_get_family(pair) address_pair_local_family(pair)
 
 #define address_pair_is_valid(pair) \
-    (address_pair_local_family(pair) == address_pair_remote_family(pair))
+    (address_pair_get_local_family(pair) == address_pair_get_remote_family(pair))
 
 #endif /* HICN_ADDRESS_PAIR_H */

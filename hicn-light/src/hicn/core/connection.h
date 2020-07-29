@@ -86,7 +86,7 @@ typedef struct {
 #define connection_id_is_valid(ID) (ID != CONNECTION_ID_UNDEFINED)
 #define connection_get_name(C) ((C)->name)
 #define connection_get_type(C) ((C)->type)
-#define connection_has_valid_id(C) (connection_id_is_valid(connection_get_id(C))
+#define connection_has_valid_id(C) (connection_id_is_valid(connection_get_id(C)))
 #define connection_get_pair(C) (&(C)->pair)
 #define connection_get_local(C) (address_pair_local(connection_get_pair(C)))
 #define connection_get_remote(C) (address_pair_remote(connection_get_pair(C)))
