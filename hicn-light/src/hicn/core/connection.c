@@ -233,7 +233,7 @@ connection_initialize(connection_t * connection, face_type_t type, const char * 
     assert(connection);
     /* Interface name can be NULL eg always for TCP connnections */
     assert(pair);
-    assert(address_pair_valid(pair));
+    assert(address_pair_is_valid(pair));
 
     *connection = (connection_t) {
         .id = connection_id,
@@ -263,7 +263,7 @@ connection_initialize(connection_t * connection, face_type_t type, const char * 
     if (!connection->data)
         goto ERR_DATA;
 
-    assert(connection_has_valid_type(connection));
+    assert(connection_has_valid_id(connection));
 
     rc = connection_vft[connection->type]->initialize(connection);
     if (rc < 0) {

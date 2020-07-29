@@ -116,6 +116,7 @@
 #include <hicn/core/mapme.h>
 #include <stdio.h>  // printf
 
+#include <hicn/base/loop.h>
 #include <hicn/core/connection.h>
 #include <hicn/core/forwarder.h>
 #include <hicn/core/msgbuf.h>
@@ -187,7 +188,7 @@ struct mapme_s {
      * Retransmissions
      * Lite calendar queue with NUM_RETX_SLOT slots
      */
-    int timer_fd;
+    event_t *timer;
     mapme_retx_t retx_array[NUM_RETX_SLOT][NUM_RETX_ENTRIES];
     uint8_t retx_len[NUM_RETX_SLOT];
     uint8_t cur;
@@ -208,7 +209,7 @@ static mapme_t mapme_default = {
     .discovery = MAPME_DEFAULT_DISCOVERY,
     .protocol = MAPME_DEFAULT_PROTOCOL,
 
-    .timer_fd = -1,
+    .timer = NULL,
 //    .retx_array = {{ 0 }}, // memset
     .retx_len = { 0 },
     .cur = 0, /* current slot */
@@ -216,6 +217,9 @@ static mapme_t mapme_default = {
 };
 
 /******************************************************************************/
+
+int
+mapme_on_timeout(void * mapme_arg, int fd, void * data);
 
 mapme_t *
 mapme_create(void * forwarder)
@@ -229,12 +233,19 @@ mapme_create(void * forwarder)
     memset(mapme->retx_array, 0, NUM_RETX_SLOT * NUM_RETX_ENTRIES);
 
     mapme->forwarder = forwarder;
+    loop_timer_create(&mapme->timer, MAIN_LOOP, mapme, mapme_on_timeout, NULL);
+    if (!mapme->timer) {
+        ERROR("Error allocating mapme timer.");
+        free(mapme);
+        return NULL;
+    }
 
     return mapme;
 }
 
 void mapme_free(mapme_t * mapme)
 {
+    loop_event_free(mapme->timer);
     free(mapme);
 }
 
@@ -518,9 +529,10 @@ mapme_create_fib_entry(const mapme_t * mapme, const Name * name, unsigned ingres
 #endif
 
 
-void
-mapme_on_timeout(mapme_t * mapme, int fd, void * data)
+int
+mapme_on_timeout(void * mapme_arg, int fd, void * data)
 {
+    mapme_t *mapme = mapme_arg;
     assert(mapme);
     assert(!data);
     /* Timeout occurred, we have to retransmit IUs for all pending
@@ -580,9 +592,10 @@ mapme_on_timeout(mapme_t * mapme, int fd, void * data)
 
     /* After two empty slots, we disable the timer */
     if (mapme->idle > 1) {
-        loop_unregister_timer(MAIN_LOOP, mapme->timer_fd);
-        mapme->timer_fd = -1;
+        loop_event_unregister(mapme->timer);
     }
+
+    return 0;
 }
 
 static
@@ -668,9 +681,12 @@ mapme_on_event(mapme_t * mapme, mapme_event_t event, fib_entry_t * entry,
                     .retx_count = 0,
                 };
 
-            if (mapme->timer_fd == -1)
-                mapme->timer_fd = loop_register_timer(MAIN_LOOP,
-                        mapme->retx, mapme, mapme_on_timeout, NULL);
+            if (!loop_timer_is_enabled(mapme->timer)) {
+                if (loop_timer_register(mapme->timer, mapme->retx) < 0) {
+                    ERROR("Error setting mapme timer.");
+                    break;
+                }
+            }
             mapme->idle = 0;
             break;
 
@@ -701,9 +717,8 @@ mapme_on_event(mapme_t * mapme, mapme_event_t event, fib_entry_t * entry,
             mapme_send_to_nexthop(mapme, entry, ingress_id);
 
             mapme->idle = 0;
-            if (mapme->timer_fd == -1)
-                mapme->timer_fd = loop_register_timer(MAIN_LOOP,
-                        mapme->retx, mapme, mapme_on_timeout, NULL);
+            if (!loop_timer_is_enabled(mapme->timer))
+                loop_timer_register(mapme->timer, mapme->retx);
             break;
 
         case MAPME_EVENT_PH_DEL:

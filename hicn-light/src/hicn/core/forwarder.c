@@ -664,7 +664,7 @@ bool
 _satisfy_from_content_store(forwarder_t * forwarder, msgbuf_t *interest_msgbuf)
 {
     assert(forwarder);
-    assert(msgbuf_get_type(msgbuf) == MESSAGE_TYPE_INTEREST);
+    assert(msgbuf_get_type(interest_msgbuf) == MESSAGE_TYPE_INTEREST);
 
     if (msgbuf_get_interest_lifetime(interest_msgbuf) == 0)
         return false;
@@ -1006,7 +1006,7 @@ forwarder_set_strategy(forwarder_t * forwarder, Name * name_prefix,
 {
     assert(forwarder);
     assert(name_prefix);
-    assert(strategy_type_valid(strategy_type));
+    // assert(strategy_type_is_valid(strategy_type));
     /* strategy_options might be NULL */
 
     fib_entry_t * entry = fib_contains(forwarder->fib, name_prefix);

@@ -88,9 +88,16 @@ listener_initialize(listener_t * listener, face_type_t type, const char * name,
 
     // XXX data should be pre-allocated here
 
-    if (loop_register_fd(MAIN_LOOP, listener->fd, listener,
-                (fd_callback_t)listener_vft[listener->type]->read_callback, NULL) < 0)
+    loop_fd_event_create(&listener->event_data, MAIN_LOOP, listener->fd, listener,
+                (fd_callback_t)listener_vft[listener->type]->read_callback, NULL);
+
+    if (!listener->event_data) {
         goto ERR_REGISTER_FD;
+    }
+
+    if (loop_fd_event_register(listener->event_data) < 0) {
+        goto ERR_REGISTER_FD;
+    }
 
     // XXX TODO
     //char *str = addressToString(listener->local_addr);
@@ -121,7 +128,7 @@ listener_finalize(listener_t * listener)
     assert(listener);
     assert(listener_has_valid_type(listener));
 
-    loop_unregister_fd(MAIN_LOOP, listener->fd);
+    loop_event_unregister(listener->event_data);
 
 #ifndef _WIN32
     close(listener->fd);
@@ -134,6 +141,7 @@ listener_finalize(listener_t * listener)
     free(listener->data);
     free(listener->interface_name);
     free(listener->name);
+    loop_event_free(listener->event_data);
 
     return 0;
 }
@@ -143,7 +151,7 @@ int listener_get_socket(const listener_t * listener, const address_t * local,
 {
     assert(listener);
     assert(listener_has_valid_type(listener));
-    assert(pair);
+    // assert(pair);
 
     return listener_vft[listener->type]->get_socket(listener, local, remote,
             interface_name);

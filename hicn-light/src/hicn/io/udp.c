@@ -318,8 +318,7 @@ connection_udp_initialize(connection_t * connection)
 
     assert(connection);
     assert(connection->type == FACE_TYPE_UDP);
-    assert(interface_name);
-    assert(address_pair);
+    assert(connection->interface_name);
 
     connection_udp_data_t * data = connection->data;
     assert(data);
@@ -454,7 +453,7 @@ static
 int
 connection_udp_send_packet(const connection_t * connection, const uint8_t * packet, size_t size)
 {
-    assert(ops);
+    assert(connection);
     assert(packet);
 
     if(connection_is_local(connection))
