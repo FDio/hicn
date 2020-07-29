@@ -300,7 +300,7 @@ hicn_face_ip_add (const ip46_address_t * local_addr,
 	  hicn_face_ip_input_faces_t in_faces_temp;
 	  hicn_face_ip_vec_t *vec;
 	  pool_get (hicn_vec_pool, vec);
-	  *vec = vec_new (hicn_face_ip_vec_t, 0);
+	  *vec = vec_new (hicn_face_id_t, 0);
 	  u32 index = vec - hicn_vec_pool;
 	  in_faces_temp.vec_id = index;
 	  vec_add1 (*vec, *pfaceid);
