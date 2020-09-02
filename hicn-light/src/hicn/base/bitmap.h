@@ -28,15 +28,54 @@
 
 #define BITMAP_WIDTH(bitmap) (sizeof((bitmap)[0]) * 8)
 
-#define bitmap_init(bitmap, size) \
-   vector_init(bitmap, next_pow2(size / BITMAP_WIDTH(bitmap)))
+/**
+ * @brief Allocate and initialize a bitmap
+ * 
+ * @param[in,out] bitmap Bitmap to allocate and initialize
+ * @param[in] max_size Bitmap max_size
+ */
+#define bitmap_init(bitmap, lax_size) \
+   vector_init(bitmap, next_pow2(max_size / BITMAP_WIDTH(bitmap)))
 
+/*
+ * @brief Ensures a bitmap is sufficiently large to hold an element at the
+ * given position.
+ * 
+ * @param[in] bitmap The bitmap for which to validate the position.
+ * @param[in] pos The position to validate.
+ * 
+ * NOTE:
+ *  - This function should always be called before writing to a bitmap element
+ *  to eventually make room for it (the bitmap will eventually be resized).
+ */
 #define bitmap_ensure_pos(bitmap, pos) vector_ensure_pos(bitmap, pos / BITMAP_WIDTH(bitmap))
 
+/**
+ * @brief Retrieve the state of the i-th bit in the bitmap.
+ * 
+ * @param[in] bitmap The bitmap to access.
+ * @param[in] i The bit position.
+ */
 #define bitmap_get(bitmap, i) ((bitmap)[(i) / BITMAP_WIDTH(bitmap)] & (1 << ((i) % BITMAP_WIDTH(bitmap))))
 
+/*
+ * @brief Returns whether the i-th bit is set (equal to 1) in a bitmap.
+ * 
+ * @param[in] bitmap The bitmap to access.
+ * @param[in] i The bit position.
+ * 
+ * @return bool
+ */
 #define bitmap_is_set(bitmap, i) (bitmap_get((bitmap), (i)) == 1)
 
+/*
+ * @brief Returns whether the i-th bit is unset (equal to 0) in a bitmap.
+ * 
+ * @param[in] bitmap The bitmap to access.
+ * @param[in] i The bit position.
+ * 
+ * @return bool
+ */
 #define bitmap_is_unset(bitmap, i) (bitmap_get((bitmap), (i)) == 0)
 
 #define bitmap_set(bitmap, i) bitmap[(i) / BITMAP_WIDTH(bitmap)] |= 1 << ((i) % BITMAP_WIDTH(bitmap))
