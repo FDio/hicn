@@ -15,7 +15,28 @@
 
 /**
  * \file array.h
- * \brief Fixed-size pool allocator
+ * \brief Fixed-size pool allocator.
+ * 
+ * This memory pool allocates a single block of memory that is used to efficiently
+ * allocate/deallocate fixed-size blocks for high churn data structures.
+ * 
+ * Internally this data structure leverages a vector for managing elements (and
+ * it thus resizeable if needed), as well as a list of free indices (in the
+ * form of another vector) and a bitmap marking free indices also (for fast
+ * iteration).
+ * 
+ * The internal API manipulates a pointer to the vector that that is can be
+ * seamlessly resized, and a more convenient user interface is provided through
+ * macros.
+ * 
+ * The vector of free indices is managed as a stack where elements indices are
+ * retrieved from and put back to the end of the vector. In the bitmap,
+ * available elements are set to 1, and unset to 0 when in use.
+ * 
+ * The pool is not currently resized down when releasing elements.
+ * 
+ * It is freely inspired (and simplified) from the VPP infra infrastructure
+ * library.
  */
 
 #ifndef UTIL_POOL_H
@@ -26,48 +47,110 @@
 #include "bitmap.h"
 #include "vector.h"
 
-/** Local variable naming macro. */
-#define _pool_var(v) _pool_##v
-
+/******************************************************************************/
+/* Pool header */
 
 typedef struct {
     size_t elt_size;
-    size_t max_elts;
-    uint_fast32_t * free_bitmap;
+    size_t max_size;
+    uint_fast32_t * free_bitmap; /* bitmap of free indices */
     off_t * free_indices; /* vector of free indices */
 } pool_hdr_t;
 
-void _pool_init(void ** pool_ptr, size_t elt_size, size_t max_elts);
-void _pool_free(void ** pool_ptr);
-void _pool_resize(void ** pool_ptr, size_t elt_size);
-
 #define POOL_HDRLEN SIZEOF_ALIGNED(pool_hdr_t)
 
-/* This header actually prepends the actual content of the pool */
+/* This header actually prepends the actual content of the pool. */
 #define pool_hdr(pool) ((pool_hdr_t *)((uint8_t*)(pool) - POOL_HDRLEN))
 
-// XXX TODO need common naming for cur_len, len, max_len
-#define pool_elts(pool) \
-    (pool_hdr(pool)->max_elts - vector_len((pool_hdr(pool)->free_indices)))
+/******************************************************************************/
+/* Helpers */
 
-#define pool_init(pool, max_elts)                                       \
-    _pool_init((void**)&pool, sizeof(pool[0]), max_elts);
+/** Local variable naming macro. */
+#define _pool_var(v) _pool_##v
 
+/**
+ * @brief Allocate and initialize a pool data structure (helper).
+ * 
+ * @param[in,out] pool_ptr Pointer to the pool data structure.
+ * @param[in] elt_size Size of elements in vector.
+ * @param[in] max_size Maximum size.
+ *
+ * NOTE: that an empty pool might be equal to NULL.
+ */
+void _pool_init(void ** pool_ptr, size_t elt_size, size_t max_size);
+
+/**
+ * @brief Free a pool data structure (helper).
+ * 
+ * @param[in] pool_ptr Pointer to the pool data structure.
+ */
+void _pool_free(void ** pool_ptr);
+
+/**
+ * @brief Resize a pool data structure (helper).
+ * 
+ * @param pool_ptr Pointer to the pool data structure.
+ * 
+ * This function should only be called internally, as the resize is implicitly
+ * done (if allowed by the maximum size) when the user tries to get a new slot.
+ */
+void _pool_resize(void ** pool_ptr, size_t elt_size);
+
+/******************************************************************************/
+/* Public API */
+
+/**
+ * @brief Allocate and initialize a pool data structure.
+ * 
+ * @param[in,out] pool Pointer to the pool data structure.
+ * @param[in] elt_size Size of elements in pool.
+ * @param[in] max_size Maximum size.
+ *
+ * NOTE: that an empty pool might be equal to NULL.
+ */
+#define pool_init(pool, max_size)                                       \
+    _pool_init((void**)&pool, sizeof(pool[0]), max_size);
+
+/**
+ * @brief Free a pool data structure.
+ * 
+ * @param[in] pool The pool data structure to free.
+ */
 #define pool_free(pool)                                                 \
     _pool_free((void**)&pool);
 
+/**
+ * @brief Get a free element from the pool data structure.
+ * 
+ * @param[in] pool The pool data structure to use.
+ * @param[in,out] elt An empty element that will be used to return the
+ * allocated one from the pool.
+ * 
+ * NOTES:
+ *  - The memory chunk is cleared upon attribution
+ */
 #define pool_get(pool, elt)                                             \
 do {                                                                    \
     pool_hdr_t * _pool_var(ph) = pool_hdr(pool);                        \
     u64 _pool_var(l) = vector_len(_pool_var(ph)->free_indices);         \
     if (_pool_var(l) == 0)                                              \
-        _pool_resize((void**)&(pool), sizeof((pool)[0]));               \
+        if (!_pool_resize((void**)&(pool), sizeof((pool)[0])) {         \
+            elt = NULL;                                                 \
+            return;                                                     \
+        }                                                               \
     off_t _pool_var(free_id) =                                          \
             _pool_var(ph)->free_indices[_pool_var(l) - 1];              \
+    bitmap_unset(_pool_var(ph)->free_bitmap, _pool_var(l));             \
     elt = (pool) + _pool_var(free_id);                                  \
-    memset(&elt, 0, sizeof(elt));                                       \
+    memset(&(elt), 0, sizeof(elt));                                     \
 } while(0)
 
+/**
+ * @brief Put an element back into the pool data structure.
+ * 
+ * @param[in] pool The pool data structure to use.
+ * @param[in] elt The pool element to put back.
+ */
 #define pool_put(pool, elt)                                             \
 do {                                                                    \
     pool_hdr_t * _pool_var(ph) = pool_hdr(pool);                        \
@@ -78,14 +161,50 @@ do {                                                                    \
     bitmap_set(_pool_var(ph)->free_bitmap, _pool_var(l));               \
 } while(0)
 
+/**
+ * @brief Validate a pool element by index.
+ * 
+ * @param[in] pool The pool data structure to use.
+ * @param[in] id The index of the element to validate.
+ * 
+ * @return bool A flag indicating whether the index is valid or not.
+ */
 #define pool_validate_id(pool, id) \
     bitmap_is_unset((pool_hdr(pool))->free_bitmap, (id))
 
+/**
+ * @brief Returns the current length of the pool.
+ * 
+ * @param[in] pool The pool data structure for which to return the length.
+ * 
+ * @return size_t The current length of the pool.
+ * 
+ * NOTE:
+ *  - The pool length corresponds to the number of allocated elements, not the
+ *  size of the pool.
+ */
+#define pool_len(pool) \
+    (pool_hdr(pool)->max_size - vector_len((pool_hdr(pool)->free_indices)))
+
+/**
+ * @brief Enumerate elements from a pool.
+ * 
+ * @param[in] pool The pool data structure to enumerate.
+ * @param[in, out] i An integer that will be used for enumeration.
+ * @param[in, out] eltp A pointer to the element type that will be used for
+ * enumeration.
+ * @param[in] BODY Block to execute during enumeration.
+ * 
+ * Enumeration will iteratively execute BODY with (i, eltp) corresponding
+ * respectively to the index and element found in the pool.
+ * 
+ * NOTE: i stars at 0.
+ */
 #define pool_enumerate(pool, i, eltp, BODY)                             \
 do {                                                                    \
     pool_hdr_t * _pool_var(ph) = pool_hdr(pool);                        \
     uint_fast32_t * _pool_var(fb) = _pool_var(ph)->free_bitmap;         \
-    for((i) = 0; (i) < _pool_var(ph)->max_elts; (i)++) {                \
+    for((i) = 0; (i) < _pool_var(ph)->max_size; (i)++) {                \
         if (bitmap_is_unset(_pool_var(fb), (i)))                        \
             continue;                                                   \
         eltp = (pool) + (i);                                            \
@@ -93,12 +212,22 @@ do {                                                                    \
     }                                                                   \
 } while(0)
 
+/**
+ * @brief  Iterate over elements in a pool.
+ * 
+ * @param[in] pool The pool data structure to iterate over.
+ * @param[in,out] eltp A pointer to the element type that will be used for
+ * iteration.
+ * @param[in] BODY Block to execute during iteration.
+ * 
+ * Iteration will execute BODY with eltp corresponding successively to all
+ * elements found in the pool. It is implemented using the more generic
+ * enumeration function.
+ */
 #define pool_foreach(pool, eltp, BODY)                                  \
 do {                                                                    \
   unsigned _pool_var(i);                                                \
   pool_enumerate((pool), _pool_var(i), (eltp), BODY);                   \
 } while(0)
-
-
 
 #endif /* UTIL_POOL_H */
