@@ -48,7 +48,7 @@ class VectorTest : public ::testing::Test {
   }
 
   int *vector = NULL;
-  
+
 };
 
 TEST_F(VectorTest, VectorSize)
@@ -60,7 +60,7 @@ TEST_F(VectorTest, VectorSize)
   vector_push(vector, 109);
   size = vector_len(vector);
   EXPECT_EQ(size, 3);
-  
+
 }
 
 TEST_F(VectorTest, VectorCheckValue)
@@ -69,7 +69,6 @@ TEST_F(VectorTest, VectorCheckValue)
   vector_push(vector, 200);
   EXPECT_EQ(vector[0], 109);
   EXPECT_EQ(vector[1], 200);
-
 }
 
 TEST_F(VectorTest, VectorEnsurePos)
@@ -79,16 +78,11 @@ TEST_F(VectorTest, VectorEnsurePos)
   for (int i = 0; i <1025; i++) {
     printf("i %d\n", i);
     printf (" %p\n", vector);
-    
-    
-        vector_push(vector, i);
-      
+    vector_push(vector, i);
   }
   int size = vector_len(vector);
   EXPECT_EQ(size, 1025);
 }
-
-
 
 int main(int argc, char **argv)
 {

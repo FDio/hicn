@@ -15,41 +15,49 @@
 
 /**
  * \file pool.c
- * \brief Implementation of fixed-size pool allocator
+ * \brief Implementation of fixed-size pool allocator.
+ * 
+ * NOTE:
+ *  - Ideally, we should have a single realloc per resize, that would encompass
+ *  both the free indices vector and bitmap, by nesting data structures. Because
+ *  of the added complexity, and by lack of evidence of the need for this, we
+ *  currently rely on a simpler implementation.
  */
 
+#include <assert.h>
 #include <stdlib.h> // calloc
 
 #include "common.h"
 #include "pool.h"
 
-
-/**
- * \brief Initialize the pool data structure
- * \param [in,out] pool - Pointer to the pool structure storage
- * \param [in] elt_size - Size of elements in vector
- * \param [in] max_elts - Maximum size
- *
- * Note that an empty pool might be equal to NULL
- */
 void
-_pool_init(void ** pool_ptr, size_t elt_size, size_t max_elts)
+_pool_init(void ** pool_ptr, size_t elt_size, size_t max_size)
 {
-    pool_hdr_t * ph = calloc(POOL_HDRLEN + elt_size * max_elts, 1);
-    if (!ph)
-        abort();
+    assert(pool_ptr);
+    assert(elt_size);
+
+    pool_hdr_t * ph = calloc(POOL_HDRLEN + elt_size * max_size, 1);
+    if (!ph) {
+        *pool_ptr = NULL;
+        return;
+    }
+
+    ph->elt_size = elt_size;
+    ph->max_size = max_size;
 
     /* Free indices */
     off_t * free_indices;
-    vector_init(free_indices, max_elts);
-
-    uint_fast32_t * fb = ph->free_bitmap;
-    bitmap_init(fb, max_elts);
-    bitmap_set_to(fb, max_elts);
-
-    for(unsigned i = 0; i < max_elts; i++)
-        free_indices[i] = (max_elts - 1) - i;
+    vector_init(free_indices, max_size);
+    for(unsigned i = 0; i < max_size; i++)
+        free_indices[i] = (max_size - 1) - i;
+    vector_len(free_indices) = max_size;
     ph->free_indices = free_indices;
+
+    /* Free bitmap */
+    uint_fast32_t * fb = ph->free_bitmap;
+    bitmap_init(fb, max_size);
+    bitmap_set_to(fb, max_size);
+    ph->free_bitmap = fb;
 
     *pool_ptr = (uint8_t*)ph + POOL_HDRLEN;
 }
@@ -65,14 +73,17 @@ void
 _pool_resize(void ** pool_ptr, size_t elt_size)
 {
     pool_hdr_t * ph = pool_hdr(*pool_ptr);
-    size_t old_elts = ph->max_elts;
+    size_t old_elts = ph->max_size;
     size_t new_elts = old_elts * 2;
 
     /* Double pool storage */
     ph = realloc(ph, POOL_HDRLEN + new_elts * elt_size);
-    if (!ph)
-        abort();
-    ph->max_elts = new_elts;
+    if (!ph) {
+        *pool_ptr = NULL;
+        return;
+    }
+    ph->elt_size = elt_size;
+    ph->max_size = new_elts;
 
     /*
      * After resize, the pool will have old_elts free indices, ranging from
@@ -85,4 +96,28 @@ _pool_resize(void ** pool_ptr, size_t elt_size)
 
     /* Reassign pool pointer */
     *pool_ptr = (uint8_t*)ph + POOL_HDRLEN;
+}
+
+void
+_pool_get(void ** pool_ptr, void ** elt, size_t elt_size)
+{
+    pool_hdr_t * ph = pool_hdr(*pool_ptr);
+    uint64_t l = vector_len(ph->free_indices);
+    if (l == 0)
+        _pool_resize(pool_ptr, elt_size);
+    off_t free_id = ph->free_indices[l - 1];
+    vector_len(ph->free_indices)--;
+    *elt = *pool_ptr + free_id;
+    memset(*elt, 0, sizeof(elt));
+}
+
+void
+_pool_put(void ** pool_ptr, void ** elt, size_t elt_size)
+{
+    pool_hdr_t * ph = pool_hdr(*pool_ptr);
+    uint64_t l = vector_len(ph->free_indices);
+    vector_ensure_pos(ph->free_indices, l);
+    ph->free_indices[l] = *elt - *pool_ptr;
+    vector_len(ph->free_indices)++;
+    bitmap_set(ph->free_bitmap, l);
 }
