@@ -28,11 +28,6 @@ class CbrTransportProtocol : public RaaqmTransportProtocol {
   int start() override;
 
   void reset() override;
-
- private:
-  void afterContentReception(const Interest &interest,
-                             const ContentObject &content_object) override;
-  void afterDataUnsatisfied(uint64_t segment) override;
 };
 
 }  // end namespace protocol
