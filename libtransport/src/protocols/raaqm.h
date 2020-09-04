@@ -20,6 +20,7 @@
 #include <protocols/congestion_window_protocol.h>
 #include <protocols/protocol.h>
 #include <protocols/raaqm_data_path.h>
+#include <protocols/raaqm_transport_algorithm.h>
 #include <protocols/rate_estimation.h>
 
 #include <queue>
@@ -29,8 +30,7 @@ namespace transport {
 
 namespace protocol {
 
-class RaaqmTransportProtocol : public TransportProtocol,
-                               public CWindowProtocol {
+class RaaqmTransportProtocol : public TransportProtocol {
  public:
   RaaqmTransportProtocol(implementation::ConsumerSocket *icnet_socket);
 
@@ -50,16 +50,6 @@ class RaaqmTransportProtocol : public TransportProtocol,
   static constexpr uint16_t mask = buffer_size - 1;
   using PathTable =
       std::unordered_map<uint32_t, std::unique_ptr<RaaqmDataPath>>;
-
-  void increaseWindow() override;
-  void decreaseWindow() override;
-
-  virtual void afterContentReception(const Interest &interest,
-                                     const ContentObject &content_object);
-  virtual void afterDataUnsatisfied(uint64_t segment);
-
-  virtual void updateStats(uint32_t suffix, uint64_t rtt,
-                           utils::TimePoint &now);
 
  private:
   void init();
@@ -86,48 +76,21 @@ class RaaqmTransportProtocol : public TransportProtocol,
 
   void updateRtt(uint64_t segment);
 
-  void RAAQM();
-
-  void updatePathTable(const ContentObject &content_object);
-
-  void checkDropProbability();
-
-  void checkForStalePaths();
-
-  void printRtt();
-
  protected:
-  // Congestion window management
-  double current_window_size_;
-  // Protocol management
-  uint64_t interests_in_flight_;
-  std::array<std::uint32_t, buffer_size> interest_retransmissions_;
-  std::array<utils::TimePoint, buffer_size> interest_timepoints_;
   std::queue<Interest::Ptr> interest_to_retransmit_;
+  std::array<std::uint32_t, buffer_size> interest_retransmissions_;
+  uint32_t interests_in_flight_;
+  double current_window_size_;
 
  private:
-  /**
-   * Current download path
-   */
-  RaaqmDataPath *cur_path_;
-
-  /**
-   * Hash table for path: each entry is a pair path ID(key) - path object
-   */
-  PathTable path_table_;
-
+  std::unique_ptr<TransportAlgorithm> raaqm_algorithm_;
+  std::unique_ptr<IcnRateEstimator> rate_estimator_;
   // TimePoints for statistic
   utils::TimePoint t0_;
 
-  bool set_interest_filter_;
-
-  // for rate-estimation at packet level
-  IcnRateEstimator *rate_estimator_;
-
-  // params for autotuning
+  // Temporary placeholder for RAAQM algorithm
+  // parameters
   bool raaqm_autotune_;
-  double default_beta_;
-  double default_drop_;
   double beta_wifi_;
   double drop_wifi_;
   double beta_lte_;
