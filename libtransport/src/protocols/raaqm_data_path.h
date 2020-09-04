@@ -16,7 +16,6 @@
 #pragma once
 
 #include <hicn/transport/utils/chrono_typedefs.h>
-
 #include <utils/min_filter.h>
 
 #include <chrono>
@@ -46,15 +45,6 @@ class RaaqmDataPath {
    * @param new_rtt is the value of the new RTT
    */
   RaaqmDataPath &insertNewRtt(uint64_t new_rtt, const utils::TimePoint &now);
-
-  /**
-   * @brief Update the path statistics
-   * @param packet_size the size of the packet received, including the ICN
-   * header
-   * @param data_size the size of the data received, without the ICN header
-   */
-  RaaqmDataPath &updateReceivedStats(std::size_t packet_size,
-                                     std::size_t data_size);
 
   /**
    * @brief Get the value of the drop factor parameter
