@@ -32,6 +32,8 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/errors.h
   ${CMAKE_CURRENT_SOURCE_DIR}/verification_manager.h
   ${CMAKE_CURRENT_SOURCE_DIR}/data_processing_events.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/raaqm_transport_algorithm.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/transport_algorithm.h
 )
 
 list(APPEND SOURCE_FILES
@@ -50,6 +52,8 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_data_path.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/errors.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/verification_manager.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/raaqm_transport_algorithm.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/transport_algorithm.cc
 )
 
 set(RAAQM_CONFIG_INSTALL_PREFIX

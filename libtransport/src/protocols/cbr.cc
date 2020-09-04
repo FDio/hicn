@@ -34,18 +34,6 @@ void CbrTransportProtocol::reset() {
                            current_window_size_);
 }
 
-void CbrTransportProtocol::afterDataUnsatisfied(uint64_t segment) {}
-
-void CbrTransportProtocol::afterContentReception(
-    const Interest &interest, const ContentObject &content_object) {
-  auto segment = content_object.getName().getSuffix();
-  auto now = utils::SteadyClock::now();
-  auto rtt = std::chrono::duration_cast<utils::Microseconds>(
-      now - interest_timepoints_[segment & mask]);
-  // Update stats
-  updateStats(segment, rtt.count(), now);
-}
-
 }  // end namespace protocol
 
 }  // end namespace transport

@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/utils/chrono_typedefs.h>
-
 #include <protocols/raaqm_data_path.h>
 
 namespace transport {
@@ -62,15 +61,6 @@ RaaqmDataPath &RaaqmDataPath::insertNewRtt(uint64_t new_rtt,
   }
 
   last_received_pkt_ = now;
-
-  return *this;
-}
-
-RaaqmDataPath &RaaqmDataPath::updateReceivedStats(std::size_t packet_size,
-                                                  std::size_t data_size) {
-  packets_received_++;
-  m_packets_bytes_received_ += packet_size;
-  raw_data_bytes_received_ += data_size;
 
   return *this;
 }
