@@ -84,9 +84,9 @@ find_package(Threads REQUIRED)
 
 set(LIBHICN_LIGHT hicn-light)
 set(LIBHICN_LIGHT_STATIC ${LIBHICN_LIGHT}.static)
+set(LIBHICN_LIGHT_SHARED ${LIBHICN_LIGHT}.shared)
 
 set(HICN_LIGHT_LINK_LIBRARIES
-  ${LIBHICN_LIGHT_STATIC}
   ${HICN_LIBRARIES}
   ${LIBEVENT_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
@@ -112,6 +112,16 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
   set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS} -undefined dynamic_lookup")
 	message(STATUS "Set \"-undefined dynamic_lookup\" for shared libraries")
+endif()
+
+if (BUILD_TESTS)
+  include (GTestImport)
+
+  if(${CMAKE_VERSION} VERSION_GREATER "3.10.0")
+    include (GoogleTest)
+  else()
+    include (CTest)
+  endif()
 endif()
 
 add_subdirectory(src/hicn)
