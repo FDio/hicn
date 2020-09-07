@@ -156,7 +156,6 @@ ERR_EVENT_ADD:
 
 int loop_event_unregister(event_t *event)
 {
-    assert(event->event_type == EVTYPE_FD);
     event_del(&event->raw_event);
     return 0;
 }
