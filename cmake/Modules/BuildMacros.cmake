@@ -217,19 +217,5 @@ macro(build_library lib)
   endif()
 endmacro()
 
-add_custom_target(${PROJECT_NAME}_cleanup_profiling_data
-  "find" "." "-name" "*.gcda" "-delete"
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-  COMMENT "Cleanup previous profiling data."
-)
-
-macro(AddTest testFile)
-  add_executable(${ARGV0} ${ARGV0}.cc)
-  target_link_libraries(${ARGV0} ${TARGET_TRANSPORT_STATIC} ${GTEST_LIBRARIES})
-  add_test(${ARGV0} ${ARGV0})
-  set_target_properties(${ARGV0} PROPERTIES FOLDER Test)
-  add_dependencies(${ARGV0} ${PROJECT_NAME}_cleanup_profiling_data)
-endmacro(AddTest)
-
 include(IosMacros)
 include(WindowsMacros)
