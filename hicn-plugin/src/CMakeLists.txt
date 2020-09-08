@@ -188,45 +188,46 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vapi)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/udp)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn)
+
 
 # These files are missing from vpp binary distribution
 execute_process(
     COMMAND
     bash -c
     "if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/stable/2001/src/vpp-api/vapi/vapi_json_parser.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vpp-api/vapi/vapi_json_parser.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/stable/2001/src/vpp-api/vapi/vapi_c_gen.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vpp-api/vapi/vapi_c_gen.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/stable/2001/src/vpp-api/vapi/vapi_cpp_gen.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vpp-api/vapi/vapi_cpp_gen.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/stable/2001/src/vnet/ip/ip_types.api -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vnet/ip/ip_types.api -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_format_fns.h ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/master/src/vnet/ip/ip_format_fns.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_format_fns.h;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vnet/ip/ip_format_fns.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_format_fns.h;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib/fib_entry_track.h ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/master/src/vnet/fib/fib_entry_track.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib/fib_entry_track.h;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vnet/fib/fib_entry_track.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib/fib_entry_track.h;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/udp/udp_encap.h ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/master/src/vnet/udp/udp_encap.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/udp/udp_encap.h;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vnet/udp/udp_encap.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/udp/udp_encap.h;
     fi;
 
     chmod +x ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py"
 )
 
-add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_types.h ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_enum.h ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
-    COMMAND ${VPP_HOME}/bin/vppapigen ARGS --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/
-    COMMAND ${VPP_HOME}/bin/vppapigen ARGS JSON --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vapi/
+execute_process(
+    COMMAND ${VPP_HOME}/bin/vppapigen --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/
+    COMMAND ${VPP_HOME}/bin/vppapigen JSON --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vapi/
 )
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.h ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.hpp
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ARGS ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py ARGS ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
+execute_process(
+    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
+    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
 )
 
 include_directories(SYSTEM)
