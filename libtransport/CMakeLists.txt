@@ -112,7 +112,6 @@ else()
 
     if (__vpp__)
       list(APPEND DEPENDENCIES
-        hicn_plugin
         ${SAFE_VAPI_SHARED}
       )
 
