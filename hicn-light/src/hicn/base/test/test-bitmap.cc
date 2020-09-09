@@ -34,7 +34,7 @@ class BitmapTest : public ::testing::Test {
   }
 
   virtual ~BitmapTest() {
-   
+
     // You can do clean-up work that doesn't throw exceptions here.
   }
 
@@ -68,7 +68,7 @@ TEST_F(BitmapTest, BitmapUnSet) {
   EXPECT_FALSE(bitmap_is_set(bitmap, 20));
   EXPECT_TRUE(bitmap_is_unset(bitmap, 20));
   EXPECT_TRUE(bitmap_is_set(bitmap, 19));
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 19));
+  EXPECT_FALSE(bitmap_is_unset(bitmap, 19));
 
 }
 

@@ -25,6 +25,9 @@
 
 #include <string.h>
 #include "common.h"
+#include "vector.h"
+
+typedef uint_fast32_t bitmap_t;
 
 #define BITMAP_WIDTH(bitmap) (sizeof((bitmap)[0]) * 8)
 
@@ -56,7 +59,7 @@
  * @param[in] bitmap The bitmap to access.
  * @param[in] i The bit position.
  */
-#define bitmap_get(bitmap, i) ((bitmap)[(i) / BITMAP_WIDTH(bitmap)] & (1 << ((i) % BITMAP_WIDTH(bitmap))))
+#define bitmap_get(bitmap, i) (((bitmap)[(i) / BITMAP_WIDTH(bitmap)] & (1 << ((i) % BITMAP_WIDTH(bitmap)))) >> ((i) % BITMAP_WIDTH(bitmap)))
 
 /*
  * @brief Returns whether the i-th bit is set (equal to 1) in a bitmap.
