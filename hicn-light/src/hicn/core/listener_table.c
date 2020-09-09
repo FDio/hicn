@@ -18,22 +18,35 @@
  * \brief Implementation of hICN listener table
  */
 
-#include <hicn/core/listener_table.h>
-#include <hicn/core/listener.h>
+#include <hicn/util/log.h>
 
-/* This is only used for first allocation, as the table is resizeable */
+#include "listener_table.h"
+#include "listener.h"
+
+/* This is only used as a hint for first allocation, as the table is resizeable */
 #define DEFAULT_LISTENER_TABLE_SIZE 64
 
 listener_table_t *
-listener_table_create(size_t elt_size, size_t max_elts)
+_listener_table_create(size_t init_size, size_t max_size)
 {
+    if (init_size == 0)
+        init_size = DEFAULT_LISTENER_TABLE_SIZE;
+
     listener_table_t * table = malloc(sizeof(listener_table_t));
     if (!table)
         return NULL;
 
+    table->max_size = max_size;
+
+    /* Initialize indices */
     table->id_by_name = kh_init_lt_name();
     table->id_by_key = kh_init_lt_key();
-    pool_init(table->listeners, DEFAULT_LISTENER_TABLE_SIZE);
+
+    /*
+     * We start by allocating a reasonably-sized pool, as this will eventually
+     * be resized if needed.
+     */
+    pool_init(table->listeners, init_size);
 
     return table;
 }
@@ -91,17 +104,3 @@ listener_table_get_by_name(listener_table_t * table, const char * name)
         return NULL;
     return listener_table_at(table, kh_val(table->id_by_name, k));
 }
-
-#if 0
-unsigned
-listener_table_add(listener_table_t * table, listener_t * listener)
-{
-    // XXX missing hash and key storage
-    listener_t * lst;
-    pool_get(table->listeners, lst);
-    lst = listener;
-    unsigned listener_id = lst - table,
-    Listener_SetId(listener, listener_id);
-    return listener_id;
-}
-#endif

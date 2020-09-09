@@ -74,7 +74,7 @@ void content_store_remove_entry(content_store_t * cs, content_store_entry_t * en
 
 bool content_store_remove(content_store_t * cs, msgbuf_t * msgbuf);
 
-#define content_store_size(content_store) (pool_elts(cs->entries))
+#define content_store_size(content_store) (pool_len(cs->entries))
 
 void content_store_purge_entry(content_store_t * cs, content_store_entry_t * entry);
 
