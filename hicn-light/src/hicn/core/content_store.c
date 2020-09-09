@@ -46,7 +46,7 @@ do {                                                                            
 
 
 content_store_t *
-content_store_create(content_store_type_t type, size_t max_elts)
+_content_store_create(content_store_type_t type, size_t init_size, size_t max_size)
 {
     content_store_t * cs = malloc(sizeof(content_store_t));
     if (!cs)
@@ -56,7 +56,7 @@ content_store_create(content_store_type_t type, size_t max_elts)
     cs->type = type;
 
     // XXX TODO an entry = data + metadata specific to each policy
-    pool_init(cs->entries, max_elts);
+    pool_init(cs->entries, init_size);
 
     // data
     // options

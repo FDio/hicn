@@ -224,8 +224,8 @@ forwarder_create()
 
     size_t objectStoreSize =
         configuration_content_store_get_size(forwarder_get_configuration(forwarder));
-    forwarder->content_store = content_store_create(CONTENT_STORE_TYPE_LRU,
-            objectStoreSize);
+    forwarder->content_store = _content_store_create(CONTENT_STORE_TYPE_LRU,
+            objectStoreSize, 0);
     if (!forwarder->content_store)
         goto ERR_CONTENT_STORE;
 
