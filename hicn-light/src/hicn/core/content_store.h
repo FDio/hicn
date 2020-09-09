@@ -45,6 +45,7 @@ KHASH_INIT(cs_name, const Name *, unsigned, 0, name_hash, name_hash_eq);
 
 typedef struct {
     content_store_type_t type;
+    size_t max_size;
 
     // XXX TODO api to dynamically set max size
     content_store_entry_t * entries; // pool
@@ -60,7 +61,25 @@ typedef struct {
     content_store_stats_t stats;
 } content_store_t;
 
-content_store_t * content_store_create(content_store_type_t type, size_t max_elts);
+/**
+ * @brief Create a new content store (extended parameters)
+ * 
+ * @param[in] type Content store type
+ * @param[in] init_size Initially allocated size (hint, 0 = use default value)
+ * @param[in] max_size Maximum size (0 = unlimited)
+ * 
+ * @return content_store_t* - The newly created content store
+ */
+content_store_t * _content_store_create(content_store_type_t type, size_t init_size, size_t max_size);
+
+/**
+ * @brief Create a new content store
+ * 
+ * @param[in] type Content store type
+ * 
+ * @return content_store_t* - The newly created content store
+ */
+#define content_store_create( TYPE) _content_store_create((TYPE), 0, 0)
 
 void content_store_free(content_store_t * cs);
 
@@ -74,7 +93,7 @@ void content_store_remove_entry(content_store_t * cs, content_store_entry_t * en
 
 bool content_store_remove(content_store_t * cs, msgbuf_t * msgbuf);
 
-#define content_store_size(content_store) (pool_elts(cs->entries))
+#define content_store_size(content_store) (pool_len(cs->entries))
 
 void content_store_purge_entry(content_store_t * cs, content_store_entry_t * entry);
 

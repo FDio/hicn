@@ -18,22 +18,35 @@
  * \brief Implementation of hICN connection table
  */
 
-#include <hicn/core/connection.h>
-#include <hicn/core/connection_table.h>
+#include <hicn/util/log.h>
 
-/* This is only used for first allocation, as the table is resizeable */
+#include "connection.h"
+#include "connection_table.h"
+
+/* This is only used as a hint for first allocation, as the table is resizeable */
 #define DEFAULT_CONNECTION_TABLE_SIZE 64
 
 connection_table_t *
-connection_table_create(size_t elt_size, size_t max_elts)
+_connection_table_create(size_t init_size, size_t max_size)
 {
+    if (init_size == 0)
+        init_size = DEFAULT_CONNECTION_TABLE_SIZE;
+
     connection_table_t * table = malloc(sizeof(connection_table_t));
     if (!table)
         return NULL;
 
+    table->max_size = max_size;
+
+    /* Initialize indices */
     table->id_by_pair = kh_init_ct_pair();
     table->id_by_name = kh_init_ct_name();
-    pool_init(table->connections, DEFAULT_CONNECTION_TABLE_SIZE);
+
+    /*
+     * We start by allocating a reasonably-sized pool, as this will eventually
+     * be resized if needed.
+     */
+    pool_init(table->connections, init_size);
 
     return table;
 }
@@ -57,7 +70,7 @@ connection_table_get_by_pair(const connection_table_t * table,
   return table->connections + kh_val(table->id_by_pair, k);
 }
 
-unsigned
+off_t
 connection_table_get_id_by_name(const connection_table_t * table,
         const char * name)
 {
