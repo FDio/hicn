@@ -78,16 +78,20 @@ int
 ipv4_get_interest_name (hicn_type_t type, const hicn_protocol_t * h,
 			hicn_name_t * name)
 {
-  name->prefix.ip4.as_u32 = h->ipv4.daddr.as_u32;
-  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->suffix));
+  name->ip4.prefix_as_ip4 = h->ipv4.daddr;
+#ifndef HICN_VPP_PLUGIN
+  name->type = HNT_CONTIGUOUS_V4;
+  name->len = HICN_V4_NAME_LEN;
+#endif /* HICN_VPP_PLUGIN */
+  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->ip4.suffix));
 }
 
 int
 ipv4_set_interest_name (hicn_type_t type, hicn_protocol_t * h,
 			const hicn_name_t * name)
 {
-  h->ipv4.daddr.as_u32 = name->prefix.ip4.as_u32;
-  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->suffix));
+  h->ipv4.daddr = name->ip4.prefix_as_ip4;
+  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->ip4.suffix));
 }
 
 int
@@ -114,12 +118,6 @@ int
 ipv4_mark_packet_as_data (hicn_type_t type, hicn_protocol_t * h)
 {
   return CHILD_OPS (mark_packet_as_data, type, h);
-}
-
-int
-ipv4_test_packet_is_interest (hicn_type_t type, hicn_protocol_t * h, u8 *ret)
-{
-  return CHILD_OPS (test_packet_is_interest, type, h, ret);
 }
 
 int
@@ -151,16 +149,20 @@ int
 ipv4_get_data_name (hicn_type_t type, const hicn_protocol_t * h,
 		    hicn_name_t * name)
 {
-  name->prefix.ip4.as_u32 = h->ipv4.saddr.as_u32;
-  return CHILD_OPS (get_data_name_suffix, type, h, &(name->suffix));
+  name->ip4.prefix_as_ip4 = h->ipv4.saddr;
+#ifndef HICN_VPP_PLUGIN
+  name->type = HNT_CONTIGUOUS_V4;
+  name->len = HICN_V4_NAME_LEN;
+#endif /* HICN_VPP_PLUGIN */
+  return CHILD_OPS (get_data_name_suffix, type, h, &(name->ip4.suffix));
 }
 
 int
 ipv4_set_data_name (hicn_type_t type, hicn_protocol_t * h,
 		    const hicn_name_t * name)
 {
-  h->ipv4.saddr.as_u32 = name->prefix.ip4.as_u32;
-  return CHILD_OPS (set_data_name_suffix, type, h, &(name->suffix));
+  h->ipv4.saddr = name->ip4.prefix_as_ip4;
+  return CHILD_OPS (set_data_name_suffix, type, h, &(name->ip4.suffix));
 }
 
 int

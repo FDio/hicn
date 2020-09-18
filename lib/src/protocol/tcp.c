@@ -97,13 +97,6 @@ tcp_mark_packet_as_data (hicn_type_t type, hicn_protocol_t * h)
 }
 
 int
-tcp_test_packet_is_interest (hicn_type_t type, hicn_protocol_t * h, u8 *ret)
-{
-  *ret = !(h->tcp.flags & HICN_TCP_FLAG_ECE);
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
 tcp_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t * h)
 {
   memset (&(h->tcp), 0, 4);

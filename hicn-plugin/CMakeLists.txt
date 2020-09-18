@@ -37,6 +37,6 @@ set(HICN_PLUGIN hicn-plugin CACHE INTERNAL "" FORCE)
 
 include (Packaging)
 
-add_subdirectory(includes/vpp_plugins/hicn)
 add_subdirectory(src)
+
 add_subdirectory(vapi)

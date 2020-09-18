@@ -13,28 +13,27 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef __HICN_MSG_ENUM_H__
+#define __HICN_MSG_ENUM_H__
 
-#include <protocols/raaqm.h>
+#include <vppinfra/byte_order.h>
 
-namespace transport {
+/**
+ * @file
+ */
+#define vl_msg_id(n, h) n,
+typedef enum
+{
+#include <hicn/hicn_all_api_h.h>
+  /* We'll want to know how many messages IDs we need... */
+  VL_MSG_FIRST_AVAILABLE,
+} vl_msg_id_t;
+#undef vl_msg_id
 
-namespace protocol {
+#endif /* __HICN_MSG_ENUM_H__ */
 
-class CbrTransportProtocol : public RaaqmTransportProtocol {
- public:
-  CbrTransportProtocol(implementation::ConsumerSocket *icnet_socket);
-
-  int start() override;
-
-  void reset() override;
-
- private:
-  void afterContentReception(const Interest &interest,
-                             const ContentObject &content_object) override;
-  void afterDataUnsatisfied(uint64_t segment) override;
-};
-
-}  // end namespace protocol
-
-}  // end namespace transport
+/*
+ * fd.io coding-style-patch-verification: ON
+ *
+ * Local Variables: eval: (c-set-style "gnu") End:
+ */

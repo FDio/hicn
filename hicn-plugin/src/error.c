@@ -13,28 +13,16 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "error.h"
 
-#include <protocols/raaqm.h>
-
-namespace transport {
-
-namespace protocol {
-
-class CbrTransportProtocol : public RaaqmTransportProtocol {
- public:
-  CbrTransportProtocol(implementation::ConsumerSocket *icnet_socket);
-
-  int start() override;
-
-  void reset() override;
-
- private:
-  void afterContentReception(const Interest &interest,
-                             const ContentObject &content_object) override;
-  void afterDataUnsatisfied(uint64_t segment) override;
+const char *HICN_ERROR_STRING[] = {
+#define _(a,b,c) c,
+  foreach_hicn_error
+#undef _
 };
 
-}  // end namespace protocol
-
-}  // end namespace transport
+/*
+ * fd.io coding-style-patch-verification: ON
+ *
+ * Local Variables: eval: (c-set-style "gnu") End:
+ */
