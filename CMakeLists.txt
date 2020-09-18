@@ -63,9 +63,9 @@ endif()
 list(APPEND dir_options
   BUILD_LIBHICN
   BUILD_HICNLIGHT
+  BUILD_LIBTRANSPORT
   BUILD_HICNPLUGIN
   BUILD_CTRL
-  BUILD_LIBTRANSPORT
   BUILD_UTILS
   BUILD_APPS
   BUILD_SYSREPOPLUGIN
@@ -98,6 +98,12 @@ if (NOT WIN32)
 endif ()
 
 message(STATUS "Building the following subprojects: ${subdirs}")
+
+set(SAFE_VAPI_INCLUDE_DIRS
+  ${CMAKE_CURRENT_SOURCE_DIR}/${BUILD_HICNPLUGIN_DIR}/vapi/include ""
+  CACHE INTERNAL
+  "" FORCE
+)
 
 foreach(dir ${subdirs})
   add_subdirectory(${dir})
