@@ -128,8 +128,6 @@ list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
   ${SAFE_VAPI_INCLUDE_DIRS}
 )
 
-message("Libsafe vapi: ${SAFE_VAPI_INCLUDE_DIRS}")
-
 include(Packaging)
 
 find_package(Threads REQUIRED)
