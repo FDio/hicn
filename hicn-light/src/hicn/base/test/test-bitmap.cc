@@ -54,10 +54,10 @@ class BitmapTest : public ::testing::Test {
 TEST_F(BitmapTest, BitmapSet)
 {
   bitmap_set(bitmap, 20);
-  EXPECT_TRUE(bitmap_is_set(bitmap, 20) == true);
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 20) == false);
-  EXPECT_TRUE(bitmap_is_set(bitmap, 19) == false);
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 19) == true);
+  EXPECT_TRUE(bitmap_is_set(bitmap, 20));
+  EXPECT_FALSE(bitmap_is_unset(bitmap, 20));
+  EXPECT_FALSE(bitmap_is_set(bitmap, 19));
+  EXPECT_TRUE(bitmap_is_unset(bitmap, 19));
 
 }
 
@@ -65,19 +65,19 @@ TEST_F(BitmapTest, BitmapUnSet) {
   bitmap_set(bitmap, 20);
   bitmap_set(bitmap, 19);
   bitmap_unset(bitmap, 20);
-  EXPECT_TRUE(bitmap_is_set(bitmap, 20) == false);
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 20) == true);
-  EXPECT_TRUE(bitmap_is_set(bitmap, 19) == true);
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 19) == false);
+  EXPECT_FALSE(bitmap_is_set(bitmap, 20));
+  EXPECT_TRUE(bitmap_is_unset(bitmap, 20));
+  EXPECT_TRUE(bitmap_is_set(bitmap, 19));
+  EXPECT_TRUE(bitmap_is_unset(bitmap, 19));
 
 }
 
 TEST_F(BitmapTest, BitmapSetTo) {
   bitmap_set_to(bitmap, 40);
-  EXPECT_TRUE(bitmap_is_set(bitmap, 20) == true);
-  EXPECT_TRUE(bitmap_is_set(bitmap, 21) == true);
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 41) == true);
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 42) == true);
+  EXPECT_TRUE(bitmap_is_set(bitmap, 20));
+  EXPECT_TRUE(bitmap_is_set(bitmap, 21));
+  EXPECT_TRUE(bitmap_is_unset(bitmap, 41));
+  EXPECT_TRUE(bitmap_is_unset(bitmap, 42));
 }
 
 int main(int argc, char **argv)
