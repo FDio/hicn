@@ -28,7 +28,9 @@
 
 /** Local variable naming macro. */
 #define _pool_var(v) _pool_##v
-
+#ifndef u64
+#define u64 uint64_t 
+#endif
 
 typedef struct {
     size_t elt_size;

@@ -49,7 +49,7 @@ void _vector_resize(void ** vector_ptr, size_t elt_size, off_t pos);
     _vector_init((void**)&vector, sizeof(vector[0]), max_elts)
 
 #define vector_free(vector) \
-    _vector_free(&vector)
+    _vector_free((void **)&vector)
 
 #define vector_len(vector) (vector_hdr(vector)->num_elts)
 
@@ -57,13 +57,13 @@ void _vector_resize(void ** vector_ptr, size_t elt_size, off_t pos);
 
 #define vector_ensure_pos(vector, pos)                                          \
 do {                                                                            \
-    if ((pos) >= vector_len(vector))                                            \
+    if ((pos) >= vector_hdr(vector)->max_elts)                                  \
         _vector_resize((void**)&(vector), sizeof((vector)[0]), pos);            \
 } while(0)
 
 #define vector_push(vector, elt)                                                \
 do {                                                                            \
-    vector_ensure_pos(vector_len(vector));                                      \
+    vector_ensure_pos(vector, vector_len(vector));                              \
     vector[vector_len(vector)++] = elt;                                         \
 } while(0)
 

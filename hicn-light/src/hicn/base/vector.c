@@ -20,6 +20,7 @@
 
 #include <stddef.h> // size_t
 #include <stdlib.h> // calloc
+#include <stdio.h>
 
 #include "vector.h"
 
@@ -27,7 +28,9 @@ void
 _vector_init(void ** vector_ptr, size_t elt_size, size_t max_elts)
 {
     vector_hdr_t * vh = calloc(VECTOR_HDRLEN + elt_size * max_elts, 1);
-    *vector_ptr = (uint8_t*)vh - VECTOR_HDRLEN;
+    *vector_ptr = (uint8_t*)vh + VECTOR_HDRLEN;
+    vh->max_elts = max_elts;
+    vh->num_elts = 0;
 }
 
 void
@@ -50,5 +53,5 @@ _vector_resize(void ** vector_ptr, size_t elt_size, off_t pos)
     vh->max_elts = new_elts;
 
     /* Reassign vector pointer */
-    *vector_ptr = (uint8_t*) + VECTOR_HDRLEN;
+    *vector_ptr = (uint8_t*)vh + VECTOR_HDRLEN;
 }

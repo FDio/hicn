@@ -3,7 +3,12 @@
 include(BuildMacros)
 
 list(APPEND TESTS
+  test-bitmap
+  test-hash
+  test-khash
   test-loop
+  test-pool
+  test-vector
 )
 
 foreach(test ${TESTS})
