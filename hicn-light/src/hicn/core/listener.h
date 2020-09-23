@@ -21,9 +21,9 @@
 #ifndef HICNLIGHT_LISTENER_H
 #define HICNLIGHT_LISTENER_H
 
-#include <hicn/core/address_pair.h>
 #include <hicn/face.h>
 
+#include "address_pair.h"
 #include "msgbuf.h"
 #include "../base/loop.h"
 

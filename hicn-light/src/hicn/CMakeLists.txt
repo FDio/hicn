@@ -32,7 +32,7 @@ endif()
 
 
 if (NOT DISABLE_EXECUTABLES)
-  add_subdirectory(command_line)
+  add_subdirectory(cli)
 endif()
 
 add_subdirectory(base)

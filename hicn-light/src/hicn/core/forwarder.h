@@ -29,23 +29,22 @@
 #include <stdlib.h>
 #include <sys/socket.h> // struct mmsghdr
 
-#include <hicn/core/msgbuf.h>
-#include <hicn/core/content_store.h>
-#include <hicn/core/connection.h>
-#include <hicn/core/connection_table.h>
-#include <hicn/core/listener_table.h>
-#include <hicn/core/msgbuf_pool.h>
-
-#include <hicn/config/configuration.h>
+#include "connection.h"
+#include "connection_table.h"
+#include "content_store.h"
+#include "listener_table.h"
+#include "msgbuf.h"
+#include "msgbuf_pool.h"
+#include "../config/configuration.h"
 
 #ifdef WITH_MAPME
-#include <hicn/core/fib.h>
+#include "fib.h"
 #endif /* WITH_MAPME */
 
 #define PORT_NUMBER 9695
 #define PORT_NUMBER_AS_STRING "9695"
 
-#include <hicn/utils/commands.h>
+//#include <hicn/utils/commands.h>
 
 // ==============================================
 

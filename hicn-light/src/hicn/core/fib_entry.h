@@ -37,17 +37,12 @@
 #ifndef fib_entry_h
 #define fib_entry_h
 
-#include <hicn/core/name.h>
-#include <hicn/core/strategy.h>
-#include <hicn/core/msgbuf.h>
-#include <hicn/core/nexthops.h>
-#include <hicn/core/prefix_stats.h>
-#include <hicn/utils/commands.h> // strategy type
-
-#ifdef WITH_MAPME
-//#include <parc/algol/parc_EventTimer.h>
-//#include <parc/algol/parc_Iterator.h>
-#endif /* WITH_MAPME */
+#include "name.h"
+#include "strategy.h"
+#include "msgbuf.h"
+#include "nexthops.h"
+#include "prefix_stats.h"
+//#include "../utils/commands.h" // strategy type
 
 typedef struct {
   Name *name;

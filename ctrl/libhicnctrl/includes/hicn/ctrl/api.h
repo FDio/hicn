@@ -89,7 +89,9 @@
  * Message helper types and aliases
  ******************************************************************************/
 
-#define foreach_command \
+/* Action */
+
+#define foreach_action \
   _(UNDEFINED)          \
   _(CREATE)             \
   _(UPDATE)             \
@@ -100,9 +102,40 @@
 
 typedef enum {
 #define _(x) ACTION_##x,
-  foreach_command
+  foreach_action
 #undef _
 } hc_action_t;
+
+extern const char * action_str[];
+
+#define action_str(x) action_str[x]
+
+hc_action_t action_from_str(const char * action_str);
+
+/* Object type */
+
+#define foreach_object  \
+    _(UNDEFINED)        \
+    _(CONNECTION)       \
+    _(LISTENER)         \
+    _(ROUTE)            \
+    _(FACE)             \
+    _(STRATEGY)         \
+    _(PUNTING)          \
+    _(POLICY)           \
+    _(N)
+
+typedef enum {
+#define _(x) OBJECT_ ## x,
+foreach_object
+#undef _
+} hc_object_type_t;
+
+extern const char * object_str[];
+
+#define object_str(x) object_str[x]
+
+hc_object_type_t object_from_str(const char * object_str);
 
 /**
  * \brief hICN control message header
@@ -728,5 +761,26 @@ int hc_policy_list(hc_sock_t *s, hc_data_t **pdata);
 int hc_policy_snprintf(char *s, size_t size, hc_policy_t *policy);
 
 #endif /* WITH_POLICY */
+
+/* Object */
+
+typedef struct {
+    hc_object_type_t type;
+    union {
+        hc_connection_t connection;
+        hc_listener_t listener;
+        hc_route_t route;
+        hc_face_t face;
+        hc_punting_t punting;
+        hc_strategy_t strategy;
+        hc_policy_t policy;
+        uint8_t as_uint8;
+    };
+} hc_object_t;
+
+typedef struct {
+    hc_action_t action;
+    hc_object_t object;
+} hc_command_t;
 
 #endif /* HICNTRL_API */

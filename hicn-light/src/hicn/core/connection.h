@@ -21,10 +21,11 @@
 #ifndef HICNLIGHT_CONNECTION_H
 #define HICNLIGHT_CONNECTION_H
 
-#include <hicn/core/address_pair.h>
-#include <hicn/core/listener.h>
-#include <hicn/core/msgbuf.h>
 #include <hicn/face.h>
+
+#include "address_pair.h"
+#include "listener.h"
+#include "msgbuf.h"
 
 #ifdef WITH_POLICY
 #include <hicn/policy.h>

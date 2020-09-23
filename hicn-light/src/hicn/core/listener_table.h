@@ -30,12 +30,12 @@
 #ifndef HICNLIGHT_LISTENER_TABLE_H
 #define HICNLIGHT_LISTENER_TABLE_H
 
-#include <hicn/core/address.h>
-#include <hicn/base/common.h>
-#include <hicn/base/hash.h>
-#include <hicn/base/khash.h>
-#include <hicn/core/listener.h>
-#include <hicn/base/pool.h>
+#include "address.h"
+#include "listener.h"
+#include "../base/common.h"
+#include "../base/hash.h"
+#include "../base/khash.h"
+#include "../base/pool.h"
 
 #define _lt_var(x) _lt_var_##x
 

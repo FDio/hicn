@@ -21,8 +21,9 @@
 #ifndef HICNLIGHT_ADDRESS_PAIR_H
 #define HICNLIGHT_ADDRESS_PAIR_H
 
-#include <hicn/core/address.h>
 #include <hicn/util/ip_address.h>
+
+#include "address.h"
 
 typedef struct {
     address_t local;

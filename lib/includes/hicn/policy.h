@@ -49,6 +49,8 @@ foreach_policy_tag
     POLICY_TAG_N
 } policy_tag_t;
 
+#define IS_VALID_POLICY_TAG(x) (x != POLICY_TAG_N)
+
 #define MAXSZ_POLICY_TAG_ 11
 #define MAXSZ_POLICY_TAG MAXSZ_POLICY_TAG_ + 1
 
@@ -134,6 +136,9 @@ foreach_policy_state
 
 extern const char * policy_state_str[];
 
+#define policy_state_str(x) policy_state_str[x]
+
+policy_state_t policy_state_from_str(const char * str);
 
 /* POLICY TAG STATE */
 

@@ -12,12 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef fib_h
-#define fib_h
 
-#include <hicn/core/msgbuf.h>
-#include <hicn/core/name.h>
-#include <hicn/core/fib_entry.h>
+#ifndef HICNLIGHT_FIB_H
+#define HICNLIGHT_FIB_H
+
+#include "fib_entry.h"
+#include "msgbuf.h"
+#include "name.h"
 
 #define _fib_var(x) _fib_ ## x
 
@@ -57,4 +58,4 @@ do {                                                                            
     free(_fib_var(array));                                                      \
 } while(0)
 
-#endif  // fib_h
+#endif /* HICNLIGHT_FIB_H */

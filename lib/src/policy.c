@@ -39,6 +39,18 @@ const char * policy_state_str[] = {
     #undef _
 };
 
+policy_state_t
+policy_state_from_str(const char * str)
+{
+#define _(x)                            \
+    if (strcasecmp(str, #x) == 0)      \
+        return POLICY_STATE_ ## x;      \
+    else
+    foreach_policy_state
+#undef _
+        return POLICY_STATE_N;
+}
+
 int
 policy_tag_state_snprintf(char * s, size_t size, const policy_tag_state_t * tag_state)
 {
