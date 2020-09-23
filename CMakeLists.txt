@@ -100,7 +100,8 @@ endif ()
 message(STATUS "Building the following subprojects: ${subdirs}")
 
 set(SAFE_VAPI_INCLUDE_DIRS
-  ${CMAKE_CURRENT_SOURCE_DIR}/${BUILD_HICNPLUGIN_DIR}/vapi/include ""
+  ${CMAKE_CURRENT_SOURCE_DIR}/${BUILD_HICNPLUGIN_DIR}/vapi/include
+  ${PROJECT_BINARY_DIR}/hicn-plugin ""
   CACHE INTERNAL
   "" FORCE
 )
