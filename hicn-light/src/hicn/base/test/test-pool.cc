@@ -40,7 +40,7 @@ class PoolTest : public ::testing::Test {
   // and cleaning up each test, you can define the following methods:
 
   virtual void SetUp() {
-   
+
   }
 
   virtual void TearDown() {
@@ -52,14 +52,14 @@ class PoolTest : public ::testing::Test {
 
 TEST_F(PoolTest, PoolPut)
 {
-   pool_init(pool, 1024);
+   pool_init(pool, 1024, 0);
   int* elt;
   pool_get(pool, elt);
   *elt = 10;
     printf("2\n");
   pool_put(pool, elt);
     printf("3\n");
-  
+
   //pool_get(pool)
     //loop_ = loop_create();
     //EXPECT_TRUE(loop_ != NULL);

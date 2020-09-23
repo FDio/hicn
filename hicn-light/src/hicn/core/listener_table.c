@@ -46,7 +46,7 @@ _listener_table_create(size_t init_size, size_t max_size)
      * We start by allocating a reasonably-sized pool, as this will eventually
      * be resized if needed.
      */
-    pool_init(table->listeners, init_size);
+    pool_init(table->listeners, init_size, 0);
 
     return table;
 }

@@ -42,13 +42,13 @@ class BitmapTest : public ::testing::Test {
   // and cleaning up each test, you can define the following methods:
 
   virtual void SetUp() {
-    bitmap_init(bitmap, 1024);
+    bitmap_init(bitmap, 1024, 0);
   }
 
   virtual void TearDown() {
-    free(bitmap);
+    bitmap_free(bitmap);
   }
-  uint32_t *bitmap;
+  bitmap_t * bitmap;
 };
 
 TEST_F(BitmapTest, BitmapSet)

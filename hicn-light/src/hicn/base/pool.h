@@ -51,6 +51,7 @@
 
 typedef struct {
     size_t elt_size;
+    size_t alloc_size;
     size_t max_size;
     uint_fast32_t * free_bitmap; /* bitmap of free indices */
     off_t * free_indices; /* vector of free indices */
@@ -76,7 +77,7 @@ typedef struct {
  *
  * NOTE: that an empty pool might be equal to NULL.
  */
-void _pool_init(void ** pool_ptr, size_t elt_size, size_t max_size);
+void _pool_init(void ** pool_ptr, size_t elt_size, size_t init_size, size_t max_size);
 
 /**
  * @brief Free a pool data structure (helper).
@@ -105,7 +106,7 @@ void _pool_resize(void ** pool_ptr, size_t elt_size);
  * NOTES:
  *  - The memory chunk is cleared upon attribution
  */
-void _pool_get(void ** pool, void ** elt, size_t elt_size);
+off_t _pool_get(void ** pool, void ** elt, size_t elt_size);
 
 /**
  * @brief Put an element back into the pool data structure (helper).
@@ -127,8 +128,8 @@ void _pool_put(void ** pool, void ** elt, size_t elt_size);
  *
  * NOTE: that an empty pool might be equal to NULL.
  */
-#define pool_init(pool, max_size) \
-    _pool_init((void**)&pool, sizeof(pool[0]), max_size);
+#define pool_init(pool, init_size, max_size) \
+    _pool_init((void**)&pool, sizeof(pool[0]), init_size, max_size);
 
 /**
  * @brief Free a pool data structure.
@@ -180,7 +181,7 @@ void _pool_put(void ** pool, void ** elt, size_t elt_size);
  *  size of the pool.
  */
 #define pool_len(pool) \
-    (pool_hdr(pool)->max_size - vector_len((pool_hdr(pool)->free_indices)))
+    (pool_hdr(pool)->alloc_size - vector_len((pool_hdr(pool)->free_indices)))
 
 /**
  * @brief Enumerate elements from a pool.

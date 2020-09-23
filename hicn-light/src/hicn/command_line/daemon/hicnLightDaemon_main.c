@@ -369,6 +369,12 @@ int main(int argc, const char *argv[]) {
     }
 #endif
 
+    /*
+     * The loop should be created before the forwarder instance as it is needed
+     * for timers
+     */
+    MAIN_LOOP = loop_create();
+
     forwarder_t * forwarder = forwarder_create();
     if (!forwarder) {
         ERROR("Forwarder initialization failed. Are you running it with sudo privileges?");
@@ -377,7 +383,7 @@ int main(int argc, const char *argv[]) {
 
     configuration_t * configuration = forwarder_get_configuration(forwarder);
     if (capacity > -1) {
-        configuration_content_store_set_size(configuration, capacity);
+        configuration_cs_set_size(configuration, capacity);
     }
 
     forwarder_setup_local_listeners(forwarder, port);
@@ -389,7 +395,6 @@ int main(int argc, const char *argv[]) {
             configurationPort);
 
     /* Main loop */
-    MAIN_LOOP = loop_create();
     if (loop_dispatch(MAIN_LOOP) < 0) {
         ERROR("Failed to run main loop");
         return EXIT_FAILURE;

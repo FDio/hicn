@@ -22,6 +22,8 @@
 
 #define MAX_FWD_STRATEGY_RELATED_PREFIXES 10
 
+struct name_s;
+
 typedef struct {
 } strategy_low_latency_nexthop_state_t;
 
@@ -30,7 +32,7 @@ typedef struct {
 
 typedef struct {
   //Name ** related_prefixes;
-  Name *related_prefixes[MAX_FWD_STRATEGY_RELATED_PREFIXES];
+  struct name_s * related_prefixes[MAX_FWD_STRATEGY_RELATED_PREFIXES];
   unsigned related_prefixes_len;
 } strategy_low_latency_options_t;
 

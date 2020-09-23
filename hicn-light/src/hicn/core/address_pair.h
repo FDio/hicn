@@ -18,8 +18,8 @@
  * \brief Address pair
  */
 
-#ifndef HICN_ADDRESS_PAIR_H
-#define HICN_ADDRESS_PAIR_H
+#ifndef HICNLIGHT_ADDRESS_PAIR_H
+#define HICNLIGHT_ADDRESS_PAIR_H
 
 #include <hicn/core/address.h>
 #include <hicn/util/ip_address.h>
@@ -40,9 +40,9 @@ int address_pair_from_ip_port(address_pair_t * pair, int family,
     (address_family(address_pair_get_local(pair)))
 #define address_pair_get_remote_family(pair) \
     (address_family(address_pair_get_remote(pair)))
-#define address_pair_get_family(pair) address_pair_local_family(pair)
+#define address_pair_get_family(pair) address_pair_get_local_family(pair)
 
 #define address_pair_is_valid(pair) \
     (address_pair_get_local_family(pair) == address_pair_get_remote_family(pair))
 
-#endif /* HICN_ADDRESS_PAIR_H */
+#endif /* HICNLIGHT_ADDRESS_PAIR_H */

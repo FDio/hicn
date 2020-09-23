@@ -23,6 +23,7 @@
 #ifndef UTIL_BITMAP_H
 #define UTIL_BITMAP_H
 
+#include <assert.h>
 #include <string.h>
 #include "common.h"
 #include "vector.h"
@@ -37,8 +38,9 @@ typedef uint_fast32_t bitmap_t;
  * @param[in,out] bitmap Bitmap to allocate and initialize
  * @param[in] max_size Bitmap max_size
  */
-#define bitmap_init(bitmap, max_size) \
-   vector_init(bitmap, next_pow2(max_size / BITMAP_WIDTH(bitmap)))
+#define bitmap_init(bitmap, init_size, max_size)                        \
+   vector_init(bitmap, next_pow2(init_size / BITMAP_WIDTH(bitmap)),     \
+   max_size == 0 ? 0 : next_pow2(max_size / BITMAP_WIDTH(bitmap)))
 
 /*
  * @brief Ensures a bitmap is sufficiently large to hold an element at the
@@ -51,7 +53,13 @@ typedef uint_fast32_t bitmap_t;
  *  - This function should always be called before writing to a bitmap element
  *  to eventually make room for it (the bitmap will eventually be resized).
  */
-#define bitmap_ensure_pos(bitmap, pos) vector_ensure_pos(bitmap, pos / BITMAP_WIDTH(bitmap))
+static inline
+int
+bitmap_ensure_pos(bitmap_t * bitmap, off_t pos)
+{
+    size_t offset = pos / BITMAP_WIDTH(bitmap);
+    return vector_ensure_pos(bitmap, offset);
+}
 
 /**
  * @brief Retrieve the state of the i-th bit in the bitmap.
@@ -59,7 +67,15 @@ typedef uint_fast32_t bitmap_t;
  * @param[in] bitmap The bitmap to access.
  * @param[in] i The bit position.
  */
-#define bitmap_get(bitmap, i) (((bitmap)[(i) / BITMAP_WIDTH(bitmap)] & (1 << ((i) % BITMAP_WIDTH(bitmap)))) >> ((i) % BITMAP_WIDTH(bitmap)))
+static inline
+int
+bitmap_get(const bitmap_t * bitmap, off_t i)
+{
+    size_t offset = i / BITMAP_WIDTH(bitmap);
+    size_t pos = i % BITMAP_WIDTH(bitmap);
+    size_t shift = BITMAP_WIDTH(bitmap) - pos - 1;
+    return (bitmap[offset] >> shift) & 1;
+}
 
 /*
  * @brief Returns whether the i-th bit is set (equal to 1) in a bitmap.
@@ -70,6 +86,7 @@ typedef uint_fast32_t bitmap_t;
  * @return bool
  */
 #define bitmap_is_set(bitmap, i) (bitmap_get((bitmap), (i)) == 1)
+#define bitmap_is_unset(bitmap, i) (bitmap_get((bitmap), (i)) == 0)
 
 /*
  * @brief Returns whether the i-th bit is unset (equal to 0) in a bitmap.
@@ -79,19 +96,45 @@ typedef uint_fast32_t bitmap_t;
  *
  * @return bool
  */
-#define bitmap_is_unset(bitmap, i) (bitmap_get((bitmap), (i)) == 0)
+static inline
+void
+bitmap_set(bitmap_t * bitmap, off_t i)
+{
+    size_t offset = i / BITMAP_WIDTH(bitmap);
+    size_t pos = i % BITMAP_WIDTH(bitmap);
+    size_t shift = BITMAP_WIDTH(bitmap) - pos - 1;
+    bitmap[offset] |= 1ul << shift;
+}
 
-#define bitmap_set(bitmap, i) bitmap[(i) / BITMAP_WIDTH(bitmap)] |= 1 << ((i) % BITMAP_WIDTH(bitmap))
+static inline
+void
+bitmap_unset(bitmap_t * bitmap, off_t i)
+{
+    size_t offset = i / BITMAP_WIDTH(bitmap);
+    size_t pos = i % BITMAP_WIDTH(bitmap);
+    size_t shift = BITMAP_WIDTH(bitmap) - pos - 1;
+    bitmap[offset] &= ~ (1ul << shift);
+}
 
-#define bitmap_unset(bitmap, i) bitmap[(i) / BITMAP_WIDTH(bitmap)] &= ~ (1 << ((i) % BITMAP_WIDTH(bitmap)))
 
-#define bitmap_set_to(bitmap, pos)                                      \
-do {                                                                    \
-    size_t offset = (pos / BITMAP_WIDTH(bitmap) + 1);                   \
-    memset(bitmap, 0xFF, pos * sizeof(bitmap[0]));                      \
-    size_t set_bits = offset * BITMAP_WIDTH(bitmap);                    \
-    for (unsigned i = pos; i < set_bits; i++)                           \
-        bitmap_unset(bitmap, i);                                        \
-} while(0);
+static inline
+void
+bitmap_set_range(bitmap_t * bitmap, off_t from, off_t to)
+{
+    assert(from <= to);
+    size_t offset_from = from / BITMAP_WIDTH(bitmap);
+    size_t offset_to = to / BITMAP_WIDTH(bitmap);
+
+    if (offset_to > offset_from + 1)
+        memset(&bitmap[offset_from + 1], 0xFF, (offset_to - 1) * sizeof(bitmap[0]));
+    for (unsigned k = from; k < (offset_from + 1) * BITMAP_WIDTH(bitmap); k++)
+        bitmap_set(bitmap, k);
+    for (unsigned k = offset_to * BITMAP_WIDTH(bitmap); k < to; k++)
+        bitmap_set(bitmap, k);
+}
+
+#define bitmap_set_to(bitmap, to) bitmap_set_range((bitmap), 0, (to))
+
+#define bitmap_free(bitmap) vector_free(bitmap)
 
 #endif /* UTIL_BITMAP_H */

@@ -28,9 +28,10 @@
 #define DEFAULT_VECTOR_SIZE 64
 
 void
-_vector_init(void ** vector_ptr, size_t elt_size, size_t init_size)
+_vector_init(void ** vector_ptr, size_t elt_size, size_t init_size, size_t max_size)
 {
     assert(vector_ptr);
+    assert(max_size == 0 || init_size < max_size);
 
     if (init_size == 0)
         init_size = DEFAULT_VECTOR_SIZE;
@@ -40,6 +41,7 @@ _vector_init(void ** vector_ptr, size_t elt_size, size_t init_size)
 
     vector_hdr_t * vh = vector_hdr(*vector_ptr);
     vh->cur_size = 0;
+    vh->max_size = max_size;
 }
 
 void
@@ -52,17 +54,38 @@ _vector_free(void ** vector_ptr)
 bool
 _vector_resize(void ** vector_ptr, size_t elt_size, off_t pos)
 {
-    vector_hdr_t * vh = *vector_ptr ? vector_hdr(*vector_ptr) : NULL;
+    vector_hdr_t * vh;
 
-    /*
-     * Round the allocated size to the next power of 2 of the requested position
-     */
-    size_t new_elts = (pos > 0) ? next_pow2(pos) : vh->max_size * 2;
+    size_t old_size;
 
-    vh = realloc(vh, VECTOR_HDRLEN + new_elts * elt_size);
+    if (*vector_ptr) {
+        vh = vector_hdr(*vector_ptr);
+        old_size = vh->alloc_size;
+    } else {
+        vh = NULL;
+        old_size = 0;
+    }
+
+    /* Round the allocated size to the next power of 2 of the requested position */
+    size_t new_size = next_pow2(pos);
+
+    /* Don't grow the vector back */
+    if (new_size < old_size)
+        return true;
+
+    /* Don't exceed maximum size (for init, check is done beforehand) */
+    if (vh && new_size > vh->max_size)
+        return false;
+
+    //size_t new_size = (pos > 0) ? next_pow2(pos) : vh->max_size * 2;
+
+    vh = realloc(vh, VECTOR_HDRLEN + new_size * elt_size);
     if (!vh)
         return false;
-    vh->max_size = new_elts;
+    vh->alloc_size = new_size;
+
+    /* Zero out the newly allocated memory (except headers) */
+    memset((uint8_t*)vh + VECTOR_HDRLEN + old_size * elt_size, 0, (new_size - old_size) * elt_size);
 
     /* Reassign vector pointer */
     *vector_ptr = (uint8_t*)vh + VECTOR_HDRLEN;

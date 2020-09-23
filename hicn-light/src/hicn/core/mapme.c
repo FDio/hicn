@@ -120,7 +120,6 @@
 #include <hicn/core/connection.h>
 #include <hicn/core/forwarder.h>
 #include <hicn/core/msgbuf.h>
-#include <hicn/core/messagePacketType.h>  // packet types
 #include <hicn/core/ticks.h>
 #include <hicn/core/fib_entry.h>
 #include <hicn/core/pit.h>
@@ -757,7 +756,7 @@ mapme_on_interest(mapme_t * mapme, uint8_t * packet,
         ERROR("Failed to send ACK packet");
     }
 
-    Name *name = name_CreateFromPacket(packet, MESSAGE_TYPE_INTEREST);
+    Name *name = name_create_from_interest(packet);
     name_setLen(name, prefix->len);
 
     char *name_str = name_ToString(name);
@@ -871,8 +870,7 @@ mapme_on_data(mapme_t *mapme, const uint8_t * packet,
 {
     INFO("Receive IU/IN Ack on connection %d", ingress_id);
 
-    const Name * name =
-        name_CreateFromPacket(packet, MESSAGE_TYPE_DATA);
+    const Name * name = name_create_from_data(packet);
     name_setLen((Name*) name, prefix->len);
 
     char * name_str = name_ToString(name);
@@ -919,10 +917,14 @@ mapme_on_data(mapme_t *mapme, const uint8_t * packet,
  * processed by MAP-Me core.
  */
 void
-mapme_process(mapme_t *mapme, uint8_t *packet, unsigned conn_id)
+mapme_process(mapme_t *mapme, msgbuf_t * msgbuf)
 {
     hicn_prefix_t prefix;
     mapme_params_t params;
+
+    uint8_t * packet = msgbuf_get_packet(msgbuf);
+    unsigned conn_id = msgbuf_get_connection_id(msgbuf);
+
     int rc = hicn_mapme_parse_packet(packet, &prefix, &params);
     if (rc < 0)
         return;

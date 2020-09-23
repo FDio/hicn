@@ -1,41 +1,44 @@
-#ifndef HICNLIGHT_CONTENT_STORE_H
-#define HICNLIGHT_CONTENT_STORE_H
+#ifndef HICNLIGHT_CS_H
+#define HICNLIGHT_CS_H
 
-#include <hicn/base/khash.h>
-#include <hicn/base/pool.h>
-#include <hicn/core/msgbuf.h>
-#include <hicn/core/name.h>
-#include <hicn/content_store/lru.h>
+#include "msgbuf.h"
+#include "msgbuf_pool.h"
+#include "name.h"
+#include "../base/khash.h"
+#include "../base/pool.h"
+#include "../content_store/lru.h"
+
+#define INVALID_ENTRY_ID ~0ul /* off_t */
 
 typedef struct {
-    msgbuf_t * message;
+    off_t msgbuf_id;
     //ListLruEntry *lruEntry;
     bool hasExpiryTimeTicks;
     uint64_t expiryTimeTicks; // single value for both ? 0 allowed ?
-} content_store_entry_t;
+    union {
+        off_t prev;
+        off_t next;
+    } lru;
+} cs_entry_t;
 
-#define content_store_entry_message(entry) ((entry)->message)
-#define content_store_entry_has_expiry_time(entry) ((entry)->hasExpiryTimeTicks)
-#define content_store_entry_expiry_time(entry) ((entry)->expiryTimeTicks)
+#define cs_entry_get_msgbuf_id(entry) ((entry)->msgbuf_id)
+#define cs_entry_has_expiry_time(entry) ((entry)->hasExpiryTimeTicks)
+#define cs_entry_get_expiry_time(entry) ((entry)->expiryTimeTicks)
 
 typedef enum {
-    CONTENT_STORE_TYPE_UNDEFINED,
-    CONTENT_STORE_TYPE_LRU,
-    CONTENT_STORE_TYPE_N,
-} content_store_type_t;
+    CS_TYPE_UNDEFINED,
+    CS_TYPE_LRU,
+    CS_TYPE_N,
+} cs_type_t;
 
-#define CONTENT_STORE_TYPE_VALID(type)          \
-    (type != CONTENT_STORE_TYPE_UNDEFINED) &&   \
-    (type != CONTENT_STORE_TYPE_N)
+#define CS_TYPE_VALID(type)          \
+    (type != CS_TYPE_UNDEFINED) &&   \
+    (type != CS_TYPE_N)
 
 typedef struct {
     /* The maximum allowed expiry time (will never be exceeded). */
     uint64_t max_expiry_time; // XXX part of lru ?
-} content_store_options_t;
-
-typedef union {
-    content_store_lru_stats_t lru;
-} content_store_stats_t;
+} cs_options_t;
 
 // XXX TODO
 #define name_hash(name) (name_HashCode(name))
@@ -44,22 +47,30 @@ typedef union {
 KHASH_INIT(cs_name, const Name *, unsigned, 0, name_hash, name_hash_eq);
 
 typedef struct {
-    content_store_type_t type;
-    size_t max_size;
+    cs_type_t type;
 
     // XXX TODO api to dynamically set max size
-    content_store_entry_t * entries; // pool
+    cs_entry_t * entries; // pool
 
     kh_cs_name_t * index_by_name;
 
+#if 0
     void * index_by_expiry_time;
-    //ListTimeOrdered *indexByExpirationTime;
+#endif
 
-
+    const msgbuf_pool_t * msgbuf_pool;
     void * data; // per cs type data
     void * options;
-    content_store_stats_t stats;
-} content_store_t;
+
+    union {
+        cs_lru_stats_t lru;
+    } stats;
+
+
+    union {
+        cs_lru_state_t lru;
+    };
+} cs_t;
 
 /**
  * @brief Create a new content store (extended parameters)
@@ -68,42 +79,53 @@ typedef struct {
  * @param[in] init_size Initially allocated size (hint, 0 = use default value)
  * @param[in] max_size Maximum size (0 = unlimited)
  *
- * @return content_store_t* - The newly created content store
+ * @return cs_t* - The newly created content store
  */
-content_store_t * _content_store_create(content_store_type_t type, size_t init_size, size_t max_size);
+cs_t * _cs_create(cs_type_t type, size_t init_size, size_t max_size);
 
 /**
  * @brief Create a new content store
  *
  * @param[in] type Content store type
  *
- * @return content_store_t* - The newly created content store
+ * @return cs_t* - The newly created content store
  */
-#define content_store_create( TYPE) _content_store_create((TYPE), 0, 0)
+#define cs_create(TYPE) _cs_create((TYPE), 0, 0)
 
-void content_store_free(content_store_t * cs);
+void cs_free(cs_t * cs);
 
-void content_store_clear(content_store_t * cs);
+void cs_clear(cs_t * cs);
 
-msgbuf_t * content_store_match(content_store_t * cs, msgbuf_t * msgbuf, uint64_t now);
+off_t cs_match(cs_t * cs, off_t msgbuf_id, uint64_t now);
 
-void content_store_add(content_store_t * cs, msgbuf_t * msgbuf, uint64_t now);
+cs_entry_t * cs_add(cs_t * cs, off_t msgbuf_id, uint64_t now);
 
-void content_store_remove_entry(content_store_t * cs, content_store_entry_t * entry);
+int cs_remove_entry(cs_t * cs, cs_entry_t * entry);
 
-bool content_store_remove(content_store_t * cs, msgbuf_t * msgbuf);
+bool cs_remove(cs_t * cs, msgbuf_t * msgbuf);
 
-#define content_store_size(content_store) (pool_len(cs->entries))
+#define cs_size(content_store) (pool_len(cs->entries))
 
-void content_store_purge_entry(content_store_t * cs, content_store_entry_t * entry);
+void cs_purge_entry(cs_t * cs, cs_entry_t * entry);
+
+#define cs_get_entry_id(cs, entry) (entry - cs->entries)
+
+#define cs_entry_at(cs, id) (&(cs)->entries[id])
+
+static inline
+const msgbuf_pool_t *
+cs_get_msgbuf_pool(const cs_t * cs)
+{
+    return cs->msgbuf_pool;
+}
 
 typedef struct {
 
     const char * name;
 
-    void (*initialize)(content_store_t * cs);
+    void (*initialize)(cs_t * cs);
 
-    void (*finalize)(content_store_t * cs);
+    void (*finalize)(cs_t * cs);
 
     /**
      * Place a Message representing a ContentObject into the ContentStore. If
@@ -116,7 +138,7 @@ typedef struct {
      * UTC epoch.
      */
     // XXX Do we always get now before adding ?
-    bool (*add_entry)(content_store_t * cs, content_store_entry_t * entry);
+    int (*add_entry)(cs_t * cs, off_t entry_id);
 
     /**
      * The function to call to remove content from the ContentStore.
@@ -126,19 +148,19 @@ typedef struct {
      * @param storeImpl - a pointer to this ContentStoreInterface instance.
      * @param content - a pointer to a `Message` to remove from the store.
      */
-    void (*remove_entry)(content_store_t * cs, content_store_entry_t * entry);
+    int (*remove_entry)(cs_t * cs, cs_entry_t * entry);
 
-} content_store_ops_t;
+} cs_ops_t;
 
-extern const content_store_ops_t * const content_store_vft[];
+extern const cs_ops_t * const cs_vft[];
 
-#define DECLARE_CONTENT_STORE(NAME)                                 \
-    const content_store_ops_t content_store_ ## NAME = {            \
+#define DECLARE_CS(NAME)                                 \
+    const cs_ops_t cs_ ## NAME = {            \
         .name = #NAME,                                              \
-        .initialize = content_store_ ## NAME ## _initialize,        \
-        .finalize = content_store_ ## NAME ## _finalize,            \
-        .add_entry = content_store_ ## NAME ## _add_entry,          \
-        .remove_entry = content_store_ ## NAME ## _remove_entry,    \
+        .initialize = cs_ ## NAME ## _initialize,        \
+        .finalize = cs_ ## NAME ## _finalize,            \
+        .add_entry = cs_ ## NAME ## _add_entry,          \
+        .remove_entry = cs_ ## NAME ## _remove_entry,    \
     }
 
-#endif /* HICNLIGHT_CONTENT_STORE_H */
+#endif /* HICNLIGHT_CS_H */

@@ -40,7 +40,7 @@ class VectorTest : public ::testing::Test {
   // and cleaning up each test, you can define the following methods:
 
   virtual void SetUp() {;
-    vector_init(vector, 1024);
+    vector_init(vector, 1024, 0);
   }
 
   virtual void TearDown() {

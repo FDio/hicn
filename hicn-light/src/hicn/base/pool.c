@@ -31,12 +31,12 @@
 #include "pool.h"
 
 void
-_pool_init(void ** pool_ptr, size_t elt_size, size_t max_size)
+_pool_init(void ** pool_ptr, size_t elt_size, size_t init_size, size_t max_size)
 {
     assert(pool_ptr);
     assert(elt_size);
 
-    pool_hdr_t * ph = calloc(POOL_HDRLEN + elt_size * max_size, 1);
+    pool_hdr_t * ph = calloc(POOL_HDRLEN + elt_size * init_size, 1);
     if (!ph) {
         *pool_ptr = NULL;
         return;
@@ -47,16 +47,16 @@ _pool_init(void ** pool_ptr, size_t elt_size, size_t max_size)
 
     /* Free indices */
     off_t * free_indices;
-    vector_init(free_indices, max_size);
-    for(unsigned i = 0; i < max_size; i++)
-        free_indices[i] = (max_size - 1) - i;
-    vector_len(free_indices) = max_size;
+    vector_init(free_indices, init_size, max_size);
+    for(unsigned i = 0; i < init_size; i++)
+        free_indices[i] = (init_size - 1) - i;
+    vector_len(free_indices) = init_size;
     ph->free_indices = free_indices;
 
     /* Free bitmap */
     uint_fast32_t * fb = ph->free_bitmap;
-    bitmap_init(fb, max_size);
-    bitmap_set_to(fb, max_size);
+    bitmap_init(fb, init_size, max_size);
+    bitmap_set_to(fb, init_size);
     ph->free_bitmap = fb;
 
     *pool_ptr = (uint8_t*)ph + POOL_HDRLEN;
@@ -86,7 +86,7 @@ _pool_resize(void ** pool_ptr, size_t elt_size)
     ph->max_size = new_elts;
 
     /*
-     * After resize, the pool will have old_elts free indices, ranging from
+     * After resize, the pool will have new free indices, ranging from
      * old_elts to (new_elts - 1)
      */
     off_t * free_indices = ph->free_indices;
@@ -94,11 +94,14 @@ _pool_resize(void ** pool_ptr, size_t elt_size)
     for (unsigned i = 0; i < old_elts; i++)
         free_indices[i] = new_elts - 1 - i;
 
+    /* We also need to update the bitmap */
+    bitmap_set_range(ph->free_bitmap, old_elts, new_elts - 1);
+
     /* Reassign pool pointer */
     *pool_ptr = (uint8_t*)ph + POOL_HDRLEN;
 }
 
-void
+off_t
 _pool_get(void ** pool_ptr, void ** elt, size_t elt_size)
 {
     pool_hdr_t * ph = pool_hdr(*pool_ptr);
@@ -109,6 +112,7 @@ _pool_get(void ** pool_ptr, void ** elt, size_t elt_size)
     vector_len(ph->free_indices)--;
     *elt = *pool_ptr + free_id;
     memset(*elt, 0, sizeof(elt));
+    return free_id;
 }
 
 void

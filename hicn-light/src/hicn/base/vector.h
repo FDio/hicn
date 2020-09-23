@@ -58,7 +58,8 @@
 
 typedef struct {
     size_t cur_size; /** Vector current size (corresponding to the highest used element). */
-    size_t max_size; /** The currently allocated size. */
+    size_t alloc_size; /** The currently allocated size. */
+    size_t max_size; /** The maximum allowed size (0 = no limit) */
 } vector_hdr_t;
 
 /* Make sure elements following the header are aligned */
@@ -80,7 +81,7 @@ typedef struct {
  * @param[in] elt_size Size of a vector element.
  * @param[in] max_size Maximum vector size (O = unlimited).
  */
-void _vector_init(void ** vector_ptr, size_t elt_size, size_t max_size);
+void _vector_init(void ** vector_ptr, size_t elt_size, size_t init_size, size_t max_size);
 
 /**
  * @brief Free a vector data structure.
@@ -165,9 +166,13 @@ _vector_push(void ** vector_ptr, size_t elt_size, void * elt)
  *
  * @param[in,out] vector Vector to allocate and initialize.
  * @param[in] max_size Maximum vector size (nonzero).
+ *
+ * NOTE:
+ *  - Allocated memory is set to 0 (used by bitmap)
  */
-#define vector_init(vector, max_size) \
-    _vector_init((void**)&vector, sizeof(vector[0]), max_size)
+
+#define vector_init(vector, init_size, max_size) \
+    _vector_init((void**)&vector, sizeof(vector[0]), init_size, max_size)
 
 /**
  * @brief Free a vector data structure.
@@ -193,6 +198,7 @@ _vector_push(void ** vector_ptr, size_t elt_size, void * elt)
  * this API while the vector is growing in size.
  *  - If the new size is smaller than the current size, the content of the
  *  vector will be truncated.
+ * - Newly allocated memory is set to 0 (used by bitmap)
  */
 #define vector_resize(vector) _vector_resize((void**)&(vector), sizeof((vector)[0]), 0)
 

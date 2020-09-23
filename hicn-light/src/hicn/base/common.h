@@ -57,6 +57,6 @@ uint32_t __inline __builtin_clzll(uint64_t value) {
 #define __builtin_clzl __builtin_clzll
 #endif
 
-#define next_pow2(x) (x == 1 ? 1 : 1<<(64-__builtin_clzl(x-1)))
+#define next_pow2(x) (x == 1 ? 1 : 1ul <<(64-__builtin_clzl(x-1)))
 
 #endif /* UTIL_COMMON_H */
