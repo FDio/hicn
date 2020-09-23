@@ -13,14 +13,18 @@
  * limitations under the License.
  */
 
-#ifndef HICNLIGHT_CONTENT_STORE_LRU_H
-#define HICNLIGHT_CONTENT_STORE_LRU_H
+#ifndef HICNLIGHT_CS_LRU_H
+#define HICNLIGHT_CS_LRU_H
 
 typedef struct {
-    // This LRU is just for keeping track of insertion and access order.
-    //ListLru *lru;
-    void * lru;
-} content_store_lru_data_t;
+    off_t prev;
+    off_t next;
+} cs_entry_lru_state_t;
+
+typedef struct {
+    off_t head;
+    off_t tail;
+} cs_lru_state_t;
 
 typedef struct {
     uint64_t countExpiryEvictions;
@@ -29,6 +33,6 @@ typedef struct {
     uint64_t countAdds;
     uint64_t countHits;
     uint64_t countMisses;
-} content_store_lru_stats_t;
+} cs_lru_stats_t;
 
-#endif /* HICNLIGHT_CONTENT_STORE_LRU_H */
+#endif /* HICNLIGHT_CS_LRU_H */

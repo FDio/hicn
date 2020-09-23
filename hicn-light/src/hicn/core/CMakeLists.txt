@@ -26,8 +26,8 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/listener.h
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_table.h
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_vft.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/messagePacketType.h
   ${CMAKE_CURRENT_SOURCE_DIR}/msgbuf.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/msgbuf_pool.h
   ${CMAKE_CURRENT_SOURCE_DIR}/packet_cache.h
   ${CMAKE_CURRENT_SOURCE_DIR}/pit.h
   ${CMAKE_CURRENT_SOURCE_DIR}/prefix_stats.h
@@ -57,6 +57,7 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_vft.c
   ${CMAKE_CURRENT_SOURCE_DIR}/mapme.c
   ${CMAKE_CURRENT_SOURCE_DIR}/msgbuf.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/msgbuf_pool.c
   ${CMAKE_CURRENT_SOURCE_DIR}/nameBitvector.c
   ${CMAKE_CURRENT_SOURCE_DIR}/name.c
   ${CMAKE_CURRENT_SOURCE_DIR}/packet_cache.c

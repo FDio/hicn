@@ -18,11 +18,12 @@
  * \brief Nexthops
  */
 
-#ifndef HICN_NEXTHOPS_H
-#define HICN_NEXTHOPS_H
+#ifndef HICNLIGHT_NEXTHOPS_H
+#define HICNLIGHT_NEXTHOPS_H
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include <hicn/core/strategy.h>
 
@@ -151,4 +152,4 @@ nexthops_contains(nexthops_t * nexthops, unsigned nexthop)
 #define nexthops_select(nexthops, i) ((nexthops)->flags = 1 << (i))
 #define nexthops_select_one(nexthops) (nexthops_select((nexthops), 0))
 
-#endif /* HICN_NEXTHOPS_H */
+#endif /* HICNLIGHT_NEXTHOPS_H */

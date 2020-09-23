@@ -45,7 +45,7 @@
 #ifndef UTIL_VECTOR_H
 #define UTIL_VECTOR_H
 
-#include <stdbool.h>
+#include <stdint.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -58,7 +58,8 @@
 
 typedef struct {
     size_t cur_size; /** Vector current size (corresponding to the highest used element). */
-    size_t max_size; /** The currently allocated size. */
+    size_t alloc_size; /** The currently allocated size. */
+    size_t max_size; /** The maximum allowed size (0 = no limit) */
 } vector_hdr_t;
 
 /* Make sure elements following the header are aligned */
@@ -80,7 +81,7 @@ typedef struct {
  * @param[in] elt_size Size of a vector element.
  * @param[in] max_size Maximum vector size (O = unlimited).
  */
-void _vector_init(void ** vector_ptr, size_t elt_size, size_t max_size);
+void _vector_init(void ** vector_ptr, size_t elt_size, size_t init_size, size_t max_size);
 
 /**
  * @brief Free a vector data structure.
@@ -97,7 +98,7 @@ void _vector_free(void ** vector_ptr);
  * @param[in] pos The position at which the vector should be able to hold an
  * element.
  *
- * @return bool Flag indicating whether the vector has been correctly resized.
+ * @return int Flag indicating whether the vector has been correctly resized.
  *
  * NOTE:
  *  - The resize operation does not specify the final size of the vector but
@@ -105,7 +106,7 @@ void _vector_free(void ** vector_ptr);
  * position. This allows the caller not to care about doing successive calls to
  * this API while the vector is growing in size.
  */
-bool _vector_resize(void ** vector_ptr, size_t elt_size, off_t pos);
+int _vector_resize(void ** vector_ptr, size_t elt_size, off_t pos);
 
 /**
  * @brief Ensures a vector is sufficiently large to hold an element at the
@@ -115,7 +116,7 @@ bool _vector_resize(void ** vector_ptr, size_t elt_size, off_t pos);
  * @param[in] elt_size The size of a vector element.
  * @param[in] pos The position to validate.
  *
- * @return bool Flag indicating whether the vector is available.
+ * @return int Flag indicating whether the vector is available.
  *
  * NOTE:
  *  - This function should always be called before writing to a vector element
@@ -124,13 +125,13 @@ bool _vector_resize(void ** vector_ptr, size_t elt_size, off_t pos);
  *  be resized.
  */
 static inline
-bool
+int
 _vector_ensure_pos(void ** vector_ptr, size_t elt_size, off_t pos)
 {
     vector_hdr_t * vh = vector_hdr(*vector_ptr);
-    if (pos >= vh->max_size)
-        return _vector_resize(vector_ptr, elt_size, pos);
-    return true;
+    if (pos >= vh->alloc_size)
+        return _vector_resize(vector_ptr, elt_size, pos + 1);
+    return 0;
 }
 
 /**
@@ -146,15 +147,17 @@ _vector_ensure_pos(void ** vector_ptr, size_t elt_size, off_t pos)
  *  maximum size).
  */
 static inline
-bool
+int
 _vector_push(void ** vector_ptr, size_t elt_size, void * elt)
 {
     vector_hdr_t * vh = vector_hdr(*vector_ptr);
-    if (!_vector_ensure_pos(vector_ptr, elt_size, vh->cur_size))
-        return false;
-    /*(*vector_ptr)[vh->cur_size++] = elt; */
-    memcpy((uint8_t*)vector_ptr + vh->cur_size++ * elt_size, elt, elt_size);
-    return true;
+    if (_vector_ensure_pos(vector_ptr, elt_size, vh->cur_size) < 0)
+        return -1;
+    /* Always get header after a potential resize */
+    memcpy((uint8_t*)*vector_ptr + vh->cur_size * elt_size, elt, elt_size);
+    vh = vector_hdr(*vector_ptr);
+    vh->cur_size++;
+    return 0;
 }
 
 /******************************************************************************/
@@ -165,9 +168,13 @@ _vector_push(void ** vector_ptr, size_t elt_size, void * elt)
  *
  * @param[in,out] vector Vector to allocate and initialize.
  * @param[in] max_size Maximum vector size (nonzero).
+ *
+ * NOTE:
+ *  - Allocated memory is set to 0 (used by bitmap)
  */
-#define vector_init(vector, max_size) \
-    _vector_init((void**)&vector, sizeof(vector[0]), max_size)
+
+#define vector_init(vector, init_size, max_size) \
+    _vector_init((void**)&vector, sizeof(vector[0]), init_size, max_size)
 
 /**
  * @brief Free a vector data structure.
@@ -184,7 +191,7 @@ _vector_push(void ** vector_ptr, size_t elt_size, void * elt)
  * @param[in] pos The position at which the vector should be able to hold an
  * element.
  *
- * @return bool Flag indicating whether the vector has been correctly resized.
+ * @return int Flag indicating whether the vector has been correctly resized.
  *
  * NOTE:
  *  - The resize operation does not specify the final size of the vector but
@@ -193,6 +200,7 @@ _vector_push(void ** vector_ptr, size_t elt_size, void * elt)
  * this API while the vector is growing in size.
  *  - If the new size is smaller than the current size, the content of the
  *  vector will be truncated.
+ * - Newly allocated memory is set to 0 (used by bitmap)
  */
 #define vector_resize(vector) _vector_resize((void**)&(vector), sizeof((vector)[0]), 0)
 
@@ -241,6 +249,10 @@ do {                                                                    \
  *  - A user should always call vector_ensure_pos to ensure the vector is
  *  sufficiently large to hold an element at the specified position.
  */
-#define vector_len(vector) vector_hdr((vector))->cur_size
+#define vector_len(vector) vector_hdr(vector)->cur_size
+
+#ifdef WITH_TESTS
+#define vector_get_alloc_size(vector) vector_hdr(vector)->alloc_size
+#endif /* WITH_TESTS */
 
 #endif /* UTIL_VECTOR_H */

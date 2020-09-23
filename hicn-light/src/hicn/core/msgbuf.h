@@ -18,63 +18,83 @@
  * \brief hICN message buffer
  */
 
-#ifndef HICN_MSGBUF
-#define HICN_MSGBUF
+#ifndef HICNLIGHT_MSGBUF
+#define HICNLIGHT_MSGBUF
 
-#include <hicn/core/name.h>
-#include <hicn/core/ticks.h>
-#include <hicn/core/messageHandler.h>
+#include "name.h"
+#include "ticks.h"
+#include "messageHandler.h"
+#include "../utils/commands.h"
+
+struct name_s;
+
+#define MTU 1500
+#define INVALID_MSGBUF_ID ~0ul
+
+#define msgbuf_id_is_valid(msgbuf_id) (msgbuf_id != INVALID_MSGBUF_ID)
+
+#define foreach_type     \
+    _(UNDEFINED)                \
+    _(INTEREST)                 \
+    _(DATA)                     \
+    _(WLDR_NOTIFICATION)        \
+    _(MAPME)                    \
+    _(COMMAND)                  \
+    _(N)
+
+typedef enum {
+#define _(x) MSGBUF_TYPE_ ## x,
+    foreach_type
+#undef _
+} msgbuf_type_t;
 
 typedef struct {
-  Ticks receiveTime;
-  unsigned connection_id;
-  Name *name;
-  uint8_t *messageHead;
   unsigned length;
-  uint8_t packetType;
+  msgbuf_type_t type;
+  unsigned connection_id;
+  Ticks recv_ts;
+  unsigned refs;
+  union {
+    /* Interest or data packet */
+    struct {
+        struct name_s * name;
+    } id;
+    /* Command packet */
+    struct {
+        command_type_t type;
+    } command;
+  };
+  uint8_t packet[MTU];
 } msgbuf_t;
 
-#define msgbuf_from_packet(MSGBUF, PACKET, LENGTH, TYPE, CONNID, RECV_TIME)     \
-do {                                                                            \
-  *MSGBUF = (msgbuf_t) {                                                        \
-    .receiveTime = (RECV_TIME),                                                 \
-    .connection_id = (CONNID),                                                  \
-    .messageHead = (PACKET),                                                    \
-    .length = (LENGTH),                                                         \
-    .packetType = (TYPE),                                                       \
-    .name = (TYPE != MESSAGE_TYPE_WLDR_NOTIFICATION                             \
-        ? name_CreateFromPacket((PACKET), (TYPE))                               \
-        : NULL),                                                                \
-  };                                                                            \
-} while(0)
-
-#define msgbuf_get_name(M) ((M)->name)
+#define msgbuf_get_name(M) ((M)->id.name)
 #define msgbuf_get_connection_id(M) ((M)->connection_id)
-#define msgbuf_get_type(M) ((M)->packetType)
-#define msgbuf_has_wldr(M) (messageHandler_HasWldr((M)->messageHead))
+#define msgbuf_get_type(M) ((M)->type)
+#define msgbuf_has_wldr(M) (messageHandler_HasWldr((M)->packet))
 #define msgbuf_get_len(M) ((M)->length)
-#define msgbuf_get_packet(M) ((M)->messageHead)
+#define msgbuf_get_packet(M) ((M)->packet)
+#define msgbuf_get_command_type(M) ((M)->command.type)                          \
 
 // XXX TODO EXPLAIN THE CONSTANT
-#define msgbuf_get_interest_lifetime(M) (NSEC_TO_TICKS(messageHandler_GetInterestLifetime((M)->messageHead) * 1000000ULL))
+#define msgbuf_get_lifetime(M) (NSEC_TO_TICKS(messageHandler_GetInterestLifetime((M)->packet) * 1000000ULL))
 
-#define msgbuf_is_probe(M) messageHandler_IsAProbe((M)->messageHead)
+#define msgbuf_is_probe(M) messageHandler_IsAProbe((M)->packet)
 
 /* Path label */
 
-#define msgbuf_get_pathlabel(M) (messageHandler_GetPathLabel((M)->messageHead))
-#define msgbuf_set_pathlabel(M, label) (messageHandler_SetPathLabel((M)->messageHead, label))
-#define msgbuf_update_pathlabel(M, outface) (messageHandler_SetPathLabel((M)->messageHead, outface))
-#define msgbuf_reset_pathlabel(M) (messageHandler_ResetPathLabel((M)->messageHead))
+#define msgbuf_get_pathlabel(M) (messageHandler_GetPathLabel((M)->packet))
+#define msgbuf_set_pathlabel(M, label) (messageHandler_SetPathLabel((M)->packet, label))
+#define msgbuf_update_pathlabel(M, outface) (messageHandler_SetPathLabel((M)->packet, outface))
+#define msgbuf_reset_pathlabel(M) (messageHandler_ResetPathLabel((M)->packet))
 
 /* WLDR */
 
-#define msgbuf_reset_wldr_label(M) (messageHandler_ResetWldrLabel((M)->messageHead))
-#define msgbuf_get_wldr_label(M) (messageHandler_GetWldrLabel((M)->messageHead))
-#define msgbuf_get_wldr_expected_label(M) (messageHandler_GetWldrExpectedLabel((M)->messageHead))
-#define msgbuf_get_wldr_last_received(M) (messageHandler_GetWldrLastReceived((M)->messageHead))
-#define msgbuf_set_wldr_label(M, label) (messageHandler_GetWldrLabel((M)->messageHead, label))
+#define msgbuf_reset_wldr_label(M) (messageHandler_ResetWldrLabel((M)->packet))
+#define msgbuf_get_wldr_label(M) (messageHandler_GetWldrLabel((M)->packet))
+#define msgbuf_get_wldr_expected_label(M) (messageHandler_GetWldrExpectedLabel((M)->packet))
+#define msgbuf_get_wldr_last_received(M) (messageHandler_GetWldrLastReceived((M)->packet))
+#define msgbuf_set_wldr_label(M, label) (messageHandler_GetWldrLabel((M)->packet, label))
 
-#endif /* HICN_MSGBUF */
+#endif /* HICNLIGHT_MSGBUF */
 
 

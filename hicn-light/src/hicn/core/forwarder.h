@@ -18,8 +18,8 @@
  * only be called within the forwarders thread of execution.
  */
 
-#ifndef forwarder_h
-#define forwarder_h
+#ifndef HICNLIGHT_FORWARDER_H
+#define HICN_LIGHT_FORWARDER_H
 
 //#ifndef _WIN32
 //#include <sys/time.h>
@@ -34,6 +34,7 @@
 #include <hicn/core/connection.h>
 #include <hicn/core/connection_table.h>
 #include <hicn/core/listener_table.h>
+#include <hicn/core/msgbuf_pool.h>
 
 #include <hicn/config/configuration.h>
 
@@ -46,27 +47,12 @@
 
 #include <hicn/utils/commands.h>
 
-#define MAX_MSG 64 //16 //32
-#define MTU 1500
-
-
-typedef struct batch_buffer_s {
-  /* sendmmsg / recvmmsg data structures */
-  struct mmsghdr msghdr[MAX_MSG]; // XXX = {0};
-  char buffers[MAX_MSG][MTU];
-  struct iovec iovecs[MAX_MSG]; // XXX = {0};
-  struct sockaddr_storage addrs[MAX_MSG];
-} batch_buffer_t;
-
-int init_batch_buffers(batch_buffer_t * bb);
-
 // ==============================================
 
 typedef struct forwarder_s forwarder_t;
 
 /**
- * @function forwarder_Create
- * @abstract Create the forwarder and use the provided logger for diagnostic
+ * @brief Create the forwarder and use the provided logger for diagnostic
  * output
  * @discussion
  *   If the logger is null, hicn-light will create a STDOUT logger.
@@ -76,14 +62,12 @@ typedef struct forwarder_s forwarder_t;
 forwarder_t * forwarder_create();
 
 /**
- * @function forwarder_Destroy
- * @abstract Destroys the forwarder, stopping all traffic and freeing all memory
+ * @brief Destroys the forwarder, stopping all traffic and freeing all memory
  */
 void forwarder_free(forwarder_t * forwarder);
 
 /**
- * @function forwarder_SetupAllListeners
- * @abstract Setup all listeners (tcp, udp, local, ether, ip multicast) on all
+ * @brief Setup all listeners (tcp, udp, local, ether, ip multicast) on all
  * interfaces
  * @discussion
  *   Sets up all listeners on all running interfaces.  This provides a quick and
@@ -97,8 +81,7 @@ void forwarder_free(forwarder_t * forwarder);
 void forwarder_setup_all_listeners(forwarder_t * forwarder, uint16_t port, const
         char *local_path);
 /**
- * @function forwarder_SetupAllListeners
- * @abstract Setup one tcp and one udp listener on address 127.0.0.1 and the
+ * @brief Setup one tcp and one udp listener on address 127.0.0.1 and the
  * given port
  */
 void forwarder_setup_local_listeners(forwarder_t * forwarder, uint16_t port);
@@ -110,14 +93,13 @@ void forwarder_setup_local_listeners(forwarder_t * forwarder, uint16_t port);
  * You need to have "add listener" lines in the file to receive connections.  No
  * default listeners are configured.
  *
- * @param [in] forwarder An alloated forwarder_t
- * @param [in] filename The path to the configuration file
+ * @param[in] forwarder An alloated forwarder_t
+ * @param[in] filename The path to the configuration file
  */
 void forwarder_read_config(forwarder_t * forwarder, const char * filename);
 
 /**
- * @function forwarder_GetConfiguration
- * @abstract The configuration object
+ * @brief The configuration object
  * @discussion
  *   The configuration contains all user-issued commands.  It does not include
  * dynamic state.
@@ -127,7 +109,7 @@ configuration_t * forwarder_get_configuration(forwarder_t * forwarder);
 /**
  * Returns the set of currently active listeners
  *
- * @param [in] forwarder An allocated hicn-light forwarder
+ * @param[in] forwarder An allocated hicn-light forwarder
  *
  * @retval non-null The set of active listeners
  * @retval null An error
@@ -137,7 +119,7 @@ listener_table_t * forwarder_get_listener_table(forwarder_t *forwarder);
 /**
  * Returns the forwrder's connection table
  *
- * @param [in] forwarder An allocated hicn-light forwarder
+ * @param[in] forwarder An allocated hicn-light forwarder
  *
  * @retval non-null The connection tabler
  * @retval null An error
@@ -145,54 +127,46 @@ listener_table_t * forwarder_get_listener_table(forwarder_t *forwarder);
  */
 connection_table_t * forwarder_get_connection_table(const forwarder_t *forwarder);
 
-void forwarder_content_store_set_store(forwarder_t * forwarder, bool val);
+void forwarder_cs_set_store(forwarder_t * forwarder, bool val);
 
-bool forwarder_content_store_get_store(forwarder_t * forwarder);
+bool forwarder_cs_get_store(forwarder_t * forwarder);
 
-void forwarder_content_store_set_serve(forwarder_t * forwarder, bool val);
+void forwarder_cs_set_serve(forwarder_t * forwarder, bool val);
 
-bool forwarder_content_store_get_serve(forwarder_t * forwarder);
+bool forwarder_cs_get_serve(forwarder_t * forwarder);
 
 /**
  * Sets the maximum number of content objects in the content store
  *
  * Implementation dependent - may wipe the cache.
  */
-void forwarder_content_store_set_size(forwarder_t * forwarder, size_t size);
+void forwarder_cs_set_size(forwarder_t * forwarder, size_t size);
 
-void forwarder_content_store_clear(forwarder_t *forwarder);
+void forwarder_cs_clear(forwarder_t *forwarder);
 
-void forwarder_receive_command(forwarder_t * forwarder, command_type_t command_type,
-        uint8_t * packet, unsigned connection_id);
-
-void forwarder_receive(forwarder_t * forwarder, msgbuf_t * message);
+ssize_t forwarder_receive_command(forwarder_t * forwarder, msgbuf_t * msgbuf);
 
 /**
- * @function forwarder_add_or_update_route
- * @abstract Adds or updates a route on all the message processors
+ * @brief Adds or updates a route on all the message processors
  */
 bool forwarder_add_or_update_route(forwarder_t * forwarder,
         ip_prefix_t * prefix, unsigned ingress_id);
 
 /**
- * @function forwarder_remove_route
- * @abstract Removes a route from all the message processors
+ * @brief Removes a route from all the message processors
  */
 bool forwarder_remove_route(forwarder_t * forwarder, ip_prefix_t * prefix,
         unsigned ingress_id);
 
 #ifdef WITH_POLICY
 /**
- * @function forwarder_add_or_update_policy
- * @abstract Adds or updates a policy on the message processor
+ * @brief Adds or updates a policy on the message processor
  */
 bool forwarder_add_or_update_policy(forwarder_t * forwarder,
         ip_prefix_t * prefix, policy_t * policy);
 
-
 /**
- * @function forwarder_RemovePolicy
- * @abstract Removes a policy from the message processor
+ * @brief Removes a policy from the message processor
  */
 bool forwarder_remove_policy(forwarder_t * forwarder, ip_prefix_t * prefix);
 
@@ -207,37 +181,42 @@ void forwarder_remove_connection_id_from_routes(forwarder_t * forwarder,
 void forwarder_set_strategy(forwarder_t * forwarder, Name * name_prefix,
         strategy_type_t strategy_type, strategy_options_t * strategy_options);
 
-content_store_t * forwarder_get_content_store(const forwarder_t * forwarder);
+cs_t * forwarder_get_cs(const forwarder_t * forwarder);
 
 
 /**
- * @function forwarder_getFib
- * @abstract Returns the hICN forwarder's FIB.
- * @param [in] forwarder - Pointer to the hICN forwarder.
+ * @brief Returns the forwarder's FIB.
+ * @param[in] forwarder - Pointer to the forwarder.
  * @returns Pointer to the hICN FIB.
  */
 fib_t * forwarder_get_fib(forwarder_t * forwarder);
 
+/**
+ * @brief Return the forwarder packet pool.
+ * @param[in] forwarder The forwarder from which to retrieve the packet
+ * pool.
+ * @return msgbuf_pool_t * The forwarder packet pool.
+ */
+msgbuf_pool_t * forwarder_get_msgbuf_pool(const forwarder_t * forwarder);
+
 #ifdef WITH_MAPME
 
 /**
- * @function forwarder_onConnectionEvent
- * @abstract Callback fired upon addition of a new connection through the
+ * @brief Callback fired upon addition of a new connection through the
  *   control protocol.
- * @param [in] forwarder - Pointer to the hICN forwarder.
- * @param [in] conn - Pointer to the newly added connection.
- * @param [in] event - Connection event
+ * @param[in] forwarder - Pointer to the forwarder.
+ * @param[in] conn - Pointer to the newly added connection.
+ * @param[in] event - Connection event
  */
 void forwarder_on_connection_event(const forwarder_t * forwarder,
         const connection_t * connection, connection_event_t event);
 
 /**
- * @function forwarder_ProcessMapMe
- * @abstract Callback fired by an hICN listener upon reception of a MAP-Me
+ * @brief Callback fired by an hICN listener upon reception of a MAP-Me
  *      message.
- * @param [in] forwarder - Pointer to the hICN forwarder.
- * @param [in] msgBuffer - MAP-Me buffer
- * @param [in] conn_id - Ingress connection id
+ * @param[in] forwarder - Pointer to the forwarder.
+ * @param[in] msgBuffer - MAP-Me buffer
+ * @param[in] conn_id - Ingress connection id
  */
 void forwarder_process_mapme(const forwarder_t * forwarder, const uint8_t * packet,
         unsigned conn_id);
@@ -250,7 +229,15 @@ struct mapme_s * forwarder_get_mapme(const forwarder_t * forwarder);
 const prefix_stats_mgr_t * forwarder_get_prefix_stats_mgr(const forwarder_t * forwarder);
 #endif /* WITH_PREFIX_STATS */
 
-void process_packet(forwarder_t * forwarder, listener_t * listener,
-        uint8_t * packet, size_t size, address_pair_t * pair);
+void forwarder_flush_connections(forwarder_t * forwarder);
 
-#endif  // forwarder_h
+/**
+ * @brief Handles a newly received packet from a listener.
+ *
+ * NOTE: the received msgbuf is incomplete and only holds the packet content and
+ * size/
+ */
+ssize_t forwarder_receive(forwarder_t * forwarder, listener_t * listener,
+        off_t msgbuf_id, address_pair_t * pair, Ticks now);
+
+#endif // HICN_LIGHT_FORWARDER_H
