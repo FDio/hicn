@@ -58,7 +58,6 @@ typedef struct {
     void * index_by_expiry_time;
 #endif
 
-    const msgbuf_pool_t * msgbuf_pool;
     void * data; // per cs type data
     void * options;
 
@@ -96,13 +95,13 @@ void cs_free(cs_t * cs);
 
 void cs_clear(cs_t * cs);
 
-off_t cs_match(cs_t * cs, off_t msgbuf_id, uint64_t now);
+off_t cs_match(cs_t * cs, msgbuf_pool_t * msgbuf_pool, off_t msgbuf_id, uint64_t now);
 
-cs_entry_t * cs_add(cs_t * cs, off_t msgbuf_id, uint64_t now);
+cs_entry_t * cs_add(cs_t * cs, msgbuf_pool_t * msgbuf_pool, off_t msgbuf_id, uint64_t now);
 
-int cs_remove_entry(cs_t * cs, cs_entry_t * entry);
+int cs_remove_entry(cs_t * cs, msgbuf_pool_t * msgbuf_pool, cs_entry_t * entry);
 
-bool cs_remove(cs_t * cs, msgbuf_t * msgbuf);
+bool cs_remove(cs_t * cs, msgbuf_pool_t * msgbuf_pool, msgbuf_t * msgbuf);
 
 #define cs_size(content_store) (pool_len(cs->entries))
 
@@ -111,13 +110,6 @@ void cs_purge_entry(cs_t * cs, cs_entry_t * entry);
 #define cs_get_entry_id(cs, entry) (entry - cs->entries)
 
 #define cs_entry_at(cs, id) (&(cs)->entries[id])
-
-static inline
-const msgbuf_pool_t *
-cs_get_msgbuf_pool(const cs_t * cs)
-{
-    return cs->msgbuf_pool;
-}
 
 typedef struct {
 

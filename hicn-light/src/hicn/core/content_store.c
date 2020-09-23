@@ -112,11 +112,10 @@ void cs_clear(cs_t * cs)
 }
 
 off_t
-cs_match(cs_t * cs, off_t msgbuf_id, uint64_t now)
+cs_match(cs_t * cs, msgbuf_pool_t * msgbuf_pool, off_t msgbuf_id, uint64_t now)
 {
     assert(cs);
 
-    const msgbuf_pool_t * msgbuf_pool = cs_get_msgbuf_pool(cs);
     const msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
     assert(msgbuf);
@@ -133,7 +132,7 @@ cs_match(cs_t * cs, off_t msgbuf_id, uint64_t now)
     if (cs_entry_has_expiry_time(entry) &&
             cs_entry_get_expiry_time(entry) < now) {
         // the entry is expired, we can remove it
-        cs_remove_entry(cs, entry);
+        cs_remove_entry(cs, msgbuf_pool, entry);
         goto NOT_FOUND;
     }
 
@@ -160,7 +159,7 @@ NOT_FOUND:
 #define msgbuf_acquire(x) (x)
 
 cs_entry_t *
-cs_add(cs_t * cs, off_t msgbuf_id, uint64_t now)
+cs_add(cs_t * cs, msgbuf_pool_t * msgbuf_pool, off_t msgbuf_id, uint64_t now)
 {
     assert(cs);
     assert(msgbuf_id_is_valid(msgbuf_id));
@@ -235,7 +234,7 @@ ERR_ENTRY:
 }
 
 int
-cs_remove_entry(cs_t * cs, cs_entry_t * entry)
+cs_remove_entry(cs_t * cs, msgbuf_pool_t * msgbuf_pool, cs_entry_t * entry)
 {
     assert(cs);
     assert(entry);
@@ -245,7 +244,6 @@ cs_remove_entry(cs_t * cs, cs_entry_t * entry)
 
     off_t msgbuf_id = cs_entry_get_msgbuf_id(entry);
 
-    const msgbuf_pool_t * msgbuf_pool = cs_get_msgbuf_pool(cs);
     const msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
     khiter_t k = kh_get_cs_name(cs->index_by_name, msgbuf_get_name(msgbuf));
@@ -263,7 +261,7 @@ cs_remove_entry(cs_t * cs, cs_entry_t * entry)
 //
 // XXX TODO what is the difference between purge and remove ?
 bool
-cs_remove(cs_t * cs, msgbuf_t * msgbuf)
+cs_remove(cs_t * cs, msgbuf_pool_t * msgbuf_pool, msgbuf_t * msgbuf)
 {
     assert(cs);
     assert(msgbuf);
@@ -277,7 +275,7 @@ cs_remove(cs_t * cs, msgbuf_t * msgbuf)
     cs_entry_t * entry = cs->entries + kh_val(cs->index_by_name, k);
     assert(entry);
 
-    cs_remove_entry(cs, entry);
+    cs_remove_entry(cs, msgbuf_pool, entry);
     return true;
 }
 

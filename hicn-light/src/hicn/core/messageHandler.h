@@ -551,7 +551,7 @@ static inline uint8_t * messageHandler_CreateProbePacket(hicn_format_t format,
   size_t header_length;
   hicn_packet_get_header_length_from_format(format, &header_length);
 
-  uint8_t *pkt = calloc(header_length, 1);
+  uint8_t *pkt = (uint8_t *) calloc(header_length, 1);
 
   hicn_packet_init_header(format, (hicn_header_t *) pkt);
 
@@ -584,7 +584,7 @@ static inline void messageHandler_CreateProbeReply(uint8_t * probe,
 }
 
 static inline hicn_name_t * messageHandler_CreateProbeName(const ip_prefix_t *address){
-  hicn_name_t * name = calloc(sizeof(hicn_name_t), 1);
+  hicn_name_t * name = (hicn_name_t *) calloc(sizeof(hicn_name_t), 1);
   hicn_name_create_from_ip_prefix(address, 0, name);
   return name;
 }

@@ -96,12 +96,11 @@ pit_free(pit_t * pit)
 }
 
 pit_verdict_t
-pit_on_interest(pit_t * pit, off_t msgbuf_id)
+pit_on_interest(pit_t * pit, msgbuf_pool_t * msgbuf_pool, off_t msgbuf_id)
 {
     assert(pit);
     assert(msgbuf_id_is_valid(msgbuf_id));
 
-    const msgbuf_pool_t * msgbuf_pool = pit_get_msgbuf_pool(pit);
     const msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
     assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
 
@@ -175,12 +174,11 @@ NOT_FOUND:
 }
 
 nexthops_t *
-pit_on_data(pit_t * pit, off_t msgbuf_id)
+pit_on_data(pit_t * pit, msgbuf_pool_t * msgbuf_pool, off_t msgbuf_id)
 {
     assert(pit);
     assert(msgbuf_id_is_valid(msgbuf_id));
 
-    const msgbuf_pool_t * msgbuf_pool = pit_get_msgbuf_pool(pit);
     const msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
     assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA);
 
@@ -219,12 +217,11 @@ NOT_FOUND:
 }
 
 void
-pit_remove(pit_t * pit, off_t msgbuf_id)
+pit_remove(pit_t * pit, msgbuf_pool_t * msgbuf_pool, off_t msgbuf_id)
 {
     assert(pit);
     assert(msgbuf_id_is_valid(msgbuf_id));
 
-    const msgbuf_pool_t * msgbuf_pool = pit_get_msgbuf_pool(pit);
     const msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
     assert(msgbuf);

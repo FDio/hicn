@@ -658,7 +658,7 @@ _satisfy_from_cs(forwarder_t * forwarder, off_t msgbuf_id)
     assert(forwarder);
     assert(msgbuf_id_is_valid(msgbuf_id));
 
-    const msgbuf_pool_t * msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
+    msgbuf_pool_t * msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
     const msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
     assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
@@ -670,14 +670,14 @@ _satisfy_from_cs(forwarder_t * forwarder, off_t msgbuf_id)
         return false;
 
     // See if there's a match in the store.
-    off_t data_msgbuf_id = cs_match(forwarder_get_cs(forwarder), msgbuf_id,
+    off_t data_msgbuf_id = cs_match(forwarder_get_cs(forwarder), msgbuf_pool, msgbuf_id,
             ticks_now());
 
     if (msgbuf_id_is_valid(data_msgbuf_id))
         return false;
 
     // Remove it from the PIT.  nexthops is allocated, so need to destroy
-    nexthops_t * nexthops = pit_on_data(forwarder->pit, data_msgbuf_id);
+    nexthops_t * nexthops = pit_on_data(forwarder->pit, msgbuf_pool, data_msgbuf_id);
     assert(nexthops); // Illegal state: got a null nexthops for an interest we just inserted
 
     // send message in reply, then done
@@ -711,7 +711,7 @@ forwarder_process_interest(forwarder_t * forwarder, off_t msgbuf_id)
     assert(forwarder);
     assert(msgbuf_id_is_valid(msgbuf_id));
 
-    const msgbuf_pool_t * msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
+    msgbuf_pool_t * msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
     const msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
     assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
@@ -726,7 +726,7 @@ forwarder_process_interest(forwarder_t * forwarder, off_t msgbuf_id)
 
 
     // (1) Try to aggregate in PIT
-    pit_verdict_t verdict = pit_on_interest(forwarder->pit, msgbuf_id);
+    pit_verdict_t verdict = pit_on_interest(forwarder->pit, msgbuf_pool, msgbuf_id);
     switch(verdict) {
         case PIT_VERDICT_AGGREGATE:
             forwarder->stats.countInterestsAggregated++;
@@ -781,7 +781,7 @@ static
 ssize_t
 forwarder_process_data(forwarder_t * forwarder, off_t msgbuf_id)
 {
-    const msgbuf_pool_t * msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
+    msgbuf_pool_t * msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
     const msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
     char *nameString = name_ToString(msgbuf_get_name(msgbuf));
@@ -792,7 +792,7 @@ forwarder_process_data(forwarder_t * forwarder, off_t msgbuf_id)
     forwarder->stats.countReceived++;
     forwarder->stats.countObjectsReceived++;
 
-    nexthops_t * ingressSetUnion = pit_on_data(forwarder->pit, msgbuf_id);
+    nexthops_t * ingressSetUnion = pit_on_data(forwarder->pit, msgbuf_pool, msgbuf_id);
     if (!ingressSetUnion) {
         // (1) If it does not match anything in the PIT, drop it
         forwarder->stats.countDroppedNoReversePath++;
@@ -822,7 +822,7 @@ forwarder_process_data(forwarder_t * forwarder, off_t msgbuf_id)
         const connection_t *  conn = connection_table_get_by_id(table, msgbuf_get_connection_id(msgbuf));
 
         if (forwarder->store_in_cs && connection_is_local(conn)) {
-            cs_add(forwarder->cs, msgbuf_id, ticks_now());
+            cs_add(forwarder->cs, msgbuf_pool, msgbuf_id, ticks_now());
             DEBUG("Message %p store in CS anyway", msgbuf);
         }
 
@@ -831,7 +831,7 @@ forwarder_process_data(forwarder_t * forwarder, off_t msgbuf_id)
         // (2) Add to Content Store. Store may remove expired content, if necessary,
         // depending on store policy.
         if (forwarder->store_in_cs) {
-            cs_add(forwarder->cs, msgbuf_id, ticks_now());
+            cs_add(forwarder->cs, msgbuf_pool, msgbuf_id, ticks_now());
         }
         // (3) Reverse path forward via PIT entries
         return forwarder_forward_to_nexthops(forwarder, msgbuf_id, ingressSetUnion);
@@ -1123,7 +1123,7 @@ forwarder_receive(forwarder_t * forwarder, listener_t * listener,
     assert(msgbuf_id_is_valid(msgbuf_id));
     assert(pair);
 
-    const msgbuf_pool_t * msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
+    msgbuf_pool_t * msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
     msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
     assert(msgbuf);
