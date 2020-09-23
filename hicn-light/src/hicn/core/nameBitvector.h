@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <hicn/core/address.h>
+#include "address.h"
 
 struct name_bitvector;
 typedef struct name_bitvector NameBitvector;

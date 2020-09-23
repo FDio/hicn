@@ -3115,3 +3115,46 @@ hc_policy_snprintf(char * s, size_t size, hc_policy_t * policy)
 }
 
 #endif /* WITH_POLICY */
+
+const char * action_str[] = {
+#define _(x) [ACTION_ ## x] = #x,
+    foreach_action
+#undef _
+};
+
+hc_action_t
+action_from_str(const char * action_str)
+{
+#define _(x)                                    \
+    if (strcasecmp(action_str, # x) == 0)       \
+        return ACTION_ ## x;                    \
+    else
+    foreach_action
+#undef _
+    if (strcasecmp(action_str, "add") == 0)
+        return ACTION_CREATE;
+    else
+    if (strcasecmp(action_str, "remove") == 0)
+        return ACTION_DELETE;
+    else
+        return ACTION_UNDEFINED;
+}
+
+const char * object_str[] = {
+#define _(x) [OBJECT_ ## x] = #x,
+    foreach_object
+#undef _
+};
+
+hc_object_type_t
+object_from_str(const char * object_str)
+{
+#define _(x)                                    \
+    if (strcasecmp(object_str, # x) == 0)       \
+        return OBJECT_ ## x;                    \
+    else
+    foreach_object
+#undef _
+        return OBJECT_UNDEFINED;
+}
+
