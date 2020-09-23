@@ -27,9 +27,11 @@
 #include <stdint.h>
 
 #include <hicn/hicn.h>
-#include <hicn/core/connection.h>
-#include <hicn/utils/commands.h>
-#include <hicn/core/fib_entry.h>
+
+#include "connection.h"
+#include "fib_entry.h"
+#include "msgbuf.h"
+#include "../utils/commands.h"
 
 typedef struct mapme_s mapme_t;
 
@@ -64,7 +66,7 @@ bool mapme_match_packet(const uint8_t *msgBuffer);
  * @param [in] message - MAP-Me buffer
  * @param [in] conn_id - Ingress connection id
  */
-void mapme_process(mapme_t *mapme, uint8_t * packet, unsigned conn_id);
+void mapme_process(mapme_t *mapme, msgbuf_t * msgbuf);
 
 int mapme_send_to_nexthop(const mapme_t * mapme, fib_entry_t * fib_entry, unsigned nexthop);
 
@@ -116,10 +118,6 @@ void mapme_on_connection_event(const mapme_t *mapme, const connection_t * conn,
  */
 nexthops_t * mapme_get_nexthops(const mapme_t *mapme, fib_entry_t *fib_entry,
                              const msgbuf_t *interest);
-
-hicn_mapme_type_t mapme_PktType_To_LibHicnPktType(MessagePacketType type);
-
-MessagePacketType mapme_LibHicnPktType_To_PktType(hicn_mapme_type_t type);
 
 #endif /* WITH_MAPME */
 

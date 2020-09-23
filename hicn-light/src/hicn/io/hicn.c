@@ -26,16 +26,17 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <hicn/core/listener.h>
-#include <hicn/core/listener_vft.h>
-#include <hicn/core/connection.h>
-#include <hicn/core/connection_vft.h>
-#include <hicn/core/connection_table.h>
-#include <hicn/core/forwarder.h>
-#include <hicn/core/mapme.h>
-#include <hicn/core/messagePacketType.h>
-#include <hicn/socket/api.h>
 #include <hicn/util/log.h>
+
+#include "base.h"
+#include "../core/listener.h"
+#include "../core/listener_vft.h"
+#include "../core/connection.h"
+#include "../core/connection_vft.h"
+#include "../core/connection_table.h"
+#include "../core/forwarder.h"
+#include "../core/mapme.h"
+#include "../socket/api.h"
 
 #define IPv6 6
 #define IPv4 4
@@ -242,65 +243,7 @@ typedef struct {
 
 } listener_hicn_data_t;
 
-static
-void
-listener_hicn_read_callback(listener_t * listener, int fd, void * data)
-{
-    assert(listener);
-    assert(!data); /* No user data */
-    uint8_t packet[MTU_SIZE];
-
-    int family = address_family(&listener->address);
-    if ((family != AF_INET) && (family != AF_INET6)) {
-        /*
-         * We need to discard the frame.  Read 1 byte.  This will clear it off
-         * the stack.
-         */
-        int nread = read(fd, packet, 1);
-
-        if (nread > 0) {
-            DEBUG("Discarded frame from fd %d", fd);
-        } else if (nread < 0) {
-            ERROR("Error trying to discard frame from fd %d: (%d) %s", fd, errno,
-                    strerror(errno));
-        }
-        return;
-    }
-
-#if 0
-    if (!(what & PARCEventType_Read))
-        return;
-#endif
-
-    ssize_t n = read(fd, packet, MTU_SIZE);
-    if (n < 0) {
-        ERROR("read failed %d: (%d) %s", fd, errno, strerror(errno));
-        return;
-    }
-
-#if 0
-    address_t packet_addr;
-    if (_createAddressFromPacket(packet, &packet_addr) < 0)
-        return;
-
-    address_pair_t pair_find = {
-        .local = packet_addr,
-        .remote = /* dummy */ hicn->localAddress,
-    };
-    const Connection *conn = _lookupConnection(listener, &pair_find);
-    if (!conn) {
-        address_pair_t pair = {
-            .local = hicn->localAddress,
-            .remote = packet_addr,
-        };
-        connid = _createNewConnection(listener, fd, &pair);
-    } else {
-        connid = connection_GetConnectionId(conn);
-    }
-#endif
-
-    listener_read_callback(listener->forwarder, listener, fd, &listener->address, packet, n);
-}
+#define listener_hicn_read_callback listener_read_callback
 
 bool
 listener_hicn_bind(listener_t * listener, const address_t * address)
@@ -426,13 +369,17 @@ listener_hicn_get_socket(const listener_t * listener, const address_t * local,
 {
     assert(listener);
     assert(listener_get_type(listener) == FACE_TYPE_HICN);
-    // assert(pair);
+    assert(local);
+    assert(remote);
 
     /* ... */
 
     return -1;
 
 }
+
+#define listener_hicn_read_single io_read_single_fd
+#define listener_hicn_read_batch NULL
 
 DECLARE_LISTENER(hicn);
 
@@ -503,20 +450,12 @@ static
 int
 connection_hicn_send_packet(const connection_t * connection, const uint8_t * packet, size_t size)
 {
-    // assert(ops);
+    assert(connection);
     assert(packet);
 
     /* ... */
 
     return 0;
-}
-
-static
-void
-connection_hicn_read_callback(connection_t * connection, int fd, void * data)
-{
-    ERROR("Unexpected read callback for hicn connection");
-    return;
 }
 
 DECLARE_CONNECTION(hicn);

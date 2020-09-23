@@ -27,19 +27,19 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <hicn/core/connection.h>
-#include <hicn/core/connection_vft.h>
-#include <hicn/core/listener.h>
-#include <hicn/core/listener_vft.h>
-#include <hicn/core/msgbuf.h>
-#include <hicn/core/forwarder.h>
-
-#include <hicn/core/messageHandler.h>
-
-#include <hicn/utils/commands.h>
+#include <hicn/hicn.h>
 #include <hicn/util/log.h>
 
-#include <hicn/hicn.h>
+#include "base.h"
+#include "../core/connection.h"
+#include "../core/connection_vft.h"
+#include "../core/listener.h"
+#include "../core/listener_vft.h"
+#include "../core/msgbuf.h"
+#include "../core/forwarder.h"
+#include "../core/messageHandler.h"
+#include "../utils/commands.h"
+
 // 128 KB output queue
 #define OUTPUT_QUEUE_BYTES (128 * 1024)
 
@@ -93,13 +93,8 @@ listener_tcp_get_socket(const listener_t * listener, const address_t * local,
 
 }
 
-static
-void
-listener_tcp_read_callback(listener_t * listener, int fd, void * data)
-{
-    ERROR("[listener_tcp_read_callback] Not implemented");
-
-}
+#define listener_tcp_read_single io_read_single_socket
+#define listener_tcp_read_batch NULL
 
 DECLARE_LISTENER(tcp);
 
@@ -324,11 +319,10 @@ connection_tcp_sendv(connnection_t * connection, struct iovec * iov,
 // XXX too much repeated code with sendv here
 static
 int
-connection_tcp_send(const connection_t * connection, //const address_t * address,
-        msgbuf_t * msgbuf, bool queue)
+connection_tcp_send(const connection_t * connection, msgbuf_t * msgbuf,
+        bool queue)
 {
     assert(connection);
-    // assert(address);
     /* msgbuf can be NULL */
 
     /* No need to flush */
@@ -459,12 +453,13 @@ ERR:
  * @param <#param1#>
  * @return <#return#>
  */
+#if 0
 static
 void
 connection_tcp_read_callback(connection_t * connection, int fd, void * user_data)
 {
-    // assert(!!(what & PARCEventType_Read));
     assert(connection);
+    /* user_data can be NULL */
 
     connection_tcp_data_t * data = connection->data;
     assert(RECV_BUFLEN - data->woff > MTU);
@@ -487,7 +482,7 @@ connection_tcp_read_callback(connection_t * connection, int fd, void * user_data
         uint8_t * packet = data->buf + data->roff;
         size_t size = data->woff - data->roff; /* > 0 */
 
-        ssize_t used = listener_read_callback(connection->forwarder, NULL, fd,
+        ssize_t used = listener_read_callback(NULL, fd,
                 address_pair_get_local(&connection->pair), packet, size);
         if (used < 0)
             return; // XXX close connection ?
@@ -517,6 +512,7 @@ connection_tcp_read_callback(connection_t * connection, int fd, void * user_data
 
     return;
 }
+#endif
 
 #if 0
 static

@@ -87,6 +87,7 @@ typedef struct {
 #define connection_get_name(C) ((C)->name)
 #define connection_get_type(C) ((C)->type)
 #define connection_has_valid_id(C) (connection_id_is_valid(connection_get_id(C)))
+#define connection_has_valid_type(C) (face_type_is_valid(connection_get_type(C)))
 #define connection_get_pair(C) (&(C)->pair)
 #define connection_get_local(C) (address_pair_local(connection_get_pair(C)))
 #define connection_get_remote(C) (address_pair_remote(connection_get_pair(C)))
@@ -191,6 +192,8 @@ int connection_finalize(connection_t * connection);
 int connection_send_packet(const connection_t * connection,
         const uint8_t * packet, size_t size);
 
+bool connection_flush(const connection_t * connection);
+
 bool connection_send(const connection_t * connection, msgbuf_t * msgbuf,
         bool queue);
 
@@ -200,14 +203,14 @@ size_t connection_process_buffer(connection_t * connection, const uint8_t * buff
 
 void connection_wldr_allow_autostart(connection_t * connection, bool value);
 
-bool connection_wldr_autostart_is_allowed(connection_t * connection);
+bool connection_wldr_autostart_is_allowed(const connection_t * connection);
 
 void connection_wldr_enable(connection_t * connection, bool value);
 
 bool connection_has_wldr(const connection_t * connection);
 
-void connection_wldr_detect_losses(const connection_t * connection, msgbuf_t * msgbuf);
+void connection_wldr_detect_losses(const connection_t * connection, const msgbuf_t * msgbuf);
 
-void connection_wldr_handle_notification(const connection_t * connection, msgbuf_t * msgbuf);
+void connection_wldr_handle_notification(const connection_t * connection, const msgbuf_t * msgbuf);
 
 #endif /* HICNLIGHT_CONNECTION_H */

@@ -51,8 +51,8 @@
 #define DEFAULT_COST 1
 #define DEFAULT_PORT 1234
 
-#define make_ack(msg)  msg->header.messageType =  ACK_LIGHT
-#define make_nack(msg) msg->header.messageType = NACK_LIGHT
+#define make_ack(msg)  ((msg_header_t *)msg)->header.messageType =  ACK_LIGHT
+#define make_nack(msg) ((msg_header_t *)msg)->header.messageType = NACK_LIGHT
 
 #define msg_malloc_list(msg, N)                                         \
 do {                                                                    \
@@ -224,7 +224,7 @@ configuration_on_listener_add(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -291,7 +291,7 @@ configuration_on_listener_remove(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -348,7 +348,7 @@ configuration_on_listener_list(configuration_t * config, uint8_t * packet,
     msg_listener_list_reply_t * msg;
     msg_malloc_list(msg, n)
     if (!msg)
-        return NULL;
+        goto NACK;
 
     cmd_listener_list_item_t * payload = &msg->payload;
     listener_t * listener;
@@ -357,6 +357,10 @@ configuration_on_listener_list(configuration_t * config, uint8_t * packet,
         payload++;
     });
 
+    return (uint8_t*)msg;
+
+NACK:
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -435,7 +439,7 @@ configuration_on_connection_add(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -488,7 +492,7 @@ configuration_on_connection_remove(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -578,7 +582,7 @@ configuration_on_connection_list(configuration_t * config, uint8_t * packet,
     msg_connection_list_reply_t * msg;
     msg_malloc_list(msg, n)
     if (!msg)
-        return NULL;
+        goto NACK;
 
     cmd_connection_list_item_t * payload = &msg->payload;
     connection_t * connection;
@@ -587,6 +591,10 @@ configuration_on_connection_list(configuration_t * config, uint8_t * packet,
         payload++;
     });
 
+    return (uint8_t*)msg;
+
+NACK:
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -622,7 +630,7 @@ configuration_on_connection_set_admin_state(configuration_t * config,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -652,7 +660,7 @@ configuration_on_connection_update(configuration_t * config, uint8_t * packet,
 
 NACK:
 #endif /* WITH_POLICY */
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -684,7 +692,7 @@ configuration_on_connection_set_priority(configuration_t * config,
 
 NACK:
 #endif /* WITH_POLICY */
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -716,7 +724,7 @@ configuration_on_connection_set_tags(configuration_t * config, uint8_t * packet,
 
 NACK:
 #endif /* WITH_POLICY */
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -751,7 +759,7 @@ configuration_on_route_add(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -782,7 +790,7 @@ configuration_on_route_remove(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -811,7 +819,7 @@ configuration_on_route_list(configuration_t * config, uint8_t * packet,
     msg_route_list_reply_t * msg;
     msg_malloc_list(msg, n);
     if (!msg)
-        return NULL;
+        goto NACK;
 
     cmd_route_list_item_t * payload = &msg->payload;
     fib_foreach_entry(fib, entry, {
@@ -850,6 +858,10 @@ configuration_on_route_list(configuration_t * config, uint8_t * packet,
     });
 
     return (uint8_t*)msg;
+
+NACK:
+    make_nack(msg);
+    return (uint8_t*)msg;
 }
 
 
@@ -878,7 +890,7 @@ configuration_on_cache_set_store(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -905,7 +917,7 @@ configuration_on_cache_set_serve(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -1039,7 +1051,7 @@ configuration_on_wldr_set(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -1098,7 +1110,7 @@ configuration_on_punting_add(configuration_t * config, uint8_t * packet,
 
 NACK:
 #endif
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -1124,7 +1136,7 @@ configuration_on_mapme_enable(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -1148,7 +1160,7 @@ configuration_on_mapme_set_discovery(configuration_t * config, uint8_t * packet,
     return (uint8_t*)msg;
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -1221,7 +1233,7 @@ configuration_on_mapme_send_update(configuration_t * config, uint8_t * packet,
     });
 
 NACK:
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -1252,7 +1264,7 @@ configuration_on_policy_add(configuration_t * config, uint8_t * packet,
 
 NACK:
 #endif /* WITH_POLICY */
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -1282,7 +1294,7 @@ configuration_on_policy_remove(configuration_t * config, uint8_t * packet,
 
 NACK:
 #endif /* WITH_POLICY */
-    make_ack(msg);
+    make_nack(msg);
     return (uint8_t*)msg;
 }
 
@@ -1298,10 +1310,10 @@ configuration_on_policy_list(configuration_t * config, uint8_t * packet,
     size_t n = fib_get_size(fib);
 
 #ifdef WITH_POLICY
-    msg_policy_list_reply_t * msg;
+    msg_policy_list_reply_t * msg = (msg_policy_list_reply_t *)packet;
     msg_malloc_list(msg, n);
     if (!msg)
-        return NULL;
+        goto NACK;
 
     cmd_policy_list_item_t * payload = &msg->payload;
 
@@ -1333,9 +1345,11 @@ configuration_on_policy_list(configuration_t * config, uint8_t * packet,
     });
 
     return (uint8_t*)msg;
-#else
-    return NULL;
 #endif /* WITH_POLICY */
+
+NACK:
+    make_nack(msg);
+    return (uint8_t *)msg;
 }
 
 size_t
@@ -1359,58 +1373,59 @@ configuration_get_forwarder(const configuration_t * config) {
 }
 
 
-// ===========================
-// Main functions that deal with receiving commands, executing them, and sending
-// ACK/NACK
-
-uint8_t *
-configuration_dispatch_command(configuration_t * config, command_type_t command_type,
-        uint8_t * packet, unsigned ingress_id)
+ssize_t
+configuration_receive_command(configuration_t * config, msgbuf_t * msgbuf)
 {
+    assert(config);
+    assert(msgbuf);
+
+    uint8_t * packet = msgbuf_get_packet(msgbuf);
+    unsigned ingress_id = msgbuf_get_connection_id(msgbuf);
+
+    uint8_t * reply;
+
+    /*
+     * For most commands, the packet will simply be transformed into an ack.
+     * For list commands, a new message will be allocated, and the return value
+     * might eventually be NULL in case of an error. That is why the free the
+     * reply at the end in these circumstances.
+     *
+     * XXX rework this part.
+     */
+    command_type_t command_type = msgbuf_get_command_type(msgbuf);
     switch (command_type) {
 #define _(l, u)                                                         \
         case COMMAND_TYPE_ ## u:                                        \
-            return configuration_on_ ## l(config, packet, ingress_id);
+            reply = configuration_on_ ## l(config, packet, ingress_id); \
+            assert(reply);                                              \
+            break;
     foreach_command_type
 #undef _
         case COMMAND_TYPE_UNDEFINED:
         case COMMAND_TYPE_N:
             ERROR("Unexpected command type");
+            reply = packet;
+            make_nack(reply);
             break;
-    }
-    return NULL;
-}
-
-void configuration_receive_command(configuration_t * config,
-        command_type_t command_type, uint8_t * packet, unsigned ingress_id)
-{
-    assert(config);
-    assert(command_type_is_valid(command_type));
-    assert(packet);
-
-    bool nack = false;
-
-    uint8_t * reply = configuration_dispatch_command(config, command_type, packet, ingress_id);
-    if (!reply) {
-        reply = packet;
-        msg_header_t * hdr = (msg_header_t *)reply;
-        make_nack(hdr);
-        nack = true;
     }
 
     connection_table_t * table = forwarder_get_connection_table(config->forwarder);
     const connection_t *connection = connection_table_at(table, ingress_id);
     connection_send_packet(connection, reply, false);
 
-    switch (command_type) {
+    switch (msgbuf->command.type) {
         case COMMAND_TYPE_LISTENER_LIST:
         case COMMAND_TYPE_CONNECTION_LIST:
         case COMMAND_TYPE_ROUTE_LIST:
         case COMMAND_TYPE_POLICY_LIST:
-            if (!nack)
+            /* Free replies that have been allocated (not NACK's) */
+            if (((msg_header_t *)reply)->header.messageType != NACK_LIGHT)
                 free(reply);
             break;
         default:
             break;
     }
+
+    // XXX only if we consumed the whole packet.
+    return (ssize_t)msgbuf_get_len(msgbuf);
 }

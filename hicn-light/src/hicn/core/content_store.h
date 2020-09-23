@@ -79,7 +79,7 @@ content_store_t * _content_store_create(content_store_type_t type, size_t init_s
  *
  * @return content_store_t* - The newly created content store
  */
-#define content_store_create( TYPE) _content_store_create((TYPE), 0, 0)
+#define content_store_create(TYPE) _content_store_create((TYPE), 0, 0)
 
 void content_store_free(content_store_t * cs);
 

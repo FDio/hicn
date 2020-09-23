@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <hicn/hicn-light/config.h>
+//#include <hicn/hicn-light/config.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,18 +41,20 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#include <hicn/core/connection_table.h>
-#include <hicn/core/listener_table.h>
-#include <hicn/core/pit.h>
-#include <hicn/core/fib.h>
-#include <hicn/core/content_store.h>
-#include <hicn/core/forwarder.h>
-#include <hicn/core/messagePacketType.h>
+#include "connection_table.h"
+#include "content_store.h"
+#include "fib.h"
+#include "forwarder.h"
+#include "listener_table.h"
 #ifdef WITH_MAPME
-#include <hicn/core/mapme.h>
+#include "mapme.h"
 #endif /* WITH_MAPME */
-#include <hicn/config/configuration.h>
-#include <hicn/config/configuration_file.h>
+#include "msgbuf.h"
+#include "msgbuf_pool.h"
+#include "pit.h"
+#include "../config/configuration.h"
+#include "../config/configuration_file.h"
+#include "../io/base.h" // MAX_MSG
 
 #ifdef WITH_PREFIX_STATS
 #include <hicn/core/prefix_stats.h>
@@ -61,10 +63,8 @@
 #include <hicn/core/wldr.h>
 #include <hicn/util/log.h>
 
-#define DEFAULT_PIT_SIZE 65535
-
 typedef struct {
-    uint32_t countReceived;
+    uint32_t countReceived; // Interest & Data only
     uint32_t countInterestsReceived;
     uint32_t countObjectsReceived;
 
@@ -112,6 +112,7 @@ struct forwarder_s {
     pit_t * pit;
     content_store_t * content_store;
     fib_t * fib;
+    msgbuf_pool_t * msgbuf_pool;
 
 #ifdef WITH_MAPME
     mapme_t * mapme;
@@ -132,7 +133,7 @@ struct forwarder_s {
     unsigned pending_conn[MAX_MSG];
     size_t num_pending_conn;
 
-    msgbuf_t msgbuf; /* Storage for msgbuf, which are currently processed 1 by 1 */
+    //msgbuf_t msgbuf; /* Storage for msgbuf, which are currently processed 1 by 1 */
 
 };
 
@@ -172,27 +173,6 @@ forwarder_seed(forwarder_t * forwarder) {
 #endif
 }
 
-int
-init_batch_buffers(batch_buffer_t * bb)
-{
-  /* Setup recvmmsg data structures. */
-  for (unsigned i = 0; i < MAX_MSG; i++) {
-    char *buf = &bb->buffers[i][0];
-    struct iovec *iovec = &bb->iovecs[i];
-    struct mmsghdr *msg = &bb->msghdr[i];
-
-    msg->msg_hdr.msg_iov = iovec;
-    msg->msg_hdr.msg_iovlen = 1;
-
-    msg->msg_hdr.msg_name = &bb->addrs[i];
-    msg->msg_hdr.msg_namelen = sizeof(struct sockaddr_storage);
-
-    iovec->iov_base = &buf[0];
-    iovec->iov_len = MTU;
-  }
-  return 0;
-}
-
 forwarder_t *
 forwarder_create()
 {
@@ -218,7 +198,11 @@ forwarder_create()
     if (!forwarder->fib)
         goto ERR_FIB;
 
-    forwarder->pit = pit_create(DEFAULT_PIT_SIZE);
+    forwarder->msgbuf_pool = msgbuf_pool_create();
+    if (!forwarder->msgbuf_pool)
+        goto ERR_PACKET_POOL;
+
+    forwarder->pit = pit_create();
     if (!forwarder->pit)
         goto ERR_PIT;
 
@@ -297,6 +281,8 @@ ERR_MAPME:
 ERR_CONTENT_STORE:
     pit_free(forwarder->pit);
 ERR_PIT:
+    msgbuf_pool_free(forwarder->msgbuf_pool);
+ERR_PACKET_POOL:
     fib_free(forwarder->fib);
 ERR_FIB:
     connection_table_free(forwarder->connection_table);
@@ -337,6 +323,7 @@ forwarder_free(forwarder_t * forwarder)
 
     content_store_free(forwarder->content_store);
     pit_free(forwarder->pit);
+    msgbuf_pool_free(forwarder->msgbuf_pool);
     fib_free(forwarder->fib);
     connection_table_free(forwarder->connection_table);
     listener_table_free(forwarder->listener_table);
@@ -446,13 +433,6 @@ forwarder_content_store_clear(forwarder_t * forwarder)
     content_store_clear(forwarder->content_store);
 }
 
-void
-forwarder_receive_command(forwarder_t * forwarder, command_type_t command_type,
-        uint8_t * packet, unsigned connection_id)
-{
-    configuration_receive_command(forwarder->config, command_type, packet, connection_id);
-}
-
 /**
  * @function forwarder_Drop
  * @abstract Whenever we "drop" a message, increment countes
@@ -465,17 +445,17 @@ forwarder_receive_command(forwarder_t * forwarder, command_type_t command_type,
  *
  */
 static
-void
-forwarder_drop(forwarder_t * forwarder, msgbuf_t *message)
+ssize_t
+forwarder_drop(forwarder_t * forwarder, msgbuf_t * msgbuf)
 {
     forwarder->stats.countDropped++;
 
-    switch (msgbuf_get_type(message)) {
-        case MESSAGE_TYPE_INTEREST:
+    switch (msgbuf_get_type(msgbuf)) {
+        case MSGBUF_TYPE_INTEREST:
             forwarder->stats.countInterestsDropped++;
             break;
 
-        case MESSAGE_TYPE_DATA:
+        case MSGBUF_TYPE_DATA:
             forwarder->stats.countObjectsDropped++;
             break;
 
@@ -484,6 +464,7 @@ forwarder_drop(forwarder_t * forwarder, msgbuf_t *message)
             break;
     }
 
+    return msgbuf_get_len(msgbuf);
     // dont destroy message here, its done at end of receive
 }
 
@@ -493,7 +474,7 @@ forwarder_drop(forwarder_t * forwarder, msgbuf_t *message)
  *
  */
 static
-void
+ssize_t
 forwarder_forward_via_connection(forwarder_t * forwarder, msgbuf_t * msgbuf,
         unsigned conn_id)
 {
@@ -504,8 +485,7 @@ forwarder_forward_via_connection(forwarder_t * forwarder, msgbuf_t * msgbuf,
         forwarder->stats.countDroppedConnectionNotFound++;
         DEBUG("forward msgbuf %p to interface %u not found (count %u)",
                 msgbuf, conn_id, forwarder->stats.countDroppedConnectionNotFound);
-        forwarder_drop(forwarder, msgbuf);
-        return;
+        return forwarder_drop(forwarder, msgbuf);
     }
 
     /* Always queue the packet... */
@@ -525,16 +505,15 @@ forwarder_forward_via_connection(forwarder_t * forwarder, msgbuf_t * msgbuf,
 
         DEBUG("forward msgbuf %p to interface %u send failure (count %u)", msgbuf,
                 conn_id, forwarder->stats.countSendFailures);
-        forwarder_drop(forwarder, msgbuf);
-        return;
+        return forwarder_drop(forwarder, msgbuf);
     }
 
     switch (msgbuf_get_type(msgbuf)) {
-        case MESSAGE_TYPE_INTEREST:
+        case MSGBUF_TYPE_INTEREST:
             forwarder->stats.countInterestForwarded++;
             break;
 
-        case MESSAGE_TYPE_DATA:
+        case MSGBUF_TYPE_DATA:
             forwarder->stats.countObjectsForwarded++;
             break;
 
@@ -546,6 +525,7 @@ forwarder_forward_via_connection(forwarder_t * forwarder, msgbuf_t * msgbuf,
             conn_id, forwarder->stats.countInterestForwarded,
             forwarder->stats.countObjectsForwarded);
 
+    return (msgbuf_get_len(msgbuf));
 }
 
 /**
@@ -566,7 +546,7 @@ forwarder_forward_to_nexthops(forwarder_t * forwarder,
     unsigned ingressId = msgbuf_get_connection_id(msgbuf);
     uint32_t old_path_label = 0;
 
-    if (msgbuf_get_type(msgbuf) == MESSAGE_TYPE_DATA)
+    if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA)
         old_path_label = msgbuf_get_pathlabel(msgbuf);
 
     unsigned nexthop;
@@ -581,7 +561,7 @@ forwarder_forward_to_nexthops(forwarder_t * forwarder,
         // label of the message this is important because we keep a single copy
         // of the message (single pointer) and we modify the path label at each
         // send.
-        if (msgbuf_get_type(msgbuf) == MESSAGE_TYPE_DATA)
+        if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA)
             msgbuf_set_pathlabel(msgbuf, old_path_label);
     });
 
@@ -596,7 +576,7 @@ forwarder_forward_via_fib(forwarder_t * forwarder, msgbuf_t *msgbuf,
 {
     assert(forwarder);
     assert(msgbuf);
-    assert(msgbuf_get_type(msgbuf) == MESSAGE_TYPE_INTEREST);
+    assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
 
     fib_entry_t *fib_entry = fib_match_message(forwarder->fib, msgbuf);
     if (!fib_entry)
@@ -664,7 +644,7 @@ bool
 _satisfy_from_content_store(forwarder_t * forwarder, msgbuf_t *interest_msgbuf)
 {
     assert(forwarder);
-    assert(msgbuf_get_type(interest_msgbuf) == MESSAGE_TYPE_INTEREST);
+    assert(msgbuf_get_type(interest_msgbuf) == MSGBUF_TYPE_INTEREST);
 
     if (msgbuf_get_interest_lifetime(interest_msgbuf) == 0)
         return false;
@@ -697,7 +677,7 @@ _satisfy_from_content_store(forwarder_t * forwarder, msgbuf_t *interest_msgbuf)
 }
 
 /**
- * @function forwarder_receive_interest
+ * @function forwarder_process_interest
  * @abstract Receive an interest from the network
  * @discussion
  *   (1) if interest in the PIT, aggregate in PIT
@@ -707,13 +687,21 @@ _satisfy_from_content_store(forwarder_t * forwarder, msgbuf_t *interest_msgbuf)
  *
  */
 static
-void
-forwarder_receive_interest(forwarder_t * forwarder, msgbuf_t * msgbuf)
+ssize_t
+forwarder_process_interest(forwarder_t * forwarder, msgbuf_t * msgbuf)
 {
     assert(forwarder);
     assert(msgbuf);
-    assert(msgbuf_get_type(msgbuf) == MESSAGE_TYPE_INTEREST);
+    assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
+
+    forwarder->stats.countReceived++;
     forwarder->stats.countInterestsReceived++;
+
+    char *nameString = name_ToString(msgbuf_get_name(msgbuf));
+    DEBUG( "Message %p ingress %3u length %5u received name %s", msgbuf,
+            msgbuf_get_connection_id(msgbuf), msgbuf_get_len(msgbuf), nameString);
+    free(nameString);
+
 
     // (1) Try to aggregate in PIT
     pit_verdict_t verdict = pit_on_interest(forwarder->pit, msgbuf);
@@ -722,7 +710,7 @@ forwarder_receive_interest(forwarder_t * forwarder, msgbuf_t * msgbuf)
             forwarder->stats.countInterestsAggregated++;
             DEBUG("Message %p aggregated in PIT (aggregated count %u)",
                     msgbuf, forwarder->stats.countInterestsAggregated);
-            return;
+            return msgbuf_get_len(msgbuf);
 
         case PIT_VERDICT_FORWARD:
         case PIT_VERDICT_RETRANSMIT:
@@ -739,13 +727,13 @@ forwarder_receive_interest(forwarder_t * forwarder, msgbuf_t * msgbuf)
         // done
         // If we found a content object in the CS,
         // messageProcess_Satisfy_from_content_store already cleared the PIT state
-        return;
+        return msgbuf_get_len(msgbuf);
     }
 
     // (3) Try to forward it
     if (forwarder_forward_via_fib(forwarder, msgbuf, verdict)) {
         // done
-        return;
+        return msgbuf_get_len(msgbuf);
     }
 
     // Remove the PIT entry?
@@ -754,11 +742,11 @@ forwarder_receive_interest(forwarder_t * forwarder, msgbuf_t * msgbuf)
     DEBUG("Message %p did not match FIB, no route (count %u)",
                 msgbuf, forwarder->stats.countDroppedNoRoute);
 
-    forwarder_drop(forwarder, msgbuf);
+    return forwarder_drop(forwarder, msgbuf);
 }
 
 /**
- * @function forwarder_receive_data
+ * @function forwarder_process_data
  * @abstract Process an in-bound content object
  * @discussion
  *   (1) If it does not match anything in the PIT, drop it
@@ -768,10 +756,15 @@ forwarder_receive_interest(forwarder_t * forwarder, msgbuf_t * msgbuf)
  * @param <#param1#>
  */
 static
-void
-forwarder_receive_data(forwarder_t * forwarder,
-        msgbuf_t *msgbuf)
+ssize_t
+forwarder_process_data(forwarder_t * forwarder, msgbuf_t *msgbuf)
 {
+    char *nameString = name_ToString(msgbuf_get_name(msgbuf));
+    DEBUG( "Message %p ingress %3u length %5u received name %s", msgbuf,
+            msgbuf_get_connection_id(msgbuf), msgbuf_get_len(msgbuf), nameString);
+    free(nameString);
+
+    forwarder->stats.countReceived++;
     forwarder->stats.countObjectsReceived++;
 
     nexthops_t * ingressSetUnion = pit_on_data(forwarder->pit, msgbuf);
@@ -808,7 +801,7 @@ forwarder_receive_data(forwarder_t * forwarder,
             DEBUG("Message %p store in CS anyway", msgbuf);
         }
 
-        forwarder_drop(forwarder, msgbuf);
+        return forwarder_drop(forwarder, msgbuf);
     } else {
         // (2) Add to Content Store. Store may remove expired content, if necessary,
         // depending on store policy.
@@ -816,82 +809,55 @@ forwarder_receive_data(forwarder_t * forwarder,
             content_store_add(forwarder->content_store, msgbuf, ticks_now());
         }
         // (3) Reverse path forward via PIT entries
-        forwarder_forward_to_nexthops(forwarder, msgbuf, ingressSetUnion);
+        return forwarder_forward_to_nexthops(forwarder, msgbuf, ingressSetUnion);
 
     }
 }
 
-
-/**
- * A NULL msgbuf is used to indicate the end of a batch
- */
 void
-forwarder_receive(forwarder_t * forwarder, msgbuf_t * msgbuf)
+forwarder_flush_connections(forwarder_t * forwarder)
 {
-    assert(forwarder);
+    const connection_table_t * table = forwarder_get_connection_table(forwarder);
 
-    /* Send batch ? */
-    if (!msgbuf) {
-        const connection_table_t * table = forwarder_get_connection_table(forwarder);
-        for (unsigned i = 0; i < forwarder->num_pending_conn; i++) {
-            const connection_t *  conn = connection_table_at(table, forwarder->pending_conn[i]);
-            // flush
-            connection_send(conn, NULL, false);
+    for (unsigned i = 0; i < forwarder->num_pending_conn; i++) {
+        unsigned conn_id = forwarder->pending_conn[i];
+        const connection_t *  conn = connection_table_at(table, conn_id);
+        if (!connection_flush(conn)) {
+            WARN("Could not flush connection queue");
+            // XXX keep track of non flushed connections...
         }
-        forwarder->num_pending_conn = 0;
     }
+    forwarder->num_pending_conn = 0;
+}
 
+// XXX move to wldr file, worst case in connection.
+void
+forwarder_apply_wldr(const forwarder_t * forwarder, const msgbuf_t * msgbuf, connection_t * connection)
+{
     // this are the checks needed to implement WLDR. We set wldr only on the STAs
-    // and we let the AP to react according to choise of the client.
+    // and we let the AP to react according to choice of the client.
     // if the STA enables wldr using the set command, the AP enable wldr as well
     // otherwise, if the STA disable it the AP remove wldr
     // WLDR should be enabled only on the STAs using the command line
     // TODO
     // disable WLDR command line on the AP
-    connection_table_t * table = forwarder_get_connection_table(forwarder);
-    connection_t * conn = connection_table_get_by_id(table, msgbuf_get_connection_id(msgbuf));
-    if (!conn)
-        return;
-
     if (msgbuf_has_wldr(msgbuf)) {
-        if (connection_has_wldr(conn)) {
+        if (connection_has_wldr(connection)) {
             // case 1: WLDR is enabled
-            connection_wldr_detect_losses(conn, msgbuf);
-        } else if (!connection_has_wldr(conn) &&
-                connection_wldr_autostart_is_allowed(conn)) {
+            connection_wldr_detect_losses(connection, msgbuf);
+        } else if (!connection_has_wldr(connection) &&
+                connection_wldr_autostart_is_allowed(connection)) {
             // case 2: We are on an AP. We enable WLDR
-            connection_wldr_enable(conn, true);
-            connection_wldr_detect_losses(conn, msgbuf);
+            connection_wldr_enable(connection, true);
+            connection_wldr_detect_losses(connection, msgbuf);
         }
         // case 3: Ignore WLDR
     } else {
-        if (connection_has_wldr(conn) && connection_wldr_autostart_is_allowed(conn)) {
+        if (connection_has_wldr(connection) && connection_wldr_autostart_is_allowed(connection)) {
             // case 1: STA do not use WLDR, we disable it
-            connection_wldr_enable(conn, false);
+            connection_wldr_enable(connection, false);
         }
     }
-
-    forwarder->stats.countReceived++;
-
-    char *nameString = name_ToString(msgbuf_get_name(msgbuf));
-    DEBUG( "Message %p ingress %3u length %5u received name %s", msgbuf,
-            msgbuf_get_connection_id(msgbuf), msgbuf_get_len(msgbuf), nameString);
-    free(nameString);
-
-    switch (msgbuf_get_type(msgbuf)) {
-        case MESSAGE_TYPE_INTEREST:
-            forwarder_receive_interest(forwarder, msgbuf);
-            break;
-
-        case MESSAGE_TYPE_DATA:
-            forwarder_receive_data(forwarder, msgbuf);
-            break;
-
-        default:
-            forwarder_drop(forwarder, msgbuf);
-            break;
-    }
-
 }
 
 bool
@@ -1006,7 +972,7 @@ forwarder_set_strategy(forwarder_t * forwarder, Name * name_prefix,
 {
     assert(forwarder);
     assert(name_prefix);
-    // assert(strategy_type_is_valid(strategy_type));
+    assert(STRATEGY_TYPE_VALID(strategy_type));
     /* strategy_options might be NULL */
 
     fib_entry_t * entry = fib_contains(forwarder->fib, name_prefix);
@@ -1055,8 +1021,15 @@ static void _signal_cb(int sig, PARCEventType events, void *user_data) {
 #endif
 
 fib_t *
-forwarder_get_fib(forwarder_t * forwarder) {
+forwarder_get_fib(forwarder_t * forwarder)
+{
     return forwarder->fib;
+}
+
+msgbuf_pool_t *
+forwarder_get_msgbuf_pool(const forwarder_t * forwarder)
+{
+    return forwarder->msgbuf_pool;
 }
 
 #ifdef WITH_MAPME
@@ -1082,116 +1055,115 @@ forwarder_get_prefix_stats_mgr(const forwarder_t * forwarder)
 }
 #endif /* WITH_PREFIX_STATS */
 
-static
-void
-process_interest(forwarder_t * forwarder, listener_t * listener,
-        unsigned conn_id, uint8_t * packet, size_t size, const address_pair_t * pair)
+/**
+ * @brief Process a packet by creating the corresponding message buffer and
+ * dispatching it to the forwarder for further processing.
+ * @param[in] forwarder Forwarder instance.
+ *
+ */
+// XXX ??? XXX = process for listener as we are resolving connection id
+//
+
+msgbuf_type_t get_type_from_packet(uint8_t * packet)
 {
-    if (!connection_id_is_valid(conn_id)) {
-        conn_id = listener_create_connection(listener, pair);
+    if (messageHandler_IsTCP(packet)) {
+        if (messageHandler_IsData(packet)) {
+            return MSGBUF_TYPE_DATA;
+        } else if (messageHandler_IsInterest(packet)) {
+            return MSGBUF_TYPE_INTEREST;
+        } else {
+            return MSGBUF_TYPE_UNDEFINED;
+        }
+
+    } else if (messageHandler_IsWldrNotification(packet)) {
+        return MSGBUF_TYPE_WLDR_NOTIFICATION;
+
+    } else if (mapme_match_packet(packet)) {
+        return MSGBUF_TYPE_MAPME;
+
+    } else if (*packet == REQUEST_LIGHT) {
+        return MSGBUF_TYPE_COMMAND;
+
+    } else {
+        return MSGBUF_TYPE_UNDEFINED;
     }
-
-    assert(messageHandler_GetTotalPacketLength(packet) == size);
-
-    msgbuf_from_packet(&forwarder->msgbuf, packet, size, MESSAGE_TYPE_INTEREST, conn_id, ticks_now());
-    forwarder_receive(listener->forwarder, &forwarder->msgbuf);
 }
 
-static
-void
-process_data(forwarder_t * forwarder, listener_t * listener,
-        unsigned conn_id, uint8_t * packet, size_t size, const address_pair_t * pair)
+ssize_t
+forwarder_receive(forwarder_t * forwarder, listener_t * listener,
+        msgbuf_t * msgbuf, address_pair_t * pair, Ticks now)
 {
-    if (!connection_id_is_valid(conn_id)) {
-        INFO("Ignoring data packet associated to no connection");
-        return;
-    }
+    assert(forwarder);
+    /* listener can be NULL */
+    assert(msgbuf);
+    assert(pair);
 
-    assert(messageHandler_GetTotalPacketLength(packet) == size);
+    uint8_t * packet = msgbuf_get_packet(msgbuf);
+    size_t size = msgbuf_get_len(msgbuf);
+    assert(messageHandler_GetTotalPacketLength(packet) == size); // XXX confirm ?
 
-    msgbuf_from_packet(&forwarder->msgbuf, packet, size, MESSAGE_TYPE_DATA, conn_id, ticks_now());
-    forwarder_receive(listener->forwarder, &forwarder->msgbuf);
-
-}
-
-static
-void
-process_wldr_notification(forwarder_t * forwarder, listener_t * listener,
-        unsigned conn_id, uint8_t * packet, size_t size, const address_pair_t * pair)
-{
-    if (!connection_id_is_valid(conn_id)) {
-        INFO("Ignoring WLDR notification not associated to a connection");
-        return;
-    }
-
-    assert(messageHandler_GetTotalPacketLength(packet) == size);
-
-    connection_table_t * table = forwarder_get_connection_table(forwarder);
-    connection_t * connection = connection_table_at(table, conn_id);
-
-    msgbuf_from_packet(&forwarder->msgbuf, packet, size, MESSAGE_TYPE_WLDR_NOTIFICATION, conn_id, ticks_now());
-    connection_wldr_handle_notification(connection, &forwarder->msgbuf);
-
-}
-
-static
-void
-process_mapme(forwarder_t * forwarder, listener_t * listener,
-        unsigned conn_id, uint8_t * packet, size_t size, const address_pair_t * pair)
-{
-    if (!connection_id_is_valid(conn_id))
-        conn_id = listener_create_connection(listener, pair);
-    mapme_process(forwarder->mapme, packet, conn_id);
-}
-
-static
-void
-process_command(const forwarder_t * forwarder, listener_t * listener,
-        unsigned conn_id, uint8_t * packet, size_t size, const address_pair_t * pair)
-{
-    if (!connection_id_is_valid(conn_id))
-        conn_id = listener_create_connection(listener, pair);
-
-    command_type_t command_type= *(packet + 1);
-    if (command_type >= COMMAND_TYPE_N) {
-        ERROR("Invalid command");
-        return;
-    }
-    forwarder_receive_command(listener->forwarder, command_type, packet, conn_id);
-
-}
-
-// = process for listener as we are resolving connection id
-// XXX this would typically be inside the forwarder
-void
-process_packet(forwarder_t * forwarder, listener_t * listener, uint8_t * packet, size_t size, address_pair_t * pair)
-{
     /* Connection lookup */
     const connection_table_t * table = forwarder_get_connection_table(listener->forwarder);
-    const connection_t * conn = connection_table_get_by_pair(table, pair);
-    unsigned conn_id = conn ? connection_table_get_connection_id(table, conn): CONNECTION_ID_UNDEFINED;
+    connection_t * connection = connection_table_get_by_pair(table, pair);
+    unsigned conn_id = connection
+        ? connection_table_get_connection_id(table, connection)
+        : CONNECTION_ID_UNDEFINED;
 
     assert((conn_id != CONNECTION_ID_UNDEFINED) || listener);
 
-    // Actually hooks should be defined for each packet type to avoid this
-    // spaghetti code
-    if (messageHandler_IsTCP(packet)) {
-        if (messageHandler_IsData(packet)) {
-            process_data(forwarder, listener, conn_id, packet, size, pair);
-        } else if (messageHandler_IsInterest(packet)) {
-            process_interest(forwarder, listener, conn_id, packet, size, pair);
-        } else {
-            INFO("Unknown TCP packet received");
-            forwarder_drop(forwarder, NULL);
-        }
-    } else if (messageHandler_IsWldrNotification(packet)) {
-        process_wldr_notification(forwarder, listener, conn_id, packet, size, pair);
-    } else if (mapme_match_packet(packet)) {
-        process_mapme(forwarder, listener, conn_id, packet, size, pair);
-    } else if (*packet == REQUEST_LIGHT) {
-        process_command(forwarder, listener, conn_id, packet, size, pair);
-    } else {
-        INFO("Unknown packet received");
-        forwarder_drop(forwarder, NULL);
+    msgbuf_type_t type = get_type_from_packet(msgbuf_get_packet(msgbuf));
+
+    msgbuf->type = type;
+    msgbuf->connection_id = conn_id;
+    msgbuf->recv_ts = now;
+    msgbuf->refs = 1;
+
+    switch(type) {
+        case MSGBUF_TYPE_INTEREST:
+            if (!connection_id_is_valid(msgbuf->connection_id))
+                msgbuf->connection_id = listener_create_connection(listener, pair);
+            msgbuf->id.name = name_create_from_interest(packet);
+            forwarder_apply_wldr(forwarder, msgbuf, connection);
+            forwarder_process_interest(forwarder, msgbuf);
+            break;
+
+        case MSGBUF_TYPE_DATA:
+            if (!connection_id_is_valid(msgbuf->connection_id))
+                return forwarder_drop(forwarder, NULL);
+            msgbuf->id.name = name_create_from_data(packet);
+            forwarder_apply_wldr(forwarder, msgbuf, connection);
+            forwarder_process_data(forwarder, msgbuf);
+            break;
+
+        case MSGBUF_TYPE_WLDR_NOTIFICATION:
+            if (!connection_id_is_valid(msgbuf->connection_id))
+                return forwarder_drop(forwarder, NULL);
+            connection_wldr_handle_notification(connection, msgbuf);
+            return msgbuf_get_len(msgbuf);
+
+        case MSGBUF_TYPE_MAPME:
+            // XXX what about acks ?
+            if (!connection_id_is_valid(msgbuf->connection_id))
+                msgbuf->connection_id = listener_create_connection(listener, pair);
+            mapme_process(forwarder->mapme, msgbuf);
+            return msgbuf_get_len(msgbuf);
+
+        case MSGBUF_TYPE_COMMAND:
+            // XXX before it used to create the connection
+            if (!connection_id_is_valid(msgbuf->connection_id))
+                return forwarder_drop(forwarder, NULL);
+            msgbuf->command.type = *(packet + 1); // XXX use header
+            if (msgbuf->command.type >= COMMAND_TYPE_N) {
+                ERROR("Invalid command");
+                return -msgbuf_get_len(msgbuf);
+            }
+            return configuration_receive_command(forwarder->config, msgbuf);
+
+        case MSGBUF_TYPE_UNDEFINED:
+        case MSGBUF_TYPE_N:
+            // XXX Unexpected... shall we abort ?
+            return forwarder_drop(forwarder, NULL);
     }
+
+    return size;
 }

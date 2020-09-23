@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #ifndef _WIN32
 #include <sys/uio.h>
@@ -46,18 +47,19 @@
 #define UDP_GRO 104
 #endif /* WITH_GSO */
 
-#include <hicn/core/address_pair.h>
-#include <hicn/core/connection.h>
-#include <hicn/core/connection_vft.h>
-#include <hicn/core/listener.h>
-#include <hicn/core/listener_vft.h>
-#include <hicn/base/loop.h>
-#include <hicn/core/msgbuf.h>
-#include <hicn/core/forwarder.h>
-#include <hicn/core/messageHandler.h>
-#include <hicn/core/messagePacketType.h>
-#include <hicn/hicn-light/config.h>
 #include <hicn/util/log.h>
+
+#include "base.h"
+#include "../base/loop.h"
+#include "../core/address_pair.h"
+#include "../core/connection.h"
+#include "../core/connection_vft.h"
+#include "../core/forwarder.h"
+#include "../core/listener.h"
+#include "../core/listener_vft.h"
+#include "../core/messageHandler.h"
+#include "../core/msgbuf.h"
+//#include "../hicn-light/config.h"
 
 // Batching based on recvmmsg is also generic
 // the difference is the handling of packet as in tcp we need to go through the
@@ -75,8 +77,6 @@
 
 typedef struct {
   uint16_t port; // in address ?
-
-  batch_buffer_t bb;
 } listener_udp_data_t;
 
 #ifdef __ANDROID__
@@ -214,8 +214,6 @@ listener_udp_initialize(listener_t * listener)
     listener_udp_data_t * data = listener->data;
     assert(data);
 
-    init_batch_buffers(&data->bb);
-
     // XXX Socket creation should be a function per-se and not be called in
     // initialize !
     listener->fd = listener_get_socket(listener, &listener->address, NULL,
@@ -287,18 +285,13 @@ ERR_SOCKET:
     return -1;
 }
 
-static
-void
-listener_udp_read_callback(listener_t * listener, int fd, void * user_data)
-{
-    assert(listener);
-    assert(!user_data);
+#define listener_udp_read_single io_read_single_socket
 
-    listener_udp_data_t * data = listener->data;
-    assert(data);
-
-    listener_batch_read_callback(listener->forwarder, listener, fd, &listener->address, &data->bb);
-}
+#ifdef __linux__
+#define listener_udp_read_batch io_read_batch_socket
+#else
+#define listener_udp_read_batch NULL
+#endif /* __linux__ */
 
 DECLARE_LISTENER(udp);
 
@@ -307,7 +300,8 @@ DECLARE_LISTENER(udp);
  ******************************************************************************/
 
 typedef struct {
-    batch_buffer_t bb;
+    // XXX queue storage : msfbuf id
+    off_t queue[MAX_MSG]; // sized according to the max batch
     int queue_len;
 } connection_udp_data_t;
 
@@ -322,8 +316,6 @@ connection_udp_initialize(connection_t * connection)
 
     connection_udp_data_t * data = connection->data;
     assert(data);
-
-    init_batch_buffers(&data->bb);
 
     data->queue_len = 0;
 
@@ -358,6 +350,10 @@ connection_udp_send(const connection_t * connection, msgbuf_t * msgbuf, bool que
     connection_udp_data_t * data = connection->data;
     assert(data);
 
+    forwarder_t * forwarder = connection->forwarder;
+    msgbuf_pool_t * msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
+
+
     /* Flush if required or if queue is full */
     if ((!msgbuf) || (queue && (data->queue_len > MAX_MSG)))  {
         /* Flush operation */
@@ -366,7 +362,38 @@ connection_udp_send(const connection_t * connection, msgbuf_t * msgbuf, bool que
 #else
         int flags = 0;
 #endif /* WITH_ZEROCOPY */
-        int n = sendmmsg(connection->fd, data->bb.msghdr, data->queue_len, flags);
+
+
+        // BEGIN : send batch
+
+        /* Preparing the struct mmsghdr for batch sending */
+        struct mmsghdr msghdr[MAX_MSG];
+        struct iovec iovecs[MAX_MSG];
+
+        /* Prepare the mmghdr struct for recvmmsg */
+        for (unsigned i = 0; i < data->queue_len; i++) {
+             struct mmsghdr *msg = &msghdr[i];
+            *msg = (struct mmsghdr) {
+                .msg_hdr = {
+                    .msg_iov = &iovecs[i],
+                    .msg_iovlen = 1,
+                    .msg_name = NULL,
+                    .msg_namelen = 0,
+                    .msg_control = NULL,
+                    .msg_controllen = 0,
+                },
+            };
+
+            msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, data->queue[i]);
+            iovecs[i] = (struct iovec) {
+                .iov_base = msgbuf_get_packet(msgbuf),
+                .iov_len = msgbuf_get_len(msgbuf),
+            };
+        }
+
+        // XXX build mmsghdr from the msgbuf queue
+
+        int n = sendmmsg(connection->fd, msghdr, data->queue_len, flags);
         if (n == -1) {
             perror("sendmmsg()");
             data->queue_len = 0;
@@ -384,11 +411,10 @@ connection_udp_send(const connection_t * connection, msgbuf_t * msgbuf, bool que
     }
 
     if (queue) {
-        struct iovec *iovec = &data->bb.iovecs[data->queue_len++];
-        iovec->iov_base = msgbuf_get_packet(msgbuf);
-        iovec->iov_len = msgbuf_get_len(msgbuf);
-
+        /* Queue packet */
+        data->queue[data->queue_len++] = msgbuf_pool_get_id(msgbuf_pool, msgbuf);
     } else {
+        /* Send one */
         ssize_t writeLength = write(connection->fd, msgbuf_get_packet(msgbuf),
                 msgbuf_get_len(msgbuf));
 
@@ -467,16 +493,13 @@ connection_udp_send_packet(const connection_t * connection, const uint8_t * pack
     return 0;
 }
 
-static
-void
-connection_udp_read_callback(connection_t * connection, int fd, void * user_data)
-{
-    assert(connection);
-    assert(!user_data);
+#define connection_udp_read_single listener_read_batch_socket listener_single_socket
 
-    connection_udp_data_t * data = connection->data;
-    assert(data);
-    listener_batch_read_callback(connection->forwarder, NULL, fd, address_pair_get_local(&connection->pair), &data->bb);
-}
+#ifdef __linux__
+#define connection_udp_read_batch listener_read_batch_socket
+#else
+#define connection_udp_read_batch NULL
+#endif /* __linux__ */
+
 
 DECLARE_CONNECTION(udp);

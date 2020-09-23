@@ -31,6 +31,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
@@ -56,18 +57,29 @@ static Ticks _pit_calculate_lifetime(pit_t * pit,
     return expiry_time;
 }
 
-// max_elts default is 65535
+/* This is only used as a hint for first allocation, as the table is resizeable */
+#define DEFAULT_PIT_SIZE 65535
+
 pit_t *
-pit_create(size_t max_elts)
+_pit_create(size_t init_size, size_t max_size)
 {
     pit_t * pit = malloc(sizeof(pit_t));
     if (!pit)
         return NULL;
 
-    pool_init(pit->entries, max_elts);
+    if (init_size == 0)
+        init_size = DEFAULT_PIT_SIZE;
+
+    pit->max_size = max_size;
+
+    /* Initialize indices */
     pit->index_by_name = kh_init(pit_name);
 
-    DEBUG("PIT %p created", pit);
+    /* 
+     * We start by allocating a reasonably-sized pool, as this will eventually
+     * be resized if needed.
+     */
+    pool_init(pit->entries, init_size);
 
     return pit;
 }
@@ -76,7 +88,8 @@ void
 pit_free(pit_t * pit)
 {
     assert(pit);
-    // XXX TODO
+
+    free(pit);
 
     DEBUG("PIT %p destroyed", pit);
 }
@@ -86,7 +99,7 @@ pit_on_interest(pit_t * pit, msgbuf_t * interest_msgbuf)
 {
     assert(pit);
     assert(interest_msgbuf);
-    assert(msgbuf_get_type(interest_msgbuf) == MESSAGE_TYPE_INTEREST);
+    assert(msgbuf_get_type(interest_msgbuf) == MSGBUF_TYPE_INTEREST);
 
     fib_entry_t * fib_entry;
     Ticks expiry_time;
@@ -155,7 +168,7 @@ pit_on_data(pit_t * pit, const msgbuf_t * data_msgbuf)
 {
     assert(pit);
     assert(data_msgbuf);
-    assert(msgbuf_get_type(data_msgbuf) == MESSAGE_TYPE_DATA);
+    assert(msgbuf_get_type(data_msgbuf) == MSGBUF_TYPE_DATA);
 
     nexthops_t * nexthops = NULL;
 
@@ -196,7 +209,7 @@ pit_remove(pit_t * pit, const msgbuf_t * interest_msgbuf)
 {
     assert(pit);
     assert(interest_msgbuf);
-    assert(msgbuf_get_type(interest_msgbuf) == MESSAGE_TYPE_INTEREST);
+    assert(msgbuf_get_type(interest_msgbuf) == MSGBUF_TYPE_INTEREST);
 
     khiter_t k = kh_get(pit_name, pit->index_by_name, msgbuf_get_name(interest_msgbuf));
     if (k == kh_end(pit->index_by_name))
@@ -213,7 +226,7 @@ pit_lookup(const pit_t * pit, const msgbuf_t * interest_msgbuf)
 {
     assert(pit);
     assert(interest_msgbuf);
-    assert(msgbuf_get_type(interest_msgbuf) == MESSAGE_TYPE_INTEREST);
+    assert(msgbuf_get_type(interest_msgbuf) == MSGBUF_TYPE_INTEREST);
 
     khiter_t k = kh_get(pit_name, pit->index_by_name,
             msgbuf_get_name(interest_msgbuf));

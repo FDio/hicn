@@ -44,8 +44,9 @@ void wldr_reset_state(wldr_t * wldr);
 
 void wldr_set_label(wldr_t * wldr, msgbuf_t * msgbuf);
 
-void wldr_detect_losses(wldr_t * wldr, const connection_t * conn, msgbuf_t * msgbuf);
+void wldr_detect_losses(wldr_t * wldr, const connection_t * connection,
+        const msgbuf_t * msgbuf);
 
-void wldr_handle_notification(wldr_t *wldr, const connection_t * conn,
-        msgbuf_t * msgbuf);
+void wldr_handle_notification(wldr_t *wldr, const connection_t * connection,
+        const msgbuf_t * msgbuf);
 #endif  // wldr_h

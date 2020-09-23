@@ -21,7 +21,7 @@ set(${HICN_LIGHT}_DESCRIPTION
 )
 
 set(${HICN_LIGHT}_DEB_DEPENDENCIES
-  "lib${LIBHICN} (>= stable_version), libparc (>= 1.0)"
+  "lib${LIBHICN} (>= stable_version), libapr1, libaprutil1"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
@@ -31,7 +31,7 @@ set(${HICN_LIGHT}_DEB_PACKAGE_CONTROL_EXTRA
 )
 
 set(${HICN_LIGHT}_RPM_DEPENDENCIES
-  "lib${LIBHICN} >= stable_version, libparc >= 1.0"
+  "lib${LIBHICN} >= stable_version, libapr1, libaprutil1"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 

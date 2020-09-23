@@ -1,6 +1,25 @@
+/*
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file pit.h
+ * @brief hICN Pending Interest Table (PIT)
+ */
+
 #ifndef HICNLIGHT_PIT_H
 #define HICNLIGHT_PIT_H
-
 
 #include <hicn/base/khash.h>
 #include <hicn/core/nexthops.h>
@@ -59,11 +78,27 @@ do {                                                                        \
 KHASH_INIT(pit_name, const Name *, unsigned, 0, name_hash, name_hash_eq);
 
 typedef struct {
+    size_t max_size;
     pit_entry_t * entries; // pool
     kh_pit_name_t * index_by_name;
 } pit_t;
 
-pit_t * pit_create(size_t max_elts);
+/**
+ * @brief Allocate a new PIT data structure (extended parameters)
+ * 
+ * @param init_size Initial size (0 = default)
+ * @param max_size Maximum size (0 = unbounded)
+ * 
+ * @return pit_t* Newly allocated PIT data structure
+ */
+pit_t * _pit_create(size_t init_size, size_t max_size);
+
+/**
+ * @brief Allocate a new PIT data structure
+ * 
+ * @return pit_t* Newly allocated PIT data structure
+ */
+#define pit_create() _pit_create(0, 0)
 
 void pit_free(pit_t * pit);
 

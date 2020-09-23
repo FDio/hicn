@@ -30,7 +30,9 @@
 // assumption: the IPv6 address is the name, the TCP segment number is the ICN
 // segment
 
-struct name {
+// XXX leverage libhicn more here
+
+struct name_s {
     NameBitvector *content_name;
     uint32_t segment;
     uint32_t name_hash;
@@ -71,33 +73,44 @@ static uint32_t _computeHash(Name *name) {
 // ============================================================================
 
 Name *
-name_CreateFromPacket(const uint8_t *packet, MessagePacketType type)
+name_create_from_interest(const uint8_t * packet)
 {
     Name *name = malloc(sizeof(Name));
     assert(name); // XXX TODO error handling
 
     if (messageHandler_GetIPPacketType(packet) == IPv6_TYPE) {
-        if (type == MESSAGE_TYPE_INTEREST) {
-            name->content_name = nameBitvector_CreateFromIn6Addr(
-                    (struct in6_addr *)messageHandler_GetDestination(packet), 128);
-        } else if (type == MESSAGE_TYPE_DATA) {
-            name->content_name = nameBitvector_CreateFromIn6Addr(
-                    (struct in6_addr *)messageHandler_GetSource(packet), 128);
-        } else {
-            free(name);
-            return NULL;
-        }
+        name->content_name = nameBitvector_CreateFromIn6Addr( (struct in6_addr
+                    *)messageHandler_GetDestination(packet), 128);
     } else if (messageHandler_GetIPPacketType(packet) == IPv4_TYPE) {
-        if (type == MESSAGE_TYPE_INTEREST) {
-            name->content_name = nameBitvector_CreateFromInAddr(
-                    *((uint32_t *)messageHandler_GetDestination(packet)), 32);
-        } else if (type == MESSAGE_TYPE_DATA) {
-            name->content_name = nameBitvector_CreateFromInAddr(
-                    *((uint32_t *)messageHandler_GetSource(packet)), 32);
-        } else {
-            free(name);
-            return NULL;
-        }
+        name->content_name = nameBitvector_CreateFromInAddr( *((uint32_t
+                        *)messageHandler_GetDestination(packet)), 32);
+    } else {
+        printf("Error: unknown message type\n");
+        free(name);
+        return NULL;
+    }
+
+    name->segment = messageHandler_GetSegment(packet);
+    name->name_hash = _computeHash(name);
+
+    name->refCountPtr = malloc(sizeof(unsigned));
+    assert(name->refCountPtr); // XXX TODO error handling
+    *name->refCountPtr = 1;
+    return name;
+}
+
+Name *
+name_create_from_data(const uint8_t * packet)
+{
+    Name *name = malloc(sizeof(Name));
+    assert(name); // XXX TODO error handling
+
+    if (messageHandler_GetIPPacketType(packet) == IPv6_TYPE) {
+        name->content_name = nameBitvector_CreateFromIn6Addr( (struct in6_addr
+                    *)messageHandler_GetSource(packet), 128);
+    } else if (messageHandler_GetIPPacketType(packet) == IPv4_TYPE) {
+        name->content_name = nameBitvector_CreateFromInAddr( *((uint32_t
+                        *)messageHandler_GetSource(packet)), 32);
     } else {
         printf("Error: unknown message type\n");
         free(name);

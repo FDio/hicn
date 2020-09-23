@@ -44,15 +44,25 @@ do {                                                                            
     (entry)->expiryTimeTicks = msgbuf_GetContentExpiryTimeTicks(msgbuf);        \
 } while(0)
 
+/* This is only used as a hint for first allocation, as the table is resizeable */
+#define DEFAULT_CONTENT_STORE_SIZE 64
 
 content_store_t *
 _content_store_create(content_store_type_t type, size_t init_size, size_t max_size)
 {
+    if (!CONTENT_STORE_TYPE_VALID(type)) {
+        ERROR("[content_store_create] Invalid content store type");
+        return NULL;
+    }
+
+    if (init_size == 0)
+        init_size = DEFAULT_CONTENT_STORE_SIZE;
+
     content_store_t * cs = malloc(sizeof(content_store_t));
     if (!cs)
-        goto ERR_MALLOC;
-    if (!CONTENT_STORE_TYPE_VALID(type))
-        goto ERR_TYPE;
+        return NULL;
+
+    cs->max_size = max_size;
     cs->type = type;
 
     // XXX TODO an entry = data + metadata specific to each policy
@@ -80,9 +90,9 @@ _content_store_create(content_store_type_t type, size_t init_size, size_t max_si
     content_store_vft[type]->initialize(cs);
 
 ERR_INDEX_EXPIRY:
-    // XXX TODO
-ERR_TYPE:
-ERR_MALLOC:
+    free(cs);
+    // XXX
+
     return NULL;
 }
 
@@ -105,7 +115,7 @@ content_store_match(content_store_t * cs, msgbuf_t * msgbuf, uint64_t now)
 {
     assert(cs);
     assert(msgbuf);
-    assert(msgbuf_get_type(msgbuf) == MESSAGE_TYPE_INTEREST);
+    assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
 
     /* Lookup entry by name */
     khiter_t k = kh_get_cs_name(cs->index_by_name, msgbuf_get_name(msgbuf));
@@ -145,7 +155,7 @@ content_store_add(content_store_t * cs, msgbuf_t * msgbuf, uint64_t now)
 {
     assert(cs);
     assert(msgbuf);
-    assert(msgbuf_get_type(msgbuf) == MESSAGE_TYPE_DATA);
+    assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA);
 
     content_store_entry_t * entry = NULL;
 
@@ -182,7 +192,7 @@ content_store_remove(content_store_t * cs, msgbuf_t * msgbuf)
 {
     assert(cs);
     assert(msgbuf);
-    assert(msgbuf_get_type(msgbuf) == MESSAGE_TYPE_DATA);
+    assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA);
 
     /* Lookup entry by name */
     khiter_t k = kh_get_cs_name(cs->index_by_name, msgbuf_get_name(msgbuf));

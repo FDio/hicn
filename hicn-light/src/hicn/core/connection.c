@@ -399,9 +399,9 @@ connection_process_buffer(connection_t * connection, const uint8_t * buffer, siz
     msgbuf_t msgbuf;
     MessagePacketType packet_type;
     if (messageHandler_IsInterest(message->messageHead)) {
-        packet_type = MESSAGE_TYPE_INTEREST;
+        packet_type = MSGBUF_TYPE_INTEREST;
     } else if (messageHandler_IsData(message->messageHead)) {
-        packet_type = MESSAGE_TYPE_DATA;
+        packet_type = MSGBUF_TYPE_DATA;
     } else {
         ERROR("Dropped packet that is not interest nor data");
         return -1;
@@ -457,18 +457,23 @@ _connection_send(const connection_t * connection, msgbuf_t * msgbuf, bool queue)
 }
 
 bool
+connection_flush(const connection_t * connection)
+{
+    // XXX Replace this with a proper flush function to avoid implementing the
+    // same thing everywhere
+    return _connection_send(connection, NULL, false);
+}
+
+bool
 connection_send(const connection_t * connection, msgbuf_t * msgbuf, bool queue)
 {
     assert(connection);
-
-    /* NULL message means flush */
-    if (!msgbuf)
-        return _connection_send(connection, NULL, false);
+    assert(msgbuf); // XXX we now have a flush() function
 
     if (!connection_is_up(connection))
         return false;
 
-    if (msgbuf_get_type(msgbuf) == MESSAGE_TYPE_DATA) {
+    if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA) {
         uint8_t conn_id = (uint8_t)connection_get_id(connection);
         msgbuf_update_pathlabel(msgbuf, conn_id);
     }
@@ -504,7 +509,7 @@ connection_resend(const connection_t * connection, msgbuf_t * msgbuf, bool
     if (!connection_is_up(connection))
         return ret;
 
-    if (msgbuf_get_type(msgbuf) == MESSAGE_TYPE_DATA) {
+    if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA) {
       uint8_t conn_id = (uint8_t)connection_get_id(connection);
       uint32_t old_path_label = msgbuf_get_pathlabel(msgbuf);
       msgbuf_update_pathlabel(msgbuf, conn_id);
@@ -551,7 +556,7 @@ connection_wldr_allow_autostart(connection_t * connection, bool value)
 }
 
 bool
-connection_wldr_autostart_is_allowed(connection_t * connection)
+connection_wldr_autostart_is_allowed(const connection_t * connection)
 {
     return connection->wldr_autostart;
 }
@@ -579,7 +584,7 @@ connection_has_wldr(const connection_t * connection)
 }
 
 void
-connection_wldr_detect_losses(const connection_t * connection, msgbuf_t * msgbuf)
+connection_wldr_detect_losses(const connection_t * connection, const msgbuf_t * msgbuf)
 {
     if (!connection->wldr)
         return;
@@ -587,7 +592,7 @@ connection_wldr_detect_losses(const connection_t * connection, msgbuf_t * msgbuf
 }
 
 void
-connection_wldr_handle_notification(const connection_t * connection, msgbuf_t * msgbuf)
+connection_wldr_handle_notification(const connection_t * connection, const msgbuf_t * msgbuf)
 {
     if (!connection->wldr)
         return;
