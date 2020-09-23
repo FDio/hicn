@@ -31,11 +31,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <hicn/core/strategy.h> // to be moved in libhicn
-#include <hicn/util/ip_address.h>
 #ifdef WITH_POLICY
 #include <hicn/policy.h>
 #endif /* WITH_POLICY */
+#include <hicn/util/ip_address.h>
+
+#include "../core/strategy.h" // to be moved in libhicn
 
 #define SYMBOLIC_NAME_LEN 16
 

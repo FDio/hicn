@@ -156,7 +156,7 @@ bitmap_set_range(bitmap_t * bitmap, off_t from, off_t to)
      */
     if ((pos_to != BITMAP_WIDTH(bitmap) - 1) && (offset_to != offset_from)) {
         size_t to_start =  MAX(from, offset_to * BITMAP_WIDTH(bitmap));
-        for (size_t k = to_start; k < to; k++) {
+        for (size_t k = to_start; k < (size_t) to; k++) {
             if (bitmap_set(bitmap, k) < 0)
                 goto END;
         }
