@@ -19,20 +19,20 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include <hicn/core/messagePacketType.h>
-#include <hicn/core/nameBitvector.h>
+#include "nameBitvector.h"
 //#include <hicn/utils/address.h>
 
 //#include <hicn/utils/commands.h>
 
-struct name;
-typedef struct name Name;
+struct name_s;
+typedef struct name_s Name;
 
 /**
  * Creates a name from packet
  *
  */
-Name *name_CreateFromPacket(const uint8_t *memory, MessagePacketType type);
+Name *name_create_from_interest(const uint8_t * packet);
+Name *name_create_from_data(const uint8_t * packet);
 
 /**
  * Releases one reference count, and frees memory after last reference

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,22 +14,25 @@
  */
 
 /**
- * @file message_packet_type_h
- * @brief Defines the packet type for a HICN message
- *
+ * @file base.h
+ * #brief Base IO functions.
  */
 
-#ifndef message_packet_type_h
-#define message_packet_type_h
+#ifndef HICNLIGHT_IO_BASE
+#define HICNLIGHT_IO_BASE
 
-typedef enum message_type {
-    MESSAGE_TYPE_UNDEFINED,
-    MESSAGE_TYPE_INTEREST,
-    MESSAGE_TYPE_DATA,
-    MESSAGE_TYPE_WLDR_NOTIFICATION,
-    MESSAGE_TYPE_MAPME,
-    MESSAGE_TYPE_COMMAND,
-    MESSAGE_TYPE_N,
-} MessagePacketType;
+#include "../core/address_pair.h"
+#include "../core/msgbuf.h"
 
-#endif  // message_packet_type_h
+#define MAX_MSG 64 //16 //32
+
+ssize_t io_read_single_fd(int fd, msgbuf_t * msgbuf,
+        address_t * address);
+
+ssize_t io_read_single_socket(int fd, msgbuf_t * msgbuf,
+        address_t * address);
+
+ssize_t io_read_batch_socket(int fd, msgbuf_t ** msgbuf,
+        address_t ** address, size_t n);
+
+#endif /* HICNLIGHT_IO_BASE */

@@ -42,9 +42,10 @@ const connection_ops_t connection_ ## NAME = {                  \
     .get_socket = listener_ ## NAME ## _get_socket,             \
     .send = connection_ ## NAME ## _send,                       \
     .send_packet = connection_ ## NAME ## _send_packet,         \
-    .read_callback = connection_ ## NAME ## _read_callback,     \
     .data_size = sizeof(connection_ ## NAME ## _data_t),        \
 };
+
+//    .read_callback = connection_ ## NAME ## _read_callback,
 
 extern const connection_ops_t * connection_vft[];
 

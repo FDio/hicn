@@ -17,11 +17,12 @@
  * \file strategy_vft.h
  * \brief hICN forwarding strategy VFT
  */
-#ifndef HICN_STRATEGY_VFT_H
-#define HICN_STRATEGY_VFT_H
+#ifndef HICNLIGHT_STRATEGY_VFT_H
+#define HICNLIGHT_STRATEGY_VFT_H
 
-#include <hicn/core/strategy.h>
-#include <hicn/core/nexthops.h>
+#include "msgbuf.h"
+#include "nexthops.h"
+#include "strategy.h"
 
 /**
  * @typedef strategy_ops_t
@@ -73,4 +74,4 @@ const strategy_ops_t strategy_ ## NAME = {                      \
     .on_timeout = strategy_ ## NAME ## _on_timeout,             \
 }
 
-#endif /* HICN_STRATEGY_VFT_H */
+#endif /* HICNLIGHT_STRATEGY_VFT_H */

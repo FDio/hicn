@@ -24,60 +24,114 @@
 #include <netinet/in.h>
 
 extern "C" {
-#include <hicn/base/vector.h>
+#define WITH_TESTS
 #include <hicn/base/bitmap.h>
 }
 
+#define DEFAULT_SIZE 10
+
 class BitmapTest : public ::testing::Test {
- protected:
-  BitmapTest() {
-  }
+protected:
+    BitmapTest() { }
 
-  virtual ~BitmapTest() {
+    virtual ~BitmapTest() { }
 
-    // You can do clean-up work that doesn't throw exceptions here.
-  }
-
-  // If the constructor and destructor are not enough for setting up
-  // and cleaning up each test, you can define the following methods:
-
-  virtual void SetUp() {
-    bitmap_init(bitmap, 1024);
-  }
-
-  virtual void TearDown() {
-    free(bitmap);
-  }
-  uint32_t *bitmap;
+    bitmap_t * bitmap;
 };
+
+/*
+ * TEST: bitmap allocation
+ */
+TEST_F(BitmapTest, BitmapAllocation)
+{
+    int rc;
+
+    /*
+     * We take a value < 32 on purpose to avoid confusion on the choice of a 32
+     * or 64 bit integer for storage
+     */
+    size_t size_not_pow2 = DEFAULT_SIZE;
+    bitmap_init(bitmap, size_not_pow2, 0);
+
+    /*
+     * Bitmap should have been allocated with a size rounded to the next power
+     * of 2
+     */
+    EXPECT_EQ(bitmap_get_alloc_size(bitmap), 1);
+
+    /* By default, no element should be set */
+    EXPECT_FALSE(bitmap_is_set(bitmap, 0));
+    EXPECT_TRUE(bitmap_is_unset(bitmap, 0));
+
+    EXPECT_EQ(bitmap_get_alloc_size(bitmap), 1);
+
+    EXPECT_FALSE(bitmap_is_set(bitmap, size_not_pow2 - 1));
+    EXPECT_TRUE(bitmap_is_unset(bitmap, size_not_pow2 - 1));
+
+    /* Bitmap should not have been reallocated */
+    EXPECT_EQ(bitmap_get_alloc_size(bitmap), 1);
+
+    /* After setting a bit after the end, bitmap should have been reallocated */
+    bitmap_set(bitmap, sizeof(bitmap[0]) * 8 - 1);
+    EXPECT_EQ(bitmap_get_alloc_size(bitmap), 1);
+
+    /* After setting a bit after the end, bitmap should have been reallocated */
+    rc = bitmap_set(bitmap, sizeof(bitmap[0]) * 8);
+    EXPECT_GE(rc, 0);
+    EXPECT_EQ(bitmap_get_alloc_size(bitmap), 2);
+
+    rc = bitmap_set(bitmap, sizeof(bitmap[0]) * 8 + 1);
+    EXPECT_GE(rc, 0);
+    EXPECT_EQ(bitmap_get_alloc_size(bitmap), 2);
+
+    bitmap_free(bitmap);
+
+    size_t size_pow2 = 16;
+
+    /* Limiting test for allocation size */
+    bitmap_init(bitmap, size_pow2, 0);
+    EXPECT_EQ(bitmap_get_alloc_size(bitmap), 1);
+
+    bitmap_free(bitmap);
+}
 
 TEST_F(BitmapTest, BitmapSet)
 {
-  bitmap_set(bitmap, 20);
-  EXPECT_TRUE(bitmap_is_set(bitmap, 20));
-  EXPECT_FALSE(bitmap_is_unset(bitmap, 20));
-  EXPECT_FALSE(bitmap_is_set(bitmap, 19));
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 19));
+    bitmap_init(bitmap, DEFAULT_SIZE, 0);
 
+    bitmap_set(bitmap, 20);
+    EXPECT_TRUE(bitmap_is_set(bitmap, 20));
+    EXPECT_FALSE(bitmap_is_unset(bitmap, 20));
+    EXPECT_FALSE(bitmap_is_set(bitmap, 19));
+    EXPECT_TRUE(bitmap_is_unset(bitmap, 19));
+
+    bitmap_free(bitmap);
 }
 
 TEST_F(BitmapTest, BitmapUnSet) {
-  bitmap_set(bitmap, 20);
-  bitmap_set(bitmap, 19);
-  bitmap_unset(bitmap, 20);
-  EXPECT_FALSE(bitmap_is_set(bitmap, 20));
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 20));
-  EXPECT_TRUE(bitmap_is_set(bitmap, 19));
-  EXPECT_FALSE(bitmap_is_unset(bitmap, 19));
+    bitmap_init(bitmap, DEFAULT_SIZE, 0);
 
+    bitmap_set(bitmap, 20);
+    bitmap_set(bitmap, 19);
+    bitmap_unset(bitmap, 20);
+    EXPECT_FALSE(bitmap_is_set(bitmap, 20));
+    EXPECT_TRUE(bitmap_is_unset(bitmap, 20));
+    EXPECT_TRUE(bitmap_is_set(bitmap, 19));
+    EXPECT_FALSE(bitmap_is_unset(bitmap, 19));
+
+    bitmap_free(bitmap);
 }
 
 TEST_F(BitmapTest, BitmapSetTo) {
-  bitmap_set_to(bitmap, 40);
-  EXPECT_TRUE(bitmap_is_set(bitmap, 20));
-  EXPECT_TRUE(bitmap_is_set(bitmap, 21));
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 41));
-  EXPECT_TRUE(bitmap_is_unset(bitmap, 42));
+    bitmap_init(bitmap, DEFAULT_SIZE, 0);
+
+    bitmap_set_to(bitmap, 40);
+    EXPECT_TRUE(bitmap_is_set(bitmap, 20));
+    EXPECT_TRUE(bitmap_is_set(bitmap, 21));
+    EXPECT_TRUE(bitmap_is_unset(bitmap, 41));
+    EXPECT_TRUE(bitmap_is_unset(bitmap, 42));
+
+    bitmap_free(bitmap);
 }
 
 int main(int argc, char **argv)

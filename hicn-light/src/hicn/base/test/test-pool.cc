@@ -24,45 +24,135 @@
 #include <netinet/in.h>
 
 extern "C" {
+#define WITH_TESTS
 #include <hicn/base/pool.h>
 }
 
+/*
+ * TODO
+ * - test max_size
+ */
+
+#define DEFAULT_SIZE 10
+
 class PoolTest : public ::testing::Test {
- protected:
-  PoolTest() {
-  }
+protected:
+    PoolTest() { }
+    virtual ~PoolTest() { }
 
-  virtual ~PoolTest() {
-    // You can do clean-up work that doesn't throw exceptions here.
-  }
-
-  // If the constructor and destructor are not enough for setting up
-  // and cleaning up each test, you can define the following methods:
-
-  virtual void SetUp() {
-   
-  }
-
-  virtual void TearDown() {
-    pool_free(pool);
-  }
-
-  int *pool;
+    int *pool;
 };
 
+TEST_F(PoolTest, PoolAllocation)
+{
+    int rc;
+
+    pool_init(pool, DEFAULT_SIZE, 0);
+
+    size_t pool_size = next_pow2(DEFAULT_SIZE);
+
+    EXPECT_EQ(pool_get_alloc_size(pool), pool_size);
+
+    /* Check that free indices and bitmaps are correctly initialize */
+    off_t * fi = pool_get_free_indices(pool);
+    EXPECT_EQ(vector_len(fi), pool_size);
+    EXPECT_EQ(fi[0], pool_size - 1);
+    EXPECT_EQ(fi[pool_size - 1], 0);
+
+    /* The allocated size of the underlying vector should be the next power of two */
+    EXPECT_EQ(vector_get_alloc_size(fi), pool_size);
+
+    bitmap_t * fb = pool_get_free_bitmap(pool);
+    EXPECT_TRUE(bitmap_is_set(fb, 0));
+    EXPECT_TRUE(bitmap_is_set(fb, pool_size - 2));
+    EXPECT_TRUE(bitmap_is_set(fb, pool_size - 1));
+    EXPECT_TRUE(bitmap_is_unset(fb, pool_size));
+
+    /* Getting elements from the pool should correctly update the free indices
+     * and bitmap */
+    int * elt;
+
+    rc = pool_get(pool, elt);
+    EXPECT_GE(rc, 0);
+    EXPECT_EQ(vector_len(fi), pool_size - 1);
+    EXPECT_TRUE(bitmap_is_unset(fb, 0));
+
+    rc = pool_get(pool, elt);
+    EXPECT_GE(rc, 0);
+    EXPECT_EQ(vector_len(fi), pool_size - 2);
+    EXPECT_TRUE(bitmap_is_unset(fb, 1));
+
+    for (unsigned i = 0; i < pool_size - 4; i++) {
+        rc = pool_get(pool, elt);
+        EXPECT_GE(rc, 0);
+    }
+
+    rc = pool_get(pool, elt);
+    EXPECT_GE(rc, 0);
+    EXPECT_EQ(vector_len(fi), 1);
+    EXPECT_TRUE(bitmap_is_unset(fb, pool_size - 2));
+
+    rc = pool_get(pool, elt);
+    EXPECT_GE(rc, 0);
+    EXPECT_EQ(vector_len(fi), 0);
+    EXPECT_TRUE(bitmap_is_unset(fb, pool_size - 1));
+
+    /*
+     * Getting elements within the allocated range should not have triggered a
+     * resize
+     */
+    EXPECT_EQ(pool_len(pool), pool_size);
+
+    /*
+     * Getting elements once the allocated range has been exceeded should
+     * trigger a resize
+     */
+    rc = pool_get(pool, elt);
+    EXPECT_GE(rc, 0);
+
+    EXPECT_EQ(pool_get_alloc_size(pool), pool_size * 2);
+
+    EXPECT_EQ(pool_len(pool), pool_size + 1);
+
+    /*
+     * Doubling the size, we should have again pool_size elements free, minus 1
+     */
+    EXPECT_EQ(pool_get_free_indices_size(pool), pool_size - 1);
+
+    /*
+     * NOTE: this is wrong as there has been a realloc and the old fi
+     * pointer is now invalid
+     */
+    //EXPECT_EQ(vector_len(fi), pool_size - 1);
+
+    /* And the bitmap should also be correctly modified */
+    fb = pool_get_free_bitmap(pool);
+    EXPECT_TRUE(bitmap_is_unset(fb, pool_size));
+
+    /* Check that surrounding values are also correct */
+    EXPECT_TRUE(bitmap_is_unset(fb, pool_size - 1));
+    EXPECT_TRUE(bitmap_is_set(fb, pool_size + 1));
+
+    /* Setting elements after should through */
+
+    /* Check that free indices and bitmaps are correctly updated */
+
+    pool_free(pool);
+}
+
+// XXX todo : check state after several get and put
 TEST_F(PoolTest, PoolPut)
 {
-   pool_init(pool, 1024);
-  int* elt;
-  pool_get(pool, elt);
-  *elt = 10;
+    pool_init(pool, DEFAULT_SIZE, 0);
+
+    int* elt;
+    pool_get(pool, elt);
+    *elt = 10;
     printf("2\n");
-  pool_put(pool, elt);
+    pool_put(pool, elt);
     printf("3\n");
-  
-  //pool_get(pool)
-    //loop_ = loop_create();
-    //EXPECT_TRUE(loop_ != NULL);
+
+    pool_free(pool);
 }
 
 

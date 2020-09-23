@@ -24,64 +24,90 @@
 #include <netinet/in.h>
 
 extern "C" {
+#define WITH_TESTS
 #include <hicn/base/vector.h>
 }
 
+/*
+ * TODO
+ * - test max_size
+ */
+
+#define DEFAULT_SIZE 10
+
 class VectorTest : public ::testing::Test {
- protected:
-  VectorTest() {
-  }
+protected:
+    VectorTest() { }
+    virtual ~VectorTest() { }
 
-  virtual ~VectorTest() {
-    // You can do clean-up work that doesn't throw exceptions here.
-  }
-
-  // If the constructor and destructor are not enough for setting up
-  // and cleaning up each test, you can define the following methods:
-
-  virtual void SetUp() {;
-    vector_init(vector, 1024);
-  }
-
-  virtual void TearDown() {
-    vector_free(vector);
-  }
-
-  int *vector = NULL;
-
+    int *vector = NULL;
 };
+
+/* TEST: Vector allocation and initialization */
+TEST_F(VectorTest, VectorAllocate)
+{
+    vector_init(vector, DEFAULT_SIZE, 0);
+
+    /* Allocated size should be the next power of two */
+    EXPECT_EQ(vector_get_alloc_size(vector), 16);
+
+    /* Setting elements within the allocated size should not trigger a resize */
+    vector_ensure_pos(vector, 15);
+    EXPECT_EQ(vector_get_alloc_size(vector), 16);
+
+    /* Setting elements after should through */
+    vector_ensure_pos(vector, 16);
+    EXPECT_EQ(vector_get_alloc_size(vector), 32);
+
+    /* Check that free indices and bitmaps are correctly updated */
+
+    vector_free(vector);
+}
 
 TEST_F(VectorTest, VectorSize)
 {
-  vector_push(vector, 109);
-  vector_push(vector, 109);
-  int size = vector_len(vector);
-  EXPECT_EQ(size, 2);
-  vector_push(vector, 109);
-  size = vector_len(vector);
-  EXPECT_EQ(size, 3);
+    vector_init(vector, DEFAULT_SIZE, 0);
 
+    vector_push(vector, 109);
+    int size = vector_len(vector);
+    EXPECT_EQ(size, 1);
+    vector_push(vector, 109);
+    size = vector_len(vector);
+    EXPECT_EQ(size, 2);
+    vector_push(vector, 109);
+    size = vector_len(vector);
+    EXPECT_EQ(size, 3);
+
+    vector_free(vector);
 }
 
 TEST_F(VectorTest, VectorCheckValue)
 {
-  vector_push(vector, 109);
-  vector_push(vector, 200);
-  EXPECT_EQ(vector[0], 109);
-  EXPECT_EQ(vector[1], 200);
+    vector_init(vector, DEFAULT_SIZE, 0);
+
+    vector_push(vector, 109);
+    vector_push(vector, 200);
+    EXPECT_EQ(vector[0], 109);
+    EXPECT_EQ(vector[1], 200);
+
+    vector_free(vector);
 }
 
 TEST_F(VectorTest, VectorEnsurePos)
 {
-  printf (" %p\n", vector);
-  vector_ensure_pos(vector, 1025);
-  for (int i = 0; i <1025; i++) {
-    printf("i %d\n", i);
+    vector_init(vector, DEFAULT_SIZE, 0);
+
     printf (" %p\n", vector);
-    vector_push(vector, i);
-  }
-  int size = vector_len(vector);
-  EXPECT_EQ(size, 1025);
+    vector_ensure_pos(vector, 1025);
+    for (int i = 0; i <1025; i++) {
+        //printf("i %d\n", i);
+        //printf (" %p\n", vector);
+        vector_push(vector, i);
+    }
+    int size = vector_len(vector);
+    EXPECT_EQ(size, 1025);
+
+    vector_free(vector);
 }
 
 int main(int argc, char **argv)

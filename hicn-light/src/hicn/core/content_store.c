@@ -26,10 +26,10 @@
 
 #include "content_store.h"
 
-extern const content_store_ops_t content_store_lru;
+extern const cs_ops_t cs_lru;
 
-const content_store_ops_t * const content_store_vft[] = {
-  [CONTENT_STORE_TYPE_LRU] = &content_store_lru,
+const cs_ops_t * const cs_vft[] = {
+  [CS_TYPE_LRU] = &cs_lru,
 };
 
 // XXX TODO replace by a single packet cache
@@ -37,26 +37,35 @@ const content_store_ops_t * const content_store_vft[] = {
 // XXX TODO getting rid of logger and the need to acquire
 // XXX TODO separate cs from vft, same with strategy
 
-#define content_store_entry_from_msgbuf(entry, msgbuf)                          \
+#define cs_entry_from_msgbuf(entry, msgbuf)                          \
 do {                                                                            \
   (entry)->hasExpiryTimeTicks = msgbuf_HasContentExpiryTime(msgbuf);            \
   if ((entry)->hasExpiryTimeTicks)                                              \
     (entry)->expiryTimeTicks = msgbuf_GetContentExpiryTimeTicks(msgbuf);        \
 } while(0)
 
+/* This is only used as a hint for first allocation, as the table is resizeable */
+#define DEFAULT_CS_SIZE 64
 
-content_store_t *
-_content_store_create(content_store_type_t type, size_t init_size, size_t max_size)
+cs_t *
+_cs_create(cs_type_t type, size_t init_size, size_t max_size)
 {
-    content_store_t * cs = malloc(sizeof(content_store_t));
+    if (!CS_TYPE_VALID(type)) {
+        ERROR("[cs_create] Invalid content store type");
+        return NULL;
+    }
+
+    if (init_size == 0)
+        init_size = DEFAULT_CS_SIZE;
+
+    cs_t * cs = malloc(sizeof(cs_t));
     if (!cs)
-        goto ERR_MALLOC;
-    if (!CONTENT_STORE_TYPE_VALID(type))
-        goto ERR_TYPE;
+        return NULL;
+
     cs->type = type;
 
     // XXX TODO an entry = data + metadata specific to each policy
-    pool_init(cs->entries, init_size);
+    pool_init(cs->entries, init_size, max_size);
 
     // data
     // options
@@ -66,59 +75,65 @@ _content_store_create(content_store_type_t type, size_t init_size, size_t max_si
     // index by name
     cs->index_by_name = kh_init(cs_name);
 
+#if 0
     cs->index_by_expiry_time = NULL;
     if (!cs->index_by_expiry_time) {
         ERROR("Could not create index (expiry time)");
         goto ERR_INDEX_EXPIRY;
     }
+#endif
 
+    cs_vft[type]->initialize(cs);
 
-    // XXX indices specific to each policy => vft
-    // index by expiration time
-    // lru ?
-
-    content_store_vft[type]->initialize(cs);
-
+    return cs;
+#if 0
 ERR_INDEX_EXPIRY:
-    // XXX TODO
-ERR_TYPE:
-ERR_MALLOC:
+    free(cs);
+    // XXX
+
     return NULL;
+#endif
 }
 
 void
-content_store_free(content_store_t * cs)
+cs_free(cs_t * cs)
 {
-    content_store_vft[cs->type]->finalize(cs);
+    cs_vft[cs->type]->finalize(cs);
 
+#if 0
     if (cs->index_by_expiry_time)
         ; //listTimeOrdered_Release(&(store->indexByExpirationTime));
+#endif
 }
 
-void content_store_clear(content_store_t * cs)
+void cs_clear(cs_t * cs)
 {
     // XXX TODO
 }
 
-msgbuf_t *
-content_store_match(content_store_t * cs, msgbuf_t * msgbuf, uint64_t now)
+off_t
+cs_match(cs_t * cs, off_t msgbuf_id, uint64_t now)
 {
     assert(cs);
+
+    const msgbuf_pool_t * msgbuf_pool = cs_get_msgbuf_pool(cs);
+    const msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
+
     assert(msgbuf);
-    assert(msgbuf_get_type(msgbuf) == MESSAGE_TYPE_INTEREST);
+    assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
 
     /* Lookup entry by name */
     khiter_t k = kh_get_cs_name(cs->index_by_name, msgbuf_get_name(msgbuf));
     if (k == kh_end(cs->index_by_name))
-        return NULL;
-    content_store_entry_t * entry = cs->entries + kh_val(cs->index_by_name, k);
+        return INVALID_MSGBUF_ID;
+    cs_entry_t * entry = cs->entries + kh_val(cs->index_by_name, k);
     assert(entry);
 
     /* Remove any expired entry */
-    if (content_store_entry_has_expiry_time(entry) &&
-            content_store_entry_expiry_time(entry) < now) {
+    if (cs_entry_has_expiry_time(entry) &&
+            cs_entry_get_expiry_time(entry) < now) {
         // the entry is expired, we can remove it
-        content_store_remove_entry(cs, entry);
+        cs_remove_entry(cs, entry);
         goto NOT_FOUND;
     }
 
@@ -130,69 +145,139 @@ content_store_match(content_store_t * cs, msgbuf_t * msgbuf, uint64_t now)
 
     DEBUG("CS %p LRU match %p (hits %" PRIu64 ", misses %" PRIu64 ")",
            cs, msgbuf, cs->stats.lru.countHits, cs->stats.lru.countMisses);
-    return content_store_entry_message(entry);
+    return cs_entry_get_msgbuf_id(entry);
 
 NOT_FOUND:
     cs->stats.lru.countMisses++;
 
     DEBUG("ContentStoreLRU %p missed msgbuf %p (hits %" PRIu64 ", misses %" PRIu64 ")",
             cs, msgbuf, cs->stats.lru.countHits, cs->stats.lru.countMisses);
+    return INVALID_MSGBUF_ID;
+}
+
+// XXX temp
+// XXX pool member pointer might change, not the ID.
+#define msgbuf_acquire(x) (x)
+
+cs_entry_t *
+cs_add(cs_t * cs, off_t msgbuf_id, uint64_t now)
+{
+    assert(cs);
+    assert(msgbuf_id_is_valid(msgbuf_id));
+
+#if DEBUG
+    forwarder_t * forwarder = cs_get_forwarder(cs);
+    msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
+    assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA);
+#endif
+
+#if 0
+    // entry exists ?
+    cs_entry_t *dataEntry = parcHashCodeTable_Get(data->storageByName, content);
+    if(dataEntry)
+        _cs_lru_purge_entry(data, dataEntry);
+#endif
+
+#if 0
+    // check expiration
+    uint64_t expiryTimeTicks = contentStoreEntry_MaxExpiryTime;
+    if (message_HasContentExpiryTime(content))
+        expiryTimeTicks = message_GetContentExpiryTimeTicks(content);
+
+    // Don't add anything that's already expired or has exceeded RCT.
+    if (now >= expiryTimeTicks)
+        return false;
+#endif
+
+#if 0
+    // evict
+    if (data->objectCount >= data->objectCapacity)
+        // Store is full. Need to make room.
+        _evictByStorePolicy(data, now);
+#endif
+
+    cs_entry_t * entry = NULL;
+    off_t entry_id = pool_get(cs->entries, entry);
+    if (!entry)
+        goto ERR_ENTRY;
+
+    *entry = (cs_entry_t) {
+        .msgbuf_id = msgbuf_id,
+        .hasExpiryTimeTicks = false, // XXX
+        .expiryTimeTicks = 0, // XXX
+    };
+
+    // update indices
+
+    // update policy index
+    /* eg. LRU: add new the entry at the head of the LRU */
+    if (!cs_vft[cs->type]->add_entry(cs, entry_id))
+        goto ERR_VFT;
+
+#if 0
+    // update expiry time index
+    if (cs_entry_has_expiry_time(entry)) {
+    }
+#endif
+
+#if 0
+    // stats
+    data->objectCount++;
+    data->stats.countAdds++;
+#endif
+
+    return entry;
+
+ERR_VFT:
+    pool_put(cs->entries, entry);
+ERR_ENTRY:
     return NULL;
 }
 
-void
-content_store_add(content_store_t * cs, msgbuf_t * msgbuf, uint64_t now)
-{
-    assert(cs);
-    assert(msgbuf);
-    assert(msgbuf_get_type(msgbuf) == MESSAGE_TYPE_DATA);
-
-    content_store_entry_t * entry = NULL;
-
-    /* borrow from content_store_lru_add_entry */
-
-    content_store_vft[cs->type]->add_entry(cs, entry);
-}
-
-void
-content_store_remove_entry(content_store_t * cs, content_store_entry_t * entry)
+int
+cs_remove_entry(cs_t * cs, cs_entry_t * entry)
 {
     assert(cs);
     assert(entry);
 
-    if (content_store_entry_has_expiry_time(entry))
+    if (cs_entry_has_expiry_time(entry))
         ; // XXX TODO listTimeOrdered_Remove(store->indexByExpirationTime, entryToPurge);
 
-    msgbuf_t * msgbuf = content_store_entry_message(entry);
+    off_t msgbuf_id = cs_entry_get_msgbuf_id(entry);
+
+    const msgbuf_pool_t * msgbuf_pool = cs_get_msgbuf_pool(cs);
+    const msgbuf_t * msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
+
     khiter_t k = kh_get_cs_name(cs->index_by_name, msgbuf_get_name(msgbuf));
     if (k != kh_end(cs->index_by_name))
         kh_del(cs_name, cs->index_by_name, k);
 
     // This will take care of LRU entry for instance
-    content_store_vft[cs->type]->remove_entry(cs, entry);
+    cs_vft[cs->type]->remove_entry(cs, entry);
 
     //store->objectCount--;
     pool_put(cs->entries, entry);
 
+    return 0;
 }
 //
 // XXX TODO what is the difference between purge and remove ?
 bool
-content_store_remove(content_store_t * cs, msgbuf_t * msgbuf)
+cs_remove(cs_t * cs, msgbuf_t * msgbuf)
 {
     assert(cs);
     assert(msgbuf);
-    assert(msgbuf_get_type(msgbuf) == MESSAGE_TYPE_DATA);
+    assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA);
 
     /* Lookup entry by name */
     khiter_t k = kh_get_cs_name(cs->index_by_name, msgbuf_get_name(msgbuf));
     if (k == kh_end(cs->index_by_name))
         return false;
 
-    content_store_entry_t * entry = cs->entries + kh_val(cs->index_by_name, k);
+    cs_entry_t * entry = cs->entries + kh_val(cs->index_by_name, k);
     assert(entry);
 
-    content_store_remove_entry(cs, entry);
+    cs_remove_entry(cs, entry);
     return true;
 }
 

@@ -26,7 +26,8 @@
 #ifndef configuration_h
 #define configuration_h
 
-#include <hicn/utils/commands.h>
+#include "../core/msgbuf.h"
+#include "../utils/commands.h"
 
 typedef struct configuration_s configuration_t;
 
@@ -67,8 +68,7 @@ void configuration_free(configuration_t * config);
 void configuration_setup_all_listeners(configuration_t *config, uint16_t port,
                                      const char *localPath);
 
-void configuration_receive_command(configuration_t *config, command_type_t command,
-        uint8_t * packet, unsigned ingress_id);
+ssize_t configuration_receive_command(configuration_t *config, msgbuf_t * msgbuf);
 
 /**
  * Returns the configured size of the content store
@@ -84,7 +84,7 @@ void configuration_receive_command(configuration_t *config, command_type_t comma
  * <#example#>
  * @endcode
  */
-size_t configuration_content_store_get_size(configuration_t *config);
+size_t configuration_cs_get_size(configuration_t *config);
 
 /**
  * Sets the size of the content store (in objects, not bytes)
@@ -98,7 +98,7 @@ size_t configuration_content_store_get_size(configuration_t *config);
  * <#example#>
  * @endcode
  */
-void configuration_content_store_set_size(configuration_t *config, size_t size);
+void configuration_cs_set_size(configuration_t *config, size_t size);
 
 strategy_type_t configuration_get_strategy(configuration_t *config, const char *prefix);
 

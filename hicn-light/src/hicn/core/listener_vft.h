@@ -36,7 +36,9 @@ typedef struct {
             msgbuf_t * msgbuf, bool queue);
     int (*send_packet)(const connection_t * connection,
             const uint8_t * packet, size_t size);
-    void (*read_callback)(listener_t * listener, int fd, void * data);
+    ssize_t (*read_single)(int fd, msgbuf_t * msgbuf, address_t * address);
+    ssize_t (*read_batch)(int fd, msgbuf_t ** msgbuf, address_t ** address,
+            size_t len);
     size_t data_size;
 } listener_ops_t;
 
@@ -46,7 +48,8 @@ const listener_ops_t listener_ ## NAME = {                      \
     .finalize = listener_ ## NAME ## _finalize,                 \
     .punt = listener_ ## NAME ## _punt,                         \
     .get_socket = listener_ ## NAME ## _get_socket,             \
-    .read_callback = listener_ ## NAME ## _read_callback,       \
+    .read_single = listener_ ## NAME ## _read_single,           \
+    .read_batch = listener_ ## NAME ## _read_batch,             \
     .data_size = sizeof(listener_ ## NAME ## _data_t),          \
 }
 
