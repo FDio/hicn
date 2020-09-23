@@ -16,7 +16,6 @@ list(APPEND COMPILER_DEFINITIONS
 )
 
 set(HEADER_FILES
-    api.h
     commands.h
 )
 
@@ -24,6 +23,8 @@ set(UTIL_HEADER_FILES
 )
 
 set(SOURCE_FILES
+    hicnctrl.c
+    cli.c
     route.c
 )
 
