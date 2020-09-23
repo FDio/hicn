@@ -19,6 +19,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+# Enable gtests (`make test`)
+# `make test ARGS="-V"` can be used for verbose output
+enable_testing()
+
 ## Enabled components
 option(BUILD_LIBHICN "Build the hicn core library" ON)
 option(BUILD_HICNLIGHT "Build the hicn light forwarder" ON)
@@ -62,9 +66,9 @@ endif()
 
 list(APPEND dir_options
   BUILD_LIBHICN
+  BUILD_CTRL
   BUILD_HICNLIGHT
   BUILD_HICNPLUGIN
-  BUILD_CTRL
   BUILD_LIBTRANSPORT
   BUILD_UTILS
   BUILD_APPS

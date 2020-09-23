@@ -25,7 +25,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include <hicn/core/strategy.h>
+#include "strategy.h"
 
 #define _nexthops_var(x) _nexthops_##x
 

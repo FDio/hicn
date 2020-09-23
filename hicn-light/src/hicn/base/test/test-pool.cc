@@ -56,7 +56,7 @@ TEST_F(PoolTest, PoolAllocation)
     /* Check that free indices and bitmaps are correctly initialize */
     off_t * fi = pool_get_free_indices(pool);
     EXPECT_EQ(vector_len(fi), pool_size);
-    EXPECT_EQ(fi[0], pool_size - 1);
+    EXPECT_EQ(fi[0], (long) (pool_size - 1));
     EXPECT_EQ(fi[pool_size - 1], 0);
 
     /* The allocated size of the underlying vector should be the next power of two */
@@ -89,12 +89,12 @@ TEST_F(PoolTest, PoolAllocation)
 
     rc = pool_get(pool, elt);
     EXPECT_GE(rc, 0);
-    EXPECT_EQ(vector_len(fi), 1);
+    EXPECT_EQ(vector_len(fi), 1UL);
     EXPECT_TRUE(bitmap_is_unset(fb, pool_size - 2));
 
     rc = pool_get(pool, elt);
     EXPECT_GE(rc, 0);
-    EXPECT_EQ(vector_len(fi), 0);
+    EXPECT_EQ(vector_len(fi), 0UL);
     EXPECT_TRUE(bitmap_is_unset(fb, pool_size - 1));
 
     /*
@@ -155,6 +155,21 @@ TEST_F(PoolTest, PoolPut)
     pool_free(pool);
 }
 
+// TODO: this test fails, there is a problem when N = n*64
+// (i.e. when a bitmat reallocation occurs)
+TEST_F(PoolTest, PoolGetForceBitmapRealloc)
+{
+    const int N = 64;
+    int *elts[N];
+    int *elt = NULL;
+    pool_init(pool, N, 0);
+
+    for (int i = 0; i < N; i++)
+        pool_get(pool, elts[i]);
+    pool_get(pool, elt);
+
+    pool_free(pool);
+}
 
 int main(int argc, char **argv)
 {

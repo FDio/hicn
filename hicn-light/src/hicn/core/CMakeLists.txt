@@ -75,3 +75,7 @@ set(TO_INSTALL_HEADER_FILES
   ${HEADER_FILES}
   PARENT_SCOPE
 )
+
+if (BUILD_TESTS)
+  add_subdirectory(test)
+endif()
