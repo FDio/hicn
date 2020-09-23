@@ -69,7 +69,6 @@ typedef enum {
 KHASH_INIT(pit_name, const Name *, unsigned, 0, name_hash, name_hash_eq);
 
 typedef struct {
-    msgbuf_pool_t * msgbuf_pool;
     size_t max_size;
     pit_entry_t * entries; // pool
     kh_pit_name_t * index_by_name;
@@ -77,17 +76,17 @@ typedef struct {
 
 /**
  * @brief Allocate a new PIT data structure (extended parameters)
- * 
+ *
  * @param init_size Initial size (0 = default)
  * @param max_size Maximum size (0 = unbounded)
- * 
+ *
  * @return pit_t* Newly allocated PIT data structure
  */
 pit_t * _pit_create(size_t init_size, size_t max_size);
 
 /**
  * @brief Allocate a new PIT data structure
- * 
+ *
  * @return pit_t* Newly allocated PIT data structure
  */
 #define pit_create() _pit_create(0, 0)
@@ -108,14 +107,12 @@ do {                                                                            
 
 #define pit_at(pit, i) (pit->entries + i)
 
-pit_verdict_t pit_on_interest(pit_t * pit, off_t msgbuf_id);
+pit_verdict_t pit_on_interest(pit_t * pit, msgbuf_pool_t * msgbuf_pool, off_t msgbuf_id);
 
-nexthops_t * pit_on_data(pit_t * pit, off_t msgbuf_id);
+nexthops_t * pit_on_data(pit_t * pit, msgbuf_pool_t * msgbuf_pool, off_t msgbuf_id);
 
-void pit_remove(pit_t * pit, off_t msgbuf_id);
+void pit_remove(pit_t * pit, msgbuf_pool_t * msgbuf_pool, off_t msgbuf_id);
 
 pit_entry_t * pit_lookup(const pit_t * pit, const msgbuf_t * msgbuf);
-
-#define pit_get_msgbuf_pool(pit) (pit->msgbuf_pool)
 
 #endif /* HICNLIGHT_PIT_H */

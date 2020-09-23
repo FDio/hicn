@@ -43,8 +43,8 @@ typedef uint_fast32_t bitmap_t;
  * @param[in] max_size Bitmap max_size
  */
 #define bitmap_init(bitmap, init_size, max_size)                        \
-   vector_init(bitmap, next_pow2(init_size / BITMAP_WIDTH(bitmap)),     \
-   max_size == 0 ? 0 : next_pow2(max_size / BITMAP_WIDTH(bitmap)))
+   vector_init(bitmap, next_pow2((init_size) / BITMAP_WIDTH(bitmap)),     \
+   max_size == 0 ? 0 : next_pow2((max_size) / BITMAP_WIDTH(bitmap)))
 
 /*
  * @brief Ensures a bitmap is sufficiently large to hold an element at the
@@ -156,7 +156,7 @@ bitmap_set_range(bitmap_t * bitmap, off_t from, off_t to)
      */
     if ((pos_to != BITMAP_WIDTH(bitmap) - 1) && (offset_to != offset_from)) {
         size_t to_start =  MAX(from, offset_to * BITMAP_WIDTH(bitmap));
-        for (size_t k = to_start; k < to; k++) {
+        for (size_t k = to_start; k < (size_t) to; k++) {
             if (bitmap_set(bitmap, k) < 0)
                 goto END;
         }

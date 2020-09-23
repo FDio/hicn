@@ -16,7 +16,7 @@
 /**
  * \file pool.c
  * \brief Implementation of fixed-size pool allocator.
- * 
+ *
  * NOTE:
  *  - Ideally, we should have a single realloc per resize, that would encompass
  *  both the free indices vector and bitmap, by nesting data structures. Because
@@ -81,6 +81,10 @@ ERR_MAX_SIZE:
 void
 _pool_free(void ** pool_ptr)
 {
+    pool_hdr_t * ph = pool_hdr(*pool_ptr);
+    vector_free(ph->free_indices);
+    bitmap_free(ph->free_bitmap);
+
     free(pool_hdr(*pool_ptr));
     *pool_ptr = NULL;
 }
