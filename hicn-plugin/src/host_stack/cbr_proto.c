@@ -16,8 +16,6 @@
 #include "host_stack.h"
 #include "inlines.h"
 
-#include <hicn/transport/protocols/transport_algorithm.h>
-
 #define WINDOW_SIZE 200
 
 typedef struct hicn_hs_cbr_proto_data_
@@ -35,9 +33,6 @@ reset_protocol(hicn_hs_cbr_proto_data_t *proto_data)
   proto_data->in_flight_interests = 0;
   proto_data->window_size = WINDOW_SIZE;
   proto_data->next_seq_number = 0;
-
-  TransportAlgorithm *t = transportAlgorithm_CreateRaaqm(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-  proto_data->next_seq_number = (u64)t;
 }
 
 static void

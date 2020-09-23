@@ -66,18 +66,6 @@ hicn_name_get_length (const hicn_name_t * name)
   return hicn_name_is_ip4(name) ? HICN_V4_NAME_LEN : HICN_V4_NAME_LEN;
 }
 
-#if ! HICN_VPP_PLUGIN
-
-int
-hicn_name_hash (const hicn_name_t * name, u32 * hash, bool consider_suffix)
-{
-  size_t size = (u8)consider_suffix * sizeof(hicn_name_suffix_t) + IPV6_ADDR_LEN;
-  *hash =   hash32 (name->buffer, size);
-  return HICN_LIB_ERROR_NONE;
-}
-
-#endif /* ! HICN_VPP_PLUGIN */
-
 int
 hicn_name_copy (hicn_name_t * dst, const hicn_name_t * src)
 {

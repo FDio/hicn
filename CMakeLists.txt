@@ -106,6 +106,12 @@ set(SAFE_VAPI_INCLUDE_DIRS
   "" FORCE
 )
 
+set(HICNPLUGIN_INCLUDE_DIRS
+  ${CMAKE_CURRENT_SOURCE_DIR}/${BUILD_HICNPLUGIN_DIR}/includes
+  CACHE INTERNAL
+  "" FORCE
+)
+
 foreach(dir ${subdirs})
   add_subdirectory(${dir})
 endforeach()

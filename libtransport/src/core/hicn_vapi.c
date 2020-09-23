@@ -20,7 +20,7 @@
 #include <hicn/transport/utils/log.h>
 #include <core/hicn_vapi.h>
 
-#define HICN_VPP_PLUGIN
+#define HICN_VPP_PLUGIN 1
 #include <hicn/name.h>
 #undef HICN_VPP_PLUGIN
 

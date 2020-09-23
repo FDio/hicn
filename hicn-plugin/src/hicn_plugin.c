@@ -59,7 +59,7 @@ hicn_init(vlib_main_t *vm)
   udp_tunnel_init();
 
   /* Init the host stack module */
-  hicn_hs_init(vm);
+  // hicn_hs_init(vm);
 
   return error;
 }
