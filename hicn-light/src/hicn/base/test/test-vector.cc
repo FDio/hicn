@@ -49,15 +49,15 @@ TEST_F(VectorTest, VectorAllocate)
     vector_init(vector, DEFAULT_SIZE, 0);
 
     /* Allocated size should be the next power of two */
-    EXPECT_EQ(vector_get_alloc_size(vector), 16);
+    EXPECT_EQ(vector_get_alloc_size(vector), 16UL);
 
     /* Setting elements within the allocated size should not trigger a resize */
     vector_ensure_pos(vector, 15);
-    EXPECT_EQ(vector_get_alloc_size(vector), 16);
+    EXPECT_EQ(vector_get_alloc_size(vector), 16UL);
 
     /* Setting elements after should through */
     vector_ensure_pos(vector, 16);
-    EXPECT_EQ(vector_get_alloc_size(vector), 32);
+    EXPECT_EQ(vector_get_alloc_size(vector), 32UL);
 
     /* Check that free indices and bitmaps are correctly updated */
 

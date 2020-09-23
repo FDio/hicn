@@ -43,11 +43,10 @@ msgbuf_pool_free(msgbuf_pool_t * msgbuf_pool)
     free(msgbuf_pool);
 }
 
-int
-msgbuf_pool_get(msgbuf_pool_t * msgbuf_pool, msgbuf_t * msgbuf)
+off_t
+msgbuf_pool_get(msgbuf_pool_t * msgbuf_pool, msgbuf_t ** msgbuf)
 {
-    pool_get(msgbuf_pool->buffers, msgbuf);
-    return 0;
+    return pool_get(msgbuf_pool->buffers, *msgbuf);
 }
 
 void
@@ -60,15 +59,16 @@ int
 msgbuf_pool_getn(msgbuf_pool_t * msgbuf_pool, msgbuf_t ** msgbuf, size_t n)
 {
     for (unsigned i = 0; i < n; i++) {
-        if (!msgbuf_pool_get(msgbuf_pool, msgbuf[i])) {
+        // If not able to get the msgbuf
+        if (msgbuf_pool_get(msgbuf_pool, &msgbuf[i]) < 0) {
+            // Release all the msgbufs retrieved so far
             for (unsigned j = 0; j < i; j++) {
                 msgbuf_pool_put(msgbuf_pool, msgbuf[j]);
-                return 0;
             }
-            break;
+            return -1;
         }
     }
-    return -1;
+    return 0;
 }
 
 off_t

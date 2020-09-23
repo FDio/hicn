@@ -35,6 +35,8 @@ include( CTest )
 include( detectCacheSize )
 
 if(NOT WIN32)
+  # NOTE: -fPIC -shared is needed to preserve constructors when targetting a
+  # shared library
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 else ()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
@@ -52,28 +54,32 @@ include(WindowsMacros)
 
 set(HICN_LIGHT hicn-light CACHE INTERNAL "" FORCE)
 set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control CACHE INTERNAL "" FORCE)
+set(HICN_LIGHT_SHELL ${HICN_LIGHT}-shell CACHE INTERNAL "" FORCE)
 set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon CACHE INTERNAL "" FORCE)
 
 find_package_wrapper(LibEvent REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package_wrapper(Libhicn REQUIRED)
+  find_package_wrapper(Libhicnctrl REQUIRED)
 else()
   if (DISABLE_SHARED_LIBRARIES)
     if (WIN32)
-      set(HICN_LIBRARIES ${LIBEVENT_STATIC} ${LIBHICN_STATIC})
+      set(HICN_LIBRARIES ${LIBEVENT_STATIC} ${LIBHICN_STATIC} ${LIBHICNCTRL_STATIC})
     else ()
-      set(HICN_LIBRARIES ${LIBEVENT_STATIC} ${LIBHICN_STATIC} log)
+      set(HICN_LIBRARIES ${LIBEVENT_STATIC} ${LIBHICN_STATIC} ${LIBHICNCTRL_STATIC} log)
     endif ()
     list(APPEND DEPENDENCIES
       ${LIBEVENT_STATIC}
       ${LIBHICN_STATIC}
+      ${LIBHICNCTRL_STATIC}
     )
   else ()
     set(HICN_LIBRARIES ${LIBHICN_SHARED})
     list(APPEND DEPENDENCIES
       ${LIBEVENT_SHARED}
       ${LIBHICN_SHARED}
+      ${LIBHICNCTRL_SHARED}
     )
   endif ()
 endif()
@@ -88,6 +94,7 @@ set(LIBHICN_LIGHT_SHARED ${LIBHICN_LIGHT}.shared)
 
 set(HICN_LIGHT_LINK_LIBRARIES
   ${HICN_LIBRARIES}
+  ${LIBHICNCTRL_LIBRARIES}
   ${LIBEVENT_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   ${WINDOWS_LIBRARIES}
@@ -97,6 +104,7 @@ set(HICN_LIGHT_LINK_LIBRARIES
 # Include dirs -- Order does matter!
 list(APPEND HICN_LIGHT_INCLUDE_DIRS
   ${HICN_INCLUDE_DIRS}
+  ${LIBHICNCTRL_INCLUDE_DIRS}
   ${LIBEVENT_INCLUDE_DIRS}
   ${WINDOWS_INCLUDE_DIRS}
 )

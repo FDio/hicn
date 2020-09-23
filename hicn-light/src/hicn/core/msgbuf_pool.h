@@ -17,7 +17,7 @@
  * @file msgbuf_pool.h
  * @brief hICN msgbuf pool.
  *
- * THe msgbuf pool is used to store packet payloads while the packets are in
+ * The msgbuf pool is used to store packet payloads while the packets are in
  * transit, as well as holding them into the packet cache (PIT, CSS), WLDR,
  * mapme, etc.
  *
@@ -46,20 +46,80 @@ typedef struct {
     msgbuf_t * buffers;
 } msgbuf_pool_t;
 
-// 0 for init size means a default value (of 1024)
-// 0 for max_size means no limit
+/**
+ * @brief Allocate and initialize a msgbuf pool structure (helper).
+ *
+ * @param[in] init_size Number of buffers that can be stored in msgbuf pool.
+ * @param[in] max_size Maximum size.
+ * @return msgbuf_pool_t* Pointer to the msgbuf pool created.
+ *
+ * @note
+ *  - 0 for init size means a default value (of 1024)
+ *  - 0 for max_size means no limit
+ */
 msgbuf_pool_t * _msgbuf_pool_create(size_t init_size, size_t max_size);
 
+/**
+ * @brief Allocate and initialize a msgbuf pool data structure.
+ *
+ * @return msgbuf_pool_t* Pointer to the msgbuf pool created.
+ */
 #define msgbuf_pool_create() _msgbuf_pool_create(0, 0)
 
+/**
+ * @brief Free a msgbuf pool data structure.
+ *
+ * @param[in] msgbuf_pool Pointer to the msgbuf pool data structure to free.
+ */
 void msgbuf_pool_free(msgbuf_pool_t * msgbuf_pool);
 
-int msgbuf_pool_get(msgbuf_pool_t * msgbuf_pool, msgbuf_t * msgbuf);
+/**
+ * @brief Get a free msgbuf from the msgbuf pool data structure.
+ *
+ * @param[in] msgbuf_pool Pointer to the msgbuf pool data structure to use.
+ * @param[in, out] msgbuf Empty msgbuf that will be used to return the
+ * allocated one from the msgbuf pool.
+ * @return off_t ID of the msgbuf requested.
+ */
+off_t msgbuf_pool_get(msgbuf_pool_t * msgbuf_pool, msgbuf_t ** msgbuf);
 
+/**
+ * @brief Release a msgbuf previously obtained, making it available to the msgbuf pool.
+ *
+ * @param[in] msgbuf_pool Pointer to the msgbuf pool data structure to use.
+ * @param[in] msgbuf Pointer to the msgbuf to release.
+ */
+void msgbuf_pool_put(msgbuf_pool_t * msgbuf_pool, msgbuf_t * msgbuf);
+
+
+/**
+ * @brief Get multiple free msgbufs from the msgbuf pool data structure.
+ *
+ * @param[in] msgbuf_pool Pointer to the msgbuf pool data structure to use.
+ * @param[in, out] msgbuf Pointer to the first empty msgbuf that will be used to
+ * allocate the msgbufs.
+ * @param[in] n Number of msgbufs requested.
+ * @retval 0 Success.
+ * @retval -1 Error.
+ */
 int msgbuf_pool_getn(msgbuf_pool_t * msgbuf_pool, msgbuf_t ** msgbuf, size_t n);
 
+/**
+ * @brief Get the ID corresponding to the msgbuf requested.
+ *
+ * @param[in] msgbuf_pool Pointer to the msgbuf pool data structure to use.
+ * @param[in] msgbuf Pointer to the msgbuf to retrieve the ID for.
+ * @return off_t ID of the msgbuf requested.
+ */
 off_t msgbuf_pool_get_id(msgbuf_pool_t * msgbuf_pool, msgbuf_t * msgbuf);
 
+/**
+ * @brief Get the msgbuf corresponding to the ID requested.
+ *
+ * @param[in] msgbuf_pool Pointer to the msgbuf pool data structure to use.
+ * @param[in] id Index of the msgbuf to retrieve.
+ * @return msgbuf_t* Pointer to the msgbuf corresponding to the ID requested.
+ */
 msgbuf_t * msgbuf_pool_at(const msgbuf_pool_t * msgbuf_pool, off_t id);
 
 #endif /* HICNLIGHT_MSGBUF_POOL_H */

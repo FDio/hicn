@@ -30,11 +30,11 @@
 #ifndef HICNLIGHT_CONNECTION_TABLE_H
 #define HICNLIGHT_CONNECTION_TABLE_H
 
-#include <hicn/core/address_pair.h>
-#include <hicn/core/connection.h>
-#include <hicn/base/hash.h>
-#include <hicn/base/khash.h>
-#include <hicn/base/pool.h>
+#include "address_pair.h"
+#include "connection.h"
+#include "../base/hash.h"
+#include "../base/khash.h"
+#include "../base/pool.h"
 
 #define _ct_var(x) _ct_var_##x
 

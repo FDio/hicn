@@ -23,21 +23,32 @@
  */
 #define EXPECTED_IPV6_HDRLEN 40
 
+// typedef struct
+// {
+//   union
+//   {
+//     struct
+//     {
+//       u32 version_class_flow;	/* version, traffic class and 20 bits of flow-ID */
+//       u16 len;			/* payload length */
+//       u8 nxt;			/* next header */
+//       u8 hlim;			/* hop limit */
+//     };
+//     u8 vfc;			/* 4 bits version, top 4 bits class */
+//   };
+//   ip6_address_t saddr;		/* source address */
+//   ip6_address_t daddr;		/* destination address */
+// } _ipv6_header_t;
+
+// TODO: temporary fix
 typedef struct
 {
-  union
-  {
-    struct
-    {
-      u32 version_class_flow;	/* version, traffic class and 20 bits of flow-ID */
-      u16 len;			/* payload length */
-      u8 nxt;			/* next header */
-      u8 hlim;			/* hop limit */
-    };
-    u8 vfc;			/* 4 bits version, top 4 bits class */
-  };
-  ip6_address_t saddr;		/* source address */
-  ip6_address_t daddr;		/* destination address */
+  u32 version_class_flow;       /* version, traffic class and 20 bits of flow-ID */
+  u16 len;                      /* payload length */
+  u8 nxt;                       /* next header */
+  u8 hlim;                      /* hop limit */
+  ip6_address_t saddr;          /* source address */
+  ip6_address_t daddr;          /* destination address */
 } _ipv6_header_t;
 
 #define IPV6_HDRLEN sizeof(_ipv6_header_t)
