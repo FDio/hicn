@@ -29,9 +29,9 @@
 
 // XXX TODO
 #if 0
-static void _content_store_lru_Log(ContentStoreInterface *storeImpl) {
-    content_store_lru_data_t *store =
-        (content_store_lru_data_t *)contentStoreInterface_GetPrivateData(storeImpl);
+static void _cs_lru_Log(ContentStoreInterface *storeImpl) {
+    cs_lru_data_t *store =
+        (cs_lru_data_t *)contentStoreInterface_GetPrivateData(storeImpl);
 
     logger_Log(store->logger, LoggerFacility_Processor, PARCLogLevel_All,
             __func__,
@@ -47,40 +47,40 @@ static void _content_store_lru_Log(ContentStoreInterface *storeImpl) {
 
 static
 bool
-_content_store_lru_remove_least_used(content_store_t * cs)
+_cs_lru_remove_least_used(cs_t * cs)
 {
-    if (content_store_size(cs) == 0)
+    if (cs_size(cs) == 0)
         return false;
 
 #if 0
     ListLruEntry *lruEntry = listLRU_PopTail(store->lru);
-    content_store_entry_t *storeEntry =
-        (content_store_entry_t *)listLRU_EntryGetData(lruEntry);
+    cs_entry_t *storeEntry =
+        (cs_entry_t *)listLRU_EntryGetData(lruEntry);
 #else
-    content_store_entry_t * entry = NULL;
+    cs_entry_t * entry = NULL;
 #endif
 
     DEBUG("CS %p LRU evict msgbuf %p (#evictions %" PRIu64 ")",
-                cs, content_store_entry_message(entry),
+                cs, cs_entry_message(entry),
                 cs->stats.lru.countLruEvictions);
 
-    content_store_purge_entry(cs, entry);
+    cs_purge_entry(cs, entry);
 
     return true;
 }
 
 static
 void
-_evictByStorePolicy(content_store_t * cs, uint64_t currentTimeInTicks)
+_evictByStorePolicy(cs_t * cs, uint64_t currentTimeInTicks)
 {
     // We need to make room. Here's the plan:
     //  1) Check to see if anything has expired. If so, remove it and we're done.
     //  If not, 2) Remove the least recently used item.
 
-    content_store_entry_t *entry =
+    cs_entry_t *entry =
         listTimeOrdered_GetOldest(store->indexByExpirationTime);
-    if (entry && content_store_entry_has_expiry_time(entry) &&
-            (currentTimeInTicks > content_store_entry_get_expiry_time(entry))) {
+    if (entry && cs_entry_has_expiry_time(entry) &&
+            (currentTimeInTicks > cs_entry_get_expiry_time(entry))) {
         // Found an expired entry. Remove it, and we're done.
 
         store->stats.countExpiryEvictions++;
@@ -88,103 +88,92 @@ _evictByStorePolicy(content_store_t * cs, uint64_t currentTimeInTicks)
                 (void *)store, (void *)contentStoreEntry_GetMessage(entry),
                 store->stats.countExpiryEvictions);
 
-        _content_store_lru_purge_entry(store, entry);
+        _cs_lru_purge_entry(store, entry);
     } else {
         store->stats.countLruEvictions++;
-        _content_store_lru_remove_least_used(store);
+        _cs_lru_remove_least_used(store);
     }
 }
 #endif
 
 void
-content_store_lru_initialize(content_store_t * cs)
+cs_lru_initialize(cs_t * cs)
 {
-    content_store_lru_data_t * data = cs->data;
-
-    data->lru = NULL;
-    if (!data->lru) {
-        ERROR("Could not create LRU index");
-        goto ERR_INDEX;
-    }
-
-ERR_INDEX:
-    return;
+    /* We start with an empty double-linked list */
+    cs->lru.head = 0;
+    cs->lru.tail = 0;
 }
 
 void
-content_store_lru_finalize(content_store_t * cs)
+cs_lru_finalize(cs_t * cs)
 {
-    content_store_lru_data_t * data = cs->data;
-
-    if (data->lru != NULL)
-        ; // XXX TODO listLRU_Destroy(&(store->lru));
-}
-
-bool
-content_store_lru_add_entry(content_store_t * cs, content_store_entry_t * entry)
-{
-    assert(cs);
-    assert(entry);
-
-    if (content_store_size(cs) == 0)
-        return false;
-#if 0
-    content_store_lru_data_t * data = cs->data;
-
-    content_store_entry_t *dataEntry = parcHashCodeTable_Get(data->storageByName, content);
-    if(dataEntry)
-        _content_store_lru_purge_entry(data, dataEntry);
-
-    uint64_t expiryTimeTicks = contentStoreEntry_MaxExpiryTime;
-    if (message_HasContentExpiryTime(content))
-        expiryTimeTicks = message_GetContentExpiryTimeTicks(content);
-
-    // Don't add anything that's already expired or has exceeded RCT.
-    if (now >= expiryTimeTicks)
-        return false;
-
-    if (data->objectCount >= data->objectCapacity)
-        // Store is full. Need to make room.
-        _evictByStorePolicy(data, now);
-
-    // And now add a new entry to the head of the LRU.
-    content_store_entry_t *entry = contentStoreEntry_Create(content, data->lru);
-    if (!entry)
-        return false;
-
-    if (!parcHashCodeTable_Add(data->storageByName, content, entry)) {
-        // Free what we just created, but did not add. 'entry' has ownership of
-        // 'copy', and so will call _Release() on it
-        contentStoreEntry_Release(&entry);
-        WARN("ContentStoreLRU %p failed to add message %p to hash table",
-                (void *)data, (void *)content);
-        return false;
-    }
-
-    if (content_store_entry_has_expiry_time(entry))
-        listTimeOrdered_Add(data->indexByExpirationTime, entry);
-
-    data->objectCount++;
-    data->stats.countAdds++;
-
-    DEBUG("ContentStoreLRU %p saved message %p (object count %" PRIu64 ")",
-            data, msgbuf, content_store_size(cs));
-#endif
-    return true;
+    /* Nothing to do */
 }
 
 /**
- * Remove a content_store_entry_t from all tables and indices.
+ * @brief LRU processing related to the insertion of a new entry in the content
+ * store.
+ * @param[in] cs Content store.
+ * @param[in] entry_id Identifier of the entry in the content store entry pool.
+ *
+ * @return int Error code : 0 if succesful, a negative value otherwise.
+ *
+ * NOTE:
+ *  - We insert the new element at the head of the double-linked list.
  */
 static
-void
-content_store_lru_remove_entry(content_store_t * cs, content_store_entry_t * entry)
+int
+cs_lru_add_entry(cs_t * cs, off_t entry_id)
+{
+    assert(cs);
+
+    cs_entry_t * entry = &cs->entries[entry_id];
+    assert(entry);
+
+    if (cs->lru.head != INVALID_ENTRY_ID) {
+        cs_entry_t * head_entry = cs_entry_at(cs, cs->lru.head);
+        assert(head_entry->lru.prev == INVALID_ENTRY_ID);
+        head_entry->lru.prev = entry_id;
+
+        entry->lru.next = cs->lru.head;
+        entry->lru.prev = INVALID_ENTRY_ID;
+
+        cs->lru.head = entry_id;
+    } else {
+        /* The list is empty */
+        assert(cs->lru.tail == INVALID_ENTRY_ID);
+
+        entry->lru.next = INVALID_ENTRY_ID;
+        entry->lru.prev = INVALID_ENTRY_ID;
+        cs->lru.head = cs->lru.tail = entry_id;
+    }
+
+    return 0;
+}
+
+/**
+ * Remove a cs_entry_t from all tables and indices.
+ */
+static
+int
+cs_lru_remove_entry(cs_t * cs, cs_entry_t * entry)
 {
     assert(cs);
     assert(entry);
-    //
-    // XXX REMOVE ENTRY FROM LRU
+
+    off_t entry_id = cs_get_entry_id(cs, entry);
+
+    if (entry->lru.prev == INVALID_ENTRY_ID) {
+        /* Not already on the head of the LRU */
+        cs_entry_t * prev_entry = cs_entry_at(cs, entry->lru.prev);
+        assert(prev_entry);
+        prev_entry->lru.next = entry_id;
+    } else {
+        assert(cs->lru.head == entry_id);
+    }
+
+    return 0;
 }
 
 
-DECLARE_CONTENT_STORE(lru);
+DECLARE_CS(lru);

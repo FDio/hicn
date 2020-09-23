@@ -18,8 +18,8 @@
  * \brief Address
  */
 
-#ifndef HICN_ADDRESS_H
-#define HICN_ADDRESS_H
+#ifndef HICNLIGHT_ADDRESS_H
+#define HICNLIGHT_ADDRESS_H
 
 #include <netinet/in.h>
 
@@ -84,5 +84,5 @@ extern const char * _address_family_str[];
 #define address6_empty(address) (memcmp(address6_ip(address).s6_addr, &in6addr_any, sizeof(struct in6_addr)) == 0)
 #define address_empty(address) (address_family(address) == AF_INET ? address4_empty(address) : address6_empty(address))
 
-#endif /* HICN_ADDRESS_H */
+#endif /* HICNLIGHT_ADDRESS_H */
 

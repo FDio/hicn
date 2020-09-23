@@ -17,15 +17,12 @@
  * \file strategy.h
  * \brief hICN forwarding strategy
  */
-#ifndef HICN_STRATEGY_H
-#define HICN_STRATEGY_H
+#ifndef HICNLIGHT_STRATEGY_H
+#define HICNLIGHT_STRATEGY_H
 
-#include <hicn/core/name.h>
-#include <hicn/core/msgbuf.h>
-
-#include <hicn/strategies/load_balancer.h>
-#include <hicn/strategies/low_latency.h>
-#include <hicn/strategies/random.h>
+#include "../strategies/load_balancer.h"
+#include "../strategies/low_latency.h"
+#include "../strategies/random.h"
 
 typedef enum {
   STRATEGY_TYPE_UNDEFINED,
@@ -67,4 +64,4 @@ typedef struct {
 } strategy_entry_t;
 
 
-#endif /* HICN_STRATEGY_H */
+#endif /* HICNLIGHT_STRATEGY_H */

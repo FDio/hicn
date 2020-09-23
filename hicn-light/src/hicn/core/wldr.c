@@ -151,7 +151,9 @@ void wldr_set_label(wldr_t * wldr, msgbuf_t *msgbuf) {
 #endif
 }
 
-void wldr_detect_losses(wldr_t * wldr, const connection_t * conn, msgbuf_t *msgbuf) {
+void wldr_detect_losses(wldr_t * wldr, const connection_t * connection,
+        const msgbuf_t * msgbuf)
+{
 #if 0
   if (message_HasWldr(msgbuf)) {
     // this is a normal wldr packet
@@ -179,8 +181,9 @@ void wldr_detect_losses(wldr_t * wldr, const connection_t * conn, msgbuf_t *msgb
 #endif
 }
 
-void wldr_handle_notification(wldr_t * wldr, const connection_t * conn,
-                                 msgbuf_t *msgbuf) {
+void wldr_handle_notification(wldr_t * wldr, const connection_t * connection,
+        const msgbuf_t *msgbuf)
+{
 #if 0
   uint16_t expected_lbl = (uint16_t)message_GetWldrExpectedLabel(msgbuf);
   uint16_t received_lbl = (uint16_t)message_GetWldrLastReceived(msgbuf);

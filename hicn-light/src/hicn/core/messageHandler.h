@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef messageHandler
-#define messageHandler
+#ifndef HICNLIGHT_MESSAGE_HANDLER_H
+#define HICNLIGHT_MESSAGE_HANDLER_H
 
 #include <stdlib.h>
 #ifndef _WIN32
@@ -22,7 +22,6 @@
 #endif /* _WIN32 */
 
 #include <hicn/hicn.h>
-#include <hicn/core/messagePacketType.h>
 
 //#include <hicn/core/connection_table.h>
 
@@ -620,4 +619,4 @@ static inline bool messageHandler_IsAProbe(const uint8_t *packet){
   return false;
 }
 
-#endif  // Metis_metis_MessageHandler
+#endif /* HICNLIGHT_MESSAGE_HANDLER_H */
