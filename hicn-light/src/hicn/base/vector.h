@@ -129,7 +129,7 @@ int
 _vector_ensure_pos(void ** vector_ptr, size_t elt_size, off_t pos)
 {
     vector_hdr_t * vh = vector_hdr(*vector_ptr);
-    if (pos >= vh->alloc_size)
+    if (pos >= (off_t) vh->alloc_size)
         return _vector_resize(vector_ptr, elt_size, pos + 1);
     return 0;
 }
