@@ -4,7 +4,7 @@
 
 #ifdef WITH_PREFIX_STATS
 
-#include <hicn/base/loop.h>
+#include "../base/loop.h"
 
 typedef struct prefix_stats_mgr_s {
     void * forwarder;

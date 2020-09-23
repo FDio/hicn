@@ -216,7 +216,7 @@ listener_read_single(listener_t * listener)
     for (;;) {
 
         msgbuf_t * msgbuf = NULL;
-        off_t msgbuf_id = msgbuf_pool_get(msgbuf_pool, msgbuf);
+        off_t msgbuf_id = msgbuf_pool_get(msgbuf_pool, &msgbuf);
         if (!msgbuf_id_is_valid(msgbuf_id))
             return 0;
 
