@@ -46,7 +46,7 @@ uint32_t __inline __builtin_clz(uint32_t value) {
     return 32;
 }
 
-uint32_t __inline __builtin_clzll(uint64_t value) {
+uint32_t __inline __builtin_clzl2(uint64_t value) {
   uint32_t leading_zero = 0;
   if (_BitScanReverse64(&leading_zero, value))
     return 63 - leading_zero;
@@ -57,6 +57,6 @@ uint32_t __inline __builtin_clzll(uint64_t value) {
 #define __builtin_clzl __builtin_clzll
 #endif
 
-#define next_pow2(x) (x == 1 ? 1 : 1<<(64-__builtin_clzl(x-1)))
+#define next_pow2(x) (x <= 1 ? 1 : 1ul <<(64-__builtin_clzl(x-1)))
 
 #endif /* UTIL_COMMON_H */
