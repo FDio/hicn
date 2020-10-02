@@ -62,6 +62,25 @@ macro(extract_version)
   list(GET VER 3 COMMIT_NAME)
 endmacro(extract_version)
 
+macro(extract_previous_version)
+  execute_process(
+    COMMAND bash -c "git describe --abbrev=0 --tags --match v* $(git rev-list --tags --skip=1 --max-count=1)"
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    OUTPUT_VARIABLE VER
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+
+  if (NOT VER)
+    set(VER "v1.2-0-gcafe")
+  endif()
+
+  message(STATUS "Git describe output: ${VER}")
+
+  string(REGEX REPLACE "v([0-9]+).([0-9]+)" "\\1;\\2;" VER ${VER})
+  list(GET VER 0 VERSION_MAJOR)
+  list(GET VER 1 VERSION_MINOR)
+endmacro(extract_previous_version)
+
 macro(make_packages)
   if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     # parse /etc/os-release
@@ -92,15 +111,17 @@ macro(make_packages)
       set(bld "b$ENV{BUILD_NUMBER}")
     endif()
 
-    message("Build number is: ${bld}")
+    message(STATUS "Build number is: ${bld}")
 
     #define DEB and RPM version numbers
     if(${commit_num} EQUAL 0)
-      set(deb_ver "${tag}")
-      set(rpm_ver "${tag}")
+      extract_previous_version()
+      set(tag "${VERSION_MAJOR}.${VERSION_MINOR}")
+      set(deb_ver "${tag}-release")
+      set(rpm_ver "${tag}-release")
     else()
-      set(deb_ver "${tag}-${commit_num}-release")
-      set(rpm_ver "${tag}-${commit_num}-release")
+      set(deb_ver "${tag}-${commit_num}")
+      set(rpm_ver "${tag}-${commit_num}")
     endif()
 
     get_next_version(${tag} next_version)

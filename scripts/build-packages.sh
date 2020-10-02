@@ -113,8 +113,7 @@ setup_fdio_repo() {
     DISTRIB_ID=${1}
 
     if [ "${DISTRIB_ID}" == "ubuntu" ]; then
-    rm -r /etc/apt/sources.list.d/*
-    curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
+        curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
     elif [ "${DISTRIB_ID}" == "centos" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM} | sudo bash
         curl ${LATEST_EPEL_REPO} > epel-release-latest-7.noarch.rpm
