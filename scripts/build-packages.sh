@@ -210,7 +210,7 @@ build_package() {
 
     rm -rf *
     cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ..
-    make VERBOSE=1 -j8 package
+    make VERBOSE=1 -j $(nproc) package
 
     rm -rf libtransport ctrl/libhicnctrl
 
@@ -225,7 +225,7 @@ build_package() {
           -DBUILD_TELEMETRY=ON          \
           ${SCRIPT_PATH}/..
 
-    make VERBOSE=1 -j8 package
+    make VERBOSE=1 -j $(nproc) package
 
     find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
     rm *Unspecified* || true

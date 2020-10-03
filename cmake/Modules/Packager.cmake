@@ -55,31 +55,13 @@ macro(extract_version)
 
   message(STATUS "Git describe output: ${VER}")
 
-  string(REGEX REPLACE "v([0-9]+).([0-9]+).*-([0-9]+)-(g[0-9a-f]+)" "\\1;\\2;\\3;\\4" VER ${VER})
+  string(REGEX REPLACE "v([0-9]+).([0-9]+)(.*)?-([0-9]+)-(g[0-9a-f]+)" "\\1;\\2;\\3;\\4;\\5" VER ${VER})
   list(GET VER 0 VERSION_MAJOR)
   list(GET VER 1 VERSION_MINOR)
-  list(GET VER 2 VERSION_REVISION)
-  list(GET VER 3 COMMIT_NAME)
+  list(GET VER 2 RELEASE)
+  list(GET VER 3 VERSION_REVISION)
+  list(GET VER 4 COMMIT_NAME)
 endmacro(extract_version)
-
-macro(extract_previous_version)
-  execute_process(
-    COMMAND bash -c "git describe --abbrev=0 --tags --match v* $(git rev-list --tags --skip=1 --max-count=1)"
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    OUTPUT_VARIABLE VER
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-
-  if (NOT VER)
-    set(VER "v1.2-0-gcafe")
-  endif()
-
-  message(STATUS "Git describe output: ${VER}")
-
-  string(REGEX REPLACE "v([0-9]+).([0-9]+)" "\\1;\\2;" VER ${VER})
-  list(GET VER 0 VERSION_MAJOR)
-  list(GET VER 1 VERSION_MINOR)
-endmacro(extract_previous_version)
 
 macro(make_packages)
   if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
@@ -97,6 +79,7 @@ macro(make_packages)
 
     message(STATUS "Version major: ${VERSION_MAJOR}")
     message(STATUS "Version minor: ${VERSION_MINOR}")
+    message(STATUS "Release: ${RELEASE}")
     message(STATUS "Revision: ${VERSION_REVISION}")
     message(STATUS "Commit hash: ${COMMIT_NAME}")
 
@@ -114,15 +97,15 @@ macro(make_packages)
     message(STATUS "Build number is: ${bld}")
 
     #define DEB and RPM version numbers
-    if(${commit_num} EQUAL 0)
-      extract_previous_version()
-      set(tag "${VERSION_MAJOR}.${VERSION_MINOR}")
+    if(${RELEASE} AND ${RELEASE} STREQUAL "-release")
       set(deb_ver "${tag}-release")
       set(rpm_ver "${tag}-release")
     else()
       set(deb_ver "${tag}-${commit_num}")
       set(rpm_ver "${tag}-${commit_num}")
     endif()
+
+    message(STATUS "Version: ${deb_ver}")
 
     get_next_version(${tag} next_version)
 
