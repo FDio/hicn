@@ -97,7 +97,7 @@ macro(make_packages)
     message(STATUS "Build number is: ${bld}")
 
     #define DEB and RPM version numbers
-    if(${RELEASE} AND ${RELEASE} STREQUAL "-release")
+    if("${RELEASE}" STREQUAL "-release")
       set(deb_ver "${tag}-release")
       set(rpm_ver "${tag}-release")
     else()
