@@ -32,11 +32,11 @@ set(lib${LIBHICN}-dev_DESCRIPTION ${${LIBHICN}_DESCRIPTION}
 )
 
 set(lib${LIBHICN}-dev_DEB_DEPENDENCIES
-	"libhicn (= stable_version)"
+	"libhicn (>= stable_version)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(lib${LIBHICN}-dev_RPM_DEPENDENCIES
-  "libhicn = stable_version"
+  "libhicn >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )

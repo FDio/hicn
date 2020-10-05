@@ -21,11 +21,11 @@ set(${HICN_EXTRA_PLUGIN}_DESCRIPTION
 )
 
 set(${HICN_EXTRA_PLUGIN}_DEB_DEPENDENCIES
-  "vpp (= stable_version), vpp-plugin-core (= stable_version)"
+  "vpp (>= stable_version-release), vpp (<< next_version-release), vpp-plugin-core (>= stable_version-release), vpp-plugin-core (<< next_version-release)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${HICN_EXTRA_PLUGIN}_RPM_DEPENDENCIES
-  "vpp = stable_version vpp-plugins = stable_version"
+  "vpp >= stable_version-release, vpp < next_version-release, vpp-plugins >= stable_version-release, vpp-plugins < next_version-release"
   CACHE STRING "Dependencies for deb/rpm package."
 )

@@ -21,11 +21,11 @@ set(${FACEMGR}_DESCRIPTION
 )
 
 set(${FACEMGR}_DEB_DEPENDENCIES
-  "libconfig9, libevent-dev, lib${LIBHICNCTRL} (= stable_version)"
+  "libconfig9, libevent-dev, lib${LIBHICNCTRL} (>= stable_version)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${FACEMGR}_RPM_DEPENDENCIES
-  "libconfig, libevent-devel, lib${LIBHICNCTRL} = stable_version"
+  "libconfig, libevent-devel, lib${LIBHICNCTRL} >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )
