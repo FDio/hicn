@@ -70,7 +70,8 @@ DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM}   \
              asio-devel                     \
              libconfig-devel                \
              centos-release-scl             \
-             devtoolset-7"
+             devtoolset-7                   \
+             rpm-build"
 
 DEPS_CENTOS_NOVERSION="vpp-devel            \
                        vpp-lib              \
