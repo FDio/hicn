@@ -155,7 +155,7 @@ setup() {
     elif [ ${DISTRIB_ID} == "centos" ]; then
         # echo ${BUILD_TOOLS_GROUP_CENTOS} | xargs sudo yum groupinstall -y --nogpgcheck
         echo ${DEPS_CENTOS} | xargs sudo yum install -y --nogpgcheck
-        sudo yum install devtoolset-7
+        sudo yum install -y --nogpgcheck devtoolset-7
 
         c++ --version
 
