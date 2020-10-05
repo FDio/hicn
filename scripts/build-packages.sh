@@ -157,8 +157,6 @@ setup() {
         echo ${DEPS_CENTOS} | xargs sudo yum install -y --nogpgcheck
         sudo yum install -y --nogpgcheck devtoolset-7
 
-        c++ --version
-
         CXX_COMPILER="/opt/rh/devtoolset-7/root/usr/bin/c++"
         CC_COMPILER="/opt/rh/devtoolset-7/root/usr/bin/cc"
 
@@ -167,9 +165,6 @@ setup() {
 
         export CC=${CC_COMPILER} CXX=${CXX_COMPILER}
     fi
-
-    # do nothing but check compiler version
-    c++ --version
 }
 
 
@@ -183,10 +178,6 @@ install_collectd_headers() {
 
     if [ "${DISTRIB_ID}" == "ubuntu" ]; then
         sudo apt-get install collectd-dev -y --allow-unauthenticated
-
-        if [ "${VERSION_CODENAME}" == "xenial" ]; then
-            awk '/config.h/ { print; print "#include \"collectd/liboconfig/oconfig.h\""; next }1' /usr/include/collectd/core/daemon/configfile.h | sudo tee /usr/include/collectd/core/daemon/configfile.h
-        fi
     elif [ "${DISTRIB_ID}" == "centos" ]; then
         wget https://storage.googleapis.com/collectd-tarballs/collectd-5.9.2.tar.bz2
         tar -xf collectd-5.9.2.tar.bz2
