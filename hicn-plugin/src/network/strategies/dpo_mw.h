@@ -45,8 +45,8 @@ typedef struct hicn_strategy_mw_ctx_s
 u8 *format_hicn_strategy_mw_ctx (u8 * s, va_list * ap);
 
 const static dpo_vft_t dpo_strategy_mw_ctx_vft = {
-  .dv_lock = hicn_strategy_dpo_ctx_lock,
-  .dv_unlock = hicn_strategy_dpo_ctx_unlock,
+  .dv_lock = hicn_strategy_dpo_ctx_lock_all,
+  .dv_unlock = hicn_strategy_dpo_ctx_unlock_all,
   .dv_format = format_hicn_strategy_mw_ctx,
 };
 

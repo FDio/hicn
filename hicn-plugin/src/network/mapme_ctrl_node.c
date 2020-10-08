@@ -118,8 +118,9 @@ hicn_mapme_process_ctrl (vlib_main_t * vm, vlib_buffer_t * b,
 #endif
 
   /* Process the hICN DPO */
+  hicn_worker_t *w = get_hicn_worker_data();
   hicn_mapme_tfib_t *tfib =
-    TFIB (hicn_strategy_dpo_ctx_get (dpo->dpoi_index));
+    TFIB (hicn_strategy_dpo_ctx_get (dpo->dpoi_index, w->hicn_strategy_dpo_ctx_pool));
 
   if (tfib == NULL)
     {

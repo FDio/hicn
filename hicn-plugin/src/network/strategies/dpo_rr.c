@@ -15,6 +15,7 @@
 
 #include "dpo_rr.h"
 #include "strategy_rr.h"
+#include "../infra.h"
 #include "../strategy_dpo_manager.h"
 #include "../strategy_dpo_ctx.h"
 
@@ -78,7 +79,8 @@ format_hicn_strategy_rr_ctx (u8 * s, va_list * ap)
   hicn_strategy_rr_ctx_t *rr_dpo_ctx = NULL;
   u32 indent = va_arg (*ap, u32);
 
-  dpo_ctx = hicn_strategy_dpo_ctx_get (index);
+  hicn_worker_t *w = get_hicn_worker_data();
+  dpo_ctx = hicn_strategy_dpo_ctx_get (index, w->hicn_strategy_dpo_ctx_pool);
   if (dpo_ctx == NULL)
     return s;
 
@@ -115,22 +117,43 @@ hicn_strategy_rr_ctx_create (fib_protocol_t proto, const hicn_face_id_t * next_h
 {
   hicn_strategy_rr_ctx_t *hicn_strategy_rr_ctx;
   hicn_dpo_ctx_t *hicn_strategy_ctx;
+  index_t index;
 
   /* Allocate a hicn_dpo_ctx on the vpp pool and initialize it */
-  hicn_strategy_ctx = hicn_strategy_dpo_ctx_alloc ();
+
+  // Initialize worker 0
+  hicn_main_t* sm = get_hicn_main();
+  hicn_worker_t *worker = sm->workers;
+
+  hicn_strategy_ctx = hicn_strategy_dpo_ctx_alloc (worker->hicn_strategy_dpo_ctx_pool);	
   hicn_strategy_rr_ctx = (hicn_strategy_rr_ctx_t *) hicn_strategy_ctx->data;
-
-  *dpo_idx = hicn_strategy_dpo_ctx_get_index (hicn_strategy_ctx);
-
+  index = hicn_strategy_dpo_ctx_get_index (hicn_strategy_ctx, worker->hicn_strategy_dpo_ctx_pool);
   init_dpo_ctx (hicn_strategy_ctx, next_hop, nh_len, hicn_dpo_type_rr, proto);
-
   hicn_strategy_rr_ctx->current_nhop = 0;
+  
+  /* Other workers */
+  index_t new_index;
+  vec_foreach(worker, sm->workers)
+    {
+      if (worker == sm->workers)
+	continue;
+
+      hicn_strategy_ctx = hicn_strategy_dpo_ctx_alloc (worker->hicn_strategy_dpo_ctx_pool);	
+      hicn_strategy_rr_ctx = (hicn_strategy_rr_ctx_t *) hicn_strategy_ctx->data;
+      new_index = hicn_strategy_dpo_ctx_get_index (hicn_strategy_ctx, worker->hicn_strategy_dpo_ctx_pool);
+      ASSERT(index == new_index);
+      init_dpo_ctx (hicn_strategy_ctx, next_hop, nh_len, hicn_dpo_type_rr, proto);
+      hicn_strategy_rr_ctx->current_nhop = 0;
+    }
+
+  *dpo_idx = index;
 }
 
 int
 hicn_strategy_rr_ctx_add_nh (hicn_face_id_t nh, index_t dpo_idx)
 {
-  hicn_dpo_ctx_t *hicn_strategy_dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
+  hicn_worker_t *w = get_hicn_worker_data();
+  hicn_dpo_ctx_t *hicn_strategy_dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx, w->hicn_strategy_dpo_ctx_pool);
   u8 pos = 0;
 
   if (hicn_strategy_dpo_ctx == NULL)
@@ -146,7 +169,8 @@ hicn_strategy_rr_ctx_add_nh (hicn_face_id_t nh, index_t dpo_idx)
 int
 hicn_strategy_rr_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx)
 {
-  hicn_dpo_ctx_t *hicn_strategy_dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
+  hicn_worker_t *w = get_hicn_worker_data();
+  hicn_dpo_ctx_t *hicn_strategy_dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx, w->hicn_strategy_dpo_ctx_pool);
   //No need to change the current_nhop. It will be updated at the next selection.
   return hicn_strategy_dpo_ctx_del_nh (face_id, hicn_strategy_dpo_ctx);
 }

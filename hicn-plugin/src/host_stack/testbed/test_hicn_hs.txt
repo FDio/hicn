@@ -1,6 +1,0 @@
-hicn hs set local prefix b001::/8
-test hicn hs server uri hicn://b001::/64
-test hicn hs client uri hicn://b001::1/64
-
-
-b hicn_hs.c:772 if ctx->snd_nxt == 46604

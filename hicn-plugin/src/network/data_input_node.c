@@ -38,14 +38,14 @@ typedef struct
 
 typedef enum
 {
-  HICN_DATA_INPUT_IP6_NEXT_FACE,
+  HICN_DATA_INPUT_IP6_NEXT_HANDOFF,
   HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL,
   HICN_DATA_INPUT_IP6_N_NEXT,
 } hicn_data_input_ip6_next_t;
 
 typedef enum
 {
-  HICN_DATA_INPUT_IP4_NEXT_FACE,
+  HICN_DATA_INPUT_IP4_NEXT_HANDOFF,
   HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL,
   HICN_DATA_INPUT_IP4_N_NEXT,
 } hicn_data_input_ip4_next_t;
@@ -151,12 +151,12 @@ hicn_data_input_ip6_fn (vlib_main_t * vm,
 	  dpo1 = load_balance_get_bucket_i (lb1, 0);
 
 	  if (dpo_is_hicn (dpo0))
-	    next0 = HICN_DATA_INPUT_IP6_NEXT_FACE;
+	    next0 = HICN_DATA_INPUT_IP6_NEXT_HANDOFF;
 	  else
 	    next0 = HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
 
 	  if (dpo_is_hicn (dpo1))
-	    next1 = HICN_DATA_INPUT_IP6_NEXT_FACE;
+	    next1 = HICN_DATA_INPUT_IP6_NEXT_HANDOFF;
 	  else
 	    next1 = HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
 
@@ -257,7 +257,7 @@ hicn_data_input_ip6_fn (vlib_main_t * vm,
 	  dpo0 = load_balance_get_bucket_i (lb0, 0);
 
 	  if (dpo_is_hicn (dpo0))
-	    next0 = HICN_DATA_INPUT_IP6_NEXT_FACE;
+	    next0 = HICN_DATA_INPUT_IP6_NEXT_HANDOFF;
 	  else
 	    next0 = HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
 
@@ -310,22 +310,11 @@ VLIB_REGISTER_NODE(hicn_data_input_ip6) =
      .n_next_nodes = HICN_DATA_INPUT_IP6_N_NEXT,
      .next_nodes =
      {
-      [HICN_DATA_INPUT_IP6_NEXT_FACE] = "hicn6-face-input",
+      [HICN_DATA_INPUT_IP6_NEXT_HANDOFF] = "hicn-data-handoff-6",
       [HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL] = "ip6-local-end-of-arc"
      },
     };
 /* *INDENT-ON* */
-
-/* *INDENT-OFF* */
-VNET_FEATURE_INIT(hicn_data_input_ip6_arc, static)=
-    {
-     .arc_name = "ip6-local",
-     .node_name = "hicn-data-input-ip6",
-     .runs_before = VNET_FEATURES("ip6-local-end-of-arc"),
-    };
-/* *INDENT-ON* */
-
-
 
 always_inline uword
 hicn_data_input_ip4_fn (vlib_main_t * vm,
@@ -430,22 +419,22 @@ hicn_data_input_ip4_fn (vlib_main_t * vm,
       dpo3 = load_balance_get_bucket_i (lb3, 0);
 
       if (dpo_is_hicn (dpo0))
-	next[0] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	next[0] = HICN_DATA_INPUT_IP6_NEXT_HANDOFF;
       else
 	next[0] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
       if (dpo_is_hicn (dpo1))
-	next[1] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	next[1] = HICN_DATA_INPUT_IP6_NEXT_HANDOFF;
       else
 	next[1] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
       if (dpo_is_hicn (dpo2))
-	next[2] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	next[2] = HICN_DATA_INPUT_IP6_NEXT_HANDOFF;
       else
 	next[2] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
       if (dpo_is_hicn (dpo3))
-	next[3] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	next[3] = HICN_DATA_INPUT_IP6_NEXT_HANDOFF;
       else
 	next[3] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
@@ -566,12 +555,12 @@ hicn_data_input_ip4_fn (vlib_main_t * vm,
       dpo1 = load_balance_get_bucket_i (lb1, 0);
 
       if (dpo_is_hicn (dpo0))
-	next[0] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	next[0] = HICN_DATA_INPUT_IP6_NEXT_HANDOFF;
       else
 	next[0] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
       if (dpo_is_hicn (dpo1))
-	next[1] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	next[1] = HICN_DATA_INPUT_IP6_NEXT_HANDOFF;
       else
 	next[1] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
@@ -637,7 +626,7 @@ hicn_data_input_ip4_fn (vlib_main_t * vm,
       dpo0 = load_balance_get_bucket_i (lb0, 0);
 
       if (dpo_is_hicn (dpo0))
-	next[0] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	next[0] = HICN_DATA_INPUT_IP6_NEXT_HANDOFF;
       else
 	next[0] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
@@ -681,9 +670,17 @@ VLIB_REGISTER_NODE(hicn_data_input_ip4) =
      .n_next_nodes = HICN_DATA_INPUT_IP4_N_NEXT,
      .next_nodes =
      {
-      [HICN_DATA_INPUT_IP4_NEXT_FACE] = "hicn4-face-input",
+      [HICN_DATA_INPUT_IP6_NEXT_HANDOFF] = "hicn-data-handoff-4",
       [HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL] = "ip4-local-end-of-arc"
      },
+    };
+/* *INDENT-ON* */
+
+VNET_FEATURE_INIT(hicn_data_input_ip6_arc, static)=
+    {
+     .arc_name = "ip6-local",
+     .node_name = "hicn-data-input-ip6",
+     .runs_before = VNET_FEATURES("ip6-local-end-of-arc"),
     };
 /* *INDENT-ON* */
 

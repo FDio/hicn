@@ -38,11 +38,11 @@ hicn_mgmt_node_stats_get (vl_api_hicn_api_node_stats_get_reply_t * rmp)
   rmp->pkts_drop_no_buf = 0;
   rmp->interests_aggregated = 0;
   rmp->interests_retx = 0;
-  rmp->pit_entries_count =
-    clib_host_to_net_u64 (hicn_main.pitcs.pcs_pit_count);
-  rmp->cs_entries_count = clib_host_to_net_u64 (hicn_main.pitcs.pcs_cs_count);
-  rmp->cs_entries_ntw_count =
-    clib_host_to_net_u64 (hicn_main.pitcs.policy_state.count);
+//   rmp->pit_entries_count =
+//     clib_host_to_net_u64 (hicn_main.pitcs.pcs_pit_count);
+//   rmp->cs_entries_count = clib_host_to_net_u64 (hicn_main.pitcs.pcs_cs_count);
+//   rmp->cs_entries_ntw_count =
+//     clib_host_to_net_u64 (hicn_main.pitcs.policy_state.count);
 
   vlib_error_main_t *em;
   vlib_node_t *n;

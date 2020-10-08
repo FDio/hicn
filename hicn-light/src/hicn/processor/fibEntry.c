@@ -471,16 +471,21 @@ policy_t fibEntry_GetPolicy(const FibEntry *fibEntry) {
 
 void fibEntry_SetPolicy(FibEntry *fibEntry, policy_t policy) {
   fibEntry->policy = policy;
+#ifdef WITH_MAPME
   mapme_reconsiderFibEntry(forwarder_getMapmeInstance(fibEntry->forwarder), fibEntry);
+#endif /* WITH_MAPME */
 }
 
+#ifdef WITH_MAPME
 NumberSet *
 fibEntry_GetPreviousNextHops(const FibEntry *fibEntry)
 {
     return fibEntry->previous_nexthops;
 }
+#endif /* WITH_MAPME */
 #endif /* WITH_POLICY */
 
+#ifdef WITH_MAPME
 void
 fibEntry_SetPreviousNextHops(FibEntry *fibEntry, const NumberSet * nexthops)
 {
@@ -489,7 +494,7 @@ fibEntry_SetPreviousNextHops(FibEntry *fibEntry, const NumberSet * nexthops)
     fibEntry->previous_nexthops = numberSet_Create();
     numberSet_AddSet(fibEntry->previous_nexthops, nexthops);
 }
-
+#endif /* WITH_MAPME */
 
 void fibEntry_AddNexthop(FibEntry *fibEntry, unsigned connectionId) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");

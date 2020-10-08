@@ -19,9 +19,12 @@
 #include "hashtb.h"
 #include "pcs.h"
 #include "cache_policies/cs_lru.h"
+#include "infra.h"
 
 int
-hicn_pit_create (hicn_pit_cs_t * p, u32 num_elems)
+hicn_pit_create (hicn_pit_cs_t * p, u32 num_elems,
+		 hicn_face_bucket_t* hicn_face_bucket_pool,
+		 hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool)
 {
   int ret =
     hicn_hashtb_alloc (&p->pcs_table, num_elems, sizeof (hicn_pcs_entry_t));
@@ -41,6 +44,10 @@ hicn_pit_create (hicn_pit_cs_t * p, u32 num_elems)
   p->policy_vft.hicn_cs_delete_get = hicn_cs_lru.hicn_cs_delete_get;
   p->policy_vft.hicn_cs_trim = hicn_cs_lru.hicn_cs_trim;
   p->policy_vft.hicn_cs_flush = hicn_cs_lru.hicn_cs_flush;
+
+  /* Face bucket */
+  p->hicn_face_bucket_pool = hicn_face_bucket_pool;
+  p->hicn_strategy_dpo_ctx_pool = hicn_strategy_dpo_ctx_pool;
 
   return (ret);
 }

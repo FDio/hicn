@@ -296,9 +296,9 @@ hicn_cli_show_command_fn (vlib_main_t * vm, unformat_input_t * main_input,
 		   " lifetime default: max:%05.3f\n"
 		   "  CS::  max entries:%d\n",
 		   hicn_main.is_enabled ? "en" : "dis",
-		   hicn_infra_pit_size,
+		   hicn_main.hicn_infra_pit_size,
 		   ((f64) hicn_main.pit_lifetime_max_ms) / SEC_MS,
-		   hicn_infra_cs_size);
+		   hicn_main.hicn_infra_cs_size);
 
   vl_api_hicn_api_node_stats_get_reply_t rm = { 0, }
   , *rmp = &rm;
@@ -343,15 +343,20 @@ done:
   if (all_p && internal_p && ret == HICN_ERROR_NONE)
     {
       vlib_cli_output (vm, "Plugin features: cs:%d\n", HICN_FEATURE_CS);
-      vlib_cli_output (vm,
-		       "Removed CS entries (and freed vlib buffers) %d, Removed PIT entries %d\n",
-		       hicn_main.pitcs.pcs_cs_dealloc,
-		       hicn_main.pitcs.pcs_pit_dealloc);
-      vlib_cli_output (vm,
-		       "Bucke count %d, Overflow buckets count %d, used %d\n",
-		       hicn_main.pitcs.pcs_table->ht_bucket_count,
-		       hicn_main.pitcs.pcs_table->ht_overflow_bucket_count,
-		       hicn_main.pitcs.pcs_table->ht_overflow_buckets_used);
+      hicn_worker_t *worker;
+      vec_foreach(worker, hicn_main.workers)
+        {
+	  vlib_cli_output (vm, "Thread %d:", (worker - hicn_main.workers));
+	  vlib_cli_output (vm,
+			   "\tRemoved CS entries (and freed vlib buffers) %d, Removed PIT entries %d\n",
+			   worker->pitcs.pcs_cs_dealloc,
+			   worker->pitcs.pcs_pit_dealloc);
+	  vlib_cli_output (vm,
+			   "\tBucket count %d, Overflow buckets count %d, used %d\n",
+			   worker->pitcs.pcs_table->ht_bucket_count,
+			   worker->pitcs.pcs_table->ht_overflow_bucket_count,
+			   worker->pitcs.pcs_table->ht_overflow_buckets_used);
+	}
 
     }
   return (ret == HICN_ERROR_NONE) ? 0 : clib_error_return (0, "%s\n",

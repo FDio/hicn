@@ -45,8 +45,6 @@ typedef struct hicn_face_bucket_s
 
 } hicn_face_bucket_t;
 
-extern hicn_face_bucket_t *hicn_face_bucket_pool;
-
 typedef struct __attribute__ ((packed)) hicn_face_db_s
 {
   /* 19B + 1B = 20B */
@@ -72,7 +70,7 @@ typedef struct __attribute__ ((packed)) hicn_face_db_s
 } hicn_face_db_t;
 
 always_inline hicn_face_id_t
-hicn_face_db_get_dpo_face (u32 index, hicn_face_db_t * face_db)
+hicn_face_db_get_dpo_face (hicn_face_bucket_t *hicn_face_bucket_pool, u32 index, hicn_face_db_t * face_db)
 {
   ASSERT (index < face_db->n_faces);
 
@@ -81,20 +79,23 @@ hicn_face_db_get_dpo_face (u32 index, hicn_face_db_t * face_db)
       [(index - HICN_FACE_DB_INLINE_FACES) & (HICN_PIT_N_HOP_BUCKET - 1)]);
 }
 
-always_inline void
+always_inline hicn_face_bucket_t *
 hicn_face_db_init (int max_element)
 {
+  hicn_face_bucket_t *hicn_face_bucket_pool = NULL;
   pool_init_fixed (hicn_face_bucket_pool, max_element);
+  assert(hicn_face_bucket_pool != NULL);
+  return hicn_face_bucket_pool;
 }
 
 always_inline hicn_face_bucket_t *
-hicn_face_db_get_bucket (u32 bucket_index)
+hicn_face_db_get_bucket (hicn_face_bucket_t *hicn_face_bucket_pool, u32 bucket_index)
 {
   return pool_elt_at_index (hicn_face_bucket_pool, bucket_index);
 }
 
 always_inline void
-hicn_face_db_add_face (hicn_face_id_t face_id, hicn_face_db_t * face_db)
+hicn_face_db_add_face (hicn_face_bucket_t *hicn_face_bucket_pool, hicn_face_id_t face_id, hicn_face_db_t * face_db)
 {
   //ASSERT (dpo->dpoi_index != ~0);
 
@@ -119,7 +120,7 @@ hicn_face_db_add_face (hicn_face_id_t face_id, hicn_face_db_t * face_db)
 }
 
 always_inline u8
-hicn_face_search (hicn_face_id_t index, hicn_face_db_t * face_db)
+hicn_face_search (hicn_face_bucket_t *hicn_face_bucket_pool, hicn_face_id_t index, hicn_face_db_t * face_db)
 {
   hicn_face_bucket_t *faces_bkt =
     pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket);
@@ -132,7 +133,7 @@ hicn_face_search (hicn_face_id_t index, hicn_face_db_t * face_db)
 }
 
 always_inline void
-hicn_faces_flush (hicn_face_db_t * face_db)
+hicn_faces_flush (hicn_face_bucket_t *hicn_face_bucket_pool, hicn_face_db_t * face_db)
 {
   hicn_face_bucket_t *faces_bkt =
     pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket);

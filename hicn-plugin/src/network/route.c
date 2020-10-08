@@ -112,12 +112,14 @@ hicn_route_set_strategy (fib_prefix_t * prefix, u8 strategy_id)
   const hicn_dpo_vft_t *new_dpo_vft;
   index_t new_hicn_dpo_idx;
   u32 fib_index;
+  hicn_worker_t *w = get_hicn_worker_data();
 
   ret = hicn_route_get_dpo (prefix, &hicn_dpo_id, &fib_index);
 
   if (ret == HICN_ERROR_NONE)
     {
-      old_hicn_dpo_ctx = hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index);
+      
+      old_hicn_dpo_ctx = hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index, w->hicn_strategy_dpo_ctx_pool);
 
       new_dpo_vft = hicn_dpo_get_vft_from_id (strategy_id);
 
@@ -251,11 +253,11 @@ static ip46_address_t * get_address(ip46_address_t * nh, u32 sw_if, fib_protocol
 }
 
 static void
-sync_hicn_fib_entry(hicn_dpo_ctx_t *fib_entry)
+sync_hicn_fib_entry(hicn_dpo_ctx_t *fib_entry, hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool)
 {
   const dpo_id_t * dpo_loadbalance = fib_entry_contribute_ip_forwarding (fib_entry->fib_entry_index);
   const load_balance_t *lb0 = load_balance_get(dpo_loadbalance->dpoi_index);
-  index_t hicn_fib_entry_index = hicn_strategy_dpo_ctx_get_index(fib_entry);
+  index_t hicn_fib_entry_index = hicn_strategy_dpo_ctx_get_index(fib_entry, hicn_strategy_dpo_ctx_pool);
   hicn_face_id_t * vec_faces = 0;
 
   dpo_id_t temp = DPO_INVALID;
@@ -428,8 +430,8 @@ hicn_route_enable (fib_prefix_t *prefix) {
                default_dpo.hicn_dpo_get_type (),
                (ip46_address_is_ip4 (&prefix->fp_addr) ? DPO_PROTO_IP4 :
                 DPO_PROTO_IP6), dpo_idx);
-
-      hicn_dpo_ctx_t * fib_entry = hicn_strategy_dpo_ctx_get(dpo_idx);
+      hicn_worker_t *w = get_hicn_worker_data();
+      hicn_dpo_ctx_t * fib_entry = hicn_strategy_dpo_ctx_get(dpo_idx, w->hicn_strategy_dpo_ctx_pool);
 
       fib_node_init (&fib_entry->fib_node, hicn_fib_node_type);
       fib_node_lock (&fib_entry->fib_node);
@@ -454,7 +456,7 @@ hicn_route_enable (fib_prefix_t *prefix) {
                                           FIB_ENTRY_FLAG_LOOSE_URPF_EXEMPT),
                                          &dpo);
 
-      sync_hicn_fib_entry(fib_entry);
+      sync_hicn_fib_entry(fib_entry, w->hicn_strategy_dpo_ctx_pool);
 
       /* We added a route, therefore add one lock to the table */
       fib_table_lock (fib_index, prefix->fp_proto, hicn_fib_src);
@@ -505,9 +507,10 @@ hicn_route_enable (fib_prefix_t *prefix) {
               goto done;
             }
 
-          hicn_dpo_ctx_t * hicn_fib_entry = hicn_strategy_dpo_ctx_get(strategy_dpo_id->dpoi_index);
+          hicn_worker_t *w = get_hicn_worker_data();
+          hicn_dpo_ctx_t * hicn_fib_entry = hicn_strategy_dpo_ctx_get(strategy_dpo_id->dpoi_index, w->hicn_strategy_dpo_ctx_pool);
 
-          sync_hicn_fib_entry(hicn_fib_entry);
+          sync_hicn_fib_entry(hicn_fib_entry, w->hicn_strategy_dpo_ctx_pool);
         }
     }
 
@@ -564,7 +567,8 @@ hicn_route_disable (fib_prefix_t *prefix) {
               goto done;
             }
 
-          hicn_fib_entry = hicn_strategy_dpo_ctx_get(strategy_dpo_id->dpoi_index);
+          hicn_worker_t *w = get_hicn_worker_data();
+          hicn_fib_entry = hicn_strategy_dpo_ctx_get(strategy_dpo_id->dpoi_index, w->hicn_strategy_dpo_ctx_pool);
 
           for (int i = 0; i < hicn_fib_entry->entry_count; i++)
             {
@@ -590,8 +594,9 @@ static fib_node_t *
 hicn_ctx_node_get (fib_node_index_t index)
 {
   hicn_dpo_ctx_t * hicn_ctx;
+  hicn_worker_t *w = get_hicn_worker_data();
 
-  hicn_ctx = hicn_strategy_dpo_ctx_get(index);
+  hicn_ctx = hicn_strategy_dpo_ctx_get(index, w->hicn_strategy_dpo_ctx_pool);
 
   return (&hicn_ctx->fib_node);
 }
@@ -614,8 +619,8 @@ hicn_fib_back_walk_notify (fib_node_t *node,
 {
 
   hicn_dpo_ctx_t *fib_entry = hicn_ctx_from_fib_node (node);
-
-  sync_hicn_fib_entry(fib_entry);
+  hicn_worker_t *w = get_hicn_worker_data();
+  sync_hicn_fib_entry(fib_entry, w->hicn_strategy_dpo_ctx_pool);
 
   return (FIB_NODE_BACK_WALK_CONTINUE);
 }

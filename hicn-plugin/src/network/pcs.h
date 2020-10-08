@@ -155,13 +155,20 @@ typedef struct hicn_pit_cs_s
   /* Total size of PCS */
   u32 pcs_size;
 
+  /* Pointer to hicn_face_bucket_pool */
+  hicn_face_bucket_t* hicn_face_bucket_pool;
+  /* Pointer to hicn_dpo_ctx_pool */
+  hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
+
   hicn_cs_policy_t policy_state;
   hicn_cs_policy_vft_t policy_vft;
 
 } hicn_pit_cs_t;
 
 /* Functions declarations */
-int hicn_pit_create (hicn_pit_cs_t * p, u32 num_elems);
+int hicn_pit_create (hicn_pit_cs_t * p, u32 num_elems,
+		     hicn_face_bucket_t* hicn_face_bucket_pool,
+		     hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool);
 
 always_inline void
 hicn_pit_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
@@ -244,15 +251,15 @@ hicn_pit_get_data (hicn_hash_node_t * node)
 
 /* Init pit/cs data block (usually inside hash table node) */
 static inline void
-hicn_pit_init_data (hicn_pcs_entry_t * p)
+hicn_pit_init_data (hicn_pit_cs_t *pitc, hicn_pcs_entry_t * p)
 {
   p->shared.entry_flags = 0;
   p->u.pit.faces.n_faces = 0;
   p->u.pit.faces.is_overflow = 0;
   hicn_face_bucket_t *face_bkt;
-  pool_get (hicn_face_bucket_pool, face_bkt);
+  pool_get (pitc->hicn_face_bucket_pool, face_bkt);
 
-  p->u.pit.faces.next_bucket = face_bkt - hicn_face_bucket_pool;
+  p->u.pit.faces.next_bucket = face_bkt - pitc->hicn_face_bucket_pool;
 }
 
 /* Init pit/cs data block (usually inside hash table node) */
@@ -354,10 +361,10 @@ hicn_pcs_delete_internal (hicn_pit_cs_t * pitcs,
   else
     {
       pitcs->pcs_pit_dealloc++;
-      hicn_strategy_dpo_ctx_unlock (hicn_dpo_id);
+//       hicn_strategy_dpo_ctx_unlock (hicn_dpo_id);
 
       /* Flush faces */
-      hicn_faces_flush (&(pcs->u.pit.faces));
+      hicn_faces_flush (pitcs->hicn_face_bucket_pool, &(pcs->u.pit.faces));
     }
 
   hicn_hashtb_delete (pitcs->pcs_table, node, hash_entry->he_msb64);
@@ -380,9 +387,9 @@ hicn_pit_to_cs (vlib_main_t * vm, hicn_pit_cs_t * pitcs,
    * hash entry.
    */
   pitcs->pcs_pit_count--;
-  hicn_strategy_dpo_ctx_unlock (hicn_dpo_id);
+//   hicn_strategy_dpo_ctx_unlock (hicn_dpo_id);
   /* Flush faces */
-  hicn_faces_flush (&(pcs_entry->u.pit.faces));
+  hicn_faces_flush (pitcs->hicn_face_bucket_pool, &(pcs_entry->u.pit.faces));
 
   hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_CS_ENTRY;
   node->hn_flags |= HICN_HASH_NODE_CS_FLAGS;

@@ -184,6 +184,7 @@ static void strategyLowLatency_SendProbesCB(int fd, PARCEventType which_event,
   parcEventTimer_Start(ll->sendProbes, &timeout);
 }
 
+#ifdef WITH_MAPME
 static void strategyLowLatency_SendMapmeUpdate(StrategyLowLatency *ll,
                                                const NumberSet * nexthops){
   MapMe * mapme = forwarder_getMapmeInstance(ll->forwarder);
@@ -197,6 +198,7 @@ static void strategyLowLatency_SendMapmeUpdate(StrategyLowLatency *ll,
     }
   }
 }
+#endif /* WITH_MAPME */
 
 static void strategyLowLatency_SelectBestFaces(StrategyLowLatency *ll,
                                                         bool new_round){
@@ -497,7 +499,9 @@ static void strategyLowLatency_SelectBestFaces(StrategyLowLatency *ll,
           numberSet_Add(out,
             strategyNexthopStateLL_GetFaceId(ll->bestFaces[1]));
         }
+#ifdef WITH_MAPME
         strategyLowLatency_SendMapmeUpdate(ll,out);
+#endif /* WITH_MAPME */
       }else{
         if(ll->bestFaces[1] != NULL){
           if(old_faces[1] == NULL ||
@@ -508,15 +512,19 @@ static void strategyLowLatency_SelectBestFaces(StrategyLowLatency *ll,
               strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]));
             numberSet_Add(out,
               strategyNexthopStateLL_GetFaceId(ll->bestFaces[1]));
+#ifdef WITH_MAPME
             strategyLowLatency_SendMapmeUpdate(ll,out);
-          }
+#endif /* WITH_MAPME */
+	  }
         }else{
           if(old_faces[1] != NULL){
             //in the previuos round we were using two faces, now only one
             //send update with only face 0
             numberSet_Add(out,
               strategyNexthopStateLL_GetFaceId(ll->bestFaces[0]));
+#ifdef WITH_MAPME
             strategyLowLatency_SendMapmeUpdate(ll,out);
+#endif /* WITH_MAPME */
           }
         }
       }
