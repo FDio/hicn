@@ -103,7 +103,8 @@ update_node_counter (vlib_main_t * vm, u32 node_idx, u32 counter_idx, u64 val)
   _(CS_COUNT, "CS total entries")				\
   _(CS_NTW_COUNT, "CS ntw entries")				\
   _(CS_APP_COUNT, "CS app entries")				\
-  _(HASH_COLL_HASHTB_COUNT, "Collisions in Hash table")
+  _(HASH_COLL_HASHTB_COUNT, "Collisions in Hash table")         \
+  _(WORKER_HANDOFF_CONGESTION, "Drops due to worker handof congestion")
 
 typedef enum
 {

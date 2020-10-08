@@ -41,7 +41,11 @@ hicn_init(vlib_main_t *vm)
   hicn_main_t *sm = &hicn_main;
 
   /* Init other elements in the 'main' struct */
+  vlib_thread_main_t *vtm = vlib_get_thread_main ();
+  u32 num_threads = vtm->n_threads;
   sm->is_enabled = 0;
+  sm->frame_queue_index = ~0;
+  vec_validate_aligned (sm->workers, num_threads - 1, CLIB_CACHE_LINE_BYTES);
 
   error = hicn_api_plugin_hookup(vm);
 

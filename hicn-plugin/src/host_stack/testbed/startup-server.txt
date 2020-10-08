@@ -1,4 +1,4 @@
-create interface memif id 0 slave
+create interface memif id 0 master
 set int state memif0/0 up
 set int ip addr memif0/0 192.168.10.2/24
 set int ip addr memif0/0 2001::2/64

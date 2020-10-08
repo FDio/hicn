@@ -78,7 +78,8 @@
  _(MW_STRATEGY_SET, -178, "Error while setting weight for next hop")	\
  _(STRATEGY_NOT_FOUND, -179, "Strategy not found")                      \
  _(UDP_TUNNEL_NOT_FOUND, -180, "Udp tunnel not found")                  \
- _(UDP_TUNNEL_SRC_DST_TYPE, -181, "Src and dst addresses have different type (ipv4 and ipv6)")
+ _(UDP_TUNNEL_SRC_DST_TYPE, -181, "Src and dst addresses have different type (ipv4 and ipv6)") \
+ _(WORKER_HANDOFF_CONGESTION_DROP, -181, "Src and dst addresses have different type (ipv4 and ipv6)")
 
 typedef enum
 {
