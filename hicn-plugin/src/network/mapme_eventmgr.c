@@ -17,6 +17,7 @@
 #include "strategy_dpo_ctx.h"
 #include "mapme.h"
 #include "mapme_eventmgr.h"
+#include "infra.h"
 #include "strategies/dpo_mw.h"
 
 #include <vnet/fib/ip4_fib.h>
@@ -280,7 +281,8 @@ static_always_inline void
 hicn_mapme_send_updates (vlib_main_t * vm, hicn_prefix_t * prefix,
 			 dpo_id_t dpo, bool send_all)
 {
-  hicn_mapme_tfib_t *tfib = TFIB (hicn_strategy_dpo_ctx_get (dpo.dpoi_index));
+  hicn_worker_t *w = get_hicn_worker_data();
+  hicn_mapme_tfib_t *tfib = TFIB (hicn_strategy_dpo_ctx_get (dpo.dpoi_index, w->hicn_strategy_dpo_ctx_pool));
   if (!tfib)
     {
       DEBUG ("NULL TFIB entry id=%d", dpo.dpoi_index);
@@ -497,9 +499,10 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 
 	      if (retx->dpo.dpoi_index == ~0)	/* deleted entry */
 		continue;
-
+	      
+	      hicn_worker_t *w = get_hicn_worker_data();
 	      hicn_mapme_tfib_t *tfib =
-		TFIB (hicn_strategy_dpo_ctx_get (retx->dpo.dpoi_index));
+		TFIB (hicn_strategy_dpo_ctx_get (retx->dpo.dpoi_index, w->hicn_strategy_dpo_ctx_pool));
 	      if (!tfib)
 		{
 		  DEBUG ("NULL TFIB entry for dpoi_index=%d",

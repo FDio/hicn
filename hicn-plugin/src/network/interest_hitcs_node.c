@@ -88,13 +88,14 @@ hicn_interest_hitcs_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
   hicn_interest_hitcs_runtime_t *rt;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
   f64 tnow;
+  u32 thread_index = vlib_get_thread_index();
   int ret;
 
   rt = vlib_node_get_runtime_data (vm, hicn_interest_hitcs_node.index);
 
   if (PREDICT_FALSE (rt->pitcs == NULL))
     {
-      rt->pitcs = &hicn_main.pitcs;
+      rt->pitcs = &hicn_main.workers[thread_index].pitcs;
     }
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;

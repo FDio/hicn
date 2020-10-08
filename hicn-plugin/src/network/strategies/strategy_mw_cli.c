@@ -22,6 +22,7 @@
 #include "../strategy_dpo_manager.h"
 #include "../faces/face.h"
 #include "../error.h"
+#include "../infra.h"
 #include "../route.h"
 #include "dpo_mw.h"
 
@@ -84,7 +85,8 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t * vm,
 
   if (ret == HICN_ERROR_NONE)
     {
-      hicn_dpo_ctx = hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index);
+      hicn_worker_t *w = get_hicn_worker_data();
+      hicn_dpo_ctx = hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index, w->hicn_strategy_dpo_ctx_pool);
 
       if (hicn_dpo_ctx == NULL
 	  || hicn_dpo_id->dpoi_type != hicn_dpo_strategy_mw_get_type ())

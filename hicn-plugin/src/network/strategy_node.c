@@ -62,7 +62,7 @@ hicn_strategy_format_trace (u8 * s, va_list * args)
 
 
 always_inline int
-hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
+hicn_new_interest (hicn_strategy_runtime_t * rt, hicn_face_bucket_t *bucket, vlib_buffer_t * b0,
 		   u32 * next, f64 tnow, u8 * nameptr,
 		   u16 namelen, hicn_face_id_t outface, int nh_idx,
 		   index_t dpo_ctx_id0, const hicn_strategy_vft_t * strategy,
@@ -92,7 +92,7 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
       return HICN_ERROR_HASHTB_NOMEM;
     }
   pitp = hicn_pit_get_data (nodep);
-  hicn_pit_init_data (pitp);
+  hicn_pit_init_data (rt->pitcs, pitp);
   pitp->shared.create_time = tnow;
 
   hicn0 = vlib_buffer_get_current (b0);
@@ -123,7 +123,7 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 				   hash_entry);
 
       /* Add face */
-      hicn_face_db_add_face (hicnb0->face_id, &(pitp->u.pit.faces));
+      hicn_face_db_add_face (rt->pitcs->hicn_face_bucket_pool, hicnb0->face_id, &(pitp->u.pit.faces));
 
       *next = isv6 ? HICN_STRATEGY_NEXT_INTEREST_FACE6 :
         HICN_STRATEGY_NEXT_INTEREST_FACE4;
@@ -152,7 +152,7 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 	  /* Send the packet to the interest-hitpit node */
 	  *next = HICN_STRATEGY_NEXT_ERROR_DROP;
 	}
-      hicn_faces_flush (&(pitp->u.pit.faces));
+      hicn_faces_flush (rt->pitcs->hicn_face_bucket_pool, &(pitp->u.pit.faces));
       hicn_hashtb_free_node (rt->pitcs->pcs_table, nodep);
     }
 
@@ -174,12 +174,14 @@ hicn_strategy_fn (vlib_main_t * vm,
   hicn_strategy_runtime_t *rt = NULL;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
   f64 tnow;
+  u32 thread_index = vlib_get_thread_index();
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
   next_index = (hicn_strategy_next_t) node->cached_next_index;
   rt = vlib_node_get_runtime_data (vm, hicn_strategy_node.index);
-  rt->pitcs = &hicn_main.pitcs;
+  rt->pitcs = &(hicn_main.workers[thread_index].pitcs);
+
   /* Capture time in vpp terms */
   tnow = vlib_time_now (vm);
 
@@ -222,8 +224,8 @@ hicn_strategy_fn (vlib_main_t * vm,
 	  next0 = HICN_STRATEGY_NEXT_ERROR_DROP;
 
 	  hicn_dpo_ctx_t *dpo_ctx =
-	    hicn_strategy_dpo_ctx_get (vnet_buffer (b0)->ip.
-				       adj_index[VLIB_TX]);
+	    hicn_strategy_dpo_ctx_get (vnet_buffer (b0)->ip.adj_index[VLIB_TX],
+	    					    hicn_main.workers[thread_index].hicn_strategy_dpo_ctx_pool);
 	  const hicn_strategy_vft_t *strategy =
 	    hicn_dpo_get_strategy_vft (dpo_ctx->dpo_type);
 
@@ -249,7 +251,7 @@ hicn_strategy_fn (vlib_main_t * vm,
 	       * node
 	       */
 	      nameptr = (u8 *) (&name);
-	      hicn_new_interest (rt, b0, &next0, tnow, nameptr, namelen,
+	      hicn_new_interest (rt, rt->pitcs->hicn_face_bucket_pool, b0, &next0, tnow, nameptr, namelen,
 				 outface, nh_idx,
 				 vnet_buffer (b0)->ip.adj_index[VLIB_TX],
 				 strategy, dpo_ctx->dpo_type, isv6, &stats);

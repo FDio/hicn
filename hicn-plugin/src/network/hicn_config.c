@@ -40,13 +40,11 @@ int hicn_infra_fwdr_initialized = 0;
 uint16_t hicn_infra_fast_timer;	/* Counts at 1 second intervals */
 uint16_t hicn_infra_slow_timer;	/* Counts at 1 minute intervals */
 
-hicn_face_bucket_t *hicn_face_bucket_pool;
-
 /*
  * Init hicn forwarder with configurable PIT, CS sizes
  */
 static int
-hicn_infra_fwdr_init (uint32_t shard_pit_size, uint32_t shard_cs_size)
+hicn_infra_fwdr_init (hicn_main_t *sm, uint32_t shard_pit_size, uint32_t shard_cs_size)
 {
   int ret = 0;
 
@@ -55,16 +53,26 @@ hicn_infra_fwdr_init (uint32_t shard_pit_size, uint32_t shard_cs_size)
       ret = HICN_ERROR_FWD_ALREADY_ENABLED;
       goto done;
     }
-  /* Init per worker limits */
-  hicn_infra_pit_size = shard_pit_size;
-  hicn_infra_cs_size = shard_cs_size;
-
+  
   /* Init the global time-compression counters */
   hicn_infra_fast_timer = 1;
   hicn_infra_slow_timer = 1;
 
-  ret = hicn_pit_create (&hicn_main.pitcs, hicn_infra_pit_size);
-  hicn_pit_set_lru_max (&hicn_main.pitcs, hicn_infra_cs_size);
+  /* Init per worker pcs */
+  hicn_worker_t *worker;
+  vec_foreach(worker, sm->workers)
+    {
+      worker->pit_shard_size = shard_pit_size;
+      worker->cs_shard_size = shard_cs_size;
+      worker->hicn_face_bucket_pool = hicn_face_db_init (worker->pit_shard_size);
+      worker->hicn_strategy_dpo_ctx_pool = hicn_strategy_init_dpo_ctx_pool();
+      ret = hicn_pit_create (&worker->pitcs, worker->pit_shard_size, worker->hicn_face_bucket_pool, worker->hicn_strategy_dpo_ctx_pool);
+      hicn_pit_set_lru_max (&worker->pitcs, worker->cs_shard_size);
+
+      if (ret != HICN_ERROR_NONE)
+	break;
+    };
+
 done:
   if ((ret == HICN_ERROR_NONE) && !hicn_infra_fwdr_initialized)
     {
@@ -87,6 +95,7 @@ hicn_infra_plugin_enable_disable (int enable_disable,
   int ret = 0;
 
   hicn_main_t *sm = &hicn_main;
+  vlib_main_t *vm = vlib_get_main ();
   uint32_t pit_size, cs_size;
 
   /* Notice if we're already enabled... */
@@ -141,14 +150,13 @@ hicn_infra_plugin_enable_disable (int enable_disable,
 
       vlib_buffer_main_t *bm;
       vlib_buffer_pool_t *bp;
-      vlib_main_t *vm = vlib_get_main ();
       bm = vm->buffer_main;
 
       u32 n_buffers = 0;
       vec_foreach (bp, bm->buffer_pools)
 	n_buffers = n_buffers < bp->n_buffers ? bp->n_buffers : n_buffers;
 
-      // check if CS is bugger tha PIT or bigger than the available vlib_buffers
+      // check if CS is bigger than PIT or bigger than the available vlib_buffers
       uword cs_buffers =
 	(n_buffers >
 	 HICN_PARAM_CS_MIN_MBUF) ? n_buffers - HICN_PARAM_CS_MIN_MBUF : 0;
@@ -164,9 +172,12 @@ hicn_infra_plugin_enable_disable (int enable_disable,
       cs_size = (uint32_t) cs_size_req;
     }
 
-  ret = hicn_infra_fwdr_init (pit_size, cs_size);
+  /* Take sharding into account */
+  u32 num_threads = vec_len(sm->workers);
+  u32 pit_shard_size = pit_size / num_threads;
+  u32 cs_shard_size = cs_size / num_threads;
 
-  hicn_face_db_init (pit_size);
+  ret = hicn_infra_fwdr_init (sm, pit_shard_size, cs_shard_size);
 
   if (ret != HICN_ERROR_NONE)
     {
@@ -177,7 +188,6 @@ hicn_infra_plugin_enable_disable (int enable_disable,
   //hicn_face_udp_init_internal ();
 
 done:
-
   return (ret);
 }
 

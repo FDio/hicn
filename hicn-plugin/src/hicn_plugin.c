@@ -20,6 +20,7 @@
 #include <vpp_plugins/hicn/error.h>
 
 #include "network/hicn.h"
+#include "network/hicn_handoff.h"
 #include "network/params.h"
 #include "network/infra.h"
 #include "network/strategy_dpo_manager.h"
@@ -41,7 +42,14 @@ hicn_init(vlib_main_t *vm)
   hicn_main_t *sm = &hicn_main;
 
   /* Init other elements in the 'main' struct */
+  vlib_thread_main_t *vtm = vlib_get_thread_main ();
+  u32 num_threads = 1 /* The main thread */ + vtm->n_threads;
+
+  vlib_cli_output (vm, "Number of threads: %d", num_threads);
+  vlib_cli_output (vm, "Thread index: %d", vlib_get_thread_index());
+  
   sm->is_enabled = 0;
+  vec_validate_aligned (sm->workers, num_threads - 1, CLIB_CACHE_LINE_BYTES);
 
   error = hicn_api_plugin_hookup(vm);
 
@@ -57,6 +65,8 @@ hicn_init(vlib_main_t *vm)
   hicn_route_init();
 
   udp_tunnel_init();
+
+  hicn_handoff_init();
 
   /* Init the host stack module */
   // hicn_hs_init(vm);

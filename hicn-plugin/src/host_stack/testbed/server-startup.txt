@@ -1,7 +1,0 @@
-create interface memif id 0 slave
-set int state memif0/0 up
-set int ip addr memif0/0 192.168.10.2/24
-set int ip addr memif0/0 2001::2/64
-hicn hs set local prefix b001::/16
-#test hicn hs server uri hicn://b001::/64
-#hicn enable b001::/64

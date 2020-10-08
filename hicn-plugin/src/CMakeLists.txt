@@ -71,6 +71,7 @@ set(HICN_NETWORK_PLUGIN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/face_prod_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/face_app_cli.c
     ${CMAKE_CURRENT_SOURCE_DIR}/network/pg.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_handoff_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/dpo_mw.c
     ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/strategy_mw.c
     ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/strategy_mw_cli.c
@@ -111,6 +112,7 @@ set(HICN_NETWORK_PLUGIN_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/face_cons.h
     ${CMAKE_CURRENT_SOURCE_DIR}/network/faces/app/face_prod.h
     ${CMAKE_CURRENT_SOURCE_DIR}/network/pg.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/network/hicn_handoff.h
     ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/dpo_mw.h
     ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/strategy_mw.h
     ${CMAKE_CURRENT_SOURCE_DIR}/network/strategies/dpo_rr.h

@@ -47,7 +47,8 @@ typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
   /* 4B*10 = 40B */
   hicn_face_id_t next_hops[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
   /* 40B + 4B = 44B */
-  u32 locks;
+  u16 thread_local_locks;
+  u16 control_plane_locks;
   /* 44B + 1B = 45B */
   u8 entry_count;
   /* 45B + 1B = 46B */
@@ -78,10 +79,7 @@ typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
   };
 
   u8 data[CLIB_CACHE_LINE_BYTES - 12];
-
 } hicn_dpo_ctx_t;
-
-extern hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
 
 /**
  * @brief Initialize the hICN dpo ctx
@@ -98,7 +96,8 @@ init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx, const hicn_face_id_t * next_hop,
   hicn_face_id_t invalid = NEXT_HOP_INVALID;
 
   dpo_ctx->entry_count = 0;
-  dpo_ctx->locks = 0;
+  dpo_ctx->control_plane_locks = 0;
+  dpo_ctx->thread_local_locks = 0;
 
   dpo_ctx->tfib_entry_count = 0;
 
@@ -125,36 +124,37 @@ init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx, const hicn_face_id_t * next_hop,
  * @brief Initialize the pool containing the hICN dpo ctx
  *
  */
-void hicn_strategy_init_dpo_ctx_pool (void);
+hicn_dpo_ctx_t *
+hicn_strategy_init_dpo_ctx_pool ();
 
 /**
  * @brief Allocate a new hICN dpo ctx from the pool
  */
-hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_alloc ();
+hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_alloc (hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool);
 
 /**
  * @brief Retrieve an existing hICN dpo ctx from the pool
  */
-hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_get (index_t index);
+hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_get (index_t index, hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool);
 
 /**
  * @brief Retrieve the index of the hICN dpo ctx
  */
-index_t hicn_strategy_dpo_ctx_get_index (hicn_dpo_ctx_t * cd);
+index_t hicn_strategy_dpo_ctx_get_index (hicn_dpo_ctx_t * cd, hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool);
 
 /**
  * @brief Lock the dpo of a strategy ctx
  *
  * @param dpo Identifier of the dpo of the strategy ctx
  */
-void hicn_strategy_dpo_ctx_lock (dpo_id_t * dpo);
+void hicn_strategy_dpo_ctx_lock_all (dpo_id_t * dpo);
 
 /**
  * @brief Unlock the dpo of a strategy ctx
  *
  * @param dpo Identifier of the dpo of the strategy ctx
  */
-void hicn_strategy_dpo_ctx_unlock (dpo_id_t * dpo);
+void hicn_strategy_dpo_ctx_unlock_all (dpo_id_t * dpo);
 
 /**
  * @brief Add or update a next hop in the dpo ctx.
