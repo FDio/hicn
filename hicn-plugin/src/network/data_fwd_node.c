@@ -68,8 +68,9 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 {
 
   u32 n_left_from, *from, *to_next;
+  u32 thread_index = vlib_get_thread_index();
   hicn_data_fwd_next_t next_index;
-  hicn_pit_cs_t *pitcs = &hicn_main.pitcs;
+  hicn_pit_cs_t *pitcs = &hicn_main.workers[thread_index].pitcs;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
   f64 tnow;
   u32 data_received = 1;

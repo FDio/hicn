@@ -316,17 +316,6 @@ VLIB_REGISTER_NODE(hicn_data_input_ip6) =
     };
 /* *INDENT-ON* */
 
-/* *INDENT-OFF* */
-VNET_FEATURE_INIT(hicn_data_input_ip6_arc, static)=
-    {
-     .arc_name = "ip6-local",
-     .node_name = "hicn-data-input-ip6",
-     .runs_before = VNET_FEATURES("ip6-local-end-of-arc"),
-    };
-/* *INDENT-ON* */
-
-
-
 always_inline uword
 hicn_data_input_ip4_fn (vlib_main_t * vm,
 			vlib_node_runtime_t * node, vlib_frame_t * frame)
@@ -684,14 +673,5 @@ VLIB_REGISTER_NODE(hicn_data_input_ip4) =
       [HICN_DATA_INPUT_IP4_NEXT_FACE] = "hicn4-face-input",
       [HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL] = "ip4-local-end-of-arc"
      },
-    };
-/* *INDENT-ON* */
-
-/* *INDENT-OFF* */
-VNET_FEATURE_INIT(hicn_data_input_ip4_arc, static)=
-    {
-     .arc_name = "ip4-local",
-     .node_name = "hicn-data-input-ip4",
-     .runs_before = VNET_FEATURES("ip4-local-end-of-arc"),
     };
 /* *INDENT-ON* */

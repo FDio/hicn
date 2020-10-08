@@ -44,12 +44,13 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm,
   hicn_data_pcslookup_next_t next_index;
   hicn_data_pcslookup_runtime_t *rt;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
+  u32 thread_index = vlib_get_thread_index();
 
   rt = vlib_node_get_runtime_data (vm, node->node_index);
 
   if (PREDICT_FALSE (rt->pitcs == NULL))
     {
-      rt->pitcs = &hicn_main.pitcs;
+      rt->pitcs = &hicn_main.workers[thread_index].pitcs;
     }
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;

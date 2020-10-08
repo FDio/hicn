@@ -111,9 +111,9 @@ vl_api_hicn_api_node_params_get_t_handler (vl_api_hicn_api_node_params_get_t *
     {
       rmp->is_enabled = sm->is_enabled;
       rmp->feature_cs =	HICN_FEATURE_CS;
-      rmp->pit_max_size = clib_host_to_net_u32 (hicn_infra_pit_size);
+      rmp->pit_max_size = clib_host_to_net_u32 (sm->hicn_infra_pit_size);
       rmp->pit_max_lifetime_sec	= ((f64) sm->pit_lifetime_max_ms) / SEC_MS;
-      rmp->cs_max_size = clib_host_to_net_u32 (hicn_infra_cs_size);
+      rmp->cs_max_size = clib_host_to_net_u32 (sm->hicn_infra_cs_size);
       rmp->retval = clib_host_to_net_i32 (rv);
     }));
   /* *INDENT-ON* */

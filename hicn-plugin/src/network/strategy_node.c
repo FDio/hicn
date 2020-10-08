@@ -174,12 +174,13 @@ hicn_strategy_fn (vlib_main_t * vm,
   hicn_strategy_runtime_t *rt = NULL;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
   f64 tnow;
+  u32 thread_index = vlib_get_thread_index();
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
   next_index = (hicn_strategy_next_t) node->cached_next_index;
   rt = vlib_node_get_runtime_data (vm, hicn_strategy_node.index);
-  rt->pitcs = &hicn_main.pitcs;
+  rt->pitcs = &(hicn_main.workers[thread_index].pitcs);
   /* Capture time in vpp terms */
   tnow = vlib_time_now (vm);
 

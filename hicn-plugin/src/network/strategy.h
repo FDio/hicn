@@ -71,13 +71,13 @@ typedef enum
 
 const static char *const hicn_ip6_nodes[] =
 {
- "hicn6-iface-input",	// this is the name you give your node in VLIB_REGISTER_NODE
+ "hicn-interest-handoff-6",	// this is the name you give your node in VLIB_REGISTER_NODE
  NULL,
 };
 
 const static char *const hicn_ip4_nodes[] =
 {
- "hicn4-iface-input",	// this is the name you give your node in VLIB_REGISTER_NODE
+ "hicn-interest-handoff-4",	// this is the name you give your node in VLIB_REGISTER_NODE
  NULL,
 };
 

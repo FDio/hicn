@@ -1,0 +1,32 @@
+version: "3"
+services:
+  vpp_client:
+    build: .
+    working_dir: /home/ubuntu/host-stack
+    container_name: vpp_client
+    hostname: client
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - /home/ubuntu/host-stack:/home/ubuntu/host-stack
+      - /var/run/vpp:/var/run/vpp
+    environment:
+      - STARTUP_CONF=${PWD}/startup-client.conf
+    entrypoint: [tail, -f, /dev/null]
+  vpp_server:
+    build: .
+    working_dir: /home/ubuntu/host-stack
+    container_name: vpp_server
+    hostname: server
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - /home/ubuntu/host-stack:/home/ubuntu/host-stack
+      - /var/run/vpp:/var/run/vpp
+    environment:
+      - STARTUP_CONF=${PWD}/startup-server.conf
+    entrypoint: [tail, -f, /dev/null]
