@@ -95,7 +95,6 @@ hicn_dpo_get_strategy_vft_from_id (u8 vfts_id)
 void
 hicn_dpos_init (void)
 {
-  hicn_strategy_init_dpo_ctx_pool ();
   hicn_dpo_strategy_mw_module_init ();
   hicn_dpo_strategy_rr_module_init ();
 

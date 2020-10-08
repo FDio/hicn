@@ -1076,6 +1076,7 @@ Logger *configuration_GetLogger(const Configuration *config) {
   return config->logger;
 }
 
+#ifdef WITH_MAPME
 struct iovec *configuration_MapMeEnable(Configuration *config,
                                         struct iovec *request) {
   header_control_message *header = request[0].iov_base;
@@ -1192,6 +1193,7 @@ ERR:
   return utils_CreateNack(header, control, sizeof(connection_set_admin_state_command));
 }
 
+#endif /* WITH_MAPME */
 
 struct iovec *configuration_ConnectionSetAdminState(Configuration *config,
                                       struct iovec *request) {
@@ -1425,6 +1427,7 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
       response = configuration_ProcessListenersList(config, control);
       break;
 
+#ifdef WITH_MAPME
     case MAPME_ENABLE:
       response = configuration_MapMeEnable(config, control);
       break;
@@ -1444,6 +1447,7 @@ struct iovec *configuration_DispatchCommand(Configuration *config,
     case MAPME_SEND_UPDATE:
       response = configuration_MapMeSendUpdate(config, control, ingressId);
       break;
+#endif /* WITH_MAPME */
 
     case CONNECTION_SET_ADMIN_STATE:
       response = configuration_ConnectionSetAdminState(config, control);

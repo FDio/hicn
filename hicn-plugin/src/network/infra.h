@@ -27,6 +27,19 @@
  *
  */
 
+typedef struct hicn_worker_s
+{
+  CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
+  hicn_pit_cs_t pitcs;
+  u32 pit_shard_size;
+  u32 cs_shard_size;
+
+    /* Pointer to hicn_face_bucket_pool */
+  hicn_face_bucket_t* hicn_face_bucket_pool;
+  /* Pointer to hicn_dpo_ctx_pool */
+  hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
+} hicn_worker_t;
+
 /**
  * @brief hICN plugin global state.
  */
@@ -38,8 +51,12 @@ typedef struct hicn_main_s
   /* Have we been enabled */
   u16 is_enabled;
 
-  /* Forwarder PIT/CS */
-  hicn_pit_cs_t pitcs;
+  /* Per-worker data */
+  hicn_worker_t *workers;
+
+  /* PIT/CS Size*/
+  u32 hicn_infra_pit_size;
+  u32 hicn_infra_cs_size;
 
   /* Global PIT lifetime info */
   /*
@@ -56,9 +73,20 @@ extern hicn_main_t hicn_main;
 
 extern int hicn_infra_fwdr_initialized;
 
-/* PIT and CS size */
-u32 hicn_infra_pit_size;
-u32 hicn_infra_cs_size;
+always_inline
+hicn_main_t *
+get_hicn_main()
+{
+  return &hicn_main;
+}
+
+always_inline
+hicn_worker_t *
+get_hicn_worker_data()
+{
+  u32 thread_index = vlib_get_thread_index();
+  return &hicn_main.workers[thread_index];
+}
 
 /**
  * @brief Enable and disable the hicn plugin
@@ -70,13 +98,11 @@ u32 hicn_infra_cs_size;
  * @param cs_max_size CS size. Must be <= than pit_max_size
  * @param cs_reserved_app Amount of CS reserved for application faces
  */
-int
-hicn_infra_plugin_enable_disable (int enable_disable,
-				  int pit_max_size,
-				  f64 pit_max_lifetime_sec_req,
-				  int cs_max_size,
-                                  vnet_link_t link);
-
+int hicn_infra_plugin_enable_disable(int enable_disable,
+                                     int pit_max_size,
+                                     f64 pit_max_lifetime_sec_req,
+                                     int cs_max_size,
+                                     vnet_link_t link);
 
 /* vlib nodes that compose the hICN forwarder */
 extern vlib_node_registration_t hicn_interest_pcslookup_node;
@@ -90,8 +116,6 @@ extern vlib_node_registration_t hicn_pg_data_node;
 extern vlib_node_registration_t hicn_pg_server_node;
 extern vlib_node_registration_t hicn_data_input_ip6_node;
 extern vlib_node_registration_t hicn_data_input_ip4_node;
-
-
 
 #endif /* // __HICN_INFRA_H__ */
 

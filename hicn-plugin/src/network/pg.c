@@ -883,24 +883,24 @@ VLIB_REGISTER_NODE(hicn_pg_data_node) =
 };
 /* *INDENT-ON* */
 
-/* *INDENT-OFF* */
-VNET_FEATURE_INIT(hicn_data_input_ip4_arc, static)=
-  {
-   .arc_name = "ip4-unicast",
-   .node_name = "hicnpg-data",
-   .runs_before = VNET_FEATURES("ip4-inacl"),
-  };
-/* *INDENT-ON* */
+// /* *INDENT-OFF* */
+// VNET_FEATURE_INIT(hicn_data_input_ip4_arc, static)=
+//   {
+//    .arc_name = "ip4-unicast",
+//    .node_name = "hicnpg-data",
+//    .runs_before = VNET_FEATURES("ip4-inacl"),
+//   };
+// /* *INDENT-ON* */
 
 
-/* *INDENT-OFF* */
-VNET_FEATURE_INIT(hicn_data_input_ip6_arc, static)=
-  {
-   .arc_name = "ip6-unicast",
-   .node_name = "hicnpg-data",
-   .runs_before = VNET_FEATURES("ip6-inacl"),
-  };
-/* *INDENT-ON* */
+// /* *INDENT-OFF* */
+// VNET_FEATURE_INIT(hicn_data_input_ip6_arc, static)=
+//   {
+//    .arc_name = "ip6-unicast",
+//    .node_name = "hicnpg-data",
+//    .runs_before = VNET_FEATURES("ip6-inacl"),
+//   };
+// /* *INDENT-ON* */
 
 
 /*

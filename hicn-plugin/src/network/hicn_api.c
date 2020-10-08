@@ -111,9 +111,9 @@ vl_api_hicn_api_node_params_get_t_handler (vl_api_hicn_api_node_params_get_t *
     {
       rmp->is_enabled = sm->is_enabled;
       rmp->feature_cs =	HICN_FEATURE_CS;
-      rmp->pit_max_size = clib_host_to_net_u32 (hicn_infra_pit_size);
+      rmp->pit_max_size = clib_host_to_net_u32 (sm->hicn_infra_pit_size);
       rmp->pit_max_lifetime_sec	= ((f64) sm->pit_lifetime_max_ms) / SEC_MS;
-      rmp->cs_max_size = clib_host_to_net_u32 (hicn_infra_cs_size);
+      rmp->cs_max_size = clib_host_to_net_u32 (sm->hicn_infra_cs_size);
       rmp->retval = clib_host_to_net_i32 (rv);
     }));
   /* *INDENT-ON* */
@@ -308,71 +308,71 @@ static void
 static void vl_api_hicn_api_route_get_t_handler
   (vl_api_hicn_api_route_get_t * mp)
 {
-  vl_api_hicn_api_route_get_reply_t *rmp;
-  int rv = HICN_ERROR_NONE;
+//   vl_api_hicn_api_route_get_reply_t *rmp;
+//   int rv = HICN_ERROR_NONE;
 
-  hicn_main_t *sm = &hicn_main;
+//   hicn_main_t *sm = &hicn_main;
 
-  fib_prefix_t prefix;
-  ip_prefix_decode (&mp->prefix, &prefix);
-  const dpo_id_t *hicn_dpo_id;
-  hicn_dpo_ctx_t *hicn_dpo_ctx;
-  u32 fib_index;
+//   fib_prefix_t prefix;
+//   ip_prefix_decode (&mp->prefix, &prefix);
+//   const dpo_id_t *hicn_dpo_id;
+//   hicn_dpo_ctx_t *hicn_dpo_ctx;
+//   u32 fib_index;
 
-  rv = hicn_route_get_dpo (&prefix, &hicn_dpo_id, &fib_index);
+//   rv = hicn_route_get_dpo (&prefix, &hicn_dpo_id, &fib_index);
 
-  /* *INDENT-OFF* */
-  REPLY_MACRO2 (VL_API_HICN_API_ROUTE_GET_REPLY, (
-    {
-      if (rv == HICN_ERROR_NONE)
-	{
-	  hicn_dpo_ctx = hicn_strategy_dpo_ctx_get(hicn_dpo_id->dpoi_index);
-	  for (int i = 0; hicn_dpo_ctx != NULL && i < hicn_dpo_ctx->entry_count; i++)
-	    {
-              rmp->faceids[i] = hicn_dpo_ctx->next_hops[i];
-	    }
-	  rmp->strategy_id = clib_host_to_net_u32(hicn_dpo_get_vft_id(hicn_dpo_id));}
-    }));
-  /* *INDENT-ON* */
+//   /* *INDENT-OFF* */
+//   REPLY_MACRO2 (VL_API_HICN_API_ROUTE_GET_REPLY, (
+//     {
+//       if (rv == HICN_ERROR_NONE)
+// 	{
+// 	  hicn_dpo_ctx = hicn_strategy_dpo_ctx_get(hicn_dpo_id->dpoi_index);
+// 	  for (int i = 0; hicn_dpo_ctx != NULL && i < hicn_dpo_ctx->entry_count; i++)
+// 	    {
+//               rmp->faceids[i] = hicn_dpo_ctx->next_hops[i];
+// 	    }
+// 	  rmp->strategy_id = clib_host_to_net_u32(hicn_dpo_get_vft_id(hicn_dpo_id));}
+//     }));
+//   /* *INDENT-ON* */
 }
 
 static void
 send_route_details (vl_api_registration_t * reg,
 		    const fib_prefix_t * pfx, u32 context)
 {
-  vl_api_hicn_api_routes_details_t *mp;
-  hicn_main_t *hm = &hicn_main;
-  mp = vl_msg_api_alloc (sizeof (*mp));
-  memset (mp, 0, sizeof (*mp));
+//   vl_api_hicn_api_routes_details_t *mp;
+//   hicn_main_t *hm = &hicn_main;
+//   mp = vl_msg_api_alloc (sizeof (*mp));
+//   memset (mp, 0, sizeof (*mp));
 
-  mp->_vl_msg_id = htons (VL_API_HICN_API_ROUTES_DETAILS + hm->msg_id_base);
-  mp->context = context;
+//   mp->_vl_msg_id = htons (VL_API_HICN_API_ROUTES_DETAILS + hm->msg_id_base);
+//   mp->context = context;
 
-  ip_prefix_encode (pfx, &mp->prefix);
-  mp->nfaces = 0;
+//   ip_prefix_encode (pfx, &mp->prefix);
+//   mp->nfaces = 0;
 
-  const dpo_id_t *hicn_dpo_id;
-  hicn_dpo_ctx_t *hicn_dpo_ctx;
-  u32 fib_index;
+//   const dpo_id_t *hicn_dpo_id;
+//   hicn_dpo_ctx_t *hicn_dpo_ctx;
+//   u32 fib_index;
 
-  int rv = hicn_route_get_dpo (pfx, &hicn_dpo_id, &fib_index);
+//   int rv = hicn_route_get_dpo (pfx, &hicn_dpo_id, &fib_index);
 
-  if (rv == HICN_ERROR_NONE)
-    {
-      hicn_dpo_ctx = hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index);
-      for (int i = 0; hicn_dpo_ctx != NULL && i < hicn_dpo_ctx->entry_count;
-	   i++)
-	{
-          mp->faceids[i] =
-		clib_host_to_net_u32 (hicn_dpo_ctx->
-                                      next_hops[i]);
-	      mp->nfaces++;
-	}
-      mp->strategy_id =
-	clib_host_to_net_u32 (hicn_dpo_get_vft_id (hicn_dpo_id));
-    }
+//   if (rv == HICN_ERROR_NONE)
+//     {
+//       hicn_dpo_ctx = hicn_strategy_dpo_ctx_get (hicn_dpo_id->dpoi_index);
+//       for (int i = 0; hicn_dpo_ctx != NULL && i < hicn_dpo_ctx->entry_count;
+// 	   i++)
+// 	{
+//           mp->faceids[i] =
+// 		clib_host_to_net_u32 (hicn_dpo_ctx->
+//                                       next_hops[i]);
+// 	      mp->nfaces++;
+// 	}
+//       mp->strategy_id =
+// 	clib_host_to_net_u32 (hicn_dpo_get_vft_id (hicn_dpo_id));
+//     }
 
-  vl_api_send_msg (reg, (u8 *) mp);
+//   vl_api_send_msg (reg, (u8 *) mp);
 }
 
 typedef struct vl_api_hicn_api_route_dump_walk_ctx_t_

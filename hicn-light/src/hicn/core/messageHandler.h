@@ -304,11 +304,19 @@ static inline bool messageHandler_handleHooks(Forwarder * forwarder,
   /* Find connection and eventually create it */
   const Connection * conn = connectionTable_FindByAddressPair(
         forwarder_GetConnectionTable(forwarder), pair);
-  unsigned conn_id;
+#ifdef WITH_MAPME
+  unsigned  conn_id;
+#endif /* WITH_MAPME */
   if (conn == NULL) {
-    conn_id = listener->createConnection(listener, fd, pair);
+#ifdef WITH_MAPME
+    conn_id = 
+#endif /* WITH_MAPME */
+      listener->createConnection(listener, fd, pair);
   } else {
-    conn_id = connection_GetConnectionId(conn);
+#ifdef WITH_MAPME
+    conn_id = 
+#endif /* WITH_MAPME */
+	connection_GetConnectionId(conn);
   }
 
   /* BEGIN Process */

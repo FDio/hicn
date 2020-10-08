@@ -18,6 +18,7 @@
 #include "../strategy_dpo_ctx.h"
 #include "../faces/face.h"
 #include "../hashtb.h"
+#include "../infra.h"
 #include "../strategy_dpo_manager.h"
 
 /* Simple strategy that chooses the next hop with the maximum weight */
@@ -53,7 +54,8 @@ hicn_rr_strategy_get_vft (void)
 u32
 hicn_select_next_hop_rr (index_t dpo_idx, int *nh_idx, hicn_face_id_t* outface)
 {
-  hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
+  hicn_worker_t *w = get_hicn_worker_data();
+  hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx, w->hicn_strategy_dpo_ctx_pool);
 
   if (dpo_ctx == NULL)
     return HICN_ERROR_STRATEGY_NOT_FOUND;
@@ -76,7 +78,7 @@ hicn_add_interest_rr (index_t dpo_ctx_idx, hicn_hash_entry_t * hash_entry)
   hash_entry->dpo_ctx_id = dpo_ctx_idx;
   dpo_id_t hicn_dpo_id =
     { hicn_dpo_strategy_rr_get_type (), 0, 0, dpo_ctx_idx };
-  hicn_strategy_dpo_ctx_lock (&hicn_dpo_id);
+//   hicn_strategy_dpo_ctx_lock (&hicn_dpo_id);
   hash_entry->vft_id = hicn_dpo_get_vft_id (&hicn_dpo_id);
 }
 

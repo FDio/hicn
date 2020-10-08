@@ -19,7 +19,7 @@ RUN apt-get update \
     python3-jsonschema gdb libssl-dev python-setuptools zsh 2>&1 						\
   #
   # Verify git, process tools, lsb-release (useful for CLI installs) installed
-  && apt-get -y install git procps lsb-release curl iproute2 \
+  && apt-get -y install git procps lsb-release curl iproute2 iperf3 \
   #
   # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.
   && groupadd --gid $USER_GID $USERNAME \

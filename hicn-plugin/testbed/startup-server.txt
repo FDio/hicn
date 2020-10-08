@@ -1,0 +1,7 @@
+create memif socket id 1 filename /var/run/vpp/memif1.sock
+create interface memif id 0 socket-id 1 master
+set int state memif1/0 up
+set int ip addr memif1/0 192.168.10.2/24
+set int ip addr memif1/0 2001::2/64
+trace add memif-input 10
+#hicn enable b001::/64

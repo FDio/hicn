@@ -462,7 +462,6 @@ hicn_client_attach (u8 * appns_id, u64 appns_flags, u64 appns_secret)
   options[APP_OPTIONS_PREALLOC_FIFO_PAIRS] = prealloc_fifos;
   options[APP_OPTIONS_FLAGS] = APP_OPTIONS_FLAGS_IS_BUILTIN;
   options[APP_OPTIONS_TLS_ENGINE] = hcm->tls_engine;
-  options[APP_OPTIONS_PCT_FIRST_ALLOC] = 100;
   if (appns_id)
     {
       options[APP_OPTIONS_FLAGS] |= appns_flags;

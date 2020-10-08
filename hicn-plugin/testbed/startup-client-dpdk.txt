@@ -1,0 +1,5 @@
+set interface ip address TenGigabitEthernet13/0/0 fd00::2/64
+set interface ip address TenGigabitEthernet13/0/0 192.168.0.2/24
+set interface state TenGigabitEthernet13/0/0 up
+ip route add b001::0/64 via fd00::1 TenGigabitEthernet13/0/0
+#hicn enable b001::/64

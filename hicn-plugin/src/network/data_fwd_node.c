@@ -38,7 +38,7 @@ drop_packet (vlib_main_t * vm, u32 bi0,
 	     u32 * next_index, vlib_node_runtime_t * node);
 
 always_inline int
-hicn_satisfy_faces (vlib_main_t * vm, u32 b0,
+hicn_satisfy_faces (vlib_main_t * vm, hicn_pit_cs_t * pitcs, u32 b0,
 		    hicn_pcs_entry_t * pitp, u32 * n_left_to_next,
 		    u32 ** to_next, u32 * next_index,
 		    vlib_node_runtime_t * node, u8 isv6,
@@ -69,7 +69,8 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
   u32 n_left_from, *from, *to_next;
   hicn_data_fwd_next_t next_index;
-  hicn_pit_cs_t *pitcs = &hicn_main.pitcs;
+  hicn_worker_t *worker = get_hicn_worker_data();
+  hicn_pit_cs_t *pitcs = &worker->pitcs;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
   f64 tnow;
   u32 data_received = 1;
@@ -200,7 +201,7 @@ hicn_data_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	       */
 
 	      /* Prepare the buffer for the cloning */
-	      ret = hicn_satisfy_faces (vm, bi0, pitp, &n_left_to_next,
+	      ret = hicn_satisfy_faces (vm, pitcs, bi0, pitp, &n_left_to_next,
 					&to_next, &next_index, node,
 					isv6, &stats);
 
@@ -331,7 +332,7 @@ drop_packet (vlib_main_t * vm, u32 bi0,
 }
 
 always_inline int
-hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
+hicn_satisfy_faces (vlib_main_t * vm, hicn_pit_cs_t *pitcs, u32 bi0,
 		    hicn_pcs_entry_t * pitp, u32 * n_left_to_next,
 		    u32 ** to_next, u32 * next_index,
 		    vlib_node_runtime_t * node, u8 isv6,
@@ -412,8 +413,8 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 	    CLIB_PREFETCH (h3, 2 * CLIB_CACHE_LINE_BYTES, STORE);
 	  }
 
-	  face0 = hicn_face_db_get_dpo_face (i++, &pitp->u.pit.faces);
-	  face1 = hicn_face_db_get_dpo_face (i++, &pitp->u.pit.faces);
+	  face0 = hicn_face_db_get_dpo_face (pitcs->hicn_face_bucket_pool, i++, &pitp->u.pit.faces);
+	  face1 = hicn_face_db_get_dpo_face (pitcs->hicn_face_bucket_pool, i++, &pitp->u.pit.faces);
 
 	  h0 = vlib_get_buffer (vm, clones[0]);
 	  h1 = vlib_get_buffer (vm, clones[1]);
@@ -471,7 +472,7 @@ hicn_satisfy_faces (vlib_main_t * vm, u32 bi0,
 	  u32 hi0;
 	  hicn_face_id_t face0;
 
-	  face0 = hicn_face_db_get_dpo_face (i++, &pitp->u.pit.faces);
+	  face0 = hicn_face_db_get_dpo_face (pitcs->hicn_face_bucket_pool, i++, &pitp->u.pit.faces);
 
 	  h0 = vlib_get_buffer (vm, clones[0]);
 

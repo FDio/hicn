@@ -15,41 +15,82 @@
 
 #include "strategy_dpo_ctx.h"
 #include "strategy_dpo_manager.h"
+#include "infra.h"
 
-hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
-
-void
+hicn_dpo_ctx_t *
 hicn_strategy_init_dpo_ctx_pool ()
 {
+  hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool = NULL;
   pool_init_fixed (hicn_strategy_dpo_ctx_pool, 256);
-
+  assert(hicn_strategy_dpo_ctx_pool != NULL);
+  return hicn_strategy_dpo_ctx_pool;
 }
 
-void
-hicn_strategy_dpo_ctx_lock (dpo_id_t * dpo)
-{
-  hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo->dpoi_index);
+// void
+// hicn_strategy_dpo_ctx_lock (dpo_id_t * dpo)
+// {
+//   hicn_worker_t *w = get_hicn_worker_data();
+//   hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo->dpoi_index, w->hicn_strategy_dpo_ctx_pool);
 
-  if (dpo_ctx != NULL)
+//   if (dpo_ctx != NULL)
+//     {
+//       dpo_ctx->thread_local_locks++;
+//     }
+// }
+
+// void
+// hicn_strategy_dpo_ctx_unlock (dpo_id_t * dpo)
+// {
+//   hicn_dpo_ctx_t *hicn_strategy_dpo_ctx =
+//     (hicn_dpo_ctx_t *) hicn_strategy_dpo_ctx_get (dpo->dpoi_index);
+
+//   if (hicn_strategy_dpo_ctx != NULL)
+//     {
+//       hicn_strategy_dpo_ctx->locks--;
+
+//       if (0 == hicn_strategy_dpo_ctx->locks)
+// 	{
+// 	  pool_put (hicn_strategy_dpo_ctx_pool, hicn_strategy_dpo_ctx);
+// 	}
+//     }
+// }
+
+void
+hicn_strategy_dpo_ctx_lock_all (dpo_id_t * dpo)
+{
+  hicn_main_t* sm = get_hicn_main();
+  hicn_worker_t *worker = NULL;
+  hicn_dpo_ctx_t *dpo_ctx = NULL;
+
+  vec_foreach(worker, sm->workers)
     {
-      dpo_ctx->locks++;
+      dpo_ctx = hicn_strategy_dpo_ctx_get (dpo->dpoi_index, worker->hicn_strategy_dpo_ctx_pool);
+      if (dpo_ctx)
+        {
+          dpo_ctx->control_plane_locks++;
+        }
     }
 }
 
 void
-hicn_strategy_dpo_ctx_unlock (dpo_id_t * dpo)
+hicn_strategy_dpo_ctx_unlock_all (dpo_id_t * dpo)
 {
-  hicn_dpo_ctx_t *hicn_strategy_dpo_ctx =
-    (hicn_dpo_ctx_t *) hicn_strategy_dpo_ctx_get (dpo->dpoi_index);
+  hicn_main_t* sm = get_hicn_main();
+  hicn_worker_t *worker = NULL;
+  hicn_dpo_ctx_t *dpo_ctx = NULL;
 
-  if (hicn_strategy_dpo_ctx != NULL)
+  vec_foreach(worker, sm->workers)
     {
-      hicn_strategy_dpo_ctx->locks--;
+      dpo_ctx = (hicn_dpo_ctx_t *) hicn_strategy_dpo_ctx_get (dpo->dpoi_index, worker->hicn_strategy_dpo_ctx_pool);
+      if (dpo_ctx != NULL)
+        {
+          dpo_ctx->control_plane_locks--;
 
-      if (0 == hicn_strategy_dpo_ctx->locks)
-	{
-	  pool_put (hicn_strategy_dpo_ctx_pool, hicn_strategy_dpo_ctx);
-	}
+          if (0 == dpo_ctx->control_plane_locks)
+	    {
+	      pool_put (worker->hicn_strategy_dpo_ctx_pool, dpo_ctx);
+	    }
+        }
     }
 }
 
@@ -60,7 +101,8 @@ hicn_strategy_dpo_format_ctx (u8 * s, va_list * ap)
   hicn_dpo_ctx_t *dpo = NULL;
   u32 indent = va_arg (*ap, u32);
 
-  dpo = (hicn_dpo_ctx_t *) hicn_strategy_dpo_ctx_get (index);
+  hicn_worker_t *w = get_hicn_worker_data();
+  dpo = (hicn_dpo_ctx_t *) hicn_strategy_dpo_ctx_get (index, w->hicn_strategy_dpo_ctx_pool);
 
   const hicn_dpo_vft_t *dpo_vft = hicn_dpo_get_vft (dpo->dpo_type);
 
@@ -70,13 +112,13 @@ hicn_strategy_dpo_format_ctx (u8 * s, va_list * ap)
 }
 
 index_t
-hicn_strategy_dpo_ctx_get_index (hicn_dpo_ctx_t * cd)
+hicn_strategy_dpo_ctx_get_index (hicn_dpo_ctx_t * cd, hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool)
 {
   return (cd - hicn_strategy_dpo_ctx_pool);
 }
 
 hicn_dpo_ctx_t *
-hicn_strategy_dpo_ctx_get (index_t index)
+hicn_strategy_dpo_ctx_get (index_t index, hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool)
 {
   hicn_dpo_ctx_t *hicn_strategy_dpo_ctx = NULL;
   if (!pool_is_free_index (hicn_strategy_dpo_ctx_pool, index))
@@ -89,7 +131,7 @@ hicn_strategy_dpo_ctx_get (index_t index)
 }
 
 hicn_dpo_ctx_t *
-hicn_strategy_dpo_ctx_alloc ()
+hicn_strategy_dpo_ctx_alloc (hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool)
 {
   hicn_dpo_ctx_t *dpo_ctx;
   pool_get (hicn_strategy_dpo_ctx_pool, dpo_ctx);
