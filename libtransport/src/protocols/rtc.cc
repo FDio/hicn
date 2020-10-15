@@ -348,6 +348,8 @@ void RTCTransportProtocol::computeMaxWindow(uint32_t productionRate,
 void RTCTransportProtocol::updateWindow() {
   if (currentState_ == HICN_RTC_SYNC_STATE) return;
 
+  if (estimatedBw_ == 0) return;
+
   if (currentCWin_ < maxCWin_ * 0.9) {
     currentCWin_ =
         min(maxCWin_, (uint32_t)(currentCWin_ * HICN_WIN_INCREASE_FACTOR));
