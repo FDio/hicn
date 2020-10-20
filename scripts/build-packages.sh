@@ -24,8 +24,8 @@ PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio
 VPP_GIT_REPO="https://git.fd.io/vpp"
 VPP_BRANCH="stable/2005"
 
-VPP_VERSION_DEB="20.05-release"
-VPP_VERSION_RPM="20.05-release.x86_64"
+VPP_VERSION_DEB="20.09-release"
+VPP_VERSION_RPM="20.09-release.x86_64"
 
 BUILD_TOOLS_UBUNTU="build-essential doxygen"
 LIBSSL_LIBEVENT_UBUNTU="libevent-dev libssl-dev"
@@ -151,7 +151,7 @@ setup() {
 
     # Install dependencies
     if [ ${DISTRIB_ID} == "ubuntu" ]; then
-        echo ${BUILD_TOOLS_UBUNTU} ${DEPS_UBUNTU_NOVERSION} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
+        echo ${BUILD_TOOLS_UBUNTU} ${DEPS_UBUNTU} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
     elif [ ${DISTRIB_ID} == "centos" ]; then
         # echo ${BUILD_TOOLS_GROUP_CENTOS} | xargs sudo yum groupinstall -y --nogpgcheck
         echo ${DEPS_CENTOS} | xargs sudo yum install -y --nogpgcheck
