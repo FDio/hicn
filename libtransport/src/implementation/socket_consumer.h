@@ -58,6 +58,7 @@ class ConsumerSocket : public Socket<BasePortal> {
         verifier_(std::make_shared<utils::Verifier>()),
         verify_signature_(false),
         key_content_(false),
+        reset_window_(false),
         on_interest_output_(VOID_HANDLER),
         on_interest_timeout_(VOID_HANDLER),
         on_interest_satisfied_(VOID_HANDLER),
@@ -340,6 +341,11 @@ class ConsumerSocket : public Socket<BasePortal> {
 
         case GeneralTransportOptions::KEY_CONTENT:
           key_content_ = socket_option_value;
+          result = SOCKET_OPTION_SET;
+          break;
+
+        case RaaqmTransportOptions::PER_SESSION_CWINDOW_RESET:
+          reset_window_ = socket_option_value;
           result = SOCKET_OPTION_SET;
           break;
 
@@ -648,6 +654,10 @@ class ConsumerSocket : public Socket<BasePortal> {
         socket_option_value = is_async_;
         break;
 
+      case RaaqmTransportOptions::PER_SESSION_CWINDOW_RESET:
+        socket_option_value = reset_window_;
+        break;
+
       default:
         return SOCKET_OPTION_NOT_GET;
     }
@@ -923,6 +933,7 @@ class ConsumerSocket : public Socket<BasePortal> {
   PARCKeyId *key_id_;
   std::atomic_bool verify_signature_;
   bool key_content_;
+  bool reset_window_;
 
   ConsumerInterestCallback on_interest_retransmission_;
   ConsumerInterestCallback on_interest_output_;
