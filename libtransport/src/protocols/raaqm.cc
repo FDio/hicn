@@ -116,6 +116,14 @@ void RaaqmTransportProtocol::reset() {
   // Reset protocol variables
   interests_in_flight_ = 0;
   t0_ = utils::SteadyClock::now();
+
+  // Optionally reset congestion window
+  bool reset_window;
+  socket_->getSocketOption(RaaqmTransportOptions::PER_SESSION_CWINDOW_RESET,
+                           reset_window);
+  if (reset_window) {
+    current_window_size_ = 1;
+  }
 }
 
 bool RaaqmTransportProtocol::verifyKeyPackets() {

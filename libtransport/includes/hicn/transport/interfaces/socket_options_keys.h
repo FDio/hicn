@@ -66,6 +66,7 @@ typedef enum {
   MINIMUM_DROP_PROBABILITY = 205,
   PATH_ID = 206,
   RTT_STATS = 207,
+  PER_SESSION_CWINDOW_RESET = 208
 } RaaqmTransportOptions;
 
 typedef enum {
