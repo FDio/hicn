@@ -20,6 +20,7 @@
 #ifdef __vpp__
 
 #include <hicn/transport/core/prefix.h>
+#include <core/portal.h>
 
 
 #ifdef always_inline
@@ -39,13 +40,13 @@ namespace transport {
 namespace core {
 
 class VPPForwarderInterface
-    : public ForwarderInterface<VPPForwarderInterface, MemifConnector> {
+    : public ForwarderInterface<VPPForwarderInterface, MemifConnector<Portal<VPPForwarderInterface>>> {
   static constexpr std::uint16_t interface_mtu = 1500;
 
  public:
-  VPPForwarderInterface(MemifConnector &connector);
+  using ConnectorType = MemifConnector<Portal<VPPForwarderInterface>>;
 
-  typedef MemifConnector ConnectorType;
+  VPPForwarderInterface(ConnectorType &connector);
 
   ~VPPForwarderInterface();
 

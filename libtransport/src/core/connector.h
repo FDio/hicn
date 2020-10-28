@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/core/packet.h>
+#include <hicn/transport/portability/c_portability.h>
 #include <hicn/transport/utils/membuf.h>
 #include <hicn/transport/utils/object_pool.h>
 #include <hicn/transport/utils/ring_buffer.h>
@@ -33,7 +34,8 @@ enum class ConnectorType : uint8_t {
   VPP_CONNECTOR,
 };
 
-class Connector {
+template <typename PacketHandler, typename Implementation>
+class ConnectorBase {
  protected:
   enum class ConnectorState {
     CLOSED,
@@ -44,40 +46,58 @@ class Connector {
  public:
   static constexpr std::size_t packet_size = 2048;
   static constexpr std::size_t queue_size = 4096;
-  static constexpr std::size_t packet_pool_size = 4096;
+  static constexpr std::size_t packet_pool_size = 4*8192;
 
   using PacketRing = utils::CircularFifo<Packet::MemBufPtr, queue_size>;
   using PacketQueue = std::deque<Packet::MemBufPtr>;
-  using PacketReceivedCallback = std::function<void(Packet::MemBufPtr &&)>;
-  using OnReconnect = std::function<void()>;
+  // using PacketReceivedCallback = std::function<void(Packet::MemBufPtr &&)>;
+  // using OnReconnect = std::function<void()>;
   using PacketSentCallback = std::function<void()>;
 
-  Connector(PacketReceivedCallback &&receive_callback,
-            OnReconnect &&reconnect_callback);
+  ConnectorBase(PacketHandler &handler)
+      : packet_pool_(),
+        packet_handler_(handler),
+        state_(ConnectorState::CLOSED) {
+    init();
+  }
 
-  virtual ~Connector(){};
+  ~ConnectorBase() = default;
 
-  virtual void send(const Packet::MemBufPtr &packet) = 0;
+  TRANSPORT_ALWAYS_INLINE void send(const Packet::MemBufPtr &packet) {
+    return static_cast<Implementation &>(*this).send(packet);
+  }
 
-  virtual void send(const uint8_t *packet, std::size_t len,
-                    const PacketSentCallback &packet_sent = 0) = 0;
+  TRANSPORT_ALWAYS_INLINE void send(const uint8_t *packet, std::size_t len,
+                                    const PacketSentCallback &packet_sent = 0) {
+    return static_cast<Implementation &>(*this).send(packet, len, packet_sent);
+  }
 
-  virtual void close() = 0;
+  TRANSPORT_ALWAYS_INLINE void close() {
+    return static_cast<Implementation &>(*this).close();
+  }
 
-  virtual ConnectorState state() { return state_; };
+  TRANSPORT_ALWAYS_INLINE ConnectorState state() { return state_; };
 
-  virtual bool isConnected() { return state_ == ConnectorState::CONNECTED; }
+  TRANSPORT_ALWAYS_INLINE bool isConnected() {
+    return state_ == ConnectorState::CONNECTED;
+  }
 
  protected:
-  void increasePoolSize(std::size_t size = packet_pool_size);
+  void increasePoolSize(std::size_t size = packet_pool_size) {
+    for (std::size_t i = 0; i < size; i++) {
+      auto buffer = utils::MemBuf::takeOwnership(
+          std::addressof(packets[i]), packet_size, 0,
+          [](void *buf, void *userData) {}, nullptr, false);
+      packet_pool_.add(buffer.release());
+    }
+  }
 
   TRANSPORT_ALWAYS_INLINE utils::ObjectPool<utils::MemBuf>::Ptr getPacket() {
     auto result = packet_pool_.get();
 
     while (TRANSPORT_EXPECT_FALSE(!result.first)) {
-      // Add packets to the pool
-      increasePoolSize();
-      result = packet_pool_.get();
+      // This should not happen
+      throw std::runtime_error("No more memory in cocker pool.");
     }
 
     if (result.second->isChained()) {
@@ -90,7 +110,7 @@ class Connector {
   }
 
  private:
-  void init();
+  void init() { increasePoolSize(); }
 
  protected:
   static std::once_flag init_flag_;
@@ -98,11 +118,13 @@ class Connector {
   PacketQueue output_buffer_;
 
   // Connector events
-  PacketReceivedCallback receive_callback_;
-  OnReconnect on_reconnect_callback_;
+  PacketHandler &packet_handler_;
 
   // Connector state
   ConnectorState state_;
+
+  // Packets
+  typename std::aligned_storage<packet_size>::type packets[packet_pool_size];
 };
 }  // end namespace core
 

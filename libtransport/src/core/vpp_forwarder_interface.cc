@@ -36,8 +36,8 @@ namespace transport {
 
 namespace core {
 
-VPPForwarderInterface::VPPForwarderInterface(MemifConnector &connector)
-    : ForwarderInterface<VPPForwarderInterface, MemifConnector>(connector),
+VPPForwarderInterface::VPPForwarderInterface(ConnectorType &connector)
+    : ForwarderInterface<VPPForwarderInterface, ConnectorType>(connector),
       sw_if_index_(~0),
       face_id1_(~0),
       face_id2_(~0),

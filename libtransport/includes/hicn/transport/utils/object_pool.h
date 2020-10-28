@@ -67,9 +67,8 @@ class ObjectPool {
   }
 
   void add(T *object) {
-    utils::SpinLock::Acquire locked(object_pool_lock_);
-
     if (TRANSPORT_EXPECT_TRUE(!destructor_)) {
+	    utils::SpinLock::Acquire locked(object_pool_lock_);
       object_pool_.emplace_back(makePtr(object));
     } else {
       delete object;

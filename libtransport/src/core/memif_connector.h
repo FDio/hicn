@@ -15,12 +15,11 @@
 
 #pragma once
 
+#include <core/connector.h>
 #include <hicn/transport/config.h>
+#include <hicn/transport/errors/not_implemented_exception.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/ring_buffer.h>
-
-#include <core/connector.h>
-//#include <hicn/transport/core/hicn_vapi.h>
 #include <utils/epoll_event_reactor.h>
 #include <utils/fd_deadline_timer.h>
 
@@ -30,6 +29,16 @@
 #include <thread>
 
 #ifdef __vpp__
+
+extern "C" {
+#include <memif/libmemif.h>
+};
+
+#include <sys/epoll.h>
+
+#include <cstdlib>
+
+#define CANCEL_TIMER 1
 
 #define _Static_assert static_assert
 
@@ -46,57 +55,470 @@ typedef struct memif_connection memif_connection_t;
 #define MEMIF_LOG2_RING_SIZE 11
 #define MAX_MEMIF_BUFS (1 << MEMIF_LOG2_RING_SIZE)
 
-class MemifConnector : public Connector {
+struct memif_connection {
+  uint16_t index;
+  /* memif conenction handle */
+  memif_conn_handle_t conn;
+  /* transmit queue id */
+  uint16_t tx_qid;
+  /* tx buffers */
+  memif_buffer_t *tx_bufs;
+  /* allocated tx buffers counter */
+  /* number of tx buffers pointing to shared memory */
+  uint16_t tx_buf_num;
+  /* rx buffers */
+  memif_buffer_t *rx_bufs;
+  /* allcoated rx buffers counter */
+  /* number of rx buffers pointing to shared memory */
+  uint16_t rx_buf_num;
+  /* interface ip address */
+  uint8_t ip_addr[4];
+};
+
+template <typename PacketHandler>
+class MemifConnector : public ConnectorBase<PacketHandler, MemifConnector<PacketHandler>> {
   typedef void *memif_conn_handle_t;
 
+  using Connector = ConnectorBase<PacketHandler, MemifConnector<PacketHandler>>;
+  using Connector::Connector;
+
  public:
-  MemifConnector(PacketReceivedCallback &&receive_callback,
-                 OnReconnect &&on_reconnect_callback,
-                 asio::io_service &io_service,
-                 std::string app_name = "Libtransport");
+  MemifConnector(PacketHandler &handler, asio::io_service &io_service,
+                 std::string app_name = "Libtransport")
+      : Connector(handler),
+        memif_worker_(nullptr),
+        timer_set_(false),
+        send_timer_(std::make_unique<utils::FdDeadlineTimer>(event_reactor_)),
+        disconnect_timer_(
+            std::make_unique<utils::FdDeadlineTimer>(event_reactor_)),
+        io_service_(io_service),
+        packet_counter_(0),
+        memif_connection_(std::make_unique<memif_connection_t>()),
+        tx_buf_counter_(0),
+        is_reconnection_(false),
+        data_available_(false),
+        app_name_(app_name),
+        socket_filename_("") {
+    std::call_once(MemifConnector::flag_, &MemifConnector::init, this);
+  }
 
-  ~MemifConnector() override;
+  ~MemifConnector() { close(); }
 
-  void send(const Packet::MemBufPtr &packet) override;
+  TRANSPORT_ALWAYS_INLINE void send(const Packet::MemBufPtr &packet) {
+    {
+      utils::SpinLock::Acquire locked(write_msgs_lock_);
+      Connector::output_buffer_.push_back(packet);
+    }
+#if CANCEL_TIMER
+    if (!timer_set_) {
+      timer_set_ = true;
+      send_timer_->expiresFromNow(std::chrono::microseconds(50));
+      send_timer_->asyncWait(std::bind(&MemifConnector::sendCallback, this,
+                                       std::placeholders::_1));
+    }
+#endif
+  }
 
-  void send(const uint8_t *packet, std::size_t len,
-            const PacketSentCallback &packet_sent = 0) override;
+  TRANSPORT_ALWAYS_INLINE void send(const uint8_t *packet, std::size_t len,
+            const typename Connector::PacketSentCallback &packet_sent = 0)  {
+    throw errors::NotImplementedException();
+  }
 
-  void close() override;
+  TRANSPORT_ALWAYS_INLINE void close()  {
+    if (Connector::state_ != Connector::ConnectorState::CLOSED) {
+      disconnect_timer_->expiresFromNow(std::chrono::microseconds(50));
+      disconnect_timer_->asyncWait([this](const std::error_code &ec) {
+        deleteMemif();
+        event_reactor_.stop();
+        work_.reset();
+      });
 
-  void connect(uint32_t memif_id, long memif_mode);
+      if (memif_worker_ && memif_worker_->joinable()) {
+        memif_worker_->join();
+      }
+    }
+  }
+
+  TRANSPORT_ALWAYS_INLINE void connect(uint32_t memif_id, long memif_mode) {
+    Connector::state_ = Connector::ConnectorState::CONNECTING;
+
+    memif_id_ = memif_id;
+    socket_filename_ = "/run/vpp/memif.sock";
+
+    createMemif(memif_id, memif_mode, nullptr);
+
+    work_ = std::make_unique<asio::io_service::work>(io_service_);
+
+    while (Connector::state_ != Connector::ConnectorState::CONNECTED) {
+      MemifConnector::main_event_reactor_.runOneEvent();
+    }
+
+    int err;
+
+    /* get interrupt queue id */
+    int fd = -1;
+    err = memif_get_queue_efd(memif_connection_->conn, 0, &fd);
+    if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+      TRANSPORT_LOGE("memif_get_queue_efd: %s", memif_strerror(err));
+      return;
+    }
+
+    // Remove fd from main epoll
+    main_event_reactor_.delFileDescriptor(fd);
+
+    // Add fd to epoll of instance
+    event_reactor_.addFileDescriptor(
+        fd, EPOLLIN, [this](const utils::Event &evt) -> int {
+          return onInterrupt(memif_connection_->conn, this, 0);
+        });
+
+    memif_worker_ = std::make_unique<std::thread>(
+        std::bind(&MemifConnector::threadMain, this));
+
+pthread_setname_np(memif_worker_->native_handle(), "ciccio");
+  }
 
   TRANSPORT_ALWAYS_INLINE uint32_t getMemifId() { return memif_id_; };
 
  private:
-  void init();
+  TRANSPORT_ALWAYS_INLINE void init() {
+    /* initialize memory interface */
+    int err = memif_init(controlFdUpdate, const_cast<char *>(app_name_.c_str()),
+                         nullptr, nullptr, nullptr);
 
-  int doSend();
+    if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+      TRANSPORT_LOGE("memif_init: %s", memif_strerror(err));
+    }
+  }
 
-  int createMemif(uint32_t index, uint8_t mode, char *s);
+  TRANSPORT_ALWAYS_INLINE int doSend() {
+    std::size_t max = 0;
+    uint16_t n = 0;
+    std::size_t size = 0;
 
-  uint32_t getMemifConfiguration();
+    {
+      utils::SpinLock::Acquire locked(write_msgs_lock_);
+      size = Connector::output_buffer_.size();
+    }
 
-  int deleteMemif();
+    do {
+      max = size < MAX_MEMIF_BUFS ? size : MAX_MEMIF_BUFS;
 
-  static int controlFdUpdate(int fd, uint8_t events, void *private_ctx);
+      if (TRANSPORT_EXPECT_FALSE(
+              (n = bufferAlloc(max, memif_connection_->tx_qid)) < 0)) {
+        TRANSPORT_LOGE("Error allocating buffers.");
+        return -1;
+      }
 
-  static int onConnect(memif_conn_handle_t conn, void *private_ctx);
+      for (uint16_t i = 0; i < n; i++) {
+        utils::SpinLock::Acquire locked(write_msgs_lock_);
 
-  static int onDisconnect(memif_conn_handle_t conn, void *private_ctx);
+        auto packet = Connector::output_buffer_.front().get();
+        const utils::MemBuf *current = packet;
+        std::size_t offset = 0;
+        uint8_t *shared_buffer =
+            reinterpret_cast<uint8_t *>(memif_connection_->tx_bufs[i].data);
+        do {
+          std::memcpy(shared_buffer + offset, current->data(),
+                      current->length());
+          offset += current->length();
+          current = current->next();
+        } while (current != packet);
+
+        memif_connection_->tx_bufs[i].len = uint32_t(offset);
+
+        Connector::output_buffer_.pop_front();
+      }
+
+      txBurst(memif_connection_->tx_qid);
+
+      utils::SpinLock::Acquire locked(write_msgs_lock_);
+      size = Connector::output_buffer_.size();
+    } while (size > 0);
+
+    return 0;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int createMemif(uint32_t index, uint8_t mode, char *s) {
+    memif_connection_t *c = memif_connection_.get();
+
+    /* setting memif connection arguments */
+    memif_conn_args_t args;
+    memset(&args, 0, sizeof(args));
+
+    args.is_master = mode;
+    args.log2_ring_size = MEMIF_LOG2_RING_SIZE;
+    args.buffer_size = MEMIF_BUF_SIZE;
+    args.num_s2m_rings = 1;
+    args.num_m2s_rings = 1;
+    strncpy((char *)args.interface_name, IF_NAME, strlen(IF_NAME) + 1);
+    args.mode = memif_interface_mode_t::MEMIF_INTERFACE_MODE_IP;
+
+    int err;
+
+    err = memif_create_socket(&args.socket, socket_filename_.c_str(), nullptr);
+
+    if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+      throw errors::RuntimeException(memif_strerror(err));
+    }
+
+    args.interface_id = index;
+    /* last argument for memif_create (void * private_ctx) is used by user
+       to identify connection. this context is returned with callbacks */
+
+    /* default interrupt */
+    if (s == nullptr) {
+      err = memif_create(&c->conn, &args, onConnect, onDisconnect, onInterrupt,
+                         this);
+
+      if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+        throw errors::RuntimeException(memif_strerror(err));
+      }
+    }
+
+    c->index = (uint16_t)index;
+    c->tx_qid = 0;
+    /* alloc memif buffers */
+    c->rx_buf_num = 0;
+    c->rx_bufs = static_cast<memif_buffer_t *>(
+        malloc(sizeof(memif_buffer_t) * MAX_MEMIF_BUFS));
+    c->tx_buf_num = 0;
+    c->tx_bufs = static_cast<memif_buffer_t *>(
+        malloc(sizeof(memif_buffer_t) * MAX_MEMIF_BUFS));
+
+    // memif_set_rx_mode (c->conn, MEMIF_RX_MODE_POLLING, 0);
+
+    return 0;
+  }
+
+  TRANSPORT_ALWAYS_INLINE uint32_t getMemifConfiguration();
+
+  TRANSPORT_ALWAYS_INLINE int deleteMemif() {
+    memif_connection_t *c = memif_connection_.get();
+
+    if (c->rx_bufs) {
+      free(c->rx_bufs);
+    }
+
+    c->rx_bufs = nullptr;
+    c->rx_buf_num = 0;
+
+    if (c->tx_bufs) {
+      free(c->tx_bufs);
+    }
+
+    c->tx_bufs = nullptr;
+    c->tx_buf_num = 0;
+
+    int err;
+    /* disconenct then delete memif connection */
+    err = memif_delete(&c->conn);
+
+    if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+      TRANSPORT_LOGE("memif_delete: %s", memif_strerror(err));
+    }
+
+    if (TRANSPORT_EXPECT_FALSE(c->conn != nullptr)) {
+      TRANSPORT_LOGE("memif delete fail");
+    }
+
+    return 0;
+  }
+
+  static int controlFdUpdate(int fd, uint8_t events, void *private_ctx) {
+    /* convert memif event definitions to epoll events */
+    if (events & MEMIF_FD_EVENT_DEL) {
+      return MemifConnector::main_event_reactor_.delFileDescriptor(fd);
+    }
+
+    uint32_t evt = 0;
+
+    if (events & MEMIF_FD_EVENT_READ) {
+      evt |= EPOLLIN;
+    }
+
+    if (events & MEMIF_FD_EVENT_WRITE) {
+      evt |= EPOLLOUT;
+    }
+
+    if (events & MEMIF_FD_EVENT_MOD) {
+      return MemifConnector::main_event_reactor_.modFileDescriptor(fd, evt);
+    }
+
+    return MemifConnector::main_event_reactor_.addFileDescriptor(
+        fd, evt, [](const utils::Event &evt) -> int {
+          uint32_t event = 0;
+          int memif_err = 0;
+
+          if (evt.events & EPOLLIN) {
+            event |= MEMIF_FD_EVENT_READ;
+          }
+
+          if (evt.events & EPOLLOUT) {
+            event |= MEMIF_FD_EVENT_WRITE;
+          }
+
+          if (evt.events & EPOLLERR) {
+            event |= MEMIF_FD_EVENT_ERROR;
+          }
+
+          memif_err = memif_control_fd_handler(evt.data.fd, event);
+
+          if (TRANSPORT_EXPECT_FALSE(memif_err != MEMIF_ERR_SUCCESS)) {
+            TRANSPORT_LOGE("memif_control_fd_handler: %s",
+                           memif_strerror(memif_err));
+          }
+
+          return 0;
+        });
+  }
+
+  static int onConnect(memif_conn_handle_t conn, void *private_ctx) {
+    MemifConnector *connector = (MemifConnector *)private_ctx;
+    connector->state_ = Connector::ConnectorState::CONNECTED;
+    memif_refill_queue(conn, 0, -1, 0);
+
+    return 0;
+  }
+
+  static int onDisconnect(memif_conn_handle_t conn, void *private_ctx) {
+    MemifConnector *connector = (MemifConnector *)private_ctx;
+    connector->state_ = Connector::ConnectorState::CLOSED;
+    return 0;
+  }
 
   static int onInterrupt(memif_conn_handle_t conn, void *private_ctx,
-                         uint16_t qid);
+                         uint16_t qid) {
+    MemifConnector *connector = (MemifConnector *)private_ctx;
 
-  void threadMain();
+    memif_connection_t *c = connector->memif_connection_.get();
+    int err = MEMIF_ERR_SUCCESS, ret_val;
+    uint16_t total_packets = 0;
+    uint16_t rx;
 
-  int txBurst(uint16_t qid);
+    do {
+      err = memif_rx_burst(conn, qid, c->rx_bufs, MAX_MEMIF_BUFS, &rx);
+      ret_val = err;
 
-  int bufferAlloc(long n, uint16_t qid);
+      if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS &&
+                                 err != MEMIF_ERR_NOBUF)) {
+        TRANSPORT_LOGE("memif_rx_burst: %s", memif_strerror(err));
+        goto error;
+      }
 
-  void sendCallback(const std::error_code &ec);
+      c->rx_buf_num += rx;
 
-  void processInputBuffer(std::uint16_t total_packets);
+      if (TRANSPORT_EXPECT_FALSE(connector->io_service_.stopped())) {
+        TRANSPORT_LOGE("socket stopped: ignoring %u packets", rx);
+        goto error;
+      }
+
+      std::size_t packet_length;
+      for (int i = 0; i < rx; i++) {
+        auto packet = connector->getPacket();
+        packet_length = (c->rx_bufs + i)->len;
+        std::memcpy(packet->writableData(),
+                    reinterpret_cast<const uint8_t *>((c->rx_bufs + i)->data),
+                    packet_length);
+        packet->append(packet_length);
+
+        if (!connector->input_buffer_.push(std::move(packet))) {
+          TRANSPORT_LOGE("Error pushing packet. Ring buffer full.");
+
+          // TODO Here we should consider the possibility to signal the
+          // congestion to the application, that would react properly (e.g. slow
+          // down message)
+        }
+      }
+
+      /* mark memif buffers and shared memory buffers as free */
+      /* free processed buffers */
+
+      err = memif_refill_queue(conn, qid, rx, 0);
+
+      if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+        TRANSPORT_LOGE("memif_buffer_free: %s", memif_strerror(err));
+      }
+
+      c->rx_buf_num -= rx;
+      total_packets += rx;
+
+    } while (ret_val == MEMIF_ERR_NOBUF);
+
+    connector->io_service_.post(std::bind(&MemifConnector::processInputBuffer,
+                                          connector, total_packets));
+
+    return 0;
+
+  error:
+    err = memif_refill_queue(c->conn, qid, rx, 0);
+
+    if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+      TRANSPORT_LOGE("memif_buffer_free: %s", memif_strerror(err));
+    }
+    c->rx_buf_num -= rx;
+
+    return 0;
+  }
+
+  void threadMain() { event_reactor_.runEventLoop(1000); }
+
+  TRANSPORT_ALWAYS_INLINE int txBurst(uint16_t qid) {
+    memif_connection_t *c = memif_connection_.get();
+    int err;
+    uint16_t r;
+    /* inform peer memif interface about data in shared memory buffers */
+    /* mark memif buffers as free */
+    err = memif_tx_burst(c->conn, qid, c->tx_bufs, c->tx_buf_num, &r);
+
+    if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+      TRANSPORT_LOGE("memif_tx_burst: %s", memif_strerror(err));
+    }
+
+    // err = memif_refill_queue(c->conn, qid, r, 0);
+
+    if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+      TRANSPORT_LOGE("memif_tx_burst: %s", memif_strerror(err));
+      c->tx_buf_num -= r;
+      return -1;
+    }
+
+    c->tx_buf_num -= r;
+    return 0;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int bufferAlloc(long n, uint16_t qid) {
+    memif_connection_t *c = memif_connection_.get();
+    int err;
+    uint16_t r;
+    /* set data pointer to shared memory and set buffer_len to shared mmeory
+     * buffer len */
+    err = memif_buffer_alloc(c->conn, qid, c->tx_bufs, n, &r, 2000);
+
+    if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
+      TRANSPORT_LOGE("memif_buffer_alloc: %s", memif_strerror(err));
+    }
+
+    c->tx_buf_num += r;
+    return r;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void sendCallback(const std::error_code &ec) {
+    timer_set_ = false;
+
+    if (TRANSPORT_EXPECT_TRUE(!ec && Connector::state_ == Connector::ConnectorState::CONNECTED)) {
+      doSend();
+    }
+  }
+
+  TRANSPORT_ALWAYS_INLINE void processInputBuffer(std::uint16_t total_packets) {
+    Packet::MemBufPtr ptr;
+
+    while(input_buffer_.pop(ptr)) {
+        Connector::packet_handler_.processIncomingMessages(std::move(ptr));
+      }
+    }
+  }
 
  private:
   static utils::EpollEventReactor main_event_reactor_;
@@ -114,7 +536,7 @@ class MemifConnector : public Connector {
   std::unique_ptr<memif_connection_t> memif_connection_;
   uint16_t tx_buf_counter_;
 
-  PacketRing input_buffer_;
+  typename Connector::PacketRing input_buffer_;
   bool is_reconnection_;
   bool data_available_;
   uint32_t memif_id_;
@@ -127,8 +549,14 @@ class MemifConnector : public Connector {
   static std::once_flag flag_;
 };
 
+template <typename PacketHandler>
+std::once_flag MemifConnector<PacketHandler>::flag_;
+
+template <typename PacketHandler>
+utils::EpollEventReactor MemifConnector<PacketHandler>::main_event_reactor_;
+
 }  // end namespace core
 
-}  // end namespace transport
+}  // namespace transport
 
 #endif  // __vpp__

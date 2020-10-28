@@ -37,8 +37,8 @@ typedef struct {
 
 template <typename Implementation, typename ConnectorType>
 class ForwarderInterface {
-  static_assert(std::is_base_of<Connector, ConnectorType>::value,
-                "T must inherit from connector!");
+  // static_assert(std::is_base_of<Connector, ConnectorType>::value,
+  //               "T must inherit from connector!");
 
   static constexpr uint32_t standard_cs_reserved = 5000;
 
@@ -115,7 +115,7 @@ class ForwarderInterface {
 
   TRANSPORT_ALWAYS_INLINE void shutdown() { connector_.close(); }
 
-  TRANSPORT_ALWAYS_INLINE Connector &getConnector() { return connector_; }
+  TRANSPORT_ALWAYS_INLINE ConnectorType &getConnector() { return connector_; }
 
   TRANSPORT_ALWAYS_INLINE void setContentStoreSize(uint32_t cs_size) {
     content_store_reserved_ = cs_size;

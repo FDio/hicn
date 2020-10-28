@@ -23,7 +23,7 @@
 
 #ifdef __linux__
 #ifndef __ANDROID__
-#include <core/raw_socket_interface.h>
+// #include <core/raw_socket_interface.h>
 #ifdef __vpp__
 #include <core/vpp_forwarder_interface.h>
 #endif

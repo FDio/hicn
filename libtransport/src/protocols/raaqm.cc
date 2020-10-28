@@ -328,9 +328,9 @@ void RaaqmTransportProtocol::init() {
 void RaaqmTransportProtocol::onContentObject(
     Interest::Ptr &&interest, ContentObject::Ptr &&content_object) {
   // Check whether makes sense to continue
-  if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
-    return;
-  }
+//   if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
+//     return;
+//   }
 
   // Call application-defined callbacks
   if (*on_content_object_input_) {
@@ -346,6 +346,7 @@ void RaaqmTransportProtocol::onContentObject(
   }
 
   onContentSegment(std::move(interest), std::move(content_object));
+
   scheduleNextInterests();
 }
 
@@ -384,9 +385,9 @@ void RaaqmTransportProtocol::onPacketDropped(
       (*on_interest_output_)(*socket_->getInterface(), *interest);
     }
 
-    if (!is_running_) {
-      return;
-    }
+//     if (!is_running_) {
+//       return;
+//     }
 
     interest_retransmissions_[segment & mask]++;
     interest_to_retransmit_.push(std::move(interest));
@@ -410,9 +411,9 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
 
   TRANSPORT_LOGW("Timeout on content %s", n.toString().c_str());
 
-  if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
-    return;
-  }
+//   if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
+//     return;
+//   }
 
   interests_in_flight_--;
 
@@ -440,9 +441,9 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
       (*on_interest_retransmission_)(*socket_->getInterface(), *interest);
     }
 
-    if (!is_running_) {
-      return;
-    }
+//     if (!is_running_) {
+//       return;
+//     }
 
     interest_retransmissions_[segment & mask]++;
     interest_to_retransmit_.push(std::move(interest));
@@ -503,9 +504,9 @@ bool RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
     on_interest_output_->operator()(*socket_->getInterface(), *interest);
   }
 
-  if (TRANSPORT_EXPECT_FALSE(!is_running_ && !is_first_)) {
-    return false;
-  }
+//   if (TRANSPORT_EXPECT_FALSE(!is_running_ && !is_first_)) {
+//     return false;
+//   }
 
   // This is set to ~0 so that the next interest_retransmissions_ + 1,
   // performed by sendInterest, will result in 0

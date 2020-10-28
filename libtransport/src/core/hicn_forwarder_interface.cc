@@ -110,8 +110,10 @@ namespace transport {
 
 namespace core {
 
-HicnForwarderInterface::HicnForwarderInterface(UdpSocketConnector &connector)
-    : ForwarderInterface<HicnForwarderInterface, UdpSocketConnector>(
+HicnForwarderInterface::HicnForwarderInterface(
+    UdpSocketConnector<Portal<HicnForwarderInterface>> &connector)
+    : ForwarderInterface<HicnForwarderInterface,
+                         UdpSocketConnector<Portal<HicnForwarderInterface>>>(
           connector) {}
 
 HicnForwarderInterface::~HicnForwarderInterface() {}

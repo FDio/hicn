@@ -17,6 +17,7 @@
 
 #include <hicn/transport/config.h>
 #include <hicn/transport/errors/runtime_exception.h>
+#include <hicn/transport/portability/c_portability.h>
 
 #include <asio.hpp>
 #include <memory>
@@ -63,6 +64,12 @@ class EventThread {
     } else {
       throw errors::RuntimeException("Event thread is not running.");
     }
+  }
+
+  void setThreadName(const char* name) const {
+#ifndef MACOS
+    pthread_setname_np(thread_->native_handle(), name);
+#endif
   }
 
   template <typename Func>

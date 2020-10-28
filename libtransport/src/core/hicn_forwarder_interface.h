@@ -15,10 +15,10 @@
 
 #pragma once
 
-#include <hicn/transport/core/prefix.h>
-
 #include <core/forwarder_interface.h>
+#include <core/portal.h>
 #include <core/udp_socket_connector.h>
+#include <hicn/transport/core/prefix.h>
 
 #include <deque>
 
@@ -27,7 +27,9 @@ namespace transport {
 namespace core {
 
 class HicnForwarderInterface
-    : public ForwarderInterface<HicnForwarderInterface, UdpSocketConnector> {
+    : public ForwarderInterface<
+          HicnForwarderInterface,
+          UdpSocketConnector<Portal<HicnForwarderInterface>>> {
   static constexpr uint8_t ack_code = 0xc2;
   static constexpr uint8_t nack_code = 0xc3;
 
@@ -50,9 +52,10 @@ class HicnForwarderInterface
   };
 
   using route_to_self_command = struct route_to_self_command;
-  using ConnectorType = UdpSocketConnector;
+  using ConnectorType = UdpSocketConnector<Portal<HicnForwarderInterface>>;
 
-  HicnForwarderInterface(UdpSocketConnector &connector);
+  HicnForwarderInterface(
+      UdpSocketConnector<Portal<HicnForwarderInterface>> &connector);
 
   ~HicnForwarderInterface();
 

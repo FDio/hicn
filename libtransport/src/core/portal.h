@@ -96,13 +96,13 @@ class HandlerAllocator {
   HandlerAllocator(const HandlerAllocator<U> &other) noexcept
       : memory_(other.memory_) {}
 
-  TRANSPORT_ALWAYS_INLINE bool operator==(const HandlerAllocator &other) const
-      noexcept {
+  TRANSPORT_ALWAYS_INLINE bool operator==(
+      const HandlerAllocator &other) const noexcept {
     return &memory_ == &other.memory_;
   }
 
-  TRANSPORT_ALWAYS_INLINE bool operator!=(const HandlerAllocator &other) const
-      noexcept {
+  TRANSPORT_ALWAYS_INLINE bool operator!=(
+      const HandlerAllocator &other) const noexcept {
     return &memory_ != &other.memory_;
   }
 
@@ -270,10 +270,7 @@ class Portal {
         app_name_("libtransport_application"),
         consumer_callback_(nullptr),
         producer_callback_(nullptr),
-        connector_(std::bind(&Portal::processIncomingMessages, this,
-                             std::placeholders::_1),
-                   std::bind(&Portal::setLocalRoutes, this), io_service_,
-                   app_name_),
+        connector_(*this, io_service_, app_name_),
         forwarder_interface_(connector_) {}
 
   /**
@@ -513,7 +510,7 @@ class Portal {
     }
   }
 
- private:
+  //  private:
   /**
    * Clear the pending interest hash table.
    */

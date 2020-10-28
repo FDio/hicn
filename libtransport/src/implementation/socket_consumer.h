@@ -127,6 +127,7 @@ class ConsumerSocket : public Socket<BasePortal> {
   }
 
   virtual int asyncConsume(const Name &name) {
+	  async_downloader_.setThreadName("bobby");
     if (!async_downloader_.stopped()) {
       async_downloader_.add([this, name]() {
         network_name_ = std::move(name);
