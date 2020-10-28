@@ -6,14 +6,14 @@
 
 #include <hicn/transport/portability/c_portability.h>
 #include <hicn/transport/utils/spinlock.h>
-
 #include <stdint.h>
+
+#include <cassert>
 #include <cstdlib>
 #include <memory>
-#include <cassert>
 
 namespace utils {
-template <std::size_t DEFAULT_SIZE = 512, std::size_t OBJECTS = 4096>
+template <std::size_t DEFAULT_SIZE = 2048, std::size_t OBJECTS = 4096>
 class FixedBlockAllocator {
   FixedBlockAllocator(std::size_t size = DEFAULT_SIZE,
                       std::size_t objects = OBJECTS)
@@ -25,9 +25,7 @@ class FixedBlockAllocator {
         block_count_(0),
         blocks_in_use_(0),
         allocations_(0),
-        deallocations_(0) {
-    p_pool_ = (uint8_t*)new uint8_t[block_size_ * max_objects_];
-  }
+        deallocations_(0) {}
 
  public:
   static FixedBlockAllocator* getInstance() {
@@ -39,7 +37,7 @@ class FixedBlockAllocator {
     return instance_.get();
   }
 
-  ~FixedBlockAllocator() { delete[] p_pool_; }
+  ~FixedBlockAllocator() {}
 
   TRANSPORT_ALWAYS_INLINE void* allocateBlock(size_t size = DEFAULT_SIZE) {
     assert(size <= DEFAULT_SIZE);
@@ -52,7 +50,7 @@ class FixedBlockAllocator {
           SpinLock::Acquire locked(lock_);
           index = pool_index_++;
         }
-        p_block = (void*)(p_pool_ + (index * block_size_));
+        p_block = (void*)(&data_[index]);
       } else {
         // TODO Consider increasing pool here instead of throwing an exception
         throw std::runtime_error("No more memory available from packet pool!");
@@ -119,7 +117,10 @@ class FixedBlockAllocator {
   const std::size_t max_objects_;
 
   Block* p_head_;
-  uint8_t* p_pool_;
+  typename std::aligned_storage<
+      DEFAULT_SIZE, std::alignment_of<std::max_align_t>::value>::type
+      data_[OBJECTS];
+
   uint32_t pool_index_;
   uint32_t block_count_;
   uint32_t blocks_in_use_;

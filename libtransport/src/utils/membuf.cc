@@ -41,6 +41,8 @@ enum : uint16_t {
   kMemBufInUse = 0x01,
   // This memory segment contains buffer data that is still in use
   kDataInUse = 0x02,
+  // Shared info is still valid upon buffer deallocation
+  kSharedInfoStillValid = 0x04,
 };
 
 enum : std::size_t {
@@ -110,14 +112,24 @@ struct MemBuf::HeapFullStorage {
   std::max_align_t align;
 };
 
-MemBuf::SharedInfo::SharedInfo() : freeFn(nullptr), userData(nullptr) {
+MemBuf::SharedInfo::SharedInfo(StorageAllocator storage_allocator,
+                               StorageDeallocator storage_deallocator)
+    : freeFn(nullptr),
+      userData(nullptr),
+      storage_allocator(storage_allocator),
+      storage_deallocator(storage_deallocator) {
   // Use relaxed memory ordering here.  Since we are creating a new SharedInfo,
   // no other threads should be referring to it yet.
   refcount.store(1, std::memory_order_relaxed);
 }
 
-MemBuf::SharedInfo::SharedInfo(FreeFunction fn, void* arg)
-    : freeFn(fn), userData(arg) {
+MemBuf::SharedInfo::SharedInfo(FreeFunction fn, void* arg,
+                               StorageAllocator storage_allocator,
+                               StorageDeallocator storage_deallocator)
+    : freeFn(fn),
+      userData(arg),
+      storage_allocator(storage_allocator),
+      storage_deallocator(storage_deallocator) {
   // Use relaxed memory ordering here.  Since we are creating a new SharedInfo,
   // no other threads should be referring to it yet.
   refcount.store(1, std::memory_order_relaxed);
@@ -149,14 +161,20 @@ void MemBuf::releaseStorage(HeapStorage* storage, uint16_t freeFlags) {
   // Use relaxed memory order here.  If we are unlucky and happen to get
   // out-of-date data the compare_exchange_weak() call below will catch
   // it and load new data with memory_order_acq_rel.
+
+  StorageDeallocator dealloc_fn = free;
   auto flags = storage->prefix.flags.load(std::memory_order_acquire);
+
+  if (flags & kSharedInfoStillValid) {
+    dealloc_fn = storage->buf.sharedInfo()->storage_deallocator;
+  }
 
   while (true) {
     uint16_t newFlags = uint16_t(flags & ~freeFlags);
     if (newFlags == 0) {
       // The storage space is now unused.  Free it.
       storage->prefix.HeapPrefix::~HeapPrefix();
-      free(storage);
+      dealloc_fn(storage);
       return;
     }
 
@@ -219,15 +237,18 @@ unique_ptr<MemBuf> MemBuf::create(std::size_t capacity) {
   return createSeparate(capacity);
 }
 
-unique_ptr<MemBuf> MemBuf::createCombined(std::size_t capacity) {
+unique_ptr<MemBuf> MemBuf::createCombined(
+    std::size_t capacity, StorageAllocator storage_allocator,
+    StorageDeallocator storage_deallocator) {
   // To save a memory allocation, allocate space for the MemBuf object, the
   // SharedInfo struct, and the data itself all with a single call to malloc().
   size_t requiredStorage = offsetof(HeapFullStorage, align) + capacity;
   size_t mallocSize = requiredStorage;
-  auto* storage = static_cast<HeapFullStorage*>(malloc(mallocSize));
+  auto* storage = static_cast<HeapFullStorage*>(storage_allocator(mallocSize));
 
-  new (&storage->hs.prefix) HeapPrefix(kMemBufInUse | kDataInUse);
-  new (&storage->shared) SharedInfo(freeInternalBuf, storage);
+  new (&storage->hs.prefix) HeapPrefix(kMemBufInUse | kDataInUse | kSharedInfoStillValid);
+  new (&storage->shared) SharedInfo(freeInternalBuf, storage, storage_allocator,
+                                    storage_deallocator);
 
   uint8_t* bufAddr = reinterpret_cast<uint8_t*>(&storage->align);
   uint8_t* storageEnd = reinterpret_cast<uint8_t*>(storage) + mallocSize;
@@ -821,7 +842,7 @@ void MemBuf::freeExtBuffer() {
       abort();
     }
   } else {
-    free(buf_);
+    info->storage_deallocator(buf_);
   }
 }
 

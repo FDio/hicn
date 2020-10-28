@@ -23,6 +23,8 @@
 
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/branch_prediction.h>
+#include <hicn/transport/utils/spinlock.h>
+#include <stdlib.h>
 
 #include <atomic>
 #include <cassert>
@@ -34,8 +36,6 @@
 #include <memory>
 #include <type_traits>
 #include <vector>
-
-#include <stdlib.h>
 
 #ifndef _WIN32
 TRANSPORT_GNU_DISABLE_WARNING("-Wshadow")
@@ -52,6 +52,9 @@ class MemBuf {
 
   typedef void (*FreeFunction)(void* buf, void* userData);
 
+  typedef void* (*StorageAllocator)(size_t size);
+  typedef void (*StorageDeallocator)(void* storage);
+
   static std::unique_ptr<MemBuf> create(std::size_t capacity);
   MemBuf(CreateOp, std::size_t capacity);
 
@@ -65,7 +68,9 @@ class MemBuf {
    * MemBuf object itself is also freed.  (It can also be slightly wasteful in
    * some cases where you clone this MemBuf and then free the original MemBuf.)
    */
-  static std::unique_ptr<MemBuf> createCombined(std::size_t capacity);
+  static std::unique_ptr<MemBuf> createCombined(
+      std::size_t capacity, StorageAllocator storage_allocator = malloc,
+      StorageDeallocator storage_deallocator = free);
 
   /**
    * Create a new IOBuf, using separate memory allocations for the IOBuf object
@@ -754,13 +759,22 @@ class MemBuf {
   };
 
   struct SharedInfo {
-    SharedInfo();
-    SharedInfo(FreeFunction fn, void* arg);
+    SharedInfo(StorageAllocator storage_allocator = malloc,
+               StorageDeallocator storage_deallocator = free);
+    SharedInfo(FreeFunction fn, void* arg,
+               StorageAllocator storage_allocator = malloc,
+               StorageDeallocator storage_deallocator = free);
 
     // A pointer to a function to call to free the buffer when the refcount
     // hits 0.  If this is null, free() will be used instead.
     FreeFunction freeFn;
     void* userData;
+    /*
+     * Allocator function for heap storage. Default to malloc/free
+     */
+    StorageAllocator storage_allocator;
+    StorageDeallocator storage_deallocator;
+
     std::atomic<uint32_t> refcount;
     bool externallyShared{false};
   };
@@ -892,17 +906,6 @@ class MemBuf {
     static_cast<DeleterBase*>(userData)->dispose(ptr);
   }
 };
-
-// template <class UniquePtr>
-// typename std::enable_if<
-//     detail::IsUniquePtrToSL<UniquePtr>::value,
-//     std::unique_ptr<MemBuf>>::type
-// MemBuf::takeOwnership(UniquePtr&& buf, size_t count) {
-//   size_t size = count * sizeof(typename UniquePtr::element_type);
-//   auto deleter = new UniquePtrDeleter<UniquePtr>(buf.get_deleter());
-//   return takeOwnership(
-//       buf.release(), size, &MemBuf::freeUniquePtrBuffer, deleter);
-// }
 
 inline std::unique_ptr<MemBuf> MemBuf::copyBuffer(const void* data,
                                                   std::size_t size,
