@@ -274,6 +274,9 @@ static int vpp_config(const char *key, const char *value) {
  * This function is called once upon startup to initialize the plugin.
  */
 static int vpp_init(void) {
+  /* Create a heap of 64MB */
+  clib_mem_init(0, 64ULL << 20);
+
   u8 *stat_segment_name = (u8 *)STAT_SEGMENT_SOCKET_FILE;
   int ret = stat_segment_connect((char *)stat_segment_name);
 
@@ -291,7 +294,6 @@ static int vpp_read(void) {
   char **interfaces = {0};
 
   vec_add1(patterns, (uint8_t *)"^/if");
-  vec_add1(patterns, (uint8_t *)"ip4-input");
 
   uint32_t *dir = stat_segment_ls(patterns);
   stat_segment_data_t *res = stat_segment_dump(dir);
