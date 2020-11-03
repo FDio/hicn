@@ -302,9 +302,7 @@ static int vpp_read(void) {
   for (int k = 0; k < vec_len(res); k++) {
     if (res[k].type == STAT_DIR_TYPE_NAME_VECTOR) {
       for (int i = 0; i < vec_len(res[k].name_vector); i++) {
-        if (res[k].name_vector[i]) {
-          vec_add1(interfaces, (char *)res[k].name_vector[i]);
-        }
+        vec_add1(interfaces, (char *)res[k].name_vector[i]);
       }
       break;
     }
@@ -320,12 +318,17 @@ static int vpp_read(void) {
     case STAT_DIR_TYPE_COUNTER_VECTOR_SIMPLE:
       for (int k = 0; k < vec_len(res[i].simple_counter_vec); k++) {
         for (int j = 0; j < vec_len(res[i].simple_counter_vec[k]); j++) {
-          value_t values[1] = {
-              (value_t){.derive = res[i].simple_counter_vec[k][j]}};
+          if (!interfaces[j]) {
+            continue;
+          }
 
           if (get_data_set(res[i].name, &data_set)) {
             continue;
           }
+
+          value_t values[1] = {
+              (value_t){.derive = res[i].simple_counter_vec[k][j]}
+          };
 
           err = submit(interfaces[j], data_set.type, values, 1, &timestamp);
 
@@ -338,14 +341,18 @@ static int vpp_read(void) {
     case STAT_DIR_TYPE_COUNTER_VECTOR_COMBINED:
       for (int k = 0; k < vec_len(res[i].combined_counter_vec); k++) {
         for (int j = 0; j < vec_len(res[i].combined_counter_vec[k]); j++) {
-          value_t values[2] = {
-              (value_t){.derive = res[i].combined_counter_vec[k][j].packets},
-              (value_t){.derive = res[i].combined_counter_vec[k][j].bytes},
-          };
+          if (!interfaces[j]) {
+            continue;
+          }
 
           if (get_data_set(res[i].name, &data_set)) {
             continue;
           }
+
+          value_t values[2] = {
+              (value_t){.derive = res[i].combined_counter_vec[k][j].packets},
+              (value_t){.derive = res[i].combined_counter_vec[k][j].bytes},
+          };
 
           err = submit(interfaces[j], data_set.type, values, 2, &timestamp);
 
