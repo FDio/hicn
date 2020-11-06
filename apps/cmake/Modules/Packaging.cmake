@@ -22,7 +22,17 @@ set(${HICN_APPS}_DEB_DEPENDENCIES
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
+set(${HICN_APPS}-dev_DEB_DEPENDENCIES
+  "lib${LIBTRANSPORT}-dev (>= stable_version)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
 set(${HICN_APPS}_RPM_DEPENDENCIES
   "lib${LIBTRANSPORT} >= stable_version"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(${HICN_APPS}-dev_RPM_DEPENDENCIES
+  "lib${LIBTRANSPORT}-devel >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )
