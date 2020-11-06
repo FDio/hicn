@@ -26,10 +26,10 @@ function(get_next_version VERSION NEXT_VERSION)
   list(GET VER_NUMBERS 0 major)
   list(GET VER_NUMBERS 1 minor)
 
-  math(EXPR minor "${minor} + 3")
+  math(EXPR minor "${minor} + 4")
 
   if (minor GREATER 12)
-    set(minor "1")
+    math(EXPR minor "${minor} % 12")
     math(EXPR major "${major} + 1")
   endif()
 
@@ -63,7 +63,7 @@ macro(extract_version)
   list(GET VER 4 COMMIT_NAME)
 endmacro(extract_version)
 
-macro(make_packages)
+function(make_packages)
   if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     # parse /etc/os-release
     file(READ "/etc/os-release" os_version)
@@ -108,10 +108,17 @@ macro(make_packages)
     message(STATUS "Version: ${deb_ver}")
 
     get_next_version(${tag} next_version)
+    message(STATUS "Next version: ${next_version}")
 
     get_cmake_property(components COMPONENTS)
     list(REMOVE_ITEM components "Unspecified")
     set(CPACK_COMPONENTS_ALL ${components})
+
+    list(LENGTH components N_COMPONENTS)
+
+    if (NOT N_COMPONENTS)
+      return()
+    endif()
 
     if(OS_ID MATCHES "debian" OR OS_ID_LIKE MATCHES "debian")
       set(CPACK_GENERATOR "DEB")
@@ -166,7 +173,7 @@ macro(make_packages)
         set(CPACK_${type}_${uc}_DESCRIPTION "${${lc}_DESCRIPTION}")
 
         set(RPM_DEPS)
-        if (NOT ${${lc}_DEB_DEPENDENCIES} STREQUAL "")
+        if (NOT ${${lc}_RPM_DEPENDENCIES} STREQUAL "")
           string(REPLACE "stable_version" ${tag} RPM_DEPS ${${lc}_RPM_DEPENDENCIES})
           string(REPLACE "next_version" ${next_version} RPM_DEPS ${RPM_DEPS})
         endif()
@@ -207,4 +214,4 @@ macro(make_packages)
       include(CPack)
     endif()
   endif()
-endmacro()
+endfunction()
