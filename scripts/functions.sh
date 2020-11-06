@@ -35,46 +35,45 @@ else
     exit 1
 fi
 
-VERSION_REGEX="s/v([0-9]+).([0-9]+)(.*)?-([0-9]+)-(g[0-9a-f]+)/\1.\2\3-release/g"
+VERSION_REGEX="s/v([0-9]+).([0-9]+)(.*)?-([0-9]+)-(g[0-9a-f]+)/\1.\2-release/g"
 VPP_VERSION_DEB=$(git describe --long --match "v*" | sed -E ${VERSION_REGEX})
 VPP_VERSION_RPM="${VPP_VERSION_DEB}.x86_64"
 
-BUILD_TOOLS_UBUNTU=""
-LIBSSL_LIBEVENT_UBUNTU=" "
-DEPS_UBUNTU="build-essential                    \
-             doxygen                            \
-             curl                               \
-             libparc-dev                        \
-             libmemif-dev                       \
-             libmemif                           \
-             libasio-dev                        \
-             libconfig-dev                      \
-             libcurl4-openssl-dev               \
-             collectd-dev                       \
-             libevent-dev                       \
-             libssl-dev                         \
-             ninja-build                        \
-             vpp=${VPP_VERSION_DEB}             \
-             vpp-dev=${VPP_VERSION_DEB}         \
-             libvppinfra=${VPP_VERSION_DEB}     \
-             libvppinfra-dev=${VPP_VERSION_DEB} \
-             vpp-plugin-core=${VPP_VERSION_DEB} \
-             python3-ply"
+DEPS_UBUNTU=("build-essential"
+             "doxygen"
+             "curl"
+             "libparc-dev"
+             "libmemif-dev"
+             "libmemif"
+             "libasio-dev"
+             "libconfig-dev"
+             "libcurl4-openssl-dev"
+             "collectd-dev"
+             "libevent-dev"
+             "libssl-dev"
+             "ninja-build"
+             "vpp=${VPP_VERSION_DEB}"
+             "vpp-dev=${VPP_VERSION_DEB}"
+             "libvppinfra=${VPP_VERSION_DEB}"
+             "libvppinfra-dev=${VPP_VERSION_DEB}"
+             "vpp-plugin-core=${VPP_VERSION_DEB}"
+             "python3-ply")
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
-DEPS_CENTOS="vpp-devel-${VPP_VERSION_RPM}   \
-             vpp-lib-${VPP_VERSION_RPM}     \
-             libparc-devel                  \
-             curl                           \
-             libmemif-devel                 \
-             ninja-build                    \
-             libmemif                       \
-             libcurl-devel                  \
-             asio-devel                     \
-             libconfig-devel                \
-             centos-release-scl             \
-             bzip2                          \
-             devtoolset-7"
+DEPS_CENTOS=("vpp-devel-${VPP_VERSION_RPM}"
+             "vpp-lib-${VPP_VERSION_RPM}"
+             "libparc-devel"
+             "curl"
+             "libmemif-devel"
+             "ninja-build"
+             "libmemif"
+             "libcurl-devel"
+             "asio-devel"
+             "libconfig-devel"
+             "centos-release-scl"
+             "bzip2"
+             "devtoolset-7"
+             "rpm-build")
 
 LATEST_EPEL_REPO="http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
 COLLECTD_SOURCE="https://storage.googleapis.com/collectd-tarballs/collectd-5.9.2.tar.bz2"
@@ -123,9 +122,9 @@ function install_deps() {
     DISTRIB_ID=${ID}
 
     if [ ${DISTRIB_ID} == "ubuntu" ]; then
-        echo ${BUILD_TOOLS_UBUNTU} ${DEPS_UBUNTU} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
+        echo ${DEPS_UBUNTU[@]} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
     elif [ ${DISTRIB_ID} == "centos" ]; then
-        echo ${DEPS_CENTOS} | xargs sudo yum install -y --nogpgcheck
+        echo ${DEPS_CENTOS[@]} | xargs sudo yum install -y --nogpgcheck
         ${CXX_COMPILER} --version
         ${CC_COMPILER} --version
     fi
