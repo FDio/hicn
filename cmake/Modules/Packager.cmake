@@ -26,10 +26,10 @@ function(get_next_version VERSION NEXT_VERSION)
   list(GET VER_NUMBERS 0 major)
   list(GET VER_NUMBERS 1 minor)
 
-  math(EXPR minor "${minor} + 3")
+  math(EXPR minor "${minor} + 4")
 
   if (minor GREATER 12)
-    set(minor "1")
+    math(EXPR minor "${minor} % 12")
     math(EXPR major "${major} + 1")
   endif()
 
@@ -108,6 +108,7 @@ macro(make_packages)
     message(STATUS "Version: ${deb_ver}")
 
     get_next_version(${tag} next_version)
+    message(STATUS "Next version: ${next_version}")
 
     get_cmake_property(components COMPONENTS)
     list(REMOVE_ITEM components "Unspecified")
@@ -166,7 +167,7 @@ macro(make_packages)
         set(CPACK_${type}_${uc}_DESCRIPTION "${${lc}_DESCRIPTION}")
 
         set(RPM_DEPS)
-        if (NOT ${${lc}_DEB_DEPENDENCIES} STREQUAL "")
+        if (NOT ${${lc}_RPM_DEPENDENCIES} STREQUAL "")
           string(REPLACE "stable_version" ${tag} RPM_DEPS ${${lc}_RPM_DEPENDENCIES})
           string(REPLACE "next_version" ${next_version} RPM_DEPS ${RPM_DEPS})
         endif()
