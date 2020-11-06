@@ -35,7 +35,7 @@ else
     exit 1
 fi
 
-VERSION_REGEX="s/v([0-9]+).([0-9]+)(.*)?-([0-9]+)-(g[0-9a-f]+)/\1.\2\3-release/g"
+VERSION_REGEX="s/v([0-9]+).([0-9]+)(.*)?-([0-9]+)-(g[0-9a-f]+)/\1.\2-release/g"
 VPP_VERSION_DEB=$(git describe --long --match "v*" | sed -E ${VERSION_REGEX})
 VPP_VERSION_RPM="${VPP_VERSION_DEB}.x86_64"
 
