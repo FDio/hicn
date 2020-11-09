@@ -558,19 +558,34 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
   /*   return; */
 
   hicn_header_t *hicn = vlib_buffer_get_current (b0);
+  size_t l3_header_size = sizeof(ip6_header_t);
 
   //hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
 
   ip46_address_t temp_addr;
   ip46_address_reset (&temp_addr);
   hicn_type_t type = hicn_get_buffer (b0)->type;
-  hicn_ops_vft[type.l1]->rewrite_interest (type, &hicn->protocol,
-                                           &face->nat_addr, &temp_addr);
+  int ret = hicn_ops_vft[type.l1]->rewrite_interest (type, &hicn->protocol,
+                                                     &face->nat_addr, &temp_addr);
 
-  if (ip46_address_is_ip4(&face->nat_addr))
+  if (ip46_address_is_ip4(&face->nat_addr)) {
     b0->flags |= VNET_BUFFER_F_OFFLOAD_IP_CKSUM;
+    l3_header_size = sizeof(ip4_header_t);
+  }
 
-  b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
+  if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED) {
+    b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
+  
+    /* Make sure l3_hdr_offset and l4_hdr_offset are set */
+    if (!(b0->flags & VNET_BUFFER_F_L3_HDR_OFFSET_VALID)) {
+      b0->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
+      vnet_buffer (b0)->l3_hdr_offset = b0->current_data;
+    }
+    if (!(b0->flags & VNET_BUFFER_F_L4_HDR_OFFSET_VALID)) {
+      b0->flags |= VNET_BUFFER_F_L4_HDR_OFFSET_VALID;
+      vnet_buffer (b0)->l4_hdr_offset = vnet_buffer (b0)->l3_hdr_offset + l3_header_size;
+    }
+  }
 
   ASSERT(face->flags & HICN_FACE_FLAGS_FACE);
 

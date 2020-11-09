@@ -48,15 +48,20 @@ DECLARE_set_payload_length (tcp, UNEXPECTED);
 int
 tcp_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
 {
-  h->tcp = (_tcp_header_t)
-  {
-  .sport = htons (TCP_DEFAULT_SRC_PORT),.dport =
-      htons (TCP_DEFAULT_DST_PORT),.seq = 0,.seq_ack =
-      0,.data_offset_and_reserved = TCP_DEFAULT_DATA_OFFSET_RES,.flags =
+  h->tcp = (_tcp_header_t) {
+    .sport = htons (TCP_DEFAULT_SRC_PORT),
+    .dport = htons (TCP_DEFAULT_DST_PORT),
+    .seq = 0,
+    .seq_ack = 0,
+    .data_offset_and_reserved = TCP_DEFAULT_DATA_OFFSET_RES,
+    .flags =
       TCP_DEFAULT_CWR << 7 | TCP_DEFAULT_ECE << 6 | TCP_DEFAULT_URG << 5 |
       TCP_DEFAULT_ACK << 4 | TCP_DEFAULT_PSH << 3 | TCP_DEFAULT_RST << 2 |
-      TCP_DEFAULT_SYN << 1 | TCP_DEFAULT_FIN << 0,.window =
-      htons (TCP_DEFAULT_WINDOW_SIZE),.csum = 0,.urg_ptr = 65000,};
+      TCP_DEFAULT_SYN << 1 | TCP_DEFAULT_FIN << 0,
+    .window = htons (TCP_DEFAULT_WINDOW_SIZE),
+    .csum = 0xffff,
+    .urg_ptr = 65000,
+  };
 
   uint8_t ah_flag = type.l2 == IPPROTO_AH ? AH_FLAG : 0;
 
@@ -252,6 +257,21 @@ tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 		      ip46_address_t * addr_old)
 {
   u16 *tcp_checksum = &(h->tcp.csum);
+
+  /* As per RFC1624
+   * In one's complement, there are two representations of zero: the all
+   * zero and the all one bit values, often referred to as +0 and -0.
+   * One's complement addition of non-zero inputs can produce -0 as a
+   * result, but never +0.  Since there is guaranteed to be at least one
+   * non-zero field in the IP header, and the checksum field in the
+   * protocol header is the complement of the sum, the checksum field can
+   * never contain ~(+0), which is -0 (0xFFFF).  It can, however, contain
+   * ~(-0), which is +0 (0x0000).
+   */
+  if (*tcp_checksum == 0xffff) {
+    /* Invalid checksum, no need to compute incremental update */
+    return HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED;
+  }
 
   /*
    * Padding fields are set to zero so we can apply checksum on the
