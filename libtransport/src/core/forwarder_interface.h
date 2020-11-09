@@ -95,7 +95,10 @@ class ForwarderInterface {
       packet.setLocator(inet6_address_);
     }
 
+#ifndef __vpp__
+    /* In the case of VPP we try to offload checksum computation to hardware  */
     packet.setChecksum();
+#endif
     connector_.send(packet.acquireMemBufReference());
   }
 
