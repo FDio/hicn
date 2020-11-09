@@ -112,8 +112,8 @@ typedef enum
   do{                                                                   \
   vlib_buffer_t *b0;                                                    \
   u32 bi0;                                                              \
-  u32 next0 = NEXT_ERROR_DROP_IP##ipv;                                  \
-  IP_HEADER_##ipv * ip_hdr = NULL;                                      \
+  u32 next0 = NEXT_ERROR_DROP_IP6;                                  \
+  IP_HEADER_6 * ip_hdr = NULL;                                      \
   hicn_buffer_t * hicnb0;                                               \
   int ret;                                                              \
   /* Prefetch for next iteration. */                                    \
@@ -134,21 +134,21 @@ typedef enum
                                                                         \
   b0 = vlib_get_buffer (vm, bi0);                                       \
   hicnb0 = hicn_get_buffer(b0);                                         \
-  ip_hdr = (IP_HEADER_##ipv *) vlib_buffer_get_current(b0);             \
+  ip_hdr = (IP_HEADER_6 *) vlib_buffer_get_current(b0);             \
                                                                         \
-  u8 is_icmp = ip_hdr->protocol == IPPROTO_ICMPV##ipv;                  \
+  u8 is_icmp = ip_hdr->protocol == IPPROTO_ICMPV6;                  \
                                                                         \
-  next0 = is_icmp*NEXT_MAPME_IP##ipv +                                  \
-    (1-is_icmp)*NEXT_DATA_IP##ipv;                                      \
+  next0 = is_icmp*NEXT_MAPME_IP6 +                                  \
+    (1-is_icmp)*NEXT_DATA_IP6;                                      \
                                                                         \
-  ret = LOCK_DPO_FACE_IP##ipv                                           \
+  ret = LOCK_DPO_FACE_IP6                                           \
     (&(hicnb0->face_id),                                                \
      &(hicnb0->in_faces_vec_id),                                        \
      &hicnb0->flags,                                                    \
      &(ip_hdr->dst_address));                                           \
                                                                         \
   if ( PREDICT_FALSE(ret != HICN_ERROR_NONE) )                          \
-    next0 = NEXT_ERROR_DROP_IP##ipv;                                    \
+    next0 = NEXT_ERROR_DROP_IP6;                                    \
   else                                                                  \
     {                                                                   \
       vlib_increment_combined_counter (                                 \
@@ -163,7 +163,7 @@ typedef enum
   if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&            \
                      (b0->flags & VLIB_BUFFER_IS_TRACED)))              \
     {                                                                   \
-      TRACE_INPUT_PKT_IP##ipv *t =                                      \
+      TRACE_INPUT_PKT_IP6 *t =                                      \
         vlib_add_trace (vm, node, b0, sizeof (*t));                     \
       t->pkt_type = HICN_PKT_TYPE_INTEREST;                             \
       t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];          \
@@ -185,10 +185,10 @@ typedef enum
   do{                                                                   \
     vlib_buffer_t *b0, *b1;                                             \
     u32 bi0, bi1;                                                       \
-    u32 next0 = NEXT_ERROR_DROP_IP##ipv;                                \
-    u32 next1 = NEXT_ERROR_DROP_IP##ipv;                                \
-    IP_HEADER_##ipv * ip_hdr0 = NULL;                                   \
-    IP_HEADER_##ipv * ip_hdr1 = NULL;                                   \
+    u32 next0 = NEXT_ERROR_DROP_IP6;                                \
+    u32 next1 = NEXT_ERROR_DROP_IP6;                                \
+    IP_HEADER_6 * ip_hdr0 = NULL;                                   \
+    IP_HEADER_6 * ip_hdr1 = NULL;                                   \
     hicn_buffer_t * hicnb0;                                             \
     hicn_buffer_t * hicnb1;                                             \
     int ret0, ret1;                                                     \
@@ -216,33 +216,33 @@ typedef enum
     b1 = vlib_get_buffer (vm, bi1);                                     \
     hicnb0 = hicn_get_buffer(b0);                                       \
     hicnb1 = hicn_get_buffer(b1);                                       \
-    ip_hdr0 = (IP_HEADER_##ipv *) vlib_buffer_get_current(b0);          \
-    ip_hdr1 = (IP_HEADER_##ipv *) vlib_buffer_get_current(b1);          \
+    ip_hdr0 = (IP_HEADER_6 *) vlib_buffer_get_current(b0);          \
+    ip_hdr1 = (IP_HEADER_6 *) vlib_buffer_get_current(b1);          \
                                                                         \
-    u8 is_icmp0 = ip_hdr0->protocol == IPPROTO_ICMPV##ipv;              \
-    u8 is_icmp1 = ip_hdr1->protocol == IPPROTO_ICMPV##ipv;              \
+    u8 is_icmp0 = ip_hdr0->protocol == IPPROTO_ICMPV6;              \
+    u8 is_icmp1 = ip_hdr1->protocol == IPPROTO_ICMPV6;              \
                                                                         \
-    next0 = is_icmp0*NEXT_MAPME_IP##ipv +                               \
-      (1-is_icmp0)*NEXT_DATA_IP##ipv;                                   \
+    next0 = is_icmp0*NEXT_MAPME_IP6 +                               \
+      (1-is_icmp0)*NEXT_DATA_IP6;                                   \
                                                                         \
-    next1 = is_icmp1*NEXT_MAPME_IP##ipv +                               \
-      (1-is_icmp1)*NEXT_DATA_IP##ipv;                                   \
+    next1 = is_icmp1*NEXT_MAPME_IP6 +                               \
+      (1-is_icmp1)*NEXT_DATA_IP6;                                   \
                                                                         \
                                                                         \
-    ret0 = LOCK_DPO_FACE_IP##ipv                                        \
+    ret0 = LOCK_DPO_FACE_IP6                                        \
       (&(hicnb0->face_id),                                              \
        &(hicnb0->in_faces_vec_id),                                      \
        &hicnb0->flags,                                                  \
        &(ip_hdr0->dst_address));                                        \
                                                                         \
-    ret1 = LOCK_DPO_FACE_IP##ipv                                        \
+    ret1 = LOCK_DPO_FACE_IP6                                        \
       (&(hicnb1->face_id),                                              \
        &(hicnb1->in_faces_vec_id),                                      \
        &hicnb1->flags,                                                  \
        &(ip_hdr1->dst_address));                                        \
                                                                         \
     if ( PREDICT_FALSE(ret0 != HICN_ERROR_NONE) )                       \
-      next0 = NEXT_ERROR_DROP_IP##ipv;                                  \
+      next0 = NEXT_ERROR_DROP_IP6;                                  \
     else                                                                \
       {                                                                 \
         vlib_increment_combined_counter (                               \
@@ -255,7 +255,7 @@ typedef enum
       }                                                                 \
                                                                         \
     if ( PREDICT_FALSE(ret1 != HICN_ERROR_NONE) )                       \
-      next1 = NEXT_ERROR_DROP_IP##ipv;                                  \
+      next1 = NEXT_ERROR_DROP_IP6;                                  \
     else                                                                \
       {                                                                 \
         vlib_increment_combined_counter (                               \
@@ -270,7 +270,7 @@ typedef enum
   if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&            \
                      (b0->flags & VLIB_BUFFER_IS_TRACED)))              \
     {                                                                   \
-      TRACE_INPUT_PKT_IP##ipv *t =                                      \
+      TRACE_INPUT_PKT_IP6 *t =                                      \
         vlib_add_trace (vm, node, b0, sizeof (*t));                     \
       t->pkt_type = HICN_PKT_TYPE_INTEREST;                             \
       t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];          \
@@ -283,7 +283,7 @@ typedef enum
   if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&            \
                      (b1->flags & VLIB_BUFFER_IS_TRACED)))              \
     {                                                                   \
-      TRACE_INPUT_PKT_IP##ipv *t =                                      \
+      TRACE_INPUT_PKT_IP6 *t =                                      \
         vlib_add_trace (vm, node, b1, sizeof (*t));                     \
       t->pkt_type = HICN_PKT_TYPE_INTEREST;                             \
       t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];          \
@@ -558,19 +558,34 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
   /*   return; */
 
   hicn_header_t *hicn = vlib_buffer_get_current (b0);
+  size_t l3_header_size = sizeof(ip6_header_t);
 
   //hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
 
   ip46_address_t temp_addr;
   ip46_address_reset (&temp_addr);
   hicn_type_t type = hicn_get_buffer (b0)->type;
-  hicn_ops_vft[type.l1]->rewrite_interest (type, &hicn->protocol,
-                                           &face->nat_addr, &temp_addr);
+  int ret = hicn_ops_vft[type.l1]->rewrite_interest (type, &hicn->protocol,
+                                                     &face->nat_addr, &temp_addr);
 
-  if (ip46_address_is_ip4(&face->nat_addr))
+  if (ip46_address_is_ip4(&face->nat_addr)) {
     b0->flags |= VNET_BUFFER_F_OFFLOAD_IP_CKSUM;
+    l3_header_size = sizeof(ip4_header_t);
+  }
 
-  b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
+  if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED) {
+    b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
+  
+    /* Make sure l3_hdr_offset and l4_hdr_offset are set */
+    if (!(b0->flags & VNET_BUFFER_F_L3_HDR_OFFSET_VALID)) {
+      b0->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
+      vnet_buffer (b0)->l3_hdr_offset = b0->current_data + l3_header_size;
+    }
+    if (!(b0->flags & VNET_BUFFER_F_L4_HDR_OFFSET_VALID)) {
+      b0->flags |= VNET_BUFFER_F_L4_HDR_OFFSET_VALID;
+      vnet_buffer (b0)->l4_hdr_offset = vnet_buffer (b0)->l3_hdr_offset + sizeof(tcp_header_t);
+    }
+  }
 
   ASSERT(face->flags & HICN_FACE_FLAGS_FACE);
 
@@ -659,7 +674,7 @@ hicn6_face_output_trace_t;
     if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&          \
                        (b0->flags & VLIB_BUFFER_IS_TRACED)))            \
       {                                                                 \
-        TRACE_OUTPUT_PKT_IP##ipv *t =                                   \
+        TRACE_OUTPUT_PKT_IP6 *t =                                   \
           vlib_add_trace (vm, node, b0, sizeof (*t));                   \
         t->pkt_type = HICN_PKT_TYPE_INTEREST;                           \
         t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];        \
@@ -743,7 +758,7 @@ hicn6_face_output_trace_t;
   if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&            \
                      (b0->flags & VLIB_BUFFER_IS_TRACED)))              \
     {                                                                   \
-      TRACE_OUTPUT_PKT_IP##ipv *t =                                     \
+      TRACE_OUTPUT_PKT_IP6 *t =                                     \
         vlib_add_trace (vm, node, b0, sizeof (*t));                     \
       t->pkt_type = HICN_PKT_TYPE_INTEREST;                             \
       t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];          \
@@ -756,7 +771,7 @@ hicn6_face_output_trace_t;
   if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&            \
                      (b1->flags & VLIB_BUFFER_IS_TRACED)))              \
     {                                                                   \
-      TRACE_OUTPUT_PKT_IP##ipv *t =                                     \
+      TRACE_OUTPUT_PKT_IP6 *t =                                     \
         vlib_add_trace (vm, node, b1, sizeof (*t));                     \
       t->pkt_type = HICN_PKT_TYPE_INTEREST;                             \
       t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];          \
@@ -879,7 +894,65 @@ hicn6_face_output_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
       /* Dual loop, X1 */
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
-	  face_output_x1 (6);
+	      vlib_buffer_t *b0;                                              
+    u32 bi0;                                                        
+    u32 next0 = ~0;                                                 
+    hicn_face_t * face;                                             
+                                                                    
+    /* Prefetch for next iteration. */                              
+    if (n_left_from > 1)                                            
+      {                                                             
+        vlib_buffer_t *b1;                                          
+        b1 = vlib_get_buffer (vm, from[1]);                         
+        CLIB_PREFETCH (b1, CLIB_CACHE_LINE_BYTES, STORE);	    
+        CLIB_PREFETCH (b1->data, CLIB_CACHE_LINE_BYTES , STORE);    
+      }                                                             
+    /* Dequeue a packet buffer */                                   
+    bi0 = from[0];                                                  
+    from += 1;                                                      
+    n_left_from -= 1;                                               
+    to_next[0] = bi0;                                               
+    to_next += 1;                                                   
+    n_left_to_next -= 1;                                            
+                                                                    
+    b0 = vlib_get_buffer (vm, bi0);                                 
+                                                                    
+    hicn_face_id_t face_id = vnet_buffer (b0)->ip.adj_index[VLIB_TX];   
+    face =                                                              
+      hicn_dpoi_get_from_idx (face_id);                                 
+                                                                        
+    if (PREDICT_TRUE(face != NULL))                                     
+      {                                                                 
+        hicn_face_rewrite_interest					
+          (vm, b0, face, &next0);					
+	stats.pkts_interest_count += 1;					
+        vlib_increment_combined_counter (                               
+                                  &counters[face_id * HICN_N_COUNTER],  
+                                  thread_index,                         
+                                  HICN_FACE_COUNTERS_INTEREST_TX,       
+                                  1,                                    
+                                  vlib_buffer_length_in_chain(vm, b0)); 
+      }                                                                 
+                                                                        
+    if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&          
+                       (b0->flags & VLIB_BUFFER_IS_TRACED)))            
+      {                                                                 
+        TRACE_OUTPUT_PKT_IP6 *t =                                   
+          vlib_add_trace (vm, node, b0, sizeof (*t));                   
+        t->pkt_type = HICN_PKT_TYPE_INTEREST;                           
+        t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];        
+        t->next_index = next0;                                          
+	clib_memcpy_fast (t->packet_data,				
+			vlib_buffer_get_current (b0),			
+			sizeof (t->packet_data));			
+      }                                                                 
+                                                                        
+                                                                        
+    /* Verify speculative enqueue, maybe switch current next frame */   
+    vlib_validate_buffer_enqueue_x1 (vm, node, next_index,              
+                                     to_next, n_left_to_next,           
+                                     bi0, next0);                       
+
 	}
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
