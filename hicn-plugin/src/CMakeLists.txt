@@ -129,6 +129,7 @@ set(HICN_PLUGIN_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/inlines.h
     ${CMAKE_CURRENT_SOURCE_DIR}/pg.h
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/dpo_mw.h
     ${CMAKE_CURRENT_SOURCE_DIR}/strategies/strategy_mw.h
