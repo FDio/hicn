@@ -14,6 +14,7 @@
  */
 
 #include "face.h"
+#include "inlines.h"
 #include "../strategy_dpo_manager.h"
 #include "../hicn.h"
 #include "../infra.h"
@@ -554,9 +555,13 @@ hicn_rewrite_iface_data4 (vlib_main_t * vm, vlib_buffer_t * b0,
   ip46_address_t temp_addr;
   ip46_address_reset (&temp_addr);
   hicn_type_t type = hicn_get_buffer (b0)->type;
-  hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
-				       &(iface->nat_addr), &(temp_addr),
-				       iface->pl_id);
+  int ret = hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
+				                 &(iface->nat_addr), &(temp_addr),
+				                 iface->pl_id);
+  if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
+    {
+      ensure_offload_flags(b0, 1 /* is_v4 */);
+    }
 }
 
 static inline void
@@ -583,9 +588,14 @@ hicn_rewrite_iface_data6 (vlib_main_t * vm, vlib_buffer_t * b0,
   ip46_address_t temp_addr;
   ip46_address_reset (&temp_addr);
   hicn_type_t type = hicn_get_buffer (b0)->type;
-  hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
-				       &(iface->nat_addr), &(temp_addr),
-				       iface->pl_id);
+  int ret = hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
+				                 &(iface->nat_addr), &(temp_addr),
+				                 iface->pl_id);
+
+  if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
+    {
+      ensure_offload_flags(b0, 0 /* is_v4 */);
+    }
 }
 
 #define iface_output_x1(ipv)                                            \

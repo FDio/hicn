@@ -16,6 +16,7 @@
 #include <vnet/adj/adj.h>
 
 #include "face.h"
+#include "inlines.h"
 #include "face_node.h"
 #include "../strategy_dpo_manager.h"
 #include "face.h"
@@ -558,7 +559,6 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
   /*   return; */
 
   hicn_header_t *hicn = vlib_buffer_get_current (b0);
-  size_t l3_header_size = sizeof(ip6_header_t);
 
   //hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
 
@@ -568,24 +568,10 @@ hicn_face_rewrite_interest (vlib_main_t * vm, vlib_buffer_t * b0,
   int ret = hicn_ops_vft[type.l1]->rewrite_interest (type, &hicn->protocol,
                                                      &face->nat_addr, &temp_addr);
 
-  if (ip46_address_is_ip4(&face->nat_addr)) {
-    b0->flags |= VNET_BUFFER_F_OFFLOAD_IP_CKSUM;
-    l3_header_size = sizeof(ip4_header_t);
-  }
-
-  if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED) {
-    b0->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
-
-    /* Make sure l3_hdr_offset and l4_hdr_offset are set */
-    if (!(b0->flags & VNET_BUFFER_F_L3_HDR_OFFSET_VALID)) {
-      b0->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
-      vnet_buffer (b0)->l3_hdr_offset = b0->current_data;
+  if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
+    {
+      ensure_offload_flags(b0, ip46_address_is_ip4(&face->nat_addr));
     }
-    if (!(b0->flags & VNET_BUFFER_F_L4_HDR_OFFSET_VALID)) {
-      b0->flags |= VNET_BUFFER_F_L4_HDR_OFFSET_VALID;
-      vnet_buffer (b0)->l4_hdr_offset = vnet_buffer (b0)->l3_hdr_offset + l3_header_size;
-    }
-  }
 
   ASSERT(face->flags & HICN_FACE_FLAGS_FACE);
 
