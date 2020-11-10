@@ -45,6 +45,28 @@ DECLARE_get_length (tcp, UNEXPECTED);
 DECLARE_get_payload_length (tcp, UNEXPECTED);
 DECLARE_set_payload_length (tcp, UNEXPECTED);
 
+always_inline int
+check_tcp_checksum(u16 csum)
+{
+  /* As per RFC1624
+   * In one's complement, there are two representations of zero: the all
+   * zero and the all one bit values, often referred to as +0 and -0.
+   * One's complement addition of non-zero inputs can produce -0 as a
+   * result, but never +0.  Since there is guaranteed to be at least one
+   * non-zero field in the IP header, and the checksum field in the
+   * protocol header is the complement of the sum, the checksum field can
+   * never contain ~(+0), which is -0 (0xFFFF).  It can, however, contain
+   * ~(-0), which is +0 (0x0000).
+   */
+  if (csum == 0xffff)
+    {
+      /* Invalid checksum, no need to compute incremental update */
+      return HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED;
+    }
+
+  return HICN_LIB_ERROR_NONE;
+}
+
 int
 tcp_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
 {
@@ -257,21 +279,12 @@ tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 		      ip46_address_t * addr_old)
 {
   u16 *tcp_checksum = &(h->tcp.csum);
+  int ret = check_tcp_checksum(*tcp_checksum);
 
-  /* As per RFC1624
-   * In one's complement, there are two representations of zero: the all
-   * zero and the all one bit values, often referred to as +0 and -0.
-   * One's complement addition of non-zero inputs can produce -0 as a
-   * result, but never +0.  Since there is guaranteed to be at least one
-   * non-zero field in the IP header, and the checksum field in the
-   * protocol header is the complement of the sum, the checksum field can
-   * never contain ~(+0), which is -0 (0xFFFF).  It can, however, contain
-   * ~(-0), which is +0 (0x0000).
-   */
-  if (*tcp_checksum == 0xffff) {
-    /* Invalid checksum, no need to compute incremental update */
-    return HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED;
-  }
+  if (ret)
+    {
+      return ret;
+    }
 
   /*
    * Padding fields are set to zero so we can apply checksum on the
@@ -297,6 +310,12 @@ tcp_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
 		  const hicn_faceid_t face_id)
 {
   u16 *tcp_checksum = &(h->tcp.csum);
+  int ret = check_tcp_checksum(*tcp_checksum);
+
+  if (ret)
+    {
+      return ret;
+    }
 
   /*
    * Padding fields are set to zero so we can apply checksum on the

@@ -125,6 +125,7 @@ set(HICN_PLUGIN_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_node.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/iface_node.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/inlines.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_dpo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.h
