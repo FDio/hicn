@@ -183,6 +183,7 @@ function(make_packages)
 
         string(TOUPPER ${lc} uc)
         set(CPACK_${type}_${uc}_DESCRIPTION "${${lc}_DESCRIPTION}")
+        message("-----------------------------------------------------> ${${lc}_DESCRIPTION}")
 
         set(RPM_DEPS)
         if (NOT ${${lc}_RPM_DEPENDENCIES} STREQUAL "")
@@ -191,6 +192,7 @@ function(make_packages)
         endif()
 
         set(CPACK_${type}_${uc}_PACKAGE_REQUIRES "${RPM_DEPS}")
+        message("-----------------------------------------------------> ${RPM_DEPS}")
 
         if(${lc} MATCHES ".*-dev")
           set(package_name ${lc}el)
