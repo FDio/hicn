@@ -36,7 +36,7 @@ set(${HICN_PLUGIN}_RPM_DEPENDENCIES
 )
 
 set(${HICN_PLUGIN}-dev_RPM_DEPENDENCIES
-  "vpp-dev >= stable_version-release, vpp-dev < next_version-release, libvppinfra-devel >= stable_version-release, libvppinfra-devel < next_version-release"
+  "vpp-devel >= stable_version-release, vpp-devel < next_version-release"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
