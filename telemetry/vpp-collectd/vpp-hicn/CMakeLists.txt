@@ -13,10 +13,6 @@
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
-# Dependencies
-find_package(Collectd REQUIRED)
-find_package(Vpp REQUIRED)
-
 if(${CMAKE_SOURCE_DIR}/vpp-collectd STREQUAL ${PROJECT_SOURCE_DIR})
    message (STATUS "not compiling in the same folder")
   find_package(HicnPlugin REQUIRED)

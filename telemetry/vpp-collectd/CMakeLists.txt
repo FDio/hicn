@@ -20,6 +20,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Mo
 
 include(BuildMacros)
 
+# Dependencies
+find_package(Collectd REQUIRED)
+find_package(Vpp REQUIRED)
+
 add_subdirectory(vpp)
 add_subdirectory(vpp-hicn)
 

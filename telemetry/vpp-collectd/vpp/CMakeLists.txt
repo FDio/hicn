@@ -19,9 +19,6 @@ list(APPEND SOURCE_FILES
      ${CMAKE_CURRENT_SOURCE_DIR}/vpp.c
 )
 
-find_package(Vpp REQUIRED)
-find_package(Collectd REQUIRED)
-
 list (APPEND INCLUDE_DIRS
      ${COLLECTD_INCLUDE_DIRS}
      ${VPP_INCLUDE_DIRS}
