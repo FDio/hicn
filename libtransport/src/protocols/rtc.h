@@ -28,6 +28,8 @@
 #define HICN_RTC_NORMAL_STATE 1
 #define HICN_ROUNDS_IN_SYNC_BEFORE_SWITCH 3
 
+#define HICN_FREEZE_TIME_MS 500
+
 // packet constants
 #define HICN_INIT_PACKET_SIZE 1300       // bytes
 #define HICN_PACKET_HEADER_SIZE 60       // bytes ipv6+tcp
@@ -142,8 +144,15 @@ class RTCTransportProtocol : public TransportProtocol,
     Reassembly::notifyApplication();
   }
 
+  void freeze();
+  void unfreeze(bool schedule = false);
+  void sendFreezeKeepAlive();
+                                 
+
   // controller var
   std::unique_ptr<asio::steady_timer> round_timer_;
+  std::unique_ptr<asio::steady_timer> freeze_timer_;
+
   unsigned currentState_;
 
   // cwin var
@@ -221,6 +230,9 @@ class RTCTransportProtocol : public TransportProtocol,
   unsigned protocolState_;
 
   bool initied;
+                                 
+  std::pair<uint32_t, uint64_t> lastNack_;
+  bool isFrozen_m;
 };
 
 }  // namespace protocol
