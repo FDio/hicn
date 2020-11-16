@@ -23,6 +23,8 @@ export PATH=:${CMAKE_INSTALL_DIR}/bin:${PATH}
 
 PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio/release/script.deb.sh"
 PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
+PACKAGECLOUD_HICN_REPO_DEB="https://packagecloud.io/install/repositories/fdio/hicn/script.deb.sh"
+PACKAGECLOUD_HICN_REPO_RPM="https://packagecloud.io/install/repositories/fdio/hicn/script.rpm.sh"
 
 VPP_GIT_REPO="https://github.com/FDio/vpp"
 VPP_BRANCH="stable/2005"
@@ -107,8 +109,10 @@ function setup_fdio_repo() {
 
     if [ "${DISTRIB_ID}" == "ubuntu" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
+        curl -s ${PACKAGECLOUD_HICN_REPO_DEB} | sudo bash
     elif [ "${DISTRIB_ID}" == "centos" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM} | sudo bash
+        curl -s ${PACKAGECLOUD_HICN_REPO_RPM} | sudo bash
         curl -L ${LATEST_EPEL_REPO} > /tmp/epel-release-latest-7.noarch.rpm
         rpm -ivh /tmp/epel-release-latest-7.noarch.rpm || true
     else
