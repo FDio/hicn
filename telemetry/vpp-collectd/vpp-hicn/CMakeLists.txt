@@ -18,7 +18,7 @@ find_package(Collectd REQUIRED)
 find_package(Vpp REQUIRED)
 
 if(${CMAKE_SOURCE_DIR}/vpp-collectd STREQUAL ${PROJECT_SOURCE_DIR})
-   message (STATUS "not compiling in the same folder")
+  message (STATUS "not compiling in the same folder")
   find_package(HicnPlugin REQUIRED)
   find_package(VapiSafe REQUIRED)
 else()
@@ -29,17 +29,16 @@ else()
 endif()
 
 list(APPEND SOURCE_FILES
-     ${CMAKE_CURRENT_SOURCE_DIR}/vpp_hicn.c
-)
+     ${CMAKE_CURRENT_SOURCE_DIR}/vpp_hicn.c)
 
-list (APPEND INCLUDE_DIRS
+list(APPEND INCLUDE_DIRS
     ${COLLECTD_INCLUDE_DIRS}
     ${HICNPLUGIN_INCLUDE_DIRS}
     ${SAFE_VAPI_INCLUDE_DIRS}
     ${VPP_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR})
 
-list (APPEND LIBRARIES
+list(APPEND LIBRARIES
     ${VPP_LIBRARY_VAPICLIENT}
     ${SAFE_VAPI_LIBRARIES})
 
