@@ -13,31 +13,24 @@
  * limitations under the License.
  */
 
-#if !HAVE_CONFIG_H
-#include <stdlib.h>
-#include <string.h>
-
-#ifndef __USE_ISOC99 /* required for NAN */
-#define DISABLE_ISOC99 1
-#define __USE_ISOC99 1
-#endif /* !defined(__USE_ISOC99) */
-
-#if DISABLE_ISOC99
-#undef DISABLE_ISOC99
-#undef __USE_ISOC99
-#endif /* DISABLE_ISOC99 */
-#endif /* ! HAVE_CONFIG */
-
 /* Keep order as it is */
 #include <config.h>
 #include <collectd.h>
-#include <common.h>
 #include <plugin.h>
 
 #define counter_t vpp_counter_t
 #include <vpp-api/client/stat_client.h>
 #include <vppinfra/vec.h>
 #undef counter_t
+
+#define STATIC_ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
+
+#define IS_TRUE(s)                                                             \
+  ((strcasecmp("true", (s)) == 0) || (strcasecmp("yes", (s)) == 0) ||          \
+   (strcasecmp("on", (s)) == 0))
+#define IS_FALSE(s)                                                            \
+  ((strcasecmp("false", (s)) == 0) || (strcasecmp("no", (s)) == 0) ||          \
+   (strcasecmp("off", (s)) == 0))
 
 /************** OPTIONS ***********************************/
 static const char *config_keys[2] = {
@@ -164,6 +157,11 @@ static data_set_t if_tx_broadcast_ds = {
 /**********************************************************/
 /********** UTILITY FUNCTIONS *****************************/
 /**********************************************************/
+char *sstrncpy(char *dest, const char *src, size_t n) {
+  strncpy(dest, src, n);
+  dest[n - 1] = '\0';
+  return dest;
+}
 
 /*
  * Utility function used by the read callback to populate a
@@ -327,8 +325,7 @@ static int vpp_read(void) {
           }
 
           value_t values[1] = {
-              (value_t){.derive = res[i].simple_counter_vec[k][j]}
-          };
+              (value_t){.derive = res[i].simple_counter_vec[k][j]}};
 
           err = submit(interfaces[j], data_set.type, values, 1, &timestamp);
 
