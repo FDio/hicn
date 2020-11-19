@@ -25,21 +25,15 @@ find_path(COLLECTD_INCLUDE_DIR collectd.h
   DOC "Find the collectd includes"
 )
 
-find_path(COLLECTD_COMMON_INCLUDE_DIR common.h
-  HINTS ${COLLECTD_SEARCH_PATH_LIST}
-  PATH_SUFFIXES include/collectd/core/daemon/ utils/common/
-  DOC "Find the collectd includes"
-)
-
 find_path(COLLECTD_CONFIG_INCLUDE_DIR config.h
   HINTS ${COLLECTD_SEARCH_PATH_LIST}
   PATH_SUFFIXES include/collectd/core/
   DOC "Find the collectd includes"
 )
 
-message(STATUS ${COLLECTD_INCLUDE_DIR} ${COLLECTD_COMMON_INCLUDE_DIR} ${COLLECTD_CONFIG_INCLUDE_DIR})
+message(STATUS ${COLLECTD_INCLUDE_DIR} ${COLLECTD_CONFIG_INCLUDE_DIR})
 
-set(COLLECTD_INCLUDE_DIRS ${COLLECTD_INCLUDE_DIR} ${COLLECTD_COMMON_INCLUDE_DIR} ${COLLECTD_CONFIG_INCLUDE_DIR})
+set(COLLECTD_INCLUDE_DIRS ${COLLECTD_INCLUDE_DIR} ${COLLECTD_CONFIG_INCLUDE_DIR})
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Collectd DEFAULT_MSG COLLECTD_INCLUDE_DIRS)
