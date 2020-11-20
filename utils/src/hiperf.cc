@@ -217,7 +217,7 @@ class HIperfClient {
       : configuration_(conf),
         total_duration_milliseconds_(0),
         old_bytes_value_(0),
-        signals_(io_service_, SIGINT),
+        signals_(io_service_),
         expected_seg_(0),
         lost_packets_(std::unordered_set<uint32_t>()),
         rtc_callback_(configuration_.rtc_ ? new RTCCallback(*this) : nullptr),
@@ -514,6 +514,7 @@ class HIperfClient {
   int run() {
     std::cout << "Starting download of " << configuration_.name << std::endl;
 
+    signals_.add(SIGINT);
     signals_.async_wait([this](const std::error_code &, const int &) {
       consumer_socket_->stop();
       io_service_.stop();
@@ -712,7 +713,7 @@ class HIperfServer {
  public:
   HIperfServer(ServerConfiguration &conf)
       : configuration_(conf),
-        signals_(io_service_, SIGINT),
+        signals_(io_service_),
         rtc_timer_(io_service_),
         unsatisfied_interests_(),
         content_objects_((std::uint16_t)(1 << log2_content_object_buffer_size)),
@@ -1023,6 +1024,7 @@ class HIperfServer {
   int run() {
     std::cerr << "Starting to serve consumers" << std::endl;
 
+    signals_.add(SIGINT);
     signals_.async_wait([this](const std::error_code &, const int &) {
       std::cout << "STOPPING!!" << std::endl;
       producer_socket_->stop();

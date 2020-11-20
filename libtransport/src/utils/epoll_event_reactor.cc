@@ -104,12 +104,15 @@ void EpollEventReactor::runEventLoop(int timeout) {
 
   while (run_event_loop_) {
     memset(&evt, 0, sizeof(evt));
-
     en = epoll_pwait(epoll_fd_, evt, 128, timeout, &sigset);
 
     if (TRANSPORT_EXPECT_FALSE(en < 0)) {
       TRANSPORT_LOGE("epoll_pwait: %s", strerror(errno));
-      return;
+      if (errno == EINTR) {
+        continue;
+      } else {
+	return;
+      }
     }
 
     for (int i = 0; i < en; i++) {
