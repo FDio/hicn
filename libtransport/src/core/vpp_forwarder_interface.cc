@@ -36,8 +36,6 @@ namespace transport {
 
 namespace core {
 
-std::mutex VPPForwarderInterface::global_lock_;
-
 VPPForwarderInterface::VPPForwarderInterface(MemifConnector &connector)
     : ForwarderInterface<VPPForwarderInterface, MemifConnector>(connector),
       sw_if_index_(~0),
@@ -112,9 +110,19 @@ void VPPForwarderInterface::producerConnection() {
 }
 
 void VPPForwarderInterface::connect(bool is_consumer) {
-  std::lock_guard<std::mutex> connection_lock(global_lock_);
+  int retry = 20;
+  
+  TRANSPORT_LOGI("Connecting to VPP through vapi.");
+  vapi_error_e ret = vapi_connect_safe(&sock_, 0);
 
-  vapi_connect_safe(&sock_, 0);
+  while (ret != VAPI_OK) {
+    TRANSPORT_LOGE("Error connecting to VPP through vapi. Retrying..");
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    --retry;
+    ret = vapi_connect_safe(&sock_, 0);
+  }
+
+  TRANSPORT_LOGI("Connected to VPP through vapi.");
 
   sw_if_index_ = getMemifConfiguration();
 
