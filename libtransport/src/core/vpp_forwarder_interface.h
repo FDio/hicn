@@ -79,7 +79,6 @@ class VPPForwarderInterface
   uint32_t face_id2_;
   bool is_consumer_;
   vapi_ctx_t sock_;
-  static std::mutex global_lock_;
 };
 
 }  // namespace core
