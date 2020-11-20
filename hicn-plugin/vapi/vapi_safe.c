@@ -7,21 +7,21 @@
 #define RESPONSE_QUEUE_SIZE 2
 
 pthread_mutex_t *mutex = NULL;
+vapi_ctx_t g_vapi_ctx_instance = NULL;
 u32 count = 0;
 int lock = 0;
 
 vapi_error_e vapi_connect_safe(vapi_ctx_t *vapi_ctx_ret, int async) {
-  vapi_error_e rv  = VAPI_OK;
-  vapi_ctx_t g_vapi_ctx_instance = NULL;
+  vapi_error_e rv = VAPI_OK;
 
   while (!__sync_bool_compare_and_swap(&lock, 0, 1));
 
-  rv = vapi_ctx_alloc(&g_vapi_ctx_instance);
-  if (rv != VAPI_OK)
-    goto err;
-
-  if (!mutex)
+  if (!g_vapi_ctx_instance && !mutex)
     {
+      rv = vapi_ctx_alloc(&g_vapi_ctx_instance);
+      if (rv != VAPI_OK)
+	goto err;
+
       mutex = malloc(sizeof(pthread_mutex_t));
       if (!mutex)
 	goto err_mutex_alloc;
@@ -39,7 +39,7 @@ vapi_error_e vapi_connect_safe(vapi_ctx_t *vapi_ctx_ret, int async) {
 			async ? VAPI_MODE_NONBLOCKING : VAPI_MODE_BLOCKING, true);
 
       if (rv != VAPI_OK)
-	goto err_vapi;
+	goto err;
 
       count++;
     }
@@ -52,8 +52,6 @@ vapi_error_e vapi_connect_safe(vapi_ctx_t *vapi_ctx_ret, int async) {
  err_mutex_init:
   free(mutex);
  err_mutex_alloc:
- err_vapi:
-  vapi_ctx_free(g_vapi_ctx_instance);
  err:
   while (!__sync_bool_compare_and_swap(&lock, 1, 0));
   return VAPI_ENOMEM;
