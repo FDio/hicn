@@ -261,6 +261,20 @@ sync_hicn_fib_entry(hicn_dpo_ctx_t *fib_entry)
   dpo_id_t temp = DPO_INVALID;
   const dpo_id_t *former_dpo = &temp;
   int index = 0;
+
+#define ADD_FACE(nh)                                                                    \
+  do {                                                                                  \
+    /* Careful, this adds a lock on the face if it exists */                            \
+    hicn_face_add(dpo, nh, sw_if, &face_id, 0);                                         \
+    vec_validate(vec_faces, index);                                                     \
+    vec_faces[index] = face_id;                                                         \
+    (index)++;                                                                          \
+                                                                                        \
+    /* Face creation can realloc load_balance_t? Seem the fib_tracking does so. */      \
+    dpo_loadbalance = fib_entry_contribute_ip_forwarding (fib_entry->fib_entry_index);  \
+    lb0 = load_balance_get(dpo_loadbalance->dpoi_index);                                \
+  } while (0)                                                                           \
+
   for (int j = 0; j < lb0->lb_n_buckets; j++) {
     const dpo_id_t * dpo = load_balance_get_bucket_i(lb0,j);
 
@@ -282,42 +296,33 @@ sync_hicn_fib_entry(hicn_dpo_ctx_t *fib_entry)
         ip_adjacency_t * adj = adj_get (dpo->dpoi_index);
         sw_if = adj->rewrite_header.sw_if_index;
         nh = get_address (&(adj->sub_type.nbr.next_hop), sw_if, fib_entry->proto);
+        ADD_FACE(nh);
       }
     else if (dpo->dpoi_type == dpo_type_udp_ip4 || dpo->dpoi_type == dpo_type_udp_ip6)
       {
         u8 proto = dpo->dpoi_type == dpo_type_udp_ip4 ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
-        nh = calloc (1, sizeof(ip46_address_t));
+        ip46_address_t _nh = {0};
+        nh = &_nh;
         switch (dpo->dpoi_proto)
           {
           case FIB_PROTOCOL_IP6:
-            nh = calloc (1, sizeof(ip46_address_t));
-            ip46_address_set_ip6(nh, &localhost6);
-            break;
           case FIB_PROTOCOL_IP4:
-            nh = calloc (1, sizeof(ip46_address_t));
+            /**
+             * Independently of the type of tunnel, encapsulated packet
+             * can be either v6 or v4, so we need to create 2 faces for each
+             * version. Tunneled hicn packet MUST have locator set to the loopback
+             * address, so ::1 for IPv6 and 127.0.0.1 for IPv4.
+             */
+            ip46_address_set_ip6(nh, &localhost6);
+            ADD_FACE(nh);
             ip46_address_set_ip4(nh, &localhost4);
+            ADD_FACE(nh);
             break;
           default:
-            nh = calloc (1, sizeof(ip46_address_t));
+            continue;
           }
         udp_tunnel_add_existing (dpo->dpoi_index, proto);
       }
-    else //if (dpo_is_drop(dpo))
-      {
-        sw_if = dpo_get_urpf(dpo);
-        nh = calloc (1, sizeof(ip46_address_t));
-      }
-
-    /* Careful, this adds a lock on the face if it exists */
-    hicn_face_add(dpo, nh, sw_if, &face_id, 0);
-
-    vec_validate(vec_faces, index);
-    vec_faces[index] = face_id;
-    index++;
-
-    /* Face creation can realloc load_balance_t? Seem the fib_tracking does so. */
-    dpo_loadbalance = fib_entry_contribute_ip_forwarding (fib_entry->fib_entry_index);
-    lb0 = load_balance_get(dpo_loadbalance->dpoi_index);
   }
 
   const hicn_dpo_vft_t * strategy_vft = hicn_dpo_get_vft(fib_entry->dpo_type);

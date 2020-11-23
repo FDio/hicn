@@ -49,7 +49,10 @@ class ForwarderInterface {
         inet6_address_({}),
         mtu_(1500),
         output_interface_(""),
-        content_store_reserved_(standard_cs_reserved) {}
+        content_store_reserved_(standard_cs_reserved) {
+    inet_address_.v4.as_u32 = htonl(0x7f00001);
+    inet6_address_.v6.as_u8[15] = 0x01;
+  }
 
  public:
   virtual ~ForwarderInterface() {}
