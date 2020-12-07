@@ -228,6 +228,7 @@ ListenerOps *hicnListener_CreateInet(Forwarder *forwarder, char *symbolic,
 
   hicn->forwarder = forwarder;
   hicn->listenerName = parcMemory_StringDuplicate(symbolic, strlen(symbolic));
+  hicn->logger = logger_Acquire(forwarder_GetLogger(forwarder));
 
   hicn->conn_id = forwarder_GetNextConnectionId(forwarder);
   hicn->inetFamily = IPv4;

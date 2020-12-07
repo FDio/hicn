@@ -63,6 +63,8 @@
 #include "interfaces/android_utility/android_utility.h"
 #endif /* WITH_ANDROID_UTILITY */
 
+#include "interfaces/priority_controller/priority_controller.h"
+
 #include <hicn/ctrl/face.h>
 #include <hicn/facemgr/facelet.h>
 #include "common.h"
@@ -2258,7 +2260,12 @@ facemgr_bootstrap(facemgr_t * facemgr)
 
 #ifdef WITH_PRIORITY_CONTROLLER
     INFO("[facemgr_bootstrap] creating priority_controller interface");
-    rc = facemgr_create_interface(facemgr, "pc", "priority_controller", NULL, &facemgr->pc);
+    priority_controller_cfg_t pc_cfg = {
+#ifdef PRIORITY_CONTROLLER_INTERNAL
+        .jvm = facemgr->jvm,
+#endif /* PRIORITY_CONTROLLER_INTERNAL */
+    };
+    rc = facemgr_create_interface(facemgr, "pc", "priority_controller", &pc_cfg, &facemgr->pc);
     if (rc < 0) {
         ERROR("Error creating 'Priority Controller' interface\n");
         goto ERR_PC_CREATE;
