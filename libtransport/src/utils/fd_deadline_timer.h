@@ -17,15 +17,13 @@
 
 #include <hicn/transport/errors/runtime_exception.h>
 #include <hicn/transport/utils/log.h>
-
+#include <sys/timerfd.h>
+#include <unistd.h>
 #include <utils/deadline_timer.h>
 #include <utils/epoll_event_reactor.h>
 
 #include <chrono>
 #include <cstddef>
-
-#include <sys/timerfd.h>
-#include <unistd.h>
 
 namespace utils {
 
@@ -36,7 +34,8 @@ class FdDeadlineTimer : public DeadlineTimer<FdDeadlineTimer> {
         timer_fd_(timerfd_create(CLOCK_MONOTONIC, 0)),
         flags_(0) {
     if (timer_fd_ == -1) {
-      throw errors::RuntimeException("Impossible to create the timer!");
+      throw errors::RuntimeException(
+          "Impossible to create the timer! Error: %s", strerror(errno));
     }
   }
 
