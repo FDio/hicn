@@ -18,5 +18,5 @@ project(ctrl)
 add_subdirectory(libhicnctrl)
 
 if (NOT (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux"))
-    add_subdirectory(facemgr)
+#    add_subdirectory(facemgr)
 endif ()
