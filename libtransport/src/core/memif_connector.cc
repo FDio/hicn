@@ -267,6 +267,7 @@ int MemifConnector::bufferAlloc(long n, uint16_t qid) {
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
     TRANSPORT_LOGE("memif_buffer_alloc: %s", memif_strerror(err));
+    return -1;
   }
 
   c->tx_buf_num += r;
