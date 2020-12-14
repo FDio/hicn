@@ -74,6 +74,7 @@ int priority_controller_tick(interface_t * interface, int fd, void * unused)
     unsigned new_state = PREFER_BOTH;
 
     jint rssi = (*data->env)->CallStaticIntMethod(data->env, data->cls, data->mid);
+    DEBUG("[priority_controller_tick] rssi=%d\n", rssi);
     if (rssi > -67) {
         new_state = PREFER_WIFI;
 
@@ -89,7 +90,7 @@ int priority_controller_tick(interface_t * interface, int fd, void * unused)
     if (new_state == data->state)
         return 0;
 
-    ERROR("Setting priority to %s", prefer_str[new_state]);
+    ERROR("[priority_controller_tick] Setting priority to %s", prefer_str[new_state]);
 
     /* XXX Factor this */
 
@@ -130,7 +131,6 @@ int priority_controller_tick(interface_t * interface, int fd, void * unused)
 int priority_controller_initialize(interface_t * interface, void * cfg)
 {
     INFO("Initializing priority controller");
-    struct sockaddr_in addr;
 
     pc_data_t * data = malloc(sizeof(pc_data_t));
     if (!data) {
@@ -165,6 +165,7 @@ int priority_controller_initialize(interface_t * interface, void * cfg)
     data->state = PREFER_BOTH;
 
 #else /* PRIORITY_CONTROLLER_INTERNAL */
+    struct sockaddr_in addr;
 
     data->fd = socket(AF_INET, SOCK_DGRAM, 0);
     //data->fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -184,6 +185,8 @@ int priority_controller_initialize(interface_t * interface, void * cfg)
         perror("bind error");
         goto ERR_BIND;
     }
+
+    DEBUG("[priority_controller_initialize] register fd");
     if (interface_register_fd(interface, data->fd, NULL) < 0) {
         ERROR("[priority_controller_initialize] Error registering fd");
         goto ERR_FD;
@@ -214,10 +217,13 @@ int priority_controller_finalize(interface_t * interface)
     pc_data_t * data = (pc_data_t*)interface->data;
 
 #ifdef PRIORITY_CONTROLLER_INTERNAL
+    DEBUG("[priority_controller_finalize] unregister timer");
     interface_unregister_timer(interface, data->fd);
 #else
-    if (data->fd > 0)
+    if (data->fd > 0) {
+        interface_unregister_fd(interface, data->fd);
         close(data->fd);
+    }
     free(data);
 #endif /* PRIORITY_CONTROLLER_INTERNAL */
 
