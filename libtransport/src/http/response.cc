@@ -98,7 +98,10 @@ std::size_t HTTPResponse::parseHeaders(const uint8_t *buffer, std::size_t size,
             value_start++;
           }
           if (value_start < line.size()) {
-            headers[line.substr(0, param_end)] =
+            auto header = line.substr(0, param_end);
+            std::transform(header.begin(), header.end(), header.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            headers[header] =
                 line.substr(value_start, line.size() - value_start - 1);
           }
         }
