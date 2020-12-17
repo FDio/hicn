@@ -33,7 +33,7 @@ function build_package() {
 
         # First round - Without libmemif
         cmake  -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ..
-        ninja -j8 package
+        ninja -j2 package
 
         # Second round - With Libmemif
         rm -rf libtransport ctrl/libhicnctrl
@@ -46,7 +46,7 @@ function build_package() {
                        -DBUILD_TELEMETRY=ON          \
                        ${SCRIPT_PATH}/..
 
-        ninja -j8 package
+        ninja -j2 package
 
         find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
         rm *Unspecified* || true
