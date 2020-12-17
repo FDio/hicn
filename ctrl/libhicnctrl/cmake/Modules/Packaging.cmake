@@ -32,7 +32,7 @@ if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   )
 
   set(${LIBHICNCTRL_COMPONENT}-dev_DEB_DEPENDENCIES
-    "${LIBHICNCTRL_COMPONENT} (>= stable_version), hicn-plugin-dev (>= stable_version-release), hicn-plugin-dev (<< next_version-release)"
+    "${LIBHICNCTRL_COMPONENT} (>= stable_version), hicn-plugin-dev (>= stable_version)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
@@ -42,7 +42,7 @@ if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   )
 
   set(${LIBHICNCTRL_COMPONENT}-dev_RPM_DEPENDENCIES
-    "${LIBHICNCTRL_COMPONENT} >= stable_version, hicn-plugin-dev >= stable_version-release, hicn-plugin-dev < next_version-release"
+    "${LIBHICNCTRL_COMPONENT} >= stable_version, hicn-plugin-dev >= stable_version"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
