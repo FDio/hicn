@@ -354,7 +354,9 @@ char *nameBitvector_ToString(const NameBitvector *name) {
 
   Address *packetAddr = nameBitvector_ToAddress(name);
 
-  sprintf(output, "prefix: %s len: %u", addressToString(packetAddr), name->len);
+  char * str = addressToString(packetAddr);
+  sprintf(output, "prefix: %s len: %u", str, name->len);
+  parcMemory_Deallocate((void **)&str);
 
   addressDestroy(&packetAddr);
 

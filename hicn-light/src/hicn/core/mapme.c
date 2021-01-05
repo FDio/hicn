@@ -146,7 +146,7 @@ ERR_MALLOC:
 
 void mapmeTFIB_Release(MapMeTFIB **tfibPtr) {
   MapMeTFIB *tfib = *tfibPtr;
-  /* TODO; Release all timers */
+  /* TODO; Release all timers: see mapmeTFIB_Remove */
   parcHashMap_Release(&tfib->nexthops);
   free(tfib);
   *tfibPtr = NULL;
@@ -177,9 +177,13 @@ static const PARCEventTimer *mapmeTFIB_Get(const MapMeTFIB *tfib,
   const PARCBuffer *buffer;
   PARCUnsigned *cid = parcUnsigned_Create(conn_id);
   buffer = parcHashMap_Get(tfib->nexthops, cid);
-  if (!buffer) return NULL;
+  if (!buffer) {
+    timer = NULL;
+    goto END;
+  }
   PARCByteArray *array = parcBuffer_Array(buffer);
   timer = *((PARCEventTimer **)parcByteArray_Array(array));
+END:
   parcUnsigned_Release(&cid);
   return timer;
 }
@@ -200,14 +204,37 @@ static void mapmeTFIB_Put(MapMeTFIB *tfib, unsigned conn_id,
   parcBuffer_Release(&buffer);
 }
 
-static void mapmeTFIB_Remove(MapMeTFIB *tfib, unsigned conn_id) {
-  // Who releases the timer ?
+static void mapmeTFIB_Remove(const MapMe * mapme, MapMeTFIB *tfib, unsigned conn_id) {
   PARCUnsigned *cid = parcUnsigned_Create(conn_id);
+
+  /* Release timer */
+  const PARCBuffer *buffer = parcHashMap_Get(tfib->nexthops, cid);
+  if (buffer) {
+    PARCByteArray *array = parcBuffer_Array(buffer);
+    PARCEventTimer * timer = *((PARCEventTimer **)parcByteArray_Array(array));
+    if (timer) {
+      Dispatcher *dispatcher = forwarder_GetDispatcher(mapme->forwarder);
+      dispatcher_DestroyTimerEvent(dispatcher, &timer);
+    }
+  }
+
   parcHashMap_Remove(tfib->nexthops, cid);
   parcUnsigned_Release(&cid);
 }
 
 static PARCIterator *mapmeTFIB_CreateKeyIterator(const MapMeTFIB *tfib) {
+  /*
+   * Creating an iterator on an empty HashMap seems to raise an exception
+   * due to :
+   *   parcTrapOutOfMemoryIf(state->listIterator == NULL,
+   *     "Cannot create parcLinkedList_CreateIterator");
+   * in : _parcHashMap_Init
+   *
+   * All buckets are empty, as they are after creation, and as they should be,
+   * but the error is triggered.
+   */
+  if (parcHashMap_Size(tfib->nexthops) == 0)
+      return NULL;
   return parcHashMap_CreateKeyIterator(tfib->nexthops);
 }
 
@@ -368,7 +395,7 @@ static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
         PARCEventTimer *oldTimer = (PARCEventTimer *)mapmeTFIB_Get(TFIB(fibEntry), conn_id);
         if (oldTimer)
           parcEventTimer_Stop(oldTimer);
-        mapmeTFIB_Remove(TFIB(fibEntry), conn_id);
+        mapmeTFIB_Remove(mapme, TFIB(fibEntry), conn_id);
       }
 
       numberSet_Release(&conns);
@@ -402,6 +429,7 @@ static bool mapme_setFacePending(const MapMe *mapme, const Name *name,
               name_str, params.seq, conn_id);
       free(name_str);
       connection_ReSend(conn, special_interest, NOT_A_NOTIFICATION);
+      parcMemory_Deallocate((void**)&special_interest);
     } else {
       INFO(mapme, "[MAP-Me] Stopped retransmissions as face went down");
     }
@@ -743,15 +771,18 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
     INFO(mapme, "[MAP-Me]   - (1/3) processing prev hops");
     if (params->type == UPDATE) {
       PARCIterator *iterator = mapmeTFIB_CreateKeyIterator(TFIB(fibEntry));
-      while (parcIterator_HasNext(iterator)) {
-        PARCUnsigned *cid = parcIterator_Next(iterator);
-        unsigned conn_id = parcUnsigned_GetUnsigned(cid);
-        INFO(mapme, "[MAP-Me]   - Re-sending IU to pending connection %d",
-             conn_id);
-        mapme_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
-                             conn_id, false, false, false, 0);
+      if (iterator) {
+        /* No iterator is created if the TFIB is empty */
+        while (parcIterator_HasNext(iterator)) {
+          PARCUnsigned *cid = parcIterator_Next(iterator);
+          unsigned conn_id = parcUnsigned_GetUnsigned(cid);
+          INFO(mapme, "[MAP-Me]   - Re-sending IU to pending connection %d",
+               conn_id);
+          mapme_setFacePending(mapme, fibEntry_GetPrefix(fibEntry), fibEntry,
+                               conn_id, false, false, false, 0);
+        }
+        parcIterator_Release(&iterator);
       }
-      parcIterator_Release(&iterator);
     }
 
     /* nextHops -> prevHops
@@ -791,7 +822,7 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
       INFO(mapme, "[MAP-Me]   - Canceled pending timer");
       parcEventTimer_Stop(oldTimer);
     }
-    mapmeTFIB_Remove(TFIB(fibEntry), conn_in_id);
+    mapmeTFIB_Remove(mapme, TFIB(fibEntry), conn_in_id);
 
     /* Remove all next hops */
     for (size_t k = 0; k < numberSet_Length(nexthops); k++) {
@@ -934,7 +965,7 @@ void mapme_onSpecialInterestAck(const MapMe *mapme, const uint8_t *msgBuffer,
 
   /* Stop timer and remove entry from TFIB */
   parcEventTimer_Stop(timer);
-  mapmeTFIB_Remove(TFIB(fibEntry), conn_in_id);
+  mapmeTFIB_Remove(mapme, TFIB(fibEntry), conn_in_id);
 
   INFO(mapme, "[MAP-Me]   - Removing TFIB entry for ack on connection %d",
        conn_in_id);

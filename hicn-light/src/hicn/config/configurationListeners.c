@@ -393,10 +393,12 @@ bool _addHicn(Configuration *config, add_listener_command *control,
   if (success == true && localAddress != NULL) {
     if (logger_IsLoggable(configuration_GetLogger(config),
                           LoggerFacility_Config, PARCLogLevel_Info)) {
+      char * str = addressToString(localAddress);
       logger_Log(configuration_GetLogger(config), LoggerFacility_Config,
                  PARCLogLevel_Info, __func__,
                  "Setup hicn listener on address %s",
-                 addressToString(localAddress));
+                 str);
+      parcMemory_Deallocate((void **)&str);
     }
   }
 

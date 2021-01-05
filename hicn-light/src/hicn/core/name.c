@@ -239,8 +239,9 @@ char *name_ToString(const Name *name) {
 
   Address *packetAddr = nameBitvector_ToAddress(name_GetContentName(name));
 
-  sprintf(output, "name: %s seq: %u", addressToString(packetAddr),
-          name->segment);
+  char * address_str = addressToString(packetAddr);
+  sprintf(output, "name: %s seq: %u", address_str, name->segment);
+  parcMemory_Deallocate((void **)&address_str);
 
   addressDestroy(&packetAddr);
 

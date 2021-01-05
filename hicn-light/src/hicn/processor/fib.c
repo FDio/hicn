@@ -431,6 +431,9 @@ void fib_Remove(FIB *fib, const Name *name, unsigned connId) {
     _removeNode(fib, name);
 #endif /* WITH_MAPME */
 
+  // XXX We never release the FIB entry here it seems, including the inner
+  // prefix
+
 }
 
 void _removeConnectionId(FibNode *n, unsigned connectionId,

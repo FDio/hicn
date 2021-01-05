@@ -216,7 +216,10 @@ static void _hicnListener_readcb(int fd, PARCEventType what, void *listener_void
 static bool _isEmptyAddressIPv4(Address *address) {
   bool res = false;
 
-  if (strcmp("inet4://0.0.0.0:1234", addressToString(address)) == 0) res = true;
+  char * str = addressToString(address);
+  if (strcmp("inet4://0.0.0.0:1234", str) == 0) res = true;
+  parcMemory_Deallocate((void**)&str);
+
   return res;
 }
 

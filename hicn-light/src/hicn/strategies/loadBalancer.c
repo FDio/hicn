@@ -355,14 +355,14 @@ static void _strategyLoadBalancer_ImplDestroy(StrategyImpl **strategyPtr) {
       parcObject_Release((void **) &state);
     }
     parcIterator_Release(&it);
+  }
 
-    parcHashMap_Release(&(strategy->strategy_state));
+  parcHashMap_Release(&(strategy->strategy_state));
 #ifndef WITH_POLICY
-    numberSet_Release(&(strategy->nexthops));
+  numberSet_Release(&(strategy->nexthops));
 #endif /* ! WITH_POLICY */
 
-    parcMemory_Deallocate((void **) &strategy);
-    parcMemory_Deallocate((void **) &impl);
-    *strategyPtr = NULL;
-  }
+  parcMemory_Deallocate((void **) &strategy);
+  parcMemory_Deallocate((void **) &impl);
+  *strategyPtr = NULL;
 }
