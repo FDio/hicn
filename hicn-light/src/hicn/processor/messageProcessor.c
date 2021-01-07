@@ -619,6 +619,7 @@ static bool messageProcessor_ForwardViaFib(MessageProcessor *processor,
     }
   }
 
+  numberSet_Release(&nexthops);
   return false;
 }
 

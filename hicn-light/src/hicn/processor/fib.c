@@ -236,6 +236,8 @@ void fib_Add(FIB *fib, FibEntry *entry) {
     inner_node ->right = curr;
   }
   fib->size ++;
+
+  name_Release(&inner_prefix);
 }
 
 FibEntry *fib_Contains(const FIB *fib, const Name *prefix) {

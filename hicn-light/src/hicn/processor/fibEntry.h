@@ -99,13 +99,6 @@ size_t fibEntry_NexthopCount(const FibEntry *fibEntry);
  */
 const NumberSet *fibEntry_GetNexthops(const FibEntry *fibEntry);
 
-const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
-#ifdef WITH_POLICY
-    FibEntry *fibEntry, const Message *interestMessage, bool is_retransmission);
-#else
-    const FibEntry *fibEntry, const Message *interestMessage);
-#endif /* WITH_POLICY */
-
 #ifdef WITH_POLICY
 void fibEntry_ReceiveObjectMessage(FibEntry *fibEntry,
 #else

@@ -633,6 +633,7 @@ static void _readcb(int fd, PARCEventType what, void * listener_void) {
 
     if(readLength < 0) {
       printf("unable to read the message\n");
+      parcMemory_Deallocate(packet);
       return;
     }
 
