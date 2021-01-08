@@ -329,14 +329,14 @@ typedef struct {
   ip_address_t address;
   uint8_t addressType;
   uint8_t len;
-  policy_t policy;
+  hicn_policy_t policy;
 } add_policy_command;
 
 typedef struct {
   ip_address_t address;
   uint8_t addressType;
   uint8_t len;
-  policy_t policy;
+  hicn_policy_t policy;
 } list_policies_command;
 
 typedef struct {

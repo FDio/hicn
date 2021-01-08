@@ -139,7 +139,7 @@ static CommandReturn _controlAddPolicy_Execute(CommandParser *parser,
 
   addPolicyCommand->len = len;
 
-  policy_t policy;
+  hicn_policy_t policy;
   snprintf((char*)policy.app_name, APP_NAME_LEN, "%s", (char*)parcList_GetAtIndex(args, 3));
   for (int i=4; i < 11; i++) {
     const char *tag = parcList_GetAtIndex(args, i);
