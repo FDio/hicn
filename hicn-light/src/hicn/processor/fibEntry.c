@@ -55,7 +55,7 @@ struct fib_entry {
 #ifdef WITH_POLICY
   NumberSet *nexthops;
   const Forwarder * forwarder;
-  policy_t policy;
+  hicn_policy_t policy;
   policy_counters_t policy_counters;
 //  NumberSet *available_nexthops;
 #ifdef WITH_MAPME
@@ -198,7 +198,7 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
   ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
   NumberSet * nexthops;
   bool dealloc_nexthops = false;
-  policy_t policy = fibEntry_GetPolicy(fibEntry);
+  hicn_policy_t policy = fibEntry_GetPolicy(fibEntry);
 
   /* Reset available next hops and start filtering */
   NumberSet * available_nexthops = numberSet_Create();
@@ -465,11 +465,11 @@ fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection) 
   return priority_nexthops;
 }
 
-policy_t fibEntry_GetPolicy(const FibEntry *fibEntry) {
+hicn_policy_t fibEntry_GetPolicy(const FibEntry *fibEntry) {
   return fibEntry->policy;
 }
 
-void fibEntry_SetPolicy(FibEntry *fibEntry, policy_t policy) {
+void fibEntry_SetPolicy(FibEntry *fibEntry, hicn_policy_t policy) {
   fibEntry->policy = policy;
   mapme_reconsiderFibEntry(forwarder_getMapmeInstance(fibEntry->forwarder), fibEntry);
 }
@@ -541,7 +541,7 @@ const NumberSet *fibEntry_GetNexthopsFromForwardingStrategy(
   ConnectionTable * table = forwarder_GetConnectionTable(fibEntry->forwarder);
   unsigned in_connection = message_GetIngressConnectionId(interestMessage);
 
-  policy_t policy = fibEntry_GetPolicy(fibEntry);
+  hicn_policy_t policy = fibEntry_GetPolicy(fibEntry);
 
   NumberSet * out;
 

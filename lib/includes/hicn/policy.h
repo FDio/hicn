@@ -217,9 +217,9 @@ typedef struct {
     char app_name[APP_NAME_LEN];
     policy_tag_state_t tags[POLICY_TAG_N];
     policy_stats_t stats;
-} policy_t;
+} hicn_policy_t;
 
-static const policy_t POLICY_NONE = {
+static const hicn_policy_t POLICY_NONE = {
     .app_name = { 0 },
     .tags = {
 #define _(x, y) [POLICY_TAG_ ## x] = { POLICY_STATE_NEUTRAL, 0 },
@@ -240,7 +240,7 @@ typedef struct {
         char ipv4_prefix[INET_ADDRSTRLEN + PFX_STRLEN];
         char ipv6_prefix[INET6_ADDRSTRLEN + PFX_STRLEN];
     };
-    policy_t policy;
+    hicn_policy_t policy;
 } policy_description_t;
 
 #endif /* HICN_POLICY_H */

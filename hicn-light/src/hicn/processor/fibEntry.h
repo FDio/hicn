@@ -117,9 +117,9 @@ void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
                                    Ticks objReception);
 
 #ifdef WITH_POLICY
-policy_t fibEntry_GetPolicy(const FibEntry *fibEntry);
+hicn_policy_t fibEntry_GetPolicy(const FibEntry *fibEntry);
 void fibEntry_ReconsiderPolicy(FibEntry *fibEntry);
-void fibEntry_SetPolicy(FibEntry *fibEntry, policy_t policy);
+void fibEntry_SetPolicy(FibEntry *fibEntry, hicn_policy_t policy);
 void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now);
 NumberSet * fibEntry_GetAvailableNextHops(const FibEntry *fibEntry, unsigned in_connection);
 NumberSet * fibEntry_GetPreviousNextHops(const FibEntry *fibEntry);

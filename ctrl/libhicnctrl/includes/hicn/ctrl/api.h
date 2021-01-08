@@ -711,7 +711,7 @@ typedef struct {
   int family;               /* Krw */
   ip_address_t remote_addr; /* krw */
   u8 len;                   /* krw */
-  policy_t policy;          /* .rw */
+  hicn_policy_t policy;          /* .rw */
 } hc_policy_t;
 
 int hc_policy_parse(void *in, hc_policy_t *policy);
