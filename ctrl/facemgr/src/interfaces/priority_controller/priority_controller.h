@@ -27,7 +27,7 @@
  * Uncomment this line to use a Priority controller interface internal to the
  * face manager (only available in Android).
  */
-#define PRIORITY_CONTROLLER_INTERNAL
+// #define PRIORITY_CONTROLLER_INTERNAL
 
 #ifdef __ANDROID__
 #include <jni.h>
