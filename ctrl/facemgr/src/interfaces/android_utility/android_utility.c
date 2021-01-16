@@ -28,7 +28,7 @@
 
 #include "android_utility.h"
 
-#define FACEMGR_ANDROID_UTILITY_CLASS "com/cisco/hicn/forwarder/supportlibrary/AndroidUtility"
+#define FACEMGR_UTILITY_CLASS "com/cisco/hicn/facemgrlibrary/supportlibrary/FacemgrUtility"
 
 
 #define AU_INTERFACE_TYPE_UNDEFINED 0
@@ -89,7 +89,7 @@ int au_on_event(interface_t * interface, facelet_t * facelet)
     JNIEnv *env;
     JavaVM *jvm = data->cfg.jvm;
     (*jvm)->AttachCurrentThread(jvm, &env, NULL);
-    jclass cls = (*env)->FindClass(env, FACEMGR_ANDROID_UTILITY_CLASS);
+    jclass cls = (*env)->FindClass(env, FACEMGR_UTILITY_CLASS);
     jmethodID getNetworkType = (*env)->GetStaticMethodID(env, cls,
             "getNetworkType", "(Ljava/lang/String;)I");
     jint interface_type = (*env)->CallStaticIntMethod(env, cls, getNetworkType,
