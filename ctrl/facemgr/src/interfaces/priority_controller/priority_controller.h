@@ -21,7 +21,7 @@
 #ifndef FACEMGR_INTERFACE_PRIORITY_CONTROLLER
 #define FACEMGR_INTERFACE_PRIORITY_CONTROLLER
 
-#define FACEMGR_ANDROID_UTILITY_CLASS "com/cisco/hicn/forwarder/supportlibrary/AndroidUtility"
+#define FACEMGR_UTILITY_CLASS "com/cisco/hicn/facemgrlibrary/supportlibrary/FacemgrUtility"
 
 /*
  * Uncomment this line to use a Priority controller interface internal to the
