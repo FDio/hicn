@@ -412,6 +412,14 @@ void forwarder_Receive(Forwarder *forwarder, Message *message) {
       forwarder->connectionTable, message_GetIngressConnectionId(message));
 
   if (!conn) {
+    /*
+     * Drop is a static method in messageProcessor which might or might not need
+     * to be called for accounting purposes. This call was initially absent so
+     * the behaviour was kept like this, as this situation is unlikely. We need
+     * to release memory though, as this is not done in Drop anyways.
+     */
+    //messageProcessor_Drop(forwarder->processor, message);
+    message_Release(&message);
     return;
   }
 
