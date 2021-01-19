@@ -1490,20 +1490,28 @@ void configuration_ReceiveCommand(Configuration *config, command_id command,
       configuration_DispatchCommand(config, command, request, ingressId);
   configuration_SendResponse(config, response, ingressId);
 
+  /*
+   * For list commands:
+   *  - deallocate request
+   *  - deallocate response _payload_
+   *
+   * For other commands, generating a ACK/NACK packet:
+   *  - deallocate request
+   *  - deallocate response, as the ACK/Nack is allocated
+   */
+  parcMemory_Deallocate(&request);
+
   switch (command) {
     case LIST_CONNECTIONS:
     case LIST_ROUTES:  // case LIST_INTERFACES: case ETC...:
     case LIST_LISTENERS:
-      parcMemory_Deallocate(
-          &response[1]
-               .iov_base);  // deallocate payload only if generated at fwd side
+    case LIST_POLICIES:
+      /* Deallocate payload */
+      parcMemory_Deallocate(&response[1] .iov_base);
       break;
     default:
+      parcMemory_Deallocate(&response);
       break;
   }
 
-  // deallocate received request. It coincides with response[0].iov_base memory
-  // parcMemory_Deallocate(&request);    //deallocate header and payload (if
-  // same sent by controller)
-  parcMemory_Deallocate(&response);  // deallocate iovec pointer
 }
