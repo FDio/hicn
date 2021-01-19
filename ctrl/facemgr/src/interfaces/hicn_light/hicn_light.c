@@ -642,6 +642,11 @@ int hl_callback(interface_t * interface, int fd, void * unused)
                 /* We can ignore faces on localhost */
 
                 facelet_t * facelet = facelet_create_from_face(&f->face);
+                if (!facelet) {
+                    ERROR("[hl_callback] Could not create facelet... skipping");
+                    continue;
+                }
+
                 foreach_route(r, data->polled_routes) {
                     if (r->face_id != f->id)
                         continue;
