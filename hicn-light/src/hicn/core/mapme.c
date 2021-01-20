@@ -694,6 +694,9 @@ static bool mapme_onSpecialInterest(const MapMe *mapme,
   FIB *fib = forwarder_getFib(mapme->forwarder);
 
   FibEntry *fibEntry = fib_Contains(fib, name);
+
+  name_Release(&name);
+
   if (!fibEntry) {
     INFO(mapme, "Ignored update with no FIB entry");
     return 0;

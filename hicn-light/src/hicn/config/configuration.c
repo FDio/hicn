@@ -1491,13 +1491,25 @@ void configuration_ReceiveCommand(Configuration *config, command_id command,
   configuration_SendResponse(config, response, ingressId);
 
   /*
-   * For list commands:
-   *  - deallocate request
-   *  - deallocate response _payload_
+   * The message is originally received by a listener, and will be freed in
+   * different parts of the code.
    *
-   * For other commands, generating a ACK/NACK packet:
-   *  - deallocate request
-   *  - deallocate response, as the ACK/Nack is allocated
+   * For the special case of commands, a iovec is created, eg in
+   * udpListener::_readCommand, which has to be freed (it is commented in the
+   * listener). On the contrary, the original message is freed.
+   *
+   * From this function, commands are dispatched to different processing
+   * functions, which have two general behaviours:
+   *
+   * - LIST commands:
+   *   . a payload for the response is allocated
+   *   . a iovec for the response is allocated with header = request header,
+   *   payload = newly allocated payload
+   *
+   * - Other commands:
+   *   . a ack/nack packet is generated thanks to utils/utils.cc
+   *   . this allocates a iovec which reuses the header of the request just
+   *   updating the messageType field inside.
    */
   parcMemory_Deallocate(&request);
 
@@ -1507,11 +1519,11 @@ void configuration_ReceiveCommand(Configuration *config, command_id command,
     case LIST_LISTENERS:
     case LIST_POLICIES:
       /* Deallocate payload */
-      parcMemory_Deallocate(&response[1] .iov_base);
+      parcMemory_Deallocate(&response[1].iov_base);
       break;
     default:
-      parcMemory_Deallocate(&response);
       break;
   }
 
+  parcMemory_Deallocate(&response);
 }
