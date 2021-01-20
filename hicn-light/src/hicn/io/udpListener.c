@@ -481,6 +481,7 @@ static void _handleWldrNotification(UdpListener *udp, unsigned connId,
   const Connection *conn = connectionTable_FindById(
       forwarder_GetConnectionTable(udp->forwarder), connId);
   if (conn == NULL) {
+    parcMemory_Deallocate((void **)&msgBuffer);
     return;
   }
 
@@ -556,6 +557,7 @@ static void _readCommand(ListenerOps * listener, int fd,
 
   if (*command != REQUEST_LIGHT){
     printf("the message received is not a command, drop\n");
+    parcMemory_Deallocate((void **) &command);
     return;
   }
 
@@ -563,6 +565,7 @@ static void _readCommand(ListenerOps * listener, int fd,
 
   if (id >= LAST_COMMAND_VALUE){
     printf("the message received is not a valid command, drop\n");
+    parcMemory_Deallocate((void **) &command);
     return;
   }
 
@@ -588,7 +591,7 @@ static void _readCommand(ListenerOps * listener, int fd,
 
   forwarder_ReceiveCommand(udp->forwarder, id, request, connid);
   parcMemory_Deallocate((void **) &command);
-  parcMemory_Deallocate((void **) &request);
+  //parcMemory_Deallocate((void **) &request);
 }
 
 

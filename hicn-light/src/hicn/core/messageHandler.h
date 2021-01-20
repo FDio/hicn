@@ -321,7 +321,7 @@ static inline bool messageHandler_handleHooks(Forwarder * forwarder,
   /* ... */
 
   /* END Process */
-
+  parcMemory_Deallocate((void **)&packet);
   return true;
 }
 
