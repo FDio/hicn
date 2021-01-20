@@ -216,8 +216,8 @@ static NumberSet *_strategyLoadBalancer_LookupNexthop(
     PARCUnsigned *cid = parcUnsigned_Create(numberSet_GetItem(nexthops, i));
     const StrategyNexthopState *state =
         parcHashMap_Get(lb->strategy_state, cid);
-    if (!state){
-        parcUnsigned_Release(&cid);
+    if (!state) {
+       parcUnsigned_Release(&cid);
        continue;
     }
     distance -= strategyNexthopState_GetWeight(state);
@@ -227,6 +227,7 @@ static NumberSet *_strategyLoadBalancer_LookupNexthop(
       parcUnsigned_Release(&cid);
       break;
     }
+    parcUnsigned_Release(&cid);
   }
 #else
   unsigned in_connection = message_GetIngressConnectionId(interestMessage);

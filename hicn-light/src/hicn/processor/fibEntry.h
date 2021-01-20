@@ -158,8 +158,8 @@ void *fibEntry_getUserData(const FibEntry *fibEntry);
  * @param [in@ userDataRelease - Callback used to release user data upon change
  *       of FIB entry removal.
  */
-void fibEntry_setUserData(FibEntry *fibEntry, const void *userData,
-                          void (*userDataRelease)(void **));
+void fibEntry_setUserData(FibEntry *fibEntry, const void *userDataOwner,
+        const void *userData, void (*userDataRelease)(const void *, void **));
 
 #endif /* WITH_MAPME */
 

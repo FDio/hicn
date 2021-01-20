@@ -374,6 +374,7 @@ int main(int argc, const char *argv[]) {
     logger_Log(logger, LoggerFacility_Core, PARCLogLevel_Error, "daemon",
                "Forwarder initialization failed. Are you running it with sudo "
                "privileges?");
+    logger_Release(&logger);
     return -1;
   }
 
@@ -402,9 +403,9 @@ int main(int argc, const char *argv[]) {
   forwarder_Destroy(&forwarder);
 
 #ifndef _WIN32
-  sleep(2);
+  //sleep(2);
 #else
-  Sleep(2000);
+  //Sleep(2000);
   WSACleanup();
 #endif
 
