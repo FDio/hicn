@@ -13,12 +13,11 @@
  * limitations under the License.
  */
 
+#include <core/manifest_format_fixed.h>
+#include <core/manifest_inline.h>
 #include <gtest/gtest.h>
+#include <hicn/transport/security/crypto_hash_type.h>
 
-#include "../manifest_format_fixed.h"
-#include "../manifest_inline.h"
-
-#include <test.h>
 #include <random>
 #include <vector>
 
@@ -72,42 +71,13 @@ class ManifestTest : public ::testing::Test {
 
 }  // namespace
 
-TEST_F(ManifestTest, ManifestCreate) {
-  ContentObjectManifest manifest2(name_);
-  ContentObjectManifest manifest3 = manifest2;
-
-  EXPECT_EQ(manifest1_, manifest2);
-  EXPECT_EQ(manifest1_, manifest3);
-}
-
-TEST_F(ManifestTest, ManifestCreateFromBase) {
-  ContentObject content_object(name_);
-  content_object.setPayload(manifest_payload.data(), manifest_payload.size());
-  ContentObjectManifest manifest(std::move(content_object));
-
-  auto manifest4 = ContentObjectManifest::createManifest(
-      name_, core::ManifestVersion::VERSION_1,
-      core::ManifestType::INLINE_MANIFEST, HashAlgorithm::SHA_256, true,
-      core::Name("b001::dead"),
-      core::NextSegmentCalculationStrategy::INCREMENTAL, 128);
-
-  manifest4->encode();
-  manifest4->dump();
-  manifest.dump();
-
-  EXPECT_EQ(manifest1_, manifest);
-  //  EXPECT_EQ(manifest1_, manifest3);
-}
-
 TEST_F(ManifestTest, SetLastManifest) {
   manifest1_.clear();
 
   manifest1_.setFinalManifest(true);
-  manifest1_.encode();
-  manifest1_.decode();
   bool fcn = manifest1_.isFinalManifest();
 
-  ASSERT_TRUE(fcn);
+  ASSERT_TRUE(fcn == true);
 }
 
 TEST_F(ManifestTest, SetManifestType) {
@@ -117,15 +87,11 @@ TEST_F(ManifestTest, SetManifestType) {
   ManifestType type2 = ManifestType::FLIC_MANIFEST;
 
   manifest1_.setManifestType(type1);
-  manifest1_.encode();
-  manifest1_.decode();
   ManifestType type_returned1 = manifest1_.getManifestType();
 
   manifest1_.clear();
 
   manifest1_.setManifestType(type2);
-  manifest1_.encode();
-  manifest1_.decode();
   ManifestType type_returned2 = manifest1_.getManifestType();
 
   ASSERT_EQ(type1, type_returned1);
@@ -135,28 +101,22 @@ TEST_F(ManifestTest, SetManifestType) {
 TEST_F(ManifestTest, SetHashAlgorithm) {
   manifest1_.clear();
 
-  HashAlgorithm hash1 = HashAlgorithm::SHA_512;
-  HashAlgorithm hash2 = HashAlgorithm::CRC32C;
-  HashAlgorithm hash3 = HashAlgorithm::SHA_256;
+  utils::CryptoHashType hash1 = utils::CryptoHashType::SHA_512;
+  utils::CryptoHashType hash2 = utils::CryptoHashType::CRC32C;
+  utils::CryptoHashType hash3 = utils::CryptoHashType::SHA_256;
 
   manifest1_.setHashAlgorithm(hash1);
-  manifest1_.encode();
-  manifest1_.decode();
-  HashAlgorithm type_returned1 = manifest1_.getHashAlgorithm();
+  auto type_returned1 = manifest1_.getHashAlgorithm();
 
   manifest1_.clear();
 
   manifest1_.setHashAlgorithm(hash2);
-  manifest1_.encode();
-  manifest1_.decode();
-  HashAlgorithm type_returned2 = manifest1_.getHashAlgorithm();
+  auto type_returned2 = manifest1_.getHashAlgorithm();
 
   manifest1_.clear();
 
   manifest1_.setHashAlgorithm(hash3);
-  manifest1_.encode();
-  manifest1_.decode();
-  HashAlgorithm type_returned3 = manifest1_.getHashAlgorithm();
+  auto type_returned3 = manifest1_.getHashAlgorithm();
 
   ASSERT_EQ(hash1, type_returned1);
   ASSERT_EQ(hash2, type_returned2);
@@ -170,8 +130,6 @@ TEST_F(ManifestTest, SetNextSegmentCalculationStrategy) {
       NextSegmentCalculationStrategy::INCREMENTAL;
 
   manifest1_.setNextSegmentCalculationStrategy(strategy1);
-  manifest1_.encode();
-  manifest1_.decode();
   NextSegmentCalculationStrategy type_returned1 =
       manifest1_.getNextSegmentCalculationStrategy();
 
@@ -183,8 +141,6 @@ TEST_F(ManifestTest, SetBaseName) {
 
   core::Name base_name("b001::dead");
   manifest1_.setBaseName(base_name);
-  manifest1_.encode();
-  manifest1_.decode();
   core::Name ret_name = manifest1_.getBaseName();
 
   ASSERT_EQ(base_name, ret_name);
@@ -220,15 +176,12 @@ TEST_F(ManifestTest, SetSuffixList) {
 
   manifest1_.setBaseName(base_name);
 
-  manifest1_.encode();
-  manifest1_.decode();
-
   core::Name ret_name = manifest1_.getBaseName();
 
   // auto & hash_list = manifest1_.getSuffixHashList();
 
-  bool cond;
-  int i = 0;
+  // bool cond;
+  // int i = 0;
 
   // for (auto & item : manifest1_.getSuffixList()) {
   //   auto hash = manifest1_.getHash(suffixes[i]);
@@ -247,7 +200,7 @@ TEST_F(ManifestTest, SetSuffixList) {
 TEST_F(ManifestTest, EstimateSize) {
   manifest1_.clear();
 
-  HashAlgorithm hash1 = HashAlgorithm::SHA_256;
+  auto hash1 = utils::CryptoHashType::SHA_256;
   NextSegmentCalculationStrategy strategy1 =
       NextSegmentCalculationStrategy::INCREMENTAL;
   ManifestType type1 = ManifestType::INLINE_MANIFEST;

@@ -15,10 +15,10 @@
 
 #pragma once
 
-#include <hicn/transport/portability/portability.h>
-
 #include <core/manifest.h>
 #include <core/manifest_format.h>
+#include <hicn/transport/portability/portability.h>
+
 #include <set>
 
 namespace transport {
