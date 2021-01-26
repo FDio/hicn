@@ -36,6 +36,7 @@ option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
 option(BUILD_SYSREPOPLUGIN "Build the sysrepo plugin" OFF)
 option(BUILD_EXTRAS "Build external projects" OFF)
 option(BUILD_TELEMETRY "Build telemetry projects" OFF)
+option(BUILD_TESTS "Compile unit tests" OFF)
 option(DISABLE_EXECUTABLES "Disable executables" OFF)
 
 if ((BUILD_APPS OR BUILD_UTILS) AND NOT BUILD_LIBTRANSPORT)
@@ -96,6 +97,18 @@ endforeach()
 if (NOT WIN32)
   add_compile_options(-Wall -Werror -Wno-shorten-64-to-32)
 endif ()
+
+# Add unit tests
+if (BUILD_TESTS)
+  message(STATUS "Tests enabled.")
+  include (GTestImport)
+
+  if(${CMAKE_VERSION} VERSION_GREATER "3.10.0")
+    include (GoogleTest)
+  else()
+    include (CTest)
+  endif()
+endif()
 
 message(STATUS "Building the following subprojects: ${subdirs}")
 

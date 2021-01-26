@@ -20,7 +20,7 @@ set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O2")
 set(CMAKE_C_FLAGS_DEBUG   "-g -O0")
 set (CMAKE_INSTALL_LIBDIR "/usr/lib")
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 project(sysrepo-light-plugins)
 
 # Cmake find modules
