@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <hicn/transport/security/crypto_hash_type.h>
 
+#include <climits>
 #include <random>
 #include <vector>
 
@@ -195,48 +196,6 @@ TEST_F(ManifestTest, SetSuffixList) {
   ASSERT_EQ(base_name, ret_name);
 
   delete[] entries;
-}
-
-TEST_F(ManifestTest, EstimateSize) {
-  manifest1_.clear();
-
-  auto hash1 = utils::CryptoHashType::SHA_256;
-  NextSegmentCalculationStrategy strategy1 =
-      NextSegmentCalculationStrategy::INCREMENTAL;
-  ManifestType type1 = ManifestType::INLINE_MANIFEST;
-  core::Name base_name1("b001:abcd:fede:baba:cece:d0d0:face:dead");
-
-  manifest1_.setFinalManifest(true);
-  manifest1_.setBaseName(base_name1);
-  manifest1_.setNextSegmentCalculationStrategy(strategy1);
-  manifest1_.setHashAlgorithm(hash1);
-  manifest1_.setManifestType(type1);
-
-  std::default_random_engine eng((std::random_device())());
-  std::uniform_int_distribution<uint64_t> idis(
-      0, std::numeric_limits<uint64_t>::max());
-
-  using random_bytes_engine =
-      std::independent_bits_engine<std::default_random_engine, CHAR_BIT,
-                                   unsigned char>;
-  random_bytes_engine rbe;
-
-  while (manifest1_.estimateManifestSize(1) < 1440) {
-    uint32_t suffix = static_cast<std::uint32_t>(idis(eng));
-    std::vector<unsigned char> data(32);
-    std::generate(std::begin(data), std::end(data), std::ref(rbe));
-    auto hash = utils::CryptoHash(data.data(), data.size(),
-                                  utils::CryptoHashType::SHA_256);
-    manifest1_.addSuffixHash(suffix, hash);
-  }
-
-  manifest1_.encode();
-  manifest1_.decode();
-
-  manifest1_.dump();
-
-  ASSERT_GT(manifest1_.estimateManifestSize(), 0);
-  ASSERT_LT(manifest1_.estimateManifestSize(), 1500);
 }
 
 }  // namespace core
