@@ -97,6 +97,18 @@ if (NOT WIN32)
   add_compile_options(-Wall -Werror -Wno-shorten-64-to-32)
 endif ()
 
+# Add unit tests
+if (BUILD_TESTS)
+  message(STATUS "Tests enabled.")
+  include (GTestImport)
+
+  if(${CMAKE_VERSION} VERSION_GREATER "3.10.0")
+    include (GoogleTest)
+  else()
+    include (CTest)
+  endif()
+endif()
+
 message(STATUS "Building the following subprojects: ${subdirs}")
 
 foreach(dir ${subdirs})
