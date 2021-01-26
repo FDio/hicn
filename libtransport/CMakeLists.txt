@@ -132,14 +132,6 @@ include(Packaging)
 
 find_package(Threads REQUIRED)
 
-if (${COMPILE_TESTS})
-  include(TestMacros)
-  find_package(GTest REQUIRED)
-  list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
-    ${GTEST_INCLUDE_DIRS}
-  )
-endif()
-
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   find_package(OpenSSL REQUIRED)
 endif ()

@@ -15,9 +15,6 @@
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_C_STANDARD 11)
 
-# Compilation options
-option(COMPILE_TESTS "Compile functional tests" OFF)
-
 # Compilation flags
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
