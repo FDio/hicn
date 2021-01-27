@@ -64,8 +64,9 @@ struct fib_entry {
 #endif /* WITH_POLICY */
 #ifdef WITH_MAPME
   NumberSet * previous_nexthops;
+  const void *userDataOwner;
   void *userData;
-  void (*userDataRelease)(void **userData);
+  void (*userDataRelease)(const void *owner, void **userData);
 #endif /* WITH_MAPME */
 };
 
@@ -101,6 +102,7 @@ FibEntry *fibEntry_Create(Name *name, strategy_type fwdStrategy) {
   fibEntry->refcount = 1;
 
 #ifdef WITH_MAPME
+  fibEntry->userDataOwner = NULL;
   fibEntry->userData = NULL;
   fibEntry->userDataRelease = NULL;
 #endif /* WITH_MAPME */
@@ -136,7 +138,7 @@ void fibEntry_Release(FibEntry **fibEntryPtr) {
     fibEntry->fwdStrategy->destroy(&(fibEntry->fwdStrategy));
 #ifdef WITH_MAPME
     if (fibEntry->userData) {
-      fibEntry->userDataRelease(&fibEntry->userData);
+      fibEntry->userDataRelease(fibEntry->userDataOwner, &fibEntry->userData);
     }
 #endif /* WITH_MAPME */
 #ifdef WITH_POLICY
@@ -881,9 +883,10 @@ void *fibEntry_getUserData(const FibEntry *fibEntry) {
   return fibEntry->userData;
 }
 
-void fibEntry_setUserData(FibEntry *fibEntry, const void *userData,
-                          void (*userDataRelease)(void **)) {
+void fibEntry_setUserData(FibEntry *fibEntry, const void *userDataOwner, const
+        void *userData, void (*userDataRelease)(const void *, void **)) {
   parcAssertNotNull(fibEntry, "Parameter fibEntry must be non-null");
+  fibEntry->userDataOwner = userDataOwner;
   fibEntry->userData = (void *)userData;
   fibEntry->userDataRelease = userDataRelease;
 }
