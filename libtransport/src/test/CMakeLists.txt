@@ -18,6 +18,9 @@ list(APPEND TESTS
   test_transport_producer
 )
 
+if (${LIBTRANSPORT_SHARED} MATCHES ".*-memif.*")
+  set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
+endif()
 
 foreach(test ${TESTS})
     build_executable(${test}
@@ -28,6 +31,7 @@ foreach(test ${TESTS})
         DEPENDS gtest ${LIBTRANSPORT_SHARED}
         COMPONENT lib${LIBTRANSPORT}
         DEFINITIONS "${COMPILER_DEFINITIONS}"
+        LINK_FLAGS ${LINK_FLAGS}
     )
 
     add_test_internal(${test})
