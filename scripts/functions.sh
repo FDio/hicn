@@ -50,7 +50,6 @@ DEPS_UBUNTU=("build-essential"
              "libasio-dev"
              "libconfig-dev"
              "libcurl4-openssl-dev"
-             "collectd-dev"
              "libevent-dev"
              "libssl-dev"
              "ninja-build"
@@ -81,17 +80,14 @@ LATEST_EPEL_REPO="http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noa
 COLLECTD_SOURCE="https://storage.googleapis.com/collectd-tarballs/collectd-5.9.2.tar.bz2"
 
 function install_collectd_headers() {
-    DISTRIB_ID=${ID}
-    if [ "${DISTRIB_ID}" == "centos" ]; then
-        curl -OL ${COLLECTD_SOURCE}
-        tar -xf collectd-5.9.2.tar.bz2
+    curl -OL ${COLLECTD_SOURCE}
+    tar -xf collectd-5.9.2.tar.bz2
 
-        pushd collectd-5.9.2
-            ./configure && make -j$(nproc)
-        popd
+    pushd collectd-5.9.2
+        ./configure && make -j$(nproc)
+    popd
 
-        export COLLECTD_HOME=${PWD}/collectd-5.9.2/src
-    fi
+    export COLLECTD_HOME=${PWD}/collectd-5.9.2/src
 }
 
 function install_cmake() {
