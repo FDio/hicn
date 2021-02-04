@@ -178,9 +178,9 @@ endif (NOT CMAKE_BUILD_TYPE)
 SET(HICN_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR} CACHE STRING "hicn_install_prefix")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall  -march=native -O3 -g")
+   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall  -march=native -O3 -g -Wno-address-of-packed-member")
 elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
-   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -march=native -O0 -g")
+   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -march=native -O0 -g -Wno-address-of-packed-member")
    add_definitions(-DCLIB_DEBUG -fPIC -fstack-protector-all)
 endif()
 
