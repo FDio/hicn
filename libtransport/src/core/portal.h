@@ -96,13 +96,13 @@ class HandlerAllocator {
   HandlerAllocator(const HandlerAllocator<U> &other) noexcept
       : memory_(other.memory_) {}
 
-  TRANSPORT_ALWAYS_INLINE bool operator==(const HandlerAllocator &other) const
-      noexcept {
+  TRANSPORT_ALWAYS_INLINE bool operator==(
+      const HandlerAllocator &other) const noexcept {
     return &memory_ == &other.memory_;
   }
 
-  TRANSPORT_ALWAYS_INLINE bool operator!=(const HandlerAllocator &other) const
-      noexcept {
+  TRANSPORT_ALWAYS_INLINE bool operator!=(
+      const HandlerAllocator &other) const noexcept {
     return &memory_ != &other.memory_;
   }
 
@@ -139,7 +139,7 @@ class CustomAllocatorHandler {
   }
 
   template <typename... Args>
-  void operator()(Args &&... args) {
+  void operator()(Args &&...args) {
     handler_(std::forward<Args>(args)...);
   }
 
@@ -548,7 +548,8 @@ class Portal {
       return;
     }
 
-    Packet::Format format = Packet::getFormatFromBuffer(packet_buffer->data());
+    Packet::Format format = Packet::getFormatFromBuffer(
+        packet_buffer->data(), packet_buffer->length());
 
     if (TRANSPORT_EXPECT_TRUE(_is_tcp(format))) {
       if (!Packet::isInterest(packet_buffer->data())) {

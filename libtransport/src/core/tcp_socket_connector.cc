@@ -44,7 +44,8 @@ class NetworkMessage {
       // Get packet length
       return 44;
     } else if (TRANSPORT_EXPECT_TRUE(ip_format == 6 || ip_format == 4)) {
-      Packet::Format format = Packet::getFormatFromBuffer(packet);
+      Packet::Format format =
+          Packet::getFormatFromBuffer(packet, fixed_header_length);
       return Packet::getHeaderSizeFromBuffer(format, packet) +
              Packet::getPayloadSizeFromBuffer(format, packet);
     }
