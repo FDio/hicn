@@ -33,6 +33,8 @@ namespace {
 class NetworkMessage {
  public:
   static constexpr std::size_t fixed_header_length = 10;
+  static constexpr std::uint8_t ccnx_flag = 102;
+  static constexpr std::size_t ccnx_packet_length = 44;
 
   static std::size_t decodeHeader(const uint8_t *packet) {
     // General checks
@@ -40,11 +42,12 @@ class NetworkMessage {
     uint8_t first_byte = packet[0];
     uint8_t ip_format = (packet[0] & 0xf0) >> 4;
 
-    if (TRANSPORT_EXPECT_FALSE(first_byte == 102)) {
+    if (TRANSPORT_EXPECT_FALSE(first_byte == ccnx_flag)) {
       // Get packet length
-      return 44;
+      return ccnx_packet_length;
     } else if (TRANSPORT_EXPECT_TRUE(ip_format == 6 || ip_format == 4)) {
-      Packet::Format format = Packet::getFormatFromBuffer(packet);
+      Packet::Format format =
+          Packet::getFormatFromBuffer(packet, fixed_header_length);
       return Packet::getHeaderSizeFromBuffer(format, packet) +
              Packet::getPayloadSizeFromBuffer(format, packet);
     }

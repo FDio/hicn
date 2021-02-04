@@ -29,6 +29,7 @@
 #include <stdio.h>
 
 #include <hicn/common.h>
+#include <hicn/util/log.h>
 
 
 
@@ -109,7 +110,7 @@ hash64 (const void *data, size_t len)
 }
 
 void
-hicn_packet_dump (uint8_t * buffer, size_t len)
+hicn_packet_dump (const uint8_t * buffer, size_t len)
 {
   int i;
   unsigned char buff[17];
@@ -118,7 +119,7 @@ hicn_packet_dump (uint8_t * buffer, size_t len)
   // Output description if given.
   if (len == 0)
     {
-      printf ("  ZERO LENGTH\n");
+      TRACE ("  ZERO LENGTH\n");
       return;
     }
 
@@ -131,14 +132,14 @@ hicn_packet_dump (uint8_t * buffer, size_t len)
 	{
 	  // Just don't print ASCII for the zeroth line.
 	  if (i != 0)
-	    printf ("  %s\n", buff);
+	    TRACE ("  %s\n", buff);
 
 	  // Output the offset.
-	  printf ("  %04x ", i);
+	  TRACE ("  %04x ", i);
 	}
 
       // Now the hex code for the specific character.
-      printf (" %02x", pc[i]);
+      TRACE (" %02x", pc[i]);
 
       // And store a printable ASCII character for later.
       if ((pc[i] < 0x20) || (pc[i] > 0x7e))
@@ -151,12 +152,12 @@ hicn_packet_dump (uint8_t * buffer, size_t len)
   // Pad out last line if not exactly 16 characters.
   while ((i % 16) != 0)
     {
-      printf ("   ");
+      TRACE ("   ");
       i++;
     }
 
   // And print the final ASCII bit.
-  printf ("  %s\n", buff);
+  TRACE ("  %s\n", buff);
 }
 
 /*
