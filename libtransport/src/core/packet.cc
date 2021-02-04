@@ -50,7 +50,8 @@ Packet::Packet(MemBufPtr &&buffer)
       packet_start_(reinterpret_cast<hicn_header_t *>(packet_->writableData())),
       header_head_(packet_.get()),
       payload_head_(nullptr),
-      format_(getFormatFromBuffer(packet_->writableData())) {}
+      format_(getFormatFromBuffer(packet_->writableData(), packet_->length())) {
+}
 
 Packet::Packet(const uint8_t *buffer, std::size_t size)
     : Packet(MemBufPtr(utils::MemBuf::copyBuffer(buffer, size).release())) {}
@@ -210,13 +211,13 @@ const std::shared_ptr<utils::MemBuf> Packet::acquireMemBufReference() const {
 void Packet::dump() const {
   const_cast<Packet *>(this)->separateHeaderPayload();
 
-  std::cout << "HEADER -- Length: " << headerSize() << std::endl;
+  TRANSPORT_LOGI("HEADER -- Length: %zu", headerSize());
   hicn_packet_dump((uint8_t *)header_head_->data(), headerSize());
 
-  std::cout << std::endl << "PAYLOAD -- Length: " << payloadSize() << std::endl;
+  TRANSPORT_LOGI("PAYLOAD -- Length: %zu", payloadSize());
   for (utils::MemBuf *current = payload_head_;
        current && current != header_head_; current = current->next()) {
-    std::cout << "MemBuf Length: " << current->length() << std::endl;
+    TRANSPORT_LOGI("MemBuf Length: %zu", current->length());
     hicn_packet_dump((uint8_t *)current->data(), current->length());
   }
 }
