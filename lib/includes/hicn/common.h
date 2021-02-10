@@ -250,7 +250,7 @@ u32 cumulative_hash32 (const void *data, size_t len, u32 lastValue);
 u32 hash32 (const void *data, size_t len);
 u64 cumulative_hash64 (const void *data, size_t len, u64 lastValue);
 u64 hash64 (const void *data, size_t len);
-void hicn_packet_dump (uint8_t * buffer, size_t len);
+void hicn_packet_dump (const uint8_t * buffer, size_t len);
 
 #endif /* ! HICN_VPP_PLUGIN */
 

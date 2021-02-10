@@ -23,6 +23,7 @@
 #include <hicn/transport/security/crypto_suite.h>
 #include <hicn/transport/security/key_id.h>
 #include <hicn/transport/utils/branch_prediction.h>
+#include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/membuf.h>
 #include <hicn/transport/utils/object_pool.h>
 
@@ -97,13 +98,16 @@ class Packet : public std::enable_shared_from_this<Packet> {
 
   static bool isInterest(const uint8_t *buffer);
 
-  static Format getFormatFromBuffer(const uint8_t *buffer) {
+  static Format getFormatFromBuffer(const uint8_t *buffer, std::size_t length) {
     Format format = HF_UNSPEC;
 
     if (TRANSPORT_EXPECT_FALSE(
             hicn_packet_get_format((const hicn_header_t *)buffer, &format) <
             0)) {
-      throw errors::MalformedPacketException();
+      TRANSPORT_LOGE(
+          "Error while getting format from packet buffer. Packet will be "
+          "discarded.");
+      hicn_packet_dump(buffer, length);
     }
 
     return format;
@@ -114,7 +118,8 @@ class Packet : public std::enable_shared_from_this<Packet> {
     packet_start_ = reinterpret_cast<hicn_header_t *>(packet_->writableData());
     header_head_ = packet_.get();
     payload_head_ = nullptr;
-    format_ = getFormatFromBuffer(reinterpret_cast<uint8_t *>(packet_start_));
+    format_ = getFormatFromBuffer(reinterpret_cast<uint8_t *>(packet_start_),
+                                  packet_->length());
     name_.clear();
   }
 
