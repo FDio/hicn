@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,7 +22,7 @@
 #include <vnet/fib/ip4_fib.h>
 #include <vnet/fib/ip6_fib.h>
 
-#define DEFAULT_TIMEOUT 1.0	/* s */
+#define DEFAULT_TIMEOUT 1.0 /* s */
 
 hicn_mapme_main_t mapme_main;
 
@@ -30,7 +30,7 @@ hicn_prefix_t *retx_pool;
 uword *retx_hash;
 
 void
-hicn_mapme_init (vlib_main_t * vm)
+hicn_mapme_init (vlib_main_t *vm)
 {
   mapme_main.vm = vm;
   mapme_main.log_class = vlib_log_register_class ("hicn_mapme", 0);
@@ -71,8 +71,8 @@ ip6_fib_table_show_walk (fib_node_index_t fib_entry_index, void *arg)
 }
 
 void
-hicn_mapme_process_fib_entry (vlib_main_t * vm, hicn_face_id_t face,
-			      const fib_node_index_t * fib_entry_index)
+hicn_mapme_process_fib_entry (vlib_main_t *vm, hicn_face_id_t face,
+			      const fib_node_index_t *fib_entry_index)
 {
   const dpo_id_t *load_balance_dpo_id;
   load_balance_t *lb;
@@ -103,42 +103,40 @@ hicn_mapme_process_fib_entry (vlib_main_t * vm, hicn_face_id_t face,
 }
 
 void
-hicn_mapme_process_ip4_fib (vlib_main_t * vm, hicn_face_id_t face)
+hicn_mapme_process_ip4_fib (vlib_main_t *vm, hicn_face_id_t face)
 {
   ip4_main_t *im4 = &ip4_main;
   fib_table_t *fib_table;
   int table_id = -1, fib_index = ~0;
 
-    /* *INDENT-OFF* */
-    pool_foreach (fib_table, im4->fibs,
-    ({
-        ip4_fib_t *fib = pool_elt_at_index(im4->v4_fibs, fib_table->ft_index);
+  pool_foreach (fib_table, im4->fibs)
+    {
+      ip4_fib_t *fib = pool_elt_at_index (im4->v4_fibs, fib_table->ft_index);
 
-        if (table_id >= 0 && table_id != (int)fib->table_id)
-            continue;
-        if (fib_index != ~0 && fib_index != (int)fib->index)
-            continue;
+      if (table_id >= 0 && table_id != (int) fib->table_id)
+	continue;
+      if (fib_index != ~0 && fib_index != (int) fib->index)
+	continue;
 
-        fib_node_index_t *fib_entry_index;
-        ip4_fib_show_walk_ctx_t ctx = {
-            .ifsw_indicies = NULL,
-        };
+      fib_node_index_t *fib_entry_index;
+      ip4_fib_show_walk_ctx_t ctx = {
+	.ifsw_indicies = NULL,
+      };
 
-        ip4_fib_table_walk(fib, ip4_fib_show_walk_cb, &ctx);
-        //vec_sort_with_function(ctx.ifsw_indicies, fib_entry_cmp_for_sort);
+      ip4_fib_table_walk (fib, ip4_fib_show_walk_cb, &ctx);
+      // vec_sort_with_function(ctx.ifsw_indicies, fib_entry_cmp_for_sort);
 
-        vec_foreach(fib_entry_index, ctx.ifsw_indicies)
-        {
-            hicn_mapme_process_fib_entry(vm, face, fib_entry_index);
-        }
+      vec_foreach (fib_entry_index, ctx.ifsw_indicies)
+	{
+	  hicn_mapme_process_fib_entry (vm, face, fib_entry_index);
+	}
 
-        vec_free(ctx.ifsw_indicies);
-    }));
-    /* *INDENT-ON* */
+      vec_free (ctx.ifsw_indicies);
+    }
 }
 
 void
-hicn_mapme_process_ip6_fib (vlib_main_t * vm, hicn_face_id_t face)
+hicn_mapme_process_ip6_fib (vlib_main_t *vm, hicn_face_id_t face)
 {
   /* Walk IPv6 FIB */
   ip6_main_t *im6 = &ip6_main;
@@ -146,43 +144,39 @@ hicn_mapme_process_ip6_fib (vlib_main_t * vm, hicn_face_id_t face)
   ip6_fib_t *fib;
   int table_id = -1, fib_index = ~0;
 
-    /* *INDENT-OFF* */
-    pool_foreach (fib_table, im6->fibs,
-    ({
-        fib = pool_elt_at_index(im6->v6_fibs, fib_table->ft_index);
+  pool_foreach (fib_table, im6->fibs)
+    {
+      fib = pool_elt_at_index (im6->v6_fibs, fib_table->ft_index);
 
-        if (table_id >= 0 && table_id != (int)fib->table_id)
-            continue;
-        if (fib_index != ~0 && fib_index != (int)fib->index)
-            continue;
-        if (fib_table->ft_flags & FIB_TABLE_FLAG_IP6_LL)
-            continue;
+      if (table_id >= 0 && table_id != (int) fib->table_id)
+	continue;
+      if (fib_index != ~0 && fib_index != (int) fib->index)
+	continue;
+      if (fib_table->ft_flags & FIB_TABLE_FLAG_IP6_LL)
+	continue;
 
-        fib_node_index_t *fib_entry_index;
-        ip6_fib_show_ctx_t ctx = {
-            .entries = NULL,
-        };
+      fib_node_index_t *fib_entry_index;
+      ip6_fib_show_ctx_t ctx = {
+	.entries = NULL,
+      };
 
-        ip6_fib_table_walk(fib->index, ip6_fib_table_show_walk, &ctx);
-        //vec_sort_with_function(ctx.entries, fib_entry_cmp_for_sort);
+      ip6_fib_table_walk (fib->index, ip6_fib_table_show_walk, &ctx);
+      // vec_sort_with_function(ctx.entries, fib_entry_cmp_for_sort);
 
-        vec_foreach(fib_entry_index, ctx.entries)
-        {
-            hicn_mapme_process_fib_entry(vm, face, fib_entry_index);
-        }
+      vec_foreach (fib_entry_index, ctx.entries)
+	{
+	  hicn_mapme_process_fib_entry (vm, face, fib_entry_index);
+	}
 
-        vec_free(ctx.entries);
-
-    }));
-    /* *INDENT-ON* */
+      vec_free (ctx.entries);
+    }
 }
-
 
 /**
  * Callback called everytime a new face is created (not including app faces)
  */
 void
-hicn_mapme_on_face_added (vlib_main_t * vm, hicn_face_id_t face)
+hicn_mapme_on_face_added (vlib_main_t *vm, hicn_face_id_t face)
 {
   hicn_mapme_process_ip4_fib (vm, face);
   hicn_mapme_process_ip6_fib (vm, face);
@@ -194,19 +188,19 @@ hicn_mapme_on_face_added (vlib_main_t * vm, hicn_face_id_t face)
  * it.
  */
 #define NUM_RETX_ENTRIES 100
-#define NUM_RETX_SLOT 2
-#define NEXT_SLOT(cur) (1-cur)
-#define CUR retx_array[cur]
-#define NXT retx_array[NEXT_SLOT(cur)]
-#define CURLEN retx_len[cur]
-#define NXTLEN retx_len[NEXT_SLOT(cur)]
+#define NUM_RETX_SLOT	 2
+#define NEXT_SLOT(cur)	 (1 - cur)
+#define CUR		 retx_array[cur]
+#define NXT		 retx_array[NEXT_SLOT (cur)]
+#define CURLEN		 retx_len[cur]
+#define NXTLEN		 retx_len[NEXT_SLOT (cur)]
 
 static_always_inline void *
-get_packet_buffer (vlib_main_t * vm, u32 node_index, u32 dpoi_index,
-		   ip46_address_t * addr, hicn_type_t type)
+get_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
+		   ip46_address_t *addr, hicn_type_t type)
 {
   vlib_frame_t *f;
-  vlib_buffer_t *b;		// for newly created packet
+  vlib_buffer_t *b; // for newly created packet
   u32 *to_next;
   u32 bi;
   u8 *buffer;
@@ -241,8 +235,8 @@ get_packet_buffer (vlib_main_t * vm, u32 node_index, u32 dpoi_index,
 }
 
 static_always_inline bool
-hicn_mapme_send_message (vlib_main_t * vm, const hicn_prefix_t * prefix,
-			 mapme_params_t * params, hicn_face_id_t face)
+hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
+			 mapme_params_t *params, hicn_face_id_t face)
 {
   size_t n;
 
@@ -253,19 +247,17 @@ hicn_mapme_send_message (vlib_main_t * vm, const hicn_prefix_t * prefix,
   char *node_name = hicn_mapme_get_dpo_face_node (face);
   if (!node_name)
     {
-      clib_warning
-	("Could not determine next node for sending MAP-Me packet");
+      clib_warning ("Could not determine next node for sending MAP-Me packet");
       return false;
     }
 
   vlib_node_t *node = vlib_get_node_by_name (vm, (u8 *) node_name);
   u32 node_index = node->index;
 
-  u8 *buffer = get_packet_buffer (vm, node_index, face,
-				  (ip46_address_t *) prefix,
-				  (params->protocol ==
-				   IPPROTO_IPV6) ? HICN_TYPE_IPV6_ICMP :
-				  HICN_TYPE_IPV4_ICMP);
+  u8 *buffer = get_packet_buffer (
+    vm, node_index, face, (ip46_address_t *) prefix,
+    (params->protocol == IPPROTO_IPV6) ? HICN_TYPE_IPV6_ICMP :
+					       HICN_TYPE_IPV4_ICMP);
   n = hicn_mapme_create_packet (buffer, prefix, params);
   if (n <= 0)
     {
@@ -277,8 +269,8 @@ hicn_mapme_send_message (vlib_main_t * vm, const hicn_prefix_t * prefix,
 }
 
 static_always_inline void
-hicn_mapme_send_updates (vlib_main_t * vm, hicn_prefix_t * prefix,
-			 dpo_id_t dpo, bool send_all)
+hicn_mapme_send_updates (vlib_main_t *vm, hicn_prefix_t *prefix, dpo_id_t dpo,
+			 bool send_all)
 {
   hicn_mapme_tfib_t *tfib = TFIB (hicn_strategy_dpo_ctx_get (dpo.dpoi_index));
   if (!tfib)
@@ -290,19 +282,17 @@ hicn_mapme_send_updates (vlib_main_t * vm, hicn_prefix_t * prefix,
   u8 tfib_last_idx = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
 
   mapme_params_t params = {
-    .protocol = ip46_address_is_ip4 (&prefix->name)
-      ? IPPROTO_IP : IPPROTO_IPV6,
+    .protocol =
+      ip46_address_is_ip4 (&prefix->name) ? IPPROTO_IP : IPPROTO_IPV6,
     .type = UPDATE,
     .seq = tfib->seq,
   };
 
   if (send_all)
     {
-      for (u8 pos = tfib_last_idx; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX;
-	   pos++)
+      for (u8 pos = tfib_last_idx; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos++)
 	{
-	  hicn_mapme_send_message (vm, prefix, &params,
-				   tfib->next_hops[pos]);
+	  hicn_mapme_send_message (vm, prefix, &params, tfib->next_hops[pos]);
 	}
     }
   else
@@ -313,17 +303,17 @@ hicn_mapme_send_updates (vlib_main_t * vm, hicn_prefix_t * prefix,
 }
 
 static uword
-hicn_mapme_eventmgr_process (vlib_main_t * vm,
-			     vlib_node_runtime_t * rt, vlib_frame_t * f)
+hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
+			     vlib_frame_t *f)
 {
-  f64 timeout = 0;		/* By default, no timer is run */
+  f64 timeout = 0; /* By default, no timer is run */
   f64 current_time, due_time;
   u8 idle = 0;
 
   retx_t retx_array[NUM_RETX_SLOT][NUM_RETX_ENTRIES];
   memset (retx_array, 0, NUM_RETX_SLOT * NUM_RETX_ENTRIES);
   u8 retx_len[NUM_RETX_SLOT] = { 0 };
-  u8 cur = 0;			/* current slot */
+  u8 cur = 0; /* current slot */
 
   hicn_mapme_init (vm);
 
@@ -333,8 +323,8 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
        * instead of get_event, and we thus need to reimplement timeout
        * management on top, as done elsewhere in VPP code.
        *
-       * The most probable event. For simplicity, for new faces, we pass the same retx_t with no
-       * prefix
+       * The most probable event. For simplicity, for new faces, we pass the
+       * same retx_t with no prefix
        */
       if (timeout != 0)
 	{
@@ -346,9 +336,8 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	   * management with no error correction accounting for elapsed time.
 	   * Also, we only run a timer when there are pending retransmissions.
 	   */
-	  timeout =
-	    (due_time >
-	     current_time) ? due_time - current_time : DEFAULT_TIMEOUT;
+	  timeout = (due_time > current_time) ? due_time - current_time :
+						      DEFAULT_TIMEOUT;
 	  due_time = current_time + timeout;
 	}
       else
@@ -365,7 +354,8 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	  {
 	    /*
 	     * A face has been added:
-	     *  - In case of a local app face, we need to advertise a new prefix
+	     *  - In case of a local app face, we need to advertise a new
+	     * prefix
 	     *  - For another local face type, we need to advertise local
 	     *  prefixes and schedule retransmissions
 	     */
@@ -387,8 +377,8 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	    /*
 	     * An hICN FIB entry has been modified. All operations so far
 	     * have been procedded in the nodes. Here we need to track
-	     * retransmissions upon timeout: we mark the FIB entry as pending in
-	     * the second-to-next slot
+	     * retransmissions upon timeout: we mark the FIB entry as pending
+	     * in the second-to-next slot
 	     */
 
 	    /* Mark FIB entry as pending for second-to-next slot */
@@ -413,7 +403,7 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 		 * Since we retransmit to all prev hops, we can remove this
 		 * (T)FIB entry for the check at the end of the current slot.
 		 */
-		retx_t *retx = (retx_t *) & retx_events[i];
+		retx_t *retx = (retx_t *) &retx_events[i];
 
 		retx->rtx_count = 0;
 		/*
@@ -422,11 +412,12 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 		 */
 		hicn_mapme_send_updates (vm, &retx->prefix, retx->dpo, true);
 
-		/* Delete entry_id from retransmissions in the current slot (if present) ... */
+		/* Delete entry_id from retransmissions in the current slot (if
+		 * present) ... */
 		for (u8 j = 0; j < CURLEN; j++)
 		  if (!dpo_cmp (&(CUR[j].dpo), &retx->dpo))
 		    {
-		      CUR[j].dpo.dpoi_index = ~0;	/* sufficient */
+		      CUR[j].dpo.dpoi_index = ~0; /* sufficient */
 		    }
 
 		/* ... and schedule it for next slot (if not already) */
@@ -434,7 +425,7 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 		for (j = 0; j < NXTLEN; j++)
 		  if (!dpo_cmp (&NXT[j].dpo, &retx->dpo))
 		    break;
-		if (j == NXTLEN)	/* not found */
+		if (j == NXTLEN) /* not found */
 		  NXT[NXTLEN++] = *retx;
 	      }
 	    idle = 0;
@@ -447,9 +438,9 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	   * to the list of next hops, and eventually remove it from TFIB.
 	   * This corresponds to the multipath case.
 	   *
-	   * In all cases, we assume the propagation was already done when the first
-	   * interest with the same sequence number was received, so we stop here
-	   * No change in TFIB = no IU to send
+	   * In all cases, we assume the propagation was already done when the
+	   * first interest with the same sequence number was received, so we
+	   * stop here No change in TFIB = no IU to send
 	   *
 	   * No change in timers.
 	   */
@@ -495,7 +486,7 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	    {
 	      retx_t *retx = &CUR[pos];
 
-	      if (retx->dpo.dpoi_index == ~0)	/* deleted entry */
+	      if (retx->dpo.dpoi_index == ~0) /* deleted entry */
 		continue;
 
 	      hicn_mapme_tfib_t *tfib =
@@ -510,12 +501,14 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 	      hicn_mapme_send_updates (vm, &retx->prefix, retx->dpo, true);
 
 	      retx->rtx_count++;
-	      // If we exceed the numver of retransmittion it means that all tfib entries have seens at least HICN_PARAM_RTX_MAX of retransmission
+	      // If we exceed the numver of retransmittion it means that all
+	      // tfib entries have seens at least HICN_PARAM_RTX_MAX of
+	      // retransmission
 	      if (retx->rtx_count < HICN_PARAM_RTX_MAX)
 		{
 		  /*
-		   * We did some retransmissions, so let's reschedule a check in the
-		   * next slot
+		   * We did some retransmissions, so let's reschedule a check
+		   * in the next slot
 		   */
 		  NXT[NXTLEN++] = CUR[pos];
 		  idle = 0;
@@ -541,7 +534,6 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
       timeout = (idle > 1) ? 0 : DEFAULT_TIMEOUT;
 
       // if (vlib_process_suspend_time_is_zero (timeout)) { ... }
-
     }
 
   /* NOTREACHED */
@@ -549,14 +541,13 @@ hicn_mapme_eventmgr_process (vlib_main_t * vm,
 }
 
 /* Not static as we need to access it from hicn_face */
-/* *INDENT-OFF* */
-VLIB_REGISTER_NODE (hicn_mapme_eventmgr_process_node) = { //,static) = {
-    .function = hicn_mapme_eventmgr_process,
-    .type = VLIB_NODE_TYPE_PROCESS,
-    .name = "mapme-eventmgr-process",
-    .process_log2_n_stack_bytes = 16,
+VLIB_REGISTER_NODE (hicn_mapme_eventmgr_process_node) = {
+  //,static) = {
+  .function = hicn_mapme_eventmgr_process,
+  .type = VLIB_NODE_TYPE_PROCESS,
+  .name = "mapme-eventmgr-process",
+  .process_log2_n_stack_bytes = 16,
 };
-/* *INDENT-ON* */
 
 /*
  * fd.io coding-style-patch-verification: ON

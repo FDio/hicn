@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -28,7 +28,7 @@
 #include "face_db.h"
 
 /* packet trace format function */
-static u8 *hicn_interest_hitpit_format_trace (u8 * s, va_list * args);
+static u8 *hicn_interest_hitpit_format_trace (u8 *s, va_list *args);
 
 /* Stats string values */
 static char *hicn_interest_hitpit_error_strings[] = {
@@ -39,14 +39,14 @@ static char *hicn_interest_hitpit_error_strings[] = {
 
 vlib_node_registration_t hicn_interest_hitpit_node;
 
-always_inline void drop_packet (u32 * next0);
+always_inline void drop_packet (u32 *next0);
 
 /*
  * hICN forwarder node for interests hitting the PIT
  */
 static uword
-hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
-			      vlib_frame_t * frame)
+hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
+			      vlib_frame_t *frame)
 {
   u32 n_left_from, *from, *to_next;
   hicn_interest_hitpit_next_t next_index;
@@ -117,20 +117,21 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  hicn_get_internal_state (hicnb0, rt->pitcs, &node0, &strategy_vft0,
 				   &dpo_vft0, &dpo_ctx_id0, &hash_entry0);
 
-
 	  ret = hicn_interest_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
 	  nameptr = (u8 *) (&name);
 	  pitp = hicn_pit_get_data (node0);
-	  dpo_id_t hicn_dpo_id0 =
-	    { dpo_vft0->hicn_dpo_get_type (), 0, 0, dpo_ctx_id0 };
+	  dpo_id_t hicn_dpo_id0 = { .dpoi_type =
+				      dpo_vft0->hicn_dpo_get_type (),
+				    .dpoi_proto = 0,
+				    .dpoi_next_node = 0,
+				    .dpoi_index = dpo_ctx_id0 };
 
 	  /*
 	   * Check if the hit is instead a collision in the
 	   * hash table. Unlikely to happen.
 	   */
-	  if (PREDICT_FALSE
-	      (ret != HICN_ERROR_NONE
-	       || !hicn_node_compare (nameptr, namelen, node0)))
+	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE ||
+			     !hicn_node_compare (nameptr, namelen, node0)))
 	    {
 	      stats.interests_hash_collision++;
 	      /* Remove lock from the entry */
@@ -166,8 +167,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		   */
 
 		  found =
-		    hicn_face_search (hicnb0->face_id,
-				      &(pitp->u.pit.faces));
+		    hicn_face_search (hicnb0->face_id, &(pitp->u.pit.faces));
 
 		  if (found)
 		    {
@@ -179,9 +179,8 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		       * forwarding
 		       */
 		      next0 = isv6 ? HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT :
-                        HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT;
-		      vnet_buffer (b0)->ip.adj_index[VLIB_TX] =
-			outface;
+					   HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT;
+		      vnet_buffer (b0)->ip.adj_index[VLIB_TX] = outface;
 
 		      /*
 		       * Update the egress face in
@@ -193,7 +192,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  else
 		    {
 		      hicn_face_db_add_face (hicnb0->face_id,
-                                             &pitp->u.pit.faces);
+					     &pitp->u.pit.faces);
 
 		      /* Aggregation */
 		      drop_packet (&next0);
@@ -202,7 +201,6 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 		  /* Remove lock from the entry */
 		  hicn_pcs_remove_lock (rt->pitcs, &pitp, &node0, vm,
 					hash_entry0, dpo_vft0, &hicn_dpo_id0);
-
 		}
 	    }
 	end_processing:
@@ -224,14 +222,12 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	   * Verify speculative enqueue, maybe switch current
 	   * next frame
 	   */
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
-					   to_next, n_left_to_next,
-					   bi0, next0);
+	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+					   n_left_to_next, bi0, next0);
 	}
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
   u32 pit_int_count = hicn_pit_get_int_count (rt->pitcs);
-
 
   vlib_node_increment_counter (vm, hicn_interest_hitpit_node.index,
 			       HICNFWD_ERROR_PROCESSED, stats.pkts_processed);
@@ -256,7 +252,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 /* packet trace format function */
 static u8 *
-hicn_interest_hitpit_format_trace (u8 * s, va_list * args)
+hicn_interest_hitpit_format_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
@@ -269,7 +265,7 @@ hicn_interest_hitpit_format_trace (u8 * s, va_list * args)
 }
 
 void
-drop_packet (u32 * next0)
+drop_packet (u32 *next0)
 {
   *next0 = HICN_INTEREST_HITPIT_NEXT_ERROR_DROP;
 }
@@ -277,7 +273,6 @@ drop_packet (u32 * next0)
 /*
  * Node registration for the interest forwarder node
  */
-/* *INDENT-OFF* */
 VLIB_REGISTER_NODE(hicn_interest_hitpit_node) =
 {
   .function = hicn_interest_hitpit_node_fn,
@@ -299,7 +294,6 @@ VLIB_REGISTER_NODE(hicn_interest_hitpit_node) =
     [HICN_INTEREST_HITPIT_NEXT_ERROR_DROP] = "error-drop",
   },
 };
-/* *INDENT-ON* */
 
 /*
  * fd.io coding-style-patch-verification: ON
