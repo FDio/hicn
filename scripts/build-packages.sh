@@ -57,7 +57,7 @@ function build_package() {
     echo "*******************************************************************"
 }
 
-build_sphinx() {
+function build_sphinx() {
     setup
 
     echo "*******************************************************************"
@@ -76,7 +76,7 @@ build_sphinx() {
     echo "*******************************************************************"
 }
 
-build_doxygen() {
+function build_doxygen() {
     setup
 
     mkdir -p ${SCRIPT_PATH}/../build-doxygen
