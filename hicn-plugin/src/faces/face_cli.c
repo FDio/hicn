@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -19,9 +19,8 @@
 #include "../error.h"
 
 static clib_error_t *
-hicn_face_cli_show_command_fn (vlib_main_t * vm,
-			       unformat_input_t * main_input,
-			       vlib_cli_command_t * cmd)
+hicn_face_cli_show_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
+			       vlib_cli_command_t *cmd)
 {
 
   hicn_face_id_t face_id = HICN_FACE_NULL;
@@ -46,9 +45,8 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
 	    deleted = 1;
 	  else
 	    {
-	      return clib_error_return (0, "%s",
-					get_error_string
-					(HICN_ERROR_CLI_INVAL));
+	      return clib_error_return (
+		0, "%s", get_error_string (HICN_ERROR_CLI_INVAL));
 	    }
 	}
 
@@ -56,48 +54,43 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
 	{
 	  int idx = 0;
 	  vec_foreach_index (idx, face_type_names_vec)
-	  {
-	    if (!strcmp (face_type_names_vec[idx], face_type_name))
-	      found = idx;
-	  }
+	    {
+	      if (!strcmp (face_type_names_vec[idx], face_type_name))
+		found = idx;
+	    }
 	  if (found == ~0)
 	    return (clib_error_return (0, "Face type unknown"));
 	}
-
     }
 
   if (face_id != HICN_FACE_NULL)
     {
       if (!hicn_dpoi_idx_is_valid (face_id))
-	return clib_error_return (0, "%s",
-				  get_error_string
-				  (HICN_ERROR_FACE_NOT_FOUND));
+	return clib_error_return (
+	  0, "%s", get_error_string (HICN_ERROR_FACE_NOT_FOUND));
 
       hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
-      vlib_cli_output (vm, "%U\n", format_hicn_face, face_id, 0 /*indent */ );
+      vlib_cli_output (vm, "%U\n", format_hicn_face, face_id, 0 /*indent */);
 
       u32 indent = 3;
 
       for (int i = 0; i < HICN_N_COUNTER; i++)
 	{
-	  vlib_get_combined_counter (&counters
-				     [hicn_dpoi_get_index (face) *
-				      HICN_N_COUNTER], i, &v);
-	  s =
-	    format (s, "%U%s", format_white_space, indent,
-		    HICN_FACE_CTRX_STRING[i]);
+	  vlib_get_combined_counter (
+	    &counters[hicn_dpoi_get_index (face) * HICN_N_COUNTER], i, &v);
+	  s = format (s, "%U%s", format_white_space, indent,
+		      HICN_FACE_CTRX_STRING[i]);
 
 	  if (n)
 	    _vec_len (n) = 0;
 	  n = format (n, "packets");
-	  s =
-	    format (s, "%U%-16v%16Ld", format_white_space,
-		    30 - strlen (HICN_FACE_CTRX_STRING[i]), n, v.packets);
+	  s = format (s, "%U%-16v%16Ld", format_white_space,
+		      30 - strlen (HICN_FACE_CTRX_STRING[i]), n, v.packets);
 
 	  _vec_len (n) = 0;
 	  n = format (n, "bytes");
-	  s = format (s, "\n%U%-16v%16Ld\n",
-		      format_white_space, indent + 30, n, v.bytes);
+	  s = format (s, "\n%U%-16v%16Ld\n", format_white_space, indent + 30,
+		      n, v.bytes);
 	}
       vlib_cli_output (vm, "%s\n", s);
     }
@@ -106,69 +99,79 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
       if (found != ~0)
 	{
 	  hicn_face_t *face;
-	  /* *INDENT-OFF* */
-          pool_foreach(face, hicn_dpoi_face_pool,
-                       {
-                         if (!((face->flags & HICN_FACE_FLAGS_DELETED) && !deleted))
-                           {
-                             if (face->flags)
-                               {
-                                 vlib_cli_output(vm, "%U\n", format_hicn_face, hicn_dpoi_get_index(face), 0);
-                                 u8 * s = 0;
-                                 u32 indent = 3;
+	  pool_foreach (face, hicn_dpoi_face_pool)
+	    {
+	      if (!((face->flags & HICN_FACE_FLAGS_DELETED) && !deleted))
+		{
+		  if (face->flags)
+		    {
+		      vlib_cli_output (vm, "%U\n", format_hicn_face,
+				       hicn_dpoi_get_index (face), 0);
+		      u8 *s = 0;
+		      u32 indent = 3;
 
-                                 for (int i = 0; i < HICN_N_COUNTER; i++)
-                                   {
-                                     vlib_get_combined_counter (&counters[hicn_dpoi_get_index(face) * HICN_N_COUNTER], i, &v);
-                                     s = format (s, "%U%s",format_white_space, indent, HICN_FACE_CTRX_STRING[i]);
+		      for (int i = 0; i < HICN_N_COUNTER; i++)
+			{
+			  vlib_get_combined_counter (
+			    &counters[hicn_dpoi_get_index (face) *
+				      HICN_N_COUNTER],
+			    i, &v);
+			  s = format (s, "%U%s", format_white_space, indent,
+				      HICN_FACE_CTRX_STRING[i]);
 
-                                     if (n)
-                                       _vec_len (n) = 0;
-                                     n = format (n, "packets");
-                                     s = format (s, "%U%-16v%16Ld", format_white_space, 30-strlen(HICN_FACE_CTRX_STRING[i]), n, v.packets);
+			  if (n)
+			    _vec_len (n) = 0;
+			  n = format (n, "packets");
+			  s = format (s, "%U%-16v%16Ld", format_white_space,
+				      30 - strlen (HICN_FACE_CTRX_STRING[i]),
+				      n, v.packets);
 
-                                     _vec_len (n) = 0;
-                                     n = format (n, "bytes");
-                                     s = format (s, "\n%U%-16v%16Ld\n",
-                                                 format_white_space, indent+30, n, v.bytes);
-                                   }
-                                 vlib_cli_output (vm, "%s\n", s);
-                               }
-                           }
-                       });
-	  /* *INDENT-ON* */
+			  _vec_len (n) = 0;
+			  n = format (n, "bytes");
+			  s =
+			    format (s, "\n%U%-16v%16Ld\n", format_white_space,
+				    indent + 30, n, v.bytes);
+			}
+		      vlib_cli_output (vm, "%s\n", s);
+		    }
+		}
+	    }
 	}
       else
 	{
 	  hicn_face_t *face;
-	  /* *INDENT-OFF* */
-          pool_foreach(face, hicn_dpoi_face_pool,
-                       {
-                         if (!((face->flags & HICN_FACE_FLAGS_DELETED) && !deleted))
-                           {
-                             vlib_cli_output(vm, "%U\n", format_hicn_face, hicn_dpoi_get_index(face), 0);
-                             u32 indent = 3;
-                             u8 * s = 0;
+	  pool_foreach (face, hicn_dpoi_face_pool)
+	    {
+	      if (!((face->flags & HICN_FACE_FLAGS_DELETED) && !deleted))
+		{
+		  vlib_cli_output (vm, "%U\n", format_hicn_face,
+				   hicn_dpoi_get_index (face), 0);
+		  u32 indent = 3;
+		  u8 *s = 0;
 
-                                 for (int i = 0; i < HICN_N_COUNTER; i++)
-                                   {
-                                     vlib_get_combined_counter (&counters[hicn_dpoi_get_index(face) * HICN_N_COUNTER], i, &v);
-                                     s = format (s, "%U%s",format_white_space, indent, HICN_FACE_CTRX_STRING[i]);
+		  for (int i = 0; i < HICN_N_COUNTER; i++)
+		    {
+		      vlib_get_combined_counter (
+			&counters[hicn_dpoi_get_index (face) * HICN_N_COUNTER],
+			i, &v);
+		      s = format (s, "%U%s", format_white_space, indent,
+				  HICN_FACE_CTRX_STRING[i]);
 
-                                     if (n)
-                                       _vec_len (n) = 0;
-                                     n = format (n, "packets");
-                                     s = format (s, "%U%-16v%16Ld", format_white_space, 30-strlen(HICN_FACE_CTRX_STRING[i]), n, v.packets);
+		      if (n)
+			_vec_len (n) = 0;
+		      n = format (n, "packets");
+		      s = format (s, "%U%-16v%16Ld", format_white_space,
+				  30 - strlen (HICN_FACE_CTRX_STRING[i]), n,
+				  v.packets);
 
-                                     _vec_len (n) = 0;
-                                     n = format (n, "bytes");
-                                     s = format (s, "\n%U%-16v%16Ld\n",
-                                                 format_white_space, indent+30, n, v.bytes);
-                                   }
-                                 vlib_cli_output (vm, "%s\n", s);
-                           }
-                       });
-	  /* *INDENT-ON* */
+		      _vec_len (n) = 0;
+		      n = format (n, "bytes");
+		      s = format (s, "\n%U%-16v%16Ld\n", format_white_space,
+				  indent + 30, n, v.bytes);
+		    }
+		  vlib_cli_output (vm, "%s\n", s);
+		}
+	    }
 	}
     }
 
@@ -176,14 +179,11 @@ hicn_face_cli_show_command_fn (vlib_main_t * vm,
 }
 
 /* cli declaration for 'show faces' */
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (hicn_face_cli_show_command, static) =
-{
+VLIB_CLI_COMMAND (hicn_face_cli_show_command, static) = {
   .path = "hicn face show",
   .short_help = "hicn face show [<face_id>]",
   .function = hicn_face_cli_show_command_fn,
 };
-/* *INDENT-ON* */
 
 /*
  * fd.io coding-style-patch-verification: ON
