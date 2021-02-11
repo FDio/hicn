@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -49,7 +49,7 @@ static char *hicn_strategy_error_strings[] = {
 
 /* packet trace format function */
 u8 *
-hicn_strategy_format_trace (u8 * s, va_list * args)
+hicn_strategy_format_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
@@ -60,14 +60,12 @@ hicn_strategy_format_trace (u8 * s, va_list * args)
   return vft->hicn_format_strategy_trace (s, t);
 }
 
-
 always_inline int
-hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
-		   u32 * next, f64 tnow, u8 * nameptr,
-		   u16 namelen, hicn_face_id_t outface, int nh_idx,
-		   index_t dpo_ctx_id0, const hicn_strategy_vft_t * strategy,
-		   dpo_type_t dpo_type, u8 isv6,
-		   vl_api_hicn_api_node_stats_get_reply_t * stats)
+hicn_new_interest (hicn_strategy_runtime_t *rt, vlib_buffer_t *b0, u32 *next,
+		   f64 tnow, u8 *nameptr, u16 namelen, hicn_face_id_t outface,
+		   int nh_idx, index_t dpo_ctx_id0,
+		   const hicn_strategy_vft_t *strategy, dpo_type_t dpo_type,
+		   u8 isv6, vl_api_hicn_api_node_stats_get_reply_t *stats)
 {
   int ret;
   hicn_hash_node_t *nodep;
@@ -81,7 +79,6 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
   u8 hash_entry_id = 0;
   u8 bucket_is_overflow = 0;
   u32 bucket_id = ~0;
-
 
   /* Create PIT node and init PIT entry */
   nodep = hicn_hashtb_alloc_node (rt->pitcs->pcs_table);
@@ -98,8 +95,7 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
   hicn0 = vlib_buffer_get_current (b0);
   hicn_lifetime_t imsg_lifetime;
   hicn_type_t type = hicnb0->type;
-  hicn_ops_vft[type.l1]->get_lifetime (type, &hicn0->protocol,
-				       &imsg_lifetime);
+  hicn_ops_vft[type.l1]->get_lifetime (type, &hicn0->protocol, &imsg_lifetime);
 
   if (imsg_lifetime > sm->pit_lifetime_max_ms)
     {
@@ -111,11 +107,10 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
   hicn_hash_entry_t *hash_entry;
   hicn_hashtb_init_node (rt->pitcs->pcs_table, nodep, nameptr, namelen);
 
-  ret =
-    hicn_pcs_pit_insert (rt->pitcs, pitp, nodep, &hash_entry,
-			 hicnb0->name_hash, &node_id0, &dpo_ctx_id0, &vft_id0,
-			 &is_cs0, &hash_entry_id, &bucket_id,
-			 &bucket_is_overflow);
+  ret = hicn_pcs_pit_insert (rt->pitcs, pitp, nodep, &hash_entry,
+			     hicnb0->name_hash, &node_id0, &dpo_ctx_id0,
+			     &vft_id0, &is_cs0, &hash_entry_id, &bucket_id,
+			     &bucket_is_overflow);
 
   if (ret == HICN_ERROR_NONE)
     {
@@ -126,7 +121,7 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
       hicn_face_db_add_face (hicnb0->face_id, &(pitp->u.pit.faces));
 
       *next = isv6 ? HICN_STRATEGY_NEXT_INTEREST_FACE6 :
-        HICN_STRATEGY_NEXT_INTEREST_FACE4;
+			   HICN_STRATEGY_NEXT_INTEREST_FACE4;
 
       vnet_buffer (b0)->ip.adj_index[VLIB_TX] = outface;
       stats->pkts_interest_count++;
@@ -143,9 +138,8 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
 	  // We need to take a lock as the lock is not taken on the hash
 	  // entry because it is a CS entry (hash_insert function).
 	  hash_entry->locks++;
-	  *next =
-	    is_cs0 ? HICN_STRATEGY_NEXT_INTEREST_HITCS :
-	    HICN_STRATEGY_NEXT_INTEREST_HITPIT;
+	  *next = is_cs0 ? HICN_STRATEGY_NEXT_INTEREST_HITCS :
+				 HICN_STRATEGY_NEXT_INTEREST_HITPIT;
 	}
       else
 	{
@@ -157,7 +151,6 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
     }
 
   return (ret);
-
 }
 
 /*
@@ -165,8 +158,8 @@ hicn_new_interest (hicn_strategy_runtime_t * rt, vlib_buffer_t * b0,
  * ipv6/tcp
  */
 uword
-hicn_strategy_fn (vlib_main_t * vm,
-		  vlib_node_runtime_t * node, vlib_frame_t * frame)
+hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
+		  vlib_frame_t *frame)
 {
 
   u32 n_left_from, *from, *to_next, n_left_to_next;
@@ -221,9 +214,8 @@ hicn_strategy_fn (vlib_main_t * vm,
 	  b0 = vlib_get_buffer (vm, bi0);
 	  next0 = HICN_STRATEGY_NEXT_ERROR_DROP;
 
-	  hicn_dpo_ctx_t *dpo_ctx =
-	    hicn_strategy_dpo_ctx_get (vnet_buffer (b0)->ip.
-				       adj_index[VLIB_TX]);
+	  hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (
+	    vnet_buffer (b0)->ip.adj_index[VLIB_TX]);
 	  const hicn_strategy_vft_t *strategy =
 	    hicn_dpo_get_strategy_vft (dpo_ctx->dpo_type);
 
@@ -235,13 +227,11 @@ hicn_strategy_fn (vlib_main_t * vm,
 	   * the interest-pcslookup node due to misconfiguration in
 	   * the punting rules.
 	   */
-	  if (PREDICT_TRUE
-	      (ret == HICN_ERROR_NONE && HICN_IS_NAMEHASH_CACHED (b0)
-	       && strategy->hicn_select_next_hop (vnet_buffer (b0)->
-						  ip.adj_index[VLIB_TX],
-						  &nh_idx,
-						  &outface) ==
-	       HICN_ERROR_NONE))
+	  if (PREDICT_TRUE (ret == HICN_ERROR_NONE &&
+			    HICN_IS_NAMEHASH_CACHED (b0) &&
+			    strategy->hicn_select_next_hop (
+			      vnet_buffer (b0)->ip.adj_index[VLIB_TX], &nh_idx,
+			      &outface) == HICN_ERROR_NONE))
 	    {
 	      /*
 	       * No need to check if parsing was successful
@@ -273,9 +263,8 @@ hicn_strategy_fn (vlib_main_t * vm,
 	   * Fix in case of a wrong speculation. Needed for
 	   * cloning the data in the right frame
 	   */
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
-					   to_next, n_left_to_next,
-					   bi0, next0);
+	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+					   n_left_to_next, bi0, next0);
 	}
 
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
@@ -293,7 +282,6 @@ hicn_strategy_fn (vlib_main_t * vm,
 /*
  * Node registration for the forwarder node
  */
-/* *INDENT-OFF* */
 VLIB_REGISTER_NODE (hicn_strategy_node) =
   {
    .name = "hicn-strategy",
@@ -314,7 +302,6 @@ VLIB_REGISTER_NODE (hicn_strategy_node) =
     [HICN_STRATEGY_NEXT_ERROR_DROP] = "error-drop",
    },
   };
-
 
 /*
  * fd.io coding-style-patch-verification: ON

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -29,7 +29,7 @@ static char *hicn_data_pcslookup_error_strings[] = {
 };
 
 /* packet trace format function */
-always_inline u8 *hicn_data_pcslookup_format_trace (u8 * s, va_list * args);
+always_inline u8 *hicn_data_pcslookup_format_trace (u8 *s, va_list *args);
 
 vlib_node_registration_t hicn_data_pcslookup_node;
 
@@ -37,8 +37,8 @@ vlib_node_registration_t hicn_data_pcslookup_node;
  * hICN node for handling data. It performs a lookup in the PIT.
  */
 static uword
-hicn_data_pcslookup_node_fn (vlib_main_t * vm,
-			     vlib_node_runtime_t * node, vlib_frame_t * frame)
+hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
+			     vlib_frame_t *frame)
 {
   u32 n_left_from, *from, *to_next;
   hicn_data_pcslookup_next_t next_index;
@@ -107,24 +107,22 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm,
 	  ret0 = hicn_data_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
 	  nameptr = (u8 *) (&name);
 
-	  if (PREDICT_TRUE (ret0 == HICN_ERROR_NONE &&
-			    hicn_hashtb_fullhash (nameptr, namelen,
-						  &name_hash) ==
-			    HICN_ERROR_NONE))
+	  if (PREDICT_TRUE (
+		ret0 == HICN_ERROR_NONE &&
+		hicn_hashtb_fullhash (nameptr, namelen, &name_hash) ==
+		  HICN_ERROR_NONE))
 	    {
-	      int res =
-		hicn_hashtb_lookup_node (rt->pitcs->pcs_table, nameptr,
-					 namelen, name_hash,
-					 1
-					 /*is_data. Do not take lock if hit CS */
-					 ,
-					 &node_id0, &dpo_ctx_id0, &vft_id0,
-					 &is_cs0, &hash_entry_id, &bucket_id,
-					 &bucket_is_overflown);
+	      int res = hicn_hashtb_lookup_node (
+		rt->pitcs->pcs_table, nameptr, namelen, name_hash,
+		1
+		/*is_data. Do not take lock if hit CS */
+		,
+		&node_id0, &dpo_ctx_id0, &vft_id0, &is_cs0, &hash_entry_id,
+		&bucket_id, &bucket_is_overflown);
 
 	      stats.pkts_data_count += 1;
 
-              if (res == HICN_ERROR_NONE)
+	      if (res == HICN_ERROR_NONE)
 		{
 		  /*
 		   * In case the result of the lookup
@@ -182,7 +180,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t * vm,
 
 /* packet trace format function */
 static u8 *
-hicn_data_pcslookup_format_trace (u8 * s, va_list * args)
+hicn_data_pcslookup_format_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
@@ -197,7 +195,6 @@ hicn_data_pcslookup_format_trace (u8 * s, va_list * args)
 /*
  * Node registration for the data forwarder node
  */
-/* *INDENT-OFF* */
 VLIB_REGISTER_NODE(hicn_data_pcslookup_node) =
 {
   .function = hicn_data_pcslookup_node_fn,
@@ -214,7 +211,6 @@ VLIB_REGISTER_NODE(hicn_data_pcslookup_node) =
     [HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP] = "error-drop",
   },
 };
-/* *INDENT-ON* */
 
 /*
  * fd.io coding-style-patch-verification: ON
