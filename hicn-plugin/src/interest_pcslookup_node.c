@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -24,7 +24,8 @@
 #include "state.h"
 
 /**
- * @FILE This node performs a lookup in the PIT and CS for a received interest packet.
+ * @FILE This node performs a lookup in the PIT and CS for a received interest
+ * packet.
  *
  * This node passes the packet to the interest-hitpit and interest-hitcs nodes
  * when there is a hit in the pit or content store, respectively.
@@ -33,8 +34,7 @@
 /* Functions declarations */
 
 /* packet trace format function */
-static u8 *hicn_interest_pcslookup_format_trace (u8 * s, va_list * args);
-
+static u8 *hicn_interest_pcslookup_format_trace (u8 *s, va_list *args);
 
 /* Stats string values */
 static char *hicn_interest_pcslookup_error_strings[] = {
@@ -50,8 +50,8 @@ vlib_node_registration_t hicn_interest_pcslookup_node;
  * ACL. - 1 packet at a time - ipv4/tcp ipv6/tcp
  */
 static uword
-hicn_interest_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
-				 vlib_frame_t * frame)
+hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
+				 vlib_frame_t *frame)
 {
   u32 n_left_from, *from, *to_next;
   hicn_interest_pcslookup_next_t next_index;
@@ -118,22 +118,20 @@ hicn_interest_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	  nameptr = (u8 *) (&name);
 	  stats.pkts_processed++;
 
-	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE ||
-			     hicn_hashtb_fullhash (nameptr, namelen,
-						   &name_hash) !=
-			     HICN_ERROR_NONE))
+	  if (PREDICT_FALSE (
+		ret != HICN_ERROR_NONE ||
+		hicn_hashtb_fullhash (nameptr, namelen, &name_hash) !=
+		  HICN_ERROR_NONE))
 	    {
 	      next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
 	    }
 	  else
 	    {
-	      if (hicn_hashtb_lookup_node (rt->pitcs->pcs_table, nameptr,
-					   namelen, name_hash,
-					   0 /* is_data */ , &node_id0,
-					   &dpo_ctx_id0, &vft_id0, &is_cs0,
-					   &hash_entry_id, &bucket_id,
-					   &bucket_is_overflown) ==
-		  HICN_ERROR_NONE)
+	      if (hicn_hashtb_lookup_node (
+		    rt->pitcs->pcs_table, nameptr, namelen, name_hash,
+		    0 /* is_data */, &node_id0, &dpo_ctx_id0, &vft_id0,
+		    &is_cs0, &hash_entry_id, &bucket_id,
+		    &bucket_is_overflown) == HICN_ERROR_NONE)
 		{
 		  next0 =
 		    HICN_INTEREST_PCSLOOKUP_NEXT_INTEREST_HITPIT + is_cs0;
@@ -159,17 +157,14 @@ hicn_interest_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 	   * Verify speculative enqueue, maybe switch current
 	   * next frame
 	   */
-	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index,
-					   to_next, n_left_to_next,
-					   bi0, next0);
-
+	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
+					   n_left_to_next, bi0, next0);
 	}
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
   u32 pit_int_count = hicn_pit_get_int_count (rt->pitcs);
   u32 pit_cs_count = hicn_pit_get_cs_count (rt->pitcs);
   u32 pcs_ntw_count = hicn_pcs_get_ntw_count (rt->pitcs);
-
 
   vlib_node_increment_counter (vm, hicn_interest_pcslookup_node.index,
 			       HICNFWD_ERROR_PROCESSED, stats.pkts_processed);
@@ -192,7 +187,7 @@ hicn_interest_pcslookup_node_fn (vlib_main_t * vm, vlib_node_runtime_t * node,
 
 /* packet trace format function */
 static u8 *
-hicn_interest_pcslookup_format_trace (u8 * s, va_list * args)
+hicn_interest_pcslookup_format_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
@@ -204,11 +199,9 @@ hicn_interest_pcslookup_format_trace (u8 * s, va_list * args)
   return (s);
 }
 
-
 /*
  * Node registration for the interest forwarder node
  */
-/* *INDENT-OFF* */
 VLIB_REGISTER_NODE(hicn_interest_pcslookup_node) =
 {
   .function = hicn_interest_pcslookup_node_fn,
@@ -228,7 +221,6 @@ VLIB_REGISTER_NODE(hicn_interest_pcslookup_node) =
     [HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP] = "error-drop",
   },
 };
-/* *INDENT-ON* */
 
 /*
  * fd.io coding-style-patch-verification: ON
