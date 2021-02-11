@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,14 +23,14 @@
 #include "face_prod.h"
 #include "face_cons.h"
 
-#define HICN_FACE_NONE 0
+#define HICN_FACE_NONE	 0
 #define HICN_FACE_DELETE 1
-#define HICN_FACE_ADD 2
+#define HICN_FACE_ADD	 2
 
 static clib_error_t *
-hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
-				  unformat_input_t * main_input,
-				  vlib_cli_command_t * cmd)
+hicn_face_app_cli_set_command_fn (vlib_main_t *vm,
+				  unformat_input_t *main_input,
+				  vlib_cli_command_t *cmd)
 {
   vnet_main_t *vnm = vnet_get_main ();
   fib_prefix_t prefix;
@@ -41,7 +41,6 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
   int sw_if;
   int face_op = HICN_FACE_NONE;
   int prod = 0;
-
 
   /* Get a line of input. */
   unformat_input_t _line_input, *line_input = &_line_input;
@@ -56,8 +55,8 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 	{
 	  face_op = HICN_FACE_DELETE;
 	}
-      else if (face_op == HICN_FACE_DELETE
-	       && unformat (line_input, "id %d", &face_id1))
+      else if (face_op == HICN_FACE_DELETE &&
+	       unformat (line_input, "id %d", &face_id1))
 	;
       else if (unformat (line_input, "add"))
 	{
@@ -65,13 +64,12 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 	}
       else if (face_op == HICN_FACE_ADD)
 	{
-	  if (unformat (line_input, "intfc %U",
-			unformat_vnet_sw_interface, vnm, &sw_if))
+	  if (unformat (line_input, "intfc %U", unformat_vnet_sw_interface,
+			vnm, &sw_if))
 	    ;
-	  else
-	    if (unformat
-		(line_input, "prod prefix %U/%d", unformat_ip46_address,
-		 &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
+	  else if (unformat (line_input, "prod prefix %U/%d",
+			     unformat_ip46_address, &prefix.fp_addr,
+			     IP46_TYPE_ANY, &prefix.fp_len))
 	    {
 	      prod = 1;
 	    }
@@ -81,10 +79,9 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 	    ;
 	  else
 	    {
-	      return clib_error_return (0, "%s '%U'",
-					get_error_string
-					(HICN_ERROR_CLI_INVAL),
-					format_unformat_error, line_input);
+	      return clib_error_return (
+		0, "%s '%U'", get_error_string (HICN_ERROR_CLI_INVAL),
+		format_unformat_error, line_input);
 	    }
 	}
       else
@@ -116,20 +113,17 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 
 	if (prod)
 	  {
-	    prefix.fp_proto =
-	      ip46_address_is_ip4 (&prefix.
-				   fp_addr) ? FIB_PROTOCOL_IP4 :
-	      FIB_PROTOCOL_IP6;
-	    rv =
-	      hicn_face_prod_add (&prefix, sw_if, &cs_reserved, &prod_addr,
-				  &face_id1);
+	    prefix.fp_proto = ip46_address_is_ip4 (&prefix.fp_addr) ?
+				      FIB_PROTOCOL_IP4 :
+				      FIB_PROTOCOL_IP6;
+	    rv = hicn_face_prod_add (&prefix, sw_if, &cs_reserved, &prod_addr,
+				     &face_id1);
 	    if (rv == HICN_ERROR_NONE)
 	      {
 		u8 *sbuf = NULL;
-		sbuf =
-		  format (sbuf, "Face id: %d, producer address %U", face_id1,
-			  format_ip46_address, &prod_addr,
-			  0 /*IP46_ANY_TYPE */ );
+		sbuf = format (sbuf, "Face id: %d, producer address %U",
+			       face_id1, format_ip46_address, &prod_addr,
+			       0 /*IP46_ANY_TYPE */);
 		vlib_cli_output (vm, "%s", sbuf);
 	      }
 	    else
@@ -139,17 +133,16 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
 	  }
 	else
 	  {
-	    rv =
-	      hicn_face_cons_add (&cons_addr4, &cons_addr6, sw_if, &face_id1,
-				  &face_id2);
+	    rv = hicn_face_cons_add (&cons_addr4, &cons_addr6, sw_if,
+				     &face_id1, &face_id2);
 	    if (rv == HICN_ERROR_NONE)
 	      {
 		u8 *sbuf = NULL;
-		sbuf =
-		  format (sbuf,
-			  "Face id: %d, address v4 %U, face id: %d address v6 %U",
-			  face_id1, format_ip4_address, &cons_addr4, face_id2,
-			  format_ip6_address, &cons_addr6);
+		sbuf = format (
+		  sbuf,
+		  "Face id: %d, address v4 %U, face id: %d address v6 %U",
+		  face_id1, format_ip4_address, &cons_addr4, face_id2,
+		  format_ip6_address, &cons_addr6);
 		vlib_cli_output (vm, "%s", sbuf);
 	      }
 	    else
@@ -181,20 +174,18 @@ hicn_face_app_cli_set_command_fn (vlib_main_t * vm,
       return clib_error_return (0, "Operation (%d) not implemented", face_op);
       break;
     }
-  return (rv == HICN_ERROR_NONE) ? 0 : clib_error_return (0, "%s\n",
-							  get_error_string
-							  (rv));
+  return (rv == HICN_ERROR_NONE) ?
+		 0 :
+		 clib_error_return (0, "%s\n", get_error_string (rv));
 }
 
 /* cli declaration for 'cfg face' */
-/* *INDENT-OFF* */
-VLIB_CLI_COMMAND (hicn_face_app_cli_set_command, static) =
-{
+VLIB_CLI_COMMAND (hicn_face_app_cli_set_command, static) = {
   .path = "hicn face app",
-  .short_help = "hicn face app {add intfc <sw_if> { prod prefix <hicn_prefix> cs_size <size_in_packets>} {cons} | {del <face_id>}",
+  .short_help = "hicn face app {add intfc <sw_if> { prod prefix <hicn_prefix> "
+		"cs_size <size_in_packets>} {cons} | {del <face_id>}",
   .function = hicn_face_app_cli_set_command_fn,
 };
-/* *INDENT-ON* */
 
 /*
  * fd.io coding-style-patch-verification: ON
