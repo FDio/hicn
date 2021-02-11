@@ -121,6 +121,9 @@ function install_deps() {
         echo ${DEPS_UBUNTU[@]} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
     elif [ ${DISTRIB_ID} == "centos" ]; then
         yum config-manager --set-enabled powertools
+        # Temporary workaround until centos fixes the asio-devel package (https://forums.centos.org/viewtopic.php?t=73034)
+        curl -OL http://mirror.centos.org/centos/8/PowerTools/x86_64/os/Packages/asio-devel-1.10.8-7.module_el8.1.0+217+4d875839.x86_64.rpm
+        yum localinstall ./asio-devel-1.10.8-7.module_el8.1.0+217+4d875839.x86_64.rpm
         echo ${DEPS_CENTOS[@]} | xargs sudo yum install -y --nogpgcheck
     fi
 }
