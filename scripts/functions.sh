@@ -71,12 +71,10 @@ DEPS_CENTOS=("vpp-devel-${VPP_VERSION_RPM}"
              "libcurl-devel"
              "asio-devel"
              "libconfig-devel"
-             "centos-release-scl"
+             "dnf-plugins-core"
              "bzip2"
-             "devtoolset-7"
              "rpm-build")
 
-LATEST_EPEL_REPO="http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
 COLLECTD_SOURCE="https://github.com/collectd/collectd/releases/download/collectd-5.12.0/collectd-5.12.0.tar.bz2"
 
 function install_collectd_headers() {
@@ -109,8 +107,6 @@ function setup_fdio_repo() {
     elif [ "${DISTRIB_ID}" == "centos" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM} | sudo bash
         curl -s ${PACKAGECLOUD_HICN_REPO_RPM} | sudo bash
-        curl -L ${LATEST_EPEL_REPO} > /tmp/epel-release-latest-7.noarch.rpm
-        rpm -ivh /tmp/epel-release-latest-7.noarch.rpm || true
     else
         echo "Distribution ${DISTRIB_ID} is not supported"
         exit 1
@@ -124,9 +120,8 @@ function install_deps() {
     if [ ${DISTRIB_ID} == "ubuntu" ]; then
         echo ${DEPS_UBUNTU[@]} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
     elif [ ${DISTRIB_ID} == "centos" ]; then
+        yum config-manager --set-enabled powertools
         echo ${DEPS_CENTOS[@]} | xargs sudo yum install -y --nogpgcheck
-        ${CXX_COMPILER} --version
-        ${CC_COMPILER} --version
     fi
 }
 
@@ -145,13 +140,6 @@ function call_once() {
 function setup() {
     echo DISTRIBUTION: ${PRETTY_NAME}
     # export variables depending on the platform we are running
-
-    if [ ${ID} == "centos" ]; then
-        # Compilers location
-        CXX_COMPILER="/opt/rh/devtoolset-7/root/usr/bin/c++"
-        CC_COMPILER="/opt/rh/devtoolset-7/root/usr/bin/cc"
-        export CC=${CC_COMPILER} CXX=${CXX_COMPILER}
-    fi
 
     call_once setup_fdio_repo
     call_once install_deps
