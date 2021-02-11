@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -37,8 +37,8 @@ int hicn_infra_fwdr_initialized = 0;
  * Global time counters we're trying out for opportunistic hashtable
  * expiration.
  */
-uint16_t hicn_infra_fast_timer;	/* Counts at 1 second intervals */
-uint16_t hicn_infra_slow_timer;	/* Counts at 1 minute intervals */
+uint16_t hicn_infra_fast_timer; /* Counts at 1 second intervals */
+uint16_t hicn_infra_slow_timer; /* Counts at 1 minute intervals */
 
 hicn_face_bucket_t *hicn_face_bucket_pool;
 
@@ -78,11 +78,9 @@ done:
  * only 'enabling' now
  */
 int
-hicn_infra_plugin_enable_disable (int enable_disable,
-				  int pit_size_req,
+hicn_infra_plugin_enable_disable (int enable_disable, int pit_size_req,
 				  f64 pit_max_lifetime_sec_req,
-				  int cs_size_req,
-                                  vnet_link_t link)
+				  int cs_size_req, vnet_link_t link)
 {
   int ret = 0;
 
@@ -148,18 +146,19 @@ hicn_infra_plugin_enable_disable (int enable_disable,
       vec_foreach (bp, bm->buffer_pools)
 	n_buffers = n_buffers < bp->n_buffers ? bp->n_buffers : n_buffers;
 
-      // check if CS is bugger tha PIT or bigger than the available vlib_buffers
-      uword cs_buffers =
-	(n_buffers >
-	 HICN_PARAM_CS_MIN_MBUF) ? n_buffers - HICN_PARAM_CS_MIN_MBUF : 0;
+      // check if CS is bugger tha PIT or bigger than the available
+      // vlib_buffers
+      uword cs_buffers = (n_buffers > HICN_PARAM_CS_MIN_MBUF) ?
+				 n_buffers - HICN_PARAM_CS_MIN_MBUF :
+				 0;
 
       if (cs_size_req > (pit_size_req / 2) || cs_size_req > cs_buffers)
 	{
 	  cs_size_req =
 	    ((pit_size_req / 2) > cs_buffers) ? cs_buffers : pit_size_req / 2;
 	  vlib_cli_output (vm,
-			   "WARNING!! CS too large. Please check size of PIT or the number of buffers available in VPP\n");
-
+			   "WARNING!! CS too large. Please check size of PIT "
+			   "or the number of buffers available in VPP\n");
 	}
       cs_size = (uint32_t) cs_size_req;
     }
@@ -174,7 +173,7 @@ hicn_infra_plugin_enable_disable (int enable_disable,
     }
   sm->is_enabled = 1;
   sm->link = link;
-  //hicn_face_udp_init_internal ();
+  // hicn_face_udp_init_internal ();
 
 done:
 
@@ -182,14 +181,13 @@ done:
 }
 
 static clib_error_t *
-hicn_configure (vlib_main_t * vm, unformat_input_t * input)
+hicn_configure (vlib_main_t *vm, unformat_input_t *input)
 {
   u32 pit_size = HICN_PARAM_PIT_ENTRIES_DFLT;
   u32 cs_size = HICN_PARAM_CS_ENTRIES_DFLT;
   u64 pit_lifetime_max_sec = HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS / SEC_MS;
 
   vnet_link_t link;
-
 
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
@@ -207,10 +205,8 @@ hicn_configure (vlib_main_t * vm, unformat_input_t * input)
 
   unformat_free (input);
 
-  hicn_infra_plugin_enable_disable (1, pit_size,
-				    pit_lifetime_max_sec,
-				    cs_size, link);
-
+  hicn_infra_plugin_enable_disable (1, pit_size, pit_lifetime_max_sec, cs_size,
+				    link);
 
   return 0;
 }
@@ -221,7 +217,7 @@ VLIB_CONFIG_FUNCTION (hicn_configure, "hicn");
  * Init entry-point for the icn plugin
  */
 static clib_error_t *
-hicn_init (vlib_main_t * vm)
+hicn_init (vlib_main_t *vm)
 {
   clib_error_t *error = 0;
 
@@ -250,12 +246,7 @@ hicn_init (vlib_main_t * vm)
 
 VLIB_INIT_FUNCTION (hicn_init);
 
-/* *INDENT-OFF* */
-VLIB_PLUGIN_REGISTER() =
-{
-	.description = "hICN forwarder"
-};
-/* *INDENT-ON* */
+VLIB_PLUGIN_REGISTER () = { .description = "hICN forwarder" };
 
 /*
  * fd.io coding-style-patch-verification: ON
