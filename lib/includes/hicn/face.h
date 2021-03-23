@@ -138,6 +138,13 @@ foreach_face_type
 #undef _
 } face_type_t;
 
+typedef enum {
+    FACE_PROTOCOL_HICN,
+    FACE_PROTOCOL_UDP,
+    FACE_PROTOCOL_TCP,
+    FACE_PROTOCOL_UNKNOWN,
+} face_protocol_t;
+
 #define face_type_is_valid(face_type) \
     (((face_type) >= FACE_TYPE_UNDEFINED) && (face_type < FACE_TYPE_N))
 #define face_type_is_defined(face_type) \
@@ -208,6 +215,8 @@ face_snprintf(char * s, size_t size, const face_t * face);
 
 policy_tags_t face_get_tags(const face_t * face);
 int face_set_tags(face_t * face, policy_tags_t tags);
+
+face_protocol_t get_protocol(face_type_t face_type);
 
 #endif /* HICN_FACE_H */
 

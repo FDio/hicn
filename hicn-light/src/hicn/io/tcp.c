@@ -391,14 +391,14 @@ connection_tcp_read_message(connection_t * connection, msgbuf_t * msgbuf)
 
     size_t n = evbuffer_get_length(data->evbuffer);
     // XXX this check was wrong
-    // parcAssertTrue(n >= sizeof(header_control_message),
+    // parcAssertTrue(n >= sizeof(cmd_header_t),
             "Called with too short an input: %zu", n);
 
     // XXX WTF
     if (stream->next_len == 0) {
         // this linearizes the first messageHandler_GetIPv6HeaderLength() bytes of the
         // input buffer's iovecs and returns a pointer to it.
-        uint8_t *fh = parcEventBuffer_Pullup(data->evbuffer, sizeof(header_control_message));
+        uint8_t *fh = parcEventBuffer_Pullup(data->evbuffer, sizeof(cmd_header_t));
 
         // Calculate the total message size based on the fixed header
         stream->next_len = messageHandler_GetTotalPacketLength(fh);

@@ -61,7 +61,7 @@ vapi_skc_ctx_t vapi_skc = {
 
 /**
  * Messages to the forwarder might be multiplexed thanks to the seqNum fields in
- * the header_control_message structure. The forwarder simply answers back the
+ * the cmd_header_t structure. The forwarder simply answers back the
  * original sequence number. We maintain a map of such sequence number to
  * outgoing queries so that replied can be demultiplexed and treated
  * appropriately.

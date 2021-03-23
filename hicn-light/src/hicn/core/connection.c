@@ -233,7 +233,7 @@ connection_initialize(connection_t * connection, face_type_t type, const char * 
     assert(connection);
     /* Interface name can be NULL eg always for TCP connnections */
     assert(pair);
-    assert(address_pair_is_valid(pair));
+    // assert(address_pair_is_valid(pair)); TODO: local addr in the pair is not initialized for now
 
     *connection = (connection_t) {
         .id = connection_id,
@@ -259,13 +259,13 @@ connection_initialize(connection_t * connection, face_type_t type, const char * 
         .wldr_autostart = true,
     };
 
-    connection->data = malloc(connection_vft[connection->type]->data_size);
+    connection->data = malloc(connection_vft[get_protocol(connection->type)]->data_size);
     if (!connection->data)
         goto ERR_DATA;
 
     assert(connection_has_valid_id(connection));
 
-    rc = connection_vft[connection->type]->initialize(connection);
+    rc = connection_vft[get_protocol(connection->type)]->initialize(connection);
     if (rc < 0) {
         goto ERR_VFT;
     }
@@ -273,7 +273,7 @@ connection_initialize(connection_t * connection, face_type_t type, const char * 
     // XXX uncertain  as fd is created by the listener !!
     // XXX check whether it is registered !
 #if 0
-    connection->fd = connection_vft[connection->type]->get_socket(connection, address, NULL, interface_name);
+    connection->fd = connection_vft[get_protocol(connection->type)]->get_socket(connection, address, NULL, interface_name);
     if (connection->fd < 0) {
         ERROR("Error creating connection fd: (%d) %s", errno, strerror(errno));
         goto ERR_FD;
@@ -282,7 +282,7 @@ connection_initialize(connection_t * connection, face_type_t type, const char * 
     // XXX data should be pre-allocated here
 
     if (loop_register_fd(MAIN_LOOP, connection->fd, connection,
-                connection_vft[connection->type]->read_callback, NULL) < 0)
+                connection_vft[get_protocol(connection->type)]->read_callback, NULL) < 0)
         goto ERR_REGISTER_FD;
 #endif
 
@@ -320,7 +320,7 @@ connection_finalize(connection_t * connection)
     if (connection->wldr)
         wldr_free(connection->wldr);
 
-    connection_vft[connection->type]->finalize(connection);
+    connection_vft[get_protocol(connection->type)]->finalize(connection);
 
     free(connection->interface_name);
     free(connection);
@@ -338,7 +338,7 @@ command_type_t
 _isACommand(PARCEventBuffer *input)
 {
     size_t bytesAvailable = parcEventBuffer_GetLength(input);
-    parcAssertTrue(bytesAvailable >= sizeof(header_control_message),
+    parcAssertTrue(bytesAvailable >= sizeof(cmd_header_t),
             "Called with too short an input: %zu", bytesAvailable);
 
     uint8_t *msg = parcEventBuffer_Pullup(input, bytesAvailable);
@@ -367,7 +367,7 @@ connection_process_buffer(connection_t * connection, const uint8_t * buffer, siz
     /* Too small a packet is not useful to decide between a control message and
      * an hICN packet, the size of a control message is enough to test for both
      * pakcet types */
-    if (size < sizeof(header_control_message))
+    if (size < sizeof(cmd_header_t))
         return 0;
 
     /* We expect complete packets most of the time, so don't bother with state */
@@ -376,7 +376,7 @@ connection_process_buffer(connection_t * connection, const uint8_t * buffer, siz
         command_type_t command_type = command_type_from_uchar(msg[1]);
         if (!command_type_is_valid(command_type))
             break;
-        expected = sizeof(header_control_message) +
+        expected = sizeof(cmd_header_t) +
             command_get_payload_len(command_type);
         if (size < expected)
             return 0;
@@ -423,7 +423,7 @@ connection_read_message(connection_t * connection, msgbuf_t * msgbuf)
     assert(face_type_is_valid(connection->type));
     assert(msgbuf);
 
-    return connection_vft[connection->type]->read_message(connection, msgbuf);
+    return connection_vft[get_protocol(connection->type)]->read_message(connection, msgbuf);
 }
 
 uint8_t *
@@ -432,7 +432,7 @@ connection_read_packet(connection_t * connection)
     assert(connection);
     assert(face_type_is_valid(connection->type));
 
-    return connection_vft[connection->type]->read_packet(connection);
+    return connection_vft[get_protocol(connection->type)]->read_packet(connection);
 }
 #endif
 
@@ -444,7 +444,7 @@ connection_send_packet(const connection_t * connection, const uint8_t * packet,
     assert(face_type_is_valid(connection->type));
     assert(packet);
 
-    return connection_vft[connection->type]->send_packet(connection, packet, size);
+    return connection_vft[get_protocol(connection->type)]->send_packet(connection, packet, size);
 }
 
 // ALL DEPRECATED CODE HERE TO BE UPDATED
@@ -453,7 +453,7 @@ connection_send_packet(const connection_t * connection, const uint8_t * packet,
 bool
 _connection_send(const connection_t * connection, msgbuf_t * msgbuf, bool queue)
 {
-    return connection_vft[connection->type]->send(connection, msgbuf, queue);
+    return connection_vft[get_protocol(connection->type)]->send(connection, msgbuf, queue);
 }
 
 bool

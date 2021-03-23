@@ -57,7 +57,7 @@ typedef struct {
 
 /**
  * Messages to the forwarder might be multiplexed thanks to the seqNum fields in
- * the header_control_message structure. The forwarder simply answers back the
+ * the cmd_header_t structure. The forwarder simply answers back the
  * original sequence number. We maintain a map of such sequence number to
  * outgoing queries so that replied can be demultiplexed and treated
  * appropriately.
@@ -272,28 +272,28 @@ static const address_type map_to_addr_type[] = {
  ******************************************************************************/
 
 #define foreach_hc_command      \
-    _(add_connection)           \
-    _(remove_connection)        \
-    _(list_connections)         \
-    _(add_listener)             \
-    _(remove_listener)          \
-    _(list_listeners)           \
-    _(add_route)                \
-    _(remove_route)             \
-    _(list_routes)              \
-    _(cache_store)              \
-    _(cache_serve)              \
+    _(connection_add)           \
+    _(connection_remove)        \
+    _(connection_list)         \
+    _(listener_add)             \
+    _(listener_remove)          \
+    _(listener_list)           \
+    _(route_add)                \
+    _(route_remove)             \
+    _(route_list)              \
+    _(cache_set_store)              \
+    _(cache_set_serve)              \
     /*_(cache_clear) */         \
-    _(set_strategy)             \
-    _(set_wldr)                 \
-    _(add_punting)              \
+    _(strategy_set)             \
+    _(wldr_set)                 \
+    _(punting_add)              \
     _(mapme_activator)          \
     _(mapme_timing)
 
-typedef header_control_message hc_msg_header_t;
+typedef cmd_header_t hc_msg_header_t;
 
 typedef union {
-#define _(x) x ## _command x;
+#define _(x) cmd_ ## x ## _t x;
         foreach_hc_command
 #undef _
 } hc_msg_payload_t;
@@ -486,7 +486,7 @@ hc_sock_create_url(const char * url)
 
     s->url = url ? strdup(url) : NULL;
 
-    s->fd = socket(AF_INET, SOCK_STREAM, 0);
+    s->fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (s->fd < 0)
         goto ERR_SOCKET;
 
@@ -526,7 +526,7 @@ hc_sock_free(hc_sock_t * s)
     hc_sock_request_t ** request_array = NULL;
     int n = hc_sock_map_get_value_array(s->map, &request_array);
     if (n < 0) {
-       ERROR("Could not retrieve pending request array for freeing up resources"); 
+       ERROR("Could not retrieve pending request array for freeing up resources");
     } else {
         for (unsigned i = 0; i < n; i++) {
             hc_sock_request_t * request = request_array[i];
@@ -620,7 +620,7 @@ hc_sock_recv(hc_sock_t * s)
     rc = (int)recv(s->fd, s->buf + s->woff, RECV_BUFLEN - s->woff, 0);
     if (rc == 0) {
         /* Connection has been closed */
-         return 0;
+        return 0;
     }
     if (rc < 0) {
         /*
@@ -672,6 +672,9 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                     assert(s->remaining == 1);
                     assert(!data);
                     s->cur_request = request;
+                    hc_data_set_complete(request->data);
+                    available = 0;
+                    s->roff += s->woff;
                     break;
                 case NACK_LIGHT:
                     assert(s->remaining == 1);
@@ -698,6 +701,11 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                     return -99;
             }
 
+            if (msg->hdr.messageType == ACK_LIGHT) {
+                available = 0;
+                s->roff += s->woff;
+                continue;
+            }
             available -= sizeof(hc_msg_header_t);
             s->roff += sizeof(hc_msg_header_t);
         } else {
@@ -824,7 +832,7 @@ typedef int (*HC_PARSE)(const u8 *, u8 *);
 
 typedef struct {
     hc_action_t cmd;
-    command_id cmd_id;
+    command_type_t cmd_id;
     size_t size_in;
     size_t size_out;
     HC_PARSE parse;
@@ -909,8 +917,11 @@ hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
         if (n < 0)
             continue; //break;
         int rc = hc_sock_process(s, pdata);
+        if (rc == 0)
+            break;
         switch(rc) {
             case 0:
+                printf("TEST");
                 break;
             case -1:
                 ret = rc;
@@ -966,13 +977,10 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
     if (!IS_VALID_CONNECTION_TYPE(listener->type))
          return -1;
 
-    struct {
-        header_control_message hdr;
-        add_listener_command payload;
-    } msg = {
-        .hdr = {
+    msg_listener_add_t msg = {
+        .header = {
             .messageType = REQUEST_LIGHT,
-            .commandID = ADD_LISTENER,
+            .commandID = COMMAND_TYPE_LISTENER_ADD,
             .length = 1,
             .seqNum = 0,
         },
@@ -982,6 +990,8 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
             .addressType = (u8)map_to_addr_type[listener->family],
             .listenerMode = (u8)map_to_listener_mode[listener->type],
             .connectionType = (u8)map_to_connection_type[listener->type],
+            .family = listener->family,
+            .listenerType = listener->type,
         }
     };
 
@@ -995,8 +1005,8 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
-        .cmd_id = ADD_LISTENER,
-        .size_in = sizeof(add_listener_command),
+        .cmd_id = COMMAND_TYPE_LISTENER_ADD,
+        .size_in = sizeof(cmd_listener_add_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1068,12 +1078,12 @@ _hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
             BOOLSTR(async));
 
     struct {
-        header_control_message hdr;
-        remove_listener_command payload;
+        cmd_header_t hdr;
+        cmd_listener_remove_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_LISTENER,
+            .commandID = COMMAND_TYPE_LISTENER_REMOVE,
             .length = 1,
             .seqNum = 0,
         },
@@ -1101,8 +1111,8 @@ _hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_LISTENER,
-        .size_in = sizeof(remove_listener_command),
+        .cmd_id = COMMAND_TYPE_LISTENER_REMOVE,
+        .size_in = sizeof(cmd_listener_remove_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1131,11 +1141,11 @@ _hc_listener_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
     DEBUG("[hc_listener_list] async=%s", BOOLSTR(async));
 
     struct {
-        header_control_message hdr;
+        cmd_header_t hdr;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = LIST_LISTENERS,
+            .commandID = COMMAND_TYPE_LISTENER_LIST,
             .length = 0,
             .seqNum = 0,
         },
@@ -1143,8 +1153,8 @@ _hc_listener_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
-        .cmd_id = LIST_LISTENERS,
-        .size_in = sizeof(list_listeners_command),
+        .cmd_id = COMMAND_TYPE_LISTENER_LIST,
+        .size_in = sizeof(cmd_listener_list_t),
         .size_out = sizeof(hc_listener_t),
         .parse = (HC_PARSE)hc_listener_parse,
     };
@@ -1215,7 +1225,7 @@ hc_listener_parse(void * in, hc_listener_t * listener)
 {
     int rc;
 
-    list_listeners_command * cmd = (list_listeners_command *)in;
+    cmd_listener_list_t * cmd = (cmd_listener_list_t *)in;
 
     if (!IS_VALID_LIST_LISTENERS_TYPE(cmd->encapType))
          return -1;
@@ -1287,22 +1297,22 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
         return -1;
 
     struct {
-        header_control_message hdr;
-        add_connection_command payload;
+        cmd_header_t hdr;
+        cmd_connection_add_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = ADD_CONNECTION,
+            .commandID = COMMAND_TYPE_CONNECTION_ADD,
             .length = 1,
             .seqNum = 0,
         },
         .payload = {
-            .remoteIp = connection->remote_addr,
-            .localIp = connection->local_addr,
-            .remotePort = htons(connection->remote_port),
-            .localPort = htons(connection->local_port),
-            .ipType = (u8)map_to_addr_type[connection->family],
-            .connectionType = (u8)map_to_connection_type[connection->type],
+            .remote_ip = connection->remote_addr,
+            .local_ip = connection->local_addr,
+            .remote_port = htons(connection->remote_port),
+            .local_port = htons(connection->local_port),
+            .type = (u8)map_to_addr_type[connection->family],
+            .connection_type = (u8)map_to_connection_type[connection->type],
             .admin_state = connection->admin_state,
 #ifdef WITH_POLICY
             .priority = connection->priority,
@@ -1317,8 +1327,8 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
-        .cmd_id = ADD_CONNECTION,
-        .size_in = sizeof(add_connection_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_ADD,
+        .size_in = sizeof(cmd_connection_add_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1389,12 +1399,12 @@ _hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
     DEBUG("[_hc_connection_delete] connection=%s async=%s", connection_s, BOOLSTR(async));
 
     struct {
-        header_control_message hdr;
-        remove_connection_command payload;
+        cmd_header_t hdr;
+        cmd_connection_remove_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_CONNECTION,
+            .commandID = COMMAND_TYPE_CONNECTION_REMOVE,
             .length = 1,
             .seqNum = 0,
         },
@@ -1422,8 +1432,8 @@ _hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_CONNECTION,
-        .size_in = sizeof(remove_connection_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_REMOVE,
+        .size_in = sizeof(cmd_connection_remove_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1451,11 +1461,11 @@ _hc_connection_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
     DEBUG("[hc_connection_list] async=%s", BOOLSTR(async));
 
     struct {
-        header_control_message hdr;
+        cmd_header_t hdr;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = LIST_CONNECTIONS,
+            .commandID = COMMAND_TYPE_CONNECTION_LIST,
             .length = 0,
             .seqNum = 0,
         },
@@ -1463,8 +1473,8 @@ _hc_connection_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
-        .cmd_id = LIST_CONNECTIONS,
-        .size_in = sizeof(list_connections_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_LIST,
+        .size_in = sizeof(cmd_connection_list_t),
         .size_out = sizeof(hc_connection_t),
         .parse = (HC_PARSE)hc_connection_parse,
     };
@@ -1548,12 +1558,12 @@ int
 hc_connection_parse(void * in, hc_connection_t * connection)
 {
     int rc;
-    list_connections_command * cmd = (list_connections_command *)in;
+    cmd_connection_list_t * cmd = (cmd_connection_list_t *)in;
 
-    if (!IS_VALID_LIST_CONNECTIONS_TYPE(cmd->connectionData.connectionType))
+    if (!IS_VALID_LIST_CONNECTIONS_TYPE(cmd->connectionData.connection_type))
          return -1;
 
-    hc_connection_type_t type = map_from_list_connections_type[cmd->connectionData.connectionType];
+    hc_connection_type_t type = map_from_list_connections_type[cmd->connectionData.connection_type];
     if (type == CONNECTION_TYPE_UNDEFINED)
          return -1;
 
@@ -1564,10 +1574,10 @@ hc_connection_parse(void * in, hc_connection_t * connection)
     if (state == HC_CONNECTION_STATE_UNDEFINED)
          return -1;
 
-    if (!IS_VALID_ADDR_TYPE(cmd->connectionData.ipType))
+    if (!IS_VALID_ADDR_TYPE(cmd->connectionData.type))
          return -1;
 
-    int family = map_from_addr_type[cmd->connectionData.ipType];
+    int family = map_from_addr_type[cmd->connectionData.type];
     if (!IS_VALID_FAMILY(family))
          return -1;
 
@@ -1575,12 +1585,12 @@ hc_connection_parse(void * in, hc_connection_t * connection)
         .id = cmd->connid,
         .type = type,
         .family = family,
-        .local_addr = cmd->connectionData.localIp,
+        .local_addr = cmd->connectionData.local_ip,
         //.local_addr = UNION_CAST(cmd->connectionData.localIp, ip_address_t),
-        .local_port = ntohs(cmd->connectionData.localPort),
-        .remote_addr = cmd->connectionData.remoteIp,
+        .local_port = ntohs(cmd->connectionData.local_port),
+        .remote_addr = cmd->connectionData.remote_ip,
         //.remote_addr = UNION_CAST(cmd->connectionData.remoteIp, ip_address_t),
-        .remote_port = ntohs(cmd->connectionData.remotePort),
+        .remote_port = ntohs(cmd->connectionData.remote_port),
         .admin_state = cmd->connectionData.admin_state,
 #ifdef WITH_POLICY
         .priority = cmd->connectionData.priority,
@@ -1642,12 +1652,12 @@ _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
     DEBUG("[hc_connection_set_admin_state] connection_id/name=%s admin_state=%s async=%s",
             conn_id_or_name, face_state_str(state), BOOLSTR(async));
     struct {
-        header_control_message hdr;
-        connection_set_admin_state_command payload;
+        cmd_header_t hdr;
+        cmd_connection_set_admin_state_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_ADMIN_STATE,
+            .commandID = COMMAND_TYPE_CONNECTION_SET_ADMIN_STATE,
             .length = 1,
             .seqNum = 0,
         },
@@ -1661,8 +1671,8 @@ _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
-        .cmd_id = CONNECTION_SET_ADMIN_STATE,
-        .size_in = sizeof(connection_set_admin_state_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_SET_ADMIN_STATE,
+        .size_in = sizeof(cmd_connection_set_admin_state_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1692,12 +1702,12 @@ _hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
     DEBUG("[hc_connection_set_priority] connection_id/name=%s priority=%d async=%s",
             conn_id_or_name, priority, BOOLSTR(async));
     struct {
-        header_control_message hdr;
-        connection_set_priority_command payload;
+        cmd_header_t hdr;
+        cmd_connection_set_priority_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_PRIORITY,
+            .commandID = COMMAND_TYPE_CONNECTION_SET_PRIORITY,
             .length = 1,
             .seqNum = 0,
         },
@@ -1711,8 +1721,8 @@ _hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
-        .cmd_id = CONNECTION_SET_PRIORITY,
-        .size_in = sizeof(connection_set_priority_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_SET_PRIORITY,
+        .size_in = sizeof(cmd_connection_set_priority_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1742,12 +1752,12 @@ _hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name,
     DEBUG("[hc_connection_set_tags] connection_id/name=%s tags=%d async=%s",
             conn_id_or_name, tags, BOOLSTR(async));
     struct {
-        header_control_message hdr;
-        connection_set_tags_command payload;
+        cmd_header_t hdr;
+        cmd_connection_set_tags_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_TAGS,
+            .commandID = COMMAND_TYPE_CONNECTION_SET_TAGS,
             .length = 1,
             .seqNum = 0,
         },
@@ -1761,8 +1771,8 @@ _hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name,
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
-        .cmd_id = CONNECTION_SET_TAGS,
-        .size_in = sizeof(connection_set_tags_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_SET_TAGS,
+        .size_in = sizeof(cmd_connection_set_tags_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1806,12 +1816,12 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
          return -1;
 
     struct {
-        header_control_message hdr;
-        add_route_command payload;
+        cmd_header_t hdr;
+        cmd_route_add_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = ADD_ROUTE,
+            .commandID = COMMAND_TYPE_ROUTE_ADD,
             .length = 1,
             .seqNum = 0,
         },
@@ -1833,8 +1843,8 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
-        .cmd_id = ADD_ROUTE,
-        .size_in = sizeof(add_route_command),
+        .cmd_id = COMMAND_TYPE_ROUTE_ADD,
+        .size_in = sizeof(cmd_route_add_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1869,12 +1879,12 @@ _hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
          return -1;
 
     struct {
-        header_control_message hdr;
-        remove_route_command payload;
+        cmd_header_t hdr;
+        cmd_route_remove_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_ROUTE,
+            .commandID = COMMAND_TYPE_ROUTE_REMOVE,
             .length = 1,
             .seqNum = 0,
         },
@@ -1893,8 +1903,8 @@ _hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_ROUTE,
-        .size_in = sizeof(remove_route_command),
+        .cmd_id = COMMAND_TYPE_ROUTE_REMOVE,
+        .size_in = sizeof(cmd_route_remove_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1922,11 +1932,11 @@ _hc_route_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
     //DEBUG("[hc_route_list] async=%s", BOOLSTR(async));
 
     struct {
-        header_control_message hdr;
+        cmd_header_t hdr;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = LIST_ROUTES,
+            .commandID = COMMAND_TYPE_ROUTE_LIST,
             .length = 0,
             .seqNum = 0,
         },
@@ -1934,8 +1944,8 @@ _hc_route_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
-        .cmd_id = LIST_ROUTES,
-        .size_in = sizeof(list_routes_command),
+        .cmd_id = COMMAND_TYPE_ROUTE_LIST,
+        .size_in = sizeof(cmd_route_list_t),
         .size_out = sizeof(hc_route_t),
         .parse = (HC_PARSE)hc_route_parse,
     };
@@ -1960,7 +1970,7 @@ hc_route_list_async(hc_sock_t * s)
 int
 hc_route_parse(void * in, hc_route_t * route)
 {
-    list_routes_command * cmd = (list_routes_command *) in;
+    cmd_route_list_t * cmd = (cmd_route_list_t *) in;
 
     if (!IS_VALID_ADDR_TYPE(cmd->addressType)) {
         ERROR("[hc_route_parse] Invalid address type");
@@ -2516,11 +2526,11 @@ int
 hc_face_list_async(hc_sock_t * s)
 {
     struct {
-        header_control_message hdr;
+        cmd_header_t hdr;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = LIST_CONNECTIONS,
+            COMMAND_TYPE_CONNECTION_LIST,
             .length = 0,
             .seqNum = 0,
         },
@@ -2528,8 +2538,8 @@ hc_face_list_async(hc_sock_t * s)
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
-        .cmd_id = LIST_CONNECTIONS,
-        .size_in = sizeof(list_connections_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_LIST,
+        .size_in = sizeof(cmd_connection_list_t),
         .size_out = sizeof(hc_face_t),
         .parse = (HC_PARSE)hc_connection_parse_to_face,
     };
@@ -2656,12 +2666,12 @@ _hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
         return -1;
 
     struct {
-        header_control_message hdr;
-        add_punting_command payload;
+        cmd_header_t hdr;
+        cmd_punting_add_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = ADD_PUNTING,
+            .commandID = COMMAND_TYPE_PUNTING_ADD,
             .length = 1,
             .seqNum = 0,
         },
@@ -2677,8 +2687,8 @@ _hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
-        .cmd_id = ADD_PUNTING,
-        .size_in = sizeof(add_punting_command),
+        .cmd_id = COMMAND_TYPE_PUNTING_ADD,
+        .size_in = sizeof(cmd_punting_add_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -2777,12 +2787,12 @@ int
 _hc_cache_set_store(hc_sock_t * s, int enabled, bool async)
 {
     struct {
-        header_control_message hdr;
-        cache_store_command payload;
+        cmd_header_t hdr;
+        cmd_cache_set_store_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CACHE_STORE,
+            .commandID = COMMAND_TYPE_CACHE_SET_STORE,
             .length = 1,
             .seqNum = 0,
         },
@@ -2793,8 +2803,8 @@ _hc_cache_set_store(hc_sock_t * s, int enabled, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
-        .cmd_id = CACHE_STORE,
-        .size_in = sizeof(cache_store_command),
+        .cmd_id = COMMAND_TYPE_CACHE_SET_STORE,
+        .size_in = sizeof(cmd_cache_set_store_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -2818,12 +2828,12 @@ int
 _hc_cache_set_serve(hc_sock_t * s, int enabled, bool async)
 {
     struct {
-        header_control_message hdr;
-        cache_serve_command payload;
+        cmd_header_t hdr;
+        cmd_cache_set_serve_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CACHE_SERVE,
+            .commandID = COMMAND_TYPE_CACHE_SET_SERVE,
             .length = 1,
             .seqNum = 0,
         },
@@ -2834,8 +2844,8 @@ _hc_cache_set_serve(hc_sock_t * s, int enabled, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
-        .cmd_id = CACHE_SERVE,
-        .size_in = sizeof(cache_serve_command),
+        .cmd_id = COMMAND_TYPE_CACHE_SET_SERVE,
+        .size_in = sizeof(cmd_cache_set_serve_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -2955,12 +2965,12 @@ _hc_policy_create(hc_sock_t * s, hc_policy_t * policy, bool async)
          return -1;
 
     struct {
-        header_control_message hdr;
-        add_policy_command payload;
+        cmd_header_t hdr;
+        cmd_policy_add_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = ADD_POLICY,
+            COMMAND_TYPE_POLICY_ADD,
             .length = 1,
             .seqNum = 0,
         },
@@ -2974,8 +2984,8 @@ _hc_policy_create(hc_sock_t * s, hc_policy_t * policy, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
-        .cmd_id = ADD_POLICY,
-        .size_in = sizeof(add_policy_command),
+        .cmd_id = COMMAND_TYPE_POLICY_ADD,
+        .size_in = sizeof(cmd_policy_add_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -3004,12 +3014,12 @@ _hc_policy_delete(hc_sock_t * s, hc_policy_t * policy, bool async)
          return -1;
 
     struct {
-        header_control_message hdr;
-        remove_policy_command payload;
+        cmd_header_t hdr;
+        cmd_policy_remove_t payload;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_POLICY,
+            .commandID = COMMAND_TYPE_POLICY_REMOVE,
             .length = 1,
             .seqNum = 0,
         },
@@ -3022,8 +3032,8 @@ _hc_policy_delete(hc_sock_t * s, hc_policy_t * policy, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_POLICY,
-        .size_in = sizeof(remove_policy_command),
+        .cmd_id = COMMAND_TYPE_POLICY_REMOVE,
+        .size_in = sizeof(cmd_policy_remove_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -3049,11 +3059,11 @@ int
 _hc_policy_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
     struct {
-        header_control_message hdr;
+        cmd_header_t hdr;
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = LIST_POLICIES,
+            .commandID = COMMAND_TYPE_POLICY_LIST,
             .length = 0,
             .seqNum = 0,
         },
@@ -3061,8 +3071,8 @@ _hc_policy_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
-        .cmd_id = LIST_POLICIES,
-        .size_in = sizeof(list_policies_command),
+        .cmd_id = COMMAND_TYPE_POLICY_LIST,
+        .size_in = sizeof(cmd_policy_list_t),
         .size_out = sizeof(hc_policy_t),
         .parse = (HC_PARSE)hc_policy_parse,
     };
@@ -3087,7 +3097,7 @@ hc_policy_list_async(hc_sock_t * s, hc_data_t ** pdata)
 int
 hc_policy_parse(void * in, hc_policy_t * policy)
 {
-    list_policies_command * cmd = (list_policies_command *) in;
+    cmd_policy_list_t * cmd = (cmd_policy_list_t *) in;
 
     if (!IS_VALID_ADDR_TYPE(cmd->addressType))
          return -1;
