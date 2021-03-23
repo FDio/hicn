@@ -19,6 +19,12 @@ ExternalProject_Add(gtest
   URL https://github.com/google/googletest/archive/v1.10.x.zip
   PREFIX ${CMAKE_BINARY_DIR}/gtest
   INSTALL_COMMAND ""
+
+  # Necessary to build using ninja
+  BUILD_BYPRODUCTS "${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgmock.a"
+  BUILD_BYPRODUCTS "${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgmock_main.a"
+  BUILD_BYPRODUCTS "${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgtest_main.a"
+  BUILD_BYPRODUCTS "${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgtest.a"
 )
 
 ExternalProject_Get_Property(gtest source_dir binary_dir)

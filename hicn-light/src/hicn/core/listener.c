@@ -69,17 +69,21 @@ listener_initialize(listener_t * listener, face_type_t type, const char * name,
         .forwarder = forwarder,
     };
 
-    listener->data = malloc(listener_vft[listener->type]->data_size);
+    face_protocol_t face_protocol = get_protocol(listener->type);
+    if (face_protocol == FACE_PROTOCOL_UNKNOWN)
+        goto ERR_VFT;
+
+    listener->data = malloc(listener_vft[face_protocol]->data_size);
     if (!listener->data)
         goto ERR_DATA;
 
     assert(listener_has_valid_type(listener));
 
-    rc = listener_vft[listener->type]->initialize(listener);
+    rc = listener_vft[face_protocol]->initialize(listener);
     if (rc < 0)
         goto ERR_VFT;
 
-    listener->fd = listener_vft[listener->type]->get_socket(listener, address, NULL, interface_name);
+    listener->fd = listener_vft[face_protocol]->get_socket(listener, address, NULL, interface_name);
     if (listener->fd < 0) {
         ERROR("Error creating listener fd: (%d) %s", errno, strerror(errno));
         goto ERR_FD;
@@ -136,7 +140,8 @@ listener_finalize(listener_t * listener)
     closesocket(listener->fd);
 #endif
 
-    listener_vft[listener->type]->finalize(listener);
+    face_protocol_t face_protocol = get_protocol(listener->type);
+    listener_vft[face_protocol]->finalize(listener);
 
     free(listener->data);
     free(listener->interface_name);
@@ -152,13 +157,13 @@ int listener_get_socket(const listener_t * listener, const address_t * local,
     assert(listener);
     assert(listener_has_valid_type(listener));
     assert(local);
-    assert(remote);
+    // assert(remote); TODO: can it be null?
 
-    return listener_vft[listener->type]->get_socket(listener, local, remote,
+    face_protocol_t face_protocol = get_protocol(listener->type);
+    return listener_vft[face_protocol]->get_socket(listener, local, remote,
             interface_name);
 }
 
-// XXX CHANGE : we now get the fd directly from the listener
 unsigned listener_create_connection(const listener_t * listener,
         const address_pair_t * pair)
 {
@@ -167,22 +172,17 @@ unsigned listener_create_connection(const listener_t * listener,
     assert(pair);
 
     // XXX TODO This code is likely common with connection creation code
-    const char * name = NULL;
 
     connection_table_t * table = forwarder_get_connection_table(listener->forwarder);
     connection_t * connection;
-    connection_table_allocate(table, connection, pair, name);
+    connection_table_allocate(table, connection, pair, listener->name);
 
     unsigned connid = connection_table_get_connection_id(table, connection);
 
     bool local = address_is_local(address_pair_get_local(pair));
 
-    int fd = listener_get_socket(listener, address_pair_get_local(pair),
-            address_pair_get_remote(pair), NULL); // XXX interfacename was not specified
-
-    // XXX here we use the same interface name as the listener
-    int rc = connection_initialize(connection, listener->type, name,
-            listener->interface_name, fd, pair, local, connid, listener->forwarder);
+    int rc = connection_initialize(connection, listener->type, listener->name,
+            listener->interface_name, listener->fd, pair, local, connid, listener->forwarder);
     if (rc < 0)
         return ~0; // XXX how to return an error
 
@@ -199,7 +199,8 @@ listener_punt(const listener_t * listener, const char * prefix_s)
     assert(listener_get_type(listener) == FACE_TYPE_HICN);
     assert(prefix_s);
 
-    return listener_vft[listener_get_type(listener)]->punt(listener, prefix_s);
+    face_protocol_t face_protocol = get_protocol(listener_get_type(listener));
+    return listener_vft[face_protocol]->punt(listener, prefix_s);
 }
 
 
@@ -223,7 +224,8 @@ listener_read_single(listener_t * listener)
         address_pair_t pair;
         pair.local = *listener_get_address(listener);
 
-        ssize_t n = listener_vft[listener->type]->read_single(listener->fd, msgbuf,
+        face_protocol_t face_protocol = get_protocol(listener->type);
+        ssize_t n = listener_vft[face_protocol]->read_single(listener->fd, msgbuf,
                 address_pair_get_remote(&pair));
         if (n < 1)
             return 0;
@@ -262,7 +264,7 @@ listener_read_batch(listener_t * listener)
     do {
         /* Prepare the msgbuf and address pair arrays */
         msgbuf_t * msgbuf[MAX_MSG];
-        if (!msgbuf_pool_getn(msgbuf_pool, msgbuf, MAX_MSG))
+        if (msgbuf_pool_getn(msgbuf_pool, msgbuf, MAX_MSG) < 0)
             break;
 
         address_pair_t pair[MAX_MSG];
@@ -270,7 +272,8 @@ listener_read_batch(listener_t * listener)
         for (unsigned i = 0; i < MAX_MSG; i++)
             address_remote[i] = address_pair_get_remote(&pair[i]);
 
-        ssize_t n = listener_vft[listener->type]->read_batch(listener->fd,
+        face_protocol_t face_protocol = get_protocol(listener->type);
+        ssize_t n = listener_vft[face_protocol]->read_batch(listener->fd,
                 msgbuf, address_remote, MAX_MSG);
         // XXX error check
 
@@ -303,7 +306,8 @@ listener_read_callback(listener_t * listener, int fd, void * user_data)
     assert(listener);
     assert(fd == listener->fd);
 
-    if (listener_vft[listener->type]->read_batch)
+    face_protocol_t face_protocol = get_protocol(listener->type);
+    if (listener_vft[face_protocol]->read_batch)
         return listener_read_batch(listener);
 
     return listener_read_single(listener);
@@ -375,7 +379,7 @@ listener_setup_all(const forwarder_t * forwarder, uint16_t port, const char *loc
 
 // XXX TODO
 void
-listener_setup_local_ipv4(const forwarder_t * forwarder,  uint16_t port)
+listener_setup_local_ipv4(forwarder_t * forwarder,  uint16_t port)
 {
 #if 0
     // XXX memset
@@ -384,4 +388,10 @@ listener_setup_local_ipv4(const forwarder_t * forwarder,  uint16_t port)
     _setupUdpListener(forwarder, "lo_udp", &address, "lo");
     _setupTcpListener(forwarder, "lo_tcp", &address, "lo");
 #endif
+    address_t address;
+    memset(&address, 0, sizeof(address_t));
+    address = ADDRESS4_LOCALHOST(port);
+
+    listener_create(FACE_TYPE_UDP_LISTENER, &address, "lo", "lo_udp", forwarder);
+    // listener_create(FACE_TYPE_TCP_LISTENER, &address, "lo", "lo_tcp", forwarder);
 }

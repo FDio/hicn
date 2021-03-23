@@ -175,15 +175,10 @@ class LoopTest : public ::testing::Test {
   char buffer[BUFFER_SIZE];
 };
 
-TEST_F(LoopTest, LoopCreate)
+TEST_F(LoopTest, LoopCreateAndFree)
 {
     loop_ = loop_create();
     EXPECT_TRUE(loop_ != NULL);
-}
-
-TEST_F(LoopTest, LoopFree)
-{
-    loop_ = loop_create();
     loop_free (loop_);
     EXPECT_TRUE(loop_ != NULL);
 }
@@ -205,7 +200,7 @@ TEST_F(LoopTest, EventCreateAndFree)
     EXPECT_TRUE(ret >= 0);
 
     // Unregister the event
-    ret = loop_event_unregister(event_);
+    ret = loop_event_free(event_);
     EXPECT_TRUE(ret >= 0);
 
     // Free event loop
@@ -239,8 +234,8 @@ TEST_F(LoopTest, TimerCreateAndCancel)
     loop_undispatch(loop_);
 
     // Unregister the events
-    ret = loop_event_unregister(timer_);
-    ret += loop_event_unregister(timer2);
+    ret = loop_event_free(timer_);
+    ret += loop_event_free(timer2);
     EXPECT_TRUE(ret >= 0);
 
     // Free event loop

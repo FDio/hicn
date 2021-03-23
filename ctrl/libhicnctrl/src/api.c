@@ -486,7 +486,7 @@ hc_sock_create_url(const char * url)
 
     s->url = url ? strdup(url) : NULL;
 
-    s->fd = socket(AF_INET, SOCK_STREAM, 0);
+    s->fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (s->fd < 0)
         goto ERR_SOCKET;
 
@@ -526,7 +526,7 @@ hc_sock_free(hc_sock_t * s)
     hc_sock_request_t ** request_array = NULL;
     int n = hc_sock_map_get_value_array(s->map, &request_array);
     if (n < 0) {
-       ERROR("Could not retrieve pending request array for freeing up resources"); 
+       ERROR("Could not retrieve pending request array for freeing up resources");
     } else {
         for (unsigned i = 0; i < n; i++) {
             hc_sock_request_t * request = request_array[i];
@@ -620,7 +620,7 @@ hc_sock_recv(hc_sock_t * s)
     rc = (int)recv(s->fd, s->buf + s->woff, RECV_BUFLEN - s->woff, 0);
     if (rc == 0) {
         /* Connection has been closed */
-         return 0;
+        return 0;
     }
     if (rc < 0) {
         /*
@@ -966,13 +966,10 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
     if (!IS_VALID_CONNECTION_TYPE(listener->type))
          return -1;
 
-    struct {
-        header_control_message hdr;
-        add_listener_command payload;
-    } msg = {
-        .hdr = {
+    msg_listener_add_t msg = {
+        .header = {
             .messageType = REQUEST_LIGHT,
-            .commandID = ADD_LISTENER,
+            .commandID = COMMAND_TYPE_LISTENER_ADD,
             .length = 1,
             .seqNum = 0,
         },
@@ -982,6 +979,8 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
             .addressType = (u8)map_to_addr_type[listener->family],
             .listenerMode = (u8)map_to_listener_mode[listener->type],
             .connectionType = (u8)map_to_connection_type[listener->type],
+            .family = listener->family,
+            .listenerType = listener->type,
         }
     };
 
@@ -1073,7 +1072,7 @@ _hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_LISTENER,
+            .commandID = COMMAND_TYPE_LISTENER_REMOVE,
             .length = 1,
             .seqNum = 0,
         },
@@ -1135,7 +1134,7 @@ _hc_listener_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = LIST_LISTENERS,
+            .commandID = COMMAND_TYPE_LISTENER_LIST,
             .length = 0,
             .seqNum = 0,
         },
@@ -1292,7 +1291,7 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = ADD_CONNECTION,
+            .commandID = COMMAND_TYPE_CONNECTION_ADD,
             .length = 1,
             .seqNum = 0,
         },
@@ -1394,7 +1393,7 @@ _hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_CONNECTION,
+            .commandID = COMMAND_TYPE_CONNECTION_REMOVE,
             .length = 1,
             .seqNum = 0,
         },
@@ -1455,7 +1454,7 @@ _hc_connection_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = LIST_CONNECTIONS,
+            .commandID = COMMAND_TYPE_CONNECTION_LIST,
             .length = 0,
             .seqNum = 0,
         },
@@ -1647,7 +1646,7 @@ _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_ADMIN_STATE,
+            .commandID = COMMAND_TYPE_CONNECTION_SET_ADMIN_STATE,
             .length = 1,
             .seqNum = 0,
         },
@@ -1697,7 +1696,7 @@ _hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_PRIORITY,
+            .commandID = COMMAND_TYPE_CONNECTION_SET_PRIORITY,
             .length = 1,
             .seqNum = 0,
         },
@@ -1747,7 +1746,7 @@ _hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name,
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_TAGS,
+            .commandID = COMMAND_TYPE_CONNECTION_SET_TAGS,
             .length = 1,
             .seqNum = 0,
         },
@@ -1811,7 +1810,7 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = ADD_ROUTE,
+            .commandID = COMMAND_TYPE_ROUTE_ADD,
             .length = 1,
             .seqNum = 0,
         },
@@ -1874,7 +1873,7 @@ _hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_ROUTE,
+            .commandID = COMMAND_TYPE_ROUTE_REMOVE,
             .length = 1,
             .seqNum = 0,
         },
@@ -1926,7 +1925,7 @@ _hc_route_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = LIST_ROUTES,
+            .commandID = COMMAND_TYPE_ROUTE_LIST,
             .length = 0,
             .seqNum = 0,
         },
@@ -2520,7 +2519,7 @@ hc_face_list_async(hc_sock_t * s)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = LIST_CONNECTIONS,
+            COMMAND_TYPE_CONNECTION_LIST,
             .length = 0,
             .seqNum = 0,
         },
@@ -2661,7 +2660,7 @@ _hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = ADD_PUNTING,
+            .commandID = COMMAND_TYPE_PUNTING_ADD,
             .length = 1,
             .seqNum = 0,
         },
@@ -2782,7 +2781,7 @@ _hc_cache_set_store(hc_sock_t * s, int enabled, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CACHE_STORE,
+            .commandID = COMMAND_TYPE_CACHE_SET_STORE,
             .length = 1,
             .seqNum = 0,
         },
@@ -2823,7 +2822,7 @@ _hc_cache_set_serve(hc_sock_t * s, int enabled, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = CACHE_SERVE,
+            .commandID = COMMAND_TYPE_CACHE_SET_SERVE,
             .length = 1,
             .seqNum = 0,
         },
@@ -2960,7 +2959,7 @@ _hc_policy_create(hc_sock_t * s, hc_policy_t * policy, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = ADD_POLICY,
+            COMMAND_TYPE_POLICY_ADD,
             .length = 1,
             .seqNum = 0,
         },
@@ -3009,7 +3008,7 @@ _hc_policy_delete(hc_sock_t * s, hc_policy_t * policy, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_POLICY,
+            .commandID = COMMAND_TYPE_POLICY_REMOVE,
             .length = 1,
             .seqNum = 0,
         },
@@ -3053,7 +3052,7 @@ _hc_policy_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
     } msg = {
         .hdr = {
             .messageType = REQUEST_LIGHT,
-            .commandID = LIST_POLICIES,
+            .commandID = COMMAND_TYPE_POLICY_LIST,
             .length = 0,
             .seqNum = 0,
         },

@@ -27,7 +27,7 @@
 #define configuration_h
 
 #include "../core/msgbuf.h"
-#include "../utils/commands.h"
+#include "../core/strategy.h"
 
 typedef struct configuration_s configuration_t;
 

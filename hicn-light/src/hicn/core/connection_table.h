@@ -43,8 +43,8 @@
 #define address_pair_hash_eq(a, b) (address_pair_hash(b) - address_pair_hash(a))
 
 /* Hash table types for indices. */
-KHASH_INIT(ct_pair, const address_pair_t *, unsigned, 0, address_pair_hash, address_pair_hash_eq);
-KHASH_INIT(ct_name, const char *, unsigned, 0, str_hash, str_hash_eq);
+KHASH_INIT(ct_pair, const address_pair_t *, unsigned, 1, address_pair_hash, address_pair_hash_eq);
+KHASH_MAP_INIT_STR(ct_name, unsigned);
 
 typedef struct {
     size_t max_size;

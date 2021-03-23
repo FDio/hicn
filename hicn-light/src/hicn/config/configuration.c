@@ -21,6 +21,8 @@
  * @endcode
  */
 
+#include <hicn/ctrl/commands.h>
+
 #ifndef _WIN32
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -41,7 +43,7 @@
 
 #include <hicn/core/listener.h>     //the listener list
 #include <hicn/core/listener_table.h>
-#include <hicn/utils/commands.h>
+#include <hicn/ctrl/commands.h>
 #include <hicn/utils/utils.h>
 #include <hicn/utils/punting.h>
 #include <hicn/util/log.h>
@@ -211,12 +213,12 @@ configuration_on_listener_add(configuration_t * config, uint8_t * packet,
 
     // NOTE: interface_name is expected NULL for hICN listener
     face_type_t face_type;
-    if (!face_type_is_defined(control->listener_type))
+    if (!face_type_is_defined(control->listenerType))
         goto NACK;
-    face_type = (face_type_t)control->listener_type;
+    face_type = (face_type_t)control->listenerType;
 
 
-    listener = listener_create(face_type, &address, control->interface_name, control->symbolic, forwarder);
+    listener = listener_create(face_type, &address, control->interfaceName, control->symbolic, forwarder);
     if (!listener)
         goto NACK;
 
@@ -1061,10 +1063,11 @@ uint8_t *
 configuration_on_punting_add(configuration_t * config, uint8_t * packet,
         unsigned ingress_id)
 {
-#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
+// #if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
     msg_punting_add_t * msg = (msg_punting_add_t *)packet;
-    cmd_punting_add_t * control = &msg->payload;
 
+#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
+    cmd_punting_add_t * control = &msg->payload;
     if (ip_address_empty(&control->address))
         goto NACK;
 
@@ -1409,9 +1412,12 @@ configuration_receive_command(configuration_t * config, msgbuf_t * msgbuf)
             break;
     }
 
-    connection_table_t * table = forwarder_get_connection_table(config->forwarder);
-    const connection_t *connection = connection_table_at(table, ingress_id);
-    connection_send_packet(connection, reply, false);
+    if (connection_id_is_valid(msgbuf->connection_id)) {
+        connection_table_t * table = forwarder_get_connection_table(config->forwarder);
+        const connection_t *connection = connection_table_at(table, ingress_id);
+        (void) connection;
+        connection_send_packet(connection, reply, false);
+    }
 
     switch (msgbuf->command.type) {
         case COMMAND_TYPE_LISTENER_LIST:
