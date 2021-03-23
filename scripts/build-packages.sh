@@ -42,8 +42,9 @@ function build_package() {
                        -DBUILD_LIBTRANSPORT=ON       \
                        -DBUILD_APPS=ON               \
                        -DBUILD_HICNLIGHT=OFF         \
-                       -DBUILD_SYSREPOPLUGIN=OFF      \
+                       -DBUILD_SYSREPOPLUGIN=OFF     \
                        -DBUILD_TELEMETRY=ON          \
+                       -DBUILD_WSPLUGIN=ON           \
                        ${SCRIPT_PATH}/..
 
         ninja -j8 package
