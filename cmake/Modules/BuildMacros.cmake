@@ -71,7 +71,7 @@ endmacro()
 
 macro(build_library lib)
   cmake_parse_arguments(ARG
-    "SHARED;STATIC;NO_DEV"
+    "SHARED;STATIC;MODULE;NO_DEV"
     "COMPONENT;"
     "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;INSTALL_ROOT_DIR;INSTALL_FULL_PATH_DIR;EMPTY_PREFIX;"
     ${ARGN}
@@ -89,6 +89,13 @@ macro(build_library lib)
       ${lib}.static
     )
     add_library(${lib}.static STATIC ${ARG_SOURCES})
+  endif()
+
+  if(ARG_MODULE)
+  list(APPEND TARGET_LIBS
+    ${lib}.module
+  )
+  add_library(${lib}.module MODULE ${ARG_SOURCES})
   endif()
 
   if(NOT ARG_COMPONENT)

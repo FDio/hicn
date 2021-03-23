@@ -58,7 +58,11 @@ DEPS_UBUNTU=("build-essential"
              "libvppinfra=${VPP_VERSION_DEB}"
              "libvppinfra-dev=${VPP_VERSION_DEB}"
              "vpp-plugin-core=${VPP_VERSION_DEB}"
-             "python3-ply")
+             "python3-ply"
+             "wireshark"
+             "wireshark-dev"
+             "libgcrypt-dev"
+             "libgnutls28-dev")
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
 DEPS_CENTOS=("vpp-devel-${VPP_VERSION_RPM}"
@@ -73,7 +77,9 @@ DEPS_CENTOS=("vpp-devel-${VPP_VERSION_RPM}"
              "libconfig-devel"
              "dnf-plugins-core"
              "bzip2"
-             "rpm-build")
+             "rpm-build"
+             "wireshark-devel"
+             "libgcrypt-devel")
 
 COLLECTD_SOURCE="https://github.com/collectd/collectd/releases/download/collectd-5.12.0/collectd-5.12.0.tar.bz2"
 
@@ -118,13 +124,26 @@ function install_deps() {
     DISTRIB_ID=${ID}
 
     if [ ${DISTRIB_ID} == "ubuntu" ]; then
-        echo ${DEPS_UBUNTU[@]} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
+        echo ${DEPS_UBUNTU[@]} | xargs sudo DEBIAN_FRONTEND=noninteractive ${apt_get} install -y --allow-unauthenticated --no-install-recommends
     elif [ ${DISTRIB_ID} == "centos" ]; then
         yum config-manager --set-enabled powertools
         # Temporary workaround until centos fixes the asio-devel package (https://forums.centos.org/viewtopic.php?t=73034)
         curl -L http://mirror.centos.org/centos/8/PowerTools/x86_64/os/Packages/asio-devel-1.10.8-7.module_el8.1.0+217+4d875839.x86_64.rpm > /tmp/asio-devel-1.10.8-7.module_el8.1.0+217+4d875839.x86_64.rpm
         yum localinstall -y --nogpgcheck /tmp/asio-devel-1.10.8-7.module_el8.1.0+217+4d875839.x86_64.rpm
         echo ${DEPS_CENTOS[@]} | xargs sudo yum install -y --nogpgcheck
+    fi
+}
+
+function setup_wireshark_repo() {
+    if [ ${DISTRIB_ID} == "ubuntu" ]; then
+        sudo add-apt-repository ppa:wireshark-dev/stable
+        sudo add-apt-repository universe
+    fi
+}
+
+function install_ws_centos() {
+    if [ ${DISTRIB_ID} == "centos" ]; then
+        sudo yum install -y https://kojipkgs.fedoraproject.org//packages/wireshark/3.4.4/1.eln110/x86_64/wireshark-devel-3.4.4-1.eln110.x86_64.rpm
     fi
 }
 
@@ -145,7 +164,9 @@ function setup() {
     # export variables depending on the platform we are running
 
     call_once setup_fdio_repo
+    call_once setup_wireshark_repo
     call_once install_deps
+    call_once install_ws_centos
     call_once install_cmake
     call_once install_collectd_headers
 }
