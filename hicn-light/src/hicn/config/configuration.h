@@ -27,7 +27,8 @@
 #define configuration_h
 
 #include "../core/msgbuf.h"
-#include "../utils/commands.h"
+#include "../core/strategy.h"
+#include <hicn/ctrl/api.h>
 
 typedef struct configuration_s configuration_t;
 
@@ -125,5 +126,7 @@ struct forwarder_s * configuration_get_forwarder(const configuration_t *config);
 uint8_t *
 configuration_dispatch_command(configuration_t * config, command_type_t command_type,
         uint8_t * packet, unsigned ingress_id);
+
+face_type_t get_face_type_from_listener_type(hc_connection_type_t listener_type);
 
 #endif  // configuration_h
