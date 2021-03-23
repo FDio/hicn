@@ -58,7 +58,11 @@ DEPS_UBUNTU=("build-essential"
              "libvppinfra=${VPP_VERSION_DEB}"
              "libvppinfra-dev=${VPP_VERSION_DEB}"
              "vpp-plugin-core=${VPP_VERSION_DEB}"
-             "python3-ply")
+             "python3-ply"
+             "wireshark-dev"
+             "wireshark-common"
+             "libgcrypt-dev"
+             "libgnutls28-dev")
 
 # BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
 DEPS_CENTOS=("vpp-devel-${VPP_VERSION_RPM}"
@@ -73,7 +77,11 @@ DEPS_CENTOS=("vpp-devel-${VPP_VERSION_RPM}"
              "libconfig-devel"
              "dnf-plugins-core"
              "bzip2"
-             "rpm-build")
+             "rpm-build"
+             "wireshark-devel"
+             "wireshark-common"
+             "libgcrypt-devel"
+             "libgnutls-devel")
 
 COLLECTD_SOURCE="https://github.com/collectd/collectd/releases/download/collectd-5.12.0/collectd-5.12.0.tar.bz2"
 
@@ -118,7 +126,7 @@ function install_deps() {
     DISTRIB_ID=${ID}
 
     if [ ${DISTRIB_ID} == "ubuntu" ]; then
-        echo ${DEPS_UBUNTU[@]} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
+        echo ${DEPS_UBUNTU[@]} | xargs sudo DEBIAN_FRONTEND=noninteractive ${apt_get} install -y --allow-unauthenticated --no-install-recommends
     elif [ ${DISTRIB_ID} == "centos" ]; then
         yum config-manager --set-enabled powertools
         # Temporary workaround until centos fixes the asio-devel package (https://forums.centos.org/viewtopic.php?t=73034)
