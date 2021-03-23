@@ -25,7 +25,7 @@ extern connection_ops_t connection_tcp;
 extern connection_ops_t connection_udp;
 
 const connection_ops_t * connection_vft[] = {
-    [FACE_TYPE_HICN] = &connection_hicn,
-    [FACE_TYPE_TCP] = &connection_tcp,
-    [FACE_TYPE_UDP] = &connection_udp,
+    [FACE_PROTOCOL_HICN] = &connection_hicn,
+    [FACE_PROTOCOL_TCP] = &connection_tcp,
+    [FACE_PROTOCOL_UDP] = &connection_udp,
 };

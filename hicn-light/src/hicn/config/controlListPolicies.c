@@ -92,8 +92,8 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
   }
 
   // Process/Print message
-  header_control_message *receivedHeader =
-      (header_control_message *)response[0].iov_base;
+  cmd_header_t *receivedHeader =
+      (cmd_header_t *)response[0].iov_base;
   uint8_t *receivedPayload = (uint8_t *)response[1].iov_base;
   if (!receivedPayload) {
       printf("No payload!\n");

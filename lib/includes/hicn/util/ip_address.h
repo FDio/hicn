@@ -135,6 +135,17 @@ const u8 * ip_address_get_buffer(const ip_address_t * ip_address, int family);
 int ip_address_ntop (const ip_address_t * ip_address, char *dst,
         const size_t len, int family);
 int ip_address_pton (const char *ip_address_str, ip_address_t * ip_address);
+
+/**
+ * @brief Return the ip_address provided as parameter in string format.
+ * E.g. (for ipv4): "0.0.0.0"
+ *
+ * @param[in, out] s String to store the parsed address
+ * @param[in] size Size of the string @p s
+ * @param[in] ip_address Address to parse to string
+ * @param[in] family Address family (e.g. AF_INET, AF_INET6)
+ * @return int Length of the string generated parsing the addr
+ */
 int ip_address_snprintf(char * s, size_t size, const ip_address_t * ip_address,
         int family);
 int ip_address_to_sockaddr(const ip_address_t * ip_address, struct sockaddr *sa,

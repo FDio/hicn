@@ -128,8 +128,8 @@ bool utils_IsNumber(const char *string) {
 //uint32_t currentSeqNum = utils_GetNextSequenceNumber();
 //
 //// Allocate and fill the header
-//header_control_message *headerControlMessage =
-//  parcMemory_AllocateAndClear(sizeof(header_control_message));
+//cmd_header_t *headerControlMessage =
+//  parcMemory_AllocateAndClear(sizeof(cmd_header_t));
 //headerControlMessage->messageType = REQUEST_LIGHT;
 //headerControlMessage->commandID = command;
 //headerControlMessage->seqNum = currentSeqNum;
@@ -139,14 +139,14 @@ bool utils_IsNumber(const char *string) {
 //
 //struct iovec msg[2];
 //msg[0].iov_base = headerControlMessage;
-//msg[0].iov_len = sizeof(header_control_message);
+//msg[0].iov_len = sizeof(cmd_header_t);
 //msg[1].iov_base = payload;
 //msg[1].iov_len = payloadLen;
 //
 //struct iovec *response = controlState_WriteRead(state, msg);
 //
-//header_control_message *receivedHeader =
-//  (header_control_message *)response[0].iov_base;
+//cmd_header_t *receivedHeader =
+//  (cmd_header_t *)response[0].iov_base;
 //if (receivedHeader->seqNum != currentSeqNum) {
 //printf("Seq number is NOT correct: expected %d got %d  \n", currentSeqNum,
 //       receivedHeader->seqNum);
