@@ -26,7 +26,7 @@
 extern "C" {
 #define WITH_TESTS
 #include <hicn/core/msgbuf_pool.h>
-#include <hicn/base/pool.h> // TODO: remove this line
+#include <hicn/base/pool.h>
 }
 
 #define PACKET_POOL_DEFAULT_INIT_SIZE 1024

@@ -25,7 +25,7 @@ extern listener_ops_t listener_tcp;
 extern listener_ops_t listener_udp;
 
 const listener_ops_t * listener_vft[] = {
-    [FACE_TYPE_HICN] = &listener_hicn,
-    [FACE_TYPE_TCP] = &listener_tcp,
-    [FACE_TYPE_UDP] = &listener_udp,
+    [FACE_PROTOCOL_HICN] = &listener_hicn,
+    [FACE_PROTOCOL_TCP] = &listener_tcp,
+    [FACE_PROTOCOL_UDP] = &listener_udp,
 };
