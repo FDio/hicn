@@ -249,7 +249,7 @@ int
 listener_udp_get_socket(const listener_t * listener, const address_t * local,
         const address_t * remote, const char * interface_name)
 {
-    int fd = socket(address_family(remote), SOCK_DGRAM, 0);
+    int fd = socket(address_family(local), SOCK_DGRAM, 0);
     if (fd < 0)
         goto ERR_SOCKET;
 
@@ -257,7 +257,7 @@ listener_udp_get_socket(const listener_t * listener, const address_t * local,
         goto ERR;
     }
 
-    if (bind(fd, address_sa(local), address_socklen(remote)) < 0) {
+    if (bind(fd, address_sa(local), address_socklen(local)) < 0) {
         perror("bind");
         goto ERR;
     }

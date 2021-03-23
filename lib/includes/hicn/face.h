@@ -138,6 +138,13 @@ foreach_face_type
 #undef _
 } face_type_t;
 
+typedef enum {
+    FACE_PROTOCOL_HICN,
+    FACE_PROTOCOL_UDP,
+    FACE_PROTOCOL_TCP,
+    FACE_PROTOCOL_UNKNOWN,
+} face_protocol_t;
+
 #define face_type_is_valid(face_type) \
     (((face_type) >= FACE_TYPE_UNDEFINED) && (face_type < FACE_TYPE_N))
 #define face_type_is_defined(face_type) \

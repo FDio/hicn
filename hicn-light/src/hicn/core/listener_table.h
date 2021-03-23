@@ -44,8 +44,8 @@
 #define key_hash_eq(a, b) (key_hash(b) - key_hash(a))
 
 /* Hash table types for indices */
-KHASH_INIT(lt_name, const char *, unsigned, 0, str_hash, str_hash_eq);
-KHASH_INIT(lt_key, listener_key_t *, unsigned, 0, key_hash, key_hash_eq);
+KHASH_MAP_INIT_STR(lt_name, unsigned);
+KHASH_INIT(lt_key, listener_key_t *, unsigned, 1, key_hash, key_hash_eq);
 
 typedef struct {
     size_t max_size;

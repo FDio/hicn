@@ -120,6 +120,7 @@ ssize_t io_read_batch_socket(int fd, msgbuf_t ** msgbuf,
             msgbuf[i]->length = msg->msg_hdr.msg_iovlen;
             **address = *(address_t*)msg->msg_hdr.msg_name;
         }
+        break;
     }
 
     return n;

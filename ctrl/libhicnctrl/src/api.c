@@ -486,7 +486,7 @@ hc_sock_create_url(const char * url)
 
     s->url = url ? strdup(url) : NULL;
 
-    s->fd = socket(AF_INET, SOCK_STREAM, 0);
+    s->fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (s->fd < 0)
         goto ERR_SOCKET;
 
@@ -526,7 +526,7 @@ hc_sock_free(hc_sock_t * s)
     hc_sock_request_t ** request_array = NULL;
     int n = hc_sock_map_get_value_array(s->map, &request_array);
     if (n < 0) {
-       ERROR("Could not retrieve pending request array for freeing up resources"); 
+       ERROR("Could not retrieve pending request array for freeing up resources");
     } else {
         for (unsigned i = 0; i < n; i++) {
             hc_sock_request_t * request = request_array[i];
