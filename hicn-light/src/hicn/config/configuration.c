@@ -1061,10 +1061,11 @@ uint8_t *
 configuration_on_punting_add(configuration_t * config, uint8_t * packet,
         unsigned ingress_id)
 {
-#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
+// #if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
     msg_punting_add_t * msg = (msg_punting_add_t *)packet;
-    cmd_punting_add_t * control = &msg->payload;
 
+#if !defined(__APPLE__) && !defined(_WIN32) && defined(PUNTING)
+    cmd_punting_add_t * control = &msg->payload;
     if (ip_address_empty(&control->address))
         goto NACK;
 

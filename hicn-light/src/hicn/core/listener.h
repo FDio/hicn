@@ -85,7 +85,7 @@ unsigned listener_create_connection(const listener_t * listener,
 
 void listener_setup_all(const struct forwarder_s * forwarder, uint16_t port, const char *localPath);
 
-void listener_setup_local_ipv4(const struct forwarder_s * forwarder,  uint16_t port);
+void listener_setup_local_ipv4(struct forwarder_s * forwarder,  uint16_t port);
 
 void listener_process_packet(const listener_t * listener,
         const uint8_t * packet, size_t size);

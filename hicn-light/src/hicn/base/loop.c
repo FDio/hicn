@@ -92,11 +92,14 @@ ERR_MALLOC:
     return NULL;
 }
 
-void loop_free(loop_t *loop) { event_base_free(loop->event_base); }
+void loop_free(loop_t *loop) {
+    event_base_free(loop->event_base);
+    free(loop);
+}
 
 int loop_dispatch(loop_t *loop)
 {
-    event_base_loop(loop->event_base, 0);
+    event_base_loop(loop->event_base, EVLOOP_NO_EXIT_ON_EMPTY);
     return 0;
 }
 
@@ -201,7 +204,7 @@ int loop_timer_is_enabled(event_t *timer)
 
 int loop_event_free(event_t *event)
 {
-    loop_event_unregister(event);
+    int ret = loop_event_unregister(event);
     free(event);
-    return 0;
+    return ret;
 }
