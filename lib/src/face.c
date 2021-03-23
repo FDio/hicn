@@ -420,3 +420,24 @@ face_set_tags(face_t * face, policy_tags_t tags)
     face->tags = tags;
     return 1;
 }
+
+face_protocol_t
+get_protocol(face_type_t face_type) {
+    switch (face_type) {
+        case FACE_TYPE_HICN:
+        case FACE_TYPE_HICN_LISTENER:
+            return FACE_PROTOCOL_HICN;
+
+        case FACE_TYPE_TCP:
+        case FACE_TYPE_TCP_LISTENER:
+            return FACE_PROTOCOL_TCP;
+
+        case FACE_TYPE_UDP:
+        case FACE_TYPE_UDP_LISTENER:
+            return FACE_PROTOCOL_UDP;
+        break;
+
+        default:
+            return FACE_PROTOCOL_UNKNOWN;
+    }
+}

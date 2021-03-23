@@ -47,6 +47,7 @@ typedef enum {
     foreach_type
 #undef _
 } msgbuf_type_t;
+#undef foreach_type
 
 typedef struct {
   unsigned length;

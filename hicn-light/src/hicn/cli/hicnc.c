@@ -123,9 +123,6 @@ main(int argc, char * const * argv)
         goto ERR_PARSE;
     }
 
-
-    hc_data_t * data;
-
     hc_sock_t * s;
     if (server_ip) {
         if (server_port == 0)
@@ -147,28 +144,13 @@ main(int argc, char * const * argv)
         goto ERR_CONNECT;
     }
 
-    /* XXX connection list */
-    if (hc_connection_list(s, &data) < 0) {
-        fprintf(stderr, "Error running command");
-        goto ERR_CMD;
-    }
-
-    char buf[MAXSZ_HC_CONNECTION]; // XXX
-    foreach_connection(c, data) {
-        /* XXX connection print */
-        int rc = hc_connection_snprintf(buf, MAXSZ_HC_CONNECTION, c);
-        if (rc < 0) {
-            strncpy(buf, "(Error)", MAXSZ_HC_CONNECTION);
-        } else if (rc >= MAXSZ_HC_CONNECTION) {
-            buf[MAXSZ_HC_CONNECTION-1] = '\0';
-            buf[MAXSZ_HC_CONNECTION-2] = '.';
-            buf[MAXSZ_HC_CONNECTION-3] = '.';
-            buf[MAXSZ_HC_CONNECTION-4] = '.';
+    // TODO: handle all commands
+    if (command.action == ACTION_CREATE && command.object.type == OBJECT_LISTENER) {
+        if (hc_listener_create(s, &command.object.listener) < 0) {
+            fprintf(stderr, "Error running command");
+            goto ERR_CMD;
         }
-        printf("%s\n", buf);
     }
-
-    hc_data_free(data);
     exit(EXIT_SUCCESS);
 
 ERR_CMD:
