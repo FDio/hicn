@@ -35,6 +35,7 @@ endif ()
 option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
 option(BUILD_SYSREPOPLUGIN "Build the sysrepo plugin" OFF)
 option(BUILD_EXTRAS "Build external projects" OFF)
+option(BUILD_WSPLUGIN "Build the hicn plugin for wireshark" OFF)
 option(BUILD_TELEMETRY "Build telemetry projects" OFF)
 option(BUILD_TESTS "Build unit tests" OFF)
 option(DISABLE_EXECUTABLES "Disable executables" OFF)
@@ -71,6 +72,7 @@ list(APPEND dir_options
   BUILD_APPS
   BUILD_SYSREPOPLUGIN
   BUILD_EXTRAS
+  BUILD_WSPLUGIN
   BUILD_TELEMETRY
 )
 
@@ -83,6 +85,7 @@ set(BUILD_CTRL_DIR ctrl)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
 set(BUILD_SYSREPOPLUGIN_DIR ctrl/sysrepo-plugins)
 set(BUILD_EXTRAS_DIR extras/)
+set(BUILD_WSPLUGIN_DIR extras/packethicn)
 set(BUILD_TELEMETRY_DIR telemetry)
 
 ## Add enabled components
