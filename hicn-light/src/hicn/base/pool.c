@@ -143,7 +143,7 @@ _pool_get(void ** pool_ptr, void ** elt, size_t elt_size)
     off_t free_id = ph->free_indices[l - 1];
     vector_len(ph->free_indices)--;
     bitmap_unset(ph->free_bitmap, free_id);
-    *elt = *pool_ptr + free_id;
+    *elt = *pool_ptr + free_id * elt_size;
     memset(*elt, 0, sizeof(elt));
     return free_id;
 }
