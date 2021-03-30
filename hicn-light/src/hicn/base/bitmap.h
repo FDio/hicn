@@ -59,10 +59,10 @@ typedef uint_fast32_t bitmap_t;
  */
 static inline
 int
-bitmap_ensure_pos(bitmap_t * bitmap, off_t pos)
+bitmap_ensure_pos(bitmap_t ** bitmap, off_t pos)
 {
-    size_t offset = pos / BITMAP_WIDTH(bitmap);
-    return vector_ensure_pos(bitmap, offset);
+    size_t offset = pos / BITMAP_WIDTH(*bitmap);
+    return vector_ensure_pos(*bitmap, offset);
 }
 
 /**
@@ -104,7 +104,7 @@ static inline
 int
 bitmap_set(bitmap_t * bitmap, off_t i)
 {
-    if (bitmap_ensure_pos(bitmap, i) < 0)
+    if (bitmap_ensure_pos(&bitmap, i) < 0)
         return -1;
     size_t offset = i / BITMAP_WIDTH(bitmap);
     size_t pos = i % BITMAP_WIDTH(bitmap);
@@ -117,7 +117,7 @@ static inline
 int
 bitmap_unset(bitmap_t * bitmap, off_t i)
 {
-    if (bitmap_ensure_pos(bitmap, i) < 0)
+    if (bitmap_ensure_pos(&bitmap, i) < 0)
         return -1;
     size_t offset = i / BITMAP_WIDTH(bitmap);
     size_t pos = i % BITMAP_WIDTH(bitmap);

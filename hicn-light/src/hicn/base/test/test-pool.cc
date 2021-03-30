@@ -155,8 +155,6 @@ TEST_F(PoolTest, PoolPut)
     pool_free(pool);
 }
 
-// TODO: this test fails, there is a problem when N = n*64
-// (i.e. when a bitmap reallocation occurs)
 TEST_F(PoolTest, PoolGetForceBitmapRealloc)
 {
     const int N = 64;

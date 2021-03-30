@@ -53,7 +53,7 @@ typedef struct {
     size_t elt_size;
     size_t alloc_size;
     size_t max_size;
-    uint_fast32_t * free_bitmap; /* bitmap of free indices */
+    bitmap_t * free_bitmap; /* bitmap of free indices */
     off_t * free_indices; /* vector of free indices */
 } pool_hdr_t;
 
@@ -148,7 +148,7 @@ void _pool_put(void ** pool, void ** elt, size_t elt_size);
  * NOTES:
  *  - The memory chunk is cleared upon attribution
  */
-#define pool_get(pool, elt) _pool_get((void**)&pool, (void**)&elt, sizeof(elt))
+#define pool_get(pool, elt) _pool_get((void**)&pool, (void**)&elt, sizeof(*elt))
 
 /**
  * @brief Put an element back into the pool data structure.
@@ -156,7 +156,7 @@ void _pool_put(void ** pool, void ** elt, size_t elt_size);
  * @param[in] pool The pool data structure to use.
  * @param[in] elt The pool element to put back.
  */
-#define pool_put(pool, elt) _pool_put((void**)&pool, (void**)&elt, sizeof(elt))
+#define pool_put(pool, elt) _pool_put((void**)&pool, (void**)&elt, sizeof(*elt))
 
 /**
  * @brief Validate a pool element by index.

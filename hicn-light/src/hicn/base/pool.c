@@ -116,7 +116,7 @@ _pool_resize(void ** pool_ptr, size_t elt_size)
     vector_len(ph->free_indices) = old_size;
 
     /* We also need to update the bitmap */
-    bitmap_ensure_pos(ph->free_bitmap, new_size - 1);
+    bitmap_ensure_pos(&(ph->free_bitmap), new_size - 1);
     bitmap_set_range(ph->free_bitmap, old_size, new_size - 1);
 
     /* Reassign pool pointer */
@@ -143,8 +143,8 @@ _pool_get(void ** pool_ptr, void ** elt, size_t elt_size)
     off_t free_id = ph->free_indices[l - 1];
     vector_len(ph->free_indices)--;
     bitmap_unset(ph->free_bitmap, free_id);
-    *elt = *pool_ptr + free_id;
-    memset(*elt, 0, sizeof(elt));
+    *elt = *pool_ptr + free_id * elt_size;
+    memset(*elt, 0, elt_size);
     return free_id;
 }
 
