@@ -140,7 +140,6 @@ TEST_F(PoolTest, PoolAllocation)
     pool_free(pool);
 }
 
-// XXX todo : check state after several get and put
 TEST_F(PoolTest, PoolPut)
 {
     pool_init(pool, DEFAULT_SIZE, 0);
@@ -148,9 +147,7 @@ TEST_F(PoolTest, PoolPut)
     int* elt;
     pool_get(pool, elt);
     *elt = 10;
-    printf("2\n");
     pool_put(pool, elt);
-    printf("3\n");
 
     pool_free(pool);
 }
@@ -165,6 +162,43 @@ TEST_F(PoolTest, PoolGetForceBitmapRealloc)
     for (int i = 0; i < N; i++)
         pool_get(pool, elts[i]);
     pool_get(pool, elt);
+
+    pool_free(pool);
+}
+
+TEST_F(PoolTest, PoolGetAfterReleasing)
+{
+    int *elt1 = NULL, *elt2 = NULL, *tmp = NULL;
+    pool_init(pool, DEFAULT_SIZE, 0);
+
+    // If two elements are requested...
+    off_t id1 = pool_get(pool, elt1);
+    pool_get(pool, tmp);
+
+    // ...and the first one is released...
+    pool_put(pool, elt1);
+
+    // ...requesting a new one should return
+    // the first one (that was freed)
+    off_t id2 = pool_get(pool, elt2);
+    EXPECT_EQ(id1, id2);
+    EXPECT_EQ(elt1, elt2);
+
+    pool_free(pool);
+}
+
+TEST_F(PoolTest, PoolGetMultipleElementsAfterReleasing)
+{
+    const int N = 2;
+    int *elts[N];
+    pool_init(pool, N, 0);
+
+    for (int i = 0; i < N; i++)
+        pool_get(pool, elts[i]);
+    for (int i = 0; i < N; i++)
+        pool_put(pool, elts[i]);
+    for (int i = 0; i < N; i++)
+        pool_get(pool, elts[i]);
 
     pool_free(pool);
 }

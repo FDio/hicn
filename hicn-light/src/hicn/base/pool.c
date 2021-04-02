@@ -154,7 +154,8 @@ _pool_put(void ** pool_ptr, void ** elt, size_t elt_size)
     pool_hdr_t * ph = pool_hdr(*pool_ptr);
     uint64_t l = vector_len(ph->free_indices);
     vector_ensure_pos(ph->free_indices, l);
-    ph->free_indices[l] = *elt - *pool_ptr;
+    off_t freed_id = (*elt - *pool_ptr) / elt_size;
+    ph->free_indices[l] = freed_id;
     vector_len(ph->free_indices)++;
-    bitmap_set(ph->free_bitmap, l);
+    bitmap_set(ph->free_bitmap, freed_id);
 }
