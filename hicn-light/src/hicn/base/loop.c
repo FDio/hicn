@@ -97,10 +97,15 @@ void loop_free(loop_t *loop) {
     free(loop);
 }
 
+int _loop_dispatch(loop_t *loop, int flags)
+{
+    event_base_loop(loop->event_base, flags);
+    return 0;
+}
+
 int loop_dispatch(loop_t *loop)
 {
-    event_base_loop(loop->event_base, EVLOOP_NO_EXIT_ON_EMPTY);
-    return 0;
+    return _loop_dispatch(loop, EVLOOP_NO_EXIT_ON_EMPTY);
 }
 
 int loop_undispatch(loop_t *loop) { return 0; }
