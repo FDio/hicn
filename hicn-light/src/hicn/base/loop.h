@@ -52,7 +52,15 @@ loop_t *loop_create();
 void loop_free(loop_t *loop);
 
 /**
- * \brief Runs the loop instance to process events
+ * \brief Runs the loop instance to process events (helper).
+ * \param [in] loop - Pointer to the loop instance
+ * \param [in] flags - Loop mode: EVLOOP_ONCE, EVLOOP_NONBLOCK or EVLOOP_NO_EXIT_ON_EMPTY
+ * \return 0 if successful, -1 otherwise
+ */
+int _loop_dispatch(loop_t *loop, int flags);
+
+/**
+ * \brief Runs the loop instance to process events.
  * \param [in] loop - Pointer to the loop instance
  * \return 0 if successful, -1 otherwise
  */

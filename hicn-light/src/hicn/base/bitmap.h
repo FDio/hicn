@@ -100,16 +100,27 @@ bitmap_get(const bitmap_t * bitmap, off_t i)
  *
  * @return bool
  */
+#define bitmap_set(bitmap, i) \
+    _bitmap_set((bitmap_t**)&bitmap, i)
+
+/*
+ * @brief Returns whether the i-th bit is unset (equal to 0) in a bitmap (helper).
+ *
+ * @param[in] bitmap The bitmap to access.
+ * @param[in] i The bit position.
+ *
+ * @return bool
+ */
 static inline
 int
-bitmap_set(bitmap_t * bitmap, off_t i)
+_bitmap_set(bitmap_t ** bitmap, off_t i)
 {
-    if (bitmap_ensure_pos(&bitmap, i) < 0)
+    if (bitmap_ensure_pos(bitmap, i) < 0)
         return -1;
     size_t offset = i / BITMAP_WIDTH(bitmap);
     size_t pos = i % BITMAP_WIDTH(bitmap);
     size_t shift = BITMAP_WIDTH(bitmap) - pos - 1;
-    bitmap[offset] |= 1ul << shift;
+    (*bitmap)[offset] |= 1ul << shift;
     return 0;
 }
 

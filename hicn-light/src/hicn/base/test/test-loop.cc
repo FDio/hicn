@@ -229,7 +229,7 @@ TEST_F(LoopTest, TimerCreateAndCancel)
     ret = loop_timer_register(timer2, timer_tick_ / 2);
     EXPECT_TRUE(ret >= 0);
 
-    loop_dispatch(loop_);
+    _loop_dispatch(loop_, 0);
 
     loop_undispatch(loop_);
 
@@ -266,7 +266,7 @@ TEST_F(LoopTest, LoopDispatch)
     EXPECT_TRUE(ret >= 0);
 
     // Start event dispatching
-    loop_dispatch(loop_);
+    _loop_dispatch(loop_, 0);
 
     // Stop dispatching
     loop_undispatch(loop_);
