@@ -18,35 +18,35 @@ project(packethicn VERSION 0.0.1 DESCRIPTION "hICN protocol plugin" LANGUAGES C)
 
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
-  "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Modules"
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Modules
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules
 )
-
-include(BuildMacros)
-include(Packaging)
 
 set(PACKETHICN packethicn)
 
 find_package(Wireshark CONFIG REQUIRED)
 
+MATH(EXPR Wireshark_PATCH_NEXT_VERSION "${Wireshark_PATCH_VERSION}+1")
+set(Wireshark_NEXT_VERSION ${Wireshark_MAJOR_VERSION}.${Wireshark_MINOR_VERSION}.${Wireshark_PATCH_NEXT_VERSION})
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libhicn REQUIRED)
 else()
   if (DISABLE_SHARED_LIBRARIES)
-    if (WIN32) 
+    if (WIN32)
       set(HICN_LIBRARIES ${LIBHICN_STATIC})
-    else ()
+    else()
       set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
-    endif ()
+    endif()
     list(APPEND DEPENDENCIES
       ${LIBHICN_STATIC}
     )
-  else ()
+  else()
     set(HICN_LIBRARIES ${LIBHICN_SHARED})
     list(APPEND DEPENDENCIES
       ${LIBHICN_SHARED}
     )
-  endif ()
+  endif()
 endif()
 
 if(NOT Wireshark_PLUGINS_ENABLED)
@@ -73,6 +73,13 @@ list(APPEND LIBRARIES
   epan
 )
 
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    set(LIBHICN hicn CACHE INTERNAL "" FORCE)
+endif()
+
+include(Packaging)
+include(BuildMacros)
+
 build_library(${PACKETHICN}
   MODULE
   SOURCES ${SOURCE_FILES}
@@ -84,3 +91,8 @@ build_library(${PACKETHICN}
   DEFINITIONS ${COMPILER_DEFINITIONS}
   EMPTY_PREFIX true
 )
+
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    include(Packager)
+    make_packages()
+endif()

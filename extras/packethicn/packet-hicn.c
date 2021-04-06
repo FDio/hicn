@@ -200,7 +200,7 @@ proto_register_hicn(void)
     { &hf_hicn_tcp_pathlabel, { "Path Label", "hicn.l4.pathlabel", FT_UINT8, BASE_HEX_DEC , NULL, 0x0, NULL, HFILL }},
     { &hf_hicn_tcp_hdrlen_timescale, { "Header length and Timescale", "hicn.l4.hdrlen_ts", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL }},
     { &hf_hicn_tcp_hdrlen, { "Header length", "hicn.l4.hdrlen", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-    { &hf_hicn_tcp_timescale, { "Timescale", "hich.l4.ts", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+    { &hf_hicn_tcp_timescale, { "Timescale", "hicn.l4.timescale", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
     { &hf_hicn_tcp_flags, { "Flags", "hicn.l4.flags", FT_UINT8, BASE_HEX, NULL, FLAGS_MASK, NULL, HFILL }},
     { &hf_hicn_tcp_flags_cwr, { "_CWR", "hicn.l4.flags.cwr", FT_BOOLEAN, FLAGS_BITS_LEN, TFS(&tfs_set_notset), TH_CWR, NULL, HFILL }},
     { &hf_hicn_tcp_flags_id, { "ID", "hicn.l4.flags.id", FT_BOOLEAN, FLAGS_BITS_LEN, TFS(&tfs_set_notset),TH_ID, NULL, HFILL }},
