@@ -21,11 +21,11 @@ set(${PACKETHICN}_DESCRIPTION
 )
 
 set(${PACKETHICN}_DEB_DEPENDENCIES
-  "lib${LIBHICN} (>= stable_version), wireshark (>= 3.0), wireshark-dev (>= 3.0), libgnutls28-dev (>= 3.0), libgcrypt (>= 1.0)"
-  CACHE STRING "Dependencies for deb package."
+  "lib${LIBHICN} (>= stable_version), wireshark (>= ${Wireshark_VERSION}), wireshark (<< ${Wireshark_NEXT_VERSION})"
+  CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${PACKETHICN}_RPM_DEPENDENCIES
-  "lib${LIBHICN} >= stable_version, wireshark-devel >= 3.0"
-  CACHE STRING "Dependencies for rpm package."
+  "lib${LIBHICN} >= stable_version, wireshark >= ${Wireshark_VERSION}, wireshark < ${Wireshark_NEXT_VERSION}"
+  CACHE STRING "Dependencies for deb/rpm package."
 )
