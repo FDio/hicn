@@ -22,6 +22,9 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # Enable gtests (`make test`)
 # `make test ARGS="-V"` can be used for verbose output
 enable_testing()
+# Necessary to generate the 'DartConfiguration.tcl' file
+# and run ctest with memory check option
+INCLUDE(CTest)
 
 ## Enabled components
 option(BUILD_LIBHICN "Build the hicn core library" ON)

@@ -31,8 +31,16 @@ function build_package() {
     mkdir -p ${SCRIPT_PATH}/../build && pushd ${SCRIPT_PATH}/../build
         rm -rf *
         # First round
-        cmake  -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ..
+        cmake  -G Ninja -DCMAKE_INSTALL_PREFIX=/usr \
+                        -DBUILD_APPS=ON             \
+                        -DBUILD_TESTS=ON ..
         ninja -j8 package
+
+        # Run tests with valgrind memory check
+        ctest --overwrite                                                    \
+          MemoryCheckCommandOptions="--leak-check=full --error-exitcode=100" \
+          -T memcheck
+
         find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
         rm *Unspecified* || true
     popd
