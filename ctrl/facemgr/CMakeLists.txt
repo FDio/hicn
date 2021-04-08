@@ -94,6 +94,20 @@ add_subdirectory(src)
 
 include(Packaging)
 
+# Install service file in linux systems
+include(ServiceScript)
+install_service_script(
+  ${CMAKE_CURRENT_SOURCE_DIR}/config/facemgr.service
+  COMPONENT ${FACEMGR}
+)
+
+# Configuration file
+set(FACEMGR_CONF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/facemgr.conf)
+set(FACEMGR_CONF_FOLDER "/etc/facemgr")
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+  install (FILES ${FACEMGR_CONF_FILE} DESTINATION ${FACEMGR_CONF_FOLDER} COMPONENT ${FACEMGR})
+endif()
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     include(Packager)
     make_packages()
