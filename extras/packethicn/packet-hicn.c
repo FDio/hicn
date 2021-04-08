@@ -21,6 +21,7 @@
 #include "config.h"
 
 #include "epan/proto.h"
+#include "epan/etypes.h"
 
 #include <hicn/hicn.h>
 
@@ -233,7 +234,9 @@ proto_reg_handoff_hicn(void)
   static dissector_handle_t hicn_handle;
 
   hicn_handle = create_dissector_handle(dissect_hicn, proto_hicn);
+
   dissector_add_uint("udp.port", HICN_PORT, hicn_handle);
+  dissector_add_uint("ethertype", ETHERTYPE_IPv6, hicn_handle);
 }
 
 void plugin_register(void)
