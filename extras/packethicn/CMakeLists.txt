@@ -24,7 +24,13 @@ set(CMAKE_MODULE_PATH
 
 set(PACKETHICN packethicn)
 
-find_package(Wireshark CONFIG REQUIRED)
+if(APPLE)
+  find_package(Wireshark CONFIG REQUIRED
+    PATHS /usr/local/opt/wireshark/lib/wireshark/cmake/ /usr/local/Cellar/wireshark/*/lib/wireshark/cmake
+  )
+else()
+  find_package(Wireshark CONFIG REQUIRED)
+endif()
 
 MATH(EXPR Wireshark_PATCH_NEXT_VERSION "${Wireshark_PATCH_VERSION}+1")
 set(Wireshark_NEXT_VERSION ${Wireshark_MAJOR_VERSION}.${Wireshark_MINOR_VERSION}.${Wireshark_PATCH_NEXT_VERSION})
@@ -32,8 +38,8 @@ set(Wireshark_NEXT_VERSION ${Wireshark_MAJOR_VERSION}.${Wireshark_MINOR_VERSION}
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libhicn REQUIRED)
 else()
-  if (DISABLE_SHARED_LIBRARIES)
-    if (WIN32)
+  if(DISABLE_SHARED_LIBRARIES)
+    if(WIN32)
       set(HICN_LIBRARIES ${LIBHICN_STATIC})
     else()
       set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
