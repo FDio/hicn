@@ -25,7 +25,22 @@ set(${FACEMGR}_DEB_DEPENDENCIES
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
+set(${HICN_LIGHT}_DEB_PACKAGE_CONTROL_EXTRA
+  "${CMAKE_CURRENT_SOURCE_DIR}/config/postinst;${CMAKE_CURRENT_SOURCE_DIR}/config/prerm"
+  CACHE STRING "Control scripts conffiles, postinst, postrm, prerm."
+)
+
 set(${FACEMGR}_RPM_DEPENDENCIES
   "libconfig, libevent-devel, lib${LIBHICNCTRL} >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
+)
+
+set(${HICN_LIGHT}_RPM_POST_INSTALL_SCRIPT_FILE
+  "${CMAKE_CURRENT_SOURCE_DIR}/config/post"
+  CACHE STRING "Install script that will be copied in the %post section"
+)
+
+set(${HICN_LIGHT}_RPM_PRE_UNINSTALL_SCRIPT_FILE
+  "${CMAKE_CURRENT_SOURCE_DIR}/config/preun"
+  CACHE STRING "Install script that will be copied in the %post section"
 )
