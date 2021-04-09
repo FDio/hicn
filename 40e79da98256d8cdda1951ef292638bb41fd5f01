@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a7201a02_a167afa2",
+        "filename": ".gitignore",
+        "patchSetId": 5
+      },
+      "lineNbr": 4,
+      "author": {
+        "id": 789
+      },
+      "writtenOn": "2021-04-09T09:24:42Z",
+      "side": 1,
+      "message": "remove .vscode",
+      "revId": "40e79da98256d8cdda1951ef292638bb41fd5f01",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
