@@ -76,6 +76,9 @@ clone_from_cs (vlib_main_t *vm, u32 *bi0_cs, vlib_buffer_t *dest, u8 isv6)
       vlib_buffer_advance (cs_buf, buffer_advance);
       vlib_buffer_attach_clone (vm, dest, cs_buf);
     }
+
+  /* Set fag for packet coming from CS */
+  hicn_get_buffer (dest)->flags |= HICN_BUFFER_FLAGS_FROM_CS;
 }
 
 static uword

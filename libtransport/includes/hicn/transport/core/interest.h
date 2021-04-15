@@ -17,6 +17,9 @@
 
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/core/packet.h>
+#include <hicn/transport/utils/shared_ptr_utils.h>
+
+#include <set>
 
 namespace transport {
 
@@ -24,25 +27,57 @@ namespace core {
 
 class Interest
     : public Packet /*, public std::enable_shared_from_this<Interest>*/ {
+ private:
+  struct InterestManifestHeader {
+    /* This can be 16 bits, but we use 32 bits for alignment */
+    uint32_t n_suffixes;
+    /* Followed by the list of prefixes to ask */
+    /* ... */
+  };
+
  public:
-  using Ptr = utils::ObjectPool<Interest>::Ptr;
+  using Ptr = std::shared_ptr<Interest>;
 
-  Interest(Packet::Format format = HF_INET6_TCP);
+  Interest(Packet::Format format = HF_INET6_TCP,
+           std::size_t additional_header_size = 0);
 
-  Interest(const Name &interest_name, Packet::Format format = HF_INET6_TCP);
+  Interest(const Name &interest_name, Packet::Format format = HF_INET6_TCP,
+           std::size_t additional_header_size = 0);
 
-  Interest(const uint8_t *buffer, std::size_t size);
-  Interest(MemBufPtr &&buffer);
+  Interest(MemBuf &&buffer);
 
-  /*
-   * Enforce zero-copy.
-   */
-  Interest(const Interest &other_interest) = delete;
-  Interest &operator=(const Interest &other_interest) = delete;
+  template <typename... Args>
+  Interest(CopyBufferOp op, Args &&...args)
+      : Packet(op, std::forward<Args>(args)...) {
+    if (hicn_interest_get_name(format_, packet_start_,
+                               name_.getStructReference()) < 0) {
+      throw errors::MalformedPacketException();
+    }
+  }
 
+  template <typename... Args>
+  Interest(WrapBufferOp op, Args &&...args)
+      : Packet(op, std::forward<Args>(args)...) {
+    if (hicn_interest_get_name(format_, packet_start_,
+                               name_.getStructReference()) < 0) {
+      throw errors::MalformedPacketException();
+    }
+  }
+
+  template <typename... Args>
+  Interest(CreateOp op, Args &&...args)
+      : Packet(op, std::forward<Args>(args)...) {}
+
+  /* Move constructor */
   Interest(Interest &&other_interest);
 
-  ~Interest() override;
+  /* Copy constructor */
+  Interest(const Interest &other_interest);
+
+  /* Assginemnt operator */
+  Interest &operator=(const Interest &other);
+
+  ~Interest();
 
   const Name &getName() const override;
 
@@ -60,8 +95,21 @@ class Interest
 
   uint32_t getLifetime() const override;
 
+  bool hasManifest();
+
+  void appendSuffix(std::uint32_t suffix);
+
+  void encodeSuffixes();
+
+  uint32_t *firstSuffix();
+
+  uint32_t numberOfSuffixes();
+
+  auto shared_from_this() { return utils::shared_from(this); }
+
  private:
   void resetForHash() override;
+  std::set<uint32_t> suffix_set_;
 };
 
 }  // end namespace core

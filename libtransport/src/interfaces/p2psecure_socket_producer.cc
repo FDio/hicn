@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/interfaces/p2psecure_socket_producer.h>
-
 #include <implementation/p2psecure_socket_producer.h>
 
 namespace transport {
@@ -25,7 +24,7 @@ P2PSecureProducerSocket::P2PSecureProducerSocket() {
 }
 
 P2PSecureProducerSocket::P2PSecureProducerSocket(
-    bool rtc, const std::shared_ptr<utils::Identity> &identity) {
+    bool rtc, const std::shared_ptr<auth::Identity> &identity) {
   socket_ = std::make_unique<implementation::P2PSecureProducerSocket>(this, rtc,
                                                                       identity);
 }

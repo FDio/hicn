@@ -43,12 +43,6 @@ class HTTPClientConnection::Implementation
         read_buffer_(nullptr),
         response_(std::make_shared<HTTPResponse>()),
         timer_(nullptr) {
-    consumer_.setSocketOption(
-        ConsumerCallbacksOptions::CONTENT_OBJECT_TO_VERIFY,
-        (ConsumerContentObjectVerificationCallback)std::bind(
-            &Implementation::verifyData, this, std::placeholders::_1,
-            std::placeholders::_2));
-
     consumer_.setSocketOption(ConsumerCallbacksOptions::READ_CALLBACK, this);
 
     consumer_.connect();
@@ -124,10 +118,10 @@ class HTTPClientConnection::Implementation
     return *http_client_;
   }
 
-  HTTPClientConnection &setCertificate(const std::string &cert_path) {
-    if (consumer_.setSocketOption(GeneralTransportOptions::CERTIFICATE,
-                                  cert_path) == SOCKET_OPTION_NOT_SET) {
-      throw errors::RuntimeException("Error setting the certificate.");
+  HTTPClientConnection &setVerifier(std::shared_ptr<auth::Verifier> verifier) {
+    if (consumer_.setSocketOption(GeneralTransportOptions::VERIFIER,
+                                  verifier) == SOCKET_OPTION_NOT_SET) {
+      throw errors::RuntimeException("Error setting the verifier.");
     }
 
     return *http_client_;
@@ -175,17 +169,6 @@ class HTTPClientConnection::Implementation
     consumer_.consume(Name(name_.str()));
 
     consumer_.stop();
-  }
-
-  bool verifyData(interface::ConsumerSocket &c,
-                  const core::ContentObject &contentObject) {
-    if (contentObject.getPayloadType() == PayloadType::CONTENT_OBJECT) {
-      TRANSPORT_LOGI("VERIFY CONTENT\n");
-    } else if (contentObject.getPayloadType() == PayloadType::MANIFEST) {
-      TRANSPORT_LOGI("VERIFY MANIFEST\n");
-    }
-
-    return true;
   }
 
   void processLeavingInterest(interface::ConsumerSocket &c,
@@ -307,9 +290,9 @@ HTTPClientConnection &HTTPClientConnection::setTimeout(
   return implementation_->setTimeout(timeout);
 }
 
-HTTPClientConnection &HTTPClientConnection::setCertificate(
-    const std::string &cert_path) {
-  return implementation_->setCertificate(cert_path);
+HTTPClientConnection &HTTPClientConnection::setVerifier(
+    std::shared_ptr<auth::Verifier> verifier) {
+  return implementation_->setVerifier(verifier);
 }
 
 }  // namespace http

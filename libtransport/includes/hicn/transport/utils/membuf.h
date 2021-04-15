@@ -23,6 +23,7 @@
 
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/branch_prediction.h>
+#include <stdlib.h>
 
 #include <atomic>
 #include <cassert>
@@ -34,8 +35,6 @@
 #include <memory>
 #include <type_traits>
 #include <vector>
-
-#include <stdlib.h>
 
 #ifndef _WIN32
 TRANSPORT_GNU_DISABLE_WARNING("-Wshadow")
@@ -49,6 +48,8 @@ class MemBuf {
   enum WrapBufferOp { WRAP_BUFFER };
   enum TakeOwnershipOp { TAKE_OWNERSHIP };
   enum CopyBufferOp { COPY_BUFFER };
+
+  using Ptr = std::shared_ptr<MemBuf>;
 
   typedef void (*FreeFunction)(void* buf, void* userData);
 
@@ -106,13 +107,14 @@ class MemBuf {
          FreeFunction freeFn = nullptr, void* userData = nullptr,
          bool freeOnError = true);
 
-  static std::unique_ptr<MemBuf> wrapBuffer(const void* buf,
+  static std::unique_ptr<MemBuf> wrapBuffer(const void* buf, std::size_t length,
                                             std::size_t capacity);
 
-  static MemBuf wrapBufferAsValue(const void* buf,
+  static MemBuf wrapBufferAsValue(const void* buf, std::size_t length,
                                   std::size_t capacity) noexcept;
 
-  MemBuf(WrapBufferOp op, const void* buf, std::size_t capacity) noexcept;
+  MemBuf(WrapBufferOp op, const void* buf, std::size_t length,
+         std::size_t capacity) noexcept;
 
   /**
    * Convenience function to create a new MemBuf object that copies data from a
@@ -146,6 +148,8 @@ class MemBuf {
   uint8_t* writableTail() { return data_ + length_; }
 
   std::size_t length() const { return length_; }
+
+  void setLength(std::size_t length) { length_ = length; }
 
   std::size_t headroom() const { return std::size_t(data_ - buffer()); }
 
@@ -689,6 +693,18 @@ class MemBuf {
                                                   void* userData = nullptr,
                                                   bool freeOnError = true);
 
+  /**
+   * Ensure the current MemBuf can hold at least capacity bytes and its
+   * memory is contiguous
+   */
+  bool ensureCapacity(std::size_t capacity);
+
+  /**
+   * Ensure packet buffer can hold at least 1500 bytes in contiguous memory and
+   * fill unused memory with placeholder
+   */
+  bool ensureCapacityAndFillUnused(std::size_t capacity, uint8_t placeholder);
+
   /*
    * Overridden operator new and delete.
    * These perform specialized memory management to help support
@@ -699,6 +715,12 @@ class MemBuf {
   void* operator new(size_t size, void* ptr);
   void operator delete(void* ptr);
   void operator delete(void* ptr, void* placement);
+
+  /**
+   * Override operator == and !=
+   */
+  bool operator ==(const MemBuf &other);
+  bool operator !=(const MemBuf &other);
 
   // /**
   //  * Iteration support: a chain of MemBufs may be iterated through using

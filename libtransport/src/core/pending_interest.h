@@ -21,7 +21,6 @@
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/interfaces/portal.h>
 #include <hicn/transport/portability/portability.h>
-
 #include <utils/deadline_timer.h>
 
 #include <asio/steady_timer.hpp>
@@ -34,24 +33,21 @@ class HicnForwarderInterface;
 class VPPForwarderInterface;
 class RawSocketInterface;
 
-template <typename ForwarderInt>
 class Portal;
 
 using OnContentObjectCallback = interface::Portal::OnContentObjectCallback;
 using OnInterestTimeoutCallback = interface::Portal::OnInterestTimeoutCallback;
 
 class PendingInterest {
-  friend class Portal<HicnForwarderInterface>;
-  friend class Portal<VPPForwarderInterface>;
-  friend class Portal<RawSocketInterface>;
+  friend class Portal;
 
  public:
   using Ptr = utils::ObjectPool<PendingInterest>::Ptr;
-  PendingInterest()
-      : interest_(nullptr, nullptr),
-        timer_(),
-        on_content_object_callback_(),
-        on_interest_timeout_callback_() {}
+  // PendingInterest()
+  //     : interest_(nullptr, nullptr),
+  //       timer_(),
+  //       on_content_object_callback_(),
+  //       on_interest_timeout_callback_() {}
 
   PendingInterest(Interest::Ptr &&interest,
                   std::unique_ptr<asio::steady_timer> &&timer)

@@ -5,104 +5,99 @@
 #pragma once
 
 #include <hicn/transport/portability/c_portability.h>
+#include <hicn/transport/utils/singleton.h>
 #include <hicn/transport/utils/spinlock.h>
-
 #include <stdint.h>
+
+#include <cassert>
 #include <cstdlib>
 #include <memory>
-#include <cassert>
 
 namespace utils {
-template <std::size_t DEFAULT_SIZE = 512, std::size_t OBJECTS = 4096>
-class FixedBlockAllocator {
-  FixedBlockAllocator(std::size_t size = DEFAULT_SIZE,
-                      std::size_t objects = OBJECTS)
-      : block_size_(size < sizeof(void*) ? sizeof(long*) : size),
-        object_size_(size),
-        max_objects_(objects),
-        p_head_(NULL),
-        pool_index_(0),
-        block_count_(0),
-        blocks_in_use_(0),
-        allocations_(0),
-        deallocations_(0) {
-    p_pool_ = (uint8_t*)new uint8_t[block_size_ * max_objects_];
-  }
+template <std::size_t SIZE = 512, std::size_t OBJECTS = 4096>
+class FixedBlockAllocator
+    : public utils::Singleton<FixedBlockAllocator<SIZE, OBJECTS>> {
+  friend class utils::Singleton<FixedBlockAllocator<SIZE, OBJECTS>>;
 
  public:
-  static FixedBlockAllocator* getInstance() {
-    if (!instance_) {
-      instance_ = std::unique_ptr<FixedBlockAllocator>(
-          new FixedBlockAllocator(DEFAULT_SIZE, OBJECTS));
+  ~FixedBlockAllocator() {
+    for (auto& p : p_pools_) {
+      delete[] p;
     }
-
-    return instance_.get();
   }
 
-  ~FixedBlockAllocator() { delete[] p_pool_; }
-
-  TRANSPORT_ALWAYS_INLINE void* allocateBlock(size_t size = DEFAULT_SIZE) {
-    assert(size <= DEFAULT_SIZE);
+  void* allocateBlock(size_t size = SIZE) {
+    assert(size <= SIZE);
     uint32_t index;
 
+    SpinLock::Acquire locked(lock_);
     void* p_block = pop();
     if (!p_block) {
-      if (pool_index_ < max_objects_) {
-        {
-          SpinLock::Acquire locked(lock_);
-          index = pool_index_++;
-        }
-        p_block = (void*)(p_pool_ + (index * block_size_));
-      } else {
-        // TODO Consider increasing pool here instead of throwing an exception
-        throw std::runtime_error("No more memory available from packet pool!");
+      if (TRANSPORT_EXPECT_FALSE(current_pool_index_ >= max_objects_)) {
+        // Allocate new memory block
+        TRANSPORT_LOGV("Allocating new block of %zu size", SIZE * OBJECTS);
+        p_pools_.emplace_front(
+            new typename std::aligned_storage<SIZE>::type[max_objects_]);
+        // reset current_pool_index_
+        current_pool_index_ = 0;
       }
-    }
 
-    blocks_in_use_++;
-    allocations_++;
+      auto& latest = p_pools_.front();
+      index = current_pool_index_++;
+      blocks_in_use_++;
+      allocations_++;
+      p_block = (void*)&latest[index];
+    }
 
     return p_block;
   }
 
-  TRANSPORT_ALWAYS_INLINE void deallocateBlock(void* pBlock) {
+  void deallocateBlock(void* pBlock) {
+    SpinLock::Acquire locked(lock_);
     push(pBlock);
-    {
-      SpinLock::Acquire locked(lock_);
-      blocks_in_use_--;
-      deallocations_++;
-    }
+    blocks_in_use_--;
+    deallocations_++;
   }
 
-  TRANSPORT_ALWAYS_INLINE std::size_t blockSize() { return block_size_; }
+ public:
+  std::size_t blockSize() { return block_size_; }
 
-  TRANSPORT_ALWAYS_INLINE uint32_t blockCount() { return block_count_; }
+  uint32_t blockCount() { return block_count_; }
 
-  TRANSPORT_ALWAYS_INLINE uint32_t blocksInUse() { return blocks_in_use_; }
+  uint32_t blocksInUse() { return blocks_in_use_; }
 
-  TRANSPORT_ALWAYS_INLINE uint32_t allocations() { return allocations_; }
+  uint32_t allocations() { return allocations_; }
 
-  TRANSPORT_ALWAYS_INLINE uint32_t deallocations() { return deallocations_; }
+  uint32_t deallocations() { return deallocations_; }
 
  private:
-  TRANSPORT_ALWAYS_INLINE void push(void* p_memory) {
-    Block* p_block = (Block*)p_memory;
-    {
-      SpinLock::Acquire locked(lock_);
-      p_block->p_next = p_head_;
-      p_head_ = p_block;
-    }
+  FixedBlockAllocator()
+      : block_size_(SIZE),
+        object_size_(SIZE),
+        max_objects_(OBJECTS),
+        p_head_(NULL),
+        current_pool_index_(0),
+        block_count_(0),
+        blocks_in_use_(0),
+        allocations_(0),
+        deallocations_(0) {
+    static_assert(SIZE >= sizeof(long*), "SIZE must be at least 8 bytes");
+    p_pools_.emplace_front(
+        new typename std::aligned_storage<SIZE>::type[max_objects_]);
   }
 
-  TRANSPORT_ALWAYS_INLINE void* pop() {
+  void push(void* p_memory) {
+    Block* p_block = (Block*)p_memory;
+    p_block->p_next = p_head_;
+    p_head_ = p_block;
+  }
+
+  void* pop() {
     Block* p_block = nullptr;
 
-    {
-      SpinLock::Acquire locked(lock_);
-      if (p_head_) {
-        p_block = p_head_;
-        p_head_ = p_head_->p_next;
-      }
+    if (p_head_) {
+      p_block = p_head_;
+      p_head_ = p_head_->p_next;
     }
 
     return (void*)p_block;
@@ -119,8 +114,8 @@ class FixedBlockAllocator {
   const std::size_t max_objects_;
 
   Block* p_head_;
-  uint8_t* p_pool_;
-  uint32_t pool_index_;
+  uint32_t current_pool_index_;
+  std::list<typename std::aligned_storage<SIZE>::type*> p_pools_;
   uint32_t block_count_;
   uint32_t blocks_in_use_;
   uint32_t allocations_;
@@ -132,5 +127,89 @@ class FixedBlockAllocator {
 template <std::size_t A, std::size_t B>
 std::unique_ptr<FixedBlockAllocator<A, B>>
     FixedBlockAllocator<A, B>::instance_ = nullptr;
+
+/**
+ * STL Allocator trait to be used with allocate_shared.
+ */
+template <typename T, typename Pool>
+class STLAllocator {
+  /**
+   * If STLAllocator is rebound to another type (!= T) using copy constructor,
+   * we may need to access private members of the source allocator to copy
+   * memory and pool.
+   */
+  template <typename U, typename P>
+  friend class STLAllocator;
+
+ public:
+  using size_type = std::size_t;
+  using difference_type = ptrdiff_t;
+  using pointer = T*;
+  using const_pointer = const T*;
+  using reference = T&;
+  using const_reference = const T&;
+  using value_type = T;
+
+  STLAllocator(pointer memory, Pool* memory_pool)
+      : memory_(memory), pool_(memory_pool) {
+    TRANSPORT_LOGV("Creating allocator. This: %p, memory: %p, memory_pool: %p",
+                   this, memory, memory_pool);
+  }
+
+  ~STLAllocator() {}
+
+  template <typename U>
+  STLAllocator(const STLAllocator<U, Pool>& other) {
+    memory_ = other.memory_;
+    pool_ = other.pool_;
+  }
+
+  template <typename U>
+  struct rebind {
+    typedef STLAllocator<U, Pool> other;
+  };
+
+  pointer address(reference x) const { return &x; }
+  const_pointer address(const_reference x) const { return &x; }
+
+  pointer allocate(size_type n, pointer hint = 0) {
+    TRANSPORT_LOGV(
+        "Allocating memory (%zu). This: %p, memory: %p, memory_pool: %p", n,
+        this, memory_, pool_);
+    return static_cast<pointer>(memory_);
+  }
+
+  void deallocate(pointer p, size_type n) {
+    TRANSPORT_LOGV("Deallocating memory. This: %p, memory: %p, memory_pool: %p",
+                   this, memory_, pool_);
+    pool_->deallocateBlock(memory_);
+  }
+
+  template <typename... Args>
+  void construct(pointer p, Args&&... args) {
+    new (static_cast<pointer>(p)) T(std::forward<Args>(args)...);
+  }
+
+  void destroy(pointer p) {
+    TRANSPORT_LOGV("Destroying object. This: %p, memory: %p, memory_pool: %p",
+                   this, memory_, pool_);
+    p->~T();
+  }
+
+ private:
+  void* memory_;
+  Pool* pool_;
+};
+
+template <typename T, typename U, typename V>
+inline bool operator==(const STLAllocator<T, V>&, const STLAllocator<U, V>&) {
+  return true;
+}
+
+template <typename T, typename U, typename V>
+inline bool operator!=(const STLAllocator<T, V>& a,
+                       const STLAllocator<U, V>& b) {
+  return !(a == b);
+}
 
 }  // namespace utils

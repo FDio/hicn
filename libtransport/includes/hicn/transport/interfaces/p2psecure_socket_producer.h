@@ -16,8 +16,7 @@
 #pragma once
 
 #include <hicn/transport/interfaces/socket_producer.h>
-
-#include <hicn/transport/security/identity.h>
+#include <hicn/transport/auth/identity.h>
 
 namespace transport {
 
@@ -27,7 +26,7 @@ class P2PSecureProducerSocket : public ProducerSocket {
  public:
   P2PSecureProducerSocket();
   P2PSecureProducerSocket(bool rtc,
-                          const std::shared_ptr<utils::Identity> &identity);
+                          const std::shared_ptr<auth::Identity> &identity);
   ~P2PSecureProducerSocket() = default;
 };
 

@@ -14,11 +14,9 @@
  */
 
 #include <hicn/transport/utils/branch_prediction.h>
-
 #include <protocols/incremental_indexer.h>
 #include <protocols/indexer.h>
 #include <protocols/manifest_incremental_indexer.h>
-#include <protocols/protocol.h>
 
 namespace transport {
 namespace protocol {
@@ -32,16 +30,16 @@ IndexManager::IndexManager(implementation::ConsumerSocket *icn_socket,
       transport_(transport),
       reassembly_(reassembly) {}
 
-void IndexManager::onContentObject(core::Interest::Ptr &&interest,
-                                   core::ContentObject::Ptr &&content_object) {
+void IndexManager::onContentObject(core::Interest &interest,
+                                   core::ContentObject &content_object) {
   if (first_segment_received_) {
-    indexer_->onContentObject(std::move(interest), std::move(content_object));
+    indexer_->onContentObject(interest, content_object);
   } else {
-    std::uint32_t segment_number = interest->getName().getSuffix();
+    std::uint32_t segment_number = interest.getName().getSuffix();
 
     if (segment_number == 0) {
       // Check if manifest
-      if (content_object->getPayloadType() == PayloadType::MANIFEST) {
+      if (content_object.getPayloadType() == core::PayloadType::MANIFEST) {
         IncrementalIndexer *indexer =
             static_cast<IncrementalIndexer *>(indexer_.release());
         indexer_ =
@@ -49,24 +47,20 @@ void IndexManager::onContentObject(core::Interest::Ptr &&interest,
         delete indexer;
       }
 
-      indexer_->onContentObject(std::move(interest), std::move(content_object));
+      indexer_->onContentObject(interest, content_object);
       auto it = interest_data_set_.begin();
       while (it != interest_data_set_.end()) {
-        indexer_->onContentObject(
-            std::move(const_cast<core::Interest::Ptr &&>(it->first)),
-            std::move(const_cast<core::ContentObject::Ptr &&>(it->second)));
+        indexer_->onContentObject(*it->first, *it->second);
         it = interest_data_set_.erase(it);
       }
 
       first_segment_received_ = true;
     } else {
-      interest_data_set_.emplace(std::move(interest),
-                                 std::move(content_object));
+      interest_data_set_.emplace(interest.shared_from_this(),
+                                 content_object.shared_from_this());
     }
   }
 }
-
-bool IndexManager::onKeyToVerify() { return indexer_->onKeyToVerify(); }
 
 void IndexManager::reset(std::uint32_t offset) {
   indexer_ = std::make_unique<IncrementalIndexer>(icn_socket_, transport_,

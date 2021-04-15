@@ -23,7 +23,6 @@
 #define ASIO_STANDALONE
 #endif
 #include <asio/io_service.hpp>
-
 #include <functional>
 
 #define UNSET_CALLBACK 0
@@ -71,8 +70,7 @@ class Portal {
    */
   class ConsumerCallback {
    public:
-    virtual void onContentObject(core::Interest::Ptr &&i,
-                                 core::ContentObject::Ptr &&c) = 0;
+    virtual void onContentObject(core::Interest &i, core::ContentObject &c) = 0;
     virtual void onTimeout(core::Interest::Ptr &&i) = 0;
     virtual void onError(std::error_code ec) = 0;
   };
@@ -83,12 +81,12 @@ class Portal {
    */
   class ProducerCallback {
    public:
-    virtual void onInterest(core::Interest::Ptr &&i) = 0;
+    virtual void onInterest(core::Interest &i) = 0;
     virtual void onError(std::error_code ec) = 0;
   };
 
   using OnContentObjectCallback =
-      std::function<void(core::Interest::Ptr &&, core::ContentObject::Ptr &&)>;
+      std::function<void(core::Interest &, core::ContentObject &)>;
   using OnInterestTimeoutCallback = std::function<void(core::Interest::Ptr &&)>;
 
   Portal();
