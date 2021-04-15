@@ -22,6 +22,7 @@
 #define HICN_BASE_H
 
 #include "common.h"
+#include <netinet/in.h>
 
 /* Default header fields */
 #define HICN_DEFAULT_TTL 254
@@ -105,6 +106,17 @@ HICN_TYPE(int x, int y, int z, int t)
 #define HICN_TYPE_NONE         HICN_TYPE(IPPROTO_NONE, IPPROTO_NONE,   IPPROTO_NONE, IPPROTO_NONE)
 
 /**
+ * @brief Check if type is none.
+ * @return 1 if none, 0 otherwise
+ */
+always_inline int
+hicn_type_is_none(hicn_type_t type)
+{
+  return (type.l1 == IPPROTO_NONE) && (type.l2 == IPPROTO_NONE) &&
+         (type.l3 == IPPROTO_NONE) && (type.l4 == IPPROTO_NONE);
+}
+
+/**
  * @brief hICN Payload type
  *
  * This type distinguishes several types of data packet, which can either carry
@@ -127,7 +139,7 @@ typedef enum
  * NOTE: this computation is not (yet) part of the hICN specification.
  */
 
-#define HICN_PATH_LABEL_MASK 0xF000	/* 1000 0000 0000 0000 */
+#define HICN_PATH_LABEL_MASK 0x000000ff
 #define HICN_PATH_LABEL_SIZE 8
 
 /**
@@ -143,8 +155,8 @@ update_pathlabel (hicn_pathlabel_t current_label, hicn_faceid_t face_id,
 		  hicn_pathlabel_t * new_label)
 {
   hicn_pathlabel_t pl_face_id =
-    (hicn_pathlabel_t) ((face_id & HICN_PATH_LABEL_MASK) >>
-			(16 - HICN_PATH_LABEL_SIZE));
+    (hicn_pathlabel_t) (face_id & HICN_PATH_LABEL_MASK);
+
   *new_label =
     ((current_label << 1) | (current_label >> (HICN_PATH_LABEL_SIZE - 1))) ^
     pl_face_id;

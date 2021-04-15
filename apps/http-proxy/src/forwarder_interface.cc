@@ -13,9 +13,8 @@
  * limitations under the License.
  */
 
-#include <hicn/http-proxy/forwarder_interface.h>
-
 #include <arpa/inet.h>
+#include <hicn/http-proxy/forwarder_interface.h>
 #include <hicn/transport/utils/log.h>
 
 #include <chrono>

@@ -31,20 +31,13 @@ function build_package() {
     mkdir -p ${SCRIPT_PATH}/../build && pushd ${SCRIPT_PATH}/../build
         rm -rf *
 
-        # First round - Without libmemif
-        cmake  -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ..
-        ninja -j8 package
-
-        # Second round - With Libmemif
-        rm -rf libtransport ctrl/libhicnctrl
-        cmake -G Ninja -DCMAKE_INSTALL_PREFIX=/usr   \
-                       -DBUILD_HICNPLUGIN=ON         \
-                       -DBUILD_LIBTRANSPORT=ON       \
-                       -DBUILD_APPS=ON               \
-                       -DBUILD_HICNLIGHT=OFF         \
-                       -DBUILD_SYSREPOPLUGIN=OFF     \
-                       -DBUILD_TELEMETRY=ON          \
-                       -DBUILD_WSPLUGIN=ON           \
+        cmake -G Ninja -DCMAKE_INSTALL_PREFIX=/usr    \
+                       -DBUILD_HICNPLUGIN=ON          \
+                       -DBUILD_LIBTRANSPORT=ON        \
+                       -DBUILD_APPS=ON                \
+                       -DBUILD_HICNLIGHT=ON           \
+                       -DBUILD_SYSREPOPLUGIN=ON       \
+                       -DBUILD_TELEMETRY=ON           \
                        ${SCRIPT_PATH}/..
 
         ninja -j8 package

@@ -46,7 +46,7 @@ class Reassembly {
 
   virtual ~Reassembly() = default;
 
-  virtual void reassemble(core::ContentObject::Ptr &&content_object) = 0;
+  virtual void reassemble(core::ContentObject &content_object) = 0;
   virtual void reassemble(
       std::unique_ptr<core::ContentObjectManifest> &&manifest) = 0;
   virtual void reInitialize() = 0;

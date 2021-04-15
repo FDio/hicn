@@ -40,7 +40,17 @@
 #include <hicn/util/map.h>
 #include <hicn/error.h>
 #include <vnet/ip/ip6_packet.h>
+
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#endif
+
 #include <vnet/ip/ip46_address.h>
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
 
 #define APP_NAME "hicn_plugin"
 #define MAX_OUTSTANDING_REQUESTS 4

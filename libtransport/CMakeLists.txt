@@ -44,23 +44,9 @@ set(TRANSPORT_LOG_LEVEL "INFO" CACHE STRING "Set log level")
 
 set(TRANSPORT_ROOT_PATH "src")
 
-set(TRANSPORT_CORE ${TRANSPORT_ROOT_PATH}/core)
-set(TRANSPORT_TRANSPORT ${TRANSPORT_ROOT_PATH}/transport)
-set(TRANSPORT_ERRORS ${TRANSPORT_ROOT_PATH}/errors)
-set(TRANSPORT_UTILS ${TRANSPORT_ROOT_PATH}/utils)
-set(TRANSPORT_HTTP ${TRANSPORT_ROOT_PATH}/http)
-set(TRANSPORT_PORTABILITY ${TRANSPORT_ROOT_PATH}/portability)
-set(TRANSPORT_INTERFACES ${TRANSPORT_ROOT_PATH}/interfaces)
-
 set(LIBTRANSPORT hicntransport)
 if ((BUILD_HICNPLUGIN OR BUILD_MEMIF_CONNECTOR) AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   set(__vpp__ 1)
-  set(LIBTRANSPORT ${LIBTRANSPORT}-memif)
-  find_package(Vpp REQUIRED)
-
-  list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
-    ${VPP_INCLUDE_DIRS}
-  )
 endif ()
 
 set(LIBTRANSPORT ${LIBTRANSPORT} CACHE INTERNAL "" FORCE)
@@ -70,29 +56,15 @@ set(LIBTRANSPORT_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src CACHE INTERNAL "" 
 
 include(WindowsMacros)
 include(IosMacros)
+
 find_package_wrapper(Libparc REQUIRED)
 find_package_wrapper(Asio REQUIRED)
 find_package(OpenSSL REQUIRED)
-
-if (${OPENSSL_VERSION} VERSION_EQUAL "1.1.1a" OR ${OPENSSL_VERSION} VERSION_GREATER "1.1.1a")
-  set(SECURE_HICNTRANSPORT 1)
-endif()
-
-if (__vpp__)
-  find_package(Libmemif REQUIRED)
-endif()
+find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(Libconfig++ REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  if (__vpp__)
-    find_package(HicnPlugin REQUIRED)
-    find_package(SafeVapi REQUIRED)
-
-    list(APPEND LIBRARIES
-      ${LIBMEMIF_LIBRARIES}
-      ${SAFE_VAPI_LIBRARIES}
-    )
-  endif()
-
   find_package_wrapper(Libhicn REQUIRED)
 else()
   if (DISABLE_SHARED_LIBRARIES)
@@ -109,32 +81,10 @@ else()
     list(APPEND DEPENDENCIES
       ${LIBHICN_SHARED}
     )
-
-    if (__vpp__)
-      list(APPEND DEPENDENCIES
-        ${SAFE_VAPI_SHARED}
-      )
-
-      list(APPEND LIBRARIES
-        ${LIBMEMIF_LIBRARIES}
-        ${SAFE_VAPI_LIBRARIES}
-      )
-    endif()
   endif()
 endif()
 
-list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
-  ${LIBMEMIF_INCLUDE_DIRS}
-  ${SAFE_VAPI_INCLUDE_DIRS}
-)
-
 include(Packaging)
-
-find_package(Threads REQUIRED)
-
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-  find_package(OpenSSL REQUIRED)
-endif ()
 
 list(APPEND LIBRARIES
   ${HICN_LIBRARIES}
@@ -144,6 +94,7 @@ list(APPEND LIBRARIES
   ${ANDROID_LIBRARIES}
   ${OPENSSL_LIBRARIES}
   ${WINDOWS_LIBRARIES}
+  ${LIBCONFIG_CPP_LIBRARIES}
 )
 
 # Include dirs -- Order does matter!
@@ -155,6 +106,7 @@ list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
   ${ASIO_INCLUDE_DIRS}
   ${WINDOWS_INCLUDE_DIRS}
   ${OPENSSL_INCLUDE_DIR}
+  ${CONFIG_INCLUDE_DIRS}
 )
 
 add_subdirectory(includes/hicn/transport)

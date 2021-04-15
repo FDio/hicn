@@ -15,15 +15,14 @@
 
 #pragma once
 
-#include <hicn/transport/security/identity.h>
-#include <hicn/transport/security/signer.h>
-
+#include <hicn/transport/auth/identity.h>
+#include <hicn/transport/auth/signer.h>
 #include <implementation/socket_producer.h>
-#include <implementation/tls_rtc_socket_producer.h>
+// #include <implementation/tls_rtc_socket_producer.h>
 #include <implementation/tls_socket_producer.h>
+#include <openssl/ssl.h>
 #include <utils/content_store.h>
 
-#include <openssl/ssl.h>
 #include <condition_variable>
 #include <forward_list>
 #include <mutex>
@@ -33,39 +32,40 @@ namespace implementation {
 
 class P2PSecureProducerSocket : public ProducerSocket {
   friend class TLSProducerSocket;
-  friend class TLSRTCProducerSocket;
+  // TODO
+  //   friend class TLSRTCProducerSocket;
 
  public:
   explicit P2PSecureProducerSocket(interface::ProducerSocket *producer_socket);
 
   explicit P2PSecureProducerSocket(
       interface::ProducerSocket *producer_socket, bool rtc,
-      const std::shared_ptr<utils::Identity> &identity);
+      const std::shared_ptr<auth::Identity> &identity);
 
   ~P2PSecureProducerSocket();
 
-  void produce(const uint8_t *buffer, size_t buffer_size) override;
+  uint32_t produceDatagram(const Name &content_name,
+                           std::unique_ptr<utils::MemBuf> &&buffer) override;
 
-  uint32_t produce(Name content_name, const uint8_t *buffer, size_t buffer_size,
-                   bool is_last = true, uint32_t start_offset = 0) override;
+  uint32_t produceStream(const Name &content_name, const uint8_t *buffer,
+                         size_t buffer_size, bool is_last = true,
+                         uint32_t start_offset = 0) override;
 
-  uint32_t produce(Name content_name, std::unique_ptr<utils::MemBuf> &&buffer,
-                   bool is_last = true, uint32_t start_offset = 0) override;
+  uint32_t produceStream(const Name &content_name,
+                         std::unique_ptr<utils::MemBuf> &&buffer,
+                         bool is_last = true,
+                         uint32_t start_offset = 0) override;
 
   void asyncProduce(Name content_name, std::unique_ptr<utils::MemBuf> &&buffer,
                     bool is_last, uint32_t offset,
                     uint32_t **last_segment = nullptr) override;
-
-  void asyncProduce(const Name &suffix, const uint8_t *buf, size_t buffer_size,
-                    bool is_last = true,
-                    uint32_t *start_offset = nullptr) override;
 
   int setSocketOption(int socket_option_key,
                       ProducerInterestCallback socket_option_value) override;
 
   int setSocketOption(
       int socket_option_key,
-      const std::shared_ptr<utils::Signer> &socket_option_value) override;
+      const std::shared_ptr<auth::Signer> &socket_option_value) override;
 
   int setSocketOption(int socket_option_key,
                       uint32_t socket_option_value) override;
@@ -75,9 +75,6 @@ class P2PSecureProducerSocket : public ProducerSocket {
   int setSocketOption(int socket_option_key,
                       Name *socket_option_value) override;
 
-  int setSocketOption(int socket_option_key,
-                      std::list<Prefix> socket_option_value) override;
-
   int setSocketOption(
       int socket_option_key,
       ProducerContentObjectCallback socket_option_value) override;
@@ -86,16 +83,13 @@ class P2PSecureProducerSocket : public ProducerSocket {
                       ProducerContentCallback socket_option_value) override;
 
   int setSocketOption(int socket_option_key,
-                      utils::CryptoHashType socket_option_value) override;
-
-  int setSocketOption(int socket_option_key,
-                      utils::CryptoSuite socket_option_value) override;
+                      auth::CryptoHashType socket_option_value) override;
 
   int setSocketOption(int socket_option_key,
                       const std::string &socket_option_value) override;
 
   using ProducerSocket::getSocketOption;
-  using ProducerSocket::onInterest;
+  //   using ProducerSocket::onInterest;
 
  protected:
   /* Callback invoked once an interest has been received and its payload

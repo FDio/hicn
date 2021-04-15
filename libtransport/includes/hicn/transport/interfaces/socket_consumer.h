@@ -21,7 +21,7 @@
 #include <hicn/transport/interfaces/callbacks.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/socket_options_keys.h>
-#include <hicn/transport/security/verifier.h>
+#include <hicn/transport/auth/verifier.h>
 
 #ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE
@@ -208,14 +208,6 @@ class ConsumerSocket {
   int asyncConsume(const Name &name);
 
   /**
-   * Verify the packets containing a key after the origin of the key has been
-   * validated by the client.
-   *
-   * @return true if all packets are valid, false otherwise
-   */
-  bool verifyKeyPackets();
-
-  /**
    * Stops the consumer socket. If several downloads are queued (using
    * asyncConsume), this call stops just the current one.
    */
@@ -251,14 +243,6 @@ class ConsumerSocket {
   int setSocketOption(int socket_option_key,
                       ConsumerContentObjectCallback socket_option_value);
 
-  int setSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationFailedCallback socket_option_value);
-
-  int setSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationCallback socket_option_value);
-
   int setSocketOption(int socket_option_key,
                       ConsumerInterestCallback socket_option_value);
 
@@ -267,7 +251,7 @@ class ConsumerSocket {
 
   int setSocketOption(
       int socket_option_key,
-      const std::shared_ptr<utils::Verifier> &socket_option_value);
+      const std::shared_ptr<auth::Verifier> &socket_option_value);
 
   int setSocketOption(int socket_option_key,
                       const std::string &socket_option_value);
@@ -286,21 +270,13 @@ class ConsumerSocket {
   int getSocketOption(int socket_option_key,
                       ConsumerContentObjectCallback **socket_option_value);
 
-  int getSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationFailedCallback **socket_option_value);
-
-  int getSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationCallback **socket_option_value);
-
   int getSocketOption(int socket_option_key,
                       ConsumerInterestCallback **socket_option_value);
 
   int getSocketOption(int socket_option_key, IcnObserver **socket_option_value);
 
   int getSocketOption(int socket_option_key,
-                      std::shared_ptr<utils::Verifier> &socket_option_value);
+                      std::shared_ptr<auth::Verifier> &socket_option_value);
 
   int getSocketOption(int socket_option_key, std::string &socket_option_value);
 
