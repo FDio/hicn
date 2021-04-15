@@ -14,38 +14,35 @@
  */
 
 #include <hicn/transport/interfaces/portal.h>
-
 #include <implementation/socket.h>
 
 namespace transport {
 namespace interface {
 
-using implementation::BasePortal;
-
-Portal::Portal() { implementation_ = new implementation::BasePortal(); }
+Portal::Portal() { implementation_ = new core::Portal(); }
 
 Portal::Portal(asio::io_service &io_service) {
-  implementation_ = new BasePortal(io_service);
+  implementation_ = new core::Portal(io_service);
 }
 
-Portal::~Portal() { delete reinterpret_cast<BasePortal *>(implementation_); }
+Portal::~Portal() { delete reinterpret_cast<core::Portal *>(implementation_); }
 
 void Portal::setConsumerCallback(ConsumerCallback *consumer_callback) {
-  reinterpret_cast<BasePortal *>(implementation_)
+  reinterpret_cast<core::Portal *>(implementation_)
       ->setConsumerCallback(consumer_callback);
 }
 
 void Portal::setProducerCallback(ProducerCallback *producer_callback) {
-  reinterpret_cast<BasePortal *>(implementation_)
+  reinterpret_cast<core::Portal *>(implementation_)
       ->setProducerCallback(producer_callback);
 }
 
 void Portal::connect(bool is_consumer) {
-  reinterpret_cast<BasePortal *>(implementation_)->connect(is_consumer);
+  reinterpret_cast<core::Portal *>(implementation_)->connect(is_consumer);
 }
 
 bool Portal::interestIsPending(const core::Name &name) {
-  return reinterpret_cast<BasePortal *>(implementation_)
+  return reinterpret_cast<core::Portal *>(implementation_)
       ->interestIsPending(name);
 }
 
@@ -53,46 +50,46 @@ void Portal::sendInterest(
     core::Interest::Ptr &&interest,
     OnContentObjectCallback &&on_content_object_callback,
     OnInterestTimeoutCallback &&on_interest_timeout_callback) {
-  reinterpret_cast<BasePortal *>(implementation_)
+  reinterpret_cast<core::Portal *>(implementation_)
       ->sendInterest(std::move(interest), std::move(on_content_object_callback),
                      std::move(on_interest_timeout_callback));
 }
 
 void Portal::bind(const BindConfig &config) {
-  reinterpret_cast<BasePortal *>(implementation_)->bind(config);
+  reinterpret_cast<core::Portal *>(implementation_)->bind(config);
 }
 
 void Portal::runEventsLoop() {
-  reinterpret_cast<BasePortal *>(implementation_)->runEventsLoop();
+  reinterpret_cast<core::Portal *>(implementation_)->runEventsLoop();
 }
 
 void Portal::runOneEvent() {
-  reinterpret_cast<BasePortal *>(implementation_)->runOneEvent();
+  reinterpret_cast<core::Portal *>(implementation_)->runOneEvent();
 }
 
 void Portal::sendContentObject(core::ContentObject &content_object) {
-  reinterpret_cast<BasePortal *>(implementation_)
+  reinterpret_cast<core::Portal *>(implementation_)
       ->sendContentObject(content_object);
 }
 
 void Portal::stopEventsLoop() {
-  reinterpret_cast<BasePortal *>(implementation_)->stopEventsLoop();
+  reinterpret_cast<core::Portal *>(implementation_)->stopEventsLoop();
 }
 
 void Portal::killConnection() {
-  reinterpret_cast<BasePortal *>(implementation_)->killConnection();
+  reinterpret_cast<core::Portal *>(implementation_)->killConnection();
 }
 
 void Portal::clear() {
-  reinterpret_cast<BasePortal *>(implementation_)->clear();
+  reinterpret_cast<core::Portal *>(implementation_)->clear();
 }
 
 asio::io_service &Portal::getIoService() {
-  return reinterpret_cast<BasePortal *>(implementation_)->getIoService();
+  return reinterpret_cast<core::Portal *>(implementation_)->getIoService();
 }
 
 void Portal::registerRoute(core::Prefix &prefix) {
-  reinterpret_cast<BasePortal *>(implementation_)->registerRoute(prefix);
+  reinterpret_cast<core::Portal *>(implementation_)->registerRoute(prefix);
 }
 
 }  // namespace interface

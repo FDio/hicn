@@ -119,7 +119,7 @@ hicn_packet_dump (const uint8_t * buffer, size_t len)
   // Output description if given.
   if (len == 0)
     {
-      TRACE ("  ZERO LENGTH\n");
+      printf ("  ZERO LENGTH\n");
       return;
     }
 
@@ -132,14 +132,14 @@ hicn_packet_dump (const uint8_t * buffer, size_t len)
 	{
 	  // Just don't print ASCII for the zeroth line.
 	  if (i != 0)
-	    TRACE ("  %s\n", buff);
+	    printf ("  %s\n", buff);
 
 	  // Output the offset.
-	  TRACE ("  %04x ", i);
+	  printf ("  %04x ", i);
 	}
 
       // Now the hex code for the specific character.
-      TRACE (" %02x", pc[i]);
+      printf (" %02x", pc[i]);
 
       // And store a printable ASCII character for later.
       if ((pc[i] < 0x20) || (pc[i] > 0x7e))
@@ -152,12 +152,12 @@ hicn_packet_dump (const uint8_t * buffer, size_t len)
   // Pad out last line if not exactly 16 characters.
   while ((i % 16) != 0)
     {
-      TRACE ("   ");
+      printf ("   ");
       i++;
     }
 
   // And print the final ASCII bit.
-  TRACE ("  %s\n", buff);
+  printf ("  %s\n", buff);
 }
 
 /*

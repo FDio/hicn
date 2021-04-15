@@ -149,4 +149,4 @@ class Allocator : private MemoryPool<T, growSize> {
   void destroy(pointer p) { p->~T(); }
 };
 
-}
+}  // namespace utils

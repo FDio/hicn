@@ -27,12 +27,12 @@ class ByteStreamReassembly : public Reassembly {
                        TransportProtocol *transport_protocol);
 
  protected:
-  virtual void reassemble(core::ContentObject::Ptr &&content_object) override;
+  virtual void reassemble(core::ContentObject &content_object) override;
 
   virtual void reassemble(
       std::unique_ptr<core::ContentObjectManifest> &&manifest) override;
 
-  bool copyContent(const core::ContentObject &content_object);
+  bool copyContent(core::ContentObject &content_object);
 
   virtual void reInitialize() override;
 

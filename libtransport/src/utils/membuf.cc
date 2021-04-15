@@ -145,6 +145,18 @@ void MemBuf::operator delete(void* /* ptr */, void* /* placement */) {
   // constructor.
 }
 
+bool MemBuf::operator==(const MemBuf& other) {
+  if (length() != other.length()) {
+    return false;
+  }
+
+  return (memcmp(data(), other.data(), length()) == 0);
+}
+
+bool MemBuf::operator!=(const MemBuf& other) {
+  return !this->operator==(other);
+}
+
 void MemBuf::releaseStorage(HeapStorage* storage, uint16_t freeFlags) {
   // Use relaxed memory order here.  If we are unlucky and happen to get
   // out-of-date data the compare_exchange_weak() call below will catch
@@ -299,21 +311,23 @@ unique_ptr<MemBuf> MemBuf::takeOwnership(void* buf, std::size_t capacity,
   }
 }
 
-MemBuf::MemBuf(WrapBufferOp, const void* buf, std::size_t capacity) noexcept
+MemBuf::MemBuf(WrapBufferOp, const void* buf, std::size_t length,
+               std::size_t capacity) noexcept
     : MemBuf(InternalConstructor(), 0,
              // We cast away the const-ness of the buffer here.
              // This is okay since MemBuf users must use unshare() to create a
              // copy of this buffer before writing to the buffer.
              static_cast<uint8_t*>(const_cast<void*>(buf)), capacity,
-             static_cast<uint8_t*>(const_cast<void*>(buf)), capacity) {}
+             static_cast<uint8_t*>(const_cast<void*>(buf)), length) {}
 
-unique_ptr<MemBuf> MemBuf::wrapBuffer(const void* buf, std::size_t capacity) {
-  return std::make_unique<MemBuf>(WRAP_BUFFER, buf, capacity);
+unique_ptr<MemBuf> MemBuf::wrapBuffer(const void* buf, std::size_t length,
+                                      std::size_t capacity) {
+  return std::make_unique<MemBuf>(WRAP_BUFFER, buf, length, capacity);
 }
 
-MemBuf MemBuf::wrapBufferAsValue(const void* buf,
+MemBuf MemBuf::wrapBufferAsValue(const void* buf, std::size_t length,
                                  std::size_t capacity) noexcept {
-  return MemBuf(WrapBufferOp::WRAP_BUFFER, buf, capacity);
+  return MemBuf(WrapBufferOp::WRAP_BUFFER, buf, length, capacity);
 }
 
 MemBuf::MemBuf() noexcept {}
@@ -860,6 +874,24 @@ void MemBuf::initExtBuffer(uint8_t* buf, size_t mallocSize,
 
   *capacityReturn = std::size_t(infoStart - buf);
   *infoReturn = sharedInfo;
+}
+
+bool MemBuf::ensureCapacity(std::size_t capacity) {
+  return !isChained() && std::size_t((bufferEnd() - data())) >= capacity;
+}
+
+bool MemBuf::ensureCapacityAndFillUnused(std::size_t capacity,
+                                         uint8_t placeholder) {
+  auto ret = ensureCapacity(capacity);
+  if (!ret) {
+    return ret;
+  }
+
+  if (length() < capacity) {
+    std::memset(writableTail(), placeholder, capacity - length());
+  }
+
+  return ret;
 }
 
 }  // namespace utils
