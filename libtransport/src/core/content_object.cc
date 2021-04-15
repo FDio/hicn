@@ -32,8 +32,9 @@ namespace transport {
 
 namespace core {
 
-ContentObject::ContentObject(const Name &name, Packet::Format format)
-    : Packet(format) {
+ContentObject::ContentObject(const Name &name, Packet::Format format,
+                             std::size_t additional_header_size)
+    : Packet(format, additional_header_size) {
   if (TRANSPORT_EXPECT_FALSE(
           hicn_data_set_name(format, packet_start_, &name.name_) < 0)) {
     throw errors::RuntimeException("Error filling the packet name.");
@@ -47,41 +48,32 @@ ContentObject::ContentObject(const Name &name, Packet::Format format)
 }
 
 #ifdef __ANDROID__
-ContentObject::ContentObject(hicn_format_t format)
-    : ContentObject(Name("0::0|0"), format) {}
+ContentObject::ContentObject(hicn_format_t format,
+                             std::size_t additional_header_size)
+    : ContentObject(Name("0::0|0"), format, additional_header_size) {}
 #else
-ContentObject::ContentObject(hicn_format_t format)
-    : ContentObject(Packet::base_name, format) {}
+ContentObject::ContentObject(hicn_format_t format,
+                             std::size_t additional_header_size)
+    : ContentObject(Packet::base_name, format, additional_header_size) {}
 #endif
 
 ContentObject::ContentObject(const Name &name, hicn_format_t format,
+                             std::size_t additional_header_size,
                              const uint8_t *payload, std::size_t size)
-    : ContentObject(name, format) {
+    : ContentObject(name, format, additional_header_size) {
   appendPayload(payload, size);
-}
-
-ContentObject::ContentObject(const uint8_t *buffer, std::size_t size)
-    : Packet(buffer, size) {
-  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
-      0) {
-    throw errors::RuntimeException("Error getting name from content object.");
-  }
-}
-
-ContentObject::ContentObject(MemBufPtr &&buffer) : Packet(std::move(buffer)) {
-  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
-      0) {
-    throw errors::RuntimeException("Error getting name from content object.");
-  }
 }
 
 ContentObject::ContentObject(ContentObject &&other) : Packet(std::move(other)) {
   name_ = std::move(other.name_);
+}
 
-  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
-      0) {
-    throw errors::MalformedPacketException();
-  }
+ContentObject::ContentObject(const ContentObject &other) : Packet(other) {
+  name_ = other.name_;
+}
+
+ContentObject &ContentObject::operator=(const ContentObject &other) {
+  return (ContentObject &)Packet::operator=(other);
 }
 
 ContentObject::~ContentObject() {}
@@ -132,10 +124,11 @@ uint32_t ContentObject::getPathLabel() const {
         "Error retrieving the path label from content object");
   }
 
-  return path_label;
+  return ntohl(path_label);
 }
 
 ContentObject &ContentObject::setPathLabel(uint32_t path_label) {
+  path_label = htonl(path_label);
   if (hicn_data_set_path_label((hicn_header_t *)packet_start_, path_label) <
       0) {
     throw errors::RuntimeException(

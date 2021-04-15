@@ -16,8 +16,8 @@
 #pragma once
 
 #include <implementation/socket_producer.h>
-
 #include <openssl/ssl.h>
+
 #include <condition_variable>
 #include <mutex>
 
@@ -36,26 +36,18 @@ class TLSProducerSocket : virtual public ProducerSocket {
 
   ~TLSProducerSocket();
 
-  uint32_t produce(Name content_name, const uint8_t *buffer, size_t buffer_size,
-                   bool is_last = true, uint32_t start_offset = 0) override {
-    return produce(content_name, utils::MemBuf::copyBuffer(buffer, buffer_size),
-                   is_last, start_offset);
+  uint32_t produceStream(const Name &content_name, const uint8_t *buffer,
+                         size_t buffer_size, bool is_last = true,
+                         uint32_t start_offset = 0) override {
+    return produceStream(content_name,
+                         utils::MemBuf::copyBuffer(buffer, buffer_size),
+                         is_last, start_offset);
   }
 
-  uint32_t produce(Name content_name, std::unique_ptr<utils::MemBuf> &&buffer,
-                   bool is_last = true, uint32_t start_offset = 0) override;
-
-  void produce(ContentObject &content_object) override;
-
-  void asyncProduce(const Name &suffix, const uint8_t *buf, size_t buffer_size,
-                    bool is_last = true,
-                    uint32_t *start_offset = nullptr) override;
-
-  void asyncProduce(Name content_name, std::unique_ptr<utils::MemBuf> &&buffer,
-                    bool is_last, uint32_t offset,
-                    uint32_t **last_segment = nullptr) override;
-
-  void asyncProduce(ContentObject &content_object) override;
+  uint32_t produceStream(const Name &content_name,
+                         std::unique_ptr<utils::MemBuf> &&buffer,
+                         bool is_last = true,
+                         uint32_t start_offset = 0) override;
 
   virtual void accept();
 
@@ -80,7 +72,7 @@ class TLSProducerSocket : virtual public ProducerSocket {
                       ProducerInterestCallback &socket_option_value);
 
   using ProducerSocket::getSocketOption;
-  using ProducerSocket::onInterest;
+  // using ProducerSocket::onInterest;
   using ProducerSocket::setSocketOption;
 
  protected:
@@ -119,6 +111,7 @@ class TLSProducerSocket : virtual public ProducerSocket {
   int to_call_oncontentproduced_;
   bool still_writing_;
   utils::EventThread encryption_thread_;
+  utils::EventThread async_thread_;
 
   void onInterest(ProducerSocket &p, Interest &interest);
 

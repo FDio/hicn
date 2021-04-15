@@ -16,7 +16,6 @@
 #pragma once
 
 #include <hicn/transport/interfaces/statistics.h>
-
 #include <protocols/raaqm_data_path.h>
 
 #include <chrono>

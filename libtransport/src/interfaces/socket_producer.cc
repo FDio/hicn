@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/interfaces/socket_producer.h>
-
 #include <implementation/socket_producer.h>
 
 #include <atomic>
@@ -31,11 +30,12 @@ namespace interface {
 using namespace core;
 
 ProducerSocket::ProducerSocket(int protocol) {
-  if (protocol != 0) {
-    throw std::runtime_error("Production protocol must be 0.");
-  }
+  socket_ = std::make_unique<implementation::ProducerSocket>(this, protocol);
+}
 
-  socket_ = std::make_unique<implementation::ProducerSocket>(this);
+ProducerSocket::ProducerSocket(int protocol, asio::io_service &io_service) {
+  socket_ = std::make_unique<implementation::ProducerSocket>(this, protocol,
+                                                             io_service);
 }
 
 ProducerSocket::ProducerSocket(bool) {}
@@ -46,19 +46,34 @@ void ProducerSocket::connect() { socket_->connect(); }
 
 bool ProducerSocket::isRunning() { return socket_->isRunning(); }
 
-uint32_t ProducerSocket::produce(Name content_name,
-                                 std::unique_ptr<utils::MemBuf> &&buffer,
-                                 bool is_last, uint32_t start_offset) {
-  return socket_->produce(content_name, std::move(buffer), is_last,
-                          start_offset);
+uint32_t ProducerSocket::produceStream(const Name &content_name,
+                                       std::unique_ptr<utils::MemBuf> &&buffer,
+                                       bool is_last, uint32_t start_offset) {
+  return socket_->produceStream(content_name, std::move(buffer), is_last,
+                                start_offset);
+}
+
+uint32_t ProducerSocket::produceStream(const Name &content_name,
+                                       const uint8_t *buffer,
+                                       size_t buffer_size, bool is_last,
+                                       uint32_t start_offset) {
+  return socket_->produceStream(content_name, buffer, buffer_size, is_last,
+                                start_offset);
+}
+
+uint32_t ProducerSocket::produceDatagram(
+    const Name &content_name, std::unique_ptr<utils::MemBuf> &&buffer) {
+  return socket_->produceDatagram(content_name, std::move(buffer));
+}
+
+uint32_t ProducerSocket::produceDatagram(const Name &content_name,
+                                         const uint8_t *buffer,
+                                         size_t buffer_size) {
+  return socket_->produceDatagram(content_name, buffer, buffer_size);
 }
 
 void ProducerSocket::produce(ContentObject &content_object) {
   return socket_->produce(content_object);
-}
-
-void ProducerSocket::produce(std::unique_ptr<utils::MemBuf> &&buffer) {
-  socket_->produce(std::move(buffer));
 }
 
 void ProducerSocket::asyncProduce(Name content_name,
@@ -69,15 +84,9 @@ void ProducerSocket::asyncProduce(Name content_name,
                                last_segment);
 }
 
-void ProducerSocket::asyncProduce(ContentObject &content_object) {
-  return socket_->asyncProduce(content_object);
-}
-
 void ProducerSocket::registerPrefix(const Prefix &producer_namespace) {
   return socket_->registerPrefix(producer_namespace);
 }
-
-void ProducerSocket::serveForever() { return socket_->serveForever(); }
 
 void ProducerSocket::stop() { return socket_->stop(); }
 
@@ -105,11 +114,6 @@ int ProducerSocket::setSocketOption(int socket_option_key,
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
-int ProducerSocket::setSocketOption(int socket_option_key,
-                                    std::list<Prefix> socket_option_value) {
-  return socket_->setSocketOption(socket_option_key, socket_option_value);
-}
-
 int ProducerSocket::setSocketOption(
     int socket_option_key, ProducerContentObjectCallback socket_option_value) {
   return socket_->setSocketOption(socket_option_key, socket_option_value);
@@ -126,18 +130,13 @@ int ProducerSocket::setSocketOption(
 }
 
 int ProducerSocket::setSocketOption(int socket_option_key,
-                                    utils::CryptoHashType socket_option_value) {
-  return socket_->setSocketOption(socket_option_key, socket_option_value);
-}
-
-int ProducerSocket::setSocketOption(int socket_option_key,
-                                    utils::CryptoSuite socket_option_value) {
+                                    auth::CryptoHashType socket_option_value) {
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
 int ProducerSocket::setSocketOption(
     int socket_option_key,
-    const std::shared_ptr<utils::Signer> &socket_option_value) {
+    const std::shared_ptr<auth::Signer> &socket_option_value) {
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
@@ -153,11 +152,6 @@ int ProducerSocket::setSocketOption(int socket_option_key,
 
 int ProducerSocket::getSocketOption(int socket_option_key,
                                     bool &socket_option_value) {
-  return socket_->getSocketOption(socket_option_key, socket_option_value);
-}
-
-int ProducerSocket::getSocketOption(int socket_option_key,
-                                    std::list<Prefix> &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 
@@ -177,19 +171,13 @@ int ProducerSocket::getSocketOption(
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 
-int ProducerSocket::getSocketOption(
-    int socket_option_key, utils::CryptoHashType &socket_option_value) {
-  return socket_->getSocketOption(socket_option_key, socket_option_value);
-}
-
 int ProducerSocket::getSocketOption(int socket_option_key,
-                                    utils::CryptoSuite &socket_option_value) {
+                                    auth::CryptoHashType &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 
 int ProducerSocket::getSocketOption(
-    int socket_option_key,
-    std::shared_ptr<utils::Signer> &socket_option_value) {
+    int socket_option_key, std::shared_ptr<auth::Signer> &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 

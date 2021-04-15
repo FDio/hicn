@@ -220,17 +220,11 @@ ipv6_update_checksums (hicn_type_t type, hicn_protocol_t * h,
 		       u16 partial_csum, size_t payload_length)
 {
   /* Retrieve payload length if not specified */
-  if (payload_length == 0)
+  if (payload_length == ~0)
     {
       int rc = ipv6_get_payload_length (type, h, &payload_length);
       if (rc < 0)
 	return rc;
-    }
-
-  /* Ignore the payload if payload_length = ~0 */
-  if (payload_length == ~0)
-    {
-      payload_length = 0;
     }
 
   /* Build pseudo-header */
@@ -258,7 +252,7 @@ ipv6_verify_checksums (hicn_type_t type, hicn_protocol_t * h,
 		       u16 partial_csum, size_t payload_length)
 {
   /* Retrieve payload length if not specified */
-  if (payload_length == 0)
+  if (payload_length == ~0)
     {
       int rc = ipv6_get_payload_length (type, h, &payload_length);
       if (rc < 0)
@@ -276,7 +270,11 @@ ipv6_verify_checksums (hicn_type_t type, hicn_protocol_t * h,
   pseudo.protocol = h->ipv6.nxt;
 
   /* Compute partial checksum based on pseudo-header */
-  partial_csum = csum (&pseudo, IPV6_PSHDRLEN, 0);
+  if (partial_csum != 0)
+    {
+      partial_csum = ~partial_csum;
+    }
+  partial_csum = csum (&pseudo, IPV6_PSHDRLEN, partial_csum);
 
   return CHILD_OPS (verify_checksums, type, h, partial_csum, payload_length);
 }
@@ -296,13 +294,13 @@ ipv6_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 int
 ipv6_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
 		   const ip46_address_t * addr_new, ip46_address_t * addr_old,
-		   const hicn_faceid_t face_id)
+		   const hicn_faceid_t face_id, u8 reset_pl)
 {
   // ASSERT(addr_old == NULL);
   addr_old->ip6 = h->ipv6.daddr;
   h->ipv6.daddr = addr_new->ip6;
 
-  return CHILD_OPS (rewrite_data, type, h, addr_new, addr_old, face_id);
+  return CHILD_OPS (rewrite_data, type, h, addr_new, addr_old, face_id, reset_pl);
 }
 
 int

@@ -15,13 +15,13 @@
 
 #pragma once
 
-#include <hicn/transport/errors/runtime_exception.h>
-#include <hicn/transport/errors/unexpected_manifest_exception.h>
+#include <hicn/transport/errors/errors.h>
+#include <hicn/transport/interfaces/callbacks.h>
+#include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/utils/literals.h>
-
+#include <implementation/socket_consumer.h>
 #include <protocols/indexer.h>
 #include <protocols/reassembly.h>
-#include <protocols/verification_manager.h>
 
 #include <deque>
 
@@ -47,11 +47,12 @@ class IncrementalIndexer : public Indexer {
         first_suffix_(0),
         next_download_suffix_(0),
         next_reassembly_suffix_(0),
-        verification_manager_(
-            std::make_unique<SignatureVerificationManager>(icn_socket)) {
+        verifier_(nullptr) {
     if (reassembly_) {
       reassembly_->setIndexer(this);
     }
+    socket_->getSocketOption(implementation::GeneralTransportOptions::VERIFIER,
+                             verifier_);
   }
 
   IncrementalIndexer(const IncrementalIndexer &) = delete;
@@ -64,15 +65,14 @@ class IncrementalIndexer : public Indexer {
         first_suffix_(other.first_suffix_),
         next_download_suffix_(other.next_download_suffix_),
         next_reassembly_suffix_(other.next_reassembly_suffix_),
-        verification_manager_(std::move(other.verification_manager_)) {
+        verifier_(nullptr) {
     if (reassembly_) {
       reassembly_->setIndexer(this);
     }
+    socket_->getSocketOption(implementation::GeneralTransportOptions::VERIFIER,
+                             verifier_);
   }
 
-  /**
-   *
-   */
   virtual ~IncrementalIndexer() {}
 
   TRANSPORT_ALWAYS_INLINE virtual void reset(
@@ -112,8 +112,8 @@ class IncrementalIndexer : public Indexer {
     return final_suffix_;
   }
 
-  void onContentObject(core::Interest::Ptr &&interest,
-                       core::ContentObject::Ptr &&content_object) override;
+  void onContentObject(core::Interest &interest,
+                       core::ContentObject &content_object) override;
 
   TRANSPORT_ALWAYS_INLINE void setReassembly(Reassembly *reassembly) {
     reassembly_ = reassembly;
@@ -121,10 +121,6 @@ class IncrementalIndexer : public Indexer {
     if (reassembly_) {
       reassembly_->setIndexer(this);
     }
-  }
-
-  TRANSPORT_ALWAYS_INLINE bool onKeyToVerify() override {
-    return verification_manager_->onKeyToVerify();
   }
 
  protected:
@@ -135,9 +131,8 @@ class IncrementalIndexer : public Indexer {
   uint32_t first_suffix_;
   uint32_t next_download_suffix_;
   uint32_t next_reassembly_suffix_;
-  std::unique_ptr<VerificationManager> verification_manager_;
+  std::shared_ptr<auth::Verifier> verifier_;
 };
 
-}  // end namespace protocol
-
-}  // end namespace transport
+}  // namespace protocol
+}  // namespace transport

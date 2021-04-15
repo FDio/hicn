@@ -22,7 +22,7 @@ add_subdirectory(errors)
 add_subdirectory(http)
 add_subdirectory(interfaces)
 add_subdirectory(portability)
-add_subdirectory(security)
+add_subdirectory(auth)
 add_subdirectory(utils)
 
 set(LIBTRANSPORT_INCLUDE_DIRS
