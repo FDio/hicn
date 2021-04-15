@@ -14,12 +14,11 @@
  */
 
 #include <hicn/transport/utils/branch_prediction.h>
-
+#include <signal.h>
+#include <unistd.h>
 #include <utils/epoll_event_reactor.h>
 #include <utils/fd_deadline_timer.h>
 
-#include <signal.h>
-#include <unistd.h>
 #include <iostream>
 
 namespace utils {
@@ -111,7 +110,7 @@ void EpollEventReactor::runEventLoop(int timeout) {
       if (errno == EINTR) {
         continue;
       } else {
-	return;
+        return;
       }
     }
 

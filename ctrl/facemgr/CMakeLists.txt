@@ -58,7 +58,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 
-find_package_wrapper(Config REQUIRED)
+find_package_wrapper(Libconfig REQUIRED)
 find_package_wrapper(LibEvent REQUIRED)
 
 set(FACEMGR facemgr CACHE INTERNAL "" FORCE)

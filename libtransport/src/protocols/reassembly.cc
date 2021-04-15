@@ -16,7 +16,6 @@
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/utils/array.h>
 #include <hicn/transport/utils/membuf.h>
-
 #include <implementation/socket_consumer.h>
 #include <protocols/errors.h>
 #include <protocols/indexer.h>

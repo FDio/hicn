@@ -242,7 +242,7 @@ hicn_name_hash (const hicn_name_t * name, u32 * hash, bool consider_suffix)
 int
 hicn_name_empty (hicn_name_t * name)
 {
-  return name->type == HNT_UNSPEC ? HICN_LIB_ERROR_NONE : 1;
+  return name->type == HNT_UNSPEC ? 1 : 0;
 }
 
 int

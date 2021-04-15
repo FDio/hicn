@@ -13,9 +13,10 @@
  * limitations under the License.
  */
 
+#include <hicn/transport/core/global_object_pool.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/interfaces/portal.h>
-#include <hicn/transport/security/verifier.h>
+#include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/utils/log.h>
 
 // Let's make the linker happy
@@ -40,7 +41,7 @@ namespace core {
 namespace ping {
 
 typedef std::map<uint64_t, uint64_t> SendTimeMap;
-typedef utils::Verifier Verifier;
+typedef auth::AsymmetricVerifier Verifier;
 
 class Configuration {
  public:
@@ -104,7 +105,7 @@ class Client : interface::Portal::ConsumerCallback {
     received_ = 0;
     timedout_ = 0;
     if (!c->certificate_.empty()) {
-      key_id_ = verifier_.addKeyFromCertificate(c->certificate_);
+      verifier_.setCertificate(c->certificate_);
     }
   }
 
@@ -116,13 +117,12 @@ class Client : interface::Portal::ConsumerCallback {
     portal_.runEventsLoop();
   }
 
-  void onContentObject(Interest::Ptr &&interest,
-                       ContentObject::Ptr &&object) override {
+  void onContentObject(Interest &interest, ContentObject &object) override {
     uint64_t rtt = 0;
 
     if (!config_->certificate_.empty()) {
       auto t0 = std::chrono::steady_clock::now();
-      if (verifier_.verify(*object)) {
+      if (verifier_.verifyPacket(&object)) {
         auto t1 = std::chrono::steady_clock::now();
         auto dt =
             std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
@@ -133,7 +133,7 @@ class Client : interface::Portal::ConsumerCallback {
       }
     }
 
-    auto it = send_timestamps_.find(interest->getName().getSuffix());
+    auto it = send_timestamps_.find(interest.getName().getSuffix());
     if (it != send_timestamps_.end()) {
       rtt = std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now().time_since_epoch())
@@ -144,40 +144,40 @@ class Client : interface::Portal::ConsumerCallback {
 
     if (config_->verbose_) {
       std::cout << "<<< recevied object. " << std::endl;
-      std::cout << "<<< interest name: " << interest->getName()
-                << " src port: " << interest->getSrcPort()
-                << " dst port: " << interest->getDstPort()
-                << " flags: " << interest->printFlags() << std::endl;
-      std::cout << "<<< object name: " << object->getName()
-                << " src port: " << object->getSrcPort()
-                << " dst port: " << object->getDstPort()
-                << " flags: " << object->printFlags() << " path label "
-                << object->getPathLabel() << " ("
-                << (object->getPathLabel() >> 24) << ")"
-                << " TTL: " << (int)object->getTTL() << std::endl;
+      std::cout << "<<< interest name: " << interest.getName()
+                << " src port: " << interest.getSrcPort()
+                << " dst port: " << interest.getDstPort()
+                << " flags: " << interest.printFlags() << std::endl;
+      std::cout << "<<< object name: " << object.getName()
+                << " src port: " << object.getSrcPort()
+                << " dst port: " << object.getDstPort()
+                << " flags: " << object.printFlags() << " path label "
+                << object.getPathLabel() << " ("
+                << (object.getPathLabel() >> 24) << ")"
+                << " TTL: " << (int)object.getTTL() << std::endl;
     } else if (!config_->quiet_) {
       std::cout << "<<< received object. " << std::endl;
       std::cout << "<<< round trip: " << rtt << " [us]" << std::endl;
-      std::cout << "<<< interest name: " << interest->getName() << std::endl;
-      std::cout << "<<< object name: " << object->getName() << std::endl;
+      std::cout << "<<< interest name: " << interest.getName() << std::endl;
+      std::cout << "<<< object name: " << object.getName() << std::endl;
       std::cout << "<<< content object size: "
-                << object->payloadSize() + object->headerSize() << " [bytes]"
+                << object.payloadSize() + object.headerSize() << " [bytes]"
                 << std::endl;
     }
 
     if (config_->dump_) {
       std::cout << "----- interest dump -----" << std::endl;
-      interest->dump();
+      interest.dump();
       std::cout << "-------------------------" << std::endl;
       std::cout << "----- object dump -------" << std::endl;
-      object->dump();
+      object.dump();
       std::cout << "-------------------------" << std::endl;
     }
 
     if (!config_->quiet_) std::cout << std::endl;
 
     if (!config_->always_syn_) {
-      if (object->testSyn() && object->testAck() && state_ == SYN_STATE) {
+      if (object.testSyn() && object.testAck() && state_ == SYN_STATE) {
         state_ = ACK_STATE;
       }
     }
@@ -217,7 +217,7 @@ class Client : interface::Portal::ConsumerCallback {
   void onError(std::error_code ec) override {}
 
   void doPing() {
-    Name interest_name(config_->name_, (uint32_t)sequence_number_);
+    const Name interest_name(config_->name_, (uint32_t)sequence_number_);
     hicn_format_t format;
     if (interest_name.getAddressFamily() == AF_INET) {
       format = HF_INET_TCP;
@@ -225,11 +225,9 @@ class Client : interface::Portal::ConsumerCallback {
       format = HF_INET6_TCP;
     }
 
-    Interest::Ptr interest(new Interest(std::move(interest_name), format),
-                           nullptr);
+    auto interest = std::make_shared<Interest>(interest_name, format);
 
     interest->setLifetime(uint32_t(config_->interestLifetime_));
-
     interest->resetFlags();
 
     if (config_->open_ || config_->always_syn_) {
@@ -313,7 +311,6 @@ class Client : interface::Portal::ConsumerCallback {
   std::unique_ptr<asio::steady_timer> timer_;
   Configuration *config_;
   Verifier verifier_;
-  PARCKeyId *key_id_;
 };
 
 void help() {
