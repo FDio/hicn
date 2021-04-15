@@ -77,6 +77,8 @@ class Name {
 
   operator bool() const;
 
+  bool isValid() const;
+
   std::string toString() const;
 
   bool equals(const Name &name, bool consider_segment = true) const;
@@ -125,13 +127,13 @@ struct compare2 {};
 
 template <>
 struct compare2<transport::core::Name> {
-  size_t operator()(const transport::core::Name &name1, const transport::core::Name &name2) const;
+  size_t operator()(const transport::core::Name &name1,
+                    const transport::core::Name &name2) const;
 };
 
 }  // end namespace core
 
 }  // end namespace transport
-
 
 namespace std {
 template <>

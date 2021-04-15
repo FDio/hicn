@@ -16,8 +16,8 @@
 #pragma once
 
 #include <hicn/transport/portability/portability.h>
-
 #include <stdio.h>
+
 #include <cstdint>
 #include <string>
 

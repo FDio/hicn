@@ -24,6 +24,7 @@
 dpo_id_t *face_dpo_vec;
 hicn_face_vft_t *face_vft_vec;
 char **face_type_names_vec;
+u8 pl_index = 1;
 
 hicn_face_t *hicn_dpoi_face_pool;
 

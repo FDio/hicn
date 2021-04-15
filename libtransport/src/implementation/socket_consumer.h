@@ -13,15 +13,17 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/statistics.h>
-#include <hicn/transport/security/verifier.h>
+#include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/utils/event_thread.h>
 #include <protocols/cbr.h>
-#include <protocols/protocol.h>
 #include <protocols/raaqm.h>
-#include <protocols/rtc.h>
+#include <protocols/rtc/rtc.h>
+#include <protocols/transport_protocol.h>
 
 namespace transport {
 namespace implementation {
@@ -30,12 +32,12 @@ using namespace core;
 using namespace interface;
 using ReadCallback = interface::ConsumerSocket::ReadCallback;
 
-class ConsumerSocket : public Socket<BasePortal> {
+class ConsumerSocket : public Socket {
  private:
   ConsumerSocket(interface::ConsumerSocket *consumer, int protocol,
-                 std::shared_ptr<Portal> &&portal)
-      : consumer_interface_(consumer),
-        portal_(portal),
+                 std::shared_ptr<core::Portal> &&portal)
+      : Socket(std::move(portal)),
+        consumer_interface_(consumer),
         async_downloader_(),
         interest_lifetime_(default_values::interest_lifetime),
         min_window_size_(default_values::min_window_size),
@@ -54,16 +56,13 @@ class ConsumerSocket : public Socket<BasePortal> {
         rate_estimation_observer_(nullptr),
         rate_estimation_batching_parameter_(default_values::batch),
         rate_estimation_choice_(0),
-        is_async_(false),
-        verifier_(std::make_shared<utils::Verifier>()),
+        verifier_(std::make_shared<auth::VoidVerifier>()),
         verify_signature_(false),
-        key_content_(false),
         reset_window_(false),
         on_interest_output_(VOID_HANDLER),
         on_interest_timeout_(VOID_HANDLER),
         on_interest_satisfied_(VOID_HANDLER),
         on_content_object_input_(VOID_HANDLER),
-        on_content_object_verification_(VOID_HANDLER),
         stats_summary_(VOID_HANDLER),
         read_callback_(nullptr),
         timer_interval_milliseconds_(0),
@@ -75,7 +74,7 @@ class ConsumerSocket : public Socket<BasePortal> {
         break;
       case TransportProtocolAlgorithms::RTC:
         transport_protocol_ =
-            std::make_unique<protocol::RTCTransportProtocol>(this);
+            std::make_unique<protocol::rtc::RTCTransportProtocol>(this);
         break;
       case TransportProtocolAlgorithms::RAAQM:
       default:
@@ -87,12 +86,12 @@ class ConsumerSocket : public Socket<BasePortal> {
 
  public:
   ConsumerSocket(interface::ConsumerSocket *consumer, int protocol)
-      : ConsumerSocket(consumer, protocol, std::make_shared<Portal>()) {}
+      : ConsumerSocket(consumer, protocol, std::make_shared<core::Portal>()) {}
 
   ConsumerSocket(interface::ConsumerSocket *consumer, int protocol,
                  asio::io_service &io_service)
       : ConsumerSocket(consumer, protocol,
-                       std::make_shared<Portal>(io_service)) {
+                       std::make_shared<core::Portal>(io_service)) {
     is_async_ = true;
   }
 
@@ -138,8 +137,6 @@ class ConsumerSocket : public Socket<BasePortal> {
     return CONSUMER_RUNNING;
   }
 
-  bool verifyKeyPackets() { return transport_protocol_->verifyKeyPackets(); }
-
   void stop() {
     if (transport_protocol_->isRunning()) {
       transport_protocol_->stop();
@@ -151,8 +148,6 @@ class ConsumerSocket : public Socket<BasePortal> {
       transport_protocol_->resume();
     }
   }
-
-  asio::io_service &getIoService() { return portal_->getIoService(); }
 
   virtual int setSocketOption(int socket_option_key,
                               ReadCallback *socket_option_value) {
@@ -316,12 +311,6 @@ class ConsumerSocket : public Socket<BasePortal> {
                 break;
               }
 
-            case ConsumerCallbacksOptions::CONTENT_OBJECT_TO_VERIFY:
-              if (socket_option_value == VOID_HANDLER) {
-                on_content_object_verification_ = VOID_HANDLER;
-                break;
-              }
-
             default:
               return SOCKET_OPTION_NOT_SET;
           }
@@ -334,16 +323,6 @@ class ConsumerSocket : public Socket<BasePortal> {
     int result = SOCKET_OPTION_NOT_SET;
     if (!transport_protocol_->isRunning()) {
       switch (socket_option_key) {
-        case GeneralTransportOptions::VERIFY_SIGNATURE:
-          verify_signature_ = socket_option_value;
-          result = SOCKET_OPTION_SET;
-          break;
-
-        case GeneralTransportOptions::KEY_CONTENT:
-          key_content_ = socket_option_value;
-          result = SOCKET_OPTION_SET;
-          break;
-
         case RaaqmTransportOptions::PER_SESSION_CWINDOW_RESET:
           reset_window_ = socket_option_value;
           result = SOCKET_OPTION_SET;
@@ -367,29 +346,6 @@ class ConsumerSocket : public Socket<BasePortal> {
           switch (socket_option_key) {
             case ConsumerCallbacksOptions::CONTENT_OBJECT_INPUT:
               on_content_object_input_ = socket_option_value;
-              break;
-
-            default:
-              return SOCKET_OPTION_NOT_SET;
-          }
-
-          return SOCKET_OPTION_SET;
-        });
-  }
-
-  int setSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationCallback socket_option_value) {
-    // Reschedule the function on the io_service to avoid race condition in
-    // case setSocketOption is called while the io_service is running.
-    return rescheduleOnIOService(
-        socket_option_key, socket_option_value,
-        [this](int socket_option_key,
-               ConsumerContentObjectVerificationCallback socket_option_value)
-            -> int {
-          switch (socket_option_key) {
-            case ConsumerCallbacksOptions::CONTENT_OBJECT_TO_VERIFY:
-              on_content_object_verification_ = socket_option_value;
               break;
 
             default:
@@ -433,51 +389,6 @@ class ConsumerSocket : public Socket<BasePortal> {
         });
   }
 
-  int setSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationFailedCallback socket_option_value) {
-    return rescheduleOnIOService(
-        socket_option_key, socket_option_value,
-        [this](
-            int socket_option_key,
-            ConsumerContentObjectVerificationFailedCallback socket_option_value)
-            -> int {
-          switch (socket_option_key) {
-            case ConsumerCallbacksOptions::VERIFICATION_FAILED:
-              verification_failed_callback_ = socket_option_value;
-              break;
-
-            default:
-              return SOCKET_OPTION_NOT_SET;
-          }
-
-          return SOCKET_OPTION_SET;
-        });
-  }
-
-  // int setSocketOption(
-  //     int socket_option_key,
-  //     ConsumerContentObjectVerificationFailedCallback socket_option_value) {
-  //   return rescheduleOnIOService(
-  //       socket_option_key, socket_option_value,
-  //       [this](
-  //           int socket_option_key,
-  //           ConsumerContentObjectVerificationFailedCallback
-  //           socket_option_value)
-  //           -> int {
-  //         switch (socket_option_key) {
-  //           case ConsumerCallbacksOptions::VERIFICATION_FAILED:
-  //             verification_failed_callback_ = socket_option_value;
-  //             break;
-
-  //           default:
-  //             return SOCKET_OPTION_NOT_SET;
-  //         }
-
-  //         return SOCKET_OPTION_SET;
-  //       });
-  // }
-
   int setSocketOption(int socket_option_key, IcnObserver *socket_option_value) {
     utils::SpinLock::Acquire locked(guard_raaqm_params_);
     switch (socket_option_key) {
@@ -494,7 +405,7 @@ class ConsumerSocket : public Socket<BasePortal> {
 
   int setSocketOption(
       int socket_option_key,
-      const std::shared_ptr<utils::Verifier> &socket_option_value) {
+      const std::shared_ptr<auth::Verifier> &socket_option_value) {
     int result = SOCKET_OPTION_NOT_SET;
     if (!transport_protocol_->isRunning()) {
       switch (socket_option_key) {
@@ -516,14 +427,6 @@ class ConsumerSocket : public Socket<BasePortal> {
     int result = SOCKET_OPTION_NOT_SET;
     if (!transport_protocol_->isRunning()) {
       switch (socket_option_key) {
-        case GeneralTransportOptions::CERTIFICATE:
-          key_id_ = verifier_->addKeyFromCertificate(socket_option_value);
-
-          if (key_id_ != nullptr) {
-            result = SOCKET_OPTION_SET;
-          }
-          break;
-
         case DataLinkOptions::OUTPUT_INTERFACE:
           output_interface_ = socket_option_value;
           portal_->setOutputInterface(output_interface_);
@@ -642,14 +545,6 @@ class ConsumerSocket : public Socket<BasePortal> {
         socket_option_value = transport_protocol_->isRunning();
         break;
 
-      case GeneralTransportOptions::VERIFY_SIGNATURE:
-        socket_option_value = verify_signature_;
-        break;
-
-      case GeneralTransportOptions::KEY_CONTENT:
-        socket_option_value = key_content_;
-        break;
-
       case GeneralTransportOptions::ASYNC_MODE:
         socket_option_value = is_async_;
         break;
@@ -699,29 +594,6 @@ class ConsumerSocket : public Socket<BasePortal> {
         });
   }
 
-  int getSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationCallback **socket_option_value) {
-    // Reschedule the function on the io_service to avoid race condition in
-    // case setSocketOption is called while the io_service is running.
-    return rescheduleOnIOService(
-        socket_option_key, socket_option_value,
-        [this](int socket_option_key,
-               ConsumerContentObjectVerificationCallback **socket_option_value)
-            -> int {
-          switch (socket_option_key) {
-            case ConsumerCallbacksOptions::CONTENT_OBJECT_TO_VERIFY:
-              *socket_option_value = &on_content_object_verification_;
-              break;
-
-            default:
-              return SOCKET_OPTION_NOT_GET;
-          }
-
-          return SOCKET_OPTION_GET;
-        });
-  }
-
   int getSocketOption(int socket_option_key,
                       ConsumerInterestCallback **socket_option_value) {
     // Reschedule the function on the io_service to avoid race condition in
@@ -755,30 +627,8 @@ class ConsumerSocket : public Socket<BasePortal> {
         });
   }
 
-  int getSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationFailedCallback **socket_option_value) {
-    // Reschedule the function on the io_service to avoid race condition in
-    // case setSocketOption is called while the io_service is running.
-    return rescheduleOnIOService(
-        socket_option_key, socket_option_value,
-        [this](int socket_option_key,
-               ConsumerContentObjectVerificationFailedCallback *
-                   *socket_option_value) -> int {
-          switch (socket_option_key) {
-            case ConsumerCallbacksOptions::VERIFICATION_FAILED:
-              *socket_option_value = &verification_failed_callback_;
-              break;
-            default:
-              return SOCKET_OPTION_NOT_GET;
-          }
-
-          return SOCKET_OPTION_GET;
-        });
-  }
-
   int getSocketOption(int socket_option_key,
-                      std::shared_ptr<Portal> &socket_option_value) {
+                      std::shared_ptr<core::Portal> &socket_option_value) {
     switch (socket_option_key) {
       case PORTAL:
         socket_option_value = portal_;
@@ -807,7 +657,7 @@ class ConsumerSocket : public Socket<BasePortal> {
   }
 
   int getSocketOption(int socket_option_key,
-                      std::shared_ptr<utils::Verifier> &socket_option_value) {
+                      std::shared_ptr<auth::Verifier> &socket_option_value) {
     switch (socket_option_key) {
       case GeneralTransportOptions::VERIFIER:
         socket_option_value = verifier_;
@@ -871,7 +721,7 @@ class ConsumerSocket : public Socket<BasePortal> {
     // To enforce type check
     std::function<int(int, arg2)> func = lambda_func;
     int result = SOCKET_OPTION_SET;
-    if (transport_protocol_->isRunning()) {
+    if (transport_protocol_ && transport_protocol_->isRunning()) {
       std::mutex mtx;
       /* Condition variable for the wait */
       std::condition_variable cv;
@@ -898,7 +748,6 @@ class ConsumerSocket : public Socket<BasePortal> {
  protected:
   interface::ConsumerSocket *consumer_interface_;
 
-  std::shared_ptr<Portal> portal_;
   utils::EventThread async_downloader_;
 
   // No need to protect from multiple accesses in the async consumer
@@ -926,13 +775,10 @@ class ConsumerSocket : public Socket<BasePortal> {
   int rate_estimation_batching_parameter_;
   int rate_estimation_choice_;
 
-  bool is_async_;
-
   // Verification parameters
-  std::shared_ptr<utils::Verifier> verifier_;
+  std::shared_ptr<auth::Verifier> verifier_;
   PARCKeyId *key_id_;
   std::atomic_bool verify_signature_;
-  bool key_content_;
   bool reset_window_;
 
   ConsumerInterestCallback on_interest_retransmission_;
@@ -940,9 +786,7 @@ class ConsumerSocket : public Socket<BasePortal> {
   ConsumerInterestCallback on_interest_timeout_;
   ConsumerInterestCallback on_interest_satisfied_;
   ConsumerContentObjectCallback on_content_object_input_;
-  ConsumerContentObjectVerificationCallback on_content_object_verification_;
   ConsumerTimerCallback stats_summary_;
-  ConsumerContentObjectVerificationFailedCallback verification_failed_callback_;
 
   ReadCallback *read_callback_;
 

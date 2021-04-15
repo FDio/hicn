@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <implementation/rtc_socket_producer.h>
 #include <implementation/tls_socket_producer.h>
 
 namespace transport {
@@ -23,8 +22,7 @@ namespace implementation {
 
 class P2PSecureProducerSocket;
 
-class TLSRTCProducerSocket : public RTCProducerSocket,
-                             public TLSProducerSocket {
+class TLSRTCProducerSocket : public TLSProducerSocket {
   friend class P2PSecureProducerSocket;
 
  public:
@@ -34,7 +32,8 @@ class TLSRTCProducerSocket : public RTCProducerSocket,
 
   ~TLSRTCProducerSocket() = default;
 
-  void produce(std::unique_ptr<utils::MemBuf> &&buffer) override;
+  uint32_t produceDatagram(const Name &content_name,
+                           std::unique_ptr<utils::MemBuf> &&buffer) override;
 
   void accept() override;
 

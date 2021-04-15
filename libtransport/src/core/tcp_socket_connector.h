@@ -15,11 +15,10 @@
 
 #pragma once
 
+#include <core/connector.h>
 #include <hicn/transport/config.h>
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/utils/branch_prediction.h>
-
-#include <core/connector.h>
 
 #include <asio.hpp>
 #include <asio/steady_timer.hpp>

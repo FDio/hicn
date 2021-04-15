@@ -22,7 +22,6 @@ on VPP and a client stack is provided to support any mobile and desktop operatin
    control
    telemetry
    utils
-   packethicn
    apps
 
 
