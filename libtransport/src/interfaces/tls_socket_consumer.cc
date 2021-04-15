@@ -13,9 +13,8 @@
  * limitations under the License.
  */
 
-#include <interfaces/tls_socket_consumer.h>
-
 #include <implementation/tls_socket_consumer.h>
+#include <interfaces/tls_socket_consumer.h>
 
 namespace transport {
 namespace interface {

@@ -253,7 +253,7 @@ typedef struct hicn_ops_s
    * @param [in,out] h - Buffer holding the packet
    * @param [in] partial_csum - Partial checksum (set to 0, used internally to
    *   carry intermediate values from IP pseudo-header)
-   * @param [in] payload_length - Payload length (can be set to 0, retrieved
+   * @param [in] payload_length - Payload length (can be set to ~0, retrieved
    *   and used internally to carry payload length across protocol headers)
    * @return hICN error code
    */
@@ -264,9 +264,8 @@ typedef struct hicn_ops_s
    * @brief Validate all checksums in packet headers
    * @param [in] type - hICN packet type
    * @param [in] h - Buffer holding the packet
-   * @param [in] partial_csum - Partial checksum (set to 0, used internally to
-   *   carry intermediate values from IP pseudo-header)
-   * @param [in] payload_length - Payload length (can be set to 0, retrieved
+   * @param [in] partial_csum - Partial checksum, or zero if no partial checksum available
+   * @param [in] payload_length - Payload length (can be set to ~0, retrieved
    *   and used internally to carry payload length across protocol headers)
    * @return hICN error code
    */
@@ -294,12 +293,15 @@ typedef struct hicn_ops_s
    * @param [in] addr_old - Old locator (set to NULL, used internally to
    *   compute incremental checksums)
    * @param [in] face_id - Face identifier used to update pathlabel
+   * @param [in] reset_pl - If not zero, reset the current pathlabel
+   *   before update it
    * @return hICN error code
    */
   int (*rewrite_data) (hicn_type_t type, hicn_protocol_t * h,
 		       const ip46_address_t * addr_new,
 		       ip46_address_t * addr_old,
-		       const hicn_faceid_t face_id);
+		       const hicn_faceid_t face_id,
+           u8 reset_pl);
 
   /**
    * @brief Return the packet length
@@ -610,7 +612,7 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t * h)
     int protocol ## _rewrite_interest(hicn_type_t type, hicn_protocol_t * h, const ip46_address_t * addr_new, ip46_address_t * addr_old) { return HICN_LIB_ERROR_ ## error ; }
 
 #define DECLARE_rewrite_data(protocol, error) \
-    int protocol ## _rewrite_data(hicn_type_t type, hicn_protocol_t * h, const ip46_address_t * addr_new, ip46_address_t * addr_old, const hicn_faceid_t face_id) { return HICN_LIB_ERROR_ ## error ; }
+    int protocol ## _rewrite_data(hicn_type_t type, hicn_protocol_t * h, const ip46_address_t * addr_new, ip46_address_t * addr_old, const hicn_faceid_t face_id, u8 reset_pl) { return HICN_LIB_ERROR_ ## error ; }
 
 #define DECLARE_get_length(protocol, error) \
     int protocol ## _get_length(hicn_type_t type, const hicn_protocol_t * h, size_t * length) { return HICN_LIB_ERROR_ ## error ; }

@@ -245,7 +245,8 @@ uint32_t message_GetPathLabel(const Message *message) {
 
 void message_SetPathLabel(Message *message, uint32_t label) {
   parcAssertNotNull(message, "Parameter must be non-null");
-  messageHandler_SetPathLabel(message->messageHead, label);
+  messageHandler_SetPathLabel(message->messageHead,
+        messageHandler_GetPathLabel(message->messageHead), label);
 }
 
 void message_UpdatePathLabel(Message *message, uint8_t outFace) {

@@ -17,7 +17,11 @@
 
 #include <hicn/transport/config.h>
 #include <hicn/transport/errors/runtime_exception.h>
+#include <hicn/transport/utils/log.h>
 
+#ifndef ASIO_STANDALONE
+#define ASIO_STANDALONE
+#endif
 #include <asio.hpp>
 #include <memory>
 #include <thread>
@@ -25,36 +29,58 @@
 namespace utils {
 
 class EventThread {
- private:
-  // No copies
-  EventThread(const EventThread&) = delete;  // non construction-copyable
-  EventThread& operator=(const EventThread&) = delete;  // non copyable
-
  public:
-  explicit EventThread(asio::io_service& io_service)
+  EventThread(asio::io_service& io_service, bool detached = false)
       : internal_io_service_(nullptr),
-        io_service_(io_service),
+        io_service_(std::ref(io_service)),
         work_(std::make_unique<asio::io_service::work>(io_service_)),
-        thread_(nullptr) {
+        thread_(nullptr),
+        detached_(detached) {
     run();
   }
 
-  explicit EventThread()
+  EventThread(bool detached = false)
       : internal_io_service_(std::make_unique<asio::io_service>()),
-        io_service_(*internal_io_service_),
+        io_service_(std::ref(*internal_io_service_)),
         work_(std::make_unique<asio::io_service::work>(io_service_)),
-        thread_(nullptr) {
+        thread_(nullptr),
+        detached_(detached) {
     run();
+  }
+
+  EventThread(const EventThread&) = delete;
+  EventThread& operator=(const EventThread&) = delete;
+
+  EventThread(EventThread&& other)
+      : internal_io_service_(std::move(other.internal_io_service_)),
+        io_service_(std::move(other.io_service_)),
+        work_(std::move(other.work_)),
+        thread_(std::move(other.thread_)),
+        detached_(std::move(other.detached_)) {}
+
+  EventThread& operator=(EventThread&& other) {
+    internal_io_service_ = std::move(other.internal_io_service_);
+    io_service_ = std::move(other.io_service_);
+    work_ = std::move(other.work_);
+    thread_ = std::move(other.thread_);
+    detached_ = other.detached_;
+
+    return *this;
   }
 
   ~EventThread() { stop(); }
 
   void run() {
     if (stopped()) {
-      io_service_.reset();
+      io_service_.get().stopped();
     }
 
-    thread_ = std::make_unique<std::thread>([this]() { io_service_.run(); });
+    thread_ =
+        std::make_unique<std::thread>([this]() { io_service_.get().run(); });
+
+    if (detached_) {
+      thread_->detach();
+    }
   }
 
   std::thread::id getThreadId() const {
@@ -67,14 +93,12 @@ class EventThread {
 
   template <typename Func>
   void add(Func&& f) {
-    // If the function f
-    // TODO USe post in mac os, asio->post in xenial
-    io_service_.post(std::forward<Func&&>(f));
+    io_service_.get().post(std::forward<Func&&>(f));
   }
 
   template <typename Func>
   void tryRunHandlerNow(Func&& f) {
-    io_service_.dispatch(std::forward<Func&&>(f));
+    io_service_.get().dispatch(std::forward<Func&&>(f));
   }
 
   void stop() {
@@ -87,15 +111,16 @@ class EventThread {
     thread_.reset();
   }
 
-  bool stopped() { return io_service_.stopped(); }
+  bool stopped() { return io_service_.get().stopped(); }
 
   asio::io_service& getIoService() { return io_service_; }
 
  private:
   std::unique_ptr<asio::io_service> internal_io_service_;
-  asio::io_service& io_service_;
+  std::reference_wrapper<asio::io_service> io_service_;
   std::unique_ptr<asio::io_service::work> work_;
   std::unique_ptr<std::thread> thread_;
+  bool detached_;
 };
 
 }  // namespace utils

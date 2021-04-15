@@ -14,13 +14,14 @@
 include(BuildMacros)
 
 list(APPEND TESTS
+  test_auth
+  test_consumer_producer_rtc
   test_core_manifest
-  test_transport_producer
+  test_event_thread
+  test_fec_reedsolomon
+  test_interest
+  test_packet
 )
-
-if (${LIBTRANSPORT_SHARED} MATCHES ".*-memif.*")
-  set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
-endif()
 
 foreach(test ${TESTS})
     build_executable(${test}

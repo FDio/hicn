@@ -189,7 +189,7 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
   }
 
   it->second.first +=
-      producer_socket_.produce(name, data, size, is_last, start_suffix);
+      producer_socket_.produceStream(name, data, size, is_last, start_suffix);
 
   if (is_last) {
     it->second.second = false;

@@ -15,12 +15,11 @@
 
 #pragma once
 
+#include <core/facade.h>
 #include <hicn/transport/config.h>
 #include <hicn/transport/interfaces/callbacks.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/socket_options_keys.h>
-
-#include <core/facade.h>
 
 #define SOCKET_OPTION_GET 0
 #define SOCKET_OPTION_NOT_GET 1
@@ -32,56 +31,23 @@ namespace transport {
 namespace implementation {
 
 // Forward Declarations
-template <typename PortalType>
 class Socket;
 
-// Define the portal and its connector, depending on the compilation options
-// passed by the build tool.
-using HicnForwarderPortal = core::HicnForwarderPortal;
-
-#ifdef __linux__
-#ifndef __ANDROID__
-using RawSocketPortal = core::RawSocketPortal;
-#endif
-#endif
-
-#ifdef __vpp__
-using VPPForwarderPortal = core::VPPForwarderPortal;
-using BaseSocket = Socket<VPPForwarderPortal>;
-using BasePortal = VPPForwarderPortal;
-#else
-using BaseSocket = Socket<HicnForwarderPortal>;
-using BasePortal = HicnForwarderPortal;
-#endif
-
-template <typename PortalType>
 class Socket {
-  static_assert(std::is_same<PortalType, HicnForwarderPortal>::value
-#ifdef __linux__
-#ifndef __ANDROID__
-                    || std::is_same<PortalType, RawSocketPortal>::value
-#ifdef __vpp__
-                    || std::is_same<PortalType, VPPForwarderPortal>::value
-#endif
-#endif
-                ,
-#else
-                ,
-
-#endif
-                "This class is not allowed as Portal");
-
  public:
-  using Portal = PortalType;
-
-  virtual asio::io_service &getIoService() = 0;
-
   virtual void connect() = 0;
-
   virtual bool isRunning() = 0;
 
+  virtual asio::io_service &getIoService() { return portal_->getIoService(); }
+
  protected:
+  Socket(std::shared_ptr<core::Portal> &&portal);
+
   virtual ~Socket(){};
+
+ protected:
+  std::shared_ptr<core::Portal> portal_;
+  bool is_async_;
 };
 
 }  // namespace implementation
