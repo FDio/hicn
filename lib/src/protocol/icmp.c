@@ -118,7 +118,7 @@ icmp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 int
 icmp_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
 		   const ip46_address_t * addr_new, ip46_address_t * addr_old,
-		   const hicn_faceid_t face_id)
+		   const hicn_faceid_t face_id, u8 reset_pl)
 {
   return HICN_LIB_ERROR_NOT_IMPLEMENTED;
 //    u16 *icmp_checksum = &(h->icmp.csum);

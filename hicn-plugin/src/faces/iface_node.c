@@ -535,8 +535,11 @@ hicn_rewrite_iface_data4 (vlib_main_t *vm, vlib_buffer_t *b0,
   ip46_address_t temp_addr;
   ip46_address_reset (&temp_addr);
   hicn_type_t type = hicn_get_buffer (b0)->type;
+  u8 flags = hicn_get_buffer (b0)->flags;
+  u8 reset_pl = flags & HICN_BUFFER_FLAGS_FROM_CS;
   int ret = hicn_ops_vft[type.l1]->rewrite_data (
-    type, &hicn->protocol, &(iface->nat_addr), &(temp_addr), iface->pl_id);
+    type, &hicn->protocol, &(iface->nat_addr), &(temp_addr),
+    iface->pl_id, reset_pl);
   if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
     {
       ensure_offload_flags (b0, 1 /* is_v4 */);
@@ -567,8 +570,11 @@ hicn_rewrite_iface_data6 (vlib_main_t *vm, vlib_buffer_t *b0,
   ip46_address_t temp_addr;
   ip46_address_reset (&temp_addr);
   hicn_type_t type = hicn_get_buffer (b0)->type;
+  u8 flags = hicn_get_buffer (b0)->flags;
+  u8 reset_pl = flags & HICN_BUFFER_FLAGS_FROM_CS;
   int ret = hicn_ops_vft[type.l1]->rewrite_data (
-    type, &hicn->protocol, &(iface->nat_addr), &(temp_addr), iface->pl_id);
+    type, &hicn->protocol, &(iface->nat_addr), &(temp_addr),
+    iface->pl_id, reset_pl);
 
   if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
     {

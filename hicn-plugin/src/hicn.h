@@ -65,6 +65,7 @@ typedef u8 weight_t;
 #define HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL 0x02
 #define HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL 0x04
 #define HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL 0x08
+#define HICN_BUFFER_FLAGS_FROM_CS 0x10
 
 /* The following is stored in the opaque2 field in the vlib_buffer_t */
 typedef struct

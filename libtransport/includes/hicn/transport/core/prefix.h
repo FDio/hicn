@@ -35,9 +35,9 @@ class Prefix {
 
   Prefix(const core::Name &content_name, uint16_t prefix_length);
 
-  std::unique_ptr<Sockaddr> toSockaddr();
+  std::unique_ptr<Sockaddr> toSockaddr() const;
 
-  uint16_t getPrefixLength();
+  uint16_t getPrefixLength() const;
 
   Prefix &setPrefixLength(uint16_t prefix_length);
 
@@ -58,13 +58,13 @@ class Prefix {
 
   Prefix &setNetwork(std::string &network);
 
-  int getAddressFamily();
+  int getAddressFamily() const;
 
   Prefix &setAddressFamily(int address_family);
 
   Name makeRandomName() const;
 
-  ip_prefix_t &toIpPrefixStruct();
+  const ip_prefix_t &toIpPrefixStruct() const;
 
  private:
   static bool checkPrefixLengthAndAddressFamily(uint16_t prefix_length,
