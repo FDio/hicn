@@ -16,9 +16,9 @@
 #pragma once
 
 #include <hicn/transport/utils/spinlock.h>
+#include <sys/epoll.h>
 #include <utils/event_reactor.h>
 
-#include <sys/epoll.h>
 #include <atomic>
 #include <cstddef>
 #include <functional>

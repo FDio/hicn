@@ -15,8 +15,8 @@
 
 #pragma once
 
+#include <hicn/transport/auth/crypto_hasher.h>
 #include <hicn/transport/core/name.h>
-#include <hicn/transport/security/crypto_hasher.h>
 
 #include <cinttypes>
 #include <type_traits>
@@ -63,8 +63,10 @@ template <typename T>
 struct format_traits {
   using Encoder = typename T::Encoder;
   using Decoder = typename T::Decoder;
+  using Hash = typename T::Hash;
   using HashType = typename T::HashType;
-  using HashList = typename T::HashList;
+  using Suffix = typename T::Suffix;
+  using SuffixList = typename T::SuffixList;
 };
 
 class Packet;
@@ -86,7 +88,7 @@ class ManifestEncoder {
     return static_cast<Implementation &>(*this).setManifestTypeImpl(type);
   }
 
-  ManifestEncoder &setHashAlgorithm(utils::CryptoHashType hash) {
+  ManifestEncoder &setHashAlgorithm(auth::CryptoHashType hash) {
     return static_cast<Implementation &>(*this).setHashAlgorithmImpl(hash);
   }
 
@@ -160,7 +162,7 @@ class ManifestDecoder {
     return static_cast<const Implementation &>(*this).getManifestTypeImpl();
   }
 
-  utils::CryptoHashType getHashAlgorithm() const {
+  auth::CryptoHashType getHashAlgorithm() const {
     return static_cast<const Implementation &>(*this).getHashAlgorithmImpl();
   }
 

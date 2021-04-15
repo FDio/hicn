@@ -15,35 +15,13 @@
 
 #pragma once
 
-#include <core/forwarder_interface.h>
-#include <core/hicn_forwarder_interface.h>
 #include <core/manifest_format_fixed.h>
 #include <core/manifest_inline.h>
 #include <core/portal.h>
 
-#ifdef __linux__
-#ifndef __ANDROID__
-#include <core/raw_socket_interface.h>
-#ifdef __vpp__
-#include <core/vpp_forwarder_interface.h>
-#endif
-#endif
-#endif
-
 namespace transport {
 
 namespace core {
-
-using HicnForwarderPortal = Portal<HicnForwarderInterface>;
-
-#ifdef __linux__
-#ifndef __ANDROID__
-using RawSocketPortal = Portal<RawSocketInterface>;
-#endif
-#ifdef __vpp__
-using VPPForwarderPortal = Portal<VPPForwarderInterface>;
-#endif
-#endif
 
 using ContentObjectManifest = core::ManifestInline<ContentObject, Fixed>;
 using InterestManifest = core::ManifestInline<Interest, Fixed>;

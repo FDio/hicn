@@ -15,9 +15,8 @@
 
 #pragma once
 
-#include <hicn/transport/core/packet.h>
-
 #include <core/manifest_format.h>
+#include <hicn/transport/core/packet.h>
 
 #include <string>
 
@@ -53,8 +52,10 @@ class Packet;
 struct Fixed {
   using Encoder = FixedManifestEncoder;
   using Decoder = FixedManifestDecoder;
-  using HashType = utils::CryptoHash;
-  using SuffixList = std::list<std::pair<std::uint32_t, std::uint8_t *>>;
+  using Hash = auth::CryptoHash;
+  using HashType = auth::CryptoHashType;
+  using Suffix = uint32_t;
+  using SuffixList = std::list<std::pair<uint32_t, uint8_t *>>;
 };
 
 struct Flags {
@@ -84,7 +85,8 @@ static const constexpr std::uint8_t manifest_version = 1;
 
 class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
  public:
-  FixedManifestEncoder(Packet &packet, std::size_t signature_size = 0);
+  FixedManifestEncoder(Packet &packet, std::size_t signature_size = 0,
+                       bool clear = true);
 
   ~FixedManifestEncoder();
 
@@ -94,7 +96,7 @@ class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
 
   FixedManifestEncoder &setManifestTypeImpl(ManifestType manifest_type);
 
-  FixedManifestEncoder &setHashAlgorithmImpl(utils::CryptoHashType algorithm);
+  FixedManifestEncoder &setHashAlgorithmImpl(Fixed::HashType algorithm);
 
   FixedManifestEncoder &setNextSegmentCalculationStrategyImpl(
       NextSegmentCalculationStrategy strategy);
@@ -102,7 +104,7 @@ class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
   FixedManifestEncoder &setBaseNameImpl(const core::Name &base_name);
 
   FixedManifestEncoder &addSuffixAndHashImpl(uint32_t suffix,
-                                             const utils::CryptoHash &hash);
+                                             const Fixed::Hash &hash);
 
   FixedManifestEncoder &setIsFinalManifestImpl(bool is_last);
 
@@ -125,7 +127,6 @@ class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
 
   Packet &packet_;
   std::size_t max_size_;
-  std::unique_ptr<utils::MemBuf> manifest_;
   ManifestHeader *manifest_header_;
   ManifestEntry *manifest_entries_;
   std::size_t current_entry_;
@@ -144,7 +145,7 @@ class FixedManifestDecoder : public ManifestDecoder<FixedManifestDecoder> {
 
   ManifestType getManifestTypeImpl() const;
 
-  utils::CryptoHashType getHashAlgorithmImpl() const;
+  Fixed::HashType getHashAlgorithmImpl() const;
 
   NextSegmentCalculationStrategy getNextSegmentCalculationStrategyImpl() const;
 

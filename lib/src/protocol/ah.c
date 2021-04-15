@@ -113,7 +113,7 @@ ah_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 int
 ah_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
 		 const ip46_address_t * addr_new, ip46_address_t * addr_old,
-		 const hicn_faceid_t face_id)
+		 const hicn_faceid_t face_id, u8 reset_pl)
 {
   /* Nothing to do on signature */
   return HICN_LIB_ERROR_NONE;

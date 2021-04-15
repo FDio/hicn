@@ -14,13 +14,11 @@
  */
 
 #include <hicn/transport/core/interest.h>
-
 #include <implementation/p2psecure_socket_producer.h>
-#include <implementation/tls_rtc_socket_producer.h>
+// #include <implementation/tls_rtc_socket_producer.h>
 #include <implementation/tls_socket_producer.h>
 #include <interfaces/tls_rtc_socket_producer.h>
 #include <interfaces/tls_socket_producer.h>
-
 #include <openssl/bio.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
@@ -34,7 +32,8 @@ namespace implementation {
 
 P2PSecureProducerSocket::P2PSecureProducerSocket(
     interface::ProducerSocket *producer_socket)
-    : ProducerSocket(producer_socket),
+    : ProducerSocket(producer_socket,
+                     ProductionProtocolAlgorithms::BYTE_STREAM),
       mtx_(),
       cv_(),
       map_producers(),
@@ -42,8 +41,9 @@ P2PSecureProducerSocket::P2PSecureProducerSocket(
 
 P2PSecureProducerSocket::P2PSecureProducerSocket(
     interface::ProducerSocket *producer_socket, bool rtc,
-    const std::shared_ptr<utils::Identity> &identity)
-    : ProducerSocket(producer_socket),
+    const std::shared_ptr<auth::Identity> &identity)
+    : ProducerSocket(producer_socket,
+                     ProductionProtocolAlgorithms::BYTE_STREAM),
       rtc_(rtc),
       mtx_(),
       cv_(),
@@ -51,9 +51,9 @@ P2PSecureProducerSocket::P2PSecureProducerSocket(
       list_producers() {
   /* Setup SSL context (identity and parameter to use TLS 1.3) */
   der_cert_ = parcKeyStore_GetDEREncodedCertificate(
-      (identity->getSigner()->getKeyStore()));
+      (identity->getSigner()->getParcKeyStore()));
   der_prk_ = parcKeyStore_GetDEREncodedPrivateKey(
-      (identity->getSigner()->getKeyStore()));
+      (identity->getSigner()->getParcKeyStore()));
 
   int cert_size = parcBuffer_Limit(der_cert_);
   int prk_size = parcBuffer_Limit(der_prk_);
@@ -88,15 +88,20 @@ void P2PSecureProducerSocket::initSessionSocket(
   producer->setSocketOption(MAKE_MANIFEST, this->making_manifest_);
   producer->setSocketOption(DATA_PACKET_SIZE,
                             (uint32_t)(this->data_packet_size_));
-  producer->output_buffer_.setLimit(this->output_buffer_.getLimit());
+  uint32_t output_buffer_size = 0;
+  this->getSocketOption(GeneralTransportOptions::OUTPUT_BUFFER_SIZE,
+                        output_buffer_size);
+  producer->setSocketOption(GeneralTransportOptions::OUTPUT_BUFFER_SIZE,
+                            output_buffer_size);
 
   if (!rtc_) {
     producer->setInterface(new interface::TLSProducerSocket(producer.get()));
   } else {
-    TLSRTCProducerSocket *rtc_producer =
-        dynamic_cast<TLSRTCProducerSocket *>(producer.get());
-    rtc_producer->setInterface(
-        new interface::TLSRTCProducerSocket(rtc_producer));
+    // TODO
+    // TLSRTCProducerSocket *rtc_producer =
+    //     dynamic_cast<TLSRTCProducerSocket *>(producer.get());
+    // rtc_producer->setInterface(
+    //     new interface::TLSRTCProducerSocket(rtc_producer));
   }
 }
 
@@ -114,8 +119,9 @@ void P2PSecureProducerSocket::onInterestCallback(interface::ProducerSocket &p,
     tls_producer =
         std::make_unique<TLSProducerSocket>(nullptr, this, interest.getName());
   } else {
-    tls_producer = std::make_unique<TLSRTCProducerSocket>(nullptr, this,
-                                                          interest.getName());
+    // TODO
+    // tls_producer = std::make_unique<TLSRTCProducerSocket>(nullptr, this,
+    //                                                       interest.getName());
   }
 
   initSessionSocket(tls_producer);
@@ -129,15 +135,19 @@ void P2PSecureProducerSocket::onInterestCallback(interface::ProducerSocket &p,
     tls_producer_ptr->onInterest(*tls_producer_ptr, interest);
     tls_producer_ptr->async_accept();
   } else {
-    TLSRTCProducerSocket *rtc_producer_ptr =
-        dynamic_cast<TLSRTCProducerSocket *>(tls_producer_ptr);
-    rtc_producer_ptr->onInterest(*rtc_producer_ptr, interest);
-    rtc_producer_ptr->async_accept();
+    // TODO
+    // TLSRTCProducerSocket *rtc_producer_ptr =
+    //     dynamic_cast<TLSRTCProducerSocket *>(tls_producer_ptr);
+    // rtc_producer_ptr->onInterest(*rtc_producer_ptr, interest);
+    // rtc_producer_ptr->async_accept();
   }
 }
 
-void P2PSecureProducerSocket::produce(const uint8_t *buffer,
-                                      size_t buffer_size) {
+uint32_t P2PSecureProducerSocket::produceDatagram(
+    const Name &content_name, std::unique_ptr<utils::MemBuf> &&buffer) {
+  // TODO
+  throw errors::NotImplementedException();
+
   if (!rtc_) {
     throw errors::RuntimeException(
         "RTC must be the transport protocol to start the production of current "
@@ -148,16 +158,20 @@ void P2PSecureProducerSocket::produce(const uint8_t *buffer,
 
   if (list_producers.empty()) cv_.wait(lck);
 
-  for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++) {
-    TLSRTCProducerSocket *rtc_producer =
-        dynamic_cast<TLSRTCProducerSocket *>(it->get());
-    rtc_producer->produce(utils::MemBuf::copyBuffer(buffer, buffer_size));
-  }
+  // TODO
+  // for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
+  // {
+  //   TLSRTCProducerSocket *rtc_producer =
+  //       dynamic_cast<TLSRTCProducerSocket *>(it->get());
+  //   rtc_producer->produce(utils::MemBuf::copyBuffer(buffer, buffer_size));
+  // }
+
+  return 0;
 }
 
-uint32_t P2PSecureProducerSocket::produce(
-    Name content_name, std::unique_ptr<utils::MemBuf> &&buffer, bool is_last,
-    uint32_t start_offset) {
+uint32_t P2PSecureProducerSocket::produceStream(
+    const Name &content_name, std::unique_ptr<utils::MemBuf> &&buffer,
+    bool is_last, uint32_t start_offset) {
   if (rtc_) {
     throw errors::RuntimeException(
         "RTC transport protocol is not compatible with the production of "
@@ -170,16 +184,17 @@ uint32_t P2PSecureProducerSocket::produce(
   if (list_producers.empty()) cv_.wait(lck);
 
   for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
-    segments +=
-        (*it)->produce(content_name, buffer->clone(), is_last, start_offset);
+    segments += (*it)->produceStream(content_name, buffer->clone(), is_last,
+                                     start_offset);
 
   return segments;
 }
 
-uint32_t P2PSecureProducerSocket::produce(Name content_name,
-                                          const uint8_t *buffer,
-                                          size_t buffer_size, bool is_last,
-                                          uint32_t start_offset) {
+uint32_t P2PSecureProducerSocket::produceStream(const Name &content_name,
+                                                const uint8_t *buffer,
+                                                size_t buffer_size,
+                                                bool is_last,
+                                                uint32_t start_offset) {
   if (rtc_) {
     throw errors::RuntimeException(
         "RTC transport protocol is not compatible with the production of "
@@ -191,29 +206,31 @@ uint32_t P2PSecureProducerSocket::produce(Name content_name,
   if (list_producers.empty()) cv_.wait(lck);
 
   for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
-    segments += (*it)->produce(content_name, buffer, buffer_size, is_last,
-                               start_offset);
+    segments += (*it)->produceStream(content_name, buffer, buffer_size, is_last,
+                                     start_offset);
 
   return segments;
 }
 
-void P2PSecureProducerSocket::asyncProduce(const Name &content_name,
-                                           const uint8_t *buf,
-                                           size_t buffer_size, bool is_last,
-                                           uint32_t *start_offset) {
-  if (rtc_) {
-    throw errors::RuntimeException(
-        "RTC transport protocol is not compatible with the production of "
-        "current data. Aborting.");
-  }
+// void P2PSecureProducerSocket::asyncProduce(const Name &content_name,
+//                                            const uint8_t *buf,
+//                                            size_t buffer_size, bool is_last,
+//                                            uint32_t *start_offset) {
+//   if (rtc_) {
+//     throw errors::RuntimeException(
+//         "RTC transport protocol is not compatible with the production of "
+//         "current data. Aborting.");
+//   }
 
-  std::unique_lock<std::mutex> lck(mtx_);
-  if (list_producers.empty()) cv_.wait(lck);
+//   std::unique_lock<std::mutex> lck(mtx_);
+//   if (list_producers.empty()) cv_.wait(lck);
 
-  for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++) {
-    (*it)->asyncProduce(content_name, buf, buffer_size, is_last, start_offset);
-  }
-}
+//   for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
+//   {
+//     (*it)->asyncProduce(content_name, buf, buffer_size, is_last,
+//     start_offset);
+//   }
+// }
 
 void P2PSecureProducerSocket::asyncProduce(
     Name content_name, std::unique_ptr<utils::MemBuf> &&buffer, bool is_last,
@@ -269,7 +286,7 @@ int P2PSecureProducerSocket::setSocketOption(
 
 int P2PSecureProducerSocket::setSocketOption(
     int socket_option_key,
-    const std::shared_ptr<utils::Signer> &socket_option_value) {
+    const std::shared_ptr<auth::Signer> &socket_option_value) {
   if (!list_producers.empty())
     for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
       (*it)->setSocketOption(socket_option_key, socket_option_value);
@@ -323,16 +340,6 @@ int P2PSecureProducerSocket::setSocketOption(int socket_option_key,
 }
 
 int P2PSecureProducerSocket::setSocketOption(
-    int socket_option_key, std::list<Prefix> socket_option_value) {
-  if (!list_producers.empty())
-    for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
-      (*it)->setSocketOption(socket_option_key, socket_option_value);
-
-  return ProducerSocket::setSocketOption(socket_option_key,
-                                         socket_option_value);
-}
-
-int P2PSecureProducerSocket::setSocketOption(
     int socket_option_key, ProducerContentObjectCallback socket_option_value) {
   if (!list_producers.empty())
     for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
@@ -361,17 +368,7 @@ int P2PSecureProducerSocket::setSocketOption(
 }
 
 int P2PSecureProducerSocket::setSocketOption(
-    int socket_option_key, utils::CryptoHashType socket_option_value) {
-  if (!list_producers.empty())
-    for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
-      (*it)->setSocketOption(socket_option_key, socket_option_value);
-
-  return ProducerSocket::setSocketOption(socket_option_key,
-                                         socket_option_value);
-}
-
-int P2PSecureProducerSocket::setSocketOption(
-    int socket_option_key, utils::CryptoSuite socket_option_value) {
+    int socket_option_key, auth::CryptoHashType socket_option_value) {
   if (!list_producers.empty())
     for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
       (*it)->setSocketOption(socket_option_key, socket_option_value);

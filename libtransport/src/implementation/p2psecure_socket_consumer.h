@@ -16,7 +16,6 @@
 #pragma once
 
 #include <hicn/transport/interfaces/socket_consumer.h>
-
 #include <implementation/tls_socket_consumer.h>
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
@@ -75,7 +74,6 @@ class P2PSecureConsumerSocket : public ConsumerSocket,
   BIO_METHOD *bio_meth_;
   /* Chain of MemBuf to be used as a temporary buffer to pass descypted data
    * from the underlying layer to the application */
-  utils::ObjectPool<utils::MemBuf> buf_pool_;
   std::unique_ptr<utils::MemBuf> decrypted_content_;
   /* Chain of MemBuf holding the payload to be written into interest or data */
   std::unique_ptr<utils::MemBuf> payload_;
