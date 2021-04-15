@@ -17,14 +17,14 @@
 
 #ifdef __linux__
 
+#include <arpa/inet.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/log.h>
-
-#include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <sys/socket.h>
+
 #include <string>
 
 #define LINK_LOCAL_PREFIX 0xfe80

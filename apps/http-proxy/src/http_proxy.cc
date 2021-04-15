@@ -225,6 +225,7 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
             const char* reply = nullptr;
             if (result) {
               reply = HTTPMessageFastParser::http_ok;
+              prefix_hash_ = configured_prefix;
             } else {
               reply = HTTPMessageFastParser::http_failed;
             }

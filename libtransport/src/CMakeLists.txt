@@ -20,7 +20,7 @@ set(ASIO_STANDALONE 1)
 add_subdirectory(core)
 add_subdirectory(interfaces)
 add_subdirectory(protocols)
-add_subdirectory(security)
+add_subdirectory(auth)
 add_subdirectory(implementation)
 add_subdirectory(utils)
 add_subdirectory(http)
@@ -34,7 +34,16 @@ install(
   COMPONENT lib${LIBTRANSPORT}-dev
 )
 
-set (COMPILER_DEFINITIONS "-DTRANSPORT_LOG_DEF_LEVEL=TRANSPORT_LOG_${TRANSPORT_LOG_LEVEL}")
+install(
+  FILES "transport.config"
+  DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/hicn
+  COMPONENT lib${LIBTRANSPORT}
+)
+
+list(APPEND COMPILER_DEFINITIONS
+  "-DTRANSPORT_LOG_DEF_LEVEL=TRANSPORT_LOG_${TRANSPORT_LOG_LEVEL}"
+  "-DASIO_STANDALONE"
+)
 
 list(INSERT LIBTRANSPORT_INTERNAL_INCLUDE_DIRS 0
   ${CMAKE_CURRENT_SOURCE_DIR}/
@@ -55,8 +64,10 @@ else ()
     set(CMAKE_SHARED_LINKER_FLAGS "/NODEFAULTLIB:\"MSVCRTD\"" )
   endif ()
 endif ()
-if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+
+if (${CMAKE_SYSTEM_NAME} MATCHES "Android")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -isystem -lm")
+  add_subdirectory(io_modules)
 endif()
 
 if (DISABLE_SHARED_LIBRARIES)
@@ -68,8 +79,9 @@ if (DISABLE_SHARED_LIBRARIES)
     DEPENDS ${DEPENDENCIES}
     COMPONENT lib${LIBTRANSPORT}
     INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS} ${LIBTRANSPORT_INTERNAL_INCLUDE_DIRS}
-    INSTALL_ROOT_DIR hicn/transport
+    HEADER_ROOT_DIR hicn/transport
     DEFINITIONS ${COMPILER_DEFINITIONS}
+    VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION}
   )
 else ()
   build_library(${LIBTRANSPORT}
@@ -80,10 +92,16 @@ else ()
     DEPENDS ${DEPENDENCIES}
     COMPONENT lib${LIBTRANSPORT}
     INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS} ${LIBTRANSPORT_INTERNAL_INCLUDE_DIRS}
-    INSTALL_ROOT_DIR hicn/transport
+    HEADER_ROOT_DIR hicn/transport
     DEFINITIONS ${COMPILER_DEFINITIONS}
+    VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION}
   )
 endif ()
+
+# io modules
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Android")
+  add_subdirectory(io_modules)
+endif()
 
 if (${BUILD_TESTS})
   add_subdirectory(test)

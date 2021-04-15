@@ -15,7 +15,6 @@
 
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/utils/log.h>
-
 #include <protocols/rate_estimation.h>
 
 #include <thread>

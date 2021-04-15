@@ -72,4 +72,4 @@ static inline std::string trim_copy(std::string s) {
   return s;
 }
 
-}
+}  // namespace utils
