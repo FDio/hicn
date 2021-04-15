@@ -14,10 +14,11 @@
  */
 
 #include <hicn/transport/http/client_connection.h>
-#include <fstream>
-#include <map>
+
 #include <algorithm>
+#include <fstream>
 #include <functional>
+#include <map>
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -334,9 +335,14 @@ int main(int argc, char **argv) {
                {"Connection", "Keep-Alive"},
                {"Range", range}};
   }
+
   transport::http::HTTPClientConnection connection;
+
   if (!conf.producer_certificate.empty()) {
-    connection.setCertificate(conf.producer_certificate);
+    std::shared_ptr<transport::auth::Verifier> verifier =
+        std::make_shared<transport::auth::AsymmetricVerifier>(
+            conf.producer_certificate);
+    connection.setVerifier(verifier);
   }
 
   t1 = std::chrono::system_clock::now();

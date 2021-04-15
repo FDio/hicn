@@ -17,7 +17,6 @@
 #include <hicn/transport/errors/runtime_exception.h>
 #include <hicn/transport/utils/daemonizator.h>
 #include <hicn/transport/utils/log.h>
-
 #include <sys/stat.h>
 #include <unistd.h>
 

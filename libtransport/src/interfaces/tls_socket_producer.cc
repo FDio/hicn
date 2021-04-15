@@ -13,9 +13,8 @@
  * limitations under the License.
  */
 
-#include <interfaces/tls_socket_producer.h>
-
 #include <implementation/tls_socket_producer.h>
+#include <interfaces/tls_socket_producer.h>
 
 namespace transport {
 namespace interface {

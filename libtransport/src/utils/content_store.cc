@@ -17,7 +17,6 @@
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/utils/log.h>
-
 #include <utils/content_store.h>
 
 namespace utils {
@@ -60,8 +59,7 @@ void ContentStore::insert(
       ObjectTimeEntry(content_object, std::chrono::steady_clock::now()), pos);
 }
 
-const std::shared_ptr<ContentObject> ContentStore::find(
-    const Interest &interest) {
+std::shared_ptr<ContentObject> ContentStore::find(const Interest &interest) {
   utils::SpinLock::Acquire locked(cs_mutex_);
 
   std::shared_ptr<ContentObject> ret = empty_reference_;

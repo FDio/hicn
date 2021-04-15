@@ -20,8 +20,9 @@ namespace transport {
 namespace core {
 
 enum class PayloadType : uint16_t {
-  CONTENT_OBJECT = HPT_DATA,
+  DATA = HPT_DATA,
   MANIFEST = HPT_MANIFEST,
+  UNSPECIFIED = HPT_UNSPEC
 };
 
 }  // end namespace core

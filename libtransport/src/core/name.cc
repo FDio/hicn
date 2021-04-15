@@ -13,13 +13,12 @@
  * limitations under the License.
  */
 
+#include <core/manifest_format.h>
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/errors/tokenizer_exception.h>
 #include <hicn/transport/utils/hash.h>
 #include <hicn/transport/utils/string_tokenizer.h>
-
-#include <core/manifest_format.h>
 
 namespace transport {
 
@@ -98,7 +97,12 @@ bool Name::operator!=(const Name &name) const {
 }
 
 Name::operator bool() const {
-  return bool(hicn_name_empty((hicn_name_t *)&name_));
+  auto ret = isValid();
+  return ret;
+}
+
+bool Name::isValid() const {
+  return bool(!hicn_name_empty((hicn_name_t *)&name_));
 }
 
 bool Name::equals(const Name &name, bool consider_segment) const {

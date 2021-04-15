@@ -177,13 +177,6 @@ endif (NOT CMAKE_BUILD_TYPE)
 
 SET(HICN_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR} CACHE STRING "hicn_install_prefix")
 
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
-   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall  -march=native -O3 -g -Wno-address-of-packed-member")
-elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
-   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -march=native -O0 -g -Wno-address-of-packed-member")
-   add_definitions(-DCLIB_DEBUG -fPIC -fstack-protector-all)
-endif()
-
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hicn)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vapi)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip)
@@ -259,11 +252,18 @@ set_target_properties(hicn_plugin
         PROPERTIES
         LINKER_LANGUAGE C
         INSTALL_RPATH ${VPP_INSTALL_PLUGIN}
+        COMPILE_FLAGS "-march=native -Wno-address-of-packed-member"
         PREFIX "")
 set_target_properties(hicn_api_test_plugin
         PROPERTIES
         LINKER_LANGUAGE C
+        COMPILE_FLAGS "-march=native -Wno-address-of-packed-member"
         PREFIX "")
+
+if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
+    target_compile_definitions(hicn_plugin PRIVATE "CLIB_DEBUG")
+    target_compile_definitions(hicn_api_test_plugin PRIVATE "CLIB_DEBUG")
+endif()
 
 message (STATUS "hicn-plugin variable ${HICN_PLUGIN}")
 

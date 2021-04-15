@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <hicn/transport/auth/common.h>
 #include <implementation/socket.h>
 #include <protocols/incremental_indexer.h>
 #include <utils/suffix_strategy.h>
@@ -22,7 +23,6 @@
 #include <list>
 
 namespace transport {
-
 namespace protocol {
 
 class ManifestIncrementalIndexer : public IncrementalIndexer {
@@ -30,7 +30,8 @@ class ManifestIncrementalIndexer : public IncrementalIndexer {
 
  public:
   using SuffixQueue = std::queue<uint32_t>;
-  using HashEntry = std::pair<std::vector<uint8_t>, utils::CryptoHashType>;
+  using InterestContentPair =
+      std::pair<core::Interest::Ptr, core::ContentObject::Ptr>;
 
   ManifestIncrementalIndexer(implementation::ConsumerSocket *icn_socket,
                              TransportProtocol *transport,
@@ -50,8 +51,8 @@ class ManifestIncrementalIndexer : public IncrementalIndexer {
 
   void reset(std::uint32_t offset = 0) override;
 
-  void onContentObject(core::Interest::Ptr &&interest,
-                       core::ContentObject::Ptr &&content_object) override;
+  void onContentObject(core::Interest &interest,
+                       core::ContentObject &content_object) override;
 
   uint32_t getNextSuffix() override;
 
@@ -61,30 +62,24 @@ class ManifestIncrementalIndexer : public IncrementalIndexer {
 
   uint32_t getFinalSuffix() override;
 
- private:
-  void onUntrustedManifest(core::Interest::Ptr &&interest,
-                           core::ContentObject::Ptr &&content_object);
-  void onUntrustedContentObject(core::Interest::Ptr &&interest,
-                                core::ContentObject::Ptr &&content_object);
-  void processTrustedManifest(core::ContentObject::Ptr &&content_object);
-  void onManifestReceived(core::Interest::Ptr &&i,
-                          core::ContentObject::Ptr &&c);
-  void onManifestTimeout(core::Interest::Ptr &&i);
-  VerificationPolicy verifyContentObject(
-      const HashEntry &manifest_hash,
-      const core::ContentObject &content_object);
-  bool checkUnverifiedSegments(std::uint32_t suffix, const HashEntry &hash);
-
  protected:
   std::unique_ptr<utils::SuffixStrategy> suffix_strategy_;
   SuffixQueue suffix_queue_;
 
   // Hash verification
-  std::unordered_map<uint32_t, HashEntry> suffix_hash_map_;
+  std::unordered_map<auth::Suffix, auth::HashEntry> suffix_map_;
+  std::unordered_map<auth::Suffix, InterestContentPair> unverified_segments_;
 
-  std::unordered_map<uint32_t,
-                     std::pair<core::Interest::Ptr, core::ContentObject::Ptr>>
-      unverified_segments_;
+ private:
+  void onUntrustedManifest(core::Interest &interest,
+                           core::ContentObject &content_object);
+  void processTrustedManifest(core::Interest &interest,
+                              std::unique_ptr<ContentObjectManifest> manifest);
+  void onUntrustedContentObject(core::Interest &interest,
+                                core::ContentObject &content_object);
+  void applyPolicy(core::Interest &interest,
+                   core::ContentObject &content_object,
+                   auth::VerificationPolicy policy);
 };
 
 }  // end namespace protocol

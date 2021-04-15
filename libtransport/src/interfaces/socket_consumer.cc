@@ -46,8 +46,6 @@ void ConsumerSocket::stop() { socket_->stop(); }
 
 void ConsumerSocket::resume() { socket_->resume(); }
 
-bool ConsumerSocket::verifyKeyPackets() { return socket_->verifyKeyPackets(); }
-
 asio::io_service &ConsumerSocket::getIoService() {
   return socket_->getIoService();
 }
@@ -88,19 +86,7 @@ int ConsumerSocket::setSocketOption(
 }
 
 int ConsumerSocket::setSocketOption(
-    int socket_option_key,
-    ConsumerContentObjectVerificationCallback socket_option_value) {
-  return socket_->setSocketOption(socket_option_key, socket_option_value);
-}
-
-int ConsumerSocket::setSocketOption(
     int socket_option_key, ConsumerInterestCallback socket_option_value) {
-  return socket_->setSocketOption(socket_option_key, socket_option_value);
-}
-
-int ConsumerSocket::setSocketOption(
-    int socket_option_key,
-    ConsumerContentObjectVerificationFailedCallback socket_option_value) {
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
@@ -111,7 +97,7 @@ int ConsumerSocket::setSocketOption(int socket_option_key,
 
 int ConsumerSocket::setSocketOption(
     int socket_option_key,
-    const std::shared_ptr<utils::Verifier> &socket_option_value) {
+    const std::shared_ptr<auth::Verifier> &socket_option_value) {
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
@@ -152,19 +138,7 @@ int ConsumerSocket::getSocketOption(
 }
 
 int ConsumerSocket::getSocketOption(
-    int socket_option_key,
-    ConsumerContentObjectVerificationCallback **socket_option_value) {
-  return socket_->setSocketOption(socket_option_key, socket_option_value);
-}
-
-int ConsumerSocket::getSocketOption(
     int socket_option_key, ConsumerInterestCallback **socket_option_value) {
-  return socket_->setSocketOption(socket_option_key, socket_option_value);
-}
-
-int ConsumerSocket::getSocketOption(
-    int socket_option_key,
-    ConsumerContentObjectVerificationFailedCallback **socket_option_value) {
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
@@ -175,7 +149,7 @@ int ConsumerSocket::getSocketOption(int socket_option_key,
 
 int ConsumerSocket::getSocketOption(
     int socket_option_key,
-    std::shared_ptr<utils::Verifier> &socket_option_value) {
+    std::shared_ptr<auth::Verifier> &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 

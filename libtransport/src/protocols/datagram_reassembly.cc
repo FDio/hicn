@@ -24,8 +24,8 @@ DatagramReassembly::DatagramReassembly(
     TransportProtocol* transport_protocol)
     : Reassembly(icn_socket, transport_protocol) {}
 
-void DatagramReassembly::reassemble(core::ContentObject::Ptr&& content_object) {
-  read_buffer_ = content_object->getPayload();
+void DatagramReassembly::reassemble(core::ContentObject& content_object) {
+  read_buffer_ = content_object.getPayload();
   Reassembly::notifyApplication();
 }
 

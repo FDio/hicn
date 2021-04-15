@@ -143,7 +143,16 @@ struct iovec
 
 #include <vnet/ip/ip4_packet.h>	// ip4_address_t
 #include <vnet/ip/ip6_packet.h>	// ip6_address_t
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#endif
+
 #include <vnet/ip/ip46_address.h>
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
 
 #else
 

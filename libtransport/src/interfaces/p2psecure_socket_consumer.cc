@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/interfaces/p2psecure_socket_consumer.h>
-
 #include <implementation/p2psecure_socket_consumer.h>
 
 namespace transport {
