@@ -32,6 +32,11 @@ typedef enum {
 } TransportProtocolAlgorithms;
 
 typedef enum {
+  BYTE_STREAM = 10,
+  RTC_PROD = 11,
+} ProductionProtocolAlgorithms;
+
+typedef enum {
   INPUT_BUFFER_SIZE = 101,
   OUTPUT_BUFFER_SIZE = 102,
   NETWORK_NAME = 103,
@@ -40,7 +45,6 @@ typedef enum {
   DATA_PACKET_SIZE = 106,
   INTEREST_LIFETIME = 107,
   CONTENT_OBJECT_EXPIRY_TIME = 108,
-  KEY_CONTENT = 110,
   MIN_WINDOW_SIZE = 111,
   MAX_WINDOW_SIZE = 112,
   CURRENT_WINDOW_SIZE = 113,
@@ -50,12 +54,10 @@ typedef enum {
   RUNNING = 117,
   APPLICATION_BUFFER = 118,
   HASH_ALGORITHM = 119,
-  CRYPTO_SUITE = 120,
   SIGNER = 121,
   VERIFIER = 122,
-  CERTIFICATE = 123,
-  VERIFY_SIGNATURE = 124,
   STATS_INTERVAL = 125,
+  SUFFIX_STRATEGY = 126
 } GeneralTransportOptions;
 
 typedef enum {
@@ -98,6 +100,7 @@ typedef enum {
   CONTENT_OBJECT_READY = 510,
   CONTENT_OBJECT_OUTPUT = 511,
   CONTENT_PRODUCED = 512,
+  CONTENT_OBJECT_TO_SIGN = 513
 } ProducerCallbacksOptions;
 
 typedef enum { OUTPUT_INTERFACE = 601 } DataLinkOptions;

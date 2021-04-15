@@ -189,6 +189,9 @@ extern hicn_face_vft_t *face_vft_vec;
 /* Vector holding the set of face names */
 extern char **face_type_names_vec;
 
+/* Pathlabel counter */
+extern u8 pl_index;
+
 /* First face type registered in the sytem.*/
 extern dpo_type_t first_type;
 
@@ -526,7 +529,7 @@ hicn_iface_add (ip46_address_t * nat_address, int sw_if,
   face->dpo.dpoi_proto = DPO_PROTO_NONE;
   face->dpo.dpoi_index = adj_index;
   face->dpo.dpoi_next_node = 0;
-  face->pl_id = (u16) 0;
+  face->pl_id = pl_index++;
   face->flags = HICN_FACE_FLAGS_IFACE;
   face->locks = 1;
 

@@ -1,0 +1,63 @@
+pipeline {
+  agent {
+    label 'docker'
+  }
+  environment {
+    registryDockerHub = 'https://dockerhub.cisco.com'
+    registryContainers = 'https://containers.cisco.com'
+    registryDockerHubCredential = 'dockerhub-id'
+    registryContainersCredential = 'containers-id'
+    dockerTagArtifactory = 'dockerhub.cisco.com/icn-docker/hicn-devel'
+    dockerTagContainers = 'containers.cisco.com/icnteam/hicn-devel'
+  }
+  stages {
+    stage('Build hicn-devel image') {
+      steps {
+        script {
+          docker.withRegistry(registryDockerHub, registryDockerHubCredential) {
+              short_name = getShortName()
+              name = "${dockerTagArtifactory}:${short_name}"
+              image = docker.build(name, "-t ${dockerTagArtifactory}:latest -t ${dockerTagContainers}:${short_name} -t ${dockerTagContainers}:latest -f docker/Dockerfile .")
+              sh "docker save ${name} > ./${short_name}.tar"
+          }
+        }
+      }
+    }
+    stage('Push hicn-devel image') {
+      when {
+        branch "devel"
+      }
+      steps {
+        script {
+          short_name = getShortName()
+          
+          docker.withRegistry(registryDockerHub, registryDockerHubCredential) {
+            name = "${dockerTagArtifactory}:${short_name}"
+            image = docker.image(name)
+            image.push()
+            image = docker.image("${dockerTagArtifactory}:latest")
+            image.push()
+          }
+          docker.withRegistry(registryContainers, registryContainersCredential) {
+            image = docker.image("${dockerTagContainers}:latest")
+            image.push()
+            image = docker.image("${dockerTagContainers}:${short_name}")
+            image.push()
+          }
+        }
+      }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: '**/*.tar', fingerprint: true
+      cleanWs()
+    }
+  }
+}
+
+String getShortName() {
+  hash = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+  short_name = "${env.BRANCH_NAME}-${hash}"
+  return short_name
+}

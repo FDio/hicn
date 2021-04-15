@@ -16,7 +16,8 @@
 #include <core/manifest_format_fixed.h>
 #include <core/manifest_inline.h>
 #include <gtest/gtest.h>
-#include <hicn/transport/security/crypto_hash_type.h>
+#include <hicn/transport/auth/crypto_hash_type.h>
+#include <test/packet_samples.h>
 
 #include <climits>
 #include <random>
@@ -72,6 +73,27 @@ class ManifestTest : public ::testing::Test {
 
 }  // namespace
 
+TEST_F(ManifestTest, MoveConstructor) {
+  // Create content object with manifest in payload
+  ContentObject co(HF_INET6_TCP_AH, 128);
+  co.appendPayload(&manifest_payload[0], manifest_payload.size());
+  uint8_t buffer[256];
+  co.appendPayload(buffer, 256);
+
+  // Copy packet payload
+  uint8_t packet[1500];
+  auto length = co.getPayload()->length();
+  std::memcpy(packet, co.getPayload()->data(), length);
+
+  // Create manifest
+  ContentObjectManifest m(std::move(co));
+
+  // Check manifest payload is exactly the same of content object
+  ASSERT_EQ(length, m.getPayload()->length());
+  auto ret = std::memcmp(packet, m.getPayload()->data(), length);
+  ASSERT_EQ(ret, 0);
+}
+
 TEST_F(ManifestTest, SetLastManifest) {
   manifest1_.clear();
 
@@ -102,9 +124,9 @@ TEST_F(ManifestTest, SetManifestType) {
 TEST_F(ManifestTest, SetHashAlgorithm) {
   manifest1_.clear();
 
-  utils::CryptoHashType hash1 = utils::CryptoHashType::SHA_512;
-  utils::CryptoHashType hash2 = utils::CryptoHashType::CRC32C;
-  utils::CryptoHashType hash3 = utils::CryptoHashType::SHA_256;
+  auth::CryptoHashType hash1 = auth::CryptoHashType::SHA_512;
+  auth::CryptoHashType hash2 = auth::CryptoHashType::CRC32C;
+  auth::CryptoHashType hash3 = auth::CryptoHashType::SHA_256;
 
   manifest1_.setHashAlgorithm(hash1);
   auto type_returned1 = manifest1_.getHashAlgorithm();
@@ -161,7 +183,7 @@ TEST_F(ManifestTest, SetSuffixList) {
   std::uniform_int_distribution<uint64_t> idis(
       0, std::numeric_limits<uint32_t>::max());
 
-  auto entries = new std::pair<uint32_t, utils::CryptoHash>[3];
+  auto entries = new std::pair<uint32_t, auth::CryptoHash>[3];
   uint32_t suffixes[3];
   std::vector<unsigned char> data[3];
 
@@ -170,8 +192,8 @@ TEST_F(ManifestTest, SetSuffixList) {
     std::generate(std::begin(data[i]), std::end(data[i]), std::ref(rbe));
     suffixes[i] = idis(eng);
     entries[i] = std::make_pair(
-        suffixes[i], utils::CryptoHash(data[i].data(), data[i].size(),
-                                       utils::CryptoHashType::SHA_256));
+        suffixes[i], auth::CryptoHash(data[i].data(), data[i].size(),
+                                      auth::CryptoHashType::SHA_256));
     manifest1_.addSuffixHash(entries[i].first, entries[i].second);
   }
 
@@ -186,9 +208,9 @@ TEST_F(ManifestTest, SetSuffixList) {
 
   // for (auto & item : manifest1_.getSuffixList()) {
   //   auto hash = manifest1_.getHash(suffixes[i]);
-  //   cond = utils::CryptoHash::compareBinaryDigest(hash,
-  //                                                 entries[i].second.getDigest<uint8_t>().data(),
-  //                                                 entries[i].second.getType());
+  //   cond = auth::CryptoHash::compareBinaryDigest(hash,
+  //                                               entries[i].second.getDigest<uint8_t>().data(),
+  //                                               entries[i].second.getType());
   //   ASSERT_TRUE(cond);
   //   i++;
   // }

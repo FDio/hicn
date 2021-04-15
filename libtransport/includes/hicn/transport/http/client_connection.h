@@ -68,7 +68,7 @@ class HTTPClientConnection {
 
   HTTPClientConnection &setTimeout(const std::chrono::seconds &timeout);
 
-  HTTPClientConnection &setCertificate(const std::string &cert_path);
+  HTTPClientConnection &setVerifier(std::shared_ptr<auth::Verifier> verifier);
 
  private:
   class Implementation;

@@ -17,6 +17,7 @@
 
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/core/packet.h>
+#include <hicn/transport/utils/shared_ptr_utils.h>
 
 namespace transport {
 
@@ -27,24 +28,53 @@ namespace core {
 
 class ContentObject : public Packet {
  public:
-  using Ptr = utils::ObjectPool<ContentObject>::Ptr;
+  using Ptr = std::shared_ptr<ContentObject>;
   using HICNContentObject = hicn_header_t;
 
-  ContentObject(Packet::Format format = HF_INET6_TCP);
+  ContentObject(Packet::Format format = HF_INET6_TCP,
+                std::size_t additional_header_size = 0);
 
-  ContentObject(const Name &name, Packet::Format format = HF_INET6_TCP);
+  ContentObject(const Name &name, Packet::Format format = HF_INET6_TCP,
+                std::size_t additional_header_size = 0);
 
-  ContentObject(const Name &name, hicn_format_t format, const uint8_t *payload,
+  ContentObject(const Name &name, hicn_format_t format,
+                std::size_t additional_header_size, const uint8_t *payload,
                 std::size_t payload_size);
 
-  ContentObject(const uint8_t *buffer, std::size_t size);
-  ContentObject(MemBufPtr &&buffer);
+  template <typename... Args>
+  ContentObject(CopyBufferOp op, Args &&...args)
+      : Packet(op, std::forward<Args>(args)...) {
+    if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
+        0) {
+      throw errors::MalformedPacketException();
+    }
+  }
 
-  ContentObject(const ContentObject &content_object) = delete;
+  template <typename... Args>
+  ContentObject(WrapBufferOp op, Args &&...args)
+      : Packet(op, std::forward<Args>(args)...) {
+    if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
+        0) {
+      throw errors::MalformedPacketException();
+    }
+  }
+
+  template <typename... Args>
+  ContentObject(CreateOp op, Args &&...args)
+      : Packet(op, std::forward<Args>(args)...) {
+    if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
+        0) {
+      throw errors::MalformedPacketException();
+    }
+  }
+
+  ContentObject(const ContentObject &content_object);
+
+  ContentObject &operator=(const ContentObject &other);
 
   ContentObject(ContentObject &&content_object);
 
-  ~ContentObject() override;
+  ~ContentObject();
 
   const Name &getName() const override;
 
@@ -65,6 +95,8 @@ class ContentObject : public Packet {
   void setLifetime(uint32_t lifetime) override;
 
   uint32_t getLifetime() const override;
+
+  auto shared_from_this() { return utils::shared_from(this); }
 
  private:
   void resetForHash() override;

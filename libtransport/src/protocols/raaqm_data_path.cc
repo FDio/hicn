@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/utils/chrono_typedefs.h>
-
 #include <protocols/raaqm_data_path.h>
 
 namespace transport {

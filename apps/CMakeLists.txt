@@ -49,14 +49,10 @@ else()
   )
 endif()
 
-set(SUFFIX "")
-if (${LIBTRANSPORT_LIBRARIES} MATCHES ".*-memif.*")
-  set(DEPENDENCIES ${LIBMEMIF_SHARED})
-  set(SUFFIX "-memif")
+# Worksroung for unresolved symbols in vpp libraries
+if(${CMAKE_SYSTEM_NAME} MATCHES Linux)
   set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
 endif()
-
-set(HICN_APPS "${HICN_APPS}${SUFFIX}")
 
 list(APPEND LIBRARIES
   ${LIBTRANSPORT_LIBRARIES}

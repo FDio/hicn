@@ -18,9 +18,9 @@
 #include <hicn/transport/utils/chrono_typedefs.h>
 #include <protocols/byte_stream_reassembly.h>
 #include <protocols/congestion_window_protocol.h>
-#include <protocols/protocol.h>
 #include <protocols/raaqm_data_path.h>
 #include <protocols/rate_estimation.h>
+#include <protocols/transport_protocol.h>
 
 #include <queue>
 #include <vector>
@@ -42,8 +42,6 @@ class RaaqmTransportProtocol : public TransportProtocol,
 
   void reset() override;
 
-  virtual bool verifyKeyPackets() override;
-
  protected:
   static constexpr uint32_t buffer_size =
       1 << interface::default_values::log_2_default_buffer_size;
@@ -64,13 +62,12 @@ class RaaqmTransportProtocol : public TransportProtocol,
  private:
   void init();
 
-  void onContentObject(Interest::Ptr &&i, ContentObject::Ptr &&c) override;
+  void onContentObject(Interest &i, ContentObject &c) override;
 
-  void onContentSegment(Interest::Ptr &&interest,
-                        ContentObject::Ptr &&content_object);
+  void onContentSegment(Interest &interest, ContentObject &content_object);
 
-  void onPacketDropped(Interest::Ptr &&interest,
-                       ContentObject::Ptr &&content_object) override;
+  void onPacketDropped(Interest &interest,
+                       ContentObject &content_object) override;
 
   void onReassemblyFailed(std::uint32_t missing_segment) override;
 
@@ -78,7 +75,7 @@ class RaaqmTransportProtocol : public TransportProtocol,
 
   virtual void scheduleNextInterests() override;
 
-  bool sendInterest(std::uint64_t next_suffix);
+  void sendInterest(std::uint64_t next_suffix);
 
   void sendInterest(Interest::Ptr &&interest);
 

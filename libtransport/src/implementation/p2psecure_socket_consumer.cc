@@ -15,7 +15,6 @@
 
 #include <implementation/p2psecure_socket_consumer.h>
 #include <interfaces/tls_socket_consumer.h>
-
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/tls1.h>
@@ -175,7 +174,6 @@ P2PSecureConsumerSocket::P2PSecureConsumerSocket(
     : ConsumerSocket(consumer, handshake_protocol),
       name_(),
       tls_consumer_(nullptr),
-      buf_pool_(),
       decrypted_content_(),
       payload_(),
       head_(),

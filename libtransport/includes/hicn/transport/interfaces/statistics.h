@@ -31,6 +31,8 @@ class IcnObserver {
   virtual void notifyDownloadTime(double downloadTime) = 0;
 };
 
+class ProductionStatistics {};
+
 class TransportStatistics {
   static constexpr double default_alpha = 0.7;
 
@@ -43,7 +45,15 @@ class TransportStatistics {
         interest_tx_(0),
         alpha_(alpha),
         loss_ratio_(0.0),
-        queuing_delay_(0.0) {}
+        queuing_delay_(0.0),
+        interest_FEC_tx_(0),
+        bytes_FEC_received_(0),
+        lost_data_(0),
+        recovered_data_(0),
+        status_(-1),
+        // avg_data_rtt_(0),
+        avg_pending_pkt_(0.0),
+        received_nacks_(0) {}
 
   TRANSPORT_ALWAYS_INLINE void updateRetxCount(uint64_t retx) {
     retx_count_ += retx;
@@ -74,6 +84,32 @@ class TransportStatistics {
     queuing_delay_ = queuing_delay;
   }
 
+  TRANSPORT_ALWAYS_INLINE void updateInterestFecTx(uint64_t int_tx) {
+    interest_FEC_tx_ += int_tx;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void updateBytesFecRecv(uint64_t bytes) {
+    bytes_FEC_received_ += bytes;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void updateLostData(uint64_t pkt) {
+    lost_data_ += pkt;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void updateRecoveredData(uint64_t bytes) {
+    recovered_data_ += bytes;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void updateCCState(int status) { status_ = status; }
+
+  TRANSPORT_ALWAYS_INLINE void updateAveragePendingPktCount(double pkt) {
+    avg_pending_pkt_ = (alpha_ * avg_pending_pkt_) + ((1. - alpha_) * pkt);
+  }
+
+  TRANSPORT_ALWAYS_INLINE void updateReceivedNacks(uint32_t nacks) {
+    received_nacks_ += nacks;
+  }
+
   TRANSPORT_ALWAYS_INLINE uint64_t getRetxCount() const { return retx_count_; }
 
   TRANSPORT_ALWAYS_INLINE uint64_t getBytesRecv() const {
@@ -96,6 +132,32 @@ class TransportStatistics {
     return queuing_delay_;
   }
 
+  TRANSPORT_ALWAYS_INLINE uint64_t getInterestFecTxCount() const {
+    return interest_FEC_tx_;
+  }
+
+  TRANSPORT_ALWAYS_INLINE uint64_t getBytesFecRecv() const {
+    return bytes_FEC_received_;
+  }
+
+  TRANSPORT_ALWAYS_INLINE uint64_t getLostData() const { return lost_data_; }
+
+  TRANSPORT_ALWAYS_INLINE uint64_t getBytesRecoveredData() const {
+    return recovered_data_;
+  }
+
+  TRANSPORT_ALWAYS_INLINE int getCCStatus() const { return status_; }
+
+  TRANSPORT_ALWAYS_INLINE double getAveragePendingPktCount() const {
+    return avg_pending_pkt_;
+  }
+
+  TRANSPORT_ALWAYS_INLINE uint32_t getReceivedNacks() const {
+    return received_nacks_;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void setAlpha(double val) { alpha_ = val; }
+
   TRANSPORT_ALWAYS_INLINE void reset() {
     retx_count_ = 0;
     bytes_received_ = 0;
@@ -103,6 +165,14 @@ class TransportStatistics {
     avg_window_size_ = 0;
     interest_tx_ = 0;
     loss_ratio_ = 0;
+    interest_FEC_tx_ = 0;
+    bytes_FEC_received_ = 0;
+    lost_data_ = 0;
+    recovered_data_ = 0;
+    status_ = 0;
+    // avg_data_rtt_ = 0;
+    avg_pending_pkt_ = 0;
+    received_nacks_ = 0;
   }
 
  private:
@@ -114,6 +184,13 @@ class TransportStatistics {
   double alpha_;
   double loss_ratio_;
   double queuing_delay_;
+  uint64_t interest_FEC_tx_;
+  uint64_t bytes_FEC_received_;
+  uint64_t lost_data_;
+  uint64_t recovered_data_;
+  int status_;  // transport status (e.g. sync status, congestion etc.)
+  double avg_pending_pkt_;
+  uint32_t received_nacks_;
 };
 
 }  // namespace interface

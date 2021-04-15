@@ -324,7 +324,7 @@ ipv4_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 int
 ipv4_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
 		   const ip46_address_t * addr_new, ip46_address_t * addr_old,
-		   const hicn_faceid_t face_id)
+		   const hicn_faceid_t face_id, u8 reset_pl)
 {
   // ASSERT(addr_old == NULL);
   addr_old->ip4 = h->ipv4.daddr;
@@ -336,7 +336,7 @@ ipv4_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
   h->ipv4.csum = 0;
   h->ipv4.csum = csum (&h->ipv4, IPV4_HDRLEN, 0);
 
-  return CHILD_OPS (rewrite_data, type, h, addr_new, addr_old, face_id);
+  return CHILD_OPS (rewrite_data, type, h, addr_new, addr_old, face_id, reset_pl);
 }
 
 int

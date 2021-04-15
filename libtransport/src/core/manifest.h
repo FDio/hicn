@@ -15,10 +15,9 @@
 
 #pragma once
 
+#include <core/manifest_format.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/name.h>
-
-#include <core/manifest_format.h>
 
 #include <set>
 
@@ -36,18 +35,20 @@ class Manifest : public Base {
                 "Base must inherit from packet!");
 
  public:
+  // core::ContentObjectManifest::Ptr
+
   using Encoder = typename FormatTraits::Encoder;
   using Decoder = typename FormatTraits::Decoder;
 
   Manifest(std::size_t signature_size = 0)
-      : Base(HF_INET6_TCP_AH),
+      : Base(HF_INET6_TCP_AH, signature_size),
         encoder_(*this, signature_size),
         decoder_(*this) {
     Base::setPayloadType(PayloadType::MANIFEST);
   }
 
   Manifest(const core::Name &name, std::size_t signature_size = 0)
-      : Base(name, HF_INET6_TCP_AH),
+      : Base(name, HF_INET6_TCP_AH, signature_size),
         encoder_(*this, signature_size),
         decoder_(*this) {
     Base::setPayloadType(PayloadType::MANIFEST);
@@ -55,7 +56,9 @@ class Manifest : public Base {
 
   template <typename T>
   Manifest(T &&base)
-      : Base(std::forward<T &&>(base)), encoder_(*this), decoder_(*this) {
+      : Base(std::forward<T &&>(base)),
+        encoder_(*this, 0, false),
+        decoder_(*this) {
     Base::setPayloadType(PayloadType::MANIFEST);
   }
 
@@ -96,13 +99,13 @@ class Manifest : public Base {
     return *this;
   }
 
-  Manifest &setHashAlgorithm(utils::CryptoHashType hash_algorithm) {
+  Manifest &setHashAlgorithm(auth::CryptoHashType hash_algorithm) {
     hash_algorithm_ = hash_algorithm;
     encoder_.setHashAlgorithm(hash_algorithm_);
     return *this;
   }
 
-  utils::CryptoHashType getHashAlgorithm() { return hash_algorithm_; }
+  auth::CryptoHashType getHashAlgorithm() { return hash_algorithm_; }
 
   ManifestType getManifestType() const { return manifest_type_; }
 
@@ -138,7 +141,7 @@ class Manifest : public Base {
 
  protected:
   ManifestType manifest_type_;
-  utils::CryptoHashType hash_algorithm_;
+  auth::CryptoHashType hash_algorithm_;
   bool is_last_;
 
   Encoder encoder_;

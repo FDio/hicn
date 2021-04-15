@@ -21,16 +21,15 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/datagram_reassembly.h
   ${CMAKE_CURRENT_SOURCE_DIR}/byte_stream_reassembly.h
   ${CMAKE_CURRENT_SOURCE_DIR}/congestion_window_protocol.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/packet_manager.h
   ${CMAKE_CURRENT_SOURCE_DIR}/rate_estimation.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/protocol.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/transport_protocol.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/production_protocol.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/prod_protocol_bytestream.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/prod_protocol_rtc.h
   ${CMAKE_CURRENT_SOURCE_DIR}/raaqm.h
   ${CMAKE_CURRENT_SOURCE_DIR}/raaqm_data_path.h
   ${CMAKE_CURRENT_SOURCE_DIR}/cbr.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtc.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_data_path.h
   ${CMAKE_CURRENT_SOURCE_DIR}/errors.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/verification_manager.h
   ${CMAKE_CURRENT_SOURCE_DIR}/data_processing_events.h
 )
 
@@ -41,15 +40,15 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/reassembly.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/datagram_reassembly.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/byte_stream_reassembly.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/protocol.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/transport_protocol.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/production_protocol.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/prod_protocol_bytestream.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/prod_protocol_rtc.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/raaqm.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/rate_estimation.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/raaqm_data_path.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/cbr.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtc.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_data_path.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/errors.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/verification_manager.cc
 )
 
 set(RAAQM_CONFIG_INSTALL_PREFIX
@@ -70,6 +69,8 @@ install(
   DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/hicn
   COMPONENT lib${LIBTRANSPORT}
 )
+
+add_subdirectory(rtc)
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
 set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)

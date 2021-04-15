@@ -17,15 +17,13 @@
 
 #include <hicn/transport/errors/runtime_exception.h>
 #include <hicn/transport/utils/log.h>
-
+#include <sys/timerfd.h>
+#include <unistd.h>
 #include <utils/deadline_timer.h>
 #include <utils/epoll_event_reactor.h>
 
 #include <chrono>
 #include <cstddef>
-
-#include <sys/timerfd.h>
-#include <unistd.h>
 
 namespace utils {
 
