@@ -22,8 +22,8 @@
 #endif
 
 #include <hicn/transport/portability/c_portability.h>
-
 #include <string.h>
+
 #include <cstddef>
 
 namespace portability {

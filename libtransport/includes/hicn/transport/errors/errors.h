@@ -15,10 +15,13 @@
 
 #pragma once
 
+#include <hicn/transport/errors/indexing_exception.h>
 #include <hicn/transport/errors/invalid_ip_address_exception.h>
+#include <hicn/transport/errors/malformed_ahpacket_exception.h>
 #include <hicn/transport/errors/malformed_name_exception.h>
 #include <hicn/transport/errors/malformed_packet_exception.h>
 #include <hicn/transport/errors/not_implemented_exception.h>
 #include <hicn/transport/errors/null_pointer_exception.h>
 #include <hicn/transport/errors/runtime_exception.h>
 #include <hicn/transport/errors/tokenizer_exception.h>
+#include <hicn/transport/errors/unexpected_manifest_exception.h>

@@ -16,7 +16,7 @@
 #pragma once
 
 #include <hicn/transport/interfaces/statistics.h>
-#include <hicn/transport/interfaces/verification_policy.h>
+#include <hicn/transport/auth/policies.h>
 
 #include <functional>
 #include <system_error>
@@ -73,25 +73,6 @@ using ProducerContentCallback = std::function<void(
  */
 using ConsumerContentObjectCallback =
     std::function<void(ConsumerSocket &, const core::ContentObject &)>;
-
-/**
- * The ConsumerContentObjectVerificationCallback will be called by the transport
- * if an application is willing to verify each content object. Note that a
- * better alternative is to instrument the transport to perform the verification
- * autonomously, without requiring the intervention of the application.
- */
-using ConsumerContentObjectVerificationCallback =
-    std::function<bool(ConsumerSocket &, const core::ContentObject &)>;
-
-/**
- * The ConsumerContentObjectVerificationFailedCallback will be caled by the
- * transport if a data packet (either manifest or content object) cannot be
- * verified. The application here decides what to do by returning a
- * VerificationFailedPolicy object.
- */
-using ConsumerContentObjectVerificationFailedCallback =
-    std::function<VerificationPolicy(
-        ConsumerSocket &, const core::ContentObject &, std::error_code ec)>;
 
 /**
  * The ProducerContentObjectCallback will be called in different parts of the

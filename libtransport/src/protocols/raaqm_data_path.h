@@ -16,7 +16,6 @@
 #pragma once
 
 #include <hicn/transport/utils/chrono_typedefs.h>
-
 #include <utils/min_filter.h>
 
 #include <chrono>

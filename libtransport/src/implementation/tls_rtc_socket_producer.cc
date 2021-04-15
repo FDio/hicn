@@ -15,10 +15,8 @@
 
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/interfaces/p2psecure_socket_producer.h>
-
 #include <implementation/p2psecure_socket_producer.h>
 #include <implementation/tls_rtc_socket_producer.h>
-
 #include <openssl/bio.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>

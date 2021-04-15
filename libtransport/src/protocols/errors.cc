@@ -52,7 +52,9 @@ std::string protocol_category_impl::message(int ev) const {
     case protocol_error::session_aborted: {
       return "The session has been aborted by the application.";
     }
-    default: { return "Unknown protocol error"; }
+    default: {
+      return "Unknown protocol error";
+    }
   }
 }
 

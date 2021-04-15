@@ -43,6 +43,11 @@ class MinFilter {
     by_arrival_.push_front(by_order_.insert(std::forward<R>(value)));
   }
 
+  TRANSPORT_ALWAYS_INLINE void clear() {
+    by_arrival_.clear();
+    by_order_.clear();
+  }
+
   TRANSPORT_ALWAYS_INLINE const T& begin() { return *by_order_.cbegin(); }
 
   TRANSPORT_ALWAYS_INLINE const T& rBegin() { return *by_order_.crbegin(); }

@@ -136,7 +136,6 @@ TLSConsumerSocket::TLSConsumerSocket(interface::ConsumerSocket *consumer_socket,
                                      int protocol, SSL *ssl)
     : ConsumerSocket(consumer_socket, protocol),
       name_(),
-      buf_pool_(),
       decrypted_content_(),
       payload_(),
       head_(),
@@ -223,14 +222,15 @@ int TLSConsumerSocket::download_content(const Name &name) {
   content_downloaded_ = false;
 
   std::size_t max_buffer_size = read_callback_decrypted_->maxBufferSize();
-  std::size_t buffer_size = read_callback_decrypted_->maxBufferSize() + SSL3_RT_MAX_PLAIN_LENGTH;
+  std::size_t buffer_size =
+      read_callback_decrypted_->maxBufferSize() + SSL3_RT_MAX_PLAIN_LENGTH;
   decrypted_content_ = utils::MemBuf::createCombined(buffer_size);
   int result = -1;
   std::size_t size = 0;
 
   while (!content_downloaded_ || something_to_read_) {
-    result = SSL_read(
-      this->ssl_, decrypted_content_->writableTail(), SSL3_RT_MAX_PLAIN_LENGTH);
+    result = SSL_read(this->ssl_, decrypted_content_->writableTail(),
+                      SSL3_RT_MAX_PLAIN_LENGTH);
 
     /* SSL_read returns the data only if there were SSL3_RT_MAX_PLAIN_LENGTH of
      * the data has been fully downloaded */

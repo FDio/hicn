@@ -17,6 +17,7 @@
 
 // TODO
 #include <hicn/transport/utils/branch_prediction.h>
+#include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/spinlock.h>
 
 #include <deque>
@@ -33,6 +34,7 @@ class ObjectPool {
 
     void operator()(T *t) {
       if (pool_) {
+        TRANSPORT_LOGV("Back in pool");
         pool_->add(t);
       } else {
         delete t;
@@ -44,9 +46,12 @@ class ObjectPool {
   };
 
  public:
-  using Ptr = std::unique_ptr<T, ObjectDeleter>;
+  using Ptr = std::shared_ptr<T>;
 
   ObjectPool() : destructor_(false) {}
+
+  // No copies
+  ObjectPool(const ObjectPool &other) = delete;
 
   ~ObjectPool() {
     destructor_ = true;
@@ -55,12 +60,17 @@ class ObjectPool {
     }
   }
 
+  bool empty() {
+    utils::SpinLock::Acquire locked(object_pool_lock_);
+    return object_pool_.empty();
+  }
+
   std::pair<bool, Ptr> get() {
+    utils::SpinLock::Acquire locked(object_pool_lock_);
     if (object_pool_.empty()) {
-      return std::make_pair<bool, Ptr>(false, makePtr(nullptr));
+      return std::make_pair<bool, Ptr>(false, nullptr);
     }
 
-    utils::SpinLock::Acquire locked(object_pool_lock_);
     auto ret = std::move(object_pool_.front());
     object_pool_.pop_front();
     return std::make_pair<bool, Ptr>(true, std::move(ret));
@@ -70,7 +80,7 @@ class ObjectPool {
     utils::SpinLock::Acquire locked(object_pool_lock_);
 
     if (TRANSPORT_EXPECT_TRUE(!destructor_)) {
-      object_pool_.emplace_back(makePtr(object));
+      object_pool_.emplace_front(makePtr(object));
     } else {
       delete object;
     }
@@ -79,12 +89,9 @@ class ObjectPool {
   Ptr makePtr(T *object) { return Ptr(object, ObjectDeleter(this)); }
 
  private:
-  // No copies
-  ObjectPool(const ObjectPool &other) = delete;
-
   utils::SpinLock object_pool_lock_;
   std::deque<Ptr> object_pool_;
-  bool destructor_;
+  std::atomic<bool> destructor_;
 };
 
 }  // namespace utils

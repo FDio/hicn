@@ -33,10 +33,8 @@ class TransportProtocol;
 
 class Indexer {
  public:
-  /**
-   *
-   */
   virtual ~Indexer() = default;
+
   /**
    * Retrieve from the manifest the next suffix to retrieve.
    */
@@ -55,10 +53,8 @@ class Indexer {
 
   virtual void reset(std::uint32_t offset = 0) = 0;
 
-  virtual void onContentObject(core::Interest::Ptr &&interest,
-                               core::ContentObject::Ptr &&content_object) = 0;
-
-  virtual bool onKeyToVerify() = 0;
+  virtual void onContentObject(core::Interest &interest,
+                               core::ContentObject &content_object) = 0;
 };
 
 class IndexManager : Indexer {
@@ -86,10 +82,8 @@ class IndexManager : Indexer {
 
   void reset(std::uint32_t offset = 0) override;
 
-  void onContentObject(core::Interest::Ptr &&interest,
-                       core::ContentObject::Ptr &&content_object) override;
-
-  bool onKeyToVerify() override;
+  void onContentObject(core::Interest &interest,
+                       core::ContentObject &content_object) override;
 
  private:
   std::unique_ptr<Indexer> indexer_;

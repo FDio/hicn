@@ -18,6 +18,11 @@ include(ExternalProject)
 ExternalProject_Add(gtest
   URL https://github.com/google/googletest/archive/v1.10.x.zip
   PREFIX ${CMAKE_BINARY_DIR}/gtest
+  BUILD_BYPRODUCTS
+    ${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgmock_main.a
+    ${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgmock.a
+    ${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgtest_main.a
+    ${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgtest.a
   INSTALL_COMMAND ""
 )
 
