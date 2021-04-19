@@ -327,13 +327,12 @@ int hl_on_event(interface_t * interface, facelet_t * facelet)
     switch(facelet_get_event(facelet)) {
 
         case FACELET_EVENT_CREATE:
-
-            /* Create face */
             {
+            /* Create face */
             char buf[MAXSZ_FACELET];
             facelet_snprintf(buf, MAXSZ_FACELET, facelet);
             DEBUG("Create facelet %s", buf);
-            }
+
             hc_face.face = *face;
             rc = hc_face_create(data->s, &hc_face);
             if (rc < 0) {
@@ -341,7 +340,8 @@ int hl_on_event(interface_t * interface, facelet_t * facelet)
                 ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
                 goto ERR;
             }
-            INFO("Created face id=%d", hc_face.id);
+            INFO("Created face id=%d - %s", hc_face.id, buf);
+            }
 
             hicn_route_t ** route_array;
             int n = facelet_get_route_array(facelet, &route_array);
@@ -413,7 +413,6 @@ int hl_on_event(interface_t * interface, facelet_t * facelet)
 
         case FACELET_EVENT_DELETE:
             /* Removing a face should also remove associated routes */
-            /* Create face */
             hc_face.face = *face;
             rc = hc_face_delete(data->s, &hc_face);
             if (rc < 0) {
@@ -421,6 +420,11 @@ int hl_on_event(interface_t * interface, facelet_t * facelet)
                 ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
                 goto ERR;
             }
+
+            char buf[MAXSZ_FACELET];
+            facelet_snprintf(buf, MAXSZ_FACELET, facelet);
+            INFO("Deleted face id=%d", hc_face.id);
+
             break;
 
         case FACELET_EVENT_UPDATE:
@@ -457,7 +461,8 @@ int hl_on_event(interface_t * interface, facelet_t * facelet)
                     goto ERR;
                 }
                 facelet_set_admin_state_status(facelet, FACELET_ATTR_STATUS_CLEAN);
-                INFO("Admin state updated");
+                INFO("Updated face id=%d - admin_state=%s", hc_face.id,
+                        face_state_str[admin_state]);
             }
 #ifdef WITH_POLICY
             if (facelet_get_netdevice_type_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
@@ -517,7 +522,8 @@ int hl_on_event(interface_t * interface, facelet_t * facelet)
                     goto ERR;
                 }
                 facelet_set_netdevice_type_status(facelet, FACELET_ATTR_STATUS_CLEAN);
-                INFO("Tags updated");
+                INFO("Updated face id=%d - netdevice_type=%s", hc_face.id,
+                        netdevice_type_str[netdevice_type]);
             }
             if (facelet_get_priority_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
                 INFO("Updating priority...");
@@ -549,7 +555,8 @@ int hl_on_event(interface_t * interface, facelet_t * facelet)
                     goto ERR;
                 }
                 facelet_set_priority_status(facelet, FACELET_ATTR_STATUS_CLEAN);
-                INFO("Priority updated");
+
+                INFO("Updated face id=%d - priority=%d", hc_face.id, priority);
             }
 #endif /* WITH_POLICY */
             break;

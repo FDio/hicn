@@ -34,6 +34,11 @@
 #define WITH_PRIORITY_CONTROLLER
 
 /*
+ * Dump facelets (debug)
+ */
+//#define WITH_DUMP
+
+/*
  * Allow priority setting before interface is actually created
  */
 #define WITH_DEFAULT_PRIORITIES
@@ -1789,7 +1794,9 @@ int
 facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
 {
     bool remove_facelet = true;
+#if WITH_DUMP
     bool dump = true;
+#endif /* WITH_DUMP */
     int ret = 0;
     int rc;
     assert(facelet_in);
@@ -1879,7 +1886,9 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                 rc = facemgr_process_facelet_get(facemgr, facelet_in);
                 if (rc == 0)
                     remove_facelet = false;
+#if WITH_DUMP
                 dump = false;
+#endif
                 if (rc == -1) {
                     ERROR("[facemgr_on_event] Error processing GET event");
                     goto ERR;
@@ -1987,7 +1996,9 @@ facemgr_on_event(facemgr_t * facemgr, facelet_t * facelet_in)
                 //DEBUG("[facemgr_on_event] GET EXISTING %s", facelet_old_s);
                 //DEBUG("                           WITH %s", facelet_s);
                 //ERROR("[facemgr_on_event] GET event for a face that already exists...");
+#ifdef WITH_DUMP
                 dump = false;
+#endif /* WITH_DUMP */
                 continue;
 
             case FACELET_EVENT_UPDATE:
@@ -2068,7 +2079,7 @@ ERR:
     ret = -1;
 
 DUMP_CACHE:
-#if 1
+#if WITH_DUMP
     if (dump) {
         DEBUG("    <CACHE>");
         facelet_set_dump(facemgr->facelet_cache);
@@ -2076,7 +2087,7 @@ DUMP_CACHE:
         DEBUG("</EVENT ret=%d>", ret);
         DEBUG("----------------------------------");
     }
-#endif
+#endif /* WITH_DUMP */
 
     free(cached_facelets);
 
