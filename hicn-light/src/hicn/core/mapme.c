@@ -536,13 +536,31 @@ mapme_send_updates(const MapMe * mapme, FibEntry * fibEntry, const NumberSet * n
   const Name *name = fibEntry_GetPrefix(fibEntry);
   char *name_str = name_ToString(name);
   bool clear_tfib = true;
+
+  INFO(mapme, "[MAP-Me] Candidate next hops changed");
   for (size_t j = 0; j < numberSet_Length(nexthops); j++) {
       unsigned nexthop_id = numberSet_GetItem(nexthops, j);
-      INFO(mapme, "[MAP-Me] sending IU/IN for name %s on connection %d", name_str,
-           nexthop_id);
+
+      /* We extract the nexthop type based on tags */
+      const char * nexthop_type;
+      ConnectionTable * table = forwarder_GetConnectionTable(mapme->forwarder);
+      const Connection * conn = connectionTable_FindById(table, nexthop_id);
+      if (connection_HasTag(conn, POLICY_TAG_WIRED)) {
+          nexthop_type = "WIRED";
+      } else if (connection_HasTag(conn, POLICY_TAG_WIFI)) {
+          nexthop_type = "WIFI";
+      } else if (connection_HasTag(conn, POLICY_TAG_CELLULAR)) {
+          nexthop_type = "CELLULAR";
+      } else {
+          nexthop_type = "UNKNOWN";
+      }
+
+      INFO(mapme, "[MAP-Me] sending IU/IN for name %s on connection %d - %s (%s)", name_str,
+           nexthop_id, connection_GetInterfaceName(conn), nexthop_type);
       mapme_setFacePending(mapme, name, fibEntry, nexthop_id, true, true, clear_tfib, 0);
       clear_tfib = false;
   }
+  INFO(mapme, "[MAP-Me] Done sending MAP-Me update");
   free(name_str);
 }
 
