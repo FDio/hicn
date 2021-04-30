@@ -64,7 +64,7 @@ int TLSProducerSocket::readOld(BIO *b, char *buf, int size) {
   if ((int)membuf->length() > size) {
     size_to_read = size;
   } else {
-    size_to_read = membuf->length();
+    size_to_read = (int)membuf->length();
     socket->something_to_read_ = false;
   }
 
@@ -289,7 +289,7 @@ void TLSProducerSocket::onInterest(ProducerSocket &p, Interest &interest) {
       SSL_read(
           ssl_,
           const_cast<unsigned char *>(interest.getPayload()->writableData()),
-          interest.getPayload()->length());
+          (int)interest.getPayload()->length());
     }
 
     ProducerInterestCallback *on_interest_input_decrypted;
@@ -325,7 +325,7 @@ void TLSProducerSocket::cacheMiss(interface::ProducerSocket &p,
       SSL_read(
           ssl_,
           const_cast<unsigned char *>(interest.getPayload()->writableData()),
-          interest.getPayload()->length());
+          (int)interest.getPayload()->length());
     }
 
     if (on_interest_process_decrypted_ != VOID_HANDLER)
@@ -360,7 +360,7 @@ uint32_t TLSProducerSocket::produceStream(
   size_t buf_size = buffer->length();
   name_ = production_protocol_->getNamespaces().front().mapName(content_name);
   tls_chunks_ = to_call_oncontentproduced_ =
-      ceil((float)buf_size / (float)SSL3_RT_MAX_PLAIN_LENGTH);
+      (int)ceil((float)buf_size / (float)SSL3_RT_MAX_PLAIN_LENGTH);
 
   if (!is_last) {
     tls_chunks_++;
@@ -368,7 +368,7 @@ uint32_t TLSProducerSocket::produceStream(
 
   last_segment_ = start_offset;
 
-  SSL_write(ssl_, buffer->data(), buf_size);
+  SSL_write(ssl_, buffer->data(), (int)buf_size);
   BIO *wbio = SSL_get_wbio(ssl_);
   int i = BIO_flush(wbio);
   (void)i;  // To shut up gcc 5

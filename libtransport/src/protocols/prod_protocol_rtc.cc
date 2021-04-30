@@ -90,8 +90,8 @@ void RTCProductionProtocol::updateStats() {
 
   uint32_t prev_packets_production_rate = packets_production_rate_;
 
-  bytes_production_rate_ = ceil((double)produced_bytes_ * per_second);
-  packets_production_rate_ = ceil((double)produced_packets_ * per_second);
+  bytes_production_rate_ = (uint32_t)ceil((double)produced_bytes_ * per_second);
+  packets_production_rate_ = (uint32_t)ceil((double)produced_packets_ * per_second);
 
   TRANSPORT_LOGD("Updating production rate: produced_bytes_ = %u  bps = %u",
                  produced_bytes_, bytes_production_rate_);
@@ -99,7 +99,7 @@ void RTCProductionProtocol::updateStats() {
   // update the production rate as soon as it increases by 10% with respect to
   // the last round
   max_packet_production_ =
-      produced_packets_ + ceil((double)produced_packets_ * 0.1);
+      produced_packets_ + (uint32_t)ceil((double)produced_packets_ * 0.1);
   if (max_packet_production_ < rtc::WIN_MIN)
     max_packet_production_ = rtc::WIN_MIN;
 
@@ -189,8 +189,8 @@ void RTCProductionProtocol::produceInternal(
   content_object->setPathLabel(prod_label_);
 
   // update stats
-  produced_bytes_ +=
-      content_object->headerSize() + content_object->payloadSize();
+  produced_bytes_ += (uint32_t)(
+      content_object->headerSize() + content_object->payloadSize());
   produced_packets_++;
 
   if (produced_packets_ >= max_packet_production_) {
@@ -318,14 +318,14 @@ void RTCProductionProtocol::onInterest(Interest &interest) {
     if (!consumer_in_sync_ && on_consumer_in_sync_) {
       // we consider the remote consumer to be in sync as soon as it covers 70%
       // of the production window with interests
-      uint32_t perc = ceil((double)max_gap * 0.7);
+      uint32_t perc = (uint32_t)ceil((double)max_gap * 0.7);
       if (interest_seg > (perc + current_seg_)) {
         consumer_in_sync_ = true;
         on_consumer_in_sync_(*socket_->getInterface(), interest);
       }
     }
-    uint64_t expiration =
-        now + floor((double)lifetime * rtc::INTEREST_LIFETIME_REDUCTION_FACTOR);
+    uint64_t expiration =(uint32_t)(
+        now + floor((double)lifetime * rtc::INTEREST_LIFETIME_REDUCTION_FACTOR));
     addToInterestQueue(interest_seg, expiration);
   }
 }
@@ -377,7 +377,7 @@ void RTCProductionProtocol::sendNacksForPendingInterests() {
 
   uint32_t packet_gap = 100000;  // set it to a high value (100sec)
   if (packets_production_rate_ != 0)
-    packet_gap = ceil(rtc::MILLI_IN_A_SEC / (double)packets_production_rate_);
+    packet_gap = (uint32_t)ceil(rtc::MILLI_IN_A_SEC / (double)packets_production_rate_);
 
   uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
                      std::chrono::steady_clock::now().time_since_epoch())
