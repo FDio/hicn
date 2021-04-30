@@ -14,13 +14,13 @@ find_path(LIBCONFIG_INCLUDE_DIR libconfig.h++
 
 if (WIN32)
   if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    find_library(LIBCONFIG_LIBRARY NAMES libconfig.lib
+    find_library(LIBCONFIG_CPP_LIBRARIES NAMES libconfig++.lib
       HINTS ${LIBCONFIG_SEARCH_PATH_LIST}
       PATH_SUFFIXES lib/x64
       DOC "Find the libconfig libraries"
     )
   elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
-    find_library(LIBCONFIG_LIBRARY NAMES libconfig.lib
+    find_library(LIBCONFIG_CPP_LIBRARIES NAMES libconfig++.lib
       HINTS ${LIBCONFIG_SEARCH_PATH_LIST}
       PATH_SUFFIXES lib/x32
       DOC "Find the libconfig libraries"
@@ -39,5 +39,6 @@ set(LIBCONFIG_INCLUDE_DIRS ${LIBCONFIG_INCLUDE_DIR})
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Libconfig++ LIBCONFIG_CPP_LIBRARIES LIBCONFIG_INCLUDE_DIRS)
+
 
 mark_as_advanced(LIBCONFIG_CPP_LIBRARIES LIBCONFIG_INCLUDE_DIRS)

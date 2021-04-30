@@ -631,38 +631,38 @@ void fibEntry_ReceiveObjectMessage(const FibEntry *fibEntry,
       continue;
     if (connection_HasTag(conn, POLICY_TAG_WIRED)) {
       fibEntry->policy_counters.wired.num_packets++;
-      fibEntry->policy_counters.wired.num_bytes += msg_size;
-      fibEntry->policy.stats.wired.latency = \
+      fibEntry->policy_counters.wired.num_bytes += (uint32_t)msg_size;
+      fibEntry->policy.stats.wired.latency = (float) (\
                       ALPHA       * fibEntry->policy.stats.wired.latency + \
-                      (1 - ALPHA) * (double)rtt;
+                      (1 - ALPHA) * (double)rtt);
       fibEntry->policy_counters.wired.latency_idle = 0;
     }
     if (connection_HasTag(conn, POLICY_TAG_WIFI)) {
       fibEntry->policy_counters.wifi.num_packets++;
-      fibEntry->policy_counters.wifi.num_bytes += msg_size;
-      fibEntry->policy.stats.wifi.latency = \
+      fibEntry->policy_counters.wifi.num_bytes += (uint32_t)msg_size;
+      fibEntry->policy.stats.wifi.latency = (float)(\
                       ALPHA       * fibEntry->policy.stats.wifi.latency + \
-                      (1 - ALPHA) * (double)rtt;
+                      (1 - ALPHA) * (double)rtt);
       fibEntry->policy_counters.wifi.latency_idle = 0;
 
     }
     if (connection_HasTag(conn, POLICY_TAG_CELLULAR)) {
       fibEntry->policy_counters.cellular.num_packets++;
-      fibEntry->policy_counters.cellular.num_bytes += msg_size;
-      fibEntry->policy.stats.cellular.latency = \
+      fibEntry->policy_counters.cellular.num_bytes += (uint32_t)msg_size;
+      fibEntry->policy.stats.cellular.latency = (float)(\
                       ALPHA       * fibEntry->policy.stats.cellular.latency + \
-                      (1 - ALPHA) * (double)rtt;
+                      (1 - ALPHA) * (double)rtt);
       fibEntry->policy_counters.cellular.latency_idle = 0;
     }
   }
 
-  fibEntry->policy.stats.all.latency = \
+  fibEntry->policy.stats.all.latency = (float)(\
                     ALPHA       * fibEntry->policy.stats.all.latency + \
-                    (1 - ALPHA) * (double)rtt;
+                    (1 - ALPHA) * (double)rtt);
   fibEntry->policy_counters.all.latency_idle = 0;
 
   fibEntry->policy_counters.all.num_packets++;
-  fibEntry->policy_counters.all.num_bytes += msg_size;
+  fibEntry->policy_counters.all.num_bytes += (uint32_t)msg_size;
 
 #endif /* WITH_POLICY */
 
@@ -716,17 +716,17 @@ void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now) {
 
   /*  a) throughput */
   if (fibEntry->policy_counters.wired.num_bytes > 0) {
-    throughput = fibEntry->policy_counters.wired.num_bytes / \
-          (now - fibEntry->policy_counters.last_update) ;
+    throughput = (float)(fibEntry->policy_counters.wired.num_bytes / \
+          (now - fibEntry->policy_counters.last_update)) ;
     throughput = throughput * 8 / 1024;
     if (throughput < 0)
         throughput = 0;
   } else {
     throughput = 0;
   }
-  fibEntry->policy.stats.wired.throughput = \
+  fibEntry->policy.stats.wired.throughput = (float)(\
         ALPHA     * fibEntry->policy.stats.wired.throughput + \
-        (1-ALPHA) * throughput;
+        (1-ALPHA) * throughput);
 
   /* b) loss rate */
   if ((fibEntry->policy_counters.wired.num_losses > 0) && \
@@ -737,9 +737,9 @@ void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now) {
   } else {
       loss_rate = 0;
   }
-  fibEntry->policy.stats.wired.loss_rate = \
+  fibEntry->policy.stats.wired.loss_rate = (float)(\
         ALPHA     * fibEntry->policy.stats.wired.loss_rate + \
-        (1-ALPHA) * loss_rate;
+        (1-ALPHA) * loss_rate);
 
   /* Latency */
   fibEntry->policy_counters.wired.latency_idle++;
@@ -763,17 +763,17 @@ void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now) {
 
   /*  a) throughput */
   if (fibEntry->policy_counters.wifi.num_bytes > 0) {
-    throughput = fibEntry->policy_counters.wifi.num_bytes / \
-          (now - fibEntry->policy_counters.last_update);
+    throughput = (float)(fibEntry->policy_counters.wifi.num_bytes / \
+          (now - fibEntry->policy_counters.last_update));
     throughput = throughput * 8 / 1024;
     if (throughput < 0)
         throughput = 0;
   } else {
     throughput = 0;
   }
-  fibEntry->policy.stats.wifi.throughput = \
+  fibEntry->policy.stats.wifi.throughput = (float)( \
         ALPHA     * fibEntry->policy.stats.wifi.throughput + \
-        (1-ALPHA) * throughput;
+        (1-ALPHA) * throughput);
 
   /* b) loss rate */
   if ((fibEntry->policy_counters.wifi.num_losses > 0) && \
@@ -784,9 +784,9 @@ void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now) {
   } else {
       loss_rate = 0;
   }
-  fibEntry->policy.stats.wifi.loss_rate = \
+  fibEntry->policy.stats.wifi.loss_rate = (float)(\
         ALPHA     * fibEntry->policy.stats.wifi.loss_rate + \
-        (1-ALPHA) * loss_rate;
+        (1-ALPHA) * loss_rate);
 
   fibEntry->policy_counters.wifi.num_bytes = 0;
   fibEntry->policy_counters.wifi.num_losses = 0;
@@ -796,17 +796,17 @@ void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now) {
 
   /*  a) throughput */
   if (fibEntry->policy_counters.cellular.num_bytes > 0) {
-    throughput = fibEntry->policy_counters.cellular.num_bytes / \
-          (now - fibEntry->policy_counters.last_update) ;
+    throughput = (float)(fibEntry->policy_counters.cellular.num_bytes / \
+          (now - fibEntry->policy_counters.last_update)) ;
     throughput = throughput * 8 / 1024;
     if (throughput < 0)
         throughput = 0;
   } else {
     throughput = 0;
   }
-  fibEntry->policy.stats.cellular.throughput = \
+  fibEntry->policy.stats.cellular.throughput = (float)( \
         ALPHA     * fibEntry->policy.stats.cellular.throughput + \
-        (1-ALPHA) * throughput;
+        (1-ALPHA) * throughput);
 
   /* b) loss rate */
   if ((fibEntry->policy_counters.cellular.num_losses > 0) && \
@@ -817,9 +817,9 @@ void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now) {
   } else {
       loss_rate = 0;
   }
-  fibEntry->policy.stats.cellular.loss_rate = \
+  fibEntry->policy.stats.cellular.loss_rate = (float)( \
         ALPHA     * fibEntry->policy.stats.cellular.loss_rate + \
-        (1-ALPHA) * loss_rate;
+        (1-ALPHA) * loss_rate);
 
   fibEntry->policy_counters.cellular.num_bytes = 0;
   fibEntry->policy_counters.cellular.num_losses = 0;
@@ -829,17 +829,17 @@ void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now) {
 
   /*  a) throughput */
   if (fibEntry->policy_counters.all.num_bytes > 0) {
-    throughput = fibEntry->policy_counters.all.num_bytes / \
-          (now - fibEntry->policy_counters.last_update);
+    throughput = (float)( fibEntry->policy_counters.all.num_bytes / \
+          (now - fibEntry->policy_counters.last_update));
     throughput = throughput * 8 / 1024;
     if (throughput < 0)
         throughput = 0;
   } else {
     throughput = 0;
   }
-  fibEntry->policy.stats.all.throughput = \
+  fibEntry->policy.stats.all.throughput = (float)(\
         ALPHA     * fibEntry->policy.stats.all.throughput + \
-        (1-ALPHA) * throughput;
+        (1-ALPHA) * throughput);
 
   /* b) loss rate */
   if ((fibEntry->policy_counters.all.num_losses > 0) && \
@@ -850,9 +850,9 @@ void fibEntry_UpdateStats(FibEntry *fibEntry, uint64_t now) {
   } else {
       loss_rate = 0;
   }
-  fibEntry->policy.stats.all.loss_rate = \
+  fibEntry->policy.stats.all.loss_rate = (float)(\
         ALPHA     * fibEntry->policy.stats.all.loss_rate + \
-        (1-ALPHA) * loss_rate;
+        (1-ALPHA) * loss_rate);
 
   fibEntry->policy_counters.all.num_bytes = 0;
   fibEntry->policy_counters.all.num_losses = 0;

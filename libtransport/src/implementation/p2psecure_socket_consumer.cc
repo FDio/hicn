@@ -76,7 +76,7 @@ int readOld(BIO *b, char *buf, int size) {
     }
   }
 
-  return read;
+  return (int)read;
 }
 
 /* Return the number of read bytes in readbytes */

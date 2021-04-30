@@ -55,8 +55,8 @@ P2PSecureProducerSocket::P2PSecureProducerSocket(
   der_prk_ = parcKeyStore_GetDEREncodedPrivateKey(
       (identity->getSigner()->getParcKeyStore()));
 
-  int cert_size = parcBuffer_Limit(der_cert_);
-  int prk_size = parcBuffer_Limit(der_prk_);
+  int cert_size = (int)parcBuffer_Limit(der_cert_);
+  int prk_size = (int)parcBuffer_Limit(der_prk_);
   const uint8_t *cert =
       reinterpret_cast<uint8_t *>(parcBuffer_Overlay(der_cert_, cert_size));
   const uint8_t *prk =

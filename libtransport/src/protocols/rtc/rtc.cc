@@ -220,11 +220,11 @@ void RTCTransportProtocol::updateSyncWindow() {
   // if some of the info are not available do not update the current win
   if (prod_rate != 0.0 && rtt != 0.0 && packet_size != 0.0) {
     current_sync_win_ = (uint32_t)ceil(prod_rate * rtt / packet_size);
-    current_sync_win_ +=
+    current_sync_win_ += (uint32_t)
         ceil(prod_rate * (PRODUCER_BUFFER_MS / MILLI_IN_A_SEC) / packet_size);
 
     if(current_state_ == SyncState::catch_up) {
-      current_sync_win_ = current_sync_win_ * CATCH_UP_WIN_INCREMENT;
+      current_sync_win_ = (uint32_t) (current_sync_win_ * CATCH_UP_WIN_INCREMENT);
     }
 
     current_sync_win_ = std::min(current_sync_win_, max_sync_win_);
@@ -515,7 +515,7 @@ void RTCTransportProtocol::onContentObject(Interest &interest,
                                            ContentObject &content_object) {
   TRANSPORT_LOGD("Received content object of size: %zu",
                  content_object.payloadSize());
-  uint32_t payload_size = content_object.payloadSize();
+  uint32_t payload_size = (uint32_t) content_object.payloadSize();
   uint32_t segment_number = content_object.getName().getSuffix();
 
   if (segment_number >= MIN_PROBE_SEQ) {

@@ -119,7 +119,7 @@ class ReadBytesCallbackImplementation
           auto it = std::search(begin, end, begincrlf2, endcrlf2);
           if (it != end) {
             chunk_size_ = std::stoul(begin, 0, 16);
-            content_size_ += chunk_size_;
+            content_size_ += (long)chunk_size_;
             payload->trimStart(it + chunk_separator.size() - begin);
 
             std::size_t to_write;
@@ -131,7 +131,7 @@ class ReadBytesCallbackImplementation
             }
 
             out_->write((char *)payload->data(), to_write);
-            byte_downloaded_ += to_write;
+            byte_downloaded_ += (long)to_write;
             payload->trimStart(to_write);
 
             if (payload->length() >= chunk_separator.size()) {
@@ -141,7 +141,7 @@ class ReadBytesCallbackImplementation
         }
       } else {
         out_->write((char *)payload->data(), payload->length());
-        byte_downloaded_ += payload->length();
+        byte_downloaded_ += (long)payload->length();
       }
 
       if (file_name_ != "-") {
@@ -208,7 +208,7 @@ class ReadBytesCallbackImplementation
 #endif
 
     std::cout << "[";
-    int pos = barWidth * progress;
+    int pos = barWidth * (int)progress;
     for (int i = 0; i < barWidth; ++i) {
       if (i < pos) {
         std::cout << "=";

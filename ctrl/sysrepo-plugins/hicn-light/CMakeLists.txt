@@ -53,10 +53,16 @@ set(PLUGINS_SOURCES
     plugin/hicn_light.c
 )
 
+if (WIN32)
+add_library(hicnlight STATIC ${PLUGINS_SOURCES})
+target_include_directories(hicnlight PUBLIC ${HICNLIGHT_INCLUDE_DIRS})
+target_link_libraries(hicnlight ${SYSREPO_LIBRARIES} ${HICNLIGHT_LIBRARIES})
+else ()
 # build the source code into shared library
 add_library(hicnlight SHARED ${PLUGINS_SOURCES})
 target_include_directories(hicnlight PUBLIC ${HICNLIGHT_INCLUDE_DIRS})
 target_link_libraries(hicnlight ${SYSREPO_LIBRARIES} ${HICNLIGHT_LIBRARIES})
+endif()
 
 # install the plugin into plugins dir
 install(TARGETS hicnlight DESTINATION ${SR_PLUGINS_DIR} COMPONENT hicn_sysrepo_plugin)

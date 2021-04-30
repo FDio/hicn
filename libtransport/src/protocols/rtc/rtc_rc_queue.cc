@@ -67,12 +67,12 @@ void RTCRateControlQueue::onNewRound(double round_len) {
     if (prev_congestion_state == CongestionState::Normal) {
       // init the congetion window using the received rate
       congestion_win_ = (uint32_t)ceil(received_rate * rtt / packet_size);
-      rounds_since_last_drop_ = ROUNDS_BEFORE_TAKE_ACTION + 1;
+      rounds_since_last_drop_ = (uint32_t)ROUNDS_BEFORE_TAKE_ACTION + 1;
     }
 
     if (rounds_since_last_drop_ >= ROUNDS_BEFORE_TAKE_ACTION) {
-      uint32_t win = congestion_win_ * WIN_DECREASE_FACTOR;
-      congestion_win_ = std::max(win, WIN_MIN);
+      uint32_t win = congestion_win_ * (uint32_t)WIN_DECREASE_FACTOR;
+      congestion_win_ = max(win, WIN_MIN);
       rounds_since_last_drop_ = 0;
       return;
     }
@@ -88,8 +88,8 @@ void RTCRateControlQueue::onNewRound(double round_len) {
     rounds_without_congestion_++;
     if (rounds_without_congestion_ < ROUNDS_BEFORE_TAKE_ACTION) return;
 
-    congestion_win_ = congestion_win_ * WIN_INCREASE_FACTOR;
-    congestion_win_ = std::min(congestion_win_, INITIAL_WIN_MAX);
+    congestion_win_ = congestion_win_ * (uint32_t)WIN_INCREASE_FACTOR;
+    congestion_win_ = min(congestion_win_, INITIAL_WIN_MAX);
   }
 }
 

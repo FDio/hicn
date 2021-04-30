@@ -102,7 +102,7 @@ class RTCState : std::enable_shared_from_this<RTCState> {
     return false;
   }
   uint32_t getPendingInterestNumber() const {
-    return pending_interests_.size();
+    return (uint32_t)pending_interests_.size();
   }
   PacketState isReceivedOrLost(uint32_t seq) {
     auto it = received_or_lost_packets_.find(seq);

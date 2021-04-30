@@ -14,6 +14,10 @@
 list(APPEND DAEMON_SRC
   hicnLightDaemon_main.c
 )
+if (WIN32)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:\"LIBCMT\"" )
+endif()
+
 if (NOT DISABLE_EXECUTABLES)
   build_executable(${HICN_LIGHT_DAEMON}
     SOURCES ${DAEMON_SRC}

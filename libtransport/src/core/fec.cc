@@ -55,13 +55,15 @@
  * https://gcc.gnu.org/bugzilla//show_bug.cgi?id=88059 
  */
 #ifndef __clang__
+#ifndef _WIN32
 #pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
 #endif
 
 /*
  * compatibility stuff
  */
-#ifdef MSDOS	/* but also for others, e.g. sun... */
+#if defined (MSDOS) || defined (_WIN32)  	/* but also for others, e.g. sun... */
 #define NEED_BCOPY
 #define bcmp(a,b,n) memcmp(a,b,n)
 #endif

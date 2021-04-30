@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
 #include <arpa/inet.h>
+#endif
 #include <hicn/transport/utils/membuf.h>
 #include <protocols/fec_base.h>
 

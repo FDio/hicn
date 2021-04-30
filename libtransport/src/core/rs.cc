@@ -70,8 +70,8 @@ bool BlockCode::addSymbol(const fec::buffer &packet, uint32_t i,
 }
 
 void BlockCode::encode() {
-  gf *data[n_];
-  std::uint16_t old_values[k_];
+  gf **data = new gf*[k_];
+  uint32_t *old_values = new uint32_t[k_];
   uint32_t base = operator[](0).first;
 
   // Set packet length in first 2 bytes
@@ -93,9 +93,11 @@ void BlockCode::encode() {
     uint16_t *length = reinterpret_cast<uint16_t *>(packet->writableData());
 
     old_values[i] = *length;
-    *length = htons(packet->length() - LEN_SIZE_BYTES);
+    *length = htons(u_short(packet->length() - LEN_SIZE_BYTES));
 
     data[i] = packet->writableData();
+    delete [] data;
+    delete [] old_values;
   }
 
   // Finish to fill source block with the buffers to hold the repair symbols
@@ -121,7 +123,7 @@ void BlockCode::encode() {
   TRANSPORT_LOGD("Calling encode with max_buffer_size_ = %zu",
                  max_buffer_size_);
   for (uint32_t i = k_; i < n_; i++) {
-    fec_encode(code_, data, data[i], i, max_buffer_size_ + LEN_SIZE_BYTES);
+    fec_encode(code_, data, data[i], i, (int)(max_buffer_size_ + LEN_SIZE_BYTES));
   }
 
   // Restore original content of buffer space used to store the length
@@ -138,11 +140,12 @@ void BlockCode::encode() {
     TRANSPORT_LOGD("Produced repair symbol of size = %zu", packet->length());
     packet->prepend(sizeof(fec_header));
   }
+
 }
 
 void BlockCode::decode() {
-  gf *data[k_];
-  uint32_t index[k_];
+  gf **data = new gf*[k_];
+  uint32_t *index = new uint32_t[k_];
 
   for (uint32_t i = 0; i < k_; i++) {
     auto &packet = operator[](i).second;
@@ -161,7 +164,7 @@ void BlockCode::decode() {
       packet->ensureCapacityAndFillUnused(max_buffer_size_, 0);
       uint16_t *length = reinterpret_cast<uint16_t *>(packet->writableData());
 
-      *length = htons(packet->length() - LEN_SIZE_BYTES);
+      *length = htons(u_short(packet->length() - LEN_SIZE_BYTES));
     } else {
       TRANSPORT_LOGD("DECODE SYMBOL - index %u - Current buffer size: %zu",
                      index[i], packet->length());
@@ -169,12 +172,14 @@ void BlockCode::decode() {
     }
 
     data[i] = packet->writableData();
+    delete [] data;
+    delete [] index;
   }
 
   // We decode the source block
   TRANSPORT_LOGD("Calling decode with max_buffer_size_ = %zu",
                  max_buffer_size_);
-  fec_decode(code_, data, reinterpret_cast<int *>(index), max_buffer_size_);
+  fec_decode(code_, data, reinterpret_cast<int *>(index), (int)max_buffer_size_);
 
   // Find the index in the block for recovered packets
   for (uint32_t i = 0; i < k_; i++) {

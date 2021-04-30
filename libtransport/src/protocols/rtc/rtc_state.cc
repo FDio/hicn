@@ -547,7 +547,7 @@ void RTCState::checkInitRttTimer() {
   double prod_rate = getProducerRate();
   double rtt = (double)getRTT() / MILLI_IN_A_SEC;
   double packet_size = getAveragePacketSize();
-  uint32_t pkt_in_rtt_ = std::floor(((prod_rate / packet_size) * rtt) * 0.8);
+  uint32_t pkt_in_rtt_ = (uint32_t)std::floor(((prod_rate / packet_size) * rtt) * 0.8);
   last_seq_nacked_ = last_production_seq_ + pkt_in_rtt_;
 
   discovered_rtt_callback_();

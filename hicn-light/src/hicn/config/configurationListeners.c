@@ -598,7 +598,7 @@ void configurationListeners_SetupAll(const Configuration *config, uint16_t port,
 
       // Do not start on link address
       char listenerName[SYMBOLIC_NAME_LEN];
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(_WIN32)
       snprintf(listenerName, SYMBOLIC_NAME_LEN, "local_%zu", i);
 #else
       snprintf(listenerName, SYMBOLIC_NAME_LEN, "local_%ld", i);

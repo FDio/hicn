@@ -65,14 +65,14 @@ inline uint64_t _ntohll(const uint64_t *input) {
   uint64_t return_val;
   uint8_t *tmp = (uint8_t *)&return_val;
 
-  tmp[0] = *input >> 56;
-  tmp[1] = *input >> 48;
-  tmp[2] = *input >> 40;
-  tmp[3] = *input >> 32;
-  tmp[4] = *input >> 24;
-  tmp[5] = *input >> 16;
-  tmp[6] = *input >> 8;
-  tmp[7] = *input >> 0;
+  tmp[0] = (uint8_t)(*input >> 56);
+  tmp[1] = (uint8_t)(*input >> 48);
+  tmp[2] = (uint8_t)(*input >> 40);
+  tmp[3] = (uint8_t)(*input >> 32);
+  tmp[4] = (uint8_t)(*input >> 24);
+  tmp[5] = (uint8_t)(*input >> 16);
+  tmp[6] = (uint8_t)(*input >> 8);
+  tmp[7] = (uint8_t)(*input >> 0);
 
   return return_val;
 }
@@ -302,7 +302,7 @@ class HIperfClient {
       return;
     }
 
-    received_bytes_ += (payload->length() - 12);
+    received_bytes_ += (uint32_t)(payload->length() - 12);
     received_data_pkt_++;
 
     // collecting delay stats. Just for performance testing
@@ -479,8 +479,8 @@ class HIperfClient {
     old_bytes_recovered_value_ = stats.getBytesRecoveredData();
     old_fec_interest_tx_value_ = stats.getInterestFecTxCount();
     old_fec_data_rx_value_ = stats.getBytesFecRecv();
-    old_retx_value_ = stats.getRetxCount();
-    old_sent_int_value_ = stats.getInterestTx();
+    old_retx_value_ = (uint32_t)stats.getRetxCount();
+    old_sent_int_value_ = (uint32_t)stats.getInterestTx();
     old_received_nacks_value_ = stats.getReceivedNacks();
     delay_sample_ = 0;
     avg_data_delay_ = 0;
@@ -1127,7 +1127,7 @@ class HIperfServer {
 
     std::memcpy(payload->writableData(), &now, sizeof(uint64_t));
 
-    if (packet_len > payload->length()) packet_len = payload->length();
+    if (packet_len > payload->length()) packet_len = (uint32_t)payload->length();
     if (packet_len > 1400) packet_len = 1400;
 
     producer_socket_->produceDatagram(flow_name_, payload->data(), packet_len);
@@ -1268,8 +1268,9 @@ class HIperfServer {
   asio::posix::stream_descriptor input_;
   asio::streambuf input_buffer_;
   bool rtc_running_;
-  core::Name flow_name_;
+
 #endif
+    core::Name flow_name_;
 };  // namespace interface
 
 void usage() {

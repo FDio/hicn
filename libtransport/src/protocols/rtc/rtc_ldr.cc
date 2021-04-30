@@ -40,7 +40,7 @@ RTCLossDetectionAndRecovery::~RTCLossDetectionAndRecovery() {}
 
 void RTCLossDetectionAndRecovery::turnOnRTX() {
   rtx_on_ = true;
-  scheduleSentinelTimer(state_->getRTT() * CATCH_UP_RTT_INCREMENT);
+  scheduleSentinelTimer((uint32_t)(state_->getRTT() * CATCH_UP_RTT_INCREMENT));
 }
 
 void RTCLossDetectionAndRecovery::turnOffRTX() {
@@ -182,8 +182,8 @@ uint64_t RTCLossDetectionAndRecovery::computeNextSend(uint32_t seq,
 
     if (prod_rate != 0) {
       double packet_size = state_->getAveragePacketSize();
-      estimated_iat = ceil(1000.0 / (prod_rate / packet_size));
-      jitter = ceil(state_->getJitter());
+      estimated_iat = (uint32_t)ceil(1000.0 / (prod_rate / packet_size));
+      jitter = (uint32_t)ceil(state_->getJitter());
     }
 
     uint32_t wait = estimated_iat + jitter;
@@ -202,20 +202,20 @@ uint64_t RTCLossDetectionAndRecovery::computeNextSend(uint32_t seq,
     }
 
     double packet_size = state_->getAveragePacketSize();
-    uint32_t estimated_iat = ceil(1000.0 / (prod_rate / packet_size));
+    uint32_t estimated_iat = (uint32_t)ceil(1000.0 / (prod_rate / packet_size));
 
     uint64_t rtt = state_->getRTT();
     if (rtt == 0) rtt = SENTINEL_TIMER_INTERVAL;
-    wait = rtt;
+    wait = (uint32_t)rtt;
 
     if (estimated_iat > rtt) wait = estimated_iat;
 
-    uint32_t jitter = ceil(state_->getJitter());
+    uint32_t jitter = (uint32_t)ceil(state_->getJitter());
     wait += jitter;
 
     // it may happen that the channel is congested and we have some additional
     // queuing delay to take into account
-    uint32_t queue = ceil(state_->getQueuing());
+    uint32_t queue = (uint32_t)ceil(state_->getQueuing());
     wait += queue;
 
     TRANSPORT_LOGD(
@@ -389,18 +389,18 @@ void RTCLossDetectionAndRecovery::sentinelTimer() {
   } else {
     double prod_rate = state_->getProducerRate();
     double packet_size = state_->getAveragePacketSize();
-    uint32_t estimated_iat = ceil(1000.0 / (prod_rate / packet_size));
-    uint32_t jitter = ceil(state_->getJitter());
+    uint32_t estimated_iat = (uint32_t)ceil(1000.0 / (prod_rate / packet_size));
+    uint32_t jitter = (uint32_t)ceil(state_->getJitter());
 
     // try to reduce the number of timers if the estimated IAT is too small
-    next_timer = std::max((estimated_iat + jitter) * 20, (uint32_t)1);
+    next_timer = max((estimated_iat + jitter) * 20, (uint32_t)1);
     TRANSPORT_LOGD("next sentinel in %u ms, rate: %f, iat: %u, jitter: %u",
                    next_timer, ((prod_rate * 8.0) / 1000000.0), estimated_iat,
                    jitter);
 
     if (!expired) {
       // discount the amout of time that is already passed
-      uint32_t discount = now - last_event_;
+      uint32_t discount = (uint32_t)(now - last_event_);
       if (next_timer > discount) {
         next_timer = next_timer - discount;
       } else {
@@ -411,8 +411,8 @@ void RTCLossDetectionAndRecovery::sentinelTimer() {
     } else if (sent) {
       // wait at least one producer stats interval + owd to check if the
       // production rate is reducing.
-      uint32_t min_wait = PRODUCER_STATS_INTERVAL + ceil(state_->getQueuing());
-      next_timer = std::max(next_timer, min_wait);
+      uint32_t min_wait = PRODUCER_STATS_INTERVAL + (uint32_t)ceil(state_->getQueuing());
+      next_timer = max(next_timer, min_wait);
       TRANSPORT_LOGD("wait for updates from prod, next timer: %u", next_timer);
     }
   }

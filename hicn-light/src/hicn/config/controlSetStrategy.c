@@ -228,7 +228,7 @@ static CommandReturn _controlSetStrategy_Execute(CommandParser *parser,
   if(parcList_Size(args) > 4){
     uint32_t index = 4; //first realted prefix
     uint32_t addr_index = 0;
-    setStrategyCommand->related_prefixes = parcList_Size(args) - 4;
+    setStrategyCommand->related_prefixes = (uint8_t)parcList_Size(args) - 4;
     while(index < parcList_Size(args)){
       const char *str = parcList_GetAtIndex(args, index);
       char *rel_addr = (char *)malloc(sizeof(char) * (strlen(str) + 1));

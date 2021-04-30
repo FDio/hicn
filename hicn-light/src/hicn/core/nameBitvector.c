@@ -243,13 +243,13 @@ uint32_t nameBitvector_lpm(const NameBitvector *a,
     prefix_len = (uint32_t)(BV_SIZE - (_diff_bit_log2(diff) + 1));
     //printf("if 1 diff = %lu plen = %d\n", diff, prefix_len);
   }else{
-    prefix_len = BV_SIZE;
+    prefix_len = (uint32_t)BV_SIZE;
     diff = a->bits[1] ^ b->bits[1];
     if(diff){
-      prefix_len +=  (BV_SIZE - (_diff_bit_log2(diff) + 1));
+      prefix_len +=   (uint32_t)(BV_SIZE - (_diff_bit_log2(diff) + 1));
       //printf("if 2 diff = %lu plen = %d\n", diff, prefix_len);
     }else{
-      prefix_len += BV_SIZE;
+      prefix_len +=  (uint32_t)BV_SIZE;
     }
   }
 
