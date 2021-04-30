@@ -88,7 +88,7 @@ void Signer::signPacket(PacketPtr packet) {
 
   // Compute signature
   PARCSignature *signature = parcSigner_SignDigestNoAlloc(
-      signer_, hash.hash_, packet->getSignature(), signature_len);
+      signer_, hash.hash_, packet->getSignature(), (uint32_t)signature_len);
   PARCBuffer *buffer = parcSignature_GetSignature(signature);
   size_t bytes_len = parcBuffer_Remaining(buffer);
 

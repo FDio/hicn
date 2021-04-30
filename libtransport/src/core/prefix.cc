@@ -69,7 +69,7 @@ Prefix::Prefix(const core::Name &content_name, uint16_t prefix_length) {
   }
 
   ip_prefix_ = content_name.toIpAddress();
-  ip_prefix_.len = prefix_length;
+  ip_prefix_.len = (u8)prefix_length;
   ip_prefix_.family = family;
 }
 
@@ -95,7 +95,7 @@ void Prefix::buildPrefix(std::string &prefix, uint16_t prefix_length,
     throw errors::InvalidIpAddressException();
   }
 
-  ip_prefix_.len = prefix_length;
+  ip_prefix_.len = (u8)prefix_length;
   ip_prefix_.family = family;
 }
 
@@ -123,7 +123,7 @@ std::unique_ptr<Sockaddr> Prefix::toSockaddr() const {
 uint16_t Prefix::getPrefixLength() const { return ip_prefix_.len; }
 
 Prefix &Prefix::setPrefixLength(uint16_t prefix_length) {
-  ip_prefix_.len = prefix_length;
+  ip_prefix_.len = (u8)prefix_length;
   return *this;
 }
 
@@ -228,7 +228,7 @@ Name Prefix::getRandomName() const {
   size_t size = (size_t)ceil((float)addr_len / 8.0);
   uint8_t *buffer = (uint8_t *)malloc(sizeof(uint8_t) * size);
 
-  RAND_bytes(buffer, size);
+  RAND_bytes(buffer, (int)size);
 
   int j = 0;
   for (uint8_t i = (uint8_t)ceil((float)ip_prefix_.len / 8.0);

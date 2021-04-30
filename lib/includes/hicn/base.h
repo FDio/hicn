@@ -22,8 +22,11 @@
 #define HICN_BASE_H
 
 #include "common.h"
+#ifdef _WIN32
+#include <Winsock2.h>
+#else
 #include <netinet/in.h>
-
+#endif
 /* Default header fields */
 #define HICN_DEFAULT_TTL 254
 
