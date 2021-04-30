@@ -26,7 +26,20 @@ if (${CMAKE_SYSTEM_NAME} MATCHES Android)
 
   set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
   set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)
-else()
+elseif (WIN32)
+  list(APPEND SOURCE_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp/hicn_forwarder_module.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp/udp_socket_connector.cc
+  )
+
+  list(APPEND HEADER_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp/hicn_forwarder_module.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp/udp_socket_connector.h
+  )
+
+  set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
+  set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)
+else ()
   add_subdirectory(udp)
   add_subdirectory(loopback)
   add_subdirectory(forwarder)

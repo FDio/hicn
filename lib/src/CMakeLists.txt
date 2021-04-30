@@ -30,6 +30,11 @@ list(APPEND LIBHICN_SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/util/log.c
 )
 
+if (WIN32)
+  list(APPEND LIBHICN_SOURCE_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/util/windows/dlfcn.c
+  )
+endif ()
 set (COMPILER_DEFINITIONS "-DWITH_MAPME")
 
 include(BuildMacros)

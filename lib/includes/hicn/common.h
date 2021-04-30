@@ -104,6 +104,9 @@ typedef uword ip_csum_t;
 
  /* Windows compatibility headers */
 #define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2ipdef.h>

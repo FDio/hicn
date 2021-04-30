@@ -32,7 +32,7 @@ bool GlobalConfiguration::parseTransportConfig(const std::string& path) {
   try {
     cfg.readFile(path.c_str());
   } catch (const FileIOException& fioex) {
-    TRANSPORT_LOGE("I/O error while reading file.");
+    TRANSPORT_LOGE("I/O error while reading file: %s", fioex.what());
     return false;
   } catch (const ParseException& pex) {
     TRANSPORT_LOGE("Parse error at %s:%d - %s", pex.getFile(), pex.getLine(),
@@ -67,6 +67,7 @@ void GlobalConfiguration::parseConfiguration(const std::string& path) {
   // Check if an environment variable with the configuration path exists. COnf
   // variable comes first.
   std::unique_lock<std::mutex> lck(cp_mtx_);
+
   if (const char* env_c = std::getenv(GlobalConfiguration::conf_file)) {
     parseTransportConfig(env_c);
   } else if (!path.empty()) {

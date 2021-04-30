@@ -25,7 +25,11 @@
  */
 
 #pragma once
+#ifndef _WIN32
 #include <arpa/inet.h>
+#else
+#include <hicn/transport/portability/win_portability.h>
+#endif
 
 namespace transport {
 
@@ -37,14 +41,14 @@ inline uint64_t _ntohll(const uint64_t *input) {
   uint64_t return_val;
   uint8_t *tmp = (uint8_t *)&return_val;
 
-  tmp[0] = *input >> 56;
-  tmp[1] = *input >> 48;
-  tmp[2] = *input >> 40;
-  tmp[3] = *input >> 32;
-  tmp[4] = *input >> 24;
-  tmp[5] = *input >> 16;
-  tmp[6] = *input >> 8;
-  tmp[7] = *input >> 0;
+  tmp[0] = (uint8_t)(*input >> 56);
+  tmp[1] = (uint8_t)(*input >> 48);
+  tmp[2] = (uint8_t)(*input >> 40);
+  tmp[3] = (uint8_t)(*input >> 32);
+  tmp[4] = (uint8_t)(*input >> 24);
+  tmp[5] = (uint8_t)(*input >> 16);
+  tmp[6] = (uint8_t)(*input >> 8);
+  tmp[7] = (uint8_t)(*input >> 0);
 
   return return_val;
 }
