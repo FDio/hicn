@@ -17,12 +17,14 @@
 #define WINDOWS_UTILS_H
 #define WIN32_LEAN_AND_MEAN
 #define HAVE_STRUCT_TIMESPEC
+#define NOMINMAX
 #include <Windows.h>
 #include <stdint.h>
 #include <io.h>
 #include <stdlib.h>
 #include <winsock2.h>
 #include <WS2tcpip.h>
+#include "dlfcn.h"
 
 #ifndef IOVEC
 #define IOVEC
@@ -151,4 +153,8 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp);
 #define __bswap_constant_32(x)					\
   ((((x) & 0xff000000u) >> 24) | (((x) & 0x00ff0000u) >> 8)	\
    | (((x) & 0x0000ff00u) << 8) | (((x) & 0x000000ffu) << 24))
+#endif
+
+#ifndef bzero
+#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
 #endif

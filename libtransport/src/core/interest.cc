@@ -175,7 +175,7 @@ void Interest::encodeSuffixes() {
   // We assume interest does not hold signature for the moment.
   auto int_manifest_header =
       (InterestManifestHeader *)(writableData() + headerSize());
-  int_manifest_header->n_suffixes = suffix_set_.size();
+  int_manifest_header->n_suffixes = (uint32_t)suffix_set_.size();
   std::size_t additional_length =
       int_manifest_header->n_suffixes * sizeof(uint32_t);
 
