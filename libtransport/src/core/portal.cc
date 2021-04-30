@@ -33,6 +33,8 @@ static const constexpr char default_module[] = "";
 static const constexpr char default_module[] = "hicnlight_module.dylib";
 #elif defined(LINUX)
 static const constexpr char default_module[] = "hicnlight_module.so";
+#elif defined(WINDOWS)
+static const constexpr char default_module[] = "hicnlight_module.lib";
 #endif
 
 IoModuleConfiguration Portal::conf_;
@@ -69,6 +71,8 @@ std::string getIoModulePath(const std::string& name,
   std::string extension = ".so";
 #elif defined(MACINTOSH)
   std::string extension = ".dylib";
+#elif defined(WINDOWS)
+ std::string extension = ".lib";
 #else
 #error "Platform not supported.";
 #endif

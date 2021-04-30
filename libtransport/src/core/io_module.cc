@@ -13,12 +13,16 @@
  * limitations under the License.
  */
 
+#ifndef _WIN32
 #include <dlfcn.h>
+#endif
 #include <hicn/transport/core/io_module.h>
 #include <hicn/transport/utils/log.h>
 
 #ifdef ANDROID
 #include <io_modules/udp/hicn_forwarder_module.h>
+#elif _WIN32
+#include <hicn/util/windows/windows_utils.h>
 #endif
 
 #include <deque>

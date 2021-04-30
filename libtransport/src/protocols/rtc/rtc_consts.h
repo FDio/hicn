@@ -97,7 +97,7 @@ const double MAX_CACHED_PACKETS = 262144;  // 2^18
                                            // about 50 sec of traffic at 50Mbps
                                            // with 1200 bytes packets
 
-const uint32_t MAX_ROUND_WHIOUT_PACKETS =
+const uint32_t MAX_ROUND_WHIOUT_PACKETS = (const uint32_t)
     (20 * MILLI_IN_A_SEC) / ROUND_LEN;  // 20 sec in rounds;
 
 // used in ldr

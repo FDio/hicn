@@ -335,7 +335,7 @@ static bool _sendIOVBuffer(IoOperations *ops, struct iovec *message,
     dataBuf[i].len = (ULONG)message[i].iov_len;
   }
 
-  int rc = WSASendTo(udpConnState->udpListenerSocket, dataBuf, size,
+  int rc = WSASendTo(udpConnState->udpListenerSocket, dataBuf, (DWORD)size,
     &BytesSent, 0, (SOCKADDR *)udpConnState->peerAddress,
     udpConnState->peerAddressLength, NULL, NULL);
   free(dataBuf);
