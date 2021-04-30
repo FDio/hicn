@@ -31,6 +31,10 @@ list(APPEND APPS_SRC
   higet.cc
 )
 
+if (WIN32)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:\"LIBCMT\"" )
+endif()
+
 if (NOT DISABLE_EXECUTABLES)
   build_executable(${HIGET}
     SOURCES ${APPS_SRC}
