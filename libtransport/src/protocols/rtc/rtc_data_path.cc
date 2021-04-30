@@ -69,7 +69,7 @@ void RTCDataPath::insertOwdSample(int64_t owd) {
   if (avg_owd != DBL_MAX)
     avg_owd = (avg_owd * (1 - ALPHA_RTC)) + (owd * ALPHA_RTC);
   else {
-    avg_owd = owd;
+    avg_owd = (double)owd;
   }
 
   int64_t queueVal = owd - std::min(getMinOwd(), min_owd);
@@ -77,7 +77,7 @@ void RTCDataPath::insertOwdSample(int64_t owd) {
   if (queuing_delay != DBL_MAX)
     queuing_delay = (queuing_delay * (1 - ALPHA_RTC)) + (queueVal * ALPHA_RTC);
   else {
-    queuing_delay = queueVal;
+    queuing_delay = (double)queueVal;
   }
 
   // keep track of the jitter computed as for RTP (RFC 3550)
@@ -100,7 +100,7 @@ void RTCDataPath::computeInterArrivalGap(uint32_t segment_number) {
     largest_recv_seq_ = segment_number;
     largest_recv_seq_time_ = now;
     if (avg_inter_arrival_ == DBL_MAX)
-      avg_inter_arrival_ = delta;
+      avg_inter_arrival_ = (double)delta;
     else
       avg_inter_arrival_ =
           (avg_inter_arrival_ * (1 - ALPHA_RTC)) + (delta * ALPHA_RTC);
