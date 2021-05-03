@@ -13,20 +13,7 @@
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
-if (${CMAKE_SYSTEM_NAME} MATCHES Android)
-  list(APPEND SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/udp/hicn_forwarder_module.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/udp/udp_socket_connector.cc
-  )
-
-  list(APPEND HEADER_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/udp/hicn_forwarder_module.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/udp/udp_socket_connector.h
-  )
-
-  set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
-  set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)
-elseif (WIN32)
+if ((${CMAKE_SYSTEM_NAME} MATCHES Android) OR (${CMAKE_SYSTEM_NAME} MATCHES Windows) OR ({CMAKE_SYSTEM_NAME} MATCHES iOS))
   list(APPEND SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/udp/hicn_forwarder_module.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/udp/udp_socket_connector.cc
