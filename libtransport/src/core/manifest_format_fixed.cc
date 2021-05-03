@@ -34,7 +34,7 @@ FixedManifestEncoder::FixedManifestEncoder(Packet &packet,
       current_entry_(0),
       signature_size_(signature_size) {
   if (clear) {
-    *manifest_header_ = {0};
+        memset(manifest_header_, 0, sizeof(*manifest_header_));
   }
 }
 
@@ -51,7 +51,7 @@ FixedManifestEncoder &FixedManifestEncoder::clearImpl() {
   packet_.trimEnd(sizeof(ManifestHeader) +
                   manifest_header_->number_of_entries * sizeof(ManifestEntry));
   current_entry_ = 0;
-  *manifest_header_ = {0};
+      memset(manifest_header_, 0, sizeof(*manifest_header_));
   return *this;
 }
 
