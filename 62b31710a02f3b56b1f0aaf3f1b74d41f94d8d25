@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f0f19e63_335610af",
+        "filename": "cmake/Modules/BuildMacros.cmake",
+        "patchSetId": 4
+      },
+      "lineNbr": 270,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2021-05-03T11:32:32Z",
+      "side": 1,
+      "message": "Trailing whitespace",
+      "revId": "62b31710a02f3b56b1f0aaf3f1b74d41f94d8d25",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
