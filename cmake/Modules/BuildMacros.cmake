@@ -262,6 +262,8 @@ macro (build_module module)
 
   if (${CMAKE_SYSTEM_NAME} MATCHES Darwin)
     set(LINK_FLAGS "-Wl,-undefined,dynamic_lookup")
+  elseif(${CMAKE_SYSTEM_NAME} MATCHES iOS)
+    set(LINK_FLAGS "-Wl,-undefined,dynamic_lookup")
   elseif(${CMAKE_SYSTEM_NAME} MATCHES Linux)
     set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-all")
   elseif(${CMAKE_SYSTEM_NAME} MATCHES Windows)
