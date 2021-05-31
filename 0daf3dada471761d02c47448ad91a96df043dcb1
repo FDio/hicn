@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3c0b2a24_299d7993",
+        "filename": "cmake/Modules/Packager.cmake",
+        "patchSetId": 4
+      },
+      "lineNbr": 226,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2021-05-31T09:29:18Z",
+      "side": 1,
+      "message": "Fix indentation",
+      "revId": "0daf3dada471761d02c47448ad91a96df043dcb1",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "131e1219_97c190af",
+        "filename": "cmake/Modules/PostInstall.cmake",
+        "patchSetId": 4
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2021-05-31T09:29:18Z",
+      "side": 1,
+      "message": "Trailing whitespace",
+      "revId": "0daf3dada471761d02c47448ad91a96df043dcb1",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "a78b58b9_c7fa1399",
+        "filename": "cmake/Modules/PostInstall.cmake",
+        "patchSetId": 4
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2021-05-31T09:29:18Z",
+      "side": 1,
+      "message": "Trailing whitespace",
+      "revId": "0daf3dada471761d02c47448ad91a96df043dcb1",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2",
+      "unresolved": true
+    }
+  ]
+}
