@@ -222,7 +222,11 @@ typedef struct {
 static const hicn_policy_t POLICY_NONE = {
     .app_name = { 0 },
     .tags = {
+#ifdef __ANDROID__
+#define _(x, y) { POLICY_STATE_NEUTRAL, 0 },
+#else
 #define _(x, y) [POLICY_TAG_ ## x] = { POLICY_STATE_NEUTRAL, 0 },
+#endif
 foreach_policy_tag
 #undef _
     },
