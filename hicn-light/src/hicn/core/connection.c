@@ -286,13 +286,15 @@ connection_initialize(connection_t * connection, face_type_t type, const char * 
         goto ERR_REGISTER_FD;
 #endif
 
-    // XXX TODO
-    //char *str = pair_ToString(udp->pair);
+    char addr_str[INET6_ADDRSTRLEN];
+    if (local)
+        address_to_string(&(pair->local), addr_str);
+    else
+        address_to_string(&(pair->remote), addr_str);
     DEBUG("%s connection %p created for address %s (local=%s)",
-            face_type_str(connection->type), connection, "N/A",
+            face_type_str(connection->type), connection, addr_str,
             connection_is_local(connection) ? "true" : "false");
-    //free(str);
-    //
+
     return 0;
 
 #if 0

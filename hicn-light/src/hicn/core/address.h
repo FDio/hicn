@@ -84,5 +84,14 @@ extern const char * _address_family_str[];
 #define address6_empty(address) (memcmp(address6_ip(address).s6_addr, &in6addr_any, sizeof(struct in6_addr)) == 0)
 #define address_empty(address) (address_family(address) == AF_INET ? address4_empty(address) : address6_empty(address))
 
+/**
+ * @brief Return the string representation of the IP address provided.
+ *
+ * @param[in] address Address to obtain the string representation from.
+ * @param[in, out] buffer String to store the string representation of the address. It contains "N/A" in case of failure (see return value).
+ * @return int 0 if success, failure otherwise.
+ */
+int address_to_string(const address_t *address, char *buffer);
+
 #endif /* HICNLIGHT_ADDRESS_H */
 
