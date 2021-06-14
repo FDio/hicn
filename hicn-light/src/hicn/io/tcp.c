@@ -144,12 +144,14 @@ connection_tcp_accept(connection_t * connection, forwarder_t *forwarder, int fd,
         .closed = false,
     };
 
-    // XXX this new connection needs to be registered
-    //char *str = pair_ToString(udp->pair);
+    char addr_str[INET6_ADDRSTRLEN];
+    if (local)
+        address_to_string(&(pair->local), addr_str);
+    else
+        address_to_string(&(pair->remote), addr_str);
     INFO("%s connection %p created for address %s (local=%s)",
-            face_type_str(connection->type), connection, "N/A",
+            face_type_str(connection->type), connection, addr_str,
             connection_is_local(connection) ? "true" : "false");
-    //free(str);
 
     return 0;
 }
@@ -233,10 +235,12 @@ connection_tcp_initialize(connection_t * connection)
         return -1;
     }
 
-    //char *pair_str = address_pair_ToString(pair);
-    INFO("%s connection %p connect for address pair %s",
-            face_type_str(connection->type), connection, "N/A");
-    //free(pair_str);
+    char local_addr_str[INET6_ADDRSTRLEN];
+    address_to_string(&(connection->pair.local), local_addr_str);
+    char remote_addr_str[INET6_ADDRSTRLEN];
+    address_to_string(&(connection->pair.remote), remote_addr_str);
+    INFO("%s connection %p connect for address pair %s - %s",
+            face_type_str(connection->type), connection,local_addr_str, remote_addr_str);
 
     return 0;
 }

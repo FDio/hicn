@@ -63,7 +63,7 @@ listener_initialize(listener_t * listener, face_type_t type, const char * name,
         .type = type,
         .interface_name = strdup(interface_name),
         //.interface_index = ,
-        //.family = ,
+        .family = address->ss_family,
         .fd = 0,
         .address = *address,
         .forwarder = forwarder,
@@ -103,12 +103,10 @@ listener_initialize(listener_t * listener, face_type_t type, const char * name,
         goto ERR_REGISTER_FD;
     }
 
-    // XXX TODO
-    //char *str = addressToString(listener->local_addr);
+    char addr_str[INET6_ADDRSTRLEN];
+    address_to_string(address, addr_str);
     DEBUG("%s UdpListener %p created for address %s",
-            face_type_str(listener->type), listener, "N/A");
-    //free(str);
-
+            face_type_str(listener->type), listener, addr_str);
     return 0;
 
 ERR_REGISTER_FD:
@@ -282,6 +280,9 @@ listener_read_batch(listener_t * listener)
             total_size += processed_size;
         }
 
+        // TODO: free only if not used by cs or pit
+        for (unsigned i = 0; i < MAX_MSG; i++)
+            msgbuf_pool_put(msgbuf_pool, msgbuf[i]);
     } while(r == MAX_MSG); /* backpressure based on queue size ? */
 
     /*

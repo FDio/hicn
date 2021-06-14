@@ -41,3 +41,14 @@ const char * _address_family_str[] = {
     [AF_INET] = "AF_INET",
     [AF_INET6] = "AF_INET6",
 };
+
+int address_to_string(const address_t *address, char *buffer) {
+    struct sockaddr_storage addr = *address;
+    socklen_t addr_len = sizeof(addr);
+    int err=getnameinfo((struct sockaddr*) &addr, addr_len, buffer, INET6_ADDRSTRLEN, 0, 0, NI_NUMERICHOST);
+
+    if (err != 0) {
+      strncpy(buffer, "N/A", INET6_ADDRSTRLEN);
+    }
+    return err;
+}
