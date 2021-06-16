@@ -25,7 +25,6 @@
 
 #include <parc/algol/parc_Memory.h>
 #include <parc/algol/parc_Network.h>
-#include <hicn/utils/address.h>
 
 #include <hicn/config/controlRemoveListener.h>
 
@@ -34,14 +33,10 @@
 
 static CommandReturn _controlRemoveListener_Execute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args,
-                                                      char *output,
-                                                      size_t output_size);
+                                                      PARCList *args);
 static CommandReturn _controlRemoveListener_HelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args,
-                                                          char *output,
-                                                          size_t output_size);
+                                                          PARCList *args);
 
 // ===================================================
 
@@ -66,29 +61,25 @@ CommandOps *controlRemoveListener_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlRemoveListener_HelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args,
-                                                          char *output,
-                                                          size_t output_size) {
-  snprintf(output, output_size, "command:\n"
-                                "    remove listener <symbolic|id>\n");
+                                                          PARCList *args) {
+  printf("command:\n");
+  printf("    remove listener <symbolic|id>\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlRemoveListener_Execute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args,
-                                                      char *output,
-                                                      size_t output_size) {
+                                                      PARCList *args) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 3) {
-    _controlRemoveListener_HelpExecute(parser, ops, args, output, output_size);
+    _controlRemoveListener_HelpExecute(parser, ops, args);
     return false;
   }
 
   if ((strcmp(parcList_GetAtIndex(args, 0), "remove") != 0) ||
       (strcmp(parcList_GetAtIndex(args, 1), "listener") != 0)) {
-    _controlRemoveListener_HelpExecute(parser, ops, args, output, output_size);
+    _controlRemoveListener_HelpExecute(parser, ops, args);
     return false;
   }
 
@@ -96,7 +87,7 @@ static CommandReturn _controlRemoveListener_Execute(CommandParser *parser,
 
 if (!utils_ValidateSymbolicName(listenerId) &&
       !utils_IsNumber(listenerId)) {
-    snprintf(output, output_size,
+    printf(
         "ERROR: Invalid symbolic or listenerId:\nsymbolic name must begin with an "
         "alpha followed by alphanum;\nlistenerId must be an integer\n");
     return CommandReturn_Failure;

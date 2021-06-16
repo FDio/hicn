@@ -201,17 +201,14 @@ static CommandOps *commandParser_MatchCommand(CommandParser *state,
 }
 
 CommandReturn commandParser_DispatchCommand(CommandParser *state,
-                                            PARCList *args,
-                                            char *output,
-                                            size_t output_size) {
-  parcAssertNotNull(output, "output buffer is null\n");
+                                            PARCList *args) {
   CommandOps *ops = commandParser_MatchCommand(state, args);
 
   if (ops == NULL) {
-    snprintf(output, output_size, "Command not found.\n");
+    printf("Command not found.\n");
     return CommandReturn_Failure;
   } else {
-    return ops->execute(state, ops, args, output, output_size);
+    return ops->execute(state, ops, args);
   }
 }
 

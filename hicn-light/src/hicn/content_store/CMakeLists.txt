@@ -14,19 +14,11 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
 list(APPEND HEADER_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreEntry.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreInterface.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreLRU.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/listTimeOrdered.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/listLRU.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/lru.h
 )
 
 list(APPEND SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreInterface.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreLRU.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/listLRU.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/listTimeOrdered.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreEntry.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/lru.c
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

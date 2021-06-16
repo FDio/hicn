@@ -31,15 +31,9 @@
 
 static void _controlMapMe_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlMapMe_Execute(CommandParser *parser,
-                                           CommandOps *ops,
-                                           PARCList *args,
-                                           char *output,
-                                           size_t output_size);
+                                           CommandOps *ops, PARCList *args);
 static CommandReturn _controlMapMe_HelpExecute(CommandParser *parser,
-                                               CommandOps *ops,
-                                               PARCList *args,
-                                               char *output,
-                                               size_t output_size);
+                                               CommandOps *ops, PARCList *args);
 
 static const char *_commandMapMe = "mapme";
 static const char *_commandMapMeHelp = "help mapme";
@@ -58,20 +52,18 @@ CommandOps *controlMapMe_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlMapMe_HelpExecute(CommandParser *parser,
                                                CommandOps *ops,
-                                               PARCList *args,
-                                               char *output,
-                                               size_t output_size) {
+                                               PARCList *args) {
   CommandOps *ops_mapme_enable = controlMapMeEnable_HelpCreate(NULL);
   CommandOps *ops_mapme_discovery = controlMapMeDiscovery_HelpCreate(NULL);
   CommandOps *ops_mapme_timescale = controlMapMeTimescale_HelpCreate(NULL);
   CommandOps *ops_mapme_retx = controlMapMeRetx_HelpCreate(NULL);
 
-  snprintf(output, output_size, "Available commands:\n"
-                                "   %s\n   %s\n   %s\n   %s\n\n",
-                                ops_mapme_enable->command,
-                                ops_mapme_discovery->command,
-                                ops_mapme_timescale->command,
-                                ops_mapme_retx->command);
+  printf("Available commands:\n");
+  printf("   %s\n", ops_mapme_enable->command);
+  printf("   %s\n", ops_mapme_discovery->command);
+  printf("   %s\n", ops_mapme_timescale->command);
+  printf("   %s\n", ops_mapme_retx->command);
+  printf("\n");
 
   commandOps_Destroy(&ops_mapme_enable);
   commandOps_Destroy(&ops_mapme_discovery);
@@ -94,11 +86,8 @@ static void _controlMapMe_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlMapMe_Execute(CommandParser *parser,
-                                           CommandOps *ops,
-                                           PARCList *args,
-                                           char *output,
-                                           size_t output_size) {
-  return _controlMapMe_HelpExecute(parser, ops, args, output, output_size);
+                                           CommandOps *ops, PARCList *args) {
+  return _controlMapMe_HelpExecute(parser, ops, args);
 }
 
 // ======================================================================

@@ -29,14 +29,10 @@
 
 static CommandReturn _controlMapMeDiscovery_Execute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args,
-                                                    char *output,
-                                                    size_t output_size);
+                                                    PARCList *args);
 static CommandReturn _controlMapMeDiscovery_HelpExecute(CommandParser *parser,
                                                         CommandOps *ops,
-                                                        PARCList *args,
-                                                        char *output,
-                                                        size_t output_size);
+                                                        PARCList *args);
 
 static const char *_commandMapMeDiscovery = "mapme discovery";
 static const char *_commandMapMeDiscoveryHelp = "help mapme discovery";
@@ -58,21 +54,18 @@ CommandOps *controlMapMeDiscovery_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlMapMeDiscovery_HelpExecute(CommandParser *parser,
                                                         CommandOps *ops,
-                                                        PARCList *args,
-                                                        char *output,
-                                                        size_t output_size) {
-  snprintf(output, output_size, "mapme discovery [on|off]\n\n");
+                                                        PARCList *args) {
+  printf("mapme discovery [on|off]\n");
+  printf("\n");
 
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlMapMeDiscovery_Execute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args,
-                                                    char *output,
-                                                    size_t output_size) {
+                                                    PARCList *args) {
   if (parcList_Size(args) != 3) {
-    _controlMapMeDiscovery_HelpExecute(parser, ops, args, output, output_size);
+    _controlMapMeDiscovery_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
@@ -82,7 +75,7 @@ static CommandReturn _controlMapMeDiscovery_Execute(CommandParser *parser,
   } else if (strcmp(parcList_GetAtIndex(args, 2), "off") == 0) {
     active = false;
   } else {
-    _controlMapMeDiscovery_HelpExecute(parser, ops, args, output, output_size);
+    _controlMapMeDiscovery_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 

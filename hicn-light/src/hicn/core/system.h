@@ -25,7 +25,6 @@
 #define system_h
 
 #include <hicn/core/forwarder.h>
-#include <hicn/utils/interfaceSet.h>
 
 /**
  * @function system_Interfaces

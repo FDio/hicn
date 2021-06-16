@@ -42,7 +42,7 @@ struct controller_state {
   bool debugFlag;
 
   void *userdata;
-  struct iovec *(*writeRead)(ControlState *state, struct iovec *msg);
+  uint8_t *(*writeRead)(ControlState *state, uint8_t *msg);
   int sockfd;
   char **commandOutput;
   bool isInteractive;
@@ -54,7 +54,7 @@ int controlState_connectToFwdDeamon(char *server_ip, uint16_t port) {
 
   if ((sockfd = (int)socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     printf("\nSocket Creation Failed \n");
-      return EXIT_FAILURE;
+    exit(EXIT_FAILURE);
   }
 
   memset(&servaddr, 0, sizeof(servaddr));
@@ -67,7 +67,7 @@ int controlState_connectToFwdDeamon(char *server_ip, uint16_t port) {
   // Establish connection
   if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
     printf("\nConnection Failed: hicn-light Daemon is not running \n");
-    return -1;
+    exit(EXIT_FAILURE);
   }
 
   return sockfd;
@@ -75,9 +75,9 @@ int controlState_connectToFwdDeamon(char *server_ip, uint16_t port) {
 
 ControlState *controlState_Create(
     void *userdata,
-    struct iovec *(*writeRead)(ControlState *state, struct iovec *msg),
-      bool openControllerConnetion,
-      char *server_ip, uint16_t port) {
+    uint8_t *(*writeRead)(ControlState *state, uint8_t * msg),
+    bool openControllerConnetion,
+    char *server_ip, uint16_t port) {
   ControlState *state = parcMemory_AllocateAndClear(sizeof(ControlState));
   parcAssertNotNull(state, "parcMemory_AllocateAndClear(%zu) returned NULL",
                     sizeof(ControlState));
@@ -91,9 +91,6 @@ ControlState *controlState_Create(
 
   if (openControllerConnetion) {
     state->sockfd = controlState_connectToFwdDeamon(server_ip, port);
-    if (state->sockfd == -1) {
-        return NULL;
-    }
   } else {
     state->sockfd = 2;  // stderr
   }
@@ -131,11 +128,13 @@ void controlState_RegisterCommand(ControlState *state, CommandOps *ops) {
   commandParser_RegisterCommand(state->parser, ops);
 }
 
-struct iovec *controlState_WriteRead(ControlState *state, struct iovec *msg) {
-  parcAssertNotNull(state, "Parameter state must be non-null");
-  parcAssertNotNull(msg, "Parameter msg must be non-null");
+uint8_t *
+controlState_write_read(ControlState *state, uint8_t *packet)
+{
+    assert(state);
+    assert(packet);
 
-  return state->writeRead(state, msg);
+    return state->writeRead(state, packet);
 }
 
 static PARCList *_controlState_ParseStringIntoTokens(
@@ -164,11 +163,9 @@ static PARCList *_controlState_ParseStringIntoTokens(
 }
 
 CommandReturn controlState_DispatchCommand(ControlState *state,
-                                           PARCList *args,
-                                           char *output,
-                                           size_t output_size) {
+                                           PARCList *args) {
   parcAssertNotNull(state, "Parameter state must be non-null");
-  return commandParser_DispatchCommand(state->parser, args, output, output_size);
+  return commandParser_DispatchCommand(state->parser, args);
 }
 
 int controlState_Interactive(ControlState *state) {
@@ -176,7 +173,7 @@ int controlState_Interactive(ControlState *state) {
   char *line = NULL;
   size_t linecap = 0;
   CommandReturn controlReturn = CommandReturn_Success;
-  char output[8192];
+
   while (controlReturn != CommandReturn_Exit && !feof(stdin)) {
     fputs("> ", stdout);
     fflush(stdout);
@@ -184,9 +181,7 @@ int controlState_Interactive(ControlState *state) {
     parcAssertTrue(failure > -1, "Error getline");
 
     PARCList *args = _controlState_ParseStringIntoTokens(line);
-    
-    controlReturn = controlState_DispatchCommand(state, args, output, sizeof(output));
-    printf("%s", output);
+    controlReturn = controlState_DispatchCommand(state, args);
     // release and get command
     parcList_Release(&args);
   }

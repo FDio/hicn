@@ -1,5 +1,3 @@
 #!/bin/bash
 
-if pidof systemd; then
-  systemctl enable hicn-light
-fi
+systemctl enable hicn-light

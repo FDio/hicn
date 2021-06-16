@@ -35,18 +35,10 @@
 // ===================================================
 
 static void _controlAdd_Init(CommandParser *parser, CommandOps *ops);
-
-static CommandReturn _controlAdd_Execute(CommandParser *parser, 
-                                         CommandOps *ops,
-                                         PARCList *args,
-                                         char *output,
-                                         size_t output_size);
-
+static CommandReturn _controlAdd_Execute(CommandParser *parser, CommandOps *ops,
+                                         PARCList *args);
 static CommandReturn _controlAdd_HelpExecute(CommandParser *parser,
-                                             CommandOps *ops,
-                                             PARCList *args,
-                                             char *output,
-                                             size_t output_size);
+                                             CommandOps *ops, PARCList *args);
 
 // ===================================================
 
@@ -66,10 +58,7 @@ CommandOps *controlAdd_CreateHelp(ControlState *state) {
 // ===================================================
 
 static CommandReturn _controlAdd_HelpExecute(CommandParser *parser,
-                                             CommandOps *ops,
-                                             PARCList *args,
-                                             char *output,
-                                             size_t output_size) {
+                                             CommandOps *ops, PARCList *args) {
   CommandOps *ops_add_connection = controlAddConnection_Create(NULL);
   CommandOps *ops_add_route = controlAddRoute_Create(NULL);
   CommandOps *ops_add_punting = controlAddPunting_Create(NULL);
@@ -77,21 +66,16 @@ static CommandReturn _controlAdd_HelpExecute(CommandParser *parser,
 #ifdef WITH_POLICY
   CommandOps *ops_add_policy = controlAddPolicy_Create(NULL);
 #endif /* WITH_POLICY */
-#ifdef WITH_POLICY
-  snprintf(output, output_size, "Available commands:\n   %s\n   %s\n   %s\n   %s\n   %s\n\n",
-                                  ops_add_connection->command,
-                                  ops_add_route->command,
-                                  ops_add_punting->command,
-                                  ops_add_listener->command,
-                                  ops_add_policy->command);
-#else
-  snprintf(output, output_size, "Available commands:\n   %s\n   %s\n   %s\n   %s\n\n",
-                                  ops_add_connection->command,
-                                  ops_add_route->command,
-                                  ops_add_punting->command,
-                                  ops_add_listener->command);
 
+  printf("Available commands:\n");
+  printf("   %s\n", ops_add_connection->command);
+  printf("   %s\n", ops_add_route->command);
+  printf("   %s\n", ops_add_punting->command);
+  printf("   %s\n", ops_add_listener->command);
+#ifdef WITH_POLICY
+  printf("   %s\n", ops_add_policy->command);
 #endif /* WITH_POLICY */
+  printf("\n");
 
   commandOps_Destroy(&ops_add_connection);
   commandOps_Destroy(&ops_add_route);
@@ -119,10 +103,7 @@ static void _controlAdd_Init(CommandParser *parser, CommandOps *ops) {
 #endif /* WITH_POLICY */
 }
 
-static CommandReturn _controlAdd_Execute(CommandParser *parser,
-                                         CommandOps *ops,
-                                         PARCList *args,
-                                         char *output,
-                                         size_t output_size) {
-  return _controlAdd_HelpExecute(parser, ops, args, output, output_size);
+static CommandReturn _controlAdd_Execute(CommandParser *parser, CommandOps *ops,
+                                         PARCList *args) {
+  return _controlAdd_HelpExecute(parser, ops, args);
 }

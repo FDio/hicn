@@ -35,6 +35,8 @@ include( CTest )
 include( detectCacheSize )
 
 if(NOT WIN32)
+  # NOTE: -fPIC -shared is needed to preserve constructors when targetting a
+  # shared library
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 else ()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
@@ -45,33 +47,39 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ANDROID_C_FLAGS}")
 endif()
 
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -DLIBRTA_DISABLE_VALIDATION -DPARCLibrary_DISABLE_VALIDATION")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -DLIBRTA_DISABLE_VALIDATION ")
 
 include(IosMacros)
 include(WindowsMacros)
 
-find_package_wrapper(Libparc REQUIRED)
-
 set(HICN_LIGHT hicn-light CACHE INTERNAL "" FORCE)
 set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control CACHE INTERNAL "" FORCE)
+set(HICN_LIGHT_SHELL ${HICN_LIGHT}-shell CACHE INTERNAL "" FORCE)
 set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon CACHE INTERNAL "" FORCE)
+
+find_package_wrapper(LibEvent REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package_wrapper(Libhicn REQUIRED)
+  find_package_wrapper(Libhicnctrl REQUIRED)
 else()
   if (DISABLE_SHARED_LIBRARIES)
-    if (WIN32) 
-      set(HICN_LIBRARIES ${LIBHICN_STATIC})
+    if (WIN32)
+      set(HICN_LIBRARIES ${LIBEVENT_STATIC} ${LIBHICN_STATIC} ${LIBHICNCTRL_STATIC})
     else ()
-      set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
+      set(HICN_LIBRARIES ${LIBEVENT_STATIC} ${LIBHICN_STATIC} ${LIBHICNCTRL_STATIC} log)
     endif ()
     list(APPEND DEPENDENCIES
+      ${LIBEVENT_STATIC}
       ${LIBHICN_STATIC}
+      ${LIBHICNCTRL_STATIC}
     )
   else ()
     set(HICN_LIBRARIES ${LIBHICN_SHARED})
     list(APPEND DEPENDENCIES
+      ${LIBEVENT_SHARED}
       ${LIBHICN_SHARED}
+      ${LIBHICNCTRL_SHARED}
     )
   endif ()
 endif()
@@ -82,22 +90,22 @@ find_package(Threads REQUIRED)
 
 set(LIBHICN_LIGHT hicn-light)
 set(LIBHICN_LIGHT_STATIC ${LIBHICN_LIGHT}.static)
+set(LIBHICN_LIGHT_SHARED ${LIBHICN_LIGHT}.shared)
 
 set(HICN_LIGHT_LINK_LIBRARIES
-  ${LIBHICN_LIGHT_STATIC}
   ${HICN_LIBRARIES}
-  ${LIBPARC_LIBRARIES}
+  ${LIBHICNCTRL_LIBRARIES}
+  ${LIBEVENT_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   ${WINDOWS_LIBRARIES}
 )
-
-set(HICN_LIGHT_LIBRARIES_LIST "${LIBPARC_LIBRARIES};${CMAKE_THREAD_LIBS_INIT};${WINDOWS_LIBRARIES}" CACHE INTERNAL "HICN_LIGHT_LIBRARIES_LIST")
 
 
 # Include dirs -- Order does matter!
 list(APPEND HICN_LIGHT_INCLUDE_DIRS
   ${HICN_INCLUDE_DIRS}
-  ${LIBPARC_INCLUDE_DIRS}
+  ${LIBHICNCTRL_INCLUDE_DIRS}
+  ${LIBEVENT_INCLUDE_DIRS}
   ${WINDOWS_INCLUDE_DIRS}
 )
 
@@ -112,6 +120,16 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
   set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS} -undefined dynamic_lookup")
 	message(STATUS "Set \"-undefined dynamic_lookup\" for shared libraries")
+endif()
+
+if (BUILD_TESTS)
+  include (GTestImport)
+
+  if(${CMAKE_VERSION} VERSION_GREATER "3.10.0")
+    include (GoogleTest)
+  else()
+    include (CTest)
+  endif()
 endif()
 
 add_subdirectory(src/hicn)

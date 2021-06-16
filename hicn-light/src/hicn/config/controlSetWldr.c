@@ -32,15 +32,10 @@
 #include <hicn/utils/utils.h>
 
 static CommandReturn _controlSetWldr_Execute(CommandParser *parser,
-                                             CommandOps *ops,
-                                             PARCList *args,
-                                             char *output,
-                                             size_t output_size);
+                                             CommandOps *ops, PARCList *args);
 static CommandReturn _controlSetWldr_HelpExecute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args,
-                                                 char *output,
-                                                 size_t output_size);
+                                                 PARCList *args);
 
 static const char *_commandSetWldr = "set wldr";
 static const char *_commandSetWldrHelp = "help set wldr";
@@ -61,29 +56,24 @@ CommandOps *controlSetWldr_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlSetWldr_HelpExecute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args,
-                                                 char *output,
-                                                 size_t output_size) {
-  snprintf(output, output_size, "set wldr <on|off> <connection_id>\n\n");
-
+                                                 PARCList *args) {
+  printf("set wldr <on|off> <connection_id>\n");
+  printf("\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlSetWldr_Execute(CommandParser *parser,
-                                             CommandOps *ops,
-                                             PARCList *args,
-                                             char *output,
-                                             size_t output_size) {
+                                             CommandOps *ops, PARCList *args) {
   ControlState *state = ops->closure;
 
   if (parcList_Size(args) != 4) {
-    _controlSetWldr_HelpExecute(parser, ops, args, output, output_size);
+    _controlSetWldr_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
   if (((strcmp(parcList_GetAtIndex(args, 0), "set") != 0) ||
        (strcmp(parcList_GetAtIndex(args, 1), "wldr") != 0))) {
-    _controlSetWldr_HelpExecute(parser, ops, args, output, output_size);
+    _controlSetWldr_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
@@ -93,7 +83,7 @@ static CommandReturn _controlSetWldr_Execute(CommandParser *parser,
   } else if (strcmp(parcList_GetAtIndex(args, 2), "off") == 0) {
     active = false;
   } else {
-    _controlSetWldr_HelpExecute(parser, ops, args, output, output_size);
+    _controlSetWldr_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
@@ -102,7 +92,7 @@ static CommandReturn _controlSetWldr_Execute(CommandParser *parser,
 
   if (!utils_ValidateSymbolicName(symbolicOrConnid) &&
       !utils_IsNumber(symbolicOrConnid)) {
-    snprintf(output, output_size,
+    printf(
         "ERROR: Invalid symbolic or connid:\nsymbolic name must begin with an "
         "alpha followed by alphanum;\nconnid must be an integer\n");
     return CommandReturn_Failure;

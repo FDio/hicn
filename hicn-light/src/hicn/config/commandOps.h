@@ -82,11 +82,8 @@ struct command_ops {
   void *closure;
   char *command;
   void (*init)(struct command_parser *parser, CommandOps *ops);
-  CommandReturn (*execute)(struct command_parser *parser,
-                 CommandOps *ops,
-                 PARCList *args,
-                 char *output,
-                 size_t output_size);
+  CommandReturn (*execute)(struct command_parser *parser, CommandOps *ops,
+                           PARCList *args);
   void (*destroyer)(CommandOps **opsPtr);
 };
 
@@ -107,11 +104,8 @@ struct command_ops {
 CommandOps *commandOps_Create(
     void *closure, const char *command,
     void (*init)(struct command_parser *parser, CommandOps *ops),
-    CommandReturn (*execute)(struct command_parser *parser,
-                             CommandOps *ops,
-                             PARCList *args,
-                             char *output,
-                             size_t output_size),
+    CommandReturn (*execute)(struct command_parser *parser, CommandOps *ops,
+                             PARCList *args),
     void (*destroyer)(CommandOps **opsPtr));
 
 /**

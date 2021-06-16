@@ -61,7 +61,7 @@ typedef struct controller_state ControlState;
 
 ControlState *controlState_Create(
     void *userdata,
-    struct iovec *(*writeRead)(ControlState *state, struct iovec *msg),
+    uint8_t *(*writeRead)(ControlState *state, uint8_t * msg),
     bool openControllerConnetion,
     char * server_ip, uint16_t port);
 
@@ -143,8 +143,6 @@ void controlState_RegisterCommand(ControlState *state, CommandOps *command);
  *
  * @param [in] state The allocated ControlState
  * @param [in] args  Each command_line word parsed to the ordered list
- * @param [in] output Output string
- * @param [in] output_length output string max length
  *
  * @return CommandReturn_Success the command was successful
  * @return CommandReturn_Failure the command failed or was not found
@@ -156,10 +154,7 @@ void controlState_RegisterCommand(ControlState *state, CommandOps *command);
  * <#example#>
  * @endcode
  */
-CommandReturn controlState_DispatchCommand(ControlState *state,
-                                           PARCList *args,
-                                           char *output,
-                                           size_t output_length);
+CommandReturn controlState_DispatchCommand(ControlState *state, PARCList *args);
 
 /**
  * Begin an interactive shell

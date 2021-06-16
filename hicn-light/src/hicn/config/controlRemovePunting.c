@@ -25,20 +25,15 @@
 
 #include <parc/algol/parc_Memory.h>
 #include <parc/algol/parc_Network.h>
-#include <hicn/utils/address.h>
 
 #include <hicn/config/controlRemovePunting.h>
 
 static CommandReturn _controlRemovePunting_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args,
-                                                   char *output,
-                                                   size_t output_size);
+                                                   PARCList *args);
 static CommandReturn _controlRemovePunting_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args,
-                                                       char *output,
-                                                       size_t output_size);
+                                                       PARCList *args);
 
 // ===================================================
 
@@ -64,20 +59,16 @@ CommandOps *controlRemovePunting_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlRemovePunting_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args,
-                                                       char *output,
-                                                       size_t output_size) {
-  snprintf(output, output_size, "remove punting <symbolic> <prefix>\n");
+                                                       PARCList *args) {
+  printf("remove punting <symbolic> <prefix>\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlRemovePunting_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args,
-                                                   char *output,
-                                                   size_t output_size) {
-  snprintf(output, output_size, "command not implemented\n");
-  return _controlRemovePunting_HelpExecute(parser, ops, args, output, output_size);
+                                                   PARCList *args) {
+  printf("command not implemented\n");
+  return _controlRemovePunting_HelpExecute(parser, ops, args);
 }
 
 // ==================================================

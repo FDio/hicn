@@ -31,14 +31,10 @@
 
 static CommandReturn _controlCacheServe_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args,
-                                                char *output,
-                                                size_t output_size);
+                                                PARCList *args);
 static CommandReturn _controlCacheServe_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args,
-                                                    char *output,
-                                                    size_t output_size);
+                                                    PARCList *args);
 
 static const char *_commandCacheServe = "cache serve";
 static const char *_commandCacheServeHelp = "help cache serve";
@@ -59,20 +55,18 @@ CommandOps *controlCacheServe_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlCacheServe_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args,
-                                                    char *output,
-                                                    size_t output_size) {
-  snprintf(output, output_size, "cache serve [on|off]\n\n");
+                                                    PARCList *args) {
+  printf("cache serve [on|off]\n");
+  printf("\n");
+
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlCacheServe_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args,
-                                                char *output,
-                                                size_t output_size) {
+                                                PARCList *args) {
   if (parcList_Size(args) != 3) {
-    _controlCacheServe_HelpExecute(parser, ops, args, output, output_size);
+    _controlCacheServe_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
@@ -82,7 +76,7 @@ static CommandReturn _controlCacheServe_Execute(CommandParser *parser,
   } else if (strcmp(parcList_GetAtIndex(args, 2), "off") == 0) {
     active = false;
   } else {
-    _controlCacheServe_HelpExecute(parser, ops, args, output, output_size);
+    _controlCacheServe_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 

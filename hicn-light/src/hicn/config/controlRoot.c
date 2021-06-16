@@ -37,15 +37,9 @@
 
 static void _controlRoot_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlRoot_Execute(CommandParser *parser,
-                                          CommandOps *ops,
-                                          PARCList *args,
-                                          char *output,
-                                          size_t output_size);
+                                          CommandOps *ops, PARCList *args);
 static CommandReturn _controlRoot_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops,
-                                              PARCList *args,
-                                              char *output,
-                                              size_t output_size);
+                                              CommandOps *ops, PARCList *args);
 
 static const char *_commandRoot = "";
 static const char *_commandRootHelp = "help";
@@ -65,21 +59,20 @@ CommandOps *controlRoot_HelpCreate(ControlState *state) {
 // ===================================================
 
 static CommandReturn _controlRoot_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops,
-                                              PARCList *args,
-                                              char *output,
-                                              size_t output_size) {
-  size_t output_offset = snprintf(output, output_size, "Command-line execution:\n"
-                                "   controller [--server <server-ip>] [--port <server-port>] "
-                                "command\n"
-                                "\n"
-                                "Interactive execution:\n"
-                                "   controller [--server <server-ip>] [--port <server-port>]\n"
-                                "\n"
-                                "If the keystore is not specified, the default path is used. Keystore "
-                                "must exist prior to running program.\n"
-                                "If the password is not specified, the user will be prompted.\n"
-                                "\n");
+                                              CommandOps *ops, PARCList *args) {
+  printf("Command-line execution:\n");
+  printf(
+      "   controller [--server <server-ip>] [--port <server-port>] "
+      "command\n");
+  printf("\n");
+  printf("Interactive execution:\n");
+  printf("   controller [--server <server-ip>] [--port <server-port>]\n");
+  printf("\n");
+  printf(
+      "If the keystore is not specified, the default path is used. Keystore "
+      "must exist prior to running program.\n");
+  printf("If the password is not specified, the user will be prompted.\n");
+  printf("\n");
 
   CommandOps *ops_help_add = controlAdd_CreateHelp(NULL);
   CommandOps *ops_help_list = controlList_HelpCreate(NULL);
@@ -93,31 +86,19 @@ static CommandReturn _controlRoot_HelpExecute(CommandParser *parser,
   CommandOps *ops_help_update = controlUpdate_HelpCreate(NULL);
 #endif /* WITH_POLICY */
 
-  snprintf(output + output_offset, output_size - output_offset,"Available commands:\n"
-                                                               "   %s\n"
-                                                               "   %s\n"
-                                                               "   %s\n"
-                                                               "   %s\n"
-                                                               "   %s\n"
-                                                               "   %s\n"
-                                                               "   %s\n"
-                                                               "   %s\n"
+  printf("Available commands:\n");
+  printf("   %s\n", ops_help_add->command);
+  printf("   %s\n", ops_help_list->command);
+  printf("   %s\n", ops_help_quit->command);
+  printf("   %s\n", ops_help_remove->command);
+  printf("   %s\n", ops_help_set->command);
+  printf("   %s\n", ops_help_unset->command);
+  printf("   %s\n", ops_help_cache->command);
+  printf("   %s\n", ops_help_mapme->command);
 #ifdef WITH_POLICY
-                                                               "   %s\n"
+  printf("   %s\n", ops_help_update->command);
 #endif /* WITH_POLICY */
-                                                               "\n",
-                                                               ops_help_add->command,
-                                                               ops_help_list->command,
-                                                               ops_help_quit->command,
-                                                               ops_help_remove->command,
-                                                               ops_help_set->command,
-                                                               ops_help_unset->command,
-                                                               ops_help_cache->command,
-                                                               ops_help_mapme->command
-#ifdef WITH_POLICY
-                                                               , ops_help_update->command
-#endif /* WITH_POLICY */
-  );
+  printf("\n");
 
   commandOps_Destroy(&ops_help_add);
   commandOps_Destroy(&ops_help_list);
@@ -163,10 +144,7 @@ static void _controlRoot_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlRoot_Execute(CommandParser *parser,
-                                          CommandOps *ops,
-                                          PARCList *args,
-                                          char *output,
-                                          size_t output_size) {
+                                          CommandOps *ops, PARCList *args) {
   return CommandReturn_Success;
 }
 

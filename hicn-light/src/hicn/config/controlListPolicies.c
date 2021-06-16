@@ -33,14 +33,10 @@
 
 static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args,
-                                                char *output,
-                                                size_t output_size);
+                                                PARCList *args);
 static CommandReturn _controlListPolicies_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args,
-                                                    char *output,
-                                                    size_t output_size);
+                                                    PARCList *args);
 
 static const char *_commandListPolicies = "list policies";
 static const char *_commandListPoliciesHelp = "help list policies";
@@ -61,10 +57,9 @@ CommandOps *controlListPolicies_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlListPolicies_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args,
-                                                    char *output,
-                                                    size_t output_size) {
-  snprintf(output, output_size, "command: list policies\n\n");
+                                                    PARCList *args) {
+  printf("command: list policies\n");
+  printf("\n");
   return CommandReturn_Success;
 }
 
@@ -82,11 +77,9 @@ typedef struct {
 
 static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args,
-                                                char *output,
-                                                size_t output_size) {
+                                                PARCList *args) {
   if (parcList_Size(args) != 2) {
-    _controlListPolicies_HelpExecute(parser, ops, args, output, output_size);
+    _controlListPolicies_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
@@ -99,11 +92,11 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
   }
 
   // Process/Print message
-  header_control_message *receivedHeader =
-      (header_control_message *)response[0].iov_base;
+  cmd_header_t *receivedHeader =
+      (cmd_header_t *)response[0].iov_base;
   uint8_t *receivedPayload = (uint8_t *)response[1].iov_base;
   if (!receivedPayload) {
-      snprintf(output, output_size, "No payload!\n");
+      printf("No payload!\n");
       return CommandReturn_Failure;
   }
 
@@ -119,15 +112,20 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
 
   char *addrString = NULL;
   in_port_t port = htons(1234);  // this is a random port number that is ignored
-  size_t output_offset = 0;
+
   if (receivedHeader->length > 0) {
-    output_offset += snprintf(output, output_size, "%*s %*s", MAXSZ_PREFIX, "prefix", MAXSZ_APP_NAME /*APP_NAME_LEN*/, "app_name");
-    #define _(x, y) output_offset += snprintf(output + output_offset, output_size - output_offset, " %*s",MAXSZ_COLUMN, policy_tag_str[POLICY_TAG_ ## x]);
-    foreach_policy_tag
-    #undef _
-    output_offset += snprintf(output + output_offset, output_size - output_offset, "\n");
+    printf("%*s %*s"
+            #define _(x, y) " %*s"
+            foreach_policy_tag
+            #undef _
+            "%s",
+           MAXSZ_PREFIX, "prefix", MAXSZ_APP_NAME /*APP_NAME_LEN*/, "app_name",
+            #define _(x, y) MAXSZ_COLUMN, policy_tag_str[POLICY_TAG_ ## x],
+            foreach_policy_tag
+            #undef _
+            "\n");
   } else {
-    output_offset += snprintf(output, output_size, " --- No entry in the list \n");
+    printf(" --- No entry in the list \n");
   }
 
   tag_state_str_t str;
@@ -150,7 +148,7 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
     #undef _
 
     addrString = utils_CommandAddressToString(
-        listPoliciesCommand->addressType, &listPoliciesCommand->address, &port);
+        listPoliciesCommand->family, &listPoliciesCommand->address, &port);
 
 #if 0
     PARCBufferComposer *composer = parcBufferComposer_Create();
@@ -179,36 +177,27 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
     parcMemory_Deallocate((void **)&result);
     parcBufferComposer_Release(&composer);
 #else
-    
-    output_offset = snprintf(output + output_offset, output_size - output_offset, "%*s %*s",
-    MAXSZ_PREFIX, addrString, MAXSZ_APP_NAME /*APP_NAME_LEN*/, listPoliciesCommand->policy.app_name);
-    #define _(x, y) output_offset += snprintf(output + output_offset, output_size - output_offset, " %*s", MAXSZ_COLUMN, str.x);
-    foreach_policy_tag
-    #undef _
-
-    output_offset = snprintf(output + output_offset, output_size - output_offset, "\n");
-
-    
-    /*printf("%*s %*s"
+    printf("%*s %*s"
         #define _(x, y) " %*s"
         foreach_policy_tag
         #undef _
         "%s\n",
-        MAXSZ_PREFIX, addrString, MAXSZ_APP_NAME *//*APP_NAME_LEN*//*, listPoliciesCommand->policy.app_name,
+        MAXSZ_PREFIX, addrString, MAXSZ_APP_NAME /*APP_NAME_LEN*/, listPoliciesCommand->policy.app_name,
         #define _(x, y) MAXSZ_COLUMN, str.x,
         foreach_policy_tag
         #undef _
-        "");*/
+        "");
 
 #endif
   }
 
-  output_offset += snprintf(output + output_offset, output_size - output_offset, "\nSTATISTICS\n\n");
+#if 0
+  printf("\nSTATISTICS\n\n");
   // STATISTICS
-  output_offset += snprintf(output + output_offset, output_size - output_offset, "%*s %*s %*s | %*s | %*s | %*s\n",
+  printf("%*s %*s %*s | %*s | %*s | %*s\n",
           MAXSZ_PREFIX, "", MAXSZ_APP_NAME /*APP_NAME_LEN*/, "",
           3*MAXSZ_STR_STAT+2, "WIRED", 3*MAXSZ_STR_STAT+2, "WIFI", 3*MAXSZ_STR_STAT+2, "CELLULAR", 3*MAXSZ_STR_STAT+2, "ALL");
-  output_offset += snprintf(output + output_offset, output_size - output_offset, "%*s %*s %*s %*s %*s | %*s %*s %*s | %*s %*s %*s | %*s %*s %*s\n",
+  printf("%*s %*s %*s %*s %*s | %*s %*s %*s | %*s %*s %*s | %*s %*s %*s\n",
             MAXSZ_PREFIX, "prefix", MAXSZ_APP_NAME /*APP_NAME_LEN*/, "app_name",
             MAXSZ_STR_STAT, "throughput", MAXSZ_STR_STAT, "latency", MAXSZ_STR_STAT, "loss_rate",
             MAXSZ_STR_STAT, "throughput", MAXSZ_STR_STAT, "latency", MAXSZ_STR_STAT, "loss_rate",
@@ -219,22 +208,23 @@ static CommandReturn _controlListPolicies_Execute(CommandParser *parser,
         (list_policies_command *)(receivedPayload +
                                 (i * sizeof(list_policies_command)));
     addrString = utils_CommandAddressToString(
-        listPoliciesCommand->addressType, &listPoliciesCommand->address, &port);
-    output_offset += snprintf(output + output_offset, output_size - output_offset, "%*s %*s %*.2f %*.2f %*.2f | %*.2f %*.2f %*.2f | %*.2f %*.2f %*.2f | %*.2f %*.2f %*.2f\n",
+        listPoliciesCommand->family, &listPoliciesCommand->address, &port);
+    printf("%*s %*s %*.2f %*.2f %*.2f | %*.2f %*.2f %*.2f | %*.2f %*.2f %*.2f | %*.2f %*.2f %*.2f\n",
         MAXSZ_PREFIX, addrString, MAXSZ_APP_NAME, listPoliciesCommand->policy.app_name,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wired.throughput,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wired.latency,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wired.loss_rate,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wifi.throughput,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wifi.latency,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.wifi.loss_rate,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.cellular.throughput,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.cellular.latency,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.cellular.loss_rate,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.all.throughput,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.all.latency,
-        MAXSZ_STR_STAT, listPoliciesCommand->policy.stats.all.loss_rate);
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wired.throughput,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wired.latency,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wired.loss_rate,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wifi.throughput,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wifi.latency,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.wifi.loss_rate,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.cellular.throughput,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.cellular.latency,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.cellular.loss_rate,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.all.throughput,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.all.latency,
+        MAXSZ_STR_STAT, listPoliciesCommand->prefix_stats.all.loss_rate);
  }
+#endif
 
   controlState_SetCommandOutput(state, commandOutputMain);
 

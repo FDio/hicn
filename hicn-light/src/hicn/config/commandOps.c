@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-
 #include <hicn/hicn-light/config.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -41,9 +40,7 @@ CommandOps *commandOps_Create(void *closure, const char *command,
                                            CommandOps *ops),
                               CommandReturn (*execute)(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args,
-                                                       char *output,
-                                                       size_t output_size),
+                                                       PARCList *args),
                               void (*destroyer)(CommandOps **opsPtr)) {
   parcAssertNotNull(command, "Parameter command must be non-null");
   parcAssertNotNull(execute, "Parameter execute must be non-null");

@@ -31,15 +31,9 @@
 static void _controlUnset_Init(CommandParser *parser, CommandOps *ops);
 
 static CommandReturn _controlUnset_Execute(CommandParser *parser,
-                                           CommandOps *ops,
-                                           PARCList *args,
-                                           char *output,
-                                           size_t output_size);
+                                           CommandOps *ops, PARCList *args);
 static CommandReturn _controlUnset_HelpExecute(CommandParser *parser,
-                                               CommandOps *ops,
-                                               PARCList *args,
-                                               char *output,
-                                               size_t output_size);
+                                               CommandOps *ops, PARCList *args);
 
 static const char *_commandUnset = "unset";
 static const char *_commandUnsetHelp = "help unset";
@@ -66,20 +60,18 @@ static void _controlUnset_Init(CommandParser *parser, CommandOps *ops) {
 
 static CommandReturn _controlUnset_HelpExecute(CommandParser *parser,
                                                CommandOps *ops,
-                                               PARCList *args,
-                                               char *output,
-                                               size_t output_size) {
+                                               PARCList *args) {
   CommandOps *ops_help_unset_debug = controlUnsetDebug_HelpCreate(NULL);
-  snprintf(output, output_size, "Available commands:\n   %s\n\n", ops_help_unset_debug->command);
+
+  printf("Available commands:\n");
+  printf("   %s\n", ops_help_unset_debug->command);
+  printf("\n");
 
   commandOps_Destroy(&ops_help_unset_debug);
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlUnset_Execute(CommandParser *parser,
-                                           CommandOps *ops,
-                                           PARCList *args,
-                                           char *output,
-                                           size_t output_size) {
-  return _controlUnset_HelpExecute(parser, ops, args, output, output_size);
+                                           CommandOps *ops, PARCList *args) {
+  return _controlUnset_HelpExecute(parser, ops, args);
 }

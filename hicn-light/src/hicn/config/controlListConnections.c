@@ -31,19 +31,17 @@
 
 static CommandReturn _controlListConnections_Execute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args,
-                                                     char *output,
-                                                     size_t output_size);
+                                                     PARCList *args);
 static CommandReturn _controlListConnections_HelpExecute(CommandParser *parser,
                                                          CommandOps *ops,
-                                                         PARCList *args,
-                                                         char *output,
-                                                         size_t output_size);
+                                                         PARCList *args);
 
 static const char *_commandListConnections = "list connections";
 static const char *_commandListConnectionsHelp = "help list connections";
+
+// XXX TODO in connection{_state}.h
 const char *connTypeString[6] = {"GRE", "TCP", "UDP", "MCAST", "L2", "HICN"};
-const char *stateString[3] = {"UP", "DOWN", "UNKNOWN"};
+const char *stateString[3] = {"UNKNOWN", "DOWN", "UP"};
 
 CommandOps *controlListConnections_Create(ControlState *state) {
   return commandOps_Create(state, _commandListConnections, NULL,
@@ -60,31 +58,30 @@ CommandOps *controlListConnections_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlListConnections_HelpExecute(CommandParser *parser,
                                                          CommandOps *ops,
-                                                         PARCList *args,
-                                                         char *output,
-                                                         size_t output_size) {
-snprintf(output, output_size, "%s", "list connections: displays a 1-line summary of each connection\n"
-                                    "\n"
-                                    "The columns are:\n"
-                                    "   connection id : an integer index for the connection\n"
-                                    "   state         : UP or DOWN\n"
-                                    "   local address : the local network address associated with the "
-                                    "connection\n"
-                                    "   remote address: the remote network address associated with the "
-                                    "connection\n"
-                                    "   protocol      : the network protocol (tcp, udp, gre, mcast, "
-                                    "ether)\n"
-                                    "\n");
+                                                         PARCList *args) {
+  printf("list connections: displays a 1-line summary of each connection\n");
+  printf("\n");
+  printf("The columns are:\n");
+  printf("   connection id : an integer index for the connection\n");
+  printf("   state         : UP or DOWN\n");
+  printf(
+      "   local address : the local network address associated with the "
+      "connection\n");
+  printf(
+      "   remote address: the remote network address associated with the "
+      "connection\n");
+  printf(
+      "   protocol      : the network protocol (tcp, udp, gre, mcast, "
+      "ether)\n");
+  printf("\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlListConnections_Execute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args,
-                                                     char *output,
-                                                     size_t output_size) {
+                                                     PARCList *args) {
   if (parcList_Size(args) != 2) {
-    _controlListConnections_HelpExecute(parser, ops, args, output, output_size);
+    _controlListConnections_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 #ifdef WITH_POLICY
@@ -101,8 +98,8 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
   }
 
   // Process/Print message
-  header_control_message *receivedHeader =
-      (header_control_message *)response[0].iov_base;
+  cmd_header_t *receivedHeader =
+      (cmd_header_t *)response[0].iov_base;
   uint8_t *receivedPayload = (uint8_t *)response[1].iov_base;
 
   char *sourceString = NULL;
@@ -117,12 +114,11 @@ static CommandReturn _controlListConnections_Execute(CommandParser *parser,
       commandOutputMain[j] = parcMemory_Allocate(sizeof(char) * 256);
     }
   }
-size_t output_offset = 0;
 
 #ifdef WITH_POLICY
-  output_offset = snprintf(output, output_size, "%5s %10s %12s %6s %40s %40s %5s %s %s\n", "id", "name", "admin_state", "state", "source", "destination", "type", "priority", "flags");
+  printf("%5s %10s %12s %6s %40s %40s %5s %s %s\n", "id", "name", "admin_state", "state", "source", "destination", "type", "priority", "flags");
 #else
-  output_offset = snprintf(output, output_size, "%5s %10s %12s %6s %40s %40s %5s\n", "id", "name", "admin_state", "state", "source", "destination", "type");
+  printf("%5s %10s %12s %6s %40s %40s %5s\n", "id", "name", "admin_state", "state", "source", "destination", "type");
 #endif /* WITH_POLICY */
 
   // Process/Print payload
@@ -133,12 +129,12 @@ size_t output_offset = 0;
                                      (i * sizeof(list_connections_command)));
 
     sourceString = utils_CommandAddressToString(
-        listConnectionsCommand->connectionData.ipType,
+        listConnectionsCommand->connectionData.family,
         &listConnectionsCommand->connectionData.localIp,
         &listConnectionsCommand->connectionData.localPort);
 
     destinationString = utils_CommandAddressToString(
-        listConnectionsCommand->connectionData.ipType,
+        listConnectionsCommand->connectionData.family,
         &listConnectionsCommand->connectionData.remoteIp,
         &listConnectionsCommand->connectionData.remotePort);
 
@@ -177,7 +173,8 @@ foreach_policy_tag
     if (!controlState_IsInteractive(state)) {
       strcpy(commandOutputMain[i], result);
     }
-    output_offset += snprintf(output + output_offset, output_size - output_offset, "%s\n", result);
+
+    puts(result);
     parcMemory_Deallocate((void **)&result);
     parcBufferComposer_Release(&composer);
   }

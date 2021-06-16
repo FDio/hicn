@@ -29,57 +29,41 @@
 
 #include <hicn/utils/commands.h>
 #include <hicn/utils/utils.h>
+#include <hicn/face.h>
 
 // ===================================================
 
 static void _controlAddConnection_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlAddConnection_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args,
-                                                       char *output,
-                                                       size_t output_size);
+                                                       PARCList *args);
 static CommandReturn _controlAddConnection_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args,
-                                                   char *output,
-                                                   size_t output_size);
+                                                   PARCList *args);
 
 // ===================================================
 
 #ifdef __linux__
-static CommandReturn _controlAddConnection_HicnHelpExecute(CommandParser *parser,
-                                                           CommandOps *ops,
-                                                           PARCList *args,
-                                                           char *output,
-                                                           size_t output_size);
+static CommandReturn _controlAddConnection_HicnHelpExecute(
+    CommandParser *parser, CommandOps *ops, PARCList *args);
 static CommandReturn _controlAddConnection_HicnExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args,
-                                                       char *output,
-                                                       size_t output_size);
+                                                       PARCList *args);
 #endif
 
 static CommandReturn _controlAddConnection_UdpHelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args,
-                                                          char *output,
-                                                          size_t output_size);
+                                                          PARCList *args);
 static CommandReturn _controlAddConnection_UdpExecute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args,
-                                                      char *output,
-                                                      size_t output_size);
+                                                      PARCList *args);
 
 static CommandReturn _controlAddConnection_TcpHelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args,
-                                                          char *output,
-                                                          size_t output_size);
+                                                          PARCList *args);
 static CommandReturn _controlAddConnection_TcpExecute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args,
-                                                      char *output,
-                                                      size_t output_size);
+                                                      PARCList *args);
 
 // ===================================================
 
@@ -157,19 +141,14 @@ static CommandOps *_controlAddConnection_TcpHelpCreate(ControlState *state) {
 
 static CommandReturn _controlAddConnection_HelpExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args,
-                                                       char *output,
-                                                       size_t output_size) {
+                                                       PARCList *args) {
+  printf("Available commands:\n");
 #ifdef __linux__
-  snprintf(output, output_size, "Available commands:\n   %s\n   %s\n   %s\n\n",
-                                  _commandAddConnectionHicn,
-                                  _commandAddConnectionUdp,
-                                  _commandAddConnectionTcp);
-#else
-  snprintf(output, output_size, "Available commands:\n   %s\n   %s\n\n",
-                                  _commandAddConnectionUdp,
-                                  _commandAddConnectionTcp);
+  printf("   %s\n", _commandAddConnectionHicn);
 #endif
+  printf("   %s\n", _commandAddConnectionUdp);
+  printf("   %s\n", _commandAddConnectionTcp);
+  printf("\n");
   return CommandReturn_Success;
 }
 
@@ -192,10 +171,8 @@ static void _controlAddConnection_Init(CommandParser *parser, CommandOps *ops) {
 
 static CommandReturn _controlAddConnection_Execute(CommandParser *parser,
                                                    CommandOps *ops,
-                                                   PARCList *args,
-                                                   char *output,
-                                                   size_t output_size) {
-  return _controlAddConnection_HelpExecute(parser, ops, args, output, output_size);
+                                                   PARCList *args) {
+  return _controlAddConnection_HelpExecute(parser, ops, args);
 }
 
 // ===================================================
@@ -213,10 +190,8 @@ static CommandReturn _controlAddConnection_Execute(CommandParser *parser,
  * @param [in] localAddress the local IP and port.  The port may be the wildcard
  * value.
  * @param [in] remoteAddress The remote IP and port (both must be specified)
- * @param [in] tunnelType The tunneling protocol
+ * @param [in] type The tunneling protocol
  * @param [in] symbolic The symbolic name for the connection (must be unique)
- * @param [in] output Output buffer
- * @param [in] output_size Output buffer size
  *
  * @return <#value#> <#explanation#>
  *
@@ -241,52 +216,47 @@ static CommandReturn _controlAddConnection_Execute(CommandParser *parser,
  * @endcode
  */
 
-static CommandReturn _controlAddConnection_CreateTunnel(CommandParser *parser,
-                                                        CommandOps *ops, const char *local_ip,
-                                                        const char *local_port,
-                                                        const char *remote_ip,
-                                                        const char *remote_port,
-                                                        connection_type tunnelType,
-                                                        const char *symbolic,
-                                                        char *output,
-                                                        size_t output_size) {
+static CommandReturn _controlAddConnection_CreateTunnel(
+    CommandParser *parser, CommandOps *ops, const char *local_ip,
+    const char *local_port, const char *remote_ip, const char *remote_port,
+    face_type_t type, const char *symbolic) {
   ControlState *state = ops->closure;
   // a request like this always has an interface index of 0 [FIELD REMOVED]
   // unsigned int interfaceIndex = 0;
 
   // allocate command payload
-  add_connection_command *addConnectionCommand =
-      parcMemory_AllocateAndClear(sizeof(add_connection_command));
+  cmd_connection_add_t *cmd =
+      parcMemory_AllocateAndClear(sizeof(cmd_connection_add_t));
 
   // check and set IP addresses
-  if (inet_pton(AF_INET, remote_ip, &addConnectionCommand->remoteIp.v4.as_u32) ==
+  if (inet_pton(AF_INET, remote_ip, &cmd->remote_ip.v4.as_u32) ==
           1 &&
-      inet_pton(AF_INET, local_ip, &addConnectionCommand->localIp.v4.as_u32) == 1) {
-    addConnectionCommand->ipType = ADDR_INET;
+      inet_pton(AF_INET, local_ip, &cmd->local_ip.v4.as_u32) == 1) {
+    cmd->family = AF_INET;
 
   } else if (inet_pton(AF_INET6, remote_ip,
-                       &addConnectionCommand->remoteIp.v6.as_in6addr) == 1 &&
+                       &cmd->remote_ip.v6.as_in6addr) == 1 &&
              inet_pton(AF_INET6, local_ip,
-                       &addConnectionCommand->localIp.v6.as_in6addr) == 1) {
-    addConnectionCommand->ipType = ADDR_INET6;
+                       &cmd->local_ip.v6.as_in6addr) == 1) {
+    cmd->family = AF_INET6;
 
   } else {
-    snprintf(output, output_size, "Error: local address %s not same type as remote address %s\n",
+    printf("Error: local address %s not same type as remote address %s\n",
            local_ip, remote_ip);
-    parcMemory_Deallocate(&addConnectionCommand);
+    parcMemory_Deallocate(&cmd);
     return CommandReturn_Failure;
   }
 
   // Fill remaining payload fields
-  addConnectionCommand->connectionType = tunnelType;
-  strcpy(addConnectionCommand->symbolic, symbolic);
-  addConnectionCommand->remotePort = htons((uint16_t)atoi(remote_port));
-  addConnectionCommand->localPort = htons((uint16_t)atoi(local_port));
+  cmd->type = type;
+  strcpy(cmd->symbolic, symbolic);
+  cmd->remote_port = htons((uint16_t)atoi(remote_port));
+  cmd->local_port = htons((uint16_t)atoi(local_port));
 
   // send message and receive response
   struct iovec *response =
-      utils_SendRequest(state, ADD_CONNECTION, addConnectionCommand,
-                        sizeof(add_connection_command));
+      utils_SendRequest(state, COMMAND_TYPE_CONNECTION_ADD, cmd,
+                        sizeof(cmd_connection_add_t));
 
   if (!response) {  // get NULL pointer
     return CommandReturn_Failure;
@@ -299,51 +269,47 @@ static CommandReturn _controlAddConnection_CreateTunnel(CommandParser *parser,
 static CommandReturn _controlAddConnection_IpHelp(CommandParser *parser,
                                                   CommandOps *ops,
                                                   PARCList *args,
-                                                  const char *protocol,
-                                                  char *output,
-                                                  size_t output_size) {
-  snprintf(output, output_size,
-  #ifdef __linux__
-        "add connection hicn <symbolic> <remote_ip> <local_ip>\n"
-  #endif
-        "add connection udp <symbolic> <remote_ip> <port> <local_ip> <port>\n"
-        "  <symbolic>              : symbolic name, e.g. 'conn1' (must be "
-        "unique, start with alpha)\n"
-        "  <remote_ip>  : the IPv4 or IPv6 or hostname of the remote system\n"
-        "  <local_ip>              : optional local IP address to bind to\n"
-        "\n");
+                                                  const char *protocol) {
+#ifdef __linux__
+  printf("add connection hicn <symbolic> <remote_ip> <local_ip>\n");
+#endif
+  printf(
+      "add connection udp <symbolic> <remote_ip> <port> <local_ip> <port>\n");
+  printf(
+      "  <symbolic>              : symbolic name, e.g. 'conn1' (must be "
+      "unique, start with alpha)\n");
+  printf(
+      "  <remote_ip>  : the IPv4 or IPv6 or hostname of the remote system\n");
+  printf("  <local_ip>              : optional local IP address to bind to\n");
+  printf("\n");
   return CommandReturn_Success;
 }
 
 #ifdef __linux__
-static CommandReturn _controlAddConnection_HicnHelpExecute(CommandParser *parser,
-                                                          CommandOps *ops,
-                                                          PARCList *args,
-                                                          char *output,
-                                                          size_t output_size) {
-  _controlAddConnection_IpHelp(parser, ops, args, "hicn", output, output_size);
+static CommandReturn _controlAddConnection_HicnHelpExecute(
+    CommandParser *parser, CommandOps *ops, PARCList *args) {
+  _controlAddConnection_IpHelp(parser, ops, args, "hicn");
 
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlAddConnection_HicnExecute(CommandParser *parser,
                                                        CommandOps *ops,
-                                                       PARCList *args,
-                                                       char *output,
-                                                       size_t output_size) {
+                                                       PARCList *args) {
   static const int _indexSymbolic = 3;
   static const int _indexRemAddr = 4;
   static const int _indexLocAddr = 5;
 
   if (parcList_Size(args) != 6) {
-    _controlAddConnection_HicnHelpExecute(parser, ops, args, output, output_size);
+    _controlAddConnection_HicnHelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
   char *symbolic = parcList_GetAtIndex(args, _indexSymbolic);
 
   if (!utils_ValidateSymbolicName(symbolic)) {
-    snprintf(output, output_size, "Invalid symbolic name.  Must begin with alpha and contain only "
+    printf(
+        "Invalid symbolic name.  Must begin with alpha and contain only "
         "alphanum.\n");
     return CommandReturn_Failure;
   }
@@ -353,25 +319,21 @@ static CommandReturn _controlAddConnection_HicnExecute(CommandParser *parser,
   char *port = "1234";  // this is a random port number that will be ignored
 
   return _controlAddConnection_CreateTunnel(
-      parser, ops, local_ip, port, remote_ip, port, HICN_CONN, symbolic, output, output_size);
+      parser, ops, local_ip, port, remote_ip, port, FACE_TYPE_HICN, symbolic);
 }
 #endif
 
 static CommandReturn _controlAddConnection_UdpHelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args,
-                                                          char *output,
-                                                          size_t output_size) {
-  _controlAddConnection_IpHelp(parser, ops, args, "udp", output, output_size);
+                                                          PARCList *args) {
+  _controlAddConnection_IpHelp(parser, ops, args, "udp");
 
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlAddConnection_UdpExecute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args,
-                                                      char *output,
-                                                      size_t output_size) {
+                                                      PARCList *args) {
   static const int _indexSymbolic = 3;
   static const int _indexRemAddr = 4;
   static const int _indexRemPort = 5;
@@ -379,14 +341,14 @@ static CommandReturn _controlAddConnection_UdpExecute(CommandParser *parser,
   static const int _indexLocPort = 7;
 
   if (parcList_Size(args) != 8) {
-    _controlAddConnection_UdpHelpExecute(parser, ops, args, output, output_size);
+    _controlAddConnection_UdpHelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
   char *symbolic = parcList_GetAtIndex(args, _indexSymbolic);
-  size_t offset = 0;
+
   if (!utils_ValidateSymbolicName(symbolic)) {
-    snprintf(output, output_size,
+    printf(
         "Invalid symbolic name.  Must begin with alpha and contain only "
         "alphanum.\n");
     return CommandReturn_Failure;
@@ -399,26 +361,21 @@ static CommandReturn _controlAddConnection_UdpExecute(CommandParser *parser,
   char *local_port = parcList_GetAtIndex(args, _indexLocPort);
 
   return _controlAddConnection_CreateTunnel(parser, ops, local_ip, local_port,
-                                            remote_ip, remote_port, UDP_CONN,
-                                            symbolic,
-                                            output + offset, output_size - offset);
+                                            remote_ip, remote_port, FACE_TYPE_UDP,
+                                            symbolic);
 }
 
 static CommandReturn _controlAddConnection_TcpHelpExecute(CommandParser *parser,
                                                           CommandOps *ops,
-                                                          PARCList *args,
-                                                          char *output,
-                                                          size_t output_size) {
-  _controlAddConnection_IpHelp(parser, ops, args, "tcp", output, output_size);
+                                                          PARCList *args) {
+  _controlAddConnection_IpHelp(parser, ops, args, "tcp");
 
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlAddConnection_TcpExecute(CommandParser *parser,
                                                       CommandOps *ops,
-                                                      PARCList *args,
-                                                      char *output,
-                                                      size_t output_size) {
+                                                      PARCList *args) {
   static const int _indexSymbolic = 3;
   static const int _indexRemAddr = 4;
   static const int _indexRemPort = 5;
@@ -426,13 +383,15 @@ static CommandReturn _controlAddConnection_TcpExecute(CommandParser *parser,
   static const int _indexLocPort = 7;
 
   if (parcList_Size(args) != 8) {
-    _controlAddConnection_UdpHelpExecute(parser, ops, args, output, output_size);
+    _controlAddConnection_UdpHelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
   char *symbolic = parcList_GetAtIndex(args, _indexSymbolic);
+
   if (!utils_ValidateSymbolicName(symbolic)) {
-    snprintf(output, output_size, "Invalid symbolic name.  Must begin with alpha and contain only "
+    printf(
+        "Invalid symbolic name.  Must begin with alpha and contain only "
         "alphanum.\n");
     return CommandReturn_Failure;
   }
@@ -444,7 +403,6 @@ static CommandReturn _controlAddConnection_TcpExecute(CommandParser *parser,
   char *local_port = parcList_GetAtIndex(args, _indexLocPort);
 
   return _controlAddConnection_CreateTunnel(parser, ops, local_ip, local_port,
-                                            remote_ip, remote_port, TCP_CONN,
-                                            symbolic,
-                                            output, output_size);
+                                            remote_ip, remote_port, FACE_TYPE_TCP,
+                                            symbolic);
 }

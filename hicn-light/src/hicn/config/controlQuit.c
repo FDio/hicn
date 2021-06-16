@@ -28,15 +28,9 @@
 #include <hicn/config/controlQuit.h>
 
 static CommandReturn _controlQuit_Execute(CommandParser *parser,
-                                          CommandOps *ops,
-                                          PARCList *args,
-                                          char *output,
-                                          size_t output_size);
+                                          CommandOps *ops, PARCList *args);
 static CommandReturn _controlQuit_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops,
-                                              PARCList *args,
-                                              char *output,
-                                              size_t output_size);
+                                              CommandOps *ops, PARCList *args);
 
 static const char *_commandQuit = "quit";
 static const char *_commandQuitHelp = "help quit";
@@ -56,19 +50,13 @@ CommandOps *controlQuit_HelpCreate(ControlState *state) {
 // ==============================================
 
 static CommandReturn _controlQuit_HelpExecute(CommandParser *parser,
-                                              CommandOps *ops,
-                                              PARCList *args,
-                                              char *output,
-                                              size_t output_size) {
-  snprintf(output, output_size, "Exits the interactive control program\n\n");
+                                              CommandOps *ops, PARCList *args) {
+  printf("Exits the interactive control program\n\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlQuit_Execute(CommandParser *parser,
-                                          CommandOps *ops,
-                                          PARCList *args,
-                                          char *output,
-                                          size_t output_size) {
-  snprintf(output, output_size, "exiting interactive shell\n");
+                                          CommandOps *ops, PARCList *args) {
+  printf("exiting interactive shell\n");
   return CommandReturn_Exit;
 }

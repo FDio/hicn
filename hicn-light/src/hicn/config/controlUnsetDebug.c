@@ -30,14 +30,10 @@
 
 static CommandReturn _controlUnsetDebug_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args,
-                                                char *output,
-                                                size_t output_size);
+                                                PARCList *args);
 static CommandReturn _controlUnsetDebug_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args,
-                                                    char *output,
-                                                    size_t output_size);
+                                                    PARCList *args);
 
 static const char *_commandUnsetDebug = "unset debug";
 static const char *_commandUnsetDebugHelp = "help unset debug";
@@ -58,26 +54,23 @@ CommandOps *controlUnsetDebug_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlUnsetDebug_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args,
-                                                    char *output,
-                                                    size_t output_size) {
-  snprintf(output, output_size, "unset debug: will disable the debug flag\n\n");
+                                                    PARCList *args) {
+  printf("unset debug: will disable the debug flag\n");
+  printf("\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlUnsetDebug_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args,
-                                                char *output,
-                                                size_t output_size) {
+                                                PARCList *args) {
   if (parcList_Size(args) != 2) {
-    _controlUnsetDebug_HelpExecute(parser, ops, args, output, output_size);
+    _controlUnsetDebug_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
   ControlState *state = ops->closure;
   controlState_SetDebug(state, false);
-  snprintf(output, output_size, "Debug flag cleared\n\n");
+  printf("Debug flag cleared\n\n");
 
   return CommandReturn_Success;
 }

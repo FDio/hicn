@@ -32,14 +32,10 @@
 
 static CommandReturn _controlListRoutes_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args,
-                                                char *output,
-                                                size_t output_size);
+                                                PARCList *args);
 static CommandReturn _controlListRoutes_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args,
-                                                    char *output,
-                                                    size_t output_size);
+                                                    PARCList *args);
 
 static const char *_commandListRoutes = "list routes";
 static const char *_commandListRoutesHelp = "help list routes";
@@ -60,30 +56,29 @@ CommandOps *controlListRoutes_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlListRoutes_HelpExecute(CommandParser *parser,
                                                     CommandOps *ops,
-                                                    PARCList *args,
-                                                    char *output,
-                                                    size_t output_size) {
-  snprintf(output, output_size, "command: list routes\n"
-                                "\n"
-                                "This command will fetch the prefix routing table.  For each route, it "
-                                "will list:\n"
-                                "   iface:    interface\n"
-                                "   protocol: the routing protocol, such as STATIC, CONNECTED, etc.\n"
-                                "   type:     LMP or EXACT (longest matching prefix or exact match)\n"
-                                "   cost:     The route cost, lower being preferred\n"
-                                "   next:     List of next hops by interface id\n"
-                                "   prefix:   name prefix\n"
-                                "\n");
+                                                    PARCList *args) {
+  printf("command: list routes\n");
+  printf("\n");
+  printf(
+      "This command will fetch the prefix routing table.  For each route, it "
+      "will list:\n");
+  printf("   iface:    interface\n");
+  printf(
+      "   protocol: the routing protocol, such as STATIC, CONNECTED, etc.\n");
+  printf(
+      "   type:     LMP or EXACT (longest matching prefix or exact match)\n");
+  printf("   cost:     The route cost, lower being preferred\n");
+  printf("   next:     List of next hops by interface id\n");
+  printf("   prefix:   name prefix\n");
+  printf("\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlListRoutes_Execute(CommandParser *parser,
                                                 CommandOps *ops,
-                                                PARCList *args,
-                                                char *output,
-                                                size_t output_size) {
+                                                PARCList *args) {
   if (parcList_Size(args) != 2) {
-    _controlListRoutes_HelpExecute(parser, ops, args, output, output_size);
+    _controlListRoutes_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
@@ -96,8 +91,8 @@ static CommandReturn _controlListRoutes_Execute(CommandParser *parser,
   }
 
   // Process/Print message
-  header_control_message *receivedHeader =
-      (header_control_message *)response[0].iov_base;
+  cmd_header_t *receivedHeader =
+      (cmd_header_t *)response[0].iov_base;
   uint8_t *receivedPayload = (uint8_t *)response[1].iov_base;
 
   // Allocate output to pass to the main function if the call is not interactive
@@ -112,11 +107,11 @@ static CommandReturn _controlListRoutes_Execute(CommandParser *parser,
 
   char *addrString = NULL;
   in_port_t port = htons(1234);  // this is a random port number that is ignored
-  size_t output_offset = 0;
+
   if (receivedHeader->length > 0) {
-    output_offset = snprintf(output, output_size, "%6.6s %8.8s %70.70s %s\n", "iface", "cost", "prefix", "len");
+    printf("%6.6s %8.8s %70.70s %s\n", "iface", "cost", "prefix", "len");
   } else {
-    output_offset = snprintf(output, output_size, " --- No entry in the list \n");
+    printf(" --- No entry in the list \n");
   }
 
   for (int i = 0; i < receivedHeader->length; i++) {
@@ -125,7 +120,7 @@ static CommandReturn _controlListRoutes_Execute(CommandParser *parser,
                                 (i * sizeof(list_routes_command)));
 
     addrString = utils_CommandAddressToString(
-        listRoutesCommand->addressType, &listRoutesCommand->address, &port);
+        listRoutesCommand->family, &listRoutesCommand->address, &port);
 
     PARCBufferComposer *composer = parcBufferComposer_Create();
 
@@ -141,7 +136,7 @@ static CommandReturn _controlListRoutes_Execute(CommandParser *parser,
       strcpy(commandOutputMain[i], result);
     }
 
-    output_offset += snprintf(output + output_offset, output_size - output_offset, "%s\n", result);
+    puts(result);
     parcMemory_Deallocate((void **)&result);
     parcBufferComposer_Release(&composer);
   }

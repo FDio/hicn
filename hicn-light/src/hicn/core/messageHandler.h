@@ -13,16 +13,17 @@
  * limitations under the License.
  */
 
-#ifndef messageHandler
-#define messageHandler
+#ifndef HICNLIGHT_MESSAGE_HANDLER_H
+#define HICNLIGHT_MESSAGE_HANDLER_H
 
 #include <stdlib.h>
 #ifndef _WIN32
 #include <unistd.h> // close
-#endif
+#endif /* _WIN32 */
 
 #include <hicn/hicn.h>
-#include <hicn/core/messagePacketType.h>
+
+//#include <hicn/core/connection_table.h>
 
 #define H(packet) ((hicn_header_t *)packet)
 #define H6(packet) (H(packet)->v6.ip)
@@ -53,17 +54,12 @@
 #define IPV6_DEFAULT_TRAFFIC_CLASS 0
 #define IPV6_DEFAULT_FLOW_LABEL 0
 
-#define expected_lbl wldr_notification_lbl.expected_lbl
-#define received_lbl wldr_notification_lbl.received_lbl
+//#include <hicn/core/forwarder.h>
 
-#include <hicn/core/forwarder.h>
-
-#ifdef WITH_MAPME
-#include <hicn/core/mapme.h>
-#include <hicn/socket/api.h>
-#endif /* WITH_MAPME */
-
-#define CONNECTION_ID_UNDEFINED -1
+//#ifdef WITH_MAPME
+//#include <hicn/core/mapme.h>
+//#include <hicn/socket/api.h>
+//#endif /* WITH_MAPME */
 
 #define BFD_PORT 3784
 
@@ -157,6 +153,7 @@ static inline size_t messageHandler_GetIPHeaderLength(unsigned ipVersion) {
     return 0;
 }
 
+#if 0
 static inline bool messageHandler_IsValidHicnPacket(const uint8_t *message) {
   uint8_t version = messageHandler_GetIPPacketType(message);
   if (version == IPv6_TYPE || version == IPv4_TYPE) {
@@ -164,6 +161,7 @@ static inline bool messageHandler_IsValidHicnPacket(const uint8_t *message) {
   }
   return false;
 }
+#endif
 
 static inline uint8_t messageHandler_NextHeaderType(const uint8_t *message) {
   switch (messageHandler_GetIPPacketType(message)) {
@@ -176,155 +174,6 @@ static inline uint8_t messageHandler_NextHeaderType(const uint8_t *message) {
   }
 }
 
-/* Forward declarations */
-static inline void * messageHandler_GetSource(const uint8_t *message);
-static inline void *messageHandler_GetDestination(const uint8_t *message);
-
-static const
-AddressPair *
-_createRecvAddressPairFromPacket(const uint8_t *msgBuffer) {
-  Address *packetSrcAddr = NULL; /* This one is in the packet */
-  Address *localAddr = NULL; /* This one is to be determined */
-
-  if (messageHandler_GetIPPacketType(msgBuffer) == IPv6_TYPE) {
-    struct sockaddr_in6 addr_in6;
-    addr_in6.sin6_family = AF_INET6;
-    addr_in6.sin6_port = htons(1234);
-    addr_in6.sin6_flowinfo = 0;
-    addr_in6.sin6_scope_id = 0;
-    memcpy(&addr_in6.sin6_addr,
-           (struct in6_addr *)messageHandler_GetSource(msgBuffer), 16);
-    packetSrcAddr = addressCreateFromInet6(&addr_in6);
-
-    /* We now determine the local address used to reach the packet src address */
-    int sock = (int)socket (AF_INET6, SOCK_DGRAM, 0);
-    if (sock < 0)
-      goto ERR;
-
-    struct sockaddr_in6 remote, local;
-    memset(&remote, 0, sizeof(remote));
-    remote.sin6_family = AF_INET6;
-    remote.sin6_addr = addr_in6.sin6_addr;
-    remote.sin6_port = htons(1234);
-
-    socklen_t locallen = sizeof(local);
-    if (connect(sock, (const struct sockaddr*)&remote, sizeof(remote)) == -1)
-      goto ERR;
-    if (getsockname(sock, (struct sockaddr*) &local, &locallen) == -1)
-      goto ERR;
-
-    local.sin6_port = htons(1234);
-    localAddr = addressCreateFromInet6(&local);
-
-    close(sock);
-
-  } else if (messageHandler_GetIPPacketType(msgBuffer) == IPv4_TYPE) {
-    struct sockaddr_in addr_in;
-    addr_in.sin_family = AF_INET;
-    addr_in.sin_port = htons(1234);
-    memcpy(&addr_in.sin_addr,
-           (struct in_addr *)messageHandler_GetSource(msgBuffer), 4);
-    packetSrcAddr = addressCreateFromInet(&addr_in);
-
-    /* We now determine the local address used to reach the packet src address */
-
-    int sock = (int)socket (AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-      perror("Socket error");
-      goto ERR;
-    }
-
-    struct sockaddr_in remote, local;
-    memset(&remote, 0, sizeof(remote));
-    remote.sin_family = AF_INET;
-    remote.sin_addr = addr_in.sin_addr;
-    remote.sin_port = htons(1234);
-
-    socklen_t locallen = sizeof(local);
-    if (connect(sock, (const struct sockaddr*)&remote, sizeof(remote)) == -1)
-      goto ERR;
-    if (getsockname(sock, (struct sockaddr*) &local, &locallen) == -1)
-      goto ERR;
-
-    local.sin_port = htons(1234);
-    localAddr = addressCreateFromInet(&local);
-
-    close(sock);
-  }
-  /* As this is a receive pair, we swap src and dst */
-  return addressPair_Create(localAddr, packetSrcAddr);
-
-ERR:
-  perror("Socket error");
-  return NULL;
-}
-
-/* Main hook handler */
-
-/**
- * \brief Handle incoming messages
- * \param [in] forwarder - Reference to the Forwarder instance
- * \param [in] packet - Packet buffer
- * \param [in] conn_id - A hint on the connection ID on which the packet
- *      was received
- * \return Flag indicating whether the packet matched a hook and was
- *      (successfully or not) processed.
- */
-static inline bool messageHandler_handleHooks(Forwarder * forwarder,
-        const uint8_t * packet, ListenerOps * listener, int fd, AddressPair * pair)
-{
-  bool is_matched = false;
-
-  /* BEGIN Match */
-
-#ifdef WITH_MAPME
-  bool is_mapme = mapme_isMapMe(packet);
-  is_matched |= is_mapme;
-#endif /* WITH_MAPME */
-
-  /* ... */
-
-  /* END Match */
-
-  if (!is_matched)
-    return false;
-
-  /*
-   * Find existing connection or create a new one (we assume all processing
-   * requires a valid connection.
-   */
-
-  if (!pair) {
-    /* The hICN listener does not provide any address pair while UDP does */
-    const AddressPair * pair = _createRecvAddressPairFromPacket(packet);
-    if (!pair)
-      return false;
-  }
-
-  /* Find connection and eventually create it */
-  const Connection * conn = connectionTable_FindByAddressPair(
-        forwarder_GetConnectionTable(forwarder), pair);
-  unsigned conn_id;
-  if (conn == NULL) {
-    conn_id = listener->createConnection(listener, fd, pair);
-  } else {
-    conn_id = connection_GetConnectionId(conn);
-  }
-
-  /* BEGIN Process */
-
-#ifdef WITH_MAPME
-  if (mapme_isMapMe(packet))
-    forwarder_ProcessMapMe(forwarder, packet, conn_id);
-#endif /* WITH_MAPME */
-
-  /* ... */
-
-  /* END Process */
-  parcMemory_Deallocate((void **)&packet);
-  return true;
-}
-
 static inline bool messageHandler_IsTCP(const uint8_t *message) {
   if (messageHandler_NextHeaderType(message) != IPPROTO_TCP) return false;
   return true;
@@ -334,7 +183,7 @@ static inline bool messageHandler_IsInterest(const uint8_t *message) {
   if (!messageHandler_IsTCP(message)) return false;
 
   bool flag;
-  hicn_packet_test_ece(HF_INET6_TCP, (hicn_header_t *)message,
+  hicn_packet_test_ece((hicn_header_t *)message,
                        &flag);  // ECE flag is set to 0 in interest packets
   if (flag == false) return true;
   return false;
@@ -344,7 +193,7 @@ static inline bool messageHandler_IsData(const uint8_t *message) {
   if (!messageHandler_IsTCP(message)) return false;
 
   bool flag;
-  hicn_packet_test_ece(HF_INET6_TCP, (hicn_header_t *)message,
+  hicn_packet_test_ece((hicn_header_t *)message,
                        &flag);  // ECE flag is set to 1 in data packets
   if (flag == true) return true;
   return false;
@@ -432,7 +281,7 @@ static inline uint16_t messageHandler_GetExpectedWldrLabel(
       return 0;
   }
 
-  return ntohs(((_icmp_wldr_header_t *)icmp_ptr)->expected_lbl);
+  return ntohs(((_icmp_wldr_header_t *)icmp_ptr)->wldr_notification_lbl.expected_lbl);
 }
 
 static inline uint16_t messageHandler_GetWldrLastReceived(
@@ -449,7 +298,7 @@ static inline uint16_t messageHandler_GetWldrLastReceived(
       return 0;
   }
 
-  return ntohs(((_icmp_wldr_header_t *)icmp_ptr)->received_lbl);
+  return ntohs(((_icmp_wldr_header_t *)icmp_ptr)->wldr_notification_lbl.received_lbl);
 }
 
 static inline uint16_t messageHandler_GetWldrLabel(const uint8_t *message) {
@@ -505,9 +354,12 @@ static inline uint32_t messageHandler_GetPathLabel(const uint8_t *message) {
 }
 
 static inline void messageHandler_SetPathLabel(uint8_t *message,
-                                               uint32_t old_path_label,
                                                uint32_t new_path_label) {
   if (!messageHandler_IsTCP(message)) return;
+
+  uint32_t old_path_label;
+  int res = hicn_data_get_path_label((hicn_header_t *)message, &old_path_label);
+  if (res < 0) return;
 
   hicn_data_set_path_label((hicn_header_t *)message, new_path_label);
 
@@ -524,11 +376,20 @@ static inline void messageHandler_UpdatePathLabel(uint8_t *message,
   uint32_t pl_new_32bit =
       (uint32_t)((((pl_old_8bit << 1) | (pl_old_8bit >> 7)) ^ outFace) << 24UL);
 
-  messageHandler_SetPathLabel(message, pl_old_32bit, pl_new_32bit);
+  hicn_data_set_path_label((hicn_header_t *)message, pl_new_32bit);
+
+  messageHandler_UpdateTCPCheckSum(message, (uint16_t *)&pl_old_32bit,
+                                   (uint16_t *)&pl_new_32bit, 2);
 }
 
 static inline void messageHandler_ResetPathLabel(uint8_t *message) {
-  messageHandler_SetPathLabel(message, messageHandler_GetPathLabel(message), 0);
+  if (!messageHandler_IsTCP(message)) return;
+
+  uint32_t pl_old_32bit = messageHandler_GetPathLabel(message);
+  uint32_t pl_new_32bit = 0;
+  hicn_data_set_path_label((hicn_header_t *)message, pl_new_32bit);
+  messageHandler_UpdateTCPCheckSum(message, (uint16_t *)&pl_old_32bit,
+                                   (uint16_t *)&pl_new_32bit, 2);
 }
 
 static inline uint16_t messageHandler_GetInterestLifetime(
@@ -648,25 +509,28 @@ static inline void messageHandler_SetWldrNotification(uint8_t *notification,
   hicn_header_t *h = (hicn_header_t *)notification;
   switch (messageHandler_GetIPPacketType(original)) {
     case IPv6_TYPE: {
-      *h = (hicn_header_t){.v6 = {
-                               .ip =
-                                   {
-                                       .version_class_flow = htonl(
-                                           (IPV6_DEFAULT_VERSION << 28) |
-                                           (IPV6_DEFAULT_TRAFFIC_CLASS << 20) |
-                                           (IPV6_DEFAULT_FLOW_LABEL & 0xfffff)),
-                                       .len = htons(ICMP_HDRLEN),
-                                       .nxt = IPPROTO_ICMPV6,
-                                       .hlim = 5,
-                                   },
-                               .wldr =
-                                   {
-                                       .type = ICMP_WLDR_TYPE,
-                                       .code = ICMP_WLDR_CODE,
-                                       .expected_lbl = htons(expected),
-                                       .received_lbl = htons(received),
-                                   },
-                           }};
+      *h = (hicn_header_t){
+        .v6 = {
+          .ip =
+              {
+                  .version_class_flow = htonl(
+                      (IPV6_DEFAULT_VERSION << 28) |
+                      (IPV6_DEFAULT_TRAFFIC_CLASS << 20) |
+                      (IPV6_DEFAULT_FLOW_LABEL & 0xfffff)),
+                  .len = htons(ICMP_HDRLEN),
+                  .nxt = IPPROTO_ICMPV6,
+                  .hlim = 5,
+              },
+          .wldr =
+              {
+                  .type = ICMP_WLDR_TYPE,
+                  .code = ICMP_WLDR_CODE,
+                  .wldr_notification_lbl = {
+                      .expected_lbl = htons(expected),
+                      .received_lbl = htons(received),
+                  },
+              },
+        }};
       messageHandler_SetSource_IPv6(
           notification,
           (struct in6_addr *)messageHandler_GetDestination(original));
@@ -687,11 +551,11 @@ static inline uint8_t * messageHandler_CreateProbePacket(hicn_format_t format,
   size_t header_length;
   hicn_packet_get_header_length_from_format(format, &header_length);
 
-  uint8_t *pkt = parcMemory_AllocateAndClear(header_length);
+  uint8_t *pkt = (uint8_t *) calloc(header_length, 1);
 
   hicn_packet_init_header(format, (hicn_header_t *) pkt);
 
-  hicn_packet_set_dst_port(format, (hicn_header_t *) pkt, BFD_PORT);
+  hicn_packet_set_dst_port((hicn_header_t *) pkt, BFD_PORT);
   hicn_interest_set_lifetime ((hicn_header_t *) pkt, probe_lifetime);
 
   return pkt;
@@ -709,10 +573,10 @@ static inline void messageHandler_CreateProbeReply(uint8_t * probe,
 
   uint16_t src_prt;
   uint16_t dst_prt;
-  hicn_packet_get_src_port(format, (const hicn_header_t *) probe, &src_prt);
-  hicn_packet_get_dst_port(format, (const hicn_header_t *) probe, &dst_prt);
-  hicn_packet_set_src_port(format, (hicn_header_t *) probe, dst_prt);
-  hicn_packet_set_dst_port(format, (hicn_header_t *) probe, src_prt);
+  hicn_packet_get_src_port((const hicn_header_t *) probe, &src_prt);
+  hicn_packet_get_dst_port((const hicn_header_t *) probe, &dst_prt);
+  hicn_packet_set_src_port((hicn_header_t *) probe, dst_prt);
+  hicn_packet_set_dst_port((hicn_header_t *) probe, src_prt);
 
   hicn_data_set_name (format, (hicn_header_t *) probe, &probe_name);
   hicn_data_set_locator (format, (hicn_header_t *) probe, &probe_locator);
@@ -720,7 +584,7 @@ static inline void messageHandler_CreateProbeReply(uint8_t * probe,
 }
 
 static inline hicn_name_t * messageHandler_CreateProbeName(const ip_prefix_t *address){
-  hicn_name_t * name = parcMemory_AllocateAndClear(sizeof(hicn_name_t));
+  hicn_name_t * name = (hicn_name_t *) calloc(sizeof(hicn_name_t), 1);
   hicn_name_create_from_ip_prefix(address, 0, name);
   return name;
 }
@@ -734,8 +598,8 @@ static inline void messageHandler_SetProbeName(uint8_t * probe, hicn_format_t fo
 static inline bool messageHandler_IsAProbe(const uint8_t *packet){
   uint16_t src_prt;
   uint16_t dst_prt;
-  hicn_packet_get_src_port (HF_INET6_TCP, (const hicn_header_t *) packet, &src_prt);
-  hicn_packet_get_dst_port (HF_INET6_TCP, (const hicn_header_t *) packet, &dst_prt);
+  hicn_packet_get_src_port ((const hicn_header_t *) packet, &src_prt);
+  hicn_packet_get_dst_port ((const hicn_header_t *) packet, &dst_prt);
 
   if(dst_prt == BFD_PORT){
     //interest probe
@@ -755,4 +619,4 @@ static inline bool messageHandler_IsAProbe(const uint8_t *packet){
   return false;
 }
 
-#endif  // Metis_metis_MessageHandler
+#endif /* HICNLIGHT_MESSAGE_HANDLER_H */

@@ -26,30 +26,13 @@
 #ifndef configuration_h
 #define configuration_h
 
-#include <hicn/core/logger.h>
-#include <hicn/utils/commands.h>
+#include "../core/msgbuf.h"
+#include "../core/strategy.h"
+#include <hicn/ctrl/api.h>
 
-struct configuration;
-typedef struct configuration Configuration;
+typedef struct configuration_s configuration_t;
 
-struct forwarder;
-typedef struct forwarder Forwarder;
-
-/**
- * <#One Line Description#>
- *
- * <#Paragraphs Of Explanation#>
- *
- * @param [<#in out in,out#>] <#name#> <#description#>
- *
- * @retval <#value#> <#explanation#>
- *
- * Example:
- * @code
- * <#example#>
- * @endcode
- */
-Configuration *configuration_Create(Forwarder *forwarder);
+struct forwarder_s;
 
 /**
  * <#One Line Description#>
@@ -65,13 +48,28 @@ Configuration *configuration_Create(Forwarder *forwarder);
  * <#example#>
  * @endcode
  */
-void configuration_Destroy(Configuration **configPtr);
+configuration_t * configuration_create(struct forwarder_s * forwarder);
 
-void configuration_SetupAllListeners(Configuration *config, uint16_t port,
+/**
+ * <#One Line Description#>
+ *
+ * <#Paragraphs Of Explanation#>
+ *
+ * @param [<#in out in,out#>] <#name#> <#description#>
+ *
+ * @retval <#value#> <#explanation#>
+ *
+ * Example:
+ * @code
+ * <#example#>
+ * @endcode
+ */
+void configuration_free(configuration_t * config);
+
+void configuration_setup_all_listeners(configuration_t *config, uint16_t port,
                                      const char *localPath);
 
-void configuration_ReceiveCommand(Configuration *config, command_id command,
-                                  struct iovec *request, unsigned ingressId);
+ssize_t configuration_receive_command(configuration_t *config, msgbuf_t * msgbuf);
 
 /**
  * Returns the configured size of the content store
@@ -87,7 +85,7 @@ void configuration_ReceiveCommand(Configuration *config, command_id command,
  * <#example#>
  * @endcode
  */
-size_t configuration_GetObjectStoreSize(Configuration *config);
+size_t configuration_cs_get_size(configuration_t *config);
 
 /**
  * Sets the size of the content store (in objects, not bytes)
@@ -101,11 +99,9 @@ size_t configuration_GetObjectStoreSize(Configuration *config);
  * <#example#>
  * @endcode
  */
-void configuration_SetObjectStoreSize(Configuration *config,
-                                      size_t maximumContentObjectCount);
+void configuration_cs_set_size(configuration_t *config, size_t size);
 
-strategy_type configuration_GetForwardingStrategy(Configuration *config,
-                                                  const char *prefix);
+strategy_type_t configuration_get_strategy(configuration_t *config, const char *prefix);
 
 /**
  * Returns the Forwarder that owns the Configuration
@@ -125,28 +121,12 @@ strategy_type configuration_GetForwardingStrategy(Configuration *config,
  * }
  * @endcode
  */
-Forwarder *configuration_GetForwarder(const Configuration *config);
+struct forwarder_s * configuration_get_forwarder(const configuration_t *config);
 
-/**
- * Returns the logger used by the Configuration subsystem
- *
- * Returns the logger specified when the Configuration was created.
- *
- * @param [in] config An allocated Configuration
- *
- * @retval non-null The logger
- * @retval null An error
- *
- * Example:
- * @code
- * <#example#>
- * @endcode
- */
-Logger *configuration_GetLogger(const Configuration *config);
+uint8_t *
+configuration_dispatch_command(configuration_t * config, command_type_t command_type,
+        uint8_t * packet, unsigned ingress_id);
 
-struct iovec *configuration_DispatchCommand(Configuration *config,
-                                            command_id command,
-                                            struct iovec *control,
-                                            unsigned ingressId);
+face_type_t get_face_type_from_listener_type(hc_connection_type_t listener_type);
 
 #endif  // configuration_h

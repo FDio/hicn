@@ -33,14 +33,9 @@
 
 static void _controlCache_Init(CommandParser *parser, CommandOps *ops);
 static CommandReturn _controlCache_Execute(CommandParser *parser,
-                                           CommandOps *ops,
-                                           PARCList *args,
-                                           char *output,
-                                           size_t output_size);
+                                           CommandOps *ops, PARCList *args);
 static CommandReturn _controlCache_HelpExecute(CommandParser *parser,
-                                               CommandOps *ops, PARCList *args,
-                                               char *output,
-                                               size_t output_size);
+                                               CommandOps *ops, PARCList *args);
 
 static const char *_commandCache = "cache";
 static const char *_commandCacheHelp = "help cache";
@@ -59,18 +54,17 @@ CommandOps *controlCache_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlCache_HelpExecute(CommandParser *parser,
                                                CommandOps *ops,
-                                               PARCList *args,
-                                               char *output,
-                                               size_t output_size) {
+                                               PARCList *args) {
   CommandOps *ops_cache_serve = controlCacheServe_HelpCreate(NULL);
   CommandOps *ops_cache_store = controlCacheStore_HelpCreate(NULL);
   CommandOps *ops_cache_clear = controlCacheClear_HelpCreate(NULL);
 
-  snprintf(output, output_size, "Available commands:\n"
-                                "   %s\n   %s\n   %s\n\n",
-                                ops_cache_serve->command,
-                                ops_cache_store->command,
-                                ops_cache_clear->command);
+  printf("Available commands:\n");
+  printf("   %s\n", ops_cache_serve->command);
+  printf("   %s\n", ops_cache_store->command);
+  printf("   %s\n", ops_cache_clear->command);
+  printf("\n");
+
   commandOps_Destroy(&ops_cache_serve);
   commandOps_Destroy(&ops_cache_store);
   commandOps_Destroy(&ops_cache_clear);
@@ -89,11 +83,8 @@ static void _controlCache_Init(CommandParser *parser, CommandOps *ops) {
 }
 
 static CommandReturn _controlCache_Execute(CommandParser *parser,
-                                           CommandOps *ops,
-                                           PARCList *args,
-                                           char *output,
-                                           size_t output_size) {
-  return _controlCache_HelpExecute(parser, ops, args, output, output_size);
+                                           CommandOps *ops, PARCList *args) {
+  return _controlCache_HelpExecute(parser, ops, args);
 }
 
 // ======================================================================

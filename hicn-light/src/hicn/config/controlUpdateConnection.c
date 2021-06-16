@@ -37,14 +37,10 @@
 
 static CommandReturn _controlUpdateConnection_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args,
-                                                 char *output,
-                                                 size_t output_size);
+                                                 PARCList *args);
 static CommandReturn _controlUpdateConnection_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args,
-                                                     char *output,
-                                                     size_t output_size);
+                                                     PARCList *args);
 
 static const char *command_update_connection = "update connection";
 static const char *command_help_update_connection = "help update connection";
@@ -66,29 +62,24 @@ static const int _indexTags = 3;
 
 static CommandReturn _controlUpdateConnection_HelpExecute(CommandParser *parser,
                                                      CommandOps *ops,
-                                                     PARCList *args,
-                                                     char *output,
-                                                     size_t output_size) {
-  
-  snprintf(output, output_size,
-                     "commands:\n"
-                     "   update connection <symbolic | id> <tags> \n"
-                     "\n"
-                     "   symbolic:        User defined name for connection, must start with "
-                     "alpha and be alphanum\n"
-                     "         id:        Identifier for the connection\n"
-                     "   tags:            A string representing tags\n");
+                                                     PARCList *args) {
+  printf("commands:\n");
+  printf("   update connection <symbolic | id> <tags> \n");
+  printf("\n");
+  printf(
+      "   symbolic:        User defined name for connection, must start with "
+      "alpha and be alphanum\n");
+  printf("         id:        Identifier for the connection\n");
+  printf("   tags:            A string representing tags\n");
   return CommandReturn_Success;
 }
 
 
 static CommandReturn _controlUpdateConnection_Execute(CommandParser *parser,
                                                  CommandOps *ops,
-                                                 PARCList *args,
-                                                 char *output,
-                                                 size_t output_size) {
+                                                 PARCList *args) {
   if ((parcList_Size(args) != 3) && (parcList_Size(args) != 4)) {
-    _controlUpdateConnection_HelpExecute(parser, ops, args, output, output_size);
+    _controlUpdateConnection_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
@@ -96,7 +87,7 @@ static CommandReturn _controlUpdateConnection_Execute(CommandParser *parser,
 
   if (!utils_ValidateSymbolicName(symbolicOrConnid) &&
       !utils_IsNumber(symbolicOrConnid)) {
-    snprintf(output, output_size,
+    printf(
         "ERROR: Invalid symbolic or connid:\nsymbolic name must begin with an "
         "alpha followed by alphanum;\nconnid must be an integer\n");
     return CommandReturn_Failure;

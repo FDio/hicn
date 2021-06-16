@@ -29,14 +29,10 @@
 #include <hicn/core/forwarder.h>
 
 static CommandReturn _controlSetDebug_Execute(CommandParser *parser,
-                                              CommandOps *ops, PARCList *args,
-                                              char *output,
-                                              size_t output_size);
+                                              CommandOps *ops, PARCList *args);
 static CommandReturn _controlSetDebug_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
-                                                  PARCList *args,
-                                                  char *output,
-                                                  size_t output_size);
+                                                  PARCList *args);
 
 static const char *_commandSetDebug = "set debug";
 static const char *_commandSetDebugHelp = "help set debug";
@@ -57,25 +53,21 @@ CommandOps *controlSetDebug_HelpCreate(ControlState *state) {
 
 static CommandReturn _controlSetDebug_HelpExecute(CommandParser *parser,
                                                   CommandOps *ops,
-                                                  PARCList *args,
-                                                  char *output,
-                                                  size_t output_size) {
-  snprintf(output, output_size, "set debug: will enable the debug flag for more verbose output\n");
+                                                  PARCList *args) {
+  printf("set debug: will enable the debug flag for more verbose output\n");
+  printf("\n");
   return CommandReturn_Success;
 }
 
 static CommandReturn _controlSetDebug_Execute(CommandParser *parser,
-                                              CommandOps *ops,
-                                              PARCList *args,
-                                              char *output,
-                                              size_t output_size) {
+                                              CommandOps *ops, PARCList *args) {
   if (parcList_Size(args) != 2) {
-    _controlSetDebug_HelpExecute(parser, ops, args, output, output_size);
+    _controlSetDebug_HelpExecute(parser, ops, args);
     return CommandReturn_Failure;
   }
 
   ControlState *state = ops->closure;
   controlState_SetDebug(state, true);
-  snprintf(output, output_size, "Debug flag set\n\n");
+  printf("Debug flag set\n\n");
   return CommandReturn_Success;
 }
