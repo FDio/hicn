@@ -39,8 +39,8 @@
 #define _ct_var(x) _ct_var_##x
 
 /* Hash functions for indices. */
-#define address_pair_hash(pair) (hash32(pair, sizeof(address_pair_t)))
-#define address_pair_hash_eq(a, b) (address_pair_hash(b) - address_pair_hash(a))
+#define address_pair_hash(pair) (hash_struct(pair))
+#define address_pair_hash_eq(a, b) (address_pair_hash(b) == address_pair_hash(a))
 
 /* Hash table types for indices. */
 KHASH_INIT(ct_pair, const address_pair_t *, unsigned, 1, address_pair_hash, address_pair_hash_eq);

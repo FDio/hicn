@@ -4,6 +4,8 @@ include(BuildMacros)
 
 list(APPEND TESTS
   test-msgbuf_pool
+  test-connection_table
+  test-listener_table
 )
 
 foreach(test ${TESTS})

@@ -61,6 +61,15 @@ int address_from_ip_port(address_t * address, int family, ip_address_t * addr, u
 }))
 
 #define ADDRESS4_LOCALHOST(port) ADDRESS4(INADDR_LOOPBACK, (port))
+
+/**
+ * @brief Helper function to avoid macro expansion in c++ tests. Wrapper around 'ADDRESS4_LOCALHOST()'.
+ *
+ * @param port
+ * @return address_t
+ */
+address_t _ADDRESS4_LOCALHOST(uint16_t port);
+
 #define ADDRESS4_ANY(port) ADDRESS4(INADDR_ANY, (port))
 
 #define ADDRESS6(ip, port) (*(address_t*) &((struct sockaddr_in6) {\
@@ -94,4 +103,3 @@ extern const char * _address_family_str[];
 int address_to_string(const address_t *address, char *buffer);
 
 #endif /* HICNLIGHT_ADDRESS_H */
-

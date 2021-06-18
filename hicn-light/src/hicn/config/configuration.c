@@ -73,7 +73,7 @@ do {                                                                    \
  *
  * prefix_str -> strategy_type
  */
-KHASH_INIT(strategy_map, const char *, unsigned, 0, str_hash, str_hash_eq);
+KHASH_MAP_INIT_STR(strategy_map, unsigned);
 
 struct configuration_s {
     forwarder_t * forwarder;
@@ -1450,4 +1450,3 @@ face_type_t get_face_type_from_listener_type(hc_connection_type_t listener_type)
     }
     return face_type;
 }
-

@@ -64,9 +64,9 @@ typedef enum {
     nexthops_add(pit_entry_get_egress(E), (NH))
 
 #define name_hash(name) (name_HashCode(name))
-#define name_hash_eq(a, b) (name_hash(b) - name_hash(a))
+#define name_hash_eq(a, b) (name_hash(b) == name_hash(a))
 
-KHASH_INIT(pit_name, const Name *, unsigned, 0, name_hash, name_hash_eq);
+KHASH_INIT(pit_name, const Name *, unsigned, 1, name_hash, name_hash_eq);
 
 typedef struct {
     size_t max_size;

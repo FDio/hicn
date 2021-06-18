@@ -52,3 +52,7 @@ int address_to_string(const address_t *address, char *buffer) {
     }
     return err;
 }
+
+address_t _ADDRESS4_LOCALHOST(uint16_t port) {
+    return ADDRESS4_LOCALHOST(port);
+}

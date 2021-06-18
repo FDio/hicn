@@ -40,8 +40,8 @@
 #define _lt_var(x) _lt_var_##x
 
 /* Hash functions for indices */
-#define key_hash(key) (hash(key, sizeof(listener_key_t)))
-#define key_hash_eq(a, b) (key_hash(b) - key_hash(a))
+#define key_hash(key) (hash_struct(key))
+#define key_hash_eq(a, b) (key_hash(b) == key_hash(a))
 
 /* Hash table types for indices */
 KHASH_MAP_INIT_STR(lt_name, unsigned);
@@ -72,7 +72,7 @@ typedef struct {
  */
 #define listener_table_allocate(TABLE, LISTENER, KEY, NAME)                     \
 do {                                                                            \
-    pool_get(table->listeners, (LISTENER));                                     \
+    pool_get(TABLE->listeners, (LISTENER));                                     \
     if (LISTENER) {                                                             \
         off_t _lt_var(id) = (LISTENER) - (TABLE)->listeners;                    \
         int _lt_var(res);                                                       \
