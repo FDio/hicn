@@ -71,7 +71,7 @@ do {                                                                    \
  *
  * prefix_str -> strategy_type
  */
-KHASH_INIT(strategy_map, const char *, unsigned, 0, str_hash, str_hash_eq);
+KHASH_MAP_INIT_STR(strategy_map, unsigned);
 
 struct configuration_s {
     forwarder_t * forwarder;
