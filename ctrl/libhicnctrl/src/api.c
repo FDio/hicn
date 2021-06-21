@@ -3185,4 +3185,3 @@ object_from_str(const char * object_str)
 #undef _
         return OBJECT_UNDEFINED;
 }
-

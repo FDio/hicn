@@ -216,7 +216,7 @@ configuration_on_listener_add(configuration_t * config, uint8_t * packet,
 
     // XXX validate that we use face_type everywhere, as we use the untyped
     // uint8_t for the control protocol
-    face_type_t face_type = control->type;
+    face_type_t face_type = get_face_type_from_listener_type((hc_connection_type_t) control->type);
     if (!face_type_is_defined(face_type))
         goto NACK;
 
@@ -1456,4 +1456,3 @@ face_type_t get_face_type_from_listener_type(hc_connection_type_t listener_type)
     }
     return face_type;
 }
-

@@ -123,8 +123,6 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
 endif()
 
 if (BUILD_TESTS)
-  include (GTestImport)
-
   if(${CMAKE_VERSION} VERSION_GREATER "3.10.0")
     include (GoogleTest)
   else()

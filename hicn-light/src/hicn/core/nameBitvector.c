@@ -21,7 +21,7 @@
 #include <hicn/core/nameBitvector.h>
 
 #include <hicn/common.h> // hash32
-#include <hicn/utils/commands.h>
+#include <hicn/ctrl/commands.h>
 
 #define DEFAULT_PORT 1234
 #define NAME_LEN 2
