@@ -462,7 +462,7 @@ int hl_on_event(interface_t * interface, facelet_t * facelet)
                 }
                 facelet_set_admin_state_status(facelet, FACELET_ATTR_STATUS_CLEAN);
                 INFO("Updated face id=%d - admin_state=%s", hc_face.id,
-                        face_state_str[admin_state]);
+                        face_state_str(admin_state));
             }
 #ifdef WITH_POLICY
             if (facelet_get_netdevice_type_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
@@ -523,7 +523,7 @@ int hl_on_event(interface_t * interface, facelet_t * facelet)
                 }
                 facelet_set_netdevice_type_status(facelet, FACELET_ATTR_STATUS_CLEAN);
                 INFO("Updated face id=%d - netdevice_type=%s", hc_face.id,
-                        netdevice_type_str[netdevice_type]);
+                        netdevice_type_str(netdevice_type));
             }
             if (facelet_get_priority_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
                 INFO("Updating priority...");

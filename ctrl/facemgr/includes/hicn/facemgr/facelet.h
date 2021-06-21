@@ -28,7 +28,7 @@
 
 #include <stdbool.h>
 
-#include <hicn/ctrl/face.h>
+#include <hicn/face.h>
 #include <hicn/ctrl/route.h>
 
 #define MAXSZ_FACELET 1024

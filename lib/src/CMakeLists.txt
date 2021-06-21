@@ -17,6 +17,7 @@ list(APPEND LIBHICN_SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/common.c
   ${CMAKE_CURRENT_SOURCE_DIR}/compat.c
   ${CMAKE_CURRENT_SOURCE_DIR}/error.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/face.c
   ${CMAKE_CURRENT_SOURCE_DIR}/mapme.c
   ${CMAKE_CURRENT_SOURCE_DIR}/name.c
   ${CMAKE_CURRENT_SOURCE_DIR}/ops.c
@@ -35,7 +36,10 @@ if (WIN32)
     ${CMAKE_CURRENT_SOURCE_DIR}/util/windows/dlfcn.c
   )
 endif ()
-set (COMPILER_DEFINITIONS "-DWITH_MAPME")
+set (COMPILER_DEFINITIONS
+    "-DWITH_MAPME"
+    "-DWITH_POLICY"
+)
 
 include(BuildMacros)
 include(WindowsMacros)

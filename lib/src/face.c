@@ -21,17 +21,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <hicn/util/token.h>
 
-#include <hicn/ctrl/face.h>
-#include "util/hash.h"
+#include <hicn/face.h>
+#include <hicn/util/token.h>
 
 #define member_size(type, member) sizeof(((type *)0)->member)
 
 
 /* Netdevice */
 
-const char * netdevice_type_str[] = {
+const char * _netdevice_type_str[] = {
 #define _(x) [NETDEVICE_TYPE_ ## x] = STRINGIZE(x),
 foreach_netdevice_type
 #undef _
@@ -147,7 +146,7 @@ netdevice_cmp(const netdevice_t * nd1, const netdevice_t * nd2)
 
 /* Face state */
 
-const char * face_state_str[] = {
+const char * _face_state_str[] = {
 #define _(x) [FACE_STATE_ ## x] = STRINGIZE(x),
 foreach_face_state
 #undef _
@@ -156,7 +155,7 @@ foreach_face_state
 
 /* Face type */
 
-const char * face_type_str[] = {
+const char * _face_type_str[] = {
 #define _(x) [FACE_TYPE_ ## x] = STRINGIZE(x),
 foreach_face_type
 #undef _
@@ -168,7 +167,7 @@ foreach_face_type
 int
 face_initialize(face_t * face)
 {
-    memset(face, 0, sizeof(face_t)); /* 0'ed for hash */
+    memset(face, 0, sizeof(face_t));
     return 1;
 }
 
@@ -250,7 +249,7 @@ face_initialize_udp_sa(face_t * face, const char * interface_name,
 
 face_t * face_create()
 {
-    face_t * face = calloc(1, sizeof(face_t)); /* 0'ed for hash */
+    face_t * face = calloc(1, sizeof(face_t));
     return face;
 }
 
@@ -356,13 +355,6 @@ face_cmp(const face_t * f1, const face_t * f2)
     return 0;
 }
 
-unsigned int
-face_hash(const face_t * face)
-{
-    /* Assuming the unused part of the struct is set to zero */
-    return hash_struct(face);
-}
-
 /* /!\ Please update constants in header file upon changes */
 size_t
 face_snprintf(char * s, size_t size, const face_t * face)
@@ -382,7 +374,7 @@ face_snprintf(char * s, size_t size, const face_t * face)
                     face->family);
             policy_tags_snprintf(tags, MAXSZ_POLICY_TAGS, face->tags);
             return snprintf(s, size, "%s [%s -> %s] [%s]",
-                    face_type_str[face->type],
+                    face_type_str(face->type),
                     local,
                     remote,
                     tags);
@@ -404,7 +396,7 @@ face_snprintf(char * s, size_t size, const face_t * face)
             policy_tags_snprintf(tags, MAXSZ_POLICY_TAGS, face->tags);
 
             return snprintf(s, size, "%s [%s:%d -> %s:%d] [%s]",
-                    face_type_str[face->type],
+                    face_type_str(face->type),
                     local,
                     face->local_port,
                     remote,
@@ -427,4 +419,25 @@ face_set_tags(face_t * face, policy_tags_t tags)
 {
     face->tags = tags;
     return 1;
+}
+
+face_protocol_t
+get_protocol(face_type_t face_type) {
+    switch (face_type) {
+        case FACE_TYPE_HICN:
+        case FACE_TYPE_HICN_LISTENER:
+            return FACE_PROTOCOL_HICN;
+
+        case FACE_TYPE_TCP:
+        case FACE_TYPE_TCP_LISTENER:
+            return FACE_PROTOCOL_TCP;
+
+        case FACE_TYPE_UDP:
+        case FACE_TYPE_UDP_LISTENER:
+            return FACE_PROTOCOL_UDP;
+        break;
+
+        default:
+            return FACE_PROTOCOL_UNKNOWN;
+    }
 }

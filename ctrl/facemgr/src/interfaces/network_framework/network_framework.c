@@ -32,7 +32,7 @@
 #include <hicn/util/map.h>
 
 #include "../../common.h"
-#include <hicn/ctrl/face.h>
+#include <hicn/face.h>
 #include "../../interface.h"
 
 #include "network_framework.h"

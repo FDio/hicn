@@ -162,7 +162,7 @@ bool forwarder_remove_route(forwarder_t * forwarder, ip_prefix_t * prefix,
  * @brief Adds or updates a policy on the message processor
  */
 bool forwarder_add_or_update_policy(forwarder_t * forwarder,
-        ip_prefix_t * prefix, policy_t * policy);
+        ip_prefix_t * prefix, hicn_policy_t * policy);
 
 /**
  * @brief Removes a policy from the message processor

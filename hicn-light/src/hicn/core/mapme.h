@@ -26,12 +26,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <hicn/ctrl/commands.h>
 #include <hicn/hicn.h>
 
 #include "connection.h"
 #include "fib_entry.h"
 #include "msgbuf.h"
-#include "../utils/commands.h"
 
 typedef struct mapme_s mapme_t;
 

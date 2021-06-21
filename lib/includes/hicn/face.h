@@ -34,8 +34,6 @@
 
 #include <hicn/util/ip_address.h>
 
-//typedef unsigned int hash_t; //incompatible with vpp
-
 /* Netdevice type */
 
 #include <net/if.h> // IFNAMSIZ
@@ -58,7 +56,8 @@ foreach_netdevice_type
 #undef _
 } netdevice_type_t;
 
-extern const char * netdevice_type_str[];
+extern const char * _netdevice_type_str[];
+#define netdevice_type_str(x) _netdevice_type_str[x]
 
 
 /* Netdevice */
@@ -113,7 +112,9 @@ foreach_face_state
 #undef _
 } face_state_t;
 
-extern const char * face_state_str[];
+extern const char * _face_state_str[];
+
+#define face_state_str(x) _face_state_str[x]
 
 
 /* Face type */
@@ -137,7 +138,21 @@ foreach_face_type
 #undef _
 } face_type_t;
 
-extern const char * face_type_str[];
+typedef enum {
+    FACE_PROTOCOL_HICN,
+    FACE_PROTOCOL_UDP,
+    FACE_PROTOCOL_TCP,
+    FACE_PROTOCOL_UNKNOWN,
+} face_protocol_t;
+
+#define face_type_is_valid(face_type) \
+    (((face_type) >= FACE_TYPE_UNDEFINED) && (face_type < FACE_TYPE_N))
+#define face_type_is_defined(face_type) \
+    (((face_type) > FACE_TYPE_UNDEFINED) && (face_type < FACE_TYPE_N))
+
+extern const char * _face_type_str[];
+#define face_type_str(x) _face_type_str[x]
+
 
 #ifdef WITH_POLICY
 #define MAXSZ_FACE_ MAXSZ_FACE_TYPE_ + 2 * MAXSZ_URL_ + 2 * MAXSZ_FACE_STATE_ + MAXSZ_POLICY_TAGS_ + 7
@@ -194,13 +209,14 @@ void face_free(face_t * face);
 typedef int (*face_cmp_t)(const face_t * f1, const face_t * f2);
 
 int face_cmp(const face_t * f1, const face_t * f2);
-unsigned int face_hash(const face_t * face);
 
 size_t
 face_snprintf(char * s, size_t size, const face_t * face);
 
 policy_tags_t face_get_tags(const face_t * face);
 int face_set_tags(face_t * face, policy_tags_t tags);
+
+face_protocol_t get_protocol(face_type_t face_type);
 
 #endif /* HICN_FACE_H */
 

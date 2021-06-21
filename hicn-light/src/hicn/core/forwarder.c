@@ -941,7 +941,7 @@ forwarder_remove_route(forwarder_t * forwarder, ip_prefix_t * prefix,
 
 bool
 forwarder_add_or_update_policy(forwarder_t * forwarder, ip_prefix_t * prefix,
-        policy_t * policy)
+        hicn_policy_t * policy)
 {
     assert(forwarder);
     assert(prefix);

@@ -108,6 +108,7 @@ typedef struct {
 
 #define MAXSZ_PREFIX_ MAXSZ_IP_ADDRESS_ + 1 + 3
 #define MAXSZ_PREFIX MAXSZ_PREFIX_ + 1
+#define MAXSZ_IP_PREFIX MAXSZ_PREFIX
 
 extern const ip_address_t IPV4_LOOPBACK;
 extern const ip_address_t IPV6_LOOPBACK;
@@ -134,6 +135,17 @@ const u8 * ip_address_get_buffer(const ip_address_t * ip_address, int family);
 int ip_address_ntop (const ip_address_t * ip_address, char *dst,
         const size_t len, int family);
 int ip_address_pton (const char *ip_address_str, ip_address_t * ip_address);
+
+/**
+ * @brief Return the ip_address provided as parameter in string format.
+ * E.g. (for ipv4): "0.0.0.0"
+ *
+ * @param[in, out] s String to store the parsed address
+ * @param[in] size Size of the string @p s
+ * @param[in] ip_address Address to parse to string
+ * @param[in] family Address family (e.g. AF_INET, AF_INET6)
+ * @return int Length of the string generated parsing the addr
+ */
 int ip_address_snprintf(char * s, size_t size, const ip_address_t * ip_address,
         int family);
 int ip_address_to_sockaddr(const ip_address_t * ip_address, struct sockaddr *sa,
@@ -146,6 +158,7 @@ int ip_address_empty(const ip_address_t * ip);
 int ip_prefix_pton (const char *ip_address_str, ip_prefix_t * ip_prefix);
 int ip_prefix_ntop_short (const ip_prefix_t * ip_prefix, char *dst, size_t size);
 int ip_prefix_ntop (const ip_prefix_t * ip_prefix, char *dst, size_t size);
+int ip_prefix_snprintf(char * s, size_t size, const ip_prefix_t * prefix);
 int ip_prefix_len (const ip_prefix_t * prefix);
 bool ip_prefix_empty (const ip_prefix_t * prefix);
 int ip_prefix_to_sockaddr(const ip_prefix_t * prefix, struct sockaddr *sa);

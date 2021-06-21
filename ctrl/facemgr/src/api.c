@@ -70,7 +70,7 @@
 
 #include "interfaces/priority_controller/priority_controller.h"
 
-#include <hicn/ctrl/face.h>
+#include <hicn/face.h>
 #include <hicn/facemgr/facelet.h>
 #include "common.h"
 #include "facelet_array.h"
@@ -662,7 +662,7 @@ facemgr_facelet_satisfy_rules(facemgr_t * facemgr, facelet_t * facelet)
     /* Default ignore list */
     if ((netdevice_type == NETDEVICE_TYPE_LOOPBACK) || (netdevice_type == NETDEVICE_TYPE_UNDEFINED)) {
         DEBUG("Ignored interface '%s/%s'...", netdevice.name,
-                netdevice_type_str[netdevice_type]);
+                netdevice_type_str(netdevice_type));
         return -3;
     }
 
@@ -673,7 +673,7 @@ facemgr_facelet_satisfy_rules(facemgr_t * facemgr, facelet_t * facelet)
         return -1;
     if (ignore) {
         DEBUG("Ignored interface '%s/%s'...", netdevice.name,
-                netdevice_type_str[netdevice_type]);
+                netdevice_type_str(netdevice_type));
         return -3;
     }
 

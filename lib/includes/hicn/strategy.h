@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,22 +14,23 @@
  */
 
 /**
- * \file interfaces/bonjour/bonjour.h
- * \brief Bonjour interface
- *
- * NOTES:
- *  - shall we support multiple service names, or instanciate multiple instances
- *  of the interface ?
- *  - interface list ?
- *  - ideally we should register here events that will trigger bonjour
- *  queries...
+ * \file strategy.h
+ * \brief hICN forwarding strategy
  */
+#ifndef HICN_STRATEGY_H
+#define HICN_STRATEGY_H
 
-#include <hicn/face.h> /* netdevice_t */
+typedef enum {
+  STRATEGY_TYPE_UNDEFINED,
+  STRATEGY_TYPE_LOADBALANCER,
+  STRATEGY_TYPE_LOW_LATENCY,
+  STRATEGY_TYPE_RANDOM,
+  STRATEGY_TYPE_N
+} strategy_type_t;
 
-typedef struct {
-    netdevice_t netdevice;
-    char * service_name;
-    char * service_protocol;
-    char * service_domain;
-} bonjour_cfg_t;
+#define STRATEGY_TYPE_VALID(type) \
+    ((type != STRATEGY_TYPE_UNDEFINED) && (type != STRATEGY_TYPE_N))
+
+#define MAX_FWD_STRATEGY_RELATED_PREFIXES 10
+
+#endif /* HICN_STRATEGY_H */

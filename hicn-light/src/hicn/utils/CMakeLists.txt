@@ -13,8 +13,9 @@
 
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
+# XXX This is installed in hicn/utils...
 list(APPEND HEADER_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/commands.h
+#  ${CMAKE_CURRENT_SOURCE_DIR}/commands.h
 #  ${CMAKE_CURRENT_SOURCE_DIR}/interface.h
 #  ${CMAKE_CURRENT_SOURCE_DIR}/interfaceSet.h
   ${CMAKE_CURRENT_SOURCE_DIR}/punting.h

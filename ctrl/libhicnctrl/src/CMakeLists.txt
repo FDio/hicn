@@ -17,17 +17,17 @@ list(APPEND COMPILER_DEFINITIONS
 
 set(HEADER_FILES
     api.h
+    cli.h
     commands.h
-    face.h
 )
 
 set(UTIL_HEADER_FILES
-    face.h
 )
 
 set(SOURCE_FILES
-    face.c
+    hicnctrl.c
     route.c
+    cli.c
 )
 
 if(BUILD_HICNPLUGIN)
@@ -77,7 +77,7 @@ if (NOT DISABLE_EXECUTABLES)
     set(LIBRARIES ${LIBRARIES} ${LIBHICN_SHARED} ${LIBHICNCTRL_SHARED})
 
     list(APPEND DAEMON_SRC
-      cli.c
+      hicnctrl.c
     )
 
     build_executable(${HICNCTRL}

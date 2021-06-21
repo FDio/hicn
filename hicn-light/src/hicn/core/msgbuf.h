@@ -24,7 +24,7 @@
 #include "name.h"
 #include "ticks.h"
 #include "messageHandler.h"
-#include "../utils/commands.h"
+#include <hicn/ctrl/commands.h>
 
 struct name_s;
 
@@ -84,8 +84,8 @@ typedef struct {
 /* Path label */
 
 #define msgbuf_get_pathlabel(M) (messageHandler_GetPathLabel((M)->packet))
-#define msgbuf_set_pathlabel(M, label) (messageHandler_SetPathLabel((M)->packet, label))
-#define msgbuf_update_pathlabel(M, outface) (messageHandler_SetPathLabel((M)->packet, outface))
+#define msgbuf_set_pathlabel(M, label) (messageHandler_SetPathLabel((M)->packet, msgbuf_get_pathlabel(M), label))
+#define msgbuf_update_pathlabel(M, outface) (messageHandler_UpdatePathLabel((M)->packet, outface))
 #define msgbuf_reset_pathlabel(M) (messageHandler_ResetPathLabel((M)->packet))
 
 /* WLDR */

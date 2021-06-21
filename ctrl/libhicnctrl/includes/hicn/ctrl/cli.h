@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,22 +14,18 @@
  */
 
 /**
- * \file interfaces/bonjour/bonjour.h
- * \brief Bonjour interface
- *
- * NOTES:
- *  - shall we support multiple service names, or instanciate multiple instances
- *  of the interface ?
- *  - interface list ?
- *  - ideally we should register here events that will trigger bonjour
- *  queries...
+ * @file cli.h
+ * @brief Command line helpers
  */
 
-#include <hicn/face.h> /* netdevice_t */
+#ifndef HICNCTRL_CLI
+#define HICNCTRL_CLI
 
-typedef struct {
-    netdevice_t netdevice;
-    char * service_name;
-    char * service_protocol;
-    char * service_domain;
-} bonjour_cfg_t;
+#include "api.h"
+
+#define MAXSZ_OBJECT 255 // XXX
+
+int hc_object_type_snprintf(char * buf, size_t size, hc_object_type_t type, uint8_t * data);
+int hc_object_snprintf(char * buf, size_t size, hc_object_t * object);
+
+#endif /* HICNCTRL_CLI */

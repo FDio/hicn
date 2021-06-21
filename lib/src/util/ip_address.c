@@ -309,6 +309,12 @@ ip_prefix_ntop(const ip_prefix_t * ip_prefix, char *dst, size_t size)
 }
 
 int
+ip_prefix_snprintf(char * s, size_t size, const ip_prefix_t * prefix)
+{
+    return ip_prefix_ntop(prefix, s, size);
+}
+
+int
 ip_prefix_len (const ip_prefix_t * prefix)
 {
     return prefix->len; // ip_address_len(&prefix->address, prefix->family);

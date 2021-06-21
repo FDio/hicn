@@ -20,9 +20,9 @@
 #ifndef HICNLIGHT_STRATEGY_LOW_LATENCY_H
 #define HICNLIGHT_STRATEGY_LOW_LATENCY_H
 
-#define MAX_FWD_STRATEGY_RELATED_PREFIXES 10
-
 struct name_s;
+
+#include <hicn/strategy.h>
 
 typedef struct {
 } strategy_low_latency_nexthop_state_t;

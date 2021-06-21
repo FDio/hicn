@@ -38,7 +38,6 @@
 #include "../core/msgbuf.h"
 #include "../core/forwarder.h"
 #include "../core/messageHandler.h"
-#include "../utils/commands.h"
 
 // 128 KB output queue
 #define OUTPUT_QUEUE_BYTES (128 * 1024)

@@ -56,8 +56,8 @@ typedef struct {
 } hc_sock_request_t;
 
 /**
- * Messages to the forwarder might be multiplexed thanks to the seqNum fields in
- * the header_control_message structure. The forwarder simply answers back the
+ * Messages to the forwarder might be multiplexed thanks to the seq_num fields in
+ * the cmd_header_t structure. The forwarder simply answers back the
  * original sequence number. We maintain a map of such sequence number to
  * outgoing queries so that replied can be demultiplexed and treated
  * appropriately.
@@ -184,6 +184,7 @@ connection_type_from_str(const char * str)
 
 #define IS_VALID_LIST_CONNECTIONS_TYPE(x) ((x >= CONN_GRE) && (x <= CONN_HICN))
 
+#if 0
 static const hc_connection_type_t map_from_list_connections_type[] = {
     [CONN_GRE]       = CONNECTION_TYPE_UNDEFINED,
     [CONN_TCP]       = CONNECTION_TYPE_TCP,
@@ -224,6 +225,7 @@ static const listener_mode map_to_listener_mode[] = {
 };
 
 #define IS_VALID_LIST_CONNECTIONS_STATE(x) ((x >= IFACE_UP) && (x <= IFACE_UNKNOWN))
+#endif
 
 /* /!\ Please update constants in header file upon changes */
 const char * connection_state_str[] = {
@@ -242,11 +244,13 @@ static const connection_state map_to_connection_state[] = {
 
 */
 
+#if 0
 static const hc_connection_state_t map_from_list_connections_state[] = {
     [IFACE_UP]                  = HC_CONNECTION_STATE_UP,
     [IFACE_DOWN]                = HC_CONNECTION_STATE_DOWN,
     [IFACE_UNKNOWN]             = HC_CONNECTION_STATE_UNDEFINED,
 };
+#endif
 
 
 #define connection_state_to_face_state(x) ((face_state_t)(x))
@@ -254,6 +258,7 @@ static const hc_connection_state_t map_from_list_connections_state[] = {
 
 #define IS_VALID_ADDR_TYPE(x) ((x >= ADDR_INET) && (x <= ADDR_UNIX))
 
+#if 0
 static const int map_from_addr_type[] = {
     [ADDR_INET]     = AF_INET,
     [ADDR_INET6]    = AF_INET6,
@@ -266,34 +271,43 @@ static const address_type map_to_addr_type[] = {
     [AF_INET]   = ADDR_INET,
     [AF_INET6]  = ADDR_INET6,
 };
+#endif
+
+// XXX Those are always true
+//
+#define IS_VALID_ADDRESS(x) (1)
+#define IS_VALID_CONNECTION_ID(x) (1)
+#define IS_VALID_ROUTE_COST(x) (1)
+#define IS_VALID_PREFIX_LEN(x) (1)
+#define IS_VALID_POLICY(x) (1)
 
 /******************************************************************************
  * Message helper types and aliases
  ******************************************************************************/
 
 #define foreach_hc_command      \
-    _(add_connection)           \
-    _(remove_connection)        \
-    _(list_connections)         \
-    _(add_listener)             \
-    _(remove_listener)          \
-    _(list_listeners)           \
-    _(add_route)                \
-    _(remove_route)             \
-    _(list_routes)              \
-    _(cache_store)              \
-    _(cache_serve)              \
+    _(connection_add)           \
+    _(connection_remove)        \
+    _(connection_list)         \
+    _(listener_add)             \
+    _(listener_remove)          \
+    _(listener_list)           \
+    _(route_add)                \
+    _(route_remove)             \
+    _(route_list)              \
+    _(cache_set_store)              \
+    _(cache_set_serve)              \
     /*_(cache_clear) */         \
-    _(set_strategy)             \
-    _(set_wldr)                 \
-    _(add_punting)              \
+    _(strategy_set)             \
+    _(wldr_set)                 \
+    _(punting_add)              \
     _(mapme_activator)          \
     _(mapme_timing)
 
-typedef header_control_message hc_msg_header_t;
+typedef cmd_header_t hc_msg_header_t;
 
 typedef union {
-#define _(x) x ## _command x;
+#define _(x) cmd_ ## x ## _t x;
         foreach_hc_command
 #undef _
 } hc_msg_payload_t;
@@ -486,7 +500,7 @@ hc_sock_create_url(const char * url)
 
     s->url = url ? strdup(url) : NULL;
 
-    s->fd = socket(AF_INET, SOCK_STREAM, 0);
+    s->fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (s->fd < 0)
         goto ERR_SOCKET;
 
@@ -526,7 +540,7 @@ hc_sock_free(hc_sock_t * s)
     hc_sock_request_t ** request_array = NULL;
     int n = hc_sock_map_get_value_array(s->map, &request_array);
     if (n < 0) {
-       ERROR("Could not retrieve pending request array for freeing up resources"); 
+       ERROR("Could not retrieve pending request array for freeing up resources");
     } else {
         for (unsigned i = 0; i < n; i++) {
             hc_sock_request_t * request = request_array[i];
@@ -588,7 +602,7 @@ int
 hc_sock_send(hc_sock_t * s, hc_msg_t * msg, size_t msglen, int seq)
 {
     int rc;
-    msg->hdr.seqNum = seq;
+    msg->hdr.seq_num = seq;
     rc = (int)send(s->fd, msg, msglen, 0);
     if (rc < 0) {
         perror("hc_sock_send");
@@ -620,7 +634,7 @@ hc_sock_recv(hc_sock_t * s)
     rc = (int)recv(s->fd, s->buf + s->woff, RECV_BUFLEN - s->woff, 0);
     if (rc == 0) {
         /* Connection has been closed */
-         return 0;
+        return 0;
     }
     if (rc < 0) {
         /*
@@ -649,15 +663,15 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
     while(available > 0) {
 
         if (!s->cur_request) { // No message being parsed, alternatively (remaining == 0)
-            hc_msg_t * msg = (hc_msg_t*)(s->buf + s->roff);
+            cmd_header_t hdr = ((msg_header_t *) (s->buf + s->roff))->header;
 
             /* We expect a message header */
-            if (available < sizeof(hc_msg_header_t)) {
+            if (available < sizeof(cmd_header_t)) {
                 break;
             }
 
             hc_sock_request_t * request = NULL;
-            if (hc_sock_map_get(s->map, msg->hdr.seqNum, &request) < 0) {
+            if (hc_sock_map_get(s->map, hdr.seq_num, &request) < 0) {
                 ERROR("[hc_sock_process] Error searching for matching request");
                 return -99;
             }
@@ -666,19 +680,23 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                 return -99;
             }
 
-            s->remaining = msg->hdr.length;
-            switch(msg->hdr.messageType) {
+            s->remaining = hdr.length;
+            switch(hdr.message_type) {
                 case ACK_LIGHT:
+                    DEBUG("ack received");
                     assert(s->remaining == 1);
                     assert(!data);
                     s->cur_request = request;
+                    hc_data_set_complete(request->data);
                     break;
                 case NACK_LIGHT:
+                    DEBUG("nack received");
                     assert(s->remaining == 1);
                     assert(!data);
                     hc_data_set_error(request->data);
                     s->cur_request = request;
                     err = -1;
+                    hc_data_set_complete(request->data);
                     break;
                 case RESPONSE_LIGHT:
                     assert(data);
@@ -697,9 +715,8 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
                     ERROR("[hc_sock_process] Invalid response received");
                     return -99;
             }
-
-            available -= sizeof(hc_msg_header_t);
-            s->roff += sizeof(hc_msg_header_t);
+            available -= sizeof(cmd_header_t);
+            s->roff += sizeof(cmd_header_t);
         } else {
             /* We expect the complete payload, or at least a chunk of it */
             size_t num_chunks = available / s->cur_request->data->in_element_size;
@@ -824,7 +841,7 @@ typedef int (*HC_PARSE)(const u8 *, u8 *);
 
 typedef struct {
     hc_action_t cmd;
-    command_id cmd_id;
+    command_type_t cmd_id;
     size_t size_in;
     size_t size_out;
     HC_PARSE parse;
@@ -966,22 +983,18 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
     if (!IS_VALID_CONNECTION_TYPE(listener->type))
          return -1;
 
-    struct {
-        header_control_message hdr;
-        add_listener_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = ADD_LISTENER,
+    msg_listener_add_t msg = {
+        .header = {
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_LISTENER_ADD,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = listener->local_addr,
             .port = htons(listener->local_port),
-            .addressType = (u8)map_to_addr_type[listener->family],
-            .listenerMode = (u8)map_to_listener_mode[listener->type],
-            .connectionType = (u8)map_to_connection_type[listener->type],
+            .family = listener->family,
+            .type = listener->type,
         }
     };
 
@@ -989,14 +1002,14 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
     if (rc >= SYMBOLIC_NAME_LEN)
         WARN("[_hc_listener_create] Unexpected truncation of symbolic name string");
 
-    rc = snprintf(msg.payload.interfaceName, INTERFACE_LEN, "%s", listener->interface_name);
+    rc = snprintf(msg.payload.interface_name, INTERFACE_LEN, "%s", listener->interface_name);
     if (rc >= INTERFACE_LEN)
         WARN("[_hc_listener_create] Unexpected truncation of interface name string");
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
-        .cmd_id = ADD_LISTENER,
-        .size_in = sizeof(add_listener_command),
+        .cmd_id = COMMAND_TYPE_LISTENER_ADD,
+        .size_in = sizeof(cmd_listener_add_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1068,14 +1081,14 @@ _hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
             BOOLSTR(async));
 
     struct {
-        header_control_message hdr;
-        remove_listener_command payload;
+        cmd_header_t hdr;
+        cmd_listener_remove_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_LISTENER,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_LISTENER_REMOVE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
@@ -1101,8 +1114,8 @@ _hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_LISTENER,
-        .size_in = sizeof(remove_listener_command),
+        .cmd_id = COMMAND_TYPE_LISTENER_REMOVE,
+        .size_in = sizeof(cmd_listener_remove_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1131,20 +1144,20 @@ _hc_listener_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
     DEBUG("[hc_listener_list] async=%s", BOOLSTR(async));
 
     struct {
-        header_control_message hdr;
+        cmd_header_t hdr;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = LIST_LISTENERS,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_LISTENER_LIST,
             .length = 0,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
-        .cmd_id = LIST_LISTENERS,
-        .size_in = sizeof(list_listeners_command),
+        .cmd_id = COMMAND_TYPE_LISTENER_LIST,
+        .size_in = sizeof(cmd_listener_list_item_t),
         .size_out = sizeof(hc_listener_t),
         .parse = (HC_PARSE)hc_listener_parse,
     };
@@ -1215,33 +1228,31 @@ hc_listener_parse(void * in, hc_listener_t * listener)
 {
     int rc;
 
-    list_listeners_command * cmd = (list_listeners_command *)in;
+    cmd_listener_list_item_t * item = (cmd_listener_list_item_t *)in;
 
-    if (!IS_VALID_LIST_LISTENERS_TYPE(cmd->encapType))
+    // XXX TODO validate what we received from hicnlight
+    // address
+    // name
+    // interface_name
+    // port
+
+    if (!(IS_VALID_CONNECTION_TYPE(item->type)))
          return -1;
 
-    hc_connection_type_t type = map_from_encap_type[cmd->encapType];
-    if (type == CONNECTION_TYPE_UNDEFINED)
-         return -1;
-
-    if (!IS_VALID_ADDR_TYPE(cmd->addressType))
-         return -1;
-
-    int family = map_from_addr_type[cmd->addressType];
-    if (!IS_VALID_FAMILY(family))
+    if (!IS_VALID_FAMILY(item->family))
          return -1;
 
     *listener = (hc_listener_t) {
-        .id = cmd->connid,
-        .type = type,
-        .family = family,
-        .local_addr = UNION_CAST(cmd->address, ip_address_t),
-        .local_port = ntohs(cmd->port),
+        .id = item->id,
+        .type = item->type,
+        .family = item->family,
+        .local_addr = UNION_CAST(item->address, ip_address_t),
+        .local_port = ntohs(item->port),
     };
-    rc = snprintf(listener->name, SYMBOLIC_NAME_LEN, "%s", cmd->listenerName);
+    rc = snprintf(listener->name, SYMBOLIC_NAME_LEN, "%s", item->name);
     if (rc >= SYMBOLIC_NAME_LEN)
         WARN("[hc_listener_parse] Unexpected truncation of symbolic name string");
-    rc = snprintf(listener->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
+    rc = snprintf(listener->interface_name, INTERFACE_LEN, "%s", item->interface_name);
     if (rc >= INTERFACE_LEN)
         WARN("[hc_listener_parse] Unexpected truncation of interface name string");
     return 0;
@@ -1287,22 +1298,23 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
         return -1;
 
     struct {
-        header_control_message hdr;
-        add_connection_command payload;
+        cmd_header_t hdr;
+        cmd_connection_add_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = ADD_CONNECTION,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_ADD,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
-            .remoteIp = connection->remote_addr,
-            .localIp = connection->local_addr,
-            .remotePort = htons(connection->remote_port),
-            .localPort = htons(connection->local_port),
-            .ipType = (u8)map_to_addr_type[connection->family],
-            .connectionType = (u8)map_to_connection_type[connection->type],
+            // symbolic
+            .remote_ip = connection->remote_addr,
+            .local_ip = connection->local_addr,
+            .remote_port = htons(connection->remote_port),
+            .local_port = htons(connection->local_port),
+            .family = connection->family,
+            .type = connection->type,
             .admin_state = connection->admin_state,
 #ifdef WITH_POLICY
             .priority = connection->priority,
@@ -1313,12 +1325,12 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
     rc = snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", connection->name);
     if (rc >= SYMBOLIC_NAME_LEN)
         WARN("[_hc_connection_create] Unexpected truncation of symbolic name string");
-    //snprintf(msg.payload.interfaceName, INTERFACE_NAME_LEN, "%s", connection->interface_name);
+    //snprintf(msg.payload.interface_name, INTERFACE_NAME_LEN, "%s", connection->interface_name);
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
-        .cmd_id = ADD_CONNECTION,
-        .size_in = sizeof(add_connection_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_ADD,
+        .size_in = sizeof(cmd_connection_add_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1389,14 +1401,14 @@ _hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
     DEBUG("[_hc_connection_delete] connection=%s async=%s", connection_s, BOOLSTR(async));
 
     struct {
-        header_control_message hdr;
-        remove_connection_command payload;
+        cmd_header_t hdr;
+        cmd_connection_remove_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_CONNECTION,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_REMOVE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
@@ -1422,8 +1434,8 @@ _hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_CONNECTION,
-        .size_in = sizeof(remove_connection_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_REMOVE,
+        .size_in = sizeof(cmd_connection_remove_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1451,20 +1463,20 @@ _hc_connection_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
     DEBUG("[hc_connection_list] async=%s", BOOLSTR(async));
 
     struct {
-        header_control_message hdr;
+        cmd_header_t hdr;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = LIST_CONNECTIONS,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_LIST,
             .length = 0,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
-        .cmd_id = LIST_CONNECTIONS,
-        .size_in = sizeof(list_connections_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_LIST,
+        .size_in = sizeof(cmd_connection_list_item_t),
         .size_out = sizeof(hc_connection_t),
         .parse = (HC_PARSE)hc_connection_parse,
     };
@@ -1548,50 +1560,46 @@ int
 hc_connection_parse(void * in, hc_connection_t * connection)
 {
     int rc;
-    list_connections_command * cmd = (list_connections_command *)in;
+    cmd_connection_list_item_t * item = (cmd_connection_list_item_t *)in;
 
-    if (!IS_VALID_LIST_CONNECTIONS_TYPE(cmd->connectionData.connectionType))
+    // XXX validation
+    // symbolic
+    // remote_ip
+    // local_ip
+    // remote_port
+    // local_port
+
+    if (!IS_VALID_FAMILY(item->family))
          return -1;
 
-    hc_connection_type_t type = map_from_list_connections_type[cmd->connectionData.connectionType];
-    if (type == CONNECTION_TYPE_UNDEFINED)
-         return -1;
-
-    if (!IS_VALID_LIST_CONNECTIONS_STATE(cmd->state))
-         return -1;
-
-    hc_connection_state_t state = map_from_list_connections_state[cmd->state];
-    if (state == HC_CONNECTION_STATE_UNDEFINED)
-         return -1;
-
-    if (!IS_VALID_ADDR_TYPE(cmd->connectionData.ipType))
-         return -1;
-
-    int family = map_from_addr_type[cmd->connectionData.ipType];
-    if (!IS_VALID_FAMILY(family))
-         return -1;
+    // type
+    // admin_state
+    // priority
+    // tags
+    // id
+    // state
+    // interface_name
+    // name ???
 
     *connection = (hc_connection_t) {
-        .id = cmd->connid,
-        .type = type,
-        .family = family,
-        .local_addr = cmd->connectionData.localIp,
-        //.local_addr = UNION_CAST(cmd->connectionData.localIp, ip_address_t),
-        .local_port = ntohs(cmd->connectionData.localPort),
-        .remote_addr = cmd->connectionData.remoteIp,
-        //.remote_addr = UNION_CAST(cmd->connectionData.remoteIp, ip_address_t),
-        .remote_port = ntohs(cmd->connectionData.remotePort),
-        .admin_state = cmd->connectionData.admin_state,
+        .id = item->id,
+        .type = item->type,
+        .family = item->family,
+        .local_addr = item->local_ip,
+        .local_port = ntohs(item->local_port),
+        .remote_addr = item->remote_ip,
+        .remote_port = ntohs(item->remote_port),
+        .admin_state = item->admin_state,
 #ifdef WITH_POLICY
-        .priority = cmd->connectionData.priority,
-        .tags = cmd->connectionData.tags,
+        .priority = item->priority,
+        .tags = item->tags,
 #endif /* WITH_POLICY */
-        .state = state,
+        .state = item->state,
     };
-    rc = snprintf(connection->name, SYMBOLIC_NAME_LEN, "%s", cmd->connectionData.symbolic);
+    rc = snprintf(connection->name, SYMBOLIC_NAME_LEN, "%s", item->symbolic);
     if (rc >= SYMBOLIC_NAME_LEN)
         WARN("[hc_connection_parse] Unexpected truncation of symbolic name string");
-    rc = snprintf(connection->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
+    rc = snprintf(connection->interface_name, INTERFACE_LEN, "%s", item->interface_name);
     if (rc >= INTERFACE_LEN)
         WARN("[hc_connection_parse] Unexpected truncation of interface name string");
     return 0;
@@ -1640,16 +1648,16 @@ _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
 {
     int rc;
     DEBUG("[hc_connection_set_admin_state] connection_id/name=%s admin_state=%s async=%s",
-            conn_id_or_name, face_state_str[state], BOOLSTR(async));
+            conn_id_or_name, face_state_str(state), BOOLSTR(async));
     struct {
-        header_control_message hdr;
-        connection_set_admin_state_command payload;
+        cmd_header_t hdr;
+        cmd_connection_set_admin_state_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_ADMIN_STATE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_SET_ADMIN_STATE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .admin_state = state,
@@ -1661,8 +1669,8 @@ _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
-        .cmd_id = CONNECTION_SET_ADMIN_STATE,
-        .size_in = sizeof(connection_set_admin_state_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_SET_ADMIN_STATE,
+        .size_in = sizeof(cmd_connection_set_admin_state_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1692,14 +1700,14 @@ _hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
     DEBUG("[hc_connection_set_priority] connection_id/name=%s priority=%d async=%s",
             conn_id_or_name, priority, BOOLSTR(async));
     struct {
-        header_control_message hdr;
-        connection_set_priority_command payload;
+        cmd_header_t hdr;
+        cmd_connection_set_priority_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_PRIORITY,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_SET_PRIORITY,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .priority = priority,
@@ -1711,8 +1719,8 @@ _hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
-        .cmd_id = CONNECTION_SET_PRIORITY,
-        .size_in = sizeof(connection_set_priority_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_SET_PRIORITY,
+        .size_in = sizeof(cmd_connection_set_priority_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1742,14 +1750,14 @@ _hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name,
     DEBUG("[hc_connection_set_tags] connection_id/name=%s tags=%d async=%s",
             conn_id_or_name, tags, BOOLSTR(async));
     struct {
-        header_control_message hdr;
-        connection_set_tags_command payload;
+        cmd_header_t hdr;
+        cmd_connection_set_tags_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_TAGS,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_SET_TAGS,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .tags = tags,
@@ -1761,8 +1769,8 @@ _hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name,
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
-        .cmd_id = CONNECTION_SET_TAGS,
-        .size_in = sizeof(connection_set_tags_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_SET_TAGS,
+        .size_in = sizeof(cmd_connection_set_tags_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1806,19 +1814,19 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
          return -1;
 
     struct {
-        header_control_message hdr;
-        add_route_command payload;
+        cmd_header_t hdr;
+        cmd_route_add_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = ADD_ROUTE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_ROUTE_ADD,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = route->remote_addr,
             .cost = route->cost,
-            .addressType = (u8)map_to_addr_type[route->family],
+            .family = route->family,
             .len = route->len,
         }
     };
@@ -1833,8 +1841,8 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
-        .cmd_id = ADD_ROUTE,
-        .size_in = sizeof(add_route_command),
+        .cmd_id = COMMAND_TYPE_ROUTE_ADD,
+        .size_in = sizeof(cmd_route_add_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1869,18 +1877,18 @@ _hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
          return -1;
 
     struct {
-        header_control_message hdr;
-        remove_route_command payload;
+        cmd_header_t hdr;
+        cmd_route_remove_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_ROUTE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_ROUTE_REMOVE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = route->remote_addr,
-            .addressType = (u8)map_to_addr_type[route->family],
+            .family = route->family,
             .len = route->len,
         }
     };
@@ -1893,8 +1901,8 @@ _hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_ROUTE,
-        .size_in = sizeof(remove_route_command),
+        .cmd_id = COMMAND_TYPE_ROUTE_REMOVE,
+        .size_in = sizeof(cmd_route_remove_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -1922,20 +1930,20 @@ _hc_route_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
     //DEBUG("[hc_route_list] async=%s", BOOLSTR(async));
 
     struct {
-        header_control_message hdr;
+        cmd_header_t hdr;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = LIST_ROUTES,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_ROUTE_LIST,
             .length = 0,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
-        .cmd_id = LIST_ROUTES,
-        .size_in = sizeof(list_routes_command),
+        .cmd_id = COMMAND_TYPE_ROUTE_LIST,
+        .size_in = sizeof(cmd_route_list_item_t),
         .size_out = sizeof(hc_route_t),
         .parse = (HC_PARSE)hc_route_parse,
     };
@@ -1960,25 +1968,35 @@ hc_route_list_async(hc_sock_t * s)
 int
 hc_route_parse(void * in, hc_route_t * route)
 {
-    list_routes_command * cmd = (list_routes_command *) in;
+    cmd_route_list_item_t * item = (cmd_route_list_item_t *) in;
 
-    if (!IS_VALID_ADDR_TYPE(cmd->addressType)) {
-        ERROR("[hc_route_parse] Invalid address type");
+    if (!IS_VALID_ADDRESS(item->address)) {
+        ERROR("[hc_route_parse] Invalid address");
         return -1;
     }
-
-    int family = map_from_addr_type[cmd->addressType];
-    if (!IS_VALID_FAMILY(family)) {
+    if (!IS_VALID_CONNECTION_ID(item->connection_id)) {
+        ERROR("[hc_route_parse] Invalid connection id");
+        return -1;
+    }
+    if (!IS_VALID_ROUTE_COST(item->cost)) {
+        ERROR("[hc_route_parse] Invalid cost");
+        return -1;
+    }
+    if (!IS_VALID_FAMILY(item->family)) {
         ERROR("[hc_route_parse] Invalid address family");
+        return -1;
+    }
+    if (!IS_VALID_PREFIX_LEN(item->len)) {
+        ERROR("[hc_route_parse] Invalid len");
         return -1;
     }
 
     *route = (hc_route_t) {
-        .face_id = cmd->connid,
-        .family = family,
-        .remote_addr = UNION_CAST(cmd->address, ip_address_t),
-        .len = cmd->len,
-        .cost = cmd->cost,
+        .face_id = item->connection_id,
+        .family = item->family,
+        .remote_addr = item->address,
+        .len = item->len,
+        .cost = item->cost,
     };
     return 0;
 }
@@ -2516,20 +2534,20 @@ int
 hc_face_list_async(hc_sock_t * s)
 {
     struct {
-        header_control_message hdr;
+        cmd_header_t hdr;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = LIST_CONNECTIONS,
+            .message_type = REQUEST_LIGHT,
+            COMMAND_TYPE_CONNECTION_LIST,
             .length = 0,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
-        .cmd_id = LIST_CONNECTIONS,
-        .size_in = sizeof(list_connections_command),
+        .cmd_id = COMMAND_TYPE_CONNECTION_LIST,
+        .size_in = sizeof(cmd_connection_list_item_t),
         .size_out = sizeof(hc_face_t),
         .parse = (HC_PARSE)hc_connection_parse_to_face,
     };
@@ -2602,11 +2620,11 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
             face->id,
             face->name,
             face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
-            face_type_str[face->face.type],
+            face_type_str(face->face.type),
             local,
             remote,
-            face_state_str[face->face.state],
-            face_state_str[face->face.admin_state],
+            face_state_str(face->face.state),
+            face_state_str(face->face.admin_state),
             face->face.priority,
             tags);
 #else
@@ -2614,11 +2632,11 @@ hc_face_snprintf(char * s, size_t size, hc_face_t * face)
             face->id,
             face->name,
             face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
-            face_type_str[face->face.type],
+            face_type_str(face->face.type),
             local,
             remote,
-            face_state_str[face->face.state],
-            face_state_str[face->face.admin_state]);
+            face_state_str(face->face.state),
+            face_state_str(face->face.admin_state));
 #endif /* WITH_POLICY */
 }
 
@@ -2656,18 +2674,18 @@ _hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
         return -1;
 
     struct {
-        header_control_message hdr;
-        add_punting_command payload;
+        cmd_header_t hdr;
+        cmd_punting_add_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = ADD_PUNTING,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_PUNTING_ADD,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = punting->prefix,
-            .addressType = (u8)map_to_addr_type[punting->family],
+            .family = punting->family,
             .len = punting->prefix_len,
         }
     };
@@ -2677,8 +2695,8 @@ _hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
-        .cmd_id = ADD_PUNTING,
-        .size_in = sizeof(add_punting_command),
+        .cmd_id = COMMAND_TYPE_PUNTING_ADD,
+        .size_in = sizeof(cmd_punting_add_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -2777,14 +2795,14 @@ int
 _hc_cache_set_store(hc_sock_t * s, int enabled, bool async)
 {
     struct {
-        header_control_message hdr;
-        cache_store_command payload;
+        cmd_header_t hdr;
+        cmd_cache_set_store_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = CACHE_STORE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CACHE_SET_STORE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .activate = enabled,
@@ -2793,8 +2811,8 @@ _hc_cache_set_store(hc_sock_t * s, int enabled, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
-        .cmd_id = CACHE_STORE,
-        .size_in = sizeof(cache_store_command),
+        .cmd_id = COMMAND_TYPE_CACHE_SET_STORE,
+        .size_in = sizeof(cmd_cache_set_store_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -2818,14 +2836,14 @@ int
 _hc_cache_set_serve(hc_sock_t * s, int enabled, bool async)
 {
     struct {
-        header_control_message hdr;
-        cache_serve_command payload;
+        cmd_header_t hdr;
+        cmd_cache_set_serve_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = CACHE_SERVE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CACHE_SET_SERVE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .activate = enabled,
@@ -2834,8 +2852,8 @@ _hc_cache_set_serve(hc_sock_t * s, int enabled, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_SET,
-        .cmd_id = CACHE_SERVE,
-        .size_in = sizeof(cache_serve_command),
+        .cmd_id = COMMAND_TYPE_CACHE_SET_SERVE,
+        .size_in = sizeof(cmd_cache_set_serve_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -2955,18 +2973,18 @@ _hc_policy_create(hc_sock_t * s, hc_policy_t * policy, bool async)
          return -1;
 
     struct {
-        header_control_message hdr;
-        add_policy_command payload;
+        cmd_header_t hdr;
+        cmd_policy_add_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = ADD_POLICY,
+            .message_type = REQUEST_LIGHT,
+            COMMAND_TYPE_POLICY_ADD,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = policy->remote_addr,
-            .addressType = (u8)map_to_addr_type[policy->family],
+            .family = policy->family,
             .len = policy->len,
             .policy = policy->policy,
         }
@@ -2974,8 +2992,8 @@ _hc_policy_create(hc_sock_t * s, hc_policy_t * policy, bool async)
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
-        .cmd_id = ADD_POLICY,
-        .size_in = sizeof(add_policy_command),
+        .cmd_id = COMMAND_TYPE_POLICY_ADD,
+        .size_in = sizeof(cmd_policy_add_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -3004,26 +3022,26 @@ _hc_policy_delete(hc_sock_t * s, hc_policy_t * policy, bool async)
          return -1;
 
     struct {
-        header_control_message hdr;
-        remove_policy_command payload;
+        cmd_header_t hdr;
+        cmd_policy_remove_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_POLICY,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_POLICY_REMOVE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = policy->remote_addr,
-            .addressType = (u8)map_to_addr_type[policy->family],
+            .family = policy->family,
             .len = policy->len,
         }
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_POLICY,
-        .size_in = sizeof(remove_policy_command),
+        .cmd_id = COMMAND_TYPE_POLICY_REMOVE,
+        .size_in = sizeof(cmd_policy_remove_t),
         .size_out = 0,
         .parse = NULL,
     };
@@ -3049,20 +3067,20 @@ int
 _hc_policy_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
 {
     struct {
-        header_control_message hdr;
+        cmd_header_t hdr;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = LIST_POLICIES,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_POLICY_LIST,
             .length = 0,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
-        .cmd_id = LIST_POLICIES,
-        .size_in = sizeof(list_policies_command),
+        .cmd_id = COMMAND_TYPE_POLICY_LIST,
+        .size_in = sizeof(cmd_policy_list_item_t),
         .size_out = sizeof(hc_policy_t),
         .parse = (HC_PARSE)hc_policy_parse,
     };
@@ -3087,20 +3105,30 @@ hc_policy_list_async(hc_sock_t * s, hc_data_t ** pdata)
 int
 hc_policy_parse(void * in, hc_policy_t * policy)
 {
-    list_policies_command * cmd = (list_policies_command *) in;
+    cmd_policy_list_item_t * item = (cmd_policy_list_item_t *) in;
 
-    if (!IS_VALID_ADDR_TYPE(cmd->addressType))
-         return -1;
-
-    int family = map_from_addr_type[cmd->addressType];
-    if (!IS_VALID_FAMILY(family))
-         return -1;
+    if (!IS_VALID_ADDRESS(item->address)) {
+        ERROR("[hc_policy_parse] Invalid address");
+        return -1;
+    }
+    if (!IS_VALID_FAMILY(item->family)) {
+        ERROR("[hc_policy_parse] Invalid family");
+        return -1;
+    }
+    if (!IS_VALID_PREFIX_LEN(item->len)) {
+        ERROR("[hc_policy_parse] Invalid len");
+        return -1;
+    }
+    if (!IS_VALID_POLICY(item->policy)) {
+        ERROR("[hc_policy_parse] Invalid policy");
+        return -1;
+    }
 
     *policy = (hc_policy_t) {
-        .family = family,
-        .remote_addr = UNION_CAST(cmd->address, ip_address_t),
-        .len = cmd->len,
-        .policy = cmd->policy,
+        .family = item->family,
+        .remote_addr = item->address,
+        .len = item->len,
+        .policy = item->policy,
     };
     return 0;
 }
@@ -3115,3 +3143,46 @@ hc_policy_snprintf(char * s, size_t size, hc_policy_t * policy)
 }
 
 #endif /* WITH_POLICY */
+
+const char * action_str[] = {
+#define _(x) [ACTION_ ## x] = #x,
+    foreach_action
+#undef _
+};
+
+hc_action_t
+action_from_str(const char * action_str)
+{
+#define _(x)                                    \
+    if (strcasecmp(action_str, # x) == 0)       \
+        return ACTION_ ## x;                    \
+    else
+    foreach_action
+#undef _
+    if (strcasecmp(action_str, "add") == 0)
+        return ACTION_CREATE;
+    else
+    if (strcasecmp(action_str, "remove") == 0)
+        return ACTION_DELETE;
+    else
+        return ACTION_UNDEFINED;
+}
+
+const char * object_str[] = {
+#define _(x) [OBJECT_ ## x] = #x,
+    foreach_object
+#undef _
+};
+
+hc_object_type_t
+object_from_str(const char * object_str)
+{
+#define _(x)                                    \
+    if (strcasecmp(object_str, # x) == 0)       \
+        return OBJECT_ ## x;                    \
+    else
+    foreach_object
+#undef _
+        return OBJECT_UNDEFINED;
+}
+

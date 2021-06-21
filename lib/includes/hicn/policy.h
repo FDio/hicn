@@ -49,6 +49,8 @@ foreach_policy_tag
     POLICY_TAG_N
 } policy_tag_t;
 
+#define IS_VALID_POLICY_TAG(x) (x != POLICY_TAG_N)
+
 #define MAXSZ_POLICY_TAG_ 11
 #define MAXSZ_POLICY_TAG MAXSZ_POLICY_TAG_ + 1
 
@@ -134,6 +136,9 @@ foreach_policy_state
 
 extern const char * policy_state_str[];
 
+#define policy_state_str(x) policy_state_str[x]
+
+policy_state_t policy_state_from_str(const char * str);
 
 /* POLICY TAG STATE */
 
@@ -147,68 +152,6 @@ typedef struct {
 
 int policy_tag_state_snprintf(char * s, size_t size, const policy_tag_state_t * tag_state);
 
-
-/* INTERFACE STATS */
-
-typedef struct {
-    float throughput;
-    float latency;
-    float loss_rate;
-} interface_stats_t;
-
-#define INTERFACE_STATS_NONE {                          \
-    .throughput = 0,                                    \
-    .latency = 0,                                       \
-    .loss_rate = 0,                                     \
-}
-
-
-/* POLICY STATS */
-
-typedef struct {
-    interface_stats_t wired;
-    interface_stats_t wifi;
-    interface_stats_t cellular;
-    interface_stats_t all;
-} policy_stats_t;
-
-#define POLICY_STATS_NONE {                     \
-    .wired    = INTERFACE_STATS_NONE,           \
-    .wifi     = INTERFACE_STATS_NONE,           \
-    .cellular = INTERFACE_STATS_NONE,           \
-    .all      = INTERFACE_STATS_NONE,           \
-}
-
-typedef struct {
-    uint32_t num_packets;
-    uint32_t num_bytes;
-    uint32_t num_losses;
-    uint32_t latency_idle;
-} interface_counters_t;
-
-#define INTERFACE_COUNTERS_NONE {               \
-    .num_packets = 0,                           \
-    .num_bytes = 0,                             \
-    .num_losses = 0,                            \
-    .latency_idle = 0,                          \
-}
-
-typedef struct {
-    interface_counters_t wired;
-    interface_counters_t wifi;
-    interface_counters_t cellular;
-    interface_counters_t all;
-    uint64_t last_update;
-} policy_counters_t;
-
-#define POLICY_COUNTERS_NONE (policy_counters_t) {      \
-    .wired    = INTERFACE_COUNTERS_NONE,                \
-    .wifi     = INTERFACE_COUNTERS_NONE,                \
-    .cellular = INTERFACE_COUNTERS_NONE,                \
-    .all      = INTERFACE_COUNTERS_NONE,                \
-    .last_update = 0,                                   \
-}
-
 /* POLICY */
 
 #define APP_NAME_LEN 128
@@ -216,7 +159,6 @@ typedef struct {
 typedef struct {
     char app_name[APP_NAME_LEN];
     policy_tag_state_t tags[POLICY_TAG_N];
-    policy_stats_t stats;
 } hicn_policy_t;
 
 static const hicn_policy_t POLICY_NONE = {
@@ -230,7 +172,6 @@ static const hicn_policy_t POLICY_NONE = {
 foreach_policy_tag
 #undef _
     },
-    .stats = POLICY_STATS_NONE,
 };
 
 
