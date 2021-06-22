@@ -33,8 +33,6 @@
 
 #include "command.h"
 
-static void * sscanf_params[MAX_PARAMETERS];
-
 const char * action_str[] = {
 #define _(x) [ACTION_ ## x] = #x,
     foreach_action
@@ -114,6 +112,11 @@ parser_type_fmt(const parser_type_t * type)
 int
 parser_type_func(const parser_type_t * type, void * src, void *dst, void * dst2, void * dst3)
 {
+    ip_address_t addr;
+    char *addr_str;
+    char *len_str;
+    int len;
+
     switch(type->name) {
         case TYPENAME_INT:
             *(int*)dst = *(int*)src;
@@ -133,19 +136,25 @@ parser_type_func(const parser_type_t * type, void * src, void *dst, void * dst2,
         case TYPENAME_SYMBOLIC_OR_ID:
             break;
         case TYPENAME_IP_ADDRESS:
-            *(ip_address_t*)dst = IP_ADDRESS_EMPTY; // XXX
-            *(int*)dst2 = AF_INET;
+            ip_address_pton((char *)src, &addr);
+
+            *(ip_address_t*)dst = addr;
+            *(int*)dst2 = ip_address_get_family((char *)src);
             break;
         case TYPENAME_IP_PREFIX:
-            *(ip_address_t*)dst = IP_ADDRESS_EMPTY; // XXX
-            *(int*)dst2 = 128;
-            *(int*)dst3 = AF_INET;
+            addr_str = strtok((char *)src, "/");
+            len_str = strtok(NULL, " ");
+            ip_address_pton((char *)src, &addr);
+            len = atoi(len_str);
+
+            *(ip_address_t*)dst = addr;
+            *(int*)dst2 = len;
+            *(int*)dst3 = ip_address_get_family(addr_str);
             break;
         case TYPENAME_ENUM:
             /* Enum index from string */
             assert(type->enum_.from_str);
-            const char * str = *(const char **)src;
-            *(int*)dst = type->enum_.from_str(str);
+            *(int*)dst = type->enum_.from_str((char *)src);
             break;
         case TYPENAME_POLICY_STATE:
         {
@@ -172,10 +181,9 @@ parse_params(const command_parser_t * parser, const char * params_s,
     char fmt[1024];
     int n;
     size_t size = 0;
-
     char * pos = fmt;
-
-    int must_free[MAX_PARAMETERS];
+    /* Update MAX_PARAMETERS accordingly in command.h */
+    char sscanf_params[MAX_PARAMETERS][MAX_SCANF_PARAM_LEN];
 
     unsigned count = 0;
     for (unsigned i = 0; i < parser->nparams; i++) {
@@ -185,8 +193,6 @@ parse_params(const command_parser_t * parser, const char * params_s,
             WARN("Ignored parameter %s with unknown type formatter", p->name);
             continue;
         }
-        must_free[count] = (strcmp(fmt, "%ms") == 0),
-
         n = snprintf(pos, 1024 - size, "%s", fmt);
         pos += n;
 
@@ -198,21 +204,17 @@ parse_params(const command_parser_t * parser, const char * params_s,
     }
     *pos = '\0';
 
-    void ** sp = sscanf_params;
-    /* Update MAX_PARAMETERS accordingly in command.h */
-    sscanf(params_s, fmt, &sp[0], &sp[1], &sp[2], &sp[3], &sp[4], &sp[5],
-            &sp[6], &sp[7], &sp[8], &sp[9]);
+    sscanf(params_s, fmt, sscanf_params[0], sscanf_params[1], sscanf_params[2], sscanf_params[3], sscanf_params[4], sscanf_params[5],
+            sscanf_params[6], sscanf_params[7], sscanf_params[8], sscanf_params[9]);
 
     for (unsigned i = 0; i < count; i++) {
         const command_parameter_t * p = &parser->parameters[i];
-        if (parser_type_func(&p->type, &sp[i], &command->object.as_uint8 + p->offset,
+        if (parser_type_func(&p->type, sscanf_params[i], &command->object.as_uint8 + p->offset,
                     &command->object.as_uint8 + p->offset2,
                     &command->object.as_uint8 + p->offset3) < 0) {
             ERROR("Error during parsing of parameter '%s' value\n", p->name);
             goto ERR;
         }
-        if (must_free[i])
-            free(sp[i]);
     }
     return 0;
 

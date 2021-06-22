@@ -26,10 +26,10 @@ address_from_ip_port(address_t * address, int family, ip_address_t * addr, uint1
   memset(address, 0, sizeof(address_t));
   switch(family) {
       case AF_INET:
-        *address = ADDRESS4(addr->v4.as_inaddr.s_addr, port);
+        *address = ADDRESS4(ntohl(addr->v4.as_inaddr.s_addr), ntohs(port));
         break;
       case AF_INET6:
-        *address = ADDRESS6(addr->v6.as_in6addr, port);
+        *address = ADDRESS6(ntohl(addr->v6.as_in6addr), ntohs(port));
         break;
       default:
         return -1;
