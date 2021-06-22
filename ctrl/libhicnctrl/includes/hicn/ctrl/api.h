@@ -631,6 +631,7 @@ int hc_face_snprintf(char *s, size_t size, hc_face_t *face);
  *----------------------------------------------------------------------------*/
 
 typedef struct {
+  // TODO: Allow also symbolic name
   face_id_t face_id;               /* Kr. */
   int family;               /* Krw */
   ip_address_t remote_addr; /* krw */

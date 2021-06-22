@@ -1,3 +1,4 @@
+#include <math.h>
 #include "command.h"
 
 /* Parameters */
@@ -5,7 +6,7 @@
 static const command_parameter_t symbolic_or_id = {
     .name = "symbolic_or_id",
     .help = "The symbolic name for an egress, or the egress route id (see 'help list routes')",
-    .type = TYPE_SYMBOLIC_OR_ID,
+    .type = TYPE_INT(1, pow(2, 16) - 1),
     .offset = offsetof(hc_route_t, face_id),
 };
 

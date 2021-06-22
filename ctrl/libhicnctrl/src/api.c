@@ -1820,7 +1820,7 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
         .payload = {
             .address = route->remote_addr,
             .cost = route->cost,
-            .addressType = (u8)map_to_addr_type[route->family],
+            .family = route->family,
             .len = route->len,
         }
     };
@@ -3159,4 +3159,3 @@ object_from_str(const char * object_str)
 #undef _
         return OBJECT_UNDEFINED;
 }
-

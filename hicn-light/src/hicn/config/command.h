@@ -13,6 +13,7 @@
 
 /* Update sscanf accordingly in parse_cmd.c */
 #define MAX_PARAMETERS 10
+#define MAX_SCANF_PARAM_LEN 10
 
 typedef int (*parser_hook_t)(void * arg);
 
