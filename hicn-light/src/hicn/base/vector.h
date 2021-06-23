@@ -251,8 +251,9 @@ do {                                                                    \
  */
 #define vector_len(vector) vector_hdr(vector)->cur_size
 
-#ifdef WITH_TESTS
+/**
+ * @brief Returns the allocated size of a vector.
+ */
 #define vector_get_alloc_size(vector) vector_hdr(vector)->alloc_size
-#endif /* WITH_TESTS */
 
 #endif /* UTIL_VECTOR_H */

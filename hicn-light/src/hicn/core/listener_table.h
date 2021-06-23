@@ -176,6 +176,11 @@ do {                                                                            
         ? listener_table_at(table, id) : NULL
 
 /**
+ * @brief Helper function to avoid macro expansion in c++ tests. Wrapper around 'listener_table_get_by_id'.
+ */
+listener_t *_listener_table_get_by_id(listener_table_t *table, off_t id);
+
+/**
  * @brief Returns the index of a given listener in the listener table.
  *
  * @param[in] table The listener table from which to retrieve the index.

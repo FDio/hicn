@@ -69,6 +69,12 @@ typedef struct {
 listener_t * listener_create(face_type_t type, const address_t * address,
         const char * interface_name, const char * symbolic, struct forwarder_s * forwarder);
 
+/**
+ * @brief Helper function used inside 'listener_create' to
+ * setup variables in listener struct.
+ *
+ * @see listener_create
+ */
 int listener_initialize(listener_t * listener, face_type_t type, const char * name,
         unsigned listener_id, const address_t * address,
         const char * interface_name, struct forwarder_s * forwarder);
