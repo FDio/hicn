@@ -28,6 +28,8 @@ extern "C" {
 #include <hicn/core/listener_table.h>
 }
 
+#define LISTENER_NAME "listener_name_test"
+
 class ListenerTableTest : public ::testing::Test {
 protected:
     ListenerTableTest() {
@@ -38,35 +40,106 @@ protected:
     }
 
     listener_table_t *listener_table;
+    listener_t *listener;
+    listener_key_t key = {
+        .address = _ADDRESS4_LOCALHOST(1),
+        .type = FACE_TYPE_UDP
+    };
 };
 
-TEST_F(ListenerTableTest, Create)
+TEST_F(ListenerTableTest, CreateTable)
 {
-    /* Check listener_table allocation */
+    // Check listener_table allocation
     EXPECT_NE(listener_table, nullptr);
 
-    /* Check listener_table size */
+    // Check listener_table size
     size_t listener_table_size = listener_table_len(listener_table);
     EXPECT_EQ(listener_table_size, (size_t) 0);
 }
 
 TEST_F(ListenerTableTest, AddListener)
 {
-    listener_key_t key = {
-        .address = _ADDRESS4_LOCALHOST(1),
-        .type = FACE_TYPE_UDP
-    };
-    listener_t *listener;
-
-    listener_table_allocate(listener_table, listener, &key, "listener_name_test");
+    // Add listener to listener table
+    listener_table_allocate(listener_table, listener, &key, LISTENER_NAME);
     size_t listener_table_size = listener_table_len(listener_table);
     EXPECT_EQ(listener_table_size, (size_t) 1);
     EXPECT_NE(listener, nullptr);
 
-    khiter_t k = kh_get_lt_name(listener_table->id_by_name, "listener_name_test");
-    EXPECT_NE(k, kh_end(listener_table->id_by_name));
-    k = kh_get_lt_key(listener_table->id_by_key, &key);
-    EXPECT_NE(k, kh_end(listener_table->id_by_key));
+    // Get listener by name and by key
+    khiter_t k_name = kh_get_lt_name(listener_table->id_by_name, LISTENER_NAME);
+    EXPECT_NE(k_name, kh_end(listener_table->id_by_name));
+    khiter_t k_key = kh_get_lt_key(listener_table->id_by_key, &key);
+    EXPECT_NE(k_key, kh_end(listener_table->id_by_key));
+}
+
+TEST_F(ListenerTableTest, GetListener)
+{
+    // Add listener to listener table
+    listener_table_allocate(listener_table, listener, &key, LISTENER_NAME);
+    size_t listener_table_size = listener_table_len(listener_table);
+    EXPECT_EQ(listener_table_size, (size_t) 1);
+    ASSERT_NE(listener, nullptr);
+
+    // Get listener by name
+    listener_t *listener_retrieved = listener_table_get_by_name(listener_table, LISTENER_NAME);
+    ASSERT_NE(listener_retrieved, nullptr);
+    EXPECT_EQ(listener_retrieved, listener);
+
+    // Get listener by key
+    listener_retrieved = listener_table_get_by_address(listener_table, key.type, &key.address);
+    ASSERT_NE(listener_retrieved, nullptr);
+    EXPECT_EQ(listener_retrieved, listener);
+}
+
+TEST_F(ListenerTableTest, GetListenerWithIdOutOfRange)
+{
+    // Try to retrieve a listener with an index
+    // bigger than the current listener table size
+    ASSERT_DEATH({
+        _listener_table_get_by_id(listener_table, ~0);
+    }, ".*Assertion.*");
+}
+
+TEST_F(ListenerTableTest, GetListenerWithInvalidId)
+{
+    // First listener inserted has always id equal to 0
+    int non_valid_id = 5;
+
+    listener_table_allocate(listener_table, listener, &key, LISTENER_NAME);
+    listener_t *listener_not_found = listener_table_get_by_id(listener_table, non_valid_id);
+    ASSERT_EQ(listener_not_found, nullptr);
+}
+
+TEST_F(ListenerTableTest, GetListenerWithValidId)
+{
+    listener_table_allocate(listener_table, listener, &key, LISTENER_NAME);
+    int id = listener_table_get_listener_id(listener_table, listener);
+    listener_t *listener_found = listener_table_get_by_id(listener_table, id);
+    ASSERT_EQ(listener_found, listener);
+}
+
+TEST_F(ListenerTableTest, RemoveListener)
+{
+    // Add listener (listerner name and key must be set)
+    listener_table_allocate(listener_table, listener, &key, LISTENER_NAME);
+    listener->name = (char*) LISTENER_NAME;
+    listener->key = key;
+
+    // Remove listener
+    int id = listener_table_get_listener_id(listener_table, listener);
+    listener_table_remove_by_id(listener_table, id);
+
+    // Check listener table size
+    size_t listener_table_size = listener_table_len(listener_table);
+    EXPECT_EQ(listener_table_size, (size_t) 0);
+
+    // Check that previous listener is not valid anymore
+    listener_t *listener_not_found = listener_table_get_by_id(listener_table, id);
+    EXPECT_EQ(listener_not_found, nullptr);
+    listener_not_found = listener_table_get_by_name(listener_table, LISTENER_NAME);
+    EXPECT_EQ(listener_not_found, nullptr);
+    listener_not_found = listener_table_get_by_address(listener_table, key.type, &key.address);
+    EXPECT_EQ(listener_not_found, nullptr);
 }
 
 int main(int argc, char **argv)

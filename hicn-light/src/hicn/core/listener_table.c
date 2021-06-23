@@ -104,3 +104,7 @@ listener_table_get_by_name(listener_table_t * table, const char * name)
         return NULL;
     return listener_table_at(table, kh_val(table->id_by_name, k));
 }
+
+listener_t *_listener_table_get_by_id(listener_table_t *table, off_t id) {
+    return listener_table_get_by_id(table, id);
+}

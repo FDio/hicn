@@ -66,6 +66,13 @@ bitmap_ensure_pos(bitmap_t ** bitmap, off_t pos)
 }
 
 /**
+ * @brief Returns the allocated size of a bitmap.
+ *
+ * @see listener_table_get_by_id
+ */
+#define bitmap_get_alloc_size(bitmap) vector_get_alloc_size(bitmap)
+
+/**
  * @brief Retrieve the state of the i-th bit in the bitmap.
  *
  * @param[in] bitmap The bitmap to access.
@@ -76,6 +83,7 @@ int
 bitmap_get(const bitmap_t * bitmap, off_t i)
 {
     size_t offset = i / BITMAP_WIDTH(bitmap);
+    assert(offset < bitmap_get_alloc_size(bitmap));
     size_t pos = i % BITMAP_WIDTH(bitmap);
     size_t shift = BITMAP_WIDTH(bitmap) - pos - 1;
     return (bitmap[offset] >> shift) & 1;
@@ -196,9 +204,5 @@ END:
 #define bitmap_set_to(bitmap, to) bitmap_set_range((bitmap), 0, (to))
 
 #define bitmap_free(bitmap) vector_free(bitmap)
-
-#ifdef WITH_TESTS
-#define bitmap_get_alloc_size(bitmap) vector_get_alloc_size(bitmap)
-#endif /* WITH_TESTS */
 
 #endif /* UTIL_BITMAP_H */
