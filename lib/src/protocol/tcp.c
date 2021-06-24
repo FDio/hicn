@@ -45,18 +45,45 @@ DECLARE_get_length (tcp, UNEXPECTED);
 DECLARE_get_payload_length (tcp, UNEXPECTED);
 DECLARE_set_payload_length (tcp, UNEXPECTED);
 
+always_inline int
+check_tcp_checksum(u16 csum)
+{
+  /* As per RFC1624
+   * In one's complement, there are two representations of zero: the all
+   * zero and the all one bit values, often referred to as +0 and -0.
+   * One's complement addition of non-zero inputs can produce -0 as a
+   * result, but never +0.  Since there is guaranteed to be at least one
+   * non-zero field in the IP header, and the checksum field in the
+   * protocol header is the complement of the sum, the checksum field can
+   * never contain ~(+0), which is -0 (0xFFFF).  It can, however, contain
+   * ~(-0), which is +0 (0x0000).
+   */
+  if (csum == 0xffff)
+    {
+      /* Invalid checksum, no need to compute incremental update */
+      return HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED;
+    }
+
+  return HICN_LIB_ERROR_NONE;
+}
+
 int
 tcp_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
 {
-  h->tcp = (_tcp_header_t)
-  {
-  .sport = htons (TCP_DEFAULT_SRC_PORT),.dport =
-      htons (TCP_DEFAULT_DST_PORT),.seq = 0,.seq_ack =
-      0,.data_offset_and_reserved = TCP_DEFAULT_DATA_OFFSET_RES,.flags =
+  h->tcp = (_tcp_header_t) {
+    .sport = htons (TCP_DEFAULT_SRC_PORT),
+    .dport = htons (TCP_DEFAULT_DST_PORT),
+    .seq = 0,
+    .seq_ack = 0,
+    .data_offset_and_reserved = TCP_DEFAULT_DATA_OFFSET_RES,
+    .flags =
       TCP_DEFAULT_CWR << 7 | TCP_DEFAULT_ECE << 6 | TCP_DEFAULT_URG << 5 |
       TCP_DEFAULT_ACK << 4 | TCP_DEFAULT_PSH << 3 | TCP_DEFAULT_RST << 2 |
-      TCP_DEFAULT_SYN << 1 | TCP_DEFAULT_FIN << 0,.window =
-      htons (TCP_DEFAULT_WINDOW_SIZE),.csum = 0,.urg_ptr = 65000,};
+      TCP_DEFAULT_SYN << 1 | TCP_DEFAULT_FIN << 0,
+    .window = htons (TCP_DEFAULT_WINDOW_SIZE),
+    .csum = 0xffff,
+    .urg_ptr = 65000,
+  };
 
   uint8_t ah_flag = type.l2 == IPPROTO_AH ? AH_FLAG : 0;
 
@@ -79,6 +106,20 @@ tcp_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t * h,
 {
   h->tcp.name_suffix = htonl (*suffix);
 
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+tcp_mark_packet_as_interest (hicn_type_t type, hicn_protocol_t * h)
+{
+  h->tcp.flags &= ~HICN_TCP_FLAG_ECE;
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+tcp_mark_packet_as_data (hicn_type_t type, hicn_protocol_t * h)
+{
+  h->tcp.flags |= HICN_TCP_FLAG_ECE;
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -129,12 +170,12 @@ tcp_update_data_pathlabel (hicn_type_t type, hicn_protocol_t * h,
 			   const hicn_faceid_t face_id)
 {
   hicn_pathlabel_t pl =
-    (hicn_pathlabel_t) ((h->tcp.pathlabel & HICN_PATH_LABEL_MASK) >> (32 -
-								      HICN_PATH_LABEL_SIZE));
+    (hicn_pathlabel_t) (h->tcp.seq_ack >> (32 - HICN_PATH_LABEL_SIZE));
+
   hicn_pathlabel_t new_pl;
 
   update_pathlabel (pl, face_id, &new_pl);
-  h->tcp.pathlabel = new_pl;
+  h->tcp.seq_ack = (new_pl << (32 - HICN_PATH_LABEL_SIZE));
 
   return HICN_LIB_ERROR_NONE;
 }
@@ -208,7 +249,12 @@ int
 tcp_verify_checksums (hicn_type_t type, hicn_protocol_t * h, u16 partial_csum,
 		      size_t payload_length)
 {
-  if (csum (h, TCP_HDRLEN + payload_length, ~partial_csum) != 0)
+  if (PREDICT_TRUE (partial_csum != 0))
+    {
+      partial_csum = ~partial_csum;
+    }
+  
+  if (csum (h, TCP_HDRLEN + payload_length, partial_csum) != 0)
     return HICN_LIB_ERROR_CORRUPTED_PACKET;
   return CHILD_OPS (verify_checksums, type, h, 0, payload_length);
 }
@@ -238,6 +284,12 @@ tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 		      ip46_address_t * addr_old)
 {
   u16 *tcp_checksum = &(h->tcp.csum);
+  int ret = check_tcp_checksum(*tcp_checksum);
+
+  if (ret)
+    {
+      return ret;
+    }
 
   /*
    * Padding fields are set to zero so we can apply checksum on the
@@ -260,9 +312,23 @@ tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 int
 tcp_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
 		  const ip46_address_t * addr_new, ip46_address_t * addr_old,
-		  const hicn_faceid_t face_id)
+		  const hicn_faceid_t face_id, u8 reset_pl)
 {
+
   u16 *tcp_checksum = &(h->tcp.csum);
+  int ret = check_tcp_checksum(*tcp_checksum);
+
+  /*
+   * update path label
+   */
+  u16 old_pl = h->tcp.seq_ack;
+  if(reset_pl) h->tcp.seq_ack = 0;
+  tcp_update_data_pathlabel (type, h, face_id);
+
+  if (ret)
+    {
+      return ret;
+    }
 
   /*
    * Padding fields are set to zero so we can apply checksum on the
@@ -277,9 +343,8 @@ tcp_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
   csum = ip_csum_add_even (csum, (ip_csum_t) (addr_new->ip6.as_u64[0]));
   csum = ip_csum_add_even (csum, (ip_csum_t) (addr_new->ip6.as_u64[1]));
 
-  csum = ip_csum_sub_even (csum, h->tcp.pathlabel);
-  tcp_update_data_pathlabel (type, h, face_id);
-  csum = ip_csum_add_even (csum, h->tcp.pathlabel);
+  csum = ip_csum_sub_even (csum, old_pl);
+  csum = ip_csum_add_even (csum, h->tcp.seq_ack);
 
   *tcp_checksum = ip_csum_fold (csum);
 

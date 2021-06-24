@@ -23,10 +23,9 @@
 
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
-#include <hicn/transport/security/identity.h>
-#include <hicn/transport/security/signer.h>
+#include <hicn/transport/auth/identity.h>
+#include <hicn/transport/auth/signer.h>
 #include <hicn/transport/utils/string_tokenizer.h>
-
 
 #include <asio.hpp>
 
@@ -35,16 +34,16 @@ namespace transport {
 namespace interface {
 
 using HashAlgorithm = core::HashAlgorithm;
-using CryptoSuite = utils::CryptoSuite;
+using CryptoSuite = auth::CryptoSuite;
 
-utils::Identity setProducerIdentity(std::string keystore_name,
-                                    std::string keystore_password,
-                                    utils::CryptoHashType hash_algorithm) {
+auth::Identity setProducerIdentity(std::string keystore_name,
+                                   std::string keystore_password,
+                                   auth::CryptoHashType hash_algorithm) {
   if (access(keystore_name.c_str(), F_OK) != -1) {
-    return utils::Identity(keystore_name, keystore_password, hash_algorithm);
+    return auth::Identity(keystore_name, keystore_password, hash_algorithm);
   } else {
-    return utils::Identity(keystore_name, keystore_password,
-                           CryptoSuite::RSA_SHA256, 1024, 365, "producer-test");
+    return auth::Identity(keystore_name, keystore_password,
+                          CryptoSuite::RSA_SHA256, 1024, 365, "producer-test");
   }
 }
 
@@ -54,7 +53,7 @@ class CallbackContainer {
  public:
   CallbackContainer(const Name &prefix, uint32_t object_size, bool verbose,
                     bool dump, bool quite, bool flags, bool reset, uint8_t ttl,
-                    utils::Identity *identity, bool sign, uint32_t lifetime)
+                    auth::Identity *identity, bool sign, uint32_t lifetime)
       : buffer_(object_size, 'X'),
         content_objects_((std::uint32_t)(1 << log2_content_object_buffer_size)),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
@@ -83,7 +82,7 @@ class CallbackContainer {
 
     for (int i = 0; i < (1 << log2_content_object_buffer_size); i++) {
       content_objects_[i] = std::make_shared<ContentObject>(
-          prefix, format, (const uint8_t *)buffer_.data(), buffer_.size());
+          prefix, format, 0, (const uint8_t *)buffer_.data(), buffer_.size());
       content_objects_[i]->setLifetime(lifetime);
     }
   }
@@ -153,7 +152,7 @@ class CallbackContainer {
       if (!quite_) std::cout << std::endl;
 
       if (sign_) {
-        identity_->getSigner()->sign(*content_object);
+        identity_->getSigner()->signPacket(content_object.get());
       }
 
       p.produce(*content_object);
@@ -171,7 +170,7 @@ class CallbackContainer {
   bool flags_;
   bool reset_;
   uint8_t ttl_;
-  utils::Identity *identity_;
+  auth::Identity *identity_;
   bool sign_;
 };
 
@@ -291,14 +290,14 @@ int main(int argc, char **argv) {
   if (object_size > 1350) object_size = 1350;
 
   CallbackContainer *stubs;
-  utils::Identity identity = setProducerIdentity(
-      keystore_path, keystore_password, utils::CryptoHashType::SHA_256);
+  auth::Identity identity = setProducerIdentity(
+      keystore_path, keystore_password, auth::CryptoHashType::SHA_256);
 
   if (sign) {
     stubs = new CallbackContainer(n, object_size, verbose, dump, quite, flags,
                                   reset, ttl, &identity, sign, data_lifetime);
   } else {
-    utils::Identity *identity = nullptr;
+    auth::Identity *identity = nullptr;
     stubs = new CallbackContainer(n, object_size, verbose, dump, quite, flags,
                                   reset, ttl, identity, sign, data_lifetime);
   }

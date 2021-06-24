@@ -19,6 +19,14 @@
 #include <vnet/dpo/dpo.h>
 #include "../strategy_dpo_ctx.h"
 
+/**
+ * @file dpo_mw.h
+ *
+ * This file implements the strategy vtf (see strategy.h) and
+ * the dpo vft (see strategy_dpo_manager.h) for the strategy
+ * maximum weight
+ */
+
 #define DEFAULT_WEIGHT 0
 
 typedef struct hicn_strategy_mw_ctx_s
@@ -60,7 +68,7 @@ hicn_dpo_ctx_t *hicn_strategy_mw_ctx_get (index_t index);
  * @return HICN_ERROR_NONE if the creation was fine, otherwise EINVAL
  */
 void
-hicn_strategy_mw_ctx_create (dpo_proto_t proto, const dpo_id_t * next_hop,
+hicn_strategy_mw_ctx_create (fib_protocol_t proto, const hicn_face_id_t * next_hop,
 			     int nh_len, index_t * dpo_idx);
 
 /**
@@ -75,7 +83,7 @@ hicn_strategy_mw_ctx_create (dpo_proto_t proto, const dpo_id_t * next_hop,
  * @return HICN_ERROR_NONE if the update or insert was fine,
  * otherwise HICN_ERROR_DPO_CTX_NOT_FOUND
  */
-int hicn_strategy_mw_ctx_add_nh (const dpo_id_t * nh, index_t dpo_idx);
+int hicn_strategy_mw_ctx_add_nh (hicn_face_id_t nh, index_t dpo_idx);
 
 /**
  * @brief Delete a next hop in the dpo ctx.

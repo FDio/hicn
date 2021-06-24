@@ -31,8 +31,9 @@ namespace transport {
 
 namespace core {
 
-Interest::Interest(const Name &interest_name, Packet::Format format)
-    : Packet(format) {
+Interest::Interest(const Name &interest_name, Packet::Format format,
+                   std::size_t additional_header_size)
+    : Packet(format, additional_header_size) {
   if (hicn_interest_set_name(format_, packet_start_,
                              interest_name.getConstStructReference()) < 0) {
     throw errors::MalformedPacketException();
@@ -45,20 +46,14 @@ Interest::Interest(const Name &interest_name, Packet::Format format)
 }
 
 #ifdef __ANDROID__
-Interest::Interest(hicn_format_t format) : Interest(Name("0::0|0"), format) {}
+Interest::Interest(hicn_format_t format, std::size_t additional_header_size)
+    : Interest(Name("0::0|0"), format, additional_header_size) {}
 #else
-Interest::Interest(hicn_format_t format) : Interest(base_name, format) {}
+Interest::Interest(hicn_format_t format, std::size_t additional_header_size)
+    : Interest(base_name, format, additional_header_size) {}
 #endif
 
-Interest::Interest(const uint8_t *buffer, std::size_t size)
-    : Packet(buffer, size) {
-  if (hicn_interest_get_name(format_, packet_start_,
-                             name_.getStructReference()) < 0) {
-    throw errors::MalformedPacketException();
-  }
-}
-
-Interest::Interest(MemBufPtr &&buffer) : Packet(std::move(buffer)) {
+Interest::Interest(MemBuf &&buffer) : Packet(std::move(buffer)) {
   if (hicn_interest_get_name(format_, packet_start_,
                              name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
@@ -68,6 +63,14 @@ Interest::Interest(MemBufPtr &&buffer) : Packet(std::move(buffer)) {
 Interest::Interest(Interest &&other_interest)
     : Packet(std::move(other_interest)) {
   name_ = std::move(other_interest.name_);
+}
+
+Interest::Interest(const Interest &other_interest) : Packet(other_interest) {
+  name_ = other_interest.name_;
+}
+
+Interest &Interest::operator=(const Interest &other) {
+  return (Interest &)Packet::operator=(other);
 }
 
 Interest::~Interest() {}
@@ -150,6 +153,59 @@ void Interest::resetForHash() {
     throw errors::RuntimeException(
         "Error resetting interest fields for hash computation.");
   }
+}
+
+bool Interest::hasManifest() {
+  return (getPayloadType() == PayloadType::MANIFEST);
+}
+
+void Interest::appendSuffix(std::uint32_t suffix) {
+  if (TRANSPORT_EXPECT_FALSE(suffix_set_.empty())) {
+    setPayloadType(PayloadType::MANIFEST);
+  }
+
+  suffix_set_.emplace(suffix);
+}
+
+void Interest::encodeSuffixes() {
+  if (!hasManifest()) {
+    return;
+  }
+
+  // We assume interest does not hold signature for the moment.
+  auto int_manifest_header =
+      (InterestManifestHeader *)(writableData() + headerSize());
+  int_manifest_header->n_suffixes = (uint32_t)suffix_set_.size();
+  std::size_t additional_length =
+      int_manifest_header->n_suffixes * sizeof(uint32_t);
+
+  uint32_t *suffix = (uint32_t *)(int_manifest_header + 1);
+  for (auto it = suffix_set_.begin(); it != suffix_set_.end(); it++, suffix++) {
+    *suffix = *it;
+  }
+
+  updateLength(additional_length);
+}
+
+uint32_t *Interest::firstSuffix() {
+  if (!hasManifest()) {
+    return nullptr;
+  }
+
+  auto ret = (InterestManifestHeader *)(writableData() + headerSize());
+  ret += 1;
+
+  return (uint32_t *)ret;
+}
+
+uint32_t Interest::numberOfSuffixes() {
+  if (!hasManifest()) {
+    return 0;
+  }
+
+  auto header = (InterestManifestHeader *)(writableData() + headerSize());
+
+  return header->n_suffixes;
 }
 
 }  // end namespace core

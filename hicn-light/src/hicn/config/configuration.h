@@ -29,6 +29,7 @@
 #include "../core/msgbuf.h"
 #include "../core/strategy.h"
 #include <hicn/ctrl/api.h>
+#include <hicn/ctrl/commands.h>
 
 typedef struct configuration_s configuration_t;
 

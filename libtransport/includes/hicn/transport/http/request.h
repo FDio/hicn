@@ -46,6 +46,11 @@ class HTTPRequest : public HTTPMessage {
 
   std::string getRequestString() const;
 
+  static std::size_t parseHeaders(const uint8_t *buffer, std::size_t size,
+                                  HTTPHeaders &headers,
+                                  std::string &http_version,
+                                  std::string &method, std::string &url);
+
  private:
   std::string query_string_, path_, protocol_, locator_, port_;
   std::string request_string_;

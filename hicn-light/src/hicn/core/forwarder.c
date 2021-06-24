@@ -941,7 +941,7 @@ forwarder_remove_route(forwarder_t * forwarder, ip_prefix_t * prefix,
 
 bool
 forwarder_add_or_update_policy(forwarder_t * forwarder, ip_prefix_t * prefix,
-        policy_t * policy)
+        hicn_policy_t * policy)
 {
     assert(forwarder);
     assert(prefix);
@@ -1188,7 +1188,7 @@ forwarder_receive(forwarder_t * forwarder, listener_t * listener,
                 msgbuf->connection_id = listener_create_connection(listener, pair);
 
             msg_header_t * msg = (msg_header_t*) packet;
-            msgbuf->command.type = msg->header.commandID;
+            msgbuf->command.type = msg->header.command_id;
             if (msgbuf->command.type >= COMMAND_TYPE_N || msgbuf->command.type == COMMAND_TYPE_UNDEFINED) {
                 ERROR("Invalid command");
                 return -msgbuf_get_len(msgbuf);

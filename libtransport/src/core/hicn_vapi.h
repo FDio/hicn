@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -19,6 +19,8 @@
 #include <hicn/util/ip_address.h>
 
 #ifdef __vpp__
+
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,7 +59,7 @@ typedef struct {
 
 typedef struct {
   ip_prefix_t* prefix;
-  uint32_t face_id;
+  ip_address_t* prod_addr;
 } hicn_producer_set_route_params;
 
 int hicn_vapi_register_prod_app(

@@ -12,7 +12,7 @@ u32 count = 0;
 int lock = 0;
 
 vapi_error_e vapi_connect_safe(vapi_ctx_t *vapi_ctx_ret, int async) {
-  vapi_error_e rv  = VAPI_OK;
+  vapi_error_e rv = VAPI_OK;
 
   while (!__sync_bool_compare_and_swap(&lock, 0, 1));
 
@@ -39,7 +39,7 @@ vapi_error_e vapi_connect_safe(vapi_ctx_t *vapi_ctx_ret, int async) {
 			async ? VAPI_MODE_NONBLOCKING : VAPI_MODE_BLOCKING, true);
 
       if (rv != VAPI_OK)
-	goto err_vapi;
+	goto err;
 
       count++;
     }
@@ -49,8 +49,6 @@ vapi_error_e vapi_connect_safe(vapi_ctx_t *vapi_ctx_ret, int async) {
   while (!__sync_bool_compare_and_swap(&lock, 1, 0));
   return rv;
 
- err_vapi:
-  vapi_ctx_free(g_vapi_ctx_instance);
  err_mutex_init:
   free(mutex);
  err_mutex_alloc:

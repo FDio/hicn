@@ -18,13 +18,12 @@ include(ExternalProject)
 ExternalProject_Add(gtest
   URL https://github.com/google/googletest/archive/v1.10.x.zip
   PREFIX ${CMAKE_BINARY_DIR}/gtest
+  BUILD_BYPRODUCTS
+    ${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgmock_main.a
+    ${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgmock.a
+    ${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgtest_main.a
+    ${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgtest.a
   INSTALL_COMMAND ""
-
-  # Necessary to build using ninja
-  BUILD_BYPRODUCTS "${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgmock.a"
-  BUILD_BYPRODUCTS "${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgmock_main.a"
-  BUILD_BYPRODUCTS "${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgtest_main.a"
-  BUILD_BYPRODUCTS "${CMAKE_BINARY_DIR}/gtest/src/gtest-build/lib/libgtest.a"
 )
 
 ExternalProject_Get_Property(gtest source_dir binary_dir)
@@ -34,5 +33,13 @@ message (STATUS "GTest libs: ${binary_dir}/lib/libgmock_main.a ${binary_dir}/lib
 
 set(GTEST_INCLUDE_DIRS ${source_dir}/googlemock/include ${source_dir}/googletest/include)
 set(GTEST_LIBRARIES ${binary_dir}/lib/libgmock_main.a ${binary_dir}/lib/libgmock.a ${binary_dir}/lib/libgtest_main.a ${binary_dir}/lib/libgtest.a)
+
+macro(add_test_internal test)
+  if(${CMAKE_VERSION} VERSION_GREATER "3.10.0")
+    gtest_discover_tests(${test}-bin TEST_PREFIX new:)
+  else()
+    add_test(NAME ${test}-bin COMMAND ${test})
+  endif()
+endmacro(add_test_internal)
 
 enable_testing()

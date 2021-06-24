@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -19,8 +19,8 @@
  * @brief Application interface node
  *
  * This node runs after the device-input node and perfoms some safety checks in
- * order to avoid unespected interest and data (i.e., hICN packets whose name do
- * not contain the prefix associated to the application face)
+ * order to avoid unespected interest and data (i.e., hICN packets whose name
+ * do not contain the prefix associated to the application face)
  */
 
 #include "face_prod.h"
@@ -56,7 +56,7 @@ typedef enum
 vlib_node_registration_t hicn_face_prod_input_node;
 
 static __clib_unused u8 *
-format_face_prod_input_trace (u8 * s, va_list * args)
+format_face_prod_input_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
@@ -64,13 +64,13 @@ format_face_prod_input_trace (u8 * s, va_list * args)
     va_arg (*args, hicn_face_prod_input_trace_t *);
   CLIB_UNUSED (u32 indent) = format_get_indent (s);
 
-  s = format (s, "prod-face: sw_if_index %d next-index %d",
-	      t->sw_if_index, t->next_index);
+  s = format (s, "prod-face: sw_if_index %d next-index %d", t->sw_if_index,
+	      t->next_index);
   return s;
 }
 
 static_always_inline int
-match_ip4_name (u32 * name, fib_prefix_t * prefix)
+match_ip4_name (u32 *name, fib_prefix_t *prefix)
 {
   u32 xor = 0;
 
@@ -80,7 +80,7 @@ match_ip4_name (u32 * name, fib_prefix_t * prefix)
 }
 
 static_always_inline int
-match_ip6_name (u8 * name, fib_prefix_t * prefix)
+match_ip6_name (u8 *name, fib_prefix_t *prefix)
 {
   union
   {
@@ -93,12 +93,12 @@ match_ip6_name (u8 * name, fib_prefix_t * prefix)
   xor_sum.as_u64[1] = ((u64 *) name)[1] & prefix->fp_addr.ip6.as_u64[1];
 
   return (xor_sum.as_u64[0] == prefix->fp_addr.ip6.as_u64[0]) &&
-    (xor_sum.as_u64[1] == prefix->fp_addr.ip6.as_u64[1]);
+	 (xor_sum.as_u64[1] == prefix->fp_addr.ip6.as_u64[1]);
 }
 
 static_always_inline u32
-hicn_face_prod_next_from_data_hdr (vlib_node_runtime_t * node,
-				   vlib_buffer_t * b, fib_prefix_t * prefix)
+hicn_face_prod_next_from_data_hdr (vlib_node_runtime_t *node, vlib_buffer_t *b,
+				   fib_prefix_t *prefix)
 {
   u8 *ptr = vlib_buffer_get_current (b);
   u8 v = *ptr & 0xf0;
@@ -106,21 +106,20 @@ hicn_face_prod_next_from_data_hdr (vlib_node_runtime_t * node,
 
   if (PREDICT_TRUE (v == 0x40 && ip46_address_is_ip4 (&prefix->fp_addr)))
     {
-      match_res = match_ip4_name ((u32 *) & (ptr[12]), prefix);
+      match_res = match_ip4_name ((u32 *) &(ptr[12]), prefix);
     }
   else if (PREDICT_TRUE (v == 0x60 && !ip46_address_is_ip4 (&prefix->fp_addr)))
     {
-      match_res = match_ip6_name (& (ptr[8]), prefix);
+      match_res = match_ip6_name (&(ptr[8]), prefix);
     }
 
-  return match_res ? HICN_FACE_PROD_NEXT_DATA_IP4 + (v ==
-						     0x60) :
-    HICN_FACE_PROD_NEXT_ERROR_DROP;
+  return match_res ? HICN_FACE_PROD_NEXT_DATA_IP4 + (v == 0x60) :
+			   HICN_FACE_PROD_NEXT_ERROR_DROP;
 }
 
 static_always_inline void
-hicn_face_prod_trace_buffer (vlib_main_t * vm, vlib_node_runtime_t * node,
-			     u32 swif, vlib_buffer_t * b, u32 next)
+hicn_face_prod_trace_buffer (vlib_main_t *vm, vlib_node_runtime_t *node,
+			     u32 swif, vlib_buffer_t *b, u32 next)
 {
   if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
 		     (b->flags & VLIB_BUFFER_IS_TRACED)))
@@ -133,9 +132,8 @@ hicn_face_prod_trace_buffer (vlib_main_t * vm, vlib_node_runtime_t * node,
 }
 
 static uword
-hicn_face_prod_input_node_fn (vlib_main_t * vm,
-			      vlib_node_runtime_t * node,
-			      vlib_frame_t * frame)
+hicn_face_prod_input_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
+			      vlib_frame_t *frame)
 {
   u32 n_left_from, *from, *to_next;
   hicn_face_prod_next_t next_index;
@@ -192,14 +190,10 @@ hicn_face_prod_input_node_fn (vlib_main_t * vm,
 	  b2 = vlib_get_buffer (vm, bi2);
 	  b3 = vlib_get_buffer (vm, bi3);
 
-	  prod_face0 =
-	    &face_state_vec[vnet_buffer (b0)->sw_if_index[VLIB_RX]];
-	  prod_face1 =
-	    &face_state_vec[vnet_buffer (b1)->sw_if_index[VLIB_RX]];
-	  prod_face2 =
-	    &face_state_vec[vnet_buffer (b2)->sw_if_index[VLIB_RX]];
-	  prod_face3 =
-	    &face_state_vec[vnet_buffer (b3)->sw_if_index[VLIB_RX]];
+	  prod_face0 = &face_state_vec[vnet_buffer (b0)->sw_if_index[VLIB_RX]];
+	  prod_face1 = &face_state_vec[vnet_buffer (b1)->sw_if_index[VLIB_RX]];
+	  prod_face2 = &face_state_vec[vnet_buffer (b2)->sw_if_index[VLIB_RX]];
+	  prod_face3 = &face_state_vec[vnet_buffer (b3)->sw_if_index[VLIB_RX]];
 
 	  next0 =
 	    hicn_face_prod_next_from_data_hdr (node, b0, &prod_face0->prefix);
@@ -212,18 +206,14 @@ hicn_face_prod_input_node_fn (vlib_main_t * vm,
 	  stats.pkts_data_count += 4;
 
 	  /* trace */
-	  hicn_face_prod_trace_buffer (vm, node,
-				       vnet_buffer (b0)->sw_if_index[VLIB_RX],
-				       b0, next0);
-	  hicn_face_prod_trace_buffer (vm, node,
-				       vnet_buffer (b1)->sw_if_index[VLIB_RX],
-				       b1, next1);
-	  hicn_face_prod_trace_buffer (vm, node,
-				       vnet_buffer (b2)->sw_if_index[VLIB_RX],
-				       b2, next2);
-	  hicn_face_prod_trace_buffer (vm, node,
-				       vnet_buffer (b3)->sw_if_index[VLIB_RX],
-				       b3, next3);
+	  hicn_face_prod_trace_buffer (
+	    vm, node, vnet_buffer (b0)->sw_if_index[VLIB_RX], b0, next0);
+	  hicn_face_prod_trace_buffer (
+	    vm, node, vnet_buffer (b1)->sw_if_index[VLIB_RX], b1, next1);
+	  hicn_face_prod_trace_buffer (
+	    vm, node, vnet_buffer (b2)->sw_if_index[VLIB_RX], b2, next2);
+	  hicn_face_prod_trace_buffer (
+	    vm, node, vnet_buffer (b3)->sw_if_index[VLIB_RX], b3, next3);
 
 	  /* enqueue */
 	  vlib_validate_buffer_enqueue_x4 (vm, node, next_index, to_next,
@@ -231,7 +221,6 @@ hicn_face_prod_input_node_fn (vlib_main_t * vm,
 					   next0, next1, next2, next3);
 
 	  stats.pkts_processed += 4;
-
 	}
 
       while (n_left_from > 0 && n_left_to_next > 0)
@@ -264,30 +253,27 @@ hicn_face_prod_input_node_fn (vlib_main_t * vm,
 	  stats.pkts_data_count++;
 
 	  /* trace */
-	  hicn_face_prod_trace_buffer (vm, node,
-				       vnet_buffer (b0)->sw_if_index[VLIB_RX],
-				       b0, next0);
+	  hicn_face_prod_trace_buffer (
+	    vm, node, vnet_buffer (b0)->sw_if_index[VLIB_RX], b0, next0);
 
 	  /* enqueue */
 	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
 					   n_left_to_next, bi0, next0);
 
 	  stats.pkts_processed += 1;
-
 	}
 
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
 
-  vlib_node_increment_counter (vm, node->node_index,
-			       HICNFWD_ERROR_PROCESSED, stats.pkts_processed);
+  vlib_node_increment_counter (vm, node->node_index, HICNFWD_ERROR_PROCESSED,
+			       stats.pkts_processed);
   vlib_node_increment_counter (vm, node->node_index, HICNFWD_ERROR_DATAS,
 			       stats.pkts_data_count);
 
   return (frame->n_vectors);
 }
 
-/* *INDENT-OFF* */
 VLIB_REGISTER_NODE(hicn_face_prod_input_node) =
 {
   .function = hicn_face_prod_input_node_fn,
@@ -300,13 +286,12 @@ VLIB_REGISTER_NODE(hicn_face_prod_input_node) =
   .n_next_nodes = HICN_FACE_PROD_N_NEXT,
   .next_nodes =
   {
-    [HICN_FACE_PROD_NEXT_DATA_IP4] = "hicn-face-ip4-input",
-    [HICN_FACE_PROD_NEXT_DATA_IP6] = "hicn-face-ip6-input",
+    [HICN_FACE_PROD_NEXT_DATA_IP4] = "hicn4-face-input",
+    [HICN_FACE_PROD_NEXT_DATA_IP6] = "hicn6-face-input",
     [HICN_FACE_PROD_NEXT_ERROR_DROP] = "error-drop",
   },
 };
-/* *INDENT-ON* */
-
+	
 /*
  * fd.io coding-style-patch-verification: ON
  *

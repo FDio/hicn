@@ -50,6 +50,8 @@
 #define CONTROL_PORT 9695
 #define HTTP_PORT 8080
 
+// XXX Hardcoded packet format HF_INET6_TCP
+
 #define IPV6_DEFAULT_VERSION 6
 #define IPV6_DEFAULT_TRAFFIC_CLASS 0
 #define IPV6_DEFAULT_FLOW_LABEL 0
@@ -183,7 +185,7 @@ static inline bool messageHandler_IsInterest(const uint8_t *message) {
   if (!messageHandler_IsTCP(message)) return false;
 
   bool flag;
-  hicn_packet_test_ece((hicn_header_t *)message,
+  hicn_packet_test_ece(HF_INET6_TCP, (hicn_header_t *)message,
                        &flag);  // ECE flag is set to 0 in interest packets
   if (flag == false) return true;
   return false;
@@ -193,7 +195,7 @@ static inline bool messageHandler_IsData(const uint8_t *message) {
   if (!messageHandler_IsTCP(message)) return false;
 
   bool flag;
-  hicn_packet_test_ece((hicn_header_t *)message,
+  hicn_packet_test_ece(HF_INET6_TCP, (hicn_header_t *)message,
                        &flag);  // ECE flag is set to 1 in data packets
   if (flag == true) return true;
   return false;
@@ -354,12 +356,9 @@ static inline uint32_t messageHandler_GetPathLabel(const uint8_t *message) {
 }
 
 static inline void messageHandler_SetPathLabel(uint8_t *message,
+                                               uint32_t old_path_label,
                                                uint32_t new_path_label) {
   if (!messageHandler_IsTCP(message)) return;
-
-  uint32_t old_path_label;
-  int res = hicn_data_get_path_label((hicn_header_t *)message, &old_path_label);
-  if (res < 0) return;
 
   hicn_data_set_path_label((hicn_header_t *)message, new_path_label);
 
@@ -376,20 +375,12 @@ static inline void messageHandler_UpdatePathLabel(uint8_t *message,
   uint32_t pl_new_32bit =
       (uint32_t)((((pl_old_8bit << 1) | (pl_old_8bit >> 7)) ^ outFace) << 24UL);
 
-  hicn_data_set_path_label((hicn_header_t *)message, pl_new_32bit);
-
-  messageHandler_UpdateTCPCheckSum(message, (uint16_t *)&pl_old_32bit,
-                                   (uint16_t *)&pl_new_32bit, 2);
+  // XXX path label should be 8 bits now ?
+  messageHandler_SetPathLabel(message, pl_old_32bit, pl_new_32bit);
 }
 
 static inline void messageHandler_ResetPathLabel(uint8_t *message) {
-  if (!messageHandler_IsTCP(message)) return;
-
-  uint32_t pl_old_32bit = messageHandler_GetPathLabel(message);
-  uint32_t pl_new_32bit = 0;
-  hicn_data_set_path_label((hicn_header_t *)message, pl_new_32bit);
-  messageHandler_UpdateTCPCheckSum(message, (uint16_t *)&pl_old_32bit,
-                                   (uint16_t *)&pl_new_32bit, 2);
+  messageHandler_SetPathLabel(message, messageHandler_GetPathLabel(message), 0);
 }
 
 static inline uint16_t messageHandler_GetInterestLifetime(
@@ -555,7 +546,7 @@ static inline uint8_t * messageHandler_CreateProbePacket(hicn_format_t format,
 
   hicn_packet_init_header(format, (hicn_header_t *) pkt);
 
-  hicn_packet_set_dst_port((hicn_header_t *) pkt, BFD_PORT);
+  hicn_packet_set_dst_port(format, (hicn_header_t *) pkt, BFD_PORT);
   hicn_interest_set_lifetime ((hicn_header_t *) pkt, probe_lifetime);
 
   return pkt;
@@ -573,10 +564,10 @@ static inline void messageHandler_CreateProbeReply(uint8_t * probe,
 
   uint16_t src_prt;
   uint16_t dst_prt;
-  hicn_packet_get_src_port((const hicn_header_t *) probe, &src_prt);
-  hicn_packet_get_dst_port((const hicn_header_t *) probe, &dst_prt);
-  hicn_packet_set_src_port((hicn_header_t *) probe, dst_prt);
-  hicn_packet_set_dst_port((hicn_header_t *) probe, src_prt);
+  hicn_packet_get_src_port(format, (const hicn_header_t *) probe, &src_prt);
+  hicn_packet_get_dst_port(format, (const hicn_header_t *) probe, &dst_prt);
+  hicn_packet_set_src_port(format, (hicn_header_t *) probe, dst_prt);
+  hicn_packet_set_dst_port(format, (hicn_header_t *) probe, src_prt);
 
   hicn_data_set_name (format, (hicn_header_t *) probe, &probe_name);
   hicn_data_set_locator (format, (hicn_header_t *) probe, &probe_locator);
@@ -598,8 +589,8 @@ static inline void messageHandler_SetProbeName(uint8_t * probe, hicn_format_t fo
 static inline bool messageHandler_IsAProbe(const uint8_t *packet){
   uint16_t src_prt;
   uint16_t dst_prt;
-  hicn_packet_get_src_port ((const hicn_header_t *) packet, &src_prt);
-  hicn_packet_get_dst_port ((const hicn_header_t *) packet, &dst_prt);
+  hicn_packet_get_src_port (HF_INET6_TCP, (const hicn_header_t *) packet, &src_prt);
+  hicn_packet_get_dst_port (HF_INET6_TCP, (const hicn_header_t *) packet, &dst_prt);
 
   if(dst_prt == BFD_PORT){
     //interest probe

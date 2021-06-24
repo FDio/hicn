@@ -42,8 +42,7 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
-message("IN DEBUG MODE")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3")
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb3")
 endif()
 
 set(CMAKE_MODULE_PATH
@@ -59,7 +58,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 
-find_package_wrapper(Config REQUIRED)
+find_package_wrapper(Libconfig REQUIRED)
 find_package_wrapper(LibEvent REQUIRED)
 
 set(FACEMGR facemgr CACHE INTERNAL "" FORCE)
@@ -94,6 +93,20 @@ add_subdirectory(includes)
 add_subdirectory(src)
 
 include(Packaging)
+
+# Install service file in linux systems
+include(ServiceScript)
+install_service_script(
+  ${CMAKE_CURRENT_SOURCE_DIR}/config/facemgr.service
+  COMPONENT ${FACEMGR}
+)
+
+# Configuration file
+set(FACEMGR_CONF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/facemgr.conf)
+set(FACEMGR_CONF_FOLDER "/etc/facemgr")
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+  install (FILES ${FACEMGR_CONF_FILE} DESTINATION ${FACEMGR_CONF_FOLDER} COMPONENT ${FACEMGR})
+endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     include(Packager)

@@ -56,7 +56,7 @@ typedef struct {
 } hc_sock_request_t;
 
 /**
- * Messages to the forwarder might be multiplexed thanks to the seqNum fields in
+ * Messages to the forwarder might be multiplexed thanks to the seq_num fields in
  * the cmd_header_t structure. The forwarder simply answers back the
  * original sequence number. We maintain a map of such sequence number to
  * outgoing queries so that replied can be demultiplexed and treated
@@ -184,6 +184,7 @@ connection_type_from_str(const char * str)
 
 #define IS_VALID_LIST_CONNECTIONS_TYPE(x) ((x >= CONN_GRE) && (x <= CONN_HICN))
 
+#if 0
 static const hc_connection_type_t map_from_list_connections_type[] = {
     [CONN_GRE]       = CONNECTION_TYPE_UNDEFINED,
     [CONN_TCP]       = CONNECTION_TYPE_TCP,
@@ -224,6 +225,7 @@ static const listener_mode map_to_listener_mode[] = {
 };
 
 #define IS_VALID_LIST_CONNECTIONS_STATE(x) ((x >= IFACE_UP) && (x <= IFACE_UNKNOWN))
+#endif
 
 /* /!\ Please update constants in header file upon changes */
 const char * connection_state_str[] = {
@@ -242,11 +244,13 @@ static const connection_state map_to_connection_state[] = {
 
 */
 
+#if 0
 static const hc_connection_state_t map_from_list_connections_state[] = {
     [IFACE_UP]                  = HC_CONNECTION_STATE_UP,
     [IFACE_DOWN]                = HC_CONNECTION_STATE_DOWN,
     [IFACE_UNKNOWN]             = HC_CONNECTION_STATE_UNDEFINED,
 };
+#endif
 
 
 #define connection_state_to_face_state(x) ((face_state_t)(x))
@@ -254,6 +258,7 @@ static const hc_connection_state_t map_from_list_connections_state[] = {
 
 #define IS_VALID_ADDR_TYPE(x) ((x >= ADDR_INET) && (x <= ADDR_UNIX))
 
+#if 0
 static const int map_from_addr_type[] = {
     [ADDR_INET]     = AF_INET,
     [ADDR_INET6]    = AF_INET6,
@@ -266,6 +271,15 @@ static const address_type map_to_addr_type[] = {
     [AF_INET]   = ADDR_INET,
     [AF_INET6]  = ADDR_INET6,
 };
+#endif
+
+// XXX Those are always true
+//
+#define IS_VALID_ADDRESS(x) (1)
+#define IS_VALID_CONNECTION_ID(x) (1)
+#define IS_VALID_ROUTE_COST(x) (1)
+#define IS_VALID_PREFIX_LEN(x) (1)
+#define IS_VALID_POLICY(x) (1)
 
 /******************************************************************************
  * Message helper types and aliases
@@ -588,7 +602,7 @@ int
 hc_sock_send(hc_sock_t * s, hc_msg_t * msg, size_t msglen, int seq)
 {
     int rc;
-    msg->hdr.seqNum = seq;
+    msg->hdr.seq_num = seq;
     rc = (int)send(s->fd, msg, msglen, 0);
     if (rc < 0) {
         perror("hc_sock_send");
@@ -657,7 +671,7 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             }
 
             hc_sock_request_t * request = NULL;
-            if (hc_sock_map_get(s->map, hdr.seqNum, &request) < 0) {
+            if (hc_sock_map_get(s->map, hdr.seq_num, &request) < 0) {
                 ERROR("[hc_sock_process] Error searching for matching request");
                 return -99;
             }
@@ -667,7 +681,7 @@ hc_sock_process(hc_sock_t * s, hc_data_t ** data)
             }
 
             s->remaining = hdr.length;
-            switch(hdr.messageType) {
+            switch(hdr.message_type) {
                 case ACK_LIGHT:
                     DEBUG("ack received");
                     assert(s->remaining == 1);
@@ -971,19 +985,16 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
 
     msg_listener_add_t msg = {
         .header = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_LISTENER_ADD,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_LISTENER_ADD,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = listener->local_addr,
             .port = htons(listener->local_port),
-            .addressType = (u8)map_to_addr_type[listener->family],
-            .listenerMode = (u8)map_to_listener_mode[listener->type],
-            .connectionType = (u8)map_to_connection_type[listener->type],
             .family = listener->family,
-            .listenerType = listener->type,
+            .type = listener->type,
         }
     };
 
@@ -991,7 +1002,7 @@ _hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
     if (rc >= SYMBOLIC_NAME_LEN)
         WARN("[_hc_listener_create] Unexpected truncation of symbolic name string");
 
-    rc = snprintf(msg.payload.interfaceName, INTERFACE_LEN, "%s", listener->interface_name);
+    rc = snprintf(msg.payload.interface_name, INTERFACE_LEN, "%s", listener->interface_name);
     if (rc >= INTERFACE_LEN)
         WARN("[_hc_listener_create] Unexpected truncation of interface name string");
 
@@ -1074,10 +1085,10 @@ _hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
         cmd_listener_remove_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_LISTENER_REMOVE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_LISTENER_REMOVE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
@@ -1136,17 +1147,17 @@ _hc_listener_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
         cmd_header_t hdr;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_LISTENER_LIST,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_LISTENER_LIST,
             .length = 0,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
         .cmd_id = COMMAND_TYPE_LISTENER_LIST,
-        .size_in = sizeof(cmd_listener_list_t),
+        .size_in = sizeof(cmd_listener_list_item_t),
         .size_out = sizeof(hc_listener_t),
         .parse = (HC_PARSE)hc_listener_parse,
     };
@@ -1217,33 +1228,31 @@ hc_listener_parse(void * in, hc_listener_t * listener)
 {
     int rc;
 
-    cmd_listener_list_t * cmd = (cmd_listener_list_t *)in;
+    cmd_listener_list_item_t * item = (cmd_listener_list_item_t *)in;
 
-    if (!IS_VALID_LIST_LISTENERS_TYPE(cmd->encapType))
+    // XXX TODO validate what we received from hicnlight
+    // address
+    // name
+    // interface_name
+    // port
+
+    if (!(IS_VALID_CONNECTION_TYPE(item->type)))
          return -1;
 
-    hc_connection_type_t type = map_from_encap_type[cmd->encapType];
-    if (type == CONNECTION_TYPE_UNDEFINED)
-         return -1;
-
-    if (!IS_VALID_ADDR_TYPE(cmd->addressType))
-         return -1;
-
-    int family = map_from_addr_type[cmd->addressType];
-    if (!IS_VALID_FAMILY(family))
+    if (!IS_VALID_FAMILY(item->family))
          return -1;
 
     *listener = (hc_listener_t) {
-        .id = cmd->connid,
-        .type = type,
-        .family = family,
-        .local_addr = UNION_CAST(cmd->address, ip_address_t),
-        .local_port = ntohs(cmd->port),
+        .id = item->id,
+        .type = item->type,
+        .family = item->family,
+        .local_addr = UNION_CAST(item->address, ip_address_t),
+        .local_port = ntohs(item->port),
     };
-    rc = snprintf(listener->name, SYMBOLIC_NAME_LEN, "%s", cmd->listenerName);
+    rc = snprintf(listener->name, SYMBOLIC_NAME_LEN, "%s", item->name);
     if (rc >= SYMBOLIC_NAME_LEN)
         WARN("[hc_listener_parse] Unexpected truncation of symbolic name string");
-    rc = snprintf(listener->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
+    rc = snprintf(listener->interface_name, INTERFACE_LEN, "%s", item->interface_name);
     if (rc >= INTERFACE_LEN)
         WARN("[hc_listener_parse] Unexpected truncation of interface name string");
     return 0;
@@ -1293,18 +1302,19 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
         cmd_connection_add_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_CONNECTION_ADD,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_ADD,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
+            // symbolic
             .remote_ip = connection->remote_addr,
             .local_ip = connection->local_addr,
             .remote_port = htons(connection->remote_port),
             .local_port = htons(connection->local_port),
-            .type = (u8)map_to_addr_type[connection->family],
-            .connection_type = (u8)map_to_connection_type[connection->type],
+            .family = connection->family,
+            .type = connection->type,
             .admin_state = connection->admin_state,
 #ifdef WITH_POLICY
             .priority = connection->priority,
@@ -1315,7 +1325,7 @@ _hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
     rc = snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", connection->name);
     if (rc >= SYMBOLIC_NAME_LEN)
         WARN("[_hc_connection_create] Unexpected truncation of symbolic name string");
-    //snprintf(msg.payload.interfaceName, INTERFACE_NAME_LEN, "%s", connection->interface_name);
+    //snprintf(msg.payload.interface_name, INTERFACE_NAME_LEN, "%s", connection->interface_name);
 
     hc_command_params_t params = {
         .cmd = ACTION_CREATE,
@@ -1395,10 +1405,10 @@ _hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
         cmd_connection_remove_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_CONNECTION_REMOVE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_REMOVE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
@@ -1456,17 +1466,17 @@ _hc_connection_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
         cmd_header_t hdr;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_CONNECTION_LIST,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_LIST,
             .length = 0,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
         .cmd_id = COMMAND_TYPE_CONNECTION_LIST,
-        .size_in = sizeof(cmd_connection_list_t),
+        .size_in = sizeof(cmd_connection_list_item_t),
         .size_out = sizeof(hc_connection_t),
         .parse = (HC_PARSE)hc_connection_parse,
     };
@@ -1550,50 +1560,46 @@ int
 hc_connection_parse(void * in, hc_connection_t * connection)
 {
     int rc;
-    cmd_connection_list_t * cmd = (cmd_connection_list_t *)in;
+    cmd_connection_list_item_t * item = (cmd_connection_list_item_t *)in;
 
-    if (!IS_VALID_LIST_CONNECTIONS_TYPE(cmd->connectionData.connection_type))
+    // XXX validation
+    // symbolic
+    // remote_ip
+    // local_ip
+    // remote_port
+    // local_port
+
+    if (!IS_VALID_FAMILY(item->family))
          return -1;
 
-    hc_connection_type_t type = map_from_list_connections_type[cmd->connectionData.connection_type];
-    if (type == CONNECTION_TYPE_UNDEFINED)
-         return -1;
-
-    if (!IS_VALID_LIST_CONNECTIONS_STATE(cmd->state))
-         return -1;
-
-    hc_connection_state_t state = map_from_list_connections_state[cmd->state];
-    if (state == HC_CONNECTION_STATE_UNDEFINED)
-         return -1;
-
-    if (!IS_VALID_ADDR_TYPE(cmd->connectionData.type))
-         return -1;
-
-    int family = map_from_addr_type[cmd->connectionData.type];
-    if (!IS_VALID_FAMILY(family))
-         return -1;
+    // type
+    // admin_state
+    // priority
+    // tags
+    // id
+    // state
+    // interface_name
+    // name ???
 
     *connection = (hc_connection_t) {
-        .id = cmd->connid,
-        .type = type,
-        .family = family,
-        .local_addr = cmd->connectionData.local_ip,
-        //.local_addr = UNION_CAST(cmd->connectionData.localIp, ip_address_t),
-        .local_port = ntohs(cmd->connectionData.local_port),
-        .remote_addr = cmd->connectionData.remote_ip,
-        //.remote_addr = UNION_CAST(cmd->connectionData.remoteIp, ip_address_t),
-        .remote_port = ntohs(cmd->connectionData.remote_port),
-        .admin_state = cmd->connectionData.admin_state,
+        .id = item->id,
+        .type = item->type,
+        .family = item->family,
+        .local_addr = item->local_ip,
+        .local_port = ntohs(item->local_port),
+        .remote_addr = item->remote_ip,
+        .remote_port = ntohs(item->remote_port),
+        .admin_state = item->admin_state,
 #ifdef WITH_POLICY
-        .priority = cmd->connectionData.priority,
-        .tags = cmd->connectionData.tags,
+        .priority = item->priority,
+        .tags = item->tags,
 #endif /* WITH_POLICY */
-        .state = state,
+        .state = item->state,
     };
-    rc = snprintf(connection->name, SYMBOLIC_NAME_LEN, "%s", cmd->connectionData.symbolic);
+    rc = snprintf(connection->name, SYMBOLIC_NAME_LEN, "%s", item->symbolic);
     if (rc >= SYMBOLIC_NAME_LEN)
         WARN("[hc_connection_parse] Unexpected truncation of symbolic name string");
-    rc = snprintf(connection->interface_name, INTERFACE_LEN, "%s", cmd->interfaceName);
+    rc = snprintf(connection->interface_name, INTERFACE_LEN, "%s", item->interface_name);
     if (rc >= INTERFACE_LEN)
         WARN("[hc_connection_parse] Unexpected truncation of interface name string");
     return 0;
@@ -1648,10 +1654,10 @@ _hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
         cmd_connection_set_admin_state_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_CONNECTION_SET_ADMIN_STATE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_SET_ADMIN_STATE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .admin_state = state,
@@ -1698,10 +1704,10 @@ _hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
         cmd_connection_set_priority_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_CONNECTION_SET_PRIORITY,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_SET_PRIORITY,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .priority = priority,
@@ -1748,10 +1754,10 @@ _hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name,
         cmd_connection_set_tags_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_CONNECTION_SET_TAGS,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CONNECTION_SET_TAGS,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .tags = tags,
@@ -1812,15 +1818,15 @@ _hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
         cmd_route_add_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_ROUTE_ADD,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_ROUTE_ADD,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = route->remote_addr,
             .cost = route->cost,
-            .addressType = (u8)map_to_addr_type[route->family],
+            .family = route->family,
             .len = route->len,
         }
     };
@@ -1875,14 +1881,14 @@ _hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
         cmd_route_remove_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_ROUTE_REMOVE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_ROUTE_REMOVE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = route->remote_addr,
-            .addressType = (u8)map_to_addr_type[route->family],
+            .family = route->family,
             .len = route->len,
         }
     };
@@ -1927,17 +1933,17 @@ _hc_route_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
         cmd_header_t hdr;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_ROUTE_LIST,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_ROUTE_LIST,
             .length = 0,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
         .cmd_id = COMMAND_TYPE_ROUTE_LIST,
-        .size_in = sizeof(cmd_route_list_t),
+        .size_in = sizeof(cmd_route_list_item_t),
         .size_out = sizeof(hc_route_t),
         .parse = (HC_PARSE)hc_route_parse,
     };
@@ -1962,25 +1968,35 @@ hc_route_list_async(hc_sock_t * s)
 int
 hc_route_parse(void * in, hc_route_t * route)
 {
-    cmd_route_list_t * cmd = (cmd_route_list_t *) in;
+    cmd_route_list_item_t * item = (cmd_route_list_item_t *) in;
 
-    if (!IS_VALID_ADDR_TYPE(cmd->addressType)) {
-        ERROR("[hc_route_parse] Invalid address type");
+    if (!IS_VALID_ADDRESS(item->address)) {
+        ERROR("[hc_route_parse] Invalid address");
         return -1;
     }
-
-    int family = map_from_addr_type[cmd->addressType];
-    if (!IS_VALID_FAMILY(family)) {
+    if (!IS_VALID_CONNECTION_ID(item->connection_id)) {
+        ERROR("[hc_route_parse] Invalid connection id");
+        return -1;
+    }
+    if (!IS_VALID_ROUTE_COST(item->cost)) {
+        ERROR("[hc_route_parse] Invalid cost");
+        return -1;
+    }
+    if (!IS_VALID_FAMILY(item->family)) {
         ERROR("[hc_route_parse] Invalid address family");
+        return -1;
+    }
+    if (!IS_VALID_PREFIX_LEN(item->len)) {
+        ERROR("[hc_route_parse] Invalid len");
         return -1;
     }
 
     *route = (hc_route_t) {
-        .face_id = cmd->connid,
-        .family = family,
-        .remote_addr = UNION_CAST(cmd->address, ip_address_t),
-        .len = cmd->len,
-        .cost = cmd->cost,
+        .face_id = item->connection_id,
+        .family = item->family,
+        .remote_addr = item->address,
+        .len = item->len,
+        .cost = item->cost,
     };
     return 0;
 }
@@ -2521,17 +2537,17 @@ hc_face_list_async(hc_sock_t * s)
         cmd_header_t hdr;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
+            .message_type = REQUEST_LIGHT,
             COMMAND_TYPE_CONNECTION_LIST,
             .length = 0,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
         .cmd_id = COMMAND_TYPE_CONNECTION_LIST,
-        .size_in = sizeof(cmd_connection_list_t),
+        .size_in = sizeof(cmd_connection_list_item_t),
         .size_out = sizeof(hc_face_t),
         .parse = (HC_PARSE)hc_connection_parse_to_face,
     };
@@ -2662,14 +2678,14 @@ _hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
         cmd_punting_add_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_PUNTING_ADD,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_PUNTING_ADD,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = punting->prefix,
-            .addressType = (u8)map_to_addr_type[punting->family],
+            .family = punting->family,
             .len = punting->prefix_len,
         }
     };
@@ -2783,10 +2799,10 @@ _hc_cache_set_store(hc_sock_t * s, int enabled, bool async)
         cmd_cache_set_store_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_CACHE_SET_STORE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CACHE_SET_STORE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .activate = enabled,
@@ -2824,10 +2840,10 @@ _hc_cache_set_serve(hc_sock_t * s, int enabled, bool async)
         cmd_cache_set_serve_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_CACHE_SET_SERVE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_CACHE_SET_SERVE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .activate = enabled,
@@ -2961,14 +2977,14 @@ _hc_policy_create(hc_sock_t * s, hc_policy_t * policy, bool async)
         cmd_policy_add_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
+            .message_type = REQUEST_LIGHT,
             COMMAND_TYPE_POLICY_ADD,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = policy->remote_addr,
-            .addressType = (u8)map_to_addr_type[policy->family],
+            .family = policy->family,
             .len = policy->len,
             .policy = policy->policy,
         }
@@ -3010,14 +3026,14 @@ _hc_policy_delete(hc_sock_t * s, hc_policy_t * policy, bool async)
         cmd_policy_remove_t payload;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_POLICY_REMOVE,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_POLICY_REMOVE,
             .length = 1,
-            .seqNum = 0,
+            .seq_num = 0,
         },
         .payload = {
             .address = policy->remote_addr,
-            .addressType = (u8)map_to_addr_type[policy->family],
+            .family = policy->family,
             .len = policy->len,
         }
     };
@@ -3054,17 +3070,17 @@ _hc_policy_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
         cmd_header_t hdr;
     } msg = {
         .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = COMMAND_TYPE_POLICY_LIST,
+            .message_type = REQUEST_LIGHT,
+            .command_id = COMMAND_TYPE_POLICY_LIST,
             .length = 0,
-            .seqNum = 0,
+            .seq_num = 0,
         },
     };
 
     hc_command_params_t params = {
         .cmd = ACTION_LIST,
         .cmd_id = COMMAND_TYPE_POLICY_LIST,
-        .size_in = sizeof(cmd_policy_list_t),
+        .size_in = sizeof(cmd_policy_list_item_t),
         .size_out = sizeof(hc_policy_t),
         .parse = (HC_PARSE)hc_policy_parse,
     };
@@ -3089,20 +3105,30 @@ hc_policy_list_async(hc_sock_t * s, hc_data_t ** pdata)
 int
 hc_policy_parse(void * in, hc_policy_t * policy)
 {
-    cmd_policy_list_t * cmd = (cmd_policy_list_t *) in;
+    cmd_policy_list_item_t * item = (cmd_policy_list_item_t *) in;
 
-    if (!IS_VALID_ADDR_TYPE(cmd->addressType))
-         return -1;
-
-    int family = map_from_addr_type[cmd->addressType];
-    if (!IS_VALID_FAMILY(family))
-         return -1;
+    if (!IS_VALID_ADDRESS(item->address)) {
+        ERROR("[hc_policy_parse] Invalid address");
+        return -1;
+    }
+    if (!IS_VALID_FAMILY(item->family)) {
+        ERROR("[hc_policy_parse] Invalid family");
+        return -1;
+    }
+    if (!IS_VALID_PREFIX_LEN(item->len)) {
+        ERROR("[hc_policy_parse] Invalid len");
+        return -1;
+    }
+    if (!IS_VALID_POLICY(item->policy)) {
+        ERROR("[hc_policy_parse] Invalid policy");
+        return -1;
+    }
 
     *policy = (hc_policy_t) {
-        .family = family,
-        .remote_addr = UNION_CAST(cmd->address, ip_address_t),
-        .len = cmd->len,
-        .policy = cmd->policy,
+        .family = item->family,
+        .remote_addr = item->address,
+        .len = item->len,
+        .policy = item->policy,
     };
     return 0;
 }
@@ -3159,4 +3185,3 @@ object_from_str(const char * object_str)
 #undef _
         return OBJECT_UNDEFINED;
 }
-

@@ -149,60 +149,17 @@ controler_rpcs_instances.xml in the yang-model. Here you can find the content:
     <len>30</len>
 </route-get>
 
-<route-del xmlns="urn:sysrepo:hicn">
-    <prefix0>10</prefix0>
-    <prefix1>20</prefix1>
-    <len>30</len>
-</route-del>
-
-<route-nhops-add xmlns="urn:sysrepo:hicn">
-    <prefix0>10</prefix0>
-    <prefix1>20</prefix1>
-    <len>30</len>
-    <face_ids0>40</face_ids0>
-    <face_ids1>50</face_ids1>
-    <face_ids2>60</face_ids2>
-    <face_ids3>70</face_ids3>
-    <face_ids4>80</face_ids4>
-    <face_ids5>90</face_ids5>
-    <face_ids6>100</face_ids6>
-    <n_faces>110</n_faces>
-</route-nhops-add>
-
-<route-nhops-del xmlns="urn:sysrepo:hicn">
-    <prefix0>10</prefix0>
-    <prefix1>20</prefix1>
-    <len>30</len>
-    <faceid>40</faceid>
-</route-nhops-del>
-
-<face-ip-params-get xmlns="urn:sysrepo:hicn">
+<face-params-get xmlns="urn:sysrepo:hicn">
     <faceid>10</faceid>
-</face-ip-params-get>
+</face-params-get>
 
-<face-ip-add xmlns="urn:sysrepo:hicn">
-    <nh_addr0>10</nh_addr0>
-    <nh_addr1>20</nh_addr1>
-    <swif>30</swif>
-</face-ip-add>
+<hicn-enable xmlns="urn:sysrepo:hicn">
+    <prefix>b001::/64</prefix>
+</hicn-enable>
 
-<face-ip-del xmlns="urn:sysrepo:hicn">
-    <faceid>0</faceid>
-</face-ip-del>
-
-<punting-add xmlns="urn:sysrepo:hicn">
-    <prefix0>10</prefix0>
-    <prefix1>20</prefix1>
-    <len>30</len>
-    <swif>40</swif>
-</punting-add>
-
-<punting-del xmlns="urn:sysrepo:hicn">
-    <prefix0>10</prefix0>
-    <prefix1>20</prefix1>
-    <len>30</len>
-    <swif>40</swif>
-</punting-del>
+<hicn-disable xmlns="urn:sysrepo:hicn">
+    <prefix>b001::/64</prefix>
+</hicn-disable>
 ```
 
 #### Run the plugin

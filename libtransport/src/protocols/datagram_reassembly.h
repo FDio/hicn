@@ -26,7 +26,7 @@ class DatagramReassembly : public Reassembly {
   DatagramReassembly(implementation::ConsumerSocket *icn_socket,
                      TransportProtocol *transport_protocol);
 
-  virtual void reassemble(core::ContentObject::Ptr &&content_object) override;
+  virtual void reassemble(core::ContentObject &content_object) override;
   virtual void reInitialize() override;
   virtual void reassemble(
       std::unique_ptr<core::ContentObjectManifest> &&manifest) override {

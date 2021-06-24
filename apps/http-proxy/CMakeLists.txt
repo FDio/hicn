@@ -14,6 +14,18 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 14)
 
+# -Wno-c99-designator issue
+#
+# Unsure about version for which this was introduced
+# clang version  9.0.8 (no flag), 11.0.5 (ndk22, flag)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  EXECUTE_PROCESS( COMMAND ${CMAKE_CXX_COMPILER} --version OUTPUT_VARIABLE clang_full_version_string )
+  string (REGEX REPLACE ".*clang version ([0-9]+\\.[0-9]+).*" "\\1" CLANG_VERSION_STRING ${clang_full_version_string})
+  if (CLANG_VERSION_STRING VERSION_GREATER_EQUAL 11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c99-designator")
+  endif()
+endif()
+
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
   "${CMAKE_SOURCE_DIR}/cmake/Modules/"
@@ -24,39 +36,36 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
-include_directories(
-  SYSTEM
-  ${CMAKE_BINARY_DIR}
-  ${LIB${TRANSPORT_LIBRARY}_INCLUDE_DIR}
-)
-
 set(LIB_SOURCE_FILES
-  src/ATSConnector.cc
-  src/HTTP1.xMessageFastParser.cc
-  src/IcnReceiver.cc
-)
-
-set(LIB_SERVER_HEADER_FILES
-  src/IcnReceiver.h
-  src/ATSConnector.h
-  src/HTTP1.xMessageFastParser.h
+  src/http_session.cc
+  src/http_proxy.cc
+  src/http_1x_message_fast_parser.cc
+  src/icn_receiver.cc
+  src/forwarder_interface.cc
 )
 
 set(APP_SOURCE_FILES
   main.cc
 )
 
+add_subdirectory(includes/hicn/http-proxy)
 set(LIBHTTP_PROXY hicnhttpproxy)
 set(LIBHTTP_PROXY_STATIC ${LIBHTTP_PROXY}.static)
+
+list(APPEND COMPILER_DEFINITIONS
+  -DWITH_POLICY
+)
 
 build_library(${LIBHTTP_PROXY}
   STATIC
   SOURCES ${LIB_SOURCE_FILES}
   LINK_LIBRARIES ${LIBRARIES}
   DEPENDS ${DEPENDENCIES}
-  INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS}
+  INSTALL_HEADERS ${LIBPROXY_TO_INSTALL_HEADER_FILES}
+  INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS} ${LIBHICNCTRL_INCLUDE_DIRS} ${LIBPROXY_INCLUDE_DIRS}
   COMPONENT ${HICN_APPS}
   LINK_FLAGS ${LINK_FLAGS}
+  DEFINITIONS ${COMPILER_DEFINITIONS}
 )
 
 if (NOT DISABLE_EXECUTABLES)

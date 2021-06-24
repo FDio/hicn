@@ -20,7 +20,6 @@
 //#include <hicn/core/connectionState.h>
 #include <hicn/core/strategy_vft.h>
 #include <hicn/core/nameBitvector.h>
-#include <hicn/utils/commands.h>
 
 #ifdef WITH_MAPME
 #include <hicn/core/ticks.h>
@@ -122,7 +121,7 @@ fib_entry_filter_nexthops(fib_entry_t * entry, nexthops_t * nexthops,
     unsigned nexthop, i;
     uint_fast32_t flags;
 
-    policy_t policy = fib_entry_get_policy(entry);
+    hicn_policy_t policy = fib_entry_get_policy(entry);
 
     nexthops_enumerate(nexthops, i, nexthop, {
         conn = connection_table_at(table, nexthop);
@@ -325,14 +324,14 @@ fib_entry_get_available_nexthops(fib_entry_t * entry, unsigned ingress_id, nexth
     return fib_entry_filter_nexthops(entry, fib_entry_get_nexthops(entry), ingress_id, true);
 }
 
-policy_t
+hicn_policy_t
 fib_entry_get_policy(const fib_entry_t * entry)
 {
     return entry->policy;
 }
 
 void
-fib_entry_set_policy(fib_entry_t * entry, policy_t policy)
+fib_entry_set_policy(fib_entry_t * entry, hicn_policy_t policy)
 {
     entry->policy = policy;
 
@@ -406,7 +405,7 @@ fib_entry_get_nexthops_from_strategy(fib_entry_t * entry,
      * If multipath is disabled, we don't offer much choice to the forwarding
      * strategy, but still go through it for accounting purposes.
      */
-    policy_t policy = fib_entry_get_policy(entry);
+    hicn_policy_t policy = fib_entry_get_policy(entry);
     if ((policy.tags[POLICY_TAG_MULTIPATH].state == POLICY_STATE_PROHIBIT) ||
             (policy.tags[POLICY_TAG_MULTIPATH].state != POLICY_STATE_AVOID)) {
         nexthops_select_one(nexthops);

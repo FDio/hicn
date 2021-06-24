@@ -13,12 +13,11 @@
  * limitations under the License.
  */
 
-#include <protocols/rtc.h>
-
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <implementation/socket_consumer.h>
-
 #include <math.h>
+#include <protocols/rtc.h>
+
 #include <random>
 
 namespace transport {
@@ -39,40 +38,10 @@ RTCTransportProtocol::RTCTransportProtocol(
   sentinel_timer_ =
       std::make_unique<asio::steady_timer>(portal_->getIoService());
   round_timer_ = std::make_unique<asio::steady_timer>(portal_->getIoService());
-  reset();
+  initParams();
 }
 
-RTCTransportProtocol::~RTCTransportProtocol() {
-  if (is_running_) {
-    stop();
-  }
-}
-
-int RTCTransportProtocol::start() {
-  if (is_running_) return -1;
-
-  reset();
-  is_first_ = true;
-
-  probeRtt();
-  sentinelTimer();
-  newRound();
-  scheduleNextInterests();
-
-  is_first_ = false;
-  is_running_ = true;
-  portal_->runEventsLoop();
-  is_running_ = false;
-
-  return 0;
-}
-
-void RTCTransportProtocol::stop() {
-  if (!is_running_) return;
-
-  is_running_ = false;
-  portal_->stopEventsLoop();
-}
+RTCTransportProtocol::~RTCTransportProtocol() {}
 
 void RTCTransportProtocol::resume() {
   if (is_running_) return;
@@ -90,7 +59,7 @@ void RTCTransportProtocol::resume() {
 }
 
 // private
-void RTCTransportProtocol::reset() {
+void RTCTransportProtocol::initParams() {
   portal_->setConsumerCallback(this);
   // controller var
   currentState_ = HICN_RTC_SYNC_STATE;
@@ -143,7 +112,14 @@ void RTCTransportProtocol::reset() {
 
   socket_->setSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
                            (uint32_t)HICN_RTC_INTEREST_LIFETIME);
-  // XXX this should be done by the application
+}
+
+// private
+void RTCTransportProtocol::reset() {
+  initParams();
+  probeRtt();
+  sentinelTimer();
+  newRound();
 }
 
 uint32_t max(uint32_t a, uint32_t b) {
@@ -371,6 +347,8 @@ void RTCTransportProtocol::computeMaxWindow(uint32_t productionRate,
 
 void RTCTransportProtocol::updateWindow() {
   if (currentState_ == HICN_RTC_SYNC_STATE) return;
+
+  if (estimatedBw_ == 0) return;
 
   if (currentCWin_ < maxCWin_ * 0.9) {
     currentCWin_ =

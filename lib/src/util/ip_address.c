@@ -302,7 +302,10 @@ ip_prefix_ntop(const ip_prefix_t * ip_prefix, char *dst, size_t size)
   }
   if (!s)
       return -1;
-  return snprintf(dst, size, "%s/%d", ip_s, ip_prefix->len);
+  int rc = snprintf(dst, size, "%s/%d", ip_s, ip_prefix->len);
+  if (rc >= size)
+      return (int)size;
+  return rc;
 }
 
 int

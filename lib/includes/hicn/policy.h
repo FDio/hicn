@@ -159,12 +159,16 @@ int policy_tag_state_snprintf(char * s, size_t size, const policy_tag_state_t * 
 typedef struct {
     char app_name[APP_NAME_LEN];
     policy_tag_state_t tags[POLICY_TAG_N];
-} policy_t;
+} hicn_policy_t;
 
-static const policy_t POLICY_NONE = {
+static const hicn_policy_t POLICY_NONE = {
     .app_name = { 0 },
     .tags = {
+#ifdef __ANDROID__
+#define _(x, y) { POLICY_STATE_NEUTRAL, 0 },
+#else
 #define _(x, y) [POLICY_TAG_ ## x] = { POLICY_STATE_NEUTRAL, 0 },
+#endif
 foreach_policy_tag
 #undef _
     },
@@ -181,7 +185,7 @@ typedef struct {
         char ipv4_prefix[INET_ADDRSTRLEN + PFX_STRLEN];
         char ipv6_prefix[INET6_ADDRSTRLEN + PFX_STRLEN];
     };
-    policy_t policy;
+    hicn_policy_t policy;
 } policy_description_t;
 
 #endif /* HICN_POLICY_H */

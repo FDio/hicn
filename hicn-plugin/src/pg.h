@@ -18,7 +18,7 @@
 
 
 /**
- * @File Packet generator for hICN
+ * @file pg.h
  *
  * The packet generator is made of two entities, a client and a server.
  * The client issues interests at high speed and the server satisfy each

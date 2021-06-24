@@ -19,10 +19,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# Enable gtests (`make test`)
-# `make test ARGS="-V"` can be used for verbose output
-enable_testing()
-
 ## Enabled components
 option(BUILD_LIBHICN "Build the hicn core library" ON)
 option(BUILD_HICNLIGHT "Build the hicn light forwarder" ON)
@@ -40,6 +36,7 @@ option(BUILD_HICNPLUGIN "Build the hicn vpp plugin" OFF)
 option(BUILD_SYSREPOPLUGIN "Build the sysrepo plugin" OFF)
 option(BUILD_EXTRAS "Build external projects" OFF)
 option(BUILD_TELEMETRY "Build telemetry projects" OFF)
+option(BUILD_TESTS "Build unit tests" OFF)
 option(DISABLE_EXECUTABLES "Disable executables" OFF)
 
 if ((BUILD_APPS OR BUILD_UTILS) AND NOT BUILD_LIBTRANSPORT)
@@ -84,6 +81,7 @@ set(BUILD_UTILS_DIR utils)
 set(BUILD_APPS_DIR apps)
 set(BUILD_CTRL_DIR ctrl)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
+set(BUILD_SYSREPOPLUGIN_DIR ctrl/sysrepo-plugins)
 set(BUILD_EXTRAS_DIR extras/)
 set(BUILD_TELEMETRY_DIR telemetry)
 
@@ -100,11 +98,25 @@ if (NOT WIN32)
   add_compile_options(-Wall -Werror -Wno-shorten-64-to-32)
 endif ()
 
+# Add unit tests
+if (BUILD_TESTS)
+  message(STATUS "Tests enabled.")
+  include (GTestImport)
+
+  if(${CMAKE_VERSION} VERSION_GREATER "3.10.0")
+    include (GoogleTest)
+  else()
+    include (CTest)
+  endif()
+endif()
+
 message(STATUS "Building the following subprojects: ${subdirs}")
 
 foreach(dir ${subdirs})
   add_subdirectory(${dir})
 endforeach()
+
+add_subdirectory(docs/doxygen)
 
 include(Packager)
 make_packages()

@@ -21,6 +21,17 @@
 
 #include "pcs.h"
 
+/**
+ * @file interest_pcslookup.h
+ *
+ * This is the node encoutered by interest packets after the hicn6-iface-input or
+ * hicn4-iface-input. This node performs a lookup in the pit and content store and
+ * if there is a hit in the PIT, the vlib buffer is passed to the hicn-interest-hitcs
+ * while if there is a hit in the CS  the vlib buffer is passed to the
+ * hicn-interest-hitpit. If there isn't any hit, the vlib buffer is passed to the
+ * hicn-strategy node.
+ */
+
 /*
  * Node context data; we think this is per-thread/instance
  */

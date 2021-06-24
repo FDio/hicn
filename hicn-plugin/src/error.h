@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,6 +15,13 @@
 
 #ifndef __HICN_ERROR_H__
 #define __HICN_ERROR_H__
+
+/**
+ * @file error.h
+ *
+ * Error codes for the hICN plugin.
+ */
+
 
 #define foreach_hicn_error                                              \
  _(NONE, 0, "Ok")                                                       \
@@ -69,8 +76,9 @@
  _(APPFACE_PROD_PREFIX_NULL, -176, "Prefix must not be null for producer face") \
  _(STRATEGY_NH_NOT_FOUND, -177, "Next hop not found")		        \
  _(MW_STRATEGY_SET, -178, "Error while setting weight for next hop")	\
- _(STRATEGY_NOT_FOUND, -179, "Strategy not found")
-
+ _(STRATEGY_NOT_FOUND, -179, "Strategy not found")                      \
+ _(UDP_TUNNEL_NOT_FOUND, -180, "Udp tunnel not found")                  \
+ _(UDP_TUNNEL_SRC_DST_TYPE, -181, "Src and dst addresses have different type (ipv4 and ipv6)")
 
 typedef enum
 {

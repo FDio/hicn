@@ -15,11 +15,10 @@
 
 #pragma once
 
+#include <core/connector.h>
 #include <hicn/transport/config.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/ring_buffer.h>
-
-#include <core/connector.h>
 //#include <hicn/transport/core/hicn_vapi.h>
 #include <utils/epoll_event_reactor.h>
 #include <utils/fd_deadline_timer.h>
@@ -43,7 +42,7 @@ typedef struct memif_connection memif_connection_t;
 #define IF_NAME "vpp_connection"
 
 #define MEMIF_BUF_SIZE 2048
-#define MEMIF_LOG2_RING_SIZE 11
+#define MEMIF_LOG2_RING_SIZE 13
 #define MAX_MEMIF_BUFS (1 << MEMIF_LOG2_RING_SIZE)
 
 class MemifConnector : public Connector {

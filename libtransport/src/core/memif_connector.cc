@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
-#include <hicn/transport/errors/not_implemented_exception.h>
-
 #include <core/memif_connector.h>
+#include <hicn/transport/errors/not_implemented_exception.h>
 
 #ifdef __vpp__
 
 #include <sys/epoll.h>
+
 #include <cstdlib>
 
 extern "C" {
@@ -267,6 +267,7 @@ int MemifConnector::bufferAlloc(long n, uint16_t qid) {
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
     TRANSPORT_LOGE("memif_buffer_alloc: %s", memif_strerror(err));
+    return -1;
   }
 
   c->tx_buf_num += r;
@@ -441,7 +442,7 @@ void MemifConnector::send(const Packet::MemBufPtr &packet) {
 
 int MemifConnector::doSend() {
   std::size_t max = 0;
-  uint16_t n = 0;
+  int32_t n = 0;
   std::size_t size = 0;
 
   {
@@ -451,9 +452,9 @@ int MemifConnector::doSend() {
 
   do {
     max = size < MAX_MEMIF_BUFS ? size : MAX_MEMIF_BUFS;
+    n = bufferAlloc(max, memif_connection_->tx_qid);
 
-    if (TRANSPORT_EXPECT_FALSE(
-            (n = bufferAlloc(max, memif_connection_->tx_qid)) < 0)) {
+    if (TRANSPORT_EXPECT_FALSE(n < 0)) {
       TRANSPORT_LOGE("Error allocating buffers.");
       return -1;
     }

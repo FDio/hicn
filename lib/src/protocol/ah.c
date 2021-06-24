@@ -31,6 +31,8 @@ DECLARE_get_interest_name (ah, UNEXPECTED);
 DECLARE_set_interest_name (ah, UNEXPECTED);
 DECLARE_get_interest_name_suffix (ah, UNEXPECTED);
 DECLARE_set_interest_name_suffix (ah, UNEXPECTED);
+DECLARE_mark_packet_as_interest (ah, UNEXPECTED)
+DECLARE_mark_packet_as_data (ah, UNEXPECTED)
 DECLARE_get_data_locator (ah, UNEXPECTED);
 DECLARE_set_data_locator (ah, UNEXPECTED);
 DECLARE_get_data_name (ah, UNEXPECTED);
@@ -111,7 +113,7 @@ ah_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 int
 ah_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
 		 const ip46_address_t * addr_new, ip46_address_t * addr_old,
-		 const hicn_faceid_t face_id)
+		 const hicn_faceid_t face_id, u8 reset_pl)
 {
   /* Nothing to do on signature */
   return HICN_LIB_ERROR_NONE;

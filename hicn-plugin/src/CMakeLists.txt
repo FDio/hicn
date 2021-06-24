@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2017-2020 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -75,20 +75,11 @@ set(HICN_PLUGIN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/data_input_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/data_pcslookup_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/data_fwd_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/data_push_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/error.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_cli.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/face_ip.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/face_ip_cli.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/face_ip_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/iface_ip_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/dpo_ip.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/face_udp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/face_udp_cli.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/face_udp_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/iface_udp_node.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/dpo_udp.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/iface_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.c
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod.c
@@ -104,6 +95,8 @@ set(HICN_PLUGIN_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl_node.c
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp_tunnels/udp_decap_node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp_tunnels/udp_tunnel.c
 )
 
 set(HICN_PLUGIN_HEADER_FILES
@@ -130,14 +123,10 @@ set(HICN_PLUGIN_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/error.h
     ${CMAKE_CURRENT_SOURCE_DIR}/face_db.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/face.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/face_ip.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/face_ip_node.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/iface_ip_node.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/ip/dpo_ip.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/face_udp.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/face_udp_node.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/iface_udp_node.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/faces/udp/dpo_udp.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_node.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/iface_node.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/inlines.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_dpo.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/address_mgr.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_cons.h
     ${CMAKE_CURRENT_SOURCE_DIR}/faces/app/face_prod.h
@@ -152,6 +141,7 @@ set(HICN_PLUGIN_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ack.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_ctrl.h
     ${CMAKE_CURRENT_SOURCE_DIR}/mapme_eventmgr.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/udp_tunnels/udp_tunnel.h
 )
 
 set(HICN_API_TEST_SOURCE_FILES
@@ -165,7 +155,10 @@ set(HICN_API_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/error.h)
 
 set(HICN_API_GENERATED_FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h)
+    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h
+    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_types.h
+    ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api_enum.h
+)
 
 set(HICN_VAPI_GENERATED_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.h
@@ -184,48 +177,50 @@ endif (NOT CMAKE_BUILD_TYPE)
 
 SET(HICN_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR} CACHE STRING "hicn_install_prefix")
 
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
-   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall  -march=native -O3 -g")
-elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
-   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -march=native -O0 -g")
-   add_definitions(-DCLIB_DEBUG -fPIC -fstack-protector-all)
-endif()
-
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hicn)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vapi)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vnet/udp)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn)
 
 # These files are missing from vpp binary distribution
 execute_process(
     COMMAND
     bash -c
     "if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/stable/2001/src/vpp-api/vapi/vapi_json_parser.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vpp-api/vapi/vapi_json_parser.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/stable/2001/src/vpp-api/vapi/vapi_c_gen.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vpp-api/vapi/vapi_c_gen.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/stable/2001/src/vpp-api/vapi/vapi_cpp_gen.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vpp-api/vapi/vapi_cpp_gen.py -o ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/stable/2001/src/vnet/ip/ip_types.api -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vnet/ip/ip_types.api -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_types.api;
     fi;
     if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_format_fns.h ]; then
-        curl https://raw.githubusercontent.com/FDio/vpp/master/src/vnet/ip/ip_format_fns.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_format_fns.h;
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vnet/ip/ip_format_fns.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/ip/ip_format_fns.h;
     fi;
+    if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib/fib_entry_track.h ]; then
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vnet/fib/fib_entry_track.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/fib/fib_entry_track.h;
+    fi;
+    if [ ! -e ${CMAKE_CURRENT_BINARY_DIR}/vnet/udp/udp_encap.h ]; then
+        curl https://raw.githubusercontent.com/FDio/vpp/stable/2005/src/vnet/udp/udp_encap.h -o ${CMAKE_CURRENT_BINARY_DIR}/vnet/udp/udp_encap.h;
+    fi;
+
     chmod +x ${CMAKE_CURRENT_BINARY_DIR}/vapi_json_parser.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py"
 )
 
-add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
-    COMMAND ${VPP_HOME}/bin/vppapigen ARGS --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/
-    COMMAND ${VPP_HOME}/bin/vppapigen ARGS JSON --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vapi/
+execute_process(
+    COMMAND ${VPP_HOME}/bin/vppapigen --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/hicn.api.h --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vpp_plugins/hicn/
+    COMMAND ${VPP_HOME}/bin/vppapigen JSON --includedir ${CMAKE_CURRENT_BINARY_DIR} --input ${CMAKE_CURRENT_SOURCE_DIR}/hicn.api --output ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json --outputdir ${CMAKE_CURRENT_BINARY_DIR}/vapi/
 )
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.h ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.vapi.hpp
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ARGS ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py ARGS ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
+execute_process(
+    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_c_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
+    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vapi_cpp_gen.py ${CMAKE_CURRENT_BINARY_DIR}/vapi/hicn.api.json
 )
 
 include_directories(SYSTEM)
@@ -257,11 +252,18 @@ set_target_properties(hicn_plugin
         PROPERTIES
         LINKER_LANGUAGE C
         INSTALL_RPATH ${VPP_INSTALL_PLUGIN}
+        COMPILE_FLAGS "-march=native -Wno-address-of-packed-member"
         PREFIX "")
 set_target_properties(hicn_api_test_plugin
         PROPERTIES
         LINKER_LANGUAGE C
+        COMPILE_FLAGS "-march=native -Wno-address-of-packed-member"
         PREFIX "")
+
+if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
+    target_compile_definitions(hicn_plugin PRIVATE "CLIB_DEBUG")
+    target_compile_definitions(hicn_api_test_plugin PRIVATE "CLIB_DEBUG")
+endif()
 
 message (STATUS "hicn-plugin variable ${HICN_PLUGIN}")
 

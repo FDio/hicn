@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -57,10 +57,12 @@ hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
 
   ip46_address_t nh_addr = to_ip46 (0, (u8 *) nh_addr4);
 
-  hicn_iface_ip_add (&if_ip, &nh_addr, swif, faceid1);
+  index_t adj_index = adj_nbr_find(FIB_PROTOCOL_IP4, VNET_LINK_IP4, &nh_addr, swif);
+
+  hicn_iface_add (&nh_addr, swif, faceid1, DPO_PROTO_IP4, adj_index);
 
   hicn_face_t *face = hicn_dpoi_get_from_idx (*faceid1);
-  face->shared.flags |= HICN_FACE_FLAGS_APPFACE_CONS;
+  face->flags |= HICN_FACE_FLAGS_APPFACE_CONS;
 
   get_two_ip6_addresses (&(if_ip.ip6), nh_addr6);
   ip6_add_del_interface_address (vm,
@@ -68,10 +70,12 @@ hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
 				 &(if_ip.ip6),
 				 ADDR_MGR_IP6_CONS_LEN, 0 /* is_del */ );
 
-  hicn_iface_ip_add (&if_ip, (ip46_address_t *) nh_addr6, swif, faceid2);
+  adj_index = adj_nbr_find(FIB_PROTOCOL_IP6, VNET_LINK_IP6, &nh_addr, swif);
+
+  hicn_iface_add ((ip46_address_t *) nh_addr6, swif, faceid2, DPO_PROTO_IP6, adj_index);
 
   face = hicn_dpoi_get_from_idx (*faceid2);
-  face->shared.flags |= HICN_FACE_FLAGS_APPFACE_CONS;
+  face->flags |= HICN_FACE_FLAGS_APPFACE_CONS;
 
   return HICN_ERROR_NONE;
 }
@@ -84,9 +88,9 @@ hicn_face_cons_del (hicn_face_id_t face_id)
 
   hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
 
-  if (face->shared.flags & HICN_FACE_FLAGS_APPFACE_CONS)
+  if (face->flags & HICN_FACE_FLAGS_APPFACE_CONS)
     {
-      return hicn_face_ip_del (face_id);
+      return hicn_face_del (face_id);
     }
   else
     {

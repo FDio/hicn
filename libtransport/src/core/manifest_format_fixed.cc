@@ -13,10 +13,9 @@
  * limitations under the License.
  */
 
+#include <core/manifest_format_fixed.h>
 #include <hicn/transport/core/packet.h>
 #include <hicn/transport/utils/literals.h>
-
-#include <core/manifest_format_fixed.h>
 
 namespace transport {
 
@@ -24,38 +23,40 @@ namespace core {
 
 // TODO use preallocated pool of membufs
 FixedManifestEncoder::FixedManifestEncoder(Packet &packet,
-                                           std::size_t signature_size)
+                                           std::size_t signature_size,
+                                           bool clear)
     : packet_(packet),
-      max_size_(Packet::default_mtu - packet_.headerSize() - signature_size),
-      manifest_(
-          utils::MemBuf::create(Packet::default_mtu - packet_.headerSize())),
-      manifest_header_(
-          reinterpret_cast<ManifestHeader *>(manifest_->writableData())),
-      manifest_entries_(reinterpret_cast<ManifestEntry *>(
-          manifest_->writableData() + sizeof(ManifestHeader))),
+      max_size_(Packet::default_mtu - packet_.headerSize()),
+      manifest_header_(reinterpret_cast<ManifestHeader *>(
+          packet_.writableData() + packet_.headerSize())),
+      manifest_entries_(
+          reinterpret_cast<ManifestEntry *>(manifest_header_ + 1)),
       current_entry_(0),
       signature_size_(signature_size) {
-  *manifest_header_ = {0};
+  if (clear) {
+        memset(manifest_header_, 0, sizeof(*manifest_header_));
+  }
 }
 
 FixedManifestEncoder::~FixedManifestEncoder() {}
 
 FixedManifestEncoder &FixedManifestEncoder::encodeImpl() {
-  manifest_->append(sizeof(ManifestHeader) +
-                    manifest_header_->number_of_entries *
-                        sizeof(ManifestEntry));
-  packet_.appendPayload(std::move(manifest_));
+  packet_.append(sizeof(ManifestHeader) +
+                 manifest_header_->number_of_entries * sizeof(ManifestEntry));
+  packet_.updateLength();
   return *this;
 }
 
 FixedManifestEncoder &FixedManifestEncoder::clearImpl() {
-  manifest_ = utils::MemBuf::create(Packet::default_mtu - packet_.headerSize() -
-                                    signature_size_);
+  packet_.trimEnd(sizeof(ManifestHeader) +
+                  manifest_header_->number_of_entries * sizeof(ManifestEntry));
+  current_entry_ = 0;
+      memset(manifest_header_, 0, sizeof(*manifest_header_));
   return *this;
 }
 
 FixedManifestEncoder &FixedManifestEncoder::setHashAlgorithmImpl(
-    utils::CryptoHashType algorithm) {
+    auth::CryptoHashType algorithm) {
   manifest_header_->hash_algorithm = static_cast<uint8_t>(algorithm);
   return *this;
 }
@@ -83,7 +84,7 @@ FixedManifestEncoder &FixedManifestEncoder::setBaseNameImpl(
 }
 
 FixedManifestEncoder &FixedManifestEncoder::addSuffixAndHashImpl(
-    uint32_t suffix, const utils::CryptoHash &hash) {
+    uint32_t suffix, const auth::CryptoHash &hash) {
   auto _hash = hash.getDigest<std::uint8_t>();
   addSuffixHashBytes(suffix, _hash.data(), _hash.length());
   return *this;
@@ -170,8 +171,8 @@ ManifestType FixedManifestDecoder::getManifestTypeImpl() const {
   return static_cast<ManifestType>(manifest_header_->manifest_type);
 }
 
-utils::CryptoHashType FixedManifestDecoder::getHashAlgorithmImpl() const {
-  return static_cast<utils::CryptoHashType>(manifest_header_->hash_algorithm);
+auth::CryptoHashType FixedManifestDecoder::getHashAlgorithmImpl() const {
+  return static_cast<auth::CryptoHashType>(manifest_header_->hash_algorithm);
 }
 
 NextSegmentCalculationStrategy

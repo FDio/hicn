@@ -17,7 +17,8 @@
 #define utils_h
 
 //#include <hicn/config/controlState.h>
-#include <hicn/utils/commands.h>
+//#include <hicn/utils/commands.h>
+#include <hicn/util/ip_address.h>
 
 /**
  * Return true if string is purely an integer
@@ -29,6 +30,8 @@ bool utils_IsNumber(const char *string);
  * The remainder must be an alphanum.
  */
 bool utils_ValidateSymbolicName(const char *symbolic);
+
+// XXX cf IS_VALID_xxx in libhicntrl
 
 /**
  *Convert IPv4/IPv6 address from binary to text string. `uint8_t *ipAddress` has

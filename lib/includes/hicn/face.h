@@ -219,4 +219,3 @@ int face_set_tags(face_t * face, policy_tags_t tags);
 face_protocol_t get_protocol(face_type_t face_type);
 
 #endif /* HICN_FACE_H */
-

@@ -93,9 +93,9 @@ class RTCTransportProtocol : public TransportProtocol,
 
   ~RTCTransportProtocol();
 
-  int start() override;
+  using TransportProtocol::start;
 
-  void stop() override;
+  using TransportProtocol::stop;
 
   void resume() override;
 
@@ -103,6 +103,7 @@ class RTCTransportProtocol : public TransportProtocol,
 
  private:
   // algo functions
+  void initParams();
   void reset() override;
 
   // CC functions

@@ -41,6 +41,7 @@ Verifier::Verifier() {
   PARCInMemoryVerifier *in_memory_verifier = parcInMemoryVerifier_Create();
   this->verifier_ =
       parcVerifier_Create(in_memory_verifier, PARCInMemoryVerifierAsVerifier);
+  parcInMemoryVerifier_Release(&in_memory_verifier);
 }
 
 Verifier::~Verifier() {

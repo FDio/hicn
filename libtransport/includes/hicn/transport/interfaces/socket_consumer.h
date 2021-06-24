@@ -21,7 +21,7 @@
 #include <hicn/transport/interfaces/callbacks.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/socket_options_keys.h>
-#include <hicn/transport/security/verifier.h>
+#include <hicn/transport/auth/verifier.h>
 
 #ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE
@@ -106,7 +106,7 @@ class ConsumerSocket {
 
     /**
      * This method will be called by the transport for understanding how many
-     * bytes it should read (at most) before notifying the application.
+     * bytes it should read before notifying the application.
      *
      * By default it reads 64 KB.
      */
@@ -145,13 +145,32 @@ class ConsumerSocket {
    * @param protocol - The transport protocol to use. So far the following
    * transport are supported:
    *  - CBR: Constant bitrate
-   *  - Raaqm: Based on paper: Optimal multipath congestion control and request
+   *  - RAAQM: Based on paper: Optimal multipath congestion control and request
    * forwarding in information-centric networks: Protocol design and
    * experimentation. G Carofiglio, M Gallo, L Muscariello. Computer Networks
    * 110, 104-117
    *  - RTC: Real time communication
    */
   explicit ConsumerSocket(int protocol);
+
+  /**
+   * @brief Create a new consumer socket, passing an io_service to it.
+   * Passing an io_service means that the caller must explicitely call
+   * io_service.run() for the consumer to start. Any call to consume won't be
+   * blocking. This can be used in case we want to share a single thread
+   * among multiple consumer sockets. The caller MUST ensure the provided
+   * io_service will outlive the ConsumerSocket.
+   *
+   * @param protocol - The transport protocol to use. So far the following
+   * transport are supported:
+   *  - CBR: Constant bitrate
+   *  - RAAQM: Based on paper: Optimal multipath congestion control and request
+   * forwarding in information-centric networks: Protocol design and
+   * experimentation. G Carofiglio, M Gallo, L Muscariello. Computer Networks
+   * 110, 104-117
+   *  - RTC: Real time communication
+   */
+  explicit ConsumerSocket(int protocol, asio::io_service &io_service);
 
   /**
    * @brief Destroy the consumer socket.
@@ -189,14 +208,6 @@ class ConsumerSocket {
   int asyncConsume(const Name &name);
 
   /**
-   * Verify the packets containing a key after the origin of the key has been
-   * validated by the client.
-   *
-   * @return true if all packets are valid, false otherwise
-   */
-  bool verifyKeyPackets();
-
-  /**
    * Stops the consumer socket. If several downloads are queued (using
    * asyncConsume), this call stops just the current one.
    */
@@ -232,14 +243,6 @@ class ConsumerSocket {
   int setSocketOption(int socket_option_key,
                       ConsumerContentObjectCallback socket_option_value);
 
-  int setSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationFailedCallback socket_option_value);
-
-  int setSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationCallback socket_option_value);
-
   int setSocketOption(int socket_option_key,
                       ConsumerInterestCallback socket_option_value);
 
@@ -248,7 +251,7 @@ class ConsumerSocket {
 
   int setSocketOption(
       int socket_option_key,
-      const std::shared_ptr<utils::Verifier> &socket_option_value);
+      const std::shared_ptr<auth::Verifier> &socket_option_value);
 
   int setSocketOption(int socket_option_key,
                       const std::string &socket_option_value);
@@ -267,21 +270,13 @@ class ConsumerSocket {
   int getSocketOption(int socket_option_key,
                       ConsumerContentObjectCallback **socket_option_value);
 
-  int getSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationFailedCallback **socket_option_value);
-
-  int getSocketOption(
-      int socket_option_key,
-      ConsumerContentObjectVerificationCallback **socket_option_value);
-
   int getSocketOption(int socket_option_key,
                       ConsumerInterestCallback **socket_option_value);
 
   int getSocketOption(int socket_option_key, IcnObserver **socket_option_value);
 
   int getSocketOption(int socket_option_key,
-                      std::shared_ptr<utils::Verifier> &socket_option_value);
+                      std::shared_ptr<auth::Verifier> &socket_option_value);
 
   int getSocketOption(int socket_option_key, std::string &socket_option_value);
 

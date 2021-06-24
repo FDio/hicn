@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2020-2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,8 +16,8 @@
 #include <vnet/vnet.h>
 #include <vnet/ip/ip.h>
 #include <vnet/fib/ip6_fib.h>
-#include <vnet/fib/fib_table.h>	/* for FIB table and entry creation */
-#include <vnet/fib/fib_entry.h>	/* for FIB table and entry creation */
+#include <vnet/fib/fib_table.h> /* for FIB table and entry creation */
+#include <vnet/fib/fib_entry.h> /* for FIB table and entry creation */
 #include <vnet/fib/ip4_fib.h>
 #include <vnet/dpo/load_balance.h>
 
@@ -61,7 +61,7 @@ vlib_node_registration_t hicn_data_input_ip6_node;
 vlib_node_registration_t hicn_data_input_ip4_node;
 
 static __clib_unused u8 *
-format_hicn_data_input_trace (u8 * s, va_list * args)
+format_hicn_data_input_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
@@ -69,16 +69,15 @@ format_hicn_data_input_trace (u8 * s, va_list * args)
   u32 indent = format_get_indent (s);
   u8 isv6 = (u8) va_arg (*args, int);
 
-  s =
-    format (s, "%U hicn_data_input%s: sw_if_index %d next-index %d",
-	    format_white_space, indent, isv6 ? "_ip6" : "_ip4",
-	    t->sw_if_index, t->next_index);
+  s = format (s, "%U hicn_data_input%s: sw_if_index %d next-index %d",
+	      format_white_space, indent, isv6 ? "_ip6" : "_ip4",
+	      t->sw_if_index, t->next_index);
   return s;
 }
 
 static uword
-hicn_data_input_ip6_fn (vlib_main_t * vm,
-			vlib_node_runtime_t * node, vlib_frame_t * frame)
+hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
+			vlib_frame_t *frame)
 {
   ip6_main_t *im = &ip6_main;
   vlib_combined_counter_main_t *cm = &load_balance_main.lbm_to_counters;
@@ -146,7 +145,7 @@ hicn_data_input_ip6_fn (vlib_main_t * vm,
 
 	  vnet_buffer (p0)->ip.flow_hash = vnet_buffer (p1)->ip.flow_hash = 0;
 
-	  //No vpp loadbalancing. Missing header file to exploit it
+	  // No vpp loadbalancing. Missing header file to exploit it
 	  dpo0 = load_balance_get_bucket_i (lb0, 0);
 	  dpo1 = load_balance_get_bucket_i (lb1, 0);
 
@@ -180,11 +179,10 @@ hicn_data_input_ip6_fn (vlib_main_t * vm,
 	      t->isv6 = 1;
 	    }
 
-
-	  vlib_increment_combined_counter
-	    (cm, thread_index, lbi0, 1, vlib_buffer_length_in_chain (vm, p0));
-	  vlib_increment_combined_counter
-	    (cm, thread_index, lbi1, 1, vlib_buffer_length_in_chain (vm, p1));
+	  vlib_increment_combined_counter (
+	    cm, thread_index, lbi0, 1, vlib_buffer_length_in_chain (vm, p0));
+	  vlib_increment_combined_counter (
+	    cm, thread_index, lbi1, 1, vlib_buffer_length_in_chain (vm, p1));
 
 	  from += 2;
 	  to_next += 2;
@@ -253,7 +251,7 @@ hicn_data_input_ip6_fn (vlib_main_t * vm,
 	  ASSERT (lb0->lb_n_buckets > 0);
 	  ASSERT (is_pow2 (lb0->lb_n_buckets));
 
-	  //No vpp loadbalancing. Missing header file to exploit it
+	  // No vpp loadbalancing. Missing header file to exploit it
 	  dpo0 = load_balance_get_bucket_i (lb0, 0);
 
 	  if (dpo_is_hicn (dpo0))
@@ -271,8 +269,8 @@ hicn_data_input_ip6_fn (vlib_main_t * vm,
 	      t->isv6 = 1;
 	    }
 
-	  vlib_increment_combined_counter
-	    (cm, thread_index, lbi0, 1, vlib_buffer_length_in_chain (vm, p0));
+	  vlib_increment_combined_counter (
+	    cm, thread_index, lbi0, 1, vlib_buffer_length_in_chain (vm, p0));
 
 	  from += 1;
 	  to_next += 1;
@@ -297,39 +295,29 @@ hicn_data_input_ip6_fn (vlib_main_t * vm,
   return frame->n_vectors;
 }
 
-/* *INDENT-OFF* */
-VLIB_REGISTER_NODE(hicn_data_input_ip6) =
-    {
-     .function = hicn_data_input_ip6_fn,
-     .name = "hicn-data-input-ip6",
-     .vector_size = sizeof(u32),
-     .format_trace = format_hicn_data_input_trace,
-     .type = VLIB_NODE_TYPE_INTERNAL,
-     .n_errors = ARRAY_LEN(hicn_data_input_error_strings),
-     .error_strings = hicn_data_input_error_strings,
-     .n_next_nodes = HICN_DATA_INPUT_IP6_N_NEXT,
-     .next_nodes =
-     {
-      [HICN_DATA_INPUT_IP6_NEXT_FACE] = "hicn-face-ip6-input",
-      [HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL] = "ip6-local-end-of-arc"
-     },
-    };
-/* *INDENT-ON* */
+VLIB_REGISTER_NODE (hicn_data_input_ip6) = {
+  .function = hicn_data_input_ip6_fn,
+  .name = "hicn-data-input-ip6",
+  .vector_size = sizeof (u32),
+  .format_trace = format_hicn_data_input_trace,
+  .type = VLIB_NODE_TYPE_INTERNAL,
+  .n_errors = ARRAY_LEN (hicn_data_input_error_strings),
+  .error_strings = hicn_data_input_error_strings,
+  .n_next_nodes = HICN_DATA_INPUT_IP6_N_NEXT,
+  .next_nodes = { [HICN_DATA_INPUT_IP6_NEXT_FACE] = "hicn6-face-input",
+		  [HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL] =
+		    "ip6-local-end-of-arc" },
+};
 
-/* *INDENT-OFF* */
-VNET_FEATURE_INIT(hicn_data_input_ip6_arc, static)=
-    {
-     .arc_name = "ip6-local",
-     .node_name = "hicn-data-input-ip6",
-     .runs_before = VNET_FEATURES("ip6-local-end-of-arc"),
-    };
-/* *INDENT-ON* */
-
-
+VNET_FEATURE_INIT (hicn_data_input_ip6_arc, static) = {
+  .arc_name = "ip6-local",
+  .node_name = "hicn-data-input-ip6",
+  .runs_before = VNET_FEATURES ("ip6-local-end-of-arc"),
+};
 
 always_inline uword
-hicn_data_input_ip4_fn (vlib_main_t * vm,
-			vlib_node_runtime_t * node, vlib_frame_t * frame)
+hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
+			vlib_frame_t *frame)
 {
   ip4_main_t *im = &ip4_main;
   vlib_combined_counter_main_t *cm = &load_balance_main.lbm_to_counters;
@@ -449,7 +437,6 @@ hicn_data_input_ip4_fn (vlib_main_t * vm,
       else
 	next[3] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
-
       if (PREDICT_FALSE (node->flags & VLIB_NODE_FLAG_TRACE) &&
 	  (b[0]->flags & VLIB_BUFFER_IS_TRACED))
 	{
@@ -490,18 +477,14 @@ hicn_data_input_ip4_fn (vlib_main_t * vm,
 	  t->isv6 = 0;
 	}
 
-      vlib_increment_combined_counter
-	(cm, thread_index, lb_index0, 1,
-	 vlib_buffer_length_in_chain (vm, b[0]));
-      vlib_increment_combined_counter
-	(cm, thread_index, lb_index1, 1,
-	 vlib_buffer_length_in_chain (vm, b[1]));
-      vlib_increment_combined_counter
-	(cm, thread_index, lb_index2, 1,
-	 vlib_buffer_length_in_chain (vm, b[2]));
-      vlib_increment_combined_counter
-	(cm, thread_index, lb_index3, 1,
-	 vlib_buffer_length_in_chain (vm, b[3]));
+      vlib_increment_combined_counter (cm, thread_index, lb_index0, 1,
+				       vlib_buffer_length_in_chain (vm, b[0]));
+      vlib_increment_combined_counter (cm, thread_index, lb_index1, 1,
+				       vlib_buffer_length_in_chain (vm, b[1]));
+      vlib_increment_combined_counter (cm, thread_index, lb_index2, 1,
+				       vlib_buffer_length_in_chain (vm, b[2]));
+      vlib_increment_combined_counter (cm, thread_index, lb_index3, 1,
+				       vlib_buffer_length_in_chain (vm, b[3]));
 
       b += 4;
       next += 4;
@@ -595,13 +578,10 @@ hicn_data_input_ip4_fn (vlib_main_t * vm,
 	  t->isv6 = 0;
 	}
 
-
-      vlib_increment_combined_counter
-	(cm, thread_index, lb_index0, 1,
-	 vlib_buffer_length_in_chain (vm, b[0]));
-      vlib_increment_combined_counter
-	(cm, thread_index, lb_index1, 1,
-	 vlib_buffer_length_in_chain (vm, b[1]));
+      vlib_increment_combined_counter (cm, thread_index, lb_index0, 1,
+				       vlib_buffer_length_in_chain (vm, b[0]));
+      vlib_increment_combined_counter (cm, thread_index, lb_index1, 1,
+				       vlib_buffer_length_in_chain (vm, b[1]));
 
       b += 2;
       next += 2;
@@ -652,8 +632,7 @@ hicn_data_input_ip4_fn (vlib_main_t * vm,
 	}
 
       vlib_increment_combined_counter (cm, thread_index, lbi0, 1,
-				       vlib_buffer_length_in_chain (vm,
-								    b[0]));
+				       vlib_buffer_length_in_chain (vm, b[0]));
 
       b += 1;
       next += 1;
@@ -668,30 +647,22 @@ hicn_data_input_ip4_fn (vlib_main_t * vm,
   return frame->n_vectors;
 }
 
-/* *INDENT-OFF* */
-VLIB_REGISTER_NODE(hicn_data_input_ip4) =
-    {
-     .function = hicn_data_input_ip4_fn,
-     .name = "hicn-data-input-ip4",
-     .vector_size = sizeof(u32),
-     .format_trace = format_hicn_data_input_trace,
-     .type = VLIB_NODE_TYPE_INTERNAL,
-     .n_errors = ARRAY_LEN(hicn_data_input_error_strings),
-     .error_strings = hicn_data_input_error_strings,
-     .n_next_nodes = HICN_DATA_INPUT_IP4_N_NEXT,
-     .next_nodes =
-     {
-      [HICN_DATA_INPUT_IP4_NEXT_FACE] = "hicn-face-ip4-input",
-      [HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL] = "ip4-local-end-of-arc"
-     },
-    };
-/* *INDENT-ON* */
+VLIB_REGISTER_NODE (hicn_data_input_ip4) = {
+  .function = hicn_data_input_ip4_fn,
+  .name = "hicn-data-input-ip4",
+  .vector_size = sizeof (u32),
+  .format_trace = format_hicn_data_input_trace,
+  .type = VLIB_NODE_TYPE_INTERNAL,
+  .n_errors = ARRAY_LEN (hicn_data_input_error_strings),
+  .error_strings = hicn_data_input_error_strings,
+  .n_next_nodes = HICN_DATA_INPUT_IP4_N_NEXT,
+  .next_nodes = { [HICN_DATA_INPUT_IP4_NEXT_FACE] = "hicn4-face-input",
+		  [HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL] =
+		    "ip4-local-end-of-arc" },
+};
 
-/* *INDENT-OFF* */
-VNET_FEATURE_INIT(hicn_data_input_ip4_arc, static)=
-    {
-     .arc_name = "ip4-local",
-     .node_name = "hicn-data-input-ip4",
-     .runs_before = VNET_FEATURES("ip4-local-end-of-arc"),
-    };
-/* *INDENT-ON* */
+VNET_FEATURE_INIT (hicn_data_input_ip4_arc, static) = {
+  .arc_name = "ip4-local",
+  .node_name = "hicn-data-input-ip4",
+  .runs_before = VNET_FEATURES ("ip4-local-end-of-arc"),
+};

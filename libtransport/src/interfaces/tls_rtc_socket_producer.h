@@ -28,9 +28,9 @@ namespace interface {
 class TLSRTCProducerSocket : public ProducerSocket {
  public:
   TLSRTCProducerSocket(implementation::TLSRTCProducerSocket *implementation);
+
   ~TLSRTCProducerSocket();
 };
 
 }  // namespace interface
-
 }  // end namespace transport

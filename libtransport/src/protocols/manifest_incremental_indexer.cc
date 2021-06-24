@@ -14,9 +14,9 @@
  */
 
 #include <implementation/socket_consumer.h>
-
+#include <protocols/errors.h>
 #include <protocols/manifest_incremental_indexer.h>
-#include <protocols/protocol.h>
+#include <protocols/transport_protocol.h>
 
 #include <cmath>
 #include <deque>
@@ -36,39 +36,46 @@ ManifestIncrementalIndexer::ManifestIncrementalIndexer(
           0)) {}
 
 void ManifestIncrementalIndexer::onContentObject(
-    core::Interest::Ptr &&interest, core::ContentObject::Ptr &&content_object) {
-  // Check if mainfiest or not
-  if (content_object->getPayloadType() == PayloadType::MANIFEST) {
-    onUntrustedManifest(std::move(interest), std::move(content_object));
-  } else if (content_object->getPayloadType() == PayloadType::CONTENT_OBJECT) {
-    onUntrustedContentObject(std::move(interest), std::move(content_object));
+    core::Interest &interest, core::ContentObject &content_object) {
+  switch (content_object.getPayloadType()) {
+    case PayloadType::DATA: {
+      TRANSPORT_LOGD("Received content %s",
+                     content_object.getName().toString().c_str());
+      onUntrustedContentObject(interest, content_object);
+      break;
+    }
+    case PayloadType::MANIFEST: {
+      TRANSPORT_LOGD("Received manifest %s",
+                     content_object.getName().toString().c_str());
+      onUntrustedManifest(interest, content_object);
+      break;
+    }
+    default: {
+      return;
+    }
   }
 }
 
 void ManifestIncrementalIndexer::onUntrustedManifest(
-    core::Interest::Ptr &&interest, core::ContentObject::Ptr &&content_object) {
-  auto ret = verification_manager_->onPacketToVerify(*content_object);
+    core::Interest &interest, core::ContentObject &content_object) {
+  auto manifest =
+      std::make_unique<ContentObjectManifest>(std::move(content_object));
 
-  switch (ret) {
-    case VerificationPolicy::ACCEPT_PACKET: {
-      processTrustedManifest(std::move(content_object));
-      break;
-    }
-    case VerificationPolicy::DROP_PACKET:
-    case VerificationPolicy::ABORT_SESSION: {
-      transport_protocol_->onContentReassembled(
-          make_error_code(protocol_error::session_aborted));
-      break;
-    }
+  auth::VerificationPolicy policy = verifier_->verifyPackets(manifest.get());
+
+  manifest->decode();
+
+  if (policy != auth::VerificationPolicy::ACCEPT) {
+    transport_protocol_->onContentReassembled(
+        make_error_code(protocol_error::session_aborted));
+    return;
   }
+
+  processTrustedManifest(interest, std::move(manifest));
 }
 
 void ManifestIncrementalIndexer::processTrustedManifest(
-    ContentObject::Ptr &&content_object) {
-  auto manifest =
-      std::make_unique<ContentObjectManifest>(std::move(*content_object));
-  manifest->decode();
-
+    core::Interest &interest, std::unique_ptr<ContentObjectManifest> manifest) {
   if (TRANSPORT_EXPECT_FALSE(manifest->getVersion() !=
                              core::ManifestVersion::VERSION_1)) {
     throw errors::RuntimeException("Received manifest with unknown version.");
@@ -76,23 +83,45 @@ void ManifestIncrementalIndexer::processTrustedManifest(
 
   switch (manifest->getManifestType()) {
     case core::ManifestType::INLINE_MANIFEST: {
-      auto _it = manifest->getSuffixList().begin();
-      auto _end = manifest->getSuffixList().end();
-
       suffix_strategy_->setFinalSuffix(manifest->getFinalBlockNumber());
 
-      for (; _it != _end; _it++) {
-        auto hash =
-            std::make_pair(std::vector<uint8_t>(_it->second, _it->second + 32),
-                           manifest->getHashAlgorithm());
+      // The packets to verify with the received manifest
+      std::vector<auth::PacketPtr> packets;
 
-        if (!checkUnverifiedSegments(_it->first, hash)) {
-          suffix_hash_map_[_it->first] = std::move(hash);
+      // Convert the received manifest to a map of packet suffixes to hashes
+      std::unordered_map<auth::Suffix, auth::HashEntry> current_manifest =
+          core::ContentObjectManifest::getSuffixMap(manifest.get());
+
+      // Update 'suffix_map_' with new hashes from the received manifest and
+      // build 'packets'
+      for (auto it = current_manifest.begin(); it != current_manifest.end();) {
+        if (unverified_segments_.find(it->first) ==
+            unverified_segments_.end()) {
+          suffix_map_[it->first] = std::move(it->second);
+          current_manifest.erase(it++);
+          continue;
         }
+
+        packets.push_back(unverified_segments_[it->first].second.get());
+        it++;
+      }
+
+      // Verify unverified segments using the received manifest
+      std::vector<auth::VerificationPolicy> policies =
+          verifier_->verifyPackets(packets, current_manifest);
+
+      for (unsigned int i = 0; i < packets.size(); ++i) {
+        auth::Suffix suffix = packets[i]->getName().getSuffix();
+
+        if (policies[i] != auth::VerificationPolicy::UNKNOWN) {
+          unverified_segments_.erase(suffix);
+        }
+
+        applyPolicy(*unverified_segments_[suffix].first,
+                    *unverified_segments_[suffix].second, policies[i]);
       }
 
       reassembly_->reassemble(std::move(manifest));
-
       break;
     }
     case core::ManifestType::FLIC_MANIFEST: {
@@ -104,89 +133,47 @@ void ManifestIncrementalIndexer::processTrustedManifest(
   }
 }
 
-bool ManifestIncrementalIndexer::checkUnverifiedSegments(
-    std::uint32_t suffix, const HashEntry &hash) {
-  auto it = unverified_segments_.find(suffix);
-
-  if (it != unverified_segments_.end()) {
-    auto ret = verifyContentObject(hash, *it->second.second);
-
-    switch (ret) {
-      case VerificationPolicy::ACCEPT_PACKET: {
-        reassembly_->reassemble(std::move(it->second.second));
-        break;
-      }
-      case VerificationPolicy::DROP_PACKET: {
-        transport_protocol_->onPacketDropped(std::move(it->second.first),
-                                             std::move(it->second.second));
-        break;
-      }
-      case VerificationPolicy::ABORT_SESSION: {
-        transport_protocol_->onContentReassembled(
-            make_error_code(protocol_error::session_aborted));
-        break;
-      }
-    }
-
-    unverified_segments_.erase(it);
-    return true;
-  }
-
-  return false;
-}
-
-VerificationPolicy ManifestIncrementalIndexer::verifyContentObject(
-    const HashEntry &manifest_hash, const ContentObject &content_object) {
-  VerificationPolicy ret;
-
-  auto hash_type = static_cast<utils::CryptoHashType>(manifest_hash.second);
-  auto data_packet_digest = content_object.computeDigest(manifest_hash.second);
-  auto data_packet_digest_bytes =
-      data_packet_digest.getDigest<uint8_t>().data();
-  const std::vector<uint8_t> &manifest_digest_bytes = manifest_hash.first;
-
-  if (utils::CryptoHash::compareBinaryDigest(
-          data_packet_digest_bytes, manifest_digest_bytes.data(), hash_type)) {
-    ret = VerificationPolicy::ACCEPT_PACKET;
-  } else {
-    ConsumerContentObjectVerificationFailedCallback
-        *verification_failed_callback = VOID_HANDLER;
-    socket_->getSocketOption(ConsumerCallbacksOptions::VERIFICATION_FAILED,
-                             &verification_failed_callback);
-    ret = (*verification_failed_callback)(
-        *socket_->getInterface(), content_object,
-        make_error_code(protocol_error::integrity_verification_failed));
-  }
-
-  return ret;
-}
-
 void ManifestIncrementalIndexer::onUntrustedContentObject(
-    Interest::Ptr &&i, ContentObject::Ptr &&c) {
-  auto suffix = c->getName().getSuffix();
-  auto it = suffix_hash_map_.find(suffix);
+    Interest &interest, ContentObject &content_object) {
+  auth::Suffix suffix = content_object.getName().getSuffix();
+  auth::VerificationPolicy policy =
+      verifier_->verifyPackets(&content_object, suffix_map_);
 
-  if (it != suffix_hash_map_.end()) {
-    auto ret = verifyContentObject(it->second, *c);
-
-    switch (ret) {
-      case VerificationPolicy::ACCEPT_PACKET: {
-        suffix_hash_map_.erase(it);
-        reassembly_->reassemble(std::move(c));
-        break;
-      }
-      case VerificationPolicy::DROP_PACKET: {
-        transport_protocol_->onPacketDropped(std::move(i), std::move(c));
-        break;
-      }
-      case VerificationPolicy::ABORT_SESSION: {
-        transport_protocol_->onContentReassembled(
-            make_error_code(protocol_error::session_aborted));
-        break;
-      }
+  switch (policy) {
+    case auth::VerificationPolicy::UNKNOWN: {
+      unverified_segments_[suffix] = std::make_pair(
+          interest.shared_from_this(), content_object.shared_from_this());
+      break;
     }
-  } else {
-    unverified_segments_[suffix] = std::make_pair(std::move(i), std::move(c));
+    default: {
+      suffix_map_.erase(suffix);
+      break;
+    }
+  }
+
+  applyPolicy(interest, content_object, policy);
+}
+
+void ManifestIncrementalIndexer::applyPolicy(
+    core::Interest &interest, core::ContentObject &content_object,
+    auth::VerificationPolicy policy) {
+  switch (policy) {
+    case auth::VerificationPolicy::ACCEPT: {
+      reassembly_->reassemble(content_object);
+      break;
+    }
+    case auth::VerificationPolicy::DROP: {
+      transport_protocol_->onPacketDropped(interest, content_object);
+      break;
+    }
+    case auth::VerificationPolicy::ABORT: {
+      transport_protocol_->onContentReassembled(
+          make_error_code(protocol_error::session_aborted));
+      break;
+    }
+    default: {
+      break;
+    }
   }
 }
 
@@ -222,7 +209,7 @@ uint32_t ManifestIncrementalIndexer::getNextReassemblySegment() {
 
 void ManifestIncrementalIndexer::reset(std::uint32_t offset) {
   IncrementalIndexer::reset(offset);
-  suffix_hash_map_.clear();
+  suffix_map_.clear();
   unverified_segments_.clear();
   SuffixQueue empty;
   std::swap(suffix_queue_, empty);

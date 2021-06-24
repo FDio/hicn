@@ -21,7 +21,7 @@
 #include <hicn/transport/interfaces/callbacks.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/socket_options_keys.h>
-#include <hicn/transport/security/signer.h>
+#include <hicn/transport/auth/signer.h>
 
 #ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE
@@ -40,7 +40,10 @@ using namespace core;
 
 class ProducerSocket {
  public:
-  explicit ProducerSocket(int protocol = 0);
+  explicit ProducerSocket(
+      int protocol = ProductionProtocolAlgorithms::BYTE_STREAM);
+
+  explicit ProducerSocket(int protocol, asio::io_service &io_service);
 
   virtual ~ProducerSocket();
 
@@ -48,22 +51,21 @@ class ProducerSocket {
 
   bool isRunning();
 
-  uint32_t produce(Name content_name, const uint8_t *buffer, size_t buffer_size,
-                   bool is_last = true, uint32_t start_offset = 0) {
-    return produce(content_name, utils::MemBuf::copyBuffer(buffer, buffer_size),
-                   is_last, start_offset);
-  }
+  void registerPrefix(const Prefix &producer_namespace);
 
-  uint32_t produce(Name content_name, std::unique_ptr<utils::MemBuf> &&buffer,
-                   bool is_last = true, uint32_t start_offset = 0);
+  uint32_t produceStream(const Name &content_name, const uint8_t *buffer,
+                         size_t buffer_size, bool is_last = true,
+                         uint32_t start_offset = 0);
 
-  void produce(ContentObject &content_object);
+  uint32_t produceStream(const Name &content_name,
+                         std::unique_ptr<utils::MemBuf> &&buffer,
+                         bool is_last = true, uint32_t start_offset = 0);
 
-  void produce(const uint8_t *buffer, size_t buffer_size) {
-    produce(utils::MemBuf::copyBuffer(buffer, buffer_size));
-  }
+  uint32_t produceDatagram(const Name &content_name, const uint8_t *buffer,
+                           size_t buffer_size);
 
-  void produce(std::unique_ptr<utils::MemBuf> &&buffer);
+  uint32_t produceDatagram(const Name &content_name,
+                           std::unique_ptr<utils::MemBuf> &&buffer);
 
   void asyncProduce(const Name &suffix, const uint8_t *buf, size_t buffer_size,
                     bool is_last = true, uint32_t *start_offset = nullptr);
@@ -72,9 +74,7 @@ class ProducerSocket {
                     bool is_last, uint32_t offset,
                     uint32_t **last_segment = nullptr);
 
-  void asyncProduce(ContentObject &content_object);
-
-  void registerPrefix(const Prefix &producer_namespace);
+  void produce(ContentObject &content_object);
 
   void serveForever();
 
@@ -104,14 +104,13 @@ class ProducerSocket {
                       ProducerContentCallback socket_option_value);
 
   int setSocketOption(int socket_option_key,
-                      utils::CryptoHashType socket_option_value);
+                      auth::CryptoHashType socket_option_value);
 
   int setSocketOption(int socket_option_key,
-                      utils::CryptoSuite socket_option_value);
+                      auth::CryptoSuite socket_option_value);
 
-  int setSocketOption(
-      int socket_option_key,
-      const std::shared_ptr<utils::Signer> &socket_option_value);
+  int setSocketOption(int socket_option_key,
+                      const std::shared_ptr<auth::Signer> &socket_option_value);
 
   int setSocketOption(int socket_option_key,
                       const std::string &socket_option_value);
@@ -133,13 +132,13 @@ class ProducerSocket {
                       ProducerInterestCallback **socket_option_value);
 
   int getSocketOption(int socket_option_key,
-                      utils::CryptoHashType &socket_option_value);
+                      auth::CryptoHashType &socket_option_value);
 
   int getSocketOption(int socket_option_key,
-                      utils::CryptoSuite &socket_option_value);
+                      auth::CryptoSuite &socket_option_value);
 
   int getSocketOption(int socket_option_key,
-                      std::shared_ptr<utils::Signer> &socket_option_value);
+                      std::shared_ptr<auth::Signer> &socket_option_value);
 
   int getSocketOption(int socket_option_key, std::string &socket_option_value);
 

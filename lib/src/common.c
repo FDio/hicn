@@ -29,6 +29,7 @@
 #include <stdio.h>
 
 #include <hicn/common.h>
+#include <hicn/util/log.h>
 
 
 
@@ -109,7 +110,7 @@ hash64 (const void *data, size_t len)
 }
 
 void
-hicn_packet_dump (uint8_t * buffer, size_t len)
+hicn_packet_dump (const uint8_t * buffer, size_t len)
 {
   int i;
   unsigned char buff[17];

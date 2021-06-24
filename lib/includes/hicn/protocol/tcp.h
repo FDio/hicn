@@ -42,7 +42,11 @@ typedef struct
   union
   {
     u32 seq_ack;
-    hicn_pathlabel_t pathlabel;
+    struct
+    {
+      hicn_pathlabel_t pathlabel;
+      u8 pad[3];
+    };
   };
 
   union
@@ -124,8 +128,6 @@ typedef struct
 static_assert (EXPECTED_TCP_HDRLEN == TCP_HDRLEN,
 	       "Size of TCP struct does not match its expected size.");
 
-#ifndef HICN_VPP_PLUGIN
-
 /* TCP flags bit 0 first. */
 #define foreach_tcp_flag                                \
           _ (FIN) /**< No more data from sender. */             \
@@ -151,12 +153,6 @@ enum
   foreach_tcp_flag
 #undef _
 };
-
-#endif /* HICN_VPP_PLUGIN */
-
-// get_data_name_suffix
-// name->ip4.suffix = h->v4.tcp.seq;
-
 
 #endif /* HICN_PROTOCOL_TCP_H */
 

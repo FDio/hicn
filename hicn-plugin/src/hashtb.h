@@ -24,6 +24,43 @@
 #include "parser.h"
 #include "error.h"
 
+/**
+ * @file hashtb.h
+ * Lookup is finding a hashtable record whose name matches the name being
+ * looked up.  Most of the lookup work is based on the hash value of the two
+ * names. Note that the intel cache line size is 64 bytes, and some platforms
+ * load in 2 cache lines together.
+ * - first step is to match a record at the bucket/slot level (htab has an
+ *   array of htbucket_t/htbc_elmt, where each bucket has 7 slots to hold indices
+ *   for entries.) Matching at this level implies
+ *   - the hashes of the lookup name and the record map to the same bucket
+ *   - the high 32 bits of the hashes (slot bce_hash_msb32s) match. Read
+ *     cost (on the hash table size, i.e. ignoring reading the name being
+ *     looked up):
+ *     - First step normally requires 1 cache line load to pull in the
+ *       64-byte htbucket_t with the 7 element slot table holding the
+ *       hash_msb32s.
+ *     - In the event (hopefully rare for a hash table with appropriate
+ *       number of buckets) that more than 7 elements hash to the same bucket,
+ *       lookup may well need to look not only at the static htbc_elmt_t but at
+ *       the chain of dynamically allocated htbc_elmt_t's linked to the static
+ *       htbc_elmt_t,  where each of these holds slot entries for additional elements.
+ *     - Before reaching that point, it is initially required to read in the
+ *       hash table record fields (ht_bucket_buf, htnode buf, etc) holding
+ *       pointers to the arrays, but these cache lines are common to all lookups
+ *       so will likely already be in the cache.
+ * - second step is to match at the record level (htnode/htkb level) once a
+ *   slot-level match happens. Matching at this level implies the following match
+ *   - the hash values (the full 64 bits vs. bucket+32 msb, above).
+ *   - the name which, on the hash table side, is stored as a list of htkb_t (key buffers).
+ *
+ * Some hashtables (for which rare false positives are tolerable) store hash
+ * values but no keys. (In ISM NDN forwarder, this was used for dcm_dpf: data
+ * cache manager's dataplane filter, where speed was critical and very rare
+ * false positives would be detected in the full dcm check.) - No key buffers
+ * are used (or even allocated at hash table creation).
+ */
+
 /* Handy abbreviations for success status, and for boolean values */
 #ifndef TRUE
 #define TRUE 1
@@ -32,46 +69,6 @@
 #ifndef FALSE
 #define FALSE 0
 #endif
-
-/*
- * Lookup is finding a hashtable record whose name matches the name being
- * looked up.  Most of the lookup work is based on the hash value of the two
- * names. Note that the intel cache line size is 64 bytes, and some platforms
- * load in 2 cache lines together. - first step is to match a record at the
- * bucket/slot level (htab has an array of htbucket_t/htbc_elmt, where each
- * bucket has 7 slots to hold indices for entries.) Matching at this level
- * implies - the hashes of the lookup name and the record map to the same
- * bucket - the high 32 bits of the hashes (slot bce_hash_msb32s) match. Read
- * cost (on the hash table size, i.e. ignoring reading the name being looked
- * up): - First step normally requires 1 cache line load to pull in the
- * 64-byte htbucket_t with the 7 element slot table holding the hash_msb32s.
- * - In the event (hopefully rare for a hash table with appropriate number of
- * buckets) that more than 7 elements hash to the same bucket, lookup may
- * well need to look not only at the static htbc_elmt_t but at the chain of
- * dynamically allocated htbc_elmt_t's linked to the static htbc_elmt_t,
- * where each of these holds slot entries for additional elements. - Before
- * reaching that point, it is initially required is to read in the hash table
- * record fields (ht_bucket_buf, htnode buf, etc) holding pointers to the
- * arrays, but these cache lines are common to all lookups so will likely
- * already be in the cache. - second step is to match at the record level
- * (htnode/htkb level) once a slot-level match happens. Matching at this
- * level implies the following match - the hash values (the full 64 bits vs.
- * bucket+32 msb, above) With siphash, two names hashing to the same 64-bit
- * value is quite rare. - the name which, on the hash table side, is stored
- * as a list of htkb_t (key buffers). [In some cases, the full name is not
- * compared, and a match is assumed based on hash value match. Read cost: -
- * htnode_t, in one cache line, holds hash value and index for the htkb at
- * the head of the key buffer list - each key buffer (htkb_t) is cache line
- * aligned/sized, and holds 60 bytes of the name and requires a cache line
- * read. Simplification is that a fib lookup requires 3 cache lines: - bucket
- * - htnode - single key buffer (for cases where a name comparision is done)
- *
- * Some hashtables (for which rare false positives are tolerable) store hash
- * values but no keys. (In ISM NDN forwarder, this was used for dcm_dpf: data
- * cache manager's dataplane filter, where speed was critical and very rare
- * false positives would be detected in the full dcm check.) - No key buffers
- * are used (or even allocated at hash table creation).
- */
 
 #define HICN_HASH_INVALID_IDX  ~0
 /*

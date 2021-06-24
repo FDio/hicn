@@ -30,9 +30,17 @@ function build_package() {
     # Make the package
     mkdir -p ${SCRIPT_PATH}/../build && pushd ${SCRIPT_PATH}/../build
         rm -rf *
-        # First round
-        cmake  -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_APPS=ON ..
+
+        cmake -G Ninja -DCMAKE_INSTALL_PREFIX=/usr    \
+                       -DBUILD_HICNPLUGIN=ON          \
+                       -DBUILD_LIBTRANSPORT=ON        \
+                       -DBUILD_APPS=ON                \
+                       -DBUILD_HICNLIGHT=ON           \
+                       -DBUILD_TELEMETRY=ON           \
+                       ${SCRIPT_PATH}/..
+
         ninja -j8 package
+
         find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
         rm *Unspecified* || true
     popd

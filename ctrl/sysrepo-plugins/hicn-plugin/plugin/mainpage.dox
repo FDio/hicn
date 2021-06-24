@@ -29,47 +29,13 @@ fi
 *Here you can find different examples to run RPC in the yang-model.
 
 ```
-<face-ip-add xmlns="urn:sysrepo:hicn">
-    <lip4>192.168.1.10</lip4>
-    <lip6>-1</lip6>
-    <rip4>192.168.1.1</rip4>
-    <rip6>-1</rip6>
-    <swif>0</swif>
-</face-ip-add>
+<hicn-enable xmlns="urn:sysrepo:hicn">
+    <prefix>b001::/64</prefix>
+</hicn-enable>
 
-<route-nhops-add xmlns="urn:sysrepo:hicn">
-    <ip4>192.168.1.1</ip4>
-    <ip6>-1</ip6>
-    <len>24</len>
-    <face_ids0>0</face_ids0>
-    <face_ids1>0</face_ids1>
-    <face_ids2>0</face_ids2>
-    <face_ids3>0</face_ids3>
-    <face_ids4>0</face_ids4>
-    <face_ids5>0</face_ids5>
-    <face_ids6>0</face_ids6>
-    <n_faces>1</n_faces>
-</route-nhops-add>
-
-<route-nhops-del xmlns="urn:sysrepo:hicn">
-    <ip4>192.168.1.1</ip4>
-    <ip6>-1</ip6>
-    <len>24</len>
-    <faceid>0</faceid>
-</route-nhops-del>
-
-
-<face-ip-del xmlns="urn:sysrepo:hicn">
-    <faceid>0</faceid>
-</face-ip-del>
-
-
-<punting-del-ip xmlns="urn:sysrepo:hicn">
-    <ip4>192.168.0.1</ip4>
-    <ip6>-1</ip6>
-    <len>24</len>
-    <swif>0</swif>
-</punting-del-ip>
+<hicn-disable xmlns="urn:sysrepo:hicn">
+    <prefix>b001::/64</prefix>
+</hicn-disable>
 ```
  */
 

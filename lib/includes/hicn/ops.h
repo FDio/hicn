@@ -106,6 +106,22 @@ typedef struct hicn_ops_s
 				   const hicn_name_suffix_t * suffix);
 
   /**
+   * @brief Set flag to mark current packet as interest
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest packet
+   * @return hICN error code
+   */
+  int (*mark_packet_as_interest) (hicn_type_t type, hicn_protocol_t * h);
+
+  /**
+   * @brief Set flag to mark current packet as data
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest packet
+   * @return hICN error code
+   */
+  int (*mark_packet_as_data) (hicn_type_t type, hicn_protocol_t * h);
+
+  /**
    * @brief Clear the necessary Interest fields in order to hash it
    * @param [in] type - hICN packet type
    * @param [in,out] h - Buffer holding the Interest packet
@@ -237,7 +253,7 @@ typedef struct hicn_ops_s
    * @param [in,out] h - Buffer holding the packet
    * @param [in] partial_csum - Partial checksum (set to 0, used internally to
    *   carry intermediate values from IP pseudo-header)
-   * @param [in] payload_length - Payload length (can be set to 0, retrieved
+   * @param [in] payload_length - Payload length (can be set to ~0, retrieved
    *   and used internally to carry payload length across protocol headers)
    * @return hICN error code
    */
@@ -248,9 +264,8 @@ typedef struct hicn_ops_s
    * @brief Validate all checksums in packet headers
    * @param [in] type - hICN packet type
    * @param [in] h - Buffer holding the packet
-   * @param [in] partial_csum - Partial checksum (set to 0, used internally to
-   *   carry intermediate values from IP pseudo-header)
-   * @param [in] payload_length - Payload length (can be set to 0, retrieved
+   * @param [in] partial_csum - Partial checksum, or zero if no partial checksum available
+   * @param [in] payload_length - Payload length (can be set to ~0, retrieved
    *   and used internally to carry payload length across protocol headers)
    * @return hICN error code
    */
@@ -278,12 +293,15 @@ typedef struct hicn_ops_s
    * @param [in] addr_old - Old locator (set to NULL, used internally to
    *   compute incremental checksums)
    * @param [in] face_id - Face identifier used to update pathlabel
+   * @param [in] reset_pl - If not zero, reset the current pathlabel
+   *   before update it
    * @return hICN error code
    */
   int (*rewrite_data) (hicn_type_t type, hicn_protocol_t * h,
 		       const ip46_address_t * addr_new,
 		       ip46_address_t * addr_old,
-		       const hicn_faceid_t face_id);
+		       const hicn_faceid_t face_id,
+           u8 reset_pl);
 
   /**
    * @brief Return the packet length
@@ -438,6 +456,8 @@ typedef struct hicn_ops_s
     ATTR_INIT(set_interest_name,        protocol ## _set_interest_name),        \
     ATTR_INIT(get_interest_name_suffix, protocol ## _get_interest_name_suffix), \
     ATTR_INIT(set_interest_name_suffix, protocol ## _set_interest_name_suffix), \
+    ATTR_INIT(mark_packet_as_interest,  protocol ## _mark_packet_as_interest),  \
+    ATTR_INIT(mark_packet_as_data,      protocol ## _mark_packet_as_data),      \
     ATTR_INIT(reset_interest_for_hash,  protocol ## _reset_interest_for_hash),  \
     ATTR_INIT(get_data_locator,         protocol ## _get_data_locator),         \
     ATTR_INIT(set_data_locator,         protocol ## _set_data_locator),         \
@@ -537,6 +557,12 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t * h)
 #define DECLARE_set_interest_name_suffix(protocol, error) \
     int protocol ## _set_interest_name_suffix(hicn_type_t type, hicn_protocol_t * h, const hicn_name_suffix_t * suffix) { return HICN_LIB_ERROR_ ## error ; }
 
+#define DECLARE_mark_packet_as_interest(protocol, error) \
+    int protocol ## _mark_packet_as_interest(hicn_type_t type, hicn_protocol_t * h) { return HICN_LIB_ERROR_ ## error ; }
+
+#define DECLARE_mark_packet_as_data(protocol, error) \
+    int protocol ## _mark_packet_as_data(hicn_type_t type, hicn_protocol_t * h) { return HICN_LIB_ERROR_ ## error ; }
+
 #define DECLARE_reset_interest_for_hash(protocol, error) \
     int protocol ## _reset_interest_for_hash(hicn_type_t type, hicn_protocol_t * h) { return HICN_LIB_ERROR_ ## error ; }
 
@@ -586,7 +612,7 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t * h)
     int protocol ## _rewrite_interest(hicn_type_t type, hicn_protocol_t * h, const ip46_address_t * addr_new, ip46_address_t * addr_old) { return HICN_LIB_ERROR_ ## error ; }
 
 #define DECLARE_rewrite_data(protocol, error) \
-    int protocol ## _rewrite_data(hicn_type_t type, hicn_protocol_t * h, const ip46_address_t * addr_new, ip46_address_t * addr_old, const hicn_faceid_t face_id) { return HICN_LIB_ERROR_ ## error ; }
+    int protocol ## _rewrite_data(hicn_type_t type, hicn_protocol_t * h, const ip46_address_t * addr_new, ip46_address_t * addr_old, const hicn_faceid_t face_id, u8 reset_pl) { return HICN_LIB_ERROR_ ## error ; }
 
 #define DECLARE_get_length(protocol, error) \
     int protocol ## _get_length(hicn_type_t type, const hicn_protocol_t * h, size_t * length) { return HICN_LIB_ERROR_ ## error ; }

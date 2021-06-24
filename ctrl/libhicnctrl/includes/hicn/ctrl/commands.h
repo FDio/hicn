@@ -20,8 +20,8 @@
  * Header and payload in binary format.
  */
 
-#ifndef commands_h
-#define commands_h
+#ifndef HICN_CTRL_COMMANDS_H
+#define HICN_CTRL_COMMANDS_H
 
 #ifndef _WIN32
 #include <netinet/in.h>
@@ -31,31 +31,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <hicn/util/ip_address.h>
 #ifdef WITH_POLICY
 #include <hicn/policy.h>
 #endif /* WITH_POLICY */
+#include <hicn/strategy.h>
+#include <hicn/util/ip_address.h>
+
 
 #define SYMBOLIC_NAME_LEN 16
-#define MAX_FWD_STRATEGY_RELATED_PREFIXES 10
-
-typedef struct in6_addr ipv6_addr_t;
-typedef uint32_t ipv4_addr_t;
-
-typedef enum {
-  ADDR_INET = 1,
-  ADDR_INET6,
-  ADDR_LINK,
-  ADDR_IFACE,
-  ADDR_UNIX /* PF_UNIX */
-} address_type;
-
-typedef enum {
-  UDP_CONN,
-  TCP_CONN,
-  GRE_CONN,  // not implemented
-  HICN_CONN
-} connection_type;
 
 typedef struct in6_addr ipv6_addr_t;
 typedef uint32_t ipv4_addr_t;
@@ -118,14 +101,12 @@ typedef enum {
 #define command_type_from_uchar(x) \
     (((x) >= COMMAND_TYPE_N) ? COMMAND_TYPE_N : (command_type_t)(x))
 
-/* Header */
-
 /* Should be at least 8 bytes */
 typedef struct {
-    uint8_t messageType;
-    uint8_t commandID ;
+    uint8_t message_type;
+    uint8_t command_id;
     uint16_t length;    /* Number of structures in the payload */
-    uint32_t seqNum;
+    uint32_t seq_num;
 } cmd_header_t;
 
 typedef struct {
@@ -134,19 +115,13 @@ typedef struct {
 
 /* Listener */
 
-typedef enum { ETHER_MODE, IP_MODE, HICN_MODE } listener_mode;
-
 typedef struct {
     char symbolic[SYMBOLIC_NAME_LEN];
-    char interfaceName[SYMBOLIC_NAME_LEN];
+    char interface_name[SYMBOLIC_NAME_LEN];
     ip_address_t address;
     uint16_t port;
-    // uint16_t etherType;
-    uint8_t addressType;
-    uint8_t listenerMode;
-    uint8_t connectionType;
     uint8_t family;
-    uint8_t listenerType;
+    uint8_t type;
 } cmd_listener_add_t;
 
 typedef struct {
@@ -154,13 +129,6 @@ typedef struct {
 } cmd_listener_remove_t;
 
 typedef struct {
-    ip_address_t address;
-    char listenerName[SYMBOLIC_NAME_LEN];
-    char interfaceName[SYMBOLIC_NAME_LEN];
-    uint32_t connid;
-    uint16_t port;
-    uint8_t addressType;
-    uint8_t encapType;
 } cmd_listener_list_t;
 
 typedef struct {
@@ -184,7 +152,6 @@ typedef struct {
     uint16_t local_port;
     uint8_t family;
     uint8_t type;
-    uint8_t connection_type;
     uint8_t admin_state;
 #ifdef WITH_POLICY
     uint32_t priority;
@@ -196,27 +163,7 @@ typedef struct {
     char symbolicOrConnid[SYMBOLIC_NAME_LEN];
 } cmd_connection_remove_t;
 
-typedef enum {
-  CONN_GRE,
-  CONN_TCP,
-  CONN_UDP,
-  CONN_MULTICAST,
-  CONN_L2,
-  CONN_HICN
-} list_connections_type;
-
-typedef enum {
-  IFACE_UP = 0,
-  IFACE_DOWN = 1,
-  IFACE_UNKNOWN = 2  // not used actually
-} connection_state;
-
 typedef struct {
-  cmd_connection_add_t connectionData;
-  uint32_t connid;
-  uint8_t state;
-  char interfaceName[SYMBOLIC_NAME_LEN];
-  char connectionName[SYMBOLIC_NAME_LEN];
 } cmd_connection_list_t;
 
 typedef struct {
@@ -236,7 +183,7 @@ typedef struct {
     uint32_t id;
     uint8_t state;
     char interface_name[SYMBOLIC_NAME_LEN];
-    char name[SYMBOLIC_NAME_LEN];
+    char name[SYMBOLIC_NAME_LEN]; // XXX what is this ?
 } cmd_connection_list_item_t;
 
 typedef struct {
@@ -268,7 +215,6 @@ typedef struct {
     char symbolicOrConnid[SYMBOLIC_NAME_LEN];
     ip_address_t address;
     uint16_t cost;
-    uint8_t addressType;
     uint8_t family;
     uint8_t len;
 } cmd_route_add_t;
@@ -276,17 +222,11 @@ typedef struct {
 typedef struct {
     char symbolicOrConnid[SYMBOLIC_NAME_LEN];
     ip_address_t address;
-    uint8_t addressType;
     uint8_t family;
     uint8_t len;
 } cmd_route_remove_t;
 
 typedef struct {
-    ip_address_t address;
-    uint32_t connid;
-    uint16_t cost;
-    uint8_t addressType;
-    uint8_t len;
 } cmd_route_list_t;
 
 typedef struct {
@@ -322,7 +262,6 @@ typedef struct {
 typedef struct {
     ip_address_t address;
     uint8_t strategy_type;
-    uint8_t address_type;
     uint8_t family;
     uint8_t len;
     uint8_t related_prefixes;
@@ -340,7 +279,6 @@ typedef struct {
 typedef struct {
     char symbolicOrConnid[SYMBOLIC_NAME_LEN];
     ip_address_t address;
-    uint8_t addressType;
     uint8_t family;
     uint8_t len;
 } cmd_punting_add_t;
@@ -367,39 +305,30 @@ typedef struct {
     uint8_t len;
 } cmd_mapme_send_update_t;
 
-#ifdef WITH_POLICY
 /* Policy */
 
 typedef struct {
     ip_address_t address;
-    uint8_t addressType;
     uint8_t family;
     uint8_t len;
-    policy_t policy;
+    hicn_policy_t policy;
 } cmd_policy_add_t;
 
 typedef struct {
     ip_address_t address;
-    uint8_t addressType;
     uint8_t family;
     uint8_t len;
 } cmd_policy_remove_t;
 
 typedef struct {
-    ip_address_t address;
-    uint8_t addressType;
-    uint8_t len;
-    policy_t policy;
 } cmd_policy_list_t;
 
 typedef struct {
     ip_address_t address;
     uint8_t family;
     uint8_t len;
-    policy_t policy;
+    hicn_policy_t policy;
 } cmd_policy_list_item_t;
-
-#endif /* WITH_POLICY */
 
 /* Full messages */
 

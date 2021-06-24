@@ -13,53 +13,128 @@
  * limitations under the License.
  */
 
-#include "src/IcnReceiver.h"
+#include <hicn/http-proxy/http_proxy.h>
 
 using namespace transport;
 
 int usage(char* program) {
-  std::cerr << "ICN Plugin not loaded!" << std::endl;
-  std::cerr << "USAGE: " << program << "\n"
-            << "[HTTP_PREFIX] -a [SERVER_IP_ADDRESS] "
-               "-p [SERVER_PORT] -c [CACHE_SIZE] -m [MTU] -l [DEFAULT_LIFETIME "
-               "(seconds)] -P [FIRST_IPv6_WORD_HEX] -M (enable manifest)"
+  std::cerr << "USAGE: " << program << "[-C|-S] [options] <http_prefix>\n"
+            << "Server or Client: \n"
+            << "  -P [FIRST_IPv6_WORD_HEX]\n"
+            << "  -t [number of threads]\n"
+            << "Client Options: \n"
+            << "  -L [PROXY_LISTEN_PORT]\n"
+            << "Server Options: \n"
+            << "  -a [ORIGIN_IP_ADDRESS]\n"
+            << "  -p [ORIGIN_PORT]\n"
+            << "  -c [CACHE_SIZE]\n"
+            << "  -m [MTU]"
+            << "  -l [DEFAULT_CONTENT_LIFETIME] (seconds)\n"
+            << "  -M (enable manifest)\n"
+            << std::endl
+            << "Example Server:\n"
+            << "  " << program
+            << " -S -a example.com -p 80 -c 10000 -m 1300 -l 7200 -M -t 1 "
+               "http://httpserver\n"
+            << "Example Client:\n"
+            << "  " << program << " -C -L 9091 http://httpserver\n"
             << std::endl;
   return -1;
 }
 
+struct Params : HTTPProxy::ClientParams, HTTPProxy::ServerParams {
+  void printParams() override {
+    if (client) {
+      HTTPProxy::ClientParams::printParams();
+    } else if (server) {
+      HTTPProxy::ServerParams::printParams();
+    } else {
+      throw std::runtime_error(
+          "Proxy configured as client and server at the same time.");
+    }
+
+    std::cout << "\t"
+              << "N Threads: " << n_thread << std::endl;
+  }
+
+  HTTPProxy* instantiateProxyAsValue() {
+    if (client) {
+      HTTPProxy::ClientParams* p = dynamic_cast<HTTPProxy::ClientParams*>(this);
+      return new transport::HTTPProxy(*p, n_thread);
+    } else if (server) {
+      HTTPProxy::ServerParams* p = dynamic_cast<HTTPProxy::ServerParams*>(this);
+      return new transport::HTTPProxy(*p, n_thread);
+    } else {
+      throw std::runtime_error(
+          "Proxy configured as client and server at the same time.");
+    }
+  }
+
+  bool client = false;
+  bool server = false;
+  std::uint16_t n_thread = 1;
+};
+
 int main(int argc, char** argv) {
-  std::string prefix("http://hicn-http-proxy");
-  std::string ip_address("127.0.0.1");
-  std::string port("80");
-  std::string cache_size("50000");
-  std::string mtu("1500");
-  std::string first_ipv6_word("b001");
-  std::string default_content_lifetime("7200");  // seconds
-  bool manifest = false;
+  Params params;
+
+  params.prefix = "http://hicn-http-proxy";
+  params.origin_address = "127.0.0.1";
+  params.origin_port = "80";
+  params.cache_size = "50000";
+  params.mtu = "1500";
+  params.first_ipv6_word = "b001";
+  params.content_lifetime = "7200;";  // seconds
+  params.manifest = false;
+  params.tcp_listen_port = 8080;
 
   int opt;
-  while ((opt = getopt(argc, argv, "a:p:c:m:P:l:M")) != -1) {
+  while ((opt = getopt(argc, argv, "CSa:p:c:m:P:l:ML:t:")) != -1) {
     switch (opt) {
+      case 'C':
+        if (params.server) {
+          std::cerr << "Cannot be both client and server (both -C anc -S "
+                       "options specified.)."
+                    << std::endl;
+          return usage(argv[0]);
+        }
+        params.client = true;
+        break;
+      case 'S':
+        if (params.client) {
+          std::cerr << "Cannot be both client and server (both -C anc -S "
+                       "options specified.)."
+                    << std::endl;
+          return usage(argv[0]);
+        }
+        params.server = true;
+        break;
       case 'a':
-        ip_address = optarg;
+        params.origin_address = optarg;
         break;
       case 'p':
-        port = optarg;
+        params.origin_port = optarg;
         break;
       case 'c':
-        cache_size = optarg;
+        params.cache_size = optarg;
         break;
       case 'm':
-        mtu = optarg;
+        params.mtu = optarg;
         break;
       case 'P':
-        first_ipv6_word = optarg;
+        params.first_ipv6_word = optarg;
         break;
       case 'l':
-        default_content_lifetime = optarg;
+        params.content_lifetime = optarg;
+        break;
+      case 'L':
+        params.tcp_listen_port = std::stoul(optarg);
         break;
       case 'M':
-        manifest = true;
+        params.manifest = true;
+        break;
+      case 't':
+        params.n_thread = std::stoul(optarg);
         break;
       case 'h':
       default:
@@ -69,19 +144,15 @@ int main(int argc, char** argv) {
   }
 
   if (argv[optind] == 0) {
-    std::cerr << "Using default prefix " << prefix << std::endl;
+    std::cerr << "Using default prefix " << params.prefix << std::endl;
   } else {
-    prefix = argv[optind];
+    params.prefix = argv[optind];
   }
 
-  std::cout << "Connecting to " << ip_address << " port " << port
-            << " Cache size " << cache_size << " Prefix " << prefix << " MTU "
-            << mtu << " IPv6 first word " << first_ipv6_word << std::endl;
-  transport::AsyncConsumerProducer proxy(
-      prefix, ip_address, port, cache_size, mtu, first_ipv6_word,
-      std::stoul(default_content_lifetime) * 1000, manifest);
-
-  proxy.run();
+  params.printParams();
+  auto proxy = params.instantiateProxyAsValue();
+  proxy->run();
+  delete proxy;
 
   return 0;
 }

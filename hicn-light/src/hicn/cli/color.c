@@ -32,6 +32,7 @@ vprintfc(color_t color, const char * fmt, va_list ap)
 
         case COLOR_UNDEFINED:
         case COLOR_N:
+        default: // XXX
             color_s = "";
             break;
     }

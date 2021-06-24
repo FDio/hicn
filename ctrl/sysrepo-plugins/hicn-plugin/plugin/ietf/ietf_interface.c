@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Cisco and/or its affiliates.
+ * Copyright (c) 2016-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -442,7 +442,7 @@ ietf_interface_ipv46_address_change_cb(sr_session_ctx_t *session, const char *mo
     sr_change_oper_t op = SR_OP_CREATED;
     sr_val_t *old_val = NULL;
     sr_val_t *new_val = NULL;
-    sr_xpath_ctx_t xpath_ctx = { 0, };
+    sr_xpath_ctx_t xpath_ctx = { 0 };
     bool is_ipv6 = false, has_addr = false, has_prefix = false;
     uint8_t addr[16] = { 0, };
     uint8_t prefix = 0;
@@ -570,7 +570,8 @@ int ietf_subscribe_events(sr_session_ctx_t *session,
         goto error;
     }
 
-    rc = sr_module_change_subscribe(session, "ietf-interfaces","/ietf-interfaces:interfaces/interface/ietf-ip:ipv4/address", ietf_interface_ipv46_address_change_cb,
+    //rc = sr_module_change_subscribe(session, "ietf-interfaces","/ietf-interfaces:interfaces/interface/ietf-ip:ipv4/address", ietf_interface_ipv46_address_change_cb,
+    rc = sr_module_change_subscribe(session, "ietf-interfaces","/ietf-interfaces:interfaces", ietf_interface_ipv46_address_change_cb,
                                              NULL,
                                           99, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_ENABLED, subscription);
 
@@ -579,9 +580,9 @@ int ietf_subscribe_events(sr_session_ctx_t *session,
         goto error;
     }
 
-    rc = sr_module_change_subscribe(session, "ietf-interfaces","/ietf-interfaces:interfaces/interface/ietf-ip:ipv6/address", ietf_interface_ipv46_address_change_cb,
-                                             NULL,
-                                             98, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_ENABLED, subscription);
+    //rc = sr_module_change_subscribe(session, "ietf-interfaces","/ietf-interfaces:interfaces/interface/ietf-ip:ipv6/address", ietf_interface_ipv46_address_change_cb,
+    //                                         NULL,
+    //                                         98, SR_SUBSCR_CTX_REUSE | SR_SUBSCR_ENABLED, subscription);
 
     if (rc != SR_ERR_OK) {
         SRP_LOG_DBGMSG("Problem in subscription /ietf-interfaces:interfaces/interface/ietf-ip:ipv6/address\n");

@@ -21,7 +21,7 @@ macro(build_executable exec)
   cmake_parse_arguments(ARG
     "NO_INSTALL"
     "COMPONENT"
-    "SOURCES;LINK_LIBRARIES;DEPENDS;INCLUDE_DIRS;DEFINITIONS;LINK_FLAGS"
+    "SOURCES;LINK_LIBRARIES;DEPENDS;INCLUDE_DIRS;DEFINITIONS;COMPILE_OPTIONS;LINK_FLAGS"
     ${ARGN}
   )
 
@@ -46,6 +46,10 @@ macro(build_executable exec)
 
   if(ARG_DEPENDS)
     add_dependencies(${exec}-bin ${ARG_DEPENDS})
+  endif()
+
+  if (ARG_COMPILE_OPTIONS)
+    target_compile_options(${exec}-bin ${ARG_COMPILE_OPTIONS})
   endif()
 
   if(ARG_DEFINITIONS)
@@ -73,9 +77,14 @@ macro(build_library lib)
   cmake_parse_arguments(ARG
     "SHARED;STATIC;NO_DEV"
     "COMPONENT;"
-    "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;INSTALL_ROOT_DIR;INSTALL_FULL_PATH_DIR;EMPTY_PREFIX;"
+    "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;HEADER_ROOT_DIR;LIBRARY_ROOT_DIR;INSTALL_FULL_PATH_DIR;EMPTY_PREFIX;COMPILE_OPTIONS;VERSION"
     ${ARGN}
   )
+
+  message(STATUS "Building library ${lib}")
+
+  # Clear target_libs
+  unset(TARGET_LIBS)
 
   if (ARG_SHARED)
     list(APPEND TARGET_LIBS
@@ -128,13 +137,13 @@ macro(build_library lib)
     endif()
 
     if (WIN32)
-      target_compile_options(${library} PRIVATE)
+      target_compile_options(${library} PRIVATE ${ARG_COMPILE_OPTIONS})
       set_target_properties(${library}
         PROPERTIES
         WINDOWS_EXPORT_ALL_SYMBOLS TRUE
       )
     else ()
-      target_compile_options(${library} PRIVATE -Wall)
+      target_compile_options(${library} PRIVATE -Wall ${ARG_COMPILE_OPTIONS})
       set_target_properties(${library}
         PROPERTIES
         OUTPUT_NAME ${lib}
@@ -157,7 +166,14 @@ macro(build_library lib)
       )
     endif()
 
-    set(INSTALL_LIB_PATH ${CMAKE_INSTALL_LIBDIR})
+    if(ARG_VERSION)
+      set_target_properties(${library}
+        PROPERTIES
+        VERSION ${ARG_VERSION}
+      )
+    endif()
+
+    set(INSTALL_LIB_PATH "${CMAKE_INSTALL_LIBDIR}/${ARG_LIBRARY_ROOT_DIR}")
 
     if (ARG_INSTALL_FULL_PATH_DIR)
       set(INSTALL_LIB_PATH ${ARG_INSTALL_FULL_PATH_DIR})
@@ -178,8 +194,8 @@ macro(build_library lib)
 
   # install headers
   if(ARG_INSTALL_HEADERS)
-    if (NOT ARG_INSTALL_ROOT_DIR)
-      set(ARG_INSTALL_ROOT_DIR "hicn")
+    if (NOT ARG_HEADER_ROOT_DIR)
+      set(ARG_HEADER_ROOT_DIR "hicn")
     endif()
 
     list(APPEND local_comps
@@ -197,7 +213,7 @@ macro(build_library lib)
         if ("${dir}" STREQUAL includes)
           set(dir "")
         endif()
-        if ("${dir}" STREQUAL ${ARG_INSTALL_ROOT_DIR})
+        if ("${dir}" STREQUAL ${ARG_HEADER_ROOT_DIR})
           set(dir "")
         endif()
       else()
@@ -210,12 +226,60 @@ macro(build_library lib)
       endif()
       install(
         FILES ${file}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${ARG_INSTALL_ROOT_DIR}/${dir}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${ARG_HEADER_ROOT_DIR}/${dir}
         COMPONENT ${COMPONENT}
       )
     endforeach()
   endif()
 endmacro()
+
+macro (build_module module)
+  cmake_parse_arguments(ARG
+    "SHARED;STATIC;NO_DEV"
+    "COMPONENT;"
+    "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;HEADER_ROOT_DIR;LIBRARY_ROOT_DIR;INSTALL_FULL_PATH_DIR;EMPTY_PREFIX;COMPILE_OPTIONS;VERSION"
+    ${ARGN}
+  )
+
+  message(STATUS "Building module ${module}")
+
+  build_library(${module}
+    SHARED
+    SOURCES ${ARG_SOURCES}
+    LINK_LIBRARIES ${ARG_LINK_LIBRARIES}
+    INSTALL_HEADERS ${ARG_INSTALL_HEADERS}
+    DEPENDS ${ARG_DEPENDS}
+    COMPONENT lib${LIBTRANSPORT}
+    INCLUDE_DIRS ${ARG_INCLUDE_DIRS}
+    HEADER_ROOT_DIR ${ARG_HEADER_ROOT_DIR}
+    LIBRARY_ROOT_DIR ${ARG_LIBRARY_ROOT_DIR}
+    INSTALL_FULL_PATH_DIR ${ARG_INSTALL_FULL_PATH_DIR}
+    DEFINITIONS ${ARG_DEFINITIONS}
+    EMPTY_PREFIX ${ARG_EMPTY_PREFIX}
+    COMPILE_OPTIONS ${ARG_COMPILE_OPTIONS}
+    VERSION ${ARG_VERSION}
+  )
+
+  if (${CMAKE_SYSTEM_NAME} MATCHES Darwin)
+    set(LINK_FLAGS "-Wl,-undefined,dynamic_lookup")
+  elseif(${CMAKE_SYSTEM_NAME} MATCHES iOS)
+    set(LINK_FLAGS "-Wl,-undefined,dynamic_lookup")
+  elseif(${CMAKE_SYSTEM_NAME} MATCHES Linux)
+    set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-all")
+  elseif(${CMAKE_SYSTEM_NAME} MATCHES Windows)
+    set(LINK_FLAGS "/wd4275")
+  else()
+    message(FATAL_ERROR "Trying to build module on a not supportd platform. Aborting.")
+  endif()
+
+  set_target_properties(${module}.shared
+    PROPERTIES
+    LINKER_LANGUAGE C
+    PREFIX ""
+    LINK_FLAGS ${LINK_FLAGS}
+  )
+
+endmacro(build_module)
 
 include(IosMacros)
 include(WindowsMacros)

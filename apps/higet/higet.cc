@@ -14,11 +14,11 @@
  */
 
 #include <hicn/transport/http/client_connection.h>
-#include <fstream>
-#include <map>
 
-#include <experimental/algorithm>
-#include <experimental/functional>
+#include <algorithm>
+#include <fstream>
+#include <functional>
+#include <map>
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -114,15 +114,12 @@ class ReadBytesCallbackImplementation
           // read next chunk size
           const char *begin = (const char *)payload->data();
           const char *end = (const char *)payload->tail();
-
-          using std::experimental::make_boyer_moore_searcher;
-          auto it = std::experimental::search(
-              begin, end,
-              make_boyer_moore_searcher(chunk_separator.begin(),
-                                        chunk_separator.end()));
+          const char *begincrlf2 = (const char *)chunk_separator.c_str();
+          const char *endcrlf2 = begincrlf2 + chunk_separator.size();
+          auto it = std::search(begin, end, begincrlf2, endcrlf2);
           if (it != end) {
             chunk_size_ = std::stoul(begin, 0, 16);
-            content_size_ += chunk_size_;
+            content_size_ += (long)chunk_size_;
             payload->trimStart(it + chunk_separator.size() - begin);
 
             std::size_t to_write;
@@ -134,7 +131,7 @@ class ReadBytesCallbackImplementation
             }
 
             out_->write((char *)payload->data(), to_write);
-            byte_downloaded_ += to_write;
+            byte_downloaded_ += (long)to_write;
             payload->trimStart(to_write);
 
             if (payload->length() >= chunk_separator.size()) {
@@ -144,7 +141,7 @@ class ReadBytesCallbackImplementation
         }
       } else {
         out_->write((char *)payload->data(), payload->length());
-        byte_downloaded_ += payload->length();
+        byte_downloaded_ += (long)payload->length();
       }
 
       if (file_name_ != "-") {
@@ -200,12 +197,18 @@ class ReadBytesCallbackImplementation
 
   void print_bar(long value, long max_value, bool last) {
     float progress = (float)value / max_value;
+#ifdef _WIN32
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+    int barWidth = csbi.srWindow.Right - csbi.srWindow.Left + 7;
+#else
     struct winsize size;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
     int barWidth = size.ws_col - 8;
+#endif
 
     std::cout << "[";
-    int pos = barWidth * progress;
+    int pos = barWidth * (int)progress;
     for (int i = 0; i < barWidth; ++i) {
       if (i < pos) {
         std::cout << "=";
@@ -252,7 +255,7 @@ long checkFileStatus(std::string file_name) {
 void usage(char *program_name) {
   std::cerr << "usage:" << std::endl;
   std::cerr << program_name << " [option]... [url]..." << std::endl;
-  std::cerr << program_name << "options:" << std::endl;
+  std::cerr << program_name << " options:" << std::endl;
   std::cerr
       << "-O <out_put_path>            = write documents to <out_put_file>"
       << std::endl;
@@ -303,8 +306,11 @@ int main(int argc, char **argv) {
     }
   }
 
-  name = argv[optind];
+  if (!argv[optind]) {
+    usage(argv[0]);
+  }
 
+  name = argv[optind];
   std::cerr << "Using name " << name << " and name first word "
             << conf.ipv6_first_word << std::endl;
 
@@ -329,9 +335,14 @@ int main(int argc, char **argv) {
                {"Connection", "Keep-Alive"},
                {"Range", range}};
   }
+
   transport::http::HTTPClientConnection connection;
+
   if (!conf.producer_certificate.empty()) {
-    connection.setCertificate(conf.producer_certificate);
+    std::shared_ptr<transport::auth::Verifier> verifier =
+        std::make_shared<transport::auth::AsymmetricVerifier>(
+            conf.producer_certificate);
+    connection.setVerifier(verifier);
   }
 
   t1 = std::chrono::system_clock::now();

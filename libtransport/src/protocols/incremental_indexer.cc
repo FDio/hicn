@@ -13,35 +13,38 @@
  * limitations under the License.
  */
 
-#include <protocols/incremental_indexer.h>
-
 #include <hicn/transport/interfaces/socket_consumer.h>
-#include <protocols/protocol.h>
+#include <protocols/errors.h>
+#include <protocols/incremental_indexer.h>
+#include <protocols/transport_protocol.h>
 
 namespace transport {
 namespace protocol {
 
-void IncrementalIndexer::onContentObject(
-    core::Interest::Ptr &&interest, core::ContentObject::Ptr &&content_object) {
+void IncrementalIndexer::onContentObject(core::Interest &interest,
+                                         core::ContentObject &content_object) {
   using namespace interface;
 
-  if (TRANSPORT_EXPECT_FALSE(content_object->testRst())) {
-    final_suffix_ = content_object->getName().getSuffix();
+  TRANSPORT_LOGD("Received content %s",
+                 content_object.getName().toString().c_str());
+
+  if (TRANSPORT_EXPECT_FALSE(content_object.testRst())) {
+    final_suffix_ = content_object.getName().getSuffix();
   }
 
-  auto ret = verification_manager_->onPacketToVerify(*content_object);
+  auto ret = verifier_->verifyPackets(&content_object);
 
   switch (ret) {
-    case VerificationPolicy::ACCEPT_PACKET: {
-      reassembly_->reassemble(std::move(content_object));
+    case auth::VerificationPolicy::ACCEPT: {
+      reassembly_->reassemble(content_object);
       break;
     }
-    case VerificationPolicy::DROP_PACKET: {
-      transport_protocol_->onPacketDropped(std::move(interest),
-                                           std::move(content_object));
+    case auth::VerificationPolicy::UNKNOWN:
+    case auth::VerificationPolicy::DROP: {
+      transport_protocol_->onPacketDropped(interest, content_object);
       break;
     }
-    case VerificationPolicy::ABORT_SESSION: {
+    case auth::VerificationPolicy::ABORT: {
       transport_protocol_->onContentReassembled(
           make_error_code(protocol_error::session_aborted));
       break;

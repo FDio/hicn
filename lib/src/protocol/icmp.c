@@ -25,6 +25,8 @@ DECLARE_get_interest_name (icmp, UNEXPECTED)
 DECLARE_set_interest_name (icmp, UNEXPECTED)
 DECLARE_get_interest_name_suffix (icmp, UNEXPECTED)
 DECLARE_set_interest_name_suffix (icmp, UNEXPECTED)
+DECLARE_mark_packet_as_interest (icmp, UNEXPECTED)
+DECLARE_mark_packet_as_data (icmp, UNEXPECTED)
 DECLARE_get_data_locator (icmp, UNEXPECTED)
 DECLARE_set_data_locator (icmp, UNEXPECTED)
 DECLARE_get_data_name (icmp, UNEXPECTED)
@@ -116,7 +118,7 @@ icmp_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
 int
 icmp_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
 		   const ip46_address_t * addr_new, ip46_address_t * addr_old,
-		   const hicn_faceid_t face_id)
+		   const hicn_faceid_t face_id, u8 reset_pl)
 {
   return HICN_LIB_ERROR_NOT_IMPLEMENTED;
 //    u16 *icmp_checksum = &(h->icmp.csum);

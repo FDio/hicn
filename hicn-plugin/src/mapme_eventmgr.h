@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,6 +15,13 @@
 
 #include <vlib/vlib.h>		// vlib_node_registration_t (vlib/node.h)
 
+#include <hicn/name.h>
+
+/**
+ * @file mapme_eventmgr.h
+ *
+ */
+
 /*
  * Structure carrying all necessary information for managing Special Interest
  * (re)transmissions.
@@ -23,12 +30,11 @@ typedef struct
 {
   hicn_prefix_t prefix;
   dpo_id_t dpo;
+  hicn_face_id_t face_id;
   u8 rtx_count; // Number of retransmissions since last tfib addition
 } retx_t;
 
-#if 0
 #define HASH32(x) ((u16)x ^ (x << 16))
-#endif
 
 /**
  * @brief This is a process node reacting to face events.

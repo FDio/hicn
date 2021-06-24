@@ -18,6 +18,17 @@
 
 #include "hicn.h"
 
+/**
+ * @file
+ *
+ * Helpers to print hicn headers
+ */
+
+/**
+ * @Brief Print the hicn name
+ *
+ * @param name hicn name to print
+ */
 always_inline void
 hicn_print_name6 (hicn_name_t * name)
 {
@@ -29,6 +40,11 @@ hicn_print_name6 (hicn_name_t * name)
   printf ("%s\n", s0);
 }
 
+/**
+ * @Brief Print the ipv6 hicn header (src and dst address and port)
+ *
+ * @param hicn0 hICN header to print
+ */
 always_inline void
 hicn_print6 (hicn_header_t * hicn0)
 {
@@ -43,6 +59,11 @@ hicn_print6 (hicn_header_t * hicn0)
   vlib_cli_output (vm, "%s\n", s0);
 }
 
+/**
+ * @Brief Print the ipv4 hicn header (src and dst address and port)
+ *
+ * @param hicn0 hICN header to print
+ */
 always_inline void
 hicn_print4 (hicn_header_t * hicn0)
 {

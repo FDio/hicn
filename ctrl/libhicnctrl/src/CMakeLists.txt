@@ -16,6 +16,8 @@ list(APPEND COMPILER_DEFINITIONS
 )
 
 set(HEADER_FILES
+    api.h
+    cli.h
     commands.h
 )
 
@@ -24,8 +26,8 @@ set(UTIL_HEADER_FILES
 
 set(SOURCE_FILES
     hicnctrl.c
-    cli.c
     route.c
+    cli.c
 )
 
 if(BUILD_HICNPLUGIN)
@@ -67,7 +69,7 @@ build_library(${LIBHICNCTRL}
     DEPENDS ${DEPENDENCIES}
     COMPONENT ${LIBHICNCTRL_COMPONENT}
     INCLUDE_DIRS ${INCLUDE_DIRS}
-    INSTALL_ROOT_DIR hicn
+    HEADER_ROOT_DIR hicn
     DEFINITIONS ${COMPILER_DEFINITIONS}
 )
 
@@ -75,7 +77,7 @@ if (NOT DISABLE_EXECUTABLES)
     set(LIBRARIES ${LIBRARIES} ${LIBHICN_SHARED} ${LIBHICNCTRL_SHARED})
 
     list(APPEND DAEMON_SRC
-      cli.c
+      hicnctrl.c
     )
 
     build_executable(${HICNCTRL}

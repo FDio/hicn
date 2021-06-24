@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,6 +20,27 @@
 
 #include "pcs.h"
 
+/**
+ * @file data_fwd.h
+ *
+ * This is the node encoutered by data packets after the hicn-data-pcslookup.
+ * This node has two goals: 1) clone/copy the vlib buffer as many time as the number
+ * of faces stored in the pit entry, 2) store a clone/copy of the vlib buffer in the CS.
+ * Unless there are memory issue (no more vlib buffer available to perform cloning/copy),
+ * a single vlib buffer received might results in several vlib buffer sent to the next
+ * vlib node (hicn4-iface-output or hicn6-iface-output).
+ *
+ * It must be noted that cloning is possible only if the lentgh of the data pointed by
+ * the vlib buffer is at least 256 bytes. This is due to an imposition in the vpp source
+ * code. In all the other cases the vlib buffer is copied. Cloning is performed by advancing
+ * the vlib buffer of 256 bytes and a new vlib buffer is created and chained in from of the received
+ * buffer. Additionally, the 256 bytes removed (advanced) from the received vlib buffer are
+ * copied in the head vlib buffer. In case of multiple cloning for the same vlib buffer, this
+ * mechanism allows us to have a different hICN header for each clone (+ the same additional bytes
+ * due to the vpp restriction on cloning).
+ */
+
+
 /* Trace context struct */
 typedef struct
 {
@@ -33,13 +54,14 @@ typedef enum
 {
   HICN_DATA_FWD_NEXT_V4_LOOKUP,
   HICN_DATA_FWD_NEXT_V6_LOOKUP,
-  HICN_DATA_FWD_NEXT_PUSH,
+  HICN_DATA_FWD_NEXT_IFACE4_OUT,
+  HICN_DATA_FWD_NEXT_IFACE6_OUT,
   HICN_DATA_FWD_NEXT_ERROR_DROP,
   HICN_DATA_FWD_N_NEXT,
 } hicn_data_fwd_next_t;
 
 /**
- *@brief Create a maximum of 256 clones of buffer and store them
+ * @brief Create a maximum of 256 clones of buffer and store them
  *   in the supplied array. Unlike the original function in the vlib
  *   library, we don't prevent cloning if n_buffer==1 and if
  *   s->current_length <= head_end_offset + CLIB_CACHE_LINE_BYTES * 2.

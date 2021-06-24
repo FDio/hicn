@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -636,6 +636,7 @@ typedef struct {
   ip_address_t remote_addr; /* krw */
   u8 len;                   /* krw */
   u16 cost;                 /* .rw */
+  // XXX hc_face_t face;
 } hc_route_t;
 
 int hc_route_parse(void *in, hc_route_t *route);
@@ -743,7 +744,7 @@ typedef struct {
   int family;               /* Krw */
   ip_address_t remote_addr; /* krw */
   u8 len;                   /* krw */
-  policy_t policy;          /* .rw */
+  hicn_policy_t policy;          /* .rw */
 } hc_policy_t;
 
 int hc_policy_parse(void *in, hc_policy_t *policy);

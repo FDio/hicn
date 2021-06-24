@@ -49,7 +49,10 @@ class ForwarderInterface {
         inet6_address_({}),
         mtu_(1500),
         output_interface_(""),
-        content_store_reserved_(standard_cs_reserved) {}
+        content_store_reserved_(standard_cs_reserved) {
+    inet_address_.v4.as_u32 = htonl(0x7f00001);
+    inet6_address_.v6.as_u8[15] = 0x01;
+  }
 
  public:
   virtual ~ForwarderInterface() {}
@@ -95,7 +98,10 @@ class ForwarderInterface {
       packet.setLocator(inet6_address_);
     }
 
+#ifndef __vpp__
+    /* In the case of VPP we try to offload checksum computation to hardware  */
     packet.setChecksum();
+#endif
     connector_.send(packet.acquireMemBufReference());
   }
 

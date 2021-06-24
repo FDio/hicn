@@ -50,6 +50,7 @@ endif()
 
 include_directories(src)
 set(LIBMEMIF memif)
+set(COMPONENT libmemif)
 set(LIBMEMIF_SHARED ${LIBMEMIF}.shared)
 
 set(LIBMEMIF_INCLUDE_DIRS
@@ -63,6 +64,8 @@ set(LIBMEMIF_LIBRARIES
   "" CACHE INTERNAL
   "" FORCE
 )
+
+include (Packaging)
 
 add_subdirectory(src)
 

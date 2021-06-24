@@ -17,7 +17,9 @@
 
 #pragma once
 #define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <fcntl.h>
 #include <io.h>
 #include <parc/windows/parc_Utils.h>
@@ -31,6 +33,7 @@
 #include <winsock2.h>
 #include <ws2ipdef.h>
 #include <ws2tcpip.h>
+
 #include <algorithm>
 
 #define __ORDER_LITTLE_ENDIAN__ 0x41424344UL

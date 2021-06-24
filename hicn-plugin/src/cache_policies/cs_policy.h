@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -17,6 +17,13 @@
 #define __HICN_CS_POLICY_H__
 
 #include "../hashtb.h"
+
+/**
+ * @file cs_policy.h
+ *
+ * This file provides the needed structures to implement a CS policy
+ */
+
 
 /*
  * Structure
@@ -41,7 +48,12 @@ struct hicn_cs_policy_s;
 /**
  * @brief Definition of the virtual functin table for a cache policy.
  *
- * A cache policy must implement three functions: insert, update, delete, trim.
+ * A cache policy must implement all the following functions:
+ * - insert: add a new element
+ * - update: update the position of an existing element
+ * - dequeue: remove an element from the list
+ * - delete_get: return the next element that should be removed trim
+ * - flush: clean the cs
  */
 typedef struct hicn_cs_policy_vft_s
 {

@@ -24,17 +24,6 @@
 #include "../strategies/low_latency.h"
 #include "../strategies/random.h"
 
-typedef enum {
-  STRATEGY_TYPE_UNDEFINED,
-  STRATEGY_TYPE_LOADBALANCER,
-  STRATEGY_TYPE_LOW_LATENCY,
-  STRATEGY_TYPE_RANDOM,
-  STRATEGY_TYPE_N
-} strategy_type_t;
-
-#define STRATEGY_TYPE_VALID(type) \
-    ((type != STRATEGY_TYPE_UNDEFINED) && (type != STRATEGY_TYPE_N))
-
 typedef union {
     strategy_load_balancer_options_t load_balancer;
     strategy_low_latency_options_t low_latency;

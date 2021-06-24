@@ -16,18 +16,15 @@
 #include <hicn/transport/config.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
-#include <hicn/transport/interfaces/rtc_socket_producer.h>
-#include <hicn/transport/interfaces/socket_consumer.h>
-#include <hicn/transport/interfaces/socket_producer.h>
-#include <hicn/transport/security/identity.h>
-#include <hicn/transport/security/signer.h>
-#include <hicn/transport/utils/chrono_typedefs.h>
-#include <hicn/transport/utils/literals.h>
-
-#ifdef SECURE_HICNTRANSPORT
+#include <hicn/transport/interfaces/global_conf_interface.h>
 #include <hicn/transport/interfaces/p2psecure_socket_consumer.h>
 #include <hicn/transport/interfaces/p2psecure_socket_producer.h>
-#endif
+#include <hicn/transport/interfaces/socket_consumer.h>
+#include <hicn/transport/interfaces/socket_producer.h>
+#include <hicn/transport/auth/identity.h>
+#include <hicn/transport/auth/signer.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
+#include <hicn/transport/utils/literals.h>
 
 #ifndef _WIN32
 #include <hicn/transport/utils/daemonizator.h>
@@ -37,6 +34,7 @@
 #include <cmath>
 #include <fstream>
 #include <iomanip>
+#include <sstream>
 #include <unordered_set>
 
 #ifdef __linux__
@@ -50,7 +48,6 @@
 #endif
 
 namespace transport {
-
 namespace interface {
 
 #ifndef ERROR_SUCCESS
@@ -59,13 +56,50 @@ namespace interface {
 #define ERROR_SETUP -5
 #define MIN_PROBE_SEQ 0xefffffff
 
+struct packet_t {
+  uint64_t timestamp;
+  uint32_t size;
+};
+
+inline uint64_t _ntohll(const uint64_t *input) {
+  uint64_t return_val;
+  uint8_t *tmp = (uint8_t *)&return_val;
+
+  tmp[0] = (uint8_t)(*input >> 56);
+  tmp[1] = (uint8_t)(*input >> 48);
+  tmp[2] = (uint8_t)(*input >> 40);
+  tmp[3] = (uint8_t)(*input >> 32);
+  tmp[4] = (uint8_t)(*input >> 24);
+  tmp[5] = (uint8_t)(*input >> 16);
+  tmp[6] = (uint8_t)(*input >> 8);
+  tmp[7] = (uint8_t)(*input >> 0);
+
+  return return_val;
+}
+
+inline uint64_t _htonll(const uint64_t *input) { return (_ntohll(input)); }
+
+struct nack_packet_t {
+  uint64_t timestamp;
+  uint32_t prod_rate;
+  uint32_t prod_seg;
+
+  inline uint64_t getTimestamp() const { return _ntohll(&timestamp); }
+  inline void setTimestamp(uint64_t time) { timestamp = _htonll(&time); }
+
+  inline uint32_t getProductionRate() const { return ntohl(prod_rate); }
+  inline void setProductionRate(uint32_t rate) { prod_rate = htonl(rate); }
+
+  inline uint32_t getProductionSegement() const { return ntohl(prod_seg); }
+  inline void setProductionSegement(uint32_t seg) { prod_seg = htonl(seg); }
+};
+
 /**
  * Container for command line configuration for hiperf client.
  */
 struct ClientConfiguration {
   ClientConfiguration()
       : name("b001::abcd", 0),
-        verify(false),
         beta(-1.f),
         drop_factor(-1.f),
         window(-1),
@@ -78,15 +112,11 @@ struct ClientConfiguration {
         transport_protocol_(CBR),
         rtc_(false),
         test_mode_(false),
-#ifdef SECURE_HICNTRANSPORT
         secure_(false),
-#endif
         producer_prefix_(),
-        interest_lifetime_(500) {
-  }
+        interest_lifetime_(500) {}
 
   Name name;
-  bool verify;
   double beta;
   double drop_factor;
   double window;
@@ -99,9 +129,7 @@ struct ClientConfiguration {
   TransportProtocolAlgorithms transport_protocol_;
   bool rtc_;
   bool test_mode_;
-#ifdef SECURE_HICNTRANSPORT
   bool secure_;
-#endif
   Prefix producer_prefix_;
   uint32_t interest_lifetime_;
 };
@@ -155,23 +183,20 @@ struct ServerConfiguration {
         live_production(false),
         sign(false),
         content_lifetime(600000000_U32),
-        content_object_size(1440),
         download_size(20 * 1024 * 1024),
-        hash_algorithm(utils::CryptoHashType::SHA_256),
+        hash_algorithm(auth::CryptoHashType::SHA_256),
         keystore_name(""),
         passphrase(""),
         keystore_password("cisco"),
         multiphase_produce_(false),
         rtc_(false),
         interactive_(false),
+        trace_based_(false),
+        trace_index_(0),
+        trace_file_(nullptr),
         production_rate_(std::string("2048kbps")),
-        payload_size_(1440)
-#ifdef SECURE_HICNTRANSPORT
-        ,
-        secure_(false)
-#endif
-  {
-  }
+        payload_size_(1400),
+        secure_(false) {}
 
   Prefix name;
   bool virtual_producer;
@@ -179,20 +204,21 @@ struct ServerConfiguration {
   bool live_production;
   bool sign;
   std::uint32_t content_lifetime;
-  std::uint16_t content_object_size;
   std::uint32_t download_size;
-  utils::CryptoHashType hash_algorithm;
+  auth::CryptoHashType hash_algorithm;
   std::string keystore_name;
   std::string passphrase;
   std::string keystore_password;
   bool multiphase_produce_;
   bool rtc_;
   bool interactive_;
+  bool trace_based_;
+  std::uint32_t trace_index_;
+  char *trace_file_;
   Rate production_rate_;
   std::size_t payload_size_;
-#ifdef SECURE_HICNTRANSPORT
   bool secure_;
-#endif
+  std::vector<struct packet_t> trace_;
 };
 
 /**
@@ -219,18 +245,26 @@ class HIperfClient {
       : configuration_(conf),
         total_duration_milliseconds_(0),
         old_bytes_value_(0),
-        signals_(io_service_, SIGINT),
+        old_interest_tx_value_(0),
+        old_fec_interest_tx_value_(0),
+        old_fec_data_rx_value_(0),
+        old_lost_data_value_(0),
+        old_bytes_recovered_value_(0),
+        old_retx_value_(0),
+        old_sent_int_value_(0),
+        old_received_nacks_value_(0),
+        avg_data_delay_(0),
+        delay_sample_(0),
+        received_bytes_(0),
+        received_data_pkt_(0),
+        signals_(io_service_),
         expected_seg_(0),
         lost_packets_(std::unordered_set<uint32_t>()),
-        rtc_callback_(configuration_.rtc_ ? new RTCCallback(*this) : nullptr),
-        callback_(configuration_.rtc_ ? nullptr : new Callback(*this)),
-        key_callback_(configuration_.rtc_ ? nullptr : new KeyCallback(*this)) {}
+        rtc_callback_(*this),
+        callback_(*this),
+        key_callback_(*this) {}
 
-  ~HIperfClient() {
-    delete callback_;
-    delete key_callback_;
-    delete rtc_callback_;
-  }
+  ~HIperfClient() {}
 
   void checkReceivedRtcContent(ConsumerSocket &c,
                                const ContentObject &contentObject) {
@@ -239,11 +273,15 @@ class HIperfClient {
     uint32_t receivedSeg = contentObject.getName().getSuffix();
     auto payload = contentObject.getPayload();
 
-    if ((uint32_t)payload->length() == 8) {  // 8 is the size of the NACK
-                                             // payload
-      uint32_t *payloadPtr = (uint32_t *)payload->data();
-      uint32_t productionSeg = *(payloadPtr);
-      uint32_t productionRate = *(++payloadPtr);
+    if ((uint32_t)payload->length() == 16) {  // 16 is the size of the NACK
+      struct nack_packet_t *nack_pkt =
+          (struct nack_packet_t *)contentObject.getPayload()->data();
+      uint32_t productionSeg = nack_pkt->getProductionSegement();
+      uint32_t productionRate = nack_pkt->getProductionRate();
+
+      // uint32_t *payloadPtr = (uint32_t *)payload->data();
+      // uint32_t productionSeg = *(payloadPtr);
+      // uint32_t productionRate = *(++payloadPtr);
 
       if (productionRate == 0) {
         std::cout << "[STOP] producer is not producing content" << std::endl;
@@ -256,7 +294,7 @@ class HIperfClient {
                   << std::endl;
         expected_seg_ = productionSeg;
       } else if (receivedSeg > productionSeg && receivedSeg < MIN_PROBE_SEQ) {
-        std::cout << "[WINDOW TO LARGE] received NACK for " << receivedSeg
+        std::cout << "[WINDOW TOO LARGE] received NACK for " << receivedSeg
                   << ". Next expected packet " << productionSeg << std::endl;
       } else if (receivedSeg >= MIN_PROBE_SEQ) {
         std::cout << "[PROBE] probe number = " << receivedSeg << std::endl;
@@ -264,7 +302,24 @@ class HIperfClient {
       return;
     }
 
-    if (receivedSeg > expected_seg_) {
+    received_bytes_ += (uint32_t)(payload->length() - 12);
+    received_data_pkt_++;
+
+    // collecting delay stats. Just for performance testing
+    // XXX we should probably get the transport header (12) somewhere
+    uint64_t *senderTimeStamp = (uint64_t *)(payload->data() + 12);
+    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+    double new_delay = (double)(now - *senderTimeStamp);
+    if (*senderTimeStamp > now)
+      new_delay = -1 * (double)(*senderTimeStamp - now);
+
+    delay_sample_++;
+    avg_data_delay_ =
+        avg_data_delay_ + (new_delay - avg_data_delay_) / delay_sample_;
+
+    if (receivedSeg > expected_seg_ && expected_seg_ != 0) {
       for (uint32_t i = expected_seg_; i < receivedSeg; i++) {
         std::cout << "[LOSS] lost packet " << i << std::endl;
         lost_packets_.insert(i);
@@ -285,24 +340,12 @@ class HIperfClient {
     expected_seg_ = receivedSeg + 1;
   }
 
-  bool verifyData(ConsumerSocket &c, const ContentObject &contentObject) {
-    if (contentObject.getPayloadType() == PayloadType::CONTENT_OBJECT) {
-      std::cout << "VERIFY CONTENT" << std::endl;
-    } else if (contentObject.getPayloadType() == PayloadType::MANIFEST) {
-      std::cout << "VERIFY MANIFEST" << std::endl;
-    }
-
-    return true;
-  }
-
   void processLeavingInterest(ConsumerSocket &c, const Interest &interest) {}
 
   void handleTimerExpiration(ConsumerSocket &c,
                              const TransportStatistics &stats) {
-    if (configuration_.rtc_) return;
-
     const char separator = ' ';
-    const int width = 20;
+    const int width = 15;
 
     utils::TimePoint t2 = utils::SteadyClock::now();
     auto exact_duration =
@@ -325,28 +368,125 @@ class HIperfClient {
 
     std::stringstream window;
     window << stats.getAverageWindowSize() << std::setfill(separator)
-           << "[Interest]";
+           << "[Int]";
 
     std::stringstream avg_rtt;
-    avg_rtt << stats.getAverageRtt() << std::setfill(separator) << "[us]";
+    avg_rtt << stats.getAverageRtt() << std::setfill(separator) << "[ms]";
 
-    std::cout << std::left << std::setw(width) << "Interval";
-    std::cout << std::left << std::setw(width) << "Transfer";
-    std::cout << std::left << std::setw(width) << "Bandwidth";
-    std::cout << std::left << std::setw(width) << "Retr";
-    std::cout << std::left << std::setw(width) << "Cwnd";
-    std::cout << std::left << std::setw(width) << "AvgRtt" << std::endl;
+    if (configuration_.rtc_) {
+      // we get rtc stats more often, thus we need ms in the interval
+      std::stringstream interval_ms;
+      interval_ms << total_duration_milliseconds_ << "-"
+                  << total_duration_milliseconds_ + exact_duration.count();
 
-    std::cout << std::left << std::setw(width) << interval.str();
-    std::cout << std::left << std::setw(width) << bytes_transferred.str();
-    std::cout << std::left << std::setw(width) << bandwidth.str();
-    std::cout << std::left << std::setw(width) << stats.getRetxCount();
-    std::cout << std::left << std::setw(width) << window.str();
-    std::cout << std::left << std::setw(width) << avg_rtt.str() << std::endl;
-    std::cout << std::endl;
+      std::stringstream lost_data;
+      lost_data << stats.getLostData() - old_lost_data_value_
+                << std::setfill(separator) << "[pkt]";
 
+      std::stringstream bytes_recovered_data;
+      bytes_recovered_data << stats.getBytesRecoveredData() -
+                                  old_bytes_recovered_value_
+                           << std::setfill(separator) << "[pkt]";
+
+      std::stringstream data_delay;
+      data_delay << avg_data_delay_ << std::setfill(separator) << "[ms]";
+
+      std::stringstream received_data_pkt;
+      received_data_pkt << received_data_pkt_ << std::setfill(separator)
+                        << "[pkt]";
+
+      std::stringstream goodput;
+      goodput << (received_bytes_ * 8.0) / (exact_duration.count()) / 1000.0
+              << std::setfill(separator) << "[Mbps]";
+
+      std::stringstream loss_rate;
+      loss_rate << std::fixed << std::setprecision(2)
+                << stats.getLossRatio() * 100.0 << std::setfill(separator)
+                << "[%]";
+
+      std::stringstream retx_sent;
+      retx_sent << stats.getRetxCount() - old_retx_value_
+                << std::setfill(separator) << "[pkt]";
+
+      std::stringstream interest_sent;
+      interest_sent << stats.getInterestTx() - old_sent_int_value_
+                    << std::setfill(separator) << "[pkt]";
+
+      std::stringstream nacks;
+      nacks << stats.getReceivedNacks() - old_received_nacks_value_
+            << std::setfill(separator) << "[pkt]";
+
+      // statistics not yet available in the transport
+      // std::stringstream interest_fec_tx;
+      // interest_fec_tx << stats.getInterestFecTxCount() -
+      //    old_fec_interest_tx_value_ << std::setfill(separator) << "[pkt]";
+      // std::stringstream bytes_fec_recv;
+      // bytes_fec_recv << stats.getBytesFecRecv() - old_fec_data_rx_value_
+      //              << std::setfill(separator) << "[bytes]";
+      std::cout << std::left << std::setw(width) << "Interval";
+      std::cout << std::left << std::setw(width) << "RecvData";
+      std::cout << std::left << std::setw(width) << "Bandwidth";
+      std::cout << std::left << std::setw(width) << "Goodput";
+      std::cout << std::left << std::setw(width) << "LossRate";
+      std::cout << std::left << std::setw(width) << "Retr";
+      std::cout << std::left << std::setw(width) << "InterestSent";
+      std::cout << std::left << std::setw(width) << "ReceivedNacks";
+      std::cout << std::left << std::setw(width) << "SyncWnd";
+      std::cout << std::left << std::setw(width) << "MinRtt";
+      std::cout << std::left << std::setw(width) << "LostData";
+      std::cout << std::left << std::setw(width) << "RecoveredData";
+      std::cout << std::left << std::setw(width) << "State";
+      std::cout << std::left << std::setw(width) << "DataDelay" << std::endl;
+
+      std::cout << std::left << std::setw(width) << interval_ms.str();
+      std::cout << std::left << std::setw(width) << received_data_pkt.str();
+      std::cout << std::left << std::setw(width) << bandwidth.str();
+      std::cout << std::left << std::setw(width) << goodput.str();
+      std::cout << std::left << std::setw(width) << loss_rate.str();
+      std::cout << std::left << std::setw(width) << retx_sent.str();
+      std::cout << std::left << std::setw(width) << interest_sent.str();
+      std::cout << std::left << std::setw(width) << nacks.str();
+      std::cout << std::left << std::setw(width) << window.str();
+      std::cout << std::left << std::setw(width) << avg_rtt.str();
+      std::cout << std::left << std::setw(width) << lost_data.str();
+      std::cout << std::left << std::setw(width) << bytes_recovered_data.str();
+      std::cout << std::left << std::setw(width) << stats.getCCStatus();
+      std::cout << std::left << std::setw(width) << data_delay.str();
+      std::cout << std::endl;
+
+      // statistics not yet available in the transport
+      // std::cout << std::left << std::setw(width) << interest_fec_tx.str();
+      // std::cout << std::left << std::setw(width) << bytes_fec_recv.str();
+    } else {
+      std::cout << std::left << std::setw(width) << "Interval";
+      std::cout << std::left << std::setw(width) << "Transfer";
+      std::cout << std::left << std::setw(width) << "Bandwidth";
+      std::cout << std::left << std::setw(width) << "Retr";
+      std::cout << std::left << std::setw(width) << "Cwnd";
+      std::cout << std::left << std::setw(width) << "AvgRtt" << std::endl;
+
+      std::cout << std::left << std::setw(width) << interval.str();
+      std::cout << std::left << std::setw(width) << bytes_transferred.str();
+      std::cout << std::left << std::setw(width) << bandwidth.str();
+      std::cout << std::left << std::setw(width) << stats.getRetxCount();
+      std::cout << std::left << std::setw(width) << window.str();
+      std::cout << std::left << std::setw(width) << avg_rtt.str() << std::endl;
+      std::cout << std::endl;
+    }
     total_duration_milliseconds_ += (uint32_t)exact_duration.count();
     old_bytes_value_ = stats.getBytesRecv();
+    old_lost_data_value_ = stats.getLostData();
+    old_bytes_recovered_value_ = stats.getBytesRecoveredData();
+    old_fec_interest_tx_value_ = stats.getInterestFecTxCount();
+    old_fec_data_rx_value_ = stats.getBytesFecRecv();
+    old_retx_value_ = (uint32_t)stats.getRetxCount();
+    old_sent_int_value_ = (uint32_t)stats.getInterestTx();
+    old_received_nacks_value_ = stats.getReceivedNacks();
+    delay_sample_ = 0;
+    avg_data_delay_ = 0;
+    received_bytes_ = 0;
+    received_data_pkt_ = 0;
+
     t_stats_ = utils::SteadyClock::now();
   }
 
@@ -361,7 +501,6 @@ class HIperfClient {
       configuration_.transport_protocol_ = CBR;
     }
 
-#ifdef SECURE_HICNSOCKET
     if (configuration_.secure_) {
       consumer_socket_ = std::make_shared<P2PSecureConsumerSocket>(
           RAAQM, configuration_.transport_protocol_);
@@ -375,12 +514,9 @@ class HIperfClient {
         secure_consumer_socket.registerPrefix(configuration_.producer_prefix_);
       }
     } else {
-#endif
       consumer_socket_ =
           std::make_shared<ConsumerSocket>(configuration_.transport_protocol_);
-#ifdef SECURE_HICNSOCKET
     }
-#endif
 
     consumer_socket_->setSocketOption(
         GeneralTransportOptions::INTEREST_LIFETIME,
@@ -423,34 +559,21 @@ class HIperfClient {
       }
     }
 
-    if (configuration_.verify) {
-      std::shared_ptr<utils::Verifier> verifier =
-          std::make_shared<utils::Verifier>();
-      PARCKeyId *key_id_;
-
-      if (!configuration_.producer_certificate.empty()) {
-        key_id_ = verifier->addKeyFromCertificate(
-            configuration_.producer_certificate);
-        if (key_id_ == nullptr) return ERROR_SETUP;
-      }
-
-      if (!configuration_.passphrase.empty()) {
-        key_id_ = verifier->addKeyFromPassphrase(
-            configuration_.passphrase, utils::CryptoSuite::HMAC_SHA256);
-        if (key_id_ == nullptr) return ERROR_SETUP;
-      }
-
+    if (!configuration_.producer_certificate.empty()) {
+      std::shared_ptr<auth::Verifier> verifier =
+          std::make_shared<auth::AsymmetricVerifier>(
+              configuration_.producer_certificate);
       if (consumer_socket_->setSocketOption(GeneralTransportOptions::VERIFIER,
-                                            verifier) ==
-          SOCKET_OPTION_NOT_SET) {
+                                            verifier) == SOCKET_OPTION_NOT_SET)
         return ERROR_SETUP;
-      }
     }
 
-    if (consumer_socket_->setSocketOption(
-            GeneralTransportOptions::VERIFY_SIGNATURE, configuration_.verify) ==
-        SOCKET_OPTION_NOT_SET) {
-      return ERROR_SETUP;
+    if (!configuration_.passphrase.empty()) {
+      std::shared_ptr<auth::Verifier> verifier =
+          std::make_shared<auth::SymmetricVerifier>(configuration_.passphrase);
+      if (consumer_socket_->setSocketOption(GeneralTransportOptions::VERIFIER,
+                                            verifier) == SOCKET_OPTION_NOT_SET)
+        return ERROR_SETUP;
     }
 
     ret = consumer_socket_->setSocketOption(
@@ -464,16 +587,11 @@ class HIperfClient {
     }
 
     if (!configuration_.rtc_) {
-      /* key_callback_->setConsumer(consumer_socket_); */
-      /* consumer_socket_->setSocketOption(ConsumerCallbacksOptions::READ_CALLBACK,
-       * key_callback_); */
-      /* consumer_socket_->setSocketOption(GeneralTransportOptions::KEY_CONTENT,
-       * true); */
       ret = consumer_socket_->setSocketOption(
-          ConsumerCallbacksOptions::READ_CALLBACK, callback_);
+          ConsumerCallbacksOptions::READ_CALLBACK, &callback_);
     } else {
       ret = consumer_socket_->setSocketOption(
-          ConsumerCallbacksOptions::READ_CALLBACK, rtc_callback_);
+          ConsumerCallbacksOptions::READ_CALLBACK, &rtc_callback_);
     }
 
     if (ret == SOCKET_OPTION_NOT_SET) {
@@ -489,6 +607,13 @@ class HIperfClient {
       if (ret == SOCKET_OPTION_NOT_SET) {
         return ERROR_SETUP;
       }
+    }
+
+    if (configuration_.rtc_) {
+      std::shared_ptr<TransportStatistics> transport_stats;
+      consumer_socket_->getSocketOption(
+          OtherOptions::STATISTICS, (TransportStatistics **)&transport_stats);
+      transport_stats->setAlpha(0.0);
     }
 
     ret = consumer_socket_->setSocketOption(
@@ -516,14 +641,15 @@ class HIperfClient {
   int run() {
     std::cout << "Starting download of " << configuration_.name << std::endl;
 
-    signals_.async_wait([this](const std::error_code &, const int &) {
-      consumer_socket_->stop();
-      io_service_.stop();
-    });
+    signals_.add(SIGINT);
+    signals_.async_wait(
+        [this](const std::error_code &, const int &) { io_service_.stop(); });
 
     t_download_ = t_stats_ = std::chrono::steady_clock::now();
     consumer_socket_->asyncConsume(configuration_.name);
     io_service_.run();
+
+    consumer_socket_->stop();
 
     return ERROR_SUCCESS;
   }
@@ -643,37 +769,10 @@ class HIperfClient {
       client_.io_service_.stop();
     }
 
-    bool verifyKey() { return !key_->empty(); }
+    bool validateKey() { return !key_->empty(); }
 
     void readSuccess(std::size_t total_size) noexcept override {
       std::cout << "Key size: " << total_size << " bytes" << std::endl;
-      afterRead();
-    }
-
-    void afterRead() {
-      std::shared_ptr<utils::Verifier> verifier =
-          std::make_shared<utils::Verifier>();
-      verifier->addKeyFromPassphrase(*key_, utils::CryptoSuite::HMAC_SHA256);
-
-      if (consumer_socket_) {
-        consumer_socket_->setSocketOption(GeneralTransportOptions::KEY_CONTENT,
-                                          false);
-        consumer_socket_->setSocketOption(GeneralTransportOptions::VERIFIER,
-                                          verifier);
-      } else {
-        std::cout << "Could not set verifier" << std::endl;
-        return;
-      }
-
-      if (consumer_socket_->verifyKeyPackets()) {
-        std::cout << "Verification of packet signatures successful"
-                  << std::endl;
-      } else {
-        std::cout << "Could not verify packet signatures" << std::endl;
-        return;
-      }
-
-      std::cout << "Key retrieval done" << std::endl;
     }
 
     void setConsumer(std::shared_ptr<ConsumerSocket> consumer_socket) {
@@ -691,14 +790,31 @@ class HIperfClient {
   Time t_download_;
   uint32_t total_duration_milliseconds_;
   uint64_t old_bytes_value_;
+  uint64_t old_interest_tx_value_;
+  uint64_t old_fec_interest_tx_value_;
+  uint64_t old_fec_data_rx_value_;
+  uint64_t old_lost_data_value_;
+  uint64_t old_bytes_recovered_value_;
+  uint32_t old_retx_value_;
+  uint32_t old_sent_int_value_;
+  uint32_t old_received_nacks_value_;
+
+  // IMPORTANT: to be used only for performance testing, when consumer and
+  // producer are synchronized. Used for rtc only at the moment
+  double avg_data_delay_;
+  uint32_t delay_sample_;
+
+  uint32_t received_bytes_;
+  uint32_t received_data_pkt_;
+
   asio::io_service io_service_;
   asio::signal_set signals_;
-  std::shared_ptr<ConsumerSocket> consumer_socket_;
   uint32_t expected_seg_;
   std::unordered_set<uint32_t> lost_packets_;
-  RTCCallback *rtc_callback_;
-  Callback *callback_;
-  KeyCallback *key_callback_;
+  RTCCallback rtc_callback_;
+  Callback callback_;
+  KeyCallback key_callback_;
+  std::shared_ptr<ConsumerSocket> consumer_socket_;
 };  // namespace interface
 
 /**
@@ -711,7 +827,7 @@ class HIperfServer {
  public:
   HIperfServer(ServerConfiguration &conf)
       : configuration_(conf),
-        signals_(io_service_, SIGINT),
+        signals_(io_service_),
         rtc_timer_(io_service_),
         unsatisfied_interests_(),
         content_objects_((std::uint16_t)(1 << log2_content_object_buffer_size)),
@@ -721,11 +837,11 @@ class HIperfServer {
 #ifndef _WIN32
         ptr_last_segment_(&last_segment_),
         input_(io_service_),
-        rtc_running_(false)
+        rtc_running_(false),
 #else
-        ptr_last_segment_(&last_segment_)
+        ptr_last_segment_(&last_segment_),
 #endif
-  {
+        flow_name_(configuration_.name.getName()) {
     std::string buffer(configuration_.payload_size_, 'X');
     std::cout << "Producing contents under name " << conf.name.getName()
               << std::endl;
@@ -736,9 +852,9 @@ class HIperfServer {
 #endif
 
     for (int i = 0; i < (1 << log2_content_object_buffer_size); i++) {
-      content_objects_[i] = std::make_shared<ContentObject>(
-          conf.name.getName(), HF_INET6_TCP, (const uint8_t *)buffer.data(),
-          buffer.size());
+      content_objects_[i] = ContentObject::Ptr(
+          new ContentObject(conf.name.getName(), HF_INET6_TCP, 0,
+                            (const uint8_t *)buffer.data(), buffer.size()));
       content_objects_[i]->setLifetime(
           default_values::content_object_expiry_time);
     }
@@ -797,15 +913,16 @@ class HIperfServer {
     produceContentAsync(p, interest.getName(), suffix);
   }
 
-  void produceContent(ProducerSocket &p, Name content_name, uint32_t suffix) {
+  void produceContent(ProducerSocket &p, const Name &content_name,
+                      uint32_t suffix) {
     auto b = utils::MemBuf::create(configuration_.download_size);
     std::memset(b->writableData(), '?', configuration_.download_size);
     b->append(configuration_.download_size);
     uint32_t total;
 
     utils::TimePoint t0 = utils::SteadyClock::now();
-    total = p.produce(content_name, std::move(b),
-                      !configuration_.multiphase_produce_, suffix);
+    total = p.produceStream(content_name, std::move(b),
+                            !configuration_.multiphase_produce_, suffix);
     utils::TimePoint t1 = utils::SteadyClock::now();
 
     std::cout
@@ -820,11 +937,6 @@ class HIperfServer {
     auto b = utils::MemBuf::create(configuration_.download_size);
     std::memset(b->writableData(), '?', configuration_.download_size);
     b->append(configuration_.download_size);
-    /* std::string passphrase = "hunter2"; */
-    /* auto b = utils::MemBuf::create(passphrase.length() + 1); */
-    /* std::memcpy(b->writableData(), passphrase.c_str(), passphrase.length() +
-     * 1); */
-    /* b->append(passphrase.length() + 1); */
 
     p.asyncProduce(content_name, std::move(b),
                    !configuration_.multiphase_produce_, suffix,
@@ -843,23 +955,22 @@ class HIperfServer {
                           std::placeholders::_1, std::placeholders::_2));
   }
 
-  std::shared_ptr<utils::Identity> getProducerIdentity(
-      std::string &keystore_name, std::string &keystore_password,
-      utils::CryptoHashType &hash_algorithm) {
-    if (access(keystore_name.c_str(), F_OK) != -1) {
-      return std::make_shared<utils::Identity>(keystore_name, keystore_password,
-                                               hash_algorithm);
-    } else {
-      return std::make_shared<utils::Identity>(keystore_name, keystore_password,
-                                               utils::CryptoSuite::RSA_SHA256,
-                                               1024, 365, "producer-test");
+  std::shared_ptr<auth::Identity> getProducerIdentity(
+      std::string &keystore_path, std::string &keystore_pwd,
+      auth::CryptoHashType &hash_type) {
+    if (access(keystore_path.c_str(), F_OK) != -1) {
+      return std::make_shared<auth::Identity>(keystore_path, keystore_pwd,
+                                              hash_type);
     }
+    return std::make_shared<auth::Identity>(keystore_path, keystore_pwd,
+                                            auth::CryptoSuite::RSA_SHA256, 1024,
+                                            365, "producer-test");
   }
 
   int setup() {
     int ret;
+    int production_protocol;
 
-#ifdef SECURE_HICNSOCKET
     if (configuration_.secure_) {
       auto identity = getProducerIdentity(configuration_.keystore_name,
                                           configuration_.keystore_password,
@@ -867,22 +978,21 @@ class HIperfServer {
       producer_socket_ = std::make_unique<P2PSecureProducerSocket>(
           configuration_.rtc_, identity);
     } else {
-#endif
-      if (configuration_.rtc_) {
-        producer_socket_ = std::make_unique<RTCProducerSocket>();
+      if (!configuration_.rtc_) {
+        production_protocol = ProductionProtocolAlgorithms::BYTE_STREAM;
       } else {
-        producer_socket_ = std::make_unique<ProducerSocket>();
+        production_protocol = ProductionProtocolAlgorithms::RTC_PROD;
       }
-#ifdef SECURE_HICNSOCKET
+
+      producer_socket_ = std::make_unique<ProducerSocket>(production_protocol);
     }
-#endif
 
     if (configuration_.sign) {
-      std::shared_ptr<utils::Signer> signer;
+      std::shared_ptr<auth::Signer> signer;
 
       if (!configuration_.passphrase.empty()) {
-        signer = std::make_shared<utils::Signer>(
-            configuration_.passphrase, utils::CryptoSuite::HMAC_SHA256);
+        signer = std::make_shared<auth::SymmetricSigner>(
+            auth::CryptoSuite::HMAC_SHA256, configuration_.passphrase);
       } else if (!configuration_.keystore_name.empty()) {
         auto identity = getProducerIdentity(configuration_.keystore_name,
                                             configuration_.keystore_password,
@@ -898,10 +1008,12 @@ class HIperfServer {
       }
     }
 
+    uint32_t rtc_header_size = 0;
+    if (configuration_.rtc_) rtc_header_size = 12;
     producer_socket_->setSocketOption(
         GeneralTransportOptions::DATA_PACKET_SIZE,
         (uint32_t)(
-            configuration_.payload_size_ +
+            configuration_.payload_size_ + rtc_header_size +
             (configuration_.name.getAddressFamily() == AF_INET ? 40 : 60)));
     producer_socket_->registerPrefix(configuration_.name);
     producer_socket_->connect();
@@ -982,7 +1094,61 @@ class HIperfServer {
                                     this, std::placeholders::_1));
     auto payload =
         content_objects_[content_objects_index_++ & mask_]->getPayload();
-    producer_socket_->produce(payload->data(), payload->length());
+
+    // this is used to compute the data packet delay
+    // Used only for performance evaluation
+    // It requires clock synchronization between producer and consumer
+    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+
+    std::memcpy(payload->writableData(), &now, sizeof(uint64_t));
+
+    producer_socket_->produceDatagram(
+        flow_name_, payload->data(),
+        payload->length() < 1400 ? payload->length() : 1400);
+  }
+
+  void sendRTCContentObjectCallbackWithTrace(std::error_code ec) {
+    if (ec) return;
+
+    auto payload =
+        content_objects_[content_objects_index_++ & mask_]->getPayload();
+
+    uint32_t packet_len =
+        configuration_.trace_[configuration_.trace_index_].size;
+
+    // this is used to compute the data packet delay
+    // used only for performance evaluation
+    // it requires clock synchronization between producer and consumer
+    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+
+    std::memcpy(payload->writableData(), &now, sizeof(uint64_t));
+
+    if (packet_len > payload->length()) packet_len = (uint32_t)payload->length();
+    if (packet_len > 1400) packet_len = 1400;
+
+    producer_socket_->produceDatagram(flow_name_, payload->data(), packet_len);
+
+    uint32_t next_index = configuration_.trace_index_ + 1;
+    uint64_t schedule_next;
+    if (next_index < configuration_.trace_.size()) {
+      schedule_next =
+          configuration_.trace_[next_index].timestamp -
+          configuration_.trace_[configuration_.trace_index_].timestamp;
+    } else {
+      // here we need to loop, schedule in a random time
+      schedule_next = 1000;
+    }
+
+    configuration_.trace_index_ =
+        (configuration_.trace_index_ + 1) % configuration_.trace_.size();
+    rtc_timer_.expires_from_now(std::chrono::microseconds(schedule_next));
+    rtc_timer_.async_wait(
+        std::bind(&HIperfServer::sendRTCContentObjectCallbackWithTrace, this,
+                  std::placeholders::_1));
   }
 
 #ifndef _WIN32
@@ -1015,9 +1181,25 @@ class HIperfServer {
   }
 #endif
 
+  int parseTraceFile() {
+    std::ifstream trace(configuration_.trace_file_);
+    if (trace.fail()) {
+      return -1;
+    }
+    std::string line;
+    while (std::getline(trace, line)) {
+      std::istringstream iss(line);
+      struct packet_t packet;
+      iss >> packet.timestamp >> packet.size;
+      configuration_.trace_.push_back(packet);
+    }
+    return 0;
+  }
+
   int run() {
     std::cerr << "Starting to serve consumers" << std::endl;
 
+    signals_.add(SIGINT);
     signals_.async_wait([this](const std::error_code &, const int &) {
       std::cout << "STOPPING!!" << std::endl;
       producer_socket_->stop();
@@ -1031,6 +1213,21 @@ class HIperfServer {
             input_, input_buffer_, '\n',
             std::bind(&HIperfServer::handleInput, this, std::placeholders::_1,
                       std::placeholders::_2));
+      } else if (configuration_.trace_based_) {
+        std::cout << "trace-based mode enabled" << std::endl;
+        if (configuration_.trace_file_ == nullptr) {
+          std::cout << "cannot find the trace file" << std::endl;
+          return ERROR_SETUP;
+        }
+        if (parseTraceFile() < 0) {
+          std::cout << "cannot parse the trace file" << std::endl;
+          return ERROR_SETUP;
+        }
+        rtc_running_ = true;
+        rtc_timer_.expires_from_now(std::chrono::milliseconds(1));
+        rtc_timer_.async_wait(
+            std::bind(&HIperfServer::sendRTCContentObjectCallbackWithTrace,
+                      this, std::placeholders::_1));
       } else {
         rtc_running_ = true;
         rtc_timer_.expires_from_now(
@@ -1071,7 +1268,9 @@ class HIperfServer {
   asio::posix::stream_descriptor input_;
   asio::streambuf input_buffer_;
   bool rtc_running_;
+
 #endif
+    core::Name flow_name_;
 };  // namespace interface
 
 void usage() {
@@ -1088,6 +1287,8 @@ void usage() {
             << "Run RTC protocol (client or server)" << std::endl;
   std::cerr << "-f\t<filename>\t\t\t"
             << "Log file" << std::endl;
+  std::cerr << "-z\t<io_module>\t\t\t"
+            << "IO module to use. Default: hicnlight_module" << std::endl;
 #endif
   std::cerr << std::endl;
   std::cerr << "SERVER SPECIFIC:" << std::endl;
@@ -1133,13 +1334,18 @@ void usage() {
                "Interactive mode, start/stop real time content production "
                "by pressing return. To be used with the -R option"
             << std::endl;
-#ifdef SECURE_HICNTRANSPORT
+  std::cerr
+      << "-T\t<filename>\t\t\t"
+         "Trace based mode, hiperf takes as input a file with a trace. "
+         "Each line of the file indicates the timestamp and the size of "
+         "the packet to generate. To be used with the -R option. -B and -I "
+         "will be ignored."
+      << std::endl;
   std::cerr << "-E\t\t\t\t\t"
             << "Enable encrypted communication. Requires the path to a p12 "
                "file containing the "
                "crypto material used for the TLS handshake"
             << std::endl;
-#endif
 #endif
   std::cerr << std::endl;
   std::cerr << "CLIENT SPECIFIC:" << std::endl;
@@ -1162,26 +1368,21 @@ void usage() {
   std::cerr << "-i\t<stats_interval>\t\t"
             << "Show the statistics every <stats_interval> milliseconds."
             << std::endl;
-  std::cerr << "-v\t\t\t\t\t"
-            << "Enable verification of received data" << std::endl;
   std::cerr << "-c\t<certificate_path>\t\t"
             << "Path of the producer certificate to be used for verifying the "
-               "origin of the packets received. Must be used with -v."
+               "origin of the packets received."
             << std::endl;
   std::cerr << "-k\t<passphrase>\t\t\t"
             << "String from which is derived the symmetric key used by the "
-               "producer to sign packets and by the consumer to verify them. "
-               "Must be used with -v."
+               "producer to sign packets and by the consumer to verify them."
             << std::endl;
   std::cerr << "-t\t\t\t\t\t"
                "Test mode, check if the client is receiving the "
                "correct data. This is an RTC specific option, to be "
                "used with the -R (default false)"
             << std::endl;
-#ifdef SECURE_HICNTRANSPORT
   std::cerr << "-P\t\t\t\t\t"
             << "Prefix of the producer where to do the handshake" << std::endl;
-#endif
 }
 
 int main(int argc, char *argv[]) {
@@ -1198,6 +1399,9 @@ int main(int argc, char *argv[]) {
   int options = 0;
 
   char *log_file = nullptr;
+  interface::global_config::IoModuleConfiguration config;
+  std::string conf_file;
+  config.name = "hicnlight_module";
 
   // Consumer
   ClientConfiguration client_configuration;
@@ -1207,9 +1411,9 @@ int main(int argc, char *argv[]) {
 
   int opt;
 #ifndef _WIN32
-  while ((opt = getopt(argc, argv,
-                       "DSCf:b:d:W:RM:c:vA:s:rmlK:k:y:p:hi:xE:P:B:ItL:")) !=
-         -1) {
+  while ((opt = getopt(
+              argc, argv,
+              "DSCf:b:d:W:RM:c:vA:s:rmlK:k:y:p:hi:xE:P:B:ItL:z:T:F:")) != -1) {
     switch (opt) {
       // Common
       case 'D': {
@@ -1218,11 +1422,19 @@ int main(int argc, char *argv[]) {
       }
       case 'I': {
         server_configuration.interactive_ = true;
+        server_configuration.trace_based_ = false;
+        break;
+      }
+      case 'T': {
+        server_configuration.interactive_ = false;
+        server_configuration.trace_based_ = true;
+        server_configuration.trace_file_ = optarg;
         break;
       }
 #else
   while ((opt = getopt(argc, argv,
-                       "SCf:b:d:W:RM:c:vA:s:rmlK:k:y:p:hi:xB:E:P:tL:")) != -1) {
+                       "SCf:b:d:W:RM:c:vA:s:rmlK:k:y:p:hi:xB:E:P:tL:z:F:")) !=
+         -1) {
     switch (opt) {
 #endif
       case 'f': {
@@ -1232,6 +1444,14 @@ int main(int argc, char *argv[]) {
       case 'R': {
         client_configuration.rtc_ = true;
         server_configuration.rtc_ = true;
+        break;
+      }
+      case 'z': {
+        config.name = optarg;
+        break;
+      }
+      case 'F': {
+        conf_file = optarg;
         break;
       }
 
@@ -1248,7 +1468,6 @@ int main(int argc, char *argv[]) {
         server_configuration.passphrase = std::string(optarg);
         client_configuration.passphrase = std::string(optarg);
         server_configuration.sign = true;
-        options = -1;
         break;
       }
 
@@ -1273,20 +1492,13 @@ int main(int argc, char *argv[]) {
         options = 1;
         break;
       }
-#ifdef SECURE_HICNTRANSPORT
       case 'P': {
         client_configuration.producer_prefix_ = Prefix(optarg);
         client_configuration.secure_ = true;
         break;
       }
-#endif
       case 'c': {
         client_configuration.producer_certificate = std::string(optarg);
-        options = 1;
-        break;
-      }
-      case 'v': {
-        client_configuration.verify = true;
         options = 1;
         break;
       }
@@ -1339,11 +1551,11 @@ int main(int argc, char *argv[]) {
       }
       case 'y': {
         if (strncasecmp(optarg, "sha256", 6) == 0) {
-          server_configuration.hash_algorithm = utils::CryptoHashType::SHA_256;
+          server_configuration.hash_algorithm = auth::CryptoHashType::SHA_256;
         } else if (strncasecmp(optarg, "sha512", 6) == 0) {
-          server_configuration.hash_algorithm = utils::CryptoHashType::SHA_512;
+          server_configuration.hash_algorithm = auth::CryptoHashType::SHA_512;
         } else if (strncasecmp(optarg, "crc32", 5) == 0) {
-          server_configuration.hash_algorithm = utils::CryptoHashType::CRC32C;
+          server_configuration.hash_algorithm = auth::CryptoHashType::CRC32C;
         } else {
           std::cerr << "Ignored unknown hash algorithm. Using SHA 256."
                     << std::endl;
@@ -1368,13 +1580,11 @@ int main(int argc, char *argv[]) {
         options = -1;
         break;
       }
-#ifdef SECURE_HICNTRANSPORT
       case 'E': {
         server_configuration.keystore_name = std::string(optarg);
         server_configuration.secure_ = true;
         break;
       }
-#endif
       case 'h':
       default:
         usage();
@@ -1388,7 +1598,6 @@ int main(int argc, char *argv[]) {
               << std::endl;
     usage();
     return EXIT_FAILURE;
-
   } else if (options < 0 && role > 0) {
     std::cerr << "Server options cannot be used when using the "
                  "software in client mode"
@@ -1436,6 +1645,14 @@ int main(int argc, char *argv[]) {
   }
 #endif
 
+  /**
+   * IO module configuration
+   */
+  config.set();
+
+  // Parse config file
+  transport::interface::global_config::parseConfigurationFile(conf_file);
+
   if (role > 0) {
     HIperfClient c(client_configuration);
     if (c.setup() != ERROR_SETUP) {
@@ -1454,11 +1671,11 @@ int main(int argc, char *argv[]) {
 #ifdef _WIN32
   WSACleanup();
 #endif
+
   return 0;
 }
 
 }  // end namespace interface
-
 }  // end namespace transport
 
 int main(int argc, char *argv[]) {

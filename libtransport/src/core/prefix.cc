@@ -25,11 +25,11 @@ extern "C" {
 #include <hicn/transport/portability/win_portability.h>
 #endif
 
+#include <openssl/rand.h>
+
 #include <cstring>
 #include <memory>
 #include <random>
-
-#include <openssl/rand.h>
 
 namespace transport {
 
@@ -69,7 +69,7 @@ Prefix::Prefix(const core::Name &content_name, uint16_t prefix_length) {
   }
 
   ip_prefix_ = content_name.toIpAddress();
-  ip_prefix_.len = prefix_length;
+  ip_prefix_.len = (u8)prefix_length;
   ip_prefix_.family = family;
 }
 
@@ -95,11 +95,11 @@ void Prefix::buildPrefix(std::string &prefix, uint16_t prefix_length,
     throw errors::InvalidIpAddressException();
   }
 
-  ip_prefix_.len = prefix_length;
+  ip_prefix_.len = (u8)prefix_length;
   ip_prefix_.family = family;
 }
 
-std::unique_ptr<Sockaddr> Prefix::toSockaddr() {
+std::unique_ptr<Sockaddr> Prefix::toSockaddr() const {
   Sockaddr *ret = nullptr;
 
   switch (ip_prefix_.family) {
@@ -120,14 +120,14 @@ std::unique_ptr<Sockaddr> Prefix::toSockaddr() {
   return std::unique_ptr<Sockaddr>(ret);
 }
 
-uint16_t Prefix::getPrefixLength() { return ip_prefix_.len; }
+uint16_t Prefix::getPrefixLength() const { return ip_prefix_.len; }
 
 Prefix &Prefix::setPrefixLength(uint16_t prefix_length) {
-  ip_prefix_.len = prefix_length;
+  ip_prefix_.len = (u8)prefix_length;
   return *this;
 }
 
-int Prefix::getAddressFamily() { return ip_prefix_.family; }
+int Prefix::getAddressFamily() const { return ip_prefix_.family; }
 
 Prefix &Prefix::setAddressFamily(int address_family) {
   ip_prefix_.family = address_family;
@@ -211,8 +211,8 @@ Name Prefix::getName(const core::Name &mask, const core::Name &components,
     }
   }
 
-  if (this->contains(name_ip))
-    throw errors::RuntimeException("Mask overrides the prefix");
+  // if (this->contains(name_ip))
+  //   throw errors::RuntimeException("Mask overrides the prefix");
   return Name(ip_prefix_.family, (uint8_t *)&name_ip);
 }
 
@@ -226,9 +226,9 @@ Name Prefix::getRandomName() const {
       ip_prefix_.len;
 
   size_t size = (size_t)ceil((float)addr_len / 8.0);
-  uint8_t *buffer = (uint8_t *) malloc(sizeof(uint8_t) * size);
+  uint8_t *buffer = (uint8_t *)malloc(sizeof(uint8_t) * size);
 
-  RAND_bytes(buffer, size);
+  RAND_bytes(buffer, (int)size);
 
   int j = 0;
   for (uint8_t i = (uint8_t)ceil((float)ip_prefix_.len / 8.0);
@@ -332,7 +332,7 @@ bool Prefix::checkPrefixLengthAndAddressFamily(uint16_t prefix_length,
   return true;
 }
 
-ip_prefix_t &Prefix::toIpPrefixStruct() { return ip_prefix_; }
+const ip_prefix_t &Prefix::toIpPrefixStruct() const { return ip_prefix_; }
 
 }  // namespace core
 

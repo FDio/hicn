@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,6 +21,16 @@
 
 #include "pcs.h"
 
+/**
+ * @file interest_hitcs.h
+ *
+ * This is the node encoutered by interest packets after the hicn-interest-pcslookup.
+ * This node satisfies an interest with a data stored in the CS and send the data back
+ * from the incoming iface of the interest (i.e., the vlib buffer is sent to the
+ * hicn6-iface-output or hicn4-iface-output node). In case the data is expired, the
+ * vlib buffer is sent to the hicn-strategy node.
+ */
+
 /*
  * Node context data; we think this is per-thread/instance
  */
@@ -41,9 +51,9 @@ typedef struct
 typedef enum
 {
   HICN_INTEREST_HITCS_NEXT_STRATEGY,
-  HICN_INTEREST_HITCS_NEXT_PUSH,
+  HICN_INTEREST_HITCS_NEXT_IFACE4_OUT,
+  HICN_INTEREST_HITCS_NEXT_IFACE6_OUT,
   HICN_INTEREST_HITCS_NEXT_ERROR_DROP,
-  HICN_INTEREST_HITCS_NEXT_EMPTY,
   HICN_INTEREST_HITCS_N_NEXT,
 } hicn_interest_hitcs_next_t;
 

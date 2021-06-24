@@ -15,30 +15,30 @@
 # Packages section
 ######################
 
-set(${LIBMEMIF}_DESCRIPTION
+set(${COMPONENT}_DESCRIPTION
   "Libmemif, shared memory interface"
   CACHE STRING "Description for deb/rpm package."
 )
 
-set(${LIBMEMIF}_DEB_DEPENDENCIES
+set(${COMPONENT}_DEB_DEPENDENCIES
   "" CACHE STRING "Dependencies for deb/rpm package."
 )
 
-set(${LIBMEMIF}_RPM_DEPENDENCIES
+set(${COMPONENT}_RPM_DEPENDENCIES
   "" CACHE STRING "Dependencies for deb/rpm package."
 )
 
-set(${LIBMEMIF}-dev_DESCRIPTION
+set(${COMPONENT}-dev_DESCRIPTION
   "Libmemif, shared memory interface header files"
   CACHE STRING "Description for deb/rpm package."
 )
 
-set(${LIBMEMIF}-dev_DEB_DEPENDENCIES
-  "libmemif (>= stable_version)"
+set(${COMPONENT}-dev_DEB_DEPENDENCIES
+  "${COMPONENT} (>= stable_version)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
-set(${LIBMEMIF}-dev_RPM_DEPENDENCIES
-  "libmemif (>= stable_version)"
+set(${COMPONENT}-dev_RPM_DEPENDENCIES
+  "${COMPONENT} >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )

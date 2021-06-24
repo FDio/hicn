@@ -21,8 +21,6 @@
  * @endcode
  */
 
-#include <hicn/ctrl/commands.h>
-
 #ifndef _WIN32
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -53,13 +51,13 @@
 #define DEFAULT_COST 1
 #define DEFAULT_PORT 1234
 
-#define make_ack(msg)  ((msg_header_t *)msg)->header.messageType =  ACK_LIGHT
-#define make_nack(msg) ((msg_header_t *)msg)->header.messageType = NACK_LIGHT
+#define make_ack(msg)  ((msg_header_t *)msg)->header.message_type =  ACK_LIGHT
+#define make_nack(msg) ((msg_header_t *)msg)->header.message_type = NACK_LIGHT
 
 #define msg_malloc_list(msg, N)                                         \
 do {                                                                    \
     msg = malloc(sizeof((msg)->header) + N * sizeof((msg)->payload));   \
-    (msg)->header.messageType = RESPONSE_LIGHT;                         \
+    (msg)->header.message_type = RESPONSE_LIGHT;                         \
     (msg)->header.length = (uint16_t)(N);                               \
 } while(0);
 
@@ -208,15 +206,23 @@ configuration_on_listener_add(configuration_t * config, uint8_t * packet,
                 control->port) < 0) {
         WARN("Unsupported address type for HICN (ingress id %u): "
                 "must be either IPV4 or IPV6", ingress_id);
-        return false;
+        goto NACK;
     }
 
-    // NOTE: interface_name is expected NULL for hICN listener
-    face_type_t face_type = get_face_type_from_listener_type((hc_connection_type_t) control->listenerType);
+    if (!face_type_is_defined(control->type)) {
+        WARN("[configuration_on_listener_add] Invalid listener type");
+        goto NACK;
+    }
+
+    // XXX validate that we use face_type everywhere, as we use the untyped
+    // uint8_t for the control protocol
+    face_type_t face_type = get_face_type_from_listener_type((hc_connection_type_t) control->type);
     if (!face_type_is_defined(face_type))
         goto NACK;
 
-    listener = listener_create(face_type, &address, control->interfaceName, control->symbolic, forwarder);
+    // NOTE: interface_name is expected NULL for hICN listener
+
+    listener = listener_create(face_type, &address, control->interface_name, control->symbolic, forwarder);
     if (!listener)
         goto NACK;
 
@@ -1422,7 +1428,7 @@ configuration_receive_command(configuration_t * config, msgbuf_t * msgbuf)
         case COMMAND_TYPE_ROUTE_LIST:
         case COMMAND_TYPE_POLICY_LIST:
             /* Free replies that have been allocated (not NACK's) */
-            if (((msg_header_t *)reply)->header.messageType != NACK_LIGHT)
+            if (((msg_header_t *)reply)->header.message_type != NACK_LIGHT)
                 free(reply);
             break;
         default:
@@ -1450,4 +1456,3 @@ face_type_t get_face_type_from_listener_type(hc_connection_type_t listener_type)
     }
     return face_type;
 }
-

@@ -97,7 +97,7 @@ hicn_strategy_dpo_ctx_alloc ()
 }
 
 int
-hicn_strategy_dpo_ctx_add_nh (const dpo_id_t * nh, hicn_dpo_ctx_t * dpo_ctx,
+hicn_strategy_dpo_ctx_add_nh (hicn_face_id_t nh, hicn_dpo_ctx_t * dpo_ctx,
 			      u8 * pos)
 {
 
@@ -106,12 +106,12 @@ hicn_strategy_dpo_ctx_add_nh (const dpo_id_t * nh, hicn_dpo_ctx_t * dpo_ctx,
   /* Iterate through the list of faces to find if the face is already a next hop */
   for (int i = 0; i < dpo_ctx->entry_count; i++)
     {
-      if (!memcmp (nh, &dpo_ctx->next_hops[i], sizeof (dpo_id_t)))
+      if (nh == dpo_ctx->next_hops[i])
 	{
 	  /* If face is marked as deleted, ignore it */
 	  hicn_face_t *face =
-	    hicn_dpoi_get_from_idx (dpo_ctx->next_hops[i].dpoi_index);
-	  if (face->shared.flags & HICN_FACE_FLAGS_DELETED)
+	    hicn_dpoi_get_from_idx (dpo_ctx->next_hops[i]);
+	  if (face->flags & HICN_FACE_FLAGS_DELETED)
 	    {
 	      continue;
 	    }
@@ -125,7 +125,8 @@ hicn_strategy_dpo_ctx_add_nh (const dpo_id_t * nh, hicn_dpo_ctx_t * dpo_ctx,
       return HICN_ERROR_DPO_CTX_NHOPS_NS;
     }
 
-  clib_memcpy (&dpo_ctx->next_hops[empty], nh, sizeof (dpo_id_t));
+  dpo_ctx->next_hops[empty] = nh;
+  hicn_face_lock_with_id (nh);
   dpo_ctx->entry_count++;
   *pos = empty;
 
@@ -137,13 +138,13 @@ hicn_strategy_dpo_ctx_del_nh (hicn_face_id_t face_id,
 			      hicn_dpo_ctx_t * dpo_ctx)
 {
   int ret = HICN_ERROR_DPO_CTX_NOT_FOUND;
-  dpo_id_t invalid = NEXT_HOP_INVALID;
+  hicn_face_id_t invalid = NEXT_HOP_INVALID;
 
   for (int i = 0; i < dpo_ctx->entry_count; i++)
     {
-      if (dpo_ctx->next_hops[i].dpoi_index == face_id)
+      if (dpo_ctx->next_hops[i] == face_id)
 	{
-	  hicn_face_unlock (&dpo_ctx->next_hops[i]);
+	  hicn_face_unlock_with_id (dpo_ctx->next_hops[i]);
 	  dpo_ctx->entry_count--;
 	  dpo_ctx->next_hops[i] = dpo_ctx->next_hops[dpo_ctx->entry_count];
 	  dpo_ctx->next_hops[dpo_ctx->entry_count] = invalid;

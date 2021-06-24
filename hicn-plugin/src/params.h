@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -17,6 +17,12 @@
 #define __HICN_PARAM_H__
 
 #include <math.h>
+
+/**
+ * @file params.h
+ *
+ */
+
 
 /*
  * Features
@@ -37,7 +43,7 @@ STATIC_ASSERT ((HICN_PARAM_FACES_MAX & (HICN_PARAM_FACES_MAX - 1)) == 0,
 #define HICN_PARAM_HICN_NAME_LEN_MAX 20	//bytes
 
 // Max next - hops supported in a FIB entry
-#define HICN_PARAM_FIB_ENTRY_NHOPS_MAX   5
+#define HICN_PARAM_FIB_ENTRY_NHOPS_MAX   10
 
 // Default and limit on weight, whatever weight means
 #define HICN_PARAM_FIB_ENTRY_NHOP_WGHT_DFLT   0x10

@@ -22,27 +22,30 @@
 #include "params.h"
 #include "faces/face.h"
 
-//FIB table for hicn. 0 is the default one used by ip
-#define HICN_FIB_TABLE 0
-
-#define NEXT_HOP_INVALID DPO_INVALID
-
-#define INIT_SEQ 0
-
 /**
- * @brief Definition of the general hICN DPO ctx (shared among all the strategies).
+ * @file strategy_dpo_ctx.h
+ *
+ * This file implements the general hICN DPO ctx (shared among all the strategies).
  *
  * An hICN DPO ctx contains the list of next hops, auxiliaries fields to maintain the dpo, map-me
  * specifics (tfib_entry_count and seq), the dpo_type and 64B to let each strategy to store additional
- * information. Each next hop is a dpo_id_t that refers to an hICN face. The dpo_type is used to
- * identify the strategy and to retrieve the vft corresponding to the strategy (see strategy.h)
- * and to the dpo ctx (see strategy_dpo_manager.h)
+ * information. Each next hop is an hicn_face_id_t that refers to an index for an hICN face. The
+ * dpo_type is used to identify the strategy and to retrieve the vft corresponding to the strategy
+ * (see strategy.h) and to the dpo ctx (see strategy_dpo_manager.h)
  */
+
+//FIB table for hicn. 0 is the default one used by ip
+#define HICN_FIB_TABLE 10
+
+#define NEXT_HOP_INVALID ~0
+
+#define INIT_SEQ 0
+
 typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
 {
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
-  /* 8B*5 = 40B */
-  dpo_id_t next_hops[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
+  /* 4B*10 = 40B */
+  hicn_face_id_t next_hops[HICN_PARAM_FIB_ENTRY_NHOPS_MAX];
   /* 40B + 4B = 44B */
   u32 locks;
   /* 44B + 1B = 45B */
@@ -51,17 +54,30 @@ typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
   /* Number of TFIB entries (stored at the end of the next_hops array */
   u8 tfib_entry_count;
 
-  /* 46B + 2B = 48B */
-  u16 padding;			/* To align to 8B */
-
-  /* 48 + 4B = 52; last sequence number */
-  seq_t seq;
-
-  /* 48 + 1B = 53; last sequence number */
   dpo_type_t dpo_type;
 
+  /* 46B + 2B = 48B */
+  u8 padding;			/* To align to 8B */
+
+  /* 48 + 4B = 52; last sequence number */
+  u32 seq;
+
+  /* 52 + 12 = 64 */
+  fib_node_t fib_node;
+
   CLIB_CACHE_LINE_ALIGN_MARK (cacheline1);
-  u8 data[CLIB_CACHE_LINE_BYTES];
+
+  fib_node_index_t fib_entry_index;
+
+  u32 fib_sibling;
+
+  union
+  {
+    u32 padding_proto;
+    fib_protocol_t proto;
+  };
+
+  u8 data[CLIB_CACHE_LINE_BYTES - 12];
 
 } hicn_dpo_ctx_t;
 
@@ -76,10 +92,10 @@ extern hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
  * @param dpo_type Type of dpo. It identifies the strategy.
  */
 always_inline void
-init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx, const dpo_id_t * next_hop,
-	      int nh_len, dpo_type_t dpo_type)
+init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx, const hicn_face_id_t * next_hop,
+	      int nh_len, dpo_type_t dpo_type, dpo_proto_t proto)
 {
-  dpo_id_t invalid = NEXT_HOP_INVALID;
+  hicn_face_id_t invalid = NEXT_HOP_INVALID;
 
   dpo_ctx->entry_count = 0;
   dpo_ctx->locks = 0;
@@ -89,9 +105,11 @@ init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx, const dpo_id_t * next_hop,
   dpo_ctx->seq = INIT_SEQ;
   dpo_ctx->dpo_type = dpo_type;
 
+  dpo_ctx->proto = proto;
+
   for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX && i < nh_len; i++)
     {
-      clib_memcpy (&dpo_ctx->next_hops[i], &next_hop[i], sizeof (dpo_id_t));
+      dpo_ctx->next_hops[i] = next_hop[i];
       dpo_ctx->entry_count++;
     }
 
@@ -151,7 +169,7 @@ void hicn_strategy_dpo_ctx_unlock (dpo_id_t * dpo);
  * otherwise HICN_ERROR_DPO_CTX_NOT_FOUND
  */
 int
-hicn_strategy_dpo_ctx_add_nh (const dpo_id_t * nh, hicn_dpo_ctx_t * dpo_ctx,
+hicn_strategy_dpo_ctx_add_nh (hicn_face_id_t nh, hicn_dpo_ctx_t * dpo_ctx,
 			      u8 * pos);
 
 /**

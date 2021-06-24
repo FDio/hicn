@@ -14,10 +14,8 @@
  */
 
 #include <hicn/transport/interfaces/socket_producer.h>
-
 #include <implementation/p2psecure_socket_producer.h>
 #include <implementation/tls_socket_producer.h>
-
 #include <openssl/bio.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
@@ -48,22 +46,25 @@ int TLSProducerSocket::readOld(BIO *b, char *buf, int size) {
   TLSProducerSocket *socket;
   socket = (TLSProducerSocket *)BIO_get_data(b);
 
-  /* take a lock on the mutex. It will be unlocked by */
   std::unique_lock<std::mutex> lck(socket->mtx_);
+
+  TRANSPORT_LOGD("Start wait on the CV.");
+
   if (!socket->something_to_read_) {
     (socket->cv_).wait(lck);
   }
 
-  /* Either there already is something to read, or the thread has been waken up
-   */
-  /* must return the payload in the interest */
+  TRANSPORT_LOGD("CV unlocked.");
 
-  utils::MemBuf *membuf = socket->packet_->next();
+  /* Either there already is something to read, or the thread has been waken up.
+   * We must return the payload in the interest anyway */
+  utils::MemBuf *membuf = socket->handshake_packet_->next();
   int size_to_read;
+
   if ((int)membuf->length() > size) {
     size_to_read = size;
   } else {
-    size_to_read = membuf->length();
+    size_to_read = (int)membuf->length();
     socket->something_to_read_ = false;
   }
 
@@ -97,14 +98,14 @@ int TLSProducerSocket::writeOld(BIO *b, const char *buf, int num) {
   TLSProducerSocket *socket;
   socket = (TLSProducerSocket *)BIO_get_data(b);
 
-  if ((SSL_in_before(socket->ssl_) || SSL_in_init(socket->ssl_)) &&
-      socket->first_) {
+  if (socket->getHandshakeState() != SERVER_FINISHED && socket->first_) {
+    bool making_manifest = socket->parent_->making_manifest_;
+
     //! socket->tls_chunks_ corresponds to is_last
     socket->tls_chunks_--;
-    bool making_manifest = socket->parent_->making_manifest_;
     socket->parent_->setSocketOption(GeneralTransportOptions::MAKE_MANIFEST,
                                      false);
-    socket->parent_->ProducerSocket::produce(
+    socket->parent_->ProducerSocket::produceStream(
         socket->name_, (const uint8_t *)buf, num, socket->tls_chunks_ == 0,
         socket->last_segment_);
     socket->parent_->setSocketOption(GeneralTransportOptions::MAKE_MANIFEST,
@@ -116,20 +117,25 @@ int TLSProducerSocket::writeOld(BIO *b, const char *buf, int num) {
     std::unique_ptr<utils::MemBuf> mbuf =
         utils::MemBuf::copyBuffer(buf, (std::size_t)num, 0, 0);
     auto a = mbuf.release();
+
     socket->async_thread_.add([socket = socket, a]() {
+      auto mbuf = std::unique_ptr<utils::MemBuf>(a);
+
       socket->tls_chunks_--;
       socket->to_call_oncontentproduced_--;
-      auto mbuf = std::unique_ptr<utils::MemBuf>(a);
-      socket->last_segment_ += socket->ProducerSocket::produce(
+
+      socket->last_segment_ += socket->ProducerSocket::produceStream(
           socket->name_, std::move(mbuf), socket->tls_chunks_ == 0,
           socket->last_segment_);
-      ProducerContentCallback on_content_produced_application;
+
+      ProducerContentCallback *on_content_produced_application;
       socket->getSocketOption(ProducerCallbacksOptions::CONTENT_PRODUCED,
-                              on_content_produced_application);
+                              &on_content_produced_application);
+
       if (socket->to_call_oncontentproduced_ == 0 &&
           on_content_produced_application) {
-        on_content_produced_application(*socket->getInterface(),
-                                        std::error_code(), 0);
+        on_content_produced_application->operator()(*socket->getInterface(),
+                                                    std::error_code(), 0);
       }
     });
   }
@@ -140,12 +146,15 @@ int TLSProducerSocket::writeOld(BIO *b, const char *buf, int num) {
 TLSProducerSocket::TLSProducerSocket(interface::ProducerSocket *producer_socket,
                                      P2PSecureProducerSocket *parent,
                                      const Name &handshake_name)
-    : ProducerSocket(producer_socket),
+    : ProducerSocket(producer_socket,
+                     ProductionProtocolAlgorithms::BYTE_STREAM),
       on_content_produced_application_(),
       mtx_(),
       cv_(),
-      something_to_read_(),
+      something_to_read_(false),
+      handshake_state_(UNINITIATED),
       name_(),
+      handshake_packet_(),
       last_segment_(0),
       parent_(parent),
       first_(true),
@@ -157,9 +166,7 @@ TLSProducerSocket::TLSProducerSocket(interface::ProducerSocket *producer_socket,
   const SSL_METHOD *meth = TLS_server_method();
   ctx_ = SSL_CTX_new(meth);
 
-  /*
-   * Setup SSL context (identity and parameter to use TLS 1.3)
-   */
+  /* Setup SSL context (identity and parameter to use TLS 1.3) */
   SSL_CTX_use_certificate(ctx_, parent->cert_509_);
   SSL_CTX_use_PrivateKey(ctx_, parent->pkey_rsa_);
 
@@ -167,6 +174,7 @@ TLSProducerSocket::TLSProducerSocket(interface::ProducerSocket *producer_socket,
       SSL_CTX_set_ciphersuites(ctx_,
                                "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_"
                                "SHA256:TLS_AES_128_GCM_SHA256");
+
   if (result != 1) {
     throw errors::RuntimeException(
         "Unable to set cipher list on TLS subsystem. Aborting.");
@@ -184,10 +192,9 @@ TLSProducerSocket::TLSProducerSocket(interface::ProducerSocket *producer_socket,
       this, TLSProducerSocket::parseHicnKeyIdCb, NULL);
 
   ssl_ = SSL_new(ctx_);
-  /*
-   * Setup this producer socker as the bio that TLS will use to write and read
-   * data (in stream mode)
-   */
+
+  /* Setup this producer socker as the bio that TLS will use to write and read
+   * data (in stream mode) */
   BIO_METHOD *bio_meth =
       BIO_meth_new(BIO_TYPE_ACCEPT, "secure producer socket");
   BIO_meth_set_read(bio_meth, TLSProducerSocket::readOld);
@@ -197,15 +204,15 @@ TLSProducerSocket::TLSProducerSocket(interface::ProducerSocket *producer_socket,
   BIO_set_init(bio, 1);
   BIO_set_data(bio, this);
   SSL_set_bio(ssl_, bio, bio);
-  /*
-   * Set the callback so that when an interest is received we catch it and we
-   * decrypt the payload before passing it to the application.
-   */
+
+  /* Set the callback so that when an interest is received we catch it and we
+   * decrypt the payload before passing it to the application.  */
   this->ProducerSocket::setSocketOption(
       ProducerCallbacksOptions::CACHE_MISS,
       (ProducerInterestCallback)std::bind(&TLSProducerSocket::cacheMiss, this,
                                           std::placeholders::_1,
                                           std::placeholders::_2));
+
   this->ProducerSocket::setSocketOption(
       ProducerCallbacksOptions::CONTENT_PRODUCED,
       (ProducerContentCallback)bind(
@@ -213,35 +220,40 @@ TLSProducerSocket::TLSProducerSocket(interface::ProducerSocket *producer_socket,
           std::placeholders::_2, std::placeholders::_3));
 }
 
-/*
- * The producer interface is not owned by the application, so is TLSSocket task
- * to deallocate the memory
- */
+/* The producer interface is not owned by the application, so is TLSSocket task
+ * to deallocate the memory */
 TLSProducerSocket::~TLSProducerSocket() { delete producer_interface_; }
 
 void TLSProducerSocket::accept() {
-  if (SSL_in_before(ssl_) || SSL_in_init(ssl_)) {
+  HandshakeState handshake_state = getHandshakeState();
+
+  if (handshake_state == UNINITIATED || handshake_state == CLIENT_HELLO) {
     tls_chunks_ = 1;
     int result = SSL_accept(ssl_);
+
     if (result != 1)
       throw errors::RuntimeException("Unable to perform client handshake");
   }
-  TRANSPORT_LOGD("Handshake performed!");
-  parent_->list_secure_producers.push_front(
-      std::move(parent_->map_secure_producers[handshake_name_]));
-  parent_->map_secure_producers.erase(handshake_name_);
 
-  ProducerInterestCallback on_interest_process_decrypted;
+  parent_->list_producers.push_front(
+      std::move(parent_->map_producers[handshake_name_]));
+  parent_->map_producers.erase(handshake_name_);
+
+  ProducerInterestCallback *on_interest_process_decrypted;
   getSocketOption(ProducerCallbacksOptions::CACHE_MISS,
-                  on_interest_process_decrypted);
+                  &on_interest_process_decrypted);
 
-  if (on_interest_process_decrypted) {
-    Interest inter(std::move(packet_));
-    on_interest_process_decrypted(*getInterface(), inter);
+  if (*on_interest_process_decrypted) {
+    Interest inter(std::move(*handshake_packet_));
+    handshake_packet_.reset();
+    on_interest_process_decrypted->operator()(*getInterface(), inter);
   } else {
     throw errors::RuntimeException(
-        "On interest process unset. Unable to perform handshake");
+        "On interest process unset: unable to perform handshake");
   }
+
+  handshake_state_ = SERVER_FINISHED;
+  TRANSPORT_LOGD("Handshake performed!");
 }
 
 int TLSProducerSocket::async_accept() {
@@ -249,87 +261,106 @@ int TLSProducerSocket::async_accept() {
     async_thread_.add([this]() { this->accept(); });
   } else {
     throw errors::RuntimeException(
-        "Async thread not running, impossible to perform handshake");
+        "Async thread not running: unable to perform handshake");
   }
 
   return 1;
 }
 
 void TLSProducerSocket::onInterest(ProducerSocket &p, Interest &interest) {
-  /* Based on the state machine of (D)TLS, we know what action to do */
-  if (SSL_in_before(ssl_) || SSL_in_init(ssl_)) {
+  HandshakeState handshake_state = getHandshakeState();
+
+  if (handshake_state == UNINITIATED || handshake_state == CLIENT_HELLO) {
     std::unique_lock<std::mutex> lck(mtx_);
+
     name_ = interest.getName();
-    something_to_read_ = true;
-    packet_ = interest.acquireMemBufReference();
-    if (head_) {
-      payload_->prependChain(interest.getPayload());
-    } else {
-      payload_ = interest.getPayload();  // std::move(interest.getPayload());
-    }
-    cv_.notify_one();
-  } else {
-    name_ = interest.getName();
-    packet_ = interest.acquireMemBufReference();
-    payload_ = interest.getPayload();
+    // interest.separateHeaderPayload();
+    handshake_packet_ = interest.acquireMemBufReference();
     something_to_read_ = true;
 
-    if (interest.getPayload()->length() > 0)
+    cv_.notify_one();
+    return;
+  } else if (handshake_state == SERVER_FINISHED) {
+    // interest.separateHeaderPayload();
+    handshake_packet_ = interest.acquireMemBufReference();
+    something_to_read_ = true;
+
+    if (interest.getPayload()->length() > 0) {
       SSL_read(
           ssl_,
           const_cast<unsigned char *>(interest.getPayload()->writableData()),
-          interest.getPayload()->length());
-  }
+          (int)interest.getPayload()->length());
+    }
 
-  ProducerInterestCallback on_interest_input_decrypted;
-  getSocketOption(ProducerCallbacksOptions::INTEREST_INPUT,
-                  on_interest_input_decrypted);
-  if (on_interest_input_decrypted)
-    (on_interest_input_decrypted)(*getInterface(), interest);
+    ProducerInterestCallback *on_interest_input_decrypted;
+    getSocketOption(ProducerCallbacksOptions::INTEREST_INPUT,
+                    &on_interest_input_decrypted);
+
+    if (*on_interest_input_decrypted)
+      (*on_interest_input_decrypted)(*getInterface(), interest);
+  }
 }
 
 void TLSProducerSocket::cacheMiss(interface::ProducerSocket &p,
                                   Interest &interest) {
-  if (SSL_in_before(ssl_) || SSL_in_init(ssl_)) {
+  HandshakeState handshake_state = getHandshakeState();
+
+  TRANSPORT_LOGD("On cache miss in TLS socket producer.");
+
+  if (handshake_state == CLIENT_HELLO) {
     std::unique_lock<std::mutex> lck(mtx_);
-    name_ = interest.getName();
+
+    // interest.separateHeaderPayload();
+    handshake_packet_ = interest.acquireMemBufReference();
     something_to_read_ = true;
-    packet_ = interest.acquireMemBufReference();
-    payload_ = interest.getPayload();
+    handshake_state_ = CLIENT_FINISHED;
+
     cv_.notify_one();
-  } else {
-    name_ = interest.getName();
-    packet_ = interest.acquireMemBufReference();
-    payload_ = interest.getPayload();
+  } else if (handshake_state == SERVER_FINISHED) {
+    // interest.separateHeaderPayload();
+    handshake_packet_ = interest.acquireMemBufReference();
     something_to_read_ = true;
 
-    if (interest.getPayload()->length() > 0)
+    if (interest.getPayload()->length() > 0) {
       SSL_read(
           ssl_,
           const_cast<unsigned char *>(interest.getPayload()->writableData()),
-          interest.getPayload()->length());
+          (int)interest.getPayload()->length());
+    }
 
     if (on_interest_process_decrypted_ != VOID_HANDLER)
       on_interest_process_decrypted_(*getInterface(), interest);
   }
 }
 
+TLSProducerSocket::HandshakeState TLSProducerSocket::getHandshakeState() {
+  if (SSL_in_before(ssl_)) {
+    handshake_state_ = UNINITIATED;
+  }
+
+  if (SSL_in_init(ssl_) && handshake_state_ == UNINITIATED) {
+    handshake_state_ = CLIENT_HELLO;
+  }
+
+  return handshake_state_;
+}
+
 void TLSProducerSocket::onContentProduced(interface::ProducerSocket &p,
                                           const std::error_code &err,
                                           uint64_t bytes_written) {}
 
-uint32_t TLSProducerSocket::produce(Name content_name,
-                                    std::unique_ptr<utils::MemBuf> &&buffer,
-                                    bool is_last, uint32_t start_offset) {
-  if (SSL_in_before(ssl_) || SSL_in_init(ssl_)) {
+uint32_t TLSProducerSocket::produceStream(
+    const Name &content_name, std::unique_ptr<utils::MemBuf> &&buffer,
+    bool is_last, uint32_t start_offset) {
+  if (getHandshakeState() != SERVER_FINISHED) {
     throw errors::RuntimeException(
         "New handshake on the same P2P secure producer socket not supported");
   }
-  size_t buf_size = buffer->length();
-  name_ = served_namespaces_.front().mapName(content_name);
 
+  size_t buf_size = buffer->length();
+  name_ = production_protocol_->getNamespaces().front().mapName(content_name);
   tls_chunks_ = to_call_oncontentproduced_ =
-      ceil((float)buf_size / (float)SSL3_RT_MAX_PLAIN_LENGTH);
+      (int)ceil((float)buf_size / (float)SSL3_RT_MAX_PLAIN_LENGTH);
 
   if (!is_last) {
     tls_chunks_++;
@@ -337,7 +368,7 @@ uint32_t TLSProducerSocket::produce(Name content_name,
 
   last_segment_ = start_offset;
 
-  SSL_write(ssl_, buffer->data(), buf_size);
+  SSL_write(ssl_, buffer->data(), (int)buf_size);
   BIO *wbio = SSL_get_wbio(ssl_);
   int i = BIO_flush(wbio);
   (void)i;  // To shut up gcc 5
@@ -345,49 +376,10 @@ uint32_t TLSProducerSocket::produce(Name content_name,
   return 0;
 }
 
-void TLSProducerSocket::asyncProduce(const Name &content_name,
-                                     const uint8_t *buf, size_t buffer_size,
-                                     bool is_last, uint32_t *start_offset) {
-  if (!encryption_thread_.stopped()) {
-    encryption_thread_.add([this, content_name, buffer = buf,
-                            size = buffer_size, is_last, start_offset]() {
-      if (start_offset != NULL) {
-        produce(content_name, buffer, size, is_last, *start_offset);
-      } else {
-        produce(content_name, buffer, size, is_last, 0);
-      }
-    });
-  }
-}
-
-void TLSProducerSocket::asyncProduce(Name content_name,
-                                     std::unique_ptr<utils::MemBuf> &&buffer,
-                                     bool is_last, uint32_t offset,
-                                     uint32_t **last_segment) {
-  if (!encryption_thread_.stopped()) {
-    auto a = buffer.release();
-    encryption_thread_.add(
-        [this, content_name, a, is_last, offset, last_segment]() {
-          auto buf = std::unique_ptr<utils::MemBuf>(a);
-          if (last_segment != NULL) {
-            *last_segment = &last_segment_;
-          }
-          produce(content_name, std::move(buf), is_last, offset);
-        });
-  }
-}
-
-void TLSProducerSocket::asyncProduce(ContentObject &content_object) {
-  throw errors::RuntimeException("API not supported");
-}
-
-void TLSProducerSocket::produce(ContentObject &content_object) {
-  throw errors::RuntimeException("API not supported");
-}
-
 long TLSProducerSocket::ctrl(BIO *b, int cmd, long num, void *ptr) {
   if (cmd == BIO_CTRL_FLUSH) {
   }
+
   return 1;
 }
 
@@ -397,13 +389,15 @@ int TLSProducerSocket::addHicnKeyIdCb(SSL *s, unsigned int ext_type,
                                       X509 *x, size_t chainidx, int *al,
                                       void *add_arg) {
   TLSProducerSocket *socket = reinterpret_cast<TLSProducerSocket *>(add_arg);
+
+  TRANSPORT_LOGD("On addHicnKeyIdCb, for the prefix registration.");
+
   if (ext_type == 100) {
-    ip_prefix_t ip_prefix =
-        socket->parent_->served_namespaces_.front().toIpPrefixStruct();
-    int inet_family =
-        socket->parent_->served_namespaces_.front().getAddressFamily();
-    uint16_t prefix_len_bits =
-        socket->parent_->served_namespaces_.front().getPrefixLength();
+    auto &prefix =
+        socket->parent_->production_protocol_->getNamespaces().front();
+    const ip_prefix_t &ip_prefix = prefix.toIpPrefixStruct();
+    int inet_family = prefix.getAddressFamily();
+    uint16_t prefix_len_bits = prefix.getPrefixLength();
     uint8_t prefix_len_bytes = prefix_len_bits / 8;
     uint8_t prefix_len_u32 = prefix_len_bits / 32;
 
@@ -425,6 +419,7 @@ int TLSProducerSocket::addHicnKeyIdCb(SSL *s, unsigned int ext_type,
     ip_address_t keyId_component = {};
     u32 *mask_buf;
     u32 *keyId_component_buf;
+
     switch (inet_family) {
       case AF_INET:
         mask_buf = &(mask.v4.as_u32);
@@ -451,10 +446,9 @@ int TLSProducerSocket::addHicnKeyIdCb(SSL *s, unsigned int ext_type,
         socket->parent_->on_interest_process_decrypted_;
 
     socket->registerPrefix(
-        Prefix(socket->parent_->served_namespaces_.front().getName(
-                   Name(inet_family, (uint8_t *)&mask),
-                   Name(inet_family, (uint8_t *)&keyId_component),
-                   socket->parent_->served_namespaces_.front().getName()),
+        Prefix(prefix.getName(Name(inet_family, (uint8_t *)&mask),
+                              Name(inet_family, (uint8_t *)&keyId_component),
+                              prefix.getName()),
                out_ip->len));
     socket->connect();
   }
@@ -483,6 +477,7 @@ int TLSProducerSocket::setSocketOption(
       [this](int socket_option_key,
              ProducerInterestCallback socket_option_value) -> int {
         int result = SOCKET_OPTION_SET;
+
         switch (socket_option_key) {
           case ProducerCallbacksOptions::INTEREST_INPUT:
             on_interest_input_decrypted_ = socket_option_value;
@@ -508,6 +503,7 @@ int TLSProducerSocket::setSocketOption(
             result = SOCKET_OPTION_NOT_SET;
             break;
         }
+
         return result;
       });
 }
@@ -550,62 +546,5 @@ int TLSProducerSocket::getSocketOption(
       });
 }
 
-int TLSProducerSocket::getSocketOption(
-    int socket_option_key, ProducerContentCallback &socket_option_value) {
-  return rescheduleOnIOServiceWithReference(
-      socket_option_key, socket_option_value,
-      [this](int socket_option_key,
-             ProducerContentCallback &socket_option_value) -> int {
-        switch (socket_option_key) {
-          case ProducerCallbacksOptions::CONTENT_PRODUCED:
-            socket_option_value = on_content_produced_application_;
-            break;
-
-          default:
-            return SOCKET_OPTION_NOT_GET;
-        }
-
-        return SOCKET_OPTION_GET;
-      });
-}
-
-int TLSProducerSocket::getSocketOption(
-    int socket_option_key, ProducerInterestCallback &socket_option_value) {
-  // Reschedule the function on the io_service to avoid race condition in case
-  // setSocketOption is called while the io_service is running.
-  return rescheduleOnIOServiceWithReference(
-      socket_option_key, socket_option_value,
-      [this](int socket_option_key,
-             ProducerInterestCallback &socket_option_value) -> int {
-        switch (socket_option_key) {
-          case ProducerCallbacksOptions::INTEREST_INPUT:
-            socket_option_value = on_interest_input_decrypted_;
-            break;
-
-          case ProducerCallbacksOptions::INTEREST_DROP:
-            socket_option_value = on_interest_dropped_input_buffer_;
-            break;
-
-          case ProducerCallbacksOptions::INTEREST_PASS:
-            socket_option_value = on_interest_inserted_input_buffer_;
-            break;
-
-          case ProducerCallbacksOptions::CACHE_HIT:
-            socket_option_value = on_interest_satisfied_output_buffer_;
-            break;
-
-          case ProducerCallbacksOptions::CACHE_MISS:
-            socket_option_value = on_interest_process_decrypted_;
-            break;
-
-          default:
-            return SOCKET_OPTION_NOT_GET;
-        }
-
-        return SOCKET_OPTION_GET;
-      });
-}
-
 }  // namespace implementation
-
 }  // namespace transport

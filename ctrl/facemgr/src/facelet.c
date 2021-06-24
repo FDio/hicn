@@ -356,8 +356,10 @@ facelet_create_from_face(face_t * face)
     facelet->error = 0;
 
     /* TODO Consistency check between face type and found attributes */
-    if (facelet_validate_face(facelet) < 0)
+    if (facelet_validate_face(facelet) < 0) {
+        ERROR("[facelet_create_from_face] Cannot validate face");
         goto ERR_FACE;
+    }
 
     facelet->bj_done = false;
     facelet->au_done = false;
@@ -367,7 +369,7 @@ facelet_create_from_face(face_t * face)
     /* We need to get route set */
     facelet->routes = route_set_create();
     if (!facelet->routes) {
-        ERROR("[facelet_create] Cannot create route set");
+        ERROR("[facelet_create_from_face] Cannot create route set");
         goto ERR_ROUTE_SET;
     }
     facelet->routes_done = false;

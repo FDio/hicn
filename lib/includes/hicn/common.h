@@ -104,6 +104,9 @@ typedef uword ip_csum_t;
 
  /* Windows compatibility headers */
 #define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2ipdef.h>
@@ -143,7 +146,16 @@ struct iovec
 
 #include <vnet/ip/ip4_packet.h>	// ip4_address_t
 #include <vnet/ip/ip6_packet.h>	// ip6_address_t
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#endif
+
 #include <vnet/ip/ip46_address.h>
+
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
 
 #else
 
@@ -250,7 +262,7 @@ u32 cumulative_hash32 (const void *data, size_t len, u32 lastValue);
 u32 hash32 (const void *data, size_t len);
 u64 cumulative_hash64 (const void *data, size_t len, u64 lastValue);
 u64 hash64 (const void *data, size_t len);
-void hicn_packet_dump (uint8_t * buffer, size_t len);
+void hicn_packet_dump (const uint8_t * buffer, size_t len);
 
 #endif /* ! HICN_VPP_PLUGIN */
 

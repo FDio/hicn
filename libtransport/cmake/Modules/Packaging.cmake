@@ -32,22 +32,22 @@ set(lib${LIBTRANSPORT}-devel_DESCRIPTION ${lib${LIBTRANSPORT}_DESCRIPTION}
 if ((BUILD_MEMIF_CONNECTOR OR BUILD_HICNPLUGIN) AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
 
   set(lib${LIBTRANSPORT}_DEB_DEPENDENCIES
-    "lib${LIBHICN} (>= stable_version), libparc (>= 1.0), libmemif (>= stable_version), vpp (>= stable_version-release), vpp (<< next_version-release), libhicnctrl-memif (>= stable_version-release), libhicnctrl-memif (<< next_version-release)"
+    "lib${LIBHICN} (>= stable_version), libparc (>= 1.0), libmemif (>= stable_version), vpp (>= stable_version-release), vpp (<< next_version-release), hicn-plugin (>= stable_version)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}_RPM_DEPENDENCIES
-    "lib${LIBHICN} >= stable_version, libparc >= 1.0, libmemif >= stable_version, vpp >= stable_version-release, vpp < next_version-release, libhicnctrl-memif >= stable_version-release, libhicnctrl-memif < stable_version-release"
+    "lib${LIBHICN} >= stable_version, libparc >= 1.0, libmemif >= stable_version, vpp >= stable_version-release, vpp < next_version-release, hicn-plugin >= stable_version"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}-dev_DEB_DEPENDENCIES
-    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), libhicn-dev (>= stable_version), libmemif-dev (>= stable_version), libparc-dev (>= 1.0), vpp-dev (>= stable_version-release), vpp-dev (<< next_version-release), hicn-plugin-dev (>= stable_version-release), hicn-plugin-dev (<< next_version-release)"
+    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), libhicn-dev (>= stable_version), libmemif-dev (>= stable_version), libparc-dev (>= 1.0), vpp-dev (>= stable_version-release), vpp-dev (<< next_version-release), hicn-plugin-dev (>= stable_version)"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 
   set(lib${LIBTRANSPORT}-dev_RPM_DEPENDENCIES
-    "lib${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libmemif-devel >= stable_version, libparc-devel >= 1.0, vpp-devel >= stable_version-release, vpp-devel < next_version-release, hicn-plugin-dev >= stable_version-release, hicn-plugin-dev < next_version-release"
+    "lib${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libmemif-devel >= stable_version, libparc-devel >= 1.0, vpp-devel >= stable_version-release, vpp-devel < next_version-release, hicn-plugin-dev >= stable_version"
     CACHE STRING "Dependencies for deb/rpm package."
   )
 

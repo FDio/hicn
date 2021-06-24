@@ -42,7 +42,6 @@
 #include "msgbuf.h"
 #include "nexthops.h"
 #include "prefix_stats.h"
-//#include "../utils/commands.h" // strategy type
 
 typedef struct {
   Name *name;
@@ -53,7 +52,7 @@ typedef struct {
   const void * forwarder;
 
 #ifdef WITH_POLICY
-  policy_t policy;
+  hicn_policy_t policy;
 #endif /* WITH_POLICY */
 
   prefix_counters_t prefix_counters;
@@ -114,9 +113,9 @@ void fib_entry_on_data(fib_entry_t * fib_entry, const nexthops_t * nexthops,
         Ticks data_reception);
 
 #ifdef WITH_POLICY
-policy_t fib_entry_get_policy(const fib_entry_t *fib_entry);
+hicn_policy_t fib_entry_get_policy(const fib_entry_t *fib_entry);
 void fib_entry_reconsider_policy(fib_entry_t *fib_entry);
-void fib_entry_set_policy(fib_entry_t *fib_entry, policy_t policy);
+void fib_entry_set_policy(fib_entry_t *fib_entry, hicn_policy_t policy);
 void fib_entry_update_stats(fib_entry_t *fib_entry, uint64_t now);
 #endif /* WITH_POLICY */
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,6 +20,17 @@
 #include <vnet/vnet.h>
 
 #include "pcs.h"
+
+/**
+ * @file interest_hitpit.h
+ *
+ * This is the node encoutered by interest packets after the hicn-interest-pcslookup.
+ * This node aggregates an interest in the PIT or forward it in case of a retransmission.
+ * If the interest must be retransmitted the next vlib node will be on of the
+ * hicn6-face-output or hicn4-face-output nodes. If the pit entry is expired the next vlib node
+ * will be the hicn-strategy node, otherwise the vlib buffer is dropped.
+ */
+
 
 /*
  * Node context data; we think this is per-thread/instance
@@ -42,6 +53,8 @@ typedef enum
 {
   HICN_INTEREST_HITPIT_NEXT_INTEREST_HITCS,
   HICN_INTEREST_HITPIT_NEXT_STRATEGY,
+  HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT,
+  HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT,
   HICN_INTEREST_HITPIT_NEXT_ERROR_DROP,
   HICN_INTEREST_HITPIT_N_NEXT,
 } hicn_interest_hitpit_next_t;

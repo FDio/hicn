@@ -24,16 +24,17 @@
  * Error definitions
  ******************************************************************************/
 
-#define foreach_libhicn_error                                                   \
-_(NONE,                 0,      "OK")                                           \
-_(UNSPECIFIED,          128,    "Unspecified Error")                            \
-_(NOT_IMPLEMENTED,      180,    "Function not yet implemented")                 \
-_(NOT_HICN,             202,    "Non hICN packet")                              \
-_(UNKNOWN_ADDRESS,      210,    "Unknown address")                              \
-_(INVALID_PARAMETER,    220,    "Invalid parameter")                            \
-_(INVALID_IP_ADDRESS,   221,    "Invalid IP address")                           \
-_(CORRUPTED_PACKET,     222,    "Corrupted packet ")                            \
-_(UNEXPECTED,           298,    "Unexpected error")
+#define foreach_libhicn_error                                                   		\
+_(NONE,                 	0,      "OK")                                           	\
+_(UNSPECIFIED,          	128,    "Unspecified Error")                            	\
+_(NOT_IMPLEMENTED,      	180,    "Function not yet implemented")                 	\
+_(NOT_HICN,             	202,    "Non hICN packet")                              	\
+_(UNKNOWN_ADDRESS,      	210,    "Unknown address")                              	\
+_(INVALID_PARAMETER,    	220,    "Invalid parameter")                            	\
+_(INVALID_IP_ADDRESS,   	221,    "Invalid IP address")                           	\
+_(CORRUPTED_PACKET,     	222,    "Corrupted packet ")                            	\
+_(REWRITE_CKSUM_REQUIRED,	223,    "Incremental csum calculation error: cksum required.")	\
+_(UNEXPECTED,           	298,    "Unexpected error")
 
 typedef enum
 {

@@ -13,31 +13,24 @@
  * limitations under the License.
  */
 
-#if !HAVE_CONFIG_H
-#include <stdlib.h>
-#include <string.h>
-
-#ifndef __USE_ISOC99 /* required for NAN */
-#define DISABLE_ISOC99 1
-#define __USE_ISOC99 1
-#endif /* !defined(__USE_ISOC99) */
-
-#if DISABLE_ISOC99
-#undef DISABLE_ISOC99
-#undef __USE_ISOC99
-#endif /* DISABLE_ISOC99 */
-#endif /* ! HAVE_CONFIG */
-
 /* Keep order as it is */
 #include <config.h>
 #include <collectd.h>
-#include <common.h>
 #include <plugin.h>
 
 #define counter_t vpp_counter_t
 #include <vpp-api/client/stat_client.h>
 #include <vppinfra/vec.h>
 #undef counter_t
+
+#define STATIC_ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
+
+#define IS_TRUE(s)                                                             \
+  ((strcasecmp("true", (s)) == 0) || (strcasecmp("yes", (s)) == 0) ||          \
+   (strcasecmp("on", (s)) == 0))
+#define IS_FALSE(s)                                                            \
+  ((strcasecmp("false", (s)) == 0) || (strcasecmp("no", (s)) == 0) ||          \
+   (strcasecmp("off", (s)) == 0))
 
 /************** OPTIONS ***********************************/
 static const char *config_keys[2] = {
@@ -164,6 +157,11 @@ static data_set_t if_tx_broadcast_ds = {
 /**********************************************************/
 /********** UTILITY FUNCTIONS *****************************/
 /**********************************************************/
+char *sstrncpy(char *dest, const char *src, size_t n) {
+  strncpy(dest, src, n);
+  dest[n - 1] = '\0';
+  return dest;
+}
 
 /*
  * Utility function used by the read callback to populate a
@@ -274,6 +272,9 @@ static int vpp_config(const char *key, const char *value) {
  * This function is called once upon startup to initialize the plugin.
  */
 static int vpp_init(void) {
+  /* Create a heap of 64MB */
+  clib_mem_init(0, 64ULL << 20);
+
   u8 *stat_segment_name = (u8 *)STAT_SEGMENT_SOCKET_FILE;
   int ret = stat_segment_connect((char *)stat_segment_name);
 
@@ -291,7 +292,6 @@ static int vpp_read(void) {
   char **interfaces = {0};
 
   vec_add1(patterns, (uint8_t *)"^/if");
-  vec_add1(patterns, (uint8_t *)"ip4-input");
 
   uint32_t *dir = stat_segment_ls(patterns);
   stat_segment_data_t *res = stat_segment_dump(dir);
@@ -300,9 +300,7 @@ static int vpp_read(void) {
   for (int k = 0; k < vec_len(res); k++) {
     if (res[k].type == STAT_DIR_TYPE_NAME_VECTOR) {
       for (int i = 0; i < vec_len(res[k].name_vector); i++) {
-        if (res[k].name_vector[i]) {
-          vec_add1(interfaces, (char *)res[k].name_vector[i]);
-        }
+        vec_add1(interfaces, (char *)res[k].name_vector[i]);
       }
       break;
     }
@@ -318,12 +316,16 @@ static int vpp_read(void) {
     case STAT_DIR_TYPE_COUNTER_VECTOR_SIMPLE:
       for (int k = 0; k < vec_len(res[i].simple_counter_vec); k++) {
         for (int j = 0; j < vec_len(res[i].simple_counter_vec[k]); j++) {
-          value_t values[1] = {
-              (value_t){.derive = res[i].simple_counter_vec[k][j]}};
+          if (!interfaces[j]) {
+            continue;
+          }
 
           if (get_data_set(res[i].name, &data_set)) {
             continue;
           }
+
+          value_t values[1] = {
+              (value_t){.derive = res[i].simple_counter_vec[k][j]}};
 
           err = submit(interfaces[j], data_set.type, values, 1, &timestamp);
 
@@ -336,14 +338,18 @@ static int vpp_read(void) {
     case STAT_DIR_TYPE_COUNTER_VECTOR_COMBINED:
       for (int k = 0; k < vec_len(res[i].combined_counter_vec); k++) {
         for (int j = 0; j < vec_len(res[i].combined_counter_vec[k]); j++) {
-          value_t values[2] = {
-              (value_t){.derive = res[i].combined_counter_vec[k][j].packets},
-              (value_t){.derive = res[i].combined_counter_vec[k][j].bytes},
-          };
+          if (!interfaces[j]) {
+            continue;
+          }
 
           if (get_data_set(res[i].name, &data_set)) {
             continue;
           }
+
+          value_t values[2] = {
+              (value_t){.derive = res[i].combined_counter_vec[k][j].packets},
+              (value_t){.derive = res[i].combined_counter_vec[k][j].bytes},
+          };
 
           err = submit(interfaces[j], data_set.type, values, 2, &timestamp);
 

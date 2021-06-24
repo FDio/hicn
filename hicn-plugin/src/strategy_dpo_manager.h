@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2020 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,10 +20,26 @@
 #include "strategy.h"
 
 /**
+ * @file strategy_dpo_manager.h
+ *
+ * This file implements structs and helper functions to manipulate hICN dpo.
+ * An hICN DPO is a combination of:
+ *   - a hICN DPO ctx (context) that holds the structure containing the
+ *     information to choose the next hop,
+ *   - a dpo vft that specify how to update the hICN DPO ctx when a next hop is
+ *     added, deleted or updated,
+ *   - a strategy containing (see strategy.h): (i) the vpp node that processes Interest packets
+ *     subjected to such strategy, (ii) the definition of the vft that defines
+ *     the hICN strategy functions
+ * An hICN DPO is places as the sole next hop in the vpp loadbalancer, and it containes
+ * a list of next hops that will be used by the associated strategy when forwarding
+ * interest packets.
+ */
+
+/**
  * @brief Definition of the virtual function table for a hICN DPO.
  *
- * An hICN dpo is a combination of a dpo context (hicn_dpo_ctx or struct that
- * extends a hicn_dpo_ctx) and a strategy node. The following virtual function table
+ * The following virtual function table
  * template that glues together the fuction to interact with the context and the
  * creating the dpo
  */
@@ -35,8 +51,8 @@ typedef struct hicn_dpo_vft_s
     dpo_type_t (*hicn_dpo_get_type) (void);
 	/**< Return the type of the hICN dpo */
   void (*hicn_dpo_module_init) (void);			/**< Initialize the hICN dpo */
-  void (*hicn_dpo_create) (dpo_proto_t proto, const dpo_id_t * nh, int nh_len, index_t * dpo_idx);			/**< Create the context of the hICN dpo */
-  int (*hicn_dpo_add_update_nh) (const dpo_id_t * nh, index_t dpo_idx);				/**< Add a next hop to the hICN dpo context */
+  void (*hicn_dpo_create) (fib_protocol_t proto, const hicn_face_id_t * nh, int nh_len, index_t * dpo_idx);			/**< Create the context of the hICN dpo */
+  int (*hicn_dpo_add_update_nh) (hicn_face_id_t nh, index_t dpo_idx);				/**< Add a next hop to the hICN dpo context */
   int (*hicn_dpo_del_nh) (hicn_face_id_t face_id, index_t dpo_idx);
   u8 *(*hicn_dpo_format) (u8 * s, int, ...);
 	/**< Format an hICN dpo*/
@@ -48,37 +64,18 @@ typedef struct hicn_dpo_vft_s
  */
 extern hicn_dpo_vft_t default_dpo;
 
-const static char *const hicn_ip6_nodes[] = {
-  "hicn-iface-ip6-input",	// this is the name you give your node in VLIB_REGISTER_NODE
-  NULL,
-};
-
-const static char *const hicn_ip4_nodes[] = {
-  "hicn-iface-ip4-input",	// this is the name you give your node in VLIB_REGISTER_NODE
-  NULL,
-};
-
-const static char *const *const hicn_nodes_strategy[DPO_PROTO_NUM] = {
-  [DPO_PROTO_IP6] = hicn_ip6_nodes,
-  [DPO_PROTO_IP4] = hicn_ip4_nodes,
-};
-
 /**
  *  @brief Register a new hICN dpo to the manager.
  *
- *  An hICN DPO is a combination of:
- *   - a hICN DPO ctx (context) that holds the structure containing the
- *     information to choose the next hop,
- *   - a strategy containing: (i) the vpp node that processes Interest packets
- *     subjected to such strategy, (ii) the definition of the vft that defines
- *     the hICN strategy functions
- *  Registering a hICN DPO allows the plugin to be aware of the new dpo an be
- *  able to apply it to the FIB entries.
+ * Registering a hICN DPO allows the plugin to be aware of the new dpo an be
+ * able to apply it to the FIB entries.
  *
  * @param hicn_nodes A list of vpp to which pass an interest that matches with
  * the FIB entry to which the hICN DPO is applied. This list must contain the
  * name of the strategy node (or nodes in case of differentiation between IPv4
- * and IPv6).
+ * and IPv6). Unless really needed otherwise (i.e., different implementation of
+ * iface input), the list of node to use should be one provided in the strategy.h
+ * (hicn_nodes_strategy)
  * @param hicn_dpo_vft The structure holding the virtual function table to
  * interact with the hICN dpo and its context.
  * @param hicn_strategy_vft The structure holding the virtual function table

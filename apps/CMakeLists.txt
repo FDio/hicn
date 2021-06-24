@@ -29,15 +29,19 @@ set(HICN_APPS hicn-apps CACHE INTERNAL "" FORCE)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
+  find_package(hicnctrl REQUIRED)
   find_package(Threads REQUIRED)
-  include_directories(${LIBTRANSPORT_INCLUDE_DIRS})
 else()
-  if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
+  if (DISABLE_SHARED_LIBRARIES)
     find_package(OpenSSL REQUIRED)
-    find_package(ZLIB REQUIRED)
+    if (NOT WIN32)
+      find_package(ZLIB REQUIRED)
+    endif ()
     set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_STATIC})
+    set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_STATIC})
   else ()
     set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
+    set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_SHARED})
   endif ()
 
   list(APPEND DEPENDENCIES
@@ -45,21 +49,19 @@ else()
   )
 endif()
 
-set(SUFFIX "")
-if (${LIBTRANSPORT_LIBRARIES} MATCHES ".*-memif.*")
-  set(DEPENDENCIES ${LIBMEMIF_SHARED})
-  set(SUFFIX "-memif")
+# Worksroung for unresolved symbols in vpp libraries
+if(${CMAKE_SYSTEM_NAME} MATCHES Linux)
   set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
 endif()
 
-set(HICN_APPS "${HICN_APPS}${SUFFIX}")
-
 list(APPEND LIBRARIES
   ${LIBTRANSPORT_LIBRARIES}
+  ${LIBHICNCTRL_LIBRARIES}
   ${OPENSSL_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
 )
 
+set(APPS_LIBRARY_LIST "${OPENSSL_LIBRARIES};${CMAKE_THREAD_LIBS_INIT}" CACHE INTERNAL "APPS_LIBRARY_LIST")
 if (WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
 endif ()
@@ -68,6 +70,7 @@ include(Packaging)
 
 set(HIGET higet)
 set(HTTP_PROXY hicn-http-proxy)
-
-add_subdirectory(http-proxy)
+if (NOT WIN32)
+  add_subdirectory(http-proxy)
+endif ()
 add_subdirectory(higet)

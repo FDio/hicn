@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 
 # Cmake find modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../../cmake/Modules"
@@ -31,11 +31,13 @@ set(SOURCE_FILES
 list(APPEND SYSREPO_PLUGIN_INCLUDE_DIRS
     ${VPP_INCLUDE_DIRS}
     ${HICNPLUGIN_INCLUDE_DIRS}
+    ${SYSREPO_INCLUDE_DIRS}
 )
 
 list(APPEND LIBRARIES
     ${SYSREPO_LIBRARIES}
-    ${VPP_LIBRARIES})
+    ${VPP_LIBRARIES}
+)
 
 build_library(sysrepohicn
     SHARED
