@@ -39,7 +39,10 @@ listener_create(face_type_t type, const address_t * address,
         .type = type,
         .address = *address,
     };
-    listener_table_allocate(table, listener, &key, name);
+    listener_table_allocate(table, listener, &key, strdup(name));
+    WITH_DEBUG(
+        listener_table_print(table);
+    )
 
     unsigned listener_id = listener_table_get_listener_id(table, listener);
 
@@ -376,13 +379,6 @@ listener_setup_all(const forwarder_t * forwarder, uint16_t port, const char *loc
 void
 listener_setup_local_ipv4(forwarder_t * forwarder,  uint16_t port)
 {
-#if 0
-    // XXX memset
-    address_t address = ADDRESS4_LOCALHOST(port);
-
-    _setupUdpListener(forwarder, "lo_udp", &address, "lo");
-    _setupTcpListener(forwarder, "lo_tcp", &address, "lo");
-#endif
     address_t address;
     memset(&address, 0, sizeof(address_t));
     address = ADDRESS4_LOCALHOST(port);

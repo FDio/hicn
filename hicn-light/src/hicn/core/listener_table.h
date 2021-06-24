@@ -253,6 +253,9 @@ listener_t * listener_table_get_by_name(listener_table_t * table,
  */
 void listener_table_remove_by_id(listener_table_t * table, off_t id);
 
-unsigned listener_table_add(listener_table_t * table, listener_t * listener);
+// TODO: not implemented yet
+unsigned listener_table_add(const listener_table_t * table, listener_t * listener);
+
+void listener_table_print(const listener_table_t *table);
 
 #endif /* HICNLIGHT_LISTENER_TABLE_H */

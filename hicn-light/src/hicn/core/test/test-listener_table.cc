@@ -14,6 +14,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +30,7 @@ extern "C" {
 }
 
 #define LISTENER_NAME "listener_name_test"
+#define LISTENER_NAME_2 "listener_name_test_2"
 
 class ListenerTableTest : public ::testing::Test {
 protected:
@@ -140,6 +142,48 @@ TEST_F(ListenerTableTest, RemoveListener)
     EXPECT_EQ(listener_not_found, nullptr);
     listener_not_found = listener_table_get_by_address(listener_table, key.type, &key.address);
     EXPECT_EQ(listener_not_found, nullptr);
+}
+
+TEST_F(ListenerTableTest, PrintTable)
+{
+    listener_table_allocate(listener_table, listener, &key, LISTENER_NAME);
+
+    listener_t *listener_2;
+    listener_key_t key_2 = {
+        .address = _ADDRESS4_LOCALHOST(2),
+        .type = FACE_TYPE_TCP
+    };
+    listener_table_allocate(listener_table, listener_2, &key_2, LISTENER_NAME_2);
+
+    testing::internal::CaptureStdout();
+    listener_table_print(listener_table);
+    std::string std_out = testing::internal::GetCapturedStdout();
+
+    ASSERT_NE(std_out, "");
+    EXPECT_THAT(std_out, testing::HasSubstr(LISTENER_NAME));
+    EXPECT_THAT(std_out, testing::HasSubstr(LISTENER_NAME_2));
+}
+
+TEST_F(ListenerTableTest, AddMultipleListeners)
+{
+    listener_table_allocate(listener_table, listener, &key, LISTENER_NAME);
+
+    listener_t *listener_2;
+    listener_key_t key_2 = {
+        .address = _ADDRESS4_LOCALHOST(2),
+        .type = FACE_TYPE_TCP
+    };
+    listener_table_allocate(listener_table, listener_2, &key_2, "listener_name_test_2");
+
+    // Check listener table size
+    size_t listener_table_size = listener_table_len(listener_table);
+    EXPECT_EQ(listener_table_size, (size_t) 2);
+
+    listener_t *l1 = listener_table_get_by_name(listener_table, LISTENER_NAME);
+    ASSERT_NE(l1, nullptr);
+    listener_t *l2 = listener_table_get_by_name(listener_table, LISTENER_NAME_2);
+    ASSERT_NE(l2, nullptr);
+    EXPECT_NE(l1, l2);
 }
 
 int main(int argc, char **argv)

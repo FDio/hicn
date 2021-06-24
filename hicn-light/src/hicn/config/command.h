@@ -13,7 +13,7 @@
 
 /* Update sscanf accordingly in parse_cmd.c */
 #define MAX_PARAMETERS 10
-#define MAX_SCANF_PARAM_LEN 10
+#define MAX_SCANF_PARAM_LEN 100
 
 typedef int (*parser_hook_t)(void * arg);
 
@@ -126,7 +126,7 @@ typedef struct {
     },                                                          \
 }
 /* We need to allocate room for the intermediate string */
-#define TYPE_FMT_ENUM "%ms"
+#define TYPE_FMT_ENUM "%s"
 
 #define TYPE_POLICY_STATE(TAG) (parser_type_t) {                \
     .name = TYPENAME_POLICY_STATE,                              \
@@ -135,7 +135,7 @@ typedef struct {
     },                                                          \
 }
 /* We need to allocate room for the intermediate string */
-#define TYPE_FMT_POLICY_STATE "%ms"
+#define TYPE_FMT_POLICY_STATE "%s"
 
 /**
  * \brief Register a protocol

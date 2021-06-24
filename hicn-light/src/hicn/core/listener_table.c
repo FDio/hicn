@@ -108,3 +108,13 @@ listener_table_get_by_name(listener_table_t * table, const char * name)
 listener_t *_listener_table_get_by_id(listener_table_t *table, off_t id) {
     return listener_table_get_by_id(table, id);
 }
+
+void listener_table_print(const listener_table_t *table) {
+  const char *k;
+  unsigned v;
+
+  printf("*** Listener table ***\n");
+  kh_foreach(table->id_by_name, k, v, {
+    printf("%s:\t%u\n", k, v);
+  })
+}

@@ -198,8 +198,10 @@ configuration_on_listener_add(configuration_t * config, uint8_t * packet,
 
     /* Verify that the listener DOES NOT exist */
     listener_t * listener = listener_table_get_by_name(table, control->symbolic);
-    if (listener)
+    if (listener) {
+        DEBUG("Listener %s already exists", control->symbolic);
         goto NACK;
+    }
 
     address_t address;
     if (address_from_ip_port(&address, control->family, &control->address,
@@ -384,10 +386,9 @@ configuration_on_connection_add(configuration_t * config, uint8_t * packet,
 
     const char *symbolic_name = control->symbolic;
 
-    face_type_t face_type;
-    if (!face_type_is_defined(control->type))
+    face_type_t face_type = get_face_type_from_listener_type((hc_connection_type_t) control->type);
+    if (!face_type_is_defined(face_type))
         goto NACK;
-    face_type = (face_type_t)control->type;
 
     connection_table_t * table = forwarder_get_connection_table(config->forwarder);
     if (connection_table_get_by_name(table, symbolic_name)) {
