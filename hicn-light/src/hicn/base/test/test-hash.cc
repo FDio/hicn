@@ -25,30 +25,84 @@
 
 extern "C" {
 #include <hicn/base/hash.h>
+#include <hicn/core/address_pair.h>
 }
 
-class HashTest : public ::testing::Test {
- protected:
-  HashTest() {
-  }
+TEST(HashTest, MultipleHashesForSameAddrPair)
+{
+  address_pair_t pair = {
+    .local = _ADDRESS4_LOCALHOST(1),
+    .remote = _ADDRESS4_LOCALHOST(2)
+  };
 
-  virtual ~HashTest() {
-    // You can do clean-up work that doesn't throw exceptions here.
-  }
+  unsigned h1 = hash_struct(&pair);
+  unsigned h2 = hash_struct(&pair);
+  EXPECT_EQ(h1, h2);
+}
 
-  // If the constructor and destructor are not enough for setting up
-  // and cleaning up each test, you can define the following methods:
+TEST(HashTest, SameAddrPairs)
+{
+  address_pair_t pair1 = {
+    .local = _ADDRESS4_LOCALHOST(1),
+    .remote = _ADDRESS4_LOCALHOST(2)
+  };
+  address_pair_t pair2 = pair1;
 
-  virtual void SetUp() {
-    // Code here will be called immediately after the constructor (right
-    // before each test).
-  }
+  unsigned h1 = hash_struct(&pair1);
+  unsigned h2 = hash_struct(&pair2);
+  EXPECT_EQ(h1, h2);
+}
 
-  virtual void TearDown() {
-    // Code here will be called immediately after each test (right
-    // before the destructor).
-  }
-};
+TEST(HashTest, DifferentAddrPairs)
+{
+  address_pair_t pair1 = {
+    .local = _ADDRESS4_LOCALHOST(1),
+    .remote = _ADDRESS4_LOCALHOST(2)
+  };
+
+  address_pair_t pair2 = {
+    .local = _ADDRESS4_LOCALHOST(3),
+    .remote = _ADDRESS4_LOCALHOST(4)
+  };
+
+  unsigned h1 = hash_struct(&pair1);
+  unsigned h2 = hash_struct(&pair2);
+  EXPECT_NE(h1, h2);
+}
+
+TEST(HashTest, SameLocalDifferentRemote)
+{
+  address_pair_t pair1 = {
+    .local = _ADDRESS4_LOCALHOST(1),
+    .remote = _ADDRESS4_LOCALHOST(2)
+  };
+
+  address_pair_t pair2 = {
+    .local = _ADDRESS4_LOCALHOST(1),
+    .remote = _ADDRESS4_LOCALHOST(4)
+  };
+
+  unsigned h1 = hash_struct(&pair1);
+  unsigned h2 = hash_struct(&pair2);
+  EXPECT_NE(h1, h2);
+}
+
+TEST(HashTest, SameRemoteDifferentLocal)
+{
+  address_pair_t pair1 = {
+    .local = _ADDRESS4_LOCALHOST(1),
+    .remote = _ADDRESS4_LOCALHOST(2)
+  };
+
+  address_pair_t pair2 = {
+    .local = _ADDRESS4_LOCALHOST(3),
+    .remote = _ADDRESS4_LOCALHOST(2)
+  };
+
+  unsigned h1 = hash_struct(&pair1);
+  unsigned h2 = hash_struct(&pair2);
+  EXPECT_NE(h1, h2);
+}
 
 int main(int argc, char **argv)
 {

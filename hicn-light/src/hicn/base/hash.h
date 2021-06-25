@@ -242,7 +242,7 @@ uint32_t hashlittle( const void *key, size_t length, uint32_t initval)
 #define HASH_INITVAL 1
 //#define hash(buf, len)  (hash_t)hashlittle(buf, len, HASH_INITVAL)
 #define hash(buf, len)  hashlittle(buf, len, HASH_INITVAL)
-#define hash_struct(buf) hash(buf, sizeof(buf))
+#define hash_struct(buf) hash(buf, sizeof(*buf))
 
 #define str_hash(str) (hash(str, strlen(str)))
 #define str_hash_eq(a, b) (str_hash(b) - str_hash(a))
