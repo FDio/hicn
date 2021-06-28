@@ -76,10 +76,12 @@ do {                                                                            
         off_t _ct_var(id) = (CONN) - (TABLE)->connections;                      \
         int _ct_var(res);                                                       \
         khiter_t _ct_var(k);                                                    \
-        _ct_var(k) = kh_put_ct_pair((TABLE)->id_by_pair, PAIR, &_ct_var(res));  \
+        address_pair_t *pair_copy = (address_pair_t*) malloc(sizeof(*pair_copy)); \
+        memcpy(pair_copy, (PAIR), sizeof(*pair_copy)); \
+        _ct_var(k) = kh_put_ct_pair((TABLE)->id_by_pair, pair_copy, &_ct_var(res));  \
         kh_value((TABLE)->id_by_pair, _ct_var(k)) = _ct_var(id);                \
         if (NAME) {                                                             \
-            _ct_var(k) = kh_put_ct_name((TABLE)->id_by_name, (NAME), &_ct_var(res));\
+            _ct_var(k) = kh_put_ct_name((TABLE)->id_by_name, strdup(NAME), &_ct_var(res));\
             kh_value((TABLE)->id_by_name, _ct_var(k)) = _ct_var(id);            \
         }                                                                       \
     }                                                                           \
@@ -258,5 +260,7 @@ connection_t * connection_table_get_by_name(const connection_table_t * table,
  * @param[in] id The index of the connection to remove.
  */
 void connection_table_remove_by_id(connection_table_t * table, off_t id);
+
+void connection_table_print_by_pair(const connection_table_t *table);
 
 #endif /* HICNLIGHT_CONNECTION_TABLE_H */

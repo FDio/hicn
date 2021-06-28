@@ -94,12 +94,14 @@ extern const char * _address_family_str[];
 #define address_empty(address) (address_family(address) == AF_INET ? address4_empty(address) : address6_empty(address))
 
 /**
- * @brief Return the string representation of the IP address provided.
+ * @brief Return the string representation and the port of the IP address provided.
  *
  * @param[in] address Address to obtain the string representation from.
  * @param[in, out] buffer String to store the string representation of the address. It contains "N/A" in case of failure (see return value).
+ * @param[in, out] port Integer to store the the port. It contains -1 in case of failure (see return value). If NULL, it will not be used to store the port.
  * @return int 0 if success, failure otherwise.
  */
-int address_to_string(const address_t *address, char *buffer);
+
+int address_to_string(const address_t *address, char *buffer, int *port);
 
 #endif /* HICNLIGHT_ADDRESS_H */

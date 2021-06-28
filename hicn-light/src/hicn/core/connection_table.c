@@ -54,6 +54,18 @@ _connection_table_create(size_t init_size, size_t max_size)
 void
 connection_table_free(connection_table_t * table)
 {
+    const char *k_name;
+    const address_pair_t *k_pair;
+    unsigned v;
+
+    (void) v;
+    kh_foreach(table->id_by_name, k_name, v, {
+        free((char *) k_name);
+    })
+    kh_foreach(table->id_by_pair, k_pair, v, {
+        free((address_pair_t *) k_pair);
+    })
+
     kh_destroy_ct_pair(table->id_by_pair);
     kh_destroy_ct_name(table->id_by_name);
     pool_free(table->connections);
@@ -99,4 +111,20 @@ connection_table_remove_by_id(connection_table_t * table, off_t id)
      */
     connection_t * connection = connection_table_at(table, id);
     connection_table_deallocate(table, connection);
+}
+
+void connection_table_print_by_pair(const connection_table_t *table) {
+  const address_pair_t *k;
+  unsigned v;
+
+  char local_addr_str[NI_MAXHOST], remote_addr_str[NI_MAXHOST];
+  int local_port, remote_port;
+
+  printf("*** Connection table ***\n");
+  kh_foreach(table->id_by_pair, k, v, {
+    address_to_string(&(k->local), local_addr_str, &local_port);
+    address_to_string(&(k->remote), remote_addr_str, &remote_port);
+    printf("(%s:%d - %s:%d)\t%u\n", local_addr_str, local_port,
+            remote_addr_str, remote_port, v);
+  })
 }

@@ -54,6 +54,18 @@ _listener_table_create(size_t init_size, size_t max_size)
 void
 listener_table_free(listener_table_t * table)
 {
+    const char *k_name;
+    const listener_key_t *k_key;
+    unsigned v;
+
+    (void) v;
+    kh_foreach(table->id_by_name, k_name, v, {
+        free((char *) k_name);
+    })
+    kh_foreach(table->id_by_key, k_key, v, {
+        free((listener_key_t *) k_key);
+    })
+
     kh_destroy_lt_name(table->id_by_name);
     kh_destroy_lt_key(table->id_by_key);
     pool_free(table->listeners);

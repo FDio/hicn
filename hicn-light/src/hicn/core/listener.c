@@ -39,14 +39,21 @@ listener_create(face_type_t type, const address_t * address,
         .type = type,
         .address = *address,
     };
-    listener_table_allocate(table, listener, &key, strdup(name));
-    WITH_DEBUG(
-        listener_table_print(table);
-    )
+    listener_table_allocate(table, listener, &key, name);
 
     unsigned listener_id = listener_table_get_listener_id(table, listener);
 
     listener_initialize(listener, type, name, listener_id, address, interface_name, forwarder);
+
+    char addr_str[NI_MAXHOST];
+    int port;
+    address_to_string(address, addr_str, &port);
+    DEBUG("%s UdpListener %p created for address %s:%d",
+            face_type_str(listener->type), listener, addr_str, port);
+    WITH_DEBUG(
+        listener_table_print(table);
+    )
+
     return listener;
 }
 
@@ -106,10 +113,6 @@ listener_initialize(listener_t * listener, face_type_t type, const char * name,
         goto ERR_REGISTER_FD;
     }
 
-    char addr_str[INET6_ADDRSTRLEN];
-    address_to_string(address, addr_str);
-    DEBUG("%s UdpListener %p created for address %s",
-            face_type_str(listener->type), listener, addr_str);
     return 0;
 
 ERR_REGISTER_FD:
@@ -187,6 +190,17 @@ unsigned listener_create_connection(const listener_t * listener,
 
     // This was already commented:
     // connection_AllowWldrAutoStart(*conn_ptr);
+
+    char local_addr_str[NI_MAXHOST], remote_addr_str[NI_MAXHOST];
+    int local_port, remote_port;
+    address_to_string(&(pair->local), local_addr_str, &local_port);
+    address_to_string(&(pair->remote), remote_addr_str, &remote_port);
+    DEBUG("%s connection %p created for address pair %s:%d (local=%s) - %s:%d",
+            face_type_str(connection->type), connection, local_addr_str, local_port,
+            connection_is_local(connection) ? "true" : "false", remote_addr_str, remote_port);
+    WITH_DEBUG(
+        connection_table_print_by_pair(table);
+    )
 
     return connid;
 }
@@ -268,6 +282,11 @@ listener_read_batch(listener_t * listener)
         address_t * address_remote[MAX_MSG];
         for (unsigned i = 0; i < MAX_MSG; i++)
             address_remote[i] = address_pair_get_remote(&pair[i]);
+
+        // Populate the local address in the pairs with the
+        // one extracted from the listener
+        for (unsigned i = 0; i < MAX_MSG; i++)
+            pair[i].local = listener->key.address;
 
         ssize_t n = listener_vft[get_protocol(listener->type)]->read_batch(listener->fd,
                 msgbuf, address_remote, MAX_MSG);

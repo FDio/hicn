@@ -120,9 +120,6 @@ ssize_t io_read_batch_socket(int fd, msgbuf_t ** msgbuf,
             struct mmsghdr *msg = &msghdr[i];
             msgbuf[i]->length = msg->msg_hdr.msg_iovlen;
             **address = *(address_t*)msg->msg_hdr.msg_name;
-
-            struct sockaddr_in *src = msghdr[i].msg_hdr.msg_name;
-            DEBUG("msg received from port %u", ntohs(src->sin_port));
         }
         break;
     }
@@ -130,4 +127,3 @@ ssize_t io_read_batch_socket(int fd, msgbuf_t ** msgbuf,
     return n;
 }
 #endif /* __linux__ */
-

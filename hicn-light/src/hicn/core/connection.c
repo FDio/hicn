@@ -160,7 +160,7 @@ connection_create_on_listener(const listener_t * listener, const char * name,
     const char * interface_name = listener_get_interface_name(listener);
     // XXX This should not be there !
     int fd = listener_get_socket(listener, address_pair_get_local(pair),
-            address_pair_get_remote(pair), NULL);
+            address_pair_get_remote(pair), interface_name);
     bool local = address_is_local(&pair->local);
 
     if (connection_initialize(connection, listener->type, name, interface_name, fd, pair, local,
@@ -168,6 +168,17 @@ connection_create_on_listener(const listener_t * listener, const char * name,
         connection_table_deallocate(table, connection);
         return NULL;
     }
+
+    char local_addr_str[NI_MAXHOST], remote_addr_str[NI_MAXHOST];
+    int local_port, remote_port;
+    address_to_string(&(pair->local), local_addr_str, &local_port);
+    address_to_string(&(pair->remote), remote_addr_str, &remote_port);
+    DEBUG("%s connection %p created for address pair %s:%d (local=%s) - %s:%d",
+            face_type_str(connection->type), connection, local_addr_str, local_port,
+            connection_is_local(connection) ? "true" : "false", remote_addr_str, remote_port);
+    WITH_DEBUG(
+        connection_table_print_by_pair(table);
+    )
 
     return connection;
 }
@@ -188,10 +199,10 @@ connection_create(face_type_t type, const char * name,
     listener_table_t * table = forwarder_get_listener_table(forwarder);
     listener_t *listener = listener_table_get_by_address(table, type, &pair->local);
     if (!listener) {
-        // XXX TODO
-        //char *str = addressToString(localAddress);
-        ERROR("Could not find listener to match address N/A");
-        //parcMemory_Deallocate((void **)&str);
+        char addr_str[NI_MAXHOST];
+        int port;
+        address_to_string(&pair->local, addr_str, &port);
+        ERROR("Could not find listener to match address %s:%d", addr_str, port);
         return NULL;
     }
 
@@ -285,16 +296,6 @@ connection_initialize(connection_t * connection, face_type_t type, const char * 
                 connection_vft[get_protocol(connection->type)]->read_callback, NULL) < 0)
         goto ERR_REGISTER_FD;
 #endif
-
-    char addr_str[INET6_ADDRSTRLEN];
-    if (local)
-        address_to_string(&(pair->local), addr_str);
-    else
-        address_to_string(&(pair->remote), addr_str);
-    DEBUG("%s connection %p created for address %s (local=%s)",
-            face_type_str(connection->type), connection, addr_str,
-            connection_is_local(connection) ? "true" : "false");
-
     return 0;
 
 #if 0

@@ -143,13 +143,11 @@ connection_tcp_accept(connection_t * connection, forwarder_t *forwarder, int fd,
         .closed = false,
     };
 
-    char addr_str[INET6_ADDRSTRLEN];
-    if (local)
-        address_to_string(&(pair->local), addr_str);
-    else
-        address_to_string(&(pair->remote), addr_str);
-    INFO("%s connection %p created for address %s (local=%s)",
-            face_type_str(connection->type), connection, addr_str,
+    char addr_str[NI_MAXHOST];
+    int port;
+    address_to_string(&(pair->local), addr_str, &port);
+    INFO("%s connection %p created for address %s:%d (local=%s)",
+            face_type_str(connection->type), connection, addr_str, port,
             connection_is_local(connection) ? "true" : "false");
 
     return 0;
@@ -234,12 +232,13 @@ connection_tcp_initialize(connection_t * connection)
         return -1;
     }
 
-    char local_addr_str[INET6_ADDRSTRLEN];
-    address_to_string(&(connection->pair.local), local_addr_str);
-    char remote_addr_str[INET6_ADDRSTRLEN];
-    address_to_string(&(connection->pair.remote), remote_addr_str);
-    INFO("%s connection %p connect for address pair %s - %s",
-            face_type_str(connection->type), connection,local_addr_str, remote_addr_str);
+    char local_addr_str[NI_MAXHOST], remote_addr_str[NI_MAXHOST];
+    int local_port, remote_port;
+    address_to_string(&(connection->pair.local), local_addr_str, &local_port);
+    address_to_string(&(connection->pair.remote), remote_addr_str, &remote_port);
+    INFO("%s connection %p connect for address pair %s:%d (local=%s) - %s:%d",
+            face_type_str(connection->type), connection, local_addr_str, local_port,
+            connection_is_local(connection) ? "true" : "false", remote_addr_str, remote_port);
 
     return 0;
 }

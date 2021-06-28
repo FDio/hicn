@@ -1632,8 +1632,10 @@ hc_connection_snprintf(char * s, size_t size, const hc_connection_t * connection
     if (rc < 0)
         return rc;
 
+    // TODO: use connection_state_str[connection->state]
+    // instead of placeholder
     return snprintf(s, size, "%s %s %s %s %s",
-            connection_state_str[connection->state],
+            "CONN_STATE_TODO",
             connection->interface_name,
             local,
             remote,

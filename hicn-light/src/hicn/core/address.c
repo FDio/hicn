@@ -42,15 +42,24 @@ const char * _address_family_str[] = {
     [AF_INET6] = "AF_INET6",
 };
 
-int address_to_string(const address_t *address, char *buffer) {
+int address_to_string(const address_t *address, char *addr_str, int *port) {
+    const int SUCCESS = 0;
+    char port_str[NI_MAXSERV];
     struct sockaddr_storage addr = *address;
     socklen_t addr_len = sizeof(addr);
-    int err=getnameinfo((struct sockaddr*) &addr, addr_len, buffer, INET6_ADDRSTRLEN, 0, 0, NI_NUMERICHOST);
 
-    if (err != 0) {
-      strncpy(buffer, "N/A", INET6_ADDRSTRLEN);
+    int result = getnameinfo((struct sockaddr*) &addr, addr_len, addr_str, NI_MAXHOST, port_str, sizeof(port_str), NI_NUMERICHOST | NI_NUMERICSERV);
+
+    if (result != SUCCESS) {
+      strncpy(addr_str, "N/A", INET6_ADDRSTRLEN);
+      if (port != NULL)
+        *port = -1;
+      return result;
     }
-    return err;
+
+    if (port != NULL)
+      *port = atoi(port_str);
+    return SUCCESS;
 }
 
 address_t _ADDRESS4_LOCALHOST(uint16_t port) {

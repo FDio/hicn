@@ -150,6 +150,11 @@ main(int argc, char * const * argv)
             fprintf(stderr, "Error running command");
             goto ERR_CMD;
         }
+    } else if (command.action == ACTION_CREATE && command.object.type == OBJECT_CONNECTION) {
+        if (hc_connection_create(s, &command.object.connection) < 0) {
+            fprintf(stderr, "Error running command");
+            goto ERR_CMD;
+        }
     } else if (command.action == ACTION_CREATE && command.object.type == OBJECT_ROUTE) {
         if (hc_route_create(s, &command.object.route) < 0) {
             fprintf(stderr, "Error running command");

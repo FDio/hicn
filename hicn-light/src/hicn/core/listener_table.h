@@ -77,13 +77,14 @@ do {                                                                            
         off_t _lt_var(id) = (LISTENER) - (TABLE)->listeners;                    \
         int _lt_var(res);                                                       \
         khiter_t _lt_var(k);							\
-        _lt_var(k) = kh_put_lt_name((TABLE)->id_by_name, (NAME), &_lt_var(res));\
+        _lt_var(k) = kh_put_lt_name((TABLE)->id_by_name, strdup(NAME), &_lt_var(res));\
         kh_value((TABLE)->id_by_name, _lt_var(k)) = _lt_var(id);                \
                                                                                 \
         listener->type = (KEY)->type;						\
         listener->address = (KEY)->address;					\
-        listener_key_t * _lt_var(key) = listener_get_key(LISTENER);		\
-        _lt_var(k) = kh_put_lt_key((TABLE)->id_by_key, _lt_var(key), &_lt_var(res));\
+        listener_key_t *key_copy = (listener_key_t*) malloc(sizeof(*key_copy)); \
+        memcpy(key_copy, (KEY), sizeof(*key_copy)); \
+        _lt_var(k) = kh_put_lt_key((TABLE)->id_by_key, key_copy, &_lt_var(res));\
         kh_value((TABLE)->id_by_key, _lt_var(k)) = _lt_var(id);                 \
     }                                                                           \
 } while(0)

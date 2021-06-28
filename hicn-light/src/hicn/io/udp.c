@@ -475,8 +475,9 @@ connection_udp_send_packet(const connection_t * connection, const uint8_t * pack
     assert(connection);
     assert(packet);
 
-    if(connection_is_local(connection))
-        return -1;
+    // TODO: commented otherwise unable to do tests locally
+    // if(connection_is_local(connection))
+    //     return -1;
 
     ssize_t n = sendto(connection->fd, packet, size, 0,
             address_sa(address_pair_get_remote(&connection->pair)),
