@@ -43,7 +43,7 @@ uint64_t ProbeHandler::getRtt(uint32_t seq) {
                      std::chrono::steady_clock::now().time_since_epoch())
                      .count();
   uint64_t rtt = now - it->second;
-  if(rtt < 1) rtt = 1;
+  if (rtt < 1) rtt = 1;
 
   pending_probes_.erase(it);
 

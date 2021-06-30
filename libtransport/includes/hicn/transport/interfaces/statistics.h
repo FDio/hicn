@@ -49,11 +49,13 @@ class TransportStatistics {
         interest_FEC_tx_(0),
         bytes_FEC_received_(0),
         lost_data_(0),
+        definitely_lost_data_(0),
         recovered_data_(0),
         status_(-1),
         // avg_data_rtt_(0),
         avg_pending_pkt_(0.0),
-        received_nacks_(0) {}
+        received_nacks_(0),
+        received_fec_(0) {}
 
   TRANSPORT_ALWAYS_INLINE void updateRetxCount(uint64_t retx) {
     retx_count_ += retx;
@@ -96,6 +98,10 @@ class TransportStatistics {
     lost_data_ += pkt;
   }
 
+  TRANSPORT_ALWAYS_INLINE void updateDefinitelyLostData(uint64_t pkt) {
+    definitely_lost_data_ += pkt;
+  }
+
   TRANSPORT_ALWAYS_INLINE void updateRecoveredData(uint64_t bytes) {
     recovered_data_ += bytes;
   }
@@ -108,6 +114,10 @@ class TransportStatistics {
 
   TRANSPORT_ALWAYS_INLINE void updateReceivedNacks(uint32_t nacks) {
     received_nacks_ += nacks;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void updateReceivedFEC(uint32_t pkt) {
+    received_fec_ += pkt;
   }
 
   TRANSPORT_ALWAYS_INLINE uint64_t getRetxCount() const { return retx_count_; }
@@ -142,6 +152,10 @@ class TransportStatistics {
 
   TRANSPORT_ALWAYS_INLINE uint64_t getLostData() const { return lost_data_; }
 
+  TRANSPORT_ALWAYS_INLINE uint64_t getDefinitelyLostData() const {
+    return definitely_lost_data_;
+  }
+
   TRANSPORT_ALWAYS_INLINE uint64_t getBytesRecoveredData() const {
     return recovered_data_;
   }
@@ -156,6 +170,10 @@ class TransportStatistics {
     return received_nacks_;
   }
 
+  TRANSPORT_ALWAYS_INLINE uint32_t getReceivedFEC() const {
+    return received_fec_;
+  }
+
   TRANSPORT_ALWAYS_INLINE void setAlpha(double val) { alpha_ = val; }
 
   TRANSPORT_ALWAYS_INLINE void reset() {
@@ -168,11 +186,13 @@ class TransportStatistics {
     interest_FEC_tx_ = 0;
     bytes_FEC_received_ = 0;
     lost_data_ = 0;
+    definitely_lost_data_ = 0;
     recovered_data_ = 0;
     status_ = 0;
     // avg_data_rtt_ = 0;
     avg_pending_pkt_ = 0;
     received_nacks_ = 0;
+    received_fec_ = 0;
   }
 
  private:
@@ -187,10 +207,12 @@ class TransportStatistics {
   uint64_t interest_FEC_tx_;
   uint64_t bytes_FEC_received_;
   uint64_t lost_data_;
+  uint64_t definitely_lost_data_;
   uint64_t recovered_data_;
   int status_;  // transport status (e.g. sync status, congestion etc.)
   double avg_pending_pkt_;
   uint32_t received_nacks_;
+  uint32_t received_fec_;
 };
 
 }  // namespace interface

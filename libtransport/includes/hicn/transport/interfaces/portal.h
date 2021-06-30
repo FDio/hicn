@@ -15,14 +15,11 @@
 
 #pragma once
 
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/core/prefix.h>
 
-#ifndef ASIO_STANDALONE
-#define ASIO_STANDALONE
-#endif
-#include <asio/io_service.hpp>
 #include <functional>
 
 #define UNSET_CALLBACK 0
@@ -71,7 +68,7 @@ class Portal {
   class ConsumerCallback {
    public:
     virtual void onContentObject(core::Interest &i, core::ContentObject &c) = 0;
-    virtual void onTimeout(core::Interest::Ptr &&i) = 0;
+    virtual void onTimeout(core::Interest::Ptr &i, const core::Name &n) = 0;
     virtual void onError(std::error_code ec) = 0;
   };
 
@@ -87,7 +84,8 @@ class Portal {
 
   using OnContentObjectCallback =
       std::function<void(core::Interest &, core::ContentObject &)>;
-  using OnInterestTimeoutCallback = std::function<void(core::Interest::Ptr &&)>;
+  using OnInterestTimeoutCallback =
+      std::function<void(core::Interest::Ptr &, const core::Name &)>;
 
   Portal();
 

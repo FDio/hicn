@@ -16,71 +16,88 @@
 #pragma once
 
 #include <hicn/transport/core/content_object.h>
+#include <hicn/transport/errors/not_implemented_exception.h>
 
 #include <functional>
 
 namespace transport {
 namespace protocol {
 
+namespace fec {
+
+using buffer = typename utils::MemBuf::Ptr;
+using BufferArray = std::vector<std::pair<uint32_t, buffer>>;
+
+class FECBase {
+ public:
+  virtual ~FECBase() = default;
+  /**
+   * Callback to be called after the encode or the decode operations. In the
+   * former case it will contain the symbols, while in the latter the sources.
+   */
+  using PacketsReady = std::function<void(BufferArray &)>;
+
+  /**
+   * Callback to be called when a new buffer (for encoding / decoding) needs to
+   * be allocated.
+   */
+  using BufferRequested = std::function<buffer(std::size_t size)>;
+
+  /**
+   * @brief Get size of FEC header.
+   */
+  virtual std::size_t getFecHeaderSize() = 0;
+
+  /**
+   * Set callback to call after packet encoding / decoding
+   */
+  template <typename Handler>
+  void setFECCallback(Handler &&callback) {
+    fec_callback_ = std::forward<Handler>(callback);
+  }
+
+  /**
+   * Set a callback to request a buffer.
+   */
+  template <typename Handler>
+  void setBufferCallback(Handler &&buffer_callback) {
+    buffer_callback_ = buffer_callback;
+  }
+
+  virtual void reset() = 0;
+
+ protected:
+  PacketsReady fec_callback_{0};
+  BufferRequested buffer_callback_{0};
+};
+
 /**
  * Interface classes to integrate FEC inside any producer transport protocol
  */
-class ProducerFECBase {
+class ProducerFEC : public virtual FECBase {
  public:
-  /**
-   * Callback, to be called by implementations as soon as a repair packet is
-   * ready.
-   */
-  using RepairPacketsReady =
-      std::function<void(std::vector<core::ContentObject::Ptr> &)>;
-
+  virtual ~ProducerFEC() = default;
   /**
    * Producers will call this function upon production of a new packet.
    */
-  virtual void onPacketProduced(const core::ContentObject &content_object) = 0;
-
-  /**
-   * Set callback to signal production protocol the repair packet is ready.
-   */
-  void setFECCallback(const RepairPacketsReady &on_repair_packet) {
-    rep_packet_ready_callback_ = on_repair_packet;
-  }
-
- protected:
-  RepairPacketsReady rep_packet_ready_callback_;
+  virtual void onPacketProduced(core::ContentObject &content_object,
+                                uint32_t offset) = 0;
 };
 
 /**
  * Interface classes to integrate FEC inside any consumer transport protocol
  */
-class ConsumerFECBase {
+class ConsumerFEC : public virtual FECBase {
  public:
-  /**
-   * Callback, to be called by implemrntations as soon as a packet is recovered.
-   */
-  using OnPacketsRecovered =
-      std::function<void(std::vector<core::ContentObject::Ptr> &)>;
-
-  /**
-   * Consumers will call this function when they receive a FEC packet.
-   */
-  virtual void onFECPacket(const core::ContentObject &content_object) = 0;
+  virtual ~ConsumerFEC() = default;
 
   /**
    * Consumers will call this function when they receive a data packet
    */
-  virtual void onDataPacket(const core::ContentObject &content_object) = 0;
-
-  /**
-   * Set callback to signal consumer protocol the repair packet is ready.
-   */
-  void setFECCallback(const OnPacketsRecovered &on_repair_packet) {
-    packet_recovered_callback_ = on_repair_packet;
-  }
-
- protected:
-  OnPacketsRecovered packet_recovered_callback_;
+  virtual void onDataPacket(core::ContentObject &content_object,
+                            uint32_t offset) = 0;
 };
 
+}  // namespace fec
 }  // namespace protocol
 }  // namespace transport

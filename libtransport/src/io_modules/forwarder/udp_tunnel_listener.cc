@@ -2,8 +2,8 @@
  * Copyright (c) 2017-2019 Cisco and/or its affiliates.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/utils/hash.h>
-#include <hicn/transport/utils/log.h>
 #include <io_modules/forwarder/udp_tunnel.h>
 #include <io_modules/forwarder/udp_tunnel_listener.h>
 
@@ -36,9 +36,8 @@ void UdpTunnelListener::close() {
 
 #ifdef LINUX
 void UdpTunnelListener::readHandler(std::error_code ec) {
-  TRANSPORT_LOGD("UdpTunnelConnector receive packet");
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "UdpTunnelConnector receive packet";
 
-  // TRANSPORT_LOGD("UdpTunnelConnector received packet length=%lu", length);
   if (TRANSPORT_EXPECT_TRUE(!ec)) {
     if (current_position_ == 0) {
       for (int i = 0; i < Connector::max_burst; i++) {
@@ -56,7 +55,8 @@ void UdpTunnelListener::readHandler(std::error_code ec) {
                        Connector::max_burst - current_position_, MSG_DONTWAIT,
                        nullptr);
     if (res < 0) {
-      TRANSPORT_LOGE("Error in  recvmmsg.");
+      LOG(ERROR) << "Error in  recvmmsg.";
+      return;
     }
 
     for (int i = 0; i < res; i++) {
@@ -119,10 +119,10 @@ void UdpTunnelListener::readHandler(std::error_code ec) {
 
     doRecvPacket();
   } else if (ec.value() == static_cast<int>(std::errc::operation_canceled)) {
-    TRANSPORT_LOGE("The connection has been closed by the application.");
+    LOG(ERROR) << "The connection has been closed by the application.";
     return;
   } else {
-    TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+    LOG(ERROR) << ec.value() << " " << ec.message();
   }
 }
 #endif
@@ -165,10 +165,10 @@ void UdpTunnelListener::doRecvPacket() {
           doRecvPacket();
         } else if (ec.value() ==
                    static_cast<int>(std::errc::operation_canceled)) {
-          TRANSPORT_LOGE("The connection has been closed by the application.");
+          LOG(ERROR) << "The connection has been closed by the application.";
           return;
         } else {
-          TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+          LOG(ERROR) << ec.value() << " " << ec.message();
         }
       });
 #endif

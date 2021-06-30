@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/config.h>
 #include <hicn/transport/errors/not_implemented_exception.h>
 #include <io_modules/memif/hicn_vapi.h>
@@ -148,21 +149,19 @@ void VPPForwarderModule::producerConnection() {
 void VPPForwarderModule::connect(bool is_consumer) {
   int retry = 20;
 
-  TRANSPORT_LOGI("Connecting to VPP through vapi.");
+  LOG(INFO) << "Connecting to VPP through vapi.";
   vapi_error_e ret = vapi_connect_safe(&sock_, 0);
 
   while (ret != VAPI_OK && retry > 0) {
-    TRANSPORT_LOGE("Error connecting to VPP through vapi. Retrying..");
+    LOG(ERROR) << "Error connecting to VPP through vapi. Retrying..";
     --retry;
     ret = vapi_connect_safe(&sock_, 0);
   }
 
-  if (ret != VAPI_OK) {
-    throw std::runtime_error(
-        "Impossible to connect to forwarder. Is VPP running?");
-  }
+  CHECK_EQ(ret, VAPI_OK)
+      << "Impossible to connect to forwarder. Is VPP running?";
 
-  TRANSPORT_LOGI("Connected to VPP through vapi.");
+  LOG(INFO) << "Connected to VPP through vapi.";
 
   sw_if_index_ = getMemifConfiguration();
 
@@ -247,7 +246,7 @@ void VPPForwarderModule::closeConnection() {
       int ret =
           memif_vapi_delete_memif(VPPForwarderModule::sock_, sw_if_index_);
       if (ret < 0) {
-        TRANSPORT_LOGE("Error deleting memif with sw idx %u.", sw_if_index_);
+        LOG(ERROR) << "Error deleting memif with sw idx " << sw_if_index_;
       }
     }
 

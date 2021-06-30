@@ -26,5 +26,6 @@
 #endif
 
 #define RAAQM_CONFIG_PATH "@raaqm_config_path@"
+#define ENABLE_RELY @ENABLE_RELY@
 
 #cmakedefine __vpp__

@@ -16,7 +16,7 @@
 ######################
 
 set(${COLLECTD_PLUGINS}_DESCRIPTION
-  "A high-performance Hybrid ICN forwarder as a plugin to VPP."
+  "VPP and hICN plugins for collectd"
   CACHE STRING "Description for deb/rpm package."
 )
 

@@ -14,8 +14,8 @@
  */
 
 #include <core/global_configuration.h>
+#include <glog/logging.h>
 #include <hicn/transport/interfaces/global_conf_interface.h>
-#include <hicn/transport/utils/log.h>
 
 #include <system_error>
 
@@ -32,7 +32,7 @@ void ConfigurationObject::get() {
   core::GlobalConfiguration::getInstance().getConfiguration(*this, ec);
 
   if (ec) {
-    TRANSPORT_LOGE("Error setting global config: %s", ec.message().c_str());
+    LOG(ERROR) << "Error setting global config: " << ec.message();
   }
 }
 
@@ -41,7 +41,7 @@ void ConfigurationObject::set() {
   core::GlobalConfiguration::getInstance().setConfiguration(*this, ec);
 
   if (ec) {
-    TRANSPORT_LOGE("Error setting global config: %s", ec.message().c_str());
+    LOG(ERROR) << "Error setting global config: " << ec.message();
   }
 }
 

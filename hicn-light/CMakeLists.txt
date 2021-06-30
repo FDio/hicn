@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 project(hicn-light)
 
@@ -42,7 +42,10 @@ endif ()
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
   message("############ Detected cross compile for $ENV{CMAKE_SYSTEM_NAME}")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ANDROID_C_FLAGS}")
+  # Android uses static libs, so we need to link all the dependencies to the executable
+  find_package(OpenSSL REQUIRED)
+  find_package(LibEvent REQUIRED)
+  set(ANDROID_LIBRARIES ${LIBEVENT_LIBRARIES} ${OPENSSL_LIBRARIES})
 endif()
 
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -DLIBRTA_DISABLE_VALIDATION -DPARCLibrary_DISABLE_VALIDATION")
@@ -50,14 +53,14 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -DLIBRTA_DISABLE_VALIDATION 
 include(IosMacros)
 include(WindowsMacros)
 
-find_package_wrapper(Libparc REQUIRED)
+find_package(Libparc REQUIRED)
 
 set(HICN_LIGHT hicn-light CACHE INTERNAL "" FORCE)
 set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control CACHE INTERNAL "" FORCE)
 set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon CACHE INTERNAL "" FORCE)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  find_package_wrapper(Libhicn REQUIRED)
+  find_package(Libhicn REQUIRED)
 else()
   if (DISABLE_SHARED_LIBRARIES)
     if (WIN32) 
@@ -83,12 +86,12 @@ find_package(Threads REQUIRED)
 set(LIBHICN_LIGHT hicn-light)
 set(LIBHICN_LIGHT_STATIC ${LIBHICN_LIGHT}.static)
 
-set(HICN_LIGHT_LINK_LIBRARIES
-  ${LIBHICN_LIGHT_STATIC}
-  ${HICN_LIBRARIES}
+set(LIBRARIES
   ${LIBPARC_LIBRARIES}
+  ${HICN_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
   ${WINDOWS_LIBRARIES}
+  ${ANDROID_LIBRARIES}
 )
 
 set(HICN_LIGHT_LIBRARIES_LIST "${LIBPARC_LIBRARIES};${CMAKE_THREAD_LIBS_INIT};${WINDOWS_LIBRARIES}" CACHE INTERNAL "HICN_LIGHT_LIBRARIES_LIST")
@@ -102,7 +105,7 @@ list(APPEND HICN_LIGHT_INCLUDE_DIRS
 )
 
 if (UNIX)
-  list(APPEND HICN_LIGHT_LINK_LIBRARIES
+  list(APPEND LIBRARIES
     m
   )
 endif()

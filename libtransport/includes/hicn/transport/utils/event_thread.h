@@ -16,13 +16,9 @@
 #pragma once
 
 #include <hicn/transport/config.h>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/errors/runtime_exception.h>
-#include <hicn/transport/utils/log.h>
 
-#ifndef ASIO_STANDALONE
-#define ASIO_STANDALONE
-#endif
-#include <asio.hpp>
 #include <memory>
 #include <thread>
 

@@ -10,7 +10,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 set(SAFE_VAPI safe_vapi CACHE INTERNAL "" FORCE)
 set(SAFE_VAPI_SHARED ${SAFE_VAPI}.shared CACHE INTERNAL "" FORCE)

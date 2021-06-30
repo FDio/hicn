@@ -11,10 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 14)
 
 project(utils)
+
+find_package(Threads REQUIRED)
 
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
@@ -38,7 +40,11 @@ endif()
 if (NOT DISABLE_EXECUTABLES)
   build_executable(${HIGET}
     SOURCES ${APPS_SRC}
-    LINK_LIBRARIES ${LIBTRANSPORT_LIBRARIES} ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY}
+    LINK_LIBRARIES
+      ${LIBTRANSPORT_LIBRARIES}
+      ${CMAKE_THREAD_LIBS_INIT}
+      ${WSOCK32_LIBRARY}
+      ${WS2_32_LIBRARY}
     DEPENDS ${LIBTRANSPORT_LIBRARIES}
     COMPONENT ${HICN_APPS}
     DEFINITIONS ${COMPILER_DEFINITIONS}

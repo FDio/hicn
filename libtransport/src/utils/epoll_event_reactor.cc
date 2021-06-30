@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/utils/branch_prediction.h>
 #include <signal.h>
 #include <unistd.h>
@@ -30,7 +31,7 @@ EpollEventReactor::~EpollEventReactor() { close(epoll_fd_); }
 
 int EpollEventReactor::addFileDescriptor(int fd, uint32_t events) {
   if (TRANSPORT_EXPECT_FALSE(fd < 0)) {
-    TRANSPORT_LOGE("invalid fd %d", fd);
+    LOG(ERROR) << "invalid fd " << fd;
     return -1;
   }
 
@@ -41,7 +42,7 @@ int EpollEventReactor::addFileDescriptor(int fd, uint32_t events) {
 
   if (TRANSPORT_EXPECT_FALSE(epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, fd, &evt) <
                              0)) {
-    TRANSPORT_LOGE("epoll_ctl: %s fd %d", strerror(errno), fd);
+    LOG(ERROR) << "epoll_ctl: " << strerror(errno) << " fd " << fd;
     return -1;
   }
 
@@ -50,7 +51,7 @@ int EpollEventReactor::addFileDescriptor(int fd, uint32_t events) {
 
 int EpollEventReactor::modFileDescriptor(int fd, uint32_t events) {
   if (TRANSPORT_EXPECT_FALSE(fd < 0)) {
-    TRANSPORT_LOGE("invalid fd %d", fd);
+    LOG(ERROR) << "invalid fd " << fd;
     return -1;
   }
 
@@ -61,7 +62,7 @@ int EpollEventReactor::modFileDescriptor(int fd, uint32_t events) {
 
   if (TRANSPORT_EXPECT_FALSE(epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, fd, &evt) <
                              0)) {
-    TRANSPORT_LOGE("epoll_ctl: %s fd %d", strerror(errno), fd);
+    LOG(ERROR) << "epoll_ctl: " << strerror(errno) << " fd " << fd;
     return -1;
   }
 
@@ -72,7 +73,7 @@ std::size_t EpollEventReactor::mapSize() { return event_callback_map_.size(); }
 
 int EpollEventReactor::delFileDescriptor(int fd) {
   if (TRANSPORT_EXPECT_FALSE(fd < 0)) {
-    TRANSPORT_LOGE("invalid fd %d", fd);
+    LOG(ERROR) << "invalid fd " << fd;
     return -1;
   }
 
@@ -81,7 +82,7 @@ int EpollEventReactor::delFileDescriptor(int fd) {
 
   if (TRANSPORT_EXPECT_FALSE(epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, &evt) <
                              0)) {
-    TRANSPORT_LOGE("epoll_ctl: %s fd %d", strerror(errno), fd);
+    LOG(ERROR) << "epoll_ctl: " << strerror(errno) << " fd " << fd;
     return -1;
   }
 
@@ -106,7 +107,7 @@ void EpollEventReactor::runEventLoop(int timeout) {
     en = epoll_pwait(epoll_fd_, evt, 128, timeout, &sigset);
 
     if (TRANSPORT_EXPECT_FALSE(en < 0)) {
-      TRANSPORT_LOGE("epoll_pwait: %s", strerror(errno));
+      LOG(ERROR) << "epoll_pwait: " << strerror(errno);
       if (errno == EINTR) {
         continue;
       } else {
@@ -122,7 +123,7 @@ void EpollEventReactor::runEventLoop(int timeout) {
         }
 
         if (TRANSPORT_EXPECT_FALSE(it == event_callback_map_.end())) {
-          TRANSPORT_LOGE("unexpected event. fd %d", evt[i].data.fd);
+          LOG(ERROR) << "unexpected event. fd " << evt[i].data.fd;
         } else {
           {
             utils::SpinLock::Acquire locked(event_callback_map_lock_);
@@ -138,7 +139,7 @@ void EpollEventReactor::runEventLoop(int timeout) {
           }
         }
       } else {
-        TRANSPORT_LOGE("unexpected event. fd %d", evt[i].data.fd);
+        LOG(ERROR) << "unexpected event. fd " << evt[i].data.fd;
       }
     }
   }
@@ -159,7 +160,7 @@ void EpollEventReactor::runOneEvent() {
   en = epoll_pwait(epoll_fd_, &evt, 1, -1, &sigset);
 
   if (TRANSPORT_EXPECT_FALSE(en < 0)) {
-    TRANSPORT_LOGE("epoll_pwait: %s", strerror(errno));
+    LOG(ERROR) << "epoll_pwait: " << strerror(errno);
     return;
   }
 
@@ -170,7 +171,7 @@ void EpollEventReactor::runOneEvent() {
     }
 
     if (TRANSPORT_EXPECT_FALSE(it == event_callback_map_.end())) {
-      TRANSPORT_LOGE("unexpected event. fd %d", evt.data.fd);
+      LOG(ERROR) << "unexpected event. fd " << evt.data.fd;
     } else {
       {
         utils::SpinLock::Acquire locked(event_callback_map_lock_);
@@ -180,7 +181,7 @@ void EpollEventReactor::runOneEvent() {
       callback(evt);
     }
   } else {
-    TRANSPORT_LOGE("unexpected event. fd %d", evt.data.fd);
+    LOG(ERROR) << "unexpected event. fd " << evt.data.fd;
   }
 }
 

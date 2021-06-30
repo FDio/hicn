@@ -101,18 +101,6 @@ void Interest::setName(const Name &name) {
   }
 }
 
-void Interest::setName(Name &&name) {
-  if (hicn_interest_set_name(format_, packet_start_,
-                             name.getStructReference()) < 0) {
-    throw errors::RuntimeException("Error setting interest name.");
-  }
-
-  if (hicn_interest_get_name(format_, packet_start_,
-                             name_.getStructReference()) < 0) {
-    throw errors::MalformedPacketException();
-  }
-}
-
 void Interest::setLocator(const ip_address_t &ip_address) {
   if (hicn_interest_set_locator(format_, packet_start_, &ip_address) < 0) {
     throw errors::RuntimeException("Error setting interest locator.");
@@ -175,8 +163,9 @@ void Interest::encodeSuffixes() {
   // We assume interest does not hold signature for the moment.
   auto int_manifest_header =
       (InterestManifestHeader *)(writableData() + headerSize());
-  int_manifest_header->n_suffixes = (uint32_t)suffix_set_.size();
+  int_manifest_header->n_suffixes = suffix_set_.size();
   std::size_t additional_length =
+      sizeof(InterestManifestHeader) +
       int_manifest_header->n_suffixes * sizeof(uint32_t);
 
   uint32_t *suffix = (uint32_t *)(int_manifest_header + 1);
@@ -184,6 +173,7 @@ void Interest::encodeSuffixes() {
     *suffix = *it;
   }
 
+  append(additional_length);
   updateLength(additional_length);
 }
 

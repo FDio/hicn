@@ -15,10 +15,7 @@
 
 #pragma once
 
-#ifndef ASIO_STANDALONE
-#define ASIO_STANDALONE
-#endif
-#include <asio.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 
 namespace transport {
 

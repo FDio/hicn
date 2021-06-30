@@ -18,154 +18,25 @@
  * \brief Implementation of hICN control library API
  */
 
-#include <assert.h> // assert
-#include <math.h> // log2
-#include <stdbool.h>
-#include <stdio.h> // snprintf
-#include <string.h> // memmove, strcasecmp
-#include <sys/socket.h> // socket
-#include <unistd.h> // close, fcntl
-#include <fcntl.h> // fcntl
-#include <sys/types.h> // getpid
-#include <unistd.h>    // getpid
-#ifdef __linux__
-#include <sys/syscall.h>
-#define gettid() syscall(SYS_gettid)
-#endif /* __linux__ */
-
-#include <hicn/ctrl/api.h>
-#include <hicn/ctrl/commands.h>
-#include <hicn/util/token.h>
 #include <hicn/util/log.h>
-#include <hicn/util/map.h>
-#include <strings.h>
+#include "api_private.h"
 
-#define PORT 9695
+#include <math.h>   // log2
+#include <dlfcn.h>  // dlopen
 
-#define INT_CMP(x, y) ((x > y) ? 1 : (x < y) ? -1 : 0)
-#define BOOLSTR(x) ((x) ? "true" : "false")
-/*
- * Internal state associated to a pending request
- */
-typedef struct {
-    int seq;
-    hc_data_t * data;
-    /* Information used to process results */
-    int size_in;
-    int (*parse)(const u8 * src, u8 * dst);
-} hc_sock_request_t;
-
-/**
- * Messages to the forwarder might be multiplexed thanks to the seqNum fields in
- * the header_control_message structure. The forwarder simply answers back the
- * original sequence number. We maintain a map of such sequence number to
- * outgoing queries so that replied can be demultiplexed and treated
- * appropriately.
- */
-TYPEDEF_MAP_H(hc_sock_map, int, hc_sock_request_t *);
-TYPEDEF_MAP(hc_sock_map, int, hc_sock_request_t *, int_cmp, int_snprintf, generic_snprintf);
-
-struct hc_sock_s {
-    char * url;
-    int fd;
-
-    /* Partial receive buffer */
-    u8 buf[RECV_BUFLEN];
-    size_t roff; /**< Read offset */
-    size_t woff; /**< Write offset */
-
-    /*
-     * Because received messages are potentially unbounded in size, we might not
-     * guarantee that we can store a full packet before processing it. We must
-     * implement a very simple state machine remembering the current parsing
-     * status in order to partially process the packet.
-     */
-    size_t remaining;
-    u32 send_id;
-
-    /* Next sequence number to be used for requests */
-    int seq;
-
-    /* Request being parsed (NULL if none) */
-    hc_sock_request_t * cur_request;
-
-    bool async;
-    hc_sock_map_t * map;
+/* /!\ Please update constants in public header file upon changes */
+const char * connection_state_str[] = {
+#define _(x) [HC_CONNECTION_STATE_ ## x] = STRINGIZE(x),
+foreach_connection_state
+#undef _
 };
 
-
-hc_sock_request_t *
-hc_sock_request_create(int seq, hc_data_t * data, HC_PARSE parse)
-{
-    assert(data);
-
-    hc_sock_request_t * request = malloc(sizeof(hc_sock_request_t));
-    if (!request)
-        return NULL;
-    request->seq = seq;
-    request->data = data;
-    request->parse = parse;
-    return request;
-}
-
-void
-hc_sock_request_free(hc_sock_request_t * request)
-{
-    free(request);
-}
-
-
-#if 0
-#ifdef __APPLE__
-#define RANDBYTE() (u8)(arc4random() & 0xFF)
-#else
-#define RANDBYTE() (u8)(random() & 0xFF)
-#endif
-#endif
-#define RANDBYTE() (u8)(rand() & 0xFF)
-
-/*
- * list was working with all seq set to 0, but it seems hicnLightControl uses
- * 1, and replies with the same seqno
- */
-#define HICN_CTRL_SEND_SEQ_INIT 1
-#define HICN_CTRL_RECV_SEQ_INIT 1
-
-#define MAX(x, y) ((x > y) ? x : y)
-
-/**
- * \brief Defines the default size for the allocated data arrays holding the
- * results of API calls.
- *
- * This size should not be too small to avoid wasting memoyy, but also not too
- * big to avoid unnecessary realloc's. Later on this size is doubled at each
- * reallocation.
- */
-#define DEFAULT_SIZE_LOG 3
-
-/**
- * In practise, we want to preserve enough room to store a full packet of
- * average expected size (say a header + N payload elements).
- */
-#define AVG_ELEMENTS (1 << DEFAULT_SIZE_LOG)
-#define AVG_BUFLEN sizeof(hc_msg_header_t) + AVG_ELEMENTS * sizeof(hc_msg_payload_t)
-
-/*
- * We should at least have buffer space allowing to store one processable unit
- * of data, either the header of the maximum possible payload
- */
-#define MIN_BUFLEN MAX(sizeof(hc_msg_header_t), sizeof(hc_msg_payload_t))
-
-static const struct in6_addr loopback_addr = IN6ADDR_LOOPBACK_INIT;
-
-/* /!\ Please update constants in header file upon changes */
+/* /!\ Please update constants in public header file upon changes */
 const char * connection_type_str[] = {
 #define _(x) [CONNECTION_TYPE_ ## x] = STRINGIZE(x),
 foreach_connection_type
 #undef _
 };
-
-#define IS_VALID_CONNECTION_TYPE(x) IS_VALID_ENUM_TYPE(CONNECTION_TYPE, x)
 
 hc_connection_type_t
 connection_type_from_str(const char * str)
@@ -177,14 +48,14 @@ connection_type_from_str(const char * str)
     else if (strcasecmp(str, "HICN") == 0)
         return CONNECTION_TYPE_HICN;
     else
-	return CONNECTION_TYPE_UNDEFINED;
+	    return CONNECTION_TYPE_UNDEFINED;
 }
 
 /* Conversions to shield lib user from heterogeneity */
 
 #define IS_VALID_LIST_CONNECTIONS_TYPE(x) ((x >= CONN_GRE) && (x <= CONN_HICN))
 
-static const hc_connection_type_t map_from_list_connections_type[] = {
+const hc_connection_type_t map_from_list_connections_type[] = {
     [CONN_GRE]       = CONNECTION_TYPE_UNDEFINED,
     [CONN_TCP]       = CONNECTION_TYPE_TCP,
     [CONN_UDP]       = CONNECTION_TYPE_UDP,
@@ -193,17 +64,9 @@ static const hc_connection_type_t map_from_list_connections_type[] = {
     [CONN_HICN]      = CONNECTION_TYPE_HICN,
 };
 
-typedef enum {
-    ENCAP_TCP,
-    ENCAP_UDP,
-    ENCAP_ETHER,
-    ENCAP_LOCAL,
-    ENCAP_HICN
-} EncapType;
-
 #define IS_VALID_LIST_LISTENERS_TYPE(x) ((x >= ENCAP_TCP) && (x <= ENCAP_HICN))
 
-static const hc_connection_type_t map_from_encap_type[] = {
+const hc_connection_type_t map_from_encap_type[] = {
     [ENCAP_TCP]     = CONNECTION_TYPE_TCP,
     [ENCAP_UDP]     = CONNECTION_TYPE_UDP,
     [ENCAP_ETHER]   = CONNECTION_TYPE_UNDEFINED,
@@ -211,26 +74,19 @@ static const hc_connection_type_t map_from_encap_type[] = {
     [ENCAP_HICN]    = CONNECTION_TYPE_HICN,
 };
 
-static const connection_type map_to_connection_type[] = {
+const connection_type map_to_connection_type[] = {
     [CONNECTION_TYPE_TCP]   = TCP_CONN,
     [CONNECTION_TYPE_UDP]   = UDP_CONN,
     [CONNECTION_TYPE_HICN]  = HICN_CONN,
 };
 
-static const listener_mode map_to_listener_mode[] = {
+const listener_mode map_to_listener_mode[] = {
     [CONNECTION_TYPE_TCP]       = IP_MODE,
     [CONNECTION_TYPE_UDP]       = IP_MODE,
     [CONNECTION_TYPE_HICN]      = HICN_MODE,
 };
 
 #define IS_VALID_LIST_CONNECTIONS_STATE(x) ((x >= IFACE_UP) && (x <= IFACE_UNKNOWN))
-
-/* /!\ Please update constants in header file upon changes */
-const char * connection_state_str[] = {
-#define _(x) [HC_CONNECTION_STATE_ ## x] = STRINGIZE(x),
-foreach_connection_state
-#undef _
-};
 
 /*
 #define IS_VALID_CONNECTION_STATE(x) IS_VALID_ENUM_TYPE(CONNECTION_STATE, x)
@@ -242,19 +98,14 @@ static const connection_state map_to_connection_state[] = {
 
 */
 
-static const hc_connection_state_t map_from_list_connections_state[] = {
+const hc_connection_state_t map_from_list_connections_state[] = {
     [IFACE_UP]                  = HC_CONNECTION_STATE_UP,
     [IFACE_DOWN]                = HC_CONNECTION_STATE_DOWN,
     [IFACE_UNKNOWN]             = HC_CONNECTION_STATE_UNDEFINED,
 };
 
 
-#define connection_state_to_face_state(x) ((face_state_t)(x))
-#define face_state_to_connection_state(x) ((hc_connection_state_t)(x))
-
-#define IS_VALID_ADDR_TYPE(x) ((x >= ADDR_INET) && (x <= ADDR_UNIX))
-
-static const int map_from_addr_type[] = {
+const int map_from_addr_type[] = {
     [ADDR_INET]     = AF_INET,
     [ADDR_INET6]    = AF_INET6,
     [ADDR_LINK]     = AF_UNSPEC,
@@ -262,47 +113,10 @@ static const int map_from_addr_type[] = {
     [ADDR_UNIX]     = AF_UNSPEC,
 };
 
-static const address_type map_to_addr_type[] = {
+const address_type map_to_addr_type[] = {
     [AF_INET]   = ADDR_INET,
     [AF_INET6]  = ADDR_INET6,
 };
-
-/******************************************************************************
- * Message helper types and aliases
- ******************************************************************************/
-
-#define foreach_hc_command      \
-    _(add_connection)           \
-    _(remove_connection)        \
-    _(list_connections)         \
-    _(add_listener)             \
-    _(remove_listener)          \
-    _(list_listeners)           \
-    _(add_route)                \
-    _(remove_route)             \
-    _(list_routes)              \
-    _(cache_store)              \
-    _(cache_serve)              \
-    /*_(cache_clear) */         \
-    _(set_strategy)             \
-    _(set_wldr)                 \
-    _(add_punting)              \
-    _(mapme_activator)          \
-    _(mapme_timing)
-
-typedef header_control_message hc_msg_header_t;
-
-typedef union {
-#define _(x) x ## _command x;
-        foreach_hc_command
-#undef _
-} hc_msg_payload_t;
-
-
-typedef struct hc_msg_s {
-    hc_msg_header_t hdr;
-    hc_msg_payload_t payload;
-} hc_msg_t;
 
 /******************************************************************************
  * Control Data
@@ -358,7 +172,8 @@ hc_data_ensure_available(hc_data_t * data, size_t count)
         if (!data->buffer)
              return -1;
     }
-     return 0;
+
+    return 0;
 }
 
 int
@@ -370,7 +185,8 @@ hc_data_push_many(hc_data_t * data, const void * elements, size_t count)
     memcpy(data->buffer + data->size * data->out_element_size, elements,
             count * data->out_element_size);
     data->size += count;
-     return 0;
+
+    return 0;
 }
 
 int
@@ -398,7 +214,7 @@ hc_data_set_callback(hc_data_t * data, data_callback_t cb, void * cb_data)
 {
     data->complete_cb = cb;
     data->complete_cb_data = cb_data;
-     return 0;
+    return 0;
 }
 
 int
@@ -408,7 +224,7 @@ hc_data_set_complete(hc_data_t * data)
     data->ret = 0;
     if (data->complete_cb)
         return data->complete_cb(data, data->complete_cb_data);
-     return 0;
+    return 0;
 }
 
 int
@@ -422,747 +238,163 @@ int
 hc_data_reset(hc_data_t * data)
 {
     data->size = 0;
-     return 0;
+    return 0;
 }
 
-/******************************************************************************
- * Control socket
- ******************************************************************************/
-
-/**
- * \brief Parse a connection URL into a sockaddr
- * \param [in] url - URL
- * \param [out] sa - Resulting struct sockaddr, expected zero'ed.
- * \return 0 if parsing succeeded, a negative error value otherwise.
- */
-int
-hc_sock_parse_url(const char * url, struct sockaddr * sa)
+static hc_sock_t * _open_module(const char *name)
 {
-    /* FIXME URL parsing is currently not implemented */
-    assert(!url);
-
-#ifdef __linux__
-    srand(time(NULL) ^ getpid() ^ gettid());
+  char complete_name[128];
+#ifdef __APPLE__
+  sprintf(complete_name, "%s.dylib", name);
+#elif defined(__linux__)
+  sprintf(complete_name, "%s.so", name);
 #else
-    srand((unsigned int )(time(NULL) ^ getpid()));
-#endif /* __linux__ */
+  #error "System not supported for dynamic lynking"
+#endif
 
-    /*
-     * A temporary solution is to inspect the sa_family fields of the passed in
-     * sockaddr, which defaults to AF_UNSPEC (0) and thus creates an IPv4/TCP
-     * connection to localhost.
-     */
-    switch (sa->sa_family) {
-        case AF_UNSPEC:
-        case AF_INET:
-        {
-            struct sockaddr_in * sai = (struct sockaddr_in *)sa;
-            sai->sin_family = AF_INET;
-            sai->sin_port = htons(PORT);
-            sai->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-            break;
-        }
-        case AF_INET6:
-        {
-            struct sockaddr_in6 * sai6 = (struct sockaddr_in6 *)sa;
-            sai6->sin6_family = AF_INET6;
-            sai6->sin6_port = htons(PORT);
-            sai6->sin6_addr = loopback_addr;
-            break;
-        }
-        default:
-             return -1;
+  void *handle = 0;
+  const char *error = 0;
+  hc_sock_t *(*creator)(void) = 0;
+  hc_sock_t *ret = 0;
+
+  // open module
+  handle = dlopen(complete_name, RTLD_LAZY);
+  if (!handle) {
+    if ((error = dlerror()) != 0) {
+      ERROR("%s", error);
     }
 
-     return 0;
-}
-
-hc_sock_t *
-hc_sock_create_url(const char * url)
-{
-    hc_sock_t * s = malloc(sizeof(hc_sock_t));
-    if (!s)
-        goto ERR_MALLOC;
-
-    s->url = url ? strdup(url) : NULL;
-
-    s->fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (s->fd < 0)
-        goto ERR_SOCKET;
-
-    if (hc_sock_reset(s) < 0)
-        goto ERR_RESET;
-
-    s->seq = 0;
-    s->cur_request = NULL;
-
-    s->map = hc_sock_map_create();
-    if (!s->map)
-        goto ERR_MAP;
-
-    return s;
-
-    //hc_sock_map_free(s->map);
-ERR_MAP:
-ERR_RESET:
-    if (s->url)
-        free(s->url);
-    close(s->fd);
-ERR_SOCKET:
-    free(s);
-ERR_MALLOC:
-    return NULL;
-}
-
-hc_sock_t *
-hc_sock_create(void)
-{
-    return hc_sock_create_url(NULL);
-}
-
-void
-hc_sock_free(hc_sock_t * s)
-{
-    hc_sock_request_t ** request_array = NULL;
-    int n = hc_sock_map_get_value_array(s->map, &request_array);
-    if (n < 0) {
-       ERROR("Could not retrieve pending request array for freeing up resources"); 
-    } else {
-        for (unsigned i = 0; i < n; i++) {
-            hc_sock_request_t * request = request_array[i];
-            if (hc_sock_map_remove(s->map, request->seq, NULL) < 0)
-                ERROR("[hc_sock_process] Error removing request from map");
-            hc_sock_request_free(request);
-        }
-        free(request_array);
-    }
-
-    hc_sock_map_free(s->map);
-    if (s->url)
-        free(s->url);
-    close(s->fd);
-    free(s);
-}
-
-int
-hc_sock_get_next_seq(hc_sock_t * s)
-{
-    return s->seq++;
-}
-
-int
-hc_sock_set_nonblocking(hc_sock_t * s)
-{
-    return (fcntl(s->fd, F_SETFL, fcntl(s->fd, F_GETFL) | O_NONBLOCK) < 0);
-}
-
-int
-hc_sock_get_fd(hc_sock_t * s)
-{
-    return s->fd;
-}
-
-int
-hc_sock_connect(hc_sock_t * s)
-{
-    struct sockaddr_storage ss;
-    memset(&ss, 0, sizeof(struct sockaddr_storage));
-
-    if (hc_sock_parse_url(s->url, (struct sockaddr *)&ss) < 0)
-        goto ERR_PARSE;
-
-    size_t size = ss.ss_family == AF_INET
-        ? sizeof(struct sockaddr_in)
-        : sizeof(struct sockaddr_in6);
-    if (connect(s->fd, (struct sockaddr *)&ss, (socklen_t)size) < 0) //sizeof(struct sockaddr)) < 0)
-        goto ERR_CONNECT;
-
-     return 0;
-
-ERR_CONNECT:
-ERR_PARSE:
-     return -1;
-}
-
-int
-hc_sock_send(hc_sock_t * s, hc_msg_t * msg, size_t msglen, int seq)
-{
-    int rc;
-    msg->hdr.seqNum = seq;
-    rc = (int)send(s->fd, msg, msglen, 0);
-    if (rc < 0) {
-        perror("hc_sock_send");
-        return -1;
-    }
     return 0;
-}
+  }
 
-int
-hc_sock_get_available(hc_sock_t * s, u8 ** buffer, size_t * size)
-{
-    *buffer = s->buf + s->woff;
-    *size = RECV_BUFLEN - s->woff;
-
-     return 0;
-}
-
-int
-hc_sock_recv(hc_sock_t * s)
-{
-    int rc;
-
-    /*
-     * This condition should be ensured to guarantee correct processing of
-     * messages
-     */
-    assert(RECV_BUFLEN - s->woff > MIN_BUFLEN);
-
-    rc = (int)recv(s->fd, s->buf + s->woff, RECV_BUFLEN - s->woff, 0);
-    if (rc == 0) {
-        /* Connection has been closed */
-         return 0;
+  // get factory method
+  creator = (hc_sock_t * (*)(void)) dlsym(handle, "_hc_sock_create");
+  if (!creator) {
+    if ((error = dlerror()) != 0) {
+      ERROR("%s", error);
+      return 0;
     }
-    if (rc < 0) {
-        /*
-         * Let's not return 0 which currently means the socket has been closed
-         */
-        if (errno == EWOULDBLOCK)
-            return -1;
-        perror("hc_sock_recv");
-        return -1;
-    }
-    s->woff += rc;
-    return rc;
+  }
+
+  ret = (*creator)();
+  ret->handle = handle;
+
+  return ret;
 }
 
-/*
- * Returns -99 in case of internal error, -1 in case of API command failure
- */
-int
-hc_sock_process(hc_sock_t * s, hc_data_t ** data)
+hc_sock_t *hc_sock_create_forwarder(forwarder_t forwarder)
 {
-    int err = 0;
-
-    /* We must have received at least one byte */
-    size_t available = s->woff - s->roff;
-
-    while(available > 0) {
-
-        if (!s->cur_request) { // No message being parsed, alternatively (remaining == 0)
-            hc_msg_t * msg = (hc_msg_t*)(s->buf + s->roff);
-
-            /* We expect a message header */
-            if (available < sizeof(hc_msg_header_t)) {
-                break;
-            }
-
-            hc_sock_request_t * request = NULL;
-            if (hc_sock_map_get(s->map, msg->hdr.seqNum, &request) < 0) {
-                ERROR("[hc_sock_process] Error searching for matching request");
-                return -99;
-            }
-            if (!request) {
-                ERROR("[hc_sock_process] No request matching received sequence number");
-                return -99;
-            }
-
-            s->remaining = msg->hdr.length;
-            switch(msg->hdr.messageType) {
-                case ACK_LIGHT:
-                    assert(s->remaining == 1);
-                    assert(!data);
-                    s->cur_request = request;
-                    break;
-                case NACK_LIGHT:
-                    assert(s->remaining == 1);
-                    assert(!data);
-                    hc_data_set_error(request->data);
-                    s->cur_request = request;
-                    err = -1;
-                    break;
-                case RESPONSE_LIGHT:
-                    assert(data);
-                    if (s->remaining == 0) {
-                        hc_data_set_complete(request->data);
-                        *data = request->data;
-                        if (hc_sock_map_remove(s->map, request->seq, NULL) < 0)
-                            ERROR("[hc_sock_process] Error removing request from map");
-                        hc_sock_request_free(request);
-                    } else {
-                        /* We only remember it if there is still data to parse */
-                        s->cur_request = request;
-                    }
-                    break;
-                default:
-                    ERROR("[hc_sock_process] Invalid response received");
-                    return -99;
-            }
-
-            available -= sizeof(hc_msg_header_t);
-            s->roff += sizeof(hc_msg_header_t);
-        } else {
-            /* We expect the complete payload, or at least a chunk of it */
-            size_t num_chunks = available / s->cur_request->data->in_element_size;
-            if (num_chunks == 0)
-                break;
-            if (num_chunks > s->remaining)
-                num_chunks = s->remaining;
-
-            if (!s->cur_request->parse) {
-                /* If we don't need to parse results, then we can directly push
-                 * all of them into the result data structure */
-                hc_data_push_many(s->cur_request->data, s->buf + s->roff, num_chunks);
-            } else {
-                int rc;
-                rc = hc_data_ensure_available(s->cur_request->data, num_chunks);
-                if (rc < 0) {
-                    ERROR("[hc_sock_process] Error in hc_data_ensure_available");
-                    return -99;
-                }
-                for (int i = 0; i < num_chunks; i++) {
-                    u8 * dst = hc_data_get_next(s->cur_request->data);
-                    if (!dst) {
-                        ERROR("[hc_sock_process] Error in hc_data_get_next");
-                        return -99;
-                    }
-
-                    rc = s->cur_request->parse(s->buf + s->roff + i * s->cur_request->data->in_element_size, dst);
-                    if (rc < 0) {
-                        ERROR("[hc_sock_process] Error in parse");
-                        err = -99; /* FIXME we let the loop complete (?) */
-                    }
-                    s->cur_request->data->size++;
-                }
-            }
-
-            s->remaining -= num_chunks;
-            available -= num_chunks * s->cur_request->data->in_element_size;
-            s->roff += num_chunks * s->cur_request->data->in_element_size;
-            if (s->remaining == 0) {
-                if (hc_sock_map_remove(s->map, s->cur_request->seq, NULL) < 0) {
-                    ERROR("[hc_sock_process] Error removing request from map");
-                    return -99;
-                }
-                hc_data_set_complete(s->cur_request->data);
-                if (data)
-                    *data = s->cur_request->data;
-                hc_sock_request_free(s->cur_request);
-                s->cur_request = NULL;
-            }
-
-        }
-    }
-
-    /* Make sure there is enough remaining space in the buffer */
-    if (RECV_BUFLEN - s->woff < AVG_BUFLEN) {
-        /*
-         * There should be no overlap provided a sufficiently large BUFLEN, but
-         * who knows.
-         */
-        memmove(s->buf, s->buf + s->roff, s->woff - s->roff);
-        s->woff -= s->roff;
-        s->roff = 0;
-    }
-
-    return err;
-}
-
-int
-hc_sock_callback(hc_sock_t * s, hc_data_t ** pdata)
-{
-    hc_data_t * data;
-
-    for (;;) {
-        int n = hc_sock_recv(s);
-        if (n == 0)
-            goto ERR_EOF;
-        if (n < 0) {
-            switch(errno) {
-                case ECONNRESET:
-                case ENODEV:
-                    /* Forwarder restarted */
-                    WARN("Forwarder likely restarted: not (yet) implemented");
-                    goto ERR;
-                case EWOULDBLOCK:
-                    //DEBUG("Would block... stop reading from socket");
-                    goto END;
-                default:
-                    perror("hc_sock_recv");
-                    goto ERR;
-            }
-        }
-        if (hc_sock_process(s, &data) < 0) {
-            goto ERR;
-        }
-    }
-END:
-    if (pdata)
-        *pdata = data;
-    else
-        hc_data_free(data);
-    return 0;
-
-ERR:
-    hc_data_free(data);
-ERR_EOF:
-    return -1;
-}
-
-int
-hc_sock_reset(hc_sock_t * s)
-{
-    s->roff = s->woff = 0;
-    s->remaining = 0;
-     return 0;
-}
-
-/******************************************************************************
- * Command-specific structures and functions
- ******************************************************************************/
-
-typedef int (*HC_PARSE)(const u8 *, u8 *);
-
-typedef struct {
-    hc_action_t cmd;
-    command_id cmd_id;
-    size_t size_in;
-    size_t size_out;
-    HC_PARSE parse;
-} hc_command_params_t;
-
-int
-hc_execute_command(hc_sock_t * s, hc_msg_t * msg, size_t msg_len,
-        hc_command_params_t * params, hc_data_t ** pdata, bool async)
-{
-    int ret;
-    if (async)
-        assert(!pdata);
-
-    /* Sanity check */
-    switch(params->cmd) {
-        case ACTION_CREATE:
-            assert(params->size_in != 0); /* payload repeated */
-            assert(params->size_out == 0);
-            assert(params->parse == NULL);
-            break;
-        case ACTION_DELETE:
-            assert(params->size_in != 0); /* payload repeated */
-            assert(params->size_out == 0);
-            assert(params->parse == NULL);
-            break;
-        case ACTION_LIST:
-            assert(params->size_in != 0);
-            assert(params->size_out != 0);
-            assert(params->parse != NULL);
-            break;
-        case ACTION_SET:
-            assert(params->size_in != 0);
-            assert(params->size_out == 0);
-            assert(params->parse == NULL);
-            break;
+    switch (forwarder)
+    {
+        case HICNLIGHT:
+            return _open_module("hicnlightctrl_module");
+        case VPP:
+            return _open_module("vppctrl_module");
         default:
-             return -1;
+            return NULL;
     }
+}
 
-    //hc_sock_reset(s);
+#ifdef ANDROID
+// In android we do not load a module at runtime
+// but we link the hicnlight implmentation directly
+// to the main library
+extern hc_sock_t *_hc_sock_create();
+#endif
 
-    /* XXX data will at least store the result (complete) */
-    hc_data_t * data = hc_data_create(params->size_in, params->size_out, NULL);
-    if (!data) {
-        ERROR("[hc_execute_command] Could not create data storage");
-        goto ERR_DATA;
-    }
-
-    int seq = hc_sock_get_next_seq(s);
-
-    /* Create state used to process the request */
-    hc_sock_request_t * request = NULL;
-    request = hc_sock_request_create(seq, data, params->parse);
-    if (!request) {
-        ERROR("[hc_execute_command] Could not create request state");
-        goto ERR_REQUEST;
-    }
-
-    /* Add state to map */
-    if (hc_sock_map_add(s->map, seq, request) < 0) {
-        ERROR("[hc_execute_command] Error adding request state to map");
-        goto ERR_MAP;
-    }
-
-    if (hc_sock_send(s, msg, msg_len, seq) < 0) {
-        ERROR("[hc_execute_command] Error sending message");
-        goto ERR_PROCESS;
-    }
-
-    if (async)
-        return 0;
-
-    while(!data->complete) {
-        /*
-         * As the socket is non blocking it might happen that we need to read
-         * several times before success... shall we alternate between blocking
-         * and non-blocking mode ?
-         */
-        int n = hc_sock_recv(s);
-        if (n == 0)
-            goto ERR_EOF;
-        if (n < 0)
-            continue; //break;
-        int rc = hc_sock_process(s, pdata);
-        switch(rc) {
-            case 0:
-                break;
-            case -1:
-                ret = rc;
-                break;
-            case -99:
-                ERROR("[hc_execute_command] Error processing socket results");
-                goto ERR;
-                break;
-            default:
-                ERROR("[hc_execute_command] Unexpected return value");
-                goto ERR;
-        }
-    }
-
-ERR_EOF:
-    ret = data->ret;
-    if (!data->complete)
-        return -1;
-    if (!pdata)
-        hc_data_free(data);
-
+hc_sock_t *hc_sock_create(void)
+{
+#ifdef ANDROID
+    hc_sock_t *ret = _hc_sock_create();
+    ret->handle = NULL;
     return ret;
-
-ERR_PROCESS:
-ERR_MAP:
-    hc_sock_request_free(request);
-ERR:
-ERR_REQUEST:
-    hc_data_free(data);
-ERR_DATA:
-     return -99;
+#else
+    return hc_sock_create_forwarder(HICNLIGHT);
+#endif
 }
 
-/*----------------------------------------------------------------------------*
- * Listeners
- *----------------------------------------------------------------------------*/
-
-/* LISTENER CREATE */
-
-int
-_hc_listener_create(hc_sock_t * s, hc_listener_t * listener, bool async)
+void hc_sock_free(hc_sock_t *s)
 {
-    char listener_s[MAXSZ_HC_LISTENER];
-    int rc = hc_listener_snprintf(listener_s, MAXSZ_HC_LISTENER, listener);
-    if (rc >= MAXSZ_HC_LISTENER)
-        WARN("[_hc_listener_create] Unexpected truncation of listener string");
-    DEBUG("[_hc_listener_create] listener=%s async=%s", listener_s,
-            BOOLSTR(async));
+    void *handle = s->handle;
+    s->hc_sock_free(s);
 
-    if (!IS_VALID_FAMILY(listener->family))
-         return -1;
-
-    if (!IS_VALID_CONNECTION_TYPE(listener->type))
-         return -1;
-
-    struct {
-        header_control_message hdr;
-        add_listener_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = ADD_LISTENER,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .address = listener->local_addr,
-            .port = htons(listener->local_port),
-            .addressType = (u8)map_to_addr_type[listener->family],
-            .listenerMode = (u8)map_to_listener_mode[listener->type],
-            .connectionType = (u8)map_to_connection_type[listener->type],
-        }
-    };
-
-    rc = snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", listener->name);
-    if (rc >= SYMBOLIC_NAME_LEN)
-        WARN("[_hc_listener_create] Unexpected truncation of symbolic name string");
-
-    rc = snprintf(msg.payload.interfaceName, INTERFACE_LEN, "%s", listener->interface_name);
-    if (rc >= INTERFACE_LEN)
-        WARN("[_hc_listener_create] Unexpected truncation of interface name string");
-
-    hc_command_params_t params = {
-        .cmd = ACTION_CREATE,
-        .cmd_id = ADD_LISTENER,
-        .size_in = sizeof(add_listener_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
-}
-
-int
-hc_listener_create(hc_sock_t * s, hc_listener_t * listener)
-{
-    return _hc_listener_create(s, listener, false);
-}
-
-int
-hc_listener_create_async(hc_sock_t * s, hc_listener_t * listener)
-{
-    return _hc_listener_create(s, listener, true);
-}
-
-/* LISTENER GET */
-
-int
-hc_listener_get(hc_sock_t * s, hc_listener_t * listener,
-        hc_listener_t ** listener_found)
-{
-    hc_data_t * listeners;
-    hc_listener_t * found;
-
-    char listener_s[MAXSZ_HC_LISTENER];
-    int rc = hc_listener_snprintf(listener_s, MAXSZ_HC_LISTENER, listener);
-    if (rc >= MAXSZ_HC_LISTENER)
-        WARN("[hc_listener_get] Unexpected truncation of listener string");
-    DEBUG("[hc_listener_get] listener=%s", listener_s);
-
-    if (hc_listener_list(s, &listeners) < 0)
-        return -1;
-
-    /* Test */
-    if (hc_listener_find(listeners, listener, &found) < 0) {
-        hc_data_free(listeners);
-        return -1;
+    if (handle) {
+        dlclose(handle);
     }
-
-    if (found) {
-        *listener_found = malloc(sizeof(hc_listener_t));
-        if (!*listener_found)
-            return -1;
-        **listener_found = *found;
-    } else {
-        *listener_found = NULL;
-    }
-
-    hc_data_free(listeners);
-
-    return 0;
 }
 
-
-/* LISTENER DELETE */
-
-int
-_hc_listener_delete(hc_sock_t * s, hc_listener_t * listener, bool async)
+int hc_sock_get_next_seq(hc_sock_t *s)
 {
-    char listener_s[MAXSZ_HC_LISTENER];
-    int rc = hc_listener_snprintf(listener_s, MAXSZ_HC_LISTENER, listener);
-    if (rc >= MAXSZ_HC_LISTENER)
-        WARN("[_hc_listener_delete] Unexpected truncation of listener string");
-    DEBUG("[_hc_listener_delete] listener=%s async=%s", listener_s,
-            BOOLSTR(async));
-
-    struct {
-        header_control_message hdr;
-        remove_listener_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_LISTENER,
-            .length = 1,
-            .seqNum = 0,
-        },
-    };
-
-    if (listener->id) {
-        rc = snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%d", listener->id);
-        if (rc >= SYMBOLIC_NAME_LEN)
-            WARN("[_hc_listener_delete] Unexpected truncation of symbolic name string");
-    } else if (*listener->name) {
-        rc = snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%s", listener->name);
-        if (rc >= SYMBOLIC_NAME_LEN)
-            WARN("[_hc_listener_delete] Unexpected truncation of symbolic name string");
-    } else {
-        hc_listener_t * listener_found;
-        if (hc_listener_get(s, listener, &listener_found) < 0)
-            return -1;
-        if (!listener_found)
-            return -1;
-        rc = snprintf(msg.payload.symbolicOrListenerid, SYMBOLIC_NAME_LEN, "%d", listener_found->id);
-        if (rc >= SYMBOLIC_NAME_LEN)
-            WARN("[_hc_listener_delete] Unexpected truncation of symbolic name string");
-        free(listener_found);
-    }
-
-    hc_command_params_t params = {
-        .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_LISTENER,
-        .size_in = sizeof(remove_listener_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+    return s->hc_sock_get_next_seq(s);
 }
 
-int
-hc_listener_delete(hc_sock_t * s, hc_listener_t * listener)
+int hc_sock_set_nonblocking(hc_sock_t *s)
 {
-    return _hc_listener_delete(s, listener, false);
+    return s->hc_sock_get_next_seq(s);
 }
 
-int
-hc_listener_delete_async(hc_sock_t * s, hc_listener_t * listener)
+int hc_sock_get_fd(hc_sock_t *s)
 {
-    return _hc_listener_delete(s, listener, true);
+    return s->hc_sock_get_fd(s);
 }
 
-
-/* LISTENER LIST */
-
-int
-_hc_listener_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
+int hc_sock_connect(hc_sock_t *s)
 {
-    DEBUG("[hc_listener_list] async=%s", BOOLSTR(async));
-
-    struct {
-        header_control_message hdr;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = LIST_LISTENERS,
-            .length = 0,
-            .seqNum = 0,
-        },
-    };
-
-    hc_command_params_t params = {
-        .cmd = ACTION_LIST,
-        .cmd_id = LIST_LISTENERS,
-        .size_in = sizeof(list_listeners_command),
-        .size_out = sizeof(hc_listener_t),
-        .parse = (HC_PARSE)hc_listener_parse,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata, async);
+    return s->hc_sock_connect(s);
 }
 
-int
-hc_listener_list(hc_sock_t * s, hc_data_t ** pdata)
+int hc_sock_get_available(hc_sock_t *s, u8 **buffer, size_t *size)
 {
-    return _hc_listener_list(s, pdata, false);
+    return s->hc_sock_get_available(s, buffer, size);
 }
 
-int
-hc_listener_list_async(hc_sock_t * s, hc_data_t ** pdata)
+int hc_sock_send(hc_sock_t *s, hc_msg_t *msg, size_t msglen, int seq)
 {
-    return _hc_listener_list(s, pdata, true);
+    return s->hc_sock_send(s, msg, msglen, seq);
 }
+
+int hc_sock_recv(hc_sock_t *s)
+{
+    return s->hc_sock_recv(s);
+}
+
+int hc_sock_process(hc_sock_t *s, hc_data_t **data)
+{
+    return s->hc_sock_process(s, data);
+}
+
+int hc_sock_callback(hc_sock_t *s, hc_data_t **data)
+{
+    return s->hc_sock_callback(s, data);
+}
+
+int hc_sock_reset(hc_sock_t *s)
+{
+    return s->hc_sock_reset(s);
+}
+
+int hc_listener_create(hc_sock_t *s, hc_listener_t *listener)
+{
+    return s->hc_listener_create(s, listener);
+}
+
+int hc_listener_get(hc_sock_t *s, hc_listener_t *listener,
+                    hc_listener_t **listener_found)
+{
+    return s->hc_listener_get(s, listener, listener_found);
+}
+
+int hc_listener_delete(hc_sock_t *s, hc_listener_t *listener)
+{
+    return s->hc_listener_delete(s, listener);
+}
+
+int hc_listener_list(hc_sock_t *s, hc_data_t **pdata)
+{
+    return s->hc_listener_list(s, pdata);
+}
+
+GENERATE_FIND(listener);
 
 /* LISTENER VALIDATE */
 
@@ -1247,8 +479,6 @@ hc_listener_parse(void * in, hc_listener_t * listener)
     return 0;
 }
 
-GENERATE_FIND(listener)
-
 /* LISTENER SNPRINTF */
 
 /* /!\ Please update constants in header file upon changes */
@@ -1268,221 +498,57 @@ hc_listener_snprintf(char * s, size_t size, hc_listener_t * listener)
             connection_type_str[listener->type]);
 }
 
-/*----------------------------------------------------------------------------*
- * CONNECTION
- *----------------------------------------------------------------------------*/
-
-/* CONNECTION CREATE */
-
-int
-_hc_connection_create(hc_sock_t * s, hc_connection_t * connection, bool async)
+int hc_connection_create(hc_sock_t *s, hc_connection_t *connection)
 {
-    char connection_s[MAXSZ_HC_CONNECTION];
-    int rc = hc_connection_snprintf(connection_s, MAXSZ_HC_CONNECTION, connection);
-    if (rc >= MAXSZ_HC_CONNECTION)
-        WARN("[_hc_connection_create] Unexpected truncation of connection string");
-    DEBUG("[_hc_connection_create] connection=%s async=%s", connection_s, BOOLSTR(async));
+    return s->hc_connection_create(s, connection);
+}
 
-    if (hc_connection_validate(connection) < 0)
-        return -1;
+int hc_connection_get(hc_sock_t *s, hc_connection_t *connection,
+                      hc_connection_t **connection_found)
+{
+    return s->hc_connection_get(s, connection, connection_found);
+}
 
-    struct {
-        header_control_message hdr;
-        add_connection_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = ADD_CONNECTION,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .remoteIp = connection->remote_addr,
-            .localIp = connection->local_addr,
-            .remotePort = htons(connection->remote_port),
-            .localPort = htons(connection->local_port),
-            .ipType = (u8)map_to_addr_type[connection->family],
-            .connectionType = (u8)map_to_connection_type[connection->type],
-            .admin_state = connection->admin_state,
+int hc_connection_update_by_id(hc_sock_t *s, int hc_connection_id,
+                               hc_connection_t *connection)
+{
+    return s->hc_connection_update_by_id(s, hc_connection_id, connection);
+}
+
+int hc_connection_update(hc_sock_t *s, hc_connection_t *connection_current,
+                         hc_connection_t *connection_updated)
+{
+    return s->hc_connection_update(s, connection_current, connection_updated);
+}
+
+int hc_connection_delete(hc_sock_t *s, hc_connection_t *connection)
+{
+    return s->hc_connection_delete(s, connection);
+}
+
+int hc_connection_list(hc_sock_t *s, hc_data_t **pdata)
+{
+    return s->hc_connection_list(s, pdata);
+}
+
+int hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, face_state_t state)
+{
+    return s->hc_connection_set_admin_state(s, conn_id_or_name, state);
+}
+
 #ifdef WITH_POLICY
-            .priority = connection->priority,
-            .tags = connection->tags,
-#endif /* WITH_POLICY */
-        }
-    };
-    rc = snprintf(msg.payload.symbolic, SYMBOLIC_NAME_LEN, "%s", connection->name);
-    if (rc >= SYMBOLIC_NAME_LEN)
-        WARN("[_hc_connection_create] Unexpected truncation of symbolic name string");
-    //snprintf(msg.payload.interfaceName, INTERFACE_NAME_LEN, "%s", connection->interface_name);
-
-    hc_command_params_t params = {
-        .cmd = ACTION_CREATE,
-        .cmd_id = ADD_CONNECTION,
-        .size_in = sizeof(add_connection_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
-}
-
-int
-hc_connection_create(hc_sock_t * s, hc_connection_t * connection)
+int hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name, uint32_t priority)
 {
-    return _hc_connection_create(s, connection, false);
+    return s->hc_connection_set_priority(s, conn_id_or_name, priority);
 }
 
-int
-hc_connection_create_async(hc_sock_t * s, hc_connection_t * connection)
+int hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name, policy_tags_t tags)
 {
-    return _hc_connection_create(s, connection, true);
+    return s->hc_connection_set_tags(s, conn_id_or_name, tags);
 }
+#endif // WITH_POLICY
 
-/* CONNECTION GET */
-
-int
-hc_connection_get(hc_sock_t * s, hc_connection_t * connection,
-        hc_connection_t ** connection_found)
-{
-    hc_data_t * connections;
-    hc_connection_t * found;
-
-    char connection_s[MAXSZ_HC_CONNECTION];
-    int rc = hc_connection_snprintf(connection_s, MAXSZ_HC_CONNECTION, connection);
-    if (rc >= MAXSZ_HC_CONNECTION)
-        WARN("[hc_connection_get] Unexpected truncation of connection string");
-    DEBUG("[hc_connection_get] connection=%s", connection_s);
-
-    if (hc_connection_list(s, &connections) < 0)
-        return -1;
-
-    /* Test */
-    if (hc_connection_find(connections, connection, &found) < 0) {
-        hc_data_free(connections);
-        return -1;
-    }
-
-    if (found) {
-        *connection_found = malloc(sizeof(hc_connection_t));
-        if (!*connection_found)
-            return -1;
-        **connection_found = *found;
-    } else {
-        *connection_found = NULL;
-    }
-
-    hc_data_free(connections);
-
-    return 0;
-}
-
-
-/* CONNECTION DELETE */
-
-int
-_hc_connection_delete(hc_sock_t * s, hc_connection_t * connection, bool async)
-{
-    char connection_s[MAXSZ_HC_CONNECTION];
-    int rc = hc_connection_snprintf(connection_s, MAXSZ_HC_CONNECTION, connection);
-    if (rc >= MAXSZ_HC_CONNECTION)
-        WARN("[_hc_connection_delete] Unexpected truncation of connection string");
-    DEBUG("[_hc_connection_delete] connection=%s async=%s", connection_s, BOOLSTR(async));
-
-    struct {
-        header_control_message hdr;
-        remove_connection_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_CONNECTION,
-            .length = 1,
-            .seqNum = 0,
-        },
-    };
-
-    if (connection->id) {
-        rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", connection->id);
-        if (rc >= SYMBOLIC_NAME_LEN)
-            WARN("[_hc_connection_delete] Unexpected truncation of symbolic name string");
-    } else if (*connection->name) {
-        rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", connection->name);
-        if (rc >= SYMBOLIC_NAME_LEN)
-            WARN("[_hc_connection_delete] Unexpected truncation of symbolic name string");
-    } else {
-        hc_connection_t * connection_found;
-        if (hc_connection_get(s, connection, &connection_found) < 0)
-            return -1;
-        if (!connection_found)
-            return -1;
-        rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", connection_found->id);
-        if (rc >= SYMBOLIC_NAME_LEN)
-            WARN("[_hc_connection_delete] Unexpected truncation of symbolic name string");
-        free(connection_found);
-    }
-
-    hc_command_params_t params = {
-        .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_CONNECTION,
-        .size_in = sizeof(remove_connection_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
-}
-
-int
-hc_connection_delete(hc_sock_t * s, hc_connection_t * connection)
-{
-    return _hc_connection_delete(s, connection, false);
-}
-
-int
-hc_connection_delete_async(hc_sock_t * s, hc_connection_t * connection)
-{
-    return _hc_connection_delete(s, connection, true);
-}
-
-/* CONNECTION LIST */
-
-int
-_hc_connection_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
-{
-    DEBUG("[hc_connection_list] async=%s", BOOLSTR(async));
-
-    struct {
-        header_control_message hdr;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = LIST_CONNECTIONS,
-            .length = 0,
-            .seqNum = 0,
-        },
-    };
-
-    hc_command_params_t params = {
-        .cmd = ACTION_LIST,
-        .cmd_id = LIST_CONNECTIONS,
-        .size_in = sizeof(list_connections_command),
-        .size_out = sizeof(hc_connection_t),
-        .parse = (HC_PARSE)hc_connection_parse,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata, async);
-}
-
-int
-hc_connection_list(hc_sock_t * s, hc_data_t ** pdata)
-{
-    return _hc_connection_list(s, pdata, false);
-}
-
-int
-hc_connection_list_async(hc_sock_t * s, hc_data_t ** pdata)
-{
-    return _hc_connection_list(s, pdata, true);
-}
+GENERATE_FIND(connection);
 
 /* CONNECTION VALIDATE */
 
@@ -1597,8 +663,6 @@ hc_connection_parse(void * in, hc_connection_t * connection)
     return 0;
 }
 
-GENERATE_FIND(connection)
-
 /* CONNECTION SNPRINTF */
 
 /* /!\ Please update constants in header file upon changes */
@@ -1632,327 +696,169 @@ hc_connection_snprintf(char * s, size_t size, const hc_connection_t * connection
             connection_type_str[connection->type]);
 }
 
-/* CONNECTION SET ADMIN STATE */
-
-int
-_hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
-        face_state_t state, bool async)
+int hc_face_create(hc_sock_t *s, hc_face_t *face)
 {
+    return s->hc_face_create(s, face);
+}
+
+int hc_face_get(hc_sock_t *s, hc_face_t *face, hc_face_t **face_found)
+{
+    return s->hc_face_get(s, face, face_found);
+}
+
+int hc_face_delete(hc_sock_t *s, hc_face_t *face)
+{
+    return s->hc_face_delete(s, face);
+}
+
+int hc_face_list(hc_sock_t *s, hc_data_t **pdata)
+{
+    return s->hc_face_list(s, pdata);
+}
+
+int hc_face_list_async(hc_sock_t *s)
+{
+    return s->hc_face_list_async(s);
+}
+
+int hc_face_set_admin_state(hc_sock_t * s, const char * conn_id_or_name, face_state_t state)
+{
+    return s->hc_face_set_admin_state(s, conn_id_or_name, state);
+}
+
+#ifdef WITH_POLICY
+int hc_face_set_priority(hc_sock_t * s, const char * conn_id_or_name, uint32_t priority)
+{
+    return s->hc_face_set_priority(s, conn_id_or_name, priority);
+}
+
+int hc_face_set_tags(hc_sock_t * s, const char * conn_id_or_name, policy_tags_t tags)
+{
+    return s->hc_face_set_tags(s, conn_id_or_name, tags);
+}
+#endif /* WITH_POLICY */
+
+/* /!\ Please update constants in header file upon changes */
+int
+hc_face_snprintf(char * s, size_t size, hc_face_t * face)
+{
+    /* URLs are also big enough to contain IP addresses in the hICN case */
+    char local[MAXSZ_URL];
+    char remote[MAXSZ_URL];
+#ifdef WITH_POLICY
+    char tags[MAXSZ_POLICY_TAGS];
+#endif /* WITH_POLICY */
     int rc;
-    DEBUG("[hc_connection_set_admin_state] connection_id/name=%s admin_state=%s async=%s",
-            conn_id_or_name, face_state_str[state], BOOLSTR(async));
-    struct {
-        header_control_message hdr;
-        connection_set_admin_state_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_ADMIN_STATE,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .admin_state = state,
-        },
-    };
-    rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", conn_id_or_name);
-    if (rc >= SYMBOLIC_NAME_LEN)
-        WARN("[_hc_connection_set_admin_state] Unexpected truncation of symbolic name string");
 
-    hc_command_params_t params = {
-        .cmd = ACTION_SET,
-        .cmd_id = CONNECTION_SET_ADMIN_STATE,
-        .size_in = sizeof(connection_set_admin_state_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
+    switch(face->face.type) {
+        case FACE_TYPE_HICN:
+        case FACE_TYPE_HICN_LISTENER:
+            rc = ip_address_snprintf(local, MAXSZ_URL,
+                    &face->face.local_addr,
+                    face->face.family);
+            if (rc >= MAXSZ_URL)
+                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
+            if (rc < 0)
+                return rc;
+            rc = ip_address_snprintf(remote, MAXSZ_URL,
+                    &face->face.remote_addr,
+                    face->face.family);
+            if (rc >= MAXSZ_URL)
+                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
+            if (rc < 0)
+                return rc;
+            break;
+        case FACE_TYPE_TCP:
+        case FACE_TYPE_UDP:
+        case FACE_TYPE_TCP_LISTENER:
+        case FACE_TYPE_UDP_LISTENER:
+            rc = url_snprintf(local, MAXSZ_URL, face->face.family,
+                    &face->face.local_addr,
+                    face->face.local_port);
+            if (rc >= MAXSZ_URL)
+                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
+            if (rc < 0)
+                return rc;
+            rc = url_snprintf(remote, MAXSZ_URL, face->face.family,
+                    &face->face.remote_addr,
+                    face->face.remote_port);
+            if (rc >= MAXSZ_URL)
+                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
+            if (rc < 0)
+                return rc;
+            break;
+        default:
+            return -1;
+    }
 
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
-}
-
-int
-hc_connection_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
-        face_state_t state)
-{
-    return _hc_connection_set_admin_state(s, conn_id_or_name, state, false);
-}
-
-int
-hc_connection_set_admin_state_async(hc_sock_t * s, const char * conn_id_or_name,
-        face_state_t state)
-{
-    return _hc_connection_set_admin_state(s, conn_id_or_name, state, true);
-}
-
-int
-_hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
-        uint32_t priority, bool async)
-{
-    int rc;
-    DEBUG("[hc_connection_set_priority] connection_id/name=%s priority=%d async=%s",
-            conn_id_or_name, priority, BOOLSTR(async));
-    struct {
-        header_control_message hdr;
-        connection_set_priority_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_PRIORITY,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .priority = priority,
-        },
-    };
-    rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", conn_id_or_name);
-    if (rc >= SYMBOLIC_NAME_LEN)
-        WARN("[_hc_connection_set_priority] Unexpected truncation of symbolic name string");
-
-    hc_command_params_t params = {
-        .cmd = ACTION_SET,
-        .cmd_id = CONNECTION_SET_PRIORITY,
-        .size_in = sizeof(connection_set_priority_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
-}
-
-int
-hc_connection_set_priority(hc_sock_t * s, const char * conn_id_or_name,
-        uint32_t priority)
-{
-    return _hc_connection_set_priority(s, conn_id_or_name, priority, false);
-}
-
-int
-hc_connection_set_priority_async(hc_sock_t * s, const char * conn_id_or_name,
-        uint32_t priority)
-{
-    return _hc_connection_set_priority(s, conn_id_or_name, priority, true);
-}
-
-int
-_hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name,
-        policy_tags_t tags, bool async)
-{
-    int rc;
-    DEBUG("[hc_connection_set_tags] connection_id/name=%s tags=%d async=%s",
-            conn_id_or_name, tags, BOOLSTR(async));
-    struct {
-        header_control_message hdr;
-        connection_set_tags_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = CONNECTION_SET_TAGS,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .tags = tags,
-        },
-    };
-    rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%s", conn_id_or_name);
-    if (rc >= SYMBOLIC_NAME_LEN)
-        WARN("[_hc_connection_set_tags] Unexpected truncation of symbolic name string");
-
-    hc_command_params_t params = {
-        .cmd = ACTION_SET,
-        .cmd_id = CONNECTION_SET_TAGS,
-        .size_in = sizeof(connection_set_tags_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
-}
-
-int
-hc_connection_set_tags(hc_sock_t * s, const char * conn_id_or_name,
-        policy_tags_t tags)
-{
-    return _hc_connection_set_tags(s, conn_id_or_name, tags, false);
-}
-
-int
-hc_connection_set_tags_async(hc_sock_t * s, const char * conn_id_or_name,
-        policy_tags_t tags)
-{
-    return _hc_connection_set_tags(s, conn_id_or_name, tags, true);
-}
-
-/*----------------------------------------------------------------------------*
- * Routes
- *----------------------------------------------------------------------------*/
-
-/* ROUTE CREATE */
-
-int
-_hc_route_create(hc_sock_t * s, hc_route_t * route, bool async)
-{
-    char route_s[MAXSZ_HC_ROUTE];
-    int rc = hc_route_snprintf(route_s, MAXSZ_HC_ROUTE, route);
-    if (rc >= MAXSZ_HC_ROUTE)
-        WARN("[_hc_route_create] Unexpected truncation of route string");
+    // [#ID NAME] TYPE LOCAL_URL REMOTE_URL STATE/ADMIN_STATE (TAGS)
+#ifdef WITH_POLICY
+    rc = policy_tags_snprintf(tags, MAXSZ_POLICY_TAGS, face->face.tags);
+    if (rc >= MAXSZ_POLICY_TAGS)
+        WARN("[hc_face_snprintf] Unexpected truncation of policy tags string");
     if (rc < 0)
-        WARN("[_hc_route_create] Error building route string");
-    else
-        DEBUG("[hc_route_create] route=%s async=%s", route_s, BOOLSTR(async));
+        return rc;
 
-    if (!IS_VALID_FAMILY(route->family))
-         return -1;
-
-    struct {
-        header_control_message hdr;
-        add_route_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = ADD_ROUTE,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .address = route->remote_addr,
-            .cost = route->cost,
-            .addressType = (u8)map_to_addr_type[route->family],
-            .len = route->len,
-        }
-    };
-
-    /*
-     * The route commands expects the ID (or name that we don't use) as part of
-     * the symbolicOrConnid attribute.
-     */
-    rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", route->face_id);
-    if (rc >= SYMBOLIC_NAME_LEN)
-        WARN("[_hc_route_create] Unexpected truncation of symbolic name string");
-
-    hc_command_params_t params = {
-        .cmd = ACTION_CREATE,
-        .cmd_id = ADD_ROUTE,
-        .size_in = sizeof(add_route_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+    return snprintf(s, size, "[#%d %s] %s %s %s %s %s/%s [%d] (%s)",
+            face->id,
+            face->name,
+            face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
+            face_type_str[face->face.type],
+            local,
+            remote,
+            face_state_str[face->face.state],
+            face_state_str[face->face.admin_state],
+            face->face.priority,
+            tags);
+#else
+    return snprintf(s, size, "[#%d %s] %s %s %s %s %s/%s",
+            face->id,
+            face->name,
+            face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
+            face_type_str[face->face.type],
+            local,
+            remote,
+            face_state_str[face->face.state],
+            face_state_str[face->face.admin_state]);
+#endif /* WITH_POLICY */
 }
 
 int
-hc_route_create(hc_sock_t * s, hc_route_t * route)
+hc_connection_parse_to_face(void * in, hc_face_t * face)
 {
-    return _hc_route_create(s, route, false);
+    hc_connection_t connection;
+
+    if (hc_connection_parse(in, &connection) < 0) {
+        ERROR("[hc_connection_parse_to_face] Could not parse connection");
+        return -1;
+    }
+
+    if (hc_connection_to_face(&connection, face) < 0) {
+        ERROR("[hc_connection_parse_to_face] Could not convert connection to face.");
+        return -1;
+    }
+
+    return 0;
 }
 
-int
-hc_route_create_async(hc_sock_t * s, hc_route_t * route)
+int hc_route_create(hc_sock_t * s, hc_route_t * route)
 {
-    return _hc_route_create(s, route, true);
+    return s->hc_route_create(s, route);
 }
 
-/* ROUTE DELETE */
-
-int
-_hc_route_delete(hc_sock_t * s, hc_route_t * route, bool async)
+int hc_route_delete(hc_sock_t * s, hc_route_t * route)
 {
-    char route_s[MAXSZ_HC_ROUTE];
-    int rc = hc_route_snprintf(route_s, MAXSZ_HC_ROUTE, route);
-    if (rc >= MAXSZ_HC_ROUTE)
-        WARN("[_hc_route_delete] Unexpected truncation of route string");
-    DEBUG("[hc_route_delete] route=%s async=%s", route_s, BOOLSTR(async));
-
-    if (!IS_VALID_FAMILY(route->family))
-         return -1;
-
-    struct {
-        header_control_message hdr;
-        remove_route_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_ROUTE,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .address = route->remote_addr,
-            .addressType = (u8)map_to_addr_type[route->family],
-            .len = route->len,
-        }
-    };
-
-    /*
-     * The route commands expects the ID (or name that we don't use) as part of
-     * the symbolicOrConnid attribute.
-     */
-    snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", route->face_id);
-
-    hc_command_params_t params = {
-        .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_ROUTE,
-        .size_in = sizeof(remove_route_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+    return s->hc_route_delete(s, route);
 }
 
-int
-hc_route_delete(hc_sock_t * s, hc_route_t * route)
+int hc_route_list(hc_sock_t * s, hc_data_t ** pdata)
 {
-    return _hc_route_delete(s, route, false);
+    return s->hc_route_list(s, pdata);
 }
 
-int
-hc_route_delete_async(hc_sock_t * s, hc_route_t * route)
+int hc_route_list_async(hc_sock_t * s)
 {
-    return _hc_route_delete(s, route, true);
-}
-
-/* ROUTE LIST */
-
-int
-_hc_route_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
-{
-    //DEBUG("[hc_route_list] async=%s", BOOLSTR(async));
-
-    struct {
-        header_control_message hdr;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = LIST_ROUTES,
-            .length = 0,
-            .seqNum = 0,
-        },
-    };
-
-    hc_command_params_t params = {
-        .cmd = ACTION_LIST,
-        .cmd_id = LIST_ROUTES,
-        .size_in = sizeof(list_routes_command),
-        .size_out = sizeof(hc_route_t),
-        .parse = (HC_PARSE)hc_route_parse,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata, async);
-}
-
-int
-hc_route_list(hc_sock_t * s, hc_data_t ** pdata)
-{
-    return _hc_route_list(s, pdata, false);
-}
-
-int
-hc_route_list_async(hc_sock_t * s)
-{
-    return _hc_route_list(s, NULL, true);
+    return s->hc_route_list_async(s);
 }
 
 /* ROUTE PARSE */
@@ -2004,19 +910,6 @@ hc_route_snprintf(char * s, size_t size, hc_route_t * route)
     return snprintf(s, size, "%*d %*d %s %*d", MAXSZ_FACE_ID, route->face_id,
             MAXSZ_COST, route->cost, prefix, MAXSZ_LEN, route->len);
 }
-
-/*----------------------------------------------------------------------------*
- * Face
- *
- * Face support is not directly available in hicn-light, but we can offer such
- * an interface through a combination of listeners and connections. The code
- * starts with some conversion functions between faces/listeners/connections.
- *
- * We also need to make sure that there always exist a (single) listener when a
- * connection is created, and in the hICN face case, that there is a single
- * connection attached to this listener.
- *
- *----------------------------------------------------------------------------*/
 
 /* FACE -> LISTENER */
 
@@ -2236,484 +1129,25 @@ hc_connection_to_local_listener(const hc_connection_t * connection, hc_listener_
     return 0;
 }
 
-/* FACE CREATE */
-
-int
-hc_face_create(hc_sock_t * s, hc_face_t * face)
+int hc_punting_create(hc_sock_t *s, hc_punting_t *punting)
 {
-    hc_listener_t listener;
-    hc_listener_t * listener_found;
-
-    hc_connection_t connection;
-    hc_connection_t * connection_found;
-
-    char face_s[MAXSZ_HC_FACE];
-    int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
-    if (rc >= MAXSZ_HC_FACE)
-        WARN("[hc_face_create] Unexpected truncation of face string");
-    DEBUG("[hc_face_create] face=%s", face_s);
-
-    switch(face->face.type)
-    {
-        case FACE_TYPE_HICN:
-        case FACE_TYPE_TCP:
-        case FACE_TYPE_UDP:
-            if (hc_face_to_connection(face, &connection, true) < 0) {
-                ERROR("[hc_face_create] Could not convert face to connection.");
-                return -1;
-            }
-
-            /* Ensure we have a corresponding local listener */
-            if (hc_connection_to_local_listener(&connection, &listener) < 0) {
-                ERROR("[hc_face_create] Could not convert face to local listener.");
-                return -1;
-            }
-
-            if (hc_listener_get(s, &listener, &listener_found) < 0) {
-                ERROR("[hc_face_create] Could not retrieve listener");
-                return -1;
-            }
-
-            if (!listener_found) {
-                /* We need to create the listener if it does not exist */
-                if (hc_listener_create(s, &listener) < 0) {
-                    ERROR("[hc_face_create] Could not create listener.");
-                    free(listener_found);
-                    return -1;
-                }
-            } else {
-                free(listener_found);
-            }
-
-            /* Create corresponding connection */
-            if (hc_connection_create(s, &connection) < 0) {
-                ERROR("[hc_face_create] Could not create connection.");
-                return -1;
-            }
-
-            /*
-             * Once the connection is created, we need to list all connections
-             * and compare with the current one to find the created face ID.
-             */
-            if (hc_connection_get(s, &connection, &connection_found) < 0) {
-                ERROR("[hc_face_create] Could not retrieve connection");
-                return -1;
-            }
-
-            if (!connection_found) {
-                ERROR("[hc_face_create] Could not find newly created connection.");
-                return -1;
-            }
-
-            face->id = connection_found->id;
-            free(connection_found);
-
-            break;
-
-        case FACE_TYPE_HICN_LISTENER:
-        case FACE_TYPE_TCP_LISTENER:
-        case FACE_TYPE_UDP_LISTENER:
-            if (hc_face_to_listener(face, &listener) < 0) {
-                ERROR("Could not convert face to listener.");
-                return -1;
-            }
-            if (hc_listener_create(s, &listener) < 0) {
-                ERROR("[hc_face_create] Could not create listener.");
-                return -1;
-            }
-            return -1;
-            break;
-        default:
-            ERROR("[hc_face_create] Unknwon face type.");
-
-            return -1;
-    };
-
-    return 0;
+    return s->hc_punting_create(s, punting);
 }
 
-int
-hc_face_get(hc_sock_t * s, hc_face_t * face, hc_face_t ** face_found)
+int hc_punting_get(hc_sock_t *s, hc_punting_t *punting,
+                   hc_punting_t **punting_found)
 {
-    hc_listener_t listener;
-    hc_listener_t * listener_found;
-
-    hc_connection_t connection;
-    hc_connection_t * connection_found;
-
-    char face_s[MAXSZ_HC_FACE];
-    int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
-    if (rc >= MAXSZ_HC_FACE)
-        WARN("[hc_face_get] Unexpected truncation of face string");
-    DEBUG("[hc_face_get] face=%s", face_s);
-
-    switch(face->face.type)
-    {
-        case FACE_TYPE_HICN:
-        case FACE_TYPE_TCP:
-        case FACE_TYPE_UDP:
-            if (hc_face_to_connection(face, &connection, false) < 0)
-                 return -1;
-            if (hc_connection_get(s, &connection, &connection_found) < 0)
-                 return -1;
-            if (!connection_found) {
-                *face_found = NULL;
-                return 0;
-            }
-            *face_found = malloc(sizeof(hc_face_t));
-            hc_connection_to_face(connection_found, *face_found);
-            free(connection_found);
-            break;
-
-        case FACE_TYPE_HICN_LISTENER:
-        case FACE_TYPE_TCP_LISTENER:
-        case FACE_TYPE_UDP_LISTENER:
-            if (hc_face_to_listener(face, &listener) < 0)
-                 return -1;
-            if (hc_listener_get(s, &listener, &listener_found) < 0)
-                 return -1;
-            if (!listener_found) {
-                *face_found = NULL;
-                return 0;
-            }
-            *face_found = malloc(sizeof(hc_face_t));
-            hc_listener_to_face(listener_found, *face_found);
-            free(listener_found);
-            break;
-
-        default:
-             return -1;
-    }
-
-    return 0;
-
+    return s->hc_punting_get(s, punting, punting_found);
 }
 
-/* FACE DELETE */
-
-int
-hc_face_delete(hc_sock_t * s, hc_face_t * face)
+int hc_punting_delete(hc_sock_t *s, hc_punting_t *punting)
 {
-    char face_s[MAXSZ_HC_FACE];
-    int rc = hc_face_snprintf(face_s, MAXSZ_HC_FACE, face);
-    if (rc >= MAXSZ_HC_FACE)
-        WARN("[hc_face_delete] Unexpected truncation of face string");
-    DEBUG("[hc_face_delete] face=%s", face_s);
-
-    hc_connection_t connection;
-    if (hc_face_to_connection(face, &connection, false) < 0) {
-        ERROR("[hc_face_delete] Could not convert face to connection.");
-        return -1;
-    }
-
-    if (hc_connection_delete(s, &connection) < 0) {
-        ERROR("[hc_face_delete] Error removing connection");
-        return -1;
-    }
-
-    /* If this is the last connection attached to the listener, remove it */
-
-    hc_data_t * connections;
-    hc_listener_t listener = {{0}};
-
-    /*
-     * Ensure we have a corresponding local listener
-     * NOTE: hc_face_to_listener is not appropriate
-     */
-    if (hc_connection_to_local_listener(&connection, &listener) < 0) {
-        ERROR("[hc_face_create] Could not convert face to local listener.");
-        return -1;
-    }
-#if 1
-    /*
-     * The name is generated to prepare listener creation, we need it to be
-     * empty for deletion. The id should not need to be reset though.
-     */
-    listener.id = 0;
-    memset(listener.name, 0, sizeof(listener.name));
-#endif
-    if (hc_connection_list(s, &connections) < 0) {
-        ERROR("[hc_face_delete] Error getting the list of listeners");
-        return -1;
-    }
-
-    bool delete = true;
-    foreach_connection(c, connections) {
-        if ((ip_address_cmp(&c->local_addr, &listener.local_addr, c->family) == 0) &&
-            (c->local_port == listener.local_port) &&
-                (strcmp(c->interface_name, listener.interface_name) == 0)) {
-            delete = false;
-        }
-    }
-
-    if (delete) {
-        if (hc_listener_delete(s, &listener) < 0) {
-            ERROR("[hc_face_delete] Error removing listener");
-            return -1;
-        }
-    }
-
-    hc_data_free(connections);
-
-    return 0;
-
-
+    return s->hc_punting_delete(s, punting);
 }
 
-/* FACE LIST */
-
-int
-hc_face_list(hc_sock_t * s, hc_data_t ** pdata)
+int hc_punting_list(hc_sock_t *s, hc_data_t **pdata)
 {
-    hc_data_t * connection_data;
-    hc_face_t face;
-
-    //DEBUG("[hc_face_list]");
-
-    if (hc_connection_list(s, &connection_data) < 0) {
-        ERROR("[hc_face_list] Could not list connections.");
-        return -1;
-    }
-
-    hc_data_t * face_data = hc_data_create(sizeof(hc_connection_t), sizeof(hc_face_t), NULL);
-    foreach_connection(c, connection_data) {
-        if (hc_connection_to_face(c, &face) < 0) {
-            ERROR("[hc_face_list] Could not convert connection to face.");
-            goto ERR;
-        }
-        hc_data_push(face_data, &face);
-    }
-
-    *pdata = face_data;
-    hc_data_free(connection_data);
-    return 0;
-
-ERR:
-    hc_data_free(connection_data);
-    return -1;
-}
-
-int
-hc_connection_parse_to_face(void * in, hc_face_t * face)
-{
-    hc_connection_t connection;
-
-    if (hc_connection_parse(in, &connection) < 0) {
-        ERROR("[hc_connection_parse_to_face] Could not parse connection");
-        return -1;
-    }
-
-    if (hc_connection_to_face(&connection, face) < 0) {
-        ERROR("[hc_connection_parse_to_face] Could not convert connection to face.");
-        return -1;
-    }
-
-    return 0;
-}
-
-
-int
-hc_face_list_async(hc_sock_t * s)
-{
-    struct {
-        header_control_message hdr;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = LIST_CONNECTIONS,
-            .length = 0,
-            .seqNum = 0,
-        },
-    };
-
-    hc_command_params_t params = {
-        .cmd = ACTION_LIST,
-        .cmd_id = LIST_CONNECTIONS,
-        .size_in = sizeof(list_connections_command),
-        .size_out = sizeof(hc_face_t),
-        .parse = (HC_PARSE)hc_connection_parse_to_face,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, true);
-}
-
-/* /!\ Please update constants in header file upon changes */
-int
-hc_face_snprintf(char * s, size_t size, hc_face_t * face)
-{
-    /* URLs are also big enough to contain IP addresses in the hICN case */
-    char local[MAXSZ_URL];
-    char remote[MAXSZ_URL];
-#ifdef WITH_POLICY
-    char tags[MAXSZ_POLICY_TAGS];
-#endif /* WITH_POLICY */
-    int rc;
-
-    switch(face->face.type) {
-        case FACE_TYPE_HICN:
-        case FACE_TYPE_HICN_LISTENER:
-            rc = ip_address_snprintf(local, MAXSZ_URL,
-                    &face->face.local_addr,
-                    face->face.family);
-            if (rc >= MAXSZ_URL)
-                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
-            if (rc < 0)
-                return rc;
-            rc = ip_address_snprintf(remote, MAXSZ_URL,
-                    &face->face.remote_addr,
-                    face->face.family);
-            if (rc >= MAXSZ_URL)
-                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
-            if (rc < 0)
-                return rc;
-            break;
-        case FACE_TYPE_TCP:
-        case FACE_TYPE_UDP:
-        case FACE_TYPE_TCP_LISTENER:
-        case FACE_TYPE_UDP_LISTENER:
-            rc = url_snprintf(local, MAXSZ_URL, face->face.family,
-                    &face->face.local_addr,
-                    face->face.local_port);
-            if (rc >= MAXSZ_URL)
-                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
-            if (rc < 0)
-                return rc;
-            rc = url_snprintf(remote, MAXSZ_URL, face->face.family,
-                    &face->face.remote_addr,
-                    face->face.remote_port);
-            if (rc >= MAXSZ_URL)
-                WARN("[hc_face_snprintf] Unexpected truncation of URL string");
-            if (rc < 0)
-                return rc;
-            break;
-        default:
-            return -1;
-    }
-
-    // [#ID NAME] TYPE LOCAL_URL REMOTE_URL STATE/ADMIN_STATE (TAGS)
-#ifdef WITH_POLICY
-    rc = policy_tags_snprintf(tags, MAXSZ_POLICY_TAGS, face->face.tags);
-    if (rc >= MAXSZ_POLICY_TAGS)
-        WARN("[hc_face_snprintf] Unexpected truncation of policy tags string");
-    if (rc < 0)
-        return rc;
-
-    return snprintf(s, size, "[#%d %s] %s %s %s %s %s/%s [%d] (%s)",
-            face->id,
-            face->name,
-            face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
-            face_type_str[face->face.type],
-            local,
-            remote,
-            face_state_str[face->face.state],
-            face_state_str[face->face.admin_state],
-            face->face.priority,
-            tags);
-#else
-    return snprintf(s, size, "[#%d %s] %s %s %s %s %s/%s",
-            face->id,
-            face->name,
-            face->face.netdevice.index != NETDEVICE_UNDEFINED_INDEX ? face->face.netdevice.name : "*",
-            face_type_str[face->face.type],
-            local,
-            remote,
-            face_state_str[face->face.state],
-            face_state_str[face->face.admin_state]);
-#endif /* WITH_POLICY */
-}
-
-int
-hc_face_set_admin_state(hc_sock_t * s, const char * conn_id_or_name,
-        face_state_t admin_state)
-{
-    return hc_connection_set_admin_state(s, conn_id_or_name, admin_state);
-}
-
-int
-hc_face_set_priority(hc_sock_t * s, const char * conn_id_or_name,
-        uint32_t priority)
-{
-    return hc_connection_set_priority(s, conn_id_or_name, priority);
-}
-
-int
-hc_face_set_tags(hc_sock_t * s, const char * conn_id_or_name,
-        policy_tags_t tags)
-{
-    return hc_connection_set_tags(s, conn_id_or_name, tags);
-}
-
-/*----------------------------------------------------------------------------*
- * Punting
- *----------------------------------------------------------------------------*/
-
-int
-_hc_punting_create(hc_sock_t * s, hc_punting_t * punting, bool async)
-{
-    int rc;
-
-    if (hc_punting_validate(punting) < 0)
-        return -1;
-
-    struct {
-        header_control_message hdr;
-        add_punting_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = ADD_PUNTING,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .address = punting->prefix,
-            .addressType = (u8)map_to_addr_type[punting->family],
-            .len = punting->prefix_len,
-        }
-    };
-    rc = snprintf(msg.payload.symbolicOrConnid, SYMBOLIC_NAME_LEN, "%d", punting->face_id);
-    if (rc >= SYMBOLIC_NAME_LEN)
-        WARN("[_hc_punting_create] Unexpected truncation of symbolic name string");
-
-    hc_command_params_t params = {
-        .cmd = ACTION_CREATE,
-        .cmd_id = ADD_PUNTING,
-        .size_in = sizeof(add_punting_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
-}
-
-int
-hc_punting_create(hc_sock_t * s, hc_punting_t * punting)
-{
-    return _hc_punting_create(s, punting, false);
-}
-
-int
-hc_punting_create_async(hc_sock_t * s, hc_punting_t * punting)
-{
-    return _hc_punting_create(s, punting, true);
-}
-
-int hc_punting_get(hc_sock_t * s, hc_punting_t * punting, hc_punting_t ** punting_found)
-{
-    ERROR("hc_punting_get not (yet) implemented.");
-    return -1;
-}
-
-int hc_punting_delete(hc_sock_t * s, hc_punting_t * punting)
-{
-    ERROR("hc_punting_delete not (yet) implemented.");
-    return -1;
-}
-
-int hc_punting_list(hc_sock_t * s, hc_data_t ** pdata)
-{
-    ERROR("hc_punting_list not (yet) implemented.");
-    return -1;
+    return s->hc_punting_list(s, pdata);
 }
 
 int hc_punting_validate(const hc_punting_t * punting)
@@ -2768,130 +1202,24 @@ int hc_punting_snprintf(char * s, size_t size, hc_punting_t * punting)
     return -1;
 }
 
-
-/*----------------------------------------------------------------------------*
- * Cache
- *----------------------------------------------------------------------------*/
-
-int
-_hc_cache_set_store(hc_sock_t * s, int enabled, bool async)
+int hc_cache_set_store(hc_sock_t *s, int enabled)
 {
-    struct {
-        header_control_message hdr;
-        cache_store_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = CACHE_STORE,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .activate = enabled,
-        }
-    };
-
-    hc_command_params_t params = {
-        .cmd = ACTION_SET,
-        .cmd_id = CACHE_STORE,
-        .size_in = sizeof(cache_store_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
+    return s->hc_cache_set_store(s, enabled);
 }
 
-int
-hc_cache_set_store(hc_sock_t * s, int enabled)
+int hc_cache_set_serve(hc_sock_t *s, int enabled)
 {
-    return _hc_cache_set_store(s, enabled, false);
+    return s->hc_cache_set_serve(s, enabled);
 }
 
-int
-hc_cache_set_store_async(hc_sock_t * s, int enabled)
+int hc_strategy_list(hc_sock_t *s, hc_data_t **data)
 {
-    return _hc_cache_set_store(s, enabled, true);
+    return s->hc_strategy_list(s, data);
 }
 
-int
-_hc_cache_set_serve(hc_sock_t * s, int enabled, bool async)
+int hc_strategy_set(hc_sock_t *s /* XXX */)
 {
-    struct {
-        header_control_message hdr;
-        cache_serve_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = CACHE_SERVE,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .activate = enabled,
-        }
-    };
-
-    hc_command_params_t params = {
-        .cmd = ACTION_SET,
-        .cmd_id = CACHE_SERVE,
-        .size_in = sizeof(cache_serve_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
-}
-
-int
-hc_cache_set_serve(hc_sock_t * s, int enabled)
-{
-    return _hc_cache_set_serve(s, enabled, false);
-}
-
-int
-hc_cache_set_serve_async(hc_sock_t * s, int enabled)
-{
-    return _hc_cache_set_serve(s, enabled, true);
-}
-
-/*----------------------------------------------------------------------------*
- * Strategy
- *----------------------------------------------------------------------------*/
-
-// per prefix
-int
-hc_strategy_set(hc_sock_t * s /* XXX */)
-{
-     return 0;
-}
-
-/* How to retrieve that from the forwarder ? */
-static const char * strategies[] = {
-    "random",
-    "load_balancer",
-};
-
-#define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
-
-int
-hc_strategy_list(hc_sock_t * s, hc_data_t ** data)
-{
-    int rc;
-
-    *data = hc_data_create(0, sizeof(hc_strategy_t), NULL);
-
-    for (unsigned i = 0; i < ARRAY_SIZE(strategies); i++) {
-        hc_strategy_t * strategy = (hc_strategy_t*)hc_data_get_next(*data);
-        if (!strategy)
-             return -1;
-        rc = snprintf(strategy->name, MAXSZ_HC_STRATEGY, "%s", strategies[i]);
-        if (rc >= MAXSZ_HC_STRATEGY)
-            WARN("[hc_strategy_list] Unexpected truncation of strategy name string");
-        (*data)->size++;
-    }
-
-    return 0;
+    return s->hc_strategy_set(s);
 }
 
 /* /!\ Please update constants in header file upon changes */
@@ -2901,186 +1229,32 @@ hc_strategy_snprintf(char * s, size_t size, hc_strategy_t * strategy)
     return snprintf(s, size, "%s", strategy->name);
 }
 
-/*----------------------------------------------------------------------------*
- * WLDR
- *----------------------------------------------------------------------------*/
-
-// per connection
-int
-hc_wldr_set(hc_sock_t * s /* XXX */)
+int hc_wldr_set(hc_sock_t *s /* XXX */)
 {
-     return 0;
+    return s->hc_wldr_set(s);
 }
 
-/*----------------------------------------------------------------------------*
- * MAP-Me
- *----------------------------------------------------------------------------*/
-
-int
-hc_mapme_set(hc_sock_t * s, int enabled)
+int hc_mapme_set(hc_sock_t *s, int enabled)
 {
-     return 0;
+    return s->hc_mapme_set(s, enabled);
 }
 
-int
-hc_mapme_set_discovery(hc_sock_t * s, int enabled)
+int hc_mapme_set_discovery(hc_sock_t *s, int enabled)
 {
-     return 0;
+    return s->hc_mapme_set_discovery(s, enabled);
 }
 
-int
-hc_mapme_set_timescale(hc_sock_t * s, double timescale)
+int hc_mapme_set_timescale(hc_sock_t *s, double timescale)
 {
-     return 0;
+    return s->hc_mapme_set_timescale(s, timescale);
 }
 
-int
-hc_mapme_set_retx(hc_sock_t * s, double timescale)
+int hc_mapme_set_retx(hc_sock_t *s, double timescale)
 {
-     return 0;
+    return s->hc_mapme_set_retx(s, timescale);
 }
-
-/*----------------------------------------------------------------------------*
- * Policy
- *----------------------------------------------------------------------------*/
 
 #ifdef WITH_POLICY
-
-/* POLICY CREATE */
-
-int
-_hc_policy_create(hc_sock_t * s, hc_policy_t * policy, bool async)
-{
-    if (!IS_VALID_FAMILY(policy->family))
-         return -1;
-
-    struct {
-        header_control_message hdr;
-        add_policy_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = ADD_POLICY,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .address = policy->remote_addr,
-            .addressType = (u8)map_to_addr_type[policy->family],
-            .len = policy->len,
-            .policy = policy->policy,
-        }
-    };
-
-    hc_command_params_t params = {
-        .cmd = ACTION_CREATE,
-        .cmd_id = ADD_POLICY,
-        .size_in = sizeof(add_policy_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
-}
-
-int
-hc_policy_create(hc_sock_t * s, hc_policy_t * policy)
-{
-    return _hc_policy_create(s, policy, false);
-}
-
-int
-hc_policy_create_async(hc_sock_t * s, hc_policy_t * policy)
-{
-    return _hc_policy_create(s, policy, true);
-}
-
-/* POLICY DELETE */
-
-int
-_hc_policy_delete(hc_sock_t * s, hc_policy_t * policy, bool async)
-{
-    if (!IS_VALID_FAMILY(policy->family))
-         return -1;
-
-    struct {
-        header_control_message hdr;
-        remove_policy_command payload;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = REMOVE_POLICY,
-            .length = 1,
-            .seqNum = 0,
-        },
-        .payload = {
-            .address = policy->remote_addr,
-            .addressType = (u8)map_to_addr_type[policy->family],
-            .len = policy->len,
-        }
-    };
-
-    hc_command_params_t params = {
-        .cmd = ACTION_DELETE,
-        .cmd_id = REMOVE_POLICY,
-        .size_in = sizeof(remove_policy_command),
-        .size_out = 0,
-        .parse = NULL,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, NULL, async);
-}
-
-int
-hc_policy_delete(hc_sock_t * s, hc_policy_t * policy)
-{
-    return _hc_policy_delete(s, policy, false);
-}
-
-int
-hc_policy_delete_async(hc_sock_t * s, hc_policy_t * policy)
-{
-    return _hc_policy_delete(s, policy, true);
-}
-
-/* POLICY LIST */
-
-int
-_hc_policy_list(hc_sock_t * s, hc_data_t ** pdata, bool async)
-{
-    struct {
-        header_control_message hdr;
-    } msg = {
-        .hdr = {
-            .messageType = REQUEST_LIGHT,
-            .commandID = LIST_POLICIES,
-            .length = 0,
-            .seqNum = 0,
-        },
-    };
-
-    hc_command_params_t params = {
-        .cmd = ACTION_LIST,
-        .cmd_id = LIST_POLICIES,
-        .size_in = sizeof(list_policies_command),
-        .size_out = sizeof(hc_policy_t),
-        .parse = (HC_PARSE)hc_policy_parse,
-    };
-
-    return hc_execute_command(s, (hc_msg_t*)&msg, sizeof(msg), &params, pdata, async);
-}
-
-int
-hc_policy_list(hc_sock_t * s, hc_data_t ** pdata)
-{
-    return _hc_policy_list(s, pdata, false);
-}
-
-int
-hc_policy_list_async(hc_sock_t * s, hc_data_t ** pdata)
-{
-    return _hc_policy_list(s, pdata, true);
-}
 
 /* POLICY PARSE */
 

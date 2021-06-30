@@ -18,8 +18,8 @@
 #include <hicn/transport/portability/win_portability.h>
 #endif
 
+#include <glog/logging.h>
 #include <hicn/transport/errors/errors.h>
-#include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/object_pool.h>
 
 #include <thread>
@@ -162,7 +162,7 @@ void TcpSocketConnector::doWrite() {
           // The connection has been closed by the application.
           return;
         } else {
-          TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+          LOG(ERROR) << ec.value() << ":" << ec.message();
           tryReconnect();
         }
       });
@@ -182,7 +182,7 @@ void TcpSocketConnector::doReadBody(std::size_t body_length) {
           // The connection has been closed by the application.
           return;
         } else {
-          TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+          LOG(ERROR) << ec.value() << " " << ec.message();
           tryReconnect();
         }
       });
@@ -203,23 +203,23 @@ void TcpSocketConnector::doReadHeader() {
               0) {
             doReadBody(body_length - length);
           } else {
-            TRANSPORT_LOGE("Decoding error. Ignoring packet.");
+            LOG(ERROR) << "Decoding error. Ignoring packet.";
           }
         } else if (ec.value() ==
                    static_cast<int>(std::errc::operation_canceled)) {
           // The connection has been closed by the application.
           return;
         } else {
-          TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+          LOG(ERROR) << ec.value() << " " << ec.message();
           tryReconnect();
         }
       });
 }
 
 void TcpSocketConnector::tryReconnect() {
-  if (state_ == ConnectorState::CONNECTED) {
-    TRANSPORT_LOGE("Connection lost. Trying to reconnect...\n");
-    state_ = ConnectorState::CONNECTING;
+  if (state_ == Connector::State::CONNECTED) {
+    LOG(ERROR) << "Connection lost. Trying to reconnect...";
+    state_ = Connector::State::CONNECTING;
     is_reconnection_ = true;
     io_service_.post([this]() {
       if (socket_.is_open()) {
@@ -250,7 +250,7 @@ void TcpSocketConnector::doConnect() {
 
           if (is_reconnection_) {
             is_reconnection_ = false;
-            TRANSPORT_LOGI("Connection recovered!\n");
+            LOG(INFO) << "Connection recovered!";
             on_reconnect_callback_();
           }
         } else {
@@ -274,7 +274,7 @@ void TcpSocketConnector::handleDeadline(const std::error_code &ec) {
   if (!ec) {
     io_service_.post([this]() {
       socket_.close();
-      TRANSPORT_LOGE("Error connecting. Is the forwarder running?\n");
+      LOG(ERROR) << "Error connecting. Is the forwarder running?";
       io_service_.stop();
     });
   }
