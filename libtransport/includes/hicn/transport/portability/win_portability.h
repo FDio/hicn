@@ -22,7 +22,6 @@
 #endif
 #include <fcntl.h>
 #include <io.h>
-#include <parc/windows/parc_Utils.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

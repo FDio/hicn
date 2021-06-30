@@ -2,6 +2,7 @@
  * Copyright (c) 2017-2019 Cisco and/or its affiliates.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/utils/branch_prediction.h>
 #include <io_modules/forwarder/errors.h>
 #include <io_modules/forwarder/udp_tunnel.h>
@@ -62,7 +63,7 @@ void UdpTunnelConnector::send(Packet &packet) {
 void UdpTunnelConnector::send(const uint8_t *packet, std::size_t len) {}
 
 void UdpTunnelConnector::close() {
-  TRANSPORT_LOGD("UDPTunnelConnector::close");
+  DLOG_IF(INFO, VLOG_IS_ON(2)) << "UDPTunnelConnector::close";
   state_ = State::CLOSED;
   bool is_socket_owned = socket_.use_count() == 1;
   if (is_socket_owned) {
@@ -150,8 +151,8 @@ void UdpTunnelConnector::writeHandler(std::error_code ec) {
         output_buffer_.pop_front();
       }
     } else if (retval != EWOULDBLOCK && retval != EAGAIN) {
-      TRANSPORT_LOGE("Error sending messages! %s %d\n", strerror(errno),
-                     retval);
+      LOG(ERROR) << "Error sending messages! " << strerror(errno)
+                 << " << retval";
       return;
     }
   }
@@ -164,9 +165,8 @@ void UdpTunnelConnector::writeHandler(std::error_code ec) {
 }
 
 void UdpTunnelConnector::readHandler(std::error_code ec) {
-  TRANSPORT_LOGD("UdpTunnelConnector receive packet");
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "UdpTunnelConnector receive packet";
 
-  // TRANSPORT_LOGD("UdpTunnelConnector received packet length=%lu", length);
   if (TRANSPORT_EXPECT_TRUE(!ec)) {
     if (TRANSPORT_EXPECT_TRUE(state_ == State::CONNECTED)) {
       if (current_position_ == 0) {
@@ -182,8 +182,8 @@ void UdpTunnelConnector::readHandler(std::error_code ec) {
       int res = recvmmsg(socket_->native_handle(), rx_msgs_ + current_position_,
                          max_burst - current_position_, MSG_DONTWAIT, nullptr);
       if (res < 0) {
-        TRANSPORT_LOGE("Error receiving messages! %s %d\n", strerror(errno),
-                       res);
+        LOG(ERROR) << "Error receiving messages! " << strerror(errno) << " "
+                   << res;
         return;
       }
 
@@ -200,19 +200,20 @@ void UdpTunnelConnector::readHandler(std::error_code ec) {
 
       doRecvPacket();
     } else {
-      TRANSPORT_LOGE(
-          "Error in UDP: Receiving packets from a not connected socket.");
+      LOG(ERROR)
+          << "Error in UDP: Receiving packets from a not connected socket.";
     }
   } else if (ec.value() == static_cast<int>(std::errc::operation_canceled)) {
-    TRANSPORT_LOGE("The connection has been closed by the application.");
+    LOG(ERROR) << "The connection has been closed by the application.";
     return;
   } else {
     if (TRANSPORT_EXPECT_TRUE(state_ == State::CONNECTED)) {
       // receive_callback_(this, *read_msg_, ec);
-      TRANSPORT_LOGE("Error in UDP connector: %d %s", ec.value(),
-                     ec.message().c_str());
+      LOG(ERROR) << "Error in UDP connector: " << ec.value() << " "
+                 << ec.message();
     } else {
-      TRANSPORT_LOGE("Error while not connector");
+      LOG(ERROR) << "Error in connector while not connected. " << ec.value()
+                 << " " << ec.message();
     }
   }
 }
@@ -226,16 +227,17 @@ void UdpTunnelConnector::doRecvPacket() {
 #else
     socket_->async_wait(asio::ip::tcp::socket::wait_read,
 #endif
-                        std::bind(&UdpTunnelConnector::readHandler, this,
-                                  std::placeholders::_1));
+                           std::bind(&UdpTunnelConnector::readHandler, this,
+                                     std::placeholders::_1));
   }
 #else
-  TRANSPORT_LOGD("UdpTunnelConnector receive packet");
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "UdpTunnelConnector receive packet";
   read_msg_ = getRawBuffer();
   socket_->async_receive_from(
       asio::buffer(read_msg_.first, read_msg_.second), remote_endpoint_recv_,
       [this](std::error_code ec, std::size_t length) {
-        TRANSPORT_LOGD("UdpTunnelConnector received packet length=%lu", length);
+        DLOG_IF(INFO, VLOG_IS_ON(3))
+            << "UdpTunnelConnector received packet length=" << length;
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           if (TRANSPORT_EXPECT_TRUE(state_ == State::CONNECTED)) {
             auto packet = getPacketFromBuffer(read_msg_.first, length);
@@ -244,19 +246,19 @@ void UdpTunnelConnector::doRecvPacket() {
                               make_error_code(forwarder_error::success));
             doRecvPacket();
           } else {
-            TRANSPORT_LOGE(
-                "Error in UDP: Receiving packets from a not connected socket.");
+            LOG(ERROR) << "Error in UDP: Receiving packets from a not "
+                          "connected socket.";
           }
         } else if (ec.value() ==
                    static_cast<int>(std::errc::operation_canceled)) {
-          TRANSPORT_LOGE("The connection has been closed by the application.");
+          LOG(ERROR) << "The connection has been closed by the application.";
           return;
         } else {
           if (TRANSPORT_EXPECT_TRUE(state_ == State::CONNECTED)) {
-            TRANSPORT_LOGE("Error in UDP connector: %d %s", ec.value(),
-                           ec.message().c_str());
+            LOG(ERROR) << "Error in UDP connector: " << ec.value()
+                       << ec.message();
           } else {
-            TRANSPORT_LOGE("Error while not connector");
+            LOG(ERROR) << "Error while not connected";
           }
         }
       });
@@ -276,7 +278,7 @@ void UdpTunnelConnector::doConnect() {
             doSendPacket();
           }
         } else {
-          TRANSPORT_LOGE("[Hproxy] - UDP Connection failed!!!");
+          LOG(ERROR) << "UDP Connection failed!!!";
           timer_.expires_from_now(std::chrono::milliseconds(500));
           timer_.async_wait(std::bind(&UdpTunnelConnector::doConnect, this));
         }

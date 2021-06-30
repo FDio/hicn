@@ -25,6 +25,8 @@ namespace transport {
 
 namespace core {
 
+const uint32_t MAX_AGGREGATED_INTEREST = 128;
+
 class Interest
     : public Packet /*, public std::enable_shared_from_this<Interest>*/ {
  private:
@@ -84,8 +86,6 @@ class Interest
   Name &getWritableName() override;
 
   void setName(const Name &name) override;
-
-  void setName(Name &&name) override;
 
   void setLocator(const ip_address_t &ip_address) override;
 

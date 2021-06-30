@@ -11,12 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
 list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/indexer.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/incremental_indexer.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/manifest_incremental_indexer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/incremental_indexer_bytestream.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/manifest_incremental_indexer_bytestream.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/index_manager_bytestream.h
   ${CMAKE_CURRENT_SOURCE_DIR}/reassembly.h
   ${CMAKE_CURRENT_SOURCE_DIR}/datagram_reassembly.h
   ${CMAKE_CURRENT_SOURCE_DIR}/byte_stream_reassembly.h
@@ -31,12 +30,14 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/cbr.h
   ${CMAKE_CURRENT_SOURCE_DIR}/errors.h
   ${CMAKE_CURRENT_SOURCE_DIR}/data_processing_events.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/fec_base.h
 )
 
 list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/indexer.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/incremental_indexer.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/manifest_incremental_indexer.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/incremental_indexer_bytestream.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/manifest_incremental_indexer_bytestream.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/index_manager_bytestream.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/reassembly.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/datagram_reassembly.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/byte_stream_reassembly.cc
@@ -67,10 +68,11 @@ set(TRANSPORT_CONFIG
 install(
   FILES ${TRANSPORT_CONFIG}
   DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/hicn
-  COMPONENT lib${LIBTRANSPORT}
+  COMPONENT ${LIBTRANSPORT_COMPONENT}
 )
 
 add_subdirectory(rtc)
+add_subdirectory(fec)
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
 set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)

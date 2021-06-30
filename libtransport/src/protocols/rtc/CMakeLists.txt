@@ -11,27 +11,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
 list(APPEND HEADER_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/probe_handler.h
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_state.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_ldr.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_data_path.h
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_consts.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_data_path.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_indexer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_ldr.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_packet.h
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_rc.h
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_rc_queue.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/probe_handler.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_packet.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_reassembly.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_state.h
 )
 
 list(APPEND SOURCE_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/probe_handler.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_state.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_data_path.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_ldr.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/rtc_rc_queue.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_data_path.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/probe_handler.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/rtc_state.cc
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

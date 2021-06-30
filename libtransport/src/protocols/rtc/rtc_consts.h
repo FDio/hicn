@@ -37,12 +37,26 @@ const double INTEREST_LIFETIME_REDUCTION_FACTOR = 0.8;
 const uint32_t PRODUCER_BUFFER_MS = 200;  // ms
 
 // interest scheduler
-const uint32_t MAX_INTERESTS_IN_BATCH = 5;
-const uint32_t WAIT_BETWEEN_INTEREST_BATCHES = 1000;  // usec
+//const uint32_t MAX_INTERESTS_IN_BATCH = 5;
+//const uint32_t WAIT_BETWEEN_INTEREST_BATCHES = 1000;  // usec
+const uint32_t MAX_INTERESTS_IN_BATCH = 5; // number of seq numbers per
+                                           // aggregated interest packet
+                                           // considering the name itself
+const uint32_t WAIT_FOR_INTEREST_BATCH = 20;  // msec. timer that we wait to try
+                                              // to aggregate interest in the
+                                              // same packet
+const uint32_t MAX_PACING_BATCH = 5;
+                                // number of interest that we can send inside
+                                // the loop before they get dropped by the
+                                // kernel.
+const uint32_t PACING_WAIT = 1000; // usec to wait betwing two pacing batch. As
+                                   // for MAX_PACING_BATCH this value was
+                                   // computed during tests
+const uint32_t MAX_RTX_IN_BATCH = 10; // max rtx to send in loop
 
 // packet const
 const uint32_t HICN_HEADER_SIZE = 40 + 20;  //  IPv6 + TCP bytes
-const uint32_t RTC_INTEREST_LIFETIME = 1000;
+const uint32_t RTC_INTEREST_LIFETIME = 2000;
 
 // probes sequence range
 const uint32_t MIN_PROBE_SEQ = 0xefffffff;
@@ -97,7 +111,7 @@ const double MAX_CACHED_PACKETS = 262144;  // 2^18
                                            // about 50 sec of traffic at 50Mbps
                                            // with 1200 bytes packets
 
-const uint32_t MAX_ROUND_WHIOUT_PACKETS = (const uint32_t)
+const uint32_t MAX_ROUND_WHIOUT_PACKETS =
     (20 * MILLI_IN_A_SEC) / ROUND_LEN;  // 20 sec in rounds;
 
 // used in ldr

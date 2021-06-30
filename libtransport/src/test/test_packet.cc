@@ -47,10 +47,6 @@ class PacketForTest : public Packet {
     throw errors::NotImplementedException();
   }
 
-  void setName(Name &&name) override {
-    throw errors::NotImplementedException();
-  }
-
   void setLifetime(uint32_t lifetime) override {
     throw errors::NotImplementedException();
   }
@@ -1040,8 +1036,3 @@ TEST_F(PacketTest, TestSetGetTTL) {
 
 }  // namespace core
 }  // namespace transport
-
-int main(int argc, char **argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

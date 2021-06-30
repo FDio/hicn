@@ -16,105 +16,86 @@
 #pragma once
 
 #include <hicn/transport/errors/runtime_exception.h>
-#include <hicn/transport/portability/portability.h>
-#include <hicn/transport/auth/crypto_hash_type.h>
-#include <hicn/transport/utils/array.h>
+#include <hicn/transport/utils/membuf.h>
+
+#include <iomanip>
 
 extern "C" {
-#include <parc/security/parc_CryptoHash.h>
-};
-
-#include <cstring>
-#include <unordered_map>
+#include <openssl/evp.h>
+}
 
 namespace transport {
 namespace auth {
 
-class CryptoHasher;
+typedef const EVP_MD *(*CryptoHashEVP)(void);
 
-struct EnumClassHash {
-  template <typename T>
-  std::size_t operator()(T t) const {
-    return static_cast<std::size_t>(t);
-  }
+enum class CryptoHashType : uint8_t {
+  UNKNOWN,
+  SHA256,
+  SHA512,
+  BLAKE2B512,
+  BLAKE2S256,
 };
 
-static std::unordered_map<CryptoHashType, std::size_t, EnumClassHash>
-    hash_size_map = {{CryptoHashType::SHA_256, 32},
-                     {CryptoHashType::CRC32C, 4},
-                     {CryptoHashType::SHA_512, 64}};
-
-class Signer;
-class Verifier;
-
 class CryptoHash {
-  friend class CryptoHasher;
-  friend class Signer;
-  friend class Verifier;
-
  public:
-  CryptoHash() : hash_(nullptr) {}
+  // Constructors
+  CryptoHash();
+  CryptoHash(const CryptoHash &other);
+  CryptoHash(CryptoHash &&other);
+  CryptoHash(CryptoHashType hash_type);
+  CryptoHash(const uint8_t *hash, std::size_t size, CryptoHashType hash_type);
+  CryptoHash(const std::vector<uint8_t> &hash, CryptoHashType hash_type);
 
-  CryptoHash(const CryptoHash& other) {
-    if (other.hash_) {
-      hash_ = parcCryptoHash_Acquire(other.hash_);
-    }
-  }
+  // Destructor
+  ~CryptoHash() = default;
 
-  CryptoHash(CryptoHash&& other) {
-    if (other.hash_) {
-      hash_ = parcCryptoHash_Acquire(other.hash_);
-    }
-  }
+  // Operators
+  CryptoHash &operator=(const CryptoHash &other);
+  bool operator==(const CryptoHash &other) const;
 
-  template <typename T>
-  CryptoHash(const T* buffer, std::size_t length, CryptoHashType hash_type) {
-    hash_ = parcCryptoHash_CreateFromArray(
-        static_cast<PARCCryptoHashType>(hash_type), buffer, length);
-  }
+  // Compute the hash of given buffer
+  void computeDigest(const uint8_t *buffer, std::size_t len);
+  void computeDigest(const std::vector<uint8_t> &buffer);
 
-  ~CryptoHash() {
-    if (hash_) {
-      parcCryptoHash_Release(&hash_);
-    }
-  }
+  // Compute the hash of given membuf
+  void computeDigest(const utils::MemBuf *buffer);
 
-  CryptoHash& operator=(const CryptoHash& other) {
-    if (other.hash_) {
-      hash_ = parcCryptoHash_Acquire(other.hash_);
-    }
+  // Return the computed hash
+  std::vector<uint8_t> getDigest() const;
 
-    return *this;
-  }
+  // Return the computed hash as a string
+  std::string getStringDigest() const;
 
-  template <typename T>
-  utils::Array<T> getDigest() const {
-    return utils::Array<T>(
-        static_cast<T*>(parcBuffer_Overlay(parcCryptoHash_GetDigest(hash_), 0)),
-        parcBuffer_Remaining(parcCryptoHash_GetDigest(hash_)));
-  }
+  // Return hash type
+  CryptoHashType getType() const;
 
-  CryptoHashType getType() {
-    return static_cast<CryptoHashType>(parcCryptoHash_GetDigestType(hash_));
-  }
+  // Return hash size
+  std::size_t getSize() const;
 
-  template <typename T>
-  static bool compareBinaryDigest(const T* digest1, const T* digest2,
-                                  CryptoHashType hash_type) {
-    if (hash_size_map.find(hash_type) == hash_size_map.end()) {
-      return false;
-    }
+  // Change hash type
+  void setType(CryptoHashType hash_type);
 
-    return !static_cast<bool>(
-        std::memcmp(digest1, digest2, hash_size_map[hash_type]));
-  }
+  // Print hash to stdout
+  void display();
 
-  TRANSPORT_ALWAYS_INLINE void display() {
-    parcBuffer_Display(parcCryptoHash_GetDigest(hash_), 2);
-  }
+  // Reset hash
+  void reset();
+
+  // Return OpenSSL EVP function associated to a given hash type
+  static CryptoHashEVP getEVP(CryptoHashType hash_type);
+
+  // Return hash size
+  static std::size_t getSize(CryptoHashType hash_type);
+
+  // Compare two raw buffers
+  static bool compareDigest(const uint8_t *h1, const uint8_t *h2,
+                            CryptoHashType hash_type);
 
  private:
-  PARCCryptoHash* hash_;
+  CryptoHashType digest_type_;
+  std::vector<uint8_t> digest_;
+  std::size_t digest_size_;
 };
 
 }  // namespace auth

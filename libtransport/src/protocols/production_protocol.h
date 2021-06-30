@@ -20,6 +20,8 @@
 #include <hicn/transport/interfaces/statistics.h>
 #include <hicn/transport/utils/object_pool.h>
 #include <implementation/socket.h>
+#include <protocols/fec_base.h>
+#include <protocols/fec_utils.h>
 #include <utils/content_store.h>
 
 #include <atomic>
@@ -67,6 +69,27 @@ class ProductionProtocol : public Portal::ProducerCallback {
   virtual void onInterest(core::Interest &i) override = 0;
   virtual void onError(std::error_code ec) override{};
 
+  template <typename FECHandler, typename AllocatorHandler>
+  void enableFEC(FECHandler &&fec_handler,
+                 AllocatorHandler &&allocator_handler) {
+    if (!fec_encoder_) {
+      // Try to get FEC from environment
+      if (const char *fec_str = std::getenv("TRANSPORT_FEC_TYPE")) {
+        LOG(INFO) << "Using FEC " << fec_str;
+        fec_type_ = fec::FECUtils::fecTypeFromString(fec_str);
+      }
+
+      if (fec_type_ == fec::FECType::UNKNOWN) {
+        return;
+      }
+
+      fec_encoder_ = fec::FECUtils::getEncoder(fec_type_, 1);
+      fec_encoder_->setFECCallback(std::forward<FECHandler>(fec_handler));
+      fec_encoder_->setBufferCallback(
+          std::forward<AllocatorHandler>(allocator_handler));
+    }
+  }
+
  protected:
   implementation::ProducerSocket *socket_;
 
@@ -78,6 +101,7 @@ class ProductionProtocol : public Portal::ProducerCallback {
   std::shared_ptr<Portal> portal_;
   std::atomic<bool> is_running_;
   interface::ProductionStatistics *stats_;
+  std::unique_ptr<fec::ProducerFEC> fec_encoder_;
 
   // Callbacks
   interface::ProducerInterestCallback *on_interest_input_;
@@ -101,7 +125,12 @@ class ProductionProtocol : public Portal::ProducerCallback {
   // List ot routes served by current producer protocol
   std::list<Prefix> served_namespaces_;
 
+  // Signature and manifest
+  std::shared_ptr<auth::Signer> signer_;
+  bool making_manifest_;
+
   bool is_async_;
+  fec::FECType fec_type_;
 };
 
 }  // end namespace protocol

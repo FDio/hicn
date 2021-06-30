@@ -21,10 +21,7 @@
 #include <hicn/transport/utils/shared_ptr_utils.h>
 #include <io_modules/forwarder/errors.h>
 
-#ifndef ASIO_STANDALONE
-#define ASIO_STANDALONE
-#endif
-#include <asio/io_service.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 
 namespace transport {
 namespace core {
