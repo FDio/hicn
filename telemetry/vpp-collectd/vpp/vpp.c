@@ -15,22 +15,12 @@
 
 /* Keep order as it is */
 #include <config.h>
-#include <collectd.h>
-#include <plugin.h>
+#include "common.h"
 
 #define counter_t vpp_counter_t
 #include <vpp-api/client/stat_client.h>
 #include <vppinfra/vec.h>
 #undef counter_t
-
-#define STATIC_ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
-
-#define IS_TRUE(s)                                                             \
-  ((strcasecmp("true", (s)) == 0) || (strcasecmp("yes", (s)) == 0) ||          \
-   (strcasecmp("on", (s)) == 0))
-#define IS_FALSE(s)                                                            \
-  ((strcasecmp("false", (s)) == 0) || (strcasecmp("no", (s)) == 0) ||          \
-   (strcasecmp("off", (s)) == 0))
 
 /************** OPTIONS ***********************************/
 static const char *config_keys[2] = {
@@ -157,12 +147,6 @@ static data_set_t if_tx_broadcast_ds = {
 /**********************************************************/
 /********** UTILITY FUNCTIONS *****************************/
 /**********************************************************/
-char *sstrncpy(char *dest, const char *src, size_t n) {
-  strncpy(dest, src, n);
-  dest[n - 1] = '\0';
-  return dest;
-}
-
 /*
  * Utility function used by the read callback to populate a
  * value_list_t and pass it to plugin_dispatch_values.
@@ -245,7 +229,6 @@ static int get_data_set(const char *stat_name, data_set_t *data_set_ptr) {
 /**********************************************************/
 /********** CALLBACK FUNCTIONS ****************************/
 /**********************************************************/
-
 /*
  * This function is called for each configuration item.
  */

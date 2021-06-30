@@ -16,7 +16,7 @@
 #include <core/manifest_format_fixed.h>
 #include <core/manifest_inline.h>
 #include <gtest/gtest.h>
-#include <hicn/transport/auth/crypto_hash_type.h>
+#include <hicn/transport/auth/crypto_hash.h>
 #include <test/packet_samples.h>
 
 #include <climits>
@@ -124,9 +124,9 @@ TEST_F(ManifestTest, SetManifestType) {
 TEST_F(ManifestTest, SetHashAlgorithm) {
   manifest1_.clear();
 
-  auth::CryptoHashType hash1 = auth::CryptoHashType::SHA_512;
-  auth::CryptoHashType hash2 = auth::CryptoHashType::CRC32C;
-  auth::CryptoHashType hash3 = auth::CryptoHashType::SHA_256;
+  auth::CryptoHashType hash1 = auth::CryptoHashType::SHA512;
+  auth::CryptoHashType hash2 = auth::CryptoHashType::BLAKE2B512;
+  auth::CryptoHashType hash3 = auth::CryptoHashType::SHA256;
 
   manifest1_.setHashAlgorithm(hash1);
   auto type_returned1 = manifest1_.getHashAlgorithm();
@@ -191,9 +191,9 @@ TEST_F(ManifestTest, SetSuffixList) {
     data[i].resize(32);
     std::generate(std::begin(data[i]), std::end(data[i]), std::ref(rbe));
     suffixes[i] = idis(eng);
-    entries[i] = std::make_pair(
-        suffixes[i], auth::CryptoHash(data[i].data(), data[i].size(),
-                                      auth::CryptoHashType::SHA_256));
+    entries[i] = std::make_pair(suffixes[i],
+                                auth::CryptoHash(data[i].data(), data[i].size(),
+                                                 auth::CryptoHashType::SHA256));
     manifest1_.addSuffixHash(entries[i].first, entries[i].second);
   }
 
@@ -223,8 +223,3 @@ TEST_F(ManifestTest, SetSuffixList) {
 }  // namespace core
 
 }  // namespace transport
-
-int main(int argc, char **argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

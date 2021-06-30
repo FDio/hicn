@@ -35,16 +35,19 @@
 
 typedef struct
 {
-  u8 nh;			// (to match with reserved in IPSEC AH)
-  u8 payloadlen;		// Len of signature/HMAC in 4-bytes words
+  u8 nh;	 // (to match with reserved in IPSEC AH)
+  u8 payloadlen; // Len of signature/HMAC in 4-bytes words (maximum size)
   union
   {
     u16 reserved;
 
     struct
     {
-      u8 validationAlgorithm;	// As defined in parc_SignerAlgorithm.h
-      u8 unused;		// Unused (to match with reserved in IPSEC AH)
+      u8 validationAlgorithm; // As defined in parc_SignerAlgorithm.h
+      u8 signatureGap;	      // used to match IPSEC specification and to
+			      // have the real size of the signature(without
+			      // padding). It is the result of Maximum
+			      // signature size - real size
     };
   };
   union
@@ -60,12 +63,12 @@ typedef struct
     u32 timestamp_as_u32[2];
   };
   // ICV would follow
-  u8 keyId[32];			// Hash of the pub key
+  u8 keyId[32]; // Hash of pub key
   /* 44 B + validationPayload */
-  u8 validationPayload[0];	// Holds the signature
+  u8 validationPayload[0]; // Holds the signature
 } _ah_header_t;
 
-#define AH_HDRLEN sizeof(_ah_header_t)
+#define AH_HDRLEN sizeof (_ah_header_t)
 static_assert (EXPECTED_AH_HDRLEN == AH_HDRLEN,
 	       "Size of AH Struct does not match its expected size.");
 

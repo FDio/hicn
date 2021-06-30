@@ -7,8 +7,7 @@
 #include <hicn/transport/core/connector.h>
 #include <hicn/transport/portability/platform.h>
 
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <unordered_map>
 
 namespace std {

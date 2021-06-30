@@ -17,7 +17,7 @@
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <implementation/socket_consumer.h>
 #include <protocols/errors.h>
-#include <protocols/indexer.h>
+#include <protocols/index_manager_bytestream.h>
 #include <protocols/raaqm.h>
 
 #include <cstdlib>
@@ -31,7 +31,8 @@ using namespace interface;
 
 RaaqmTransportProtocol::RaaqmTransportProtocol(
     implementation::ConsumerSocket *icn_socket)
-    : TransportProtocol(icn_socket, new ByteStreamReassembly(icn_socket, this)),
+    : TransportProtocol(icn_socket, new IndexManager(icn_socket, this),
+                        new ByteStreamReassembly(icn_socket, this)),
       current_window_size_(1),
       interests_in_flight_(0),
       cur_path_(nullptr),
@@ -47,11 +48,34 @@ RaaqmTransportProtocol::~RaaqmTransportProtocol() {
   }
 }
 
-int RaaqmTransportProtocol::start() {
+void RaaqmTransportProtocol::reset() {
+  // Set first segment to retrieve
+  TransportProtocol::reset();
+  core::Name *name;
+  socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME, &name);
+  indexer_verifier_->setFirstSuffix(name->getSuffix());
+  std::queue<uint32_t> empty;
+  std::swap(interest_to_retransmit_, empty);
+  stats_->reset();
+
+  // Reset protocol variables
+  interests_in_flight_ = 0;
+  t0_ = utils::SteadyClock::now();
+
+  // Optionally reset congestion window
+  bool reset_window;
+  socket_->getSocketOption(RaaqmTransportOptions::PER_SESSION_CWINDOW_RESET,
+                           reset_window);
+  if (reset_window) {
+    current_window_size_ = 1;
+  }
+
+  // Reset rate estimator
   if (rate_estimator_) {
     rate_estimator_->onStart();
   }
 
+  // If not cur_path exists, create one
   if (!cur_path_) {
     // RAAQM
     double drop_factor;
@@ -93,37 +117,6 @@ int RaaqmTransportProtocol::start() {
         sample_number);
     cur_path_ = cur_path.get();
     path_table_[default_values::path_id] = std::move(cur_path);
-  }
-
-  portal_->setConsumerCallback(this);
-  return TransportProtocol::start();
-}
-
-void RaaqmTransportProtocol::resume() { return TransportProtocol::resume(); }
-
-void RaaqmTransportProtocol::reset() {
-  // Set first segment to retrieve
-  core::Name *name;
-  socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME, &name);
-  index_manager_->reset();
-  index_manager_->setFirstSuffix(name->getSuffix());
-  std::queue<Interest::Ptr> empty;
-  std::swap(interest_to_retransmit_, empty);
-  stats_->reset();
-
-  // Reset reassembly component
-  reassembly_protocol_->reInitialize();
-
-  // Reset protocol variables
-  interests_in_flight_ = 0;
-  t0_ = utils::SteadyClock::now();
-
-  // Optionally reset congestion window
-  bool reset_window;
-  socket_->getSocketOption(RaaqmTransportOptions::PER_SESSION_CWINDOW_RESET,
-                           reset_window);
-  if (reset_window) {
-    current_window_size_ = 1;
   }
 }
 
@@ -194,9 +187,8 @@ void RaaqmTransportProtocol::init() {
   lte_delay_ = 15000;
 
   if (!is) {
-    TRANSPORT_LOGW(
-        "WARNING: RAAQM parameters not found at %s, set default values",
-        RAAQM_CONFIG_PATH);
+    LOG(WARNING) << "RAAQM parameters not found at " << RAAQM_CONFIG_PATH
+                 << ", set default values";
     return;
   }
 
@@ -322,12 +314,9 @@ void RaaqmTransportProtocol::init() {
   is.close();
 }
 
-void RaaqmTransportProtocol::onContentObject(Interest &interest,
-                                             ContentObject &content_object) {
-  // Check whether makes sense to continue
-  if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
-    return;
-  }
+void RaaqmTransportProtocol::onContentObjectReceived(
+    Interest &interest, ContentObject &content_object, std::error_code &ec) {
+  uint32_t incremental_suffix = content_object.getName().getSuffix();
 
   // Call application-defined callbacks
   if (*on_content_object_input_) {
@@ -338,17 +327,11 @@ void RaaqmTransportProtocol::onContentObject(Interest &interest,
     (*on_interest_satisfied_)(*socket_->getInterface(), interest);
   }
 
+  ec = make_error_code(protocol_error::success);
+
   if (content_object.getPayloadType() == PayloadType::DATA) {
     stats_->updateBytesRecv(content_object.payloadSize());
   }
-
-  onContentSegment(interest, content_object);
-  scheduleNextInterests();
-}
-
-void RaaqmTransportProtocol::onContentSegment(Interest &interest,
-                                              ContentObject &content_object) {
-  uint32_t incremental_suffix = content_object.getName().getSuffix();
 
   // Decrease in-flight interests
   interests_in_flight_--;
@@ -358,11 +341,13 @@ void RaaqmTransportProtocol::onContentSegment(Interest &interest,
     afterContentReception(interest, content_object);
   }
 
-  index_manager_->onContentObject(interest, content_object);
+  // Schedule next interests
+  scheduleNextInterests();
 }
 
 void RaaqmTransportProtocol::onPacketDropped(Interest &interest,
-                                             ContentObject &content_object) {
+                                             ContentObject &content_object,
+                                             const std::error_code &reason) {
   uint32_t max_rtx = 0;
   socket_->getSocketOption(GeneralTransportOptions::MAX_INTEREST_RETX, max_rtx);
 
@@ -380,16 +365,15 @@ void RaaqmTransportProtocol::onPacketDropped(Interest &interest,
       (*on_interest_output_)(*socket_->getInterface(), interest);
     }
 
-    if (!is_running_) {
+    if (!isRunning()) {
       return;
     }
 
     interest_retransmissions_[segment & mask]++;
-    interest_to_retransmit_.push(interest.shared_from_this());
+    interest_to_retransmit_.push(segment);
   } else {
-    TRANSPORT_LOGE(
-        "Stop: received not trusted packet %llu times",
-        (unsigned long long)interest_retransmissions_[segment & mask]);
+    LOG(ERROR) << "Stop: received not trusted packet "
+               << interest_retransmissions_[segment & mask] << " times";
     onContentReassembled(
         make_error_code(protocol_error::max_retransmissions_error));
   }
@@ -399,23 +383,24 @@ void RaaqmTransportProtocol::onReassemblyFailed(std::uint32_t missing_segment) {
 
 }
 
-void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
+void RaaqmTransportProtocol::sendInterest(const Name &interest_name,
+        std::array<uint32_t, MAX_AGGREGATED_INTEREST> *additional_suffixes,
+        uint32_t len) {
+  interests_in_flight_++;
+  interest_retransmissions_[interest_name.getSuffix() & mask]++;
+  TransportProtocol::sendInterest(interest_name, additional_suffixes, len);
+}
+
+void RaaqmTransportProtocol::onInterestTimeout(Interest::Ptr &interest,
+                                               const Name &n) {
   checkForStalePaths();
-
-  const Name &n = interest->getName();
-
-  TRANSPORT_LOGW("Timeout on content %s", n.toString().c_str());
-
-  if (TRANSPORT_EXPECT_FALSE(!is_running_)) {
-    return;
-  }
 
   interests_in_flight_--;
 
   uint64_t segment = n.getSuffix();
 
   // Do not retransmit interests asking contents that do not exist.
-  if (segment > index_manager_->getFinalSuffix()) {
+  if (segment > indexer_verifier_->getFinalSuffix()) {
     return;
   }
 
@@ -436,32 +421,34 @@ void RaaqmTransportProtocol::onTimeout(Interest::Ptr &&interest) {
       (*on_interest_retransmission_)(*socket_->getInterface(), *interest);
     }
 
-    if (!is_running_) {
+    if (!isRunning()) {
       return;
     }
 
-    interest_retransmissions_[segment & mask]++;
-    interest_to_retransmit_.push(std::move(interest));
-
+    interest_to_retransmit_.push(segment);
     scheduleNextInterests();
   } else {
-    TRANSPORT_LOGE("Stop: reached max retx limit.");
+    LOG(ERROR) << "Stop: reached max retx limit.";
     onContentReassembled(std::make_error_code(std::errc(std::errc::io_error)));
   }
 }
 
 void RaaqmTransportProtocol::scheduleNextInterests() {
-  bool cancel = (!is_running_ && !is_first_) || !schedule_interests_;
+  bool cancel = (!isRunning() && !is_first_) || !schedule_interests_;
   if (TRANSPORT_EXPECT_FALSE(cancel)) {
     schedule_interests_ = true;
     return;
   }
 
+  core::Name *name;
+  socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME, &name);
+
   if (TRANSPORT_EXPECT_FALSE(interests_in_flight_ >= current_window_size_ &&
                              interest_to_retransmit_.size() > 0)) {
     // send at least one interest if there are retransmissions to perform and
     // there is no space left in the window
-    sendInterest(std::move(interest_to_retransmit_.front()));
+    auto suffix = interest_to_retransmit_.front();
+    sendInterest(name->setSuffix(suffix));
     interest_to_retransmit_.pop();
   }
 
@@ -470,53 +457,23 @@ void RaaqmTransportProtocol::scheduleNextInterests() {
   // Send the interest needed for filling the window
   while (interests_in_flight_ < current_window_size_) {
     if (interest_to_retransmit_.size() > 0) {
-      sendInterest(std::move(interest_to_retransmit_.front()));
+      auto suffix = interest_to_retransmit_.front();
+      sendInterest(name->setSuffix(suffix));
       interest_to_retransmit_.pop();
     } else {
-      if (TRANSPORT_EXPECT_FALSE(!is_running_ && !is_first_)) {
-        TRANSPORT_LOGI("Adios");
+      if (TRANSPORT_EXPECT_FALSE(!isRunning() && !is_first_)) {
         break;
       }
 
-      index = index_manager_->getNextSuffix();
+      index = indexer_verifier_->getNextSuffix();
       if (index == IndexManager::invalid_index) {
         break;
       }
 
-      sendInterest(index);
+      interest_retransmissions_[index & mask] = ~0;
+      sendInterest(name->setSuffix(index));
     }
   }
-}
-
-void RaaqmTransportProtocol::sendInterest(std::uint64_t next_suffix) {
-  auto interest = core::PacketManager<>::getInstance().getPacket<Interest>();
-  core::Name *name;
-  socket_->getSocketOption(GeneralTransportOptions::NETWORK_NAME, &name);
-  name->setSuffix((uint32_t)next_suffix);
-  interest->setName(*name);
-
-  uint32_t interest_lifetime;
-  socket_->getSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
-                           interest_lifetime);
-  interest->setLifetime(interest_lifetime);
-
-  if (*on_interest_output_) {
-    on_interest_output_->operator()(*socket_->getInterface(), *interest);
-  }
-  // This is set to ~0 so that the next interest_retransmissions_ + 1,
-  // performed by sendInterest, will result in 0
-  interest_retransmissions_[next_suffix & mask] = ~0;
-  interest_timepoints_[next_suffix & mask] = utils::SteadyClock::now();
-
-  sendInterest(std::move(interest));
-}
-
-void RaaqmTransportProtocol::sendInterest(Interest::Ptr &&interest) {
-  interests_in_flight_++;
-  interest_retransmissions_[interest->getName().getSuffix() & mask]++;
-
-  TRANSPORT_LOGD("Send interest %s", interest->getName().toString().c_str());
-  portal_->sendInterest(std::move(interest));
 }
 
 void RaaqmTransportProtocol::onContentReassembled(std::error_code ec) {

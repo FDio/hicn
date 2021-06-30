@@ -251,7 +251,7 @@ int P2PSecureConsumerSocket::handshake() {
   network_name_ = producer_namespace_.getRandomName();
   network_name_.setSuffix(0);
 
-  TRANSPORT_LOGD("Start handshake at %s", network_name_.toString().c_str());
+  DLOG_IF(INFO, VLOG_IS_ON(2)) << "Start handshake at " << network_name_;
   result = SSL_connect(this->ssl_);
 
   return result;
@@ -291,7 +291,7 @@ int P2PSecureConsumerSocket::consume(const Name &name) {
   if (handshake() != 1) {
     throw errors::RuntimeException("Unable to perform client handshake");
   } else {
-    TRANSPORT_LOGD("Handshake performed!");
+    DLOG_IF(INFO, VLOG_IS_ON(2)) << "Handshake performed!";
   }
 
   initSessionSocket();
@@ -320,7 +320,7 @@ int P2PSecureConsumerSocket::asyncConsume(const Name &name) {
   if (handshake() != 1) {
     throw errors::RuntimeException("Unable to perform client handshake");
   } else {
-    TRANSPORT_LOGD("Handshake performed!");
+    DLOG_IF(INFO, VLOG_IS_ON(2)) << "Handshake performed!";
   }
 
   initSessionSocket();

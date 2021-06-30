@@ -11,8 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
 find_package(Vpp REQUIRED)
 find_package(Libmemif REQUIRED)
 
@@ -43,7 +41,7 @@ build_module(memif_module
     SHARED
     SOURCES ${MODULE_SOURCE_FILES}
     DEPENDS ${DEPENDENCIES}
-    COMPONENT lib${LIBTRANSPORT}
+    COMPONENT ${LIBTRANSPORT_COMPONENT}-io-modules
     LINK_LIBRARIES ${LIBMEMIF_LIBRARIES} ${SAFE_VAPI_LIBRARIES}
     INCLUDE_DIRS
       ${LIBTRANSPORT_INCLUDE_DIRS}

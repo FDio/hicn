@@ -11,13 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
 # Dependencies
-
 find_package(Vpp REQUIRED)
 
-include_directories(${VPP_INCLUDE_DIR})
+include_directories(${HICN_INCLUDE_DIRS} ${VPP_INCLUDE_DIR})
 
 set(LIBHICN_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../lib/src/mapme.c

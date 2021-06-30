@@ -11,13 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
 list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/common.h
   ${CMAKE_CURRENT_SOURCE_DIR}/crypto_hash.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/crypto_hash_type.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/crypto_hasher.h
   ${CMAKE_CURRENT_SOURCE_DIR}/crypto_suite.h
   ${CMAKE_CURRENT_SOURCE_DIR}/identity.h
   ${CMAKE_CURRENT_SOURCE_DIR}/key_id.h

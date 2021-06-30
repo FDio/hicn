@@ -777,7 +777,7 @@ class ConsumerSocket : public Socket {
 
   // Verification parameters
   std::shared_ptr<auth::Verifier> verifier_;
-  PARCKeyId *key_id_;
+  transport::auth::KeyId *key_id_;
   std::atomic_bool verify_signature_;
   bool reset_window_;
 

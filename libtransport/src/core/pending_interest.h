@@ -23,7 +23,7 @@
 #include <hicn/transport/portability/portability.h>
 #include <utils/deadline_timer.h>
 
-#include <asio/steady_timer.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 
 namespace transport {
 
@@ -80,8 +80,8 @@ class PendingInterest {
     return std::move(interest_);
   }
 
-  TRANSPORT_ALWAYS_INLINE void setInterest(Interest::Ptr &&interest) {
-    interest_ = std::move(interest);
+  TRANSPORT_ALWAYS_INLINE void setInterest(Interest::Ptr &interest) {
+    interest_ = interest;
   }
 
   TRANSPORT_ALWAYS_INLINE const OnContentObjectCallback &getOnDataCallback()
