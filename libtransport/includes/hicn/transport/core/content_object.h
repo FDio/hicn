@@ -82,8 +82,6 @@ class ContentObject : public Packet {
 
   void setName(const Name &name) override;
 
-  void setName(Name &&name) override;
-
   uint32_t getPathLabel() const;
 
   ContentObject &setPathLabel(uint32_t path_label);

@@ -76,6 +76,16 @@
 
 #define HOTFIXMARGIN 0
 
+/**
+ * \brief Defines the default size for the allocated data arrays holding the
+ * results of API calls.
+ *
+ * This size should not be too small to avoid wasting memoyy, but also not too
+ * big to avoid unnecessary realloc's. Later on this size is doubled at each
+ * reallocation.
+ */
+#define DEFAULT_SIZE_LOG 3
+
 /* Helper for avoiding warnings about type-punning */
 #ifndef UNION_CAST
 #define UNION_CAST(x, destType) \
@@ -231,6 +241,12 @@ hc_ ## TYPE ## _find(hc_data_t * data, const hc_ ## TYPE ## _t * element,   \
 /* This should be at least equal to the maximum packet size */
 #define RECV_BUFLEN 8192
 
+typedef enum {
+  HICNLIGHT,
+  VPP,
+  UNDEFINED
+} forwarder_t;
+
 /**
  * \brief Holds the state of an hICN control socket
  */
@@ -241,13 +257,22 @@ typedef struct hc_sock_s hc_sock_t;
  * \param [in] url - The URL to connect to.
  * \return an hICN control socket
  */
-hc_sock_t *hc_sock_create_url(const char *url);
+hc_sock_t *
+hc_sock_create_url(const char * url);
+
+/**
+ * \brief Create an hICN control socket using the provided forwarder.
+ * \return an hICN control socket
+ */
+hc_sock_t *
+hc_sock_create_forwarder(forwarder_t forwarder);
 
 /**
  * \brief Create an hICN control socket using the default connection type.
  * \return an hICN control socket
  */
-hc_sock_t *hc_sock_create(void);
+hc_sock_t *
+hc_sock_create(void);
 
 /**
  * \brief Frees an hICN control socket
@@ -382,11 +407,7 @@ int hc_sock_reset(hc_sock_t *s);
 #define NULLTERM 1
 #endif
 
-#ifdef HICN_VPP_PLUGIN
-  #define INTERFACE_LEN 64
-#else
-  #define INTERFACE_LEN IFNAMSIZ
-#endif
+#define INTERFACE_LEN 16
 
 #define MAXSZ_HC_NAME_ SYMBOLIC_NAME_LEN
 #define MAXSZ_HC_NAME MAXSZ_HC_NAME_ + NULLTERM

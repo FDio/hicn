@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/errors/not_implemented_exception.h>
-#include <hicn/transport/utils/log.h>
 #include <io_modules/forwarder/forwarder_module.h>
 
 namespace transport {
@@ -36,8 +36,8 @@ bool ForwarderModule::isConnected() { return true; }
 void ForwarderModule::send(Packet &packet) {
   IoModule::send(packet);
   forwarder_.send(packet);
-  // TRANSPORT_LOGD("ForwarderModule: sending from %u to %d", local_id_,
-  //                1 - local_id_);
+  DLOG_IF(INFO, VLOG_IS_ON(3))
+      << "Sending from " << connector_id_ << " to " << 1 - connector_id_;
 
   // local_faces_.at(1 - local_id_).onPacket(packet);
 }

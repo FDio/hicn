@@ -111,7 +111,6 @@ void HTTPSession::send(utils::MemBuf *buffer,
         doWrite();
       }
     } else {
-      TRANSPORT_LOGD("Tell the handle connect it has data to write");
       data_available_ = true;
     }
   });
@@ -134,15 +133,11 @@ void HTTPSession::doWrite() {
   asio::async_write(socket_, asio::buffer(buffer->data(), buffer->length()),
                     [this](std::error_code ec, std::size_t length) {
                       if (TRANSPORT_EXPECT_FALSE(!ec)) {
-                        TRANSPORT_LOGD("Content successfully sent! %zu",
-                                       length);
                         write_msgs_.front().second();
                         write_msgs_.pop_front();
                         if (!write_msgs_.empty()) {
                           doWrite();
                         }
-                      } else {
-                        TRANSPORT_LOGD("Content NOT sent!");
                       }
                     });
 }  // namespace transport
@@ -274,7 +269,7 @@ void HTTPSession::doReadHeader() {
 void HTTPSession::tryReconnection() {
   if (on_connection_closed_callback_(socket_)) {
     if (state_ == ConnectorState::CONNECTED) {
-      TRANSPORT_LOGD("Connection lost. Trying to reconnect...\n");
+      TRANSPORT_LOG_ERROR << "Connection lost. Trying to reconnect...";
       state_ = ConnectorState::CONNECTING;
       is_reconnection_ = true;
       io_service_.post([this]() {
@@ -290,35 +285,35 @@ void HTTPSession::tryReconnection() {
 }
 
 void HTTPSession::doConnect() {
-  asio::async_connect(socket_, endpoint_iterator_,
-                      [this](std::error_code ec, tcp::resolver::iterator) {
-                        if (!ec) {
-                          timer_.cancel();
-                          state_ = ConnectorState::CONNECTED;
+  asio::async_connect(
+      socket_, endpoint_iterator_,
+      [this](std::error_code ec, tcp::resolver::iterator) {
+        if (!ec) {
+          timer_.cancel();
+          state_ = ConnectorState::CONNECTED;
 
-                          asio::ip::tcp::no_delay noDelayOption(true);
-                          socket_.set_option(noDelayOption);
+          asio::ip::tcp::no_delay noDelayOption(true);
+          socket_.set_option(noDelayOption);
 
-                          // on_reconnect_callback_();
+          // on_reconnect_callback_();
 
-                          doReadHeader();
+          doReadHeader();
 
-                          if (data_available_ && !write_msgs_.empty()) {
-                            data_available_ = false;
-                            doWrite();
-                          }
+          if (data_available_ && !write_msgs_.empty()) {
+            data_available_ = false;
+            doWrite();
+          }
 
-                          if (is_reconnection_) {
-                            is_reconnection_ = false;
-                            TRANSPORT_LOGD("Connection recovered!");
-                          }
+          if (is_reconnection_) {
+            is_reconnection_ = false;
+            TRANSPORT_LOG_INFO << "Connection recovered!";
+          }
 
-                        } else {
-                          TRANSPORT_LOGE("Impossible to reconnect: %s",
-                                         ec.message().c_str());
-                          close();
-                        }
-                      });
+        } else {
+          TRANSPORT_LOG_ERROR << "Impossible to reconnect: " << ec.message();
+          close();
+        }
+      });
 }
 
 bool HTTPSession::checkConnected() {
@@ -335,7 +330,7 @@ void HTTPSession::handleDeadline(const std::error_code &ec) {
   if (!ec) {
     io_service_.post([this]() {
       socket_.close();
-      TRANSPORT_LOGE("Error connecting. Is the server running?\n");
+      TRANSPORT_LOG_ERROR << "Error connecting. Is the server running?";
       io_service_.stop();
     });
   }

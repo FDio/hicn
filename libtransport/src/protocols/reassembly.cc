@@ -31,7 +31,7 @@ void Reassembly::notifyApplication() {
       interface::ConsumerCallbacksOptions::READ_CALLBACK, &read_callback);
 
   if (TRANSPORT_EXPECT_FALSE(!read_callback)) {
-    TRANSPORT_LOGE("Read callback not installed!");
+    LOG(ERROR) << "Read callback not installed!";
     return;
   }
 

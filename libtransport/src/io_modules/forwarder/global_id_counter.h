@@ -15,6 +15,8 @@
 
 #pragma once
 
+#include <hicn/transport/utils/singleton.h>
+
 #include <atomic>
 #include <mutex>
 
@@ -23,32 +25,15 @@ namespace transport {
 namespace core {
 
 template <typename T = uint64_t>
-class GlobalCounter {
+class GlobalCounter : public utils::Singleton<GlobalCounter<T>> {
  public:
-  static GlobalCounter& getInstance() {
-    std::lock_guard<std::mutex> lock(global_mutex_);
-
-    if (!instance_) {
-      instance_.reset(new GlobalCounter());
-    }
-
-    return *instance_;
-  }
-
+  friend class utils::Singleton<GlobalCounter>;
   T getNext() { return counter_++; }
 
  private:
   GlobalCounter() : counter_(0) {}
-  static std::unique_ptr<GlobalCounter<T>> instance_;
-  static std::mutex global_mutex_;
   std::atomic<T> counter_;
 };
-
-template <typename T>
-std::unique_ptr<GlobalCounter<T>> GlobalCounter<T>::instance_ = nullptr;
-
-template <typename T>
-std::mutex GlobalCounter<T>::global_mutex_;
 
 }  // namespace core
 }  // namespace transport

@@ -15,9 +15,7 @@
 
 #pragma once
 
-// TODO
 #include <hicn/transport/utils/branch_prediction.h>
-#include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/spinlock.h>
 
 #include <deque>
@@ -34,7 +32,6 @@ class ObjectPool {
 
     void operator()(T *t) {
       if (pool_) {
-        TRANSPORT_LOGV("Back in pool");
         pool_->add(t);
       } else {
         delete t;

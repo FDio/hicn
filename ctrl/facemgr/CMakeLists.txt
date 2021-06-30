@@ -15,7 +15,7 @@ if (APPLE)
     # >= 3.13 - CMP0079 (only needed on Apple platform for conditionally linking Network.framwork to libfacemgr)
     cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 else()
-    cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+    cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 endif()
 
 project(facemgr)

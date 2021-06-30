@@ -13,14 +13,13 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/http/client_connection.h>
 #include <hicn/transport/utils/hash.h>
-#include <hicn/transport/utils/log.h>
 
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 
 #define DEFAULT_BETA 0.99
 #define DEFAULT_GAMMA 0.07
@@ -77,13 +76,12 @@ class HTTPClientConnection::Implementation
     success_callback_ = [this, method = std::move(method), url = std::move(url),
                          start = std::move(start)](std::size_t size) -> void {
       auto end = std::chrono::steady_clock::now();
-      TRANSPORT_LOGI(
-          "%s %s [%s] duration: %llu [usec] %zu [bytes]\n",
-          method_map[method].c_str(), url.c_str(), name_.str().c_str(),
-          (unsigned long long)
-              std::chrono::duration_cast<std::chrono::microseconds>(end - start)
-                  .count(),
-          size);
+      LOG(INFO) << method_map[method].c_str() << " " << url.c_str() << " ["
+                << name_.str() << "] duration: "
+                << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                         start)
+                       .count()
+                << " [usec] " << size << " [bytes]";
     };
 
     sendRequestGetReply(ipv6_first_word);
@@ -203,8 +201,8 @@ class HTTPClientConnection::Implementation
   }
 
   void readError(const std::error_code ec) noexcept override {
-    TRANSPORT_LOGE("Error %s during download of %s", ec.message().c_str(),
-                   current_url_.c_str());
+    LOG(ERROR) << "Error " << ec.message() << " during download of "
+               << current_url_.c_str();
     if (read_bytes_callback_) {
       read_bytes_callback_->onError(ec);
     }

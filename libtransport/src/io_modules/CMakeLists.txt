@@ -11,10 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
-if (${CMAKE_SYSTEM_NAME} MATCHES "^(iOS|Android|Windows)$")
-
+if (${CMAKE_SYSTEM_NAME} MATCHES Android)
   list(APPEND SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/udp/hicn_forwarder_module.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/udp/udp_socket_connector.cc
@@ -27,7 +24,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "^(iOS|Android|Windows)$")
 
   set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
   set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)
-else ()
+else()
   add_subdirectory(udp)
   add_subdirectory(loopback)
   add_subdirectory(forwarder)

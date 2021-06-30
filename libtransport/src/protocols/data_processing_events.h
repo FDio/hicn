@@ -24,7 +24,8 @@ namespace protocol {
 class ContentObjectProcessingEventCallback {
  public:
   virtual ~ContentObjectProcessingEventCallback() = default;
-  virtual void onPacketDropped(core::Interest &i, core::ContentObject &c) = 0;
+  virtual void onPacketDropped(core::Interest &i, core::ContentObject &c,
+                               const std::error_code &reason) = 0;
   virtual void onReassemblyFailed(std::uint32_t missing_segment) = 0;
 };
 

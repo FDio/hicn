@@ -30,8 +30,7 @@ namespace protocol {
 
 namespace rtc {
 
-class RTCTransportProtocol : public TransportProtocol,
-                             public DatagramReassembly {
+class RTCTransportProtocol : public TransportProtocol {
  public:
   RTCTransportProtocol(implementation::ConsumerSocket *icnet_socket);
 
@@ -42,6 +41,8 @@ class RTCTransportProtocol : public TransportProtocol,
   using TransportProtocol::stop;
 
   void resume() override;
+
+  std::size_t transportHeaderLength() override;
 
  private:
   enum class SyncState { catch_up = 0, in_sync = 1, last };
@@ -63,24 +64,28 @@ class RTCTransportProtocol : public TransportProtocol,
   void decreaseSyncWindow();
 
   // packet functions
-  void sendInterest(Name *interest_name);
   void sendRtxInterest(uint32_t seq);
   void sendProbeInterest(uint32_t seq);
   void scheduleNextInterests() override;
-  void onTimeout(Interest::Ptr &&interest) override;
+  void onInterestTimeout(Interest::Ptr &interest, const Name &name) override;
   void onNack(const ContentObject &content_object);
   void onProbe(const ContentObject &content_object);
-  void reassemble(ContentObject &content_object) override;
-  void onContentObject(Interest &interest,
-                       ContentObject &content_object) override;
-  void onPacketDropped(Interest &interest,
-                       ContentObject &content_object) override {}
+  void onContentObjectReceived(Interest &interest,
+                               ContentObject &content_object,
+                               std::error_code &ec) override;
+  void onPacketDropped(Interest &interest, ContentObject &content_object,
+                       const std::error_code &reason) override {}
   void onReassemblyFailed(std::uint32_t missing_segment) override {}
 
   // interaction with app functions
   void sendStatsToApp(uint32_t retx_count, uint32_t received_bytes,
                       uint32_t sent_interests, uint32_t lost_data,
-                      uint32_t recovered_losses, uint32_t received_nacks);
+                      uint32_t definitely_lost, uint32_t recovered_losses,
+                      uint32_t received_nacks, uint32_t received_fec);
+
+  // FEC functions
+  void onFecPackets(std::vector<std::pair<uint32_t, fec::buffer>> &packets);
+
   // protocol state
   bool start_send_interest_;
   SyncState current_state_;
@@ -88,16 +93,29 @@ class RTCTransportProtocol : public TransportProtocol,
   uint32_t current_sync_win_;
   uint32_t max_sync_win_;
 
-  // controller var
+  // round timer
   std::unique_ptr<asio::steady_timer> round_timer_;
+
+  // scheduler timer (postpone interest sending to explot aggregated interests)
   std::unique_ptr<asio::steady_timer> scheduler_timer_;
   bool scheduler_timer_on_;
+  uint64_t last_interest_sent_time_;
+  uint64_t last_interest_sent_seq_;
+
+  // maximum aggregated interest. if the transport is connected to the forwarder
+  // we cannot use aggregated interests
+  uint32_t max_aggregated_interest_;
+  // maximum number of intereset that can be sent in a loop to avoid packets
+  // dropped by the kernel
+  uint32_t max_sent_int_;
+
+  // pacing timer (do not send too many interests in a short time to avoid
+  // packet drops in the kernel)
+  std::unique_ptr<asio::steady_timer> pacing_timer_;
+  bool pacing_timer_on_;
 
   // timeouts
   std::unordered_set<uint32_t> timeouts_or_nacks_;
-
-  // names/packets var
-  uint32_t next_segment_;
 
   std::shared_ptr<RTCState> state_;
   std::shared_ptr<RTCRateControl> rc_;
