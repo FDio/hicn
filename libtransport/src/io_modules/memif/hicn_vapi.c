@@ -14,7 +14,6 @@
  */
 
 #include <hicn/transport/config.h>
-#include <hicn/transport/utils/log.h>
 #include <io_modules/memif/hicn_vapi.h>
 
 #define HICN_VPP_PLUGIN

@@ -16,62 +16,79 @@
 #pragma once
 
 #include <hicn/transport/auth/common.h>
+#include <hicn/transport/auth/crypto_hash.h>
+#include <hicn/transport/auth/crypto_suite.h>
 #include <hicn/transport/errors/errors.h>
+#include <hicn/transport/utils/membuf.h>
 
 extern "C" {
-#include <parc/security/parc_PublicKeySigner.h>
-#include <parc/security/parc_Security.h>
-#include <parc/security/parc_Signer.h>
-#include <parc/security/parc_SymmetricKeySigner.h>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
 }
 
 namespace transport {
 namespace auth {
 
+class Identity;
 class Signer {
   // The base class from which all signer classes derive.
+  friend class Identity;
+
  public:
   Signer();
-
-  Signer(PARCSigner *signer);
 
   virtual ~Signer();
 
   // Sign a packet.
   virtual void signPacket(PacketPtr packet);
+  virtual void signBuffer(const std::vector<uint8_t> &buffer);
+  virtual void signBuffer(const utils::MemBuf *buffer);
 
-  // Set the signer object used to sign packets.
-  void setSigner(PARCSigner *signer);
+  // Return the signature.
+  std::vector<uint8_t> getSignature() const;
 
-  // Return the signature size.
-  size_t getSignatureSize() const;
+  // Return the signature size in bytes.
+  virtual std::size_t getSignatureSize() const;
+
+  // Return the field size necessary to hold the signature. The field size is
+  // always a multiple of 4. Use this function when allocating the signature
+  // packet header.
+  virtual std::size_t getSignatureFieldSize() const;
 
   // Return the crypto suite associated to the signer.
-  CryptoSuite getCryptoSuite() const;
+  CryptoSuite getSuite() const;
 
   // Return the hash algorithm associated to the signer.
-  CryptoHashType getCryptoHashType() const;
-
-  // Return the PARC signer.
-  PARCSigner *getParcSigner() const;
-
-  // Return the PARC key store containing the signer key.
-  PARCKeyStore *getParcKeyStore() const;
+  CryptoHashType getHashType() const;
 
  protected:
-  PARCSigner *signer_;
-  PARCKeyId *key_id_;
+  CryptoSuite suite_;
+  std::vector<uint8_t> signature_;
+  std::size_t signature_len_;
+  std::shared_ptr<EVP_PKEY> key_;
+  CryptoHash key_id_;
+};
+
+class VoidSigner : public Signer {
+  // This class is the default socket signer. It does not sign packet.
+ public:
+  VoidSigner() = default;
+
+  void signPacket(PacketPtr packet) override;
+  void signBuffer(const std::vector<uint8_t> &buffer) override;
+  void signBuffer(const utils::MemBuf *buffer) override;
 };
 
 class AsymmetricSigner : public Signer {
-  // This class uses asymmetric verification to sign packets. The public key
-  // must be given from a PARCKeyStore.
+  // This class uses asymmetric verification to sign packets.
  public:
   AsymmetricSigner() = default;
-  AsymmetricSigner(PARCSigner *signer) : Signer(signer){};
 
   // Construct an AsymmetricSigner from a key store and a given crypto suite.
-  AsymmetricSigner(CryptoSuite suite, PARCKeyStore *key_store);
+  AsymmetricSigner(CryptoSuite suite, std::shared_ptr<EVP_PKEY> key,
+                   std::shared_ptr<EVP_PKEY> pub_key);
+
+  std::size_t getSignatureFieldSize() const override;
 };
 
 class SymmetricSigner : public Signer {
@@ -79,12 +96,8 @@ class SymmetricSigner : public Signer {
   // key is derived from a passphrase.
  public:
   SymmetricSigner() = default;
-  SymmetricSigner(PARCSigner *signer) : Signer(signer){};
 
-  // Construct an SymmetricSigner from a key store and a given crypto suite.
-  SymmetricSigner(CryptoSuite suite, PARCKeyStore *key_store);
-
-  // Construct an AsymmetricSigner from a passphrase and a given crypto suite.
+  // Construct a SymmetricSigner from a passphrase and a given crypto suite.
   SymmetricSigner(CryptoSuite suite, const std::string &passphrase);
 };
 

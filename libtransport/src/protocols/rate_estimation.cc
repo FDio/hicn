@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
-#include <hicn/transport/utils/log.h>
 #include <protocols/rate_estimation.h>
 
 #include <thread>
@@ -115,12 +115,12 @@ void InterRttEstimator::onRttUpdate(double rtt) {
   if (!thread_is_running_) {
     my_th_ = (pthread_t *)malloc(sizeof(pthread_t));
     if (!my_th_) {
-      TRANSPORT_LOGE("Error allocating thread.");
+      LOG(ERROR) << "Error allocating thread.";
       my_th_ = NULL;
     }
     if (/*int err = */ pthread_create(my_th_, NULL, transport::protocol::Timer,
                                       (void *)this)) {
-      TRANSPORT_LOGE("Error creating the thread");
+      LOG(ERROR) << "Error creating the thread";
       my_th_ = NULL;
     }
     thread_is_running_ = true;

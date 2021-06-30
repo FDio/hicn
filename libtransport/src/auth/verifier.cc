@@ -16,168 +16,125 @@
 #include <hicn/transport/auth/verifier.h>
 #include <protocols/errors.h>
 
-extern "C" {
-#ifndef _WIN32
-TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
-#endif
-#include <hicn/hicn.h>
-}
-
-#include <sys/stat.h>
-
 using namespace std;
 
 namespace transport {
 namespace auth {
 
-const std::vector<VerificationPolicy> Verifier::DEFAULT_FAILED_POLICIES = {
+const vector<VerificationPolicy> Verifier::DEFAULT_FAILED_POLICIES = {
     VerificationPolicy::DROP,
     VerificationPolicy::ABORT,
 };
 
+// ---------------------------------------------------------
+// Base Verifier
+// ---------------------------------------------------------
 Verifier::Verifier()
-    : hasher_(nullptr),
-      verifier_(nullptr),
-      verification_failed_cb_(interface::VOID_HANDLER),
-      failed_policies_(DEFAULT_FAILED_POLICIES) {
-  parcSecurity_Init();
-  PARCInMemoryVerifier *in_memory_verifier = parcInMemoryVerifier_Create();
-  verifier_ =
-      parcVerifier_Create(in_memory_verifier, PARCInMemoryVerifierAsVerifier);
-  parcInMemoryVerifier_Release(&in_memory_verifier);
-}
+    : verification_failed_cb_(interface::VOID_HANDLER),
+      failed_policies_(DEFAULT_FAILED_POLICIES) {}
 
-Verifier::~Verifier() {
-  if (hasher_) parcCryptoHasher_Release(&hasher_);
-  if (verifier_) parcVerifier_Release(&verifier_);
-  parcSecurity_Fini();
-}
+Verifier::~Verifier() {}
 
 bool Verifier::verifyPacket(PacketPtr packet) {
-  bool valid_packet = false;
   core::Packet::Format format = packet->getFormat();
 
   if (!packet->authenticationHeader()) {
     throw errors::MalformedAHPacketException();
   }
 
-  // Get crypto suite and hash type
-  auto suite = static_cast<PARCCryptoSuite>(packet->getValidationAlgorithm());
-  PARCCryptoHashType hash_type = parcCryptoSuite_GetCryptoHash(suite);
+  // Get crypto suite, hash type, signature length
+  CryptoSuite suite = packet->getValidationAlgorithm();
+  CryptoHashType hash_type = getHashType(suite);
+  size_t signature_len = packet->getSignatureSizeReal();
 
   // Copy IP+TCP / ICMP header before zeroing them
   hicn_header_t header_copy;
   hicn_packet_copy_header(format, packet->packet_start_, &header_copy, false);
+  packet->setSignatureSizeGap(0u);
 
-  // Fetch packet signature
+  // Retrieve packet signature
   uint8_t *packet_signature = packet->getSignature();
-  size_t signature_len = Verifier::getSignatureSize(packet);
   vector<uint8_t> signature_raw(packet_signature,
                                 packet_signature + signature_len);
-
-  // Create a signature buffer from the raw packet signature
-  PARCBuffer *bits =
-      parcBuffer_Wrap(signature_raw.data(), signature_len, 0, signature_len);
-  parcBuffer_Rewind(bits);
-
-  // If the signature algo is ECDSA, the signature might be shorter than the
-  // signature field
-  PARCSigningAlgorithm algo = parcCryptoSuite_GetSigningAlgorithm(suite);
-  if (algo == PARCSigningAlgorithm_ECDSA) {
-    while (parcBuffer_HasRemaining(bits) && parcBuffer_GetUint8(bits) == 0)
-      ;
-    parcBuffer_SetPosition(bits, parcBuffer_Position(bits) - 1);
-  }
-
-  if (!parcBuffer_HasRemaining(bits)) {
-    parcBuffer_Release(&bits);
-    return false;
-  }
-
-  // Create a signature object from the signature buffer
-  PARCSignature *signature = parcSignature_Create(
-      parcCryptoSuite_GetSigningAlgorithm(suite), hash_type, bits);
-
-  // Fetch the key to verify the signature
-  KeyId key_buffer = packet->getKeyId();
-  PARCBuffer *buffer = parcBuffer_Wrap(key_buffer.first, key_buffer.second, 0,
-                                       key_buffer.second);
-  PARCKeyId *key_id = parcKeyId_Create(buffer);
 
   // Reset fields that are not used to compute signature
   packet->resetForHash();
 
-  // Compute the packet hash
-  if (!hasher_)
-    setHasher(parcVerifier_GetCryptoHasher(verifier_, key_id, hash_type));
-  CryptoHash local_hash = computeHash(packet);
+  // Check signatures
+  bool valid_packet = verifyBuffer(static_cast<utils::MemBuf *>(packet),
+                                   signature_raw, hash_type);
 
-  // Compare the packet signature to the locally computed one
-  valid_packet = parcVerifier_VerifyDigestSignature(
-      verifier_, key_id, local_hash.hash_, suite, signature);
-
-  // Restore the fields that were reset
+  // Restore header
   hicn_packet_copy_header(format, &header_copy, packet->packet_start_, false);
-
-  // Release allocated objects
-  parcBuffer_Release(&buffer);
-  parcKeyId_Release(&key_id);
-  parcSignature_Release(&signature);
-  parcBuffer_Release(&bits);
+  packet->setSignatureSizeGap(packet->getSignatureSize() - signature_len);
 
   return valid_packet;
 }
 
-vector<VerificationPolicy> Verifier::verifyPackets(
-    const vector<PacketPtr> &packets) {
-  vector<VerificationPolicy> policies(packets.size(), VerificationPolicy::DROP);
+Verifier::PolicyMap Verifier::verifyPackets(const vector<PacketPtr> &packets) {
+  PolicyMap policies;
 
-  for (unsigned int i = 0; i < packets.size(); ++i) {
-    if (verifyPacket(packets[i])) {
-      policies[i] = VerificationPolicy::ACCEPT;
+  for (const auto &packet : packets) {
+    Suffix suffix = packet->getName().getSuffix();
+    VerificationPolicy policy = VerificationPolicy::ABORT;
+
+    if (verifyPacket(packet)) {
+      policy = VerificationPolicy::ACCEPT;
     }
 
-    callVerificationFailedCallback(packets[i], policies[i]);
+    policies[suffix] = policy;
+    callVerificationFailedCallback(packet, policy);
   }
 
   return policies;
 }
 
-vector<VerificationPolicy> Verifier::verifyPackets(
-    const vector<PacketPtr> &packets,
-    const unordered_map<Suffix, HashEntry> &suffix_map) {
-  vector<VerificationPolicy> policies(packets.size(),
-                                      VerificationPolicy::UNKNOWN);
+Verifier::PolicyMap Verifier::verifyHashes(const SuffixMap &packet_map,
+                                           const SuffixMap &suffix_map) {
+  PolicyMap policies;
 
-  for (unsigned int i = 0; i < packets.size(); ++i) {
-    uint32_t suffix = packets[i]->getName().getSuffix();
-    auto manifest_hash = suffix_map.find(suffix);
+  for (const auto &packet_hash : packet_map) {
+    VerificationPolicy policy = VerificationPolicy::UNKNOWN;
+    auto manifest_hash = suffix_map.find(packet_hash.first);
 
     if (manifest_hash != suffix_map.end()) {
-      CryptoHashType hash_type = manifest_hash->second.first;
-      CryptoHash packet_hash = packets[i]->computeDigest(hash_type);
+      policy = VerificationPolicy::ABORT;
 
-      if (!CryptoHash::compareBinaryDigest(
-              packet_hash.getDigest<uint8_t>().data(),
-              manifest_hash->second.second.data(), hash_type)) {
-        policies[i] = VerificationPolicy::ABORT;
-      } else {
-        policies[i] = VerificationPolicy::ACCEPT;
+      if (packet_hash.second == manifest_hash->second) {
+        policy = VerificationPolicy::ACCEPT;
       }
     }
 
-    callVerificationFailedCallback(packets[i], policies[i]);
+    policies[packet_hash.first] = policy;
   }
 
   return policies;
 }
 
-void Verifier::addKey(PARCKey *key) { parcVerifier_AddKey(verifier_, key); }
+Verifier::PolicyMap Verifier::verifyPackets(const vector<PacketPtr> &packets,
+                                            const SuffixMap &suffix_map) {
+  PolicyMap policies;
 
-void Verifier::setHasher(PARCCryptoHasher *hasher) {
-  parcAssertNotNull(hasher, "Expected non-null hasher");
-  if (hasher_) parcCryptoHasher_Release(&hasher_);
-  hasher_ = parcCryptoHasher_Acquire(hasher);
+  for (const auto &packet : packets) {
+    Suffix suffix = packet->getName().getSuffix();
+    VerificationPolicy policy = VerificationPolicy::UNKNOWN;
+    auto manifest_hash = suffix_map.find(suffix);
+
+    if (manifest_hash != suffix_map.end()) {
+      policy = VerificationPolicy::ABORT;
+      CryptoHashType hash_type = manifest_hash->second.getType();
+      CryptoHash packet_hash = packet->computeDigest(hash_type);
+
+      if (packet_hash == manifest_hash->second) {
+        policy = VerificationPolicy::ACCEPT;
+      }
+    }
+
+    policies[suffix] = policy;
+    callVerificationFailedCallback(packet, policy);
+  }
+
+  return policies;
 }
 
 void Verifier::setVerificationFailedCallback(
@@ -190,27 +147,6 @@ void Verifier::setVerificationFailedCallback(
 void Verifier::getVerificationFailedCallback(
     VerificationFailedCallback **verfication_failed_cb) {
   *verfication_failed_cb = &verification_failed_cb_;
-}
-
-size_t Verifier::getSignatureSize(const PacketPtr packet) {
-  return packet->getSignatureSize();
-}
-
-CryptoHash Verifier::computeHash(PacketPtr packet) {
-  parcAssertNotNull(hasher_, "Expected non-null hasher");
-
-  CryptoHasher crypto_hasher(hasher_);
-  const utils::MemBuf &header_chain = *packet;
-  const utils::MemBuf *current = &header_chain;
-
-  crypto_hasher.init();
-
-  do {
-    crypto_hasher.updateBytes(current->data(), current->length());
-    current = current->next();
-  } while (current != &header_chain);
-
-  return crypto_hasher.finalize();
 }
 
 void Verifier::callVerificationFailedCallback(PacketPtr packet,
@@ -228,107 +164,222 @@ void Verifier::callVerificationFailedCallback(PacketPtr packet,
   }
 }
 
+// ---------------------------------------------------------
+// Void Verifier
+// ---------------------------------------------------------
 bool VoidVerifier::verifyPacket(PacketPtr packet) { return true; }
 
-vector<VerificationPolicy> VoidVerifier::verifyPackets(
+bool VoidVerifier::verifyBuffer(const vector<uint8_t> &buffer,
+                                const vector<uint8_t> &signature,
+                                CryptoHashType hash_type) {
+  return true;
+}
+
+bool VoidVerifier::verifyBuffer(const utils::MemBuf *buffer,
+                                const vector<uint8_t> &signature,
+                                CryptoHashType hash_type) {
+  return true;
+}
+
+Verifier::PolicyMap VoidVerifier::verifyPackets(
     const vector<PacketPtr> &packets) {
-  return vector<VerificationPolicy>(packets.size(), VerificationPolicy::ACCEPT);
-}
+  PolicyMap policies;
 
-vector<VerificationPolicy> VoidVerifier::verifyPackets(
-    const vector<PacketPtr> &packets,
-    const unordered_map<Suffix, HashEntry> &suffix_map) {
-  return vector<VerificationPolicy>(packets.size(), VerificationPolicy::ACCEPT);
-}
-
-AsymmetricVerifier::AsymmetricVerifier(PARCKey *pub_key) { addKey(pub_key); }
-
-AsymmetricVerifier::AsymmetricVerifier(const string &cert_path) {
-  setCertificate(cert_path);
-}
-
-void AsymmetricVerifier::setCertificate(const string &cert_path) {
-  PARCCertificateFactory *factory = parcCertificateFactory_Create(
-      PARCCertificateType_X509, PARCContainerEncoding_PEM);
-
-  struct stat buffer;
-  if (stat(cert_path.c_str(), &buffer) != 0) {
-    throw errors::RuntimeException("Certificate does not exist");
-  }
-
-  PARCCertificate *certificate =
-      parcCertificateFactory_CreateCertificateFromFile(factory,
-                                                       cert_path.c_str(), NULL);
-  PARCKey *key = parcCertificate_GetPublicKey(certificate);
-
-  addKey(key);
-
-  parcKey_Release(&key);
-  parcCertificateFactory_Release(&factory);
-}
-
-SymmetricVerifier::SymmetricVerifier(const string &passphrase)
-    : passphrase_(nullptr), signer_(nullptr) {
-  setPassphrase(passphrase);
-}
-
-SymmetricVerifier::~SymmetricVerifier() {
-  if (passphrase_) parcBuffer_Release(&passphrase_);
-  if (signer_) parcSigner_Release(&signer_);
-}
-
-void SymmetricVerifier::setPassphrase(const string &passphrase) {
-  if (passphrase_) parcBuffer_Release(&passphrase_);
-
-  PARCBufferComposer *composer = parcBufferComposer_Create();
-  parcBufferComposer_PutString(composer, passphrase.c_str());
-  passphrase_ = parcBufferComposer_ProduceBuffer(composer);
-  parcBufferComposer_Release(&composer);
-}
-
-void SymmetricVerifier::setSigner(const PARCCryptoSuite &suite) {
-  parcAssertNotNull(passphrase_, "Expected non-null passphrase");
-
-  if (signer_) parcSigner_Release(&signer_);
-
-  PARCSymmetricKeyStore *key_store = parcSymmetricKeyStore_Create(passphrase_);
-  PARCSymmetricKeySigner *key_signer = parcSymmetricKeySigner_Create(
-      key_store, parcCryptoSuite_GetCryptoHash(suite));
-  signer_ = parcSigner_Create(key_signer, PARCSymmetricKeySignerAsSigner);
-
-  PARCKeyId *key_id = parcSigner_CreateKeyId(signer_);
-  PARCKey *key = parcKey_CreateFromSymmetricKey(
-      key_id, parcSigner_GetSigningAlgorithm(signer_), passphrase_);
-
-  addKey(key);
-  setHasher(parcSigner_GetCryptoHasher(signer_));
-
-  parcSymmetricKeyStore_Release(&key_store);
-  parcSymmetricKeySigner_Release(&key_signer);
-  parcKeyId_Release(&key_id);
-  parcKey_Release(&key);
-}
-
-vector<VerificationPolicy> SymmetricVerifier::verifyPackets(
-    const vector<PacketPtr> &packets) {
-  vector<VerificationPolicy> policies(packets.size(), VerificationPolicy::DROP);
-
-  for (unsigned int i = 0; i < packets.size(); ++i) {
-    auto suite =
-        static_cast<PARCCryptoSuite>(packets[i]->getValidationAlgorithm());
-
-    if (!signer_ || suite != parcSigner_GetCryptoSuite(signer_)) {
-      setSigner(suite);
-    }
-
-    if (verifyPacket(packets[i])) {
-      policies[i] = VerificationPolicy::ACCEPT;
-    }
-
-    callVerificationFailedCallback(packets[i], policies[i]);
+  for (const auto &packet : packets) {
+    policies[packet->getName().getSuffix()] = VerificationPolicy::ACCEPT;
   }
 
   return policies;
+}
+
+Verifier::PolicyMap VoidVerifier::verifyPackets(
+    const vector<PacketPtr> &packets, const SuffixMap &suffix_map) {
+  return verifyPackets(packets);
+}
+
+// ---------------------------------------------------------
+// Asymmetric Verifier
+// ---------------------------------------------------------
+AsymmetricVerifier::AsymmetricVerifier(shared_ptr<EVP_PKEY> key) {
+  setKey(key);
+}
+
+AsymmetricVerifier::AsymmetricVerifier(const string &cert_path) {
+  useCertificate(cert_path);
+}
+
+AsymmetricVerifier::AsymmetricVerifier(shared_ptr<X509> cert) {
+  useCertificate(cert);
+}
+
+void AsymmetricVerifier::setKey(shared_ptr<EVP_PKEY> key) { key_ = key; };
+
+void AsymmetricVerifier::useCertificate(const string &cert_path) {
+  FILE *certf = fopen(cert_path.c_str(), "rb");
+
+  if (certf == nullptr) {
+    throw errors::RuntimeException("Certificate not found");
+  }
+
+  shared_ptr<X509> cert = shared_ptr<X509>(
+      PEM_read_X509(certf, nullptr, nullptr, nullptr), ::X509_free);
+  useCertificate(cert);
+
+  fclose(certf);
+}
+
+void AsymmetricVerifier::useCertificate(shared_ptr<X509> cert) {
+  key_ = shared_ptr<EVP_PKEY>(X509_get_pubkey(cert.get()), ::EVP_PKEY_free);
+}
+
+bool AsymmetricVerifier::verifyBuffer(const vector<uint8_t> &buffer,
+                                      const vector<uint8_t> &signature,
+                                      CryptoHashType hash_type) {
+  CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
+
+  if (hash_evp == nullptr) {
+    throw errors::RuntimeException("Unknown hash type");
+  }
+
+  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+
+  if (mdctx == nullptr) {
+    throw errors::RuntimeException("Digest context allocation failed");
+  }
+
+  if (EVP_DigestVerifyInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
+                           key_.get()) != 1) {
+    throw errors::RuntimeException("Digest initialization failed");
+  }
+
+  if (EVP_DigestVerifyUpdate(mdctx.get(), buffer.data(), buffer.size()) != 1) {
+    throw errors::RuntimeException("Digest update failed");
+  }
+
+  return EVP_DigestVerifyFinal(mdctx.get(), signature.data(),
+                               signature.size()) == 1;
+}
+
+bool AsymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
+                                      const vector<uint8_t> &signature,
+                                      CryptoHashType hash_type) {
+  CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
+
+  if (hash_evp == nullptr) {
+    throw errors::RuntimeException("Unknown hash type");
+  }
+
+  const utils::MemBuf *p = buffer;
+  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+
+  if (mdctx == nullptr) {
+    throw errors::RuntimeException("Digest context allocation failed");
+  }
+
+  if (EVP_DigestVerifyInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
+                           key_.get()) != 1) {
+    throw errors::RuntimeException("Digest initialization failed");
+  }
+
+  do {
+    if (EVP_DigestVerifyUpdate(mdctx.get(), p->data(), p->length()) != 1) {
+      throw errors::RuntimeException("Digest update failed");
+    }
+
+    p = p->next();
+  } while (p != buffer);
+
+  return EVP_DigestVerifyFinal(mdctx.get(), signature.data(),
+                               signature.size()) == 1;
+}
+
+// ---------------------------------------------------------
+// Symmetric Verifier
+// ---------------------------------------------------------
+SymmetricVerifier::SymmetricVerifier(const string &passphrase) {
+  setPassphrase(passphrase);
+}
+
+// Create and set a symmetric key from a passphrase.
+void SymmetricVerifier::setPassphrase(const string &passphrase) {
+  key_ = shared_ptr<EVP_PKEY>(
+      EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, nullptr,
+                                   (const unsigned char *)passphrase.c_str(),
+                                   passphrase.size()),
+      EVP_PKEY_free);
+}
+
+bool SymmetricVerifier::verifyBuffer(const vector<uint8_t> &buffer,
+                                     const vector<uint8_t> &signature,
+                                     CryptoHashType hash_type) {
+  CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
+
+  if (hash_evp == nullptr) {
+    throw errors::RuntimeException("Unknown hash type");
+  }
+
+  vector<uint8_t> signature_bis(signature.size());
+  size_t signature_bis_len;
+  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+
+  if (mdctx == nullptr) {
+    throw errors::RuntimeException("Digest context allocation failed");
+  }
+
+  if (EVP_DigestSignInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
+                         key_.get()) != 1) {
+    throw errors::RuntimeException("Digest initialization failed");
+  }
+
+  if (EVP_DigestSignUpdate(mdctx.get(), buffer.data(), buffer.size()) != 1) {
+    throw errors::RuntimeException("Digest update failed");
+  }
+
+  if (EVP_DigestSignFinal(mdctx.get(), signature_bis.data(),
+                          &signature_bis_len) != 1) {
+    throw errors::RuntimeException("Digest computation failed");
+  }
+
+  return signature == signature_bis && signature.size() == signature_bis_len;
+}
+
+bool SymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
+                                     const vector<uint8_t> &signature,
+                                     CryptoHashType hash_type) {
+  CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
+
+  if (hash_evp == nullptr) {
+    throw errors::RuntimeException("Unknown hash type");
+  }
+
+  const utils::MemBuf *p = buffer;
+  vector<uint8_t> signature_bis(signature.size());
+  size_t signature_bis_len;
+  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+
+  if (mdctx == nullptr) {
+    throw errors::RuntimeException("Digest context allocation failed");
+  }
+
+  if (EVP_DigestSignInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
+                         key_.get()) != 1) {
+    throw errors::RuntimeException("Digest initialization failed");
+  }
+
+  do {
+    if (EVP_DigestSignUpdate(mdctx.get(), p->data(), p->length()) != 1) {
+      throw errors::RuntimeException("Digest update failed");
+    }
+
+    p = p->next();
+  } while (p != buffer);
+
+  if (EVP_DigestSignFinal(mdctx.get(), signature_bis.data(),
+                          &signature_bis_len) != 1) {
+    throw errors::RuntimeException("Digest computation failed");
+  }
+
+  return signature == signature_bis && signature.size() == signature_bis_len;
 }
 
 }  // namespace auth

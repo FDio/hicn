@@ -13,61 +13,29 @@
  * limitations under the License.
  */
 
-#include <hicn/transport/utils/branch_prediction.h>
-#include <protocols/incremental_indexer.h>
+#include <implementation/socket_consumer.h>
 #include <protocols/indexer.h>
-#include <protocols/manifest_incremental_indexer.h>
 
 namespace transport {
+
 namespace protocol {
 
-IndexManager::IndexManager(implementation::ConsumerSocket *icn_socket,
-                           TransportProtocol *transport, Reassembly *reassembly)
-    : indexer_(std::make_unique<IncrementalIndexer>(icn_socket, transport,
-                                                    reassembly)),
-      first_segment_received_(false),
-      icn_socket_(icn_socket),
-      transport_(transport),
-      reassembly_(reassembly) {}
+using namespace interface;
 
-void IndexManager::onContentObject(core::Interest &interest,
-                                   core::ContentObject &content_object) {
-  if (first_segment_received_) {
-    indexer_->onContentObject(interest, content_object);
-  } else {
-    std::uint32_t segment_number = interest.getName().getSuffix();
+const constexpr uint32_t Indexer::invalid_index;
 
-    if (segment_number == 0) {
-      // Check if manifest
-      if (content_object.getPayloadType() == core::PayloadType::MANIFEST) {
-        IncrementalIndexer *indexer =
-            static_cast<IncrementalIndexer *>(indexer_.release());
-        indexer_ =
-            std::make_unique<ManifestIncrementalIndexer>(std::move(*indexer));
-        delete indexer;
-      }
+Indexer::Indexer(implementation::ConsumerSocket *socket,
+                 TransportProtocol *transport)
+    : socket_(socket), transport_(transport) {
+  setVerifier();
+}
 
-      indexer_->onContentObject(interest, content_object);
-      auto it = interest_data_set_.begin();
-      while (it != interest_data_set_.end()) {
-        indexer_->onContentObject(*it->first, *it->second);
-        it = interest_data_set_.erase(it);
-      }
-
-      first_segment_received_ = true;
-    } else {
-      interest_data_set_.emplace(interest.shared_from_this(),
-                                 content_object.shared_from_this());
-    }
+void Indexer::setVerifier() {
+  if (socket_) {
+    socket_->getSocketOption(GeneralTransportOptions::VERIFIER, verifier_);
   }
 }
 
-void IndexManager::reset(std::uint32_t offset) {
-  indexer_ = std::make_unique<IncrementalIndexer>(icn_socket_, transport_,
-                                                  reassembly_);
-  first_segment_received_ = false;
-  interest_data_set_.clear();
-}
+}  // end namespace protocol
 
-}  // namespace protocol
-}  // namespace transport
+}  // end namespace transport

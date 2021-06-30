@@ -32,13 +32,12 @@ namespace protocol {
 class RaaqmTransportProtocol : public TransportProtocol,
                                public CWindowProtocol {
  public:
-  RaaqmTransportProtocol(implementation::ConsumerSocket *icnet_socket);
+  RaaqmTransportProtocol(implementation::ConsumerSocket *icn_socket);
 
   ~RaaqmTransportProtocol();
 
-  int start() override;
-
-  void resume() override;
+  using TransportProtocol::start;
+  using TransportProtocol::stop;
 
   void reset() override;
 
@@ -62,35 +61,24 @@ class RaaqmTransportProtocol : public TransportProtocol,
  private:
   void init();
 
-  void onContentObject(Interest &i, ContentObject &c) override;
-
-  void onContentSegment(Interest &interest, ContentObject &content_object);
-
-  void onPacketDropped(Interest &interest,
-                       ContentObject &content_object) override;
-
+  void onContentObjectReceived(Interest &i, ContentObject &c,
+                               std::error_code &ec) override;
+  void onPacketDropped(Interest &interest, ContentObject &content_object,
+                       const std::error_code &reason) override;
   void onReassemblyFailed(std::uint32_t missing_segment) override;
-
-  void onTimeout(Interest::Ptr &&i) override;
-
+  void onInterestTimeout(Interest::Ptr &i, const Name &n) override;
   virtual void scheduleNextInterests() override;
-
-  void sendInterest(std::uint64_t next_suffix);
-
-  void sendInterest(Interest::Ptr &&interest);
+  void sendInterest(const Name &interest_name,
+                    std::array<uint32_t, MAX_AGGREGATED_INTEREST>
+                        *additional_suffixes = nullptr,
+                    uint32_t len = 0) override;
 
   void onContentReassembled(std::error_code ec) override;
-
   void updateRtt(uint64_t segment);
-
   void RAAQM();
-
   void updatePathTable(const ContentObject &content_object);
-
   void checkDropProbability();
-
   void checkForStalePaths();
-
   void printRtt();
 
  protected:
@@ -100,7 +88,7 @@ class RaaqmTransportProtocol : public TransportProtocol,
   uint64_t interests_in_flight_;
   std::array<std::uint32_t, buffer_size> interest_retransmissions_;
   std::array<utils::TimePoint, buffer_size> interest_timepoints_;
-  std::queue<Interest::Ptr> interest_to_retransmit_;
+  std::queue<uint32_t> interest_to_retransmit_;
 
  private:
   /**

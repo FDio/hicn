@@ -156,7 +156,7 @@ void TLSRTCProducerSocket::accept() {
       throw errors::RuntimeException("Unable to perform client handshake");
   }
 
-  TRANSPORT_LOGD("Handshake performed!");
+  DLOG_IF(INFO, VLOG_IS_ON(2)) << "Handshake performed!";
 
   parent_->list_producers.push_front(
       std::move(parent_->map_producers[handshake_name_]));

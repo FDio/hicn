@@ -14,9 +14,8 @@
  */
 #pragma once
 #include <hicn/transport/config.h>
+#include <hicn/transport/core/asio_wrapper.h>
 
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
 #include <functional>
 #include <random>
 #include <unordered_map>
@@ -32,8 +31,7 @@ class ProbeHandler : public std::enable_shared_from_this<ProbeHandler> {
   using SendProbeCallback = std::function<void(uint32_t)>;
 
  public:
-  ProbeHandler(SendProbeCallback &&send_callback,
-               asio::io_service &io_service);
+  ProbeHandler(SendProbeCallback &&send_callback, asio::io_service &io_service);
 
   ~ProbeHandler();
 
@@ -53,8 +51,8 @@ class ProbeHandler : public std::enable_shared_from_this<ProbeHandler> {
 
  private:
   uint32_t probe_interval_;  // us
-  uint32_t max_probes_; // packets
-  uint32_t sent_probes_; // packets
+  uint32_t max_probes_;      // packets
+  uint32_t sent_probes_;     // packets
 
   std::unique_ptr<asio::steady_timer> probe_timer_;
 

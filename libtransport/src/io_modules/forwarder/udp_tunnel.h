@@ -4,12 +4,11 @@
 
 #pragma once
 
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/connector.h>
 #include <hicn/transport/portability/platform.h>
 #include <io_modules/forwarder/errors.h>
 
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
 #include <iostream>
 #include <memory>
 

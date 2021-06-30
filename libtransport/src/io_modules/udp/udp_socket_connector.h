@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/config.h>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/connector.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/global_object_pool.h>
@@ -24,8 +25,6 @@
 #include <hicn/transport/core/packet.h>
 #include <hicn/transport/utils/branch_prediction.h>
 
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
 #include <deque>
 
 namespace transport {

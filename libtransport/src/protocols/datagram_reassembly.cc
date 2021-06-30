@@ -14,6 +14,7 @@
  */
 
 #include <protocols/datagram_reassembly.h>
+#include <protocols/transport_protocol.h>
 
 namespace transport {
 
@@ -25,7 +26,17 @@ DatagramReassembly::DatagramReassembly(
     : Reassembly(icn_socket, transport_protocol) {}
 
 void DatagramReassembly::reassemble(core::ContentObject& content_object) {
-  read_buffer_ = content_object.getPayload();
+  auto read_buffer = content_object.getPayload();
+  DLOG_IF(INFO, VLOG_IS_ON(4))
+      << "Size of payload: " << read_buffer->length() << ". Trimming "
+      << transport_protocol_->transportHeaderLength();
+  read_buffer->trimStart(transport_protocol_->transportHeaderLength());
+  Reassembly::read_buffer_ = std::move(read_buffer);
+  Reassembly::notifyApplication();
+}
+
+void DatagramReassembly::reassemble(utils::MemBuf& buffer, uint32_t suffix) {
+  read_buffer_ = buffer.cloneOne();
   Reassembly::notifyApplication();
 }
 

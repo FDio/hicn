@@ -15,15 +15,16 @@
 
 #pragma once
 #include <hicn/transport/config.h>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/name.h>
+#include <protocols/indexer.h>
 #include <protocols/rtc/rtc_consts.h>
 #include <protocols/rtc/rtc_state.h>
 
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
 #include <functional>
 #include <map>
+#include <unordered_map>
 
 namespace transport {
 
@@ -43,16 +44,23 @@ class RTCLossDetectionAndRecovery
   using SendRtxCallback = std::function<void(uint32_t)>;
 
  public:
-  RTCLossDetectionAndRecovery(SendRtxCallback &&callback,
+  RTCLossDetectionAndRecovery(Indexer *indexer, SendRtxCallback &&callback,
                               asio::io_service &io_service);
 
   ~RTCLossDetectionAndRecovery();
 
   void setState(std::shared_ptr<RTCState> state) { state_ = state; }
+  void setFecParams(uint32_t n, uint32_t k) {
+    n_ = n;
+    k_ = k;
+  }
   void turnOnRTX();
   void turnOffRTX();
+  bool isRtxOn() { return rtx_on_; }
 
+  void onNewRound(bool in_sync);
   void onTimeout(uint32_t seq);
+  void onPacketRecoveredFec(uint32_t seq);
   void onDataPacketReceived(const core::ContentObject &content_object);
   void onNackPacketReceived(const core::ContentObject &nack);
   void onProbePacketReceived(const core::ContentObject &probe);
@@ -72,6 +80,7 @@ class RTCLossDetectionAndRecovery
   bool deleteRtx(uint32_t seq);
   void scheduleSentinelTimer(uint64_t expires_from_now);
   void sentinelTimer();
+  uint32_t computeFecPacketsToAsk(bool in_sync);
 
   uint64_t getNow() {
     using namespace std::chrono;
@@ -90,13 +99,24 @@ class RTCLossDetectionAndRecovery
   // should be sent, and the val is the interest seq number
   std::multimap<uint64_t, uint32_t> rtx_timers_;
 
+  // lost packets that will be recovered with fec
+  std::unordered_set<uint32_t> recover_with_fec_;
+
   bool rtx_on_;
+  bool fec_on_;
   uint64_t next_rtx_timer_;
   uint64_t last_event_;
   uint64_t sentinel_timer_interval_;
+
+  // fec params
+  uint32_t n_;
+  uint32_t k_;
+
   std::unique_ptr<asio::steady_timer> timer_;
   std::unique_ptr<asio::steady_timer> sentinel_timer_;
   std::shared_ptr<RTCState> state_;
+
+  Indexer *indexer_;
 
   SendRtxCallback send_rtx_callback_;
 };

@@ -13,27 +13,40 @@
 
 include(BuildMacros)
 
-list(APPEND TESTS
-  test_auth
-  test_consumer_producer_rtc
-  test_core_manifest
-  test_event_thread
-  test_fec_reedsolomon
-  test_interest
-  test_packet
+list(APPEND TESTS_SRC
+  main.cc
+  test_auth.cc
+  test_consumer_producer_rtc.cc
+  test_core_manifest.cc
+  test_event_thread.cc
+  test_fec_reedsolomon.cc
+  test_indexer.cc
+  test_interest.cc
+  test_packet.cc
 )
 
-foreach(test ${TESTS})
-    build_executable(${test}
-        NO_INSTALL
-        SOURCES ${test}.cc
-        LINK_LIBRARIES ${LIBTRANSPORT_SHARED} ${GTEST_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT}
-        INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS} ${LIBTRANSPORT_INTERNAL_INCLUDE_DIRS} ${GTEST_INCLUDE_DIRS}
-        DEPENDS gtest ${LIBTRANSPORT_SHARED}
-        COMPONENT lib${LIBTRANSPORT}
-        DEFINITIONS "${COMPILER_DEFINITIONS}"
-        LINK_FLAGS ${LINK_FLAGS}
-    )
+if (ENABLE_RELY)
+  list(APPEND TESTS_SRC
+    test_fec_rely_wrapper.cc
+  )
+endif()
 
-    add_test_internal(${test})
-endforeach()
+build_executable(unit_tests
+    NO_INSTALL
+    SOURCES ${TESTS_SRC}
+    LINK_LIBRARIES
+      ${LIBRARIES}
+      ${LIBTRANSPORT_STATIC}
+      ${GTEST_LIBRARIES}
+    INCLUDE_DIRS
+      ${LIBTRANSPORT_INCLUDE_DIRS}
+      ${LIBHICN_INCLUDE_DIRS}
+      ${LIBTRANSPORT_INTERNAL_INCLUDE_DIRS}
+      ${GTEST_INCLUDE_DIRS}
+    DEPENDS gtest ${LIBTRANSPORT_SHARED}
+    COMPONENT ${LIBTRANSPORT_COMPONENT}
+    DEFINITIONS "${COMPILER_DEFINITIONS}"
+    LINK_FLAGS ${LINK_FLAGS}
+)
+
+add_test_internal(unit_tests)

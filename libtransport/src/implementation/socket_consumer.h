@@ -15,10 +15,10 @@
 
 #pragma once
 
+#include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/statistics.h>
-#include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/utils/event_thread.h>
 #include <protocols/cbr.h>
 #include <protocols/raaqm.h>
@@ -777,7 +777,7 @@ class ConsumerSocket : public Socket {
 
   // Verification parameters
   std::shared_ptr<auth::Verifier> verifier_;
-  PARCKeyId *key_id_;
+  transport::auth::KeyId *key_id_;
   std::atomic_bool verify_signature_;
   bool reset_window_;
 

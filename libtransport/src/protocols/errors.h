@@ -37,10 +37,14 @@ enum class protocol_error {
   success = 0,
   signature_verification_failed,
   integrity_verification_failed,
+  verification_failed,
   no_verifier_provided,
   io_error,
   max_retransmissions_error,
   session_aborted,
+  not_reassemblable,
+  delayed_reassemble,
+  duplicated_content
 };
 
 /**

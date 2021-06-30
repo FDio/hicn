@@ -35,7 +35,6 @@ class FixedBlockAllocator
     if (!p_block) {
       if (TRANSPORT_EXPECT_FALSE(current_pool_index_ >= max_objects_)) {
         // Allocate new memory block
-        TRANSPORT_LOGV("Allocating new block of %zu size", SIZE * OBJECTS);
         p_pools_.emplace_front(
             new typename std::aligned_storage<SIZE>::type[max_objects_]);
         // reset current_pool_index_
@@ -151,10 +150,7 @@ class STLAllocator {
   using value_type = T;
 
   STLAllocator(pointer memory, Pool* memory_pool)
-      : memory_(memory), pool_(memory_pool) {
-    TRANSPORT_LOGV("Creating allocator. This: %p, memory: %p, memory_pool: %p",
-                   this, memory, memory_pool);
-  }
+      : memory_(memory), pool_(memory_pool) {}
 
   ~STLAllocator() {}
 
@@ -173,28 +169,17 @@ class STLAllocator {
   const_pointer address(const_reference x) const { return &x; }
 
   pointer allocate(size_type n, pointer hint = 0) {
-    TRANSPORT_LOGV(
-        "Allocating memory (%zu). This: %p, memory: %p, memory_pool: %p", n,
-        this, memory_, pool_);
     return static_cast<pointer>(memory_);
   }
 
-  void deallocate(pointer p, size_type n) {
-    TRANSPORT_LOGV("Deallocating memory. This: %p, memory: %p, memory_pool: %p",
-                   this, memory_, pool_);
-    pool_->deallocateBlock(memory_);
-  }
+  void deallocate(pointer p, size_type n) { pool_->deallocateBlock(memory_); }
 
   template <typename... Args>
   void construct(pointer p, Args&&... args) {
     new (static_cast<pointer>(p)) T(std::forward<Args>(args)...);
   }
 
-  void destroy(pointer p) {
-    TRANSPORT_LOGV("Destroying object. This: %p, memory: %p, memory_pool: %p",
-                   this, memory_, pool_);
-    p->~T();
-  }
+  void destroy(pointer p) { p->~T(); }
 
  private:
   void* memory_;

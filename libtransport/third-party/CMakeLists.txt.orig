@@ -1,0 +1,85 @@
+# Copyright (c) 2021 Cisco and/or its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at:
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+include(FetchContent)
+
+set (THIRD_PARTY_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR})
+
+option(ENABLE_RELY "Enable download/build of rely library" OFF)
+
+if (ENABLE_RELY)
+  ##################################
+  # Download librely
+    
+  if(DEFINED ENV{BITBUCKET_USERNAME} AND DEFINED ENV{BITBUCKET_PASSWORD})
+    set(GIT_REPO https://$ENV{BITBUCKET_USERNAME}:$ENV{BITBUCKET_PASSWORD}@bitbucket-eng-gpk1.cisco.com/bitbucket/scm/icn/rely.git)
+  else()
+    set(GIT_REPO ssh://git@bitbucket-eng-gpk1.cisco.com:7999/icn/rely.git)
+  endif()
+
+  FetchContent_Declare(
+    rely
+    GIT_REPOSITORY ${GIT_REPO}
+    GIT_TAG release/latest
+    FETCHCONTENT_QUIET
+  )
+
+  set(ENABLE_PIC ON)
+  FetchContent_MakeAvailable(rely)
+
+  list(APPEND THIRD_PARTY_INCLUDE_DIRS
+    ${rely_BINARY_DIR}
+    ${rely_SOURCE_DIR}/src
+  )
+
+  # Get rely libraries
+  get_property(steinwurf_object_libraries GLOBAL
+               PROPERTY steinwurf::object_libraries)
+  
+  foreach(rely_library ${steinwurf_object_libraries})
+    list(APPEND THIRD_PARTY_OBJECT_LIBRARIES
+      $<TARGET_OBJECTS:${rely_library}>
+    )
+  endforeach()
+
+  list(APPEND THIRD_PARTY_DEPENDENCIES
+    rely
+  )
+endif()
+
+FetchContent_Declare(
+  glog
+  URL https://github.com/google/glog/archive/refs/tags/v0.5.0.zip
+  PATCH_COMMAND patch -p1 CMakeLists.txt ${CMAKE_CURRENT_SOURCE_DIR}/glog.patch
+  FETCHCONTENT_QUIET
+)
+
+FetchContent_MakeAvailable(glog)
+
+list(APPEND THIRD_PARTY_INCLUDE_DIRS
+  ${glog_BINARY_DIR}
+  ${glog_SOURCE_DIR}/src
+)
+
+list(APPEND THIRD_PARTY_OBJECT_LIBRARIES
+  $<TARGET_OBJECTS:glog>
+)
+
+list(APPEND THIRD_PARTY_DEPENDENCIES
+  glog
+)
+
+set (THIRD_PARTY_LIBRARIES ${THIRD_PARTY_LIBRARIES} PARENT_SCOPE)
+set (THIRD_PARTY_OBJECT_LIBRARIES ${THIRD_PARTY_OBJECT_LIBRARIES} PARENT_SCOPE)
+set (THIRD_PARTY_INCLUDE_DIRS ${THIRD_PARTY_INCLUDE_DIRS} PARENT_SCOPE)
+set (THIRD_PARTY_DEPENDENCIES ${THIRD_PARTY_DEPENDENCIES} PARENT_SCOPE)

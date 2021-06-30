@@ -104,19 +104,6 @@ void ContentObject::setName(const Name &name) {
   }
 }
 
-void ContentObject::setName(Name &&name) {
-  if (hicn_data_set_name(format_, packet_start_, name.getStructReference()) <
-      0) {
-    throw errors::RuntimeException(
-        "Error getting the payload length from content object.");
-  }
-
-  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
-      0) {
-    throw errors::MalformedPacketException();
-  }
-}
-
 uint32_t ContentObject::getPathLabel() const {
   uint32_t path_label;
   if (hicn_data_get_path_label(packet_start_, &path_label) < 0) {

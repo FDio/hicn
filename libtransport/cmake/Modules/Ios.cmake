@@ -15,9 +15,6 @@ function (configure_ios_environment)
   find_host_package ( OpenSSL REQUIRED )
   include_directories(extras/iOS)
 
-  find_host_package(Libparc REQUIRED)
-  include_directories(${LIBPARC_INCLUDE_DIRS})
-
   find_host_package(Libhicn REQUIRED)
   include_directories(${HICN_INCLUDE_DIRS})
 endfunction()

@@ -20,10 +20,10 @@
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/ring_buffer.h>
 //#include <hicn/transport/core/hicn_vapi.h>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <utils/epoll_event_reactor.h>
 #include <utils/fd_deadline_timer.h>
 
-#include <asio.hpp>
 #include <deque>
 #include <mutex>
 #include <thread>
@@ -108,7 +108,7 @@ class MemifConnector : public Connector {
   std::unique_ptr<utils::FdDeadlineTimer> send_timer_;
   std::unique_ptr<utils::FdDeadlineTimer> disconnect_timer_;
   asio::io_service &io_service_;
-  std::unique_ptr<asio::io_service::work> work_;
+  asio::executor_work_guard<asio::io_context::executor_type> work_;
   std::unique_ptr<memif_connection_t> memif_connection_;
   uint16_t tx_buf_counter_;
 

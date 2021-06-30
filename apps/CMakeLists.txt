@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 14)
 
 project(apps)
@@ -22,25 +22,32 @@ set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
 )
 
+if (NOT CMAKE_BUILD_TYPE)
+  message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
+  set(CMAKE_BUILD_TYPE "Release")
+endif ()
+
 include(BuildMacros)
 include(WindowsMacros)
 
 set(HICN_APPS hicn-apps CACHE INTERNAL "" FORCE)
 
+find_package(Threads REQUIRED)
+find_package(Libconfig++ REQUIRED)
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
   find_package(Libtransport REQUIRED)
+  find_package(Libhicn REQUIRED)
   find_package(hicnctrl REQUIRED)
-  find_package(Threads REQUIRED)
 else()
   if (DISABLE_SHARED_LIBRARIES)
     find_package(OpenSSL REQUIRED)
-    if (NOT WIN32)
-      find_package(ZLIB REQUIRED)
-    endif ()
     set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_STATIC})
+    set(LIBHICN_LIBRARIES ${LIBHICN_STATIC})
     set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_STATIC})
   else ()
     set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_SHARED})
+    set(LIBHICN_LIBRARIES ${LIBHICN_SHARED})
     set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_SHARED})
   endif ()
 
@@ -49,28 +56,20 @@ else()
   )
 endif()
 
-# Worksroung for unresolved symbols in vpp libraries
-if(${CMAKE_SYSTEM_NAME} MATCHES Linux)
-  set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
-endif()
-
-list(APPEND LIBRARIES
-  ${LIBTRANSPORT_LIBRARIES}
-  ${LIBHICNCTRL_LIBRARIES}
-  ${OPENSSL_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT}
-)
-
-set(APPS_LIBRARY_LIST "${OPENSSL_LIBRARIES};${CMAKE_THREAD_LIBS_INIT}" CACHE INTERNAL "APPS_LIBRARY_LIST")
 if (WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
 endif ()
 
 include(Packaging)
 
+add_subdirectory(ping)
+add_subdirectory(hiperf)
+
 set(HIGET higet)
 set(HTTP_PROXY hicn-http-proxy)
+
 if (NOT WIN32)
   add_subdirectory(http-proxy)
 endif ()
+
 add_subdirectory(higet)

@@ -21,26 +21,26 @@
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/interfaces/callbacks.h>
 
-#include <algorithm>
-
 extern "C" {
-#include <parc/security/parc_CertificateFactory.h>
-#include <parc/security/parc_InMemoryVerifier.h>
-#include <parc/security/parc_Security.h>
-#include <parc/security/parc_SymmetricKeySigner.h>
-#include <parc/security/parc_Verifier.h>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
 }
 
 namespace transport {
 namespace auth {
 
 class Verifier {
-  // The base class from which all verifier classes derive.
+  // The base Verifier class.
  public:
-  // The VerificationFailedCallback will be called by the transport if a data
-  // packet (either a manifest or a content object) cannot be verified. The
-  // application decides what to do then by returning a VerificationPolicy
-  // object.
+  using SuffixMap = std::unordered_map<Suffix, CryptoHash>;
+  using PolicyMap = std::unordered_map<Suffix, VerificationPolicy>;
+
+  // The VerificationFailedCallback will be called by the transport if a
+  // data packet (either a manifest or a content object) was not validated.
+  // The application decides what to do then by returning a
+  // VerificationPolicy object.
   using VerificationFailedCallback = std::function<auth::VerificationPolicy(
       const core::ContentObject &content_object, std::error_code ec)>;
 
@@ -52,39 +52,41 @@ class Verifier {
 
   virtual ~Verifier();
 
-  // Verify a single packet and return whether or not the packet signature is
-  // valid.
+  // Verify a single packet or buffer.
   virtual bool verifyPacket(PacketPtr packet);
+  virtual bool verifyBuffer(const std::vector<uint8_t> &buffer,
+                            const std::vector<uint8_t> &signature,
+                            CryptoHashType hash_type) = 0;
+  virtual bool verifyBuffer(const utils::MemBuf *buffer,
+                            const std::vector<uint8_t> &signature,
+                            CryptoHashType hash_type) = 0;
 
-  // Verify a batch of packets. Return a vector with the same size as the packet
-  // list, element i of that vector will contain the VerificationPolicy for
-  // packet i.
-  virtual std::vector<VerificationPolicy> verifyPackets(
-      const std::vector<PacketPtr> &packets);
+  // Verify a batch of packets. Return a mapping from packet suffixes to their
+  // VerificationPolicy.
+  virtual PolicyMap verifyPackets(const std::vector<PacketPtr> &packets);
   VerificationPolicy verifyPackets(PacketPtr packet) {
-    return verifyPackets(std::vector<PacketPtr>{packet}).front();
+    return verifyPackets(std::vector<PacketPtr>{packet})
+        .at(packet->getName().getSuffix());
   }
+
+  // Verify that a set of packet hashes are present in another set of hashes
+  // that was extracted from manifests. Return a mapping from packet suffixes to
+  // their VerificationPolicy.
+  virtual PolicyMap verifyHashes(const SuffixMap &packet_map,
+                                 const SuffixMap &suffix_map);
 
   // Verify that a batch of packets are valid using a map from packet suffixes
-  // to hashes. A packet is considered valid if its hash correspond to the hash
-  // present in the map. Return a vector with the same size as the packet list,
-  // element i of that vector will contain the VerificationPolicy for packet i.
-  virtual std::vector<VerificationPolicy> verifyPackets(
-      const std::vector<PacketPtr> &packets,
-      const std::unordered_map<Suffix, HashEntry> &suffix_map);
-  VerificationPolicy verifyPackets(
-      PacketPtr packet,
-      const std::unordered_map<Suffix, HashEntry> &suffix_map) {
-    return verifyPackets(std::vector<PacketPtr>{packet}, suffix_map).front();
+  // to hashes. A packet is considered valid if its hash is present in the map.
+  // Return a mapping from packet suffixes to their VerificationPolicy.
+  virtual PolicyMap verifyPackets(const std::vector<PacketPtr> &packets,
+                                  const SuffixMap &suffix_map);
+  VerificationPolicy verifyPackets(PacketPtr packet,
+                                   const SuffixMap &suffix_map) {
+    return verifyPackets(std::vector<PacketPtr>{packet}, suffix_map)
+        .at(packet->getName().getSuffix());
   }
 
-  // Add a general PARC key which can be used to verify packet signatures.
-  void addKey(PARCKey *key);
-
-  // Set the hasher object used to compute packet hashes.
-  void setHasher(PARCCryptoHasher *hasher);
-
-  // Set the callback for the case packet verification fails.
+  // Set the callback called when packet verification fails.
   void setVerificationFailedCallback(
       VerificationFailedCallback verification_failed_cb,
       const std::vector<VerificationPolicy> &failed_policies =
@@ -94,16 +96,9 @@ class Verifier {
   void getVerificationFailedCallback(
       VerificationFailedCallback **verification_failed_cb);
 
-  static size_t getSignatureSize(const PacketPtr);
-
  protected:
-  PARCCryptoHasher *hasher_;
-  PARCVerifier *verifier_;
   VerificationFailedCallback verification_failed_cb_;
   std::vector<VerificationPolicy> failed_policies_;
-
-  // Internally compute a packet hash using the hasher object.
-  virtual CryptoHash computeHash(PacketPtr packet);
 
   // Call VerificationFailedCallback if it is set and update the packet policy.
   void callVerificationFailedCallback(PacketPtr packet,
@@ -111,33 +106,52 @@ class Verifier {
 };
 
 class VoidVerifier : public Verifier {
-  // This class is the default socket verifier. It ignores completely the packet
-  // signature and always returns true.
+  // This class is the default socket verifier. It ignores any packet signature
+  // and always returns true.
  public:
   bool verifyPacket(PacketPtr packet) override;
+  bool verifyBuffer(const std::vector<uint8_t> &buffer,
+                    const std::vector<uint8_t> &signature,
+                    CryptoHashType hash_type) override;
+  bool verifyBuffer(const utils::MemBuf *buffer,
+                    const std::vector<uint8_t> &signature,
+                    CryptoHashType hash_type) override;
 
-  std::vector<VerificationPolicy> verifyPackets(
-      const std::vector<PacketPtr> &packets) override;
+  PolicyMap verifyPackets(const std::vector<PacketPtr> &packets) override;
 
-  std::vector<VerificationPolicy> verifyPackets(
-      const std::vector<PacketPtr> &packets,
-      const std::unordered_map<Suffix, HashEntry> &suffix_map) override;
+  PolicyMap verifyPackets(const std::vector<PacketPtr> &packets,
+                          const SuffixMap &suffix_map) override;
 };
 
 class AsymmetricVerifier : public Verifier {
   // This class uses asymmetric verification to validate packets. The public key
-  // can be set directly or extracted from a certificate.
+  // can be directly set or extracted from a certificate.
  public:
   AsymmetricVerifier() = default;
 
-  // Add a public key to the verifier.
-  AsymmetricVerifier(PARCKey *pub_key);
+  // Construct an AsymmetricVerifier from an asymmetric key.
+  AsymmetricVerifier(std::shared_ptr<EVP_PKEY> key);
 
   // Construct an AsymmetricVerifier from a certificate file.
   AsymmetricVerifier(const std::string &cert_path);
+  AsymmetricVerifier(std::shared_ptr<X509> cert);
 
-  // Extract the public key of a certificate file.
-  void setCertificate(const std::string &cert_path);
+  // Set the asymmetric key.
+  void setKey(std::shared_ptr<EVP_PKEY> key);
+
+  // Extract the public key from a certificate.
+  void useCertificate(const std::string &cert_path);
+  void useCertificate(std::shared_ptr<X509> cert);
+
+  bool verifyBuffer(const std::vector<uint8_t> &buffer,
+                    const std::vector<uint8_t> &signature,
+                    CryptoHashType hash_type) override;
+  bool verifyBuffer(const utils::MemBuf *buffer,
+                    const std::vector<uint8_t> &signature,
+                    CryptoHashType hash_type) override;
+
+ private:
+  std::shared_ptr<EVP_PKEY> key_;
 };
 
 class SymmetricVerifier : public Verifier {
@@ -149,20 +163,18 @@ class SymmetricVerifier : public Verifier {
   // Construct a SymmetricVerifier from a passphrase.
   SymmetricVerifier(const std::string &passphrase);
 
-  ~SymmetricVerifier();
-
   // Create and set a symmetric key from a passphrase.
   void setPassphrase(const std::string &passphrase);
 
-  // Construct a signer object. Passphrase must be set beforehand.
-  void setSigner(const PARCCryptoSuite &suite);
-
-  virtual std::vector<VerificationPolicy> verifyPackets(
-      const std::vector<PacketPtr> &packets) override;
+  bool verifyBuffer(const std::vector<uint8_t> &buffer,
+                    const std::vector<uint8_t> &signature,
+                    CryptoHashType hash_type) override;
+  bool verifyBuffer(const utils::MemBuf *buffer,
+                    const std::vector<uint8_t> &signature,
+                    CryptoHashType hash_type) override;
 
  protected:
-  PARCBuffer *passphrase_;
-  PARCSigner *signer_;
+  std::shared_ptr<EVP_PKEY> key_;
 };
 
 }  // namespace auth

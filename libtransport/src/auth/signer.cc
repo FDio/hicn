@@ -15,193 +15,214 @@
 
 #include <hicn/transport/auth/signer.h>
 
-extern "C" {
-#ifndef _WIN32
-TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
-#endif
-#include <hicn/hicn.h>
-}
-
-#include <chrono>
-
-#define ALLOW_UNALIGNED_READS 1
-
 using namespace std;
 
 namespace transport {
 namespace auth {
 
-Signer::Signer() : signer_(nullptr), key_id_(nullptr) { parcSecurity_Init(); }
+// ---------------------------------------------------------
+// Base Signer
+// ---------------------------------------------------------
+Signer::Signer()
+    : suite_(CryptoSuite::UNKNOWN), signature_len_(0), key_(nullptr) {}
 
-Signer::Signer(PARCSigner *signer) : Signer() { setSigner(signer); }
-
-Signer::~Signer() {
-  if (signer_) parcSigner_Release(&signer_);
-  if (key_id_) parcKeyId_Release(&key_id_);
-  parcSecurity_Fini();
-}
+Signer::~Signer() {}
 
 void Signer::signPacket(PacketPtr packet) {
-  parcAssertNotNull(signer_, "Expected non-null signer");
-
-  const utils::MemBuf &header_chain = *packet;
+  assert(key_ != nullptr);
   core::Packet::Format format = packet->getFormat();
-  auto suite = getCryptoSuite();
-  size_t signature_len = getSignatureSize();
 
   if (!packet->authenticationHeader()) {
     throw errors::MalformedAHPacketException();
   }
 
-  packet->setSignatureSize(signature_len);
+  // Set signature size
+  size_t signature_field_len = getSignatureFieldSize();
+  packet->setSignatureSize(signature_field_len);
+  packet->setSignatureSizeGap(0u);
 
   // Copy IP+TCP / ICMP header before zeroing them
   hicn_header_t header_copy;
   hicn_packet_copy_header(format, packet->packet_start_, &header_copy, false);
-  packet->resetForHash();
 
-  // Fill in the HICN_AH header
+  // Fill in the hICN AH header
   auto now = chrono::duration_cast<chrono::milliseconds>(
                  chrono::system_clock::now().time_since_epoch())
                  .count();
   packet->setSignatureTimestamp(now);
-  packet->setValidationAlgorithm(suite);
+  packet->setValidationAlgorithm(suite_);
 
-  // Set the key ID
-  KeyId key_id;
-  key_id.first = static_cast<uint8_t *>(
-      parcBuffer_Overlay((PARCBuffer *)parcKeyId_GetKeyId(key_id_), 0));
-  packet->setKeyId(key_id);
+  // Set key ID
+  vector<uint8_t> key_id = key_id_.getDigest();
+  packet->setKeyId({key_id.data(), key_id.size()});
 
-  // Calculate hash
-  CryptoHasher hasher(parcSigner_GetCryptoHasher(signer_));
-  const utils::MemBuf *current = &header_chain;
+  // Reset fields to compute the packet hash
+  packet->resetForHash();
 
-  hasher.init();
-
-  do {
-    hasher.updateBytes(current->data(), current->length());
-    current = current->next();
-  } while (current != &header_chain);
-
-  CryptoHash hash = hasher.finalize();
-
-  // Compute signature
-  PARCSignature *signature = parcSigner_SignDigestNoAlloc(
-      signer_, hash.hash_, packet->getSignature(), (uint32_t)signature_len);
-  PARCBuffer *buffer = parcSignature_GetSignature(signature);
-  size_t bytes_len = parcBuffer_Remaining(buffer);
-
-  if (bytes_len > signature_len) {
-    throw errors::MalformedAHPacketException();
-  }
-
-  // Put signature in AH header
+  // Compute the signature and put it in the packet
+  signBuffer(packet);
   hicn_packet_copy_header(format, &header_copy, packet->packet_start_, false);
 
-  // Release allocated objects
-  parcSignature_Release(&signature);
+  // Set the gap between the signature field size and the signature real size.
+  packet->setSignatureSizeGap(signature_field_len - signature_len_);
+  memcpy(packet->getSignature(), signature_.data(), signature_len_);
 }
 
-void Signer::setSigner(PARCSigner *signer) {
-  parcAssertNotNull(signer, "Expected non-null signer");
+void Signer::signBuffer(const std::vector<uint8_t> &buffer) {
+  assert(key_ != nullptr);
+  CryptoHashEVP hash_evp = CryptoHash::getEVP(getHashType());
 
-  if (signer_) parcSigner_Release(&signer_);
-  if (key_id_) parcKeyId_Release(&key_id_);
-
-  signer_ = parcSigner_Acquire(signer);
-  key_id_ = parcSigner_CreateKeyId(signer_);
-}
-
-size_t Signer::getSignatureSize() const {
-  parcAssertNotNull(signer_, "Expected non-null signer");
-  return parcSigner_GetSignatureSize(signer_);
-}
-
-CryptoSuite Signer::getCryptoSuite() const {
-  parcAssertNotNull(signer_, "Expected non-null signer");
-  return static_cast<CryptoSuite>(parcSigner_GetCryptoSuite(signer_));
-}
-
-CryptoHashType Signer::getCryptoHashType() const {
-  parcAssertNotNull(signer_, "Expected non-null signer");
-  return static_cast<CryptoHashType>(parcSigner_GetCryptoHashType(signer_));
-}
-
-PARCSigner *Signer::getParcSigner() const { return signer_; }
-
-PARCKeyStore *Signer::getParcKeyStore() const {
-  parcAssertNotNull(signer_, "Expected non-null signer");
-  return parcSigner_GetKeyStore(signer_);
-}
-
-AsymmetricSigner::AsymmetricSigner(CryptoSuite suite, PARCKeyStore *key_store) {
-  parcAssertNotNull(key_store, "Expected non-null key_store");
-
-  auto crypto_suite = static_cast<PARCCryptoSuite>(suite);
-
-  switch (suite) {
-    case CryptoSuite::DSA_SHA256:
-    case CryptoSuite::RSA_SHA256:
-    case CryptoSuite::RSA_SHA512:
-    case CryptoSuite::ECDSA_256K1:
-      break;
-    default:
-      throw errors::RuntimeException(
-          "Invalid crypto suite for asymmetric signer");
+  if (hash_evp == nullptr) {
+    throw errors::RuntimeException("Unknown hash type");
   }
 
-  setSigner(
-      parcSigner_Create(parcPublicKeySigner_Create(key_store, crypto_suite),
-                        PARCPublicKeySignerAsSigner));
-}
+  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
 
-SymmetricSigner::SymmetricSigner(CryptoSuite suite, PARCKeyStore *key_store) {
-  parcAssertNotNull(key_store, "Expected non-null key_store");
-
-  auto crypto_suite = static_cast<PARCCryptoSuite>(suite);
-
-  switch (suite) {
-    case CryptoSuite::HMAC_SHA256:
-    case CryptoSuite::HMAC_SHA512:
-      break;
-    default:
-      throw errors::RuntimeException(
-          "Invalid crypto suite for symmetric signer");
+  if (mdctx == nullptr) {
+    throw errors::RuntimeException("Digest context allocation failed");
   }
 
-  setSigner(parcSigner_Create(parcSymmetricKeySigner_Create(
-                                  (PARCSymmetricKeyStore *)key_store,
-                                  parcCryptoSuite_GetCryptoHash(crypto_suite)),
-                              PARCSymmetricKeySignerAsSigner));
+  if (EVP_DigestSignInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
+                         key_.get()) != 1) {
+    throw errors::RuntimeException("Digest initialization failed");
+  }
+
+  if (EVP_DigestSignUpdate(mdctx.get(), buffer.data(), buffer.size()) != 1) {
+    throw errors::RuntimeException("Digest update failed");
+  }
+
+  if (EVP_DigestSignFinal(mdctx.get(), nullptr, &signature_len_) != 1) {
+    throw errors::RuntimeException("Digest computation failed");
+  }
+
+  signature_.resize(signature_len_);
+
+  if (EVP_DigestSignFinal(mdctx.get(), signature_.data(), &signature_len_) !=
+      1) {
+    throw errors::RuntimeException("Digest computation failed");
+  }
+
+  signature_.resize(signature_len_);
 }
 
+void Signer::signBuffer(const utils::MemBuf *buffer) {
+  assert(key_ != nullptr);
+  CryptoHashEVP hash_evp = CryptoHash::getEVP(getHashType());
+
+  if (hash_evp == nullptr) {
+    throw errors::RuntimeException("Unknown hash type");
+  }
+
+  const utils::MemBuf *p = buffer;
+  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+
+  if (mdctx == nullptr) {
+    throw errors::RuntimeException("Digest context allocation failed");
+  }
+
+  if (EVP_DigestSignInit(mdctx.get(), nullptr, (*hash_evp)(), nullptr,
+                         key_.get()) != 1) {
+    throw errors::RuntimeException("Digest initialization failed");
+  }
+
+  do {
+    if (EVP_DigestSignUpdate(mdctx.get(), p->data(), p->length()) != 1) {
+      throw errors::RuntimeException("Digest update failed");
+    }
+
+    p = p->next();
+  } while (p != buffer);
+
+  if (EVP_DigestSignFinal(mdctx.get(), nullptr, &signature_len_) != 1) {
+    throw errors::RuntimeException("Digest computation failed");
+  }
+
+  signature_.resize(signature_len_);
+
+  if (EVP_DigestSignFinal(mdctx.get(), signature_.data(), &signature_len_) !=
+      1) {
+    throw errors::RuntimeException("Digest computation failed");
+  }
+
+  signature_.resize(signature_len_);
+}
+
+vector<uint8_t> Signer::getSignature() const { return signature_; }
+
+size_t Signer::getSignatureSize() const { return signature_len_; }
+
+size_t Signer::getSignatureFieldSize() const {
+  if (signature_len_ % 4 == 0) {
+    return signature_len_;
+  }
+
+  return (signature_len_ + 4) - (signature_len_ % 4);
+}
+
+CryptoHashType Signer::getHashType() const {
+  return ::transport::auth::getHashType(suite_);
+}
+
+CryptoSuite Signer::getSuite() const { return suite_; }
+
+// ---------------------------------------------------------
+// Void Signer
+// ---------------------------------------------------------
+void VoidSigner::signPacket(PacketPtr packet){};
+
+void VoidSigner::signBuffer(const std::vector<uint8_t> &buffer){};
+
+void VoidSigner::signBuffer(const utils::MemBuf *buffer){};
+
+// ---------------------------------------------------------
+// Asymmetric Signer
+// ---------------------------------------------------------
+AsymmetricSigner::AsymmetricSigner(CryptoSuite suite, shared_ptr<EVP_PKEY> key,
+                                   shared_ptr<EVP_PKEY> pub_key) {
+  suite_ = suite;
+  key_ = key;
+  key_id_ = CryptoHash(getHashType());
+
+  vector<uint8_t> pbk(i2d_PublicKey(pub_key.get(), nullptr));
+  uint8_t *pbk_ptr = pbk.data();
+  int len = i2d_PublicKey(pub_key.get(), &pbk_ptr);
+
+  signature_len_ = EVP_PKEY_size(key.get());
+  signature_.resize(signature_len_);
+  key_id_.computeDigest(pbk_ptr, len);
+}
+
+size_t AsymmetricSigner::getSignatureFieldSize() const {
+  size_t field_size = EVP_PKEY_size(key_.get());
+
+  if (field_size % 4 == 0) {
+    return field_size;
+  }
+
+  return (field_size + 4) - (field_size % 4);
+}
+
+// ---------------------------------------------------------
+// Symmetric Signer
+// ---------------------------------------------------------
 SymmetricSigner::SymmetricSigner(CryptoSuite suite, const string &passphrase) {
-  auto crypto_suite = static_cast<PARCCryptoSuite>(suite);
+  suite_ = suite;
+  key_ = shared_ptr<EVP_PKEY>(
+      EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, nullptr,
+                                   (const unsigned char *)passphrase.c_str(),
+                                   passphrase.size()),
+      EVP_PKEY_free);
+  key_id_ = CryptoHash(getHashType());
 
-  switch (suite) {
-    case CryptoSuite::HMAC_SHA256:
-    case CryptoSuite::HMAC_SHA512:
-      break;
-    default:
-      throw errors::RuntimeException(
-          "Invalid crypto suite for symmetric signer");
+  CryptoHashEVP hash_evp = CryptoHash::getEVP(getHashType());
+
+  if (hash_evp == nullptr) {
+    throw errors::RuntimeException("Unknown hash type");
   }
 
-  PARCBufferComposer *composer = parcBufferComposer_Create();
-  parcBufferComposer_PutString(composer, passphrase.c_str());
-  PARCBuffer *key_buf = parcBufferComposer_ProduceBuffer(composer);
-  parcBufferComposer_Release(&composer);
-
-  PARCSymmetricKeyStore *key_store = parcSymmetricKeyStore_Create(key_buf);
-  PARCSymmetricKeySigner *key_signer = parcSymmetricKeySigner_Create(
-      key_store, parcCryptoSuite_GetCryptoHash(crypto_suite));
-
-  setSigner(parcSigner_Create(key_signer, PARCSymmetricKeySignerAsSigner));
-
-  parcSymmetricKeySigner_Release(&key_signer);
-  parcSymmetricKeyStore_Release(&key_store);
-  parcBuffer_Release(&key_buf);
+  signature_len_ = EVP_MD_size((*hash_evp)());
+  signature_.resize(signature_len_);
+  key_id_.computeDigest((uint8_t *)passphrase.c_str(), passphrase.size());
 }
 
 }  // namespace auth
