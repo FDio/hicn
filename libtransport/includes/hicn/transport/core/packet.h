@@ -15,19 +15,28 @@
 
 #pragma once
 
+#include <hicn/transport/auth/crypto_hash.h>
+#include <hicn/transport/auth/crypto_suite.h>
+#include <hicn/transport/auth/key_id.h>
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/core/payload_type.h>
 #include <hicn/transport/errors/malformed_packet_exception.h>
 #include <hicn/transport/portability/portability.h>
-#include <hicn/transport/auth/crypto_hasher.h>
-#include <hicn/transport/auth/crypto_suite.h>
-#include <hicn/transport/auth/key_id.h>
 #include <hicn/transport/utils/branch_prediction.h>
-#include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/membuf.h>
 #include <hicn/transport/utils/object_pool.h>
 
 namespace transport {
+
+namespace auth {
+class Signer;
+class AsymmetricSigner;
+class SymmetricSigner;
+class Verifier;
+class AsymmetricVerifier;
+class SymmetricVerifier;
+}  // namespace auth
+
 namespace core {
 
 /*
@@ -42,7 +51,11 @@ namespace core {
 class Packet : public utils::MemBuf,
                public std::enable_shared_from_this<Packet> {
   friend class auth::Signer;
+  friend class auth::SymmetricSigner;
+  friend class auth::AsymmetricSigner;
   friend class auth::Verifier;
+  friend class auth::AsymmetricVerifier;
+  friend class auth::SymmetricVerifier;
 
  public:
   using Ptr = std::shared_ptr<Packet>;
@@ -135,8 +148,6 @@ class Packet : public utils::MemBuf,
 
   virtual void setName(const Name &name) = 0;
 
-  virtual void setName(Name &&name) = 0;
-
   virtual void setLifetime(uint32_t lifetime) = 0;
 
   virtual uint32_t getLifetime() const = 0;
@@ -223,6 +234,7 @@ class Packet : public utils::MemBuf,
  private:
   virtual void resetForHash() = 0;
   void setSignatureSize(std::size_t size_bytes);
+  void setSignatureSizeGap(std::size_t size_bytes);
   void prependPayload(const uint8_t **buffer, std::size_t *size);
 
   bool authenticationHeader() const { return _is_ah(format_); }
@@ -237,6 +249,22 @@ class Packet : public utils::MemBuf,
     }
 
     return size_bytes;
+  }
+
+  std::size_t getSignatureSizeGap() const {
+    uint8_t size_bytes;
+    int ret =
+        hicn_packet_get_signature_gap(format_, packet_start_, &size_bytes);
+
+    if (ret < 0) {
+      throw errors::RuntimeException("Packet without Authentication Header.");
+    }
+
+    return (size_t)size_bytes;
+  }
+
+  std::size_t getSignatureSizeReal() const {
+    return getSignatureSize() - getSignatureSizeGap();
   }
 
   uint8_t *getSignature() const;

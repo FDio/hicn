@@ -65,8 +65,8 @@ hicn_cli_node_ctl_start_set_command_fn (vlib_main_t *vm,
 		   get_error_string (ret));
 
   return (ret == HICN_ERROR_NONE) ?
-		 0 :
-		 clib_error_return (0, get_error_string (ret));
+	   0 :
+	   clib_error_return (0, get_error_string (ret));
 }
 
 /*
@@ -103,8 +103,8 @@ hicn_cli_node_ctl_stop_set_command_fn (vlib_main_t *vm,
     node_ctl_params.pit_max_lifetime_sec, node_ctl_params.cs_max_size, ~0);
 
   return (ret == HICN_ERROR_NONE) ?
-		 0 :
-		 clib_error_return (0, get_error_string (ret));
+	   0 :
+	   clib_error_return (0, get_error_string (ret));
 }
 
 #define DFLTD_RANGE_OK(val, min, max)                                         \
@@ -201,8 +201,8 @@ hicn_cli_node_ctl_param_set_command_fn (vlib_main_t *vm,
 			 "compilation time for better performances\n");
 
   return (rv == HICN_ERROR_NONE) ?
-		 0 :
-		 clib_error_return (0, "%s '%U'", get_error_string (rv),
+	   0 :
+	   clib_error_return (0, "%s '%U'", get_error_string (rv),
 			      format_unformat_error, line_input);
 }
 
@@ -348,8 +348,8 @@ done:
 		       hicn_main.pitcs.pcs_table->ht_overflow_buckets_used);
     }
   return (ret == HICN_ERROR_NONE) ?
-		 0 :
-		 clib_error_return (0, "%s\n", get_error_string (ret));
+	   0 :
+	   clib_error_return (0, "%s\n", get_error_string (ret));
 }
 
 /*
@@ -408,8 +408,8 @@ hicn_cli_strategy_set_command_fn (vlib_main_t *vm,
 
   rv = hicn_route_set_strategy (&prefix, strategy_id);
   cl_err = (rv == HICN_ERROR_NONE) ?
-		   NULL :
-		   clib_error_return (0, get_error_string (rv));
+	     NULL :
+	     clib_error_return (0, get_error_string (rv));
 done:
 
   return (cl_err);
@@ -731,8 +731,8 @@ hicn_enable_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 done:
 
   cl_err = (rv == HICN_ERROR_NONE) ?
-		   NULL :
-		   clib_error_return (0, get_error_string (rv));
+	     NULL :
+	     clib_error_return (0, get_error_string (rv));
   return cl_err;
 }
 
@@ -776,8 +776,8 @@ hicn_disable_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 
 done:
   cl_err = (rv == HICN_ERROR_NONE) ?
-		   NULL :
-		   clib_error_return (0, get_error_string (rv));
+	     NULL :
+	     clib_error_return (0, get_error_string (rv));
   return cl_err;
 }
 

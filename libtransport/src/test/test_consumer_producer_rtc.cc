@@ -14,13 +14,11 @@
  */
 
 #include <gtest/gtest.h>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/interfaces/global_conf_interface.h>
 #include <hicn/transport/interfaces/socket_consumer.h>
 #include <hicn/transport/interfaces/socket_options_keys.h>
 #include <hicn/transport/interfaces/socket_producer.h>
-
-#include <asio/io_service.hpp>
-#include <asio/steady_timer.hpp>
 
 namespace transport {
 namespace interface {
@@ -151,7 +149,7 @@ const char ConsumerProducerTest::name[];
 
 }  // namespace
 
-TEST_F(ConsumerProducerTest, EndToEnd) {
+TEST_F(ConsumerProducerTest, DISABLED_EndToEnd) {
   produceRTCPacket(std::error_code());
   consumer_.consume(consumer_name_);
   setStopTimer();
@@ -165,12 +163,3 @@ TEST_F(ConsumerProducerTest, EndToEnd) {
 }  // namespace interface
 
 }  // namespace transport
-
-int main(int argc, char **argv) {
-#if 0
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-#else
-  return 0;
-#endif
-}

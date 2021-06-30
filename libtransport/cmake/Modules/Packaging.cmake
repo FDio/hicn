@@ -17,60 +17,51 @@
 # Packages section
 ######################
 
-set(lib${LIBTRANSPORT}_DESCRIPTION
+set(${LIBTRANSPORT_COMPONENT}_DESCRIPTION
 "Libhicn-transport provides transport services and \
 socket API for applications willing to communicate \
 using the hICN protocol stack."
   CACHE STRING "Description for deb/rpm package."
 )
 
-set(lib${LIBTRANSPORT}-dev_DESCRIPTION ${lib${LIBTRANSPORT}_DESCRIPTION}
-  CACHE STRING "Description for deb/rpm package.")
-set(lib${LIBTRANSPORT}-devel_DESCRIPTION ${lib${LIBTRANSPORT}_DESCRIPTION}
-  CACHE STRING "Description for deb/rpm package.")
+set(${LIBTRANSPORT_COMPONENT}-dev_DESCRIPTION
+  CACHE STRING "Header files for developing using libhicntransport."
+)
 
-if ((BUILD_MEMIF_CONNECTOR OR BUILD_HICNPLUGIN) AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+set(lib${LIBTRANSPORT}-devel_DESCRIPTION
+  CACHE STRING "Header files for developing using libhicntransport."
+)
 
-  set(lib${LIBTRANSPORT}_DEB_DEPENDENCIES
-    "lib${LIBHICN} (>= stable_version), libparc (>= 1.0), libmemif (>= stable_version), vpp (>= stable_version-release), vpp (<< next_version-release), hicn-plugin (>= stable_version)"
-    CACHE STRING "Dependencies for deb/rpm package."
-  )
+set(${LIBTRANSPORT_COMPONENT}-io-modules_DESCRIPTION
+  CACHE STRING "Additional io modules for libhicntransport, including the memif connector for vpp."
+)
 
-  set(lib${LIBTRANSPORT}_RPM_DEPENDENCIES
-    "lib${LIBHICN} >= stable_version, libparc >= 1.0, libmemif >= stable_version, vpp >= stable_version-release, vpp < next_version-release, hicn-plugin >= stable_version"
-    CACHE STRING "Dependencies for deb/rpm package."
-  )
+set(${LIBTRANSPORT_COMPONENT}_DEB_DEPENDENCIES
+  "lib${LIBHICN} (>= stable_version), libparc (>= 1.0), libconfig++9v5 (>= 1.5-0.4build1)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
 
-  set(lib${LIBTRANSPORT}-dev_DEB_DEPENDENCIES
-    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), libhicn-dev (>= stable_version), libmemif-dev (>= stable_version), libparc-dev (>= 1.0), vpp-dev (>= stable_version-release), vpp-dev (<< next_version-release), hicn-plugin-dev (>= stable_version)"
-    CACHE STRING "Dependencies for deb/rpm package."
-  )
+set(${LIBTRANSPORT_COMPONENT}_RPM_DEPENDENCIES
+  "lib${LIBHICN} >= stable_version, libparc >= 1.0, libconfig >= 1.5-9.el8"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
 
-  set(lib${LIBTRANSPORT}-dev_RPM_DEPENDENCIES
-    "lib${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libmemif-devel >= stable_version, libparc-devel >= 1.0, vpp-devel >= stable_version-release, vpp-devel < next_version-release, hicn-plugin-dev >= stable_version"
-    CACHE STRING "Dependencies for deb/rpm package."
-  )
+set(${LIBTRANSPORT_COMPONENT}-dev_DEB_DEPENDENCIES
+  "${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), lib${LIBHICN}-dev (>= stable_version), libparc-dev (>= 1.0), libconfig++-dev (>= 1.5-0.4build1)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
 
-else()
+set(${LIBTRANSPORT_COMPONENT}-dev_RPM_DEPENDENCIES
+  "${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libparc-devel >= 1.0, libconfig-devel >= 1.5-9.el8"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
 
-  set(lib${LIBTRANSPORT}_DEB_DEPENDENCIES
-    "lib${LIBHICN} (>= stable_version), libparc (>= 1.0)"
-    CACHE STRING "Dependencies for deb/rpm package."
-  )
+set(${LIBTRANSPORT_COMPONENT}-io-modules_DEB_DEPENDENCIES
+  "${LIBTRANSPORT} (>= stable_version), libmemif (>= stable_version), vpp (>= stable_version-release), vpp (<< next_version-release), hicn-plugin (>= stable_version)"
+  CACHE STRING "Dependencies for deb/rpm package."
+)
 
-  set(lib${LIBTRANSPORT}_RPM_DEPENDENCIES
-    "lib${LIBHICN} >= stable_version, libparc >= 1.0"
-    CACHE STRING "Dependencies for deb/rpm package."
-  )
-
-  set(lib${LIBTRANSPORT}-dev_DEB_DEPENDENCIES
-    "lib${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), lib${LIBHICN}-dev (>= stable_version), libparc-dev (>= 1.0)"
-    CACHE STRING "Dependencies for deb/rpm package."
-  )
-
-  set(lib${LIBTRANSPORT}-dev_RPM_DEPENDENCIES
-    "lib${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libparc-devel >= 1.0"
-    CACHE STRING "Dependencies for deb/rpm package."
-  )
-
-endif()
+set(${LIBTRANSPORT_COMPONENT}-io-modules_RPM_DEPENDENCIES
+  "${LIBTRANSPORT} >= stable_version, libmemif >= stable_version, vpp >= stable_version-release, vpp < next_version-release, hicn-plugin >= stable_version"
+  CACHE STRING "Dependencies for deb/rpm package."
+)

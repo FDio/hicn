@@ -31,20 +31,41 @@ namespace portability {
 constexpr bool little_endian_arch = __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__;
 constexpr bool big_endian_arch = !little_endian_arch;
 
-#if defined(__GNUC__)
-#define _TRANSPORT_GNU_DISABLE_WARNING(warning) #warning
-#define TRANSPORT_GNU_DISABLE_WARNING(warning) \
-  _Pragma(_TRANSPORT_GNU_DISABLE_WARNING(GCC diagnostic ignored warning))
-
+// Generalize warning push/pop.
+#if defined(__GNUC__) || defined(__clang__)
+// Clang & GCC
+#define TRANSPORT_PUSH_WARNING _Pragma("GCC diagnostic push")
+#define TRANSPORT_POP_WARNING _Pragma("GCC diagnostic pop")
+#define TRANSPORT_GNU_DISABLE_WARNING_INTERNAL2(warningName) #warningName
+#define TRANSPORT_GNU_DISABLE_WARNING(warningName) \
+  _Pragma(                                     \
+      TRANSPORT_GNU_DISABLE_WARNING_INTERNAL2(GCC diagnostic ignored warningName))
 #ifdef __clang__
-#define TRANSPORT_CLANG_DISABLE_WARNING(warning) \
-  TRANSPORT_GNU_DISABLE_WARNING(warning)
-#define TRANSPORT_GCC_DISABLE_WARNING(warning)
+#define TRANSPORT_CLANG_DISABLE_WARNING(warningName) \
+  TRANSPORT_GNU_DISABLE_WARNING(warningName)
+#define TRANSPORT_GCC_DISABLE_WARNING(warningName)
 #else
-#define TRANSPORT_CLANG_DISABLE_WARNING(warning)
-#define TRANSPORT_GCC_DISABLE_WARNING(warning) \
-  TRANSPORT_GNU_DISABLE_WARNING(warning)
+#define TRANSPORT_CLANG_DISABLE_WARNING(warningName)
+#define TRANSPORT_GCC_DISABLE_WARNING(warningName) \
+  TRANSPORT_GNU_DISABLE_WARNING(warningName)
 #endif
+#define TRANSPORT_MSVC_DISABLE_WARNING(warningNumber)
+#elif defined(_MSC_VER)
+#define TRANSPORT_PUSH_WARNING __pragma(warning(push))
+#define TRANSPORT_POP_WARNING __pragma(warning(pop))
+// Disable the GCC warnings.
+#define TRANSPORT_GNU_DISABLE_WARNING(warningName)
+#define TRANSPORT_GCC_DISABLE_WARNING(warningName)
+#define TRANSPORT_CLANG_DISABLE_WARNING(warningName)
+#define TRANSPORT_MSVC_DISABLE_WARNING(warningNumber) \
+  __pragma(warning(disable : warningNumber))
+#else
+#define TRANSPORT_PUSH_WARNING
+#define TRANSPORT_POP_WARNING
+#define TRANSPORT_GNU_DISABLE_WARNING(warningName)
+#define TRANSPORT_GCC_DISABLE_WARNING(warningName)
+#define TRANSPORT_CLANG_DISABLE_WARNING(warningName)
+#define TRANSPORT_MSVC_DISABLE_WARNING(warningNumber)
 #endif
 
 }  // namespace portability

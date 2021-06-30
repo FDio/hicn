@@ -121,7 +121,7 @@ hicn_new_interest (hicn_strategy_runtime_t *rt, vlib_buffer_t *b0, u32 *next,
       hicn_face_db_add_face (hicnb0->face_id, &(pitp->u.pit.faces));
 
       *next = isv6 ? HICN_STRATEGY_NEXT_INTEREST_FACE6 :
-			   HICN_STRATEGY_NEXT_INTEREST_FACE4;
+		     HICN_STRATEGY_NEXT_INTEREST_FACE4;
 
       vnet_buffer (b0)->ip.adj_index[VLIB_TX] = outface;
       stats->pkts_interest_count++;
@@ -139,7 +139,7 @@ hicn_new_interest (hicn_strategy_runtime_t *rt, vlib_buffer_t *b0, u32 *next,
 	  // entry because it is a CS entry (hash_insert function).
 	  hash_entry->locks++;
 	  *next = is_cs0 ? HICN_STRATEGY_NEXT_INTEREST_HITCS :
-				 HICN_STRATEGY_NEXT_INTEREST_HITPIT;
+			   HICN_STRATEGY_NEXT_INTEREST_HITPIT;
 	}
       else
 	{

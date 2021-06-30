@@ -428,9 +428,9 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 	  clones += 2;
 
 	  next0 = isv6 ? HICN_DATA_FWD_NEXT_IFACE6_OUT :
-			       HICN_DATA_FWD_NEXT_IFACE4_OUT;
+			 HICN_DATA_FWD_NEXT_IFACE4_OUT;
 	  next1 = isv6 ? HICN_DATA_FWD_NEXT_IFACE6_OUT :
-			       HICN_DATA_FWD_NEXT_IFACE4_OUT;
+			 HICN_DATA_FWD_NEXT_IFACE4_OUT;
 
 	  vnet_buffer (h0)->ip.adj_index[VLIB_TX] = face0;
 	  vnet_buffer (h1)->ip.adj_index[VLIB_TX] = face1;
@@ -481,7 +481,7 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 	  clones += 1;
 
 	  next0 = isv6 ? HICN_DATA_FWD_NEXT_IFACE6_OUT :
-			       HICN_DATA_FWD_NEXT_IFACE4_OUT;
+			 HICN_DATA_FWD_NEXT_IFACE4_OUT;
 	  vnet_buffer (h0)->ip.adj_index[VLIB_TX] = face0;
 
 	  stats->pkts_data_count++;

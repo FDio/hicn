@@ -40,5 +40,4 @@ set(LIBCONFIG_INCLUDE_DIRS ${LIBCONFIG_INCLUDE_DIR})
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Libconfig++ LIBCONFIG_CPP_LIBRARIES LIBCONFIG_INCLUDE_DIRS)
 
-
 mark_as_advanced(LIBCONFIG_CPP_LIBRARIES LIBCONFIG_INCLUDE_DIRS)

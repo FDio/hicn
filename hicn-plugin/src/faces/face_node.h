@@ -31,9 +31,9 @@
  * The following node to the input face nodes is the hicn-data-pcslookup.
  * Output face nodes follow the strategy and the hicn-interest-hitpit nodes and
  * they perform the src nat on each interest packet. The node following the
- * output face nodes depends on the adjacency type. In case of ip, the following
- * node is the ip-rewrite, in case of tunnels the next node is the one implementing
- * the tunnel encapsulation (udp-encap, mpls, etc).
+ * output face nodes depends on the adjacency type. In case of ip, the
+ * following node is the ip-rewrite, in case of tunnels the next node is the
+ * one implementing the tunnel encapsulation (udp-encap, mpls, etc).
  */
 
 extern vlib_node_registration_t hicn4_face_input_node;

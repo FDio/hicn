@@ -34,7 +34,7 @@ static const hicn_dpo_vft_t hicn_dpo_rr_vft = {
 };
 
 int
-hicn_dpo_is_type_strategy_rr (const dpo_id_t * dpo)
+hicn_dpo_is_type_strategy_rr (const dpo_id_t *dpo)
 {
   return dpo->dpoi_type == hicn_dpo_type_rr;
 }
@@ -45,10 +45,9 @@ hicn_dpo_strategy_rr_module_init (void)
   /*
    * Register our type of dpo
    */
-  hicn_dpo_type_rr =
-    hicn_dpo_register_new_type (hicn_nodes_strategy, &hicn_dpo_rr_vft,
-				hicn_rr_strategy_get_vft (),
-				&dpo_strategy_rr_ctx_vft);
+  hicn_dpo_type_rr = hicn_dpo_register_new_type (
+    hicn_nodes_strategy, &hicn_dpo_rr_vft, hicn_rr_strategy_get_vft (),
+    &dpo_strategy_rr_ctx_vft);
 }
 
 dpo_type_t
@@ -59,9 +58,8 @@ hicn_dpo_strategy_rr_get_type (void)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 u8 *
-hicn_strategy_rr_format_ctx (u8 * s, int n, ...)
+hicn_strategy_rr_format_ctx (u8 *s, int n, ...)
 {
   va_list args;
   va_start (args, n);
@@ -70,7 +68,7 @@ hicn_strategy_rr_format_ctx (u8 * s, int n, ...)
 }
 
 u8 *
-format_hicn_strategy_rr_ctx (u8 * s, va_list * ap)
+format_hicn_strategy_rr_ctx (u8 *s, va_list *ap)
 {
   int i = 0;
   index_t index = va_arg (*ap, index_t);
@@ -84,25 +82,21 @@ format_hicn_strategy_rr_ctx (u8 * s, va_list * ap)
 
   rr_dpo_ctx = (hicn_strategy_rr_ctx_t *) dpo_ctx->data;
 
-  s =
-    format (s, "hicn-rr, next hop Face %d",
-	    dpo_ctx->next_hops[rr_dpo_ctx->current_nhop]);
+  s = format (s, "hicn-rr, next hop Face %d",
+	      dpo_ctx->next_hops[rr_dpo_ctx->current_nhop]);
 
   for (i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
     {
       u8 *buf = NULL;
       if (i < dpo_ctx->entry_count)
 	buf = format (NULL, "FIB");
-      else if (i >=
-	       HICN_PARAM_FIB_ENTRY_NHOPS_MAX - dpo_ctx->tfib_entry_count)
+      else if (i >= HICN_PARAM_FIB_ENTRY_NHOPS_MAX - dpo_ctx->tfib_entry_count)
 	buf = format (NULL, "TFIB");
       else
 	continue;
 
       s = format (s, "\n");
-      s =
-        format (s, "%U ", format_hicn_face, dpo_ctx->next_hops[i],
-                indent);
+      s = format (s, "%U ", format_hicn_face, dpo_ctx->next_hops[i], indent);
       s = format (s, " %s", buf);
     }
 
@@ -110,8 +104,9 @@ format_hicn_strategy_rr_ctx (u8 * s, va_list * ap)
 }
 
 void
-hicn_strategy_rr_ctx_create (fib_protocol_t proto, const hicn_face_id_t * next_hop,
-			     int nh_len, index_t * dpo_idx)
+hicn_strategy_rr_ctx_create (fib_protocol_t proto,
+			     const hicn_face_id_t *next_hop, int nh_len,
+			     index_t *dpo_idx)
 {
   hicn_strategy_rr_ctx_t *hicn_strategy_rr_ctx;
   hicn_dpo_ctx_t *hicn_strategy_ctx;
@@ -139,7 +134,7 @@ hicn_strategy_rr_ctx_add_nh (hicn_face_id_t nh, index_t dpo_idx)
     }
 
   hicn_strategy_dpo_ctx_add_nh (nh, hicn_strategy_dpo_ctx, &pos);
-  //nothing else to initialize in this strategy
+  // nothing else to initialize in this strategy
   return HICN_ERROR_NONE;
 }
 
@@ -147,7 +142,8 @@ int
 hicn_strategy_rr_ctx_del_nh (hicn_face_id_t face_id, index_t dpo_idx)
 {
   hicn_dpo_ctx_t *hicn_strategy_dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
-  //No need to change the current_nhop. It will be updated at the next selection.
+  // No need to change the current_nhop. It will be updated at the next
+  // selection.
   return hicn_strategy_dpo_ctx_del_nh (face_id, hicn_strategy_dpo_ctx);
 }
 

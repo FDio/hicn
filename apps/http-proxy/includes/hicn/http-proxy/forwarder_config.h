@@ -27,7 +27,6 @@
 
 #include "forwarder_interface.h"
 
-
 #define RETRY_INTERVAL 300
 
 namespace transport {
@@ -68,7 +67,8 @@ class ForwarderConfig {
       if (ret < 0) {
         // We were not able to connect to the local forwarder. Do not give up
         // and retry.
-        TRANSPORT_LOGE("Could not connect to local forwarder. Retrying.");
+        TRANSPORT_LOG_ERROR
+            << "Could not connect to local forwarder. Retrying.";
 
         timer_.expires_from_now(std::chrono::milliseconds(RETRY_INTERVAL));
         timer_.async_wait(std::bind(&ForwarderConfig::doTryToConnectToForwarder,
@@ -79,7 +79,8 @@ class ForwarderConfig {
         doGetMainListener(std::make_error_code(std::errc(0)));
       }
     } else {
-      TRANSPORT_LOGD("Timer for re-trying forwarder connection canceled.");
+      TRANSPORT_LOG_ERROR
+          << "Timer for re-trying forwarder connection canceled.";
     }
   }
 
@@ -90,9 +91,9 @@ class ForwarderConfig {
       if (ret <= 0) {
         // Since without the main listener of the forwarder the proxy cannot
         // work, we can stop the program here until we get the listener port.
-        TRANSPORT_LOGE(
-            "Could not retrieve main listener port from the forwarder. "
-            "Retrying.");
+        TRANSPORT_LOG_ERROR
+            << "Could not retrieve main listener port from the forwarder. "
+               "Retrying.";
 
         timer_.expires_from_now(std::chrono::milliseconds(RETRY_INTERVAL));
         timer_.async_wait(std::bind(&ForwarderConfig::doGetMainListener, this,
@@ -104,7 +105,8 @@ class ForwarderConfig {
         listener_retrieved_callback_(std::make_error_code(std::errc(0)));
       }
     } else {
-      TRANSPORT_LOGI("Timer for retrieving main hicn listener canceled.");
+      TRANSPORT_LOG_ERROR
+          << "Timer for retrieving main hicn listener canceled.";
     }
   }
 

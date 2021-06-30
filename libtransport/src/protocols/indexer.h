@@ -17,6 +17,7 @@
 
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
+#include <protocols/fec_utils.h>
 
 #include <set>
 
@@ -33,66 +34,80 @@ class TransportProtocol;
 
 class Indexer {
  public:
+  static const constexpr uint32_t invalid_index =
+      (std::numeric_limits<uint32_t>::max() - 1);
+
+  Indexer(implementation::ConsumerSocket *socket, TransportProtocol *transport);
+
   virtual ~Indexer() = default;
 
   /**
-   * Retrieve from the manifest the next suffix to retrieve.
+   * Suffix getters
    */
+  virtual uint32_t checkNextSuffix() = 0;
   virtual uint32_t getNextSuffix() = 0;
-
-  virtual void setFirstSuffix(uint32_t suffix) = 0;
-
-  /**
-   * Retrive the next segment to be reassembled.
-   */
   virtual uint32_t getNextReassemblySegment() = 0;
 
-  virtual bool isFinalSuffixDiscovered() = 0;
+  /**
+   * Set first suffix from where to start.
+   */
+  virtual void setFirstSuffix(uint32_t suffix) = 0;
+  virtual uint32_t getFirstSuffix() = 0;
 
+  /**
+   * Functions to set/enable/disable fec
+   */
+  virtual void setNFec(uint32_t n_fec) = 0;
+  virtual uint32_t getNFec() = 0;
+  virtual void enableFec(fec::FECType fec_type) = 0;
+  virtual void disableFec() = 0;
+  virtual bool isFec(uint32_t index) { return false; }
+  virtual double getFecOverhead() { return 0.0; }
+  virtual double getMaxFecOverhead() { return 0.0; }
+
+  /**
+   * Final suffix helpers.
+   */
+  virtual bool isFinalSuffixDiscovered() = 0;
   virtual uint32_t getFinalSuffix() = 0;
 
-  virtual void reset(std::uint32_t offset = 0) = 0;
+  /**
+   * Set reassembly protocol
+   */
+  virtual void setReassembly(Reassembly *reassembly) {
+    reassembly_ = reassembly;
+  }
 
+  /**
+   * Set verifier using socket
+   */
+  virtual void setVerifier();
+
+  /**
+   * Jump to suffix. This may be useful if, for any protocol dependent
+   * mechanism, we need to suddenly change current suffix. This does not modify
+   * the way suffixes re incremented/decremented (that's part of the
+   * implementation).
+   */
+  virtual uint32_t jumpToIndex(uint32_t index) = 0;
+
+  /**
+   * Reset the indexer.
+   */
+  virtual void reset() = 0;
+
+  /**
+   * Process incoming content objects.
+   */
   virtual void onContentObject(core::Interest &interest,
-                               core::ContentObject &content_object) = 0;
-};
+                               core::ContentObject &content_object,
+                               bool reassembly = true) = 0;
 
-class IndexManager : Indexer {
- public:
-  static constexpr uint32_t invalid_index = ~0;
-
-  IndexManager(implementation::ConsumerSocket *icn_socket,
-               TransportProtocol *transport, Reassembly *reassembly);
-
-  uint32_t getNextSuffix() override { return indexer_->getNextSuffix(); }
-
-  void setFirstSuffix(uint32_t suffix) override {
-    indexer_->setFirstSuffix(suffix);
-  }
-
-  uint32_t getNextReassemblySegment() override {
-    return indexer_->getNextReassemblySegment();
-  }
-
-  bool isFinalSuffixDiscovered() override {
-    return indexer_->isFinalSuffixDiscovered();
-  }
-
-  uint32_t getFinalSuffix() override { return indexer_->getFinalSuffix(); }
-
-  void reset(std::uint32_t offset = 0) override;
-
-  void onContentObject(core::Interest &interest,
-                       core::ContentObject &content_object) override;
-
- private:
-  std::unique_ptr<Indexer> indexer_;
-  bool first_segment_received_;
-  std::set<std::pair<core::Interest::Ptr, core::ContentObject::Ptr>>
-      interest_data_set_;
-  implementation::ConsumerSocket *icn_socket_;
+ protected:
+  implementation::ConsumerSocket *socket_;
   TransportProtocol *transport_;
   Reassembly *reassembly_;
+  std::shared_ptr<auth::Verifier> verifier_;
 };
 
 }  // end namespace protocol

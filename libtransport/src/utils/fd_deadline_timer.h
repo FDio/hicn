@@ -16,7 +16,6 @@
 #pragma once
 
 #include <hicn/transport/errors/runtime_exception.h>
-#include <hicn/transport/utils/log.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
 #include <utils/deadline_timer.h>
@@ -58,7 +57,7 @@ class FdDeadlineTimer : public DeadlineTimer<FdDeadlineTimer> {
           std::error_code ec;
 
           if (read(event.data.fd, &s, sizeof(s)) == -1) {
-            TRANSPORT_LOGE("Read error!!");
+            LOG(ERROR) << "Read error!!";
           }
 
           if (!(event.events & EPOLLIN)) {

@@ -12,7 +12,7 @@
 # limitations under the License.
 
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 if ((CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR) OR 
     (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux"))

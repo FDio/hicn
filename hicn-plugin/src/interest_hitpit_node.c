@@ -179,7 +179,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		       * forwarding
 		       */
 		      next0 = isv6 ? HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT :
-					   HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT;
+				     HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT;
 		      vnet_buffer (b0)->ip.adj_index[VLIB_TX] = outface;
 
 		      /*

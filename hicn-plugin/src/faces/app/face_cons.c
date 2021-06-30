@@ -22,9 +22,8 @@
 #include "../../infra.h"
 
 int
-hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
-		    u32 swif, hicn_face_id_t * faceid1,
-		    hicn_face_id_t * faceid2)
+hicn_face_cons_add (ip4_address_t *nh_addr4, ip6_address_t *nh_addr6, u32 swif,
+		    hicn_face_id_t *faceid1, hicn_face_id_t *faceid2)
 {
   /* Create the corresponding appif if */
   /* Retrieve a valid local ip address to assign to the appif */
@@ -50,14 +49,13 @@ hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
   vnet_sw_interface_set_flags (vnm, swif, if_flags);
 
   get_two_ip4_addresses (&(if_ip.ip4), nh_addr4);
-  ip4_add_del_interface_address (vm,
-				 swif,
-				 &(if_ip.ip4),
-				 ADDR_MGR_IP4_CONS_LEN, 0 /* is_del */ );
+  ip4_add_del_interface_address (vm, swif, &(if_ip.ip4), ADDR_MGR_IP4_CONS_LEN,
+				 0 /* is_del */);
 
   ip46_address_t nh_addr = to_ip46 (0, (u8 *) nh_addr4);
 
-  index_t adj_index = adj_nbr_find(FIB_PROTOCOL_IP4, VNET_LINK_IP4, &nh_addr, swif);
+  index_t adj_index =
+    adj_nbr_find (FIB_PROTOCOL_IP4, VNET_LINK_IP4, &nh_addr, swif);
 
   hicn_iface_add (&nh_addr, swif, faceid1, DPO_PROTO_IP4, adj_index);
 
@@ -65,14 +63,13 @@ hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
   face->flags |= HICN_FACE_FLAGS_APPFACE_CONS;
 
   get_two_ip6_addresses (&(if_ip.ip6), nh_addr6);
-  ip6_add_del_interface_address (vm,
-				 swif,
-				 &(if_ip.ip6),
-				 ADDR_MGR_IP6_CONS_LEN, 0 /* is_del */ );
+  ip6_add_del_interface_address (vm, swif, &(if_ip.ip6), ADDR_MGR_IP6_CONS_LEN,
+				 0 /* is_del */);
 
-  adj_index = adj_nbr_find(FIB_PROTOCOL_IP6, VNET_LINK_IP6, &nh_addr, swif);
+  adj_index = adj_nbr_find (FIB_PROTOCOL_IP6, VNET_LINK_IP6, &nh_addr, swif);
 
-  hicn_iface_add ((ip46_address_t *) nh_addr6, swif, faceid2, DPO_PROTO_IP6, adj_index);
+  hicn_iface_add ((ip46_address_t *) nh_addr6, swif, faceid2, DPO_PROTO_IP6,
+		  adj_index);
 
   face = hicn_dpoi_get_from_idx (*faceid2);
   face->flags |= HICN_FACE_FLAGS_APPFACE_CONS;
@@ -99,7 +96,7 @@ hicn_face_cons_del (hicn_face_id_t face_id)
 }
 
 u8 *
-format_hicn_face_cons (u8 * s, va_list * args)
+format_hicn_face_cons (u8 *s, va_list *args)
 {
   CLIB_UNUSED (index_t index) = va_arg (*args, index_t);
   CLIB_UNUSED (u32 indent) = va_arg (*args, u32);

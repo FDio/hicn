@@ -14,9 +14,9 @@
  */
 
 #ifndef _WIN32
+#include <glog/logging.h>
 #include <hicn/transport/errors/runtime_exception.h>
 #include <hicn/transport/utils/daemonizator.h>
-#include <hicn/transport/utils/log.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -36,7 +36,7 @@ void Daemonizator::daemonize(bool close_fds) {
 
   // PARENT PROCESS. Need to kill it.
   if (process_id > 0) {
-    TRANSPORT_LOGE("Process id of child process %d", process_id);
+    LOG(ERROR) << "Process id of child process " << process_id;
     // return success in exit status
     exit(EXIT_SUCCESS);
   }

@@ -51,7 +51,7 @@ class ProducerSocket : public Socket {
         content_object_expiry_time_(default_values::content_object_expiry_time),
         async_thread_(),
         making_manifest_(false),
-        hash_algorithm_(auth::CryptoHashType::SHA_256),
+        hash_algorithm_(auth::CryptoHashType::SHA256),
         suffix_strategy_(core::NextSegmentCalculationStrategy::INCREMENTAL),
         on_interest_input_(VOID_HANDLER),
         on_interest_dropped_input_buffer_(VOID_HANDLER),
@@ -417,7 +417,7 @@ class ProducerSocket : public Socket {
                               uint32_t &socket_option_value) {
     switch (socket_option_key) {
       case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
-        socket_option_value = (uint32_t)production_protocol_->getOutputBufferSize();
+        socket_option_value = production_protocol_->getOutputBufferSize();
         break;
 
       case GeneralTransportOptions::DATA_PACKET_SIZE:

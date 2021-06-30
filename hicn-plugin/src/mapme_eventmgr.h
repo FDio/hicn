@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include <vlib/vlib.h>		// vlib_node_registration_t (vlib/node.h)
+#include <vlib/vlib.h> // vlib_node_registration_t (vlib/node.h)
 
 #include <hicn/name.h>
 
@@ -34,7 +34,7 @@ typedef struct
   u8 rtx_count; // Number of retransmissions since last tfib addition
 } retx_t;
 
-#define HASH32(x) ((u16)x ^ (x << 16))
+#define HASH32(x) ((u16) x ^ (x << 16))
 
 /**
  * @brief This is a process node reacting to face events.
@@ -46,7 +46,7 @@ vlib_node_registration_t hicn_mapme_eventmgr_process_node;
  * @brief Initialize MAP-Me on forwarder
  * @params vm - vlib_main_t pointer
  */
-void hicn_mapme_init (vlib_main_t * vm);
+void hicn_mapme_init (vlib_main_t *vm);
 
 /*
  * fd.io coding-style-patch-verification: ON

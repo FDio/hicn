@@ -25,9 +25,9 @@
  * an interface.
  */
 
-#define ADDR_MGR_IP4_LEN 32
+#define ADDR_MGR_IP4_LEN      32
 #define ADDR_MGR_IP4_CONS_LEN 31
-#define ADDR_MGR_IP6_LEN 128
+#define ADDR_MGR_IP6_LEN      128
 #define ADDR_MGR_IP6_CONS_LEN 127
 
 /**
@@ -36,7 +36,7 @@
  * @param addr1 first ip address with the least significant bit set to 0
  * @param addr2 second ip address with the least significant bit set to 1
  */
-void get_two_ip4_addresses (ip4_address_t * addr1, ip4_address_t * addr2);
+void get_two_ip4_addresses (ip4_address_t *addr1, ip4_address_t *addr2);
 
 /**
  * @brief Get two consecutive IP v6 addresses from the same /126 subnet
@@ -44,7 +44,7 @@ void get_two_ip4_addresses (ip4_address_t * addr1, ip4_address_t * addr2);
  * @param addr1 first ip address with the least significant bit set to 0
  * @param addr2 second ip address with the least significant bit set to 1
  */
-void get_two_ip6_addresses (ip6_address_t * addr1, ip6_address_t * addr2);
+void get_two_ip6_addresses (ip6_address_t *addr1, ip6_address_t *addr2);
 
 /**
  * @brief Get one IP v4 address

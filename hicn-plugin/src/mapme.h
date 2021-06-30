@@ -23,7 +23,7 @@
 #include "hicn.h"
 #include "route.h"
 #include "strategy_dpo_ctx.h"
-#include "strategy_dpo_manager.h"	// dpo_is_hicn
+#include "strategy_dpo_manager.h" // dpo_is_hicn
 
 /**
  * @file
@@ -32,36 +32,35 @@
  *
  * Mapme implementation follows the "Anchorless mobility through hICN" document
  * specification. In particular, the implementation is made of:
- *   - two internal nodes: hicn-mapme-ctrl and hicn-mapme-ack. The former processes
- *     IU and the latter IU acknowledgment.
- *   - a process node, mapme-eventmgr-process, that is signaled every time a face is
- *     added or deleted, as well as when a new next hop is added to a fib entry as a
- *     result of a mobility event.
+ *   - two internal nodes: hicn-mapme-ctrl and hicn-mapme-ack. The former
+ * processes IU and the latter IU acknowledgment.
+ *   - a process node, mapme-eventmgr-process, that is signaled every time a
+ * face is added or deleted, as well as when a new next hop is added to a fib
+ * entry as a result of a mobility event.
  *
- * TFIB implementation is done as an extension of an hICN fib entry. In particular,
- * the list of next hops hold the list of next hops in the tfib as well (stored at the
- * end of the list of regualt next hops). Mapme implementation follows the hICN vrf
- * implementation and consider the vrf 0 (default fib) as the control-plane fib to
- * update every time a new next hop must be added or removed.
+ * TFIB implementation is done as an extension of an hICN fib entry. In
+ * particular, the list of next hops hold the list of next hops in the tfib as
+ * well (stored at the end of the list of regualt next hops). Mapme
+ * implementation follows the hICN vrf implementation and consider the vrf 0
+ * (default fib) as the control-plane fib to update every time a new next hop
+ * must be added or removed.
  */
-
 
 #define HICN_MAPME_ALLOW_LOCATORS 1
 
 //#define HICN_MAPME_NOTIFICATIONS 1
 
 #define NOT_A_NOTIFICATION false
-#define TIMER_NO_REPEAT false
+#define TIMER_NO_REPEAT	   false
 
 #define INVALID_SEQ 0
 
-STATIC_ASSERT (sizeof(u32) == sizeof(seq_t),
-               "seq_t is not 4 bytes");
+STATIC_ASSERT (sizeof (u32) == sizeof (seq_t), "seq_t is not 4 bytes");
 
 typedef struct hicn_mapme_conf_s
 {
   hicn_mapme_conf_t conf;
-  bool remove_dpo;		// FIXME used ?
+  bool remove_dpo; // FIXME used ?
 
   vlib_main_t *vm;
   vlib_log_class_t log_class;
@@ -70,15 +69,15 @@ typedef struct hicn_mapme_conf_s
 /**
  * @brief List of event to signat to the procesing node (eventmgr)
  */
-#define foreach_hicn_mapme_event  \
-  _(FACE_ADD)                     \
-  _(FACE_DEL)                     \
-  _(FACE_APP_ADD)                 \
-  _(FACE_APP_DEL)                 \
-  _(FACE_NH_SET)                  \
-  _(FACE_NH_ADD)                  \
-  _(FACE_PH_ADD)                  \
-  _(FACE_PH_DEL)
+#define foreach_hicn_mapme_event                                              \
+  _ (FACE_ADD)                                                                \
+  _ (FACE_DEL)                                                                \
+  _ (FACE_APP_ADD)                                                            \
+  _ (FACE_APP_DEL)                                                            \
+  _ (FACE_NH_SET)                                                             \
+  _ (FACE_NH_ADD)                                                             \
+  _ (FACE_PH_ADD)                                                             \
+  _ (FACE_PH_DEL)
 
 typedef enum
 {
@@ -99,24 +98,27 @@ typedef hicn_dpo_ctx_t hicn_mapme_tfib_t;
 STATIC_ASSERT (sizeof (hicn_mapme_tfib_t) <= sizeof (hicn_dpo_ctx_t),
 	       "hicn_mapme_tfib_t is greater than hicn_dpo_ctx_t");
 
-#define TFIB(dpo_ctx) ((hicn_mapme_tfib_t*)(dpo_ctx))
+#define TFIB(dpo_ctx) ((hicn_mapme_tfib_t *) (dpo_ctx))
 
 static_always_inline int
-hicn_mapme_nh_set (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
+hicn_mapme_nh_set (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
 {
-  hicn_dpo_ctx_t * strategy_ctx = (hicn_dpo_ctx_t *)tfib;
-  const fib_prefix_t * prefix = fib_entry_get_prefix(strategy_ctx->fib_entry_index);
+  hicn_dpo_ctx_t *strategy_ctx = (hicn_dpo_ctx_t *) tfib;
+  const fib_prefix_t *prefix =
+    fib_entry_get_prefix (strategy_ctx->fib_entry_index);
 
   u32 n_entries = tfib->entry_count;
   /* Remove all the existing next hops and set the new one */
   for (int i = 0; i < n_entries; i++)
     {
-      hicn_face_t * face = hicn_dpoi_get_from_idx(strategy_ctx->next_hops[0]);
-      ip_adjacency_t * adj = adj_get (face->dpo.dpoi_index);
-      ip_nh_del_helper(face->dpo.dpoi_proto, prefix, &adj->sub_type.nbr.next_hop, face->sw_if);
+      hicn_face_t *face = hicn_dpoi_get_from_idx (strategy_ctx->next_hops[0]);
+      ip_adjacency_t *adj = adj_get (face->dpo.dpoi_index);
+      ip_nh_del_helper (face->dpo.dpoi_proto, prefix,
+			&adj->sub_type.nbr.next_hop, face->sw_if);
     }
-  hicn_face_t * face = hicn_dpoi_get_from_idx(face_id);
-  ip_nh_add_helper(face->dpo.dpoi_proto, prefix, &face->nat_addr, face->sw_if);
+  hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
+  ip_nh_add_helper (face->dpo.dpoi_proto, prefix, &face->nat_addr,
+		    face->sw_if);
   return 0;
 }
 
@@ -124,17 +126,20 @@ hicn_mapme_nh_set (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
  * @brief Add a next hop iif it is not already a next hops
  */
 static_always_inline int
-hicn_mapme_nh_add (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
+hicn_mapme_nh_add (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
 {
   for (u8 pos = 0; pos < tfib->entry_count; pos++)
     if (tfib->next_hops[pos] == face_id)
       return 0;
 
-  /* Add the next hop in the vrf 0 which will add it to the entry in the hICN vrf */
-  hicn_dpo_ctx_t * strategy_ctx = (hicn_dpo_ctx_t *)tfib;
-  const fib_prefix_t * prefix = fib_entry_get_prefix(strategy_ctx->fib_entry_index);
-  hicn_face_t * face = hicn_dpoi_get_from_idx(face_id);
-  ip_nh_add_helper(face->dpo.dpoi_proto, prefix, &face->nat_addr, face->sw_if);
+  /* Add the next hop in the vrf 0 which will add it to the entry in the hICN
+   * vrf */
+  hicn_dpo_ctx_t *strategy_ctx = (hicn_dpo_ctx_t *) tfib;
+  const fib_prefix_t *prefix =
+    fib_entry_get_prefix (strategy_ctx->fib_entry_index);
+  hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
+  ip_nh_add_helper (face->dpo.dpoi_proto, prefix, &face->nat_addr,
+		    face->sw_if);
 
   return 0;
 }
@@ -145,17 +150,17 @@ hicn_mapme_nh_add (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
  * XXX we should have the for look in the reverse order for simpler code.
  */
 static_always_inline int
-hicn_mapme_tfib_add (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
+hicn_mapme_tfib_add (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
 {
   u8 pos = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
 
-  //XXX don 't add if it already exist
+  // XXX don 't add if it already exist
   // eg.an old IU received on a face on which we are retransmitting
   for (u8 pos2 = pos; pos2 < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos2++)
     if (tfib->next_hops[pos2] == face_id)
       return 0;
 
-  //Make sure we have enough room
+  // Make sure we have enough room
   if (pos <= tfib->entry_count)
     return -1;
 
@@ -166,13 +171,13 @@ hicn_mapme_tfib_add (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
    * Take a lock on the face as if it will be removed from the next_hops a
    * lock will be removed.
    */
-  hicn_face_lock_with_id(face_id);
+  hicn_face_lock_with_id (face_id);
 
   return 0;
 }
 
 static_always_inline int
-hicn_mapme_tfib_clear (hicn_mapme_tfib_t * tfib)
+hicn_mapme_tfib_clear (hicn_mapme_tfib_t *tfib)
 {
   hicn_face_id_t invalid = NEXT_HOP_INVALID;
   /*
@@ -182,11 +187,11 @@ hicn_mapme_tfib_clear (hicn_mapme_tfib_t * tfib)
   u8 start_pos = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
   u8 pos = ~0;
   for (pos = start_pos; pos < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos++)
-      {
-	hicn_face_unlock_with_id (tfib->next_hops[pos]);
-	tfib->next_hops[pos] = invalid;
-	break;
-      }
+    {
+      hicn_face_unlock_with_id (tfib->next_hops[pos]);
+      tfib->next_hops[pos] = invalid;
+      break;
+    }
 
   tfib->tfib_entry_count = 0;
 
@@ -194,7 +199,7 @@ hicn_mapme_tfib_clear (hicn_mapme_tfib_t * tfib)
 }
 
 static_always_inline int
-hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
+hicn_mapme_tfib_del (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
 {
   hicn_face_id_t invalid = NEXT_HOP_INVALID;
   /*
@@ -218,7 +223,7 @@ hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
 
   /* Likely we won't receive a new IU twice from the same face */
   if (PREDICT_TRUE (pos > start_pos))
-    memmove (tfib->next_hops + start_pos +1 , tfib->next_hops + start_pos,
+    memmove (tfib->next_hops + start_pos + 1, tfib->next_hops + start_pos,
 	     (pos - start_pos) * sizeof (hicn_face_id_t));
 
   return 0;
@@ -228,8 +233,8 @@ hicn_mapme_tfib_del (hicn_mapme_tfib_t * tfib, hicn_face_id_t face_id)
  * @brief Performs an Exact Prefix Match lookup on the FIB
  * @returns the corresponding DPO (hICN or IP LB), or NULL
  */
-static_always_inline
-  dpo_id_t * fib_epm_lookup (ip46_address_t * addr, u8 plen)
+static_always_inline dpo_id_t *
+fib_epm_lookup (ip46_address_t *addr, u8 plen)
 {
   fib_prefix_t fib_pfx;
   fib_node_index_t fib_entry_index;
@@ -294,14 +299,15 @@ extern u32 strategy_face_ip6_vlib_edge;
 extern u32 strategy_face_udp4_vlib_edge;
 extern u32 strategy_face_udp6_vlib_edge;
 
-
 /**
- * @brief Returns the next hop vlib edge on which we can send an Interest packet.
+ * @brief Returns the next hop vlib edge on which we can send an Interest
+ * packet.
  *
- * This is both used to preprocess a dpo that will be stored as a next hop in the FIB, and to determine on which node to send an Interest Update.
+ * This is both used to preprocess a dpo that will be stored as a next hop in
+ * the FIB, and to determine on which node to send an Interest Update.
  */
 always_inline u32
-hicn_mapme_get_dpo_vlib_edge (dpo_id_t * dpo)
+hicn_mapme_get_dpo_vlib_edge (dpo_id_t *dpo)
 {
   if (dpo->dpoi_type == hicn_face_ip_type)
     {
@@ -339,7 +345,7 @@ hicn_mapme_get_dpo_vlib_edge (dpo_id_t * dpo)
 always_inline char *
 hicn_mapme_get_dpo_face_node (hicn_face_id_t face_id)
 {
-  hicn_face_t * face  = hicn_dpoi_get_from_idx(face_id);
+  hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
 
   switch (face->dpo.dpoi_proto)
     {
@@ -352,9 +358,9 @@ hicn_mapme_get_dpo_face_node (hicn_face_id_t face_id)
     }
 }
 
-#define DEBUG(...)		//vlib_log_debug(mapme_main.log_class, __VA_ARGS__)
-#define WARN(...)		//vlib_log_warn(mapme_main.log_class, __VA_ARGS__)
-#define ERROR(...)		//vlib_log_err(mapme_main.log_class, __VA_ARGS__)
+#define DEBUG(...) // vlib_log_debug(mapme_main.log_class, __VA_ARGS__)
+#define WARN(...)  // vlib_log_warn(mapme_main.log_class, __VA_ARGS__)
+#define ERROR(...) // vlib_log_err(mapme_main.log_class, __VA_ARGS__)
 
 #endif /* __HICN_MAPME__ */
 

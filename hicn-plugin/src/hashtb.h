@@ -31,8 +31,8 @@
  * names. Note that the intel cache line size is 64 bytes, and some platforms
  * load in 2 cache lines together.
  * - first step is to match a record at the bucket/slot level (htab has an
- *   array of htbucket_t/htbc_elmt, where each bucket has 7 slots to hold indices
- *   for entries.) Matching at this level implies
+ *   array of htbucket_t/htbc_elmt, where each bucket has 7 slots to hold
+ * indices for entries.) Matching at this level implies
  *   - the hashes of the lookup name and the record map to the same bucket
  *   - the high 32 bits of the hashes (slot bce_hash_msb32s) match. Read
  *     cost (on the hash table size, i.e. ignoring reading the name being
@@ -44,15 +44,18 @@
  *       number of buckets) that more than 7 elements hash to the same bucket,
  *       lookup may well need to look not only at the static htbc_elmt_t but at
  *       the chain of dynamically allocated htbc_elmt_t's linked to the static
- *       htbc_elmt_t,  where each of these holds slot entries for additional elements.
+ *       htbc_elmt_t,  where each of these holds slot entries for additional
+ * elements.
  *     - Before reaching that point, it is initially required to read in the
  *       hash table record fields (ht_bucket_buf, htnode buf, etc) holding
- *       pointers to the arrays, but these cache lines are common to all lookups
- *       so will likely already be in the cache.
+ *       pointers to the arrays, but these cache lines are common to all
+ * lookups so will likely already be in the cache.
  * - second step is to match at the record level (htnode/htkb level) once a
- *   slot-level match happens. Matching at this level implies the following match
+ *   slot-level match happens. Matching at this level implies the following
+ * match
  *   - the hash values (the full 64 bits vs. bucket+32 msb, above).
- *   - the name which, on the hash table side, is stored as a list of htkb_t (key buffers).
+ *   - the name which, on the hash table side, is stored as a list of htkb_t
+ * (key buffers).
  *
  * Some hashtables (for which rare false positives are tolerable) store hash
  * values but no keys. (In ISM NDN forwarder, this was used for dcm_dpf: data
@@ -70,13 +73,13 @@
 #define FALSE 0
 #endif
 
-#define HICN_HASH_INVALID_IDX  ~0
+#define HICN_HASH_INVALID_IDX ~0
 /*
  * for hicn_hashtb_next_node() iterator, this otherwise illegal context value
  * indicates first call of iteration. Note: must not be 0, which is a legal
  * context value.
  */
-#define HICN_HASH_WALK_CTX_INITIAL (~((u64)0))
+#define HICN_HASH_WALK_CTX_INITIAL (~((u64) 0))
 
 /*
  * Key memory allocation scheme.
@@ -98,17 +101,16 @@
  */
 
 /* Compute hash node index from node pointer */
-#define NODE_IDX_FROM_NODE(p, h) \
-  (u32)((p) - ((h)->ht_nodes))
+#define NODE_IDX_FROM_NODE(p, h) (u32) ((p) - ((h)->ht_nodes))
 
-#define HICN_HASH_KEY_BYTES   20
+#define HICN_HASH_KEY_BYTES 20
 
 typedef struct
 {
   struct
   {
     u8 key[HICN_HASH_KEY_BYTES];
-  } ks;				/* Entire key in one block */
+  } ks; /* Entire key in one block */
 } hicn_hash_key_t;
 
 /*
@@ -123,7 +125,8 @@ typedef struct
  * of keys.
  *
  * The memory block for a node includes space for storing outgoing faces for
- * interests, additional memory located off the end of the htnode data structure.
+ * interests, additional memory located off the end of the htnode data
+ * structure.
  *
  */
 
@@ -147,11 +150,11 @@ typedef struct __attribute__ ((packed)) hicn_hash_node_s
   /* 1 byte of flags for application use */
   u8 hn_flags;
 
-  u8 _hn_reserved1;		/* TBD, to align what follows back to
-				 * 32 */
+  u8 _hn_reserved1; /* TBD, to align what follows back to
+		     * 32 */
 
-  hicn_hash_key_t hn_key;	/* Key value embedded in the node, may chain
-				 * to more key buffers if necessary */
+  hicn_hash_key_t hn_key; /* Key value embedded in the node, may chain
+			   * to more key buffers if necessary */
 
   /* 32B + HICN_HASH_NODE_APP_DATA_SIZE */
   /* Followed by app-specific data (fib or pit or cs entry, e.g.) */
@@ -159,9 +162,9 @@ typedef struct __attribute__ ((packed)) hicn_hash_node_s
 
 } hicn_hash_node_t;
 
-#define HICN_HASH_NODE_FLAGS_DEFAULT     0x00
-#define HICN_HASH_NODE_CS_FLAGS          0x01
-#define HICN_HASH_NODE_OVERFLOW_BUCKET   0x02
+#define HICN_HASH_NODE_FLAGS_DEFAULT   0x00
+#define HICN_HASH_NODE_CS_FLAGS	       0x01
+#define HICN_HASH_NODE_OVERFLOW_BUCKET 0x02
 
 /*
  * hicn_hash_entry_t Structure holding all or part of a hash value, a node
@@ -198,25 +201,24 @@ typedef struct __attribute__ ((packed)) hicn_hash_entry_s
    */
   u8 vft_id;
 
-} hicn_hash_entry_t;		//size 22B
+} hicn_hash_entry_t; // size 22B
 
 STATIC_ASSERT (sizeof (index_t) <= 4, "sizeof index_t is greater than 4B");
 
-
-#define HICN_HASH_ENTRY_FLAGS_DEFAULT  0x00
+#define HICN_HASH_ENTRY_FLAGS_DEFAULT 0x00
 
 /* If entry is PIT this flag is 0 */
-#define HICN_HASH_ENTRY_FLAG_CS_ENTRY  0x01
+#define HICN_HASH_ENTRY_FLAG_CS_ENTRY 0x01
 
 /*
  * This entry heads a chain of overflow buckets (we expect to see this only
  * in the last entry in a bucket.) In this case, the index is to an overflow
  * bucket rather than to a single node block.
  */
-#define HICN_HASH_ENTRY_FLAG_OVERFLOW  0x04
+#define HICN_HASH_ENTRY_FLAG_OVERFLOW 0x04
 
 /* This entry has been marked for deletion */
-#define HICN_HASH_ENTRY_FLAG_DELETED   0x08
+#define HICN_HASH_ENTRY_FLAG_DELETED 0x08
 
 /* Use fast he_timeout units for expiration, slow if not */
 #define HICN_HASH_ENTRY_FLAG_FAST_TIMEOUT 0x10
@@ -242,10 +244,10 @@ typedef struct __attribute__ ((packed))
 } hicn_hash_bucket_t;
 
 /* Overall target fill-factor for the hashtable */
-#define HICN_HASHTB_FILL_FACTOR    4
+#define HICN_HASHTB_FILL_FACTOR 4
 
-#define HICN_HASHTB_MIN_ENTRIES  (1 << 4)	// includes dummy node 0 entry
-#define HICN_HASHTB_MAX_ENTRIES  (1 << 24)
+#define HICN_HASHTB_MIN_ENTRIES (1 << 4) // includes dummy node 0 entry
+#define HICN_HASHTB_MAX_ENTRIES (1 << 24)
 
 #define HICN_HASHTB_MIN_BUCKETS (1 << 10)
 
@@ -298,7 +300,7 @@ extern u32 ht_node_data_offset_aligned;
 
 /* Flags for hashtable */
 
-#define HICN_HASHTB_FLAGS_DEFAULT    0x00
+#define HICN_HASHTB_FLAGS_DEFAULT 0x00
 
 /*
  * Don't use the last entry in each bucket - only use it for overflow. We use
@@ -306,9 +308,9 @@ extern u32 ht_node_data_offset_aligned;
  * that would be difficult if there were hash entry copies as part of
  * overflow handling.
  */
-#define HICN_HASHTB_FLAG_USE_SEVEN      0x04
-#define HICN_HASHTB_FLAG_KEY_FMT_PFX    0x08
-#define HICN_HASHTB_FLAG_KEY_FMT_NAME   0x10
+#define HICN_HASHTB_FLAG_USE_SEVEN    0x04
+#define HICN_HASHTB_FLAG_KEY_FMT_PFX  0x08
+#define HICN_HASHTB_FLAG_KEY_FMT_NAME 0x10
 
 /*
  * Max prefix name components we'll support in our incremental hashing;
@@ -322,7 +324,7 @@ extern u32 ht_node_data_offset_aligned;
 
 /* Compute hash node index from node pointer */
 static inline u32
-hicn_hashtb_node_idx_from_node (hicn_hashtb_h h, hicn_hash_node_t * p)
+hicn_hashtb_node_idx_from_node (hicn_hashtb_h h, hicn_hash_node_t *p)
 {
   return (p - h->ht_nodes);
 }
@@ -335,14 +337,13 @@ hicn_hashtb_node_from_idx (hicn_hashtb_h h, u32 idx)
 }
 
 /* Allocate a brand-new hashtable */
-int
-hicn_hashtb_alloc (hicn_hashtb_h * ph, u32 max_elems, size_t app_data_size);
+int hicn_hashtb_alloc (hicn_hashtb_h *ph, u32 max_elems, size_t app_data_size);
 
 /* Free a hashtable, including its embedded arrays */
-int hicn_hashtb_free (hicn_hashtb_h * ph);
+int hicn_hashtb_free (hicn_hashtb_h *ph);
 
 /* Hash a bytestring, currently using bihash */
-u64 hicn_hashtb_hash_bytestring (const u8 * key, u32 keylen);
+u64 hicn_hashtb_hash_bytestring (const u8 *key, u32 keylen);
 
 always_inline hicn_hash_entry_t *
 hicn_hashtb_get_entry (hicn_hashtb_h h, u32 entry_idx, u32 bucket_id,
@@ -359,7 +360,7 @@ hicn_hashtb_get_entry (hicn_hashtb_h h, u32 entry_idx, u32 bucket_id,
 
 /* Hash a name, currently using bihash */
 always_inline u64
-hicn_hashtb_hash_name (const u8 * key, u16 keylen)
+hicn_hashtb_hash_name (const u8 *key, u16 keylen)
 {
   if (key != NULL && keylen == HICN_V4_NAME_LEN)
     {
@@ -381,28 +382,24 @@ hicn_hashtb_hash_name (const u8 * key, u16 keylen)
     }
 }
 
-
 /*
  * Prepare a hashtable node for insertion, supplying the key and computed
  * hash info. This sets up the node->key relationship, possibly allocating
  * overflow key buffers.
  */
-void
-hicn_hashtb_init_node (hicn_hashtb_h h, hicn_hash_node_t * node,
-		       const u8 * key, u32 keylen);
+void hicn_hashtb_init_node (hicn_hashtb_h h, hicn_hash_node_t *node,
+			    const u8 *key, u32 keylen);
 
 /*
  * Insert a node into the hashtable. We expect the caller has used the init
  * api to set the node key and hash info, and populated the extra data area
  * (if any) - or done the equivalent work itself.
  */
-int
-hicn_hashtb_insert (hicn_hashtb_h h, hicn_hash_node_t * node,
-		    hicn_hash_entry_t ** hash_entry, u64 hash,
-		    u32 * node_id,
-		    index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
-		    u8 * hash_entry_id, u32 * bucket_id,
-		    u8 * bucket_is_overflow);
+int hicn_hashtb_insert (hicn_hashtb_h h, hicn_hash_node_t *node,
+			hicn_hash_entry_t **hash_entry, u64 hash, u32 *node_id,
+			index_t *dpo_ctx_id, u8 *vft_id, u8 *is_cs,
+			u8 *hash_entry_id, u32 *bucket_id,
+			u8 *bucket_is_overflow);
 
 /*
  * Basic api to lookup a specific hash+key tuple. This does the entire lookup
@@ -411,12 +408,11 @@ hicn_hashtb_insert (hicn_hashtb_h h, hicn_hash_node_t * node,
  *
  * Returns zero and mails back a node on success, errno otherwise.
  */
-int
-hicn_hashtb_lookup_node (hicn_hashtb_h h, const u8 * key,
-			 u32 keylen, u64 hashval, u8 is_data,
-			 u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id,
-			 u8 * is_cs, u8 * hash_entry_id, u32 * bucket_id,
-			 u8 * bucket_is_overflow);
+int hicn_hashtb_lookup_node (hicn_hashtb_h h, const u8 *key, u32 keylen,
+			     u64 hashval, u8 is_data, u32 *node_id,
+			     index_t *dpo_ctx_id, u8 *vft_id, u8 *is_cs,
+			     u8 *hash_entry_id, u32 *bucket_id,
+			     u8 *bucket_is_overflow);
 
 /*
  * Extended api to lookup a specific hash+key tuple. The implementation
@@ -428,13 +424,11 @@ hicn_hashtb_lookup_node (hicn_hashtb_h h, const u8 * key,
  *
  * Returns zero and mails back a node on success, errno otherwise.
  */
-int
-hicn_hashtb_lookup_node_ex (hicn_hashtb_h h, const u8 * key,
-			    u32 keylen, u64 hashval, u8 is_data,
-			    int include_deleted_p, u32 * node_id,
-			    index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
-			    u8 * hash_entry_id, u32 * bucket_id,
-			    u8 * bucket_is_overflow);
+int hicn_hashtb_lookup_node_ex (hicn_hashtb_h h, const u8 *key, u32 keylen,
+				u64 hashval, u8 is_data, int include_deleted_p,
+				u32 *node_id, index_t *dpo_ctx_id, u8 *vft_id,
+				u8 *is_cs, u8 *hash_entry_id, u32 *bucket_id,
+				u8 *bucket_is_overflow);
 
 /**
  * @brief Compares the key in the node with the given key
@@ -443,31 +437,29 @@ hicn_hashtb_lookup_node_ex (hicn_hashtb_h h, const u8 * key,
  * the entire key. Useful to exploit prefertching.
  * @result 1 if equals, 0 otherwise
  */
-int hicn_node_compare (const u8 * key, u32 keylen, hicn_hash_node_t * node);
+int hicn_node_compare (const u8 *key, u32 keylen, hicn_hash_node_t *node);
 
 /*
  * Remove a node from a hashtable using the node itself. The internal data
  * structs are cleaned up, but the node struct itself is not: the caller must
  * free the node itself.
  */
-void hicn_hashtb_remove_node (hicn_hashtb_h h, hicn_hash_node_t * node,
+void hicn_hashtb_remove_node (hicn_hashtb_h h, hicn_hash_node_t *node,
 			      u64 hashval);
 
 /*
  * Delete a node from a hashtable using the node itself, and delete/free the
  * node.  Caller's pointer is cleared on success.
  */
-void hicn_hashtb_delete (hicn_hashtb_h h, hicn_hash_node_t ** pnode,
+void hicn_hashtb_delete (hicn_hashtb_h h, hicn_hash_node_t **pnode,
 			 u64 hashval);
 
 /*
  * Utility to init a new entry in a hashtable bucket/row. We use this to add
  * new a node+hash, and to clear out an entry during removal.
  */
-void
-hicn_hashtb_init_entry (hicn_hash_entry_t * entry,
-			u32 nodeidx, u64 hashval, u32 locks);
-
+void hicn_hashtb_init_entry (hicn_hash_entry_t *entry, u32 nodeidx,
+			     u64 hashval, u32 locks);
 
 /*
  * Return data area embedded in a hash node struct. We maintain an 'offset'
@@ -475,7 +467,7 @@ hicn_hashtb_init_entry (hicn_hash_entry_t * entry,
  * aligned properly.
  */
 static inline void *
-hicn_hashtb_node_data (hicn_hash_node_t * node)
+hicn_hashtb_node_data (hicn_hash_node_t *node)
 {
   return ((u8 *) (node) + ht_node_data_offset_aligned);
 }
@@ -510,7 +502,7 @@ hicn_hashtb_alloc_node (hicn_hashtb_h h)
 /*
  * Release a hashtable node back to the free list when an entry is cleared
  */
-void hicn_hashtb_free_node (hicn_hashtb_h h, hicn_hash_node_t * node);
+void hicn_hashtb_free_node (hicn_hashtb_h h, hicn_hash_node_t *node);
 
 /*
  * Walk a hashtable, iterating through the nodes, keeping context in 'ctx'
@@ -518,20 +510,18 @@ void hicn_hashtb_free_node (hicn_hashtb_h h, hicn_hash_node_t * node);
  *
  * Set the context value to HICN_HASH_WALK_CTX_INITIAL to start an iteration.
  */
-int
-hicn_hashtb_next_node (hicn_hashtb_h h, hicn_hash_node_t ** pnode, u64 * ctx);
+int hicn_hashtb_next_node (hicn_hashtb_h h, hicn_hash_node_t **pnode,
+			   u64 *ctx);
 
-
-int
-hicn_hashtb_key_to_str (hicn_hashtb_h h, const hicn_hash_node_t * node,
-			char *buf, int bufsize, int must_fit);
+int hicn_hashtb_key_to_str (hicn_hashtb_h h, const hicn_hash_node_t *node,
+			    char *buf, int bufsize, int must_fit);
 
 /*
  * single hash full name can pass offset for two hashes calculation in case
  * we use CS and PIT in a two steps hashes (prefix + seqno)
  */
 always_inline int
-hicn_hashtb_fullhash (const u8 * name, u16 namelen, u64 * name_hash)
+hicn_hashtb_fullhash (const u8 *name, u16 namelen, u64 *name_hash)
 {
   *name_hash = hicn_hashtb_hash_name (name, namelen);
   return (*name_hash != (-1LL) ? HICN_ERROR_NONE : HICN_ERROR_HASHTB_INVAL);

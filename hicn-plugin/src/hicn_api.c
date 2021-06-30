@@ -79,8 +79,8 @@ vl_api_hicn_api_node_params_set_t_handler (
 
   f64 pit_max_lifetime_sec = mp->pit_max_lifetime_sec;
   pit_max_lifetime_sec = pit_max_lifetime_sec == -1 ?
-				 HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS / SEC_MS :
-				 pit_max_lifetime_sec;
+			   HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS / SEC_MS :
+			   pit_max_lifetime_sec;
 
   int cs_max_size = clib_net_to_host_i32 (mp->cs_max_size);
   cs_max_size = cs_max_size == -1 ? HICN_PARAM_CS_ENTRIES_DFLT : cs_max_size;

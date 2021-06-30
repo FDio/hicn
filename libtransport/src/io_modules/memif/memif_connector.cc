@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/errors/not_implemented_exception.h>
 #include <io_modules/memif/memif_connector.h>
 #include <sys/epoll.h>
@@ -66,6 +67,7 @@ MemifConnector::MemifConnector(PacketReceivedCallback &&receive_callback,
       disconnect_timer_(
           std::make_unique<utils::FdDeadlineTimer>(event_reactor_)),
       io_service_(io_service),
+      work_(asio::make_work_guard(io_service_)),
       memif_connection_(std::make_unique<memif_connection_t>()),
       tx_buf_counter_(0),
       is_reconnection_(false),
@@ -83,7 +85,7 @@ void MemifConnector::init() {
                        nullptr, nullptr, nullptr);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGE("memif_init: %s", memif_strerror(err));
+    LOG(ERROR) << "memif_init: " << memif_strerror(err);
   }
 }
 
@@ -95,8 +97,6 @@ void MemifConnector::connect(uint32_t memif_id, long memif_mode) {
 
   createMemif(memif_id, memif_mode, nullptr);
 
-  work_ = std::make_unique<asio::io_service::work>(io_service_);
-
   while (state_ != State::CONNECTED) {
     MemifConnector::main_event_reactor_.runOneEvent();
   }
@@ -107,7 +107,7 @@ void MemifConnector::connect(uint32_t memif_id, long memif_mode) {
   int fd = -1;
   err = memif_get_queue_efd(memif_connection_->conn, 0, &fd);
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGE("memif_get_queue_efd: %s", memif_strerror(err));
+    LOG(ERROR) << "memif_get_queue_efd: " << memif_strerror(err);
     return;
   }
 
@@ -198,11 +198,11 @@ int MemifConnector::deleteMemif() {
   err = memif_delete(&c->conn);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGE("memif_delete: %s", memif_strerror(err));
+    LOG(ERROR) << "memif_delete: " << memif_strerror(err);
   }
 
   if (TRANSPORT_EXPECT_FALSE(c->conn != nullptr)) {
-    TRANSPORT_LOGE("memif delete fail");
+    LOG(ERROR) << "memif delete fail";
   }
 
   return 0;
@@ -248,8 +248,8 @@ int MemifConnector::controlFdUpdate(int fd, uint8_t events, void *private_ctx) {
         memif_err = memif_control_fd_handler(evt.data.fd, event);
 
         if (TRANSPORT_EXPECT_FALSE(memif_err != MEMIF_ERR_SUCCESS)) {
-          TRANSPORT_LOGE("memif_control_fd_handler: %s",
-                         memif_strerror(memif_err));
+          LOG(ERROR) << "memif_control_fd_handler: "
+                     << memif_strerror(memif_err);
         }
 
         return 0;
@@ -265,7 +265,7 @@ int MemifConnector::bufferAlloc(long n, uint16_t qid) {
   err = memif_buffer_alloc(c->conn, qid, c->tx_bufs, n, &r, 2000);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGE("memif_buffer_alloc: %s", memif_strerror(err));
+    LOG(ERROR) << "memif_buffer_alloc: " << memif_strerror(err);
     return -1;
   }
 
@@ -282,13 +282,13 @@ int MemifConnector::txBurst(uint16_t qid) {
   err = memif_tx_burst(c->conn, qid, c->tx_bufs, c->tx_buf_num, &r);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGE("memif_tx_burst: %s", memif_strerror(err));
+    LOG(ERROR) << "memif_tx_burst: " << memif_strerror(err);
   }
 
   // err = memif_refill_queue(c->conn, qid, r, 0);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGE("memif_tx_burst: %s", memif_strerror(err));
+    LOG(ERROR) << "memif_tx_burst: " << memif_strerror(err);
     c->tx_buf_num -= r;
     return -1;
   }
@@ -350,14 +350,14 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
 
     if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS &&
                                err != MEMIF_ERR_NOBUF)) {
-      TRANSPORT_LOGE("memif_rx_burst: %s", memif_strerror(err));
+      LOG(ERROR) << "memif_rx_burst: " << memif_strerror(err);
       goto error;
     }
 
     c->rx_buf_num += rx;
 
     if (TRANSPORT_EXPECT_FALSE(connector->io_service_.stopped())) {
-      TRANSPORT_LOGE("socket stopped: ignoring %u packets", rx);
+      LOG(ERROR) << "socket stopped: ignoring " << rx << " packets";
       goto error;
     }
 
@@ -369,7 +369,7 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
       auto packet = connector->getPacketFromBuffer(buffer.first, packet_length);
 
       if (!connector->input_buffer_.push(std::move(packet))) {
-        TRANSPORT_LOGE("Error pushing packet. Ring buffer full.");
+        LOG(ERROR) << "Error pushing packet. Ring buffer full.";
 
         // TODO Here we should consider the possibility to signal the congestion
         // to the application, that would react properly (e.g. slow down
@@ -383,7 +383,7 @@ int MemifConnector::onInterrupt(memif_conn_handle_t conn, void *private_ctx,
     err = memif_refill_queue(conn, qid, rx, 0);
 
     if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-      TRANSPORT_LOGE("memif_buffer_free: %s", memif_strerror(err));
+      LOG(ERROR) << "memif_buffer_free: " << memif_strerror(err);
     }
 
     c->rx_buf_num -= rx;
@@ -400,7 +400,7 @@ error:
   err = memif_refill_queue(c->conn, qid, rx, 0);
 
   if (TRANSPORT_EXPECT_FALSE(err != MEMIF_ERR_SUCCESS)) {
-    TRANSPORT_LOGE("memif_buffer_free: %s", memif_strerror(err));
+    LOG(ERROR) << "memif_buffer_free: " << memif_strerror(err);
   }
   c->rx_buf_num -= rx;
 
@@ -413,7 +413,6 @@ void MemifConnector::close() {
     disconnect_timer_->asyncWait([this](const std::error_code &ec) {
       deleteMemif();
       event_reactor_.stop();
-      work_.reset();
     });
 
     if (memif_worker_ && memif_worker_->joinable()) {
@@ -452,7 +451,7 @@ int MemifConnector::doSend() {
     n = bufferAlloc(max, memif_connection_->tx_qid);
 
     if (TRANSPORT_EXPECT_FALSE(n < 0)) {
-      TRANSPORT_LOGE("Error allocating buffers.");
+      LOG(ERROR) << "Error allocating buffers.";
       return -1;
     }
 

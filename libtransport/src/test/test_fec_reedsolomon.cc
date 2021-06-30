@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-#include <core/rs.h>
 #include <gtest/gtest.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/global_object_pool.h>
+#include <protocols/fec/rs.h>
 
 #include <algorithm>
 #include <iostream>
 #include <random>
 
 namespace transport {
-namespace core {
+namespace protocol {
 
-double ReedSolomonTest(int k, int n, int size) {
-  fec::encoder encoder(k, n);
-  fec::decoder decoder(k, n);
+double ReedSolomonTest(int k, int n, int seq_offset, int size) {
+  fec::RSEncoder encoder(k, n, seq_offset);
+  fec::RSDecoder decoder(k, n, seq_offset);
 
   std::vector<fec::buffer> tx_block(k);
   std::vector<fec::buffer> rx_block(k);
@@ -36,27 +36,31 @@ double ReedSolomonTest(int k, int n, int size) {
   int run = 0;
 
   int iterations = 100;
-  auto &packet_manager = PacketManager<>::getInstance();
+  auto &packet_manager = core::PacketManager<>::getInstance();
 
-  encoder.setFECCallback([&tx_block](std::vector<fec::buffer> &repair_packets) {
-    for (auto &p : repair_packets) {
-      // Append repair symbols to tx_block
-      tx_block.emplace_back(std::move(p));
-    }
-  });
+  encoder.setFECCallback(
+      [&tx_block](
+          std::vector<std::pair<uint32_t, fec::buffer>> &repair_packets) {
+        for (auto &p : repair_packets) {
+          // Append repair symbols to tx_block
+          tx_block.emplace_back(std::move(p).second);
+        }
+      });
 
-  decoder.setFECCallback([&](std::vector<fec::buffer> &source_packets) {
-    for (int i = 0; i < k; i++) {
-      // Compare decoded source packets with original transmitted packets.
-      if (*tx_block[i] != *source_packets[i]) {
-        count++;
-      }
-    }
-  });
+  decoder.setFECCallback(
+      [&](std::vector<std::pair<uint32_t, fec::buffer>> &source_packets) {
+        for (int i = 0; i < k; i++) {
+          // Compare decoded source packets with original transmitted packets.
+          if (*tx_block[i] != *source_packets[i].second) {
+            count++;
+          }
+        }
+      });
 
   do {
     // Discard eventual packet appended in previous callback call
     tx_block.erase(tx_block.begin() + k, tx_block.end());
+    auto _seq_offet = seq_offset;
 
     // Initialization. Feed encoder with first k source packets
     for (int i = 0; i < k; i++) {
@@ -74,8 +78,8 @@ double ReedSolomonTest(int k, int n, int size) {
       std::generate(packet->writableData(), packet->writableTail(), rand);
       std::fill(packet->writableData(), packet->writableTail(), i + 1);
 
-      // Set first byte of payload to i, to reorder at receiver side
-      packet->writableData()[0] = uint8_t(i);
+      // Set first byte of payload to seq_offset, to reorder at receiver side
+      packet->writableData()[0] = uint8_t(_seq_offet++);
 
       // Store packet in tx buffer and clear rx buffer
       tx_block[i] = std::move(packet);
@@ -99,10 +103,11 @@ double ReedSolomonTest(int k, int n, int size) {
         rx_block[rxi++] = tx_block[i];
         if (i < k) {
           // Source packet
-          decoder.consume(rx_block[rxi - 1], rx_block[rxi - 1]->data()[0]);
+          decoder.consumeSource(rx_block[rxi - 1],
+                                rx_block[rxi - 1]->data()[0]);
         } else {
           // Repair packet
-          decoder.consume(rx_block[rxi - 1]);
+          decoder.consumeRepair(rx_block[rxi - 1]);
         }
       }
 
@@ -118,10 +123,10 @@ void ReedSolomonMultiBlockTest(int n_sourceblocks) {
   int n = 24;
   int size = 1000;
 
-  fec::encoder encoder(k, n);
-  fec::decoder decoder(k, n);
+  fec::RSEncoder encoder(k, n);
+  fec::RSDecoder decoder(k, n);
 
-  auto &packet_manager = PacketManager<>::getInstance();
+  auto &packet_manager = core::PacketManager<>::getInstance();
 
   std::vector<std::pair<fec::buffer, uint32_t>> tx_block;
   std::vector<std::pair<fec::buffer, uint32_t>> rx_block;
@@ -133,28 +138,31 @@ void ReedSolomonMultiBlockTest(int n_sourceblocks) {
   int tx_packets = k * n_sourceblocks;
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 
-  encoder.setFECCallback([&](std::vector<fec::buffer> &repair_packets) {
-    for (auto &p : repair_packets) {
-      // Append repair symbols to tx_block
-      tx_block.emplace_back(std::move(p), ++i);
-    }
+  encoder.setFECCallback(
+      [&](std::vector<std::pair<uint32_t, fec::buffer>> &repair_packets) {
+        for (auto &p : repair_packets) {
+          // Append repair symbols to tx_block
+          tx_block.emplace_back(std::move(p.second), ++i);
+        }
 
-    EXPECT_EQ(tx_block.size(), size_t(n));
+        EXPECT_EQ(tx_block.size(), size_t(n));
 
-    // Select k packets to send, including at least one symbol. We start from
-    // the end for this reason.
-    for (int j = n - 1; j > n - k - 1; j--) {
-      rx_block.emplace_back(std::move(tx_block[j]));
-    }
+        // Select k packets to send, including at least one symbol. We start
+        // from the end for this reason.
+        for (int j = n - 1; j > n - k - 1; j--) {
+          rx_block.emplace_back(std::move(tx_block[j]));
+        }
 
-    // Clear tx block for next source block
-    tx_block.clear();
-    encoder.clear();
-  });
+        // Clear tx block for next source block
+        tx_block.clear();
+        encoder.clear();
+      });
 
   // The decode callback must be called exactly n_sourceblocks times
   decoder.setFECCallback(
-      [&](std::vector<fec::buffer> &source_packets) { count++; });
+      [&](std::vector<std::pair<uint32_t, fec::buffer>> &source_packets) {
+        count++;
+      });
 
   // Produce n * n_sourceblocks
   //  - (  k  ) * n_sourceblocks source packets
@@ -194,10 +202,10 @@ void ReedSolomonMultiBlockTest(int n_sourceblocks) {
     int index = p.second % n;
     if (index < k) {
       // Source packet
-      decoder.consume(p.first, p.second);
+      decoder.consumeSource(p.first, p.second);
     } else {
       // Repair packet
-      decoder.consume(p.first);
+      decoder.consumeRepair(p.first);
     }
   }
 
@@ -205,66 +213,22 @@ void ReedSolomonMultiBlockTest(int n_sourceblocks) {
   EXPECT_EQ(count, n_sourceblocks);
 }
 
-TEST(ReedSolomonTest, RSk1n3) {
-  int k = 1;
-  int n = 3;
-  int size = 1000;
-  EXPECT_LE(ReedSolomonTest(k, n, size), 0);
-}
-
-TEST(ReedSolomonTest, RSk6n10) {
-  int k = 6;
-  int n = 10;
-  int size = 1000;
-  EXPECT_LE(ReedSolomonTest(k, n, size), 0);
-}
-
-TEST(ReedSolomonTest, RSk8n32) {
-  int k = 8;
-  int n = 32;
-  int size = 1000;
-  EXPECT_LE(ReedSolomonTest(k, n, size), 0);
-}
-
-TEST(ReedSolomonTest, RSk16n24) {
-  int k = 16;
-  int n = 24;
-  int size = 1000;
-  EXPECT_LE(ReedSolomonTest(k, n, size), 0);
-}
-
-TEST(ReedSolomonTest, RSk10n30) {
-  int k = 10;
-  int n = 30;
-  int size = 1000;
-  EXPECT_LE(ReedSolomonTest(k, n, size), 0);
-}
-
-TEST(ReedSolomonTest, RSk10n40) {
-  int k = 10;
-  int n = 40;
-  int size = 1000;
-  EXPECT_LE(ReedSolomonTest(k, n, size), 0);
-}
-
-TEST(ReedSolomonTest, RSk10n60) {
-  int k = 10;
-  int n = 60;
-  int size = 1000;
-  EXPECT_LE(ReedSolomonTest(k, n, size), 0);
-}
-
-TEST(ReedSolomonTest, RSk10n90) {
-  int k = 10;
-  int n = 90;
-  int size = 1000;
-  EXPECT_LE(ReedSolomonTest(k, n, size), 0);
-}
-
-TEST(ReedSolomonMultiBlockTest, RSMB1) {
-  int blocks = 1;
-  ReedSolomonMultiBlockTest(blocks);
-}
+/**
+ * @brief Use foreach_rs_fec_type to automatically generate the code of the
+ * tests and avoid copy/paste the same function.
+ */
+#define _(name, k, n)                                      \
+  TEST(ReedSolomonTest, RSK##k##N##n) {                    \
+    int K = k;                                             \
+    int N = n;                                             \
+    int seq_offset = 0;                                    \
+    int size = 1000;                                       \
+    EXPECT_LE(ReedSolomonTest(K, N, seq_offset, size), 0); \
+    seq_offset = 12345;                                    \
+    EXPECT_LE(ReedSolomonTest(K, N, seq_offset, size), 0); \
+  }
+foreach_rs_fec_type
+#undef _
 
 TEST(ReedSolomonMultiBlockTest, RSMB10) {
   int blocks = 10;
@@ -281,11 +245,5 @@ TEST(ReedSolomonMultiBlockTest, RSMB1000) {
   ReedSolomonMultiBlockTest(blocks);
 }
 
-int main(int argc, char **argv) {
-  srand(time(0));
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
-}  // namespace core
+}  // namespace protocol
 }  // namespace transport

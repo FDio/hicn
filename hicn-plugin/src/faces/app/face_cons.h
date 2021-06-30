@@ -28,8 +28,8 @@
  * consumer application (co-located with the forwarder) that acts as a
  * consumer. The interface used by the consumer application face is
  * assumed to be reserved only for hICN traffic (e.g.,  dedicated memif that
- * connects the applictation to the forwarder). Only one application face can be
- * assigned to an interface.
+ * connects the applictation to the forwarder). Only one application face can
+ * be assigned to an interface.
  *
  * In the vlib graph a consumer application face directly connect the
  * device-input node to the hicn-vface-ip node.
@@ -38,17 +38,17 @@
 /**
  * @brief Add a new consumer application face
  *
- * The method creates the internal ip face and set the ip address to the interface.
- * @param nh_addr4 ipv4 address to assign to interface used by the application to
- * send interest to the consumer face
- * @param nh_addr6 ipv6 address to assign to interface used by the application to
- * send interest to the consumer face
+ * The method creates the internal ip face and set the ip address to the
+ * interface.
+ * @param nh_addr4 ipv4 address to assign to interface used by the application
+ * to send interest to the consumer face
+ * @param nh_addr6 ipv6 address to assign to interface used by the application
+ * to send interest to the consumer face
  * @param swif interface associated to the face
  */
-int
-hicn_face_cons_add (ip4_address_t * nh_addr4, ip6_address_t * nh_addr6,
-		    u32 swif, hicn_face_id_t * faceid1,
-		    hicn_face_id_t * faceid2);
+int hicn_face_cons_add (ip4_address_t *nh_addr4, ip6_address_t *nh_addr6,
+			u32 swif, hicn_face_id_t *faceid1,
+			hicn_face_id_t *faceid2);
 
 /**
  * @brief Delete an existing consumer application face
@@ -64,8 +64,7 @@ int hicn_face_cons_del (hicn_face_id_t face_id);
  * @param args Array storing input values. Expected u32 face_id and u32 indent
  * @return String with the formatted face
  */
-u8 *format_hicn_face_cons (u8 * s, va_list * args);
-
+u8 *format_hicn_face_cons (u8 *s, va_list *args);
 
 #endif /* _FACE_CONSUMER_H_ */
 

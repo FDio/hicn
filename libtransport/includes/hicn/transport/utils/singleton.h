@@ -20,7 +20,7 @@
 namespace utils {
 
 template <typename T>
-class Singleton {
+class Singleton : NonCopyable {
  public:
   static T& getInstance() {
     static T instance;
@@ -30,10 +30,6 @@ class Singleton {
  protected:
   Singleton() {}
   ~Singleton() {}
-
- public:
-  Singleton(Singleton const&) = delete;
-  Singleton& operator=(Singleton const&) = delete;
 };
 
 }  // namespace utils
