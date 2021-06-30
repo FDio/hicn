@@ -11,8 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
 list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/facade.h
   ${CMAKE_CURRENT_SOURCE_DIR}/manifest.h
@@ -24,7 +22,6 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/errors.h
   ${CMAKE_CURRENT_SOURCE_DIR}/global_configuration.h
   ${CMAKE_CURRENT_SOURCE_DIR}/local_connector.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/rs.h
 )
 
 list(APPEND SOURCE_FILES
@@ -39,8 +36,6 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/global_configuration.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/io_module.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/local_connector.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/fec.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/rs.cc
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

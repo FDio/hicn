@@ -18,7 +18,7 @@
  * @brief hICN operations for AH header
  */
 
-#include <string.h>		// memcpy
+#include <string.h> // memcpy
 #include <hicn/common.h>
 #include <hicn/error.h>
 #include <hicn/header.h>
@@ -31,8 +31,8 @@ DECLARE_get_interest_name (ah, UNEXPECTED);
 DECLARE_set_interest_name (ah, UNEXPECTED);
 DECLARE_get_interest_name_suffix (ah, UNEXPECTED);
 DECLARE_set_interest_name_suffix (ah, UNEXPECTED);
-DECLARE_mark_packet_as_interest (ah, UNEXPECTED)
-DECLARE_mark_packet_as_data (ah, UNEXPECTED)
+DECLARE_mark_packet_as_interest (ah, UNEXPECTED);
+DECLARE_mark_packet_as_data (ah, UNEXPECTED);
 DECLARE_get_data_locator (ah, UNEXPECTED);
 DECLARE_set_data_locator (ah, UNEXPECTED);
 DECLARE_get_data_name (ah, UNEXPECTED);
@@ -48,21 +48,20 @@ DECLARE_get_payload_length (ah, UNEXPECTED);
 DECLARE_set_payload_length (ah, UNEXPECTED);
 
 int
-ah_init_packet_header (hicn_type_t type, hicn_protocol_t * h)
+ah_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
 {
   /* *INDENT-OFF* */
-  h->ah = (_ah_header_t)
-    {
-      .nh = (u8)0,
-      .payloadlen = (u8)0,
-      .reserved = (u16)0,
-    };
+  h->ah = (_ah_header_t){
+    .nh = (u8) 0,
+    .payloadlen = (u8) 0,
+    .reserved = (u16) 0,
+  };
   /* *INDENT-ON* */
   return CHILD_OPS (init_packet_header, type, h);
 }
 
 int
-ah_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t * h)
+ah_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t *h)
 {
   size_t signature_size;
   int rc =
@@ -74,7 +73,7 @@ ah_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t * h)
 }
 
 int
-ah_reset_data_for_hash (hicn_type_t type, hicn_protocol_t * h)
+ah_reset_data_for_hash (hicn_type_t type, hicn_protocol_t *h)
 {
   size_t signature_size;
   int rc =
@@ -86,7 +85,7 @@ ah_reset_data_for_hash (hicn_type_t type, hicn_protocol_t * h)
 }
 
 int
-ah_update_checksums (hicn_type_t type, hicn_protocol_t * h, u16 partial_csum,
+ah_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
 		     size_t payload_length)
 {
   /* Nothing to do as there is no checksum in AH */
@@ -94,7 +93,7 @@ ah_update_checksums (hicn_type_t type, hicn_protocol_t * h, u16 partial_csum,
 }
 
 int
-ah_verify_checksums (hicn_type_t type, hicn_protocol_t * h, u16 partial_csum,
+ah_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
 		     size_t payload_length)
 {
   /* Nothing to do as there is no checksum in AH */
@@ -102,17 +101,16 @@ ah_verify_checksums (hicn_type_t type, hicn_protocol_t * h, u16 partial_csum,
 }
 
 int
-ah_rewrite_interest (hicn_type_t type, hicn_protocol_t * h,
-		     const ip46_address_t * addr_new,
-		     ip46_address_t * addr_old)
+ah_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
+		     const ip46_address_t *addr_new, ip46_address_t *addr_old)
 {
   /* Nothing to do on signature */
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ah_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
-		 const ip46_address_t * addr_new, ip46_address_t * addr_old,
+ah_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
+		 const ip46_address_t *addr_new, ip46_address_t *addr_old,
 		 const hicn_faceid_t face_id, u8 reset_pl)
 {
   /* Nothing to do on signature */
@@ -120,22 +118,22 @@ ah_rewrite_data (hicn_type_t type, hicn_protocol_t * h,
 }
 
 int
-ah_get_length (hicn_type_t type, const hicn_protocol_t * h, size_t * length)
+ah_get_length (hicn_type_t type, const hicn_protocol_t *h, size_t *length)
 {
   return HICN_LIB_ERROR_NOT_IMPLEMENTED;
 }
 
 int
-ah_get_current_header_length (hicn_type_t type, const hicn_protocol_t * h,
-			      size_t * header_length)
+ah_get_current_header_length (hicn_type_t type, const hicn_protocol_t *h,
+			      size_t *header_length)
 {
   *header_length = AH_HDRLEN + (h->ah.payloadlen << 2);
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ah_get_header_length (hicn_type_t type, const hicn_protocol_t * h,
-		      size_t * header_length)
+ah_get_header_length (hicn_type_t type, const hicn_protocol_t *h,
+		      size_t *header_length)
 {
   size_t child_header_length = 0;
   int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
@@ -146,22 +144,22 @@ ah_get_header_length (hicn_type_t type, const hicn_protocol_t * h,
 }
 
 int
-ah_get_signature (hicn_type_t type, hicn_protocol_t * h, uint8_t ** signature)
+ah_get_signature (hicn_type_t type, hicn_protocol_t *h, uint8_t **signature)
 {
   *signature = h->ah.validationPayload;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ah_get_signature_size (hicn_type_t type, const hicn_protocol_t * h,
-		       size_t * signature_size)
+ah_get_signature_size (hicn_type_t type, const hicn_protocol_t *h,
+		       size_t *signature_size)
 {
   *signature_size = h->ah.payloadlen << 2;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ah_set_signature_size (hicn_type_t type, hicn_protocol_t * h,
+ah_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
 		       const size_t signature_size)
 {
   h->ah.payloadlen = (u8) (signature_size >> 2);
@@ -169,7 +167,7 @@ ah_set_signature_size (hicn_type_t type, hicn_protocol_t * h,
 }
 
 int
-ah_set_signature_timestamp (hicn_type_t type, hicn_protocol_t * h,
+ah_set_signature_timestamp (hicn_type_t type, hicn_protocol_t *h,
 			    uint64_t signature_timestamp)
 {
   uint64_t netwok_order_timestamp = htonll (signature_timestamp);
@@ -178,8 +176,8 @@ ah_set_signature_timestamp (hicn_type_t type, hicn_protocol_t * h,
 }
 
 int
-ah_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t * h,
-			    uint64_t * signature_timestamp)
+ah_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t *h,
+			    uint64_t *signature_timestamp)
 {
   memcpy (signature_timestamp, h->ah.timestamp_as_u8, sizeof (uint64_t));
   *signature_timestamp = ntohll (*signature_timestamp);
@@ -187,7 +185,7 @@ ah_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t * h,
 }
 
 int
-ah_set_validation_algorithm (hicn_type_t type, hicn_protocol_t * h,
+ah_set_validation_algorithm (hicn_type_t type, hicn_protocol_t *h,
 			     uint8_t validation_algorithm)
 {
   h->ah.validationAlgorithm = validation_algorithm;
@@ -195,23 +193,37 @@ ah_set_validation_algorithm (hicn_type_t type, hicn_protocol_t * h,
 }
 
 int
-ah_get_validation_algorithm (hicn_type_t type, const hicn_protocol_t * h,
-			     uint8_t * validation_algorithm)
+ah_get_validation_algorithm (hicn_type_t type, const hicn_protocol_t *h,
+			     uint8_t *validation_algorithm)
 {
   *validation_algorithm = h->ah.validationAlgorithm;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ah_set_key_id (hicn_type_t type, hicn_protocol_t * h, uint8_t * key_id)
+ah_set_signature_gap (hicn_type_t type, hicn_protocol_t *h, uint8_t gap)
+{
+  h->ah.signatureGap = gap;
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+ah_get_signature_gap (hicn_type_t type, const hicn_protocol_t *h, uint8_t *gap)
+{
+  *gap = h->ah.signatureGap;
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+ah_set_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t *key_id)
 {
   memcpy (h->ah.keyId, key_id, sizeof (h->ah.keyId));
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ah_get_key_id (hicn_type_t type, hicn_protocol_t * h,
-	       uint8_t ** key_id, uint8_t * key_id_size)
+ah_get_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t **key_id,
+	       uint8_t *key_id_size)
 {
   *key_id = h->ah.keyId;
   *key_id_size = sizeof (h->ah.keyId);

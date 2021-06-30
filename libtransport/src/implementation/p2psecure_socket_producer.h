@@ -103,8 +103,6 @@ class P2PSecureProducerSocket : public ProducerSocket {
   std::mutex mtx_;
   /* Condition variable for the wait */
   std::condition_variable cv_;
-  PARCBuffer *der_cert_;
-  PARCBuffer *der_prk_;
   X509 *cert_509_;
   EVP_PKEY *pkey_rsa_;
   std::unordered_map<core::Name, std::unique_ptr<TLSProducerSocket>,

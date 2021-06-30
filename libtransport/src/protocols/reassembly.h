@@ -46,19 +46,48 @@ class Reassembly {
 
   virtual ~Reassembly() = default;
 
+  /**
+   * Hanle reassembly of content object.
+   */
   virtual void reassemble(core::ContentObject &content_object) = 0;
+
+  /**
+   * Hanle reassembly of content object.
+   */
+  virtual void reassemble(utils::MemBuf &buffer, uint32_t suffix) = 0;
+
+  /**
+   * Handle reassembly of manifest
+   */
   virtual void reassemble(
       std::unique_ptr<core::ContentObjectManifest> &&manifest) = 0;
+
+  /**
+   * Reset reassembler for new round
+   */
   virtual void reInitialize() = 0;
-  virtual void setIndexer(Indexer *indexer) { index_manager_ = indexer; }
+
+  /**
+   * Use indexer to get next segments to reassembly
+   */
+  virtual void setIndexer(Indexer *indexer) { indexer_verifier_ = indexer; }
+
+  /**
+   * Decide if it is required to pass to application buffers whose verification
+   * has been delayed (e.g. because the manifest is missing). False by default.
+   */
+  virtual bool reassembleUnverified() { return false; }
 
  protected:
+  /**
+   * Notify application there is data to read.
+   */
   virtual void notifyApplication();
 
  protected:
   implementation::ConsumerSocket *reassembly_consumer_socket_;
   TransportProtocol *transport_protocol_;
-  Indexer *index_manager_;
+  Indexer *indexer_verifier_;
   std::unique_ptr<utils::MemBuf> read_buffer_;
 };
 

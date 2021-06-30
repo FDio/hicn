@@ -25,6 +25,8 @@ namespace transport {
 
 namespace core {
 
+const uint32_t MAX_AGGREGATED_INTEREST = 128;
+
 class Interest
     : public Packet /*, public std::enable_shared_from_this<Interest>*/ {
  private:
@@ -47,7 +49,7 @@ class Interest
   Interest(MemBuf &&buffer);
 
   template <typename... Args>
-  Interest(CopyBufferOp op, Args &&...args)
+  Interest(CopyBufferOp op, Args &&... args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_interest_get_name(format_, packet_start_,
                                name_.getStructReference()) < 0) {
@@ -56,7 +58,7 @@ class Interest
   }
 
   template <typename... Args>
-  Interest(WrapBufferOp op, Args &&...args)
+  Interest(WrapBufferOp op, Args &&... args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_interest_get_name(format_, packet_start_,
                                name_.getStructReference()) < 0) {
@@ -65,7 +67,7 @@ class Interest
   }
 
   template <typename... Args>
-  Interest(CreateOp op, Args &&...args)
+  Interest(CreateOp op, Args &&... args)
       : Packet(op, std::forward<Args>(args)...) {}
 
   /* Move constructor */
@@ -84,8 +86,6 @@ class Interest
   Name &getWritableName() override;
 
   void setName(const Name &name) override;
-
-  void setName(Name &&name) override;
 
   void setLocator(const ip_address_t &ip_address) override;
 

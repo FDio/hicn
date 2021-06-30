@@ -11,8 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
 list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/string_tokenizer.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/uri.cc

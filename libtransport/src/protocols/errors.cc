@@ -39,6 +39,9 @@ std::string protocol_category_impl::message(int ev) const {
     case protocol_error::integrity_verification_failed: {
       return "Integrity verification failed";
     }
+    case protocol_error::verification_failed: {
+      return "Verification failed";
+    }
     case protocol_error::no_verifier_provided: {
       return "Transport cannot get any verifier for the given data.";
     }
@@ -50,6 +53,12 @@ std::string protocol_category_impl::message(int ev) const {
              "for the same interest.";
     }
     case protocol_error::session_aborted: {
+      return "The session has been aborted by the application.";
+    }
+    case protocol_error::not_reassemblable: {
+      return "The session has been aborted by the application.";
+    }
+    case protocol_error::duplicated_content: {
       return "The session has been aborted by the application.";
     }
     default: {

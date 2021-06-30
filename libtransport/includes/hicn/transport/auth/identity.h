@@ -15,14 +15,17 @@
 
 #pragma once
 
+#include <errno.h>
+#include <fcntl.h>
 #include <hicn/transport/auth/signer.h>
+#include <unistd.h>
 
 extern "C" {
-#include <parc/security/parc_Identity.h>
-#include <parc/security/parc_IdentityFile.h>
-#include <parc/security/parc_Pkcs12KeyStore.h>
-#include <parc/security/parc_Security.h>
-};
+#include <openssl/pkcs12.h>
+#include <openssl/rand.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+}
 
 namespace transport {
 namespace auth {
@@ -54,12 +57,20 @@ class Identity {
   // Return the key store password.
   std::string getPassword() const;
 
+  std::shared_ptr<X509> getCertificate() const;
+
+  std::shared_ptr<EVP_PKEY> getPrivateKey() const;
+
   // Generate a new random identity.
   static Identity generateIdentity(const std::string &subject_name = "");
 
  private:
-  PARCIdentity *identity_;
+  static void free_key(EVP_PKEY *T) { EVP_PKEY_free(T); }
+
+  std::string pwd_;
+  std::string filename_;
   std::shared_ptr<AsymmetricSigner> signer_;
+  std::shared_ptr<X509> cert_;
 };
 
 }  // namespace auth

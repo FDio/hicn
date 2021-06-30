@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/errors/not_implemented_exception.h>
-#include <hicn/transport/utils/log.h>
 #include <io_modules/loopback/loopback_module.h>
 
 namespace transport {
@@ -35,8 +35,8 @@ bool LoopbackModule::isConnected() { return true; }
 void LoopbackModule::send(Packet &packet) {
   IoModule::send(packet);
 
-  TRANSPORT_LOGD("LoopbackModule: sending from %u to %d", local_id_,
-                 1 - local_id_);
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "LoopbackModule: sending from " << local_id_
+                               << " to " << 1 - local_id_;
 
   local_faces_.at(1 - local_id_)->send(packet);
 }

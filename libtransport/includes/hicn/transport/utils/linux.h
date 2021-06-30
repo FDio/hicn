@@ -19,7 +19,6 @@
 
 #include <arpa/inet.h>
 #include <hicn/transport/portability/portability.h>
-#include <hicn/transport/utils/log.h>
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -49,7 +48,6 @@ static TRANSPORT_ALWAYS_INLINE int retrieveInterfaceAddress(
         *address = *(struct sockaddr_in6 *)ifa->ifa_addr;
         getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in6), addr,
                     sizeof(addr), NULL, 0, NI_NUMERICHOST);
-        TRANSPORT_LOGI("Interface: %s\tAddress: %s", ifa->ifa_name, addr);
       }
     }
   }

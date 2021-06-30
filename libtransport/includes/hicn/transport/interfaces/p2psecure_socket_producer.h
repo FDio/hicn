@@ -15,8 +15,8 @@
 
 #pragma once
 
-#include <hicn/transport/interfaces/socket_producer.h>
 #include <hicn/transport/auth/identity.h>
+#include <hicn/transport/interfaces/socket_producer.h>
 
 namespace transport {
 

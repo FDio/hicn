@@ -33,7 +33,7 @@ ByteStreamReassembly::ByteStreamReassembly(
     implementation::ConsumerSocket *icn_socket,
     TransportProtocol *transport_protocol)
     : Reassembly(icn_socket, transport_protocol),
-      index_(IndexManager::invalid_index),
+      index_(Indexer::invalid_index),
       download_complete_(false) {}
 
 void ByteStreamReassembly::reassemble(
@@ -54,10 +54,14 @@ void ByteStreamReassembly::reassemble(ContentObject &content_object) {
   }
 }
 
+void ByteStreamReassembly::reassemble(utils::MemBuf &buffer, uint32_t suffix) {
+  throw errors::NotImplementedException();
+}
+
 void ByteStreamReassembly::assembleContent() {
-  if (TRANSPORT_EXPECT_FALSE(index_ == IndexManager::invalid_index)) {
-    index_ = index_manager_->getNextReassemblySegment();
-    if (index_ == IndexManager::invalid_index) {
+  if (TRANSPORT_EXPECT_FALSE(index_ == Indexer::invalid_index)) {
+    index_ = indexer_verifier_->getNextReassemblySegment();
+    if (index_ == Indexer::invalid_index) {
       return;
     }
   }
@@ -72,11 +76,11 @@ void ByteStreamReassembly::assembleContent() {
     }
 
     received_packets_.erase(it);
-    index_ = index_manager_->getNextReassemblySegment();
+    index_ = indexer_verifier_->getNextReassemblySegment();
     it = received_packets_.find((const unsigned int)index_);
   }
 
-  if (!download_complete_ && index_ != IndexManager::invalid_index) {
+  if (!download_complete_ && index_ != Indexer::invalid_index) {
     transport_protocol_->onReassemblyFailed(index_);
   }
 }
@@ -108,8 +112,8 @@ bool ByteStreamReassembly::copyContent(ContentObject &content_object) {
     current = current->next();
   } while (current != &content_object);
 
-  download_complete_ =
-      index_manager_->getFinalSuffix() == content_object.getName().getSuffix();
+  download_complete_ = indexer_verifier_->getFinalSuffix() ==
+                       content_object.getName().getSuffix();
 
   if (TRANSPORT_EXPECT_FALSE(download_complete_)) {
     ret = download_complete_;
@@ -122,17 +126,19 @@ bool ByteStreamReassembly::copyContent(ContentObject &content_object) {
 }
 
 void ByteStreamReassembly::reInitialize() {
-  index_ = IndexManager::invalid_index;
+  index_ = Indexer::invalid_index;
   download_complete_ = false;
 
   received_packets_.clear();
 
   // reset read buffer
   ReadCallback *read_callback;
-  reassembly_consumer_socket_->getSocketOption(
-      interface::ConsumerCallbacksOptions::READ_CALLBACK, &read_callback);
 
-  read_buffer_ = utils::MemBuf::create(read_callback->maxBufferSize());
+  if (reassembly_consumer_socket_) {
+    reassembly_consumer_socket_->getSocketOption(
+        interface::ConsumerCallbacksOptions::READ_CALLBACK, &read_callback);
+    read_buffer_ = utils::MemBuf::create(read_callback->maxBufferSize());
+  }
 }
 
 }  // namespace protocol

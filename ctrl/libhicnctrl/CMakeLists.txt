@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 project(libhicnctrl)
 
@@ -35,13 +35,6 @@ set(CMAKE_MACOSX_RPATH ON)
 
 
 set(LIBHICNCTRL hicnctrl)
-
-if (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-  set(LIBHICNCTRL ${LIBHICNCTRL}-memif)
-  set(LINK_FLAGS "-Wl,-unresolved-symbols=ignore-in-shared-libs")
-  list(APPEND HICN_LIBRARIES ${HICNPLUGIN_LIBRARIES})
-  list(APPEND HICN_LIBRARIES ${SAFE_VAPI_LIBRARIES})
-endif()
 
 set(LIBHICNCTRL ${LIBHICNCTRL} CACHE INTERNAL "" FORCE)
 set(LIBHICNCTRL_SHARED ${LIBHICNCTRL}.shared CACHE INTERNAL "" FORCE)
@@ -94,6 +87,7 @@ else()
 endif()
 
 set(LIBHICNCTRL_COMPONENT lib${LIBHICNCTRL})
+set (LIBHICNCTRL_COMPONENT_MODULES ${LIBHICNCTRL_COMPONENT}-modules)
 
 add_subdirectory(includes)
 add_subdirectory(src)

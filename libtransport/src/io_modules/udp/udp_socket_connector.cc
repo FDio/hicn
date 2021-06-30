@@ -17,8 +17,8 @@
 #include <hicn/transport/portability/win_portability.h>
 #endif
 
+#include <glog/logging.h>
 #include <hicn/transport/errors/errors.h>
-#include <hicn/transport/utils/log.h>
 #include <hicn/transport/utils/object_pool.h>
 #include <io_modules/udp/udp_socket_connector.h>
 
@@ -117,7 +117,7 @@ void UdpSocketConnector::doWrite() {
       // The connection has been closed by the application.
       return;
     } else {
-      TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+      LOG(ERROR) << ec.value() << " " << ec.message();
       tryReconnect();
     }
   });
@@ -137,7 +137,7 @@ void UdpSocketConnector::doRead() {
           // The connection has been closed by the application.
           return;
         } else {
-          TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+          LOG(ERROR) << ec.value() << " " << ec.message();
           tryReconnect();
         }
       });
@@ -145,7 +145,7 @@ void UdpSocketConnector::doRead() {
 
 void UdpSocketConnector::tryReconnect() {
   if (state_ == Connector::State::CONNECTED) {
-    TRANSPORT_LOGE("Connection lost. Trying to reconnect...\n");
+    LOG(ERROR) << "Connection lost. Trying to reconnect...";
     state_ = Connector::State::CONNECTING;
     is_reconnection_ = true;
     io_service_.post([this]() {
@@ -201,7 +201,7 @@ void UdpSocketConnector::handleDeadline(const std::error_code &ec) {
   if (!ec) {
     io_service_.post([this]() {
       socket_.close();
-      TRANSPORT_LOGE("Error connecting. Is the forwarder running?\n");
+      LOG(ERROR) << "Error connecting. Is the forwarder running?";
     });
   }
 }

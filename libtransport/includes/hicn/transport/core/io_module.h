@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/connector.h>
 #include <hicn/transport/core/packet.h>
 #include <hicn/transport/core/prefix.h>
@@ -23,11 +24,6 @@
 #include <hicn/transport/utils/membuf.h>
 
 #include <deque>
-
-#ifndef ASIO_STANDALONE
-#define ASIO_STANDALONE
-#endif
-#include <asio/io_service.hpp>
 
 namespace transport {
 

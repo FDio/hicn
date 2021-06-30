@@ -15,8 +15,7 @@
 
 /* Keep order as it is */
 #include <config.h>
-#include <collectd.h>
-#include <plugin.h>
+#include "common.h"
 
 #define counter_t vpp_counter_t
 #include <vapi/hicn.api.vapi.h>
@@ -25,15 +24,6 @@
 
 DEFINE_VAPI_MSG_IDS_HICN_API_JSON
 vapi_ctx_t vapi_ctx;
-
-#define STATIC_ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
-
-#define IS_TRUE(s)                                                             \
-  ((strcasecmp("true", (s)) == 0) || (strcasecmp("yes", (s)) == 0) ||          \
-   (strcasecmp("on", (s)) == 0))
-#define IS_FALSE(s)                                                            \
-  ((strcasecmp("false", (s)) == 0) || (strcasecmp("no", (s)) == 0) ||          \
-   (strcasecmp("off", (s)) == 0))
 
 /************** OPTIONS ***********************************/
 static const char *config_keys[2] = {
@@ -181,12 +171,6 @@ static data_set_t dtx_ds = {
 /**********************************************************/
 /********** UTILITY FUNCTIONS *****************************/
 /**********************************************************/
-char *sstrncpy(char *dest, const char *src, size_t n) {
-  strncpy(dest, src, n);
-  dest[n - 1] = '\0';
-  return dest;
-}
-
 /*
  * Utility function used by the read callback to populate a
  * value_list_t and pass it to plugin_dispatch_values.
@@ -214,7 +198,6 @@ static int submit(const char *plugin_instance, const char *type,
 /**********************************************************/
 /********** CALLBACK FUNCTIONS ****************************/
 /**********************************************************/
-
 /*
  * This function is called for each configuration item.
  */

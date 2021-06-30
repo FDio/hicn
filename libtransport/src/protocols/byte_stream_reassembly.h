@@ -27,10 +27,12 @@ class ByteStreamReassembly : public Reassembly {
                        TransportProtocol *transport_protocol);
 
  protected:
-  virtual void reassemble(core::ContentObject &content_object) override;
+  void reassemble(core::ContentObject &content_object) override;
 
-  virtual void reassemble(
+  void reassemble(
       std::unique_ptr<core::ContentObjectManifest> &&manifest) override;
+
+  void reassemble(utils::MemBuf &buffer, uint32_t suffix) override;
 
   bool copyContent(core::ContentObject &content_object);
 
@@ -40,10 +42,6 @@ class ByteStreamReassembly : public Reassembly {
   void assembleContent();
 
  protected:
-  // The consumer socket
-  // std::unique_ptr<IncrementalIndexManager> incremental_index_manager_;
-  // std::unique_ptr<ManifestIndexManager> manifest_index_manager_;
-  // IndexVerificationManager *index_manager_;
   std::unordered_map<std::uint32_t, core::ContentObject::Ptr> received_packets_;
   uint32_t index_;
   bool download_complete_;

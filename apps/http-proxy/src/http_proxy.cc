@@ -67,8 +67,8 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
             std::string remote_address =
                 socket.remote_endpoint().address().to_string();
             std::uint16_t remote_port = socket.remote_endpoint().port();
-            TRANSPORT_LOGD("Client %s:%d disconnected.", remote_address.c_str(),
-                           remote_port);
+            TRANSPORT_LOG_INFO << "Client " << remote_address << ":"
+                               << remote_port << "disconnected.";
           } catch (std::system_error& e) {
             // Do nothing
           }
@@ -85,7 +85,7 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
  private:
   void consumeNextRequest() {
     if (request_buffer_queue_.size() == 0) {
-      TRANSPORT_LOGD("No additional requests to process.");
+      // No additional requests to process
       return;
     }
 
@@ -136,24 +136,24 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
     current_size_ += size;
 
     if (is_last) {
-      TRANSPORT_LOGD("Request received: %s",
-                     std::string((const char*)tmp_buffer_.first->data(),
-                                 tmp_buffer_.first->length())
-                         .c_str());
+      // TRANSPORT_LOGD("Request received: %s",
+      //                std::string((const char*)tmp_buffer_.first->data(),
+      //                            tmp_buffer_.first->length())
+      //                    .c_str());
       if (current_size_ < 1400) {
         request_buffer_queue_.emplace_back(std::move(tmp_buffer_));
       } else {
-        TRANSPORT_LOGE("Ignoring client request due to size (%zu) > 1400.",
-                       current_size_);
+        TRANSPORT_LOG_ERROR << "Ignoring client request due to size ("
+                            << current_size_ << ") > 1400.";
         session_->close();
         current_size_ = 0;
         return;
       }
 
       if (!consumer_.isRunning()) {
-        TRANSPORT_LOGD(
-            "Consumer stopped, triggering consume from TCP session "
-            "handler..");
+        TRANSPORT_LOG_INFO
+            << "Consumer stopped, triggering consume from TCP session "
+               "handler..";
         consumeNextRequest();
       }
 
@@ -187,12 +187,13 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
   void readBufferAvailable(std::unique_ptr<utils::MemBuf>&& buffer) noexcept {
     // Response received. Send it back to client
     auto _buffer = buffer.release();
-    TRANSPORT_LOGD("From hicn: %zu bytes.", _buffer->length());
+    // TRANSPORT_LOGD("From hicn: %zu bytes.", _buffer->length());
     session_->send(_buffer, []() {});
   }
 
   void readError(const std::error_code ec) noexcept {
-    TRANSPORT_LOGE("Error reading from hicn consumer socket. Closing session.");
+    TRANSPORT_LOG_ERROR
+        << "Error reading from hicn consumer socket. Closing session.";
     session_->close();
   }
 
@@ -209,15 +210,14 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
        * Let's grant it!
        */
       if (metadata->method == "OPTIONS") {
-        session_->send(
-            (const uint8_t*)HTTPMessageFastParser::http_cors,
-            std::strlen(HTTPMessageFastParser::http_cors), [this]() {
-              auto& socket = session_->socket_;
-              TRANSPORT_LOGI(
-                  "Sent OPTIONS to client %s:%d",
-                  socket.remote_endpoint().address().to_string().c_str(),
-                  socket.remote_endpoint().port());
-            });
+        session_->send((const uint8_t*)HTTPMessageFastParser::http_cors,
+                       std::strlen(HTTPMessageFastParser::http_cors), [this]() {
+                         auto& socket = session_->socket_;
+                         TRANSPORT_LOG_INFO
+                             << "Sent OPTIONS to client "
+                             << socket.remote_endpoint().address() << ":"
+                             << socket.remote_endpoint().port();
+                       });
       }
     } else {
       tcp_receiver_.parseHicnHeader(
@@ -230,14 +230,14 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
             }
 
             /* Route created. Send back a 200 OK to client */
-            session_->send(
-                (const uint8_t*)reply, std::strlen(reply), [this, result]() {
-                  auto& socket = session_->socket_;
-                  TRANSPORT_LOGI(
-                      "Sent %d response to client %s:%d", result,
-                      socket.remote_endpoint().address().to_string().c_str(),
-                      socket.remote_endpoint().port());
-                });
+            session_->send((const uint8_t*)reply, std::strlen(reply),
+                           [this, result]() {
+                             auto& socket = session_->socket_;
+                             TRANSPORT_LOG_INFO
+                                 << "Sent " << result << " response to client "
+                                 << socket.remote_endpoint().address() << ":"
+                                 << socket.remote_endpoint().port();
+                           });
           });
     }
   }
@@ -313,7 +313,6 @@ void TcpReceiver::onClientDisconnect(HTTPClientConnectionCallback* client) {
 void TcpReceiver::onNewConnection(asio::ip::tcp::socket&& socket) {
   if (http_clients_.size() == 0) {
     // Create new HTTPClientConnectionCallback
-    TRANSPORT_LOGD("Creating new HTTPClientConnectionCallback.");
     http_clients_.emplace_back(
         new HTTPClientConnectionCallback(*this, thread_));
   }
@@ -332,7 +331,8 @@ void TcpReceiver::onNewConnection(asio::ip::tcp::socket&& socket) {
 void HTTPProxy::setupSignalHandler() {
   signals_.async_wait([this](const std::error_code& ec, int signal_number) {
     if (!ec) {
-      TRANSPORT_LOGI("Received signal %d. Stopping gracefully.", signal_number);
+      TRANSPORT_LOG_INFO << "Received signal " << signal_number
+                         << ". Stopping gracefully.";
       stop();
     }
   });

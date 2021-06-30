@@ -34,3 +34,11 @@
 #else
 #define TRANSPORT_ALWAYS_INLINE inline
 #endif
+
+// Unused
+#ifdef UNUSED
+#elif defined(__GNUC__) || defined(__clang__)
+#define UNUSED(x) (void)x
+#else
+#define UNUSED(x) x
+#endif

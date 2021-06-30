@@ -33,6 +33,8 @@ class SuffixStrategy {
 
   virtual ~SuffixStrategy() = default;
 
+  virtual uint32_t checkNextSuffix() = 0;
+
   virtual uint32_t getNextSuffix() = 0;
 
   virtual uint32_t getFinalSuffix() { return final_suffix_; }
@@ -43,7 +45,11 @@ class SuffixStrategy {
     }
   }
 
+  virtual uint32_t checkNextManifestSuffix() = 0;
+
   virtual uint32_t getNextManifestSuffix() = 0;
+
+  virtual uint32_t checkNextContentSuffix() = 0;
 
   virtual uint32_t getNextContentSuffix() = 0;
 
@@ -74,13 +80,25 @@ class IncrementalSuffixStrategy : public SuffixStrategy {
       : SuffixStrategy(NextSegmentCalculationStrategy::INCREMENTAL),
         next_suffix_(start_offset) {}
 
+  TRANSPORT_ALWAYS_INLINE std::uint32_t checkNextSuffix() override {
+    return next_suffix_;
+  }
+
   TRANSPORT_ALWAYS_INLINE std::uint32_t getNextSuffix() override {
     incrementTotalCount();
     return next_suffix_++;
   }
 
+  TRANSPORT_ALWAYS_INLINE std::uint32_t checkNextContentSuffix() override {
+    return checkNextSuffix();
+  }
+
   TRANSPORT_ALWAYS_INLINE std::uint32_t getNextContentSuffix() override {
     return getNextSuffix();
+  }
+
+  TRANSPORT_ALWAYS_INLINE std::uint32_t checkNextManifestSuffix() override {
+    return checkNextSuffix();
   }
 
   TRANSPORT_ALWAYS_INLINE std::uint32_t getNextManifestSuffix() override {
@@ -112,15 +130,28 @@ class CapacityBasedSuffixStrategy : public SuffixStrategy {
         segments_in_manifest_(manifest_capacity),
         current_manifest_iteration_(0) {}
 
+  TRANSPORT_ALWAYS_INLINE std::uint32_t checkNextSuffix() override {
+    return next_suffix_;
+  }
+
   TRANSPORT_ALWAYS_INLINE std::uint32_t getNextSuffix() override {
     incrementTotalCount();
     return next_suffix_++;
+  }
+
+  TRANSPORT_ALWAYS_INLINE std::uint32_t checkNextContentSuffix() override {
+    return next_suffix_ % segments_in_manifest_ == 0 ? next_suffix_
+                                                     : (next_suffix_ + 1);
   }
 
   TRANSPORT_ALWAYS_INLINE std::uint32_t getNextContentSuffix() override {
     incrementTotalCount();
     return next_suffix_ % segments_in_manifest_ == 0 ? next_suffix_++
                                                      : ++next_suffix_;
+  }
+
+  TRANSPORT_ALWAYS_INLINE std::uint32_t checkNextManifestSuffix() override {
+    return (current_manifest_iteration_ + 1) * (segments_in_manifest_ + 1);
   }
 
   TRANSPORT_ALWAYS_INLINE std::uint32_t getNextManifestSuffix() override {

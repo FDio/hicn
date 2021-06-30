@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include <hicn/transport/auth/crypto_hasher.h>
+#include <hicn/transport/auth/crypto_hash.h>
 #include <hicn/transport/core/name.h>
 
 #include <cinttypes>

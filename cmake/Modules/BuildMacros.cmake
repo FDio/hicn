@@ -33,6 +33,7 @@ macro(build_executable exec)
     PROPERTIES
     OUTPUT_NAME ${exec}
     INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}"
+    BUILD_RPATH "${BUILD_ROOT}/lib"
     INSTALL_RPATH_USE_LINK_PATH TRUE
     ARCHIVE_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
     LIBRARY_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
@@ -49,7 +50,7 @@ macro(build_executable exec)
   endif()
 
   if (ARG_COMPILE_OPTIONS)
-    target_compile_options(${exec}-bin ${ARG_COMPILE_OPTIONS})
+    target_compile_options(${exec}-bin PRIVATE -Wall -Werror ${ARG_COMPILE_OPTIONS})
   endif()
 
   if(ARG_DEFINITIONS)
@@ -77,7 +78,7 @@ macro(build_library lib)
   cmake_parse_arguments(ARG
     "SHARED;STATIC;NO_DEV"
     "COMPONENT;"
-    "SOURCES;LINK_LIBRARIES;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;HEADER_ROOT_DIR;LIBRARY_ROOT_DIR;INSTALL_FULL_PATH_DIR;EMPTY_PREFIX;COMPILE_OPTIONS;VERSION"
+    "SOURCES;LINK_LIBRARIES;OBJECT_LIBRARIES;LINK_FLAGS;INSTALL_HEADERS;DEPENDS;INCLUDE_DIRS;DEFINITIONS;HEADER_ROOT_DIR;LIBRARY_ROOT_DIR;INSTALL_FULL_PATH_DIR;EMPTY_PREFIX;COMPILE_OPTIONS;VERSION"
     ${ARGN}
   )
 
@@ -90,14 +91,14 @@ macro(build_library lib)
     list(APPEND TARGET_LIBS
       ${lib}.shared
     )
-    add_library(${lib}.shared SHARED ${ARG_SOURCES})
+    add_library(${lib}.shared SHARED ${ARG_SOURCES} ${ARG_OBJECT_LIBRARIES})
   endif()
 
   if(ARG_STATIC)
     list(APPEND TARGET_LIBS
       ${lib}.static
     )
-    add_library(${lib}.static STATIC ${ARG_SOURCES})
+    add_library(${lib}.static STATIC ${ARG_SOURCES} ${ARG_OBJECT_LIBRARIES})
   endif()
 
   if(NOT ARG_COMPONENT)
@@ -119,20 +120,24 @@ macro(build_library lib)
       set_target_properties(${library}
         PROPERTIES
         INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}"
+        BUILD_RPATH "${BUILD_ROOT}/lib"
         INSTALL_RPATH_USE_LINK_PATH TRUE
         PREFIX ""
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
         LIBRARY_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
         RUNTIME_OUTPUT_DIRECTORY "${BUILD_ROOT}/bin"
+        LINK_FLAGS "${ARG_LINK_FLAGS}"
       )
     else ()
       set_target_properties(${library}
         PROPERTIES
         INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}"
+        BUILD_RPATH "${BUILD_ROOT}/lib"
         INSTALL_RPATH_USE_LINK_PATH TRUE
         ARCHIVE_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
         LIBRARY_OUTPUT_DIRECTORY "${BUILD_ROOT}/lib"
         RUNTIME_OUTPUT_DIRECTORY "${BUILD_ROOT}/bin"
+        LINK_FLAGS "${ARG_LINK_FLAGS}"
       )
     endif()
 
@@ -143,7 +148,9 @@ macro(build_library lib)
         WINDOWS_EXPORT_ALL_SYMBOLS TRUE
       )
     else ()
-      target_compile_options(${library} PRIVATE -Wall ${ARG_COMPILE_OPTIONS})
+      target_compile_options(${library}
+        PRIVATE -Wall -Werror ${ARG_COMPILE_OPTIONS}
+      )
       set_target_properties(${library}
         PROPERTIES
         OUTPUT_NAME ${lib}
@@ -152,7 +159,7 @@ macro(build_library lib)
 
     # library deps
     if(ARG_LINK_LIBRARIES)
-      target_link_libraries(${library} ${ARG_LINK_LIBRARIES})
+      target_link_libraries(${library} PUBLIC ${ARG_LINK_LIBRARIES})
     endif()
 
     if(ARG_DEFINITIONS)
@@ -249,7 +256,7 @@ macro (build_module module)
     LINK_LIBRARIES ${ARG_LINK_LIBRARIES}
     INSTALL_HEADERS ${ARG_INSTALL_HEADERS}
     DEPENDS ${ARG_DEPENDS}
-    COMPONENT lib${LIBTRANSPORT}
+    COMPONENT ${ARG_COMPONENT}
     INCLUDE_DIRS ${ARG_INCLUDE_DIRS}
     HEADER_ROOT_DIR ${ARG_HEADER_ROOT_DIR}
     LIBRARY_ROOT_DIR ${ARG_LIBRARY_ROOT_DIR}

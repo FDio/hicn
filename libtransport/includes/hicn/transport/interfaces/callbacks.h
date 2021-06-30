@@ -15,8 +15,8 @@
 
 #pragma once
 
-#include <hicn/transport/interfaces/statistics.h>
 #include <hicn/transport/auth/policies.h>
+#include <hicn/transport/interfaces/statistics.h>
 
 #include <functional>
 #include <system_error>
