@@ -17,6 +17,7 @@
 
 #include <hicn/transport/utils/spinlock.h>
 
+
 #include <mutex>
 
 namespace transport {
@@ -52,7 +53,7 @@ class ContentStore {
 
   void insert(const std::shared_ptr<ContentObject> &content_object);
 
-  std::shared_ptr<ContentObject> find(const Interest &interest);
+  std::shared_ptr<ContentObject> find(const Name &name);
 
   void erase(const Name &exact_name);
 

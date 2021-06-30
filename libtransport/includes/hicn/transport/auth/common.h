@@ -20,8 +20,6 @@
 namespace transport {
 namespace auth {
 
-using Hash = std::vector<uint8_t>;
-using HashEntry = std::pair<CryptoHashType, Hash>;
 using PacketPtr = core::Packet *;
 using Suffix = uint32_t;
 

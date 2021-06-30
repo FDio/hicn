@@ -27,11 +27,13 @@ class DatagramReassembly : public Reassembly {
                      TransportProtocol *transport_protocol);
 
   virtual void reassemble(core::ContentObject &content_object) override;
+  void reassemble(utils::MemBuf& buffer, uint32_t suffix) override;
   virtual void reInitialize() override;
   virtual void reassemble(
       std::unique_ptr<core::ContentObjectManifest> &&manifest) override {
     return;
   }
+  bool reassembleUnverified() override { return true; }
 };
 
 }  // namespace protocol

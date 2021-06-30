@@ -16,6 +16,7 @@
 #pragma once
 
 #include <core/pending_interest.h>
+#include <glog/logging.h>
 #include <hicn/transport/config.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
@@ -27,10 +28,8 @@
 #include <hicn/transport/interfaces/portal.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/fixed_block_allocator.h>
-#include <hicn/transport/utils/log.h>
 
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <future>
 #include <memory>
 #include <queue>
@@ -277,7 +276,8 @@ class Portal {
     if (!io_module_) {
       pending_interest_hash_table_.reserve(portal_details::pit_size);
       io_module_.reset(IoModule::load(io_module_path_.c_str()));
-      assert(io_module_);
+      
+      CHECK(io_module_);
 
       io_module_->init(std::bind(&Portal::processIncomingMessages, this,
                                  std::placeholders::_1, std::placeholders::_2,
@@ -298,7 +298,7 @@ class Portal {
    * Compute name hash
    */
   TRANSPORT_ALWAYS_INLINE uint32_t getHash(const Name &name) {
-    return name.getHash32() + name.getSuffix();
+    return name.getHash32(false) + name.getSuffix();
   }
 
   /**
@@ -338,15 +338,16 @@ class Portal {
     interest->encodeSuffixes();
     io_module_->send(*interest);
 
-    uint32_t initial_hash = interest->getName().getHash32();
+    uint32_t initial_hash = interest->getName().getHash32(false);
     auto hash = initial_hash + interest->getName().getSuffix();
+    uint32_t seq = interest->getName().getSuffix();
     uint32_t *suffix = interest->firstSuffix();
     auto n_suffixes = interest->numberOfSuffixes();
     uint32_t counter = 0;
     // Set timers
     do {
       auto pending_interest = packet_pool_.getPendingInterest();
-      pending_interest->setInterest(std::move(interest));
+      pending_interest->setInterest(interest);
       pending_interest->setOnContentObjectCallback(
           std::move(on_content_object_callback));
       pending_interest->setOnTimeoutCallback(
@@ -355,7 +356,7 @@ class Portal {
       pending_interest->startCountdown(
           portal_details::makeCustomAllocatorHandler(
               async_callback_memory_, std::bind(&Portal::timerHandler, this,
-                                                std::placeholders::_1, hash)));
+                                            std::placeholders::_1, hash, seq)));
 
       auto it = pending_interest_hash_table_.find(hash);
       if (it != pending_interest_hash_table_.end()) {
@@ -370,6 +371,7 @@ class Portal {
 
       if (suffix) {
         hash = initial_hash + *suffix;
+        seq = *suffix;
         suffix++;
       }
 
@@ -385,7 +387,7 @@ class Portal {
    * @param hash - The index of the interest in the pending interest hash table.
    */
   TRANSPORT_ALWAYS_INLINE void timerHandler(const std::error_code &ec,
-                                            uint32_t hash) {
+                                            uint32_t hash, uint32_t seq) {
     bool is_stopped = io_service_.stopped();
     if (TRANSPORT_EXPECT_FALSE(is_stopped)) {
       return;
@@ -398,11 +400,13 @@ class Portal {
         PendingInterest::Ptr ptr = std::move(it->second);
         pending_interest_hash_table_.erase(it);
         auto _int = ptr->getInterest();
+        Name &name = const_cast<Name&>(_int->getName());
+        name.setSuffix(seq);
 
         if (ptr->getOnTimeoutCallback() != UNSET_CALLBACK) {
-          ptr->on_interest_timeout_callback_(std::move(_int));
+          ptr->on_interest_timeout_callback_(_int, name);
         } else if (consumer_callback_) {
-          consumer_callback_->onTimeout(std::move(_int));
+          consumer_callback_->onTimeout(_int, name);
         }
       }
     }
@@ -516,6 +520,17 @@ class Portal {
     }
   }
 
+   /**
+   * Check if the transport is connected to a forwarder or not
+   */
+  TRANSPORT_ALWAYS_INLINE bool isConnectedToFwd() {
+    std::string mod = io_module_path_.substr(
+                    0, io_module_path_.find("."));
+    if(mod == "forwarder_module")
+      return false;
+    return true;
+  }
+
  private:
   /**
    * Clear the pending interest hash table.
@@ -578,7 +593,7 @@ class Portal {
         processInterest(static_cast<Interest &>(packet_buffer));
       }
     } else {
-      TRANSPORT_LOGE("Received not supported packet. Ignoring it.");
+      LOG(ERROR) << "Received not supported packet. Ignoring it.";
     }
   }
 
@@ -597,6 +612,7 @@ class Portal {
 
   TRANSPORT_ALWAYS_INLINE void processInterest(Interest &interest) {
     // Interest for a producer
+    DLOG_IF(INFO, VLOG_IS_ON(3)) << "processInterest " << interest.getName();
     if (TRANSPORT_EXPECT_TRUE(producer_callback_ != nullptr)) {
       producer_callback_->onInterest(interest);
     }
@@ -612,13 +628,13 @@ class Portal {
    */
   TRANSPORT_ALWAYS_INLINE void processContentObject(
       ContentObject &content_object) {
-    TRANSPORT_LOGD("processContentObject %s",
-                   content_object.getName().toString().c_str());
+    DLOG_IF(INFO, VLOG_IS_ON(3))
+        << "processContentObject " << content_object.getName();
     uint32_t hash = getHash(content_object.getName());
 
     auto it = pending_interest_hash_table_.find(hash);
     if (it != pending_interest_hash_table_.end()) {
-      TRANSPORT_LOGD("Found pending interest.");
+      DLOG_IF(INFO, VLOG_IS_ON(3)) << "Found pending interest.";
 
       PendingInterest::Ptr interest_ptr = std::move(it->second);
       pending_interest_hash_table_.erase(it);
@@ -631,7 +647,8 @@ class Portal {
         consumer_callback_->onContentObject(*_int, content_object);
       }
     } else {
-      TRANSPORT_LOGD("No interest pending for received content object.");
+      DLOG_IF(INFO, VLOG_IS_ON(3))
+          << "No interest pending for received content object.";
     }
   }
 

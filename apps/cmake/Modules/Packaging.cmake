@@ -18,21 +18,21 @@ useful for testing and debugging within a hicn network."
 )
 
 set(${HICN_APPS}_DEB_DEPENDENCIES
-  "lib${LIBTRANSPORT} (>= stable_version)"
+  "lib${LIBTRANSPORT} (>= stable_version), lib${LIBHICNCTRL} (>= stable_version)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${HICN_APPS}-dev_DEB_DEPENDENCIES
-  "lib${LIBTRANSPORT}-dev (>= stable_version)"
+  "${HICN_APPS} (>= stable_version), lib${LIBTRANSPORT}-dev (>= stable_version), lib${LIBHICNCTRL}-dev (>= stable_version)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${HICN_APPS}_RPM_DEPENDENCIES
-  "lib${LIBTRANSPORT} >= stable_version"
+  "lib${LIBTRANSPORT} >= stable_version, lib${LIBHICNCTRL} >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${HICN_APPS}-dev_RPM_DEPENDENCIES
-  "lib${LIBTRANSPORT}-devel >= stable_version"
+  "${HICN_APPS} >= stable_version, lib${LIBTRANSPORT}-dev >= stable_version, lib${LIBHICNCTRL}-dev >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )

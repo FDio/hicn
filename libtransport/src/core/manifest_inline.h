@@ -48,7 +48,7 @@ class ManifestInline
 
   static TRANSPORT_ALWAYS_INLINE ManifestInline *createManifest(
       const core::Name &manifest_name, ManifestVersion version,
-      ManifestType type, auth::CryptoHashType algorithm, bool is_last,
+      ManifestType type, HashType algorithm, bool is_last,
       const Name &base_name, NextSegmentCalculationStrategy strategy,
       std::size_t signature_size) {
     auto manifest = new ManifestInline(manifest_name, signature_size);
@@ -110,24 +110,24 @@ class ManifestInline
 
   // Convert several manifests into a single map from suffixes to packet hashes.
   // All manifests must have been decoded beforehand.
-  static std::unordered_map<Suffix, HashEntry> getSuffixMap(
+  static std::unordered_map<Suffix, Hash> getSuffixMap(
       const std::vector<ManifestInline *> &manifests) {
-    std::unordered_map<Suffix, HashEntry> suffix_map;
+    std::unordered_map<Suffix, Hash> suffix_map;
 
     for (auto manifest_ptr : manifests) {
-      HashType hash_algorithm = manifest_ptr->getHashAlgorithm();
+      HashType hash_type = manifest_ptr->getHashAlgorithm();
       SuffixList suffix_list = manifest_ptr->getSuffixList();
 
       for (auto it = suffix_list.begin(); it != suffix_list.end(); ++it) {
-        std::vector<uint8_t> hash(
-            it->second, it->second + auth::hash_size_map[hash_algorithm]);
-        suffix_map[it->first] = {hash_algorithm, hash};
+        Hash hash(it->second, Hash::getSize(hash_type), hash_type);
+        suffix_map[it->first] = hash;
       }
     }
 
     return suffix_map;
   }
-  static std::unordered_map<Suffix, HashEntry> getSuffixMap(
+
+  static std::unordered_map<Suffix, Hash> getSuffixMap(
       ManifestInline *manifest) {
     return getSuffixMap(std::vector<ManifestInline *>{manifest});
   }

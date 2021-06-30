@@ -11,8 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
 # Dependencies
 find_package(Vpp REQUIRED)
 find_package(Collectd REQUIRED)
@@ -23,7 +21,8 @@ list(APPEND SOURCE_FILES
 list(APPEND INCLUDE_DIRS
     ${COLLECTD_INCLUDE_DIRS}
     ${VPP_INCLUDE_DIRS}
-    ${CMAKE_CURRENT_SOURCE_DIR})
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    "${CMAKE_CURRENT_SOURCE_DIR}/../common")
 
 list(APPEND LIBRARIES
     ${VPP_LIBRARY_VPPAPICLIENT}

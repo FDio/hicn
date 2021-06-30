@@ -17,11 +17,11 @@
 #include <hicn/transport/config.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/name.h>
+#include <protocols/indexer.h>
 #include <protocols/rtc/probe_handler.h>
 #include <protocols/rtc/rtc_data_path.h>
 
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <map>
 #include <set>
 
@@ -37,7 +37,8 @@ class RTCState : std::enable_shared_from_this<RTCState> {
  public:
   using DiscoveredRttCallback = std::function<void()>;
  public:
-  RTCState(ProbeHandler::SendProbeCallback &&rtt_probes_callback,
+  RTCState(Indexer *indexer,
+           ProbeHandler::SendProbeCallback &&rtt_probes_callback,
            DiscoveredRttCallback &&discovered_rtt_callback,
            asio::io_service &io_service);
 
@@ -45,14 +46,17 @@ class RTCState : std::enable_shared_from_this<RTCState> {
 
   // packet events
   void onSendNewInterest(const core::Name *interest_name);
-  void onTimeout(uint32_t seq);
+  void onTimeout(uint32_t seq, bool lost);
+  void onLossDetected(uint32_t seq);
   void onRetransmission(uint32_t seq);
   void onDataPacketReceived(const core::ContentObject &content_object,
                             bool compute_stats);
+  void onFecPacketReceived(const core::ContentObject &content_object);
   void onNackPacketReceived(const core::ContentObject &nack,
                             bool compute_stats);
   void onPacketLost(uint32_t seq);
-  void onPacketRecovered(uint32_t seq);
+  void onPacketRecoveredRtx(uint32_t seq);
+  void onPacketRecoveredFec(uint32_t seq);
   bool onProbePacketReceived(const core::ContentObject &probe);
 
   // protocol state
@@ -97,13 +101,16 @@ class RTCState : std::enable_shared_from_this<RTCState> {
     if (it != pending_interests_.end()) return it->second;
     return 0;
   }
+
   bool isPending(uint32_t seq) {
     if (pending_interests_.find(seq) != pending_interests_.end()) return true;
     return false;
   }
+
   uint32_t getPendingInterestNumber() const {
-    return (uint32_t)pending_interests_.size();
+    return pending_interests_.size();
   }
+
   PacketState isReceivedOrLost(uint32_t seq) {
     auto it = received_or_lost_packets_.find(seq);
     if (it != received_or_lost_packets_.end()) return it->second;
@@ -112,12 +119,27 @@ class RTCState : std::enable_shared_from_this<RTCState> {
 
   // loss rate
   double getLossRate() const { return loss_rate_; }
+  double getAvgLossRate() const { return avg_loss_rate_; }
+  double getMaxLossRate() const { return max_loss_rate_; }
+  double getLastRoundLossRate() const { return last_round_loss_rate_; }
   double getResidualLossRate() const { return residual_loss_rate_; }
+
+  uint32_t getLostData() const { return packets_lost_; };
+  uint32_t getRecoveredLosses() const { return losses_recovered_; }
+
+  uint32_t getDefinitelyLostPackets() const { return definitely_lost_pkt_; }
+
+  uint32_t getHighestSeqReceived() const {
+    return highest_seq_received_;
+  }
+
   uint32_t getHighestSeqReceivedInOrder() const {
     return highest_seq_received_in_order_;
   }
-  uint32_t getLostData() const { return packets_lost_; };
-  uint32_t getRecoveredLosses() const { return losses_recovered_; }
+
+  // fec packets
+  uint32_t getReceivedFecPackets() const { return received_fec_pkt_; }
+  uint32_t getPendingFecPackets() const { return pending_fec_pkt_; }
 
   // generic stats
   uint32_t getReceivedBytesInRound() const { return received_bytes_; }
@@ -183,11 +205,15 @@ class RTCState : std::enable_shared_from_this<RTCState> {
   // loss counters
   int32_t packets_lost_;
   int32_t losses_recovered_;
+  uint32_t definitely_lost_pkt_;
   uint32_t first_seq_in_round_;
   uint32_t highest_seq_received_;
   uint32_t highest_seq_received_in_order_;
   uint32_t last_seq_nacked_;  // segment for which we got an oldNack
   double loss_rate_;
+  double avg_loss_rate_;
+  double max_loss_rate_;
+  double last_round_loss_rate_;
   double residual_loss_rate_;
 
   // bw counters
@@ -211,13 +237,18 @@ class RTCState : std::enable_shared_from_this<RTCState> {
   uint32_t sent_interests_last_round_;
   uint32_t sent_rtx_last_round_;
 
+  // fec counter
+  uint32_t received_fec_pkt_;
+  uint32_t pending_fec_pkt_;
+
   // round conunters
   uint32_t rounds_;
   uint32_t rounds_without_nacks_;
   uint32_t rounds_without_packets_;
 
   // init rtt
-  uint64_t first_interest_sent_;
+  uint64_t first_interest_sent_time_;
+  uint32_t first_interest_sent_seq_;
 
   // producer state
   bool
@@ -236,6 +267,13 @@ class RTCState : std::enable_shared_from_this<RTCState> {
 
   // pending interests
   std::map<uint32_t, uint64_t> pending_interests_;
+
+  //indexer
+  Indexer * indexer_;
+
+  //skipped interests
+  uint32_t last_interest_sent_;
+  std::unordered_set<uint32_t> skipped_interests_;
 
   // probes
   std::shared_ptr<ProbeHandler> rtt_probes_;

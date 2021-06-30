@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/core/name.h>
-#include <hicn/transport/utils/log.h>
 #include <utils/content_store.h>
 
 namespace utils {
@@ -36,9 +36,9 @@ void ContentStore::insert(
 
   if (TRANSPORT_EXPECT_FALSE(content_store_hash_table_.size() !=
                              fifo_list_.size())) {
-    TRANSPORT_LOGW("Inconsistent size!!!!");
-    TRANSPORT_LOGW("Hash Table: %zu |||| FIFO List: %zu",
-                   content_store_hash_table_.size(), fifo_list_.size());
+    LOG(WARNING) << "Inconsistent size!!!!";
+    LOG(WARNING) << "Hash Table: " << content_store_hash_table_.size()
+                 << " |||| FIFO List: " << fifo_list_.size();
   }
 
   if (content_store_hash_table_.size() >= max_content_store_size_) {
@@ -59,11 +59,11 @@ void ContentStore::insert(
       ObjectTimeEntry(content_object, std::chrono::steady_clock::now()), pos);
 }
 
-std::shared_ptr<ContentObject> ContentStore::find(const Interest &interest) {
+std::shared_ptr<ContentObject> ContentStore::find(const Name &name) {
   utils::SpinLock::Acquire locked(cs_mutex_);
 
   std::shared_ptr<ContentObject> ret = empty_reference_;
-  auto it = content_store_hash_table_.find(interest.getName());
+  auto it = content_store_hash_table_.find(name);
   if (it != content_store_hash_table_.end()) {
     auto content_lifetime = it->second.first.first->getLifetime();
     auto time_passed_since_creation =
@@ -108,11 +108,9 @@ void ContentStore::printContent() {
   for (auto &item : content_store_hash_table_) {
     if (item.second.first.first->getPayloadType() ==
         transport::core::PayloadType::MANIFEST) {
-      TRANSPORT_LOGI("Manifest: %s",
-                     item.second.first.first->getName().toString().c_str());
+      LOG(INFO) << "Manifest: " << item.second.first.first->getName();
     } else {
-      TRANSPORT_LOGI("Data Packet: %s",
-                     item.second.first.first->getName().toString().c_str());
+      LOG(INFO) << "Data Packet: " << item.second.first.first->getName();
     }
   }
 }

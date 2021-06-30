@@ -23,10 +23,7 @@
 #include <hicn/transport/interfaces/socket_options_keys.h>
 #include <hicn/transport/auth/signer.h>
 
-#ifndef ASIO_STANDALONE
-#define ASIO_STANDALONE
-#endif
-#include <asio/io_service.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 
 namespace transport {
 

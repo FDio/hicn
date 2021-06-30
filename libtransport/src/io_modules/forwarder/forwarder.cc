@@ -15,6 +15,7 @@
 
 #include <core/global_configuration.h>
 #include <core/local_connector.h>
+#include <glog/logging.h>
 #include <io_modules/forwarder/forwarder.h>
 #include <io_modules/forwarder/global_id_counter.h>
 #include <io_modules/forwarder/udp_tunnel.h>
@@ -127,7 +128,7 @@ void Forwarder::onPacketFromListener(Connector *connector,
       std::bind(&Forwarder::onPacketReceived, this, std::placeholders::_1,
                 std::placeholders::_2, std::placeholders::_3));
 
-  TRANSPORT_LOGD("Packet received from listener.");
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "Packet received from listener.";
 
   {
     utils::SpinLock::Acquire locked(connector_lock_);
@@ -157,10 +158,8 @@ void Forwarder::onPacketReceived(Connector *connector,
     if ((is_producer && is_interest) || (!is_producer && !is_interest)) {
       c.second->send(*packet);
     } else {
-      TRANSPORT_LOGD(
-          "Error sending packet to local connector. is_interest = %d - "
-          "is_producer = %d",
-          (int)is_interest, (int)is_producer);
+      LOG(ERROR) << "Error sending packet to local connector. is_interest = "
+                 << is_interest << " - is_producer = " << is_producer;
     }
   }
 
@@ -178,9 +177,9 @@ void Forwarder::send(Packet &packet) {
 
   auto remote_endpoint =
       remote_connectors_.begin()->second->getRemoteEndpoint();
-  TRANSPORT_LOGD("Sending packet to: %s:%u",
-                 remote_endpoint.getAddress().to_string().c_str(),
-                 remote_endpoint.getPort());
+  DLOG_IF(INFO, VLOG_IS_ON(3))
+      << "Sending packet to: " << remote_endpoint.getAddress() << ":"
+      << remote_endpoint.getPort();
   remote_connectors_.begin()->second->send(packet);
 }
 
@@ -199,7 +198,7 @@ void Forwarder::parseForwarderConfiguration(
     // Get number of threads
     int n_threads = 1;
     forwarder_config.lookupValue("n_threads", n_threads);
-    TRANSPORT_LOGD("Forwarder threads from config file: %u", n_threads);
+    VLOG(1) << "Forwarder threads from config file: " << n_threads;
     config_.setThreadNumber(n_threads);
   }
 
@@ -219,8 +218,8 @@ void Forwarder::parseForwarderConfiguration(
       listener.lookupValue("local_port", port);
       list.port = (uint16_t)(port);
 
-      TRANSPORT_LOGD("Adding listener %s, (%s:%u)", list.name.c_str(),
-                     list.address.c_str(), list.port);
+      VLOG(1) << "Adding listener " << list.name << ", ( " << list.address
+              << ":" << list.port << ")";
       config_.addListener(std::move(list));
     }
   }
@@ -262,9 +261,9 @@ void Forwarder::parseForwarderConfiguration(
 
       conn.remote_port = (uint16_t)(port);
 
-      TRANSPORT_LOGD("Adding connector %s, (%s:%u %s:%u)", conn.name.c_str(),
-                     conn.local_address.c_str(), conn.local_port,
-                     conn.remote_address.c_str(), conn.remote_port);
+      VLOG(1) << "Adding connector " << conn.name << ", (" << conn.local_address
+              << ":" << conn.local_port << " " << conn.remote_address << ":"
+              << conn.remote_port << ")";
       config_.addConnector(std::move(conn));
     }
   }
@@ -285,8 +284,8 @@ void Forwarder::parseForwarderConfiguration(
       route.lookupValue("connector", r.connector);
       r.weight = (uint16_t)(weight);
 
-      TRANSPORT_LOGD("Adding route %s %s (%s %u)", r.name.c_str(),
-                     r.prefix.c_str(), r.connector.c_str(), r.weight);
+      VLOG(1) << "Adding route " << r.name << " " << r.prefix << " ("
+              << r.connector << " " << r.weight << ")";
       config_.addRoute(std::move(r));
     }
   }

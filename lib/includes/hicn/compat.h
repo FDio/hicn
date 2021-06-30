@@ -454,7 +454,10 @@ int hicn_data_get_payload_type (const hicn_header_t *data,
 int hicn_data_set_payload_type (hicn_header_t *data,
 				hicn_payload_type_t payload_type);
 int hicn_data_reset_for_hash (hicn_format_t format, hicn_header_t *packet);
-
+int hicn_packet_get_signature_gap (hicn_format_t format,
+				   const hicn_header_t *h, uint8_t *bytes);
+int hicn_packet_set_signature_gap (hicn_format_t format, hicn_header_t *h,
+				   uint8_t bytes);
 #endif /* HICN_COMPAT_H */
 
 /*
