@@ -60,8 +60,9 @@ class RTCProductionProtocol : public ProductionProtocol {
   // packet handlers
   void onInterest(Interest &interest) override;
   void onError(std::error_code ec) override;
+  void processInterest(uint32_t interest_seg, uint32_t lifetime);
   void produceInternal(std::shared_ptr<ContentObject> &&content_object,
-                       const Name &content_name);
+                       const Name &content_name, bool fec = false);
   void sendNack(uint32_t sequence);
 
   // stats
@@ -75,20 +76,27 @@ class RTCProductionProtocol : public ProductionProtocol {
   void scheduleQueueTimer(uint64_t wait);
   void interestQueueTimer();
 
+  // FEC functions
+  void onFecPackets(std::vector<std::pair<uint32_t, fec::buffer>> &packets);
+  fec::buffer getBuffer(std::size_t size);
+
   core::Name flow_name_;
 
-  uint32_t current_seg_;  // seq id of the next packet produced
-  uint32_t prod_label_;   // path lable of the producer
-  uint16_t header_size_;  // hicn header size
+  uint32_t current_seg_;       // seq id of the next packet produced
+  uint32_t prod_label_;        // path lable of the producer
+  uint32_t cache_label_;       // path lable for content from the producer cache
+  uint16_t data_header_size_;  // hicn data header size
 
-  uint32_t produced_bytes_;    // bytes produced in the last round
-  uint32_t produced_packets_;  // packet produed in the last round
+  uint32_t produced_bytes_;        // bytes produced in the last round
+  uint32_t produced_packets_;      // packet produed in the last round
+  uint32_t produced_fec_packets_;  // fec packets produced last round
 
   uint32_t max_packet_production_;  // never exceed this number of packets
                                     // without update stats
 
-  uint32_t bytes_production_rate_;    // bytes per sec
-  uint32_t packets_production_rate_;  // pps
+  uint32_t bytes_production_rate_;        // bytes per sec
+  uint32_t packets_production_rate_;      // pps
+  uint32_t fec_packets_production_rate_;  // pps
 
   std::unique_ptr<asio::steady_timer> round_timer_;
   uint64_t last_round_;
@@ -120,6 +128,9 @@ class RTCProductionProtocol : public ProductionProtocol {
   // impossible to know the state of the consumers so it should not be used.
   bool consumer_in_sync_;
   interface::ProducerInterestCallback on_consumer_in_sync_;
+
+  // Save FEC packets here before sending them
+  std::queue<ContentObject::Ptr> pending_fec_packets_;
 };
 
 }  // namespace protocol

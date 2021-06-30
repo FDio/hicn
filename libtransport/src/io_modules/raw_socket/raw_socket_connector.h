@@ -22,8 +22,7 @@
 #include <net/ethernet.h>
 #include <sys/socket.h>
 
-#include <asio.hpp>
-#include <asio/steady_timer.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <deque>
 
 namespace transport {

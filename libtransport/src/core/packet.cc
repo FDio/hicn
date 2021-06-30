@@ -13,10 +13,11 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
+#include <hicn/transport/auth/crypto_hash.h>
 #include <hicn/transport/core/packet.h>
 #include <hicn/transport/errors/malformed_packet_exception.h>
 #include <hicn/transport/utils/hash.h>
-#include <hicn/transport/utils/log.h>
 
 extern "C" {
 #ifndef _WIN32
@@ -250,7 +251,7 @@ Packet::Format Packet::getFormat() const {
    */
   if (format_ == HF_UNSPEC && length()) {
     if (hicn_packet_get_format(packet_start_, &format_) < 0) {
-      TRANSPORT_LOGE("Unexpected packet format.");
+      LOG(ERROR) << "Unexpected packet format HF_UNSPEC.";
     }
   }
 
@@ -262,12 +263,12 @@ std::shared_ptr<utils::MemBuf> Packet::acquireMemBufReference() {
 }
 
 void Packet::dump() const {
-  TRANSPORT_LOGI("HEADER -- Length: %zu", headerSize());
-  TRANSPORT_LOGI("PAYLOAD -- Length: %zu", payloadSize());
+  LOG(INFO) << "HEADER -- Length: " << headerSize();
+  LOG(INFO) << "PAYLOAD -- Length: " << payloadSize();
 
   const utils::MemBuf *current = this;
   do {
-    TRANSPORT_LOGI("MemBuf Length: %zu", current->length());
+    LOG(INFO) << "MemBuf Length: " << current->length();
     dump((uint8_t *)current->data(), current->length());
     current = current->next();
   } while (current != this);
@@ -283,6 +284,19 @@ void Packet::setSignatureSize(std::size_t size_bytes) {
   }
 
   int ret = hicn_packet_set_signature_size(format_, packet_start_, size_bytes);
+
+  if (ret < 0) {
+    throw errors::RuntimeException("Error setting signature size.");
+  }
+}
+
+void Packet::setSignatureSizeGap(std::size_t size_bytes) {
+  if (!authenticationHeader()) {
+    throw errors::RuntimeException("Packet without Authentication Header.");
+  }
+
+  int ret = hicn_packet_set_signature_gap(format_, packet_start_,
+                                          (uint8_t)size_bytes);
 
   if (ret < 0) {
     throw errors::RuntimeException("Error setting signature size.");
@@ -392,8 +406,8 @@ auth::KeyId Packet::getKeyId() const {
 }
 
 auth::CryptoHash Packet::computeDigest(auth::CryptoHashType algorithm) const {
-  auth::CryptoHasher hasher(static_cast<auth::CryptoHashType>(algorithm));
-  hasher.init();
+  auth::CryptoHash hash;
+  hash.setType(algorithm);
 
   // Copy IP+TCP/ICMP header before zeroing them
   hicn_header_t header_copy;
@@ -402,15 +416,10 @@ auth::CryptoHash Packet::computeDigest(auth::CryptoHashType algorithm) const {
 
   const_cast<Packet *>(this)->resetForHash();
 
-  const utils::MemBuf *current = this;
-  do {
-    hasher.updateBytes(current->data(), current->length());
-    current = current->next();
-  } while (current != this);
-
+  hash.computeDigest(this);
   hicn_packet_copy_header(format_, &header_copy, packet_start_, false);
 
-  return hasher.finalize();
+  return hash;
 }
 
 bool Packet::checkIntegrity() const {

@@ -50,19 +50,8 @@ P2PSecureProducerSocket::P2PSecureProducerSocket(
       map_producers(),
       list_producers() {
   /* Setup SSL context (identity and parameter to use TLS 1.3) */
-  der_cert_ = parcKeyStore_GetDEREncodedCertificate(
-      (identity->getSigner()->getParcKeyStore()));
-  der_prk_ = parcKeyStore_GetDEREncodedPrivateKey(
-      (identity->getSigner()->getParcKeyStore()));
-
-  int cert_size = (int)parcBuffer_Limit(der_cert_);
-  int prk_size = (int)parcBuffer_Limit(der_prk_);
-  const uint8_t *cert =
-      reinterpret_cast<uint8_t *>(parcBuffer_Overlay(der_cert_, cert_size));
-  const uint8_t *prk =
-      reinterpret_cast<uint8_t *>(parcBuffer_Overlay(der_prk_, prk_size));
-  cert_509_ = d2i_X509(NULL, &cert, cert_size);
-  pkey_rsa_ = d2i_AutoPrivateKey(NULL, &prk, prk_size);
+  cert_509_ = identity->getCertificate().get(); 
+  pkey_rsa_ = identity->getPrivateKey().get();  
 
   /* Set the callback so that when an interest is received we catch it and we
    * decrypt the payload before passing it to the application.  */
@@ -74,8 +63,6 @@ P2PSecureProducerSocket::P2PSecureProducerSocket(
 }
 
 P2PSecureProducerSocket::~P2PSecureProducerSocket() {
-  if (der_cert_) parcBuffer_Release(&der_cert_);
-  if (der_prk_) parcBuffer_Release(&der_prk_);
 }
 
 void P2PSecureProducerSocket::initSessionSocket(
@@ -128,8 +115,7 @@ void P2PSecureProducerSocket::onInterestCallback(interface::ProducerSocket &p,
   TLSProducerSocket *tls_producer_ptr = tls_producer.get();
   map_producers.insert({interest.getName(), move(tls_producer)});
 
-  TRANSPORT_LOGD("Start handshake at %s",
-                 interest.getName().toString().c_str());
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "Start handshake at " << interest.getName();
 
   if (!rtc_) {
     tls_producer_ptr->onInterest(*tls_producer_ptr, interest);

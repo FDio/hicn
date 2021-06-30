@@ -34,7 +34,7 @@ FixedManifestEncoder::FixedManifestEncoder(Packet &packet,
       current_entry_(0),
       signature_size_(signature_size) {
   if (clear) {
-        memset(manifest_header_, 0, sizeof(*manifest_header_));
+    *manifest_header_ = {0};
   }
 }
 
@@ -51,7 +51,7 @@ FixedManifestEncoder &FixedManifestEncoder::clearImpl() {
   packet_.trimEnd(sizeof(ManifestHeader) +
                   manifest_header_->number_of_entries * sizeof(ManifestEntry));
   current_entry_ = 0;
-      memset(manifest_header_, 0, sizeof(*manifest_header_));
+  *manifest_header_ = {0};
   return *this;
 }
 
@@ -85,8 +85,8 @@ FixedManifestEncoder &FixedManifestEncoder::setBaseNameImpl(
 
 FixedManifestEncoder &FixedManifestEncoder::addSuffixAndHashImpl(
     uint32_t suffix, const auth::CryptoHash &hash) {
-  auto _hash = hash.getDigest<std::uint8_t>();
-  addSuffixHashBytes(suffix, _hash.data(), _hash.length());
+  auto _hash = hash.getDigest();
+  addSuffixHashBytes(suffix, _hash.data(), _hash.size());
   return *this;
 }
 

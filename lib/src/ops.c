@@ -23,7 +23,6 @@
 #endif
 #include <stdlib.h>
 #include <hicn/ops.h>
-
 #include <hicn/header.h>
 
 extern const hicn_ops_t hicn_ops_ipv4;
@@ -73,6 +72,8 @@ DECLARE_get_validation_algorithm (none, NONE);
 DECLARE_set_key_id (none, NONE);
 DECLARE_get_key_id (none, NONE);
 DECLARE_get_signature (none, NONE);
+DECLARE_get_signature_gap (none, NONE);
+DECLARE_set_signature_gap (none, NONE);
 DECLARE_HICN_OPS (none);
 
 /**
@@ -81,11 +82,11 @@ DECLARE_HICN_OPS (none);
  */
 const hicn_ops_t *const hicn_ops_vft[] = {
   /*  0 */ [IPPROTO_IP] = &hicn_ops_ipv4,
-  /*  1 */ [IPPROTO_ICMP] = &hicn_ops_icmp,
-  /*  6 */ [IPPROTO_TCP] = &hicn_ops_tcp,
-  /* 41 */ [IPPROTO_IPV6] = &hicn_ops_ipv6,
-  /* 51 */ [IPPROTO_AH] = &hicn_ops_ah,
-  /* 58 */ [IPPROTO_ICMPV6] = &hicn_ops_icmp,
+  /*  1 */[IPPROTO_ICMP] = &hicn_ops_icmp,
+  /*  6 */[IPPROTO_TCP] = &hicn_ops_tcp,
+  /* 41 */[IPPROTO_IPV6] = &hicn_ops_ipv6,
+  /* 51 */[IPPROTO_AH] = &hicn_ops_ah,
+  /* 58 */[IPPROTO_ICMPV6] = &hicn_ops_icmp,
   [IPPROTO_NONE] = &hicn_ops_none,
 };
 

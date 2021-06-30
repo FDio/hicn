@@ -16,8 +16,8 @@
 #ifndef _WIN32
 #include <dlfcn.h>
 #endif
+#include <glog/logging.h>
 #include <hicn/transport/core/io_module.h>
-#include <hicn/transport/utils/log.h>
 
 #ifdef ANDROID
 #include <io_modules/udp/hicn_forwarder_module.h>
@@ -45,16 +45,16 @@ IoModule *IoModule::load(const char *module_name) {
   handle = dlopen(module_name, RTLD_NOW);
   if (!handle) {
     if ((error = dlerror()) != 0) {
-      TRANSPORT_LOGE("%s", error);
+      LOG(ERROR) << error;
     }
     return 0;
   }
 
-  // link factory method
+  // get factory method
   creator = (IoModule * (*)(void)) dlsym(handle, "create_module");
   if (!creator) {
     if ((error = dlerror()) != 0) {
-      TRANSPORT_LOGE("%s", error);
+      LOG(ERROR) << error;
       return 0;
     }
   }

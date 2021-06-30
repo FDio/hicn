@@ -392,6 +392,22 @@ hicn_packet_set_signature_size (hicn_format_t format, hicn_header_t *h,
 }
 
 int
+hicn_packet_get_signature_gap (hicn_format_t format, const hicn_header_t *h,
+			       uint8_t *bytes)
+{
+  hicn_type_t type = hicn_format_to_type (format);
+  return hicn_ops_vft[type.l1]->get_signature_gap (type, &h->protocol, bytes);
+}
+
+int
+hicn_packet_set_signature_gap (hicn_format_t format, hicn_header_t *h,
+			       uint8_t bytes)
+{
+  hicn_type_t type = hicn_format_to_type (format);
+  return hicn_ops_vft[type.l1]->set_signature_gap (type, &h->protocol, bytes);
+}
+
+int
 hicn_packet_set_signature_timestamp (hicn_format_t format, hicn_header_t *h,
 				     uint64_t signature_timestamp)
 {
@@ -1041,8 +1057,8 @@ int
 hicn_interest_set_name (hicn_format_t format, hicn_header_t *interest,
 			const hicn_name_t *name)
 {
-  int ret_err =
-    hicn_packet_reset_ece (format, interest); // interest packet -> ece flag unset
+  int ret_err = hicn_packet_reset_ece (
+    format, interest); // interest packet -> ece flag unset
   if (ret_err < 0)
     return HICN_LIB_ERROR_UNEXPECTED;
   return hicn_packet_set_name (format, interest, name, _INTEREST);
@@ -1134,7 +1150,8 @@ int
 hicn_data_set_name (hicn_format_t format, hicn_header_t *data,
 		    const hicn_name_t *name)
 {
-  int ret_err = hicn_packet_set_ece (format, data); // data packet -> ece flag set
+  int ret_err =
+    hicn_packet_set_ece (format, data); // data packet -> ece flag set
   if (ret_err < 0)
     return HICN_LIB_ERROR_UNEXPECTED;
   return hicn_packet_set_name (format, data, name, _DATA);

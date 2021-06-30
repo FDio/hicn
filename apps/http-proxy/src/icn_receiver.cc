@@ -55,28 +55,28 @@ AsyncConsumerProducer::AsyncConsumerProducer(
       interface::GeneralTransportOptions::OUTPUT_BUFFER_SIZE, cache_size_);
 
   if (ret != SOCKET_OPTION_SET) {
-    TRANSPORT_LOGD("Warning: output buffer size has not been set.");
+    TRANSPORT_LOG_WARNING << "Warning: output buffer size has not been set.";
   }
 
   ret = producer_socket_.setSocketOption(
       interface::GeneralTransportOptions::MAKE_MANIFEST, manifest);
 
   if (ret != SOCKET_OPTION_SET) {
-    TRANSPORT_LOGD("Warning: impossible to enable signatures.");
+    TRANSPORT_LOG_WARNING << "Warning: impossible to enable signatures.";
   }
 
   ret = producer_socket_.setSocketOption(
       interface::GeneralTransportOptions::DATA_PACKET_SIZE, mtu_);
 
   if (ret != SOCKET_OPTION_SET) {
-    TRANSPORT_LOGD("Warning: mtu has not been set.");
+    TRANSPORT_LOG_WARNING << "Warning: mtu has not been set.";
   }
 
   producer_socket_.registerPrefix(prefix_);
 }
 
 void AsyncConsumerProducer::start() {
-  TRANSPORT_LOGD("Starting listening");
+  TRANSPORT_LOG_INFO << "Starting listening";
   doReceive();
 }
 
@@ -90,8 +90,8 @@ void AsyncConsumerProducer::run() {
 
 void AsyncConsumerProducer::stop() {
   io_service_.post([this]() {
-    TRANSPORT_LOGI("Number of requests processed by plugin: %lu",
-                   (unsigned long)request_counter_);
+    TRANSPORT_LOG_INFO << "Number of requests processed by plugin: "
+                       << request_counter_;
     producer_socket_.stop();
     connector_.close();
   });
@@ -123,16 +123,14 @@ void AsyncConsumerProducer::manageIncomingInterest(
 
   if (_it != _end) {
     if (_it->second.second) {
-      TRANSPORT_LOGD(
-          "Content is in production, interests will be satisfied shortly.");
       return;
     }
 
     if (seg >= _it->second.first) {
-      TRANSPORT_LOGD(
-          "Ignoring interest with name %s for a content object which does not "
-          "exist. (Request: %u, max: %u)",
-          name.toString().c_str(), (uint32_t)seg, (uint32_t)_it->second.first);
+      // TRANSPORT_LOGD(
+      //     "Ignoring interest with name %s for a content object which does not "
+      //     "exist. (Request: %u, max: %u)",
+      //     name.toString().c_str(), (uint32_t)seg, (uint32_t)_it->second.first);
       return;
     }
   }
@@ -170,7 +168,7 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
       options.getLifetime());
 
   if (TRANSPORT_EXPECT_FALSE(ret != SOCKET_OPTION_SET)) {
-    TRANSPORT_LOGD("Warning: content object lifetime has not been set.");
+    TRANSPORT_LOG_WARNING << "Warning: content object lifetime has not been set.";
   }
 
   const interface::Name& name = options.getName();

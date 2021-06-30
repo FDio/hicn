@@ -71,7 +71,7 @@ double stdDeviation(const unsigned long samples[], int size) {
 
 }  // namespace
 
-TEST_F(EventThreadTest, SchedulingDelay) {
+TEST_F(EventThreadTest, DISABLED_SchedulingDelay) {
   using namespace std::chrono;
   const size_t size = 1000000;
   std::vector<unsigned long> samples(size);
@@ -95,12 +95,3 @@ TEST_F(EventThreadTest, SchedulingDelay) {
 }
 
 }  // namespace utils
-
-int main(int argc, char **argv) {
-#if 0
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-#else
-  return 0;
-#endif
-}

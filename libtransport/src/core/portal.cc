@@ -88,8 +88,7 @@ std::string getIoModulePath(const std::string& name,
 
   for (auto& p : paths) {
     if (p.at(0) != '/') {
-      TRANSPORT_LOGW("Path %s is not an absolute path. Ignoring it.",
-                     p.c_str());
+      LOG(WARNING) << "Path " << p << " is not an absolute path. Ignoring it.";
       continue;
     }
 

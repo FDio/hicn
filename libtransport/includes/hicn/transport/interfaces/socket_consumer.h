@@ -23,10 +23,7 @@
 #include <hicn/transport/interfaces/socket_options_keys.h>
 #include <hicn/transport/auth/verifier.h>
 
-#ifndef ASIO_STANDALONE
-#define ASIO_STANDALONE
-#endif
-#include <asio/io_service.hpp>
+#include <hicn/transport/core/asio_wrapper.h>
 
 #define CONSUMER_FINISHED 0
 #define CONSUMER_BUSY 1

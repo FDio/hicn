@@ -14,8 +14,8 @@
  */
 
 #include <core/global_configuration.h>
+#include <glog/logging.h>
 #include <hicn/transport/core/connector.h>
-#include <hicn/transport/utils/log.h>
 
 #include <libconfig.h++>
 #include <map>
@@ -32,11 +32,11 @@ bool GlobalConfiguration::parseTransportConfig(const std::string& path) {
   try {
     cfg.readFile(path.c_str());
   } catch (const FileIOException& fioex) {
-    TRANSPORT_LOGE("I/O error while reading file: %s", fioex.what());
+    LOG(ERROR) << "I/O error while reading file.";
     return false;
   } catch (const ParseException& pex) {
-    TRANSPORT_LOGE("Parse error at %s:%d - %s", pex.getFile(), pex.getLine(),
-                   pex.getError());
+    LOG(ERROR) << "Parse error at " << pex.getFile() << ":" << pex.getLine()
+               << " - " << pex.getError();
     return false;
   }
 
@@ -50,11 +50,11 @@ bool GlobalConfiguration::parseTransportConfig(const std::string& path) {
   for (auto section = root.begin(); section != root.end(); section++) {
     std::string name = section->getName();
     std::error_code ec;
-    TRANSPORT_LOGD("Parsing Section: %s", name.c_str());
+    VLOG(2) << "Parsing Section: " << name;
 
     auto it = configuration_parsers_.find(name);
     if (it != configuration_parsers_.end() && !it->second.first) {
-      TRANSPORT_LOGD("Found valid configuration parser");
+      VLOG(2) << "Found valid configuration parser";
       it->second.second(*section, ec);
       it->second.first = true;
     }
@@ -64,18 +64,17 @@ bool GlobalConfiguration::parseTransportConfig(const std::string& path) {
 }
 
 void GlobalConfiguration::parseConfiguration(const std::string& path) {
-  // Check if an environment variable with the configuration path exists. COnf
+  // Check if an environment variable with the configuration path exists. Conf
   // variable comes first.
   std::unique_lock<std::mutex> lck(cp_mtx_);
-
   if (const char* env_c = std::getenv(GlobalConfiguration::conf_file)) {
     parseTransportConfig(env_c);
   } else if (!path.empty()) {
     conf_file_path_ = path;
     parseTransportConfig(conf_file_path_);
   } else {
-    TRANSPORT_LOGD(
-        "Called parseConfiguration but no configuration file was provided.");
+    LOG(ERROR)
+        << "Called parseConfiguration but no configuration file was provided.";
   }
 }
 
@@ -83,10 +82,9 @@ void GlobalConfiguration::registerConfigurationSetter(
     const std::string& key, const SetCallback& set_callback) {
   std::unique_lock<std::mutex> lck(cp_mtx_);
   if (configuration_setters_.find(key) != configuration_setters_.end()) {
-    TRANSPORT_LOGW(
-        "Trying to register configuration setter %s twice. Ignoring second "
-        "registration attempt.",
-        key.c_str());
+    LOG(WARNING) << "Trying to register configuration setter " << key
+                 << " twice. Ignoring second "
+                    "registration attempt.";
   } else {
     configuration_setters_.emplace(key, set_callback);
   }
@@ -96,10 +94,9 @@ void GlobalConfiguration::registerConfigurationGetter(
     const std::string& key, const GetCallback& get_callback) {
   std::unique_lock<std::mutex> lck(cp_mtx_);
   if (configuration_getters_.find(key) != configuration_getters_.end()) {
-    TRANSPORT_LOGW(
-        "Trying to register configuration getter %s twice. Ignoring second "
-        "registration attempt.",
-        key.c_str());
+    LOG(WARNING) << "Trying to register configuration setter " << key
+                 << " twice. Ignoring second "
+                    "registration attempt.";
   } else {
     configuration_getters_.emplace(key, get_callback);
   }
@@ -109,10 +106,9 @@ void GlobalConfiguration::registerConfigurationParser(
     const std::string& key, const ParserCallback& parser) {
   std::unique_lock<std::mutex> lck(cp_mtx_);
   if (configuration_parsers_.find(key) != configuration_parsers_.end()) {
-    TRANSPORT_LOGW(
-        "Trying to register configuration key %s twice. Ignoring second "
-        "registration attempt.",
-        key.c_str());
+    LOG(WARNING) << "Trying to register configuration setter " << key
+                 << " twice. Ignoring second "
+                    "registration attempt.";
   } else {
     configuration_parsers_.emplace(key, std::make_pair(false, parser));
 

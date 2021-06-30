@@ -15,25 +15,40 @@
 
 #pragma once
 
-extern "C" {
-#include <parc/security/parc_CryptoSuite.h>
-};
+#include <hicn/transport/auth/crypto_hash.h>
 
-#include <cstdint>
+extern "C" {
+#include <openssl/obj_mac.h>
+}
 
 namespace transport {
 namespace auth {
 
 enum class CryptoSuite : uint8_t {
-  RSA_SHA256 = PARCCryptoSuite_RSA_SHA256,
-  DSA_SHA256 = PARCCryptoSuite_DSA_SHA256,
-  RSA_SHA512 = PARCCryptoSuite_RSA_SHA512,
-  HMAC_SHA256 = PARCCryptoSuite_HMAC_SHA256,
-  HMAC_SHA512 = PARCCryptoSuite_HMAC_SHA512,
-  NULL_CRC32C = PARCCryptoSuite_NULL_CRC32C,
-  ECDSA_256K1 = PARCCryptoSuite_ECDSA_SHA256,
-  UNKNOWN = PARCCryptoSuite_UNKNOWN
+  UNKNOWN,
+  ECDSA_BLAKE2B512,
+  ECDSA_BLAKE2S256,
+  ECDSA_SHA256,
+  ECDSA_SHA512,
+  RSA_BLAKE2B512,
+  RSA_BLAKE2S256,
+  RSA_SHA256,
+  RSA_SHA512,
+  HMAC_BLAKE2B512,
+  HMAC_BLAKE2S256,
+  HMAC_SHA256,
+  HMAC_SHA512,
+  DSA_BLAKE2B512,
+  DSA_BLAKE2S256,
+  DSA_SHA256,
+  DSA_SHA512,
 };
+
+// Return the suite associated to the given NID
+CryptoSuite getSuite(int nid);
+
+// Return the hash type associated to the given suite
+CryptoHashType getHashType(CryptoSuite suite);
 
 }  // namespace auth
 }  // namespace transport

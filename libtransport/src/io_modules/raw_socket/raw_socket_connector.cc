@@ -15,7 +15,6 @@
 
 #include <core/raw_socket_connector.h>
 #include <hicn/transport/utils/conversions.h>
-#include <hicn/transport/utils/log.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -165,7 +164,7 @@ void RawSocketConnector::doSendPacket() {
             doSendPacket();
           }
         } else {
-          TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+          LOG(ERROR) << ec.value() << " " << ec.message();
         }
       });
 }
@@ -185,7 +184,7 @@ void RawSocketConnector::doRecvPacket() {
             receive_callback_(std::move(read_msg_));
           }
         } else {
-          TRANSPORT_LOGE("%d %s", ec.value(), ec.message().c_str());
+          LOG(ERROR) << ec.value() << " " << ec.message();
         }
         doRecvPacket();
       });
