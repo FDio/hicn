@@ -16,14 +16,13 @@
 #pragma once
 
 #include <hicn/transport/config.h>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/interfaces/portal.h>
 #include <hicn/transport/portability/portability.h>
 #include <utils/deadline_timer.h>
-
-#include <asio/steady_timer.hpp>
 
 namespace transport {
 
@@ -80,8 +79,8 @@ class PendingInterest {
     return std::move(interest_);
   }
 
-  TRANSPORT_ALWAYS_INLINE void setInterest(Interest::Ptr &&interest) {
-    interest_ = std::move(interest);
+  TRANSPORT_ALWAYS_INLINE void setInterest(Interest::Ptr &interest) {
+    interest_ = interest;
   }
 
   TRANSPORT_ALWAYS_INLINE const OnContentObjectCallback &getOnDataCallback()

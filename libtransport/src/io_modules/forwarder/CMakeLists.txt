@@ -11,9 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-
-
 list(APPEND MODULE_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/connector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/endpoint.h
@@ -37,7 +34,7 @@ build_module(forwarder_module
     SHARED
     SOURCES ${MODULE_SOURCE_FILES}
     DEPENDS ${DEPENDENCIES}
-    COMPONENT lib${LIBTRANSPORT}
+    COMPONENT ${LIBTRANSPORT_COMPONENT}-io-modules
     INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS} ${LIBTRANSPORT_INTERNAL_INCLUDE_DIRS}
     DEFINITIONS ${COMPILER_DEFINITIONS}
     COMPILE_OPTIONS ${COMPILE_FLAGS}

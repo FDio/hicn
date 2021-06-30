@@ -15,18 +15,14 @@
 
 #pragma once
 
+#include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/config.h>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/core/prefix.h>
 #include <hicn/transport/interfaces/callbacks.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/socket_options_keys.h>
-#include <hicn/transport/auth/verifier.h>
-
-#ifndef ASIO_STANDALONE
-#define ASIO_STANDALONE
-#endif
-#include <asio/io_service.hpp>
 
 #define CONSUMER_FINISHED 0
 #define CONSUMER_BUSY 1

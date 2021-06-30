@@ -1,0 +1,23 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 62ebbcc..7d92fa5 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -41,9 +41,6 @@ if (NOT WITH_THREADS)
+   set (CMAKE_DISABLE_FIND_PACKAGE_Threads ON)
+ endif (NOT WITH_THREADS)
+ 
+-set (CMAKE_C_VISIBILITY_PRESET hidden)
+-set (CMAKE_CXX_VISIBILITY_PRESET hidden)
+-set (CMAKE_VISIBILITY_INLINES_HIDDEN 1)
+ list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+ 
+ include (CheckCXXSourceCompiles)
+@@ -570,7 +567,7 @@ if (_glog_CMake_MODULES)
+   )
+ endif (_glog_CMake_MODULES)
+ 
+-add_library (glog
++add_library (glog OBJECT
+   ${GLOG_SRCS}
+   ${_glog_BINARY_CMake_MODULES}
+ )

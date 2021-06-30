@@ -42,7 +42,7 @@ class ContentObject : public Packet {
                 std::size_t payload_size);
 
   template <typename... Args>
-  ContentObject(CopyBufferOp op, Args &&...args)
+  ContentObject(CopyBufferOp op, Args &&... args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
         0) {
@@ -51,7 +51,7 @@ class ContentObject : public Packet {
   }
 
   template <typename... Args>
-  ContentObject(WrapBufferOp op, Args &&...args)
+  ContentObject(WrapBufferOp op, Args &&... args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
         0) {
@@ -60,7 +60,7 @@ class ContentObject : public Packet {
   }
 
   template <typename... Args>
-  ContentObject(CreateOp op, Args &&...args)
+  ContentObject(CreateOp op, Args &&... args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
         0) {
@@ -81,8 +81,6 @@ class ContentObject : public Packet {
   Name &getWritableName() override;
 
   void setName(const Name &name) override;
-
-  void setName(Name &&name) override;
 
   uint32_t getPathLabel() const;
 

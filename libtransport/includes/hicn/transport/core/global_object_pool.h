@@ -71,7 +71,7 @@ class PacketManager
   template <
       typename PacketType, typename... Args,
       typename = std::enable_if_t<std::is_base_of<Packet, PacketType>::value>>
-  typename PacketType::Ptr getPacket(Args &&...args) {
+  typename PacketType::Ptr getPacket(Args &&... args) {
     PacketType *memory = nullptr;
 
     memory = reinterpret_cast<PacketType *>(memory_pool_.allocateBlock());
@@ -98,7 +98,7 @@ class PacketManager
   template <typename PacketType, typename... Args>
   typename PacketType::Ptr getPacketFromExistingBuffer(uint8_t *buffer,
                                                        std::size_t length,
-                                                       Args &&...args) {
+                                                       Args &&... args) {
     auto offset = offsetof(PacketStorage, align);
     auto memory = reinterpret_cast<PacketType *>(buffer - offset);
     utils::STLAllocator<PacketType, MemoryPool> allocator(memory,

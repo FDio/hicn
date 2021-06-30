@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 project(hicn-fdio)
 
@@ -23,8 +23,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 option(BUILD_LIBHICN "Build the hicn core library" ON)
 option(BUILD_HICNLIGHT "Build the hicn light forwarder" ON)
 option(BUILD_LIBTRANSPORT "Build the hicn transport library" ON)
-option(BUILD_UTILS "Build the hicn utils" ON)
-option(BUILD_APPS "Build the hicn apps" OFF)
+option(BUILD_APPS "Build the hicn apps" ON)
 if (NOT WIN32)
   option(BUILD_CTRL "Build the hicn control tools" ON)
   option(DISABLE_SHARED_LIBRARIES "Disable shared libraries" OFF)
@@ -39,7 +38,7 @@ option(BUILD_TELEMETRY "Build telemetry projects" OFF)
 option(BUILD_TESTS "Build unit tests" OFF)
 option(DISABLE_EXECUTABLES "Disable executables" OFF)
 
-if ((BUILD_APPS OR BUILD_UTILS) AND NOT BUILD_LIBTRANSPORT)
+if (BUILD_APPS AND NOT BUILD_LIBTRANSPORT)
   message(STATUS "Libhicntransport required. Enabled by default.")
   set (BUILD_LIBTRANSPORT ON)
 endif()
@@ -51,7 +50,6 @@ endif()
 
 if ((BUILD_HICNLIGHT OR
      BUILD_LIBTRANSPORT OR
-     BUILD_UTILS OR
      BUILD_APPS OR
      BUILD_CTRL OR
      BUILD_HICNPLUGIN OR
@@ -67,7 +65,6 @@ list(APPEND dir_options
   BUILD_HICNPLUGIN
   BUILD_CTRL
   BUILD_LIBTRANSPORT
-  BUILD_UTILS
   BUILD_APPS
   BUILD_SYSREPOPLUGIN
   BUILD_EXTRAS
@@ -77,7 +74,6 @@ list(APPEND dir_options
 set(BUILD_LIBHICN_DIR lib)
 set(BUILD_HICNLIGHT_DIR hicn-light)
 set(BUILD_LIBTRANSPORT_DIR libtransport)
-set(BUILD_UTILS_DIR utils)
 set(BUILD_APPS_DIR apps)
 set(BUILD_CTRL_DIR ctrl)
 set(BUILD_HICNPLUGIN_DIR hicn-plugin)
@@ -93,10 +89,6 @@ foreach (opt ${dir_options})
     )
   endif()
 endforeach()
-
-if (NOT WIN32)
-  add_compile_options(-Wall -Werror -Wno-shorten-64-to-32)
-endif ()
 
 # Add unit tests
 if (BUILD_TESTS)

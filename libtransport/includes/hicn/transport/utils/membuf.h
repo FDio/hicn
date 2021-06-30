@@ -719,8 +719,8 @@ class MemBuf {
   /**
    * Override operator == and !=
    */
-  bool operator ==(const MemBuf &other);
-  bool operator !=(const MemBuf &other);
+  bool operator==(const MemBuf& other);
+  bool operator!=(const MemBuf& other);
 
   // /**
   //  * Iteration support: a chain of MemBufs may be iterated through using

@@ -26,6 +26,7 @@ ProductionProtocol::ProductionProtocol(
     implementation::ProducerSocket *icn_socket)
     : socket_(icn_socket),
       is_running_(false),
+      fec_encoder_(nullptr),
       on_interest_input_(VOID_HANDLER),
       on_interest_dropped_input_buffer_(VOID_HANDLER),
       on_interest_inserted_input_buffer_(VOID_HANDLER),
@@ -36,7 +37,8 @@ ProductionProtocol::ProductionProtocol(
       on_content_object_in_output_buffer_(VOID_HANDLER),
       on_content_object_output_(VOID_HANDLER),
       on_content_object_evicted_from_output_buffer_(VOID_HANDLER),
-      on_content_produced_(VOID_HANDLER) {
+      on_content_produced_(VOID_HANDLER),
+      fec_type_(fec::FECType::UNKNOWN) {
   socket_->getSocketOption(GeneralTransportOptions::PORTAL, portal_);
   // TODO add statistics for producer
   //   socket_->getSocketOption(OtherOptions::STATISTICS, &stats_);
@@ -75,6 +77,9 @@ int ProductionProtocol::start() {
                            &on_content_produced_);
 
   socket_->getSocketOption(GeneralTransportOptions::ASYNC_MODE, is_async_);
+  socket_->getSocketOption(GeneralTransportOptions::SIGNER, signer_);
+  socket_->getSocketOption(GeneralTransportOptions::MAKE_MANIFEST,
+                           making_manifest_);
 
   bool first = true;
 

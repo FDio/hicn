@@ -13,12 +13,11 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
-#include <hicn/transport/utils/log.h>
 #include <io_modules/loopback/local_face.h>
-
-#include <asio/io_service.hpp>
 
 namespace transport {
 namespace core {
@@ -56,7 +55,7 @@ Face &Face::operator=(Face &&other) {
 }
 
 void Face::onPacket(const Packet &packet) {
-  TRANSPORT_LOGD("Sending content to local socket.");
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "Sending content to local socket.";
 
   if (Packet::isInterest(packet.data())) {
     rescheduleOnIoService<Interest>(packet);

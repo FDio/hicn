@@ -48,13 +48,13 @@ int TLSProducerSocket::readOld(BIO *b, char *buf, int size) {
 
   std::unique_lock<std::mutex> lck(socket->mtx_);
 
-  TRANSPORT_LOGD("Start wait on the CV.");
+  DLOG_IF(INFO, VLOG_IS_ON(4)) << "Start wait on the CV.";
 
   if (!socket->something_to_read_) {
     (socket->cv_).wait(lck);
   }
 
-  TRANSPORT_LOGD("CV unlocked.");
+  DLOG_IF(INFO, VLOG_IS_ON(4)) << "CV unlocked.";
 
   /* Either there already is something to read, or the thread has been waken up.
    * We must return the payload in the interest anyway */
@@ -253,7 +253,7 @@ void TLSProducerSocket::accept() {
   }
 
   handshake_state_ = SERVER_FINISHED;
-  TRANSPORT_LOGD("Handshake performed!");
+  DLOG_IF(INFO, VLOG_IS_ON(2)) << "Handshake performed!";
 }
 
 int TLSProducerSocket::async_accept() {
@@ -305,7 +305,7 @@ void TLSProducerSocket::cacheMiss(interface::ProducerSocket &p,
                                   Interest &interest) {
   HandshakeState handshake_state = getHandshakeState();
 
-  TRANSPORT_LOGD("On cache miss in TLS socket producer.");
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "On cache miss in TLS socket producer.";
 
   if (handshake_state == CLIENT_HELLO) {
     std::unique_lock<std::mutex> lck(mtx_);
@@ -390,7 +390,8 @@ int TLSProducerSocket::addHicnKeyIdCb(SSL *s, unsigned int ext_type,
                                       void *add_arg) {
   TLSProducerSocket *socket = reinterpret_cast<TLSProducerSocket *>(add_arg);
 
-  TRANSPORT_LOGD("On addHicnKeyIdCb, for the prefix registration.");
+  DLOG_IF(INFO, VLOG_IS_ON(3))
+      << "On addHicnKeyIdCb, for the prefix registration.";
 
   if (ext_type == 100) {
     auto &prefix =

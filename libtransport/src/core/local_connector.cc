@@ -14,12 +14,11 @@
  */
 
 #include <core/local_connector.h>
+#include <glog/logging.h>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/errors/not_implemented_exception.h>
-#include <hicn/transport/utils/log.h>
-
-#include <asio/io_service.hpp>
 
 namespace transport {
 namespace core {
@@ -33,7 +32,7 @@ void LocalConnector::send(Packet &packet) {
     return;
   }
 
-  TRANSPORT_LOGD("Sending packet to local socket.");
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "Sending packet to local socket.";
   io_service_.get().post([this, p{packet.shared_from_this()}]() mutable {
     receive_callback_(this, *p, std::make_error_code(std::errc(0)));
   });

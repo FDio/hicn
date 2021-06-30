@@ -72,7 +72,7 @@ std::string getIoModulePath(const std::string& name,
 #elif defined(MACINTOSH)
   std::string extension = ".dylib";
 #elif defined(WINDOWS)
- std::string extension = ".lib";
+  std::string extension = ".lib";
 #else
 #error "Platform not supported.";
 #endif
@@ -88,8 +88,7 @@ std::string getIoModulePath(const std::string& name,
 
   for (auto& p : paths) {
     if (p.at(0) != '/') {
-      TRANSPORT_LOGW("Path %s is not an absolute path. Ignoring it.",
-                     p.c_str());
+      LOG(WARNING) << "Path " << p << " is not an absolute path. Ignoring it.";
       continue;
     }
 

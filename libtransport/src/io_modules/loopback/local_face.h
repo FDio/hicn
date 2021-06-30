@@ -15,11 +15,10 @@
 
 #pragma once
 
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/connector.h>
 #include <hicn/transport/core/global_object_pool.h>
 #include <hicn/transport/utils/move_wrapper.h>
-
-#include <asio/io_service.hpp>
 
 namespace transport {
 namespace core {

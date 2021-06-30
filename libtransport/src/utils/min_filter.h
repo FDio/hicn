@@ -15,9 +15,6 @@
 
 #pragma once
 
-#include <hicn/transport/portability/portability.h>
-#include <hicn/transport/utils/log.h>
-
 #include <deque>
 #include <iostream>
 #include <set>
@@ -34,7 +31,7 @@ class MinFilter {
   std::size_t size() { return by_arrival_.size(); }
 
   template <typename R>
-  TRANSPORT_ALWAYS_INLINE void pushBack(R&& value) {
+  void pushBack(R&& value) {
     if (by_arrival_.size() >= size_) {
       by_order_.erase(by_arrival_.back());
       by_arrival_.pop_back();
@@ -43,14 +40,14 @@ class MinFilter {
     by_arrival_.push_front(by_order_.insert(std::forward<R>(value)));
   }
 
-  TRANSPORT_ALWAYS_INLINE void clear() {
+  void clear() {
     by_arrival_.clear();
     by_order_.clear();
   }
 
-  TRANSPORT_ALWAYS_INLINE const T& begin() { return *by_order_.cbegin(); }
+  const T& begin() { return *by_order_.cbegin(); }
 
-  TRANSPORT_ALWAYS_INLINE const T& rBegin() { return *by_order_.crbegin(); }
+  const T& rBegin() { return *by_order_.crbegin(); }
 
  private:
   std::multiset<T> by_order_;
