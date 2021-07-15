@@ -44,9 +44,8 @@ VPP_VERSION_RPM="${VPP_VERSION_DEB}.x86_64"
 DEPS_UBUNTU=("build-essential"
              "doxygen"
              "curl"
+             "cmake"
              "libparc-dev"
-             "libmemif-dev"
-             "libmemif"
              "libasio-dev"
              "libconfig-dev"
              "libconfig++-dev"
@@ -54,27 +53,13 @@ DEPS_UBUNTU=("build-essential"
              "libevent-dev"
              "libssl-dev"
              "ninja-build"
-             "vpp=${VPP_VERSION_DEB}"
-             "vpp-dev=${VPP_VERSION_DEB}"
-             "libvppinfra=${VPP_VERSION_DEB}"
-             "libvppinfra-dev=${VPP_VERSION_DEB}"
-             "vpp-plugin-core=${VPP_VERSION_DEB}"
              "python3-ply")
 
-# BUILD_TOOLS_GROUP_CENTOS="'Development Tools'"
-DEPS_CENTOS=("vpp-devel-${VPP_VERSION_RPM}"
-             "vpp-lib-${VPP_VERSION_RPM}"
-             "libparc-devel"
-             "curl"
-             "libmemif-devel"
-             "ninja-build"
-             "libmemif"
-             "libcurl-devel"
-             "asio-devel"
-             "libconfig-devel"
-             "dnf-plugins-core"
-             "bzip2"
-             "rpm-build")
+DEPS_UBUNTU_VPP=("vpp=${VPP_VERSION_DEB}"
+                 "vpp-dev=${VPP_VERSION_DEB}"
+                 "libvppinfra=${VPP_VERSION_DEB}"
+                 "libvppinfra-dev=${VPP_VERSION_DEB}"
+                 "vpp-plugin-core=${VPP_VERSION_DEB}")
 
 COLLECTD_SOURCE="https://github.com/collectd/collectd/releases/download/collectd-5.12.0/collectd-5.12.0.tar.bz2"
 
@@ -87,16 +72,6 @@ function install_collectd_headers() {
     popd
 
     export COLLECTD_HOME=${PWD}/collectd-5.12.0/src
-}
-
-function install_cmake() {
-    [[ $(uname --hardware-platform) = "x86_64" ]] || return 0
-    CMAKE_INSTALL_SCRIPT_URL="https://github.com/Kitware/CMake/releases/download/v3.18.4/cmake-3.18.4-Linux-x86_64.sh"
-    CMAKE_INSTALL_SCRIPT="/tmp/install_cmake.sh"
-    curl -L ${CMAKE_INSTALL_SCRIPT_URL} > ${CMAKE_INSTALL_SCRIPT}
-
-    sudo mkdir -p ${CMAKE_INSTALL_DIR}
-    sudo bash ${CMAKE_INSTALL_SCRIPT} --skip-license --prefix=${CMAKE_INSTALL_DIR}
 }
 
 function setup_fdio_repo() {
@@ -117,16 +92,12 @@ function setup_fdio_repo() {
 # Install dependencies
 function install_deps() {
     DISTRIB_ID=${ID}
+    echo ${DEPS_UBUNTU[@]} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
+}
 
-    if [ ${DISTRIB_ID} == "ubuntu" ]; then
-        echo ${DEPS_UBUNTU[@]} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
-    elif [ ${DISTRIB_ID} == "centos" ]; then
-        yum config-manager --set-enabled powertools
-        # Temporary workaround until centos fixes the asio-devel package (https://forums.centos.org/viewtopic.php?t=73034)
-        curl -L http://mirror.centos.org/centos/8/PowerTools/x86_64/os/Packages/asio-devel-1.10.8-7.module_el8.1.0+217+4d875839.x86_64.rpm > /tmp/asio-devel-1.10.8-7.module_el8.1.0+217+4d875839.x86_64.rpm
-        yum localinstall -y --nogpgcheck /tmp/asio-devel-1.10.8-7.module_el8.1.0+217+4d875839.x86_64.rpm
-        echo ${DEPS_CENTOS[@]} | xargs sudo yum install -y --nogpgcheck
-    fi
+function install_vpp_deps() {
+    DISTRIB_ID=${ID}
+    echo ${DEPS_UBUNTU_VPP[@]} | xargs sudo ${apt_get} install -y --allow-unauthenticated --no-install-recommends
 }
 
 # Call a function once
@@ -147,6 +118,15 @@ function setup() {
 
     call_once setup_fdio_repo
     call_once install_deps
-    call_once install_cmake
+    call_once install_vpp_deps
+    call_once install_collectd_headers
+}
+
+function setup_extras() {
+    echo DISTRIBUTION: ${PRETTY_NAME}
+    # export variables depending on the platform we are running
+
+    call_once setup_fdio_repo
+    call_once install_deps
     call_once install_collectd_headers
 }
