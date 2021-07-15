@@ -17,6 +17,14 @@
 
 include(GNUInstallDirs)
 
+macro(remove_flag_from_target target flag)
+    get_target_property(target_cxx_flags ${target} COMPILE_OPTIONS)
+    if(target_cxx_flags)
+        list(REMOVE_ITEM target_cxx_flags ${flag})
+        set_target_properties(${target} PROPERTIES COMPILE_OPTIONS "${target_cxx_flags}")
+    endif()
+endmacro()
+
 macro(build_executable exec)
   cmake_parse_arguments(ARG
     "NO_INSTALL"
