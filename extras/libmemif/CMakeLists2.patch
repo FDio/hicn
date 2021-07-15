@@ -40,3 +40,5 @@ build_library(${LIBMEMIF}
   HEADER_ROOT_DIR memif
   COMPONENT ${COMPONENT}
 )
+
+remove_flag_from_target(${LIBMEMIF_SHARED} -Werror)
