@@ -17,9 +17,6 @@ set -euxo pipefail
 SCRIPT_PATH=$( cd "$(dirname "${BASH_SOURCE}")" ; pwd -P )
 source ${SCRIPT_PATH}/functions.sh
 
-# Libparc and libmemif are still not available in Ubuntu 20, so
-# we remove it from the list for now.
-# TODO Remove it as soon as they are available.
 DEPS_UBUNTU=(${DEPS_UBUNTU[@]/"libmemif-dev"})
 DEPS_UBUNTU=(${DEPS_UBUNTU[@]/"libmemif"})
 DEPS_UBUNTU=(${DEPS_UBUNTU[@]/"libparc-dev"})
@@ -33,7 +30,7 @@ DEPS_CENTOS=(${DEPS_CENTOS[@]/"libparc-devel"})
 # $1 = Package name
 #
 function build_package() {
-    setup
+    setup_extras
 
     echo "**************************************************************************"
     echo "********************* STARTING PACKAGE EXTRAS BUILD **********************"
