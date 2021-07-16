@@ -38,7 +38,7 @@ else
 fi
 
 VERSION_REGEX="s/v([0-9]+).([0-9]+)(.*)?-([0-9]+)-(g[0-9a-f]+)/\1.\2-release/g"
-VPP_VERSION_DEB=$(git describe --long --match "v*" | sed -E ${VERSION_REGEX})
+VPP_VERSION_DEB="$(git describe --long --match "v*" | sed -E ${VERSION_REGEX}).1"
 VPP_VERSION_RPM="${VPP_VERSION_DEB}.x86_64"
 
 DEPS_UBUNTU=("build-essential"
@@ -118,7 +118,6 @@ function call_once() {
 function setup() {
     echo DISTRIBUTION: ${PRETTY_NAME}
     # export variables depending on the platform we are running
-
     call_once setup_fdio_repo
     call_once install_deps
     call_once install_pkgcloud_deps
@@ -128,7 +127,6 @@ function setup() {
 function setup_extras() {
     echo DISTRIBUTION: ${PRETTY_NAME}
     # export variables depending on the platform we are running
-
     call_once install_deps
     call_once install_collectd_headers
 }
