@@ -22,11 +22,10 @@ void
 hicn_strategy_init_dpo_ctx_pool ()
 {
   pool_init_fixed (hicn_strategy_dpo_ctx_pool, 256);
-
 }
 
 void
-hicn_strategy_dpo_ctx_lock (dpo_id_t * dpo)
+hicn_strategy_dpo_ctx_lock (dpo_id_t *dpo)
 {
   hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo->dpoi_index);
 
@@ -37,7 +36,7 @@ hicn_strategy_dpo_ctx_lock (dpo_id_t * dpo)
 }
 
 void
-hicn_strategy_dpo_ctx_unlock (dpo_id_t * dpo)
+hicn_strategy_dpo_ctx_unlock (dpo_id_t *dpo)
 {
   hicn_dpo_ctx_t *hicn_strategy_dpo_ctx =
     (hicn_dpo_ctx_t *) hicn_strategy_dpo_ctx_get (dpo->dpoi_index);
@@ -54,7 +53,7 @@ hicn_strategy_dpo_ctx_unlock (dpo_id_t * dpo)
 }
 
 u8 *
-hicn_strategy_dpo_format_ctx (u8 * s, va_list * ap)
+hicn_strategy_dpo_format_ctx (u8 *s, va_list *ap)
 {
   index_t index = va_arg (*ap, index_t);
   hicn_dpo_ctx_t *dpo = NULL;
@@ -70,7 +69,7 @@ hicn_strategy_dpo_format_ctx (u8 * s, va_list * ap)
 }
 
 index_t
-hicn_strategy_dpo_ctx_get_index (hicn_dpo_ctx_t * cd)
+hicn_strategy_dpo_ctx_get_index (hicn_dpo_ctx_t *cd)
 {
   return (cd - hicn_strategy_dpo_ctx_pool);
 }
@@ -97,20 +96,20 @@ hicn_strategy_dpo_ctx_alloc ()
 }
 
 int
-hicn_strategy_dpo_ctx_add_nh (hicn_face_id_t nh, hicn_dpo_ctx_t * dpo_ctx,
-			      u8 * pos)
+hicn_strategy_dpo_ctx_add_nh (hicn_face_id_t nh, hicn_dpo_ctx_t *dpo_ctx,
+			      u8 *pos)
 {
 
   int empty = dpo_ctx->entry_count;
 
-  /* Iterate through the list of faces to find if the face is already a next hop */
+  /* Iterate through the list of faces to find if the face is already a next
+   * hop */
   for (int i = 0; i < dpo_ctx->entry_count; i++)
     {
       if (nh == dpo_ctx->next_hops[i])
 	{
 	  /* If face is marked as deleted, ignore it */
-	  hicn_face_t *face =
-	    hicn_dpoi_get_from_idx (dpo_ctx->next_hops[i]);
+	  hicn_face_t *face = hicn_dpoi_get_from_idx (dpo_ctx->next_hops[i]);
 	  if (face->flags & HICN_FACE_FLAGS_DELETED)
 	    {
 	      continue;
@@ -134,8 +133,7 @@ hicn_strategy_dpo_ctx_add_nh (hicn_face_id_t nh, hicn_dpo_ctx_t * dpo_ctx,
 }
 
 int
-hicn_strategy_dpo_ctx_del_nh (hicn_face_id_t face_id,
-			      hicn_dpo_ctx_t * dpo_ctx)
+hicn_strategy_dpo_ctx_del_nh (hicn_face_id_t face_id, hicn_dpo_ctx_t *dpo_ctx)
 {
   int ret = HICN_ERROR_DPO_CTX_NOT_FOUND;
   hicn_face_id_t invalid = NEXT_HOP_INVALID;
@@ -154,7 +152,6 @@ hicn_strategy_dpo_ctx_del_nh (hicn_face_id_t face_id,
     }
 
   return ret;
-
 }
 
 /*

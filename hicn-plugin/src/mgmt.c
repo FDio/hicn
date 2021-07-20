@@ -25,7 +25,7 @@
 
 /* shared routine betweeen API and CLI, leveraging API message structure */
 int
-hicn_mgmt_node_stats_get (vl_api_hicn_api_node_stats_get_reply_t * rmp)
+hicn_mgmt_node_stats_get (vl_api_hicn_api_node_stats_get_reply_t *rmp)
 {
   rmp->pkts_processed = 0;
   rmp->pkts_interest_count = 0;
@@ -46,46 +46,31 @@ hicn_mgmt_node_stats_get (vl_api_hicn_api_node_stats_get_reply_t * rmp)
 
   vlib_error_main_t *em;
   vlib_node_t *n;
-  foreach_vlib_main ((
-		       {
-		       em = &this_vlib_main->error_main;
-		       n =
-		       vlib_get_node (this_vlib_main,
-				      hicn_interest_pcslookup_node.index);
-		       u32 node_cntr_base_idx = n->error_heap_index;
-		       rmp->pkts_processed +=
-		       clib_host_to_net_u64 (em->counters[node_cntr_base_idx +
-							  HICNFWD_ERROR_PROCESSED]);
-		       rmp->pkts_interest_count +=
-		       clib_host_to_net_u64 (em->counters[node_cntr_base_idx +
-							  HICNFWD_ERROR_INTERESTS]);
-		       n =
-		       vlib_get_node (this_vlib_main,
-				      hicn_data_pcslookup_node.index);
-		       node_cntr_base_idx = n->error_heap_index;
-		       rmp->pkts_processed +=
-		       clib_host_to_net_u64 (em->counters[node_cntr_base_idx +
-							  HICNFWD_ERROR_PROCESSED]);
-		       rmp->pkts_data_count +=
-		       clib_host_to_net_u64 (em->counters[node_cntr_base_idx +
-							  HICNFWD_ERROR_DATAS]);
-		       n =
-		       vlib_get_node (this_vlib_main,
-				      hicn_interest_hitcs_node.index);
-		       node_cntr_base_idx = n->error_heap_index;
-		       rmp->pkts_from_cache_count +=
-		       clib_host_to_net_u64 (em->counters[node_cntr_base_idx +
-							  HICNFWD_ERROR_CACHED]);
-		       n =
-		       vlib_get_node (this_vlib_main,
-				      hicn_interest_hitpit_node.index);
-		       node_cntr_base_idx = n->error_heap_index;
-		       rmp->interests_aggregated +=
-		       clib_host_to_net_u64 (em->counters[node_cntr_base_idx +
-							  HICNFWD_ERROR_INTEREST_AGG]);
-		       rmp->interests_retx +=
-		       clib_host_to_net_u64 (em->counters[node_cntr_base_idx +
-							  HICNFWD_ERROR_INT_RETRANS]);}));
+  foreach_vlib_main() {
+    em = &this_vlib_main->error_main;
+    n = vlib_get_node (this_vlib_main, hicn_interest_pcslookup_node.index);
+    u32 node_cntr_base_idx = n->error_heap_index;
+    rmp->pkts_processed += clib_host_to_net_u64 (
+      em->counters[node_cntr_base_idx + HICNFWD_ERROR_PROCESSED]);
+    rmp->pkts_interest_count += clib_host_to_net_u64 (
+      em->counters[node_cntr_base_idx + HICNFWD_ERROR_INTERESTS]);
+    n = vlib_get_node (this_vlib_main, hicn_data_pcslookup_node.index);
+    node_cntr_base_idx = n->error_heap_index;
+    rmp->pkts_processed += clib_host_to_net_u64 (
+      em->counters[node_cntr_base_idx + HICNFWD_ERROR_PROCESSED]);
+    rmp->pkts_data_count += clib_host_to_net_u64 (
+      em->counters[node_cntr_base_idx + HICNFWD_ERROR_DATAS]);
+    n = vlib_get_node (this_vlib_main, hicn_interest_hitcs_node.index);
+    node_cntr_base_idx = n->error_heap_index;
+    rmp->pkts_from_cache_count += clib_host_to_net_u64 (
+      em->counters[node_cntr_base_idx + HICNFWD_ERROR_CACHED]);
+    n = vlib_get_node (this_vlib_main, hicn_interest_hitpit_node.index);
+    node_cntr_base_idx = n->error_heap_index;
+    rmp->interests_aggregated += clib_host_to_net_u64 (
+      em->counters[node_cntr_base_idx + HICNFWD_ERROR_INTEREST_AGG]);
+    rmp->interests_retx += clib_host_to_net_u64 (
+      em->counters[node_cntr_base_idx + HICNFWD_ERROR_INT_RETRANS]);
+  }
   return (HICN_ERROR_NONE);
 }
 

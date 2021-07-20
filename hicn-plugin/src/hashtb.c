@@ -27,11 +27,11 @@
 #include "error.h"
 
 /* return dvd/dvr, rounded up (intended for integer values) */
-#define    CEIL(dvd, dvr)                       \
-  ({                                            \
-    __typeof__ (dvd) _dvd = (dvd);              \
-    __typeof__ (dvr) _dvr = (dvr);              \
-    (_dvd + _dvr - 1)/_dvr;                     \
+#define CEIL(dvd, dvr)                                                        \
+  ({                                                                          \
+    __typeof__ (dvd) _dvd = (dvd);                                            \
+    __typeof__ (dvr) _dvr = (dvr);                                            \
+    (_dvd + _dvr - 1) / _dvr;                                                 \
   })
 
 #ifndef ALIGN8
@@ -39,7 +39,7 @@
 #endif
 
 #ifndef ALIGNPTR8
-#define ALIGNPTR8(p) ((void *)(((u8 * )(p) + 0x7) & ~(0x7)))
+#define ALIGNPTR8(p) ((void *) (((u8 *) (p) + 0x7) & ~(0x7)))
 #endif
 
 #ifndef ALIGN64
@@ -54,7 +54,6 @@
 #define FALSE 0
 #endif
 
-
 /*
  * Offset to aligned start of additional data (PIT/CS, FIB) embedded in each
  * node.
@@ -62,8 +61,8 @@
 u32 ht_node_data_offset_aligned;
 
 /* Some support for posix vs vpp mem management */
-#define MEM_ALLOC(x) clib_mem_alloc_aligned((x), 8)
-#define MEM_FREE(p) clib_mem_free((p))
+#define MEM_ALLOC(x) clib_mem_alloc_aligned ((x), 8)
+#define MEM_FREE(p)  clib_mem_free ((p))
 
 /*
  * Internal utilities
@@ -89,7 +88,7 @@ alloc_overflow_bucket (hicn_hashtb_h h)
 
 /* Free an overflow bucket; clear caller's pointer */
 static void
-free_overflow_bucket (hicn_hashtb_h h, hicn_hash_bucket_t ** pb)
+free_overflow_bucket (hicn_hashtb_h h, hicn_hash_bucket_t **pb)
 {
   hicn_hash_bucket_t *bkt = *pb;
 
@@ -104,7 +103,7 @@ free_overflow_bucket (hicn_hashtb_h h, hicn_hash_bucket_t ** pb)
  * Init, allocate a new hashtable
  */
 int
-hicn_hashtb_alloc (hicn_hashtb_h * ph, u32 max_elems, size_t app_data_size)
+hicn_hashtb_alloc (hicn_hashtb_h *ph, u32 max_elems, size_t app_data_size)
 {
   int ret = HICN_ERROR_NONE;
   hicn_hashtb_h h = NULL;
@@ -164,15 +163,17 @@ hicn_hashtb_alloc (hicn_hashtb_h * ph, u32 max_elems, size_t app_data_size)
       count = STRUCT_OFFSET_OF (hicn_hash_node_t, hn_data);
       ht_node_data_offset_aligned = ALIGN8 (count);
     }
-  //check app struct fits into space provided(HICN_HASH_NODE_APP_DATA_SIZE)
+  // check app struct fits into space provided(HICN_HASH_NODE_APP_DATA_SIZE)
   u32 ht_node_data_size;
   ht_node_data_size = sizeof (hicn_hash_node_t) - ht_node_data_offset_aligned;
   if (app_data_size > ht_node_data_size)
     {
-      clib_error
-	("hicn hashtable: fatal error: requested app data size(%u) > hashtb node's configured bytes available(%u), sizeof(hicn_shared_t)=%u, sizeof(hicn_pit_entry_t)=%u, sizeof(hicn_cs_entry_t)=%u",
-	 app_data_size, ht_node_data_size, sizeof (hicn_pcs_shared_t),
-	 sizeof (hicn_pit_entry_t), sizeof (hicn_cs_entry_t));
+      clib_error (
+	"hicn hashtable: fatal error: requested app data size(%u) > hashtb "
+	"node's configured bytes available(%u), sizeof(hicn_shared_t)=%u, "
+	"sizeof(hicn_pit_entry_t)=%u, sizeof(hicn_cs_entry_t)=%u",
+	app_data_size, ht_node_data_size, sizeof (hicn_pcs_shared_t),
+	sizeof (hicn_pit_entry_t), sizeof (hicn_cs_entry_t));
     }
   /*
    * Compute entry node count and size, allocate Allocate/'Hide' the
@@ -185,8 +186,8 @@ hicn_hashtb_alloc (hicn_hashtb_h * ph, u32 max_elems, size_t app_data_size)
       goto done;
     }
   pool_get_aligned (h->ht_nodes, nodep, 8);
-  //alloc node 0
-  nodep = nodep;		/* Silence 'not used' warning */
+  // alloc node 0
+  nodep = nodep; /* Silence 'not used' warning */
 
   h->ht_node_count = max_elems;
   h->ht_nodes_used = 1;
@@ -194,7 +195,7 @@ hicn_hashtb_alloc (hicn_hashtb_h * ph, u32 max_elems, size_t app_data_size)
   /*
    * Compute overflow bucket count and size, allocate
    */
-  //count = ALIGN8(CEIL(max_elems, HICN_HASHTB_OVERFLOW_FRACTION));
+  // count = ALIGN8(CEIL(max_elems, HICN_HASHTB_OVERFLOW_FRACTION));
   count = ALIGN8 (total_buckets - h->ht_bucket_count);
 
   pool_alloc_aligned (h->ht_overflow_buckets, count, 8);
@@ -205,7 +206,7 @@ hicn_hashtb_alloc (hicn_hashtb_h * ph, u32 max_elems, size_t app_data_size)
     }
   /* 'Hide' the zero-th node so we can use zero as an 'empty' value */
   pool_get_aligned (h->ht_overflow_buckets, bucket, 8);
-  bucket = bucket;		/* Silence 'not used' warning */
+  bucket = bucket; /* Silence 'not used' warning */
 
   h->ht_overflow_bucket_count = count;
   h->ht_overflow_buckets_used = 1;
@@ -230,7 +231,7 @@ done:
  * Free, de-allocate a hashtable
  */
 int
-hicn_hashtb_free (hicn_hashtb_h * ph)
+hicn_hashtb_free (hicn_hashtb_h *ph)
 {
   int ret = 0;
 
@@ -258,8 +259,6 @@ hicn_hashtb_free (hicn_hashtb_h * ph)
   return (ret);
 }
 
-
-
 /*
  * Basic api to lookup a specific hash+key tuple. This does the entire lookup
  * operation, retrieving node structs and comparing keys, so it's not
@@ -268,17 +267,15 @@ hicn_hashtb_free (hicn_hashtb_h * ph)
  * Returns zero and mails back a node on success, errno otherwise.
  */
 int
-hicn_hashtb_lookup_node (hicn_hashtb_h h, const u8 * key,
-			 u32 keylen, u64 hashval, u8 is_data,
-			 u32 * node_id, index_t * dpo_ctx_id, u8 * vft_id,
-			 u8 * is_cs, u8 * hash_entry_id, u32 * bucket_id,
-			 u8 * bucket_is_overflow)
+hicn_hashtb_lookup_node (hicn_hashtb_h h, const u8 *key, u32 keylen,
+			 u64 hashval, u8 is_data, u32 *node_id,
+			 index_t *dpo_ctx_id, u8 *vft_id, u8 *is_cs,
+			 u8 *hash_entry_id, u32 *bucket_id,
+			 u8 *bucket_is_overflow)
 {
-  return (hicn_hashtb_lookup_node_ex
-	  (h, key, keylen, hashval, is_data, FALSE /* deleted nodes */ ,
-	   node_id,
-	   dpo_ctx_id, vft_id, is_cs, hash_entry_id, bucket_id,
-	   bucket_is_overflow));
+  return (hicn_hashtb_lookup_node_ex (
+    h, key, keylen, hashval, is_data, FALSE /* deleted nodes */, node_id,
+    dpo_ctx_id, vft_id, is_cs, hash_entry_id, bucket_id, bucket_is_overflow));
 }
 
 /*
@@ -292,12 +289,11 @@ hicn_hashtb_lookup_node (hicn_hashtb_h h, const u8 * key,
  * Returns zero and mails back a node on success, errno otherwise.
  */
 int
-hicn_hashtb_lookup_node_ex (hicn_hashtb_h h, const u8 * key,
-			    u32 keylen, u64 hashval, u8 is_data,
-			    int include_deleted_p, u32 * node_id,
-			    index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
-			    u8 * hash_entry_id, u32 * bucket_id,
-			    u8 * bucket_is_overflow)
+hicn_hashtb_lookup_node_ex (hicn_hashtb_h h, const u8 *key, u32 keylen,
+			    u64 hashval, u8 is_data, int include_deleted_p,
+			    u32 *node_id, index_t *dpo_ctx_id, u8 *vft_id,
+			    u8 *is_cs, u8 *hash_entry_id, u32 *bucket_id,
+			    u8 *bucket_is_overflow)
 {
   int i, ret = HICN_ERROR_HASHTB_HASH_NOT_FOUND;
   int found_p = FALSE;
@@ -383,7 +379,7 @@ done:
  * return 1 if equals, 0 otherwise
  */
 int
-hicn_node_compare (const u8 * key, u32 keylen, hicn_hash_node_t * node)
+hicn_node_compare (const u8 *key, u32 keylen, hicn_hash_node_t *node)
 {
 
   int ret = 0;
@@ -400,8 +396,8 @@ hicn_node_compare (const u8 * key, u32 keylen, hicn_hash_node_t * node)
  * new a node+hash, and to clear out an entry during removal.
  */
 void
-hicn_hashtb_init_entry (hicn_hash_entry_t * entry, u32 nodeidx,
-			u64 hashval, u32 locks)
+hicn_hashtb_init_entry (hicn_hash_entry_t *entry, u32 nodeidx, u64 hashval,
+			u32 locks)
 {
   entry->he_msb64 = hashval;
   entry->he_node = nodeidx;
@@ -420,12 +416,10 @@ hicn_hashtb_init_entry (hicn_hash_entry_t * entry, u32 nodeidx,
  */
 
 int
-hicn_hashtb_insert (hicn_hashtb_h h, hicn_hash_node_t * node,
-		    hicn_hash_entry_t ** hash_entry, u64 hash,
-		    u32 * node_id,
-		    index_t * dpo_ctx_id, u8 * vft_id, u8 * is_cs,
-		    u8 * hash_entry_id, u32 * bucket_id,
-		    u8 * bucket_is_overflow)
+hicn_hashtb_insert (hicn_hashtb_h h, hicn_hash_node_t *node,
+		    hicn_hash_entry_t **hash_entry, u64 hash, u32 *node_id,
+		    index_t *dpo_ctx_id, u8 *vft_id, u8 *is_cs,
+		    u8 *hash_entry_id, u32 *bucket_id, u8 *bucket_is_overflow)
 {
   int i, ret = HICN_ERROR_HASHTB_INVAL;
   u32 bidx;
@@ -532,7 +526,6 @@ loop_buckets:
       bucket = pool_elt_at_index (h->ht_overflow_buckets, current_bucket_id);
       is_overflow = 1;
       goto loop_buckets;
-
     }
   else
     {
@@ -560,8 +553,8 @@ loop_buckets:
 	   * expect these to be properly aligned so they can be
 	   * treated as int.
 	   */
-	  memcpy (&(newbkt->hb_entries[0]),
-		  &(bucket->hb_entries[i]), sizeof (hicn_hash_entry_t));
+	  memcpy (&(newbkt->hb_entries[0]), &(bucket->hb_entries[i]),
+		  sizeof (hicn_hash_entry_t));
 
 	  /* Update bucket id and entry_idx on the hash node */
 	  hicn_hash_node_t *node =
@@ -569,7 +562,6 @@ loop_buckets:
 	  node->bucket_id = (newbkt - h->ht_overflow_buckets);
 	  node->entry_idx = 0;
 	  node->hn_flags |= HICN_HASH_NODE_OVERFLOW_BUCKET;
-
 	}
       /*
        * Connect original bucket to the index of the new overflow
@@ -625,13 +617,12 @@ done:
  * node. Caller's pointer is cleared on success.
  */
 void
-hicn_hashtb_delete (hicn_hashtb_h h, hicn_hash_node_t ** pnode, u64 hashval)
+hicn_hashtb_delete (hicn_hashtb_h h, hicn_hash_node_t **pnode, u64 hashval)
 {
 
   hicn_hashtb_remove_node (h, *pnode, hashval);
   hicn_hashtb_free_node (h, *pnode);
   *pnode = NULL;
-
 }
 
 /*
@@ -640,8 +631,7 @@ hicn_hashtb_delete (hicn_hashtb_h h, hicn_hash_node_t ** pnode, u64 hashval)
  * node, the bucket is freed as well.
  */
 void
-hicn_hashtb_remove_node (hicn_hashtb_h h, hicn_hash_node_t * node,
-			 u64 hashval)
+hicn_hashtb_remove_node (hicn_hashtb_h h, hicn_hash_node_t *node, u64 hashval)
 {
   int i, count;
   u32 bidx, overflow_p;
@@ -702,7 +692,7 @@ hicn_hashtb_remove_node (hicn_hashtb_h h, hicn_hash_node_t * node,
       if (i == (HICN_HASHTB_BUCKET_ENTRIES - 1) &&
 	  (bucket->hb_entries[i].he_flags & HICN_HASH_ENTRY_FLAG_OVERFLOW))
 	{
-	  count--;		/* Doesn't count as a 'real' entry */
+	  count--; /* Doesn't count as a 'real' entry */
 	  overflow_p = TRUE;
 	}
     }
@@ -747,9 +737,9 @@ hicn_hashtb_remove_node (hicn_hashtb_h h, hicn_hash_node_t * node,
 	       * Just clear the predecessor entry pointing
 	       * at 'bucket'
 	       */
-	      hicn_hashtb_init_entry (&parent->hb_entries
-				      [(HICN_HASHTB_BUCKET_ENTRIES - 1)], 0,
-				      0LL, 0);
+	      hicn_hashtb_init_entry (
+		&parent->hb_entries[(HICN_HASHTB_BUCKET_ENTRIES - 1)], 0, 0LL,
+		0);
 	    }
 
 	  break;
@@ -775,8 +765,8 @@ done:
  * Prepare a hashtable node, supplying the key, and computed hash info.
  */
 void
-hicn_hashtb_init_node (hicn_hashtb_h h, hicn_hash_node_t * node,
-		       const u8 * key, u32 keylen)
+hicn_hashtb_init_node (hicn_hashtb_h h, hicn_hash_node_t *node, const u8 *key,
+		       u32 keylen)
 {
   assert (h != NULL);
   assert (node != NULL);
@@ -795,21 +785,20 @@ hicn_hashtb_init_node (hicn_hashtb_h h, hicn_hash_node_t * node,
  * Release a hashtable node back to the free list when an entry is cleared
  */
 void
-hicn_hashtb_free_node (hicn_hashtb_h h, hicn_hash_node_t * node)
+hicn_hashtb_free_node (hicn_hashtb_h h, hicn_hash_node_t *node)
 {
   ASSERT (h->ht_nodes_used > 0);
 
   /* Return 'node' to the free list */
   pool_put (h->ht_nodes, node);
   h->ht_nodes_used--;
-
 }
 
 /*
  * Walk a hashtable, iterating through the nodes, keeping context in 'ctx'.
  */
 int
-hicn_hashtb_next_node (hicn_hashtb_h h, hicn_hash_node_t ** pnode, u64 * ctx)
+hicn_hashtb_next_node (hicn_hashtb_h h, hicn_hash_node_t **pnode, u64 *ctx)
 {
   int i, j, ret = HICN_ERROR_HASHTB_INVAL;
   u32 bidx, entry;
@@ -929,8 +918,8 @@ search_table:
 	{
 
 	  /* Retrieve the node struct */
-	  *pnode = pool_elt_at_index (h->ht_nodes,
-				      bucket->hb_entries[i].he_node);
+	  *pnode =
+	    pool_elt_at_index (h->ht_nodes, bucket->hb_entries[i].he_node);
 
 	  /*
 	   * Set 'entry' as we exit, so we can update the
@@ -996,8 +985,8 @@ done:
 }
 
 int
-hicn_hashtb_key_to_buf (u8 ** vec_res, hicn_hashtb_h h,
-			const hicn_hash_node_t * node)
+hicn_hashtb_key_to_buf (u8 **vec_res, hicn_hashtb_h h,
+			const hicn_hash_node_t *node)
 {
   int ret = HICN_ERROR_NONE;
   u8 *vec = *vec_res;

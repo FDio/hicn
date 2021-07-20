@@ -257,7 +257,7 @@ hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
   u8 *buffer = get_packet_buffer (
     vm, node_index, face, (ip46_address_t *) prefix,
     (params->protocol == IPPROTO_IPV6) ? HICN_TYPE_IPV6_ICMP :
-					       HICN_TYPE_IPV4_ICMP);
+					 HICN_TYPE_IPV4_ICMP);
   n = hicn_mapme_create_packet (buffer, prefix, params);
   if (n <= 0)
     {
@@ -337,7 +337,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 	   * Also, we only run a timer when there are pending retransmissions.
 	   */
 	  timeout = (due_time > current_time) ? due_time - current_time :
-						      DEFAULT_TIMEOUT;
+						DEFAULT_TIMEOUT;
 	  due_time = current_time + timeout;
 	}
       else

@@ -56,7 +56,7 @@ typedef enum
 always_inline hicn_mapme_ctrl_next_t
 hicn_mapme_ctrl_get_iface_node (hicn_face_id_t face_id)
 {
-  hicn_face_t * face  = hicn_dpoi_get_from_idx(face_id);
+  hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
 
   switch (face->dpo.dpoi_proto)
     {

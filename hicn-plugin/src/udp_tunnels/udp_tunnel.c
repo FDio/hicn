@@ -16,6 +16,7 @@
 #include <vnet/vnet.h>
 #include <vppinfra/bihash_40_8.h>
 #include <vnet/fib/fib_table.h>
+#include <vnet/udp/udp_local.h>
 
 #include "../error.h"
 #include "../strategy_dpo_ctx.h"
@@ -254,8 +255,8 @@ udp_tunnel_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
       int ret = udp_tunnel_del (fproto, fib_index, &src_ip, &dst_ip, src_port,
 				dst_port, UDP_ENCAP_FIXUP_NONE);
       error = (ret == HICN_ERROR_NONE) ?
-		      0 :
-		      clib_error_return (0, "%s\n", get_error_string (ret));
+		0 :
+		clib_error_return (0, "%s\n", get_error_string (ret));
     }
   else
     {
@@ -271,7 +272,7 @@ VLIB_CLI_COMMAND (udp_tunnel_command, static) = {
   .path = "udp tunnel",
   .short_help =
     "udp tunnel [add/del] src_address dst_address src_port dst_port",
-  .function = udp_tunnel_command_fn,  
+  .function = udp_tunnel_command_fn,
 };
 
 /*

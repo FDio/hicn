@@ -25,12 +25,12 @@
  * @brief Producer application face.
  *
  * A producer application face is built upon an ip face and identify a local
- * producer application (co-located with the forwarder) that acts as a producer. In the
- * current design an application face is either a face towards a consumer face
- * or towards a producer. The interface used by the producer application face is
- * assumed to be reserved only for hICN traffic (e.g.,  dedicated memif that
- * connects the applictation to the forwarder). Only one application face can be
- * assigned to an interface.
+ * producer application (co-located with the forwarder) that acts as a
+ * producer. In the current design an application face is either a face towards
+ * a consumer face or towards a producer. The interface used by the producer
+ * application face is assumed to be reserved only for hICN traffic (e.g.,
+ * dedicated memif that connects the applictation to the forwarder). Only one
+ * application face can be assigned to an interface.
  *
  * To each producer application face it is assigned a portion of the CS. Every
  * data arriving to a producer application will be stored in the portion of the
@@ -38,13 +38,13 @@
  * face. Available eviction faces are list in the /cache_policy folder.
  *
  * In the vlib graph a producer application face is directly connected to the
- * device-input node (with the node hicn-face-prod-input) and passes every packet to
- * the hicn-face-ip node.
+ * device-input node (with the node hicn-face-prod-input) and passes every
+ * packet to the hicn-face-ip node.
  */
 
 /**
- * @brief Producer application face state that refer to the hICN producer socket
- * created by the application.
+ * @brief Producer application face state that refer to the hICN producer
+ * socket created by the application.
  *
  */
 typedef struct
@@ -69,9 +69,8 @@ extern hicn_face_prod_state_t *face_state_vec;
  * @param prod_addr address to assign to interface used by the appliction to
  * send data to the producer face
  */
-int
-hicn_face_prod_add (fib_prefix_t * prefix, u32 swif, u32 * cs_reserved,
-		    ip46_address_t * prod_addr, hicn_face_id_t * faceid);
+int hicn_face_prod_add (fib_prefix_t *prefix, u32 swif, u32 *cs_reserved,
+			ip46_address_t *prod_addr, hicn_face_id_t *faceid);
 
 /**
  * @brief Delete an existing application face
@@ -85,7 +84,7 @@ int hicn_face_prod_del (hicn_face_id_t faceid);
  *
  * @param face_id Id of the producer application face
  */
-int hicn_face_prod_set_lru_max (hicn_face_id_t face_id, u32 * requested_size);
+int hicn_face_prod_set_lru_max (hicn_face_id_t face_id, u32 *requested_size);
 
 /**
  * @brief Format an application producer face
@@ -94,8 +93,7 @@ int hicn_face_prod_set_lru_max (hicn_face_id_t face_id, u32 * requested_size);
  * @param args Array storing input values. Expected u32 face_id and u32 indent
  * @return String with the formatted face
  */
-u8 *format_hicn_face_prod (u8 * s, va_list * args);
-
+u8 *format_hicn_face_prod (u8 *s, va_list *args);
 
 #endif /* _FACE_PROD_H_ */
 

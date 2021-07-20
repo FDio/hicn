@@ -26,9 +26,9 @@
  * This file implements bidirectional udp tunnels. Udp tunnels exploit
  * the udp encap functionality in vpp. In particular, a udp tunnel creates
  * an udp encap object with the information for encapsulating packets and it
- * implements the udp decap node. The udp decap node checks if a udp tunnel exists
- * before performing the decapsulation. If the tunnel does not exist the packet
- * is dropped.
+ * implements the udp decap node. The udp decap node checks if a udp tunnel
+ * exists before performing the decapsulation. If the tunnel does not exist the
+ * packet is dropped.
  */
 
 #define UDP_TUNNEL_INVALID ~0
@@ -52,13 +52,9 @@ extern vlib_node_registration_t udp6_decap_node;
  *
  * @return return the id of the tunnel
  */
-u32 udp_tunnel_add (fib_protocol_t proto,
-                    index_t fib_index,
-                    const ip46_address_t * src_ip,
-                    const ip46_address_t * dst_ip,
-                    u16 src_port,
-                    u16 dst_port,
-                    udp_encap_fixup_flags_t flags);
+u32 udp_tunnel_add (fib_protocol_t proto, index_t fib_index,
+		    const ip46_address_t *src_ip, const ip46_address_t *dst_ip,
+		    u16 src_port, u16 dst_port, udp_encap_fixup_flags_t flags);
 
 /**
  * @brief Retrieve the index of a udp tunnel (same id of the udp encap)
@@ -70,10 +66,8 @@ u32 udp_tunnel_add (fib_protocol_t proto,
  *
  * @return id of the udp tunnel/encap
  */
-u32 udp_tunnel_get(const ip46_address_t * src_ip,
-                   const ip46_address_t * dst_ip,
-                   u16 src_port,
-                   u16 dst_port);
+u32 udp_tunnel_get (const ip46_address_t *src_ip, const ip46_address_t *dst_ip,
+		    u16 src_port, u16 dst_port);
 
 /**
  * @brief Delete a udp tunnel
@@ -89,13 +83,9 @@ u32 udp_tunnel_get(const ip46_address_t * src_ip,
  * @return HICN_ERROR_UDP_TUNNEL_NOT_FOUND if the tunnel was not found
  *         or HICN_ERROR_NONE if the tunnel has been deleted
  */
-int udp_tunnel_del (fib_protocol_t proto,
-                    index_t fib_index,
-                    const ip46_address_t * src_ip,
-                    const ip46_address_t * dst_ip,
-                    u16 src_port,
-                    u16 dst_port,
-                    udp_encap_fixup_flags_t flags);
+int udp_tunnel_del (fib_protocol_t proto, index_t fib_index,
+		    const ip46_address_t *src_ip, const ip46_address_t *dst_ip,
+		    u16 src_port, u16 dst_port, udp_encap_fixup_flags_t flags);
 
 /**
  * @brief Add a udp tunnel from an existing udp encap
@@ -109,6 +99,6 @@ void udp_tunnel_add_existing (index_t uei, dpo_proto_t proto);
  * @brief Init the udp tunnel module
  *
  */
-void udp_tunnel_init();
+void udp_tunnel_init ();
 
 #endif

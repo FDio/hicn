@@ -64,19 +64,17 @@ u32 hicn_infra_cs_size;
  * @brief Enable and disable the hicn plugin
  *
  * Enable the time the hICN plugin and set the forwarder parameters.
- * @param enable_disable 1 if to enable, 0 otherwisw (currently only enable is supported)
+ * @param enable_disable 1 if to enable, 0 otherwisw (currently only enable is
+ * supported)
  * @param pit_max_size Max size of the PIT
- * @param pit_max_lifetime_sec_req Maximum timeout allowed for a PIT entry lifetime
+ * @param pit_max_lifetime_sec_req Maximum timeout allowed for a PIT entry
+ * lifetime
  * @param cs_max_size CS size. Must be <= than pit_max_size
  * @param cs_reserved_app Amount of CS reserved for application faces
  */
-int
-hicn_infra_plugin_enable_disable (int enable_disable,
-				  int pit_max_size,
-				  f64 pit_max_lifetime_sec_req,
-				  int cs_max_size,
-                                  vnet_link_t link);
-
+int hicn_infra_plugin_enable_disable (int enable_disable, int pit_max_size,
+				      f64 pit_max_lifetime_sec_req,
+				      int cs_max_size, vnet_link_t link);
 
 /* vlib nodes that compose the hICN forwarder */
 extern vlib_node_registration_t hicn_interest_pcslookup_node;
@@ -90,8 +88,6 @@ extern vlib_node_registration_t hicn_pg_data_node;
 extern vlib_node_registration_t hicn_pg_server_node;
 extern vlib_node_registration_t hicn_data_input_ip6_node;
 extern vlib_node_registration_t hicn_data_input_ip4_node;
-
-
 
 #endif /* // __HICN_INFRA_H__ */
 

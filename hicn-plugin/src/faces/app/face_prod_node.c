@@ -114,7 +114,7 @@ hicn_face_prod_next_from_data_hdr (vlib_node_runtime_t *node, vlib_buffer_t *b,
     }
 
   return match_res ? HICN_FACE_PROD_NEXT_DATA_IP4 + (v == 0x60) :
-			   HICN_FACE_PROD_NEXT_ERROR_DROP;
+		     HICN_FACE_PROD_NEXT_ERROR_DROP;
 }
 
 static_always_inline void
@@ -291,7 +291,7 @@ VLIB_REGISTER_NODE(hicn_face_prod_input_node) =
     [HICN_FACE_PROD_NEXT_ERROR_DROP] = "error-drop",
   },
 };
-	
+
 /*
  * fd.io coding-style-patch-verification: ON
  *

@@ -27,7 +27,6 @@
  * round robin.
  */
 
-
 /**
  * Context for the Round Robin strategy
  */
@@ -45,7 +44,7 @@ typedef struct hicn_strategy_rr_ctx_s
  *
  * @result The string with the formatted dpo ctx
  */
-u8 *format_hicn_strategy_rr_ctx (u8 * s, va_list * ap);
+u8 *format_hicn_strategy_rr_ctx (u8 *s, va_list *ap);
 
 const static dpo_vft_t dpo_strategy_rr_ctx_vft = {
   .dv_lock = hicn_strategy_dpo_ctx_lock,
@@ -70,15 +69,15 @@ hicn_dpo_ctx_t *hicn_strategy_rr_ctx_get (index_t index);
  * @param dpo_idx index_t that will hold the index of the created dpo ctx
  * @return HICN_ERROR_NONE if the creation was fine, otherwise EINVAL
  */
-void
-hicn_strategy_rr_ctx_create (fib_protocol_t proto, const hicn_face_id_t * next_hop,
-			     int nh_len, index_t * dpo_idx);
+void hicn_strategy_rr_ctx_create (fib_protocol_t proto,
+				  const hicn_face_id_t *next_hop, int nh_len,
+				  index_t *dpo_idx);
 
 /**
  * @brief Add or update a next hop in the dpo ctx.
  *
- * This function is meant to be used in the control plane and not in the data plane,
- * as it is not optimized for the latter.
+ * This function is meant to be used in the control plane and not in the data
+ * plane, as it is not optimized for the latter.
  *
  * @param nh Next hop to insert in the dpo ctx
  * @param dpo_idx Index of the dpo ctx to update with the new or updated next
@@ -111,7 +110,7 @@ void hicn_strategy_rr_ctx_prefetch (index_t dpo_idx);
  *
  * @param dpo Dpo to check the type
  */
-int hicn_dpo_is_type_strategy_rr (const dpo_id_t * dpo);
+int hicn_dpo_is_type_strategy_rr (const dpo_id_t *dpo);
 
 /**
  * @brief Initialize the Round Robin strategy
@@ -129,7 +128,7 @@ dpo_type_t hicn_dpo_strategy_rr_get_type (void);
  * @param s String to append the formatted dpo ctx
  * @param ap List of arguments to format
  */
-u8 *format_hicn_dpo_strategy_rr (u8 * s, va_list * ap);
+u8 *format_hicn_dpo_strategy_rr (u8 *s, va_list *ap);
 
 /**
  * @brief Format the dpo ctx for the strategy Round Robin. To
@@ -138,8 +137,7 @@ u8 *format_hicn_dpo_strategy_rr (u8 * s, va_list * ap);
  * @param s String to append the formatted dpo ctx
  * @param ... List of arguments to format
  */
-u8 *hicn_strategy_rr_format_ctx (u8 * s, int n, ...);
-
+u8 *hicn_strategy_rr_format_ctx (u8 *s, int n, ...);
 
 #endif // __HICN_DPO_RR_H__
 

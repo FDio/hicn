@@ -21,7 +21,7 @@
 #include "cache_policies/cs_lru.h"
 
 int
-hicn_pit_create (hicn_pit_cs_t * p, u32 num_elems)
+hicn_pit_create (hicn_pit_cs_t *p, u32 num_elems)
 {
   int ret =
     hicn_hashtb_alloc (&p->pcs_table, num_elems, sizeof (hicn_pcs_entry_t));
@@ -44,7 +44,6 @@ hicn_pit_create (hicn_pit_cs_t * p, u32 num_elems)
 
   return (ret);
 }
-
 
 /*
  * fd.io coding-style-patch-verification: ON

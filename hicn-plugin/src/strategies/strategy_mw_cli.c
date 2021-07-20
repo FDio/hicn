@@ -76,7 +76,7 @@ hicn_mw_strategy_cli_set_weight_command_fn (vlib_main_t *vm,
     }
 
   prefix.fp_proto = ip46_address_is_ip4 (&prefix.fp_addr) ? FIB_PROTOCOL_IP4 :
-								  FIB_PROTOCOL_IP6;
+							    FIB_PROTOCOL_IP6;
   ret = hicn_route_get_dpo (&prefix, &hicn_dpo_id, &fib_index);
 
   if (ret == HICN_ERROR_NONE)

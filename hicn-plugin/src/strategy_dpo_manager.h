@@ -28,34 +28,37 @@
  *     information to choose the next hop,
  *   - a dpo vft that specify how to update the hICN DPO ctx when a next hop is
  *     added, deleted or updated,
- *   - a strategy containing (see strategy.h): (i) the vpp node that processes Interest packets
- *     subjected to such strategy, (ii) the definition of the vft that defines
- *     the hICN strategy functions
- * An hICN DPO is places as the sole next hop in the vpp loadbalancer, and it containes
- * a list of next hops that will be used by the associated strategy when forwarding
- * interest packets.
+ *   - a strategy containing (see strategy.h): (i) the vpp node that processes
+ * Interest packets subjected to such strategy, (ii) the definition of the vft
+ * that defines the hICN strategy functions An hICN DPO is places as the sole
+ * next hop in the vpp loadbalancer, and it containes a list of next hops that
+ * will be used by the associated strategy when forwarding interest packets.
  */
 
 /**
  * @brief Definition of the virtual function table for a hICN DPO.
  *
  * The following virtual function table
- * template that glues together the fuction to interact with the context and the
- * creating the dpo
+ * template that glues together the fuction to interact with the context and
+ * the creating the dpo
  */
 typedef struct hicn_dpo_vft_s
 {
-  int (*hicn_dpo_is_type) (const dpo_id_t * dpo);
-	/**< Check if the type of the
-           hICN DPO is the expected */
-    dpo_type_t (*hicn_dpo_get_type) (void);
-	/**< Return the type of the hICN dpo */
-  void (*hicn_dpo_module_init) (void);			/**< Initialize the hICN dpo */
-  void (*hicn_dpo_create) (fib_protocol_t proto, const hicn_face_id_t * nh, int nh_len, index_t * dpo_idx);			/**< Create the context of the hICN dpo */
-  int (*hicn_dpo_add_update_nh) (hicn_face_id_t nh, index_t dpo_idx);				/**< Add a next hop to the hICN dpo context */
+  int (*hicn_dpo_is_type) (const dpo_id_t *dpo);
+  /**< Check if the type of the
+     hICN DPO is the expected */
+  dpo_type_t (*hicn_dpo_get_type) (void);
+  /**< Return the type of the hICN dpo */
+  void (*hicn_dpo_module_init) (void); /**< Initialize the hICN dpo */
+  void (*hicn_dpo_create) (
+    fib_protocol_t proto, const hicn_face_id_t *nh, int nh_len,
+    index_t *dpo_idx); /**< Create the context of the hICN dpo */
+  int (*hicn_dpo_add_update_nh) (
+    hicn_face_id_t nh,
+    index_t dpo_idx); /**< Add a next hop to the hICN dpo context */
   int (*hicn_dpo_del_nh) (hicn_face_id_t face_id, index_t dpo_idx);
-  u8 *(*hicn_dpo_format) (u8 * s, int, ...);
-	/**< Format an hICN dpo*/
+  u8 *(*hicn_dpo_format) (u8 *s, int, ...);
+  /**< Format an hICN dpo*/
 } hicn_dpo_vft_t;
 
 /*
@@ -74,19 +77,17 @@ extern hicn_dpo_vft_t default_dpo;
  * the FIB entry to which the hICN DPO is applied. This list must contain the
  * name of the strategy node (or nodes in case of differentiation between IPv4
  * and IPv6). Unless really needed otherwise (i.e., different implementation of
- * iface input), the list of node to use should be one provided in the strategy.h
- * (hicn_nodes_strategy)
+ * iface input), the list of node to use should be one provided in the
+ * strategy.h (hicn_nodes_strategy)
  * @param hicn_dpo_vft The structure holding the virtual function table to
  * interact with the hICN dpo and its context.
  * @param hicn_strategy_vft The structure holding the virtual function table
  * containing the hICN strategy functions.
  * @return the dpo type registered in the VPP Data plane graph.
  */
-dpo_type_t
-hicn_dpo_register_new_type (const char *const *const *hicn_nodes,
-			    const hicn_dpo_vft_t * hicn_dpo_vft,
-			    const hicn_strategy_vft_t *
-			    hicn_strategy_vft, const dpo_vft_t * dpo_ctx_vft);
+dpo_type_t hicn_dpo_register_new_type (
+  const char *const *const *hicn_nodes, const hicn_dpo_vft_t *hicn_dpo_vft,
+  const hicn_strategy_vft_t *hicn_strategy_vft, const dpo_vft_t *dpo_ctx_vft);
 
 /**
  * @brief Check if the type of the dpo is among the list of hicn dpo types
@@ -96,7 +97,7 @@ hicn_dpo_register_new_type (const char *const *const *hicn_nodes,
  * @param dpo The id of the dpo to which check the type
  * @return 1 if there is a match, 0 otherwise.
  */
-u32 dpo_is_hicn (const dpo_id_t * dpo);
+u32 dpo_is_hicn (const dpo_id_t *dpo);
 
 /**
  * @brief Return the dpo_vtf and strategy_vtf identifier
@@ -105,9 +106,10 @@ u32 dpo_is_hicn (const dpo_id_t * dpo);
  * retrieve the corresponding dpo_vtf/strategy_vtf identifier.
  *
  * @param dpo The id of the dpo to which check the type
- * @return the dpo_vft/strategy_vft id or HICN_ERROR_DPO_NOT_FOUND in case the dpo is not an hICN dpo.
+ * @return the dpo_vft/strategy_vft id or HICN_ERROR_DPO_NOT_FOUND in case the
+ * dpo is not an hICN dpo.
  */
-u8 hicn_dpo_get_vft_id (const dpo_id_t * dpo);
+u8 hicn_dpo_get_vft_id (const dpo_id_t *dpo);
 
 /**
  * @brief Get the vft to manage the dpo context.
@@ -159,10 +161,11 @@ void hicn_dpos_init (void);
  *
  * @result The string with the list of hICN DPO (strategies)
  */
-u8 *format_hicn_strategy_list (u8 * s, int n, ...);
+u8 *format_hicn_strategy_list (u8 *s, int n, ...);
 
 /**
- * @brief Check if a given id points to a strategy and the corresponding dpo ctx
+ * @brief Check if a given id points to a strategy and the corresponding dpo
+ * ctx
  *
  * @param The id of the strategy to check.
  *
@@ -182,7 +185,7 @@ int hicn_strategy_get_all_available (void);
  * @brief Registers a module at compilation time to be initialized as part of
  * the ctor.
  */
-void hicn_dpo_register (const hicn_dpo_vft_t * hicn_dpo);
+void hicn_dpo_register (const hicn_dpo_vft_t *hicn_dpo);
 
 #endif /* // __HICN_STRATEGY_DPO_MANAGER_H__ */
 

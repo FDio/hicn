@@ -29,11 +29,12 @@
 /**
  * @file plugin_state
  *
- * Helper functions to hicn state (hash node, hash entry, strategy vft, dpo vft and dpo context id)
+ * Helper functions to hicn state (hash node, hash entry, strategy vft, dpo vft
+ * and dpo context id)
  *
  */
 
-//TODO exploit this state to prefetch hash nodes and entries.
+// TODO exploit this state to prefetch hash nodes and entries.
 
 /**
  * @brief Retrieve the hicn state
@@ -41,17 +42,20 @@
  * @param hicnb hicn buffer used to retrieve the hicn state
  * @param pitcs pointer to PIT/CS
  * @param node node in the hash table referring to the buffer
- * @param strategy_vft return value pointing to the strategy vft corresponding to the buffer
- * @param dpo_vft return value pointing to the dpo vft corresponding to the buffer
- * @param dpo_ctx_id return value pointing to the dpo context id corresponding to the buffer
+ * @param strategy_vft return value pointing to the strategy vft corresponding
+ * to the buffer
+ * @param dpo_vft return value pointing to the dpo vft corresponding to the
+ * buffer
+ * @param dpo_ctx_id return value pointing to the dpo context id corresponding
+ * to the buffer
  * @param hash_entry entry in the hash table referring to the buffer
  */
 always_inline void
-hicn_get_internal_state (hicn_buffer_t * hicnb, hicn_pit_cs_t * pitcs,
-			 hicn_hash_node_t ** node,
-			 const hicn_strategy_vft_t ** strategy_vft,
-			 const hicn_dpo_vft_t ** dpo_vft, u8 * dpo_ctx_id,
-			 hicn_hash_entry_t ** hash_entry)
+hicn_get_internal_state (hicn_buffer_t *hicnb, hicn_pit_cs_t *pitcs,
+			 hicn_hash_node_t **node,
+			 const hicn_strategy_vft_t **strategy_vft,
+			 const hicn_dpo_vft_t **dpo_vft, u8 *dpo_ctx_id,
+			 hicn_hash_entry_t **hash_entry)
 {
   *node = pool_elt_at_index (pitcs->pcs_table->ht_nodes, hicnb->node_id);
   *strategy_vft = hicn_dpo_get_strategy_vft (hicnb->vft_id);
@@ -60,13 +64,11 @@ hicn_get_internal_state (hicn_buffer_t * hicnb, hicn_pit_cs_t * pitcs,
 
   hicn_hash_bucket_t *bucket;
   if (hicnb->hash_bucket_flags & HICN_HASH_NODE_OVERFLOW_BUCKET)
-    bucket =
-      pool_elt_at_index (pitcs->pcs_table->ht_overflow_buckets,
-			 hicnb->bucket_id);
+    bucket = pool_elt_at_index (pitcs->pcs_table->ht_overflow_buckets,
+				hicnb->bucket_id);
   else
     bucket =
-      (hicn_hash_bucket_t *) (pitcs->pcs_table->ht_buckets +
-			      hicnb->bucket_id);
+      (hicn_hash_bucket_t *) (pitcs->pcs_table->ht_buckets + hicnb->bucket_id);
 
   *hash_entry = &(bucket->hb_entries[hicnb->hash_entry_id]);
 }
@@ -85,13 +87,14 @@ hicn_get_internal_state (hicn_buffer_t * hicnb, hicn_pit_cs_t * pitcs,
  * @param node_id id of the node in the hash table referring to the buffer
  * @param dpo_ctx_id id of the dpo context id corresponding to the buffer
  * @param vft_id id of the strategy vft corresponding to the buffer
- * @param hash_entry_id id of the entry in the hash table referring to the buffer
+ * @param hash_entry_id id of the entry in the hash table referring to the
+ * buffer
  * @param bucket_id id of the hasth table bucket that holds the hash entry
- * @param bucket_is_overflow 1 if the bucket is from the ht_overflow_buckets pool
- *                           0 if the bucket is from the ht_buckets pool
+ * @param bucket_is_overflow 1 if the bucket is from the ht_overflow_buckets
+ * pool 0 if the bucket is from the ht_buckets pool
  */
 always_inline void
-hicn_store_internal_state (vlib_buffer_t * b, u64 name_hash, u32 node_id,
+hicn_store_internal_state (vlib_buffer_t *b, u64 name_hash, u32 node_id,
 			   u8 dpo_ctx_id, u8 vft_id, u8 hash_entry_id,
 			   u32 bucket_id, u8 bucket_is_overflow)
 {

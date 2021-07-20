@@ -25,16 +25,19 @@
 /**
  * @file strategy_dpo_ctx.h
  *
- * This file implements the general hICN DPO ctx (shared among all the strategies).
+ * This file implements the general hICN DPO ctx (shared among all the
+ * strategies).
  *
- * An hICN DPO ctx contains the list of next hops, auxiliaries fields to maintain the dpo, map-me
- * specifics (tfib_entry_count and seq), the dpo_type and 64B to let each strategy to store additional
- * information. Each next hop is an hicn_face_id_t that refers to an index for an hICN face. The
- * dpo_type is used to identify the strategy and to retrieve the vft corresponding to the strategy
- * (see strategy.h) and to the dpo ctx (see strategy_dpo_manager.h)
+ * An hICN DPO ctx contains the list of next hops, auxiliaries fields to
+ * maintain the dpo, map-me specifics (tfib_entry_count and seq), the dpo_type
+ * and 64B to let each strategy to store additional information. Each next hop
+ * is an hicn_face_id_t that refers to an index for an hICN face. The dpo_type
+ * is used to identify the strategy and to retrieve the vft corresponding to
+ * the strategy (see strategy.h) and to the dpo ctx (see
+ * strategy_dpo_manager.h)
  */
 
-//FIB table for hicn. 0 is the default one used by ip
+// FIB table for hicn. 0 is the default one used by ip
 #define HICN_FIB_TABLE 10
 
 #define NEXT_HOP_INVALID ~0
@@ -57,7 +60,7 @@ typedef struct __attribute__ ((packed)) hicn_dpo_ctx_s
   dpo_type_t dpo_type;
 
   /* 46B + 2B = 48B */
-  u8 padding;			/* To align to 8B */
+  u8 padding; /* To align to 8B */
 
   /* 48 + 4B = 52; last sequence number */
   u32 seq;
@@ -92,7 +95,7 @@ extern hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
  * @param dpo_type Type of dpo. It identifies the strategy.
  */
 always_inline void
-init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx, const hicn_face_id_t * next_hop,
+init_dpo_ctx (hicn_dpo_ctx_t *dpo_ctx, const hicn_face_id_t *next_hop,
 	      int nh_len, dpo_type_t dpo_type, dpo_proto_t proto)
 {
   hicn_face_id_t invalid = NEXT_HOP_INVALID;
@@ -113,12 +116,10 @@ init_dpo_ctx (hicn_dpo_ctx_t * dpo_ctx, const hicn_face_id_t * next_hop,
       dpo_ctx->entry_count++;
     }
 
-
   for (int i = nh_len; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; i++)
     {
       dpo_ctx->next_hops[i] = invalid;
     }
-
 }
 
 /**
@@ -140,27 +141,27 @@ hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_get (index_t index);
 /**
  * @brief Retrieve the index of the hICN dpo ctx
  */
-index_t hicn_strategy_dpo_ctx_get_index (hicn_dpo_ctx_t * cd);
+index_t hicn_strategy_dpo_ctx_get_index (hicn_dpo_ctx_t *cd);
 
 /**
  * @brief Lock the dpo of a strategy ctx
  *
  * @param dpo Identifier of the dpo of the strategy ctx
  */
-void hicn_strategy_dpo_ctx_lock (dpo_id_t * dpo);
+void hicn_strategy_dpo_ctx_lock (dpo_id_t *dpo);
 
 /**
  * @brief Unlock the dpo of a strategy ctx
  *
  * @param dpo Identifier of the dpo of the strategy ctx
  */
-void hicn_strategy_dpo_ctx_unlock (dpo_id_t * dpo);
+void hicn_strategy_dpo_ctx_unlock (dpo_id_t *dpo);
 
 /**
  * @brief Add or update a next hop in the dpo ctx.
  *
- * This function is meant to be used in the control plane and not in the data plane,
- * as it is not optimized for the latter.
+ * This function is meant to be used in the control plane and not in the data
+ * plane, as it is not optimized for the latter.
  *
  * @param nh Next hop to insert in the dpo ctx
  * @param dpo_ctx Dpo ctx to update with the new or updated next hop
@@ -168,9 +169,8 @@ void hicn_strategy_dpo_ctx_unlock (dpo_id_t * dpo);
  * @return HICN_ERROR_NONE if the update or insert was fine,
  * otherwise HICN_ERROR_DPO_CTX_NOT_FOUND
  */
-int
-hicn_strategy_dpo_ctx_add_nh (hicn_face_id_t nh, hicn_dpo_ctx_t * dpo_ctx,
-			      u8 * pos);
+int hicn_strategy_dpo_ctx_add_nh (hicn_face_id_t nh, hicn_dpo_ctx_t *dpo_ctx,
+				  u8 *pos);
 
 /**
  * @brief Delete a next hop in the dpo ctx.
@@ -180,10 +180,8 @@ hicn_strategy_dpo_ctx_add_nh (hicn_face_id_t nh, hicn_dpo_ctx_t * dpo_ctx,
  * @return HICN_ERROR_NONE if the update or insert was fine,
  * otherwise HICN_ERROR_DPO_CTS_NOT_FOUND
  */
-int
-hicn_strategy_dpo_ctx_del_nh (hicn_face_id_t face_id,
-			      hicn_dpo_ctx_t * dpo_ctx);
-
+int hicn_strategy_dpo_ctx_del_nh (hicn_face_id_t face_id,
+				  hicn_dpo_ctx_t *dpo_ctx);
 
 STATIC_ASSERT (sizeof (hicn_dpo_ctx_t) <= 2 * CLIB_CACHE_LINE_BYTES,
 	       "sizeof hicn_dpo_ctx_t is greater than 128B");

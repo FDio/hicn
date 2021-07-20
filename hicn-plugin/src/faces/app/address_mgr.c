@@ -24,12 +24,12 @@
 #include <vnet/ip/ip6_packet.h>
 #include <vnet/ip/ip4.h>	//ip4_add_del_ip_address
 #include <vnet/ip/ip6.h>	//ip6_add_del_ip_address
-#include <vnet/fib/fib_types.h>	//FIB_PROTOCOL_IP4/6, FIB_NODE_INDEX_INVALID
-#include <vnet/fib/fib_entry.h>	//FIB_SOURCE_PRIORITY_HI
+#include <vnet/fib/fib_types.h> //FIB_PROTOCOL_IP4/6, FIB_NODE_INDEX_INVALID
+#include <vnet/fib/fib_entry.h> //FIB_SOURCE_PRIORITY_HI
 #include <vnet/fib/fib_table.h>
 #include <vppinfra/format.h>
-#include <vnet/interface.h>	//appif_flags
-#include <vnet/interface_funcs.h>	//vnet_sw_interface_set_flags
+#include <vnet/interface.h>	  //appif_flags
+#include <vnet/interface_funcs.h> //vnet_sw_interface_set_flags
 
 #include "address_mgr.h"
 #include "../../hicn.h"
@@ -48,7 +48,7 @@ typedef struct address_mgr_main_s
 address_mgr_main_t address_mgr_main;
 
 static void
-increment_v4_address (ip4_address_t * a, u32 val)
+increment_v4_address (ip4_address_t *a, u32 val)
 {
   u32 v;
 
@@ -57,7 +57,7 @@ increment_v4_address (ip4_address_t * a, u32 val)
 }
 
 static void
-increment_v6_address (ip6_address_t * a, u64 val)
+increment_v6_address (ip6_address_t *a, u64 val)
 {
   u64 v;
 
@@ -66,7 +66,7 @@ increment_v6_address (ip6_address_t * a, u64 val)
 }
 
 void
-get_two_ip4_addresses (ip4_address_t * appif_addr, ip4_address_t * nh_addr)
+get_two_ip4_addresses (ip4_address_t *appif_addr, ip4_address_t *nh_addr)
 {
   /* We want two consecutives address that fall into a /31 mask */
   if (address_mgr_main.next_ip4_local_addr.as_u8[3] & 0x01)
@@ -85,20 +85,17 @@ get_two_ip4_addresses (ip4_address_t * appif_addr, ip4_address_t * nh_addr)
   do
     {
       /* Check if the route already exist in the fib */
-      fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 0, appif_addr->as_u8);
-      fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
-						     HICN_FIB_TABLE,
-						     FIB_SOURCE_PRIORITY_HI);
+      fib_pfx.fp_addr = to_ip46 (/* is_v6 */ 0, appif_addr->as_u8);
+      fib_index = fib_table_find_or_create_and_lock (
+	fib_pfx.fp_proto, HICN_FIB_TABLE, FIB_SOURCE_PRIORITY_HI);
       fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
       fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
       if (fib_entry_index != FIB_NODE_INDEX_INVALID)
 	{
-	  fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 0, nh_addr->as_u8);
-	  fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
-							 HICN_FIB_TABLE,
-							 FIB_SOURCE_PRIORITY_HI);
-	  fib_entry_index =
-	    fib_table_lookup_exact_match (fib_index, &fib_pfx);
+	  fib_pfx.fp_addr = to_ip46 (/* is_v6 */ 0, nh_addr->as_u8);
+	  fib_index = fib_table_find_or_create_and_lock (
+	    fib_pfx.fp_proto, HICN_FIB_TABLE, FIB_SOURCE_PRIORITY_HI);
+	  fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
 	  fib_table_unlock (fib_index, fib_pfx.fp_proto,
 			    FIB_SOURCE_PRIORITY_HI);
 	}
@@ -115,7 +112,7 @@ get_two_ip4_addresses (ip4_address_t * appif_addr, ip4_address_t * nh_addr)
 }
 
 void
-get_two_ip6_addresses (ip6_address_t * appif_addr, ip6_address_t * nh_addr)
+get_two_ip6_addresses (ip6_address_t *appif_addr, ip6_address_t *nh_addr)
 {
 
   /* We want two consecutives address that fall into a /127 mask */
@@ -125,7 +122,6 @@ get_two_ip6_addresses (ip6_address_t * appif_addr, ip6_address_t * nh_addr)
   *appif_addr = address_mgr_main.next_ip6_local_addr;
   increment_v6_address (&(address_mgr_main.next_ip6_local_addr), 1);
   *nh_addr = address_mgr_main.next_ip6_local_addr;
-
 
   fib_prefix_t fib_pfx;
   fib_node_index_t fib_entry_index = FIB_NODE_INDEX_INVALID;
@@ -140,18 +136,18 @@ get_two_ip6_addresses (ip6_address_t * appif_addr, ip6_address_t * nh_addr)
   do
     {
       /* Check if the route already exist in the fib */
-      fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 1, appif_addr->as_u8);
+      fib_pfx.fp_addr = to_ip46 (/* is_v6 */ 1, appif_addr->as_u8);
 
       fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
-      //fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
+      // fib_table_unlock (fib_index, fib_pfx.fp_proto,
+      // FIB_SOURCE_PRIORITY_HI);
       if (fib_entry_index != FIB_NODE_INDEX_INVALID)
 	{
-	  fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 0, nh_addr->as_u8);
+	  fib_pfx.fp_addr = to_ip46 (/* is_v6 */ 0, nh_addr->as_u8);
 
-	  fib_entry_index =
-	    fib_table_lookup_exact_match (fib_index, &fib_pfx);
-          //	  fib_table_unlock (fib_index, fib_pfx.fp_proto,
-          //		    FIB_SOURCE_PRIORITY_HI);
+	  fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
+	  //	  fib_table_unlock (fib_index, fib_pfx.fp_proto,
+	  //		    FIB_SOURCE_PRIORITY_HI);
 	}
       if (fib_entry_index != FIB_NODE_INDEX_INVALID)
 	{
@@ -179,10 +175,9 @@ get_ip4_address ()
   do
     {
       /* Check if the route already exist in the fib */
-      fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 0, prefix->as_u8);
-      fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
-						     HICN_FIB_TABLE,
-						     FIB_SOURCE_PRIORITY_HI);
+      fib_pfx.fp_addr = to_ip46 (/* is_v6 */ 0, prefix->as_u8);
+      fib_index = fib_table_find_or_create_and_lock (
+	fib_pfx.fp_proto, HICN_FIB_TABLE, FIB_SOURCE_PRIORITY_HI);
       fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
       fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
       increment_v4_address (prefix, 1);
@@ -206,10 +201,9 @@ get_ip6_address ()
   do
     {
       /* Check if the route already exist in the fib */
-      fib_pfx.fp_addr = to_ip46 ( /* is_v6 */ 1, prefix->as_u8);
-      fib_index = fib_table_find_or_create_and_lock (fib_pfx.fp_proto,
-						     HICN_FIB_TABLE,
-						     FIB_SOURCE_PRIORITY_HI);
+      fib_pfx.fp_addr = to_ip46 (/* is_v6 */ 1, prefix->as_u8);
+      fib_index = fib_table_find_or_create_and_lock (
+	fib_pfx.fp_proto, HICN_FIB_TABLE, FIB_SOURCE_PRIORITY_HI);
       fib_entry_index = fib_table_lookup_exact_match (fib_index, &fib_pfx);
       fib_table_unlock (fib_index, fib_pfx.fp_proto, FIB_SOURCE_PRIORITY_HI);
       increment_v6_address (prefix, 1);
