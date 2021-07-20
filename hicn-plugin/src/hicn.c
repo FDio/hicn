@@ -149,8 +149,8 @@ hicn_infra_plugin_enable_disable (int enable_disable, int pit_size_req,
       // check if CS is bugger tha PIT or bigger than the available
       // vlib_buffers
       uword cs_buffers = (n_buffers > HICN_PARAM_CS_MIN_MBUF) ?
-				 n_buffers - HICN_PARAM_CS_MIN_MBUF :
-				 0;
+			   n_buffers - HICN_PARAM_CS_MIN_MBUF :
+			   0;
 
       if (cs_size_req > (pit_size_req / 2) || cs_size_req > cs_buffers)
 	{

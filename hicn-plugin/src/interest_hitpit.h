@@ -24,13 +24,13 @@
 /**
  * @file interest_hitpit.h
  *
- * This is the node encoutered by interest packets after the hicn-interest-pcslookup.
- * This node aggregates an interest in the PIT or forward it in case of a retransmission.
- * If the interest must be retransmitted the next vlib node will be on of the
- * hicn6-face-output or hicn4-face-output nodes. If the pit entry is expired the next vlib node
- * will be the hicn-strategy node, otherwise the vlib buffer is dropped.
+ * This is the node encoutered by interest packets after the
+ * hicn-interest-pcslookup. This node aggregates an interest in the PIT or
+ * forward it in case of a retransmission. If the interest must be
+ * retransmitted the next vlib node will be on of the hicn6-face-output or
+ * hicn4-face-output nodes. If the pit entry is expired the next vlib node will
+ * be the hicn-strategy node, otherwise the vlib buffer is dropped.
  */
-
 
 /*
  * Node context data; we think this is per-thread/instance

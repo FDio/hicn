@@ -33,9 +33,9 @@ hicn_dpo_vft_t default_dpo;
 
 dpo_type_t
 hicn_dpo_register_new_type (const char *const *const *hicn_nodes,
-			    const hicn_dpo_vft_t * hicn_dpo_vft,
-			    const hicn_strategy_vft_t * hicn_strategy_vft,
-			    const dpo_vft_t * dpo_ctx_vft)
+			    const hicn_dpo_vft_t *hicn_dpo_vft,
+			    const hicn_strategy_vft_t *hicn_strategy_vft,
+			    const dpo_vft_t *dpo_ctx_vft)
 {
   dpo_type_t dpo_type = dpo_register_new_type (dpo_ctx_vft, hicn_nodes);
   vec_validate (hicn_dpo_vfts, dpo_type);
@@ -52,7 +52,7 @@ hicn_dpo_register_new_type (const char *const *const *hicn_nodes,
 }
 
 u32
-dpo_is_hicn (const dpo_id_t * dpo)
+dpo_is_hicn (const dpo_id_t *dpo)
 {
   for (int i = 0; i < hicn_strategies; i++)
     {
@@ -63,7 +63,7 @@ dpo_is_hicn (const dpo_id_t * dpo)
 }
 
 dpo_type_t
-hicn_dpo_get_vft_id (const dpo_id_t * dpo)
+hicn_dpo_get_vft_id (const dpo_id_t *dpo)
 {
   return dpo->dpoi_type;
 }
@@ -109,7 +109,7 @@ hicn_dpos_init (void)
 }
 
 u8 *
-format_hicn_strategy_list (u8 * s, int n, ...)
+format_hicn_strategy_list (u8 *s, int n, ...)
 {
   va_list ap;
   va_start (ap, n);
@@ -120,10 +120,10 @@ format_hicn_strategy_list (u8 * s, int n, ...)
   indent += 4;
   int i;
   vec_foreach_index (i, strategies_id)
-  {
-    s = format (s, "%U (%d) ", format_white_space, indent, i);
-    s = hicn_strategy_vfts[strategies_id[i]]->hicn_format_strategy (s, &ap);
-  }
+    {
+      s = format (s, "%U (%d) ", format_white_space, indent, i);
+      s = hicn_strategy_vfts[strategies_id[i]]->hicn_format_strategy (s, &ap);
+    }
 
   return (s);
 }
@@ -132,7 +132,8 @@ u8
 hicn_dpo_strategy_id_is_valid (int strategy_id)
 {
   return vec_len (strategies_id) > strategy_id ?
-    HICN_ERROR_NONE : HICN_ERROR_DPO_MGR_ID_NOT_VALID;
+	   HICN_ERROR_NONE :
+	   HICN_ERROR_DPO_MGR_ID_NOT_VALID;
 }
 
 int
@@ -148,7 +149,7 @@ hicn_strategy_get_all_available (void)
  * time.
  */
 void
-hicn_dpo_register (const hicn_dpo_vft_t * hicn_dpo)
+hicn_dpo_register (const hicn_dpo_vft_t *hicn_dpo)
 {
   hicn_dpo->hicn_dpo_module_init ();
 }

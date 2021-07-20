@@ -19,23 +19,25 @@
 #include <vlib/buffer.h>
 
 always_inline void
-ensure_offload_flags (vlib_buffer_t * b, int is_v4)
+ensure_offload_flags (vlib_buffer_t *b, int is_v4)
 {
-  b->flags |= VNET_BUFFER_F_OFFLOAD_TCP_CKSUM;
-  b->flags |= is_v4 * VNET_BUFFER_F_OFFLOAD_IP_CKSUM;
-  size_t l3_header_size = is_v4 * sizeof(ip4_header_t) + (!is_v4) * sizeof(ip6_header_t);
+  vnet_buffer_offload_flags_set(b, VNET_BUFFER_OFFLOAD_F_TCP_CKSUM);
+  vnet_buffer_offload_flags_set(b, is_v4 * VNET_BUFFER_OFFLOAD_F_IP_CKSUM);
+
+  size_t l3_header_size =
+    is_v4 * sizeof (ip4_header_t) + (!is_v4) * sizeof (ip6_header_t);
 
   /* Make sure l3_hdr_offset and l4_hdr_offset are set */
   if (!(b->flags & VNET_BUFFER_F_L3_HDR_OFFSET_VALID))
     {
       b->flags |= VNET_BUFFER_F_L3_HDR_OFFSET_VALID;
-      vnet_buffer(b)->l3_hdr_offset = b->current_data;
+      vnet_buffer (b)->l3_hdr_offset = b->current_data;
     }
   if (!(b->flags & VNET_BUFFER_F_L4_HDR_OFFSET_VALID))
     {
       b->flags |= VNET_BUFFER_F_L4_HDR_OFFSET_VALID;
-      vnet_buffer(b)->l4_hdr_offset =
-          vnet_buffer(b)->l3_hdr_offset + l3_header_size;
+      vnet_buffer (b)->l4_hdr_offset =
+	vnet_buffer (b)->l3_hdr_offset + l3_header_size;
     }
 }
 

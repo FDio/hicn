@@ -34,13 +34,12 @@
 #include <hicn/hicn_api.h>
 #include "error.h"
 
-
 /* Declare message IDs */
 #include "hicn_msg_enum.h"
 
 /* SUPPORTING FUNCTIONS NOT LOADED BY VPP_API_TEST */
 uword
-unformat_ip46_address (unformat_input_t * input, va_list * args)
+unformat_ip46_address (unformat_input_t *input, va_list *args)
 {
   ip46_address_t *ip46 = va_arg (*args, ip46_address_t *);
   ip46_type_t type = va_arg (*args, ip46_type_t);
@@ -59,8 +58,8 @@ unformat_ip46_address (unformat_input_t * input, va_list * args)
 }
 
 static ip46_type_t
-ip_address_union_decode (const vl_api_address_union_t * in,
-			 vl_api_address_family_t af, ip46_address_t * out)
+ip_address_union_decode (const vl_api_address_union_t *in,
+			 vl_api_address_family_t af, ip46_address_t *out)
 {
   ip46_type_t type;
 
@@ -85,33 +84,32 @@ ip_address_union_decode (const vl_api_address_union_t * in,
 }
 
 void
-ip6_address_encode (const ip6_address_t * in, vl_api_ip6_address_t out)
+ip6_address_encode (const ip6_address_t *in, vl_api_ip6_address_t out)
 {
   clib_memcpy (out, in, sizeof (*in));
 }
 
 void
-ip6_address_decode (const vl_api_ip6_address_t in, ip6_address_t * out)
+ip6_address_decode (const vl_api_ip6_address_t in, ip6_address_t *out)
 {
   clib_memcpy (out, in, sizeof (*out));
 }
 
 void
-ip4_address_encode (const ip4_address_t * in, vl_api_ip4_address_t out)
+ip4_address_encode (const ip4_address_t *in, vl_api_ip4_address_t out)
 {
   clib_memcpy (out, in, sizeof (*in));
 }
 
 void
-ip4_address_decode (const vl_api_ip4_address_t in, ip4_address_t * out)
+ip4_address_decode (const vl_api_ip4_address_t in, ip4_address_t *out)
 {
   clib_memcpy (out, in, sizeof (*out));
 }
 
 static void
-ip_address_union_encode (const ip46_address_t * in,
-			 vl_api_address_family_t af,
-			 vl_api_address_union_t * out)
+ip_address_union_encode (const ip46_address_t *in, vl_api_address_family_t af,
+			 vl_api_address_union_t *out)
 {
   if (ADDRESS_IP6 == clib_net_to_host_u32 (af))
     ip6_address_encode (&in->ip6, out->ip6);
@@ -120,14 +118,14 @@ ip_address_union_encode (const ip46_address_t * in,
 }
 
 ip46_type_t
-ip_address_decode (const vl_api_address_t * in, ip46_address_t * out)
+ip_address_decode (const vl_api_address_t *in, ip46_address_t *out)
 {
   return (ip_address_union_decode (&in->un, in->af, out));
 }
 
 void
-ip_address_encode (const ip46_address_t * in, ip46_type_t type,
-		   vl_api_address_t * out)
+ip_address_encode (const ip46_address_t *in, ip46_type_t type,
+		   vl_api_address_t *out)
 {
   switch (type)
     {
@@ -182,7 +180,7 @@ fib_proto_to_ip46 (fib_protocol_t fproto)
 }
 
 void
-ip_prefix_decode (const vl_api_prefix_t * in, fib_prefix_t * out)
+ip_prefix_decode (const vl_api_prefix_t *in, fib_prefix_t *out)
 {
   switch (clib_net_to_host_u32 (in->address.af))
     {
@@ -199,11 +197,11 @@ ip_prefix_decode (const vl_api_prefix_t * in, fib_prefix_t * out)
 }
 
 void
-ip_prefix_encode (const fib_prefix_t * in, vl_api_prefix_t * out)
+ip_prefix_encode (const fib_prefix_t *in, vl_api_prefix_t *out)
 {
   out->len = in->fp_len;
-  ip_address_encode (&in->fp_addr,
-		     fib_proto_to_ip46 (in->fp_proto), &out->address);
+  ip_address_encode (&in->fp_addr, fib_proto_to_ip46 (in->fp_proto),
+		     &out->address);
 }
 
 /////////////////////////////////////////////////////
@@ -220,24 +218,26 @@ typedef struct
 
 hicn_test_main_t hicn_test_main;
 
-#define foreach_standard_reply_retval_handler            \
-_(hicn_api_node_params_set_reply)                        \
-_(hicn_api_enable_disable_reply)
+#define foreach_standard_reply_retval_handler                                 \
+  _ (hicn_api_node_params_set_reply)                                          \
+  _ (hicn_api_enable_disable_reply)
 
-#define _(n)                                            \
-    static void vl_api_##n##_t_handler                  \
-    (vl_api_##n##_t * mp)                               \
-    {                                                   \
-        vat_main_t * vam = hicn_test_main.vat_main;     \
-        i32 retval = ntohl(mp->retval);                 \
-        if (vam->async_mode) {                          \
-            vam->async_errors += (retval < 0);          \
-        } else {					\
-	    fformat (vam->ofp,"%s\n", get_error_string(retval));\
-            vam->retval = retval;                       \
-            vam->result_ready = 1;                      \
-        }                                               \
-    }
+#define _(n)                                                                  \
+  static void vl_api_##n##_t_handler (vl_api_##n##_t *mp)                     \
+  {                                                                           \
+    vat_main_t *vam = hicn_test_main.vat_main;                                \
+    i32 retval = ntohl (mp->retval);                                          \
+    if (vam->async_mode)                                                      \
+      {                                                                       \
+	vam->async_errors += (retval < 0);                                    \
+      }                                                                       \
+    else                                                                      \
+      {                                                                       \
+	fformat (vam->ofp, "%s\n", get_error_string (retval));                \
+	vam->retval = retval;                                                 \
+	vam->result_ready = 1;                                                \
+      }                                                                       \
+  }
 foreach_standard_reply_retval_handler;
 #undef _
 
@@ -245,23 +245,23 @@ foreach_standard_reply_retval_handler;
  * Table of message reply handlers, must include boilerplate handlers we just
  * generated
  */
-#define foreach_vpe_api_reply_msg                                       \
-_(HICN_API_NODE_PARAMS_SET_REPLY, hicn_api_node_params_set_reply)       \
-_(HICN_API_NODE_PARAMS_GET_REPLY, hicn_api_node_params_get_reply)       \
-_(HICN_API_NODE_STATS_GET_REPLY, hicn_api_node_stats_get_reply)         \
-_(HICN_API_FACE_GET_REPLY, hicn_api_face_get_reply)                     \
-_(HICN_API_FACES_DETAILS, hicn_api_faces_details)                       \
-_(HICN_API_FACE_STATS_DETAILS, hicn_api_face_stats_details)             \
-_(HICN_API_FACE_PARAMS_GET_REPLY, hicn_api_face_params_get_reply) \
-_(HICN_API_ROUTE_GET_REPLY, hicn_api_route_get_reply)                   \
-_(HICN_API_ROUTES_DETAILS, hicn_api_routes_details)                     \
-_(HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)         \
-_(HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)             \
-_(HICN_API_ENABLE_DISABLE_REPLY, hicn_api_enable_disable_reply)         \
-_(HICN_API_UDP_TUNNEL_ADD_DEL_REPLY, hicn_api_udp_tunnel_add_del_reply)
+#define foreach_vpe_api_reply_msg                                             \
+  _ (HICN_API_NODE_PARAMS_SET_REPLY, hicn_api_node_params_set_reply)          \
+  _ (HICN_API_NODE_PARAMS_GET_REPLY, hicn_api_node_params_get_reply)          \
+  _ (HICN_API_NODE_STATS_GET_REPLY, hicn_api_node_stats_get_reply)            \
+  _ (HICN_API_FACE_GET_REPLY, hicn_api_face_get_reply)                        \
+  _ (HICN_API_FACES_DETAILS, hicn_api_faces_details)                          \
+  _ (HICN_API_FACE_STATS_DETAILS, hicn_api_face_stats_details)                \
+  _ (HICN_API_FACE_PARAMS_GET_REPLY, hicn_api_face_params_get_reply)          \
+  _ (HICN_API_ROUTE_GET_REPLY, hicn_api_route_get_reply)                      \
+  _ (HICN_API_ROUTES_DETAILS, hicn_api_routes_details)                        \
+  _ (HICN_API_STRATEGIES_GET_REPLY, hicn_api_strategies_get_reply)            \
+  _ (HICN_API_STRATEGY_GET_REPLY, hicn_api_strategy_get_reply)                \
+  _ (HICN_API_ENABLE_DISABLE_REPLY, hicn_api_enable_disable_reply)            \
+  _ (HICN_API_UDP_TUNNEL_ADD_DEL_REPLY, hicn_api_udp_tunnel_add_del_reply)
 
 static int
-api_hicn_api_node_params_set (vat_main_t * vam)
+api_hicn_api_node_params_set (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
   int enable_disable = 1;
@@ -279,13 +279,16 @@ api_hicn_api_node_params_set (vat_main_t * vam)
 	  enable_disable = 0;
 	}
       else if (unformat (input, "PIT size %d", &pit_size))
-	{;
+	{
+	  ;
 	}
       else if (unformat (input, "CS size %d", &cs_size))
-	{;
+	{
+	  ;
 	}
       else if (unformat (input, "PIT maxlife %f", &pit_max_lifetime_sec))
-	{;
+	{
+	  ;
 	}
       else
 	{
@@ -295,7 +298,7 @@ api_hicn_api_node_params_set (vat_main_t * vam)
 
   /* Construct the API message */
   M (HICN_API_NODE_PARAMS_SET, mp);
-  mp->enable_disable = clib_host_to_net_u32(enable_disable);
+  mp->enable_disable = clib_host_to_net_u32 (enable_disable);
   mp->pit_max_size = clib_host_to_net_i32 (pit_size);
   mp->cs_max_size = clib_host_to_net_i32 (cs_size);
   mp->pit_max_lifetime_sec = pit_max_lifetime_sec;
@@ -310,12 +313,12 @@ api_hicn_api_node_params_set (vat_main_t * vam)
 }
 
 static int
-api_hicn_api_node_params_get (vat_main_t * vam)
+api_hicn_api_node_params_get (vat_main_t *vam)
 {
   vl_api_hicn_api_node_params_get_t *mp;
   int ret;
 
-  //Construct the API message
+  // Construct the API message
   M (HICN_API_NODE_PARAMS_GET, mp);
 
   /* send it... */
@@ -328,8 +331,8 @@ api_hicn_api_node_params_get (vat_main_t * vam)
 }
 
 static void
-  vl_api_hicn_api_node_params_get_reply_t_handler
-  (vl_api_hicn_api_node_params_get_reply_t * mp)
+vl_api_hicn_api_node_params_get_reply_t_handler (
+  vl_api_hicn_api_node_params_get_reply_t *mp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (mp->retval);
@@ -344,7 +347,7 @@ static void
 
   if (vam->retval < 0)
     {
-      //vpp_api_test infra will also print out string form of error
+      // vpp_api_test infra will also print out string form of error
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
@@ -354,14 +357,13 @@ static void
 	   "  PIT size %d\n"
 	   "  PIT lifetime dflt %.3f, min %.3f, max %.3f\n"
 	   "  CS size %d\n",
-	   mp->is_enabled,
-	   mp->feature_cs,
-	   clib_net_to_host_u32 (mp->pit_max_size),
-	   mp->pit_max_lifetime_sec, clib_net_to_host_u32 (mp->cs_max_size));
+	   mp->is_enabled, mp->feature_cs,
+	   clib_net_to_host_u32 (mp->pit_max_size), mp->pit_max_lifetime_sec,
+	   clib_net_to_host_u32 (mp->cs_max_size));
 }
 
 static int
-api_hicn_api_node_stats_get (vat_main_t * vam)
+api_hicn_api_node_stats_get (vat_main_t *vam)
 {
   vl_api_hicn_api_node_stats_get_t *mp;
   int ret;
@@ -379,8 +381,8 @@ api_hicn_api_node_stats_get (vat_main_t * vam)
 }
 
 static void
-  vl_api_hicn_api_node_stats_get_reply_t_handler
-  (vl_api_hicn_api_node_stats_get_reply_t * rmp)
+vl_api_hicn_api_node_stats_get_reply_t_handler (
+  vl_api_hicn_api_node_stats_get_reply_t *rmp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (rmp->retval);
@@ -395,13 +397,13 @@ static void
 
   if (vam->retval < 0)
     {
-      //vpp_api_test infra will also print out string form of error
+      // vpp_api_test infra will also print out string form of error
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
   else
     {
-      fformat (vam->ofp,	//compare hicn_cli_show_command_fn block:should match
+      fformat (vam->ofp, // compare hicn_cli_show_command_fn block:should match
 	       "  PIT entries (now): %d\n"
 	       "  CS entries (now): %d\n"
 	       "  Forwarding statistics:"
@@ -437,7 +439,7 @@ static void
 }
 
 static int
-api_hicn_api_face_params_get (vat_main_t * vam)
+api_hicn_api_face_params_get (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_face_params_get_t *mp;
@@ -446,7 +448,8 @@ api_hicn_api_face_params_get (vat_main_t * vam)
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (input, "face %d", &faceid))
-	{;
+	{
+	  ;
 	}
       else
 	{
@@ -454,28 +457,28 @@ api_hicn_api_face_params_get (vat_main_t * vam)
 	}
     }
 
-  //Check for presence of face ID
+  // Check for presence of face ID
   if (faceid == HICN_FACE_NULL)
     {
       clib_warning ("Please specify face ID");
       return 1;
     }
-  //Construct the API message
+  // Construct the API message
   M (HICN_API_FACE_PARAMS_GET, mp);
   mp->faceid = clib_host_to_net_u32 (faceid);
 
-  //send it...
+  // send it...
   S (mp);
 
-  //Wait for a reply...
+  // Wait for a reply...
   W (ret);
 
   return ret;
 }
 
 static void
-  vl_api_hicn_api_face_params_get_reply_t_handler
-  (vl_api_hicn_api_face_params_get_reply_t * rmp)
+vl_api_hicn_api_face_params_get_reply_t_handler (
+  vl_api_hicn_api_face_params_get_reply_t *rmp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (rmp->retval);
@@ -492,24 +495,22 @@ static void
 
   if (vam->retval < 0)
     {
-      //vpp_api_test infra will also print out string form of error
+      // vpp_api_test infra will also print out string form of error
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
   vec_reset_length (sbuf);
   ip_address_decode (&rmp->nat_addr, &nat_addr);
-  sbuf =
-    format (0, "nat_addr %U", format_ip46_address,
-	    &nat_addr, 0 /*IP46_ANY_TYPE */);
+  sbuf = format (0, "nat_addr %U", format_ip46_address, &nat_addr,
+		 0 /*IP46_ANY_TYPE */);
 
-  fformat (vam->ofp, "%s swif %d flags %d\n",
-	   sbuf,
+  fformat (vam->ofp, "%s swif %d flags %d\n", sbuf,
 	   clib_net_to_host_u32 (rmp->swif),
 	   clib_net_to_host_i32 (rmp->flags));
 }
 
 static void
-format_face (vl_api_hicn_face_t * rmp)
+format_face (vl_api_hicn_face_t *rmp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   u8 *sbuf = 0;
@@ -519,18 +520,16 @@ format_face (vl_api_hicn_face_t * rmp)
   vec_reset_length (sbuf);
   ip_address_decode (&rmp->nat_addr, &nat_addr);
 
-  sbuf =
-    format (0, "nat_addr %U", format_ip46_address,
-	    &local_addr, 0 /*IP46_ANY_TYPE */);
+  sbuf = format (0, "nat_addr %U", format_ip46_address, &local_addr,
+		 0 /*IP46_ANY_TYPE */);
 
-  fformat (vam->ofp, "%s swif %d flags %d name %s\n",
-	   sbuf,
-	   clib_net_to_host_u32 (rmp->swif),
-	   clib_net_to_host_i32 (rmp->flags), rmp->if_name);
+  fformat (vam->ofp, "%s swif %d flags %d name %s\n", sbuf,
+	   clib_net_to_host_u32 (rmp->swif), clib_net_to_host_i32 (rmp->flags),
+	   rmp->if_name);
 }
 
 static int
-api_hicn_api_faces_dump (vat_main_t * vam)
+api_hicn_api_faces_dump (vat_main_t *vam)
 {
   hicn_test_main_t *hm = &hicn_test_main;
   vl_api_hicn_api_faces_dump_t *mp;
@@ -564,14 +563,13 @@ api_hicn_api_faces_dump (vat_main_t * vam)
 }
 
 static void
-  vl_api_hicn_api_faces_details_t_handler
-  (vl_api_hicn_api_faces_details_t * mp)
+vl_api_hicn_api_faces_details_t_handler (vl_api_hicn_api_faces_details_t *mp)
 {
   format_face (&(mp->face));
 }
 
 static int
-api_hicn_api_face_get (vat_main_t * vam)
+api_hicn_api_face_get (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_face_get_t *mp;
@@ -580,7 +578,8 @@ api_hicn_api_face_get (vat_main_t * vam)
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (input, "face %d", &faceid))
-	{;
+	{
+	  ;
 	}
       else
 	{
@@ -588,29 +587,28 @@ api_hicn_api_face_get (vat_main_t * vam)
 	}
     }
 
-  //Check for presence of face ID
+  // Check for presence of face ID
   if (faceid == HICN_FACE_NULL)
     {
       clib_warning ("Please specify face ID");
       return 1;
     }
-  //Construct the API message
+  // Construct the API message
   M (HICN_API_FACE_GET, mp);
   mp->faceid = clib_host_to_net_u32 (faceid);
 
-  //send it...
+  // send it...
   S (mp);
 
-  //Wait for a reply...
+  // Wait for a reply...
   W (ret);
 
   return ret;
 }
 
-
 static void
-  vl_api_hicn_api_face_get_reply_t_handler
-  (vl_api_hicn_api_face_get_reply_t * rmp)
+vl_api_hicn_api_face_get_reply_t_handler (
+  vl_api_hicn_api_face_get_reply_t *rmp)
 {
 
   vat_main_t *vam = hicn_test_main.vat_main;
@@ -626,17 +624,15 @@ static void
 
   if (vam->retval < 0)
     {
-      //vpp_api_test infra will also print out string form of error
+      // vpp_api_test infra will also print out string form of error
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
   format_face (&(rmp->face));
 }
 
-
-
 static int
-api_hicn_api_face_stats_dump (vat_main_t * vam)
+api_hicn_api_face_stats_dump (vat_main_t *vam)
 {
   hicn_test_main_t *hm = &hicn_test_main;
   vl_api_hicn_api_face_stats_dump_t *mp;
@@ -671,12 +667,13 @@ api_hicn_api_face_stats_dump (vat_main_t * vam)
 
 /* face_stats-details message handler */
 static void
-  vl_api_hicn_api_face_stats_details_t_handler
-  (vl_api_hicn_api_face_stats_details_t * mp)
+vl_api_hicn_api_face_stats_details_t_handler (
+  vl_api_hicn_api_face_stats_details_t *mp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
 
-  fformat (vam->ofp, "face id %d\n"
+  fformat (vam->ofp,
+	   "face id %d\n"
 	   "    interest rx           packets %16Ld\n"
 	   "                          bytes %16Ld\n"
 	   "    interest tx           packets %16Ld\n"
@@ -697,7 +694,7 @@ static void
 }
 
 static int
-api_hicn_api_route_get (vat_main_t * vam)
+api_hicn_api_route_get (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
 
@@ -709,7 +706,8 @@ api_hicn_api_route_get (vat_main_t * vam)
     {
       if (unformat (input, "prefix %U/%d", unformat_ip46_address,
 		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
-	{;
+	{
+	  ;
 	}
       else
 	{
@@ -718,29 +716,29 @@ api_hicn_api_route_get (vat_main_t * vam)
     }
 
   /* Check parse */
-  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0))
-      || (prefix.fp_len == 0))
+  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0)) ||
+      (prefix.fp_len == 0))
     {
       clib_warning ("Please specify a valid prefix...");
       return 1;
     }
-  //Construct the API message
+  // Construct the API message
   M (HICN_API_ROUTE_GET, mp);
   if (!ip46_address_is_ip4 (&(prefix.fp_addr)))
     prefix.fp_proto = fib_proto_from_ip46 (IP46_TYPE_IP6);
   ip_prefix_encode (&prefix, &mp->prefix);
 
-  //send it...
+  // send it...
   S (mp);
 
-  //Wait for a reply...
+  // Wait for a reply...
   W (ret);
 
   return ret;
 }
 
 static int
-api_hicn_api_routes_dump (vat_main_t * vam)
+api_hicn_api_routes_dump (vat_main_t *vam)
 {
 
   hicn_test_main_t *hm = &hicn_test_main;
@@ -775,8 +773,8 @@ api_hicn_api_routes_dump (vat_main_t * vam)
 }
 
 static void
-vl_api_hicn_api_route_get_reply_t_handler (vl_api_hicn_api_route_get_reply_t *
-					   rmp)
+vl_api_hicn_api_route_get_reply_t_handler (
+  vl_api_hicn_api_route_get_reply_t *rmp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (rmp->retval);
@@ -792,7 +790,7 @@ vl_api_hicn_api_route_get_reply_t_handler (vl_api_hicn_api_route_get_reply_t *
 
   if (vam->retval < 0)
     {
-      //vpp_api_test infra will also print out string form of error
+      // vpp_api_test infra will also print out string form of error
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
@@ -808,8 +806,7 @@ vl_api_hicn_api_route_get_reply_t_handler (vl_api_hicn_api_route_get_reply_t *
       if (faceid != HICN_FACE_NULL)
 	{
 	  sbuf =
-	    format (sbuf, "faceid %d",
-		    clib_net_to_host_u32 (rmp->faceids[i]));
+	    format (sbuf, "faceid %d", clib_net_to_host_u32 (rmp->faceids[i]));
 	  i++;
 	}
       else
@@ -818,14 +815,13 @@ vl_api_hicn_api_route_get_reply_t_handler (vl_api_hicn_api_route_get_reply_t *
 	}
     }
 
-  fformat (vam->ofp, "%s\n Strategy: %d\n",
-	   sbuf, clib_net_to_host_u32 (rmp->strategy_id));
+  fformat (vam->ofp, "%s\n Strategy: %d\n", sbuf,
+	   clib_net_to_host_u32 (rmp->strategy_id));
 }
 
 /* face_stats-details message handler */
 static void
-  vl_api_hicn_api_routes_details_t_handler
-  (vl_api_hicn_api_routes_details_t * mp)
+vl_api_hicn_api_routes_details_t_handler (vl_api_hicn_api_routes_details_t *mp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   fib_prefix_t prefix;
@@ -834,9 +830,8 @@ static void
   vec_reset_length (sbuf);
 
   ip_prefix_decode (&mp->prefix, &prefix);
-  sbuf =
-    format (sbuf, "Prefix: %U/%u\n", format_ip46_address, &prefix.fp_addr, 0,
-	    prefix.fp_len);
+  sbuf = format (sbuf, "Prefix: %U/%u\n", format_ip46_address, &prefix.fp_addr,
+		 0, prefix.fp_len);
 
   sbuf = format (sbuf, "Faces: \n");
   for (int i = 0; i < mp->nfaces; i++)
@@ -845,17 +840,17 @@ static void
       sbuf = format (sbuf, " faceid %d\n", faceid);
     }
 
-  fformat (vam->ofp, "%sStrategy: %d\n",
-	   sbuf, clib_net_to_host_u32 (mp->strategy_id));
+  fformat (vam->ofp, "%sStrategy: %d\n", sbuf,
+	   clib_net_to_host_u32 (mp->strategy_id));
 }
 
 static int
-api_hicn_api_strategies_get (vat_main_t * vam)
+api_hicn_api_strategies_get (vat_main_t *vam)
 {
   vl_api_hicn_api_strategies_get_t *mp;
   int ret;
 
-  //TODO
+  // TODO
   /* Construct the API message */
   M (HICN_API_STRATEGIES_GET, mp);
 
@@ -869,8 +864,8 @@ api_hicn_api_strategies_get (vat_main_t * vam)
 }
 
 static void
-  vl_api_hicn_api_strategies_get_reply_t_handler
-  (vl_api_hicn_api_strategies_get_reply_t * mp)
+vl_api_hicn_api_strategies_get_reply_t_handler (
+  vl_api_hicn_api_strategies_get_reply_t *mp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (mp->retval);
@@ -886,7 +881,7 @@ static void
 
   if (vam->retval < 0)
     {
-      //vpp_api_test infra will also print out string form of error
+      // vpp_api_test infra will also print out string form of error
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
@@ -905,7 +900,7 @@ static void
 }
 
 static int
-api_hicn_api_strategy_get (vat_main_t * vam)
+api_hicn_api_strategy_get (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_strategy_get_t *mp;
@@ -916,7 +911,8 @@ api_hicn_api_strategy_get (vat_main_t * vam)
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (input, "strategy %d", strategy_id))
-	{;
+	{
+	  ;
 	}
       else
 	{
@@ -944,8 +940,8 @@ api_hicn_api_strategy_get (vat_main_t * vam)
 }
 
 static void
-  vl_api_hicn_api_strategy_get_reply_t_handler
-  (vl_api_hicn_api_strategy_get_reply_t * mp)
+vl_api_hicn_api_strategy_get_reply_t_handler (
+  vl_api_hicn_api_strategy_get_reply_t *mp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (mp->retval);
@@ -960,7 +956,7 @@ static void
 
   if (vam->retval < 0)
     {
-      //vpp_api_test infra will also print out string form of error
+      // vpp_api_test infra will also print out string form of error
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
@@ -968,7 +964,7 @@ static void
 }
 
 static int
-api_hicn_api_enable_disable (vat_main_t * vam)
+api_hicn_api_enable_disable (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_enable_disable_t *mp;
@@ -981,12 +977,14 @@ api_hicn_api_enable_disable (vat_main_t * vam)
     {
       if (unformat (input, "prefix %U/%d", unformat_ip46_address,
 		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
-	{;
+	{
+	  ;
 	}
       else if (unformat (input, "disable"))
-          {;
-            en_dis = HICN_DISABLE;
-          }
+	{
+	  ;
+	  en_dis = HICN_DISABLE;
+	}
       else
 	{
 	  break;
@@ -994,33 +992,34 @@ api_hicn_api_enable_disable (vat_main_t * vam)
     }
 
   /* Check parse */
-  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0))
-      || (prefix.fp_len == 0))
+  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0)) ||
+      (prefix.fp_len == 0))
     {
       clib_warning ("Please specify a valid prefix...");
       return 1;
     }
 
-  prefix.fp_proto = ip46_address_is_ip4 (&(prefix.fp_addr)) ? FIB_PROTOCOL_IP4 :
-                                         FIB_PROTOCOL_IP6;
+  prefix.fp_proto = ip46_address_is_ip4 (&(prefix.fp_addr)) ?
+		      FIB_PROTOCOL_IP4 :
+		      FIB_PROTOCOL_IP6;
 
-  //Construct the API message
+  // Construct the API message
   M (HICN_API_ENABLE_DISABLE, mp);
 
   ip_prefix_encode (&prefix, &mp->prefix);
   mp->enable_disable = en_dis;
 
-  //send it...
+  // send it...
   S (mp);
 
-  //Wait for a reply...
+  // Wait for a reply...
   W (ret);
 
   return ret;
 }
 
 static int
-api_hicn_api_register_prod_app (vat_main_t * vam)
+api_hicn_api_register_prod_app (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_register_prod_app_t *mp;
@@ -1032,10 +1031,12 @@ api_hicn_api_register_prod_app (vat_main_t * vam)
     {
       if (unformat (input, "prefix %U/%d", unformat_ip46_address,
 		    &prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
-	{;
+	{
+	  ;
 	}
       else if (unformat (input, "id %d", &swif))
-	{;
+	{
+	  ;
 	}
       else
 	{
@@ -1044,16 +1045,16 @@ api_hicn_api_register_prod_app (vat_main_t * vam)
     }
 
   /* Check parse */
-  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0))
-      || (prefix.fp_len == 0))
+  if (((prefix.fp_addr.as_u64[0] == 0) && (prefix.fp_addr.as_u64[1] == 0)) ||
+      (prefix.fp_len == 0))
     {
       clib_warning ("Please specify prefix...");
       return 1;
     }
 
-  prefix.fp_proto =
-    ip46_address_is_ip4 (&(prefix.fp_addr)) ? FIB_PROTOCOL_IP4 :
-    FIB_PROTOCOL_IP6;
+  prefix.fp_proto = ip46_address_is_ip4 (&(prefix.fp_addr)) ?
+		      FIB_PROTOCOL_IP4 :
+		      FIB_PROTOCOL_IP6;
   /* Construct the API message */
   M (HICN_API_REGISTER_PROD_APP, mp);
   ip_prefix_encode (&prefix, &mp->prefix);
@@ -1070,8 +1071,8 @@ api_hicn_api_register_prod_app (vat_main_t * vam)
 }
 
 static void
-  vl_api_hicn_api_register_prod_app_reply_t_handler
-  (vl_api_hicn_api_register_prod_app_reply_t * mp)
+vl_api_hicn_api_register_prod_app_reply_t_handler (
+  vl_api_hicn_api_register_prod_app_reply_t *mp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (mp->retval);
@@ -1086,14 +1087,14 @@ static void
 
   if (vam->retval < 0)
     {
-      //vpp_api_test infra will also print out string form of error
+      // vpp_api_test infra will also print out string form of error
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
 }
 
 static int
-api_hicn_api_face_prod_del (vat_main_t * vam)
+api_hicn_api_face_prod_del (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_face_prod_del_t *mp;
@@ -1102,7 +1103,8 @@ api_hicn_api_face_prod_del (vat_main_t * vam)
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (input, "face %d", &faceid))
-	{;
+	{
+	  ;
 	}
       else
 	{
@@ -1110,27 +1112,27 @@ api_hicn_api_face_prod_del (vat_main_t * vam)
 	}
     }
 
-  //Check for presence of face ID
+  // Check for presence of face ID
   if (faceid == ~0)
     {
       clib_warning ("Please specify face ID");
       return 1;
     }
-  //Construct the API message
+  // Construct the API message
   M (HICN_API_FACE_PROD_DEL, mp);
   mp->faceid = clib_host_to_net_u32 (faceid);
 
-  //send it...
+  // send it...
   S (mp);
 
-  //Wait for a reply...
+  // Wait for a reply...
   W (ret);
 
   return ret;
 }
 
 static int
-api_hicn_api_register_cons_app (vat_main_t * vam)
+api_hicn_api_register_cons_app (vat_main_t *vam)
 {
   vl_api_hicn_api_register_cons_app_t *mp;
   int ret;
@@ -1148,7 +1150,7 @@ api_hicn_api_register_cons_app (vat_main_t * vam)
 }
 
 static int
-api_hicn_api_face_cons_del (vat_main_t * vam)
+api_hicn_api_face_cons_del (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_face_cons_del_t *mp;
@@ -1157,7 +1159,8 @@ api_hicn_api_face_cons_del (vat_main_t * vam)
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (input, "face %d", &faceid))
-	{;
+	{
+	  ;
 	}
       else
 	{
@@ -1165,28 +1168,28 @@ api_hicn_api_face_cons_del (vat_main_t * vam)
 	}
     }
 
-  //Check for presence of face ID
+  // Check for presence of face ID
   if (faceid == ~0)
     {
       clib_warning ("Please specify face ID");
       return 1;
     }
-  //Construct the API message
+  // Construct the API message
   M (HICN_API_FACE_CONS_DEL, mp);
   mp->faceid = clib_host_to_net_u32 (faceid);
 
-  //send it...
+  // send it...
   S (mp);
 
-  //Wait for a reply...
+  // Wait for a reply...
   W (ret);
 
   return ret;
 }
 
 static void
-  vl_api_hicn_api_register_cons_app_reply_t_handler
-  (vl_api_hicn_api_register_cons_app_reply_t * mp)
+vl_api_hicn_api_register_cons_app_reply_t_handler (
+  vl_api_hicn_api_register_cons_app_reply_t *mp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (mp->retval);
@@ -1201,7 +1204,7 @@ static void
 
   if (vam->retval < 0)
     {
-      //vpp_api_test infra will also print out string form of error
+      // vpp_api_test infra will also print out string form of error
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
@@ -1213,12 +1216,12 @@ static void
   fformat (vam->ofp,
 	   "ip4 address %U\n"
 	   "ip6 address :%U\n",
-	   format_ip46_address, IP46_TYPE_ANY, &src_addr4,
-	   format_ip46_address, IP46_TYPE_ANY, &src_addr6);
+	   format_ip46_address, IP46_TYPE_ANY, &src_addr4, format_ip46_address,
+	   IP46_TYPE_ANY, &src_addr6);
 }
 
 static int
-api_hicn_api_udp_tunnel_add_del (vat_main_t * vam)
+api_hicn_api_udp_tunnel_add_del (vat_main_t *vam)
 {
   unformat_input_t *input = vam->input;
   vl_api_hicn_api_udp_tunnel_add_del_t *mp;
@@ -1236,25 +1239,22 @@ api_hicn_api_udp_tunnel_add_del (vat_main_t * vam)
   while (unformat_check_input (input) != UNFORMAT_END_OF_INPUT)
     {
       if (unformat (input, "add"))
-        is_del = 0;
+	is_del = 0;
       else if (unformat (input, "del"))
-        is_del = 1;
-      else if (unformat (input, "%U %U",
-                         unformat_ip4_address,
-                         &src_ip.ip4, unformat_ip4_address, &dst_ip.ip4))
-        fproto = FIB_PROTOCOL_IP4;
-      else if (unformat (input, "%U %U",
-                         unformat_ip6_address,
-                         &src_ip.ip6, unformat_ip6_address, &dst_ip.ip6))
-        fproto = FIB_PROTOCOL_IP6;
+	is_del = 1;
+      else if (unformat (input, "%U %U", unformat_ip4_address, &src_ip.ip4,
+			 unformat_ip4_address, &dst_ip.ip4))
+	fproto = FIB_PROTOCOL_IP4;
+      else if (unformat (input, "%U %U", unformat_ip6_address, &src_ip.ip6,
+			 unformat_ip6_address, &dst_ip.ip6))
+	fproto = FIB_PROTOCOL_IP6;
       else if (unformat (input, "%d %d", &src_port, &dst_port))
-        ;
+	;
       else
-        {
-          break;
-        }
+	{
+	  break;
+	}
     }
-
 
   if (fproto == FIB_PROTOCOL_MAX)
     {
@@ -1264,10 +1264,14 @@ api_hicn_api_udp_tunnel_add_del (vat_main_t * vam)
 
   /* Construct the API message */
   M (HICN_API_UDP_TUNNEL_ADD_DEL, mp);
-  ip_address_encode (&src_ip, fproto == FIB_PROTOCOL_IP4 ? IP46_TYPE_IP4 : IP46_TYPE_IP6 ,&mp->src_addr);
-  ip_address_encode (&dst_ip, fproto == FIB_PROTOCOL_IP4 ? IP46_TYPE_IP4 : IP46_TYPE_IP6 ,&mp->dst_addr);
-  mp->src_port = clib_host_to_net_u16(src_port);
-  mp->dst_port = clib_host_to_net_u16(dst_port);
+  ip_address_encode (
+    &src_ip, fproto == FIB_PROTOCOL_IP4 ? IP46_TYPE_IP4 : IP46_TYPE_IP6,
+    &mp->src_addr);
+  ip_address_encode (
+    &dst_ip, fproto == FIB_PROTOCOL_IP4 ? IP46_TYPE_IP4 : IP46_TYPE_IP6,
+    &mp->dst_addr);
+  mp->src_port = clib_host_to_net_u16 (src_port);
+  mp->dst_port = clib_host_to_net_u16 (dst_port);
   mp->is_add = !is_del;
 
   /* send it... */
@@ -1280,8 +1284,8 @@ api_hicn_api_udp_tunnel_add_del (vat_main_t * vam)
 }
 
 static void
-vl_api_hicn_api_udp_tunnel_add_del_reply_t_handler
-(vl_api_hicn_api_udp_tunnel_add_del_reply_t * mp)
+vl_api_hicn_api_udp_tunnel_add_del_reply_t_handler (
+  vl_api_hicn_api_udp_tunnel_add_del_reply_t *mp)
 {
   vat_main_t *vam = hicn_test_main.vat_main;
   i32 retval = ntohl (mp->retval);
@@ -1296,19 +1300,15 @@ vl_api_hicn_api_udp_tunnel_add_del_reply_t_handler
 
   if (vam->retval < 0)
     {
-      //vpp_api_test infra will also print out string form of error
+      // vpp_api_test infra will also print out string form of error
       fformat (vam->ofp, "   (API call error: %d)\n", vam->retval);
       return;
     }
 
-  index_t uei = clib_net_to_host_u32(mp->uei);
+  index_t uei = clib_net_to_host_u32 (mp->uei);
 
-  fformat (vam->ofp,
-	   "udp-encap %d\n",
-	   uei);
+  fformat (vam->ofp, "udp-encap %d\n", uei);
 }
-
-
 
 #include <hicn/hicn.api_test.c>
 

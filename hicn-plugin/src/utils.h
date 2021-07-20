@@ -30,7 +30,7 @@
  * @param name hicn name to print
  */
 always_inline void
-hicn_print_name6 (hicn_name_t * name)
+hicn_print_name6 (hicn_name_t *name)
 {
   u8 *s0;
   s0 = format (0, "Source addr %U, seq_number %u", format_ip6_address,
@@ -46,14 +46,13 @@ hicn_print_name6 (hicn_name_t * name)
  * @param hicn0 hICN header to print
  */
 always_inline void
-hicn_print6 (hicn_header_t * hicn0)
+hicn_print6 (hicn_header_t *hicn0)
 {
   vlib_main_t *vm = vlib_get_main ();
   u8 *s0;
   s0 = format (0, "Source addr %U:%u, dest addr %U:%u", format_ip6_address,
-	       &(hicn0->v6.ip.saddr),
-	       clib_net_to_host_u32 (hicn0->v6.tcp.seq), format_ip6_address,
-	       &(hicn0->v6.ip.daddr),
+	       &(hicn0->v6.ip.saddr), clib_net_to_host_u32 (hicn0->v6.tcp.seq),
+	       format_ip6_address, &(hicn0->v6.ip.daddr),
 	       clib_net_to_host_u32 (hicn0->v6.tcp.seq));
 
   vlib_cli_output (vm, "%s\n", s0);
@@ -65,20 +64,18 @@ hicn_print6 (hicn_header_t * hicn0)
  * @param hicn0 hICN header to print
  */
 always_inline void
-hicn_print4 (hicn_header_t * hicn0)
+hicn_print4 (hicn_header_t *hicn0)
 {
   u8 *s0;
   s0 = format (0, "Source addr %U:%u, dest addr %U:%u", format_ip4_address,
-	       &(hicn0->v4.ip.saddr),
-	       clib_net_to_host_u32 (hicn0->v4.tcp.seq), format_ip4_address,
-	       &(hicn0->v4.ip.daddr),
+	       &(hicn0->v4.ip.saddr), clib_net_to_host_u32 (hicn0->v4.tcp.seq),
+	       format_ip4_address, &(hicn0->v4.ip.daddr),
 	       clib_net_to_host_u32 (hicn0->v4.tcp.seq));
 
   printf ("%s\n", s0);
 }
 
 #endif /* // __HICN_UTILS_H__ */
-
 
 /*
  * fd.io coding-style-patch-verification: ON

@@ -32,8 +32,8 @@ hicn_cs_policy_vft_t hicn_cs_lru = {
  * Insert a new CS element at the head of the CS LRU
  */
 void
-hicn_cs_lru_insert (hicn_pit_cs_t * p, hicn_hash_node_t * node,
-		    hicn_pcs_entry_t * pcs, hicn_cs_policy_t * policy_state)
+hicn_cs_lru_insert (hicn_pit_cs_t *p, hicn_hash_node_t *node,
+		    hicn_pcs_entry_t *pcs, hicn_cs_policy_t *policy_state)
 {
   hicn_hash_node_t *lrunode;
   hicn_pcs_entry_t *lrupcs;
@@ -56,7 +56,7 @@ hicn_cs_lru_insert (hicn_pit_cs_t * p, hicn_hash_node_t * node,
     }
   else
     {
-      ASSERT (policy_state->tail == 0);	/* We think the list is
+      ASSERT (policy_state->tail == 0); /* We think the list is
 					 * empty */
 
       policy_state->head = policy_state->tail = idx;
@@ -68,26 +68,24 @@ hicn_cs_lru_insert (hicn_pit_cs_t * p, hicn_hash_node_t * node,
 }
 
 void
-hicn_cs_lru_delete_get (hicn_pit_cs_t * p, hicn_cs_policy_t * policy_state,
-			hicn_hash_node_t ** nodep,
-			hicn_pcs_entry_t ** pcs_entry,
-			hicn_hash_entry_t ** hash_entry)
+hicn_cs_lru_delete_get (hicn_pit_cs_t *p, hicn_cs_policy_t *policy_state,
+			hicn_hash_node_t **nodep, hicn_pcs_entry_t **pcs_entry,
+			hicn_hash_entry_t **hash_entry)
 {
   *nodep = hicn_hashtb_node_from_idx (p->pcs_table, policy_state->tail);
   *pcs_entry = hicn_pit_get_data (*nodep);
 
-  *hash_entry = hicn_hashtb_get_entry (p->pcs_table, (*nodep)->entry_idx,
-				       (*nodep)->bucket_id,
-				       (*nodep)->hn_flags &
-				       HICN_HASH_NODE_OVERFLOW_BUCKET);
+  *hash_entry = hicn_hashtb_get_entry (
+    p->pcs_table, (*nodep)->entry_idx, (*nodep)->bucket_id,
+    (*nodep)->hn_flags & HICN_HASH_NODE_OVERFLOW_BUCKET);
 }
 
 /*
  * Dequeue an LRU element, for example when it has expired.
  */
 void
-hicn_cs_lru_dequeue (hicn_pit_cs_t * pit, hicn_hash_node_t * pnode,
-		     hicn_pcs_entry_t * pcs, hicn_cs_policy_t * lru)
+hicn_cs_lru_dequeue (hicn_pit_cs_t *pit, hicn_hash_node_t *pnode,
+		     hicn_pcs_entry_t *pcs, hicn_cs_policy_t *lru)
 {
   hicn_hash_node_t *lrunode;
   hicn_pcs_entry_t *lrupcs;
@@ -95,8 +93,8 @@ hicn_cs_lru_dequeue (hicn_pit_cs_t * pit, hicn_hash_node_t * pnode,
   if (pcs->u.cs.cs_lru_prev != 0)
     {
       /* Not already on the head of the LRU */
-      lrunode = hicn_hashtb_node_from_idx (pit->pcs_table,
-					   pcs->u.cs.cs_lru_prev);
+      lrunode =
+	hicn_hashtb_node_from_idx (pit->pcs_table, pcs->u.cs.cs_lru_prev);
       lrupcs = hicn_pit_get_data (lrunode);
 
       lrupcs->u.cs.cs_lru_next = pcs->u.cs.cs_lru_next;
@@ -111,8 +109,8 @@ hicn_cs_lru_dequeue (hicn_pit_cs_t * pit, hicn_hash_node_t * pnode,
   if (pcs->u.cs.cs_lru_next != 0)
     {
       /* Not already the end of the LRU */
-      lrunode = hicn_hashtb_node_from_idx (pit->pcs_table,
-					   pcs->u.cs.cs_lru_next);
+      lrunode =
+	hicn_hashtb_node_from_idx (pit->pcs_table, pcs->u.cs.cs_lru_next);
       lrupcs = hicn_pit_get_data (lrunode);
 
       lrupcs->u.cs.cs_lru_prev = pcs->u.cs.cs_lru_prev;
@@ -133,8 +131,8 @@ hicn_cs_lru_dequeue (hicn_pit_cs_t * pit, hicn_hash_node_t * pnode,
  * Move a CS LRU element to the head, probably after it's been used.
  */
 void
-hicn_cs_lru_update_head (hicn_pit_cs_t * pit, hicn_hash_node_t * pnode,
-			 hicn_pcs_entry_t * pcs, hicn_cs_policy_t * lru)
+hicn_cs_lru_update_head (hicn_pit_cs_t *pit, hicn_hash_node_t *pnode,
+			 hicn_pcs_entry_t *pcs, hicn_cs_policy_t *lru)
 {
   if (pcs->u.cs.cs_lru_prev != 0)
     {
@@ -146,7 +144,6 @@ hicn_cs_lru_update_head (hicn_pit_cs_t * pit, hicn_hash_node_t * pnode,
 
       /* Now detached from the list; attach at head */
       hicn_cs_lru_insert (pit, pnode, pcs, lru);
-
     }
   else
     {
@@ -167,8 +164,8 @@ hicn_cs_lru_update_head (hicn_pit_cs_t * pit, hicn_hash_node_t * pnode,
  * CS's limit. Return the number of removed nodes.
  */
 int
-hicn_cs_lru_trim (hicn_pit_cs_t * pit, u32 * node_list, int sz,
-		  hicn_cs_policy_t * lru)
+hicn_cs_lru_trim (hicn_pit_cs_t *pit, u32 *node_list, int sz,
+		  hicn_cs_policy_t *lru)
 {
   hicn_hash_node_t *lrunode;
   hicn_pcs_entry_t *lrupcs;
@@ -214,8 +211,8 @@ hicn_cs_lru_trim (hicn_pit_cs_t * pit, u32 * node_list, int sz,
 }
 
 int
-hicn_cs_lru_flush (vlib_main_t * vm, struct hicn_pit_cs_s *pitcs,
-		   hicn_cs_policy_t * state)
+hicn_cs_lru_flush (vlib_main_t *vm, struct hicn_pit_cs_s *pitcs,
+		   hicn_cs_policy_t *state)
 {
   if (state->head == 0 && state->tail == 0)
     return 0;
@@ -233,20 +230,19 @@ hicn_cs_lru_flush (vlib_main_t * vm, struct hicn_pit_cs_s *pitcs,
       lrupcs = hicn_pit_get_data (lrunode);
 
       u64 hashval = 0;
-      hicn_hashtb_fullhash ((u8 *) & (lrunode->hn_key.ks.key),
+      hicn_hashtb_fullhash ((u8 *) &(lrunode->hn_key.ks.key),
 			    lrunode->hn_keysize, &hashval);
       hicn_hash_bucket_t *bucket = NULL;
       if ((hashval & (pitcs->pcs_table->ht_bucket_count - 1)) ==
 	  lrunode->bucket_id)
 	{
-	  //The bucket is in the non overflown
+	  // The bucket is in the non overflown
 	  bucket = pitcs->pcs_table->ht_buckets + lrunode->bucket_id;
 	}
       else
 	{
-	  bucket =
-	    pool_elt_at_index (pitcs->pcs_table->ht_overflow_buckets,
-			       lrunode->bucket_id);
+	  bucket = pool_elt_at_index (pitcs->pcs_table->ht_overflow_buckets,
+				      lrunode->bucket_id);
 	}
       hicn_hash_entry_t *hash_entry =
 	&(bucket->hb_entries[lrunode->entry_idx]);
@@ -258,7 +254,6 @@ hicn_cs_lru_flush (vlib_main_t * vm, struct hicn_pit_cs_s *pitcs,
     }
 
   return (i);
-
 }
 
 /*

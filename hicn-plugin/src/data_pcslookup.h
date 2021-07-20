@@ -22,9 +22,10 @@
  * @file data_pcslookup.h
  *
  * This is the node encoutered by data packets after the hicn6-face-input or
- * hicn4-face-input. This node performs a lookup in the pit and content store and
- * if there is a hit in the PIT, the vlib buffer is passed to the hicn-data-fwd
- * while if there is a hit in the CS or there isn't any hit, the packet is dropped.
+ * hicn4-face-input. This node performs a lookup in the pit and content store
+ * and if there is a hit in the PIT, the vlib buffer is passed to the
+ * hicn-data-fwd while if there is a hit in the CS or there isn't any hit, the
+ * packet is dropped.
  */
 
 /*
@@ -46,8 +47,8 @@ typedef struct
 
 typedef enum
 {
-  HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD,	/* This must be one position
-					 * before the error drop!! */
+  HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD, /* This must be one position
+				      * before the error drop!! */
   HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP,
   HICN_DATA_PCSLOOKUP_N_NEXT,
 } hicn_data_pcslookup_next_t;

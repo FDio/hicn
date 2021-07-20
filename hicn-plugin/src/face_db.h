@@ -22,18 +22,19 @@
 /**
  * @file face_db.h
  *
- * Define a face db that is store in every pit entry. A face db containes a list
- * of incoming faces for interest packets that are used to forward data packets
- * on the interests' reverse path
+ * Define a face db that is store in every pit entry. A face db containes a
+ * list of incoming faces for interest packets that are used to forward data
+ * packets on the interests' reverse path
  */
 
 /* Must be power of two */
 #define HICN_FACE_DB_INLINE_FACES 8
 
-#define HICN_PIT_BITMAP_SIZE_BYTE HICN_PARAM_FACES_MAX/8
+#define HICN_PIT_BITMAP_SIZE_BYTE  HICN_PARAM_FACES_MAX / 8
 #define HICN_PIT_N_HOP_BITMAP_SIZE HICN_PARAM_FACES_MAX
 
-#define HICN_PIT_N_HOP_BUCKET (HICN_PARAM_PIT_ENTRY_PHOPS_MAX - HICN_FACE_DB_INLINE_FACES)
+#define HICN_PIT_N_HOP_BUCKET                                                 \
+  (HICN_PARAM_PIT_ENTRY_PHOPS_MAX - HICN_FACE_DB_INLINE_FACES)
 
 typedef struct hicn_face_bucket_s
 {
@@ -67,18 +68,20 @@ typedef struct __attribute__ ((packed)) hicn_face_db_s
 
   /* 60B + 4B = 64B */
   u32 align;
-  //align back to 64
+  // align back to 64
 
 } hicn_face_db_t;
 
 always_inline hicn_face_id_t
-hicn_face_db_get_dpo_face (u32 index, hicn_face_db_t * face_db)
+hicn_face_db_get_dpo_face (u32 index, hicn_face_db_t *face_db)
 {
   ASSERT (index < face_db->n_faces);
 
-  return index < HICN_FACE_DB_INLINE_FACES ? (face_db->inline_faces[index]) :
-    (pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket)->faces
-      [(index - HICN_FACE_DB_INLINE_FACES) & (HICN_PIT_N_HOP_BUCKET - 1)]);
+  return index < HICN_FACE_DB_INLINE_FACES ?
+	   (face_db->inline_faces[index]) :
+	   (pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket)
+	      ->faces[(index - HICN_FACE_DB_INLINE_FACES) &
+		      (HICN_PIT_N_HOP_BUCKET - 1)]);
 }
 
 always_inline void
@@ -94,19 +97,18 @@ hicn_face_db_get_bucket (u32 bucket_index)
 }
 
 always_inline void
-hicn_face_db_add_face (hicn_face_id_t face_id, hicn_face_db_t * face_db)
+hicn_face_db_add_face (hicn_face_id_t face_id, hicn_face_db_t *face_db)
 {
-  //ASSERT (dpo->dpoi_index != ~0);
+  // ASSERT (dpo->dpoi_index != ~0);
 
   hicn_face_bucket_t *faces_bkt =
     pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket);
 
   hicn_face_id_t *element =
-    face_db->n_faces <
-    HICN_FACE_DB_INLINE_FACES ? &(face_db->inline_faces[face_db->n_faces]) :
-    &(faces_bkt->faces
-      [(face_db->n_faces -
-	HICN_FACE_DB_INLINE_FACES) & (HICN_PIT_N_HOP_BUCKET - 1)]);
+    face_db->n_faces < HICN_FACE_DB_INLINE_FACES ?
+      &(face_db->inline_faces[face_db->n_faces]) :
+      &(faces_bkt->faces[(face_db->n_faces - HICN_FACE_DB_INLINE_FACES) &
+			 (HICN_PIT_N_HOP_BUCKET - 1)]);
 
   *element = face_id;
 
@@ -119,7 +121,7 @@ hicn_face_db_add_face (hicn_face_id_t face_id, hicn_face_db_t * face_db)
 }
 
 always_inline u8
-hicn_face_search (hicn_face_id_t index, hicn_face_db_t * face_db)
+hicn_face_search (hicn_face_id_t index, hicn_face_db_t *face_db)
 {
   hicn_face_bucket_t *faces_bkt =
     pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket);
@@ -132,7 +134,7 @@ hicn_face_search (hicn_face_id_t index, hicn_face_db_t * face_db)
 }
 
 always_inline void
-hicn_faces_flush (hicn_face_db_t * face_db)
+hicn_faces_flush (hicn_face_db_t *face_db)
 {
   hicn_face_bucket_t *faces_bkt =
     pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket);
@@ -140,7 +142,6 @@ hicn_faces_flush (hicn_face_db_t * face_db)
   face_db->n_faces = 0;
   pool_put_index (hicn_face_bucket_pool, face_db->next_bucket);
 }
-
 
 #endif /* // __HICN_FACE_DB_H__ */
 

@@ -24,22 +24,24 @@
  * @file data_fwd.h
  *
  * This is the node encoutered by data packets after the hicn-data-pcslookup.
- * This node has two goals: 1) clone/copy the vlib buffer as many time as the number
- * of faces stored in the pit entry, 2) store a clone/copy of the vlib buffer in the CS.
- * Unless there are memory issue (no more vlib buffer available to perform cloning/copy),
- * a single vlib buffer received might results in several vlib buffer sent to the next
- * vlib node (hicn4-iface-output or hicn6-iface-output).
+ * This node has two goals: 1) clone/copy the vlib buffer as many time as the
+ * number of faces stored in the pit entry, 2) store a clone/copy of the vlib
+ * buffer in the CS. Unless there are memory issue (no more vlib buffer
+ * available to perform cloning/copy), a single vlib buffer received might
+ * results in several vlib buffer sent to the next vlib node
+ * (hicn4-iface-output or hicn6-iface-output).
  *
- * It must be noted that cloning is possible only if the lentgh of the data pointed by
- * the vlib buffer is at least 256 bytes. This is due to an imposition in the vpp source
- * code. In all the other cases the vlib buffer is copied. Cloning is performed by advancing
- * the vlib buffer of 256 bytes and a new vlib buffer is created and chained in from of the received
- * buffer. Additionally, the 256 bytes removed (advanced) from the received vlib buffer are
- * copied in the head vlib buffer. In case of multiple cloning for the same vlib buffer, this
- * mechanism allows us to have a different hICN header for each clone (+ the same additional bytes
- * due to the vpp restriction on cloning).
+ * It must be noted that cloning is possible only if the lentgh of the data
+ * pointed by the vlib buffer is at least 256 bytes. This is due to an
+ * imposition in the vpp source code. In all the other cases the vlib buffer is
+ * copied. Cloning is performed by advancing the vlib buffer of 256 bytes and a
+ * new vlib buffer is created and chained in from of the received buffer.
+ * Additionally, the 256 bytes removed (advanced) from the received vlib buffer
+ * are copied in the head vlib buffer. In case of multiple cloning for the same
+ * vlib buffer, this mechanism allows us to have a different hICN header for
+ * each clone (+ the same additional bytes due to the vpp restriction on
+ * cloning).
  */
-
 
 /* Trace context struct */
 typedef struct
@@ -76,7 +78,7 @@ typedef enum
  *   less than the number requested or zero
  */
 always_inline u16
-vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
+vlib_buffer_clone_256_2 (vlib_main_t *vm, u32 src_buffer, u32 *buffers,
 			 u16 n_buffers, u16 head_end_offset)
 {
   u16 i;
@@ -97,8 +99,8 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
 	}
       return n_buffers;
     }
-  n_buffers = vlib_buffer_alloc_from_pool (vm, buffers, n_buffers,
-					   s->buffer_pool_index);
+  n_buffers =
+    vlib_buffer_alloc_from_pool (vm, buffers, n_buffers, s->buffer_pool_index);
 
   for (i = 0; i < n_buffers; i++)
     {
@@ -107,8 +109,8 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
       d->current_length = head_end_offset;
       d->trace_handle = s->trace_handle;
 
-      d->total_length_not_including_first_buffer = s->current_length -
-	head_end_offset;
+      d->total_length_not_including_first_buffer =
+	s->current_length - head_end_offset;
       if (PREDICT_FALSE (s->flags & VLIB_BUFFER_NEXT_PRESENT))
 	{
 	  d->total_length_not_including_first_buffer +=
@@ -149,7 +151,7 @@ vlib_buffer_clone_256_2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
  *   less than the number requested or zero
  */
 always_inline u16
-vlib_buffer_clone2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
+vlib_buffer_clone2 (vlib_main_t *vm, u32 src_buffer, u32 *buffers,
 		    u16 n_buffers, u16 head_end_offset)
 {
   vlib_buffer_t *s = vlib_get_buffer (vm, src_buffer);
@@ -174,11 +176,9 @@ vlib_buffer_clone2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
       vlib_buffer_t *copy;
       /* Ok to call the original vlib_buffer_copy. */
       copy = vlib_buffer_copy (vm, s);
-      n_cloned += vlib_buffer_clone (vm,
-				     vlib_get_buffer_index (vm, copy),
-				     buffers,
-				     n_buffers - n_clone_src,
-				     head_end_offset);
+      n_cloned +=
+	vlib_buffer_clone (vm, vlib_get_buffer_index (vm, copy), buffers,
+			   n_buffers - n_clone_src, head_end_offset);
       n_buffers -= n_cloned;
     }
   /*
@@ -195,9 +195,7 @@ vlib_buffer_clone2 (vlib_main_t * vm, u32 src_buffer, u32 * buffers,
    * complexity to the code, especially because we need to add 1 to
    * ref_count when the packet is cloned.
    */
-  n_cloned += vlib_buffer_clone_256_2 (vm,
-				       src_buffer,
-				       (buffers + n_cloned),
+  n_cloned += vlib_buffer_clone_256_2 (vm, src_buffer, (buffers + n_cloned),
 				       n_buffers, head_end_offset);
 
   s->ref_count += (tmp_ref_count - 1);

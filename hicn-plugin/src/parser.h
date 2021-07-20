@@ -46,8 +46,8 @@ enum hicn_pkt_type_e
  * @param isv6 return variable that will be equale to 1 is the header is ipv6
  */
 always_inline int
-hicn_interest_parse_pkt (vlib_buffer_t * pkt, hicn_name_t * name,
-			 u16 * namelen, hicn_header_t ** pkt_hdrp, u8 * isv6)
+hicn_interest_parse_pkt (vlib_buffer_t *pkt, hicn_name_t *name, u16 *namelen,
+			 hicn_header_t **pkt_hdrp, u8 *isv6)
 {
   if (pkt == NULL)
     return HICN_ERROR_PARSER_PKT_INVAL;
@@ -57,14 +57,12 @@ hicn_interest_parse_pkt (vlib_buffer_t * pkt, hicn_name_t * name,
   *isv6 = hicn_is_v6 (pkt_hdr);
   u8 ip_proto = (*isv6) * IPPROTO_IPV6;
   u8 next_proto_offset = 6 + (1 - *isv6) * 3;
-  //in the ipv6 header the next header field is at byte 6
+  // in the ipv6 header the next header field is at byte 6
   // in the ipv4 header the protocol field is at byte 9
-  hicn_type_t type = (hicn_type_t) { {
-				      .l4 = IPPROTO_NONE,.l3 =
-				      IPPROTO_NONE,.l2 =
-				      ip_pkt[next_proto_offset],.l1 =
-				      ip_proto}
-  };
+  hicn_type_t type = (hicn_type_t){ { .l4 = IPPROTO_NONE,
+				      .l3 = IPPROTO_NONE,
+				      .l2 = ip_pkt[next_proto_offset],
+				      .l1 = ip_proto } };
   hicn_get_buffer (pkt)->type = type;
 
   hicn_ops_vft[type.l1]->get_interest_name (type, &pkt_hdr->protocol, name);
@@ -83,8 +81,8 @@ hicn_interest_parse_pkt (vlib_buffer_t * pkt, hicn_name_t * name,
  * @param isv6 return variable that will be equale to 1 is the header is ipv6
  */
 always_inline int
-hicn_data_parse_pkt (vlib_buffer_t * pkt, hicn_name_t * name,
-		     u16 * namelen, hicn_header_t ** pkt_hdrp, u8 * isv6)
+hicn_data_parse_pkt (vlib_buffer_t *pkt, hicn_name_t *name, u16 *namelen,
+		     hicn_header_t **pkt_hdrp, u8 *isv6)
 {
   if (pkt == NULL)
     return HICN_ERROR_PARSER_PKT_INVAL;
@@ -99,18 +97,16 @@ hicn_data_parse_pkt (vlib_buffer_t * pkt, hicn_name_t * name,
    * header the protocol field is at byte 9
    */
   u8 next_proto_offset = 6 + (1 - *isv6) * 3;
-  hicn_type_t type = (hicn_type_t) { {.l4 = IPPROTO_NONE,.l3 =
-				      IPPROTO_NONE,.l2 =
-				      ip_pkt[next_proto_offset],.l1 =
-				      ip_proto}
-  };
+  hicn_type_t type = (hicn_type_t){ { .l4 = IPPROTO_NONE,
+				      .l3 = IPPROTO_NONE,
+				      .l2 = ip_pkt[next_proto_offset],
+				      .l1 = ip_proto } };
   hicn_get_buffer (pkt)->type = type;
   hicn_ops_vft[type.l1]->get_data_name (type, &pkt_hdr->protocol, name);
   *namelen = (1 - (*isv6)) * HICN_V4_NAME_LEN + (*isv6) * HICN_V6_NAME_LEN;
 
   return HICN_ERROR_NONE;
 }
-
 
 #endif /* // __HICN_PARSER_H__ */
 

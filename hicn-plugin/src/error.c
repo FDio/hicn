@@ -16,7 +16,7 @@
 #include "error.h"
 
 const char *HICN_ERROR_STRING[] = {
-#define _(a,b,c) c,
+#define _(a, b, c) c,
   foreach_hicn_error
 #undef _
 };

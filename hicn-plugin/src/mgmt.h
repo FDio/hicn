@@ -70,7 +70,7 @@ typedef enum
  * Utility to update error counters in all hICN nodes
  */
 always_inline void
-update_node_counter (vlib_main_t * vm, u32 node_idx, u32 counter_idx, u64 val)
+update_node_counter (vlib_main_t *vm, u32 node_idx, u32 counter_idx, u64 val)
 {
   vlib_node_t *node = vlib_get_node (vm, node_idx);
   vlib_error_main_t *em = &(vm->error_main);
@@ -79,29 +79,28 @@ update_node_counter (vlib_main_t * vm, u32 node_idx, u32 counter_idx, u64 val)
   em->counters[base_idx + counter_idx] = val;
 }
 
-
 /*
  * Stats for the forwarding node, which end up called "error" even though
  * they aren't...
  */
-#define foreach_hicnfwd_error					\
-  _(PROCESSED, "hICN packets processed")			\
-  _(INTERESTS, "hICN interests forwarded")			\
-  _(DATAS, "hICN data msgs forwarded")				\
-  _(CACHED, "Cached data ")					\
-  _(NO_PIT, "hICN no PIT entry drops")				\
-  _(PIT_EXPIRED, "hICN expired PIT entries")			\
-  _(CS_EXPIRED, "hICN expired CS entries")			\
-  _(CS_LRU, "hICN LRU CS entries freed")			\
-  _(NO_BUFS, "No packet buffers")				\
-  _(INTEREST_AGG, "Interests aggregated")			\
-  _(INTEREST_AGG_ENTRY, "Interest aggregated per entry")	\
-  _(INT_RETRANS, "Interest retransmissions")			\
-  _(INT_COUNT, "Interests in PIT")				\
-  _(CS_COUNT, "CS total entries")				\
-  _(CS_NTW_COUNT, "CS ntw entries")				\
-  _(CS_APP_COUNT, "CS app entries")				\
-  _(HASH_COLL_HASHTB_COUNT, "Collisions in Hash table")
+#define foreach_hicnfwd_error                                                 \
+  _ (PROCESSED, "hICN packets processed")                                     \
+  _ (INTERESTS, "hICN interests forwarded")                                   \
+  _ (DATAS, "hICN data msgs forwarded")                                       \
+  _ (CACHED, "Cached data ")                                                  \
+  _ (NO_PIT, "hICN no PIT entry drops")                                       \
+  _ (PIT_EXPIRED, "hICN expired PIT entries")                                 \
+  _ (CS_EXPIRED, "hICN expired CS entries")                                   \
+  _ (CS_LRU, "hICN LRU CS entries freed")                                     \
+  _ (NO_BUFS, "No packet buffers")                                            \
+  _ (INTEREST_AGG, "Interests aggregated")                                    \
+  _ (INTEREST_AGG_ENTRY, "Interest aggregated per entry")                     \
+  _ (INT_RETRANS, "Interest retransmissions")                                 \
+  _ (INT_COUNT, "Interests in PIT")                                           \
+  _ (CS_COUNT, "CS total entries")                                            \
+  _ (CS_NTW_COUNT, "CS ntw entries")                                          \
+  _ (CS_APP_COUNT, "CS app entries")                                          \
+  _ (HASH_COLL_HASHTB_COUNT, "Collisions in Hash table")
 
 typedef enum
 {
@@ -114,9 +113,9 @@ typedef enum
 /*
  * Declarations
  */
-clib_error_t *hicn_api_plugin_hookup (vlib_main_t * vm);
+clib_error_t *hicn_api_plugin_hookup (vlib_main_t *vm);
 
-int hicn_mgmt_node_stats_get (vl_api_hicn_api_node_stats_get_reply_t * rmp);
+int hicn_mgmt_node_stats_get (vl_api_hicn_api_node_stats_get_reply_t *rmp);
 
 #endif /* // __HICN_MGMT_H__ */
 

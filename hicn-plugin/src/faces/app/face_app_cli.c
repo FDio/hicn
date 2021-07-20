@@ -114,8 +114,8 @@ hicn_face_app_cli_set_command_fn (vlib_main_t *vm,
 	if (prod)
 	  {
 	    prefix.fp_proto = ip46_address_is_ip4 (&prefix.fp_addr) ?
-				      FIB_PROTOCOL_IP4 :
-				      FIB_PROTOCOL_IP6;
+				FIB_PROTOCOL_IP4 :
+				FIB_PROTOCOL_IP6;
 	    rv = hicn_face_prod_add (&prefix, sw_if, &cs_reserved, &prod_addr,
 				     &face_id1);
 	    if (rv == HICN_ERROR_NONE)
@@ -175,8 +175,8 @@ hicn_face_app_cli_set_command_fn (vlib_main_t *vm,
       break;
     }
   return (rv == HICN_ERROR_NONE) ?
-		 0 :
-		 clib_error_return (0, "%s\n", get_error_string (rv));
+	   0 :
+	   clib_error_return (0, "%s\n", get_error_string (rv));
 }
 
 /* cli declaration for 'cfg face' */

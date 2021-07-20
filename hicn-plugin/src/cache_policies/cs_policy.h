@@ -24,7 +24,6 @@
  * This file provides the needed structures to implement a CS policy
  */
 
-
 /*
  * Structure
  */
@@ -57,35 +56,33 @@ struct hicn_cs_policy_s;
  */
 typedef struct hicn_cs_policy_vft_s
 {
-  void (*hicn_cs_insert) (struct hicn_pit_cs_s * p,
-			  struct hicn_hash_node_s * node,
-			  struct hicn_pcs_entry_s * pcs,
-			  hicn_cs_policy_t * policy);
+  void (*hicn_cs_insert) (struct hicn_pit_cs_s *p,
+			  struct hicn_hash_node_s *node,
+			  struct hicn_pcs_entry_s *pcs,
+			  hicn_cs_policy_t *policy);
 
-  void (*hicn_cs_update) (struct hicn_pit_cs_s * p,
-			  struct hicn_hash_node_s * node,
-			  struct hicn_pcs_entry_s * pcs,
-			  hicn_cs_policy_t * policy);
+  void (*hicn_cs_update) (struct hicn_pit_cs_s *p,
+			  struct hicn_hash_node_s *node,
+			  struct hicn_pcs_entry_s *pcs,
+			  hicn_cs_policy_t *policy);
 
-  void (*hicn_cs_dequeue) (struct hicn_pit_cs_s * p,
-			   struct hicn_hash_node_s * node,
-			   struct hicn_pcs_entry_s * pcs,
-			   hicn_cs_policy_t * policy);
+  void (*hicn_cs_dequeue) (struct hicn_pit_cs_s *p,
+			   struct hicn_hash_node_s *node,
+			   struct hicn_pcs_entry_s *pcs,
+			   hicn_cs_policy_t *policy);
 
-  void (*hicn_cs_delete_get) (struct hicn_pit_cs_s * p,
-			      hicn_cs_policy_t * policy,
-			      struct hicn_hash_node_s ** node,
-			      struct hicn_pcs_entry_s ** pcs,
-			      struct hicn_hash_entry_s ** hash_entry);
+  void (*hicn_cs_delete_get) (struct hicn_pit_cs_s *p,
+			      hicn_cs_policy_t *policy,
+			      struct hicn_hash_node_s **node,
+			      struct hicn_pcs_entry_s **pcs,
+			      struct hicn_hash_entry_s **hash_entry);
 
-  int (*hicn_cs_trim) (struct hicn_pit_cs_s * p, u32 * node_list, int sz,
-		       hicn_cs_policy_t * policy);
+  int (*hicn_cs_trim) (struct hicn_pit_cs_s *p, u32 *node_list, int sz,
+		       hicn_cs_policy_t *policy);
 
-  int (*hicn_cs_flush) (vlib_main_t * vm, struct hicn_pit_cs_s * p,
-			hicn_cs_policy_t * policy_state);
+  int (*hicn_cs_flush) (vlib_main_t *vm, struct hicn_pit_cs_s *p,
+			hicn_cs_policy_t *policy_state);
 } hicn_cs_policy_vft_t;
-
-
 
 #endif /* // __HICN_POLICY_H__ */
 

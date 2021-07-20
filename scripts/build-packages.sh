@@ -42,7 +42,7 @@ function build_package() {
         ninja -j8 package
 
         find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
-        rm *Unspecified* || true
+        rm *Unspecified* *Development* *development* || true
     popd
 
     echo "*******************************************************************"

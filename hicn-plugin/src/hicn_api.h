@@ -20,9 +20,8 @@
  * @file
  */
 
-
 #define HICN_STRATEGY_NULL ~0
-#define HICN_FIB_TABLE 10
+#define HICN_FIB_TABLE	   10
 
 /* define message structures */
 #define vl_typedefs
