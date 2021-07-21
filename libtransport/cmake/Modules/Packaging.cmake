@@ -28,7 +28,7 @@ set(${LIBTRANSPORT_COMPONENT}-dev_DESCRIPTION
   CACHE STRING "Header files for developing using libhicntransport."
 )
 
-set(lib${LIBTRANSPORT}-devel_DESCRIPTION
+set(${LIBTRANSPORT_COMPONENT}-devel_DESCRIPTION
   CACHE STRING "Header files for developing using libhicntransport."
 )
 
@@ -47,21 +47,21 @@ set(${LIBTRANSPORT_COMPONENT}_RPM_DEPENDENCIES
 )
 
 set(${LIBTRANSPORT_COMPONENT}-dev_DEB_DEPENDENCIES
-  "${LIBTRANSPORT} (>= stable_version), libasio-dev (>= 1.10), lib${LIBHICN}-dev (>= stable_version), libparc-dev (>= 1.0), libconfig++-dev (>= 1.5-0.4build1)"
+  "${LIBTRANSPORT_COMPONENT} (>= stable_version), libasio-dev (>= 1.10), lib${LIBHICN}-dev (>= stable_version), libparc-dev (>= 1.0), libconfig++-dev (>= 1.5-0.4build1)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${LIBTRANSPORT_COMPONENT}-dev_RPM_DEPENDENCIES
-  "${LIBTRANSPORT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libparc-devel >= 1.0, libconfig-devel >= 1.5-9.el8"
+  "${LIBTRANSPORT_COMPONENT} >= stable_version, asio-devel >= 1.10, lib${LIBHICN}-devel >= stable_version, libparc-devel >= 1.0, libconfig-devel >= 1.5-9.el8"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${LIBTRANSPORT_COMPONENT}-io-modules_DEB_DEPENDENCIES
-  "${LIBTRANSPORT} (>= stable_version), libmemif (>= stable_version), vpp (>= stable_version-release), vpp (<< next_version-release), hicn-plugin (>= stable_version)"
+  "${LIBTRANSPORT_COMPONENT} (>= stable_version), libmemif (>= stable_version), vpp (>= stable_version-release), vpp (<< next_version-release), hicn-plugin (>= stable_version)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${LIBTRANSPORT_COMPONENT}-io-modules_RPM_DEPENDENCIES
-  "${LIBTRANSPORT} >= stable_version, libmemif >= stable_version, vpp >= stable_version-release, vpp < next_version-release, hicn-plugin >= stable_version"
+  "${LIBTRANSPORT_COMPONENT} >= stable_version, libmemif >= stable_version, vpp >= stable_version-release, vpp < next_version-release, hicn-plugin >= stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )
