@@ -21,6 +21,7 @@
 extern "C" {
 #endif
 
+#include <vapi/memclnt.api.vapi.h>
 #include <vapi/memif.api.vapi.h>
 
 #include "stdint.h"

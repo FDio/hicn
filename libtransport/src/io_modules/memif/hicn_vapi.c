@@ -20,6 +20,7 @@
 #include <hicn/name.h>
 #undef HICN_VPP_PLUGIN
 
+#include <vapi/memclnt.api.vapi.h>
 #include <vapi/hicn.api.vapi.h>
 #include <vapi/ip.api.vapi.h>
 #include <vapi/vapi_safe.h>

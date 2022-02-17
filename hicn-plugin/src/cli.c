@@ -22,6 +22,7 @@
 #include <vnet/ip/ip6_packet.h> // ip46_address_t
 #include <vnet/ip/format.h>
 #include <vnet/fib/fib_types.h>
+#include <vnet/pg/pg.h>
 
 #include "hicn.h"
 #include "infra.h"

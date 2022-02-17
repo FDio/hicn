@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include <hicn/hicn.api.h>
+#include <vpp_plugins/hicn/hicn.api.h>
 
 /*
  * fd.io coding-style-patch-verification: ON

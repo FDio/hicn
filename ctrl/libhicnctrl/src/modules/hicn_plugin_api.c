@@ -29,6 +29,7 @@
 #include <sys/socket.h>  // socket
 #include <unistd.h>      // close, fcntl
 #include <vapi/vapi_safe.h>
+#include <vapi/memclnt.api.vapi.h>
 #include <vapi/hicn.api.vapi.h>
 #include <vapi/ip.api.vapi.h>
 #include <vapi/udp.api.vapi.h>

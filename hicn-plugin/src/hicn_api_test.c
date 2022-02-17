@@ -31,7 +31,7 @@
 
 #include <vpp/api/vpe.api_types.h>
 
-#include <hicn/hicn_api.h>
+#include <vpp_plugins/hicn/hicn_api.h>
 #include "error.h"
 
 /* Declare message IDs */
@@ -1310,7 +1310,7 @@ vl_api_hicn_api_udp_tunnel_add_del_reply_t_handler (
   fformat (vam->ofp, "udp-encap %d\n", uei);
 }
 
-#include <hicn/hicn.api_test.c>
+#include <vpp_plugins/hicn/hicn.api_test.c>
 
 /*
  * fd.io coding-style-patch-verification: ON

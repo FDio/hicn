@@ -150,14 +150,14 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  dpo1 = load_balance_get_bucket_i (lb1, 0);
 
 	  if (dpo_is_hicn (dpo0))
-	    next0 = HICN_DATA_INPUT_IP6_NEXT_FACE;
+	    next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_FACE;
 	  else
-	    next0 = HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
+	    next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
 
 	  if (dpo_is_hicn (dpo1))
-	    next1 = HICN_DATA_INPUT_IP6_NEXT_FACE;
+	    next1 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_FACE;
 	  else
-	    next1 = HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
+	    next1 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
 
 	  if (PREDICT_FALSE (node->flags & VLIB_NODE_FLAG_TRACE) &&
 	      (p0->flags & VLIB_BUFFER_IS_TRACED))
@@ -255,9 +255,9 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  dpo0 = load_balance_get_bucket_i (lb0, 0);
 
 	  if (dpo_is_hicn (dpo0))
-	    next0 = HICN_DATA_INPUT_IP6_NEXT_FACE;
+	    next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_FACE;
 	  else
-	    next0 = HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
+	    next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
 
 	  if (PREDICT_FALSE (node->flags & VLIB_NODE_FLAG_TRACE) &&
 	      (p0->flags & VLIB_BUFFER_IS_TRACED))
@@ -337,8 +337,6 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
     {
       ip4_header_t *ip0, *ip1, *ip2, *ip3;
       const load_balance_t *lb0, *lb1, *lb2, *lb3;
-      ip4_fib_mtrie_t *mtrie0, *mtrie1, *mtrie2, *mtrie3;
-      ip4_fib_mtrie_leaf_t leaf0, leaf1, leaf2, leaf3;
       ip4_address_t *src_addr0, *src_addr1, *src_addr2, *src_addr3;
       u32 lb_index0, lb_index1, lb_index2, lb_index3;
       const dpo_id_t *dpo0, *dpo1, *dpo2, *dpo3;
@@ -372,30 +370,11 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[2]);
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[3]);
 
-      mtrie0 = &ip4_fib_get (vnet_buffer (b[0])->ip.fib_index)->mtrie;
-      mtrie1 = &ip4_fib_get (vnet_buffer (b[1])->ip.fib_index)->mtrie;
-      mtrie2 = &ip4_fib_get (vnet_buffer (b[2])->ip.fib_index)->mtrie;
-      mtrie3 = &ip4_fib_get (vnet_buffer (b[3])->ip.fib_index)->mtrie;
-
-      leaf0 = ip4_fib_mtrie_lookup_step_one (mtrie0, src_addr0);
-      leaf1 = ip4_fib_mtrie_lookup_step_one (mtrie1, src_addr1);
-      leaf2 = ip4_fib_mtrie_lookup_step_one (mtrie2, src_addr2);
-      leaf3 = ip4_fib_mtrie_lookup_step_one (mtrie3, src_addr3);
-
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 2);
-      leaf1 = ip4_fib_mtrie_lookup_step (mtrie1, leaf1, src_addr1, 2);
-      leaf2 = ip4_fib_mtrie_lookup_step (mtrie2, leaf2, src_addr2, 2);
-      leaf3 = ip4_fib_mtrie_lookup_step (mtrie3, leaf3, src_addr3, 2);
-
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 3);
-      leaf1 = ip4_fib_mtrie_lookup_step (mtrie1, leaf1, src_addr1, 3);
-      leaf2 = ip4_fib_mtrie_lookup_step (mtrie2, leaf2, src_addr2, 3);
-      leaf3 = ip4_fib_mtrie_lookup_step (mtrie3, leaf3, src_addr3, 3);
-
-      lb_index0 = ip4_fib_mtrie_leaf_get_adj_index (leaf0);
-      lb_index1 = ip4_fib_mtrie_leaf_get_adj_index (leaf1);
-      lb_index2 = ip4_fib_mtrie_leaf_get_adj_index (leaf2);
-      lb_index3 = ip4_fib_mtrie_leaf_get_adj_index (leaf3);
+      ip4_fib_forwarding_lookup_x4 (
+	vnet_buffer (b[0])->ip.fib_index, vnet_buffer (b[1])->ip.fib_index,
+	vnet_buffer (b[2])->ip.fib_index, vnet_buffer (b[3])->ip.fib_index,
+	src_addr0, src_addr1, src_addr2, src_addr3, &lb_index0, &lb_index1,
+	&lb_index2, &lb_index3);
 
       ASSERT (lb_index0 && lb_index1 && lb_index2 && lb_index3);
       lb0 = load_balance_get (lb_index0);
@@ -521,20 +500,9 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[0]);
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[1]);
 
-      mtrie0 = &ip4_fib_get (vnet_buffer (b[0])->ip.fib_index)->mtrie;
-      mtrie1 = &ip4_fib_get (vnet_buffer (b[1])->ip.fib_index)->mtrie;
-
-      leaf0 = ip4_fib_mtrie_lookup_step_one (mtrie0, src_addr0);
-      leaf1 = ip4_fib_mtrie_lookup_step_one (mtrie1, src_addr1);
-
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 2);
-      leaf1 = ip4_fib_mtrie_lookup_step (mtrie1, leaf1, src_addr1, 2);
-
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 3);
-      leaf1 = ip4_fib_mtrie_lookup_step (mtrie1, leaf1, src_addr1, 3);
-
-      lb_index0 = ip4_fib_mtrie_leaf_get_adj_index (leaf0);
-      lb_index1 = ip4_fib_mtrie_leaf_get_adj_index (leaf1);
+      ip4_fib_forwarding_lookup_x2 (
+	vnet_buffer (b[0])->ip.fib_index, vnet_buffer (b[1])->ip.fib_index,
+	src_addr0, src_addr1, &lb_index0, &lb_index1);
 
       ASSERT (lb_index0 && lb_index1);
       lb0 = load_balance_get (lb_index0);
@@ -592,8 +560,6 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
     {
       ip4_header_t *ip0;
       const load_balance_t *lb0;
-      ip4_fib_mtrie_t *mtrie0;
-      ip4_fib_mtrie_leaf_t leaf0;
       ip4_address_t *src_addr0;
       u32 lbi0;
       const dpo_id_t *dpo0;
@@ -602,11 +568,8 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       src_addr0 = &ip0->src_address;
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[0]);
 
-      mtrie0 = &ip4_fib_get (vnet_buffer (b[0])->ip.fib_index)->mtrie;
-      leaf0 = ip4_fib_mtrie_lookup_step_one (mtrie0, src_addr0);
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 2);
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 3);
-      lbi0 = ip4_fib_mtrie_leaf_get_adj_index (leaf0);
+     lbi0 = ip4_fib_forwarding_lookup (vnet_buffer (b[0])->ip.fib_index,
+					src_addr0);
 
       ASSERT (lbi0);
       lb0 = load_balance_get (lbi0);

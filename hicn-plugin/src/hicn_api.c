@@ -40,8 +40,8 @@
 #include "route.h"
 
 /* define message IDs */
-#include <hicn/hicn.api_enum.h>
-#include <hicn/hicn.api_types.h>
+#include <vpp_plugins/hicn/hicn.api_enum.h>
+#include <vpp_plugins/hicn/hicn.api_types.h>
 
 /* define generated endian-swappers */
 #define vl_endianfun
@@ -632,7 +632,7 @@ done:
 
 /************************************************************************************/
 
-#include <hicn/hicn.api.c>
+#include <vpp_plugins/hicn/hicn.api.c>
 
 /* Set up the API message handling tables */
 clib_error_t *
