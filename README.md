@@ -27,9 +27,7 @@ local namespace (local face management).
 
 ## Supported platforms
 
-- Ubuntu 16.04 LTS (amd64)
-- Ubuntu 18.04 LTS (amd64, arm64)
-- CentOS 7 (x86_64)
+- Ubuntu 20.04 LTS (amd64, arm64)
 - Android 10
 - iOS 13
 - macOS 10.15
@@ -37,9 +35,9 @@ local namespace (local face management).
 
 ## Binaries
 
-### Ubuntu 16/18 (amd64) and CentOS 7 (x86_64)
+### Ubuntu (amd64, arm64)
 
-<https://packagecloud.io/fdio/release>
+<https://packagecloud.io/app/fdio/release/search?q=hicn>
 
 ### Docker
 
@@ -57,5 +55,3 @@ master branch is updated to work with the latest stable release. All previous st
 are discontinued and not maintained. The user who is interested in a specific release can always
 checkout the right code tree by searching the latest commit under a given git tag carrying the
 release version.
-
-

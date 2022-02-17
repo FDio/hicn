@@ -43,8 +43,8 @@ function build_package() {
                         ${SCRIPT_PATH}/..
         ninja
 
-        find . -type f '(' -name '*.deb' -o -name '*.rpm' ')' -exec mv {} . \;
-        find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
+        find . -type f -name '*.deb' -exec mv {} . \;
+        find . -not -name '*.deb' -print0 | xargs -0 rm -rf -- || true
         rm *Unspecified* || true
     popd
 

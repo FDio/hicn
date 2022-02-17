@@ -23,11 +23,11 @@ The YANG model for the VPP based hICN vSwitch is based the full hICN C API
 exported by the VPP plugin with the addition of some VPP APIs such as
 interface and FIB management which are required by the hICN plugin.
 
-To install libyang, sysrepo, libnetconf and netopeer2 for Ubuntu18 amd64/arm64
-or CentOS 7 and ad-hoc repository is available and maintained in bintray
+To install libyang, sysrepo, libnetconf and netopeer2 for Ubuntu 20.04
+amd64/arm64 and ad-hoc repository is available and maintained in bintray
 at <https://dl.bintray.com/icn-team/apt-hicn-extras>.
 
-For instance in Ubuntu 18 LTS:
+For instance in Ubuntu 20.04 LTS:
 
 Install the sysrepo YANG data store and a NETCONF server:
 
@@ -310,8 +310,8 @@ ip link set dev vpp1 up
 
 ### FRR configuration
 
-Install FRR in Ubuntu 18 LTS:
-<http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-ubuntu1804.html>
+Install FRR in Ubuntu 20.04 LTS:
+<http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-ubuntu2004.html>
 
 Run and configure FRRouting (ospf):
 ```text

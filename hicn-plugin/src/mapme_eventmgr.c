@@ -111,12 +111,7 @@ hicn_mapme_process_ip4_fib (vlib_main_t *vm, hicn_face_id_t face)
 
   pool_foreach (fib_table, im4->fibs)
     {
-      ip4_fib_t *fib = pool_elt_at_index (im4->v4_fibs, fib_table->ft_index);
-
-      if (table_id >= 0 && table_id != (int) fib->table_id)
-	continue;
-      if (fib_index != ~0 && fib_index != (int) fib->index)
-	continue;
+      ip4_fib_t *fib = pool_elt_at_index (ip4_fibs, fib_table->ft_index);
 
       fib_node_index_t *fib_entry_index;
       ip4_fib_show_walk_ctx_t ctx = {

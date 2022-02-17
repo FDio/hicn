@@ -33,6 +33,7 @@ hICN collectd plugins have been tested in:
 
 - Ubuntu 16.04 LTS (x86_64)
 - Ubuntu 18.04 LTS (x86_64)
+- Ubuntu 20.04 LTS (x86_64)
 - Debian Stable/Testing
 - Red Hat Enterprise Linux 7
 - CentOS 7
@@ -41,7 +42,7 @@ hICN collectd plugins have been tested in:
 
 Build dependencies:
 
-- VPP 20.01, Debian packages can be found on [packagecloud](https://packagecloud.io/fdio/release/install):
+- VPP Debian packages can be found on [packagecloud](https://packagecloud.io/fdio/release/install):
   - vpp
   - libvppinfra-dev
   - vpp-dev

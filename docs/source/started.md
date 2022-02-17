@@ -45,10 +45,8 @@ and portable network stacks.
 
 ## Supported platforms
 
-- Ubuntu 18.04 LTS (amd64, arm64)
+- Ubuntu 20.04 LTS (amd64, arm64)
 - Debian Stable/Testing
-- Red Hat Enterprise Linux 7
-- CentOS 7
 - Android 10 (amd64, arm64)
 - iOS 13
 - macOS 10.15
@@ -61,12 +59,6 @@ You can either use released packages, or compile hicn from sources.
 
 ```bash
 curl -s https://packagecloud.io/install/repositories/fdio/release/script.deb.sh | sudo bash
-```
-
-### CentOS
-
-```bash
-curl -s https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh | sudo bash
 ```
 
 ### macOS
@@ -122,7 +114,7 @@ Supported providers are libvirt, vmware and virtualbox.
 This software is distributed under the following license:
 
 ```bash
-Copyright (c) 2017-2020 Cisco and/or its affiliates.
+Copyright (c) 2017-2022 Cisco and/or its affiliates.
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at:

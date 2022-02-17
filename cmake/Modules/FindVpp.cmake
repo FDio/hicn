@@ -28,63 +28,63 @@ find_path(VPP_INCLUDE_DIR vnet/vnet.h
 find_library(VPP_LIBRARY_MEMORYCLIENT
   NAMES vlibmemoryclient
   HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
+  PATH_SUFFIXES lib lib64 lib/x86_64-linux-gnu
   DOC "Find the Vpp Memoryclient library"
 )
 
 find_library(VPP_LIBRARY_SVM
   NAMES svm
   HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
+  PATH_SUFFIXES lib lib64 lib/x86_64-linux-gnu
   DOC "Find the Vpp svm library"
 )
 
 find_library(VPP_LIBRARY_INFRA
   NAMES vppinfra
   HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
+  PATH_SUFFIXES lib lib64 lib/x86_64-linux-gnu
   DOC "Find the Vpp infra library"
 )
 
 find_library(VPP_LIBRARY_VNET
   NAMES vnet
   HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
+  PATH_SUFFIXES lib lib64 lib/x86_64-linux-gnu
   DOC "Find the Vpp vnet library"
 )
 
 find_library(VPP_LIBRARY_VATPLUGIN
   NAMES vatplugin
   HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
+  PATH_SUFFIXES lib lib64 lib/x86_64-linux-gnu
   DOC "Find the Vpp vatplugin library"
 )
 
 find_library(VPP_LIBRARY_VLIB
   NAMES vlib
   HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
+  PATH_SUFFIXES lib lib64 lib/x86_64-linux-gnu
   DOC "Find the Vpp vlib library"
 )
 
 find_library(VPP_LIBRARY_VPPAPICLIENT
   NAMES vppapiclient
   HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
+  PATH_SUFFIXES lib lib64 lib/x86_64-linux-gnu
   DOC "Find the Vpp api library"
 )
 
 find_library(VPP_LIBRARY_VAPICLIENT
   NAMES vapiclient
   HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
+  PATH_SUFFIXES lib lib64 lib/x86_64-linux-gnu
   DOC "Find the Vpp vapi library"
 )
 
 find_library(VPP_LIBRARY_VLIBMEMORY
   NAMES vlibmemory
   HINTS ${VPP_SEARCH_PATH_LIST}
-  PATH_SUFFIXES lib lib64
+  PATH_SUFFIXES lib lib64 lib/x86_64-linux-gnu
   DOC "Find the Vpp vlibmemory library"
 )
 

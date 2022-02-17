@@ -22,12 +22,7 @@ CMAKE_INSTALL_DIR="/opt/cmake"
 export PATH=:${CMAKE_INSTALL_DIR}/bin:${PATH}
 
 PACKAGECLOUD_RELEASE_REPO_DEB="https://packagecloud.io/install/repositories/fdio/release/script.deb.sh"
-PACKAGECLOUD_RELEASE_REPO_RPM="https://packagecloud.io/install/repositories/fdio/release/script.rpm.sh"
 PACKAGECLOUD_HICN_REPO_DEB="https://packagecloud.io/install/repositories/fdio/hicn/script.deb.sh"
-PACKAGECLOUD_HICN_REPO_RPM="https://packagecloud.io/install/repositories/fdio/hicn/script.rpm.sh"
-
-VPP_GIT_REPO="https://github.com/FDio/vpp"
-VPP_BRANCH="stable/2005"
 
     # Figure out what system we are running on
 if [ -f /etc/os-release ]; then
@@ -39,7 +34,6 @@ fi
 
 VERSION_REGEX="s/v([0-9]+).([0-9]+)(.*)?-([0-9]+)-(g[0-9a-f]+)/\1.\2-release/g"
 VPP_VERSION_DEB=$(git describe --long --match "v*" | sed -E ${VERSION_REGEX})
-VPP_VERSION_RPM="${VPP_VERSION_DEB}.x86_64"
 
 DEPS_UBUNTU=("build-essential"
              "doxygen"
@@ -62,7 +56,7 @@ DEPS_UBUNTU_PKGCLOUD=("libparc-dev"
                       "libvppinfra=${VPP_VERSION_DEB}"
                       "libvppinfra-dev=${VPP_VERSION_DEB}"
                       "vpp-plugin-core=${VPP_VERSION_DEB}"
-                      "libparc-dev")
+                    )
 
 COLLECTD_SOURCE="https://github.com/collectd/collectd/releases/download/collectd-5.12.0/collectd-5.12.0.tar.bz2"
 
@@ -83,9 +77,6 @@ function setup_fdio_repo() {
     if [ "${DISTRIB_ID}" == "ubuntu" ]; then
         curl -s ${PACKAGECLOUD_RELEASE_REPO_DEB} | sudo bash
         curl -s ${PACKAGECLOUD_HICN_REPO_DEB} | sudo bash
-    elif [ "${DISTRIB_ID}" == "centos" ]; then
-        curl -s ${PACKAGECLOUD_RELEASE_REPO_RPM} | sudo bash
-        curl -s ${PACKAGECLOUD_HICN_REPO_RPM} | sudo bash
     else
         echo "Distribution ${DISTRIB_ID} is not supported"
         exit 1

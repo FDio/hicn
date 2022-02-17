@@ -675,16 +675,16 @@ set_table_interface_add_del (vnet_main_t *vnm, u32 sw_if_index, u32 is_add)
   if (!is_add)
     return HICN_ERROR_NONE;
 
-  int rv = ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, HICN_FIB_TABLE, 1);
+  int rv = ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, HICN_FIB_TABLE);
 
   if (!rv)
     {
-      rv = ip_table_bind (FIB_PROTOCOL_IP6, sw_if_index, HICN_FIB_TABLE, 1);
+      rv = ip_table_bind (FIB_PROTOCOL_IP6, sw_if_index, HICN_FIB_TABLE);
 
       if (rv)
 	{
 	  /* An error occurred. Bind the interface back to the default fib */
-	  ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, 0, 1);
+	  ip_table_bind (FIB_PROTOCOL_IP4, sw_if_index, 0);
 	}
     }
 
@@ -720,7 +720,7 @@ hicn_route_init ()
   hicn_fib_src =
     fib_source_allocate ("hicn", FIB_SOURCE_HICN, FIB_SOURCE_BH_API);
 
-  hicn_fib_node_type = fib_node_register_new_type (&hicn_fib_vft);
+  hicn_fib_node_type = fib_node_register_new_type ("hicn_route_fib_node", &hicn_fib_vft);
 
   ip_table_create (FIB_PROTOCOL_IP4, HICN_FIB_TABLE, 1, (const u8 *) "hicn4");
   ip_table_create (FIB_PROTOCOL_IP6, HICN_FIB_TABLE, 1, (const u8 *) "hicn6");

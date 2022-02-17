@@ -182,7 +182,7 @@ hicn_face_module_init (vlib_main_t *vm)
    * corresponding to a face is updated
    */
   hicn_face_fib_node_type =
-    fib_node_register_new_type (&hicn_face_fib_node_vft);
+    fib_node_register_new_type ("hicn_face_fib_node", &hicn_face_fib_node_vft);
 }
 
 u8 *
