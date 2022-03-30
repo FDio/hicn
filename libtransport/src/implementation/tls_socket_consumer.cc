@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -43,7 +43,7 @@ int readOldTLS(BIO *b, char *buf, int size) {
   if (!socket->something_to_read_) {
     if (!socket->transport_protocol_->isRunning()) {
       socket->network_name_.setSuffix(socket->random_suffix_);
-      socket->ConsumerSocket::asyncConsume(socket->network_name_);
+      socket->ConsumerSocket::consume(socket->network_name_);
     }
 
     if (!socket->something_to_read_) socket->cv_.wait(lck);
@@ -284,31 +284,6 @@ int TLSConsumerSocket::download_content(const Name &name) {
   return CONSUMER_FINISHED;
 }
 
-int TLSConsumerSocket::asyncConsume(const Name &name,
-                                    std::unique_ptr<utils::MemBuf> &&buffer) {
-  this->payload_ = std::move(buffer);
-
-  this->ConsumerSocket::setSocketOption(
-      ConsumerCallbacksOptions::INTEREST_OUTPUT,
-      (ConsumerInterestCallback)std::bind(
-          &TLSConsumerSocket::setInterestPayload, this, std::placeholders::_1,
-          std::placeholders::_2));
-
-  return asyncConsume(name);
-}
-
-int TLSConsumerSocket::asyncConsume(const Name &name) {
-  if ((SSL_in_before(this->ssl_) || SSL_in_init(this->ssl_))) {
-    throw errors::RuntimeException("Handshake not performed");
-  }
-
-  if (!async_downloader_tls_.stopped()) {
-    async_downloader_tls_.add([this, name]() { download_content(name); });
-  }
-
-  return CONSUMER_RUNNING;
-}
-
 void TLSConsumerSocket::registerPrefix(const Prefix &producer_namespace) {
   producer_namespace_ = producer_namespace;
 }
@@ -353,7 +328,7 @@ void TLSConsumerSocket::readBufferAvailable(
   cv_.notify_one();
 }
 
-void TLSConsumerSocket::readError(const std::error_code ec) noexcept {}
+void TLSConsumerSocket::readError(const std::error_code &ec) noexcept {}
 
 void TLSConsumerSocket::readSuccess(std::size_t total_size) noexcept {
   std::unique_lock<std::mutex> lck(this->mtx_);

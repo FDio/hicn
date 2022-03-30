@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -25,7 +25,11 @@
 #include <vppinfra/bihash_8_8.h>
 #include <vnet/adj/adj_midchain.h>
 
-#include "../error.h"
+#include <vpp_plugins/hicn/error.h>
+
+#include "../udp_tunnels/udp_tunnel.h"
+#include "../hicn_logging.h"
+
 typedef u8 hicn_face_flags_t;
 typedef index_t hicn_face_id_t;
 
@@ -66,12 +70,8 @@ typedef index_t hicn_face_id_t;
  * - fib_node, fib_entry_index and fib_sibling are information used to be
  * notified of changes in the adjacency pointed by the dpo.
  *
- * We maintain two hash tables to retrieve faces and ifaces. In particular one
- * hash table which index faces and ifaces for nat_address, sw_if and dpo. This
- * is used to retrieve existing faces or ifaces when an interest is received
- * and when an new face is created. A second hash table that indexes vectors of
- * faces for nat_address and sw_if. This is used to retrieve a list of possible
- * incoming faces when a data is received.
+ * We maintain one hash tables to retrieve faces and ifaces, which indexes
+ * faces and ifaces for nat_address, sw_if and dpo.
  */
 
 /**
@@ -129,14 +129,17 @@ extern hicn_face_t *hicn_dpoi_face_pool;
 #define HICN_FACE_FLAGS_APPFACE_CONS                                          \
   0x08 /* Currently only IP face can be appface */
 #define HICN_FACE_FLAGS_DELETED 0x10
+#define HICN_FACE_FLAGS_UDP	0x20
 
 #define HICN_FACE_NULL (hicn_face_id_t) ~0
 
 #define HICN_FACE_FLAGS_APPFACE_PROD_BIT 2
 #define HICN_FACE_FLAGS_APPFACE_CONS_BIT 3
 
-#define HICN_BUFFER_FLAGS_DEFAULT     0x00
-#define HICN_BUFFER_FLAGS_FACE_IS_APP 0x01
+#define HICN_BUFFER_FLAGS_DEFAULT	   0x00
+#define HICN_BUFFER_FLAGS_NEW_FACE	   0x02
+#define HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL 0x04
+#define HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL 0x08
 
 STATIC_ASSERT ((1 << HICN_FACE_FLAGS_APPFACE_PROD_BIT) ==
 		 HICN_FACE_FLAGS_APPFACE_PROD,
@@ -147,16 +150,6 @@ STATIC_ASSERT ((1 << HICN_FACE_FLAGS_APPFACE_CONS_BIT) ==
 		 HICN_FACE_FLAGS_APPFACE_CONS,
 	       "HICN_FACE_FLAGS_APPFACE_CONS_BIT and  "
 	       "HICN_FACE_FLAGS_APPFACE_CONS must correspond");
-
-STATIC_ASSERT (
-  (HICN_FACE_FLAGS_APPFACE_PROD >> HICN_FACE_FLAGS_APPFACE_PROD_BIT) ==
-    HICN_BUFFER_FLAGS_FACE_IS_APP,
-  "hicn buffer app flag does not correspond to HICN_FACE_FLAGS_APPFACE_PROD");
-
-STATIC_ASSERT (
-  (HICN_FACE_FLAGS_APPFACE_CONS >> HICN_FACE_FLAGS_APPFACE_CONS_BIT) ==
-    HICN_BUFFER_FLAGS_FACE_IS_APP,
-  "hicn buffer app flag does not correspond to HICN_FACE_FLAGS_APPFACE_PROD");
 
 /**
  * @brief Definition of the virtual functin table for an hICN FACE DPO.
@@ -257,6 +250,15 @@ hicn_dpoi_idx_is_valid (hicn_face_id_t face_id)
 }
 
 /**
+ * @brief Delete a face
+ *
+ * @param face_id Id of the face to delete
+ * @return HICN_ERROR_FACE_NOT_FOUND if the face does not exist, otherwise
+ * HICN_ERROR_NONE
+ */
+int hicn_face_del (hicn_face_id_t face_id);
+
+/**
  * @brief Add a lock to the face dpo
  *
  * @param dpo Pointer to the face dpo
@@ -274,12 +276,24 @@ hicn_face_lock_with_id (hicn_face_id_t face_id)
  *
  * @param dpo Pointer to the face dpo
  */
-always_inline void
+always_inline int
 hicn_face_unlock_with_id (hicn_face_id_t face_id)
 {
   hicn_face_t *face;
   face = hicn_dpoi_get_from_idx (face_id);
-  face->locks--;
+
+  if (face->locks > 0)
+    {
+      face->locks--;
+
+      if (face->locks == 0)
+	{
+	  HICN_DEBUG ("Deleting face %d", face_id);
+	  return hicn_face_del (face_id);
+	}
+    }
+
+  return HICN_ERROR_NONE;
 }
 
 /**
@@ -324,15 +338,6 @@ u8 *format_hicn_face (u8 *s, va_list *args);
 u8 *format_hicn_face_all (u8 *s, int n, ...);
 
 /**
- * @brief Delete a face
- *
- * @param face_id Id of the face to delete
- * @return HICN_ERROR_FACE_NOT_FOUND if the face does not exist, otherwise
- * HICN_ERROR_NONE
- */
-int hicn_face_del (hicn_face_id_t face_id);
-
-/**
  * @bried vector of faces used to collect faces having the same local address
  *
  */
@@ -353,17 +358,6 @@ typedef struct hicn_input_faces_s_
   hicn_face_id_t face_id;
 
 } hicn_face_input_faces_t;
-
-/**
- * Pool containing the vector of possible incoming faces.
- */
-extern hicn_face_vec_t *hicn_vec_pool;
-
-/**
- * Hash tables that indexes a face by remote address. For fast lookup when an
- * interest arrives.
- */
-extern mhash_t hicn_face_vec_hashtb;
 
 /**
  * Key definition for the mhash table. An face is uniquely identified by ip
@@ -437,7 +431,7 @@ hicn_face_get (const ip46_address_t *addr, u32 sw_if, mhash_t *hashtb,
 
   hicn_face_id_t *dpoi_index = (hicn_face_id_t *) mhash_get (hashtb, &key);
 
-  if (dpoi_index != NULL)
+  if (dpoi_index != NULL && hicn_dpoi_idx_is_valid (*dpoi_index))
     {
       hicn_face_lock_with_id (*dpoi_index);
       return hicn_dpoi_get_from_idx (*dpoi_index);
@@ -467,35 +461,13 @@ hicn_face_get_with_dpo (const ip46_address_t *addr, u32 sw_if,
 
   hicn_face_id_t *dpoi_index = (hicn_face_id_t *) mhash_get (hashtb, &key);
 
-  if (dpoi_index != NULL)
+  if (dpoi_index != NULL && hicn_dpoi_idx_is_valid (*dpoi_index))
     {
       hicn_face_lock_with_id (*dpoi_index);
       return hicn_dpoi_get_from_idx (*dpoi_index);
     }
 
   return NULL;
-}
-
-/**
- * @brief Get the vector of faces from the ip v4 address. Does not add any
- * lock.
- *
- * @param addr Ip v4 address used to create the key for the hash table.
- * @param sw_if Software interface id used to create the key for the hash
- * table.
- * @param hashtb Hash table (remote or local) where to perform the lookup.
- *
- * @result Pointer to the face.
- */
-always_inline hicn_face_input_faces_t *
-hicn_face_get_vec (const ip46_address_t *addr, mhash_t *hashtb)
-{
-  hicn_face_key_t key;
-
-  dpo_id_t dpo = DPO_INVALID;
-
-  hicn_face_get_key (addr, 0, &dpo, &key);
-  return (hicn_face_input_faces_t *) mhash_get (hashtb, &key);
 }
 
 /**
@@ -526,7 +498,7 @@ int hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address,
  */
 always_inline void
 hicn_iface_add (ip46_address_t *nat_address, int sw_if,
-		hicn_face_id_t *pfaceid, dpo_proto_t proto, u32 adj_index)
+		hicn_face_id_t *pfaceid, u32 adj_index, u8 flags)
 {
   hicn_face_t *face;
   pool_get (hicn_dpoi_face_pool, face);
@@ -534,16 +506,19 @@ hicn_iface_add (ip46_address_t *nat_address, int sw_if,
   clib_memcpy (&(face->nat_addr), nat_address, sizeof (ip46_address_t));
   face->sw_if = sw_if;
 
-  face->dpo.dpoi_type = DPO_FIRST;
-  face->dpo.dpoi_proto = DPO_PROTO_NONE;
+  face->dpo = (dpo_id_t) DPO_INVALID;
   face->dpo.dpoi_index = adj_index;
-  face->dpo.dpoi_next_node = 0;
-  face->pl_id = pl_index++;
-  face->flags = HICN_FACE_FLAGS_IFACE;
-  face->locks = 1;
 
   hicn_face_key_t key;
   hicn_face_get_key (nat_address, sw_if, &face->dpo, &key);
+
+  face->dpo.dpoi_next_node = 1;
+
+  face->pl_id = pl_index++;
+  face->flags = HICN_FACE_FLAGS_IFACE;
+  face->flags |= flags;
+  face->locks = 1;
+
   *pfaceid = hicn_dpoi_get_index (face);
 
   mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid, 0);
@@ -558,79 +533,6 @@ hicn_iface_add (ip46_address_t *nat_address, int sw_if,
 
 /**** Helpers to manipulate faces and ifaces from the face/iface input nodes
  * ****/
-
-/**
- * @brief Retrieve a vector of faces from the ip4 local address and returns its
- * index.
- *
- * @param vec: Result of the lookup. If no face exists for the local address
- * vec = NULL
- * @param hicnb_flags: Flags that indicate whether the face is an application
- * face or not
- * @param local_addr: Ip v4 nat address of the face
- * @param sw_if: software interface id of the face
- *
- * @result HICN_ERROR_FACE_NOT_FOUND if the face does not exist, otherwise
- * HICN_ERROR_NONE.
- */
-always_inline int
-hicn_face_ip4_lock (hicn_face_id_t *face_id, u32 *in_faces_vec_id,
-		    u8 *hicnb_flags, const ip4_address_t *nat_addr)
-{
-  ip46_address_t ip_address = { 0 };
-  ip46_address_set_ip4 (&ip_address, nat_addr);
-  hicn_face_input_faces_t *in_faces_vec =
-    hicn_face_get_vec (&ip_address, &hicn_face_vec_hashtb);
-
-  if (PREDICT_FALSE (in_faces_vec == NULL))
-    return HICN_ERROR_FACE_NOT_FOUND;
-
-  *in_faces_vec_id = in_faces_vec->vec_id;
-  hicn_face_t *face = hicn_dpoi_get_from_idx (in_faces_vec->face_id);
-
-  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
-  *hicnb_flags |= (face->flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
-		  HICN_FACE_FLAGS_APPFACE_PROD_BIT;
-
-  *face_id = in_faces_vec->face_id;
-
-  return HICN_ERROR_NONE;
-}
-
-/**
- * @brief Retrieve a face from the ip6 local address and returns its dpo. This
- * method adds a lock on the face state.
- *
- * @param dpo: Result of the lookup. If the face doesn't exist dpo = NULL
- * @param hicnb_flags: Flags that indicate whether the face is an application
- * face or not
- * @param nat_addr: Ip v6 nat address of the face
- * @param sw_if: software interface id of the face
- *
- * @result HICN_ERROR_FACE_NOT_FOUND if the face does not exist, otherwise
- * HICN_ERROR_NONE.
- */
-always_inline int
-hicn_face_ip6_lock (hicn_face_id_t *face_id, u32 *in_faces_vec_id,
-		    u8 *hicnb_flags, const ip6_address_t *nat_addr)
-{
-  hicn_face_input_faces_t *in_faces_vec =
-    hicn_face_get_vec ((ip46_address_t *) nat_addr, &hicn_face_vec_hashtb);
-
-  if (PREDICT_FALSE (in_faces_vec == NULL))
-    return HICN_ERROR_FACE_NOT_FOUND;
-
-  *in_faces_vec_id = in_faces_vec->vec_id;
-  hicn_face_t *face = hicn_dpoi_get_from_idx (in_faces_vec->face_id);
-
-  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
-  *hicnb_flags |= (face->flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
-		  HICN_FACE_FLAGS_APPFACE_PROD_BIT;
-
-  *face_id = in_faces_vec->face_id;
-
-  return HICN_ERROR_NONE;
-}
 
 /**
  * @brief Call back to get the adj of the tunnel
@@ -658,11 +560,12 @@ hicn4_iface_adj_walk_cb (adj_index_t ai, void *ctx)
  * @param sw_if: software interface id of the face
  * @param node_index: vlib edge index to use in the packet processing
  */
-always_inline void
-hicn_iface_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
-			     const ip4_address_t *nat_addr, u32 sw_if,
-			     u32 adj_index, u32 node_index)
+always_inline int
+hicn_face_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
+			    const ip4_address_t *nat_addr, u32 sw_if,
+			    u32 adj_index, u32 node_index)
 {
+  int ret = HICN_ERROR_NONE;
   /*All (complete) faces are indexed by remote addess as well */
 
   ip46_address_t ip_address = { 0 };
@@ -675,12 +578,30 @@ hicn_iface_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
   if (face == NULL)
     {
       hicn_face_id_t idx;
-      hicn_iface_add (&ip_address, sw_if, &idx, DPO_PROTO_IP4, adj_index);
+      u8 face_flags = 0;
+
+      hicn_iface_add (&ip_address, sw_if, &idx, adj_index, face_flags);
 
       face = hicn_dpoi_get_from_idx (idx);
 
-      face->dpo.dpoi_type = DPO_FIRST;
-      face->dpo.dpoi_proto = DPO_PROTO_IP4;
+      if (*hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&
+	  adj_index != ADJ_INDEX_INVALID)
+	{
+	  face->dpo.dpoi_type = dpo_type_udp_ip6;
+	  face->dpo.dpoi_proto = DPO_PROTO_IP6;
+	}
+      else if (*hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&
+	       adj_index != ADJ_INDEX_INVALID)
+	{
+	  face->dpo.dpoi_type = dpo_type_udp_ip4;
+	  face->dpo.dpoi_proto = DPO_PROTO_IP4;
+	}
+      else
+	{
+	  face->dpo.dpoi_type = DPO_FIRST;
+	  face->dpo.dpoi_proto = DPO_PROTO_IP6;
+	}
+
       face->dpo.dpoi_index = adj_index;
       face->dpo.dpoi_next_node = node_index;
 
@@ -691,15 +612,17 @@ hicn_iface_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       /* } */
 
       *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+      *hicnb_flags |= HICN_BUFFER_FLAGS_NEW_FACE;
 
       *index = idx;
-      return;
+      return ret;
     }
   else
     {
       /* unlock the face. We don't take a lock on each interest we receive */
       hicn_face_id_t face_id = hicn_dpoi_get_index (face);
       hicn_face_unlock_with_id (face_id);
+      ret = HICN_ERROR_FACE_ALREADY_CREATED;
     }
 
   /* Code replicated on purpose */
@@ -708,6 +631,8 @@ hicn_iface_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 		  HICN_FACE_FLAGS_APPFACE_PROD_BIT;
 
   *index = hicn_dpoi_get_index (face);
+
+  return ret;
 }
 
 /**
@@ -723,7 +648,8 @@ hicn6_iface_adj_walk_cb (adj_index_t ai, void *ctx)
   if ((adj->lookup_next_index == IP_LOOKUP_NEXT_MIDCHAIN) ||
       (adj->lookup_next_index == IP_LOOKUP_NEXT_MCAST_MIDCHAIN))
     {
-      dpo_set (&face->dpo, DPO_ADJACENCY_MIDCHAIN, adj->ia_nh_proto, ai);
+      dpo_set (&face->dpo, DPO_ADJACENCY_MIDCHAIN,
+	       (dpo_proto_t) adj->ia_nh_proto, ai);
       adj_nbr_midchain_stack (ai, &face->dpo);
     }
 
@@ -741,11 +667,13 @@ hicn6_iface_adj_walk_cb (adj_index_t ai, void *ctx)
  * @param sw_if: software interface id of the face
  * @param node_index: vlib edge index to use in the packet processing
  */
-always_inline void
-hicn_iface_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
-			     const ip6_address_t *nat_addr, u32 sw_if,
-			     u32 adj_index, u32 node_index)
+always_inline int
+hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
+			    const ip6_address_t *nat_addr, u32 sw_if,
+			    u32 adj_index, u32 node_index)
 {
+  int ret = HICN_ERROR_NONE;
+
   /*All (complete) faces are indexed by remote addess as well */
   /* if the face exists, it adds a lock */
   hicn_face_t *face = hicn_face_get ((ip46_address_t *) nat_addr, sw_if,
@@ -754,13 +682,30 @@ hicn_iface_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
   if (face == NULL)
     {
       hicn_face_id_t idx;
-      hicn_iface_add ((ip46_address_t *) nat_addr, sw_if, &idx, DPO_PROTO_IP6,
-		      adj_index);
+      u8 face_flags = 0;
+
+      hicn_iface_add ((ip46_address_t *) nat_addr, sw_if, &idx, adj_index,
+		      face_flags);
 
       face = hicn_dpoi_get_from_idx (idx);
 
-      face->dpo.dpoi_type = DPO_FIRST;
-      face->dpo.dpoi_proto = DPO_PROTO_IP6;
+      if (*hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&
+	  adj_index != ADJ_INDEX_INVALID)
+	{
+	  face->dpo.dpoi_type = dpo_type_udp_ip6;
+	  face->dpo.dpoi_proto = DPO_PROTO_IP6;
+	}
+      else if (*hicnb_flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&
+	       adj_index != ADJ_INDEX_INVALID)
+	{
+	  face->dpo.dpoi_type = dpo_type_udp_ip4;
+	  face->dpo.dpoi_proto = DPO_PROTO_IP4;
+	}
+      else
+	{
+	  face->dpo.dpoi_type = DPO_FIRST;
+	  face->dpo.dpoi_proto = DPO_PROTO_IP6;
+	}
       face->dpo.dpoi_index = adj_index;
       face->dpo.dpoi_next_node = node_index;
 
@@ -768,16 +713,18 @@ hicn_iface_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 		    face);
 
       *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+      *hicnb_flags |= HICN_BUFFER_FLAGS_NEW_FACE;
 
       *index = idx;
 
-      return;
+      return ret;
     }
   else
     {
       /* unlock the face. We don't take a lock on each interest we receive */
       hicn_face_id_t face_id = hicn_dpoi_get_index (face);
       hicn_face_unlock_with_id (face_id);
+      ret = HICN_ERROR_FACE_ALREADY_CREATED;
     }
 
   /* Code replicated on purpose */
@@ -786,6 +733,8 @@ hicn_iface_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 		  HICN_FACE_FLAGS_APPFACE_PROD_BIT;
 
   *index = hicn_dpoi_get_index (face);
+
+  return ret;
 }
 
 #endif // __HICN_FACE_H__

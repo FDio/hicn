@@ -1,5 +1,0 @@
-#!/bin/bash
-
-if [ -L /usr/lib/vpp_plugins/hicn_plugin.so ]; then
-    rm /usr/lib/vpp_plugins/hicn_plugin.so
-fi;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Copyright 2013-present Facebook, Inc.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <hicn/transport/portability/win_portability.h>
 #endif
 
+#include <glog/logging.h>
 #include <hicn/transport/utils/membuf.h>
 
 #include <cassert>
@@ -209,7 +210,7 @@ MemBuf::MemBuf(CopyBufferOp /* op */, const void* buf, std::size_t size,
     : MemBuf(CREATE, headroom + size + min_tailroom) {
   advance(headroom);
   if (size > 0) {
-    assert(buf != nullptr);
+    DCHECK(buf != nullptr);
     memcpy(writableData(), buf, size);
     append(size);
   }
@@ -369,8 +370,8 @@ MemBuf::MemBuf(InternalConstructor, uintptr_t flagsAndSharedInfo, uint8_t* buf,
       length_(length),
       capacity_(capacity),
       flags_and_shared_info_(flagsAndSharedInfo) {
-  assert(data >= buf);
-  assert(data + length <= buf + capacity);
+  DCHECK(data >= buf);
+  DCHECK(data + length <= buf + capacity);
 }
 
 MemBuf::~MemBuf() {
@@ -559,7 +560,7 @@ void MemBuf::unshareOneSlow() {
   // minimum capacity we also maintain at least the same amount of tailroom.
   std::size_t headlen = headroom();
   if (length_ > 0) {
-    assert(data_ != nullptr);
+    DCHECK(data_ != nullptr);
     memcpy(buf + headlen, data_, length_);
   }
 
@@ -576,7 +577,7 @@ void MemBuf::unshareOneSlow() {
 void MemBuf::unshareChained() {
   // unshareChained() should only be called if we are part of a chain of
   // multiple MemBufs.  The caller should have already verified this.
-  assert(isChained());
+  DCHECK(isChained());
 
   MemBuf* current = this;
   while (true) {
@@ -606,7 +607,7 @@ void MemBuf::markExternallyShared() {
 }
 
 void MemBuf::makeManagedChained() {
-  assert(isChained());
+  DCHECK(isChained());
 
   MemBuf* current = this;
   while (true) {
@@ -677,15 +678,15 @@ void MemBuf::coalesceAndReallocate(size_t new_headroom, size_t new_length,
   size_t remaining = new_length;
   do {
     if (current->length_ > 0) {
-      assert(current->length_ <= remaining);
-      assert(current->data_ != nullptr);
+      DCHECK(current->length_ <= remaining);
+      DCHECK(current->data_ != nullptr);
       remaining -= current->length_;
       memcpy(p, current->data_, current->length_);
       p += current->length_;
     }
     current = current->next_;
   } while (current != end);
-  assert(remaining == 0);
+  DCHECK(remaining == 0);
 
   // Point at the new buffer
   decrementRefcount();
@@ -799,7 +800,7 @@ void MemBuf::reserveSlow(std::size_t min_headroom, std::size_t min_tailroom) {
     new_allocated_capacity = goodExtBufferSize(new_capacity);
     new_buffer = static_cast<uint8_t*>(malloc(new_allocated_capacity));
     if (length_ > 0) {
-      assert(data_ != nullptr);
+      DCHECK(data_ != nullptr);
       memcpy(new_buffer + min_headroom, data_, length_);
     }
     if (sharedInfo()) {

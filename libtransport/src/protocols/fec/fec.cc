@@ -44,6 +44,7 @@
 
 #include "fec.h"
 
+#include <assert.h>
 #include <hicn/transport/portability/platform.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,72 +59,6 @@
 #ifndef __clang__
 #pragma GCC diagnostic ignored "-Wstringop-overflow"
 #endif
-
-/*
- * compatibility stuff
- */
-#ifdef MSDOS /* but also for others, e.g. sun... */
-#define NEED_BCOPY
-#define bcmp(a, b, n) memcmp(a, b, n)
-#endif
-
-#ifdef ANDROID
-#define bcmp(a, b, n) memcmp(a, b, n)
-#endif
-
-#ifdef NEED_BCOPY
-#define bcopy(s, d, siz) memcpy((d), (s), (siz))
-#define bzero(d, siz) memset((d), '\0', (siz))
-#endif
-
-/*
- * stuff used for testing purposes only
- */
-
-#ifdef TEST
-#define DEB(x)
-#define DDB(x) x
-#define DEBUG 0 /* minimal debugging */
-#ifdef MSDOS
-#include <time.h>
-struct timeval {
-  unsigned long ticks;
-};
-#define gettimeofday(x, dummy) \
-  { (x)->ticks = clock(); }
-#define DIFF_T(a, b) (1 + 1000000 * (a.ticks - b.ticks) / CLOCKS_PER_SEC)
-typedef unsigned long u_long;
-typedef unsigned short u_short;
-#else /* typically, unix systems */
-#include <sys/time.h>
-#define DIFF_T(a, b) \
-  (1 + 1000000 * (a.tv_sec - b.tv_sec) + (a.tv_usec - b.tv_usec))
-#endif
-
-#define TICK(t)                                  \
-  {                                              \
-    struct timeval x;                            \
-    gettimeofday(&x, NULL);                      \
-    t = x.tv_usec + 1000000 * (x.tv_sec & 0xff); \
-  }
-#define TOCK(t)               \
-  {                           \
-    u_long t1;                \
-    TICK(t1);                 \
-    if (t1 < t)               \
-      t = 256000000 + t1 - t; \
-    else                      \
-      t = t1 - t;             \
-    if (t == 0) t = 1;        \
-  }
-
-u_long ticks[10]; /* vars for timekeeping */
-#else
-#define DEB(x)
-#define DDB(x)
-#define TICK(x)
-#define TOCK(x)
-#endif /* TEST */
 
 /*
  * You should not need to change anything beyond this point.
@@ -402,31 +337,17 @@ static void matmul(gf *a, gf *b, gf *c, int n, int k, int m) {
   }
 }
 
-#ifdef DEBUGG
-/*
- * returns 1 if the square matrix is identiy
- * (only for test)
- */
-static int is_identity(gf *m, int k) {
-  int row, col;
-  for (row = 0; row < k; row++)
-    for (col = 0; col < k; col++)
-      if ((row == col && *m != 1) || (row != col && *m != 0))
-        return 0;
-      else
-        m++;
-  return 1;
-}
-#endif /* debug */
-
 /*
  * invert_mat() takes a matrix and produces its inverse
  * k is the size of the matrix.
  * (Gauss-Jordan, adapted from Numerical Recipes in C)
  * Return non-zero if singular.
  */
-DEB(int pivloops = 0; int pivswaps = 0; /* diagnostic */)
+int pivloops = 0;
+int pivswaps = 0; /* diagnostic */
 static int invert_mat(gf *src, int k) {
+  assert(k > 0);
+
   gf c, *p;
   int irow, icol, row, col, i, ix;
 
@@ -436,9 +357,9 @@ static int invert_mat(gf *src, int k) {
   int *ipiv = (int *)my_malloc(k * sizeof(int), "ipiv");
   gf *id_row = NEW_GF_MATRIX(1, k);
   gf *temp_row = NEW_GF_MATRIX(1, k);
-
-  bzero(id_row, k * sizeof(gf));
-  DEB(pivloops = 0; pivswaps = 0; /* diagnostic */)
+  memset(id_row, '\0', k * sizeof(gf));
+  pivloops = 0;
+  pivswaps = 0; /* diagnostic */
   /*
    * ipiv marks elements already used as pivots.
    */
@@ -459,7 +380,7 @@ static int invert_mat(gf *src, int k) {
     for (row = 0; row < k; row++) {
       if (ipiv[row] != 1) {
         for (ix = 0; ix < k; ix++) {
-          DEB(pivloops++;)
+          pivloops++;
           if (ipiv[ix] == 0) {
             if (src[row * k + ix] != 0) {
               irow = row;
@@ -497,12 +418,9 @@ static int invert_mat(gf *src, int k) {
       fprintf(stderr, "singular matrix 2\n");
       goto fail;
     }
-    if (c != 1) { /* otherwhise this is a NOP */
-      /*
-       * this is done often , but optimizing is not so
-       * fruitful, at least in the obvious ways (unrolling)
-       */
-      DEB(pivswaps++;)
+
+    if (c != 1) {
+      pivswaps++;
       c = inverse[c];
       pivot_row[icol] = 1;
       for (ix = 0; ix < k; ix++) pivot_row[ix] = gf_mul(c, pivot_row[ix]);
@@ -515,7 +433,7 @@ static int invert_mat(gf *src, int k) {
      * we can optimize the addmul).
      */
     id_row[icol] = 1;
-    if (bcmp(pivot_row, id_row, k * sizeof(gf)) != 0) {
+    if (memcmp(pivot_row, id_row, k * sizeof(gf)) != 0) {
       for (p = src, ix = 0; ix < k; ix++, p += k) {
         if (ix != icol) {
           c = p[icol];
@@ -560,6 +478,8 @@ fail:
  */
 
 int invert_vdm(gf *src, int k) {
+  assert(k > 0);
+
   int i, j, row, col;
   gf *b, *c, *p;
   gf t, xx;
@@ -614,14 +534,8 @@ int invert_vdm(gf *src, int k) {
 
 static int fec_initialized = 0;
 static void init_fec() {
-  TICK(ticks[0]);
   generate_gf();
-  TOCK(ticks[0]);
-  DDB(fprintf(stderr, "generate_gf took %ldus\n", ticks[0]);)
-  TICK(ticks[0]);
   init_mul_table();
-  TOCK(ticks[0]);
-  DDB(fprintf(stderr, "init_mul_table took %ldus\n", ticks[0]);)
   fec_initialized = 1;
 }
 
@@ -680,19 +594,14 @@ struct fec_parms *fec_new(int k, int n) {
    * k*k vandermonde matrix, multiply right the bottom n-k rows
    * by the inverse, and construct the identity matrix at the top.
    */
-  TICK(ticks[3]);
   invert_vdm(tmp_m, k); /* much faster than invert_mat */
   matmul(tmp_m + k * k, tmp_m, retval->enc_matrix + k * k, n - k, k, k);
   /*
    * the upper matrix is I so do not bother with a slow multiply
    */
-  bzero(retval->enc_matrix, k * k * sizeof(gf));
+  memset(retval->enc_matrix, '\0', k * k * sizeof(gf));
   for (p = retval->enc_matrix, col = 0; col < k; col++, p += k + 1) *p = 1;
   free(tmp_m);
-  TOCK(ticks[3]);
-
-  DDB(fprintf(stderr, "--- %ld us to build encoding matrix\n", ticks[3]);)
-  DEB(pr_matrix(retval->enc_matrix, n, k, "encoding_matrix");)
   return retval;
 }
 
@@ -708,10 +617,10 @@ void fec_encode(struct fec_parms *code, gf *src[], gf *fec, int index, int sz) {
   if (GF_BITS > 8) sz /= 2;
 
   if (index < k)
-    bcopy(src[index], fec, sz * sizeof(gf));
+    memcpy(fec, src[index], sz * sizeof(gf));
   else if (index < code->n) {
     p = &(code->enc_matrix[index * k]);
-    bzero(fec, sz * sizeof(gf));
+    memset(fec, '\0', sz * sizeof(gf));
     for (i = 0; i < k; i++) addmul(fec, src[i], p[i], sz);
   } else
     fprintf(stderr, "Invalid index %d (max %d)\n", index, code->n - 1);
@@ -733,22 +642,13 @@ static int shuffle(gf *pkt[], int index[], int k) {
       int c = index[i];
 
       if (index[c] == c) {
-        DEB(fprintf(stderr, "\nshuffle, error at %d\n", i);)
+        fprintf(stderr, "\nshuffle, error at %d\n", i);
         return 1;
       }
       SWAP(index[i], index[c], int);
       SWAP(pkt[i], pkt[c], gf *);
     }
   }
-  DEB(/* just test that it works... */
-      for (i = 0; i < k; i++) {
-        if (index[i] < k && index[i] != i) {
-          fprintf(stderr, "shuffle: after\n");
-          for (i = 0; i < k; i++) fprintf(stderr, "%3d ", index[i]);
-          fprintf(stderr, "\n");
-          return 1;
-        }
-      })
   return 0;
 }
 
@@ -757,20 +657,16 @@ static int shuffle(gf *pkt[], int index[], int k) {
  * indexes. The matrix must be already allocated as
  * a vector of k*k elements, in row-major order
  */
-static gf *build_decode_matrix(struct fec_parms *code, gf *pkt[], int index[]) {
+static gf *build_decode_matrix(struct fec_parms *code, int index[]) {
   int i, k = code->k;
   gf *p, *matrix = NEW_GF_MATRIX(k, k);
 
-  TICK(ticks[9]);
   for (i = 0, p = matrix; i < k; i++, p += k) {
-#if 1 /* this is simply an optimization, not very useful indeed */
     if (index[i] < k) {
-      bzero(p, k * sizeof(gf));
+      memset(p, '\0', k * sizeof(gf));
       p[i] = 1;
-    } else
-#endif
-        if (index[i] < code->n)
-      bcopy(&(code->enc_matrix[index[i] * k]), p, k * sizeof(gf));
+    } else if (index[i] < code->n)
+      memcpy(p, &(code->enc_matrix[index[i] * k]), k * sizeof(gf));
     else {
       fprintf(stderr, "decode: invalid index %d (max %d)\n", index[i],
               code->n - 1);
@@ -778,12 +674,10 @@ static gf *build_decode_matrix(struct fec_parms *code, gf *pkt[], int index[]) {
       return NULL;
     }
   }
-  TICK(ticks[9]);
   if (invert_mat(matrix, k)) {
     free(matrix);
     matrix = NULL;
   }
-  TOCK(ticks[9]);
   return matrix;
 }
 
@@ -800,39 +694,29 @@ static gf *build_decode_matrix(struct fec_parms *code, gf *pkt[], int index[]) {
  */
 int fec_decode(struct fec_parms *code, gf *pkt[], int index[], int sz) {
   gf *m_dec;
-  gf **new_pkt;
+  gf **new_pkt = nullptr;
   int row, col, k = code->k;
+  int i = 0;
 
   if (GF_BITS > 8) sz /= 2;
 
   if (shuffle(pkt, index, k)) /* error if true */
     return 1;
-  m_dec = build_decode_matrix(code, pkt, index);
+  m_dec = build_decode_matrix(code, index);
 
   if (m_dec == NULL) return 1; /* error */
   /*
    * do the actual decoding
    */
-  new_pkt = (gf **)my_malloc(k * sizeof(gf *), "new pkt pointers");
+  new_pkt = pkt + k;
   for (row = 0; row < k; row++) {
     if (index[row] >= k) {
-      new_pkt[row] = (gf *)my_malloc(sz * sizeof(gf), "new pkt buffer");
-      bzero(new_pkt[row], sz * sizeof(gf));
+      memset(new_pkt[i], '\0', sz * sizeof(gf));
       for (col = 0; col < k; col++)
-        addmul(new_pkt[row], pkt[col], m_dec[row * k + col], sz);
+        addmul(new_pkt[i], pkt[col], m_dec[row * k + col], sz);
+      i++;
     }
   }
-  /*
-   * move pkts to their final destination
-   */
-  for (row = 0; row < k; row++) {
-    if (index[row] >= k) {
-      bcopy(new_pkt[row], pkt[row], sz * sizeof(gf));
-      free(new_pkt[row]);
-    }
-  }
-  free(new_pkt);
   free(m_dec);
-
   return 0;
 }

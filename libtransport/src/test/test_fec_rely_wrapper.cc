@@ -13,18 +13,23 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <hicn/transport/core/global_object_pool.h>
+#include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/utils/log.h>
 #include <protocols/fec/rely.h>
 
 #include <queue>
+#include <random>
 
 namespace transport {
 namespace protocol {
 
-std::string printMissing(
-    const std::map<uint32_t, core::ContentObject::Ptr> &missing) {
+using SavedPacketMap =
+    std::map<uint32_t, std::pair<core::ContentObject::Ptr, uint32_t>>;
+
+std::string printMissing(const SavedPacketMap &missing) {
   std::stringstream stream;
 
   for (auto &[seq, packet] : missing) {
@@ -48,14 +53,15 @@ std::string printMissing(
  * @param loss_rate The loss rate
  */
 void testRelyEncoderDecoder(uint32_t k, uint32_t n, size_t max_packet_size,
-                            int64_t timeout, uint32_t max_iterations,
+                            int64_t /* timeout */, uint32_t max_iterations,
                             int loss_rate) {
   // Create 1 encoder and 1 decoder
   fec::RelyEncoder _encoder(k, n);
   fec::RelyDecoder _decoder(k, n);
 
   // Seed the pseudo-random with known value to always get same loss pattern
-  srand(k * n);
+  std::mt19937 gen(k *
+                   n);  // Standard mersenne_twister_engine seeded with rd();
 
   // We will interact with rely encoder/decoder using the interface
   fec::ProducerFEC &encoder = _encoder;
@@ -68,73 +74,78 @@ void testRelyEncoderDecoder(uint32_t k, uint32_t n, size_t max_packet_size,
   auto &packet_manager = core::PacketManager<>::getInstance();
 
   // Store packets to verify them in the decoder callback
-  std::map<uint32_t, core::ContentObject::Ptr> saved_packets;
+  SavedPacketMap saved_packets;
 
   // Save repair packets here in encoder callback
   std::queue<fec::buffer> pending_repair_packets;
 
   // Set callback called by encoder when a buffer is required.
-  encoder.setBufferCallback([](std::size_t size) -> fec::buffer {
+  encoder.setBufferCallback([](std::size_t size) {
     auto ret =
-        core::PacketManager<>::getInstance().getPacket<core::ContentObject>();
+        core::PacketManager<>::getInstance().getPacket<core::ContentObject>(
+            transport::interface::default_values::packet_format);
     ret->updateLength(size);
     ret->append(size);
     ret->trimStart(ret->headerSize());
-    assert(ret->length() >= size);
+    DCHECK(ret->length() >= size);
 
     return ret;
   });
 
   // Set callback to be called by encoder when repair packets are ready
-  encoder.setFECCallback(
-      [&](std::vector<std::pair<uint32_t, fec::buffer>> &packets) {
-        // We must get n - k symbols
-        EXPECT_EQ(packets.size(), n - k);
-        // TRANSPORT_LOGD("Got %zu symbols", packets.size());
+  encoder.setFECCallback([&iterations, &pending_repair_packets, &n,
+                          &k](fec::BufferArray &packets) {
+    // We must get n - k symbols
+    EXPECT_EQ(packets.size(), n - k);
+    DLOG_IF(INFO, VLOG_IS_ON(3)) << "Got " << packets.size() << " symbols";
 
-        // Save symbols in pending_repair_packets queue and increment iterations
-        for (auto &packet : packets) {
-          ++iterations;
-          pending_repair_packets.push(packet.second);
-        }
-      });
+    // Save symbols in pending_repair_packets queue and increment iterations
+    for (auto &packet : packets) {
+      ++iterations;
+      pending_repair_packets.push(packet.getBuffer());
+    }
+  });
 
   // Set callback to be called when decoder recover a packet
-  decoder.setFECCallback(
-      [&](std::vector<std::pair<uint32_t, fec::buffer>> &packets) {
-        for (auto &packet : packets) {
-          // TRANSPORT_LOGD("Recovering packet %u", packet.first);
+  decoder.setFECCallback([&saved_packets](fec::BufferArray &packets) {
+    for (auto &packet : packets) {
+      DLOG_IF(INFO, VLOG_IS_ON(3)) << "Recovering packet " << packet.getIndex();
 
-          // Ensure recovered packet is in packets actually produced by encoder
-          auto original = saved_packets.find(packet.first);
-          ASSERT_TRUE(original != saved_packets.end());
-          auto &original_packet = *original->second;
+      // Ensure recovered packet is in packets actually produced by encoder
+      auto original = saved_packets.find(packet.getIndex());
+      ASSERT_TRUE(original != saved_packets.end());
+      auto &original_packet = *original->second.first;
 
-          // Remove additional headers at the beginning of the packet. This may
-          // change in the future.
-          original_packet.trimStart(60 /* Ip + TCP */ + 28 /* Rely header */ +
-                                    4 /* Packet size */);
+      // Remove additional headers at the beginning of the packet. This may
+      // change in the future.
+      original_packet.trimStart(60 /* Ip + TCP */ + 32 /* Rely header */ +
+                                4 /* Packet size */);
 
-          // Recovered packet should be equal to the original one
-          EXPECT_TRUE(original_packet == *packet.second);
+      // Recovered packet should be equal to the original one
+      EXPECT_TRUE(original_packet == *packet.getBuffer());
 
-          // Restore removed headers
-          original_packet.prepend(60 + 28 + 4);
+      // Also metadata should correspond
+      EXPECT_TRUE(original->second.second == packet.getMetadata());
 
-          // Erase packet from saved packet list
-          saved_packets.erase(original);
-        }
-      });
+      // Restore removed headers
+      original_packet.prepend(60 + 32 + 4);
+
+      // Erase packet from saved packet list
+      saved_packets.erase(original);
+    }
+  });
 
   // Send max_iterations packets from encoder to decoder
+  std::uniform_int_distribution<> dis(0, 1299);
   while (iterations < max_iterations) {
     // Create a payload, the size is between 50 and 1350 bytes.
-    auto payload_size = 50 + (rand() % 1300);
+    auto payload_size = 50 + (dis(gen));
     uint8_t payload[max_packet_size];
-    std::generate(payload, payload + payload_size, rand);
+    std::generate(payload, payload + payload_size, gen);
 
     // Get a packet from global pool and set name
-    auto buffer = packet_manager.getPacket<core::ContentObject>();
+    auto buffer = packet_manager.getPacket<core::ContentObject>(
+        transport::interface::default_values::packet_format);
     buffer->setName(core::Name("b001::abcd", iterations));
 
     // Get offset
@@ -145,20 +156,23 @@ void testRelyEncoderDecoder(uint32_t k, uint32_t n, size_t max_packet_size,
     // its own header).
     buffer->appendPayload(payload, payload_size);
 
+    // Set an u32 metadata to pass altogether with the buffer
+    uint32_t metadata = dis(gen);
+
     // Save packet in the saving_packets list
-    // TRANSPORT_LOGD("Saving packet with index %lu", iterations);
-    saved_packets.emplace(iterations, buffer);
+    DLOG_IF(INFO, VLOG_IS_ON(3)) << "Saving packet with index " << iterations;
+    saved_packets.emplace(iterations, std::make_pair(buffer, metadata));
 
     // Feed buffer into the encoder. This will eventually trigger a call to the
     // FEC callback as soon as k packets are fed into the endocer.
-    encoder.onPacketProduced(*buffer, offset);
+    encoder.onPacketProduced(*buffer, offset, metadata);
 
     // Check returned packet. We calculate the difference in size and we compare
     // only the part of the returned packet corresponding to the original
     // payload. Rely should only add a header and should not modify the actual
     // payload content. If it does it, this check will fail.
     auto diff = buffer->length() - payload_size - offset;
-    // TRANSPORT_LOGD("Difference is %zu", diff);
+    DLOG_IF(INFO, VLOG_IS_ON(3)) << "Difference is " << diff;
     auto cmp =
         std::memcmp(buffer->data() + offset + diff, payload, payload_size);
     EXPECT_FALSE(cmp);
@@ -170,29 +184,33 @@ void testRelyEncoderDecoder(uint32_t k, uint32_t n, size_t max_packet_size,
     // using future packets that are not created in the test. For this reason,
     // we ensure the test ends without losses.
 #define DROP_CONDITION(loss_rate, max_iterations) \
-  (rand() % 100) >= loss_rate || iterations >= max_iterations * 0.9
+  (dis(gen)) >= loss_rate || iterations >= max_iterations * 0.9
 
     // Handle the source packet to the decoder, id drop condition returns true
     if (DROP_CONDITION(loss_rate, max_iterations)) {
       // Pass packet to decoder
-      // TRANSPORT_LOGD("Passing packet %u to decoder",
-      //                buffer->getName().getSuffix());
-      decoder.onDataPacket(*buffer, offset);
+      DLOG_IF(INFO, VLOG_IS_ON(3))
+          << "Passing packet " << buffer->getName().getSuffix()
+          << " to decoder";
+      decoder.onDataPacket(*buffer, offset, metadata);
     } else {
-      // TRANSPORT_LOGD("Packet %u, dropped", buffer->getName().getSuffix());
+      DLOG_IF(INFO, VLOG_IS_ON(3))
+          << "Packet " << buffer->getName().getSuffix() << " dropped";
     }
 
-    // Check if previous call to encoder.consumer() generated repair packets,
+    // Check if previous call to encoder.consume() generated repair packets,
     // and if yes, feed them to the decoder.
     while (pending_repair_packets.size()) {
       // Also repair packets can be lost
       if (DROP_CONDITION(loss_rate, max_iterations)) {
         auto &packet = pending_repair_packets.front();
-        // TRANSPORT_LOGD("Passing packet %u to decoder", iterations);
+        DLOG_IF(INFO, VLOG_IS_ON(3))
+            << "Passing packet " << iterations << " to decoder";
         core::ContentObject &co = (core::ContentObject &)(*packet);
         decoder.onDataPacket(co, 0);
       } else {
-        // TRANSPORT_LOGD("Packet (repair) %u dropped", iterations);
+        DLOG_IF(INFO, VLOG_IS_ON(3))
+            << "Packet (repair) " << iterations << " dropped";
       }
 
       // Remove packet from the queue
@@ -206,9 +224,6 @@ void testRelyEncoderDecoder(uint32_t k, uint32_t n, size_t max_packet_size,
   // 0.001 residual losses
   EXPECT_LE(saved_packets.size(), iterations * 0.001)
       << printMissing(saved_packets);
-
-  // Reset seed
-  srand(time(0));
 }
 
 /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -19,6 +19,7 @@
 #include "strategy_dpo_ctx.h"
 #include "strategies/dpo_mw.h"
 #include "strategies/dpo_rr.h"
+#include "strategies/dpo_rp.h"
 #include "strategy.h"
 #include "faces/face.h"
 
@@ -98,11 +99,13 @@ hicn_dpos_init (void)
   hicn_strategy_init_dpo_ctx_pool ();
   hicn_dpo_strategy_mw_module_init ();
   hicn_dpo_strategy_rr_module_init ();
+  hicn_dpo_strategy_rp_module_init ();
 
   default_dpo.hicn_dpo_is_type = &hicn_dpo_is_type_strategy_mw;
   default_dpo.hicn_dpo_get_type = &hicn_dpo_strategy_mw_get_type;
   default_dpo.hicn_dpo_module_init = &hicn_dpo_strategy_mw_module_init;
   default_dpo.hicn_dpo_create = &hicn_strategy_mw_ctx_create;
+  default_dpo.hicn_dpo_update_type = &hicn_strategy_mw_update_ctx_type;
   default_dpo.hicn_dpo_add_update_nh = &hicn_strategy_mw_ctx_add_nh;
   default_dpo.hicn_dpo_del_nh = &hicn_strategy_mw_ctx_del_nh;
   default_dpo.hicn_dpo_format = &hicn_strategy_mw_format_ctx;
@@ -128,12 +131,12 @@ format_hicn_strategy_list (u8 *s, int n, ...)
   return (s);
 }
 
-u8
+int
 hicn_dpo_strategy_id_is_valid (int strategy_id)
 {
   return vec_len (strategies_id) > strategy_id ?
-	   HICN_ERROR_NONE :
-	   HICN_ERROR_DPO_MGR_ID_NOT_VALID;
+		 HICN_ERROR_NONE :
+		 HICN_ERROR_DPO_MGR_ID_NOT_VALID;
 }
 
 int

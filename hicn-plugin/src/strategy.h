@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -53,7 +53,7 @@ typedef struct hicn_strategy_vft_s
   void (*hicn_on_interest_timeout) (index_t dpo_idx);
   void (*hicn_add_interest) (index_t dpo_idx, hicn_hash_entry_t *pit_entry);
   u32 (*hicn_select_next_hop) (index_t dpo_idx, int *nh_idx,
-			       hicn_face_id_t *outface);
+			       hicn_face_id_t *outfaces, uint32_t *len);
   u8 *(*hicn_format_strategy_trace) (u8 *, hicn_strategy_trace_t *);
   u8 *(*hicn_format_strategy) (u8 *s, va_list *ap);
   /**< Format an hICN dpo*/
@@ -85,6 +85,8 @@ const static char *const *const hicn_nodes_strategy[DPO_PROTO_NUM] = {
   [DPO_PROTO_IP6] = hicn_ip6_nodes,
   [DPO_PROTO_IP4] = hicn_ip4_nodes,
 };
+
+const static uint32_t MAX_OUT_FACES = 8;
 
 extern vlib_node_registration_t hicn_strategy_node;
 
