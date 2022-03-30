@@ -1,3 +1,5 @@
 #!/bin/bash
 
-systemctl disable facemgr
+if pidof systemd; then
+  systemctl disable facemgr
+fi

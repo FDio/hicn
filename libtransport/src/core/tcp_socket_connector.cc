@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -85,8 +85,10 @@ void TcpSocketConnector::send(const uint8_t *packet, std::size_t len,
                               const PacketSentCallback &packet_sent) {
   if (packet_sent != 0) {
     asio::async_write(socket_, asio::buffer(packet, len),
-                      [packet_sent](std::error_code ec,
-                                    std::size_t /*length*/) { packet_sent(); });
+                      [packet_sent](const std::error_code &ec)
+                          std::size_t /*length*/) {
+      packet_sent();
+    });
   } else {
     if (state_ == ConnectorState::CONNECTED) {
       asio::write(socket_, asio::buffer(packet, len));
@@ -151,7 +153,7 @@ void TcpSocketConnector::doWrite() {
 
   asio::async_write(
       socket_, std::move(array),
-      [this, packet_store = std::move(packet_store)](std::error_code ec,
+      [this, packet_store = std::move(packet_store)](const std::error_code &ec,
                                                      std::size_t length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           if (!output_buffer_.empty()) {
@@ -172,7 +174,7 @@ void TcpSocketConnector::doReadBody(std::size_t body_length) {
   asio::async_read(
       socket_, asio::buffer(read_msg_->writableTail(), body_length),
       asio::transfer_exactly(body_length),
-      [this](std::error_code ec, std::size_t length) {
+      [this](const std::error_code &ec, std::size_t length) {
         read_msg_->append(length);
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           receive_callback_(std::move(read_msg_));
@@ -195,7 +197,7 @@ void TcpSocketConnector::doReadHeader() {
       asio::buffer(read_msg_->writableData(),
                    NetworkMessage::fixed_header_length),
       asio::transfer_exactly(NetworkMessage::fixed_header_length),
-      [this](std::error_code ec, std::size_t length) {
+      [this](const std::error_code &ec, std::size_t length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           read_msg_->append(NetworkMessage::fixed_header_length);
           std::size_t body_length = 0;
@@ -235,7 +237,7 @@ void TcpSocketConnector::tryReconnect() {
 void TcpSocketConnector::doConnect() {
   asio::async_connect(
       socket_, endpoint_iterator_,
-      [this](std::error_code ec, tcp::resolver::iterator) {
+      [this](const std::error_code &ec, tcp::resolver::iterator) {
         if (!ec) {
           timer_.cancel();
           state_ = ConnectorState::CONNECTED;

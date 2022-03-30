@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -20,11 +20,11 @@ list(APPEND MODULE_SOURCE_FILES
 )
 
 build_module(loopback_module
-    SHARED
     SOURCES ${MODULE_SOURCE_FILES}
     DEPENDS ${DEPENDENCIES}
     COMPONENT ${LIBTRANSPORT_COMPONENT}
-    INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS} ${LIBTRANSPORT_INTERNAL_INCLUDE_DIRS}
+    INCLUDE_DIRS
+      PRIVATE ${LIBTRANSPORT_INTERNAL_INCLUDE_DIRS} ${Libhicn_INCLUDE_DIRS}
     DEFINITIONS ${COMPILER_DEFINITIONS}
-    COMPILE_OPTIONS ${COMPILE_FLAGS}
+    COMPILE_OPTIONS ${COMPILER_OPTIONS}
 )

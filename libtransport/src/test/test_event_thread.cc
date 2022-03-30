@@ -14,6 +14,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
 #include <hicn/transport/utils/event_thread.h>
 
 #include <cmath>
@@ -48,7 +49,7 @@ class EventThreadTest : public ::testing::Test {
   utils::EventThread event_thread_;
 };
 
-double average(const unsigned long samples[], int size) {
+inline double average(const unsigned long samples[], int size) {
   double sum = 0;
 
   for (int i = 0; i < size; i++) {
@@ -58,7 +59,7 @@ double average(const unsigned long samples[], int size) {
   return sum / size;
 }
 
-double stdDeviation(const unsigned long samples[], int size) {
+inline double stdDeviation(const unsigned long samples[], int size) {
   double avg = average(samples, size);
   double var = 0;
 
@@ -72,26 +73,23 @@ double stdDeviation(const unsigned long samples[], int size) {
 }  // namespace
 
 TEST_F(EventThreadTest, DISABLED_SchedulingDelay) {
-  using namespace std::chrono;
-  const size_t size = 1000000;
-  std::vector<unsigned long> samples(size);
+  // using namespace std::chrono;
+  // const size_t size = 1000000;
+  // std::vector<unsigned long> samples(size);
 
-  for (unsigned int i = 0; i < size; i++) {
-    auto t0 = steady_clock::now();
-    event_thread_.add([t0, &samples, i]() {
-      auto t1 = steady_clock::now();
-      samples[i] = duration_cast<nanoseconds>(t1 - t0).count();
-    });
-  }
+  // for (unsigned int i = 0; i < size; i++) {
+  //   event_thread_.add([t0, &samples, i]() {
+  //   });
+  // }
 
-  event_thread_.stop();
+  // event_thread_.stop();
 
-  auto avg = average(&samples[0], size);
-  auto sd = stdDeviation(&samples[0], size);
-  (void)sd;
+  // auto avg = average(&samples[0], size);
+  // auto sd = stdDeviation(&samples[0], size);
+  // (void)sd;
 
-  // Expect average to be less that 1 ms
-  EXPECT_LT(avg, 1000000);
+  // // Expect average to be less that 1 ms
+  // EXPECT_LT(avg, 1000000);
 }
 
 }  // namespace utils

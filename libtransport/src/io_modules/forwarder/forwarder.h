@@ -15,13 +15,13 @@
 
 #pragma once
 
+#include <core/udp_listener.h>
 #include <hicn/transport/core/io_module.h>
 #include <hicn/transport/core/prefix.h>
 #include <hicn/transport/utils/event_thread.h>
 #include <hicn/transport/utils/singleton.h>
 #include <hicn/transport/utils/spinlock.h>
 #include <io_modules/forwarder/configuration.h>
-#include <io_modules/forwarder/udp_tunnel_listener.h>
 
 #include <atomic>
 #include <libconfig.h++>
@@ -31,9 +31,8 @@ namespace transport {
 
 namespace core {
 
-class Forwarder : public utils::Singleton<Forwarder> {
+class Forwarder {
   static constexpr char forwarder_config_section[] = "forwarder";
-  friend class utils::Singleton<Forwarder>;
 
  public:
   Forwarder();
@@ -47,6 +46,7 @@ class Forwarder : public utils::Singleton<Forwarder> {
   Connector::Id registerLocalConnector(
       asio::io_service &io_service,
       Connector::PacketReceivedCallback &&receive_callback,
+      Connector::PacketSentCallback &&sent_callback,
       Connector::OnReconnectCallback &&reconnect_callback);
 
   Forwarder &deleteConnector(Connector::Id id);
@@ -58,9 +58,11 @@ class Forwarder : public utils::Singleton<Forwarder> {
   void stop();
 
  private:
-  void onPacketFromListener(Connector *connector, utils::MemBuf &packet_buffer,
+  void onPacketFromListener(Connector *connector,
+                            const std::vector<utils::MemBuf::Ptr> &packets,
                             const std::error_code &ec);
-  void onPacketReceived(Connector *connector, utils::MemBuf &packet_buffer,
+  void onPacketReceived(Connector *connector,
+                        const std::vector<utils::MemBuf::Ptr> &packets,
                         const std::error_code &ec);
   void onPacketSent(Connector *connector, const std::error_code &ec);
   void onConnectorClosed(Connector *connector);
@@ -86,5 +88,20 @@ class Forwarder : public utils::Singleton<Forwarder> {
   Configuration config_;
 };
 
+class ForwarderGlobal : public ::utils::Singleton<ForwarderGlobal> {
+  friend class utils::Singleton<ForwarderGlobal>;
+
+ public:
+  ~ForwarderGlobal() {}
+  std::shared_ptr<Forwarder> &getReference() { return forwarder_; }
+
+ private:
+  ForwarderGlobal() : forwarder_(std::make_shared<Forwarder>()) {}
+
+ private:
+  std::shared_ptr<Forwarder> forwarder_;
+};
+
 }  // namespace core
+
 }  // namespace transport
