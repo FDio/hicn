@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -37,7 +37,7 @@ void RTCRateControlQueue::onNewRound(double round_len) {
   double received_rate = protocol_state_->getReceivedRate();
   double target_rate =
       protocol_state_->getProducerRate() * PRODUCTION_RATE_FRACTION;
-  double rtt = (double)protocol_state_->getRTT() / MILLI_IN_A_SEC;
+  double rtt = (double)protocol_state_->getMinRTT() / MILLI_IN_A_SEC;
   double packet_size = protocol_state_->getAveragePacketSize();
   double queue = protocol_state_->getQueuing();
 
@@ -94,7 +94,7 @@ void RTCRateControlQueue::onNewRound(double round_len) {
 }
 
 void RTCRateControlQueue::onDataPacketReceived(
-    const core::ContentObject &content_object) {
+    const core::ContentObject &content_object, bool compute_stats) {
   // nothing to do
   return;
 }

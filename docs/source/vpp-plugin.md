@@ -22,7 +22,7 @@ mkdir -p build
 cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=/usr
 make
-sudo make install
+sudo cmake --build . -- install
 ```
 
 VPP source code - build type `RELEASE`:
@@ -32,7 +32,7 @@ mkdir -p build
 cd build
 cmake .. -DVPP_HOME=<vpp dir>/build-root/install-vpp-native/vpp -DCMAKE_INSTALL_PREFIX=<vpp src>/build-root/install-vpp-native/vpp
 make
-sudo make install
+cmake --build . -- install
 ```
 
 VPP source code - build type `DEBUG`:
@@ -42,7 +42,7 @@ mkdir -p build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=DEBUG -DVPP_HOME=<vpp dir>/build-root/install-vpp_debug-native/vpp -DCMAKE_INSTALL_PREFIX=<vpp src>/build-root/install-vpp_debug-native/vpp
 make
-sudo make install
+cmake --build . -- install
 ```
 
 CMAKE variables:
@@ -57,7 +57,7 @@ CMAKE variables:
 
 Build dependencies:
 
-- VPP 20.01
+- VPP 22.02
   - DEB packages (can be found <https://packagecloud.io/fdio/release/install):>
     - vpp
     - libvppinfra-dev
@@ -65,11 +65,11 @@ Build dependencies:
 
 Runtime dependencies:
 
-- VPP 20.01
+- VPP 22.02
   - DEB packages (can be found <https://packagecloud.io/fdio/release/install):>
     - vpp
     - vpp-plugin-core
-    - vpp-plugin-dpdk (only to use DPDK compatible nics)
+    - vpp-plugin-dpdk (optional - only to use DPDK compatible nics)
 
 Hardware support (not mandatory):
 
@@ -91,7 +91,7 @@ Detailed information for configuring VPP can be found at
 
 ### Setup the host for VPP
 
-Hugepages must be enabled in the system.
+It is preferable to have hugepages enabled in the system, although it is not a requirement:
 
 ```bash
 sudo sysctl -w vm.nr_hugepages=1024
@@ -163,7 +163,7 @@ interface.
 
 VPP can be started as a process or a service:
 
-Start VPP as a service in Ubuntu 16.04+:
+Start VPP as a service in Ubuntu 20.04+:
 ```bash
 sudo systemctl start vpp
 ```
@@ -299,22 +299,22 @@ vpp# set interface ip address TenGigabitEtherneta/0/1 2001::3/64
 vpp# set interface state TenGigabitEtherneta/0/1 up
 ```
 
-Once the two forwarder are started, run the `ping_server` application on the
+Once the two forwarder are started, run the `hicn-ping-server` application on the
 host where the forwarder B is running:
 
 ```bash
-sudo ping_server -n b002::1
+sudo hicn-ping-server -n b002::1/128 -z memif_module
 ```
 
-Then `ping_client` on the host where forwarder B is running:
+Then `hicn-ping-client` on the host where forwarder B is running:
 
 ```bash
-sudo ping_client -n b002::1
+sudo hicn-ping-client -n b002::1 -z memif_module
 ```
 
 ### Example: packet generator
 
-The packet generator can be used to test the performace of the hICN plugin, as
+The packet generator can be used to test the performance of the hICN plugin, as
 well as a tool to inject packet in a forwarder or network for other test use
 cases It is made of two entities, a client that inject interest into a vpp
 forwarder and a server that replies to any interest with the corresponding

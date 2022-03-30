@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,10 +15,12 @@
 
 #pragma once
 
-#include <protocols/datagram_reassembly.h>
+#include <protocols/rtc/rtc_forwarding_strategy.h>
 #include <protocols/rtc/rtc_ldr.h>
 #include <protocols/rtc/rtc_rc.h>
+#include <protocols/rtc/rtc_reassembly.h>
 #include <protocols/rtc/rtc_state.h>
+#include <protocols/rtc/rtc_verifier.h>
 #include <protocols/transport_protocol.h>
 
 #include <unordered_set>
@@ -43,6 +45,8 @@ class RTCTransportProtocol : public TransportProtocol {
   void resume() override;
 
   std::size_t transportHeaderLength() override;
+
+  auto shared_from_this() { return utils::shared_from(this); }
 
  private:
   enum class SyncState { catch_up = 0, in_sync = 1, last };
@@ -76,6 +80,7 @@ class RTCTransportProtocol : public TransportProtocol {
   void onPacketDropped(Interest &interest, ContentObject &content_object,
                        const std::error_code &reason) override {}
   void onReassemblyFailed(std::uint32_t missing_segment) override {}
+  void processManifest(Interest &interest, ContentObject &manifest);
 
   // interaction with app functions
   void sendStatsToApp(uint32_t retx_count, uint32_t received_bytes,
@@ -84,11 +89,20 @@ class RTCTransportProtocol : public TransportProtocol {
                       uint32_t received_nacks, uint32_t received_fec);
 
   // FEC functions
-  void onFecPackets(std::vector<std::pair<uint32_t, fec::buffer>> &packets);
+  void onFecPackets(fec::BufferArray &packets);
+
+  // Utils
+  ContentObject::Ptr removeFecHeader(const ContentObject &content_object);
+  ContentObject::Ptr toContentObject(const Name &name, Packet::Format format,
+                                     PayloadType payload_type,
+                                     const uint8_t *payload,
+                                     std::size_t payload_size,
+                                     std::size_t additional_header_size = 0);
 
   // protocol state
   bool start_send_interest_;
   SyncState current_state_;
+
   // cwin vars
   uint32_t current_sync_win_;
   uint32_t max_sync_win_;
@@ -120,6 +134,10 @@ class RTCTransportProtocol : public TransportProtocol {
   std::shared_ptr<RTCState> state_;
   std::shared_ptr<RTCRateControl> rc_;
   std::shared_ptr<RTCLossDetectionAndRecovery> ldr_;
+  std::shared_ptr<RTCVerifier> verifier_;
+
+  // forwarding strategy selection
+  RTCForwardingStrategy fwd_strategy_;
 
   uint32_t number_;
 };

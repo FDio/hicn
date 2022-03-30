@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,23 +23,28 @@ ConsumerSocket::ConsumerSocket(int protocol) {
   socket_ = std::make_unique<implementation::ConsumerSocket>(this, protocol);
 }
 
-ConsumerSocket::ConsumerSocket(int protocol, asio::io_service &io_service) {
-  socket_ = std::make_unique<implementation::ConsumerSocket>(this, protocol,
-                                                             io_service);
+ConsumerSocket::ConsumerSocket(int protocol, ::utils::EventThread &worker) {
+  socket_ =
+      std::make_unique<implementation::ConsumerSocket>(this, protocol, worker);
 }
 
 ConsumerSocket::ConsumerSocket() {}
 
-ConsumerSocket::~ConsumerSocket() { socket_->stop(); }
+ConsumerSocket::ConsumerSocket(ConsumerSocket &&other) noexcept
+    : socket_(std::move(other.socket_)) {}
+
+ConsumerSocket::~ConsumerSocket() {
+  if (socket_) {
+    socket_->stop();
+  }
+}
 
 void ConsumerSocket::connect() { socket_->connect(); }
 
 bool ConsumerSocket::isRunning() { return socket_->isRunning(); }
 
-int ConsumerSocket::consume(const Name &name) { return socket_->consume(name); }
-
-int ConsumerSocket::asyncConsume(const Name &name) {
-  return socket_->asyncConsume(name);
+int ConsumerSocket::consume(const Name &name, bool blocking) {
+  return socket_->consume(name);
 }
 
 void ConsumerSocket::stop() { socket_->stop(); }
@@ -111,6 +116,16 @@ int ConsumerSocket::setSocketOption(int socket_option_key,
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
+int ConsumerSocket::setSocketOption(int socket_option_key,
+                                    StrategyCallback socket_option_value) {
+  return socket_->setSocketOption(socket_option_key, socket_option_value);
+}
+
+int ConsumerSocket::setSocketOption(int socket_option_key,
+                                    Packet::Format socket_option_value) {
+  return socket_->setSocketOption(socket_option_key, socket_option_value);
+}
+
 int ConsumerSocket::getSocketOption(int socket_option_key,
                                     double &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
@@ -166,6 +181,16 @@ int ConsumerSocket::getSocketOption(
 
 int ConsumerSocket::getSocketOption(
     int socket_option_key, ConsumerTimerCallback **socket_option_value) {
+  return socket_->getSocketOption(socket_option_key, socket_option_value);
+}
+
+int ConsumerSocket::getSocketOption(int socket_option_key,
+                                    StrategyCallback **socket_option_value) {
+  return socket_->getSocketOption(socket_option_key, socket_option_value);
+}
+
+int ConsumerSocket::getSocketOption(int socket_option_key,
+                                    Packet::Format &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 

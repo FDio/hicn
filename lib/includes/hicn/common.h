@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -51,12 +51,16 @@ typedef uint8_t u8;
 
 #ifndef HICN_VPP_PLUGIN
 
-#define PREDICT_FALSE(x) (x)
-#define PREDICT_TRUE(x) (x)
-#define always_inline static inline
-#define static_always_inline static inline
-#define STRUCT_SIZE_OF(type, member) sizeof(((type *)0)->member)
+#define PREDICT_FALSE(x)	     (x)
+#define PREDICT_TRUE(x)		     (x)
+#define STRUCT_SIZE_OF(type, member) sizeof (((type *) 0)->member)
 #define ASSERT
+
+#ifndef NDEBUG
+#define _ASSERT(x) assert (x)
+#else
+#define _ASSERT(x) ((void) (x))
+#endif
 
 #define STATIC_ASSERT(x)
 
@@ -82,13 +86,17 @@ typedef u32 uword;
 
 typedef uword ip_csum_t;
 
+#else
+
+#include <vppinfra/clib.h>
+
 #endif /* ! HICN_VPP_PLUGIN */
 
 /*
- * Windows compilers do not support named initilizers when .h files are included
- * inside C++ files. For readability, we either use the following macro, or
- * duplicate some code, with the intent of preserving those safeguards for
- * non-Windows platforms.
+ * Windows compilers do not support named initilizers when .h files are
+ * included inside C++ files. For readability, we either use the following
+ * macro, or duplicate some code, with the intent of preserving those
+ * safeguards for non-Windows platforms.
  */
 #ifndef _WIN32
 #define ATTR_INIT(key, value) .key = value
@@ -97,12 +105,12 @@ typedef uword ip_csum_t;
 #endif
 
 #ifdef _WIN32
- /* Endianness detection for Windows platforms */
+/* Endianness detection for Windows platforms */
 #define __ORDER_LITTLE_ENDIAN__ 0x41424344UL
-#define __ORDER_BIG_ENDIAN__    0x44434241UL
-#define __BYTE_ORDER__ ('ABCD')
+#define __ORDER_BIG_ENDIAN__	0x44434241UL
+#define __BYTE_ORDER__		('ABCD')
 
- /* Windows compatibility headers */
+/* Windows compatibility headers */
 #define WIN32_LEAN_AND_MEAN
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -116,10 +124,10 @@ typedef uword ip_csum_t;
 #define strdup _strdup
 #define __attribute__(A)
 
-#ifndef  IOVEC
+#ifndef IOVEC
 #define IOVEC
 #define UIO_MAXIOV 16
-#define IOV_MAX UIO_MAXIOV
+#define IOV_MAX	   UIO_MAXIOV
 struct iovec
 {
   void *iov_base;
@@ -132,65 +140,19 @@ struct iovec
  * Portable attribute packed.
  */
 #ifndef _WIN32
-#define PACKED( __Declaration__ ) __Declaration__ __attribute__((__packed__))
+#define PACKED(__Declaration__) __Declaration__ __attribute__ ((__packed__))
 #else
-#define PACKED( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop) )
+#define PACKED(__Declaration__)                                               \
+  __pragma (pack (push, 1)) __Declaration__ __pragma (pack (pop))
 #endif
-
 
 /*
  * IP address types
  */
 
-#ifdef HICN_VPP_PLUGIN
-
-#include <vnet/ip/ip4_packet.h>	// ip4_address_t
-#include <vnet/ip/ip6_packet.h>	// ip6_address_t
-
-#if __GNUC__ >= 9
-#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
-#endif
-
-#include <vnet/ip/ip46_address.h>
-
-#if __GNUC__ >= 9
-#pragma GCC diagnostic pop
-#endif
-
-#else
-
-
 #ifndef _WIN32
 #include <netinet/in.h>
 #endif
-
-typedef union
-{
-  u32 as_u32;
-  struct in_addr as_inaddr;
-} ip4_address_t;
-
-typedef union
-{
-  u64 as_u64[2];
-  u32 as_u32[4];
-  u8 as_u8[16];
-  struct in6_addr as_in6addr;
-} ip6_address_t;
-
-typedef union
-{
-  struct
-  {
-    u32 pad[3];
-    ip4_address_t ip4;
-  };
-  ip6_address_t ip6;
-} ip46_address_t;
-
-#define ip46_address_is_ip4(ip46)       (((ip46)->pad[0] | (ip46)->pad[1] | (ip46)->pad[2]) == 0)
-
-#endif /* ! HICN_VPP_PLUGIN */
 
 /**
  * @brief Returns the family of an IP address
@@ -215,7 +177,7 @@ int get_addr_family (const char *ip_address);
  * borrow this code here.
  */
 
-static_always_inline u16
+static inline u16
 ip_csum_fold (ip_csum_t c)
 {
   /* Reduce to 16 bits. */
@@ -227,10 +189,10 @@ ip_csum_fold (ip_csum_t c)
   c = (c & 0xffff) + (c >> 16);
   c = (c & 0xffff) + (c >> 16);
 
-  return (u16)c;
+  return (u16) c;
 }
 
-static_always_inline ip_csum_t
+static inline ip_csum_t
 ip_csum_with_carry (ip_csum_t sum, ip_csum_t x)
 {
   ip_csum_t t = sum + x;
@@ -238,7 +200,7 @@ ip_csum_with_carry (ip_csum_t sum, ip_csum_t x)
 }
 
 /* Update checksum changing field at even byte offset from x -> 0. */
-static_always_inline ip_csum_t
+static inline ip_csum_t
 ip_csum_add_even (ip_csum_t c, ip_csum_t x)
 {
   ip_csum_t d;
@@ -252,19 +214,19 @@ ip_csum_add_even (ip_csum_t c, ip_csum_t x)
 }
 
 /* Update checksum changing field at even byte offset from 0 -> x. */
-static_always_inline ip_csum_t
+static inline ip_csum_t
 ip_csum_sub_even (ip_csum_t c, ip_csum_t x)
 {
   return ip_csum_with_carry (c, x);
 }
 
+#endif /* ! HICN_VPP_PLUGIN */
+
 u32 cumulative_hash32 (const void *data, size_t len, u32 lastValue);
 u32 hash32 (const void *data, size_t len);
 u64 cumulative_hash64 (const void *data, size_t len, u64 lastValue);
 u64 hash64 (const void *data, size_t len);
-void hicn_packet_dump (const uint8_t * buffer, size_t len);
-
-#endif /* ! HICN_VPP_PLUGIN */
+void hicn_packet_dump (const uint8_t *buffer, size_t len);
 
 /**
  * @brief Computes buffer checksum
@@ -273,7 +235,7 @@ void hicn_packet_dump (const uint8_t * buffer, size_t len);
  * @param [in] init - Checksum initial value
  * @return Checksum of specified buffer
  */
-always_inline u16
+static inline u16
 csum (const void *addr, size_t size, u16 init)
 {
   u32 sum = init;
@@ -291,7 +253,7 @@ csum (const void *addr, size_t size, u16 init)
   sum = (sum >> 16) + (sum & 0xffff);
   sum += (sum >> 16);
 
-  return (u16) ~ sum;
+  return (u16) ~sum;
 }
 
 /*
@@ -305,17 +267,24 @@ csum (const void *addr, size_t size, u16 init)
  * Query IP version from packet (either 4 or 6)
  * (version is located as same offsets in both protocol headers)
  */
-#define HICN_IP_VERSION(packet) ((hicn_header_t *)packet)->v4.ip.version
+#define HICN_IP_VERSION(packet)                                               \
+  ((hicn_header_t *) packet)->protocol.ipv4.version
 
 /*
  * ntohll / htonll allows byte swapping for 64 bits integers
  */
 #ifndef htonll
-#define htonll(x) ((1==htonl(1)) ? (x) : ((uint64_t)htonl((x) & 0xFFFFFFFF) << 32) | htonl((x) >> 32))
+#define htonll(x)                                                             \
+  ((1 == htonl (1)) ?                                                         \
+	   (x) :                                                                    \
+	   ((uint64_t) htonl ((x) &0xFFFFFFFF) << 32) | htonl ((x) >> 32))
 #endif
 
 #ifndef ntohll
-#define ntohll(x) ((1==ntohl(1)) ? (x) : ((uint64_t)ntohl((x) & 0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+#define ntohll(x)                                                             \
+  ((1 == ntohl (1)) ?                                                         \
+	   (x) :                                                                    \
+	   ((uint64_t) ntohl ((x) &0xFFFFFFFF) << 32) | ntohl ((x) >> 32))
 #endif
 
 #endif /* HICN_COMMON_H */

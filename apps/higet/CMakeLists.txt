@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,36 +11,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-set(CMAKE_CXX_STANDARD 14)
-
-project(utils)
-
-find_package(Threads REQUIRED)
-
-set(CMAKE_MODULE_PATH
-  ${CMAKE_MODULE_PATH}
-  "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules"
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
-)
-
-if (NOT CMAKE_BUILD_TYPE)
-  message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
-  set(CMAKE_BUILD_TYPE "Release")
-endif ()
-
+##############################################################
+# Source files
+##############################################################
 list(APPEND APPS_SRC
   higet.cc
 )
 
+
+##############################################################
+# Linker flags
+##############################################################
 if (WIN32)
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:\"LIBCMT\"" )
+  set(CMAKE_EXE_LINKER_FLAGS
+    "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:\"LIBCMT\""
+  )
 endif()
 
+
+##############################################################
+# Compiler options
+##############################################################
+set(COMPILER_OPTIONS
+  ${DEFAULT_COMPILER_OPTIONS}
+)
+
+
+##############################################################
+# Build higet
+##############################################################
 if (NOT DISABLE_EXECUTABLES)
   build_executable(${HIGET}
     SOURCES ${APPS_SRC}
     LINK_LIBRARIES
+      ${LIBHICN_LIBRARIES}
       ${LIBTRANSPORT_LIBRARIES}
       ${CMAKE_THREAD_LIBS_INIT}
       ${WSOCK32_LIBRARY}
@@ -49,5 +53,6 @@ if (NOT DISABLE_EXECUTABLES)
     COMPONENT ${HICN_APPS}
     DEFINITIONS ${COMPILER_DEFINITIONS}
     LINK_FLAGS ${LINK_FLAGS}
+    COMPILE_OPTIONS ${COMPILER_OPTIONS}
   )
 endif ()
