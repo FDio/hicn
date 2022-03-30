@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -27,8 +27,10 @@
 
 extern const hicn_ops_t hicn_ops_ipv4;
 extern const hicn_ops_t hicn_ops_icmp;
+extern const hicn_ops_t hicn_ops_udp;
 extern const hicn_ops_t hicn_ops_tcp;
 extern const hicn_ops_t hicn_ops_ipv6;
+extern const hicn_ops_t hicn_ops_new;
 extern const hicn_ops_t hicn_ops_ah;
 
 /* Declare empty operations (terminates recursion on protocol layers) */
@@ -39,6 +41,7 @@ DECLARE_get_interest_name (none, NONE);
 DECLARE_set_interest_name (none, NONE);
 DECLARE_get_interest_name_suffix (none, NONE);
 DECLARE_set_interest_name_suffix (none, NONE);
+DECLARE_is_interest (none, NONE);
 DECLARE_mark_packet_as_interest (none, NONE);
 DECLARE_mark_packet_as_data (none, NONE);
 DECLARE_reset_interest_for_hash (none, NONE);
@@ -63,6 +66,8 @@ DECLARE_get_header_length (none, NONE);
 DECLARE_get_current_header_length (none, NONE);
 DECLARE_get_payload_length (none, NONE);
 DECLARE_set_payload_length (none, NONE);
+DECLARE_get_payload_type (none, NONE);
+DECLARE_set_payload_type (none, NONE);
 DECLARE_get_signature_size (none, NONE);
 DECLARE_set_signature_size (none, NONE);
 DECLARE_set_signature_timestamp (none, NONE);
@@ -72,8 +77,10 @@ DECLARE_get_validation_algorithm (none, NONE);
 DECLARE_set_key_id (none, NONE);
 DECLARE_get_key_id (none, NONE);
 DECLARE_get_signature (none, NONE);
-DECLARE_get_signature_gap (none, NONE);
-DECLARE_set_signature_gap (none, NONE);
+DECLARE_get_signature_padding (none, NONE);
+DECLARE_set_signature_padding (none, NONE);
+DECLARE_is_last_data (none, NONE);
+DECLARE_set_last_data (none, NONE);
 DECLARE_HICN_OPS (none);
 
 /**
@@ -84,9 +91,11 @@ const hicn_ops_t *const hicn_ops_vft[] = {
   /*  0 */ [IPPROTO_IP] = &hicn_ops_ipv4,
   /*  1 */[IPPROTO_ICMP] = &hicn_ops_icmp,
   /*  6 */[IPPROTO_TCP] = &hicn_ops_tcp,
+  /*  6 */[IPPROTO_UDP] = &hicn_ops_udp,
   /* 41 */[IPPROTO_IPV6] = &hicn_ops_ipv6,
   /* 51 */[IPPROTO_AH] = &hicn_ops_ah,
   /* 58 */[IPPROTO_ICMPV6] = &hicn_ops_icmp,
+  /* 98 */[IPPROTO_ENCAP] = &hicn_ops_new,
   [IPPROTO_NONE] = &hicn_ops_none,
 };
 

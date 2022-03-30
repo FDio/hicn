@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -38,7 +38,7 @@ typedef struct
   u8 data[64];
 } _icmprd4_header_t;
 
-#define ICMPRD4_HDRLEN sizeof(_icmprd4_header_t)
+#define ICMPRD4_HDRLEN sizeof (_icmprd4_header_t)
 static_assert (EXPECTED_ICMPRD4_HDRLEN == ICMPRD4_HDRLEN,
 	       "Size of ICMPWLDR struct does not match its expected size.");
 
@@ -57,7 +57,7 @@ typedef struct
   ip6_address_t dst;
 } _icmprd_header_t;
 
-#define ICMPRD_HDRLEN sizeof(_icmprd_header_t)
+#define ICMPRD_HDRLEN sizeof (_icmprd_header_t)
 static_assert (EXPECTED_ICMPRD_HDRLEN == ICMPRD_HDRLEN,
 	       "Size of ICMPWLDR struct does not match its expected size.");
 

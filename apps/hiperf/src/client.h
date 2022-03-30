@@ -16,12 +16,16 @@
 #pragma once
 
 #include <common.h>
+#include <hicn/transport/utils/noncopyable.h>
 
 namespace hiperf {
 
-class HIperfClient {
+class HIperfClient : ::utils::NonCopyable {
  public:
   HIperfClient(const ClientConfiguration &conf);
+  HIperfClient(HIperfClient &&other);
+  HIperfClient &operator=(HIperfClient &&other);
+
   ~HIperfClient();
   int setup();
   void run();

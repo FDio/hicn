@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,15 +16,13 @@
 #ifndef FACEMGR_ERROR_H
 #define FACEMGR_ERROR_H
 
-#define foreach_facemgr_error                           \
-_(NONE,         0,      "OK")                           \
-
+#define foreach_facemgr_error _(NONE, 0, "OK")
 
 typedef enum {
-#define _(a,b,c) FACEMGR_ERROR_##a = (-b),
-    foreach_facemgr_error
+#define _(a, b, c) FACEMGR_ERROR_##a = (-b),
+  foreach_facemgr_error
 #undef _
-    FACEMGR_ERROR_N,
+      FACEMGR_ERROR_N,
 } facemgr_error_t;
 
 extern const char *HICN_LIB_ERROR_STRING[];

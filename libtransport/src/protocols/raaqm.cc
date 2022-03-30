@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -36,8 +36,9 @@ RaaqmTransportProtocol::RaaqmTransportProtocol(
       current_window_size_(1),
       interests_in_flight_(0),
       cur_path_(nullptr),
-      t0_(utils::SteadyClock::now()),
+      t0_(utils::SteadyTime::Clock::now()),
       rate_estimator_(nullptr),
+      dis_(0, 1.0),
       schedule_interests_(true) {
   init();
 }
@@ -60,7 +61,7 @@ void RaaqmTransportProtocol::reset() {
 
   // Reset protocol variables
   interests_in_flight_ = 0;
-  t0_ = utils::SteadyClock::now();
+  t0_ = utils::SteadyTime::Clock::now();
 
   // Optionally reset congestion window
   bool reset_window;
@@ -389,6 +390,8 @@ void RaaqmTransportProtocol::sendInterest(
     uint32_t len) {
   interests_in_flight_++;
   interest_retransmissions_[interest_name.getSuffix() & mask]++;
+  interest_timepoints_[interest_name.getSuffix() & mask] =
+      utils::SteadyTime::Clock::now();
   TransportProtocol::sendInterest(interest_name, additional_suffixes, len);
 }
 
@@ -477,7 +480,7 @@ void RaaqmTransportProtocol::scheduleNextInterests() {
   }
 }
 
-void RaaqmTransportProtocol::onContentReassembled(std::error_code ec) {
+void RaaqmTransportProtocol::onContentReassembled(const std::error_code &ec) {
   rate_estimator_->onDownloadFinished();
   TransportProtocol::onContentReassembled(ec);
   schedule_interests_ = false;
@@ -487,18 +490,18 @@ void RaaqmTransportProtocol::updateRtt(uint64_t segment) {
   if (TRANSPORT_EXPECT_FALSE(!cur_path_)) {
     throw std::runtime_error("RAAQM ERROR: no current path found, exit");
   } else {
-    auto now = utils::SteadyClock::now();
-    utils::Microseconds rtt = std::chrono::duration_cast<utils::Microseconds>(
-        now - interest_timepoints_[segment & mask]);
+    auto now = utils::SteadyTime::Clock::now();
+    utils::SteadyTime::Milliseconds rtt = utils::SteadyTime::getDurationMs(
+        interest_timepoints_[segment & mask], now);
 
     // Update stats
-    updateStats((uint32_t)segment, rtt.count(), now);
+    updateStats((uint32_t)segment, rtt, now);
 
     if (rate_estimator_) {
-      rate_estimator_->onRttUpdate((double)rtt.count());
+      rate_estimator_->onRttUpdate(rtt);
     }
 
-    cur_path_->insertNewRtt(rtt.count(), now);
+    cur_path_->insertNewRtt(rtt, now);
     cur_path_->smoothTimer();
 
     if (cur_path_->newPropagationDelayAvailable()) {
@@ -510,27 +513,27 @@ void RaaqmTransportProtocol::updateRtt(uint64_t segment) {
 void RaaqmTransportProtocol::RAAQM() {
   if (!cur_path_) {
     throw errors::RuntimeException("ERROR: no current path found, exit");
-    exit(EXIT_FAILURE);
   } else {
     // Change drop probability according to RTT statistics
     cur_path_->updateDropProb();
 
-    double coin = ((double)rand() / (RAND_MAX));
+    double coin = dis_(gen_);
     if (coin <= cur_path_->getDropProb()) {
       decreaseWindow();
     }
   }
 }
 
-void RaaqmTransportProtocol::updateStats(uint32_t suffix, uint64_t rtt,
-                                         utils::TimePoint &now) {
+void RaaqmTransportProtocol::updateStats(
+    uint32_t suffix, const utils::SteadyTime::Milliseconds &rtt,
+    utils::SteadyTime::TimePoint &now) {
   // Update RTT statistics
   stats_->updateAverageRtt(rtt);
   stats_->updateAverageWindowSize(current_window_size_);
 
   // Call statistics callback
   if (*stats_summary_) {
-    auto dt = std::chrono::duration_cast<utils::Milliseconds>(now - t0_);
+    auto dt = utils::SteadyTime::getDurationMs(t0_, now);
 
     uint32_t timer_interval_milliseconds = 0;
     socket_->getSocketOption(GeneralTransportOptions::STATS_INTERVAL,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/auth/policies.h>
+#include <hicn/transport/interfaces/notification.h>
 #include <hicn/transport/interfaces/statistics.h>
 
 #include <functional>
@@ -58,6 +59,12 @@ using ConsumerInterestCallback =
  */
 using ConsumerTimerCallback =
     std::function<void(ConsumerSocket &, const TransportStatistics &stats)>;
+
+/**
+ * The ConsumerTimerCallback is called when the forwarding/recovery stategy is
+ * changes.
+ */
+using StrategyCallback = std::function<void(notification::Strategy strategy)>;
 
 /**
  * The ProducerContentCallback will be called by the producer socket right after

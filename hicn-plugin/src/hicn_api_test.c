@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -31,11 +31,11 @@
 
 #include <vpp/api/vpe.api_types.h>
 
-#include <hicn/hicn_api.h>
-#include "error.h"
+#include <vpp_plugins/hicn/hicn_api.h>
+#include <vpp_plugins/hicn/error.h>
 
 /* Declare message IDs */
-#include "hicn_msg_enum.h"
+#include <vpp_plugins/hicn/hicn_msg_enum.h>
 
 /* SUPPORTING FUNCTIONS NOT LOADED BY VPP_API_TEST */
 uword
@@ -1000,8 +1000,8 @@ api_hicn_api_enable_disable (vat_main_t *vam)
     }
 
   prefix.fp_proto = ip46_address_is_ip4 (&(prefix.fp_addr)) ?
-		      FIB_PROTOCOL_IP4 :
-		      FIB_PROTOCOL_IP6;
+			    FIB_PROTOCOL_IP4 :
+			    FIB_PROTOCOL_IP6;
 
   // Construct the API message
   M (HICN_API_ENABLE_DISABLE, mp);
@@ -1053,8 +1053,8 @@ api_hicn_api_register_prod_app (vat_main_t *vam)
     }
 
   prefix.fp_proto = ip46_address_is_ip4 (&(prefix.fp_addr)) ?
-		      FIB_PROTOCOL_IP4 :
-		      FIB_PROTOCOL_IP6;
+			    FIB_PROTOCOL_IP4 :
+			    FIB_PROTOCOL_IP6;
   /* Construct the API message */
   M (HICN_API_REGISTER_PROD_APP, mp);
   ip_prefix_encode (&prefix, &mp->prefix);
@@ -1310,7 +1310,7 @@ vl_api_hicn_api_udp_tunnel_add_del_reply_t_handler (
   fformat (vam->ofp, "udp-encap %d\n", uei);
 }
 
-#include <hicn/hicn.api_test.c>
+#include <vpp_plugins/hicn/hicn.api_test.c>
 
 /*
  * fd.io coding-style-patch-verification: ON

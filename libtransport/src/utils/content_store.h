@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -35,8 +35,7 @@ using Name = transport::core::Name;
 using ContentObject = transport::core::ContentObject;
 using Interest = transport::core::Interest;
 
-typedef std::pair<std::shared_ptr<ContentObject>,
-                  std::chrono::steady_clock::time_point>
+typedef std::pair<std::shared_ptr<ContentObject>, utils::SteadyTime::TimePoint>
     ObjectTimeEntry;
 typedef std::pair<ObjectTimeEntry,
                   std::list<std::reference_wrapper<const Name>>::iterator>
