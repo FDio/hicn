@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,11 +16,13 @@
 #pragma once
 
 #include <hicn/platforms/windows/win_portability.h>
+#include <hicn/util/sstrncpy.h>
 
 int getline(char **lineptr, size_t *n, FILE *stream) {
   static char line[256];
   char *ptr;
   unsigned int len;
+  int rc;
 
   if (lineptr == NULL || n == NULL) {
     errno = EINVAL;
@@ -45,6 +47,8 @@ int getline(char **lineptr, size_t *n, FILE *stream) {
     *n = 256;
   }
 
-  strcpy(*lineptr, line);
+  rc = strcpy_s(*lineptr, 256, line);
+  if (rc != EOK) return -1;
+
   return (len);
 }

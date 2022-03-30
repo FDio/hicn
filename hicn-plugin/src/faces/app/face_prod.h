@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -50,6 +50,7 @@
 typedef struct
 {
   fib_prefix_t prefix;
+  index_t adj_index;
 } hicn_face_prod_state_t;
 
 extern hicn_face_prod_state_t *face_state_vec;

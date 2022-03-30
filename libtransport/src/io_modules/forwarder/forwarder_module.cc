@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -25,11 +25,10 @@ ForwarderModule::ForwarderModule()
     : IoModule(),
       name_(""),
       connector_id_(Connector::invalid_connector),
-      forwarder_(Forwarder::getInstance()) {}
+      forwarder_ptr_(ForwarderGlobal::getInstance().getReference()),
+      forwarder_(*forwarder_ptr_) {}
 
-ForwarderModule::~ForwarderModule() {
-  forwarder_.deleteConnector(connector_id_);
-}
+ForwarderModule::~ForwarderModule() {}
 
 bool ForwarderModule::isConnected() { return true; }
 
@@ -42,7 +41,7 @@ void ForwarderModule::send(Packet &packet) {
   // local_faces_.at(1 - local_id_).onPacket(packet);
 }
 
-void ForwarderModule::send(const uint8_t *packet, std::size_t len) {
+void ForwarderModule::send(const utils::MemBuf::Ptr &buffer) {
   // not supported
   throw errors::NotImplementedException();
 }
@@ -58,11 +57,13 @@ void ForwarderModule::closeConnection() {
 }
 
 void ForwarderModule::init(Connector::PacketReceivedCallback &&receive_callback,
+                           Connector::PacketSentCallback &&sent_callback,
                            Connector::OnReconnectCallback &&reconnect_callback,
                            asio::io_service &io_service,
                            const std::string &app_name) {
   connector_id_ = forwarder_.registerLocalConnector(
-      io_service, std::move(receive_callback), std::move(reconnect_callback));
+      io_service, std::move(receive_callback), std::move(sent_callback),
+      std::move(reconnect_callback));
   name_ = app_name;
 }
 
@@ -78,7 +79,9 @@ void ForwarderModule::connect(bool is_consumer) {
 
 std::uint32_t ForwarderModule::getMtu() { return interface_mtu; }
 
-bool ForwarderModule::isControlMessage(const uint8_t *message) { return false; }
+bool ForwarderModule::isControlMessage(utils::MemBuf &packet_buffer) {
+  return false;
+}
 
 extern "C" IoModule *create_module(void) { return new ForwarderModule(); }
 

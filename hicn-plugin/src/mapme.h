@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,9 +21,9 @@
 #include <hicn/mapme.h>
 
 #include "hicn.h"
-#include "route.h"
 #include "strategy_dpo_ctx.h"
 #include "strategy_dpo_manager.h" // dpo_is_hicn
+#include "udp_tunnels/udp_tunnel.h"
 
 /**
  * @file
@@ -63,7 +63,6 @@ typedef struct hicn_mapme_conf_s
   bool remove_dpo; // FIXME used ?
 
   vlib_main_t *vm;
-  vlib_log_class_t log_class;
 } hicn_mapme_main_t;
 
 /**
@@ -100,65 +99,33 @@ STATIC_ASSERT (sizeof (hicn_mapme_tfib_t) <= sizeof (hicn_dpo_ctx_t),
 
 #define TFIB(dpo_ctx) ((hicn_mapme_tfib_t *) (dpo_ctx))
 
-static_always_inline int
-hicn_mapme_nh_set (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
-{
-  hicn_dpo_ctx_t *strategy_ctx = (hicn_dpo_ctx_t *) tfib;
-  const fib_prefix_t *prefix =
-    fib_entry_get_prefix (strategy_ctx->fib_entry_index);
-
-  u32 n_entries = tfib->entry_count;
-  /* Remove all the existing next hops and set the new one */
-  for (int i = 0; i < n_entries; i++)
-    {
-      hicn_face_t *face = hicn_dpoi_get_from_idx (strategy_ctx->next_hops[0]);
-      ip_adjacency_t *adj = adj_get (face->dpo.dpoi_index);
-      ip_nh_del_helper (face->dpo.dpoi_proto, prefix,
-			&adj->sub_type.nbr.next_hop, face->sw_if);
-    }
-  hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
-  ip_nh_add_helper (face->dpo.dpoi_proto, prefix, &face->nat_addr,
-		    face->sw_if);
-  return 0;
-}
-
 /**
- * @brief Add a next hop iif it is not already a next hops
+ * @brief Check whether a face is already included in the TFIB.
+ *
+ * NOTE: linear scan on a contiguous small array should be the most efficient.
  */
 static_always_inline int
-hicn_mapme_nh_add (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
+hicn_mapme_tfib_has (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
 {
-  for (u8 pos = 0; pos < tfib->entry_count; pos++)
-    if (tfib->next_hops[pos] == face_id)
-      return 0;
-
-  /* Add the next hop in the vrf 0 which will add it to the entry in the hICN
-   * vrf */
-  hicn_dpo_ctx_t *strategy_ctx = (hicn_dpo_ctx_t *) tfib;
-  const fib_prefix_t *prefix =
-    fib_entry_get_prefix (strategy_ctx->fib_entry_index);
-  hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
-  ip_nh_add_helper (face->dpo.dpoi_proto, prefix, &face->nat_addr,
-		    face->sw_if);
-
+  u8 pos = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
+  for (u8 pos2 = pos; pos2 < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos2++)
+    if (tfib->next_hops[pos2] == face_id)
+      return 1;
   return 0;
 }
 
 /**
  * Add a 'previous' hop to the TFIB
- *
- * XXX we should have the for look in the reverse order for simpler code.
  */
 static_always_inline int
 hicn_mapme_tfib_add (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
 {
-  u8 pos = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
+  // Don't add if it already exists
+  // (eg. an old IU received on a face on which we are retransmitting)
+  if (hicn_mapme_tfib_has (tfib, face_id))
+    return 0;
 
-  // XXX don 't add if it already exist
-  // eg.an old IU received on a face on which we are retransmitting
-  for (u8 pos2 = pos; pos2 < HICN_PARAM_FIB_ENTRY_NHOPS_MAX; pos2++)
-    if (tfib->next_hops[pos2] == face_id)
-      return 0;
+  u8 pos = HICN_PARAM_FIB_ENTRY_NHOPS_MAX - tfib->tfib_entry_count;
 
   // Make sure we have enough room
   if (pos <= tfib->entry_count)
@@ -190,7 +157,6 @@ hicn_mapme_tfib_clear (hicn_mapme_tfib_t *tfib)
     {
       hicn_face_unlock_with_id (tfib->next_hops[pos]);
       tfib->next_hops[pos] = invalid;
-      break;
     }
 
   tfib->tfib_entry_count = 0;
@@ -357,10 +323,6 @@ hicn_mapme_get_dpo_face_node (hicn_face_id_t face_id)
       return NULL;
     }
 }
-
-#define DEBUG(...) // vlib_log_debug(mapme_main.log_class, __VA_ARGS__)
-#define WARN(...)  // vlib_log_warn(mapme_main.log_class, __VA_ARGS__)
-#define ERROR(...) // vlib_log_err(mapme_main.log_class, __VA_ARGS__)
 
 #endif /* __HICN_MAPME__ */
 

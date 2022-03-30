@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -64,17 +64,17 @@ ipv4_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
 
 int
 ipv4_get_interest_locator (hicn_type_t type, const hicn_protocol_t *h,
-			   ip46_address_t *ip_address)
+			   ip_address_t *ip_address)
 {
-  ip_address->ip4 = h->ipv4.saddr;
+  ip_address->v4 = h->ipv4.saddr;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
 ipv4_set_interest_locator (hicn_type_t type, hicn_protocol_t *h,
-			   const ip46_address_t *ip_address)
+			   const ip_address_t *ip_address)
 {
-  h->ipv4.saddr = ip_address->ip4;
+  h->ipv4.saddr = ip_address->v4;
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -82,20 +82,16 @@ int
 ipv4_get_interest_name (hicn_type_t type, const hicn_protocol_t *h,
 			hicn_name_t *name)
 {
-  name->ip4.prefix_as_ip4 = h->ipv4.daddr;
-#ifndef HICN_VPP_PLUGIN
-  name->type = HNT_CONTIGUOUS_V4;
-  name->len = HICN_V4_NAME_LEN;
-#endif /* HICN_VPP_PLUGIN */
-  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->ip4.suffix));
+  name->prefix.v4 = h->ipv4.daddr;
+  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->suffix));
 }
 
 int
 ipv4_set_interest_name (hicn_type_t type, hicn_protocol_t *h,
 			const hicn_name_t *name)
 {
-  h->ipv4.daddr = name->ip4.prefix_as_ip4;
-  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->ip4.suffix));
+  h->ipv4.daddr = name->prefix.v4;
+  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->suffix));
 }
 
 int
@@ -110,6 +106,12 @@ ipv4_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t *h,
 			       const hicn_name_suffix_t *suffix)
 {
   return CHILD_OPS (set_interest_name_suffix, type, h, suffix);
+}
+
+int
+ipv4_is_interest (hicn_type_t type, const hicn_protocol_t *h, int *is_interest)
+{
+  return CHILD_OPS (is_interest, type, h, is_interest);
 }
 
 int
@@ -135,17 +137,17 @@ ipv4_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t *h)
 
 int
 ipv4_get_data_locator (hicn_type_t type, const hicn_protocol_t *h,
-		       ip46_address_t *ip_address)
+		       ip_address_t *ip_address)
 {
-  ip_address->ip4 = h->ipv4.daddr;
+  ip_address->v4 = h->ipv4.daddr;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
 ipv4_set_data_locator (hicn_type_t type, hicn_protocol_t *h,
-		       const ip46_address_t *ip_address)
+		       const ip_address_t *ip_address)
 {
-  h->ipv4.daddr = ip_address->ip4;
+  h->ipv4.daddr = ip_address->v4;
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -153,20 +155,16 @@ int
 ipv4_get_data_name (hicn_type_t type, const hicn_protocol_t *h,
 		    hicn_name_t *name)
 {
-  name->ip4.prefix_as_ip4 = h->ipv4.saddr;
-#ifndef HICN_VPP_PLUGIN
-  name->type = HNT_CONTIGUOUS_V4;
-  name->len = HICN_V4_NAME_LEN;
-#endif /* HICN_VPP_PLUGIN */
-  return CHILD_OPS (get_data_name_suffix, type, h, &(name->ip4.suffix));
+  name->prefix.v4 = h->ipv4.saddr;
+  return CHILD_OPS (get_data_name_suffix, type, h, &(name->suffix));
 }
 
 int
 ipv4_set_data_name (hicn_type_t type, hicn_protocol_t *h,
 		    const hicn_name_t *name)
 {
-  h->ipv4.saddr = name->ip4.prefix_as_ip4;
-  return CHILD_OPS (set_data_name_suffix, type, h, &(name->ip4.suffix));
+  h->ipv4.saddr = name->prefix.v4;
+  return CHILD_OPS (set_data_name_suffix, type, h, &(name->suffix));
 }
 
 int
@@ -311,16 +309,15 @@ ipv4_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
 
 int
 ipv4_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
-		       const ip46_address_t *addr_new,
-		       ip46_address_t *addr_old)
+		       const ip_address_t *addr_new, ip_address_t *addr_old)
 {
   // ASSERT(addr_old == NULL);
-  addr_old->ip4 = h->ipv4.saddr;
+  addr_old->v4 = h->ipv4.saddr;
   addr_old->pad[0] = 0;
   addr_old->pad[1] = 0;
   addr_old->pad[2] = 0;
 
-  h->ipv4.saddr = addr_new->ip4;
+  h->ipv4.saddr = addr_new->v4;
   h->ipv4.csum = 0;
   h->ipv4.csum = csum (&h->ipv4, IPV4_HDRLEN, 0);
 
@@ -329,16 +326,16 @@ ipv4_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
 
 int
 ipv4_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
-		   const ip46_address_t *addr_new, ip46_address_t *addr_old,
+		   const ip_address_t *addr_new, ip_address_t *addr_old,
 		   const hicn_faceid_t face_id, u8 reset_pl)
 {
   // ASSERT(addr_old == NULL);
-  addr_old->ip4 = h->ipv4.daddr;
+  addr_old->v4 = h->ipv4.daddr;
   addr_old->pad[0] = 0;
   addr_old->pad[1] = 0;
   addr_old->pad[2] = 0;
 
-  h->ipv4.daddr = addr_new->ip4;
+  h->ipv4.daddr = addr_new->v4;
   h->ipv4.csum = 0;
   h->ipv4.csum = csum (&h->ipv4, IPV4_HDRLEN, 0);
 
@@ -408,6 +405,20 @@ ipv4_set_payload_length (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
+ipv4_get_payload_type (hicn_type_t type, const hicn_protocol_t *h,
+		       hicn_payload_type_t *payload_type)
+{
+  return CHILD_OPS (get_payload_type, type, h, payload_type);
+}
+
+int
+ipv4_set_payload_type (hicn_type_t type, hicn_protocol_t *h,
+		       hicn_payload_type_t payload_type)
+{
+  return CHILD_OPS (set_payload_type, type, h, payload_type);
+}
+
+int
 ipv4_get_signature_size (hicn_type_t type, const hicn_protocol_t *h,
 			 size_t *signature_size)
 {
@@ -422,16 +433,17 @@ ipv4_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
-ipv4_set_signature_gap (hicn_type_t type, hicn_protocol_t *h, uint8_t gap)
+ipv4_set_signature_padding (hicn_type_t type, hicn_protocol_t *h,
+			    size_t padding)
 {
-  return CHILD_OPS (set_signature_gap, type, h, gap);
+  return CHILD_OPS (set_signature_padding, type, h, padding);
 }
 
 int
-ipv4_get_signature_gap (hicn_type_t type, const hicn_protocol_t *h,
-			uint8_t *gap)
+ipv4_get_signature_padding (hicn_type_t type, const hicn_protocol_t *h,
+			    size_t *padding)
 {
-  return CHILD_OPS (get_signature_gap, type, h, gap);
+  return CHILD_OPS (get_signature_padding, type, h, padding);
 }
 
 int
@@ -479,6 +491,18 @@ int
 ipv4_get_signature (hicn_type_t type, hicn_protocol_t *h, uint8_t **signature)
 {
   return CHILD_OPS (get_signature, type, h, signature);
+}
+
+int
+ipv4_is_last_data (hicn_type_t type, const hicn_protocol_t *h, int *is_last)
+{
+  return CHILD_OPS (is_last_data, type, h, is_last);
+}
+
+int
+ipv4_set_last_data (hicn_type_t type, hicn_protocol_t *h)
+{
+  return CHILD_OPS (set_last_data, type, h);
 }
 
 DECLARE_HICN_OPS (ipv4);

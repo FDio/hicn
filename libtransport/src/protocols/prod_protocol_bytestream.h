@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -50,16 +50,19 @@ class ByteStreamProductionProtocol : public ProductionProtocol {
   uint32_t produceDatagram(const Name &content_name, const uint8_t *buffer,
                            size_t buffer_size) override;
 
+  auto shared_from_this() { return utils::shared_from(this); }
+
  protected:
   // Consumer Callback
   //   void reset() override;
   void onInterest(core::Interest &i) override;
-  void onError(std::error_code ec) override;
 
  private:
   void passContentObjectToCallbacks(
-      const std::shared_ptr<ContentObject> &content_object);
-  void scheduleSendBurst();
+      const std::shared_ptr<ContentObject> &content_object,
+      const std::shared_ptr<ByteStreamProductionProtocol> &self);
+  void scheduleSendBurst(
+      const std::shared_ptr<ByteStreamProductionProtocol> &self);
 
  private:
   // While manifests are being built, contents are stored in a queue

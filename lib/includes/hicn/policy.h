@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -30,37 +30,44 @@
 
 /* POLICY TAG */
 
-#define foreach_policy_tag      \
-    /* Interface type */        \
-    _(WIRED, 'E')               \
-    _(WIFI, 'W')                \
-    _(CELLULAR, 'C')            \
-    /* QoS */                   \
-    _(BEST_EFFORT, 'b')         \
-    _(REALTIME, 'r')            \
-    _(MULTIPATH, 'M')           \
-    /* Security */              \
-    _(TRUSTED, 'T')
+#define foreach_policy_tag                                                    \
+  /* Interface type */                                                        \
+  _ (WIRED, 'E')                                                              \
+  _ (WIFI, 'W')                                                               \
+  _ (CELLULAR, 'C')                                                           \
+  /* QoS */                                                                   \
+  _ (BEST_EFFORT, 'b')                                                        \
+  _ (REALTIME, 'r')                                                           \
+  _ (MULTIPATH, 'M')                                                          \
+  /* Security */                                                              \
+  _ (TRUSTED, 'T')
 
-typedef enum {
-#define _(x, y) POLICY_TAG_ ## x,
-foreach_policy_tag
+typedef enum
+{
+#define _(x, y) POLICY_TAG_##x,
+  foreach_policy_tag
 #undef _
     POLICY_TAG_N
 } policy_tag_t;
 
-#define MAXSZ_POLICY_TAG_ 11
-#define MAXSZ_POLICY_TAG MAXSZ_POLICY_TAG_ + 1
+#define IS_VALID_POLICY_TAG(x) (x != POLICY_TAG_N)
 
-extern const char * policy_tag_str[];
+#define MAXSZ_POLICY_TAG_ 11
+#define MAXSZ_POLICY_TAG  MAXSZ_POLICY_TAG_ + 1
+
+extern const char *policy_tag_str[];
 extern const char policy_tag_short_str[];
 
-static inline
-policy_tag_t
-policy_tag_from_str(const char * str)
+static inline policy_tag_t
+policy_tag_from_str (const char *str)
 {
-#define _(x, y) if (strcasecmp(str, policy_tag_str[POLICY_TAG_ ## x] ) == 0) { return POLICY_TAG_ ## x; } else
-foreach_policy_tag
+#define _(x, y)                                                               \
+  if (strcasecmp (str, policy_tag_str[POLICY_TAG_##x]) == 0)                  \
+    {                                                                         \
+      return POLICY_TAG_##x;                                                  \
+    }                                                                         \
+  else
+  foreach_policy_tag
 #undef _
     return POLICY_TAG_N;
 }
@@ -69,182 +76,188 @@ foreach_policy_tag
 
 typedef int policy_tags_t;
 
-static inline
-void policy_tags_add(policy_tags_t * tags, policy_tag_t tag)
+static inline void
+policy_tags_add (policy_tags_t *tags, policy_tag_t tag)
 {
-    *tags |= (1 << tag);
+  *tags |= (1 << tag);
 }
 
-static inline
-void policy_tags_remove(policy_tags_t * tags, policy_tag_t tag)
+static inline void
+policy_tags_remove (policy_tags_t *tags, policy_tag_t tag)
 {
-    *tags &= ~(1 << tag);
+  *tags &= ~(1 << tag);
 }
 
-static inline
-int policy_tags_has(policy_tags_t tags, policy_tag_t tag)
+static inline int
+policy_tags_has (policy_tags_t tags, policy_tag_t tag)
 {
-    return tags & (1 << tag);
+  return tags & (1 << tag);
 }
 
-static inline
-void policy_tags_union(policy_tags_t * tags, policy_tags_t * tags_to_union)
+static inline void
+policy_tags_union (policy_tags_t *tags, policy_tags_t *tags_to_union)
 {
-#define _(x, y) *tags |= policy_tags_has(*tags_to_union, POLICY_TAG_ ## x) ? (1 << POLICY_TAG_ ## x) : 0;
-foreach_policy_tag
+#define _(x, y)                                                               \
+  *tags |= policy_tags_has (*tags_to_union, POLICY_TAG_##x) ?                 \
+		   (1 << POLICY_TAG_##x) :                                          \
+		   0;
+  foreach_policy_tag
 #undef _
 }
 
 #define POLICY_TAGS_EMPTY 0
 
-static inline
-int
-policy_tags_snprintf(char * s, size_t size, policy_tags_t tags)
+static inline int
+policy_tags_snprintf (char *s, size_t size, policy_tags_t tags)
 {
-#define _(x, y) s[POLICY_TAG_ ## x] = policy_tags_has(tags, POLICY_TAG_ ## x) ? y : '.';
-foreach_policy_tag
+#define _(x, y)                                                               \
+  s[POLICY_TAG_##x] = policy_tags_has (tags, POLICY_TAG_##x) ? y : '.';
+  foreach_policy_tag
 #undef _
     s[POLICY_TAG_N] = '\0';
-    return POLICY_TAG_N + 1;
+  return POLICY_TAG_N + 1;
 }
 
 #define MAXSZ_POLICY_TAGS_ POLICY_TAG_N + 1
-#define MAXSZ_POLICY_TAGS MAXSZ_POLICY_TAGS_ + 1
+#define MAXSZ_POLICY_TAGS  MAXSZ_POLICY_TAGS_ + 1
 
 /* POLICY STATE */
 
 /* TODO vs. weight */
 
-#define foreach_policy_state    \
-    _(NEUTRAL)                  \
-    _(REQUIRE)                  \
-    _(PREFER)                   \
-    _(AVOID)                    \
-    _(PROHIBIT)                 \
-    _(N)
+#define foreach_policy_state                                                  \
+  _ (NEUTRAL)                                                                 \
+  _ (REQUIRE)                                                                 \
+  _ (PREFER)                                                                  \
+  _ (AVOID)                                                                   \
+  _ (PROHIBIT)                                                                \
+  _ (N)
 
-typedef enum {
-#define _(x) POLICY_STATE_ ## x,
-foreach_policy_state
+typedef enum
+{
+#define _(x) POLICY_STATE_##x,
+  foreach_policy_state
 #undef _
 } policy_state_t;
 
 #define MAXSZ_POLICY_STATE_ 8
-#define MAXSZ_POLICY_STATE MAXSZ_POLICY_STATE_ + 1
+#define MAXSZ_POLICY_STATE  MAXSZ_POLICY_STATE_ + 1
 
-extern const char * policy_state_str[];
+extern const char *policy_state_str[];
 
+#define policy_state_str(x) policy_state_str[x]
+
+policy_state_t policy_state_from_str (const char *str);
 
 /* POLICY TAG STATE */
 
-typedef struct {
-    policy_state_t state;
-    uint8_t disabled;
+typedef struct
+{
+  policy_state_t state;
+  uint8_t disabled;
 } policy_tag_state_t;
 
 #define MAXSZ_POLICY_TAG_STATE_ 8
-#define MAXSZ_POLICY_TAG_STATE MAXSZ_POLICY_TAG_STATE_ + 1
+#define MAXSZ_POLICY_TAG_STATE	MAXSZ_POLICY_TAG_STATE_ + 1
 
-int policy_tag_state_snprintf(char * s, size_t size, const policy_tag_state_t * tag_state);
-
+int policy_tag_state_snprintf (char *s, size_t size,
+			       const policy_tag_state_t *tag_state);
 
 /* INTERFACE STATS */
 
-typedef struct {
-    float throughput;
-    float latency;
-    float loss_rate;
+typedef struct
+{
+  float throughput;
+  float latency;
+  float loss_rate;
 } interface_stats_t;
 
-#define INTERFACE_STATS_NONE {                          \
-    .throughput = 0,                                    \
-    .latency = 0,                                       \
-    .loss_rate = 0,                                     \
-}
-
+#define INTERFACE_STATS_EMPTY                                                 \
+  {                                                                           \
+    .throughput = 0, .latency = 0, .loss_rate = 0,                            \
+  }
 
 /* POLICY STATS */
 
-typedef struct {
-    interface_stats_t wired;
-    interface_stats_t wifi;
-    interface_stats_t cellular;
-    interface_stats_t all;
+typedef struct
+{
+  interface_stats_t wired;
+  interface_stats_t wifi;
+  interface_stats_t cellular;
+  interface_stats_t all;
 } policy_stats_t;
 
-#define POLICY_STATS_NONE {                     \
-    .wired    = INTERFACE_STATS_NONE,           \
-    .wifi     = INTERFACE_STATS_NONE,           \
-    .cellular = INTERFACE_STATS_NONE,           \
-    .all      = INTERFACE_STATS_NONE,           \
-}
+#define POLICY_STATS_EMPTY                                                    \
+  (policy_stats_t)                                                            \
+  {                                                                           \
+    .wired = INTERFACE_STATS_EMPTY, .wifi = INTERFACE_STATS_EMPTY,            \
+    .cellular = INTERFACE_STATS_EMPTY, .all = INTERFACE_STATS_EMPTY,          \
+  }
 
-typedef struct {
-    uint32_t num_packets;
-    uint32_t num_bytes;
-    uint32_t num_losses;
-    uint32_t latency_idle;
+typedef struct
+{
+  uint32_t num_packets;
+  uint32_t num_bytes;
+  uint32_t num_losses;
+  uint32_t latency_idle;
 } interface_counters_t;
 
-#define INTERFACE_COUNTERS_NONE {               \
-    .num_packets = 0,                           \
-    .num_bytes = 0,                             \
-    .num_losses = 0,                            \
-    .latency_idle = 0,                          \
-}
+#define INTERFACE_COUNTERS_EMPTY                                              \
+  {                                                                           \
+    .num_packets = 0, .num_bytes = 0, .num_losses = 0, .latency_idle = 0,     \
+  }
 
-typedef struct {
-    interface_counters_t wired;
-    interface_counters_t wifi;
-    interface_counters_t cellular;
-    interface_counters_t all;
-    uint64_t last_update;
+typedef struct
+{
+  interface_counters_t wired;
+  interface_counters_t wifi;
+  interface_counters_t cellular;
+  interface_counters_t all;
+  uint64_t last_update;
 } policy_counters_t;
 
-#define POLICY_COUNTERS_NONE (policy_counters_t) {      \
-    .wired    = INTERFACE_COUNTERS_NONE,                \
-    .wifi     = INTERFACE_COUNTERS_NONE,                \
-    .cellular = INTERFACE_COUNTERS_NONE,                \
-    .all      = INTERFACE_COUNTERS_NONE,                \
-    .last_update = 0,                                   \
-}
+#define POLICY_COUNTERS_EMPTY                                                 \
+  (policy_counters_t)                                                         \
+  {                                                                           \
+    .wired = INTERFACE_COUNTERS_EMPTY, .wifi = INTERFACE_COUNTERS_EMPTY,      \
+    .cellular = INTERFACE_COUNTERS_EMPTY, .all = INTERFACE_COUNTERS_EMPTY,    \
+    .last_update = 0,                                                         \
+  }
 
 /* POLICY */
 
 #define APP_NAME_LEN 128
 
-typedef struct {
-    char app_name[APP_NAME_LEN];
-    policy_tag_state_t tags[POLICY_TAG_N];
-    policy_stats_t stats;
+typedef struct
+{
+  char app_name[APP_NAME_LEN];
+  policy_tag_state_t tags[POLICY_TAG_N];
+  policy_stats_t stats;
 } hicn_policy_t;
 
-static const hicn_policy_t POLICY_NONE = {
+static const hicn_policy_t POLICY_EMPTY = {
     .app_name = { 0 },
     .tags = {
-#ifdef __ANDROID__
 #define _(x, y) { POLICY_STATE_NEUTRAL, 0 },
-#else
-#define _(x, y) [POLICY_TAG_ ## x] = { POLICY_STATE_NEUTRAL, 0 },
-#endif
 foreach_policy_tag
 #undef _
     },
-    .stats = POLICY_STATS_NONE,
+    .stats = POLICY_STATS_EMPTY,
 };
-
 
 /* POLICY DESCRIPTION */
 
 #define PFX_STRLEN 4 /* eg. /128 */
 
-typedef struct {
-    int family;
-    union {
-        char ipv4_prefix[INET_ADDRSTRLEN + PFX_STRLEN];
-        char ipv6_prefix[INET6_ADDRSTRLEN + PFX_STRLEN];
-    };
-    hicn_policy_t policy;
+typedef struct
+{
+  int family;
+  union
+  {
+    char ipv4_prefix[INET_ADDRSTRLEN + PFX_STRLEN];
+    char ipv6_prefix[INET6_ADDRSTRLEN + PFX_STRLEN];
+  };
+  hicn_policy_t policy;
 } policy_description_t;
 
 #endif /* HICN_POLICY_H */

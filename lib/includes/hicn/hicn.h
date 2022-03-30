@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -31,15 +31,17 @@
  *
  *  [1] Hybrid Information-Centric Networking
  *      L. Muscariello, G. Carofiglio, J. Augé, M. Papalini
- *      IETF draft (intarea) @ https://tools.ietf.org/html/draft-muscariello-intarea-hicn
+ *      IETF draft (intarea) @
+ * https://tools.ietf.org/html/draft-muscariello-intarea-hicn
  *
- *  [2] Leveraging ICN in-network control for loss detection and recovery in wireless mobile networks
- *      G. Carofiglio, L. Muscariello, M. Papalini, N. Rozhnova, X. Zeng
- *      In proc. ICN'2016, Kyoto, JP
+ *  [2] Leveraging ICN in-network control for loss detection and recovery in
+ * wireless mobile networks G. Carofiglio, L. Muscariello, M. Papalini, N.
+ * Rozhnova, X. Zeng In proc. ICN'2016, Kyoto, JP
  *
  *  [3] Anchorless mobility through hICN
  *      J. Augé, G. Carofiglio, L. Muscariello, M. Papalini
- *      IETF draft (DMM) @ https://tools.ietf.org/html/draft-auge-dmm-hicn-mobility
+ *      IETF draft (DMM) @
+ * https://tools.ietf.org/html/draft-auge-dmm-hicn-mobility
  *
  *
  *  [4] MAP-Me : Managing Anchorless Mobility in Content Centric Networking
