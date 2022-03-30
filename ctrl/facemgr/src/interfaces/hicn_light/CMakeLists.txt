@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,20 +11,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+##############################################################
+# Sources
+##############################################################
 list(APPEND HEADER_FILES
 )
 
 list(APPEND SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light.c
 )
 
 list(APPEND LIBRARIES
-    ${HICNCTRL_LIBRARIES}
+  ${LIBHICNCTRL_LIBRARIES}
 )
 
-
 list(APPEND INCLUDE_DIRS
-    ${HICNCTRL_INCLUDE_DIR}
+  ${LIBHICNCTRL_INCLUDE_DIR}
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

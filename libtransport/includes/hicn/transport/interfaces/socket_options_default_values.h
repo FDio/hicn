@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,7 +15,10 @@
 
 #pragma once
 
+extern "C" {
 #include <hicn/base.h>
+#include <hicn/compat.h>
+}
 
 #include <chrono>
 #include <cstdint>
@@ -26,6 +29,16 @@ namespace interface {
 
 namespace default_values {
 
+// Packet format
+// #define NEW_PACKET_FORMAT
+static constexpr hicn_format_t packet_format =
+#ifdef NEW_PACKET_FORMAT
+    HF_INET6_UDP;
+#else
+    HF_INET6_TCP;
+#endif
+
+// Parameters
 static constexpr uint32_t interest_lifetime = 1001;  // milliseconds
 static constexpr uint32_t never_expire_time = HICN_MAX_LIFETIME;
 static constexpr uint32_t content_object_expiry_time =
@@ -40,6 +53,8 @@ static constexpr uint32_t key_locator_size = 60;          // bytes
 static constexpr uint32_t limit_guard = 80;               // bytes
 static constexpr uint32_t digest_size = 34;               // bytes
 static constexpr uint32_t max_out_of_order_segments = 3;  // content object
+static constexpr uint32_t max_unverified_delay = 2001;    // milliseconds
+static constexpr uint32_t manifest_capacity = 30;
 
 // RAAQM
 static constexpr int sample_number = 30;

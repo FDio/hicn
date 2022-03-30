@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -99,12 +99,12 @@ int TLSProducerSocket::writeOld(BIO *b, const char *buf, int num) {
   socket = (TLSProducerSocket *)BIO_get_data(b);
 
   if (socket->getHandshakeState() != SERVER_FINISHED && socket->first_) {
-    bool making_manifest = socket->parent_->making_manifest_;
+    uint32_t making_manifest = socket->parent_->making_manifest_;
 
     //! socket->tls_chunks_ corresponds to is_last
     socket->tls_chunks_--;
     socket->parent_->setSocketOption(GeneralTransportOptions::MAKE_MANIFEST,
-                                     false);
+                                     0U);
     socket->parent_->ProducerSocket::produceStream(
         socket->name_, (const uint8_t *)buf, num, socket->tls_chunks_ == 0,
         socket->last_segment_);
@@ -358,7 +358,7 @@ uint32_t TLSProducerSocket::produceStream(
   }
 
   size_t buf_size = buffer->length();
-  name_ = production_protocol_->getNamespaces().front().mapName(content_name);
+  name_ = portal_->getServedNamespaces().begin()->mapName(content_name);
   tls_chunks_ = to_call_oncontentproduced_ =
       (int)ceil((float)buf_size / (float)SSL3_RT_MAX_PLAIN_LENGTH);
 
@@ -394,8 +394,7 @@ int TLSProducerSocket::addHicnKeyIdCb(SSL *s, unsigned int ext_type,
       << "On addHicnKeyIdCb, for the prefix registration.";
 
   if (ext_type == 100) {
-    auto &prefix =
-        socket->parent_->production_protocol_->getNamespaces().front();
+    auto &prefix = *socket->parent_->portal_->getServedNamespaces().begin();
     const ip_prefix_t &ip_prefix = prefix.toIpPrefixStruct();
     int inet_family = prefix.getAddressFamily();
     uint16_t prefix_len_bits = prefix.getPrefixLength();

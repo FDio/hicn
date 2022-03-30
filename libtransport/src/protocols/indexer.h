@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <hicn/transport/auth/policies.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
 #include <protocols/fec_utils.h>
@@ -44,7 +45,7 @@ class Indexer {
   /**
    * Suffix getters
    */
-  virtual uint32_t checkNextSuffix() = 0;
+  virtual uint32_t checkNextSuffix() const = 0;
   virtual uint32_t getNextSuffix() = 0;
   virtual uint32_t getNextReassemblySegment() = 0;
 
@@ -52,24 +53,24 @@ class Indexer {
    * Set first suffix from where to start.
    */
   virtual void setFirstSuffix(uint32_t suffix) = 0;
-  virtual uint32_t getFirstSuffix() = 0;
+  virtual uint32_t getFirstSuffix() const = 0;
 
   /**
    * Functions to set/enable/disable fec
    */
   virtual void setNFec(uint32_t n_fec) = 0;
-  virtual uint32_t getNFec() = 0;
+  virtual uint32_t getNFec() const = 0;
   virtual void enableFec(fec::FECType fec_type) = 0;
   virtual void disableFec() = 0;
   virtual bool isFec(uint32_t index) { return false; }
-  virtual double getFecOverhead() { return 0.0; }
-  virtual double getMaxFecOverhead() { return 0.0; }
+  virtual double getFecOverhead() const { return 0.0; }
+  virtual double getMaxFecOverhead() const { return 0.0; }
 
   /**
    * Final suffix helpers.
    */
   virtual bool isFinalSuffixDiscovered() = 0;
-  virtual uint32_t getFinalSuffix() = 0;
+  virtual uint32_t getFinalSuffix() const = 0;
 
   /**
    * Set reassembly protocol
@@ -84,9 +85,15 @@ class Indexer {
   virtual void setVerifier();
 
   /**
+   * Apply a verification policy
+   */
+  virtual void applyPolicy(core::Interest &interest,
+                           core::ContentObject &content_object, bool reassembly,
+                           auth::VerificationPolicy policy) const;
+  /**
    * Jump to suffix. This may be useful if, for any protocol dependent
-   * mechanism, we need to suddenly change current suffix. This does not modify
-   * the way suffixes re incremented/decremented (that's part of the
+   * mechanism, we need to suddenly change current suffix. This does not
+   * modify the way suffixes re incremented/decremented (that's part of the
    * implementation).
    */
   virtual uint32_t jumpToIndex(uint32_t index) = 0;
@@ -108,6 +115,7 @@ class Indexer {
   TransportProtocol *transport_;
   Reassembly *reassembly_;
   std::shared_ptr<auth::Verifier> verifier_;
+  auth::CryptoHashType manifest_hash_type_;
 };
 
 }  // end namespace protocol

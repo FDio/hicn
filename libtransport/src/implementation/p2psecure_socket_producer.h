@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <hicn/transport/auth/identity.h>
 #include <hicn/transport/auth/signer.h>
 #include <implementation/socket_producer.h>
 // #include <implementation/tls_rtc_socket_producer.h>
@@ -38,9 +37,9 @@ class P2PSecureProducerSocket : public ProducerSocket {
  public:
   explicit P2PSecureProducerSocket(interface::ProducerSocket *producer_socket);
 
-  explicit P2PSecureProducerSocket(
-      interface::ProducerSocket *producer_socket, bool rtc,
-      const std::shared_ptr<auth::Identity> &identity);
+  explicit P2PSecureProducerSocket(interface::ProducerSocket *producer_socket,
+                                   bool rtc, std::string &keystore_path,
+                                   std::string &keystore_pwd);
 
   ~P2PSecureProducerSocket();
 
@@ -55,10 +54,6 @@ class P2PSecureProducerSocket : public ProducerSocket {
                          std::unique_ptr<utils::MemBuf> &&buffer,
                          bool is_last = true,
                          uint32_t start_offset = 0) override;
-
-  void asyncProduce(Name content_name, std::unique_ptr<utils::MemBuf> &&buffer,
-                    bool is_last, uint32_t offset,
-                    uint32_t **last_segment = nullptr) override;
 
   int setSocketOption(int socket_option_key,
                       ProducerInterestCallback socket_option_value) override;

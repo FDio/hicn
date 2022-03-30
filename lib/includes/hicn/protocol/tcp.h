@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -59,55 +59,55 @@ typedef struct
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     struct
     {
-      u16 reserved:4;
-      u16 doff:4;
-      u16 fin:1;
-      u16 syn:1;
-      u16 rst:1;
-      u16 psh:1;
-      u16 ack:1;
-      u16 urg:1;
-      u16 ece:1;
-      u16 cwr:1;
+      u16 reserved : 4;
+      u16 doff : 4;
+      u16 fin : 1;
+      u16 syn : 1;
+      u16 rst : 1;
+      u16 psh : 1;
+      u16 ack : 1;
+      u16 urg : 1;
+      u16 ece : 1;
+      u16 cwr : 1;
     };
     struct
-    {				/* __ denotes unchanged bitfields */
-      u16 timescale:4;
-      u16 __doff:4;
-      u16 __fin:1;
-      u16 __syn:1;
-      u16 __rst:1;
-      u16 sig:1;
-      u16 __ack:1;
-      u16 man:1;
-      u16 id:1;
-      u16 __cwr:1;
+    { /* __ denotes unchanged bitfields */
+      u16 timescale : 4;
+      u16 __doff : 4;
+      u16 __fin : 1;
+      u16 __syn : 1;
+      u16 __rst : 1;
+      u16 sig : 1;
+      u16 __ack : 1;
+      u16 man : 1;
+      u16 id : 1;
+      u16 __cwr : 1;
     };
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
     struct
     {
-      u16 doff:4;
-      u16 reserved:4;
-      u16 cwr:1;
-      u16 ece:1;
-      u16 urg:1;
-      u16 ack:1;
-      u16 psh:1;
-      u16 rst:1;
-      u16 syn:1;
-      u16 fin:1;
+      u16 doff : 4;
+      u16 reserved : 4;
+      u16 cwr : 1;
+      u16 ece : 1;
+      u16 urg : 1;
+      u16 ack : 1;
+      u16 psh : 1;
+      u16 rst : 1;
+      u16 syn : 1;
+      u16 fin : 1;
     };
     struct
     {
-      u16 __doff:4;
-      u16 timescale:4;
-      u16 __cwr:1;
-      u16 id:1 u16 man:1;
-      u16 __ack:1;
-      u16 sig:1;
-      u16 __rst:1;
-      u16 __syn:1;
-      u16 __fin:1;
+      u16 __doff : 4;
+      u16 timescale : 4;
+      u16 __cwr : 1;
+      u16 id : 1 u16 man : 1;
+      u16 __ack : 1;
+      u16 sig : 1;
+      u16 __rst : 1;
+      u16 __syn : 1;
+      u16 __fin : 1;
     };
 #endif
   };
@@ -124,20 +124,20 @@ typedef struct
   };
 } _tcp_header_t;
 
-#define TCP_HDRLEN sizeof(_tcp_header_t)
+#define TCP_HDRLEN sizeof (_tcp_header_t)
 static_assert (EXPECTED_TCP_HDRLEN == TCP_HDRLEN,
 	       "Size of TCP struct does not match its expected size.");
 
 /* TCP flags bit 0 first. */
-#define foreach_tcp_flag                                \
-          _ (FIN) /**< No more data from sender. */             \
-      _ (SYN) /**< Synchronize sequence numbers. */         \
-      _ (RST) /**< Reset the connection. */                 \
-      _ (PSH) /**< Push function. */                        \
-      _ (ACK) /**< Ack field significant. */                \
-      _ (URG) /**< Urgent pointer field significant. */     \
-      _ (ECE) /**< ECN-echo. Receiver got CE packet */      \
-      _ (CWR) /**< Sender reduced congestion window */
+#define foreach_tcp_flag                                                      \
+  _ (FIN) /**< No more data from sender. */                                   \
+  _ (SYN) /**< Synchronize sequence numbers. */                               \
+  _ (RST) /**< Reset the connection. */                                       \
+  _ (PSH) /**< Push function. */                                              \
+  _ (ACK) /**< Ack field significant. */                                      \
+  _ (URG) /**< Urgent pointer field significant. */                           \
+  _ (ECE) /**< ECN-echo. Receiver got CE packet */                            \
+  _ (CWR) /**< Sender reduced congestion window */
 
 enum
 {

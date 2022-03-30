@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -57,10 +57,7 @@ face_show (u8 *s, int face_id, u32 indent)
   return (s);
 }
 
-mhash_t hicn_face_vec_hashtb;
 mhash_t hicn_face_hashtb;
-
-hicn_face_vec_t *hicn_vec_pool;
 
 const static char *const hicn_face6_nodes[] = {
   "hicn6-face-output",	// this is the name you give your node in
@@ -163,13 +160,8 @@ hicn_face_module_init (vlib_main_t *vm)
   counters = vec_new (vlib_combined_counter_main_t,
 		      HICN_PARAM_FACES_MAX * HICN_N_COUNTER);
 
-  mhash_init (&hicn_face_vec_hashtb,
-	      sizeof (hicn_face_input_faces_t) /* value */,
-	      sizeof (hicn_face_key_t) /* key */);
   mhash_init (&hicn_face_hashtb, sizeof (hicn_face_id_t) /* value */,
 	      sizeof (hicn_face_key_t) /* key */);
-
-  pool_alloc (hicn_vec_pool, 100);
 
   /*
    * How much useful is the following registration?
@@ -182,7 +174,7 @@ hicn_face_module_init (vlib_main_t *vm)
    * corresponding to a face is updated
    */
   hicn_face_fib_node_type =
-    fib_node_register_new_type (&hicn_face_fib_node_vft);
+    fib_node_register_new_type ("hicn_face_fib_node", &hicn_face_fib_node_vft);
 }
 
 u8 *
@@ -256,46 +248,11 @@ format_hicn_face_all (u8 *s, int n, ...)
 int
 hicn_face_del (hicn_face_id_t face_id)
 {
-  hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
-  hicn_face_key_t key;
-  hicn_face_key_t old_key;
-  hicn_face_key_t old_key2;
-
-  hicn_face_get_key (&(face->nat_addr), face->sw_if, &(face->dpo), &key);
-  hicn_face_input_faces_t *in_faces_vec =
-    hicn_face_get_vec (&(face->nat_addr), &hicn_face_vec_hashtb);
-  if (in_faces_vec != NULL)
-    {
-      hicn_face_vec_t *vec =
-	pool_elt_at_index (hicn_vec_pool, in_faces_vec->vec_id);
-      u32 index_face = vec_search (*vec, face_id);
-      vec_del1 (*vec, index_face);
-
-      if (vec_len (*vec) == 0)
-	{
-	  pool_put_index (hicn_vec_pool, in_faces_vec->vec_id);
-	  mhash_unset (&hicn_face_vec_hashtb, &key, (uword *) &old_key);
-	  vec_free (*vec);
-	}
-      else
-	{
-	  /* Check if the face we are deleting is the preferred one. */
-	  /* If so, repleace with another. */
-	  if (in_faces_vec->face_id == face_id)
-	    {
-	      in_faces_vec->face_id = (*vec)[0];
-	    }
-	}
-
-      mhash_unset (&hicn_face_hashtb, &key, (uword *) &old_key2);
-    }
-
   int ret = HICN_ERROR_NONE;
 
   if (hicn_dpoi_idx_is_valid (face_id))
     {
       hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
-      face->locks--;
       if (face->locks == 0)
 	pool_put_index (hicn_dpoi_face_pool, face_id);
       else
@@ -320,7 +277,7 @@ hicn_iface_to_face (hicn_face_t *face, const dpo_id_t *dpo)
       fib_node_init (&face->fib_node, hicn_face_fib_node_type);
       fib_node_lock (&face->fib_node);
 
-      if (dpo->dpoi_type != DPO_ADJACENCY_MIDCHAIN ||
+      if (dpo->dpoi_type != DPO_ADJACENCY_MIDCHAIN &&
 	  dpo->dpoi_type != DPO_ADJACENCY_MCAST_MIDCHAIN)
 	{
 	  ip_adjacency_t *adj = adj_get (dpo->dpoi_index);
@@ -375,8 +332,7 @@ hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address, int sw_if,
   if (face == NULL)
     {
 
-      hicn_iface_add (nat_address, sw_if, pfaceid, dpo_nh->dpoi_proto,
-		      dpo_nh->dpoi_index);
+      hicn_iface_add (nat_address, sw_if, pfaceid, dpo_nh->dpoi_index, 0);
       face = hicn_dpoi_get_from_idx (*pfaceid);
 
       mhash_set_mem (&hicn_face_hashtb, &key, (uword *) pfaceid, 0);
@@ -394,52 +350,6 @@ hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address, int sw_if,
   hicn_iface_to_face (face, dpo_nh);
 
   temp_dpo.dpoi_index = ~0;
-
-  hicn_face_input_faces_t *in_faces =
-    hicn_face_get_vec (nat_address, &hicn_face_vec_hashtb);
-
-  if (in_faces == NULL)
-    {
-      hicn_face_input_faces_t in_faces_temp;
-      hicn_face_vec_t *vec;
-      pool_get (hicn_vec_pool, vec);
-      *vec = vec_new (hicn_face_id_t, 0);
-      u32 index = vec - hicn_vec_pool;
-      in_faces_temp.vec_id = index;
-      vec_add1 (*vec, *pfaceid);
-
-      in_faces_temp.face_id = *pfaceid;
-
-      hicn_face_get_key (nat_address, 0, &temp_dpo, &key);
-
-      mhash_set_mem (&hicn_face_vec_hashtb, &key, (uword *) &in_faces_temp, 0);
-    }
-  else
-    {
-      hicn_face_vec_t *vec =
-	pool_elt_at_index (hicn_vec_pool, in_faces->vec_id);
-
-      /* */
-      if (vec_search (*vec, *pfaceid) != ~0)
-	return HICN_ERROR_FACE_ALREADY_CREATED;
-
-      vec_add1 (*vec, *pfaceid);
-
-      hicn_iface_to_face (face, dpo_nh);
-
-      hicn_face_get_key (nat_address, 0, &temp_dpo, &key);
-
-      mhash_set_mem (&hicn_face_vec_hashtb, &key, (uword *) in_faces, 0);
-
-      /* If the face is an application producer face, we set it as the
-       * preferred incoming face. */
-      /* This is required to handle the CS separation, and the push api in a
-       * lightway */
-      if (is_app_prod)
-	{
-	  in_faces->face_id = *pfaceid;
-	}
-    }
 
   retx_t *retx = vlib_process_signal_event_data (
     vlib_get_main (), hicn_mapme_eventmgr_process_node.index,

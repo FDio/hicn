@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,6 +22,7 @@
 #include <implementation/socket.h>
 #include <protocols/fec_base.h>
 #include <protocols/fec_utils.h>
+#include <protocols/protocol.h>
 #include <utils/content_store.h>
 
 #include <atomic>
@@ -33,17 +34,20 @@ namespace protocol {
 
 using namespace core;
 
-class ProductionProtocol : public Portal::ProducerCallback {
+class ProductionProtocol
+    : public Protocol,
+      public std::enable_shared_from_this<ProductionProtocol> {
  public:
   ProductionProtocol(implementation::ProducerSocket *icn_socket);
   virtual ~ProductionProtocol();
 
-  bool isRunning() { return is_running_; }
-
   virtual int start();
-  virtual void stop();
+  using Protocol::stop;
+
+  virtual void setProducerParam(){};
 
   virtual void produce(ContentObject &content_object);
+  virtual void sendMapme();
   virtual uint32_t produceStream(const Name &content_name,
                                  std::unique_ptr<utils::MemBuf> &&buffer,
                                  bool is_last = true,
@@ -61,20 +65,18 @@ class ProductionProtocol : public Portal::ProducerCallback {
   void setOutputBufferSize(std::size_t size) { output_buffer_.setLimit(size); }
   std::size_t getOutputBufferSize() { return output_buffer_.getLimit(); }
 
-  virtual void registerNamespaceWithNetwork(const Prefix &producer_namespace);
-  const std::list<Prefix> &getNamespaces() const { return served_namespaces_; }
-
  protected:
   // Producer callback
   virtual void onInterest(core::Interest &i) override = 0;
-  virtual void onError(std::error_code ec) override{};
+  virtual void onError(const std::error_code &ec) override;
 
   template <typename FECHandler, typename AllocatorHandler>
   void enableFEC(FECHandler &&fec_handler,
                  AllocatorHandler &&allocator_handler) {
     if (!fec_encoder_) {
       // Try to get FEC from environment
-      if (const char *fec_str = std::getenv("TRANSPORT_FEC_TYPE")) {
+      const char *fec_str = std::getenv("TRANSPORT_FEC_TYPE");
+      if (fec_str && (fec_type_ == fec::FECType::UNKNOWN)) {
         LOG(INFO) << "Using FEC " << fec_str;
         fec_type_ = fec::FECUtils::fecTypeFromString(fec_str);
       }
@@ -95,11 +97,6 @@ class ProductionProtocol : public Portal::ProducerCallback {
 
   // Thread pool responsible for IO operations (send data / receive interests)
   std::vector<utils::EventThread> io_threads_;
-
-  // TODO remove this thread
-  std::thread listening_thread_;
-  std::shared_ptr<Portal> portal_;
-  std::atomic<bool> is_running_;
   interface::ProductionStatistics *stats_;
   std::unique_ptr<fec::ProducerFEC> fec_encoder_;
 
@@ -119,15 +116,14 @@ class ProductionProtocol : public Portal::ProducerCallback {
 
   interface::ProducerContentCallback *on_content_produced_;
 
+  interface::ProducerSocket::Callback *producer_callback_;
+
   // Output buffer
   utils::ContentStore output_buffer_;
 
-  // List ot routes served by current producer protocol
-  std::list<Prefix> served_namespaces_;
-
   // Signature and manifest
   std::shared_ptr<auth::Signer> signer_;
-  bool making_manifest_;
+  uint32_t making_manifest_;
 
   bool is_async_;
   fec::FECType fec_type_;

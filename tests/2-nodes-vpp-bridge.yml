@@ -1,0 +1,107 @@
+version: "3"
+services:
+  client:
+    container_name: ${TEST_VPP_BRIDGE}-client
+    volumes:
+      - ..:/workspace
+    command:
+      - |
+        if [ -d /workspace/build-dev ]; then
+          ninja -C /workspace/build-dev install
+        fi
+
+        sudo ip link add br0 type bridge
+        sudo ip link set eth0 master br0
+        sudo ip link set eth0 up
+        sudo ip link set br0 up
+        sudo mkdir -p /var/log/vpp
+        sudo tee /etc/vpp/startup.conf <<EOF
+        cpu { main-core 1 }
+        plugins {
+            path /usr/lib/x86_64-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            plugin default { disable }
+            plugin acl_plugin.so { enable }
+            plugin nat_plugin.so { enable }
+            plugin dhcp_plugin.so { enable }
+            plugin dpdk_plugin.so { enable }
+            plugin dns_plugin.so { enable }
+            plugin ping_plugin.so { enable }
+            plugin memif_plugin.so { enable }
+            plugin nsim_plugin.so { enable }
+            plugin hicn_plugin.so { enable }
+        }
+
+        unix {
+            startup-config /etc/vpp/client-up.txt
+            cli-listen /run/vpp/cli.sock
+            log /var/log/vpp/vpp.log
+        }
+        EOF
+
+        sudo tee /etc/vpp/client-up.txt <<EOF
+        create tap id 0 host-bridge br0
+        set int state tap0 up
+        set int ip addr tap0 192.168.1.1/24
+        set int ip addr tap0 2001::1/64
+        ip route add b002::1/64 via 2001::2 tap0
+        EOF
+
+        sudo vpp -c /etc/vpp/startup.conf
+        sleep 5
+        sudo vppctl hicn enable b002::1/64
+
+        tail -f /dev/null
+
+  server:
+    container_name: ${TEST_VPP_BRIDGE}-server
+    volumes:
+      - ..:/workspace
+    command:
+      - |
+        if [ -d /workspace/build-dev ]; then
+          ninja -C /workspace/build-dev install
+        fi
+
+        sudo ip link add br0 type bridge
+        sudo ip link set eth0 master br0
+        sudo ip link set eth0 up
+        sudo ip link set br0 up
+        sudo mkdir -p /var/log/vpp
+        sudo tee /etc/vpp/startup.conf <<EOF
+        cpu { main-core 2 }
+        plugins {
+            path /usr/lib/x86_64-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            plugin default { disable }
+            plugin acl_plugin.so { enable }
+            plugin nat_plugin.so { enable }
+            plugin dhcp_plugin.so { enable }
+            plugin dpdk_plugin.so { enable }
+            plugin dns_plugin.so { enable }
+            plugin ping_plugin.so { enable }
+            plugin memif_plugin.so { enable }
+            plugin nsim_plugin.so { enable }
+            plugin hicn_plugin.so { enable }
+        }
+        unix {
+            startup-config /etc/vpp/server-up.txt
+            cli-listen /run/vpp/cli.sock
+            log /var/log/vpp/vpp.log
+        }
+        EOF
+        sudo tee /etc/vpp/server-up.txt <<EOF
+        create tap id 0 host-bridge br0
+        set int state tap0 up
+        set int ip addr tap0 192.168.1.12/24
+        set int ip addr tap0 2001::2/64
+        EOF
+
+        sudo vpp -c /etc/vpp/startup.conf
+        sleep 5
+
+        sudo hiperf -D -S -R -B 4000kbps -z memif_module ${RTC_PRODUCER}/128
+        sleep 1
+        sudo hiperf -D -S -z memif_module ${RAAQM_PRODUCER}/128
+        sleep 1
+        sudo hicn-ping-server -d -s 0 -n ${PING_PRODUCER}/128 -z memif_module
+
+        tail -f /dev/null
