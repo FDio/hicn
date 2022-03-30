@@ -1,0 +1,65 @@
+version: "3"
+services:
+  client:
+    container_name: ${TEST_LIGHT}-client
+    command:
+      - |
+        if [ -d /workspace/build-dev ]; then
+          ninja -C /workspace/build-dev install
+        fi
+
+        sudo ip link add br0 type bridge
+        sudo ip addr add 192.168.1.1/24 dev br0
+        sudo ip link set eth0 master br0
+        sudo ip link set eth0 up
+        sudo ip link set br0 up
+        sudo ip route add 192.168.1.2 via 192.168.1.1 dev br0
+        tee -a /tmp/hicn-light.conf <<EOF
+        add listener udp local0 192.168.1.1 9199 br0
+        add connection udp conn0 192.168.1.2 9199 192.168.1.1 9199
+        add route conn0 b002::/64 1
+        EOF
+
+        rm -f /tmp/lite_client.log
+
+        sudo hicn-light-daemon \
+          --daemon \
+          --log-file /tmp/lite_client.log \
+          --config /tmp/hicn-light.conf --capacity 0
+
+        tail -f /dev/null
+
+  server:
+    container_name: ${TEST_LIGHT}-server
+    command:
+      - |
+        if [ -d /workspace/build-dev ]; then
+          ninja -C /workspace/build-dev install
+        fi
+
+        sudo ip link add br0 type bridge
+        sudo ip addr add 192.168.1.2/24 dev br0
+        sudo ip link set eth0 master br0
+        sudo ip link set eth0 up
+        sudo ip link set br0 up
+
+        tee -a /tmp/hicn-light.conf <<EOF
+        add listener udp local0 192.168.1.2 9199 br0
+        add connection udp conn0 192.168.1.1 9199 192.168.1.2 9199
+        add route conn0 b002::/64 1
+        EOF
+
+        rm -f /tmp/lite_server.log
+
+        sudo hicn-light-daemon \
+          --daemon \
+          --log-file /tmp/lite_server.log \
+          --config /tmp/hicn-light.conf --capacity 0
+
+        sleep 4
+
+        hiperf -z hicnlightng_module -D -S -R -B 4000kbps ${RTC_PRODUCER}/128
+        hiperf -z hicnlightng_module -D -S ${RAAQM_PRODUCER}/128
+        hicn-ping-server -z hicnlightng_module -d -s 0 -n ${PING_PRODUCER}/128
+
+        tail -f /dev/null

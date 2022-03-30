@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -40,7 +40,9 @@ class IndexManager : public IncrementalIndexer {
     indexer_->setFirstSuffix(suffix);
   }
 
-  uint32_t getFirstSuffix() override { return indexer_->getFirstSuffix(); }
+  uint32_t getFirstSuffix() const override {
+    return indexer_->getFirstSuffix();
+  }
 
   uint32_t getNextReassemblySegment() override {
     return indexer_->getNextReassemblySegment();
@@ -50,22 +52,26 @@ class IndexManager : public IncrementalIndexer {
     return indexer_->isFinalSuffixDiscovered();
   }
 
-  uint32_t getFinalSuffix() override { return indexer_->getFinalSuffix(); }
+  uint32_t getFinalSuffix() const override {
+    return indexer_->getFinalSuffix();
+  }
 
   uint32_t jumpToIndex(uint32_t index) override {
     return indexer_->jumpToIndex(index);
   }
 
   void setNFec(uint32_t n_fec) override { return indexer_->setNFec(n_fec); }
-  uint32_t getNFec() override { return indexer_->getNFec(); }
+  uint32_t getNFec() const override { return indexer_->getNFec(); }
 
   void enableFec(fec::FECType fec_type) override {
     return indexer_->enableFec(fec_type);
   }
 
-  double getFecOverhead() override { return indexer_->getFecOverhead(); }
+  double getFecOverhead() const override { return indexer_->getFecOverhead(); }
 
-  double getMaxFecOverhead() override { return indexer_->getMaxFecOverhead(); }
+  double getMaxFecOverhead() const override {
+    return indexer_->getMaxFecOverhead();
+  }
 
   void disableFec() override { return indexer_->disableFec(); }
 

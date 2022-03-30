@@ -19,7 +19,6 @@ Basic dependencies:
 - OpenSSL
 - pthreads
 - libevent
-- libparc
 - libhicntransport
 
 ## Executables
@@ -92,45 +91,59 @@ The command `hiperf` is a tool for performing network throughput measurements
 with hicn. It can be executed as server or client using the following options:
 
 ```bash
+HIPERF - Instrumentation tool for performing active networkmeasurements with hICN
 usage: hiperf [-S|-C] [options] [prefix|name]
 
 SERVER OR CLIENT:
--D                           = Run as a daemon
--R                           = Run RTC protocol (client or server)
--f <filename>                = Log file
+-D                                      Run as a daemon
+-R                                      Run RTC protocol (client or server)
+-f      <filename>                      Log file
+-z      <io_module>                     IO module to use. Default: hicnlightng_module
+-F      <conf_file>                     Path to optional configuration file for libtransport
+-a                                      Enables data packet aggregation. Works only in RTC mode
+-X      <param>                         Set FEC params. Options are Rely_K#_N# or RS_K#_N#
 
 SERVER SPECIFIC:
--A <content_size>            = Size of the content to publish. This is not the size of the packet (see -s for it).
--s <packet_size>             = Size of the payload of each data packet.
--r                           = Produce real content of <content_size> bytes
--m                           = Produce transport manifest
--l                           = Start producing content upon the reception of the first interest
--K <keystore_path>           = Path of p12 file containing the crypto material used for signing packets
--k <passphrase>              = String from which a 128-bit symmetric key will be derived for signing packets
--y <hash_algorithm>          = Use the selected hash algorithm for calculating manifest digests
--p <password>                = Password for p12 keystore
--x                           = Produce a content of <content_size>, then after downloading it produce a new content of <content_size> without resetting the suffix to 0.
--B <bitrate>                 = Bitrate for RTC producer, to be used with the -R option.
--I                           = Interactive mode, start/stop real time content production by pressing return. To be used with the -R option
--E                           = Enable encrypted communication. Requires the path to a p12 file containing the crypto material used for the TLS handshake
+-A      <content_size>                  Sends an application data unit in bytes that is published once before exit
+-s      <packet_size>                   Data packet payload size.
+-r                                      Produce real content of <content_size> bytes
+-m      <manifest_capacity>             Produce transport manifest
+-l                                      Start producing content upon the reception of the first interest
+-K      <keystore_path>                 Path of p12 file containing the crypto material used for signing packets
+-k      <passphrase>                    String from which a 128-bit symmetric key will be derived for signing packets
+-p      <password>                      Password for p12 keystore
+-y      <hash_algorithm>                Use the selected hash algorithm for computing manifest digests (default: SHA256)
+-x                                      Produces application data units of size <content_size> without resetting the name suffix to 0.
+-B      <bitrate>                       RTC producer data bitrate, to be used with the -R option.
+-I                                      Interactive mode, start/stop real time content production by pressing return. To be used with the -R option
+-T      <filename>                      Trace based mode, hiperf takes as input a file with a trace. Each line of the file indicates the timestamp and the size of the packet to generate. To be used with the -R option. -B and -I will be ignored.
+-E                                      Enable encrypted communication. Requires the path to a p12 file containing the crypto material used for the TLS handshake
+-G      <port>                          Input stream from localhost at the specified port
 
 CLIENT SPECIFIC:
--b <beta_parameter>          = RAAQM beta parameter
--d <drop_factor_parameter>   = RAAQM drop factor parameter
--L <interest lifetime>       = Set interest lifetime.
--M <Download for real>       = Store the content downloaded.
--W <window_size>             = Use a fixed congestion window for retrieving the data.
--i <stats_interval>          = Show the statistics every <stats_interval> milliseconds.
--v                           = Enable verification of received data
--c <certificate_path>        = Path of the producer certificate to be used for verifying the origin of the packets received. Must be used with -v.
--k <passphrase>              = String from which is derived the symmetric key used by the producer to sign packets and by the consumer to verify them. Must be used with -v.
--t                           = Test mode, check if the client is receiving the correct data. This is an RTC specific option, to be used with the -R (default false)
--P                           = Prefix of the producer where to do the handshake
+-b      <beta_parameter>                RAAQM beta parameter
+-d      <drop_factor_parameter>         RAAQM drop factor parameter
+-L      <interest lifetime>             Set interest lifetime.
+-u      <delay>                         Set max lifetime of unverified packets.
+-M      <input_buffer_size>             Size of consumer input buffer. If 0, reassembly of packets will be disabled.
+-W      <window_size>                   Use a fixed congestion window for retrieving the data.
+-i      <stats_interval>                Show the statistics every <stats_interval> milliseconds.
+-c      <certificate_path>              Path of the producer certificate to be used for verifying the origin of the packets received.
+-k      <passphrase>                    String from which is derived the symmetric key used by the producer to sign packets and by the consumer to verify them.
+-t                                      Test mode, check if the client is receiving the correct data. This is an RTC specific option, to be used with the -R (default: false)
+-P                                      Prefix of the producer where to do the handshake
+-j      <relay_name>                    Publish received content under the name relay_name.This is an RTC specific option, to be used with the -R (default: false)
+-g      <port>                          Output stream to localhost at the specified port
+-e      <strategy>                      Enance the network with a realiability strategy. Options 1: unreliable, 2: rtx only, 3: fec only, 4: delay based, 5: low rate, 6: low rate and best path 7: low rate and replication, 8: low rate and best path/replication(default: 2 = rtx only)
+-H                                      Disable periodic print headers in stats report.
+-n      <nb_iterations>                 Print the stats report <nb_iterations> times and exit.
+                                        This option limits the duration of the run to <nb_iterations> * <stats_interval> milliseconds.
 ```
 
 Example:
 ```
-hiperf -S c001::/64
+hiperf -S b001::/64
+hiperf -C b001::
 ```
 
 ## Client/Server benchmarking using `hiperf`
@@ -161,8 +174,7 @@ apt-get install -y git \
                    build-essential \
                    libasio-dev \
                    libcurl4-openssl-dev \
-                   --no-install-recommends \
-                   libparc-dev
+                   --no-install-recommends
 mkdir hicn-suite && cd hicn-suite
 git clone https://github.com/FDio/hicn.git hicn-src
 mkdir hicn-build && cd hicn-build
@@ -289,8 +301,7 @@ apt-get install -y git \
                    vpp vpp-dev vpp-plugin-core libvppinfra \
                    libmemif libmemif-dev \
                    python3-ply \
-                   --no-install-recommends \
-                   libparc-dev
+                   --no-install-recommends
 mkdir hicn-suite && cd hicn-suite
 git clone https://github.com/FDio/hicn.git hicn-src
 mkdir hicn-build && cd hicn-build

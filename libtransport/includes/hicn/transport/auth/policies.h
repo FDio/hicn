@@ -23,10 +23,10 @@ namespace auth {
  * perform after verification.
  */
 enum class VerificationPolicy {
-  ABORT,
-  ACCEPT,
-  DROP,
   UNKNOWN,
+  ABORT,
+  DROP,
+  ACCEPT,
 };
 
 }  // namespace auth

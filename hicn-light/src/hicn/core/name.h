@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -19,38 +19,28 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include <hicn/core/messagePacketType.h>
-#include <hicn/core/nameBitvector.h>
-#include <hicn/utils/address.h>
+#include "nameBitvector.h"
 
-#include <hicn/utils/commands.h>
+typedef struct {
+  NameBitvector content_name;
+  uint32_t segment;
+  uint32_t name_hash;
+} Name;
 
-struct name;
-typedef struct name Name;
+#define EMPTY_NAME \
+  (Name) { .content_name = EMPTY_NAME_BITVECTOR, .segment = 0, .name_hash = 0, }
 
 /**
  * Creates a name from packet
  *
  */
-Name *name_CreateFromPacket(const uint8_t *memory, MessagePacketType type);
-
-/**
- * Releases one reference count, and frees memory after last reference
- */
-void name_Release(Name **namePtr);
-
-/**
- * Acquires a reference to the name so that a reference count increments.
- * Notice however that this * function is used only when a new fib entry is
- * created (mostly configuration time) probably here performance are not
- * critical.
- */
-Name *name_Acquire(const Name *original);
+void name_create_from_interest(const uint8_t *packet, Name *name);
+void name_create_from_data(const uint8_t *packet, Name *name);
 
 /**
  * returns a copy of the name
  */
-Name *name_Copy(const Name *original);
+void name_Copy(const Name *original, Name *copy);
 
 /**
  * A hash value for use in hash tables
@@ -63,6 +53,18 @@ uint32_t name_HashCode(const Name *name);
  *
  */
 NameBitvector *name_GetContentName(const Name *name);
+
+/**
+ * Returns the segment value
+ *
+ */
+uint32_t name_GetSegment(const Name *name);
+
+/**
+ * Set the sequence number of the name provided
+ *
+ */
+void name_SetSegment(Name *name, uint32_t segment);
 
 /**
  * Determine if two HicnName instances are equal.
@@ -93,12 +95,12 @@ void name_setLen(Name *name, uint8_t len);
  * Creates a name from a Address
  *
  */
-Name *name_CreateFromAddress(address_type addressType, ip_address_t addr,
-                             uint8_t len);
+void name_CreateFromAddress(Name *name, int family, ip_address_t addr,
+                            uint8_t len);
 
 #ifdef WITH_POLICY
-uint32_t name_GetSuffix(const Name * name);
-uint8_t name_GetLen(const Name * name);
+uint32_t name_GetSuffix(const Name *name);
+uint8_t name_GetLen(const Name *name);
 #endif /* WITH_POLICY */
 
 #endif  // name_h

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,19 +20,25 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <hicn/utils/address.h>
+#include "address.h"
 
-struct name_bitvector;
-typedef struct name_bitvector NameBitvector;
+#define NAME_LEN 2
+typedef struct {
+  uint64_t bits[NAME_LEN];
+  uint8_t len;
+  uint8_t IPversion;
+} NameBitvector;
 
-NameBitvector *nameBitvector_CreateFromInAddr(uint32_t addr, uint8_t len);
+#define EMPTY_NAME_BITVECTOR \
+  (NameBitvector) { .bits[0] = 0, .bits[1] = 0, .len = 0, .IPversion = 0, }
 
-NameBitvector *nameBitvector_CreateFromIn6Addr(struct in6_addr *addr,
-                                               uint8_t len);
+void nameBitvector_CreateFromInAddr(NameBitvector *bitvector, uint32_t addr,
+                                    uint8_t len);
 
-NameBitvector *nameBitvector_Copy(const NameBitvector *original);
+void nameBitvector_CreateFromIn6Addr(NameBitvector *bitvector,
+                                     struct in6_addr *addr, uint8_t len);
 
-void nameBitvector_Destroy(NameBitvector **bitvectorPtr);
+void nameBitvector_Copy(const NameBitvector *original, NameBitvector *copy);
 
 uint8_t nameBitvector_GetLength(const NameBitvector *name);
 
@@ -51,7 +57,7 @@ void nameBitvector_clear(NameBitvector *a, uint8_t start_from);
 int nameBitvector_ToIPAddress(const NameBitvector *name, ip_prefix_t *prefix);
 void nameBitvector_setLen(NameBitvector *name, uint8_t len);
 
-Address *nameBitvector_ToAddress(const NameBitvector *name);
+void nameBitvector_ToAddress(const NameBitvector *name, address_t *address);
 
 char *nameBitvector_ToString(const NameBitvector *name);
 

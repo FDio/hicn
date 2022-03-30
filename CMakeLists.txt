@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,15 +11,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-
+##############################################################
+# Project and cmake version
+##############################################################
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(hicn-fdio)
 
+##############################################################
+# Fetch submodules if needed
+##############################################################
+find_package(Git QUIET)
+if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+  # Update submodules as needed
+  option(GIT_SUBMODULE "Check submodules during build" ON)
+  if(GIT_SUBMODULE)
+    message(STATUS "Submodule update")
+    execute_process(
+      COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      RESULT_VARIABLE GIT_SUBMOD_RESULT
+    )
+
+    if(NOT GIT_SUBMOD_RESULT EQUAL "0")
+      message(FATAL_ERROR "git submodule update --init --recursive failed with ${GIT_SUBMOD_RESULT}, please checkout submodules")
+    endif()
+  endif()
+endif()
+
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/cmake/Modules")
+    message(
+      FATAL_ERROR
+      "The submodules were not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again."
+    )
+endif()
+
+##############################################################
+# CMake Modules
+##############################################################
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
+if(EXISTS "${PROJECT_SOURCE_DIR}/internal/cmake/Modules")
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/internal/cmake/Modules")
+  set(INTERNAL_ENVIRONMENT True)
+endif()
+include("${CMAKE_CURRENT_SOURCE_DIR}/versions.cmake")
 
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+include(CommonSetup)
 
-## Enabled components
+##############################################################
+# Enabled components
+##############################################################
 option(BUILD_LIBHICN "Build the hicn core library" ON)
 option(BUILD_HICNLIGHT "Build the hicn light forwarder" ON)
 option(BUILD_LIBTRANSPORT "Build the hicn transport library" ON)
@@ -38,6 +78,10 @@ option(BUILD_TELEMETRY "Build telemetry projects" OFF)
 option(BUILD_TESTS "Build unit tests" OFF)
 option(DISABLE_EXECUTABLES "Disable executables" OFF)
 
+
+##############################################################
+# Basic sanity checks
+##############################################################
 if (BUILD_APPS AND NOT BUILD_LIBTRANSPORT)
   message(STATUS "Libhicntransport required. Enabled by default.")
   set (BUILD_LIBTRANSPORT ON)
@@ -61,9 +105,9 @@ endif()
 
 list(APPEND dir_options
   BUILD_LIBHICN
-  BUILD_HICNLIGHT
   BUILD_HICNPLUGIN
   BUILD_CTRL
+  BUILD_HICNLIGHT
   BUILD_LIBTRANSPORT
   BUILD_APPS
   BUILD_SYSREPOPLUGIN
@@ -81,7 +125,10 @@ set(BUILD_SYSREPOPLUGIN_DIR ctrl/sysrepo-plugins)
 set(BUILD_EXTRAS_DIR extras/)
 set(BUILD_TELEMETRY_DIR telemetry)
 
-## Add enabled components
+
+##############################################################
+# Add enabled components to the build
+##############################################################
 foreach (opt ${dir_options})
   if (${opt})
     list(APPEND subdirs
@@ -90,7 +137,10 @@ foreach (opt ${dir_options})
   endif()
 endforeach()
 
-# Add unit tests
+
+##############################################################
+# Build gtest if tests are enabled
+##############################################################
 if (BUILD_TESTS)
   message(STATUS "Tests enabled.")
   include (GTestImport)
@@ -105,10 +155,10 @@ endif()
 message(STATUS "Building the following subprojects: ${subdirs}")
 
 foreach(dir ${subdirs})
+  pr_title("Subproject" "${dir}")
   add_subdirectory(${dir})
 endforeach()
 
 add_subdirectory(docs/doxygen)
 
-include(Packager)
 make_packages()

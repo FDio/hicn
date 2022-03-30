@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -26,15 +26,27 @@ namespace transport {
 namespace interface {
 
 typedef enum {
-  RAAQM = 0,
-  CBR = 1,
-  RTC = 2,
+  UNKNOWN = 0,
+  BYTE_STREAM = 1,
+  RTC_PROD = 2,
+} ProductionProtocolAlgorithms;
+
+typedef enum {
+  RAAQM = 10,
+  CBR = 11,
+  RTC = 12,
 } TransportProtocolAlgorithms;
 
 typedef enum {
-  BYTE_STREAM = 10,
-  RTC_PROD = 11,
-} ProductionProtocolAlgorithms;
+  RECOVERY_OFF = 20,
+  RTX_ONLY = 21,
+  FEC_ONLY = 22,
+  DELAY_BASED = 23,
+  LOW_RATE = 24,
+  LOW_RATE_AND_BESTPATH = 25,
+  LOW_RATE_AND_REPLICATION = 26,
+  LOW_RATE_AND_ALL_FWD_STRATEGIES = 27,
+} RtcTransportRecoveryStrategies;
 
 typedef enum {
   INPUT_BUFFER_SIZE = 101,
@@ -45,6 +57,8 @@ typedef enum {
   DATA_PACKET_SIZE = 106,
   INTEREST_LIFETIME = 107,
   CONTENT_OBJECT_EXPIRY_TIME = 108,
+  MAX_SEGMENT_SIZE = 109,
+  MAX_UNVERIFIED_TIME = 110,
   MIN_WINDOW_SIZE = 111,
   MAX_WINDOW_SIZE = 112,
   CURRENT_WINDOW_SIZE = 113,
@@ -57,7 +71,9 @@ typedef enum {
   SIGNER = 121,
   VERIFIER = 122,
   STATS_INTERVAL = 125,
-  SUFFIX_STRATEGY = 126
+  SUFFIX_STRATEGY = 126,
+  PACKET_FORMAT = 127,
+  FEC_TYPE = 128,
 } GeneralTransportOptions;
 
 typedef enum {
@@ -87,7 +103,9 @@ typedef enum {
   CONTENT_OBJECT_TO_VERIFY = 413,
   VERIFICATION_FAILED = 414,
   READ_CALLBACK = 415,
-  STATS_SUMMARY = 416
+  STATS_SUMMARY = 416,
+  FWD_STRATEGY_CHANGE = 417,
+  REC_STRATEGY_CHANGE = 418,
 } ConsumerCallbacksOptions;
 
 typedef enum {
@@ -100,7 +118,8 @@ typedef enum {
   CONTENT_OBJECT_READY = 510,
   CONTENT_OBJECT_OUTPUT = 511,
   CONTENT_PRODUCED = 512,
-  CONTENT_OBJECT_TO_SIGN = 513
+  CONTENT_OBJECT_TO_SIGN = 513,
+  PRODUCER_CALLBACK = 514,
 } ProducerCallbacksOptions;
 
 typedef enum { OUTPUT_INTERFACE = 601 } DataLinkOptions;
@@ -115,6 +134,11 @@ typedef enum {
   SHA_256 = 801,
   RSA_256 = 802,
 } SignatureType;
+
+typedef enum {
+  RECOVERY_STRATEGY = 901,
+  AGGREGATED_DATA = 902,
+} RtcTransportOptions;
 
 }  // namespace interface
 

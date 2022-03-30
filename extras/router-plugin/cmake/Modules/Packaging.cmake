@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -15,17 +15,22 @@
 # Packages section
 ######################
 
+##############################################################
+# Get VPP version
+##############################################################
+list(GET VPP_DEFAULT_VERSION 0 VPP_VERSION)
+
 set(${HICN_EXTRA_PLUGIN}_DESCRIPTION
   "A extra plugin to VPP."
   CACHE STRING "Description for deb/rpm package."
 )
 
 set(${HICN_EXTRA_PLUGIN}_DEB_DEPENDENCIES
-  "vpp (>= stable_version-release), vpp (<< next_version-release), vpp-plugin-core (>= stable_version-release), vpp-plugin-core (<< next_version-release)"
+  "vpp (= ${VPP_VERSION}-release), vpp-plugin-core (= ${VPP_VERSION}-release)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${HICN_EXTRA_PLUGIN}_RPM_DEPENDENCIES
-  "vpp >= stable_version-release, vpp < next_version-release, vpp-plugins >= stable_version-release, vpp-plugins < next_version-release"
+  "vpp = ${VPP_VERSION}-release, vpp-plugins = ${VPP_VERSION}-release"
   CACHE STRING "Dependencies for deb/rpm package."
 )

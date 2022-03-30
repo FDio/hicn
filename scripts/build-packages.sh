@@ -28,21 +28,11 @@ function build_package() {
     echo "*******************************************************************"
 
     # Make the package
-    mkdir -p ${SCRIPT_PATH}/../build && pushd ${SCRIPT_PATH}/../build
-        rm -rf *
+    make -C ${SCRIPT_PATH}/.. INSTALL_PREFIX=/usr test package-release
 
-        cmake -G Ninja -DCMAKE_INSTALL_PREFIX=/usr    \
-                       -DBUILD_HICNPLUGIN=ON          \
-                       -DBUILD_LIBTRANSPORT=ON        \
-                       -DBUILD_APPS=ON                \
-                       -DBUILD_HICNLIGHT=ON           \
-                       -DBUILD_TELEMETRY=ON           \
-                       ${SCRIPT_PATH}/..
-
-        ninja -j8 package
-
-        find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
-        rm *Unspecified* *Development* *development* || true
+    pushd ${SCRIPT_PATH}/../build-release-${ID}
+      find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
+      rm *Unspecified* *Development* *development* || true
     popd
 
     echo "*******************************************************************"
@@ -57,30 +47,15 @@ build_sphinx() {
     echo "********************* STARTING DOC BUILD **************************"
     echo "*******************************************************************"
 
-    # Make the package
-    pip3 install -r ${SCRIPT_PATH}/../docs/etc/requirements.txt
-    pushd ${SCRIPT_PATH}/../docs
-    make html
-
-    popd
+    make doc
 
     echo "*******************************************************************"
     echo "*****************  BUILD COMPLETED SUCCESSFULLY *******************"
     echo "*******************************************************************"
 }
 
-build_doxygen() {
-    setup
-
-    mkdir -p ${SCRIPT_PATH}/../build-doxygen
-    pushd ${SCRIPT_PATH}/../build-doxygen
-    cmake -DBUILD_HICNPLUGIN=On -DBUILD_HICNLIGHT=OFF -DBUILD_LIBTRANSPORT=OFF -DBUILD_UTILS=OFF -DBUILD_APPS=OFF -DBUILD_CTRL=OFF ..
-    make doc
-    popd
-}
-
 function usage() {
-    echo "Usage: ${0} [sphinx|doxygen|packages]"
+    echo "Usage: ${0} [sphinx|packages]"
     exit 1
 }
 
@@ -91,9 +66,6 @@ fi
 case "${1}" in
   sphinx)
     build_sphinx
-    ;;
-  doxygen)
-    build_doxygen
     ;;
   packages)
     build_package

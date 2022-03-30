@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,10 +23,11 @@ P2PSecureProducerSocket::P2PSecureProducerSocket() {
   socket_ = std::make_unique<implementation::P2PSecureProducerSocket>(this);
 }
 
-P2PSecureProducerSocket::P2PSecureProducerSocket(
-    bool rtc, const std::shared_ptr<auth::Identity> &identity) {
-  socket_ = std::make_unique<implementation::P2PSecureProducerSocket>(this, rtc,
-                                                                      identity);
+P2PSecureProducerSocket::P2PSecureProducerSocket(bool rtc,
+                                                 std::string &keystore_path,
+                                                 std::string &keystore_pwd) {
+  socket_ = std::make_unique<implementation::P2PSecureProducerSocket>(
+      this, rtc, keystore_path, keystore_pwd);
 }
 
 }  // namespace interface

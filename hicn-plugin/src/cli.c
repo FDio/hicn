@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,6 +22,9 @@
 #include <vnet/ip/ip6_packet.h> // ip46_address_t
 #include <vnet/ip/format.h>
 #include <vnet/fib/fib_types.h>
+#include <vnet/pg/pg.h>
+
+#include <vpp_plugins/hicn/hicn_api.h>
 
 #include "hicn.h"
 #include "infra.h"
@@ -33,7 +36,6 @@
 #include "error.h"
 #include "faces/face.h"
 #include "route.h"
-#include "hicn_api.h"
 
 static vl_api_hicn_api_node_params_set_t node_ctl_params = {
   .pit_max_size = -1,
@@ -65,8 +67,8 @@ hicn_cli_node_ctl_start_set_command_fn (vlib_main_t *vm,
 		   get_error_string (ret));
 
   return (ret == HICN_ERROR_NONE) ?
-	   0 :
-	   clib_error_return (0, get_error_string (ret));
+		 0 :
+		 clib_error_return (0, get_error_string (ret));
 }
 
 /*
@@ -91,7 +93,7 @@ hicn_cli_node_ctl_stop_set_command_fn (vlib_main_t *vm,
 	{
 	  return (0);
 	}
-      while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
+      if (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
 	{
 	  return clib_error_return (0, "%s '%U'",
 				    get_error_string (HICN_ERROR_CLI_INVAL),
@@ -103,8 +105,8 @@ hicn_cli_node_ctl_stop_set_command_fn (vlib_main_t *vm,
     node_ctl_params.pit_max_lifetime_sec, node_ctl_params.cs_max_size, ~0);
 
   return (ret == HICN_ERROR_NONE) ?
-	   0 :
-	   clib_error_return (0, get_error_string (ret));
+		 0 :
+		 clib_error_return (0, get_error_string (ret));
 }
 
 #define DFLTD_RANGE_OK(val, min, max)                                         \
@@ -201,8 +203,8 @@ hicn_cli_node_ctl_param_set_command_fn (vlib_main_t *vm,
 			 "compilation time for better performances\n");
 
   return (rv == HICN_ERROR_NONE) ?
-	   0 :
-	   clib_error_return (0, "%s '%U'", get_error_string (rv),
+		 0 :
+		 clib_error_return (0, "%s '%U'", get_error_string (rv),
 			      format_unformat_error, line_input);
 }
 
@@ -213,7 +215,7 @@ static clib_error_t *
 hicn_cli_show_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 			  vlib_cli_command_t *cmd)
 {
-  int face_p = 0, fib_p = 0, all_p, internal_p = 0, strategies_p = 0,
+  int face_p = 0, fib_p = 0, all_p = 0, internal_p = 0, strategies_p = 0,
       ret = HICN_ERROR_NONE;
 
   /* Get a line of input. */
@@ -348,8 +350,8 @@ done:
 		       hicn_main.pitcs.pcs_table->ht_overflow_buckets_used);
     }
   return (ret == HICN_ERROR_NONE) ?
-	   0 :
-	   clib_error_return (0, "%s\n", get_error_string (ret));
+		 0 :
+		 clib_error_return (0, "%s\n", get_error_string (ret));
 }
 
 /*
@@ -408,8 +410,8 @@ hicn_cli_strategy_set_command_fn (vlib_main_t *vm,
 
   rv = hicn_route_set_strategy (&prefix, strategy_id);
   cl_err = (rv == HICN_ERROR_NONE) ?
-	     NULL :
-	     clib_error_return (0, get_error_string (rv));
+		   NULL :
+		   clib_error_return (0, get_error_string (rv));
 done:
 
   return (cl_err);
@@ -727,12 +729,25 @@ hicn_enable_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 	  goto done;
 	}
     }
-  rv = hicn_route_enable (&pfx);
+  hicn_face_id_t *vec_faces = NULL;
+  rv = hicn_route_enable (&pfx, &vec_faces);
+
+  if (vec_faces != NULL)
+    {
+      hicn_face_id_t *face_id;
+      u8 *str = 0;
+      vec_foreach (face_id, vec_faces)
+	{
+	  str = format (str, " %d", *face_id);
+	}
+      vec_free (vec_faces);
+      vlib_cli_output (vm, "Faces for this prefix: %s", str);
+    }
 done:
 
   cl_err = (rv == HICN_ERROR_NONE) ?
-	     NULL :
-	     clib_error_return (0, get_error_string (rv));
+		   NULL :
+		   clib_error_return (0, get_error_string (rv));
   return cl_err;
 }
 
@@ -776,8 +791,8 @@ hicn_disable_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 
 done:
   cl_err = (rv == HICN_ERROR_NONE) ?
-	     NULL :
-	     clib_error_return (0, get_error_string (rv));
+		   NULL :
+		   clib_error_return (0, get_error_string (rv));
   return cl_err;
 }
 

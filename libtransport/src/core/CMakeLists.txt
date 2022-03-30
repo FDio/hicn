@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -22,6 +22,9 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/errors.h
   ${CMAKE_CURRENT_SOURCE_DIR}/global_configuration.h
   ${CMAKE_CURRENT_SOURCE_DIR}/local_connector.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/global_workers.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/udp_connector.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/udp_listener.h
 )
 
 list(APPEND SOURCE_FILES
@@ -36,7 +39,21 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/global_configuration.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/io_module.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/local_connector.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/udp_connector.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/udp_listener.cc
 )
+
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES Android)
+  if (UNIX AND NOT APPLE)
+    list(APPEND SOURCE_FILES
+      ${CMAKE_CURRENT_SOURCE_DIR}/memif_connector.cc
+    )
+
+    list(APPEND HEADER_FILES
+      ${CMAKE_CURRENT_SOURCE_DIR}/memif_connector.h
+    )
+  endif()
+endif()
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
 set(HEADER_FILES ${HEADER_FILES} PARENT_SCOPE)

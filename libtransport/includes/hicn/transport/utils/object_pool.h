@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/utils/branch_prediction.h>
+#include <hicn/transport/utils/noncopyable.h>
 #include <hicn/transport/utils/spinlock.h>
 
 #include <deque>
@@ -25,7 +26,7 @@
 namespace utils {
 
 template <typename T>
-class ObjectPool {
+class ObjectPool : private utils::NonCopyable {
   class ObjectDeleter {
    public:
     ObjectDeleter(ObjectPool<T> *pool = nullptr) : pool_(pool) {}
@@ -47,8 +48,20 @@ class ObjectPool {
 
   ObjectPool() : destructor_(false) {}
 
-  // No copies
-  ObjectPool(const ObjectPool &other) = delete;
+  ObjectPool(ObjectPool &&other)
+      : object_pool_lock_(std::move(other.object_pool_lock_)),
+        object_pool_(std::move(other.object_pool_)),
+        destructor_(other.destructor_) {}
+
+  ObjectPool &operator=(ObjectPool &&other) {
+    if (this != &other) {
+      object_pool_lock_ = std::move(other.object_pool_lock_);
+      object_pool_ = std::move(other.object_pool_);
+      destructor_ = other.destructor_;
+    }
+
+    return *this;
+  }
 
   ~ObjectPool() {
     destructor_ = true;

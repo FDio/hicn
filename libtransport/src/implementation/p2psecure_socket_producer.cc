@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,6 +20,7 @@
 #include <interfaces/tls_rtc_socket_producer.h>
 #include <interfaces/tls_socket_producer.h>
 #include <openssl/bio.h>
+#include <openssl/pkcs12.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
 
@@ -41,7 +42,7 @@ P2PSecureProducerSocket::P2PSecureProducerSocket(
 
 P2PSecureProducerSocket::P2PSecureProducerSocket(
     interface::ProducerSocket *producer_socket, bool rtc,
-    const std::shared_ptr<auth::Identity> &identity)
+    std::string &keystore_path, std::string &keystore_pwd)
     : ProducerSocket(producer_socket,
                      ProductionProtocolAlgorithms::BYTE_STREAM),
       rtc_(rtc),
@@ -50,8 +51,16 @@ P2PSecureProducerSocket::P2PSecureProducerSocket(
       map_producers(),
       list_producers() {
   /* Setup SSL context (identity and parameter to use TLS 1.3) */
-  cert_509_ = identity->getCertificate().get();
-  pkey_rsa_ = identity->getPrivateKey().get();
+  FILE *p12file = fopen(keystore_path.c_str(), "r");
+  if (p12file == NULL)
+    throw errors::RuntimeException("impossible open keystore");
+  std::unique_ptr<PKCS12, decltype(&::PKCS12_free)> p12(
+      d2i_PKCS12_fp(p12file, NULL), ::PKCS12_free);
+  // now we parse the file to get the first key and certificate
+  if (1 != PKCS12_parse(p12.get(), keystore_pwd.c_str(), &pkey_rsa_, &cert_509_,
+                        NULL))
+    throw errors::RuntimeException("impossible to get the private key");
+  fclose(p12file);
 
   /* Set the callback so that when an interest is received we catch it and we
    * decrypt the payload before passing it to the application.  */
@@ -133,15 +142,15 @@ uint32_t P2PSecureProducerSocket::produceDatagram(
   // TODO
   throw errors::NotImplementedException();
 
-  if (!rtc_) {
-    throw errors::RuntimeException(
-        "RTC must be the transport protocol to start the production of current "
-        "data. Aborting.");
-  }
+  // if (!rtc_) {
+  //   throw errors::RuntimeException(
+  //       "RTC must be the transport protocol to start the production of
+  //       current " "data. Aborting.");
+  // }
 
-  std::unique_lock<std::mutex> lck(mtx_);
+  // std::unique_lock<std::mutex> lck(mtx_);
 
-  if (list_producers.empty()) cv_.wait(lck);
+  // if (list_producers.empty()) cv_.wait(lck);
 
   // TODO
   // for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
@@ -151,7 +160,7 @@ uint32_t P2PSecureProducerSocket::produceDatagram(
   //   rtc_producer->produce(utils::MemBuf::copyBuffer(buffer, buffer_size));
   // }
 
-  return 0;
+  // return 0;
 }
 
 uint32_t P2PSecureProducerSocket::produceStream(
@@ -195,44 +204,6 @@ uint32_t P2PSecureProducerSocket::produceStream(const Name &content_name,
                                      start_offset);
 
   return segments;
-}
-
-// void P2PSecureProducerSocket::asyncProduce(const Name &content_name,
-//                                            const uint8_t *buf,
-//                                            size_t buffer_size, bool is_last,
-//                                            uint32_t *start_offset) {
-//   if (rtc_) {
-//     throw errors::RuntimeException(
-//         "RTC transport protocol is not compatible with the production of "
-//         "current data. Aborting.");
-//   }
-
-//   std::unique_lock<std::mutex> lck(mtx_);
-//   if (list_producers.empty()) cv_.wait(lck);
-
-//   for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++)
-//   {
-//     (*it)->asyncProduce(content_name, buf, buffer_size, is_last,
-//     start_offset);
-//   }
-// }
-
-void P2PSecureProducerSocket::asyncProduce(
-    Name content_name, std::unique_ptr<utils::MemBuf> &&buffer, bool is_last,
-    uint32_t offset, uint32_t **last_segment) {
-  if (rtc_) {
-    throw errors::RuntimeException(
-        "RTC transport protocol is not compatible with the production of "
-        "current data. Aborting.");
-  }
-
-  std::unique_lock<std::mutex> lck(mtx_);
-  if (list_producers.empty()) cv_.wait(lck);
-
-  for (auto it = list_producers.cbegin(); it != list_producers.cend(); it++) {
-    (*it)->asyncProduce(content_name, buffer->clone(), is_last, offset,
-                        last_segment);
-  }
 }
 
 /* Redefinition of socket options to avoid name hiding */

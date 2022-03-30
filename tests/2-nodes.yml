@@ -1,0 +1,43 @@
+version: "3"
+services:
+  client:
+    build:
+      context: ..
+      dockerfile: ${DOCKERFILE}
+      args:
+        BASE_IMAGE: ${BASE_IMAGE}
+    privileged: true
+    stdin_open: true
+    hostname: client
+    tty: true
+    working_dir: /workspace
+    networks:
+      - kernel
+    volumes:
+      - ..:/workspace
+    entrypoint: [/bin/bash, -x, -c]
+    command:
+      - tail -f /dev/null
+
+  server:
+    build:
+      context: ..
+      dockerfile: ${DOCKERFILE}
+      args:
+        BASE_IMAGE: ${BASE_IMAGE}
+    privileged: true
+    stdin_open: true
+    hostname: server
+    tty: true
+    working_dir: /workspace
+    networks:
+      - kernel
+    volumes:
+      - ..:/workspace
+    entrypoint: [/bin/bash, -x, -c]
+    command:
+      - tail -f /dev/null
+
+networks:
+  kernel:
+    driver: bridge

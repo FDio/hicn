@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -30,7 +30,7 @@ hicn_face_prod_state_t *face_state_vec;
 u32 *face_state_pool;
 
 static int
-hicn_app_state_create (u32 swif, fib_prefix_t *prefix)
+hicn_app_state_create (u32 swif, index_t adj_index, fib_prefix_t *prefix)
 {
   /* Make sure that the pool is not empty */
   pool_validate_index (face_state_pool, 0);
@@ -49,6 +49,7 @@ hicn_app_state_create (u32 swif, fib_prefix_t *prefix)
 
   /* Create the appif and store in the vector */
   vec_validate (face_state_vec, swif);
+  face_state_vec[swif].adj_index = adj_index;
   clib_memcpy (&(face_state_vec[swif].prefix), prefix, sizeof (fib_prefix_t));
 
   /* Set as busy the element in the vector */
@@ -119,7 +120,7 @@ hicn_face_prod_add (fib_prefix_t *prefix, u32 sw_if, u32 *cs_reserved,
 
   hicn_main_t *hm = &hicn_main;
 
-  ip46_address_t local_app_ip;
+  ip46_address_t local_app_ip = { .as_u64 = { 0, 0 } };
   CLIB_UNUSED (ip46_address_t remote_app_ip);
   u32 if_flags = 0;
 
@@ -139,10 +140,11 @@ hicn_face_prod_add (fib_prefix_t *prefix, u32 sw_if, u32 *cs_reserved,
   if_flags |= VNET_SW_INTERFACE_FLAG_ADMIN_UP;
   vnet_sw_interface_set_flags (vnm, sw_if, if_flags);
 
+#ifdef HICN_DDEBUG
   u8 *s0;
   s0 = format (0, "Prefix %U", format_fib_prefix, prefix);
-
-  vlib_cli_output (vm, "Received request for %s, swif %d\n", s0, sw_if);
+  HICN_DEBUG ("Received request for %s, swif %d\n", s0, sw_if);
+#endif
 
   if (ip46_address_is_zero (&prefix->fp_addr))
     {
@@ -268,15 +270,21 @@ hicn_face_prod_add (fib_prefix_t *prefix, u32 sw_if, u32 *cs_reserved,
       fib_table_entry_path_add2 (fib_index, prefix, FIB_SOURCE_CLI,
 				 FIB_ENTRY_FLAG_NONE, rpaths);
 
-      hicn_route_enable (prefix);
-      hicn_app_state_create (sw_if, prefix);
+      HICN_DEBUG ("Calling hicn enable for producer face");
+
+      hicn_face_id_t *vec_faces = NULL;
+      hicn_route_enable (prefix, &vec_faces);
+      if (vec_faces != NULL)
+	vec_free (vec_faces);
+
+      adj_index =
+	adj_nbr_find (isv6 ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4,
+		      isv6 ? VNET_LINK_IP6 : VNET_LINK_IP4, prod_addr, sw_if);
+
+      hicn_app_state_create (sw_if, adj_index, prefix);
     }
 
-  adj_index =
-    adj_nbr_find (isv6 ? FIB_PROTOCOL_IP6 : FIB_PROTOCOL_IP4,
-		  isv6 ? VNET_LINK_IP6 : VNET_LINK_IP4, prod_addr, sw_if);
-  face = hicn_face_get (&local_app_ip, sw_if, &hicn_face_hashtb,
-			adj_index); // HICN_FACE_FLAGS_APPFACE_PROD);
+  face = hicn_face_get (&local_app_ip, sw_if, &hicn_face_hashtb, adj_index);
 
   *faceid = hicn_dpoi_get_index (face);
 
@@ -289,6 +297,7 @@ hicn_face_prod_add (fib_prefix_t *prefix, u32 sw_if, u32 *cs_reserved,
   /* Cleanup in case of something went wrong. */
   if (ret)
     {
+      HICN_ERROR ("Somethig went wrong while adding producer face. Cleanup.");
       hicn_app_state_del (sw_if);
     }
   return ret;
@@ -304,17 +313,32 @@ hicn_face_prod_del (hicn_face_id_t face_id)
 
   if (face->flags & HICN_FACE_FLAGS_APPFACE_PROD)
     {
-      /* Remove the face from the fib */
-      hicn_route_disable (&(face_state_vec[face->sw_if].prefix));
-      // hicn_route_del_nhop (&(face_state_vec[face->sw_if].prefix),
-      //                           face_id);
-
-      // int ret = hicn_face_del (face_id);
-      return hicn_app_state_del (face->sw_if);
-      // ret == HICN_ERROR_NONE ? hicn_app_state_del (face->sw_if) : ret;
+      /* Remove the face from the hicn fib */
+      fib_prefix_t *prefix = &(face_state_vec[face->sw_if].prefix);
+      HICN_DEBUG ("Calling hicn_route_disable from hicn_face_prod_del");
+      int ret = hicn_route_disable (prefix);
+      if (ret)
+	{
+	  vlib_main_t *vm = vlib_get_main ();
+	  vlib_cli_output (vm, "Error disabling route: %s",
+			   get_error_string (ret));
+	}
+      /* Also remove it from main fib, as we sre the owners of this prefix */
+      u32 fib_index = fib_table_find (prefix->fp_proto, 0);
+      fib_table_entry_special_remove (fib_index, prefix, FIB_SOURCE_CLI);
+      ret = hicn_app_state_del (face->sw_if);
+      if (ret)
+	{
+	  vlib_main_t *vm = vlib_get_main ();
+	  vlib_cli_output (vm, "Error deelting app state: %s",
+			   get_error_string (ret));
+	}
     }
   else
     {
+      vlib_main_t *vm = vlib_get_main ();
+      vlib_cli_output (vm, "APPFACE not found.",
+		       get_error_string (HICN_ERROR_APPFACE_NOT_FOUND));
       return HICN_ERROR_APPFACE_NOT_FOUND;
     }
 

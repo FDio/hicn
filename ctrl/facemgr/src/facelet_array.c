@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,4 +23,3 @@
 #include "facelet_array.h"
 
 TYPEDEF_ARRAY(facelet_array, facelet_t *, facelet_equals, facelet_snprintf);
-

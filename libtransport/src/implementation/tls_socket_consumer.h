@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -46,9 +46,6 @@ class TLSConsumerSocket : public ConsumerSocket,
 
   int consume(const Name &name, std::unique_ptr<utils::MemBuf> &&buffer);
   int consume(const Name &name) override;
-
-  int asyncConsume(const Name &name, std::unique_ptr<utils::MemBuf> &&buffer);
-  int asyncConsume(const Name &name) override;
 
   void registerPrefix(const Prefix &producer_namespace);
 
@@ -100,7 +97,7 @@ class TLSConsumerSocket : public ConsumerSocket,
   virtual void readBufferAvailable(
       std::unique_ptr<utils::MemBuf> &&buffer) noexcept override;
 
-  virtual void readError(const std::error_code ec) noexcept override;
+  virtual void readError(const std::error_code &ec) noexcept override;
 
   virtual void readSuccess(std::size_t total_size) noexcept override;
 

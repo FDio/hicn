@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,33 +23,18 @@
  *
  */
 
-#ifndef configuration_h
-#define configuration_h
+#ifndef HICNLIGHT_CONFIGURATION_H
+#define HICNLIGHT_CONFIGURATION_H
 
-#include <hicn/core/logger.h>
-#include <hicn/utils/commands.h>
+#include "../base/khash.h"
+#include "../core/msgbuf.h"
+#include "../core/strategy.h"
+#include <hicn/ctrl/api.h>
+#include <hicn/ctrl/hicn-light-ng.h>
 
-struct configuration;
-typedef struct configuration Configuration;
+KHASH_MAP_INIT_STR(strategy_map, unsigned);
 
-struct forwarder;
-typedef struct forwarder Forwarder;
-
-/**
- * <#One Line Description#>
- *
- * <#Paragraphs Of Explanation#>
- *
- * @param [<#in out in,out#>] <#name#> <#description#>
- *
- * @retval <#value#> <#explanation#>
- *
- * Example:
- * @code
- * <#example#>
- * @endcode
- */
-Configuration *configuration_Create(Forwarder *forwarder);
+typedef struct configuration_s configuration_t;
 
 /**
  * <#One Line Description#>
@@ -65,13 +50,23 @@ Configuration *configuration_Create(Forwarder *forwarder);
  * <#example#>
  * @endcode
  */
-void configuration_Destroy(Configuration **configPtr);
+configuration_t *configuration_create();
 
-void configuration_SetupAllListeners(Configuration *config, uint16_t port,
-                                     const char *localPath);
-
-void configuration_ReceiveCommand(Configuration *config, command_id command,
-                                  struct iovec *request, unsigned ingressId);
+/**
+ * <#One Line Description#>
+ *
+ * <#Paragraphs Of Explanation#>
+ *
+ * @param [<#in out in,out#>] <#name#> <#description#>
+ *
+ * @retval <#value#> <#explanation#>
+ *
+ * Example:
+ * @code
+ * <#example#>
+ * @endcode
+ */
+void configuration_free(configuration_t *config);
 
 /**
  * Returns the configured size of the content store
@@ -87,7 +82,7 @@ void configuration_ReceiveCommand(Configuration *config, command_id command,
  * <#example#>
  * @endcode
  */
-size_t configuration_GetObjectStoreSize(Configuration *config);
+size_t configuration_get_cs_size(const configuration_t *config);
 
 /**
  * Sets the size of the content store (in objects, not bytes)
@@ -101,52 +96,42 @@ size_t configuration_GetObjectStoreSize(Configuration *config);
  * <#example#>
  * @endcode
  */
-void configuration_SetObjectStoreSize(Configuration *config,
-                                      size_t maximumContentObjectCount);
+void configuration_set_cs_size(configuration_t *config, size_t size);
 
-strategy_type configuration_GetForwardingStrategy(Configuration *config,
-                                                  const char *prefix);
+const char *configuration_get_fn_config(const configuration_t *config);
 
-/**
- * Returns the Forwarder that owns the Configuration
- *
- * Returns the hicn-light Forwarder.  Used primarily by associated classes in
- * the configuration group.
- *
- * @param [in] config An allocated Configuration
- *
- * @return non-null The owning Forwarder
- * @return null An error
- *
- * Example:
- * @code
- * {
- *     <#example#>
- * }
- * @endcode
- */
-Forwarder *configuration_GetForwarder(const Configuration *config);
+void configuration_set_fn_config(configuration_t *config,
+                                 const char *fn_config);
 
-/**
- * Returns the logger used by the Configuration subsystem
- *
- * Returns the logger specified when the Configuration was created.
- *
- * @param [in] config An allocated Configuration
- *
- * @retval non-null The logger
- * @retval null An error
- *
- * Example:
- * @code
- * <#example#>
- * @endcode
- */
-Logger *configuration_GetLogger(const Configuration *config);
+void configuration_set_port(configuration_t *config, uint16_t port);
 
-struct iovec *configuration_DispatchCommand(Configuration *config,
-                                            command_id command,
-                                            struct iovec *control,
-                                            unsigned ingressId);
+uint16_t configuration_get_port(const configuration_t *config);
 
-#endif  // configuration_h
+void configuration_set_configuration_port(configuration_t *config,
+                                          uint16_t configuration_port);
+
+uint16_t configuration_get_configuration_port(const configuration_t *config);
+
+void configuration_set_loglevel(configuration_t *config, int loglevel);
+
+int configuration_get_loglevel(const configuration_t *config);
+
+void configuration_set_logfile(configuration_t *config, const char *logfile);
+
+const char *configuration_get_logfile(const configuration_t *config);
+
+int configuration_get_logfile_fd(const configuration_t *config);
+
+void configuration_set_daemon(configuration_t *config, bool daemon);
+
+bool configuration_get_daemon(const configuration_t *config);
+
+void configuration_set_strategy(configuration_t *config, const char *prefix,
+                                strategy_type_t strategy_type);
+
+strategy_type_t configuration_get_strategy(const configuration_t *config,
+                                           const char *prefix);
+
+void configuration_flush_log();
+
+#endif  // HICNLIGHT_CONFIGURATION_H

@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -16,28 +16,33 @@ list(APPEND SOURCE_FILES)
 list(APPEND INCLUDE_DIRS)
 list(APPEND LIBRARIES)
 
+
+##############################################################
+# Add components
+##############################################################
 add_subdirectory(hicn_light)
 
 if(APPLE)
-add_subdirectory(network_framework)
+  add_subdirectory(network_framework)
 endif()
 
 if(LINUX)
-add_subdirectory(netlink)
-add_subdirectory(bonjour)
-endif()
+  if(ANDROID)
+    add_subdirectory(android)
+    add_subdirectory(priority_controller)
+  else()
+    add_subdirectory(netlink)
+  endif()
 
-if(ANDROID)
-add_subdirectory(android_utility)
-add_subdirectory(priority_controller)
+  add_subdirectory(bonjour)
 endif()
 
 if(WITH_EXAMPLE_DUMMY)
-add_subdirectory(dummy)
+  add_subdirectory(dummy)
 endif()
 
 if(WITH_EXAMPLE_UPDOWN)
-add_subdirectory(updown)
+  add_subdirectory(updown)
 endif()
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
