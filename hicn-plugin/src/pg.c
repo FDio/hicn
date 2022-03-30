@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -203,11 +203,11 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      iface = (hpgm->index_ifaces % hpgm->n_ifaces);
 	      /* Rewrite and send */
 	      isv6_0 ?
-		hicn_rewrite_interestv6 (
+		      hicn_rewrite_interestv6 (
 		  vm, b0, (hpgm->index / hpgm->n_flows) % hpgm->max_seq_number,
 		  hpgm->interest_lifetime, hpgm->index % hpgm->n_flows,
 		  iface) :
-		hicn_rewrite_interestv4 (
+		      hicn_rewrite_interestv4 (
 		  vm, b0, (hpgm->index / hpgm->n_flows) % hpgm->max_seq_number,
 		  hpgm->interest_lifetime, hpgm->index % hpgm->n_flows, iface);
 
@@ -216,7 +216,7 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		hpgm->index++;
 
 	      next0 = isv6_0 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
-			       HICNPG_INTEREST_NEXT_V4_LOOKUP;
+				     HICNPG_INTEREST_NEXT_V4_LOOKUP;
 	    }
 	  if (hicn_interest_parse_pkt (b1, &name1, &namelen1, &hicn1,
 				       &isv6_1) == HICN_ERROR_NONE)
@@ -229,11 +229,11 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      iface = (hpgm->index_ifaces % hpgm->n_ifaces);
 	      /* Rewrite and send */
 	      isv6_1 ?
-		hicn_rewrite_interestv6 (
+		      hicn_rewrite_interestv6 (
 		  vm, b1, (hpgm->index / hpgm->n_flows) % hpgm->max_seq_number,
 		  hpgm->interest_lifetime, hpgm->index % hpgm->n_flows,
 		  iface) :
-		hicn_rewrite_interestv4 (
+		      hicn_rewrite_interestv4 (
 		  vm, b1, (hpgm->index / hpgm->n_flows) % hpgm->max_seq_number,
 		  hpgm->interest_lifetime, hpgm->index % hpgm->n_flows, iface);
 
@@ -242,7 +242,7 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		hpgm->index++;
 
 	      next1 = isv6_1 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
-			       HICNPG_INTEREST_NEXT_V4_LOOKUP;
+				     HICNPG_INTEREST_NEXT_V4_LOOKUP;
 	    }
 	  /* Send pkt to next node */
 	  vnet_buffer (b0)->sw_if_index[VLIB_TX] = ~0;
@@ -320,11 +320,11 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	      /* Rewrite and send */
 	      isv6_0 ?
-		hicn_rewrite_interestv6 (
+		      hicn_rewrite_interestv6 (
 		  vm, b0, (hpgm->index / hpgm->n_flows) % hpgm->max_seq_number,
 		  hpgm->interest_lifetime, hpgm->index % hpgm->n_flows,
 		  iface) :
-		hicn_rewrite_interestv4 (
+		      hicn_rewrite_interestv4 (
 		  vm, b0, (hpgm->index / hpgm->n_flows) % hpgm->max_seq_number,
 		  hpgm->interest_lifetime, hpgm->index % hpgm->n_flows, iface);
 
@@ -333,7 +333,7 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		hpgm->index++;
 
 	      next0 = isv6_0 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
-			       HICNPG_INTEREST_NEXT_V4_LOOKUP;
+				     HICNPG_INTEREST_NEXT_V4_LOOKUP;
 	    }
 	  /* Send pkt to ip lookup */
 	  vnet_buffer (b0)->sw_if_index[VLIB_TX] = ~0;
@@ -386,12 +386,12 @@ hicn_rewrite_interestv4 (vlib_main_t *vm, vlib_buffer_t *b0, u32 seq_number,
     .ip4 = hicnpg_main.pgen_clt_src_addr.ip4,
   };
   hicn_name_t dst_name = {
-    .ip4.prefix_as_ip4 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip4,
-    .ip4.suffix = seq_number,
+    .prefix.ip4 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip4,
+    .suffix = seq_number,
   };
 
   src_addr.ip4.as_u32 += clib_host_to_net_u32 (iface);
-  dst_name.ip4.prefix_as_ip4.as_u32 += clib_net_to_host_u32 (next_flow);
+  dst_name.prefix.ip4.as_u32 += clib_net_to_host_u32 (next_flow);
 
   /* Update locator and name */
   hicn_type_t type = hicn_get_buffer (b0)->type;
@@ -432,11 +432,11 @@ hicn_rewrite_interestv6 (vlib_main_t *vm, vlib_buffer_t *b0, u32 seq_number,
     .ip6 = hicnpg_main.pgen_clt_src_addr.ip6,
   };
   hicn_name_t dst_name = {
-    .ip6.prefix_as_ip6 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip6,
-    .ip6.suffix = seq_number,
+    .prefix.ip6 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip6,
+    .suffix = seq_number,
   };
   src_addr.ip6.as_u32[3] += clib_host_to_net_u32 (iface);
-  dst_name.ip6.prefix_as_ip6.as_u32[3] += clib_net_to_host_u32 (next_flow);
+  dst_name.prefix.ip6.as_u32[3] += clib_net_to_host_u32 (next_flow);
 
   /* Update locator and name */
   hicn_type_t type = hicn_get_buffer (b0)->type;
@@ -1011,10 +1011,10 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      rb = vlib_get_buffer (vm, hpgsm->pgen_svr_buffer_idx);
 
 	      isv6_0 ? convert_interest_to_data_v6 (vm, b0, rb, bi0) :
-		       convert_interest_to_data_v4 (vm, b0, rb, bi0);
+			     convert_interest_to_data_v4 (vm, b0, rb, bi0);
 
 	      next0 = isv6_0 ? HICNPG_SERVER_NEXT_V6_LOOKUP :
-			       HICNPG_SERVER_NEXT_V4_LOOKUP;
+				     HICNPG_SERVER_NEXT_V4_LOOKUP;
 	    }
 
 	  if (match1)
@@ -1029,10 +1029,10 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      rb = vlib_get_buffer (vm, hpgsm->pgen_svr_buffer_idx);
 
 	      isv6_1 ? convert_interest_to_data_v6 (vm, b1, rb, bi1) :
-		       convert_interest_to_data_v4 (vm, b1, rb, bi1);
+			     convert_interest_to_data_v4 (vm, b1, rb, bi1);
 
 	      next1 = isv6_1 ? HICNPG_SERVER_NEXT_V6_LOOKUP :
-			       HICNPG_SERVER_NEXT_V4_LOOKUP;
+				     HICNPG_SERVER_NEXT_V4_LOOKUP;
 	    }
 	  pkts_processed += 2;
 
@@ -1107,10 +1107,10 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      rb = vlib_get_buffer (vm, hpgsm->pgen_svr_buffer_idx);
 
 	      isv6_0 ? convert_interest_to_data_v6 (vm, b0, rb, bi0) :
-		       convert_interest_to_data_v4 (vm, b0, rb, bi0);
+			     convert_interest_to_data_v4 (vm, b0, rb, bi0);
 
 	      next0 = isv6_0 ? HICNPG_SERVER_NEXT_V6_LOOKUP :
-			       HICNPG_SERVER_NEXT_V4_LOOKUP;
+				     HICNPG_SERVER_NEXT_V4_LOOKUP;
 	    }
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
 			     (b0->flags & VLIB_BUFFER_IS_TRACED)))

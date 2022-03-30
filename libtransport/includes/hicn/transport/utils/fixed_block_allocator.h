@@ -1,23 +1,28 @@
 /*
- * Copyright (c) 2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  */
 
 #pragma once
 
 #include <hicn/transport/portability/c_portability.h>
+#include <hicn/transport/utils/branch_prediction.h>
 #include <hicn/transport/utils/singleton.h>
 #include <hicn/transport/utils/spinlock.h>
 #include <stdint.h>
 
 #include <cassert>
 #include <cstdlib>
+#include <list>
 #include <memory>
 
 namespace utils {
 template <std::size_t SIZE = 512, std::size_t OBJECTS = 4096>
 class FixedBlockAllocator
-    : public utils::Singleton<FixedBlockAllocator<SIZE, OBJECTS>> {
-  friend class utils::Singleton<FixedBlockAllocator<SIZE, OBJECTS>>;
+    : public utils::ThreadLocalSingleton<FixedBlockAllocator<SIZE, OBJECTS>> {
+  friend class utils::ThreadLocalSingleton<FixedBlockAllocator<SIZE, OBJECTS>>;
+
+  static inline const std::size_t BLOCK_SIZE = SIZE;
+  static inline const std::size_t BLOCKS_PER_POOL = OBJECTS;
 
  public:
   ~FixedBlockAllocator() {
@@ -26,19 +31,19 @@ class FixedBlockAllocator
     }
   }
 
-  void* allocateBlock(size_t size = SIZE) {
-    assert(size <= SIZE);
+  void* allocateBlock() {
     uint32_t index;
-
     SpinLock::Acquire locked(lock_);
     void* p_block = pop();
     if (!p_block) {
-      if (TRANSPORT_EXPECT_FALSE(current_pool_index_ >= max_objects_)) {
+      if (TRANSPORT_EXPECT_FALSE(current_pool_index_ >= BLOCKS_PER_POOL)) {
         // Allocate new memory block
         p_pools_.emplace_front(
-            new typename std::aligned_storage<SIZE>::type[max_objects_]);
+            new typename std::aligned_storage<SIZE>::type[BLOCKS_PER_POOL]);
         // reset current_pool_index_
         current_pool_index_ = 0;
+        // Increase total block count
+        block_count_ += BLOCKS_PER_POOL;
       }
 
       auto& latest = p_pools_.front();
@@ -59,7 +64,7 @@ class FixedBlockAllocator
   }
 
  public:
-  std::size_t blockSize() { return block_size_; }
+  std::size_t blockSize() { return BLOCK_SIZE; }
 
   uint32_t blockCount() { return block_count_; }
 
@@ -69,20 +74,32 @@ class FixedBlockAllocator
 
   uint32_t deallocations() { return deallocations_; }
 
+  void reset() {
+    p_head_ = nullptr;
+    blocks_in_use_ = 0;
+    allocations_ = 0;
+    deallocations_ = 0;
+    current_pool_index_ = 0;
+    block_count_ = BLOCKS_PER_POOL;
+
+    // Delete all memory pools but the first one
+    for (auto it = std::next(p_pools_.begin()); it != p_pools_.end();) {
+      delete[] * it;
+      it = p_pools_.erase(it);
+    }
+  }
+
  private:
   FixedBlockAllocator()
-      : block_size_(SIZE),
-        object_size_(SIZE),
-        max_objects_(OBJECTS),
-        p_head_(NULL),
+      : p_head_(NULL),
         current_pool_index_(0),
-        block_count_(0),
+        block_count_(BLOCKS_PER_POOL),
         blocks_in_use_(0),
         allocations_(0),
         deallocations_(0) {
     static_assert(SIZE >= sizeof(long*), "SIZE must be at least 8 bytes");
     p_pools_.emplace_front(
-        new typename std::aligned_storage<SIZE>::type[max_objects_]);
+        new typename std::aligned_storage<SIZE>::type[BLOCKS_PER_POOL]);
   }
 
   void push(void* p_memory) {
@@ -106,12 +123,6 @@ class FixedBlockAllocator
     Block* p_next;
   };
 
-  static std::unique_ptr<FixedBlockAllocator> instance_;
-
-  const std::size_t block_size_;
-  const std::size_t object_size_;
-  const std::size_t max_objects_;
-
   Block* p_head_;
   uint32_t current_pool_index_;
   std::list<typename std::aligned_storage<SIZE>::type*> p_pools_;
@@ -122,10 +133,6 @@ class FixedBlockAllocator
 
   SpinLock lock_;
 };
-
-template <std::size_t A, std::size_t B>
-std::unique_ptr<FixedBlockAllocator<A, B>>
-    FixedBlockAllocator<A, B>::instance_ = nullptr;
 
 /**
  * STL Allocator trait to be used with allocate_shared.

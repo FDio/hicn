@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -19,15 +19,9 @@
 #define MAX_OUTSTANDING_REQUESTS 4
 #define RESPONSE_QUEUE_SIZE 2
 
-
-vapi_ctx_t g_vapi_ctx_instance=NULL;
-
-
-
-
+vapi_ctx_t g_vapi_ctx_instance = NULL;
 
 int hicn_connect_vpp() {
-
   if (g_vapi_ctx_instance == NULL) {
     vapi_error_e rv = vapi_ctx_alloc(&g_vapi_ctx_instance);
     rv = vapi_connect(g_vapi_ctx_instance, APP_NAME, NULL,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -40,9 +40,9 @@ class Verifier {
   // The VerificationFailedCallback will be called by the transport if a
   // data packet (either a manifest or a content object) was not validated.
   // The application decides what to do then by returning a
-  // VerificationPolicy object.
+  // new VerificationPolicy.
   using VerificationFailedCallback = std::function<auth::VerificationPolicy(
-      const core::ContentObject &content_object, std::error_code ec)>;
+      Suffix suffix, VerificationPolicy policy)>;
 
   // The list of VerificationPolicy that will trigger the
   // VerificationFailedCallback.
@@ -96,13 +96,13 @@ class Verifier {
   void getVerificationFailedCallback(
       VerificationFailedCallback **verification_failed_cb);
 
+  // Call VerificationFailedCallback if it is set and update the packet policy.
+  void callVerificationFailedCallback(Suffix suffix,
+                                      VerificationPolicy &policy);
+
  protected:
   VerificationFailedCallback verification_failed_cb_;
   std::vector<VerificationPolicy> failed_policies_;
-
-  // Call VerificationFailedCallback if it is set and update the packet policy.
-  void callVerificationFailedCallback(PacketPtr packet,
-                                      VerificationPolicy &policy);
 };
 
 class VoidVerifier : public Verifier {

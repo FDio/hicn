@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,6 +23,7 @@
 #include <protocols/transport_protocol.h>
 
 #include <queue>
+#include <random>
 #include <vector>
 
 namespace transport {
@@ -55,8 +56,9 @@ class RaaqmTransportProtocol : public TransportProtocol,
                                      const ContentObject &content_object);
   virtual void afterDataUnsatisfied(uint64_t segment);
 
-  virtual void updateStats(uint32_t suffix, uint64_t rtt,
-                           utils::TimePoint &now);
+  virtual void updateStats(uint32_t suffix,
+                           const utils::SteadyTime::Milliseconds &rtt,
+                           utils::SteadyTime::TimePoint &now);
 
  private:
   void init();
@@ -73,7 +75,7 @@ class RaaqmTransportProtocol : public TransportProtocol,
                         *additional_suffixes = nullptr,
                     uint32_t len = 0) override;
 
-  void onContentReassembled(std::error_code ec) override;
+  void onContentReassembled(const std::error_code &ec) override;
   void updateRtt(uint64_t segment);
   void RAAQM();
   void updatePathTable(const ContentObject &content_object);
@@ -81,13 +83,15 @@ class RaaqmTransportProtocol : public TransportProtocol,
   void checkForStalePaths();
   void printRtt();
 
+  auto shared_from_this() { return utils::shared_from(this); }
+
  protected:
   // Congestion window management
   double current_window_size_;
   // Protocol management
   uint64_t interests_in_flight_;
   std::array<std::uint32_t, buffer_size> interest_retransmissions_;
-  std::array<utils::TimePoint, buffer_size> interest_timepoints_;
+  std::array<utils::SteadyTime::TimePoint, buffer_size> interest_timepoints_;
   std::queue<uint32_t> interest_to_retransmit_;
 
  private:
@@ -102,12 +106,15 @@ class RaaqmTransportProtocol : public TransportProtocol,
   PathTable path_table_;
 
   // TimePoints for statistic
-  utils::TimePoint t0_;
+  utils::SteadyTime::TimePoint t0_;
 
   bool set_interest_filter_;
 
   // for rate-estimation at packet level
   IcnRateEstimator *rate_estimator_;
+
+  // Real distribution
+  std::uniform_real_distribution<> dis_;
 
   // params for autotuning
   bool raaqm_autotune_;

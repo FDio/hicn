@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2021 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,29 +11,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+##############################################################
+# Project and cmake version
+##############################################################
 # CMake 3.11 required to use FetchContent
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
-
 project(libtransport)
 
+
+##############################################################
+# Cmake modules
+##############################################################
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
-  "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules"
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
+  ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules
 )
+include("${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake")
 
-include(DefaultConfiguration)
-include(BuildMacros)
 
-if (NOT CMAKE_BUILD_TYPE)
-  message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
-  set(CMAKE_BUILD_TYPE "Release")
-endif ()
+##############################################################
+# C/CXX Standard
+##############################################################
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 11)
 
-set(TRANSPORT_ROOT_PATH "src")
 
+##############################################################
+# Libs and Bins names
+##############################################################
 set(LIBTRANSPORT hicntransport)
-set(LIBTRANSPORT_COMPONENT libhicntransport)
+set(LIBTRANSPORT_COMPONENT lib${LIBTRANSPORT})
 
 if ((BUILD_HICNPLUGIN OR BUILD_MEMIF_CONNECTOR) AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
   set(__vpp__ 1)
@@ -42,19 +49,32 @@ endif ()
 set(LIBTRANSPORT ${LIBTRANSPORT} CACHE INTERNAL "" FORCE)
 set(LIBTRANSPORT_SHARED ${LIBTRANSPORT}.shared CACHE INTERNAL "" FORCE)
 set(LIBTRANSPORT_STATIC ${LIBTRANSPORT}.static CACHE INTERNAL "" FORCE)
-set(LIBTRANSPORT_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src CACHE INTERNAL "" FORCE)
 
-include(WindowsMacros)
-include(IosMacros)
 
-find_package_wrapper(Asio REQUIRED)
-find_package(OpenSSL REQUIRED)
+##############################################################
+# Dependencies and third party libs
+##############################################################
+find_package(Asio ${ASIO_DEFAULT_VERSION} REQUIRED)
+find_package(OpenSSL ${OPENSSL_DEFAULT_VERSION} EXACT REQUIRED)
 find_package(Threads REQUIRED)
-find_package(OpenSSL REQUIRED)
-find_package(Libconfig++ REQUIRED)
+find_package(Libconfig++ ${LIBCONFIG_DEFAULT_VERSION} REQUIRED)
+add_subdirectory(third-party)
 
+
+##############################################################
+# Check if building as subproject or as root project
+##############################################################
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  find_package_wrapper(Libhicn REQUIRED)
+  include(CommonSetup)
+  find_package(Libhicn ${CURRENT_VERSION} REQUIRED NO_MODULE)
+
+  if (DISABLE_SHARED_LIBRARIES)
+    set(LIBTYPE static)
+  else()
+    set(LIBTYPE shared)
+  endif()
+
+  list(APPEND HICN_LIBRARIES hicn::hicn.${LIBTYPE})
 else()
   if (DISABLE_SHARED_LIBRARIES)
     if (WIN32)
@@ -73,34 +93,16 @@ else()
   endif()
 endif()
 
-include(Packaging)
 
-add_subdirectory(third-party)
+##############################################################
+# Packaging and versioning
+##############################################################
+include(${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/packaging.cmake)
 
-set(LIBRARIES
-  PRIVATE ${HICN_LIBRARIES}
-  PRIVATE ${CMAKE_THREAD_LIBS_INIT}
-  PRIVATE ${CMAKE_DL_LIBS}
-  PRIVATE ${OPENSSL_LIBRARIES}
-  PRIVATE ${LIBCONFIG_CPP_LIBRARIES}
-  PRIVATE ${THIRD_PARTY_LIBRARIES}
-)
 
-# Include dirs -- Order does matter!
-list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
-  ${HICN_INCLUDE_DIRS}
-  ${HICNPLUGIN_INCLUDE_DIRS}
-  ${CMAKE_THREADS_INCLUDE_DIRS}
-  ${ASIO_INCLUDE_DIRS}
-  ${WINDOWS_INCLUDE_DIRS}
-  ${OPENSSL_INCLUDE_DIR}
-  ${CONFIG_INCLUDE_DIRS}
-  ${THIRD_PARTY_INCLUDE_DIRS}
-)
-
-list(APPEND DEPENDENCIES
-  ${THIRD_PARTY_DEPENDENCIES}
-)
-
+##############################################################
+# Subdirectories
+##############################################################
 add_subdirectory(includes/hicn/transport)
-add_subdirectory(${TRANSPORT_ROOT_PATH})
+add_subdirectory(src)

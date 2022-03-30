@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -52,9 +52,15 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/errors.cc
 )
 
-set(RAAQM_CONFIG_INSTALL_PREFIX
-  ${CMAKE_INSTALL_FULL_SYSCONFDIR}/hicn
-)
+if (${CMAKE_SYSTEM_NAME} MATCHES Darwin OR ${CMAKE_SYSTEM_NAME} MATCHES Linux)
+  set(RAAQM_CONFIG_INSTALL_PREFIX
+    ${CMAKE_INSTALL_FULL_SYSCONFDIR}/hicn
+  )
+else()
+  set(RAAQM_CONFIG_INSTALL_PREFIX
+    ${CMAKE_INSTALL_PREFIX}/etc/hicn
+  )
+endif()
 
 set(raaqm_config_path
   ${RAAQM_CONFIG_INSTALL_PREFIX}/consumer.conf
@@ -67,7 +73,7 @@ set(TRANSPORT_CONFIG
 
 install(
   FILES ${TRANSPORT_CONFIG}
-  DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/hicn
+  DESTINATION ${RAAQM_CONFIG_INSTALL_PREFIX}
   COMPONENT ${LIBTRANSPORT_COMPONENT}
 )
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -17,6 +17,7 @@
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
 #include <hicn/transport/core/name.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
 #include <utils/content_store.h>
 
 namespace utils {
@@ -56,7 +57,7 @@ void ContentStore::insert(
   fifo_list_.push_front(std::cref(content_object->getName()));
   auto pos = fifo_list_.begin();
   content_store_hash_table_[content_object->getName()] = ContentStoreEntry(
-      ObjectTimeEntry(content_object, std::chrono::steady_clock::now()), pos);
+      ObjectTimeEntry(content_object, utils::SteadyTime::now()), pos);
 }
 
 std::shared_ptr<ContentObject> ContentStore::find(const Name &name) {
@@ -67,8 +68,8 @@ std::shared_ptr<ContentObject> ContentStore::find(const Name &name) {
   if (it != content_store_hash_table_.end()) {
     auto content_lifetime = it->second.first.first->getLifetime();
     auto time_passed_since_creation =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - it->second.first.second)
+        utils::SteadyTime::getDurationMs(it->second.first.second,
+                                         utils::SteadyTime::now())
             .count();
 
     if (time_passed_since_creation > content_lifetime) {

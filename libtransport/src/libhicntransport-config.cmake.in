@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+set(Libhicntransport_VERSION_MAJOR "@VERSION_MAJOR@")
+set(Libhicntransport_VERSION_MINOR "@VERSION_MINOR@")
+set(Libhicntransport_VERSION_PATCH "@VERSION_PATCH@")
+
+set_and_check(Libhicntransport_INCLUDE_DIRS  "@PACKAGE_Libhicntransport_INCLUDE_DIRS@")
+include("${CMAKE_CURRENT_LIST_DIR}/libhicntransport-targets.cmake")

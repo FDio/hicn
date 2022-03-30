@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -34,8 +34,13 @@ class RaaqmDataPath {
  public:
   RaaqmDataPath(double drop_factor, double minimum_drop_probability,
                 unsigned new_timer, unsigned int samples,
-                uint64_t new_rtt = 1000, uint64_t new_rtt_min = 1000,
-                uint64_t new_rtt_max = 1000, unsigned new_pd = UINT_MAX);
+                const utils::SteadyTime::Milliseconds &new_rtt =
+                    utils::SteadyTime::Milliseconds(1000),
+                const utils::SteadyTime::Milliseconds &new_rtt_min =
+                    utils::SteadyTime::Milliseconds(1000),
+                const utils::SteadyTime::Milliseconds &new_rtt_max =
+                    utils::SteadyTime::Milliseconds(1000),
+                unsigned new_pd = UINT_MAX);
 
  public:
   /*
@@ -44,7 +49,8 @@ class RaaqmDataPath {
    * max of RTT.
    * @param new_rtt is the value of the new RTT
    */
-  RaaqmDataPath &insertNewRtt(uint64_t new_rtt, const utils::TimePoint &now);
+  RaaqmDataPath &insertNewRtt(const utils::SteadyTime::Milliseconds &new_rtt,
+                              const utils::SteadyTime::TimePoint &now);
 
   /**
    * @brief Update the path statistics
@@ -214,7 +220,7 @@ class RaaqmDataPath {
   /**
    * Time of the last call to the path reporter method
    */
-  utils::TimePoint last_received_pkt_;
+  utils::SteadyTime::TimePoint last_received_pkt_;
 
   double average_rtt_;
   double alpha_;

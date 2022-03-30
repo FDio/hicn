@@ -17,14 +17,15 @@
 #ifndef _TAP_INJECT_H
 #define _TAP_INJECT_H
 
-#include <vnet/plugin/plugin.h>
 #include <vnet/ip/ip.h>
+#include <vnet/plugin/plugin.h>
 
 #ifndef ETHER_ADDR_LEN
 #define ETHER_ADDR_LEN 6
 #endif
 
-typedef struct {
+typedef struct
+{
   /*
    * tap-inject can be enabled or disabled in config file or during runtime.
    * When disabled in config, it is not possible to enable during runtime.
@@ -36,30 +37,29 @@ typedef struct {
 #define TAP_INJECT_F_CONFIG_ENABLE  (1U << 0)
 #define TAP_INJECT_F_CONFIG_DISABLE (1U << 1)
 #define TAP_INJECT_F_CONFIG_NETLINK (1U << 2)
-#define TAP_INJECT_F_ENABLED        (1U << 3)
+#define TAP_INJECT_F_ENABLED	    (1U << 3)
 
   u32 flags;
 
-  u32 * sw_if_index_to_tap_fd;
-  u32 * sw_if_index_to_tap_if_index;
-  u32 * tap_fd_to_sw_if_index;
-  u32 * tap_if_index_to_sw_if_index;
+  u32 *sw_if_index_to_tap_fd;
+  u32 *sw_if_index_to_tap_if_index;
+  u32 *tap_fd_to_sw_if_index;
+  u32 *tap_if_index_to_sw_if_index;
 
-  u32 * interfaces_to_enable;
-  u32 * interfaces_to_disable;
+  u32 *interfaces_to_enable;
+  u32 *interfaces_to_disable;
 
-  u32 * rx_file_descriptors;
+  u32 *rx_file_descriptors;
 
   u32 rx_node_index;
   u32 tx_node_index;
   u32 neighbor_node_index;
 
-  u32 * rx_buffers;
+  u32 *rx_buffers;
 
 } tap_inject_main_t;
 
-
-tap_inject_main_t * tap_inject_get_main (void);
+tap_inject_main_t *tap_inject_get_main (void);
 
 void tap_inject_insert_tap (u32 sw_if_index, u32 tap_fd, u32 tap_if_index);
 void tap_inject_delete_tap (u32 sw_if_index);
@@ -71,7 +71,7 @@ u32 tap_inject_lookup_sw_if_index_from_tap_if_index (u32 tap_if_index);
 static inline int
 tap_inject_is_enabled (void)
 {
-  tap_inject_main_t * im = tap_inject_get_main ();
+  tap_inject_main_t *im = tap_inject_get_main ();
 
   return !!(im->flags & TAP_INJECT_F_ENABLED);
 }
@@ -79,7 +79,7 @@ tap_inject_is_enabled (void)
 static inline int
 tap_inject_is_config_enabled (void)
 {
-  tap_inject_main_t * im = tap_inject_get_main ();
+  tap_inject_main_t *im = tap_inject_get_main ();
 
   return !!(im->flags & TAP_INJECT_F_CONFIG_ENABLE);
 }
@@ -87,22 +87,20 @@ tap_inject_is_config_enabled (void)
 static inline int
 tap_inject_is_config_disabled (void)
 {
-  tap_inject_main_t * im = tap_inject_get_main ();
+  tap_inject_main_t *im = tap_inject_get_main ();
 
   return !!(im->flags & TAP_INJECT_F_CONFIG_DISABLE);
 }
-
 
 /* Netlink */
 
 void tap_inject_enable_netlink (void);
 
-
 /* Tap */
 
-clib_error_t * tap_inject_tap_connect (vnet_hw_interface_t * hw);
-clib_error_t * tap_inject_tap_disconnect (u32 sw_if_index);
+clib_error_t *tap_inject_tap_connect (vnet_hw_interface_t *hw);
+clib_error_t *tap_inject_tap_disconnect (u32 sw_if_index);
 
-u8 * format_tap_inject_tap_name (u8 * s, va_list * args);
+u8 *format_tap_inject_tap_name (u8 *s, va_list *args);
 
 #endif /* _TAP_INJECT_H */

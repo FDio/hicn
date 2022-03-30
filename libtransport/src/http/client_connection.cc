@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -77,9 +77,7 @@ class HTTPClientConnection::Implementation
       auto end = std::chrono::steady_clock::now();
       LOG(INFO) << method_map[method].c_str() << " " << url.c_str() << " ["
                 << name_.str() << "] duration: "
-                << std::chrono::duration_cast<std::chrono::microseconds>(end -
-                                                                         start)
-                       .count()
+                << utils::SteadyTime::getDurationUs(start, end).count()
                 << " [usec] " << size << " [bytes]";
     };
 
@@ -106,7 +104,7 @@ class HTTPClientConnection::Implementation
   HTTPClientConnection &setTimeout(const std::chrono::seconds &timeout) {
     timer_->cancel();
     timer_->expires_from_now(timeout);
-    timer_->async_wait([this](std::error_code ec) {
+    timer_->async_wait([this](const std::error_code &ec) {
       if (!ec) {
         consumer_.stop();
       }
@@ -147,18 +145,14 @@ class HTTPClientConnection::Implementation
 
     name_ << ipv6_first_word << ":";
 
-    for (uint16_t *word = (uint16_t *)&locator_hash;
-         std::size_t(word) <
-         (std::size_t(&locator_hash) + sizeof(locator_hash));
-         word++) {
-      name_ << ":" << std::hex << *word;
+    uint16_t *word = (uint16_t *)(&locator_hash);
+    for (std::size_t i = 0; i < sizeof(locator_hash) / 2; i++) {
+      name_ << ":" << std::hex << word[i];
     }
 
-    for (uint16_t *word = (uint16_t *)&request_hash;
-         std::size_t(word) <
-         (std::size_t(&request_hash) + sizeof(request_hash));
-         word++) {
-      name_ << ":" << std::hex << *word;
+    word = (uint16_t *)(&request_hash);
+    for (std::size_t i = 0; i < sizeof(request_hash) / 2; i++) {
+      name_ << ":" << std::hex << word[i];
     }
 
     name_ << "|0";
@@ -199,7 +193,7 @@ class HTTPClientConnection::Implementation
     }
   }
 
-  void readError(const std::error_code ec) noexcept override {
+  void readError(const std::error_code &ec) noexcept override {
     LOG(ERROR) << "Error " << ec.message() << " during download of "
                << current_url_.c_str();
     if (read_bytes_callback_) {

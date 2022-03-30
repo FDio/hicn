@@ -10,8 +10,12 @@
 #include <unistd.h>      // close
 
 #include "api.h"
-#include "error.h"
 #include "ops.h"
+#include <hicn/util/sstrncpy.h>
+
+#if __linux__
+#include "error.h"
+#endif
 
 #define INET_MAX_ADDRSTRLEN INET6_ADDRSTRLEN
 
@@ -72,8 +76,7 @@ hicn_socket_helper_t *hicn_create() {
   }
 
   hicn->conf = malloc(sizeof(hicn_conf_t));
-  if (hicn->conf < 0)
-    goto ERR_CONF;
+  if (hicn->conf < 0) goto ERR_CONF;
   memcpy(hicn->conf, &hicn_default_conf, sizeof(hicn_conf_t));
 
   /* Initialize socket tree to empty */
@@ -133,20 +136,16 @@ void hicn_destroy() {
   /* Restore default rules */
   printf("Restoring default configuration.\n");
   rc = ops.del_lo_prio_rule(NULL, AF_INET6, LOCAL_PRIORITY);
-  if (rc < 0)
-    ret = -1;
+  if (rc < 0) ret = -1;
 
   rc = ops.del_lo_prio_rule(NULL, AF_INET, LOCAL_PRIORITY);
-  if (rc < 0)
-    ret = -1;
+  if (rc < 0) ret = -1;
 
   rc = ops.add_lo_prio_rule(NULL, AF_INET6, 0);
-  if (rc < 0)
-    ret = -1;
+  if (rc < 0) ret = -1;
 
   rc = ops.add_lo_prio_rule(NULL, AF_INET, 0);
-  if (rc < 0)
-    ret = -1;
+  if (rc < 0) ret = -1;
 
   for (i = 0; i < rules_counter; i++) {
     if (strcmp(rules_to_remove[i].tun_name, "NONE") != 0) {
@@ -158,20 +157,17 @@ void hicn_destroy() {
           &rules_to_remove[i].prefix, rules_to_remove[i].address_family,
           rules_to_remove[i].priority, rules_to_remove[i].table_id);
     }
-    if (rc < 0)
-      ret = -1;
+    if (rc < 0) ret = -1;
   }
 
   for (i = 0; i < routes_counter; i++) {
     rc = ops.del_out_route(routes_to_remove[i].remote_ip_address,
                            routes_to_remove[i].address_family,
                            routes_to_remove[i].table_id);
-    if (rc < 0)
-      ret = -1;
+    if (rc < 0) ret = -1;
   }
 
-  if (ret < 0)
-      printf("Unexpected exit. Some state may not be deleted.\n");
+  if (ret < 0) printf("Unexpected exit. Some state may not be deleted.\n");
 }
 
 void hicn_free(hicn_socket_helper_t *hicn) {
@@ -259,10 +255,10 @@ int hicn_get_local_address(const ip_prefix_t *remote_address,
                            ip_prefix_t *local_address) {
   int rc = 0;
   uint32_t interface_id;
-  char remote_address_str[INET_MAX_ADDRSTRLEN + 4 ];
+  char remote_address_str[INET_MAX_ADDRSTRLEN + 4];
 
   rc = ip_prefix_ntop_short(remote_address, remote_address_str,
-                    sizeof(remote_address_str));
+                            sizeof(remote_address_str));
   if (rc < 0) {
     rc = HICN_SOCKET_ERROR_BIND_REMOTE_REPR;
     goto ERR;
@@ -331,7 +327,8 @@ int hicn_set_remote_endpoint(hicn_socket_t *socket,
     /////
 
     /* Convert to representation format */
-    rc = ip_prefix_ntop_short(&addr, local_ip_address, sizeof(local_ip_address));
+    rc =
+        ip_prefix_ntop_short(&addr, local_ip_address, sizeof(local_ip_address));
     if (rc < 0) {
       rc = HICN_SOCKET_ERROR_BIND_REMOTE_REPR;
       goto ERR;
@@ -466,7 +463,9 @@ int hicn_listen(hicn_socket_helper_t *hicn, int fd, const char *prefix) {
     return rc;
   }
 
-  strcpy(rules_to_remove[rules_counter].tun_name, "NONE");
+  rc = strcpy_s(rules_to_remove[rules_counter].tun_name,
+                sizeof(rules_to_remove[rules_counter].tun_name), "NONE");
+  if (rc != EOK) return -1;
 
   rules_to_remove[rules_counter].prefix = ip_prefix;
   rules_to_remove[rules_counter].address_family = ip_prefix.family;
@@ -533,7 +532,10 @@ int hicn_bind(hicn_socket_helper_t *hicn, int fd,
     goto ERR;
   }
 
-  strcpy(rules_to_remove[rules_counter].tun_name, socket->tun_name);
+  rc = strcpy_s(rules_to_remove[rules_counter].tun_name,
+                sizeof(rules_to_remove[rules_counter].tun_name),
+                socket->tun_name);
+  if (rc != EOK) return -1;
   rules_to_remove[rules_counter].address_family = addr_family;
   rules_to_remove[rules_counter].table_id = socket->connection.table_id;
   ++rules_counter;
@@ -563,7 +565,13 @@ int hicn_bind(hicn_socket_helper_t *hicn, int fd,
     goto ERR;
   }
 
-  strcpy(routes_to_remove[routes_counter].remote_ip_address, remote_ip_address);
+  rc = strcpy_s(routes_to_remove[routes_counter].remote_ip_address,
+                sizeof(rules_to_remove[rules_counter].tun_name),
+                remote_ip_address);
+  if (rc != EOK) {
+    rc = HICN_SOCKET_ERROR_UNSPEC;
+    goto ERR;
+  }
   routes_to_remove[routes_counter].table_id = socket->connection.table_id;
   routes_to_remove[routes_counter].address_family = (uint8_t)addr_family;
   ++routes_counter;
