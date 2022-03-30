@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -38,7 +38,26 @@ class Socket {
   virtual void connect() = 0;
   virtual bool isRunning() = 0;
 
-  virtual asio::io_service &getIoService() { return portal_->getIoService(); }
+  virtual asio::io_service &getIoService() {
+    return portal_->getThread().getIoService();
+  }
+
+  int setSocketOption(int socket_option_key, hicn_format_t packet_format);
+  int getSocketOption(int socket_option_key, hicn_format_t &packet_format);
+
+  int getSocketOption(int socket_option_key,
+                      std::shared_ptr<core::Portal> &socket_option_value) {
+    switch (socket_option_key) {
+      case interface::GeneralTransportOptions::PORTAL:
+        socket_option_value = portal_;
+        break;
+      default:
+        return SOCKET_OPTION_NOT_GET;
+        ;
+    }
+
+    return SOCKET_OPTION_GET;
+  }
 
  protected:
   Socket(std::shared_ptr<core::Portal> &&portal);
@@ -48,6 +67,7 @@ class Socket {
  protected:
   std::shared_ptr<core::Portal> portal_;
   bool is_async_;
+  hicn_format_t packet_format_;
 };
 
 }  // namespace implementation

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -38,6 +38,15 @@ std::string core_category_impl::message(int ev) const {
     }
     case core_error::configuration_not_applied: {
       return "Configuration was not applied due to wrong parameters.";
+    }
+    case core_error::send_failed: {
+      return "Error sending data to socket.";
+    }
+    case core_error::send_buffer_allocation_failed: {
+      return "Error allocating buffers to send data.";
+    }
+    case core_error::receive_failed: {
+      return "Error receiving data from socket.";
     }
     default: {
       return "Unknown core error";

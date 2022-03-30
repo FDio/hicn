@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -26,6 +26,12 @@ namespace protocol {
 
 namespace rtc {
 
+enum class ProbeType {
+  NOT_PROBE,
+  INIT,
+  RTT,
+};
+
 class ProbeHandler : public std::enable_shared_from_this<ProbeHandler> {
  public:
   using SendProbeCallback = std::function<void(uint32_t)>;
@@ -35,31 +41,39 @@ class ProbeHandler : public std::enable_shared_from_this<ProbeHandler> {
 
   ~ProbeHandler();
 
-  // if the function returns 0 the probe is not valaid
+  // If the function returns 0 the probe is not valid.
   uint64_t getRtt(uint32_t seq);
 
-  // reset the probes parameters. it stop the current probing.
-  // to restar call sendProbes.
-  // probe_interval = 0 means that no event will be scheduled
-  // max_probe = 0 means no limit to the number of probe to send
+  // this function may return a residual loss rate higher than the real one if
+  // we don't wait enough time for the probes to come back
+  double getProbeLossRate();
+
+  // Set the probe suffix range [min, max]
+  void setSuffixRange(uint32_t min, uint32_t max);
+
+  // Reset the probes parameters and stops the current probing.
+  // probe_interval = 0 means that no event will be scheduled.
+  // max_probe = 0 means no limit to the number of probe to send.
   void setProbes(uint32_t probe_interval, uint32_t max_probes);
 
-  // stop to schedule probes
   void stopProbes();
 
   void sendProbes();
+
+  static ProbeType getProbeType(uint32_t seq);
 
  private:
   uint32_t probe_interval_;  // us
   uint32_t max_probes_;      // packets
   uint32_t sent_probes_;     // packets
+  uint32_t recv_probes_;     // packets
 
   std::unique_ptr<asio::steady_timer> probe_timer_;
 
-  // map from seqnumber to timestamp
+  // Map from packet suffixes to timestamp
   std::unordered_map<uint32_t, uint64_t> pending_probes_;
 
-  // random generator
+  // Random generator
   std::default_random_engine rand_eng_;
   std::uniform_int_distribution<uint32_t> distr_;
 

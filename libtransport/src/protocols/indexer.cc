@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,10 +14,10 @@
  */
 
 #include <implementation/socket_consumer.h>
+#include <protocols/errors.h>
 #include <protocols/indexer.h>
 
 namespace transport {
-
 namespace protocol {
 
 using namespace interface;
@@ -36,6 +36,35 @@ void Indexer::setVerifier() {
   }
 }
 
-}  // end namespace protocol
+void Indexer::applyPolicy(core::Interest &interest,
+                          core::ContentObject &content_object, bool reassembly,
+                          auth::VerificationPolicy policy) const {
+  DCHECK(reassembly_ != nullptr);
 
+  switch (policy) {
+    case auth::VerificationPolicy::ACCEPT: {
+      if (reassembly) {
+        reassembly_->reassemble(content_object);
+      }
+      break;
+    }
+    case auth::VerificationPolicy::UNKNOWN:
+      if (reassembly && reassembly_->reassembleUnverified()) {
+        reassembly_->reassemble(content_object);
+      }
+      break;
+    case auth::VerificationPolicy::DROP:
+      transport_->onPacketDropped(
+          interest, content_object,
+          make_error_code(protocol_error::verification_failed));
+      break;
+    case auth::VerificationPolicy::ABORT: {
+      transport_->onContentReassembled(
+          make_error_code(protocol_error::session_aborted));
+      break;
+    }
+  }
+}
+
+}  // end namespace protocol
 }  // end namespace transport

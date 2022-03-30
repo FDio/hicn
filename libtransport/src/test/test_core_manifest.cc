@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -17,6 +17,8 @@
 #include <core/manifest_inline.h>
 #include <gtest/gtest.h>
 #include <hicn/transport/auth/crypto_hash.h>
+#include <hicn/transport/auth/signer.h>
+#include <hicn/transport/auth/verifier.h>
 #include <test/packet_samples.h>
 
 #include <climits>
@@ -33,7 +35,7 @@ class ManifestTest : public ::testing::Test {
  protected:
   using ContentObjectManifest = ManifestInline<ContentObject, Fixed>;
 
-  ManifestTest() : name_("b001::123|321"), manifest1_(name_) {
+  ManifestTest() : name_("b001::123|321"), manifest1_(HF_INET6_TCP_AH, name_) {
     // You can do set-up work for each test here.
   }
 
@@ -97,8 +99,8 @@ TEST_F(ManifestTest, MoveConstructor) {
 TEST_F(ManifestTest, SetLastManifest) {
   manifest1_.clear();
 
-  manifest1_.setFinalManifest(true);
-  bool fcn = manifest1_.isFinalManifest();
+  manifest1_.setIsLast(true);
+  bool fcn = manifest1_.getIsLast();
 
   ASSERT_TRUE(fcn == true);
 }
@@ -109,13 +111,13 @@ TEST_F(ManifestTest, SetManifestType) {
   ManifestType type1 = ManifestType::INLINE_MANIFEST;
   ManifestType type2 = ManifestType::FLIC_MANIFEST;
 
-  manifest1_.setManifestType(type1);
-  ManifestType type_returned1 = manifest1_.getManifestType();
+  manifest1_.setType(type1);
+  ManifestType type_returned1 = manifest1_.getType();
 
   manifest1_.clear();
 
-  manifest1_.setManifestType(type2);
-  ManifestType type_returned2 = manifest1_.getManifestType();
+  manifest1_.setType(type2);
+  ManifestType type_returned2 = manifest1_.getType();
 
   ASSERT_EQ(type1, type_returned1);
   ASSERT_EQ(type2, type_returned2);
@@ -146,17 +148,80 @@ TEST_F(ManifestTest, SetHashAlgorithm) {
   ASSERT_EQ(hash3, type_returned3);
 }
 
-TEST_F(ManifestTest, SetNextSegmentCalculationStrategy) {
+TEST_F(ManifestTest, setParamsBytestream) {
   manifest1_.clear();
 
-  NextSegmentCalculationStrategy strategy1 =
-      NextSegmentCalculationStrategy::INCREMENTAL;
+  ParamsBytestream params{
+      .final_segment = 1,
+  };
 
-  manifest1_.setNextSegmentCalculationStrategy(strategy1);
-  NextSegmentCalculationStrategy type_returned1 =
-      manifest1_.getNextSegmentCalculationStrategy();
+  manifest1_.setParamsBytestream(params);
+  manifest1_.encode();
 
-  ASSERT_EQ(strategy1, type_returned1);
+  ContentObjectManifest manifest(manifest1_);
+  manifest.decode();
+
+  ASSERT_EQ(interface::ProductionProtocolAlgorithms::BYTE_STREAM,
+            manifest.getTransportType());
+  ASSERT_EQ(params, manifest.getParamsBytestream());
+}
+
+TEST_F(ManifestTest, SetParamsRTC) {
+  manifest1_.clear();
+
+  ParamsRTC params{
+      .timestamp = 1,
+      .prod_rate = 2,
+      .prod_seg = 3,
+      .support_fec = 1,
+  };
+
+  manifest1_.setParamsRTC(params);
+  manifest1_.encode();
+
+  ContentObjectManifest manifest(manifest1_);
+  manifest.decode();
+
+  ASSERT_EQ(interface::ProductionProtocolAlgorithms::RTC_PROD,
+            manifest.getTransportType());
+  ASSERT_EQ(params, manifest.getParamsRTC());
+}
+
+TEST_F(ManifestTest, SignManifest) {
+  Name name("b001::", 0);
+  auto signer = std::make_shared<auth::SymmetricSigner>(
+      auth::CryptoSuite::HMAC_SHA256, "hunter2");
+  auto verifier = std::make_shared<auth::SymmetricVerifier>("hunter2");
+  std::shared_ptr<ContentObjectManifest> manifest;
+
+  // Instantiate Manifest
+  manifest.reset(ContentObjectManifest::createManifest(
+      HF_INET6_TCP_AH, name, ManifestVersion::VERSION_1,
+      ManifestType::INLINE_MANIFEST, false, name, signer->getHashType(),
+      signer->getSignatureFieldSize()));
+
+  // Add Manifest entry
+  auth::CryptoHash hash(signer->getHashType());
+  hash.computeDigest(std::vector<uint8_t>{0x01, 0x02, 0x03, 0x04});
+  manifest->addSuffixHash(1, hash);
+
+  // Encode manifest
+  manifest->encode();
+
+  // Sign manifest
+  signer->signPacket(manifest.get());
+
+  // Check size
+  ASSERT_EQ(manifest->payloadSize(), manifest->estimateManifestSize());
+  ASSERT_EQ(manifest->length(),
+            manifest->headerSize() + manifest->payloadSize());
+  ASSERT_EQ(ContentObjectManifest::manifestHeaderSize(
+                interface::ProductionProtocolAlgorithms::UNKNOWN),
+            manifest->manifestHeaderSize());
+
+  // Verify manifest
+  auth::VerificationPolicy policy = verifier->verifyPackets(manifest.get());
+  ASSERT_EQ(auth::VerificationPolicy::ACCEPT, policy);
 }
 
 TEST_F(ManifestTest, SetBaseName) {
@@ -198,22 +263,7 @@ TEST_F(ManifestTest, SetSuffixList) {
   }
 
   manifest1_.setBaseName(base_name);
-
   core::Name ret_name = manifest1_.getBaseName();
-
-  // auto & hash_list = manifest1_.getSuffixHashList();
-
-  // bool cond;
-  // int i = 0;
-
-  // for (auto & item : manifest1_.getSuffixList()) {
-  //   auto hash = manifest1_.getHash(suffixes[i]);
-  //   cond = auth::CryptoHash::compareBinaryDigest(hash,
-  //                                               entries[i].second.getDigest<uint8_t>().data(),
-  //                                               entries[i].second.getType());
-  //   ASSERT_TRUE(cond);
-  //   i++;
-  // }
 
   ASSERT_EQ(base_name, ret_name);
 

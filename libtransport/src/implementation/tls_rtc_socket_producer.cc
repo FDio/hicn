@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -90,11 +90,11 @@ int TLSRTCProducerSocket::writeOld(BIO *b, const char *buf, int num) {
   socket = (TLSRTCProducerSocket *)BIO_get_data(b);
 
   if (socket->getHandshakeState() != SERVER_FINISHED && socket->first_) {
-    bool making_manifest = socket->parent_->making_manifest_;
+    uint32_t making_manifest = socket->parent_->making_manifest_;
 
     socket->tls_chunks_--;
     socket->parent_->setSocketOption(GeneralTransportOptions::MAKE_MANIFEST,
-                                     false);
+                                     0U);
     socket->parent_->ProducerSocket::produce(
         socket->name_, (const uint8_t *)buf, num, socket->tls_chunks_ == 0, 0);
     socket->parent_->setSocketOption(GeneralTransportOptions::MAKE_MANIFEST,

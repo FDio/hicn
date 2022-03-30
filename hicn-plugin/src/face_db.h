@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -78,8 +78,8 @@ hicn_face_db_get_dpo_face (u32 index, hicn_face_db_t *face_db)
   ASSERT (index < face_db->n_faces);
 
   return index < HICN_FACE_DB_INLINE_FACES ?
-	   (face_db->inline_faces[index]) :
-	   (pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket)
+		 (face_db->inline_faces[index]) :
+		 (pool_elt_at_index (hicn_face_bucket_pool, face_db->next_bucket)
 	      ->faces[(index - HICN_FACE_DB_INLINE_FACES) &
 		      (HICN_PIT_N_HOP_BUCKET - 1)]);
 }
@@ -106,8 +106,8 @@ hicn_face_db_add_face (hicn_face_id_t face_id, hicn_face_db_t *face_db)
 
   hicn_face_id_t *element =
     face_db->n_faces < HICN_FACE_DB_INLINE_FACES ?
-      &(face_db->inline_faces[face_db->n_faces]) :
-      &(faces_bkt->faces[(face_db->n_faces - HICN_FACE_DB_INLINE_FACES) &
+	    &(face_db->inline_faces[face_db->n_faces]) :
+	    &(faces_bkt->faces[(face_db->n_faces - HICN_FACE_DB_INLINE_FACES) &
 			 (HICN_PIT_N_HOP_BUCKET - 1)]);
 
   *element = face_id;

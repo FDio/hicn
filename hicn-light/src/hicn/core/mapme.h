@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -26,29 +26,30 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <hicn/ctrl/hicn-light-ng.h>
 #include <hicn/hicn.h>
-#include <hicn/core/forwarder.h>
-#include <hicn/core/connection.h>
-#include <hicn/utils/commands.h>
 
-struct mapme;
-typedef struct mapme MapMe;
+#include "connection.h"
+#include "fib_entry.h"
+#include "msgbuf.h"
+
+typedef struct mapme_s mapme_t;
 
 /**
  * @function mapme_create
  * @abstract Initializes MAP-Me state in the forwarder.
  * @return bool - Boolean informing about the success of MAP-Me initialization.
  */
-bool mapme_create(MapMe **mapme, Forwarder *Forwarder);
+mapme_t *mapme_create(void *Forwarder);
 
 /**
  * @function mapme_free
  * @abstract Free MAP-Me state in the forwarder.
  */
-void mapme_free(MapMe *mapme);
+void mapme_free(mapme_t *mapme);
 
 /**
- * @function messageHandler_isMapMe
+ * @function messageHandler_is_mapme
  * @abstract Identifies MAP-Me messages
  * @discussion This function can be used by the forwarder to dispatch MAP-Me
  * 	message to the appropriate processing function. Ideally this would be
@@ -56,48 +57,53 @@ void mapme_free(MapMe *mapme);
  * @param [in] msgBuffer - The buffer to match
  * @return A boolean indicating whether message is a MAP-Me control message.
  */
-bool mapme_isMapMe(const uint8_t *msgBuffer);
+bool mapme_match_packet(const uint8_t *msgBuffer);
 
 /**
- * @function mapme_handleMapMeMessage
+ * @function mapme_handlemapme_tMessage
  * @abstract Process a MAP-Me message.
  * @param [in] mapme - Pointer to the MAP-Me data structure.
  * @param [in] message - MAP-Me buffer
  * @param [in] conn_id - Ingress connection id
  */
-void mapme_Process(const MapMe *mapme, const uint8_t *msgBuffer,
-                   unsigned conn_id);
+void mapme_process(mapme_t *mapme, msgbuf_t *msgbuf);
 
+/* mapme API */
 /**
  * @function mapme_send_updates
- * @abstract Trigger (if needed) the update for specified FIB entry and nexthops
+ * @abstract sends an update to all adjacencies. Used for face
+ * add/delete/changes (priority.tag) and policy
  * @param [in] mapme - Pointer to the MAP-Me data structure.
- * @param [in] fibEntry - The FIB entry to consider
- * @param [in] nexthops - NumberSet holding the next hops on which to send the
- * update.
+ * @param [in] fib_entry - The FIB entry to consider
  */
-void mapme_send_updates(const MapMe * mapme, FibEntry * fibEntry, const NumberSet * nexthops);
+int mapme_set_all_adjacencies(const mapme_t *mapme, fib_entry_t *entry);
 
 /**
- * @function mapme_send_updates
- * @abstract Trigger the update for specified FIB entry and nexthops, only if needed
+ * @function mapme_set_adjacencies
+ * @abstract sends an update to the specified adjacencies. Used by forwarding
+ * strategies
  * @param [in] mapme - Pointer to the MAP-Me data structure.
- * @param [in] fibEntry - The FIB entry to consider
- * @param [in] nexthops - NumberSet holding the next hops on which to send the
- * update.
+ * @param [in] fib_entry - The FIB entry to consider
+ * @param [in] nexthops - next hops on which to send the update.
  */
-void mapme_maybe_send_updates(const MapMe * mapme, FibEntry * fibEntry, const NumberSet * nexthops);
+int mapme_set_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
+                          nexthops_t *nexthops, bool force);
 
 /**
- * @function mapme_reconsiderFibEntry
- * @abstract Process a fib entry for changes that might trigger new updates
+ * @function mapme_update_adjacencies
+ * @abstract sends an update on previuos adjacencies. Used for IU forwarding,
+ * NAT and timeouts
+ * strategies
  * @param [in] mapme - Pointer to the MAP-Me data structure.
- * @param [in] fibEntry - The FIB entry to consider
+ * @param [in] fib_entry - The FIB entry to consider
+ * @param [in] inc_iu_seq - if true, the seq number of the tfib/mapme iu will be
+ * increased by one
  */
-void mapme_reconsiderFibEntry(const MapMe *mapme, FibEntry * fibEntry);
+int mapme_update_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
+                             bool inc_iu_seq);
 
 /**
- * @function mapme_onConnectionEvent
+ * @function mapme_on_connection_event
  * @abstract Callback following the addition of the face though the control
  * protocol.
  * @discussion This callback triggers the sending of control packets by MAP-Me.
@@ -105,19 +111,21 @@ void mapme_reconsiderFibEntry(const MapMe *mapme, FibEntry * fibEntry);
  * @param [in] conn - The newly added connection.
  * @param [in] event - Connection event
  */
-void mapme_onConnectionEvent(const MapMe *mapme, const Connection *conn, connection_event_t event);
+void mapme_on_connection_event(const mapme_t *mapme, const connection_t *conn,
+                               connection_event_t event);
 
 /**
- * @function mapme_getNextHops
+ * @function mapme_get_nexthops
  * @abstract return the nexthops to forward interests defined by mapme, it
  *   covers also the case where local discovery mechanisms are trriggered.
  */
-NumberSet *mapme_getNextHops(const MapMe *mapme, FibEntry *fibEntry,
-                             const Message *interest);
+// nexthops_t * mapme_get_nexthops(const mapme_t *mapme, fib_entry_t *fib_entry,
+//                              const msgbuf_t *interest);
 
-hicn_mapme_type_t mapme_PktType_To_LibHicnPktType(MessagePacketType type);
-
-MessagePacketType mapme_LibHicnPktType_To_PktType(hicn_mapme_type_t type);
+void mapme_set_enable(mapme_t *mapme, bool enable);
+void mapme_set_discovery(mapme_t *mapme, bool enable);
+void mapme_set_timescale(mapme_t *mapme, uint32_t time);
+void mapme_set_retransmision(mapme_t *mapme, uint32_t time);
 
 #endif /* WITH_MAPME */
 

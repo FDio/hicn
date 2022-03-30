@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -28,7 +28,7 @@
  * \param [in] f - File name
  * \return 0 in case of success, -1 otherwise.
  */
-int probe_cfgfile(char * f);
+int probe_cfgfile(char* f);
 
 /**
  * \brief Parses the provided configuration file into the facemgr configuration
@@ -37,6 +37,6 @@ int probe_cfgfile(char * f);
  * \param [out] cfg - Pre-allocated configuration data structure
  * \return 0 in case of success, -1 otherwise.
  */
-int parse_config_file(const char * cfgpath, facemgr_cfg_t * cfg);
+int parse_config_file(const char* cfgpath, facemgr_cfg_t* cfg);
 
 #endif /* FACEMGR_CFG_FILE_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,12 +16,10 @@
 #include <hicn/transport/auth/verifier.h>
 #include <protocols/errors.h>
 
-using namespace std;
-
 namespace transport {
 namespace auth {
 
-const vector<VerificationPolicy> Verifier::DEFAULT_FAILED_POLICIES = {
+const std::vector<VerificationPolicy> Verifier::DEFAULT_FAILED_POLICIES = {
     VerificationPolicy::DROP,
     VerificationPolicy::ABORT,
 };
@@ -38,24 +36,21 @@ Verifier::~Verifier() {}
 bool Verifier::verifyPacket(PacketPtr packet) {
   core::Packet::Format format = packet->getFormat();
 
-  if (!packet->authenticationHeader()) {
+  if (!packet->hasAH()) {
     throw errors::MalformedAHPacketException();
   }
 
   // Get crypto suite, hash type, signature length
   CryptoSuite suite = packet->getValidationAlgorithm();
   CryptoHashType hash_type = getHashType(suite);
-  size_t signature_len = packet->getSignatureSizeReal();
 
   // Copy IP+TCP / ICMP header before zeroing them
   hicn_header_t header_copy;
   hicn_packet_copy_header(format, packet->packet_start_, &header_copy, false);
-  packet->setSignatureSizeGap(0u);
 
   // Retrieve packet signature
-  uint8_t *packet_signature = packet->getSignature();
-  vector<uint8_t> signature_raw(packet_signature,
-                                packet_signature + signature_len);
+  std::vector<uint8_t> signature_raw = packet->getSignature();
+  signature_raw.resize(packet->getSignatureSize());
 
   // Reset fields that are not used to compute signature
   packet->resetForHash();
@@ -66,12 +61,14 @@ bool Verifier::verifyPacket(PacketPtr packet) {
 
   // Restore header
   hicn_packet_copy_header(format, &header_copy, packet->packet_start_, false);
-  packet->setSignatureSizeGap(packet->getSignatureSize() - signature_len);
+  packet->setSignature(signature_raw);
+  packet->setSignatureSize(signature_raw.size());
 
   return valid_packet;
 }
 
-Verifier::PolicyMap Verifier::verifyPackets(const vector<PacketPtr> &packets) {
+Verifier::PolicyMap Verifier::verifyPackets(
+    const std::vector<PacketPtr> &packets) {
   PolicyMap policies;
 
   for (const auto &packet : packets) {
@@ -82,8 +79,8 @@ Verifier::PolicyMap Verifier::verifyPackets(const vector<PacketPtr> &packets) {
       policy = VerificationPolicy::ACCEPT;
     }
 
+    callVerificationFailedCallback(suffix, policy);
     policies[suffix] = policy;
-    callVerificationFailedCallback(packet, policy);
   }
 
   return policies;
@@ -105,14 +102,15 @@ Verifier::PolicyMap Verifier::verifyHashes(const SuffixMap &packet_map,
       }
     }
 
+    callVerificationFailedCallback(packet_hash.first, policy);
     policies[packet_hash.first] = policy;
   }
 
   return policies;
 }
 
-Verifier::PolicyMap Verifier::verifyPackets(const vector<PacketPtr> &packets,
-                                            const SuffixMap &suffix_map) {
+Verifier::PolicyMap Verifier::verifyPackets(
+    const std::vector<PacketPtr> &packets, const SuffixMap &suffix_map) {
   PolicyMap policies;
 
   for (const auto &packet : packets) {
@@ -130,8 +128,8 @@ Verifier::PolicyMap Verifier::verifyPackets(const vector<PacketPtr> &packets,
       }
     }
 
+    callVerificationFailedCallback(suffix, policy);
     policies[suffix] = policy;
-    callVerificationFailedCallback(packet, policy);
   }
 
   return policies;
@@ -139,7 +137,7 @@ Verifier::PolicyMap Verifier::verifyPackets(const vector<PacketPtr> &packets,
 
 void Verifier::setVerificationFailedCallback(
     VerificationFailedCallback verfication_failed_cb,
-    const vector<VerificationPolicy> &failed_policies) {
+    const std::vector<VerificationPolicy> &failed_policies) {
   verification_failed_cb_ = verfication_failed_cb;
   failed_policies_ = failed_policies;
 }
@@ -149,7 +147,7 @@ void Verifier::getVerificationFailedCallback(
   *verfication_failed_cb = &verification_failed_cb_;
 }
 
-void Verifier::callVerificationFailedCallback(PacketPtr packet,
+void Verifier::callVerificationFailedCallback(Suffix suffix,
                                               VerificationPolicy &policy) {
   if (verification_failed_cb_ == interface::VOID_HANDLER) {
     return;
@@ -157,10 +155,7 @@ void Verifier::callVerificationFailedCallback(PacketPtr packet,
 
   if (find(failed_policies_.begin(), failed_policies_.end(), policy) !=
       failed_policies_.end()) {
-    policy = verification_failed_cb_(
-        static_cast<const core::ContentObject &>(*packet),
-        make_error_code(
-            protocol::protocol_error::signature_verification_failed));
+    policy = verification_failed_cb_(suffix, policy);
   }
 }
 
@@ -169,71 +164,75 @@ void Verifier::callVerificationFailedCallback(PacketPtr packet,
 // ---------------------------------------------------------
 bool VoidVerifier::verifyPacket(PacketPtr packet) { return true; }
 
-bool VoidVerifier::verifyBuffer(const vector<uint8_t> &buffer,
-                                const vector<uint8_t> &signature,
+bool VoidVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
+                                const std::vector<uint8_t> &signature,
                                 CryptoHashType hash_type) {
   return true;
 }
 
 bool VoidVerifier::verifyBuffer(const utils::MemBuf *buffer,
-                                const vector<uint8_t> &signature,
+                                const std::vector<uint8_t> &signature,
                                 CryptoHashType hash_type) {
   return true;
 }
 
 Verifier::PolicyMap VoidVerifier::verifyPackets(
-    const vector<PacketPtr> &packets) {
+    const std::vector<PacketPtr> &packets) {
   PolicyMap policies;
 
   for (const auto &packet : packets) {
-    policies[packet->getName().getSuffix()] = VerificationPolicy::ACCEPT;
+    auth::Suffix suffix = packet->getName().getSuffix();
+    VerificationPolicy policy = VerificationPolicy::ACCEPT;
+    callVerificationFailedCallback(suffix, policy);
+    policies[suffix] = policy;
   }
 
   return policies;
 }
 
 Verifier::PolicyMap VoidVerifier::verifyPackets(
-    const vector<PacketPtr> &packets, const SuffixMap &suffix_map) {
+    const std::vector<PacketPtr> &packets, const SuffixMap &suffix_map) {
   return verifyPackets(packets);
 }
 
 // ---------------------------------------------------------
 // Asymmetric Verifier
 // ---------------------------------------------------------
-AsymmetricVerifier::AsymmetricVerifier(shared_ptr<EVP_PKEY> key) {
+AsymmetricVerifier::AsymmetricVerifier(std::shared_ptr<EVP_PKEY> key) {
   setKey(key);
 }
 
-AsymmetricVerifier::AsymmetricVerifier(const string &cert_path) {
+AsymmetricVerifier::AsymmetricVerifier(const std::string &cert_path) {
   useCertificate(cert_path);
 }
 
-AsymmetricVerifier::AsymmetricVerifier(shared_ptr<X509> cert) {
+AsymmetricVerifier::AsymmetricVerifier(std::shared_ptr<X509> cert) {
   useCertificate(cert);
 }
 
-void AsymmetricVerifier::setKey(shared_ptr<EVP_PKEY> key) { key_ = key; };
+void AsymmetricVerifier::setKey(std::shared_ptr<EVP_PKEY> key) { key_ = key; };
 
-void AsymmetricVerifier::useCertificate(const string &cert_path) {
+void AsymmetricVerifier::useCertificate(const std::string &cert_path) {
   FILE *certf = fopen(cert_path.c_str(), "rb");
 
   if (certf == nullptr) {
     throw errors::RuntimeException("Certificate not found");
   }
 
-  shared_ptr<X509> cert = shared_ptr<X509>(
+  std::shared_ptr<X509> cert = std::shared_ptr<X509>(
       PEM_read_X509(certf, nullptr, nullptr, nullptr), ::X509_free);
   useCertificate(cert);
 
   fclose(certf);
 }
 
-void AsymmetricVerifier::useCertificate(shared_ptr<X509> cert) {
-  key_ = shared_ptr<EVP_PKEY>(X509_get_pubkey(cert.get()), ::EVP_PKEY_free);
+void AsymmetricVerifier::useCertificate(std::shared_ptr<X509> cert) {
+  key_ =
+      std::shared_ptr<EVP_PKEY>(X509_get_pubkey(cert.get()), ::EVP_PKEY_free);
 }
 
-bool AsymmetricVerifier::verifyBuffer(const vector<uint8_t> &buffer,
-                                      const vector<uint8_t> &signature,
+bool AsymmetricVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
+                                      const std::vector<uint8_t> &signature,
                                       CryptoHashType hash_type) {
   CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
 
@@ -241,7 +240,7 @@ bool AsymmetricVerifier::verifyBuffer(const vector<uint8_t> &buffer,
     throw errors::RuntimeException("Unknown hash type");
   }
 
-  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
 
   if (mdctx == nullptr) {
     throw errors::RuntimeException("Digest context allocation failed");
@@ -261,7 +260,7 @@ bool AsymmetricVerifier::verifyBuffer(const vector<uint8_t> &buffer,
 }
 
 bool AsymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
-                                      const vector<uint8_t> &signature,
+                                      const std::vector<uint8_t> &signature,
                                       CryptoHashType hash_type) {
   CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
 
@@ -270,7 +269,7 @@ bool AsymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
   }
 
   const utils::MemBuf *p = buffer;
-  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
 
   if (mdctx == nullptr) {
     throw errors::RuntimeException("Digest context allocation failed");
@@ -296,21 +295,21 @@ bool AsymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
 // ---------------------------------------------------------
 // Symmetric Verifier
 // ---------------------------------------------------------
-SymmetricVerifier::SymmetricVerifier(const string &passphrase) {
+SymmetricVerifier::SymmetricVerifier(const std::string &passphrase) {
   setPassphrase(passphrase);
 }
 
 // Create and set a symmetric key from a passphrase.
-void SymmetricVerifier::setPassphrase(const string &passphrase) {
-  key_ = shared_ptr<EVP_PKEY>(
+void SymmetricVerifier::setPassphrase(const std::string &passphrase) {
+  key_ = std::shared_ptr<EVP_PKEY>(
       EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, nullptr,
                                    (const unsigned char *)passphrase.c_str(),
                                    passphrase.size()),
       EVP_PKEY_free);
 }
 
-bool SymmetricVerifier::verifyBuffer(const vector<uint8_t> &buffer,
-                                     const vector<uint8_t> &signature,
+bool SymmetricVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
+                                     const std::vector<uint8_t> &signature,
                                      CryptoHashType hash_type) {
   CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
 
@@ -318,9 +317,9 @@ bool SymmetricVerifier::verifyBuffer(const vector<uint8_t> &buffer,
     throw errors::RuntimeException("Unknown hash type");
   }
 
-  vector<uint8_t> signature_bis(signature.size());
+  std::vector<uint8_t> signature_bis(signature.size());
   size_t signature_bis_len;
-  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
 
   if (mdctx == nullptr) {
     throw errors::RuntimeException("Digest context allocation failed");
@@ -344,7 +343,7 @@ bool SymmetricVerifier::verifyBuffer(const vector<uint8_t> &buffer,
 }
 
 bool SymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
-                                     const vector<uint8_t> &signature,
+                                     const std::vector<uint8_t> &signature,
                                      CryptoHashType hash_type) {
   CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
 
@@ -353,9 +352,9 @@ bool SymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
   }
 
   const utils::MemBuf *p = buffer;
-  vector<uint8_t> signature_bis(signature.size());
+  std::vector<uint8_t> signature_bis(signature.size());
   size_t signature_bis_len;
-  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
 
   if (mdctx == nullptr) {
     throw errors::RuntimeException("Digest context allocation failed");

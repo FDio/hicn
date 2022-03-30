@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,16 +23,18 @@ namespace protocol {
 RaaqmDataPath::RaaqmDataPath(double drop_factor,
                              double minimum_drop_probability,
                              unsigned new_timer, unsigned int samples,
-                             uint64_t new_rtt, uint64_t new_rtt_min,
-                             uint64_t new_rtt_max, unsigned new_pd)
+                             const utils::SteadyTime::Milliseconds &new_rtt,
+                             const utils::SteadyTime::Milliseconds &new_rtt_min,
+                             const utils::SteadyTime::Milliseconds &new_rtt_max,
+                             unsigned new_pd)
 
     : drop_factor_(drop_factor),
       minimum_drop_probability_(minimum_drop_probability),
       timer_(new_timer),
       samples_(samples),
-      rtt_(new_rtt),
-      rtt_min_(new_rtt_min),
-      rtt_max_(new_rtt_max),
+      rtt_(new_rtt.count()),
+      rtt_min_(new_rtt_min.count()),
+      rtt_max_(new_rtt_max.count()),
       prop_delay_(new_pd),
       new_prop_delay_(false),
       drop_prob_(0),
@@ -43,14 +45,15 @@ RaaqmDataPath::RaaqmDataPath(double drop_factor,
       raw_data_bytes_received_(0),
       last_raw_data_bytes_received_(0),
       rtt_samples_(samples_),
-      last_received_pkt_(utils::SteadyClock::now()),
+      last_received_pkt_(utils::SteadyTime::Clock::now()),
       average_rtt_(0),
       alpha_(ALPHA) {}
 
-RaaqmDataPath &RaaqmDataPath::insertNewRtt(uint64_t new_rtt,
-                                           const utils::TimePoint &now) {
-  rtt_ = new_rtt;
-  rtt_samples_.pushBack(new_rtt);
+RaaqmDataPath &RaaqmDataPath::insertNewRtt(
+    const utils::SteadyTime::Milliseconds &new_rtt,
+    const utils::SteadyTime::TimePoint &now) {
+  rtt_ = new_rtt.count();
+  rtt_samples_.pushBack(rtt_);
 
   rtt_max_ = rtt_samples_.rBegin();
   rtt_min_ = rtt_samples_.begin();
@@ -143,10 +146,8 @@ unsigned int RaaqmDataPath::getPropagationDelay() {
 }
 
 bool RaaqmDataPath::isStale() {
-  utils::TimePoint now = utils::SteadyClock::now();
-  auto time =
-      std::chrono::duration_cast<utils::Microseconds>(now - last_received_pkt_)
-          .count();
+  utils::SteadyTime::TimePoint now = utils::SteadyTime::Clock::now();
+  auto time = utils::SteadyTime::getDurationUs(last_received_pkt_, now).count();
   if (time > 2000000) {
     return true;
   }

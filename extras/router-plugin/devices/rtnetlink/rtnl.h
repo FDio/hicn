@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,7 +21,8 @@
 #include <linux/netlink.h>
 #include <vppinfra/clib.h>
 
-typedef enum {
+typedef enum
+{
   RTNL_ERR_UNKNOWN,
 } rtnl_error_t;
 
@@ -37,24 +38,27 @@ typedef enum {
  * new dump requests are sent.
  */
 
-typedef struct rtnl_stream_s {
+typedef struct rtnl_stream_s
+{
   char name[RTNL_NETNS_NAMELEN + 1];
-  void (*recv_message)(struct nlmsghdr *hdr, uword opaque);
-  void (*error)(rtnl_error_t err, uword opaque);
+  void (*recv_message) (struct nlmsghdr *hdr, uword opaque);
+  void (*error) (rtnl_error_t err, uword opaque);
   uword opaque;
 } rtnl_stream_t;
 
-u32 rtnl_stream_open(rtnl_stream_t *template);
-void rtnl_stream_close(u32 handle);
+u32 rtnl_stream_open (rtnl_stream_t *template);
+void rtnl_stream_close (u32 handle);
 
 /*
  * Executes a function in a synchronously executed thread in the
  * given namespace.
  * Returns 0 on success, and -errno on error.
  */
-int rtnl_exec_in_namespace(u32 handle, void *(*fn)(void *), void *arg, void **ret);
-int rtnl_exec_in_namespace_by_name(char *nsname, void *(*fn)(void *), void *arg, void **ret);
+int rtnl_exec_in_namespace (u32 handle, void *(*fn) (void *), void *arg,
+			    void **ret);
+int rtnl_exec_in_namespace_by_name (char *nsname, void *(*fn) (void *),
+				    void *arg, void **ret);
 
-u8 *format_rtnl_nsname2path(u8 *s, va_list *args);
+u8 *format_rtnl_nsname2path (u8 *s, va_list *args);
 
 #endif

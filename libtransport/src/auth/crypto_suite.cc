@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,31 +22,61 @@ CryptoSuite getSuite(int nid) {
   switch (nid) {
     case NID_ecdsa_with_SHA256:
       return CryptoSuite::ECDSA_SHA256;
-      break;
     case NID_ecdsa_with_SHA512:
       return CryptoSuite::ECDSA_SHA512;
-      break;
     case NID_sha256WithRSAEncryption:
       return CryptoSuite::RSA_SHA256;
-      break;
     case NID_sha512WithRSAEncryption:
       return CryptoSuite::RSA_SHA512;
-      break;
     case NID_hmacWithSHA256:
       return CryptoSuite::HMAC_SHA256;
-      break;
     case NID_hmacWithSHA512:
       return CryptoSuite::HMAC_SHA512;
-      break;
     case NID_dsa_with_SHA256:
       return CryptoSuite::DSA_SHA256;
-      break;
     case NID_dsa_with_SHA512:
       return CryptoSuite::DSA_SHA512;
-      break;
     default:
       return CryptoSuite::UNKNOWN;
-      break;
+  }
+}
+
+std::string getStringSuite(CryptoSuite suite) {
+  switch (suite) {
+    case CryptoSuite::ECDSA_BLAKE2B512:
+      return "ECDSA_BLAKE2B512";
+    case CryptoSuite::ECDSA_BLAKE2S256:
+      return "ECDSA_BLAKE2S256";
+    case CryptoSuite::ECDSA_SHA256:
+      return "ECDSA_SHA256";
+    case CryptoSuite::ECDSA_SHA512:
+      return "ECDSA_SHA512";
+    case CryptoSuite::RSA_BLAKE2B512:
+      return "RSA_BLAKE2B512";
+    case CryptoSuite::RSA_BLAKE2S256:
+      return "RSA_BLAKE2S256";
+    case CryptoSuite::RSA_SHA256:
+      return "RSA_SHA256";
+    case CryptoSuite::RSA_SHA512:
+      return "RSA_SHA512";
+    case CryptoSuite::HMAC_BLAKE2B512:
+      return "HMAC_BLAKE2B512";
+    case CryptoSuite::HMAC_BLAKE2S256:
+      return "HMAC_BLAKE2S256";
+    case CryptoSuite::HMAC_SHA256:
+      return "HMAC_SHA256";
+    case CryptoSuite::HMAC_SHA512:
+      return "HMAC_SHA512";
+    case CryptoSuite::DSA_BLAKE2B512:
+      return "DSA_BLAKE2B512";
+    case CryptoSuite::DSA_BLAKE2S256:
+      return "DSA_BLAKE2S256";
+    case CryptoSuite::DSA_SHA256:
+      return "DSA_SHA256";
+    case CryptoSuite::DSA_SHA512:
+      return "DSA_SHA512";
+    default:
+      return "UNKNOWN";
   }
 }
 

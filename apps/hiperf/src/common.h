@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include <hicn/transport/auth/identity.h>
+#include <forwarder_interface.h>
 #include <hicn/transport/auth/signer.h>
 #include <hicn/transport/config.h>
 #include <hicn/transport/core/content_object.h>
@@ -45,6 +45,9 @@
 #endif
 #define ERROR_SETUP -5
 #define MIN_PROBE_SEQ 0xefffffff
+#define RTC_HEADER_SIZE 12
+#define FEC_HEADER_MAX_SIZE 36
+#define HIPERF_MTU 1500
 
 using namespace transport::interface;
 using namespace transport::auth;
@@ -73,11 +76,51 @@ static inline uint64_t _htonll(const uint64_t *input) {
 namespace hiperf {
 
 /**
+ * Class to retrieve the maximum payload size given the MTU and packet headers.
+ */
+class PayloadSize {
+ public:
+  PayloadSize(Packet::Format format, std::size_t mtu = HIPERF_MTU)
+      : mtu_(mtu), format_(format) {}
+
+  std::size_t getPayloadSizeMax(std::size_t transport_size = 0,
+                                std::size_t fec_size = 0,
+                                std::size_t signature_size = 0) {
+    return mtu_ - Packet::getHeaderSizeFromFormat(format_, signature_size) -
+           transport_size - fec_size;
+  }
+
+  static Packet::Format getFormatFromName(Name name, bool ah = false) {
+    switch (name.getAddressFamily()) {
+      case AF_INET:
+        return ah ? HF_INET_TCP_AH : HF_INET_TCP;
+      case AF_INET6:
+        return ah ? HF_INET6_TCP_AH : HF_INET6_TCP;
+      default:
+        return HF_UNSPEC;
+    }
+  }
+
+ private:
+  std::size_t mtu_;
+  Packet::Format format_;
+};
+
+/**
  * Class for handling the production rate for the RTC producer.
  */
 class Rate {
  public:
   Rate() : rate_kbps_(0) {}
+  ~Rate() {}
+
+  Rate &operator=(const Rate &other) {
+    if (this != &other) {
+      rate_kbps_ = other.rate_kbps_;
+    }
+
+    return *this;
+  }
 
   Rate(const std::string &rate) {
     std::size_t found = rate.find("kbps");
@@ -137,9 +180,16 @@ struct ClientConfiguration {
         secure_(false),
         producer_prefix_(),
         interest_lifetime_(500),
+        unverified_delay_(2000),
         relay_name_("c001::abcd/64"),
         output_stream_mode_(false),
-        port_(0) {}
+        port_(0),
+        recovery_strategy_(4),
+        aggregated_data_(false),
+        fec_type_(""),
+        packet_format_(default_values::packet_format),
+        print_headers_(true),
+        nb_iterations_(std::numeric_limits<decltype(nb_iterations_)>::max()) {}
 
   Name name;
   double beta;
@@ -158,9 +208,17 @@ struct ClientConfiguration {
   bool secure_;
   Prefix producer_prefix_;
   uint32_t interest_lifetime_;
+  uint32_t unverified_delay_;
   Prefix relay_name_;
   bool output_stream_mode_;
   uint16_t port_;
+  uint32_t recovery_strategy_;
+  bool aggregated_data_;
+  std::string fec_type_;
+  Packet::Format packet_format_;
+  bool print_headers_;
+  std::uint32_t nb_iterations_;
+  forwarder_type_t forwarder_type_;
 };
 
 /**
@@ -170,11 +228,11 @@ struct ServerConfiguration {
   ServerConfiguration()
       : name("b001::abcd/64"),
         virtual_producer(true),
-        manifest(false),
+        manifest(0),
         live_production(false),
         content_lifetime(600000000_U32),
         download_size(20 * 1024 * 1024),
-        hash_algorithm(CryptoHashType::SHA256),
+        hash_algorithm_(CryptoHashType::SHA256),
         keystore_name(""),
         passphrase(""),
         keystore_password("cisco"),
@@ -185,18 +243,21 @@ struct ServerConfiguration {
         trace_index_(0),
         trace_file_(nullptr),
         production_rate_(std::string("2048kbps")),
-        payload_size_(1400),
+        payload_size_(1384),
         secure_(false),
         input_stream_mode_(false),
-        port_(0) {}
+        port_(0),
+        aggregated_data_(false),
+        fec_type_(""),
+        packet_format_(default_values::packet_format) {}
 
   Prefix name;
   bool virtual_producer;
-  bool manifest;
+  std::uint32_t manifest;
   bool live_production;
   std::uint32_t content_lifetime;
   std::uint32_t download_size;
-  CryptoHashType hash_algorithm;
+  CryptoHashType hash_algorithm_;
   std::string keystore_name;
   std::string passphrase;
   std::string keystore_password;
@@ -212,6 +273,9 @@ struct ServerConfiguration {
   bool input_stream_mode_;
   uint16_t port_;
   std::vector<struct packet_t> trace_;
+  bool aggregated_data_;
+  std::string fec_type_;
+  Packet::Format packet_format_;
 };
 
 }  // namespace hiperf

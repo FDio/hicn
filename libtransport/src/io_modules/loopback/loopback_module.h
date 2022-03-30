@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -36,11 +36,12 @@ class LoopbackModule : public IoModule {
   void connect(bool is_consumer) override;
 
   void send(Packet &packet) override;
-  void send(const uint8_t *packet, std::size_t len) override;
+  void send(const utils::MemBuf::Ptr &buffer) override;
 
   bool isConnected() override;
 
   void init(Connector::PacketReceivedCallback &&receive_callback,
+            Connector::PacketSentCallback &&sent_callback,
             Connector::OnReconnectCallback &&reconnect_callback,
             asio::io_service &io_service,
             const std::string &app_name = "Libtransport") override;
@@ -49,7 +50,7 @@ class LoopbackModule : public IoModule {
 
   std::uint32_t getMtu() override;
 
-  bool isControlMessage(const uint8_t *message) override;
+  bool isControlMessage(utils::MemBuf &packet_buffer) override;
 
   void processControlMessageReply(utils::MemBuf &packet_buffer) override;
 
