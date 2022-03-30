@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -36,7 +36,7 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
       : tcp_receiver_(tcp_receiver),
         thread_(thread),
         prefix_hash_(tcp_receiver_.prefix_hash_),
-        consumer_(TransportProtocolAlgorithms::RAAQM, thread_.getIoService()),
+        consumer_(TransportProtocolAlgorithms::RAAQM, thread_),
         session_(nullptr),
         current_size_(0) {
     consumer_.setSocketOption(ConsumerCallbacksOptions::READ_CALLBACK, this);
@@ -69,8 +69,8 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
             std::uint16_t remote_port = socket.remote_endpoint().port();
             TRANSPORT_LOG_INFO << "Client " << remote_address << ":"
                                << remote_port << "disconnected.";
-          } catch (std::system_error& e) {
-            // Do nothing
+          } catch (asio::system_error& e) {
+            TRANSPORT_LOG_INFO << "Client disconnected.";
           }
 
           consumer_.stop();
@@ -191,7 +191,7 @@ class HTTPClientConnectionCallback : interface::ConsumerSocket::ReadCallback {
     session_->send(_buffer, []() {});
   }
 
-  void readError(const std::error_code ec) noexcept {
+  void readError(const std::error_code& ec) noexcept {
     TRANSPORT_LOG_ERROR
         << "Error reading from hicn consumer socket. Closing session.";
     session_->close();
@@ -265,7 +265,7 @@ TcpReceiver::TcpReceiver(std::uint16_t port, const std::string& prefix,
       prefix_hash_(generatePrefix(prefix_, ipv6_first_word_)),
       forwarder_config_(
           thread_.getIoService(),
-          [this](std::error_code ec) {
+          [this](const std::error_code& ec) {
             if (!ec) {
               listener_.doAccept();
               for (int i = 0; i < 10; i++) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,7 +21,7 @@ hicn_dpo_ctx_t *hicn_strategy_dpo_ctx_pool;
 void
 hicn_strategy_init_dpo_ctx_pool ()
 {
-  pool_init_fixed (hicn_strategy_dpo_ctx_pool, 256);
+  // pool_init_fixed (hicn_strategy_dpo_ctx_pool, 256);
 }
 
 void
@@ -29,9 +29,16 @@ hicn_strategy_dpo_ctx_lock (dpo_id_t *dpo)
 {
   hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo->dpoi_index);
 
-  if (dpo_ctx != NULL)
+  if (PREDICT_TRUE (dpo_ctx != NULL))
     {
       dpo_ctx->locks++;
+      HICN_DEBUG ("Locking DPO CTX with index %d. Lock now: %d",
+		  dpo->dpoi_index, dpo_ctx->locks);
+    }
+  else
+    {
+      HICN_ERROR ("Trying to lock NULL spo_ctx with index %d",
+		  dpo->dpoi_index);
     }
 }
 
@@ -41,14 +48,22 @@ hicn_strategy_dpo_ctx_unlock (dpo_id_t *dpo)
   hicn_dpo_ctx_t *hicn_strategy_dpo_ctx =
     (hicn_dpo_ctx_t *) hicn_strategy_dpo_ctx_get (dpo->dpoi_index);
 
-  if (hicn_strategy_dpo_ctx != NULL)
+  if (PREDICT_TRUE (hicn_strategy_dpo_ctx != NULL))
     {
       hicn_strategy_dpo_ctx->locks--;
+      HICN_DEBUG ("Unlcking DPO CTX with index %d. Lock now: %d",
+		  dpo->dpoi_index, hicn_strategy_dpo_ctx->locks);
 
       if (0 == hicn_strategy_dpo_ctx->locks)
 	{
+	  HICN_DEBUG ("Releasing DPO CTX %d", dpo->dpoi_index);
 	  pool_put (hicn_strategy_dpo_ctx_pool, hicn_strategy_dpo_ctx);
 	}
+    }
+  else
+    {
+      HICN_ERROR ("Trying to unlock NULL spo_ctx with index %d",
+		  dpo->dpoi_index);
     }
 }
 
@@ -90,8 +105,11 @@ hicn_strategy_dpo_ctx_get (index_t index)
 hicn_dpo_ctx_t *
 hicn_strategy_dpo_ctx_alloc ()
 {
+  HICN_DEBUG ("Allocating new DPO CTX");
   hicn_dpo_ctx_t *dpo_ctx;
-  pool_get (hicn_strategy_dpo_ctx_pool, dpo_ctx);
+  pool_get_aligned (hicn_strategy_dpo_ctx_pool, dpo_ctx,
+		    2 * CLIB_CACHE_LINE_BYTES);
+  dpo_ctx->locks = 0;
   return dpo_ctx;
 }
 

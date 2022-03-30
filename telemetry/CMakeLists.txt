@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -14,8 +14,16 @@
 
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
-if ((CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR) OR 
+##############################################################
+# Packaging and versioning
+##############################################################
+include(${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake)
+
+
+##############################################################
+# Subdirectories
+##############################################################
+if ((CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR) OR
     (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux"))
     add_subdirectory(vpp-collectd)
 endif ()
-

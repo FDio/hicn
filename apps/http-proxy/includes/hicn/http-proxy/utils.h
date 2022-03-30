@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -35,14 +35,13 @@ TRANSPORT_ALWAYS_INLINE std::string generatePrefix(
   str += pos;
 
   uint32_t locator_hash = utils::hash::fnv32_buf(str, strlen(str));
+  uint16_t* word = (uint16_t*)&locator_hash;
 
   std::stringstream stream;
   stream << first_ipv6_word << ":0";
 
-  for (uint16_t* word = (uint16_t*)&locator_hash;
-       std::size_t(word) < (std::size_t(&locator_hash) + sizeof(locator_hash));
-       word++) {
-    stream << ":" << std::hex << *word;
+  for (std::size_t i = 0; i < sizeof(locator_hash) / 2; i++) {
+    stream << ":" << std::hex << word[i];
   }
 
   stream << "::";

@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,80 +11,127 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-list(APPEND COMPILER_DEFINITIONS
-  "-DWITH_POLICY"
-)
-
+##############################################################
+# Source files
+##############################################################
 set(SOURCE_FILES
-    face.c
-    route.c
-    api.c
+  route.c
+  api.c
 )
 
 set(HEADER_FILES
-    api_private.h
+  api_private.h
 )
 
+
+##############################################################
+# Libraries to link
+##############################################################
 set(LIBRARIES
-    m
-    dl
-    ${HICN_LIBRARIES}
+  m
+  dl
+  ${HICN_LIBRARIES}
 )
 
+
+##############################################################
+# Include directories
+##############################################################
 set(INCLUDE_DIRS
+  PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../includes/
-    ${HICN_INCLUDE_DIRS}
+  PUBLIC
+    $<BUILD_INTERFACE:${Libhicnctrl_INCLUDE_DIRS}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-# Android requires static libraries
+
+##############################################################
+# Library type
+##############################################################
 if (DISABLE_SHARED_LIBRARIES)
-    set(LIBRARIES ${LIBRARIES} ${LIBHICN_STATIC})
-    set(LINK_TYPE STATIC)
+  set(LIBRARIES ${LIBRARIES} ${LIBHICN_STATIC})
+  set(LINK_TYPE STATIC)
 else ()
-    set(LINK_TYPE SHARED STATIC)
+  set(LINK_TYPE SHARED STATIC)
 endif ()
 
+
+##############################################################
+# Do not use modules if Android
+##############################################################
 if (${CMAKE_SYSTEM_NAME} MATCHES Android)
-    list(APPEND SOURCE_FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light_api.c
-    )
+  list(APPEND SOURCE_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light_common.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light_ng_api.c
+  )
 else()
-    add_subdirectory(modules)
+  add_subdirectory(modules)
 endif()
 
+
+##############################################################
+# Compiler options
+##############################################################
+set(COMPILER_OPTIONS
+  ${DEFAULT_COMPILER_OPTIONS}
+)
+
+
+##############################################################
+# Build main hicnctrl library
+##############################################################
 build_library(${LIBHICNCTRL}
-    ${LINK_TYPE}
-    SOURCES ${SOURCE_FILES} ${HEADER_FILES}
-    INSTALL_HEADERS ${TO_INSTALL_HEADER_FILES}
+  ${LINK_TYPE}
+  SOURCES ${SOURCE_FILES} ${HEADER_FILES}
+  INSTALL_HEADERS ${TO_INSTALL_HEADER_FILES}
+  LINK_LIBRARIES ${LIBRARIES}
+  DEPENDS ${DEPENDENCIES}
+  COMPONENT ${LIBHICNCTRL_COMPONENT}
+  INCLUDE_DIRS ${INCLUDE_DIRS}
+  DEFINITIONS PUBLIC ${COMPILER_DEFINITIONS}
+  VERSION ${CURRENT_VERSION}
+  EXPORT_NAME "${LIBHICNCTRL_COMPONENT}"
+  COMPILE_OPTIONS ${COMPILER_OPTIONS}
+)
+
+
+##############################################################
+# Cmake config files
+##############################################################
+create_cmake_config (
+  ${LIBHICNCTRL_COMPONENT}
+  INCLUDE_DIRS ${Libhicnctrl_INCLUDE_DIRS}
+  VERSION ${CURRENT_VERSION}
+  COMPONENT ${LIBHICNCTRL_COMPONENT}
+  NAMESPACE hicn
+)
+
+
+##############################################################
+# Build executables
+##############################################################
+if (NOT DISABLE_EXECUTABLES)
+  if (DISABLE_SHARED_LIBRARIES)
+    set(LIBRARIES ${LIBRARIES} ${LIBHICNCTRL_STATIC})
+    set(DEPENDENCIES ${LIBHICNCTRL_STATIC})
+  else ()
+    set(LIBRARIES ${LIBRARIES} ${LIBHICN_SHARED} ${LIBHICNCTRL_SHARED})
+    set(DEPENDENCIES ${LIBHICNCTRL_SHARED})
+  endif ()
+
+  list(APPEND DAEMON_SRC
+    hicnctrl.c
+  )
+
+  build_executable(${HICNCTRL}
+    SOURCES ${DAEMON_SRC}
     LINK_LIBRARIES ${LIBRARIES}
     DEPENDS ${DEPENDENCIES}
     COMPONENT ${LIBHICNCTRL_COMPONENT}
     INCLUDE_DIRS ${INCLUDE_DIRS}
-    HEADER_ROOT_DIR hicn
     DEFINITIONS ${COMPILER_DEFINITIONS}
-)
-
-if (NOT DISABLE_EXECUTABLES)
-    if (DISABLE_SHARED_LIBRARIES)
-        set(LIBRARIES ${LIBRARIES} ${LIBHICNCTRL_STATIC})
-        set(DEPENDENCIES ${LIBHICNCTRL_STATIC})
-    else ()
-        set(LIBRARIES ${LIBRARIES} ${LIBHICN_SHARED} ${LIBHICNCTRL_SHARED})
-        set(DEPENDENCIES ${LIBHICNCTRL_SHARED})
-    endif ()
-
-    list(APPEND DAEMON_SRC
-      cli.c
-    )
-
-    build_executable(${HICNCTRL}
-      SOURCES ${DAEMON_SRC}
-      LINK_LIBRARIES ${LIBRARIES}
-      DEPENDS ${DEPENDENCIES}
-      COMPONENT ${LIBHICNCTRL_COMPONENT}
-      INCLUDE_DIRS ${INCLUDE_DIRS}
-      DEFINITIONS ${COMPILER_DEFINITIONS}
-      LINK_FLAGS ${LINK_FLAGS}
-    )
+    LINK_FLAGS ${LINK_FLAGS}
+    COMPILE_OPTIONS ${COMPILER_OPTIONS}
+  )
 endif ()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -30,11 +30,7 @@ namespace transport {
 
 namespace auth {
 class Signer;
-class AsymmetricSigner;
-class SymmetricSigner;
 class Verifier;
-class AsymmetricVerifier;
-class SymmetricVerifier;
 }  // namespace auth
 
 namespace core {
@@ -51,16 +47,13 @@ namespace core {
 class Packet : public utils::MemBuf,
                public std::enable_shared_from_this<Packet> {
   friend class auth::Signer;
-  friend class auth::SymmetricSigner;
-  friend class auth::AsymmetricSigner;
   friend class auth::Verifier;
-  friend class auth::AsymmetricVerifier;
-  friend class auth::SymmetricVerifier;
 
  public:
   using Ptr = std::shared_ptr<Packet>;
   using MemBufPtr = std::shared_ptr<utils::MemBuf>;
   using Format = hicn_format_t;
+
   static constexpr size_t default_mtu = 1500;
 
   /**
@@ -68,146 +61,73 @@ class Packet : public utils::MemBuf,
    * the eventual payload will be added by prepending the payload buffer
    * to the buffer chain whose the fist buffer is the header itself.
    */
-  Packet(Format format = HF_INET6_TCP, std::size_t additional_header_size = 0);
-
-  /**
-   * Create new IP packet using raw buffer.
-   */
-
+  Packet(Format format, std::size_t additional_header_size = 0);
   /* Copy buffer */
   Packet(CopyBufferOp, const uint8_t *buffer, std::size_t size);
   /* Wrap buffer */
   Packet(WrapBufferOp, uint8_t *buffer, std::size_t length, std::size_t size);
   /* Create new using pre-allocated buffer */
   Packet(CreateOp, uint8_t *buffer, std::size_t length, std::size_t size,
-         Format format = HF_INET6_TCP, std::size_t additional_header_size = 0);
-  /* Move MemBuf */
+         Format format, std::size_t additional_header_size = 0);
+
   Packet(MemBuf &&buffer);
-
   Packet(Packet &&other);
-
-  /*
-   * Copy constructor and assignemnt operators.
-   */
   Packet(const Packet &other);
-  Packet &operator=(const Packet &other);
 
-  friend bool operator==(const Packet &l_packet, const Packet &r_packet);
-
+  // Destructor
   virtual ~Packet();
 
-  static std::size_t getHeaderSizeFromFormat(Format format,
-                                             std::size_t signature_size = 0) {
-    std::size_t header_length;
-    hicn_packet_get_header_length_from_format(format, &header_length);
-    int is_ah = _is_ah(format);
-    return is_ah * (header_length + signature_size) + (!is_ah) * header_length;
-  }
+  // Operators
+  Packet &operator=(const Packet &other);
+  friend bool operator==(const Packet &l_packet, const Packet &r_packet);
 
-  static std::size_t getHeaderSizeFromBuffer(Format format,
-                                             const uint8_t *buffer);
-
-  static std::size_t getPayloadSizeFromBuffer(Format format,
-                                              const uint8_t *buffer);
-
-  static bool isInterest(const uint8_t *buffer);
-
-  bool isInterest();
-
-  static Format getFormatFromBuffer(const uint8_t *buffer, std::size_t length) {
-    Format format = HF_UNSPEC;
-    hicn_packet_get_format((const hicn_header_t *)buffer, &format);
-    return format;
-  }
-
-  void reset() {
-    clear();
-    packet_start_ = reinterpret_cast<hicn_header_t *>(writableData());
-    header_offset_ = 0;
-    format_ = HF_UNSPEC;
-    payload_type_ = PayloadType::UNSPECIFIED;
-    name_.clear();
-
-    if (isChained()) {
-      separateChain(next(), prev());
-    }
-  }
-
-  void setFormat(Packet::Format format = HF_INET6_TCP,
-                 std::size_t additional_header_size = 0);
-
-  std::size_t payloadSize() const;
-
-  std::size_t headerSize() const;
-
+  // Cast to MemBuf
   std::shared_ptr<utils::MemBuf> acquireMemBufReference();
 
+  // Format
+  Format getFormat() const;
+  void setFormat(Packet::Format format, std::size_t additional_header_size = 0);
+
+  // Name
   virtual const Name &getName() const = 0;
-
   virtual Name &getWritableName() = 0;
-
   virtual void setName(const Name &name) = 0;
 
+  // Lifetime
   virtual void setLifetime(uint32_t lifetime) = 0;
-
   virtual uint32_t getLifetime() const = 0;
 
-  Packet &appendPayload(const uint8_t *buffer, std::size_t length);
-
-  Packet &appendPayload(std::unique_ptr<utils::MemBuf> &&payload);
-
-  std::unique_ptr<utils::MemBuf> getPayload() const;
-
-  Packet &updateLength(std::size_t length = 0);
-
-  PayloadType getPayloadType() const;
-
-  Packet &setPayloadType(PayloadType payload_type);
-
-  Format getFormat() const;
-
-  void dump() const;
-
-  static void dump(uint8_t *buffer, std::size_t length);
-
+  // Locator
   virtual void setLocator(const ip_address_t &locator) = 0;
-
   virtual ip_address_t getLocator() const = 0;
 
-  /**
-   * @brief Set signature timestamp, in milliseconds.
-   */
-  void setSignatureTimestamp(const uint64_t &timestamp_milliseconds);
+  // Payload type
+  PayloadType getPayloadType() const;
+  Packet &setPayloadType(PayloadType payload_type);
 
-  uint64_t getSignatureTimestamp() const;
+  // Payload
+  std::unique_ptr<utils::MemBuf> getPayload() const;
+  Packet &appendPayload(std::unique_ptr<utils::MemBuf> &&payload);
+  Packet &appendPayload(const uint8_t *buffer, std::size_t length);
 
-  void setValidationAlgorithm(const auth::CryptoSuite &validation_algorithm);
+  // Sizes
+  std::size_t headerSize() const;
+  std::size_t payloadSize() const;
 
-  auth::CryptoSuite getValidationAlgorithm() const;
+  // Digest
+  auth::CryptoHash computeDigest(auth::CryptoHashType algorithm) const;
 
-  void setKeyId(const auth::KeyId &key_id);
+  // Reset packet
+  void reset();
 
-  auth::KeyId getKeyId() const;
+  // Utils
+  bool isInterest();
+  Packet &updateLength(std::size_t length = 0);
+  void dump() const;
 
-  virtual auth::CryptoHash computeDigest(auth::CryptoHashType algorithm) const;
-
-  void setChecksum() {
-    uint16_t partial_csum =
-        csum(data() + HICN_V6_TCP_HDRLEN, length() - HICN_V6_TCP_HDRLEN, 0);
-
-    for (utils::MemBuf *current = next(); current != this;
-         current = current->next()) {
-      partial_csum = csum(current->data(), current->length(), ~partial_csum);
-    }
-
-    if (hicn_packet_compute_header_checksum(format_, packet_start_,
-                                            partial_csum) < 0) {
-      throw errors::MalformedPacketException();
-    }
-  }
-
+  // TCP methods
+  void setChecksum();
   bool checkIntegrity() const;
-
   Packet &setSyn();
   Packet &resetSyn();
   bool testSyn() const;
@@ -222,52 +142,44 @@ class Packet : public utils::MemBuf,
   bool testFin() const;
   Packet &resetFlags();
   std::string printFlags() const;
-
   Packet &setSrcPort(uint16_t srcPort);
   Packet &setDstPort(uint16_t dstPort);
   uint16_t getSrcPort() const;
   uint16_t getDstPort() const;
-
   Packet &setTTL(uint8_t hops);
   uint8_t getTTL() const;
 
+  // Authentication Header methods
+  bool hasAH() const;
+  std::vector<uint8_t> getSignature() const;
+  std::size_t getSignatureFieldSize() const;
+  std::size_t getSignatureSize() const;
+  uint64_t getSignatureTimestamp() const;
+  auth::KeyId getKeyId() const;
+  auth::CryptoSuite getValidationAlgorithm() const;
+  void setSignature(const std::vector<uint8_t> &signature);
+  void setSignatureFieldSize(std::size_t size);
+  void setSignatureSize(std::size_t size);
+  void setSignatureTimestamp(const uint64_t &timestamp_ms);
+  void setKeyId(const auth::KeyId &key_id);
+  void setValidationAlgorithm(const auth::CryptoSuite &algo);
+
+  // Static methods
+  static Format toAHFormat(const Format &format);
+  static Format getFormatFromBuffer(const uint8_t *buffer, std::size_t length);
+  static std::size_t getHeaderSizeFromFormat(Format format,
+                                             std::size_t signature_size = 0);
+  static std::size_t getHeaderSizeFromBuffer(Format format,
+                                             const uint8_t *buffer);
+  static std::size_t getPayloadSizeFromBuffer(Format format,
+                                              const uint8_t *buffer);
+  static bool isInterest(const uint8_t *buffer,
+                         Format format = Format::HF_UNSPEC);
+  static void dump(uint8_t *buffer, std::size_t length);
+
  private:
   virtual void resetForHash() = 0;
-  void setSignatureSize(std::size_t size_bytes);
-  void setSignatureSizeGap(std::size_t size_bytes);
   void prependPayload(const uint8_t **buffer, std::size_t *size);
-
-  bool authenticationHeader() const { return _is_ah(format_); }
-
-  std::size_t getSignatureSize() const {
-    size_t size_bytes;
-    int ret =
-        hicn_packet_get_signature_size(format_, packet_start_, &size_bytes);
-
-    if (ret < 0) {
-      throw errors::RuntimeException("Packet without Authentication Header.");
-    }
-
-    return size_bytes;
-  }
-
-  std::size_t getSignatureSizeGap() const {
-    uint8_t size_bytes;
-    int ret =
-        hicn_packet_get_signature_gap(format_, packet_start_, &size_bytes);
-
-    if (ret < 0) {
-      throw errors::RuntimeException("Packet without Authentication Header.");
-    }
-
-    return (size_t)size_bytes;
-  }
-
-  std::size_t getSignatureSizeReal() const {
-    return getSignatureSize() - getSignatureSizeGap();
-  }
-
-  uint8_t *getSignature() const;
 
  protected:
   hicn_header_t *packet_start_;

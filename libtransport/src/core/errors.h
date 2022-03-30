@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -36,7 +36,10 @@ const std::error_category& core_category();
 enum class core_error {
   success = 0,
   configuration_parse_failed,
-  configuration_not_applied
+  configuration_not_applied,
+  send_failed,
+  send_buffer_allocation_failed,
+  receive_failed
 };
 
 /**

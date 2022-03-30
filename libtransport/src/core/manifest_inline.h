@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -40,25 +40,26 @@ class ManifestInline
  public:
   ManifestInline() : ManifestBase() {}
 
-  ManifestInline(const core::Name &name, std::size_t signature_size = 0)
-      : ManifestBase(name, signature_size) {}
+  ManifestInline(Packet::Format format, const core::Name &name,
+                 std::size_t signature_size = 0)
+      : ManifestBase(format, name, signature_size) {}
 
   template <typename T>
   ManifestInline(T &&base) : ManifestBase(std::forward<T &&>(base)) {}
 
-  static TRANSPORT_ALWAYS_INLINE ManifestInline *createManifest(
-      const core::Name &manifest_name, ManifestVersion version,
-      ManifestType type, HashType algorithm, bool is_last,
-      const Name &base_name, NextSegmentCalculationStrategy strategy,
-      std::size_t signature_size) {
-    auto manifest = new ManifestInline(manifest_name, signature_size);
-    manifest->setVersion(version);
-    manifest->setManifestType(type);
-    manifest->setHashAlgorithm(algorithm);
-    manifest->setFinalManifest(is_last);
-    manifest->setBaseName(base_name);
-    manifest->setNextSegmentCalculationStrategy(strategy);
+  template <typename T>
+  ManifestInline(T &base) : ManifestBase(base) {}
 
+  static TRANSPORT_ALWAYS_INLINE ManifestInline *createManifest(
+      Packet::Format format, const core::Name &manifest_name,
+      ManifestVersion version, ManifestType type, bool is_last,
+      const Name &base_name, HashType hash_algo, std::size_t signature_size) {
+    auto manifest = new ManifestInline(format, manifest_name, signature_size);
+    manifest->setVersion(version);
+    manifest->setType(type);
+    manifest->setHashAlgorithm(hash_algo);
+    manifest->setIsLast(is_last);
+    manifest->setBaseName(base_name);
     return manifest;
   }
 
@@ -69,8 +70,6 @@ class ManifestInline
 
   ManifestInline &decodeImpl() {
     base_name_ = ManifestBase::decoder_.getBaseName();
-    next_segment_strategy_ =
-        ManifestBase::decoder_.getNextSegmentCalculationStrategy();
     suffix_hash_map_ = ManifestBase::decoder_.getSuffixHashList();
 
     return *this;
@@ -95,18 +94,6 @@ class ManifestInline
 
   // Call this function only after the decode function!
   const SuffixList &getSuffixList() { return suffix_hash_map_; }
-
-  ManifestInline &setNextSegmentCalculationStrategy(
-      NextSegmentCalculationStrategy strategy) {
-    next_segment_strategy_ = strategy;
-    ManifestBase::encoder_.setNextSegmentCalculationStrategy(
-        next_segment_strategy_);
-    return *this;
-  }
-
-  NextSegmentCalculationStrategy getNextSegmentCalculationStrategy() {
-    return next_segment_strategy_;
-  }
 
   // Convert several manifests into a single map from suffixes to packet hashes.
   // All manifests must have been decoded beforehand.
@@ -134,7 +121,6 @@ class ManifestInline
 
  private:
   core::Name base_name_;
-  NextSegmentCalculationStrategy next_segment_strategy_;
   SuffixList suffix_hash_map_;
 };
 

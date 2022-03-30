@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -18,8 +18,10 @@
 #include <protocols/errors.h>
 #include <protocols/fec_utils.h>
 #include <protocols/indexer.h>
+#include <protocols/rtc/probe_handler.h>
 #include <protocols/rtc/rtc_consts.h>
 #include <protocols/transport_protocol.h>
+#include <utils/suffix_strategy.h>
 
 #include <deque>
 
@@ -54,7 +56,7 @@ class RtcIndexer : public Indexer {
     n_fec_ = 0;
   }
 
-  uint32_t checkNextSuffix() override { return next_suffix_; }
+  uint32_t checkNextSuffix() const override { return next_suffix_; }
 
   uint32_t getNextSuffix() override {
     if (isFec(next_suffix_)) {
@@ -77,7 +79,7 @@ class RtcIndexer : public Indexer {
     first_suffix_ = suffix % LIMIT;
   }
 
-  uint32_t getFirstSuffix() override { return first_suffix_; }
+  uint32_t getFirstSuffix() const override { return first_suffix_; }
 
   uint32_t jumpToIndex(uint32_t index) override {
     next_suffix_ = index % LIMIT;
@@ -87,30 +89,8 @@ class RtcIndexer : public Indexer {
   void onContentObject(core::Interest &interest,
                        core::ContentObject &content_object,
                        bool reassembly) override {
-    setVerifier();
-    auto ret = verifier_->verifyPackets(&content_object);
-
-    switch (ret) {
-      case auth::VerificationPolicy::ACCEPT: {
-        if (reassembly) {
-          reassembly_->reassemble(content_object);
-        }
-        break;
-      }
-
-      case auth::VerificationPolicy::UNKNOWN:
-      case auth::VerificationPolicy::DROP: {
-        transport_->onPacketDropped(
-            interest, content_object,
-            make_error_code(protocol_error::verification_failed));
-        break;
-      }
-
-      case auth::VerificationPolicy::ABORT: {
-        transport_->onContentReassembled(
-            make_error_code(protocol_error::session_aborted));
-        break;
-      }
+    if (reassembly) {
+      reassembly_->reassemble(content_object);
     }
   }
 
@@ -120,13 +100,12 @@ class RtcIndexer : public Indexer {
   uint32_t getNextReassemblySegment() override {
     throw errors::RuntimeException(
         "Get reassembly segment called on rtc indexer. RTC indexer does not "
-        "provide "
-        "reassembly.");
+        "provide reassembly.");
   }
 
   bool isFinalSuffixDiscovered() override { return true; }
 
-  uint32_t getFinalSuffix() override { return LIMIT; }
+  uint32_t getFinalSuffix() const override { return LIMIT; }
 
   void enableFec(fec::FECType fec_type) override { fec_type_ = fec_type; }
 
@@ -137,13 +116,13 @@ class RtcIndexer : public Indexer {
     n_current_fec_ = n_fec_;
   }
 
-  uint32_t getNFec() override { return n_fec_; }
+  uint32_t getNFec() const override { return n_fec_; }
 
   bool isFec(uint32_t index) override {
     return isFec(fec_type_, index, first_suffix_);
   }
 
-  double getFecOverhead() override {
+  double getFecOverhead() const override {
     if (fec_type_ == fec::FECType::UNKNOWN) {
       return 0;
     }
@@ -152,7 +131,7 @@ class RtcIndexer : public Indexer {
     return (double)n_fec_ / k;
   }
 
-  double getMaxFecOverhead() override {
+  double getMaxFecOverhead() const override {
     if (fec_type_ == fec::FECType::UNKNOWN) {
       return 0;
     }

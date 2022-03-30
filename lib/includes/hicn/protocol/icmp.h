@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -34,7 +34,7 @@ typedef struct
   u16 csum;
 } _icmp_header_t;
 
-#define ICMP_HDRLEN sizeof(_icmp_header_t)
+#define ICMP_HDRLEN sizeof (_icmp_header_t)
 static_assert (EXPECTED_ICMP_HDRLEN == ICMP_HDRLEN,
 	       "Size of ICMP struct does not match its expected size.");
 
@@ -54,13 +54,13 @@ typedef struct
     {
       u16 id;
       u16 sequence;
-    } echo;			/* echo datagram */
-    u32 gateway;		/* gateway address */
+    } echo;	 /* echo datagram */
+    u32 gateway; /* gateway address */
     struct
     {
       u16 _unused;
       u16 mtu;
-    } frag;			/* path mtu discovery */
+    } frag; /* path mtu discovery */
     struct
     {
       u16 expected_lbl;
@@ -69,7 +69,7 @@ typedef struct
   };
 } _icmp_wldr_header_t;
 
-#define ICMPWLDR_HDRLEN sizeof(_icmp_wldr_header_t)
+#define ICMPWLDR_HDRLEN sizeof (_icmp_wldr_header_t)
 static_assert (EXPECTED_ICMPWLDR_HDRLEN == ICMPWLDR_HDRLEN,
 	       "Size of ICMPWLDR struct does not match its expected size.");
 
