@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -40,12 +40,12 @@
 #include "route.h"
 
 /* define message IDs */
-#include <hicn/hicn.api_enum.h>
-#include <hicn/hicn.api_types.h>
+#include <vpp_plugins/hicn/hicn.api_enum.h>
+#include <vpp_plugins/hicn/hicn.api_types.h>
 
 /* define generated endian-swappers */
 #define vl_endianfun
-#include <hicn/hicn_all_api_h.h>
+#include <vpp_plugins/hicn/hicn_all_api_h.h>
 #undef vl_endianfun
 
 #define REPLY_MSG_ID_BASE sm->msg_id_base
@@ -79,8 +79,8 @@ vl_api_hicn_api_node_params_set_t_handler (
 
   f64 pit_max_lifetime_sec = mp->pit_max_lifetime_sec;
   pit_max_lifetime_sec = pit_max_lifetime_sec == -1 ?
-			   HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS / SEC_MS :
-			   pit_max_lifetime_sec;
+				 HICN_PARAM_PIT_LIFETIME_DFLT_MAX_MS / SEC_MS :
+				 pit_max_lifetime_sec;
 
   int cs_max_size = clib_net_to_host_i32 (mp->cs_max_size);
   cs_max_size = cs_max_size == -1 ? HICN_PARAM_CS_ENTRIES_DFLT : cs_max_size;
@@ -159,7 +159,7 @@ send_face_details (hicn_face_t *face, vl_api_hicn_face_t *mp)
     {
       sbuf =
 	format (0, "%U", format_vnet_sw_interface_name, vnm, sw_interface);
-      strcpy ((char *) (mp->if_name), (char *) sbuf);
+      strcpy_s ((char *) (mp->if_name), sizeof (mp->if_name), (char *) sbuf);
     }
 }
 
@@ -567,17 +567,34 @@ vl_api_hicn_api_enable_disable_t_handler (vl_api_hicn_api_enable_disable_t *mp)
   fib_prefix_t prefix;
   ip_prefix_decode (&mp->prefix, &prefix);
 
+  hicn_face_id_t *vec_faces = NULL;
+
   switch (clib_net_to_host_u32 (mp->enable_disable))
     {
     case HICN_ENABLE:
-      rv = hicn_route_enable (&prefix);
+      HICN_DEBUG ("Calling hicn enable from API.");
+      rv = hicn_route_enable (&prefix, &vec_faces);
       break;
     case HICN_DISABLE:
+      HICN_DEBUG ("Calling hicn disable from API.");
       rv = hicn_route_disable (&prefix);
       break;
     }
 
-  REPLY_MACRO (VL_API_HICN_API_ENABLE_DISABLE_REPLY /* , rmp, mp, rv */);
+  REPLY_MACRO2 (VL_API_HICN_API_ENABLE_DISABLE_REPLY, ({
+		  rmp->nfaces = 0;
+		  if (vec_faces != NULL)
+		    {
+		      hicn_face_id_t *face;
+		      vec_foreach (face, vec_faces)
+			{
+			  rmp->faceids[rmp->nfaces++] =
+			    clib_host_to_net_u32 (*face);
+			}
+
+		      vec_free (vec_faces);
+		    }
+		}));
 }
 
 /*********************************** UDP TUNNELS
@@ -632,7 +649,7 @@ done:
 
 /************************************************************************************/
 
-#include <hicn/hicn.api.c>
+#include <vpp_plugins/hicn/hicn.api.c>
 
 /* Set up the API message handling tables */
 clib_error_t *

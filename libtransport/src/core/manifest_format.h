@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -17,6 +17,7 @@
 
 #include <hicn/transport/auth/crypto_hash.h>
 #include <hicn/transport/core/name.h>
+#include <hicn/transport/interfaces/socket_options_keys.h>
 
 #include <cinttypes>
 #include <type_traits>
@@ -25,15 +26,6 @@
 namespace transport {
 
 namespace core {
-
-enum class ManifestFields : uint8_t {
-  VERSION,
-  HASH_ALGORITHM,
-  SEGMENT_CALCULATION_STRATEGY,
-  FINAL_MANIFEST,
-  NAME_HASH_LIST,
-  BASE_NAME
-};
 
 enum class ManifestVersion : uint8_t {
   VERSION_1 = 1,
@@ -45,18 +37,24 @@ enum class ManifestType : uint8_t {
   FLIC_MANIFEST = 3,
 };
 
-/**
- * INCREMENTAL: Manifests will be received inline with the data with no specific
- * assumption regarding the manifest capacity. Consumers can send interests
- * using a +1 heuristic.
- *
- * MANIFEST_CAPACITY_BASED: manifests with capacity N have a suffix multiple of
- * N+1: 0, N+1, 2(N+1) etc. Contents have a suffix incremented by 1 except when
- * it conflicts with a manifest: 1, 2, ..., N, N+2, N+3, ..., 2N+1, 2N+3
- */
-enum class NextSegmentCalculationStrategy : uint8_t {
-  INCREMENTAL = 1,
-  MANIFEST_CAPACITY_BASED = 2,
+struct ParamsRTC {
+  std::uint64_t timestamp;
+  std::uint32_t prod_rate;
+  std::uint32_t prod_seg;
+  std::uint32_t support_fec;
+
+  bool operator==(const ParamsRTC &other) const {
+    return (timestamp == other.timestamp && prod_rate == other.prod_rate &&
+            prod_seg == other.prod_seg && support_fec == other.support_fec);
+  }
+};
+
+struct ParamsBytestream {
+  std::uint32_t final_segment;
+
+  bool operator==(const ParamsBytestream &other) const {
+    return (final_segment == other.final_segment);
+  }
 };
 
 template <typename T>
@@ -84,22 +82,12 @@ class ManifestEncoder {
     return static_cast<Implementation &>(*this).clearImpl();
   }
 
-  ManifestEncoder &setManifestType(ManifestType type) {
-    return static_cast<Implementation &>(*this).setManifestTypeImpl(type);
+  ManifestEncoder &setType(ManifestType type) {
+    return static_cast<Implementation &>(*this).setTypeImpl(type);
   }
 
   ManifestEncoder &setHashAlgorithm(auth::CryptoHashType hash) {
     return static_cast<Implementation &>(*this).setHashAlgorithmImpl(hash);
-  }
-
-  ManifestEncoder &setFinalChunkNumber(uint32_t final_chunk) {
-    return static_cast<Implementation &>(*this).setFinalChunkImpl(final_chunk);
-  }
-
-  ManifestEncoder &setNextSegmentCalculationStrategy(
-      NextSegmentCalculationStrategy strategy) {
-    return static_cast<Implementation &>(*this)
-        .setNextSegmentCalculationStrategyImpl(strategy);
   }
 
   template <
@@ -116,8 +104,8 @@ class ManifestEncoder {
         suffix, std::forward<Hash &&>(hash));
   }
 
-  ManifestEncoder &setIsFinalManifest(bool is_last) {
-    return static_cast<Implementation &>(*this).setIsFinalManifestImpl(is_last);
+  ManifestEncoder &setIsLast(bool is_last) {
+    return static_cast<Implementation &>(*this).setIsLastImpl(is_last);
   }
 
   ManifestEncoder &setVersion(ManifestVersion version) {
@@ -133,17 +121,22 @@ class ManifestEncoder {
     return static_cast<Implementation &>(*this).updateImpl();
   }
 
-  ManifestEncoder &setFinalBlockNumber(std::uint32_t final_block_number) {
-    return static_cast<Implementation &>(*this).setFinalBlockNumberImpl(
-        final_block_number);
+  ManifestEncoder &setParamsBytestream(const ParamsBytestream &params) {
+    return static_cast<Implementation &>(*this).setParamsBytestreamImpl(params);
   }
 
-  static std::size_t getManifestHeaderSize() {
-    return Implementation::getManifestHeaderSizeImpl();
+  ManifestEncoder &setParamsRTC(const ParamsRTC &params) {
+    return static_cast<Implementation &>(*this).setParamsRTCImpl(params);
   }
 
-  static std::size_t getManifestEntrySize() {
-    return Implementation::getManifestEntrySizeImpl();
+  static std::size_t manifestHeaderSize(
+      interface::ProductionProtocolAlgorithms transport_type =
+          interface::ProductionProtocolAlgorithms::UNKNOWN) {
+    return Implementation::manifestHeaderSizeImpl(transport_type);
+  }
+
+  static std::size_t manifestEntrySize() {
+    return Implementation::manifestEntrySizeImpl();
   }
 };
 
@@ -158,21 +151,16 @@ class ManifestDecoder {
 
   void decode() { static_cast<Implementation &>(*this).decodeImpl(); }
 
-  ManifestType getManifestType() const {
-    return static_cast<const Implementation &>(*this).getManifestTypeImpl();
+  ManifestType getType() const {
+    return static_cast<const Implementation &>(*this).getTypeImpl();
+  }
+
+  interface::ProductionProtocolAlgorithms getTransportType() const {
+    return static_cast<const Implementation &>(*this).getTransportTypeImpl();
   }
 
   auth::CryptoHashType getHashAlgorithm() const {
     return static_cast<const Implementation &>(*this).getHashAlgorithmImpl();
-  }
-
-  uint32_t getFinalChunkNumber() const {
-    return static_cast<const Implementation &>(*this).getFinalChunkImpl();
-  }
-
-  NextSegmentCalculationStrategy getNextSegmentCalculationStrategy() const {
-    return static_cast<const Implementation &>(*this)
-        .getNextSegmentCalculationStrategyImpl();
   }
 
   core::Name getBaseName() const {
@@ -183,8 +171,8 @@ class ManifestDecoder {
     return static_cast<Implementation &>(*this).getSuffixHashListImpl();
   }
 
-  bool getIsFinalManifest() const {
-    return static_cast<const Implementation &>(*this).getIsFinalManifestImpl();
+  bool getIsLast() const {
+    return static_cast<const Implementation &>(*this).getIsLastImpl();
   }
 
   ManifestVersion getVersion() const {
@@ -196,8 +184,12 @@ class ManifestDecoder {
         .estimateSerializedLengthImpl(number_of_entries);
   }
 
-  uint32_t getFinalBlockNumber() const {
-    return static_cast<const Implementation &>(*this).getFinalBlockNumberImpl();
+  ParamsBytestream getParamsBytestream() const {
+    return static_cast<const Implementation &>(*this).getParamsBytestreamImpl();
+  }
+
+  ParamsRTC getParamsRTC() const {
+    return static_cast<const Implementation &>(*this).getParamsRTCImpl();
   }
 };
 

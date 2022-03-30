@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -149,8 +149,8 @@ hicn_infra_plugin_enable_disable (int enable_disable, int pit_size_req,
       // check if CS is bugger tha PIT or bigger than the available
       // vlib_buffers
       uword cs_buffers = (n_buffers > HICN_PARAM_CS_MIN_MBUF) ?
-			   n_buffers - HICN_PARAM_CS_MIN_MBUF :
-			   0;
+				 n_buffers - HICN_PARAM_CS_MIN_MBUF :
+				 0;
 
       if (cs_size_req > (pit_size_req / 2) || cs_size_req > cs_buffers)
 	{

@@ -94,4 +94,4 @@ class ForwarderConfiguration {
   std::size_t n_threads_;
 };
 
-}
+}  // namespace hiperf

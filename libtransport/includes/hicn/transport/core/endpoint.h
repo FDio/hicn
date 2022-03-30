@@ -42,14 +42,20 @@ class Endpoint {
   ~Endpoint() = default;
 
   Endpoint &operator=(const Endpoint &other) {
-    address_ = other.address_;
-    port_ = other.port_;
+    if (this != &other) {
+      address_ = other.address_;
+      port_ = other.port_;
+    }
+
     return *this;
   }
 
   Endpoint &operator=(Endpoint &&other) {
-    address_ = std::move(other.address_);
-    port_ = std::move(other.port_);
+    if (this != &other) {
+      address_ = std::move(other.address_);
+      port_ = std::move(other.port_);
+    }
+
     return *this;
   }
 

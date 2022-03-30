@@ -18,7 +18,6 @@ Basic dependencies:
 - OpenSSL
 - pthreads
 - libevent
-- libparc
 - libcurl
 - libhicntransport
 

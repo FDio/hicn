@@ -25,6 +25,7 @@
 extern "C" {
 #include <hicn/error.h>
 #include <hicn/util/ip_address.h>
+#include <hicn/util/sstrncpy.h>
 }
 
 // XXX the main listener should be retrieve in this class at initialization, aka
@@ -36,27 +37,14 @@ extern "C" {
 
 namespace hiperf {
 
+ForwarderInterface::ForwarderInterface(asio::io_service &io_service)
+    : external_ioservice_(io_service), timer_(io_service) {}
+
 ForwarderInterface::ForwarderInterface(asio::io_service &io_service,
-                                       ICallback *callback)
-    : external_ioservice_(io_service),
-      forwarder_interface_callback_(callback),
-      work_(std::make_unique<asio::io_service::work>(internal_ioservice_)),
-      sock_(nullptr),
-      thread_(std::make_unique<std::thread>([this]() {
-        std::cout << "Starting Forwarder Interface thread" << std::endl;
-        internal_ioservice_.run();
-        std::cout << "Stopping Forwarder Interface thread" << std::endl;
-      })),
-      // set_route_callback_(std::forward<Callback &&>(setRouteCallback)),
-      check_routes_timer_(nullptr),
-      pending_add_route_counter_(0),
-      hicn_listen_port_(9695),
-      /* We start in disabled state even when a forwarder is always available */
-      state_(State::Disabled),
-      timer_(io_service),
-      num_reattempts(0) {
-  std::cout << "Forwarder interface created... connecting to forwarder...\n";
-  internal_ioservice_.post([this]() { onHicnServiceAvailable(true); });
+                                       ICallback *callback,
+                                       forwarder_type_t fwd_type)
+    : external_ioservice_(io_service), timer_(io_service) {
+  initForwarderInterface(callback, fwd_type);
 }
 
 ForwarderInterface::~ForwarderInterface() {
@@ -72,8 +60,27 @@ ForwarderInterface::~ForwarderInterface() {
 
     thread_->join();
   }
+}
 
-  std::cout << "ForwarderInterface::~ForwarderInterface" << std::endl;
+void ForwarderInterface::initForwarderInterface(ICallback *callback,
+                                                forwarder_type_t fwd_type) {
+  forwarder_interface_callback_ = callback;
+  work_ = std::make_unique<asio::io_service::work>(internal_ioservice_);
+  sock_ = nullptr;
+  thread_ = std::make_unique<std::thread>([this]() {
+    std::cout << "Starting Forwarder Interface thread" << std::endl;
+    internal_ioservice_.run();
+    std::cout << "Stopping Forwarder Interface thread" << std::endl;
+  });
+  check_routes_timer_ = nullptr;
+  pending_add_route_counter_ = 0;
+  hicn_listen_port_ = 9695;
+  /* We start in disabled state even when a forwarder is always available */
+  state_ = State::Disabled;
+  fwd_type_ = fwd_type;
+  num_reattempts = 0;
+  std::cout << "Forwarder interface created... connecting to forwarder...\n";
+  internal_ioservice_.post([this]() { onHicnServiceAvailable(true); });
 }
 
 void ForwarderInterface::onHicnServiceAvailable(bool flag) {
@@ -93,26 +100,15 @@ void ForwarderInterface::onHicnServiceAvailable(bool flag) {
 
         std::cout << "Connected to forwarder... cancelling reconnection timer"
                   << std::endl;
+
         timer_.cancel();
         num_reattempts = 0;
-
-        // case State::Connected:
-        //   checkListener();
-
-        //   if (state_ != State::Ready) {
-        //     std::cout << "Listener not found" << std::endl;
-        //     goto REATTEMPT;
-        //   }
-        //   state_ = State::Ready;
-
-        //   timer_.cancel();
-        //   num_reattempts = 0;
 
         std::cout << "Forwarder interface is ready... communicate to controller"
                   << std::endl;
 
         forwarder_interface_callback_->onHicnServiceReady();
-
+      case State::Connected:
       case State::Ready:
         break;
     }
@@ -136,14 +132,14 @@ REATTEMPT:
       std::chrono::milliseconds(ForwarderInterface::REATTEMPT_DELAY_MS));
   // timer_.async_wait(std::bind(&ForwarderInterface::onHicnServiceAvailable,
   // this, flag, std::placeholders::_1));
-  timer_.async_wait([this, flag](std::error_code ec) {
+  timer_.async_wait([this, flag](const std::error_code &ec) {
     if (ec) return;
     onHicnServiceAvailable(flag);
   });
 }
 
 int ForwarderInterface::connectToForwarder() {
-  sock_ = hc_sock_create();
+  sock_ = hc_sock_create_forwarder(fwd_type_);
   if (!sock_) {
     std::cout << "Could not create socket" << std::endl;
     goto ERR_SOCK;
@@ -256,6 +252,27 @@ void ForwarderInterface::deleteFaceAndRoutes(
   });
 }
 
+void ForwarderInterface::setStrategy(std::string prefix, uint32_t prefix_len,
+                                     std::string strategy) {
+  if (!sock_) return;
+
+  ip_address_t ip_prefix;
+  if (ip_address_pton(prefix.c_str(), &ip_prefix) < 0) {
+    return;
+  }
+
+  strategy_type_t strategy_type = strategy_type_from_str(strategy.c_str());
+  if (strategy_type == STRATEGY_TYPE_UNDEFINED) return;
+
+  hc_strategy_t strategy_conf;
+  strategy_conf.address = ip_prefix;
+  strategy_conf.len = prefix_len;
+  strategy_conf.family = AF_INET6;
+  strategy_conf.type = strategy_type;
+
+  hc_strategy_set(sock_, &strategy_conf);
+}
+
 void ForwarderInterface::internalDeleteFaceAndRoute(
     const RouteInfoPtr &route_info) {
   if (!sock_) return;
@@ -346,10 +363,11 @@ void ForwarderInterface::internalCreateFaceAndRoutes(
     }
     max_try--;
     timer->expires_from_now(std::chrono::milliseconds(500));
-    timer->async_wait([this, failed, max_try, timer](std::error_code ec) {
-      if (ec) return;
-      internalCreateFaceAndRoutes(failed, max_try, timer);
-    });
+    timer->async_wait(
+        [this, failed, max_try, timer](const std::error_code &ec) {
+          if (ec) return;
+          internalCreateFaceAndRoutes(failed, max_try, timer);
+        });
     return;
   }
 
@@ -422,16 +440,18 @@ int ForwarderInterface::tryToCreateFace(RouteInfo *route_info,
 
     std::string name = "l_" + route_info->name;
     listener.local_addr = local_address;
-    listener.type = CONNECTION_TYPE_UDP;
+    listener.type = FACE_TYPE_UDP;
     listener.family = AF_INET;
     listener.local_port = route_info->local_port;
-    strncpy(listener.name, name.c_str(), sizeof(listener.name));
-    strncpy(listener.interface_name, route_info->interface.c_str(),
-            sizeof(listener.interface_name));
+    int ret = strcpy_s(listener.name, SYMBOLIC_NAME_LEN - 1, name.c_str());
+    if (ret < EOK) goto ERR;
+    ret = strcpy_s(listener.interface_name, INTERFACE_LEN - 1,
+                   route_info->interface.c_str());
+    if (ret < EOK) goto ERR;
 
     std::cout << "------------> " << route_info->interface << std::endl;
 
-    int ret = hc_listener_create(sock_, &listener);
+    ret = hc_listener_create(sock_, &listener);
 
     if (ret < 0) {
       std::cerr << "Error creating listener." << std::endl;
@@ -520,7 +540,7 @@ int ForwarderInterface::tryToCreateRoute(RouteInfo *route_info,
 #if 0  // not used
 void ForwarderInterface::checkRoutesLoop() {
   check_routes_timer_->expires_from_now(std::chrono::milliseconds(1000));
-  check_routes_timer_->async_wait([this](std::error_code ec) {
+  check_routes_timer_->async_wait([this](const std::error_code &ec) {
     if (ec) return;
     if (pending_add_route_counter_ == 0) checkRoutes();
   });
@@ -580,7 +600,7 @@ void ForwarderInterface::checkRoutes() {
         } else {
           // XXX This should be moved somewhere else
           getMainListener(
-              [this](std::error_code ec, uint32_t hicn_listen_port) {
+              [this](const std::error_code &ec, uint32_t hicn_listen_port) {
                 if (!ec)
                 {
                   hicn_listen_port_ = hicn_listen_port;
@@ -597,7 +617,7 @@ void ForwarderInterface::checkRoutes() {
         tryToConnectToForwarder();
       }
     private:
-      void doGetMainListener(std::error_code ec)
+      void doGetMainListener(const std::error_code &ec)
       {
         if (!ec)
         {
@@ -607,7 +627,7 @@ void ForwarderInterface::checkRoutes() {
           {
             // Since without the main listener of the forwarder the proxy cannot
             // work, we can stop the program here until we get the listener port.
-            std::cout << 
+            std::cout <<
                 "Could not retrieve main listener port from the forwarder. "
                 "Retrying.";
 
@@ -635,7 +655,7 @@ void ForwarderInterface::checkRoutes() {
         doTryToConnectToForwarder(std::make_error_code(std::errc(0)));
       }
 
-      void doTryToConnectToForwarder(std::error_code ec)
+      void doTryToConnectToForwarder(const std::error_code &ec)
       {
         if (!ec)
         {

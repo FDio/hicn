@@ -23,26 +23,12 @@ The YANG model for the VPP based hICN vSwitch is based the full hICN C API
 exported by the VPP plugin with the addition of some VPP APIs such as
 interface and FIB management which are required by the hICN plugin.
 
-To install libyang, sysrepo, libnetconf and netopeer2 for Ubuntu18 amd64/arm64
-or CentOS 7 and ad-hoc repository is available and maintained in bintray
-at <https://dl.bintray.com/icn-team/apt-hicn-extras>.
+The dependencies libyang, sysrepo, libnetconf and netopeer2 for Ubuntu20.04
+amd64/arm64 are built from sources. See the following Dockerfile for
+reference:
 
-For instance in Ubuntu 18 LTS:
+<https://github.com/icn-team/vSwitch/blob/master/Dockerfile>
 
-Install the sysrepo YANG data store and a NETCONF server:
-
-```bash
-echo "deb [trusted=yes] https://dl.bintray.com/icn-team/apt-hicn-extras bionic main" \
-                                            | tee -a /etc/apt/sources.list
-apt-get update && apt-get install -y libyang sysrepo libnetconf2 netopeer2-server
-```
-
-Install the VPP based hICN virtual switch:
-
-```bash
-curl -s https://packagecloud.io/install/repositories/fdio/release/script.deb.sh | bash
-apt-get update && apt-get install -y hicn-plugin vpp-plugin-dpdk hicn-sysrepo-plugin
-```
 
 The hICN YANG models are installed under `/usr/lib/$(uname -m)-linux-gnu/modules_yang`.
 

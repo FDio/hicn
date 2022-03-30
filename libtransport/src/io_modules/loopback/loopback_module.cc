@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -41,7 +41,7 @@ void LoopbackModule::send(Packet &packet) {
   local_faces_.at(1 - local_id_)->send(packet);
 }
 
-void LoopbackModule::send(const uint8_t *packet, std::size_t len) {
+void LoopbackModule::send(const utils::MemBuf::Ptr &buffer) {
   // not supported
   throw errors::NotImplementedException();
 }
@@ -57,6 +57,7 @@ void LoopbackModule::closeConnection() {
 }
 
 void LoopbackModule::init(Connector::PacketReceivedCallback &&receive_callback,
+                          Connector::PacketSentCallback &&sent_callback,
                           Connector::OnReconnectCallback &&reconnect_callback,
                           asio::io_service &io_service,
                           const std::string &app_name) {
@@ -64,8 +65,9 @@ void LoopbackModule::init(Connector::PacketReceivedCallback &&receive_callback,
     local_id_ = global_counter_++;
     local_faces_.emplace(
         local_faces_.begin() + local_id_,
-        new LocalConnector(io_service, std::move(receive_callback), nullptr,
-                           nullptr, std::move(reconnect_callback)));
+        new LocalConnector(io_service, std::move(receive_callback),
+                           std::move(sent_callback), nullptr,
+                           std::move(reconnect_callback)));
   }
 }
 
@@ -75,7 +77,9 @@ void LoopbackModule::processControlMessageReply(utils::MemBuf &packet_buffer) {
 
 std::uint32_t LoopbackModule::getMtu() { return interface_mtu; }
 
-bool LoopbackModule::isControlMessage(const uint8_t *message) { return false; }
+bool LoopbackModule::isControlMessage(utils::MemBuf &packet_buffer) {
+  return false;
+}
 
 extern "C" IoModule *create_module(void) { return new LoopbackModule(); }
 

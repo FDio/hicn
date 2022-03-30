@@ -1,3 +1,5 @@
 #!/bin/bash
 
-systemctl enable facemgr
+if pidof systemd; then
+  systemctl enable facemgr
+fi

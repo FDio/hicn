@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,115 +11,109 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+##############################################################
+# Project and cmake version
+##############################################################
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-
 project(hicn-light)
 
-if (NOT CMAKE_BUILD_TYPE)
-    message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
-    set(CMAKE_BUILD_TYPE "Release")
-endif()
 
+##############################################################
+# Libs and Bins names
+##############################################################
+set(LIBHICN_LIGHT hicn-light)
+set(LIBHICN_LIGHT_STATIC ${LIBHICN_LIGHT}.static)
+
+
+##############################################################
+# Packaging and versioning
+##############################################################
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/packaging.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake)
+
+
+##############################################################
+# Cmake modules
+##############################################################
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
   "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules"
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
 )
 
+
+##############################################################
+# C Standard
+##############################################################
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-option(ENABLE_PUNTING "Enable punting on linux systems" ON)
 
-include( CTest )
-include( detectCacheSize )
-
-if(NOT WIN32)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-else ()
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
-endif ()
-
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-  message("############ Detected cross compile for $ENV{CMAKE_SYSTEM_NAME}")
-  # Android uses static libs, so we need to link all the dependencies to the executable
-  find_package(OpenSSL REQUIRED)
-  find_package(LibEvent REQUIRED)
-  set(ANDROID_LIBRARIES ${LIBEVENT_LIBRARIES} ${OPENSSL_LIBRARIES})
-endif()
-
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -DLIBRTA_DISABLE_VALIDATION -DPARCLibrary_DISABLE_VALIDATION")
-
-include(IosMacros)
-include(WindowsMacros)
-
-find_package(Libparc REQUIRED)
-
+##############################################################
+# Libs and Bins names
+##############################################################
 set(HICN_LIGHT hicn-light CACHE INTERNAL "" FORCE)
 set(HICN_LIGHT_CONTROL ${HICN_LIGHT}-control CACHE INTERNAL "" FORCE)
+set(HICN_LIGHT_SHELL ${HICN_LIGHT}-shell CACHE INTERNAL "" FORCE)
 set(HICN_LIGHT_DAEMON ${HICN_LIGHT}-daemon CACHE INTERNAL "" FORCE)
 
+
+##############################################################
+# Dependencies and third party libs
+##############################################################
+find_package(LibEvent ${LIBEVENT_DEFAULT_VERSION} REQUIRED)
+find_package(Threads REQUIRED)
+
+
+##############################################################
+# Check if building as subproject or as root project
+##############################################################
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  find_package(Libhicn REQUIRED)
+  include(CommonSetup)
+  find_package(Libhicn ${CURRENT_VERSION} REQUIRED NO_MODULE)
+  find_package(Libhicnctrl ${CURRENT_VERSION} REQUIRED NO_MODULE)
+
+  if (DISABLE_SHARED_LIBRARIES)
+    set(LIBTYPE static)
+  else()
+    set(LIBTYPE shared)
+  endif()
+
+  list(APPEND HICN_LIBRARIES hicn::hicn.${LIBTYPE})
+  list(APPEND LIBHICNCTRL_LIBRARIES hicn::hicnctrl.${LIBTYPE})
 else()
   if (DISABLE_SHARED_LIBRARIES)
-    if (WIN32) 
-      set(HICN_LIBRARIES ${LIBHICN_STATIC})
+    if (WIN32)
+      set(HICN_LIBRARIES ${LIBHICN_STATIC} ${LIBHICNCTRL_STATIC})
     else ()
-      set(HICN_LIBRARIES ${LIBHICN_STATIC} log)
+      set(HICN_LIBRARIES ${LIBHICN_STATIC} ${LIBHICNCTRL_STATIC} log)
     endif ()
     list(APPEND DEPENDENCIES
       ${LIBHICN_STATIC}
+      ${LIBHICNCTRL_STATIC}
     )
   else ()
-    set(HICN_LIBRARIES ${LIBHICN_SHARED})
+    set(HICN_LIBRARIES
+      ${LIBHICN_SHARED}
+      ${LIBHICNCTRL_SHARED}
+    )
     list(APPEND DEPENDENCIES
       ${LIBHICN_SHARED}
+      ${LIBHICNCTRL_SHARED}
     )
   endif ()
 endif()
 
-include(Packaging)
 
-find_package(Threads REQUIRED)
-
-set(LIBHICN_LIGHT hicn-light)
-set(LIBHICN_LIGHT_STATIC ${LIBHICN_LIGHT}.static)
-
-set(LIBRARIES
-  ${LIBPARC_LIBRARIES}
-  ${HICN_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT}
-  ${WINDOWS_LIBRARIES}
-  ${ANDROID_LIBRARIES}
-)
-
-set(HICN_LIGHT_LIBRARIES_LIST "${LIBPARC_LIBRARIES};${CMAKE_THREAD_LIBS_INIT};${WINDOWS_LIBRARIES}" CACHE INTERNAL "HICN_LIGHT_LIBRARIES_LIST")
-
-
-# Include dirs -- Order does matter!
-list(APPEND HICN_LIGHT_INCLUDE_DIRS
-  ${HICN_INCLUDE_DIRS}
-  ${LIBPARC_INCLUDE_DIRS}
-  ${WINDOWS_INCLUDE_DIRS}
-)
-
-if (UNIX)
-  list(APPEND LIBRARIES
-    m
-  )
-endif()
-
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
-  set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS} -undefined dynamic_lookup")
-	message(STATUS "Set \"-undefined dynamic_lookup\" for shared libraries")
-endif()
-
+##############################################################
+# Subdirectories
+##############################################################
 add_subdirectory(src/hicn)
 
+
+##############################################################
 # Install service file in linux systems
+##############################################################
 include(ServiceScript)
 install_service_script(
   ${CMAKE_CURRENT_SOURCE_DIR}/config/hicn-light.service

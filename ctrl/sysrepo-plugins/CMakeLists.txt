@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -41,13 +41,13 @@ if (NOT SRPD_PLUGINS_PATH)
   message(FATAL_ERROR "Cannot get sysrepo plugins directory due to missing pkg-config, set SRPD_PLUGINS_PATH manually.")
 endif()
 
-find_package(Vpp REQUIRED)
+find_package(Vpp ${VPP_DEFAULT_VERSION} REQUIRED)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  find_package(HicnPlugin REQUIRED)
+  find_package(HicnPlugin ${CURRENT_VERSION} REQUIRED)
 else()
   list(APPEND DEPENDENCIES
-    hicn_plugin
+    ${HICNPLUGIN_SHARED}
   )
 endif()
 

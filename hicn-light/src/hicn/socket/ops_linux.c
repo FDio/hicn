@@ -24,6 +24,8 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <hicn/ctrl/api.h>
+#include <hicn/util/sstrncpy.h>
 
 /* Public interface */
 
@@ -338,7 +340,8 @@ uint32_t _nl_get_ifid(const char *interface_name) {
   struct nlmsghdr *hdr = (struct nlmsghdr *)buffer;
   size_t n;
   int fd;
-  size_t len = interface_name ? strlen(interface_name) + 1 : 0;
+  size_t len =
+      interface_name ? strnlen_s(interface_name, INTERFACE_LEN) + 1 : 0;
   uint8_t padding[RTA_ALIGNTO] = {0, 0, 0, 0};
 
   if (len == 0) {
@@ -353,8 +356,8 @@ uint32_t _nl_get_ifid(const char *interface_name) {
            .hdr.nlmsg_flags = FLAGS_GET,
            .payload.ifi_family = AF_UNSPEC,
            .payload.ifi_index = 0};
-  struct rtattr a_ifname = {RTA_LENGTH(strlen(interface_name) + 1),
-                            IFLA_IFNAME};
+  struct rtattr a_ifname = {
+      RTA_LENGTH(strnlen_s(interface_name, INTERFACE_LEN) + 1), IFLA_IFNAME};
 
   struct iovec iov[] = {{&msg, sizeof(msg)},
                         {&a_ifname, sizeof(a_ifname)},
@@ -621,13 +624,12 @@ int _nl_set_ip_addr(uint32_t interface_id, ip_prefix_t *prefix) {
   /* Set attributes = length/type/value */
   struct rtattr ifa_address = {RTA_LENGTH(ip_address_len(prefix->family)),
                                IFA_ADDRESS};
-  const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
-  if (!address)
-      goto ERR_ADDRESS;
+  const void *address = ip_address_get_buffer(&prefix->address, prefix->family);
+  if (!address) goto ERR_ADDRESS;
   const struct iovec iov[] = {
       {&msg, sizeof(msg)},
       {&ifa_address, sizeof(ifa_address)},
-      {(void*)address, ip_address_len(prefix->family)},
+      {(void *)address, ip_address_len(prefix->family)},
   };
   msg.hdr.nlmsg_len = iov_length(iov, ARRAY_SIZE(iov));
 
@@ -993,17 +995,15 @@ int _nl_del_lo_route(const ip_prefix_t *prefix) {
   uint32_t one = 1;
   struct rtattr a_dst = {RTA_LENGTH(ip_address_len(prefix->family)), RTA_DST};
   struct rtattr a_ifid_lo = {RTA_LENGTH(sizeof(uint32_t)), RTA_OIF};
-  const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
-  if (!address)
-      goto ERR;
-  const struct iovec iov[] = {
-      {&msg, sizeof(msg)},
-      /* Ip address */
-      {&a_dst, sizeof(a_dst)},
-      {(void*)address, ip_address_len(prefix->family)},
-      /* Interface id */
-      {&a_ifid_lo, sizeof(a_ifid_lo)},
-      {&one, sizeof(one)}};
+  const void *address = ip_address_get_buffer(&prefix->address, prefix->family);
+  if (!address) goto ERR;
+  const struct iovec iov[] = {{&msg, sizeof(msg)},
+                              /* Ip address */
+                              {&a_dst, sizeof(a_dst)},
+                              {(void *)address, ip_address_len(prefix->family)},
+                              /* Interface id */
+                              {&a_ifid_lo, sizeof(a_ifid_lo)},
+                              {&one, sizeof(one)}};
   msg.hdr.nlmsg_len = iov_length(iov, ARRAY_SIZE(iov));
 
   fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
@@ -1048,7 +1048,7 @@ int _nl_add_rule(const char *interface_name, uint8_t address_family,
   _nl_payload_rule(table_id, address_family, (uint8_t *)buffer, BUFSIZE);
 
   addAttr(hdr, BUFSIZE, FRA_IIFNAME, (void *)interface_name,
-          strlen(interface_name));
+          strnlen_s(interface_name, INTERFACE_LEN));
 
   fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
   if (fd < 0) {
@@ -1094,7 +1094,7 @@ int _nl_del_rule(const char *interface_name, uint8_t address_family,
   _nl_payload_rule(table_id, address_family, (uint8_t *)buffer, BUFSIZE);
 
   addAttr(hdr, BUFSIZE, FRA_IIFNAME, (void *)interface_name,
-          strlen(interface_name));
+          strnlen_s(interface_name, INTERFACE_LEN));
 
   fd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
   if (fd < 0) {
@@ -1158,16 +1158,15 @@ int _nl_add_neigh_proxy(const ip_prefix_t *prefix,
   /* Message attributes = length/type/value */
   struct rtattr a_dst = {RTA_LENGTH(ip_address_len(prefix->family)), NDA_DST};
 
-  const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
-  if (!address)
-      goto ERR;
+  const void *address = ip_address_get_buffer(&prefix->address, prefix->family);
+  if (!address) goto ERR;
 
   /* Iovec describing the packets */
   const struct iovec iov[] = {
       {&msg, sizeof(msg)},
       /* Ip address */
       {&a_dst, sizeof(a_dst)},
-      {(void*)address, ip_address_len(prefix->family)},
+      {(void *)address, ip_address_len(prefix->family)},
   };
   msg.hdr.nlmsg_len = iov_length(iov, ARRAY_SIZE(iov));
 
@@ -1240,16 +1239,15 @@ int _nl_add_in_route_table(const ip_prefix_t *prefix,
   struct rtattr a_dst = {RTA_LENGTH(ip_address_len(prefix->family)), RTA_DST};
   struct rtattr a_oif = {RTA_LENGTH(sizeof(uint32_t)), RTA_OIF};
 
-  const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
-  if (!address)
-      goto ERR;
+  const void *address = ip_address_get_buffer(&prefix->address, prefix->family);
+  if (!address) goto ERR;
 
   /* Iovec describing the packets */
   const struct iovec iov[] = {
       {&msg, sizeof(msg)},
       /* Destination prefix / ip address */
       {&a_dst, sizeof(a_dst)},
-      {(void*)address, ip_address_len(prefix->family)},
+      {(void *)address, ip_address_len(prefix->family)},
       /* Output interface */
       {&a_oif, sizeof(a_oif)},
       {(void *)&interface_id, sizeof(uint32_t)},
@@ -1346,15 +1344,15 @@ int _nl_add_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
     struct rtattr a_src = {RTA_LENGTH(ip_address_len(prefix->family)), FRA_SRC};
     struct rtattr a_prio = {RTA_LENGTH(sizeof(uint32_t)), FRA_PRIORITY};
 
-    const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
-    if (!address)
-        goto ERR;
+    const void *address =
+        ip_address_get_buffer(&prefix->address, prefix->family);
+    if (!address) goto ERR;
     /* Iovec describing the packets */
     const struct iovec iov[] = {
         {&msg, sizeof(msg)},
         /* Source prefix / prefix */
         {&a_src, sizeof(a_src)},
-        {(void*)address, ip_address_len(prefix->family)},
+        {(void *)address, ip_address_len(prefix->family)},
         /* Priority */
         {&a_prio, sizeof(a_prio)},
         {(void *)&priority, sizeof(uint32_t)},
@@ -1407,8 +1405,7 @@ ERR:
 
 int _nl_add_lo_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
                          const uint32_t priority) {
-  return _nl_add_prio_rule(prefix, address_family, priority,
-                           RT_TABLE_LOCAL);
+  return _nl_add_prio_rule(prefix, address_family, priority, RT_TABLE_LOCAL);
 }
 
 /* ip -6 rule del from all prio 0 table local */
@@ -1450,16 +1447,16 @@ int _nl_del_prio_rule(const ip_prefix_t *prefix, uint8_t address_family,
     struct rtattr a_src = {RTA_LENGTH(ip_address_len(prefix->family)), FRA_SRC};
     struct rtattr a_prio = {RTA_LENGTH(sizeof(uint32_t)), FRA_PRIORITY};
 
-    const void * address = ip_address_get_buffer(&prefix->address, prefix->family);
-    if (!address)
-        goto ERR;
+    const void *address =
+        ip_address_get_buffer(&prefix->address, prefix->family);
+    if (!address) goto ERR;
 
     /* Iovec describing the packets */
     const struct iovec iov[] = {
         {&msg, sizeof(msg)},
         /* Source prefix / prefix */
         {&a_src, sizeof(a_src)},
-        {(void*)address, ip_address_len(prefix->family)},
+        {(void *)address, ip_address_len(prefix->family)},
         /* Priority */
         {&a_prio, sizeof(a_prio)},
         {(void *)&priority, sizeof(uint32_t)},
@@ -1539,7 +1536,7 @@ int _nl_del_lo_prio_rule(const ip_prefix_t *ip_address, uint8_t address_family,
 
 int tun_alloc(char *dev, int flags) {
   struct ifreq ifr;
-  int fd, err;
+  int fd, err, rc;
   char *clonedev = "/dev/net/tun";
 
   /* Arguments taken by the function:
@@ -1563,7 +1560,8 @@ int tun_alloc(char *dev, int flags) {
     /* if a device name was specified, put it in the structure; otherwise,
      * the kernel will try to allocate the "next" device of the
      * specified type */
-    strncpy(ifr.ifr_name, dev, IF_NAMESIZE - 1);
+    rc = strcpy_s(ifr.ifr_name, IF_NAMESIZE - 1, dev);
+    if (rc != EOK) return -1;
   }
 
   /* try to create the device */
@@ -1576,7 +1574,8 @@ int tun_alloc(char *dev, int flags) {
    * interface to the variable "dev", so the caller can know
    * it. Note that the caller MUST reserve space in *dev (see calling
    * code below) */
-  strcpy(dev, ifr.ifr_name);
+  rc = strcpy_s(dev, IF_NAMESIZE, ifr.ifr_name);
+  if (rc != EOK) return -1;
 
   /* this is the special file descriptor that the caller will use to talk
    * with the virtual interface */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2017-2019 by cisco systems inc. All rights reserved.
+ * Copyright (c) 2021 by cisco systems inc. All rights reserved.
  *
  */
 
@@ -31,10 +31,11 @@
 #include <vnet/interface.h>	  //appif_flags
 #include <vnet/interface_funcs.h> //vnet_sw_interface_set_flags
 
+#include <vpp_plugins/hicn/error.h>
+
 #include "address_mgr.h"
 #include "../../hicn.h"
 #include "../../infra.h"
-#include "../../error.h"
 #include "../face.h"
 #include "../../strategy_dpo_ctx.h"
 #include "../../route.h"
