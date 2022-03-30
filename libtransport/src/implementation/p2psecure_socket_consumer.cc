@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -44,7 +44,7 @@ int readOld(BIO *b, char *buf, int size) {
   if (!socket->something_to_read_) {
     if (!socket->transport_protocol_->isRunning()) {
       socket->network_name_.setSuffix(socket->random_suffix_);
-      socket->ConsumerSocket::asyncConsume(socket->network_name_);
+      socket->ConsumerSocket::consume(socket->network_name_);
     }
 
     if (!socket->something_to_read_) socket->cv_.wait(lck);
@@ -312,36 +312,6 @@ int P2PSecureConsumerSocket::consume(const Name &name) {
     return tls_consumer_->consume((prefix->mapName(name)));
 }
 
-int P2PSecureConsumerSocket::asyncConsume(const Name &name) {
-  if (transport_protocol_->isRunning()) {
-    return CONSUMER_BUSY;
-  }
-
-  if (handshake() != 1) {
-    throw errors::RuntimeException("Unable to perform client handshake");
-  } else {
-    DLOG_IF(INFO, VLOG_IS_ON(2)) << "Handshake performed!";
-  }
-
-  initSessionSocket();
-
-  if (tls_consumer_ == nullptr) {
-    throw errors::RuntimeException("TLS socket does not exist");
-  }
-
-  std::shared_ptr<Name> prefix_name = std::make_shared<Name>(
-      secure_prefix_.family,
-      ip_address_get_buffer(&(secure_prefix_.address), secure_prefix_.family));
-  std::shared_ptr<Prefix> prefix =
-      std::make_shared<Prefix>(*prefix_name, secure_prefix_.len);
-
-  if (payload_ != NULL)
-    return tls_consumer_->asyncConsume((prefix->mapName(name)),
-                                       std::move(payload_));
-  else
-    return tls_consumer_->asyncConsume((prefix->mapName(name)));
-}
-
 void P2PSecureConsumerSocket::registerPrefix(const Prefix &producer_namespace) {
   producer_namespace_ = producer_namespace;
 }
@@ -385,7 +355,7 @@ void P2PSecureConsumerSocket::readBufferAvailable(
   cv_.notify_one();
 }
 
-void P2PSecureConsumerSocket::readError(const std::error_code ec) noexcept {};
+void P2PSecureConsumerSocket::readError(const std::error_code &ec) noexcept {};
 
 void P2PSecureConsumerSocket::readSuccess(std::size_t total_size) noexcept {
   std::unique_lock<std::mutex> lck(this->mtx_);

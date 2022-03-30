@@ -1,0 +1,43 @@
+diff --git a/extras/libmemif/CMakeLists.txt b/extras/libmemif/CMakeLists.txt
+index b6b658c2d..28bb8c135 100644
+--- a/extras/libmemif/CMakeLists.txt
++++ b/extras/libmemif/CMakeLists.txt
+@@ -24,7 +24,7 @@ if (NOT CMAKE_BUILD_TYPE)
+   set(CMAKE_BUILD_TYPE "Release")
+ endif ()
+
+-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -DMEMIF_DBG -DICMP_DBG")
++set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -DICMP_DBG")
+ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+ set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
+ set(CMAKE_INSTALL_MESSAGE NEVER)
+diff --git a/extras/libmemif/src/CMakeLists.txt b/extras/libmemif/src/CMakeLists.txt
+index ddb8a52f8..b52566e5c 100644
+--- a/extras/libmemif/src/CMakeLists.txt
++++ b/extras/libmemif/src/CMakeLists.txt
+@@ -32,22 +32,7 @@ list(APPEND MEMIF_SOURCES
+
+ include_directories(${HEADERS_DIR})
+
+-add_library(memif SHARED ${MEMIF_SOURCES})
+-target_link_libraries(memif ${CMAKE_THREAD_LIBS_INIT})
++add_library(memif OBJECT ${MEMIF_SOURCES})
++set_property(TARGET memif PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+-find_library(LIB_BSD bsd)
+-if(LIB_BSD)
+-  add_compile_definitions(HAS_LIB_BSD)
+-  target_link_libraries(memif ${LIB_BSD})
+-endif()
+-
+-foreach(file ${MEMIF_HEADERS})
+-  get_filename_component(dir ${file} DIRECTORY)
+-     install(
+-	FILES ${file}
+-	DESTINATION include/${lib}/${dir}
+-	COMPONENT libmemif-dev
+-      )
+-endforeach()
+-
+-install(TARGETS memif DESTINATION lib COMPONENT libmemif)
++target_link_libraries(memif ${CMAKE_THREAD_LIBS_INIT})

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -70,6 +70,13 @@ hicn_dpo_ctx_t *hicn_strategy_mw_ctx_get (index_t index);
 void hicn_strategy_mw_ctx_create (fib_protocol_t proto,
 				  const hicn_face_id_t *next_hop, int nh_len,
 				  index_t *dpo_idx);
+
+/**
+ * @brief Update existing ctx setting it to mw
+ *
+ * @param hicn_strategy_ctx pointer to the ctx to update
+ */
+void hicn_strategy_mw_update_ctx_type (hicn_dpo_ctx_t *hicn_strategy_ctx);
 
 /**
  * @brief Add or update a next hop in the dpo ctx.

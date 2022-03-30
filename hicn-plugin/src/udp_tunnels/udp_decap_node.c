@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -223,7 +223,7 @@ udp4_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				&((ip4_header_t *) outer_ptr0)->dst_address);
 	  udp0 = (udp_header_t *) (outer_ptr0 + sizeof (ip4_header_t));
 	  next0 = v0 == 0x40 ? UDP4_DECAP_NEXT_LOOKUP_IP4 :
-			       UDP4_DECAP_NEXT_LOOKUP_IP6;
+				     UDP4_DECAP_NEXT_LOOKUP_IP6;
 
 	  ip46_address_set_ip4 (&src1,
 				&((ip4_header_t *) outer_ptr1)->src_address);
@@ -231,7 +231,7 @@ udp4_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				&((ip4_header_t *) outer_ptr1)->dst_address);
 	  udp1 = (udp_header_t *) (outer_ptr1 + sizeof (ip4_header_t));
 	  next1 = v1 == 0x40 ? UDP4_DECAP_NEXT_LOOKUP_IP4 :
-			       UDP4_DECAP_NEXT_LOOKUP_IP6;
+				     UDP4_DECAP_NEXT_LOOKUP_IP6;
 
 	  ip46_address_set_ip4 (&src2,
 				&((ip4_header_t *) outer_ptr2)->src_address);
@@ -239,7 +239,7 @@ udp4_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				&((ip4_header_t *) outer_ptr2)->dst_address);
 	  udp2 = (udp_header_t *) (outer_ptr2 + sizeof (ip4_header_t));
 	  next2 = v2 == 0x40 ? UDP4_DECAP_NEXT_LOOKUP_IP4 :
-			       UDP4_DECAP_NEXT_LOOKUP_IP6;
+				     UDP4_DECAP_NEXT_LOOKUP_IP6;
 
 	  ip46_address_set_ip4 (&src3,
 				&((ip4_header_t *) outer_ptr3)->src_address);
@@ -247,7 +247,7 @@ udp4_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				&((ip4_header_t *) outer_ptr3)->dst_address);
 	  udp3 = (udp_header_t *) (outer_ptr3 + sizeof (ip4_header_t));
 	  next3 = v3 == 0x40 ? UDP4_DECAP_NEXT_LOOKUP_IP4 :
-			       UDP4_DECAP_NEXT_LOOKUP_IP6;
+				     UDP4_DECAP_NEXT_LOOKUP_IP6;
 
 	  hicn_buffer_t *hicnb0, *hicnb1, *hicnb2, *hicnb3;
 	  hicnb0 = hicn_get_buffer (b0);
@@ -257,34 +257,39 @@ udp4_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	  /* Udp encap-decap tunnels have dst and src addresses and port
 	   * swapped */
-	  vnet_buffer (b0)->ip.adj_index[VLIB_RX] =
-	    udp_tunnel_get (&dst0, &src0, udp0->dst_port, udp0->src_port);
-	  vnet_buffer (b1)->ip.adj_index[VLIB_RX] =
-	    udp_tunnel_get (&dst1, &src1, udp1->dst_port, udp1->src_port);
-	  vnet_buffer (b2)->ip.adj_index[VLIB_RX] =
-	    udp_tunnel_get (&dst2, &src2, udp2->dst_port, udp2->src_port);
-	  vnet_buffer (b3)->ip.adj_index[VLIB_RX] =
-	    udp_tunnel_get (&dst3, &src3, udp3->dst_port, udp3->src_port);
+	  vnet_buffer (b0)->ip.adj_index[VLIB_RX] = udp_tunnel_get_create (
+	    &dst0, &src0, udp0->dst_port, udp0->src_port);
+	  vnet_buffer (b1)->ip.adj_index[VLIB_RX] = udp_tunnel_get_create (
+	    &dst1, &src1, udp1->dst_port, udp1->src_port);
+	  vnet_buffer (b2)->ip.adj_index[VLIB_RX] = udp_tunnel_get_create (
+	    &dst2, &src2, udp2->dst_port, udp2->src_port);
+	  vnet_buffer (b3)->ip.adj_index[VLIB_RX] = udp_tunnel_get_create (
+	    &dst3, &src3, udp3->dst_port, udp3->src_port);
 
-	  if (vnet_buffer (b0)->ip.adj_index[VLIB_RX] != UDP_TUNNEL_INVALID)
-	    hicnb0->flags |=
-	      (outer_v0 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
-				  HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+	  ASSERT (vnet_buffer (b0)->ip.adj_index[VLIB_RX] !=
+		  UDP_TUNNEL_INVALID);
+	  ASSERT (vnet_buffer (b1)->ip.adj_index[VLIB_RX] !=
+		  UDP_TUNNEL_INVALID);
+	  ASSERT (vnet_buffer (b2)->ip.adj_index[VLIB_RX] !=
+		  UDP_TUNNEL_INVALID);
+	  ASSERT (vnet_buffer (b3)->ip.adj_index[VLIB_RX] !=
+		  UDP_TUNNEL_INVALID);
 
-	  if (vnet_buffer (b1)->ip.adj_index[VLIB_RX] != UDP_TUNNEL_INVALID)
-	    hicnb1->flags |=
-	      (outer_v1 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
-				  HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+	  hicnb0->flags =
+	    (outer_v0 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
+				      HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
 
-	  if (vnet_buffer (b2)->ip.adj_index[VLIB_RX] != UDP_TUNNEL_INVALID)
-	    hicnb2->flags |=
-	      (outer_v2 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
-				  HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+	  hicnb1->flags =
+	    (outer_v1 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
+				      HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
 
-	  if (vnet_buffer (b3)->ip.adj_index[VLIB_RX] != UDP_TUNNEL_INVALID)
-	    hicnb3->flags |=
-	      (outer_v3 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
-				  HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+	  hicnb2->flags =
+	    (outer_v2 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
+				      HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+
+	  hicnb3->flags =
+	    (outer_v3 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
+				      HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
 
 	  udp_decap_trace_buffer (vm, node, 1, b0);
 	  udp_decap_trace_buffer (vm, node, 1, b1);
@@ -346,17 +351,19 @@ udp4_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				&((ip4_header_t *) outer_ptr0)->dst_address);
 	  udp0 = (udp_header_t *) (outer_ptr0 + sizeof (ip4_header_t));
 	  next0 = v0 == 0x40 ? UDP4_DECAP_NEXT_LOOKUP_IP4 :
-			       UDP4_DECAP_NEXT_LOOKUP_IP6;
+				     UDP4_DECAP_NEXT_LOOKUP_IP6;
 
 	  hicn_buffer_t *hicnb0 = hicn_get_buffer (b0);
 
-	  vnet_buffer (b0)->ip.adj_index[VLIB_RX] =
-	    udp_tunnel_get (&dst0, &src0, udp0->dst_port, udp0->src_port);
+	  vnet_buffer (b0)->ip.adj_index[VLIB_RX] = udp_tunnel_get_create (
+	    &dst0, &src0, udp0->dst_port, udp0->src_port);
 
-	  if (vnet_buffer (b0)->ip.adj_index[VLIB_RX] != UDP_TUNNEL_INVALID)
-	    hicnb0->flags |=
-	      (outer_v0 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
-				  HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+	  ASSERT (vnet_buffer (b0)->ip.adj_index[VLIB_RX] !=
+		  UDP_TUNNEL_INVALID);
+
+	  hicnb0->flags |=
+	    (outer_v0 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
+				      HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
 
 	  udp_decap_trace_buffer (vm, node, 1, b0);
 
@@ -488,7 +495,7 @@ udp6_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				&((ip6_header_t *) outer_ptr0)->dst_address);
 	  udp0 = (udp_header_t *) (outer_ptr0 + sizeof (ip6_header_t));
 	  next0 = v0 == 0x40 ? UDP6_DECAP_NEXT_LOOKUP_IP4 :
-			       UDP6_DECAP_NEXT_LOOKUP_IP6;
+				     UDP6_DECAP_NEXT_LOOKUP_IP6;
 
 	  ip46_address_set_ip6 (&src1,
 				&((ip6_header_t *) outer_ptr1)->src_address);
@@ -496,7 +503,7 @@ udp6_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				&((ip6_header_t *) outer_ptr1)->dst_address);
 	  udp1 = (udp_header_t *) (outer_ptr1 + sizeof (ip6_header_t));
 	  next1 = v1 == 0x40 ? UDP6_DECAP_NEXT_LOOKUP_IP4 :
-			       UDP6_DECAP_NEXT_LOOKUP_IP6;
+				     UDP6_DECAP_NEXT_LOOKUP_IP6;
 
 	  ip46_address_set_ip6 (&src2,
 				&((ip6_header_t *) outer_ptr2)->src_address);
@@ -504,7 +511,7 @@ udp6_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				&((ip6_header_t *) outer_ptr2)->dst_address);
 	  udp2 = (udp_header_t *) (outer_ptr2 + sizeof (ip6_header_t));
 	  next2 = v2 == 0x40 ? UDP6_DECAP_NEXT_LOOKUP_IP4 :
-			       UDP6_DECAP_NEXT_LOOKUP_IP6;
+				     UDP6_DECAP_NEXT_LOOKUP_IP6;
 
 	  ip46_address_set_ip6 (&src3,
 				&((ip6_header_t *) outer_ptr3)->src_address);
@@ -512,7 +519,7 @@ udp6_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				&((ip6_header_t *) outer_ptr3)->dst_address);
 	  udp3 = (udp_header_t *) (outer_ptr3 + sizeof (ip6_header_t));
 	  next3 = v3 == 0x40 ? UDP6_DECAP_NEXT_LOOKUP_IP4 :
-			       UDP6_DECAP_NEXT_LOOKUP_IP6;
+				     UDP6_DECAP_NEXT_LOOKUP_IP6;
 
 	  hicn_buffer_t *hicnb0, *hicnb1, *hicnb2, *hicnb3;
 	  hicnb0 = hicn_get_buffer (b0);
@@ -534,22 +541,22 @@ udp6_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  if (vnet_buffer (b0)->ip.adj_index[VLIB_RX] != UDP_TUNNEL_INVALID)
 	    hicnb0->flags |=
 	      (outer_v0 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
-				  HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+					HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
 
 	  if (vnet_buffer (b1)->ip.adj_index[VLIB_RX] != UDP_TUNNEL_INVALID)
 	    hicnb1->flags |=
 	      (outer_v1 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
-				  HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+					HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
 
 	  if (vnet_buffer (b2)->ip.adj_index[VLIB_RX] != UDP_TUNNEL_INVALID)
 	    hicnb2->flags |=
 	      (outer_v2 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
-				  HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+					HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
 
 	  if (vnet_buffer (b3)->ip.adj_index[VLIB_RX] != UDP_TUNNEL_INVALID)
 	    hicnb3->flags |=
 	      (outer_v3 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
-				  HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+					HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
 
 	  udp_decap_trace_buffer (vm, node, 0, b0);
 	  udp_decap_trace_buffer (vm, node, 0, b1);
@@ -610,7 +617,7 @@ udp6_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				&((ip6_header_t *) outer_ptr0)->dst_address);
 	  udp0 = (udp_header_t *) (outer_ptr0 + sizeof (ip6_header_t));
 	  next0 = v0 == 0x40 ? UDP6_DECAP_NEXT_LOOKUP_IP4 :
-			       UDP6_DECAP_NEXT_LOOKUP_IP6;
+				     UDP6_DECAP_NEXT_LOOKUP_IP6;
 
 	  hicn_buffer_t *hicnb0 = hicn_get_buffer (b0);
 
@@ -620,7 +627,7 @@ udp6_decap_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  if (vnet_buffer (b0)->ip.adj_index[VLIB_RX] != UDP_TUNNEL_INVALID)
 	    hicnb0->flags |=
 	      (outer_v0 == 0x40 ? HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL :
-				  HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
+					HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL);
 
 	  udp_decap_trace_buffer (vm, node, 0, b0);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -60,7 +60,7 @@ class ForwarderConfig {
     doTryToConnectToForwarder(std::make_error_code(std::errc(0)));
   }
 
-  void doTryToConnectToForwarder(std::error_code ec) {
+  void doTryToConnectToForwarder(const std::error_code& ec) {
     if (!ec) {
       // ec == 0 --> timer expired
       int ret = forwarder_interface_.connectToForwarder();
@@ -84,7 +84,7 @@ class ForwarderConfig {
     }
   }
 
-  void doGetMainListener(std::error_code ec) {
+  void doGetMainListener(const std::error_code& ec) {
     if (!ec) {
       // ec == 0 --> timer expired
       int ret = forwarder_interface_.getMainListenerPort();
@@ -114,7 +114,7 @@ class ForwarderConfig {
   TRANSPORT_ALWAYS_INLINE bool parseHicnHeader(std::string& header,
                                                Callback&& callback) {
     std::stringstream ss(header);
-    route_info_t* ret = new route_info_t();
+    RouteInfoPtr ret = std::make_shared<route_info_t>();
     std::string port_string;
 
     while (ss.good()) {
@@ -174,9 +174,9 @@ class ForwarderConfig {
         ret->family = AF_INET;
         std::string _prefix = ret->route_addr;
         forwarder_interface_.createFaceAndRoute(
-            RouteInfoPtr(ret), [callback = std::forward<Callback>(callback),
-                                configured_prefix = std::move(_prefix)](
-                                   uint32_t route_id, bool result) {
+            std::move(ret), [callback = std::forward<Callback>(callback),
+                             configured_prefix = std::move(_prefix)](
+                                uint32_t route_id, bool result) {
               callback(result, configured_prefix);
             });
 

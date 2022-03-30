@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,12 +13,10 @@
  * limitations under the License.
  */
 
-
 /**
  * @file hicn_vpp_comm.h
  * @brief This file contains binary api to connect to the VPP.
  */
-
 
 #ifndef __HICN_VPP_COMMM_H__
 #define __HICN_VPP_COMMM_H__
@@ -40,7 +38,6 @@
 
 extern vapi_ctx_t g_vapi_ctx_instance;
 
-
 /**
  * @brief This macro is interface.c to communicate with vpp
  */
@@ -48,36 +45,34 @@ extern vapi_ctx_t g_vapi_ctx_instance;
 #define VPP_MAC_ADDRESS_LEN 8
 #define VPP_IP6_ADDRESS_LEN 16
 
-
-
 /**
- * @brief This macro checks the arg is NULL or not, if the arg is NULL it returns retval
+ * @brief This macro checks the arg is NULL or not, if the arg is NULL it
+ * returns retval
  */
-#define ARG_CHECK(retval, arg)                        \
-  do {                                                \
-    if (NULL == (arg)) {                              \
-      SRP_LOG_DBGMSG("NULL pointer passed.");         \
-      return (retval);                                \
-    }                                                 \
+#define ARG_CHECK(retval, arg)                \
+  do {                                        \
+    if (NULL == (arg)) {                      \
+      SRP_LOG_DBGMSG("NULL pointer passed."); \
+      return (retval);                        \
+    }                                         \
   } while (0)
-
 
 /**
  * @brief Please check ARG_CHECK
  */
 #define ARG_CHECK2(retval, arg1, arg2) \
-    ARG_CHECK(retval, arg1); \
-    ARG_CHECK(retval, arg2)
+  ARG_CHECK(retval, arg1);             \
+  ARG_CHECK(retval, arg2)
 
 /**
  * @brief This Macro is the multiple check of ARG_CHECK
  */
 #define ARG_CHECK5(retval, arg1, arg2, arg3, arg4, arg5) \
-    ARG_CHECK(retval, arg1); \
-    ARG_CHECK(retval, arg2); \
-    ARG_CHECK(retval, arg3); \
-    ARG_CHECK(retval, arg4); \
-    ARG_CHECK(retval, arg5)
+  ARG_CHECK(retval, arg1);                               \
+  ARG_CHECK(retval, arg2);                               \
+  ARG_CHECK(retval, arg3);                               \
+  ARG_CHECK(retval, arg4);                               \
+  ARG_CHECK(retval, arg5)
 
 /**
  * @brief This function is used to connect to the vpp

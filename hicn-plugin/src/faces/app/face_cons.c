@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -69,10 +69,10 @@ hicn_face_cons_add (ip4_address_t *nh_addr4, ip6_address_t *nh_addr6, u32 swif,
 				 0 /* is_del */);
 
   ip46_address_t nh_addr = to_ip46 (0, (u8 *) nh_addr6);
-  index_t adj_index = adj_nbr_find (FIB_PROTOCOL_IP6, VNET_LINK_IP6, &nh_addr, swif);
+  index_t adj_index =
+    adj_nbr_find (FIB_PROTOCOL_IP6, VNET_LINK_IP6, &nh_addr, swif);
 
-  hicn_iface_add ((ip46_address_t *) nh_addr6, swif, faceid2, DPO_PROTO_IP6,
-		  adj_index);
+  hicn_iface_add ((ip46_address_t *) nh_addr6, swif, faceid2, adj_index, 0);
 
   hicn_face_t *face = hicn_dpoi_get_from_idx (*faceid2);
   face->flags |= HICN_FACE_FLAGS_APPFACE_CONS;
@@ -90,7 +90,7 @@ hicn_face_cons_del (hicn_face_id_t face_id)
 
   if (face->flags & HICN_FACE_FLAGS_APPFACE_CONS)
     {
-      return hicn_face_del (face_id);
+      return hicn_face_unlock_with_id (face_id);
     }
   else
     {

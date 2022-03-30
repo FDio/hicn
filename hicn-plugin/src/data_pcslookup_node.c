@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -74,7 +74,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  u32 node_id0 = 0;
 	  index_t dpo_ctx_id0 = 0;
 	  int ret0;
-	  u8 vft_id0;
+	  u8 vft_id0 = 0;
 	  u8 is_cs0;
 	  u8 hash_entry_id = 0;
 	  u8 bucket_is_overflown = 0;

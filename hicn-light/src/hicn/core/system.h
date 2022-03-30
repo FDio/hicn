@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -25,13 +25,12 @@
 #define system_h
 
 #include <hicn/core/forwarder.h>
-#include <hicn/utils/interfaceSet.h>
 
 /**
  * @function system_Interfaces
  * @abstract The system network interfaces
  */
-InterfaceSet *system_Interfaces(Forwarder *forwarder);
+InterfaceSet *system_Interfaces(forwarder_t *forwarder);
 
 /**
  * Returns the MTU of the named interface
@@ -43,7 +42,7 @@ InterfaceSet *system_Interfaces(Forwarder *forwarder);
  * @return positive the MTU the kernel reports
  *
  */
-unsigned system_InterfaceMtu(Forwarder *forwarder, const char *interfaceName);
+unsigned system_InterfaceMtu(forwarder_t *forwarder, const char *interfaceName);
 
 /**
  * Returns the LINK address of the specified interface
@@ -55,6 +54,6 @@ unsigned system_InterfaceMtu(Forwarder *forwarder, const char *interfaceName);
  * @retval null The interface does not exist
  *
  */
-Address *system_GetMacAddressByName(Forwarder *forwarder,
+Address *system_GetMacAddressByName(forwarder_t *forwarder,
                                     const char *interfaceName);
 #endif

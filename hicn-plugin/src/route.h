@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -73,28 +73,31 @@ int hicn_route_get_dpo (const fib_prefix_t *prefix, const dpo_id_t **hicn_dpo,
 int hicn_route_set_strategy (fib_prefix_t *prefix, u32 strategy_id);
 
 /**
- * @Brief Helper to add a nex hop in the vrf 0. If there are no entries in the
- * vrf 0 that matches with the prefix (epm), a new one is created.
+ * @Brief Helper to add an adj nex hop in the vrf 0. If there are no entries in
+ * the vrf 0 that matches with the prefix (epm), a new one is created.
  *
  * @param fib_proto FIB_PROTOCOL_IP6 or FIB_PROTOCOL_IP4 (mpls not supported)
- * @param pfx Prefix for which to add a next hop
+ * @param rpfx Prefix for which to add a next hop
  * @param nh Next hop to add
  * @param sw_if Software interface index to add in the next hop
  */
-int ip_nh_add_helper (fib_protocol_t fib_proto, const fib_prefix_t *pfx,
-		      ip46_address_t *nh, u32 sw_if);
+int ip_nh_adj_add_del_helper (fib_protocol_t fib_proto,
+			      const fib_prefix_t *rpfx, ip46_address_t *nh,
+			      u32 sw_if, u8 is_add);
 
 /**
- * @Brief Helper to remove a nex hop in the vrf 0. If there are no entries in
- * the vrf 0 nothing happens.
+ * @Brief Helper to add an udp-tunnel nex hop in the vrf 0. If there are no
+ * entries in the vrf 0 that matches with the prefix (epm), a new one is
+ * created.
  *
  * @param fib_proto FIB_PROTOCOL_IP6 or FIB_PROTOCOL_IP4 (mpls not supported)
- * @param pfx Prefix for which to remove a next hop
- * @param nh Next hop to remove
- * @param sw_if Software interface index in the next hop definition
+ * @param rpfx Prefix for which to add a next hop
+ * @param uei The UDP ENCAP ID
+ * @param sw_if The
  */
-int ip_nh_del_helper (fib_protocol_t fib_proto, const fib_prefix_t *rpfx,
-		      ip46_address_t *nh, u32 sw_if);
+int ip_nh_udp_tunnel_add_del_helper (fib_protocol_t fib_proto,
+				     const fib_prefix_t *rpfx, u32 uei,
+				     dpo_proto_t proto, u8 is_add);
 
 /**
  * @Brief Enable an hICN for an ip prefix
@@ -106,7 +109,7 @@ int ip_nh_del_helper (fib_protocol_t fib_proto, const fib_prefix_t *rpfx,
  * loadbalancer in the vrf HICN already contains a dpo which is not an hICN one
  * HICN_ERROR_ROUTE_MLT_LD if there are more than a dpo in the vpp loadbalancer
  */
-int hicn_route_enable (fib_prefix_t *prefix);
+int hicn_route_enable (fib_prefix_t *prefix, hicn_face_id_t **vec_faces);
 
 /**
  * @Brief Disable an hICN for an ip prefix. If hICN wasn't enable on the prefix

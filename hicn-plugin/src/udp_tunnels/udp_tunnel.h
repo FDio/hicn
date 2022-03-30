@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -68,6 +68,19 @@ u32 udp_tunnel_add (fib_protocol_t proto, index_t fib_index,
  */
 u32 udp_tunnel_get (const ip46_address_t *src_ip, const ip46_address_t *dst_ip,
 		    u16 src_port, u16 dst_port);
+
+/**
+ * @brief Get udp tunnel UEI. Creates the tunnel if does not exist already.
+ *
+ * @param src_ip source address of the tunnel
+ * @param dst_ip destination address of the tunnel
+ * @param src_port source port
+ * @param src_port destination port
+ * @return id of the udp tunnel/encap
+ */
+u32 udp_tunnel_get_create (const ip46_address_t *src_ip,
+			   const ip46_address_t *dst_ip, u16 src_port,
+			   u16 dst_port);
 
 /**
  * @brief Delete a udp tunnel

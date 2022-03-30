@@ -1,0 +1,143 @@
+version: "3"
+services:
+  vpp_client_memif:
+    build:
+      context: ..
+      dockerfile: ${DOCKERFILE}
+      args:
+        BASE_IMAGE: ${BASE_IMAGE}
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+    container_name: ${TEST_VPP_MEMIF_REPLICATION}-client
+    hostname: client
+    volumes:
+      - /tmp/memif:/memif
+      - ..:/workspace
+    entrypoint: [/bin/bash, -c]
+    command:
+      - |
+        if [ -d /workspace/build-dev ]; then
+          ninja -C /workspace/build-dev install
+        fi
+
+        sudo mkdir -p /var/log/vpp
+        sudo tee /etc/vpp/startup.conf <<EOF
+        cpu { main-core 1 }
+        buffers { buffers-per-numa 600000 }
+        plugins {
+            path /hicn-root/lib/vpp_plugins:/usr/lib/x86_64-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            plugin default { disable }
+            plugin acl_plugin.so { enable }
+            plugin nat_plugin.so { enable }
+            plugin dhcp_plugin.so { enable }
+            plugin dpdk_plugin.so { enable }
+            plugin dns_plugin.so { enable }
+            plugin ping_plugin.so { enable }
+            plugin memif_plugin.so { enable }
+            plugin nsim_plugin.so { enable }
+            plugin hicn_plugin.so { enable }
+        }
+
+        unix {
+            startup-config /etc/vpp/client-up.txt
+            cli-listen /run/vpp/cli.sock
+            log /var/log/vpp/vpp.log
+        }
+        EOF
+
+        sudo tee /etc/vpp/client-up.txt <<EOF
+        create memif socket id 1 filename /memif/memif1.sock
+        create interface memif id 0 socket-id 1 hw-addr aa:bb:cc:dd:ee:01 master
+        set int state memif1/0 up
+        set int ip addr memif1/0 192.168.1.1/24
+        set int ip addr memif1/0 2001::1/64
+        set ip neighbor memif1/0 2001::2 aa:bb:cc:dd:ee:02 static
+        ip route add b002::1/64 via 2001::2 memif1/0
+        create interface memif id 1 socket-id 1 hw-addr aa:bb:bb:bb:ee:01 master
+        set int state memif1/1 up
+        set int ip addr memif1/1 192.168.2.1/24
+        set int ip addr memif1/1 2002::1/64
+        set ip neighbor memif1/1 2002::2 aa:bb:bb:bb:ee:02 static
+        ip route add b002::1/64 via 2002::2 memif1/1
+        EOF
+
+        sudo rm /memif/memif1.sock
+
+        sudo vpp -c /etc/vpp/startup.conf
+        sleep 5
+
+        sudo vppctl hicn enable b002::1/64
+        sudo vppctl hicn strategy set 2 prefix b002::/64
+
+        tail -f /dev/null
+  vpp_server_memif:
+    build:
+      context: ..
+      dockerfile: ${DOCKERFILE}
+      args:
+        BASE_IMAGE: ${BASE_IMAGE}
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+    container_name: ${TEST_VPP_MEMIF_REPLICATION}-server
+    hostname: server
+    volumes:
+      - /tmp/memif:/memif
+      - ..:/workspace
+    entrypoint: [/bin/bash, -c]
+    command:
+      - |
+        if [ -d /workspace/build-dev ]; then
+          ninja -C /workspace/build-dev install
+        fi
+
+        sudo mkdir -p /var/log/vpp
+        sudo tee /etc/vpp/startup.conf <<EOF
+        cpu { main-core 2 }
+        buffers { buffers-per-numa 600000 }
+
+        plugins {
+            path /hicn-root/lib/vpp_plugins:/usr/lib/x86_64-linux-gnu/vpp_plugins:/usr/lib/vpp_plugins
+            plugin default { disable }
+            plugin acl_plugin.so { enable }
+            plugin nat_plugin.so { enable }
+            plugin dhcp_plugin.so { enable }
+            plugin dpdk_plugin.so { enable }
+            plugin dns_plugin.so { enable }
+            plugin ping_plugin.so { enable }
+            plugin memif_plugin.so { enable }
+            plugin nsim_plugin.so { enable }
+            plugin hicn_plugin.so { enable }
+        }
+        unix {
+            startup-config /etc/vpp/server-up.txt
+            cli-listen /run/vpp/cli.sock
+            log /var/log/vpp/vpp.log
+        }
+        EOF
+
+        sudo tee /etc/vpp/server-up.txt <<EOF
+        create memif socket id 1 filename /memif/memif1.sock
+        create interface memif id 0 socket-id 1 hw-addr aa:bb:cc:dd:ee:02 slave
+        set int state memif1/0 up
+        set int ip addr memif1/0 192.168.1.2/24
+        set int ip addr memif1/0 2001::2/64
+        set ip neighbor memif1/0 2001::1 aa:bb:cc:dd:ee:01 static
+        create interface memif id 1 socket-id 1 hw-addr aa:bb:bb:bb:ee:02 slave
+        set int state memif1/1 up
+        set int ip addr memif1/1 192.168.2.2/24
+        set int ip addr memif1/1 2002::2/64
+        set ip neighbor memif1/1 2002::1 aa:bb:bb:bb:ee:01 static
+        EOF
+
+        sudo vpp -c /etc/vpp/startup.conf
+        sleep 10
+
+        sudo hiperf -D -S -R -B 4000kbps -z memif_module ${RTC_PRODUCER}/128
+        sleep 5
+        sudo hiperf -D -S -z memif_module ${RAAQM_PRODUCER}/128
+        sleep 5
+        sudo hicn-ping-server -d -s 0 -n ${PING_PRODUCER}/128 -z memif_module
+
+        tail -f /dev/null

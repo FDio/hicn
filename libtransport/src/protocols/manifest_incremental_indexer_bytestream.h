@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -39,8 +39,7 @@ class ManifestIncrementalIndexer : public IncrementalIndexer {
   ManifestIncrementalIndexer(IncrementalIndexer &&indexer)
       : IncrementalIndexer(std::move(indexer)),
         suffix_strategy_(utils::SuffixStrategyFactory::getSuffixStrategy(
-            core::NextSegmentCalculationStrategy::INCREMENTAL,
-            next_download_suffix_, 0)) {
+            utils::NextSuffixStrategy::INCREMENTAL, next_download_suffix_)) {
     for (uint32_t i = first_suffix_; i < next_download_suffix_; i++) {
       suffix_queue_.push(i);
     }
@@ -54,7 +53,7 @@ class ManifestIncrementalIndexer : public IncrementalIndexer {
                        core::ContentObject &content_object,
                        bool reassembly) override;
 
-  uint32_t checkNextSuffix() override;
+  uint32_t checkNextSuffix() const override;
 
   uint32_t getNextSuffix() override;
 
@@ -62,7 +61,7 @@ class ManifestIncrementalIndexer : public IncrementalIndexer {
 
   bool isFinalSuffixDiscovered() override;
 
-  uint32_t getFinalSuffix() override;
+  uint32_t getFinalSuffix() const override;
 
  protected:
   std::unique_ptr<utils::SuffixStrategy> suffix_strategy_;
@@ -82,9 +81,6 @@ class ManifestIncrementalIndexer : public IncrementalIndexer {
   void onUntrustedContentObject(core::Interest &interest,
                                 core::ContentObject &content_object,
                                 bool reassembly);
-  void applyPolicy(core::Interest &interest,
-                   core::ContentObject &content_object, bool reassembly,
-                   auth::VerificationPolicy policy);
 };
 
 }  // end namespace protocol

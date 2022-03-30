@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,37 +11,68 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+##############################################################
+# Project and cmake version
+##############################################################
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-set(CMAKE_CXX_STANDARD 14)
-
 project(apps)
 
+
+##############################################################
+# C Standard
+##############################################################
+set(CMAKE_CXX_STANDARD 17)
+
+
+##############################################################
+# Cmake modules
+##############################################################
+include("${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake")
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
-  "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules"
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
+  ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules
 )
 
-if (NOT CMAKE_BUILD_TYPE)
-  message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
-  set(CMAKE_BUILD_TYPE "Release")
-endif ()
 
-include(BuildMacros)
-include(WindowsMacros)
-
+##############################################################
+# Libs and Bins names
+##############################################################
 set(HICN_APPS hicn-apps CACHE INTERNAL "" FORCE)
+set(HIGET higet)
+set(HTTP_PROXY hicn-http-proxy)
+set(LIBHTTP_PROXY hicnhttpproxy)
+set(LIBHTTP_PROXY_STATIC ${LIBHTTP_PROXY}.static)
 
+
+##############################################################
+# Dependencies and third party libs
+##############################################################
 find_package(Threads REQUIRED)
-find_package(Libconfig++ REQUIRED)
+find_package(Libconfig++ ${LIBCONFIG_DEFAULT_VERSION} REQUIRED)
 
+
+##############################################################
+# Check if building as subproject or as root project
+##############################################################
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-  find_package(Libtransport REQUIRED)
-  find_package(Libhicn REQUIRED)
-  find_package(hicnctrl REQUIRED)
+  include(CommonSetup)
+
+  find_package(Libhicn ${CURRENT_VERSION} REQUIRED NO_MODULE)
+  find_package(Libhicnctrl ${CURRENT_VERSION} REQUIRED NO_MODULE)
+  find_package(Libhicntransport ${CURRENT_VERSION} REQUIRED NO_MODULE)
+
+  if (DISABLE_SHARED_LIBRARIES)
+    set(LIBTYPE static)
+  else()
+    set(LIBTYPE shared)
+  endif()
+
+  list(APPEND LIBHICN_LIBRARIES hicn::hicn.${LIBTYPE})
+  list(APPEND LIBTRANSPORT_LIBRARIES hicn::hicntransport.${LIBTYPE})
+  list(APPEND LIBHICNCTRL_LIBRARIES hicn::hicnctrl.${LIBTYPE})
 else()
   if (DISABLE_SHARED_LIBRARIES)
-    find_package(OpenSSL REQUIRED)
+    find_package(OpenSSL ${OPENSSL_DEFAULT_VERSION} REQUIRED)
     set(LIBTRANSPORT_LIBRARIES ${LIBTRANSPORT_STATIC})
     set(LIBHICN_LIBRARIES ${LIBHICN_STATIC})
     set(LIBHICNCTRL_LIBRARIES ${LIBHICNCTRL_STATIC})
@@ -56,20 +87,18 @@ else()
   )
 endif()
 
-if (WIN32)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 /wd4996")
-endif ()
 
-include(Packaging)
+##############################################################
+# Packaging and versioning
+##############################################################
+include(${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/packaging.cmake)
 
+
+##############################################################
+# Subdirectories
+##############################################################
 add_subdirectory(ping)
 add_subdirectory(hiperf)
-
-set(HIGET higet)
-set(HTTP_PROXY hicn-http-proxy)
-
-if (NOT WIN32)
-  add_subdirectory(http-proxy)
-endif ()
-
+add_subdirectory(http-proxy)
 add_subdirectory(higet)

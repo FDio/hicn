@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -189,7 +189,7 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	       * the data through it
 	       */
 	      next0 = isv6 ? HICN_INTEREST_HITCS_NEXT_IFACE6_OUT :
-			     HICN_INTEREST_HITCS_NEXT_IFACE4_OUT;
+				   HICN_INTEREST_HITCS_NEXT_IFACE4_OUT;
 	      vnet_buffer (b0)->ip.adj_index[VLIB_TX] = hicnb0->face_id;
 
 	      clone_from_cs (vm, &pitp->u.cs.cs_pkt_buf, b0, isv6);

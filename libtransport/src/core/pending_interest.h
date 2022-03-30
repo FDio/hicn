@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -48,19 +48,17 @@ class PendingInterest {
   //       on_content_object_callback_(),
   //       on_interest_timeout_callback_() {}
 
-  PendingInterest(Interest::Ptr &&interest,
-                  std::unique_ptr<asio::steady_timer> &&timer)
-      : interest_(std::move(interest)),
-        timer_(std::move(timer)),
+  PendingInterest(asio::io_service &io_service, const Interest::Ptr &interest)
+      : interest_(interest),
+        timer_(io_service),
         on_content_object_callback_(),
         on_interest_timeout_callback_() {}
 
-  PendingInterest(Interest::Ptr &&interest,
+  PendingInterest(asio::io_service &io_service, const Interest::Ptr &interest,
                   OnContentObjectCallback &&on_content_object,
-                  OnInterestTimeoutCallback &&on_interest_timeout,
-                  std::unique_ptr<asio::steady_timer> &&timer)
-      : interest_(std::move(interest)),
-        timer_(std::move(timer)),
+                  OnInterestTimeoutCallback &&on_interest_timeout)
+      : interest_(interest),
+        timer_(io_service),
         on_content_object_callback_(std::move(on_content_object)),
         on_interest_timeout_callback_(std::move(on_interest_timeout)) {}
 
@@ -68,12 +66,12 @@ class PendingInterest {
 
   template <typename Handler>
   TRANSPORT_ALWAYS_INLINE void startCountdown(Handler &&cb) {
-    timer_->expires_from_now(
+    timer_.expires_from_now(
         std::chrono::milliseconds(interest_->getLifetime()));
-    timer_->async_wait(std::forward<Handler &&>(cb));
+    timer_.async_wait(std::forward<Handler &&>(cb));
   }
 
-  TRANSPORT_ALWAYS_INLINE void cancelTimer() { timer_->cancel(); }
+  TRANSPORT_ALWAYS_INLINE void cancelTimer() { timer_.cancel(); }
 
   TRANSPORT_ALWAYS_INLINE Interest::Ptr &&getInterest() {
     return std::move(interest_);
@@ -105,7 +103,7 @@ class PendingInterest {
 
  private:
   Interest::Ptr interest_;
-  std::unique_ptr<asio::steady_timer> timer_;
+  asio::steady_timer timer_;
   OnContentObjectCallback on_content_object_callback_;
   OnInterestTimeoutCallback on_interest_timeout_callback_;
 };

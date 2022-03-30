@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -31,7 +31,7 @@ namespace http {
 using namespace interface;
 using namespace core;
 
-class HTTPClientConnection {
+class HTTPClientConnection : private utils::NonCopyable {
   static constexpr uint32_t max_buffer_capacity = 64 * 1024;
 
  public:
@@ -39,7 +39,7 @@ class HTTPClientConnection {
    public:
     virtual void onBytesReceived(std::unique_ptr<utils::MemBuf> &&buffer) = 0;
     virtual void onSuccess(std::size_t bytes) = 0;
-    virtual void onError(const std::error_code ec) = 0;
+    virtual void onError(const std::error_code &ec) = 0;
   };
 
   enum class RC : uint32_t { DOWNLOAD_FAILED, DOWNLOAD_SUCCESS };

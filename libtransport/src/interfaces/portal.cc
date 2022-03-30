@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,83 +13,106 @@
  * limitations under the License.
  */
 
+#include <core/portal.h>
 #include <hicn/transport/interfaces/portal.h>
-#include <implementation/socket.h>
 
 namespace transport {
 namespace interface {
 
-Portal::Portal() { implementation_ = new core::Portal(); }
+class Portal::Impl {
+ public:
+  Impl() : portal_(core::Portal::createShared()) {}
+  Impl(::utils::EventThread &worker)
+      : portal_(core::Portal::createShared(worker)) {}
 
-Portal::Portal(asio::io_service &io_service) {
-  implementation_ = new core::Portal(io_service);
+  void registerTransportCallback(TransportCallback *transport_callback) {
+    portal_->registerTransportCallback(transport_callback);
+  }
+
+  void connect(bool is_consumer) { portal_->connect(is_consumer); }
+
+  bool interestIsPending(const core::Name &name) {
+    return portal_->interestIsPending(name);
+  }
+
+  void sendInterest(core::Interest::Ptr &&interest,
+                    OnContentObjectCallback &&on_content_object_callback,
+                    OnInterestTimeoutCallback &&on_interest_timeout_callback) {
+    portal_->sendInterest(std::move(interest),
+                          std::move(on_content_object_callback),
+                          std::move(on_interest_timeout_callback));
+  }
+
+  void sendContentObject(core::ContentObject &content_object) {
+    portal_->sendContentObject(content_object);
+  }
+
+  void killConnection() { portal_->killConnection(); }
+
+  void clear() { portal_->clear(); }
+
+  utils::EventThread &getThread() { return portal_->getThread(); }
+
+  void registerRoute(core::Prefix &prefix) { portal_->registerRoute(prefix); }
+
+  void sendMapme() { portal_->sendMapme(); }
+
+  void setForwardingStrategy(core::Prefix &prefix, std::string &strategy) {
+    portal_->setForwardingStrategy(prefix, strategy);
+  }
+
+ private:
+  std::shared_ptr<core::Portal> portal_;
+};
+
+Portal::Portal() { implementation_ = new Impl(); }
+
+Portal::Portal(::utils::EventThread &worker) {
+  implementation_ = new Impl(worker);
 }
 
-Portal::~Portal() { delete reinterpret_cast<core::Portal *>(implementation_); }
+Portal::~Portal() { delete implementation_; }
 
-void Portal::setConsumerCallback(ConsumerCallback *consumer_callback) {
-  reinterpret_cast<core::Portal *>(implementation_)
-      ->setConsumerCallback(consumer_callback);
-}
-
-void Portal::setProducerCallback(ProducerCallback *producer_callback) {
-  reinterpret_cast<core::Portal *>(implementation_)
-      ->setProducerCallback(producer_callback);
+void Portal::registerTransportCallback(TransportCallback *transport_callback) {
+  implementation_->registerTransportCallback(transport_callback);
 }
 
 void Portal::connect(bool is_consumer) {
-  reinterpret_cast<core::Portal *>(implementation_)->connect(is_consumer);
+  implementation_->connect(is_consumer);
 }
 
 bool Portal::interestIsPending(const core::Name &name) {
-  return reinterpret_cast<core::Portal *>(implementation_)
-      ->interestIsPending(name);
+  return implementation_->interestIsPending(name);
 }
 
 void Portal::sendInterest(
     core::Interest::Ptr &&interest,
     OnContentObjectCallback &&on_content_object_callback,
     OnInterestTimeoutCallback &&on_interest_timeout_callback) {
-  reinterpret_cast<core::Portal *>(implementation_)
-      ->sendInterest(std::move(interest), std::move(on_content_object_callback),
-                     std::move(on_interest_timeout_callback));
-}
-
-void Portal::bind(const BindConfig &config) {
-  reinterpret_cast<core::Portal *>(implementation_)->bind(config);
-}
-
-void Portal::runEventsLoop() {
-  reinterpret_cast<core::Portal *>(implementation_)->runEventsLoop();
-}
-
-void Portal::runOneEvent() {
-  reinterpret_cast<core::Portal *>(implementation_)->runOneEvent();
+  implementation_->sendInterest(std::move(interest),
+                                std::move(on_content_object_callback),
+                                std::move(on_interest_timeout_callback));
 }
 
 void Portal::sendContentObject(core::ContentObject &content_object) {
-  reinterpret_cast<core::Portal *>(implementation_)
-      ->sendContentObject(content_object);
+  implementation_->sendContentObject(content_object);
 }
 
-void Portal::stopEventsLoop() {
-  reinterpret_cast<core::Portal *>(implementation_)->stopEventsLoop();
-}
+void Portal::killConnection() { implementation_->killConnection(); }
 
-void Portal::killConnection() {
-  reinterpret_cast<core::Portal *>(implementation_)->killConnection();
-}
+void Portal::clear() { implementation_->clear(); }
 
-void Portal::clear() {
-  reinterpret_cast<core::Portal *>(implementation_)->clear();
-}
-
-asio::io_service &Portal::getIoService() {
-  return reinterpret_cast<core::Portal *>(implementation_)->getIoService();
-}
+utils::EventThread &Portal::getThread() { return implementation_->getThread(); }
 
 void Portal::registerRoute(core::Prefix &prefix) {
-  reinterpret_cast<core::Portal *>(implementation_)->registerRoute(prefix);
+  implementation_->registerRoute(prefix);
+}
+
+void Portal::sendMapme() { implementation_->sendMapme(); }
+
+void Portal::setForwardingStrategy(core::Prefix &prefix,
+                                   std::string &strategy) {
+  implementation_->setForwardingStrategy(prefix, strategy);
 }
 
 }  // namespace interface

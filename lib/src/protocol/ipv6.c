@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -33,8 +33,8 @@ ipv6_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
 
   /* *INDENT-OFF* */
   h->ipv6 = (_ipv6_header_t){
-    .saddr = { { 0 } },
-    .daddr = { { 0 } },
+    .saddr = IP6_ADDRESS_EMPTY,
+    .daddr = IP6_ADDRESS_EMPTY,
     .version_class_flow = htonl ((IPV6_DEFAULT_VERSION << 28) |
 				 (IPV6_DEFAULT_TRAFFIC_CLASS << 20) |
 				 (IPV6_DEFAULT_FLOW_LABEL & 0xfffff)),
@@ -48,17 +48,17 @@ ipv6_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
 
 int
 ipv6_get_interest_locator (hicn_type_t type, const hicn_protocol_t *h,
-			   ip46_address_t *ip_address)
+			   ip_address_t *ip_address)
 {
-  ip_address->ip6 = h->ipv6.saddr;
+  ip_address->v6 = h->ipv6.saddr;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
 ipv6_set_interest_locator (hicn_type_t type, hicn_protocol_t *h,
-			   const ip46_address_t *ip_address)
+			   const ip_address_t *ip_address)
 {
-  h->ipv6.saddr = ip_address->ip6;
+  h->ipv6.saddr = ip_address->v6;
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -66,20 +66,16 @@ int
 ipv6_get_interest_name (hicn_type_t type, const hicn_protocol_t *h,
 			hicn_name_t *name)
 {
-  name->ip6.prefix_as_ip6 = h->ipv6.daddr;
-#ifndef HICN_VPP_PLUGIN
-  name->type = HNT_CONTIGUOUS_V6;
-  name->len = HICN_V6_NAME_LEN;
-#endif /* HICN_VPP_PLUGIN */
-  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->ip6.suffix));
+  name->prefix.v6 = h->ipv6.daddr;
+  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->suffix));
 }
 
 int
 ipv6_set_interest_name (hicn_type_t type, hicn_protocol_t *h,
 			const hicn_name_t *name)
 {
-  h->ipv6.daddr = name->ip6.prefix_as_ip6;
-  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->ip6.suffix));
+  h->ipv6.daddr = name->prefix.v6;
+  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->suffix));
 }
 
 int
@@ -94,6 +90,12 @@ ipv6_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t *h,
 			       const hicn_name_suffix_t *suffix)
 {
   return CHILD_OPS (set_interest_name_suffix, type, h, suffix);
+}
+
+int
+ipv6_is_interest (hicn_type_t type, const hicn_protocol_t *h, int *is_interest)
+{
+  return CHILD_OPS (is_interest, type, h, is_interest);
 }
 
 int
@@ -119,17 +121,17 @@ ipv6_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t *h)
 
 int
 ipv6_get_data_locator (hicn_type_t type, const hicn_protocol_t *h,
-		       ip46_address_t *ip_address)
+		       ip_address_t *ip_address)
 {
-  ip_address->ip6 = h->ipv6.daddr;
+  ip_address->v6 = h->ipv6.daddr;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
 ipv6_set_data_locator (hicn_type_t type, hicn_protocol_t *h,
-		       const ip46_address_t *ip_address)
+		       const ip_address_t *ip_address)
 {
-  h->ipv6.daddr = ip_address->ip6;
+  h->ipv6.daddr = ip_address->v6;
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -137,20 +139,16 @@ int
 ipv6_get_data_name (hicn_type_t type, const hicn_protocol_t *h,
 		    hicn_name_t *name)
 {
-  name->ip6.prefix_as_ip6 = h->ipv6.saddr;
-#ifndef HICN_VPP_PLUGIN
-  name->type = HNT_CONTIGUOUS_V6;
-  name->len = HICN_V6_NAME_LEN;
-#endif /* HICN_VPP_PLUGIN */
-  return CHILD_OPS (get_data_name_suffix, type, h, &(name->ip6.suffix));
+  name->prefix.v6 = h->ipv6.saddr;
+  return CHILD_OPS (get_data_name_suffix, type, h, &(name->suffix));
 }
 
 int
 ipv6_set_data_name (hicn_type_t type, hicn_protocol_t *h,
 		    const hicn_name_t *name)
 {
-  h->ipv6.saddr = name->ip6.prefix_as_ip6;
-  return CHILD_OPS (set_data_name_suffix, type, h, &(name->ip6.suffix));
+  h->ipv6.saddr = name->prefix.v6;
+  return CHILD_OPS (set_data_name_suffix, type, h, &(name->suffix));
 }
 
 int
@@ -281,24 +279,23 @@ ipv6_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
 
 int
 ipv6_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
-		       const ip46_address_t *addr_new,
-		       ip46_address_t *addr_old)
+		       const ip_address_t *addr_new, ip_address_t *addr_old)
 {
   // ASSERT(addr_old == NULL);
-  addr_old->ip6 = h->ipv6.saddr;
-  h->ipv6.saddr = addr_new->ip6;
+  addr_old->v6 = h->ipv6.saddr;
+  h->ipv6.saddr = addr_new->v6;
 
   return CHILD_OPS (rewrite_interest, type, h, addr_new, addr_old);
 }
 
 int
 ipv6_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
-		   const ip46_address_t *addr_new, ip46_address_t *addr_old,
+		   const ip_address_t *addr_new, ip_address_t *addr_old,
 		   const hicn_faceid_t face_id, u8 reset_pl)
 {
   // ASSERT(addr_old == NULL);
-  addr_old->ip6 = h->ipv6.daddr;
-  h->ipv6.daddr = addr_new->ip6;
+  addr_old->v6 = h->ipv6.daddr;
+  h->ipv6.daddr = addr_new->v6;
 
   return CHILD_OPS (rewrite_data, type, h, addr_new, addr_old, face_id,
 		    reset_pl);
@@ -357,6 +354,20 @@ ipv6_set_payload_length (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
+ipv6_get_payload_type (hicn_type_t type, const hicn_protocol_t *h,
+		       hicn_payload_type_t *payload_type)
+{
+  return CHILD_OPS (get_payload_type, type, h, payload_type);
+}
+
+int
+ipv6_set_payload_type (hicn_type_t type, hicn_protocol_t *h,
+		       hicn_payload_type_t payload_type)
+{
+  return CHILD_OPS (set_payload_type, type, h, payload_type);
+}
+
+int
 ipv6_get_signature_size (hicn_type_t type, const hicn_protocol_t *h,
 			 size_t *signature_size)
 {
@@ -371,16 +382,17 @@ ipv6_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
-ipv6_set_signature_gap (hicn_type_t type, hicn_protocol_t *h, uint8_t gap)
+ipv6_set_signature_padding (hicn_type_t type, hicn_protocol_t *h,
+			    size_t padding)
 {
-  return CHILD_OPS (set_signature_gap, type, h, gap);
+  return CHILD_OPS (set_signature_padding, type, h, padding);
 }
 
 int
-ipv6_get_signature_gap (hicn_type_t type, const hicn_protocol_t *h,
-			uint8_t *gap)
+ipv6_get_signature_padding (hicn_type_t type, const hicn_protocol_t *h,
+			    size_t *padding)
 {
-  return CHILD_OPS (get_signature_gap, type, h, gap);
+  return CHILD_OPS (get_signature_padding, type, h, padding);
 }
 
 int
@@ -428,6 +440,18 @@ int
 ipv6_get_signature (hicn_type_t type, hicn_protocol_t *h, uint8_t **signature)
 {
   return CHILD_OPS (get_signature, type, h, signature);
+}
+
+int
+ipv6_is_last_data (hicn_type_t type, const hicn_protocol_t *h, int *is_last)
+{
+  return CHILD_OPS (is_last_data, type, h, is_last);
+}
+
+int
+ipv6_set_last_data (hicn_type_t type, hicn_protocol_t *h)
+{
+  return CHILD_OPS (set_last_data, type, h);
 }
 
 DECLARE_HICN_OPS (ipv6);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 HUACHENTEL and/or its affiliates.
+ * Copyright (c) 2021 HUACHENTEL and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -18,6 +18,5 @@
 
 int ietf_subscribe_events(sr_session_ctx_t *session,
                           sr_subscription_ctx_t **subscription);
-
 
 #endif /* __IETF_INTERFACE_H__ */
