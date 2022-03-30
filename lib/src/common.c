@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,8 +20,8 @@
  */
 
 #include <stdlib.h>
-#include <string.h>		// memset
-#include <sys/types.h>		// getaddrinfo
+#include <string.h>    // memset
+#include <sys/types.h> // getaddrinfo
 #ifndef _WIN32
 #include <sys/socket.h>
 #include <netdb.h>
@@ -30,8 +30,6 @@
 
 #include <hicn/common.h>
 #include <hicn/util/log.h>
-
-
 
 int
 get_addr_family (const char *ip_address)
@@ -59,7 +57,8 @@ get_addr_family (const char *ip_address)
 u32
 cumulative_hash32 (const void *data, size_t len, u32 lastValue)
 {
-  // Standard FNV 32-bit prime: see http://www.isthe.com/chongo/tech/comp/fnv/#FNV-param
+  // Standard FNV 32-bit prime: see
+  // http://www.isthe.com/chongo/tech/comp/fnv/#FNV-param
   const u32 fnv1a_prime = 0x01000193;
   u32 hash = lastValue;
   size_t i;
@@ -78,7 +77,8 @@ cumulative_hash32 (const void *data, size_t len, u32 lastValue)
 u32
 hash32 (const void *data, size_t len)
 {
-  // Standard FNV 32-bit offset: see http://www.isthe.com/chongo/tech/comp/fnv/#FNV-param
+  // Standard FNV 32-bit offset: see
+  // http://www.isthe.com/chongo/tech/comp/fnv/#FNV-param
   const u32 fnv1a_offset = 0x811C9DC5;
   return cumulative_hash32 (data, len, fnv1a_offset);
 }
@@ -86,7 +86,8 @@ hash32 (const void *data, size_t len)
 u64
 cumulative_hash64 (const void *data, size_t len, u64 lastValue)
 {
-  // Standard FNV 64-bit prime: see http://www.isthe.com/chongo/tech/comp/fnv/#FNV-param
+  // Standard FNV 64-bit prime: see
+  // http://www.isthe.com/chongo/tech/comp/fnv/#FNV-param
   const u64 fnv1a_prime = 0x00000100000001B3ULL;
   u64 hash = lastValue;
   const char *chardata = data;
@@ -104,13 +105,14 @@ cumulative_hash64 (const void *data, size_t len, u64 lastValue)
 u64
 hash64 (const void *data, size_t len)
 {
-  // Standard FNV 64-bit offset: see http://www.isthe.com/chongo/tech/comp/fnv/#FNV-param
+  // Standard FNV 64-bit offset: see
+  // http://www.isthe.com/chongo/tech/comp/fnv/#FNV-param
   const u64 fnv1a_offset = 0xCBF29CE484222325ULL;
   return cumulative_hash64 (data, len, fnv1a_offset);
 }
 
 void
-hicn_packet_dump (const uint8_t * buffer, size_t len)
+hicn_packet_dump (const uint8_t *buffer, size_t len)
 {
   int i;
   unsigned char buff[17];

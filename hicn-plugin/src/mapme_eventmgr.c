@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -24,6 +24,11 @@
 
 #define DEFAULT_TIMEOUT 1.0 /* s */
 
+/**
+ * @brief This is a process node reacting to face events.
+ */
+vlib_node_registration_t hicn_mapme_eventmgr_process_node;
+
 hicn_mapme_main_t mapme_main;
 
 hicn_prefix_t *retx_pool;
@@ -33,7 +38,6 @@ void
 hicn_mapme_init (vlib_main_t *vm)
 {
   mapme_main.vm = vm;
-  mapme_main.log_class = vlib_log_register_class ("hicn_mapme", 0);
 }
 
 /* borrowed from vnet/fib/ip4_fib.c */
@@ -77,7 +81,6 @@ hicn_mapme_process_fib_entry (vlib_main_t *vm, hicn_face_id_t face,
   const dpo_id_t *load_balance_dpo_id;
   load_balance_t *lb;
   dpo_id_t *dpo_id;
-  fib_entry_t *fib_entry;
 
   load_balance_dpo_id = fib_entry_contribute_ip_forwarding (*fib_entry_index);
 
@@ -92,12 +95,14 @@ hicn_mapme_process_fib_entry (vlib_main_t *vm, hicn_face_id_t face,
     {
       /* un-const */
       dpo_id = (dpo_id_t *) load_balance_get_bucket_i (lb, i);
-
       if (dpo_is_hicn (dpo_id))
 	{
+#ifdef HICN_DDEBUG
+	  fib_entry_t *fib_entry;
 	  fib_entry = fib_entry_get (*fib_entry_index);
-	  vlib_cli_output (vm, "set face pending %U", format_fib_prefix,
-			   &fib_entry->fe_prefix);
+	  HICN_DEBUG ("set face pending %U", format_fib_prefix,
+		      &fib_entry->fe_prefix);
+#endif
 	}
     }
 }
@@ -107,16 +112,10 @@ hicn_mapme_process_ip4_fib (vlib_main_t *vm, hicn_face_id_t face)
 {
   ip4_main_t *im4 = &ip4_main;
   fib_table_t *fib_table;
-  int table_id = -1, fib_index = ~0;
 
   pool_foreach (fib_table, im4->fibs)
     {
-      ip4_fib_t *fib = pool_elt_at_index (im4->v4_fibs, fib_table->ft_index);
-
-      if (table_id >= 0 && table_id != (int) fib->table_id)
-	continue;
-      if (fib_index != ~0 && fib_index != (int) fib->index)
-	continue;
+      ip4_fib_t *fib = pool_elt_at_index (ip4_fibs, fib_table->ft_index);
 
       fib_node_index_t *fib_entry_index;
       ip4_fib_show_walk_ctx_t ctx = {
@@ -241,8 +240,8 @@ hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
   size_t n;
 
   /* This should be retrieved from face information */
-  DEBUG ("Retransmission for prefix %U seq=%d", format_ip46_address,
-	 &prefix->name, IP46_TYPE_ANY, params->seq);
+  HICN_DEBUG ("Retransmission for prefix %U seq=%d", format_ip46_address,
+	      &prefix->name, IP46_TYPE_ANY, params->seq);
 
   char *node_name = hicn_mapme_get_dpo_face_node (face);
   if (!node_name)
@@ -257,7 +256,7 @@ hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
   u8 *buffer = get_packet_buffer (
     vm, node_index, face, (ip46_address_t *) prefix,
     (params->protocol == IPPROTO_IPV6) ? HICN_TYPE_IPV6_ICMP :
-					 HICN_TYPE_IPV4_ICMP);
+					       HICN_TYPE_IPV4_ICMP);
   n = hicn_mapme_create_packet (buffer, prefix, params);
   if (n <= 0)
     {
@@ -275,7 +274,7 @@ hicn_mapme_send_updates (vlib_main_t *vm, hicn_prefix_t *prefix, dpo_id_t dpo,
   hicn_mapme_tfib_t *tfib = TFIB (hicn_strategy_dpo_ctx_get (dpo.dpoi_index));
   if (!tfib)
     {
-      DEBUG ("NULL TFIB entry id=%d", dpo.dpoi_index);
+      HICN_ERROR ("NULL TFIB entry id=%d", dpo.dpoi_index);
       return;
     }
 
@@ -337,7 +336,7 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 	   * Also, we only run a timer when there are pending retransmissions.
 	   */
 	  timeout = (due_time > current_time) ? due_time - current_time :
-						DEFAULT_TIMEOUT;
+						      DEFAULT_TIMEOUT;
 	  due_time = current_time + timeout;
 	}
       else
@@ -493,8 +492,8 @@ hicn_mapme_eventmgr_process (vlib_main_t *vm, vlib_node_runtime_t *rt,
 		TFIB (hicn_strategy_dpo_ctx_get (retx->dpo.dpoi_index));
 	      if (!tfib)
 		{
-		  DEBUG ("NULL TFIB entry for dpoi_index=%d",
-			 retx->dpo.dpoi_index);
+		  HICN_ERROR ("NULL TFIB entry for dpoi_index=%d",
+			      retx->dpo.dpoi_index);
 		  continue;
 		}
 

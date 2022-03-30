@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -187,7 +187,7 @@ hicn_hashtb_alloc (hicn_hashtb_h *ph, u32 max_elems, size_t app_data_size)
     }
   pool_get_aligned (h->ht_nodes, nodep, 8);
   // alloc node 0
-  nodep = nodep; /* Silence 'not used' warning */
+  (void) nodep; /* Silence 'not used' warning */
 
   h->ht_node_count = max_elems;
   h->ht_nodes_used = 1;
@@ -206,7 +206,7 @@ hicn_hashtb_alloc (hicn_hashtb_h *ph, u32 max_elems, size_t app_data_size)
     }
   /* 'Hide' the zero-th node so we can use zero as an 'empty' value */
   pool_get_aligned (h->ht_overflow_buckets, bucket, 8);
-  bucket = bucket; /* Silence 'not used' warning */
+  (void) bucket; /* Silence 'not used' warning */
 
   h->ht_overflow_bucket_count = count;
   h->ht_overflow_buckets_used = 1;
