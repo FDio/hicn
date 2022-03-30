@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -26,8 +26,8 @@
 #include <hicn/protocol/ipv6.h>
 
 size_t
-hicn_mapme_v4_create_packet (u8 * buf, const hicn_prefix_t * prefix,
-			     const mapme_params_t * params)
+hicn_mapme_v4_create_packet (u8 *buf, const hicn_prefix_t *prefix,
+			     const mapme_params_t *params)
 {
   hicn_mapme_v4_header_t *mh = (hicn_mapme_v4_header_t *) buf;
   /* *INDENT-OFF* */
@@ -41,14 +41,14 @@ hicn_mapme_v4_create_packet (u8 * buf, const hicn_prefix_t * prefix,
       .ttl = HICN_MAPME_TTL,
       .protocol = IPPROTO_ICMP,
       .csum = 0,
-      .saddr.as_u32 = 0,
-      .daddr = prefix->name.ip4,
+      .saddr.as_u32 = IPV4_LOOPBACK.v4.as_u32,
+      .daddr = prefix->name.v4,
      },
     .icmp_rd = {
       .type = ((params->type == UPDATE) || (params->type == NOTIFICATION)) ? HICN_MAPME_ICMP_TYPE_IPV4 : HICN_MAPME_ICMP_TYPE_ACK_IPV4,
       .code = HICN_MAPME_ICMP_CODE,
       .csum = 0,
-      .ip = prefix->name.ip4,
+      .ip = prefix->name.v4,
     },
     .seq = htonl(params->seq),
     .len = prefix->len,
@@ -59,15 +59,15 @@ hicn_mapme_v4_create_packet (u8 * buf, const hicn_prefix_t * prefix,
 }
 
 size_t
-hicn_mapme_v6_create_packet (u8 * buf, const hicn_prefix_t * prefix,
-			     const mapme_params_t * params)
+hicn_mapme_v6_create_packet (u8 *buf, const hicn_prefix_t *prefix,
+			     const mapme_params_t *params)
 {
   hicn_mapme_v6_header_t *mh = (hicn_mapme_v6_header_t *) buf;
   /* *INDENT-OFF* */
   *mh = (hicn_mapme_v6_header_t) {
     .ip = {
-      .saddr = {{0}},
-      .daddr = prefix->name.ip6,
+      .saddr = IPV6_LOOPBACK.v6,
+      .daddr = prefix->name.v6,
       .version_class_flow = htonl(
           (IPV6_DEFAULT_VERSION       << 28) |
           (IPV6_DEFAULT_TRAFFIC_CLASS << 20) |
@@ -81,8 +81,8 @@ hicn_mapme_v6_create_packet (u8 * buf, const hicn_prefix_t * prefix,
       .code = HICN_MAPME_ICMP_CODE,
       .csum = 0,
       .res = 0,
-      .tgt = prefix->name.ip6,
-      .dst = prefix->name.ip6,
+      .tgt = prefix->name.v6,
+      .dst = prefix->name.v6,
     },
     .seq = htonl(params->seq),
     .len = prefix->len,
@@ -92,8 +92,8 @@ hicn_mapme_v6_create_packet (u8 * buf, const hicn_prefix_t * prefix,
 }
 
 size_t
-hicn_mapme_create_packet (u8 * buf, const hicn_prefix_t * prefix,
-			  const mapme_params_t * params)
+hicn_mapme_create_packet (u8 *buf, const hicn_prefix_t *prefix,
+			  const mapme_params_t *params)
 {
   /* We currently ignore subsequent protocol definitions */
   if (PREDICT_TRUE (params->protocol == IPPROTO_IPV6))
@@ -103,9 +103,9 @@ hicn_mapme_create_packet (u8 * buf, const hicn_prefix_t * prefix,
 }
 
 size_t
-hicn_mapme_v4_create_ack (u8 * buf, const mapme_params_t * params)
+hicn_mapme_v4_create_ack (u8 *buf, const mapme_params_t *params)
 {
-  ip4_address_t tmp;		// tmp storage for swapping IP addresses for ACK
+  ip4_address_t tmp; // tmp storage for swapping IP addresses for ACK
 
   hicn_mapme_v4_header_t *mh = (hicn_mapme_v4_header_t *) buf;
   tmp = mh->ip.daddr;
@@ -119,9 +119,9 @@ hicn_mapme_v4_create_ack (u8 * buf, const mapme_params_t * params)
 }
 
 size_t
-hicn_mapme_v6_create_ack (u8 * buf, const mapme_params_t * params)
+hicn_mapme_v6_create_ack (u8 *buf, const mapme_params_t *params)
 {
-  ip6_address_t tmp;		// tmp storage for swapping IP addresses for ACK
+  ip6_address_t tmp; // tmp storage for swapping IP addresses for ACK
 
   hicn_mapme_v6_header_t *mh = (hicn_mapme_v6_header_t *) buf;
   tmp = mh->ip.daddr;
@@ -135,7 +135,7 @@ hicn_mapme_v6_create_ack (u8 * buf, const mapme_params_t * params)
 }
 
 size_t
-hicn_mapme_create_ack (u8 * buf, const mapme_params_t * params)
+hicn_mapme_create_ack (u8 *buf, const mapme_params_t *params)
 {
   /* We currently ignore subsequent protocol definitions */
   if (PREDICT_TRUE (params->protocol == IPPROTO_IPV6))
@@ -145,22 +145,23 @@ hicn_mapme_create_ack (u8 * buf, const mapme_params_t * params)
 }
 
 int
-hicn_mapme_v4_parse_packet (const u8 * packet, hicn_prefix_t * prefix,
-			    mapme_params_t * params)
+hicn_mapme_v4_parse_packet (const u8 *packet, hicn_prefix_t *prefix,
+			    mapme_params_t *params)
 {
   hicn_mapme_v4_header_t *mh = (hicn_mapme_v4_header_t *) packet;
 
   /* *INDENT-OFF* */
   *prefix = (hicn_prefix_t) {
     .name = {
-      .ip4 = HICN_MAPME_TYPE_IS_IU (mh->icmp_rd.type) ? mh->ip.daddr : mh->ip.saddr,
+      .v4 = HICN_MAPME_TYPE_IS_IU (mh->icmp_rd.type) ? mh->ip.daddr : mh->ip.saddr,
     },
     .len = mh->len,
   };
 
-  *params = (mapme_params_t) {
+  *params = (mapme_params_t){
     .protocol = IPPROTO_IP,
-    .type = (mh->icmp_rd.type == HICN_MAPME_ICMP_TYPE_IPV4) ? UPDATE : UPDATE_ACK,
+    .type =
+      (mh->icmp_rd.type == HICN_MAPME_ICMP_TYPE_IPV4) ? UPDATE : UPDATE_ACK,
     .seq = ntohl (mh->seq),
   };
   /* *INDENT-ON* */
@@ -169,22 +170,23 @@ hicn_mapme_v4_parse_packet (const u8 * packet, hicn_prefix_t * prefix,
 }
 
 int
-hicn_mapme_v6_parse_packet (const u8 * packet, hicn_prefix_t * prefix,
-			    mapme_params_t * params)
+hicn_mapme_v6_parse_packet (const u8 *packet, hicn_prefix_t *prefix,
+			    mapme_params_t *params)
 {
   hicn_mapme_v6_header_t *mh = (hicn_mapme_v6_header_t *) packet;
 
   /* *INDENT-OFF* */
   *prefix = (hicn_prefix_t) {
     .name = {
-      .ip6 = HICN_MAPME_TYPE_IS_IU (mh->icmp_rd.type) ? mh->ip.daddr : mh->ip.saddr,
+      .v6 = HICN_MAPME_TYPE_IS_IU (mh->icmp_rd.type) ? mh->ip.daddr : mh->ip.saddr,
     },
     .len = mh->len,
   };
 
-  *params = (mapme_params_t) {
+  *params = (mapme_params_t){
     .protocol = IPPROTO_IPV6,
-    .type = (mh->icmp_rd.type == HICN_MAPME_ICMP_TYPE_IPV6) ? UPDATE : UPDATE_ACK,
+    .type =
+      (mh->icmp_rd.type == HICN_MAPME_ICMP_TYPE_IPV6) ? UPDATE : UPDATE_ACK,
     .seq = ntohl (mh->seq),
   };
   /* *INDENT-ON* */
@@ -193,8 +195,8 @@ hicn_mapme_v6_parse_packet (const u8 * packet, hicn_prefix_t * prefix,
 }
 
 int
-hicn_mapme_parse_packet (const u8 * packet, hicn_prefix_t * prefix,
-			 mapme_params_t * params)
+hicn_mapme_parse_packet (const u8 *packet, hicn_prefix_t *prefix,
+			 mapme_params_t *params)
 {
   switch (HICN_IP_VERSION (packet))
     {

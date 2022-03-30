@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -34,6 +34,10 @@ namespace core {
 Interest::Interest(const Name &interest_name, Packet::Format format,
                    std::size_t additional_header_size)
     : Packet(format, additional_header_size) {
+  if (hicn_packet_set_interest(format_, packet_start_) < 0) {
+    throw errors::MalformedPacketException();
+  }
+
   if (hicn_interest_set_name(format_, packet_start_,
                              interest_name.getConstStructReference()) < 0) {
     throw errors::MalformedPacketException();
@@ -45,13 +49,18 @@ Interest::Interest(const Name &interest_name, Packet::Format format,
   }
 }
 
+Interest::Interest(hicn_format_t format, std::size_t additional_header_size)
+    : Interest(
 #ifdef __ANDROID__
-Interest::Interest(hicn_format_t format, std::size_t additional_header_size)
-    : Interest(Name("0::0|0"), format, additional_header_size) {}
+          Name("0::0|0"),
 #else
-Interest::Interest(hicn_format_t format, std::size_t additional_header_size)
-    : Interest(base_name, format, additional_header_size) {}
+          base_name,
 #endif
+          format, additional_header_size) {
+  if (hicn_packet_set_interest(format_, packet_start_) < 0) {
+    throw errors::MalformedPacketException();
+  }
+}
 
 Interest::Interest(MemBuf &&buffer) : Packet(std::move(buffer)) {
   if (hicn_interest_get_name(format_, packet_start_,

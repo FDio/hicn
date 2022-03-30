@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <hicn/transport/utils/chrono_typedefs.h>
 #include <protocols/rtc/probe_handler.h>
 #include <protocols/rtc/rtc_consts.h>
 
@@ -27,6 +28,7 @@ ProbeHandler::ProbeHandler(SendProbeCallback &&send_callback,
     : probe_interval_(0),
       max_probes_(0),
       sent_probes_(0),
+      recv_probes_(0),
       probe_timer_(std::make_unique<asio::steady_timer>(io_service)),
       rand_eng_((std::random_device())()),
       distr_(MIN_RTT_PROBE_SEQ, MAX_RTT_PROBE_SEQ),
@@ -39,15 +41,23 @@ uint64_t ProbeHandler::getRtt(uint32_t seq) {
 
   if (it == pending_probes_.end()) return 0;
 
-  uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-                     std::chrono::steady_clock::now().time_since_epoch())
-                     .count();
+  uint64_t now = utils::SteadyTime::nowMs().count();
   uint64_t rtt = now - it->second;
   if (rtt < 1) rtt = 1;
 
   pending_probes_.erase(it);
+  recv_probes_++;
 
   return rtt;
+}
+
+double ProbeHandler::getProbeLossRate() {
+  return 1.0 - ((double)recv_probes_ / (double)sent_probes_);
+}
+
+void ProbeHandler::setSuffixRange(uint32_t min, uint32_t max) {
+  assert(min <= max && min >= MIN_PROBE_SEQ);
+  distr_ = std::uniform_int_distribution<uint32_t>(min, max);
 }
 
 void ProbeHandler::setProbes(uint32_t probe_interval, uint32_t max_probes) {
@@ -60,6 +70,7 @@ void ProbeHandler::stopProbes() {
   probe_interval_ = 0;
   max_probes_ = 0;
   sent_probes_ = 0;
+  recv_probes_ = 0;
   probe_timer_->cancel();
 }
 
@@ -67,9 +78,7 @@ void ProbeHandler::sendProbes() {
   if (probe_interval_ == 0) return;
   if (max_probes_ != 0 && sent_probes_ >= max_probes_) return;
 
-  uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-                     std::chrono::steady_clock::now().time_since_epoch())
-                     .count();
+  uint64_t now = utils::SteadyTime::nowMs().count();
 
   uint32_t seq = distr_(rand_eng_);
   pending_probes_.insert(std::pair<uint32_t, uint64_t>(seq, now));
@@ -92,12 +101,23 @@ void ProbeHandler::sendProbes() {
 
   std::weak_ptr<ProbeHandler> self(shared_from_this());
   probe_timer_->expires_from_now(std::chrono::microseconds(probe_interval_));
-  probe_timer_->async_wait([self](std::error_code ec) {
+  probe_timer_->async_wait([self](const std::error_code &ec) {
     if (ec) return;
-    if (auto s = self.lock()) {
+    auto s = self.lock();
+    if (s) {
       s->sendProbes();
     }
   });
+}
+
+ProbeType ProbeHandler::getProbeType(uint32_t seq) {
+  if (MIN_INIT_PROBE_SEQ <= seq && seq <= MAX_INIT_PROBE_SEQ) {
+    return ProbeType::INIT;
+  }
+  if (MIN_RTT_PROBE_SEQ <= seq && seq <= MAX_RTT_PROBE_SEQ) {
+    return ProbeType::RTT;
+  }
+  return ProbeType::NOT_PROBE;
 }
 
 }  // namespace rtc

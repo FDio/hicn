@@ -1,0 +1,12 @@
+**/report.xml
+**/build*
+**/.devcontainer
+**/.vscode
+**/docker/Dockerfile
+**/docker/Dockerfile.clang
+ci/Dockerfile*
+#**/deb
+**/*.tar
+**/.gitignore
+**/info.txt
+./install*

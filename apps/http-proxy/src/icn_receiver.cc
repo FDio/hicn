@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -112,6 +112,7 @@ void AsyncConsumerProducer::doReceive() {
       });
 
   producer_socket_.connect();
+  producer_socket_.start();
 }
 
 void AsyncConsumerProducer::manageIncomingInterest(
@@ -128,9 +129,9 @@ void AsyncConsumerProducer::manageIncomingInterest(
 
     if (seg >= _it->second.first) {
       // TRANSPORT_LOGD(
-      //     "Ignoring interest with name %s for a content object which does not "
-      //     "exist. (Request: %u, max: %u)",
-      //     name.toString().c_str(), (uint32_t)seg, (uint32_t)_it->second.first);
+      //     "Ignoring interest with name %s for a content object which does not
+      //     " "exist. (Request: %u, max: %u)", name.toString().c_str(),
+      //     (uint32_t)seg, (uint32_t)_it->second.first);
       return;
     }
   }
@@ -168,7 +169,8 @@ void AsyncConsumerProducer::publishContent(const uint8_t* data,
       options.getLifetime());
 
   if (TRANSPORT_EXPECT_FALSE(ret != SOCKET_OPTION_SET)) {
-    TRANSPORT_LOG_WARNING << "Warning: content object lifetime has not been set.";
+    TRANSPORT_LOG_WARNING
+        << "Warning: content object lifetime has not been set.";
   }
 
   const interface::Name& name = options.getName();

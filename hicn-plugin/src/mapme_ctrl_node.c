@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -18,6 +18,7 @@
  */
 #include <vnet/ip/ip6_packet.h>
 #include <vnet/dpo/load_balance.h>
+#include <vlib/log.h>
 
 #include "hicn.h"
 #include "mapme.h"
@@ -30,6 +31,7 @@
 #include "strategy_dpo_ctx.h"
 #include "error.h"
 #include "state.h"
+#include "route.h"
 
 extern hicn_mapme_main_t mapme_main;
 
@@ -46,6 +48,110 @@ static char *hicn_mapme_ctrl_error_strings[] = {
   foreach_hicnfwd_error
 #undef _
 };
+
+static_always_inline int
+hicn_mapme_nh_set (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
+{
+  hicn_dpo_ctx_t *strategy_ctx = (hicn_dpo_ctx_t *) tfib;
+  const fib_prefix_t *prefix =
+    fib_entry_get_prefix (strategy_ctx->fib_entry_index);
+
+  int ret = 0;
+
+  if ((tfib->entry_count == 1) && (tfib->next_hops[0] == face_id))
+    return ret;
+
+  u32 n_entries = tfib->entry_count;
+  /* Remove all the existing next hops and set the new one */
+  for (int i = 0; i < n_entries; i++)
+    {
+      hicn_face_t *face = hicn_dpoi_get_from_idx (strategy_ctx->next_hops[0]);
+      if (dpo_is_adj (&face->dpo))
+	{
+	  ip_adjacency_t *adj = adj_get (face->dpo.dpoi_index);
+	  ip_nh_adj_add_del_helper (prefix->fp_proto, prefix,
+				    &adj->sub_type.nbr.next_hop, face->sw_if,
+				    0);
+	}
+      else if (face->dpo.dpoi_type == dpo_type_udp_ip4 ||
+	       face->dpo.dpoi_type == dpo_type_udp_ip6)
+	{
+	  ip_nh_udp_tunnel_add_del_helper (prefix->fp_proto, prefix,
+					   face->dpo.dpoi_index,
+					   face->dpo.dpoi_proto, 0);
+	}
+      else
+	{
+	  continue;
+	}
+    }
+
+  ret = HICN_ERROR_MAPME_NEXT_HOP_ADDED;
+  hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
+  if (face->dpo.dpoi_type == dpo_type_udp_ip4 ||
+      face->dpo.dpoi_type == dpo_type_udp_ip6)
+    {
+      ip_nh_udp_tunnel_add_del_helper (prefix->fp_proto, prefix,
+				       face->dpo.dpoi_index,
+				       face->dpo.dpoi_proto, 1);
+    }
+  else if (dpo_is_adj (&face->dpo))
+    {
+      ip_nh_adj_add_del_helper (prefix->fp_proto, prefix, &face->nat_addr,
+				face->sw_if, 1);
+    }
+  else
+    {
+      ret = HICN_ERROR_MAPME_NEXT_HOP_NOT_ADDED;
+    }
+
+  return ret;
+}
+
+/**
+ * @brief Check whether a face is already included in the FIB nexthops.
+ *
+ * NOTE: linear scan on a contiguous small array should be the most efficient.
+ */
+static_always_inline int
+hicn_mapme_nh_has (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
+{
+  for (u8 pos = 0; pos < tfib->entry_count; pos++)
+    if (tfib->next_hops[pos] == face_id)
+      return 1;
+  return 0;
+}
+
+/**
+ * @brief Add a next hop iif it is not already a next hops
+ */
+static_always_inline int
+hicn_mapme_nh_add (hicn_mapme_tfib_t *tfib, hicn_face_id_t face_id)
+{
+  if (hicn_mapme_nh_has (tfib, face_id))
+    return 0;
+
+  /* Add the next hop in the vrf 0 which will add it to the entry in the hICN
+   * vrf */
+  hicn_dpo_ctx_t *strategy_ctx = (hicn_dpo_ctx_t *) tfib;
+  const fib_prefix_t *prefix =
+    fib_entry_get_prefix (strategy_ctx->fib_entry_index);
+  hicn_face_t *face = hicn_dpoi_get_from_idx (face_id);
+  if (face->dpo.dpoi_type == dpo_type_udp_ip4 ||
+      face->dpo.dpoi_type == dpo_type_udp_ip6)
+    {
+      ip_nh_udp_tunnel_add_del_helper ((fib_protocol_t) face->dpo.dpoi_proto,
+				       prefix, face->dpo.dpoi_index,
+				       face->dpo.dpoi_proto, 1);
+    }
+  else
+    {
+      ip_nh_adj_add_del_helper ((fib_protocol_t) face->dpo.dpoi_proto, prefix,
+				&face->nat_addr, face->sw_if, 1);
+    }
+
+  return 0;
+}
 
 /*
  * @brief Process incoming control messages (Interest Update)
@@ -97,7 +203,7 @@ hicn_mapme_process_ctrl (vlib_main_t *vm, vlib_buffer_t *b,
        * Destroying the face has led to removing all corresponding FIB
        * entries. In that case, we need to correctly restore the FIB entries.
        */
-      DEBUG ("Re-creating FIB entry with next hop on connection")
+      HICN_DEBUG ("Re-creating FIB entry with next hop on connection")
 #error "not implemented"
 #else
       // ERROR("Received IU for non-existing FIB entry");
@@ -109,7 +215,7 @@ hicn_mapme_process_ctrl (vlib_main_t *vm, vlib_buffer_t *b,
   if (!dpo_is_hicn ((dpo)))
     {
       /* We have an IP DPO */
-      WARN ("Not implemented yet.");
+      HICN_ERROR ("Not implemented yet.");
       return false;
     }
 #endif
@@ -119,7 +225,7 @@ hicn_mapme_process_ctrl (vlib_main_t *vm, vlib_buffer_t *b,
 
   if (tfib == NULL)
     {
-      WARN ("Unable to get strategy ctx.");
+      HICN_ERROR ("Unable to get strategy ctx.");
       return false;
     }
 
@@ -127,7 +233,7 @@ hicn_mapme_process_ctrl (vlib_main_t *vm, vlib_buffer_t *b,
 
   if (params.seq > fib_seq)
     {
-      DEBUG (
+      HICN_DEBUG (
 	"Higher sequence number than FIB %d > %d, updating seq and next hops",
 	params.seq, fib_seq);
 
@@ -139,25 +245,29 @@ hicn_mapme_process_ctrl (vlib_main_t *vm, vlib_buffer_t *b,
       /* Remove ingress face from TFIB in case it was present */
       hicn_mapme_tfib_del (tfib, in_face_id);
 
+      HICN_DEBUG ("Locks on face %d: %d", in_face_id,
+		  hicn_dpoi_get_from_idx (in_face_id)->locks);
+
       /* Move next hops to TFIB... but in_face... */
       for (u8 pos = 0; pos < tfib->entry_count; pos++)
 	{
-	  hicn_face_t *face = hicn_dpoi_get_from_idx (tfib->next_hops[pos]);
-	  hicn_face_t *in_face = hicn_dpoi_get_from_idx (in_face_id);
-	  if (dpo_is_adj (&face->dpo))
-	    {
-	      ip_adjacency_t *adj = adj_get (dpo->dpoi_index);
-	      if (ip46_address_cmp (&(adj->sub_type.nbr.next_hop),
-				    &(in_face->nat_addr)) == 0)
-		break;
-	    }
-	  DEBUG ("Adding nexthop to the tfib, dpo index in_face %d, dpo index "
-		 "tfib %d",
-		 in_face_id, tfib->next_hops[pos]);
+	  if (tfib->next_hops[pos] == in_face_id)
+	    continue;
+	  HICN_DEBUG (
+	    "Adding nexthop to the tfib, dpo index in_face %d, dpo index "
+	    "tfib %d",
+	    in_face_id, tfib->next_hops[pos]);
 	  hicn_mapme_tfib_add (tfib, tfib->next_hops[pos]);
 	}
 
-      hicn_mapme_nh_set (tfib, in_face_id);
+      int ret = hicn_mapme_nh_set (tfib, in_face_id);
+      HICN_DEBUG ("Locks on face %d: %d", in_face_id,
+		  hicn_dpoi_get_from_idx (in_face_id)->locks);
+      if (ret == HICN_ERROR_MAPME_NEXT_HOP_ADDED &&
+	  hicn_get_buffer (b)->flags & HICN_BUFFER_FLAGS_NEW_FACE)
+	{
+	  hicn_face_unlock_with_id (in_face_id);
+	}
 
       /* We transmit both the prefix and the full dpo (type will be needed to
        * pick the right transmit node */
@@ -168,14 +278,21 @@ hicn_mapme_process_ctrl (vlib_main_t *vm, vlib_buffer_t *b,
     }
   else if (params.seq == fib_seq)
     {
-      DEBUG ("Same sequence number than FIB %d > %d, adding next hop",
-	     params.seq, fib_seq);
+      HICN_DEBUG ("Same sequence number than FIB %d > %d, adding next hop",
+		  params.seq, fib_seq);
 
-      /* Remove ingress face from TFIB in case it was present */
-      hicn_mapme_tfib_del (tfib, in_face_id);
+      /**
+       * Add nh BEFORE removing the face from the tfib, as if the last lock is
+       * held by the tfib, deleting it first would also delete the face,
+       * resulting in a undefined behavior after (Debug mode -> SIGABRT,
+       * Release Mode -> Corrupted memory / SIGSEGV).
+       **/
 
       /* Add ingress face to next hops */
       hicn_mapme_nh_add (tfib, in_face_id);
+
+      /* Remove ingress face from TFIB in case it was present */
+      hicn_mapme_tfib_del (tfib, in_face_id);
 
       /* Multipath, multihoming, multiple producers or duplicate interest */
       retx_t *retx = vlib_process_signal_event_data (
@@ -187,8 +304,17 @@ hicn_mapme_process_ctrl (vlib_main_t *vm, vlib_buffer_t *b,
     {
       /*
        * face is propagating outdated information, we can just consider it as a
-       * prevHops
+       * prevHops, unless it is the current nexthop.
        */
+      if (hicn_mapme_nh_has (tfib, in_face_id))
+	{
+	  HICN_DEBUG ("Ignored seq %d < fib_seq %d from current nexthop",
+		      params.seq, fib_seq);
+	  return true;
+	}
+      HICN_DEBUG ("Received seq %d < fib_seq %d, sending backwards",
+		  params.seq, fib_seq);
+
       hicn_mapme_tfib_add (tfib, in_face_id);
 
       retx_t *retx = vlib_process_signal_event_data (

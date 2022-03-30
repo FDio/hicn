@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -28,6 +28,7 @@ static const hicn_dpo_vft_t hicn_dpo_mw_vft = {
   .hicn_dpo_get_type = &hicn_dpo_strategy_mw_get_type,
   .hicn_dpo_module_init = &hicn_dpo_strategy_mw_module_init,
   .hicn_dpo_create = &hicn_strategy_mw_ctx_create,
+  .hicn_dpo_update_type = &hicn_strategy_mw_update_ctx_type,
   .hicn_dpo_add_update_nh = &hicn_strategy_mw_ctx_add_nh,
   .hicn_dpo_del_nh = &hicn_strategy_mw_ctx_del_nh,
   .hicn_dpo_format = &hicn_strategy_mw_format_ctx
@@ -117,8 +118,22 @@ hicn_strategy_mw_ctx_create (fib_protocol_t proto,
 
   *dpo_idx = hicn_strategy_dpo_ctx_get_index (hicn_strategy_ctx);
 
-  init_dpo_ctx (hicn_strategy_ctx, next_hop, nh_len, hicn_dpo_type_mw, proto);
+  HICN_DEBUG ("Successful hicn_strategy_dpo_ctx_alloc with index %d",
+	      *dpo_idx);
 
+  init_dpo_ctx (hicn_strategy_ctx, next_hop, nh_len, hicn_dpo_type_mw,
+		(dpo_proto_t) proto);
+
+  memset (hicn_strategy_mw_ctx->weight, 0, HICN_PARAM_FIB_ENTRY_NHOPS_MAX);
+}
+
+void
+hicn_strategy_mw_update_ctx_type (hicn_dpo_ctx_t *hicn_strategy_ctx)
+{
+  hicn_strategy_mw_ctx_t *hicn_strategy_mw_ctx;
+  hicn_strategy_mw_ctx = (hicn_strategy_mw_ctx_t *) hicn_strategy_ctx->data;
+
+  hicn_strategy_ctx->dpo_type = hicn_dpo_type_mw;
   memset (hicn_strategy_mw_ctx->weight, 0, HICN_PARAM_FIB_ENTRY_NHOPS_MAX);
 }
 

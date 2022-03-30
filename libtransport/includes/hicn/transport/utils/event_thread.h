@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -95,6 +95,19 @@ class EventThread {
   template <typename Func>
   void tryRunHandlerNow(Func&& f) {
     io_service_.get().dispatch(std::forward<Func&&>(f));
+  }
+
+  template <typename Func>
+  void addAndWaitForExecution(Func&& f) {
+    auto promise = std::promise<void>();
+    auto future = promise.get_future();
+
+    asio::dispatch(io_service_.get(), [&promise, f = std::forward<Func>(f)]() {
+      f();
+      promise.set_value();
+    });
+
+    future.wait();
   }
 
   void stop() {

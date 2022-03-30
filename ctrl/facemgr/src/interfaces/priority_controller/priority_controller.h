@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,7 +21,8 @@
 #ifndef FACEMGR_INTERFACE_PRIORITY_CONTROLLER
 #define FACEMGR_INTERFACE_PRIORITY_CONTROLLER
 
-#define FACEMGR_UTILITY_CLASS "com/cisco/hicn/facemgrlibrary/supportlibrary/FacemgrUtility"
+#define FACEMGR_UTILITY_CLASS \
+  "com/cisco/hicn/facemgrlibrary/supportlibrary/FacemgrUtility"
 
 /*
  * Uncomment this line to use a Priority controller interface internal to the
@@ -36,10 +37,9 @@
 typedef struct {
 #ifdef __ANDROID__
 #ifdef PRIORITY_CONTROLLER_INTERNAL
-    JavaVM * jvm;
+  JavaVM* jvm;
 #endif /* PRIORITY_CONTROLLER_INTERNAL */
 #endif /* __ANDROID__ */
 } priority_controller_cfg_t;
-
 
 #endif /* FACEMGR_INTERFACE_PRIORITY_CONTROLLER */

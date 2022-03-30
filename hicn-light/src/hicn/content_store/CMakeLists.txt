@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -12,19 +12,11 @@
 # limitations under the License.
 
 list(APPEND HEADER_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreEntry.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreInterface.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreLRU.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/listTimeOrdered.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/listLRU.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/lru.h
 )
 
 list(APPEND SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreInterface.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreLRU.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/listLRU.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/listTimeOrdered.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/contentStoreEntry.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/lru.c
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

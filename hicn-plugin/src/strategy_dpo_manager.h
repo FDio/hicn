@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -53,6 +53,8 @@ typedef struct hicn_dpo_vft_s
   void (*hicn_dpo_create) (
     fib_protocol_t proto, const hicn_face_id_t *nh, int nh_len,
     index_t *dpo_idx); /**< Create the context of the hICN dpo */
+  void (*hicn_dpo_update_type) (
+    hicn_dpo_ctx_t *hicn_strategy_ctx); /**change dpo type */
   int (*hicn_dpo_add_update_nh) (
     hicn_face_id_t nh,
     index_t dpo_idx); /**< Add a next hop to the hICN dpo context */
@@ -171,7 +173,7 @@ u8 *format_hicn_strategy_list (u8 *s, int n, ...);
  *
  * @result HICN_ERROR_NONE is the id is valid, otherwise EINVAL
  */
-u8 hicn_dpo_strategy_id_is_valid (int strategy_id);
+int hicn_dpo_strategy_id_is_valid (int strategy_id);
 
 /**
  * @brief Return the number of available strategies. This number can be used to

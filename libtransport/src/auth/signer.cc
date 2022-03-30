@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/auth/signer.h>
-
-using namespace std;
+#include <hicn/transport/utils/chrono_typedefs.h>
 
 namespace transport {
 namespace auth {
@@ -29,31 +29,29 @@ Signer::Signer()
 Signer::~Signer() {}
 
 void Signer::signPacket(PacketPtr packet) {
-  assert(key_ != nullptr);
+  DCHECK(key_ != nullptr);
   core::Packet::Format format = packet->getFormat();
 
-  if (!packet->authenticationHeader()) {
+  if (!packet->hasAH()) {
     throw errors::MalformedAHPacketException();
   }
 
   // Set signature size
   size_t signature_field_len = getSignatureFieldSize();
-  packet->setSignatureSize(signature_field_len);
-  packet->setSignatureSizeGap(0u);
+  packet->setSignatureFieldSize(signature_field_len);
+  packet->updateLength();  // update IP payload length
 
   // Copy IP+TCP / ICMP header before zeroing them
   hicn_header_t header_copy;
   hicn_packet_copy_header(format, packet->packet_start_, &header_copy, false);
 
   // Fill in the hICN AH header
-  auto now = chrono::duration_cast<chrono::milliseconds>(
-                 chrono::system_clock::now().time_since_epoch())
-                 .count();
+  auto now = utils::SteadyTime::nowMs().count();
   packet->setSignatureTimestamp(now);
   packet->setValidationAlgorithm(suite_);
 
   // Set key ID
-  vector<uint8_t> key_id = key_id_.getDigest();
+  std::vector<uint8_t> key_id = key_id_.getDigest();
   packet->setKeyId({key_id.data(), key_id.size()});
 
   // Reset fields to compute the packet hash
@@ -61,22 +59,22 @@ void Signer::signPacket(PacketPtr packet) {
 
   // Compute the signature and put it in the packet
   signBuffer(packet);
-  hicn_packet_copy_header(format, &header_copy, packet->packet_start_, false);
+  packet->setSignature(signature_);
+  packet->setSignatureSize(signature_len_);
 
-  // Set the gap between the signature field size and the signature real size.
-  packet->setSignatureSizeGap(signature_field_len - signature_len_);
-  memcpy(packet->getSignature(), signature_.data(), signature_len_);
+  // Restore header
+  hicn_packet_copy_header(format, &header_copy, packet->packet_start_, false);
 }
 
 void Signer::signBuffer(const std::vector<uint8_t> &buffer) {
-  assert(key_ != nullptr);
+  DCHECK(key_ != nullptr);
   CryptoHashEVP hash_evp = CryptoHash::getEVP(getHashType());
 
   if (hash_evp == nullptr) {
     throw errors::RuntimeException("Unknown hash type");
   }
 
-  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
 
   if (mdctx == nullptr) {
     throw errors::RuntimeException("Digest context allocation failed");
@@ -106,7 +104,7 @@ void Signer::signBuffer(const std::vector<uint8_t> &buffer) {
 }
 
 void Signer::signBuffer(const utils::MemBuf *buffer) {
-  assert(key_ != nullptr);
+  DCHECK(key_ != nullptr);
   CryptoHashEVP hash_evp = CryptoHash::getEVP(getHashType());
 
   if (hash_evp == nullptr) {
@@ -114,7 +112,7 @@ void Signer::signBuffer(const utils::MemBuf *buffer) {
   }
 
   const utils::MemBuf *p = buffer;
-  shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
+  std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
 
   if (mdctx == nullptr) {
     throw errors::RuntimeException("Digest context allocation failed");
@@ -147,7 +145,18 @@ void Signer::signBuffer(const utils::MemBuf *buffer) {
   signature_.resize(signature_len_);
 }
 
-vector<uint8_t> Signer::getSignature() const { return signature_; }
+std::vector<uint8_t> Signer::getSignature() const { return signature_; }
+
+std::string Signer::getStringSignature() const {
+  std::stringstream string_sig;
+  string_sig << std::hex << std::setfill('0');
+
+  for (auto byte : signature_) {
+    string_sig << std::hex << std::setw(2) << static_cast<int>(byte);
+  }
+
+  return string_sig.str();
+}
 
 size_t Signer::getSignatureSize() const { return signature_len_; }
 
@@ -159,36 +168,75 @@ size_t Signer::getSignatureFieldSize() const {
   return (signature_len_ + 4) - (signature_len_ % 4);
 }
 
+CryptoSuite Signer::getSuite() const { return suite_; }
+
 CryptoHashType Signer::getHashType() const {
   return ::transport::auth::getHashType(suite_);
 }
 
-CryptoSuite Signer::getSuite() const { return suite_; }
+void Signer::display() {
+  std::cout << getStringSuite(suite_) << ": " << getStringSignature()
+            << std::endl;
+}
 
 // ---------------------------------------------------------
 // Void Signer
 // ---------------------------------------------------------
-void VoidSigner::signPacket(PacketPtr packet){};
+void VoidSigner::signPacket(PacketPtr packet) {}
 
-void VoidSigner::signBuffer(const std::vector<uint8_t> &buffer){};
+void VoidSigner::signBuffer(const std::vector<uint8_t> &buffer) {}
 
-void VoidSigner::signBuffer(const utils::MemBuf *buffer){};
+void VoidSigner::signBuffer(const utils::MemBuf *buffer) {}
 
 // ---------------------------------------------------------
 // Asymmetric Signer
 // ---------------------------------------------------------
-AsymmetricSigner::AsymmetricSigner(CryptoSuite suite, shared_ptr<EVP_PKEY> key,
-                                   shared_ptr<EVP_PKEY> pub_key) {
+AsymmetricSigner::AsymmetricSigner(CryptoSuite suite,
+                                   std::shared_ptr<EVP_PKEY> key,
+                                   std::shared_ptr<EVP_PKEY> pub_key) {
+  setKey(suite, key, pub_key);
+}
+
+AsymmetricSigner::AsymmetricSigner(std::string keystore_path,
+                                   std::string password) {
+  FILE *p12file = fopen(keystore_path.c_str(), "r");
+
+  if (p12file == nullptr) {
+    throw errors::RuntimeException("failed to read keystore");
+  }
+
+  std::unique_ptr<PKCS12, decltype(&PKCS12_free)> p12(
+      d2i_PKCS12_fp(p12file, nullptr), &PKCS12_free);
+  X509 *cert_raw;
+  EVP_PKEY *key_raw;
+
+  if (PKCS12_parse(p12.get(), password.c_str(), &key_raw, &cert_raw, nullptr) !=
+      1) {
+    fclose(p12file);
+    throw errors::RuntimeException("failed to parse keystore");
+  }
+
+  std::shared_ptr<EVP_PKEY> key(key_raw, EVP_PKEY_free);
+  std::shared_ptr<EVP_PKEY> pub_key(X509_get_pubkey(cert_raw), EVP_PKEY_free);
+
+  setKey(transport::auth::getSuite(X509_get_signature_nid(cert_raw)), key,
+         pub_key);
+
+  fclose(p12file);
+}
+
+void AsymmetricSigner::setKey(CryptoSuite suite, std::shared_ptr<EVP_PKEY> key,
+                              std::shared_ptr<EVP_PKEY> pub_key) {
   suite_ = suite;
   key_ = key;
-  key_id_ = CryptoHash(getHashType());
+  signature_len_ = EVP_PKEY_size(key.get());
+  signature_.resize(signature_len_);
 
-  vector<uint8_t> pbk(i2d_PublicKey(pub_key.get(), nullptr));
+  std::vector<uint8_t> pbk(i2d_PublicKey(pub_key.get(), nullptr));
   uint8_t *pbk_ptr = pbk.data();
   int len = i2d_PublicKey(pub_key.get(), &pbk_ptr);
 
-  signature_len_ = EVP_PKEY_size(key.get());
-  signature_.resize(signature_len_);
+  key_id_ = CryptoHash(getHashType());
   key_id_.computeDigest(pbk_ptr, len);
 }
 
@@ -205,9 +253,10 @@ size_t AsymmetricSigner::getSignatureFieldSize() const {
 // ---------------------------------------------------------
 // Symmetric Signer
 // ---------------------------------------------------------
-SymmetricSigner::SymmetricSigner(CryptoSuite suite, const string &passphrase) {
+SymmetricSigner::SymmetricSigner(CryptoSuite suite,
+                                 const std::string &passphrase) {
   suite_ = suite;
-  key_ = shared_ptr<EVP_PKEY>(
+  key_ = std::shared_ptr<EVP_PKEY>(
       EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, nullptr,
                                    (const unsigned char *)passphrase.c_str(),
                                    passphrase.size()),

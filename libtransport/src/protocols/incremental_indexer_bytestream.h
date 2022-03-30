@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -62,7 +62,7 @@ class IncrementalIndexer : public Indexer {
     next_reassembly_suffix_ = first_suffix_;
   }
 
-  virtual uint32_t checkNextSuffix() override {
+  virtual uint32_t checkNextSuffix() const override {
     return next_download_suffix_ <= final_suffix_ ? next_download_suffix_
                                                   : Indexer::invalid_index;
   }
@@ -76,7 +76,7 @@ class IncrementalIndexer : public Indexer {
     first_suffix_ = suffix;
   }
 
-  uint32_t getFirstSuffix() override { return first_suffix_; }
+  uint32_t getFirstSuffix() const override { return first_suffix_; }
 
   virtual uint32_t jumpToIndex(uint32_t index) override {
     next_download_suffix_ = index;
@@ -95,14 +95,14 @@ class IncrementalIndexer : public Indexer {
     return final_suffix_ != Indexer::invalid_index;
   }
 
-  virtual uint32_t getFinalSuffix() override { return final_suffix_; }
+  virtual uint32_t getFinalSuffix() const override { return final_suffix_; }
 
   void enableFec(fec::FECType fec_type) override {}
 
   void disableFec() override {}
 
   void setNFec(uint32_t n_fec) override {}
-  virtual uint32_t getNFec() override { return 0; }
+  virtual uint32_t getNFec() const override { return 0; }
 
   virtual void onContentObject(core::Interest &interest,
                                core::ContentObject &content_object,
