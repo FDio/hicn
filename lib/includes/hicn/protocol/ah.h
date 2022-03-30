@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -35,19 +35,19 @@
 
 typedef struct
 {
-  u8 nh;	 // (to match with reserved in IPSEC AH)
-  u8 payloadlen; // Len of signature/HMAC in 4-bytes words (maximum size)
+  u8 nh; // To match with reserved in IPSEC AH
+  // Length of the signature field. Note that the signature might be smaller
+  // than the field: the actual size is computed from the field size and
+  // signaturePadding.
+  u8 payloadlen;
   union
   {
     u16 reserved;
 
     struct
     {
-      u8 validationAlgorithm; // As defined in parc_SignerAlgorithm.h
-      u8 signatureGap;	      // used to match IPSEC specification and to
-			      // have the real size of the signature(without
-			      // padding). It is the result of Maximum
-			      // signature size - real size
+      u8 validationAlgorithm;
+      u8 signaturePadding;
     };
   };
   union

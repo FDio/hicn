@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,18 +21,19 @@
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/utils/membuf.h>
 
+#include <memory>
 extern "C" {
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/pkcs12.h>
+#include <openssl/x509.h>
 }
 
 namespace transport {
 namespace auth {
 
-class Identity;
 class Signer {
   // The base class from which all signer classes derive.
-  friend class Identity;
 
  public:
   Signer();
@@ -47,6 +48,9 @@ class Signer {
   // Return the signature.
   std::vector<uint8_t> getSignature() const;
 
+  // Return the signature as a string
+  std::string getStringSignature() const;
+
   // Return the signature size in bytes.
   virtual std::size_t getSignatureSize() const;
 
@@ -60,6 +64,9 @@ class Signer {
 
   // Return the hash algorithm associated to the signer.
   CryptoHashType getHashType() const;
+
+  // Print signature to stdout
+  void display();
 
  protected:
   CryptoSuite suite_;
@@ -84,9 +91,16 @@ class AsymmetricSigner : public Signer {
  public:
   AsymmetricSigner() = default;
 
-  // Construct an AsymmetricSigner from a key store and a given crypto suite.
+  // Create an AsymmetricSigner from a keystore file (.p12).
+  AsymmetricSigner(std::string keystore_path, std::string password);
+
+  // Construct an AsymmetricSigner from a key store and a given crypto
+  // suite.
   AsymmetricSigner(CryptoSuite suite, std::shared_ptr<EVP_PKEY> key,
                    std::shared_ptr<EVP_PKEY> pub_key);
+
+  void setKey(CryptoSuite suite, std::shared_ptr<EVP_PKEY> key,
+              std::shared_ptr<EVP_PKEY> pub_key);
 
   std::size_t getSignatureFieldSize() const override;
 };

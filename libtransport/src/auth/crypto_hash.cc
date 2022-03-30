@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,8 +15,6 @@
 
 #include <hicn/transport/auth/crypto_hash.h>
 
-using namespace std;
-
 namespace transport {
 namespace auth {
 
@@ -28,7 +26,7 @@ CryptoHash::CryptoHash(const CryptoHash &other)
       digest_size_(other.digest_size_) {}
 
 CryptoHash::CryptoHash(CryptoHash &&other)
-    : digest_type_(move(other.digest_type_)),
+    : digest_type_(std::move(other.digest_type_)),
       digest_(other.digest_),
       digest_size_(other.digest_size_) {
   other.reset();
@@ -43,13 +41,16 @@ CryptoHash::CryptoHash(const uint8_t *hash, size_t size,
   memcpy(digest_.data(), hash, size);
 }
 
-CryptoHash::CryptoHash(const vector<uint8_t> &hash, CryptoHashType hash_type)
+CryptoHash::CryptoHash(const std::vector<uint8_t> &hash,
+                       CryptoHashType hash_type)
     : CryptoHash(hash.data(), hash.size(), hash_type) {}
 
 CryptoHash &CryptoHash::operator=(const CryptoHash &other) {
-  digest_type_ = other.digest_type_;
-  digest_ = other.digest_;
-  digest_size_ = other.digest_size_;
+  if (this != &other) {
+    digest_type_ = other.digest_type_;
+    digest_ = other.digest_;
+    digest_size_ = other.digest_size_;
+  }
   return *this;
 }
 
@@ -68,7 +69,7 @@ void CryptoHash::computeDigest(const uint8_t *buffer, size_t len) {
              (*hash_evp)(), nullptr);
 }
 
-void CryptoHash::computeDigest(const vector<uint8_t> &buffer) {
+void CryptoHash::computeDigest(const std::vector<uint8_t> &buffer) {
   computeDigest(buffer.data(), buffer.size());
 }
 
@@ -102,15 +103,15 @@ void CryptoHash::computeDigest(const utils::MemBuf *buffer) {
   EVP_MD_CTX_free(mcdtx);
 }
 
-vector<uint8_t> CryptoHash::getDigest() const { return digest_; }
+std::vector<uint8_t> CryptoHash::getDigest() const { return digest_; }
 
-string CryptoHash::getStringDigest() const {
-  stringstream string_digest;
+std::string CryptoHash::getStringDigest() const {
+  std::stringstream string_digest;
 
-  string_digest << hex << setfill('0');
+  string_digest << std::hex << std::setfill('0');
 
   for (auto byte : digest_) {
-    string_digest << hex << setw(2) << static_cast<int>(byte);
+    string_digest << std::hex << std::setw(2) << static_cast<int>(byte);
   }
 
   return string_digest.str();
@@ -130,23 +131,23 @@ void CryptoHash::setType(CryptoHashType hash_type) {
 void CryptoHash::display() {
   switch (digest_type_) {
     case CryptoHashType::SHA256:
-      cout << "SHA256";
+      std::cout << "SHA256";
       break;
     case CryptoHashType::SHA512:
-      cout << "SHA512";
+      std::cout << "SHA512";
       break;
     case CryptoHashType::BLAKE2S256:
-      cout << "BLAKE2s256";
+      std::cout << "BLAKE2s256";
       break;
     case CryptoHashType::BLAKE2B512:
-      cout << "BLAKE2b512";
+      std::cout << "BLAKE2b512";
       break;
     default:
-      cout << "UNKNOWN";
+      std::cout << "UNKNOWN";
       break;
   }
 
-  cout << ": " << getStringDigest() << endl;
+  std::cout << ": " << getStringDigest() << std::endl;
 }
 
 void CryptoHash::reset() {
@@ -159,19 +160,14 @@ CryptoHashEVP CryptoHash::getEVP(CryptoHashType hash_type) {
   switch (hash_type) {
     case CryptoHashType::SHA256:
       return &EVP_sha256;
-      break;
     case CryptoHashType::SHA512:
       return &EVP_sha512;
-      break;
     case CryptoHashType::BLAKE2S256:
       return &EVP_blake2s256;
-      break;
     case CryptoHashType::BLAKE2B512:
       return &EVP_blake2b512;
-      break;
     default:
       return nullptr;
-      break;
   }
 }
 

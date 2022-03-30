@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,22 +14,19 @@
  */
 
 #include <hicn/transport/http/client_connection.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
 
 #include <algorithm>
+#include <asio.hpp>
 #include <fstream>
 #include <functional>
 #include <map>
 
+#ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE
+#endif
 #include <asio.hpp>
-#undef ASIO_STANDALONE
-
 #include <thread>
-
-typedef std::chrono::time_point<std::chrono::system_clock> Time;
-typedef std::chrono::milliseconds TimeDuration;
-
-Time t1;
 
 #define DEFAULT_BETA 0.99
 #define DEFAULT_GAMMA 0.07
@@ -181,7 +178,7 @@ class ReadBytesCallbackImplementation
     });
   }
 
-  void onError(const std::error_code ec) {
+  void onError(const std::error_code &ec) {
     io_service_.post([this]() {
       of_.close();
       delete out_;
@@ -344,8 +341,6 @@ int main(int argc, char **argv) {
             conf.producer_certificate);
     connection.setVerifier(verifier);
   }
-
-  t1 = std::chrono::system_clock::now();
 
   http::ReadBytesCallbackImplementation readBytesCallback(conf.file_name,
                                                           yetDownloaded);

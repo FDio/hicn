@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2020 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -23,14 +23,21 @@ add_subdirectory(portability)
 add_subdirectory(auth)
 add_subdirectory(utils)
 
-set(LIBTRANSPORT_INCLUDE_DIRS
-  ${CMAKE_CURRENT_SOURCE_DIR}/../.. ""
+
+##############################################################
+# Public headers directory
+##############################################################
+set(Libhicntransport_INCLUDE_DIRS
+  ${CMAKE_CURRENT_SOURCE_DIR}/../..
   CACHE INTERNAL
   "" FORCE
 )
 
+
+##############################################################
+# Header files to install
+##############################################################
 set(LIBHICNTRANSPORT_TO_INSTALL_HEADER_FILES
-  ${HEADER_FILES} ""
-  CACHE INTERNAL
-  "" FORCE
+  ${HEADER_FILES}
+  PARENT_SCOPE
 )

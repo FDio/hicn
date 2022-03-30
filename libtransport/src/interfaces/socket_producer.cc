@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -33,14 +33,21 @@ ProducerSocket::ProducerSocket(int protocol) {
   socket_ = std::make_unique<implementation::ProducerSocket>(this, protocol);
 }
 
-ProducerSocket::ProducerSocket(int protocol, asio::io_service &io_service) {
-  socket_ = std::make_unique<implementation::ProducerSocket>(this, protocol,
-                                                             io_service);
+ProducerSocket::ProducerSocket(int protocol, ::utils::EventThread &worker) {
+  socket_ =
+      std::make_unique<implementation::ProducerSocket>(this, protocol, worker);
 }
+
+ProducerSocket::ProducerSocket(ProducerSocket &&other) noexcept
+    : socket_(std::move(other.socket_)) {}
 
 ProducerSocket::ProducerSocket(bool) {}
 
-ProducerSocket::~ProducerSocket() { socket_->stop(); }
+ProducerSocket::~ProducerSocket() {
+  if (socket_) {
+    socket_->stop();
+  }
+}
 
 void ProducerSocket::connect() { socket_->connect(); }
 
@@ -76,23 +83,24 @@ void ProducerSocket::produce(ContentObject &content_object) {
   return socket_->produce(content_object);
 }
 
-void ProducerSocket::asyncProduce(Name content_name,
-                                  std::unique_ptr<utils::MemBuf> &&buffer,
-                                  bool is_last, uint32_t offset,
-                                  uint32_t **last_segment) {
-  return socket_->asyncProduce(content_name, std::move(buffer), is_last, offset,
-                               last_segment);
-}
+void ProducerSocket::sendMapme() { return socket_->sendMapme(); }
 
 void ProducerSocket::registerPrefix(const Prefix &producer_namespace) {
   return socket_->registerPrefix(producer_namespace);
 }
+
+void ProducerSocket::start() { return socket_->start(); }
 
 void ProducerSocket::stop() { return socket_->stop(); }
 
 asio::io_service &ProducerSocket::getIoService() {
   return socket_->getIoService();
 };
+
+int ProducerSocket::setSocketOption(int socket_option_key,
+                                    Callback *socket_option_value) {
+  return socket_->setSocketOption(socket_option_key, socket_option_value);
+}
 
 int ProducerSocket::setSocketOption(int socket_option_key,
                                     uint32_t socket_option_value) {
@@ -140,9 +148,14 @@ int ProducerSocket::setSocketOption(
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
+int ProducerSocket::setSocketOption(int socket_option_key,
+                                    Packet::Format socket_option_value) {
+  return socket_->setSocketOption(socket_option_key, socket_option_value);
+}
+
 int ProducerSocket::getSocketOption(int socket_option_key,
                                     uint32_t &socket_option_value) {
-  return socket_->setSocketOption(socket_option_key, socket_option_value);
+  return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 
 int ProducerSocket::setSocketOption(int socket_option_key,
@@ -178,6 +191,11 @@ int ProducerSocket::getSocketOption(int socket_option_key,
 
 int ProducerSocket::getSocketOption(
     int socket_option_key, std::shared_ptr<auth::Signer> &socket_option_value) {
+  return socket_->getSocketOption(socket_option_key, socket_option_value);
+}
+
+int ProducerSocket::getSocketOption(int socket_option_key,
+                                    Packet::Format &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 

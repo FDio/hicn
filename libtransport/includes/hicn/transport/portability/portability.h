@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Copyright 2017 Facebook, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,9 +27,6 @@
 #include <cstddef>
 
 namespace portability {
-
-constexpr bool little_endian_arch = __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__;
-constexpr bool big_endian_arch = !little_endian_arch;
 
 // Generalize warning push/pop.
 #if defined(__GNUC__) || defined(__clang__)

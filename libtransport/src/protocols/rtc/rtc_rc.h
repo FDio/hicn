@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -34,11 +34,15 @@ class RTCRateControl : public std::enable_shared_from_this<RTCRateControl> {
 
   void turnOnRateControl() { rc_on_ = true; }
   void setState(std::shared_ptr<RTCState> state) { protocol_state_ = state; };
-  uint32_t getCongesionWindow() { return congestion_win_; };
+  uint32_t getCongestionWindow() { return congestion_win_; };
+  bool inCongestionState() {
+    if (congestion_state_ == CongestionState::Congested) return true;
+    return false;
+  }
 
   virtual void onNewRound(double round_len) = 0;
-  virtual void onDataPacketReceived(
-      const core::ContentObject &content_object) = 0;
+  virtual void onDataPacketReceived(const core::ContentObject &content_object,
+                                    bool compute_stats) = 0;
 
  protected:
   enum class CongestionState { Normal = 0, Underuse = 1, Congested = 2, Last };
