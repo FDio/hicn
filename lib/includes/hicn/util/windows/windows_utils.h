@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -30,9 +30,10 @@
 
 #ifndef IOVEC
 #define IOVEC
-struct iovec {
-	void* iov_base;
-	size_t iov_len;
+struct iovec
+{
+  void *iov_base;
+  size_t iov_len;
 };
 #endif
 
@@ -45,11 +46,11 @@ typedef uint16_t in_port_t;
 
 #ifndef USLEEP
 #define USLEEP
-void usleep(__int64 usec);
+void usleep (__int64 usec);
 #endif
 
 #ifndef S_ISDIR
-#define S_ISDIR(mode)  (((mode) & S_IFMT) == S_IFDIR)
+#define S_ISDIR(mode) (((mode) &S_IFMT) == S_IFDIR)
 #endif
 
 #define PARCLibrary_DISABLE_ATOMICS
@@ -68,19 +69,22 @@ typedef SSIZE_T ssize_t;
 
 #ifndef GETTIMEOFDAY
 #define GETTIMEOFDAY
-int gettimeofday(struct timeval * tp, struct timezone * tzp);
+int gettimeofday (struct timeval *tp, struct timezone *tzp);
 #endif
 
 #ifndef timersub
-#define timersub(a, b, result) \
-        do { \
-                (result)->tv_sec = (a)->tv_sec - (b)->tv_sec; \
-                (result)->tv_usec = (a)->tv_usec - (b)->tv_usec; \
-                if ((result)->tv_usec < 0) { \
-                        --(result)->tv_sec; \
-                        (result)->tv_usec += 1000000; \
-                } \
-        } while (0)
+#define timersub(a, b, result)                                                \
+  do                                                                          \
+    {                                                                         \
+      (result)->tv_sec = (a)->tv_sec - (b)->tv_sec;                           \
+      (result)->tv_usec = (a)->tv_usec - (b)->tv_usec;                        \
+      if ((result)->tv_usec < 0)                                              \
+	{                                                                     \
+	  --(result)->tv_sec;                                                 \
+	  (result)->tv_usec += 1000000;                                       \
+	}                                                                     \
+    }                                                                         \
+  while (0)
 #endif // timersub
 
 #ifndef dup
@@ -125,38 +129,38 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp);
 #endif
 
 #ifndef S_ISREG
-#define S_ISREG(mode)  (((mode) & S_IFMT) == S_IFREG)
+#define S_ISREG(mode) (((mode) &S_IFMT) == S_IFREG)
 #endif
 #ifndef R_OK
-#define R_OK    4       /* Test for read permission.  */
+#define R_OK 4 /* Test for read permission.  */
 #endif
-#ifndef  W_OK
-#define W_OK    2       /* Test for write permission.  */
+#ifndef W_OK
+#define W_OK 2 /* Test for write permission.  */
 #endif
 #ifndef F_OK
-#define F_OK    0
+#define F_OK 0
 #endif
 
 #ifndef STDIN_FILENO
-#define STDIN_FILENO _fileno(stdin)
+#define STDIN_FILENO _fileno (stdin)
 #endif
 
 #ifndef STDOUT_FILENO
-#define STDOUT_FILENO _fileno(stdout)
+#define STDOUT_FILENO _fileno (stdout)
 #endif
 
 #ifndef STDERR_FILENO
-#define STDERR_FILENO _fileno(stderr)
+#define STDERR_FILENO _fileno (stderr)
 #endif
 
 #endif
 
 #ifndef __bswap_constant_32
-#define __bswap_constant_32(x)					\
-  ((((x) & 0xff000000u) >> 24) | (((x) & 0x00ff0000u) >> 8)	\
-   | (((x) & 0x0000ff00u) << 8) | (((x) & 0x000000ffu) << 24))
+#define __bswap_constant_32(x)                                                \
+  ((((x) &0xff000000u) >> 24) | (((x) &0x00ff0000u) >> 8) |                   \
+   (((x) &0x0000ff00u) << 8) | (((x) &0x000000ffu) << 24))
 #endif
 
 #ifndef bzero
-#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
+#define bzero(b, len) (memset ((b), '\0', (len)), (void) 0)
 #endif

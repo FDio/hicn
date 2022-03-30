@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -97,6 +97,14 @@ void Prefix::buildPrefix(std::string &prefix, uint16_t prefix_length,
 
   ip_prefix_.len = (u8)prefix_length;
   ip_prefix_.family = family;
+}
+
+bool Prefix::operator<(const Prefix &other) const {
+  return ip_prefix_cmp(&ip_prefix_, &other.ip_prefix_) < 0;
+}
+
+bool Prefix::operator==(const Prefix &other) const {
+  return ip_prefix_cmp(&ip_prefix_, &other.ip_prefix_) == 0;
 }
 
 std::unique_ptr<Sockaddr> Prefix::toSockaddr() const {
@@ -211,8 +219,6 @@ Name Prefix::getName(const core::Name &mask, const core::Name &components,
     }
   }
 
-  // if (this->contains(name_ip))
-  //   throw errors::RuntimeException("Mask overrides the prefix");
   return Name(ip_prefix_.family, (uint8_t *)&name_ip);
 }
 
@@ -279,8 +285,6 @@ Prefix &Prefix::setNetwork(std::string &network) {
 }
 
 Name Prefix::makeRandomName() const {
-  srand((unsigned int)time(nullptr));
-
   if (ip_prefix_.family == AF_INET6) {
     std::default_random_engine eng((std::random_device())());
     std::uniform_int_distribution<uint32_t> idis(

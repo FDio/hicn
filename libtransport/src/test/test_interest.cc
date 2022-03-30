@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -30,7 +30,7 @@ namespace {
 // The fixture for testing class Foo.
 class InterestTest : public ::testing::Test {
  protected:
-  InterestTest() : name_("b001::123|321"), interest_() {
+  InterestTest() : name_("b001::123|321"), interest_(HF_INET6_TCP) {
     // You can do set-up work for each test here.
   }
 
@@ -108,7 +108,7 @@ TEST_F(InterestTest, ConstructorWithName) {
   Name n("b001::1|123");
 
   try {
-    Interest interest(n);
+    Interest interest(HF_INET6_TCP, n);
   } catch (...) {
     FAIL() << "ERROR: Unexpected exception thrown";
   }
@@ -176,27 +176,27 @@ TEST_F(InterestTest, SetGetLocator) {
   auto l = interest.getLocator();
 
   ip_address_t address;
-  ip_address_pton("b006::ab:cdab:cdef", &address);
-  auto ret = !std::memcmp(&l, &address, sizeof(address));
+  inet_pton(AF_INET6, "b006::ab:cdab:cdef", &address);
+  auto ret = !ip_address_cmp(&l, &address, AF_INET6);
 
   EXPECT_TRUE(ret);
 
   // Set different locator
-  ip_address_pton("2001::1234::4321::abcd::", &address);
+  inet_pton(AF_INET6, "2001::1234::4321::abcd::", &address);
 
   // Set it on interest
   interest.setLocator(address);
 
   // Check it was set
   l = interest.getLocator();
-  ret = !std::memcmp(&l, &address, sizeof(address));
+  ret = !ip_address_cmp(&l, &address, AF_INET6);
 
   EXPECT_TRUE(ret);
 }
 
 TEST_F(InterestTest, SetGetLifetime) {
   // Create interest from buffer
-  Interest interest;
+  Interest interest(HF_INET6_TCP);
   const constexpr uint32_t lifetime = 10000;
 
   // Set lifetime
@@ -211,7 +211,7 @@ TEST_F(InterestTest, SetGetLifetime) {
 
 TEST_F(InterestTest, HasManifest) {
   // Create interest from buffer
-  Interest interest;
+  Interest interest(HF_INET6_TCP);
 
   // Let's expect anexception here
   try {
@@ -232,7 +232,7 @@ TEST_F(InterestTest, HasManifest) {
 
 TEST_F(InterestTest, AppendSuffixesEncodeAndIterate) {
   // Create interest from buffer
-  Interest interest;
+  Interest interest(HF_INET6_TCP);
 
   // Appenad some suffixes, with some duplicates
   interest.appendSuffix(1);

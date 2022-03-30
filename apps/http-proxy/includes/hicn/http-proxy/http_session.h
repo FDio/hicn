@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -17,12 +17,11 @@
 
 #include <hicn/transport/core/packet.h>
 
-#include "http_1x_message_fast_parser.h"
-
-#define ASIO_STANDALONE
 #include <asio.hpp>
 #include <deque>
 #include <functional>
+
+#include "http_1x_message_fast_parser.h"
 
 namespace transport {
 
@@ -98,7 +97,7 @@ class HTTPSession {
   bool checkConnected();
 
  private:
-  void handleRead(std::error_code ec, std::size_t length);
+  void handleRead(const std::error_code &ec, std::size_t length);
   void tryReconnection();
   void startConnectionTimer();
   void handleDeadline(const std::error_code &ec);

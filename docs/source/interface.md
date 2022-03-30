@@ -45,35 +45,6 @@ interfaces:
     link and address information, interface types, and bonjour service
     discovery.
 
-### Architectural overview
-
-#### Facelets
-
-TODO:
-
-```text
-- Key attributes (netdevice and protocol family)
-- Facelet API
-```
-
-#### Events
-
-TODO
-
-#### Facelet cache & event scheduling
-
-TODO:
-
-```text
- - Facelet cache
- - Joins
- - How synchronization work
-```
-
-### Interface API
-
-TODO
-
 ## Developing a new interface
 
 ### Dummy template
@@ -261,7 +232,7 @@ error.
 ```
 
 While support for multiple file descriptors might be added in the future, an
-alternative short-term implementation might consider the instanciation of
+alternative short-term implementation might consider the instantiation of
 multiple interface, as is done for Bonjour in the current codebase, in
 `src/api.c`.
 
@@ -303,8 +274,6 @@ and the list of possible event types is available in `src/facelet.h`
 The build system is based on CMake. Each interface should declare its source
 files, private and public header files, as well as link dependencies in the
 local `CMakeLists.txt` file.
-
-TODO: detail the structure of the file
 
 ### Hands-on
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -88,7 +88,8 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  u8 dpo_ctx_id0;
 	  u8 found = 0;
 	  int nh_idx;
-	  hicn_face_id_t outface;
+	  hicn_face_id_t outfaces[MAX_OUT_FACES];
+	  u32 outfaces_len;
 	  hicn_hash_entry_t *hash_entry0;
 	  hicn_buffer_t *hicnb0;
 	  int ret;
@@ -171,23 +172,77 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 		  if (found)
 		    {
-		      strategy_vft0->hicn_select_next_hop (dpo_ctx_id0,
-							   &nh_idx, &outface);
+		      strategy_vft0->hicn_select_next_hop (
+			dpo_ctx_id0, &nh_idx, outfaces, &outfaces_len);
 		      /* Retransmission */
 		      /*
 		       * Prepare the packet for the
 		       * forwarding
 		       */
-		      next0 = isv6 ? HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT :
-				     HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT;
-		      vnet_buffer (b0)->ip.adj_index[VLIB_TX] = outface;
+		      if (outfaces_len == 1)
+			{
+			  next0 = isv6 ?
+					  HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT :
+					  HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT;
+			  vnet_buffer (b0)->ip.adj_index[VLIB_TX] =
+			    outfaces[0];
 
-		      /*
-		       * Update the egress face in
-		       * the PIT
-		       */
-		      pitp->u.pit.pe_txnh = nh_idx;
-		      stats.interests_retx++;
+			  /*
+			   * Update the egress face in
+			   * the PIT
+			   */
+			  pitp->u.pit.pe_txnh = nh_idx;
+			  stats.interests_retx++;
+			}
+		      else
+			{
+			  // restore pointers
+			  to_next -= 1;
+			  n_left_to_next += 1;
+			  u32 clones[outfaces_len];
+			  int ret =
+			    vlib_buffer_clone (vm, bi0, clones, outfaces_len,
+					       CLIB_CACHE_LINE_BYTES * 2);
+			  ASSERT (ret == outfaces_len);
+			  for (u32 nh = 0; nh < outfaces_len; nh++)
+			    {
+			      vlib_buffer_t *local_b0 =
+				vlib_get_buffer (vm, clones[nh]);
+			      to_next[0] = clones[nh];
+			      to_next += 1;
+			      n_left_to_next -= 1;
+
+			      next0 =
+				isv6 ? HICN_INTEREST_HITPIT_NEXT_FACE6_OUTPUT :
+					     HICN_INTEREST_HITPIT_NEXT_FACE4_OUTPUT;
+			      vnet_buffer (local_b0)->ip.adj_index[VLIB_TX] =
+				outfaces[nh];
+			      stats.interests_retx++;
+
+			      /* Maybe trace */
+			      if (PREDICT_FALSE (
+				    (node->flags & VLIB_NODE_FLAG_TRACE) &&
+				    (local_b0->flags & VLIB_BUFFER_IS_TRACED)))
+				{
+				  hicn_interest_hitpit_trace_t *t =
+				    vlib_add_trace (vm, node, local_b0,
+						    sizeof (*t));
+				  t->pkt_type = HICN_PKT_TYPE_INTEREST;
+				  t->sw_if_index = vnet_buffer (local_b0)
+						     ->sw_if_index[VLIB_RX];
+				  t->next_index = next0;
+				}
+
+			      /*
+			       * Verify speculative enqueue, maybe switch
+			       * current next frame
+			       */
+			      vlib_validate_buffer_enqueue_x1 (
+				vm, node, next_index, to_next, n_left_to_next,
+				clones[nh], next0);
+			    }
+			  continue;
+			}
 		    }
 		  else
 		    {

@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,32 +11,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+##############################################################
+# Project and cmake version
+##############################################################
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-
 project(hicn-plugin)
 
-include(GNUInstallDirs)
 
+##############################################################
+# Cmake modules
+##############################################################
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
-    "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules/"
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/"
+  ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules/
 )
-include(BuildMacros)
 
-set (CMAKE_CXX_STANDARD 11)
-set (CMAKE_C_STANDARD 11)
-
-# Check for memfd_create syscall
-include(CheckSymbolExists)
-CHECK_SYMBOL_EXISTS ( "__NR_memfd_create" "sys/syscall.h" HAVE_MEMFD_CREATE )
-if ( HAVE_MEMFD_CREATE )
-    add_definitions ( -DHAVE_MEMFD_CREATE )
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  include(CommonSetup)
 endif()
 
+
+##############################################################
+# Libs and Bins names
+##############################################################
 set(HICN_PLUGIN hicn-plugin CACHE INTERNAL "" FORCE)
+set(HICNPLUGIN hicn_plugin CACHE INTERNAL "" FORCE)
+set(HICN_API_TEST_PLUGIN hicn_api_test_plugin CACHE INTERNAL "" FORCE)
+set(HICNPLUGIN_SHARED ${HICNPLUGIN}.shared CACHE INTERNAL "" FORCE)
+set(HICN_API_TEST_PLUGIN_SHARED ${HICN_API_TEST_PLUGIN}.shared CACHE INTERNAL "" FORCE)
 
-include (Packaging)
 
+##############################################################
+# Packaging and versioning
+##############################################################
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/packaging.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake)
+
+
+##############################################################
+# C Standard
+##############################################################
+set (CMAKE_C_STANDARD 11)
+
+
+##############################################################
+# Subdirectories
+##############################################################
+add_subdirectory(includes/vpp_plugins/hicn)
 add_subdirectory(src)
-
 add_subdirectory(vapi)

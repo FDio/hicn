@@ -22,6 +22,9 @@ namespace hiperf {
 class HIperfServer {
  public:
   HIperfServer(const ServerConfiguration &conf);
+  HIperfServer(HIperfServer &&other);
+  HIperfServer &operator=(HIperfServer &&other);
+
   ~HIperfServer();
   int setup();
   void run();
