@@ -33,8 +33,12 @@ namespace fec {
  * @brief Table of used codes.
  */
 #define foreach_rely_fec_type \
+  _(Rely, 1, 2)               \
   _(Rely, 1, 3)               \
+  _(Rely, 1, 4)               \
   _(Rely, 2, 3)               \
+  _(Rely, 2, 6)               \
+  _(Rely, 3, 9)               \
   _(Rely, 4, 5)               \
   _(Rely, 4, 6)               \
   _(Rely, 4, 7)               \
@@ -74,11 +78,17 @@ class RelyBase : public virtual FECBase {
    * decoding operations. It may be removed once we know the meaning of the
    * fields in the rely header.
    */
-  struct fec_header {
-    uint32_t seq_number;
-
+  class fec_metadata {
+   public:
     void setSeqNumberBase(uint32_t suffix) { seq_number = htonl(suffix); }
-    uint32_t getSeqNumberBase() { return ntohl(seq_number); }
+    uint32_t getSeqNumberBase() const { return ntohl(seq_number); }
+
+    void setMetadataBase(uint32_t value) { metadata = htonl(value); }
+    uint32_t getMetadataBase() const { return ntohl(metadata); }
+
+   private:
+    uint32_t seq_number;
+    uint32_t metadata;
   };
 
   /**
@@ -112,21 +122,20 @@ class RelyBase : public virtual FECBase {
 #if RELY_DEBUG
     return time_++;
 #else
-    auto _time = utils::SteadyClock::now().time_since_epoch();
-    auto time = std::chrono::duration_cast<utils::Milliseconds>(_time).count();
-    return time;
+    return utils::SteadyTime::nowMs().count();
 #endif
   }
 
- protected:
   uint32_t k_;
   uint32_t n_;
+
   std::uint32_t seq_offset_;
+
   /**
    * @brief Vector of packets to be passed to caller callbacks. For encoder it
    * will contain the repair packets, for decoder the recovered sources.
    */
-  std::vector<std::pair<uint32_t, buffer>> packets_;
+  BufferArray packets_;
 
   /**
    * @brief Current index to be used for local packet count.
@@ -142,47 +151,51 @@ class RelyBase : public virtual FECBase {
  * @brief The Rely Encoder implementation.
  *
  */
-class RelyEncoder : private RelyBase,
-                    private rely::encoder,
-                    public ProducerFEC {
+class RelyEncoder : RelyBase, rely::encoder, public ProducerFEC {
  public:
   RelyEncoder(uint32_t k, uint32_t n, uint32_t seq_offset = 0);
   /**
    * Producers will call this function when they produce a data packet.
    */
-  void onPacketProduced(core::ContentObject &content_object,
-                        uint32_t offset) override;
+  void onPacketProduced(core::ContentObject &content_object, uint32_t offset,
+                        uint32_t metadata = FECBase::INVALID_METADATA) override;
 
   /**
    * @brief Get the fec header size, if added to source packets
    */
   std::size_t getFecHeaderSize() override {
-    return header_bytes() + sizeof(fec_header) + 4;
+    return header_bytes() + sizeof(fec_metadata) + 4;
   }
 
-  void reset() override {}
+  void reset() override {
+    // Nothing to do here
+  }
 };
 
-class RelyDecoder : private RelyBase,
-                    private rely::decoder,
-                    public ConsumerFEC {
+class RelyDecoder : RelyBase, rely::decoder, public ConsumerFEC {
  public:
   RelyDecoder(uint32_t k, uint32_t n, uint32_t seq_offset = 0);
 
   /**
    * Consumers will call this function when they receive a data packet
    */
-  void onDataPacket(core::ContentObject &content_object,
-                    uint32_t offset) override;
+  void onDataPacket(core::ContentObject &content_object, uint32_t offset,
+                    uint32_t metadata = FECBase::INVALID_METADATA) override;
 
   /**
    * @brief Get the fec header size, if added to source packets
    */
   std::size_t getFecHeaderSize() override {
-    return header_bytes() + sizeof(fec_header);
+    return header_bytes() + sizeof(fec_metadata);
   }
 
-  void reset() override {}
+  void reset() override {
+    // Nothing to do here
+  }
+
+ private:
+  void producePackets();
+  void flushOutOfOrder();
 };
 
 }  // namespace fec

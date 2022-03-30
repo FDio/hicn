@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 #include <hicn/transport/core/packet.h>
 #include <hicn/transport/errors/not_implemented_exception.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
 #include <test/packet_samples.h>
 
 #include <climits>
@@ -33,7 +34,7 @@ namespace core {
 class PacketForTest : public Packet {
  public:
   template <typename... Args>
-  PacketForTest(Args &&... args) : Packet(std::forward<Args>(args)...) {}
+  PacketForTest(Args &&...args) : Packet(std::forward<Args>(args)...) {}
 
   virtual ~PacketForTest() {}
 
@@ -302,7 +303,7 @@ TEST_F(PacketTest, ConstructorWithNew) {
   auto &_packet = raw_packets_[HF_INET6_TCP];
   auto packet_ptr = new PacketForTest(Packet::WRAP_BUFFER, &_packet[0],
                                       _packet.size(), _packet.size());
-  (void)packet_ptr;
+  delete packet_ptr;
 }
 
 TEST_F(PacketTest, ConstructorWithRawBufferInet6Tcp) {
@@ -682,9 +683,7 @@ TEST_F(PacketTest, SetGetTestSignatureTimestamp) {
   // Let's try to set the signature timestamp in a packet without AH header. We
   // expect an exception.
   using namespace std::chrono;
-  uint64_t now =
-      duration_cast<milliseconds>(system_clock::now().time_since_epoch())
-          .count();
+  uint64_t now = utils::SteadyTime::nowMs().count();
 
   try {
     packet.setSignatureTimestamp(now);

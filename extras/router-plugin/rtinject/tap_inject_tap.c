@@ -17,23 +17,23 @@
 #include "tap_inject.h"
 
 #include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/if_tun.h>
 #include <netinet/in.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <vnet/unix/tuntap.h>
 
+#include <hicn/util/sstrncpy.h>
 #include <vlib/unix/unix.h>
 
-
 static clib_error_t *
-tap_inject_tap_read (clib_file_t * f)
+tap_inject_tap_read (clib_file_t *f)
 {
-  vlib_main_t * vm = vlib_get_main ();
-  tap_inject_main_t * im = tap_inject_get_main ();
+  vlib_main_t *vm = vlib_get_main ();
+  tap_inject_main_t *im = tap_inject_get_main ();
 
   vec_add1 (im->rx_file_descriptors, f->file_descriptor);
 
@@ -45,16 +45,16 @@ tap_inject_tap_read (clib_file_t * f)
 #define TAP_INJECT_TAP_BASE_NAME "vpp"
 
 clib_error_t *
-tap_inject_tap_connect (vnet_hw_interface_t * hw)
+tap_inject_tap_connect (vnet_hw_interface_t *hw)
 {
-  vnet_main_t * vnet_main = vnet_get_main ();
-  vnet_sw_interface_t * sw = vnet_get_sw_interface (vnet_main, hw->hw_if_index);
+  vnet_main_t *vnet_main = vnet_get_main ();
+  vnet_sw_interface_t *sw = vnet_get_sw_interface (vnet_main, hw->hw_if_index);
   static const int one = 1;
   int fd;
   struct ifreq ifr;
   clib_file_t template;
   u32 tap_fd;
-  u8 * name;
+  u8 *name;
 
   memset (&ifr, 0, sizeof (ifr));
   memset (&template, 0, sizeof (template));
@@ -64,15 +64,16 @@ tap_inject_tap_connect (vnet_hw_interface_t * hw)
   /* Create the tap. */
   tap_fd = open ("/dev/net/tun", O_RDWR);
 
-  if ((int)tap_fd < 0)
+  if ((int) tap_fd < 0)
     return clib_error_return (0, "failed to open tun device");
 
   name = format (0, TAP_INJECT_TAP_BASE_NAME "%u%c", hw->hw_instance, 0);
 
-  strncpy (ifr.ifr_name, (char *) name, sizeof (ifr.ifr_name) - 1);
+  strcpy_s (ifr.ifr_name, IFNAMSIZ, (char *) name);
+  ifr.ifr_name[IFNAMSIZ - 1] = '\0';
   ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 
-  if (ioctl (tap_fd, TUNSETIFF, (void *)&ifr) < 0)
+  if (ioctl (tap_fd, TUNSETIFF, (void *) &ifr) < 0)
     {
       close (tap_fd);
       return clib_error_return (0, "failed to create tap");
@@ -142,9 +143,8 @@ tap_inject_tap_disconnect (u32 sw_if_index)
   return 0;
 }
 
-
 u8 *
-format_tap_inject_tap_name (u8 * s, va_list * args)
+format_tap_inject_tap_name (u8 *s, va_list *args)
 {
   int fd;
   struct ifreq ifr;
