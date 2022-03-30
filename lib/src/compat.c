@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -51,6 +51,12 @@ hicn_packet_get_format (const hicn_header_t *h, hicn_format_t *format)
 	  else
 	    *format = HF_INET_TCP;
 	  break;
+	case IPPROTO_UDP:
+	  if (h->v4.newhdr.flags & HICN_NEW_FLAG_SIG)
+	    *format = HF_INET_UDP_AH;
+	  else
+	    *format = HF_INET_UDP;
+	  break;
 	case IPPROTO_ICMP:
 	  *format = HF_INET_ICMP;
 	  break;
@@ -67,6 +73,12 @@ hicn_packet_get_format (const hicn_header_t *h, hicn_format_t *format)
 	  else
 	    *format = HF_INET6_TCP;
 	  break;
+	case IPPROTO_UDP:
+	  if (h->v6.newhdr.flags & HICN_NEW_FLAG_SIG)
+	    *format = HF_INET6_UDP_AH;
+	  else
+	    *format = HF_INET6_UDP;
+	  break;
 	case IPPROTO_ICMPV6:
 	  *format = HF_INET6_ICMP;
 	  break;
@@ -74,6 +86,12 @@ hicn_packet_get_format (const hicn_header_t *h, hicn_format_t *format)
 	  return HICN_LIB_ERROR_NOT_HICN;
 	}
       break;
+    case 9:
+      {
+	uint8_t ah = (HICN_NEW_FLAG_SIG & h->protocol.newhdr.flags);
+	*format = HF_NEW_AH * ah + (1 - ah) * HF_NEW;
+	break;
+      }
     default:
       return HICN_LIB_ERROR_NOT_HICN;
     }
@@ -93,20 +111,32 @@ hicn_format_to_type (hicn_format_t format)
     {
     case HF_INET_TCP:
       return HICN_TYPE_IPV4_TCP;
+    case HF_INET_UDP:
+      return HICN_TYPE_IPV4_UDP;
     case HF_INET6_TCP:
       return HICN_TYPE_IPV6_TCP;
+    case HF_INET6_UDP:
+      return HICN_TYPE_IPV6_UDP;
     case HF_INET_ICMP:
       return HICN_TYPE_IPV4_ICMP;
     case HF_INET6_ICMP:
       return HICN_TYPE_IPV6_ICMP;
+    case HF_NEW:
+      return HICN_TYPE_NEW;
     case HF_INET_TCP_AH:
       return HICN_TYPE_IPV4_TCP_AH;
+    case HF_INET_UDP_AH:
+      return HICN_TYPE_IPV4_UDP_AH;
     case HF_INET6_TCP_AH:
       return HICN_TYPE_IPV6_TCP_AH;
+    case HF_INET6_UDP_AH:
+      return HICN_TYPE_IPV6_UDP_AH;
     case HF_INET_ICMP_AH:
       return HICN_TYPE_IPV4_ICMP_AH;
     case HF_INET6_ICMP_AH:
       return HICN_TYPE_IPV6_ICMP_AH;
+    case HF_NEW_AH:
+      return HICN_TYPE_NEW_AH;
     default:
       break;
     }
@@ -176,6 +206,8 @@ hicn_packet_get_header_length_from_format (hicn_format_t format,
   *header_length += _is_ipv6 (format) * IPV6_HDRLEN;
   *header_length += _is_icmp (format) * ICMP_HDRLEN;
   *header_length += _is_tcp (format) * TCP_HDRLEN;
+  *header_length += _is_udp (format) * UDP_HDRLEN;
+  *header_length += _is_cmpr (format) * NEW_HDRLEN;
   *header_length += _is_ah (format) * AH_HDRLEN;
 
   return HICN_LIB_ERROR_NONE;
@@ -185,17 +217,9 @@ int
 hicn_packet_get_header_length (hicn_format_t format, const hicn_header_t *h,
 			       size_t *header_length)
 {
-  hicn_packet_get_header_length_from_format (format, header_length);
-  int is_ah = _is_ah (format);
-  int is_ipv4 = _is_ipv4 (format);
-  int is_ipv6 = _is_ipv6 (format);
-  // The signature payload is expressed as number of 32 bits words
-  if (is_ah && is_ipv4)
-    *header_length += (h->v4ah.ah.payloadlen) << 2;
-  else if (is_ah && is_ipv6)
-    *header_length += (h->v6ah.ah.payloadlen) << 2;
-
-  return HICN_LIB_ERROR_NONE;
+  hicn_type_t type = hicn_format_to_type (format);
+  return hicn_ops_vft[type.l1]->get_header_length (type, &h->protocol,
+						   header_length);
 }
 
 int
@@ -261,11 +285,6 @@ hicn_packet_set_name (hicn_format_t format, hicn_header_t *h,
 {
   hicn_type_t type = hicn_format_to_type (format);
 
-#ifndef HICN_VPP_PLUGIN
-  if (name->type & HNT_IOV)
-    return HICN_LIB_ERROR_NOT_IMPLEMENTED;
-#endif /* HICN_VPP_PLUGIN */
-
   if (is_interest)
     return hicn_ops_vft[type.l1]->set_interest_name (type, &h->protocol, name);
   else
@@ -325,54 +344,26 @@ int
 hicn_packet_get_locator (hicn_format_t format, const hicn_header_t *h,
 			 ip_address_t *address, bool is_interest)
 {
-  int is_ipv4 = (format & HFO_INET);
-  int is_ipv6 = (format & HFO_INET6) >> 1;
-
-  if (is_ipv4)
-    {
-      address->v4.as_inaddr =
-	is_interest ? h->v4.ip.saddr.as_inaddr : h->v4.ip.daddr.as_inaddr;
-    }
-  else if (is_ipv6)
-    {
-      address->v6.as_in6addr =
-	is_interest ? h->v6.ip.saddr.as_in6addr : h->v6.ip.daddr.as_in6addr;
-    }
+  hicn_type_t type = hicn_format_to_type (format);
+  if (is_interest)
+    return hicn_ops_vft[type.l1]->get_interest_locator (type, &h->protocol,
+							address);
   else
-    {
-      return HICN_LIB_ERROR_NOT_IMPLEMENTED;
-    }
-
-  return HICN_LIB_ERROR_NONE;
+    return hicn_ops_vft[type.l1]->get_data_locator (type, &h->protocol,
+						    address);
 }
 
 int
 hicn_packet_set_locator (hicn_format_t format, hicn_header_t *h,
 			 const ip_address_t *address, bool is_interest)
 {
-  int is_ipv4 = (format & HFO_INET);
-  int is_ipv6 = (format & HFO_INET6) >> 1;
-
-  if (is_ipv6)
-    {
-      if (is_interest)
-	h->v6.ip.saddr.as_in6addr = address->v6.as_in6addr;
-      else
-	h->v6.ip.daddr.as_in6addr = address->v6.as_in6addr;
-    }
-  else if (is_ipv4)
-    {
-      if (is_interest)
-	h->v4.ip.saddr.as_inaddr = address->v4.as_inaddr;
-      else
-	h->v4.ip.daddr.as_inaddr = address->v4.as_inaddr;
-    }
+  hicn_type_t type = hicn_format_to_type (format);
+  if (is_interest)
+    return hicn_ops_vft[type.l1]->set_interest_locator (type, &h->protocol,
+							address);
   else
-    {
-      return HICN_LIB_ERROR_INVALID_PARAMETER;
-    }
-
-  return HICN_LIB_ERROR_NONE;
+    return hicn_ops_vft[type.l1]->set_data_locator (type, &h->protocol,
+						    address);
 }
 
 int
@@ -392,19 +383,21 @@ hicn_packet_set_signature_size (hicn_format_t format, hicn_header_t *h,
 }
 
 int
-hicn_packet_get_signature_gap (hicn_format_t format, const hicn_header_t *h,
-			       uint8_t *bytes)
+hicn_packet_get_signature_padding (hicn_format_t format,
+				   const hicn_header_t *h, size_t *bytes)
 {
   hicn_type_t type = hicn_format_to_type (format);
-  return hicn_ops_vft[type.l1]->get_signature_gap (type, &h->protocol, bytes);
+  return hicn_ops_vft[type.l1]->get_signature_padding (type, &h->protocol,
+						       bytes);
 }
 
 int
-hicn_packet_set_signature_gap (hicn_format_t format, hicn_header_t *h,
-			       uint8_t bytes)
+hicn_packet_set_signature_padding (hicn_format_t format, hicn_header_t *h,
+				   size_t bytes)
 {
   hicn_type_t type = hicn_format_to_type (format);
-  return hicn_ops_vft[type.l1]->set_signature_gap (type, &h->protocol, bytes);
+  return hicn_ops_vft[type.l1]->set_signature_padding (type, &h->protocol,
+						       bytes);
 }
 
 int
@@ -499,7 +492,30 @@ hicn_packet_set_hoplimit (hicn_header_t *h, u8 hops)
 }
 
 int
-hicn_packet_get_lifetime (const hicn_header_t *h, u32 *lifetime)
+hicn_packet_is_interest (hicn_format_t format, const hicn_header_t *h,
+			 int *ret)
+{
+  hicn_type_t type = hicn_format_to_type (format);
+  return hicn_ops_vft[type.l1]->is_interest (type, &h->protocol, ret);
+}
+
+int
+hicn_packet_set_interest (hicn_format_t format, hicn_header_t *h)
+{
+  hicn_type_t type = hicn_format_to_type (format);
+  return hicn_ops_vft[type.l1]->mark_packet_as_interest (type, &h->protocol);
+}
+
+int
+hicn_packet_set_data (hicn_format_t format, hicn_header_t *h)
+{
+  hicn_type_t type = hicn_format_to_type (format);
+  return hicn_ops_vft[type.l1]->mark_packet_as_data (type, &h->protocol);
+}
+
+int
+hicn_packet_get_lifetime (hicn_format_t format, const hicn_header_t *h,
+			  u32 *lifetime)
 {
   hicn_type_t type = hicn_header_to_type (h);
   return hicn_ops_vft[type.l1]->get_lifetime (type, &h->protocol,
@@ -507,7 +523,7 @@ hicn_packet_get_lifetime (const hicn_header_t *h, u32 *lifetime)
 }
 
 int
-hicn_packet_set_lifetime (hicn_header_t *h, u32 lifetime)
+hicn_packet_set_lifetime (hicn_format_t format, hicn_header_t *h, u32 lifetime)
 {
   hicn_type_t type = hicn_header_to_type (h);
   return hicn_ops_vft[type.l1]->set_lifetime (type, &h->protocol,
@@ -551,59 +567,21 @@ hicn_packet_set_reserved_bits (hicn_header_t *h, const u8 reserved_bits)
 }
 
 int
-hicn_packet_get_payload_type (const hicn_header_t *h,
+hicn_packet_get_payload_type (hicn_format_t format, const hicn_header_t *h,
 			      hicn_payload_type_t *payload_type)
 {
-  switch (HICN_IP_VERSION (h))
-    {
-    case 6:
-      *payload_type =
-	((h->v6.tcp.flags & HICN_TCP_FLAG_URG) == HICN_TCP_FLAG_URG);
-      break;
-    case 4:
-      *payload_type =
-	((h->v4.tcp.flags & HICN_TCP_FLAG_URG) == HICN_TCP_FLAG_URG);
-      break;
-    default:
-      return HICN_LIB_ERROR_UNEXPECTED;
-    }
-
-  if (*payload_type == HPT_UNSPEC)
-    {
-      return HICN_LIB_ERROR_UNEXPECTED;
-    }
-
-  return HICN_LIB_ERROR_NONE;
+  hicn_type_t type = hicn_header_to_type (h);
+  return hicn_ops_vft[type.l1]->get_payload_type (type, &h->protocol,
+						  payload_type);
 }
 
 int
-hicn_packet_set_payload_type (hicn_header_t *h,
+hicn_packet_set_payload_type (hicn_format_t format, hicn_header_t *h,
 			      hicn_payload_type_t payload_type)
 {
-  if (payload_type != HPT_DATA && payload_type != HPT_MANIFEST)
-    {
-      return HICN_LIB_ERROR_UNEXPECTED;
-    }
-
-  switch (HICN_IP_VERSION (h))
-    {
-    case 6:
-      if (payload_type)
-	h->v6.tcp.flags = h->v6.tcp.flags | HICN_TCP_FLAG_URG;
-      else
-	h->v6.tcp.flags = h->v6.tcp.flags & ~HICN_TCP_FLAG_URG;
-      break;
-    case 4:
-      if (payload_type)
-	h->v4.tcp.flags = h->v4.tcp.flags | HICN_TCP_FLAG_URG;
-      else
-	h->v4.tcp.flags = h->v4.tcp.flags & ~HICN_TCP_FLAG_URG;
-      break;
-    default:
-      return HICN_LIB_ERROR_UNEXPECTED;
-    }
-
-  return HICN_LIB_ERROR_NONE;
+  hicn_type_t type = hicn_header_to_type (h);
+  return hicn_ops_vft[type.l1]->set_payload_type (type, &h->protocol,
+						  payload_type);
 }
 
 int
@@ -1057,10 +1035,6 @@ int
 hicn_interest_set_name (hicn_format_t format, hicn_header_t *interest,
 			const hicn_name_t *name)
 {
-  int ret_err = hicn_packet_reset_ece (
-    format, interest); // interest packet -> ece flag unset
-  if (ret_err < 0)
-    return HICN_LIB_ERROR_UNEXPECTED;
   return hicn_packet_set_name (format, interest, name, _INTEREST);
 }
 
@@ -1088,13 +1062,25 @@ hicn_interest_compare (const hicn_header_t *interest_1,
 int
 hicn_interest_get_lifetime (const hicn_header_t *interest, u32 *lifetime)
 {
-  return hicn_packet_get_lifetime (interest, lifetime);
+  hicn_format_t format;
+  int rc = hicn_packet_get_format (interest, &format);
+
+  if (rc)
+    return rc;
+
+  return hicn_packet_get_lifetime (format, interest, lifetime);
 }
 
 int
 hicn_interest_set_lifetime (hicn_header_t *interest, u32 lifetime)
 {
-  return hicn_packet_set_lifetime (interest, lifetime);
+  hicn_format_t format;
+  int rc = hicn_packet_get_format (interest, &format);
+
+  if (rc)
+    return rc;
+
+  return hicn_packet_set_lifetime (format, interest, lifetime);
 }
 
 int
@@ -1150,10 +1136,6 @@ int
 hicn_data_set_name (hicn_format_t format, hicn_header_t *data,
 		    const hicn_name_t *name)
 {
-  int ret_err =
-    hicn_packet_set_ece (format, data); // data packet -> ece flag set
-  if (ret_err < 0)
-    return HICN_LIB_ERROR_UNEXPECTED;
   return hicn_packet_set_name (format, data, name, _DATA);
 }
 
@@ -1180,13 +1162,26 @@ hicn_data_compare (const hicn_header_t *data_1, const hicn_header_t *data_2)
 int
 hicn_data_get_expiry_time (const hicn_header_t *data, u32 *expiry_time)
 {
-  return hicn_packet_get_lifetime (data, expiry_time);
+  hicn_format_t format;
+  int rc = hicn_packet_get_format (data, &format);
+
+  if (rc)
+    return rc;
+
+  return hicn_packet_get_lifetime (format, data, expiry_time);
 }
 
 int
 hicn_data_set_expiry_time (hicn_header_t *data, u32 expiry_time)
 {
-  return hicn_packet_set_lifetime (data, (hicn_lifetime_t) expiry_time);
+  hicn_format_t format;
+  int rc = hicn_packet_get_format (data, &format);
+
+  if (rc)
+    return rc;
+
+  return hicn_packet_set_lifetime (format, data,
+				   (hicn_lifetime_t) expiry_time);
 }
 
 int
@@ -1201,20 +1196,6 @@ hicn_data_get_payload_length (hicn_format_t format, const hicn_header_t *data,
 			      size_t *payload_length)
 {
   return hicn_packet_get_payload_length (format, data, payload_length);
-}
-
-int
-hicn_data_set_payload_type (hicn_header_t *data,
-			    hicn_payload_type_t payload_type)
-{
-  return hicn_packet_set_payload_type (data, payload_type);
-}
-
-int
-hicn_data_get_payload_type (const hicn_header_t *data,
-			    hicn_payload_type_t *payload_type)
-{
-  return hicn_packet_get_payload_type (data, payload_type);
 }
 
 int
@@ -1253,6 +1234,20 @@ hicn_data_reset_for_hash (hicn_format_t format, hicn_header_t *packet)
 {
   hicn_type_t type = hicn_format_to_type (format);
   return hicn_ops_vft[type.l1]->reset_data_for_hash (type, &packet->protocol);
+}
+
+int
+hicn_data_is_last (hicn_format_t format, hicn_header_t *h, int *is_last)
+{
+  hicn_type_t type = hicn_format_to_type (format);
+  return hicn_ops_vft[type.l1]->is_last_data (type, &h->protocol, is_last);
+}
+
+int
+hicn_data_set_last (hicn_format_t format, hicn_header_t *h)
+{
+  hicn_type_t type = hicn_format_to_type (format);
+  return hicn_ops_vft[type.l1]->set_last_data (type, &h->protocol);
 }
 
 int

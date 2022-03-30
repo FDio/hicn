@@ -1,3 +1,5 @@
 #!/bin/bash
 
-systemctl disable hicn-light
+if pidof systemd; then
+  systemctl disable hicn-light
+fi

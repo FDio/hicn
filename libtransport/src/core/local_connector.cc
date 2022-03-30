@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -32,13 +32,17 @@ void LocalConnector::send(Packet &packet) {
     return;
   }
 
+  auto buffer =
+      std::static_pointer_cast<utils::MemBuf>(packet.shared_from_this());
+
   DLOG_IF(INFO, VLOG_IS_ON(3)) << "Sending packet to local socket.";
-  io_service_.get().post([this, p{packet.shared_from_this()}]() mutable {
-    receive_callback_(this, *p, std::make_error_code(std::errc(0)));
+  io_service_.get().post([this, buffer]() mutable {
+    std::vector<utils::MemBuf::Ptr> v{std::move(buffer)};
+    receive_callback_(this, v, std::make_error_code(std::errc(0)));
   });
 }
 
-void LocalConnector::send(const uint8_t *packet, std::size_t len) {
+void LocalConnector::send(const utils::MemBuf::Ptr &buffer) {
   throw errors::NotImplementedException();
 }
 

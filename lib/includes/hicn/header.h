@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,8 +20,8 @@
  * NOTE: These structures are used as convenient facade for accessing
  * the encapsulated headers. They are not written taking compiler padding
  * into account, then a sizeof() on these struct could not give the expected
- * result. For accessing the size of the hicn headers use the macros at the end of
- * this file.
+ * result. For accessing the size of the hicn headers use the macros at the end
+ * of this file.
  */
 
 #ifndef HICN_HEADER_H
@@ -36,6 +36,11 @@ typedef struct
   union
   {
     _tcp_header_t tcp;
+    struct
+    {
+      _udp_header_t udp;
+      _new_header_t newhdr;
+    };
     _icmp_header_t icmp;
     _icmp_wldr_header_t wldr;
   };
@@ -53,25 +58,36 @@ typedef struct
     };
     struct
     {
+      _udp_header_t udp;
+      _new_header_t newhdr;
+      _ah_header_t udp_ah;
+    };
+    struct
+    {
       _icmp_header_t icmp;
       _ah_header_t icmp_ah;
     };
   };
 } hicn_v6ah_hdr_t;
 
-typedef struct
-{
+// For ipv4 we need to use packed structs as fields may be aligned to 64 bits
+// (So for instance tcp header may start at byte #24 instead of byte 20)
+typedef PACKED (struct {
   _ipv4_header_t ip;
   union
   {
     _tcp_header_t tcp;
+    struct
+    {
+      _udp_header_t udp;
+      _new_header_t newhdr;
+    };
     _icmp_header_t icmp;
     _icmp_wldr_header_t wldr;
   };
-} hicn_v4_hdr_t;
+}) hicn_v4_hdr_t;
 
-typedef struct
-{
+typedef PACKED (struct {
   _ipv4_header_t ip;
   union
   {
@@ -82,11 +98,17 @@ typedef struct
     };
     struct
     {
+      _udp_header_t udp;
+      _new_header_t newhdr;
+      _ah_header_t udp_ah;
+    };
+    struct
+    {
       _icmp_header_t icmp;
       _ah_header_t icmp_ah;
     };
   };
-} hicn_v4ah_hdr_t;
+}) hicn_v4ah_hdr_t;
 
 typedef union
 {
@@ -99,24 +121,19 @@ typedef union
   hicn_protocol_t protocol;
 } hicn_header_t;
 
+#define HICN_V6_TCP_HDRLEN  (IPV6_HDRLEN + TCP_HDRLEN)
+#define HICN_V6_ICMP_HDRLEN (IPV6_HDRLEN + ICMP_HDRLEN)
+#define HICN_V6_WLDR_HDRLEN (IPV6_HDRLEN + ICMPWLDR_HDRLEN)
 
-#define HICN_V6_TCP_HDRLEN   (IPV6_HDRLEN + TCP_HDRLEN)
-#define HICN_V6_ICMP_HDRLEN  (IPV6_HDRLEN + ICMP_HDRLEN)
-#define HICN_V6_WLDR_HDRLEN  (IPV6_HDRLEN + ICMPWLDR_HDRLEN)
+#define HICN_V6_TCP_AH_HDRLEN  (HICN_V6_TCP_HDRLEN + AH_HDRLEN)
+#define HICN_V6_ICMP_AH_HDRLEN (HICN_V6_ICMP_HDRLEN + AH_HDRLEN)
 
-#define HICN_V6_TCP_AH_HDRLEN   (HICN_V6_TCP_HDRLEN + AH_HDRLEN)
-#define HICN_V6_ICMP_AH_HDRLEN   (HICN_V6_ICMP_HDRLEN + AH_HDRLEN)
+#define HICN_V4_TCP_HDRLEN  (IPV4_HDRLEN + TCP_HDRLEN)
+#define HICN_V4_ICMP_HDRLEN (IPV4_HDRLEN + ICMP_HDRLEN)
+#define HICN_V4_WLDR_HDRLEN (IPV4_HDRLEN + ICMPWLDR_HDRLEN)
 
-
-#define HICN_V4_TCP_HDRLEN   (IPV4_HDRLEN + TCP_HDRLEN)
-#define HICN_V4_ICMP_HDRLEN  (IPV4_HDRLEN + ICMP_HDRLEN)
-#define HICN_V4_WLDR_HDRLEN  (IPV4_HDRLEN + ICMPWLDR_HDRLEN)
-
-#define HICN_V4_TCP_AH_HDRLEN   (HICN_V4_TCP_HDRLEN + AH_HDRLEN)
-#define HICN_V4_ICMP_AH_HDRLEN   (HICN_V4_ICMP_HDRLEN + AH_HDRLEN)
-
-
-
+#define HICN_V4_TCP_AH_HDRLEN  (HICN_V4_TCP_HDRLEN + AH_HDRLEN)
+#define HICN_V4_ICMP_AH_HDRLEN (HICN_V4_ICMP_HDRLEN + AH_HDRLEN)
 
 #endif /* HICN_HEADER_H */
 

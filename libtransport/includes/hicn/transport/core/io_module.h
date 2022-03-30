@@ -40,7 +40,7 @@ typedef struct {
 
 class Connector;
 
-class IoModule {
+class IoModule : utils::NonCopyable {
  protected:
   IoModule()
       : inet_address_({}),
@@ -64,15 +64,20 @@ class IoModule {
   virtual bool isConnected() = 0;
 
   virtual void init(Connector::PacketReceivedCallback &&receive_callback,
+                    Connector::PacketSentCallback &&sent_callback,
                     Connector::OnReconnectCallback &&reconnect_callback,
                     asio::io_service &io_service,
                     const std::string &app_name = "Libtransport") = 0;
 
   virtual void registerRoute(const Prefix &prefix) = 0;
+  virtual void sendMapme() {}
+
+  virtual void setForwardingStrategy(const Prefix &prefix,
+                                     std::string &strategy){};
 
   virtual std::uint32_t getMtu() = 0;
 
-  virtual bool isControlMessage(const uint8_t *message) = 0;
+  virtual bool isControlMessage(utils::MemBuf &packet_buffer) = 0;
 
   virtual void processControlMessageReply(utils::MemBuf &packet_buffer) = 0;
 
@@ -89,7 +94,7 @@ class IoModule {
     }
   }
 
-  virtual void send(const uint8_t *packet, std::size_t len) = 0;
+  virtual void send(const utils::MemBuf::Ptr &buffer) = 0;
 
   void setContentStoreSize(uint32_t cs_size) {
     content_store_reserved_ = cs_size;

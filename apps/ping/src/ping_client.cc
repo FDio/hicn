@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,7 +16,9 @@
 #include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/core/global_object_pool.h>
 #include <hicn/transport/core/interest.h>
+#include <hicn/transport/interfaces/global_conf_interface.h>
 #include <hicn/transport/interfaces/portal.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
 
 #include <asio/signal_set.hpp>
 #include <asio/steady_timer.hpp>
@@ -32,7 +34,7 @@ namespace core {
 
 namespace ping {
 
-typedef std::map<uint64_t, uint64_t> SendTimeMap;
+typedef std::map<uint64_t, utils::SteadyTime::TimePoint> SendTimeMap;
 typedef auth::AsymmetricVerifier Verifier;
 
 class Configuration {
@@ -77,17 +79,12 @@ class Configuration {
   }
 };
 
-class Client : interface::Portal::ConsumerCallback {
+class Client : interface::Portal::TransportCallback {
  public:
-  Client(Configuration *c)
-      : portal_(), signals_(portal_.getIoService(), SIGINT) {
+  Client(Configuration *c) : portal_(), signals_(io_service_, SIGINT) {
     // Let the main thread to catch SIGINT
-    portal_.connect();
-    portal_.setConsumerCallback(this);
-
     signals_.async_wait(std::bind(&Client::afterSignal, this));
-
-    timer_.reset(new asio::steady_timer(portal_.getIoService()));
+    timer_.reset(new asio::steady_timer(portal_.getThread().getIoService()));
     config_ = c;
     sequence_number_ = config_->first_suffix_;
     last_jump_ = 0;
@@ -105,19 +102,28 @@ class Client : interface::Portal::ConsumerCallback {
 
   void ping() {
     std::cout << "start ping" << std::endl;
-    doPing();
-    portal_.runEventsLoop();
+
+    portal_.getThread().add([this]() {
+      portal_.connect();
+      portal_.registerTransportCallback(this);
+      doPing();
+    });
+
+    io_service_.run();
+  }
+
+  void onInterest(Interest &interest) override {
+    throw errors::RuntimeException("Unexpected interest received.");
   }
 
   void onContentObject(Interest &interest, ContentObject &object) override {
-    uint64_t rtt = 0;
+    double rtt = 0;
 
     if (!config_->certificate_.empty()) {
-      auto t0 = std::chrono::steady_clock::now();
+      auto t0 = utils::SteadyTime::now();
       if (verifier_.verifyPacket(&object)) {
-        auto t1 = std::chrono::steady_clock::now();
-        auto dt =
-            std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0);
+        auto t1 = utils::SteadyTime::now();
+        auto dt = utils::SteadyTime::getDurationUs(t0, t1);
         std::cout << "Verification time: " << dt.count() << std::endl;
         std::cout << "<<< Signature Ok." << std::endl;
       } else {
@@ -127,10 +133,9 @@ class Client : interface::Portal::ConsumerCallback {
 
     auto it = send_timestamps_.find(interest.getName().getSuffix());
     if (it != send_timestamps_.end()) {
-      rtt = std::chrono::duration_cast<std::chrono::microseconds>(
-                std::chrono::steady_clock::now().time_since_epoch())
-                .count() -
-            it->second;
+      rtt =
+          utils::SteadyTime::getDurationUs(it->second, utils::SteadyTime::now())
+              .count();
       send_timestamps_.erase(it);
     }
 
@@ -206,7 +211,11 @@ class Client : interface::Portal::ConsumerCallback {
     }
   }
 
-  void onError(std::error_code ec) override {}
+  void onError(const std::error_code &ec) override {
+    std::cout << "Aborting ping due to internal error: " << ec.message()
+              << std::endl;
+    afterSignal();
+  }
 
   void doPing() {
     const Name interest_name(config_->name_, (uint32_t)sequence_number_);
@@ -254,10 +263,7 @@ class Client : interface::Portal::ConsumerCallback {
 
     if (!config_->quiet_) std::cout << std::endl;
 
-    send_timestamps_[sequence_number_] =
-        std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now().time_since_epoch())
-            .count();
+    send_timestamps_[sequence_number_] = utils::SteadyTime::now();
 
     portal_.sendInterest(std::move(interest));
 
@@ -267,7 +273,11 @@ class Client : interface::Portal::ConsumerCallback {
     if (sent_ < config_->maxPing_) {
       this->timer_->expires_from_now(
           std::chrono::microseconds(config_->pingInterval_));
-      this->timer_->async_wait([this](const std::error_code e) { doPing(); });
+      this->timer_->async_wait([this](const std::error_code e) {
+        if (!e) {
+          doPing();
+        }
+      });
     }
   }
 
@@ -275,11 +285,11 @@ class Client : interface::Portal::ConsumerCallback {
     std::cout << "Stop ping" << std::endl;
     std::cout << "Sent: " << sent_ << " Received: " << received_
               << " Timeouts: " << timedout_ << std::endl;
-    portal_.stopEventsLoop();
+    io_service_.stop();
   }
 
   void reset() {
-    timer_.reset(new asio::steady_timer(portal_.getIoService()));
+    timer_.reset(new asio::steady_timer(portal_.getThread().getIoService()));
     sequence_number_ = config_->first_suffix_;
     last_jump_ = 0;
     processed_ = 0;
@@ -291,6 +301,7 @@ class Client : interface::Portal::ConsumerCallback {
 
  private:
   SendTimeMap send_timestamps_;
+  asio::io_service io_service_;
   interface::Portal portal_;
   asio::signal_set signals_;
   uint64_t sequence_number_;
@@ -337,6 +348,11 @@ void help() {
             << std::endl;
   std::cout << "-q                quiet, not prints (default false)"
             << std::endl;
+  std::cerr << "-z <io_module>    IO module to use. Default: hicnlightng_module"
+            << std::endl;
+  std::cerr << "-F <conf_file>    Path to optional configuration file for "
+               "libtransport"
+            << std::endl;
   std::cout << "-H                prints this message" << std::endl;
 }
 
@@ -350,7 +366,11 @@ int main(int argc, char *argv[]) {
   int opt;
   std::string producer_certificate = "";
 
-  while ((opt = getopt(argc, argv, "j::t:i:m:s:d:n:l:f:c:SAOqVDH")) != -1) {
+  std::string conf_file;
+  transport::interface::global_config::IoModuleConfiguration io_config;
+  io_config.name = "hicnlightng_module";
+
+  while ((opt = getopt(argc, argv, "j::t:i:m:s:d:n:l:f:c:SAOqVDHz:F:")) != -1) {
     switch (opt) {
       case 't':
         c->ttl_ = (uint8_t)std::stoi(optarg);
@@ -406,6 +426,12 @@ int main(int argc, char *argv[]) {
       case 'c':
         c->certificate_ = std::string(optarg);
         break;
+      case 'z':
+        io_config.name = optarg;
+        break;
+      case 'F':
+        conf_file = optarg;
+        break;
       case 'H':
       default:
         help();
@@ -413,16 +439,24 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  /**
+   * IO module configuration
+   */
+  io_config.set();
+
+  /**
+   * Parse config file
+   */
+  transport::interface::global_config::parseConfigurationFile(conf_file);
+
   auto ping = std::make_unique<Client>(c);
 
   auto t0 = std::chrono::steady_clock::now();
   ping->ping();
   auto t1 = std::chrono::steady_clock::now();
 
-  std::cout
-      << "Elapsed time: "
-      << std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count()
-      << std::endl;
+  std::cout << "Elapsed time: "
+            << utils::SteadyTime::getDurationUs(t0, t1).count() << std::endl;
 
 #ifdef _WIN32
   WSACleanup();
