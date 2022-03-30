@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -57,8 +57,8 @@ extern hicn_main_t hicn_main;
 extern int hicn_infra_fwdr_initialized;
 
 /* PIT and CS size */
-u32 hicn_infra_pit_size;
-u32 hicn_infra_cs_size;
+extern u32 hicn_infra_pit_size;
+extern u32 hicn_infra_cs_size;
 
 /**
  * @brief Enable and disable the hicn plugin

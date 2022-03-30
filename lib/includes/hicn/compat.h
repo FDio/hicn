@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -35,14 +35,18 @@
 #define HFO_INET  1 << 0
 #define HFO_INET6 1 << 1
 #define HFO_TCP	  1 << 2
-#define HFO_ICMP  1 << 3
-#define HFO_AH	  1 << 4
+#define HFO_UDP	  1 << 3
+#define HFO_ICMP  1 << 4
+#define HFO_CMPR  1 << 5
+#define HFO_AH	  1 << 6
 
 #define _is_ipv4(format) ((format & HFO_INET))
 #define _is_ipv6(format) ((format & HFO_INET6) >> 1)
 #define _is_tcp(format)	 ((format & HFO_TCP) >> 2)
-#define _is_icmp(format) ((format & HFO_ICMP) >> 3)
-#define _is_ah(format)	 ((format & HFO_AH) >> 4)
+#define _is_udp(format)	 ((format & HFO_UDP) >> 3)
+#define _is_icmp(format) ((format & HFO_ICMP) >> 4)
+#define _is_cmpr(format) ((format & HFO_CMPR) >> 5)
+#define _is_ah(format)	 ((format & HFO_AH) >> 6)
 
 typedef enum
 {
@@ -51,11 +55,30 @@ typedef enum
   HF_INET6_TCP = HFO_INET6 | HFO_TCP,
   HF_INET_ICMP = HFO_INET | HFO_ICMP,
   HF_INET6_ICMP = HFO_INET6 | HFO_ICMP,
+  HF_NEW = HFO_CMPR,
+  HF_INET_UDP = HFO_INET | HFO_UDP | HFO_CMPR,
+  HF_INET6_UDP = HFO_INET6 | HFO_UDP | HFO_CMPR,
   HF_INET_TCP_AH = HFO_INET | HFO_TCP | HFO_AH,
   HF_INET6_TCP_AH = HFO_INET6 | HFO_TCP | HFO_AH,
   HF_INET_ICMP_AH = HFO_INET | HFO_ICMP | HFO_AH,
   HF_INET6_ICMP_AH = HFO_INET6 | HFO_ICMP | HFO_AH,
+  HF_NEW_AH = HFO_CMPR | HFO_AH,
+  HF_INET_UDP_AH = HFO_INET | HFO_UDP | HFO_CMPR | HFO_AH,
+  HF_INET6_UDP_AH = HFO_INET6 | HFO_UDP | HFO_CMPR | HFO_AH,
 } hicn_format_t;
+
+/**
+ * @brief Add AH header to current format. E.g. if format is IP + TCP, this
+ * will change it to IP = TCP + AH
+ *
+ * @param [in] format - The input format
+ * @return The format with the AH bit set to 1
+ */
+static inline hicn_format_t
+hicn_get_ah_format (hicn_format_t format)
+{
+  return (hicn_format_t) (format | HFO_AH);
+}
 
 /**
  * Minimum required header length to determine the type and length of a
@@ -351,18 +374,49 @@ int hicn_packet_get_hoplimit (const hicn_header_t *packet, u8 *hops);
  */
 int hicn_packet_set_hoplimit (hicn_header_t *packet, u8 hops);
 
+/**
+ * @brief Check if this packet is interest
+ *
+ * @param format - hICN format
+ * @param packet - Packet header
+ * @return hICN error code
+ */
+int hicn_packet_is_interest (hicn_format_t format, const hicn_header_t *h,
+			     int *ret);
+
+/**
+ * @brief Mark this packet as interest
+ *
+ * @param format - hICN format
+ * @param packet - Packet header
+ * @return hICN error code
+ */
+int hicn_packet_set_interest (hicn_format_t format, hicn_header_t *packet);
+
+/**
+ * @brief Mark this packet as data
+ *
+ * @param format - hICN format
+ * @param packet - Packet header
+ * @return hICN error code
+ */
+int hicn_packet_set_data (hicn_format_t format, hicn_header_t *h);
+
 int hicn_packet_copy_header (hicn_format_t format, const hicn_header_t *packet,
 			     hicn_header_t *destination, bool copy_ah);
 
-int hicn_packet_get_lifetime (const hicn_header_t *packet, u32 *lifetime);
-int hicn_packet_set_lifetime (hicn_header_t *packet, u32 lifetime);
+int hicn_packet_get_lifetime (hicn_format_t format,
+			      const hicn_header_t *packet, u32 *lifetime);
+int hicn_packet_set_lifetime (hicn_format_t format, hicn_header_t *packet,
+			      u32 lifetime);
 int hicn_packet_get_reserved_bits (const hicn_header_t *packet,
 				   u8 *reserved_bits);
 int hicn_packet_set_reserved_bits (hicn_header_t *packet,
 				   const u8 reserved_bits);
-int hicn_packet_get_payload_type (const hicn_header_t *packet,
+int hicn_packet_get_payload_type (hicn_format_t format,
+				  const hicn_header_t *packet,
 				  hicn_payload_type_t *payload_type);
-int hicn_packet_set_payload_type (hicn_header_t *packet,
+int hicn_packet_set_payload_type (hicn_format_t format, hicn_header_t *packet,
 				  const hicn_payload_type_t payload_type);
 
 int hicn_packet_set_syn (hicn_format_t format, hicn_header_t *packet);
@@ -454,10 +508,14 @@ int hicn_data_get_payload_type (const hicn_header_t *data,
 int hicn_data_set_payload_type (hicn_header_t *data,
 				hicn_payload_type_t payload_type);
 int hicn_data_reset_for_hash (hicn_format_t format, hicn_header_t *packet);
-int hicn_packet_get_signature_gap (hicn_format_t format,
-				   const hicn_header_t *h, uint8_t *bytes);
-int hicn_packet_set_signature_gap (hicn_format_t format, hicn_header_t *h,
-				   uint8_t bytes);
+int hicn_data_is_last (hicn_format_t format, hicn_header_t *h, int *is_last);
+int hicn_data_set_last (hicn_format_t format, hicn_header_t *h);
+
+int hicn_packet_get_signature_padding (hicn_format_t format,
+				       const hicn_header_t *h, size_t *bytes);
+int hicn_packet_set_signature_padding (hicn_format_t format, hicn_header_t *h,
+				       size_t bytes);
+
 #endif /* HICN_COMPAT_H */
 
 /*

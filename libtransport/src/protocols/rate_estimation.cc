@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,6 +14,7 @@
  */
 
 #include <glog/logging.h>
+#include <hicn/transport/errors/runtime_exception.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <protocols/rate_estimation.h>
 
@@ -92,8 +93,8 @@ InterRttEstimator::InterRttEstimator(double alpha_arg) {
   this->win_current_ = 1.0;
 
   pthread_mutex_init(&(this->mutex_), NULL);
-  this->start_time_ = std::chrono::steady_clock::now();
-  this->begin_batch_ = std::chrono::steady_clock::now();
+  this->start_time_ = utils::SteadyTime::now();
+  this->begin_batch_ = utils::SteadyTime::now();
 }
 
 InterRttEstimator::~InterRttEstimator() {
@@ -105,33 +106,35 @@ InterRttEstimator::~InterRttEstimator() {
   pthread_mutex_destroy(&(this->mutex_));
 }
 
-void InterRttEstimator::onRttUpdate(double rtt) {
+void InterRttEstimator::onRttUpdate(
+    const utils::SteadyTime::Milliseconds &rtt) {
   pthread_mutex_lock(&(this->mutex_));
-  this->rtt_ = rtt;
+  this->rtt_ = rtt.count();
   this->number_of_packets_++;
-  this->avg_rtt_ += rtt;
+  this->avg_rtt_ += this->rtt_;
   pthread_mutex_unlock(&(this->mutex_));
 
   if (!thread_is_running_) {
     my_th_ = (pthread_t *)malloc(sizeof(pthread_t));
     if (!my_th_) {
-      LOG(ERROR) << "Error allocating thread.";
-      my_th_ = NULL;
+      throw errors::RuntimeException("Error allocating thread.");
     }
-    if (/*int err = */ pthread_create(my_th_, NULL, transport::protocol::Timer,
-                                      (void *)this)) {
-      LOG(ERROR) << "Error creating the thread";
+
+    if (pthread_create(my_th_, NULL, transport::protocol::Timer,
+                       (void *)this)) {
+      free(my_th_);
       my_th_ = NULL;
+      throw errors::RuntimeException("Error allocating thread.");
     }
+
     thread_is_running_ = true;
   }
 }
 
 void InterRttEstimator::onWindowIncrease(double win_current) {
-  TimePoint end = std::chrono::steady_clock::now();
+  auto end = utils::SteadyTime::now();
   auto delay =
-      std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
-          .count();
+      utils::SteadyTime::getDurationUs(this->begin_batch_, end).count();
 
   pthread_mutex_lock(&(this->mutex_));
   this->avg_win_ += this->win_current_ * delay;
@@ -139,14 +142,13 @@ void InterRttEstimator::onWindowIncrease(double win_current) {
   this->win_change_ += delay;
   pthread_mutex_unlock(&(this->mutex_));
 
-  this->begin_batch_ = std::chrono::steady_clock::now();
+  this->begin_batch_ = utils::SteadyTime::now();
 }
 
 void InterRttEstimator::onWindowDecrease(double win_current) {
-  TimePoint end = std::chrono::steady_clock::now();
+  auto end = utils::SteadyTime::now();
   auto delay =
-      std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
-          .count();
+      utils::SteadyTime::getDurationUs(this->begin_batch_, end).count();
 
   pthread_mutex_lock(&(this->mutex_));
   this->avg_win_ += this->win_current_ * delay;
@@ -154,25 +156,24 @@ void InterRttEstimator::onWindowDecrease(double win_current) {
   this->win_change_ += delay;
   pthread_mutex_unlock(&(this->mutex_));
 
-  this->begin_batch_ = std::chrono::steady_clock::now();
+  this->begin_batch_ = utils::SteadyTime::now();
 }
 
 ALaTcpEstimator::ALaTcpEstimator() {
   this->estimation_ = 0.0;
   this->observer_ = NULL;
-  this->start_time_ = std::chrono::steady_clock::now();
+  this->start_time_ = utils::SteadyTime::now();
   this->totalSize_ = 0.0;
 }
 
 void ALaTcpEstimator::onStart() {
   this->totalSize_ = 0.0;
-  this->start_time_ = std::chrono::steady_clock::now();
+  this->start_time_ = utils::SteadyTime::now();
 }
 
 void ALaTcpEstimator::onDownloadFinished() {
-  TimePoint end = std::chrono::steady_clock::now();
-  auto delay =
-      std::chrono::duration_cast<Microseconds>(end - this->start_time_).count();
+  auto end = utils::SteadyTime::now();
+  auto delay = utils::SteadyTime::getDurationUs(this->start_time_, end).count();
   this->estimation_ = this->totalSize_ * 8 * 1000000 / delay;
   if (observer_) {
     observer_->notifyStats(this->estimation_);
@@ -192,22 +193,21 @@ SimpleEstimator::SimpleEstimator(double alphaArg, int batching_param) {
   this->number_of_packets_ = 0;
   this->base_alpha_ = alphaArg;
   this->alpha_ = alphaArg;
-  this->start_time_ = std::chrono::steady_clock::now();
-  this->begin_batch_ = std::chrono::steady_clock::now();
+  this->start_time_ = utils::SteadyTime::now();
+  this->begin_batch_ = utils::SteadyTime::now();
 }
 
 void SimpleEstimator::onStart() {
   this->estimated_ = false;
   this->number_of_packets_ = 0;
   this->total_size_ = 0.0;
-  this->start_time_ = std::chrono::steady_clock::now();
-  this->begin_batch_ = std::chrono::steady_clock::now();
+  this->start_time_ = utils::SteadyTime::now();
+  this->begin_batch_ = utils::SteadyTime::now();
 }
 
 void SimpleEstimator::onDownloadFinished() {
-  TimePoint end = std::chrono::steady_clock::now();
-  auto delay =
-      std::chrono::duration_cast<Microseconds>(end - this->start_time_).count();
+  auto end = utils::SteadyTime::now();
+  auto delay = utils::SteadyTime::getDurationUs(this->start_time_, end).count();
   if (observer_) {
     observer_->notifyDownloadTime((double)delay);
   }
@@ -229,8 +229,7 @@ void SimpleEstimator::onDownloadFinished() {
   } else {
     if (this->number_of_packets_ >=
         (int)(75.0 * (double)this->batching_param_ / 100.0)) {
-      delay = std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
-                  .count();
+      delay = utils::SteadyTime::getDurationUs(this->begin_batch_, end).count();
       // Assuming all packets carry max_packet_size_ bytes of data
       // (8*max_packet_size_ bits); 1000000 factor to convert us to seconds
       if (this->estimation_) {
@@ -249,22 +248,21 @@ void SimpleEstimator::onDownloadFinished() {
   }
   this->number_of_packets_ = 0;
   this->total_size_ = 0.0;
-  this->start_time_ = std::chrono::steady_clock::now();
-  this->begin_batch_ = std::chrono::steady_clock::now();
+  this->start_time_ = utils::SteadyTime::now();
+  this->begin_batch_ = utils::SteadyTime::now();
 }
 
 void SimpleEstimator::onDataReceived(int packet_size) {
   this->total_size_ += packet_size;
 }
 
-void SimpleEstimator::onRttUpdate(double rtt) {
+void SimpleEstimator::onRttUpdate(const utils::SteadyTime::Milliseconds &rtt) {
   this->number_of_packets_++;
 
   if (this->number_of_packets_ == this->batching_param_) {
-    TimePoint end = std::chrono::steady_clock::now();
+    auto end = utils::SteadyTime::now();
     auto delay =
-        std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
-            .count();
+        utils::SteadyTime::getDurationUs(this->begin_batch_, end).count();
     // Assuming all packets carry max_packet_size_ bytes of data
     // (8*max_packet_size_ bits); 1000000 factor to convert us to seconds
     if (this->estimation_) {
@@ -280,7 +278,7 @@ void SimpleEstimator::onRttUpdate(double rtt) {
     this->alpha_ = this->base_alpha_;
     this->number_of_packets_ = 0;
     this->total_size_ = 0.0;
-    this->begin_batch_ = std::chrono::steady_clock::now();
+    this->begin_batch_ = utils::SteadyTime::now();
   }
 }
 
@@ -297,13 +295,14 @@ BatchingPacketsEstimator::BatchingPacketsEstimator(double alpha_arg,
   this->max_packet_size_ = 0;
   this->estimation_ = 0.0;
   this->win_current_ = 1.0;
-  this->begin_batch_ = std::chrono::steady_clock::now();
-  this->start_time_ = std::chrono::steady_clock::now();
+  this->begin_batch_ = utils::SteadyTime::now();
+  this->start_time_ = utils::SteadyTime::now();
 }
 
-void BatchingPacketsEstimator::onRttUpdate(double rtt) {
+void BatchingPacketsEstimator::onRttUpdate(
+    const utils::SteadyTime::Milliseconds &rtt) {
   this->number_of_packets_++;
-  this->avg_rtt_ += rtt;
+  this->avg_rtt_ += rtt.count();
 
   if (number_of_packets_ == this->batching_param_) {
     if (estimation_ == 0) {
@@ -329,25 +328,23 @@ void BatchingPacketsEstimator::onRttUpdate(double rtt) {
 }
 
 void BatchingPacketsEstimator::onWindowIncrease(double win_current) {
-  TimePoint end = std::chrono::steady_clock::now();
+  auto end = utils::SteadyTime::now();
   auto delay =
-      std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
-          .count();
+      utils::SteadyTime::getDurationUs(this->begin_batch_, end).count();
   this->avg_win_ += this->win_current_ * delay;
   this->win_current_ = win_current;
   this->win_change_ += delay;
-  this->begin_batch_ = std::chrono::steady_clock::now();
+  this->begin_batch_ = utils::SteadyTime::now();
 }
 
 void BatchingPacketsEstimator::onWindowDecrease(double win_current) {
-  TimePoint end = std::chrono::steady_clock::now();
+  auto end = utils::SteadyTime::now();
   auto delay =
-      std::chrono::duration_cast<Microseconds>(end - this->begin_batch_)
-          .count();
+      utils::SteadyTime::getDurationUs(this->begin_batch_, end).count();
   this->avg_win_ += this->win_current_ * delay;
   this->win_current_ = win_current;
   this->win_change_ += delay;
-  this->begin_batch_ = std::chrono::steady_clock::now();
+  this->begin_batch_ = utils::SteadyTime::now();
 }
 
 }  // end namespace protocol

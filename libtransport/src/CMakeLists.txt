@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,10 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-include(GNUInstallDirs)
-
-set(ASIO_STANDALONE 1)
-
+##############################################################
+# Source files
+##############################################################
 add_subdirectory(core)
 add_subdirectory(interfaces)
 add_subdirectory(protocols)
@@ -23,8 +22,100 @@ add_subdirectory(implementation)
 add_subdirectory(utils)
 add_subdirectory(http)
 
-include(Packager)
-extract_version()
+
+##############################################################
+# Libraries to link
+##############################################################
+set(LIBRARIES
+  PRIVATE ${HICN_LIBRARIES}
+  PRIVATE ${CMAKE_THREAD_LIBS_INIT}
+  PRIVATE ${CMAKE_DL_LIBS}
+  PRIVATE ${OPENSSL_LIBRARIES}
+  PRIVATE ${LIBCONFIG_CPP_LIBRARIES}
+  PRIVATE ${THIRD_PARTY_LIBRARIES}
+)
+
+
+##############################################################
+# Include dirs
+##############################################################
+list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
+  PRIVATE
+    ${CMAKE_THREADS_INCLUDE_DIRS}
+    ${ASIO_INCLUDE_DIRS}
+    ${WINDOWS_INCLUDE_DIRS}
+    ${LIBCONFIG_CPP_INCLUDE_DIRS}
+    ${THIRD_PARTY_INCLUDE_DIRS}
+  PUBLIC
+    ${ASIO_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIR}
+)
+
+list(APPEND LIBTRANSPORT_INTERNAL_INCLUDE_DIRS
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/
+  PUBLIC
+    $<BUILD_INTERFACE:${Libhicntransport_INCLUDE_DIRS}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+
+##############################################################
+# Dependencies
+##############################################################
+list(APPEND DEPENDENCIES
+  ${THIRD_PARTY_DEPENDENCIES}
+)
+
+##############################################################
+# Compiler definitions
+##############################################################
+list(APPEND COMPILER_DEFINITIONS
+  PUBLIC "-DASIO_STANDALONE"
+)
+
+if (ENABLE_RELY)
+  list(APPEND COMPILER_DEFINITIONS
+    PRIVATE "-DENABLE_RELY=1"
+  )
+endif()
+
+
+##############################################################
+# Compiler options
+##############################################################
+list(APPEND COMPILER_OPTIONS
+  ${DEFAULT_COMPILER_OPTIONS}
+)
+
+if (NOT WIN32)
+  list(APPEND COMPILER_OPTIONS
+    PRIVATE "-pthread"
+  )
+else ()
+  list(APPEND COMPILER_OPTIONS
+    PRIVATE "-/wd4200 -D_WIN32_WINDOWS=0x0400"
+  )
+  if (CMAKE_BUILD_TYPE EQUAL "RELEASE")
+    list(APPEND COMPILER_OPTIONS
+      PRIVATE "/NODEFAULTLIB:\"MSVCRTD\""
+    )
+  endif ()
+endif ()
+
+if (${CMAKE_SYSTEM_NAME} MATCHES "Android")
+  list(APPEND COMPILER_OPTIONS
+    PRIVATE "-stdlib=libc++"
+    PRIVATE "-isystem"
+    PRIVATE "-lm"
+  )
+endif()
+
+
+##############################################################
+# Configuration file
+##############################################################
 configure_file("config.h.in" "hicn/transport/config.h" @ONLY)
 install(
   FILES ${CMAKE_CURRENT_BINARY_DIR}/hicn/transport/config.h
@@ -32,40 +123,30 @@ install(
   COMPONENT ${LIBTRANSPORT_COMPONENT}-dev
 )
 
-install(
-  FILES "transport.config"
-  DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/hicn
-  COMPONENT ${LIBTRANSPORT_COMPONENT}
-)
-
-list(APPEND COMPILER_DEFINITIONS
-  "-DASIO_STANDALONE"
-)
-
-list(INSERT LIBTRANSPORT_INTERNAL_INCLUDE_DIRS 0
-  ${CMAKE_CURRENT_SOURCE_DIR}/
-  ${CMAKE_CURRENT_BINARY_DIR}/
-)
-
-set(LIBTRANSPORT_INCLUDE_DIRS
-  ${LIBTRANSPORT_INCLUDE_DIRS}
-  "" CACHE INTERNAL
-  "" FORCE
-)
-
-if (NOT WIN32)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+if (${CMAKE_SYSTEM_NAME} MATCHES Darwin OR ${CMAKE_SYSTEM_NAME} MATCHES Linux)
+  install(
+    FILES "transport.config"
+    DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/hicn
+    COMPONENT ${LIBTRANSPORT_COMPONENT}
+  )
 else ()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4200 -D_WIN32_WINDOWS=0x0400")
-  if (CMAKE_BUILD_TYPE EQUAL "RELEASE")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:\"MSVCRTD\"" )
-  endif ()
-endif ()
-
-if (${CMAKE_SYSTEM_NAME} MATCHES "Android")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -isystem -lm")
+  install(
+    FILES "transport.config"
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/etc/hicn
+    COMPONENT ${LIBTRANSPORT_COMPONENT}
+  )
 endif()
 
+
+##############################################################
+# IO Modules
+##############################################################
+add_subdirectory(io_modules)
+
+
+##############################################################
+# Build type
+##############################################################
 set (BUILD_TYPES "STATIC")
 
 if (NOT DISABLE_SHARED_LIBRARIES)
@@ -74,8 +155,10 @@ if (NOT DISABLE_SHARED_LIBRARIES)
   )
 endif()
 
-add_subdirectory(io_modules)
 
+##############################################################
+# Build library
+##############################################################
 build_library(${LIBTRANSPORT}
   ${BUILD_TYPES}
   SOURCES ${SOURCE_FILES} ${HEADER_FILES}
@@ -84,12 +167,29 @@ build_library(${LIBTRANSPORT}
   OBJECT_LIBRARIES ${THIRD_PARTY_OBJECT_LIBRARIES}
   DEPENDS ${DEPENDENCIES}
   COMPONENT ${LIBTRANSPORT_COMPONENT}
-  INCLUDE_DIRS ${LIBTRANSPORT_INCLUDE_DIRS} ${LIBTRANSPORT_INTERNAL_INCLUDE_DIRS}
-  HEADER_ROOT_DIR hicn/transport
+  INCLUDE_DIRS ${LIBTRANSPORT_INTERNAL_INCLUDE_DIRS}
   DEFINITIONS ${COMPILER_DEFINITIONS}
-  VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION}
+  VERSION ${CURRENT_VERSION}
+  EXPORT_NAME ${LIBTRANSPORT_COMPONENT}
+  COMPILE_OPTIONS ${COMPILER_OPTIONS}
 )
 
+
+##############################################################
+# Unit tests
+##############################################################
 if (${BUILD_TESTS})
   add_subdirectory(test)
 endif()
+
+
+##############################################################
+# Cmake config files
+##############################################################
+create_cmake_config (
+  ${LIBTRANSPORT_COMPONENT}
+  INCLUDE_DIRS ${Libhicntransport_INCLUDE_DIRS}
+  VERSION ${CURRENT_VERSION}
+  COMPONENT ${LIBTRANSPORT_COMPONENT}
+  NAMESPACE hicn
+)

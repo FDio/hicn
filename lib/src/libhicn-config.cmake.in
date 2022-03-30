@@ -1,0 +1,12 @@
+set(Libhicn_VERSION "@VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_PATCH@")
+
+@PACKAGE_INIT@
+
+set(Libhicn_VERSION_MAJOR "@VERSION_MAJOR@")
+set(Libhicn_VERSION_MINOR "@VERSION_MINOR@")
+set(Libhicn_VERSION_PATCH "@VERSION_PATCH@")
+
+set_and_check(Libhicn_INCLUDE_DIRS  "@PACKAGE_Libhicn_INCLUDE_DIRS@")
+include("${CMAKE_CURRENT_LIST_DIR}/libhicn-targets.cmake")
+
+check_required_components(Libhicn)

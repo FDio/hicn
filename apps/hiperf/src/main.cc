@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,13 +14,13 @@
  */
 
 #include <client.h>
-#include <server.h>
 #include <forwarder_interface.h>
+#include <server.h>
 
 namespace hiperf {
 
 void usage() {
-  std::cerr << "HIPERF - A tool for performing network throughput "
+  std::cerr << "HIPERF - Instrumentation tool for performing active network"
                "measurements with hICN"
             << std::endl;
   std::cerr << "usage: hiperf [-S|-C] [options] [prefix|name]" << std::endl;
@@ -34,19 +34,27 @@ void usage() {
   std::cerr << "-f\t<filename>\t\t\t"
             << "Log file" << std::endl;
   std::cerr << "-z\t<io_module>\t\t\t"
-            << "IO module to use. Default: hicnlight_module" << std::endl;
+            << "IO module to use. Default: hicnlightng_module" << std::endl;
+  std::cerr << "-F\t<conf_file>\t\t\t"
+            << "Path to optional configuration file for libtransport"
+            << std::endl;
+  std::cerr << "-a\t\t\t\t\t"
+            << "Enables data packet aggregation. "
+            << "Works only in RTC mode" << std::endl;
+  std::cerr << "-X\t<param>\t\t\t\t"
+            << "Set FEC params. Options are Rely_K#_N# or RS_K#_N#"
+            << std::endl;
 #endif
   std::cerr << std::endl;
   std::cerr << "SERVER SPECIFIC:" << std::endl;
   std::cerr << "-A\t<content_size>\t\t\t"
-               "Size of the content to publish. This "
-               "is not the size of the packet (see -s for it)."
+               "Sends an application data unit in bytes that is published once "
+               "before exit"
             << std::endl;
-  std::cerr << "-s\t<packet_size>\t\t\tSize of the payload of each data packet."
-            << std::endl;
+  std::cerr << "-s\t<packet_size>\t\t\tData packet payload size." << std::endl;
   std::cerr << "-r\t\t\t\t\t"
             << "Produce real content of <content_size> bytes" << std::endl;
-  std::cerr << "-m\t\t\t\t\t"
+  std::cerr << "-m\t<manifest_capacity>\t\t"
             << "Produce transport manifest" << std::endl;
   std::cerr << "-l\t\t\t\t\t"
             << "Start producing content upon the reception of the "
@@ -60,20 +68,17 @@ void usage() {
             << "String from which a 128-bit symmetric key will be "
                "derived for signing packets"
             << std::endl;
-  std::cerr << "-y\t<hash_algorithm>\t\t"
-            << "Use the selected hash algorithm for "
-               "calculating manifest digests"
-            << std::endl;
   std::cerr << "-p\t<password>\t\t\t"
             << "Password for p12 keystore" << std::endl;
-  std::cerr << "-x\t\t\t\t\t"
-            << "Produce a content of <content_size>, then after downloading "
-               "it produce a new content of"
-            << "\n\t\t\t\t\t<content_size> without resetting "
-               "the suffix to 0."
+  std::cerr << "-y\t<hash_algorithm>\t\t"
+            << "Use the selected hash algorithm for "
+               "computing manifest digests (default: SHA256)"
             << std::endl;
+  std::cerr << "-x\t\t\t\t\t"
+            << "Produces application data units of size <content_size> "
+            << "without resetting the name suffix to 0." << std::endl;
   std::cerr << "-B\t<bitrate>\t\t\t"
-            << "Bitrate for RTC producer, to be used with the -R option."
+            << "RTC producer data bitrate, to be used with the -R option."
             << std::endl;
 #ifndef _WIN32
   std::cerr << "-I\t\t\t\t\t"
@@ -92,8 +97,8 @@ void usage() {
                "file containing the "
                "crypto material used for the TLS handshake"
             << std::endl;
-  std::cerr << "-G\t<port>\t\t\t"
-            << "input stream from localhost at the specified port" << std::endl;
+  std::cerr << "-G\t<port>\t\t\t\t"
+            << "Input stream from localhost at the specified port" << std::endl;
 #endif
   std::cerr << std::endl;
   std::cerr << "CLIENT SPECIFIC:" << std::endl;
@@ -105,6 +110,8 @@ void usage() {
             << std::endl;
   std::cerr << "-L\t<interest lifetime>\t\t"
             << "Set interest lifetime." << std::endl;
+  std::cerr << "-u\t<delay>\t\t\t\t"
+            << "Set max lifetime of unverified packets." << std::endl;
   std::cerr << "-M\t<input_buffer_size>\t\t"
             << "Size of consumer input buffer. If 0, reassembly of packets "
                "will be disabled."
@@ -127,17 +134,31 @@ void usage() {
   std::cerr << "-t\t\t\t\t\t"
                "Test mode, check if the client is receiving the "
                "correct data. This is an RTC specific option, to be "
-               "used with the -R (default false)"
+               "used with the -R (default: false)"
             << std::endl;
   std::cerr << "-P\t\t\t\t\t"
             << "Prefix of the producer where to do the handshake" << std::endl;
   std::cerr << "-j\t<relay_name>\t\t\t"
-            << "Publish the received content under the name relay_name."
+            << "Publish received content under the name relay_name."
                "This is an RTC specific option, to be "
-               "used with the -R (default false)"
+               "used with the -R (default: false)"
             << std::endl;
-  std::cerr << "-g\t<port>\t\t\t"
-            << "output stream to localhost at the specified port" << std::endl;
+  std::cerr << "-g\t<port>\t\t\t\t"
+            << "Output stream to localhost at the specified port" << std::endl;
+  std::cerr << "-e\t<strategy>\t\t\t"
+            << "Enance the network with a realiability strategy. Options 1:"
+            << " unreliable, 2: rtx only, 3: fec only, "
+            << "4: delay based, 5: low rate, 6: low rate and best path "
+            << "7: low rate and replication, 8: low rate and best"
+            << " path/replication"
+            << "(default: 2 = rtx only) " << std::endl;
+  std::cerr << "-H\t\t\t\t\t"
+            << "Disable periodic print headers in stats report." << std::endl;
+  std::cerr << "-n\t<nb_iterations>\t\t\t"
+            << "Print the stats report <nb_iterations> times and exit.\n"
+            << "\t\t\t\t\tThis option limits the duration of the run to "
+               "<nb_iterations> * <stats_interval> milliseconds."
+            << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -156,7 +177,7 @@ int main(int argc, char *argv[]) {
   char *log_file = nullptr;
   transport::interface::global_config::IoModuleConfiguration config;
   std::string conf_file;
-  config.name = "hicnlight_module";
+  config.name = "hicnlightng_module";
 
   // Consumer
   ClientConfiguration client_configuration;
@@ -166,10 +187,9 @@ int main(int argc, char *argv[]) {
 
   int opt;
 #ifndef _WIN32
-  while ((opt = getopt(
-              argc, argv,
-              "DSCf:b:d:W:RM:c:vA:s:rmlK:k:y:p:hi:xE:P:B:ItL:z:T:F:j:g:G:")) !=
-         -1) {
+  while ((opt = getopt(argc, argv,
+                       "DSCf:b:d:W:RM:c:vA:s:rm:lK:k:y:p:hi:xE:P:B:ItL:z:T:F:j:"
+                       "g:G:e:awHn:X:u:")) != -1) {
     switch (opt) {
       // Common
       case 'D': {
@@ -202,9 +222,11 @@ int main(int argc, char *argv[]) {
         break;
       }
 #else
-  while ((opt = getopt(argc, argv,
-                       "SCf:b:d:W:RM:c:vA:s:rmlK:k:y:p:hi:xB:E:P:tL:z:F:j:")) !=
-         -1) {
+  while (
+      (opt = getopt(
+           argc, argv,
+           "SCf:b:d:W:RM:c:vA:s:rm:lK:k:y:p:hi:xB:E:P:tL:z:F:j:e:awHn:X:u:")) !=
+      -1) {
     switch (opt) {
 #endif
       case 'f': {
@@ -214,6 +236,21 @@ int main(int argc, char *argv[]) {
       case 'R': {
         client_configuration.rtc_ = true;
         server_configuration.rtc_ = true;
+        break;
+      }
+      case 'a': {
+        client_configuration.aggregated_data_ = true;
+        server_configuration.aggregated_data_ = true;
+        break;
+      }
+      case 'X': {
+        client_configuration.fec_type_ = std::string(optarg);
+        server_configuration.fec_type_ = std::string(optarg);
+        break;
+      }
+      case 'w': {
+        client_configuration.packet_format_ = Packet::Format::HF_INET6_UDP;
+        server_configuration.packet_format_ = Packet::Format::HF_INET6_UDP;
         break;
       }
       case 'z': {
@@ -286,9 +323,24 @@ int main(int argc, char *argv[]) {
         options = 1;
         break;
       }
+      case 'u': {
+        client_configuration.unverified_delay_ = std::stoul(optarg);
+        options = 1;
+        break;
+      }
       case 'j': {
         client_configuration.relay_ = true;
         client_configuration.relay_name_ = Prefix(optarg);
+        options = 1;
+        break;
+      }
+      case 'H': {
+        client_configuration.print_headers_ = false;
+        options = 1;
+        break;
+      }
+      case 'n': {
+        client_configuration.nb_iterations_ = std::stoul(optarg);
         options = 1;
         break;
       }
@@ -309,7 +361,7 @@ int main(int argc, char *argv[]) {
         break;
       }
       case 'm': {
-        server_configuration.manifest = true;
+        server_configuration.manifest = std::stoul(optarg);
         options = -1;
         break;
       }
@@ -324,18 +376,19 @@ int main(int argc, char *argv[]) {
         break;
       }
       case 'y': {
+        CryptoHashType hash_algorithm = CryptoHashType::SHA256;
         if (strncasecmp(optarg, "sha256", 6) == 0) {
-          server_configuration.hash_algorithm = CryptoHashType::SHA256;
+          hash_algorithm = CryptoHashType::SHA256;
         } else if (strncasecmp(optarg, "sha512", 6) == 0) {
-          server_configuration.hash_algorithm = CryptoHashType::SHA512;
+          hash_algorithm = CryptoHashType::SHA512;
         } else if (strncasecmp(optarg, "blake2b512", 10) == 0) {
-          server_configuration.hash_algorithm = CryptoHashType::BLAKE2B512;
+          hash_algorithm = CryptoHashType::BLAKE2B512;
         } else if (strncasecmp(optarg, "blake2s256", 10) == 0) {
-          server_configuration.hash_algorithm = CryptoHashType::BLAKE2S256;
+          hash_algorithm = CryptoHashType::BLAKE2S256;
         } else {
-          std::cerr << "Ignored unknown hash algorithm. Using SHA 256."
-                    << std::endl;
+          std::cerr << "Unknown hash algorithm. Using SHA 256." << std::endl;
         }
+        server_configuration.hash_algorithm_ = hash_algorithm;
         options = -1;
         break;
       }
@@ -359,6 +412,11 @@ int main(int argc, char *argv[]) {
       case 'E': {
         server_configuration.keystore_name = std::string(optarg);
         server_configuration.secure_ = true;
+        break;
+      }
+      case 'e': {
+        client_configuration.recovery_strategy_ = std::stoul(optarg);
+        options = 1;
         break;
       }
       case 'h':
@@ -430,6 +488,13 @@ int main(int argc, char *argv[]) {
   transport::interface::global_config::parseConfigurationFile(conf_file);
 
   if (role > 0) {
+    // set forwarder type
+    client_configuration.forwarder_type_ = UNDEFINED;
+    if (config.name.compare("hicnlightng_module") == 0)
+      client_configuration.forwarder_type_ = HICNLIGHT;
+    else if (config.name.compare("hicnlightng_module") == 0)
+      client_configuration.forwarder_type_ = HICNLIGHT_NG;
+
     HIperfClient c(client_configuration);
     if (c.setup() != ERROR_SETUP) {
       c.run();

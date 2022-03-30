@@ -1,4 +1,4 @@
-/* dlfcn.c */ 
+/* dlfcn.c */
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -6,60 +6,68 @@
 #include <string.h>
 #include <windows.h>
 
-static struct {
-    long lasterror;
-    const char *err_rutin;
-} var = {
-    0,
-    NULL
-};
-
-void *dlopen (const char *filename, int flags)
+static struct
 {
-    HINSTANCE hInst;
+  long lasterror;
+  const char *err_rutin;
+} var = { 0, NULL };
 
-    hInst= LoadLibrary (filename);
-    if (hInst==NULL) {
-        var.lasterror = GetLastError ();
-        var.err_rutin = "dlopen";
+void *
+dlopen (const char *filename, int flags)
+{
+  HINSTANCE hInst;
+
+  hInst = LoadLibrary (filename);
+  if (hInst == NULL)
+    {
+      var.lasterror = GetLastError ();
+      var.err_rutin = "dlopen";
     }
-    return hInst;
+  return hInst;
 }
 
-int dlclose (void *handle)
+int
+dlclose (void *handle)
 {
-    BOOL ok;
-    int rc= 0;
+  BOOL ok;
+  int rc = 0;
 
-    ok= FreeLibrary ((HINSTANCE)handle);
-    if (! ok) {
-        var.lasterror = GetLastError ();
-        var.err_rutin = "dlclose";
-        rc= -1;
+  ok = FreeLibrary ((HINSTANCE) handle);
+  if (!ok)
+    {
+      var.lasterror = GetLastError ();
+      var.err_rutin = "dlclose";
+      rc = -1;
     }
-    return rc;
+  return rc;
 }
 
-void *dlsym (void *handle, const char *name)
+void *
+dlsym (void *handle, const char *name)
 {
-    FARPROC fp;
+  FARPROC fp;
 
-    fp= GetProcAddress ((HINSTANCE)handle, name);
-    if (!fp) {
-        var.lasterror = GetLastError ();
-        var.err_rutin = "dlsym";
+  fp = GetProcAddress ((HINSTANCE) handle, name);
+  if (!fp)
+    {
+      var.lasterror = GetLastError ();
+      var.err_rutin = "dlsym";
     }
-    return (void *)(intptr_t)fp;
+  return (void *) (intptr_t) fp;
 }
 
-const char *dlerror (void)
+const char *
+dlerror (void)
 {
-static char errstr [88];
+  static char errstr[88];
 
-    if (var.lasterror) {
-        sprintf (errstr, "%s error #%ld", var.err_rutin, var.lasterror);
-        return errstr;
-    } else {
-        return NULL;
+  if (var.lasterror)
+    {
+      snprintf (errstr, 88, "%s error #%ld", var.err_rutin, var.lasterror);
+      return errstr;
+    }
+  else
+    {
+      return NULL;
     }
 }

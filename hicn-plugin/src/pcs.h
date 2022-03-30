@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -91,7 +91,7 @@ typedef struct __attribute__ ((packed)) hicn_pit_entry_s
 
 } hicn_pit_entry_t;
 
-#define HICN_CS_ENTRY_OPAQUE_SIZE HICN_HASH_NODE_APP_DATA_SIZE - 36
+#define HICN_CS_ENTRY_OPAQUE_SIZE HICN_HASH_NODE_APP_DATA_SIZE - 32
 
 /*
  * CS entry, unioned with a PIT entry below
@@ -105,17 +105,17 @@ typedef struct __attribute__ ((packed)) hicn_cs_entry_s
   /* 20B + 4B = 24B */
   u32 cs_pkt_buf;
 
-  /* Ingress face */
-  /* 24B + 4B = 28B */
-  hicn_face_id_t cs_rxface;
+  //   /* Ingress face */
+  //   /* 24B + 4B = 28B */
+  //   hicn_face_id_t cs_rxface;
 
   /* Linkage for LRU, in the form of hashtable node indexes */
-  /* 28B + 8B = 36B */
+  /* 24B + 8B = 32B */
   u32 cs_lru_prev;
   u32 cs_lru_next;
 
   /* Reserved for implementing cache policy different than LRU */
-  /* 36B + (64 - 36)B = 64B */
+  /* 32B + (64 - 32)B = 64B */
   u8 opaque[HICN_CS_ENTRY_OPAQUE_SIZE];
 
 } __attribute__ ((packed)) hicn_cs_entry_t;
@@ -167,8 +167,7 @@ always_inline void hicn_pit_to_cs (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
 				   hicn_hash_entry_t *hash_entry,
 				   hicn_hash_node_t *node,
 				   const hicn_dpo_vft_t *dpo_vft,
-				   dpo_id_t *hicn_dpo_id,
-				   hicn_face_id_t inface_id, u8 is_appface);
+				   dpo_id_t *hicn_dpo_id);
 
 always_inline void hicn_pcs_cs_update (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
 				       hicn_pcs_entry_t *old_entry,
@@ -193,7 +192,7 @@ always_inline int hicn_pcs_cs_insert_update (
   vlib_main_t *vm, hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
   hicn_hash_node_t *node, hicn_hash_entry_t **hash_entry, u64 hashval,
   u32 *node_id, index_t *dpo_ctx_id, u8 *vft_id, u8 *is_cs, u8 *hash_entry_id,
-  u32 *bucket_id, u8 *bucket_is_overflow, hicn_face_id_t inface);
+  u32 *bucket_id, u8 *bucket_is_overflow);
 
 always_inline int
 hicn_pcs_pit_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
@@ -352,7 +351,6 @@ hicn_pcs_delete_internal (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t **pcs_entryp,
   else
     {
       pitcs->pcs_pit_dealloc++;
-      hicn_strategy_dpo_ctx_unlock (hicn_dpo_id);
 
       /* Flush faces */
       hicn_faces_flush (&(pcs->u.pit.faces));
@@ -370,7 +368,7 @@ always_inline void
 hicn_pit_to_cs (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
 		hicn_pcs_entry_t *pcs_entry, hicn_hash_entry_t *hash_entry,
 		hicn_hash_node_t *node, const hicn_dpo_vft_t *dpo_vft,
-		dpo_id_t *hicn_dpo_id, hicn_face_id_t inface_id, u8 is_appface)
+		dpo_id_t *hicn_dpo_id)
 {
 
   /*
@@ -378,15 +376,12 @@ hicn_pit_to_cs (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
    * hash entry.
    */
   pitcs->pcs_pit_count--;
-  hicn_strategy_dpo_ctx_unlock (hicn_dpo_id);
   /* Flush faces */
   hicn_faces_flush (&(pcs_entry->u.pit.faces));
 
   hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_CS_ENTRY;
   node->hn_flags |= HICN_HASH_NODE_CS_FLAGS;
   pcs_entry->shared.entry_flags |= HICN_PCS_ENTRY_CS_FLAG;
-
-  pcs_entry->u.cs.cs_rxface = inface_id;
 
   /* Update the CS according to the policy */
   hicn_cs_policy_t *policy_state;
@@ -432,40 +427,8 @@ hicn_pcs_cs_update (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
   policy_state = &pitcs->policy_state;
   policy_vft = &pitcs->policy_vft;
 
-  if (entry->u.cs.cs_rxface != old_entry->u.cs.cs_rxface)
-    {
-      /* Dequeue content from the old queue */
-      policy_vft->hicn_cs_dequeue (pitcs, node, old_entry, policy_state);
-
-      old_entry->u.cs.cs_rxface = entry->u.cs.cs_rxface;
-      policy_state = &pitcs->policy_state;
-      policy_vft = &pitcs->policy_vft;
-
-      policy_vft->hicn_cs_insert (pitcs, node, old_entry, policy_state);
-
-      if (policy_state->count > policy_state->max)
-	{
-	  hicn_hash_node_t *node;
-	  hicn_pcs_entry_t *pcs_entry;
-	  hicn_hash_entry_t *hash_entry;
-	  policy_vft->hicn_cs_delete_get (pitcs, policy_state, &node,
-					  &pcs_entry, &hash_entry);
-
-	  /*
-	   * We don't have to decrease the lock (therefore we cannot
-	   * use hicn_pcs_cs_delete function)
-	   */
-	  policy_vft->hicn_cs_dequeue (pitcs, node, pcs_entry, policy_state);
-
-	  hicn_cs_delete_trimmed (pitcs, &pcs_entry, hash_entry, &node, vm);
-
-	  /* Update the global CS counter */
-	  pitcs->pcs_cs_count--;
-	}
-    }
-  else
-    /* Update the CS LRU, moving this item to the head */
-    policy_vft->hicn_cs_update (pitcs, node, old_entry, policy_state);
+  /* Update the CS LRU, moving this item to the head */
+  policy_vft->hicn_cs_update (pitcs, node, old_entry, policy_state);
 }
 
 always_inline void
@@ -565,13 +528,12 @@ hicn_pcs_cs_insert_update (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
 			   hicn_hash_entry_t **hash_entry, u64 hashval,
 			   u32 *node_id, index_t *dpo_ctx_id, u8 *vft_id,
 			   u8 *is_cs, u8 *hash_entry_id, u32 *bucket_id,
-			   u8 *bucket_is_overflow, hicn_face_id_t inface)
+			   u8 *bucket_is_overflow)
 {
   int ret;
 
   ASSERT (entry == hicn_hashtb_node_data (node));
 
-  entry->u.cs.cs_rxface = inface;
   ret = hicn_pcs_cs_insert (vm, pitcs, entry, node, hash_entry, hashval,
 			    node_id, dpo_ctx_id, vft_id, is_cs, hash_entry_id,
 			    bucket_id, bucket_is_overflow);

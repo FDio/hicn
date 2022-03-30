@@ -34,10 +34,28 @@ namespace protocol {
 namespace fec {
 
 #define foreach_rs_fec_type \
+  _(RS, 1, 2)               \
   _(RS, 1, 3)               \
+  _(RS, 1, 4)               \
+  _(RS, 2, 3)               \
+  _(RS, 2, 4)               \
+  _(RS, 2, 5)               \
+  _(RS, 2, 6)               \
+  _(RS, 3, 6)               \
+  _(RS, 3, 7)               \
+  _(RS, 3, 8)               \
+  _(RS, 3, 9)               \
+  _(RS, 3, 10)              \
+  _(RS, 3, 11)              \
+  _(RS, 3, 12)              \
   _(RS, 4, 5)               \
   _(RS, 4, 6)               \
   _(RS, 4, 7)               \
+  _(RS, 4, 8)               \
+  _(RS, 4, 9)               \
+  _(RS, 4, 10)              \
+  _(RS, 4, 11)              \
+  _(RS, 4, 12)              \
   _(RS, 6, 10)              \
   _(RS, 8, 10)              \
   _(RS, 8, 11)              \
@@ -45,6 +63,8 @@ namespace fec {
   _(RS, 8, 14)              \
   _(RS, 8, 16)              \
   _(RS, 8, 32)              \
+  _(RS, 10, 20)             \
+  _(RS, 10, 25)             \
   _(RS, 10, 30)             \
   _(RS, 10, 40)             \
   _(RS, 10, 60)             \
@@ -56,12 +76,24 @@ namespace fec {
   _(RS, 16, 27)             \
   _(RS, 17, 21)             \
   _(RS, 17, 34)             \
+  _(RS, 20, 45)             \
+  _(RS, 20, 50)             \
+  _(RS, 20, 60)             \
+  _(RS, 20, 70)             \
+  _(RS, 30, 70)             \
+  _(RS, 30, 75)             \
+  _(RS, 30, 85)             \
+  _(RS, 30, 95)             \
   _(RS, 32, 36)             \
   _(RS, 32, 41)             \
   _(RS, 32, 46)             \
   _(RS, 32, 54)             \
   _(RS, 34, 42)             \
   _(RS, 35, 70)             \
+  _(RS, 40, 95)             \
+  _(RS, 40, 100)            \
+  _(RS, 40, 110)            \
+  _(RS, 40, 120)            \
   _(RS, 52, 62)
 
 static const constexpr uint16_t MAX_SOURCE_BLOCK_SIZE = 128;
@@ -73,9 +105,24 @@ static const constexpr uint16_t MAX_SOURCE_BLOCK_SIZE = 128;
  * std::array allows to be constructed in place, saving the allocation at the
  * price os knowing in advance its size.
  */
-using Packets = std::array<std::tuple</* index */ uint32_t, /* buffer */ buffer,
-                                      uint32_t /* offset */>,
-                           MAX_SOURCE_BLOCK_SIZE>;
+class RSBufferInfo : public FECBufferInfo {
+ public:
+  RSBufferInfo() : FECBufferInfo() {}
+
+  RSBufferInfo(uint32_t offset, uint32_t index, uint32_t metadata,
+               buffer buffer)
+      : FECBufferInfo(index, metadata, buffer), offset_(offset) {}
+
+  uint32_t getOffset() { return offset_; }
+  RSBufferInfo &setOffset(uint32_t offset) {
+    offset_ = offset;
+    return *this;
+  }
+
+ private:
+  uint32_t offset_ = 0;
+};
+using Packets = std::array<RSBufferInfo, MAX_SOURCE_BLOCK_SIZE>;
 
 /**
  * FEC Header, prepended to symbol packets.
@@ -123,10 +170,32 @@ class rs;
  */
 class BlockCode : public Packets {
   /**
+   * @brief Metadata to include when encoding the buffers. This does not need to
+   * be sent over the network, but just to be included in the FEC protected
+   * bytes.
+   *
+   */
+  class __attribute__((__packed__)) fec_metadata {
+   public:
+    void setPacketLength(uint16_t length) { packet_length = htons(length); }
+    uint32_t getPacketLength() { return ntohs(packet_length); }
+
+    void setMetadataBase(uint32_t value) { metadata = htonl(value); }
+    uint32_t getMetadataBase() { return ntohl(metadata); }
+
+   private:
+    uint16_t packet_length; /* Used to get the real size of the packet after we
+                               pad it */
+    uint32_t
+        metadata; /* Caller may specify an integer for storing additional
+                     metadata that can be used when recovering the packet. */
+  };
+
+  /**
    * For variable length packet we need to prepend to the padded payload the
    * real length of the packet. This is *not* sent over the network.
    */
-  static constexpr std::size_t LEN_SIZE_BYTES = 2;
+  static constexpr std::size_t METADATA_BYTES = sizeof(fec_metadata);
 
  public:
   BlockCode(uint32_t k, uint32_t n, uint32_t seq_offset, struct fec_parms *code,
@@ -142,7 +211,8 @@ class BlockCode : public Packets {
    * Add a source symbol to the source block.
    */
   bool addSourceSymbol(const fec::buffer &packet, uint32_t i,
-                       uint32_t offset = 0);
+                       uint32_t offset = 0,
+                       uint32_t metadata = FECBase::INVALID_METADATA);
 
   /**
    * Get current length of source block.
@@ -169,7 +239,7 @@ class BlockCode : public Packets {
    * Add symbol to source block
    **/
   bool addSymbol(const fec::buffer &packet, uint32_t i, uint32_t offset,
-                 std::size_t size);
+                 std::size_t size, uint32_t metadata);
 
   /**
    * Starting from k source symbols, get the n - k repair symbols
@@ -310,10 +380,11 @@ class RSEncoder : public rs, public ProducerFEC {
   /**
    * Always consume source symbols.
    */
-  void consume(const fec::buffer &packet, uint32_t index, uint32_t offset = 0);
+  void consume(const fec::buffer &packet, uint32_t index, uint32_t offset = 0,
+               uint32_t metadata = FECBase::INVALID_METADATA);
 
-  void onPacketProduced(core::ContentObject &content_object,
-                        uint32_t offset) override;
+  void onPacketProduced(core::ContentObject &content_object, uint32_t offset,
+                        uint32_t metadata = FECBase::INVALID_METADATA) override;
 
   /**
    * @brief Get the fec header size, if added to source packets
@@ -348,8 +419,8 @@ class RSDecoder : public rs, public ConsumerFEC {
   /**
    * Consume source symbol
    */
-  void consumeSource(const fec::buffer &packet, uint32_t i,
-                     uint32_t offset = 0);
+  void consumeSource(const fec::buffer &packet, uint32_t i, uint32_t offset = 0,
+                     uint32_t metadata = FECBase::INVALID_METADATA);
 
   /**
    * Consume repair symbol
@@ -359,8 +430,8 @@ class RSDecoder : public rs, public ConsumerFEC {
   /**
    * Consumers will call this function when they receive a data packet
    */
-  void onDataPacket(core::ContentObject &content_object,
-                    uint32_t offset) override;
+  void onDataPacket(core::ContentObject &content_object, uint32_t offset,
+                    uint32_t metadata = FECBase::INVALID_METADATA) override;
 
   /**
    * @brief Get the fec header size, if added to source packets
@@ -398,8 +469,8 @@ class RSDecoder : public rs, public ConsumerFEC {
    * not make any sense to build the source block, since we received all the
    * source packet of the block.
    */
-  std::unordered_map<uint32_t, std::vector<std::pair<buffer, uint32_t>>>
-      parked_packets_;
+  using BufferInfoArray = std::vector<RSBufferInfo>;
+  std::unordered_map<uint32_t, BufferInfoArray> parked_packets_;
 };
 
 }  // namespace fec

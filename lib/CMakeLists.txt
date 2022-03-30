@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,41 +11,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+##############################################################
+# Project and cmake version
+##############################################################
 cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
 project(libhicn C)
-#include(CTest)
 
+
+##############################################################
+# Cmake modules
+##############################################################
 set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
   "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules"
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
 )
 
-if (NOT CMAKE_BUILD_TYPE)
-	message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
-	set(CMAKE_BUILD_TYPE "Release")
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  include(CommonSetup)
 endif()
 
+
+##############################################################
+# Libs and Bins names
+##############################################################
 set(LIBHICN hicn CACHE INTERNAL "" FORCE)
+set(LIBHICN_COMPONENT lib${LIBHICN} CACHE INTERNAL "" FORCE)
 set(LIBHICN_SHARED ${LIBHICN}.shared CACHE INTERNAL "" FORCE)
 set(LIBHICN_STATIC ${LIBHICN}.static CACHE INTERNAL "" FORCE)
-set(HICN_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/includes CACHE INTERNAL "" FORCE)
 
-include (Packaging)
+##############################################################
+# Dependencies
+##############################################################
 
-option(CMAKE_BUILD_TEST "Build unit tests" OFF)
-
-if (NOT CMAKE_BUILD_TYPE)
-	message(STATUS "${PROJECT_NAME}: No build type selected, default to Release")
-	set(CMAKE_BUILD_TYPE "Release")
+if(INTERNAL_ENVIRONMENT)
+  include(ImportInternal)
+  ImportInternal()
+  set(INTERNAL_ENVIRONMENT_FOUND True CACHE STRING "Internal dependency found")
 endif()
 
-if (NOT WIN32)
-  set(CMAKE_C_FLAGS -Wall)
-else ()
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
-endif ()
+##############################################################
+# Packaging and versioning
+##############################################################
+include(${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/packaging.cmake)
+
 
 add_subdirectory(includes)
-add_subdirectory (src)
-
+add_subdirectory(src)

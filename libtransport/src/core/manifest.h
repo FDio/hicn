@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,6 +16,7 @@
 #pragma once
 
 #include <core/manifest_format.h>
+#include <glog/logging.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/name.h>
 
@@ -40,17 +41,20 @@ class Manifest : public Base {
   using Encoder = typename FormatTraits::Encoder;
   using Decoder = typename FormatTraits::Decoder;
 
-  Manifest(std::size_t signature_size = 0)
-      : Base(HF_INET6_TCP_AH, signature_size),
+  Manifest(Packet::Format format, std::size_t signature_size = 0)
+      : Base(format, signature_size),
         encoder_(*this, signature_size),
         decoder_(*this) {
+    DCHECK(_is_ah(format));
     Base::setPayloadType(PayloadType::MANIFEST);
   }
 
-  Manifest(const core::Name &name, std::size_t signature_size = 0)
-      : Base(name, HF_INET6_TCP_AH, signature_size),
+  Manifest(Packet::Format format, const core::Name &name,
+           std::size_t signature_size = 0)
+      : Base(name, format, signature_size),
         encoder_(*this, signature_size),
         decoder_(*this) {
+    DCHECK(_is_ah(format));
     Base::setPayloadType(PayloadType::MANIFEST);
   }
 
@@ -61,6 +65,11 @@ class Manifest : public Base {
         decoder_(*this) {
     Base::setPayloadType(PayloadType::MANIFEST);
   }
+
+  // Useful for decoding manifests while avoiding packet copy
+  template <typename T>
+  Manifest(T &base)
+      : Base(base.getFormat()), encoder_(base, 0, false), decoder_(base) {}
 
   virtual ~Manifest() = default;
 
@@ -78,24 +87,27 @@ class Manifest : public Base {
   Manifest &decode() {
     Manifest::decoder_.decode();
 
-    manifest_type_ = decoder_.getManifestType();
+    manifest_type_ = decoder_.getType();
+    manifest_transport_type_ = decoder_.getTransportType();
     hash_algorithm_ = decoder_.getHashAlgorithm();
-    is_last_ = decoder_.getIsFinalManifest();
+    is_last_ = decoder_.getIsLast();
 
     return static_cast<ManifestImpl &>(*this).decodeImpl();
   }
 
-  static std::size_t getManifestHeaderSize() {
-    return Encoder::getManifestHeaderSize();
+  static std::size_t manifestHeaderSize(
+      interface::ProductionProtocolAlgorithms transport_type =
+          interface::ProductionProtocolAlgorithms::UNKNOWN) {
+    return Encoder::manifestHeaderSize(transport_type);
   }
 
-  static std::size_t getManifestEntrySize() {
-    return Encoder::getManifestEntrySize();
+  static std::size_t manifestEntrySize() {
+    return Encoder::manifestEntrySize();
   }
 
-  Manifest &setManifestType(ManifestType type) {
+  Manifest &setType(ManifestType type) {
     manifest_type_ = type;
-    encoder_.setManifestType(manifest_type_);
+    encoder_.setType(manifest_type_);
     return *this;
   }
 
@@ -105,31 +117,46 @@ class Manifest : public Base {
     return *this;
   }
 
-  auth::CryptoHashType getHashAlgorithm() { return hash_algorithm_; }
+  auth::CryptoHashType getHashAlgorithm() const { return hash_algorithm_; }
 
-  ManifestType getManifestType() const { return manifest_type_; }
+  ManifestType getType() const { return manifest_type_; }
 
-  bool isFinalManifest() const { return is_last_; }
+  interface::ProductionProtocolAlgorithms getTransportType() const {
+    return manifest_transport_type_;
+  }
+
+  bool getIsLast() const { return is_last_; }
 
   Manifest &setVersion(ManifestVersion version) {
     encoder_.setVersion(version);
     return *this;
   }
 
-  Manifest &setFinalBlockNumber(std::uint32_t final_block_number) {
-    encoder_.setFinalBlockNumber(final_block_number);
+  Manifest &setParamsBytestream(const ParamsBytestream &params) {
+    manifest_transport_type_ =
+        interface::ProductionProtocolAlgorithms::BYTE_STREAM;
+    encoder_.setParamsBytestream(params);
     return *this;
   }
 
-  uint32_t getFinalBlockNumber() const {
-    return decoder_.getFinalBlockNumber();
+  Manifest &setParamsRTC(const ParamsRTC &params) {
+    manifest_transport_type_ =
+        interface::ProductionProtocolAlgorithms::RTC_PROD;
+    encoder_.setParamsRTC(params);
+    return *this;
   }
+
+  ParamsBytestream getParamsBytestream() const {
+    return decoder_.getParamsBytestream();
+  }
+
+  ParamsRTC getParamsRTC() const { return decoder_.getParamsRTC(); }
 
   ManifestVersion getVersion() const { return decoder_.getVersion(); }
 
-  Manifest &setFinalManifest(bool is_final_manifest) {
-    encoder_.setIsFinalManifest(is_final_manifest);
-    is_last_ = is_final_manifest;
+  Manifest &setIsLast(bool is_last) {
+    encoder_.setIsLast(is_last);
+    is_last_ = is_last;
     return *this;
   }
 
@@ -141,6 +168,7 @@ class Manifest : public Base {
 
  protected:
   ManifestType manifest_type_;
+  interface::ProductionProtocolAlgorithms manifest_transport_type_;
   auth::CryptoHashType hash_algorithm_;
   bool is_last_;
 

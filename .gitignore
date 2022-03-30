@@ -1,3 +1,18 @@
 build*
 .ccls-cache/
 compile_commands.json
+sonar*
+.scannerwork*
+deb
+info.txt
+.vscode
+.DS_Store
+
+# Local install
+install*
+
+# Robot
+tests/**/*.xml
+tests/**/*.html
+tests/**/*.log
+*.tar

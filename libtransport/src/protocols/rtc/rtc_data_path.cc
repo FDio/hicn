@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,14 +13,17 @@
  * limitations under the License.
  */
 
+#include <hicn/transport/utils/chrono_typedefs.h>
 #include <protocols/rtc/rtc_data_path.h>
 #include <stdlib.h>
 
 #include <algorithm>
 #include <cfloat>
 #include <chrono>
+#include <cmath>
 
 #define MAX_ROUNDS_WITHOUT_PKTS 10  // 2sec
+#define AVG_RTT_TIME 1000           // (ms) 1sec
 
 namespace transport {
 
@@ -32,6 +35,8 @@ RTCDataPath::RTCDataPath(uint32_t path_id)
     : path_id_(path_id),
       min_rtt(UINT_MAX),
       prev_min_rtt(UINT_MAX),
+      max_rtt(0),
+      prev_max_rtt(0),
       min_owd(INT_MAX),  // this is computed like in LEDBAT, so it is not the
                          // real OWD, but the measured one, that depends on the
                          // clock of sender and receiver. the only meaningful
@@ -46,20 +51,46 @@ RTCDataPath::RTCDataPath(uint32_t path_id)
       largest_recv_seq_(0),
       largest_recv_seq_time_(0),
       avg_inter_arrival_(DBL_MAX),
+      rtt_sum_(0),
+      last_avg_rtt_compute_(0),
+      rtt_samples_(0),
+      avg_rtt_(0.0),
       received_nacks_(false),
-      received_packets_(false),
+      received_packets_(0),
       rounds_without_packets_(0),
       last_received_data_packet_(0),
-      RTT_history_(HISTORY_LEN),
+      min_RTT_history_(HISTORY_LEN),
+      max_RTT_history_(HISTORY_LEN),
       OWD_history_(HISTORY_LEN){};
 
-void RTCDataPath::insertRttSample(uint64_t rtt) {
-  // for the rtt we only keep track of the min one
+void RTCDataPath::insertRttSample(
+    const utils::SteadyTime::Milliseconds& rtt_milliseconds, bool is_probe) {
+  // compute min rtt
+  uint64_t rtt = rtt_milliseconds.count();
   if (rtt < min_rtt) min_rtt = rtt;
-  last_received_data_packet_ =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::steady_clock::now().time_since_epoch())
-          .count();
+
+  uint64_t now = utils::SteadyTime::nowMs().count();
+  last_received_data_packet_ = now;
+
+  // compute avg rtt
+  if (is_probe) {
+    // max rtt is computed only on probes to avoid to take into account the
+    // production time at the server
+    if (rtt > max_rtt) max_rtt = rtt;
+
+    rtt_sum_ += rtt;
+    rtt_samples_++;
+  }
+
+  if ((now - last_avg_rtt_compute_) >= AVG_RTT_TIME) {
+    // compute a new avg rtt
+    // if rtt_samples_ = 0 keep the same rtt
+    if (rtt_samples_ != 0) avg_rtt_ = (double)rtt_sum_ / (double)rtt_samples_;
+
+    rtt_sum_ = 0;
+    rtt_samples_ = 0;
+    last_avg_rtt_compute_ = now;
+  }
 }
 
 void RTCDataPath::insertOwdSample(int64_t owd) {
@@ -87,15 +118,13 @@ void RTCDataPath::insertOwdSample(int64_t owd) {
 
   // owd is computed only for valid data packets so we count only
   // this for decide if we recevie traffic or not
-  received_packets_ = true;
+  received_packets_++;
 }
 
 void RTCDataPath::computeInterArrivalGap(uint32_t segment_number) {
   // got packet in sequence, compute gap
   if (largest_recv_seq_ == (segment_number - 1)) {
-    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-                       std::chrono::steady_clock::now().time_since_epoch())
-                       .count();
+    uint64_t now = utils::SteadyTime::nowMs().count();
     uint64_t delta = now - largest_recv_seq_time_;
     largest_recv_seq_ = segment_number;
     largest_recv_seq_time_ = now;
@@ -110,10 +139,7 @@ void RTCDataPath::computeInterArrivalGap(uint32_t segment_number) {
   // ooo packet, update the stasts if needed
   if (largest_recv_seq_ <= segment_number) {
     largest_recv_seq_ = segment_number;
-    largest_recv_seq_time_ =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now().time_since_epoch())
-            .count();
+    largest_recv_seq_time_ = utils::SteadyTime::nowMs().count();
   }
 }
 
@@ -146,10 +172,20 @@ void RTCDataPath::roundEnd() {
     min_rtt = prev_min_rtt;
   }
 
-  if (min_rtt == 0) min_rtt = 1;
+  // same for max_rtt
+  if (max_rtt != 0) {
+    prev_max_rtt = max_rtt;
+  } else {
+    max_rtt = prev_max_rtt;
+  }
 
-  RTT_history_.pushBack(min_rtt);
+  if (min_rtt == 0) min_rtt = 1;
+  if (max_rtt == 0) max_rtt = 1;
+
+  min_RTT_history_.pushBack(min_rtt);
+  max_RTT_history_.pushBack(max_rtt);
   min_rtt = UINT_MAX;
+  max_rtt = 0;
 
   // do the same for min owd
   if (min_owd != INT_MAX) {
@@ -163,32 +199,47 @@ void RTCDataPath::roundEnd() {
     min_owd = INT_MAX;
   }
 
-  if (!received_packets_)
+  if (received_packets_ == 0)
     rounds_without_packets_++;
   else
     rounds_without_packets_ = 0;
-  received_packets_ = false;
+  received_packets_ = 0;
 }
 
 uint32_t RTCDataPath::getPathId() { return path_id_; }
 
-double RTCDataPath::getQueuingDealy() { return queuing_delay; }
+double RTCDataPath::getQueuingDealy() {
+  if (queuing_delay == DBL_MAX) return 0;
+  return queuing_delay;
+}
 
 uint64_t RTCDataPath::getMinRtt() {
-  if (RTT_history_.size() != 0) return RTT_history_.begin();
+  if (min_RTT_history_.size() != 0) return min_RTT_history_.begin();
+  return 0;
+}
+
+uint64_t RTCDataPath::getAvgRtt() { return std::round(avg_rtt_); }
+
+uint64_t RTCDataPath::getMaxRtt() {
+  if (max_RTT_history_.size() != 0) return max_RTT_history_.begin();
   return 0;
 }
 
 int64_t RTCDataPath::getMinOwd() {
   if (OWD_history_.size() != 0) return OWD_history_.begin();
-  return 0;
+  return INT_MAX;
 }
 
 double RTCDataPath::getJitter() { return jitter_; }
 
 uint64_t RTCDataPath::getLastPacketTS() { return last_received_data_packet_; }
 
-void RTCDataPath::clearRtt() { RTT_history_.clear(); }
+uint32_t RTCDataPath::getPacketsLastRound() { return received_packets_; }
+
+void RTCDataPath::clearRtt() {
+  min_RTT_history_.clear();
+  max_RTT_history_.clear();
+}
 
 }  // end namespace rtc
 
