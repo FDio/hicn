@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -156,6 +156,27 @@ udp_tunnel_get (const ip46_address_t *src_ip, const ip46_address_t *dst_ip,
   return ret == 0 ? (u32) value.value : UDP_TUNNEL_INVALID;
 }
 
+u32
+udp_tunnel_get_create (const ip46_address_t *src_ip,
+		       const ip46_address_t *dst_ip, u16 src_port,
+		       u16 dst_port)
+{
+  u32 ret = udp_tunnel_get (src_ip, dst_ip, src_port, dst_port);
+  if (ret == UDP_TUNNEL_INVALID)
+    {
+      fib_protocol_t proto =
+	ip46_address_is_ip4 (src_ip) ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
+
+      index_t fib_index = fib_table_find (proto, HICN_FIB_TABLE);
+
+      ret = udp_tunnel_add (
+	proto, fib_index, src_ip, dst_ip, clib_net_to_host_u16 (src_port),
+	clib_net_to_host_u16 (dst_port), UDP_ENCAP_FIXUP_NONE);
+    }
+
+  return ret;
+}
+
 void
 udp_tunnel_init ()
 {
@@ -255,8 +276,8 @@ udp_tunnel_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
       int ret = udp_tunnel_del (fproto, fib_index, &src_ip, &dst_ip, src_port,
 				dst_port, UDP_ENCAP_FIXUP_NONE);
       error = (ret == HICN_ERROR_NONE) ?
-		0 :
-		clib_error_return (0, "%s\n", get_error_string (ret));
+		      0 :
+		      clib_error_return (0, "%s\n", get_error_string (ret));
     }
   else
     {

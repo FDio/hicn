@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,8 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(HICN_INCLUDE_DIRS
-  ${CMAKE_CURRENT_SOURCE_DIR} ""
+##############################################################
+# Public headers directory
+##############################################################
+set(Libhicn_INCLUDE_DIRS
+  ${CMAKE_CURRENT_SOURCE_DIR}
   CACHE INTERNAL
   "" FORCE
 )
@@ -23,12 +26,15 @@ set(LIBHICN_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/common.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/compat.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/error.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/face.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/header.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/mapme.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/name.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/policy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/ops.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/strategy.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/validation.h
   PARENT_SCOPE
 )
 
@@ -40,19 +46,14 @@ set(LIBHICN_HEADER_FILES_PROTOCOL
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/ipv6.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/tcp.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/udp.h
-  PARENT_SCOPE
-)
-
-set(LIBHICN_HEADER_FILES_UTIL
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/new.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/array.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/ip_address.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/log.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/map.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/set.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/sstrncpy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/token.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/types.h
   PARENT_SCOPE
 )
-
-set_property(GLOBAL PROPERTY LIBHICN_HEADER_FILES_UTIL_PROPERTY "${LIBHICN_HEADER_FILES_UTIL}")
-

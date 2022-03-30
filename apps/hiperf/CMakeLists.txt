@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -12,6 +12,9 @@
 # limitations under the License.
 
 if (NOT DISABLE_EXECUTABLES)
+##############################################################
+# Source files
+##############################################################
   list(APPEND HIPERF_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/client.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cc
@@ -19,26 +22,40 @@ if (NOT DISABLE_EXECUTABLES)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/forwarder_interface.cc
   )
 
+
+##############################################################
+# Libraries
+##############################################################
   list (APPEND HIPERF_LIBRARIES
-    ${LIBTRANSPORT_LIBRARIES}
-    ${LIBHICNCTRL_LIBRARIES}
-    ${LIBHICN_LIBRARIES}
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${LIBCONFIG_CPP_LIBRARIES}
-    ${WSOCK32_LIBRARY}
-    ${WS2_32_LIBRARY}
+    PRIVATE ${LIBTRANSPORT_LIBRARIES}
+    PRIVATE ${LIBHICNCTRL_LIBRARIES}
+    PRIVATE ${LIBHICN_LIBRARIES}
+    PRIVATE ${CMAKE_THREAD_LIBS_INIT}
+    PRIVATE ${LIBCONFIG_CPP_LIBRARIES}
+    PRIVATE ${WSOCK32_LIBRARY}
+    PRIVATE ${WS2_32_LIBRARY}
   )
 
+##############################################################
+# Compiler options
+##############################################################
+  set(COMPILER_OPTIONS
+    ${DEFAULT_COMPILER_OPTIONS}
+  )
+
+
+##############################################################
+# Build hiperf
+##############################################################
   build_executable(hiperf
     SOURCES ${HIPERF_SRC}
     LINK_LIBRARIES ${HIPERF_LIBRARIES}
     INCLUDE_DIRS
-      ${CMAKE_CURRENT_SOURCE_DIR}/src
-      ${LIBTRANSPORT_INCLUDE_DIRS}
-      ${LIBHICNCTRL_INCLUDE_DIRS}
-      ${LIBCONFIG_CPP_INCLUDE_DIRS}
+      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+      PRIVATE ${LIBCONFIG_CPP_INCLUDE_DIRS}
     DEPENDS ${DEPENDENCIES}
     COMPONENT ${HICN_APPS}
     LINK_FLAGS ${LINK_FLAGS}
+    COMPILE_OPTIONS ${COMPILER_OPTIONS}
   )
 endif()

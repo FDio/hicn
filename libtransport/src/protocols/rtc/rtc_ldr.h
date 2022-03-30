@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,16 +15,14 @@
 
 #pragma once
 #include <hicn/transport/config.h>
+#include <hicn/transport/interfaces/socket_options_keys.h>
+// RtcTransportRecoveryStrategies
 #include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/name.h>
-#include <protocols/indexer.h>
-#include <protocols/rtc/rtc_consts.h>
-#include <protocols/rtc/rtc_state.h>
+#include <protocols/rtc/rtc_recovery_strategy.h>
 
 #include <functional>
-#include <map>
-#include <unordered_map>
 
 namespace transport {
 
@@ -34,91 +32,45 @@ namespace rtc {
 
 class RTCLossDetectionAndRecovery
     : public std::enable_shared_from_this<RTCLossDetectionAndRecovery> {
-  struct rtx_state_ {
-    uint64_t first_send_;
-    uint64_t next_send_;
-    uint32_t rtx_count_;
-  };
-
-  using rtxState = struct rtx_state_;
-  using SendRtxCallback = std::function<void(uint32_t)>;
-
  public:
-  RTCLossDetectionAndRecovery(Indexer *indexer, SendRtxCallback &&callback,
-                              asio::io_service &io_service);
+  RTCLossDetectionAndRecovery(Indexer *indexer, asio::io_service &io_service,
+                              interface::RtcTransportRecoveryStrategies type,
+                              RecoveryStrategy::SendRtxCallback &&callback,
+                              interface::StrategyCallback *external_callback);
 
   ~RTCLossDetectionAndRecovery();
 
-  void setState(std::shared_ptr<RTCState> state) { state_ = state; }
-  void setFecParams(uint32_t n, uint32_t k) {
-    n_ = n;
-    k_ = k;
+  void setState(RTCState *state) { rs_->setState(state); }
+  void setRateControl(RTCRateControl *rateControl) {
+    rs_->setRateControl(rateControl);
   }
-  void turnOnRTX();
-  void turnOffRTX();
-  bool isRtxOn() { return rtx_on_; }
+
+  void setFecParams(uint32_t n, uint32_t k) { rs_->setFecParams(n, k); }
+
+  void turnOnRecovery() { rs_->tunrOnRecovery(); }
+  bool isRtxOn() { return rs_->isRtxOn(); }
+
+  void changeRecoveryStrategy(interface::RtcTransportRecoveryStrategies type);
 
   void onNewRound(bool in_sync);
-  void onTimeout(uint32_t seq);
+  void onTimeout(uint32_t seq, bool lost);
   void onPacketRecoveredFec(uint32_t seq);
   void onDataPacketReceived(const core::ContentObject &content_object);
   void onNackPacketReceived(const core::ContentObject &nack);
   void onProbePacketReceived(const core::ContentObject &probe);
 
-  void clear();
+  void clear() { rs_->clear(); }
 
-  bool isRtx(uint32_t seq) {
-    if (rtx_state_.find(seq) != rtx_state_.end()) return true;
-    return false;
+  bool isRtx(uint32_t seq) { return rs_->isRtx(seq); }
+  bool isPossibleLossWithNoRtx(uint32_t seq) {
+    return rs_->isPossibleLossWithNoRtx(seq);
   }
 
  private:
-  void addToRetransmissions(uint32_t start, uint32_t stop);
-  uint64_t computeNextSend(uint32_t seq, bool new_rtx);
-  void retransmit();
-  void scheduleNextRtx();
-  bool deleteRtx(uint32_t seq);
-  void scheduleSentinelTimer(uint64_t expires_from_now);
-  void sentinelTimer();
-  uint32_t computeFecPacketsToAsk(bool in_sync);
+  void detectLoss(uint32_t start, uint32_t stop);
 
-  uint64_t getNow() {
-    using namespace std::chrono;
-    uint64_t now =
-        duration_cast<milliseconds>(steady_clock::now().time_since_epoch())
-            .count();
-    return now;
-  }
-
-  // this map keeps track of the retransmitted interest, ordered from the oldest
-  // to the newest one. the state contains the timer of the first send of the
-  // interest (from pendingIntetests_), the timer of the next send (key of the
-  // multimap) and the number of rtx
-  std::map<uint32_t, rtxState> rtx_state_;
-  // this map stored the rtx by timer. The key is the time at which the rtx
-  // should be sent, and the val is the interest seq number
-  std::multimap<uint64_t, uint32_t> rtx_timers_;
-
-  // lost packets that will be recovered with fec
-  std::unordered_set<uint32_t> recover_with_fec_;
-
-  bool rtx_on_;
-  bool fec_on_;
-  uint64_t next_rtx_timer_;
-  uint64_t last_event_;
-  uint64_t sentinel_timer_interval_;
-
-  // fec params
-  uint32_t n_;
-  uint32_t k_;
-
-  std::unique_ptr<asio::steady_timer> timer_;
-  std::unique_ptr<asio::steady_timer> sentinel_timer_;
-  std::shared_ptr<RTCState> state_;
-
-  Indexer *indexer_;
-
-  SendRtxCallback send_rtx_callback_;
+  interface::RtcTransportRecoveryStrategies rs_type_;
+  std::shared_ptr<RecoveryStrategy> rs_;
 };
 
 }  // end namespace rtc

@@ -19,8 +19,10 @@
 #include <glog/logging.h>
 #include <hicn/transport/core/io_module.h>
 
+#include <iostream>
+
 #ifdef ANDROID
-#include <io_modules/udp/hicn_forwarder_module.h>
+#include <io_modules/hicn-light-ng/hicn_forwarder_module.h>
 #elif _WIN32
 #include <hicn/util/windows/windows_utils.h>
 #endif
@@ -55,8 +57,9 @@ IoModule *IoModule::load(const char *module_name) {
   if (!creator) {
     if ((error = dlerror()) != 0) {
       LOG(ERROR) << error;
-      return 0;
     }
+
+    return 0;
   }
 
   // create object and return it

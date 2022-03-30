@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -11,15 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# XXX
-
+##############################################################
+# Public headers directory
+##############################################################
 set(LIBFACEMGR_INCLUDE_DIRS
-  ${CMAKE_CURRENT_SOURCE_DIR} ""
+  ${CMAKE_CURRENT_SOURCE_DIR}
   CACHE INTERNAL
   "" FORCE
 )
+
+
+##############################################################
+# To install header files
+##############################################################
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
-
   set(TO_INSTALL_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/facemgr.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/api.h
@@ -28,9 +33,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/loop.h
     PARENT_SCOPE
   )
-
 else ()
-
   set(TO_INSTALL_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/facemgr.h
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/api.h
@@ -39,7 +42,4 @@ else ()
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn/facemgr/loop.h
     PARENT_SCOPE
   )
-
 endif ()
-
-

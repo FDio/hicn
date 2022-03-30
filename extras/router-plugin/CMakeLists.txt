@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -29,7 +29,7 @@ set(HICN_EXTRA_PLUGIN hicn-router-plugin)
 
 # Dependencies
 
-find_package(Vpp REQUIRED)
+find_package(Vpp ${VPP_DEFAULT_VERSION} REQUIRED)
 
 include_directories(${VPP_INCLUDE_DIR})
 
@@ -66,7 +66,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wall -march=native -O3 -g")
 elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -march=native -O0 -g")
-   add_definitions(-DCLIB_DEBUG -fPIC -fstack-protector-all)
+   add_definitions(-DHICN_DDEBUG -DCLIB_DEBUG -fPIC -fstack-protector-all)
 endif()
 
 include_directories(SYSTEM)

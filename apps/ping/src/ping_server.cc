@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,10 +21,10 @@
 #include <openssl/applink.c>
 #endif
 
-#include <hicn/transport/auth/identity.h>
 #include <hicn/transport/auth/signer.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/interest.h>
+#include <hicn/transport/interfaces/global_conf_interface.h>
 #include <hicn/transport/utils/string_tokenizer.h>
 
 #include <asio.hpp>
@@ -36,24 +36,13 @@ namespace interface {
 using HashAlgorithm = core::HashAlgorithm;
 using CryptoSuite = auth::CryptoSuite;
 
-auth::Identity setProducerIdentity(std::string keystore_name,
-                                   std::string keystore_password,
-                                   auth::CryptoHashType hash_algorithm) {
-  if (access(keystore_name.c_str(), F_OK) != -1) {
-    return auth::Identity(keystore_name, keystore_password, hash_algorithm);
-  } else {
-    return auth::Identity(keystore_name, keystore_password,
-                          CryptoSuite::RSA_SHA256, 1024, 365, "producer-test");
-  }
-}
-
 class CallbackContainer {
   const std::size_t log2_content_object_buffer_size = 12;
 
  public:
   CallbackContainer(const Name &prefix, uint32_t object_size, bool verbose,
                     bool dump, bool quite, bool flags, bool reset, uint8_t ttl,
-                    auth::Identity *identity, bool sign, uint32_t lifetime)
+                    auth::Signer *signer, bool sign, uint32_t lifetime)
       : buffer_(object_size, 'X'),
         content_objects_((std::uint32_t)(1 << log2_content_object_buffer_size)),
         mask_((std::uint16_t)(1 << log2_content_object_buffer_size) - 1),
@@ -64,7 +53,7 @@ class CallbackContainer {
         flags_(flags),
         reset_(reset),
         ttl_(ttl),
-        identity_(identity),
+        signer_(signer),
         sign_(sign) {
     core::Packet::Format format;
 
@@ -151,8 +140,8 @@ class CallbackContainer {
 
       if (!quite_) std::cout << std::endl;
 
-      if (sign_) {
-        identity_->getSigner()->signPacket(content_object.get());
+      if (sign_ && signer_) {
+        signer_->signPacket(content_object.get());
       }
 
       p.produce(*content_object);
@@ -170,33 +159,43 @@ class CallbackContainer {
   bool flags_;
   bool reset_;
   uint8_t ttl_;
-  auth::Identity *identity_;
+  auth::Signer *signer_;
   bool sign_;
 };
 
 void help() {
   std::cout << "usage: hicn-preoducer-ping [options]" << std::endl;
   std::cout << "PING options" << std::endl;
-  std::cout << "-s <val>  object content size (default 1350B)" << std::endl;
-  std::cout << "-n <val>  hicn name (default b001::/64)" << std::endl;
-  std::cout << "-f        set tcp flags according to the flag received "
+  std::cout << "-s <val>          object content size (default 1350B)"
+            << std::endl;
+  std::cout << "-n <val>          hicn name (default b001::/64)" << std::endl;
+  std::cout << "-f                set tcp flags according to the flag received "
+               "                  (default false)"
+            << std::endl;
+  std::cout << "-l                data lifetime" << std::endl;
+  std::cout
+      << "-r                always reply with a reset flag (default false)"
+      << std::endl;
+  std::cout << "-t                set ttl (default 64)" << std::endl;
+  std::cout << "OUTPUT options" << std::endl;
+  std::cout << "-V                verbose, prints statistics about the "
+               "messagges sent "
+               "                  and received (default false)"
+            << std::endl;
+  std::cout << "-D                dump, dumps sent and received packets "
                "(default false)"
             << std::endl;
-  std::cout << "-l        data lifetime" << std::endl;
-  std::cout << "-r        always reply with a reset flag (default false)"
+  std::cout << "-q                quite, not prints (default false)"
             << std::endl;
-  std::cout << "-t        set ttl (default 64)" << std::endl;
-  std::cout << "OUTPUT options" << std::endl;
-  std::cout << "-V        verbose, prints statistics about the messagges sent "
-               "and received (default false)"
+  std::cerr << "-z <io_module>    IO module to use. Default: hicnlightng_module"
             << std::endl;
-  std::cout << "-D        dump, dumps sent and received packets (default false)"
+  std::cerr << "-F <conf_file>    Path to optional configuration file for "
+               "libtransport"
             << std::endl;
-  std::cout << "-q        quite, not prints (default false)" << std::endl;
 #ifndef _WIN32
-  std::cout << "-d        daemon mode" << std::endl;
+  std::cout << "-d                daemon mode" << std::endl;
 #endif
-  std::cout << "-H        prints this message" << std::endl;
+  std::cout << "-H                prints this message" << std::endl;
 }
 
 int main(int argc, char **argv) {
@@ -220,11 +219,15 @@ int main(int argc, char **argv) {
   bool sign = false;
   uint32_t data_lifetime = default_values::content_object_expiry_time;
 
+  std::string conf_file;
+  transport::interface::global_config::IoModuleConfiguration io_config;
+  io_config.name = "hicnlightng_module";
+
   int opt;
 #ifndef _WIN32
-  while ((opt = getopt(argc, argv, "s:n:t:l:qfrVDdHk:p:")) != -1) {
+  while ((opt = getopt(argc, argv, "s:n:t:l:qfrVDdHk:p:z:F:")) != -1) {
 #else
-  while ((opt = getopt(argc, argv, "s:n:t:l:qfrVDHk:p:")) != -1) {
+  while ((opt = getopt(argc, argv, "s:n:t:l:qfrVDHk:p:z:F:")) != -1) {
 #endif
     switch (opt) {
       case 's':
@@ -268,6 +271,12 @@ int main(int argc, char **argv) {
       case 'p':
         keystore_password = optarg;
         break;
+      case 'z':
+        io_config.name = optarg;
+        break;
+      case 'F':
+        conf_file = optarg;
+        break;
       case 'H':
       default:
         help();
@@ -281,6 +290,16 @@ int main(int argc, char **argv) {
   }
 #endif
 
+  /**
+   * IO module configuration
+   */
+  io_config.set();
+
+  /**
+   * Parse config file
+   */
+  transport::interface::global_config::parseConfigurationFile(conf_file);
+
   core::Prefix producer_namespace(name_prefix);
 
   utils::StringTokenizer tokenizer(name_prefix, delimiter);
@@ -290,21 +309,24 @@ int main(int argc, char **argv) {
   if (object_size > 1350) object_size = 1350;
 
   CallbackContainer *stubs;
-  auth::Identity identity = setProducerIdentity(
-      keystore_path, keystore_password, auth::CryptoHashType::SHA256);
+  std::unique_ptr<auth::AsymmetricSigner> signer;
 
   if (sign) {
-    stubs = new CallbackContainer(n, object_size, verbose, dump, quite, flags,
-                                  reset, ttl, &identity, sign, data_lifetime);
+    signer = std::make_unique<auth::AsymmetricSigner>(keystore_path,
+                                                      keystore_password);
+    stubs =
+        new CallbackContainer(n, object_size, verbose, dump, quite, flags,
+                              reset, ttl, signer.get(), sign, data_lifetime);
   } else {
-    auth::Identity *identity = nullptr;
+    auth::Signer *signer = nullptr;
     stubs = new CallbackContainer(n, object_size, verbose, dump, quite, flags,
-                                  reset, ttl, identity, sign, data_lifetime);
+                                  reset, ttl, signer, sign, data_lifetime);
   }
 
   ProducerSocket p;
   p.registerPrefix(producer_namespace);
 
+  p.setSocketOption(GeneralTransportOptions::MAKE_MANIFEST, false);
   p.setSocketOption(GeneralTransportOptions::OUTPUT_BUFFER_SIZE, 0U);
   p.setSocketOption(
       ProducerCallbacksOptions::CACHE_MISS,
@@ -313,6 +335,7 @@ int main(int argc, char **argv) {
                                      std::placeholders::_2, data_lifetime));
 
   p.connect();
+  p.start();
 
   asio::io_service io_service;
   asio::signal_set signal_set(io_service, SIGINT);

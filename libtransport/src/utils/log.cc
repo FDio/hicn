@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -36,7 +36,7 @@ foreach_log_level
   static constexpr char log_config_section[] = "log";
 #define LOG_NAME                                  \
   "Libhicntransport-" HICNTRANSPORT_VERSION_MAJOR \
-  "." HICNTRANSPORT_VERSION_MINOR "." HICNTRANSPORT_VERSION_REVISION
+  "." HICNTRANSPORT_VERSION_MINOR "." HICNTRANSPORT_VERSION_PATCH
   static constexpr char log_name[] = LOG_NAME;
 
 #define foreach_log_config        \

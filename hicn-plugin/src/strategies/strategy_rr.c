@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -26,7 +26,7 @@ void hicn_receive_data_rr (index_t dpo_idx, int nh_idx);
 void hicn_add_interest_rr (index_t dpo_idx, hicn_hash_entry_t *pit_entry);
 void hicn_on_interest_timeout_rr (index_t dpo_idx);
 u32 hicn_select_next_hop_rr (index_t dpo_idx, int *nh_idx,
-			     hicn_face_id_t *outface);
+			     hicn_face_id_t *outfaces, uint32_t *len);
 u8 *hicn_strategy_format_trace_rr (u8 *s, hicn_strategy_trace_t *t);
 u8 *hicn_strategy_format_rr (u8 *s, va_list *ap);
 
@@ -51,17 +51,22 @@ hicn_rr_strategy_get_vft (void)
 /* DPO should be give in input as it containes all the information to calculate
  * the next hops*/
 u32
-hicn_select_next_hop_rr (index_t dpo_idx, int *nh_idx, hicn_face_id_t *outface)
+hicn_select_next_hop_rr (index_t dpo_idx, int *nh_idx,
+			 hicn_face_id_t *outfaces, uint32_t *len)
 {
   hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
 
   if (dpo_ctx == NULL)
-    return HICN_ERROR_STRATEGY_NOT_FOUND;
+    {
+      *len = 0;
+      return HICN_ERROR_STRATEGY_NOT_FOUND;
+    }
 
   hicn_strategy_rr_ctx_t *hicn_strategy_rr_ctx =
     (hicn_strategy_rr_ctx_t *) dpo_ctx->data;
 
-  *outface = dpo_ctx->next_hops[hicn_strategy_rr_ctx->current_nhop];
+  outfaces[0] = dpo_ctx->next_hops[hicn_strategy_rr_ctx->current_nhop];
+  *len = 1;
 
   hicn_strategy_rr_ctx->current_nhop =
     (hicn_strategy_rr_ctx->current_nhop + 1) % dpo_ctx->entry_count;
@@ -77,7 +82,6 @@ hicn_add_interest_rr (index_t dpo_ctx_idx, hicn_hash_entry_t *hash_entry)
 			   .dpoi_proto = 0,
 			   .dpoi_next_node = 0,
 			   .dpoi_index = dpo_ctx_idx };
-  hicn_strategy_dpo_ctx_lock (&hicn_dpo_id);
   hash_entry->vft_id = hicn_dpo_get_vft_id (&hicn_dpo_id);
 }
 

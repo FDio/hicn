@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -59,10 +59,13 @@ hicn_interest_parse_pkt (vlib_buffer_t *pkt, hicn_name_t *name, u16 *namelen,
   u8 next_proto_offset = 6 + (1 - *isv6) * 3;
   // in the ipv6 header the next header field is at byte 6
   // in the ipv4 header the protocol field is at byte 9
-  hicn_type_t type = (hicn_type_t){ { .l4 = IPPROTO_NONE,
-				      .l3 = IPPROTO_NONE,
-				      .l2 = ip_pkt[next_proto_offset],
-				      .l1 = ip_proto } };
+  hicn_type_t type =
+    (hicn_type_t){ { .l4 = IPPROTO_NONE,
+		     .l3 = ip_pkt[next_proto_offset] == IPPROTO_UDP ?
+				   IPPROTO_ENCAP :
+				   IPPROTO_NONE,
+		     .l2 = ip_pkt[next_proto_offset],
+		     .l1 = ip_proto } };
   hicn_get_buffer (pkt)->type = type;
 
   hicn_ops_vft[type.l1]->get_interest_name (type, &pkt_hdr->protocol, name);
@@ -97,10 +100,13 @@ hicn_data_parse_pkt (vlib_buffer_t *pkt, hicn_name_t *name, u16 *namelen,
    * header the protocol field is at byte 9
    */
   u8 next_proto_offset = 6 + (1 - *isv6) * 3;
-  hicn_type_t type = (hicn_type_t){ { .l4 = IPPROTO_NONE,
-				      .l3 = IPPROTO_NONE,
-				      .l2 = ip_pkt[next_proto_offset],
-				      .l1 = ip_proto } };
+  hicn_type_t type =
+    (hicn_type_t){ { .l4 = IPPROTO_NONE,
+		     .l3 = ip_pkt[next_proto_offset] == IPPROTO_UDP ?
+				   IPPROTO_ENCAP :
+				   IPPROTO_NONE,
+		     .l2 = ip_pkt[next_proto_offset],
+		     .l1 = ip_proto } };
   hicn_get_buffer (pkt)->type = type;
   hicn_ops_vft[type.l1]->get_data_name (type, &pkt_hdr->protocol, name);
   *namelen = (1 - (*isv6)) * HICN_V4_NAME_LEN + (*isv6) * HICN_V6_NAME_LEN;

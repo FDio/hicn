@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,6 +16,8 @@
 #ifndef HICN_PROTOCOL_IPV6_H
 #define HICN_PROTOCOL_IPV6_H
 
+#include <hicn/util/ip_address.h>
+
 #include "../common.h"
 
 /*
@@ -25,22 +27,26 @@
 
 typedef struct
 {
+#if 0 // TEMPORARY FIX
   union
   {
     struct
     {
-      u32 version_class_flow;	/* version, traffic class and 20 bits of flow-ID */
-      u16 len;			/* payload length */
-      u8 nxt;			/* next header */
-      u8 hlim;			/* hop limit */
+#endif
+  u32 version_class_flow; /* version, traffic class and 20 bits of flow-ID */
+  u16 len;		  /* payload length */
+  u8 nxt;		  /* next header */
+  u8 hlim;		  /* hop limit */
+#if 0
     };
     u8 vfc;			/* 4 bits version, top 4 bits class */
   };
-  ip6_address_t saddr;		/* source address */
-  ip6_address_t daddr;		/* destination address */
+#endif
+  ip6_address_t saddr; /* source address */
+  ip6_address_t daddr; /* destination address */
 } _ipv6_header_t;
 
-#define IPV6_HDRLEN sizeof(_ipv6_header_t)
+#define IPV6_HDRLEN sizeof (_ipv6_header_t)
 static_assert (EXPECTED_IPV6_HDRLEN == IPV6_HDRLEN,
 	       "Size of IPV6 struct does not match its expected size.");
 
@@ -59,15 +65,15 @@ typedef struct
   u8 protocol;
 } ipv6_pseudo_header_t;
 
-#define IPV6_PSHDRLEN sizeof(ipv6_pseudo_header_t)
+#define IPV6_PSHDRLEN sizeof (ipv6_pseudo_header_t)
 static_assert (EXPECTED_IPV6_PSHDRLEN == IPV6_PSHDRLEN,
 	       "Size of IPV6_PSHDR struct does not match its expected size.");
 
 /* Default field values */
-#define IPV6_DEFAULT_VERSION         6
-#define IPV6_DEFAULT_TRAFFIC_CLASS   0
-#define IPV6_DEFAULT_FLOW_LABEL      0
-#define IPV6_DEFAULT_PAYLOAD_LENGTH  0
+#define IPV6_DEFAULT_VERSION	    6
+#define IPV6_DEFAULT_TRAFFIC_CLASS  0
+#define IPV6_DEFAULT_FLOW_LABEL	    0
+#define IPV6_DEFAULT_PAYLOAD_LENGTH 0
 
 #endif
 

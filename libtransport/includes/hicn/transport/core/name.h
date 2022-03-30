@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -51,7 +51,7 @@ class Name {
 
  public:
   using NameStruct = hicn_name_t;
-  using Type = hicn_name_type_t;
+  enum class Type { UNDEFINED, V4, V6 };
 
   Name();
 
@@ -68,6 +68,8 @@ class Name {
   Name(const std::string &uri);
 
   Name(const Name &name);
+
+  ~Name();
 
   Name &operator=(const Name &name);
 
@@ -91,14 +93,11 @@ class Name {
 
   uint32_t getSuffix() const;
 
-  std::shared_ptr<Sockaddr> getAddress() const;
-
   Name &setSuffix(uint32_t seq_number);
 
   ip_prefix_t toIpAddress() const;
 
-  void copyToDestination(uint8_t *destination,
-                         bool include_suffix = false) const;
+  void copyPrefixToDestination(uint8_t *destination) const;
 
   int getAddressFamily() const;
 

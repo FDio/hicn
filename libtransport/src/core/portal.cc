@@ -30,11 +30,11 @@ namespace core {
 #ifdef ANDROID
 static const constexpr char default_module[] = "";
 #elif defined(MACINTOSH)
-static const constexpr char default_module[] = "hicnlight_module.dylib";
+static const constexpr char default_module[] = "hicnlightng_module.dylib";
 #elif defined(LINUX)
-static const constexpr char default_module[] = "hicnlight_module.so";
+static const constexpr char default_module[] = "hicnlightng_module.so";
 #elif defined(WINDOWS)
-static const constexpr char default_module[] = "hicnlight_module.lib";
+static const constexpr char default_module[] = "hicnlightng_module.lib";
 #endif
 
 IoModuleConfiguration Portal::conf_;
@@ -57,7 +57,7 @@ std::string Portal::defaultIoModule() {
 
 void Portal::getModuleConfiguration(ConfigurationObject& object,
                                     std::error_code& ec) {
-  assert(object.getKey() == io_module_section);
+  DCHECK(object.getKey() == io_module_section);
 
   auto conf = dynamic_cast<const IoModuleConfiguration&>(object);
   conf = conf_;
@@ -103,7 +103,7 @@ std::string getIoModulePath(const std::string& name,
 
 void Portal::setModuleConfiguration(const ConfigurationObject& object,
                                     std::error_code& ec) {
-  assert(object.getKey() == io_module_section);
+  DCHECK(object.getKey() == io_module_section);
 
   const IoModuleConfiguration& conf =
       dynamic_cast<const IoModuleConfiguration&>(object);

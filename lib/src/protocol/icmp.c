@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -24,6 +24,7 @@ DECLARE_get_interest_name (icmp, UNEXPECTED);
 DECLARE_set_interest_name (icmp, UNEXPECTED);
 DECLARE_get_interest_name_suffix (icmp, UNEXPECTED);
 DECLARE_set_interest_name_suffix (icmp, UNEXPECTED);
+DECLARE_is_interest (icmp, UNEXPECTED);
 DECLARE_mark_packet_as_interest (icmp, UNEXPECTED);
 DECLARE_mark_packet_as_data (icmp, UNEXPECTED);
 DECLARE_get_data_locator (icmp, UNEXPECTED);
@@ -40,7 +41,11 @@ DECLARE_set_lifetime (icmp, UNEXPECTED);
 DECLARE_get_length (icmp, UNEXPECTED);
 DECLARE_get_payload_length (icmp, UNEXPECTED);
 DECLARE_set_payload_length (icmp, UNEXPECTED);
+DECLARE_get_payload_type (icmp, UNEXPECTED);
+DECLARE_set_payload_type (icmp, UNEXPECTED);
 DECLARE_get_signature (icmp, UNEXPECTED);
+DECLARE_is_last_data (icmp, UNEXPECTED);
+DECLARE_set_last_data (icmp, UNEXPECTED);
 
 int
 icmp_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
@@ -94,8 +99,7 @@ icmp_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
 
 int
 icmp_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
-		       const ip46_address_t *addr_new,
-		       ip46_address_t *addr_old)
+		       const ip_address_t *addr_new, ip_address_t *addr_old)
 {
   return HICN_LIB_ERROR_NOT_IMPLEMENTED;
   //    u16 *icmp_checksum = &(h->icmp.csum);
@@ -120,7 +124,7 @@ icmp_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
 
 int
 icmp_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
-		   const ip46_address_t *addr_new, ip46_address_t *addr_old,
+		   const ip_address_t *addr_new, ip_address_t *addr_old,
 		   const hicn_faceid_t face_id, u8 reset_pl)
 {
   return HICN_LIB_ERROR_NOT_IMPLEMENTED;
@@ -184,16 +188,17 @@ icmp_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
-icmp_set_signature_gap (hicn_type_t type, hicn_protocol_t *h, uint8_t gap)
+icmp_set_signature_padding (hicn_type_t type, hicn_protocol_t *h,
+			    size_t padding)
 {
-  return CHILD_OPS (set_signature_gap, type, h, gap);
+  return CHILD_OPS (set_signature_padding, type, h, padding);
 }
 
 int
-icmp_get_signature_gap (hicn_type_t type, const hicn_protocol_t *h,
-			uint8_t *gap)
+icmp_get_signature_padding (hicn_type_t type, const hicn_protocol_t *h,
+			    size_t *padding)
 {
-  return CHILD_OPS (get_signature_gap, type, h, gap);
+  return CHILD_OPS (get_signature_padding, type, h, padding);
 }
 
 int

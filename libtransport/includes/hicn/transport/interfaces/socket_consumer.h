@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,6 +23,8 @@
 #include <hicn/transport/interfaces/callbacks.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
 #include <hicn/transport/interfaces/socket_options_keys.h>
+#include <hicn/transport/utils/event_thread.h>
+#include <hicn/transport/utils/noncopyable.h>
 
 #define CONSUMER_FINISHED 0
 #define CONSUMER_BUSY 1
@@ -45,7 +47,7 @@ using namespace core;
  * It allows to retrieve an application data from one/many producers, by
  * hiding all the complexity of the transport protocol used underneath.
  */
-class ConsumerSocket {
+class ConsumerSocket : private utils::NonCopyable {
  public:
   /**
    * The ReadCallback is a class which can be used by the transport for both
@@ -124,7 +126,7 @@ class ConsumerSocket {
      *
      * @param ec - An error code describing the error.
      */
-    virtual void readError(const std::error_code ec) noexcept = 0;
+    virtual void readError(const std::error_code &ec) noexcept = 0;
 
     /**
      * This callback will be invoked when the whole content is retrieved. The
@@ -166,7 +168,12 @@ class ConsumerSocket {
    * 110, 104-117
    *  - RTC: Real time communication
    */
-  explicit ConsumerSocket(int protocol, asio::io_service &io_service);
+  explicit ConsumerSocket(int protocol, ::utils::EventThread &worker);
+
+  /**
+   * @brief Move contructor
+   */
+  ConsumerSocket(ConsumerSocket &&other) noexcept;
 
   /**
    * @brief Destroy the consumer socket.
@@ -200,12 +207,10 @@ class ConsumerSocket {
    * content retrieval succeeded. This information can be obtained from the
    * error code in CONTENT_RETRIEVED callback.
    */
-  int consume(const Name &name);
-  int asyncConsume(const Name &name);
+  int consume(const Name &name, bool blocking = false);
 
   /**
-   * Stops the consumer socket. If several downloads are queued (using
-   * asyncConsume), this call stops just the current one.
+   * Stops the consumer socket.
    */
   void stop();
 
@@ -255,6 +260,12 @@ class ConsumerSocket {
   int setSocketOption(int socket_option_key,
                       ConsumerTimerCallback socket_option_value);
 
+  int setSocketOption(int socket_option_key,
+                      StrategyCallback socket_option_value);
+
+  int setSocketOption(int socket_option_key,
+                      Packet::Format socket_option_value);
+
   int getSocketOption(int socket_option_key, double &socket_option_value);
 
   int getSocketOption(int socket_option_key, uint32_t &socket_option_value);
@@ -280,7 +291,13 @@ class ConsumerSocket {
                       ConsumerTimerCallback **socket_option_value);
 
   int getSocketOption(int socket_option_key,
+                      StrategyCallback **socket_option_value);
+
+  int getSocketOption(int socket_option_key,
                       interface::TransportStatistics **socket_option_value);
+
+  int getSocketOption(int socket_option_key,
+                      Packet::Format &socket_option_value);
 
  protected:
   ConsumerSocket();

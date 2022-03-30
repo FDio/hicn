@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021-2022 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -12,20 +12,23 @@
 # limitations under the License.
 
 list(APPEND HEADER_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/strategyImpl.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/loadBalancer.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/lowLatency.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/nexthopState.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/nexthopStateLowLatency.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/rnd.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/load_balancer.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/low_latency.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/random.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/replication.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/best_path.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/local_prefixes.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/probe_generator.h
 )
 
 list(APPEND SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/loadBalancer.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/lowLatency.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/nexthopState.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/nexthopStateLowLatency.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/rnd.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/load_balancer.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/low_latency.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/random.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/replication.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/best_path.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/local_prefixes.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/probe_generator.c
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)
