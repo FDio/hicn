@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -36,7 +36,7 @@ class Reassembly {
  public:
   class ContentReassembledCallback {
    public:
-    virtual void onContentReassembled(std::error_code ec) = 0;
+    virtual void onContentReassembled(const std::error_code &ec) = 0;
   };
 
   Reassembly(implementation::ConsumerSocket *icn_socket,
@@ -47,12 +47,12 @@ class Reassembly {
   virtual ~Reassembly() = default;
 
   /**
-   * Hanle reassembly of content object.
+   * Handle reassembly of content object.
    */
   virtual void reassemble(core::ContentObject &content_object) = 0;
 
   /**
-   * Hanle reassembly of content object.
+   * Handle reassembly of content object.
    */
   virtual void reassemble(utils::MemBuf &buffer, uint32_t suffix) = 0;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -47,7 +47,7 @@ void strategyNexthopStateLL_Reset(StrategyNexthopStateLL *x);
 /**
  */
 int strategyNexthopStateLL_Compare(const StrategyNexthopStateLL *instance,
-                                 const StrategyNexthopStateLL *other);
+                                   const StrategyNexthopStateLL *other);
 
 /**
  */
@@ -57,12 +57,12 @@ StrategyNexthopStateLL *strategyNexthopStateLL_Copy(
 /**
  */
 void strategyNexthopStateLL_Display(const StrategyNexthopStateLL *instance,
-                                  int indentation);
+                                    int indentation);
 
 /**
  */
 bool strategyNexthopStateLL_Equals(const StrategyNexthopStateLL *x,
-                                 const StrategyNexthopStateLL *y);
+                                   const StrategyNexthopStateLL *y);
 
 /**
  */
@@ -88,11 +88,10 @@ double strategyNexthopStateLL_GetRTTInUse(StrategyNexthopStateLL *x);
 double strategyNexthopStateLL_GetRTTLive(StrategyNexthopStateLL *x);
 double strategyNexthopStateLL_GetQueuing(const StrategyNexthopStateLL *x);
 void strategyNexthopStateLL_AddRttSample(StrategyNexthopStateLL *x,
-                                                unsigned int rtt);
-
+                                         unsigned int rtt);
 
 void strategyNexthopStateLL_IncreaseTryToSwitch(StrategyNexthopStateLL *x,
-                                                      unsigned round);
+                                                unsigned round);
 unsigned strategyNexthopStateLL_GetTryToSwitch(const StrategyNexthopStateLL *x);
 void strategyNexthopStateLL_ResetTryToSwitch(StrategyNexthopStateLL *x);
 
@@ -108,7 +107,8 @@ void strategyNexthopStateLL_LostProbe(StrategyNexthopStateLL *x);
 
 bool strategyNexthopStateLL_IsLossy(const StrategyNexthopStateLL *x);
 
-void strategyNexthopStateLL_SetIsAllowed(StrategyNexthopStateLL *x, bool allowed);
+void strategyNexthopStateLL_SetIsAllowed(StrategyNexthopStateLL *x,
+                                         bool allowed);
 
 bool strategyNexthopStateLL_IsAllowed(const StrategyNexthopStateLL *x);
 

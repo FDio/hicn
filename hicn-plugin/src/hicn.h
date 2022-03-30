@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -61,10 +61,8 @@ typedef u8 weight_t;
  * 2*CLIB_CACHE_LINE_BYTES.  */
 /* This flag is used to mark packets whose lenght is less that
  * 2*CLIB_CACHE_LINE_BYTES. */
-#define HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL  0x02
-#define HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL 0x04
-#define HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL 0x08
-#define HICN_BUFFER_FLAGS_FROM_CS	   0x10
+#define HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL 0x02
+#define HICN_BUFFER_FLAGS_FROM_CS	  0x10
 
 /* The following is stored in the opaque2 field in the vlib_buffer_t */
 typedef struct
@@ -83,7 +81,6 @@ typedef struct
   u8 vft_id;	 /* " */
 
   hicn_face_id_t face_id; /* ingress iface, sizeof(u32) */
-  u32 in_faces_vec_id;	  /* vector of possible input face for a data packet */
 
   hicn_type_t type;
 } hicn_buffer_t;

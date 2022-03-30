@@ -15,6 +15,8 @@
 
 #pragma once
 
+#include <hicn/transport/utils/noncopyable.h>
+
 extern "C" {
 #ifndef WITH_POLICY
 #define WITH_POLICY
@@ -27,14 +29,13 @@ extern "C" {
 #define ASIO_STANDALONE
 #endif
 #include <asio.hpp>
-
 #include <functional>
 #include <thread>
 #include <unordered_map>
 
 namespace hiperf {
 
-class ForwarderInterface {
+class ForwarderInterface : ::utils::NonCopyable {
   static const uint32_t REATTEMPT_DELAY_MS = 500;
   static const uint32_t MAX_REATTEMPT = 10;
 
@@ -68,9 +69,13 @@ class ForwarderInterface {
   };
 
  public:
-  ForwarderInterface(asio::io_service &io_service, ICallback *callback);
+  explicit ForwarderInterface(asio::io_service &io_service);
+  explicit ForwarderInterface(asio::io_service &io_service, ICallback *callback,
+                              forwarder_type_t fwd_type);
 
   ~ForwarderInterface();
+
+  void initForwarderInterface(ICallback *callback, forwarder_type_t fwd_type);
 
   State getState();
 
@@ -88,11 +93,16 @@ class ForwarderInterface {
 
   void deleteFaceAndRoute(const RouteInfoPtr &route_info);
 
+  void setStrategy(std::string prefix, uint32_t prefix_len,
+                   std::string strategy);
+
   void close();
 
   uint16_t getHicnListenerPort() { return hicn_listen_port_; }
 
  private:
+  ForwarderInterface &operator=(const ForwarderInterface &other) = delete;
+
   int connectToForwarder();
 
   int checkListener();
@@ -122,6 +132,8 @@ class ForwarderInterface {
   uint16_t hicn_listen_port_;
 
   State state_;
+
+  forwarder_type_t fwd_type_;
 
   /* Reattempt timer */
   asio::steady_timer timer_;

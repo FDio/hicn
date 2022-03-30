@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -35,6 +35,11 @@ namespace core {
 ContentObject::ContentObject(const Name &name, Packet::Format format,
                              std::size_t additional_header_size)
     : Packet(format, additional_header_size) {
+  if (TRANSPORT_EXPECT_FALSE(hicn_packet_set_data(format_, packet_start_) <
+                             0)) {
+    throw errors::MalformedPacketException();
+  }
+
   if (TRANSPORT_EXPECT_FALSE(
           hicn_data_set_name(format, packet_start_, &name.name_) < 0)) {
     throw errors::RuntimeException("Error filling the packet name.");
@@ -47,15 +52,20 @@ ContentObject::ContentObject(const Name &name, Packet::Format format,
   }
 }
 
+ContentObject::ContentObject(hicn_format_t format,
+                             std::size_t additional_header_size)
+    : ContentObject(
 #ifdef __ANDROID__
-ContentObject::ContentObject(hicn_format_t format,
-                             std::size_t additional_header_size)
-    : ContentObject(Name("0::0|0"), format, additional_header_size) {}
+          Name("0::0|0"),
 #else
-ContentObject::ContentObject(hicn_format_t format,
-                             std::size_t additional_header_size)
-    : ContentObject(Packet::base_name, format, additional_header_size) {}
+          Packet::base_name,
 #endif
+          format, additional_header_size) {
+  if (TRANSPORT_EXPECT_FALSE(hicn_packet_set_data(format_, packet_start_) <
+                             0)) {
+    throw errors::MalformedPacketException();
+  }
+}
 
 ContentObject::ContentObject(const Name &name, hicn_format_t format,
                              std::size_t additional_header_size,
@@ -164,6 +174,23 @@ void ContentObject::resetForHash() {
           format_, reinterpret_cast<hicn_header_t *>(packet_start_)) < 0) {
     throw errors::RuntimeException(
         "Error resetting content object fields for hash computation.");
+  }
+}
+
+bool ContentObject::isLast() const {
+  int is_last = 0;
+  if (hicn_data_is_last(format_, packet_start_, &is_last) < 0) {
+    throw errors::RuntimeException(
+        "Impossible to get last data flag from packet header.");
+  }
+
+  return is_last;
+}
+
+void ContentObject::setLast() {
+  if (hicn_data_set_last(format_, packet_start_) < 0) {
+    throw errors::RuntimeException(
+        "Impossible to set last data flag to packet header.");
   }
 }
 

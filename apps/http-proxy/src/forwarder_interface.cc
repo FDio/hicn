@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -163,7 +163,7 @@ void ForwarderInterface::internalCreateFaceAndRoute(RouteInfoPtr route_info,
     max_try--;
     timer->expires_from_now(std::chrono::milliseconds(500));
     timer->async_wait([this, _route_info = std::move(route_info), max_try,
-                       timer, callback](std::error_code ec) {
+                       timer, callback](const std::error_code &ec) {
       if (ec) return;
       internalCreateFaceAndRoute(std::move(_route_info), max_try, timer,
                                  std::move(callback));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -24,37 +24,36 @@
 #include <hicn/ctrl.h>
 #include <hicn/util/log.h>
 
-int main(int argc, char **argv)
-{
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s FACE_ID PRIORITY\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-    unsigned face_id = atoi(argv[1]);
-    unsigned priority = atoi(argv[2]);
-    char face_id_s[SYMBOLIC_NAME_LEN];
+int main(int argc, char **argv) {
+  if (argc != 3) {
+    fprintf(stderr, "Usage: %s FACE_ID PRIORITY\n", argv[0]);
+    exit(EXIT_FAILURE);
+  }
+  unsigned face_id = atoi(argv[1]);
+  unsigned priority = atoi(argv[2]);
+  char face_id_s[SYMBOLIC_NAME_LEN];
 
-    hc_sock_t * socket = hc_sock_create();
-    if (!socket){
-        DEBUG("Error creating libhicnctrl socket");
-        goto ERR_SOCK;
-    }
+  hc_sock_t *socket = hc_sock_create();
+  if (!socket) {
+    DEBUG("Error creating libhicnctrl socket");
+    goto ERR_SOCK;
+  }
 
-    if (hc_sock_connect(socket) < 0){
-        DEBUG("Error connecting to forwarder");
-        goto ERR;
-    }
+  if (hc_sock_connect(socket) < 0) {
+    DEBUG("Error connecting to forwarder");
+    goto ERR;
+  }
 
-    snprintf(face_id_s, SYMBOLIC_NAME_LEN, "%d", face_id);
-    if (hc_face_set_priority(socket, face_id_s, priority) < 0) {
-        DEBUG("Error setting face priority");
-        goto ERR;
-    }
+  snprintf(face_id_s, SYMBOLIC_NAME_LEN, "%d", face_id);
+  if (hc_face_set_priority(socket, face_id_s, priority) < 0) {
+    DEBUG("Error setting face priority");
+    goto ERR;
+  }
 
-    DEBUG("Face priority updated successfully");
+  DEBUG("Face priority updated successfully");
 
 ERR:
-    hc_sock_free(socket);
+  hc_sock_free(socket);
 ERR_SOCK:
-    return 0;
+  return 0;
 }

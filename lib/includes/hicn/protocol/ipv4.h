@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,9 +16,10 @@
 #ifndef HICN_PROTOCOL_IPV4
 #define HICN_PROTOCOL_IPV4
 
+#include <hicn/util/ip_address.h>
+
 #include "../base.h"
 #include "../common.h"
-#include "../protocol.h"
 
 /* Headers were adapted from linux' definitions in netinet/ip.h */
 
@@ -34,11 +35,11 @@ typedef struct
     struct
     {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-      u8 ihl:4;
-      u8 version:4;
+      u8 ihl : 4;
+      u8 version : 4;
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-      u8 version:4;
-      u8 ihl:4;
+      u8 version : 4;
+      u8 ihl : 4;
 #else
 #error "Unsupported endianness"
 #endif
@@ -57,9 +58,10 @@ typedef struct
   ip4_address_t daddr;
 } _ipv4_header_t;
 
-#define ipv4_header_bytes(ipv4_header) (sizeof(u32) * (ipv4_header->version_ihl & 0xf))
+#define ipv4_header_bytes(ipv4_header)                                        \
+  (sizeof (u32) * (ipv4_header->version_ihl & 0xf))
 
-#define IPV4_HDRLEN sizeof(_ipv4_header_t)
+#define IPV4_HDRLEN sizeof (_ipv4_header_t)
 static_assert (EXPECTED_IPV4_HDRLEN == IPV4_HDRLEN,
 	       "Size of IPV4 struct does not match its expected size.");
 
@@ -77,22 +79,21 @@ typedef struct
   u16 size;
 } ipv4_pseudo_header_t;
 
-#define IPV4_PSHDRLEN sizeof(ipv4_pseudo_header_t)
+#define IPV4_PSHDRLEN sizeof (ipv4_pseudo_header_t)
 static_assert (EXPECTED_IPV4_PSHDRLEN == IPV4_PSHDRLEN,
 	       "Size of IPV4_PSHDR struct does not match its expected size.");
 
 /* Default field values */
-#define IPV4_DEFAULT_VERSION         4
-#define IPV4_DEFAULT_IHL             5
-#define IPV4_DEFAULT_TOS             0
-#define IPV4_DEFAULT_PAYLOAD_LENGTH  0
-#define IPV4_DEFAULT_ID              300
-#define IPV4_DEFAULT_FRAG_OFF        0x000
-#define IPV4_DEFAULT_TTL             64
-#define IPV4_DEFAULT_PROTOCOL        IPPROTO_TCP
-#define IPV4_DEFAULT_SRC_IP          0, 0, 0, 0
-#define IPV4_DEFAULT_DST_IP          0, 0, 0, 0
-
+#define IPV4_DEFAULT_VERSION	    4
+#define IPV4_DEFAULT_IHL	    5
+#define IPV4_DEFAULT_TOS	    0
+#define IPV4_DEFAULT_PAYLOAD_LENGTH 0
+#define IPV4_DEFAULT_ID		    300
+#define IPV4_DEFAULT_FRAG_OFF	    0x000
+#define IPV4_DEFAULT_TTL	    64
+#define IPV4_DEFAULT_PROTOCOL	    IPPROTO_TCP
+#define IPV4_DEFAULT_SRC_IP	    0, 0, 0, 0
+#define IPV4_DEFAULT_DST_IP	    0, 0, 0, 0
 
 #endif /* HICN_PROTOCOL_IPV4 */
 

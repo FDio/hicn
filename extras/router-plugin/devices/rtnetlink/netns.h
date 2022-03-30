@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -18,10 +18,10 @@
 
 #include <vlib/vlib.h>
 
-#include <sys/socket.h>
-#include <linux/rtnetlink.h>
 #include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #include <net/if.h>
+#include <sys/socket.h>
 
 #include "rtnl.h"
 
@@ -30,7 +30,8 @@
 /*so far depth is fixed, looking into ways to be dynamic*/
 #define MPLS_STACK_DEPTH 7
 
-typedef struct {
+typedef struct
+{
   struct ifinfomsg ifi;
   u8 hwaddr[IFHWADDRLEN];
   u8 broadcast[IFHWADDRLEN];
@@ -38,11 +39,13 @@ typedef struct {
   u32 mtu;
   u32 master;
   u8 qdisc[IFNAMSIZ];
-  struct rtnl_link_stats stats; //This struct is big and only comes as a response to a request
+  struct rtnl_link_stats
+    stats; // This struct is big and only comes as a response to a request
   f64 last_updated;
 } ns_link_t;
 
-typedef struct {
+typedef struct
+{
   struct rtmsg rtm;
   u8 dst[16];
   u8 src[16];
@@ -58,7 +61,8 @@ typedef struct {
   f64 last_updated;
 } ns_route_t;
 
-typedef struct {
+typedef struct
+{
   struct ifaddrmsg ifaddr;
   u8 addr[16];
   u8 local[16];
@@ -69,7 +73,8 @@ typedef struct {
   f64 last_updated;
 } ns_addr_t;
 
-typedef struct {
+typedef struct
+{
   struct ndmsg nd;
   u8 dst[16];
   u8 lladdr[IFHWADDRLEN];
@@ -78,28 +83,30 @@ typedef struct {
   f64 last_updated;
 } ns_neigh_t;
 
-typedef struct {
+typedef struct
+{
   char name[RTNL_NETNS_NAMELEN + 1];
-  ns_link_t  *links;
+  ns_link_t *links;
   ns_route_t *routes;
-  ns_addr_t  *addresses;
+  ns_addr_t *addresses;
   ns_neigh_t *neighbors;
 } netns_t;
 
-
-typedef enum {
+typedef enum
+{
   NETNS_TYPE_LINK,
   NETNS_TYPE_ROUTE,
   NETNS_TYPE_ADDR,
   NETNS_TYPE_NEIGH,
 } netns_type_t;
 
-//Flags used in notification functions call
-#define NETNS_F_ADD    0x01
-#define NETNS_F_DEL    0x02
+// Flags used in notification functions call
+#define NETNS_F_ADD 0x01
+#define NETNS_F_DEL 0x02
 
-typedef struct {
-  void (*notify)(void *obj, netns_type_t type, u32 flags, uword opaque);
+typedef struct
+{
+  void (*notify) (void *obj, netns_type_t type, u32 flags, uword opaque);
   uword opaque;
 } netns_sub_t;
 
@@ -110,36 +117,36 @@ typedef struct {
  * existing routes (This is to protect against
  * synch. Vs asynch. issues).
  */
-u32 netns_open(char *name, netns_sub_t *sub);
+u32 netns_open (char *name, netns_sub_t *sub);
 
 /*
  * Retrieves the namespace structure associated with a
  * given namespace handler.
  */
-netns_t *netns_getns(u32 handle);
+netns_t *netns_getns (u32 handle);
 
 /*
  * Terminates a subscriber session.
  */
-void netns_close(u32 handle);
+void netns_close (u32 handle);
 
 /*
  * Calls the callback associated with the handle
  * for all existing objects with the flags
  * set to (del?NETNS_F_DEL:NETNS_F_ADD).
  */
-void netns_callme(u32 handle, char del);
+void netns_callme (u32 handle, char del);
 
 /*
  * netns struct format functions.
  * Taking the struct as single argument.
  */
-u8 *format_ns_neigh(u8 *s, va_list *args);
-u8 *format_ns_addr(u8 *s, va_list *args);
-u8 *format_ns_route(u8 *s, va_list *args);
-u8 *format_ns_link(u8 *s, va_list *args);
+u8 *format_ns_neigh (u8 *s, va_list *args);
+u8 *format_ns_addr (u8 *s, va_list *args);
+u8 *format_ns_route (u8 *s, va_list *args);
+u8 *format_ns_link (u8 *s, va_list *args);
 
-u8 *format_ns_object(u8 *s, va_list *args);
-u8 *format_ns_flags(u8 *s, va_list *args);
+u8 *format_ns_object (u8 *s, va_list *args);
+u8 *format_ns_flags (u8 *s, va_list *args);
 
 #endif

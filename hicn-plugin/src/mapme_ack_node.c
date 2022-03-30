@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,6 +14,7 @@
  */
 
 #include <vnet/ip/ip6_packet.h>
+#include <vlib/log.h>
 
 #include "hicn.h"
 #include "mapme.h"
@@ -69,7 +70,8 @@ hicn_mapme_process_ack (vlib_main_t *vm, vlib_buffer_t *b,
   dpo = fib_epm_lookup (&(prefix.name), prefix.len);
   if (!dpo)
     {
-      DEBUG ("Ignored ACK for non-existing FIB entry. Ignored.");
+      HICN_ERROR ("Ignored ACK for non-existing FIB entry %U. Ignored.",
+		  format_ip_prefix, &prefix);
       return true;
     }
 
@@ -80,7 +82,7 @@ hicn_mapme_process_ack (vlib_main_t *vm, vlib_buffer_t *b,
 
   if (tfib == NULL)
     {
-      WARN ("Unable to get strategy ctx.");
+      HICN_ERROR ("Unable to get strategy ctx.");
       return false;
     }
 
@@ -92,7 +94,7 @@ hicn_mapme_process_ack (vlib_main_t *vm, vlib_buffer_t *b,
    */
   if (params.seq < fib_seq)
     {
-      DEBUG ("Ignored ACK for low seq");
+      HICN_ERROR ("MAPME: Ignored ACK for low seq");
       return true;
     }
 
