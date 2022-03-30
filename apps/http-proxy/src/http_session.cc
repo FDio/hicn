@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -92,7 +92,7 @@ void HTTPSession::send(const uint8_t *packet, std::size_t len,
   io_service_.dispatch([this, packet, len, content_sent]() {
     asio::async_write(socket_, asio::buffer(packet, len),
                       [content_sent = std::move(content_sent)](
-                          std::error_code ec, std::size_t /*length*/) {
+                          const std::error_code &ec, std::size_t /*length*/) {
                         if (!ec) {
                           content_sent();
                         }
@@ -131,7 +131,7 @@ void HTTPSession::doWrite() {
   auto &buffer = write_msgs_.front().first;
 
   asio::async_write(socket_, asio::buffer(buffer->data(), buffer->length()),
-                    [this](std::error_code ec, std::size_t length) {
+                    [this](const std::error_code &ec, std::size_t length) {
                       if (TRANSPORT_EXPECT_FALSE(!ec)) {
                         write_msgs_.front().second();
                         write_msgs_.pop_front();
@@ -142,7 +142,7 @@ void HTTPSession::doWrite() {
                     });
 }  // namespace transport
 
-void HTTPSession::handleRead(std::error_code ec, std::size_t length) {
+void HTTPSession::handleRead(const std::error_code &ec, std::size_t length) {
   if (TRANSPORT_EXPECT_TRUE(!ec)) {
     content_length_ -= length;
     const uint8_t *buffer =
@@ -207,7 +207,7 @@ void HTTPSession::doReadBody(std::size_t body_size,
 void HTTPSession::doReadChunkedHeader() {
   asio::async_read_until(
       socket_, input_buffer_, "\r\n",
-      [this](std::error_code ec, std::size_t length) {
+      [this](const std::error_code &ec, std::size_t length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           const uint8_t *buffer =
               asio::buffer_cast<const uint8_t *>(input_buffer_.data());
@@ -226,7 +226,7 @@ void HTTPSession::doReadChunkedHeader() {
 void HTTPSession::doReadHeader() {
   asio::async_read_until(
       socket_, input_buffer_, "\r\n\r\n",
-      [this](std::error_code ec, std::size_t length) {
+      [this](const std::error_code &ec, std::size_t length) {
         if (TRANSPORT_EXPECT_TRUE(!ec)) {
           const uint8_t *buffer =
               asio::buffer_cast<const uint8_t *>(input_buffer_.data());
@@ -287,7 +287,7 @@ void HTTPSession::tryReconnection() {
 void HTTPSession::doConnect() {
   asio::async_connect(
       socket_, endpoint_iterator_,
-      [this](std::error_code ec, tcp::resolver::iterator) {
+      [this](const std::error_code &ec, tcp::resolver::iterator) {
         if (!ec) {
           timer_.cancel();
           state_ = ConnectorState::CONNECTED;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -28,8 +28,9 @@
  * A mapped VPP interface must not have any configured fib.
  */
 
-int mapper_add_ns(char *nsname, u32 v4fib_index, u32 v6fib_index, u32 *nsindex);
-int mapper_del_ns(u32 nsindex);
-int mapper_add_del(u32 nsindex, int linux_ifindex, u32 sw_if_index, int del);
+int mapper_add_ns (char *nsname, u32 v4fib_index, u32 v6fib_index,
+		   u32 *nsindex);
+int mapper_del_ns (u32 nsindex);
+int mapper_add_del (u32 nsindex, int linux_ifindex, u32 sw_if_index, int del);
 
 #endif /* MAPPER_H_ */

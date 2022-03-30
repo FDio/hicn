@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -29,9 +29,9 @@ void IncrementalIndexer::onContentObject(core::Interest &interest,
   DLOG_IF(INFO, VLOG_IS_ON(3))
       << "Received content " << content_object.getName();
 
-  assert(reassembly_);
+  DCHECK(reassembly_);
 
-  if (TRANSPORT_EXPECT_FALSE(content_object.testRst())) {
+  if (TRANSPORT_EXPECT_FALSE(content_object.isLast())) {
     final_suffix_ = content_object.getName().getSuffix();
   }
 

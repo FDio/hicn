@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -31,10 +31,9 @@ class ContentObject : public Packet {
   using Ptr = std::shared_ptr<ContentObject>;
   using HICNContentObject = hicn_header_t;
 
-  ContentObject(Packet::Format format = HF_INET6_TCP,
-                std::size_t additional_header_size = 0);
+  ContentObject(Packet::Format format, std::size_t additional_header_size = 0);
 
-  ContentObject(const Name &name, Packet::Format format = HF_INET6_TCP,
+  ContentObject(const Name &name, Packet::Format format,
                 std::size_t additional_header_size = 0);
 
   ContentObject(const Name &name, hicn_format_t format,
@@ -42,7 +41,7 @@ class ContentObject : public Packet {
                 std::size_t payload_size);
 
   template <typename... Args>
-  ContentObject(CopyBufferOp op, Args &&... args)
+  ContentObject(CopyBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
         0) {
@@ -51,7 +50,7 @@ class ContentObject : public Packet {
   }
 
   template <typename... Args>
-  ContentObject(WrapBufferOp op, Args &&... args)
+  ContentObject(WrapBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
         0) {
@@ -60,8 +59,12 @@ class ContentObject : public Packet {
   }
 
   template <typename... Args>
-  ContentObject(CreateOp op, Args &&... args)
+  ContentObject(CreateOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
+    if (hicn_packet_set_data(format_, packet_start_) < 0) {
+      throw errors::MalformedPacketException();
+    }
+
     if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
         0) {
       throw errors::MalformedPacketException();
@@ -95,6 +98,10 @@ class ContentObject : public Packet {
   uint32_t getLifetime() const override;
 
   auto shared_from_this() { return utils::shared_from(this); }
+
+  bool isLast() const;
+
+  void setLast();
 
  private:
   void resetForHash() override;

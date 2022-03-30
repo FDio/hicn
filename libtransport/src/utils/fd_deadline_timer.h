@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/errors/runtime_exception.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
 #include <utils/deadline_timer.h>
@@ -36,6 +37,11 @@ class FdDeadlineTimer : public DeadlineTimer<FdDeadlineTimer> {
       throw errors::RuntimeException("Impossible to create the timer!");
     }
   }
+
+  FdDeadlineTimer(const FdDeadlineTimer &other)
+      : reactor_(other.reactor_),
+        timer_fd_(other.timer_fd_),
+        flags_(other.flags_) {}
 
   ~FdDeadlineTimer() { close(timer_fd_); }
 

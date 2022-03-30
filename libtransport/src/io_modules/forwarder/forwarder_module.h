@@ -38,11 +38,12 @@ class ForwarderModule : public IoModule {
   void connect(bool is_consumer) override;
 
   void send(Packet &packet) override;
-  void send(const uint8_t *packet, std::size_t len) override;
+  void send(const utils::MemBuf::Ptr &buffer) override;
 
   bool isConnected() override;
 
   void init(Connector::PacketReceivedCallback &&receive_callback,
+            Connector::PacketSentCallback &&sent_callback,
             Connector::OnReconnectCallback &&reconnect_callback,
             asio::io_service &io_service,
             const std::string &app_name = "Libtransport") override;
@@ -51,15 +52,19 @@ class ForwarderModule : public IoModule {
 
   std::uint32_t getMtu() override;
 
-  bool isControlMessage(const uint8_t *message) override;
+  bool isControlMessage(utils::MemBuf &packet_buffer) override;
 
   void processControlMessageReply(utils::MemBuf &packet_buffer) override;
 
   void closeConnection() override;
 
  private:
+  static void initForwarder();
+
+ private:
   std::string name_;
   Connector::Id connector_id_;
+  std::shared_ptr<Forwarder> forwarder_ptr_;
   Forwarder &forwarder_;
 };
 

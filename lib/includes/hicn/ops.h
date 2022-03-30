@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,6 +23,7 @@
 
 #include <stdlib.h>
 
+#include "common.h"
 #include "error.h"
 #include "header.h"
 #include "name.h"
@@ -52,7 +53,7 @@ typedef struct hicn_ops_s
    * @return hICN error code
    */
   int (*get_interest_locator) (hicn_type_t type, const hicn_protocol_t *h,
-			       ip46_address_t *ip_address);
+			       ip_address_t *ip_address);
 
   /**
    * @brief Sets an Interest locator
@@ -62,7 +63,7 @@ typedef struct hicn_ops_s
    * @return hICN error code
    */
   int (*set_interest_locator) (hicn_type_t type, hicn_protocol_t *h,
-			       const ip46_address_t *ip_address);
+			       const ip_address_t *ip_address);
 
   /**
    * @brief Retrieves an Interest name
@@ -105,6 +106,15 @@ typedef struct hicn_ops_s
 				   const hicn_name_suffix_t *suffix);
 
   /**
+   * @brief Check if packet is an interest
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest packet
+   * @param [out] h - 1 if interest, 0 otherwise
+   * @return hICN error code
+   */
+  int (*is_interest) (hicn_type_t type, const hicn_protocol_t *h, int *ret);
+
+  /**
    * @brief Set flag to mark current packet as interest
    * @param [in] type - hICN packet type
    * @param [in,out] h - Buffer holding the Interest packet
@@ -136,7 +146,7 @@ typedef struct hicn_ops_s
    * @return hICN error code
    */
   int (*get_data_locator) (hicn_type_t type, const hicn_protocol_t *h,
-			   ip46_address_t *ip_address);
+			   ip_address_t *ip_address);
 
   /**
    * @brief Sets a Data locator
@@ -146,7 +156,7 @@ typedef struct hicn_ops_s
    * @return hICN error code
    */
   int (*set_data_locator) (hicn_type_t type, hicn_protocol_t *h,
-			   const ip46_address_t *ip_address);
+			   const ip_address_t *ip_address);
 
   /**
    * @brief Retrieves a Data name
@@ -282,8 +292,8 @@ typedef struct hicn_ops_s
    * @return hICN error code
    */
   int (*rewrite_interest) (hicn_type_t type, hicn_protocol_t *h,
-			   const ip46_address_t *addr_new,
-			   ip46_address_t *addr_old);
+			   const ip_address_t *addr_new,
+			   ip_address_t *addr_old);
 
   /**
    * @brief Rewrite a Data packet header (locator + pathlabel)
@@ -298,9 +308,8 @@ typedef struct hicn_ops_s
    * @return hICN error code
    */
   int (*rewrite_data) (hicn_type_t type, hicn_protocol_t *h,
-		       const ip46_address_t *addr_new,
-		       ip46_address_t *addr_old, const hicn_faceid_t face_id,
-		       u8 reset_pl);
+		       const ip_address_t *addr_new, ip_address_t *addr_old,
+		       const hicn_faceid_t face_id, u8 reset_pl);
 
   /**
    * @brief Return the packet length
@@ -373,27 +382,27 @@ typedef struct hicn_ops_s
 			     size_t signature_size);
 
   /**
-   * @brief Sets an Interest or Data signature gap between maximum size and
+   * @brief Sets an Interest or Data signature padding between maximum size and
    * real size
    * @param [in] type - hICN packet type
    * @param [in,out] h - Buffer holding the Interest or Data packet
    * @param [in] signature_size - Signature size to set
    * @return hICN error code
    */
-  int (*set_signature_gap) (hicn_type_t type, hicn_protocol_t *h,
-			    uint8_t signature_gap);
+  int (*set_signature_padding) (hicn_type_t type, hicn_protocol_t *h,
+				size_t signature_padding);
 
   /**
-   * @brief gets an Interest or Data signature gap between maximum size and
+   * @brief gets an Interest or Data signature padding between maximum size and
    * real size
    * @param [in] type - hICN packet type
    * @param [in,out] h - Buffer holding the Interest or Data packet
-   * @param [in] signature_size - retrieve the gap between maximum size and
+   * @param [in] signature_size - retrieve the padding between maximum size and
    * real size
    * @return hICN error code
    */
-  int (*get_signature_gap) (hicn_type_t type, const hicn_protocol_t *h,
-			    uint8_t *signature_gap);
+  int (*get_signature_padding) (hicn_type_t type, const hicn_protocol_t *h,
+				size_t *signature_padding);
 
   /**
    * @brief Gets the signature timestamp
@@ -464,6 +473,44 @@ typedef struct hicn_ops_s
    */
   int (*get_signature) (hicn_type_t type, hicn_protocol_t *h,
 			uint8_t **signature);
+
+  /**
+   * @brief Set payload type of the packet
+   * @param [in] type - hICN packet type
+   * @param [in,out] h - Buffer holding the Interest or Data packet
+   * @param [in] payload_type - The payload type of this packet
+   * @return hICN error code
+   */
+  int (*set_payload_type) (hicn_type_t type, hicn_protocol_t *h,
+			   hicn_payload_type_t payload_type);
+
+  /**
+   * @brief Get payload type from the packet
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest or Data packet
+   * @param [out] payload_type - The payload type of this packet
+   * @return hICN error code
+   */
+  int (*get_payload_type) (hicn_type_t type, const hicn_protocol_t *h,
+			   hicn_payload_type_t *payload_type);
+
+  /**
+   * @brief Check if data packet is last one.
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest or Data packet
+   * @param [out] is_last - 1 if last data, 0 otherwise
+   * @return hICN error code
+   */
+  int (*is_last_data) (hicn_type_t type, const hicn_protocol_t *h,
+		       int *is_last);
+
+  /**
+   * @brief Mark data packet as last
+   * @param [in] type - hICN packet type
+   * @param [in, out] h - Buffer holding the Interest or Data packet
+   * @return hICN error code
+   */
+  int (*set_last_data) (hicn_type_t type, hicn_protocol_t *h);
 } hicn_ops_t;
 
 #define DECLARE_HICN_OPS(protocol)                                            \
@@ -477,6 +524,7 @@ typedef struct hicn_ops_s
 	       protocol##_get_interest_name_suffix),                          \
     ATTR_INIT (set_interest_name_suffix,                                      \
 	       protocol##_set_interest_name_suffix),                          \
+    ATTR_INIT (is_interest, protocol##_is_interest),                          \
     ATTR_INIT (mark_packet_as_interest, protocol##_mark_packet_as_interest),  \
     ATTR_INIT (mark_packet_as_data, protocol##_mark_packet_as_data),          \
     ATTR_INIT (reset_interest_for_hash, protocol##_reset_interest_for_hash),  \
@@ -502,6 +550,8 @@ typedef struct hicn_ops_s
     ATTR_INIT (get_header_length, protocol##_get_header_length),              \
     ATTR_INIT (get_payload_length, protocol##_get_payload_length),            \
     ATTR_INIT (set_payload_length, protocol##_set_payload_length),            \
+    ATTR_INIT (get_payload_type, protocol##_get_payload_type),                \
+    ATTR_INIT (set_payload_type, protocol##_set_payload_type),                \
     ATTR_INIT (get_signature_size, protocol##_get_signature_size),            \
     ATTR_INIT (get_signature_timestamp, protocol##_get_signature_timestamp),  \
     ATTR_INIT (set_signature_timestamp, protocol##_set_signature_timestamp),  \
@@ -512,9 +562,11 @@ typedef struct hicn_ops_s
     ATTR_INIT (get_key_id, protocol##_get_key_id),                            \
     ATTR_INIT (set_key_id, protocol##_set_key_id),                            \
     ATTR_INIT (get_signature, protocol##_get_signature),                      \
-    ATTR_INIT (set_signature_gap, protocol##_set_signature_gap),              \
+    ATTR_INIT (set_signature_padding, protocol##_set_signature_padding),      \
     ATTR_INIT (set_signature_size, protocol##_set_signature_size),            \
-    ATTR_INIT (get_signature_gap, protocol##_get_signature_gap),              \
+    ATTR_INIT (get_signature_padding, protocol##_get_signature_padding),      \
+    ATTR_INIT (is_last_data, protocol##_is_last_data),                        \
+    ATTR_INIT (set_last_data, protocol##_set_last_data),                      \
   }
 
 /**
@@ -529,7 +581,7 @@ extern const hicn_ops_t *const hicn_ops_vft[];
  * NOTE : we cannot use a shift operation as IPPROTO_NONE != 0 (and 0 is
  * IPv4...)
  */
-always_inline hicn_type_t
+static inline hicn_type_t
 TYPE_POP (hicn_type_t type)
 {
 #ifndef _WIN32
@@ -544,7 +596,7 @@ TYPE_POP (hicn_type_t type)
 #endif
 }
 
-always_inline hicn_protocol_t *
+static inline hicn_protocol_t *
 PAYLOAD (hicn_type_t type, const hicn_protocol_t *h)
 {
   size_t header_length;
@@ -573,14 +625,14 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t *h)
 
 #define DECLARE_get_interest_locator(protocol, error)                         \
   int protocol##_get_interest_locator (                                       \
-    hicn_type_t type, const hicn_protocol_t *h, ip46_address_t *ip_address)   \
+    hicn_type_t type, const hicn_protocol_t *h, ip_address_t *ip_address)     \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }
 
 #define DECLARE_set_interest_locator(protocol, error)                         \
   int protocol##_set_interest_locator (hicn_type_t type, hicn_protocol_t *h,  \
-				       const ip46_address_t *ip_address)      \
+				       const ip_address_t *ip_address)        \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }
@@ -613,6 +665,13 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t *h)
     return HICN_LIB_ERROR_##error;                                            \
   }
 
+#define DECLARE_is_interest(protocol, error)                                  \
+  int protocol##_is_interest (hicn_type_t type, const hicn_protocol_t *h,     \
+			      int *ret)                                       \
+  {                                                                           \
+    return HICN_LIB_ERROR_##error;                                            \
+  }
+
 #define DECLARE_mark_packet_as_interest(protocol, error)                      \
   int protocol##_mark_packet_as_interest (hicn_type_t type,                   \
 					  hicn_protocol_t *h)                 \
@@ -635,14 +694,14 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t *h)
 
 #define DECLARE_get_data_locator(protocol, error)                             \
   int protocol##_get_data_locator (                                           \
-    hicn_type_t type, const hicn_protocol_t *h, ip46_address_t *ip_address)   \
+    hicn_type_t type, const hicn_protocol_t *h, ip_address_t *ip_address)     \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }
 
 #define DECLARE_set_data_locator(protocol, error)                             \
   int protocol##_set_data_locator (hicn_type_t type, hicn_protocol_t *h,      \
-				   const ip46_address_t *ip_address)          \
+				   const ip_address_t *ip_address)            \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }
@@ -732,16 +791,16 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t *h)
 
 #define DECLARE_rewrite_interest(protocol, error)                             \
   int protocol##_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,      \
-				   const ip46_address_t *addr_new,            \
-				   ip46_address_t *addr_old)                  \
+				   const ip_address_t *addr_new,              \
+				   ip_address_t *addr_old)                    \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }
 
 #define DECLARE_rewrite_data(protocol, error)                                 \
   int protocol##_rewrite_data (                                               \
-    hicn_type_t type, hicn_protocol_t *h, const ip46_address_t *addr_new,     \
-    ip46_address_t *addr_old, const hicn_faceid_t face_id, u8 reset_pl)       \
+    hicn_type_t type, hicn_protocol_t *h, const ip_address_t *addr_new,       \
+    ip_address_t *addr_old, const hicn_faceid_t face_id, u8 reset_pl)         \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }
@@ -781,6 +840,21 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t *h)
     return HICN_LIB_ERROR_##error;                                            \
   }
 
+#define DECLARE_get_payload_type(protocol, error)                             \
+  int protocol##_get_payload_type (hicn_type_t type,                          \
+				   const hicn_protocol_t *h,                  \
+				   hicn_payload_type_t *payload_type)         \
+  {                                                                           \
+    return HICN_LIB_ERROR_##error;                                            \
+  }
+
+#define DECLARE_set_payload_type(protocol, error)                             \
+  int protocol##_set_payload_type (hicn_type_t type, hicn_protocol_t *h,      \
+				   hicn_payload_type_t payload_type)          \
+  {                                                                           \
+    return HICN_LIB_ERROR_##error;                                            \
+  }
+
 #define DECLARE_get_signature_size(protocol, error)                           \
   int protocol##_get_signature_size (                                         \
     hicn_type_t type, const hicn_protocol_t *h, size_t *signature_size)       \
@@ -795,16 +869,16 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t *h)
     return HICN_LIB_ERROR_##error;                                            \
   }
 
-#define DECLARE_set_signature_gap(protocol, error)                            \
-  int protocol##_set_signature_gap (hicn_type_t type, hicn_protocol_t *h,     \
-				    uint8_t signature_size)                   \
+#define DECLARE_set_signature_padding(protocol, error)                        \
+  int protocol##_set_signature_padding (hicn_type_t type, hicn_protocol_t *h, \
+					size_t padding)                       \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }
 
-#define DECLARE_get_signature_gap(protocol, error)                            \
-  int protocol##_get_signature_gap (                                          \
-    hicn_type_t type, const hicn_protocol_t *h, uint8_t *signature_size)      \
+#define DECLARE_get_signature_padding(protocol, error)                        \
+  int protocol##_get_signature_padding (                                      \
+    hicn_type_t type, const hicn_protocol_t *h, size_t *padding)              \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }
@@ -856,6 +930,19 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t *h)
 #define DECLARE_get_signature(protocol, error)                                \
   int protocol##_get_signature (hicn_type_t type, hicn_protocol_t *h,         \
 				uint8_t **signature)                          \
+  {                                                                           \
+    return HICN_LIB_ERROR_##error;                                            \
+  }
+
+#define DECLARE_is_last_data(protocol, error)                                 \
+  int protocol##_is_last_data (hicn_type_t type, const hicn_protocol_t *h,    \
+			       int *is_last)                                  \
+  {                                                                           \
+    return HICN_LIB_ERROR_##error;                                            \
+  }
+
+#define DECLARE_set_last_data(protocol, error)                                \
+  int protocol##_set_last_data (hicn_type_t type, hicn_protocol_t *h)         \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }

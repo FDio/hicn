@@ -27,9 +27,10 @@ namespace transport {
 namespace core {
 
 template <std::size_t packet_pool_size = 1024, std::size_t chunk_size = 2048>
-class PacketManager
-    : public utils::Singleton<PacketManager<packet_pool_size, chunk_size>> {
-  friend class utils::Singleton<PacketManager<packet_pool_size, chunk_size>>;
+class PacketManager : public utils::ThreadLocalSingleton<
+                          PacketManager<packet_pool_size, chunk_size>> {
+  friend class utils::ThreadLocalSingleton<
+      PacketManager<packet_pool_size, chunk_size>>;
 
  public:
   using MemoryPool = utils::FixedBlockAllocator<chunk_size, packet_pool_size>;
@@ -71,7 +72,10 @@ class PacketManager
   template <
       typename PacketType, typename... Args,
       typename = std::enable_if_t<std::is_base_of<Packet, PacketType>::value>>
-  typename PacketType::Ptr getPacket(Args &&... args) {
+  typename PacketType::Ptr getPacket(Args &&...args) {
+    static_assert(sizeof(PacketType) + sizeof(std::shared_ptr<PacketType>) +
+                      sizeof(std::max_align_t) <=
+                  sizeof(PacketStorage::packet_and_shared_ptr));
     PacketType *memory = nullptr;
 
     memory = reinterpret_cast<PacketType *>(memory_pool_.allocateBlock());
@@ -98,7 +102,7 @@ class PacketManager
   template <typename PacketType, typename... Args>
   typename PacketType::Ptr getPacketFromExistingBuffer(uint8_t *buffer,
                                                        std::size_t length,
-                                                       Args &&... args) {
+                                                       Args &&...args) {
     auto offset = offsetof(PacketStorage, align);
     auto memory = reinterpret_cast<PacketType *>(buffer - offset);
     utils::STLAllocator<PacketType, MemoryPool> allocator(memory,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -15,7 +15,9 @@
 
 #pragma once
 
+#include <hicn/transport/utils/chrono_typedefs.h>
 #include <stdint.h>
+#include <utils/max_filter.h>
 #include <utils/min_filter.h>
 
 #include <climits>
@@ -34,19 +36,23 @@ class RTCDataPath {
   RTCDataPath(uint32_t path_id);
 
  public:
-  void insertRttSample(uint64_t rtt);
+  void insertRttSample(const utils::SteadyTime::Milliseconds &rtt,
+                       bool is_probe);
   void insertOwdSample(int64_t owd);
   void computeInterArrivalGap(uint32_t segment_number);
   void receivedNack();
 
   uint32_t getPathId();
   uint64_t getMinRtt();
+  uint64_t getAvgRtt();
+  uint64_t getMaxRtt();
   double getQueuingDealy();
   double getInterArrivalGap();
   double getJitter();
   bool isActive();
   bool pathToProducer();
   uint64_t getLastPacketTS();
+  uint32_t getPacketsLastRound();
 
   void clearRtt();
 
@@ -59,6 +65,9 @@ class RTCDataPath {
 
   uint64_t min_rtt;
   uint64_t prev_min_rtt;
+
+  uint64_t max_rtt;
+  uint64_t prev_max_rtt;
 
   int64_t min_owd;
   int64_t prev_min_owd;
@@ -74,19 +83,26 @@ class RTCDataPath {
   uint64_t largest_recv_seq_time_;
   double avg_inter_arrival_;
 
+  // compute the avg rtt over one sec
+  uint64_t rtt_sum_;
+  uint64_t last_avg_rtt_compute_;
+  uint32_t rtt_samples_;
+  double avg_rtt_;
+
   // flags to check if a path is active
   // we considere a path active if it reaches a producer
   //(not a cache) --aka we got at least one nack on this path--
   // and if we receives packets
   bool received_nacks_;
-  bool received_packets_;
-  uint8_t rounds_without_packets_;      // if we don't get any packet
+  uint32_t received_packets_;
+  uint32_t rounds_without_packets_;     // if we don't get any packet
                                         // for MAX_ROUNDS_WITHOUT_PKTS
                                         // we consider the path inactive
   uint64_t last_received_data_packet_;  // timestamp for the last data received
                                         // on this path
 
-  utils::MinFilter<uint64_t> RTT_history_;
+  utils::MinFilter<uint64_t> min_RTT_history_;
+  utils::MaxFilter<uint64_t> max_RTT_history_;
   utils::MinFilter<int64_t> OWD_history_;
 };
 

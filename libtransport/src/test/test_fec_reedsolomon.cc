@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/global_object_pool.h>
@@ -30,28 +31,35 @@ double ReedSolomonTest(int k, int n, int seq_offset, int size) {
   fec::RSEncoder encoder(k, n, seq_offset);
   fec::RSDecoder decoder(k, n, seq_offset);
 
-  std::vector<fec::buffer> tx_block(k);
-  std::vector<fec::buffer> rx_block(k);
+  using BufferMetadata = std::pair<fec::buffer, uint32_t>;
+
+  std::vector<BufferMetadata> tx_block(k);
+  std::vector<BufferMetadata> rx_block(k);
   int count = 0;
   int run = 0;
+
+  // Setup random engine
+  std::random_device
+      rd;  // Will be used to obtain a seed for the random number engine
+  std::mt19937 gen(rd());  // Standard mersenne_twister_engine seeded with rd()
+  std::uniform_int_distribution<> dis(0, 99);
 
   int iterations = 100;
   auto &packet_manager = core::PacketManager<>::getInstance();
 
-  encoder.setFECCallback(
-      [&tx_block](
-          std::vector<std::pair<uint32_t, fec::buffer>> &repair_packets) {
-        for (auto &p : repair_packets) {
-          // Append repair symbols to tx_block
-          tx_block.emplace_back(std::move(p).second);
-        }
-      });
+  encoder.setFECCallback([&tx_block](fec::BufferArray &repair_packets) {
+    for (auto &p : repair_packets) {
+      // Append repair symbols to tx_block
+      tx_block.emplace_back(p.getBuffer(), p.getMetadata());
+    }
+  });
 
   decoder.setFECCallback(
-      [&](std::vector<std::pair<uint32_t, fec::buffer>> &source_packets) {
+      [&tx_block, &count, &k](fec::BufferArray &source_packets) {
         for (int i = 0; i < k; i++) {
           // Compare decoded source packets with original transmitted packets.
-          if (*tx_block[i] != *source_packets[i].second) {
+          if (*tx_block[i].first != *source_packets[i].getBuffer() ||
+              tx_block[i].second != source_packets[i].getMetadata()) {
             count++;
           }
         }
@@ -60,7 +68,7 @@ double ReedSolomonTest(int k, int n, int seq_offset, int size) {
   do {
     // Discard eventual packet appended in previous callback call
     tx_block.erase(tx_block.begin() + k, tx_block.end());
-    auto _seq_offet = seq_offset;
+    uint32_t _seq_offset = seq_offset;
 
     // Initialization. Feed encoder with first k source packets
     for (int i = 0; i < k; i++) {
@@ -69,45 +77,46 @@ double ReedSolomonTest(int k, int n, int seq_offset, int size) {
 
       // Let's append a bit less than size, so that the FEC class will take care
       // of filling the rest with zeros
-      auto cur_size = size - (rand() % 100);
+      auto cur_size = size - dis(gen);
 
       // Set payload, saving 2 bytes at the beginning of the buffer for encoding
       // the length
       packet->append(cur_size);
-      packet->trimStart(2);
-      std::generate(packet->writableData(), packet->writableTail(), rand);
       std::fill(packet->writableData(), packet->writableTail(), i + 1);
 
       // Set first byte of payload to seq_offset, to reorder at receiver side
-      packet->writableData()[0] = uint8_t(_seq_offet++);
+      uint32_t *pkt_head = (uint32_t *)packet->writableData();
+      *pkt_head = _seq_offset++;
+
+      // Set a metadata integer
+      uint32_t metadata = dis(gen);
 
       // Store packet in tx buffer and clear rx buffer
-      tx_block[i] = std::move(packet);
+      tx_block[i] = std::make_pair(std::move(packet), metadata);
     }
 
     // Create the repair packets
     for (auto &tx : tx_block) {
-      encoder.consume(tx, tx->writableBuffer()[0]);
+      encoder.consume(tx.first, tx.first->writableBuffer()[0], 0, tx.second);
     }
 
     // Simulate transmission on lossy channel
-    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::vector<bool> losses(n, false);
     for (int i = 0; i < n - k; i++) losses[i] = true;
 
     int rxi = 0;
-    std::shuffle(losses.begin(), losses.end(),
-                 std::default_random_engine(seed));
+    std::shuffle(losses.begin(), losses.end(), gen);
     for (int i = 0; i < n && rxi < k; i++)
       if (losses[i] == false) {
         rx_block[rxi++] = tx_block[i];
         if (i < k) {
           // Source packet
-          decoder.consumeSource(rx_block[rxi - 1],
-                                rx_block[rxi - 1]->data()[0]);
+          uint32_t index = *((uint32_t *)rx_block[rxi - 1].first->data());
+          decoder.consumeSource(rx_block[rxi - 1].first, index, 0,
+                                rx_block[rxi - 1].second);
         } else {
           // Repair packet
-          decoder.consumeRepair(rx_block[rxi - 1]);
+          decoder.consumeRepair(rx_block[rxi - 1].first);
         }
       }
 
@@ -126,6 +135,12 @@ void ReedSolomonMultiBlockTest(int n_sourceblocks) {
   fec::RSEncoder encoder(k, n);
   fec::RSDecoder decoder(k, n);
 
+  // Setup random engine
+  std::random_device
+      rd;  // Will be used to obtain a seed for the random number engine
+  std::mt19937 gen(rd());  // Standard mersenne_twister_engine seeded with rd()
+  std::uniform_int_distribution<> dis(0, 99);
+
   auto &packet_manager = core::PacketManager<>::getInstance();
 
   std::vector<std::pair<fec::buffer, uint32_t>> tx_block;
@@ -136,33 +151,39 @@ void ReedSolomonMultiBlockTest(int n_sourceblocks) {
   // Receiver will receive packet for n_sourceblocks in a random order.
   int total_packets = n * n_sourceblocks;
   int tx_packets = k * n_sourceblocks;
-  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 
-  encoder.setFECCallback(
-      [&](std::vector<std::pair<uint32_t, fec::buffer>> &repair_packets) {
-        for (auto &p : repair_packets) {
-          // Append repair symbols to tx_block
-          tx_block.emplace_back(std::move(p.second), ++i);
-        }
+  encoder.setFECCallback([&tx_block, &rx_block, &i, &n, &k,
+                          &encoder](fec::BufferArray &repair_packets) {
+    for (auto &p : repair_packets) {
+      // Append repair symbols to tx_block
+      ++i;
+      tx_block.emplace_back(std::move(p.getBuffer()), i);
+    }
 
-        EXPECT_EQ(tx_block.size(), size_t(n));
+    EXPECT_EQ(tx_block.size(), size_t(n));
 
-        // Select k packets to send, including at least one symbol. We start
-        // from the end for this reason.
-        for (int j = n - 1; j > n - k - 1; j--) {
-          rx_block.emplace_back(std::move(tx_block[j]));
-        }
+    // Select k packets to send, including at least one symbol. We start
+    // from the end for this reason.
+    for (int j = n - 1; j > n - k - 1; j--) {
+      rx_block.emplace_back(std::move(tx_block[j]));
+    }
 
-        // Clear tx block for next source block
-        tx_block.clear();
-        encoder.clear();
-      });
+    // Clear tx block for next source block
+    tx_block.clear();
+    encoder.clear();
+  });
 
   // The decode callback must be called exactly n_sourceblocks times
-  decoder.setFECCallback(
-      [&](std::vector<std::pair<uint32_t, fec::buffer>> &source_packets) {
-        count++;
-      });
+  decoder.setFECCallback([&count](fec::BufferArray &source_packets) {
+    // Check buffers
+    for (auto &packet : source_packets) {
+      auto packet_index = ((uint32_t *)packet.getBuffer()->writableData())[0];
+      EXPECT_EQ(packet_index, packet.getIndex())
+          << "Packet index: " << packet_index
+          << " --  FEC Index: " << packet.getIndex();
+    }
+    count++;
+  });
 
   // Produce n * n_sourceblocks
   //  - (  k  ) * n_sourceblocks source packets
@@ -173,7 +194,7 @@ void ReedSolomonMultiBlockTest(int n_sourceblocks) {
 
     // Let's append a bit less than size, so that the FEC class will take care
     // of filling the rest with zeros
-    auto cur_size = size - (rand() % 100);
+    auto cur_size = size - dis(gen);
 
     // Set payload, saving 2 bytes at the beginning of the buffer for encoding
     // the length
@@ -182,7 +203,7 @@ void ReedSolomonMultiBlockTest(int n_sourceblocks) {
     std::fill(packet->writableData(), packet->writableTail(), i + 1);
 
     // Set first byte of payload to i, to reorder at receiver side
-    packet->writableData()[0] = uint8_t(i);
+    ((uint32_t *)packet->writableData())[0] = uint32_t(i);
 
     // Store packet in tx buffer
     tx_block.emplace_back(packet, i);
@@ -195,8 +216,7 @@ void ReedSolomonMultiBlockTest(int n_sourceblocks) {
   EXPECT_EQ(size_t(tx_packets), size_t(rx_block.size()));
 
   // Lets shuffle the rx_block before starting feeding the decoder.
-  std::shuffle(rx_block.begin(), rx_block.end(),
-               std::default_random_engine(seed));
+  std::shuffle(rx_block.begin(), rx_block.end(), gen);
 
   for (auto &p : rx_block) {
     int index = p.second % n;
@@ -231,7 +251,7 @@ foreach_rs_fec_type
 #undef _
 
 TEST(ReedSolomonMultiBlockTest, RSMB10) {
-  int blocks = 10;
+  int blocks = 1;
   ReedSolomonMultiBlockTest(blocks);
 }
 

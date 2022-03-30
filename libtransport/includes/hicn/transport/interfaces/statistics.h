@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/portability/c_portability.h>
+#include <hicn/transport/utils/chrono_typedefs.h>
 
 #include <cstdint>
 
@@ -37,6 +38,8 @@ class TransportStatistics {
   static constexpr double default_alpha = 0.7;
 
  public:
+  enum class statsAlerts : uint8_t { CONGESTION, LATENCY, LOSSES };
+
   TransportStatistics(double alpha = default_alpha)
       : retx_count_(0),
         bytes_received_(0),
@@ -51,11 +54,15 @@ class TransportStatistics {
         lost_data_(0),
         definitely_lost_data_(0),
         recovered_data_(0),
-        status_(-1),
+        status_(0),
         // avg_data_rtt_(0),
         avg_pending_pkt_(0.0),
         received_nacks_(0),
-        received_fec_(0) {}
+        received_fec_(0),
+        in_congestion_(false),
+        residual_loss_rate_(0.0),
+        quality_score_(5),
+        alerts_(0) {}
 
   TRANSPORT_ALWAYS_INLINE void updateRetxCount(uint64_t retx) {
     retx_count_ += retx;
@@ -65,8 +72,11 @@ class TransportStatistics {
     bytes_received_ += bytes;
   }
 
-  TRANSPORT_ALWAYS_INLINE void updateAverageRtt(uint64_t rtt) {
-    average_rtt_ = (alpha_ * average_rtt_) + ((1. - alpha_) * double(rtt));
+  TRANSPORT_ALWAYS_INLINE void updateAverageRtt(
+      const utils::SteadyTime::Milliseconds &rtt) {
+    auto rtt_milliseconds = rtt.count();
+    average_rtt_ =
+        (alpha_ * average_rtt_) + ((1. - alpha_) * double(rtt_milliseconds));
   }
 
   TRANSPORT_ALWAYS_INLINE void updateAverageWindowSize(double current_window) {
@@ -118,6 +128,26 @@ class TransportStatistics {
 
   TRANSPORT_ALWAYS_INLINE void updateReceivedFEC(uint32_t pkt) {
     received_fec_ += pkt;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void updateResidualLossRate(double val) {
+    residual_loss_rate_ = val;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void updateQualityScore(uint8_t val) {
+    quality_score_ = val;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void updateCongestionState(bool state) {
+    in_congestion_ = state;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void setAlert(statsAlerts x) {
+    alerts_ |= 1UL << (uint32_t)x;
+  }
+
+  TRANSPORT_ALWAYS_INLINE void clearAlert(statsAlerts x) {
+    alerts_ &= ~(1UL << (uint32_t)x);
   }
 
   TRANSPORT_ALWAYS_INLINE uint64_t getRetxCount() const { return retx_count_; }
@@ -174,6 +204,18 @@ class TransportStatistics {
     return received_fec_;
   }
 
+  TRANSPORT_ALWAYS_INLINE double getResidualLossRate() const {
+    return residual_loss_rate_;
+  }
+
+  TRANSPORT_ALWAYS_INLINE uint8_t getQualityScore() const {
+    return quality_score_;
+  }
+
+  TRANSPORT_ALWAYS_INLINE bool isCongested() const { return in_congestion_; }
+
+  TRANSPORT_ALWAYS_INLINE uint32_t getAlerts() const { return alerts_; }
+
   TRANSPORT_ALWAYS_INLINE void setAlpha(double val) { alpha_ = val; }
 
   TRANSPORT_ALWAYS_INLINE void reset() {
@@ -193,6 +235,8 @@ class TransportStatistics {
     avg_pending_pkt_ = 0;
     received_nacks_ = 0;
     received_fec_ = 0;
+    in_congestion_ = false;
+    quality_score_ = 5;
   }
 
  private:
@@ -213,6 +257,14 @@ class TransportStatistics {
   double avg_pending_pkt_;
   uint32_t received_nacks_;
   uint32_t received_fec_;
+  bool in_congestion_;
+  double residual_loss_rate_;
+  uint8_t quality_score_;
+
+  // alerts is a bit vector used to signal to the upper layer that
+  // something bad is appening in the network, the encode is done accoding to
+  // the enum alerts;
+  uint32_t alerts_;
 };
 
 }  // namespace interface
