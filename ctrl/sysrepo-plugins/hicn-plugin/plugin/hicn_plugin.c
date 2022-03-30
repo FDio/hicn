@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,12 +22,10 @@
 #include "model/hicn_model.h"
 #include "ietf/ietf_interface.h"
 
-
 sr_subscription_ctx_t *subscription = NULL;
 volatile int exit_application = 0;
 
 int sr_plugin_init_cb(sr_session_ctx_t *session, void **private_ctx) {
-
   sr_subscription_ctx_t *subscription = NULL;
   int rc = SR_ERR_OK;
   rc = hicn_connect_vpp();
@@ -38,11 +36,10 @@ int sr_plugin_init_cb(sr_session_ctx_t *session, void **private_ctx) {
   // HICN subscribe
   hicn_subscribe_events(session, &subscription);
 
-  //sr_subscription_ctx_t *subscription2 = NULL;
+  // sr_subscription_ctx_t *subscription2 = NULL;
 
   // IETF subscribe
-  //ietf_subscribe_events(session, &subscription2);
-
+  // ietf_subscribe_events(session, &subscription2);
 
   /* set subscription as our private context */
   *private_ctx = subscription;
@@ -51,7 +48,6 @@ int sr_plugin_init_cb(sr_session_ctx_t *session, void **private_ctx) {
 }
 
 void sr_plugin_cleanup_cb(sr_session_ctx_t *session, void *private_ctx) {
-
   /* subscription was set as our private context */
   sr_unsubscribe(private_ctx);
   hicn_disconnect_vpp();

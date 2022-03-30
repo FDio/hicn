@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,6 +16,7 @@
 #pragma once
 
 #include <hicn/transport/interfaces/statistics.h>
+#include <hicn/transport/utils/noncopyable.h>
 #include <protocols/raaqm_data_path.h>
 
 #include <chrono>
@@ -24,16 +25,13 @@ namespace transport {
 
 namespace protocol {
 
-class IcnRateEstimator {
+class IcnRateEstimator : utils::NonCopyable {
  public:
-  using TimePoint = std::chrono::steady_clock::time_point;
-  using Microseconds = std::chrono::microseconds;
-
   IcnRateEstimator(){};
 
   virtual ~IcnRateEstimator(){};
 
-  virtual void onRttUpdate(double rtt){};
+  virtual void onRttUpdate(const utils::SteadyTime::Milliseconds &rtt){};
 
   virtual void onDataReceived(int packetSize){};
 
@@ -48,9 +46,10 @@ class IcnRateEstimator {
   virtual void setObserver(interface::IcnObserver *observer) {
     this->observer_ = observer;
   };
+
   interface::IcnObserver *observer_;
-  TimePoint start_time_;
-  TimePoint begin_batch_;
+  utils::SteadyTime::TimePoint start_time_;
+  utils::SteadyTime::TimePoint begin_batch_;
   double base_alpha_;
   double alpha_;
   double estimation_;
@@ -67,7 +66,7 @@ class InterRttEstimator : public IcnRateEstimator {
 
   ~InterRttEstimator();
 
-  void onRttUpdate(double rtt);
+  void onRttUpdate(const utils::SteadyTime::Milliseconds &rtt);
 
   void onDataReceived(int packet_size) {
     if (packet_size > this->max_packet_size_) {
@@ -102,7 +101,7 @@ class BatchingPacketsEstimator : public IcnRateEstimator {
  public:
   BatchingPacketsEstimator(double alpha_arg, int batchingParam);
 
-  void onRttUpdate(double rtt);
+  void onRttUpdate(const utils::SteadyTime::Milliseconds &rtt);
 
   void onDataReceived(int packet_size) {
     if (packet_size > this->max_packet_size_) {
@@ -149,7 +148,7 @@ class SimpleEstimator : public IcnRateEstimator {
  public:
   SimpleEstimator(double alpha, int batching_param);
 
-  void onRttUpdate(double rtt);
+  void onRttUpdate(const utils::SteadyTime::Milliseconds &rtt);
 
   void onDataReceived(int packet_size);
 

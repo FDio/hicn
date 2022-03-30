@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2019 Cisco and/or its affiliates.
+# Copyright (c) 2021 Cisco and/or its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
@@ -21,11 +21,11 @@ set(hicn-sysrepo-plugin_DESCRIPTION
 )
 
 set(hicn-sysrepo-plugin_DEB_DEPENDENCIES
-  "hicn-plugin (>= stable_version-release), sysrepo (>= 1.0)"
+  "hicn-plugin (= ${PREFIX_VERSION}-release), sysrepo (>= 1.0)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(hicn-sysrepo-plugin_RPM_DEPENDENCIES
-  "hicn-plugin >= stable_version-release, sysrepo >= 1.0"
+  "hicn-plugin = ${PREFIX_VERSION}-release, sysrepo >= 1.0"
   CACHE STRING "Dependencies for deb/rpm package."
 )

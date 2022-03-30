@@ -23,6 +23,7 @@ namespace utils {
 template <typename F>
 struct MoveWrapper : F {
   MoveWrapper(F&& f) : F(std::move(f)) {}
+  ~MoveWrapper() = default;
 
   MoveWrapper(MoveWrapper&&) = default;
   MoveWrapper& operator=(MoveWrapper&&) = default;

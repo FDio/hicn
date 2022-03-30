@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <glog/logging.h>
 #include <hicn/transport/core/connector_stats.h>
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/core/endpoint.h>
@@ -50,22 +51,21 @@ class Connector : public std::enable_shared_from_this<Connector> {
 
   enum class Role : std::uint8_t { CONSUMER, PRODUCER };
 
- public:
   static constexpr std::size_t queue_size = 4096;
   static constexpr std::uint32_t invalid_connector = ~0;
-
-#ifdef LINUX
+  static constexpr std::uint32_t max_reconnection_reattempts = 5;
   static constexpr std::uint16_t max_burst = 256;
-#endif
 
   using Ptr = std::shared_ptr<Connector>;
-  using PacketQueue = std::deque<Packet::Ptr>;
-  using PacketReceivedCallback = std::function<void(
-      Connector *, utils::MemBuf &, const std::error_code &)>;
+  using PacketQueue = std::deque<utils::MemBuf::Ptr>;
+  using PacketReceivedCallback =
+      std::function<void(Connector *, const std::vector<utils::MemBuf::Ptr> &,
+                         const std::error_code &)>;
   using PacketSentCallback =
       std::function<void(Connector *, const std::error_code &)>;
   using OnCloseCallback = std::function<void(Connector *)>;
-  using OnReconnectCallback = std::function<void(Connector *)>;
+  using OnReconnectCallback =
+      std::function<void(Connector *, const std::error_code &)>;
   using Id = std::uint64_t;
 
   template <typename ReceiveCallback, typename SentCallback, typename OnClose,
@@ -77,7 +77,8 @@ class Connector : public std::enable_shared_from_this<Connector> {
         on_close_callback_(std::forward<OnClose &&>(close_callback)),
         on_reconnect_callback_(std::forward<OnReconnect &&>(on_reconnect)),
         state_(State::CLOSED),
-        connector_id_(invalid_connector) {}
+        connector_id_(invalid_connector),
+        connection_reattempts_(0) {}
 
   virtual ~Connector(){};
 
@@ -115,7 +116,7 @@ class Connector : public std::enable_shared_from_this<Connector> {
 
   virtual void send(Packet &packet) = 0;
 
-  virtual void send(const uint8_t *packet, std::size_t len) = 0;
+  virtual void send(const utils::MemBuf::Ptr &buffer) = 0;
 
   virtual void close() = 0;
 
@@ -206,6 +207,9 @@ class Connector : public std::enable_shared_from_this<Connector> {
 
   // Stats
   AtomicConnectorStats stats_;
+
+  // Connection attempts
+  std::uint32_t connection_reattempts_;
 };
 
 }  // namespace core

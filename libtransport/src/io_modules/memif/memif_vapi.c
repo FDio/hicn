@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,8 +22,6 @@
 #include <vapi/vapi_safe.h>
 #include <vppinfra/clib.h>
 
-DEFINE_VAPI_MSG_IDS_MEMIF_API_JSON
-
 static vapi_error_e memif_details_cb(vapi_ctx_t ctx, void *callback_ctx,
                                      vapi_error_e rv, bool is_last,
                                      vapi_payload_memif_details *reply) {
@@ -45,6 +43,9 @@ static vapi_error_e memif_details_cb(vapi_ctx_t ctx, void *callback_ctx,
 int memif_vapi_get_next_memif_id(vapi_ctx_t ctx, uint32_t *memif_id) {
   vapi_lock();
   vapi_msg_memif_dump *msg = vapi_alloc_memif_dump(ctx);
+
+  // Initialize memif id to 0
+  *memif_id = 0;
   int ret = vapi_memif_dump(ctx, msg, memif_details_cb, memif_id);
   vapi_unlock();
   return ret;

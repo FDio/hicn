@@ -31,17 +31,14 @@ sudo make install
 
 hICN collectd plugins have been tested in:
 
-- Ubuntu 16.04 LTS (x86_64)
-- Ubuntu 18.04 LTS (x86_64)
-- Debian Stable/Testing
-- Red Hat Enterprise Linux 7
-- CentOS 7
+- Ubuntu 20.04 LTS
 
 ### Dependencies
 
 Build dependencies:
 
-- VPP 20.01, Debian packages can be found on [packagecloud](https://packagecloud.io/fdio/release/install):
+VPP 22.02, Debian packages can be found on
+[packagecloud](https://packagecloud.io/fdio/release/install):
   - vpp
   - libvppinfra-dev
   - vpp-dev
@@ -62,14 +59,18 @@ Before running collectd, a vpp forwarder must be started. If the vpp-hicn plugin
 is used, the hicn-plugin must be available in the vpp forwarder.
 
 If you need the custom types that the two plugins define, they are present in
-`telemetry/custom_types.db`. It is useful if you are using InfluxDB as it requires
-the type database for multi-value metrics
-(see [CollectD protocol support in InfluxDB](https://docs.influxdata.com/influxdb/v1.7/supported_protocols/collectd/)).
+`telemetry/custom_types.db`. It is useful if you are using InfluxDB as it
+requires the type database for multi-value metrics (see [CollectD protocol
+support in
+InfluxDB](https://docs.influxdata.com/influxdb/v1.7/supported_protocols/collectd/)).
 
 ## Plugin options
 `vpp` and `vpp-hicn` have the same two options:
-- `Verbose` enables additional statistics. You can check the sources to have an exact list of available metrics.
-- `Tag` tags the data with the given string. Useful for identifying the context in which the data was retrieved in InfluxDB for instance. If the tag value is `None`, no tag is applied.
+- `Verbose` enables additional statistics. You can check the sources to have an
+  exact list of available metrics.
+- `Tag` tags the data with the given string. Useful for identifying the context
+  in which the data was retrieved in InfluxDB for instance. If the tag value is
+  `None`, no tag is applied.
 
 ### Example: storing statistics from vpp and vpp-hicn
 

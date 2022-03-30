@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,16 +13,16 @@
  * limitations under the License.
  */
 
+#include <core/memif_connector.h>
 #include <glog/logging.h>
 #include <hicn/transport/config.h>
 #include <hicn/transport/errors/not_implemented_exception.h>
 #include <io_modules/memif/hicn_vapi.h>
-#include <io_modules/memif/memif_connector.h>
 #include <io_modules/memif/memif_vapi.h>
 #include <io_modules/memif/vpp_forwarder_module.h>
 
 extern "C" {
-#include <memif/libmemif.h>
+#include <libmemif.h>
 };
 
 typedef enum { MASTER = 0, SLAVE = 1 } memif_role_t;
@@ -39,21 +39,24 @@ namespace core {
 VPPForwarderModule::VPPForwarderModule()
     : IoModule(),
       connector_(nullptr),
+      memif_id_(0),
       sw_if_index_(~0),
       face_id1_(~0),
       face_id2_(~0),
       is_consumer_(false) {}
 
-VPPForwarderModule::~VPPForwarderModule() { delete connector_; }
+VPPForwarderModule::~VPPForwarderModule() {}
 
 void VPPForwarderModule::init(
     Connector::PacketReceivedCallback &&receive_callback,
+    Connector::PacketSentCallback &&sent_callback,
     Connector::OnReconnectCallback &&reconnect_callback,
     asio::io_service &io_service, const std::string &app_name) {
   if (!connector_) {
-    connector_ =
-        new MemifConnector(std::move(receive_callback), 0, 0,
-                           std::move(reconnect_callback), io_service, app_name);
+    connector_ = std::make_unique<MemifConnector>(
+        std::move(receive_callback), std::move(sent_callback),
+        Connector::OnCloseCallback(0), std::move(reconnect_callback),
+        io_service, app_name);
   }
 }
 
@@ -62,7 +65,7 @@ void VPPForwarderModule::processControlMessageReply(
   throw errors::NotImplementedException();
 }
 
-bool VPPForwarderModule::isControlMessage(const uint8_t *message) {
+bool VPPForwarderModule::isControlMessage(utils::MemBuf &packet_buffer) {
   return false;
 }
 
@@ -73,12 +76,12 @@ void VPPForwarderModule::send(Packet &packet) {
   connector_->send(packet);
 }
 
-void VPPForwarderModule::send(const uint8_t *packet, std::size_t len) {
+void VPPForwarderModule::send(const utils::MemBuf::Ptr &buffer) {
   counters_.tx_packets++;
-  counters_.tx_bytes += len;
+  counters_.tx_bytes += buffer->length();
 
   // Perfect forwarding
-  connector_->send(packet, len);
+  connector_->send(buffer);
 }
 
 std::uint32_t VPPForwarderModule::getMtu() { return interface_mtu; }
@@ -170,7 +173,8 @@ void VPPForwarderModule::connect(bool is_consumer) {
     consumerConnection();
   }
 
-  connector_->connect(memif_id_, 0);
+  connector_->connect(memif_id_, 0 /* is_master = false */,
+                      memif_socket_filename);
   connector_->setRole(is_consumer_ ? Connector::Role::CONSUMER
                                    : Connector::Role::PRODUCER);
 }
@@ -207,7 +211,8 @@ void VPPForwarderModule::registerRoute(const Prefix &prefix) {
       throw errors::RuntimeException(hicn_vapi_get_error_string(ret));
     }
 
-    inet6_address_ = *output.prod_addr;
+    std::memcpy(inet6_address_.v6.as_u8, output.prod_addr->v6.as_u8,
+                sizeof(inet6_address_));
 
     face_id1_ = output.face_id;
   } else {
@@ -228,8 +233,6 @@ void VPPForwarderModule::registerRoute(const Prefix &prefix) {
 
 void VPPForwarderModule::closeConnection() {
   if (VPPForwarderModule::sock_) {
-    connector_->close();
-
     if (is_consumer_) {
       hicn_del_face_app_input_params params;
       params.face_id = face_id1_;
@@ -241,6 +244,8 @@ void VPPForwarderModule::closeConnection() {
       params.face_id = face_id1_;
       hicn_vapi_face_prod_del(VPPForwarderModule::sock_, &params);
     }
+
+    connector_->close();
 
     if (sw_if_index_ != uint32_t(~0)) {
       int ret =

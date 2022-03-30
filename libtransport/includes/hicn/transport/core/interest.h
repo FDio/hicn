@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -40,16 +40,15 @@ class Interest
  public:
   using Ptr = std::shared_ptr<Interest>;
 
-  Interest(Packet::Format format = HF_INET6_TCP,
-           std::size_t additional_header_size = 0);
+  Interest(Packet::Format format, std::size_t additional_header_size = 0);
 
-  Interest(const Name &interest_name, Packet::Format format = HF_INET6_TCP,
+  Interest(const Name &interest_name, Packet::Format format,
            std::size_t additional_header_size = 0);
 
   Interest(MemBuf &&buffer);
 
   template <typename... Args>
-  Interest(CopyBufferOp op, Args &&... args)
+  Interest(CopyBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_interest_get_name(format_, packet_start_,
                                name_.getStructReference()) < 0) {
@@ -58,7 +57,7 @@ class Interest
   }
 
   template <typename... Args>
-  Interest(WrapBufferOp op, Args &&... args)
+  Interest(WrapBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_interest_get_name(format_, packet_start_,
                                name_.getStructReference()) < 0) {
@@ -67,8 +66,12 @@ class Interest
   }
 
   template <typename... Args>
-  Interest(CreateOp op, Args &&... args)
-      : Packet(op, std::forward<Args>(args)...) {}
+  Interest(CreateOp op, Args &&...args)
+      : Packet(op, std::forward<Args>(args)...) {
+    if (hicn_packet_set_interest(format_, packet_start_) < 0) {
+      throw errors::MalformedPacketException();
+    }
+  }
 
   /* Move constructor */
   Interest(Interest &&other_interest);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -108,7 +108,7 @@ init_dpo_ctx (hicn_dpo_ctx_t *dpo_ctx, const hicn_face_id_t *next_hop,
   dpo_ctx->seq = INIT_SEQ;
   dpo_ctx->dpo_type = dpo_type;
 
-  dpo_ctx->proto = proto;
+  dpo_ctx->proto = (fib_protocol_t) proto;
 
   for (int i = 0; i < HICN_PARAM_FIB_ENTRY_NHOPS_MAX && i < nh_len; i++)
     {

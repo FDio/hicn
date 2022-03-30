@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -75,6 +75,23 @@ format_hicn_data_input_trace (u8 *s, va_list *args)
   return s;
 }
 
+static void
+hicn_data_input_set_adj_index (vlib_buffer_t *b,
+			       const ip46_address_t *dst_addr,
+			       const hicn_dpo_ctx_t *dpo_ctx)
+{
+  for (u8 pos = 0; pos < dpo_ctx->entry_count; pos++)
+    {
+      hicn_face_t *face = hicn_dpoi_get_from_idx (dpo_ctx->next_hops[pos]);
+      assert (face);
+      if (ip46_address_cmp (&(face->nat_addr), dst_addr) == 0)
+	{
+	  vnet_buffer (b)->ip.adj_index[VLIB_RX] = face->dpo.dpoi_index;
+	  break;
+	}
+    }
+}
+
 static uword
 hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 			vlib_frame_t *frame)
@@ -100,6 +117,7 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  ip_lookup_next_t next0, next1;
 	  ip6_header_t *ip0, *ip1;
 	  ip6_address_t *src_addr0, *src_addr1;
+	  ip46_address_t dst_addr0, dst_addr1;
 	  const dpo_id_t *dpo0, *dpo1;
 	  const load_balance_t *lb0, *lb1;
 
@@ -128,6 +146,9 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  src_addr0 = &ip0->src_address;
 	  src_addr1 = &ip1->src_address;
 
+	  ip46_address_set_ip6 (&dst_addr0, &ip0->dst_address);
+	  ip46_address_set_ip6 (&dst_addr0, &ip1->dst_address);
+
 	  ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, p0);
 	  ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, p1);
 
@@ -150,14 +171,22 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  dpo1 = load_balance_get_bucket_i (lb1, 0);
 
 	  if (dpo_is_hicn (dpo0))
-	    next0 = HICN_DATA_INPUT_IP6_NEXT_FACE;
+	    {
+	      next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_FACE;
+	      hicn_data_input_set_adj_index (
+		p0, &dst_addr0, hicn_strategy_dpo_ctx_get (dpo0->dpoi_index));
+	    }
 	  else
-	    next0 = HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
+	    next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
 
 	  if (dpo_is_hicn (dpo1))
-	    next1 = HICN_DATA_INPUT_IP6_NEXT_FACE;
+	    {
+	      next1 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_FACE;
+	      hicn_data_input_set_adj_index (
+		p1, &dst_addr1, hicn_strategy_dpo_ctx_get (dpo1->dpoi_index));
+	    }
 	  else
-	    next1 = HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
+	    next1 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
 
 	  if (PREDICT_FALSE (node->flags & VLIB_NODE_FLAG_TRACE) &&
 	      (p0->flags & VLIB_BUFFER_IS_TRACED))
@@ -235,6 +264,7 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  ip_lookup_next_t next0;
 	  load_balance_t *lb0;
 	  ip6_address_t *src_addr0;
+	  ip46_address_t dst_addr0;
 	  const dpo_id_t *dpo0;
 
 	  pi0 = from[0];
@@ -243,6 +273,7 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  p0 = vlib_get_buffer (vm, pi0);
 	  ip0 = vlib_buffer_get_current (p0);
 	  src_addr0 = &ip0->src_address;
+	  ip46_address_set_ip6 (&dst_addr0, &ip0->dst_address);
 	  ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, p0);
 	  lbi0 = ip6_fib_table_fwding_lookup (vnet_buffer (p0)->ip.fib_index,
 					      src_addr0);
@@ -255,9 +286,13 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  dpo0 = load_balance_get_bucket_i (lb0, 0);
 
 	  if (dpo_is_hicn (dpo0))
-	    next0 = HICN_DATA_INPUT_IP6_NEXT_FACE;
+	    {
+	      next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_FACE;
+	      hicn_data_input_set_adj_index (
+		p0, &dst_addr0, hicn_strategy_dpo_ctx_get (dpo0->dpoi_index));
+	    }
 	  else
-	    next0 = HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
+	    next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
 
 	  if (PREDICT_FALSE (node->flags & VLIB_NODE_FLAG_TRACE) &&
 	      (p0->flags & VLIB_BUFFER_IS_TRACED))
@@ -312,7 +347,7 @@ VLIB_REGISTER_NODE (hicn_data_input_ip6) = {
 VNET_FEATURE_INIT (hicn_data_input_ip6_arc, static) = {
   .arc_name = "ip6-local",
   .node_name = "hicn-data-input-ip6",
-  .runs_before = VNET_FEATURES ("ip6-local-end-of-arc"),
+  .runs_before = VNET_FEATURES ("ip6-local-end-of-arc")
 };
 
 always_inline uword
@@ -337,9 +372,8 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
     {
       ip4_header_t *ip0, *ip1, *ip2, *ip3;
       const load_balance_t *lb0, *lb1, *lb2, *lb3;
-      ip4_fib_mtrie_t *mtrie0, *mtrie1, *mtrie2, *mtrie3;
-      ip4_fib_mtrie_leaf_t leaf0, leaf1, leaf2, leaf3;
       ip4_address_t *src_addr0, *src_addr1, *src_addr2, *src_addr3;
+      ip46_address_t dst_addr0, dst_addr1, dst_addr2, dst_addr3;
       u32 lb_index0, lb_index1, lb_index2, lb_index3;
       const dpo_id_t *dpo0, *dpo1, *dpo2, *dpo3;
 
@@ -367,35 +401,21 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       src_addr2 = &ip2->src_address;
       src_addr3 = &ip3->src_address;
 
+      ip46_address_set_ip4 (&dst_addr0, &ip0->dst_address);
+      ip46_address_set_ip4 (&dst_addr1, &ip1->dst_address);
+      ip46_address_set_ip4 (&dst_addr2, &ip2->dst_address);
+      ip46_address_set_ip4 (&dst_addr3, &ip3->dst_address);
+
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[0]);
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[1]);
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[2]);
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[3]);
 
-      mtrie0 = &ip4_fib_get (vnet_buffer (b[0])->ip.fib_index)->mtrie;
-      mtrie1 = &ip4_fib_get (vnet_buffer (b[1])->ip.fib_index)->mtrie;
-      mtrie2 = &ip4_fib_get (vnet_buffer (b[2])->ip.fib_index)->mtrie;
-      mtrie3 = &ip4_fib_get (vnet_buffer (b[3])->ip.fib_index)->mtrie;
-
-      leaf0 = ip4_fib_mtrie_lookup_step_one (mtrie0, src_addr0);
-      leaf1 = ip4_fib_mtrie_lookup_step_one (mtrie1, src_addr1);
-      leaf2 = ip4_fib_mtrie_lookup_step_one (mtrie2, src_addr2);
-      leaf3 = ip4_fib_mtrie_lookup_step_one (mtrie3, src_addr3);
-
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 2);
-      leaf1 = ip4_fib_mtrie_lookup_step (mtrie1, leaf1, src_addr1, 2);
-      leaf2 = ip4_fib_mtrie_lookup_step (mtrie2, leaf2, src_addr2, 2);
-      leaf3 = ip4_fib_mtrie_lookup_step (mtrie3, leaf3, src_addr3, 2);
-
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 3);
-      leaf1 = ip4_fib_mtrie_lookup_step (mtrie1, leaf1, src_addr1, 3);
-      leaf2 = ip4_fib_mtrie_lookup_step (mtrie2, leaf2, src_addr2, 3);
-      leaf3 = ip4_fib_mtrie_lookup_step (mtrie3, leaf3, src_addr3, 3);
-
-      lb_index0 = ip4_fib_mtrie_leaf_get_adj_index (leaf0);
-      lb_index1 = ip4_fib_mtrie_leaf_get_adj_index (leaf1);
-      lb_index2 = ip4_fib_mtrie_leaf_get_adj_index (leaf2);
-      lb_index3 = ip4_fib_mtrie_leaf_get_adj_index (leaf3);
+      ip4_fib_forwarding_lookup_x4 (
+	vnet_buffer (b[0])->ip.fib_index, vnet_buffer (b[1])->ip.fib_index,
+	vnet_buffer (b[2])->ip.fib_index, vnet_buffer (b[3])->ip.fib_index,
+	src_addr0, src_addr1, src_addr2, src_addr3, &lb_index0, &lb_index1,
+	&lb_index2, &lb_index3);
 
       ASSERT (lb_index0 && lb_index1 && lb_index2 && lb_index3);
       lb0 = load_balance_get (lb_index0);
@@ -418,22 +438,38 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       dpo3 = load_balance_get_bucket_i (lb3, 0);
 
       if (dpo_is_hicn (dpo0))
-	next[0] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	{
+	  next[0] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicn_data_input_set_adj_index (
+	    b[0], &dst_addr0, hicn_strategy_dpo_ctx_get (dpo0->dpoi_index));
+	}
       else
 	next[0] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
       if (dpo_is_hicn (dpo1))
-	next[1] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	{
+	  next[1] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicn_data_input_set_adj_index (
+	    b[1], &dst_addr1, hicn_strategy_dpo_ctx_get (dpo1->dpoi_index));
+	}
       else
 	next[1] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
       if (dpo_is_hicn (dpo2))
-	next[2] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	{
+	  next[2] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicn_data_input_set_adj_index (
+	    b[2], &dst_addr2, hicn_strategy_dpo_ctx_get (dpo2->dpoi_index));
+	}
       else
 	next[2] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
       if (dpo_is_hicn (dpo3))
-	next[3] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	{
+	  next[3] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicn_data_input_set_adj_index (
+	    b[3], &dst_addr3, hicn_strategy_dpo_ctx_get (dpo3->dpoi_index));
+	}
       else
 	next[3] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
@@ -495,9 +531,8 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
     {
       ip4_header_t *ip0, *ip1;
       const load_balance_t *lb0, *lb1;
-      ip4_fib_mtrie_t *mtrie0, *mtrie1;
-      ip4_fib_mtrie_leaf_t leaf0, leaf1;
       ip4_address_t *src_addr0, *src_addr1;
+      ip46_address_t dst_addr0, dst_addr1;
       u32 lb_index0, lb_index1;
       flow_hash_config_t flow_hash_config0, flow_hash_config1;
       u32 hash_c0, hash_c1;
@@ -518,23 +553,15 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       src_addr0 = &ip0->src_address;
       src_addr1 = &ip1->src_address;
 
+      ip46_address_set_ip4 (&dst_addr0, &ip0->dst_address);
+      ip46_address_set_ip4 (&dst_addr1, &ip1->dst_address);
+
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[0]);
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[1]);
 
-      mtrie0 = &ip4_fib_get (vnet_buffer (b[0])->ip.fib_index)->mtrie;
-      mtrie1 = &ip4_fib_get (vnet_buffer (b[1])->ip.fib_index)->mtrie;
-
-      leaf0 = ip4_fib_mtrie_lookup_step_one (mtrie0, src_addr0);
-      leaf1 = ip4_fib_mtrie_lookup_step_one (mtrie1, src_addr1);
-
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 2);
-      leaf1 = ip4_fib_mtrie_lookup_step (mtrie1, leaf1, src_addr1, 2);
-
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 3);
-      leaf1 = ip4_fib_mtrie_lookup_step (mtrie1, leaf1, src_addr1, 3);
-
-      lb_index0 = ip4_fib_mtrie_leaf_get_adj_index (leaf0);
-      lb_index1 = ip4_fib_mtrie_leaf_get_adj_index (leaf1);
+      ip4_fib_forwarding_lookup_x2 (
+	vnet_buffer (b[0])->ip.fib_index, vnet_buffer (b[1])->ip.fib_index,
+	src_addr0, src_addr1, &lb_index0, &lb_index1);
 
       ASSERT (lb_index0 && lb_index1);
       lb0 = load_balance_get (lb_index0);
@@ -549,12 +576,20 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       dpo1 = load_balance_get_bucket_i (lb1, 0);
 
       if (dpo_is_hicn (dpo0))
-	next[0] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	{
+	  next[0] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicn_data_input_set_adj_index (
+	    b[0], &dst_addr0, hicn_strategy_dpo_ctx_get (dpo0->dpoi_index));
+	}
       else
 	next[0] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
       if (dpo_is_hicn (dpo1))
-	next[1] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	{
+	  next[1] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicn_data_input_set_adj_index (
+	    b[1], &dst_addr1, hicn_strategy_dpo_ctx_get (dpo1->dpoi_index));
+	}
       else
 	next[1] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 
@@ -592,21 +627,18 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
     {
       ip4_header_t *ip0;
       const load_balance_t *lb0;
-      ip4_fib_mtrie_t *mtrie0;
-      ip4_fib_mtrie_leaf_t leaf0;
       ip4_address_t *src_addr0;
+      ip46_address_t dst_addr0;
       u32 lbi0;
       const dpo_id_t *dpo0;
 
       ip0 = vlib_buffer_get_current (b[0]);
       src_addr0 = &ip0->src_address;
+      ip46_address_set_ip4 (&dst_addr0, &ip0->dst_address);
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[0]);
 
-      mtrie0 = &ip4_fib_get (vnet_buffer (b[0])->ip.fib_index)->mtrie;
-      leaf0 = ip4_fib_mtrie_lookup_step_one (mtrie0, src_addr0);
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 2);
-      leaf0 = ip4_fib_mtrie_lookup_step (mtrie0, leaf0, src_addr0, 3);
-      lbi0 = ip4_fib_mtrie_leaf_get_adj_index (leaf0);
+      lbi0 = ip4_fib_forwarding_lookup (vnet_buffer (b[0])->ip.fib_index,
+					src_addr0);
 
       ASSERT (lbi0);
       lb0 = load_balance_get (lbi0);
@@ -617,7 +649,11 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       dpo0 = load_balance_get_bucket_i (lb0, 0);
 
       if (dpo_is_hicn (dpo0))
-	next[0] = HICN_DATA_INPUT_IP4_NEXT_FACE;
+	{
+	  next[0] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicn_data_input_set_adj_index (
+	    b[0], &dst_addr0, hicn_strategy_dpo_ctx_get (dpo0->dpoi_index));
+	}
       else
 	next[0] = HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
 

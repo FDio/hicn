@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -13,347 +13,294 @@
  * limitations under the License.
  */
 
-#include <limits.h>
-#include <hicn/hicn-light/config.h>
-#include <stdio.h>
+/**
+ * @file connection.c
+ * @brief Implementation of hICN connections
+ */
 
-#include <hicn/core/connection.h>
-#include <hicn/core/connectionState.h>
-#include <hicn/core/messageHandler.h>
-#include <hicn/core/ticks.h>
+#include <assert.h>
+
+#include <hicn/core/forwarder.h>
+#include <hicn/core/listener.h>
+#include <hicn/util/log.h>
 #include <hicn/core/wldr.h>
-#include <hicn/io/addressPair.h>
-#include <hicn/io/ioOperations.h>
 
-#include <parc/algol/parc_Memory.h>
-#include <parc/assert/parc_Assert.h>
-#ifdef WITH_POLICY
-#include <hicn/policy.h>
-#endif /* WITH_POLICY */
+#include "connection.h"
+#include "connection_vft.h"
 
-struct connection {
+#define _conn_var(x) _connection_##x
 
-  const AddressPair *addressPair;
-  IoOperations *ops;
+// This is called by configuration
+connection_t *connection_create(face_type_t type, const char *name,
+                                const address_pair_t *pair,
+                                forwarder_t *forwarder) {
+  assert(face_type_is_valid(type));
+  assert(pair);
+  assert(forwarder);
 
-  unsigned refCount;
-
-  unsigned counter;
-
-  bool wldrAutoStart;  // if true, wldr can be set automatically
-                       // by default this value is set to true.
-                       // if wldr is activated using a command (config
-                       // file/hicnLightControl) this value is set to false so
-                       // that a base station can not disable wldr at the client
-  Wldr *wldr;
-
-#ifdef WITH_POLICY
-  policy_tags_t tags;
-#endif /* WITH_POLICY */
-
-};
-
-Connection *connection_Create(IoOperations *ops) {
-  parcAssertNotNull(ops, "Parameter ops must be non-null");
-  Connection *conn = parcMemory_AllocateAndClear(sizeof(Connection));
-  parcAssertNotNull(conn, "parcMemory_AllocateAndClear(%zu) returned NULL",
-                    sizeof(Connection));
-  conn->addressPair = ioOperations_GetAddressPair(ops);
-  conn->ops = ops;
-  conn->refCount = 1;
-  conn->wldr = NULL;
-
-  conn->wldrAutoStart = true;
-  conn->counter = 0;
-
-  /* By default, a connection will aim at the UP state */
-  connection_SetAdminState(conn, CONNECTION_STATE_UP);
-
-#ifdef WITH_POLICY
-  conn->tags = POLICY_TAGS_EMPTY;
-#endif /* WITH_POLICY */
-
-  return conn;
-}
-
-Connection *connection_Acquire(Connection *connection) {
-  parcAssertNotNull(connection, "Parameter conn must be non-null");
-  connection->refCount++;
-  return connection;
-}
-
-void connection_Release(Connection **connectionPtr) {
-  parcAssertNotNull(connectionPtr, "Parameter must be non-null double pointer");
-  parcAssertNotNull(*connectionPtr,
-                    "Parameter must dereference to non-null pointer");
-  Connection *conn = *connectionPtr;
-
-  parcAssertTrue(
-      conn->refCount > 0,
-      "Invalid state, connection reference count should be positive, got 0.");
-  conn->refCount--;
-  if (conn->refCount == 0) {
-    // don't destroy addressPair, its part of ops.
-    ioOperations_Release(&conn->ops);
-    if (conn->wldr != NULL) {
-      wldr_Destroy(&(conn->wldr));
-    }
-    parcMemory_Deallocate((void **)&conn);
-  }
-  *connectionPtr = NULL;
-}
-
-bool connection_Send(const Connection *conn, Message *message) {
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  parcAssertNotNull(message, "Parameter message must be non-null");
-
-  if (ioOperations_IsUp(conn->ops)) {
-    if (message_GetType(message) == MessagePacketType_ContentObject) {
-      uint8_t connectionId = (uint8_t)connection_GetConnectionId(conn);
-      message_UpdatePathLabel(message, connectionId);
-    }
-    if (conn->wldr != NULL) {
-      wldr_SetLabel(conn->wldr, message);
-    } else {
-      message_ResetWldrLabel(message);
-    }
-    return ioOperations_Send(conn->ops, NULL, message);
-  }
-  return false;
-}
-
-bool connection_SendIOVBuffer(const Connection *conn, struct iovec *msg,
-    size_t size) {
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  parcAssertNotNull(msg, "Parameter message must be non-null");
-
-  return ioOperations_SendIOVBuffer(conn->ops, msg, size);
-}
-
-bool connection_SendBuffer(const Connection *conn, u8 * buffer, size_t length)
-{
-  struct iovec iov[1];
-  iov[0].iov_base = buffer;
-  iov[0].iov_len = length;
-  return connection_SendIOVBuffer(conn, iov, 1);
-}
-
-void connection_Probe(Connection *conn, uint8_t * probe) {
-  ioOperations_SendProbe(conn->ops, probe);
-}
-
-void connection_HandleProbe(Connection *conn, uint8_t *probe){
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  parcAssertNotNull(probe, "Parameter pkt must be non-null");
-
-  if(messageHandler_IsInterest(probe)){
-    messageHandler_CreateProbeReply(probe, HF_INET6_TCP);
-    ioOperations_SendProbe(conn->ops, probe);
-  }
-}
-
-IoOperations *connection_GetIoOperations(const Connection *conn) {
-  return conn->ops;
-}
-
-unsigned connection_GetConnectionId(const Connection *conn) {
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  return ioOperations_GetConnectionId(conn->ops);
-}
-
-const AddressPair *connection_GetAddressPair(const Connection *conn) {
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  return ioOperations_GetAddressPair(conn->ops);
-}
-
-bool connection_IsUp(const Connection *conn) {
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  if (!conn->ops) return false;
-  return ioOperations_IsUp(conn->ops);
-}
-
-bool connection_IsLocal(const Connection *conn) {
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  return ioOperations_IsLocal(conn->ops);
-}
-
-const void *connection_Class(const Connection *conn) {
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  return ioOperations_Class(conn->ops);
-}
-
-bool connection_ReSend(const Connection *conn, Message *message,
-                       bool notification) {
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  parcAssertNotNull(message, "Parameter message must be non-null");
-  bool res = false;
-
-  if (connection_IsUp(conn)) {
-    // here the wldr header is alreay set: this message is a retransmission or a
-    // notification
-
-    // we need to recompiute the path lable since we always store a pointer to
-    // the same message if this message will be sent again to someonelse, the
-    // new path label must be computed starting from the orignal labelorignal
-    // label. Notice that we heve the same problem in case of PIT aggregation.
-    // That case is handled insied the MessageProcessor. This is specific to
-    // WLDR retransmittions. This is done only for data packets
-
-    if (message_GetType(message) == MessagePacketType_ContentObject) {
-      uint8_t connectionId = (uint8_t)connection_GetConnectionId(conn);
-      uint32_t old_path_label = message_GetPathLabel(message);
-      message_UpdatePathLabel(message, connectionId);
-
-      res = ioOperations_Send(conn->ops, NULL, message);
-
-      message_SetPathLabel(message, old_path_label);
-    } else {
-      res = ioOperations_Send(conn->ops, NULL, message);
-    }
+  face_type_t listener_type;
+  switch (type) {
+    case FACE_TYPE_UDP:
+      listener_type = FACE_TYPE_UDP_LISTENER;
+      break;
+    case FACE_TYPE_TCP:
+      listener_type = FACE_TYPE_TCP_LISTENER;
+      break;
+    default:
+      return NULL;
   }
 
-  if (notification) {
-    // the notification is never destroyed
-    message_Release(&message);
-  }
+  listener_table_t *ltable = forwarder_get_listener_table(forwarder);
+  listener_key_t key = listener_key_factory(pair->local, listener_type);
 
-  return res;
-}
+  listener_t *listener = listener_table_get_by_key(ltable, &key);
+  if (!listener) {
+    WITH_ERROR({
+      char addr_str[NI_MAXHOST];
+      int port;
+      address_to_string(&pair->local, addr_str, &port);
+      ERROR("Could not find listener to match address %s:%d", addr_str, port);
+    })
 
-void connection_AllowWldrAutoStart(Connection *conn, bool allow) {
-  conn->wldrAutoStart = allow;
-}
-
-void connection_EnableWldr(Connection *conn) {
-  if (!connection_IsLocal(conn)) {
-    if (conn->wldr == NULL) {
-      printf("----------------- enable wldr\n");
-      conn->wldr = wldr_Init();
-    }
-  }
-}
-
-void connection_DisableWldr(Connection *conn) {
-  if (!connection_IsLocal(conn)) {
-    if (conn->wldr != NULL) {
-      printf("----------------- disable wldr\n");
-      wldr_Destroy(&(conn->wldr));
-      conn->wldr = NULL;
-    }
-  }
-}
-
-bool connection_HasWldr(const Connection *conn) {
-  if (conn->wldr == NULL) {
-    return false;
-  } else {
-    return true;
-  }
-}
-
-bool connection_WldrAutoStartAllowed(const Connection *conn) {
-  return conn->wldrAutoStart;
-}
-
-void connection_DetectLosses(Connection *conn, Message *message) {
-  if (conn->wldr != NULL) wldr_DetectLosses(conn->wldr, conn, message);
-}
-
-void connection_HandleWldrNotification(Connection *conn, Message *message) {
-  if (conn->wldr != NULL)
-    wldr_HandleWldrNotification(conn->wldr, conn, message);
-}
-
-connection_state_t connection_GetState(const Connection *conn)
-{
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  if (!conn->ops)
-    return CONNECTION_STATE_UNDEFINED;
-  return ioOperations_GetState(conn->ops);
-}
-
-void connection_SetState(Connection *conn, connection_state_t state)
-{
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  if (!conn->ops)
-    return;
-  ioOperations_SetState(conn->ops, state);
-}
-
-connection_state_t connection_GetAdminState(const Connection *conn)
-{
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  if (!conn->ops)
-    return CONNECTION_STATE_UNDEFINED;
-  return ioOperations_GetAdminState(conn->ops);
-}
-
-void connection_SetAdminState(Connection *conn, connection_state_t admin_state)
-{
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  if (!conn->ops)
-    return;
-  if ((admin_state != CONNECTION_STATE_UP) && (admin_state != CONNECTION_STATE_DOWN))
-    return;
-  ioOperations_SetAdminState(conn->ops, admin_state);
-}
-
-#ifdef WITH_POLICY
-uint32_t connection_GetPriority(const Connection *conn)
-{
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  if (!conn->ops)
-    return 0;
-  return ioOperations_GetPriority(conn->ops);
-}
-
-void connection_SetPriority(Connection *conn, uint32_t priority)
-{
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  if (!conn->ops)
-    return;
-  ioOperations_SetPriority(conn->ops, priority);
-}
-#endif /* WITH_POLICY */
-
-const char * connection_GetInterfaceName(const Connection * conn)
-{
-  parcAssertNotNull(conn, "Parameter conn must be non-null");
-  if (!conn->ops)
     return NULL;
-  return ioOperations_GetInterfaceName(conn->ops);
+  }
+
+  connection_table_t *table =
+      forwarder_get_connection_table(listener->forwarder);
+  unsigned connection_id = listener_create_connection(listener, name, pair);
+  if (!connection_id_is_valid(connection_id)) return NULL;
+  return connection_table_at(table, connection_id);
 }
 
+/**
+ * @brief Initializes a connection
+ *
+ * @param [out] connection - Allocated connection buffer (eg. from pool) to be
+ *      initialized.
+ * @param [in] forwarder - forwarder_t to which the connection is associated.
+ * This parameter needs to be non-NULL for connections receiving packets, such
+ *      as TCP connections which are very close to UDP listeners, and unlike
+ *      bound UDP connections).
+ * @param [in] fd - A fd specific to the connection, or 0 if the connection
+ *      should inherit the fd of the listener.
+ * @return 0 if no error, -1 otherwise
+ */
+int connection_initialize(connection_t *connection, face_type_t type,
+                          const char *name, const char *interface_name, int fd,
+                          const address_pair_t *pair, bool local,
+                          unsigned connection_id, listener_t *listener) {
+  int rc;
+
+  assert(connection);
+  /* Interface name can be NULL eg always for TCP connnections */
+  assert(pair);
+  // assert(address_pair_is_valid(pair)); TODO: local addr in the pair is not
+  // initialized for now
+
+  if (fd == 0) WARN("Connection is not connected");
+
+  *connection = (connection_t){
+      .id = connection_id,
+      .name = strdup(name),
+      .type = type,
+      .interface_name = strdup(interface_name),
+      .pair = *pair,
+      .fd = ((fd != 0) ? fd : listener_get_fd(listener)),
+      .connected = (fd != 0),
+      //        .up = true,
+      .local = local,
+      // XXX UDP should start UP, TCP DOWN until remove side answer ?
+      .state = FACE_STATE_UNDEFINED,
+      .admin_state = FACE_STATE_UP,
 #ifdef WITH_POLICY
-
-void connection_AddTag(Connection *conn, policy_tag_t tag)
-{
-    policy_tags_add(&conn->tags, tag);
-}
-
-void connection_RemoveTag(Connection *conn, policy_tag_t tag)
-{
-    policy_tags_remove(&conn->tags, tag);
-}
-
-policy_tags_t connection_GetTags(const Connection *conn)
-{
-    return conn->tags;
-}
-
-void connection_SetTags(Connection *conn, policy_tags_t tags)
-{
-    conn->tags = tags;
-}
-
-void connection_ClearTags(Connection *conn)
-{
-    conn->tags = POLICY_TAGS_EMPTY;
-}
-
-int connection_HasTag(const Connection *conn, policy_tag_t tag)
-{
-    return policy_tags_has(conn->tags, tag);
-}
-
+      .priority = 0,
 #endif /* WITH_POLICY */
+
+      .listener = listener,
+      .closed = false,
+
+      /* WLDR */
+      .wldr = NULL,
+      .wldr_autostart = true,
+  };
+
+  connection->data =
+      malloc(connection_vft[get_protocol(connection->type)]->data_size);
+  if (!connection->data) goto ERR_DATA;
+
+  assert(connection_has_valid_id(connection));
+
+  rc = connection_vft[get_protocol(connection->type)]->initialize(connection);
+  if (rc < 0) {
+    goto ERR_VFT;
+  }
+
+  if (connection->connected) {
+    /*
+     * The file descriptor is created by the listener. We assume for now that
+     * all connections get their own fd, and we have to register it.
+     *
+     * TODO the connection has no more read callback, so we call the one from
+     * the listener.
+     */
+    loop_fd_event_create(&connection->event_data, MAIN_LOOP, fd, listener,
+                         (fd_callback_t)listener_read_callback, NULL);
+
+    if (!connection->event_data) {
+      goto ERR_REGISTER_FD;
+    }
+
+    if (loop_fd_event_register(connection->event_data) < 0) {
+      goto ERR_REGISTER_FD;
+    }
+  }
+
+  return 0;
+
+ERR_REGISTER_FD:
+#ifndef _WIN32
+  close(fd);
+#else
+  closesocket(fd);
+#endif
+ERR_VFT:
+  free(connection->data);
+ERR_DATA:
+  free(connection->interface_name);
+  free(connection->name);
+  return -1;
+}
+
+int connection_finalize(connection_t *connection) {
+  assert(connection);
+  assert(connection_has_valid_type(connection));
+
+  if (connection->connected) {
+    loop_event_unregister(connection->event_data);
+    loop_event_free(connection->event_data);
+  }
+
+  if (connection->fd != 0) {  // Only if connected socket
+#ifndef _WIN32
+    close(connection->fd);
+#else
+    closesocket(connection->fd);
+#endif
+  }
+
+  if (connection->wldr) wldr_free(connection->wldr);
+
+  connection_vft[get_protocol(connection->type)]->finalize(connection);
+
+  if (connection->data) free(connection->data);
+  connection->data = NULL;
+  if (connection->interface_name) free(connection->interface_name);
+  connection->interface_name = NULL;
+  if (connection->name) free(connection->name);
+  connection->name = NULL;
+
+  return 0;
+}
+
+int connection_send_packet(const connection_t *connection,
+                           const uint8_t *packet, size_t size) {
+  assert(connection);
+  assert(face_type_is_valid(connection->type));
+  assert(packet);
+
+  return connection_vft[get_protocol(connection->type)]->send_packet(
+      connection, packet, size);
+}
+
+bool _connection_send(const connection_t *connection, msgbuf_t *msgbuf,
+                      bool queue) {
+  return connection_vft[get_protocol(connection->type)]->send(connection,
+                                                              msgbuf, queue);
+}
+
+bool connection_flush(const connection_t *connection) {
+  return connection_vft[get_protocol(connection->type)]->flush(connection);
+}
+
+bool connection_send(const connection_t *connection, off_t msgbuf_id,
+                     bool queue) {
+  assert(connection);
+  assert(msgbuf_id_is_valid(msgbuf_id));
+
+  // if (!connection_is_up(connection))
+  //     return false;
+
+  const listener_t *listener = connection_get_listener(connection);
+  const forwarder_t *forwarder = listener_get_forwarder(listener);
+  const msgbuf_pool_t *msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
+  msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
+
+  if (connection->wldr)
+    wldr_set_label(connection->wldr, msgbuf);
+  else
+    msgbuf_reset_wldr_label(msgbuf);
+
+  return _connection_send(connection, msgbuf, queue);
+}
+
+/*
+ * here the wldr header is alreay set: this message is a retransmission or a
+ * notification
+ *
+ * we need to recompute the path label since we always store a pointer to
+ * the same message if this message will be sent again to someone else, the
+ * new path label must be computed starting from the orignal label. Note
+ * that we heve the same problem in case of PIT aggregation. That case is
+ * handled inside the MessageProcessor. This is specific to WLDR
+ * retransmittions. This is done only for data packets
+ */
+bool connection_resend(const connection_t *connection, msgbuf_t *msgbuf,
+                       bool notification) {
+  assert(connection);
+  assert(msgbuf);
+
+  bool ret = false;
+
+  if (!connection_is_up(connection)) return ret;
+
+  ret = _connection_send(connection, msgbuf, false); /* no queueing */
+
+  return ret;
+}
+
+/* WLDR */
+
+void connection_wldr_allow_autostart(connection_t *connection, bool value) {
+  connection->wldr_autostart = value;
+}
+
+bool connection_wldr_autostart_is_allowed(const connection_t *connection) {
+  return connection->wldr_autostart;
+}
+
+void connection_wldr_enable(connection_t *connection, bool value) {
+  if (connection_is_local(connection)) return;
+  if (value) {
+    if (connection->wldr) return;
+    connection->wldr = wldr_create();
+  } else {
+    if (!connection->wldr) return;
+    wldr_free(connection->wldr);
+  }
+}
+
+bool connection_has_wldr(const connection_t *connection) {
+  return !!connection->wldr;
+}
+
+void connection_wldr_detect_losses(const connection_t *connection,
+                                   const msgbuf_t *msgbuf) {
+  if (!connection->wldr) return;
+  wldr_detect_losses(connection->wldr, connection, msgbuf);
+}
+
+void connection_wldr_handle_notification(const connection_t *connection,
+                                         const msgbuf_t *msgbuf) {
+  if (!connection->wldr) return;
+  wldr_handle_notification(connection->wldr, connection, msgbuf);
+}
