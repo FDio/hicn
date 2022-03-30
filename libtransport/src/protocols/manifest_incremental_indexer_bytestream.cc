@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -31,8 +31,7 @@ ManifestIncrementalIndexer::ManifestIncrementalIndexer(
     implementation::ConsumerSocket *icn_socket, TransportProtocol *transport)
     : IncrementalIndexer(icn_socket, transport),
       suffix_strategy_(utils::SuffixStrategyFactory::getSuffixStrategy(
-          NextSegmentCalculationStrategy::INCREMENTAL, next_download_suffix_,
-          0)) {}
+          utils::NextSuffixStrategy::INCREMENTAL, next_download_suffix_)) {}
 
 void ManifestIncrementalIndexer::onContentObject(
     core::Interest &interest, core::ContentObject &content_object,
@@ -59,18 +58,17 @@ void ManifestIncrementalIndexer::onContentObject(
 void ManifestIncrementalIndexer::onUntrustedManifest(
     core::Interest &interest, core::ContentObject &content_object,
     bool reassembly) {
-  auto manifest =
-      std::make_unique<ContentObjectManifest>(std::move(content_object));
-
-  auth::VerificationPolicy policy = verifier_->verifyPackets(manifest.get());
-
-  manifest->decode();
+  auth::VerificationPolicy policy = verifier_->verifyPackets(&content_object);
 
   if (policy != auth::VerificationPolicy::ACCEPT) {
     transport_->onContentReassembled(
         make_error_code(protocol_error::session_aborted));
     return;
   }
+
+  auto manifest =
+      std::make_unique<ContentObjectManifest>(std::move(content_object));
+  manifest->decode();
 
   processTrustedManifest(interest, std::move(manifest), reassembly);
 }
@@ -83,9 +81,10 @@ void ManifestIncrementalIndexer::processTrustedManifest(
     throw errors::RuntimeException("Received manifest with unknown version.");
   }
 
-  switch (manifest->getManifestType()) {
+  switch (manifest->getType()) {
     case core::ManifestType::INLINE_MANIFEST: {
-      suffix_strategy_->setFinalSuffix(manifest->getFinalBlockNumber());
+      suffix_strategy_->setFinalSuffix(
+          manifest->getParamsBytestream().final_segment);
 
       // The packets to verify with the received manifest
       std::vector<auth::PacketPtr> packets;
@@ -162,45 +161,15 @@ void ManifestIncrementalIndexer::onUntrustedContentObject(
   applyPolicy(interest, content_object, reassembly, policy);
 }
 
-void ManifestIncrementalIndexer::applyPolicy(
-    core::Interest &interest, core::ContentObject &content_object,
-    bool reassembly, auth::VerificationPolicy policy) {
-  assert(reassembly_);
-  switch (policy) {
-    case auth::VerificationPolicy::ACCEPT: {
-      if (reassembly && !reassembly_->reassembleUnverified()) {
-        reassembly_->reassemble(content_object);
-      }
-      break;
-    }
-    case auth::VerificationPolicy::DROP: {
-      transport_->onPacketDropped(
-          interest, content_object,
-          make_error_code(protocol_error::verification_failed));
-      break;
-    }
-    case auth::VerificationPolicy::ABORT: {
-      transport_->onContentReassembled(
-          make_error_code(protocol_error::session_aborted));
-      break;
-    }
-    case auth::VerificationPolicy::UNKNOWN: {
-      if (reassembly && reassembly_->reassembleUnverified()) {
-        reassembly_->reassemble(content_object);
-      }
-    }
-  }
-}
-
-uint32_t ManifestIncrementalIndexer::checkNextSuffix() {
-  return suffix_strategy_->getNextSuffix();
+uint32_t ManifestIncrementalIndexer::checkNextSuffix() const {
+  return suffix_strategy_->checkNextSuffix();
 }
 
 uint32_t ManifestIncrementalIndexer::getNextSuffix() {
   auto ret = suffix_strategy_->getNextSuffix();
 
   if (ret <= suffix_strategy_->getFinalSuffix() &&
-      ret != utils::SuffixStrategy::INVALID_SUFFIX) {
+      ret != utils::SuffixStrategy::MAX_SUFFIX) {
     suffix_queue_.push(ret);
     return ret;
   }
@@ -208,7 +177,7 @@ uint32_t ManifestIncrementalIndexer::getNextSuffix() {
   return Indexer::invalid_index;
 }
 
-uint32_t ManifestIncrementalIndexer::getFinalSuffix() {
+uint32_t ManifestIncrementalIndexer::getFinalSuffix() const {
   return suffix_strategy_->getFinalSuffix();
 }
 

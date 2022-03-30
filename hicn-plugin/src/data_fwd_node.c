@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -428,9 +428,9 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 	  clones += 2;
 
 	  next0 = isv6 ? HICN_DATA_FWD_NEXT_IFACE6_OUT :
-			 HICN_DATA_FWD_NEXT_IFACE4_OUT;
+			       HICN_DATA_FWD_NEXT_IFACE4_OUT;
 	  next1 = isv6 ? HICN_DATA_FWD_NEXT_IFACE6_OUT :
-			 HICN_DATA_FWD_NEXT_IFACE4_OUT;
+			       HICN_DATA_FWD_NEXT_IFACE4_OUT;
 
 	  vnet_buffer (h0)->ip.adj_index[VLIB_TX] = face0;
 	  vnet_buffer (h1)->ip.adj_index[VLIB_TX] = face1;
@@ -481,7 +481,7 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 	  clones += 1;
 
 	  next0 = isv6 ? HICN_DATA_FWD_NEXT_IFACE6_OUT :
-			 HICN_DATA_FWD_NEXT_IFACE4_OUT;
+			       HICN_DATA_FWD_NEXT_IFACE4_OUT;
 	  vnet_buffer (h0)->ip.adj_index[VLIB_TX] = face0;
 
 	  stats->pkts_data_count++;
@@ -548,10 +548,7 @@ clone_data_to_cs (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
    * the PIT part of the union as we update the CS part, so don't
    * expect the PIT part to be valid after this point.
    */
-  hicn_buffer_t *hicnb0 = hicn_get_buffer (b0);
-  hicn_pit_to_cs (vm, pitcs, pitp, hash_entry, nodep, dpo_vft, hicn_dpo_id,
-		  hicnb->face_id,
-		  hicnb0->flags & HICN_BUFFER_FLAGS_FACE_IS_APP);
+  hicn_pit_to_cs (vm, pitcs, pitp, hash_entry, nodep, dpo_vft, hicn_dpo_id);
 
   pitp->shared.create_time = tnow;
 

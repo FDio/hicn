@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -27,9 +27,11 @@
 #include "protocol/icmprd.h"
 #include "protocol/tcp.h"
 #include "protocol/udp.h"
+#include "protocol/new.h"
 
 typedef union
 {
+  _new_header_t newhdr;
   _ipv4_header_t ipv4;
   _ipv6_header_t ipv6;
   _tcp_header_t tcp;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -37,11 +37,11 @@ void CbrTransportProtocol::afterDataUnsatisfied(uint64_t segment) {}
 void CbrTransportProtocol::afterContentReception(
     const Interest &interest, const ContentObject &content_object) {
   auto segment = content_object.getName().getSuffix();
-  auto now = utils::SteadyClock::now();
-  auto rtt = std::chrono::duration_cast<utils::Microseconds>(
-      now - interest_timepoints_[segment & mask]);
+  auto now = utils::SteadyTime::Clock::now();
+  auto rtt = utils::SteadyTime::getDurationMs(
+      interest_timepoints_[segment & mask], now);
   // Update stats
-  updateStats(segment, rtt.count(), now);
+  updateStats(segment, rtt, now);
 }
 
 }  // end namespace protocol

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -31,6 +31,7 @@ DECLARE_get_interest_name (ah, UNEXPECTED);
 DECLARE_set_interest_name (ah, UNEXPECTED);
 DECLARE_get_interest_name_suffix (ah, UNEXPECTED);
 DECLARE_set_interest_name_suffix (ah, UNEXPECTED);
+DECLARE_is_interest (ah, UNEXPECTED);
 DECLARE_mark_packet_as_interest (ah, UNEXPECTED);
 DECLARE_mark_packet_as_data (ah, UNEXPECTED);
 DECLARE_get_data_locator (ah, UNEXPECTED);
@@ -46,6 +47,10 @@ DECLARE_get_lifetime (ah, UNEXPECTED);
 DECLARE_set_lifetime (ah, UNEXPECTED);
 DECLARE_get_payload_length (ah, UNEXPECTED);
 DECLARE_set_payload_length (ah, UNEXPECTED);
+DECLARE_get_payload_type (ah, UNEXPECTED);
+DECLARE_set_payload_type (ah, UNEXPECTED);
+DECLARE_is_last_data (ah, UNEXPECTED);
+DECLARE_set_last_data (ah, UNEXPECTED);
 
 int
 ah_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
@@ -69,6 +74,7 @@ ah_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t *h)
   if (rc < 0)
     return rc;
   memset (&(h->ah.validationPayload), 0, signature_size);
+  h->ah.signaturePadding = 0;
   return CHILD_OPS (reset_interest_for_hash, type, h);
 }
 
@@ -81,6 +87,7 @@ ah_reset_data_for_hash (hicn_type_t type, hicn_protocol_t *h)
   if (rc < 0)
     return rc;
   memset (&(h->ah.validationPayload), 0, signature_size);
+  h->ah.signaturePadding = 0;
   return CHILD_OPS (reset_interest_for_hash, type, h);
 }
 
@@ -102,7 +109,7 @@ ah_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
 
 int
 ah_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
-		     const ip46_address_t *addr_new, ip46_address_t *addr_old)
+		     const ip_address_t *addr_new, ip_address_t *addr_old)
 {
   /* Nothing to do on signature */
   return HICN_LIB_ERROR_NONE;
@@ -110,7 +117,7 @@ ah_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
 
 int
 ah_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
-		 const ip46_address_t *addr_new, ip46_address_t *addr_old,
+		 const ip_address_t *addr_new, ip_address_t *addr_old,
 		 const hicn_faceid_t face_id, u8 reset_pl)
 {
   /* Nothing to do on signature */
@@ -162,7 +169,7 @@ int
 ah_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
 		       const size_t signature_size)
 {
-  h->ah.payloadlen = (u8) (signature_size >> 2);
+  h->ah.payloadlen = signature_size >> 2;
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -201,16 +208,17 @@ ah_get_validation_algorithm (hicn_type_t type, const hicn_protocol_t *h,
 }
 
 int
-ah_set_signature_gap (hicn_type_t type, hicn_protocol_t *h, uint8_t gap)
+ah_set_signature_padding (hicn_type_t type, hicn_protocol_t *h, size_t padding)
 {
-  h->ah.signatureGap = gap;
+  h->ah.signaturePadding = padding;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ah_get_signature_gap (hicn_type_t type, const hicn_protocol_t *h, uint8_t *gap)
+ah_get_signature_padding (hicn_type_t type, const hicn_protocol_t *h,
+			  size_t *padding)
 {
-  *gap = h->ah.signatureGap;
+  *padding = h->ah.signaturePadding;
   return HICN_LIB_ERROR_NONE;
 }
 

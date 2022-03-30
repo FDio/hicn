@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,7 +22,9 @@
 #include "http_session.h"
 #include "icn_receiver.h"
 
+#ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE
+#endif
 #include <asio.hpp>
 #include <asio/version.hpp>
 #include <unordered_set>
@@ -50,9 +52,9 @@ class TcpListener {
   void doAccept() {
 #if ((ASIO_VERSION / 100 % 1000) >= 12)
     acceptor_.async_accept(
-        [this](std::error_code ec, asio::ip::tcp::socket socket) {
+        [this](const std::error_code& ec, asio::ip::tcp::socket socket) {
 #else
-    acceptor_.async_accept(socket_, [this](std::error_code ec) {
+    acceptor_.async_accept(socket_, [this](const std::error_code& ec) {
       auto socket = std::move(socket_);
 #endif
           if (!ec) {

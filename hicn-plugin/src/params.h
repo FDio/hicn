@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -60,9 +60,9 @@ STATIC_ASSERT ((HICN_PARAM_FACES_MAX & (HICN_PARAM_FACES_MAX - 1)) == 0,
 // HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4 must be a power of two
 #define HICN_PARAM_PIT_ENTRY_PHOPS_MAX 20
 
-STATIC_ASSERT ((ceil (log2 ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4)))) ==
-		 (floor (log2 ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4)))),
-	       "HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4 must be a power of two");
+// STATIC_ASSERT ((ceil (log2 ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4)))) ==
+// 		 (floor (log2 ((HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4)))),
+// 	       "HICN_PARAM_PIT_ENTRY_PHOPS_MAX - 4 must be a power of two");
 
 STATIC_ASSERT (
   (HICN_PARAM_PIT_ENTRY_PHOPS_MAX <= HICN_PARAM_FACES_MAX),
@@ -113,7 +113,7 @@ STATIC_ASSERT (
 #define IPV6_DEFAULT_VERSION	   6
 #define IPV6_DEFAULT_TRAFFIC_CLASS 0
 #define IPV6_DEFAULT_FLOW_LABEL	   0
-#define HCIN_IP6_VERSION_TRAFFIC_FLOW                                         \
+#define HICN_IP6_VERSION_TRAFFIC_FLOW                                         \
   (IPV6_DEFAULT_VERSION << 28) | (IPV6_DEFAULT_TRAFFIC_CLASS << 20) |         \
     (IPV6_DEFAULT_FLOW_LABEL & 0xfffff)
 #define HICN_IP6_PROTOCOL  IP_PROTOCOL_TCP

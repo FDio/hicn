@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -44,7 +44,20 @@ DECLARE_get_length (tcp, UNEXPECTED);
 DECLARE_get_payload_length (tcp, UNEXPECTED);
 DECLARE_set_payload_length (tcp, UNEXPECTED);
 
-always_inline int
+static inline void
+reset_for_hash (hicn_protocol_t *h)
+{
+  h->tcp.sport = 0;
+  h->tcp.dport = 0;
+  h->tcp.seq_ack = 0;
+  h->tcp.data_offset_and_reserved = 0;
+  h->tcp.flags = 0;
+  h->tcp.window = 0;
+  h->tcp.csum = 0;
+  h->tcp.urg_ptr = 0;
+}
+
+static inline int
 check_tcp_checksum (u16 csum)
 {
   /* As per RFC1624
@@ -92,6 +105,20 @@ tcp_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
 }
 
 int
+tcp_is_interest (hicn_type_t type, const hicn_protocol_t *h, int *is_interest)
+{
+  *is_interest = (h->tcp.flags & HICN_TCP_FLAG_ECE) == 0;
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+tcp_mark_packet_as_interest (hicn_type_t type, hicn_protocol_t *h)
+{
+  h->tcp.flags &= ~HICN_TCP_FLAG_ECE;
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
 tcp_get_interest_name_suffix (hicn_type_t type, const hicn_protocol_t *h,
 			      hicn_name_suffix_t *suffix)
 {
@@ -103,15 +130,12 @@ int
 tcp_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t *h,
 			      const hicn_name_suffix_t *suffix)
 {
+  int rc = tcp_mark_packet_as_interest (type, h);
+  if (rc)
+    return rc;
+
   h->tcp.name_suffix = htonl (*suffix);
 
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-tcp_mark_packet_as_interest (hicn_type_t type, hicn_protocol_t *h)
-{
-  h->tcp.flags &= ~HICN_TCP_FLAG_ECE;
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -125,9 +149,7 @@ tcp_mark_packet_as_data (hicn_type_t type, hicn_protocol_t *h)
 int
 tcp_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t *h)
 {
-  memset (&(h->tcp), 0, 4);
-  memset (&(h->tcp.seq_ack), 0, 12);
-
+  reset_for_hash (h);
   return CHILD_OPS (reset_interest_for_hash, type, h);
 }
 
@@ -143,6 +165,10 @@ int
 tcp_set_data_name_suffix (hicn_type_t type, hicn_protocol_t *h,
 			  const hicn_name_suffix_t *suffix)
 {
+  int rc = tcp_mark_packet_as_data (type, h);
+  if (rc)
+    return rc;
+
   h->tcp.name_suffix = htonl (*suffix);
   return HICN_LIB_ERROR_NONE;
 }
@@ -181,9 +207,7 @@ tcp_update_data_pathlabel (hicn_type_t type, hicn_protocol_t *h,
 int
 tcp_reset_data_for_hash (hicn_type_t type, hicn_protocol_t *h)
 {
-  memset (&(h->tcp), 0, 4);
-  memset (&(h->tcp.seq_ack), 0, 12);
-
+  reset_for_hash (h);
   return CHILD_OPS (reset_data_for_hash, type, h);
 }
 
@@ -279,7 +303,7 @@ tcp_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
 
 int
 tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
-		      const ip46_address_t *addr_new, ip46_address_t *addr_old)
+		      const ip_address_t *addr_new, ip_address_t *addr_old)
 {
   u16 *tcp_checksum = &(h->tcp.csum);
   int ret = check_tcp_checksum (*tcp_checksum);
@@ -310,7 +334,7 @@ tcp_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
 
 int
 tcp_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
-		  const ip46_address_t *addr_new, ip46_address_t *addr_old,
+		  const ip_address_t *addr_new, ip_address_t *addr_old,
 		  const hicn_faceid_t face_id, u8 reset_pl)
 {
 
@@ -339,11 +363,11 @@ tcp_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
    * csum = ip_csum_add_even (csum, h->ipv4.saddr.as_u32);
    */
   ip_csum_t csum =
-    ip_csum_sub_even (*tcp_checksum, (ip_csum_t) (addr_old->ip6.as_u64[0]));
+    ip_csum_sub_even (*tcp_checksum, (ip_csum_t) (addr_old->v6.as_u64[0]));
   csum =
-    ip_csum_sub_even (*tcp_checksum, (ip_csum_t) (addr_old->ip6.as_u64[1]));
-  csum = ip_csum_add_even (csum, (ip_csum_t) (addr_new->ip6.as_u64[0]));
-  csum = ip_csum_add_even (csum, (ip_csum_t) (addr_new->ip6.as_u64[1]));
+    ip_csum_sub_even (*tcp_checksum, (ip_csum_t) (addr_old->v6.as_u64[1]));
+  csum = ip_csum_add_even (csum, (ip_csum_t) (addr_new->v6.as_u64[0]));
+  csum = ip_csum_add_even (csum, (ip_csum_t) (addr_new->v6.as_u64[1]));
 
   csum = ip_csum_sub_even (csum, old_pl);
   csum = ip_csum_add_even (csum, h->tcp.seq_ack);
@@ -389,16 +413,17 @@ tcp_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
-tcp_set_signature_gap (hicn_type_t type, hicn_protocol_t *h, uint8_t gap)
+tcp_set_signature_padding (hicn_type_t type, hicn_protocol_t *h,
+			   size_t padding)
 {
-  return CHILD_OPS (set_signature_gap, type, h, gap);
+  return CHILD_OPS (set_signature_padding, type, h, padding);
 }
 
 int
-tcp_get_signature_gap (hicn_type_t type, const hicn_protocol_t *h,
-		       uint8_t *gap)
+tcp_get_signature_padding (hicn_type_t type, const hicn_protocol_t *h,
+			   size_t *padding)
 {
-  return CHILD_OPS (get_signature_gap, type, h, gap);
+  return CHILD_OPS (get_signature_padding, type, h, padding);
 }
 
 int
@@ -446,6 +471,43 @@ int
 tcp_get_signature (hicn_type_t type, hicn_protocol_t *h, uint8_t **signature)
 {
   return CHILD_OPS (get_signature, type, h, signature);
+}
+
+int
+tcp_get_payload_type (hicn_type_t type, const hicn_protocol_t *h,
+		      hicn_payload_type_t *payload_type)
+{
+  *payload_type = ((h->tcp.flags & HICN_TCP_FLAG_URG) == HICN_TCP_FLAG_URG);
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+tcp_set_payload_type (hicn_type_t type, hicn_protocol_t *h,
+		      hicn_payload_type_t payload_type)
+{
+  if (payload_type != HPT_DATA && payload_type != HPT_MANIFEST)
+    return HICN_LIB_ERROR_INVALID_PARAMETER;
+
+  if (payload_type)
+    h->tcp.flags |= HICN_TCP_FLAG_URG;
+  else
+    h->tcp.flags &= ~HICN_TCP_FLAG_URG;
+
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+tcp_is_last_data (hicn_type_t type, const hicn_protocol_t *h, int *is_last)
+{
+  *is_last = (h->tcp.flags & HICN_TCP_FLAG_RST) == HICN_TCP_FLAG_RST;
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+tcp_set_last_data (hicn_type_t type, hicn_protocol_t *h)
+{
+  h->tcp.flags |= HICN_TCP_FLAG_RST;
+  return HICN_LIB_ERROR_NONE;
 }
 
 DECLARE_HICN_OPS (tcp);

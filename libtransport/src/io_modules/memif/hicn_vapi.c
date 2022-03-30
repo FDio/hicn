@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -27,8 +27,6 @@
 #include <vlibapi/api.h>
 #include <vlibmemory/api.h>
 #include <vnet/ip/format.h>
-#include <vnet/ip/ip4_packet.h>
-#include <vnet/ip/ip6_packet.h>
 #include <vpp_plugins/hicn/error.h>
 #include <vppinfra/error.h>
 
@@ -45,9 +43,6 @@ const char *HICN_ERROR_STRING[] = {
 u8 *format_vl_api_address_union(u8 *s, va_list *args) { return NULL; }
 
 /*********************************************************************************/
-
-DEFINE_VAPI_MSG_IDS_HICN_API_JSON
-DEFINE_VAPI_MSG_IDS_IP_API_JSON
 
 static vapi_error_e register_prod_app_cb(
     vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv, bool is_last,
@@ -78,7 +73,7 @@ int hicn_vapi_register_prod_app(vapi_ctx_t ctx,
   vapi_msg_hicn_api_register_prod_app *msg =
       vapi_alloc_hicn_api_register_prod_app(ctx);
 
-  if (ip46_address_is_ip4((ip46_address_t *)&input_params->prefix->address)) {
+  if (ip_address_is_v4((ip_address_t *)&input_params->prefix->address)) {
     memcpy(&msg->payload.prefix.address.un.ip4, &input_params->prefix->address,
            sizeof(ip4_address_t));
     msg->payload.prefix.address.af = ADDRESS_IP4;
@@ -190,7 +185,7 @@ int hicn_vapi_register_route(vapi_ctx_t ctx,
   vapi_msg_ip_route_add_del *msg = vapi_alloc_ip_route_add_del(ctx, 1);
 
   msg->payload.is_add = 1;
-  if (ip46_address_is_ip4((ip46_address_t *)(input_params->prod_addr))) {
+  if (ip_address_is_v4((ip_address_t *)(input_params->prod_addr))) {
     memcpy(&msg->payload.route.prefix.address.un.ip4,
            &input_params->prefix->address.v4, sizeof(ip4_address_t));
     msg->payload.route.prefix.address.af = ADDRESS_IP4;
@@ -204,7 +199,7 @@ int hicn_vapi_register_route(vapi_ctx_t ctx,
 
   msg->payload.route.paths[0].sw_if_index = ~0;
   msg->payload.route.paths[0].table_id = 0;
-  if (ip46_address_is_ip4((ip46_address_t *)(input_params->prod_addr))) {
+  if (ip_address_is_v4((ip_address_t *)(input_params->prod_addr))) {
     memcpy(&(msg->payload.route.paths[0].nh.address.ip4),
            input_params->prod_addr->v4.as_u8, sizeof(ip4_address_t));
     msg->payload.route.paths[0].proto = FIB_API_PATH_NH_PROTO_IP4;
@@ -214,7 +209,7 @@ int hicn_vapi_register_route(vapi_ctx_t ctx,
     msg->payload.route.paths[0].proto = FIB_API_PATH_NH_PROTO_IP6;
   }
 
-  msg->payload.route.paths[0].type = FIB_API_PATH_FLAG_NONE;
+  msg->payload.route.paths[0].type = FIB_API_PATH_TYPE_NORMAL;
   msg->payload.route.paths[0].flags = FIB_API_PATH_FLAG_NONE;
 
   int ret = vapi_ip_route_add_del(ctx, msg, reigster_route_cb, NULL);

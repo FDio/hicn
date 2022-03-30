@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,7 +21,7 @@
 #include "mgmt.h"
 
 /* define message IDs */
-#include "hicn_msg_enum.h"
+#include <vpp_plugins/hicn/hicn_msg_enum.h>
 
 /* shared routine betweeen API and CLI, leveraging API message structure */
 int
@@ -46,7 +46,8 @@ hicn_mgmt_node_stats_get (vl_api_hicn_api_node_stats_get_reply_t *rmp)
 
   vlib_error_main_t *em;
   vlib_node_t *n;
-  foreach_vlib_main() {
+  foreach_vlib_main ()
+  {
     em = &this_vlib_main->error_main;
     n = vlib_get_node (this_vlib_main, hicn_interest_pcslookup_node.index);
     u32 node_cntr_base_idx = n->error_heap_index;

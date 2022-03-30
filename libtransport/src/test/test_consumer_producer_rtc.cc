@@ -41,7 +41,7 @@ class ConsumerProducerTest : public ::testing::Test,
         rtc_timer_(io_service_),
         stop_timer_(io_service_),
         consumer_(TransportProtocolAlgorithms::RTC, io_service_),
-        producer_(ProductionProtocolAlgorithms::RTC_PROD, io_service_),
+        producer_(ProductionProtocolAlgorithms::RTC_PROD, thread_),
         producer_prefix_(prefix),
         consumer_name_(name),
         packets_sent_(0),
@@ -120,14 +120,13 @@ class ConsumerProducerTest : public ::testing::Test,
 
   size_t maxBufferSize() const override { return receive_buffer_size; }
 
-  void readError(const std::error_code ec) noexcept override {
-    FAIL() << "Error while reading from RTC socket";
+  void readError(const std::error_code &ec) noexcept override {
     io_service_.stop();
+    FAIL() << "Error while reading from RTC socket";
   }
 
   void readSuccess(std::size_t total_size) noexcept override {
     packets_received_++;
-    std::cout << "Received something" << std::endl;
   }
 
   asio::io_service io_service_;

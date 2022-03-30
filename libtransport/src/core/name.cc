@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -26,30 +26,28 @@ namespace core {
 
 Name::Name() { name_ = {}; }
 
+/**
+ * XXX This function does not use the name API provided by libhicn
+ */
 Name::Name(int family, const uint8_t *ip_address, std::uint32_t suffix)
     : name_({}) {
-  name_.type = HNT_UNSPEC;
   std::size_t length;
   uint8_t *dst = NULL;
 
   if (family == AF_INET) {
-    dst = name_.ip4.prefix_as_u8;
+    dst = name_.prefix.v4.as_u8;
     length = IPV4_ADDR_LEN;
-    name_.type = HNT_CONTIGUOUS_V4;
   } else if (family == AF_INET6) {
-    dst = name_.ip6.prefix_as_u8;
+    dst = name_.prefix.v6.as_u8;
     length = IPV6_ADDR_LEN;
-    name_.type = HNT_CONTIGUOUS_V6;
   } else {
     throw errors::RuntimeException("Specified name family does not exist.");
   }
 
   std::memcpy(dst, ip_address, length);
-  *reinterpret_cast<std::uint32_t *>(dst + length) = suffix;
+  name_.suffix = suffix;
 }
-
 Name::Name(const char *name, uint32_t segment) {
-  name_.type = HNT_UNSPEC;
   if (hicn_name_create(name, segment, &name_) < 0) {
     throw errors::InvalidIpAddressException();
   }
@@ -59,7 +57,6 @@ Name::Name(const std::string &uri, uint32_t segment)
     : Name(uri.c_str(), segment) {}
 
 Name::Name(const std::string &uri) {
-  name_.type = HNT_UNSPEC;
   utils::StringTokenizer tokenizer(uri, "|");
   std::string ip_address;
   std::string seq_number;
@@ -80,9 +77,13 @@ Name::Name(const std::string &uri) {
 
 Name::Name(const Name &name) { this->name_ = name.name_; }
 
+Name::~Name() {}
+
 Name &Name::operator=(const Name &name) {
-  if (hicn_name_copy(&this->name_, &name.name_) < 0) {
-    throw errors::MalformedNameException();
+  if (this != &name) {
+    if (hicn_name_copy(&this->name_, &name.name_) < 0) {
+      throw errors::MalformedNameException();
+    }
   }
 
   return *this;
@@ -129,9 +130,13 @@ uint32_t Name::getHash32(bool consider_suffix) const {
   return hash;
 }
 
-void Name::clear() { name_.type = HNT_UNSPEC; };
+void Name::clear() { std::memset(&name_, 0, sizeof(name_)); };
 
-Name::Type Name::getType() const { return name_.type; }
+Name::Type Name::getType() const {
+  int family;
+  hicn_name_get_family(&name_, &family);
+  return family == AF_INET ? Name::Type::V4 : Name::Type::V6;
+}
 
 uint32_t Name::getSuffix() const {
   uint32_t ret = 0;
@@ -149,29 +154,6 @@ Name &Name::setSuffix(uint32_t seq_number) {
   }
 
   return *this;
-}
-
-std::shared_ptr<Sockaddr> Name::getAddress() const {
-  Sockaddr *ret = nullptr;
-
-  switch (name_.type) {
-    case HNT_CONTIGUOUS_V4:
-    case HNT_IOV_V4:
-      ret = (Sockaddr *)new Sockaddr4;
-      break;
-    case HNT_CONTIGUOUS_V6:
-    case HNT_IOV_V6:
-      ret = (Sockaddr *)new Sockaddr6;
-      break;
-    default:
-      throw errors::MalformedNameException();
-  }
-
-  if (hicn_name_to_sockaddr_address((hicn_name_t *)&name_, ret) < 0) {
-    throw errors::MalformedNameException();
-  }
-
-  return std::shared_ptr<Sockaddr>(ret);
 }
 
 ip_prefix_t Name::toIpAddress() const {
@@ -195,8 +177,8 @@ int Name::getAddressFamily() const {
   return ret;
 }
 
-void Name::copyToDestination(uint8_t *destination, bool include_suffix) const {
-  if (hicn_name_copy_to_destination(destination, &name_, include_suffix) < 0) {
+void Name::copyPrefixToDestination(uint8_t *destination) const {
+  if (hicn_name_copy_prefix_to_destination(destination, &name_) < 0) {
     throw errors::RuntimeException(
         "Impossibe to copy the name into the "
         "provided destination");
