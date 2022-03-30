@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 Cisco and/or its affiliates.
+ * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,10 +16,21 @@
 #ifndef punting_h
 #define punting_h
 
+#include <hicn/core/address.h>
+
+typedef struct {
+  char *symbolic;
+  address_t prefix;
+  uint32_t len;
+} punting_t;
+
+#define punting_address(punting) (&((punting)->prefix))
+#define punting_len(punting) ((punting)->len)
+
+#if 0
 struct punting;
 typedef struct punting Punting;
 
-#include <hicn/utils/address.h>
 
 /**
  * Creates a Punting object
@@ -36,7 +47,7 @@ typedef struct punting Punting;
  * @return null An error
  *
  */
-Punting *puntingCreate(const char *symbolic, Address *prefix, uint32_t len);
+Punting *puntingCreate(const char *symbolic, address_t *prefix, uint32_t len);
 
 /**
  * Releases a reference count to the object
@@ -66,7 +77,9 @@ const char *puntingGetSymbolicName(const Punting *punting);
  * Returns the address (INET or INET6 ip address)
  *
  */
-Address *puntingGetAddress(const Punting *punting);
+address_t * puntingGetAddress(const Punting *punting);
 
 uint32_t puntingPrefixLen(const Punting *punting);
+#endif
+
 #endif  // punting_h
