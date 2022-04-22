@@ -146,7 +146,7 @@ void usage() {
   std::cerr << "-g\t<port>\t\t\t\t"
             << "Output stream to localhost at the specified port" << std::endl;
   std::cerr << "-e\t<strategy>\t\t\t"
-            << "Enance the network with a realiability strategy. Options 1:"
+            << "Enhance the network with a reliability strategy. Options 1:"
             << " unreliable, 2: rtx only, 3: fec only, "
             << "4: delay based, 5: low rate, 6: low rate and best path "
             << "7: low rate and replication, 8: low rate and best"
@@ -187,9 +187,10 @@ int main(int argc, char *argv[]) {
 
   int opt;
 #ifndef _WIN32
+  // Please keep in alphabetical order.
   while ((opt = getopt(argc, argv,
-                       "DSCf:b:d:W:RM:c:vA:s:rm:lK:k:y:p:hi:xE:P:B:ItL:z:T:F:j:"
-                       "g:G:e:awHn:X:u:")) != -1) {
+                       "A:B:CDE:F:G:HIK:L:M:P:RST:U:W:X:ab:c:d:e:f:g:hi:j:k:lm:"
+                       "n:p:rs:tu:vwxy:z:")) != -1) {
     switch (opt) {
       // Common
       case 'D': {
@@ -222,11 +223,10 @@ int main(int argc, char *argv[]) {
         break;
       }
 #else
-  while (
-      (opt = getopt(
-           argc, argv,
-           "SCf:b:d:W:RM:c:vA:s:rm:lK:k:y:p:hi:xB:E:P:tL:z:F:j:e:awHn:X:u:")) !=
-      -1) {
+  // Please keep in alphabetical order.
+  while ((opt = getopt(argc, argv,
+                       "A:B:CE:F:HK:L:M:P:RSU:W:X:ab:c:d:e:f:hi:j:k:lm:n:p:rs:"
+                       "tu:vwxy:z:")) != -1) {
     switch (opt) {
 #endif
       case 'f': {
@@ -243,14 +243,14 @@ int main(int argc, char *argv[]) {
         server_configuration.aggregated_data_ = true;
         break;
       }
-      case 'X': {
-        client_configuration.fec_type_ = std::string(optarg);
-        server_configuration.fec_type_ = std::string(optarg);
-        break;
-      }
       case 'w': {
         client_configuration.packet_format_ = Packet::Format::HF_INET6_UDP;
         server_configuration.packet_format_ = Packet::Format::HF_INET6_UDP;
+        break;
+      }
+      case 'k': {
+        server_configuration.passphrase = std::string(optarg);
+        client_configuration.passphrase = std::string(optarg);
         break;
       }
       case 'z': {
@@ -269,11 +269,6 @@ int main(int argc, char *argv[]) {
       }
       case 'C': {
         role += 1;
-        break;
-      }
-      case 'k': {
-        server_configuration.passphrase = std::string(optarg);
-        client_configuration.passphrase = std::string(optarg);
         break;
       }
 
@@ -324,7 +319,12 @@ int main(int argc, char *argv[]) {
         break;
       }
       case 'u': {
-        client_configuration.unverified_delay_ = std::stoul(optarg);
+        client_configuration.unverified_interval_ = std::stoul(optarg);
+        options = 1;
+        break;
+      }
+      case 'U': {
+        client_configuration.unverified_ratio_ = std::stod(optarg);
         options = 1;
         break;
       }
@@ -417,6 +417,11 @@ int main(int argc, char *argv[]) {
       case 'e': {
         client_configuration.recovery_strategy_ = std::stoul(optarg);
         options = 1;
+        break;
+      }
+      case 'X': {
+        server_configuration.fec_type_ = std::string(optarg);
+        options = -1;
         break;
       }
       case 'h':

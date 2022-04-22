@@ -80,12 +80,6 @@ int TransportProtocol::start() {
 
     socket_->getSocketOption(GeneralTransportOptions::ASYNC_MODE, is_async_);
 
-    std::string fec_type_str = "";
-    socket_->getSocketOption(GeneralTransportOptions::FEC_TYPE, fec_type_str);
-    if (fec_type_str != "") {
-      fec_type_ = fec::FECUtils::fecTypeFromString(fec_type_str.c_str());
-    }
-
     // Set it is the first time we schedule an interest
     is_first_ = true;
 

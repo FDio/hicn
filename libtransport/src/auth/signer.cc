@@ -17,6 +17,8 @@
 #include <hicn/transport/auth/signer.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
 
+#include "hicn/transport/core/global_object_pool.h"
+
 namespace transport {
 namespace auth {
 
@@ -24,7 +26,10 @@ namespace auth {
 // Base Signer
 // ---------------------------------------------------------
 Signer::Signer()
-    : suite_(CryptoSuite::UNKNOWN), signature_len_(0), key_(nullptr) {}
+    : suite_(CryptoSuite::UNKNOWN),
+      signature_(core::PacketManager<>::getInstance().getMemBuf()),
+      signature_len_(0),
+      key_(nullptr) {}
 
 Signer::~Signer() {}
 
@@ -51,8 +56,8 @@ void Signer::signPacket(PacketPtr packet) {
   packet->setValidationAlgorithm(suite_);
 
   // Set key ID
-  std::vector<uint8_t> key_id = key_id_.getDigest();
-  packet->setKeyId({key_id.data(), key_id.size()});
+  const utils::MemBuf::Ptr &key_id = key_id_.getDigest();
+  packet->setKeyId({key_id->writableData(), key_id->length()});
 
   // Reset fields to compute the packet hash
   packet->resetForHash();
@@ -93,14 +98,16 @@ void Signer::signBuffer(const std::vector<uint8_t> &buffer) {
     throw errors::RuntimeException("Digest computation failed");
   }
 
-  signature_.resize(signature_len_);
+  DCHECK(signature_len_ <= signature_->tailroom());
+  signature_->setLength(signature_len_);
 
-  if (EVP_DigestSignFinal(mdctx.get(), signature_.data(), &signature_len_) !=
-      1) {
+  if (EVP_DigestSignFinal(mdctx.get(), signature_->writableData(),
+                          &signature_len_) != 1) {
     throw errors::RuntimeException("Digest computation failed");
   }
 
-  signature_.resize(signature_len_);
+  DCHECK(signature_len_ <= signature_->tailroom());
+  signature_->setLength(signature_len_);
 }
 
 void Signer::signBuffer(const utils::MemBuf *buffer) {
@@ -135,24 +142,27 @@ void Signer::signBuffer(const utils::MemBuf *buffer) {
     throw errors::RuntimeException("Digest computation failed");
   }
 
-  signature_.resize(signature_len_);
+  DCHECK(signature_len_ <= signature_->tailroom());
+  signature_->setLength(signature_len_);
 
-  if (EVP_DigestSignFinal(mdctx.get(), signature_.data(), &signature_len_) !=
-      1) {
+  if (EVP_DigestSignFinal(mdctx.get(), signature_->writableData(),
+                          &signature_len_) != 1) {
     throw errors::RuntimeException("Digest computation failed");
   }
 
-  signature_.resize(signature_len_);
+  DCHECK(signature_len_ <= signature_->tailroom());
+  signature_->setLength(signature_len_);
 }
 
-std::vector<uint8_t> Signer::getSignature() const { return signature_; }
+const utils::MemBuf::Ptr &Signer::getSignature() const { return signature_; }
 
 std::string Signer::getStringSignature() const {
   std::stringstream string_sig;
   string_sig << std::hex << std::setfill('0');
 
-  for (auto byte : signature_) {
-    string_sig << std::hex << std::setw(2) << static_cast<int>(byte);
+  for (size_t i = 0; i < signature_len_; ++i) {
+    string_sig << std::hex << std::setw(2)
+               << static_cast<int>(signature_->data()[i]);
   }
 
   return string_sig.str();
@@ -193,12 +203,14 @@ void VoidSigner::signBuffer(const utils::MemBuf *buffer) {}
 // ---------------------------------------------------------
 AsymmetricSigner::AsymmetricSigner(CryptoSuite suite,
                                    std::shared_ptr<EVP_PKEY> key,
-                                   std::shared_ptr<EVP_PKEY> pub_key) {
+                                   std::shared_ptr<EVP_PKEY> pub_key)
+    : Signer() {
   setKey(suite, key, pub_key);
 }
 
 AsymmetricSigner::AsymmetricSigner(std::string keystore_path,
-                                   std::string password) {
+                                   std::string password)
+    : Signer() {
   FILE *p12file = fopen(keystore_path.c_str(), "r");
 
   if (p12file == nullptr) {
@@ -230,7 +242,8 @@ void AsymmetricSigner::setKey(CryptoSuite suite, std::shared_ptr<EVP_PKEY> key,
   suite_ = suite;
   key_ = key;
   signature_len_ = EVP_PKEY_size(key.get());
-  signature_.resize(signature_len_);
+  DCHECK(signature_len_ <= signature_->tailroom());
+  signature_->setLength(signature_len_);
 
   std::vector<uint8_t> pbk(i2d_PublicKey(pub_key.get(), nullptr));
   uint8_t *pbk_ptr = pbk.data();
@@ -254,7 +267,8 @@ size_t AsymmetricSigner::getSignatureFieldSize() const {
 // Symmetric Signer
 // ---------------------------------------------------------
 SymmetricSigner::SymmetricSigner(CryptoSuite suite,
-                                 const std::string &passphrase) {
+                                 const std::string &passphrase)
+    : Signer() {
   suite_ = suite;
   key_ = std::shared_ptr<EVP_PKEY>(
       EVP_PKEY_new_raw_private_key(EVP_PKEY_HMAC, nullptr,
@@ -270,7 +284,8 @@ SymmetricSigner::SymmetricSigner(CryptoSuite suite,
   }
 
   signature_len_ = EVP_MD_size((*hash_evp)());
-  signature_.resize(signature_len_);
+  DCHECK(signature_len_ <= signature_->tailroom());
+  signature_->setLength(signature_len_);
   key_id_.computeDigest((uint8_t *)passphrase.c_str(), passphrase.size());
 }
 

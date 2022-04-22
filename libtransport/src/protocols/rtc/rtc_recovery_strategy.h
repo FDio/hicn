@@ -44,7 +44,7 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
 
   RecoveryStrategy(Indexer *indexer, SendRtxCallback &&callback,
                    asio::io_service &io_service, bool use_rtx, bool use_fec,
-                   interface::StrategyCallback *external_callback);
+                   interface::StrategyCallback &&external_callback);
 
   RecoveryStrategy(RecoveryStrategy &&rs);
 
@@ -56,8 +56,6 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
   void setRateControl(RTCRateControl *rateControl) { rc_ = rateControl; }
   void setFecParams(uint32_t n, uint32_t k);
 
-  void tunrOnRecovery() { recovery_on_ = true; }
-
   bool isRtx(uint32_t seq) {
     if (rtx_state_.find(seq) != rtx_state_.end()) return true;
     return false;
@@ -68,12 +66,22 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
     return false;
   }
 
+  bool wasNacked(uint32_t seq) {
+    if (nacked_seq_.find(seq) != nacked_seq_.end()) return true;
+    return false;
+  }
+
   bool isRtxOn() { return rtx_on_; }
+  bool isFecOn() { return fec_on_; }
 
   RTCState *getState() { return state_; }
   bool lossDetected(uint32_t seq);
+  void notifyNewLossDetedcted(uint32_t seq);
+  void requestPossibleLostPacket(uint32_t seq);
+  void receivedFutureNack(uint32_t seq);
   void clear();
 
+  virtual void turnOnRecovery() = 0;
   virtual void onNewRound(bool in_sync) = 0;
   virtual void newPacketLoss(uint32_t seq) = 0;
   virtual void receivedPacket(uint32_t seq) = 0;
@@ -96,7 +104,7 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
   void deleteRtx(uint32_t seq);
 
   // fec functions
-  uint32_t computeFecPacketsToAsk(bool in_sync);
+  uint32_t computeFecPacketsToAsk();
 
   // common functons
   void removePacketState(uint32_t seq);
@@ -104,6 +112,12 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
   bool recovery_on_;
   bool rtx_on_;
   bool fec_on_;
+
+  // number of RTX sent after fec turned on
+  // this is used to take into account jitter and out of order packets
+  // if we detect losses but we do not sent any RTX it means that the holes in
+  // the sequence are caused by the jitter
+  uint32_t rtx_during_fec_;
 
   // this map keeps track of the retransmitted interest, ordered from the oldest
   // to the newest one. the state contains the timer of the first send of the
@@ -116,6 +130,13 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
 
   // lost packets that will be recovered with fec
   std::unordered_set<uint32_t> recover_with_fec_;
+
+  // packet for which we recived a future nack
+  // in case we detect a loss for a nacked packet we send an RTX but we do not
+  // increase the loss counter. this is done because it may happen that the
+  // producer rate checkes over time and in flight interest may be satified by
+  // data packet after the reception of nacks
+  std::unordered_set<uint32_t> nacked_seq_;
 
   // rtx vars
   std::unique_ptr<asio::steady_timer> timer_;
@@ -144,7 +165,7 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
   uint32_t round_id_;  // number of rounds
   uint32_t last_fec_used_;
   std::vector<fec_state_> fec_per_loss_rate_;
-  interface::StrategyCallback *callback_;
+  interface::StrategyCallback callback_;
 };
 
 }  // end namespace rtc

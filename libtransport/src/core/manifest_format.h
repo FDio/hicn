@@ -18,6 +18,7 @@
 #include <hicn/transport/auth/crypto_hash.h>
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/interfaces/socket_options_keys.h>
+#include <protocols/fec_utils.h>
 
 #include <cinttypes>
 #include <type_traits>
@@ -41,11 +42,11 @@ struct ParamsRTC {
   std::uint64_t timestamp;
   std::uint32_t prod_rate;
   std::uint32_t prod_seg;
-  std::uint32_t support_fec;
+  protocol::fec::FECType fec_type;
 
   bool operator==(const ParamsRTC &other) const {
     return (timestamp == other.timestamp && prod_rate == other.prod_rate &&
-            prod_seg == other.prod_seg && support_fec == other.support_fec);
+            prod_seg == other.prod_seg && fec_type == other.fec_type);
   }
 };
 

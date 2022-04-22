@@ -162,3 +162,35 @@ TEST_F(CtrlTest, AddRouteInvalidCost) {
   success = hc_result_get_success(s_, result);
   EXPECT_FALSE(success);
 }
+
+TEST_F(CtrlTest, RouteNameOrID) {
+  hc_route_t route = {
+      .face_id = (face_id_t)INVALID_FACE_ID,
+      .family = AF_INET6,
+      .remote_addr = IPV6_LOOPBACK,
+      .len = 64,
+      .cost = 1,
+  };
+
+  // At least one between name (symbolic or ID) and face_id
+  // should be set to make the route valid
+
+  // Valid name (symbolic)
+  snprintf(route.name, SYMBOLIC_NAME_LEN, "%s", "test");
+  EXPECT_EQ(hc_route_validate(&route), 0);
+
+  // Valid name (ID)
+  snprintf(route.name, SYMBOLIC_NAME_LEN, "%s", "conn0");
+  EXPECT_EQ(hc_route_validate(&route), 0);
+
+  // Valid face_id
+  route.face_id = 1;
+  snprintf(route.name, SYMBOLIC_NAME_LEN, "%s", "");
+  EXPECT_EQ(hc_route_validate(&route), 0);
+
+  // Invalid name stating with number
+  // (face_id is only checked if empty name)
+  route.face_id = 1;
+  snprintf(route.name, SYMBOLIC_NAME_LEN, "%s", "1test");
+  EXPECT_EQ(hc_route_validate(&route), -1);
+}

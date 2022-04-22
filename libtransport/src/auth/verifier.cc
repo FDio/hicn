@@ -14,7 +14,10 @@
  */
 
 #include <hicn/transport/auth/verifier.h>
+#include <hicn/transport/core/global_object_pool.h>
 #include <protocols/errors.h>
+
+#include "glog/logging.h"
 
 namespace transport {
 namespace auth {
@@ -49,8 +52,10 @@ bool Verifier::verifyPacket(PacketPtr packet) {
   hicn_packet_copy_header(format, packet->packet_start_, &header_copy, false);
 
   // Retrieve packet signature
-  std::vector<uint8_t> signature_raw = packet->getSignature();
-  signature_raw.resize(packet->getSignatureSize());
+  utils::MemBuf::Ptr signature_raw = packet->getSignature();
+  std::size_t signature_len = packet->getSignatureSize();
+  DCHECK(signature_len <= signature_raw->tailroom());
+  signature_raw->setLength(signature_len);
 
   // Reset fields that are not used to compute signature
   packet->resetForHash();
@@ -62,7 +67,7 @@ bool Verifier::verifyPacket(PacketPtr packet) {
   // Restore header
   hicn_packet_copy_header(format, &header_copy, packet->packet_start_, false);
   packet->setSignature(signature_raw);
-  packet->setSignatureSize(signature_raw.size());
+  packet->setSignatureSize(signature_raw->length());
 
   return valid_packet;
 }
@@ -165,13 +170,13 @@ void Verifier::callVerificationFailedCallback(Suffix suffix,
 bool VoidVerifier::verifyPacket(PacketPtr packet) { return true; }
 
 bool VoidVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
-                                const std::vector<uint8_t> &signature,
+                                const utils::MemBuf::Ptr &signature,
                                 CryptoHashType hash_type) {
   return true;
 }
 
 bool VoidVerifier::verifyBuffer(const utils::MemBuf *buffer,
-                                const std::vector<uint8_t> &signature,
+                                const utils::MemBuf::Ptr &signature,
                                 CryptoHashType hash_type) {
   return true;
 }
@@ -232,7 +237,7 @@ void AsymmetricVerifier::useCertificate(std::shared_ptr<X509> cert) {
 }
 
 bool AsymmetricVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
-                                      const std::vector<uint8_t> &signature,
+                                      const utils::MemBuf::Ptr &signature,
                                       CryptoHashType hash_type) {
   CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
 
@@ -255,12 +260,12 @@ bool AsymmetricVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
     throw errors::RuntimeException("Digest update failed");
   }
 
-  return EVP_DigestVerifyFinal(mdctx.get(), signature.data(),
-                               signature.size()) == 1;
+  return EVP_DigestVerifyFinal(mdctx.get(), signature->data(),
+                               signature->length()) == 1;
 }
 
 bool AsymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
-                                      const std::vector<uint8_t> &signature,
+                                      const utils::MemBuf::Ptr &signature,
                                       CryptoHashType hash_type) {
   CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
 
@@ -288,8 +293,8 @@ bool AsymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
     p = p->next();
   } while (p != buffer);
 
-  return EVP_DigestVerifyFinal(mdctx.get(), signature.data(),
-                               signature.size()) == 1;
+  return EVP_DigestVerifyFinal(mdctx.get(), signature->data(),
+                               signature->length()) == 1;
 }
 
 // ---------------------------------------------------------
@@ -309,7 +314,7 @@ void SymmetricVerifier::setPassphrase(const std::string &passphrase) {
 }
 
 bool SymmetricVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
-                                     const std::vector<uint8_t> &signature,
+                                     const utils::MemBuf::Ptr &signature,
                                      CryptoHashType hash_type) {
   CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
 
@@ -317,7 +322,9 @@ bool SymmetricVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
     throw errors::RuntimeException("Unknown hash type");
   }
 
-  std::vector<uint8_t> signature_bis(signature.size());
+  const utils::MemBuf::Ptr &signature_bis =
+      core::PacketManager<>::getInstance().getMemBuf();
+  signature_bis->append(signature->length());
   size_t signature_bis_len;
   std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
 
@@ -334,16 +341,17 @@ bool SymmetricVerifier::verifyBuffer(const std::vector<uint8_t> &buffer,
     throw errors::RuntimeException("Digest update failed");
   }
 
-  if (EVP_DigestSignFinal(mdctx.get(), signature_bis.data(),
+  if (EVP_DigestSignFinal(mdctx.get(), signature_bis->writableData(),
                           &signature_bis_len) != 1) {
     throw errors::RuntimeException("Digest computation failed");
   }
 
-  return signature == signature_bis && signature.size() == signature_bis_len;
+  return signature->length() == signature_bis_len &&
+         *signature == *signature_bis;
 }
 
 bool SymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
-                                     const std::vector<uint8_t> &signature,
+                                     const utils::MemBuf::Ptr &signature,
                                      CryptoHashType hash_type) {
   CryptoHashEVP hash_evp = CryptoHash::getEVP(hash_type);
 
@@ -352,7 +360,9 @@ bool SymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
   }
 
   const utils::MemBuf *p = buffer;
-  std::vector<uint8_t> signature_bis(signature.size());
+  const utils::MemBuf::Ptr &signature_bis =
+      core::PacketManager<>::getInstance().getMemBuf();
+  signature_bis->append(signature->length());
   size_t signature_bis_len;
   std::shared_ptr<EVP_MD_CTX> mdctx(EVP_MD_CTX_create(), EVP_MD_CTX_free);
 
@@ -373,12 +383,13 @@ bool SymmetricVerifier::verifyBuffer(const utils::MemBuf *buffer,
     p = p->next();
   } while (p != buffer);
 
-  if (EVP_DigestSignFinal(mdctx.get(), signature_bis.data(),
+  if (EVP_DigestSignFinal(mdctx.get(), signature_bis->writableData(),
                           &signature_bis_len) != 1) {
     throw errors::RuntimeException("Digest computation failed");
   }
 
-  return signature == signature_bis && signature.size() == signature_bis_len;
+  return signature->length() == signature_bis_len &&
+         *signature == *signature_bis;
 }
 
 }  // namespace auth
