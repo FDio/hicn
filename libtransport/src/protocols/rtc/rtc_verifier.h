@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -26,8 +26,9 @@ namespace rtc {
 
 class RTCVerifier {
  public:
-  RTCVerifier(std::shared_ptr<auth::Verifier> verifier,
-              uint32_t max_unverified_delay);
+  explicit RTCVerifier(std::shared_ptr<auth::Verifier> verifier,
+                       uint32_t max_unverified_interval,
+                       double max_unverified_ratio);
 
   virtual ~RTCVerifier() = default;
 
@@ -35,13 +36,9 @@ class RTCVerifier {
 
   void setVerifier(std::shared_ptr<auth::Verifier> verifier);
 
-  void setMaxUnverifiedDelay(uint32_t max_unverified_delay);
+  void setMaxUnverifiedInterval(uint32_t max_unverified_interval);
 
-  void onDataRecoveredFec(uint32_t suffix);
-  void onJumpForward(uint32_t next_suffix);
-
-  uint32_t getTotalUnverified() const;
-  uint32_t getMaxUnverified() const;
+  void setMaxUnverifiedRatio(double max_unverified_ratio);
 
   auth::VerificationPolicy verify(core::ContentObject &content_object,
                                   bool is_fec = false);
@@ -53,27 +50,84 @@ class RTCVerifier {
 
   auth::VerificationPolicy processManifest(core::ContentObject &content_object);
 
+  void onDataRecoveredFec(uint32_t suffix);
+  void onJumpForward(uint32_t next_suffix);
+
+  double getBufferRatio() const;
+
  protected:
+  struct Packet;
+  using Timestamp = uint64_t;
+  using PacketSet = std::set<Packet>;
+
+  struct Packet {
+    auth::Suffix suffix;
+    Timestamp timestamp;
+    size_t size;
+
+    bool operator==(const Packet &b) const {
+      return timestamp == b.timestamp && suffix == b.suffix;
+    }
+    bool operator<(const Packet &b) const {
+      return timestamp == b.timestamp ? suffix < b.suffix
+                                      : timestamp < b.timestamp;
+    }
+  };
+
+  class Packets {
+   public:
+    virtual std::pair<PacketSet::iterator, bool> add(const Packet &packet);
+    virtual PacketSet::iterator remove(PacketSet::iterator packet_it);
+    const PacketSet &set() const;
+    size_t size() const;
+
+   protected:
+    PacketSet packets_;
+    size_t size_;
+  };
+
+  class PacketsVerif : public Packets {};
+
+  class PacketsUnverif : public Packets {
+   public:
+    using Packets::add;
+    std::pair<PacketSet::iterator, bool> add(const Packet &packet,
+                                             const auth::CryptoHash &digest);
+    PacketSet::iterator remove(PacketSet::iterator packet_it) override;
+    PacketSet::iterator packetIt(auth::Suffix suffix);
+    const auth::Verifier::SuffixMap &suffixMap() const;
+
+   private:
+    std::unordered_map<auth::Suffix, PacketSet::iterator> packets_map_;
+    auth::Verifier::SuffixMap digests_map_;
+  };
+
   // The RTC state.
   std::shared_ptr<RTCState> rtc_state_;
   // The verifier instance.
   std::shared_ptr<auth::Verifier> verifier_;
+  // Window to consider when verifying packets.
+  uint32_t max_unverified_interval_;
+  // Ratio of unverified packets over which an alert is triggered.
+  double max_unverified_ratio_;
+  // The suffix of the last processed manifest.
+  auth::Suffix last_manifest_;
   // Hash algorithm used by manifests.
   auth::CryptoHashType manifest_hash_algo_;
-  // The last manifest processed.
-  auth::Suffix last_manifest_;
-  // Hold digests extracted from all manifests received.
+  // Digests extracted from all manifests received.
   auth::Verifier::SuffixMap manifest_digests_;
-  // Hold hashes of all content objects received before they are verified.
-  auth::Verifier::SuffixMap unverified_packets_;
-  // Hold number of unverified bytes.
-  std::unordered_map<auth::Suffix, uint32_t> unverified_bytes_;
-  // Maximum delay (in ms) for an unverified byte to become verifed.
-  uint32_t max_unverified_delay_;
-  // Maximum number of unverified bytes before aborting the connection.
-  uint64_t max_unverified_bytes_;
+  // Verified packets with timestamp >= now - max_unverified_interval_.
+  PacketsVerif packets_verif_;
+  // Unverified packets with timestamp >= now - max_unverified_interval_.
+  PacketsUnverif packets_unverif_;
+  // Unverified erased packets with timestamp < now - max_unverified_interval_.
+  std::unordered_set<auth::Suffix> packets_unverif_erased_;
+
+  // Flushes all packets with timestamp < now - max_unverified_interval_.
+  // Returns the timestamp of the oldest packet, verified or not.
+  Timestamp flush_packets(Timestamp now);
 };
 
-}  // end namespace rtc
+}  // namespace rtc
 }  // namespace protocol
 }  // namespace transport

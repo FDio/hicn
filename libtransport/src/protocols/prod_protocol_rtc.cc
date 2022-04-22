@@ -387,7 +387,7 @@ RTCProductionProtocol::createManifest(const Name &content_name) const {
       .timestamp = now,
       .prod_rate = bytes_production_rate_,
       .prod_seg = current_seg_,
-      .support_fec = false,
+      .fec_type = fec_type_,
   });
 
   return manifest;

@@ -36,17 +36,17 @@ RTCLossDetectionAndRecovery::RTCLossDetectionAndRecovery(
     Indexer *indexer, asio::io_service &io_service,
     interface::RtcTransportRecoveryStrategies type,
     RecoveryStrategy::SendRtxCallback &&callback,
-    interface::StrategyCallback *external_callback) {
+    interface::StrategyCallback &&external_callback) {
   rs_type_ = type;
   if (type == interface::RtcTransportRecoveryStrategies::RECOVERY_OFF) {
     rs_ = std::make_shared<RecoveryStrategyRecoveryOff>(
-        indexer, std::move(callback), io_service, external_callback);
+        indexer, std::move(callback), io_service, std::move(external_callback));
   } else if (type == interface::RtcTransportRecoveryStrategies::DELAY_BASED) {
     rs_ = std::make_shared<RecoveryStrategyDelayBased>(
-        indexer, std::move(callback), io_service, external_callback);
+        indexer, std::move(callback), io_service, std::move(external_callback));
   } else if (type == interface::RtcTransportRecoveryStrategies::FEC_ONLY) {
     rs_ = std::make_shared<RecoveryStrategyFecOnly>(
-        indexer, std::move(callback), io_service, external_callback);
+        indexer, std::move(callback), io_service, std::move(external_callback));
   } else if (type == interface::RtcTransportRecoveryStrategies::LOW_RATE ||
              type == interface::RtcTransportRecoveryStrategies::
                          LOW_RATE_AND_BESTPATH ||
@@ -55,12 +55,12 @@ RTCLossDetectionAndRecovery::RTCLossDetectionAndRecovery(
              type == interface::RtcTransportRecoveryStrategies::
                          LOW_RATE_AND_ALL_FWD_STRATEGIES) {
     rs_ = std::make_shared<RecoveryStrategyLowRate>(
-        indexer, std::move(callback), io_service, external_callback);
+        indexer, std::move(callback), io_service, std::move(external_callback));
   } else {
     // default
     rs_type_ = interface::RtcTransportRecoveryStrategies::RTX_ONLY;
     rs_ = std::make_shared<RecoveryStrategyRtxOnly>(
-        indexer, std::move(callback), io_service, external_callback);
+        indexer, std::move(callback), io_service, std::move(external_callback));
   }
 }
 

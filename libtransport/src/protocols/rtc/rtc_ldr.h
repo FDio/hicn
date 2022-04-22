@@ -36,7 +36,7 @@ class RTCLossDetectionAndRecovery
   RTCLossDetectionAndRecovery(Indexer *indexer, asio::io_service &io_service,
                               interface::RtcTransportRecoveryStrategies type,
                               RecoveryStrategy::SendRtxCallback &&callback,
-                              interface::StrategyCallback *external_callback);
+                              interface::StrategyCallback &&external_callback);
 
   ~RTCLossDetectionAndRecovery();
 

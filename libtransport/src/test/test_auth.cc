@@ -117,13 +117,11 @@ TEST_F(AuthTest, AsymmetricBufferRSA) {
 
   std::vector<uint8_t> buffer(payload.begin(), payload.end());
   signer->signBuffer(buffer);
-  std::vector<uint8_t> sig = signer->getSignature();
+  utils::MemBuf::Ptr sig = signer->getSignature();
 
   std::shared_ptr<AsymmetricVerifier> verif =
       std::make_shared<AsymmetricVerifier>(pubKey);
-  bool res = verif->verifyBuffer(
-      buffer, std::vector<uint8_t>(sig.data(), sig.data() + sig.size()),
-      CryptoHashType::SHA256);
+  bool res = verif->verifyBuffer(buffer, sig, CryptoHashType::SHA256);
   EXPECT_EQ(res, true);
 }
 
@@ -157,13 +155,11 @@ TEST_F(AuthTest, AsymmetricBufferDSA) {
 
   std::vector<uint8_t> buffer(payload.begin(), payload.end());
   signer->signBuffer(buffer);
-  std::vector<uint8_t> sig = signer->getSignature();
+  utils::MemBuf::Ptr sig = signer->getSignature();
 
   std::shared_ptr<AsymmetricVerifier> verif =
       std::make_shared<AsymmetricVerifier>(pubKey);
-  bool res = verif->verifyBuffer(
-      buffer, std::vector<uint8_t>(sig.data(), sig.data() + sig.size()),
-      CryptoHashType::SHA256);
+  bool res = verif->verifyBuffer(buffer, sig, CryptoHashType::SHA256);
   EXPECT_EQ(res, true);
 }
 
@@ -233,13 +229,11 @@ TEST_F(AuthTest, AsymmetricBufferECDSA) {
 
   std::vector<uint8_t> buffer(payload.begin(), payload.end());
   signer->signBuffer(buffer);
-  std::vector<uint8_t> sig = signer->getSignature();
+  utils::MemBuf::Ptr sig = signer->getSignature();
 
   std::shared_ptr<AsymmetricVerifier> verif =
       std::make_shared<AsymmetricVerifier>(pubKey);
-  bool res = verif->verifyBuffer(
-      buffer, std::vector<uint8_t>(sig.data(), sig.data() + sig.size()),
-      CryptoHashType::SHA256);
+  bool res = verif->verifyBuffer(buffer, sig, CryptoHashType::SHA256);
   EXPECT_EQ(res, true);
 }  // namespace auth
 
@@ -290,11 +284,9 @@ TEST_F(AuthTest, HMACbuffer) {
   std::string payload = "bonjour";
   std::vector<uint8_t> buffer(payload.begin(), payload.end());
   signer->signBuffer(buffer);
-  std::vector<uint8_t> sig = signer->getSignature();
+  utils::MemBuf::Ptr sig = signer->getSignature();
   SymmetricVerifier hmac(PASSPHRASE);
-  bool res = hmac.verifyBuffer(
-      buffer, std::vector<uint8_t>(sig.data(), sig.data() + sig.size()),
-      CryptoHashType::SHA256);
+  bool res = hmac.verifyBuffer(buffer, sig, CryptoHashType::SHA256);
   EXPECT_EQ(res, true);
 }
 

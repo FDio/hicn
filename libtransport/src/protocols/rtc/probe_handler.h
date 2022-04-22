@@ -63,6 +63,8 @@ class ProbeHandler : public std::enable_shared_from_this<ProbeHandler> {
   static ProbeType getProbeType(uint32_t seq);
 
  private:
+  void generateProbe();
+
   uint32_t probe_interval_;  // us
   uint32_t max_probes_;      // packets
   uint32_t sent_probes_;     // packets

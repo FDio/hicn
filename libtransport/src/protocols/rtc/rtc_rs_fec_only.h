@@ -26,7 +26,7 @@ class RecoveryStrategyFecOnly : public RecoveryStrategy {
  public:
   RecoveryStrategyFecOnly(Indexer *indexer, SendRtxCallback &&callback,
                           asio::io_service &io_service,
-                          interface::StrategyCallback *external_callback);
+                          interface::StrategyCallback &&external_callback);
 
   RecoveryStrategyFecOnly(RecoveryStrategy &&rs);
 

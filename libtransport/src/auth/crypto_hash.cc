@@ -14,6 +14,9 @@
  */
 
 #include <hicn/transport/auth/crypto_hash.h>
+#include <hicn/transport/core/global_object_pool.h>
+
+#include "glog/logging.h"
 
 namespace transport {
 namespace auth {
@@ -27,18 +30,20 @@ CryptoHash::CryptoHash(const CryptoHash &other)
 
 CryptoHash::CryptoHash(CryptoHash &&other)
     : digest_type_(std::move(other.digest_type_)),
-      digest_(other.digest_),
-      digest_size_(other.digest_size_) {
-  other.reset();
-}
+      digest_(std::move(other.digest_)),
+      digest_size_(other.digest_size_) {}
 
-CryptoHash::CryptoHash(CryptoHashType hash_type) { setType(hash_type); }
+CryptoHash::CryptoHash(CryptoHashType hash_type)
+    : digest_(core::PacketManager<>::getInstance().getMemBuf()) {
+  setType(hash_type);
+}
 
 CryptoHash::CryptoHash(const uint8_t *hash, size_t size,
                        CryptoHashType hash_type)
     : digest_type_(hash_type), digest_size_(size) {
-  digest_.resize(size);
-  memcpy(digest_.data(), hash, size);
+  digest_ = core::PacketManager<>::getInstance().getMemBuf();
+  digest_->append(size);
+  memcpy(digest_->writableData(), hash, size);
 }
 
 CryptoHash::CryptoHash(const std::vector<uint8_t> &hash,
@@ -55,7 +60,7 @@ CryptoHash &CryptoHash::operator=(const CryptoHash &other) {
 }
 
 bool CryptoHash::operator==(const CryptoHash &other) const {
-  return (digest_type_ == other.digest_type_ && digest_ == other.digest_);
+  return (digest_type_ == other.digest_type_ && *digest_ == *other.digest_);
 }
 
 void CryptoHash::computeDigest(const uint8_t *buffer, size_t len) {
@@ -65,8 +70,8 @@ void CryptoHash::computeDigest(const uint8_t *buffer, size_t len) {
     throw errors::RuntimeException("Unknown hash type");
   }
 
-  EVP_Digest(buffer, len, digest_.data(), (unsigned int *)&digest_size_,
-             (*hash_evp)(), nullptr);
+  EVP_Digest(buffer, len, digest_->writableData(),
+             (unsigned int *)&digest_size_, (*hash_evp)(), nullptr);
 }
 
 void CryptoHash::computeDigest(const std::vector<uint8_t> &buffer) {
@@ -95,7 +100,7 @@ void CryptoHash::computeDigest(const utils::MemBuf *buffer) {
     p = p->next();
   } while (p != buffer);
 
-  if (EVP_DigestFinal_ex(mcdtx, digest_.data(),
+  if (EVP_DigestFinal_ex(mcdtx, digest_->writableData(),
                          (unsigned int *)&digest_size_) != 1) {
     throw errors::RuntimeException("Digest computation failed");
   }
@@ -103,15 +108,16 @@ void CryptoHash::computeDigest(const utils::MemBuf *buffer) {
   EVP_MD_CTX_free(mcdtx);
 }
 
-std::vector<uint8_t> CryptoHash::getDigest() const { return digest_; }
+const utils::MemBuf::Ptr &CryptoHash::getDigest() const { return digest_; }
 
 std::string CryptoHash::getStringDigest() const {
   std::stringstream string_digest;
 
   string_digest << std::hex << std::setfill('0');
 
-  for (auto byte : digest_) {
-    string_digest << std::hex << std::setw(2) << static_cast<int>(byte);
+  for (size_t i = 0; i < digest_size_; ++i) {
+    string_digest << std::hex << std::setw(2)
+                  << static_cast<int>(digest_->data()[i]);
   }
 
   return string_digest.str();
@@ -122,10 +128,10 @@ CryptoHashType CryptoHash::getType() const { return digest_type_; }
 size_t CryptoHash::getSize() const { return digest_size_; }
 
 void CryptoHash::setType(CryptoHashType hash_type) {
-  reset();
   digest_type_ = hash_type;
   digest_size_ = CryptoHash::getSize(hash_type);
-  digest_.resize(digest_size_);
+  DCHECK(digest_size_ <= digest_->tailroom());
+  digest_->setLength(digest_size_);
 }
 
 void CryptoHash::display() {
@@ -152,8 +158,8 @@ void CryptoHash::display() {
 
 void CryptoHash::reset() {
   digest_type_ = CryptoHashType::UNKNOWN;
-  digest_.clear();
   digest_size_ = 0;
+  digest_->setLength(0);
 }
 
 CryptoHashEVP CryptoHash::getEVP(CryptoHashType hash_type) {

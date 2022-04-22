@@ -114,12 +114,15 @@ static inline int bitmap_get(const bitmap_t* bitmap, off_t i) {
  *
  * @return bool
  */
-static inline int _bitmap_set(bitmap_t** bitmap, off_t i) {
-  if (bitmap_ensure_pos(bitmap, i) < 0) return -1;
+static inline int _bitmap_set(bitmap_t** bitmap_ptr, off_t i) {
+  if (bitmap_ensure_pos(bitmap_ptr, i) < 0) return -1;
+
+  bitmap_t* bitmap = *bitmap_ptr;
   size_t offset = i / BITMAP_WIDTH(bitmap);
   size_t pos = i % BITMAP_WIDTH(bitmap);
   size_t shift = BITMAP_WIDTH(bitmap) - pos - 1;
-  (*bitmap)[offset] |= (bitmap_t)1 << shift;
+
+  bitmap[offset] |= (bitmap_t)1 << shift;
   return 0;
 }
 

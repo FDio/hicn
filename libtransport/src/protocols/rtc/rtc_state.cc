@@ -778,7 +778,8 @@ void RTCState::addRecvOrLost(uint32_t seq, PacketState state) {
           // however we may need to increse the number or lost packets
           // XXX: in case we want to use rtx to recover fec packets,
           // this may prevent to detect a packet loss and no rtx will be sent
-          onLossDetected(i);
+          if (TRANSPORT_EXPECT_TRUE(i >= first_interest_sent_seq_))
+            onLossDetected(i);
         } else {
           // this is a data packet and we need to get it
           break;
