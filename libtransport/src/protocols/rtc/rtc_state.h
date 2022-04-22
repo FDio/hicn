@@ -162,7 +162,11 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   double getPerRoundLossRate() const { return loss_rate_; }
   double getPerSecondLossRate() const { return per_sec_loss_rate_; }
   double getAvgLossRate() const { return avg_loss_rate_; }
-  double getMaxLossRate() const { return max_loss_rate_; }
+  double getMaxLossRate() const {
+    if (loss_history_.size() != 0) return loss_history_.begin();
+    return 0;
+  }
+
   double getLastRoundLossRate() const { return last_round_loss_rate_; }
   double getResidualLossRate() const { return residual_loss_rate_; }
 
@@ -176,8 +180,6 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   uint32_t getHighestSeqReceivedInOrder() const {
     return highest_seq_received_in_order_;
   }
-
-  double getMaxLoss();
 
   // fec packets
   uint32_t getReceivedFecPackets() const { return received_fec_pkt_; }
@@ -213,7 +215,13 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   bool isProducerActive() const { return producer_is_active_; }
 
   // packets from cache
-  double getPacketFromCacheRatio() const { return data_from_cache_rate_; }
+  // this should be called at the end of a round beacuse otherwise we may have
+  // not enough packets to get a good stat
+  double getPacketFromCacheRatio() const {
+    if (received_data_last_round_ == 0) return 0;
+    return (double)received_data_from_cache_ /
+           (double)received_data_last_round_;
+  }
 
   PendingInterestsMap::iterator getPendingInterestsMapBegin() {
     return pending_interests_.begin();
@@ -286,7 +294,6 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   uint32_t last_seq_nacked_;  // segment for which we got an oldNack
   double loss_rate_;
   double avg_loss_rate_;
-  double max_loss_rate_;
   double last_round_loss_rate_;
   utils::MaxFilter<double> loss_history_;
 
@@ -314,17 +321,16 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   double fec_recovered_rate_;  // rate recovered using fec
 
   // nack counters
-  // the bool takes tracks only about the valid nacks (no rtx) and it is used to
-  // switch between the states. Instead received_nacks_last_round_ logs all the
-  // nacks for statistics
-  bool nack_on_last_round_;
+  // the bool takes tracks only about the valid past nacks (no rtx) and it is
+  // used to switch between the states. Instead received_nacks_last_round_ logs
+  // all the nacks for statistics
+  bool past_nack_on_last_round_;
   uint32_t received_nacks_last_round_;
 
   // packets counters
   uint32_t received_packets_last_round_;
   uint32_t received_data_last_round_;
   uint32_t received_data_from_cache_;
-  double data_from_cache_rate_;
   uint32_t sent_interests_last_round_;
   uint32_t sent_rtx_last_round_;
 
@@ -344,10 +350,13 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   // producer state
   bool
       producer_is_active_;  // the prodcuer is active if we receive some packets
-  uint32_t
-      last_production_seq_;    // last production seq received by the producer
-  uint64_t last_prod_update_;  // timestamp of the last packets used to update
-                               // stats from the producer
+  uint32_t last_production_seq_;   // last production seq received by the
+                                   // producer used to init the sync protcol
+  uint32_t last_prod_update_seq_;  // seq number of the last packet used to
+                                   // update the update from the producer.
+                                   // assumption: the highest seq number carries
+                                   // the most up to date info. in case of
+                                   // probes we look at the produced seq number
 
   // paths stats
   std::unordered_map<uint32_t, std::shared_ptr<RTCDataPath>> path_table_;

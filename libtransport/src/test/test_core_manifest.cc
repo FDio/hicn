@@ -173,7 +173,7 @@ TEST_F(ManifestTest, SetParamsRTC) {
       .timestamp = 1,
       .prod_rate = 2,
       .prod_seg = 3,
-      .support_fec = 1,
+      .fec_type = protocol::fec::FECType::UNKNOWN,
   };
 
   manifest1_.setParamsRTC(params);

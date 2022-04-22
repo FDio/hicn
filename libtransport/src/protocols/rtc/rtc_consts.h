@@ -34,7 +34,7 @@ const double INTEREST_LIFETIME_REDUCTION_FACTOR = 0.8;
 // increasing this number we increase the time that an
 // interest will wait for the data packet to be produced
 // at the producer socket
-const uint32_t PRODUCER_BUFFER_MS = 200;  // ms
+const uint32_t PRODUCER_BUFFER_MS = 300;  // ms
 
 // interest scheduler
 // const uint32_t MAX_INTERESTS_IN_BATCH = 5;
@@ -72,7 +72,8 @@ const uint32_t INIT_RTT_PROBES = 40;           // number of probes to init RTT
 // to get an answer. we wait 100ms between each try
 const uint32_t INIT_RTT_PROBE_RESTART = 100;  // ms
 // once we get the first probe we wait at most 60ms for the others
-const uint32_t INIT_RTT_PROBE_WAIT = 30;  // ms
+const uint32_t INIT_RTT_PROBE_WAIT =
+    ((INIT_RTT_PROBES * INIT_RTT_PROBE_INTERVAL) / 1000) * 2;  // ms
 // we reuires at least 5 probes to be recevied
 const uint32_t INIT_RTT_MIN_PROBES_TO_RECV = 5;  // ms
 const uint32_t MAX_PENDING_PROBES = 10;
@@ -81,7 +82,7 @@ const uint32_t MAX_PENDING_PROBES = 10;
 const double MAX_QUEUING_DELAY = 50.0;  // ms
 
 // data from cache
-const double MAX_DATA_FROM_CACHE = 0.25;  // 25%
+const double MAX_DATA_FROM_CACHE = 0.10;  // 10%
 
 // window const
 const uint32_t INITIAL_WIN = 5;                    // pkts

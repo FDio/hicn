@@ -15,22 +15,17 @@
 # Packages section
 ######################
 
-##############################################################
-# Get VPP version
-##############################################################
-list(GET VPP_DEFAULT_VERSION 0 VPP_VERSION)
-
 set(${HICN_EXTRA_PLUGIN}_DESCRIPTION
   "A extra plugin to VPP."
   CACHE STRING "Description for deb/rpm package."
 )
 
 set(${HICN_EXTRA_PLUGIN}_DEB_DEPENDENCIES
-  "vpp (= ${VPP_VERSION}-release), vpp-plugin-core (= ${VPP_VERSION}-release)"
+  "vpp (= ${PREFIX_VERSION}-release), vpp-plugin-core (= ${PREFIX_VERSION}-release)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${HICN_EXTRA_PLUGIN}_RPM_DEPENDENCIES
-  "vpp = ${VPP_VERSION}-release, vpp-plugins = ${VPP_VERSION}-release"
+  "vpp = ${PREFIX_VERSION}-release, vpp-plugins = ${PREFIX_VERSION}-release"
   CACHE STRING "Dependencies for deb/rpm package."
 )

@@ -65,9 +65,7 @@ namespace core {
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 // |                        Current Segment                        |
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-// |F|                                                             |
-// +               Reserved for future parameters                  +
-// |                                                               |
+// |                           FEC Type                            |
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 // Manifest Entry:
@@ -137,7 +135,7 @@ struct __attribute__((__packed__)) TransportParamsRTC {
   std::uint64_t timestamp;
   std::uint32_t prod_rate;
   std::uint32_t prod_seg;
-  std::uint32_t support_fec;
+  std::uint32_t fec_type;
 };
 static_assert(sizeof(TransportParamsRTC) == MANIFEST_PARAMS_RTC_SIZE);
 

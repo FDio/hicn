@@ -17,11 +17,6 @@
 # Packages section
 ######################
 
-##############################################################
-# Get VPP version
-##############################################################
-list(GET VPP_DEFAULT_VERSION 0 VPP_VERSION)
-
 set(${LIBTRANSPORT_COMPONENT}_DESCRIPTION
 "Libhicn-transport provides transport services and \
 socket API for applications willing to communicate \
@@ -62,12 +57,12 @@ set(${LIBTRANSPORT_COMPONENT}-dev_RPM_DEPENDENCIES
 )
 
 set(${LIBTRANSPORT_COMPONENT}-io-modules_DEB_DEPENDENCIES
-  "${LIBTRANSPORT_COMPONENT} (= stable_version), vpp (>= ${VPP_VERSION}), hicn-plugin (= stable_version)"
+  "${LIBTRANSPORT_COMPONENT} (= stable_version), vpp (>= ${PREFIX_VERSION}), hicn-plugin (= stable_version)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${LIBTRANSPORT_COMPONENT}-io-modules_RPM_DEPENDENCIES
-  "${LIBTRANSPORT_COMPONENT} = stable_version, vpp >= ${VPP_VERSION}, hicn-plugin = stable_version"
+  "${LIBTRANSPORT_COMPONENT} = stable_version, vpp >= ${PREFIX_VERSION}, hicn-plugin = stable_version"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 

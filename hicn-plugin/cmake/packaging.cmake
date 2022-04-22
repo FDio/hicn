@@ -15,11 +15,6 @@
 # Packages section
 ######################
 
-##############################################################
-# Get VPP version
-##############################################################
-list(GET VPP_DEFAULT_VERSION 0 VPP_VERSION)
-
 set(${HICN_PLUGIN}_DESCRIPTION
   "A high-performance Hybrid ICN forwarder as a plugin to VPP."
   CACHE STRING "Description for deb/rpm package."
@@ -54,12 +49,12 @@ fi;
 ")
 
 set(${HICN_PLUGIN}_DEB_DEPENDENCIES
-  "${LIBHICN_COMPONENT} (= stable_version), vpp (>= ${VPP_VERSION}), vpp-plugin-core (>= ${VPP_VERSION})"
+  "${LIBHICN_COMPONENT} (= stable_version), vpp (>= ${PREFIX_VERSION}), vpp-plugin-core (>= ${PREFIX_VERSION})"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(${HICN_PLUGIN}-dev_DEB_DEPENDENCIES
-  "${LIBHICN_COMPONENT}-dev (= stable_version), vpp-dev (>= ${VPP_VERSION}), libvppinfra-dev (>= ${VPP_VERSION})"
+  "${LIBHICN_COMPONENT}-dev (= stable_version), vpp-dev (>= ${PREFIX_VERSION}), libvppinfra-dev (>= ${PREFIX_VERSION})"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 

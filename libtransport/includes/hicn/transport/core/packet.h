@@ -151,13 +151,13 @@ class Packet : public utils::MemBuf,
 
   // Authentication Header methods
   bool hasAH() const;
-  std::vector<uint8_t> getSignature() const;
+  utils::MemBuf::Ptr getSignature() const;
   std::size_t getSignatureFieldSize() const;
   std::size_t getSignatureSize() const;
   uint64_t getSignatureTimestamp() const;
   auth::KeyId getKeyId() const;
   auth::CryptoSuite getValidationAlgorithm() const;
-  void setSignature(const std::vector<uint8_t> &signature);
+  void setSignature(const utils::MemBuf::Ptr &signature);
   void setSignatureFieldSize(std::size_t size);
   void setSignatureSize(std::size_t size);
   void setSignatureTimestamp(const uint64_t &timestamp_ms);
