@@ -1,53 +1,17 @@
-FROM ubuntu:focal
-
+FROM dockerhub.cisco.com/icn-docker/hicn-base-devel-focal:x86_64
 WORKDIR /hicn-build
 
-RUN apt-get update
-
-# Do not prompt
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Prevent vpp to set sysctl
-ENV VPP_INSTALL_SKIP_SYSCTL=1
-
-# Add packagecloud repo
-RUN apt-get install -y git curl
-
 # Get versions from versions.cmake
-ARG VERSIONS_PATH=/tmp/versions.cmake
-COPY versions.cmake ${VERSIONS_PATH}
+ARG VERSION_PATH=/tmp/versions.cmake
+COPY versions.cmake ${VERSION_PATH}
+ARG INSTALL_VPP_SCRIPT=/tmp/install-vpp.sh
+COPY scripts/install-vpp.sh ${INSTALL_VPP_SCRIPT}
 
-RUN export VPP_VERSION=$(cat ${VERSIONS_PATH} | grep VPP_DEFAULT_VERSION | cut -d ' ' -f 2 | tr -d '"' | grep -Po '\d\d.\d\d') && echo ${VPP_VERSION}
-
-# Install devel packages
-RUN apt update
-SHELL ["/bin/bash", "-c"]
-RUN export VPP_VERSION=$(cat ${VERSIONS_PATH} | grep VPP_DEFAULT_VERSION | cut -d ' ' -f 2 | tr -d '"' | grep -Po '\d\d.\d\d') && \
-  curl -s https://packagecloud.io/install/repositories/fdio/${VPP_VERSION//./}/script.deb.sh  | bash && \
-  apt-get install -y                          \
-  cmake                                       \
-  ninja-build                                 \
-  unzip                                       \
-  libconfig-dev                               \
-  python3-ply                                 \
-  libconfig++-dev                             \
-  build-essential                             \
-  vpp-dev                                     \
-  libvppinfra-dev                             \
-  vpp-plugin-core                             \
-  vpp                                         \
-  libvppinfra                                 \
-  libevent-dev                                \
+RUN VERSION_PATH=${VERSION_PATH} bash -x ${INSTALL_VPP_SCRIPT}
+RUN apt update && apt-get install -y          \
   libssl-dev                                  \
-  make                                        \
-  sudo                                        \
-  libcurl4-openssl-dev                        \
   iproute2                                    \
   iperf3                                      \
   iputils-ping                                \
   tcpdump                                     \
-  gdb                                         \
-  libasio-dev --no-install-recommends
-
-# Switch back to dialog for any ad-hoc use of apt-get
-ENV DEBIAN_FRONTEND=
+  gdb --no-install-recommends

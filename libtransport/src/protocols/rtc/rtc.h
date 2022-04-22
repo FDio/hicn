@@ -65,7 +65,6 @@ class RTCTransportProtocol : public TransportProtocol {
   // window functions
   void computeMaxSyncWindow();
   void updateSyncWindow();
-  void decreaseSyncWindow();
 
   // packet functions
   void sendRtxInterest(uint32_t seq);
@@ -89,6 +88,8 @@ class RTCTransportProtocol : public TransportProtocol {
                       uint32_t received_nacks, uint32_t received_fec);
 
   // FEC functions
+  // send the received content object to the decoder
+  void decodePacket(ContentObject &content_object, bool is_manifest);
   void onFecPackets(fec::BufferArray &packets);
 
   // Utils

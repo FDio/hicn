@@ -28,7 +28,7 @@ class MinFilter {
  public:
   MinFilter(std::size_t size) : size_(size) {}
 
-  std::size_t size() { return by_arrival_.size(); }
+  std::size_t size() const { return by_arrival_.size(); }
 
   template <typename R>
   void pushBack(R&& value) {
@@ -45,9 +45,9 @@ class MinFilter {
     by_order_.clear();
   }
 
-  const T& begin() { return *by_order_.cbegin(); }
+  const T& begin() const { return *by_order_.cbegin(); }
 
-  const T& rBegin() { return *by_order_.crbegin(); }
+  const T& rBegin() const { return *by_order_.crbegin(); }
 
  private:
   std::multiset<T> by_order_;

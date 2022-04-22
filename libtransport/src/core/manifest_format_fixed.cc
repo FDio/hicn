@@ -154,22 +154,20 @@ FixedManifestEncoder &FixedManifestEncoder::setParamsRTCImpl(
       .timestamp = params.timestamp,
       .prod_rate = params.prod_rate,
       .prod_seg = params.prod_seg,
-      .support_fec = params.support_fec,
+      .fec_type = static_cast<uint32_t>(params.fec_type),
   };
   return *this;
 }
 
 FixedManifestEncoder &FixedManifestEncoder::addSuffixAndHashImpl(
     uint32_t suffix, const auth::CryptoHash &hash) {
-  std::vector<uint8_t> _hash = hash.getDigest();
-
   manifest_entries_.push_back(ManifestEntry{
       .suffix = htonl(suffix),
       .hash = {0},
   });
 
   std::memcpy(reinterpret_cast<uint8_t *>(manifest_entries_.back().hash),
-              _hash.data(), _hash.size());
+              hash.getDigest()->data(), hash.getSize());
 
   if (TRANSPORT_EXPECT_FALSE(estimateSerializedLengthImpl() > max_size_)) {
     throw errors::RuntimeException("Manifest size exceeded the packet MTU!");
@@ -301,7 +299,7 @@ ParamsRTC FixedManifestDecoder::getParamsRTCImpl() const {
       .timestamp = params_rtc_->timestamp,
       .prod_rate = params_rtc_->prod_rate,
       .prod_seg = params_rtc_->prod_seg,
-      .support_fec = params_rtc_->support_fec,
+      .fec_type = static_cast<protocol::fec::FECType>(params_rtc_->fec_type),
   };
 }
 

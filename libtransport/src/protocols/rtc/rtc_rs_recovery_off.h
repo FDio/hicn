@@ -26,12 +26,13 @@ class RecoveryStrategyRecoveryOff : public RecoveryStrategy {
  public:
   RecoveryStrategyRecoveryOff(Indexer *indexer, SendRtxCallback &&callback,
                               asio::io_service &io_service,
-                              interface::StrategyCallback *external_callback);
+                              interface::StrategyCallback &&external_callback);
 
   RecoveryStrategyRecoveryOff(RecoveryStrategy &&rs);
 
   ~RecoveryStrategyRecoveryOff();
 
+  void turnOnRecovery();
   void onNewRound(bool in_sync);
   void newPacketLoss(uint32_t seq);
   void receivedPacket(uint32_t seq);

@@ -55,10 +55,10 @@ class Verifier {
   // Verify a single packet or buffer.
   virtual bool verifyPacket(PacketPtr packet);
   virtual bool verifyBuffer(const std::vector<uint8_t> &buffer,
-                            const std::vector<uint8_t> &signature,
+                            const utils::MemBuf::Ptr &signature,
                             CryptoHashType hash_type) = 0;
   virtual bool verifyBuffer(const utils::MemBuf *buffer,
-                            const std::vector<uint8_t> &signature,
+                            const utils::MemBuf::Ptr &signature,
                             CryptoHashType hash_type) = 0;
 
   // Verify a batch of packets. Return a mapping from packet suffixes to their
@@ -111,10 +111,10 @@ class VoidVerifier : public Verifier {
  public:
   bool verifyPacket(PacketPtr packet) override;
   bool verifyBuffer(const std::vector<uint8_t> &buffer,
-                    const std::vector<uint8_t> &signature,
+                    const utils::MemBuf::Ptr &signature,
                     CryptoHashType hash_type) override;
   bool verifyBuffer(const utils::MemBuf *buffer,
-                    const std::vector<uint8_t> &signature,
+                    const utils::MemBuf::Ptr &signature,
                     CryptoHashType hash_type) override;
 
   PolicyMap verifyPackets(const std::vector<PacketPtr> &packets) override;
@@ -144,10 +144,10 @@ class AsymmetricVerifier : public Verifier {
   void useCertificate(std::shared_ptr<X509> cert);
 
   bool verifyBuffer(const std::vector<uint8_t> &buffer,
-                    const std::vector<uint8_t> &signature,
+                    const utils::MemBuf::Ptr &signature,
                     CryptoHashType hash_type) override;
   bool verifyBuffer(const utils::MemBuf *buffer,
-                    const std::vector<uint8_t> &signature,
+                    const utils::MemBuf::Ptr &signature,
                     CryptoHashType hash_type) override;
 
  private:
@@ -167,10 +167,10 @@ class SymmetricVerifier : public Verifier {
   void setPassphrase(const std::string &passphrase);
 
   bool verifyBuffer(const std::vector<uint8_t> &buffer,
-                    const std::vector<uint8_t> &signature,
+                    const utils::MemBuf::Ptr &signature,
                     CryptoHashType hash_type) override;
   bool verifyBuffer(const utils::MemBuf *buffer,
-                    const std::vector<uint8_t> &signature,
+                    const utils::MemBuf::Ptr &signature,
                     CryptoHashType hash_type) override;
 
  protected:

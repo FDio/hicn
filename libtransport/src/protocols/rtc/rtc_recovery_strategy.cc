@@ -29,20 +29,22 @@ using namespace transport::interface;
 
 RecoveryStrategy::RecoveryStrategy(
     Indexer *indexer, SendRtxCallback &&callback, asio::io_service &io_service,
-    bool use_rtx, bool use_fec, interface::StrategyCallback *external_callback)
+    bool use_rtx, bool use_fec, interface::StrategyCallback &&external_callback)
     : recovery_on_(false),
+      rtx_during_fec_(0),
       next_rtx_timer_(MAX_TIMER_RTX),
       send_rtx_callback_(std::move(callback)),
       indexer_(indexer),
       round_id_(0),
       last_fec_used_(0),
-      callback_(external_callback) {
+      callback_(std::move(external_callback)) {
   setRtxFec(use_rtx, use_fec);
   timer_ = std::make_unique<asio::steady_timer>(io_service);
 }
 
 RecoveryStrategy::RecoveryStrategy(RecoveryStrategy &&rs)
-    : rtx_state_(std::move(rs.rtx_state_)),
+    : rtx_during_fec_(0),
+      rtx_state_(std::move(rs.rtx_state_)),
       rtx_timers_(std::move(rs.rtx_timers_)),
       recover_with_fec_(std::move(rs.recover_with_fec_)),
       timer_(std::move(rs.timer_)),
@@ -55,7 +57,7 @@ RecoveryStrategy::RecoveryStrategy(RecoveryStrategy &&rs)
       rc_(std::move(rs.rc_)),
       round_id_(std::move(rs.round_id_)),
       last_fec_used_(std::move(rs.last_fec_used_)),
-      callback_(rs.callback_) {
+      callback_(std::move(rs.callback_)) {
   setFecParams(n_, k_);
 }
 
@@ -68,7 +70,7 @@ void RecoveryStrategy::setFecParams(uint32_t n, uint32_t k) {
   // XXX for the moment we go in steps of 5% loss rate.
   // max loss rate = 95%
   for (uint32_t loss_rate = 5; loss_rate < 100; loss_rate += 5) {
-    double dec_loss_rate = (double)loss_rate / 100.0;
+    double dec_loss_rate = (double)(loss_rate + 5) / 100.0;
     double exp_losses = (double)k_ * dec_loss_rate;
     uint32_t fec_to_ask = ceil(exp_losses / (1 - dec_loss_rate));
 
@@ -87,16 +89,37 @@ bool RecoveryStrategy::lossDetected(uint32_t seq) {
     return false;
   }
 
-  auto it = recover_with_fec_.find(seq);
-  if (it != recover_with_fec_.end()) {
+  auto it_fec = recover_with_fec_.find(seq);
+  if (it_fec != recover_with_fec_.end()) {
     // this packet is already in list of packets to recover with fec
     // this list contians also fec packets that will not be recovered with rtx
     return false;
   }
 
-  // new loss detected, recover it according to the strategy
-  newPacketLoss(seq);
+  auto it_nack = nacked_seq_.find(seq);
+  if (it_nack != nacked_seq_.end()) {
+    // this packet was nacked so we do not use it to determine the loss rate
+    return false;
+  }
+
   return true;
+}
+
+void RecoveryStrategy::notifyNewLossDetedcted(uint32_t seq) {
+  // new loss detected
+  // first record the loss. second do what is needed to recover it
+  state_->onLossDetected(seq);
+  newPacketLoss(seq);
+}
+
+void RecoveryStrategy::requestPossibleLostPacket(uint32_t seq) {
+  // these are packets for which we send a RTX but we do not increase the loss
+  // counter beacuse we don't know if they are lost or not
+  addNewRtx(seq, false);
+}
+
+void RecoveryStrategy::receivedFutureNack(uint32_t seq) {
+  nacked_seq_.insert(seq);
 }
 
 void RecoveryStrategy::clear() {
@@ -236,6 +259,9 @@ void RecoveryStrategy::retransmit() {
       DLOG_IF(INFO, VLOG_IS_ON(3))
           << "send rtx for sequence " << seq << ", next send in "
           << (rtx_it->second.next_send_ - now);
+
+      // if fec is on increase the number of RTX send during fec
+      if (fec_on_) rtx_during_fec_++;
       send_rtx_callback_(seq);
       sent_counter++;
     }
@@ -306,7 +332,7 @@ void RecoveryStrategy::deleteRtx(uint32_t seq) {
 }
 
 // fec functions
-uint32_t RecoveryStrategy::computeFecPacketsToAsk(bool in_sync) {
+uint32_t RecoveryStrategy::computeFecPacketsToAsk() {
   double loss_rate = state_->getMaxLossRate() * 100;  // use loss rate in %
 
   if (loss_rate > 95) loss_rate = 95;  // max loss rate
@@ -365,21 +391,25 @@ uint32_t RecoveryStrategy::computeFecPacketsToAsk(bool in_sync) {
 void RecoveryStrategy::setRtxFec(std::optional<bool> rtx_on,
                                  std::optional<bool> fec_on) {
   if (rtx_on) rtx_on_ = *rtx_on;
-  if (fec_on) fec_on_ = *fec_on;
-
-  if (*callback_) {
-    notification::RecoveryStrategy strategy =
-        notification::RecoveryStrategy::RECOVERY_OFF;
-
-    if (rtx_on_ && fec_on_)
-      strategy = notification::RecoveryStrategy::RTX_AND_FEC;
-    else if (rtx_on_)
-      strategy = notification::RecoveryStrategy::RTX_ONLY;
-    else if (fec_on_)
-      strategy = notification::RecoveryStrategy::FEC_ONLY;
-
-    (*callback_)(strategy);
+  if (fec_on) {
+    if (fec_on_ == false && (*fec_on) == true) {  // turn on fec
+      // reset the number of RTX sent during fec
+      rtx_during_fec_ = 0;
+    }
+    fec_on_ = *fec_on;
   }
+
+  notification::RecoveryStrategy strategy =
+      notification::RecoveryStrategy::RECOVERY_OFF;
+
+  if (rtx_on_ && fec_on_)
+    strategy = notification::RecoveryStrategy::RTX_AND_FEC;
+  else if (rtx_on_)
+    strategy = notification::RecoveryStrategy::RTX_ONLY;
+  else if (fec_on_)
+    strategy = notification::RecoveryStrategy::FEC_ONLY;
+
+  callback_(strategy);
 }
 
 // common functions
@@ -389,6 +419,12 @@ void RecoveryStrategy::removePacketState(uint32_t seq) {
   auto it_fec = recover_with_fec_.find(seq);
   if (it_fec != recover_with_fec_.end()) {
     recover_with_fec_.erase(it_fec);
+    return;
+  }
+
+  auto it_nack = nacked_seq_.find(seq);
+  if (it_nack != nacked_seq_.end()) {
+    nacked_seq_.erase(it_nack);
     return;
   }
 
@@ -406,7 +442,6 @@ void RecoveryStrategy::reduceFec() {
     uint32_t bin = ceil(loss_rate / 5.0) - 1;
     if (fec_per_loss_rate_[bin].fec_to_ask > fec_to_ask) {
       fec_per_loss_rate_[bin].fec_to_ask--;
-      // std::cout << "reduce fec to ask for bin " << bin << std::endl;
     }
   }
 }

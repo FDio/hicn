@@ -42,7 +42,7 @@ class ProbeHandler : public std::enable_shared_from_this<ProbeHandler> {
   ~ProbeHandler();
 
   // If the function returns 0 the probe is not valid.
-  uint64_t getRtt(uint32_t seq);
+  uint64_t getRtt(uint32_t seq, bool is_valid);
 
   // this function may return a residual loss rate higher than the real one if
   // we don't wait enough time for the probes to come back
@@ -63,10 +63,16 @@ class ProbeHandler : public std::enable_shared_from_this<ProbeHandler> {
   static ProbeType getProbeType(uint32_t seq);
 
  private:
+  void generateProbe();
+
   uint32_t probe_interval_;  // us
   uint32_t max_probes_;      // packets
   uint32_t sent_probes_;     // packets
   uint32_t recv_probes_;     // packets
+
+  bool valid_batch_;  // if at least one probe in a batch is considered not
+                      // valid (e.g. prod rate == ~0) the full batch is invalid.
+                      // the bool is set to true when sendProbe is called
 
   std::unique_ptr<asio::steady_timer> probe_timer_;
 

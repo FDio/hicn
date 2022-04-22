@@ -36,10 +36,17 @@ ProbeHandler::ProbeHandler(SendProbeCallback &&send_callback,
 
 ProbeHandler::~ProbeHandler() {}
 
-uint64_t ProbeHandler::getRtt(uint32_t seq) {
+uint64_t ProbeHandler::getRtt(uint32_t seq, bool is_valid) {
   auto it = pending_probes_.find(seq);
 
   if (it == pending_probes_.end()) return 0;
+
+  if (!is_valid) {
+    // delete the probe anyway
+    pending_probes_.erase(it);
+    valid_batch_ = false;
+    return 0;
+  }
 
   uint64_t now = utils::SteadyTime::nowMs().count();
   uint64_t rtt = now - it->second;
@@ -52,6 +59,7 @@ uint64_t ProbeHandler::getRtt(uint32_t seq) {
 }
 
 double ProbeHandler::getProbeLossRate() {
+  if (!valid_batch_) return 1.0;
   return 1.0 - ((double)recv_probes_ / (double)sent_probes_);
 }
 
@@ -71,10 +79,25 @@ void ProbeHandler::stopProbes() {
   max_probes_ = 0;
   sent_probes_ = 0;
   recv_probes_ = 0;
+  valid_batch_ = true;
   probe_timer_->cancel();
 }
 
 void ProbeHandler::sendProbes() {
+  if (probe_interval_ == 0) return;
+
+  std::weak_ptr<ProbeHandler> self(shared_from_this());
+  probe_timer_->expires_from_now(std::chrono::microseconds(probe_interval_));
+  probe_timer_->async_wait([self](const std::error_code &ec) {
+    if (ec) return;
+    auto s = self.lock();
+    if (s) {
+      s->generateProbe();
+    }
+  });
+}
+
+void ProbeHandler::generateProbe() {
   if (probe_interval_ == 0) return;
   if (max_probes_ != 0 && sent_probes_ >= max_probes_) return;
 
@@ -97,17 +120,7 @@ void ProbeHandler::sendProbes() {
     }
   }
 
-  if (probe_interval_ == 0) return;
-
-  std::weak_ptr<ProbeHandler> self(shared_from_this());
-  probe_timer_->expires_from_now(std::chrono::microseconds(probe_interval_));
-  probe_timer_->async_wait([self](const std::error_code &ec) {
-    if (ec) return;
-    auto s = self.lock();
-    if (s) {
-      s->sendProbes();
-    }
-  });
+  sendProbes();
 }
 
 ProbeType ProbeHandler::getProbeType(uint32_t seq) {

@@ -103,6 +103,17 @@ TEST_F(BitmapTest, BitmapSet) {
   EXPECT_FALSE(bitmap_is_set(bitmap, 19));
   EXPECT_TRUE(bitmap_is_unset(bitmap, 19));
 
+  // Test edge cases (i.e. start and end of block)
+  off_t start_position = 0;
+  bitmap_set(bitmap, start_position);
+  EXPECT_TRUE(bitmap_is_set(bitmap, start_position));
+  EXPECT_FALSE(bitmap_is_unset(bitmap, start_position));
+
+  off_t end_position = BITMAP_WIDTH(bitmap) - 1;
+  bitmap_set(bitmap, end_position);
+  EXPECT_TRUE(bitmap_is_set(bitmap, end_position));
+  EXPECT_FALSE(bitmap_is_unset(bitmap, end_position));
+
   bitmap_free(bitmap);
 }
 

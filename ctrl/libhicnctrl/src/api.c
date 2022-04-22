@@ -689,7 +689,12 @@ int hc_route_validate(const hc_route_t *route) {
     ERROR("[hc_route_validate] Invalid connection id");
     return -1;
   }
-  if (!IS_VALID_NAME(route->name) && !IS_VALID_STR_ID(route->name)) {
+  if (route->name[0] == '\0') {
+    if (!IS_VALID_FACE_ID(route->face_id)) {
+      ERROR("[hc_route_validate] Invalid face_id");
+      return -1;
+    }
+  } else if (!IS_VALID_NAME(route->name) && !IS_VALID_STR_ID(route->name)) {
     ERROR("[hc_route_validate] Invalid name specified");
     return -1;
   }
