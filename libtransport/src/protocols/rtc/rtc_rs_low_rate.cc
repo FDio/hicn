@@ -25,9 +25,9 @@ namespace rtc {
 
 RecoveryStrategyLowRate::RecoveryStrategyLowRate(
     Indexer *indexer, SendRtxCallback &&callback, asio::io_service &io_service,
-    interface::StrategyCallback *external_callback)
+    interface::StrategyCallback &&external_callback)
     : RecoveryStrategy(indexer, std::move(callback), io_service, false, true,
-                       external_callback),  // start with fec
+                       std::move(external_callback)),  // start with fec
       fec_consecutive_rounds_((MILLI_IN_A_SEC / ROUND_LEN) * 5),  // 5 sec
       rtx_allowed_consecutive_rounds_(0) {
   initSwitchVector();
@@ -66,7 +66,7 @@ void RecoveryStrategyLowRate::setRecoveryParameters(bool use_rtx, bool use_fec,
 }
 
 void RecoveryStrategyLowRate::selectRecoveryStrategy(bool in_sync) {
-  uint32_t fec_to_ask = computeFecPacketsToAsk(in_sync);
+  uint32_t fec_to_ask = computeFecPacketsToAsk();
   if (fec_to_ask == 0) {
     // fec is off, turn on RTX immediatly to avoid packet losses
     setRecoveryParameters(true, false, 0);
@@ -126,6 +126,11 @@ void RecoveryStrategyLowRate::selectRecoveryStrategy(bool in_sync) {
     // turn off RTX
     setRtxFec(false);
   }
+}
+
+void RecoveryStrategyLowRate::turnOnRecovery() {
+  recovery_on_ = 1;
+  // the stategy will be init in the new round function
 }
 
 void RecoveryStrategyLowRate::onNewRound(bool in_sync) {

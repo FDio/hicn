@@ -73,6 +73,7 @@ static inline bool IS_VALID_STR_ID(const char *name) {
 
 #define IS_VALID_TYPE(x) IS_VALID_ENUM_TYPE(FACE_TYPE, x)
 #define IS_VALID_ADDR_TYPE(x) ((x >= ADDR_INET) && (x <= ADDR_UNIX))
+#define IS_VALID_FACE_ID(x) ((x) != INVALID_FACE_ID)
 
 #define IS_VALID_ID(x) (1)
 #define IS_VALID_POLICY(x) (1)

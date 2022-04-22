@@ -15,22 +15,17 @@
 # Packages section
 ######################
 
-##############################################################
-# Get VPP version
-##############################################################
-list(GET VPP_DEFAULT_VERSION 0 VPP_VERSION)
-
 set(hicn-sysrepo-plugin_DESCRIPTION
   "A Plugin to enable hICN VPP in sysrepo."
   CACHE STRING "Description for deb/rpm package."
 )
 
 set(hicn-sysrepo-plugin_DEB_DEPENDENCIES
-  "hicn-plugin (= ${VPP_VERSION}-release), sysrepo (>= 1.0)"
+  "hicn-plugin (= ${PREFIX_VERSION}-release), sysrepo (>= 1.0)"
   CACHE STRING "Dependencies for deb/rpm package."
 )
 
 set(hicn-sysrepo-plugin_RPM_DEPENDENCIES
-  "hicn-plugin = ${VPP_VERSION}-release, sysrepo >= 1.0"
+  "hicn-plugin = ${PREFIX_VERSION}-release, sysrepo >= 1.0"
   CACHE STRING "Dependencies for deb/rpm package."
 )

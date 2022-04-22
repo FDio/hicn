@@ -62,7 +62,7 @@ class CryptoHash {
   void computeDigest(const utils::MemBuf *buffer);
 
   // Return the computed hash
-  std::vector<uint8_t> getDigest() const;
+  const utils::MemBuf::Ptr &getDigest() const;
 
   // Return the computed hash as a string
   std::string getStringDigest() const;
@@ -94,7 +94,7 @@ class CryptoHash {
 
  private:
   CryptoHashType digest_type_;
-  std::vector<uint8_t> digest_;
+  utils::MemBuf::Ptr digest_;
   std::size_t digest_size_;
 };
 

@@ -28,9 +28,9 @@ function build_package() {
     echo "*******************************************************************"
 
     # Make the package
-    make -C ${SCRIPT_PATH}/.. INSTALL_PREFIX=/usr test package-release
+    make INSTALL_PREFIX=/usr test package-release
 
-    pushd ${SCRIPT_PATH}/../build-release-${ID}
+    pushd build-release-${ID}
       find . -not -name '*.deb' -not -name '*.rpm' -print0 | xargs -0 rm -rf -- || true
       rm *Unspecified* *Development* *development* || true
     popd
@@ -47,6 +47,7 @@ build_sphinx() {
     echo "********************* STARTING DOC BUILD **************************"
     echo "*******************************************************************"
 
+    # Make the package
     make doc
 
     echo "*******************************************************************"
