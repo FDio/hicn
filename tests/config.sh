@@ -118,7 +118,6 @@ function conf_exists() {
   [[ "${configurations[*]}" =~ ${1} ]] && return 0 || return 1
 }
 
-
 # test-name client/server link-model
 function setchannel() {
   if ! conf_exists "${1}"; then
@@ -184,8 +183,16 @@ function setup() {
     error "Error: topology does not exist."
   fi
 
+  if [[ "${topology}" == "1-node" && "${conf}" == "None" ]]; then
+    docker-compose -f "${topology}".yml build
+    docker-compose -f "${topology}".yml up --remove-orphans --force-recreate -d
+
+    sleep 1
+    return
+  fi
+
   if ! conf_exists "${conf}"; then
-    error "Error: topology does not exist."
+    error "Error: topology conf does not exist."
   fi
 
   docker-compose -f "${topology}".yml -f "${topology}-${conf}".yml build
@@ -219,6 +226,11 @@ function stop() {
     error "Error: topology does not exist."
   fi
 
+  if [[ "${topology}" == "1-node" && "${conf}" == "None" ]]; then
+    docker-compose -f "${topology}".yml down || true
+    return
+  fi
+
   if ! conf_exists "${conf}"; then
     error "Error: tect configuration does not exist."
   fi
@@ -238,6 +250,216 @@ function stopall() {
 
 function runtest() {
   echo "${@}" | sudo -i
+}
+
+################################################################
+# Test commands (hicn-light-control)
+################################################################
+INTERFACE="eth0"
+ADDRESS="192.168.1.1"
+LISTENER_NAME="udp0"
+LISTENER_NAME_2="udp1"
+CONN_NAME="conn0"
+CONN_NAME_2="conn1"
+PREFIX="b001::/16"
+COST=1
+
+#---------------------------------------------------------------
+# Helpers
+#---------------------------------------------------------------
+function exec_command() {
+  command=$1
+
+  output=$(docker exec forwarder hicn-light-control $command 2>&1)
+  echo "$output"
+}
+
+function assert_cmd_success() {
+  command=$1
+  output=$(exec_command "${command}")
+
+  if [[ -z "$output" ]]; then
+    echo "OK"
+  else
+    echo "FAILED"
+    exit 0
+  fi
+}
+
+function assert_cmd_failure() {
+  command=$1
+  output=$(exec_command "${command}")
+
+  if [[ ! -z "$output" ]]; then
+    echo "OK"
+  else
+    echo "FAILED"
+    exit 0
+  fi
+}
+
+#---------------------------------------------------------------
+# Tests for listeners, connections, routes
+#---------------------------------------------------------------
+function test_listeners() {
+  echo -n "Add listeners: "
+  command="add listener udp $LISTENER_NAME $ADDRESS 9695 $INTERFACE"
+  _=$(exec_command "${command}")
+  command="add listener udp $LISTENER_NAME_2 127.0.0.1 12345 $INTERFACE"
+  assert_cmd_success "${command}"
+
+  echo -n "List listeners: "
+  command="list listener"
+  output=$(exec_command "${command}")
+
+  if [[ "${output}" =~ "udp0 inet4://192.168.1.1:9695" &&
+    "${output}" =~ "udp1 inet4://127.0.0.1:12345" &&
+    "${output}" =~ "interface=lo" &&
+    "${output}" =~ "interface=$INTERFACE" &&
+    ! "${output}" =~ "ERROR" ]]; then
+    echo "OK"
+  else
+    echo "FAILED"
+    echo $output
+    exit 0
+  fi
+
+  echo -n "Remove listener using symbolic: "
+  command="remove listener $LISTENER_NAME"
+  assert_cmd_success "${command}"
+
+  echo -n "Remove listener using ID: "
+  command="remove listener 2"
+  assert_cmd_success "${command}"
+
+  echo -n "Remove non-existing listener using symbolic: "
+  command="remove listener $LISTENER_NAME_2"
+  assert_cmd_failure "${command}"
+
+  echo -n "Remove non-existing listener using ID: "
+  command="remove listener 5"
+  assert_cmd_failure "${command}"
+
+  echo -n "Add duplicated listener (same symbolic): "
+  command="add listener udp $LISTENER_NAME $ADDRESS 9695 $INTERFACE"
+  _=$(exec_command "${command}")
+  command="add listener udp $LISTENER_NAME 127.0.0.1 12345 $INTERFACE"
+  assert_cmd_failure "${command}"
+
+  echo -n "Add duplicated listener (same endpoints): "
+  command="add listener udp $LISTENER_NAME $ADDRESS 9695 $INTERFACE"
+  _=$(exec_command "${command}")
+  command="add listener udp $LISTENER_NAME_2 $ADDRESS 9695 $INTERFACE"
+  assert_cmd_failure "${command}"
+}
+
+function test_connections() {
+  echo -n "Add connections: "
+  command="add listener udp $LISTENER_NAME $ADDRESS 9695 $INTERFACE"
+  _=$(exec_command "${command}")
+  command="add connection udp $CONN_NAME $ADDRESS 9695 $ADDRESS 9695 $INTERFACE"
+  _=$(exec_command "${command}")
+  command="add connection udp $CONN_NAME_2 $ADDRESS 12345 $ADDRESS 9695 $INTERFACE"
+  assert_cmd_success "${command}"
+
+  echo -n "List connections: "
+  command="list connection"
+  output=$(exec_command "${command}")
+
+  if [[ "${output}" =~ "inet4://192.168.1.1:12345" &&
+    "${output}" =~ "inet4://192.168.1.1:9695" &&
+    "${output}" =~ "conn0" && "${output}" =~ "conn1" &&
+    ! "${output}" =~ "ERROR" ]]; then
+    echo "OK"
+  else
+    echo "FAILED"
+    echo $output
+    exit 0
+  fi
+
+  echo -n "Remove connection using symbolic: "
+  command="remove connection $CONN_NAME"
+  assert_cmd_success "${command}"
+
+  echo -n "Remove connection using ID: "
+  command="remove connection 2"
+  assert_cmd_success "${command}"
+
+  echo -n "Remove non-existing connection using symbolic: "
+  command="remove connection $CONN_NAME"
+  assert_cmd_failure "${command}"
+
+  echo -n "Remove non-existing connection using ID: "
+  command="remove connection 5"
+  assert_cmd_failure "${command}"
+
+  echo -n "Add duplicated connection (same symbolic): "
+  command="add connection udp $CONN_NAME $ADDRESS 9695 $ADDRESS 9695 $INTERFACE"
+  _=$(exec_command "${command}")
+  command="add connection udp $CONN_NAME $ADDRESS 9695 $ADDRESS 12345 $INTERFACE"
+  assert_cmd_failure "${command}"
+
+  # This case is allowed, success code is returned and symbolic is not updated
+  echo -n "Add duplicated connection (different symbolic, same endpoints): "
+  command="add connection udp $CONN_NAME_2 $ADDRESS 9695 $ADDRESS 9695 $INTERFACE"
+  assert_cmd_success "${command}"
+}
+
+function test_routes() {
+  echo -n "Add route: "
+  command="add listener udp $LISTENER_NAME $ADDRESS 9695 $INTERFACE"
+  _=$(exec_command "${command}")
+  command="add connection udp $CONN_NAME $ADDRESS 9695 $ADDRESS 9695 $INTERFACE"
+  _=$(exec_command "${command}")
+  command="add route $CONN_NAME $PREFIX $COST"
+  assert_cmd_success "${command}"
+
+  echo -n "List routes: "
+  command="list route"
+  output=$(exec_command "${command}")
+
+  if [[ "${output}" =~ "b001::" && "${output}" =~ "16" &&
+    ! "${output}" =~ "ERROR" ]]; then
+    echo "OK"
+  else
+    echo "FAILED"
+    echo "$output"
+    exit 0
+  fi
+
+  echo -n "Remove route using symbolic: "
+  command="remove route $CONN_NAME $PREFIX"
+  assert_cmd_success "${command}"
+
+  echo -n "Remove route using ID: "
+  command="add route $CONN_NAME $PREFIX $COST"
+  _=$(exec_command "${command}")
+  command="remove route 1 $PREFIX"
+  assert_cmd_success "${command}"
+
+  echo -n "Remove non-existing route using symbolic: "
+  command="remove connection $CONN_NAME $PREFIX"
+  assert_cmd_failure "${command}"
+
+  echo -n "Remove non-existing route using ID: "
+  command="remove route 5 $PREFIX"
+  assert_cmd_failure "${command}"
+}
+
+declare -A ctrl_tests=(
+  ["listeners"]="test_listeners"
+  ["connections"]="test_connections"
+  ["routes"]="test_routes"
+)
+
+function ctrl() {
+  type=$1
+  if [[ ! -v "ctrl_tests[${type}]" ]]; then
+    error "Error: hicn-light-contrl test does not exist."
+    exit 1
+  fi
+
+  ${ctrl_tests[${type}]}
 }
 
 while (("${#}")); do
@@ -281,8 +503,12 @@ while (("${#}")); do
     runtest "${@:2}"
     break
     ;;
-  *)
+  'ctrl')
+    ctrl "${2}"
     break
+    ;;
+  *)
+    exit 1
     ;;
   esac
 done

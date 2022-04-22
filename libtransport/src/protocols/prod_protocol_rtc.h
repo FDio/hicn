@@ -77,7 +77,7 @@ class RTCProductionProtocol : public ProductionProtocol {
       const Name &name) const;
 
   // stats
-  void updateStats();
+  void updateStats(bool new_round);
   void scheduleRoundTimer();
 
   // pending intersts functions
@@ -108,16 +108,17 @@ class RTCProductionProtocol : public ProductionProtocol {
   uint32_t prod_label_;   // path label of the producer
   uint32_t cache_label_;  // path label for content from the producer cache
 
+  uint32_t prev_produced_bytes_;  // XXX clearly explain all these new vars
+  uint32_t prev_produced_packets_;
+
   uint32_t produced_bytes_;        // bytes produced in the last round
   uint32_t produced_packets_;      // packet produed in the last round
-  uint32_t produced_fec_packets_;  // fec packets produced last round
 
   uint32_t max_packet_production_;  // never exceed this number of packets
                                     // without update stats
 
   uint32_t bytes_production_rate_;        // bytes per sec
   uint32_t packets_production_rate_;      // pps
-  uint32_t fec_packets_production_rate_;  // pps
 
   uint64_t last_produced_data_ts_;  // ms
 

@@ -46,9 +46,9 @@ class Signer {
   virtual void signBuffer(const utils::MemBuf *buffer);
 
   // Return the signature.
-  std::vector<uint8_t> getSignature() const;
+  const utils::MemBuf::Ptr &getSignature() const;
 
-  // Return the signature as a string
+  // Return the signature as a string.
   std::string getStringSignature() const;
 
   // Return the signature size in bytes.
@@ -65,12 +65,12 @@ class Signer {
   // Return the hash algorithm associated to the signer.
   CryptoHashType getHashType() const;
 
-  // Print signature to stdout
+  // Print signature to stdout.
   void display();
 
  protected:
   CryptoSuite suite_;
-  std::vector<uint8_t> signature_;
+  utils::MemBuf::Ptr signature_;
   std::size_t signature_len_;
   std::shared_ptr<EVP_PKEY> key_;
   CryptoHash key_id_;

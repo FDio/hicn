@@ -13,6 +13,7 @@ Build Topology
     ${result_setup} =    Run Process                                                 ${EXECDIR}/config.sh              build    setup    ${TEST_TOPOLOGY}    ${TEST_CONFIGURATION}
     Log to console       Done
     Log Many             stdout: ${result_setup.stdout}                              stderr: ${result_setup.stderr}
+    Should Be Equal As Integers  ${result_setup.rc}  0
 
 Check Environment
     ${result} =    Run Process                 docker                      ps
@@ -21,3 +22,4 @@ Check Environment
 Destroy Topology
     ${result_teardown} =    Run Process                          ${EXECDIR}/config.sh                 stopall
     Log Many                stdout: ${result_teardown.stdout}    stderr: ${result_teardown.stderr}
+    Should Be Equal As Integers     ${result_teardown.rc}  0

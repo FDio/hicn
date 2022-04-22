@@ -56,7 +56,8 @@ class ConsumerSocket : public Socket {
         rate_estimation_observer_(nullptr),
         rate_estimation_batching_parameter_(default_values::batch),
         rate_estimation_choice_(0),
-        max_unverified_delay_(default_values::max_unverified_delay),
+        unverified_interval_(default_values::unverified_interval),
+        unverified_ratio_(default_values::unverified_ratio),
         verifier_(std::make_shared<auth::VoidVerifier>()),
         verify_signature_(false),
         reset_window_(false),
@@ -71,7 +72,6 @@ class ConsumerSocket : public Socket {
         timer_interval_milliseconds_(0),
         recovery_strategy_(RtcTransportRecoveryStrategies::RTX_ONLY),
         aggregated_data_(false),
-        fec_setting_(""),
         guard_raaqm_params_() {
     switch (protocol) {
       case TransportProtocolAlgorithms::CBR:
@@ -197,6 +197,10 @@ class ConsumerSocket : public Socket {
         current_window_size_ = socket_option_value;
         break;
 
+      case UNVERIFIED_RATIO:
+        unverified_ratio_ = socket_option_value;
+        break;
+
       case GAMMA_VALUE:
         gamma_ = socket_option_value;
         break;
@@ -238,8 +242,8 @@ class ConsumerSocket : public Socket {
         interest_lifetime_ = socket_option_value;
         break;
 
-      case GeneralTransportOptions::MAX_UNVERIFIED_TIME:
-        max_unverified_delay_ = socket_option_value;
+      case GeneralTransportOptions::UNVERIFIED_INTERVAL:
+        unverified_interval_ = socket_option_value;
         break;
 
       case RateEstimationOptions::RATE_ESTIMATION_BATCH_PARAMETER:
@@ -437,11 +441,6 @@ class ConsumerSocket : public Socket {
           result = SOCKET_OPTION_SET;
         }
         break;
-      case GeneralTransportOptions::FEC_TYPE:
-        fec_setting_ = socket_option_value;
-        result = SOCKET_OPTION_SET;
-        break;
-
       default:
         return result;
     }
@@ -507,6 +506,10 @@ class ConsumerSocket : public Socket {
         socket_option_value = current_window_size_;
         break;
 
+      case GeneralTransportOptions::UNVERIFIED_RATIO:
+        socket_option_value = unverified_ratio_;
+        break;
+
         // RAAQM parameters
 
       case RaaqmTransportOptions::GAMMA_VALUE:
@@ -547,8 +550,8 @@ class ConsumerSocket : public Socket {
         socket_option_value = interest_lifetime_;
         break;
 
-      case GeneralTransportOptions::MAX_UNVERIFIED_TIME:
-        socket_option_value = max_unverified_delay_;
+      case GeneralTransportOptions::UNVERIFIED_INTERVAL:
+        socket_option_value = unverified_interval_;
         break;
 
       case RaaqmTransportOptions::SAMPLE_NUMBER:
@@ -702,13 +705,9 @@ class ConsumerSocket : public Socket {
       case DataLinkOptions::OUTPUT_INTERFACE:
         socket_option_value = output_interface_;
         break;
-      case GeneralTransportOptions::FEC_TYPE:
-        socket_option_value = fec_setting_;
-        break;
       default:
         return SOCKET_OPTION_NOT_GET;
     }
-
     return SOCKET_OPTION_GET;
   }
 
@@ -828,7 +827,8 @@ class ConsumerSocket : public Socket {
   int rate_estimation_choice_;
 
   // Verification parameters
-  int max_unverified_delay_;
+  uint32_t unverified_interval_;
+  double unverified_ratio_;
   std::shared_ptr<auth::Verifier> verifier_;
   transport::auth::KeyId *key_id_;
   std::atomic_bool verify_signature_;
@@ -856,9 +856,6 @@ class ConsumerSocket : public Socket {
   // RTC protocol
   RtcTransportRecoveryStrategies recovery_strategy_;
   bool aggregated_data_;
-
-  // FEC setting
-  std::string fec_setting_;
 
   utils::SpinLock guard_raaqm_params_;
   std::string output_interface_;

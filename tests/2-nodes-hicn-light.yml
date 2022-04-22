@@ -25,7 +25,7 @@ services:
         sudo hicn-light-daemon \
           --daemon \
           --log-file /tmp/lite_client.log \
-          --config /tmp/hicn-light.conf --capacity 0
+          --config /tmp/hicn-light.conf
 
         tail -f /dev/null
 

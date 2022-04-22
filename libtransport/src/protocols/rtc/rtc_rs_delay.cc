@@ -25,9 +25,9 @@ namespace rtc {
 
 RecoveryStrategyDelayBased::RecoveryStrategyDelayBased(
     Indexer *indexer, SendRtxCallback &&callback, asio::io_service &io_service,
-    interface::StrategyCallback *external_callback)
+    interface::StrategyCallback &&external_callback)
     : RecoveryStrategy(indexer, std::move(callback), io_service, true, false,
-                       external_callback),  // start with rtx
+                       std::move(external_callback)),  // start with rtx
       congestion_state_(false),
       probing_state_(false),
       switch_rounds_(0) {}
@@ -37,11 +37,28 @@ RecoveryStrategyDelayBased::RecoveryStrategyDelayBased(RecoveryStrategy &&rs)
   setRtxFec(true, false);
   // we have to re-init congestion and
   // probing
+  switch_rounds_ = 0;
   congestion_state_ = false;
   probing_state_ = false;
 }
 
 RecoveryStrategyDelayBased::~RecoveryStrategyDelayBased() {}
+
+void RecoveryStrategyDelayBased::turnOnRecovery() {
+  recovery_on_ = true;
+  uint64_t rtt = state_->getMinRTT();
+  uint32_t fec_to_ask = computeFecPacketsToAsk();
+  if (rtt > 80 && fec_to_ask != 0) {
+    // we need to start FEC (see fec only strategy for more details)
+    setRtxFec(true, true);
+    rtx_during_fec_ = 1;  // avoid to stop fec
+    indexer_->setNFec(fec_to_ask);
+  } else {
+    // use RTX
+    setRtxFec(true, false);
+    switch_rounds_ = 0;
+  }
+}
 
 void RecoveryStrategyDelayBased::softSwitchToFec(uint32_t fec_to_ask) {
   if (fec_to_ask == 0) {
@@ -49,10 +66,11 @@ void RecoveryStrategyDelayBased::softSwitchToFec(uint32_t fec_to_ask) {
     switch_rounds_ = 0;
   } else {
     switch_rounds_++;
-    if (switch_rounds_ >= 5) {
+    if (switch_rounds_ >= ((RTC_INTEREST_LIFETIME / ROUND_LEN) * 2) &&
+        rtx_during_fec_ != 0) {  // go to fec only if it is needed (RTX are on)
       setRtxFec(false, true);
     } else {
-      setRtxFec({}, true);
+      setRtxFec(true, true);
     }
   }
 }
@@ -76,9 +94,13 @@ void RecoveryStrategyDelayBased::onNewRound(bool in_sync) {
     // switch from rtx to fec or keep use fec. Notice that if some rtx are
     // waiting to be scheduled, they will be sent normally, but no new rtx will
     // be created If the loss rate is 0 keep to use RTX.
-    uint32_t fec_to_ask = computeFecPacketsToAsk(in_sync);
+    uint32_t fec_to_ask = computeFecPacketsToAsk();
     softSwitchToFec(fec_to_ask);
-    indexer_->setNFec(fec_to_ask);
+    if (rtx_during_fec_ == 0)  // if we do not send any RTX the losses
+                               // registered may be due to jitter
+      indexer_->setNFec(0);
+    else
+      indexer_->setNFec(fec_to_ask);
     return;
   }
 
@@ -112,7 +134,7 @@ void RecoveryStrategyDelayBased::probing() {
   // for the moment ask for all fec and exit the probing phase
   probing_state_ = false;
   setRtxFec(false, true);
-  indexer_->setNFec(computeFecPacketsToAsk(true));
+  indexer_->setNFec(computeFecPacketsToAsk());
 }
 
 }  // end namespace rtc
