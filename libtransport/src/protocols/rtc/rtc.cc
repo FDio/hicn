@@ -63,16 +63,25 @@ std::size_t RTCTransportProtocol::transportHeaderLength() {
 // private
 void RTCTransportProtocol::initParams() {
   TransportProtocol::reset();
-  fwd_strategy_.setCallback(on_fwd_strategy_);
-
   std::weak_ptr<RTCTransportProtocol> self = shared_from_this();
+
+  fwd_strategy_.setCallback([self](notification::Strategy strategy) {
+    auto ptr = self.lock();
+    if (ptr && ptr->isRunning()) {
+      if (*ptr->on_fwd_strategy_) (*ptr->on_fwd_strategy_)(strategy);
+    }
+  });
 
   std::shared_ptr<auth::Verifier> verifier;
   socket_->getSocketOption(GeneralTransportOptions::VERIFIER, verifier);
 
-  uint32_t max_unverified_delay;
-  socket_->getSocketOption(GeneralTransportOptions::MAX_UNVERIFIED_TIME,
-                           max_unverified_delay);
+  uint32_t unverified_interval;
+  socket_->getSocketOption(GeneralTransportOptions::UNVERIFIED_INTERVAL,
+                           unverified_interval);
+
+  double unverified_ratio;
+  socket_->getSocketOption(GeneralTransportOptions::UNVERIFIED_RATIO,
+                           unverified_ratio);
 
   rc_ = std::make_shared<RTCRateControlCongestionDetection>();
   ldr_ = std::make_shared<RTCLossDetectionAndRecovery>(
@@ -84,8 +93,15 @@ void RTCTransportProtocol::initParams() {
           ptr->sendRtxInterest(seq);
         }
       },
-      on_rec_strategy_);
-  verifier_ = std::make_shared<RTCVerifier>(verifier, max_unverified_delay);
+      [self](notification::Strategy strategy) {
+        auto ptr = self.lock();
+        if (ptr && ptr->isRunning()) {
+          if (*ptr->on_rec_strategy_) (*ptr->on_rec_strategy_)(strategy);
+        }
+      });
+
+  verifier_ = std::make_shared<RTCVerifier>(verifier, unverified_interval,
+                                            unverified_ratio);
 
   state_ = std::make_shared<RTCState>(
       indexer_verifier_.get(),
@@ -102,7 +118,6 @@ void RTCTransportProtocol::initParams() {
         }
       },
       portal_->getThread().getIoService());
-  state_->initParams();
 
   rc_->setState(state_);
   rc_->turnOnRateControl();
@@ -153,21 +168,8 @@ void RTCTransportProtocol::initParams() {
   socket_->setSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
                            RTC_INTEREST_LIFETIME);
 
-  // FEC
-  using namespace std::placeholders;
-  enableFEC(std::bind(&RTCTransportProtocol::onFecPackets, this, _1),
-            /* We leave the buffer allocation to the fec decoder */
-            fec::FECBase::BufferRequested(0));
-
-  if (fec_decoder_) {
-    indexer_verifier_->enableFec(fec_type_);
-    indexer_verifier_->setNFec(0);
-    ldr_->setFecParams(fec::FECUtils::getBlockSymbols(fec_type_),
-                       fec::FECUtils::getSourceSymbols(fec_type_));
-    fec_decoder_->setIOService(portal_->getThread().getIoService());
-  } else {
-    indexer_verifier_->disableFec();
-  }
+  // init state params
+  state_->initParams();
 }
 
 // private
@@ -707,16 +709,39 @@ void RTCTransportProtocol::onNack(const ContentObject &content_object) {
 }
 
 void RTCTransportProtocol::onProbe(const ContentObject &content_object) {
-  bool valid = state_->onProbePacketReceived(content_object);
-  if (!valid) return;
+  uint32_t suffix = content_object.getName().getSuffix();
+  ParamsRTC params = RTCState::getProbeParams(content_object);
 
-  uint32_t production_seg = RTCState::getProbeParams(content_object).prod_seg;
+  if (ProbeHandler::getProbeType(suffix) == ProbeType::INIT) {
+    fec::FECType fec_type = params.fec_type;
 
-  // As for the nacks set next_segment
+    if (fec_type != fec::FECType::UNKNOWN && !fec_decoder_) {
+      // Update FEC type
+      fec_type_ = fec_type;
+
+      // Enable FEC
+      enableFEC(std::bind(&RTCTransportProtocol::onFecPackets, this,
+                          std::placeholders::_1),
+                fec::FECBase::BufferRequested(0));
+
+      // Update FEC parameters
+      indexer_verifier_->enableFec(fec_type);
+      indexer_verifier_->setNFec(0);
+      ldr_->setFecParams(fec::FECUtils::getBlockSymbols(fec_type),
+                         fec::FECUtils::getSourceSymbols(fec_type));
+      fec_decoder_->setIOService(portal_->getThread().getIoService());
+    } else if (fec_type == fec::FECType::UNKNOWN) {
+      indexer_verifier_->disableFec();
+    }
+  }
+
+  if (!state_->onProbePacketReceived(content_object)) return;
+
+  // As for NACKs, set next_segment
   DLOG_IF(INFO, VLOG_IS_ON(3))
       << "on probe next seg = " << indexer_verifier_->checkNextSuffix()
-      << ", jump to " << production_seg;
-  indexer_verifier_->jumpToIndex(production_seg);
+      << ", jump to " << params.prod_seg;
+  indexer_verifier_->jumpToIndex(params.prod_seg);
 
   ldr_->onProbePacketReceived(content_object);
   updateSyncWindow();

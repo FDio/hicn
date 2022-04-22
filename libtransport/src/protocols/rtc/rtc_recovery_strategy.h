@@ -44,7 +44,7 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
 
   RecoveryStrategy(Indexer *indexer, SendRtxCallback &&callback,
                    asio::io_service &io_service, bool use_rtx, bool use_fec,
-                   interface::StrategyCallback *external_callback);
+                   interface::StrategyCallback &&external_callback);
 
   RecoveryStrategy(RecoveryStrategy &&rs);
 
@@ -144,7 +144,7 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
   uint32_t round_id_;  // number of rounds
   uint32_t last_fec_used_;
   std::vector<fec_state_> fec_per_loss_rate_;
-  interface::StrategyCallback *callback_;
+  interface::StrategyCallback callback_;
 };
 
 }  // end namespace rtc

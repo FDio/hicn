@@ -25,9 +25,9 @@ namespace rtc {
 
 RecoveryStrategyRtxOnly::RecoveryStrategyRtxOnly(
     Indexer *indexer, SendRtxCallback &&callback, asio::io_service &io_service,
-    interface::StrategyCallback *external_callback)
+    interface::StrategyCallback &&external_callback)
     : RecoveryStrategy(indexer, std::move(callback), io_service, true, false,
-                       external_callback) {}
+                       std::move(external_callback)) {}
 
 RecoveryStrategyRtxOnly::RecoveryStrategyRtxOnly(RecoveryStrategy &&rs)
     : RecoveryStrategy(std::move(rs)) {

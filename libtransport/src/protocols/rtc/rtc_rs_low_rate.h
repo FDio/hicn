@@ -34,7 +34,7 @@ class RecoveryStrategyLowRate : public RecoveryStrategy {
  public:
   RecoveryStrategyLowRate(Indexer *indexer, SendRtxCallback &&callback,
                           asio::io_service &io_service,
-                          interface::StrategyCallback *external_callback);
+                          interface::StrategyCallback &&external_callback);
 
   RecoveryStrategyLowRate(RecoveryStrategy &&rs);
 

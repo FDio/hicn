@@ -76,6 +76,20 @@ void ProbeHandler::stopProbes() {
 
 void ProbeHandler::sendProbes() {
   if (probe_interval_ == 0) return;
+
+  std::weak_ptr<ProbeHandler> self(shared_from_this());
+  probe_timer_->expires_from_now(std::chrono::microseconds(probe_interval_));
+  probe_timer_->async_wait([self](const std::error_code &ec) {
+    if (ec) return;
+    auto s = self.lock();
+    if (s) {
+      s->generateProbe();
+    }
+  });
+}
+
+void ProbeHandler::generateProbe() {
+  if (probe_interval_ == 0) return;
   if (max_probes_ != 0 && sent_probes_ >= max_probes_) return;
 
   uint64_t now = utils::SteadyTime::nowMs().count();
@@ -97,17 +111,7 @@ void ProbeHandler::sendProbes() {
     }
   }
 
-  if (probe_interval_ == 0) return;
-
-  std::weak_ptr<ProbeHandler> self(shared_from_this());
-  probe_timer_->expires_from_now(std::chrono::microseconds(probe_interval_));
-  probe_timer_->async_wait([self](const std::error_code &ec) {
-    if (ec) return;
-    auto s = self.lock();
-    if (s) {
-      s->sendProbes();
-    }
-  });
+  sendProbes();
 }
 
 ProbeType ProbeHandler::getProbeType(uint32_t seq) {

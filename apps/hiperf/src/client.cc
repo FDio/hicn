@@ -696,8 +696,11 @@ class HIperfClient::Impl : ForwarderInterface::ICallback {
         configuration_.interest_lifetime_);
 
     consumer_socket_->setSocketOption(
-        GeneralTransportOptions::MAX_UNVERIFIED_TIME,
-        configuration_.unverified_delay_);
+        GeneralTransportOptions::UNVERIFIED_INTERVAL,
+        configuration_.unverified_interval_);
+
+    consumer_socket_->setSocketOption(GeneralTransportOptions::UNVERIFIED_RATIO,
+                                      configuration_.unverified_ratio_);
 
     if (consumer_socket_->setSocketOption(
             GeneralTransportOptions::PACKET_FORMAT,
@@ -715,6 +718,20 @@ class HIperfClient::Impl : ForwarderInterface::ICallback {
       std::cout << "Signal SIGUSR1!" << std::endl;
       mtrace();
     });
+
+    ret = consumer_socket_->setSocketOption(
+        ConsumerCallbacksOptions::FWD_STRATEGY_CHANGE,
+        [this](notification::Strategy strategy) {
+          std::cout << "Forwarder strategy callback" << std::endl;
+        });
+    if (ret == SOCKET_OPTION_NOT_SET) return ERROR_SETUP;
+
+    ret = consumer_socket_->setSocketOption(
+        ConsumerCallbacksOptions::REC_STRATEGY_CHANGE,
+        [this](notification::Strategy strategy) {
+          std::cout << "Recovery strategy callback" << std::endl;
+        });
+    if (ret == SOCKET_OPTION_NOT_SET) return ERROR_SETUP;
 #endif
 
     if (consumer_socket_->setSocketOption(CURRENT_WINDOW_SIZE,
@@ -850,15 +867,6 @@ class HIperfClient::Impl : ForwarderInterface::ICallback {
           (ConsumerContentObjectCallback)std::bind(
               &Impl::checkReceivedRtcContent, this, std::placeholders::_1,
               std::placeholders::_2));
-      if (ret == SOCKET_OPTION_NOT_SET) {
-        return ERROR_SETUP;
-      }
-    }
-
-    if (configuration_.rtc_) {
-      ret = consumer_socket_->setSocketOption(GeneralTransportOptions::FEC_TYPE,
-                                              configuration_.fec_type_);
-
       if (ret == SOCKET_OPTION_NOT_SET) {
         return ERROR_SETUP;
       }

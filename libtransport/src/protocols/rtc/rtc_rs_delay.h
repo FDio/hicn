@@ -26,7 +26,7 @@ class RecoveryStrategyDelayBased : public RecoveryStrategy {
  public:
   RecoveryStrategyDelayBased(Indexer *indexer, SendRtxCallback &&callback,
                              asio::io_service &io_service,
-                             interface::StrategyCallback *external_callback);
+                             interface::StrategyCallback &&external_callback);
 
   RecoveryStrategyDelayBased(RecoveryStrategy &&rs);
 

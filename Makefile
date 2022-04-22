@@ -45,7 +45,7 @@ PUNTING := ON
 endif
 
 DEB_DEPENDS  = cmake ninja-build unzip python3-ply libasio-dev
-DEB_DEPENDS += libconfig-dev libconfig++-dev libevent-dev
+DEB_DEPENDS += libconfig-dev libconfig++-dev
 DEB_DEPENDS += build-essential vpp-dev libvppinfra-dev
 DEB_DEPENDS += vpp-plugin-core libcurl4-openssl-dev
 DEB_DEPENDS += doxygen
@@ -132,7 +132,7 @@ endef
 
 define build
 	$(eval $(call build_folder,BUILD_FOLDER,$(1)))
-	cmake --build $(BUILD_FOLDER) -- -j 4 install
+	cmake --build $(BUILD_FOLDER) -- install
 endef
 
 define build_coverage

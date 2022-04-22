@@ -15,6 +15,7 @@
 
 #include <glog/logging.h>
 #include <hicn/transport/auth/crypto_hash.h>
+#include <hicn/transport/core/global_object_pool.h>
 #include <hicn/transport/core/packet.h>
 #include <hicn/transport/errors/malformed_packet_exception.h>
 #include <hicn/transport/utils/hash.h>
@@ -481,7 +482,7 @@ uint8_t Packet::getTTL() const {
 
 bool Packet::hasAH() const { return _is_ah(format_); }
 
-std::vector<uint8_t> Packet::getSignature() const {
+utils::MemBuf::Ptr Packet::getSignature() const {
   if (!hasAH()) {
     throw errors::RuntimeException("Packet without Authentication Header.");
   }
@@ -493,7 +494,11 @@ std::vector<uint8_t> Packet::getSignature() const {
     throw errors::RuntimeException("Error getting signature.");
   }
 
-  return std::vector<uint8_t>(signature, signature + getSignatureFieldSize());
+  utils::MemBuf::Ptr membuf = PacketManager<>::getInstance().getMemBuf();
+  membuf->append(getSignatureFieldSize());
+  memcpy(membuf->writableData(), signature, getSignatureFieldSize());
+
+  return membuf;
 }
 
 std::size_t Packet::getSignatureFieldSize() const {
@@ -570,7 +575,7 @@ auth::CryptoSuite Packet::getValidationAlgorithm() const {
   return auth::CryptoSuite(return_value);
 }
 
-void Packet::setSignature(const std::vector<uint8_t> &signature) {
+void Packet::setSignature(const utils::MemBuf::Ptr &signature) {
   if (!hasAH()) {
     throw errors::RuntimeException("Packet without Authentication Header.");
   }
@@ -580,7 +585,7 @@ void Packet::setSignature(const std::vector<uint8_t> &signature) {
   if (ret < 0) {
     throw errors::RuntimeException("Error getting signature.");
   }
-  memcpy(signature_field, signature.data(), signature.size());
+  memcpy(signature_field, signature->data(), signature->length());
 }
 
 void Packet::setSignatureFieldSize(std::size_t size) {

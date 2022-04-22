@@ -29,14 +29,14 @@ using namespace transport::interface;
 
 RecoveryStrategy::RecoveryStrategy(
     Indexer *indexer, SendRtxCallback &&callback, asio::io_service &io_service,
-    bool use_rtx, bool use_fec, interface::StrategyCallback *external_callback)
+    bool use_rtx, bool use_fec, interface::StrategyCallback &&external_callback)
     : recovery_on_(false),
       next_rtx_timer_(MAX_TIMER_RTX),
       send_rtx_callback_(std::move(callback)),
       indexer_(indexer),
       round_id_(0),
       last_fec_used_(0),
-      callback_(external_callback) {
+      callback_(std::move(external_callback)) {
   setRtxFec(use_rtx, use_fec);
   timer_ = std::make_unique<asio::steady_timer>(io_service);
 }
@@ -55,7 +55,7 @@ RecoveryStrategy::RecoveryStrategy(RecoveryStrategy &&rs)
       rc_(std::move(rs.rc_)),
       round_id_(std::move(rs.round_id_)),
       last_fec_used_(std::move(rs.last_fec_used_)),
-      callback_(rs.callback_) {
+      callback_(std::move(rs.callback_)) {
   setFecParams(n_, k_);
 }
 
@@ -367,19 +367,17 @@ void RecoveryStrategy::setRtxFec(std::optional<bool> rtx_on,
   if (rtx_on) rtx_on_ = *rtx_on;
   if (fec_on) fec_on_ = *fec_on;
 
-  if (*callback_) {
-    notification::RecoveryStrategy strategy =
-        notification::RecoveryStrategy::RECOVERY_OFF;
+  notification::RecoveryStrategy strategy =
+      notification::RecoveryStrategy::RECOVERY_OFF;
 
-    if (rtx_on_ && fec_on_)
-      strategy = notification::RecoveryStrategy::RTX_AND_FEC;
-    else if (rtx_on_)
-      strategy = notification::RecoveryStrategy::RTX_ONLY;
-    else if (fec_on_)
-      strategy = notification::RecoveryStrategy::FEC_ONLY;
+  if (rtx_on_ && fec_on_)
+    strategy = notification::RecoveryStrategy::RTX_AND_FEC;
+  else if (rtx_on_)
+    strategy = notification::RecoveryStrategy::RTX_ONLY;
+  else if (fec_on_)
+    strategy = notification::RecoveryStrategy::FEC_ONLY;
 
-    (*callback_)(strategy);
-  }
+  callback_(strategy);
 }
 
 // common functions

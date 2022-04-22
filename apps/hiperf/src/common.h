@@ -180,13 +180,13 @@ struct ClientConfiguration {
         secure_(false),
         producer_prefix_(),
         interest_lifetime_(500),
-        unverified_delay_(2000),
+        unverified_interval_(10000),
+        unverified_ratio_(0.2),
         relay_name_("c001::abcd/64"),
         output_stream_mode_(false),
         port_(0),
         recovery_strategy_(4),
         aggregated_data_(false),
-        fec_type_(""),
         packet_format_(default_values::packet_format),
         print_headers_(true),
         nb_iterations_(std::numeric_limits<decltype(nb_iterations_)>::max()) {}
@@ -208,13 +208,13 @@ struct ClientConfiguration {
   bool secure_;
   Prefix producer_prefix_;
   uint32_t interest_lifetime_;
-  uint32_t unverified_delay_;
+  uint32_t unverified_interval_;
+  double unverified_ratio_;
   Prefix relay_name_;
   bool output_stream_mode_;
   uint16_t port_;
   uint32_t recovery_strategy_;
   bool aggregated_data_;
-  std::string fec_type_;
   Packet::Format packet_format_;
   bool print_headers_;
   std::uint32_t nb_iterations_;
