@@ -1,0 +1,26 @@
+version: "3"
+services:
+  client:
+    build:
+      context: ..
+      dockerfile: ${DOCKERFILE}
+      args:
+        BASE_IMAGE: ${BASE_IMAGE}
+    image: hicn-base
+    privileged: true
+    container_name: forwarder
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+    entrypoint: [/bin/bash, -ex, -c]
+    command:
+      - |
+        if [ -d /workspace/build-dev ]; then
+          ninja -C /workspace/build-dev install
+        fi
+
+        sudo ip addr add 192.168.1.1/24 dev eth0
+        sudo hicn-light-daemon \
+          --daemon --log-file /tmp/lite_client.log
+
+        tail -f /dev/null

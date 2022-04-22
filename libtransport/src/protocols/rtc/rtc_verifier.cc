@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 Cisco and/or its affiliates.
+ * Copyright (c) 2017-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,8 +22,11 @@ namespace protocol {
 namespace rtc {
 
 RTCVerifier::RTCVerifier(std::shared_ptr<auth::Verifier> verifier,
-                         uint32_t max_unverified_delay)
-    : verifier_(verifier), max_unverified_delay_(max_unverified_delay) {}
+                         uint32_t max_unverified_interval,
+                         double max_unverified_ratio)
+    : verifier_(verifier),
+      max_unverified_interval_(max_unverified_interval),
+      max_unverified_ratio_(max_unverified_ratio) {}
 
 void RTCVerifier::setState(std::shared_ptr<RTCState> rtc_state) {
   rtc_state_ = rtc_state;
@@ -33,15 +36,20 @@ void RTCVerifier::setVerifier(std::shared_ptr<auth::Verifier> verifier) {
   verifier_ = verifier;
 }
 
-void RTCVerifier::setMaxUnverifiedDelay(uint32_t max_unverified_delay) {
-  max_unverified_delay_ = max_unverified_delay;
+void RTCVerifier::setMaxUnverifiedInterval(uint32_t max_unverified_interval) {
+  max_unverified_interval_ = max_unverified_interval;
+}
+
+void RTCVerifier::setMaxUnverifiedRatio(double max_unverified_ratio) {
+  max_unverified_ratio_ = max_unverified_ratio;
 }
 
 auth::VerificationPolicy RTCVerifier::verify(
     core::ContentObject &content_object, bool is_fec) {
-  uint32_t suffix = content_object.getName().getSuffix();
-  core::PayloadType payload_type = content_object.getPayloadType();
+  auth::Suffix suffix = content_object.getName().getSuffix();
+  auth::VerificationPolicy default_policy = auth::VerificationPolicy::ABORT;
 
+  core::PayloadType payload_type = content_object.getPayloadType();
   bool is_probe = ProbeHandler::getProbeType(suffix) != ProbeType::NOT_PROBE;
   bool is_nack = !is_probe && content_object.payloadSize() == NACK_HEADER_SIZE;
   bool is_manifest = !is_probe && !is_nack && !is_fec &&
@@ -55,29 +63,31 @@ auth::VerificationPolicy RTCVerifier::verify(
   if (is_data) return verifyData(content_object);
   if (is_manifest) return verifyManifest(content_object);
 
-  auth::VerificationPolicy policy = auth::VerificationPolicy::ABORT;
-  verifier_->callVerificationFailedCallback(suffix, policy);
-  return policy;
+  verifier_->callVerificationFailedCallback(suffix, default_policy);
+  return default_policy;
 }
 
 auth::VerificationPolicy RTCVerifier::verifyProbe(
     core::ContentObject &content_object) {
-  switch (ProbeHandler::getProbeType(content_object.getName().getSuffix())) {
-    case ProbeType::INIT: {
-      auth::VerificationPolicy policy = verifyManifest(content_object);
-      if (policy != auth::VerificationPolicy::ACCEPT) {
-        return policy;
+  auth::Suffix suffix = content_object.getName().getSuffix();
+  auth::VerificationPolicy policy = auth::VerificationPolicy::ABORT;
+
+  switch (ProbeHandler::getProbeType(suffix)) {
+    case ProbeType::INIT:
+      policy = verifyManifest(content_object);
+      if (policy == auth::VerificationPolicy::ACCEPT) {
+        policy = processManifest(content_object);
       }
-      return processManifest(content_object);
-    }
+      break;
     case ProbeType::RTT:
-      return verifyNack(content_object);
+      policy = verifyNack(content_object);
+      break;
     default:
-      auth::VerificationPolicy policy = auth::VerificationPolicy::ABORT;
-      verifier_->callVerificationFailedCallback(
-          content_object.getName().getSuffix(), policy);
-      return policy;
+      verifier_->callVerificationFailedCallback(suffix, policy);
+      break;
   }
+
+  return policy;
 }
 
 auth::VerificationPolicy RTCVerifier::verifyNack(
@@ -92,28 +102,30 @@ auth::VerificationPolicy RTCVerifier::verifyFec(
 
 auth::VerificationPolicy RTCVerifier::verifyData(
     core::ContentObject &content_object) {
-  uint32_t suffix = content_object.getName().getSuffix();
-
   if (_is_ah(content_object.getFormat())) {
     return verifier_->verifyPackets(&content_object);
   }
 
-  unverified_bytes_[suffix] =
-      content_object.headerSize() + content_object.payloadSize();
-  unverified_packets_[suffix] =
-      content_object.computeDigest(manifest_hash_algo_);
+  auth::Suffix suffix = content_object.getName().getSuffix();
+  auth::VerificationPolicy policy = auth::VerificationPolicy::ABORT;
+  Timestamp now = utils::SteadyTime::nowMs().count();
 
-  // An alert is raised when too much packets remain unverified
-  if (getTotalUnverified() > max_unverified_bytes_) {
-    unverified_bytes_.clear();
-    unverified_packets_.clear();
+  // Flush old packets
+  Timestamp oldest = flush_packets(now);
 
-    auth::VerificationPolicy policy = auth::VerificationPolicy::ABORT;
-    verifier_->callVerificationFailedCallback(suffix, policy);
-    return policy;
+  // Add packet to map of unverified packets
+  packets_unverif_.add(
+      {.suffix = suffix, .timestamp = now, .size = content_object.length()},
+      content_object.computeDigest(manifest_hash_algo_));
+
+  // Check that the ratio of unverified packets stays below the limit
+  if (now - oldest < max_unverified_interval_ ||
+      getBufferRatio() < max_unverified_ratio_) {
+    policy = auth::VerificationPolicy::ACCEPT;
   }
 
-  return auth::VerificationPolicy::ACCEPT;
+  verifier_->callVerificationFailedCallback(suffix, policy);
+  return policy;
 }
 
 auth::VerificationPolicy RTCVerifier::verifyManifest(
@@ -123,8 +135,10 @@ auth::VerificationPolicy RTCVerifier::verifyManifest(
 
 auth::VerificationPolicy RTCVerifier::processManifest(
     core::ContentObject &content_object) {
-  uint32_t suffix = content_object.getName().getSuffix();
+  auth::Suffix suffix = content_object.getName().getSuffix();
+  auth::VerificationPolicy accept_policy = auth::VerificationPolicy::ACCEPT;
 
+  // Decode manifest
   core::ContentObjectManifest manifest(content_object);
   manifest.decode();
 
@@ -133,65 +147,62 @@ auth::VerificationPolicy RTCVerifier::processManifest(
     last_manifest_ = suffix;
   }
 
-  // Extract parameters
+  // Extract hash algorithm and hashes
   manifest_hash_algo_ = manifest.getHashAlgorithm();
-  core::ParamsRTC params = manifest.getParamsRTC();
-
-  if (params.prod_rate > 0) {
-    max_unverified_bytes_ = static_cast<uint64_t>(
-        (max_unverified_delay_ / 1000.0) * params.prod_rate);
-  }
-
-  if (max_unverified_bytes_ == 0 || !rtc_state_) {
-    auth::VerificationPolicy policy = auth::VerificationPolicy::ABORT;
-    verifier_->callVerificationFailedCallback(suffix, policy);
-    return policy;
-  }
-
-  // Extract hashes
   auth::Verifier::SuffixMap suffix_map =
       core::ContentObjectManifest::getSuffixMap(&manifest);
 
   // Return early if the manifest is empty
   if (suffix_map.empty()) {
-    return auth::VerificationPolicy::ACCEPT;
+    verifier_->callVerificationFailedCallback(suffix, accept_policy);
+    return accept_policy;
   }
 
-  // Remove lost packets from digest map
+  // Add hashes to map of all manifest hashes
   manifest_digests_.insert(suffix_map.begin(), suffix_map.end());
+
+  // Remove discarded and definitely lost packets from digest map
   for (auto it = manifest_digests_.begin(); it != manifest_digests_.end();) {
-    if (rtc_state_->getPacketState(it->first) == PacketState::DEFINITELY_LOST) {
-      unverified_packets_.erase(it->first);
-      unverified_bytes_.erase(it->first);
+    auto it_erased = packets_unverif_erased_.find(it->first);
+
+    if (it_erased != packets_unverif_erased_.end()) {
+      packets_unverif_erased_.erase(it_erased);
       it = manifest_digests_.erase(it);
-    } else {
-      ++it;
+      continue;
     }
+
+    if (rtc_state_->getPacketState(it->first) == PacketState::DEFINITELY_LOST) {
+      it = manifest_digests_.erase(it);
+      continue;
+    }
+
+    ++it;
   }
 
   // Verify packets
   auth::Verifier::PolicyMap policies =
-      verifier_->verifyHashes(unverified_packets_, manifest_digests_);
+      verifier_->verifyHashes(packets_unverif_.suffixMap(), manifest_digests_);
 
-  for (const auto &policy : policies) {
-    switch (policy.second) {
+  for (const auto &p : policies) {
+    switch (p.second) {
       case auth::VerificationPolicy::ACCEPT: {
-        manifest_digests_.erase(policy.first);
-        unverified_packets_.erase(policy.first);
-        unverified_bytes_.erase(policy.first);
+        auto packet_unverif_it = packets_unverif_.packetIt(p.first);
+        Packet packet_verif = *packet_unverif_it;
+        packets_unverif_.remove(packet_unverif_it);
+        packets_verif_.add(packet_verif);
+        manifest_digests_.erase(p.first);
         break;
       }
       case auth::VerificationPolicy::UNKNOWN:
         break;
       case auth::VerificationPolicy::DROP:
       case auth::VerificationPolicy::ABORT:
-        auth::VerificationPolicy p = policy.second;
-        verifier_->callVerificationFailedCallback(policy.first, p);
-        return p;
+        return p.second;
     }
   }
 
-  return auth::VerificationPolicy::ACCEPT;
+  verifier_->callVerificationFailedCallback(suffix, accept_policy);
+  return accept_policy;
 }
 
 void RTCVerifier::onDataRecoveredFec(uint32_t suffix) {
@@ -203,35 +214,101 @@ void RTCVerifier::onJumpForward(uint32_t next_suffix) {
     return;
   }
 
-  // When we jump forward in the suffix sequence, we remove packets that
-  // probably won't be verified. Those packets have a suffix in the range
-  // [last_manifest_ + 1, next_suffix[.
-  for (auto it = unverified_packets_.begin();
-       it != unverified_packets_.end();) {
-    if (it->first > last_manifest_) {
-      unverified_bytes_.erase(it->first);
-      it = unverified_packets_.erase(it);
-    } else {
-      ++it;
+  // When we jump forward in the suffix sequence, we remove packets that won't
+  // be verified. Those packets have a suffix in the range [last_manifest_ + 1,
+  // next_suffix[.
+  for (auth::Suffix suffix = last_manifest_ + 1; suffix < next_suffix;
+       ++suffix) {
+    auto packet_it = packets_unverif_.packetIt(suffix);
+    if (packet_it != packets_unverif_.set().end()) {
+      packets_unverif_.remove(packet_it);
     }
   }
 }
 
-uint32_t RTCVerifier::getTotalUnverified() const {
-  uint32_t total = 0;
+double RTCVerifier::getBufferRatio() const {
+  size_t total = packets_verif_.size() + packets_unverif_.size();
+  double total_unverified = static_cast<double>(packets_unverif_.size());
+  return total ? total_unverified / total : 0.0;
+}
 
-  for (auto bytes : unverified_bytes_) {
-    if (bytes.second > UINT32_MAX - total) {
-      total = UINT32_MAX;
+RTCVerifier::Timestamp RTCVerifier::flush_packets(Timestamp now) {
+  Timestamp oldest_verified = packets_verif_.set().empty()
+                                  ? now
+                                  : packets_verif_.set().begin()->timestamp;
+  Timestamp oldest_unverified = packets_unverif_.set().empty()
+                                    ? now
+                                    : packets_unverif_.set().begin()->timestamp;
+
+  // Prune verified packets older than the unverified interval
+  for (auto it = packets_verif_.set().begin();
+       it != packets_verif_.set().end();) {
+    if (now - it->timestamp < max_unverified_interval_) {
       break;
     }
-    total += bytes.second;
+    it = packets_verif_.remove(it);
   }
 
-  return total;
+  // Prune unverified packets older than the unverified interval
+  for (auto it = packets_unverif_.set().begin();
+       it != packets_unverif_.set().end();) {
+    if (now - it->timestamp < max_unverified_interval_) {
+      break;
+    }
+    packets_unverif_erased_.insert(it->suffix);
+    it = packets_unverif_.remove(it);
+  }
+
+  return std::min(oldest_verified, oldest_unverified);
 }
 
-uint32_t RTCVerifier::getMaxUnverified() const { return max_unverified_bytes_; }
+std::pair<RTCVerifier::PacketSet::iterator, bool> RTCVerifier::Packets::add(
+    const Packet &packet) {
+  auto inserted = packets_.insert(packet);
+  size_ += inserted.second ? packet.size : 0;
+  return inserted;
+}
+
+RTCVerifier::PacketSet::iterator RTCVerifier::Packets::remove(
+    PacketSet::iterator packet_it) {
+  size_ -= packet_it->size;
+  return packets_.erase(packet_it);
+}
+
+const std::set<RTCVerifier::Packet> &RTCVerifier::Packets::set() const {
+  return packets_;
+};
+
+size_t RTCVerifier::Packets::size() const { return size_; };
+
+std::pair<RTCVerifier::PacketSet::iterator, bool>
+RTCVerifier::PacketsUnverif::add(const Packet &packet,
+                                 const auth::CryptoHash &digest) {
+  auto inserted = add(packet);
+  if (inserted.second) {
+    packets_map_[packet.suffix] = inserted.first;
+    digests_map_[packet.suffix] = digest;
+  }
+  return inserted;
+}
+
+RTCVerifier::PacketSet::iterator RTCVerifier::PacketsUnverif::remove(
+    PacketSet::iterator packet_it) {
+  size_ -= packet_it->size;
+  packets_map_.erase(packet_it->suffix);
+  digests_map_.erase(packet_it->suffix);
+  return packets_.erase(packet_it);
+}
+
+RTCVerifier::PacketSet::iterator RTCVerifier::PacketsUnverif::packetIt(
+    auth::Suffix suffix) {
+  return packets_map_.at(suffix);
+};
+
+const auth::Verifier::SuffixMap &RTCVerifier::PacketsUnverif::suffixMap()
+    const {
+  return digests_map_;
+}
 
 }  // end namespace rtc
 }  // end namespace protocol

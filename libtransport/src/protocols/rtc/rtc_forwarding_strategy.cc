@@ -35,8 +35,9 @@ RTCForwardingStrategy::RTCForwardingStrategy()
 
 RTCForwardingStrategy::~RTCForwardingStrategy() {}
 
-void RTCForwardingStrategy::setCallback(interface::StrategyCallback* callback) {
-  callback_ = callback;
+void RTCForwardingStrategy::setCallback(
+    interface::StrategyCallback&& callback) {
+  callback_ = std::move(callback);
 }
 
 void RTCForwardingStrategy::initFwdStrategy(
@@ -55,27 +56,24 @@ void RTCForwardingStrategy::initFwdStrategy(
 }
 
 void RTCForwardingStrategy::checkStrategy() {
-  if (*callback_) {
-    strategy_t used_strategy = selected_strategy_;
-    if (used_strategy == BOTH) used_strategy = current_strategy_;
-    assert(used_strategy == BEST_PATH || used_strategy == REPLICATION ||
-           used_strategy == NONE);
+  strategy_t used_strategy = selected_strategy_;
+  if (used_strategy == BOTH) used_strategy = current_strategy_;
+  assert(used_strategy == BEST_PATH || used_strategy == REPLICATION ||
+         used_strategy == NONE);
 
-    notification::ForwardingStrategy strategy =
-        notification::ForwardingStrategy::NONE;
-    switch (used_strategy) {
-      case BEST_PATH:
-        strategy = notification::ForwardingStrategy::BEST_PATH;
-        break;
-      case REPLICATION:
-        strategy = notification::ForwardingStrategy::REPLICATION;
-        break;
-      default:
-        break;
-    }
-
-    (*callback_)(strategy);
+  notification::ForwardingStrategy strategy =
+      notification::ForwardingStrategy::NONE;
+  switch (used_strategy) {
+    case BEST_PATH:
+      strategy = notification::ForwardingStrategy::BEST_PATH;
+      break;
+    case REPLICATION:
+      strategy = notification::ForwardingStrategy::REPLICATION;
+      break;
+    default:
+      break;
   }
+  callback_(strategy);
 
   if (!init_) return;
 

@@ -44,7 +44,7 @@ class RTCForwardingStrategy {
                        strategy_t strategy);
 
   void checkStrategy();
-  void setCallback(interface::StrategyCallback* callback);
+  void setCallback(interface::StrategyCallback&& callback);
 
  private:
   void checkStrategyBestPath();
@@ -68,7 +68,7 @@ class RTCForwardingStrategy {
   core::Prefix prefix_;
   std::shared_ptr<core::Portal> portal_;
   RTCState* state_;
-  interface::StrategyCallback* callback_;
+  interface::StrategyCallback callback_;
 };
 
 }  // namespace rtc

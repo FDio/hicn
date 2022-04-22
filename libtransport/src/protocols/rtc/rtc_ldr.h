@@ -36,7 +36,7 @@ class RTCLossDetectionAndRecovery
   RTCLossDetectionAndRecovery(Indexer *indexer, asio::io_service &io_service,
                               interface::RtcTransportRecoveryStrategies type,
                               RecoveryStrategy::SendRtxCallback &&callback,
-                              interface::StrategyCallback *external_callback);
+                              interface::StrategyCallback &&external_callback);
 
   ~RTCLossDetectionAndRecovery();
 
@@ -47,17 +47,19 @@ class RTCLossDetectionAndRecovery
 
   void setFecParams(uint32_t n, uint32_t k) { rs_->setFecParams(n, k); }
 
-  void turnOnRecovery() { rs_->tunrOnRecovery(); }
+  void turnOnRecovery() { rs_->turnOnRecovery(); }
   bool isRtxOn() { return rs_->isRtxOn(); }
 
   void changeRecoveryStrategy(interface::RtcTransportRecoveryStrategies type);
 
   void onNewRound(bool in_sync);
-  void onTimeout(uint32_t seq, bool lost);
-  void onPacketRecoveredFec(uint32_t seq);
-  void onDataPacketReceived(const core::ContentObject &content_object);
-  void onNackPacketReceived(const core::ContentObject &nack);
-  void onProbePacketReceived(const core::ContentObject &probe);
+
+  // the following functions return true if a loss is detected, false otherwise
+  bool onTimeout(uint32_t seq, bool lost);
+  bool onPacketRecoveredFec(uint32_t seq);
+  bool onDataPacketReceived(const core::ContentObject &content_object);
+  bool onNackPacketReceived(const core::ContentObject &nack);
+  bool onProbePacketReceived(const core::ContentObject &probe);
 
   void clear() { rs_->clear(); }
 
@@ -67,7 +69,8 @@ class RTCLossDetectionAndRecovery
   }
 
  private:
-  void detectLoss(uint32_t start, uint32_t stop);
+  // returns true if a loss is detected, false otherwise
+  bool detectLoss(uint32_t start, uint32_t stop, bool recv_probe);
 
   interface::RtcTransportRecoveryStrategies rs_type_;
   std::shared_ptr<RecoveryStrategy> rs_;

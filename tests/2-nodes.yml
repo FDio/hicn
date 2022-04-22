@@ -6,6 +6,7 @@ services:
       dockerfile: ${DOCKERFILE}
       args:
         BASE_IMAGE: ${BASE_IMAGE}
+    image: hicn-base
     privileged: true
     stdin_open: true
     hostname: client

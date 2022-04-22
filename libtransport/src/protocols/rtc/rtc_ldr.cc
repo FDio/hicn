@@ -36,17 +36,17 @@ RTCLossDetectionAndRecovery::RTCLossDetectionAndRecovery(
     Indexer *indexer, asio::io_service &io_service,
     interface::RtcTransportRecoveryStrategies type,
     RecoveryStrategy::SendRtxCallback &&callback,
-    interface::StrategyCallback *external_callback) {
+    interface::StrategyCallback &&external_callback) {
   rs_type_ = type;
   if (type == interface::RtcTransportRecoveryStrategies::RECOVERY_OFF) {
     rs_ = std::make_shared<RecoveryStrategyRecoveryOff>(
-        indexer, std::move(callback), io_service, external_callback);
+        indexer, std::move(callback), io_service, std::move(external_callback));
   } else if (type == interface::RtcTransportRecoveryStrategies::DELAY_BASED) {
     rs_ = std::make_shared<RecoveryStrategyDelayBased>(
-        indexer, std::move(callback), io_service, external_callback);
+        indexer, std::move(callback), io_service, std::move(external_callback));
   } else if (type == interface::RtcTransportRecoveryStrategies::FEC_ONLY) {
     rs_ = std::make_shared<RecoveryStrategyFecOnly>(
-        indexer, std::move(callback), io_service, external_callback);
+        indexer, std::move(callback), io_service, std::move(external_callback));
   } else if (type == interface::RtcTransportRecoveryStrategies::LOW_RATE ||
              type == interface::RtcTransportRecoveryStrategies::
                          LOW_RATE_AND_BESTPATH ||
@@ -55,12 +55,12 @@ RTCLossDetectionAndRecovery::RTCLossDetectionAndRecovery(
              type == interface::RtcTransportRecoveryStrategies::
                          LOW_RATE_AND_ALL_FWD_STRATEGIES) {
     rs_ = std::make_shared<RecoveryStrategyLowRate>(
-        indexer, std::move(callback), io_service, external_callback);
+        indexer, std::move(callback), io_service, std::move(external_callback));
   } else {
     // default
     rs_type_ = interface::RtcTransportRecoveryStrategies::RTX_ONLY;
     rs_ = std::make_shared<RecoveryStrategyRtxOnly>(
-        indexer, std::move(callback), io_service, external_callback);
+        indexer, std::move(callback), io_service, std::move(external_callback));
   }
 }
 
@@ -97,19 +97,21 @@ void RTCLossDetectionAndRecovery::onNewRound(bool in_sync) {
   rs_->onNewRound(in_sync);
 }
 
-void RTCLossDetectionAndRecovery::onTimeout(uint32_t seq, bool lost) {
+bool RTCLossDetectionAndRecovery::onTimeout(uint32_t seq, bool lost) {
   if (!lost) {
-    detectLoss(seq, seq + 1);
+    return detectLoss(seq, seq + 1, false);
   } else {
     rs_->onLostTimeout(seq);
   }
+  return false;
 }
 
-void RTCLossDetectionAndRecovery::onPacketRecoveredFec(uint32_t seq) {
+bool RTCLossDetectionAndRecovery::onPacketRecoveredFec(uint32_t seq) {
   rs_->receivedPacket(seq);
+  return false;
 }
 
-void RTCLossDetectionAndRecovery::onDataPacketReceived(
+bool RTCLossDetectionAndRecovery::onDataPacketReceived(
     const core::ContentObject &content_object) {
   uint32_t seq = content_object.getName().getSuffix();
   bool is_rtx = rs_->isRtx(seq);
@@ -118,10 +120,13 @@ void RTCLossDetectionAndRecovery::onDataPacketReceived(
       << "received data. add from "
       << rs_->getState()->getHighestSeqReceivedInOrder() + 1 << " to " << seq;
   if (!is_rtx)
-    detectLoss(rs_->getState()->getHighestSeqReceivedInOrder() + 1, seq);
+    return detectLoss(rs_->getState()->getHighestSeqReceivedInOrder() + 1, seq,
+                      false);
+
+  return false;
 }
 
-void RTCLossDetectionAndRecovery::onNackPacketReceived(
+bool RTCLossDetectionAndRecovery::onNackPacketReceived(
     const core::ContentObject &nack) {
   struct nack_packet_t *nack_pkt =
       (struct nack_packet_t *)nack.getPayload()->data();
@@ -140,11 +145,18 @@ void RTCLossDetectionAndRecovery::onNackPacketReceived(
       << "received nack. add from "
       << rs_->getState()->getHighestSeqReceivedInOrder() + 1 << " to "
       << production_seq;
-  detectLoss(rs_->getState()->getHighestSeqReceivedInOrder() + 1,
-             production_seq);
+
+  // if it is a future nack store it in the list set of nacked seq
+  if (production_seq <= seq) rs_->receivedFutureNack(seq);
+
+  // call the detectLoss function using the probe flag = true. in fact the
+  // losses detected using nacks are the same as the one detected using probes,
+  // we should not increase the loss counter
+  return detectLoss(rs_->getState()->getHighestSeqReceivedInOrder() + 1,
+                    production_seq, true);
 }
 
-void RTCLossDetectionAndRecovery::onProbePacketReceived(
+bool RTCLossDetectionAndRecovery::onProbePacketReceived(
     const core::ContentObject &probe) {
   // we don't log the reception of a probe packet for the sentinel timer because
   // probes are not taken into account into the sync window. we use them as
@@ -157,12 +169,13 @@ void RTCLossDetectionAndRecovery::onProbePacketReceived(
       << rs_->getState()->getHighestSeqReceivedInOrder() + 1 << " to "
       << production_seq;
 
-  detectLoss(rs_->getState()->getHighestSeqReceivedInOrder() + 1,
-             production_seq);
+  return detectLoss(rs_->getState()->getHighestSeqReceivedInOrder() + 1,
+                    production_seq, true);
 }
 
-void RTCLossDetectionAndRecovery::detectLoss(uint32_t start, uint32_t stop) {
-  if (start >= stop) return;
+bool RTCLossDetectionAndRecovery::detectLoss(uint32_t start, uint32_t stop,
+                                             bool recv_probe) {
+  if (start >= stop) return false;
 
   // skip nacked packets
   if (start <= rs_->getState()->getLastSeqNacked()) {
@@ -174,13 +187,31 @@ void RTCLossDetectionAndRecovery::detectLoss(uint32_t start, uint32_t stop) {
     start = rs_->getState()->getHighestSeqReceivedInOrder() + 1;
   }
 
+  bool loss_detected = false;
   for (uint32_t seq = start; seq < stop; seq++) {
     if (rs_->getState()->getPacketState(seq) == PacketState::UNKNOWN) {
       if (rs_->lossDetected(seq)) {
-        rs_->getState()->onLossDetected(seq);
+        loss_detected = true;
+        if ((recv_probe || rs_->wasNacked(seq)) && !rs_->isFecOn()) {
+          // these losses were detected using a probe and fec is off.
+          // in this case most likelly the procotol is about to go out of sync
+          // and the packets are not really lost (e.g. increase in prod rate).
+          // for this reason we do not
+          // count the losses in the stats. Instead we do the following
+          // 1. send RTX for the packets in case they were really lost
+          // 2. return to the RTC protocol that a loss was detected using a
+          // probe. the protocol will switch to catch_up mode to increase the
+          // size of the window
+          rs_->requestPossibleLostPacket(seq);
+        } else {
+          // if fec is on we don't need to mask pontetial losses, so increase
+          // the loss rate
+          rs_->notifyNewLossDetedcted(seq);
+        }
       }
     }
   }
+  return loss_detected;
 }
 
 }  // namespace rtc

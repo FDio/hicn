@@ -60,7 +60,7 @@ void _pool_init(void** pool_ptr, size_t elt_size, size_t init_size,
   ph->free_indices = free_indices;
 
   /* Free bitmap */
-  uint_fast32_t* fb = ph->free_bitmap;
+  bitmap_t* fb = ph->free_bitmap;
   bitmap_init(fb, init_size, max_size);
   bitmap_set_to(fb, init_size);
   ph->free_bitmap = fb;
