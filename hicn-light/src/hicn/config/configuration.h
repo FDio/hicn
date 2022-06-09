@@ -26,7 +26,7 @@
 #ifndef HICNLIGHT_CONFIGURATION_H
 #define HICNLIGHT_CONFIGURATION_H
 
-#include "../base/khash.h"
+#include <hicn/util/khash.h>
 #include "../core/msgbuf.h"
 #include "../core/strategy.h"
 #include <hicn/ctrl/api.h>

@@ -26,6 +26,7 @@
 
 #include <cstddef>
 
+namespace transport {
 namespace portability {
 
 // Generalize warning push/pop.
@@ -66,3 +67,4 @@ namespace portability {
 #endif
 
 }  // namespace portability
+}  // namespace transport

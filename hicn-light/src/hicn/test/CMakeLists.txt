@@ -13,6 +13,7 @@ list(APPEND TESTS_SRC
   test-ctrl.cc
   test-ring.cc
   test-vector.cc
+  test-interest_manifest.cc
   test-msgbuf_pool.cc
   test-nexthops.cc
   test-connection_table.cc

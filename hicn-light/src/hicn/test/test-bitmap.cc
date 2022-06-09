@@ -25,7 +25,7 @@
 
 extern "C" {
 #define WITH_TESTS
-#include <hicn/base/bitmap.h>
+#include <hicn/util/bitmap.h>
 }
 
 #define DEFAULT_SIZE 10

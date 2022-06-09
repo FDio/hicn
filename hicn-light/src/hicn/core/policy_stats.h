@@ -5,7 +5,6 @@
 #ifdef WITH_POLICY_STATS
 
 #include <hicn/policy.h>
-#include "../base/loop.h"
 
 typedef struct policy_stats_mgr_s {
   void* forwarder;

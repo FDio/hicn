@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
-/* Keep order as it is */
-#include "common.h"
-#include <config.h>
+#include "collectd.h"
+#include "plugin.h"
+#include "utils/common/common.h"
 
 #define counter_t vpp_counter_t
 #include <vpp-api/client/stat_client.h>
@@ -165,8 +165,7 @@ static int submit(const char *plugin_instance, const char *type,
   sstrncpy(vl.plugin_instance, plugin_instance, sizeof(vl.plugin_instance));
   sstrncpy(vl.type, type, sizeof(vl.type));
 
-  if (tag != NULL)
-    sstrncpy(vl.type_instance, tag, sizeof(vl.type_instance));
+  if (tag != NULL) sstrncpy(vl.type_instance, tag, sizeof(vl.type_instance));
 
   return plugin_dispatch_values(&vl);
 }
@@ -261,8 +260,7 @@ static int vpp_init(void) {
   u8 *stat_segment_name = (u8 *)STAT_SEGMENT_SOCKET_FILE;
   int ret = stat_segment_connect((char *)stat_segment_name);
 
-  if (ret)
-    plugin_log(LOG_ERR, "vpp plugin: connecting to segment failed");
+  if (ret) plugin_log(LOG_ERR, "vpp plugin: connecting to segment failed");
 
   return ret;
 }
@@ -296,66 +294,65 @@ static int vpp_read(void) {
   /* Collect results for each interface and submit them */
   for (int i = 0; i < vec_len(res); i++) {
     switch (res[i].type) {
-    case STAT_DIR_TYPE_COUNTER_VECTOR_SIMPLE:
-      for (int k = 0; k < vec_len(res[i].simple_counter_vec); k++) {
-        for (int j = 0; j < vec_len(res[i].simple_counter_vec[k]); j++) {
-          if (!interfaces[j]) {
-            continue;
+      case STAT_DIR_TYPE_COUNTER_VECTOR_SIMPLE:
+        for (int k = 0; k < vec_len(res[i].simple_counter_vec); k++) {
+          for (int j = 0; j < vec_len(res[i].simple_counter_vec[k]); j++) {
+            if (!interfaces[j]) {
+              continue;
+            }
+
+            if (get_data_set(res[i].name, &data_set)) {
+              continue;
+            }
+
+            value_t values[1] = {
+                (value_t){.derive = res[i].simple_counter_vec[k][j]}};
+
+            err = submit(interfaces[j], data_set.type, values, 1, &timestamp);
+
+            if (err) goto END;
           }
-
-          if (get_data_set(res[i].name, &data_set)) {
-            continue;
-          }
-
-          value_t values[1] = {
-              (value_t){.derive = res[i].simple_counter_vec[k][j]}};
-
-          err = submit(interfaces[j], data_set.type, values, 1, &timestamp);
-
-          if (err)
-            goto END;
         }
-      }
-      break;
+        break;
 
-    case STAT_DIR_TYPE_COUNTER_VECTOR_COMBINED:
-      for (int k = 0; k < vec_len(res[i].combined_counter_vec); k++) {
-        for (int j = 0; j < vec_len(res[i].combined_counter_vec[k]); j++) {
-          if (!interfaces[j]) {
-            continue;
+      case STAT_DIR_TYPE_COUNTER_VECTOR_COMBINED:
+        for (int k = 0; k < vec_len(res[i].combined_counter_vec); k++) {
+          for (int j = 0; j < vec_len(res[i].combined_counter_vec[k]); j++) {
+            if (!interfaces[j]) {
+              continue;
+            }
+
+            if (get_data_set(res[i].name, &data_set)) {
+              continue;
+            }
+
+            value_t values[2] = {
+                (value_t){.derive = res[i].combined_counter_vec[k][j].packets},
+                (value_t){.derive = res[i].combined_counter_vec[k][j].bytes},
+            };
+
+            err = submit(interfaces[j], data_set.type, values, 2, &timestamp);
+
+            if (err) goto END;
           }
-
-          if (get_data_set(res[i].name, &data_set)) {
-            continue;
-          }
-
-          value_t values[2] = {
-              (value_t){.derive = res[i].combined_counter_vec[k][j].packets},
-              (value_t){.derive = res[i].combined_counter_vec[k][j].bytes},
-          };
-
-          err = submit(interfaces[j], data_set.type, values, 2, &timestamp);
-
-          if (err)
-            goto END;
         }
-      }
-      break;
+        break;
 
-    case STAT_DIR_TYPE_SCALAR_INDEX:
-      plugin_log(LOG_INFO, "vpp plugin: %.2f %s", res[i].scalar_value,
-                 res[i].name);
-      break;
+      case STAT_DIR_TYPE_SCALAR_INDEX:
+        plugin_log(LOG_INFO, "vpp plugin: %.2f %s", res[i].scalar_value,
+                   res[i].name);
+        break;
 
-    case STAT_DIR_TYPE_NAME_VECTOR:
-      break;
+      case STAT_DIR_TYPE_NAME_VECTOR:
+        break;
 
-    case STAT_DIR_TYPE_ERROR_INDEX:
-      break;
+      case STAT_DIR_TYPE_ERROR_INDEX:
+        break;
 
-    default:
-      plugin_log(LOG_WARNING, "vpp plugin: unknown stat type %d", res[i].type);
-      break;
+      default:
+        plugin_log(LOG_WARNING, "vpp plugin: unknown stat type %d",
+                   res[i].type);
+        break;
     }
   }
 

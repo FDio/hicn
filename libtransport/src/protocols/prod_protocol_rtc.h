@@ -17,6 +17,7 @@
 
 #include <hicn/transport/core/name.h>
 #include <protocols/production_protocol.h>
+#include <protocols/rtc/rtc_verifier.h>
 
 #include <atomic>
 #include <map>
@@ -50,11 +51,6 @@ class RTCProductionProtocol : public ProductionProtocol {
                                              buffer, buffer_size, buffer_size));
   }
 
-  void setConsumerInSyncCallback(
-      interface::ProducerInterestCallback &&callback) {
-    on_consumer_in_sync_ = std::move(callback);
-  }
-
   auto shared_from_this() { return utils::shared_from(this); }
 
  private:
@@ -80,13 +76,6 @@ class RTCProductionProtocol : public ProductionProtocol {
   void updateStats(bool new_round);
   void scheduleRoundTimer();
 
-  // pending intersts functions
-  void addToInterestQueue(uint32_t interest_seg, uint64_t expiration);
-  void sendNacksForPendingInterests();
-  void removeFromInterestQueue(uint32_t interest_seg);
-  void scheduleQueueTimer(uint64_t wait);
-  void interestQueueTimer();
-
   // FEC functions
   void onFecPackets(fec::BufferArray &packets);
   fec::buffer getBuffer(std::size_t size);
@@ -111,14 +100,14 @@ class RTCProductionProtocol : public ProductionProtocol {
   uint32_t prev_produced_bytes_;  // XXX clearly explain all these new vars
   uint32_t prev_produced_packets_;
 
-  uint32_t produced_bytes_;        // bytes produced in the last round
-  uint32_t produced_packets_;      // packet produed in the last round
+  uint32_t produced_bytes_;    // bytes produced in the last round
+  uint32_t produced_packets_;  // packet produed in the last round
 
   uint32_t max_packet_production_;  // never exceed this number of packets
                                     // without update stats
 
-  uint32_t bytes_production_rate_;        // bytes per sec
-  uint32_t packets_production_rate_;      // pps
+  uint32_t bytes_production_rate_;    // bytes per sec
+  uint32_t packets_production_rate_;  // pps
 
   uint64_t last_produced_data_ts_;  // ms
 
@@ -133,27 +122,6 @@ class RTCProductionProtocol : public ProductionProtocol {
   // should be avoided in order to notify the consumer as fast as possible
   // of the new rate.
   bool allow_delayed_nacks_;
-
-  // queue for the received interests
-  // this map maps the expiration time of an interest to
-  // its sequence number. the map is sorted by timeouts
-  // the same timeout may be used for multiple sequence numbers
-  // but for each sequence number we store only the smallest
-  // expiry time. In this way the mapping from seqs_map_ to
-  // timers_map_ is unique
-  std::multimap<uint64_t, uint32_t> timers_map_;
-
-  // this map does the opposite, this map is not ordered
-  std::unordered_map<uint32_t, uint64_t> seqs_map_;
-  bool queue_timer_on_;
-  std::unique_ptr<asio::steady_timer> interests_queue_timer_;
-
-  // this callback is called when the remote consumer is in sync with high
-  // probability. it is called only the first time that the switch happen.
-  // XXX this makes sense only in P2P mode, while in standard mode is
-  // impossible to know the state of the consumers so it should not be used.
-  bool consumer_in_sync_;
-  interface::ProducerInterestCallback on_consumer_in_sync_;
 
   // Save FEC packets here before sending them
   std::queue<ContentObject::Ptr> pending_fec_packets_;
@@ -172,6 +140,9 @@ class RTCProductionProtocol : public ProductionProtocol {
   // Manifest
   std::queue<std::pair<uint32_t, auth::CryptoHash>>
       manifest_entries_;  // map a packet suffix to a packet hash
+
+  // Verifier for aggregated interests
+  std::shared_ptr<rtc::RTCVerifier> verifier_;
 };
 
 }  // namespace protocol

@@ -73,10 +73,10 @@ class TransportStatistics {
   }
 
   TRANSPORT_ALWAYS_INLINE void updateAverageRtt(
-      const utils::SteadyTime::Milliseconds &rtt) {
-    auto rtt_milliseconds = rtt.count();
-    average_rtt_ =
-        (alpha_ * average_rtt_) + ((1. - alpha_) * double(rtt_milliseconds));
+      const utils::SteadyTime::Microseconds &rtt) {
+    double rtt_milliseconds = double(rtt.count()) / 1000.0;
+
+    average_rtt_ = (alpha_ * average_rtt_) + ((1. - alpha_) * rtt_milliseconds);
   }
 
   TRANSPORT_ALWAYS_INLINE void updateAverageWindowSize(double current_window) {

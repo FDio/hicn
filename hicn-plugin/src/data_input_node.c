@@ -80,6 +80,7 @@ hicn_data_input_set_adj_index (vlib_buffer_t *b,
 			       const ip46_address_t *dst_addr,
 			       const hicn_dpo_ctx_t *dpo_ctx)
 {
+  CLIB_UNUSED (u8 set) = 0;
   for (u8 pos = 0; pos < dpo_ctx->entry_count; pos++)
     {
       hicn_face_t *face = hicn_dpoi_get_from_idx (dpo_ctx->next_hops[pos]);
@@ -87,9 +88,12 @@ hicn_data_input_set_adj_index (vlib_buffer_t *b,
       if (ip46_address_cmp (&(face->nat_addr), dst_addr) == 0)
 	{
 	  vnet_buffer (b)->ip.adj_index[VLIB_RX] = face->dpo.dpoi_index;
+	  set = 1;
 	  break;
 	}
     }
+
+  ASSERT (set == 1);
 }
 
 static uword
@@ -147,7 +151,7 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  src_addr1 = &ip1->src_address;
 
 	  ip46_address_set_ip6 (&dst_addr0, &ip0->dst_address);
-	  ip46_address_set_ip6 (&dst_addr0, &ip1->dst_address);
+	  ip46_address_set_ip6 (&dst_addr1, &ip1->dst_address);
 
 	  ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, p0);
 	  ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, p1);

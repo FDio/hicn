@@ -24,7 +24,7 @@
 #include <netinet/in.h>
 
 extern "C" {
-#include <hicn/base/khash.h>
+#include <hicn/util/khash.h>
 }
 
 KHASH_MAP_INIT_INT(int, unsigned char)

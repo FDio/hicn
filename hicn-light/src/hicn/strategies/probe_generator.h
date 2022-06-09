@@ -16,7 +16,7 @@
 #ifndef HICNLIGHT_PROBE_GENERATOR
 #define HICNLIGHT_PROBE_GENERATOR
 
-#include "../base/khash.h"
+#include <hicn/util/khash.h>
 #include <hicn/core/ticks.h>
 #include <hicn/core/msgbuf.h>
 

@@ -79,7 +79,7 @@ class Time {
  public:
   using Clock = T;
   using TimePoint = typename Clock::time_point;
-  using Rep = double;
+  using Rep = uint64_t;
   using Seconds = std::chrono::duration<Rep>;
   using Milliseconds = std::chrono::duration<Rep, std::milli>;
   using Microseconds = std::chrono::duration<Rep, std::micro>;

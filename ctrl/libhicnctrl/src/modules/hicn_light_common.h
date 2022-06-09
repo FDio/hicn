@@ -17,6 +17,7 @@
 
 #include <assert.h>  // assert
 
+#include <hicn/util/khash.h>
 #include "api_private.h"
 
 #define PORT 9695
@@ -39,7 +40,7 @@ typedef struct {
  * outgoing queries so that replied can be demultiplexed and treated
  * appropriately.
  */
-TYPEDEF_MAP_H(hc_sock_map, int, hc_sock_request_t *);
+KHASH_MAP_INIT_INT(sock_map, hc_sock_request_t *);
 
 struct hc_sock_light_s {
   /* This must be the first element of the struct */
@@ -69,7 +70,7 @@ struct hc_sock_light_s {
   hc_sock_request_t *cur_request;
 
   bool async;
-  hc_sock_map_t *map;
+  kh_sock_map_t *map;
 };
 
 typedef struct hc_sock_light_s hc_sock_light_t;

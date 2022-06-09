@@ -101,8 +101,10 @@ class FECBase {
 
   /**
    * @brief Get size of FEC header.
+   * the fec header size may be different if a packet is a data packet or a FEC
+   * packet
    */
-  virtual std::size_t getFecHeaderSize() = 0;
+  virtual std::size_t getFecHeaderSize(bool isFEC) = 0;
 
   /**
    * Set callback to call after packet encoding / decoding

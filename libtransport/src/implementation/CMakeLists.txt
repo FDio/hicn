@@ -19,20 +19,7 @@ list(APPEND HEADER_FILES
 
 if (${OPENSSL_VERSION} VERSION_EQUAL "1.1.1a" OR ${OPENSSL_VERSION} VERSION_GREATER "1.1.1a")
   list(APPEND SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/tls_socket_producer.cc
-    # ${CMAKE_CURRENT_SOURCE_DIR}/tls_rtc_socket_producer.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/p2psecure_socket_producer.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/tls_socket_consumer.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/p2psecure_socket_consumer.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/socket.cc
-  )
-
-  list(APPEND HEADER_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/tls_socket_producer.h
-    # ${CMAKE_CURRENT_SOURCE_DIR}/tls_rtc_socket_producer.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/p2psecure_socket_producer.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/tls_socket_consumer.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/p2psecure_socket_consumer.h
   )
 endif()
 

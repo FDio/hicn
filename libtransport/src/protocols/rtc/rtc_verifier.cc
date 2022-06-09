@@ -22,11 +22,11 @@ namespace protocol {
 namespace rtc {
 
 RTCVerifier::RTCVerifier(std::shared_ptr<auth::Verifier> verifier,
-                         uint32_t max_unverified_interval,
-                         double max_unverified_ratio)
+                         uint32_t factor_relevant, uint32_t factor_alert)
     : verifier_(verifier),
-      max_unverified_interval_(max_unverified_interval),
-      max_unverified_ratio_(max_unverified_ratio) {}
+      factor_relevant_(factor_relevant),
+      factor_alert_(factor_alert),
+      manifest_max_capacity_(std::numeric_limits<uint8_t>::max()) {}
 
 void RTCVerifier::setState(std::shared_ptr<RTCState> rtc_state) {
   rtc_state_ = rtc_state;
@@ -36,12 +36,16 @@ void RTCVerifier::setVerifier(std::shared_ptr<auth::Verifier> verifier) {
   verifier_ = verifier;
 }
 
-void RTCVerifier::setMaxUnverifiedInterval(uint32_t max_unverified_interval) {
-  max_unverified_interval_ = max_unverified_interval;
+void RTCVerifier::setFactorRelevant(uint32_t factor_relevant) {
+  factor_relevant_ = factor_relevant;
 }
 
-void RTCVerifier::setMaxUnverifiedRatio(double max_unverified_ratio) {
-  max_unverified_ratio_ = max_unverified_ratio;
+void RTCVerifier::setFactorAlert(uint32_t factor_alert) {
+  factor_alert_ = factor_alert;
+}
+
+auth::VerificationPolicy RTCVerifier::verify(core::Interest &interest) {
+  return verifier_->verifyPackets(&interest);
 }
 
 auth::VerificationPolicy RTCVerifier::verify(
@@ -108,19 +112,27 @@ auth::VerificationPolicy RTCVerifier::verifyData(
 
   auth::Suffix suffix = content_object.getName().getSuffix();
   auth::VerificationPolicy policy = auth::VerificationPolicy::ABORT;
-  Timestamp now = utils::SteadyTime::nowMs().count();
 
-  // Flush old packets
-  Timestamp oldest = flush_packets(now);
+  uint32_t threshold_relevant = factor_relevant_ * manifest_max_capacity_;
+  uint32_t threshold_alert = factor_alert_ * manifest_max_capacity_;
 
-  // Add packet to map of unverified packets
-  packets_unverif_.add(
-      {.suffix = suffix, .timestamp = now, .size = content_object.length()},
-      content_object.computeDigest(manifest_hash_algo_));
+  // Flush packets outside relevance window
+  for (auto it = packets_unverif_.set().begin();
+       it != packets_unverif_.set().end();) {
+    if (it->first > current_index_ - threshold_relevant) {
+      break;
+    }
+    packets_unverif_erased_.insert((unsigned int)it->first);
+    it = packets_unverif_.remove(it);
+  }
 
-  // Check that the ratio of unverified packets stays below the limit
-  if (now - oldest < max_unverified_interval_ ||
-      getBufferRatio() < max_unverified_ratio_) {
+  // Add packet to set of unverified packets
+  packets_unverif_.add({current_index_, suffix},
+                       content_object.computeDigest(manifest_hash_algo_));
+  current_index_++;
+
+  // Check that the number of unverified packets is below the alert threshold
+  if (packets_unverif_.set().size() <= threshold_alert) {
     policy = auth::VerificationPolicy::ACCEPT;
   }
 
@@ -139,18 +151,13 @@ auth::VerificationPolicy RTCVerifier::processManifest(
   auth::VerificationPolicy accept_policy = auth::VerificationPolicy::ACCEPT;
 
   // Decode manifest
-  core::ContentObjectManifest manifest(content_object);
+  core::ContentObjectManifest manifest(content_object.shared_from_this());
   manifest.decode();
 
-  // Update last manifest
-  if (suffix > last_manifest_) {
-    last_manifest_ = suffix;
-  }
-
-  // Extract hash algorithm and hashes
+  // Extract manifest data
+  manifest_max_capacity_ = manifest.getMaxCapacity();
   manifest_hash_algo_ = manifest.getHashAlgorithm();
-  auth::Verifier::SuffixMap suffix_map =
-      core::ContentObjectManifest::getSuffixMap(&manifest);
+  auth::Verifier::SuffixMap suffix_map = manifest.getSuffixMap();
 
   // Return early if the manifest is empty
   if (suffix_map.empty()) {
@@ -186,10 +193,7 @@ auth::VerificationPolicy RTCVerifier::processManifest(
   for (const auto &p : policies) {
     switch (p.second) {
       case auth::VerificationPolicy::ACCEPT: {
-        auto packet_unverif_it = packets_unverif_.packetIt(p.first);
-        Packet packet_verif = *packet_unverif_it;
-        packets_unverif_.remove(packet_unverif_it);
-        packets_verif_.add(packet_verif);
+        packets_unverif_.remove(packets_unverif_.packet(p.first));
         manifest_digests_.erase(p.first);
         break;
       }
@@ -209,69 +213,20 @@ void RTCVerifier::onDataRecoveredFec(uint32_t suffix) {
   manifest_digests_.erase(suffix);
 }
 
-void RTCVerifier::onJumpForward(uint32_t next_suffix) {
-  if (next_suffix <= last_manifest_ + 1) {
-    return;
-  }
-
-  // When we jump forward in the suffix sequence, we remove packets that won't
-  // be verified. Those packets have a suffix in the range [last_manifest_ + 1,
-  // next_suffix[.
-  for (auth::Suffix suffix = last_manifest_ + 1; suffix < next_suffix;
-       ++suffix) {
-    auto packet_it = packets_unverif_.packetIt(suffix);
-    if (packet_it != packets_unverif_.set().end()) {
-      packets_unverif_.remove(packet_it);
-    }
-  }
-}
-
-double RTCVerifier::getBufferRatio() const {
-  size_t total = packets_verif_.size() + packets_unverif_.size();
-  double total_unverified = static_cast<double>(packets_unverif_.size());
-  return total ? total_unverified / total : 0.0;
-}
-
-RTCVerifier::Timestamp RTCVerifier::flush_packets(Timestamp now) {
-  Timestamp oldest_verified = packets_verif_.set().empty()
-                                  ? now
-                                  : packets_verif_.set().begin()->timestamp;
-  Timestamp oldest_unverified = packets_unverif_.set().empty()
-                                    ? now
-                                    : packets_unverif_.set().begin()->timestamp;
-
-  // Prune verified packets older than the unverified interval
-  for (auto it = packets_verif_.set().begin();
-       it != packets_verif_.set().end();) {
-    if (now - it->timestamp < max_unverified_interval_) {
-      break;
-    }
-    it = packets_verif_.remove(it);
-  }
-
-  // Prune unverified packets older than the unverified interval
-  for (auto it = packets_unverif_.set().begin();
-       it != packets_unverif_.set().end();) {
-    if (now - it->timestamp < max_unverified_interval_) {
-      break;
-    }
-    packets_unverif_erased_.insert(it->suffix);
-    it = packets_unverif_.remove(it);
-  }
-
-  return std::min(oldest_verified, oldest_unverified);
-}
-
 std::pair<RTCVerifier::PacketSet::iterator, bool> RTCVerifier::Packets::add(
-    const Packet &packet) {
+    const Packet &packet, const auth::CryptoHash &digest) {
   auto inserted = packets_.insert(packet);
-  size_ += inserted.second ? packet.size : 0;
+  if (inserted.second) {
+    packets_map_[packet.second] = inserted.first;
+    suffix_map_[packet.second] = digest;
+  }
   return inserted;
 }
 
 RTCVerifier::PacketSet::iterator RTCVerifier::Packets::remove(
     PacketSet::iterator packet_it) {
-  size_ -= packet_it->size;
+  packets_map_.erase(packet_it->second);
+  suffix_map_.erase(packet_it->second);
   return packets_.erase(packet_it);
 }
 
@@ -279,35 +234,13 @@ const std::set<RTCVerifier::Packet> &RTCVerifier::Packets::set() const {
   return packets_;
 };
 
-size_t RTCVerifier::Packets::size() const { return size_; };
-
-std::pair<RTCVerifier::PacketSet::iterator, bool>
-RTCVerifier::PacketsUnverif::add(const Packet &packet,
-                                 const auth::CryptoHash &digest) {
-  auto inserted = add(packet);
-  if (inserted.second) {
-    packets_map_[packet.suffix] = inserted.first;
-    digests_map_[packet.suffix] = digest;
-  }
-  return inserted;
-}
-
-RTCVerifier::PacketSet::iterator RTCVerifier::PacketsUnverif::remove(
-    PacketSet::iterator packet_it) {
-  size_ -= packet_it->size;
-  packets_map_.erase(packet_it->suffix);
-  digests_map_.erase(packet_it->suffix);
-  return packets_.erase(packet_it);
-}
-
-RTCVerifier::PacketSet::iterator RTCVerifier::PacketsUnverif::packetIt(
+RTCVerifier::PacketSet::iterator RTCVerifier::Packets::packet(
     auth::Suffix suffix) {
   return packets_map_.at(suffix);
 };
 
-const auth::Verifier::SuffixMap &RTCVerifier::PacketsUnverif::suffixMap()
-    const {
-  return digests_map_;
+const auth::Verifier::SuffixMap &RTCVerifier::Packets::suffixMap() const {
+  return suffix_map_;
 }
 
 }  // end namespace rtc

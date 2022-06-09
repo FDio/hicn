@@ -74,6 +74,54 @@ void connection_table_free(connection_table_t *table) {
   free(table);
 }
 
+connection_t *connection_table_allocate(const connection_table_t *table,
+                                        const address_pair_t *pair,
+                                        const char *name) {
+  connection_t *conn = NULL;
+  pool_get(table->connections, conn);
+  if (!conn) return NULL;
+
+  off_t id = conn - table->connections;
+  int rc;
+
+  // Add in name hash table
+  khiter_t k = kh_put_ct_name(table->id_by_name, strdup(name), &rc);
+  assert(rc == KH_ADDED || rc == KH_RESET);
+  kh_value(table->id_by_name, k) = (unsigned int)id;
+
+  // Add in pair hash table
+  address_pair_t *pair_copy = (address_pair_t *)malloc(sizeof(address_pair_t));
+  memcpy(pair_copy, pair, sizeof(address_pair_t));
+
+  k = kh_put_ct_pair(table->id_by_pair, pair_copy, &rc);
+  assert(rc == KH_ADDED || rc == KH_RESET);
+  kh_value(table->id_by_pair, k) = (unsigned int)id;
+
+  assert(kh_size(table->id_by_name) == kh_size(table->id_by_pair));
+  return conn;
+}
+
+void connection_table_deallocate(const connection_table_t *table,
+                                 const connection_t *conn) {
+  const char *name = connection_get_name(conn);
+  const address_pair_t *pair = connection_get_pair(conn);
+
+  // Remove from name hash table
+  khiter_t k = kh_get_ct_name(table->id_by_name, name);
+  assert(k != kh_end(table->id_by_name));
+  free((char *)kh_key(table->id_by_name, k));
+  kh_del_ct_name(table->id_by_name, k);
+
+  // Remove from pair hash table
+  k = kh_get_ct_pair(table->id_by_pair, pair);
+  assert(k != kh_end(table->id_by_pair));
+  free((address_pair_t *)kh_key(table->id_by_pair, k));
+  kh_del_ct_pair(table->id_by_pair, k);
+
+  assert(kh_size(table->id_by_name) == kh_size(table->id_by_pair));
+  pool_put(table->connections, conn);
+}
+
 connection_t *connection_table_get_by_pair(const connection_table_t *table,
                                            const address_pair_t *pair) {
   khiter_t k = kh_get_ct_pair(table->id_by_pair, pair);
@@ -90,7 +138,7 @@ off_t connection_table_get_id_by_name(const connection_table_t *table,
 
 connection_t *connection_table_get_by_name(const connection_table_t *table,
                                            const char *name) {
-  unsigned conn_id = connection_table_get_id_by_name(table, name);
+  unsigned conn_id = (unsigned int)connection_table_get_id_by_name(table, name);
   if (!connection_id_is_valid(conn_id)) return NULL;
   return connection_table_at(table, conn_id);
 }
@@ -141,22 +189,24 @@ connection_t *_connection_table_get_by_id(connection_table_t *table, off_t id) {
   return connection_table_get_by_id(table, id);
 }
 
-#define RANDBYTE() (u8)(rand() & 0xFF)
+static inline u16 RAND16() { return rand() & 0xFFFF; }
 
-char *connection_table_get_random_name(const connection_table_t *table) {
-  char *connection_name = malloc(SYMBOLIC_NAME_LEN * sizeof(char));
-  u8 rand_num;
+int connection_table_get_random_name(const connection_table_t *table,
+                                     char *name) {
+  int i, n_attempts = 2 * USHRT_MAX;
+  for (i = 0; i < n_attempts; i++) {
+    int rc = snprintf(name, SYMBOLIC_NAME_LEN, "conn%u", RAND16());
+    if (rc >= SYMBOLIC_NAME_LEN) continue;
 
-  /* Generate a random connection name */
-  while (1) {
-    rand_num = RANDBYTE();
-    int rc = snprintf(connection_name, SYMBOLIC_NAME_LEN, "conn%u", rand_num);
-    _ASSERT(rc < SYMBOLIC_NAME_LEN);
-
-    // Return if connection name does not already exist
-    khiter_t k = kh_get_ct_name(table->id_by_name, connection_name);
+    // Check if generated connection name is a duplicate
+    khiter_t k = kh_get_ct_name(table->id_by_name, name);
     if (k == kh_end(table->id_by_name)) break;
   }
 
-  return connection_name;
+  if (i == n_attempts) {
+    ERROR("Unable to generate new unique connection name");
+    return -1;
+  }
+
+  return 0;
 }

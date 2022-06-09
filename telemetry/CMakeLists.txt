@@ -11,19 +11,68 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+##############################################################
+# Project and cmake version
+##############################################################
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+project(telemetry)
+
 
 ##############################################################
-# Packaging and versioning
+# C Standard
 ##############################################################
+set(CMAKE_C_STANDARD 11)
+
+
+##############################################################
+# Cmake modules
+##############################################################
+include("${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake")
+set(CMAKE_MODULE_PATH
+  ${CMAKE_MODULE_PATH}
+  ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Modules
+)
+
+
+##############################################################
+# Libs and Bins names
+##############################################################
+set(COLLECTD_PLUGINS hicn-collectd-plugins CACHE INTERNAL "" FORCE)
+set(HICN_LIGHT_TELEMETRY hicn_light)
+set(KAFKA_TELEMETRY write_kafka_line_protocol)
+set(VPP_TELEMETRY vpp)
+set(VPP_HICN_TELEMETRY vpp_hicn)
+
+
+##############################################################
+# Dependencies and third party libs
+##############################################################
+find_package(Collectd ${COLLECTD_DEFAULT_VERSION} REQUIRED)
+add_subdirectory(third-party)
+
+
+##############################################################
+# Check if building as subproject or as root project
+##############################################################
+if(NOT (CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR) AND
+  NOT (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux"))
+  return()
+endif()
+include(CommonSetup)
+
+# Include config.h in all collectd plugins
+set(COLLECTD_COMPILER_OPTIONS -include config.h)
+
+# ##############################################################
+# # Packaging and versioning
+# ##############################################################
 include(${CMAKE_CURRENT_SOURCE_DIR}/../versions.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/packaging.cmake)
 
 
 ##############################################################
 # Subdirectories
 ##############################################################
-if ((CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR) OR
-    (BUILD_HICNPLUGIN AND "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux"))
-    add_subdirectory(vpp-collectd)
-endif ()
+add_subdirectory(hicn-light-collectd)
+add_subdirectory(kafka-collectd)
+add_subdirectory(vpp-collectd)

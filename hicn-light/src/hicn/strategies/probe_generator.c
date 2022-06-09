@@ -78,7 +78,7 @@ int generate_probe(probe_generator_t *pg, const msgbuf_t *msgbuf,
                    const forwarder_t *forwarder, nexthop_t nexthop) {
   msgbuf_pool_t *msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
   connection_table_t *table = forwarder_get_connection_table(forwarder);
-  const connection_t *conn = connection_table_get_by_id(table, nexthop);
+  connection_t *conn = connection_table_get_by_id(table, nexthop);
   if (!conn) return -1;
 
   msgbuf_t *probe;

@@ -32,9 +32,10 @@ namespace rtc {
 class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
  protected:
   struct rtx_state_ {
-    uint64_t first_send_;
-    uint64_t next_send_;
-    uint32_t rtx_count_;
+    uint64_t first_send_;  // first time this interest was sent
+    uint64_t last_send_;   // last time this rtx was sent
+    uint64_t next_send_;   // next retransmission time
+    uint32_t rtx_count_;   // number or rtx
   };
 
   using rtxState = struct rtx_state_;
@@ -44,6 +45,7 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
 
   RecoveryStrategy(Indexer *indexer, SendRtxCallback &&callback,
                    asio::io_service &io_service, bool use_rtx, bool use_fec,
+                   interface::RtcTransportRecoveryStrategies rs_type,
                    interface::StrategyCallback &&external_callback);
 
   RecoveryStrategy(RecoveryStrategy &&rs);
@@ -55,6 +57,7 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
   void setState(RTCState *state) { state_ = state; }
   void setRateControl(RTCRateControl *rateControl) { rc_ = rateControl; }
   void setFecParams(uint32_t n, uint32_t k);
+  void setContentSharingMode() { content_sharing_mode_ = true; }
 
   bool isRtx(uint32_t seq) {
     if (rtx_state_.find(seq) != rtx_state_.end()) return true;
@@ -71,10 +74,20 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
     return false;
   }
 
+  interface::RtcTransportRecoveryStrategies getType() {
+    return rs_type_;
+  }
+  void updateType(interface::RtcTransportRecoveryStrategies type) {
+    rs_type_ = type;
+  }
   bool isRtxOn() { return rtx_on_; }
   bool isFecOn() { return fec_on_; }
 
   RTCState *getState() { return state_; }
+
+  // if the function returns 0 it means that the packet is not an RTX or it is
+  // not a valid packet to safely compute the RTT
+  uint64_t getRtxRtt(uint32_t seq);
   bool lossDetected(uint32_t seq);
   void notifyNewLossDetedcted(uint32_t seq);
   void requestPossibleLostPacket(uint32_t seq);
@@ -98,7 +111,7 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
  protected:
   // rtx functions
   void addNewRtx(uint32_t seq, bool force);
-  uint64_t computeNextSend(uint32_t seq, bool new_rtx);
+  uint64_t computeNextSend(uint32_t seq, uint32_t rtx_counter);
   void retransmit();
   void scheduleNextRtx();
   void deleteRtx(uint32_t seq);
@@ -109,9 +122,11 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
   // common functons
   void removePacketState(uint32_t seq);
 
+  interface::RtcTransportRecoveryStrategies rs_type_;
   bool recovery_on_;
   bool rtx_on_;
   bool fec_on_;
+  bool content_sharing_mode_;
 
   // number of RTX sent after fec turned on
   // this is used to take into account jitter and out of order packets
@@ -152,19 +167,9 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
   RTCRateControl *rc_;
 
  private:
-  struct fec_state_ {
-    uint32_t fec_to_ask;
-    uint32_t last_update;      // round id of the last update
-                               // (wait 10 ruonds (2sec) between updates)
-    uint32_t consecutive_use;  // consecutive ruonds where this fec was used
-    double avg_residual_losses;
-  };
-
-  void reduceFec();
-
   uint32_t round_id_;  // number of rounds
   uint32_t last_fec_used_;
-  std::vector<fec_state_> fec_per_loss_rate_;
+  std::vector<uint32_t> fec_per_loss_rate_;
   interface::StrategyCallback callback_;
 };
 

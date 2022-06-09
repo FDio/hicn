@@ -91,6 +91,8 @@ void RTCDataPath::insertRttSample(
     rtt_samples_ = 0;
     last_avg_rtt_compute_ = now;
   }
+
+  received_packets_++;
 }
 
 void RTCDataPath::insertOwdSample(int64_t owd) {
@@ -115,10 +117,6 @@ void RTCDataPath::insertOwdSample(int64_t owd) {
   int64_t diff = std::abs(owd - last_owd_);
   last_owd_ = owd;
   jitter_ += (1.0 / 16.0) * ((double)diff - jitter_);
-
-  // owd is computed only for valid data packets so we count only
-  // this for decide if we recevie traffic or not
-  received_packets_++;
 }
 
 void RTCDataPath::computeInterArrivalGap(uint32_t segment_number) {
@@ -150,9 +148,14 @@ double RTCDataPath::getInterArrivalGap() {
   return avg_inter_arrival_;
 }
 
-bool RTCDataPath::isActive() {
+bool RTCDataPath::isValidProducer() {
   if (received_nacks_ && rounds_without_packets_ < MAX_ROUNDS_WITHOUT_PKTS)
     return true;
+  return false;
+}
+
+bool RTCDataPath::isActive() {
+  if (rounds_without_packets_ < MAX_ROUNDS_WITHOUT_PKTS) return true;
   return false;
 }
 

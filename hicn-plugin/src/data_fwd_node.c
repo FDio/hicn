@@ -91,7 +91,6 @@ hicn_data_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  u16 namelen;
 	  u32 bi0;
 	  u32 next0 = HICN_DATA_FWD_NEXT_ERROR_DROP;
-	  hicn_name_t name;
 	  hicn_header_t *hicn0;
 	  hicn_buffer_t *hicnb0;
 	  hicn_hash_node_t *node0;
@@ -124,15 +123,15 @@ hicn_data_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	  /* Get hicn buffer and state */
 	  hicnb0 = hicn_get_buffer (b0);
+	  hicn0 = (hicn_header_t *) (vlib_buffer_get_current (b0));
 	  hicn_get_internal_state (hicnb0, pitcs, &node0, &strategy_vft0,
 				   &dpo_vft0, &dpo_ctx_id0, &hash_entry0);
 
-	  ret = hicn_data_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
+	  hicn_buffer_get_name_and_namelen (b0, &nameptr, &namelen);
+	  isv6 = hicn_buffer_is_v6 (b0);
 	  pitp = hicn_pit_get_data (node0);
-	  nameptr = (u8 *) (&name);
 
 	  if (PREDICT_FALSE (
-		ret != HICN_ERROR_NONE ||
 		!hicn_node_compare (nameptr, namelen, node0) ||
 		(hash_entry0->he_flags & HICN_HASH_ENTRY_FLAG_CS_ENTRY)))
 	    {
@@ -182,7 +181,7 @@ hicn_data_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		{
 		  hicn_data_fwd_trace_t *t =
 		    vlib_add_trace (vm, node, b0, sizeof (*t));
-		  t->pkt_type = HICN_PKT_TYPE_CONTENT;
+		  t->pkt_type = HICN_PACKET_TYPE_DATA;
 		  t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 		  t->next_index = next0;
 		  clib_memcpy (t->packet_data, vlib_buffer_get_current (b0),
@@ -442,7 +441,7 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 	    {
 	      hicn_data_fwd_trace_t *t =
 		vlib_add_trace (vm, node, h0, sizeof (*t));
-	      t->pkt_type = HICN_PKT_TYPE_CONTENT;
+	      t->pkt_type = HICN_PACKET_TYPE_DATA;
 	      t->sw_if_index = vnet_buffer (h0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
 	      clib_memcpy (t->packet_data, vlib_buffer_get_current (h0),
@@ -453,7 +452,7 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 	    {
 	      hicn_data_fwd_trace_t *t =
 		vlib_add_trace (vm, node, h1, sizeof (*t));
-	      t->pkt_type = HICN_PKT_TYPE_CONTENT;
+	      t->pkt_type = HICN_PACKET_TYPE_DATA;
 	      t->sw_if_index = vnet_buffer (h1)->sw_if_index[VLIB_RX];
 	      t->next_index = next1;
 	      clib_memcpy (t->packet_data, vlib_buffer_get_current (h1),
@@ -491,7 +490,7 @@ hicn_satisfy_faces (vlib_main_t *vm, u32 bi0, hicn_pcs_entry_t *pitp,
 	    {
 	      hicn_data_fwd_trace_t *t =
 		vlib_add_trace (vm, node, h0, sizeof (*t));
-	      t->pkt_type = HICN_PKT_TYPE_CONTENT;
+	      t->pkt_type = HICN_PACKET_TYPE_DATA;
 	      t->sw_if_index = vnet_buffer (h0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
 	      clib_memcpy (t->packet_data, vlib_buffer_get_current (h0),

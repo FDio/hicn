@@ -20,13 +20,12 @@ list(APPEND SOURCE_FILES
 
 
 ##############################################################
-# Include directories
+# Include dirs
 ##############################################################
 list(APPEND INCLUDE_DIRS
   ${COLLECTD_INCLUDE_DIRS}
+  ${THIRD_PARTY_INCLUDE_DIRS}
   ${VPP_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  "${CMAKE_CURRENT_SOURCE_DIR}/../common"
 )
 
 
@@ -39,11 +38,26 @@ list(APPEND LIBRARIES
 )
 
 
-build_module(vpp
+##############################################################
+# Compiler options
+##############################################################
+list(APPEND COMPILER_OPTIONS
+  ${DEFAULT_COMPILER_OPTIONS}
+  ${COLLECTD_COMPILER_OPTIONS}
+)
+
+
+##############################################################
+# Build library
+##############################################################
+build_library(${VPP_TELEMETRY}
+  SHARED
+  EMPTY_PREFIX
   SOURCES ${SOURCE_FILES}
   LINK_LIBRARIES ${LIBRARIES}
-  INCLUDE_DIRS ${INCLUDE_DIRS}
-  INSTALL_FULL_PATH_DIR ${CMAKE_INSTALL_PREFIX}/lib/collectd
+  INCLUDE_DIRS
+    PRIVATE ${INCLUDE_DIRS}
+  INSTALL_FULL_PATH_DIR ${COLLECTD_PLUGIN_DIR}
   COMPONENT ${COLLECTD_PLUGINS}
   COMPILE_OPTIONS ${COMPILER_OPTIONS}
 )

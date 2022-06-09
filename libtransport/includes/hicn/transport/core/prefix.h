@@ -25,19 +25,17 @@ class Prefix {
  public:
   Prefix();
 
-  Prefix(const char *prefix);
-
   Prefix(const std::string &prefix);
 
-  Prefix(std::string &&prefix);
-
-  Prefix(std::string &prefix, uint16_t prefix_length);
+  Prefix(const std::string &prefix, uint16_t prefix_length);
 
   Prefix(const core::Name &content_name, uint16_t prefix_length);
 
   bool operator<(const Prefix &prefix) const;
 
   bool operator==(const Prefix &prefix) const;
+
+  bool operator!=(const Prefix &prefix) const { return !operator==(prefix); }
 
   std::unique_ptr<Sockaddr> toSockaddr() const;
 
@@ -47,26 +45,22 @@ class Prefix {
 
   std::string getNetwork() const;
 
-  int contains(const ip_address_t &content_name) const;
+  Prefix &setNetwork(const std::string &network);
 
-  int contains(const core::Name &content_name) const;
+  int getAddressFamily() const;
 
-  Name getName() const;
+  bool contains(const ip_address_t &content_name) const;
 
-  Name getRandomName() const;
+  bool contains(const core::Name &content_name) const;
 
   Name getName(const core::Name &mask, const core::Name &components,
                const core::Name &content_name) const;
 
   Name mapName(const core::Name &content_name) const;
 
-  Prefix &setNetwork(std::string &network);
-
-  int getAddressFamily() const;
-
-  Prefix &setAddressFamily(int address_family);
-
+  Name makeName() const;
   Name makeRandomName() const;
+  Name makeNameWithIndex(std::uint64_t index) const;
 
   const ip_prefix_t &toIpPrefixStruct() const;
 
@@ -74,8 +68,10 @@ class Prefix {
   static bool checkPrefixLengthAndAddressFamily(uint16_t prefix_length,
                                                 int family);
 
-  void buildPrefix(std::string &prefix, uint16_t prefix_length, int family);
+  void buildPrefix(const std::string &prefix, uint16_t prefix_length,
+                   int family);
 
+ private:
   ip_prefix_t ip_prefix_;
 };
 

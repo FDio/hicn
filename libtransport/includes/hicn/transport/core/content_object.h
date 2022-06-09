@@ -43,8 +43,8 @@ class ContentObject : public Packet {
   template <typename... Args>
   ContentObject(CopyBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
-    if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
-        0) {
+    if (hicn_data_get_name(format_, packet_start_,
+                           &name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -52,8 +52,8 @@ class ContentObject : public Packet {
   template <typename... Args>
   ContentObject(WrapBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
-    if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
-        0) {
+    if (hicn_data_get_name(format_, packet_start_,
+                           &name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -65,8 +65,8 @@ class ContentObject : public Packet {
       throw errors::MalformedPacketException();
     }
 
-    if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
-        0) {
+    if (hicn_data_get_name(format_, packet_start_,
+                           &name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }

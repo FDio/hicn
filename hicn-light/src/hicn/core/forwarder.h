@@ -98,6 +98,8 @@ listener_table_t *forwarder_get_listener_table(forwarder_t *forwarder);
 connection_table_t *forwarder_get_connection_table(
     const forwarder_t *forwarder);
 
+pkt_cache_t *forwarder_get_pkt_cache(const forwarder_t *forwarder);
+
 void forwarder_cs_set_store(forwarder_t *forwarder, bool val);
 
 bool forwarder_cs_get_store(forwarder_t *forwarder);
@@ -158,6 +160,18 @@ void forwarder_set_strategy(forwarder_t *forwarder, Name *name_prefix,
                             strategy_options_t *strategy_options);
 
 cs_t *forwarder_get_cs(const forwarder_t *forwarder);
+
+off_t *forwarder_get_acquired_msgbuf_ids(const forwarder_t *forwarder);
+
+/**
+ * @note Acquire msgbuf ids vector ONLY for read-only operations.
+ */
+off_t *forwarder_get_acquired_msgbuf_ids(const forwarder_t *forwarder);
+
+void forwarder_acquired_msgbuf_ids_reset(const forwarder_t *forwarder);
+
+void forwarder_acquired_msgbuf_ids_push(const forwarder_t *forwarder,
+                                        off_t msgbuf_id);
 
 /**
  * @brief Returns the forwarder's FIB.
@@ -225,5 +239,7 @@ ssize_t forwarder_receive(forwarder_t *forwarder, listener_t *listener,
  * @param forwarder Pointer to the forwarder data structure to use
  */
 void forwarder_log(forwarder_t *forwarder);
+
+forwarder_stats_t forwarder_get_stats(forwarder_t *forwarder);
 
 #endif  // HICNLIGHT_FORWARDER_H

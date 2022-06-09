@@ -15,9 +15,6 @@
 
 #include "hicn_light_common.h"
 
-TYPEDEF_MAP(hc_sock_map, int, hc_sock_request_t *, int_cmp, int_snprintf,
-            generic_snprintf);
-
 hc_sock_request_t *hc_sock_request_create(int seq, hc_data_t *data,
                                           HC_PARSE parse) {
   assert(data);

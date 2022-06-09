@@ -78,8 +78,8 @@ int ProductionProtocol::start() {
 
     socket_->getSocketOption(GeneralTransportOptions::ASYNC_MODE, is_async_);
     socket_->getSocketOption(GeneralTransportOptions::SIGNER, signer_);
-    socket_->getSocketOption(GeneralTransportOptions::MAKE_MANIFEST,
-                             making_manifest_);
+    socket_->getSocketOption(GeneralTransportOptions::MANIFEST_MAX_CAPACITY,
+                             manifest_max_capacity_);
 
     std::string fec_type_str = "";
     socket_->getSocketOption(GeneralTransportOptions::FEC_TYPE, fec_type_str);

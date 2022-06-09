@@ -66,40 +66,33 @@ void ManifestIncrementalIndexer::onUntrustedManifest(
     return;
   }
 
-  auto manifest =
-      std::make_unique<ContentObjectManifest>(std::move(content_object));
-  manifest->decode();
+  core::ContentObjectManifest manifest(content_object.shared_from_this());
+  manifest.decode();
 
-  processTrustedManifest(interest, std::move(manifest), reassembly);
+  processTrustedManifest(interest, manifest, reassembly);
 }
 
 void ManifestIncrementalIndexer::processTrustedManifest(
-    core::Interest &interest, std::unique_ptr<ContentObjectManifest> manifest,
+    core::Interest &interest, core::ContentObjectManifest &manifest,
     bool reassembly) {
-  if (TRANSPORT_EXPECT_FALSE(manifest->getVersion() !=
-                             core::ManifestVersion::VERSION_1)) {
-    throw errors::RuntimeException("Received manifest with unknown version.");
-  }
-
-  switch (manifest->getType()) {
+  switch (manifest.getType()) {
     case core::ManifestType::INLINE_MANIFEST: {
       suffix_strategy_->setFinalSuffix(
-          manifest->getParamsBytestream().final_segment);
+          manifest.getParamsBytestream().final_segment);
 
       // The packets to verify with the received manifest
       std::vector<auth::PacketPtr> packets;
 
       // Convert the received manifest to a map of packet suffixes to hashes
-      auth::Verifier::SuffixMap current_manifest =
-          core::ContentObjectManifest::getSuffixMap(manifest.get());
+      auth::Verifier::SuffixMap suffix_map = manifest.getSuffixMap();
 
       // Update 'suffix_map_' with new hashes from the received manifest and
       // build 'packets'
-      for (auto it = current_manifest.begin(); it != current_manifest.end();) {
+      for (auto it = suffix_map.begin(); it != suffix_map.end();) {
         if (unverified_segments_.find(it->first) ==
             unverified_segments_.end()) {
           suffix_map_[it->first] = std::move(it->second);
-          current_manifest.erase(it++);
+          suffix_map.erase(it++);
           continue;
         }
 
@@ -109,7 +102,7 @@ void ManifestIncrementalIndexer::processTrustedManifest(
 
       // Verify unverified segments using the received manifest
       auth::Verifier::PolicyMap policies =
-          verifier_->verifyPackets(packets, current_manifest);
+          verifier_->verifyPackets(packets, suffix_map);
 
       for (unsigned int i = 0; i < packets.size(); ++i) {
         auth::Suffix suffix = packets[i]->getName().getSuffix();
@@ -126,7 +119,9 @@ void ManifestIncrementalIndexer::processTrustedManifest(
       }
 
       if (reassembly) {
-        reassembly_->reassemble(std::move(manifest));
+        auto manifest_co =
+            std::dynamic_pointer_cast<ContentObject>(manifest.getPacket());
+        reassembly_->reassemble(*manifest_co);
       }
       break;
     }

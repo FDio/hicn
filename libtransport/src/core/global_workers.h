@@ -32,6 +32,8 @@ class GlobalWorkers : public utils::Singleton<GlobalWorkers> {
     return thread_pool_.getWorker(counter_++ % thread_pool_.getNThreads());
   }
 
+  auto& getWorkers() { return thread_pool_.getWorkers(); }
+
  private:
   GlobalWorkers() : counter_(0), thread_pool_() {}
 

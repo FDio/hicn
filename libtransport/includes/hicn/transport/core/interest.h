@@ -29,14 +29,6 @@ const uint32_t MAX_AGGREGATED_INTEREST = 128;
 
 class Interest
     : public Packet /*, public std::enable_shared_from_this<Interest>*/ {
- private:
-  struct InterestManifestHeader {
-    /* This can be 16 bits, but we use 32 bits for alignment */
-    uint32_t n_suffixes;
-    /* Followed by the list of prefixes to ask */
-    /* ... */
-  };
-
  public:
   using Ptr = std::shared_ptr<Interest>;
 
@@ -51,7 +43,7 @@ class Interest
   Interest(CopyBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_interest_get_name(format_, packet_start_,
-                               name_.getStructReference()) < 0) {
+                               &name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -60,7 +52,7 @@ class Interest
   Interest(WrapBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
     if (hicn_interest_get_name(format_, packet_start_,
-                               name_.getStructReference()) < 0) {
+                               &name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -107,6 +99,12 @@ class Interest
   uint32_t *firstSuffix();
 
   uint32_t numberOfSuffixes();
+
+  uint32_t *getRequestBitmap();
+
+  void setRequestBitmap(const uint32_t *request_bitmap);
+
+  bool isValid();
 
   auto shared_from_this() { return utils::shared_from(this); }
 

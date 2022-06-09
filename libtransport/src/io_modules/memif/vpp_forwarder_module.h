@@ -48,6 +48,7 @@ class VPPForwarderModule : public IoModule {
 
   void init(Connector::PacketReceivedCallback &&receive_callback,
             Connector::PacketSentCallback &&sent_callback,
+            Connector::OnCloseCallback &&close_callback,
             Connector::OnReconnectCallback &&reconnect_callback,
             asio::io_service &io_service,
             const std::string &app_name = "Libtransport") override;

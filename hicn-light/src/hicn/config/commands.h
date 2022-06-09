@@ -149,4 +149,7 @@ uint8_t *configuration_on_policy_remove(forwarder_t *forwarder, uint8_t *packet,
 uint8_t *configuration_on_policy_list(forwarder_t *forwarder, uint8_t *packet,
                                       unsigned ingress_id, size_t *reply_size);
 
+uint8_t *configuration_on_stats_list(forwarder_t *forwarder, uint8_t *packet,
+                                     unsigned ingress_id, size_t *reply_size);
+
 #endif  // HICNLIGHT_COMMANDS_H

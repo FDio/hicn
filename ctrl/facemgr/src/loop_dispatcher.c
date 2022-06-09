@@ -28,7 +28,7 @@
 
 #include <stdlib.h>
 
-#include <Dispatch/Dispatch.h>
+#include <dispatch/dispatch.h>
 
 #include <hicn/facemgr/loop.h>
 #include <hicn/util/log.h>

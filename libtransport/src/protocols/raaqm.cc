@@ -371,7 +371,7 @@ void RaaqmTransportProtocol::onPacketDropped(Interest &interest,
     }
 
     interest_retransmissions_[segment & mask]++;
-    interest_to_retransmit_.push(segment);
+    interest_to_retransmit_.push((unsigned int)segment);
   } else {
     LOG(ERROR) << "Stop: received not trusted packet "
                << interest_retransmissions_[segment & mask] << " times";
@@ -429,7 +429,7 @@ void RaaqmTransportProtocol::onInterestTimeout(Interest::Ptr &interest,
       return;
     }
 
-    interest_to_retransmit_.push(segment);
+    interest_to_retransmit_.push((unsigned int)segment);
     scheduleNextInterests();
   } else {
     LOG(ERROR) << "Stop: reached max retx limit.";
@@ -491,7 +491,7 @@ void RaaqmTransportProtocol::updateRtt(uint64_t segment) {
     throw std::runtime_error("RAAQM ERROR: no current path found, exit");
   } else {
     auto now = utils::SteadyTime::Clock::now();
-    utils::SteadyTime::Milliseconds rtt = utils::SteadyTime::getDurationMs(
+    auto rtt = utils::SteadyTime::getDurationUs(
         interest_timepoints_[segment & mask], now);
 
     // Update stats
@@ -525,7 +525,7 @@ void RaaqmTransportProtocol::RAAQM() {
 }
 
 void RaaqmTransportProtocol::updateStats(
-    uint32_t suffix, const utils::SteadyTime::Milliseconds &rtt,
+    uint32_t suffix, const utils::SteadyTime::Microseconds &rtt,
     utils::SteadyTime::TimePoint &now) {
   // Update RTT statistics
   stats_->updateAverageRtt(rtt);

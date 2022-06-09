@@ -31,7 +31,7 @@ class IcnRateEstimator : utils::NonCopyable {
 
   virtual ~IcnRateEstimator(){};
 
-  virtual void onRttUpdate(const utils::SteadyTime::Milliseconds &rtt){};
+  virtual void onRttUpdate(const utils::SteadyTime::Microseconds &rtt){};
 
   virtual void onDataReceived(int packetSize){};
 
@@ -66,7 +66,7 @@ class InterRttEstimator : public IcnRateEstimator {
 
   ~InterRttEstimator();
 
-  void onRttUpdate(const utils::SteadyTime::Milliseconds &rtt);
+  void onRttUpdate(const utils::SteadyTime::Microseconds &rtt);
 
   void onDataReceived(int packet_size) {
     if (packet_size > this->max_packet_size_) {
@@ -101,7 +101,7 @@ class BatchingPacketsEstimator : public IcnRateEstimator {
  public:
   BatchingPacketsEstimator(double alpha_arg, int batchingParam);
 
-  void onRttUpdate(const utils::SteadyTime::Milliseconds &rtt);
+  void onRttUpdate(const utils::SteadyTime::Microseconds &rtt);
 
   void onDataReceived(int packet_size) {
     if (packet_size > this->max_packet_size_) {
@@ -148,7 +148,7 @@ class SimpleEstimator : public IcnRateEstimator {
  public:
   SimpleEstimator(double alpha, int batching_param);
 
-  void onRttUpdate(const utils::SteadyTime::Milliseconds &rtt);
+  void onRttUpdate(const utils::SteadyTime::Microseconds &rtt);
 
   void onDataReceived(int packet_size);
 
