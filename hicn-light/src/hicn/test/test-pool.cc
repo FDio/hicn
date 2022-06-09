@@ -25,7 +25,7 @@
 
 extern "C" {
 #define WITH_TESTS
-#include <hicn/base/pool.h>
+#include <hicn/util/pool.h>
 }
 
 /*

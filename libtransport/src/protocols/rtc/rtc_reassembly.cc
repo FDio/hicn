@@ -40,7 +40,7 @@ void RtcReassembly::reassemble(core::ContentObject& content_object) {
   auto read_buffer = content_object.getPayload();
   DLOG_IF(INFO, VLOG_IS_ON(3)) << "Size of payload: " << read_buffer->length();
 
-  read_buffer->trimStart(transport_protocol_->transportHeaderLength());
+  read_buffer->trimStart(transport_protocol_->transportHeaderLength(false));
 
   if (data_aggregation_) {
     rtc::AggrPktHeader hdr((uint8_t*)read_buffer->data());

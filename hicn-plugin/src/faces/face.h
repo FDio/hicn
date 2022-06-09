@@ -27,6 +27,8 @@
 
 #include <vpp_plugins/hicn/error.h>
 
+#include "face_flags.h"
+#include "../hicn_buffer_flags.h"
 #include "../udp_tunnels/udp_tunnel.h"
 #include "../hicn_logging.h"
 
@@ -117,39 +119,7 @@ typedef struct __attribute__ ((packed)) hicn_face_s
 /* Pool of faces */
 extern hicn_face_t *hicn_dpoi_face_pool;
 
-/* Flags */
-/* A face is complete and it stores all the information. A iface lacks of the
-   adj index, therefore sending a packet through a iface require a lookup in
-   the FIB. */
-#define HICN_FACE_FLAGS_DEFAULT 0x00
-#define HICN_FACE_FLAGS_FACE	0x01
-#define HICN_FACE_FLAGS_IFACE	0x02
-#define HICN_FACE_FLAGS_APPFACE_PROD                                          \
-  0x04 /* Currently only IP face can be appface */
-#define HICN_FACE_FLAGS_APPFACE_CONS                                          \
-  0x08 /* Currently only IP face can be appface */
-#define HICN_FACE_FLAGS_DELETED 0x10
-#define HICN_FACE_FLAGS_UDP	0x20
-
 #define HICN_FACE_NULL (hicn_face_id_t) ~0
-
-#define HICN_FACE_FLAGS_APPFACE_PROD_BIT 2
-#define HICN_FACE_FLAGS_APPFACE_CONS_BIT 3
-
-#define HICN_BUFFER_FLAGS_DEFAULT	   0x00
-#define HICN_BUFFER_FLAGS_NEW_FACE	   0x02
-#define HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL 0x04
-#define HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL 0x08
-
-STATIC_ASSERT ((1 << HICN_FACE_FLAGS_APPFACE_PROD_BIT) ==
-		 HICN_FACE_FLAGS_APPFACE_PROD,
-	       "HICN_FACE_FLAGS_APPFACE_PROD_BIT and  "
-	       "HICN_FACE_FLAGS_APPFACE_PROD must correspond");
-
-STATIC_ASSERT ((1 << HICN_FACE_FLAGS_APPFACE_CONS_BIT) ==
-		 HICN_FACE_FLAGS_APPFACE_CONS,
-	       "HICN_FACE_FLAGS_APPFACE_CONS_BIT and  "
-	       "HICN_FACE_FLAGS_APPFACE_CONS must correspond");
 
 /**
  * @brief Definition of the virtual functin table for an hICN FACE DPO.
@@ -484,7 +454,7 @@ hicn_face_get_with_dpo (const ip46_address_t *addr, u32 sw_if,
  * reachable ip address, otherwise HICN_ERROR_NONE
  */
 int hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address,
-		   int sw_if, hicn_face_id_t *pfaceid, u8 is_app_prod);
+		   int sw_if, hicn_face_id_t *pfaceid);
 
 /**
  * @brief Create a new incomplete face ip. (Meant to be used by the data plane)
@@ -497,7 +467,7 @@ int hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address,
  * reachable ip address, otherwise HICN_ERROR_NONE
  */
 always_inline void
-hicn_iface_add (ip46_address_t *nat_address, int sw_if,
+hicn_iface_add (const ip46_address_t *nat_address, int sw_if,
 		hicn_face_id_t *pfaceid, u32 adj_index, u8 flags)
 {
   hicn_face_t *face;
@@ -615,7 +585,6 @@ hicn_face_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       *hicnb_flags |= HICN_BUFFER_FLAGS_NEW_FACE;
 
       *index = idx;
-      return ret;
     }
   else
     {
@@ -623,14 +592,9 @@ hicn_face_ip4_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       hicn_face_id_t face_id = hicn_dpoi_get_index (face);
       hicn_face_unlock_with_id (face_id);
       ret = HICN_ERROR_FACE_ALREADY_CREATED;
+      *index = hicn_dpoi_get_index (face);
+      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
     }
-
-  /* Code replicated on purpose */
-  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
-  *hicnb_flags |= (face->flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
-		  HICN_FACE_FLAGS_APPFACE_PROD_BIT;
-
-  *index = hicn_dpoi_get_index (face);
 
   return ret;
 }
@@ -676,7 +640,7 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
 
   /*All (complete) faces are indexed by remote addess as well */
   /* if the face exists, it adds a lock */
-  hicn_face_t *face = hicn_face_get ((ip46_address_t *) nat_addr, sw_if,
+  hicn_face_t *face = hicn_face_get ((const ip46_address_t *) nat_addr, sw_if,
 				     &hicn_face_hashtb, adj_index);
 
   if (face == NULL)
@@ -684,8 +648,8 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       hicn_face_id_t idx;
       u8 face_flags = 0;
 
-      hicn_iface_add ((ip46_address_t *) nat_addr, sw_if, &idx, adj_index,
-		      face_flags);
+      hicn_iface_add ((const ip46_address_t *) nat_addr, sw_if, &idx,
+		      adj_index, face_flags);
 
       face = hicn_dpoi_get_from_idx (idx);
 
@@ -712,12 +676,8 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       adj_nbr_walk (face->sw_if, FIB_PROTOCOL_IP6, hicn6_iface_adj_walk_cb,
 		    face);
 
-      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
-      *hicnb_flags |= HICN_BUFFER_FLAGS_NEW_FACE;
-
+      *hicnb_flags = HICN_BUFFER_FLAGS_NEW_FACE;
       *index = idx;
-
-      return ret;
     }
   else
     {
@@ -725,14 +685,9 @@ hicn_face_ip6_add_and_lock (hicn_face_id_t *index, u8 *hicnb_flags,
       hicn_face_id_t face_id = hicn_dpoi_get_index (face);
       hicn_face_unlock_with_id (face_id);
       ret = HICN_ERROR_FACE_ALREADY_CREATED;
+      *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
+      *index = hicn_dpoi_get_index (face);
     }
-
-  /* Code replicated on purpose */
-  *hicnb_flags = HICN_BUFFER_FLAGS_DEFAULT;
-  *hicnb_flags |= (face->flags & HICN_FACE_FLAGS_APPFACE_PROD) >>
-		  HICN_FACE_FLAGS_APPFACE_PROD_BIT;
-
-  *index = hicn_dpoi_get_index (face);
 
   return ret;
 }

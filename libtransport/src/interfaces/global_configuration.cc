@@ -14,6 +14,7 @@
  */
 
 #include <core/global_configuration.h>
+#include <core/global_workers.h>
 #include <glog/logging.h>
 #include <hicn/transport/interfaces/global_conf_interface.h>
 
@@ -23,8 +24,27 @@ namespace transport {
 namespace interface {
 namespace global_config {
 
-void parseConfigurationFile(const std::string& path) {
+GlobalConfigInterface::GlobalConfigInterface() { libtransportConfigInit(); }
+
+GlobalConfigInterface::~GlobalConfigInterface() {
+  libtransportConfigTerminate();
+}
+
+void GlobalConfigInterface::parseConfigurationFile(
+    const std::string &path) const {
   core::GlobalConfiguration::getInstance().parseConfiguration(path);
+}
+
+void GlobalConfigInterface::libtransportConfigInit() const {
+  // nothing to do
+}
+
+void GlobalConfigInterface::libtransportConfigTerminate() const {
+  // cleanup workers
+  auto &workers = core::GlobalWorkers::getInstance().getWorkers();
+  for (auto &worker : workers) {
+    worker.stop();
+  }
 }
 
 void ConfigurationObject::get() {

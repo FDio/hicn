@@ -15,23 +15,26 @@
 
 #include <gtest/gtest.h>
 
-#include <thread>
 #include <optional>
+#include <random>
+#include <hicn/test/test-utils.h>
 
 extern "C" {
 #define WITH_TESTS
 #include <hicn/core/packet_cache.h>
 }
 
-const unsigned CS_SIZE = 100;
-const unsigned CONN_ID = 0;
-const unsigned CONN_ID_2 = 1;
-const unsigned MSGBUF_ID = 0;
-const unsigned MSGBUF_ID_2 = 1;
-const unsigned MSGBUF_ID_3 = 2;
-const unsigned FIVE_SECONDS = 5000;
-const unsigned IPV4_LEN = 32;
-const unsigned IPV6_LEN = 128;
+static constexpr unsigned CS_SIZE = 100;
+static constexpr unsigned CONN_ID = 0;
+static constexpr unsigned CONN_ID_2 = 1;
+static constexpr unsigned MSGBUF_ID = 0;
+static constexpr unsigned MSGBUF_ID_2 = 1;
+static constexpr unsigned MSGBUF_ID_3 = 2;
+static constexpr unsigned FIVE_SECONDS = 5000;
+static constexpr unsigned IPV4_LEN = 32;
+static constexpr unsigned IPV6_LEN = 128;
+
+static constexpr int N_OPS = 50000;
 
 class PacketCacheTest : public ::testing::Test {
  protected:
@@ -40,33 +43,78 @@ class PacketCacheTest : public ::testing::Test {
     name = (Name *)malloc(sizeof(Name));
     name_CreateFromAddress(name, AF_INET, IPV4_ANY, IPV4_LEN);
     msgbuf_pool = msgbuf_pool_create();
+    msgbuf = msgbuf_create(msgbuf_pool, CONN_ID, name);
   }
+
   virtual ~PacketCacheTest() {
-    pkt_cache_free(pkt_cache);
+    free(name);
     msgbuf_pool_free(msgbuf_pool);
+    pkt_cache_free(pkt_cache);
+  }
+
+  msgbuf_t *msgbuf_create(msgbuf_pool_t *msgbuf_pool, unsigned conn_id,
+                          Name *name,
+                          std::optional<Ticks> lifetime = FIVE_SECONDS) {
+    msgbuf_t *msgbuf;
+    msgbuf_pool_get(msgbuf_pool, &msgbuf);
+
+    msgbuf->connection_id = conn_id;
+    name_Copy(name, msgbuf_get_name(msgbuf));
+    hicn_packet_init_header(HF_INET6_TCP,
+                            (hicn_header_t *)msgbuf_get_packet(msgbuf));
+    msgbuf_set_interest_lifetime(msgbuf, *lifetime);
+
+    return msgbuf;
+  }
+
+  Name get_name_from_prefix(const char *prefix_str) {
+    ip_address_t prefix;
+    inet_pton(AF_INET6, prefix_str, (struct in6_addr *)&prefix);
+
+    Name name;
+    name_CreateFromAddress(&name, AF_INET6, prefix, IPV6_LEN);
+
+    return name;
   }
 
   pkt_cache_t *pkt_cache;
   pkt_cache_entry_t *entry = nullptr;
   msgbuf_pool_t *msgbuf_pool;
   Name *name;
+  msgbuf_t *msgbuf;
 };
 
-msgbuf_t *msgbuf_factory(msgbuf_pool_t *msgbuf_pool, unsigned conn_id,
-                         Name *name,
-                         std::optional<Ticks> lifetime = FIVE_SECONDS) {
-  msgbuf_t *msgbuf;
-  msgbuf_pool_get(msgbuf_pool, &msgbuf);
+TEST_F(PacketCacheTest, LowLevelOperations) {
+  int rc;
+  kh_pkt_cache_prefix_t *prefix_to_suffixes = kh_init_pkt_cache_prefix();
+  NameBitvector *prefix = name_GetContentName(name);
+  _add_suffix(prefix_to_suffixes, prefix, 1, 11);
+  _add_suffix(prefix_to_suffixes, prefix, 2, 22);
 
-  msgbuf->connection_id = conn_id;
-  name_Copy(name, msgbuf_get_name(msgbuf));
-  hicn_packet_init_header(HF_INET6_TCP,
-                          (hicn_header_t *)msgbuf_get_packet(msgbuf));
-  // Same as 'msgbuf_set_data_expiry_time',
-  // it would write in the same field
-  msgbuf_set_interest_lifetime(msgbuf, *lifetime);
+  unsigned id = _get_suffix(prefix_to_suffixes, prefix, 1, &rc);
+  EXPECT_EQ(rc, KH_FOUND);
+  EXPECT_EQ(id, 11);
 
-  return msgbuf;
+  id = _get_suffix(prefix_to_suffixes, prefix, 2, &rc);
+  EXPECT_EQ(rc, KH_FOUND);
+  EXPECT_EQ(id, 22);
+
+  id = _get_suffix(prefix_to_suffixes, prefix, 5, &rc);
+  EXPECT_EQ(rc, KH_NOT_FOUND);
+  EXPECT_EQ(id, -1);
+
+  _add_suffix(prefix_to_suffixes, prefix, 5, 55);
+  id = _get_suffix(prefix_to_suffixes, prefix, 5, &rc);
+  EXPECT_EQ(rc, KH_FOUND);
+  EXPECT_EQ(id, 55);
+
+  _remove_suffix(prefix_to_suffixes, prefix, 2);
+  _add_suffix(prefix_to_suffixes, prefix, 2, 222);
+  id = _get_suffix(prefix_to_suffixes, prefix, 2, &rc);
+  EXPECT_EQ(rc, KH_FOUND);
+  EXPECT_EQ(id, 222);
+
+  _prefix_map_free(prefix_to_suffixes);
 }
 
 TEST_F(PacketCacheTest, CreatePacketCache) {
@@ -89,10 +137,12 @@ TEST_F(PacketCacheTest, AddPacketCacheEntry) {
   EXPECT_NE(entry, nullptr);
   ASSERT_EQ(pkt_cache_get_size(pkt_cache), 1u);
 
-  // // Get entry by name
-  Name name_key = name_key_factory(name);
-  khiter_t k = kh_get_pkt_cache_name(pkt_cache->index_by_name, &name_key);
-  EXPECT_NE(k, kh_end(pkt_cache->index_by_name));
+  // Get entry by name
+  pkt_cache_lookup_t lookup_result;
+  off_t entry_id;
+  pkt_cache_entry_t *entry = pkt_cache_lookup(pkt_cache, name, msgbuf_pool,
+                                              &lookup_result, &entry_id, true);
+  EXPECT_NE(lookup_result, PKT_CACHE_LU_NONE);
 }
 
 TEST_F(PacketCacheTest, GetCS) {
@@ -141,14 +191,11 @@ TEST_F(PacketCacheTest, AddEntryAndLookup) {
 }
 
 TEST_F(PacketCacheTest, AddToPIT) {
-  // Prepare msgbuf
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
-
   // Check if entry properly created
-  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf);
+  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf, name);
   ASSERT_NE(entry, nullptr);
   EXPECT_EQ(entry->entry_type, PKT_CACHE_PIT_TYPE);
-  EXPECT_EQ(pit_entry_ingress_contains(&entry->u.pit_entry, CONN_ID), true);
+  EXPECT_TRUE(pit_entry_ingress_contains(&entry->u.pit_entry, CONN_ID));
   ASSERT_EQ(pkt_cache_get_pit_size(pkt_cache), 1u);
   ASSERT_EQ(pkt_cache_get_cs_size(pkt_cache), 0u);
 
@@ -162,9 +209,6 @@ TEST_F(PacketCacheTest, AddToPIT) {
 }
 
 TEST_F(PacketCacheTest, AddToCS) {
-  // Prepare msgbuf
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
-
   // Check if entry properly created
   pkt_cache_entry_t *entry =
       pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf, MSGBUF_ID);
@@ -191,9 +235,8 @@ TEST_F(PacketCacheTest, AddToCS) {
 }
 
 TEST_F(PacketCacheTest, PitToCS) {
-  // Prepare msgbuf and PIT entry
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
-  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf);
+  // Prepare PIT entry
+  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf, name);
   off_t entry_id = pkt_cache_get_entry_id(pkt_cache, entry);
   ASSERT_EQ(pkt_cache_get_pit_size(pkt_cache), 1u);
   ASSERT_EQ(pkt_cache_get_cs_size(pkt_cache), 0u);
@@ -224,8 +267,7 @@ TEST_F(PacketCacheTest, PitToCS) {
 }
 
 TEST_F(PacketCacheTest, CsToPIT) {
-  // Prepare msgbuf and CS entry
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
+  // Prepare CS entry
   pkt_cache_entry_t *entry =
       pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf, MSGBUF_ID);
   off_t entry_id = pkt_cache_get_entry_id(pkt_cache, entry);
@@ -237,7 +279,7 @@ TEST_F(PacketCacheTest, CsToPIT) {
                       entry_id);
   ASSERT_NE(entry, nullptr);
   EXPECT_EQ(entry->entry_type, PKT_CACHE_PIT_TYPE);
-  EXPECT_EQ(pit_entry_ingress_contains(&entry->u.pit_entry, CONN_ID), true);
+  EXPECT_TRUE(pit_entry_ingress_contains(&entry->u.pit_entry, CONN_ID));
   ASSERT_EQ(pkt_cache_get_pit_size(pkt_cache), 1u);
   ASSERT_EQ(pkt_cache_get_cs_size(pkt_cache), 0u);
 
@@ -250,14 +292,13 @@ TEST_F(PacketCacheTest, CsToPIT) {
 }
 
 TEST_F(PacketCacheTest, UpdateInPIT) {
-  // Prepare msgbuf and PIT entry
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
-  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf);
+  // Prepare PIT entry
+  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf, name);
   off_t entry_id = pkt_cache_get_entry_id(pkt_cache, entry);
 
   Name new_name;
   name_CreateFromAddress(&new_name, AF_INET, IPV4_LOOPBACK, IPV4_LEN);
-  msgbuf_t *new_msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID_2, &new_name);
+  msgbuf_t *new_msgbuf = msgbuf_create(msgbuf_pool, CONN_ID_2, &new_name);
 
   // Check if entry properly updated
   pkt_cache_update_pit(pkt_cache, entry, new_msgbuf);
@@ -276,15 +317,14 @@ TEST_F(PacketCacheTest, UpdateInPIT) {
 }
 
 TEST_F(PacketCacheTest, UpdateInCS) {
-  // Prepare msgbuf and CS entry
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
+  // Prepare CS entry
   pkt_cache_entry_t *entry =
       pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf, MSGBUF_ID);
   off_t entry_id = pkt_cache_get_entry_id(pkt_cache, entry);
 
   Name new_name;
   name_CreateFromAddress(&new_name, AF_INET, IPV4_LOOPBACK, IPV4_LEN);
-  msgbuf_t *new_msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID_2, &new_name);
+  msgbuf_t *new_msgbuf = msgbuf_create(msgbuf_pool, CONN_ID_2, &new_name);
 
   // Check if entry properly updated
   pkt_cache_update_cs(pkt_cache, msgbuf_pool, entry, new_msgbuf, MSGBUF_ID_2);
@@ -304,9 +344,8 @@ TEST_F(PacketCacheTest, UpdateInCS) {
 }
 
 TEST_F(PacketCacheTest, RemoveFromPIT) {
-  // Prepare msgbuf and PIT entry
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
-  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf);
+  // Prepare PIT entry
+  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf, name);
   ASSERT_EQ(pkt_cache_get_pit_size(pkt_cache), 1u);
   ASSERT_EQ(pkt_cache_get_cs_size(pkt_cache), 0u);
 
@@ -324,8 +363,7 @@ TEST_F(PacketCacheTest, RemoveFromPIT) {
 }
 
 TEST_F(PacketCacheTest, RemoveFromCS) {
-  // Prepare msgbuf and CS entry
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
+  // Prepare CS entry
   pkt_cache_entry_t *entry =
       pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf, MSGBUF_ID);
   ASSERT_EQ(pkt_cache_get_pit_size(pkt_cache), 0u);
@@ -351,11 +389,10 @@ TEST_F(PacketCacheTest, RemoveFromCS) {
 }
 
 TEST_F(PacketCacheTest, AddTwoEntriesToCS) {
-  // Prepare msgbufs
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
+  // Prepare another msgbuf
   Name new_name;
   name_CreateFromAddress(&new_name, AF_INET, IPV4_LOOPBACK, IPV4_LEN);
-  msgbuf_t *new_msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID_2, &new_name);
+  msgbuf_t *new_msgbuf = msgbuf_create(msgbuf_pool, CONN_ID_2, &new_name);
 
   pkt_cache_entry_t *entry_1 =
       pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf, MSGBUF_ID);
@@ -374,18 +411,17 @@ TEST_F(PacketCacheTest, AddTwoEntriesToCS) {
 }
 
 TEST_F(PacketCacheTest, AggregateInPIT) {
-  // Prepare msgbufs
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
+  // Prepare another msgbuf
   Name new_name;
   name_CreateFromAddress(&new_name, AF_INET, IPV4_LOOPBACK, IPV4_LEN);
-  msgbuf_t *new_msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID_2, &new_name);
+  msgbuf_t *new_msgbuf = msgbuf_create(msgbuf_pool, CONN_ID_2, &new_name);
 
   // Check if entry properly created (use sleep to get an updated ts)
-  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf);
+  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf, name);
   Ticks old_lifetime = entry->expire_ts;
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
   bool is_aggregated =
-      pkt_cache_try_aggregate_in_pit(pkt_cache, entry, new_msgbuf);
+      pkt_cache_try_aggregate_in_pit(pkt_cache, entry, new_msgbuf, name);
   Ticks new_lifetime = entry->expire_ts;
 
   ASSERT_NE(entry, nullptr);
@@ -403,18 +439,17 @@ TEST_F(PacketCacheTest, AggregateInPIT) {
 }
 
 TEST_F(PacketCacheTest, RetransmissionInPIT) {
-  // Prepare msgbufs (using same connection ID)
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name);
+  // Prepare another msgbuf (using same connection ID)
   Name new_name;
   name_CreateFromAddress(&new_name, AF_INET, IPV4_LOOPBACK, IPV4_LEN);
-  msgbuf_t *new_msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, &new_name);
+  msgbuf_t *new_msgbuf = msgbuf_create(msgbuf_pool, CONN_ID, &new_name);
 
   // Check if entry properly created (use sleep to get an updated ts)
-  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf);
+  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf, name);
   Ticks old_lifetime = entry->expire_ts;
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
   bool is_aggregated =
-      pkt_cache_try_aggregate_in_pit(pkt_cache, entry, new_msgbuf);
+      pkt_cache_try_aggregate_in_pit(pkt_cache, entry, new_msgbuf, name);
   Ticks new_lifetime = entry->expire_ts;
 
   ASSERT_NE(entry, nullptr);
@@ -433,10 +468,10 @@ TEST_F(PacketCacheTest, RetransmissionInPIT) {
 
 TEST_F(PacketCacheTest, LookupExpiredInterest) {
   // Prepare msgbuf with 0 as interest lifetime
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name, 0);
+  msgbuf_t *msgbuf = msgbuf_create(msgbuf_pool, CONN_ID, name, 0);
 
   // Add to PIT
-  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf);
+  pkt_cache_entry_t *entry = pkt_cache_add_to_pit(pkt_cache, msgbuf, name);
   ASSERT_NE(entry, nullptr);
 
   // Wait to make the interest expire
@@ -451,7 +486,7 @@ TEST_F(PacketCacheTest, LookupExpiredInterest) {
 
 TEST_F(PacketCacheTest, LookupExpiredData) {
   // Prepare msgbuf with 0 as data expiry time
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name, 0);
+  msgbuf_t *msgbuf = msgbuf_create(msgbuf_pool, CONN_ID, name, 0);
 
   // Add to CS
   pkt_cache_entry_t *entry =
@@ -470,20 +505,20 @@ TEST_F(PacketCacheTest, LookupExpiredData) {
 
 TEST_F(PacketCacheTest, GetStaleEntries) {
   // Add to CS a msgbuf with immediate expiration (i.e. stale)
-  msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, CONN_ID, name, 0);
+  msgbuf_t *msgbuf = msgbuf_create(msgbuf_pool, CONN_ID, name, 0);
   pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf, MSGBUF_ID);
 
   // Add to CS another msgbuf with immediate expiration (i.e. stale)
   Name name_2;
   name_CreateFromAddress(&name_2, AF_INET, IPV4_LOOPBACK, IPV4_LEN);
-  msgbuf_t *msgbuf_2 = msgbuf_factory(msgbuf_pool, CONN_ID, &name_2, 0);
+  msgbuf_t *msgbuf_2 = msgbuf_create(msgbuf_pool, CONN_ID, &name_2, 0);
   pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf_2, MSGBUF_ID_2);
 
   // Add to CS a msgbuf with 5-seconds expiration (i.e. not stale)
   Name name_3;
   name_CreateFromAddress(&name_3, AF_INET6, IPV6_LOOPBACK, IPV6_LEN);
   msgbuf_t *msgbuf_3 =
-      msgbuf_factory(msgbuf_pool, CONN_ID, &name_3, FIVE_SECONDS);
+      msgbuf_create(msgbuf_pool, CONN_ID, &name_3, FIVE_SECONDS);
   pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf_3, MSGBUF_ID_3);
 
   size_t num_stale_entries = pkt_cache_get_num_cs_stale_entries(pkt_cache);
@@ -502,7 +537,7 @@ TEST_F(PacketCacheTest, GetMultipleStaleEntries) {
     inet_pton(AF_INET6, name, (struct in6_addr *)&addr);
     Name name;
     name_CreateFromAddress(&name, AF_INET6, addr, IPV6_LEN);
-    msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, i, &name, 0);
+    msgbuf_t *msgbuf = msgbuf_create(msgbuf_pool, i, &name, 0);
 
     pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf, i);
   }
@@ -514,11 +549,134 @@ TEST_F(PacketCacheTest, GetMultipleStaleEntries) {
     inet_pton(AF_INET6, name, (struct in6_addr *)&addr);
     Name name;
     name_CreateFromAddress(&name, AF_INET6, addr, IPV6_LEN);
-    msgbuf_t *msgbuf = msgbuf_factory(msgbuf_pool, i, &name, FIVE_SECONDS);
+    msgbuf_t *msgbuf = msgbuf_create(msgbuf_pool, i, &name, FIVE_SECONDS);
 
     pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf, i);
   }
 
   size_t num_stale_entries = pkt_cache_get_num_cs_stale_entries(pkt_cache);
   EXPECT_EQ(num_stale_entries, (size_t)NUM_STALES);
+}
+
+TEST_F(PacketCacheTest, PerformanceDoubleLookup) {
+  Name tmp = get_name_from_prefix("b001::0");
+
+  auto elapsed_time_double = get_execution_time([&]() {
+    kh_pkt_cache_prefix_t *prefix_to_suffixes = kh_init_pkt_cache_prefix();
+
+    // Add to hash table
+    for (int seq = 0; seq < N_OPS; seq++) {
+      name_SetSegment(&tmp, seq);
+      _add_suffix(prefix_to_suffixes, name_GetContentName(&tmp),
+                  name_GetSegment(&tmp), name_GetSegment(&tmp));
+    }
+
+    // Read from hash table
+    int rc;
+    for (int seq = 0; seq < N_OPS; seq++) {
+      name_SetSegment(&tmp, seq);
+      _get_suffix(prefix_to_suffixes, name_GetContentName(&tmp), seq, &rc);
+    }
+
+    _prefix_map_free(prefix_to_suffixes);
+  });
+  std::cout << "Double lookup: " << elapsed_time_double << " ms\n";
+}
+
+TEST_F(PacketCacheTest, PerformanceCachedLookup) {
+  Name tmp = get_name_from_prefix("b001::0");
+
+  auto elapsed_time_single = get_execution_time([&]() {
+    kh_pkt_cache_prefix_t *prefix_to_suffixes = kh_init_pkt_cache_prefix();
+    kh_pkt_cache_suffix_t *suffixes =
+        _get_suffixes(prefix_to_suffixes, name_GetContentName(&tmp));
+
+    // Add to hash table
+    for (int seq = 0; seq < N_OPS; seq++) {
+      name_SetSegment(&tmp, seq);
+      __add_suffix(suffixes, name_GetSegment(&tmp), name_GetSegment(&tmp));
+    }
+
+    // Read from hash table
+    int rc;
+    for (int seq = 0; seq < N_OPS; seq++) {
+      name_SetSegment(&tmp, seq);
+      __get_suffix(suffixes, name_GetSegment(&tmp), &rc);
+    }
+
+    _prefix_map_free(prefix_to_suffixes);
+  });
+  std::cout << "Cached lookup: " << elapsed_time_single << " ms\n";
+}
+
+TEST_F(PacketCacheTest, PerformanceCachedLookupRandom) {
+  Name tmp = get_name_from_prefix("b001::0");
+
+  // Prepare random sequence numbers
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  uint32_t seqs[N_OPS];
+  for (int seq = 0; seq < N_OPS; seq++) seqs[seq] = seq;
+  std::shuffle(std::begin(seqs), std::end(seqs), gen);
+
+  auto elapsed_time_single_rand = get_execution_time([&]() {
+    kh_pkt_cache_prefix_t *prefix_to_suffixes = kh_init_pkt_cache_prefix();
+    kh_pkt_cache_suffix_t *suffixes =
+        _get_suffixes(prefix_to_suffixes, name_GetContentName(&tmp));
+
+    // Add to hash table
+    for (int seq = 0; seq < N_OPS; seq++) {
+      name_SetSegment(&tmp, seqs[seq]);
+      __add_suffix(suffixes, name_GetSegment(&tmp), name_GetSegment(&tmp));
+    }
+
+    // Read from hash table
+    int rc;
+    for (int seq = 0; seq < N_OPS; seq++) {
+      name_SetSegment(&tmp, seqs[seq]);
+      __get_suffix(suffixes, name_GetSegment(&tmp), &rc);
+    }
+
+    _prefix_map_free(prefix_to_suffixes);
+  });
+  std::cout << "Cached lookup (rand): " << elapsed_time_single_rand << " ms\n";
+}
+
+TEST_F(PacketCacheTest, Clear) {
+  Name tmp_name1, tmp_name2;
+  cs_t *cs = pkt_cache_get_cs(pkt_cache);
+
+  // Create name and add to msgbuf pool
+  name_Copy(name, &tmp_name1);
+  name_SetSegment(&tmp_name1, 1);
+  msgbuf_t *tmp_msgbuf1 = msgbuf_create(msgbuf_pool, CONN_ID_2, &tmp_name1);
+
+  // Create (another) name and add to msgbuf pool
+  name_Copy(name, &tmp_name2);
+  name_SetSegment(&tmp_name2, 2);
+  msgbuf_t *tmp_msgbuf2 = msgbuf_create(msgbuf_pool, CONN_ID_2, &tmp_name2);
+
+  // Add to packet cache (2 entries in the CS, 1 in the PIT)
+  pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, msgbuf, MSGBUF_ID);
+  pkt_cache_add_to_pit(pkt_cache, tmp_msgbuf1, &tmp_name1);
+  pkt_cache_add_to_cs(pkt_cache, msgbuf_pool, tmp_msgbuf2, MSGBUF_ID_2);
+
+  // Check stats (before clearing the packet cache)
+  ASSERT_EQ(pkt_cache_get_size(pkt_cache), 3u);
+  ASSERT_EQ(pkt_cache_get_pit_size(pkt_cache), 1u);
+  ASSERT_EQ(pkt_cache_get_cs_size(pkt_cache), 2u);
+  ASSERT_EQ(cs->num_entries, 2u);
+  ASSERT_EQ(cs->stats.lru.countAdds, 2u);
+
+  // Clear packet cache (i.e. remove content packets from packet cache):
+  // PIT entry should still be there while CS entries are cleared
+  pkt_cache_cs_clear(pkt_cache);
+  cs = pkt_cache_get_cs(pkt_cache);
+
+  // Check stats (after clearing the packet cache)
+  ASSERT_EQ(pkt_cache_get_size(pkt_cache), 1u);
+  ASSERT_EQ(pkt_cache_get_pit_size(pkt_cache), 1u);
+  ASSERT_EQ(pkt_cache_get_cs_size(pkt_cache), 0u);
+  ASSERT_EQ(cs->num_entries, 0u);
+  ASSERT_EQ(cs->stats.lru.countAdds, 0u);
 }

@@ -1120,11 +1120,6 @@ int facemgr_cfg_add_static_facelet(facemgr_cfg_t *cfg, facelet_t *facelet) {
   return facelet_array_add(cfg->static_facelets, facelet);
 }
 
-int facemgr_cfg_remove_static_facelet(facemgr_cfg_t *cfg, facelet_t *facelet,
-                                      facelet_t **removed_facelet) {
-  return facelet_array_remove(cfg->static_facelets, facelet, removed_facelet);
-}
-
 int facemgr_cfg_get_static_facelet_array(const facemgr_cfg_t *cfg,
                                          facelet_t ***array) {
   if (facelet_array_get_elements(cfg->static_facelets, array) < 0) {

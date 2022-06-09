@@ -28,6 +28,7 @@
 #include "face_db.h"
 #include "udp_tunnels/udp_tunnel.h"
 #include "route.h"
+#include "pg.h"
 
 hicn_main_t hicn_main;
 /* Module vars */
@@ -223,23 +224,28 @@ hicn_init (vlib_main_t *vm)
 
   hicn_main_t *sm = &hicn_main;
 
-  /* Init other elements in the 'main' struct */
+  // Init other elements in the 'main' struct
   sm->is_enabled = 0;
 
   error = hicn_api_plugin_hookup (vm);
 
-  /* Init the dpo module */
+  // Init the dpo module
   hicn_dpos_init ();
 
-  /* Init the app manager */
+  // Init the app manager
   address_mgr_init ();
 
+  // Init the face module
   hicn_face_module_init (vm);
 
-  /* Init the route module */
+  // Init the route module
   hicn_route_init ();
 
+  // Init the UDP tunnels module
   udp_tunnel_init ();
+
+  // Init the packet generator module
+  hicn_pg_init (vm);
 
   return error;
 }

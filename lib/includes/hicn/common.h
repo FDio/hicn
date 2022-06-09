@@ -224,8 +224,6 @@ ip_csum_sub_even (ip_csum_t c, ip_csum_t x)
 
 u32 cumulative_hash32 (const void *data, size_t len, u32 lastValue);
 u32 hash32 (const void *data, size_t len);
-u64 cumulative_hash64 (const void *data, size_t len, u64 lastValue);
-u64 hash64 (const void *data, size_t len);
 void hicn_packet_dump (const uint8_t *buffer, size_t len);
 
 /**
@@ -270,22 +268,74 @@ csum (const void *addr, size_t size, u16 init)
 #define HICN_IP_VERSION(packet)                                               \
   ((hicn_header_t *) packet)->protocol.ipv4.version
 
-/*
- * ntohll / htonll allows byte swapping for 64 bits integers
- */
-#ifndef htonll
-#define htonll(x)                                                             \
-  ((1 == htonl (1)) ?                                                         \
-	   (x) :                                                                    \
-	   ((uint64_t) htonl ((x) &0xFFFFFFFF) << 32) | htonl ((x) >> 32))
+#ifndef ntohll
+static inline uint64_t
+ntohll (uint64_t input)
+{
+  uint64_t return_val = input;
+#if (__BYTE_ORDER__) == (__ORDER_LITTLE_ENDIAN__)
+  uint8_t *tmp = (uint8_t *) &return_val;
+
+  tmp[0] = (uint8_t) (input >> 56);
+  tmp[1] = (uint8_t) (input >> 48);
+  tmp[2] = (uint8_t) (input >> 40);
+  tmp[3] = (uint8_t) (input >> 32);
+  tmp[4] = (uint8_t) (input >> 24);
+  tmp[5] = (uint8_t) (input >> 16);
+  tmp[6] = (uint8_t) (input >> 8);
+  tmp[7] = (uint8_t) (input >> 0);
 #endif
 
-#ifndef ntohll
-#define ntohll(x)                                                             \
-  ((1 == ntohl (1)) ?                                                         \
-	   (x) :                                                                    \
-	   ((uint64_t) ntohl ((x) &0xFFFFFFFF) << 32) | ntohl ((x) >> 32))
+  return return_val;
+}
+
+static inline uint64_t
+htonll (uint64_t input)
+{
+  return (ntohll (input));
+}
 #endif
+
+#define round_pow2(x, pow2) (((x) + (pow2) -1) & ~((pow2) -1))
+
+#define _SIZEOF_ALIGNED(x, size) round_pow2 (sizeof (x), size)
+#define SIZEOF_ALIGNED(x)	 _SIZEOF_ALIGNED (x, sizeof (void *))
+
+/* Definitions for builtins unavailable on MSVC */
+#if defined(_MSC_VER) && !defined(__clang__)
+#include <intrin.h>
+
+uint32_t __inline __builtin_ctz (uint32_t value)
+{
+  uint32_t trailing_zero = 0;
+  if (_BitScanForward (&trailing_zero, value))
+    return trailing_zero;
+  else
+    return 32;
+}
+
+uint32_t __inline __builtin_clz (uint32_t value)
+{
+  uint32_t leading_zero = 0;
+  if (_BitScanReverse (&leading_zero, value))
+    return 31 - leading_zero;
+  else
+    return 32;
+}
+
+uint32_t __inline __builtin_clzl2 (uint64_t value)
+{
+  uint32_t leading_zero = 0;
+  if (_BitScanReverse64 (&leading_zero, value))
+    return 63 - leading_zero;
+  else
+    return 64;
+}
+
+#define __builtin_clzl __builtin_clzll
+#endif
+
+#define next_pow2(x) (x <= 1 ? 1 : 1ul << (64 - __builtin_clzl (x - 1)))
 
 #endif /* HICN_COMMON_H */
 

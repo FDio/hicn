@@ -37,8 +37,6 @@ void ForwarderModule::send(Packet &packet) {
   forwarder_.send(packet);
   DLOG_IF(INFO, VLOG_IS_ON(3))
       << "Sending from " << connector_id_ << " to " << 1 - connector_id_;
-
-  // local_faces_.at(1 - local_id_).onPacket(packet);
 }
 
 void ForwarderModule::send(const utils::MemBuf::Ptr &buffer) {
@@ -58,12 +56,13 @@ void ForwarderModule::closeConnection() {
 
 void ForwarderModule::init(Connector::PacketReceivedCallback &&receive_callback,
                            Connector::PacketSentCallback &&sent_callback,
+                           Connector::OnCloseCallback &&close_callback,
                            Connector::OnReconnectCallback &&reconnect_callback,
                            asio::io_service &io_service,
                            const std::string &app_name) {
   connector_id_ = forwarder_.registerLocalConnector(
       io_service, std::move(receive_callback), std::move(sent_callback),
-      std::move(reconnect_callback));
+      std::move(close_callback), std::move(reconnect_callback));
   name_ = app_name;
 }
 

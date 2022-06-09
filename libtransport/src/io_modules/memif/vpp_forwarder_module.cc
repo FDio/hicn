@@ -50,13 +50,14 @@ VPPForwarderModule::~VPPForwarderModule() {}
 void VPPForwarderModule::init(
     Connector::PacketReceivedCallback &&receive_callback,
     Connector::PacketSentCallback &&sent_callback,
+    Connector::OnCloseCallback &&close_callback,
     Connector::OnReconnectCallback &&reconnect_callback,
     asio::io_service &io_service, const std::string &app_name) {
   if (!connector_) {
     connector_ = std::make_unique<MemifConnector>(
         std::move(receive_callback), std::move(sent_callback),
-        Connector::OnCloseCallback(0), std::move(reconnect_callback),
-        io_service, app_name);
+        std::move(close_callback), std::move(reconnect_callback), io_service,
+        app_name);
   }
 }
 

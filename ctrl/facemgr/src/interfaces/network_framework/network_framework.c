@@ -171,6 +171,7 @@ void dump_endpoint(nw_endpoint_t endpoint, int indent) {
         free(s);
     }
   }
+}
 
   void dump_path(nw_path_t path, int indent) {
     /* nw_path_enumerate_interfaces : not interesting */

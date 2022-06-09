@@ -19,7 +19,7 @@
  *
  * The packet cache is a data structure that merges together the PIT and the CS,
  * to which it holds a reference.
- * It contains PIT and CS entries, indexed in a hashtable by hICN packet names.
+ * It contains PIT and CS entries, indexed in a two-level hash table.
  *
  * Each entry has shared fields, e.g. entry type (PIT or CS) and timestamps,
  * which are used by both PIT and CS entries. In addition, a C union holds
@@ -27,41 +27,64 @@
  *
  * Having a single entry that can hold PIT or CS entries allows to reduce
  * the number of lookups.
+ *
+ * A prefix hash table <prefix, suffix_hashtable> stores the suffixes associated
+ * to each prefix, where each value in the map points to a separate hash
+ * table <suffix, packet_cache_reference> that can be used to retrieved the
+ * packet cache entry.
+ * When an interest/data packet is received, the prefix and the associated
+ * suffixes are saved; if the next packet cache operation involves the same
+ * prefix, no additional lookups in the prefix hash hashtable are needed.
  */
 
 #ifndef HICNLIGHT_PACKET_CACHE_H
 #define HICNLIGHT_PACKET_CACHE_H
 
+#include <hicn/util/khash.h>
 #include "content_store.h"
 #include "pit.h"
 #include "msgbuf_pool.h"
-#include "../base/khash.h"
 #include "../content_store/lru.h"
 
 #define DEFAULT_PKT_CACHE_SIZE 2048
 
 typedef enum { PKT_CACHE_PIT_TYPE, PKT_CACHE_CS_TYPE } pkt_cache_entry_type_t;
 
-/**
- * @brief Return a Name that can be used as key for hash table lookups.
- * The returned Name is a copy of the input one but it is "memsetted"
- * to ensure successful hash calculation.
- */
-static inline Name name_key_factory(const Name *name) {
-  NameBitvector *content_name = name_GetContentName(name);
+#define foreach_kh_verdict             \
+  _(FORWARD_INTEREST)                  \
+  _(AGGREGATE_INTEREST)                \
+  _(RETRANSMIT_INTEREST)               \
+  _(FORWARD_DATA)                      \
+  _(INTEREST_EXPIRED_FORWARD_INTEREST) \
+  _(DATA_EXPIRED_FORWARD_INTEREST)     \
+  _(STORE_DATA)                        \
+  _(CLEAR_DATA)                        \
+  _(UPDATE_DATA)                       \
+  _(IGNORE_DATA)                       \
+  _(ERROR)
 
-  Name name_key;
-  memset(&name_key, 0, sizeof(Name));
+typedef enum {
+#define _(x) PKT_CACHE_VERDICT_##x,
+  foreach_kh_verdict
+#undef _
+} pkt_cache_verdict_t;
 
-  name_key.content_name = *content_name;
-  name_key.segment = name_GetSegment(name);
-  name_key.name_hash = name_HashCode(name);
+#define foreach_kh_lookup \
+  _(INTEREST_NOT_EXPIRED) \
+  _(INTEREST_EXPIRED)     \
+  _(DATA_NOT_EXPIRED)     \
+  _(DATA_EXPIRED)         \
+  _(NONE)
 
-  return name_key;
-}
+typedef enum {
+#define _(x) PKT_CACHE_LU_##x,
+  foreach_kh_lookup
+#undef _
+} pkt_cache_lookup_t;
 
-KHASH_INIT(pkt_cache_name, const Name *, unsigned, 1, name_HashCode,
-           name_Equals);
+KHASH_MAP_INIT_INT(pkt_cache_suffix, unsigned);
+KHASH_INIT(pkt_cache_prefix, const NameBitvector *, kh_pkt_cache_suffix_t *, 1,
+           nameBitvector_GetHash32, nameBitvector_Equals);
 
 typedef struct {
   pkt_cache_entry_type_t entry_type;
@@ -82,7 +105,12 @@ typedef struct {
   pit_t *pit;
   cs_t *cs;
   pkt_cache_entry_t *entries;
-  kh_pkt_cache_name_t *index_by_name;
+  kh_pkt_cache_prefix_t *prefix_to_suffixes;
+
+  // Cached prefix info to avoid double lookups,
+  // used for both single interest speculation and interest manifest
+  NameBitvector cached_prefix;
+  kh_pkt_cache_suffix_t *cached_suffixes;
 } pkt_cache_t;
 
 /**
@@ -92,7 +120,6 @@ typedef struct {
  */
 pkt_cache_t *pkt_cache_create(size_t cs_size);
 
-#define _pc_var(x) _pkt_cache_##x
 /**
  * @brief Add an entry with the specified name to the packet cache.
  *
@@ -101,29 +128,7 @@ pkt_cache_t *pkt_cache_create(size_t cs_size);
  * allocated one from the msgbuf pool.
  * * @param[in] name Name to use
  */
-static inline pkt_cache_entry_t *pkt_cache_allocate(
-    const pkt_cache_t *pkt_cache, const Name *name) {
-  pkt_cache_entry_t *entry = NULL;
-  pool_get(pkt_cache->entries, entry);
-  assert(entry);
-
-  off_t id = entry - pkt_cache->entries;
-  int res;
-
-  // Generate the key (starting from the name) to use in the name hash table
-  NameBitvector *nb = name_GetContentName(name);
-  Name *name_copy = (Name *)calloc(1, sizeof(Name));
-  name_copy->content_name = *nb;
-  name_copy->segment = name_GetSegment(name);
-  name_copy->name_hash = name_HashCode(name);
-
-  // Add in name hash table
-  khiter_t k = kh_put_pkt_cache_name(pkt_cache->index_by_name, name_copy, &res);
-  assert(res != -1);
-  kh_value(pkt_cache->index_by_name, k) = id;
-
-  return entry;
-}
+pkt_cache_entry_t *pkt_cache_allocate(pkt_cache_t *pkt_cache, const Name *name);
 
 /**
  * @brief Free a packet cache data structure.
@@ -189,28 +194,6 @@ size_t pkt_cache_get_cs_size(pkt_cache_t *pkt_cache);
  */
 size_t pkt_cache_get_pit_size(pkt_cache_t *pkt_cache);
 
-typedef enum {
-  PKT_CACHE_LU_INTEREST_NOT_EXPIRED,
-  PKT_CACHE_LU_INTEREST_EXPIRED,
-  PKT_CACHE_LU_DATA_NOT_EXPIRED,
-  PKT_CACHE_LU_DATA_EXPIRED,
-  PKT_CACHE_LU_NONE
-} pkt_cache_lookup_t;
-
-typedef enum {
-  PKT_CACHE_VERDICT_FORWARD_INTEREST,
-  PKT_CACHE_VERDICT_AGGREGATE_INTEREST,
-  PKT_CACHE_VERDICT_RETRANSMIT_INTEREST,
-  PKT_CACHE_VERDICT_FORWARD_DATA,
-  PKT_CACHE_VERDICT_INTEREST_EXPIRED_FORWARD_INTEREST,
-  PKT_CACHE_VERDICT_DATA_EXPIRED_FORWARD_INTEREST,
-  PKT_CACHE_VERDICT_STORE_DATA,
-  PKT_CACHE_VERDICT_CLEAR_DATA,
-  PKT_CACHE_VERDICT_UPDATE_DATA,
-  PKT_CACHE_VERDICT_IGNORE_DATA,
-  PKT_CACHE_VERDICT_ERROR
-} pkt_cache_verdict_t;
-
 #define pkt_cache_entry_get_create_ts(E) ((E)->create_ts)
 #define pkt_cache_entry_get_expire_ts(E) ((E)->expire_ts)
 #define pkt_cache_entry_set_expire_ts(E, EXPIRY_TIME) \
@@ -241,7 +224,7 @@ pkt_cache_entry_t *pkt_cache_lookup(pkt_cache_t *pkt_cache, const Name *name,
                                     bool is_serve_from_cs_enabled);
 
 /**
- * @brief Clear the content of the CS.
+ * @brief Clear the content of the CS (PIT entries are left unmodified).
  *
  * @param pkt_cache Pointer to the packet cache data structure to use
  */
@@ -253,6 +236,8 @@ void pkt_cache_cs_clear(pkt_cache_t *pkt_cache);
  * @param pkt_cache Pointer to the packet cache data structure to use
  */
 void pkt_cache_log(pkt_cache_t *pkt_cache);
+
+pkt_cache_stats_t pkt_cache_get_stats(pkt_cache_t *pkt_cache);
 
 // TODO(eloparco): To implement
 void pkt_cache_print(const pkt_cache_t *pkt_cache);
@@ -320,10 +305,13 @@ void pkt_cache_cs_to_pit(pkt_cache_t *pkt_cache, pkt_cache_entry_t *entry,
  * @param[in] pkt_cache Pointer to the packet cache data structure to use
  * @param[in] msgbuf Pointer to the msgbuf associated with the PIT entry to
  * insert
+ * @param[in] name Interest name to use; in case of aggregated interests, it is
+ * different from the name stored in the msgbuf
  * @return pkt_cache_entry_t* Pointer to the packet cache (PIT) entry created
  */
 pkt_cache_entry_t *pkt_cache_add_to_pit(pkt_cache_t *pkt_cache,
-                                        const msgbuf_t *msgbuf);
+                                        const msgbuf_t *msgbuf,
+                                        const Name *name);
 
 /**
  * @brief Add CS entry to the packet cache.
@@ -374,6 +362,8 @@ void pkt_cache_update_cs(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
  * @param[in, out] entry Pointer to the PIT entry to update
  * @param[in] msgbuf Pointer to the msgbuf associated with the PIT entry to
  * update
+ * @param[in] name Interest name to use; in case of aggregated interests, it is
+ * different from the name stored in the msgbuf
  * @return true If aggregation (interest sent from a connection not stored in
  * the PIT entry)
  * @return false If retransmission (interest sent from a connection already
@@ -381,7 +371,23 @@ void pkt_cache_update_cs(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
  */
 bool pkt_cache_try_aggregate_in_pit(pkt_cache_t *pkt_cache,
                                     pkt_cache_entry_t *entry,
-                                    const msgbuf_t *msgbuf);
+                                    const msgbuf_t *msgbuf, const Name *name);
+
+/**
+ * @brief Cache prefix info (prefix + associated suffixes) to speed up lookups.
+ *
+ * @param[in] pkt_cache Pointer to the packet cache data structure to use
+ * @param[in] prefix Name prefix to cache
+ */
+void pkt_cache_save_suffixes_for_prefix(pkt_cache_t *pkt_cache,
+                                        const NameBitvector *prefix);
+
+/**
+ * @brief Reset cached prefix info to force double lookups.
+ *
+ * @param[in] pkt_cache Pointer to the packet cache data structure to use
+ */
+void pkt_cache_reset_suffixes_for_prefix(pkt_cache_t *pkt_cache);
 
 /************ Handle data/interest packets received *******/
 
@@ -413,7 +419,24 @@ nexthops_t *pkt_cache_on_data(pkt_cache_t *pkt_cache,
 void pkt_cache_on_interest(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
                            off_t msgbuf_id, pkt_cache_verdict_t *verdict,
                            off_t *data_msgbuf_id, pkt_cache_entry_t **entry_ptr,
-                           bool is_serve_from_cs_enabled);
+                           const Name *name, bool is_serve_from_cs_enabled);
+
+/********* Low-level operations on the hash table *********/
+#ifdef WITH_TESTS
+unsigned __get_suffix(kh_pkt_cache_suffix_t *suffixes, uint32_t suffix,
+                      int *rc);
+unsigned _get_suffix(kh_pkt_cache_prefix_t *prefixes,
+                     const NameBitvector *prefix, uint32_t suffix, int *rc);
+void __add_suffix(kh_pkt_cache_suffix_t *suffixes, uint32_t suffix,
+                  unsigned val);
+void _add_suffix(kh_pkt_cache_prefix_t *prefixes, const NameBitvector *prefix,
+                 uint32_t suffix, unsigned val);
+void _remove_suffix(kh_pkt_cache_prefix_t *prefixes,
+                    const NameBitvector *prefix, uint32_t suffix);
+void _prefix_map_free(kh_pkt_cache_prefix_t *prefix_to_suffixes);
+kh_pkt_cache_suffix_t *_get_suffixes(kh_pkt_cache_prefix_t *prefix_to_suffixes,
+                                     const NameBitvector *prefix);
+#endif
 
 /************** Content Store *****************************/
 

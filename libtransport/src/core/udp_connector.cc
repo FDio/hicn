@@ -56,9 +56,9 @@ void UdpTunnelConnector::send(Packet &packet) {
 
 void UdpTunnelConnector::send(const utils::MemBuf::Ptr &buffer) {
   auto self = shared_from_this();
-  io_service_.post([self, pkt{buffer}]() {
+  io_service_.post([self, buffer]() {
     bool write_in_progress = !self->output_buffer_.empty();
-    self->output_buffer_.push_back(std::move(pkt));
+    self->output_buffer_.push_back(std::move(buffer));
     if (TRANSPORT_EXPECT_TRUE(self->state_ == State::CONNECTED)) {
       if (!write_in_progress) {
         self->doSendPacket(self);
@@ -201,6 +201,8 @@ void UdpTunnelConnector::writeHandler() {
         ptr->writeHandler();
       }
     });
+  } else {
+    sent_callback_(this, make_error_code(core_error::success));
   }
 }
 

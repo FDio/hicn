@@ -21,6 +21,7 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/fib_entry.h
   ${CMAKE_CURRENT_SOURCE_DIR}/fib.h
   ${CMAKE_CURRENT_SOURCE_DIR}/forwarder.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/interest_manifest.h
   ${CMAKE_CURRENT_SOURCE_DIR}/listener.h
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_table.h
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_vft.h
@@ -52,6 +53,7 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/fib.c
   ${CMAKE_CURRENT_SOURCE_DIR}/fib_entry.c
   ${CMAKE_CURRENT_SOURCE_DIR}/forwarder.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/interest_manifest.c
   ${CMAKE_CURRENT_SOURCE_DIR}/listener.c
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_table.c
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_vft.c

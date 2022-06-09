@@ -57,7 +57,6 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   hicn_interest_pcslookup_next_t next_index;
   hicn_interest_pcslookup_runtime_t *rt;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
-  int ret;
 
   rt = vlib_node_get_runtime_data (vm, hicn_interest_pcslookup_node.index);
 
@@ -76,14 +75,11 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
 	  vlib_buffer_t *b0;
-	  u8 isv6;
 	  u8 *nameptr;
 	  u16 namelen;
 	  u32 bi0;
 	  u32 next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
 	  u64 name_hash = 0;
-	  hicn_name_t name;
-	  hicn_header_t *hicn0;
 	  u32 node_id0 = 0;
 	  index_t dpo_ctx_id0 = 0;
 	  u8 vft_id0 = 0;
@@ -109,19 +105,15 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  n_left_to_next -= 1;
 
 	  b0 = vlib_get_buffer (vm, bi0);
-	  ret = hicn_interest_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
 
-	  if (PREDICT_TRUE (ret == HICN_ERROR_NONE))
-	    {
-	      next0 = HICN_INTEREST_PCSLOOKUP_NEXT_STRATEGY;
-	    }
-	  nameptr = (u8 *) (&name);
+	  hicn_buffer_get_name_and_namelen (b0, &nameptr, &namelen);
+
+	  next0 = HICN_INTEREST_PCSLOOKUP_NEXT_STRATEGY;
 	  stats.pkts_processed++;
 
 	  if (PREDICT_FALSE (
-		ret != HICN_ERROR_NONE ||
 		hicn_hashtb_fullhash (nameptr, namelen, &name_hash) !=
-		  HICN_ERROR_NONE))
+		HICN_ERROR_NONE))
 	    {
 	      next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
 	    }
@@ -149,7 +141,7 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	    {
 	      hicn_interest_pcslookup_trace_t *t =
 		vlib_add_trace (vm, node, b0, sizeof (*t));
-	      t->pkt_type = HICN_PKT_TYPE_INTEREST;
+	      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
 	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
 	    }

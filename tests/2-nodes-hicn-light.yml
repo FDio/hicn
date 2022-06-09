@@ -58,8 +58,8 @@ services:
 
         sleep 4
 
-        hiperf -z hicnlightng_module -D -S -R -B 4000kbps ${RTC_PRODUCER}/128
-        hiperf -z hicnlightng_module -D -S ${RAAQM_PRODUCER}/128
-        hicn-ping-server -z hicnlightng_module -d -s 0 -n ${PING_PRODUCER}/128
+        hiperf -q -z hicnlightng_module -S -R -B 4000kbps ${RTC_PRODUCER} -P 2 &
+        hiperf -q -z hicnlightng_module -S ${RAAQM_PRODUCER}/128 &
+        hicn-ping-server -q -z hicnlightng_module -s 0 -n ${PING_PRODUCER}/128 &
 
         tail -f /dev/null

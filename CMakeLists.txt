@@ -11,6 +11,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+##############################################################
+# Compiler preferences
+##############################################################
+set(CMAKE_C_COMPILER_NAMES
+  clang-13
+  clang-12
+  clang-11
+  clang-10
+  clang-9
+  gcc-10
+  gcc-9
+  cc
+)
+
+set(CMAKE_CXX_COMPILER_NAMES
+  clang++-13
+  clang++-12
+  clang++-11
+  clang++-10
+  clang++-9
+  g++-10
+  g++-9
+  c++
+)
+
 ##############################################################
 # Project and cmake version
 ##############################################################

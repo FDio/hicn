@@ -23,6 +23,9 @@ TRANSPORT_CLANG_DISABLE_WARNING("-Wdeprecated-declarations")
 #ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE
 #endif
+#ifdef __APPLE__
+TRANSPORT_CLANG_DISABLE_WARNING("-Wshorten-64-to-32")
+#endif
 #include <asio.hpp>
 
 TRANSPORT_POP_WARNING

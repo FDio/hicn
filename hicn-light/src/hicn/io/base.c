@@ -42,7 +42,7 @@ ssize_t io_read_single_fd(int fd, msgbuf_t *msgbuf, address_t *address) {
       return -1;
     }
 
-    msgbuf->length = n;
+    msgbuf->length = (unsigned int)n;
     *address = ADDRESS_ANY(AF_UNSPEC, 0);  // XXX placeholder, see hicn.c
   }
 
@@ -55,7 +55,7 @@ ssize_t io_read_single_socket(int fd, msgbuf_t *msgbuf, address_t *address) {
   uint8_t *packet = msgbuf_get_packet(msgbuf);
 
   ssize_t n = recvfrom(fd, packet, MTU, 0, (struct sockaddr *)sa, &sa_len);
-  msgbuf->length = n;
+  msgbuf->length = (unsigned int)n;
 
   return n;
 }
@@ -114,21 +114,6 @@ ssize_t io_read_batch_socket(int fd, msgbuf_t **msgbuf, address_t **address,
       struct mmsghdr *msg = &msghdr[i];
       msgbuf[i]->length = msg->msg_len;
 
-      /*
-       * As is, the address we put in the array has uninitialized
-       * memory in it:
-       *     *address[i] = *(address_t*)msg->msg_hdr.msg_name;
-       *
-       * This can be confirmed by testing with the following
-       * memset which removes the valgrind errors:
-       *     memset(address[i], 0, sizeof(address_t));
-       *
-       * The solution is to copy only the part which we know is
-       * initialized (we have compatible types, since the destination, an
-       * address_t, is effectively a struct sockaddr_storage). We might
-       * eventually provide a helper for this to avoid similar mistakes.
-       */
-      //*address[i] = *(address_t*)msg->msg_hdr.msg_name;
       memcpy(address[i], msg->msg_hdr.msg_name, msg->msg_hdr.msg_namelen);
     }
     break;

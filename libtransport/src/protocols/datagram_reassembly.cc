@@ -29,8 +29,9 @@ void DatagramReassembly::reassemble(core::ContentObject& content_object) {
   auto read_buffer = content_object.getPayload();
   DLOG_IF(INFO, VLOG_IS_ON(4))
       << "Size of payload: " << read_buffer->length() << ". Trimming "
-      << transport_protocol_->transportHeaderLength();
-  read_buffer->trimStart(transport_protocol_->transportHeaderLength());
+      << transport_protocol_->transportHeaderLength(false);
+  // here we have only src data packet
+  read_buffer->trimStart(transport_protocol_->transportHeaderLength(false));
   Reassembly::read_buffer_ = std::move(read_buffer);
   Reassembly::notifyApplication();
 }

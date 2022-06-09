@@ -11,34 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-project(hicn-collectd-plugins)
-
-
-##############################################################
-# CMake Modules
-##############################################################
-set(CMAKE_MODULE_PATH
-	${CMAKE_MODULE_PATH}
-	${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/Modules/)
-
-
 ##############################################################
 # Dependencies
 ##############################################################
 find_package(Vpp ${VPP_DEFAULT_VERSION} REQUIRED)
-find_package(Collectd ${COLLECTD_DEFAULT_VERSION} REQUIRED)
-
-
-##############################################################
-# Libs and bins names
-##############################################################
-set(COLLECTD_PLUGINS hicn-collectd-plugins)
-
-
-##############################################################
-# Packaging
-##############################################################
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/packaging.cmake)
 
 
 ##############################################################

@@ -90,7 +90,9 @@ typedef enum {
   _(policy_remove, POLICY_REMOVE)                           \
   _(policy_list, POLICY_LIST)                               \
   _(subscription_add, SUBSCRIPTION_ADD)                     \
-  _(subscription_remove, SUBSCRIPTION_REMOVE)
+  _(subscription_remove, SUBSCRIPTION_REMOVE)               \
+  _(stats_get, STATS_GET)                                   \
+  _(stats_list, STATS_LIST)
 
 typedef enum {
   COMMAND_TYPE_UNDEFINED,
@@ -282,6 +284,33 @@ typedef struct {
   cmd_cache_list_reply_t payload;
 } msg_cache_list_reply_t;
 
+/* Statistics */
+
+// General stats
+typedef struct {
+  void *_;
+} cmd_stats_get_t;
+
+typedef struct {
+  cmd_header_t header;
+  hicn_light_stats_t payload;
+} msg_stats_get_reply_t;
+
+// Per-face stats
+typedef struct {
+  void *_;
+} cmd_stats_list_t;
+
+typedef struct {
+  uint32_t id;
+  connection_stats_t stats;
+} cmd_stats_list_item_t;
+
+typedef struct {
+  cmd_header_t header;
+  cmd_stats_list_item_t payload;
+} msg_stats_list_reply_t;
+
 /* WLDR */
 
 typedef struct {
@@ -388,10 +417,10 @@ typedef struct {
     cmd_header_t header; \
     cmd_##l##_t payload; \
   } msg_##l##_t;
-foreach_command_type
+foreach_command_type;
 #undef _
 
-    typedef struct {
+typedef struct {
   cmd_header_t header;
   cmd_listener_list_item_t payload;
 } msg_listener_list_reply_t;

@@ -1,7 +1,7 @@
 #ifndef HICNLIGHT_CS_H
 #define HICNLIGHT_CS_H
 
-#include "../base/pool.h"
+#include <hicn/util/pool.h>
 #include "../content_store/lru.h"
 #include "msgbuf_pool.h"
 
@@ -102,5 +102,7 @@ void cs_miss(cs_t *cs);
  * @param cs Pointer to the CS data structure to use
  */
 void cs_log(cs_t *cs);
+
+cs_lru_stats_t cs_get_lru_stats(cs_t *cs);
 
 #endif /* HICNLIGHT_CS_H */

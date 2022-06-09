@@ -30,6 +30,7 @@
 
 #include <deque>
 #include <functional>
+#include <system_error>
 
 namespace transport {
 
@@ -57,10 +58,10 @@ class Connector : public std::enable_shared_from_this<Connector> {
   static constexpr std::uint16_t max_burst = 256;
 
   using Ptr = std::shared_ptr<Connector>;
+  using ReceptionBuffer = std::vector<utils::MemBuf::Ptr>;
   using PacketQueue = std::deque<utils::MemBuf::Ptr>;
-  using PacketReceivedCallback =
-      std::function<void(Connector *, const std::vector<utils::MemBuf::Ptr> &,
-                         const std::error_code &)>;
+  using PacketReceivedCallback = std::function<void(
+      Connector *, const ReceptionBuffer &, const std::error_code &)>;
   using PacketSentCallback =
       std::function<void(Connector *, const std::error_code &)>;
   using OnCloseCallback = std::function<void(Connector *)>;
@@ -118,6 +119,14 @@ class Connector : public std::enable_shared_from_this<Connector> {
 
   virtual void send(const utils::MemBuf::Ptr &buffer) = 0;
 
+  virtual void receive(const std::vector<utils::MemBuf::Ptr> &buffers) {
+    receive_callback_(this, buffers, std::make_error_code(std::errc()));
+  }
+
+  virtual void reconnect() {
+    on_reconnect_callback_(this, std::make_error_code(std::errc()));
+  }
+
   virtual void close() = 0;
 
   virtual State state() { return state_; };
@@ -133,6 +142,11 @@ class Connector : public std::enable_shared_from_this<Connector> {
   }
 
   std::string getConnectorName() { return connector_name_; }
+
+  template <typename EP>
+  void setLocalEndpoint(EP &&endpoint) {
+    local_endpoint_ = std::forward<EP>(endpoint);
+  }
 
   Endpoint getLocalEndpoint() { return local_endpoint_; }
 

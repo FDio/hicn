@@ -56,8 +56,8 @@ class ConsumerSocket : public Socket {
         rate_estimation_observer_(nullptr),
         rate_estimation_batching_parameter_(default_values::batch),
         rate_estimation_choice_(0),
-        unverified_interval_(default_values::unverified_interval),
-        unverified_ratio_(default_values::unverified_ratio),
+        manifest_factor_relevant_(default_values::manifest_factor_relevant),
+        manifest_factor_alert_(default_values::manifest_factor_alert),
         verifier_(std::make_shared<auth::VoidVerifier>()),
         verify_signature_(false),
         reset_window_(false),
@@ -72,6 +72,8 @@ class ConsumerSocket : public Socket {
         timer_interval_milliseconds_(0),
         recovery_strategy_(RtcTransportRecoveryStrategies::RTX_ONLY),
         aggregated_data_(false),
+        content_sharing_mode_(false),
+        aggregated_interests_(false),
         guard_raaqm_params_() {
     switch (protocol) {
       case TransportProtocolAlgorithms::CBR:
@@ -197,10 +199,6 @@ class ConsumerSocket : public Socket {
         current_window_size_ = socket_option_value;
         break;
 
-      case UNVERIFIED_RATIO:
-        unverified_ratio_ = socket_option_value;
-        break;
-
       case GAMMA_VALUE:
         gamma_ = socket_option_value;
         break;
@@ -242,10 +240,6 @@ class ConsumerSocket : public Socket {
         interest_lifetime_ = socket_option_value;
         break;
 
-      case GeneralTransportOptions::UNVERIFIED_INTERVAL:
-        unverified_interval_ = socket_option_value;
-        break;
-
       case RateEstimationOptions::RATE_ESTIMATION_BATCH_PARAMETER:
         if (socket_option_value > 0) {
           rate_estimation_batching_parameter_ = socket_option_value;
@@ -269,6 +263,14 @@ class ConsumerSocket : public Socket {
       case RtcTransportOptions::RECOVERY_STRATEGY:
         recovery_strategy_ =
             (RtcTransportRecoveryStrategies)socket_option_value;
+        break;
+
+      case MANIFEST_FACTOR_RELEVANT:
+        manifest_factor_relevant_ = socket_option_value;
+        break;
+
+      case MANIFEST_FACTOR_ALERT:
+        manifest_factor_alert_ = socket_option_value;
         break;
 
       default:
@@ -336,6 +338,16 @@ class ConsumerSocket : public Socket {
 
         case RtcTransportOptions::AGGREGATED_DATA:
           aggregated_data_ = socket_option_value;
+          result = SOCKET_OPTION_SET;
+          break;
+
+        case RtcTransportOptions::CONTENT_SHARING_MODE:
+          content_sharing_mode_ = socket_option_value;
+          result = SOCKET_OPTION_SET;
+          break;
+
+        case RtcTransportOptions::AGGREGATED_INTERESTS:
+          aggregated_interests_ = socket_option_value;
           result = SOCKET_OPTION_SET;
           break;
 
@@ -411,6 +423,22 @@ class ConsumerSocket : public Socket {
         return SOCKET_OPTION_NOT_SET;
     }
 
+    return SOCKET_OPTION_SET;
+  }
+
+  int setSocketOption(
+      int socket_option_key,
+      const std::shared_ptr<auth::Signer> &socket_option_value) {
+    if (!transport_protocol_->isRunning()) {
+      switch (socket_option_key) {
+        case GeneralTransportOptions::SIGNER:
+          signer_.reset();
+          signer_ = socket_option_value;
+          break;
+        default:
+          return SOCKET_OPTION_NOT_SET;
+      }
+    }
     return SOCKET_OPTION_SET;
   }
 
@@ -506,10 +534,6 @@ class ConsumerSocket : public Socket {
         socket_option_value = current_window_size_;
         break;
 
-      case GeneralTransportOptions::UNVERIFIED_RATIO:
-        socket_option_value = unverified_ratio_;
-        break;
-
         // RAAQM parameters
 
       case RaaqmTransportOptions::GAMMA_VALUE:
@@ -550,10 +574,6 @@ class ConsumerSocket : public Socket {
         socket_option_value = interest_lifetime_;
         break;
 
-      case GeneralTransportOptions::UNVERIFIED_INTERVAL:
-        socket_option_value = unverified_interval_;
-        break;
-
       case RaaqmTransportOptions::SAMPLE_NUMBER:
         socket_option_value = sample_number_;
         break;
@@ -572,6 +592,14 @@ class ConsumerSocket : public Socket {
 
       case RtcTransportOptions::RECOVERY_STRATEGY:
         socket_option_value = recovery_strategy_;
+        break;
+
+      case GeneralTransportOptions::MANIFEST_FACTOR_RELEVANT:
+        socket_option_value = manifest_factor_relevant_;
+        break;
+
+      case GeneralTransportOptions::MANIFEST_FACTOR_ALERT:
+        socket_option_value = manifest_factor_alert_;
         break;
 
       default:
@@ -597,6 +625,14 @@ class ConsumerSocket : public Socket {
 
       case RtcTransportOptions::AGGREGATED_DATA:
         socket_option_value = aggregated_data_;
+        break;
+
+      case RtcTransportOptions::CONTENT_SHARING_MODE:
+        socket_option_value = content_sharing_mode_;
+        break;
+
+      case RtcTransportOptions::AGGREGATED_INTERESTS:
+        socket_option_value = aggregated_interests_;
         break;
 
       default:
@@ -686,6 +722,18 @@ class ConsumerSocket : public Socket {
     }
 
     return SOCKET_OPTION_GET;
+  }
+
+  int getSocketOption(int socket_option_key,
+                      std::shared_ptr<auth::Signer> &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::SIGNER:
+        socket_option_value = signer_;
+        return SOCKET_OPTION_GET;
+
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
   }
 
   int getSocketOption(int socket_option_key,
@@ -827,8 +875,8 @@ class ConsumerSocket : public Socket {
   int rate_estimation_choice_;
 
   // Verification parameters
-  uint32_t unverified_interval_;
-  double unverified_ratio_;
+  uint32_t manifest_factor_relevant_;
+  uint32_t manifest_factor_alert_;
   std::shared_ptr<auth::Verifier> verifier_;
   transport::auth::KeyId *key_id_;
   std::atomic_bool verify_signature_;
@@ -856,6 +904,8 @@ class ConsumerSocket : public Socket {
   // RTC protocol
   RtcTransportRecoveryStrategies recovery_strategy_;
   bool aggregated_data_;
+  bool content_sharing_mode_;
+  bool aggregated_interests_;
 
   utils::SpinLock guard_raaqm_params_;
   std::string output_interface_;

@@ -258,5 +258,44 @@ TEST_F(InterestTest, AppendSuffixesEncodeAndIterate) {
   }
 }
 
+TEST_F(InterestTest, AppendSuffixesWithGaps) {
+  // Create interest from buffer
+  Interest interest(HF_INET6_TCP);
+
+  // Appenad some suffixes, out of order and with gaps
+  interest.appendSuffix(6);
+  interest.appendSuffix(2);
+  interest.appendSuffix(5);
+  interest.appendSuffix(1);
+
+  // Encode them in wire format
+  interest.encodeSuffixes();
+  EXPECT_TRUE(interest.hasManifest());
+
+  // Check first suffix correctness
+  auto suffix = interest.firstSuffix();
+  EXPECT_NE(suffix, nullptr);
+  EXPECT_EQ(*suffix, 1U);
+
+  // Iterate over them. They should be in order and without repetitions
+  std::vector<uint32_t> expected = {1, 2, 5, 6};
+  EXPECT_EQ(interest.numberOfSuffixes(), expected.size());
+
+  for (uint32_t seq : expected) {
+    EXPECT_EQ(*suffix, seq);
+    suffix++;
+  }
+}
+
+TEST_F(InterestTest, InterestWithoutManifest) {
+  // Create interest without manifest
+  Interest interest(HF_INET6_TCP);
+  auto suffix = interest.firstSuffix();
+
+  EXPECT_FALSE(interest.hasManifest());
+  EXPECT_EQ(interest.numberOfSuffixes(), 0U);
+  EXPECT_EQ(suffix, nullptr);
+}
+
 }  // namespace core
 }  // namespace transport

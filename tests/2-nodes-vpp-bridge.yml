@@ -98,10 +98,10 @@ services:
         sudo vpp -c /etc/vpp/startup.conf
         sleep 5
 
-        sudo hiperf -D -S -R -B 4000kbps -z memif_module ${RTC_PRODUCER}/128
+        sudo hiperf -q -S -R -B 4000kbps -z memif_module ${RTC_PRODUCER} -P 2 &
         sleep 1
-        sudo hiperf -D -S -z memif_module ${RAAQM_PRODUCER}/128
+        sudo hiperf -q -S -z memif_module ${RAAQM_PRODUCER}/128 &
         sleep 1
-        sudo hicn-ping-server -d -s 0 -n ${PING_PRODUCER}/128 -z memif_module
+        sudo hicn-ping-server -q -s 0 -n ${PING_PRODUCER}/128 -z memif_module &
 
         tail -f /dev/null

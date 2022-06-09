@@ -33,6 +33,9 @@ list(APPEND LIBHICN_SOURCE_FILES
   protocol/new.c
   util/ip_address.c
   util/log.c
+  util/pool.c
+  util/ring.c
+  util/vector.c
 )
 
 if (WIN32)

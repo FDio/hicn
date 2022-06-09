@@ -251,6 +251,35 @@ tcp_set_lifetime (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
+tcp_get_source_port (hicn_type_t type, const hicn_protocol_t *h,
+		     u16 *source_port)
+{
+  *source_port = ntohs (h->tcp.sport);
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+tcp_get_dest_port (hicn_type_t type, const hicn_protocol_t *h, u16 *dest_port)
+{
+  *dest_port = ntohs (h->tcp.dport);
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+tcp_set_source_port (hicn_type_t type, hicn_protocol_t *h, u16 source_port)
+{
+  h->tcp.sport = htons (source_port);
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+tcp_set_dest_port (hicn_type_t type, hicn_protocol_t *h, u16 dest_port)
+{
+  h->tcp.dport = htons (dest_port);
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
 tcp_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
 		      size_t payload_length)
 {

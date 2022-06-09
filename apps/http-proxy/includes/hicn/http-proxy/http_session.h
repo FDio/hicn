@@ -17,7 +17,14 @@
 
 #include <hicn/transport/core/packet.h>
 
+#ifdef __APPLE__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshorten-64-to-32"
+#endif
 #include <asio.hpp>
+#ifdef __APPLE__
+#pragma clang diagnostic pop
+#endif
 #include <deque>
 #include <functional>
 

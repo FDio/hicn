@@ -41,7 +41,7 @@ class RTCForwardingStrategy {
 
   void initFwdStrategy(std::shared_ptr<core::Portal> portal,
                        core::Prefix& prefix, RTCState* state,
-                       strategy_t strategy);
+                       interface::RtcTransportRecoveryStrategies strategy);
 
   void checkStrategy();
   void setCallback(interface::StrategyCallback&& callback);
@@ -56,6 +56,10 @@ class RTCForwardingStrategy {
   std::array<std::string, 4> string_strategies_ = {"bestpath", "replication",
                                                    "both", "none"};
 
+  bool low_rate_app_;             // if set to true the best path strategy will
+                                  // trigger a path switch based on the quality
+                                  // score, otherwise it will use the RTT,
+                                  // queuing delay and loss rate
   bool init_;                     // true if all val are initializes
   bool forwarder_set_;            // true if the strategy is been set at least
                                   // once

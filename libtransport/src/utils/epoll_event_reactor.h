@@ -49,7 +49,7 @@ class EpollEventReactor : public EventReactor {
     if (it == event_callback_map_.end()) {
       {
         utils::SpinLock::Acquire locked(event_callback_map_lock_);
-        event_callback_map_[fd] = std::forward<EventHandler &&>(callback);
+        event_callback_map_[fd] = std::forward<EventHandler>(callback);
       }
 
       ret = addFileDescriptor(fd, events);

@@ -30,6 +30,10 @@ log_conf_t log_conf = DEFAULT_LOG_CONF;
 #define FMT_DATETIME_LEN     20
 #define snprintf_nowarn(...) (snprintf (__VA_ARGS__) < 0 ? abort () : (void) 0)
 
+#define COLOR_RED    "\033[31m"
+#define COLOR_YELLOW "\033[33m"
+#define COLOR_RESET  "\033[0m"
+
 static char ts[FMT_DATETIME_LEN];
 
 static char *
@@ -104,7 +108,7 @@ _log_va (int level, const char *fmt, va_list ap)
     }
   else
     {
-      __android_log_vprint (ANDROID_LOG_INFO, "HICN FACEMGR", fmt, ap);
+      __android_log_vprint (prio, "HICN FACEMGR", fmt, ap);
     }
 
 #else
@@ -112,6 +116,7 @@ _log_va (int level, const char *fmt, va_list ap)
   if (level > log_conf.log_level)
     return;
 
+  char *color = COLOR_RESET;
   switch (level)
     {
     case LOG_FATAL:
@@ -119,9 +124,11 @@ _log_va (int level, const char *fmt, va_list ap)
       break;
     case LOG_ERROR:
       prefix = "ERROR: ";
+      color = COLOR_RED;
       break;
     case LOG_WARN:
       prefix = "WARNING: ";
+      color = COLOR_YELLOW;
       break;
     case LOG_INFO:
       prefix = "";
@@ -137,9 +144,9 @@ _log_va (int level, const char *fmt, va_list ap)
       break;
     }
   FILE *f = log_conf.log_file ? log_conf.log_file : stdout;
-  fprintf (f, "%s %s", timestamp (), prefix);
+  fprintf (f, "%s%s %s", color, timestamp (), prefix);
   vfprintf (f, fmt, ap);
-  fprintf (f, "\n");
+  fprintf (f, "%s\n", COLOR_RESET);
 #ifdef DEBUG
   fflush (f);
 #endif

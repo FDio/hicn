@@ -287,9 +287,7 @@ connection_tcp_sendv(connnection_t * connection, struct iovec * iov,
 }
 #endif
 
-static bool connection_tcp_flush(const connection_t *connection) {
-  return true;
-}
+static bool connection_tcp_flush(connection_t *connection) { return true; }
 
 /**
  * @function streamConnection_Send
@@ -303,8 +301,8 @@ static bool connection_tcp_flush(const connection_t *connection) {
  */
 // XXX address not used anywhere
 // XXX too much repeated code with sendv here
-static bool connection_tcp_send(const connection_t *connection,
-                                msgbuf_t *msgbuf, bool queue) {
+static bool connection_tcp_send(connection_t *connection, msgbuf_t *msgbuf,
+                                bool queue) {
   assert(connection);
   assert(msgbuf);
 

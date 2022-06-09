@@ -18,6 +18,7 @@
 
 #include <arpa/inet.h>
 #include <hicn/transport/portability/c_portability.h>
+#include <hicn/transport/portability/endianess.h>
 #include <hicn/transport/utils/membuf.h>
 #include <protocols/fec/fec_info.h>
 #include <protocols/fec_base.h>
@@ -153,8 +154,10 @@ struct fec_header {
    */
   uint8_t padding;
 
-  void setSeqNumberBase(uint32_t suffix) { seq_number = htonl(suffix); }
-  uint32_t getSeqNumberBase() { return ntohl(seq_number); }
+  void setSeqNumberBase(uint32_t suffix) {
+    seq_number = portability::host_to_net(suffix);
+  }
+  uint32_t getSeqNumberBase() { return portability::net_to_host(seq_number); }
   void setEncodedSymbolId(uint8_t esi) { encoded_symbol_id = esi; }
   uint8_t getEncodedSymbolId() { return encoded_symbol_id; }
   void setSourceBlockLen(uint8_t k) { source_block_len = k; }
@@ -162,6 +165,8 @@ struct fec_header {
   void setNFecSymbols(uint8_t n_r) { n_fec_symbols = n_r; }
   uint8_t getNFecSymbols() { return n_fec_symbols; }
 };
+
+static_assert(sizeof(fec_header) <= 8, "fec_header is too large");
 
 class rs;
 
@@ -177,11 +182,17 @@ class BlockCode : public Packets {
    */
   class __attribute__((__packed__)) fec_metadata {
    public:
-    void setPacketLength(uint16_t length) { packet_length = htons(length); }
-    uint32_t getPacketLength() { return ntohs(packet_length); }
+    void setPacketLength(uint16_t length) {
+      packet_length = portability::host_to_net(length);
+    }
+    uint32_t getPacketLength() {
+      return portability::net_to_host(packet_length);
+    }
 
-    void setMetadataBase(uint32_t value) { metadata = htonl(value); }
-    uint32_t getMetadataBase() { return ntohl(metadata); }
+    void setMetadataBase(uint32_t value) {
+      metadata = portability::host_to_net(value);
+    }
+    uint32_t getMetadataBase() { return portability::net_to_host(metadata); }
 
    private:
     uint16_t packet_length; /* Used to get the real size of the packet after we
@@ -388,8 +399,11 @@ class RSEncoder : public rs, public ProducerFEC {
 
   /**
    * @brief Get the fec header size, if added to source packets
+   * in RS the source packets do not transport any FEC header
    */
-  std::size_t getFecHeaderSize() override { return 0; }
+  std::size_t getFecHeaderSize(bool isFEC) override {
+    return isFEC ? sizeof(fec_header) : 0;
+  }
 
   void clear() override {
     rs::clear();
@@ -435,8 +449,11 @@ class RSDecoder : public rs, public ConsumerFEC {
 
   /**
    * @brief Get the fec header size, if added to source packets
+   * in RS the source packets do not transport any FEC header
    */
-  std::size_t getFecHeaderSize() override { return 0; }
+  std::size_t getFecHeaderSize(bool isFEC) override {
+    return isFEC ? sizeof(fec_header) : 0;
+  }
 
   /**
    * Clear decoder to reuse
