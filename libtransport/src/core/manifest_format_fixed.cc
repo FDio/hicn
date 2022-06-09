@@ -18,22 +18,42 @@
 #include <hicn/transport/utils/literals.h>
 
 namespace transport {
-
 namespace core {
 
-// TODO use preallocated pool of membufs
-FixedManifestEncoder::FixedManifestEncoder(Packet &packet,
-                                           std::size_t signature_size,
-                                           bool clear)
+// ---------------------------------------------------------
+// FixedManifest
+// ---------------------------------------------------------
+size_t FixedManifest::manifestHeaderSize(
+    interface::ProductionProtocolAlgorithms transport_type) {
+  uint32_t params_size = 0;
+
+  switch (transport_type) {
+    case interface::ProductionProtocolAlgorithms::BYTE_STREAM:
+      params_size = MANIFEST_PARAMS_BYTESTREAM_SIZE;
+      break;
+    case interface::ProductionProtocolAlgorithms::RTC_PROD:
+      params_size = MANIFEST_PARAMS_RTC_SIZE;
+      break;
+    default:
+      break;
+  }
+
+  return MANIFEST_META_SIZE + MANIFEST_ENTRY_META_SIZE + params_size;
+}
+
+size_t FixedManifest::manifestPayloadSize(size_t nb_entries) {
+  return nb_entries * MANIFEST_ENTRY_SIZE;
+}
+
+// ---------------------------------------------------------
+// FixedManifestEncoder
+// ---------------------------------------------------------
+FixedManifestEncoder::FixedManifestEncoder(Packet::Ptr packet, bool clear)
     : packet_(packet),
-      max_size_(Packet::default_mtu - packet_.headerSize()),
-      signature_size_(signature_size),
       transport_type_(interface::ProductionProtocolAlgorithms::UNKNOWN),
-      encoded_(false),
-      params_bytestream_({0}),
-      params_rtc_({0}) {
-  manifest_meta_ = reinterpret_cast<ManifestMeta *>(packet_.writableData() +
-                                                    packet_.headerSize());
+      encoded_(false) {
+  manifest_meta_ = reinterpret_cast<ManifestMeta *>(packet_->writableData() +
+                                                    packet_->headerSize());
   manifest_entry_meta_ =
       reinterpret_cast<ManifestEntryMeta *>(manifest_meta_ + 1);
 
@@ -50,32 +70,34 @@ FixedManifestEncoder &FixedManifestEncoder::encodeImpl() {
     return *this;
   }
 
+  // Copy manifest header
   manifest_meta_->transport_type = static_cast<uint8_t>(transport_type_);
   manifest_entry_meta_->nb_entries = manifest_entries_.size();
 
-  packet_.append(FixedManifestEncoder::manifestHeaderSizeImpl());
-  packet_.updateLength();
+  packet_->append(manifestHeaderSizeImpl());
+  packet_->updateLength();
+  auto params = reinterpret_cast<uint8_t *>(manifest_entry_meta_ + 1);
 
   switch (transport_type_) {
-    case interface::ProductionProtocolAlgorithms::BYTE_STREAM:
-      packet_.appendPayload(
-          reinterpret_cast<const uint8_t *>(&params_bytestream_),
-          MANIFEST_PARAMS_BYTESTREAM_SIZE);
+    case interface::ProductionProtocolAlgorithms::BYTE_STREAM: {
+      auto bytestream = reinterpret_cast<const uint8_t *>(&params_bytestream_);
+      std::memcpy(params, bytestream, MANIFEST_PARAMS_BYTESTREAM_SIZE);
       break;
-    case interface::ProductionProtocolAlgorithms::RTC_PROD:
-      packet_.appendPayload(reinterpret_cast<const uint8_t *>(&params_rtc_),
-                            MANIFEST_PARAMS_RTC_SIZE);
+    }
+    case interface::ProductionProtocolAlgorithms::RTC_PROD: {
+      auto rtc = reinterpret_cast<const uint8_t *>(&params_rtc_);
+      std::memcpy(params, rtc, MANIFEST_PARAMS_RTC_SIZE);
       break;
+    }
     default:
       break;
   }
 
-  packet_.appendPayload(
-      reinterpret_cast<const uint8_t *>(manifest_entries_.data()),
-      manifest_entries_.size() * FixedManifestEncoder::manifestEntrySizeImpl());
+  // Copy manifest entries
+  auto payload = reinterpret_cast<const uint8_t *>(manifest_entries_.data());
+  packet_->appendPayload(payload, manifestPayloadSizeImpl());
 
-  if (TRANSPORT_EXPECT_FALSE(packet_.payloadSize() <
-                             estimateSerializedLengthImpl())) {
+  if (TRANSPORT_EXPECT_FALSE(packet_->payloadSize() < manifestSizeImpl())) {
     throw errors::RuntimeException("Error encoding the manifest");
   }
 
@@ -85,36 +107,31 @@ FixedManifestEncoder &FixedManifestEncoder::encodeImpl() {
 
 FixedManifestEncoder &FixedManifestEncoder::clearImpl() {
   if (encoded_) {
-    packet_.trimEnd(FixedManifestEncoder::manifestHeaderSizeImpl() +
-                    manifest_entries_.size() *
-                        FixedManifestEncoder::manifestEntrySizeImpl());
+    packet_->trimEnd(manifestSizeImpl());
   }
 
   transport_type_ = interface::ProductionProtocolAlgorithms::UNKNOWN;
   encoded_ = false;
-  params_bytestream_ = {0};
-  params_rtc_ = {0};
   *manifest_meta_ = {0};
   *manifest_entry_meta_ = {0};
+  params_bytestream_ = {0};
+  params_rtc_ = {0};
   manifest_entries_.clear();
 
   return *this;
 }
 
-FixedManifestEncoder &FixedManifestEncoder::updateImpl() {
-  max_size_ = Packet::default_mtu - packet_.headerSize() - signature_size_;
-  return *this;
-}
-
-FixedManifestEncoder &FixedManifestEncoder::setVersionImpl(
-    ManifestVersion version) {
-  manifest_meta_->version = static_cast<uint8_t>(version);
-  return *this;
-}
+bool FixedManifestEncoder::isEncodedImpl() const { return encoded_; }
 
 FixedManifestEncoder &FixedManifestEncoder::setTypeImpl(
     ManifestType manifest_type) {
   manifest_meta_->type = static_cast<uint8_t>(manifest_type);
+  return *this;
+}
+
+FixedManifestEncoder &FixedManifestEncoder::setMaxCapacityImpl(
+    uint8_t max_capacity) {
+  manifest_meta_->max_capacity = max_capacity;
   return *this;
 }
 
@@ -159,61 +176,68 @@ FixedManifestEncoder &FixedManifestEncoder::setParamsRTCImpl(
   return *this;
 }
 
-FixedManifestEncoder &FixedManifestEncoder::addSuffixAndHashImpl(
+FixedManifestEncoder &FixedManifestEncoder::addEntryImpl(
     uint32_t suffix, const auth::CryptoHash &hash) {
-  manifest_entries_.push_back(ManifestEntry{
-      .suffix = htonl(suffix),
+  ManifestEntry last_entry = {
+      .suffix = portability::host_to_net(suffix),
       .hash = {0},
-  });
+  };
 
-  std::memcpy(reinterpret_cast<uint8_t *>(manifest_entries_.back().hash),
-              hash.getDigest()->data(), hash.getSize());
+  auto last_hash = reinterpret_cast<uint8_t *>(last_entry.hash);
+  std::memcpy(last_hash, hash.getDigest()->data(), hash.getSize());
 
-  if (TRANSPORT_EXPECT_FALSE(estimateSerializedLengthImpl() > max_size_)) {
-    throw errors::RuntimeException("Manifest size exceeded the packet MTU!");
-  }
-
+  manifest_entries_.push_back(last_entry);
   return *this;
 }
 
-std::size_t FixedManifestEncoder::estimateSerializedLengthImpl(
-    std::size_t additional_entries) {
-  return FixedManifestEncoder::manifestHeaderSizeImpl(transport_type_) +
-         (manifest_entries_.size() + additional_entries) *
-             FixedManifestEncoder::manifestEntrySizeImpl();
-}
-
-std::size_t FixedManifestEncoder::manifestHeaderSizeImpl(
-    interface::ProductionProtocolAlgorithms transport_type) {
-  uint32_t params_size = 0;
-
-  switch (transport_type) {
-    case interface::ProductionProtocolAlgorithms::BYTE_STREAM:
-      params_size = MANIFEST_PARAMS_BYTESTREAM_SIZE;
-      break;
-    case interface::ProductionProtocolAlgorithms::RTC_PROD:
-      params_size = MANIFEST_PARAMS_RTC_SIZE;
-      break;
-    default:
-      break;
+FixedManifestEncoder &FixedManifestEncoder::removeEntryImpl(uint32_t suffix) {
+  for (auto it = manifest_entries_.begin(); it != manifest_entries_.end();) {
+    if (it->suffix == suffix)
+      it = manifest_entries_.erase(it);
+    else
+      ++it;
   }
-
-  return MANIFEST_META_SIZE + MANIFEST_ENTRY_META_SIZE + params_size;
+  return *this;
 }
 
-std::size_t FixedManifestEncoder::manifestEntrySizeImpl() {
-  return MANIFEST_ENTRY_SIZE;
+size_t FixedManifestEncoder::manifestHeaderSizeImpl() const {
+  return FixedManifest::manifestHeaderSize(transport_type_);
 }
 
-FixedManifestDecoder::FixedManifestDecoder(Packet &packet)
+size_t FixedManifestEncoder::manifestPayloadSizeImpl(
+    size_t additional_entries) const {
+  return FixedManifest::manifestPayloadSize(manifest_entries_.size() +
+                                            additional_entries);
+}
+
+size_t FixedManifestEncoder::manifestSizeImpl(size_t additional_entries) const {
+  return manifestHeaderSizeImpl() + manifestPayloadSizeImpl(additional_entries);
+}
+
+// ---------------------------------------------------------
+// FixedManifestDecoder
+// ---------------------------------------------------------
+FixedManifestDecoder::FixedManifestDecoder(Packet::Ptr packet)
     : packet_(packet), decoded_(false) {
   manifest_meta_ =
-      reinterpret_cast<ManifestMeta *>(packet_.getPayload()->writableData());
+      reinterpret_cast<ManifestMeta *>(packet_->getPayload()->writableData());
   manifest_entry_meta_ =
       reinterpret_cast<ManifestEntryMeta *>(manifest_meta_ + 1);
-  transport_type_ = getTransportTypeImpl();
+}
 
-  switch (transport_type_) {
+FixedManifestDecoder::~FixedManifestDecoder() {}
+
+FixedManifestDecoder &FixedManifestDecoder::decodeImpl() {
+  if (decoded_) {
+    return *this;
+  }
+
+  if (packet_->payloadSize() < manifestSizeImpl()) {
+    throw errors::RuntimeException(
+        "The packet payload size does not match expected manifest size");
+  }
+
+  switch (getTransportTypeImpl()) {
     case interface::ProductionProtocolAlgorithms::BYTE_STREAM:
       params_bytestream_ = reinterpret_cast<TransportParamsBytestream *>(
           manifest_entry_meta_ + 1);
@@ -230,25 +254,9 @@ FixedManifestDecoder::FixedManifestDecoder(Packet &packet)
           reinterpret_cast<ManifestEntry *>(manifest_entry_meta_ + 1);
       break;
   }
-}
-
-FixedManifestDecoder::~FixedManifestDecoder() {}
-
-void FixedManifestDecoder::decodeImpl() {
-  if (decoded_) {
-    return;
-  }
-
-  std::size_t packet_size = packet_.payloadSize();
-
-  if (packet_size <
-          FixedManifestEncoder::manifestHeaderSizeImpl(transport_type_) ||
-      packet_size < estimateSerializedLengthImpl()) {
-    throw errors::RuntimeException(
-        "The packet does not match expected manifest size.");
-  }
 
   decoded_ = true;
+  return *this;
 }
 
 FixedManifestDecoder &FixedManifestDecoder::clearImpl() {
@@ -256,18 +264,20 @@ FixedManifestDecoder &FixedManifestDecoder::clearImpl() {
   return *this;
 }
 
+bool FixedManifestDecoder::isDecodedImpl() const { return decoded_; }
+
 ManifestType FixedManifestDecoder::getTypeImpl() const {
   return static_cast<ManifestType>(manifest_meta_->type);
-}
-
-ManifestVersion FixedManifestDecoder::getVersionImpl() const {
-  return static_cast<ManifestVersion>(manifest_meta_->version);
 }
 
 interface::ProductionProtocolAlgorithms
 FixedManifestDecoder::getTransportTypeImpl() const {
   return static_cast<interface::ProductionProtocolAlgorithms>(
       manifest_meta_->transport_type);
+}
+
+uint8_t FixedManifestDecoder::getMaxCapacityImpl() const {
+  return manifest_meta_->max_capacity;
 }
 
 auth::CryptoHashType FixedManifestDecoder::getHashAlgorithmImpl() const {
@@ -303,26 +313,34 @@ ParamsRTC FixedManifestDecoder::getParamsRTCImpl() const {
   };
 }
 
-typename Fixed::SuffixList FixedManifestDecoder::getSuffixHashListImpl() {
+typename Fixed::SuffixList FixedManifestDecoder::getEntriesImpl() const {
   typename Fixed::SuffixList hash_list;
 
   for (int i = 0; i < manifest_entry_meta_->nb_entries; i++) {
-    hash_list.insert(hash_list.end(),
-                     std::make_pair(ntohl(manifest_entries_[i].suffix),
-                                    reinterpret_cast<uint8_t *>(
-                                        &manifest_entries_[i].hash[0])));
+    hash_list.insert(
+        hash_list.end(),
+        std::make_pair(
+            portability::net_to_host(manifest_entries_[i].suffix),
+            reinterpret_cast<uint8_t *>(&manifest_entries_[i].hash[0])));
   }
 
   return hash_list;
 }
 
-std::size_t FixedManifestDecoder::estimateSerializedLengthImpl(
-    std::size_t additional_entries) const {
-  return FixedManifestEncoder::manifestHeaderSizeImpl(transport_type_) +
-         (manifest_entry_meta_->nb_entries + additional_entries) *
-             FixedManifestEncoder::manifestEntrySizeImpl();
+size_t FixedManifestDecoder::manifestHeaderSizeImpl() const {
+  interface::ProductionProtocolAlgorithms type = getTransportTypeImpl();
+  return FixedManifest::manifestHeaderSize(type);
+}
+
+size_t FixedManifestDecoder::manifestPayloadSizeImpl(
+    size_t additional_entries) const {
+  size_t nb_entries = manifest_entry_meta_->nb_entries + additional_entries;
+  return FixedManifest::manifestPayloadSize(nb_entries);
+}
+
+size_t FixedManifestDecoder::manifestSizeImpl(size_t additional_entries) const {
+  return manifestHeaderSizeImpl() + manifestPayloadSizeImpl(additional_entries);
 }
 
 }  // end namespace core
-
 }  // end namespace transport

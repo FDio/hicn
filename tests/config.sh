@@ -16,7 +16,7 @@ BASE_IMAGE=${BASE_IMAGE:-hicn}
 BUILD_SOFTWARE=${BUILD_SOFTWARE:-1}
 set +a
 
-HIPERF_CMD_RTC="hiperf -n 50 -C -H -R ${RTC_PRODUCER}"
+HIPERF_CMD_RTC="hiperf -q -n 50 -C -H -R ${RTC_PRODUCER} -P 2"
 HIPERF_CMD_MEMIF_RTC="${HIPERF_CMD_RTC} -z memif_module"
 POSTPROCESS_COMMAND_RAAQM_RTC='tail -n +3 | \
   tr -s " " |                               \
@@ -34,7 +34,7 @@ POSTPROCESS_COMMAND_RAAQM_RTC='tail -n +3 | \
     print int(a[0]), int(a[n-1]), int(s/n)  \
   }"'
 
-HIPERF_CMD_RAAQM="hiperf -n 50 -i 200 -C -H ${RAAQM_PRODUCER}"
+HIPERF_CMD_RAAQM="hiperf -q -n 50 -i 200 -C -H ${RAAQM_PRODUCER}"
 HIPERF_CMD_CBR="${HIPERF_CMD_RAAQM} -W 350 -M 0"
 HIPERF_CMD_MEMIF_RAAQM="${HIPERF_CMD_RAAQM} -z memif_module"
 HIPERF_CMD_MEMIF_CBR="${HIPERF_CMD_CBR} -z memif_module"

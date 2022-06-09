@@ -30,6 +30,6 @@ down:
 
 functional:
 	sleep 1  # Wait for the forwarder to be ready
-	bash config.sh test_listeners
-	bash config.sh test_connections
-	bash config.sh test_routes
+	bash config.sh ctrl listeners
+	bash config.sh ctrl connections
+	bash config.sh ctrl routes

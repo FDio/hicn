@@ -40,7 +40,7 @@ class UdpTunnelListener
         socket_(std::make_shared<asio::ip::udp::socket>(io_service_,
                                                         endpoint.protocol())),
         local_endpoint_(endpoint),
-        receive_callback_(std::forward<ReceiveCallback &&>(receive_callback)),
+        receive_callback_(std::forward<ReceiveCallback>(receive_callback)),
 #ifndef LINUX
         read_msg_(nullptr, 0)
 #else
@@ -63,12 +63,12 @@ class UdpTunnelListener
   void close();
 
   int deleteConnector(Connector *connector) {
-    return connectors_.erase(connector->getConnectorId());
+    return (int)connectors_.erase(connector->getConnectorId());
   }
 
   template <typename ReceiveCallback>
   void setReceiveCallback(ReceiveCallback &&callback) {
-    receive_callback_ = std::forward<ReceiveCallback &&>(callback);
+    receive_callback_ = std::forward<ReceiveCallback>(callback);
   }
 
   Connector *findConnector(Connector::Id connId) {

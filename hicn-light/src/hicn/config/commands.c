@@ -90,7 +90,8 @@ static inline unsigned _symbolic_to_conn_id(forwarder_t *forwarder,
     }
   } else {
     // case for symbolic as input: check if symbolic name can be resolved
-    conn_id = connection_table_get_id_by_name(table, symbolic_or_connid);
+    conn_id = (unsigned int)connection_table_get_id_by_name(table,
+                                                            symbolic_or_connid);
     if (connection_id_is_valid(conn_id)) {
       DEBUG("Resolved symbolic name '%s' to conn_id %u", symbolic_or_connid,
             conn_id);
@@ -151,6 +152,7 @@ uint8_t *configuration_on_listener_add(forwarder_t *forwarder, uint8_t *packet,
   }
 
   address_t address;
+  memset(&address, 0, sizeof(address_t));
   if (address_from_ip_port(&address, control->family, &control->address,
                            control->port) < 0) {
     WARN(
@@ -206,7 +208,8 @@ unsigned symbolic_to_listener_id(forwarder_t *forwarder,
     }
   } else {
     // case for symbolic as input: check if symbolic name can be resolved
-    listener_id = listener_table_get_id_by_name(table, symbolic_or_listener_id);
+    listener_id = (unsigned int)listener_table_get_id_by_name(
+        table, symbolic_or_listener_id);
     if (listener_id_is_valid(listener_id)) {
       DEBUG("Resolved symbolic name '%s' to conn_id %u",
             symbolic_or_listener_id, listener_id);
@@ -262,7 +265,8 @@ uint8_t *configuration_on_listener_remove(forwarder_t *forwarder,
                         address_pair_get_local(pair)))
       continue;
 
-    unsigned conn_id = connection_table_get_connection_id(table, connection);
+    unsigned conn_id =
+        (unsigned int)connection_table_get_connection_id(table, connection);
     /* Remove connection from the FIB */
     forwarder_remove_connection_id_from_routes(forwarder, conn_id);
 
@@ -335,8 +339,9 @@ uint8_t *configuration_on_listener_list(forwarder_t *forwarder, uint8_t *packet,
   uint8_t command_id = msg_received->header.command_id;
   uint32_t seq_num = msg_received->header.seq_num;
 
-  msg_listener_list_reply_t *msg;
-  msg_malloc_list(msg, command_id, n, seq_num) if (!msg) goto NACK;
+  msg_listener_list_reply_t *msg = NULL;
+  msg_malloc_list(msg, command_id, n, seq_num);
+  if (!msg) goto NACK;
 
   cmd_listener_list_item_t *payload = &msg->payload;
   listener_t *listener;
@@ -376,14 +381,23 @@ uint8_t *configuration_on_connection_add(forwarder_t *forwarder,
       goto NACK;
   }
 
-  const char *symbolic_name = control->symbolic;
-
   if (!face_type_is_defined(control->type)) goto NACK;
 
   connection_table_t *table = forwarder_get_connection_table(forwarder);
-  if (connection_table_get_by_name(table, symbolic_name)) {
-    ERROR("Connection symbolic name already exists");
-    goto NACK;
+  char *symbolic_name = control->symbolic;
+
+  // Generate connection name if not specified
+  if (symbolic_name[0] == '\0') {
+    int rc = connection_table_get_random_name(table, symbolic_name);
+    if (rc < 0) {
+      ERROR("Unable to generate new connection name");
+      goto NACK;
+    }
+  } else {
+    if (connection_table_get_by_name(table, symbolic_name)) {
+      ERROR("Connection symbolic name already exists");
+      goto NACK;
+    }
   }
 
   address_pair_t pair;
@@ -561,6 +575,14 @@ static inline void fill_connections_command(forwarder_t *forwarder,
   }
 }
 
+static inline void fill_connection_stats_command(connection_t *connection,
+                                                 cmd_stats_list_item_t *cmd) {
+  assert(connection && cmd);
+
+  cmd->id = connection->id;
+  cmd->stats = connection->stats;
+}
+
 uint8_t *configuration_on_connection_list(forwarder_t *forwarder,
                                           uint8_t *packet, unsigned ingress_id,
                                           size_t *reply_size) {
@@ -576,8 +598,9 @@ uint8_t *configuration_on_connection_list(forwarder_t *forwarder,
   uint8_t command_id = msg_received->header.command_id;
   uint32_t seq_num = msg_received->header.seq_num;
 
-  msg_connection_list_reply_t *msg;
-  msg_malloc_list(msg, command_id, n, seq_num) if (!msg) goto NACK;
+  msg_connection_list_reply_t *msg = NULL;
+  msg_malloc_list(msg, command_id, n, seq_num);
+  if (!msg) goto NACK;
 
   cmd_connection_list_item_t *payload = &msg->payload;
   connection_t *connection;
@@ -807,7 +830,7 @@ uint8_t *configuration_on_route_list(forwarder_t *forwarder, uint8_t *packet,
     n += nexthops_get_len(nexthops);
   });
 
-  msg_route_list_reply_t *msg;
+  msg_route_list_reply_t *msg = NULL;
   msg_malloc_list(msg, command_id, n, seq_num);
   if (!msg) goto NACK;
 
@@ -938,8 +961,9 @@ uint8_t *configuration_on_cache_list(forwarder_t *forwarder, uint8_t *packet,
       .payload = {
           .store_in_cs = forwarder_cs_get_store(forwarder),
           .serve_from_cs = forwarder_cs_get_serve(forwarder),
-          .cs_size = forwarder_cs_get_size(forwarder),
-          .num_stale_entries = forwarder_cs_get_num_stale_entries(forwarder)}};
+          .cs_size = (unsigned int)forwarder_cs_get_size(forwarder),
+          .num_stale_entries =
+              (unsigned int)forwarder_cs_get_num_stale_entries(forwarder)}};
 
   *reply_size = sizeof(*msg);
   return (uint8_t *)msg;
@@ -1064,6 +1088,65 @@ uint8_t *configuration_on_strategy_add_local_prefix(forwarder_t *forwarder,
   return (uint8_t *)msg;
 
 NACK:
+  make_nack(msg);
+  return (uint8_t *)msg;
+}
+
+/* Statistics */
+
+uint8_t *configuration_on_stats_get(forwarder_t *forwarder, uint8_t *packet,
+                                    unsigned ingress_id, size_t *reply_size) {
+  assert(forwarder && packet);
+  INFO("CMD: stats get (ingress=%d)", ingress_id);
+
+  msg_stats_get_t *msg_received = (msg_stats_get_t *)packet;
+  uint32_t seq_num = msg_received->header.seq_num;
+
+  msg_stats_get_reply_t *msg = malloc(sizeof(*msg));
+  *msg = (msg_stats_get_reply_t){
+      .header = {.message_type = RESPONSE_LIGHT,
+                 .length = 1,
+                 .seq_num = seq_num},
+      .payload = {.forwarder = forwarder_get_stats(forwarder),
+                  .pkt_cache =
+                      pkt_cache_get_stats(forwarder_get_pkt_cache(forwarder))}
+
+  };
+
+  *reply_size = sizeof(*msg);
+  return (uint8_t *)msg;
+}
+
+uint8_t *configuration_on_stats_list(forwarder_t *forwarder, uint8_t *packet,
+                                     unsigned ingress_id, size_t *reply_size) {
+  assert(forwarder && packet);
+  INFO("CMD: stats list (ingress=%d)", ingress_id);
+
+  connection_table_t *table = forwarder_get_connection_table(forwarder);
+  // -1 since current connection (i.e. the one used to send
+  // the command) is not considered
+  size_t n = connection_table_len(table) - 1;
+  msg_stats_list_t *msg_received = (msg_stats_list_t *)packet;
+  uint8_t command_id = msg_received->header.command_id;
+  uint32_t seq_num = msg_received->header.seq_num;
+
+  msg_stats_list_reply_t *msg = NULL;
+  msg_malloc_list(msg, command_id, n, seq_num);
+  if (!msg) goto NACK;
+
+  cmd_stats_list_item_t *payload = &msg->payload;
+  connection_t *connection;
+  connection_table_foreach(table, connection, {
+    if (connection->id == ingress_id) continue;
+    fill_connection_stats_command(connection, payload);
+    payload++;
+  });
+
+  *reply_size = sizeof(msg->header) + n * sizeof(msg->payload);
+  return (uint8_t *)msg;
+
+NACK:
+  *reply_size = sizeof(msg_header_t);
   make_nack(msg);
   return (uint8_t *)msg;
 }
@@ -1365,7 +1448,7 @@ uint8_t *configuration_on_policy_list(forwarder_t *forwarder, uint8_t *packet,
   uint8_t command_id = msg_received->header.command_id;
   uint32_t seq_num = msg_received->header.seq_num;
 
-  msg_policy_list_reply_t *msg;
+  msg_policy_list_reply_t *msg = NULL;
   msg_malloc_list(msg, command_id, n, seq_num);
   if (!msg) goto NACK;
 

@@ -58,6 +58,7 @@ void LoopbackModule::closeConnection() {
 
 void LoopbackModule::init(Connector::PacketReceivedCallback &&receive_callback,
                           Connector::PacketSentCallback &&sent_callback,
+                          Connector::OnCloseCallback &&close_callback,
                           Connector::OnReconnectCallback &&reconnect_callback,
                           asio::io_service &io_service,
                           const std::string &app_name) {
@@ -66,7 +67,7 @@ void LoopbackModule::init(Connector::PacketReceivedCallback &&receive_callback,
     local_faces_.emplace(
         local_faces_.begin() + local_id_,
         new LocalConnector(io_service, std::move(receive_callback),
-                           std::move(sent_callback), nullptr,
+                           std::move(sent_callback), std::move(close_callback),
                            std::move(reconnect_callback)));
   }
 }

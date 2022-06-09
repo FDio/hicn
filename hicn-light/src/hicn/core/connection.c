@@ -28,8 +28,6 @@
 #include "connection.h"
 #include "connection_vft.h"
 
-#define _conn_var(x) _connection_##x
-
 // This is called by configuration
 connection_t *connection_create(face_type_t type, const char *name,
                                 const address_pair_t *pair,
@@ -212,18 +210,16 @@ int connection_send_packet(const connection_t *connection,
       connection, packet, size);
 }
 
-bool _connection_send(const connection_t *connection, msgbuf_t *msgbuf,
-                      bool queue) {
+bool _connection_send(connection_t *connection, msgbuf_t *msgbuf, bool queue) {
   return connection_vft[get_protocol(connection->type)]->send(connection,
                                                               msgbuf, queue);
 }
 
-bool connection_flush(const connection_t *connection) {
+bool connection_flush(connection_t *connection) {
   return connection_vft[get_protocol(connection->type)]->flush(connection);
 }
 
-bool connection_send(const connection_t *connection, off_t msgbuf_id,
-                     bool queue) {
+bool connection_send(connection_t *connection, off_t msgbuf_id, bool queue) {
   assert(connection);
   assert(msgbuf_id_is_valid(msgbuf_id));
 
@@ -254,7 +250,7 @@ bool connection_send(const connection_t *connection, off_t msgbuf_id,
  * handled inside the MessageProcessor. This is specific to WLDR
  * retransmittions. This is done only for data packets
  */
-bool connection_resend(const connection_t *connection, msgbuf_t *msgbuf,
+bool connection_resend(connection_t *connection, msgbuf_t *msgbuf,
                        bool notification) {
   assert(connection);
   assert(msgbuf);

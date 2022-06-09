@@ -84,3 +84,5 @@ void cs_log(cs_t *cs) {
       cs->stats.lru.countUpdates, cs->stats.lru.countLruDeletions,
       cs->stats.lru.countLruEvictions);
 }
+
+cs_lru_stats_t cs_get_lru_stats(cs_t *cs) { return cs->stats.lru; }

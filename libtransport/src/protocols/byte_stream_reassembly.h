@@ -29,9 +29,6 @@ class ByteStreamReassembly : public Reassembly {
  protected:
   void reassemble(core::ContentObject &content_object) override;
 
-  void reassemble(
-      std::unique_ptr<core::ContentObjectManifest> &&manifest) override;
-
   void reassemble(utils::MemBuf &buffer, uint32_t suffix) override;
 
   bool copyContent(core::ContentObject &content_object);

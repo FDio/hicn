@@ -15,6 +15,7 @@
 
 #include <hicn/transport/core/content_object.h>
 #include <hicn/transport/errors/errors.h>
+#include <hicn/transport/portability/endianess.h>
 #include <hicn/transport/utils/branch_prediction.h>
 
 extern "C" {
@@ -46,7 +47,7 @@ ContentObject::ContentObject(const Name &name, Packet::Format format,
   }
 
   if (TRANSPORT_EXPECT_FALSE(hicn_data_get_name(format_, packet_start_,
-                                                name_.getStructReference()) <
+                                                &name_.getStructReference()) <
                              0)) {
     throw errors::MalformedPacketException();
   }
@@ -91,7 +92,7 @@ ContentObject::~ContentObject() {}
 const Name &ContentObject::getName() const {
   if (!name_) {
     if (hicn_data_get_name(format_, packet_start_,
-                           (hicn_name_t *)name_.getConstStructReference()) <
+                           (hicn_name_t *)&name_.getConstStructReference()) <
         0) {
       throw errors::MalformedPacketException();
     }
@@ -104,11 +105,11 @@ Name &ContentObject::getWritableName() { return const_cast<Name &>(getName()); }
 
 void ContentObject::setName(const Name &name) {
   if (hicn_data_set_name(format_, packet_start_,
-                         name.getConstStructReference()) < 0) {
+                         &name.getConstStructReference()) < 0) {
     throw errors::RuntimeException("Error setting content object name.");
   }
 
-  if (hicn_data_get_name(format_, packet_start_, name_.getStructReference()) <
+  if (hicn_data_get_name(format_, packet_start_, &name_.getStructReference()) <
       0) {
     throw errors::MalformedPacketException();
   }
@@ -121,11 +122,11 @@ uint32_t ContentObject::getPathLabel() const {
         "Error retrieving the path label from content object");
   }
 
-  return ntohl(path_label);
+  return portability::net_to_host(path_label);
 }
 
 ContentObject &ContentObject::setPathLabel(uint32_t path_label) {
-  path_label = htonl(path_label);
+  path_label = portability::host_to_net(path_label);
   if (hicn_data_set_path_label((hicn_header_t *)packet_start_, path_label) <
       0) {
     throw errors::RuntimeException(

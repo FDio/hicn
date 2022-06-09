@@ -35,7 +35,7 @@ extern "C" {
 class ConnectionTableTest : public ::testing::Test {
  protected:
   ConnectionTableTest() {
-    log_conf.log_level = LOG_INFO;
+    log_conf.log_level = LOG_WARN;
 
     conn_table_ = connection_table_create();
     pair_ =
@@ -164,6 +164,10 @@ TEST_F(ConnectionTableTest, RemoveConnection) {
 }
 
 TEST_F(ConnectionTableTest, PrintTable) {
+  // Set verbose log level
+  int old_log_level = log_conf.log_level;
+  log_conf.log_level = LOG_INFO;
+
   connection_ = connection_table_allocate(conn_table_, &pair_, CONNECTION_NAME);
   connection_->type = FACE_TYPE_TCP;
 
@@ -184,6 +188,8 @@ TEST_F(ConnectionTableTest, PrintTable) {
   EXPECT_THAT(std_out, testing::HasSubstr("127.0.0.1:2"));
   EXPECT_THAT(std_out, testing::HasSubstr("127.0.0.1:3"));
   EXPECT_THAT(std_out, testing::HasSubstr("127.0.0.1:4"));
+
+  log_conf.log_level = old_log_level;  // Restore old log level
 }
 
 TEST_F(ConnectionTableTest, AddMultipleConnections) {
@@ -247,4 +253,44 @@ TEST_F(ConnectionTableTest, Iterate) {
   EXPECT_THAT(std_out, testing::HasSubstr("127.0.0.1:2"));
   EXPECT_THAT(std_out, testing::HasSubstr("127.0.0.1:3"));
   EXPECT_THAT(std_out, testing::HasSubstr("127.0.0.1:4"));
+}
+
+TEST_F(ConnectionTableTest, GenerateConnName) {
+  char conn_name[SYMBOLIC_NAME_LEN];
+  int rc = connection_table_get_random_name(conn_table_, conn_name);
+  EXPECT_EQ(rc, 0);
+
+  connection_ = connection_table_allocate(conn_table_, &pair_, conn_name);
+  connection_->type = FACE_TYPE_TCP;
+  connection_->pair = pair_;
+
+  char conn_name2[SYMBOLIC_NAME_LEN];
+  rc = connection_table_get_random_name(conn_table_, conn_name2);
+  EXPECT_EQ(rc, 0);
+  EXPECT_NE(strncmp(conn_name, conn_name2, SYMBOLIC_NAME_LEN), 0);
+}
+
+TEST_F(ConnectionTableTest, GenerateConnNameExhaustion) {
+  char conn_name[SYMBOLIC_NAME_LEN];
+  bool unable_to_allocate = false;
+
+  // Force name exhaustion
+  int i, n_connections = 1 + USHRT_MAX;
+  for (int i = 0; i <= n_connections; i++) {
+    int rc = connection_table_get_random_name(conn_table_, conn_name);
+    if (rc < 0) {
+      unable_to_allocate = true;
+      break;
+    }
+
+    address_pair_t pair =
+        address_pair_factory(_ADDRESS4_LOCALHOST(1), _ADDRESS4_LOCALHOST(i));
+    connection_t *conn =
+        connection_table_allocate(conn_table_, &pair, conn_name);
+    memset(conn, 0, sizeof(connection_t));
+    conn->type = FACE_TYPE_TCP;
+    conn->pair = pair;
+  }
+
+  EXPECT_TRUE(unable_to_allocate);
 }

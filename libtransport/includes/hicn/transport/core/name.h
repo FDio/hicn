@@ -46,6 +46,7 @@ class Name {
   friend class Packet;
   friend class ContentObject;
   friend class Interest;
+  friend class Prefix;
 
   static const uint32_t standard_name_string_length = 100;
 
@@ -102,11 +103,11 @@ class Name {
   int getAddressFamily() const;
 
  private:
-  TRANSPORT_ALWAYS_INLINE const NameStruct *getConstStructReference() const {
-    return &name_;
+  TRANSPORT_ALWAYS_INLINE const NameStruct &getConstStructReference() const {
+    return name_;
   }
 
-  TRANSPORT_ALWAYS_INLINE NameStruct *getStructReference() { return &name_; }
+  TRANSPORT_ALWAYS_INLINE NameStruct &getStructReference() { return name_; }
 
   NameStruct name_;
 };

@@ -107,9 +107,9 @@ InterRttEstimator::~InterRttEstimator() {
 }
 
 void InterRttEstimator::onRttUpdate(
-    const utils::SteadyTime::Milliseconds &rtt) {
+    const utils::SteadyTime::Microseconds &rtt) {
   pthread_mutex_lock(&(this->mutex_));
-  this->rtt_ = rtt.count();
+  this->rtt_ = rtt.count() / 1000.0;
   this->number_of_packets_++;
   this->avg_rtt_ += this->rtt_;
   pthread_mutex_unlock(&(this->mutex_));
@@ -256,7 +256,7 @@ void SimpleEstimator::onDataReceived(int packet_size) {
   this->total_size_ += packet_size;
 }
 
-void SimpleEstimator::onRttUpdate(const utils::SteadyTime::Milliseconds &rtt) {
+void SimpleEstimator::onRttUpdate(const utils::SteadyTime::Microseconds &rtt) {
   this->number_of_packets_++;
 
   if (this->number_of_packets_ == this->batching_param_) {
@@ -300,9 +300,9 @@ BatchingPacketsEstimator::BatchingPacketsEstimator(double alpha_arg,
 }
 
 void BatchingPacketsEstimator::onRttUpdate(
-    const utils::SteadyTime::Milliseconds &rtt) {
+    const utils::SteadyTime::Microseconds &rtt) {
   this->number_of_packets_++;
-  this->avg_rtt_ += rtt.count();
+  this->avg_rtt_ += rtt.count() / 1000.0;
 
   if (number_of_packets_ == this->batching_param_) {
     if (estimation_ == 0) {

@@ -93,6 +93,8 @@ hicn_get_ah_format (hicn_format_t format)
 // HICN_V6_MIN_HDR_LEN : HICN_V4_MIN_HDR_LEN)
 #define HICN_MIN_HDR_LEN HICN_V6_MIN_HDR_LEN
 
+hicn_type_t hicn_header_to_type (const hicn_header_t *h);
+
 /**
  * @brief Parse packet headers and return hICN format
  * @param [in] format - hICN Format

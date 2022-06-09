@@ -111,18 +111,18 @@ uint32_t ByteStreamProductionProtocol::produceStream(
   uint64_t manifest_free_space;
   uint32_t nb_manifests;
   std::shared_ptr<core::ContentObjectManifest> manifest;
-  uint32_t manifest_capacity = making_manifest_;
+  uint32_t manifest_capacity = manifest_max_capacity_;
   bool is_last_manifest = false;
   ParamsBytestream transport_params;
 
   manifest_format = Packet::toAHFormat(default_format);
-  content_format =
-      !making_manifest_ ? Packet::toAHFormat(default_format) : default_format;
+  content_format = !manifest_max_capacity_ ? Packet::toAHFormat(default_format)
+                                           : default_format;
 
-  content_header_size =
-      core::Packet::getHeaderSizeFromFormat(content_format, signature_length);
-  manifest_header_size =
-      core::Packet::getHeaderSizeFromFormat(manifest_format, signature_length);
+  content_header_size = (uint32_t)core::Packet::getHeaderSizeFromFormat(
+      content_format, signature_length);
+  manifest_header_size = (uint32_t)core::Packet::getHeaderSizeFromFormat(
+      manifest_format, signature_length);
   content_free_space =
       std::min(max_segment_size, data_packet_size - content_header_size);
   manifest_free_space =
@@ -135,34 +135,39 @@ uint32_t ByteStreamProductionProtocol::produceStream(
     nb_segments++;
   }
 
-  if (making_manifest_) {
+  if (manifest_max_capacity_) {
     nb_manifests = static_cast<uint32_t>(
         std::ceil(float(nb_segments) / manifest_capacity));
     final_block_number += nb_segments + nb_manifests - 1;
     transport_params.final_segment =
         is_last ? final_block_number : utils::SuffixStrategy::MAX_SUFFIX;
 
-    manifest.reset(ContentObjectManifest::createManifest(
+    manifest = ContentObjectManifest::createContentManifest(
         manifest_format,
         name.setSuffix(suffix_strategy->getNextManifestSuffix()),
-        core::ManifestVersion::VERSION_1, core::ManifestType::INLINE_MANIFEST,
-        is_last_manifest, name, hash_algo, signature_length));
-
-    manifest->setLifetime(content_object_expiry_time);
+        signature_length);
+    manifest->setHeaders(core::ManifestType::INLINE_MANIFEST,
+                         manifest_max_capacity_, hash_algo, is_last_manifest,
+                         name);
     manifest->setParamsBytestream(transport_params);
+    manifest->getPacket()->setLifetime(content_object_expiry_time);
   }
 
   auto self = shared_from_this();
   for (unsigned int packaged_segments = 0; packaged_segments < nb_segments;
        packaged_segments++) {
-    if (making_manifest_) {
-      if (manifest->estimateManifestSize(1) > manifest_free_space) {
+    if (manifest_max_capacity_) {
+      if (manifest->Encoder::manifestSize(1) > manifest_free_space) {
         manifest->encode();
-        signer_->signPacket(manifest.get());
+        auto manifest_co =
+            std::dynamic_pointer_cast<ContentObject>(manifest->getPacket());
+
+        signer_->signPacket(manifest_co.get());
 
         // Send the current manifest
-        passContentObjectToCallbacks(manifest, self);
-        DLOG_IF(INFO, VLOG_IS_ON(3)) << "Send manifest " << manifest->getName();
+        passContentObjectToCallbacks(manifest_co, self);
+        DLOG_IF(INFO, VLOG_IS_ON(3))
+            << "Send manifest " << manifest_co->getName();
 
         // Send content objects stored in the queue
         while (!content_queue_.empty()) {
@@ -175,15 +180,15 @@ uint32_t ByteStreamProductionProtocol::produceStream(
         // Create new manifest. The reference to the last manifest has been
         // acquired in the passContentObjectToCallbacks function, so we can
         // safely release this reference.
-        manifest.reset(ContentObjectManifest::createManifest(
+        manifest = ContentObjectManifest::createContentManifest(
             manifest_format,
             name.setSuffix(suffix_strategy->getNextManifestSuffix()),
-            core::ManifestVersion::VERSION_1,
-            core::ManifestType::INLINE_MANIFEST, is_last_manifest, name,
-            hash_algo, signature_length));
-
-        manifest->setLifetime(content_object_expiry_time);
+            signature_length);
+        manifest->setHeaders(core::ManifestType::INLINE_MANIFEST,
+                             manifest_max_capacity_, hash_algo,
+                             is_last_manifest, name);
         manifest->setParamsBytestream(transport_params);
+        manifest->getPacket()->setLifetime(content_object_expiry_time);
       }
     }
 
@@ -191,7 +196,7 @@ uint32_t ByteStreamProductionProtocol::produceStream(
     uint32_t content_suffix = suffix_strategy->getNextContentSuffix();
     auto content_object = std::make_shared<ContentObject>(
         name.setSuffix(content_suffix), content_format,
-        !making_manifest_ ? signature_length : 0);
+        !manifest_max_capacity_ ? signature_length : 0);
     content_object->setLifetime(content_object_expiry_time);
 
     auto b = buffer->cloneOne();
@@ -203,7 +208,7 @@ uint32_t ByteStreamProductionProtocol::produceStream(
       b->append(buffer_size - bytes_segmented);
       bytes_segmented += (int)(buffer_size - bytes_segmented);
 
-      if (is_last && making_manifest_) {
+      if (is_last && manifest_max_capacity_) {
         is_last_manifest = true;
       } else if (is_last) {
         content_object->setLast();
@@ -219,9 +224,9 @@ uint32_t ByteStreamProductionProtocol::produceStream(
 
     // Either we sign the content object or we save its hash into the current
     // manifest
-    if (making_manifest_) {
+    if (manifest_max_capacity_) {
       auth::CryptoHash hash = content_object->computeDigest(hash_algo);
-      manifest->addSuffixHash(content_suffix, hash);
+      manifest->addEntry(content_suffix, hash);
       content_queue_.push(content_object);
     } else {
       signer_->signPacket(content_object.get());
@@ -232,16 +237,19 @@ uint32_t ByteStreamProductionProtocol::produceStream(
   }
 
   // We send the manifest that hasn't been fully filled yet
-  if (making_manifest_) {
+  if (manifest_max_capacity_) {
     if (is_last_manifest) {
       manifest->setIsLast(is_last_manifest);
     }
 
     manifest->encode();
-    signer_->signPacket(manifest.get());
+    auto manifest_co =
+        std::dynamic_pointer_cast<ContentObject>(manifest->getPacket());
 
-    passContentObjectToCallbacks(manifest, self);
-    DLOG_IF(INFO, VLOG_IS_ON(3)) << "Send manifest " << manifest->getName();
+    signer_->signPacket(manifest_co.get());
+
+    passContentObjectToCallbacks(manifest_co, self);
+    DLOG_IF(INFO, VLOG_IS_ON(3)) << "Send manifest " << manifest_co->getName();
 
     while (!content_queue_.empty()) {
       passContentObjectToCallbacks(content_queue_.front(), self);

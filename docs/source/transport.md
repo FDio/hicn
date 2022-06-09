@@ -202,7 +202,7 @@ hICN has built-in authentication and integrity features by either:
 To enable per-packet signature with asymmetric signing:
 * On the producer, disable manifests (which are ON by default):
   ```cpp
-  producer_socket->setSocketOption(GeneralTransportOptions::MAKE_MANIFEST, 0);
+  producer_socket->setSocketOption(GeneralTransportOptions::MANIFEST_MAX_CAPACITY, 0u);
   ```
 * On the producer, instantiate an `AsymmetricSigner` object by passing either an
   asymmetric pair of keys as
@@ -244,25 +244,49 @@ available suites.
 ### Enabling manifests
 
 * Follow steps 2-5 in [Per-packet signatures](#per-packet-signatures).
-* By default, a manifest holds the digest of 30 packets. To change this value:
+* By default, a manifest has a maximum capacity `C_max` of 30 packets. To change
+  this value:
   ```cpp
-  producer_socket->setSocketOption(GeneralTransportOptions::MAKE_MANIFEST, 20);
+  producer_socket->setSocketOption(GeneralTransportOptions::MANIFEST_MAX_CAPACITY, 20u);
   ```
 
 In the case of RTC, manifests are sent after the data they contain and on the
 consumer side, data packets are immediately forwarded to the application, *even
 if they weren't authenticated yet via a manifest*. This is to minimize latency.
 The digest of incoming data packets are kept in a buffer while waiting for
-manifests to arrive. When that buffer goes above a threshold `T`, an alert is
-raised by the verifier object. That threshold is computed as follows:
+manifests to arrive. When the buffer size goes above a threshold `T`, an alert
+is raised by the verifier object. That alert threshold is computed as follows:
 ```
-T(t) = producer_rate(t) * max_unverified_time
+T = manifest_factor_alert * C_max
 ```
 
-`max_unverified_time` is a consumer socket option, in milliseconds. It is set
-to `2000` by default. To change it:
+The value of `C_max` is passed by the producer to the consumer at the start of
+the connection. `manifest_factor_alert` is a consumer socket option. It
+basically acts on the resilience of manifests against networks losses and
+reflects the application's tolerance to unverified packets: a higher value gives
+the transport the time needed to recover from several manifest losses but
+potentially allows a larger number of unverified packet to go the application
+before alerts are triggered. It is set to `20` by default and should always be
+`>= 1`. To change it:
 ```cpp
-consumer_socket_->setSocketOption(GeneralTransportOptions::MAX_UNVERIFIED_TIME, 4000);
+consumer_socket_->setSocketOption(GeneralTransportOptions::MANIFEST_FACTOR_ALERT, 10u);
+```
+
+The buffer does not keep unverified packets indefinitely. After a certain amount
+of packets have been received and processed (and were verified or not), older
+packets still unverified are flushed out. This is to prevent the buffer to grow
+uncontrollably and to raise alerts for packets that are not relevant to the
+application anymore. That threshold of relevance is computed as follows:
+```
+T = manifest_factor_relevant * C_max
+```
+
+`manifest_factor_relevant` is a consumer socket option. It is set to `100` by
+default. Its value must be set so that `manifest_factor_relevant >
+manifest_factor_alert >= 1`. If `manifest_factor_relevant <=
+manifest_factor_alert`, no alert will ever be raised. To change it:
+```cpp
+consumer_socket_->setSocketOption(GeneralTransportOptions::MANIFEST_FACTOR_RELEVANT, 200u);
 ```
 
 ### Handling authentication failures

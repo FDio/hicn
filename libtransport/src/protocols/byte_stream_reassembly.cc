@@ -36,15 +36,6 @@ ByteStreamReassembly::ByteStreamReassembly(
       index_(Indexer::invalid_index),
       download_complete_(false) {}
 
-void ByteStreamReassembly::reassemble(
-    std::unique_ptr<ContentObjectManifest> &&manifest) {
-  if (TRANSPORT_EXPECT_TRUE(manifest != nullptr) && read_buffer_->capacity()) {
-    received_packets_.emplace(
-        std::make_pair(manifest->getName().getSuffix(), nullptr));
-    assembleContent();
-  }
-}
-
 void ByteStreamReassembly::reassemble(ContentObject &content_object) {
   if (TRANSPORT_EXPECT_TRUE(read_buffer_->capacity())) {
     received_packets_.emplace(

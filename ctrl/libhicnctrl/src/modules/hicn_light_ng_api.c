@@ -88,7 +88,9 @@
   _(mapme_activator)           \
   _(mapme_timing)              \
   _(subscription_add)          \
-  _(subscription_remove)
+  _(subscription_remove)       \
+  _(stats_get)                 \
+  _(stats_list)
 
 const char *command_type_str[] = {
 #define _(l, u) [COMMAND_TYPE_##u] = STRINGIZE(u),
@@ -169,21 +171,13 @@ static int _hcng_sock_light_reset(hc_sock_t *socket) {
 
 void _hcng_sock_light_free(hc_sock_t *socket) {
   hc_sock_light_t *s = TO_HC_SOCK_LIGHT(socket);
-  hc_sock_request_t **request_array = NULL;
-  int n = hc_sock_map_get_value_array(s->map, &request_array);
-  if (n < 0) {
-    ERROR("Could not retrieve pending request array for freeing up resources");
-  } else {
-    for (unsigned i = 0; i < n; i++) {
-      hc_sock_request_t *request = request_array[i];
-      if (hc_sock_map_remove(s->map, request->seq, NULL) < 0)
-        ERROR("[hc_sock_light_process] Error removing request from map");
-      hc_sock_light_request_free(request);
-    }
-    free(request_array);
-  }
 
-  hc_sock_map_free(s->map);
+  unsigned k_seq;
+  hc_sock_request_t *v_request;
+  kh_foreach(s->map, k_seq, v_request,
+             { hc_sock_light_request_free(v_request); });
+
+  kh_destroy_sock_map(s->map);
   if (s->url) free(s->url);
   close(s->fd);
   free(s);
@@ -292,9 +286,13 @@ static void _hcng_sock_light_mark_complete(hc_sock_light_t *s,
                                            hc_data_t **pdata) {
   hc_data_t *data = s->cur_request->data;
 
-  if (hc_sock_map_remove(s->map, s->cur_request->seq, NULL) < 0) {
+  khiter_t k = kh_get_sock_map(s->map, s->cur_request->seq);
+  if (k == kh_end(s->map)) {
     ERROR("[hc_sock_light_mark_complete] Error removing request from map");
+  } else {
+    kh_del_sock_map(s->map, k);
   }
+
   hc_data_set_complete(data);
   if (pdata) *pdata = data;
 
@@ -323,7 +321,7 @@ static int _hcng_sock_light_process_notification(hc_sock_light_t *s,
   /* Copy the packet payload as the single entry in hc_data_t */
   hc_data_push_many(*pdata, s->buf + s->roff, 1);
 
-  return notification_size;
+  return (int)notification_size;
 }
 
 /*
@@ -333,12 +331,16 @@ static hc_sock_request_t *_hcng_sock_light_get_request(hc_sock_light_t *s,
                                                        int seq) {
   hc_sock_request_t *request;
   /* Retrieve request from sock map */
-  if (hc_sock_map_get(s->map, seq, &request) < 0) {
-    ERROR("[hc_sock_light_process] Error searching for matching request");
+  khiter_t k = kh_get_sock_map(s->map, seq);
+  if (k == kh_end(s->map)) {
+    ERROR(
+        "[_hcng_sock_light_get_request] Error searching for matching request");
     return NULL;
   }
+  request = kh_val(s->map, k);
+
   if (!request) {
-    ERROR("[hc_sock_light_process] No request matching sequence number");
+    ERROR("[_hcng_sock_light_get_request] No request matching sequence number");
     return NULL;
   }
   return request;
@@ -593,7 +595,7 @@ int _hcng_sock_prepare_send(hc_sock_t *socket, hc_result_t *result,
   hc_data_t *data =
       hc_data_create(result->params.size_in, result->params.size_out, NULL);
   if (!data) {
-    ERROR("[_hcng_execute_command] Could not create data storage");
+    ERROR("[_hcng_sock_prepare_send] Could not create data storage");
     goto ERR_DATA;
   }
   hc_data_set_callback(data, complete_cb, complete_cb_data);
@@ -606,15 +608,17 @@ int _hcng_sock_prepare_send(hc_sock_t *socket, hc_result_t *result,
   hc_sock_request_t *request = NULL;
   request = hc_sock_request_create(seq, data, result->params.parse);
   if (!request) {
-    ERROR("[_hcng_execute_command] Could not create request state");
+    ERROR("[_hcng_sock_prepare_send] Could not create request state");
     goto ERR_REQUEST;
   }
 
-  // Add state to map
-  if (hc_sock_map_add(s->map, seq, request) < 0) {
-    ERROR("[_hcng_execute_command] Error adding request state to map");
+  int rc;
+  khiter_t k = kh_put_sock_map(s->map, seq, &rc);
+  if (rc != KH_ADDED && rc != KH_RESET) {
+    ERROR("[_hcng_sock_prepare_send] Error adding request state to map");
     goto ERR_MAP;
   }
+  kh_value(s->map, k) = request;
 
   return sizeof(result->msg);
 
@@ -631,7 +635,7 @@ int _hcng_sock_set_recv_timeout_ms(hc_sock_t *socket, long timeout_ms) {
 
   struct timeval tv;
   tv.tv_sec = 0;
-  tv.tv_usec = timeout_ms * 1000;  // Convert ms into us
+  tv.tv_usec = (int)(timeout_ms * 1000);  // Convert ms into us
   if (setsockopt(s->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
     perror("setsockopt");
     return -1;
@@ -659,10 +663,13 @@ static int _hcng_execute_command(hc_sock_t *socket, hc_msg_t *msg,
       assert(params->size_out == 0);
       assert(params->parse == NULL);
       break;
+    case ACTION_GET:
     case ACTION_LIST:
       assert(params->size_in != 0);
       assert(params->size_out != 0);
-      assert(params->parse != NULL);
+      // TODO(eloparco): Parsing should not be necessary after
+      // (pending) refatoring
+      // assert(params->parse != NULL);
       break;
     case ACTION_SET:
     case ACTION_SERVE:
@@ -701,10 +708,13 @@ static int _hcng_execute_command(hc_sock_t *socket, hc_msg_t *msg,
   }
 
   /* Add state to map */
-  if (hc_sock_map_add(s->map, seq, request) < 0) {
+  int rc;
+  khiter_t k = kh_put_sock_map(s->map, seq, &rc);
+  if (rc != KH_ADDED && rc != KH_RESET) {
     ERROR("[_hcng_execute_command] Error adding request state to map");
     goto ERR_MAP;
   }
+  kh_value(s->map, k) = request;
 
   if (_hcng_sock_light_send(socket, msg, msg_len, seq) < 0) {
     ERROR("[_hcng_execute_command] Error sending message");
@@ -1823,7 +1833,7 @@ static int _hcng_face_create(hc_sock_t *socket, hc_face_t *face) {
     case FACE_TYPE_HICN:
     case FACE_TYPE_TCP:
     case FACE_TYPE_UDP:
-      if (hc_face_to_connection(face, &connection, true) < 0) {
+      if (hc_face_to_connection(face, &connection, false) < 0) {
         ERROR("[hc_face_create] Could not convert face to connection.");
         return -1;
       }
@@ -2955,6 +2965,120 @@ static int _hcng_subscription_delete(hc_sock_t *socket,
   return ret;
 }
 
+/*----------------------------------------------------------------------------*
+ * Statistics
+ *----------------------------------------------------------------------------*/
+
+/* STATS GET */
+
+static hc_result_t *_hcng_stats_get_serialize(hc_sock_t *socket,
+                                              hc_data_t **pdata, bool async) {
+  hc_result_t *res = malloc(sizeof(*res));
+  DEBUG("[hc_stats_get] async=%s", BOOLSTR(async));
+
+  msg_stats_get_t msg = {.header = {
+                             .message_type = REQUEST_LIGHT,
+                             .command_id = COMMAND_TYPE_STATS_GET,
+                             .length = 0,
+                             .seq_num = 0,
+                         }};
+
+  hc_command_params_t params = {
+      .cmd = ACTION_GET,
+      .cmd_id = COMMAND_TYPE_STATS_GET,
+      .size_in = sizeof(hicn_light_stats_t),
+      .size_out = sizeof(hicn_light_stats_t),
+  };
+
+  *res = (hc_result_t){
+      .msg =
+          (hc_msg_t){
+              .hdr = msg.header,
+              .payload.stats_get = msg.payload,
+          },
+      .params = params,
+      .async = async,
+      .success = true,
+  };
+  return res;
+}
+
+static int _hcng_stats_get_internal(hc_sock_t *socket, hc_data_t **pdata,
+                                    bool async) {
+  hc_result_t *result = _hcng_stats_get_serialize(socket, pdata, async);
+
+  int ret = INPUT_ERROR;
+  if (result->success) {
+    ret = _hcng_execute_command(socket, (hc_msg_t *)&result->msg,
+                                sizeof(result->msg), &result->params, pdata,
+                                result->async);
+  }
+
+  hc_result_free(result);
+  DEBUG("[_hcng_stats_get] done or error");
+  return ret;
+}
+
+static int _hcng_stats_get(hc_sock_t *s, hc_data_t **pdata) {
+  DEBUG("[_hcng_stats_get]");
+  return _hcng_stats_get_internal(s, pdata, false);
+}
+
+/* STATS LIST */
+
+static hc_result_t *_hcng_stats_list_serialize(hc_sock_t *socket,
+                                               hc_data_t **pdata, bool async) {
+  hc_result_t *res = malloc(sizeof(*res));
+  DEBUG("[hc_stats_list] async=%s", BOOLSTR(async));
+
+  msg_stats_list_t msg = {.header = {
+                              .message_type = REQUEST_LIGHT,
+                              .command_id = COMMAND_TYPE_STATS_LIST,
+                              .length = 0,
+                              .seq_num = 0,
+                          }};
+
+  hc_command_params_t params = {
+      .cmd = ACTION_LIST,
+      .cmd_id = COMMAND_TYPE_STATS_LIST,
+      .size_in = sizeof(cmd_stats_list_item_t),
+      .size_out = sizeof(cmd_stats_list_item_t),
+  };
+
+  *res = (hc_result_t){
+      .msg =
+          (hc_msg_t){
+              .hdr = msg.header,
+              .payload.stats_list = msg.payload,
+          },
+      .params = params,
+      .async = async,
+      .success = true,
+  };
+  return res;
+}
+
+static int _hcng_stats_list_internal(hc_sock_t *socket, hc_data_t **pdata,
+                                     bool async) {
+  hc_result_t *result = _hcng_stats_list_serialize(socket, pdata, async);
+
+  int ret = INPUT_ERROR;
+  if (result->success) {
+    ret = _hcng_execute_command(socket, (hc_msg_t *)&result->msg,
+                                sizeof(result->msg), &result->params, pdata,
+                                result->async);
+  }
+
+  hc_result_free(result);
+  DEBUG("[_hcng_stats_list] done or error");
+  return ret;
+}
+
+static int _hcng_stats_list(hc_sock_t *s, hc_data_t **pdata) {
+  DEBUG("[_hcng_stats_list]");
+  return _hcng_stats_list_internal(s, pdata, false);
+}
+
 /* RESULT */
 hc_msg_t *_hcng_result_get_msg(hc_result_t *result) { return &result->msg; }
 int _hcng_result_get_cmd_id(hc_result_t *result) {
@@ -3017,6 +3141,9 @@ static hc_sock_t hc_sock_light_ng_interface = (hc_sock_t){
 #endif  // WITH_POLICY
     .hc_subscription_create = _hcng_subscription_create,
     .hc_subscription_delete = _hcng_subscription_delete,
+
+    .hc_stats_get = _hcng_stats_get,
+    .hc_stats_list = _hcng_stats_list,
 
     .hc_route_create = _hcng_route_create,
     .hc_route_create_async = _hcng_route_create_async,
@@ -3094,7 +3221,7 @@ hc_sock_t *_hc_sock_create_url(const char *url) {
   s->seq = 0;
   s->cur_request = NULL;
 
-  s->map = hc_sock_map_create();
+  s->map = kh_init_sock_map();
   if (!s->map) goto ERR_MAP;
 
   return (hc_sock_t *)(s);

@@ -60,7 +60,8 @@ endif ()
 ##############################################################
 # Do not use modules if Android
 ##############################################################
-if (${CMAKE_SYSTEM_NAME} MATCHES Android)
+
+if (${CMAKE_SYSTEM_NAME} MATCHES Android OR ${CMAKE_SYSTEM_NAME} MATCHES iOS)
   list(APPEND SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light_common.c
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light_ng_api.c

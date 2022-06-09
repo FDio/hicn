@@ -21,6 +21,6 @@ project(ctrl)
 # Subdirectories
 ##############################################################
 add_subdirectory(libhicnctrl)
-if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" OR "${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" OR "${CMAKE_SYSTEM_NAME}" STREQUAL "Android" OR "${CMAKE_SYSTEM_NAME}" STREQUAL "iOS")
   add_subdirectory(facemgr)
 endif ()

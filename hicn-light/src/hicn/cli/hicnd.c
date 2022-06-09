@@ -26,9 +26,9 @@
 #include <sys/stat.h>
 
 #include <hicn/util/log.h>
+#include <hicn/base/loop.h>
 
 #include "logo.h"
-#include "../base/loop.h"
 #include "../core/forwarder.h"
 #include "../config/configuration.h"  // XXX needed ?
 #include "../config/configuration_file.h"

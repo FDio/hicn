@@ -57,7 +57,7 @@ class RaaqmTransportProtocol : public TransportProtocol,
   virtual void afterDataUnsatisfied(uint64_t segment);
 
   virtual void updateStats(uint32_t suffix,
-                           const utils::SteadyTime::Milliseconds &rtt,
+                           const utils::SteadyTime::Microseconds &rtt,
                            utils::SteadyTime::TimePoint &now);
 
  private:

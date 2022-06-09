@@ -401,12 +401,10 @@ static void connection_hicn_finalize(connection_t *connection) {
   return;
 }
 
-static bool connection_hicn_flush(const connection_t *connection) {
-  return false;
-}
+static bool connection_hicn_flush(connection_t *connection) { return false; }
 
-static bool connection_hicn_send(const connection_t *connection,
-                                 msgbuf_t *msgbuf, bool queue) {
+static bool connection_hicn_send(connection_t *connection, msgbuf_t *msgbuf,
+                                 bool queue) {
   assert(connection);
   /* msgbuf can be NULL */
 

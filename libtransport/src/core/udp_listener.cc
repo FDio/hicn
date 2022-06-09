@@ -5,6 +5,7 @@
 #include <core/udp_connector.h>
 #include <core/udp_listener.h>
 #include <glog/logging.h>
+#include <hicn/transport/portability/endianess.h>
 #include <hicn/transport/utils/hash.h>
 
 #ifndef LINUX
@@ -16,7 +17,7 @@ size_t hash<asio::ip::udp::endpoint>::operator()(
                      : utils::hash::fnv32_buf(
                            endpoint.address().to_v6().to_bytes().data(), 16);
   uint16_t port = endpoint.port();
-  return utils::hash::fnv32_buf(&port, 2, hash_ip);
+  return utils::hash::fnv32_buf(&port, 2, (unsigned int)hash_ip);
 }
 }  // namespace std
 #endif
@@ -83,7 +84,8 @@ void UdpTunnelListener::readHandler(const std::error_code &ec) {
           std::copy_n(reinterpret_cast<uint8_t *>(&addr->sin_addr),
                       address_bytes.size(), address_bytes.begin());
           address_v4 address(address_bytes);
-          remote_endpoint_ = udp::endpoint(address, ntohs(addr->sin_port));
+          remote_endpoint_ =
+              udp::endpoint(address, portability::net_to_host(addr->sin_port));
         } else {
           auto addr = reinterpret_cast<struct sockaddr_in6 *>(
               &remote_endpoints_[current_position_]);
@@ -91,7 +93,8 @@ void UdpTunnelListener::readHandler(const std::error_code &ec) {
           std::copy_n(reinterpret_cast<uint8_t *>(&addr->sin6_addr),
                       address_bytes.size(), address_bytes.begin());
           address_v6 address(address_bytes);
-          remote_endpoint_ = udp::endpoint(address, ntohs(addr->sin6_port));
+          remote_endpoint_ =
+              udp::endpoint(address, portability::net_to_host(addr->sin6_port));
         }
 
         /**

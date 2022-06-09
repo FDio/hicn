@@ -52,6 +52,8 @@
 #include <hicn/transport/portability/win_portability.h>
 #endif
 
+#include <hicn/transport/portability/endianess.h>
+
 #include <cstring>
 
 namespace transport {
@@ -59,24 +61,6 @@ namespace transport {
 namespace protocol {
 
 namespace rtc {
-
-inline uint64_t _ntohll(const uint64_t *input) {
-  uint64_t return_val;
-  uint8_t *tmp = (uint8_t *)&return_val;
-
-  tmp[0] = (uint8_t)(*input >> 56);
-  tmp[1] = (uint8_t)(*input >> 48);
-  tmp[2] = (uint8_t)(*input >> 40);
-  tmp[3] = (uint8_t)(*input >> 32);
-  tmp[4] = (uint8_t)(*input >> 24);
-  tmp[5] = (uint8_t)(*input >> 16);
-  tmp[6] = (uint8_t)(*input >> 8);
-  tmp[7] = (uint8_t)(*input >> 0);
-
-  return return_val;
-}
-
-inline uint64_t _htonll(const uint64_t *input) { return (_ntohll(input)); }
 
 const uint32_t DATA_HEADER_SIZE = 12;  // bytes
                                        // XXX: sizeof(data_packet_t) is 16
@@ -87,11 +71,19 @@ struct data_packet_t {
   uint64_t timestamp;
   uint32_t prod_rate;
 
-  inline uint64_t getTimestamp() const { return _ntohll(&timestamp); }
-  inline void setTimestamp(uint64_t time) { timestamp = _htonll(&time); }
+  inline uint64_t getTimestamp() const {
+    return portability::net_to_host(timestamp);
+  }
+  inline void setTimestamp(uint64_t time) {
+    timestamp = portability::host_to_net(time);
+  }
 
-  inline uint32_t getProductionRate() const { return ntohl(prod_rate); }
-  inline void setProductionRate(uint32_t rate) { prod_rate = htonl(rate); }
+  inline uint32_t getProductionRate() const {
+    return portability::net_to_host(prod_rate);
+  }
+  inline void setProductionRate(uint32_t rate) {
+    prod_rate = portability::host_to_net(rate);
+  }
 };
 
 struct nack_packet_t {
@@ -99,14 +91,26 @@ struct nack_packet_t {
   uint32_t prod_rate;
   uint32_t prod_seg;
 
-  inline uint64_t getTimestamp() const { return _ntohll(&timestamp); }
-  inline void setTimestamp(uint64_t time) { timestamp = _htonll(&time); }
+  inline uint64_t getTimestamp() const {
+    return portability::net_to_host(timestamp);
+  }
+  inline void setTimestamp(uint64_t time) {
+    timestamp = portability::host_to_net(time);
+  }
 
-  inline uint32_t getProductionRate() const { return ntohl(prod_rate); }
-  inline void setProductionRate(uint32_t rate) { prod_rate = htonl(rate); }
+  inline uint32_t getProductionRate() const {
+    return portability::net_to_host(prod_rate);
+  }
+  inline void setProductionRate(uint32_t rate) {
+    prod_rate = portability::host_to_net(rate);
+  }
 
-  inline uint32_t getProductionSegment() const { return ntohl(prod_seg); }
-  inline void setProductionSegment(uint32_t seg) { prod_seg = htonl(seg); }
+  inline uint32_t getProductionSegment() const {
+    return portability::net_to_host(prod_seg);
+  }
+  inline void setProductionSegment(uint32_t seg) {
+    prod_seg = portability::host_to_net(seg);
+  }
 };
 
 class AggrPktHeader {
@@ -225,7 +229,7 @@ class AggrPktHeader {
       return (uint16_t) * (buf_ + pkt_index);
     } else {  // 16 bits
       uint16_t *buf_16 = (uint16_t *)buf_;
-      return ntohs(*(buf_16 + pkt_index));
+      return portability::net_to_host(*(buf_16 + pkt_index));
     }
   }
 
@@ -235,7 +239,7 @@ class AggrPktHeader {
       *(buf_ + pkt_index) = (uint8_t)len;
     } else {  // 16 bits
       uint16_t *buf_16 = (uint16_t *)buf_;
-      *(buf_16 + pkt_index) = htons(len);
+      *(buf_16 + pkt_index) = portability::host_to_net(len);
     }
   }
 

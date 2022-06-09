@@ -49,8 +49,9 @@ class RTCDataPath {
   double getQueuingDealy();
   double getInterArrivalGap();
   double getJitter();
-  bool isActive();
-  bool pathToProducer();
+  bool isActive();         // pakets recevied from this path in the last rounds
+  bool pathToProducer();   // path from a producer
+  bool isValidProducer();  // path from a producer that is also active
   uint64_t getLastPacketTS();
   uint32_t getPacketsLastRound();
 

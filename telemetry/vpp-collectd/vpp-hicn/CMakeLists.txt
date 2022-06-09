@@ -12,55 +12,62 @@
 # limitations under the License.
 
 ##############################################################
-# Check if building as subproject or as root project
+# Dependencies
 ##############################################################
-if(${CMAKE_SOURCE_DIR}/vpp-collectd STREQUAL ${PROJECT_SOURCE_DIR})
-  message (STATUS "not compiling in the same folder")
-  find_package(HicnPlugin ${CURRENT_VERSION} REQUIRED)
-  find_package(Vapisafe ${CURRENT_VERSION} REQUIRED)
-else()
-  message (STATUS "compiling in the same folder")
-  list(APPEND DEPENDENCIES
-    ${HICNPLUGIN_SHARED}
-  )
-endif()
+find_package(HicnPlugin ${CURRENT_VERSION} REQUIRED)
+find_package(Libsafevapi ${CURRENT_VERSION} REQUIRED NO_MODULE)
 
 
 ##############################################################
-# Sources
+# Source files
 ##############################################################
 list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/vpp_hicn.c
 )
 
+
+##############################################################
+# Include dirs
+##############################################################
 list(APPEND INCLUDE_DIRS
   ${COLLECTD_INCLUDE_DIRS}
+  ${THIRD_PARTY_INCLUDE_DIRS}
   ${HICNPLUGIN_INCLUDE_DIRS}
-  ${SAFE_VAPI_INCLUDE_DIRS}
+  ${Libsafe_vapi_INCLUDE_DIRS}
   ${VPP_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  "${CMAKE_CURRENT_SOURCE_DIR}/../common"
 )
 
 
 ##############################################################
-# Libs
+# Libraries
 ##############################################################
 list(APPEND LIBRARIES
   ${VPP_LIBRARY_VAPICLIENT}
-  ${SAFE_VAPI_LIBRARIES}
+  hicn::safevapi.shared
+)
+
+
+##############################################################
+# Compiler options
+##############################################################
+list(APPEND COMPILER_OPTIONS
+  ${DEFAULT_COMPILER_OPTIONS}
+  ${COLLECTD_COMPILER_OPTIONS}
 )
 
 
 ##############################################################
 # Build library
 ##############################################################
-build_library(vpp_hicn
+build_library(${VPP_HICN_TELEMETRY}
+  SHARED
+  EMPTY_PREFIX
   SOURCES ${SOURCE_FILES}
   LINK_LIBRARIES ${LIBRARIES}
-  INCLUDE_DIRS ${INCLUDE_DIRS}
-  INSTALL_FULL_PATH_DIR ${CMAKE_INSTALL_PREFIX}/lib/collectd
-  COMPONENT "${COLLECTD_PLUGINS}"
+  INCLUDE_DIRS
+    PRIVATE ${INCLUDE_DIRS}
+  INSTALL_FULL_PATH_DIR ${COLLECTD_PLUGIN_DIR}
+  COMPONENT ${COLLECTD_PLUGINS}
   DEPENDS ${DEPENDENCIES}
   COMPILE_OPTIONS ${COMPILER_OPTIONS}
 )

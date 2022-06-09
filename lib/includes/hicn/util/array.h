@@ -28,8 +28,6 @@
 
 #define BUFSIZE 1024
 
-typedef int (*cmp_t) (const void *x, const void *y);
-
 #define TYPEDEF_ARRAY_H(NAME, T)                                              \
                                                                               \
   typedef struct                                                              \
@@ -151,7 +149,7 @@ typedef int (*cmp_t) (const void *x, const void *y);
     for (unsigned i = 0; i < array->size; i++)                                \
       {                                                                       \
 	if (CMP (search, array->elements[i]) == 0)                            \
-	  return facelet_array_remove_index (array, i, element);              \
+	  return NAME##_remove_index (array, i, element);                     \
       }                                                                       \
     /* Not found */                                                           \
     if (element)                                                              \

@@ -25,12 +25,7 @@
 #include <unordered_map>
 
 namespace transport {
-
 namespace core {
-
-enum class ManifestVersion : uint8_t {
-  VERSION_1 = 1,
-};
 
 enum class ManifestType : uint8_t {
   INLINE_MANIFEST = 1,
@@ -83,12 +78,25 @@ class ManifestEncoder {
     return static_cast<Implementation &>(*this).clearImpl();
   }
 
+  bool isEncoded() const {
+    return static_cast<const Implementation &>(*this).isEncodedImpl();
+  }
+
   ManifestEncoder &setType(ManifestType type) {
     return static_cast<Implementation &>(*this).setTypeImpl(type);
   }
 
+  ManifestEncoder &setMaxCapacity(uint8_t max_capacity) {
+    return static_cast<Implementation &>(*this).setMaxCapacityImpl(
+        max_capacity);
+  }
+
   ManifestEncoder &setHashAlgorithm(auth::CryptoHashType hash) {
     return static_cast<Implementation &>(*this).setHashAlgorithmImpl(hash);
+  }
+
+  ManifestEncoder &setIsLast(bool is_last) {
+    return static_cast<Implementation &>(*this).setIsLastImpl(is_last);
   }
 
   template <
@@ -99,29 +107,6 @@ class ManifestEncoder {
     return static_cast<Implementation &>(*this).setBaseNameImpl(name);
   }
 
-  template <typename Hash>
-  ManifestEncoder &addSuffixAndHash(uint32_t suffix, Hash &&hash) {
-    return static_cast<Implementation &>(*this).addSuffixAndHashImpl(
-        suffix, std::forward<Hash &&>(hash));
-  }
-
-  ManifestEncoder &setIsLast(bool is_last) {
-    return static_cast<Implementation &>(*this).setIsLastImpl(is_last);
-  }
-
-  ManifestEncoder &setVersion(ManifestVersion version) {
-    return static_cast<Implementation &>(*this).setVersionImpl(version);
-  }
-
-  std::size_t estimateSerializedLength(std::size_t number_of_entries) {
-    return static_cast<Implementation &>(*this).estimateSerializedLengthImpl(
-        number_of_entries);
-  }
-
-  ManifestEncoder &update() {
-    return static_cast<Implementation &>(*this).updateImpl();
-  }
-
   ManifestEncoder &setParamsBytestream(const ParamsBytestream &params) {
     return static_cast<Implementation &>(*this).setParamsBytestreamImpl(params);
   }
@@ -130,14 +115,28 @@ class ManifestEncoder {
     return static_cast<Implementation &>(*this).setParamsRTCImpl(params);
   }
 
-  static std::size_t manifestHeaderSize(
-      interface::ProductionProtocolAlgorithms transport_type =
-          interface::ProductionProtocolAlgorithms::UNKNOWN) {
-    return Implementation::manifestHeaderSizeImpl(transport_type);
+  template <typename Hash>
+  ManifestEncoder &addEntry(uint32_t suffix, Hash &&hash) {
+    return static_cast<Implementation &>(*this).addEntryImpl(
+        suffix, std::forward<Hash>(hash));
   }
 
-  static std::size_t manifestEntrySize() {
-    return Implementation::manifestEntrySizeImpl();
+  ManifestEncoder &removeEntry(uint32_t suffix) {
+    return static_cast<Implementation &>(*this).removeEntryImpl(suffix);
+  }
+
+  std::size_t manifestHeaderSize() const {
+    return static_cast<const Implementation &>(*this).manifestHeaderSizeImpl();
+  }
+
+  std::size_t manifestPayloadSize(size_t additional_entries = 0) const {
+    return static_cast<const Implementation &>(*this).manifestPayloadSizeImpl(
+        additional_entries);
+  }
+
+  std::size_t manifestSize(size_t additional_entries = 0) const {
+    return static_cast<const Implementation &>(*this).manifestSizeImpl(
+        additional_entries);
   }
 };
 
@@ -146,11 +145,17 @@ class ManifestDecoder {
  public:
   virtual ~ManifestDecoder() = default;
 
+  ManifestDecoder &decode() {
+    return static_cast<Implementation &>(*this).decodeImpl();
+  }
+
   ManifestDecoder &clear() {
     return static_cast<Implementation &>(*this).clearImpl();
   }
 
-  void decode() { static_cast<Implementation &>(*this).decodeImpl(); }
+  bool isDecoded() const {
+    return static_cast<const Implementation &>(*this).isDecodedImpl();
+  }
 
   ManifestType getType() const {
     return static_cast<const Implementation &>(*this).getTypeImpl();
@@ -160,29 +165,20 @@ class ManifestDecoder {
     return static_cast<const Implementation &>(*this).getTransportTypeImpl();
   }
 
+  uint8_t getMaxCapacity() const {
+    return static_cast<const Implementation &>(*this).getMaxCapacityImpl();
+  }
+
   auth::CryptoHashType getHashAlgorithm() const {
     return static_cast<const Implementation &>(*this).getHashAlgorithmImpl();
-  }
-
-  core::Name getBaseName() const {
-    return static_cast<const Implementation &>(*this).getBaseNameImpl();
-  }
-
-  auto getSuffixHashList() {
-    return static_cast<Implementation &>(*this).getSuffixHashListImpl();
   }
 
   bool getIsLast() const {
     return static_cast<const Implementation &>(*this).getIsLastImpl();
   }
 
-  ManifestVersion getVersion() const {
-    return static_cast<const Implementation &>(*this).getVersionImpl();
-  }
-
-  std::size_t estimateSerializedLength(std::size_t number_of_entries) const {
-    return static_cast<const Implementation &>(*this)
-        .estimateSerializedLengthImpl(number_of_entries);
+  core::Name getBaseName() const {
+    return static_cast<const Implementation &>(*this).getBaseNameImpl();
   }
 
   ParamsBytestream getParamsBytestream() const {
@@ -192,8 +188,25 @@ class ManifestDecoder {
   ParamsRTC getParamsRTC() const {
     return static_cast<const Implementation &>(*this).getParamsRTCImpl();
   }
+
+  auto getEntries() const {
+    return static_cast<const Implementation &>(*this).getEntriesImpl();
+  }
+
+  std::size_t manifestHeaderSize() const {
+    return static_cast<const Implementation &>(*this).manifestHeaderSizeImpl();
+  }
+
+  std::size_t manifestPayloadSize(size_t additional_entries = 0) const {
+    return static_cast<const Implementation &>(*this).manifestPayloadSizeImpl(
+        additional_entries);
+  }
+
+  std::size_t manifestSize(size_t additional_entries = 0) const {
+    return static_cast<const Implementation &>(*this).manifestSizeImpl(
+        additional_entries);
+  }
 };
 
 }  // namespace core
-
 }  // namespace transport

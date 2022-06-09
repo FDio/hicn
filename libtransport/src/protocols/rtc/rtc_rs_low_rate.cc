@@ -25,8 +25,10 @@ namespace rtc {
 
 RecoveryStrategyLowRate::RecoveryStrategyLowRate(
     Indexer *indexer, SendRtxCallback &&callback, asio::io_service &io_service,
+    interface::RtcTransportRecoveryStrategies rs_type,
     interface::StrategyCallback &&external_callback)
     : RecoveryStrategy(indexer, std::move(callback), io_service, false, true,
+                       rs_type,
                        std::move(external_callback)),  // start with fec
       fec_consecutive_rounds_((MILLI_IN_A_SEC / ROUND_LEN) * 5),  // 5 sec
       rtx_allowed_consecutive_rounds_(0) {
@@ -75,7 +77,7 @@ void RecoveryStrategyLowRate::selectRecoveryStrategy(bool in_sync) {
   }
 
   uint32_t loss_rate = std::round(state_->getPerSecondLossRate() * 100);
-  uint32_t rtt = state_->getAvgRTT();
+  uint32_t rtt = (uint32_t)state_->getAvgRTT();
 
   bool use_rtx = false;
   for (size_t i = 0; i < switch_vector.size(); i++) {

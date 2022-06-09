@@ -14,17 +14,18 @@
 list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/facade.h
   ${CMAKE_CURRENT_SOURCE_DIR}/manifest.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/manifest_inline.h
   ${CMAKE_CURRENT_SOURCE_DIR}/manifest_format_fixed.h
   ${CMAKE_CURRENT_SOURCE_DIR}/manifest_format.h
   ${CMAKE_CURRENT_SOURCE_DIR}/pending_interest.h
   ${CMAKE_CURRENT_SOURCE_DIR}/portal.h
   ${CMAKE_CURRENT_SOURCE_DIR}/errors.h
   ${CMAKE_CURRENT_SOURCE_DIR}/global_configuration.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/global_id_counter.h
   ${CMAKE_CURRENT_SOURCE_DIR}/local_connector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/global_workers.h
   ${CMAKE_CURRENT_SOURCE_DIR}/udp_connector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/udp_listener.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/global_module_manager.h
 )
 
 list(APPEND SOURCE_FILES
@@ -38,9 +39,9 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/portal.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/global_configuration.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/io_module.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/local_connector.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/udp_connector.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/udp_listener.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/constructor.cc
 )
 
 if (NOT ${CMAKE_SYSTEM_NAME} MATCHES Android)

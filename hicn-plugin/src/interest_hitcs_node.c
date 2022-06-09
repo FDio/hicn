@@ -90,7 +90,6 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   hicn_interest_hitcs_runtime_t *rt;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
   f64 tnow;
-  int ret;
 
   rt = vlib_node_get_runtime_data (vm, hicn_interest_hitcs_node.index);
 
@@ -116,8 +115,6 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  u16 namelen;
 	  u32 bi0;
 	  u32 next0 = HICN_INTEREST_HITCS_NEXT_ERROR_DROP;
-	  hicn_name_t name;
-	  hicn_header_t *hicn0;
 	  hicn_buffer_t *hicnb0;
 	  hicn_hash_node_t *node0;
 	  hicn_pcs_entry_t *pitp;
@@ -150,8 +147,8 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  hicn_get_internal_state (hicnb0, rt->pitcs, &node0, &strategy_vft0,
 				   &dpo_vft0, &dpo_ctx_id0, &hash_entry0);
 
-	  ret = hicn_interest_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
-	  nameptr = (u8 *) (&name);
+	  hicn_buffer_get_name_and_namelen (b0, &nameptr, &namelen);
+	  isv6 = hicn_buffer_is_v6 (b0);
 	  pitp = hicn_pit_get_data (node0);
 
 	  dpo_id_t hicn_dpo_id0 = { .dpoi_type =
@@ -160,8 +157,7 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				    .dpoi_next_node = 0,
 				    .dpoi_index = dpo_ctx_id0 };
 
-	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE ||
-			     !hicn_node_compare (nameptr, namelen, node0)))
+	  if (PREDICT_FALSE (!hicn_node_compare (nameptr, namelen, node0)))
 	    {
 	      /* Remove lock from the entry */
 	      hicn_pcs_remove_lock (rt->pitcs, &pitp, &node0, vm, hash_entry0,
@@ -209,7 +205,7 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	    {
 	      hicn_interest_hitcs_trace_t *t =
 		vlib_add_trace (vm, node, b0, sizeof (*t));
-	      t->pkt_type = HICN_PKT_TYPE_INTEREST;
+	      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
 	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
 	    }

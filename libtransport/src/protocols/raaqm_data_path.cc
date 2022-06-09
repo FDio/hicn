@@ -50,9 +50,9 @@ RaaqmDataPath::RaaqmDataPath(double drop_factor,
       alpha_(ALPHA) {}
 
 RaaqmDataPath &RaaqmDataPath::insertNewRtt(
-    const utils::SteadyTime::Milliseconds &new_rtt,
+    const utils::SteadyTime::Microseconds &new_rtt,
     const utils::SteadyTime::TimePoint &now) {
-  rtt_ = new_rtt.count();
+  rtt_ = new_rtt.count() / 1000;
   rtt_samples_.pushBack(rtt_);
 
   rtt_max_ = rtt_samples_.rBegin();
