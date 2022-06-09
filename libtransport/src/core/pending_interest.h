@@ -42,17 +42,9 @@ class PendingInterest {
 
  public:
   using Ptr = utils::ObjectPool<PendingInterest>::Ptr;
-  // PendingInterest()
-  //     : interest_(nullptr, nullptr),
-  //       timer_(),
-  //       on_content_object_callback_(),
-  //       on_interest_timeout_callback_() {}
 
   PendingInterest(asio::io_service &io_service, const Interest::Ptr &interest)
-      : interest_(interest),
-        timer_(io_service),
-        on_content_object_callback_(),
-        on_interest_timeout_callback_() {}
+      : interest_(interest), timer_(io_service) {}
 
   PendingInterest(asio::io_service &io_service, const Interest::Ptr &interest,
                   OnContentObjectCallback &&on_content_object,
@@ -65,10 +57,9 @@ class PendingInterest {
   ~PendingInterest() = default;
 
   template <typename Handler>
-  TRANSPORT_ALWAYS_INLINE void startCountdown(Handler &&cb) {
-    timer_.expires_from_now(
-        std::chrono::milliseconds(interest_->getLifetime()));
-    timer_.async_wait(std::forward<Handler &&>(cb));
+  TRANSPORT_ALWAYS_INLINE void startCountdown(uint32_t lifetime, Handler &&cb) {
+    timer_.expires_from_now(std::chrono::milliseconds(lifetime));
+    timer_.async_wait(std::forward<Handler>(cb));
   }
 
   TRANSPORT_ALWAYS_INLINE void cancelTimer() { timer_.cancel(); }
@@ -77,7 +68,7 @@ class PendingInterest {
     return std::move(interest_);
   }
 
-  TRANSPORT_ALWAYS_INLINE void setInterest(Interest::Ptr &interest) {
+  TRANSPORT_ALWAYS_INLINE void setInterest(const Interest::Ptr &interest) {
     interest_ = interest;
   }
 
@@ -88,7 +79,7 @@ class PendingInterest {
 
   TRANSPORT_ALWAYS_INLINE void setOnContentObjectCallback(
       OnContentObjectCallback &&on_content_object) {
-    PendingInterest::on_content_object_callback_ = on_content_object;
+    PendingInterest::on_content_object_callback_ = std::move(on_content_object);
   }
 
   TRANSPORT_ALWAYS_INLINE const OnInterestTimeoutCallback &
@@ -98,7 +89,8 @@ class PendingInterest {
 
   TRANSPORT_ALWAYS_INLINE void setOnTimeoutCallback(
       OnInterestTimeoutCallback &&on_interest_timeout) {
-    PendingInterest::on_interest_timeout_callback_ = on_interest_timeout;
+    PendingInterest::on_interest_timeout_callback_ =
+        std::move(on_interest_timeout);
   }
 
  private:

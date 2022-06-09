@@ -143,6 +143,35 @@ udp_set_lifetime (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
+udp_get_source_port (hicn_type_t type, const hicn_protocol_t *h,
+		     u16 *source_port)
+{
+  *source_port = ntohs (h->udp.src_port);
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+udp_get_dest_port (hicn_type_t type, const hicn_protocol_t *h, u16 *dest_port)
+{
+  *dest_port = ntohs (h->udp.dst_port);
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+udp_set_source_port (hicn_type_t type, hicn_protocol_t *h, u16 source_port)
+{
+  h->udp.src_port = htons (source_port);
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+udp_set_dest_port (hicn_type_t type, hicn_protocol_t *h, u16 dest_port)
+{
+  h->udp.dst_port = htons (dest_port);
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
 udp_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
 		      size_t payload_length)
 {

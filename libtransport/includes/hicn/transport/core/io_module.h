@@ -19,6 +19,7 @@
 #include <hicn/transport/core/connector.h>
 #include <hicn/transport/core/packet.h>
 #include <hicn/transport/core/prefix.h>
+#include <hicn/transport/portability/endianess.h>
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
 #include <hicn/transport/utils/membuf.h>
@@ -48,13 +49,12 @@ class IoModule : utils::NonCopyable {
         mtu_(1500),
         output_interface_(""),
         content_store_reserved_(5000) {
-    inet_address_.v4.as_u32 = htonl(0x7f00001);
+    inet_address_.v4.as_u32 = portability::host_to_net(0x7f00001);
     inet6_address_.v6.as_u8[15] = 0x01;
   }
 
  public:
   static IoModule *load(const char *);
-  static bool unload(IoModule *);
 
  public:
   virtual ~IoModule();
@@ -65,6 +65,7 @@ class IoModule : utils::NonCopyable {
 
   virtual void init(Connector::PacketReceivedCallback &&receive_callback,
                     Connector::PacketSentCallback &&sent_callback,
+                    Connector::OnCloseCallback &&close_callback,
                     Connector::OnReconnectCallback &&reconnect_callback,
                     asio::io_service &io_service,
                     const std::string &app_name = "Libtransport") = 0;
@@ -107,11 +108,6 @@ class IoModule : utils::NonCopyable {
   }
 
   const std::string &getOutputInterface() { return output_interface_; }
-
-#ifndef ANDROID
- private:
-  void *handle_;
-#endif
 
  protected:
   ip_address_t inet_address_;

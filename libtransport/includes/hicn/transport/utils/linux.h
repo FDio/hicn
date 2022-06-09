@@ -44,7 +44,7 @@ static TRANSPORT_ALWAYS_INLINE int retrieveInterfaceAddress(
       uint16_t prefix = 0;
       memcpy(&prefix, tmp->sin6_addr.s6_addr, sizeof(uint16_t));
 
-      if (htons(LINK_LOCAL_PREFIX) != prefix) {
+      if (portability::host_to_net(LINK_LOCAL_PREFIX) != prefix) {
         *address = *(struct sockaddr_in6 *)ifa->ifa_addr;
         getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in6), addr,
                     sizeof(addr), NULL, 0, NI_NUMERICHOST);

@@ -46,7 +46,7 @@ typedef struct
 {
   u32 next_index;
   u32 sw_if_index;
-  u8 pkt_type;
+  u32 pkt_type;
 } hicn_interest_hitpit_trace_t;
 
 typedef enum

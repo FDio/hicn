@@ -93,6 +93,7 @@ else()
       ${LIBHICNCTRL_STATIC}
     )
   else ()
+  message("qui2!!!")
     set(HICN_LIBRARIES
       ${LIBHICN_SHARED}
       ${LIBHICNCTRL_SHARED}

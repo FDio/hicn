@@ -38,7 +38,7 @@ void CbrTransportProtocol::afterContentReception(
     const Interest &interest, const ContentObject &content_object) {
   auto segment = content_object.getName().getSuffix();
   auto now = utils::SteadyTime::Clock::now();
-  auto rtt = utils::SteadyTime::getDurationMs(
+  auto rtt = utils::SteadyTime::getDurationUs(
       interest_timepoints_[segment & mask], now);
   // Update stats
   updateStats(segment, rtt, now);

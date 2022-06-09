@@ -15,7 +15,7 @@
 ##############################################################
 # Android case: no submodules
 ##############################################################
-if (${CMAKE_SYSTEM_NAME} MATCHES Android)
+if (${CMAKE_SYSTEM_NAME} MATCHES Android OR ${CMAKE_SYSTEM_NAME} MATCHES iOS)
   list(APPEND SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn-light-ng/hicn_forwarder_module.cc
   )

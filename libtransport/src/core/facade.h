@@ -15,16 +15,16 @@
 
 #pragma once
 
+#include <core/manifest.h>
 #include <core/manifest_format_fixed.h>
-#include <core/manifest_inline.h>
 #include <core/portal.h>
 
 namespace transport {
 
 namespace core {
 
-using ContentObjectManifest = core::ManifestInline<ContentObject, Fixed>;
-using InterestManifest = core::ManifestInline<Interest, Fixed>;
+using ContentObjectManifest = core::Manifest<Fixed>;
+using InterestManifest = core::Manifest<Fixed>;
 
 }  // namespace core
 

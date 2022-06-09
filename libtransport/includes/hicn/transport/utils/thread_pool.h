@@ -29,8 +29,11 @@ class ThreadPool : public NonCopyable {
       std::size_t n_threads = std::thread::hardware_concurrency())
       : workers_(n_threads > 0 ? n_threads : 1) {}
 
+  ~ThreadPool() = default;
+
   std::size_t getNThreads() const { return workers_.size(); }
   EventThread &getWorker(std::size_t i) { return workers_.at(i); }
+  std::vector<EventThread> &getWorkers() { return workers_; }
 
  private:
   std::vector<EventThread> workers_;

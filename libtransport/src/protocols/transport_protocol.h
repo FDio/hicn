@@ -64,7 +64,7 @@ class TransportProtocol
    *
    * @return The header length in bytes.
    */
-  virtual std::size_t transportHeaderLength() { return 0; }
+  virtual std::size_t transportHeaderLength(bool isFEC) { return 0; }
 
   virtual void scheduleNextInterests() = 0;
 
@@ -141,6 +141,9 @@ class TransportProtocol
   bool is_async_;
 
   fec::FECType fec_type_;
+
+  // Signer for aggregated interests
+  std::shared_ptr<auth::Signer> signer_;
 };
 
 }  // end namespace protocol

@@ -72,6 +72,54 @@ void listener_table_free(listener_table_t *table) {
   free(table);
 }
 
+listener_t *listener_table_allocate(const listener_table_t *table,
+                                    const listener_key_t *key,
+                                    const char *name) {
+  listener_t *listener = NULL;
+  pool_get(table->listeners, listener);
+  if (!listener) return NULL;
+
+  off_t id = listener - table->listeners;
+  int rc;
+
+  // Add in name hash table
+  khiter_t k = kh_put_lt_name(table->id_by_name, strdup(name), &rc);
+  assert(rc == KH_ADDED || rc == KH_RESET);
+  kh_value(table->id_by_name, k) = (unsigned int)id;
+
+  // Add in key hash table
+  listener_key_t *key_copy = (listener_key_t *)malloc(sizeof(listener_key_t));
+  memcpy(key_copy, key, sizeof(listener_key_t));
+
+  k = kh_put_lt_key(table->id_by_key, key_copy, &rc);
+  assert(rc == KH_ADDED || rc == KH_RESET);
+  kh_value(table->id_by_key, k) = (unsigned int)id;
+
+  assert(kh_size(table->id_by_name) == kh_size(table->id_by_key));
+  return listener;
+}
+
+void listener_table_deallocate(const listener_table_t *table,
+                               listener_t *listener) {
+  const char *name = listener_get_name(listener);
+  listener_key_t *key = listener_get_key(listener);
+
+  // Remove from name hash table
+  khiter_t k = kh_get_lt_name(table->id_by_name, name);
+  assert(k != kh_end(table->id_by_name));
+  free((char *)kh_key(table->id_by_name, k));
+  kh_del_lt_name(table->id_by_name, k);
+
+  // Remove from key hash table
+  k = kh_get_lt_key(table->id_by_key, key);
+  assert(k != kh_end(table->id_by_key));
+  free((listener_key_t *)kh_key(table->id_by_key, k));
+  kh_del_lt_key(table->id_by_key, k);
+
+  assert(kh_size(table->id_by_name) == kh_size(table->id_by_key));
+  pool_put(table->listeners, listener);
+}
+
 listener_t *listener_table_get_by_address(listener_table_t *table,
                                           face_type_t type,
                                           const address_t *address) {
@@ -104,7 +152,8 @@ off_t listener_table_get_id_by_name(const listener_table_t *table,
 
 listener_t *listener_table_get_by_name(listener_table_t *table,
                                        const char *name) {
-  unsigned listener_id = listener_table_get_id_by_name(table, name);
+  unsigned listener_id =
+      (unsigned int)listener_table_get_id_by_name(table, name);
   if (!listener_id_is_valid(listener_id)) return NULL;
   return listener_table_at(table, listener_id);
 }

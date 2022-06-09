@@ -15,6 +15,7 @@
 
 #include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/core/global_object_pool.h>
+#include <hicn/transport/core/interest.h>
 #include <protocols/errors.h>
 
 #include "glog/logging.h"
@@ -51,6 +52,14 @@ bool Verifier::verifyPacket(PacketPtr packet) {
   hicn_header_t header_copy;
   hicn_packet_copy_header(format, packet->packet_start_, &header_copy, false);
 
+  // Copy bitmap from interest manifest
+  uint32_t request_bitmap[BITMAP_SIZE] = {0};
+  if (packet->isInterest()) {
+    core::Interest *interest = dynamic_cast<core::Interest *>(packet);
+    memcpy(request_bitmap, interest->getRequestBitmap(),
+           BITMAP_SIZE * sizeof(uint32_t));
+  }
+
   // Retrieve packet signature
   utils::MemBuf::Ptr signature_raw = packet->getSignature();
   std::size_t signature_len = packet->getSignatureSize();
@@ -68,6 +77,12 @@ bool Verifier::verifyPacket(PacketPtr packet) {
   hicn_packet_copy_header(format, &header_copy, packet->packet_start_, false);
   packet->setSignature(signature_raw);
   packet->setSignatureSize(signature_raw->length());
+
+  // Restore bitmap in interest manifest
+  if (packet->isInterest()) {
+    core::Interest *interest = dynamic_cast<core::Interest *>(packet);
+    interest->setRequestBitmap(request_bitmap);
+  }
 
   return valid_packet;
 }

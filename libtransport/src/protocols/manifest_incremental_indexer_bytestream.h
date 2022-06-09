@@ -76,7 +76,7 @@ class ManifestIncrementalIndexer : public IncrementalIndexer {
                            core::ContentObject &content_object,
                            bool reassembly);
   void processTrustedManifest(core::Interest &interest,
-                              std::unique_ptr<ContentObjectManifest> manifest,
+                              core::ContentObjectManifest &manifest,
                               bool reassembly);
   void onUntrustedContentObject(core::Interest &interest,
                                 core::ContentObject &content_object,

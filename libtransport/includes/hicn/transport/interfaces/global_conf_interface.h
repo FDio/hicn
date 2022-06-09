@@ -26,8 +26,16 @@ namespace transport {
 namespace interface {
 namespace global_config {
 
-static const constexpr char io_module_section[] = "io_module";
-void parseConfigurationFile(const std::string& path = "");
+class GlobalConfigInterface {
+ public:
+  GlobalConfigInterface();
+  ~GlobalConfigInterface();
+  void parseConfigurationFile(const std::string& path = "") const;
+
+ private:
+  void libtransportConfigInit() const;
+  void libtransportConfigTerminate() const;
+};
 
 class ConfigurationObject {
  public:
@@ -49,7 +57,9 @@ class ConfigurationObject {
 
 class IoModuleConfiguration : public ConfigurationObject {
  public:
-  std::string getKey() const override { return io_module_section; }
+  static inline char section[] = "io_module";
+
+  std::string getKey() const override { return section; }
 
   std::string name;
   std::vector<std::string> search_path;

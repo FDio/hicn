@@ -20,6 +20,111 @@
 
 #include "packet_cache.h"
 
+/******************************************************************************
+ * Low-level operations on the hash table
+ ******************************************************************************/
+
+void _prefix_map_free(kh_pkt_cache_prefix_t *prefix_to_suffixes) {
+  const NameBitvector *key;
+  kh_pkt_cache_suffix_t *value;
+  kh_foreach(prefix_to_suffixes, key, value, {
+    free((NameBitvector *)key);
+    kh_destroy_pkt_cache_suffix(value);
+  });
+  kh_destroy_pkt_cache_prefix(prefix_to_suffixes);
+}
+
+kh_pkt_cache_suffix_t *_get_suffixes(kh_pkt_cache_prefix_t *prefix_to_suffixes,
+                                     const NameBitvector *prefix) {
+  khiter_t k = kh_get_pkt_cache_prefix(prefix_to_suffixes, prefix);
+
+  // Return suffixes found
+  if (k != kh_end(prefix_to_suffixes)) {
+    kh_pkt_cache_suffix_t *suffixes = kh_val(prefix_to_suffixes, k);
+    return suffixes;
+  }
+
+  kh_pkt_cache_suffix_t *suffixes = kh_init_pkt_cache_suffix();
+  NameBitvector *nb_copy = (NameBitvector *)malloc(sizeof(NameBitvector));
+  *nb_copy = *prefix;
+
+  int rc;
+  k = kh_put_pkt_cache_prefix(prefix_to_suffixes, nb_copy, &rc);
+  assert(rc == KH_ADDED || rc == KH_RESET);
+  kh_value(prefix_to_suffixes, k) = suffixes;
+  return suffixes;
+}
+
+void _remove_suffix(kh_pkt_cache_prefix_t *prefixes,
+                    const NameBitvector *prefix, uint32_t suffix) {
+  kh_pkt_cache_suffix_t *suffixes = _get_suffixes(prefixes, prefix);
+  assert(suffixes != NULL);
+
+  khiter_t k = kh_get_pkt_cache_suffix(suffixes, suffix);
+  assert(k != kh_end(suffixes));
+  kh_del_pkt_cache_suffix(suffixes, k);
+
+  // TODO(eloparco): Remove prefix if no associated suffixes?
+}
+
+void __add_suffix(kh_pkt_cache_suffix_t *suffixes, uint32_t suffix,
+                  unsigned val) {
+  int rc;
+  khiter_t k = kh_put_pkt_cache_suffix(suffixes, suffix, &rc);
+  assert(rc == KH_ADDED || rc == KH_RESET);
+  kh_value(suffixes, k) = val;
+}
+
+void _add_suffix(kh_pkt_cache_prefix_t *prefixes, const NameBitvector *prefix,
+                 uint32_t suffix, unsigned val) {
+  kh_pkt_cache_suffix_t *suffixes = _get_suffixes(prefixes, prefix);
+  assert(suffixes != NULL);
+
+  __add_suffix(suffixes, suffix, val);
+}
+
+unsigned __get_suffix(kh_pkt_cache_suffix_t *suffixes, uint32_t suffix,
+                      int *rc) {
+  *rc = KH_FOUND;
+  khiter_t k = kh_get_pkt_cache_suffix(suffixes, suffix);
+
+  // Not Found
+  if (k == kh_end(suffixes)) {
+    *rc = KH_NOT_FOUND;
+    return -1;
+  }
+
+  unsigned index = kh_val(suffixes, k);
+  return index;
+}
+
+void pkt_cache_save_suffixes_for_prefix(pkt_cache_t *pkt_cache,
+                                        const NameBitvector *prefix) {
+  // Cached prefix matches the current one
+  if (nameBitvector_Compare(&pkt_cache->cached_prefix, prefix) == 0) return;
+
+  // Update cached prefix information
+  pkt_cache->cached_prefix = *prefix;
+  pkt_cache->cached_suffixes =
+      _get_suffixes(pkt_cache->prefix_to_suffixes, prefix);
+}
+
+void pkt_cache_reset_suffixes_for_prefix(pkt_cache_t *pkt_cache) {
+  pkt_cache->cached_suffixes = NULL;
+}
+
+unsigned _get_suffix(kh_pkt_cache_prefix_t *prefixes,
+                     const NameBitvector *prefix, uint32_t suffix, int *rc) {
+  kh_pkt_cache_suffix_t *suffixes = _get_suffixes(prefixes, prefix);
+  assert(suffixes != NULL);
+
+  return __get_suffix(suffixes, suffix, rc);
+}
+
+/******************************************************************************
+ * Public API
+ ******************************************************************************/
+
 pkt_cache_t *pkt_cache_create(size_t cs_size) {
   pkt_cache_t *pkt_cache = (pkt_cache_t *)malloc(sizeof(pkt_cache_t));
 
@@ -28,8 +133,11 @@ pkt_cache_t *pkt_cache_create(size_t cs_size) {
   pkt_cache->cs = cs_create(cs_size);
   if (!pkt_cache->cs) return NULL;
 
-  pkt_cache->index_by_name = kh_init(pkt_cache_name);
+  pkt_cache->prefix_to_suffixes = kh_init_pkt_cache_prefix();
   pool_init(pkt_cache->entries, DEFAULT_PKT_CACHE_SIZE, 0);
+
+  pkt_cache->cached_prefix = EMPTY_NAME_BITVECTOR;
+  pkt_cache->cached_suffixes = NULL;
 
   return pkt_cache;
 }
@@ -37,14 +145,8 @@ pkt_cache_t *pkt_cache_create(size_t cs_size) {
 void pkt_cache_free(pkt_cache_t *pkt_cache) {
   assert(pkt_cache);
 
-  // Free hashmap
-  const Name *k_name;
-  unsigned v;
-  (void)v;
-  kh_foreach(pkt_cache->index_by_name, k_name, v, { free((Name *)k_name); });
-  kh_destroy(pkt_cache_name, pkt_cache->index_by_name);
-
-  // Free pool
+  // Free prefix hash table and pool
+  _prefix_map_free(pkt_cache->prefix_to_suffixes);
   pool_free(pkt_cache->entries);
 
   // Free PIT and CS
@@ -52,6 +154,30 @@ void pkt_cache_free(pkt_cache_t *pkt_cache) {
   cs_free(pkt_cache->cs);
 
   free(pkt_cache);
+}
+
+kh_pkt_cache_suffix_t *pkt_cache_get_suffixes(const pkt_cache_t *pkt_cache,
+                                              const NameBitvector *prefix) {
+  return _get_suffixes(pkt_cache->prefix_to_suffixes, prefix);
+}
+
+pkt_cache_entry_t *pkt_cache_allocate(pkt_cache_t *pkt_cache,
+                                      const Name *name) {
+  pkt_cache_entry_t *entry = NULL;
+  pool_get(pkt_cache->entries, entry);
+  if (!entry) return NULL;
+
+  off_t id = entry - pkt_cache->entries;
+
+  if (pkt_cache->cached_suffixes) {
+    __add_suffix(pkt_cache->cached_suffixes, name_GetSegment(name),
+                 (unsigned int)id);
+  } else {
+    _add_suffix(pkt_cache->prefix_to_suffixes, name_GetContentName(name),
+                name_GetSegment(name), (unsigned int)id);
+  }
+
+  return entry;
 }
 
 pit_t *pkt_cache_get_pit(pkt_cache_t *pkt_cache) { return pkt_cache->pit; }
@@ -63,14 +189,22 @@ pkt_cache_entry_t *pkt_cache_lookup(pkt_cache_t *pkt_cache, const Name *name,
                                     pkt_cache_lookup_t *lookup_result,
                                     off_t *entry_id,
                                     bool is_serve_from_cs_enabled) {
-  Name name_key = name_key_factory(name);
-  khiter_t k = kh_get_pkt_cache_name(pkt_cache->index_by_name, &name_key);
-  if (k == kh_end(pkt_cache->index_by_name)) {
+  int rc;
+
+  unsigned index = -1;
+  if (pkt_cache->cached_suffixes) {
+    index =
+        __get_suffix(pkt_cache->cached_suffixes, name_GetSegment(name), &rc);
+  } else {
+    index = _get_suffix(pkt_cache->prefix_to_suffixes,
+                        name_GetContentName(name), name_GetSegment(name), &rc);
+  }
+
+  if (rc == KH_NOT_FOUND) {
     *lookup_result = PKT_CACHE_LU_NONE;
     return NULL;
   }
 
-  off_t index = kh_val(pkt_cache->index_by_name, k);
   pkt_cache_entry_t *entry = pkt_cache_at(pkt_cache, index);
   assert(entry);
   bool expired = false;
@@ -103,11 +237,9 @@ void pkt_cache_cs_remove_entry(pkt_cache_t *pkt_cache, pkt_cache_entry_t *entry,
   off_t msgbuf_id = entry->u.cs_entry.msgbuf_id;
   msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
-  Name name_key = name_key_factory(msgbuf_get_name(msgbuf));
-  khiter_t k = kh_get_pkt_cache_name(pkt_cache->index_by_name, &name_key);
-  assert(k != kh_end(pkt_cache->index_by_name));
-  free((Name *)kh_key(pkt_cache->index_by_name, k));
-  kh_del(pkt_cache_name, pkt_cache->index_by_name, k);
+  const Name *name = msgbuf_get_name(msgbuf);
+  _remove_suffix(pkt_cache->prefix_to_suffixes, name_GetContentName(name),
+                 name_GetSegment(name));
 
   // Do not update the LRU cache for evicted entries
   if (!is_evicted) cs_vft[pkt_cache->cs->type]->remove_entry(pkt_cache, entry);
@@ -130,12 +262,8 @@ void pkt_cache_pit_remove_entry(pkt_cache_t *pkt_cache,
   assert(entry);
   assert(entry->entry_type == PKT_CACHE_PIT_TYPE);
 
-  Name name_key = name_key_factory(name);
-  khiter_t k = kh_get_pkt_cache_name(pkt_cache->index_by_name, &name_key);
-  assert(k != kh_end(pkt_cache->index_by_name));
-  free((Name *)kh_key(pkt_cache->index_by_name, k));
-  kh_del(pkt_cache_name, pkt_cache->index_by_name, k);
-
+  _remove_suffix(pkt_cache->prefix_to_suffixes, name_GetContentName(name),
+                 name_GetSegment(name));
   pool_put(pkt_cache->entries, entry);
 
   WITH_DEBUG({
@@ -158,7 +286,7 @@ void _pkt_cache_add_to_cs(pkt_cache_t *pkt_cache, pkt_cache_entry_t *entry,
 
   pkt_cache->cs->num_entries++;
 
-  int tail_id = pkt_cache->cs->lru.tail;
+  int tail_id = (int)(pkt_cache->cs->lru.tail);
   int result = cs_vft[pkt_cache->cs->type]->add_entry(pkt_cache, entry_id);
   if (result == LRU_EVICTION) {
     // Remove tail (already removed from LRU cache)
@@ -237,11 +365,11 @@ void pkt_cache_update_cs(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
 }
 
 pkt_cache_entry_t *pkt_cache_add_to_pit(pkt_cache_t *pkt_cache,
-                                        const msgbuf_t *msgbuf) {
+                                        const msgbuf_t *msgbuf,
+                                        const Name *name) {
   assert(pkt_cache);
 
-  pkt_cache_entry_t *entry =
-      pkt_cache_allocate(pkt_cache, msgbuf_get_name(msgbuf));
+  pkt_cache_entry_t *entry = pkt_cache_allocate(pkt_cache, name);
   _pkt_cache_add_to_pit(pkt_cache, entry, msgbuf);
   return entry;
 }
@@ -276,7 +404,7 @@ void pkt_cache_update_pit(pkt_cache_t *pkt_cache, pkt_cache_entry_t *entry,
 
 bool pkt_cache_try_aggregate_in_pit(pkt_cache_t *pkt_cache,
                                     pkt_cache_entry_t *entry,
-                                    const msgbuf_t *msgbuf) {
+                                    const msgbuf_t *msgbuf, const Name *name) {
   assert(pkt_cache);
   assert(entry);
   assert(entry->entry_type == PKT_CACHE_PIT_TYPE);
@@ -294,7 +422,7 @@ bool pkt_cache_try_aggregate_in_pit(pkt_cache_t *pkt_cache,
   if (is_aggregated) pit_entry_ingress_add(pit_entry, connection_id);
 
   WITH_DEBUG({
-    char *name_str = name_ToString(msgbuf_get_name(msgbuf));
+    char *name_str = name_ToString(name);
     if (is_aggregated) {
       DEBUG("Interest %s already existing (expiry %lu): aggregate", name_str,
             entry->expire_ts);
@@ -407,7 +535,7 @@ nexthops_t *pkt_cache_on_data(pkt_cache_t *pkt_cache,
       return NULL;
 
     default:
-      ERROR("Inivalid packet cache content");
+      ERROR("Invalid packet cache content");
       return NULL;
   }
 }
@@ -415,7 +543,7 @@ nexthops_t *pkt_cache_on_data(pkt_cache_t *pkt_cache,
 void pkt_cache_on_interest(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
                            off_t msgbuf_id, pkt_cache_verdict_t *verdict,
                            off_t *data_msgbuf_id, pkt_cache_entry_t **entry_ptr,
-                           bool is_serve_from_cs_enabled) {
+                           const Name *name, bool is_serve_from_cs_enabled) {
   assert(pkt_cache);
   assert(msgbuf_id_is_valid(msgbuf_id));
 
@@ -425,8 +553,8 @@ void pkt_cache_on_interest(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
   off_t entry_id;
   pkt_cache_lookup_t lookup_result;
   pkt_cache_entry_t *entry =
-      pkt_cache_lookup(pkt_cache, msgbuf_get_name(msgbuf), msgbuf_pool,
-                       &lookup_result, &entry_id, is_serve_from_cs_enabled);
+      pkt_cache_lookup(pkt_cache, name, msgbuf_pool, &lookup_result, &entry_id,
+                       is_serve_from_cs_enabled);
   *entry_ptr = entry;
 
   cs_entry_t *cs_entry = NULL;
@@ -434,6 +562,9 @@ void pkt_cache_on_interest(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
   bool is_aggregated;
   switch (lookup_result) {
     case PKT_CACHE_LU_NONE:
+      entry = pkt_cache_add_to_pit(pkt_cache, msgbuf, name);
+      *entry_ptr = entry;
+
       *verdict = PKT_CACHE_VERDICT_FORWARD_INTEREST;
       break;
 
@@ -448,7 +579,8 @@ void pkt_cache_on_interest(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
       break;
 
     case PKT_CACHE_LU_INTEREST_NOT_EXPIRED:
-      is_aggregated = pkt_cache_try_aggregate_in_pit(pkt_cache, entry, msgbuf);
+      is_aggregated =
+          pkt_cache_try_aggregate_in_pit(pkt_cache, entry, msgbuf, name);
 
       *verdict = is_aggregated ? PKT_CACHE_VERDICT_AGGREGATE_INTEREST
                                : PKT_CACHE_VERDICT_RETRANSMIT_INTEREST;
@@ -477,36 +609,30 @@ void pkt_cache_on_interest(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
 void pkt_cache_cs_clear(pkt_cache_t *pkt_cache) {
   assert(pkt_cache);
 
-  const Name *k_name;
-  unsigned v_pool_pos;
-  kh_foreach(pkt_cache->index_by_name, k_name, v_pool_pos,
-             {
-               khiter_t k =
-                   kh_get_pkt_cache_name(pkt_cache->index_by_name, k_name);
-               assert(k != kh_end(pkt_cache->index_by_name));
+  kh_pkt_cache_suffix_t *v_suffixes;
+  u32 k_suffix;
+  u32 v_pkt_cache_entry_id;
+  kh_foreach_value(pkt_cache->prefix_to_suffixes, v_suffixes, {
+    kh_foreach(v_suffixes, k_suffix, v_pkt_cache_entry_id, {
+      pkt_cache_entry_t *entry = pkt_cache_at(pkt_cache, v_pkt_cache_entry_id);
+      if (entry->entry_type == PKT_CACHE_CS_TYPE) {
+        // Remove from hash table
+        khiter_t k = kh_get_pkt_cache_suffix(v_suffixes, k_suffix);
+        assert(k != kh_end(v_suffixes));
+        kh_del_pkt_cache_suffix(v_suffixes, k);
 
-               pkt_cache_entry_t *entry = pkt_cache_at(pkt_cache, v_pool_pos);
-               if (entry->entry_type == PKT_CACHE_CS_TYPE) {
-                 // Remove from hashmap
-                 free((Name *)kh_key(pkt_cache->index_by_name, k));
-                 kh_del(pkt_cache_name, pkt_cache->index_by_name, k);
+        // Remove from pool
+        pool_put(pkt_cache->entries, entry);
+      }
+    });
+  });
 
-                 // Remove from pool
-                 pool_put(pkt_cache->entries, entry);
-               }
-             })
+  // Reset cached prefix
+  pkt_cache->cached_prefix = EMPTY_NAME_BITVECTOR;
+  pkt_cache->cached_suffixes = NULL;
 
-      // Re-create CS
-      cs_clear(pkt_cache->cs);
-}
-
-size_t pkt_cache_get_size(pkt_cache_t *pkt_cache) {
-  uint64_t hashmap_size = kh_size(pkt_cache->index_by_name);
-  return hashmap_size;
-}
-
-size_t pkt_cache_get_cs_size(pkt_cache_t *pkt_cache) {
-  return pkt_cache->cs->num_entries;
+  // Re-create CS
+  cs_clear(pkt_cache->cs);
 }
 
 size_t pkt_cache_get_num_cs_stale_entries(pkt_cache_t *pkt_cache) {
@@ -531,17 +657,35 @@ int pkt_cache_set_cs_size(pkt_cache_t *pkt_cache, size_t size) {
   return 0;
 }
 
+size_t pkt_cache_get_size(pkt_cache_t *pkt_cache) {
+  return pool_len(pkt_cache->entries);
+}
+
+size_t pkt_cache_get_cs_size(pkt_cache_t *pkt_cache) {
+  return pkt_cache->cs->num_entries;
+}
+
 size_t pkt_cache_get_pit_size(pkt_cache_t *pkt_cache) {
-  uint64_t hashmap_size = kh_size(pkt_cache->index_by_name);
-  uint64_t pit_size = hashmap_size - pkt_cache->cs->num_entries;
+  uint64_t pkt_cache_size = pkt_cache_get_size(pkt_cache);
+  uint64_t pit_size = pkt_cache_size - pkt_cache_get_cs_size(pkt_cache);
   return pit_size;
 }
 
 void pkt_cache_log(pkt_cache_t *pkt_cache) {
-  uint64_t hashmap_size = kh_size(pkt_cache->index_by_name);
-  uint64_t pit_size = hashmap_size - pkt_cache->cs->num_entries;
   DEBUG("Packet cache: total size = %lu, PIT size = %lu, CS size = %u",
-        hashmap_size, pit_size, pkt_cache->cs->num_entries);
+        pkt_cache_get_size(pkt_cache), pkt_cache_get_pit_size(pkt_cache),
+        pkt_cache_get_cs_size(pkt_cache));
 
   cs_log(pkt_cache->cs);
+}
+
+pkt_cache_stats_t pkt_cache_get_stats(pkt_cache_t *pkt_cache) {
+  cs_lru_stats_t lru_stats = cs_get_lru_stats(pkt_cache_get_cs(pkt_cache));
+  pkt_cache_stats_t stats = {
+      .n_pit_entries = (uint32_t)pkt_cache_get_pit_size(pkt_cache),
+      .n_cs_entries = (uint32_t)pkt_cache_get_cs_size(pkt_cache),
+      .n_lru_evictions = (uint32_t)lru_stats.countLruEvictions,
+  };
+
+  return stats;
 }

@@ -148,6 +148,12 @@ int ProducerSocket::setSocketOption(
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
 
+int ProducerSocket::setSocketOption(
+    int socket_option_key,
+    const std::shared_ptr<auth::Verifier> &socket_option_value) {
+  return socket_->setSocketOption(socket_option_key, socket_option_value);
+}
+
 int ProducerSocket::setSocketOption(int socket_option_key,
                                     Packet::Format socket_option_value) {
   return socket_->setSocketOption(socket_option_key, socket_option_value);
@@ -191,6 +197,12 @@ int ProducerSocket::getSocketOption(int socket_option_key,
 
 int ProducerSocket::getSocketOption(
     int socket_option_key, std::shared_ptr<auth::Signer> &socket_option_value) {
+  return socket_->getSocketOption(socket_option_key, socket_option_value);
+}
+
+int ProducerSocket::getSocketOption(
+    int socket_option_key,
+    std::shared_ptr<auth::Verifier> &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 

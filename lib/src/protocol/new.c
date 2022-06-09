@@ -22,6 +22,11 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 
+DECLARE_get_source_port (new, UNEXPECTED);
+DECLARE_get_dest_port (new, UNEXPECTED);
+DECLARE_set_source_port (new, UNEXPECTED);
+DECLARE_set_dest_port (new, UNEXPECTED);
+
 static int
 is_interest (u8 flags)
 {

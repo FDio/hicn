@@ -63,17 +63,13 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
 	  vlib_buffer_t *b0;
-	  u8 isv6;
 	  u8 *nameptr;
 	  u16 namelen;
 	  u32 bi0;
 	  u32 next0 = HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP;
 	  u64 name_hash = 0;
-	  hicn_name_t name;
-	  hicn_header_t *hicn0 = NULL;
 	  u32 node_id0 = 0;
 	  index_t dpo_ctx_id0 = 0;
-	  int ret0;
 	  u8 vft_id0 = 0;
 	  u8 is_cs0;
 	  u8 hash_entry_id = 0;
@@ -104,13 +100,11 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  /* Incr packet counter */
 	  stats.pkts_processed += 1;
 
-	  ret0 = hicn_data_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
-	  nameptr = (u8 *) (&name);
+	  hicn_buffer_get_name_and_namelen (b0, &nameptr, &namelen);
 
 	  if (PREDICT_TRUE (
-		ret0 == HICN_ERROR_NONE &&
 		hicn_hashtb_fullhash (nameptr, namelen, &name_hash) ==
-		  HICN_ERROR_NONE))
+		HICN_ERROR_NONE))
 	    {
 	      int res = hicn_hashtb_lookup_node (
 		rt->pitcs->pcs_table, nameptr, namelen, name_hash,
@@ -154,7 +148,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	    {
 	      hicn_data_pcslookup_trace_t *t =
 		vlib_add_trace (vm, node, b0, sizeof (*t));
-	      t->pkt_type = HICN_PKT_TYPE_CONTENT;
+	      t->pkt_type = HICN_PACKET_TYPE_DATA;
 	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
 	    }

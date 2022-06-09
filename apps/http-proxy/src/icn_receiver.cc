@@ -37,8 +37,8 @@ AsyncConsumerProducer::AsyncConsumerProducer(
       producer_socket_(),
       ip_address_(origin_address),
       port_(origin_port),
-      cache_size_(std::stoul(cache_size)),
-      mtu_(std::stoul(mtu)),
+      cache_size_((uint32_t)std::stoul(cache_size)),
+      mtu_((uint32_t)std::stoul(mtu)),
       request_counter_(0),
       connector_(io_service_, ip_address_, port_,
                  std::bind(&AsyncConsumerProducer::publishContent, this,
@@ -59,7 +59,7 @@ AsyncConsumerProducer::AsyncConsumerProducer(
   }
 
   ret = producer_socket_.setSocketOption(
-      interface::GeneralTransportOptions::MAKE_MANIFEST, manifest);
+      interface::GeneralTransportOptions::MANIFEST_MAX_CAPACITY, manifest);
 
   if (ret != SOCKET_OPTION_SET) {
     TRANSPORT_LOG_WARNING << "Warning: impossible to enable signatures.";

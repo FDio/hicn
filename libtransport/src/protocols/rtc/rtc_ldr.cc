@@ -37,16 +37,24 @@ RTCLossDetectionAndRecovery::RTCLossDetectionAndRecovery(
     interface::RtcTransportRecoveryStrategies type,
     RecoveryStrategy::SendRtxCallback &&callback,
     interface::StrategyCallback &&external_callback) {
-  rs_type_ = type;
   if (type == interface::RtcTransportRecoveryStrategies::RECOVERY_OFF) {
     rs_ = std::make_shared<RecoveryStrategyRecoveryOff>(
-        indexer, std::move(callback), io_service, std::move(external_callback));
-  } else if (type == interface::RtcTransportRecoveryStrategies::DELAY_BASED) {
+        indexer, std::move(callback), io_service, type,
+        std::move(external_callback));
+  } else if (type == interface::RtcTransportRecoveryStrategies::DELAY_BASED ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         DELAY_AND_BESTPATH ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         DELAY_AND_REPLICATION) {
     rs_ = std::make_shared<RecoveryStrategyDelayBased>(
-        indexer, std::move(callback), io_service, std::move(external_callback));
-  } else if (type == interface::RtcTransportRecoveryStrategies::FEC_ONLY) {
+        indexer, std::move(callback), io_service, type,
+        std::move(external_callback));
+  } else if (type == interface::RtcTransportRecoveryStrategies::FEC_ONLY ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         FEC_ONLY_LOW_RES_LOSSES) {
     rs_ = std::make_shared<RecoveryStrategyFecOnly>(
-        indexer, std::move(callback), io_service, std::move(external_callback));
+        indexer, std::move(callback), io_service, type,
+        std::move(external_callback));
   } else if (type == interface::RtcTransportRecoveryStrategies::LOW_RATE ||
              type == interface::RtcTransportRecoveryStrategies::
                          LOW_RATE_AND_BESTPATH ||
@@ -55,12 +63,14 @@ RTCLossDetectionAndRecovery::RTCLossDetectionAndRecovery(
              type == interface::RtcTransportRecoveryStrategies::
                          LOW_RATE_AND_ALL_FWD_STRATEGIES) {
     rs_ = std::make_shared<RecoveryStrategyLowRate>(
-        indexer, std::move(callback), io_service, std::move(external_callback));
+        indexer, std::move(callback), io_service, type,
+        std::move(external_callback));
   } else {
     // default
-    rs_type_ = interface::RtcTransportRecoveryStrategies::RTX_ONLY;
+    type = interface::RtcTransportRecoveryStrategies::RTX_ONLY;
     rs_ = std::make_shared<RecoveryStrategyRtxOnly>(
-        indexer, std::move(callback), io_service, std::move(external_callback));
+        indexer, std::move(callback), io_service, type,
+        std::move(external_callback));
   }
 }
 
@@ -68,15 +78,21 @@ RTCLossDetectionAndRecovery::~RTCLossDetectionAndRecovery() {}
 
 void RTCLossDetectionAndRecovery::changeRecoveryStrategy(
     interface::RtcTransportRecoveryStrategies type) {
-  if (type == rs_type_) return;
+  if (type == rs_->getType()) return;
 
-  rs_type_ = type;
+  rs_->updateType(type);
   if (type == interface::RtcTransportRecoveryStrategies::RECOVERY_OFF) {
     rs_ =
         std::make_shared<RecoveryStrategyRecoveryOff>(std::move(*(rs_.get())));
-  } else if (type == interface::RtcTransportRecoveryStrategies::DELAY_BASED) {
+  } else if (type == interface::RtcTransportRecoveryStrategies::DELAY_BASED ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         DELAY_AND_BESTPATH ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         DELAY_AND_REPLICATION) {
     rs_ = std::make_shared<RecoveryStrategyDelayBased>(std::move(*(rs_.get())));
-  } else if (type == interface::RtcTransportRecoveryStrategies::FEC_ONLY) {
+  } else if (type == interface::RtcTransportRecoveryStrategies::FEC_ONLY ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         FEC_ONLY_LOW_RES_LOSSES) {
     rs_ = std::make_shared<RecoveryStrategyFecOnly>(std::move(*(rs_.get())));
   } else if (type == interface::RtcTransportRecoveryStrategies::LOW_RATE ||
              type == interface::RtcTransportRecoveryStrategies::
@@ -116,14 +132,15 @@ bool RTCLossDetectionAndRecovery::onDataPacketReceived(
   uint32_t seq = content_object.getName().getSuffix();
   bool is_rtx = rs_->isRtx(seq);
   rs_->receivedPacket(seq);
+  bool ret = false;
   DLOG_IF(INFO, VLOG_IS_ON(3))
       << "received data. add from "
-      << rs_->getState()->getHighestSeqReceivedInOrder() + 1 << " to " << seq;
+      << rs_->getState()->getHighestSeqReceived() + 1 << " to " << seq;
   if (!is_rtx)
-    return detectLoss(rs_->getState()->getHighestSeqReceivedInOrder() + 1, seq,
-                      false);
+    ret = detectLoss(rs_->getState()->getHighestSeqReceived() + 1, seq, false);
 
-  return false;
+  rs_->getState()->updateHighestSeqReceived(seq);
+  return ret;
 }
 
 bool RTCLossDetectionAndRecovery::onNackPacketReceived(
@@ -141,10 +158,9 @@ bool RTCLossDetectionAndRecovery::onNackPacketReceived(
   // may got lost and we should ask them
 
   rs_->receivedPacket(seq);
-  DLOG_IF(INFO, VLOG_IS_ON(3))
-      << "received nack. add from "
-      << rs_->getState()->getHighestSeqReceivedInOrder() + 1 << " to "
-      << production_seq;
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "received nack. add from "
+                               << rs_->getState()->getHighestSeqReceived() + 1
+                               << " to " << production_seq;
 
   // if it is a future nack store it in the list set of nacked seq
   if (production_seq <= seq) rs_->receivedFutureNack(seq);
@@ -152,7 +168,7 @@ bool RTCLossDetectionAndRecovery::onNackPacketReceived(
   // call the detectLoss function using the probe flag = true. in fact the
   // losses detected using nacks are the same as the one detected using probes,
   // we should not increase the loss counter
-  return detectLoss(rs_->getState()->getHighestSeqReceivedInOrder() + 1,
+  return detectLoss(rs_->getState()->getHighestSeqReceived() + 1,
                     production_seq, true);
 }
 
@@ -164,12 +180,11 @@ bool RTCLossDetectionAndRecovery::onProbePacketReceived(
 
   uint32_t production_seq = RTCState::getProbeParams(probe).prod_seg;
 
-  DLOG_IF(INFO, VLOG_IS_ON(3))
-      << "received probe. add from "
-      << rs_->getState()->getHighestSeqReceivedInOrder() + 1 << " to "
-      << production_seq;
+  DLOG_IF(INFO, VLOG_IS_ON(3)) << "received probe. add from "
+                               << rs_->getState()->getHighestSeqReceived() + 1
+                               << " to " << production_seq;
 
-  return detectLoss(rs_->getState()->getHighestSeqReceivedInOrder() + 1,
+  return detectLoss(rs_->getState()->getHighestSeqReceived() + 1,
                     production_seq, true);
 }
 
@@ -183,8 +198,8 @@ bool RTCLossDetectionAndRecovery::detectLoss(uint32_t start, uint32_t stop,
   }
 
   // skip received or lost packets
-  if (start <= rs_->getState()->getHighestSeqReceivedInOrder()) {
-    start = rs_->getState()->getHighestSeqReceivedInOrder() + 1;
+  if (start <= rs_->getState()->getHighestSeqReceived()) {
+    start = rs_->getState()->getHighestSeqReceived() + 1;
   }
 
   bool loss_detected = false;

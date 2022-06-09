@@ -84,8 +84,9 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   void onNackPacketReceived(const core::ContentObject &nack,
                             bool compute_stats);
   void onPacketLost(uint32_t seq);
-  void onPacketRecoveredRtx(uint32_t seq);
-  void onFecPacketRecoveredRtx(uint32_t seq);
+  void onPacketRecoveredRtx(const core::ContentObject &content_object,
+                            uint64_t rtt);
+  void onFecPacketRecoveredRtx(const core::ContentObject &content_object);
   void onPacketRecoveredFec(uint32_t seq, uint32_t size);
   bool onProbePacketReceived(const core::ContentObject &probe);
   void onJumpForward(uint32_t next_seq);
@@ -114,6 +115,11 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
 
   uint64_t getMaxRTT() const {
     if (mainPathIsValid()) return main_path_->getMaxRtt();
+    return 0;
+  }
+
+  uint64_t getEdgeRtt() const {
+    if (edge_path_ != nullptr) return edge_path_->getMinRtt();
     return 0;
   }
 
@@ -149,7 +155,7 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   }
 
   uint32_t getPendingInterestNumber() const {
-    return pending_interests_.size();
+    return (uint32_t)pending_interests_.size();
   }
 
   PacketState getPacketState(uint32_t seq) {
@@ -242,6 +248,8 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   // set it as TO_BE_RECEIVED.
   void dataToBeReceived(uint32_t seq);
 
+  void updateHighestSeqReceived(uint32_t seq);
+
   // Extract RTC parameters from probes (init or RTT probes) and data packets.
   static core::ParamsRTC getProbeParams(const core::ContentObject &probe);
   static core::ParamsRTC getDataParams(const core::ContentObject &data);
@@ -259,7 +267,8 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
 
   // update stats
   void updateState();
-  void updateReceivedBytes(const core::ContentObject &content_object);
+  void updateReceivedBytes(const core::ContentObject &content_object,
+                           bool isFec);
   void updatePacketSize(const core::ContentObject &content_object);
   void updatePathStats(const core::ContentObject &content_object, bool is_nack);
   void updateLossRate(bool in_sycn);
@@ -360,7 +369,12 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
 
   // paths stats
   std::unordered_map<uint32_t, std::shared_ptr<RTCDataPath>> path_table_;
-  std::shared_ptr<RTCDataPath> main_path_;
+  std::shared_ptr<RTCDataPath> main_path_;  // this is the path that connects
+                                            // the consumer to the producer. in
+                                            // case of multipath the trasnport
+                                            // uses the most active path
+  std::shared_ptr<RTCDataPath> edge_path_;  // path to the closest cache if it
+                                            // exists
 
   // packet received
   // cache where to store info about the last MAX_CACHED_PACKETS

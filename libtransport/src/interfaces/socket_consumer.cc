@@ -102,6 +102,12 @@ int ConsumerSocket::setSocketOption(int socket_option_key,
 
 int ConsumerSocket::setSocketOption(
     int socket_option_key,
+    const std::shared_ptr<auth::Signer> &socket_option_value) {
+  return socket_->setSocketOption(socket_option_key, socket_option_value);
+}
+
+int ConsumerSocket::setSocketOption(
+    int socket_option_key,
     const std::shared_ptr<auth::Verifier> &socket_option_value) {
   return socket_->setSocketOption(socket_option_key, socket_option_value);
 }
@@ -159,6 +165,11 @@ int ConsumerSocket::getSocketOption(
 
 int ConsumerSocket::getSocketOption(int socket_option_key,
                                     IcnObserver **socket_option_value) {
+  return socket_->getSocketOption(socket_option_key, socket_option_value);
+}
+
+int ConsumerSocket::getSocketOption(
+    int socket_option_key, std::shared_ptr<auth::Signer> &socket_option_value) {
   return socket_->getSocketOption(socket_option_key, socket_option_value);
 }
 

@@ -6,7 +6,7 @@
 
 extern "C" {
 #include <hicn/core/subscription.h>
-#include <hicn/base/vector.h>
+#include <hicn/util/vector.h>
 }
 
 static inline unsigned CONN_ID = 1;

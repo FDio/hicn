@@ -28,7 +28,7 @@ namespace core {
 //  0                   1                   2                   3
 //  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-// |Version|  Type | Transport Type| Hash Algorithm|L|   Reserved  |
+// | Type  | TTYpe |  Max Capacity |   Hash Algo   |L|   Reserved  |
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 // Manifest Entry Metadata:
@@ -106,9 +106,9 @@ struct Fixed {
 
 const size_t MANIFEST_META_SIZE = 4;
 struct __attribute__((__packed__)) ManifestMeta {
-  std::uint8_t version : 4;
   std::uint8_t type : 4;
-  std::uint8_t transport_type;
+  std::uint8_t transport_type : 4;
+  std::uint8_t max_capacity;
   std::uint8_t hash_algorithm;
   std::uint8_t is_last;
 };
@@ -146,22 +146,26 @@ struct __attribute__((__packed__)) ManifestEntry {
 };
 static_assert(sizeof(ManifestEntry) == MANIFEST_ENTRY_SIZE);
 
-static const constexpr std::uint8_t manifest_version = 1;
+class FixedManifest {
+ public:
+  static size_t manifestHeaderSize(
+      interface::ProductionProtocolAlgorithms transport_type);
+  static size_t manifestPayloadSize(size_t nb_entries);
+};
 
 class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
  public:
-  FixedManifestEncoder(Packet &packet, std::size_t signature_size = 0,
-                       bool clear = true);
+  FixedManifestEncoder(Packet::Ptr packet, bool clear = false);
 
   ~FixedManifestEncoder();
 
   FixedManifestEncoder &encodeImpl();
   FixedManifestEncoder &clearImpl();
-  FixedManifestEncoder &updateImpl();
+  bool isEncodedImpl() const;
 
   // ManifestMeta
-  FixedManifestEncoder &setVersionImpl(ManifestVersion version);
   FixedManifestEncoder &setTypeImpl(ManifestType manifest_type);
+  FixedManifestEncoder &setMaxCapacityImpl(uint8_t max_capacity);
   FixedManifestEncoder &setHashAlgorithmImpl(Fixed::HashType algorithm);
   FixedManifestEncoder &setIsLastImpl(bool is_last);
 
@@ -173,20 +177,15 @@ class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
   FixedManifestEncoder &setParamsRTCImpl(const ParamsRTC &params);
 
   // ManifestEntry
-  FixedManifestEncoder &addSuffixAndHashImpl(uint32_t suffix,
-                                             const Fixed::Hash &hash);
+  FixedManifestEncoder &addEntryImpl(uint32_t suffix, const Fixed::Hash &hash);
+  FixedManifestEncoder &removeEntryImpl(uint32_t suffix);
 
-  std::size_t estimateSerializedLengthImpl(std::size_t additional_entries = 0);
-
-  static std::size_t manifestHeaderSizeImpl(
-      interface::ProductionProtocolAlgorithms transport_type =
-          interface::ProductionProtocolAlgorithms::UNKNOWN);
-  static std::size_t manifestEntrySizeImpl();
+  size_t manifestHeaderSizeImpl() const;
+  size_t manifestPayloadSizeImpl(size_t additional_entries = 0) const;
+  size_t manifestSizeImpl(size_t additional_entries = 0) const;
 
  private:
-  Packet &packet_;
-  std::size_t max_size_;
-  std::size_t signature_size_;
+  Packet::Ptr packet_;
   interface::ProductionProtocolAlgorithms transport_type_;
   bool encoded_;
 
@@ -202,17 +201,18 @@ class FixedManifestEncoder : public ManifestEncoder<FixedManifestEncoder> {
 
 class FixedManifestDecoder : public ManifestDecoder<FixedManifestDecoder> {
  public:
-  FixedManifestDecoder(Packet &packet);
+  FixedManifestDecoder(Packet::Ptr packet);
 
   ~FixedManifestDecoder();
 
-  void decodeImpl();
+  FixedManifestDecoder &decodeImpl();
   FixedManifestDecoder &clearImpl();
+  bool isDecodedImpl() const;
 
   // ManifestMeta
-  ManifestVersion getVersionImpl() const;
   ManifestType getTypeImpl() const;
   interface::ProductionProtocolAlgorithms getTransportTypeImpl() const;
+  uint8_t getMaxCapacityImpl() const;
   Fixed::HashType getHashAlgorithmImpl() const;
   bool getIsLastImpl() const;
 
@@ -224,14 +224,14 @@ class FixedManifestDecoder : public ManifestDecoder<FixedManifestDecoder> {
   ParamsRTC getParamsRTCImpl() const;
 
   // ManifestEntry
-  typename Fixed::SuffixList getSuffixHashListImpl();
+  typename Fixed::SuffixList getEntriesImpl() const;
 
-  std::size_t estimateSerializedLengthImpl(
-      std::size_t additional_entries = 0) const;
+  size_t manifestHeaderSizeImpl() const;
+  size_t manifestPayloadSizeImpl(size_t additional_entries = 0) const;
+  size_t manifestSizeImpl(size_t additional_entries = 0) const;
 
  private:
-  Packet &packet_;
-  interface::ProductionProtocolAlgorithms transport_type_;
+  Packet::Ptr packet_;
   bool decoded_;
 
   // Manifest Header

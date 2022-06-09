@@ -16,3 +16,4 @@ tests/**/*.xml
 tests/**/*.html
 tests/**/*.log
 *.tar
+**/env

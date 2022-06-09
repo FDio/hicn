@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <hicn/transport/portability/endianess.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
 #include <hicn/transport/utils/membuf.h>
 #include <protocols/fec/fec_info.h>
@@ -80,11 +81,19 @@ class RelyBase : public virtual FECBase {
    */
   class fec_metadata {
    public:
-    void setSeqNumberBase(uint32_t suffix) { seq_number = htonl(suffix); }
-    uint32_t getSeqNumberBase() const { return ntohl(seq_number); }
+    void setSeqNumberBase(uint32_t suffix) {
+      seq_number = portability::host_to_net(suffix);
+    }
+    uint32_t getSeqNumberBase() const {
+      return portability::net_to_host(seq_number);
+    }
 
-    void setMetadataBase(uint32_t value) { metadata = htonl(value); }
-    uint32_t getMetadataBase() const { return ntohl(metadata); }
+    void setMetadataBase(uint32_t value) {
+      metadata = portability::host_to_net(value);
+    }
+    uint32_t getMetadataBase() const {
+      return portability::net_to_host(metadata);
+    }
 
    private:
     uint32_t seq_number;
@@ -162,8 +171,9 @@ class RelyEncoder : RelyBase, rely::encoder, public ProducerFEC {
 
   /**
    * @brief Get the fec header size, if added to source packets
+   * there is not need to distinguish between source and FEC packets here
    */
-  std::size_t getFecHeaderSize() override {
+  std::size_t getFecHeaderSize(bool isFEC) override {
     return header_bytes() + sizeof(fec_metadata) + 4;
   }
 
@@ -184,8 +194,9 @@ class RelyDecoder : RelyBase, rely::decoder, public ConsumerFEC {
 
   /**
    * @brief Get the fec header size, if added to source packets
+   * there is not need to distinguish between source and FEC packets here
    */
-  std::size_t getFecHeaderSize() override {
+  std::size_t getFecHeaderSize(bool isFEC) override {
     return header_bytes() + sizeof(fec_metadata);
   }
 

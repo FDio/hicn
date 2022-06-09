@@ -24,7 +24,6 @@
 
 #include "forwarder.h"
 #include "listener_vft.h"
-#include "../base/loop.h"
 #include "../io/base.h"
 
 listener_key_t listener_key_factory(address_t address, face_type_t type) {
@@ -44,7 +43,8 @@ listener_t *listener_create(face_type_t type, const address_t *address,
   listener_key_t key = listener_key_factory(*address, type);
 
   listener_t *listener = listener_table_allocate(table, &key, name);
-  unsigned listener_id = listener_table_get_listener_id(table, listener);
+  unsigned listener_id =
+      (unsigned int)listener_table_get_listener_id(table, listener);
 
   int ret = listener_initialize(listener, type, name, listener_id, address,
                                 interface_name, forwarder);
@@ -194,7 +194,7 @@ unsigned listener_create_connection(listener_t *listener,
   connection_t *connection =
       connection_table_allocate(table, pair, connection_name);
   unsigned connection_id =
-      connection_table_get_connection_id(table, connection);
+      (unsigned int)connection_table_get_connection_id(table, connection);
 
   /*
    * We create a connected connection with its own fd, instead of returning
@@ -337,11 +337,10 @@ ssize_t listener_read_batch(listener_t *listener, int fd) {
 
   size_t total_processed_bytes = 0;
   ssize_t num_msg_received = 0;
-  off_t *acquired_msgbuf_ids;
-  vector_init(acquired_msgbuf_ids, MAX_MSG, 0);
 
   forwarder_t *forwarder = listener->forwarder;
   msgbuf_pool_t *msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
+  forwarder_acquired_msgbuf_ids_reset(forwarder);
 
   /* Receive messages in the loop as long as we manage to fill the buffers */
   do {
@@ -381,7 +380,7 @@ ssize_t listener_read_batch(listener_t *listener, int fd) {
       }
 
       msgbuf_pool_acquire(msgbufs[i]);
-      vector_push(acquired_msgbuf_ids, msgbuf_ids[i]);
+      forwarder_acquired_msgbuf_ids_push(forwarder, msgbuf_ids[i]);
     }
 
     if (num_msg_received < 0) break;
@@ -403,11 +402,12 @@ ssize_t listener_read_batch(listener_t *listener, int fd) {
    */
   forwarder_flush_connections(forwarder);
 
+  const off_t *acquired_msgbuf_ids =
+      forwarder_get_acquired_msgbuf_ids(forwarder);
   for (int i = 0; i < vector_len(acquired_msgbuf_ids); i++) {
     msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, acquired_msgbuf_ids[i]);
     msgbuf_pool_release(msgbuf_pool, &msgbuf);
   }
-  vector_free(acquired_msgbuf_ids);
 
   return total_processed_bytes;
 }

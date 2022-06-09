@@ -79,7 +79,7 @@ void RelyEncoder::onPacketProduced(core::ContentObject &content_object,
 
     // Check new payload size and make sure it fits in packet buffer
     auto new_payload_size = produce_bytes();
-    int difference = new_payload_size - length;
+    int difference = (int)(new_payload_size - length);
 
     DCHECK(difference > 0);
     DCHECK(content_object.ensureCapacity(difference));

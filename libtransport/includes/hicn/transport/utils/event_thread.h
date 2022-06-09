@@ -29,16 +29,16 @@ class EventThread {
   EventThread(asio::io_service& io_service, bool detached = false)
       : internal_io_service_(nullptr),
         io_service_(std::ref(io_service)),
-        work_(std::make_unique<asio::io_service::work>(io_service_)),
+        work_guard_(asio::make_work_guard(io_service_.get())),
         thread_(nullptr),
         detached_(detached) {
     run();
   }
 
-  EventThread(bool detached = false)
+  explicit EventThread(bool detached = false)
       : internal_io_service_(std::make_unique<asio::io_service>()),
         io_service_(std::ref(*internal_io_service_)),
-        work_(std::make_unique<asio::io_service::work>(io_service_)),
+        work_guard_(asio::make_work_guard(io_service_.get())),
         thread_(nullptr),
         detached_(detached) {
     run();
@@ -47,22 +47,12 @@ class EventThread {
   EventThread(const EventThread&) = delete;
   EventThread& operator=(const EventThread&) = delete;
 
-  EventThread(EventThread&& other)
+  EventThread(EventThread&& other) noexcept
       : internal_io_service_(std::move(other.internal_io_service_)),
         io_service_(std::move(other.io_service_)),
-        work_(std::move(other.work_)),
+        work_guard_(std::move(other.work_guard_)),
         thread_(std::move(other.thread_)),
-        detached_(std::move(other.detached_)) {}
-
-  EventThread& operator=(EventThread&& other) {
-    internal_io_service_ = std::move(other.internal_io_service_);
-    io_service_ = std::move(other.io_service_);
-    work_ = std::move(other.work_);
-    thread_ = std::move(other.thread_);
-    detached_ = other.detached_;
-
-    return *this;
-  }
+        detached_(other.detached_) {}
 
   ~EventThread() { stop(); }
 
@@ -89,16 +79,16 @@ class EventThread {
 
   template <typename Func>
   void add(Func&& f) {
-    io_service_.get().post(std::forward<Func&&>(f));
+    io_service_.get().post(std::forward<Func>(f));
   }
 
   template <typename Func>
   void tryRunHandlerNow(Func&& f) {
-    io_service_.get().dispatch(std::forward<Func&&>(f));
+    io_service_.get().dispatch(std::forward<Func>(f));
   }
 
   template <typename Func>
-  void addAndWaitForExecution(Func&& f) {
+  void addAndWaitForExecution(Func&& f) const {
     auto promise = std::promise<void>();
     auto future = promise.get_future();
 
@@ -111,7 +101,7 @@ class EventThread {
   }
 
   void stop() {
-    work_.reset();
+    add([this]() { work_guard_.reset(); });
 
     if (thread_ && thread_->joinable()) {
       thread_->join();
@@ -120,14 +110,14 @@ class EventThread {
     thread_.reset();
   }
 
-  bool stopped() { return io_service_.get().stopped(); }
+  bool stopped() const { return io_service_.get().stopped(); }
 
   asio::io_service& getIoService() { return io_service_; }
 
  private:
   std::unique_ptr<asio::io_service> internal_io_service_;
   std::reference_wrapper<asio::io_service> io_service_;
-  std::unique_ptr<asio::io_service::work> work_;
+  asio::executor_work_guard<asio::io_context::executor_type> work_guard_;
   std::unique_ptr<std::thread> thread_;
   bool detached_;
 };

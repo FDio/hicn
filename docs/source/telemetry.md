@@ -43,7 +43,7 @@ VPP 22.02, Debian packages can be found on
   - libvppinfra-dev
   - vpp-dev
   - hicn-plugin-dev
-- `collectd` and `collectd-dev`: `sudo apt install collectd collectd-dev`
+- `collectd` and `collectd-dev`: `sudo apt install collectd collectd-dev libyajl-dev`
 
 ## Getting started
 

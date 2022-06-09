@@ -25,7 +25,7 @@
 
 extern "C" {
 #define WITH_TESTS
-#include <hicn/base/ring.h>
+#include <hicn/util/ring.h>
 }
 
 #define DEFAULT_SIZE 10UL

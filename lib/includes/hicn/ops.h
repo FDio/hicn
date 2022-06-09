@@ -257,6 +257,45 @@ typedef struct hicn_ops_s
 		       const hicn_lifetime_t lifetime);
 
   /**
+   * @brief Get the source port of the hicn packet.
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest or Data packet
+   * @param [out] source_port - Retrieved source port
+   * @return hICN error code
+   */
+  int (*get_source_port) (hicn_type_t type, const hicn_protocol_t *h,
+			  u16 *source_port);
+
+  /**
+   * @brief Get the destination port of the hicn packet.
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest or Data packet
+   * @param [out] source_port - Retrieved destination port
+   * @return hICN error code
+   */
+  int (*get_dest_port) (hicn_type_t type, const hicn_protocol_t *h,
+			u16 *dest_port);
+
+  /**
+   * @brief Set the source port of the hicn packet.
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest or Data packet
+   * @param [out] source_port - Source port to set
+   * @return hICN error code
+   */
+  int (*set_source_port) (hicn_type_t type, hicn_protocol_t *h,
+			  u16 source_port);
+
+  /**
+   * @brief Set the destination port of the hicn packet.
+   * @param [in] type - hICN packet type
+   * @param [in] h - Buffer holding the Interest or Data packet
+   * @param [out] source_port - Destination port to set
+   * @return hICN error code
+   */
+  int (*set_dest_port) (hicn_type_t type, hicn_protocol_t *h, u16 dest_port);
+
+  /**
    * @brief Update all checksums in packet headers
    * @param [in] type - hICN packet type
    * @param [in,out] h - Buffer holding the packet
@@ -540,6 +579,10 @@ typedef struct hicn_ops_s
     ATTR_INIT (reset_data_for_hash, protocol##_reset_data_for_hash),          \
     ATTR_INIT (get_lifetime, protocol##_get_lifetime),                        \
     ATTR_INIT (set_lifetime, protocol##_set_lifetime),                        \
+    ATTR_INIT (get_source_port, protocol##_get_source_port),                  \
+    ATTR_INIT (get_dest_port, protocol##_get_dest_port),                      \
+    ATTR_INIT (set_source_port, protocol##_set_source_port),                  \
+    ATTR_INIT (set_dest_port, protocol##_set_dest_port),                      \
     ATTR_INIT (update_checksums, protocol##_update_checksums),                \
     ATTR_INIT (verify_checksums, protocol##_verify_checksums),                \
     ATTR_INIT (rewrite_interest, protocol##_rewrite_interest),                \
@@ -771,6 +814,34 @@ PAYLOAD (hicn_type_t type, const hicn_protocol_t *h)
 #define DECLARE_set_lifetime(protocol, error)                                 \
   int protocol##_set_lifetime (hicn_type_t type, hicn_protocol_t *h,          \
 			       const hicn_lifetime_t lifetime)                \
+  {                                                                           \
+    return HICN_LIB_ERROR_##error;                                            \
+  }
+
+#define DECLARE_get_source_port(protocol, error)                              \
+  int protocol##_get_source_port (hicn_type_t type, const hicn_protocol_t *h, \
+				  u16 *source_port)                           \
+  {                                                                           \
+    return HICN_LIB_ERROR_##error;                                            \
+  }
+
+#define DECLARE_get_dest_port(protocol, error)                                \
+  int protocol##_get_dest_port (hicn_type_t type, const hicn_protocol_t *h,   \
+				u16 *dest_port)                               \
+  {                                                                           \
+    return HICN_LIB_ERROR_##error;                                            \
+  }
+
+#define DECLARE_set_source_port(protocol, error)                              \
+  int protocol##_set_source_port (hicn_type_t type, hicn_protocol_t *h,       \
+				  u16 source_port)                            \
+  {                                                                           \
+    return HICN_LIB_ERROR_##error;                                            \
+  }
+
+#define DECLARE_set_dest_port(protocol, error)                                \
+  int protocol##_set_dest_port (hicn_type_t type, hicn_protocol_t *h,         \
+				u16 dest_port)                                \
   {                                                                           \
     return HICN_LIB_ERROR_##error;                                            \
   }

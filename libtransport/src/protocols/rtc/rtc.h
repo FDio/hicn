@@ -44,7 +44,7 @@ class RTCTransportProtocol : public TransportProtocol {
 
   void resume() override;
 
-  std::size_t transportHeaderLength() override;
+  std::size_t transportHeaderLength(bool isFEC) override;
 
   auto shared_from_this() { return utils::shared_from(this); }
 
@@ -69,6 +69,7 @@ class RTCTransportProtocol : public TransportProtocol {
   // packet functions
   void sendRtxInterest(uint32_t seq);
   void sendProbeInterest(uint32_t seq);
+  void sendInterestForTimeout(uint32_t seq);
   void scheduleNextInterests() override;
   void onInterestTimeout(Interest::Ptr &interest, const Name &name) override;
   void onNack(const ContentObject &content_object);

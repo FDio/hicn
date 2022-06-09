@@ -21,6 +21,8 @@
 #ifndef HICN_BASE_H
 #define HICN_BASE_H
 
+#include <stdio.h>
+#include <stdbool.h>
 #include "common.h"
 #ifdef _WIN32
 #include <Winsock2.h>
@@ -148,6 +150,16 @@ hicn_type_is_none (hicn_type_t type)
 }
 
 /**
+ * @brief hICN Packet type
+ */
+typedef enum
+{
+  HICN_PACKET_TYPE_INTEREST,
+  HICN_PACKET_TYPE_DATA,
+  HICN_PACKET_N_TYPE,
+} hicn_packet_type_t;
+
+/**
  * @brief hICN Payload type
  *
  * This type distinguishes several types of data packet, which can either carry
@@ -159,6 +171,61 @@ typedef enum
   HPT_MANIFEST = 1,
   HPT_UNSPEC = 999
 } hicn_payload_type_t;
+
+/***************************************************************
+ * Interest Manifest
+ ***************************************************************/
+
+#define MAX_SUFFIXES_IN_MANIFEST 255
+#define WORD_WIDTH		 (sizeof (uint32_t) * 8)
+#define BITMAP_SIZE		 ((MAX_SUFFIXES_IN_MANIFEST + 1) / WORD_WIDTH)
+
+typedef struct
+{
+  /* This can be 16 bits, but we use 32 bits for alignment */
+  uint32_t n_suffixes;
+
+  uint32_t request_bitmap[BITMAP_SIZE];
+
+  /* Followed by the list of prefixes to ask */
+  /* ... */
+} interest_manifest_header_t;
+
+// Bitmap operations
+
+static inline void
+set_bit (uint32_t *bitmap, int i)
+{
+  size_t offset = i / WORD_WIDTH;
+  size_t pos = i % WORD_WIDTH;
+  bitmap[offset] |= ((uint32_t) 1 << pos);
+}
+
+static inline void
+unset_bit (uint32_t *bitmap, int i)
+{
+  size_t offset = i / WORD_WIDTH;
+  size_t pos = i % WORD_WIDTH;
+  bitmap[offset] &= ~((uint32_t) 1 << pos);
+}
+
+static inline bool
+is_bit_set (const uint32_t *bitmap, int i)
+{
+  size_t offset = i / WORD_WIDTH;
+  size_t pos = i % WORD_WIDTH;
+  return bitmap[offset] & ((uint32_t) 1 << pos);
+}
+
+static inline void
+bitmap_print (u32 *bitmap, size_t n_words)
+{
+  for (size_t word = 0; word < n_words; word++)
+    {
+      for (int bit = 31; bit >= 0; bit--)
+	(is_bit_set (&bitmap[word], bit)) ? printf ("1") : printf ("0");
+    }
+}
 
 /**
  * @brief Path label computations
@@ -193,6 +260,79 @@ update_pathlabel (hicn_pathlabel_t current_label, hicn_faceid_t face_id,
     ((current_label << 1) | (current_label >> (HICN_PATH_LABEL_SIZE - 1))) ^
     pl_face_id;
 }
+
+/***************************************************************
+ * Statistics
+ ***************************************************************/
+
+typedef struct
+{
+  // Packets processed
+  uint32_t countReceived; // Interest and data only
+  uint32_t countInterestsReceived;
+  uint32_t countObjectsReceived;
+
+  // Packets Dropped
+  uint32_t countDropped;
+  uint32_t countInterestsDropped;
+  uint32_t countObjectsDropped;
+  uint32_t countOtherDropped;
+
+  // Forwarding
+  uint32_t countInterestForwarded;
+  uint32_t countObjectsForwarded;
+
+  // Errors while forwarding
+  uint32_t countDroppedConnectionNotFound;
+  uint32_t countSendFailures;
+  uint32_t countDroppedNoRoute;
+
+  // Interest processing
+  uint32_t countInterestsAggregated;
+  uint32_t countInterestsRetransmitted;
+  uint32_t countInterestsSatisfiedFromStore;
+  uint32_t countInterestsExpired;
+
+  // Data processing
+  uint32_t countDroppedNoReversePath;
+  uint32_t countDataExpired;
+
+  // TODO(eloparco): Currently not used
+  // uint32_t countDroppedNoHopLimit;
+  // uint32_t countDroppedZeroHopLimitFromRemote;
+  // uint32_t countDroppedZeroHopLimitToRemote;
+} forwarder_stats_t;
+
+typedef struct
+{
+  uint32_t n_pit_entries;
+  uint32_t n_cs_entries;
+  uint32_t n_lru_evictions;
+} pkt_cache_stats_t;
+
+typedef struct
+{
+  forwarder_stats_t forwarder;
+  pkt_cache_stats_t pkt_cache;
+} hicn_light_stats_t;
+
+typedef struct
+{
+  struct
+  {
+    uint32_t rx_pkts;
+    uint32_t rx_bytes;
+    uint32_t tx_pkts;
+    uint32_t tx_bytes;
+  } interests;
+  struct
+  {
+    uint32_t rx_pkts;
+    uint32_t rx_bytes;
+    uint32_t tx_pkts;
+    uint32_t tx_bytes;
+  } data;
+} connection_stats_t;
 
 #endif /* HICN_BASE_H */
 

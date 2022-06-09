@@ -95,7 +95,7 @@ class Portal : private utils::NonCopyable {
    * parameter. Otherwise ConsumerCallback::onTimeout will be used.
    */
   void sendInterest(
-      core::Interest::Ptr &&interest,
+      core::Interest::Ptr &interest, uint32_t lifetime,
       OnContentObjectCallback &&on_content_object_callback = UNSET_CALLBACK,
       OnInterestTimeoutCallback &&on_interest_timeout_callback =
           UNSET_CALLBACK);
