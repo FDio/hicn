@@ -146,7 +146,8 @@ void BlockCode::encode() {
   DLOG_IF(INFO, VLOG_IS_ON(4))
       << "Calling encode with max_buffer_size_ = " << max_buffer_size_;
   for (uint32_t i = k_; i < n_; i++) {
-    fec_encode(code_, data, data[i], i, max_buffer_size_ + METADATA_BYTES);
+    fec_encode(code_, data, data[i], i,
+               (int)(max_buffer_size_ + METADATA_BYTES));
   }
 
   // Re-include header in repair packets
@@ -213,7 +214,8 @@ void BlockCode::decode() {
   DLOG_IF(INFO, VLOG_IS_ON(4))
       << "Calling decode with max_buffer_size_ = " << max_buffer_size_;
 
-  fec_decode(code_, data, reinterpret_cast<int *>(index), max_buffer_size_);
+  fec_decode(code_, data, reinterpret_cast<int *>(index),
+             (int)max_buffer_size_);
 
   // Find the index in the block for recovered packets
   for (uint32_t i = 0, j = 0; i < k_; i++) {
@@ -228,6 +230,7 @@ void BlockCode::decode() {
     auto &packet = operator[](i).getBuffer();
     fec_metadata *metadata = reinterpret_cast<fec_metadata *>(
         packet->writableData() + max_buffer_size_ - METADATA_BYTES);
+    DCHECK(metadata->getPacketLength() <= packet->capacity());
     // Adjust buffer length
     packet->setLength(metadata->getPacketLength());
     // Adjust metadata

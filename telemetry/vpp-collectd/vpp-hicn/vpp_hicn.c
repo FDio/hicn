@@ -13,13 +13,14 @@
  * limitations under the License.
  */
 
-/* Keep order as it is */
-#include "common.h"
-#include <config.h>
+#include "../../data_model.h"
+#include "collectd.h"
+#include "plugin.h"
+#include "utils/common/common.h"
 
 #define counter_t vpp_counter_t
+#include <hicn/vapi/vapi_safe.h>
 #include <vapi/hicn.api.vapi.h>
-#include <vapi/vapi_safe.h>
 #undef counter_t
 
 DEFINE_VAPI_MSG_IDS_HICN_API_JSON
@@ -33,140 +34,6 @@ static const char *config_keys[2] = {
 static int config_keys_num = STATIC_ARRAY_SIZE(config_keys);
 static bool verbose = false;
 static char *tag = NULL;
-
-/************** DATA SOURCES ******************************/
-static data_source_t packets_dsrc[1] = {
-    {"packets", DS_TYPE_GAUGE, 0, NAN},
-};
-
-static data_source_t interests_dsrc[1] = {
-    {"interests", DS_TYPE_GAUGE, 0, NAN},
-};
-
-static data_source_t data_dsrc[1] = {
-    {"data", DS_TYPE_GAUGE, 0, NAN},
-};
-
-static data_source_t combined_dsrc[2] = {
-    {"packets", DS_TYPE_DERIVE, 0, NAN},
-    {"bytes", DS_TYPE_DERIVE, 0, NAN},
-};
-
-/************** DATA SETS NODE ****************************/
-static data_set_t pkts_processed_ds = {
-    "pkts_processed",
-    STATIC_ARRAY_SIZE(packets_dsrc),
-    packets_dsrc,
-};
-
-static data_set_t pkts_interest_count_ds = {
-    "pkts_interest_count",
-    STATIC_ARRAY_SIZE(packets_dsrc),
-    packets_dsrc,
-};
-
-static data_set_t pkts_data_count_ds = {
-    "pkts_data_count",
-    STATIC_ARRAY_SIZE(packets_dsrc),
-    packets_dsrc,
-};
-
-static data_set_t pkts_from_cache_count_ds = {
-    "pkts_from_cache_count",
-    STATIC_ARRAY_SIZE(packets_dsrc),
-    packets_dsrc,
-};
-
-static data_set_t pkts_no_pit_count_ds = {
-    "pkts_no_pit_count",
-    STATIC_ARRAY_SIZE(packets_dsrc),
-    packets_dsrc,
-};
-
-static data_set_t pit_expired_count_ds = {
-    "pit_expired_count",
-    STATIC_ARRAY_SIZE(interests_dsrc),
-    interests_dsrc,
-};
-
-static data_set_t cs_expired_count_ds = {
-    "cs_expired_count",
-    STATIC_ARRAY_SIZE(data_dsrc),
-    data_dsrc,
-};
-
-static data_set_t cs_lru_count_ds = {
-    "cs_lru_count",
-    STATIC_ARRAY_SIZE(data_dsrc),
-    data_dsrc,
-};
-
-static data_set_t pkts_drop_no_buf_ds = {
-    "pkts_drop_no_buf",
-    STATIC_ARRAY_SIZE(packets_dsrc),
-    packets_dsrc,
-};
-
-static data_set_t interests_aggregated_ds = {
-    "interests_aggregated",
-    STATIC_ARRAY_SIZE(interests_dsrc),
-    interests_dsrc,
-};
-
-static data_set_t interests_retx_ds = {
-    "interests_retx",
-    STATIC_ARRAY_SIZE(interests_dsrc),
-    interests_dsrc,
-};
-
-static data_set_t interests_hash_collision_ds = {
-    "interests_hash_collision",
-    STATIC_ARRAY_SIZE(interests_dsrc),
-    interests_dsrc,
-};
-
-static data_set_t pit_entries_count_ds = {
-    "pit_entries_count",
-    STATIC_ARRAY_SIZE(interests_dsrc),
-    interests_dsrc,
-};
-
-static data_set_t cs_entries_count_ds = {
-    "cs_entries_count",
-    STATIC_ARRAY_SIZE(data_dsrc),
-    data_dsrc,
-};
-
-static data_set_t cs_entries_ntw_count_ds = {
-    "cs_entries_ntw_count",
-    STATIC_ARRAY_SIZE(data_dsrc),
-    data_dsrc,
-};
-
-/************** DATA SETS FACE ****************************/
-static data_set_t irx_ds = {
-    "irx",
-    STATIC_ARRAY_SIZE(combined_dsrc),
-    combined_dsrc,
-};
-
-static data_set_t itx_ds = {
-    "itx",
-    STATIC_ARRAY_SIZE(combined_dsrc),
-    combined_dsrc,
-};
-
-static data_set_t drx_ds = {
-    "drx",
-    STATIC_ARRAY_SIZE(combined_dsrc),
-    combined_dsrc,
-};
-
-static data_set_t dtx_ds = {
-    "dtx",
-    STATIC_ARRAY_SIZE(combined_dsrc),
-    combined_dsrc,
-};
 
 /**********************************************************/
 /********** UTILITY FUNCTIONS *****************************/
@@ -189,8 +56,7 @@ static int submit(const char *plugin_instance, const char *type,
   sstrncpy(vl.plugin_instance, plugin_instance, sizeof(vl.plugin_instance));
   sstrncpy(vl.type, type, sizeof(vl.type));
 
-  if (tag != NULL)
-    sstrncpy(vl.type_instance, tag, sizeof(vl.type_instance));
+  if (tag != NULL) sstrncpy(vl.type_instance, tag, sizeof(vl.type_instance));
 
   return plugin_dispatch_values(&vl);
 }
@@ -223,15 +89,12 @@ static int vpp_hicn_config(const char *key, const char *value) {
 /*
  * Callback called by the hICN plugin API when node stats are ready.
  */
-static vapi_error_e
-parse_node_stats(vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv,
-                 bool is_last,
-                 vapi_payload_hicn_api_node_stats_get_reply *reply) {
-  if (reply == NULL || rv != VAPI_OK)
-    return rv;
+static vapi_error_e parse_node_stats(
+    vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv, bool is_last,
+    vapi_payload_hicn_api_node_stats_get_reply *reply) {
+  if (reply == NULL || rv != VAPI_OK) return rv;
 
-  if (reply->retval != VAPI_OK)
-    return reply->retval;
+  if (reply->retval != VAPI_OK) return reply->retval;
 
   char *node_name = "node";
   value_t values[1];
@@ -277,15 +140,12 @@ parse_node_stats(vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv,
 /*
  * Callback called by the hICN plugin API when face stats are ready.
  */
-static vapi_error_e
-parse_face_stats(vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv,
-                 bool is_last,
-                 vapi_payload_hicn_api_face_stats_details *reply) {
-  if (reply == NULL || rv != VAPI_OK)
-    return rv;
+static vapi_error_e parse_face_stats(
+    vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv, bool is_last,
+    vapi_payload_hicn_api_face_stats_details *reply) {
+  if (reply == NULL || rv != VAPI_OK) return rv;
 
-  if (reply->retval != VAPI_OK)
-    return reply->retval;
+  if (reply->retval != VAPI_OK) return reply->retval;
 
   char face_name[10];
   snprintf(face_name, 10, "face%u", reply->faceid);
@@ -314,8 +174,7 @@ parse_face_stats(vapi_ctx_t ctx, void *callback_ctx, vapi_error_e rv,
 static int vpp_hicn_init(void) {
   int ret = vapi_connect_safe(&vapi_ctx, 0);
 
-  if (ret)
-    plugin_log(LOG_ERR, "vpp_hicn plugin: vapi_connect_safe failed");
+  if (ret) plugin_log(LOG_ERR, "vpp_hicn plugin: vapi_connect_safe failed");
 
   return ret;
 }

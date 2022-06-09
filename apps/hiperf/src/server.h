@@ -21,9 +21,7 @@ namespace hiperf {
 
 class HIperfServer {
  public:
-  HIperfServer(const ServerConfiguration &conf);
-  HIperfServer(HIperfServer &&other);
-  HIperfServer &operator=(HIperfServer &&other);
+  explicit HIperfServer(const ServerConfiguration &conf);
 
   ~HIperfServer();
   int setup();
@@ -31,7 +29,7 @@ class HIperfServer {
 
  private:
   class Impl;
-  Impl *impl_;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace hiperf

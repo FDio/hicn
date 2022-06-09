@@ -14,12 +14,12 @@
  */
 
 #include <core/global_configuration.h>
+#include <core/global_id_counter.h>
 #include <core/local_connector.h>
 #include <core/udp_connector.h>
 #include <core/udp_listener.h>
 #include <glog/logging.h>
 #include <io_modules/forwarder/forwarder.h>
-#include <io_modules/forwarder/global_id_counter.h>
 
 namespace transport {
 
@@ -90,11 +90,13 @@ Connector::Id Forwarder::registerLocalConnector(
     asio::io_service &io_service,
     Connector::PacketReceivedCallback &&receive_callback,
     Connector::PacketSentCallback &&sent_callback,
+    Connector::OnCloseCallback &&close_callback,
     Connector::OnReconnectCallback &&reconnect_callback) {
   utils::SpinLock::Acquire locked(connector_lock_);
   auto id = GlobalCounter<Connector::Id>::getInstance().getNext();
   auto connector = std::make_shared<LocalConnector>(
-      io_service, receive_callback, sent_callback, nullptr, reconnect_callback);
+      io_service, std::move(receive_callback), std::move(sent_callback),
+      std::move(close_callback), std::move(reconnect_callback));
   connector->setConnectorId(id);
   local_connectors_.emplace(id, std::move(connector));
   return id;
@@ -150,34 +152,13 @@ void Forwarder::onPacketReceived(Connector *connector,
     return;
   }
 
-  for (auto &packet_buffer_ptr : packets) {
-    auto &packet_buffer = *packet_buffer_ptr;
-
-    // Figure out the type of packet we received
-    bool is_interest = Packet::isInterest(packet_buffer.data());
-
-    Packet *packet = nullptr;
-    if (is_interest) {
-      packet = static_cast<Interest *>(&packet_buffer);
-    } else {
-      packet = static_cast<ContentObject *>(&packet_buffer);
-    }
-
-    for (auto &c : local_connectors_) {
-      auto role = c.second->getRole();
-      auto is_producer = role == Connector::Role::PRODUCER;
-      if ((is_producer && is_interest) || (!is_producer && !is_interest)) {
-        c.second->send(*packet);
-      } else {
-        LOG(ERROR) << "Error sending packet to local connector. is_interest = "
-                   << is_interest << " - is_producer = " << is_producer;
-      }
-    }
-
-    // PCS Lookup + FIB lookup. Skip for now
-
-    // Forward packet to local connectors
+  for (auto &c : local_connectors_) {
+    c.second->receive(packets);
   }
+
+  // PCS Lookup + FIB lookup. Skip for now
+
+  // Forward packet to local connectors
 }
 
 void Forwarder::send(Packet &packet) {

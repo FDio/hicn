@@ -25,6 +25,7 @@
 #include "../config/parse.h"
 #include <hicn/util/log.h>
 #include <hicn/util/sstrncpy.h>
+#include <hicn/ctrl/hicn-light-ng.h>
 
 #define PORT 9695
 
@@ -358,6 +359,70 @@ int main(int argc, char *const *argv) {
       INFO("Unsubscribing...");
       rc = hc_subscription_delete(s, &command.object.subscription);
       break;
+
+    case OBJECT_STATS:
+      switch (command.action) {
+        case ACTION_GET:
+          rc = hc_stats_get(s, &data);
+          if (rc < 0) break;
+
+          hc_stats_snprintf(buf, MAX_LEN, (hicn_light_stats_t *)data->buffer);
+          INFO("\n%s", buf);
+          break;
+
+        case ACTION_LIST:
+          rc = hc_stats_list(s, &data);
+          if (rc < 0) break;
+
+          cmd_stats_list_item_t *conn_stats =
+              (cmd_stats_list_item_t *)data->buffer;
+          cmd_stats_list_item_t *end =
+              (cmd_stats_list_item_t *)(data->buffer +
+                                        data->size * data->out_element_size);
+          while (conn_stats < end) {
+            INFO("Connection #%d:", conn_stats->id);
+            INFO("\tinterests received: %d pkts (%d bytes)",
+                 conn_stats->stats.interests.rx_pkts,
+                 conn_stats->stats.interests.rx_bytes);
+            INFO("\tinterests transmitted: %d pkts (%d bytes)",
+                 conn_stats->stats.interests.tx_pkts,
+                 conn_stats->stats.interests.tx_bytes);
+            INFO("\tdata received: %d pkts (%d bytes)",
+                 conn_stats->stats.data.rx_pkts,
+                 conn_stats->stats.data.rx_bytes);
+            INFO("\tdata transmitted: %d pkts (%d bytes)",
+                 conn_stats->stats.data.tx_pkts,
+                 conn_stats->stats.data.tx_bytes);
+
+            conn_stats++;
+          }
+          break;
+
+        default:
+          break;
+      }
+      break;
+
+#ifdef TEST_FACE_CREATION
+    case OBJECT_FACE:
+      switch (command.action) {
+        case ACTION_CREATE: {
+          hc_face_t face = {0};
+          face.face.type = FACE_TYPE_UDP;
+          face.face.family = AF_INET;
+          face.face.local_addr = IPV4_LOOPBACK;
+          face.face.remote_addr = IPV4_LOOPBACK;
+          face.face.local_port = 9696;
+          face.face.remote_port = 9696;
+
+          rc = hc_face_create(s, &face);
+          break;
+        }
+        default:
+          break;
+      }
+      break;
+#endif
 
     default:
       break;

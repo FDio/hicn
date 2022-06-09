@@ -84,6 +84,7 @@ typedef struct {
    */
   struct wldr_s* wldr;
 
+  connection_stats_t stats;
 } connection_t;
 
 #if 1
@@ -209,10 +210,9 @@ int connection_finalize(connection_t* connection);
 int connection_send_packet(const connection_t* connection,
                            const uint8_t* packet, size_t size);
 
-bool connection_flush(const connection_t* connection);
+bool connection_flush(connection_t* connection);
 
-bool connection_send(const connection_t* connection, off_t msgbuf_id,
-                     bool queue);
+bool connection_send(connection_t* connection, off_t msgbuf_id, bool queue);
 
 size_t connection_process_buffer(connection_t* connection,
                                  const uint8_t* buffer, size_t size);

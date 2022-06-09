@@ -440,7 +440,7 @@ GENERATE_FIND(connection);
 /* CONNECTION VALIDATE */
 
 int hc_connection_validate(const hc_connection_t *connection) {
-  if (!IS_VALID_NAME(connection->name)) {
+  if (connection->name[0] != '\0' && !IS_VALID_NAME(connection->name)) {
     ERROR("[hc_connection_validate] Invalid name specified");
     return -1;
   }
@@ -1060,6 +1060,28 @@ int hc_cache_snprintf(char *s, size_t size, const hc_cache_info_t *cache_info) {
       (unsigned long)cache_info->num_stale_entries);
 }
 
+int hc_stats_snprintf(char *s, size_t size, const hicn_light_stats_t *stats) {
+  return snprintf(
+      s, size,
+      "pkts processed: %u\n\tinterests: %u\n\t"
+      "data: %u\npkts from cache count: %u\npkts no pit count: "
+      "%u\nexpired:\n\t interests: "
+      "%u\n\t data: %u\ninterests aggregated: "
+      "%u\nlru evictions: "
+      "%u\ndropped: "
+      "%u\ninterests retx: "
+      "%u\npit entries: %u\ncs entries: %u",
+      stats->forwarder.countReceived, stats->forwarder.countInterestsReceived,
+      stats->forwarder.countObjectsReceived,
+      stats->forwarder.countInterestsSatisfiedFromStore,
+      stats->forwarder.countDroppedNoReversePath,
+      stats->forwarder.countInterestsExpired, stats->forwarder.countDataExpired,
+      stats->pkt_cache.n_lru_evictions, stats->forwarder.countDropped,
+      stats->forwarder.countInterestsAggregated,
+      stats->forwarder.countInterestsRetransmitted,
+      stats->pkt_cache.n_pit_entries, stats->pkt_cache.n_cs_entries);
+}
+
 /*----------------------------------------------------------------------------*
  * Strategy
  *----------------------------------------------------------------------------*/
@@ -1158,6 +1180,17 @@ hc_result_t *hc_subscription_create_conf(hc_sock_t *s,
 hc_result_t *hc_subscription_delete_conf(hc_sock_t *s,
                                          hc_subscription_t *subscription) {
   return s->hc_subscription_delete_conf(s, subscription);
+}
+
+/*----------------------------------------------------------------------------*
+ * STATISTICS
+ *----------------------------------------------------------------------------*/
+int hc_stats_get(hc_sock_t *s, hc_data_t **pdata) {
+  return s->hc_stats_get(s, pdata);
+}
+
+int hc_stats_list(hc_sock_t *s, hc_data_t **pdata) {
+  return s->hc_stats_list(s, pdata);
 }
 
 /*----------------------------------------------------------------------------*

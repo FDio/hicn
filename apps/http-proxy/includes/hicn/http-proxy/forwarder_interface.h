@@ -23,8 +23,16 @@ extern "C" {
 #ifndef ASIO_STANDALONE
 #define ASIO_STANDALONE 1
 #endif
+
+#ifdef __APPLE__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshorten-64-to-32"
+#endif
 #include <asio.hpp>
 #include <asio/steady_timer.hpp>
+#ifdef __APPLE__
+#pragma clang diagnostic pop
+#endif
 #include <functional>
 #include <thread>
 #include <unordered_map>

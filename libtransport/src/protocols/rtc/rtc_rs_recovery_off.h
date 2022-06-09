@@ -26,6 +26,7 @@ class RecoveryStrategyRecoveryOff : public RecoveryStrategy {
  public:
   RecoveryStrategyRecoveryOff(Indexer *indexer, SendRtxCallback &&callback,
                               asio::io_service &io_service,
+                              interface::RtcTransportRecoveryStrategies rs_type,
                               interface::StrategyCallback &&external_callback);
 
   RecoveryStrategyRecoveryOff(RecoveryStrategy &&rs);

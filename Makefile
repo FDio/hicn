@@ -47,15 +47,18 @@ endif
 DEB_DEPENDS  = cmake ninja-build unzip python3-ply libasio-dev
 DEB_DEPENDS += libconfig-dev libconfig++-dev libevent-dev
 DEB_DEPENDS += build-essential vpp-dev libvppinfra-dev
-DEB_DEPENDS += vpp-plugin-core libcurl4-openssl-dev
+DEB_DEPENDS += vpp-plugin-core libcurl4-openssl-dev libssl-dev
 DEB_DEPENDS += doxygen
 
-MACOS_DEPENDS = asio libconfig ninja
+DEBUG_DEPENDS = iproute2 iperf3 iputils-ping tcpdump gdb
+
+MACOS_DEPENDS = asio libconfig ninja openssl@1.1
 
 .PHONY = help
 help:
 	@echo "Targets"
 	@echo " dep                 - install software dependencies"
+	@echo " debug-tools         - install debug dependencies"
 	@echo " build               - build debug binaries. Optional argument: INSTALL_DIR"
 	@echo " build-release       - build release binaries"
 	@echo " build-coverage      - build with coverage metainformation"
@@ -96,6 +99,10 @@ endif
 
 .PHONY = deps
 deps: dep
+
+.PHONY = debug-tools
+debug-tools:
+	@sudo -E apt-get $(APT_ARGS) -y install $(DEBUG_DEPENDS) --no-install-recommends
 
 define build_folder
 	$(eval LOWER_BUILDTYPE=$(shell echo $(2) | tr A-Z a-z))

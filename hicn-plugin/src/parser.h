@@ -25,93 +25,149 @@
  * @file parser.h
  */
 
-/*
- * Key type codes for header, header tlvs, body tlvs, and child tlvs
- */
-
-// FIXME(reuse lib struct, no more control ?)
-enum hicn_pkt_type_e
-{
-  HICN_PKT_TYPE_INTEREST = 0,
-  HICN_PKT_TYPE_CONTENT = 1,
-};
-
 /**
- * @brief Parse an interest packet
+ * @brief Parse a interest packet
  *
  * @param pkt vlib buffer holding the interest
- * @param name return variable that will point to the hicn name
- * @param namelen return valiable that will hold the length of the name
- * @param pkt_hdrp return valiable that will point to the packet header
- * @param isv6 return variable that will be equale to 1 is the header is ipv6
+ * @param name [RETURNED] variable that will point to the hicn name
+ * @param namelen [RETURNED] variable that will hold the length of the name
+ * @param port [RETURNED] variable that will hold the source port of the packet
+ * @param pkt_hdrp [RETURNED] valiable that will point to the packet header
+ * @param isv6 [RETURNED] variable that will be equale to 1 is the header is
+ * ipv6
  */
 always_inline int
-hicn_interest_parse_pkt (vlib_buffer_t *pkt, hicn_name_t *name, u16 *namelen,
-			 hicn_header_t **pkt_hdrp, u8 *isv6)
+hicn_interest_parse_pkt (vlib_buffer_t *pkt)
 {
   if (pkt == NULL)
     return HICN_ERROR_PARSER_PKT_INVAL;
-  hicn_header_t *pkt_hdr = vlib_buffer_get_current (pkt);
-  *pkt_hdrp = pkt_hdr;
-  u8 *ip_pkt = vlib_buffer_get_current (pkt);
-  *isv6 = hicn_is_v6 (pkt_hdr);
-  u8 ip_proto = (*isv6) * IPPROTO_IPV6;
-  u8 next_proto_offset = 6 + (1 - *isv6) * 3;
-  // in the ipv6 header the next header field is at byte 6
-  // in the ipv4 header the protocol field is at byte 9
-  hicn_type_t type =
-    (hicn_type_t){ { .l4 = IPPROTO_NONE,
-		     .l3 = ip_pkt[next_proto_offset] == IPPROTO_UDP ?
-				   IPPROTO_ENCAP :
-				   IPPROTO_NONE,
-		     .l2 = ip_pkt[next_proto_offset],
-		     .l1 = ip_proto } };
+
+  int ret = HICN_LIB_ERROR_NONE;
+
+  hicn_header_t *pkt_hdr;
+  u8 *ip_pkt;
+  u8 ip_proto;
+  u8 next_proto_offset;
+  hicn_type_t type;
+  hicn_name_t *name;
+  u16 *port;
+  int isv6;
+
+  // start parsing first fields to get the protocols
+  pkt_hdr = vlib_buffer_get_current (pkt);
+  isv6 = hicn_is_v6 (pkt_hdr);
+
+  ip_pkt = vlib_buffer_get_current (pkt);
+  ip_proto = (1 - isv6) * IPPROTO_IP + (isv6) *IPPROTO_IPV6;
+
+  // in the ipv6 header the next header field is at byte 6 in the ipv4
+  // header the protocol field is at byte 9
+  next_proto_offset = 6 + (1 - isv6) * 3;
+
+  // get type info
+  type.l4 = IPPROTO_NONE;
+  type.l3 =
+    ip_pkt[next_proto_offset] == IPPROTO_UDP ? IPPROTO_ENCAP : IPPROTO_NONE;
+  type.l2 = ip_pkt[next_proto_offset];
+  type.l1 = ip_proto;
+
+  // cache hicn packet type in opaque2
   hicn_get_buffer (pkt)->type = type;
 
-  hicn_ops_vft[type.l1]->get_interest_name (type, &pkt_hdr->protocol, name);
-  *namelen = (1 - (*isv6)) * HICN_V4_NAME_LEN + (*isv6) * HICN_V6_NAME_LEN;
+  // get name and name length
+  name = &hicn_get_buffer (pkt)->name;
+  ret =
+    hicn_ops_vft[type.l1]->get_interest_name (type, &pkt_hdr->protocol, name);
+  if (PREDICT_FALSE (ret))
+    {
+      if (type.l2 == IPPROTO_ICMPV4 || type.l2 == IPPROTO_ICMPV6)
+	{
+	  return HICN_ERROR_PARSER_MAPME_PACKET;
+	}
+      return HICN_ERROR_PARSER_PKT_INVAL;
+    }
 
-  return HICN_ERROR_NONE;
+  // get source port
+  port = &hicn_get_buffer (pkt)->port;
+  hicn_ops_vft[type.l1]->get_source_port (type, &pkt_hdr->protocol, port);
+  if (PREDICT_FALSE (ret))
+    {
+      return HICN_ERROR_PARSER_PKT_INVAL;
+    }
+
+  return ret;
 }
 
 /**
  * @brief Parse a data packet
  *
- * @param pkt vlib buffer holding the interest
- * @param name return variable that will point to the hicn name
- * @param namelen return valiable that will hold the length of the name
- * @param pkt_hdrp return valiable that will point to the packet header
- * @param isv6 return variable that will be equale to 1 is the header is ipv6
+ * @param pkt vlib buffer holding the data
+ * @param name [RETURNED] variable that will point to the hicn name
+ * @param namelen [RETURNED] variable that will hold the length of the name
+ * @param port [RETURNED] variable that will hold the source port of the packet
+ * @param pkt_hdrp [RETURNED] valiable that will point to the packet header
+ * @param isv6 [RETURNED] variable that will be equale to 1 is the header is
+ * ipv6
  */
 always_inline int
-hicn_data_parse_pkt (vlib_buffer_t *pkt, hicn_name_t *name, u16 *namelen,
-		     hicn_header_t **pkt_hdrp, u8 *isv6)
+hicn_data_parse_pkt (vlib_buffer_t *pkt)
 {
   if (pkt == NULL)
     return HICN_ERROR_PARSER_PKT_INVAL;
-  hicn_header_t *pkt_hdr = vlib_buffer_get_current (pkt);
-  *pkt_hdrp = pkt_hdr;
-  *pkt_hdrp = pkt_hdr;
-  u8 *ip_pkt = vlib_buffer_get_current (pkt);
-  *isv6 = hicn_is_v6 (pkt_hdr);
-  u8 ip_proto = (*isv6) * IPPROTO_IPV6;
-  /*
-   * in the ipv6 header the next header field is at byte 6 in the ipv4
-   * header the protocol field is at byte 9
-   */
-  u8 next_proto_offset = 6 + (1 - *isv6) * 3;
-  hicn_type_t type =
-    (hicn_type_t){ { .l4 = IPPROTO_NONE,
-		     .l3 = ip_pkt[next_proto_offset] == IPPROTO_UDP ?
-				   IPPROTO_ENCAP :
-				   IPPROTO_NONE,
-		     .l2 = ip_pkt[next_proto_offset],
-		     .l1 = ip_proto } };
-  hicn_get_buffer (pkt)->type = type;
-  hicn_ops_vft[type.l1]->get_data_name (type, &pkt_hdr->protocol, name);
-  *namelen = (1 - (*isv6)) * HICN_V4_NAME_LEN + (*isv6) * HICN_V6_NAME_LEN;
 
-  return HICN_ERROR_NONE;
+  int ret = HICN_LIB_ERROR_NONE;
+
+  hicn_header_t *pkt_hdr;
+  u8 *ip_pkt;
+  u8 ip_proto;
+  int isv6;
+  u8 next_proto_offset;
+  hicn_type_t type;
+  hicn_name_t *name;
+  u16 *port;
+
+  // start parsing first fields to get the protocols
+  pkt_hdr = vlib_buffer_get_current (pkt);
+  isv6 = hicn_is_v6 (pkt_hdr);
+
+  ip_pkt = vlib_buffer_get_current (pkt);
+  ip_proto = (1 - isv6) * IPPROTO_IP + (isv6) *IPPROTO_IPV6;
+
+  // in the ipv6 header the next header field is at byte 6 in the ipv4
+  // header the protocol field is at byte 9
+  next_proto_offset = 6 + (1 - isv6) * 3;
+
+  // get type info
+  type.l4 = IPPROTO_NONE;
+  type.l3 =
+    ip_pkt[next_proto_offset] == IPPROTO_UDP ? IPPROTO_ENCAP : IPPROTO_NONE;
+  type.l2 = ip_pkt[next_proto_offset];
+  type.l1 = ip_proto;
+
+  // cache hicn packet type in opaque2
+  hicn_get_buffer (pkt)->type = type;
+
+  // get name and name length
+  name = &hicn_get_buffer (pkt)->name;
+  ret = hicn_ops_vft[type.l1]->get_data_name (type, &pkt_hdr->protocol, name);
+  if (PREDICT_FALSE (ret))
+    {
+      if (type.l2 == IPPROTO_ICMPV4 || type.l2 == IPPROTO_ICMPV6)
+	{
+	  return HICN_ERROR_PARSER_MAPME_PACKET;
+	}
+      return HICN_ERROR_PARSER_PKT_INVAL;
+    }
+
+  // get source port
+  port = &hicn_get_buffer (pkt)->port;
+  hicn_ops_vft[type.l1]->get_source_port (type, &pkt_hdr->protocol, port);
+  if (PREDICT_FALSE (ret))
+    {
+      return HICN_ERROR_PARSER_PKT_INVAL;
+    }
+
+  return ret;
 }
 
 #endif /* // __HICN_PARSER_H__ */

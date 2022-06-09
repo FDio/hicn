@@ -48,12 +48,18 @@ set(LIBHICN_HEADER_FILES_PROTOCOL
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/udp.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/protocol/new.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/array.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/bitmap.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/hash.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/ip_address.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/khash.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/log.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/map.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/pool.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/ring.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/set.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/sstrncpy.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/token.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/types.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn/util/vector.h
   PARENT_SCOPE
 )

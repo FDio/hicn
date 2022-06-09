@@ -15,6 +15,7 @@
 
 #include <glog/logging.h>
 #include <hicn/transport/auth/signer.h>
+#include <hicn/transport/core/interest.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
 
 #include "hicn/transport/core/global_object_pool.h"
@@ -50,6 +51,15 @@ void Signer::signPacket(PacketPtr packet) {
   hicn_header_t header_copy;
   hicn_packet_copy_header(format, packet->packet_start_, &header_copy, false);
 
+  // Copy bitmap from interest manifest
+  uint32_t request_bitmap[BITMAP_SIZE] = {0};
+  if (packet->isInterest()) {
+    core::Interest *interest = dynamic_cast<core::Interest *>(packet);
+    if (interest->hasManifest())
+      memcpy(request_bitmap, interest->getRequestBitmap(),
+             BITMAP_SIZE * sizeof(uint32_t));
+  }
+
   // Fill in the hICN AH header
   auto now = utils::SteadyTime::nowMs().count();
   packet->setSignatureTimestamp(now);
@@ -69,6 +79,12 @@ void Signer::signPacket(PacketPtr packet) {
 
   // Restore header
   hicn_packet_copy_header(format, &header_copy, packet->packet_start_, false);
+
+  // Restore bitmap in interest manifest
+  if (packet->isInterest()) {
+    core::Interest *interest = dynamic_cast<core::Interest *>(packet);
+    interest->setRequestBitmap(request_bitmap);
+  }
 }
 
 void Signer::signBuffer(const std::vector<uint8_t> &buffer) {
@@ -241,16 +257,23 @@ void AsymmetricSigner::setKey(CryptoSuite suite, std::shared_ptr<EVP_PKEY> key,
                               std::shared_ptr<EVP_PKEY> pub_key) {
   suite_ = suite;
   key_ = key;
-  signature_len_ = EVP_PKEY_size(key.get());
+
+  signature_len_ = EVP_PKEY_size(key_.get());
   DCHECK(signature_len_ <= signature_->tailroom());
+
   signature_->setLength(signature_len_);
 
-  std::vector<uint8_t> pbk(i2d_PublicKey(pub_key.get(), nullptr));
-  uint8_t *pbk_ptr = pbk.data();
-  int len = i2d_PublicKey(pub_key.get(), &pbk_ptr);
+  size_t enc_pbk_len = i2d_PublicKey(pub_key.get(), nullptr);
+  DCHECK(enc_pbk_len >= 0);
+
+  uint8_t *enc_pbkey_raw = nullptr;
+  i2d_PublicKey(pub_key.get(), &enc_pbkey_raw);
+  DCHECK(enc_pbkey_raw != nullptr);
 
   key_id_ = CryptoHash(getHashType());
-  key_id_.computeDigest(pbk_ptr, len);
+  key_id_.computeDigest(enc_pbkey_raw, enc_pbk_len);
+
+  OPENSSL_free(enc_pbkey_raw);
 }
 
 size_t AsymmetricSigner::getSignatureFieldSize() const {

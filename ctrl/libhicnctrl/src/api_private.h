@@ -242,6 +242,9 @@ struct hc_sock_s {
   int (*hc_subscription_create)(hc_sock_t *s, hc_subscription_t *subscription);
   int (*hc_subscription_delete)(hc_sock_t *s, hc_subscription_t *subscription);
 
+  int (*hc_stats_get)(hc_sock_t *s, hc_data_t **data);
+  int (*hc_stats_list)(hc_sock_t *s, hc_data_t **data);
+
   hc_result_t *(*hc_listener_create_conf)(hc_sock_t *s,
                                           hc_listener_t *listener);
   hc_result_t *(*hc_listener_list_conf)(hc_sock_t *s, hc_data_t **pdata);

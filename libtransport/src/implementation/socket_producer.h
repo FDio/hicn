@@ -51,9 +51,8 @@ class ProducerSocket : public Socket {
         data_packet_size_(default_values::content_object_packet_size),
         max_segment_size_(default_values::content_object_packet_size),
         content_object_expiry_time_(default_values::content_object_expiry_time),
-        making_manifest_(default_values::manifest_capacity),
+        manifest_max_capacity_(default_values::manifest_max_capacity),
         hash_algorithm_(auth::CryptoHashType::SHA256),
-        signer_(std::make_shared<auth::VoidSigner>()),
         suffix_strategy_(std::make_shared<utils::IncrementalSuffixStrategy>(0)),
         aggregated_data_(false),
         fec_setting_(""),
@@ -181,8 +180,8 @@ class ProducerSocket : public Socket {
         }
         break;
 
-      case GeneralTransportOptions::MAKE_MANIFEST:
-        making_manifest_ = socket_option_value;
+      case GeneralTransportOptions::MANIFEST_MAX_CAPACITY:
+        manifest_max_capacity_ = socket_option_value;
         break;
 
       case GeneralTransportOptions::MAX_SEGMENT_SIZE:
@@ -433,6 +432,20 @@ class ProducerSocket : public Socket {
     return SOCKET_OPTION_SET;
   }
 
+  virtual int setSocketOption(
+      int socket_option_key,
+      const std::shared_ptr<auth::Verifier> &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::VERIFIER:
+        verifier_.reset();
+        verifier_ = socket_option_value;
+        return SOCKET_OPTION_SET;
+
+      default:
+        return SOCKET_OPTION_NOT_SET;
+    }
+  }
+
   int getSocketOption(int socket_option_key,
                       ProducerCallback **socket_option_value) {
     // Reschedule the function on the io_service to avoid race condition in
@@ -456,12 +469,13 @@ class ProducerSocket : public Socket {
   virtual int getSocketOption(int socket_option_key,
                               uint32_t &socket_option_value) {
     switch (socket_option_key) {
-      case GeneralTransportOptions::MAKE_MANIFEST:
-        socket_option_value = making_manifest_;
+      case GeneralTransportOptions::MANIFEST_MAX_CAPACITY:
+        socket_option_value = (uint32_t)manifest_max_capacity_;
         break;
 
       case GeneralTransportOptions::OUTPUT_BUFFER_SIZE:
-        socket_option_value = production_protocol_->getOutputBufferSize();
+        socket_option_value =
+            (uint32_t)production_protocol_->getOutputBufferSize();
         break;
 
       case GeneralTransportOptions::DATA_PACKET_SIZE:
@@ -636,6 +650,18 @@ class ProducerSocket : public Socket {
     return SOCKET_OPTION_GET;
   }
 
+  int getSocketOption(int socket_option_key,
+                      std::shared_ptr<auth::Verifier> &socket_option_value) {
+    switch (socket_option_key) {
+      case GeneralTransportOptions::VERIFIER:
+        socket_option_value = verifier_;
+        return SOCKET_OPTION_GET;
+
+      default:
+        return SOCKET_OPTION_NOT_GET;
+    }
+  }
+
   int getSocketOption(int socket_option_key, std::string &socket_option_value) {
     switch (socket_option_key) {
       case GeneralTransportOptions::FEC_TYPE:
@@ -736,11 +762,10 @@ class ProducerSocket : public Socket {
   std::atomic<size_t> max_segment_size_;
   std::atomic<uint32_t> content_object_expiry_time_;
 
-  std::atomic<uint32_t> making_manifest_;
+  std::atomic<uint32_t> manifest_max_capacity_;
   std::atomic<auth::CryptoHashType> hash_algorithm_;
   std::atomic<auth::CryptoSuite> crypto_suite_;
   utils::SpinLock signer_lock_;
-  std::shared_ptr<auth::Signer> signer_;
   std::shared_ptr<utils::SuffixStrategy> suffix_strategy_;
 
   std::shared_ptr<protocol::ProductionProtocol> production_protocol_;

@@ -30,22 +30,19 @@
 #ifndef HICNLIGHT_LISTENER_TABLE_H
 #define HICNLIGHT_LISTENER_TABLE_H
 
+#include <hicn/util/khash.h>
+#include <hicn/util/hash.h>
 #include "address.h"
 #include "listener.h"
-#include "../base/common.h"
-#include "../base/hash.h"
-#include "../base/khash.h"
-#include "../base/pool.h"
-
-#define _lt_var(x) _lt_var_##x
+#include <hicn/util/pool.h>
 
 /* Hash functions for indices */
 #define key_hash(key) (hash_struct(key))
-#define key_hash_eq(a, b) (key_hash(b) == key_hash(a))
 
 /* Hash table types for indices */
 KHASH_MAP_INIT_STR(lt_name, unsigned);
-KHASH_INIT(lt_key, const listener_key_t *, unsigned, 1, key_hash, key_hash_eq);
+KHASH_INIT(lt_key, const listener_key_t *, unsigned, 1, key_hash,
+           listener_key_equals);
 
 typedef struct {
   size_t max_size;
@@ -70,34 +67,9 @@ typedef struct {
  *  - You should always check that the returned listener is not NULL, which
  *  would signal that the pool is exhausted and could not be extended.
  */
-
-static inline listener_t *listener_table_allocate(const listener_table_t *table,
-                                                  const listener_key_t *key,
-                                                  const char *name) {
-  listener_t *listener;
-  pool_get(table->listeners, listener);
-
-  if (listener) {
-    off_t id = listener - table->listeners;
-    int res;
-    khiter_t k;
-
-    // Add in name hash table
-    k = kh_put_lt_name(table->id_by_name, strdup(name), &res);
-    assert(res > 0);
-    kh_value(table->id_by_name, k) = id;
-
-    // Add in key hash table
-    listener_key_t *key_copy = (listener_key_t *)malloc(sizeof(listener_key_t));
-    memcpy(key_copy, key, sizeof(listener_key_t));
-
-    k = kh_put_lt_key(table->id_by_key, key_copy, &res);
-    assert(res > 0);
-    kh_value(table->id_by_key, k) = id;
-  }
-
-  return listener;
-}
+listener_t *listener_table_allocate(const listener_table_t *table,
+                                    const listener_key_t *key,
+                                    const char *name);
 
 /**
  * @brief Deallocate a listener and return it to the listener table pool.
@@ -109,27 +81,8 @@ static inline listener_t *listener_table_allocate(const listener_table_t *table,
  *  - Upon returning a listener to the pool, all indices pointing to that
  *  listener are also cleared.
  */
-
-static inline void listener_table_deallocate(const listener_table_t *table,
-                                             listener_t *listener) {
-  const char *name = listener_get_name(listener);
-  listener_key_t *key = listener_get_key(listener);
-  khiter_t k;
-
-  // Remove from name hash table
-  k = kh_get_lt_name(table->id_by_name, name);
-  assert(k != kh_end(table->id_by_name));
-  free((char *)kh_key(table->id_by_name, k));
-  kh_del_lt_name(table->id_by_name, k);
-
-  // Remove from key hash table
-  k = kh_get_lt_key(table->id_by_key, key);
-  assert(k != kh_end(table->id_by_key));
-  free((listener_key_t *)kh_key(table->id_by_key, k));
-  kh_del_lt_key(table->id_by_key, k);
-
-  pool_put(table->listeners, listener);
-}
+void listener_table_deallocate(const listener_table_t *table,
+                               listener_t *listener);
 
 /**
  * @brief Returns the length of the listener table, the number of active

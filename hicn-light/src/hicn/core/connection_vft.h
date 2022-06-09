@@ -28,8 +28,8 @@ typedef struct {
   void (*finalize)(connection_t* connection);
   int (*get_socket)(const listener_t* listener, const address_t* local,
                     const address_t* remote, const char* interface_name);
-  bool (*flush)(const connection_t* connection);
-  bool (*send)(const connection_t* connection, msgbuf_t* msgbuf, bool queue);
+  bool (*flush)(connection_t* connection);
+  bool (*send)(connection_t* connection, msgbuf_t* msgbuf, bool queue);
   int (*send_packet)(const connection_t* connection, const uint8_t* packet,
                      size_t size);
   // void (*read_callback)(connection_t * connection, int fd, void * data);

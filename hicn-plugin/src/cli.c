@@ -585,13 +585,15 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t *vm,
 				     unformat_input_t *main_input,
 				     vlib_cli_command_t *cmd)
 {
-  clib_error_t *cl_err;
-  int rv = HICN_ERROR_NONE;
-  hicnpg_server_main_t *pg_main = &hicnpg_server_main;
   int payload_size = 1440;
   u32 sw_if_index = ~0;
   vnet_main_t *vnm = vnet_get_main ();
-  fib_prefix_t *prefix = calloc (1, sizeof (fib_prefix_t));
+  fib_prefix_t prefix;
+  u32 hicnpg_server_index;
+  ip46_address_t locator;
+
+  locator.as_u64[0] = 0;
+  locator.as_u64[1] = 0;
 
   /* Get a line of input. */
   unformat_input_t _line_input, *line_input = &_line_input;
@@ -601,7 +603,7 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t *vm,
       while (unformat_check_input (line_input) != UNFORMAT_END_OF_INPUT)
 	{
 	  if (unformat (line_input, "name %U/%d", unformat_ip46_address,
-			&prefix->fp_addr, IP46_TYPE_ANY, &prefix->fp_len))
+			&prefix.fp_addr, IP46_TYPE_ANY, &prefix.fp_len))
 	    {
 	      ;
 	    }
@@ -618,6 +620,11 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t *vm,
 	    {
 	      ;
 	    }
+	  else if (unformat (line_input, "dst %U", unformat_ip46_address,
+			     &locator, IP46_TYPE_ANY))
+	    {
+	      ;
+	    }
 	  else
 	    {
 	      return (clib_error_return (0, "Unknown input '%U'",
@@ -628,70 +635,45 @@ hicn_cli_pgen_server_set_command_fn (vlib_main_t *vm,
     }
 
   /* Attach our packet-gen node for ip4 udp local traffic */
-  if ((prefix->fp_addr.ip6.as_u64[0] == (u64) 0 &&
-       prefix->fp_addr.ip6.as_u64[1] == 0) ||
-      payload_size == 0 || sw_if_index == ~0)
+  if ((prefix.fp_addr.ip6.as_u64[0] == (u64) 0 &&
+       prefix.fp_addr.ip6.as_u64[1] == 0) ||
+      payload_size == 0 || sw_if_index == ~0 ||
+      ip46_address_is_zero (&locator))
     {
-      return clib_error_return (0, "Error: must supply local port, payload "
+      return clib_error_return (0, "Error: must supply locator, payload "
 				   "size and incoming hICN prefix");
     }
 
   // Remove bits that are out of the subnet
-  if (ip46_address_is_ip4 (&prefix->fp_addr))
+  if (ip46_address_is_ip4 (&prefix.fp_addr))
     {
       ip4_address_t mask;
-      ip4_preflen_to_mask (prefix->fp_len, &mask);
-      prefix->fp_addr.ip4.as_u32 = prefix->fp_addr.ip4.as_u32 & mask.as_u32;
-      prefix->fp_proto = FIB_PROTOCOL_IP4;
+      ip4_preflen_to_mask (prefix.fp_len, &mask);
+      prefix.fp_addr.ip4.as_u32 = prefix.fp_addr.ip4.as_u32 & mask.as_u32;
+      prefix.fp_proto = FIB_PROTOCOL_IP4;
     }
   else
     {
       ip6_address_t mask;
-      ip6_preflen_to_mask (prefix->fp_len, &mask);
-      prefix->fp_addr.ip6.as_u64[0] =
-	prefix->fp_addr.ip6.as_u64[0] & mask.as_u64[0];
-      prefix->fp_addr.ip6.as_u64[1] =
-	prefix->fp_addr.ip6.as_u64[1] & mask.as_u64[1];
-      prefix->fp_proto = FIB_PROTOCOL_IP6;
+      ip6_preflen_to_mask (prefix.fp_len, &mask);
+      prefix.fp_addr.ip6.as_u64[0] =
+	prefix.fp_addr.ip6.as_u64[0] & mask.as_u64[0];
+      prefix.fp_addr.ip6.as_u64[1] =
+	prefix.fp_addr.ip6.as_u64[1] & mask.as_u64[1];
+      prefix.fp_proto = FIB_PROTOCOL_IP6;
     }
 
-  /* Allocate the buffer with the actual content payload TLV */
-  int n_buf = vlib_buffer_alloc (vm, &pg_main->pgen_svr_buffer_idx, 1);
-
-  if (n_buf == 0)
+  fib_protocol_t dest_proto =
+    ip46_address_is_ip4 (&locator) ? FIB_PROTOCOL_IP4 : FIB_PROTOCOL_IP6;
+  if (prefix.fp_proto != dest_proto)
     {
-      return (clib_error_return (0, "Impossible to allocate paylod buffer."));
+      return clib_error_return (0, "Error: prefix and locator must be of the "
+				   "same protocol");
     }
 
-  vlib_buffer_t *rb = NULL;
-  rb = vlib_get_buffer (vm, pg_main->pgen_svr_buffer_idx);
-
-  pg_main->pgen_srv_hicn_name = prefix;
-
-  /* Initialize the buffer data with zeros */
-  memset (rb->data, 0, payload_size);
-  rb->current_length = payload_size;
-
-  vnet_feature_enable_disable ("ip4-unicast", "hicnpg-server", sw_if_index, 1,
-			       0, 0);
-  vnet_feature_enable_disable ("ip6-unicast", "hicnpg-server", sw_if_index, 1,
-			       0, 0);
-
-  switch (rv)
-    {
-    case 0:
-      cl_err = 0;
-      break;
-
-    case VNET_API_ERROR_UNIMPLEMENTED:
-      cl_err = clib_error_return (0, "Unimplemented, NYI");
-      break;
-
-    default:
-      cl_err = clib_error_return (0, "hicn pgen server returned %d", rv);
-    }
-
-  return cl_err;
+  // Create hicnpg_server
+  return hicnpg_server_add_and_lock (&prefix, &hicnpg_server_index, &locator,
+				     payload_size);
 }
 
 static clib_error_t *
@@ -855,7 +837,7 @@ VLIB_CLI_COMMAND (hicn_cli_pgen_client_set_command, static) = {
 VLIB_CLI_COMMAND (hicn_cli_pgen_server_set_command, static) = {
   .path = "hicn pgen server",
   .short_help = "hicn pgen server name <prefix> intfc <interest in-interface> "
-		"size <payload_size>",
+		"dst <ip_address> size <payload_size>",
   .long_help = "Run hicn in packet-gen server mode\n",
   .function = hicn_cli_pgen_server_set_command_fn,
 };

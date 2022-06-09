@@ -35,10 +35,10 @@ class Portal::Impl {
     return portal_->interestIsPending(name);
   }
 
-  void sendInterest(core::Interest::Ptr &&interest,
+  void sendInterest(core::Interest::Ptr &interest, uint32_t lifetime,
                     OnContentObjectCallback &&on_content_object_callback,
                     OnInterestTimeoutCallback &&on_interest_timeout_callback) {
-    portal_->sendInterest(std::move(interest),
+    portal_->sendInterest(interest, lifetime,
                           std::move(on_content_object_callback),
                           std::move(on_interest_timeout_callback));
   }
@@ -86,10 +86,10 @@ bool Portal::interestIsPending(const core::Name &name) {
 }
 
 void Portal::sendInterest(
-    core::Interest::Ptr &&interest,
+    core::Interest::Ptr &interest, uint32_t lifetime,
     OnContentObjectCallback &&on_content_object_callback,
     OnInterestTimeoutCallback &&on_interest_timeout_callback) {
-  implementation_->sendInterest(std::move(interest),
+  implementation_->sendInterest(interest, lifetime,
                                 std::move(on_content_object_callback),
                                 std::move(on_interest_timeout_callback));
 }

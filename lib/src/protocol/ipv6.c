@@ -212,6 +212,31 @@ ipv6_set_lifetime (hicn_type_t type, hicn_protocol_t *h,
 }
 
 int
+ipv6_get_source_port (hicn_type_t type, const hicn_protocol_t *h,
+		      u16 *source_port)
+{
+  return CHILD_OPS (get_source_port, type, h, source_port);
+}
+
+int
+ipv6_get_dest_port (hicn_type_t type, const hicn_protocol_t *h, u16 *dest_port)
+{
+  return CHILD_OPS (get_dest_port, type, h, dest_port);
+}
+
+int
+ipv6_set_source_port (hicn_type_t type, hicn_protocol_t *h, u16 source_port)
+{
+  return CHILD_OPS (set_source_port, type, h, source_port);
+}
+
+int
+ipv6_set_dest_port (hicn_type_t type, hicn_protocol_t *h, u16 dest_port)
+{
+  return CHILD_OPS (set_dest_port, type, h, dest_port);
+}
+
+int
 ipv6_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
 		       size_t payload_length)
 {

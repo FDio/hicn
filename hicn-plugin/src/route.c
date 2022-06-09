@@ -34,6 +34,7 @@
 #include "infra.h"
 #include "udp_tunnels/udp_tunnel.h"
 #include "mapme.h"
+#include "pg.h"
 
 #define FIB_SOURCE_HICN 0x04 // Right after the FIB_SOURCE_INTERFACE priority
 
@@ -234,7 +235,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
   do                                                                          \
     {                                                                         \
       /* Careful, this adds a lock on the face if it exists */                \
-      hicn_face_add (dpo, nh, sw_if, &face_id, 0);                            \
+      hicn_face_add (dpo, nh, sw_if, &face_id);                               \
       vec_validate (vec_faces, index);                                        \
       vec_faces[index] = face_id;                                             \
       (index)++;                                                              \
@@ -294,9 +295,14 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
 	    default:
 	      continue;
 	    }
-	  HICN_DEBUG ("Added new UDP face: %d because of route prefix %s",
+	  HICN_DEBUG ("Added new UDP face: %d because of route prefix %U",
 		      face_id, format_ip_prefix, &_fib_entry->fe_prefix);
 	  udp_tunnel_add_existing (dpo->dpoi_index, proto);
+	}
+      else if (dpo_is_pgserver (dpo))
+	{
+	  hicnpg_server_t *pg_server = hicnpg_server_get (dpo->dpoi_index);
+	  ADD_FACE (&pg_server->hicn_locator);
 	}
     }
 

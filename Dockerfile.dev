@@ -1,17 +1,16 @@
-FROM dockerhub.cisco.com/icn-docker/hicn-base-devel-focal:x86_64
+FROM ubuntu:focal
+ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /hicn-build
 
-# Get versions from versions.cmake
-ARG VERSION_PATH=/tmp/versions.cmake
-COPY versions.cmake ${VERSION_PATH}
-ARG INSTALL_VPP_SCRIPT=/tmp/install-vpp.sh
-COPY scripts/install-vpp.sh ${INSTALL_VPP_SCRIPT}
+COPY Makefile versions.cmake ./
+COPY scripts scripts/
 
-RUN VERSION_PATH=${VERSION_PATH} bash -x ${INSTALL_VPP_SCRIPT}
-RUN apt update && apt-get install -y          \
-  libssl-dev                                  \
-  iproute2                                    \
-  iperf3                                      \
-  iputils-ping                                \
-  tcpdump                                     \
-  gdb --no-install-recommends
+RUN apt update && apt-get install -y \
+  make \
+  sudo \
+  curl \
+  git
+
+RUN make deps debug-tools
+
+ENV DEBIAN_FRONTEND=

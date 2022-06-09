@@ -100,12 +100,13 @@ void HicnForwarderModule::closeConnection() {
 void HicnForwarderModule::init(
     Connector::PacketReceivedCallback &&receive_callback,
     Connector::PacketSentCallback &&sent_callback,
+    Connector::OnCloseCallback &&close_callback,
     Connector::OnReconnectCallback &&reconnect_callback,
     asio::io_service &io_service, const std::string &app_name) {
   if (!connector_) {
     connector_.reset(new UdpTunnelConnector(
         io_service, std::move(receive_callback), std::move(sent_callback),
-        nullptr, std::move(reconnect_callback)));
+        std::move(close_callback), std::move(reconnect_callback)));
   }
 }
 
@@ -130,7 +131,7 @@ bool HicnForwarderModule::isControlMessage(utils::MemBuf &packet_buffer) {
  */
 utils::MemBuf::Ptr HicnForwarderModule::createCommandRoute(
     std::unique_ptr<sockaddr> &&addr, uint8_t prefix_length) {
-  utils::MemBuf::Ptr ret = utils::MemBuf::create(sizeof(msg_route_add_t));
+  auto ret = PacketManager<>::getInstance().getMemBuf();
   auto command = reinterpret_cast<msg_route_add_t *>(ret->writableData());
   ret->append(sizeof(msg_route_add_t));
   std::memset(command, 0, sizeof(*command));
@@ -170,8 +171,7 @@ utils::MemBuf::Ptr HicnForwarderModule::createCommandRoute(
 }
 
 utils::MemBuf::Ptr HicnForwarderModule::createCommandDeleteConnection() {
-  utils::MemBuf::Ptr ret =
-      utils::MemBuf::create(sizeof(msg_connection_remove_t));
+  auto ret = PacketManager<>::getInstance().getMemBuf();
   auto command =
       reinterpret_cast<msg_connection_remove_t *>(ret->writableData());
   ret->append(sizeof(msg_connection_remove_t));
@@ -194,8 +194,7 @@ utils::MemBuf::Ptr HicnForwarderModule::createCommandDeleteConnection() {
 }
 
 utils::MemBuf::Ptr HicnForwarderModule::createCommandMapmeSendUpdate() {
-  utils::MemBuf::Ptr ret =
-      utils::MemBuf::create(sizeof(msg_mapme_send_update_t));
+  auto ret = PacketManager<>::getInstance().getMemBuf();
   auto command =
       reinterpret_cast<msg_mapme_send_update_t *>(ret->writableData());
   ret->append(sizeof(msg_mapme_send_update_t));
@@ -217,7 +216,7 @@ utils::MemBuf::Ptr HicnForwarderModule::createCommandMapmeSendUpdate() {
 utils::MemBuf::Ptr HicnForwarderModule::createCommandSetForwardingStrategy(
     std::unique_ptr<sockaddr> &&addr, uint32_t prefix_len,
     std::string strategy) {
-  utils::MemBuf::Ptr ret = utils::MemBuf::create(sizeof(msg_strategy_set_t));
+  auto ret = PacketManager<>::getInstance().getMemBuf();
   auto command = reinterpret_cast<msg_strategy_set_t *>(ret->writableData());
   ret->append(sizeof(msg_strategy_set_t));
   std::memset(command, 0, sizeof(*command));

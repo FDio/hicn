@@ -72,6 +72,7 @@
 #include <hicn/util/ip_address.h>
 #include <hicn/face.h>
 #include <hicn/strategy.h>
+#include <hicn/base.h>
 /*
  * This has to be common between hicn-light and hicn-plugin. We now we keep the
  * minimum of the two
@@ -120,6 +121,7 @@
   _(SERVE)             \
   _(STORE)             \
   _(CLEAR)             \
+  _(GET)               \
   _(N)
 
 typedef enum {
@@ -150,6 +152,7 @@ hc_action_t action_from_str(const char *action_str);
   _(LOCAL_PREFIX)      \
   _(PROBE)             \
   _(SUBSCRIPTION)      \
+  _(STATS)             \
   _(N)
 
 typedef enum {
@@ -929,6 +932,13 @@ typedef enum {
 typedef struct {
   flag_interface_type_t interface_type;
 } hc_event_interface_update_t;
+
+/*----------------------------------------------------------------------------*
+ * Statistics
+ *----------------------------------------------------------------------------*/
+int hc_stats_get(hc_sock_t *s, hc_data_t **pdata);   // General stats
+int hc_stats_list(hc_sock_t *s, hc_data_t **pdata);  // Per-face stats
+int hc_stats_snprintf(char *s, size_t size, const hicn_light_stats_t *stats);
 
 /* Result */
 

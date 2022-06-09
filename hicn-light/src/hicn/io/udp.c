@@ -49,10 +49,9 @@
 
 #include <hicn/util/log.h>
 #include <hicn/util/sstrncpy.h>
+#include <hicn/util/ring.h>
 
 #include "base.h"
-#include "../base/loop.h"
-#include "../base/ring.h"
 #include "../core/address_pair.h"
 #include "../core/connection.h"
 #include "../core/connection_vft.h"
@@ -344,7 +343,7 @@ static void connection_udp_finalize(connection_t *connection) {
   ring_free(data->ring);
 }
 
-static bool connection_udp_flush(const connection_t *connection) {
+static bool connection_udp_flush(connection_t *connection) {
 #ifdef __linux__
   int retry = 0;
   off_t msgbuf_id = 0;
@@ -375,8 +374,15 @@ SEND:
     msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
     // update path label
-    if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA)
+    if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA) {
       msgbuf_update_pathlabel(msgbuf, connection_get_id(connection));
+
+      connection->stats.data.tx_pkts++;
+      connection->stats.data.tx_bytes += msgbuf_get_len(msgbuf);
+    } else {
+      connection->stats.interests.tx_pkts++;
+      connection->stats.interests.tx_bytes += msgbuf_get_len(msgbuf);
+    }
 
     data->iovecs[i].iov_base = msgbuf_get_packet(msgbuf);
     data->iovecs[i].iov_len = msgbuf_get_len(msgbuf);
@@ -430,8 +436,8 @@ SENDMMSG:
  * @param dummy is ignored.  A udp connection has only one peer.
  * @return <#return#>
  */
-static bool connection_udp_send(const connection_t *connection,
-                                msgbuf_t *msgbuf, bool queue) {
+static bool connection_udp_send(connection_t *connection, msgbuf_t *msgbuf,
+                                bool queue) {
   assert(connection);
   assert(msgbuf);
 
@@ -454,8 +460,15 @@ static bool connection_udp_send(const connection_t *connection,
 #endif /* __linux__ */
     /* Send one */
     // update the path label befor send the packet
-    if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA)
+    if (msgbuf_get_type(msgbuf) == MSGBUF_TYPE_DATA) {
       msgbuf_update_pathlabel(msgbuf, connection_get_id(connection));
+
+      connection->stats.data.tx_pkts++;
+      connection->stats.data.tx_bytes += msgbuf_get_len(msgbuf);
+    } else {
+      connection->stats.interests.tx_pkts++;
+      connection->stats.interests.tx_bytes += msgbuf_get_len(msgbuf);
+    }
 
     ssize_t writeLength = write(connection->fd, msgbuf_get_packet(msgbuf),
                                 msgbuf_get_len(msgbuf));

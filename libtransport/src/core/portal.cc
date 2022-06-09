@@ -43,12 +43,14 @@ std::string Portal::io_module_path_ = defaultIoModule();
 std::string Portal::defaultIoModule() {
   using namespace std::placeholders;
   GlobalConfiguration::getInstance().registerConfigurationParser(
-      io_module_section,
+      IoModuleConfiguration::section,
       std::bind(&Portal::parseIoModuleConfiguration, _1, _2));
   GlobalConfiguration::getInstance().registerConfigurationGetter(
-      io_module_section, std::bind(&Portal::getModuleConfiguration, _1, _2));
+      IoModuleConfiguration::section,
+      std::bind(&Portal::getModuleConfiguration, _1, _2));
   GlobalConfiguration::getInstance().registerConfigurationSetter(
-      io_module_section, std::bind(&Portal::setModuleConfiguration, _1, _2));
+      IoModuleConfiguration::section,
+      std::bind(&Portal::setModuleConfiguration, _1, _2));
 
   // return default
   conf_.name = default_module;
@@ -57,7 +59,7 @@ std::string Portal::defaultIoModule() {
 
 void Portal::getModuleConfiguration(ConfigurationObject& object,
                                     std::error_code& ec) {
-  DCHECK(object.getKey() == io_module_section);
+  DCHECK(object.getKey() == IoModuleConfiguration::section);
 
   auto conf = dynamic_cast<const IoModuleConfiguration&>(object);
   conf = conf_;
@@ -103,7 +105,7 @@ std::string getIoModulePath(const std::string& name,
 
 void Portal::setModuleConfiguration(const ConfigurationObject& object,
                                     std::error_code& ec) {
-  DCHECK(object.getKey() == io_module_section);
+  DCHECK(object.getKey() == IoModuleConfiguration::section);
 
   const IoModuleConfiguration& conf =
       dynamic_cast<const IoModuleConfiguration&>(object);

@@ -26,7 +26,7 @@
 extern "C" {
 #define WITH_TESTS
 #include <hicn/core/msgbuf_pool.h>
-#include <hicn/base/pool.h>
+#include <hicn/util/pool.h>
 }
 
 class MsgbufPoolTest : public ::testing::Test {

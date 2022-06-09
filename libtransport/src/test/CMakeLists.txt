@@ -31,6 +31,8 @@ list(APPEND TESTS_SRC
   test_quality_score.cc
   test_sessions.cc
   test_thread_pool.cc
+  test_quadloop.cc
+  test_prefix.cc
 )
 
 if (ENABLE_RELY)

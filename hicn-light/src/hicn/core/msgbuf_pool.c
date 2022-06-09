@@ -18,9 +18,8 @@
  * @brief Implementation of hICN packet pool.
  */
 
-#include "../base/pool.h"
+#include <hicn/util/pool.h>
 #include "msgbuf_pool.h"
-#include "../core/name.h"  // name_Release
 
 msgbuf_pool_t *_msgbuf_pool_create(size_t init_size, size_t max_size) {
   msgbuf_pool_t *msgbuf_pool = malloc(sizeof(msgbuf_pool_t));
@@ -38,7 +37,9 @@ void msgbuf_pool_free(msgbuf_pool_t *msgbuf_pool) {
 }
 
 off_t msgbuf_pool_get(msgbuf_pool_t *msgbuf_pool, msgbuf_t **msgbuf) {
-  return pool_get(msgbuf_pool->buffers, *msgbuf);
+  off_t id = pool_get(msgbuf_pool->buffers, *msgbuf);
+  (*msgbuf)->refs = 0;
+  return id;
 }
 
 void msgbuf_pool_put(msgbuf_pool_t *msgbuf_pool, msgbuf_t *msgbuf) {

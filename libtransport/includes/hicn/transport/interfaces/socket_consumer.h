@@ -250,6 +250,9 @@ class ConsumerSocket : private utils::NonCopyable {
   int setSocketOption(int socket_option_key,
                       interface::IcnObserver *socket_option_value);
 
+  int setSocketOption(int socket_option_key,
+                      const std::shared_ptr<auth::Signer> &socket_option_value);
+
   int setSocketOption(
       int socket_option_key,
       const std::shared_ptr<auth::Verifier> &socket_option_value);
@@ -281,6 +284,9 @@ class ConsumerSocket : private utils::NonCopyable {
                       ConsumerInterestCallback **socket_option_value);
 
   int getSocketOption(int socket_option_key, IcnObserver **socket_option_value);
+
+  int getSocketOption(int socket_option_key,
+                      std::shared_ptr<auth::Signer> &socket_option_value);
 
   int getSocketOption(int socket_option_key,
                       std::shared_ptr<auth::Verifier> &socket_option_value);

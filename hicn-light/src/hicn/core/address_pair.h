@@ -43,6 +43,12 @@ int address_pair_from_ip_port(address_pair_t* pair, int family,
                               ip_address_t* local_addr, uint16_t local_port,
                               ip_address_t* remote_addr, uint16_t remote_port);
 
+static inline int address_pair_equals(const address_pair_t* pair1,
+                                      const address_pair_t* pair2) {
+  return address_equals(&pair1->local, &pair2->local) &&
+         address_equals(&pair1->remote, &pair2->remote);
+}
+
 #define address_pair_get_local(pair) (&(pair)->local)
 #define address_pair_get_remote(pair) (&(pair)->remote)
 

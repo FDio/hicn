@@ -29,6 +29,7 @@ list(APPEND SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/command_policy.c
     ${CMAKE_CURRENT_SOURCE_DIR}/command_punting.c
     ${CMAKE_CURRENT_SOURCE_DIR}/command_route.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/command_stats.c
     ${CMAKE_CURRENT_SOURCE_DIR}/command_strategy.c
     ${CMAKE_CURRENT_SOURCE_DIR}/command_subscription.c
     ${CMAKE_CURRENT_SOURCE_DIR}/command.c
