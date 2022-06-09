@@ -163,8 +163,6 @@ int facemgr_cfg_rule_get_overlay_remote_port(const facemgr_cfg_rule_t* rule,
                                              int family, uint16_t* port);
 
 int facemgr_cfg_add_static_facelet(facemgr_cfg_t* cfg, facelet_t* facelet);
-int facemgr_cfg_remove_static_facelet(facemgr_cfg_t* cfg, facelet_t* facelet,
-                                      facelet_t** removed_facelet);
 int facemgr_cfg_get_static_facelet_array(const facemgr_cfg_t* cfg,
                                          facelet_t*** array);
 

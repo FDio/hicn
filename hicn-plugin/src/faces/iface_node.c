@@ -52,6 +52,7 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
+  hicn_error_t error;
   u8 packet_data[60];
 } hicn4_iface_input_trace_t;
 
@@ -69,6 +70,7 @@ typedef struct
   u32 next_index;
   u32 sw_if_index;
   u8 pkt_type;
+  hicn_error_t error;
   u8 packet_data[60];
 } hicn6_iface_input_trace_t;
 
@@ -109,9 +111,6 @@ typedef enum
 
 #define DPO_ADD_LOCK_FACE_IP4 hicn_face_ip4_add_and_lock
 #define DPO_ADD_LOCK_FACE_IP6 hicn_face_ip6_add_and_lock
-
-//#define VLIB_EDGE_IP4 data_fwd_iface_ip4_vlib_edge
-//#define VLIB_EDGE_IP6 data_fwd_iface_ip6_vlib_edge
 
 #define IP_HEADER_4 ip4_header_t
 #define IP_HEADER_6 ip6_header_t
@@ -190,9 +189,11 @@ typedef enum
   do                                                                          \
     {                                                                         \
       vlib_buffer_t *b0;                                                      \
-      u32 bi0, next0, next_iface0, sw_if0;                                    \
+      u32 bi0, next0, next_iface0, sw_if0 = ~0;                               \
       IP_HEADER_##ipv *ip_hdr = NULL;                                         \
       hicn_buffer_t *hicnb0;                                                  \
+      int ret0 = HICN_ERROR_NONE;                                             \
+      u8 is_icmp0;                                                            \
       /* Prefetch for next iteration. */                                      \
       if (n_left_from > 1)                                                    \
 	{                                                                     \
@@ -213,41 +214,51 @@ typedef enum
       hicnb0 = hicn_get_buffer (b0);                                          \
       ip_hdr = (IP_HEADER_##ipv *) vlib_buffer_get_current (b0);              \
                                                                               \
-      stats.pkts_interest_count += 1;                                         \
-                                                                              \
-      u8 is_icmp = ip_hdr->protocol == IPPROTO_ICMPV##ipv;                    \
-                                                                              \
-      next0 =                                                                 \
-	is_icmp * NEXT_MAPME_IP##ipv + (1 - is_icmp) * NEXT_INTEREST_IP##ipv; \
-                                                                              \
-      next_iface0 = NEXT_DATA_LOOKUP_IP##ipv;                                 \
-      sw_if0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];                        \
-                                                                              \
-      if (hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&               \
-	  vnet_buffer (b0)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)       \
+      /* Parse packet and cache useful info in opaque2 */                     \
+      ret0 = hicn_interest_parse_pkt (b0);                                    \
+      is_icmp0 = (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                    \
+      ret0 = (ret0 == HICN_ERROR_NONE) ||                                     \
+	     (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                        \
+      if (PREDICT_FALSE (!ret0))                                              \
 	{                                                                     \
-	  next_iface0 = NEXT_UDP_ENCAP_IP4;                                   \
-	  sw_if0 = ~0;                                                        \
+	  next0 = HICN##ipv##_IFACE_INPUT_NEXT_ERROR_DROP;                    \
 	}                                                                     \
-      else if (hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&          \
-	       vnet_buffer (b0)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)  \
+      else                                                                    \
 	{                                                                     \
-	  next_iface0 = NEXT_UDP_ENCAP_IP6;                                   \
-	  sw_if0 = ~0;                                                        \
-	}                                                                     \
+	  next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                             \
+		  (1 - is_icmp0) * NEXT_INTEREST_IP##ipv;                     \
                                                                               \
-      DPO_ADD_LOCK_FACE_IP##ipv (                                             \
-	&(hicnb0->face_id), &hicnb0->flags, &(ip_hdr->src_address), sw_if0,   \
-	vnet_buffer (b0)->ip.adj_index[VLIB_RX], next_iface0);                \
+	  next_iface0 = NEXT_DATA_LOOKUP_IP##ipv;                             \
+	  sw_if0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];                    \
+                                                                              \
+	  if (hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&           \
+	      vnet_buffer (b0)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)   \
+	    {                                                                 \
+	      next_iface0 = NEXT_UDP_ENCAP_IP4;                               \
+	      sw_if0 = ~0;                                                    \
+	    }                                                                 \
+	  else if (hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&      \
+		   vnet_buffer (b0)->ip.adj_index[VLIB_RX] !=                 \
+		     ADJ_INDEX_INVALID)                                       \
+	    {                                                                 \
+	      next_iface0 = NEXT_UDP_ENCAP_IP6;                               \
+	      sw_if0 = ~0;                                                    \
+	    }                                                                 \
+                                                                              \
+	  DPO_ADD_LOCK_FACE_IP##ipv (                                         \
+	    &(hicnb0->face_id), &hicnb0->flags, &(ip_hdr->src_address),       \
+	    sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX], next_iface0);    \
+	}                                                                     \
                                                                               \
       if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&              \
 			 (b0->flags & VLIB_BUFFER_IS_TRACED)))                \
 	{                                                                     \
 	  TRACE_INPUT_PKT_IP##ipv *t =                                        \
 	    vlib_add_trace (vm, node, b0, sizeof (*t));                       \
-	  t->pkt_type = HICN_PKT_TYPE_INTEREST;                               \
+	  t->pkt_type = HICN_PACKET_TYPE_INTEREST;                            \
 	  t->sw_if_index = sw_if0;                                            \
 	  t->next_index = next0;                                              \
+	  t->error = ret0;                                                    \
 	  clib_memcpy_fast (t->packet_data, vlib_buffer_get_current (b0),     \
 			    sizeof (t->packet_data));                         \
 	}                                                                     \
@@ -267,9 +278,12 @@ typedef enum
   do                                                                          \
     {                                                                         \
       vlib_buffer_t *b0, *b1;                                                 \
-      u32 bi0, bi1, next0, next1, next_iface0, next_iface1, sw_if0, sw_if1;   \
+      u32 bi0, bi1, next0, next1;                                             \
+      u32 next_iface0, next_iface1, sw_if0 = ~0, sw_if1 = ~0;                 \
+      u8 is_icmp0, is_icmp1;                                                  \
       IP_HEADER_##ipv *ip_hdr0 = NULL;                                        \
       IP_HEADER_##ipv *ip_hdr1 = NULL;                                        \
+      int ret0 = HICN_ERROR_NONE, ret1 = HICN_ERROR_NONE;                     \
       hicn_buffer_t *hicnb0, *hicnb1;                                         \
                                                                               \
       /* Prefetch for next iteration. */                                      \
@@ -300,63 +314,133 @@ typedef enum
                                                                               \
       stats.pkts_interest_count += 2;                                         \
                                                                               \
-      u8 is_icmp0 = ip_hdr0->protocol == IPPROTO_ICMPV##ipv;                  \
-      u8 is_icmp1 = ip_hdr1->protocol == IPPROTO_ICMPV##ipv;                  \
+      /* Parse packet and cache useful info in opaque2 */                     \
+      ret0 = hicn_interest_parse_pkt (b0);                                    \
+      ret1 = hicn_interest_parse_pkt (b1);                                    \
+      is_icmp0 = ret0 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
+      is_icmp1 = ret1 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
+      ret0 = (ret0 == HICN_ERROR_NONE) ||                                     \
+	     (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                        \
+      ret1 = (ret1 == HICN_ERROR_NONE) ||                                     \
+	     (ret1 == HICN_ERROR_PARSER_MAPME_PACKET);                        \
                                                                               \
-      next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                                 \
-	      (1 - is_icmp0) * NEXT_INTEREST_IP##ipv;                         \
-                                                                              \
-      next1 = is_icmp1 * NEXT_MAPME_IP##ipv +                                 \
-	      (1 - is_icmp1) * NEXT_INTEREST_IP##ipv;                         \
-                                                                              \
-      next_iface0 = NEXT_DATA_LOOKUP_IP##ipv;                                 \
-      sw_if0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];                        \
-                                                                              \
-      if (hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&               \
-	  vnet_buffer (b0)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)       \
+      if (PREDICT_TRUE (ret0 && ret1))                                        \
 	{                                                                     \
-	  next_iface0 = NEXT_UDP_ENCAP_IP4;                                   \
-	  sw_if0 = ~0;                                                        \
+	  next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                             \
+		  (1 - is_icmp0) * NEXT_INTEREST_IP##ipv;                     \
+                                                                              \
+	  next1 = is_icmp1 * NEXT_MAPME_IP##ipv +                             \
+		  (1 - is_icmp1) * NEXT_INTEREST_IP##ipv;                     \
+                                                                              \
+	  next_iface0 = NEXT_DATA_LOOKUP_IP##ipv;                             \
+	  sw_if0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];                    \
+                                                                              \
+	  if (hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&           \
+	      vnet_buffer (b0)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)   \
+	    {                                                                 \
+	      next_iface0 = NEXT_UDP_ENCAP_IP4;                               \
+	      sw_if0 = ~0;                                                    \
+	    }                                                                 \
+	  else if (hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&      \
+		   vnet_buffer (b0)->ip.adj_index[VLIB_RX] !=                 \
+		     ADJ_INDEX_INVALID)                                       \
+	    {                                                                 \
+	      next_iface0 = NEXT_UDP_ENCAP_IP6;                               \
+	      sw_if0 = ~0;                                                    \
+	    }                                                                 \
+                                                                              \
+	  next_iface1 = NEXT_DATA_LOOKUP_IP##ipv;                             \
+	  sw_if1 = vnet_buffer (b1)->sw_if_index[VLIB_RX];                    \
+                                                                              \
+	  if (hicnb1->flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&           \
+	      vnet_buffer (b1)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)   \
+	    {                                                                 \
+	      next_iface1 = NEXT_UDP_ENCAP_IP4;                               \
+	      sw_if1 = ~0;                                                    \
+	    }                                                                 \
+	  else if (hicnb1->flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&      \
+		   vnet_buffer (b1)->ip.adj_index[VLIB_RX] !=                 \
+		     ADJ_INDEX_INVALID)                                       \
+	    {                                                                 \
+	      next_iface1 = NEXT_UDP_ENCAP_IP6;                               \
+	      sw_if1 = ~0;                                                    \
+	    }                                                                 \
+                                                                              \
+	  DPO_ADD_LOCK_FACE_IP##ipv (                                         \
+	    &(hicnb0->face_id), &hicnb0->flags, &(ip_hdr0->src_address),      \
+	    sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX], next_iface0);    \
+                                                                              \
+	  DPO_ADD_LOCK_FACE_IP##ipv (                                         \
+	    &(hicnb1->face_id), &hicnb1->flags, &(ip_hdr1->src_address),      \
+	    sw_if1, vnet_buffer (b1)->ip.adj_index[VLIB_RX], next_iface1);    \
 	}                                                                     \
-      else if (hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&          \
-	       vnet_buffer (b0)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)  \
+      else if (ret0 && !ret1)                                                 \
 	{                                                                     \
-	  next_iface0 = NEXT_UDP_ENCAP_IP6;                                   \
-	  sw_if0 = ~0;                                                        \
+	  next1 = HICN##ipv##_IFACE_INPUT_NEXT_ERROR_DROP;                    \
+	  next0 = is_icmp0 * NEXT_MAPME_IP##ipv +                             \
+		  (1 - is_icmp0) * NEXT_INTEREST_IP##ipv;                     \
+	  next_iface0 = NEXT_DATA_LOOKUP_IP##ipv;                             \
+	  sw_if0 = vnet_buffer (b0)->sw_if_index[VLIB_RX];                    \
+                                                                              \
+	  if (hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&           \
+	      vnet_buffer (b0)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)   \
+	    {                                                                 \
+	      next_iface0 = NEXT_UDP_ENCAP_IP4;                               \
+	      sw_if0 = ~0;                                                    \
+	    }                                                                 \
+	  else if (hicnb0->flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&      \
+		   vnet_buffer (b0)->ip.adj_index[VLIB_RX] !=                 \
+		     ADJ_INDEX_INVALID)                                       \
+	    {                                                                 \
+	      next_iface0 = NEXT_UDP_ENCAP_IP6;                               \
+	      sw_if0 = ~0;                                                    \
+	    }                                                                 \
+                                                                              \
+	  DPO_ADD_LOCK_FACE_IP##ipv (                                         \
+	    &(hicnb0->face_id), &hicnb0->flags, &(ip_hdr0->src_address),      \
+	    sw_if0, vnet_buffer (b0)->ip.adj_index[VLIB_RX], next_iface0);    \
 	}                                                                     \
-                                                                              \
-      next_iface1 = NEXT_DATA_LOOKUP_IP##ipv;                                 \
-      sw_if1 = vnet_buffer (b1)->sw_if_index[VLIB_RX];                        \
-                                                                              \
-      if (hicnb1->flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&               \
-	  vnet_buffer (b1)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)       \
+      else if (!ret0 && ret1)                                                 \
 	{                                                                     \
-	  next_iface1 = NEXT_UDP_ENCAP_IP4;                                   \
-	  sw_if1 = ~0;                                                        \
+	  next0 = HICN##ipv##_IFACE_INPUT_NEXT_ERROR_DROP;                    \
+	  next_iface1 = NEXT_DATA_LOOKUP_IP##ipv;                             \
+	  sw_if1 = vnet_buffer (b1)->sw_if_index[VLIB_RX];                    \
+	  next1 = is_icmp1 * NEXT_MAPME_IP##ipv +                             \
+		  (1 - is_icmp1) * NEXT_INTEREST_IP##ipv;                     \
+                                                                              \
+	  if (hicnb1->flags & HICN_BUFFER_FLAGS_FROM_UDP4_TUNNEL &&           \
+	      vnet_buffer (b1)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)   \
+	    {                                                                 \
+	      next_iface1 = NEXT_UDP_ENCAP_IP4;                               \
+	      sw_if1 = ~0;                                                    \
+	    }                                                                 \
+	  else if (hicnb1->flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&      \
+		   vnet_buffer (b1)->ip.adj_index[VLIB_RX] !=                 \
+		     ADJ_INDEX_INVALID)                                       \
+	    {                                                                 \
+	      next_iface1 = NEXT_UDP_ENCAP_IP6;                               \
+	      sw_if1 = ~0;                                                    \
+	    }                                                                 \
+                                                                              \
+	  DPO_ADD_LOCK_FACE_IP##ipv (                                         \
+	    &(hicnb1->face_id), &hicnb1->flags, &(ip_hdr1->src_address),      \
+	    sw_if1, vnet_buffer (b1)->ip.adj_index[VLIB_RX], next_iface1);    \
 	}                                                                     \
-      else if (hicnb1->flags & HICN_BUFFER_FLAGS_FROM_UDP6_TUNNEL &&          \
-	       vnet_buffer (b1)->ip.adj_index[VLIB_RX] != ADJ_INDEX_INVALID)  \
+      else                                                                    \
 	{                                                                     \
-	  next_iface1 = NEXT_UDP_ENCAP_IP6;                                   \
-	  sw_if1 = ~0;                                                        \
+	  next0 = HICN##ipv##_IFACE_INPUT_NEXT_ERROR_DROP;                    \
+	  next1 = HICN##ipv##_IFACE_INPUT_NEXT_ERROR_DROP;                    \
 	}                                                                     \
-                                                                              \
-      DPO_ADD_LOCK_FACE_IP##ipv (                                             \
-	&(hicnb0->face_id), &hicnb0->flags, &(ip_hdr0->src_address), sw_if0,  \
-	vnet_buffer (b0)->ip.adj_index[VLIB_RX], next_iface0);                \
-                                                                              \
-      DPO_ADD_LOCK_FACE_IP##ipv (                                             \
-	&(hicnb1->face_id), &hicnb1->flags, &(ip_hdr1->src_address), sw_if1,  \
-	vnet_buffer (b1)->ip.adj_index[VLIB_RX], next_iface1);                \
                                                                               \
       if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&              \
 			 (b0->flags & VLIB_BUFFER_IS_TRACED)))                \
 	{                                                                     \
 	  TRACE_INPUT_PKT_IP##ipv *t =                                        \
 	    vlib_add_trace (vm, node, b0, sizeof (*t));                       \
-	  t->pkt_type = HICN_PKT_TYPE_INTEREST;                               \
+	  t->pkt_type = HICN_PACKET_TYPE_INTEREST;                            \
 	  t->sw_if_index = sw_if0;                                            \
 	  t->next_index = next0;                                              \
+	  t->error = ret0;                                                    \
 	  clib_memcpy_fast (t->packet_data, vlib_buffer_get_current (b0),     \
 			    sizeof (t->packet_data));                         \
 	}                                                                     \
@@ -366,9 +450,10 @@ typedef enum
 	{                                                                     \
 	  TRACE_INPUT_PKT_IP##ipv *t =                                        \
 	    vlib_add_trace (vm, node, b1, sizeof (*t));                       \
-	  t->pkt_type = HICN_PKT_TYPE_INTEREST;                               \
+	  t->pkt_type = HICN_PACKET_TYPE_INTEREST;                            \
 	  t->sw_if_index = sw_if1;                                            \
 	  t->next_index = next1;                                              \
+	  t->error = ret1;                                                    \
 	  clib_memcpy_fast (t->packet_data, vlib_buffer_get_current (b1),     \
 			    sizeof (t->packet_data));                         \
 	}                                                                     \
@@ -435,9 +520,17 @@ hicn4_iface_input_format_trace (u8 *s, va_list *args)
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
   hicn4_iface_input_trace_t *t = va_arg (*args, hicn4_iface_input_trace_t *);
 
-  s = format (s, "IFACE_IP4_INPUT: pkt: %d, sw_if_index %d, next index %d\n%U",
-	      (int) t->pkt_type, t->sw_if_index, t->next_index,
-	      format_ip4_header, t->packet_data, sizeof (t->packet_data));
+  s = format (s, "IFACE_IP4_INPUT: pkt: %d, sw_if_index %d, next index %d",
+	      (int) t->pkt_type, t->sw_if_index, t->next_index);
+
+  if (t->error)
+    {
+      s = format (s, " drop reason: %s", get_error_string (t->error));
+    }
+
+  s = format (s, "\n%U", format_ip4_header, t->packet_data,
+	      sizeof (t->packet_data));
+
   return (s);
 }
 
@@ -544,6 +637,7 @@ hicn_rewrite_iface_data4 (vlib_main_t *vm, vlib_buffer_t *b0,
 			  const hicn_face_t *iface, u32 *next)
 {
   ip4_header_t *ip0;
+  int ret = HICN_ERROR_NONE;
 
   /* Get the pointer to the old ip and tcp header */
   ip0 = vlib_buffer_get_current (b0);
@@ -563,9 +657,11 @@ hicn_rewrite_iface_data4 (vlib_main_t *vm, vlib_buffer_t *b0,
   hicn_type_t type = hicn_get_buffer (b0)->type;
   u8 flags = hicn_get_buffer (b0)->flags;
   u8 reset_pl = flags & HICN_BUFFER_FLAGS_FROM_CS;
-  int ret = hicn_ops_vft[type.l1]->rewrite_data (
-    type, &hicn->protocol, &(iface->nat_addr), &(temp_addr), iface->pl_id,
-    reset_pl);
+
+  ret = hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
+					     &(iface->nat_addr), &(temp_addr),
+					     iface->pl_id, reset_pl);
+
   if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
     {
       ensure_offload_flags (b0, 1 /* is_v4 */);
@@ -577,6 +673,7 @@ hicn_rewrite_iface_data6 (vlib_main_t *vm, vlib_buffer_t *b0,
 			  const hicn_face_t *iface, u32 *next)
 {
   ip6_header_t *ip0;
+  int ret = HICN_ERROR_NONE;
 
   /* Get the pointer to the old ip and tcp header */
   /* Copy the previous ip and tcp header to the new portion of memory */
@@ -598,9 +695,10 @@ hicn_rewrite_iface_data6 (vlib_main_t *vm, vlib_buffer_t *b0,
   hicn_type_t type = hicn_get_buffer (b0)->type;
   u8 flags = hicn_get_buffer (b0)->flags;
   u8 reset_pl = flags & HICN_BUFFER_FLAGS_FROM_CS;
-  int ret = hicn_ops_vft[type.l1]->rewrite_data (
-    type, &hicn->protocol, &(iface->nat_addr), &(temp_addr), iface->pl_id,
-    reset_pl);
+
+  ret = hicn_ops_vft[type.l1]->rewrite_data (type, &hicn->protocol,
+					     &(iface->nat_addr), &(temp_addr),
+					     iface->pl_id, reset_pl);
 
   if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
     {
@@ -653,7 +751,7 @@ hicn_rewrite_iface_data6 (vlib_main_t *vm, vlib_buffer_t *b0,
 	{                                                                     \
 	  TRACE_OUTPUT_PKT_IP##ipv *t =                                       \
 	    vlib_add_trace (vm, node, b0, sizeof (*t));                       \
-	  t->pkt_type = HICN_PKT_TYPE_INTEREST;                               \
+	  t->pkt_type = HICN_PACKET_TYPE_INTEREST;                            \
 	  t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];            \
 	  t->next_index = next0;                                              \
 	  clib_memcpy_fast (t->packet_data, vlib_buffer_get_current (b0),     \
@@ -731,7 +829,7 @@ hicn_rewrite_iface_data6 (vlib_main_t *vm, vlib_buffer_t *b0,
 	{                                                                     \
 	  TRACE_OUTPUT_PKT_IP##ipv *t =                                       \
 	    vlib_add_trace (vm, node, b0, sizeof (*t));                       \
-	  t->pkt_type = HICN_PKT_TYPE_INTEREST;                               \
+	  t->pkt_type = HICN_PACKET_TYPE_INTEREST;                            \
 	  t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];            \
 	  t->next_index = next0;                                              \
 	  clib_memcpy_fast (t->packet_data, vlib_buffer_get_current (b0),     \
@@ -743,7 +841,7 @@ hicn_rewrite_iface_data6 (vlib_main_t *vm, vlib_buffer_t *b0,
 	{                                                                     \
 	  TRACE_OUTPUT_PKT_IP##ipv *t =                                       \
 	    vlib_add_trace (vm, node, b1, sizeof (*t));                       \
-	  t->pkt_type = HICN_PKT_TYPE_INTEREST;                               \
+	  t->pkt_type = HICN_PACKET_TYPE_INTEREST;                            \
 	  t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];            \
 	  t->next_index = next1;                                              \
 	  clib_memcpy_fast (t->packet_data, vlib_buffer_get_current (b1),     \

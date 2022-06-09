@@ -231,7 +231,7 @@ void RTCState::onDataPacketReceived(const core::ContentObject &content_object,
   }
 
   updatePacketSize(content_object);
-  updateReceivedBytes(content_object);
+  updateReceivedBytes(content_object, false);
   addRecvOrLost(seq, PacketState::RECEIVED);
 
   if (seq > highest_seq_received_) highest_seq_received_ = seq;
@@ -245,9 +245,7 @@ void RTCState::onDataPacketReceived(const core::ContentObject &content_object,
 
 void RTCState::onFecPacketReceived(const core::ContentObject &content_object) {
   uint32_t seq = content_object.getName().getSuffix();
-  // updateReceivedBytes(content_object);
-  received_fec_bytes_ +=
-      (uint32_t)(content_object.headerSize() + content_object.payloadSize());
+  updateReceivedBytes(content_object, true);
 
   if (seq > highest_seq_received_) highest_seq_received_ = seq;
 
@@ -331,7 +329,8 @@ void RTCState::onPacketLost(uint32_t seq) {
   addRecvOrLost(seq, PacketState::DEFINITELY_LOST);
 }
 
-void RTCState::onPacketRecoveredRtx(uint32_t seq) {
+void RTCState::onPacketRecoveredRtx(const core::ContentObject &content_object) {
+  uint32_t seq = content_object.getName().getSuffix();
   packets_sent_to_app_++;
   if (seq > highest_seq_received_) highest_seq_received_ = seq;
 
@@ -341,13 +340,17 @@ void RTCState::onPacketRecoveredRtx(uint32_t seq) {
   if (state == PacketState::LOST) losses_recovered_++;
 
   addRecvOrLost(seq, PacketState::RECEIVED);
+  updateReceivedBytes(content_object, false);
 }
 
-void RTCState::onFecPacketRecoveredRtx(uint32_t seq) {
+void RTCState::onFecPacketRecoveredRtx(
+    const core::ContentObject &content_object) {
+  uint32_t seq = content_object.getName().getSuffix();
   // This is the same as onPacketRecoveredRtx, but in this is case the
   // pkt is also a FEC pkt, the addRecvOrLost will be called afterwards
   if (seq > highest_seq_received_) highest_seq_received_ = seq;
   losses_recovered_++;
+  updateReceivedBytes(content_object, true);
 }
 
 void RTCState::onPacketRecoveredFec(uint32_t seq, uint32_t size) {
@@ -551,9 +554,15 @@ void RTCState::onNewRound(double round_len, bool in_sync) {
   rounds_++;
 }
 
-void RTCState::updateReceivedBytes(const core::ContentObject &content_object) {
-  received_bytes_ +=
-      (uint32_t)(content_object.headerSize() + content_object.payloadSize());
+void RTCState::updateReceivedBytes(const core::ContentObject &content_object,
+                                   bool isFec) {
+  if (isFec) {
+    received_fec_bytes_ +=
+        (uint32_t)(content_object.headerSize() + content_object.payloadSize());
+  } else {
+    received_bytes_ +=
+        (uint32_t)(content_object.headerSize() + content_object.payloadSize());
+  }
 }
 
 void RTCState::updatePacketSize(const core::ContentObject &content_object) {
@@ -803,7 +812,7 @@ core::ParamsRTC RTCState::getProbeParams(const core::ContentObject &probe) {
   switch (ProbeHandler::getProbeType(seq)) {
     case ProbeType::INIT: {
       core::ContentObjectManifest manifest(
-          const_cast<core::ContentObject &>(probe));
+          const_cast<core::ContentObject &>(probe).shared_from_this());
       manifest.decode();
       params = manifest.getParamsRTC();
       break;
@@ -841,7 +850,7 @@ core::ParamsRTC RTCState::getDataParams(const core::ContentObject &data) {
     }
     case core::PayloadType::MANIFEST: {
       core::ContentObjectManifest manifest(
-          const_cast<core::ContentObject &>(data));
+          const_cast<core::ContentObject &>(data).shared_from_this());
       manifest.decode();
       params = manifest.getParamsRTC();
       break;

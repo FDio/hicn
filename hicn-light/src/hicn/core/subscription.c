@@ -3,7 +3,7 @@
  */
 
 #include "subscription.h"
-#include <hicn/base/vector.h>
+#include <hicn/util/vector.h>
 #include <hicn/util/log.h>
 
 /*----------------------------------------------------------------------------*

@@ -21,6 +21,7 @@
 #define ALLOCATION_CHECKS
 #include <hicn/transport/core/global_object_pool.h>
 #undef ALLOCATION_CHECKS
+#include <hicn/transport/utils/chrono_typedefs.h>
 #include <hicn/transport/utils/event_thread.h>
 
 namespace transport {
@@ -30,6 +31,8 @@ class PacketAllocatorTest : public ::testing::Test {
  protected:
   static inline const std::size_t default_size = 2048;
   static inline const std::size_t default_n_buffer = 1024;
+  static inline const std::size_t counter = 1024;
+  static inline const std::size_t total_packets = 1024 * counter;
 
   // Get fixed block allocator_ of 1024 buffers of size 2048 bytes
   PacketAllocatorTest() : allocator_(PacketManager<>::getInstance()) {
@@ -100,6 +103,28 @@ TEST_F(PacketAllocatorTest, CheckAllocationIsCorrect) {
   EXPECT_THAT(std::size_t(buffer_address - start_address),
               testing::Eq(sizeof(
                   PacketManager<>::PacketStorage::packet_and_shared_ptr)));
+}
+
+TEST_F(PacketAllocatorTest, CheckAllocationSpeed) {
+  // Check time needed to allocate 1 million packeauto &packet_manager =
+  auto &packet_manager = core::PacketManager<>::getInstance();
+
+  // Send 1 million packets
+  std::array<utils::MemBuf::Ptr, counter> packets;
+  auto t0 = utils::SteadyTime::now();
+  std::size_t sum = 0;
+  for (std::size_t j = 0; j < counter; j++) {
+    for (std::size_t i = 0; i < counter; i++) {
+      packets[i] = packet_manager.getMemBuf();
+      sum++;
+    }
+  }
+  auto t1 = utils::SteadyTime::now();
+
+  auto delta = utils::SteadyTime::getDurationUs(t0, t1);
+  auto rate = double(sum) * 1000000.0 / double(delta.count());
+
+  LOG(INFO) << "rate: " << rate << " packets/s";
 }
 
 }  // namespace core

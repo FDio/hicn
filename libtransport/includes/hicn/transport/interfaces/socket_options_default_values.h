@@ -53,9 +53,9 @@ static constexpr uint32_t key_locator_size = 60;          // bytes
 static constexpr uint32_t limit_guard = 80;               // bytes
 static constexpr uint32_t digest_size = 34;               // bytes
 static constexpr uint32_t max_out_of_order_segments = 3;  // content object
-static constexpr uint32_t unverified_interval = 60000;    // milliseconds
-static constexpr double unverified_ratio = 0.2;
-static constexpr uint32_t manifest_capacity = 20;
+static constexpr uint32_t manifest_max_capacity = 30;
+static constexpr uint32_t manifest_factor_relevant = 100;
+static constexpr uint32_t manifest_factor_alert = 20;
 
 // RAAQM
 static constexpr int sample_number = 30;

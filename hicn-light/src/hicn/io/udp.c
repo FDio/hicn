@@ -49,10 +49,9 @@
 
 #include <hicn/util/log.h>
 #include <hicn/util/sstrncpy.h>
+#include <hicn/util/ring.h>
 
 #include "base.h"
-#include "../base/loop.h"
-#include "../base/ring.h"
 #include "../core/address_pair.h"
 #include "../core/connection.h"
 #include "../core/connection_vft.h"

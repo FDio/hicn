@@ -57,32 +57,44 @@ typedef u8 weight_t;
 #define VLIB_BUFFER_MIN_CHAIN_SEG_SIZE (128)
 #endif
 
-/* vlib_buffer cloning utilities impose that current_lentgh is more that
- * 2*CLIB_CACHE_LINE_BYTES.  */
-/* This flag is used to mark packets whose lenght is less that
- * 2*CLIB_CACHE_LINE_BYTES. */
-#define HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL 0x02
-#define HICN_BUFFER_FLAGS_FROM_CS	  0x10
-
 /* The following is stored in the opaque2 field in the vlib_buffer_t */
 typedef struct
 {
-  /* hash of the name */
+  /**
+   * Hash of the name (8)
+   */
   u64 name_hash;
 
-  /* ids to prefetch a PIT/CS entry */
+  /**
+   * IDs to prefetch a PIT/CS entry (4+4+1+1)
+   */
   u32 node_id;
   u32 bucket_id;
   u8 hash_entry_id;
   u8 hash_bucket_flags;
 
+  /**
+   * hICN buffer flags (1)
+   */
   u8 flags;
-  u8 dpo_ctx_id; /* used for data path */
-  u8 vft_id;	 /* " */
 
-  hicn_face_id_t face_id; /* ingress iface, sizeof(u32) */
+  /**
+   * used for data path (1+1)
+   */
+  u8 dpo_ctx_id;
+  u8 vft_id;
 
+  /**
+   * Ingress face (4)
+   */
+  hicn_face_id_t face_id;
+
+  /**
+   * Cached packet info
+   */
   hicn_type_t type;
+  hicn_name_t name;
+  u16 port;
 } hicn_buffer_t;
 
 STATIC_ASSERT (sizeof (hicn_buffer_t) <=
@@ -99,6 +111,22 @@ always_inline u8
 hicn_is_v6 (hicn_header_t *pkt_hdr)
 {
   return ((pkt_hdr->v4.ip.version_ihl >> 4) != 4);
+}
+
+always_inline void
+hicn_buffer_get_name_and_namelen (vlib_buffer_t *b0, u8 **nameptr,
+				  u16 *namelen)
+{
+  *nameptr = (u8 *) (&hicn_get_buffer (b0)->name);
+  *namelen = ip_address_is_v4 (&hicn_get_buffer (b0)->name.prefix) ?
+		     HICN_V4_NAME_LEN :
+		     HICN_V6_NAME_LEN;
+}
+
+always_inline u8
+hicn_buffer_is_v6 (vlib_buffer_t *b0)
+{
+  return hicn_get_buffer (b0)->type.l1 == IPPROTO_IPV6;
 }
 
 #endif /* __HICN_H__ */

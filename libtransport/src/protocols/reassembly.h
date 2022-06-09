@@ -57,12 +57,6 @@ class Reassembly {
   virtual void reassemble(utils::MemBuf &buffer, uint32_t suffix) = 0;
 
   /**
-   * Handle reassembly of manifest
-   */
-  virtual void reassemble(
-      std::unique_ptr<core::ContentObjectManifest> &&manifest) = 0;
-
-  /**
    * Reset reassembler for new round
    */
   virtual void reInitialize() = 0;

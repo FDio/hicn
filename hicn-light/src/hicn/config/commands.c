@@ -90,7 +90,8 @@ static inline unsigned _symbolic_to_conn_id(forwarder_t *forwarder,
     }
   } else {
     // case for symbolic as input: check if symbolic name can be resolved
-    conn_id = connection_table_get_id_by_name(table, symbolic_or_connid);
+    conn_id = (unsigned int)connection_table_get_id_by_name(table,
+                                                            symbolic_or_connid);
     if (connection_id_is_valid(conn_id)) {
       DEBUG("Resolved symbolic name '%s' to conn_id %u", symbolic_or_connid,
             conn_id);
@@ -151,6 +152,7 @@ uint8_t *configuration_on_listener_add(forwarder_t *forwarder, uint8_t *packet,
   }
 
   address_t address;
+  memset(&address, 0, sizeof(address_t));
   if (address_from_ip_port(&address, control->family, &control->address,
                            control->port) < 0) {
     WARN(
@@ -206,7 +208,8 @@ unsigned symbolic_to_listener_id(forwarder_t *forwarder,
     }
   } else {
     // case for symbolic as input: check if symbolic name can be resolved
-    listener_id = listener_table_get_id_by_name(table, symbolic_or_listener_id);
+    listener_id = (unsigned int)listener_table_get_id_by_name(
+        table, symbolic_or_listener_id);
     if (listener_id_is_valid(listener_id)) {
       DEBUG("Resolved symbolic name '%s' to conn_id %u",
             symbolic_or_listener_id, listener_id);
@@ -262,7 +265,8 @@ uint8_t *configuration_on_listener_remove(forwarder_t *forwarder,
                         address_pair_get_local(pair)))
       continue;
 
-    unsigned conn_id = connection_table_get_connection_id(table, connection);
+    unsigned conn_id =
+        (unsigned int)connection_table_get_connection_id(table, connection);
     /* Remove connection from the FIB */
     forwarder_remove_connection_id_from_routes(forwarder, conn_id);
 
@@ -376,14 +380,23 @@ uint8_t *configuration_on_connection_add(forwarder_t *forwarder,
       goto NACK;
   }
 
-  const char *symbolic_name = control->symbolic;
-
   if (!face_type_is_defined(control->type)) goto NACK;
 
   connection_table_t *table = forwarder_get_connection_table(forwarder);
-  if (connection_table_get_by_name(table, symbolic_name)) {
-    ERROR("Connection symbolic name already exists");
-    goto NACK;
+  char *symbolic_name = control->symbolic;
+
+  // Generate connection name if not specified
+  if (symbolic_name[0] == '\0') {
+    int rc = connection_table_get_random_name(table, symbolic_name);
+    if (rc < 0) {
+      ERROR("Unable to generate new connection name");
+      goto NACK;
+    }
+  } else {
+    if (connection_table_get_by_name(table, symbolic_name)) {
+      ERROR("Connection symbolic name already exists");
+      goto NACK;
+    }
   }
 
   address_pair_t pair;
@@ -938,8 +951,9 @@ uint8_t *configuration_on_cache_list(forwarder_t *forwarder, uint8_t *packet,
       .payload = {
           .store_in_cs = forwarder_cs_get_store(forwarder),
           .serve_from_cs = forwarder_cs_get_serve(forwarder),
-          .cs_size = forwarder_cs_get_size(forwarder),
-          .num_stale_entries = forwarder_cs_get_num_stale_entries(forwarder)}};
+          .cs_size = (unsigned int)forwarder_cs_get_size(forwarder),
+          .num_stale_entries =
+              (unsigned int)forwarder_cs_get_num_stale_entries(forwarder)}};
 
   *reply_size = sizeof(*msg);
   return (uint8_t *)msg;

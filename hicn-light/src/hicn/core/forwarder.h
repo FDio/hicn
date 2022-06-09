@@ -159,6 +159,18 @@ void forwarder_set_strategy(forwarder_t *forwarder, Name *name_prefix,
 
 cs_t *forwarder_get_cs(const forwarder_t *forwarder);
 
+off_t *forwarder_get_acquired_msgbuf_ids(const forwarder_t *forwarder);
+
+/**
+ * @note Acquire msgbuf ids vector ONLY for read-only operations.
+ */
+off_t *forwarder_get_acquired_msgbuf_ids(const forwarder_t *forwarder);
+
+void forwarder_acquired_msgbuf_ids_reset(const forwarder_t *forwarder);
+
+void forwarder_acquired_msgbuf_ids_push(const forwarder_t *forwarder,
+                                        off_t msgbuf_id);
+
 /**
  * @brief Returns the forwarder's FIB.
  * @param[in] forwarder - Pointer to the forwarder.

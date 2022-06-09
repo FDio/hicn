@@ -234,7 +234,7 @@ sync_hicn_fib_entry (hicn_dpo_ctx_t *fib_entry, hicn_face_id_t **pvec_faces)
   do                                                                          \
     {                                                                         \
       /* Careful, this adds a lock on the face if it exists */                \
-      hicn_face_add (dpo, nh, sw_if, &face_id, 0);                            \
+      hicn_face_add (dpo, nh, sw_if, &face_id);                               \
       vec_validate (vec_faces, index);                                        \
       vec_faces[index] = face_id;                                             \
       (index)++;                                                              \

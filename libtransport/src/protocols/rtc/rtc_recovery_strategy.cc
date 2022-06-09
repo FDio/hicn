@@ -29,8 +29,12 @@ using namespace transport::interface;
 
 RecoveryStrategy::RecoveryStrategy(
     Indexer *indexer, SendRtxCallback &&callback, asio::io_service &io_service,
-    bool use_rtx, bool use_fec, interface::StrategyCallback &&external_callback)
-    : recovery_on_(false),
+    bool use_rtx, bool use_fec,
+    interface::RtcTransportRecoveryStrategies rs_type,
+    interface::StrategyCallback &&external_callback)
+    : rs_type_(rs_type),
+      recovery_on_(false),
+      content_sharing_mode_(false),
       rtx_during_fec_(0),
       next_rtx_timer_(MAX_TIMER_RTX),
       send_rtx_callback_(std::move(callback)),
@@ -43,7 +47,9 @@ RecoveryStrategy::RecoveryStrategy(
 }
 
 RecoveryStrategy::RecoveryStrategy(RecoveryStrategy &&rs)
-    : rtx_during_fec_(0),
+    : rs_type_(rs.rs_type_),
+      content_sharing_mode_(rs.content_sharing_mode_),
+      rtx_during_fec_(0),
       rtx_state_(std::move(rs.rtx_state_)),
       rtx_timers_(std::move(rs.rtx_timers_)),
       recover_with_fec_(std::move(rs.recover_with_fec_)),
@@ -64,22 +70,39 @@ RecoveryStrategy::RecoveryStrategy(RecoveryStrategy &&rs)
 RecoveryStrategy::~RecoveryStrategy() {}
 
 void RecoveryStrategy::setFecParams(uint32_t n, uint32_t k) {
+  // if rs_type == FEC_ONLY_LOW_RES_LOSSES max k == 64
   n_ = n;
   k_ = k;
 
   // XXX for the moment we go in steps of 5% loss rate.
-  // max loss rate = 95%
+  uint32_t i = 0;
   for (uint32_t loss_rate = 5; loss_rate < 100; loss_rate += 5) {
-    double dec_loss_rate = (double)(loss_rate + 5) / 100.0;
-    double exp_losses = (double)k_ * dec_loss_rate;
-    uint32_t fec_to_ask = ceil(exp_losses / (1 - dec_loss_rate));
+    uint32_t fec_to_ask = 0;
+    if (n_ != 0 && k_ != 0) {
+      if (rs_type_ ==
+          interface::RtcTransportRecoveryStrategies::FEC_ONLY_LOW_RES_LOSSES) {
+        // the max loss rate in the matrix is 50%
+        uint32_t index = i;
+        if (i > 9) index = 9;
+        fec_to_ask = FEC_MATRIX[k_ - 1][index];
+      } else {
+        double dec_loss_rate = (double)(loss_rate + 5);
+        if (dec_loss_rate == 100.0) dec_loss_rate = 95.0;
+        dec_loss_rate = dec_loss_rate / 100.0;
+        double exp_losses = ceil((double)k_ * dec_loss_rate);
+        fec_to_ask = ceil(exp_losses / (1 - dec_loss_rate));
+      }
+    }
+    fec_to_ask = std::min(fec_to_ask, (n_ - k_));
 
     fec_state_ f;
-    f.fec_to_ask = std::min(fec_to_ask, (n_ - k_));
+    f.fec_to_ask = fec_to_ask;
     f.last_update = round_id_;
     f.avg_residual_losses = 0.0;
     f.consecutive_use = 0;
     fec_per_loss_rate_.push_back(f);
+
+    i++;
   }
 }
 
@@ -161,6 +184,7 @@ void RecoveryStrategy::addNewRtx(uint32_t seq, bool force) {
 uint64_t RecoveryStrategy::computeNextSend(uint32_t seq, bool new_rtx) {
   uint64_t now = getNow();
   if (new_rtx) {
+    if (content_sharing_mode_) return now + 1;
     // for the new rtx we wait one estimated IAT after the loss detection. this
     // is bacause, assuming that packets arrive with a constant IAT, we should
     // get a new packet every IAT
@@ -191,6 +215,7 @@ uint64_t RecoveryStrategy::computeNextSend(uint32_t seq, bool new_rtx) {
 
     return now + wait;
   } else {
+    if (content_sharing_mode_) return now + state_->getMinRTT();
     // wait one RTT
     uint32_t wait = SENTINEL_TIMER_INTERVAL;
 
@@ -204,7 +229,7 @@ uint64_t RecoveryStrategy::computeNextSend(uint32_t seq, bool new_rtx) {
 
     uint64_t rtt = state_->getMinRTT();
     if (rtt == 0) rtt = SENTINEL_TIMER_INTERVAL;
-    wait = rtt;
+    wait = (uint32_t)rtt;
 
     uint32_t jitter = ceil(state_->getJitter());
     wait += jitter;
@@ -348,7 +373,13 @@ uint32_t RecoveryStrategy::computeFecPacketsToAsk() {
   // keep track of the last used fec. if we use a new bin on this round reset
   // consecutive use and avg loss in the prev bin
   uint32_t bin = ceil(loss_rate / 5.0) - 1;
-  if (bin > fec_per_loss_rate_.size() - 1) bin = fec_per_loss_rate_.size() - 1;
+  if (bin > fec_per_loss_rate_.size() - 1)
+    bin = (uint32_t)fec_per_loss_rate_.size() - 1;
+
+  if (rs_type_ ==
+      interface::RtcTransportRecoveryStrategies::FEC_ONLY_LOW_RES_LOSSES)
+    // using this stategy we don't need to ask for more
+    return fec_per_loss_rate_[bin].fec_to_ask;
 
   if (bin != last_fec_used_) {
     fec_per_loss_rate_[last_fec_used_].consecutive_use = 0;

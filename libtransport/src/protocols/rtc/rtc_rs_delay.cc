@@ -25,8 +25,10 @@ namespace rtc {
 
 RecoveryStrategyDelayBased::RecoveryStrategyDelayBased(
     Indexer *indexer, SendRtxCallback &&callback, asio::io_service &io_service,
+    interface::RtcTransportRecoveryStrategies rs_type,
     interface::StrategyCallback &&external_callback)
     : RecoveryStrategy(indexer, std::move(callback), io_service, true, false,
+                       rs_type,
                        std::move(external_callback)),  // start with rtx
       congestion_state_(false),
       probing_state_(false),
@@ -48,7 +50,7 @@ void RecoveryStrategyDelayBased::turnOnRecovery() {
   recovery_on_ = true;
   uint64_t rtt = state_->getMinRTT();
   uint32_t fec_to_ask = computeFecPacketsToAsk();
-  if (rtt > 80 && fec_to_ask != 0) {
+  if (rtt > MAX_RTT_BEFORE_FEC && fec_to_ask > 0) {
     // we need to start FEC (see fec only strategy for more details)
     setRtxFec(true, true);
     rtx_during_fec_ = 1;  // avoid to stop fec
@@ -86,14 +88,14 @@ void RecoveryStrategyDelayBased::onNewRound(bool in_sync) {
 
   uint64_t rtt = state_->getMinRTT();
 
-  bool congestion = false;
   // XXX at the moment we are not looking at congestion events
-  // congestion = rc_->inCongestionState();
+  // bool congestion = rc_->inCongestionState();
 
-  if ((!fec_on_ && rtt >= 100) || (fec_on_ && rtt > 80) || congestion) {
+  if ((!fec_on_ && rtt >= MAX_RTT_BEFORE_FEC) ||
+      (fec_on_ && rtt > (MAX_RTT_BEFORE_FEC - 10))) {
     // switch from rtx to fec or keep use fec. Notice that if some rtx are
     // waiting to be scheduled, they will be sent normally, but no new rtx will
-    // be created If the loss rate is 0 keep to use RTX.
+    // be created if the loss rate is 0 keep to use RTX.
     uint32_t fec_to_ask = computeFecPacketsToAsk();
     softSwitchToFec(fec_to_ask);
     if (rtx_during_fec_ == 0)  // if we do not send any RTX the losses
@@ -104,7 +106,8 @@ void RecoveryStrategyDelayBased::onNewRound(bool in_sync) {
     return;
   }
 
-  if ((fec_on_ && rtt <= 80) || (!rtx_on_ && rtt <= 100)) {
+  if ((fec_on_ && rtt <= (MAX_RTT_BEFORE_FEC - 10)) ||
+      (!rtx_on_ && rtt <= MAX_RTT_BEFORE_FEC)) {
     // turn on rtx
     softSwitchToFec(0);
     indexer_->setNFec(0);

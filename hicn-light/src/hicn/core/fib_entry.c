@@ -378,7 +378,7 @@ nexthops_t *fib_entry_get_available_nexthops(fib_entry_t *entry,
     connection_table_foreach(table, connection, {
       if (connection_is_local(connection)) continue;
       new_nexthops->elts[nexthops_get_len(new_nexthops)] =
-          connection_table_get_connection_id(table, connection);
+          (unsigned int)connection_table_get_connection_id(table, connection);
       nexthops_inc(new_nexthops);
     });
 

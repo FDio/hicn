@@ -359,6 +359,27 @@ int main(int argc, char *const *argv) {
       rc = hc_subscription_delete(s, &command.object.subscription);
       break;
 
+#ifdef TEST_FACE_CREATION
+    case OBJECT_FACE:
+      switch (command.action) {
+        case ACTION_CREATE: {
+          hc_face_t face = {0};
+          face.face.type = FACE_TYPE_UDP;
+          face.face.family = AF_INET;
+          face.face.local_addr = IPV4_LOOPBACK;
+          face.face.remote_addr = IPV4_LOOPBACK;
+          face.face.local_port = 9696;
+          face.face.remote_port = 9696;
+
+          rc = hc_face_create(s, &face);
+          break;
+        }
+        default:
+          break;
+      }
+      break;
+#endif
+
     default:
       break;
   }

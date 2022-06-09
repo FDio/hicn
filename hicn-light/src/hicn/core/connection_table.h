@@ -30,22 +30,18 @@
 #ifndef HICNLIGHT_CONNECTION_TABLE_H
 #define HICNLIGHT_CONNECTION_TABLE_H
 
+#include <hicn/util/khash.h>
+#include <hicn/util/hash.h>
 #include "address_pair.h"
 #include "connection.h"
-#include "../base/hash.h"
-#include "../base/khash.h"
-#include "../base/pool.h"
-
-#define _ct_var(x) _ct_var_##x
+#include <hicn/util/pool.h>
 
 /* Hash functions for indices. */
 #define address_pair_hash(pair) (hash_struct(pair))
-#define address_pair_hash_eq(a, b) \
-  (address_pair_hash(b) == address_pair_hash(a))
 
 /* Hash table types for indices. */
 KHASH_INIT(ct_pair, const address_pair_t *, unsigned, 1, address_pair_hash,
-           address_pair_hash_eq);
+           address_pair_equals);
 KHASH_MAP_INIT_STR(ct_name, unsigned);
 
 typedef struct {
@@ -72,34 +68,9 @@ typedef struct {
  *  - You should always check that the returned connection is not NULL, which
  *  would signal that the pool is exhausted and could not be extended.
  */
-static inline connection_t *connection_table_allocate(
-    const connection_table_t *table, const address_pair_t *pair,
-    const char *name) {
-  connection_t *conn;
-  pool_get(table->connections, conn);
-
-  if (conn) {
-    off_t id = conn - table->connections;
-    int res;
-    khiter_t k;
-
-    // Add in name hash table
-    k = kh_put_ct_name(table->id_by_name, strdup(name), &res);
-    kh_value(table->id_by_name, k) = id;
-
-    // Add in pair hash table
-    address_pair_t *pair_copy =
-        (address_pair_t *)malloc(sizeof(address_pair_t));
-    memcpy(pair_copy, pair, sizeof(address_pair_t));
-
-    k = kh_put_ct_pair(table->id_by_pair, pair_copy, &res);
-    assert(res != -1);
-    kh_value(table->id_by_pair, k) = id;
-  }
-
-  return conn;
-}
-
+connection_t *connection_table_allocate(const connection_table_t *table,
+                                        const address_pair_t *pair,
+                                        const char *name);
 /**
  * @brief Deallocate a connection and return it to the connection table pool.
  *
@@ -110,26 +81,8 @@ static inline connection_t *connection_table_allocate(
  *  - Upon returning a connection to the pool, all indices pointing to that
  *  connection are also cleared.
  */
-static inline void connection_table_deallocate(const connection_table_t *table,
-                                               const connection_t *conn) {
-  const char *name = connection_get_name(conn);
-  const address_pair_t *pair = connection_get_pair(conn);
-  khiter_t k;
-
-  // Remove from name hash table
-  k = kh_get_ct_name(table->id_by_name, name);
-  assert(k != kh_end(table->id_by_name));
-  free((char *)kh_key(table->id_by_name, k));
-  kh_del_ct_name(table->id_by_name, k);
-
-  // Remove from pair hash table
-  k = kh_get_ct_pair(table->id_by_pair, pair);
-  assert(k != kh_end(table->id_by_pair));
-  free((address_pair_t *)kh_key(table->id_by_pair, k));
-  kh_del_ct_pair(table->id_by_pair, k);
-
-  pool_put(table->connections, conn);
-}
+void connection_table_deallocate(const connection_table_t *table,
+                                 const connection_t *conn);
 
 /**
  * @brief Returns the length of the connection table, the number of active
@@ -292,6 +245,7 @@ void connection_table_print_by_pair(const connection_table_t *table);
 
 void connection_table_print_by_name(const connection_table_t *table);
 
-char *connection_table_get_random_name(const connection_table_t *table);
+int connection_table_get_random_name(const connection_table_t *table,
+                                     char *name);
 
 #endif /* HICNLIGHT_CONNECTION_TABLE_H */

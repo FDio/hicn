@@ -83,6 +83,7 @@ set(HICN_PLUGIN_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/pcs.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_api.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_buffer_flags.h
   ${CMAKE_CURRENT_SOURCE_DIR}/state.h
   ${CMAKE_CURRENT_SOURCE_DIR}/infra.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_msg_enum.h
@@ -99,6 +100,7 @@ set(HICN_PLUGIN_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/error.h
   ${CMAKE_CURRENT_SOURCE_DIR}/face_db.h
   ${CMAKE_CURRENT_SOURCE_DIR}/faces/face.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_flags.h
   ${CMAKE_CURRENT_SOURCE_DIR}/faces/face_node.h
   ${CMAKE_CURRENT_SOURCE_DIR}/faces/iface_node.h
   ${CMAKE_CURRENT_SOURCE_DIR}/faces/inlines.h

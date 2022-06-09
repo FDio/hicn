@@ -37,16 +37,24 @@ RTCLossDetectionAndRecovery::RTCLossDetectionAndRecovery(
     interface::RtcTransportRecoveryStrategies type,
     RecoveryStrategy::SendRtxCallback &&callback,
     interface::StrategyCallback &&external_callback) {
-  rs_type_ = type;
   if (type == interface::RtcTransportRecoveryStrategies::RECOVERY_OFF) {
     rs_ = std::make_shared<RecoveryStrategyRecoveryOff>(
-        indexer, std::move(callback), io_service, std::move(external_callback));
-  } else if (type == interface::RtcTransportRecoveryStrategies::DELAY_BASED) {
+        indexer, std::move(callback), io_service, type,
+        std::move(external_callback));
+  } else if (type == interface::RtcTransportRecoveryStrategies::DELAY_BASED ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         DELAY_AND_BESTPATH ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         DELAY_AND_REPLICATION) {
     rs_ = std::make_shared<RecoveryStrategyDelayBased>(
-        indexer, std::move(callback), io_service, std::move(external_callback));
-  } else if (type == interface::RtcTransportRecoveryStrategies::FEC_ONLY) {
+        indexer, std::move(callback), io_service, type,
+        std::move(external_callback));
+  } else if (type == interface::RtcTransportRecoveryStrategies::FEC_ONLY ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         FEC_ONLY_LOW_RES_LOSSES) {
     rs_ = std::make_shared<RecoveryStrategyFecOnly>(
-        indexer, std::move(callback), io_service, std::move(external_callback));
+        indexer, std::move(callback), io_service, type,
+        std::move(external_callback));
   } else if (type == interface::RtcTransportRecoveryStrategies::LOW_RATE ||
              type == interface::RtcTransportRecoveryStrategies::
                          LOW_RATE_AND_BESTPATH ||
@@ -55,12 +63,14 @@ RTCLossDetectionAndRecovery::RTCLossDetectionAndRecovery(
              type == interface::RtcTransportRecoveryStrategies::
                          LOW_RATE_AND_ALL_FWD_STRATEGIES) {
     rs_ = std::make_shared<RecoveryStrategyLowRate>(
-        indexer, std::move(callback), io_service, std::move(external_callback));
+        indexer, std::move(callback), io_service, type,
+        std::move(external_callback));
   } else {
     // default
-    rs_type_ = interface::RtcTransportRecoveryStrategies::RTX_ONLY;
+    type = interface::RtcTransportRecoveryStrategies::RTX_ONLY;
     rs_ = std::make_shared<RecoveryStrategyRtxOnly>(
-        indexer, std::move(callback), io_service, std::move(external_callback));
+        indexer, std::move(callback), io_service, type,
+        std::move(external_callback));
   }
 }
 
@@ -68,15 +78,21 @@ RTCLossDetectionAndRecovery::~RTCLossDetectionAndRecovery() {}
 
 void RTCLossDetectionAndRecovery::changeRecoveryStrategy(
     interface::RtcTransportRecoveryStrategies type) {
-  if (type == rs_type_) return;
+  if (type == rs_->getType()) return;
 
-  rs_type_ = type;
+  rs_->updateType(type);
   if (type == interface::RtcTransportRecoveryStrategies::RECOVERY_OFF) {
     rs_ =
         std::make_shared<RecoveryStrategyRecoveryOff>(std::move(*(rs_.get())));
-  } else if (type == interface::RtcTransportRecoveryStrategies::DELAY_BASED) {
+  } else if (type == interface::RtcTransportRecoveryStrategies::DELAY_BASED ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         DELAY_AND_BESTPATH ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         DELAY_AND_REPLICATION) {
     rs_ = std::make_shared<RecoveryStrategyDelayBased>(std::move(*(rs_.get())));
-  } else if (type == interface::RtcTransportRecoveryStrategies::FEC_ONLY) {
+  } else if (type == interface::RtcTransportRecoveryStrategies::FEC_ONLY ||
+             type == interface::RtcTransportRecoveryStrategies::
+                         FEC_ONLY_LOW_RES_LOSSES) {
     rs_ = std::make_shared<RecoveryStrategyFecOnly>(std::move(*(rs_.get())));
   } else if (type == interface::RtcTransportRecoveryStrategies::LOW_RATE ||
              type == interface::RtcTransportRecoveryStrategies::

@@ -20,7 +20,7 @@
 #include <hicn/core/messageHandler.h>
 #include <hicn/core/nameBitvector.h>
 
-#include <hicn/base/hash.h>
+#include <hicn/util/hash.h>
 #include <hicn/ctrl/hicn-light-ng.h>
 
 #define DEFAULT_PORT 1234

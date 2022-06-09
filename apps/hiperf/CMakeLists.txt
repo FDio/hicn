@@ -19,7 +19,6 @@ if (NOT DISABLE_EXECUTABLES)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/client.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/server.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/forwarder_interface.cc
   )
 
 

@@ -16,6 +16,8 @@
 #pragma once
 
 #include <core/facade.h>
+#include <hicn/transport/auth/signer.h>
+#include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/config.h>
 #include <hicn/transport/interfaces/callbacks.h>
 #include <hicn/transport/interfaces/socket_options_default_values.h>
@@ -68,6 +70,8 @@ class Socket {
   std::shared_ptr<core::Portal> portal_;
   bool is_async_;
   hicn_format_t packet_format_;
+  std::shared_ptr<auth::Signer> signer_;
+  std::shared_ptr<auth::Verifier> verifier_;
 };
 
 }  // namespace implementation

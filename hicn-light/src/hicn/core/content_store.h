@@ -1,7 +1,7 @@
 #ifndef HICNLIGHT_CS_H
 #define HICNLIGHT_CS_H
 
-#include "../base/pool.h"
+#include <hicn/util/pool.h>
 #include "../content_store/lru.h"
 #include "msgbuf_pool.h"
 

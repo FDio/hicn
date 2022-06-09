@@ -49,7 +49,7 @@ class RaaqmDataPath {
    * max of RTT.
    * @param new_rtt is the value of the new RTT
    */
-  RaaqmDataPath &insertNewRtt(const utils::SteadyTime::Milliseconds &new_rtt,
+  RaaqmDataPath &insertNewRtt(const utils::SteadyTime::Microseconds &new_rtt,
                               const utils::SteadyTime::TimePoint &now);
 
   /**

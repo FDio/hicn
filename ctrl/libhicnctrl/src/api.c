@@ -440,7 +440,7 @@ GENERATE_FIND(connection);
 /* CONNECTION VALIDATE */
 
 int hc_connection_validate(const hc_connection_t *connection) {
-  if (!IS_VALID_NAME(connection->name)) {
+  if (connection->name[0] != '\0' && !IS_VALID_NAME(connection->name)) {
     ERROR("[hc_connection_validate] Invalid name specified");
     return -1;
   }

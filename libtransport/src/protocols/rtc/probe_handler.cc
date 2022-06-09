@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <glog/logging.h>
 #include <hicn/transport/utils/chrono_typedefs.h>
 #include <protocols/rtc/probe_handler.h>
 #include <protocols/rtc/rtc_consts.h>
@@ -64,7 +65,7 @@ double ProbeHandler::getProbeLossRate() {
 }
 
 void ProbeHandler::setSuffixRange(uint32_t min, uint32_t max) {
-  assert(min <= max && min >= MIN_PROBE_SEQ);
+  DCHECK(min <= max && min >= MIN_PROBE_SEQ);
   distr_ = std::uniform_int_distribution<uint32_t>(min, max);
 }
 

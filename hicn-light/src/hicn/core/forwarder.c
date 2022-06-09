@@ -69,6 +69,7 @@
 #endif /* WITH_POLICY_STATS */
 
 #include <hicn/core/wldr.h>
+#include <hicn/core/interest_manifest.h>
 #include <hicn/util/log.h>
 
 typedef struct {
@@ -138,13 +139,12 @@ struct forwarder_s {
    * The message forwarder has to decide whether to queue incoming packets for
    * batching, or trigger the transmission on the connection
    */
-  unsigned pending_conn[MAX_MSG];
-  size_t num_pending_conn;
-
-  // msgbuf_t msgbuf; /* Storage for msgbuf, which are currently processed 1 by
-  // 1 */
+  unsigned *pending_conn;
 
   subscription_table_t *subscriptions;
+
+  // Used to store the msgbufs that need to be released
+  off_t *acquired_msgbuf_ids;
 };
 
 /**
@@ -223,8 +223,8 @@ forwarder_t *forwarder_create(configuration_t *configuration) {
 #endif /* WITH_POLICY_STATS */
 
   memset(&forwarder->stats, 0, sizeof(forwarder_stats_t));
-
-  forwarder->num_pending_conn = 0;
+  vector_init(forwarder->pending_conn, MAX_MSG, 0);
+  vector_init(forwarder->acquired_msgbuf_ids, MAX_MSG, 0);
 
   return forwarder;
 
@@ -267,6 +267,8 @@ void forwarder_free(forwarder_t *forwarder) {
   listener_table_free(forwarder->listener_table);
   subscription_table_free(forwarder->subscriptions);
   configuration_free(forwarder->config);
+  vector_free(forwarder->pending_conn);
+  vector_free(forwarder->acquired_msgbuf_ids);
   free(forwarder);
 }
 
@@ -429,12 +431,8 @@ static ssize_t forwarder_forward_via_connection(forwarder_t *forwarder,
 #endif
 
   /* ... and mark the connection as pending if this is not yet the case */
-  unsigned i;
-  for (i = 0; i < forwarder->num_pending_conn; i++) {
-    if (forwarder->pending_conn[i] == conn_id) break;
-  }
-  if (i == forwarder->num_pending_conn)  // Not found
-    forwarder->pending_conn[forwarder->num_pending_conn++] = conn_id;
+  if (!vector_contains(forwarder->pending_conn, conn_id))
+    vector_push(forwarder->pending_conn, conn_id);
 
   if (!success) {
     forwarder->stats.countSendFailures++;
@@ -457,7 +455,8 @@ static ssize_t forwarder_forward_via_connection(forwarder_t *forwarder,
       break;
   }
 
-  TRACE("forward msgbuf %p to interface %u", msgbuf, conn_id);
+  TRACE("forward msgbuf %p (size=%u) to interface %u", msgbuf,
+        msgbuf_get_len(msgbuf), conn_id);
   return msgbuf_get_len(msgbuf);
 }
 
@@ -495,7 +494,8 @@ static unsigned forwarder_forward_to_nexthops(forwarder_t *forwarder,
 
 static bool forwarder_forward_via_fib(forwarder_t *forwarder, off_t msgbuf_id,
                                       pkt_cache_verdict_t verdict,
-                                      pkt_cache_entry_t *entry) {
+                                      pkt_cache_entry_t *entry,
+                                      bool is_aggregated) {
   assert(forwarder);
   assert(msgbuf_id_is_valid(msgbuf_id));
 
@@ -515,15 +515,8 @@ static bool forwarder_forward_via_fib(forwarder_t *forwarder, off_t msgbuf_id,
     return false;
   }
 
-  // if this is the first time that we sent this interest the pit entry would be
-  // NULL. in that case we add the interest to the pit
-  if (entry == NULL) {
-    entry = pkt_cache_add_to_pit(forwarder->pkt_cache, msgbuf);
-  }
   pit_entry_t *pit_entry = &entry->u.pit_entry;
-  if (!pit_entry) {
-    return false;
-  }
+  if (!pit_entry) return false;
 
   pit_entry_set_fib_entry(pit_entry, fib_entry);
 
@@ -536,6 +529,9 @@ static bool forwarder_forward_via_fib(forwarder_t *forwarder, off_t msgbuf_id,
     pit_entry_egress_add(pit_entry, nexthop);
   });
 
+  // Forwarding is done separately for aggregated interests
+  if (is_aggregated) return true;
+
   if (forwarder_forward_to_nexthops(forwarder, msgbuf_id, nexthops) <= 0) {
     // this should never happen
     ERROR("Message %p returned an empty next hop set", msgbuf);
@@ -547,12 +543,10 @@ static bool forwarder_forward_via_fib(forwarder_t *forwarder, off_t msgbuf_id,
 
 #endif /* ! BYPASS_FIB */
 
-ssize_t _forwarder_forward_upon_interest(forwarder_t *forwarder,
-                                         msgbuf_pool_t *msgbuf_pool,
-                                         off_t data_msgbuf_id,
-                                         off_t interest_msgbuf_id,
-                                         pkt_cache_entry_t *entry,
-                                         pkt_cache_verdict_t verdict) {
+ssize_t _forwarder_forward_upon_interest(
+    forwarder_t *forwarder, msgbuf_pool_t *msgbuf_pool, off_t data_msgbuf_id,
+    off_t interest_msgbuf_id, pkt_cache_entry_t *entry,
+    pkt_cache_verdict_t verdict, bool is_aggregated) {
   msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, interest_msgbuf_id);
 
   if (verdict == PKT_CACHE_VERDICT_AGGREGATE_INTEREST) {
@@ -575,13 +569,14 @@ ssize_t _forwarder_forward_upon_interest(forwarder_t *forwarder,
 
     // - Try to forward the interest
   } else if (!forwarder_forward_via_fib(forwarder, interest_msgbuf_id, verdict,
-                                        entry)) {
+                                        entry, is_aggregated)) {
     forwarder->stats.countDroppedNoRoute++;
     INFO("Message %lu did not match FIB, no route (count %u)",
          interest_msgbuf_id, forwarder->stats.countDroppedNoRoute);
 
     // - Drop the packet (no forwarding)
     forwarder_drop(forwarder, interest_msgbuf_id);
+    return -1;
   }
 
   return msgbuf_get_len(msgbuf);
@@ -590,19 +585,12 @@ ssize_t _forwarder_forward_upon_interest(forwarder_t *forwarder,
 static void _forwarder_update_interest_stats(forwarder_t *forwarder,
                                              pkt_cache_verdict_t verdict,
                                              msgbuf_t *msgbuf,
-                                             pkt_cache_entry_t *entry) {
-  long expiration = -1;
-  if (entry == NULL)
-    expiration = ticks_now() + msgbuf_get_interest_lifetime(msgbuf);
-  else if (entry->has_expire_ts)
-    expiration = entry->expire_ts;
-
+                                             bool has_expire_ts,
+                                             uint64_t expire_ts) {
+  long expiration = has_expire_ts ? expire_ts : -1;
   switch (verdict) {
     case PKT_CACHE_VERDICT_FORWARD_INTEREST:
-      DEBUG(
-          "Message will be added to PIT (expiration=%ld), "
-          "if nexthops are available",
-          expiration);
+      DEBUG("Message added to PIT (expiration=%ld)", expiration);
       break;
 
     case PKT_CACHE_VERDICT_AGGREGATE_INTEREST:
@@ -632,11 +620,119 @@ static void _forwarder_update_interest_stats(forwarder_t *forwarder,
       break;
 
     case PKT_CACHE_VERDICT_ERROR:
-      ERROR("Inivalid packet cache content");
+      ERROR("Invalid packet cache content");
       break;
 
     default:
       break;
+  }
+}
+
+static interest_manifest_header_t *_forwarder_get_interest_manifest(
+    msgbuf_t *msgbuf) {
+  uint8_t *packet = msgbuf_get_packet(msgbuf);
+  hicn_header_t *header = (hicn_header_t *)packet;
+  hicn_type_t type = hicn_header_to_type(header);
+
+  hicn_payload_type_t payload_type;
+  int rc = hicn_ops_vft[type.l1]->get_payload_type(type, &header->protocol,
+                                                   &payload_type);
+  _ASSERT(rc == HICN_LIB_ERROR_NONE);
+  if (payload_type != HPT_MANIFEST) return NULL;
+
+  size_t header_length, payload_length;
+  rc = hicn_ops_vft[type.l1]->get_header_length(type, &header->protocol,
+                                                &header_length);
+  assert(rc == HICN_LIB_ERROR_NONE);
+
+  rc = hicn_ops_vft[type.l1]->get_payload_length(type, &header->protocol,
+                                                 &payload_length);
+  assert(rc == HICN_LIB_ERROR_NONE);
+
+  u8 *payload = (u8 *)header + header_length;
+  interest_manifest_header_t *int_manifest_header =
+      (interest_manifest_header_t *)payload;
+  if (!interest_manifest_is_valid(int_manifest_header, payload_length))
+    return NULL;
+
+  return int_manifest_header;
+}
+
+// Manifest is split using splitting strategy, then every
+// sub-manifest is sent using the forwarding strategy defined for the prefix
+int _forwarder_forward_aggregated_interest(
+    forwarder_t *forwarder, interest_manifest_header_t *int_manifest_header,
+    int n_suffixes_to_fwd, msgbuf_t *msgbuf, off_t msgbuf_id) {
+  fib_entry_t *fib_entry = fib_match_message(forwarder->fib, msgbuf);
+  assert(fib_entry);
+  nexthops_t *nexthops =
+      fib_entry_get_nexthops_from_strategy(fib_entry, msgbuf, false);
+
+  switch (disaggregation_strategy) {
+    case INT_MANIFEST_SPLIT_NONE: {
+      if (forwarder_forward_to_nexthops(forwarder, msgbuf_id, nexthops) <= 0) {
+        ERROR("Message %p returned an empty next hop set", msgbuf);
+        return -1;
+      }
+
+      return msgbuf_get_len(msgbuf);
+    }
+
+    case INT_MANIFEST_SPLIT_MAX_N_SUFFIXES: {
+      // Generate sub-manifests: same as original manifest,
+      // but different suffix in the header and different bitmap
+
+      int total_len = 0;
+      // Suffixes in manifest plus the one in the header
+      int total_suffixes = int_manifest_header->n_suffixes + 1;
+
+      // Save copy of original bitmap to use as a reference
+      // to generate bitmaps for sub-manifests
+      u32 original_bitmap[BITMAP_SIZE] = {0};
+      memcpy(&original_bitmap, int_manifest_header->request_bitmap,
+             BITMAP_SIZE * sizeof(u32));
+
+      int pos = 0;
+      while (pos < total_suffixes) {
+        // If more than one sub-manifest,
+        // clone original interest manifest and update suffix
+        if (pos > 0) {
+          msgbuf_t *clone;
+          off_t clone_id =
+              msgbuf_pool_clone(forwarder->msgbuf_pool, &clone, msgbuf_id);
+          msgbuf_pool_acquire(clone);
+          forwarder_acquired_msgbuf_ids_push(forwarder, clone_id);
+
+          msgbuf_id = clone_id;
+          msgbuf = clone;
+        }
+
+        u32 curr_bitmap[BITMAP_SIZE] = {0};
+        pos = interest_manifest_update_bitmap(original_bitmap, curr_bitmap, pos,
+                                              total_suffixes,
+                                              N_SUFFIXES_PER_SPIT);
+
+        // Update manifest bitmap in current msgbuf
+        interest_manifest_header_t *manifest =
+            _forwarder_get_interest_manifest(msgbuf);
+        assert(manifest != NULL);
+        memcpy(manifest->request_bitmap, curr_bitmap,
+               BITMAP_SIZE * sizeof(u32));
+
+        if (forwarder_forward_to_nexthops(forwarder, msgbuf_id, nexthops) <=
+            0) {
+          ERROR("Message %p returned an empty next hop set", msgbuf);
+          continue;
+        }
+
+        total_len += msgbuf_get_len(msgbuf);
+      }
+
+      return total_len;
+    }
+
+    default:
+      return -1;
   }
 }
 
@@ -660,26 +756,92 @@ static ssize_t forwarder_process_interest(forwarder_t *forwarder,
 
   assert(msgbuf_get_type(msgbuf) == MSGBUF_TYPE_INTEREST);
 
-  forwarder->stats.countReceived++;
-  forwarder->stats.countInterestsReceived++;
+  u32 n_suffixes = 0;
+  interest_manifest_header_t *int_manifest_header =
+      _forwarder_get_interest_manifest(msgbuf);
+  if (int_manifest_header) n_suffixes = int_manifest_header->n_suffixes;
 
+  forwarder->stats.countReceived += 1 + n_suffixes;
+  forwarder->stats.countInterestsReceived += 1 + n_suffixes;
   WITH_DEBUG({
     char *nameString = name_ToString(msgbuf_get_name(msgbuf));
-    DEBUG("INTEREST (%s) msgbuf_id=%lu ingress=%u length=%u", nameString,
-          msgbuf_id, msgbuf_get_connection_id(msgbuf), msgbuf_get_len(msgbuf));
+    DEBUG("INTEREST (%s) suffixes=%u msgbuf_id=%lu ingress=%u length=%u",
+          nameString, n_suffixes, msgbuf_id, msgbuf_get_connection_id(msgbuf),
+          msgbuf_get_len(msgbuf));
     free(nameString);
   })
 
+  int pos = 0;  // Position of current suffix in manifest
+  int n_suffixes_to_fwd = 0;
+  u32 *suffix = NULL;
+  if (int_manifest_header) suffix = (u32 *)(int_manifest_header + 1);
+  u32 seq = name_GetSegment(msgbuf_get_name(msgbuf));
   pkt_cache_verdict_t verdict = PKT_CACHE_VERDICT_ERROR;
   off_t data_msgbuf_id = INVALID_MSGBUF_ID;
   pkt_cache_entry_t *entry = NULL;
-  pkt_cache_on_interest(forwarder->pkt_cache, msgbuf_pool, msgbuf_id, &verdict,
-                        &data_msgbuf_id, &entry, forwarder->serve_from_cs);
 
-  _forwarder_update_interest_stats(forwarder, verdict, msgbuf, entry);
+  Name name_copy = EMPTY_NAME;
+  name_Copy(msgbuf_get_name(msgbuf), &name_copy);
 
-  return _forwarder_forward_upon_interest(
-      forwarder, msgbuf_pool, data_msgbuf_id, msgbuf_id, entry, verdict);
+  // Cache suffixes for current prefix to (possibly) avoid double lookups
+  pkt_cache_save_suffixes_for_prefix(forwarder->pkt_cache,
+                                     name_GetContentName(&name_copy));
+
+  while (true) {
+    if (int_manifest_header &&
+        !is_bit_set(int_manifest_header->request_bitmap, pos))
+      goto NEXT_SUFFIX;
+
+    // Update packet cache
+    pkt_cache_on_interest(forwarder->pkt_cache, msgbuf_pool, msgbuf_id,
+                          &verdict, &data_msgbuf_id, &entry, &name_copy,
+                          forwarder->serve_from_cs);
+    _forwarder_update_interest_stats(forwarder, verdict, msgbuf,
+                                     entry->has_expire_ts, entry->expire_ts);
+
+    // Interest forwarding is performed only for single interests,
+    // otherwise '_forwarder_forward_aggregated_interest()' is used
+    int rc = (int)_forwarder_forward_upon_interest(
+        forwarder, msgbuf_pool, data_msgbuf_id, msgbuf_id, entry, verdict,
+        int_manifest_header != NULL);
+
+    // No route when trying to forward interest, remove from PIT
+    if (rc == -1)
+      pkt_cache_pit_remove_entry(forwarder->pkt_cache, entry, &name_copy);
+
+    if (int_manifest_header) {
+      // Unset in bitmap if no interest forwarding needed,
+      // otherwise increase count of suffixes to forward
+      if (rc == -1 || verdict == PKT_CACHE_VERDICT_AGGREGATE_INTEREST ||
+          verdict == PKT_CACHE_VERDICT_FORWARD_DATA) {
+        unset_bit(int_manifest_header->request_bitmap, pos);
+      } else {
+        n_suffixes_to_fwd++;
+      }
+    }
+
+  NEXT_SUFFIX:
+    if (pos++ >= n_suffixes) break;
+
+    // Use next segment in manifest
+    seq = *suffix;
+    suffix++;
+    name_SetSegment(&name_copy, seq);
+
+    WITH_DEBUG({
+      char *nameString = name_ToString(&name_copy);
+      DEBUG("Next in manifest: %s", nameString);
+      free(nameString);
+    })
+  }
+
+  // Return if single interest (i.e. no manifest)
+  // or nothing in the manifest to forward
+  if (!int_manifest_header || n_suffixes_to_fwd == 0)
+    return msgbuf_get_len(msgbuf);
+
+  return _forwarder_forward_aggregated_interest(
+      forwarder, int_manifest_header, n_suffixes_to_fwd, msgbuf, msgbuf_id);
 }
 
 static void _forwarder_log_on_data(forwarder_t *forwarder,
@@ -700,7 +862,7 @@ static void _forwarder_log_on_data(forwarder_t *forwarder,
       DEBUG("Message not stored in CS");
       break;
     case PKT_CACHE_VERDICT_ERROR:
-      ERROR("Inivalid packet cache content");
+      ERROR("Invalid packet cache content");
       break;
     default:
       break;
@@ -734,6 +896,10 @@ static ssize_t forwarder_process_data(forwarder_t *forwarder, off_t msgbuf_id) {
   const connection_table_t *table = forwarder_get_connection_table(forwarder);
   const connection_t *conn =
       connection_table_get_by_id(table, msgbuf_get_connection_id(msgbuf));
+
+  // Cache suffixes for current prefix to (possibly) avoid double lookups
+  pkt_cache_save_suffixes_for_prefix(forwarder->pkt_cache,
+   name_GetContentName(msgbuf_get_name(msgbuf)));
 
   pkt_cache_verdict_t verdict = PKT_CACHE_VERDICT_ERROR;
   bool wrong_egress;
@@ -776,7 +942,7 @@ void forwarder_flush_connections(forwarder_t *forwarder) {
   // DEBUG("[forwarder_flush_connections]");
   const connection_table_t *table = forwarder_get_connection_table(forwarder);
 
-  for (unsigned i = 0; i < forwarder->num_pending_conn; i++) {
+  for (unsigned i = 0; i < vector_len(forwarder->pending_conn); i++) {
     unsigned conn_id = forwarder->pending_conn[i];
     const connection_t *conn = connection_table_at(table, conn_id);
     if (!connection_flush(conn)) {
@@ -784,7 +950,7 @@ void forwarder_flush_connections(forwarder_t *forwarder) {
       // XXX keep track of non flushed connections...
     }
   }
-  forwarder->num_pending_conn = 0;
+  vector_reset(forwarder->pending_conn);
   // DEBUG("[forwarder_flush_connections] done");
 }
 
@@ -957,6 +1123,23 @@ cs_t *forwarder_get_cs(const forwarder_t *forwarder) {
   return pkt_cache_get_cs(forwarder->pkt_cache);
 }
 
+// IMPORTANT: Use this function ONLY for read-only operations since a realloc
+// would otherwise modify the returned copy but not the original msgbuf ids
+// vector in the forwarder. This constraint cannot be enforced by returning a
+// (const off_t *) because the vector_t macros still cast to (void **).
+off_t *forwarder_get_acquired_msgbuf_ids(const forwarder_t *forwarder) {
+  return forwarder->acquired_msgbuf_ids;
+}
+
+void forwarder_acquired_msgbuf_ids_reset(const forwarder_t *forwarder) {
+  vector_reset(forwarder->acquired_msgbuf_ids);
+}
+
+void forwarder_acquired_msgbuf_ids_push(const forwarder_t *forwarder,
+                                        off_t msgbuf_id) {
+  vector_push(forwarder->acquired_msgbuf_ids, msgbuf_id);
+}
+
 // =======================================================
 
 fib_t *forwarder_get_fib(forwarder_t *forwarder) { return forwarder->fib; }
@@ -1052,9 +1235,9 @@ ssize_t forwarder_receive(forwarder_t *forwarder, listener_t *listener,
   const connection_table_t *table =
       forwarder_get_connection_table(listener->forwarder);
   connection_t *connection = connection_table_get_by_pair(table, pair);
-  unsigned conn_id = connection
-                         ? connection_table_get_connection_id(table, connection)
-                         : CONNECTION_ID_UNDEFINED;
+  unsigned conn_id = connection ? (unsigned)connection_table_get_connection_id(
+                                      table, connection)
+                                : CONNECTION_ID_UNDEFINED;
 
   assert((conn_id != CONNECTION_ID_UNDEFINED) || listener);
 
@@ -1067,12 +1250,14 @@ ssize_t forwarder_receive(forwarder_t *forwarder, listener_t *listener,
   switch (type) {
     case MSGBUF_TYPE_INTEREST:
       if (!connection_id_is_valid(msgbuf->connection_id)) {
-        char *conn_name = connection_table_get_random_name(table);
+        char conn_name[SYMBOLIC_NAME_LEN];
+        int rc = connection_table_get_random_name(table, conn_name);
+        if (rc < 0) return 0;
+
         unsigned connection_id =
             listener_create_connection(listener, conn_name, pair);
         msgbuf->connection_id = connection_id;
         connection = connection_table_get_by_id(table, connection_id);
-        free(conn_name);
       }
       msgbuf->path_label = 0;  // not used for interest packets
       name_create_from_interest(packet, msgbuf_get_name(msgbuf));
@@ -1102,10 +1287,12 @@ ssize_t forwarder_receive(forwarder_t *forwarder, listener_t *listener,
     case MSGBUF_TYPE_MAPME:
       // XXX what about acks ?
       if (!connection_id_is_valid(msgbuf->connection_id)) {
-        char *conn_name = connection_table_get_random_name(table);
+        char conn_name[SYMBOLIC_NAME_LEN];
+        int rc = connection_table_get_random_name(table, conn_name);
+        if (rc < 0) return 0;
+
         msgbuf->connection_id =
             listener_create_connection(listener, conn_name, pair);
-        free(conn_name);
       }
       mapme_process(forwarder->mapme, msgbuf);
       return size;
@@ -1113,12 +1300,14 @@ ssize_t forwarder_receive(forwarder_t *forwarder, listener_t *listener,
     case MSGBUF_TYPE_COMMAND:
       // Create the connection to send the ack back
       if (!connection_id_is_valid(msgbuf->connection_id)) {
-        char *conn_name = connection_table_get_random_name(table);
+        char conn_name[SYMBOLIC_NAME_LEN];
+        int rc = connection_table_get_random_name(table, conn_name);
+        if (rc < 0) return 0;
+
         unsigned connection_id =
             listener_create_connection(listener, conn_name, pair);
         msgbuf->connection_id = connection_id;
         connection = connection_table_get_by_id(table, connection_id);
-        free(conn_name);
       }
 
       msg_header_t *msg = (msg_header_t *)packet;

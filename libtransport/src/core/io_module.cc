@@ -16,6 +16,7 @@
 #ifndef _WIN32
 #include <dlfcn.h>
 #endif
+#include <core/global_module_manager.h>
 #include <glog/logging.h>
 #include <hicn/transport/core/io_module.h>
 
@@ -38,53 +39,27 @@ IoModule *IoModule::load(const char *module_name) {
 #ifdef ANDROID
   return new HicnForwarderModule();
 #else
-  void *handle = 0;
-  IoModule *module = 0;
-  IoModule *(*creator)(void) = 0;
-  const char *error = 0;
+  IoModule *iomodule = nullptr;
+  IoModule *(*creator)(void) = nullptr;
+  const char *error = nullptr;
 
-  // open module
-  handle = dlopen(module_name, RTLD_NOW);
-  if (!handle) {
-    if ((error = dlerror()) != 0) {
-      LOG(ERROR) << error;
-    }
-    return 0;
-  }
+  auto handle = GlobalModuleManager::getInstance().loadModule(module_name);
 
   // get factory method
   creator = (IoModule * (*)(void)) dlsym(handle, "create_module");
   if (!creator) {
-    if ((error = dlerror()) != 0) {
+    if ((error = dlerror()) != nullptr) {
       LOG(ERROR) << error;
     }
 
-    return 0;
+    return nullptr;
   }
 
   // create object and return it
-  module = (*creator)();
-  module->handle_ = handle;
+  iomodule = (*creator)();
 
-  return module;
+  return iomodule;
 #endif
-}
-
-bool IoModule::unload(IoModule *module) {
-  if (!module) {
-    return false;
-  }
-
-#ifdef ANDROID
-  delete module;
-#else
-  // destroy object and close module
-  void *handle = module->handle_;
-  delete module;
-  dlclose(handle);
-#endif
-
-  return true;
 }
 
 }  // namespace core

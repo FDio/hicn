@@ -169,21 +169,13 @@ static int _hcng_sock_light_reset(hc_sock_t *socket) {
 
 void _hcng_sock_light_free(hc_sock_t *socket) {
   hc_sock_light_t *s = TO_HC_SOCK_LIGHT(socket);
-  hc_sock_request_t **request_array = NULL;
-  int n = hc_sock_map_get_value_array(s->map, &request_array);
-  if (n < 0) {
-    ERROR("Could not retrieve pending request array for freeing up resources");
-  } else {
-    for (unsigned i = 0; i < n; i++) {
-      hc_sock_request_t *request = request_array[i];
-      if (hc_sock_map_remove(s->map, request->seq, NULL) < 0)
-        ERROR("[hc_sock_light_process] Error removing request from map");
-      hc_sock_light_request_free(request);
-    }
-    free(request_array);
-  }
 
-  hc_sock_map_free(s->map);
+  unsigned k_seq;
+  hc_sock_request_t *v_request;
+  kh_foreach(s->map, k_seq, v_request,
+             { hc_sock_light_request_free(v_request); });
+
+  kh_destroy_sock_map(s->map);
   if (s->url) free(s->url);
   close(s->fd);
   free(s);
@@ -292,9 +284,13 @@ static void _hcng_sock_light_mark_complete(hc_sock_light_t *s,
                                            hc_data_t **pdata) {
   hc_data_t *data = s->cur_request->data;
 
-  if (hc_sock_map_remove(s->map, s->cur_request->seq, NULL) < 0) {
+  khiter_t k = kh_get_sock_map(s->map, s->cur_request->seq);
+  if (k == kh_end(s->map)) {
     ERROR("[hc_sock_light_mark_complete] Error removing request from map");
+  } else {
+    kh_del_sock_map(s->map, k);
   }
+
   hc_data_set_complete(data);
   if (pdata) *pdata = data;
 
@@ -323,7 +319,7 @@ static int _hcng_sock_light_process_notification(hc_sock_light_t *s,
   /* Copy the packet payload as the single entry in hc_data_t */
   hc_data_push_many(*pdata, s->buf + s->roff, 1);
 
-  return notification_size;
+  return (int)notification_size;
 }
 
 /*
@@ -333,12 +329,16 @@ static hc_sock_request_t *_hcng_sock_light_get_request(hc_sock_light_t *s,
                                                        int seq) {
   hc_sock_request_t *request;
   /* Retrieve request from sock map */
-  if (hc_sock_map_get(s->map, seq, &request) < 0) {
-    ERROR("[hc_sock_light_process] Error searching for matching request");
+  khiter_t k = kh_get_sock_map(s->map, seq);
+  if (k == kh_end(s->map)) {
+    ERROR(
+        "[_hcng_sock_light_get_request] Error searching for matching request");
     return NULL;
   }
+  request = kh_val(s->map, k);
+
   if (!request) {
-    ERROR("[hc_sock_light_process] No request matching sequence number");
+    ERROR("[_hcng_sock_light_get_request] No request matching sequence number");
     return NULL;
   }
   return request;
@@ -593,7 +593,7 @@ int _hcng_sock_prepare_send(hc_sock_t *socket, hc_result_t *result,
   hc_data_t *data =
       hc_data_create(result->params.size_in, result->params.size_out, NULL);
   if (!data) {
-    ERROR("[_hcng_execute_command] Could not create data storage");
+    ERROR("[_hcng_sock_prepare_send] Could not create data storage");
     goto ERR_DATA;
   }
   hc_data_set_callback(data, complete_cb, complete_cb_data);
@@ -606,15 +606,17 @@ int _hcng_sock_prepare_send(hc_sock_t *socket, hc_result_t *result,
   hc_sock_request_t *request = NULL;
   request = hc_sock_request_create(seq, data, result->params.parse);
   if (!request) {
-    ERROR("[_hcng_execute_command] Could not create request state");
+    ERROR("[_hcng_sock_prepare_send] Could not create request state");
     goto ERR_REQUEST;
   }
 
-  // Add state to map
-  if (hc_sock_map_add(s->map, seq, request) < 0) {
-    ERROR("[_hcng_execute_command] Error adding request state to map");
+  int rc;
+  khiter_t k = kh_put_sock_map(s->map, seq, &rc);
+  if (rc != KH_ADDED && rc != KH_RESET) {
+    ERROR("[_hcng_sock_prepare_send] Error adding request state to map");
     goto ERR_MAP;
   }
+  kh_value(s->map, k) = request;
 
   return sizeof(result->msg);
 
@@ -631,7 +633,7 @@ int _hcng_sock_set_recv_timeout_ms(hc_sock_t *socket, long timeout_ms) {
 
   struct timeval tv;
   tv.tv_sec = 0;
-  tv.tv_usec = timeout_ms * 1000;  // Convert ms into us
+  tv.tv_usec = (int)(timeout_ms * 1000);  // Convert ms into us
   if (setsockopt(s->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
     perror("setsockopt");
     return -1;
@@ -701,10 +703,13 @@ static int _hcng_execute_command(hc_sock_t *socket, hc_msg_t *msg,
   }
 
   /* Add state to map */
-  if (hc_sock_map_add(s->map, seq, request) < 0) {
+  int rc;
+  khiter_t k = kh_put_sock_map(s->map, seq, &rc);
+  if (rc != KH_ADDED && rc != KH_RESET) {
     ERROR("[_hcng_execute_command] Error adding request state to map");
     goto ERR_MAP;
   }
+  kh_value(s->map, k) = request;
 
   if (_hcng_sock_light_send(socket, msg, msg_len, seq) < 0) {
     ERROR("[_hcng_execute_command] Error sending message");
@@ -1823,7 +1828,7 @@ static int _hcng_face_create(hc_sock_t *socket, hc_face_t *face) {
     case FACE_TYPE_HICN:
     case FACE_TYPE_TCP:
     case FACE_TYPE_UDP:
-      if (hc_face_to_connection(face, &connection, true) < 0) {
+      if (hc_face_to_connection(face, &connection, false) < 0) {
         ERROR("[hc_face_create] Could not convert face to connection.");
         return -1;
       }
@@ -3094,7 +3099,7 @@ hc_sock_t *_hc_sock_create_url(const char *url) {
   s->seq = 0;
   s->cur_request = NULL;
 
-  s->map = hc_sock_map_create();
+  s->map = kh_init_sock_map();
   if (!s->map) goto ERR_MAP;
 
   return (hc_sock_t *)(s);

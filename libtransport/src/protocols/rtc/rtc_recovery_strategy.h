@@ -44,6 +44,7 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
 
   RecoveryStrategy(Indexer *indexer, SendRtxCallback &&callback,
                    asio::io_service &io_service, bool use_rtx, bool use_fec,
+                   interface::RtcTransportRecoveryStrategies rs_type,
                    interface::StrategyCallback &&external_callback);
 
   RecoveryStrategy(RecoveryStrategy &&rs);
@@ -55,6 +56,7 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
   void setState(RTCState *state) { state_ = state; }
   void setRateControl(RTCRateControl *rateControl) { rc_ = rateControl; }
   void setFecParams(uint32_t n, uint32_t k);
+  void setContentSharingMode() { content_sharing_mode_ = true; }
 
   bool isRtx(uint32_t seq) {
     if (rtx_state_.find(seq) != rtx_state_.end()) return true;
@@ -71,6 +73,12 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
     return false;
   }
 
+  interface::RtcTransportRecoveryStrategies getType() {
+    return rs_type_;
+  }
+  void updateType(interface::RtcTransportRecoveryStrategies type) {
+    rs_type_ = type;
+  }
   bool isRtxOn() { return rtx_on_; }
   bool isFecOn() { return fec_on_; }
 
@@ -109,9 +117,11 @@ class RecoveryStrategy : public std::enable_shared_from_this<RecoveryStrategy> {
   // common functons
   void removePacketState(uint32_t seq);
 
+  interface::RtcTransportRecoveryStrategies rs_type_;
   bool recovery_on_;
   bool rtx_on_;
   bool fec_on_;
+  bool content_sharing_mode_;
 
   // number of RTX sent after fec turned on
   // this is used to take into account jitter and out of order packets

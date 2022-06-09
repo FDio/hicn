@@ -23,11 +23,13 @@
 #include "address.h"
 
 #define NAME_LEN 2
-typedef struct {
+typedef struct __attribute__((__packed__)) {
   uint64_t bits[NAME_LEN];
-  uint8_t len;
-  uint8_t IPversion;
+  uint32_t len;
+  uint32_t IPversion;
 } NameBitvector;
+static_assert(sizeof(NameBitvector) == 24,
+              "Name prefix should be stored on 24 bytes");
 
 #define EMPTY_NAME_BITVECTOR \
   (NameBitvector) { .bits[0] = 0, .bits[1] = 0, .len = 0, .IPversion = 0, }

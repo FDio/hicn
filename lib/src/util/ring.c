@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2021 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,18 +14,36 @@
  * limitations under the License.
  */
 
-#include <implementation/tls_socket_consumer.h>
-#include <interfaces/tls_socket_consumer.h>
+/**
+ * \file ring.c
+ * \brief Implementation of ring buffer.
+ */
 
-namespace transport {
-namespace interface {
+#include <stdlib.h>
 
-TLSConsumerSocket::TLSConsumerSocket(
-    implementation::TLSConsumerSocket *implementation) {
-  socket_ = std::unique_ptr<implementation::TLSConsumerSocket>(implementation);
+#include <hicn/util/ring.h>
+
+void
+_ring_init (void **ring_ptr, size_t elt_size, size_t max_size)
+{
+  assert (ring_ptr);
+  assert (elt_size > 0);
+  // we use a static array, not a vector (for now)
+  assert (max_size != 0);
+
+  ring_hdr_t *rh = malloc (RING_HDRLEN + max_size * elt_size);
+
+  rh->roff = 0;
+  rh->woff = 0;
+  rh->size = 0;
+  rh->max_size = max_size;
+
+  *ring_ptr = (uint8_t *) rh + RING_HDRLEN;
 }
 
-TLSConsumerSocket::~TLSConsumerSocket() { socket_.release(); }
-
-}  // namespace interface
-}  // namespace transport
+void
+_ring_free (void **ring_ptr)
+{
+  free (ring_hdr (*ring_ptr));
+  *ring_ptr = NULL;
+}

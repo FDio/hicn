@@ -79,6 +79,7 @@ int TransportProtocol::start() {
                              &on_payload_);
 
     socket_->getSocketOption(GeneralTransportOptions::ASYNC_MODE, is_async_);
+    socket_->getSocketOption(GeneralTransportOptions::SIGNER, signer_);
 
     // Set it is the first time we schedule an interest
     is_first_ = true;
@@ -143,14 +144,22 @@ void TransportProtocol::sendInterest(
   Packet::Format format;
   socket_->getSocketOption(interface::GeneralTransportOptions::PACKET_FORMAT,
                            format);
+  size_t signature_size = 0;
 
-  auto interest =
-      core::PacketManager<>::getInstance().getPacket<Interest>(format);
+  // If aggregated interest, add spapce for signature
+  if (len > 0) {
+    format = Packet::toAHFormat(format);
+    signature_size = signer_->getSignatureFieldSize();
+  }
+
+  auto interest = core::PacketManager<>::getInstance().getPacket<Interest>(
+      format, signature_size);
   interest->setName(interest_name);
 
   for (uint32_t i = 0; i < len; i++) {
     interest->appendSuffix(additional_suffixes->at(i));
   }
+  interest->encodeSuffixes();
 
   uint32_t lifetime = default_values::interest_lifetime;
   socket_->getSocketOption(GeneralTransportOptions::INTEREST_LIFETIME,
@@ -165,7 +174,16 @@ void TransportProtocol::sendInterest(
     return;
   }
 
-  portal_->sendInterest(std::move(interest));
+  bool content_sharing_mode;
+  socket_->getSocketOption(RtcTransportOptions::CONTENT_SHARING_MODE,
+                           content_sharing_mode);
+  if (content_sharing_mode) lifetime = ceil((double)lifetime * 0.9);
+
+  // Compute signature
+  bool is_ah = _is_ah(interest->getFormat());
+  if (is_ah) signer_->signPacket(interest.get());
+
+  portal_->sendInterest(interest, lifetime);
 }
 
 void TransportProtocol::onError(const std::error_code &ec) {

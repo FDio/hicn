@@ -21,6 +21,8 @@
 #ifndef HICN_BASE_H
 #define HICN_BASE_H
 
+#include <stdio.h>
+#include <stdbool.h>
 #include "common.h"
 #ifdef _WIN32
 #include <Winsock2.h>
@@ -148,6 +150,16 @@ hicn_type_is_none (hicn_type_t type)
 }
 
 /**
+ * @brief hICN Packet type
+ */
+typedef enum
+{
+  HICN_PACKET_TYPE_INTEREST,
+  HICN_PACKET_TYPE_DATA,
+  HICN_PACKET_N_TYPE,
+} hicn_packet_type_t;
+
+/**
  * @brief hICN Payload type
  *
  * This type distinguishes several types of data packet, which can either carry
@@ -159,6 +171,61 @@ typedef enum
   HPT_MANIFEST = 1,
   HPT_UNSPEC = 999
 } hicn_payload_type_t;
+
+/***************************************************************
+ * Interest Manifest
+ ***************************************************************/
+
+#define MAX_SUFFIXES_IN_MANIFEST 255
+#define WORD_WIDTH		 (sizeof (uint32_t) * 8)
+#define BITMAP_SIZE		 ((MAX_SUFFIXES_IN_MANIFEST + 1) / WORD_WIDTH)
+
+typedef struct
+{
+  /* This can be 16 bits, but we use 32 bits for alignment */
+  uint32_t n_suffixes;
+
+  uint32_t request_bitmap[BITMAP_SIZE];
+
+  /* Followed by the list of prefixes to ask */
+  /* ... */
+} interest_manifest_header_t;
+
+// Bitmap operations
+
+static inline void
+set_bit (uint32_t *bitmap, int i)
+{
+  size_t offset = i / WORD_WIDTH;
+  size_t pos = i % WORD_WIDTH;
+  bitmap[offset] |= ((uint32_t) 1 << pos);
+}
+
+static inline void
+unset_bit (uint32_t *bitmap, int i)
+{
+  size_t offset = i / WORD_WIDTH;
+  size_t pos = i % WORD_WIDTH;
+  bitmap[offset] &= ~((uint32_t) 1 << pos);
+}
+
+static inline bool
+is_bit_set (const uint32_t *bitmap, int i)
+{
+  size_t offset = i / WORD_WIDTH;
+  size_t pos = i % WORD_WIDTH;
+  return bitmap[offset] & ((uint32_t) 1 << pos);
+}
+
+static inline void
+bitmap_print (u32 *bitmap, size_t n_words)
+{
+  for (size_t word = 0; word < n_words; word++)
+    {
+      for (int bit = 32; bit >= 0; bit--)
+	(is_bit_set (&bitmap[word], bit)) ? printf ("1") : printf ("0");
+    }
+}
 
 /**
  * @brief Path label computations

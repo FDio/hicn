@@ -79,6 +79,7 @@ class ProductionProtocol
       if (fec_str && (fec_type_ == fec::FECType::UNKNOWN)) {
         LOG(INFO) << "Using FEC " << fec_str;
         fec_type_ = fec::FECUtils::fecTypeFromString(fec_str);
+        CHECK(fec_type_ != fec::FECType::UNKNOWN);
       }
 
       if (fec_type_ == fec::FECType::UNKNOWN) {
@@ -123,7 +124,7 @@ class ProductionProtocol
 
   // Signature and manifest
   std::shared_ptr<auth::Signer> signer_;
-  uint32_t making_manifest_;
+  uint32_t manifest_max_capacity_;
 
   bool is_async_;
   fec::FECType fec_type_;

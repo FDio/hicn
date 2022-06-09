@@ -79,8 +79,6 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  u16 namelen;
 	  u32 bi0;
 	  u32 next0 = HICN_INTEREST_HITPIT_NEXT_ERROR_DROP;
-	  hicn_name_t name;
-	  hicn_header_t *hicn0;
 	  hicn_hash_node_t *node0;
 	  const hicn_strategy_vft_t *strategy_vft0;
 	  const hicn_dpo_vft_t *dpo_vft0;
@@ -92,7 +90,6 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  u32 outfaces_len;
 	  hicn_hash_entry_t *hash_entry0;
 	  hicn_buffer_t *hicnb0;
-	  int ret;
 
 	  /* Prefetch for next iteration. */
 	  if (n_left_from > 1)
@@ -118,8 +115,9 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  hicn_get_internal_state (hicnb0, rt->pitcs, &node0, &strategy_vft0,
 				   &dpo_vft0, &dpo_ctx_id0, &hash_entry0);
 
-	  ret = hicn_interest_parse_pkt (b0, &name, &namelen, &hicn0, &isv6);
-	  nameptr = (u8 *) (&name);
+	  hicn_buffer_get_name_and_namelen (b0, &nameptr, &namelen);
+	  isv6 = hicn_buffer_is_v6 (b0);
+
 	  pitp = hicn_pit_get_data (node0);
 	  dpo_id_t hicn_dpo_id0 = { .dpoi_type =
 				      dpo_vft0->hicn_dpo_get_type (),
@@ -131,8 +129,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	   * Check if the hit is instead a collision in the
 	   * hash table. Unlikely to happen.
 	   */
-	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE ||
-			     !hicn_node_compare (nameptr, namelen, node0)))
+	  if (PREDICT_FALSE (!hicn_node_compare (nameptr, namelen, node0)))
 	    {
 	      stats.interests_hash_collision++;
 	      /* Remove lock from the entry */
@@ -227,7 +224,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				  hicn_interest_hitpit_trace_t *t =
 				    vlib_add_trace (vm, node, local_b0,
 						    sizeof (*t));
-				  t->pkt_type = HICN_PKT_TYPE_INTEREST;
+				  t->pkt_type = HICN_PACKET_TYPE_INTEREST;
 				  t->sw_if_index = vnet_buffer (local_b0)
 						     ->sw_if_index[VLIB_RX];
 				  t->next_index = next0;
@@ -266,7 +263,7 @@ hicn_interest_hitpit_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	    {
 	      hicn_interest_hitpit_trace_t *t =
 		vlib_add_trace (vm, node, b0, sizeof (*t));
-	      t->pkt_type = HICN_PKT_TYPE_INTEREST;
+	      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
 	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
 	    }

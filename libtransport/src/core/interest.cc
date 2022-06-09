@@ -21,6 +21,7 @@ extern "C" {
 #ifndef _WIN32
 TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
 #endif
+#include <hicn/base.h>
 #include <hicn/hicn.h>
 }
 
@@ -39,12 +40,12 @@ Interest::Interest(const Name &interest_name, Packet::Format format,
   }
 
   if (hicn_interest_set_name(format_, packet_start_,
-                             interest_name.getConstStructReference()) < 0) {
+                             &interest_name.getConstStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 
   if (hicn_interest_get_name(format_, packet_start_,
-                             name_.getStructReference()) < 0) {
+                             &name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
@@ -64,7 +65,7 @@ Interest::Interest(hicn_format_t format, std::size_t additional_header_size)
 
 Interest::Interest(MemBuf &&buffer) : Packet(std::move(buffer)) {
   if (hicn_interest_get_name(format_, packet_start_,
-                             name_.getStructReference()) < 0) {
+                             &name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
@@ -86,9 +87,9 @@ Interest::~Interest() {}
 
 const Name &Interest::getName() const {
   if (!name_) {
-    if (hicn_interest_get_name(format_, packet_start_,
-                               (hicn_name_t *)name_.getConstStructReference()) <
-        0) {
+    if (hicn_interest_get_name(
+            format_, packet_start_,
+            (hicn_name_t *)&name_.getConstStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -100,12 +101,12 @@ Name &Interest::getWritableName() { return const_cast<Name &>(getName()); }
 
 void Interest::setName(const Name &name) {
   if (hicn_interest_set_name(format_, packet_start_,
-                             name.getConstStructReference()) < 0) {
+                             &name.getConstStructReference()) < 0) {
     throw errors::RuntimeException("Error setting interest name.");
   }
 
   if (hicn_interest_get_name(format_, packet_start_,
-                             name_.getStructReference()) < 0) {
+                             &name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
@@ -150,6 +151,13 @@ void Interest::resetForHash() {
     throw errors::RuntimeException(
         "Error resetting interest fields for hash computation.");
   }
+
+  // Reset request bitmap in manifest
+  if (hasManifest()) {
+    auto int_manifest_header =
+        (interest_manifest_header_t *)(writableData() + headerSize());
+    memset(int_manifest_header->request_bitmap, 0, BITMAP_SIZE * sizeof(u32));
+  }
 }
 
 bool Interest::hasManifest() {
@@ -171,19 +179,21 @@ void Interest::encodeSuffixes() {
 
   // We assume interest does not hold signature for the moment.
   auto int_manifest_header =
-      (InterestManifestHeader *)(writableData() + headerSize());
-  int_manifest_header->n_suffixes = suffix_set_.size();
-  std::size_t additional_length =
-      sizeof(InterestManifestHeader) +
-      int_manifest_header->n_suffixes * sizeof(uint32_t);
+      (interest_manifest_header_t *)(writableData() + headerSize());
+  int_manifest_header->n_suffixes = (uint32_t)suffix_set_.size();
+  memset(int_manifest_header->request_bitmap, 0xFFFFFFFF,
+         BITMAP_SIZE * sizeof(u32));
 
   uint32_t *suffix = (uint32_t *)(int_manifest_header + 1);
   for (auto it = suffix_set_.begin(); it != suffix_set_.end(); it++, suffix++) {
     *suffix = *it;
   }
 
+  std::size_t additional_length =
+      sizeof(interest_manifest_header_t) +
+      int_manifest_header->n_suffixes * sizeof(uint32_t);
   append(additional_length);
-  updateLength(additional_length);
+  updateLength();
 }
 
 uint32_t *Interest::firstSuffix() {
@@ -191,7 +201,7 @@ uint32_t *Interest::firstSuffix() {
     return nullptr;
   }
 
-  auto ret = (InterestManifestHeader *)(writableData() + headerSize());
+  auto ret = (interest_manifest_header_t *)(writableData() + headerSize());
   ret += 1;
 
   return (uint32_t *)ret;
@@ -202,9 +212,46 @@ uint32_t Interest::numberOfSuffixes() {
     return 0;
   }
 
-  auto header = (InterestManifestHeader *)(writableData() + headerSize());
+  auto header = (interest_manifest_header_t *)(writableData() + headerSize());
 
   return header->n_suffixes;
+}
+
+uint32_t *Interest::getRequestBitmap() {
+  if (!hasManifest()) return nullptr;
+
+  auto header = (interest_manifest_header_t *)(writableData() + headerSize());
+  return header->request_bitmap;
+}
+
+void Interest::setRequestBitmap(const uint32_t *request_bitmap) {
+  if (!hasManifest()) return;
+
+  auto header = (interest_manifest_header_t *)(writableData() + headerSize());
+  memcpy(header->request_bitmap, request_bitmap,
+         BITMAP_SIZE * sizeof(uint32_t));
+}
+
+bool Interest::isValid() {
+  if (!hasManifest()) return true;
+
+  auto header = (interest_manifest_header_t *)(writableData() + headerSize());
+
+  if (header->n_suffixes == 0 ||
+      header->n_suffixes > MAX_SUFFIXES_IN_MANIFEST) {
+    std::cerr << "Manifest with invalid number of suffixes "
+              << header->n_suffixes;
+    return false;
+  }
+
+  uint32_t empty_bitmap[BITMAP_SIZE];
+  memset(empty_bitmap, 0, sizeof(empty_bitmap));
+  if (memcmp(empty_bitmap, header->request_bitmap, sizeof(empty_bitmap)) == 0) {
+    std::cerr << "Manifest with empty bitmap";
+    return false;
+  }
+
+  return true;
 }
 
 }  // end namespace core

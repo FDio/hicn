@@ -25,7 +25,7 @@
 
 #include "address_pair.h"
 #include "msgbuf.h"
-#include "../base/loop.h"
+#include <hicn/base/loop.h>
 
 #define LISTENER_ID_UNDEFINED ~0
 
@@ -35,6 +35,12 @@ typedef struct {
   address_t address;
   face_type_t type;
 } listener_key_t;
+
+static inline int listener_key_equals(const listener_key_t *key1,
+                                      const listener_key_t *key2) {
+  return address_equals(&key1->address, &key2->address) &&
+         (key1->type == key2->type);
+}
 
 /**
  * @brief Create a listener key starting from an address and a face type.

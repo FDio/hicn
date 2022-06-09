@@ -83,8 +83,8 @@ class Memif {
       recv_counter_ += buffers.size();
       if (recv_counter_ == total_packets) {
         auto t1 = utils::SteadyTime::now();
-        auto delta = utils::SteadyTime::getDurationS(t0_, t1);
-        auto rate = recv_counter_ / delta.count();
+        auto delta = utils::SteadyTime::getDurationUs(t0_, t1);
+        double rate = double(recv_counter_) * 1.0e6 / double(delta.count());
         LOG(INFO) << "rate: " << rate << " packets/s";
         io_service_.stop();
       }

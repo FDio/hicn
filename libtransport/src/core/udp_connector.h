@@ -62,7 +62,7 @@ class UdpTunnelConnector : public Connector {
 #endif
         socket_(socket),
         resolver_(io_service_),
-        remote_endpoint_send_(std::forward<EndpointType &&>(remote_endpoint)),
+        remote_endpoint_send_(std::forward<EndpointType>(remote_endpoint)),
         timer_(io_service_),
 #ifdef LINUX
         send_timer_(io_service_),

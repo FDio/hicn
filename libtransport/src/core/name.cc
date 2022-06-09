@@ -24,7 +24,7 @@ namespace transport {
 
 namespace core {
 
-Name::Name() { name_ = {}; }
+Name::Name() { std::memset(&name_, 0, sizeof(name_)); }
 
 /**
  * XXX This function does not use the name API provided by libhicn
@@ -47,6 +47,7 @@ Name::Name(int family, const uint8_t *ip_address, std::uint32_t suffix)
   std::memcpy(dst, ip_address, length);
   name_.suffix = suffix;
 }
+
 Name::Name(const char *name, uint32_t segment) {
   if (hicn_name_create(name, segment, &name_) < 0) {
     throw errors::InvalidIpAddressException();

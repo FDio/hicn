@@ -20,19 +20,17 @@
 
 namespace hiperf {
 
-class HIperfClient : ::utils::NonCopyable {
+class HIperfClient : private ::utils::NonCopyable {
  public:
-  HIperfClient(const ClientConfiguration &conf);
-  HIperfClient(HIperfClient &&other);
-  HIperfClient &operator=(HIperfClient &&other);
+  explicit HIperfClient(const ClientConfiguration &conf);
 
   ~HIperfClient();
-  int setup();
-  void run();
+  int setup() const;
+  void run() const;
 
  private:
   class Impl;
-  Impl *impl_;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace hiperf

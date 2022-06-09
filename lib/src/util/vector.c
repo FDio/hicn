@@ -19,67 +19,83 @@
  */
 
 #include <assert.h>
-#include <stddef.h>  // size_t
-#include <stdlib.h>  // calloc
+#include <stddef.h> // size_t
+#include <stdlib.h> // calloc
 #include <stdio.h>
 
-#include "vector.h"
+#include <hicn/util/vector.h>
 
 #define DEFAULT_VECTOR_SIZE 64
 
-void _vector_init(void** vector_ptr, size_t elt_size, size_t init_size,
-                  size_t max_size) {
-  assert(vector_ptr);
-  assert(max_size == 0 || init_size < max_size);
+int
+_vector_init (void **vector_ptr, size_t elt_size, size_t init_size,
+	      size_t max_size)
+{
+  assert (vector_ptr);
+  assert (max_size == 0 || init_size < max_size);
 
-  if (init_size == 0) init_size = DEFAULT_VECTOR_SIZE;
+  if (init_size == 0)
+    init_size = DEFAULT_VECTOR_SIZE;
 
   *vector_ptr = NULL;
-  _vector_resize(vector_ptr, elt_size, init_size);
+  int rc = _vector_resize (vector_ptr, elt_size, init_size);
+  if (rc < 0)
+    return -1;
 
-  vector_hdr_t* vh = vector_hdr(*vector_ptr);
+  vector_hdr_t *vh = vector_hdr (*vector_ptr);
   vh->cur_size = 0;
   vh->max_size = max_size;
+
+  return 0;
 }
 
-void _vector_free(void** vector_ptr) {
-  free(vector_hdr(*vector_ptr));
+void
+_vector_free (void **vector_ptr)
+{
+  free (vector_hdr (*vector_ptr));
   *vector_ptr = NULL;
 }
 
-int _vector_resize(void** vector_ptr, size_t elt_size, off_t pos) {
-  vector_hdr_t* vh;
-
+int
+_vector_resize (void **vector_ptr, size_t elt_size, off_t pos)
+{
+  vector_hdr_t *vh;
   size_t old_size;
 
-  if (*vector_ptr) {
-    vh = vector_hdr(*vector_ptr);
-    old_size = vh->alloc_size;
-  } else {
-    vh = NULL;
-    old_size = 0;
-  }
+  if (*vector_ptr)
+    {
+      vh = vector_hdr (*vector_ptr);
+      old_size = vh->alloc_size;
+    }
+  else
+    {
+      vh = NULL;
+      old_size = 0;
+    }
 
   /* Round the allocated size to the next power of 2 of the requested position
    */
-  size_t new_size = next_pow2(pos);
+  size_t new_size = next_pow2 (pos);
 
   /* Don't grow the vector back */
-  if (new_size < old_size) return 0;
+  if (new_size < old_size)
+    return 0;
 
   /* Don't exceed maximum size (for init, check is done beforehand) */
-  if (vh && vh->max_size && new_size > vh->max_size) return -1;
+  if (vh && vh->max_size && new_size > vh->max_size)
+    return -1;
 
-  vh = realloc(vh, VECTOR_HDRLEN + new_size * elt_size);
-  if (!vh) return -1;
+  vh = realloc (vh, VECTOR_HDRLEN + new_size * elt_size);
+  if (!vh)
+    return -1;
   vh->alloc_size = new_size;
 
   /* Zero out the newly allocated memory (except headers) */
-  memset((uint8_t*)vh + VECTOR_HDRLEN + old_size * elt_size, 0,
-         (new_size - old_size) * elt_size);
+  memset ((uint8_t *) vh + VECTOR_HDRLEN + old_size * elt_size, 0,
+	  (new_size - old_size) * elt_size);
 
   /* Reassign vector pointer */
-  *vector_ptr = (uint8_t*)vh + VECTOR_HDRLEN;
+  *vector_ptr = (uint8_t *) vh + VECTOR_HDRLEN;
 
   return 0;
 }

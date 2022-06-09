@@ -36,11 +36,11 @@ enum class NextSuffixStrategy : uint8_t {
 class SuffixStrategy {
  public:
   static constexpr uint32_t MAX_SUFFIX = std::numeric_limits<uint32_t>::max();
-  static constexpr uint8_t MAX_MANIFEST_CAPACITY =
+  static constexpr uint8_t MANIFEST_MAX_CAPACITY =
       std::numeric_limits<uint8_t>::max();
 
   SuffixStrategy(NextSuffixStrategy strategy, uint32_t offset = 0,
-                 uint32_t manifest_capacity = MAX_MANIFEST_CAPACITY)
+                 uint32_t manifest_capacity = MANIFEST_MAX_CAPACITY)
       : suffix_stragegy_(strategy),
         next_suffix_(offset),
         manifest_capacity_(manifest_capacity),
@@ -130,7 +130,7 @@ class SuffixStrategyFactory {
  public:
   static std::unique_ptr<SuffixStrategy> getSuffixStrategy(
       NextSuffixStrategy strategy, uint32_t start_offset = 0,
-      uint32_t manifest_capacity = SuffixStrategy::MAX_MANIFEST_CAPACITY) {
+      uint32_t manifest_capacity = SuffixStrategy::MANIFEST_MAX_CAPACITY) {
     switch (strategy) {
       case NextSuffixStrategy::INCREMENTAL:
         return std::make_unique<IncrementalSuffixStrategy>(start_offset);

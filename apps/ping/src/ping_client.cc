@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <hicn/transport/auth/signer.h>
 #include <hicn/transport/auth/verifier.h>
 #include <hicn/transport/core/global_object_pool.h>
 #include <hicn/transport/core/interest.h>
@@ -39,12 +40,14 @@ typedef auth::AsymmetricVerifier Verifier;
 
 class Configuration {
  public:
+  uint64_t num_int_manifest_suffixes_;
   uint64_t interestLifetime_;
   uint64_t pingInterval_;
   uint64_t maxPing_;
   uint64_t first_suffix_;
   std::string name_;
   std::string certificate_;
+  std::string passphrase_;
   uint16_t srcPort_;
   uint16_t dstPort_;
   bool verbose_;
@@ -59,9 +62,10 @@ class Configuration {
   uint8_t ttl_;
 
   Configuration() {
-    interestLifetime_ = 500;  // ms
-    pingInterval_ = 1000000;  // us
-    maxPing_ = 10;            // number of interests
+    num_int_manifest_suffixes_ = 0;  // Number of suffixes in interest manifest
+    interestLifetime_ = 500;         // ms
+    pingInterval_ = 1000000;         // us
+    maxPing_ = 10;                   // number of interests
     first_suffix_ = 0;
     name_ = "b001::1";  // string
     srcPort_ = 9695;
@@ -95,6 +99,13 @@ class Client : interface::Portal::TransportCallback {
     timedout_ = 0;
     if (!c->certificate_.empty()) {
       verifier_.useCertificate(c->certificate_);
+    }
+
+    // If interst manifest, sign it
+    if (c->num_int_manifest_suffixes_ != 0) {
+      assert(!c->passphrase_.empty());
+      signer_ = std::make_unique<auth::SymmetricSigner>(
+          auth::CryptoSuite::HMAC_SHA256, c->passphrase_);
     }
   }
 
@@ -142,6 +153,7 @@ class Client : interface::Portal::TransportCallback {
     if (config_->verbose_) {
       std::cout << "<<< recevied object. " << std::endl;
       std::cout << "<<< interest name: " << interest.getName()
+                << " (n_suffixes=" << interest.numberOfSuffixes() << ")"
                 << " src port: " << interest.getSrcPort()
                 << " dst port: " << interest.getDstPort()
                 << " flags: " << interest.printFlags() << std::endl;
@@ -221,15 +233,18 @@ class Client : interface::Portal::TransportCallback {
     const Name interest_name(config_->name_, (uint32_t)sequence_number_);
     hicn_format_t format;
     if (interest_name.getAddressFamily() == AF_INET) {
-      format = HF_INET_TCP;
+      format = signer_ ? HF_INET_TCP_AH : HF_INET_TCP;
     } else {
-      format = HF_INET6_TCP;
+      format = signer_ ? HF_INET6_TCP_AH : HF_INET6_TCP;
     }
 
-    auto interest = std::make_shared<Interest>(interest_name, format);
+    size_t additional_header_size = 0;
+    if (signer_) additional_header_size = signer_->getSignatureFieldSize();
+    auto interest = std::make_shared<Interest>(interest_name, format,
+                                               additional_header_size);
 
     interest->setLifetime(uint32_t(config_->interestLifetime_));
-    interest->resetFlags();
+    if (!signer_) interest->resetFlags();
 
     if (config_->open_ || config_->always_syn_) {
       if (state_ == SYN_STATE) {
@@ -244,13 +259,21 @@ class Client : interface::Portal::TransportCallback {
     interest->setSrcPort(config_->srcPort_);
     interest->setDstPort(config_->dstPort_);
     interest->setTTL(config_->ttl_);
+    uint64_t seq_offset = 1;
+    while (seq_offset <= config_->num_int_manifest_suffixes_ &&
+           sequence_number_ + seq_offset < config_->maxPing_) {
+      interest->appendSuffix(sequence_number_ + seq_offset);
+      seq_offset++;
+    }
 
     if (config_->verbose_) {
       std::cout << ">>> send interest " << interest->getName()
                 << " src port: " << interest->getSrcPort()
                 << " dst port: " << interest->getDstPort()
                 << " flags: " << interest->printFlags()
-                << " TTL: " << (int)interest->getTTL() << std::endl;
+                << " TTL: " << (int)interest->getTTL()
+                << " suffixes in manifest: "
+                << config_->num_int_manifest_suffixes_ << std::endl;
     } else if (!config_->quiet_) {
       std::cout << ">>> send interest " << interest->getName() << std::endl;
     }
@@ -264,11 +287,16 @@ class Client : interface::Portal::TransportCallback {
     if (!config_->quiet_) std::cout << std::endl;
 
     send_timestamps_[sequence_number_] = utils::SteadyTime::now();
+    for (uint64_t i = 1; i < seq_offset; i++)
+      send_timestamps_[sequence_number_ + i] = utils::SteadyTime::now();
 
-    portal_.sendInterest(std::move(interest));
+    interest->encodeSuffixes();
+    if (signer_) signer_->signPacket(interest.get());
 
-    sequence_number_++;
-    sent_++;
+    portal_.sendInterest(interest, interest->getLifetime());
+
+    sequence_number_ += seq_offset;
+    sent_ += seq_offset;
 
     if (sent_ < config_->maxPing_) {
       this->timer_->expires_from_now(
@@ -314,6 +342,7 @@ class Client : interface::Portal::TransportCallback {
   std::unique_ptr<asio::steady_timer> timer_;
   Configuration *config_;
   Verifier verifier_;
+  std::unique_ptr<auth::Signer> signer_;
 };
 
 void help() {
@@ -327,6 +356,12 @@ void help() {
   std::cout << "-s <val>          sorce port (default 9695)" << std::endl;
   std::cout << "-d <val>          destination port (default 8080)" << std::endl;
   std::cout << "-t <val>          set packet ttl (default 64)" << std::endl;
+  std::cout << "-a <val> <pass>   set the passphrase and the number of "
+               "suffixes in interest manifest (default 0);"
+            << std::endl;
+  std::cout << "                  e.g. '-m 6 -a -2' sends two interest (0 and "
+               "3) with 2 suffixes each (1,2 and 4,5 respectively)"
+            << std::endl;
   std::cout << "-O                open tcp connection (three way handshake) "
                "(default false)"
             << std::endl;
@@ -362,6 +397,8 @@ int main(int argc, char *argv[]) {
   WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif
 
+  transport::interface::global_config::GlobalConfigInterface global_conf;
+
   Configuration *c = new Configuration();
   int opt;
   std::string producer_certificate = "";
@@ -370,8 +407,13 @@ int main(int argc, char *argv[]) {
   transport::interface::global_config::IoModuleConfiguration io_config;
   io_config.name = "hicnlightng_module";
 
-  while ((opt = getopt(argc, argv, "j::t:i:m:s:d:n:l:f:c:SAOqVDHz:F:")) != -1) {
+  while ((opt = getopt(argc, argv, "a:j::t:i:m:s:d:n:l:f:c:SAOqVDHz:F:")) !=
+         -1) {
     switch (opt) {
+      case 'a':
+        c->num_int_manifest_suffixes_ = std::stoi(optarg);
+        c->passphrase_ = argv[optind];
+        break;
       case 't':
         c->ttl_ = (uint8_t)std::stoi(optarg);
         break;
@@ -447,7 +489,7 @@ int main(int argc, char *argv[]) {
   /**
    * Parse config file
    */
-  transport::interface::global_config::parseConfigurationFile(conf_file);
+  global_conf.parseConfigurationFile(conf_file);
 
   auto ping = std::make_unique<Client>(c);
 
@@ -456,7 +498,8 @@ int main(int argc, char *argv[]) {
   auto t1 = std::chrono::steady_clock::now();
 
   std::cout << "Elapsed time: "
-            << utils::SteadyTime::getDurationUs(t0, t1).count() << std::endl;
+            << utils::SteadyTime::getDurationMs(t0, t1).count() << "ms"
+            << std::endl;
 
 #ifdef _WIN32
   WSACleanup();

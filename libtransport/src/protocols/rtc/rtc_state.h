@@ -84,8 +84,8 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   void onNackPacketReceived(const core::ContentObject &nack,
                             bool compute_stats);
   void onPacketLost(uint32_t seq);
-  void onPacketRecoveredRtx(uint32_t seq);
-  void onFecPacketRecoveredRtx(uint32_t seq);
+  void onPacketRecoveredRtx(const core::ContentObject &content_object);
+  void onFecPacketRecoveredRtx(const core::ContentObject &content_object);
   void onPacketRecoveredFec(uint32_t seq, uint32_t size);
   bool onProbePacketReceived(const core::ContentObject &probe);
   void onJumpForward(uint32_t next_seq);
@@ -149,7 +149,7 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
   }
 
   uint32_t getPendingInterestNumber() const {
-    return pending_interests_.size();
+    return (uint32_t)pending_interests_.size();
   }
 
   PacketState getPacketState(uint32_t seq) {
@@ -259,7 +259,8 @@ class RTCState : public std::enable_shared_from_this<RTCState> {
 
   // update stats
   void updateState();
-  void updateReceivedBytes(const core::ContentObject &content_object);
+  void updateReceivedBytes(const core::ContentObject &content_object,
+                           bool isFec);
   void updatePacketSize(const core::ContentObject &content_object);
   void updatePathStats(const core::ContentObject &content_object, bool is_nack);
   void updateLossRate(bool in_sycn);

@@ -24,7 +24,7 @@
 #include <hicn/core/messageHandler.h>
 #include <hicn/core/name.h>
 #include <hicn/util/log.h>
-#include <hicn/base/hash.h>
+#include <hicn/util/hash.h>
 
 #define IPv6_TYPE 6
 #define IPv4_TYPE 4

@@ -134,9 +134,6 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   vlib_buffer_t *b0, *b1;
   u8 pkt_type0 = 0, pkt_type1 = 0;
   u16 msg_type0 = 0, msg_type1 = 0;
-  hicn_header_t *hicn0 = NULL, *hicn1 = NULL;
-  hicn_name_t name0, name1;
-  u16 namelen0, namelen1;
   hicnpg_main_t *hpgm = &hicnpg_main;
   int iface = 0;
 
@@ -192,10 +189,10 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  vnet_buffer (b1)->sw_if_index[VLIB_RX] = hpgm->sw_if;
 
 	  /* Check icn packets, locate names */
-	  if (hicn_interest_parse_pkt (b0, &name0, &namelen0, &hicn0,
-				       &isv6_0) == HICN_ERROR_NONE)
+	  if (hicn_interest_parse_pkt (b0) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
+	      isv6_0 = hicn_buffer_is_v6 (b0);
 
 	      /* Increment the appropriate message counter */
 	      interest_msgs_generated++;
@@ -218,10 +215,10 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      next0 = isv6_0 ? HICNPG_INTEREST_NEXT_V6_LOOKUP :
 				     HICNPG_INTEREST_NEXT_V4_LOOKUP;
 	    }
-	  if (hicn_interest_parse_pkt (b1, &name1, &namelen1, &hicn1,
-				       &isv6_1) == HICN_ERROR_NONE)
+	  if (hicn_interest_parse_pkt (b1) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
+	      isv6_1 = hicn_buffer_is_v6 (b1);
 
 	      /* Increment the appropriate message counter */
 	      interest_msgs_generated++;
@@ -308,10 +305,10 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  vnet_buffer (b0)->sw_if_index[VLIB_RX] = hpgm->sw_if;
 
 	  /* Check icn packets, locate names */
-	  if (hicn_interest_parse_pkt (b0, &name0, &namelen0, &hicn0,
-				       &isv6_0) == HICN_ERROR_NONE)
+	  if (hicn_interest_parse_pkt (b0) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
+	      isv6_0 = hicn_buffer_is_v6 (b0);
 
 	      /* Increment the appropriate message counter */
 	      interest_msgs_generated++;
@@ -937,9 +934,6 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   vlib_buffer_t *b0, *b1;
   u8 pkt_type0 = 0, pkt_type1 = 0;
   u16 msg_type0 = 0, msg_type1 = 0;
-  hicn_header_t *hicn0 = NULL, *hicn1 = NULL;
-  hicn_name_t name0, name1;
-  u16 namelen0, namelen1;
 
   hicnpg_server_main_t *hpgsm = &hicnpg_server_main;
 
@@ -958,8 +952,8 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	{
 	  u32 next0 = HICNPG_SERVER_NEXT_DROP;
 	  u32 next1 = HICNPG_SERVER_NEXT_DROP;
-	  u8 isv6_0 = 0;
-	  u8 isv6_1 = 0;
+	  u8 isv6_0;
+	  u8 isv6_1;
 	  u32 sw_if_index0, sw_if_index1;
 
 	  /* Prefetch next iteration. */
@@ -1003,10 +997,10 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	    {
 	      next0 = match0 - 1;
 	    }
-	  else if (hicn_interest_parse_pkt (b0, &name0, &namelen0, &hicn0,
-					    &isv6_0) == HICN_ERROR_NONE)
+	  else if (hicn_interest_parse_pkt (b0) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
+	      isv6_0 = hicn_buffer_is_v6 (b0);
 	      vlib_buffer_t *rb = NULL;
 	      rb = vlib_get_buffer (vm, hpgsm->pgen_svr_buffer_idx);
 
@@ -1021,10 +1015,10 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	    {
 	      next1 = match1 - 1;
 	    }
-	  else if (hicn_interest_parse_pkt (b1, &name1, &namelen1, &hicn1,
-					    &isv6_1) == HICN_ERROR_NONE)
+	  else if (hicn_interest_parse_pkt (b1) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
+	      isv6_1 = hicn_buffer_is_v6 (b1);
 	      vlib_buffer_t *rb = NULL;
 	      rb = vlib_get_buffer (vm, hpgsm->pgen_svr_buffer_idx);
 
@@ -1099,8 +1093,7 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	    {
 	      next0 = match0 - 1;
 	    }
-	  else if (hicn_interest_parse_pkt (b0, &name0, &namelen0, &hicn0,
-					    &isv6_0) == HICN_ERROR_NONE)
+	  else if (hicn_interest_parse_pkt (b0) == HICN_ERROR_NONE)
 	    {
 	      /* this node grabs only interests */
 	      vlib_buffer_t *rb = NULL;

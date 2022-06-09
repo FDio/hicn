@@ -47,6 +47,7 @@ class RTCLossDetectionAndRecovery
 
   void setFecParams(uint32_t n, uint32_t k) { rs_->setFecParams(n, k); }
 
+  void setContentSharingMode() { rs_->setContentSharingMode(); }
   void turnOnRecovery() { rs_->turnOnRecovery(); }
   bool isRtxOn() { return rs_->isRtxOn(); }
 
@@ -72,7 +73,6 @@ class RTCLossDetectionAndRecovery
   // returns true if a loss is detected, false otherwise
   bool detectLoss(uint32_t start, uint32_t stop, bool recv_probe);
 
-  interface::RtcTransportRecoveryStrategies rs_type_;
   std::shared_ptr<RecoveryStrategy> rs_;
 };
 
