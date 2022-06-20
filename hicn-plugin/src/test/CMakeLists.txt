@@ -45,6 +45,14 @@ set (
   "-Wl,-unresolved-symbols=ignore-all"
 )
 
+##############################################################
+# Definitions
+##############################################################
+
+set(COMPILE_DEFINITIONS
+  "-DHICN_VPP_PLUGIN=1"
+)
+
 
 ##############################################################
 # Build single unit test executable and add it to test list
@@ -59,7 +67,7 @@ build_executable(hicnplugin_tests
       ${UNITY_INCLUDE_DIRS}
     DEPENDS unity ${HICNPLUGIN_SHARED}
     COMPONENT ${HICN_PLUGIN}
-    DEFINITIONS ${COMPILER_DEFINITIONS}
+    DEFINITIONS ${COMPILE_DEFINITIONS}
     COMPILE_OPTIONS ${COMPILER_OPTIONS}
     LINK_FLAGS ${LINK_FLAGS}
 )
