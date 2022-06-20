@@ -50,6 +50,9 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   hicn_pcs_entry_t *pcs_entry = NULL;
   hicn_buffer_t *hicnb0;
   int ret;
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+  hicn_name_t name;
+  hicn_name_t *prev_name = NULL;
 
   rt = vlib_node_get_runtime_data (vm, node->node_index);
 
@@ -97,9 +100,28 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  stats.pkts_data_count += 1;
 
 	  // Lookup the name in the PIT
-	  hicn_name_t name;
 	  hicn_packet_get_name (&hicn_get_buffer (b0)->pkbuf, &name);
-	  ret = hicn_pcs_lookup_one (rt->pitcs, &name, &pcs_entry);
+	  if (PREDICT_FALSE (prev_name && !hicn_pcs_entry_is_in_same_bucket (
+					    &name, prev_name)))
+	    pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
+	  hicn_packet_get_name (&hicn_get_buffer (b0)->pkbuf, &name);
+
+	  ret = hicn_pcs_lookup (rt->pitcs, &name, &pcs_entry,
+				 &pcs_entry_bucket_index);
+
+	  if (ret != 0)
+	    {
+	      HICN_DEBUG ("Using pcs_entry_bucket_index %u",
+			  pcs_entry_bucket_index);
+	      HICN_DEBUG ("Failed lookup.");
+	    }
+
+	  // Save prev name
+	  prev_name = &name;
+
+	  // Save the pcs_entry_bucket_index
+	  hicn_buffer_set_pcs_entry_bucket_id (b0, pcs_entry_bucket_index);
 
 	  if (ret == HICN_ERROR_NONE)
 	    {
