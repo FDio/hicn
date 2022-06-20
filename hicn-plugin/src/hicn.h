@@ -58,6 +58,11 @@ typedef struct
   u32 pcs_entry_id;
 
   /**
+   * ID of the bucket for the pcs_entry
+   */
+  u32 pcs_entry_bucket_id;
+
+  /**
    * DPO/Stategy VFT ID. This is also the DPO type (4)
    */
   dpo_type_t vft_id;
@@ -86,13 +91,14 @@ typedef struct
 } hicn_buffer_t;
 
 STATIC_ASSERT (offsetof (hicn_buffer_t, pcs_entry_id) == 24, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, vft_id) == 28, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, dpo_ctx_id) == 32, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, port) == 36, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, payload_type) == 38, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, lifetime) == 40, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, face_id) == 44, "");
-STATIC_ASSERT (offsetof (hicn_buffer_t, flags) == 48, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, pcs_entry_bucket_id) == 28, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, vft_id) == 32, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, dpo_ctx_id) == 36, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, port) == 40, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, payload_type) == 42, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, lifetime) == 44, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, face_id) == 48, "");
+STATIC_ASSERT (offsetof (hicn_buffer_t, flags) == 52, "");
 // + name = 16+4 = 20
 // opaque : u32[14] = 56
 STATIC_ASSERT (sizeof (hicn_buffer_t) <=
@@ -144,6 +150,20 @@ always_inline hicn_payload_type_t
 hicn_buffer_get_payload_type (vlib_buffer_t *b)
 {
   return hicn_get_buffer (b)->payload_type;
+}
+
+always_inline void
+hicn_buffer_set_pcs_entry_bucket_id (vlib_buffer_t *b, u32 pcs_bucket_id)
+{
+  hicn_buffer_t *hb = hicn_get_buffer (b);
+  hb->pcs_entry_bucket_id = pcs_bucket_id;
+}
+
+always_inline u32
+hicn_buffer_get_pcs_entry_bucket_id (vlib_buffer_t *b)
+{
+  const hicn_buffer_t *hb = hicn_get_buffer (b);
+  return hb->pcs_entry_bucket_id;
 }
 
 #endif /* __HICN_H__ */

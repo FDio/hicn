@@ -39,14 +39,8 @@
  * We need a definition of invalid index. ~0 is reasonable as we don't expect
  * to reach that many element in the PIT.
  */
-#define HICN_PCS_INVALID_INDEX ((u32) (~0))
-
-/*
- * The PIT and CS are stored as a union
- */
-#define HICN_PIT_NULL_TYPE 0
-#define HICN_PIT_TYPE	   1
-#define HICN_CS_TYPE	   2
+#define HICN_PCS_ENTRY_INVALID_INDEX	    ((u32) (~0))
+#define HICN_PCS_ENTRY_BUCKET_INVALID_INDEX ((u32) (~0))
 
 /*
  * Definitions and Forward refs for the time counters we're trying out.
@@ -64,6 +58,23 @@
 
 #define HICN_PIT_BITMAP_SIZE_U64   HICN_PARAM_FACES_MAX / 64
 #define HICN_PIT_N_HOP_BITMAP_SIZE HICN_PARAM_FACES_MAX
+
+/*
+ * 2 level lookup configuration
+ */
+#define HICN_PCS_LOG2_BUCKET_SIZE 7
+#define HICN_PCS_BUCKET_SIZE	  (1 << HICN_PCS_LOG2_BUCKET_SIZE)
+#define HICN_PCS_BUCKET_SIZE_MASK (HICN_PCS_BUCKET_SIZE - 1)
+
+/*
+ *  Bucket size is stored in a vec header of a certain size.
+ */
+typedef struct hicn_pcs_entry_bucket_s
+{
+  hicn_name_t name;
+  u32 current_active_elements;
+  u32 elements[HICN_PCS_BUCKET_SIZE];
+} hicn_pcs_entry_bucket_t;
 
 /*
  * PCS entry. We expect this to fit in 3 cache lines, with a maximum of 8
@@ -103,7 +114,7 @@ typedef struct hicn_pcs_entry_s
 
   /*
    * Shared 'flags' octet
-   * 1 Byte
+   * 2 Byte
    */
   u16 flags;
 
@@ -112,6 +123,11 @@ typedef struct hicn_pcs_entry_s
    * 2 Bytes
    */
   u16 locks;
+
+  /*
+   * Reference to pcs_entry bucket this pcs_entry belongs to
+   */
+  u32 bucket_index;
 
   /*
    * Second cache line - PIT or CS data
@@ -200,6 +216,9 @@ typedef struct hicn_pit_cs_s
   // Total size of PCS
   u32 max_pit_size;
 
+  // Pool of PCS buckets as result of first level lookup
+  hicn_pcs_entry_bucket_t *pcs_bucket_pool;
+
   // Pool of pcs entries
   hicn_pcs_entry_t *pcs_entries_pool;
 
@@ -208,6 +227,8 @@ typedef struct hicn_pit_cs_s
   u32 pcs_cs_count;
   u32 pcs_pcs_alloc;
   u32 pcs_pcs_dealloc;
+  u32 pcs_pcs_bucket_alloc;
+  u32 pcs_pcs_bucket_dealloc;
 
   hicn_cs_policy_t policy_state;
 } hicn_pit_cs_t;
@@ -247,6 +268,18 @@ hicn_pcs_get_pcs_dealloc (const hicn_pit_cs_t *pcs)
   return pcs->pcs_pcs_dealloc;
 }
 
+always_inline u32
+hicn_pcs_get_bucket_alloc (const hicn_pit_cs_t *pcs)
+{
+  return pcs->pcs_pcs_bucket_alloc;
+}
+
+always_inline u32
+hicn_pcs_get_bucket_dealloc (const hicn_pit_cs_t *pcs)
+{
+  return pcs->pcs_pcs_bucket_dealloc;
+}
+
 always_inline f64
 hicn_pcs_get_exp_time (f64 cur_time_sec, u64 lifetime_msec)
 {
@@ -259,9 +292,38 @@ hicn_pcs_get_exp_time (f64 cur_time_sec, u64 lifetime_msec)
 always_inline void
 hicn_pcs_get_key_from_name (clib_bihash_kv_24_8_t *kv, const hicn_name_t *name)
 {
+  // The prefix is always part of the key
   kv->key[0] = name->prefix.v6.as_u64[0];
   kv->key[1] = name->prefix.v6.as_u64[1];
-  kv->key[2] = name->suffix;
+
+  // For the suffix, we consider only the sizeof(name->suffix) -
+  // HICN_PCS_LOG2_BUCKET_SIZE bits. The rest is considered as "don't care"
+  kv->key[2] = name->suffix & ~HICN_PCS_BUCKET_SIZE_MASK;
+}
+
+always_inline u32
+hicn_pcs_entry_get_index_in_bucket_from_name (const hicn_name_t *name)
+{
+  ASSERT (name);
+  return (name->suffix & HICN_PCS_BUCKET_SIZE_MASK);
+}
+
+/**
+ * Check if 2 names will endup in the same bucket.
+ */
+always_inline int
+hicn_pcs_entry_is_in_same_bucket (const hicn_name_t *name1,
+				  const hicn_name_t *name2)
+{
+  ASSERT (name1);
+  ASSERT (name2);
+
+  int ret = (name1->prefix.v6.as_u64[0] == name2->prefix.v6.as_u64[0]) &&
+	    (name1->prefix.v6.as_u64[1] == name2->prefix.v6.as_u64[1]) &&
+	    ((name1->suffix & ~HICN_PCS_BUCKET_SIZE_MASK) ==
+	     (name2->suffix & ~HICN_PCS_BUCKET_SIZE_MASK));
+
+  return ret;
 }
 
 /************************************************************************
@@ -318,6 +380,158 @@ hicn_pcs_cs_dequeue_lru (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry)
 }
 
 /************************************************************************
+ ************************ PCS Entry Bucket APIs *************************
+ ************************************************************************/
+
+/*
+ * Create new PCS entries bucket
+ */
+always_inline hicn_pcs_entry_bucket_t *
+_hicn_pcs_entry_bucket_get (hicn_pit_cs_t *pitcs)
+{
+  hicn_pcs_entry_bucket_t *e;
+  pool_get (pitcs->pcs_bucket_pool, e);
+  pitcs->pcs_pcs_bucket_alloc++;
+
+  return e;
+}
+
+/*
+ * Init PCS entries bucket
+ */
+always_inline void
+hicn_pcs_entry_bucket_init_data (hicn_pcs_entry_bucket_t *hicn_entries_bucket)
+{
+  for (u32 i = 0; i < HICN_PCS_BUCKET_SIZE; i++)
+    {
+      hicn_entries_bucket->elements[i] = HICN_PCS_ENTRY_INVALID_INDEX;
+    }
+
+  hicn_entries_bucket->current_active_elements = 0;
+}
+
+/*
+ * Create new PCS entries bucket
+ */
+always_inline hicn_pcs_entry_bucket_t *
+hicn_pcs_entry_bucket_get (hicn_pit_cs_t *pitcs)
+{
+  hicn_pcs_entry_bucket_t *b = _hicn_pcs_entry_bucket_get (pitcs);
+  hicn_pcs_entry_bucket_init_data (b);
+  return b;
+}
+
+/*
+ * Free PCS entry bucket
+ */
+always_inline void
+hicn_pcs_entry_bucket_put (hicn_pit_cs_t *pitcs,
+			   const hicn_pcs_entry_bucket_t *pcs_entry_bucket)
+{
+  pitcs->pcs_pcs_bucket_dealloc++;
+  pool_put (pitcs->pcs_bucket_pool, pcs_entry_bucket);
+}
+
+/*
+ * Increment/decrement the number of active elements in the bucket
+ */
+always_inline void
+hicn_pcs_entry_bucket_increment_active_elements (
+  hicn_pcs_entry_bucket_t *pcs_entry_bucket)
+{
+  pcs_entry_bucket->current_active_elements++;
+}
+
+always_inline void
+hicn_pcs_entry_bucket_decrement_active_elements (
+  hicn_pcs_entry_bucket_t *pcs_entry_bucket)
+{
+  pcs_entry_bucket->current_active_elements--;
+}
+
+/*
+ * Check bucket element is valid
+ */
+always_inline int
+hicn_pcs_entry_bucket_is_free (const hicn_pit_cs_t *pitcs, u32 index)
+{
+  return pool_is_free_index (pitcs->pcs_bucket_pool, index);
+}
+
+/*
+ * Check bucket element is valid
+ */
+always_inline int
+hicn_pcs_entry_bucket_is_valid (
+  const hicn_pcs_entry_bucket_t *pcs_entry_bucket, u32 index)
+{
+  return (pcs_entry_bucket->elements[index] != HICN_PCS_ENTRY_INVALID_INDEX);
+}
+
+/*
+ * Set bucket element to invalid
+ */
+always_inline void
+hicn_pcs_entry_bucket_set_invalid (hicn_pcs_entry_bucket_t *pcs_entry_bucket,
+				   u32 index)
+{
+  ASSERT (index < HICN_PCS_BUCKET_SIZE);
+  pcs_entry_bucket->elements[index] = HICN_PCS_ENTRY_INVALID_INDEX;
+  hicn_pcs_entry_bucket_decrement_active_elements (pcs_entry_bucket);
+}
+
+/*
+ * Set/Get pit entry index at given position in the bucket
+ */
+always_inline u32
+hicn_pcs_entry_bucket_get_pit_entry_index (
+  const hicn_pcs_entry_bucket_t *pcs_entry_bucket, u32 index)
+{
+  ASSERT (hicn_pcs_entry_bucket_is_valid (pcs_entry_bucket, index));
+  return pcs_entry_bucket->elements[index];
+}
+
+always_inline void
+hicn_pcs_entry_bucket_set_pit_entry_index (
+  hicn_pcs_entry_bucket_t *pcs_entry_bucket, u32 index, u32 pcs_entry_index)
+{
+  pcs_entry_bucket->elements[index] = pcs_entry_index;
+  hicn_pcs_entry_bucket_increment_active_elements (pcs_entry_bucket);
+}
+
+/*
+ * Get bucket index from the entry.
+ */
+always_inline u32
+hicn_pcs_entry_bucket_get_index (
+  const hicn_pit_cs_t *pitcs, const hicn_pcs_entry_bucket_t *pcs_entry_bucket)
+{
+  ASSERT (!pool_is_free (pitcs->pcs_bucket_pool, pcs_entry_bucket));
+  return (u32) (pcs_entry_bucket - pitcs->pcs_bucket_pool);
+}
+
+/*
+ * Get number of active elements in the bucket
+ */
+always_inline u32
+hicn_pcs_entry_bucket_get_active_elements (
+  const hicn_pcs_entry_bucket_t *pcs_entry_bucket)
+{
+  return pcs_entry_bucket->current_active_elements;
+}
+
+/*
+ * Get entry from the bucket index.
+ */
+always_inline hicn_pcs_entry_bucket_t *
+hicn_pcs_entry_bucket_get_entry_from_index (const hicn_pit_cs_t *pitcs,
+					    u32 index)
+{
+  ASSERT (!pool_is_free_index (pitcs->pcs_bucket_pool, index));
+  return pool_elt_at_index (pitcs->pcs_bucket_pool, index);
+}
+
+/************************************************************************
  **************************** PCS Entry APIs ****************************
  ************************************************************************/
 
@@ -368,7 +582,7 @@ hicn_pcs_entry_get_index (const hicn_pit_cs_t *pitcs,
 }
 
 /*
- * Get index from the entry.
+ * Get entry from the index.
  */
 always_inline hicn_pcs_entry_t *
 hicn_pcs_entry_get_entry_from_index (const hicn_pit_cs_t *pitcs, u32 index)
@@ -424,6 +638,48 @@ always_inline void
 hicn_pcs_entry_set_create_time (hicn_pcs_entry_t *pcs_entry, f64 create_time)
 {
   pcs_entry->create_time = create_time;
+}
+
+/*
+ * Get/Set bucket index
+ */
+always_inline u32
+hicn_pcs_entry_get_bucket_index (const hicn_pcs_entry_t *pcs_entry)
+{
+  return pcs_entry->bucket_index;
+}
+
+always_inline void
+hicn_pcs_entry_set_bucket_index (hicn_pcs_entry_t *pcs_entry, u32 bucket_index)
+{
+  pcs_entry->bucket_index = bucket_index;
+}
+
+/*
+ * Get/Set Name and Name Hash
+ */
+always_inline const hicn_name_t *
+hicn_pcs_entry_get_name (const hicn_pcs_entry_t *pcs_entry)
+{
+  return &pcs_entry->name;
+}
+
+always_inline void
+hicn_pcs_entry_set_name (hicn_pcs_entry_t *pcs_entry, const hicn_name_t *name)
+{
+  pcs_entry->name = *name;
+}
+
+always_inline u64
+hicn_pcs_entry_get_name_hash (const hicn_pcs_entry_t *pcs_entry)
+{
+  return pcs_entry->name_hash;
+}
+
+always_inline void
+hicn_pcs_entry_set_name_hash (hicn_pcs_entry_t *pcs_entry, u64 name_hash)
+{
+  pcs_entry->name_hash = name_hash;
 }
 
 /*
@@ -611,32 +867,85 @@ hicn_pcs_entry_pit_search (const hicn_pcs_entry_t *pit_entry,
  * @param pitcs the PIT/CS table
  * @param name the name to lookup
  * @param pcs_entry [RETURN] if the entry exists, the entry is returned
+ * @param bucket_index [RETURN] used to select the bucket if caller knows it in
+ * advance.
+ * @param allocate_pcs_bucket if true, a new buckert will be allocated in case
+ * of miss
  * @return HICN_ERROR_NONE if the entry is found, HICN_ERROR_PCS_NOT_FOUND
  * otherwise
  */
 always_inline int
-hicn_pcs_lookup_one (hicn_pit_cs_t *pitcs, const hicn_name_t *name,
-		     hicn_pcs_entry_t **pcs_entry)
+hicn_pcs_lookup_ex (hicn_pit_cs_t *pitcs, const hicn_name_t *name,
+		    hicn_pcs_entry_t **pcs_entry, u32 *bucket_index,
+		    int allocate_pcs_bucket)
 {
   int ret;
-
-  // Construct the lookup key
+  const hicn_pcs_entry_bucket_t *b;
+  u32 pcs_entry_index_in_bucket;
+  u32 pcs_entry_index;
   clib_bihash_kv_24_8_t kv;
-  hicn_pcs_get_key_from_name (&kv, name);
+  int bucket_invalid;
 
-  // Do a search in the has table
-  ret = clib_bihash_search_inline_24_8 (&pitcs->pcs_table, &kv);
+  bucket_invalid = *bucket_index == HICN_PCS_ENTRY_BUCKET_INVALID_INDEX ||
+		   hicn_pcs_entry_bucket_is_free (pitcs, *bucket_index);
 
-  if (PREDICT_FALSE (ret != 0))
+  if (bucket_invalid)
     {
-      *pcs_entry = NULL;
-      return HICN_ERROR_PCS_NOT_FOUND;
+      // Construct the lookup key
+      hicn_pcs_get_key_from_name (&kv, name);
+
+      // Do a search in the has table
+      ret = clib_bihash_search_inline_24_8 (&pitcs->pcs_table, &kv);
+
+      if (ret != 0)
+	{
+	  *pcs_entry = NULL;
+	  if (allocate_pcs_bucket)
+	    {
+	      // Get a new bucket
+	      b = hicn_pcs_entry_bucket_get (pitcs);
+	      *bucket_index = hicn_pcs_entry_bucket_get_index (pitcs, b);
+
+	      // Set bucket as value in the kv struct
+	      kv.value = *bucket_index;
+
+	      // Add entry to hash table
+	      ret = clib_bihash_add_del_24_8 (&pitcs->pcs_table, &kv,
+					      2 /* add_but_not_replace */);
+
+	      if (PREDICT_FALSE (ret != 0))
+		{
+		  // Rollback
+		  hicn_pcs_entry_bucket_put (pitcs, b);
+		  return ret;
+		}
+	    }
+
+	  return HICN_ERROR_PCS_NOT_FOUND_INVALID_BUCKET;
+	}
+
+      // Update bucket index
+      *bucket_index = kv.value;
     }
 
-  // Retrieve entry from pool
-  *pcs_entry = hicn_pcs_entry_get_entry_from_index (pitcs, kv.value);
+  pcs_entry_index_in_bucket =
+    hicn_pcs_entry_get_index_in_bucket_from_name (name);
+  // Get bucket and then PCS entry
+  b = hicn_pcs_entry_bucket_get_entry_from_index (pitcs, *bucket_index);
 
-  // If entry found and it is a CS entry, let's update the LRU
+  if (!hicn_pcs_entry_bucket_is_valid (b, pcs_entry_index_in_bucket))
+    {
+      *pcs_entry = NULL;
+      return HICN_ERROR_PCS_NOT_FOUND_VALID_BUCKET;
+    }
+
+  // At this point, we are sure the bucket is valid
+  pcs_entry_index =
+    hicn_pcs_entry_bucket_get_pit_entry_index (b, pcs_entry_index_in_bucket);
+
+  *pcs_entry = hicn_pcs_entry_get_entry_from_index (pitcs, pcs_entry_index);
+
+  // If entry is a CS entry, let's update the LRU
   if (hicn_pcs_entry_is_cs (*pcs_entry))
     {
       hicn_pcs_cs_update_lru (pitcs, *pcs_entry);
@@ -644,6 +953,43 @@ hicn_pcs_lookup_one (hicn_pit_cs_t *pitcs, const hicn_name_t *name,
 
   // If the entry is found, return it
   return HICN_ERROR_NONE;
+}
+
+/**
+ * @brief Perform one lookup in the PIT/CS table using the provided name.
+ *
+ * @param pitcs the PIT/CS table
+ * @param name the name to lookup
+ * @param pcs_entry [RETURN] if the entry exists, the entry is returned
+ * @return HICN_ERROR_NONE if the entry is found, HICN_ERROR_PCS_NOT_FOUND
+ * otherwise
+ */
+always_inline int
+hicn_pcs_lookup (hicn_pit_cs_t *pitcs, const hicn_name_t *name,
+		 hicn_pcs_entry_t **pcs_entry, u32 *bucket_index)
+{
+  return hicn_pcs_lookup_ex (pitcs, name, pcs_entry, bucket_index, 0);
+}
+
+/**
+ * @brief Perform one lookup in the PIT/CS table using the provided names (ONE
+ * PREFIX + MANY SUFFIXES).
+ *
+ * @param pitcs the PIT/CS table
+ * @param name the name to lookup
+ * @param suffixes_array array with the suffixes for the lookup
+ * @param suffixes_array_length length of the suffixes_array and of
+ * pcs_entry_indexes
+ * @param pcs_entry_indexes [RETURN] the PCS entries results of the lookup
+ * @return HICN_ERROR_NONE if **all** entries are found,
+ * HICN_ERROR_PCS_NOT_FOUND otherwise
+ */
+always_inline int
+hicn_pcs_lookup_many (hicn_pit_cs_t *pitcs, const hicn_name_t *name,
+		      const u32 *suffixes_array, size_t suffixes_array_length,
+		      u32 *pcs_entry_indexes)
+{
+  return 0;
 }
 
 /************************************************************************
@@ -659,6 +1005,10 @@ hicn_pcs_lookup_one (hicn_pit_cs_t *pitcs, const hicn_name_t *name,
 always_inline void
 hicn_pcs_delete_internal (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *pcs_entry)
 {
+  u32 pcs_entry_index_in_bucket;
+  u32 pcs_entry_bucket_index;
+  hicn_pcs_entry_bucket_t *pcs_entry_bucket;
+
   if (pcs_entry->flags & HICN_PCS_ENTRY_CS_FLAG)
     {
       // Remove entry from LRU list
@@ -678,16 +1028,34 @@ hicn_pcs_delete_internal (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *pcs_entry)
     {
       // Update counters
       pitcs->pcs_pit_count--;
-      // Flush faces
-      //       hicn_faces_flush (&(pcs_entry->u.pit.faces));
     }
 
-  // Delete entry from hash table
-  clib_bihash_kv_24_8_t kv;
-  hicn_pcs_get_key_from_name (&kv, &pcs_entry->name);
-  clib_bihash_add_del_24_8 (&pitcs->pcs_table, &kv, 0 /* is_add */);
+  // Get the bucket this entry belongs to
+  pcs_entry_index_in_bucket =
+    hicn_pcs_entry_get_index_in_bucket_from_name (&pcs_entry->name);
 
-  // Free pool entry
+  pcs_entry_bucket_index = hicn_pcs_entry_get_bucket_index (pcs_entry);
+  pcs_entry_bucket =
+    hicn_pcs_entry_bucket_get_entry_from_index (pitcs, pcs_entry_bucket_index);
+
+  // Mark element as invalid
+  hicn_pcs_entry_bucket_set_invalid (pcs_entry_bucket,
+				     pcs_entry_index_in_bucket);
+
+  if (hicn_pcs_entry_bucket_get_active_elements (pcs_entry_bucket) == 0)
+    {
+
+      HICN_DEBUG ("Deleting bucket %u", pcs_entry_bucket_index);
+      // Delete entry from hash table
+      clib_bihash_kv_24_8_t kv;
+      hicn_pcs_get_key_from_name (&kv, &pcs_entry->name);
+      clib_bihash_add_del_24_8 (&pitcs->pcs_table, &kv, 0 /* is_add */);
+
+      // Free bucket
+      hicn_pcs_entry_bucket_put (pitcs, pcs_entry_bucket);
+    }
+
+  // Free pcs pool entry
   hicn_pcs_entry_put (pitcs, pcs_entry);
 }
 
@@ -697,21 +1065,27 @@ hicn_pcs_delete_internal (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *pcs_entry)
 
 always_inline int
 hicn_pcs_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
-		 const hicn_name_t *name)
+		 const hicn_name_t *name, u32 *bucket_index)
 {
-  clib_bihash_kv_24_8_t kv;
-  u32 index = hicn_pcs_entry_get_index (pitcs, entry);
+  u32 pcs_entry_index = hicn_pcs_entry_get_index (pitcs, entry);
+  u32 pcs_entry_index_in_bucket =
+    hicn_pcs_entry_get_index_in_bucket_from_name (name);
+  hicn_pcs_entry_bucket_t *b = NULL;
+  int ret = HICN_ERROR_NONE;
 
-  // Construct KV pair and try to add it to hash table
-  hicn_pcs_get_key_from_name (&kv, name);
-  kv.value = index;
+  ASSERT (*bucket_index != HICN_PCS_ENTRY_BUCKET_INVALID_INDEX);
 
-  // Get name hash
-  entry->name_hash = clib_bihash_hash_24_8 (&kv);
-  entry->name = *name;
+  // If bucket index is an invalid index, we need to allocate the bucket and
+  // save it in the hash table first
 
-  return clib_bihash_add_del_24_8 (&pitcs->pcs_table, &kv,
-				   2 /* add_but_not_replace */);
+  // Set name hash
+  hicn_pcs_entry_set_name (entry, name);
+  hicn_pcs_entry_set_bucket_index (entry, *bucket_index);
+  b = hicn_pcs_entry_bucket_get_entry_from_index (pitcs, *bucket_index);
+  hicn_pcs_entry_bucket_set_pit_entry_index (b, pcs_entry_index_in_bucket,
+					     pcs_entry_index);
+
+  return ret;
 }
 
 /**
@@ -726,12 +1100,12 @@ hicn_pcs_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
  */
 always_inline int
 hicn_pcs_cs_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
-		    const hicn_name_t *name)
+		    const hicn_name_t *name, u32 *bucket_index)
 {
   // Make sure this is a CS entry
   ASSERT (hicn_pcs_entry_is_cs (entry));
 
-  int ret = hicn_pcs_insert (pitcs, entry, name);
+  int ret = hicn_pcs_insert (pitcs, entry, name, bucket_index);
 
   // Make sure insertion happened
   ASSERT (ret == 0);
@@ -757,10 +1131,10 @@ hicn_pcs_cs_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
  */
 always_inline int
 hicn_pcs_pit_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
-		     const hicn_name_t *name)
+		     const hicn_name_t *name, u32 *bucket_index)
 {
   // Insert entry into hash table
-  int ret = hicn_pcs_insert (pitcs, entry, name);
+  int ret = hicn_pcs_insert (pitcs, entry, name, bucket_index);
 
   // Make sure insertion happened
   ASSERT (ret == 0);

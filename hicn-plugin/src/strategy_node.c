@@ -99,6 +99,9 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   const hicn_strategy_vft_t *strategy;
   hicn_buffer_t *hicnb0;
   hicn_pcs_entry_t *pcs_entry = NULL;
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+  hicn_name_t *prev_name = NULL;
+  hicn_name_t name;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -111,7 +114,6 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
   while (n_left_from > 0)
     {
-
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
@@ -159,18 +161,27 @@ hicn_strategy_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  pcs_entry = hicn_pcs_entry_pit_get (rt->pitcs, tnow,
 					      hicn_buffer_get_lifetime (b0));
 
+	  // Check if the interest is in the PCS already
+	  //   if (PREDICT_FALSE (prev_name &&
+	  // 		     !hicn_pcs_entry_is_in_same_bucket (
+	  // 		       hicn_buffer_get_name (b0), prev_name)))
+	  pcs_entry_bucket_index = hicn_buffer_get_pcs_entry_bucket_id (b0);
+
 	  // Add entry to PIT table
-	  hicn_name_t name;
 	  hicn_packet_get_name (&hicnb0->pkbuf, &name);
-	  ret = hicn_pcs_pit_insert (rt->pitcs, pcs_entry, &name);
-	  //&hicnb0->name);
+	  ret = hicn_pcs_pit_insert (rt->pitcs, pcs_entry, &name,
+				     &pcs_entry_bucket_index);
 
 	  if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
 	    {
+	      HICN_DEBUG ("Insertion in PIT failed %u",
+			  pcs_entry_bucket_index);
 	      drop_packet (vm, bi0, &n_left_from, &next0, &to_next,
 			   &next_index, node);
 	      continue;
 	    }
+
+	  prev_name = &name;
 
 	  // Store internal state
 	  ret = hicn_store_internal_state (
