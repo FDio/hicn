@@ -16,6 +16,8 @@
 # Compiler preferences
 ##############################################################
 set(CMAKE_C_COMPILER_NAMES
+  clang-15
+  clang-14
   clang-13
   clang-12
   clang-11
