@@ -72,162 +72,135 @@ TEST (PCS, Destroy)
 TEST (PCS, LookupEmpty)
 {
   hicn_pit_cs_t *pcs = &global_pcs;
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
 
   hicn_name_t name;
   int ret = hicn_name_create ("b001::abcd", 0, &name);
   TEST_ASSERT_EQUAL (0, ret);
 
   hicn_pcs_entry_t *pcs_entry;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry);
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry, &pcs_entry_bucket_index);
 
-  TEST_ASSERT_EQUAL (HICN_ERROR_PCS_NOT_FOUND, ret);
+  TEST_ASSERT_EQUAL (HICN_ERROR_PCS_NOT_FOUND_INVALID_BUCKET, ret);
+  TEST_ASSERT_EQUAL (HICN_PCS_ENTRY_BUCKET_INVALID_INDEX,
+		     pcs_entry_bucket_index);
   TEST_ASSERT_EQUAL (NULL, pcs_entry);
 }
 
-TEST (PCS, InsertPITEntryAndLookup)
+static hicn_pcs_entry_t *
+insert_to_pcs (const char *name_str, int is_cs)
 {
-  hicn_pit_cs_t *pcs = &global_pcs;
-
   // Add entry to the PCS
+  hicn_pit_cs_t *pcs = &global_pcs;
   int ret = 0;
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
 
   // Allocate name
   hicn_name_t name;
-  hicn_name_create ("b001::1234", 0, &name);
+  ret = hicn_name_create (name_str, 0, &name);
+  TEST_ASSERT_EQUAL (0, ret);
 
   // Create PCS entry
   hicn_pcs_entry_t *pcs_entry;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry);
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry, &pcs_entry_bucket_index);
 
   // We will not find the entry
-  TEST_ASSERT_EQUAL (ret, HICN_ERROR_PCS_NOT_FOUND);
+  TEST_ASSERT_EQUAL (ret, HICN_ERROR_PCS_NOT_FOUND_INVALID_BUCKET);
   TEST_ASSERT_EQUAL (NULL, pcs_entry);
+  TEST_ASSERT_EQUAL (HICN_PCS_ENTRY_BUCKET_INVALID_INDEX,
+		     pcs_entry_bucket_index);
 
   // Get a new PIT entry from the pool
-  // TODO Check if the hicn_pcs_entry_pit_get is needed here
-  pcs_entry = hicn_pcs_entry_pit_get (pcs, 0, 0);
+  if (is_cs)
+    {
+      u32 buffer_index = 12345;
+      pcs_entry = hicn_pcs_entry_cs_get (pcs, 0, buffer_index);
+      TEST_ASSERT_TRUE (hicn_pcs_entry_is_cs (pcs_entry));
+    }
+  else
+    {
+      pcs_entry = hicn_pcs_entry_pit_get (pcs, 0, 0);
+      TEST_ASSERT_FALSE (hicn_pcs_entry_is_cs (pcs_entry));
+    }
+
   TEST_ASSERT_NOT_NULL (pcs_entry);
   TEST_ASSERT_EQUAL (hicn_pcs_get_pcs_alloc (pcs), 1);
 
   // Insert PIT entry
-  ret = hicn_pcs_pit_insert (pcs, pcs_entry, &name);
-  TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
-  TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 1);
-  TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 0);
+  if (is_cs)
+    ret = hicn_pcs_cs_insert (pcs, pcs_entry, &name, &pcs_entry_bucket_index);
+  else
+    ret = hicn_pcs_pit_insert (pcs, pcs_entry, &name, &pcs_entry_bucket_index);
 
-  // Lookup PIT entry
+  TEST_ASSERT_NOT_EQUAL (HICN_PCS_ENTRY_BUCKET_INVALID_INDEX,
+			 pcs_entry_bucket_index);
+  TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
+  if (is_cs)
+    {
+      TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 1);
+      TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 0);
+    }
+  else
+    {
+      TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 1);
+      TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 0);
+    }
+
+  // Lookup entry
   hicn_pcs_entry_t *pcs_entry_ret = NULL;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry_ret);
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry_ret, &pcs_entry_bucket_index);
   TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
   TEST_ASSERT_NOT_NULL (pcs_entry_ret);
   TEST_ASSERT_EQUAL (pcs_entry, pcs_entry_ret);
+  TEST_ASSERT_NOT_EQUAL (pcs_entry_bucket_index,
+			 HICN_PCS_ENTRY_BUCKET_INVALID_INDEX);
+  if (is_cs)
+    TEST_ASSERT_TRUE (hicn_pcs_entry_is_cs (pcs_entry_ret));
+  else
+    TEST_ASSERT_FALSE (hicn_pcs_entry_is_cs (pcs_entry_ret));
 
-  // Release PIT entry
+  return pcs_entry;
+}
+
+static void
+insert_and_lookup (const char *name_str, int is_cs)
+{
+  hicn_pit_cs_t *pcs = &global_pcs;
+  hicn_pcs_entry_t *pcs_entry = NULL;
+  hicn_pcs_entry_t *pcs_entry_ret = NULL;
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
+  int ret;
+
+  pcs_entry = insert_to_pcs (name_str, is_cs);
+
+  hicn_name_t name = pcs_entry->name;
+
+  // Release entry
   hicn_pcs_entry_remove_lock (pcs, pcs_entry);
   TEST_ASSERT_EQUAL (hicn_pcs_get_pcs_dealloc (pcs), 1);
   TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 0);
   TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 0);
 
-  // Lookup PIT entry again, we should not find it
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry_ret);
-  TEST_ASSERT_EQUAL (HICN_ERROR_PCS_NOT_FOUND, ret);
+  // Lookup entry again, we should not find it. Also the bucket held only
+  // that entry, so we should get HICN_ERROR_PCS_NOT_FOUND_INVALID_BUCKET
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry_ret, &pcs_entry_bucket_index);
+  TEST_ASSERT_EQUAL (HICN_ERROR_PCS_NOT_FOUND_INVALID_BUCKET, ret);
   TEST_ASSERT_EQUAL (NULL, pcs_entry_ret);
+  TEST_ASSERT_EQUAL (pcs_entry_bucket_index,
+		     HICN_PCS_ENTRY_BUCKET_INVALID_INDEX);
 }
 
-TEST (PCS, InsertCSEntryAndLookup)
-{
-  hicn_pit_cs_t *pcs = &global_pcs;
+TEST (PCS, InsertPITEntryAndLookup) { insert_and_lookup ("b001::1234", 0); }
 
-  // Add entry to the PCS
-  int ret = 0;
-
-  // Allocate name
-  hicn_name_t name;
-  hicn_name_create ("b008::5555", 0, &name);
-
-  // Create PCS entry
-  hicn_pcs_entry_t *pcs_entry;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry);
-
-  // We will not find the entry
-  TEST_ASSERT_EQUAL (ret, HICN_ERROR_PCS_NOT_FOUND);
-  TEST_ASSERT_EQUAL (NULL, pcs_entry);
-
-  // Get a buffer
-  u32 buffer_index = 198274;
-
-  // Get a new entry from the pool
-  pcs_entry = hicn_pcs_entry_cs_get (pcs, 0, buffer_index);
-  TEST_ASSERT_NOT_NULL (pcs_entry);
-  TEST_ASSERT_EQUAL (1, hicn_pcs_get_pcs_alloc (pcs));
-
-  // Insert CS entry
-  ret = hicn_pcs_cs_insert (pcs, pcs_entry, &name);
-  TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
-  TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 0);
-  TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 1);
-
-  // Lookup CS entry
-  hicn_pcs_entry_t *pcs_entry_ret = NULL;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry_ret);
-  TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
-  TEST_ASSERT_TRUE (pcs_entry_ret->flags & HICN_PCS_ENTRY_CS_FLAG);
-  TEST_ASSERT_NOT_NULL (pcs_entry_ret);
-  TEST_ASSERT_EQUAL (pcs_entry, pcs_entry_ret);
-
-  // Release CS entry
-  hicn_pcs_entry_remove_lock (pcs, pcs_entry);
-  TEST_ASSERT_EQUAL (1, hicn_pcs_get_pcs_dealloc (pcs));
-  TEST_ASSERT_EQUAL (0, hicn_pcs_get_pit_count (pcs));
-  TEST_ASSERT_EQUAL (0, hicn_pcs_get_cs_count (pcs));
-
-  // Lookup CS entry again, we should not find it
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry_ret);
-  TEST_ASSERT_EQUAL (HICN_ERROR_PCS_NOT_FOUND, ret);
-  TEST_ASSERT_EQUAL (NULL, pcs_entry_ret);
-}
+TEST (PCS, InsertCSEntryAndLookup) { insert_and_lookup ("b001::1234", 1); }
 
 TEST (PCS, PitToCS)
 {
   hicn_pit_cs_t *pcs = &global_pcs;
 
   // Add entry to the PCS
-  int ret = 0;
-
-  // Allocate name
-  hicn_name_t name;
-  hicn_name_create ("b001::1234", 0, &name);
-
-  // Create PCS entry
-  hicn_pcs_entry_t *pcs_entry;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry);
-
-  // We will not find the entry
-  TEST_ASSERT_EQUAL (ret, HICN_ERROR_PCS_NOT_FOUND);
-  TEST_ASSERT_EQUAL (NULL, pcs_entry);
-
-  // Get a new entry from the pool
-  // TODO Check if the hicn_pcs_entry_pit_get is needed here
-  pcs_entry = hicn_pcs_entry_pit_get (pcs, 0, 0);
-  TEST_ASSERT_NOT_NULL (pcs_entry);
-  TEST_ASSERT_EQUAL (hicn_pcs_get_pcs_alloc (pcs), 1);
-
-  // Insert PIT entry
-  ret = hicn_pcs_pit_insert (pcs, pcs_entry, &name);
-  TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
-  TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 1);
-  TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 0);
-
-  // Lookup PIT entry
-  hicn_pcs_entry_t *pcs_entry_ret = NULL;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry_ret);
-  TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
-  TEST_ASSERT_NOT_NULL (pcs_entry_ret);
-  TEST_ASSERT_EQUAL (pcs_entry, pcs_entry_ret);
-
-  // Found the PIT entry we inserted before.
-  // Double check is not a CS
-  TEST_ASSERT_FALSE (pcs_entry_ret->flags & HICN_PCS_ENTRY_CS_FLAG);
+  hicn_pcs_entry_t *pcs_entry = insert_to_pcs ("b001::abcd", 0 /* is_cs*/);
 
   // Turn the PIT entry into a CS
   hicn_pit_to_cs (pcs, pcs_entry, /* random buffer index */ 12345);
@@ -237,33 +210,19 @@ TEST (PCS, PitToCS)
   TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 1);
 
   // Make sure entry is now a CS
-  TEST_ASSERT_TRUE (pcs_entry_ret->flags & HICN_PCS_ENTRY_CS_FLAG);
+  TEST_ASSERT_TRUE (hicn_pcs_entry_is_cs (pcs_entry));
 }
 
 TEST (PCS, CheckCSLruConsistency)
 {
   hicn_pit_cs_t *pcs = &global_pcs;
 
-  // Add entry to the PCS
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
   int ret = 0;
 
-  // Allocate name
-  hicn_name_t name;
-  hicn_name_create ("b001::1234", 0, &name);
-
-  // Create CS entry
-  hicn_pcs_entry_t *pcs_entry;
-  // Get a new entry from the pool
-  // TODO Check if the hicn_pcs_entry_pit_get is needed here
-  pcs_entry = hicn_pcs_entry_cs_get (pcs, 0, 0);
-  TEST_ASSERT_NOT_NULL (pcs_entry);
-  TEST_ASSERT_EQUAL (hicn_pcs_get_pcs_alloc (pcs), 1);
-
-  // Insert CS entry
-  ret = hicn_pcs_cs_insert (pcs, pcs_entry, &name);
-  TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
-  TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 1);
-  TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 0);
+  hicn_pcs_entry_t *pcs_entry = insert_to_pcs ("b001::1234", 1 /* is_cs*/);
+  pcs_entry_bucket_index = hicn_pcs_entry_get_bucket_index (pcs_entry);
+  hicn_name_t name = pcs_entry->name;
 
   // Get pcs_entry index
   uint32_t pcs_entry_index = hicn_pcs_entry_get_index (pcs, pcs_entry);
@@ -285,7 +244,7 @@ TEST (PCS, CheckCSLruConsistency)
 		     hicn_pcs_entry_cs_get_prev (pcs_entry));
 
   // Lookup the entry itself
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry);
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry, &pcs_entry_bucket_index);
 
   // Check again the pointers of the entry
   TEST_ASSERT_EQUAL (HICN_CS_POLICY_END_OF_CHAIN,
@@ -310,6 +269,9 @@ TEST (PCS, CheckCSLruConsistency)
   hicn_pcs_entry_t *pcs_entry0;
   hicn_pcs_entry_t *pcs_entry1;
 
+  u32 pcs_entry_bucket_index0 = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX,
+      pcs_entry_bucket_index1 = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
   pcs_entry0 = hicn_pcs_entry_cs_get (pcs, 0, 0);
   TEST_ASSERT_NOT_NULL (pcs_entry0);
   hicn_name_t name0;
@@ -323,8 +285,10 @@ TEST (PCS, CheckCSLruConsistency)
   u32 index1 = hicn_pcs_entry_get_index (pcs, pcs_entry1);
 
   // Insert CS entry
-  ret = hicn_pcs_cs_insert (pcs, pcs_entry0, &name0);
-  ret = hicn_pcs_cs_insert (pcs, pcs_entry1, &name1);
+  ret = hicn_pcs_cs_insert (pcs, pcs_entry0, &name0, &pcs_entry_bucket_index0);
+  ret = hicn_pcs_cs_insert (pcs, pcs_entry1, &name1, &pcs_entry_bucket_index1);
+
+  TEST_ASSERT_NOT_EQUAL (pcs_entry_bucket_index0, pcs_entry_bucket_index1);
 
   // Check LRU. index1 was inserted last, so it should be at the head
   TEST_ASSERT_EQUAL (index1, hicn_cs_policy_get_head (policy_state));
@@ -346,7 +310,7 @@ TEST (PCS, CheckCSLruConsistency)
 		     hicn_pcs_entry_cs_get_prev (pcs_entry1));
 
   // Let's lookup for entry 0 and check if the LRU is updated correctly
-  ret = hicn_pcs_lookup_one (pcs, &name0, &pcs_entry);
+  ret = hicn_pcs_lookup (pcs, &name0, &pcs_entry, &pcs_entry_bucket_index0);
   TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
   TEST_ASSERT_EQUAL (index0, hicn_pcs_entry_get_index (pcs, pcs_entry));
 
@@ -372,14 +336,18 @@ TEST (PCS, CheckCSLruMax)
 {
   hicn_pit_cs_t *pcs = &global_pcs;
   int i, ret = 0;
-  ;
   u32 pcs_entry_index = 0;
   u32 pcs_entry_index0 = 0;
   u32 pcs_entry_index1 = 0;
   hicn_pcs_entry_t *pcs_entry = NULL;
-  hicn_name_t name;
+  hicn_name_t name, name_prev;
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
 
   const hicn_cs_policy_t *policy_state = hicn_pcs_get_policy_state (pcs);
+
+  // initializde name_prev
+  ret = hicn_name_create ("b004::aaaa", 0, &name_prev);
+  TEST_ASSERT_EQUAL (0, ret);
 
   for (i = 0; i < MAX_CS_ELEMENTS; i++)
     {
@@ -407,7 +375,12 @@ TEST (PCS, CheckCSLruMax)
 	}
 
       // Insert CS entry
-      ret = hicn_pcs_cs_insert (pcs, pcs_entry, &name);
+      if (PREDICT_FALSE (
+	    !hicn_pcs_entry_is_in_same_bucket (&name, &name_prev)))
+	pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
+      ret =
+	hicn_pcs_cs_insert (pcs, pcs_entry, &name, &pcs_entry_bucket_index);
       TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
       TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), i + 1);
       TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 0);
@@ -418,6 +391,9 @@ TEST (PCS, CheckCSLruMax)
       TEST_ASSERT_EQUAL (pcs_entry_index0,
 			 hicn_cs_policy_get_tail (policy_state));
       TEST_ASSERT_EQUAL (i + 1, hicn_cs_policy_get_count (policy_state));
+
+      // Save name
+      name_prev = name;
     }
 
   // In this moment the CS should be full
@@ -438,7 +414,10 @@ TEST (PCS, CheckCSLruMax)
   pcs_entry_index = hicn_pcs_entry_get_index (pcs, pcs_entry);
 
   // Insert CS entry
-  ret = hicn_pcs_cs_insert (pcs, pcs_entry, &name);
+  if (PREDICT_FALSE (!hicn_pcs_entry_is_in_same_bucket (&name, &name_prev)))
+    pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
+  ret = hicn_pcs_cs_insert (pcs, pcs_entry, &name, &pcs_entry_bucket_index);
   TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
   TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), i);
   TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 0);
@@ -457,6 +436,7 @@ TEST (PCS, CheckCSLruMax)
 TEST (PCS, AddIngressFacesToPITEntry)
 {
   hicn_pit_cs_t *pcs = &global_pcs;
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
 
   // Add entry to the PCS
   int ret = 0;
@@ -467,11 +447,13 @@ TEST (PCS, AddIngressFacesToPITEntry)
 
   // Create PCS entry
   hicn_pcs_entry_t *pcs_entry;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry);
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry, &pcs_entry_bucket_index);
 
   // We will not find the entry
-  TEST_ASSERT_EQUAL (ret, HICN_ERROR_PCS_NOT_FOUND);
+  TEST_ASSERT_EQUAL (ret, HICN_ERROR_PCS_NOT_FOUND_INVALID_BUCKET);
   TEST_ASSERT_EQUAL (NULL, pcs_entry);
+  TEST_ASSERT_EQUAL (HICN_PCS_ENTRY_BUCKET_INVALID_INDEX,
+		     pcs_entry_bucket_index);
 
   // Get a new entry from the pool
   // TODO Check if the hicn_pcs_entry_pit_get is needed here
@@ -489,14 +471,16 @@ TEST (PCS, AddIngressFacesToPITEntry)
   hicn_pcs_entry_pit_add_face (pcs_entry, faceid);
 
   // Insert PIT entry
-  ret = hicn_pcs_pit_insert (pcs, pcs_entry, &name);
+  ret = hicn_pcs_pit_insert (pcs, pcs_entry, &name, &pcs_entry_bucket_index);
   TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
   TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 1);
   TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 0);
+  TEST_ASSERT_NOT_EQUAL (HICN_PCS_ENTRY_BUCKET_INVALID_INDEX,
+			 pcs_entry_bucket_index);
 
   // Lookup PIT entry
   hicn_pcs_entry_t *pcs_entry_ret = NULL;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry_ret);
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry_ret, &pcs_entry_bucket_index);
   TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
   TEST_ASSERT_NOT_NULL (pcs_entry_ret);
   TEST_ASSERT_EQUAL (pcs_entry, pcs_entry_ret);
@@ -519,8 +503,8 @@ TEST (PCS, AddIngressFacesToPITEntry)
   TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 0);
 
   // Lookup PIT entry again, we should not find it
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry_ret);
-  TEST_ASSERT_EQUAL (HICN_ERROR_PCS_NOT_FOUND, ret);
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry_ret, &pcs_entry_bucket_index);
+  TEST_ASSERT_EQUAL (HICN_ERROR_PCS_NOT_FOUND_INVALID_BUCKET, ret);
   TEST_ASSERT_EQUAL (NULL, pcs_entry_ret);
 }
 
@@ -530,6 +514,7 @@ TEST (PCS, AddIngressFacesToPitEntryCornerCases)
 
   // Add entry to the PCS
   int ret = 0;
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
 
   // Allocate name
   hicn_name_t name;
@@ -537,10 +522,10 @@ TEST (PCS, AddIngressFacesToPitEntryCornerCases)
 
   // Create PCS entry
   hicn_pcs_entry_t *pcs_entry;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry);
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry, &pcs_entry_bucket_index);
 
   // We will not find the entry
-  TEST_ASSERT_EQUAL (ret, HICN_ERROR_PCS_NOT_FOUND);
+  TEST_ASSERT_EQUAL (ret, HICN_ERROR_PCS_NOT_FOUND_INVALID_BUCKET);
   TEST_ASSERT_EQUAL (NULL, pcs_entry);
 
   // Get a new entry from the pool
@@ -564,14 +549,14 @@ TEST (PCS, AddIngressFacesToPitEntryCornerCases)
     hicn_pcs_entry_pit_add_face (pcs_entry, faceids[i]);
 
   // Insert PIT entry
-  ret = hicn_pcs_pit_insert (pcs, pcs_entry, &name);
+  ret = hicn_pcs_pit_insert (pcs, pcs_entry, &name, &pcs_entry_bucket_index);
   TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
   TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), 1);
   TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 0);
 
   // Lookup PIT entry
   hicn_pcs_entry_t *pcs_entry_ret = NULL;
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry_ret);
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry_ret, &pcs_entry_bucket_index);
   TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
   TEST_ASSERT_NOT_NULL (pcs_entry_ret);
   TEST_ASSERT_EQUAL (pcs_entry, pcs_entry_ret);
@@ -602,9 +587,88 @@ TEST (PCS, AddIngressFacesToPitEntryCornerCases)
   TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 0);
 
   // Lookup PIT entry again, we should not find it
-  ret = hicn_pcs_lookup_one (pcs, &name, &pcs_entry_ret);
-  TEST_ASSERT_EQUAL (HICN_ERROR_PCS_NOT_FOUND, ret);
+  ret = hicn_pcs_lookup (pcs, &name, &pcs_entry_ret, &pcs_entry_bucket_index);
+  TEST_ASSERT_EQUAL (HICN_ERROR_PCS_NOT_FOUND_INVALID_BUCKET, ret);
   TEST_ASSERT_EQUAL (NULL, pcs_entry_ret);
+}
+
+TEST (PCS, MultipleInsertionLookup)
+{
+  hicn_pit_cs_t *pcs = &global_pcs;
+  hicn_name_t name_prev, name;
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+  hicn_pcs_entry_t *pcs_entry_ret = NULL, *pcs_entry = NULL;
+  int i;
+  int ret;
+
+  // initializde name_prev
+  ret = hicn_name_create ("b004::aaaa", 0, &name_prev);
+  TEST_ASSERT_EQUAL (0, ret);
+
+  for (i = 0; i < MAX_CS_ELEMENTS; i++)
+    {
+      // Allocate name
+      ret = hicn_name_create ("b004::aaaa", i, &name);
+      TEST_ASSERT_EQUAL (0, ret);
+
+      // Create CS entry
+      // Get a new entry from the pool
+      // TODO Check if the hicn_pcs_entry_pit_get is needed here
+      pcs_entry = hicn_pcs_entry_pit_get (pcs, i, 1000);
+      TEST_ASSERT_NOT_NULL (pcs_entry);
+      TEST_ASSERT_EQUAL (i + 1, hicn_pcs_get_pcs_alloc (pcs));
+
+      // Insert PIT entry
+      if (PREDICT_FALSE (
+	    !hicn_pcs_entry_is_in_same_bucket (&name, &name_prev)))
+	pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
+      ret =
+	hicn_pcs_pit_insert (pcs, pcs_entry, &name, &pcs_entry_bucket_index);
+      TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
+      TEST_ASSERT_EQUAL (hicn_pcs_get_cs_count (pcs), 0);
+      TEST_ASSERT_EQUAL (hicn_pcs_get_pit_count (pcs), i + 1);
+
+      // Save name
+      name_prev = name;
+    }
+
+  // Reinit name_prev
+  ret = hicn_name_create ("b004::aaaa", 0, &name_prev);
+
+  // Let's now do a multiple lookup
+  pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+  for (i = 0; i < MAX_CS_ELEMENTS; i++)
+    {
+      // Allocate name
+      ret = hicn_name_create ("b004::aaaa", i, &name);
+      TEST_ASSERT_EQUAL (0, ret);
+
+      if (PREDICT_FALSE (
+	    !hicn_pcs_entry_is_in_same_bucket (&name, &name_prev)))
+	pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
+      // Lookup CS entry
+
+      ret =
+	hicn_pcs_lookup (pcs, &name, &pcs_entry_ret, &pcs_entry_bucket_index);
+
+      TEST_ASSERT_EQUAL (HICN_ERROR_NONE, ret);
+      TEST_ASSERT_NOT_NULL (pcs_entry_ret);
+      TEST_ASSERT_NOT_EQUAL (HICN_PCS_ENTRY_BUCKET_INVALID_INDEX,
+			     pcs_entry_bucket_index);
+
+      // Delete entry
+      hicn_pcs_entry_remove_lock (pcs, pcs_entry_ret);
+
+      // Save name
+      name_prev = name;
+    }
+
+  // Check pcs entry bucket status
+  TEST_ASSERT_EQUAL (hicn_pcs_get_pcs_dealloc (pcs), MAX_CS_ELEMENTS);
+  TEST_ASSERT_EQUAL (hicn_pcs_get_bucket_dealloc (pcs),
+		     hicn_pcs_get_bucket_alloc (pcs));
 }
 
 TEST_GROUP_RUNNER (PCS)
@@ -619,4 +683,5 @@ TEST_GROUP_RUNNER (PCS)
   RUN_TEST_CASE (PCS, CheckCSLruMax)
   RUN_TEST_CASE (PCS, AddIngressFacesToPITEntry)
   RUN_TEST_CASE (PCS, AddIngressFacesToPitEntryCornerCases)
+  RUN_TEST_CASE (PCS, MultipleInsertionLookup)
 }

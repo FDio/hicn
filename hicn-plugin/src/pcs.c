@@ -38,6 +38,8 @@ hicn_pit_create (hicn_pit_cs_t *p, u32 max_pit_elt, u32 max_cs_elt)
   p->pcs_pcs_alloc = 0;
   p->pcs_pcs_dealloc = 0;
   p->pcs_pit_count = 0;
+  p->pcs_pcs_bucket_alloc = 0;
+  p->pcs_pcs_bucket_dealloc = 0;
 }
 
 void
