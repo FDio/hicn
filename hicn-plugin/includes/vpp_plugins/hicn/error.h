@@ -88,11 +88,12 @@
      "Src and dst addresses have different type (ipv4 and ipv6)")             \
   _ (MAPME_NEXT_HOP_ADDED, -18000, "Next hop added to mapme")                 \
   _ (MAPME_NEXT_HOP_NOT_ADDED, -18001, "Next hop added to mapme")             \
-  _ (PCS_NOT_FOUND, -19000, "Hash not found in hash table")                   \
-  _ (PCS_HASH_INVAL, -19001, "Error while calculating the hash")              \
-  _ (PCS_INVAL, -19002, "Invalid argument")                                   \
-  _ (PCS_KEY_INVAL, -19003, "Invalid hashtb key")                             \
-  _ (PCS_EXIST, -19004, "Hash already in hashtable")
+  _ (PCS_NOT_FOUND_INVALID_BUCKET, -19000, "Hash not found in hash table")    \
+  _ (PCS_NOT_FOUND_VALID_BUCKET, -19001, "Hash not found in hash table")      \
+  _ (PCS_HASH_INVAL, -19002, "Error while calculating the hash")              \
+  _ (PCS_INVAL, -19003, "Invalid argument")                                   \
+  _ (PCS_KEY_INVAL, -19004, "Invalid hashtb key")                             \
+  _ (PCS_EXIST, -19005, "Hash already in hashtable")
 
 typedef enum
 {
@@ -106,7 +107,7 @@ extern const char *HICN_ERROR_STRING[];
 
 #define get_error_string(errno)                                               \
   (char *) (errno ? HICN_ERROR_STRING[(-errno) - 127] :                       \
-			  HICN_ERROR_STRING[errno])
+		    HICN_ERROR_STRING[errno])
 
 #endif /* //__HICN_ERROR_H__ */
 

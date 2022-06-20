@@ -87,6 +87,7 @@ int hicn_prefix_get_ip_prefix (const hicn_prefix_t *prefix,
  * A name is a prefix + a segment name (suffix)
  */
 
+
 typedef hicn_ip_address_t hicn_name_prefix_t;
 typedef uint32_t hicn_name_suffix_t;
 

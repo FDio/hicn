@@ -53,78 +53,280 @@ static uword
 hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				 vlib_frame_t *frame)
 {
-  int ret;
+  int ret0, ret1, ret2, ret3;
   u32 n_left_from, *from, *to_next;
   hicn_interest_pcslookup_next_t next_index;
   hicn_interest_pcslookup_runtime_t *rt;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
-  vlib_buffer_t *b0;
-  u32 bi0;
-  u32 next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
-  hicn_pcs_entry_t *pcs_entry = NULL;
+  vlib_buffer_t *b0 = NULL, *b1 = NULL, *b2 = NULL, *b3 = NULL;
+  u32 bi0, bi1, bi2, bi3;
+  u32 next0, next1, next2, next3;
+  hicn_pcs_entry_t *pcs_entry0 = NULL, *pcs_entry1 = NULL, *pcs_entry2 = NULL,
+		   *pcs_entry3 = NULL;
+  u32 pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+  hicn_name_t *prev_name = NULL;
+  hicn_name_t name0, name1, name2, name3;
+
+  next0 = next1 = next2 = next3 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
+  pcs_entry0 = pcs_entry1 = pcs_entry2 = pcs_entry3 = NULL;
 
   rt = vlib_node_get_runtime_data (vm, hicn_interest_pcslookup_node.index);
-
   if (PREDICT_FALSE (rt->pitcs == NULL))
     {
       rt->pitcs = &hicn_main.pitcs;
     }
+
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
   next_index = node->cached_next_index;
 
+  // Quad loop
   while (n_left_from > 0)
     {
       u32 n_left_to_next;
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
-      while (n_left_from > 0 && n_left_to_next > 0)
+      while (n_left_from >= 8 && n_left_to_next >= 4)
 	{
-	  /* Prefetch for next iteration. */
 	  if (n_left_from > 1)
 	    {
-	      vlib_buffer_t *b1;
+	      vlib_buffer_t *b4, *b5, *b6, *b7;
+	      b4 = vlib_get_buffer (vm, from[4]);
+	      b5 = vlib_get_buffer (vm, from[5]);
+	      b6 = vlib_get_buffer (vm, from[6]);
+	      b7 = vlib_get_buffer (vm, from[7]);
+	      CLIB_PREFETCH (b4, CLIB_CACHE_LINE_BYTES, STORE);
+	      CLIB_PREFETCH (b5, CLIB_CACHE_LINE_BYTES, STORE);
+	      CLIB_PREFETCH (b6, CLIB_CACHE_LINE_BYTES, STORE);
+	      CLIB_PREFETCH (b7, CLIB_CACHE_LINE_BYTES, STORE);
+	    }
+
+	  // Dequeue a packet buffer
+	  bi0 = from[0];
+	  bi1 = from[1];
+	  bi2 = from[2];
+	  bi3 = from[3];
+
+	  from += 4;
+	  n_left_from -= 4;
+
+	  to_next[0] = bi0;
+	  to_next[1] = bi1;
+	  to_next[2] = bi2;
+	  to_next[3] = bi3;
+
+	  b0 = vlib_get_buffer (vm, bi0);
+	  b1 = vlib_get_buffer (vm, bi1);
+	  b2 = vlib_get_buffer (vm, bi2);
+	  b3 = vlib_get_buffer (vm, bi3);
+
+	  to_next += 4;
+	  n_left_to_next -= 4;
+
+	  // Update stats
+	  stats.pkts_processed += 4;
+
+	  hicn_packet_get_name (&hicn_get_buffer (b0)->pkbuf, &name0);
+	  hicn_packet_get_name (&hicn_get_buffer (b1)->pkbuf, &name1);
+	  hicn_packet_get_name (&hicn_get_buffer (b2)->pkbuf, &name2);
+	  hicn_packet_get_name (&hicn_get_buffer (b3)->pkbuf, &name3);
+
+	  // Check if the interest is in the PCS already
+	  if (PREDICT_FALSE (prev_name && !hicn_pcs_entry_is_in_same_bucket (
+					    &name0, prev_name)))
+	    pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
+	  ret0 = hicn_pcs_lookup_ex (rt->pitcs, &name0, &pcs_entry0,
+				     &pcs_entry_bucket_index, 1);
+
+	  // Save the pcs_entry_bucket_index
+	  hicn_buffer_set_pcs_entry_bucket_id (b0, pcs_entry_bucket_index);
+
+	  // Check if the interest is in the PCS already
+	  if (PREDICT_FALSE (
+		!hicn_pcs_entry_is_in_same_bucket (&name0, &name1)))
+	    pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
+	  ret1 = hicn_pcs_lookup_ex (rt->pitcs, &name1, &pcs_entry1,
+				     &pcs_entry_bucket_index, 1);
+
+	  // Save the pcs_entry_bucket_index
+	  hicn_buffer_set_pcs_entry_bucket_id (b1, pcs_entry_bucket_index);
+
+	  // Check if the interest is in the PCS already
+	  if (PREDICT_FALSE (
+		!hicn_pcs_entry_is_in_same_bucket (&name1, &name2)))
+	    pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
+	  ret2 = hicn_pcs_lookup_ex (rt->pitcs, &name2, &pcs_entry2,
+				     &pcs_entry_bucket_index, 1);
+
+	  // Save the pcs_entry_bucket_index
+	  hicn_buffer_set_pcs_entry_bucket_id (b2, pcs_entry_bucket_index);
+
+	  // Check if the interest is in the PCS already
+	  if (PREDICT_FALSE (
+		!hicn_pcs_entry_is_in_same_bucket (&name2, &name3)))
+	    pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
+
+	  ret3 = hicn_pcs_lookup_ex (rt->pitcs, &name3, &pcs_entry3,
+				     &pcs_entry_bucket_index, 1);
+
+	  // Save the pcs_entry_bucket_index
+	  hicn_buffer_set_pcs_entry_bucket_id (b3, pcs_entry_bucket_index);
+
+	  // Save prev name
+	  prev_name = &name3;
+
+	  // Set nexts
+	  next0 = next1 = next2 = next3 =
+	    HICN_INTEREST_PCSLOOKUP_NEXT_STRATEGY;
+
+	  // Adjust next depending on the lookup result
+	  next0 += (ret0 == HICN_ERROR_NONE);
+	  next0 +=
+	    (ret0 == HICN_ERROR_NONE) && hicn_pcs_entry_is_cs (pcs_entry1);
+
+	  // Drop if error
+	  next0 += ((ret0 == HICN_ERROR_NONE) &&
+		    (hicn_store_internal_state (
+		       b0, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry0),
+		       vnet_buffer (b0)->ip.adj_index[VLIB_TX]) != 0));
+
+	  // Adjust next depending on the lookup result
+	  next1 += (ret1 == HICN_ERROR_NONE);
+	  next1 +=
+	    (ret1 == HICN_ERROR_NONE) && hicn_pcs_entry_is_cs (pcs_entry1);
+
+	  // Drop if error
+	  next1 += ((ret1 == HICN_ERROR_NONE) &&
+		    (hicn_store_internal_state (
+		       b1, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry1),
+		       vnet_buffer (b1)->ip.adj_index[VLIB_TX]) != 0));
+
+	  // Adjust next depending on the lookup result
+	  next2 += (ret2 == HICN_ERROR_NONE);
+	  next2 +=
+	    (ret2 == HICN_ERROR_NONE) && hicn_pcs_entry_is_cs (pcs_entry2);
+
+	  // Drop if error
+	  next2 += ((ret2 == HICN_ERROR_NONE) &&
+		    (hicn_store_internal_state (
+		       b2, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry2),
+		       vnet_buffer (b2)->ip.adj_index[VLIB_TX]) != 0));
+
+	  // Adjust next depending on the lookup result
+	  next3 += (ret3 == HICN_ERROR_NONE);
+	  next3 +=
+	    (ret0 == HICN_ERROR_NONE) && hicn_pcs_entry_is_cs (pcs_entry3);
+
+	  // Drop if error
+	  next3 += ((ret3 == HICN_ERROR_NONE) &&
+		    (hicn_store_internal_state (
+		       b3, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry3),
+		       vnet_buffer (b3)->ip.adj_index[VLIB_TX]) != 0));
+
+	  stats.pkts_interest_count += 4;
+
+	  // Maybe trace
+	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
+			     (b0->flags & VLIB_BUFFER_IS_TRACED)))
+	    {
+	      hicn_interest_pcslookup_trace_t *t =
+		vlib_add_trace (vm, node, b0, sizeof (*t));
+	      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
+	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
+	      t->next_index = next0;
+	    }
+	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
+			     (b1->flags & VLIB_BUFFER_IS_TRACED)))
+	    {
+	      hicn_interest_pcslookup_trace_t *t =
+		vlib_add_trace (vm, node, b1, sizeof (*t));
+	      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
+	      t->sw_if_index = vnet_buffer (b1)->sw_if_index[VLIB_RX];
+	      t->next_index = next1;
+	    }
+	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
+			     (b2->flags & VLIB_BUFFER_IS_TRACED)))
+	    {
+	      hicn_interest_pcslookup_trace_t *t =
+		vlib_add_trace (vm, node, b2, sizeof (*t));
+	      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
+	      t->sw_if_index = vnet_buffer (b2)->sw_if_index[VLIB_RX];
+	      t->next_index = next2;
+	    }
+	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
+			     (b3->flags & VLIB_BUFFER_IS_TRACED)))
+	    {
+	      hicn_interest_pcslookup_trace_t *t =
+		vlib_add_trace (vm, node, b3, sizeof (*t));
+	      t->pkt_type = HICN_PACKET_TYPE_INTEREST;
+	      t->sw_if_index = vnet_buffer (b3)->sw_if_index[VLIB_RX];
+	      t->next_index = next3;
+	    }
+	  /*
+	   * Verify speculative enqueue, maybe switch current
+	   * next frame
+	   */
+	  vlib_validate_buffer_enqueue_x4 (vm, node, next_index, to_next,
+					   n_left_to_next, bi0, bi1, bi2, bi3,
+					   next0, next1, next2, next3)
+	}
+
+      while (n_left_from > 0 && n_left_to_next > 0)
+	{
+	  if (n_left_from > 1)
+	    {
 	      b1 = vlib_get_buffer (vm, from[1]);
 	      CLIB_PREFETCH (b1, CLIB_CACHE_LINE_BYTES, STORE);
 	    }
 
 	  // Dequeue a packet buffer
 	  bi0 = from[0];
+
 	  from += 1;
 	  n_left_from -= 1;
+
 	  to_next[0] = bi0;
-	  to_next += 1;
-	  n_left_to_next -= 1;
 
 	  b0 = vlib_get_buffer (vm, bi0);
 
-	  // By default we send the interest to strategy node
-	  next0 = HICN_INTEREST_PCSLOOKUP_NEXT_STRATEGY;
+	  to_next += 1;
+	  n_left_to_next -= 1;
 
 	  // Update stats
-	  stats.pkts_processed++;
+	  stats.pkts_processed += 1;
 
 	  // Check if the interest is in the PCS already
-	  hicn_name_t name;
-	  hicn_packet_get_name (&hicn_get_buffer (b0)->pkbuf, &name);
-	  ret = hicn_pcs_lookup_one (rt->pitcs, &name, &pcs_entry);
-	  //&hicn_get_buffer (b0)->name,
+	  hicn_packet_get_name (&hicn_get_buffer (b0)->pkbuf, &name0);
+	  if (PREDICT_FALSE (prev_name && !hicn_pcs_entry_is_in_same_bucket (
+					    &name0, prev_name)))
+	    pcs_entry_bucket_index = HICN_PCS_ENTRY_BUCKET_INVALID_INDEX;
 
-	  if (ret == HICN_ERROR_NONE)
-	    {
-	      // We found an entry in the PCS. Next stage for this packet is
-	      // one of hitpit/cs nodes
-	      next0 = HICN_INTEREST_PCSLOOKUP_NEXT_INTEREST_HITPIT +
-		      hicn_pcs_entry_is_cs (pcs_entry);
+	  ret0 = hicn_pcs_lookup_ex (rt->pitcs, &name0, &pcs_entry0,
+				     &pcs_entry_bucket_index, 1);
 
-	      ret = hicn_store_internal_state (
-		b0, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry),
-		vnet_buffer (b0)->ip.adj_index[VLIB_TX]);
+	  // Save the pcs_entry_bucket_index
+	  hicn_buffer_set_pcs_entry_bucket_id (b0, pcs_entry_bucket_index);
 
-	      if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
-		next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
-	    }
+	  // Save prev name
+	  prev_name = &name0;
 
-	  stats.pkts_interest_count++;
+	  // Set nexts
+	  next0 = HICN_INTEREST_PCSLOOKUP_NEXT_STRATEGY;
+
+	  // Adjust next depending on the lookup result
+	  next0 += (ret0 == HICN_ERROR_NONE);
+	  next0 +=
+	    (ret0 == HICN_ERROR_NONE) && hicn_pcs_entry_is_cs (pcs_entry0);
+
+	  stats.pkts_interest_count += 1;
+
+	  // Drop if error
+	  next0 += ((ret0 == HICN_ERROR_NONE) &&
+		    (hicn_store_internal_state (
+		       b0, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry0),
+		       vnet_buffer (b0)->ip.adj_index[VLIB_TX]) != 0));
 
 	  // Interest manifest?
 	  if (hicn_buffer_get_payload_type (b0) == HPT_MANIFEST)
@@ -142,6 +344,7 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
 	    }
+
 	  /*
 	   * Verify speculative enqueue, maybe switch current
 	   * next frame
@@ -149,6 +352,7 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
 					   n_left_to_next, bi0, next0);
 	}
+
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
   u32 pit_int_count = hicn_pcs_get_pit_count (rt->pitcs);
