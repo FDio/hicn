@@ -463,6 +463,9 @@ define hicn_api_register_prod_app
 
   /* CS memory reserved -- in number of packets */
   u32 cs_reserved;
+
+  /* Port identifying producer application */
+  u16 port;
 };
 
 define hicn_api_register_prod_app_reply
@@ -505,6 +508,9 @@ define hicn_api_register_cons_app
 
   /* swif */
   u32 swif;
+
+  /* src port of consumer packet from this face */
+  u16 port;
 };
 
 define hicn_api_register_cons_app_reply

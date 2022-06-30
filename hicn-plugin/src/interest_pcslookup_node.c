@@ -53,10 +53,15 @@ static uword
 hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 				 vlib_frame_t *frame)
 {
+  int ret;
   u32 n_left_from, *from, *to_next;
   hicn_interest_pcslookup_next_t next_index;
   hicn_interest_pcslookup_runtime_t *rt;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
+  vlib_buffer_t *b0;
+  u32 bi0;
+  u32 next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
+  hicn_pcs_entry_t *pcs_entry = NULL;
 
   rt = vlib_node_get_runtime_data (vm, hicn_interest_pcslookup_node.index);
 
@@ -74,29 +79,15 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
-	  vlib_buffer_t *b0;
-	  u8 *nameptr;
-	  u16 namelen;
-	  u32 bi0;
-	  u32 next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
-	  u64 name_hash = 0;
-	  u32 node_id0 = 0;
-	  index_t dpo_ctx_id0 = 0;
-	  u8 vft_id0 = 0;
-	  u8 is_cs0 = 0;
-	  u8 hash_entry_id = 0;
-	  u8 bucket_is_overflown = 0;
-	  u32 bucket_id = ~0;
-
 	  /* Prefetch for next iteration. */
 	  if (n_left_from > 1)
 	    {
 	      vlib_buffer_t *b1;
 	      b1 = vlib_get_buffer (vm, from[1]);
 	      CLIB_PREFETCH (b1, CLIB_CACHE_LINE_BYTES, STORE);
-	      CLIB_PREFETCH (b1->data, CLIB_CACHE_LINE_BYTES, LOAD);
 	    }
-	  /* Dequeue a packet buffer */
+
+	  // Dequeue a packet buffer
 	  bi0 = from[0];
 	  from += 1;
 	  n_left_from -= 1;
@@ -106,36 +97,34 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	  b0 = vlib_get_buffer (vm, bi0);
 
-	  hicn_buffer_get_name_and_namelen (b0, &nameptr, &namelen);
-
+	  // By default we send the interest to strategy node
 	  next0 = HICN_INTEREST_PCSLOOKUP_NEXT_STRATEGY;
+
+	  // Update stats
 	  stats.pkts_processed++;
 
-	  if (PREDICT_FALSE (
-		hicn_hashtb_fullhash (nameptr, namelen, &name_hash) !=
-		HICN_ERROR_NONE))
+	  // Check if the interest is in the PCS already
+	  ret = hicn_pcs_lookup_one (rt->pitcs, &hicn_get_buffer (b0)->name,
+				     &pcs_entry);
+
+	  if (ret == HICN_ERROR_NONE)
 	    {
-	      next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
-	    }
-	  else
-	    {
-	      if (hicn_hashtb_lookup_node (
-		    rt->pitcs->pcs_table, nameptr, namelen, name_hash,
-		    0 /* is_data */, &node_id0, &dpo_ctx_id0, &vft_id0,
-		    &is_cs0, &hash_entry_id, &bucket_id,
-		    &bucket_is_overflown) == HICN_ERROR_NONE)
-		{
-		  next0 =
-		    HICN_INTEREST_PCSLOOKUP_NEXT_INTEREST_HITPIT + is_cs0;
-		}
-	      stats.pkts_interest_count++;
+	      // We found an entry in the PCS. Next stage for this packet is
+	      // one of hitpit/cs nodes
+	      next0 = HICN_INTEREST_PCSLOOKUP_NEXT_INTEREST_HITPIT +
+		      hicn_pcs_entry_is_cs (pcs_entry);
+
+	      ret = hicn_store_internal_state (
+		b0, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry),
+		vnet_buffer (b0)->ip.adj_index[VLIB_TX]);
+
+	      if (PREDICT_FALSE (ret != HICN_ERROR_NONE))
+		next0 = HICN_INTEREST_PCSLOOKUP_NEXT_ERROR_DROP;
 	    }
 
-	  hicn_store_internal_state (b0, name_hash, node_id0, dpo_ctx_id0,
-				     vft_id0, hash_entry_id, bucket_id,
-				     bucket_is_overflown);
+	  stats.pkts_interest_count++;
 
-	  /* Maybe trace */
+	  // Maybe trace
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
 			     (b0->flags & VLIB_BUFFER_IS_TRACED)))
 	    {
@@ -154,9 +143,8 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	}
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
-  u32 pit_int_count = hicn_pit_get_int_count (rt->pitcs);
-  u32 pit_cs_count = hicn_pit_get_cs_count (rt->pitcs);
-  u32 pcs_ntw_count = hicn_pcs_get_ntw_count (rt->pitcs);
+  u32 pit_int_count = hicn_pcs_get_pit_count (rt->pitcs);
+  u32 pit_cs_count = hicn_pcs_get_cs_count (rt->pitcs);
 
   vlib_node_increment_counter (vm, hicn_interest_pcslookup_node.index,
 			       HICNFWD_ERROR_PROCESSED, stats.pkts_processed);
@@ -171,9 +159,6 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   update_node_counter (vm, hicn_interest_pcslookup_node.index,
 		       HICNFWD_ERROR_CS_COUNT, pit_cs_count);
 
-  update_node_counter (vm, hicn_interest_pcslookup_node.index,
-		       HICNFWD_ERROR_CS_NTW_COUNT, pcs_ntw_count);
-
   return (frame->n_vectors);
 }
 
@@ -183,7 +168,7 @@ hicn_interest_pcslookup_format_trace (u8 *s, va_list *args)
 {
   CLIB_UNUSED (vlib_main_t * vm) = va_arg (*args, vlib_main_t *);
   CLIB_UNUSED (vlib_node_t * node) = va_arg (*args, vlib_node_t *);
-  hicn_interest_pcslookup_trace_t *t =
+  const hicn_interest_pcslookup_trace_t *t =
     va_arg (*args, hicn_interest_pcslookup_trace_t *);
 
   s = format (s, "INTEREST_PCSLOOKUP: pkt: %d, sw_if_index %d, next index %d",
