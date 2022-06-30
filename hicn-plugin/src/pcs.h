@@ -16,25 +16,34 @@
 #ifndef __HICN_PCS_H__
 #define __HICN_PCS_H__
 
-#include "hashtb.h"
-#include "face_db.h"
 #include "strategy_dpo_manager.h"
 #include "error.h"
 #include "cache_policies/cs_policy.h"
 #include "faces/face.h"
 
+#include <vppinfra/bihash_24_8.h>
+
 /**
  * @file pcs.h
  *
  * This file implement the PIT and CS which are collapsed in the same
- * structure, thereore an entry is either a PIT entry of a CS entry.
- * The implementation consist of a hash table where each entry of the
- * hash table contains a PIT or CS entry, some counters to maintain the
- * status of the PIT/CS and the reference to the eviction policy for
- * the CS. The default eviction policy id FIFO.
+ * structure, therefore an entry is either a PIT entry of a CS entry.
+ * The implementation consists of a hash table where each entry of the
+ * hash table contains an index to a pool of PIT/CS entries. Each entry
+ * contains some counters to maintain the status of the PIT/CS and the
+ * reference to the eviction policy for the CS.
+ * The default eviction policy is LRU.
  */
 
-/* The PIT and CS are stored as a union */
+/*
+ * We need a definition of invalid index. ~0 is reasonable as we don't expect
+ * to reach that many element in the PIT.
+ */
+#define HICN_PCS_INVALID_INDEX ((u32) (~0))
+
+/*
+ * The PIT and CS are stored as a union
+ */
 #define HICN_PIT_NULL_TYPE 0
 #define HICN_PIT_TYPE	   1
 #define HICN_CS_TYPE	   2
@@ -49,614 +58,372 @@
 #define HICN_INFRA_SLOW_TIMER_SECS  60
 #define HICN_INFRA_SLOW_TIMER_MSECS (HICN_INFRA_SLOW_TIMER_SECS * SEC_MS)
 
-/*
- * Note that changing this may change alignment within the PIT struct, so be
- * careful.
- */
-typedef struct __attribute__ ((packed)) hicn_pcs_shared_s
-{
+#define HICN_CS_ENTRY_OPAQUE_SIZE 32
 
-  /* Installation/creation time (vpp float units, for now) */
+#define HICN_FACE_DB_INLINE_FACES 8
+
+#define HICN_PIT_BITMAP_SIZE_U64   HICN_PARAM_FACES_MAX / 64
+#define HICN_PIT_N_HOP_BITMAP_SIZE HICN_PARAM_FACES_MAX
+
+/*
+ * PCS entry. We expect this to fit in 3 cache lines, with a maximum of 8
+ * output inline faces and a bitmap of 512 bits. If more faces are needed, a
+ * vector will be allocated, but it will endup out of the 3 cache lines.
+ */
+typedef struct hicn_pcs_entry_s
+{
+  /*
+   * First cache line - shared data
+   */
+  CLIB_CACHE_LINE_ALIGN_MARK (cacheline0);
+
+  /*
+   * Installation/creation time (vpp float units, for now).
+   * 8 Bytes
+   */
   f64 create_time;
 
-  /* Expiration time (vpp float units, for now) */
+  /*
+   * Expiration time (vpp float units, for now)
+   * 8 Bytes
+   */
   f64 expire_time;
 
-  /* Shared 'flags' octet */
-  u8 entry_flags;
+  /*
+   * Name
+   * 24 bytes
+   */
+  hicn_name_t name;
 
-  /* Needed to align for the pit or cs portion */
-  u8 padding;
-} hicn_pcs_shared_t;
+  /*
+   * Cached hash of the name
+   * 8 bytes
+   */
+  u64 name_hash;
+
+  /*
+   * Shared 'flags' octet
+   * 1 Byte
+   */
+  u16 flags;
+
+  /*
+   * Number of locks on the PCS entry
+   * 2 Bytes
+   */
+  u16 locks;
+
+  /*
+   * Second cache line - PIT or CS data
+   */
+  CLIB_ALIGN_MARK (second_part, 64);
+
+  union
+  {
+    struct
+    {
+      /*
+       * Bitmap used to check if interests are retransmission
+       */
+      u64 bitmap[HICN_PIT_BITMAP_SIZE_U64];
+
+      CLIB_ALIGN_MARK (third_part, 64);
+
+      /*
+       * Total number of faces
+       */
+      u32 n_faces;
+
+      /*
+       * Array of indexes of virtual faces
+       */
+      hicn_face_id_t inline_faces[HICN_FACE_DB_INLINE_FACES];
+
+      /*
+       * VPP vector of indexes of additional virtual faces, allocated iff
+       * needed
+       */
+      hicn_face_id_t *faces;
+    } pit;
+    struct
+    { /*
+       * Packet buffer, if held
+       * 4 Bytes
+       */
+      u32 cs_pkt_buf;
+
+      /*
+       * Linkage for LRU, in the form of hashtable node indexes
+       * 8 Bytes
+       */
+      u32 cs_lru_prev;
+      u32 cs_lru_next;
+    } cs;
+  } u;
+} hicn_pcs_entry_t;
+
+STATIC_ASSERT (sizeof (hicn_pcs_entry_t) <= 3 * CLIB_CACHE_LINE_BYTES,
+	       "hicn_pcs_entry_t does not fit in 3 cache lines.");
+
+STATIC_ASSERT (0 == offsetof (hicn_pcs_entry_t, cacheline0),
+	       "Cacheline0 must be at the beginning of hicn_pcs_entry_t");
+STATIC_ASSERT (64 == offsetof (hicn_pcs_entry_t, second_part),
+	       "second_part must be at byte 64 of hicn_pcs_entry_t");
+STATIC_ASSERT (64 == offsetof (hicn_pcs_entry_t, u.pit.bitmap),
+	       "u.pit.bitmap must be at byte 64 of hicn_pcs_entry_t");
+STATIC_ASSERT (64 == offsetof (hicn_pcs_entry_t, u.pit.bitmap),
+	       "cs_pkt_buf must be at byte 64 of hicn_pcs_entry_t");
+STATIC_ASSERT (128 == offsetof (hicn_pcs_entry_t, u.pit.third_part),
+	       "third_part must be at byte 128 of hicn_pcs_entry_t");
+STATIC_ASSERT (128 == offsetof (hicn_pcs_entry_t, u.pit.n_faces),
+	       "u.pit.n_faces must be at byte 128 of hicn_pcs_entry_t");
 
 #define HICN_PCS_ENTRY_CS_FLAG 0x01
 
 /*
- * PIT entry, unioned with a CS entry below
+ * Forward declarations
  */
-typedef struct __attribute__ ((packed)) hicn_pit_entry_s
-{
+always_inline void hicn_pcs_delete_internal (hicn_pit_cs_t *pitcs,
+					     hicn_pcs_entry_t *pcs_entry);
 
-  /* Shared size 8 + 8 + 2 = 18B */
-
-  /*
-   * Egress next hop (containes the egress face) This id refers to the
-   * position of the choosen face in the next_hops array of the dpo */
-  /* 18B + 1B = 19B */
-  u8 pe_txnh;
-
-  /* Array of incoming ifaces */
-  /* 24B + 32B (8B*4) =56B */
-  hicn_face_db_t faces;
-
-} hicn_pit_entry_t;
-
-#define HICN_CS_ENTRY_OPAQUE_SIZE HICN_HASH_NODE_APP_DATA_SIZE - 32
+always_inline void hicn_pcs_entry_remove_lock (hicn_pit_cs_t *pitcs,
+					       hicn_pcs_entry_t *pcs_entry);
 
 /*
- * CS entry, unioned with a PIT entry below
- */
-typedef struct __attribute__ ((packed)) hicn_cs_entry_s
-{
-  /* 18B + 2B = 20B */
-  u16 align;
-
-  /* Packet buffer, if held */
-  /* 20B + 4B = 24B */
-  u32 cs_pkt_buf;
-
-  //   /* Ingress face */
-  //   /* 24B + 4B = 28B */
-  //   hicn_face_id_t cs_rxface;
-
-  /* Linkage for LRU, in the form of hashtable node indexes */
-  /* 24B + 8B = 32B */
-  u32 cs_lru_prev;
-  u32 cs_lru_next;
-
-  /* Reserved for implementing cache policy different than LRU */
-  /* 32B + (64 - 32)B = 64B */
-  u8 opaque[HICN_CS_ENTRY_OPAQUE_SIZE];
-
-} __attribute__ ((packed)) hicn_cs_entry_t;
-
-/*
- * Combined PIT/CS entry data structure, embedded in a hashtable entry after
- * the common hashtable preamble struct. This MUST fit in the available
- * (fixed) space in a hashtable node.
- */
-typedef struct hicn_pcs_entry_s
-{
-
-  hicn_pcs_shared_t shared;
-
-  union
-  {
-    hicn_pit_entry_t pit;
-    hicn_cs_entry_t cs;
-  } u;
-} hicn_pcs_entry_t;
-
-/*
- * Overall PIT/CS table, based on the common hashtable
+ * Overall PIT/CS table.
  */
 typedef struct hicn_pit_cs_s
 {
+  // Hash table mapping name to hash entry index
+  clib_bihash_24_8_t pcs_table;
 
-  hicn_hashtb_t *pcs_table;
+  // Total size of PCS
+  u32 max_pit_size;
+
+  // Pool of pcs entries
+  hicn_pcs_entry_t *pcs_entries_pool;
 
   /* Counters for PIT/CS sentries */
   u32 pcs_pit_count;
   u32 pcs_cs_count;
-  u32 pcs_cs_dealloc;
-  u32 pcs_pit_dealloc;
-
-  /* Total size of PCS */
-  u32 pcs_size;
+  u32 pcs_pcs_alloc;
+  u32 pcs_pcs_dealloc;
 
   hicn_cs_policy_t policy_state;
-  hicn_cs_policy_vft_t policy_vft;
-
 } hicn_pit_cs_t;
 
-/* Functions declarations */
-int hicn_pit_create (hicn_pit_cs_t *p, u32 num_elems);
+/************************************************************************
+ **************************** Create / Destroy **************************
+ ************************************************************************/
 
-always_inline void hicn_pit_to_cs (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-				   hicn_pcs_entry_t *pcs_entry,
-				   hicn_hash_entry_t *hash_entry,
-				   hicn_hash_node_t *node,
-				   const hicn_dpo_vft_t *dpo_vft,
-				   dpo_id_t *hicn_dpo_id);
+void hicn_pit_create (hicn_pit_cs_t *p, u32 max_pit_elt, u32 max_cs_elt);
+void hicn_pit_destroy (hicn_pit_cs_t *p);
 
-always_inline void hicn_pcs_cs_update (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-				       hicn_pcs_entry_t *old_entry,
-				       hicn_pcs_entry_t *entry,
-				       hicn_hash_node_t *node);
+/************************************************************************
+ **************************** Counters getters **************************
+ ************************************************************************/
 
-always_inline void hicn_pcs_cs_delete (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-				       hicn_pcs_entry_t **pcs_entry,
-				       hicn_hash_node_t **node,
-				       hicn_hash_entry_t *hash_entry,
-				       const hicn_dpo_vft_t *dpo_vft,
-				       dpo_id_t *hicn_dpo_id);
-
-always_inline int
-hicn_pcs_cs_insert (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-		    hicn_pcs_entry_t *entry, hicn_hash_node_t *node,
-		    hicn_hash_entry_t **hash_entry, u64 hashval, u32 *node_id,
-		    index_t *dpo_ctx_id, u8 *vft_id, u8 *is_cs,
-		    u8 *hash_entry_id, u32 *bucket_id, u8 *bucket_is_overflow);
-
-always_inline int hicn_pcs_cs_insert_update (
-  vlib_main_t *vm, hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
-  hicn_hash_node_t *node, hicn_hash_entry_t **hash_entry, u64 hashval,
-  u32 *node_id, index_t *dpo_ctx_id, u8 *vft_id, u8 *is_cs, u8 *hash_entry_id,
-  u32 *bucket_id, u8 *bucket_is_overflow);
-
-always_inline int
-hicn_pcs_pit_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
-		     hicn_hash_node_t *node, hicn_hash_entry_t **hash_entry,
-		     u64 hashval, u32 *node_id, index_t *dpo_ctx_id,
-		     u8 *vft_id, u8 *is_cs, u8 *hash_entry_id, u32 *bucket_id,
-		     u8 *bucket_is_overflow);
-
-always_inline void
-hicn_pcs_pit_delete (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t **pcs_entryp,
-		     hicn_hash_node_t **node, vlib_main_t *vm,
-		     hicn_hash_entry_t *hash_entry,
-		     const hicn_dpo_vft_t *dpo_vft, dpo_id_t *hicn_dpo_id);
-
-always_inline int hicn_pcs_insert (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-				   hicn_pcs_entry_t *entry,
-				   hicn_hash_node_t *node,
-				   hicn_hash_entry_t **hash_entry, u64 hashval,
-				   u32 *node_id, index_t *dpo_ctx_id,
-				   u8 *vft_id, u8 *is_cs, u8 *hash_entry_id,
-				   u32 *bucket_id, u8 *bucket_is_overflow);
-
-always_inline void hicn_pcs_delete (hicn_pit_cs_t *pitcs,
-				    hicn_pcs_entry_t **pcs_entryp,
-				    hicn_hash_node_t **node, vlib_main_t *vm,
-				    hicn_hash_entry_t *hash_entry,
-				    const hicn_dpo_vft_t *dpo_vft,
-				    dpo_id_t *hicn_dpo_id);
-
-always_inline void
-hicn_pcs_remove_lock (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t **pcs_entryp,
-		      hicn_hash_node_t **node, vlib_main_t *vm,
-		      hicn_hash_entry_t *hash_entry,
-		      const hicn_dpo_vft_t *dpo_vft, dpo_id_t *hicn_dpo_id);
-
-always_inline void hicn_cs_delete_trimmed (hicn_pit_cs_t *pitcs,
-					   hicn_pcs_entry_t **pcs_entryp,
-					   hicn_hash_entry_t *hash_entry,
-					   hicn_hash_node_t **node,
-					   vlib_main_t *vm);
-
-/* Function implementation */
-/* Accessor for pit/cs data inside hash table node */
-static inline hicn_pcs_entry_t *
-hicn_pit_get_data (hicn_hash_node_t *node)
+always_inline u32
+hicn_pcs_get_pit_count (const hicn_pit_cs_t *pcs)
 {
-  return (hicn_pcs_entry_t *) (hicn_hashtb_node_data (node));
+  return pcs->pcs_pit_count;
 }
 
-/* Init pit/cs data block (usually inside hash table node) */
-static inline void
-hicn_pit_init_data (hicn_pcs_entry_t *p)
+always_inline u32
+hicn_pcs_get_cs_count (const hicn_pit_cs_t *pcs)
 {
-  p->shared.entry_flags = 0;
-  p->u.pit.faces.n_faces = 0;
-  p->u.pit.faces.is_overflow = 0;
-  hicn_face_bucket_t *face_bkt;
-  pool_get (hicn_face_bucket_pool, face_bkt);
-
-  p->u.pit.faces.next_bucket = face_bkt - hicn_face_bucket_pool;
+  return pcs->pcs_cs_count;
 }
 
-/* Init pit/cs data block (usually inside hash table node) */
-static inline void
-hicn_cs_init_data (hicn_pcs_entry_t *p)
+always_inline u32
+hicn_pcs_get_pcs_alloc (const hicn_pit_cs_t *pcs)
 {
-  p->shared.entry_flags = 0;
-  p->u.pit.faces.n_faces = 0;
-  p->u.pit.faces.is_overflow = 0;
+  return pcs->pcs_pcs_alloc;
 }
 
-static inline f64
+always_inline u32
+hicn_pcs_get_pcs_dealloc (const hicn_pit_cs_t *pcs)
+{
+  return pcs->pcs_pcs_dealloc;
+}
+
+always_inline f64
 hicn_pcs_get_exp_time (f64 cur_time_sec, u64 lifetime_msec)
 {
   return (cur_time_sec + ((f64) lifetime_msec) / SEC_MS);
 }
 
 /*
- * Configure CS LRU limit. Zero is accepted, means 'no limit', probably not a
- * good choice.
- */
-static inline void
-hicn_pit_set_lru_max (hicn_pit_cs_t *p, u32 limit)
-{
-  p->policy_state.max = limit;
-}
-
-/*
- * Accessor for PIT interest counter.
- */
-static inline u32
-hicn_pit_get_int_count (const hicn_pit_cs_t *pitcs)
-{
-  return (pitcs->pcs_pit_count);
-}
-
-/*
- * Accessor for PIT cs entries counter.
- */
-static inline u32
-hicn_pit_get_cs_count (const hicn_pit_cs_t *pitcs)
-{
-  return (pitcs->pcs_cs_count);
-}
-
-static inline u32
-hicn_pcs_get_ntw_count (const hicn_pit_cs_t *pitcs)
-{
-  return (pitcs->policy_state.count);
-}
-
-static inline u32
-hicn_pit_get_htb_bucket_count (const hicn_pit_cs_t *pitcs)
-{
-  return (pitcs->pcs_table->ht_overflow_buckets_used);
-}
-
-static inline int
-hicn_cs_enabled (hicn_pit_cs_t *pit)
-{
-  switch (HICN_FEATURE_CS)
-    {
-    case 0:
-    default:
-      return (0);
-    case 1:
-      return (pit->policy_state.max > 0);
-    }
-}
-
-/*
- * Delete a PIT/CS entry from the hashtable, freeing the hash node struct.
- * The caller's pointers are zeroed! If cs_trim is true, entry has already
- * been removed from lru list The main purpose of this wrapper is helping
- * maintain the per-PIT stats.
+ * Create key from the name struct.
  */
 always_inline void
-hicn_pcs_delete_internal (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t **pcs_entryp,
-			  hicn_hash_entry_t *hash_entry,
-			  hicn_hash_node_t **node, vlib_main_t *vm,
-			  const hicn_dpo_vft_t *dpo_vft, dpo_id_t *hicn_dpo_id)
+hicn_pcs_get_key_from_name (clib_bihash_kv_24_8_t *kv, const hicn_name_t *name)
 {
-  hicn_pcs_entry_t *pcs = *pcs_entryp;
+  kv->key[0] = name->prefix.ip6.as_u64[0];
+  kv->key[1] = name->prefix.ip6.as_u64[1];
+  kv->key[2] = name->suffix;
+}
 
-  ASSERT (pcs == hicn_hashtb_node_data (*node));
+/************************************************************************
+ **************************** LRU Helpers *******************************
+ ************************************************************************/
 
-  if (hash_entry->he_flags & HICN_HASH_ENTRY_FLAG_CS_ENTRY)
-    {
-      pitcs->pcs_cs_dealloc++;
-      /* Free any associated packet buffer */
-      vlib_buffer_free_one (vm, pcs->u.cs.cs_pkt_buf);
-      pcs->u.cs.cs_pkt_buf = ~0;
-      ASSERT ((pcs->u.cs.cs_lru_prev == 0) &&
-	      (pcs->u.cs.cs_lru_prev == pcs->u.cs.cs_lru_next));
-    }
-  else
-    {
-      pitcs->pcs_pit_dealloc++;
-
-      /* Flush faces */
-      hicn_faces_flush (&(pcs->u.pit.faces));
-    }
-
-  hicn_hashtb_delete (pitcs->pcs_table, node, hash_entry->he_msb64);
-  *pcs_entryp = NULL;
+always_inline hicn_cs_policy_t *
+hicn_pcs_get_policy_state (hicn_pit_cs_t *pcs)
+{
+  return &pcs->policy_state;
 }
 
 /*
- * Convert a PIT entry into a CS entry (assumes that the entry is already in
- * the hashtable.) This is primarily here to maintain the internal counters.
+ * Update the CS LRU, moving this item to the head
  */
 always_inline void
-hicn_pit_to_cs (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-		hicn_pcs_entry_t *pcs_entry, hicn_hash_entry_t *hash_entry,
-		hicn_hash_node_t *node, const hicn_dpo_vft_t *dpo_vft,
-		dpo_id_t *hicn_dpo_id)
+hicn_pcs_cs_update_lru (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry)
 {
+  hicn_cs_policy_t *policy_state = hicn_pcs_get_policy_state (pitcs);
+  hicn_cs_policy_update (policy_state, pitcs, entry);
+}
 
-  /*
-   * Different from the insert node. In here we don't need to add a new
-   * hash entry.
-   */
-  pitcs->pcs_pit_count--;
-  /* Flush faces */
-  hicn_faces_flush (&(pcs_entry->u.pit.faces));
-
-  hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_CS_ENTRY;
-  node->hn_flags |= HICN_HASH_NODE_CS_FLAGS;
-  pcs_entry->shared.entry_flags |= HICN_PCS_ENTRY_CS_FLAG;
-
-  /* Update the CS according to the policy */
-  hicn_cs_policy_t *policy_state;
-  hicn_cs_policy_vft_t *policy_vft;
-
-  policy_state = &pitcs->policy_state;
-  policy_vft = &pitcs->policy_vft;
-
-  policy_vft->hicn_cs_insert (pitcs, node, pcs_entry, policy_state);
+/*
+ * Update the CS LRU, inserting a new item and checking if we need to evict
+ */
+always_inline void
+hicn_pcs_cs_insert_lru (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry)
+{
+  hicn_cs_policy_t *policy_state = hicn_pcs_get_policy_state (pitcs);
+  hicn_cs_policy_insert (policy_state, pitcs, entry);
   pitcs->pcs_cs_count++;
 
+  // If we reached the MAX size of the CS, let's evict one
   if (policy_state->count > policy_state->max)
     {
-      hicn_hash_node_t *node;
+      // We reached the mac number of CS entry. We need to trim one.
       hicn_pcs_entry_t *pcs_entry;
-      hicn_hash_entry_t *hash_entry;
-      policy_vft->hicn_cs_delete_get (pitcs, policy_state, &node, &pcs_entry,
-				      &hash_entry);
+      hicn_cs_policy_delete_get (policy_state, pitcs, &pcs_entry);
 
-      /*
-       * We don't have to decrease the lock (therefore we cannot
-       * use hicn_pcs_cs_delete function)
-       */
-      policy_vft->hicn_cs_dequeue (pitcs, node, pcs_entry, policy_state);
-
-      hicn_cs_delete_trimmed (pitcs, &pcs_entry, hash_entry, &node, vm);
-
-      /* Update the global CS counter */
-      pitcs->pcs_cs_count--;
+      // Delete evicted entry from hash table
+      hicn_pcs_entry_remove_lock (pitcs, pcs_entry);
     }
-}
-
-/* Functions specific for PIT or CS */
-
-always_inline void
-hicn_pcs_cs_update (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-		    hicn_pcs_entry_t *old_entry, hicn_pcs_entry_t *entry,
-		    hicn_hash_node_t *node)
-{
-  hicn_cs_policy_t *policy_state;
-  hicn_cs_policy_vft_t *policy_vft;
-
-  policy_state = &pitcs->policy_state;
-  policy_vft = &pitcs->policy_vft;
-
-  /* Update the CS LRU, moving this item to the head */
-  policy_vft->hicn_cs_update (pitcs, node, old_entry, policy_state);
-}
-
-always_inline void
-hicn_pcs_cs_delete (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-		    hicn_pcs_entry_t **pcs_entryp, hicn_hash_node_t **nodep,
-		    hicn_hash_entry_t *hash_entry,
-		    const hicn_dpo_vft_t *dpo_vft, dpo_id_t *hicn_dpo_id)
-{
-  if (!(hash_entry->he_flags & HICN_HASH_ENTRY_FLAG_DELETED))
-    {
-      hicn_cs_policy_t *policy_state;
-      hicn_cs_policy_vft_t *policy_vft;
-
-      policy_state = &pitcs->policy_state;
-      policy_vft = &pitcs->policy_vft;
-
-      policy_vft->hicn_cs_dequeue (pitcs, (*nodep), (*pcs_entryp),
-				   policy_state);
-
-      /* Update the global CS counter */
-      pitcs->pcs_cs_count--;
-    }
-
-  /* A data could have been inserted in the CS through a push. In this case
-   * locks == 0 */
-  hash_entry->locks--;
-  if (hash_entry->locks == 0)
-    {
-      hicn_pcs_delete_internal (pitcs, pcs_entryp, hash_entry, nodep, vm,
-				dpo_vft, hicn_dpo_id);
-    }
-  else
-    {
-      hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_DELETED;
-    }
-}
-
-always_inline int
-hicn_pcs_cs_insert (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-		    hicn_pcs_entry_t *entry, hicn_hash_node_t *node,
-		    hicn_hash_entry_t **hash_entry, u64 hashval, u32 *node_id,
-		    index_t *dpo_ctx_id, u8 *vft_id, u8 *is_cs,
-		    u8 *hash_entry_id, u32 *bucket_id, u8 *bucket_is_overflow)
-{
-  ASSERT (entry == hicn_hashtb_node_data (node));
-
-  int ret = hicn_hashtb_insert (pitcs->pcs_table, node, hash_entry, hashval,
-				node_id, dpo_ctx_id, vft_id, is_cs,
-				hash_entry_id, bucket_id, bucket_is_overflow);
-
-  if (PREDICT_TRUE (ret == HICN_ERROR_NONE))
-    {
-      /* Mark the entry as a CS entry */
-      node->hn_flags |= HICN_HASH_NODE_CS_FLAGS;
-      entry->shared.entry_flags |= HICN_PCS_ENTRY_CS_FLAG;
-      (*hash_entry)->he_flags |= HICN_HASH_ENTRY_FLAG_CS_ENTRY;
-
-      hicn_cs_policy_t *policy_state;
-      hicn_cs_policy_vft_t *policy_vft;
-
-      policy_state = &pitcs->policy_state;
-      policy_vft = &pitcs->policy_vft;
-
-      policy_vft->hicn_cs_insert (pitcs, node, entry, policy_state);
-      pitcs->pcs_cs_count++;
-
-      if (policy_state->count > policy_state->max)
-	{
-	  hicn_hash_node_t *node;
-	  hicn_pcs_entry_t *pcs_entry;
-	  hicn_hash_entry_t *hash_entry;
-	  policy_vft->hicn_cs_delete_get (pitcs, policy_state, &node,
-					  &pcs_entry, &hash_entry);
-
-	  /*
-	   * We don't have to decrease the lock (therefore we cannot
-	   * use hicn_pcs_cs_delete function)
-	   */
-	  policy_vft->hicn_cs_dequeue (pitcs, node, pcs_entry, policy_state);
-
-	  hicn_cs_delete_trimmed (pitcs, &pcs_entry, hash_entry, &node, vm);
-
-	  /* Update the global CS counter */
-	  pitcs->pcs_cs_count--;
-	}
-    }
-  return ret;
 }
 
 /*
- * Insert CS entry into the hashtable The main purpose of this wrapper is
- * helping maintain the per-PIT stats.
+ * Dequeue an entry from the CS LRU
  */
-always_inline int
-hicn_pcs_cs_insert_update (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-			   hicn_pcs_entry_t *entry, hicn_hash_node_t *node,
-			   hicn_hash_entry_t **hash_entry, u64 hashval,
-			   u32 *node_id, index_t *dpo_ctx_id, u8 *vft_id,
-			   u8 *is_cs, u8 *hash_entry_id, u32 *bucket_id,
-			   u8 *bucket_is_overflow)
+always_inline void
+hicn_pcs_cs_dequeue_lru (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry)
 {
-  int ret;
+  // Dequeue the CS entry
+  hicn_cs_policy_t *policy_state = hicn_pcs_get_policy_state (pitcs);
+  hicn_cs_policy_dequeue (policy_state, pitcs, entry);
+}
 
-  ASSERT (entry == hicn_hashtb_node_data (node));
+/************************************************************************
+ **************************** PCS Entry APIs ****************************
+ ************************************************************************/
 
-  ret = hicn_pcs_cs_insert (vm, pitcs, entry, node, hash_entry, hashval,
-			    node_id, dpo_ctx_id, vft_id, is_cs, hash_entry_id,
-			    bucket_id, bucket_is_overflow);
+/*
+ * Create new PCS entry
+ */
+always_inline hicn_pcs_entry_t *
+_hicn_pcs_entry_get (hicn_pit_cs_t *pitcs)
+{
+  hicn_pcs_entry_t *e;
+  pool_get (pitcs->pcs_entries_pool, e);
+  pitcs->pcs_pcs_alloc++;
 
-  /* A content already exists in CS with the same name */
-  if (ret == HICN_ERROR_HASHTB_EXIST && *is_cs)
-    {
-      /* Update the entry */
-      hicn_hash_node_t *existing_node =
-	hicn_hashtb_node_from_idx (pitcs->pcs_table, *node_id);
-      hicn_pcs_entry_t *pitp = hicn_pit_get_data (existing_node);
-
-      /* Free associated packet buffer and update counter */
-      pitcs->pcs_cs_dealloc++;
-      vlib_buffer_free_one (vm, pitp->u.cs.cs_pkt_buf);
-
-      pitp->shared.create_time = entry->shared.create_time;
-      pitp->shared.expire_time = entry->shared.expire_time;
-      pitp->u.cs.cs_pkt_buf = entry->u.cs.cs_pkt_buf;
-
-      hicn_pcs_cs_update (vm, pitcs, pitp, entry, existing_node);
-    }
-
-  return (ret);
+  return e;
 }
 
 /*
- * Insert PIT entry into the hashtable The main purpose of this wrapper is
- * helping maintain the per-PIT stats.
+ * Init pit/cs data block
+ */
+always_inline void
+hicn_pcs_entry_init_data (hicn_pcs_entry_t *p, f64 tnow)
+{
+  p->flags = 0;
+  p->u.pit.n_faces = 0;
+  p->locks = 1;
+  p->create_time = tnow;
+}
+
+/*
+ * Free PCS entry
+ */
+always_inline void
+hicn_pcs_entry_put (hicn_pit_cs_t *pitcs, const hicn_pcs_entry_t *entry)
+{
+  pitcs->pcs_pcs_dealloc++;
+  pool_put (pitcs->pcs_entries_pool, entry);
+}
+
+/*
+ * Get index from the entry.
+ */
+always_inline u32
+hicn_pcs_entry_get_index (const hicn_pit_cs_t *pitcs,
+			  const hicn_pcs_entry_t *entry)
+{
+  ASSERT (!pool_is_free (pitcs->pcs_entries_pool, entry));
+  return (u32) (entry - pitcs->pcs_entries_pool);
+}
+
+/*
+ * Get index from the entry.
+ */
+always_inline hicn_pcs_entry_t *
+hicn_pcs_entry_get_entry_from_index (const hicn_pit_cs_t *pitcs, u32 index)
+{
+  ASSERT (!pool_is_free_index (pitcs->pcs_entries_pool, index));
+  return pool_elt_at_index (pitcs->pcs_entries_pool, index);
+}
+
+/*
+ * Check if pcs entry is a content store entry
  */
 always_inline int
-hicn_pcs_pit_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
-		     hicn_hash_node_t *node, hicn_hash_entry_t **hash_entry,
-		     u64 hashval, u32 *node_id, index_t *dpo_ctx_id,
-		     u8 *vft_id, u8 *is_cs, u8 *hash_entry_id, u32 *bucket_id,
-		     u8 *bucket_is_overflow)
+hicn_pcs_entry_is_cs (const hicn_pcs_entry_t *entry)
 {
-  ASSERT (entry == hicn_hashtb_node_data (node));
+  ASSERT (entry);
+  return (entry->flags & HICN_PCS_ENTRY_CS_FLAG);
+}
 
-  int ret = hicn_hashtb_insert (pitcs->pcs_table, node, hash_entry, hashval,
-				node_id, dpo_ctx_id, vft_id, is_cs,
-				hash_entry_id, bucket_id, bucket_is_overflow);
+/*
+ * Add lock to PIT entry
+ */
+always_inline void
+hicn_pcs_entry_add_lock (hicn_pcs_entry_t *pcs_entry)
+{
+  pcs_entry->locks++;
+}
 
-  if (PREDICT_TRUE (ret == HICN_ERROR_NONE))
-    pitcs->pcs_pit_count++;
-
-  return ret;
+/*
+ * Get/Set expire time from the entry
+ */
+always_inline f64
+hicn_pcs_entry_get_expire_time (hicn_pcs_entry_t *pcs_entry)
+{
+  return pcs_entry->expire_time;
 }
 
 always_inline void
-hicn_pcs_pit_delete (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t **pcs_entryp,
-		     hicn_hash_node_t **node, vlib_main_t *vm,
-		     hicn_hash_entry_t *hash_entry,
-		     const hicn_dpo_vft_t *dpo_vft, dpo_id_t *hicn_dpo_id)
+hicn_pcs_entry_set_expire_time (hicn_pcs_entry_t *pcs_entry, f64 expire_time)
 {
-  hash_entry->locks--;
-  if (hash_entry->locks == 0)
-    {
-      pitcs->pcs_pit_count--;
-      hicn_pcs_delete_internal (pitcs, pcs_entryp, hash_entry, node, vm,
-				dpo_vft, hicn_dpo_id);
-    }
-  else
-    {
-      hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_DELETED;
-    }
-}
-
-/* Generic functions for PIT/CS */
-
-/*
- * Insert PIT/CS entry into the hashtable The main purpose of this wrapper is
- * helping maintain the per-PIT stats.
- */
-always_inline int
-hicn_pcs_insert (vlib_main_t *vm, hicn_pit_cs_t *pitcs,
-		 hicn_pcs_entry_t *entry, hicn_hash_node_t *node,
-		 hicn_hash_entry_t **hash_entry, u64 hashval, u32 *node_id,
-		 index_t *dpo_ctx_id, u8 *vft_id, u8 *is_cs, u8 *hash_entry_id,
-		 u32 *bucket_id, u8 *bucket_is_overflow)
-{
-  int ret;
-
-  if ((*hash_entry)->he_flags & HICN_HASH_ENTRY_FLAG_CS_ENTRY)
-    {
-      ret = hicn_pcs_cs_insert (vm, pitcs, entry, node, hash_entry, hashval,
-				node_id, dpo_ctx_id, vft_id, is_cs,
-				hash_entry_id, bucket_id, bucket_is_overflow);
-    }
-  else
-    {
-      ret = hicn_pcs_pit_insert (pitcs, entry, node, hash_entry, hashval,
-				 node_id, dpo_ctx_id, vft_id, is_cs,
-				 hash_entry_id, bucket_id, bucket_is_overflow);
-    }
-
-  return (ret);
+  pcs_entry->expire_time = expire_time;
 }
 
 /*
- * Delete entry if there are no pending lock on the entry, otherwise mark it
- * as to delete.
+ * Get/Set create time from the entry
  */
+always_inline f64
+hicn_pcs_entry_get_create_time (hicn_pcs_entry_t *pcs_entry)
+{
+  return pcs_entry->create_time;
+}
+
 always_inline void
-hicn_pcs_delete (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t **pcs_entryp,
-		 hicn_hash_node_t **nodep, vlib_main_t *vm,
-		 hicn_hash_entry_t *hash_entry, const hicn_dpo_vft_t *dpo_vft,
-		 dpo_id_t *hicn_dpo_id)
+hicn_pcs_entry_set_create_time (hicn_pcs_entry_t *pcs_entry, f64 create_time)
 {
-  /*
-   * If the entry has already been marked as deleted, it has already
-   * been dequeue
-   */
-  if (hash_entry->he_flags & HICN_HASH_ENTRY_FLAG_CS_ENTRY)
-    {
-      hicn_pcs_cs_delete (vm, pitcs, pcs_entryp, nodep, hash_entry, dpo_vft,
-			  hicn_dpo_id);
-    }
-  else
-    {
-      hicn_pcs_pit_delete (pitcs, pcs_entryp, nodep, vm, hash_entry, dpo_vft,
-			   hicn_dpo_id);
-    }
+  pcs_entry->create_time = create_time;
 }
 
 /*
@@ -664,125 +431,383 @@ hicn_pcs_delete (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t **pcs_entryp,
  * the entry is marked as to be deleted
  */
 always_inline void
-hicn_pcs_remove_lock (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t **pcs_entryp,
-		      hicn_hash_node_t **node, vlib_main_t *vm,
-		      hicn_hash_entry_t *hash_entry,
-		      const hicn_dpo_vft_t *dpo_vft, dpo_id_t *hicn_dpo_id)
+hicn_pcs_entry_remove_lock (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *pcs_entry)
 {
-  hash_entry->locks--;
-  if (hash_entry->locks == 0 &&
-      (hash_entry->he_flags & HICN_HASH_ENTRY_FLAG_DELETED))
+  // Make sure we are removing a lock on a valid entry
+  ASSERT (pcs_entry->locks > 0);
+
+  if (--pcs_entry->locks == 0)
     {
-      hicn_pcs_delete_internal (pitcs, pcs_entryp, hash_entry, node, vm,
-				dpo_vft, hicn_dpo_id);
+      hicn_pcs_delete_internal (pitcs, pcs_entry);
     }
 }
 
+/************************************************************************
+ **************************** CS Entry APIs *****************************
+ ************************************************************************/
+
 /*
- * Delete entry which has already been bulk-removed from lru list
+ * Create new CS entry
+ */
+always_inline hicn_pcs_entry_t *
+hicn_pcs_entry_cs_get (hicn_pit_cs_t *pitcs, f64 tnow, u32 buffer_index)
+{
+  hicn_pcs_entry_t *ret = _hicn_pcs_entry_get (pitcs);
+  hicn_pcs_entry_init_data (ret, tnow);
+  ret->flags = HICN_PCS_ENTRY_CS_FLAG;
+  ret->u.cs.cs_lru_next = HICN_CS_POLICY_END_OF_CHAIN;
+  ret->u.cs.cs_lru_prev = HICN_CS_POLICY_END_OF_CHAIN;
+
+  return ret;
+}
+
+always_inline u32
+hicn_pcs_entry_cs_get_buffer (hicn_pcs_entry_t *pcs_entry)
+{
+  return pcs_entry->u.cs.cs_pkt_buf;
+}
+
+always_inline void
+hicn_pcs_entry_cs_set_buffer (hicn_pcs_entry_t *pcs_entry, u32 buffer_index)
+{
+  pcs_entry->u.cs.cs_pkt_buf = buffer_index;
+}
+
+always_inline u32
+hicn_pcs_entry_cs_get_next (hicn_pcs_entry_t *pcs_entry)
+{
+  return pcs_entry->u.cs.cs_lru_next;
+}
+
+always_inline void
+hicn_pcs_entry_cs_set_next (hicn_pcs_entry_t *pcs_entry, u32 next)
+{
+  pcs_entry->u.cs.cs_lru_next = next;
+}
+
+always_inline u32
+hicn_pcs_entry_cs_get_prev (hicn_pcs_entry_t *pcs_entry)
+{
+  return pcs_entry->u.cs.cs_lru_prev;
+}
+
+always_inline void
+hicn_pcs_entry_cs_set_prev (hicn_pcs_entry_t *pcs_entry, u32 prev)
+{
+  pcs_entry->u.cs.cs_lru_prev = prev;
+}
+
+/* Init pit/cs data block (usually inside hash table node) */
+always_inline void
+hicn_pcs_entry_cs_free_data (hicn_pcs_entry_t *p)
+{
+  CLIB_UNUSED (u32 bi) = hicn_pcs_entry_cs_get_buffer (p);
+
+#ifndef HICN_PCS_TESTING
+  // Release buffer
+  vlib_buffer_free_one (vlib_get_main (), bi);
+#endif
+
+  // Reset the vlib_buffer index
+  hicn_pcs_entry_cs_set_buffer (p, ~0);
+}
+
+/************************************************************************
+ **************************** PIT Entry APIs ****************************
+ ************************************************************************/
+
+/*
+ * Init pit/cs data block
+ */
+always_inline hicn_pcs_entry_t *
+hicn_pcs_entry_pit_get (hicn_pit_cs_t *pitcs, f64 tnow,
+			hicn_lifetime_t lifetime)
+{
+  hicn_pcs_entry_t *ret = _hicn_pcs_entry_get (pitcs);
+  hicn_pcs_entry_init_data (ret, tnow);
+  clib_memset_u64 (ret->u.pit.bitmap, 0, HICN_PIT_BITMAP_SIZE_U64);
+  ret->u.pit.n_faces = 0;
+  ret->expire_time = hicn_pcs_get_exp_time (tnow, lifetime);
+
+  return ret;
+}
+
+/*
+ * Free pit/cs data block
  */
 always_inline void
-hicn_cs_delete_trimmed (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t **pcs_entryp,
-			hicn_hash_entry_t *hash_entry, hicn_hash_node_t **node,
-			vlib_main_t *vm)
+hicn_pcs_entry_pit_free_data (hicn_pcs_entry_t *p)
 {
+  // Nothing to do for the moment
+}
 
-  if (hash_entry->locks == 0)
+always_inline u32
+hicn_pcs_entry_pit_get_n_faces (hicn_pcs_entry_t *p)
+{
+  return p->u.pit.n_faces;
+}
+
+/*
+ * Get face id at index index
+ */
+always_inline hicn_face_id_t
+hicn_pcs_entry_pit_get_dpo_face (const hicn_pcs_entry_t *pit_entry, u32 index)
+{
+  // Make sure the entry is PIT
+  ASSERT (!hicn_pcs_entry_is_cs (pit_entry));
+
+  // Make sure the index is valid
+  ASSERT (index < pit_entry->u.pit.n_faces);
+
+  if (index < HICN_FACE_DB_INLINE_FACES)
+    return pit_entry->u.pit.inline_faces[index];
+  else
+    return pit_entry->u.pit.faces[index - HICN_FACE_DB_INLINE_FACES];
+}
+
+always_inline void
+hicn_pcs_entry_pit_add_face (hicn_pcs_entry_t *pit_entry,
+			     hicn_face_id_t face_id)
+{
+  ASSERT (face_id < HICN_PARAM_FACES_MAX);
+
+  if (pit_entry->u.pit.n_faces < HICN_FACE_DB_INLINE_FACES)
     {
-      const hicn_dpo_vft_t *dpo_vft = hicn_dpo_get_vft (hash_entry->vft_id);
-      dpo_id_t hicn_dpo_id = { .dpoi_type = dpo_vft->hicn_dpo_get_type (),
-			       .dpoi_proto = 0,
-			       .dpoi_next_node = 0,
-			       .dpoi_index = hash_entry->dpo_ctx_id };
-
-      hicn_pcs_delete_internal (pitcs, pcs_entryp, hash_entry, node, vm,
-				dpo_vft, &hicn_dpo_id);
+      pit_entry->u.pit.inline_faces[pit_entry->u.pit.n_faces] = face_id;
     }
   else
     {
-      hash_entry->he_flags |= HICN_HASH_ENTRY_FLAG_DELETED;
+      vec_validate_aligned (pit_entry->u.pit.faces,
+			    pit_entry->u.pit.n_faces -
+			      HICN_FACE_DB_INLINE_FACES,
+			    CLIB_CACHE_LINE_BYTES);
+      pit_entry->u.pit
+	.faces[pit_entry->u.pit.n_faces - HICN_FACE_DB_INLINE_FACES] = face_id;
     }
+
+  pit_entry->u.pit.n_faces++;
+
+  clib_bitmap_set_no_check (pit_entry->u.pit.bitmap, face_id, 1);
 }
 
 /*
- * wrappable counter math (assumed uint16_t): return sum of addends
+ * Search face in db
  */
-always_inline u16
-hicn_infra_seq16_sum (u16 addend1, u16 addend2)
+always_inline u8
+hicn_pcs_entry_pit_search (const hicn_pcs_entry_t *pit_entry,
+			   hicn_face_id_t face_id)
 {
-  return (addend1 + addend2);
+  ASSERT (face_id < HICN_PARAM_FACES_MAX);
+  return clib_bitmap_get_no_check ((uword *) pit_entry->u.pit.bitmap, face_id);
 }
+
+/************************************************************************
+ **************************** Lookup API ********************************
+ ************************************************************************/
+
+/**
+ * @brief Perform one lookup in the PIT/CS table using the provided name.
+ *
+ * @param pitcs the PIT/CS table
+ * @param name the name to lookup
+ * @param pcs_entry [RETURN] if the entry exists, the entry is returned
+ * @return HICN_ERROR_NONE if the entry is found, HICN_ERROR_PCS_NOT_FOUND
+ * otherwise
+ */
+always_inline int
+hicn_pcs_lookup_one (hicn_pit_cs_t *pitcs, const hicn_name_t *name,
+		     hicn_pcs_entry_t **pcs_entry)
+{
+  int ret;
+
+  // Construct the lookup key
+  clib_bihash_kv_24_8_t kv;
+  hicn_pcs_get_key_from_name (&kv, name);
+
+  // Do a search in the has table
+  ret = clib_bihash_search_inline_24_8 (&pitcs->pcs_table, &kv);
+
+  if (PREDICT_FALSE (ret != 0))
+    {
+      *pcs_entry = NULL;
+      return HICN_ERROR_PCS_NOT_FOUND;
+    }
+
+  // Retrieve entry from pool
+  *pcs_entry = hicn_pcs_entry_get_entry_from_index (pitcs, kv.value);
+
+  // If entry found and it is a CS entry, let's update the LRU
+  if (hicn_pcs_entry_is_cs (*pcs_entry))
+    {
+      hicn_pcs_cs_update_lru (pitcs, *pcs_entry);
+    }
+
+  // If the entry is found, return it
+  return HICN_ERROR_NONE;
+}
+
+/************************************************************************
+ **************************** PCS Delete API ****************************
+ ************************************************************************/
 
 /*
- * for comparing wrapping numbers, return lt,eq,gt 0 for a lt,eq,gt b
+ * Delete a PIT/CS entry from the hashtable.
+ * The caller's pointers are zeroed! If cs_trim is true, entry has already
+ * been removed from lru list The main purpose of this wrapper is helping
+ * maintain the per-PIT stats.
+ */
+always_inline void
+hicn_pcs_delete_internal (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *pcs_entry)
+{
+  if (pcs_entry->flags & HICN_PCS_ENTRY_CS_FLAG)
+    {
+      // Remove entry from LRU list
+      hicn_pcs_cs_dequeue_lru (pitcs, pcs_entry);
+
+      // Update counters
+      pitcs->pcs_cs_count--;
+
+      // Free data
+      hicn_pcs_entry_cs_free_data (pcs_entry);
+
+      // Sanity check
+      ASSERT ((pcs_entry->u.cs.cs_lru_prev == HICN_CS_POLICY_END_OF_CHAIN) &&
+	      (pcs_entry->u.cs.cs_lru_prev == pcs_entry->u.cs.cs_lru_next));
+    }
+  else
+    {
+      // Update counters
+      pitcs->pcs_pit_count--;
+      // Flush faces
+      //       hicn_faces_flush (&(pcs_entry->u.pit.faces));
+    }
+
+  // Delete entry from hash table
+  clib_bihash_kv_24_8_t kv;
+  hicn_pcs_get_key_from_name (&kv, &pcs_entry->name);
+  clib_bihash_add_del_24_8 (&pitcs->pcs_table, &kv, 0 /* is_add */);
+
+  // Free pool entry
+  hicn_pcs_entry_put (pitcs, pcs_entry);
+}
+
+/************************************************************************
+ **************************** PCS Insert API ****************************
+ ************************************************************************/
+
+always_inline int
+hicn_pcs_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
+		 const hicn_name_t *name)
+{
+  clib_bihash_kv_24_8_t kv;
+  u32 index = hicn_pcs_entry_get_index (pitcs, entry);
+
+  // Construct KV pair and try to add it to hash table
+  hicn_pcs_get_key_from_name (&kv, name);
+  kv.value = index;
+
+  // Get name hash
+  entry->name_hash = clib_bihash_hash_24_8 (&kv);
+  entry->name = *name;
+
+  return clib_bihash_add_del_24_8 (&pitcs->pcs_table, &kv,
+				   2 /* add_but_not_replace */);
+}
+
+/**
+ * @brief Insert a CS entry in the PIT/CS table. This function DOES NOT check
+ * if the KV is already present in the table. It expects the caller to check
+ * this before trying to insert the new entry.
+ *
+ * @param pitcs the PIT/CS table
+ * @param entry the entry to insert
+ * @param name the name to use to compute the key
+ * @return always_inline
  */
 always_inline int
-hicn_infra_seq16_cmp (u16 a, u16 b)
+hicn_pcs_cs_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
+		    const hicn_name_t *name)
 {
-  return ((int16_t) (a - b));
+  // Make sure this is a CS entry
+  ASSERT (hicn_pcs_entry_is_cs (entry));
+
+  int ret = hicn_pcs_insert (pitcs, entry, name);
+
+  // Make sure insertion happened
+  ASSERT (ret == 0);
+
+  // New entry, update LRU
+  hicn_pcs_cs_insert_lru (pitcs, entry);
+
+  return HICN_ERROR_NONE;
 }
 
-/*
- * below are wrappers for lt, le, gt, ge seq16 comparators
+/**
+ * @brief Insert a PIT entry in the PIT/CS table. This function DOES NOT check
+ * if the KV is already present in the table. It is expected the caller checks
+ * this before trying to insert the new entry.
+ *
+ * @param pitcs
+ * @param name
+ * @param pcs_entry_index
+ * @param dpo_ctx_id
+ * @param vft_id
+ * @param is_cs
+ * @return always_inline
  */
 always_inline int
-hicn_infra_seq16_lt (u16 a, u16 b)
+hicn_pcs_pit_insert (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *entry,
+		     const hicn_name_t *name)
 {
-  return (hicn_infra_seq16_cmp (a, b) < 0);
+  // Insert entry into hash table
+  int ret = hicn_pcs_insert (pitcs, entry, name);
+
+  // Make sure insertion happened
+  ASSERT (ret == 0);
+
+  // Increment the number of PIT entries if insertion happened
+  pitcs->pcs_pit_count++;
+
+  return HICN_ERROR_NONE;
 }
 
-always_inline int
-hicn_infra_seq16_le (u16 a, u16 b)
-{
-  return (hicn_infra_seq16_cmp (a, b) <= 0);
-}
+/************************************************************************
+ ************************** PCS Conversion API **************************
+ ************************************************************************/
 
-always_inline int
-hicn_infra_seq16_gt (u16 a, u16 b)
-{
-  return (hicn_infra_seq16_cmp (a, b) > 0);
-}
-
-always_inline int
-hicn_infra_seq16_ge (u16 a, u16 b)
-{
-  return (hicn_infra_seq16_cmp (a, b) >= 0);
-}
-
-extern u16 hicn_infra_fast_timer; /* Counts at 1 second intervals */
-extern u16 hicn_infra_slow_timer; /* Counts at 1 minute intervals */
-
-/*
- * Utilities to convert lifetime into expiry time based on compressed clock,
- * suitable for the opportunistic hashtable entry timeout processing.
+/**
+ * @brief Convert a PIT entry to a CS entry.
+ *
+ * @param vm
+ * @param pitcs
+ * @param pcs_entry
+ * @param hash_entry
+ * @param node
+ * @param dpo_vft
+ * @param hicn_dpo_id
+ * @return always_inline
  */
-
-// convert time in msec to time in clicks
-always_inline u16
-hicn_infra_ms2clicks (u64 time_ms, u64 ms_per_click)
+always_inline void
+hicn_pit_to_cs (hicn_pit_cs_t *pitcs, hicn_pcs_entry_t *pit_entry,
+		u32 buffer_index)
 {
-  f64 time_clicks =
-    ((f64) (time_ms + ms_per_click - 1)) / ((f64) ms_per_click);
-  return ((u16) time_clicks);
+  // Different from the insert node. In here we don't need to add a new
+  // hash entry.
+  pitcs->pcs_pit_count--;
+
+  // Flush faces
+  //   hicn_faces_flush (&(pit_entry->u.pit.faces));
+
+  // Set the flags
+  pit_entry->flags = HICN_PCS_ENTRY_CS_FLAG;
+
+  // Set the buffer index
+  pit_entry->u.cs.cs_pkt_buf = buffer_index;
+
+  hicn_pcs_cs_insert_lru (pitcs, pit_entry);
 }
 
-always_inline u16
-hicn_infra_get_fast_exp_time (u64 lifetime_ms)
-{
-  u16 lifetime_clicks =
-    hicn_infra_ms2clicks (lifetime_ms, HICN_INFRA_FAST_TIMER_MSECS);
-  return (hicn_infra_seq16_sum (hicn_infra_fast_timer, lifetime_clicks));
-}
-
-always_inline u16
-hicn_infra_get_slow_exp_time (u64 lifetime_ms)
-{
-  u16 lifetime_clicks =
-    hicn_infra_ms2clicks (lifetime_ms, HICN_INFRA_SLOW_TIMER_MSECS);
-  return (hicn_infra_seq16_sum (hicn_infra_slow_timer, lifetime_clicks));
-}
-
-#endif /* // __HICN_PCS_H__ */
+#endif /* __HICN_PCS_H__ */
 
 /*
  * fd.io coding-style-patch-verification: ON
