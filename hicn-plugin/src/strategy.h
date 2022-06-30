@@ -17,7 +17,6 @@
 #define __HICN_STRATEGY__
 
 #include "hicn.h"
-#include "hashtb.h"
 #include "mgmt.h"
 #include "faces/face.h"
 
@@ -51,9 +50,9 @@ typedef struct hicn_strategy_vft_s
 {
   void (*hicn_receive_data) (index_t dpo_idx, int nh_idx);
   void (*hicn_on_interest_timeout) (index_t dpo_idx);
-  void (*hicn_add_interest) (index_t dpo_idx, hicn_hash_entry_t *pit_entry);
-  u32 (*hicn_select_next_hop) (index_t dpo_idx, int *nh_idx,
-			       hicn_face_id_t *outfaces, uint32_t *len);
+  void (*hicn_add_interest) (index_t dpo_idx);
+  u32 (*hicn_select_next_hop) (index_t dpo_idx, hicn_face_id_t *outfaces,
+			       u16 *len);
   u8 *(*hicn_format_strategy_trace) (u8 *, hicn_strategy_trace_t *);
   u8 *(*hicn_format_strategy) (u8 *s, va_list *ap);
   /**< Format an hICN dpo*/

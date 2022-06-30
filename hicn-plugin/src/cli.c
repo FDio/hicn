@@ -215,7 +215,7 @@ static clib_error_t *
 hicn_cli_show_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 			  vlib_cli_command_t *cmd)
 {
-  int face_p = 0, fib_p = 0, all_p = 0, internal_p = 0, strategies_p = 0,
+  int face_p = 0, fib_p = 0, all_p = 0, strategies_p = 0,
       ret = HICN_ERROR_NONE;
 
   /* Get a line of input. */
@@ -227,14 +227,6 @@ hicn_cli_show_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
 	  if (unformat (line_input, "face all"))
 	    {
 	      face_p = 1;
-	    }
-	  else if (unformat (line_input, "internal"))
-	    {
-	      /*
-	       * We consider 'internal' a superset, so
-	       * include 'detail' too
-	       */
-	      internal_p = 1;
 	    }
 	  else if (unformat (line_input, "strategies"))
 	    {
@@ -335,20 +327,6 @@ hicn_cli_show_command_fn (vlib_main_t *vm, unformat_input_t *main_input,
       vlib_cli_output (vm, (char *) strbuf);
     }
 done:
-  if (all_p && internal_p && ret == HICN_ERROR_NONE)
-    {
-      vlib_cli_output (vm, "Plugin features: cs:%d\n", HICN_FEATURE_CS);
-      vlib_cli_output (vm,
-		       "Removed CS entries (and freed vlib buffers) %d, "
-		       "Removed PIT entries %d\n",
-		       hicn_main.pitcs.pcs_cs_dealloc,
-		       hicn_main.pitcs.pcs_pit_dealloc);
-      vlib_cli_output (vm,
-		       "Bucke count %d, Overflow buckets count %d, used %d\n",
-		       hicn_main.pitcs.pcs_table->ht_bucket_count,
-		       hicn_main.pitcs.pcs_table->ht_overflow_bucket_count,
-		       hicn_main.pitcs.pcs_table->ht_overflow_buckets_used);
-    }
   return (ret == HICN_ERROR_NONE) ?
 		 0 :
 		 clib_error_return (0, "%s\n", get_error_string (ret));

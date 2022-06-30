@@ -87,7 +87,12 @@
   _ (UDP_TUNNEL_SRC_DST_TYPE, -17001,                                         \
      "Src and dst addresses have different type (ipv4 and ipv6)")             \
   _ (MAPME_NEXT_HOP_ADDED, -18000, "Next hop added to mapme")                 \
-  _ (MAPME_NEXT_HOP_NOT_ADDED, -18001, "Next hop added to mapme")
+  _ (MAPME_NEXT_HOP_NOT_ADDED, -18001, "Next hop added to mapme")             \
+  _ (PCS_NOT_FOUND, -19000, "Hash not found in hash table")                   \
+  _ (PCS_HASH_INVAL, -19001, "Error while calculating the hash")              \
+  _ (PCS_INVAL, -19002, "Invalid argument")                                   \
+  _ (PCS_KEY_INVAL, -19003, "Invalid hashtb key")                             \
+  _ (PCS_EXIST, -19004, "Hash already in hashtable")
 
 typedef enum
 {
