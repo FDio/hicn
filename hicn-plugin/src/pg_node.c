@@ -124,6 +124,12 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   u16 msg_type0 = 0, msg_type1 = 0;
   hicnpg_main_t *hpgm = &hicnpg_main;
   int iface = 0;
+  u32 next0 = HICNPG_INTEREST_NEXT_DROP;
+  u32 next1 = HICNPG_INTEREST_NEXT_DROP;
+  u32 sw_if_index0 = ~0, sw_if_index1 = ~0;
+  u8 isv6_0;
+  u8 isv6_1;
+  u32 n_left_to_next;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -131,18 +137,10 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
   while (n_left_from > 0)
     {
-      u32 n_left_to_next;
-
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
 
       while (n_left_from >= 4 && n_left_to_next >= 2)
 	{
-	  u32 next0 = HICNPG_INTEREST_NEXT_DROP;
-	  u32 next1 = HICNPG_INTEREST_NEXT_DROP;
-	  u32 sw_if_index0 = ~0, sw_if_index1 = ~0;
-	  u8 isv6_0;
-	  u8 isv6_1;
-
 	  /* Prefetch next iteration. */
 	  {
 	    vlib_buffer_t *p2, *p3;
@@ -278,10 +276,6 @@ hicnpg_client_interest_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
-	  u32 next0 = HICNPG_INTEREST_NEXT_DROP;
-	  u32 sw_if_index0;
-	  u8 isv6_0;
-
 	  /* speculatively enqueue b0 to the current next frame */
 	  bi0 = from[0];
 	  to_next[0] = bi0;
@@ -576,6 +570,9 @@ hicnpg_client_data_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   vlib_buffer_t *b0, *b1;
   u8 pkt_type0 = 0, pkt_type1 = 0;
   u16 msg_type0 = 1, msg_type1 = 1;
+  u32 next0 = HICNPG_DATA_NEXT_DROP;
+  u32 next1 = HICNPG_DATA_NEXT_DROP;
+  u32 sw_if_index0, sw_if_index1;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -588,10 +585,6 @@ hicnpg_client_data_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       while (n_left_from >= 4 && n_left_to_next >= 2)
 	{
-	  u32 next0 = HICNPG_DATA_NEXT_DROP;
-	  u32 next1 = HICNPG_DATA_NEXT_DROP;
-	  u32 sw_if_index0, sw_if_index1;
-
 	  /* Prefetch next iteration. */
 	  {
 	    vlib_buffer_t *p2, *p3;
@@ -659,9 +652,6 @@ hicnpg_client_data_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
-	  u32 next0 = HICNPG_DATA_NEXT_DROP;
-	  u32 sw_if_index0;
-
 	  /* speculatively enqueue b0 to the current next frame */
 	  bi0 = from[0];
 	  to_next[0] = bi0;
@@ -815,6 +805,12 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   vlib_buffer_t *b0, *b1;
   u8 pkt_type0 = 0, pkt_type1 = 0;
   u16 msg_type0 = 0, msg_type1 = 0;
+  u32 next0 = HICNPG_SERVER_NEXT_DROP;
+  u32 next1 = HICNPG_SERVER_NEXT_DROP;
+  u32 sw_if_index0, sw_if_index1;
+  u32 hpgi0, hpgi1;
+  hicnpg_server_t *hpg0, *hpg1;
+  u32 n_left_to_next;
 
   from = vlib_frame_vector_args (frame);
 
@@ -823,18 +819,10 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
   while (n_left_from > 0)
     {
-      u32 n_left_to_next;
-
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
 
       while (n_left_from >= 4 && n_left_to_next >= 2)
 	{
-	  u32 next0 = HICNPG_SERVER_NEXT_DROP;
-	  u32 next1 = HICNPG_SERVER_NEXT_DROP;
-	  u32 sw_if_index0, sw_if_index1;
-	  u32 hpgi0, hpgi1;
-	  hicnpg_server_t *hpg0, *hpg1;
-
 	  /* Prefetch next iteration. */
 	  {
 	    vlib_buffer_t *p2, *p3;
@@ -940,11 +928,6 @@ hicnpg_node_server_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
-	  u32 next0 = HICNPG_SERVER_NEXT_DROP;
-	  u32 sw_if_index0 = ~0;
-	  u32 hpgi0;
-	  hicnpg_server_t *hpg0;
-
 	  /* speculatively enqueue b0 to the current next frame */
 	  bi0 = from[0];
 	  to_next[0] = bi0;
@@ -1126,7 +1109,3 @@ VLIB_REGISTER_NODE(hicn_pg_server4_node) =
     [HICNPG_SERVER_NEXT_DROP] = "error-drop",
   },
 };
-
-/*
- * End of packet-generator server node
- */

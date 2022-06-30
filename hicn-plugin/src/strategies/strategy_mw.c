@@ -16,16 +16,15 @@
 #include "../strategy.h"
 #include "../strategy_dpo_ctx.h"
 #include "../faces/face.h"
-#include "../hashtb.h"
 #include "../strategy_dpo_manager.h"
 
 /* Simple strategy that chooses the next hop with the maximum weight */
 /* It does not require to exend the hicn_dpo */
 void hicn_receive_data_mw (index_t dpo_idx, int nh_idx);
-void hicn_add_interest_mw (index_t dpo_idx, hicn_hash_entry_t *pit_entry);
+void hicn_add_interest_mw (index_t dpo_idx);
 void hicn_on_interest_timeout_mw (index_t dpo_idx);
-u32 hicn_select_next_hop_mw (index_t dpo_idx, int *nh_idx,
-			     hicn_face_id_t *outfaces, uint32_t *len);
+u32 hicn_select_next_hop_mw (index_t dpo_idx, hicn_face_id_t *outfaces,
+			     u16 *len);
 u32 get_strategy_node_index_mw (void);
 u8 *hicn_strategy_format_trace_mw (u8 *s, hicn_strategy_trace_t *t);
 u8 *hicn_strategy_format_mw (u8 *s, va_list *ap);
@@ -51,8 +50,7 @@ hicn_mw_strategy_get_vft (void)
 /* DPO should be give in input as it containes all the information to calculate
  * the next hops*/
 u32
-hicn_select_next_hop_mw (index_t dpo_idx, int *nh_idx,
-			 hicn_face_id_t *outfaces, uint32_t *len)
+hicn_select_next_hop_mw (index_t dpo_idx, hicn_face_id_t *outfaces, u16 *len)
 {
   hicn_dpo_ctx_t *dpo_ctx = hicn_strategy_dpo_ctx_get (dpo_idx);
 
@@ -82,14 +80,8 @@ hicn_select_next_hop_mw (index_t dpo_idx, int *nh_idx,
 }
 
 void
-hicn_add_interest_mw (index_t dpo_ctx_idx, hicn_hash_entry_t *hash_entry)
+hicn_add_interest_mw (index_t dpo_ctx_idx)
 {
-  hash_entry->dpo_ctx_id = dpo_ctx_idx;
-  dpo_id_t hicn_dpo_id = { .dpoi_type = hicn_dpo_strategy_mw_get_type (),
-			   .dpoi_proto = 0,
-			   .dpoi_next_node = 0,
-			   .dpoi_index = dpo_ctx_idx };
-  hash_entry->vft_id = hicn_dpo_get_vft_id (&hicn_dpo_id);
 }
 
 void
