@@ -23,6 +23,7 @@
 #include "../cache_policies/cs_lru.h"
 #include "../infra.h"
 #include "../hicn.h"
+#include "../parser.h"
 
 /**
  * @File
@@ -233,7 +234,6 @@ typedef enum
       ip_hdr0 = (IP_HEADER_##ipv *) vlib_buffer_get_current (b0);             \
       ip_hdr1 = (IP_HEADER_##ipv *) vlib_buffer_get_current (b1);             \
                                                                               \
-      /* Parse packet and cache useful info in opaque2 */                     \
       /* Parse packet and cache useful info in opaque2 */                     \
       ret0 = hicn_data_parse_pkt (b0);                                        \
       ret1 = hicn_data_parse_pkt (b1);                                        \

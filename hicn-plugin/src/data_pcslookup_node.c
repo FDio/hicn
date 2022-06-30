@@ -44,6 +44,12 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   hicn_data_pcslookup_next_t next_index;
   hicn_data_pcslookup_runtime_t *rt;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
+  vlib_buffer_t *b0;
+  u32 bi0;
+  u32 next0 = HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP;
+  hicn_pcs_entry_t *pcs_entry = NULL;
+  hicn_buffer_t *hicnb0;
+  int ret;
 
   rt = vlib_node_get_runtime_data (vm, node->node_index);
 
@@ -62,21 +68,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
-	  vlib_buffer_t *b0;
-	  u8 *nameptr;
-	  u16 namelen;
-	  u32 bi0;
-	  u32 next0 = HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP;
-	  u64 name_hash = 0;
-	  u32 node_id0 = 0;
-	  index_t dpo_ctx_id0 = 0;
-	  u8 vft_id0 = 0;
-	  u8 is_cs0;
-	  u8 hash_entry_id = 0;
-	  u8 bucket_is_overflown = 0;
-	  u32 bucket_id = ~0;
-
-	  /* Prefetch for next iteration. */
+	  // Prefetch for next iteration.
 	  if (n_left_from > 1)
 	    {
 	      vlib_buffer_t *b1;
@@ -84,9 +76,9 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      // Prefetch two cache lines-- 128 byte-- so that we load the
 	      // hicn_buffer_t as well
 	      CLIB_PREFETCH (b1, 2 * CLIB_CACHE_LINE_BYTES, STORE);
-	      CLIB_PREFETCH (b1->data, CLIB_CACHE_LINE_BYTES, LOAD);
 	    }
-	  /* Dequeue a packet buffer */
+
+	  // Dequeue a packet buffer
 	  bi0 = from[0];
 	  from += 1;
 	  n_left_from -= 1;
@@ -95,41 +87,33 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  n_left_to_next -= 1;
 
 	  b0 = vlib_get_buffer (vm, bi0);
+	  hicnb0 = hicn_get_buffer (b0);
+
+	  // By default go to drop
 	  next0 = HICN_DATA_PCSLOOKUP_NEXT_ERROR_DROP;
 
-	  /* Incr packet counter */
+	  // Increase packet counters
 	  stats.pkts_processed += 1;
+	  stats.pkts_data_count += 1;
 
-	  hicn_buffer_get_name_and_namelen (b0, &nameptr, &namelen);
+	  // Lookup the name in the PIT
+	  ret = hicn_pcs_lookup_one (rt->pitcs, hicn_buffer_get_name (b0),
+				     &pcs_entry);
 
-	  if (PREDICT_TRUE (
-		hicn_hashtb_fullhash (nameptr, namelen, &name_hash) ==
-		HICN_ERROR_NONE))
+	  if (ret == HICN_ERROR_NONE)
 	    {
-	      int res = hicn_hashtb_lookup_node (
-		rt->pitcs->pcs_table, nameptr, namelen, name_hash,
-		1
-		/*is_data. Do not take lock if hit CS */
-		,
-		&node_id0, &dpo_ctx_id0, &vft_id0, &is_cs0, &hash_entry_id,
-		&bucket_id, &bucket_is_overflown);
+	      ret = hicn_store_internal_state (
+		b0, hicn_pcs_entry_get_index (rt->pitcs, pcs_entry),
+		hicnb0->dpo_ctx_id);
 
-	      stats.pkts_data_count += 1;
-
-	      if (res == HICN_ERROR_NONE)
-		{
-		  /*
-		   * In case the result of the lookup
-		   * is a CS entry, the packet is
-		   * dropped
-		   */
-		  next0 = HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD + is_cs0;
-		}
+	      /*
+	       * In case the result of the lookup
+	       * is a CS entry, the packet is
+	       * dropped
+	       */
+	      next0 = HICN_DATA_PCSLOOKUP_NEXT_DATA_FWD +
+		      (hicn_pcs_entry_is_cs (pcs_entry) && !ret);
 	    }
-
-	  hicn_store_internal_state (b0, name_hash, node_id0, dpo_ctx_id0,
-				     vft_id0, hash_entry_id, bucket_id,
-				     bucket_is_overflown);
 
 	  /*
 	   * Verify speculative enqueue, maybe switch current
@@ -153,11 +137,13 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      t->next_index = next0;
 	    }
 	}
+
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
+
   /* Check the CS LRU, and trim if necessary. */
-  u32 pit_int_count = hicn_pit_get_int_count (rt->pitcs);
-  u32 pit_cs_count = hicn_pit_get_cs_count (rt->pitcs);
+  u32 pit_int_count = hicn_pcs_get_pit_count (rt->pitcs);
+  u32 pit_cs_count = hicn_pcs_get_cs_count (rt->pitcs);
 
   vlib_node_increment_counter (vm, hicn_data_pcslookup_node.index,
 			       HICNFWD_ERROR_PROCESSED, stats.pkts_processed);
@@ -169,6 +155,7 @@ hicn_data_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 		       HICNFWD_ERROR_INT_COUNT, pit_int_count);
   update_node_counter (vm, hicn_data_pcslookup_node.index,
 		       HICNFWD_ERROR_CS_COUNT, pit_cs_count);
+
   return (frame->n_vectors);
 }
 
