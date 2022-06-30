@@ -18,7 +18,7 @@
 #include <vlib/vlib.h>
 #include <vnet/ip/ip6_packet.h>
 
-//#include "../face_dpo.h"
+#include "../../params.h"
 #include "../face.h"
 #include "face_prod.h"
 #include "face_cons.h"

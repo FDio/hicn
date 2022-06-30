@@ -21,7 +21,6 @@
 
 #include "hicn.h"
 #include "pcs.h"
-#include "hashtb.h"
 #include "strategy.h"
 #include "strategy_dpo_ctx.h"
 #include "strategy_dpo_manager.h"
@@ -51,26 +50,14 @@
  * @param hash_entry entry in the hash table referring to the buffer
  */
 always_inline void
-hicn_get_internal_state (hicn_buffer_t *hicnb, hicn_pit_cs_t *pitcs,
-			 hicn_hash_node_t **node,
+hicn_get_internal_state (hicn_buffer_t *hicnb, u32 *pit_entry_index,
 			 const hicn_strategy_vft_t **strategy_vft,
-			 const hicn_dpo_vft_t **dpo_vft, u8 *dpo_ctx_id,
-			 hicn_hash_entry_t **hash_entry)
+			 const hicn_dpo_vft_t **dpo_vft, u8 *dpo_ctx_id)
 {
-  *node = pool_elt_at_index (pitcs->pcs_table->ht_nodes, hicnb->node_id);
+  *pit_entry_index = hicnb->pcs_entry_id;
   *strategy_vft = hicn_dpo_get_strategy_vft (hicnb->vft_id);
   *dpo_vft = hicn_dpo_get_vft (hicnb->vft_id);
   *dpo_ctx_id = hicnb->dpo_ctx_id;
-
-  hicn_hash_bucket_t *bucket;
-  if (hicnb->hash_bucket_flags & HICN_HASH_NODE_OVERFLOW_BUCKET)
-    bucket = pool_elt_at_index (pitcs->pcs_table->ht_overflow_buckets,
-				hicnb->bucket_id);
-  else
-    bucket =
-      (hicn_hash_bucket_t *) (pitcs->pcs_table->ht_buckets + hicnb->bucket_id);
-
-  *hash_entry = &(bucket->hb_entries[hicnb->hash_entry_id]);
 }
 
 /*
@@ -83,30 +70,25 @@ hicn_get_internal_state (hicn_buffer_t *hicnb, hicn_pit_cs_t *pitcs,
  * @brief Store the hicn state in the hicn buffer
  *
  * @param b vlib buffer holding the hICN packet
- * @param name_hash hash of the hICN name
- * @param node_id id of the node in the hash table referring to the buffer
- * @param dpo_ctx_id id of the dpo context id corresponding to the buffer
- * @param vft_id id of the strategy vft corresponding to the buffer
- * @param hash_entry_id id of the entry in the hash table referring to the
- * buffer
- * @param bucket_id id of the hasth table bucket that holds the hash entry
- * @param bucket_is_overflow 1 if the bucket is from the ht_overflow_buckets
- * pool 0 if the bucket is from the ht_buckets pool
+ * @param pcs_entry_index index of the PCS entry
  */
-always_inline void
-hicn_store_internal_state (vlib_buffer_t *b, u64 name_hash, u32 node_id,
-			   u8 dpo_ctx_id, u8 vft_id, u8 hash_entry_id,
-			   u32 bucket_id, u8 bucket_is_overflow)
+always_inline int
+hicn_store_internal_state (vlib_buffer_t *b, u32 pcs_entry_index,
+			   u32 dpo_ctx_id)
 {
   hicn_buffer_t *hicnb = hicn_get_buffer (b);
-  hicnb->name_hash = name_hash;
-  hicnb->node_id = node_id;
+
   hicnb->dpo_ctx_id = dpo_ctx_id;
-  hicnb->vft_id = vft_id;
-  hicnb->hash_entry_id = hash_entry_id;
-  hicnb->bucket_id = bucket_id;
-  hicnb->hash_bucket_flags =
-    HICN_HASH_NODE_OVERFLOW_BUCKET * bucket_is_overflow;
+  const hicn_dpo_ctx_t *dpo_ctx =
+    hicn_strategy_dpo_ctx_get (hicnb->dpo_ctx_id);
+
+  if (PREDICT_FALSE (dpo_ctx == NULL))
+    return HICN_ERROR_DPO_CTX_NOT_FOUND;
+
+  hicnb->vft_id = dpo_ctx->dpo_type;
+  hicnb->pcs_entry_id = pcs_entry_index;
+
+  return HICN_ERROR_NONE;
 }
 
 #endif /* // __HICN_STATE__ */
