@@ -37,6 +37,23 @@
     {
       "unresolved": true,
       "key": {
+        "uuid": "3c05ffe0_95c4c750",
+        "filename": "hicn-plugin/src/test_pcs.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-06-30T12:43:51Z",
+      "side": 1,
+      "message": "This one is a duplicate of src/test/test_pcs.c, we can remove it",
+      "revId": "d4815b0e044af024318fe5f0b2e9c4de4fa27a1a",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": true,
+      "key": {
         "uuid": "3069440d_f82c7629",
         "filename": "hicn-plugin/src/vpp.c",
         "patchSetId": 2
