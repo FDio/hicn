@@ -61,28 +61,24 @@ typedef u8 weight_t;
 typedef struct
 {
   /**
-   * Hash of the name (8)
+   * IDs to prefetch a PIT/CS entry (4)
    */
-  u64 name_hash;
+  u32 pcs_entry_id;
 
   /**
-   * IDs to prefetch a PIT/CS entry (4+4+1+1)
+   * DPO/Stategy VFT ID. This is also the DPO type (4)
    */
-  u32 node_id;
-  u32 bucket_id;
-  u8 hash_entry_id;
-  u8 hash_bucket_flags;
+  dpo_type_t vft_id;
+
+  /**
+   * DPO context ID (4)
+   */
+  u32 dpo_ctx_id;
 
   /**
    * hICN buffer flags (1)
    */
   u8 flags;
-
-  /**
-   * used for data path (1+1)
-   */
-  u8 dpo_ctx_id;
-  u8 vft_id;
 
   /**
    * Ingress face (4)
@@ -95,6 +91,7 @@ typedef struct
   hicn_type_t type;
   hicn_name_t name;
   u16 port;
+  hicn_lifetime_t lifetime;
 } hicn_buffer_t;
 
 STATIC_ASSERT (sizeof (hicn_buffer_t) <=
@@ -113,14 +110,10 @@ hicn_is_v6 (hicn_header_t *pkt_hdr)
   return ((pkt_hdr->v4.ip.version_ihl >> 4) != 4);
 }
 
-always_inline void
-hicn_buffer_get_name_and_namelen (vlib_buffer_t *b0, u8 **nameptr,
-				  u16 *namelen)
+always_inline hicn_name_t *
+hicn_buffer_get_name (vlib_buffer_t *b)
 {
-  *nameptr = (u8 *) (&hicn_get_buffer (b0)->name);
-  *namelen = ip_address_is_v4 (&hicn_get_buffer (b0)->name.prefix) ?
-		     HICN_V4_NAME_LEN :
-		     HICN_V6_NAME_LEN;
+  return &hicn_get_buffer (b)->name;
 }
 
 always_inline u8
@@ -135,6 +128,13 @@ hicn_buffer_set_flags (vlib_buffer_t *b, u8 flags)
   hicn_buffer_t *hb = hicn_get_buffer (b);
   hb->flags |= flags;
 }
+
+always_inline hicn_lifetime_t
+hicn_buffer_get_lifetime (vlib_buffer_t *b)
+{
+  return hicn_get_buffer (b)->lifetime;
+}
+
 #endif /* __HICN_H__ */
 
 /*
