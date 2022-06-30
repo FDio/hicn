@@ -105,6 +105,15 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   u32 n_left_from, n_left_to_next, *from, *to_next;
   ip_lookup_next_t next;
   u32 thread_index = vm->thread_index;
+  vlib_buffer_t *p0, *p1;
+  u32 pi0, pi1, lbi0, lbi1, wrong_next;
+  ip_lookup_next_t next0, next1;
+  ip6_header_t *ip0, *ip1;
+  ip6_address_t *src_addr0, *src_addr1;
+  ip46_address_t dst_addr0, dst_addr1;
+  const dpo_id_t *dpo0, *dpo1;
+  const load_balance_t *lb0, *lb1;
+  hicn_buffer_t *hicnb0, *hicnb1;
 
   from = vlib_frame_vector_args (frame);
   n_left_from = frame->n_vectors;
@@ -116,15 +125,6 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       while (n_left_from >= 4 && n_left_to_next >= 2)
 	{
-	  vlib_buffer_t *p0, *p1;
-	  u32 pi0, pi1, lbi0, lbi1, wrong_next;
-	  ip_lookup_next_t next0, next1;
-	  ip6_header_t *ip0, *ip1;
-	  ip6_address_t *src_addr0, *src_addr1;
-	  ip46_address_t dst_addr0, dst_addr1;
-	  const dpo_id_t *dpo0, *dpo1;
-	  const load_balance_t *lb0, *lb1;
-
 	  /* Prefetch next iteration. */
 	  {
 	    vlib_buffer_t *p2, *p3;
@@ -143,6 +143,9 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	  p0 = vlib_get_buffer (vm, pi0);
 	  p1 = vlib_get_buffer (vm, pi1);
+
+	  hicnb0 = hicn_get_buffer (p0);
+	  hicnb1 = hicn_get_buffer (p1);
 
 	  ip0 = vlib_buffer_get_current (p0);
 	  ip1 = vlib_buffer_get_current (p1);
@@ -177,6 +180,7 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  if (dpo_is_hicn (dpo0))
 	    {
 	      next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_FACE;
+	      hicnb0->dpo_ctx_id = dpo0->dpoi_index;
 	      hicn_data_input_set_adj_index (
 		p0, &dst_addr0, hicn_strategy_dpo_ctx_get (dpo0->dpoi_index));
 	    }
@@ -186,6 +190,7 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  if (dpo_is_hicn (dpo1))
 	    {
 	      next1 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_FACE;
+	      hicnb1->dpo_ctx_id = dpo1->dpoi_index;
 	      hicn_data_input_set_adj_index (
 		p1, &dst_addr1, hicn_strategy_dpo_ctx_get (dpo1->dpoi_index));
 	    }
@@ -267,6 +272,7 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  u32 pi0, lbi0;
 	  ip_lookup_next_t next0;
 	  load_balance_t *lb0;
+	  hicn_buffer_t *hicnb0;
 	  ip6_address_t *src_addr0;
 	  ip46_address_t dst_addr0;
 	  const dpo_id_t *dpo0;
@@ -275,6 +281,7 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  to_next[0] = pi0;
 
 	  p0 = vlib_get_buffer (vm, pi0);
+	  hicnb0 = hicn_get_buffer (p0);
 	  ip0 = vlib_buffer_get_current (p0);
 	  src_addr0 = &ip0->src_address;
 	  ip46_address_set_ip6 (&dst_addr0, &ip0->dst_address);
@@ -294,6 +301,7 @@ hicn_data_input_ip6_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_FACE;
 	      hicn_data_input_set_adj_index (
 		p0, &dst_addr0, hicn_strategy_dpo_ctx_get (dpo0->dpoi_index));
+	      hicnb0->dpo_ctx_id = dpo0->dpoi_index;
 	    }
 	  else
 	    next0 = (ip_lookup_next_t) HICN_DATA_INPUT_IP6_NEXT_IP6_LOCAL;
@@ -365,6 +373,13 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   vlib_buffer_t *bufs[VLIB_FRAME_SIZE];
   vlib_buffer_t **b = bufs;
   u16 nexts[VLIB_FRAME_SIZE], *next;
+  ip4_header_t *ip0, *ip1, *ip2, *ip3;
+  const load_balance_t *lb0, *lb1, *lb2, *lb3;
+  ip4_address_t *src_addr0, *src_addr1, *src_addr2, *src_addr3;
+  ip46_address_t dst_addr0, dst_addr1, dst_addr2, dst_addr3;
+  u32 lb_index0, lb_index1, lb_index2, lb_index3;
+  const dpo_id_t *dpo0, *dpo1, *dpo2, *dpo3;
+  hicn_buffer_t *hicnb0, *hicnb1, *hicnb2, *hicnb3;
 
   from = vlib_frame_vector_args (frame);
   n_left = frame->n_vectors;
@@ -374,13 +389,6 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 #if (CLIB_N_PREFETCHES >= 8)
   while (n_left >= 4)
     {
-      ip4_header_t *ip0, *ip1, *ip2, *ip3;
-      const load_balance_t *lb0, *lb1, *lb2, *lb3;
-      ip4_address_t *src_addr0, *src_addr1, *src_addr2, *src_addr3;
-      ip46_address_t dst_addr0, dst_addr1, dst_addr2, dst_addr3;
-      u32 lb_index0, lb_index1, lb_index2, lb_index3;
-      const dpo_id_t *dpo0, *dpo1, *dpo2, *dpo3;
-
       /* Prefetch next iteration. */
       if (n_left >= 8)
 	{
@@ -399,6 +407,11 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       ip1 = vlib_buffer_get_current (b[1]);
       ip2 = vlib_buffer_get_current (b[2]);
       ip3 = vlib_buffer_get_current (b[3]);
+
+      hicnb0 = hicn_get_buffer (b[0]);
+      hicnb1 = hicn_get_buffer (b[1]);
+      hicnb2 = hicn_get_buffer (b[2]);
+      hicnb3 = hicn_get_buffer (b[3]);
 
       src_addr0 = &ip0->src_address;
       src_addr1 = &ip1->src_address;
@@ -444,6 +457,7 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       if (dpo_is_hicn (dpo0))
 	{
 	  next[0] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicnb0->dpo_ctx_id = dpo0->dpoi_index;
 	  hicn_data_input_set_adj_index (
 	    b[0], &dst_addr0, hicn_strategy_dpo_ctx_get (dpo0->dpoi_index));
 	}
@@ -453,6 +467,7 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       if (dpo_is_hicn (dpo1))
 	{
 	  next[1] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicnb1->dpo_ctx_id = dpo1->dpoi_index;
 	  hicn_data_input_set_adj_index (
 	    b[1], &dst_addr1, hicn_strategy_dpo_ctx_get (dpo1->dpoi_index));
 	}
@@ -462,6 +477,7 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       if (dpo_is_hicn (dpo2))
 	{
 	  next[2] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicnb2->dpo_ctx_id = dpo2->dpoi_index;
 	  hicn_data_input_set_adj_index (
 	    b[2], &dst_addr2, hicn_strategy_dpo_ctx_get (dpo2->dpoi_index));
 	}
@@ -471,6 +487,7 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       if (dpo_is_hicn (dpo3))
 	{
 	  next[3] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicnb3->dpo_ctx_id = dpo3->dpoi_index;
 	  hicn_data_input_set_adj_index (
 	    b[3], &dst_addr3, hicn_strategy_dpo_ctx_get (dpo3->dpoi_index));
 	}
@@ -533,15 +550,6 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 #elif (CLIB_N_PREFETCHES >= 4)
   while (n_left >= 4)
     {
-      ip4_header_t *ip0, *ip1;
-      const load_balance_t *lb0, *lb1;
-      ip4_address_t *src_addr0, *src_addr1;
-      ip46_address_t dst_addr0, dst_addr1;
-      u32 lb_index0, lb_index1;
-      flow_hash_config_t flow_hash_config0, flow_hash_config1;
-      u32 hash_c0, hash_c1;
-      const dpo_id_t *dpo0, *dpo1;
-
       /* Prefetch next iteration. */
       {
 	vlib_prefetch_buffer_header (b[2], LOAD);
@@ -553,6 +561,9 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
       ip0 = vlib_buffer_get_current (b[0]);
       ip1 = vlib_buffer_get_current (b[1]);
+
+      hicnb0 = hicn_get_buffer (b[0]);
+      hicnb1 = hicn_get_buffer (b[1]);
 
       src_addr0 = &ip0->src_address;
       src_addr1 = &ip1->src_address;
@@ -582,6 +593,7 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       if (dpo_is_hicn (dpo0))
 	{
 	  next[0] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicnb0->dpo_ctx_id = dpo0->dpoi_index;
 	  hicn_data_input_set_adj_index (
 	    b[0], &dst_addr0, hicn_strategy_dpo_ctx_get (dpo0->dpoi_index));
 	}
@@ -591,6 +603,7 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       if (dpo_is_hicn (dpo1))
 	{
 	  next[1] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicnb1->dpo_ctx_id = dpo1->dpoi_index;
 	  hicn_data_input_set_adj_index (
 	    b[1], &dst_addr1, hicn_strategy_dpo_ctx_get (dpo1->dpoi_index));
 	}
@@ -629,23 +642,17 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 #endif
   while (n_left > 0)
     {
-      ip4_header_t *ip0;
-      const load_balance_t *lb0;
-      ip4_address_t *src_addr0;
-      ip46_address_t dst_addr0;
-      u32 lbi0;
-      const dpo_id_t *dpo0;
-
       ip0 = vlib_buffer_get_current (b[0]);
+      hicnb0 = hicn_get_buffer (b[0]);
       src_addr0 = &ip0->src_address;
       ip46_address_set_ip4 (&dst_addr0, &ip0->dst_address);
       ip_lookup_set_buffer_fib_index (im->fib_index_by_sw_if_index, b[0]);
 
-      lbi0 = ip4_fib_forwarding_lookup (vnet_buffer (b[0])->ip.fib_index,
-					src_addr0);
+      lb_index0 = ip4_fib_forwarding_lookup (vnet_buffer (b[0])->ip.fib_index,
+					     src_addr0);
 
-      ASSERT (lbi0);
-      lb0 = load_balance_get (lbi0);
+      ASSERT (lb_index0);
+      lb0 = load_balance_get (lb_index0);
 
       ASSERT (lb0->lb_n_buckets > 0);
       ASSERT (is_pow2 (lb0->lb_n_buckets));
@@ -655,6 +662,7 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       if (dpo_is_hicn (dpo0))
 	{
 	  next[0] = (ip_lookup_next_t) HICN_DATA_INPUT_IP4_NEXT_IP4_LOCAL;
+	  hicnb0->dpo_ctx_id = dpo0->dpoi_index;
 	  hicn_data_input_set_adj_index (
 	    b[0], &dst_addr0, hicn_strategy_dpo_ctx_get (dpo0->dpoi_index));
 	}
@@ -671,7 +679,7 @@ hicn_data_input_ip4_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	  t->isv6 = 0;
 	}
 
-      vlib_increment_combined_counter (cm, thread_index, lbi0, 1,
+      vlib_increment_combined_counter (cm, thread_index, lb_index0, 1,
 				       vlib_buffer_length_in_chain (vm, b[0]));
 
       b += 1;

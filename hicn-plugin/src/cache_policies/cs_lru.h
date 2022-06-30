@@ -17,7 +17,6 @@
 #define __LRU_H__
 
 #include "../pcs.h"
-#include "../hashtb.h"
 #include "cs_policy.h"
 
 /**
@@ -28,39 +27,46 @@
 
 extern hicn_cs_policy_vft_t hicn_cs_lru;
 
-/*
- * Insert a new CS element at the head of the CS LRU
+/**
+ * @brief Insert a new CS element at the head of the CS LRU
+ *
+ * @param policy the cs insertion/eviction policy - LRU
+ * @param pcs the PCS table
+ * @param pcs_entry the PCS entry to insert
+ * @return 0 on success, -1 on overflow
  */
-void hicn_cs_lru_insert (hicn_pit_cs_t *pcs, hicn_hash_node_t *pnode,
-			 hicn_pcs_entry_t *entry, hicn_cs_policy_t *lru);
+void hicn_cs_lru_insert (hicn_cs_policy_t *policy, hicn_pit_cs_t *pcs,
+			 hicn_pcs_entry_t *pcs_entry);
 
 /*
  * Dequeue an LRU element, for example when it has expired.
  */
-void hicn_cs_lru_dequeue (hicn_pit_cs_t *pcs, hicn_hash_node_t *pnode,
-			  hicn_pcs_entry_t *entry, hicn_cs_policy_t *lru);
+void hicn_cs_lru_dequeue (hicn_cs_policy_t *policy, hicn_pit_cs_t *pcs,
+			  hicn_pcs_entry_t *pcs_entry);
 
 /*
  * Move a CS LRU element to the head, probably after it's been used.
  */
-void hicn_cs_lru_update_head (hicn_pit_cs_t *pcs, hicn_hash_node_t *pnode,
-			      hicn_pcs_entry_t *entry, hicn_cs_policy_t *lru);
+void hicn_cs_lru_update_head (hicn_cs_policy_t *lru, hicn_pit_cs_t *pcs,
+			      hicn_pcs_entry_t *entry);
 
-void hicn_cs_lru_delete_get (hicn_pit_cs_t *p, hicn_cs_policy_t *policy,
-			     hicn_hash_node_t **node, hicn_pcs_entry_t **pcs,
-			     hicn_hash_entry_t **hash_entry);
+void hicn_cs_lru_delete_get (hicn_cs_policy_t *policy,
+			     const hicn_pit_cs_t *pcs,
+			     hicn_pcs_entry_t **pcs_entry);
 
 /*
  * Remove a batch of nodes from the CS LRU, copying their node indexes into
  * the caller's array. We expect this is done when the LRU size exceeds the
  * CS's limit. Return the number of removed nodes.
  */
-int hicn_cs_lru_trim (hicn_pit_cs_t *pcs, u32 *node_list, int sz,
-		      hicn_cs_policy_t *lru);
+int hicn_cs_lru_trim (hicn_cs_policy_t *policy, hicn_pit_cs_t *pcs,
+		      u32 *node_list, size_t sz);
 
-int hicn_cs_lru_flush (vlib_main_t *vm, struct hicn_pit_cs_s *pitcs,
-		       hicn_cs_policy_t *state);
-#endif /* // __LRU_H__ */
+int hicn_cs_lru_flush (hicn_cs_policy_t *policy, hicn_pit_cs_t *pcs);
+
+hicn_cs_policy_t hicn_cs_lru_create (u32 max_elts);
+
+#endif /* __LRU_H__ */
 
 /*
  * fd.io coding-style-patch-verification: ON

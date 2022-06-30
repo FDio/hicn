@@ -62,6 +62,15 @@ typedef enum
   HICN_DATA_FWD_N_NEXT,
 } hicn_data_fwd_next_t;
 
+/*
+ * Node context data; we think this is per-thread/instance
+ */
+typedef struct hicn_data_fwd_runtime_s
+{
+  int id;
+  hicn_pit_cs_t *pitcs;
+} hicn_data_fwd_runtime_t;
+
 /**
  * @brief Create a maximum of 256 clones of buffer and store them
  *   in the supplied array. Unlike the original function in the vlib
