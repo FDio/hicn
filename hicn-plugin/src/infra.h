@@ -46,7 +46,7 @@ typedef struct hicn_main_s
    * Boundaries for the interest lifetime. If greater than
    * pit_lifetime_max_ms, pit_lifetime_max_ms is used in the PIT
    */
-  u64 pit_lifetime_max_ms;
+  u32 pit_lifetime_max_ms;
 
   vnet_link_t link;
 
