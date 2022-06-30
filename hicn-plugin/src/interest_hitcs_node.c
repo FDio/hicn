@@ -36,13 +36,14 @@ static char *hicn_interest_hitcs_error_strings[] = {
 
 vlib_node_registration_t hicn_interest_hitcs_node;
 
-always_inline void drop_packet (u32 *next0);
+// always_inline void drop_packet (u32 *next0);
 
-always_inline void
-clone_from_cs (vlib_main_t *vm, u32 *bi0_cs, vlib_buffer_t *dest, u8 isv6)
+always_inline u32
+clone_from_cs (vlib_main_t *vm, u32 bi0_cs, vlib_buffer_t *dest, u8 isv6)
 {
   /* Retrieve the buffer to clone */
-  vlib_buffer_t *cs_buf = vlib_get_buffer (vm, *bi0_cs);
+  u32 ret = bi0_cs;
+  vlib_buffer_t *cs_buf = vlib_get_buffer (vm, bi0_cs);
   hicn_buffer_t *hicnb = hicn_get_buffer (cs_buf);
   word buffer_advance = CLIB_CACHE_LINE_BYTES * 2;
   if (hicnb->flags & HICN_BUFFER_FLAGS_PKT_LESS_TWO_CL)
@@ -63,7 +64,7 @@ clone_from_cs (vlib_main_t *vm, u32 *bi0_cs, vlib_buffer_t *dest, u8 isv6)
 	{
 	  vlib_buffer_t *cs_buf2 = vlib_buffer_copy (vm, cs_buf);
 	  vlib_buffer_advance (cs_buf, buffer_advance);
-	  *bi0_cs = vlib_get_buffer_index (vm, cs_buf2);
+	  ret = vlib_get_buffer_index (vm, cs_buf2);
 	  cs_buf->ref_count--;
 	  cs_buf = cs_buf2;
 	}
@@ -79,6 +80,8 @@ clone_from_cs (vlib_main_t *vm, u32 *bi0_cs, vlib_buffer_t *dest, u8 isv6)
 
   /* Set fag for packet coming from CS */
   hicn_get_buffer (dest)->flags |= HICN_BUFFER_FLAGS_FROM_CS;
+
+  return ret;
 }
 
 static uword
@@ -89,6 +92,16 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   hicn_interest_hitcs_next_t next_index;
   hicn_interest_hitcs_runtime_t *rt;
   vl_api_hicn_api_node_stats_get_reply_t stats = { 0 };
+  vlib_buffer_t *b0;
+  u8 isv6;
+  u32 bi0, bi_ret;
+  u32 next0 = HICN_INTEREST_HITCS_NEXT_ERROR_DROP;
+  hicn_buffer_t *hicnb0;
+  u32 pcs_entry_index;
+  hicn_pcs_entry_t *pcs_entry = NULL;
+  const hicn_strategy_vft_t *strategy_vft0;
+  const hicn_dpo_vft_t *dpo_vft0;
+  u8 dpo_ctx_id0;
   f64 tnow;
 
   rt = vlib_node_get_runtime_data (vm, hicn_interest_hitcs_node.index);
@@ -109,27 +122,12 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
       vlib_get_next_frame (vm, node, next_index, to_next, n_left_to_next);
       while (n_left_from > 0 && n_left_to_next > 0)
 	{
-	  vlib_buffer_t *b0;
-	  u8 isv6;
-	  u8 *nameptr;
-	  u16 namelen;
-	  u32 bi0;
-	  u32 next0 = HICN_INTEREST_HITCS_NEXT_ERROR_DROP;
-	  hicn_buffer_t *hicnb0;
-	  hicn_hash_node_t *node0;
-	  hicn_pcs_entry_t *pitp;
-	  hicn_hash_entry_t *hash_entry0;
-	  const hicn_strategy_vft_t *strategy_vft0;
-	  const hicn_dpo_vft_t *dpo_vft0;
-	  u8 dpo_ctx_id0;
-
 	  /* Prefetch for next iteration. */
 	  if (n_left_from > 1)
 	    {
 	      vlib_buffer_t *b1;
 	      b1 = vlib_get_buffer (vm, from[1]);
 	      CLIB_PREFETCH (b1, 2 * CLIB_CACHE_LINE_BYTES, STORE);
-	      CLIB_PREFETCH (b1->data, CLIB_CACHE_LINE_BYTES, STORE);
 	    }
 
 	  /* Dequeue a packet buffer */
@@ -144,62 +142,43 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	  /* Get hicn buffer and state */
 	  hicnb0 = hicn_get_buffer (b0);
-	  hicn_get_internal_state (hicnb0, rt->pitcs, &node0, &strategy_vft0,
-				   &dpo_vft0, &dpo_ctx_id0, &hash_entry0);
+	  hicn_get_internal_state (hicnb0, &pcs_entry_index, &strategy_vft0,
+				   &dpo_vft0, &dpo_ctx_id0);
+	  pcs_entry =
+	    hicn_pcs_entry_get_entry_from_index (rt->pitcs, pcs_entry_index);
 
-	  hicn_buffer_get_name_and_namelen (b0, &nameptr, &namelen);
 	  isv6 = hicn_buffer_is_v6 (b0);
-	  pitp = hicn_pit_get_data (node0);
 
-	  dpo_id_t hicn_dpo_id0 = { .dpoi_type =
-				      dpo_vft0->hicn_dpo_get_type (),
-				    .dpoi_proto = 0,
-				    .dpoi_next_node = 0,
-				    .dpoi_index = dpo_ctx_id0 };
+	  if (tnow > hicn_pcs_entry_get_expire_time (pcs_entry))
+	    {
+	      // Delete and clean up expired CS entry
+	      hicn_pcs_entry_remove_lock (rt->pitcs, pcs_entry);
 
-	  if (PREDICT_FALSE (!hicn_node_compare (nameptr, namelen, node0)))
-	    {
-	      /* Remove lock from the entry */
-	      hicn_pcs_remove_lock (rt->pitcs, &pitp, &node0, vm, hash_entry0,
-				    dpo_vft0, &hicn_dpo_id0);
-	      drop_packet (&next0);
-	      goto end_processing;
-	    }
-	  if ((tnow > pitp->shared.expire_time))
-	    {
-	      /* Delete and clean up expired CS entry */
-	      hicn_pcs_delete (rt->pitcs, &pitp, &node0, vm, hash_entry0,
-			       dpo_vft0, &hicn_dpo_id0);
+	      // Update stats
 	      stats.cs_expired_count++;
-	      /* Forward interest to the strategy node */
+
+	      // Forward interest to the strategy node
 	      next0 = HICN_INTEREST_HITCS_NEXT_STRATEGY;
 	    }
 	  else
 	    {
-	      if (PREDICT_TRUE (
-		    !(hash_entry0->he_flags & HICN_HASH_ENTRY_FLAG_DELETED)))
-		hicn_pcs_cs_update (vm, rt->pitcs, pitp, pitp, node0);
-
-	      /*
-	       * Retrieve the incoming iface and forward
-	       * the data through it
-	       */
+	      // Retrieve the incoming iface and forward
+	      // the data through it
 	      next0 = isv6 ? HICN_INTEREST_HITCS_NEXT_IFACE6_OUT :
 				   HICN_INTEREST_HITCS_NEXT_IFACE4_OUT;
 	      vnet_buffer (b0)->ip.adj_index[VLIB_TX] = hicnb0->face_id;
 
-	      clone_from_cs (vm, &pitp->u.cs.cs_pkt_buf, b0, isv6);
+	      bi_ret = clone_from_cs (
+		vm, hicn_pcs_entry_cs_get_buffer (pcs_entry), b0, isv6);
 
+	      hicn_pcs_entry_cs_set_buffer (pcs_entry, bi_ret);
+
+	      // Update stats
 	      stats.pkts_from_cache_count++;
 	      stats.pkts_data_count++;
-	      /* Remove lock from the entry */
-	      hicn_pcs_remove_lock (rt->pitcs, &pitp, &node0, vm, hash_entry0,
-				    dpo_vft0, &hicn_dpo_id0);
 	    }
 
-	end_processing:
-
-	  /* Maybe trace */
+	  // Maybe trace
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
 			     (b0->flags & VLIB_BUFFER_IS_TRACED)))
 	    {
@@ -209,20 +188,18 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 	      t->sw_if_index = vnet_buffer (b0)->sw_if_index[VLIB_RX];
 	      t->next_index = next0;
 	    }
-	  /* Incr packet counter */
+
+	  // Increment packet counter
 	  stats.pkts_processed += 1;
 
-	  /*
-	   * Verify speculative enqueue, maybe switch current
-	   * next frame
-	   */
+	  // Verify speculative enqueue, maybe switch current next frame
 	  vlib_validate_buffer_enqueue_x1 (vm, node, next_index, to_next,
 					   n_left_to_next, bi0, next0);
 	}
       vlib_put_next_frame (vm, node, next_index, n_left_to_next);
     }
 
-  u32 pit_int_count = hicn_pit_get_int_count (rt->pitcs);
+  u32 pit_int_count = hicn_pcs_get_pit_count (rt->pitcs);
 
   vlib_node_increment_counter (vm, hicn_interest_hitcs_node.index,
 			       HICNFWD_ERROR_CACHED,
@@ -237,11 +214,13 @@ hicn_interest_hitcs_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
   return (frame->n_vectors);
 }
 
+#if 0
 always_inline void
 drop_packet (u32 *next0)
 {
   *next0 = HICN_INTEREST_HITCS_NEXT_ERROR_DROP;
 }
+#endif
 
 /* packet trace format function */
 static u8 *

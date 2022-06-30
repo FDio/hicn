@@ -34,7 +34,6 @@ set(HICN_PLUGIN_SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn.c
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_api.c
   ${CMAKE_CURRENT_SOURCE_DIR}/cli.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/hashtb.c
   ${CMAKE_CURRENT_SOURCE_DIR}/infra.c
   ${CMAKE_CURRENT_SOURCE_DIR}/mgmt.c
   ${CMAKE_CURRENT_SOURCE_DIR}/pcs.c
@@ -78,7 +77,6 @@ set(HICN_PLUGIN_SOURCE_FILES
 set(HICN_PLUGIN_HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_all_api_h.h
   ${CMAKE_CURRENT_SOURCE_DIR}/hicn_logging.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/hashtb.h
   ${CMAKE_CURRENT_SOURCE_DIR}/mgmt.h
   ${CMAKE_CURRENT_SOURCE_DIR}/params.h
   ${CMAKE_CURRENT_SOURCE_DIR}/pcs.h
@@ -245,3 +243,10 @@ build_module(${HICN_API_TEST_PLUGIN}
   COMPILE_OPTIONS ${COMPILER_OPTIONS}
   INSTALL_RPATH "${VPP_INSTALL_PLUGIN}:${HICN_INSTALL_PREFIX}:${VPP_HOME}/lib"
 )
+
+##############################################################
+# Unit tests
+##############################################################
+if (${BUILD_TESTS})
+  add_subdirectory(test)
+endif()

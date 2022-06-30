@@ -25,7 +25,6 @@
 #include "mgmt.h"
 #include "error.h"
 #include "faces/app/address_mgr.h"
-#include "face_db.h"
 #include "udp_tunnels/udp_tunnel.h"
 #include "route.h"
 #include "pg.h"
@@ -34,14 +33,7 @@ hicn_main_t hicn_main;
 /* Module vars */
 int hicn_infra_fwdr_initialized = 0;
 
-/*
- * Global time counters we're trying out for opportunistic hashtable
- * expiration.
- */
-uint16_t hicn_infra_fast_timer; /* Counts at 1 second intervals */
-uint16_t hicn_infra_slow_timer; /* Counts at 1 minute intervals */
-
-hicn_face_bucket_t *hicn_face_bucket_pool;
+// hicn_face_bucket_t *hicn_face_bucket_pool;
 
 /*
  * Init hicn forwarder with configurable PIT, CS sizes
@@ -49,29 +41,27 @@ hicn_face_bucket_t *hicn_face_bucket_pool;
 static int
 hicn_infra_fwdr_init (uint32_t shard_pit_size, uint32_t shard_cs_size)
 {
-  int ret = 0;
+  int ret = HICN_ERROR_NONE;
 
   if (hicn_infra_fwdr_initialized)
     {
       ret = HICN_ERROR_FWD_ALREADY_ENABLED;
-      goto done;
+      goto DONE;
     }
+
   /* Init per worker limits */
   hicn_infra_pit_size = shard_pit_size;
   hicn_infra_cs_size = shard_cs_size;
 
-  /* Init the global time-compression counters */
-  hicn_infra_fast_timer = 1;
-  hicn_infra_slow_timer = 1;
+  hicn_pit_create (&hicn_main.pitcs, hicn_infra_pit_size, hicn_infra_cs_size);
 
-  ret = hicn_pit_create (&hicn_main.pitcs, hicn_infra_pit_size);
-  hicn_pit_set_lru_max (&hicn_main.pitcs, hicn_infra_cs_size);
-done:
+DONE:
   if ((ret == HICN_ERROR_NONE) && !hicn_infra_fwdr_initialized)
     {
       hicn_infra_fwdr_initialized = 1;
     }
-  return (ret);
+
+  return ret;
 }
 
 /*
@@ -165,8 +155,6 @@ hicn_infra_plugin_enable_disable (int enable_disable, int pit_size_req,
     }
 
   ret = hicn_infra_fwdr_init (pit_size, cs_size);
-
-  hicn_face_db_init (pit_size);
 
   if (ret != HICN_ERROR_NONE)
     {
