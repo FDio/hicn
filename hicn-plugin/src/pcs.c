@@ -16,33 +16,39 @@
 #include <stdlib.h>
 #include <vlib/vlib.h>
 
-#include "hashtb.h"
 #include "pcs.h"
 #include "cache_policies/cs_lru.h"
 
-int
-hicn_pit_create (hicn_pit_cs_t *p, u32 num_elems)
+void
+hicn_pit_create (hicn_pit_cs_t *p, u32 max_pit_elt, u32 max_cs_elt)
 {
-  int ret =
-    hicn_hashtb_alloc (&p->pcs_table, num_elems, sizeof (hicn_pcs_entry_t));
-  p->pcs_table->ht_flags |= HICN_HASHTB_FLAG_KEY_FMT_NAME;
+  // Allocate PCS hash table. KEY=Name, VALUE=pool_idx
+  clib_bihash_24_8_t *pcs_table = &p->pcs_table;
+  u32 n_elements = max_pit_elt / BIHASH_KVP_PER_PAGE;
+  clib_bihash_init_24_8 (pcs_table, "hicn_pcs_table", n_elements, 512 << 20);
 
+  // Allocate pool of PIT/CS entries
+  pool_alloc (p->pcs_entries_pool, max_pit_elt);
+
+  // Init counters
+  p->max_pit_size = max_pit_elt;
   p->pcs_pit_count = p->pcs_cs_count = 0;
+  p->policy_state = hicn_cs_lru_create (max_cs_elt);
+  p->pcs_cs_count = 0;
+  p->pcs_pcs_alloc = 0;
+  p->pcs_pcs_dealloc = 0;
+  p->pcs_pit_count = 0;
+}
 
-  p->policy_state.max =
-    HICN_PARAM_CS_LRU_DEFAULT -
-    (HICN_PARAM_CS_LRU_DEFAULT * HICN_PARAM_CS_RESERVED_APP / 100);
-  p->policy_state.count = 0;
-  p->policy_state.head = p->policy_state.tail = 0;
+void
+hicn_pit_destroy (hicn_pit_cs_t *p)
+{
+  // Deallocate PCS hash table.
+  clib_bihash_24_8_t *pcs_table = &p->pcs_table;
+  clib_bihash_free_24_8 (pcs_table);
 
-  p->policy_vft.hicn_cs_insert = hicn_cs_lru.hicn_cs_insert;
-  p->policy_vft.hicn_cs_update = hicn_cs_lru.hicn_cs_update;
-  p->policy_vft.hicn_cs_dequeue = hicn_cs_lru.hicn_cs_dequeue;
-  p->policy_vft.hicn_cs_delete_get = hicn_cs_lru.hicn_cs_delete_get;
-  p->policy_vft.hicn_cs_trim = hicn_cs_lru.hicn_cs_trim;
-  p->policy_vft.hicn_cs_flush = hicn_cs_lru.hicn_cs_flush;
-
-  return (ret);
+  // Deallocate pool of PIT/CS entries
+  pool_free (p->pcs_entries_pool);
 }
 
 /*
