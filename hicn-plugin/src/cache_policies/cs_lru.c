@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include "../hashtb.h"
 #include "../strategy_dpo_manager.h"
 #include "../error.h"
 #include "cs_lru.h"
@@ -32,129 +31,112 @@ hicn_cs_policy_vft_t hicn_cs_lru = {
  * Insert a new CS element at the head of the CS LRU
  */
 void
-hicn_cs_lru_insert (hicn_pit_cs_t *p, hicn_hash_node_t *node,
-		    hicn_pcs_entry_t *pcs, hicn_cs_policy_t *policy_state)
+hicn_cs_lru_insert (hicn_cs_policy_t *lru_policy, hicn_pit_cs_t *pcs,
+		    hicn_pcs_entry_t *pcs_entry)
 {
-  hicn_hash_node_t *lrunode;
   hicn_pcs_entry_t *lrupcs;
   u32 idx;
 
-  idx = hicn_hashtb_node_idx_from_node (p->pcs_table, node);
+  idx = hicn_pcs_entry_get_index (pcs, pcs_entry);
 
-  if (policy_state->head != 0)
+  if (lru_policy->head != HICN_CS_POLICY_END_OF_CHAIN)
     {
-      lrunode = hicn_hashtb_node_from_idx (p->pcs_table, policy_state->head);
-      lrupcs = hicn_pit_get_data (lrunode);
+      lrupcs = hicn_pcs_entry_get_entry_from_index (pcs, lru_policy->head);
 
-      ASSERT (lrupcs->u.cs.cs_lru_prev == 0);
+      ASSERT (lrupcs->u.cs.cs_lru_prev == HICN_CS_POLICY_END_OF_CHAIN);
       lrupcs->u.cs.cs_lru_prev = idx;
 
-      pcs->u.cs.cs_lru_prev = 0;
-      pcs->u.cs.cs_lru_next = policy_state->head;
+      pcs_entry->u.cs.cs_lru_prev = HICN_CS_POLICY_END_OF_CHAIN;
+      pcs_entry->u.cs.cs_lru_next = lru_policy->head;
 
-      policy_state->head = idx;
+      lru_policy->head = idx;
     }
   else
     {
-      ASSERT (policy_state->tail == 0); /* We think the list is
-					 * empty */
+      // The list should be empty
+      ASSERT (lru_policy->tail == HICN_CS_POLICY_END_OF_CHAIN);
 
-      policy_state->head = policy_state->tail = idx;
+      lru_policy->head = lru_policy->tail = idx;
 
-      pcs->u.cs.cs_lru_next = pcs->u.cs.cs_lru_prev = 0;
+      pcs_entry->u.cs.cs_lru_next = pcs_entry->u.cs.cs_lru_prev =
+	HICN_CS_POLICY_END_OF_CHAIN;
     }
 
-  policy_state->count++;
+  lru_policy->count++;
 }
 
 void
-hicn_cs_lru_delete_get (hicn_pit_cs_t *p, hicn_cs_policy_t *policy_state,
-			hicn_hash_node_t **nodep, hicn_pcs_entry_t **pcs_entry,
-			hicn_hash_entry_t **hash_entry)
+hicn_cs_lru_delete_get (hicn_cs_policy_t *lru_policy, const hicn_pit_cs_t *pcs,
+			hicn_pcs_entry_t **pcs_entry)
 {
-  *nodep = hicn_hashtb_node_from_idx (p->pcs_table, policy_state->tail);
-  *pcs_entry = hicn_pit_get_data (*nodep);
-
-  *hash_entry = hicn_hashtb_get_entry (
-    p->pcs_table, (*nodep)->entry_idx, (*nodep)->bucket_id,
-    (*nodep)->hn_flags & HICN_HASH_NODE_OVERFLOW_BUCKET);
+  *pcs_entry = hicn_pcs_entry_get_entry_from_index (pcs, lru_policy->tail);
 }
 
 /*
  * Dequeue an LRU element, for example when it has expired.
  */
 void
-hicn_cs_lru_dequeue (hicn_pit_cs_t *pit, hicn_hash_node_t *pnode,
-		     hicn_pcs_entry_t *pcs, hicn_cs_policy_t *lru)
+hicn_cs_lru_dequeue (hicn_cs_policy_t *lru_policy, hicn_pit_cs_t *pcs,
+		     hicn_pcs_entry_t *pcs_entry)
 {
-  hicn_hash_node_t *lrunode;
   hicn_pcs_entry_t *lrupcs;
 
-  if (pcs->u.cs.cs_lru_prev != 0)
+  if (pcs_entry->u.cs.cs_lru_prev != HICN_CS_POLICY_END_OF_CHAIN)
     {
       /* Not already on the head of the LRU */
-      lrunode =
-	hicn_hashtb_node_from_idx (pit->pcs_table, pcs->u.cs.cs_lru_prev);
-      lrupcs = hicn_pit_get_data (lrunode);
+      lrupcs =
+	hicn_pcs_entry_get_entry_from_index (pcs, pcs_entry->u.cs.cs_lru_prev);
 
-      lrupcs->u.cs.cs_lru_next = pcs->u.cs.cs_lru_next;
+      lrupcs->u.cs.cs_lru_next = pcs_entry->u.cs.cs_lru_next;
     }
   else
     {
-      ASSERT (lru->head ==
-	      hicn_hashtb_node_idx_from_node (pit->pcs_table, pnode));
-      lru->head = pcs->u.cs.cs_lru_next;
+      ASSERT (lru_policy->head == hicn_pcs_entry_get_index (pcs, pcs_entry));
+      lru_policy->head = pcs_entry->u.cs.cs_lru_next;
     }
 
-  if (pcs->u.cs.cs_lru_next != 0)
+  if (pcs_entry->u.cs.cs_lru_next != HICN_CS_POLICY_END_OF_CHAIN)
     {
       /* Not already the end of the LRU */
-      lrunode =
-	hicn_hashtb_node_from_idx (pit->pcs_table, pcs->u.cs.cs_lru_next);
-      lrupcs = hicn_pit_get_data (lrunode);
+      lrupcs =
+	hicn_pcs_entry_get_entry_from_index (pcs, pcs_entry->u.cs.cs_lru_next);
 
-      lrupcs->u.cs.cs_lru_prev = pcs->u.cs.cs_lru_prev;
+      lrupcs->u.cs.cs_lru_prev = pcs_entry->u.cs.cs_lru_prev;
     }
   else
     {
       /* This was the last LRU element */
-      ASSERT (lru->tail ==
-	      hicn_hashtb_node_idx_from_node (pit->pcs_table, pnode));
-      lru->tail = pcs->u.cs.cs_lru_prev;
+      ASSERT (lru_policy->tail == hicn_pcs_entry_get_index (pcs, pcs_entry));
+      lru_policy->tail = pcs_entry->u.cs.cs_lru_prev;
     }
 
-  pcs->u.cs.cs_lru_next = pcs->u.cs.cs_lru_prev = 0;
-  lru->count--;
+  pcs_entry->u.cs.cs_lru_next = pcs_entry->u.cs.cs_lru_prev =
+    HICN_CS_POLICY_END_OF_CHAIN;
+  lru_policy->count--;
 }
 
 /*
- * Move a CS LRU element to the head, probably after it's been used.
+ * Move a CS LRU element to the head. The element must be part of the LRU list.
  */
 void
-hicn_cs_lru_update_head (hicn_pit_cs_t *pit, hicn_hash_node_t *pnode,
-			 hicn_pcs_entry_t *pcs, hicn_cs_policy_t *lru)
+hicn_cs_lru_update_head (hicn_cs_policy_t *lru_policy, hicn_pit_cs_t *pcs,
+			 hicn_pcs_entry_t *pcs_entry)
 {
-  if (pcs->u.cs.cs_lru_prev != 0)
+  if (pcs_entry->u.cs.cs_lru_prev != HICN_CS_POLICY_END_OF_CHAIN)
     {
       /*
        * Not already on the head of the LRU, detach it from its
        * current position
        */
-      hicn_cs_lru_dequeue (pit, pnode, pcs, lru);
+      hicn_cs_lru_dequeue (lru_policy, pcs, pcs_entry);
 
       /* Now detached from the list; attach at head */
-      hicn_cs_lru_insert (pit, pnode, pcs, lru);
+      hicn_cs_lru_insert (lru_policy, pcs, pcs_entry);
     }
   else
     {
-      /* The element is already dequeue */
-      if (pcs->u.cs.cs_lru_next == 0)
-	{
-	  /* Now detached from the list; attach at head */
-	  hicn_cs_lru_insert (pit, pnode, pcs, lru);
-	}
-      ASSERT (lru->head ==
-	      hicn_hashtb_node_idx_from_node (pit->pcs_table, pnode));
+      // The element must be already at the head of the LRU
+      ASSERT (lru_policy->head == hicn_pcs_entry_get_index (pcs, pcs_entry));
     }
 }
 
@@ -164,96 +146,86 @@ hicn_cs_lru_update_head (hicn_pit_cs_t *pit, hicn_hash_node_t *pnode,
  * CS's limit. Return the number of removed nodes.
  */
 int
-hicn_cs_lru_trim (hicn_pit_cs_t *pit, u32 *node_list, int sz,
-		  hicn_cs_policy_t *lru)
+hicn_cs_lru_trim (hicn_cs_policy_t *lru_policy, hicn_pit_cs_t *pcs,
+		  u32 *node_list, size_t sz)
 {
-  hicn_hash_node_t *lrunode;
   hicn_pcs_entry_t *lrupcs;
   u32 idx;
   int i;
 
-  idx = lru->tail;
+  idx = lru_policy->tail;
 
-  for (i = 0; i < sz; i++)
+  for (i = 0; i < sz && idx > 0; i++)
     {
-
-      if (idx == 0)
-	{
-	  break;
-	}
-      lrunode = hicn_hashtb_node_from_idx (pit->pcs_table, idx);
-      lrupcs = hicn_pit_get_data (lrunode);
+      lrupcs = hicn_pcs_entry_get_entry_from_index (pcs, idx);
 
       node_list[i] = idx;
 
       idx = lrupcs->u.cs.cs_lru_prev;
-      lrupcs->u.cs.cs_lru_prev = 0;
-      lrupcs->u.cs.cs_lru_next = 0;
+      lrupcs->u.cs.cs_lru_prev = HICN_CS_POLICY_END_OF_CHAIN;
+      lrupcs->u.cs.cs_lru_next = HICN_CS_POLICY_END_OF_CHAIN;
     }
 
-  lru->count -= i;
+  lru_policy->count -= i;
+  lru_policy->tail = idx;
 
-  lru->tail = idx;
-  if (idx != 0)
+  if (idx != HICN_CS_POLICY_END_OF_CHAIN)
     {
-      lrunode = hicn_hashtb_node_from_idx (pit->pcs_table, idx);
-      lrupcs = hicn_pit_get_data (lrunode);
-
-      lrupcs->u.cs.cs_lru_next = 0;
+      lrupcs = hicn_pcs_entry_get_entry_from_index (pcs, idx);
+      lrupcs->u.cs.cs_lru_next = HICN_CS_POLICY_END_OF_CHAIN;
     }
   else
     {
       /* If the tail is empty, the whole lru is empty */
-      lru->head = 0;
+      lru_policy->head = HICN_CS_POLICY_END_OF_CHAIN;
     }
 
-  return (i);
+  return i;
 }
 
 int
-hicn_cs_lru_flush (vlib_main_t *vm, struct hicn_pit_cs_s *pitcs,
-		   hicn_cs_policy_t *state)
+hicn_cs_lru_flush (hicn_cs_policy_t *lru_policy, hicn_pit_cs_t *pcs)
 {
-  if (state->head == 0 && state->tail == 0)
+  if (lru_policy->head == HICN_CS_POLICY_END_OF_CHAIN &&
+      lru_policy->tail == HICN_CS_POLICY_END_OF_CHAIN)
     return 0;
 
-  hicn_hash_node_t *lrunode;
-  hicn_pcs_entry_t *lrupcs;
+  hicn_pcs_entry_t *pcs_entry;
   u32 idx;
   int i = 0;
 
-  idx = state->tail;
+  idx = lru_policy->tail;
 
-  while (idx != 0)
+  while (idx != HICN_CS_POLICY_END_OF_CHAIN)
     {
-      lrunode = hicn_hashtb_node_from_idx (pitcs->pcs_table, idx);
-      lrupcs = hicn_pit_get_data (lrunode);
+      // Get tail entry
+      pcs_entry = hicn_pcs_entry_get_entry_from_index (pcs, idx);
 
-      u64 hashval = 0;
-      hicn_hashtb_fullhash ((u8 *) &(lrunode->hn_key.ks.key),
-			    lrunode->hn_keysize, &hashval);
-      hicn_hash_bucket_t *bucket = NULL;
-      if ((hashval & (pitcs->pcs_table->ht_bucket_count - 1)) ==
-	  lrunode->bucket_id)
-	{
-	  // The bucket is in the non overflown
-	  bucket = pitcs->pcs_table->ht_buckets + lrunode->bucket_id;
-	}
-      else
-	{
-	  bucket = pool_elt_at_index (pitcs->pcs_table->ht_overflow_buckets,
-				      lrunode->bucket_id);
-	}
-      hicn_hash_entry_t *hash_entry =
-	&(bucket->hb_entries[lrunode->entry_idx]);
-      hash_entry->locks++;
-      hicn_pcs_cs_delete (vm, pitcs, &lrupcs, &lrunode, hash_entry, NULL,
-			  NULL);
-      idx = state->tail;
+      // Delete entry from the PCS. This will also update the LRU.
+      hicn_pcs_entry_remove_lock (pcs, pcs_entry);
+
+      // Set index to the new tail (updated in the previous call)
+      idx = lru_policy->tail;
+
+      // Advance counter
       i++;
     }
 
-  return (i);
+  return i;
+}
+
+hicn_cs_policy_t
+hicn_cs_lru_create (u32 max_elts)
+{
+  hicn_cs_policy_t policy = {
+    .vft = hicn_cs_lru,
+    .head = HICN_CS_POLICY_END_OF_CHAIN,
+    .tail = HICN_CS_POLICY_END_OF_CHAIN,
+    .count = 0,
+    .max = max_elts,
+  };
+
+  return policy;
 }
 
 /*

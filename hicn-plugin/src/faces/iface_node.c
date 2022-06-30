@@ -19,6 +19,7 @@
 #include "../hicn.h"
 #include "../infra.h"
 #include "../cache_policies/cs_lru.h"
+#include "../parser.h"
 
 /**
  * @File

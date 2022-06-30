@@ -25,6 +25,7 @@
 
 #include "face_prod.h"
 #include "../../mgmt.h"
+#include "../../parser.h"
 
 static __clib_unused char *face_prod_input_error_strings[] = {
 #define _(sym, string) string,
