@@ -16,6 +16,23 @@
       "message": "recheck",
       "revId": "d4815b0e044af024318fe5f0b2e9c4de4fa27a1a",
       "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "488abdf5_1cc3761c",
+        "filename": "hicn-plugin/src/main.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 794
+      },
+      "writtenOn": "2022-06-30T12:40:00Z",
+      "side": 1,
+      "message": "This file is a duplicate of src/test/main.c, we can remove it",
+      "revId": "d4815b0e044af024318fe5f0b2e9c4de4fa27a1a",
+      "serverId": "6d2eb258-4fe2-443e-8a38-ca81da23d4c2"
     }
   ]
 }
