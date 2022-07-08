@@ -83,6 +83,7 @@ typedef struct
   hicn_name_t name;
   */
   u16 port;
+  u16 payload_type;
   hicn_lifetime_t lifetime;
 } hicn_buffer_t;
 
@@ -137,6 +138,12 @@ always_inline hicn_lifetime_t
 hicn_buffer_get_lifetime (vlib_buffer_t *b)
 {
   return hicn_get_buffer (b)->lifetime;
+}
+
+always_inline hicn_payload_type_t
+hicn_buffer_get_payload_type (vlib_buffer_t *b)
+{
+  return hicn_get_buffer (b)->payload_type;
 }
 
 #endif /* __HICN_H__ */

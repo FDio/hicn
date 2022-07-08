@@ -127,40 +127,46 @@ _bitmap_get_no_check (const bitmap_t *bitmap, off_t i)
 #define bitmap_is_unset_no_check(bitmap, i)                                   \
   (_bitmap_get_no_check ((bitmap), (i)) == 0)
 
-/*
- * @brief Returns whether the i-th bit is unset (equal to 0) in a bitmap.
- *
- * @param[in] bitmap The bitmap to access.
- * @param[in] i The bit position.
- *
- * @return bool
- */
-#define bitmap_set(bitmap, i) _bitmap_set ((bitmap_t **) &bitmap, i, 1)
-#define bitmap_set_no_check(bitmap, i)                                        \
-  _bitmap_set ((bitmap_t **) &bitmap, i, 0)
-
-/*
- * @brief Returns whether the i-th bit is unset (equal to 0) in a bitmap
- * (helper).
- *
- * @param[in] bitmap The bitmap to access.
- * @param[in] i The bit position.
- *
- * @return bool
- */
 static inline int
-_bitmap_set (bitmap_t **bitmap_ptr, off_t i, int check)
+_bitmap_set_no_check (bitmap_t *bitmap, off_t i)
 {
-  if (check && bitmap_ensure_pos (bitmap_ptr, i) < 0)
-    return -1;
-
-  bitmap_t *bitmap = *bitmap_ptr;
   size_t offset = i / BITMAP_WIDTH (bitmap);
   size_t pos = i % BITMAP_WIDTH (bitmap);
-
   bitmap[offset] |= (bitmap_t) 1 << pos;
   return 0;
 }
+
+static inline int
+_bitmap_set (bitmap_t **bitmap_ptr, off_t i)
+{
+  if (bitmap_ensure_pos (bitmap_ptr, i) < 0)
+    return -1;
+
+  bitmap_t *bitmap = *bitmap_ptr;
+  return _bitmap_set_no_check (bitmap, i);
+}
+
+/*
+ * @brief Set i-th bit to 1 in a bitmap. Reallocate the vector if the bit
+ * position is greater than the vector length.
+ *
+ * @param[in] bitmap The bitmap to access.
+ * @param[in] i The bit position.
+ *
+ * @return bool
+ */
+#define bitmap_set(bitmap, i) _bitmap_set ((bitmap_t **) &bitmap, i)
+
+/*
+ * @brief Set i-th bit to 1 in a bitmap. Unsafe version, does not check
+ * boundaries.
+ *
+ * @param[in] bitmap The bitmap to access.
+ * @param[in] i The bit position.
+ *
+ * @return bool
+ */
+#define bitmap_set_no_check(bitmap, i) _bitmap_set_no_check (bitmap, i)
 
 #define bitmap_unset(bitmap, i)		 _bitmap_unset (bitmap, i, 1)
 #define bitmap_unset_no_check(bitmap, i) _bitmap_unset (bitmap, i, 0)
@@ -306,11 +312,11 @@ bitmap_next_unset (const bitmap_t *bitmap, hicn_uword i)
 
 #define bitmap_first_set(bitmap) bitmap_next_set (bitmap, 0)
 #define bitmap_first_set_no_check(bitmap, size)                               \
-  bitmap_next_set_no_checks (bitmap, 0, size)
+  bitmap_next_set_no_check (bitmap, 0, size)
 
 #define bitmap_first_unset(bitmap) bitmap_next_unset (bitmap, 0)
 #define bitmap_first_unset_no_check(bitmap, size)                             \
-  bitmap_next_unset_no_checks (bitmap, 0, size)
+  bitmap_next_unset_no_check (bitmap, 0, size)
 
 static inline void
 bitmap_print (const bitmap_t *bitmap, size_t n_words)

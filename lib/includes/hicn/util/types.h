@@ -44,20 +44,20 @@ typedef float f32;
 #error "Impossible to detect architecture"
 #endif
 
-#define hicn_uword_bits (1 << hicn_log2_uword_bits)
+#define _hicn_uword_bits (1 << hicn_log2_uword_bits)
 
 /* Word types. */
-#if hicn_uword_bits == 64
+#if _hicn_uword_bits == 64
 /* 64 bit word machines. */
 typedef u64 hicn_uword;
+#define hicn_uword_bits 64
 #else
 /* 32 bit word machines. */
 typedef u32 hicn_uword;
+#define hicn_uword_bits 32
 #endif
 
 typedef hicn_uword hicn_ip_csum_t;
-
-#define hicn_uword_bits (1 << hicn_log2_uword_bits)
 
 /* Helper for avoiding warnings about type-punning */
 #define UNION_CAST(x, destType)                                               \

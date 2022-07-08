@@ -790,9 +790,18 @@ static interest_manifest_header_t *_forwarder_get_interest_manifest(
   if (payload_type != HPT_MANIFEST) return NULL;
 
   rc = hicn_packet_get_payload(pkbuf, &payload, &payload_size, false);
-  _ASSERT(rc == HICN_LIB_ERROR_NONE);
+  assert(rc == HICN_LIB_ERROR_NONE);
 
-  return (interest_manifest_header_t *)payload;
+  interest_manifest_header_t *int_manifest_header =
+      (interest_manifest_header_t *)payload;
+
+  // Deserialize intrest mmanifest
+  interest_manifest_deserialize(int_manifest_header);
+
+  if (!interest_manifest_is_valid(int_manifest_header, payload_size))
+    return NULL;
+
+  return int_manifest_header;
 }
 
 // Manifest is split using splitting strategy, then every
@@ -900,6 +909,9 @@ int _forwarder_forward_aggregated_interest(
           nexthops_foreach(nexthops, nexthop,
                            { pit_entry_egress_add(pit_entry, nexthop); });
         }
+
+        // Serialize manifest before sending it
+        interest_manifest_serialize(int_manifest_header);
 
         if (forwarder_forward_to_nexthops(forwarder, msgbuf_id, nexthops) <=
             0) {

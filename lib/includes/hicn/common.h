@@ -235,33 +235,53 @@ typedef struct
 } ip_version_t;
 #define HICN_IP_VERSION(packet) ((ip_version_t *) packet)->version
 
-#ifndef ntohll
-static inline uint64_t
-ntohll (uint64_t input)
-{
-  uint64_t return_val = input;
+/*
+ * Endianess utils
+ */
+
 #if (__BYTE_ORDER__) == (__ORDER_LITTLE_ENDIAN__)
-  uint8_t *tmp = (uint8_t *) &return_val;
-
-  tmp[0] = (uint8_t) (input >> 56);
-  tmp[1] = (uint8_t) (input >> 48);
-  tmp[2] = (uint8_t) (input >> 40);
-  tmp[3] = (uint8_t) (input >> 32);
-  tmp[4] = (uint8_t) (input >> 24);
-  tmp[5] = (uint8_t) (input >> 16);
-  tmp[6] = (uint8_t) (input >> 8);
-  tmp[7] = (uint8_t) (input >> 0);
+#define HICN_LITTLE_ENDIAN_ARCH
+#else
+#define HICN_BIG_ENDIAN_ARCH
 #endif
 
-  return return_val;
-}
-
-static inline uint64_t
-htonll (uint64_t input)
+static inline u16
+hicn_conditional_swap_u16 (u16 value)
 {
-  return (ntohll (input));
-}
+#ifdef HICN_LITTLE_ENDIAN_ARCH
+  value = __builtin_bswap16 (value);
 #endif
+
+  return value;
+}
+
+static inline u32
+hicn_conditional_swap_u32 (u32 value)
+{
+#ifdef HICN_LITTLE_ENDIAN_ARCH
+  value = __builtin_bswap32 (value);
+#endif
+
+  return value;
+}
+
+static inline u64
+hicn_conditional_swap_u64 (u64 value)
+{
+#ifdef HICN_LITTLE_ENDIAN_ARCH
+  value = __builtin_bswap64 (value);
+#endif
+
+  return value;
+}
+
+#define hicn_net_to_host_16(x) hicn_conditional_swap_u16 ((u16) (x))
+#define hicn_net_to_host_32(x) hicn_conditional_swap_u32 ((u32) (x))
+#define hicn_net_to_host_64(x) hicn_conditional_swap_u64 ((u64) (x))
+
+#define hicn_host_to_net_16(x) hicn_conditional_swap_u16 ((u16) (x))
+#define hicn_host_to_net_32(x) hicn_conditional_swap_u32 ((u32) (x))
+#define hicn_host_to_net_64(x) hicn_conditional_swap_u64 ((u64) (x))
 
 #define hicn_round_pow2(x, pow2) (((x) + (pow2) -1) & ~((pow2) -1))
 
