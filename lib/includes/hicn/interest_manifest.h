@@ -21,6 +21,8 @@
 
 #include <hicn/util/bitmap.h>
 #include <hicn/base.h>
+#include <hicn/name.h>
+#include <hicn/common.h>
 
 typedef enum
 {
@@ -52,7 +54,56 @@ typedef struct
 } interest_manifest_header_t;
 
 static_assert (sizeof (interest_manifest_header_t) == 32 + 4 + 4,
-	       "interest_manifest_header_t size must be 40 bytes");
+	       "interest_manifest_header_t size must be exactly 40 bytes");
+
+#define _interest_manifest_serialize_deserialize(manifest, first, second,     \
+						 size, serialize)             \
+  do                                                                          \
+    {                                                                         \
+      u32 n_suffixes = 0;                                                     \
+      if (serialize)                                                          \
+	n_suffixes = int_manifest_header->n_suffixes;                         \
+                                                                              \
+      int_manifest_header->n_suffixes =                                       \
+	hicn_##first##_to_##second##_32 (int_manifest_header->n_suffixes);    \
+      int_manifest_header->padding =                                          \
+	hicn_##first##_to_##second##_32 (int_manifest_header->padding);       \
+                                                                              \
+      for (unsigned i = 0; i < BITMAP_SIZE; i++)                              \
+	{                                                                     \
+	  int_manifest_header->request_bitmap[i] =                            \
+	    hicn_##first##_to_##second##_##size (                             \
+	      int_manifest_header->request_bitmap[i]);                        \
+	}                                                                     \
+                                                                              \
+      hicn_name_suffix_t *suffix =                                            \
+	(hicn_name_suffix_t *) (int_manifest_header + 1);                     \
+      if (!serialize)                                                         \
+	n_suffixes = int_manifest_header->n_suffixes;                         \
+      for (unsigned i = 0; i < n_suffixes; i++)                               \
+	{                                                                     \
+	  *(suffix + i) = hicn_##first##_to_##second##_32 (*(suffix + i));    \
+	}                                                                     \
+    }                                                                         \
+  while (0)
+
+#define _interest_manifest_serialize(manifest, size)                          \
+  _interest_manifest_serialize_deserialize (manifest, host, net, size, 1)
+
+#define _interest_manifest_deserialize(manifest, size)                        \
+  _interest_manifest_serialize_deserialize (manifest, net, host, size, 0)
+
+static inline void
+interest_manifest_serialize (interest_manifest_header_t *int_manifest_header)
+{
+  _interest_manifest_serialize (int_manifest_header, hicn_uword_bits);
+}
+
+static inline void
+interest_manifest_deserialize (interest_manifest_header_t *int_manifest_header)
+{
+  _interest_manifest_deserialize (int_manifest_header, hicn_uword_bits);
+}
 
 static inline bool
 interest_manifest_is_valid (interest_manifest_header_t *int_manifest_header,
@@ -80,6 +131,33 @@ interest_manifest_is_valid (interest_manifest_header_t *int_manifest_header,
   return true;
 }
 
+static inline void
+interest_manifest_init (interest_manifest_header_t *int_manifest_header)
+{
+  int_manifest_header->n_suffixes = 0;
+  int_manifest_header->padding = 0;
+  memset (int_manifest_header->request_bitmap, 0,
+	  sizeof (int_manifest_header->request_bitmap));
+}
+
+static inline void
+interest_manifest_add_suffix (interest_manifest_header_t *int_manifest_header,
+			      hicn_name_suffix_t suffix)
+{
+  hicn_name_suffix_t *start = (hicn_name_suffix_t *) (int_manifest_header + 1);
+  *(start + int_manifest_header->n_suffixes) = suffix;
+  hicn_uword *request_bitmap = int_manifest_header->request_bitmap;
+  bitmap_set_no_check (request_bitmap, int_manifest_header->n_suffixes);
+  int_manifest_header->n_suffixes++;
+}
+
+static inline void
+interest_manifest_del_suffix (interest_manifest_header_t *int_manifest_header,
+			      hicn_uword pos)
+{
+  bitmap_unset_no_check (int_manifest_header->request_bitmap, pos);
+}
+
 static inline size_t
 interest_manifest_update_bitmap (const hicn_uword *initial_bitmap,
 				 hicn_uword *bitmap_to_update, size_t start,
@@ -101,5 +179,16 @@ interest_manifest_update_bitmap (const hicn_uword *initial_bitmap,
 
   return i;
 }
+
+#define _FIRST(h) (hicn_name_suffix_t *) (h + 1)
+
+#define interest_manifest_foreach_suffix(header, suffix)                      \
+  for (suffix = _FIRST (header) + bitmap_first_set_no_check (                 \
+				    header->request_bitmap, BITMAP_SIZE);     \
+       suffix - _FIRST (header) < header->n_suffixes;                         \
+       suffix = _FIRST (header) +                                             \
+		bitmap_next_set_no_check (header->request_bitmap,             \
+					  suffix - _FIRST (header) + 1,       \
+					  BITMAP_SIZE))
 
 #endif /* HICNLIGHT_INTEREST_MANIFEST_H */

@@ -126,6 +126,12 @@ hicn_interest_pcslookup_node_fn (vlib_main_t *vm, vlib_node_runtime_t *node,
 
 	  stats.pkts_interest_count++;
 
+	  // Interest manifest?
+	  if (hicn_buffer_get_payload_type (b0) == HPT_MANIFEST)
+	    {
+	      ;
+	    }
+
 	  // Maybe trace
 	  if (PREDICT_FALSE ((node->flags & VLIB_NODE_FLAG_TRACE) &&
 			     (b0->flags & VLIB_BUFFER_IS_TRACED)))

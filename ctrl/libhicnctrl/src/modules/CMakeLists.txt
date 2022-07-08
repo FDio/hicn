@@ -72,6 +72,22 @@ if(BUILD_HICNPLUGIN AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/route.h
   )
 
+  ##############################################################
+  # Compiler Options
+  ##############################################################
+  set(COMPILER_OPTIONS
+    ${DEFAULT_COMPILER_OPTIONS}
+    ${MARCH_COMPILER_OPTIONS}
+    PRIVATE "-Wno-address-of-packed-member"
+  )
+
+  ##############################################################
+  # Compiler Definitions
+  ##############################################################
+  list(APPEND COMPILER_DEFINITIONS
+    PRIVATE "-DHICN_VPP_PLUGIN=1"
+  )
+
   build_module(vppctrl_module
     SOURCES ${HICN_PLUGIN_SOURCE_FILES} ${HICN_PLUGIN_HEADER_FILES}
     DEPENDS ${DEPENDENCIES}
@@ -82,6 +98,6 @@ if(BUILD_HICNPLUGIN AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     COMPONENT ${LIBHICNCTRL_COMPONENT_MODULES}
     INCLUDE_DIRS PRIVATE ${INCLUDE_DIRS}
     DEFINITIONS PRIVATE ${COMPILER_DEFINITIONS}
-    COMPILE_OPTIONS ${COMPILER_OPTIONS} ${MARCH_COMPILER_OPTIONS} "-DHICN_VPP_PLUGIN=1"
+    COMPILE_OPTIONS ${COMPILER_OPTIONS}
   )
 endif()

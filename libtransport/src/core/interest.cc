@@ -171,7 +171,7 @@ void Interest::encodeSuffixes() {
       (interest_manifest_header_t *)(writableData() + headerSize());
   int_manifest_header->n_suffixes = (uint32_t)suffix_set_.size();
   memset(int_manifest_header->request_bitmap, 0xFFFFFFFF,
-         BITMAP_SIZE * sizeof(u32));
+         BITMAP_SIZE * sizeof(hicn_uword));
 
   uint32_t *suffix = (uint32_t *)(int_manifest_header + 1);
   for (auto it = suffix_set_.begin(); it != suffix_set_.end(); it++, suffix++) {
@@ -181,8 +181,19 @@ void Interest::encodeSuffixes() {
   std::size_t additional_length =
       sizeof(interest_manifest_header_t) +
       int_manifest_header->n_suffixes * sizeof(uint32_t);
+
+  // Serialize interest manifest
+  interest_manifest_serialize(int_manifest_header);
+
   append(additional_length);
   updateLength();
+}
+
+void Interest::decodeSuffixes() {
+  if (!hasManifest()) return;
+
+  auto header = (interest_manifest_header_t *)(writableData() + headerSize());
+  interest_manifest_deserialize(header);
 }
 
 uint32_t *Interest::firstSuffix() {
@@ -223,24 +234,8 @@ void Interest::setRequestBitmap(const uint32_t *request_bitmap) {
 
 bool Interest::isValid() {
   if (!hasManifest()) return true;
-
   auto header = (interest_manifest_header_t *)(writableData() + headerSize());
-
-  if (header->n_suffixes == 0 ||
-      header->n_suffixes > MAX_SUFFIXES_IN_MANIFEST) {
-    std::cerr << "Manifest with invalid number of suffixes "
-              << header->n_suffixes;
-    return false;
-  }
-
-  uint32_t empty_bitmap[BITMAP_SIZE];
-  memset(empty_bitmap, 0, sizeof(empty_bitmap));
-  if (memcmp(empty_bitmap, header->request_bitmap, sizeof(empty_bitmap)) == 0) {
-    std::cerr << "Manifest with empty bitmap";
-    return false;
-  }
-
-  return true;
+  return interest_manifest_is_valid(header, payloadSize());
 }
 
 }  // end namespace core

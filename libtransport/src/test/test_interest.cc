@@ -255,7 +255,11 @@ TEST_F(InterestTest, AppendSuffixesEncodeAndIterate) {
   // Encode them in wire format
   interest.encodeSuffixes();
 
+  // Decode suffixes from wire format
+  interest.decodeSuffixes();
+
   // Iterate over them. They should be in order and without repetitions
+
   auto suffix = interest.firstSuffix();
   auto n_suffixes = interest.numberOfSuffixes();
 
@@ -277,6 +281,9 @@ TEST_F(InterestTest, AppendSuffixesWithGaps) {
   // Encode them in wire format
   interest.encodeSuffixes();
   EXPECT_TRUE(interest.hasManifest());
+
+  // Decode suffixes from wire format
+  interest.decodeSuffixes();
 
   // Check first suffix correctness
   auto suffix = interest.firstSuffix();

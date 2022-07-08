@@ -192,7 +192,7 @@ ah_set_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 {
   _ah_header_t *ah = pkbuf_get_ah (pkbuf);
 
-  uint64_t netwok_order_timestamp = htonll (signature_timestamp);
+  uint64_t netwok_order_timestamp = hicn_net_to_host_64 (signature_timestamp);
   memcpy (ah->timestamp_as_u8, &netwok_order_timestamp, sizeof (uint64_t));
   return HICN_LIB_ERROR_NONE;
 }
@@ -204,7 +204,7 @@ ah_get_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
   _ah_header_t *ah = pkbuf_get_ah (pkbuf);
 
   memcpy (signature_timestamp, ah->timestamp_as_u8, sizeof (uint64_t));
-  *signature_timestamp = ntohll (*signature_timestamp);
+  *signature_timestamp = hicn_host_to_net_64 (*signature_timestamp);
   return HICN_LIB_ERROR_NONE;
 }
 

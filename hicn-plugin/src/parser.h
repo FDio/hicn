@@ -36,6 +36,7 @@
                                                                               \
       u16 *port;                                                              \
       hicn_lifetime_t *lifetime;                                              \
+      hicn_payload_type_t payload_type;                                       \
                                                                               \
       hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (pkt)->pkbuf;            \
                                                                               \
@@ -58,6 +59,9 @@
       if (*lifetime > hicn_main.pit_lifetime_max_ms)                          \
 	*lifetime = hicn_main.pit_lifetime_max_ms;                            \
                                                                               \
+      /* get payload type */                                                  \
+      hicn_packet_get_payload_type (pkbuf, &payload_type);                    \
+      hicn_get_buffer (pkt)->payload_type = (u16) (payload_type);             \
       return ret;                                                             \
     }                                                                         \
   while (0)
