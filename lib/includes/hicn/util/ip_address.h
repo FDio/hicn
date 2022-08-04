@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -32,10 +32,11 @@
 #endif
 #include <errno.h>
 
+#include <assert.h>
 #ifndef _WIN32
 #include <netinet/in.h> // struct sockadd
-#include <arpa/inet.h>
-#include <netdb.h> // struct addrinfo
+#include <arpa/inet.h>	// inet_ntop
+#include <netdb.h>	// struct addrinfo
 #endif
 #include <stdbool.h>
 #include <stdlib.h>
@@ -61,11 +62,10 @@
 #endif
 //#define INET_MAX_ADDRSTRLEN INET6_ADDRSTRLEN
 
-#define IP_MAX_ADDR_LEN IPV6_ADDR_LEN
+#define IP_ADDRESS_MAX_LEN IPV6_ADDR_LEN
 
 #define DUMMY_PORT 1234
 
-#ifndef HICN_VPP_PLUGIN
 typedef union
 {
   struct in_addr as_inaddr;
@@ -73,9 +73,11 @@ typedef union
   u8 as_u8[4];
   u16 as_u16[2];
   u32 as_u32;
-} ip4_address_t;
+} ipv4_address_t;
 
-typedef union
+static_assert (sizeof (ipv4_address_t) == 4, "");
+
+typedef union __attribute__ ((__packed__))
 {
   struct in6_addr as_in6addr;
   u8 buffer[16];
@@ -83,16 +85,24 @@ typedef union
   u16 as_u16[8];
   u32 as_u32[4];
   u64 as_u64[2];
-} ip6_address_t;
+} ipv6_address_t;
+
+static_assert (sizeof (ipv6_address_t) == 16, "");
+
+#ifdef HICN_VPP_PLUGIN
+#include <vnet/ip/ip46_address.h>
+static_assert (sizeof (ipv4_address_t) == sizeof (ip4_address_t), "");
+static_assert (sizeof (ipv6_address_t) == sizeof (ip6_address_t), "");
+#endif
 
 typedef union
 {
   struct
   {
     u32 pad[3];
-    ip4_address_t v4;
+    ipv4_address_t v4;
   };
-  ip6_address_t v6;
+  ipv6_address_t v6;
 #if 0 /* removed as prone to error due to IPv4 padding */
     u8 buffer[IP_MAX_ADDR_LEN];
     u8 as_u8[IP_MAX_ADDR_LEN];
@@ -100,28 +110,14 @@ typedef union
     u32 as_u32[IP_MAX_ADDR_LEN >> 2];
     u64 as_u64[IP_MAX_ADDR_LEN >> 3];
 #endif
-} ip_address_t;
-
-#else
-
-#include <vnet/ip/ip4_packet.h> // ip4_address_t
-#include <vnet/ip/ip6_packet.h> // ip6_address_t
-
-#if __GNUC__ >= 9
-#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
-#endif
-
-#include <vnet/ip/ip46_address.h>
-
-#if __GNUC__ >= 9
-#pragma GCC diagnostic pop
-#endif
-
-typedef ip46_address_t ip_address_t;
-
+#ifdef HICN_VPP_PLUGIN
+  ip46_address_t as_ip46;
 #endif /* HICN_VPP_PLUGIN */
+} hicn_ip_address_t;
 
-#define ip_address_is_v4(ip)                                                  \
+static_assert (sizeof (hicn_ip_address_t) == 16, "");
+
+#define hicn_ip_address_is_v4(ip)                                             \
   (((ip)->pad[0] | (ip)->pad[1] | (ip)->pad[2]) == 0)
 
 #define MAXSZ_IP4_ADDRESS_ INET_ADDRSTRLEN - 1
@@ -131,24 +127,26 @@ typedef ip46_address_t ip_address_t;
 #define MAXSZ_IP6_ADDRESS  MAXSZ_IP6_ADDRESS_ + 1
 #define MAXSZ_IP_ADDRESS   MAXSZ_IP_ADDRESS_ + 1
 
+#define IP_ADDRESS_V4_OFFSET_LEN 12
+
 typedef struct
 {
   int family;
-  ip_address_t address;
+  hicn_ip_address_t address;
   u8 len;
-} ip_prefix_t;
+} hicn_ip_prefix_t;
 
 #define MAXSZ_IP_PREFIX_ MAXSZ_IP_ADDRESS_ + 1 + 3
 #define MAXSZ_IP_PREFIX	 MAXSZ_IP_PREFIX_ + 1
 
-extern const ip_address_t IPV4_LOOPBACK;
-extern const ip_address_t IPV6_LOOPBACK;
-extern const ip_address_t IPV4_ANY;
-extern const ip_address_t IPV6_ANY;
+extern const hicn_ip_address_t IPV4_LOOPBACK;
+extern const hicn_ip_address_t IPV6_LOOPBACK;
+extern const hicn_ip_address_t IPV4_ANY;
+extern const hicn_ip_address_t IPV6_ANY;
 
-extern const ip4_address_t IP4_ADDRESS_EMPTY;
-extern const ip6_address_t IP6_ADDRESS_EMPTY;
-extern const ip_address_t IP_ADDRESS_EMPTY;
+extern const ipv4_address_t IP4_ADDRESS_EMPTY;
+extern const ipv6_address_t IP6_ADDRESS_EMPTY;
+extern const hicn_ip_address_t IP_ADDRESS_EMPTY;
 
 #define IP_ANY(family) (family == AF_INET) ? IPV4_ANY : IPV6_ANY
 
@@ -161,32 +159,52 @@ extern const ip_address_t IP_ADDRESS_EMPTY;
 #define IS_VALID_FAMILY(x) ((x == AF_INET) || (x == AF_INET6))
 
 /* IP address */
+int hicn_ip_address_get_family (const hicn_ip_address_t *address);
+int hicn_ip_address_str_get_family (const char *ip_address);
+int hicn_ip_address_len (int family);
+int hicn_ip_address_get_len (const hicn_ip_address_t *ip_address);
 
-int ip_address_get_family (const char *ip_address);
-int ip_address_len (int family);
-const u8 *ip_address_get_buffer (const ip_address_t *ip_address, int family);
-int ip_address_ntop (const ip_address_t *ip_address, char *dst,
-		     const size_t len, int family);
-int ip_address_pton (const char *ip_address_str, ip_address_t *ip_address);
-int ip_address_snprintf (char *s, size_t size, const ip_address_t *ip_address,
-			 int family);
-int ip_address_to_sockaddr (const ip_address_t *ip_address,
-			    struct sockaddr *sa, int family);
-int ip_address_cmp (const ip_address_t *ip1, const ip_address_t *ip2,
-		    int family);
-int ip_address_empty (const ip_address_t *ip);
+int hicn_ip_address_get_len_bits (const hicn_ip_address_t *ip_address);
+const u8 *hicn_ip_address_get_buffer (const hicn_ip_address_t *ip_address,
+				      int family);
+int hicn_ip_address_ntop (const hicn_ip_address_t *ip_address, char *dst,
+			  const size_t len, int family);
+int hicn_ip_address_pton (const char *ip_address_str,
+			  hicn_ip_address_t *ip_address);
+int hicn_ip_address_snprintf (char *s, size_t size,
+			      const hicn_ip_address_t *ip_address);
+int hicn_ip_address_to_sockaddr (const hicn_ip_address_t *ip_address,
+				 struct sockaddr *sa, int family);
+int hicn_ip_address_cmp (const hicn_ip_address_t *ip1,
+			 const hicn_ip_address_t *ip2);
+bool hicn_ip_address_equals (const hicn_ip_address_t *ip1,
+			     const hicn_ip_address_t *ip2);
+int hicn_ip_address_empty (const hicn_ip_address_t *ip);
+
+uint8_t hicn_ip_address_get_bit (const hicn_ip_address_t *address,
+				 uint8_t pos);
+
+bool hicn_ip_address_match_family (const hicn_ip_address_t *address,
+				   int family);
+
+uint32_t hicn_ip_address_get_hash (const hicn_ip_address_t *address);
 
 /* Prefix */
 
-int ip_prefix_pton (const char *ip_address_str, ip_prefix_t *ip_prefix);
-int ip_prefix_ntop_short (const ip_prefix_t *ip_prefix, char *dst,
-			  size_t size);
-int ip_prefix_ntop (const ip_prefix_t *ip_prefix, char *dst, size_t size);
-int ip_prefix_snprintf (char *s, size_t size, const ip_prefix_t *prefix);
-int ip_prefix_len (const ip_prefix_t *prefix);
-bool ip_prefix_empty (const ip_prefix_t *prefix);
-int ip_prefix_to_sockaddr (const ip_prefix_t *prefix, struct sockaddr *sa);
-int ip_prefix_cmp (const ip_prefix_t *prefix1, const ip_prefix_t *prefix2);
+int hicn_ip_prefix_pton (const char *ip_address_str,
+			 hicn_ip_prefix_t *hicn_ip_prefix);
+int hicn_ip_prefix_ntop_short (const hicn_ip_prefix_t *hicn_ip_prefix,
+			       char *dst, size_t size);
+int hicn_ip_prefix_ntop (const hicn_ip_prefix_t *hicn_ip_prefix, char *dst,
+			 size_t size);
+int hicn_ip_prefix_snprintf (char *s, size_t size,
+			     const hicn_ip_prefix_t *prefix);
+int hicn_ip_prefix_len (const hicn_ip_prefix_t *prefix);
+bool hicn_ip_prefix_empty (const hicn_ip_prefix_t *prefix);
+int hicn_ip_prefix_to_sockaddr (const hicn_ip_prefix_t *prefix,
+				struct sockaddr *sa);
+int hicn_ip_prefix_cmp (const hicn_ip_prefix_t *prefix1,
+			const hicn_ip_prefix_t *prefix2);
 
 /* URL */
 
@@ -200,7 +218,7 @@ int ip_prefix_cmp (const ip_prefix_t *prefix1, const ip_prefix_t *prefix2);
 #define MAXSZ_URL6  MAXSZ_URL6_ + NULLTERM
 #define MAXSZ_URL   MAXSZ_URL_ + NULLTERM
 
-int url_snprintf (char *s, size_t size, int family,
-		  const ip_address_t *ip_address, u16 port);
+int url_snprintf (char *s, size_t size, const hicn_ip_address_t *ip_address,
+		  u16 port);
 
 #endif /* UTIL_IP_ADDRESS_H */

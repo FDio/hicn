@@ -14,13 +14,28 @@
 ##############################################################
 # Hicn Light NG Module
 ##############################################################
-list(APPEND HICNLIGHTNG_MODULE_SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light_common.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light_ng_api.c
+list(APPEND HICNLIGHT_MODULE_SOURCE_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/connection.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/face.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/listener.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/route.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/strategy.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/subscription.c
 )
 
-build_module(hicnlightngctrl_module
-  SOURCES ${HICNLIGHTNG_MODULE_SOURCE_FILES}
+list(APPEND HICNLIGHT_MODULE_HEADER_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/connection.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/face.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/listener.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/route.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/strategy.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/subscription.h
+  )
+
+build_module(hicnlightctrl_module
+  SOURCES ${HICNLIGHT_MODULE_SOURCE_FILES} ${HICNLIGHT_MODULE_HEADER_FILES}
   DEPENDS ${DEPENDENCIES}
   COMPONENT ${LIBHICNCTRL_COMPONENT}
   LINK_LIBRARIES PRIVATE ${HICN_LIBRARIES}
@@ -44,12 +59,21 @@ if(BUILD_HICNPLUGIN AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     )
   endif()
 
+
   list(APPEND HICN_PLUGIN_SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin_api.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin/listener.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_plugin/route.c
+  )
+
+  list(APPEND HICN_PLUGIN_HEADER_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/base.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/listener.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn_light/route.h
   )
 
   build_module(vppctrl_module
-    SOURCES ${HICN_PLUGIN_SOURCE_FILES}
+    SOURCES ${HICN_PLUGIN_SOURCE_FILES} ${HICN_PLUGIN_HEADER_FILES}
     DEPENDS ${DEPENDENCIES}
     LINK_LIBRARIES
       PRIVATE ${HICN_LIBRARIES}
@@ -58,6 +82,6 @@ if(BUILD_HICNPLUGIN AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     COMPONENT ${LIBHICNCTRL_COMPONENT_MODULES}
     INCLUDE_DIRS PRIVATE ${INCLUDE_DIRS}
     DEFINITIONS PRIVATE ${COMPILER_DEFINITIONS}
-    COMPILE_OPTIONS ${COMPILER_OPTIONS} ${MARCH_COMPILER_OPTIONS}
+    COMPILE_OPTIONS ${COMPILER_OPTIONS} ${MARCH_COMPILER_OPTIONS} "-DHICN_VPP_PLUGIN=1"
   )
 endif()

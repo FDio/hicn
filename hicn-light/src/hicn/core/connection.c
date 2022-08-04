@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,8 +22,9 @@
 
 #include <hicn/core/forwarder.h>
 #include <hicn/core/listener.h>
-#include <hicn/util/log.h>
 #include <hicn/core/wldr.h>
+#include <hicn/policy.h>
+#include <hicn/util/log.h>
 
 #include "connection.h"
 #include "connection_vft.h"
@@ -31,7 +32,7 @@
 // This is called by configuration
 connection_t *connection_create(face_type_t type, const char *name,
                                 const address_pair_t *pair,
-                                forwarder_t *forwarder) {
+                                const forwarder_t *forwarder) {
   assert(face_type_is_valid(type));
   assert(pair);
   assert(forwarder);
@@ -68,6 +69,38 @@ connection_t *connection_create(face_type_t type, const char *name,
   unsigned connection_id = listener_create_connection(listener, name, pair);
   if (!connection_id_is_valid(connection_id)) return NULL;
   return connection_table_at(table, connection_id);
+}
+
+netdevice_type_t connection_get_netdevice_type(const char *interface_name) {
+  if (strncmp(interface_name, "lo", 2) == 0) {
+    return NETDEVICE_TYPE_LOOPBACK;
+  }
+  if ((strncmp(interface_name, "eth", 3) == 0) ||
+      (strncmp(interface_name, "en", 2) == 0)) {
+    /* eth* en* enx* */
+    return NETDEVICE_TYPE_WIRED;
+  }
+  if (strncmp(interface_name, "wl", 2) == 0) {
+    /* wlan* wlp* wlx* */
+    return NETDEVICE_TYPE_WIFI;
+  }
+  if (strncmp(interface_name, "rmnet_ipa", 9) == 0) {
+    /* Qualcomm IPA driver */
+    return NETDEVICE_TYPE_UNDEFINED;
+  }
+  if ((strncmp(interface_name, "rmnet", 5) == 0) ||
+      (strncmp(interface_name, "rev_rmnet", 9) == 0) ||
+      (strncmp(interface_name, "ccmni", 5) == 0)) {
+    /*
+     * rmnet* (Qualcomm) ccmni* (MediaTek)
+     */
+    return NETDEVICE_TYPE_CELLULAR;
+  }
+  /* usb0 might be cellular (eg Zenfone2) */
+  /* what about tethering */
+  /* tun* dummy* ... */
+  /* bnet* pan* hci* for bluetooth */
+  return NETDEVICE_TYPE_UNDEFINED;
 }
 
 /**
@@ -121,6 +154,30 @@ int connection_initialize(connection_t *connection, face_type_t type,
       .wldr = NULL,
       .wldr_autostart = true,
   };
+
+  connection->interface_type =
+      connection_get_netdevice_type(connection->interface_name);
+
+#ifdef WITH_POLICY
+  connection_clear_tags(connection);
+  switch (connection->interface_type) {
+#if 0
+    case NETDEVICE_TYPE_LOOPBACK:
+      connection_add_tag(connection, POLICY_TAG_LOOPBACK);
+      break;
+#endif
+    case NETDEVICE_TYPE_WIRED:
+      connection_add_tag(connection, POLICY_TAG_WIRED);
+      break;
+    case NETDEVICE_TYPE_WIFI:
+      connection_add_tag(connection, POLICY_TAG_WIFI);
+      break;
+    case NETDEVICE_TYPE_CELLULAR:
+      connection_add_tag(connection, POLICY_TAG_CELLULAR);
+    default:
+      break;
+  }
+#endif
 
   connection->data =
       malloc(connection_vft[get_protocol(connection->type)]->data_size);
@@ -200,8 +257,8 @@ int connection_finalize(connection_t *connection) {
   return 0;
 }
 
-int connection_send_packet(const connection_t *connection,
-                           const uint8_t *packet, size_t size) {
+bool connection_send_packet(const connection_t *connection,
+                            const uint8_t *packet, size_t size) {
   assert(connection);
   assert(face_type_is_valid(connection->type));
   assert(packet);
@@ -231,10 +288,12 @@ bool connection_send(connection_t *connection, off_t msgbuf_id, bool queue) {
   const msgbuf_pool_t *msgbuf_pool = forwarder_get_msgbuf_pool(forwarder);
   msgbuf_t *msgbuf = msgbuf_pool_at(msgbuf_pool, msgbuf_id);
 
+#if 0
   if (connection->wldr)
     wldr_set_label(connection->wldr, msgbuf);
   else
     msgbuf_reset_wldr_label(msgbuf);
+#endif
 
   return _connection_send(connection, msgbuf, queue);
 }

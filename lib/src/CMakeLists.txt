@@ -15,13 +15,14 @@
 # Source and Header files
 ##############################################################
 list(APPEND LIBHICN_SOURCE_FILES
+  base.c
   common.c
-  compat.c
   error.c
   face.c
   mapme.c
   name.c
   ops.c
+  packet.c
   policy.c
   strategy.c
   protocol/ah.c
@@ -35,6 +36,7 @@ list(APPEND LIBHICN_SOURCE_FILES
   util/log.c
   util/pool.c
   util/ring.c
+  util/types.c
   util/vector.c
 )
 
@@ -72,6 +74,7 @@ endif()
 ##############################################################
 set(COMPILER_OPTIONS
   ${DEFAULT_COMPILER_OPTIONS}
+  PRIVATE "-Wno-address-of-packed-member"
 )
 
 

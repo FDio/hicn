@@ -22,6 +22,12 @@ list(APPEND TESTS_SRC
   test_new_header.cc
   test_udp_header.cc
   test_validation.cc
+  test_bitmap.cc
+  test_interest_manifest.cc
+  test_khash.cc
+  test_pool.cc
+  test_ring.cc
+  test_vector.cc
 )
 
 ##############################################################

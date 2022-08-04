@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -46,7 +46,7 @@ class PacketFactory {
 
     // create data packet
     auto data = packet_manager.getPacket<transport::core::ContentObject>(
-        HF_INET6_TCP, 0);
+        HICN_PACKET_FORMAT_IPV6_TCP, 0);
     struct rtc::data_packet_t header;
     header.setTimestamp(1000);
     header.setProductionRate(1);
@@ -64,7 +64,7 @@ class PacketFactory {
     auto &packet_manager = core::PacketManager<>::getInstance();
 
     auto data = packet_manager.getPacket<transport::core::ContentObject>(
-        HF_INET6_TCP, 0);
+        HICN_PACKET_FORMAT_IPV6_TCP, 0);
     struct rtc::data_packet_t header;
     header.setTimestamp(1000);
     header.setProductionRate(1);
@@ -99,7 +99,8 @@ class Encoder {
 
   fec::buffer getBuffer(std::size_t size) {
     auto ret = core::PacketManager<>::getInstance()
-                   .getPacket<transport::core::ContentObject>(HF_INET6_TCP, 0);
+                   .getPacket<transport::core::ContentObject>(
+                       HICN_PACKET_FORMAT_IPV6_TCP, 0);
     ret->updateLength(rtc::DATA_HEADER_SIZE + size);
     ret->append(rtc::DATA_HEADER_SIZE + size);
     ret->trimStart(ret->headerSize() + rtc::DATA_HEADER_SIZE);

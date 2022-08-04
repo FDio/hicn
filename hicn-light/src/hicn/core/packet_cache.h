@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -69,6 +69,10 @@ typedef enum {
 #undef _
 } pkt_cache_verdict_t;
 
+extern const char *_pkt_cache_verdict_str[];
+
+#define pkt_cache_verdict_str(x) _pkt_cache_verdict_str[x]
+
 #define foreach_kh_lookup \
   _(INTEREST_NOT_EXPIRED) \
   _(INTEREST_EXPIRED)     \
@@ -83,10 +87,12 @@ typedef enum {
 } pkt_cache_lookup_t;
 
 KHASH_MAP_INIT_INT(pkt_cache_suffix, unsigned);
-KHASH_INIT(pkt_cache_prefix, const NameBitvector *, kh_pkt_cache_suffix_t *, 1,
-           nameBitvector_GetHash32, nameBitvector_Equals);
+KHASH_INIT(pkt_cache_prefix, const hicn_name_prefix_t *,
+           kh_pkt_cache_suffix_t *, 1, hicn_name_prefix_get_hash,
+           hicn_name_prefix_equals);
 
 typedef struct {
+  hicn_name_t name;
   pkt_cache_entry_type_t entry_type;
 
   Ticks create_ts;
@@ -109,7 +115,7 @@ typedef struct {
 
   // Cached prefix info to avoid double lookups,
   // used for both single interest speculation and interest manifest
-  NameBitvector cached_prefix;
+  hicn_name_prefix_t cached_prefix;
   kh_pkt_cache_suffix_t *cached_suffixes;
 } pkt_cache_t;
 
@@ -123,12 +129,29 @@ pkt_cache_t *pkt_cache_create(size_t cs_size);
 /**
  * @brief Add an entry with the specified name to the packet cache.
  *
- * @param[in] pkt_cache Pointer to the msgbuf pool data structure to use.
+ * @param[in] pkt_cache Pointer to the pool data structure to use.
  * @param[in, out] entry Empty entry that will be used to return the
  * allocated one from the msgbuf pool.
- * * @param[in] name Name to use
+ * @param[in] name hicn_name_t to use
+ *
+ * NOTE: unlike other pools, PIT and CS entries allocation does not update the
+ * index as the key is a hicn_name_t * which should point to :
+ *  - the name inside the PIT entry (which is thus not set during allocation),
+ *  - the name inside the msgbuf_t in the CS entry, which is always available
+ *  during the lifetime of the cache entry.
+ *
+ * The index is therefore updated in pkt_cache_add_to_pit and
+ * pkt_cache_add_to_cs functions.
+ *
+ *
  */
-pkt_cache_entry_t *pkt_cache_allocate(pkt_cache_t *pkt_cache, const Name *name);
+pkt_cache_entry_t *pkt_cache_allocate(pkt_cache_t *pkt_cache);
+
+void pkt_cache_add_to_index(const pkt_cache_t *pkt_cache,
+                            const pkt_cache_entry_t *entry);
+
+void pkt_cache_remove_from_index(const pkt_cache_t *pkt_cache,
+                                 const hicn_name_t *name);
 
 /**
  * @brief Free a packet cache data structure.
@@ -150,8 +173,8 @@ pit_t *pkt_cache_get_pit(pkt_cache_t *pkt_cache);
  * @brief Get a reference to the CS data structure contained in the packet
  * cache.
  *
- * @param[in] pkt_cache Pointer to the packet cache data structure to get the CS
- * from.
+ * @param[in] pkt_cache Pointer to the packet cache data structure to get the
+ * CS from.
  */
 cs_t *pkt_cache_get_cs(pkt_cache_t *pkt_cache);
 
@@ -170,13 +193,13 @@ size_t pkt_cache_get_size(pkt_cache_t *pkt_cache);
 size_t pkt_cache_get_num_cs_stale_entries(pkt_cache_t *pkt_cache);
 
 /**
- * @brief Change the maximum capacity of the content store (LRU eviction will be
- * used after reaching the provided size)
+ * @brief Change the maximum capacity of the content store (LRU eviction will
+ * be used after reaching the provided size)
  *
  * @param[in] pkt_cache Pointer to the packet cache data structure to use
  * @param[in] size Maximum size of the content store
- * @return int 0 if success, -1 if the provided maximum size is smaller than the
- * number of elements currently stored in the CS
+ * @return int 0 if success, -1 if the provided maximum size is smaller than
+ * the number of elements currently stored in the CS
  */
 int pkt_cache_set_cs_size(pkt_cache_t *pkt_cache, size_t size);
 
@@ -203,8 +226,8 @@ size_t pkt_cache_get_pit_size(pkt_cache_t *pkt_cache);
 #define pkt_cache_at(pkt_cache, i) (pkt_cache->entries + i)
 
 /**
- * @brief Retrieve from the packet cache the entry associated with the specified
- * name.
+ * @brief Retrieve from the packet cache the entry associated with the
+ * specified name.
  *
  * @param[in] pkt_cache Pointer to the packet cache data structure to retrieve
  * the entry from
@@ -217,7 +240,8 @@ size_t pkt_cache_get_pit_size(pkt_cache_t *pkt_cache);
  * allowed to serve contents from the CS
  * @return pkt_cache_entry_t* Entry retrieved, NULL if none found
  */
-pkt_cache_entry_t *pkt_cache_lookup(pkt_cache_t *pkt_cache, const Name *name,
+pkt_cache_entry_t *pkt_cache_lookup(pkt_cache_t *pkt_cache,
+                                    const hicn_name_t *name,
                                     msgbuf_pool_t *msgbuf_pool,
                                     pkt_cache_lookup_t *lookup_result,
                                     off_t *entry_id,
@@ -260,11 +284,10 @@ void pkt_cache_cs_remove_entry(pkt_cache_t *pkt_cache, pkt_cache_entry_t *entry,
  * @brief Remove a PIT entry from the packet cache.
  *
  * @param[in] pkt_cache Pointer to the packet cache data structure to use
- * @param[in] entry Pointer to the PITe entry to remove
- * @param[in] name Name associated with the PIT entry to remove
+ * @param[in] entry Pointer to the PIT entry to remove
  */
 void pkt_cache_pit_remove_entry(pkt_cache_t *pkt_cache,
-                                pkt_cache_entry_t *entry, const Name *name);
+                                pkt_cache_entry_t *entry);
 
 /**
  * @brief Convert a PIT entry to a CS entry.
@@ -311,7 +334,7 @@ void pkt_cache_cs_to_pit(pkt_cache_t *pkt_cache, pkt_cache_entry_t *entry,
  */
 pkt_cache_entry_t *pkt_cache_add_to_pit(pkt_cache_t *pkt_cache,
                                         const msgbuf_t *msgbuf,
-                                        const Name *name);
+                                        const hicn_name_t *name);
 
 /**
  * @brief Add CS entry to the packet cache.
@@ -329,7 +352,8 @@ pkt_cache_entry_t *pkt_cache_add_to_cs(pkt_cache_t *pkt_cache,
                                        msgbuf_t *msgbuf, off_t msgbuf_id);
 
 /**
- * @brief Update PIT entry in the packet cache in case of an expired PIT entry.
+ * @brief Update PIT entry in the packet cache in case of an expired PIT
+ * entry.
  *
  * @param[in] pkt_cache Pointer to the packet cache data structure to use
  * @param[in, out] entry Pointer to the PIT entry to update
@@ -371,7 +395,8 @@ void pkt_cache_update_cs(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
  */
 bool pkt_cache_try_aggregate_in_pit(pkt_cache_t *pkt_cache,
                                     pkt_cache_entry_t *entry,
-                                    const msgbuf_t *msgbuf, const Name *name);
+                                    const msgbuf_t *msgbuf,
+                                    const hicn_name_t *name);
 
 /**
  * @brief Cache prefix info (prefix + associated suffixes) to speed up lookups.
@@ -380,7 +405,7 @@ bool pkt_cache_try_aggregate_in_pit(pkt_cache_t *pkt_cache,
  * @param[in] prefix Name prefix to cache
  */
 void pkt_cache_save_suffixes_for_prefix(pkt_cache_t *pkt_cache,
-                                        const NameBitvector *prefix);
+                                        const hicn_name_prefix_t *prefix);
 
 /**
  * @brief Reset cached prefix info to force double lookups.
@@ -393,7 +418,8 @@ void pkt_cache_reset_suffixes_for_prefix(pkt_cache_t *pkt_cache);
 
 /**
  * @brief Handle data packet reception.
- * @details Perform packet cache lookup and execute operations based on it. If:
+ * @details Perform packet cache lookup and execute operations based on it.
+ * If:
  *      - INTEREST not expired: Convert PIT entry to CS entry; return the
  *                              nexthops (that can be used to forward the data
  *                              packet now stored in the CS)
@@ -409,7 +435,8 @@ nexthops_t *pkt_cache_on_data(pkt_cache_t *pkt_cache,
 
 /**
  * @brief Handle interest packet reception.
- * @details Perform packet cache lookup and execute operations based on it. If:
+ * @details Perform packet cache lookup and execute operations based on it.
+ * If:
  *      - No match: Do nothing
  *      - DATA not expired: get data message from CS
  *      - INTEREST not expired: Aggregate or retransmit the interest received;
@@ -419,23 +446,28 @@ nexthops_t *pkt_cache_on_data(pkt_cache_t *pkt_cache,
 void pkt_cache_on_interest(pkt_cache_t *pkt_cache, msgbuf_pool_t *msgbuf_pool,
                            off_t msgbuf_id, pkt_cache_verdict_t *verdict,
                            off_t *data_msgbuf_id, pkt_cache_entry_t **entry_ptr,
-                           const Name *name, bool is_serve_from_cs_enabled);
+                           const hicn_name_t *name,
+                           bool is_serve_from_cs_enabled);
 
 /********* Low-level operations on the hash table *********/
 #ifdef WITH_TESTS
-unsigned __get_suffix(kh_pkt_cache_suffix_t *suffixes, uint32_t suffix,
-                      int *rc);
+unsigned __get_suffix(kh_pkt_cache_suffix_t *suffixes,
+                      hicn_name_suffix_t suffix);
 unsigned _get_suffix(kh_pkt_cache_prefix_t *prefixes,
-                     const NameBitvector *prefix, uint32_t suffix, int *rc);
-void __add_suffix(kh_pkt_cache_suffix_t *suffixes, uint32_t suffix,
+                     const hicn_name_prefix_t *prefix,
+                     hicn_name_suffix_t suffix);
+void __add_suffix(kh_pkt_cache_suffix_t *suffixes, hicn_name_suffix_t suffix,
                   unsigned val);
-void _add_suffix(kh_pkt_cache_prefix_t *prefixes, const NameBitvector *prefix,
-                 uint32_t suffix, unsigned val);
+void _add_suffix(kh_pkt_cache_prefix_t *prefixes,
+                 const hicn_name_prefix_t *prefix, hicn_name_suffix_t suffix,
+                 unsigned val);
 void _remove_suffix(kh_pkt_cache_prefix_t *prefixes,
-                    const NameBitvector *prefix, uint32_t suffix);
+                    const hicn_name_prefix_t *prefix,
+                    hicn_name_suffix_t suffix);
 void _prefix_map_free(kh_pkt_cache_prefix_t *prefix_to_suffixes);
 kh_pkt_cache_suffix_t *_get_suffixes(kh_pkt_cache_prefix_t *prefix_to_suffixes,
-                                     const NameBitvector *prefix);
+                                     const hicn_name_prefix_t *prefix,
+                                     bool create);
 #endif
 
 /************** Content Store *****************************/

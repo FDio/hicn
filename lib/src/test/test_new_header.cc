@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,10 +20,10 @@ extern "C"
 #include <hicn/name.h>
 #include <hicn/common.h>
 #include <hicn/error.h>
-#include <hicn/protocol/new.h>
-#include <hicn/protocol/ah.h>
-#include <hicn/header.h>
-#include <hicn/compat.h>
+#include <hicn/packet.h>
+
+#include "../protocol/ah.h"
+#include "../protocol/new.h"
 }
 
 class NewHeaderTest : public ::testing::Test
@@ -33,10 +33,11 @@ protected:
   const char *ipv4_prefix = "12.13.14.15";
   const uint32_t suffix = 12345;
 
-  NewHeaderTest (size_t hdr_size, hicn_format_t format)
-      : buffer_ (new uint8_t[hdr_size]), header_ ((hicn_header_t *) (buffer_)),
+  NewHeaderTest (hicn_packet_format_t format)
+      : buffer_ (new uint8_t[NEW_HDRLEN]),
 	format_ (format), name_{}, name4_{}, name6_{}
   {
+
     int rc = inet_pton (AF_INET6, ipv6_prefix, &ipv6_prefix_bytes.v6);
     EXPECT_EQ (rc, 1);
 
@@ -49,16 +50,20 @@ protected:
     EXPECT_EQ (rc, HICN_LIB_ERROR_NONE);
   }
 
-  NewHeaderTest () : NewHeaderTest (NEW_HDRLEN, HF_NEW) {}
+  NewHeaderTest () : NewHeaderTest (HICN_PACKET_FORMAT_NEW) {}
 
   virtual ~NewHeaderTest () { delete[] buffer_; }
 
   void
-  checkCommon (const _new_header_t *new_hdr)
+  checkCommon ()
   {
     // Initialize header
-    int rc = hicn_packet_init_header (format_, header_);
+    hicn_packet_set_format (&pkbuf_, format_);
+    // pkbuf_set_type (&pkbuf_, HICN_PACKET_TYPE_UNDEFINED);
+    int rc = hicn_packet_init_header (&pkbuf_, 0);
     EXPECT_EQ (rc, HICN_LIB_ERROR_NONE);
+
+    auto new_hdr = (_new_header_t *) buffer_;
 
     // Check fields
     EXPECT_EQ (new_hdr->prefix.v6.as_u64[0], 0UL);
@@ -66,25 +71,25 @@ protected:
     EXPECT_EQ (new_hdr->suffix, 0UL);
     EXPECT_EQ (new_hdr->lifetime, 0UL);
     EXPECT_EQ (new_hdr->path_label, 0UL);
-    EXPECT_EQ (new_hdr->payload_length, 0UL);
+    EXPECT_EQ (new_hdr->payload_len, 0UL);
     EXPECT_EQ (_get_new_header_version (new_hdr), 0x9);
+    EXPECT_EQ (new_hdr->flags, 0);
   }
 
   virtual void
   SetUp () override
   {
-    auto new_hdr = &header_->protocol.newhdr;
-    checkCommon (new_hdr);
-    EXPECT_EQ (new_hdr->flags, 0);
+    checkCommon ();
   }
 
   uint8_t *buffer_;
-  hicn_header_t *header_;
-  hicn_format_t format_;
+  hicn_packet_buffer_t pkbuf_;
+  hicn_packet_format_t format_;
   hicn_name_t name_, name4_, name6_;
-  ip_address_t ipv6_prefix_bytes, ipv4_prefix_bytes;
+  hicn_ip_address_t ipv6_prefix_bytes, ipv4_prefix_bytes;
 };
 
+#if 0
 class NewHeaderAHTest : public NewHeaderTest
 {
 protected:
@@ -229,7 +234,7 @@ TEST_F (NewHeaderTest, SetGetName)
 TEST_F (NewHeaderTest, SetGetLocator)
 {
   // This function does nothing but it is set for compatibility
-  ip_address_t locator;
+  hicn_ip_address_t locator;
   memset (&locator, 0, sizeof (locator));
   locator.v6.as_u8[15] = 1;
   int rc = hicn_packet_set_interest (format_, header_);
@@ -338,3 +343,4 @@ TEST_F (NewHeaderTest, SetGetPayloadType)
 
   EXPECT_EQ (payload_type, payload_type_ret);
 }
+#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -75,6 +75,7 @@ FixedManifestEncoder &FixedManifestEncoder::encodeImpl() {
   manifest_entry_meta_->nb_entries = manifest_entries_.size();
 
   packet_->append(manifestHeaderSizeImpl());
+
   packet_->updateLength();
   auto params = reinterpret_cast<uint8_t *>(manifest_entry_meta_ + 1);
 
@@ -97,6 +98,7 @@ FixedManifestEncoder &FixedManifestEncoder::encodeImpl() {
   auto payload = reinterpret_cast<const uint8_t *>(manifest_entries_.data());
   packet_->appendPayload(payload, manifestPayloadSizeImpl());
 
+  packet_->updateLength();
   if (TRANSPORT_EXPECT_FALSE(packet_->payloadSize() < manifestSizeImpl())) {
     throw errors::RuntimeException("Error encoding the manifest");
   }

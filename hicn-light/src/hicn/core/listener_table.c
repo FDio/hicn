@@ -58,7 +58,7 @@ void listener_table_free(listener_table_t *table) {
   kh_foreach(table->id_by_key, k_key, v, {
     listener = listener_table_get_by_id(table, v);
     name = listener_get_name(listener);
-    INFO("Removing listner %s [%d]", name, listener->fd);
+    INFO("Removing listener %s [%d]", name, listener->fd);
     listener_finalize(listener);
   });
 

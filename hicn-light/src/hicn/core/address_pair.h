@@ -40,8 +40,10 @@ typedef struct {
 address_pair_t address_pair_factory(address_t local, address_t remote);
 
 int address_pair_from_ip_port(address_pair_t* pair, int family,
-                              ip_address_t* local_addr, uint16_t local_port,
-                              ip_address_t* remote_addr, uint16_t remote_port);
+                              hicn_ip_address_t* local_addr,
+                              uint16_t local_port,
+                              hicn_ip_address_t* remote_addr,
+                              uint16_t remote_port);
 
 static inline int address_pair_equals(const address_pair_t* pair1,
                                       const address_pair_t* pair2) {

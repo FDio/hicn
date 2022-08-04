@@ -17,11 +17,11 @@
 ##############################################################
 if (${CMAKE_SYSTEM_NAME} MATCHES Android OR ${CMAKE_SYSTEM_NAME} MATCHES iOS)
   list(APPEND SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/hicn-light-ng/hicn_forwarder_module.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn-light/hicn_forwarder_module.cc
   )
 
   list(APPEND HEADER_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/hicn-light-ng/hicn_forwarder_module.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/hicn-light/hicn_forwarder_module.h
   )
 
   if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
@@ -69,7 +69,7 @@ else()
 ##############################################################
 # Compile submodules
 ##############################################################
-  add_subdirectory(hicn-light-ng)
+  add_subdirectory(hicn-light)
   add_subdirectory(loopback)
   add_subdirectory(forwarder)
 

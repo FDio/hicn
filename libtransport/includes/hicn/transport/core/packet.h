@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -25,6 +25,13 @@
 #include <hicn/transport/utils/branch_prediction.h>
 #include <hicn/transport/utils/membuf.h>
 #include <hicn/transport/utils/object_pool.h>
+
+extern "C" {
+#ifndef _WIN32
+TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
+#endif
+#include <hicn/packet.h>
+}
 
 namespace transport {
 
@@ -52,7 +59,8 @@ class Packet : public utils::MemBuf,
  public:
   using Ptr = std::shared_ptr<Packet>;
   using MemBufPtr = std::shared_ptr<utils::MemBuf>;
-  using Format = hicn_format_t;
+  using Format = hicn_packet_format_t;
+  using Type = hicn_packet_type_t;
 
   static constexpr size_t default_mtu = 1500;
 
@@ -61,14 +69,15 @@ class Packet : public utils::MemBuf,
    * the eventual payload will be added by prepending the payload buffer
    * to the buffer chain whose the fist buffer is the header itself.
    */
-  Packet(Format format, std::size_t additional_header_size = 0);
+  Packet(Type type, Format format, std::size_t additional_header_size = 0);
   /* Copy buffer */
   Packet(CopyBufferOp, const uint8_t *buffer, std::size_t size);
   /* Wrap buffer */
   Packet(WrapBufferOp, uint8_t *buffer, std::size_t length, std::size_t size);
   /* Create new using pre-allocated buffer */
-  Packet(CreateOp, uint8_t *buffer, std::size_t length, std::size_t size,
-         Format format, std::size_t additional_header_size = 0);
+  Packet(CreateOp, Type type, uint8_t *buffer, std::size_t length,
+         std::size_t size, Format format,
+         std::size_t additional_header_size = 0);
 
   Packet(MemBuf &&buffer);
   Packet(Packet &&other);
@@ -86,7 +95,15 @@ class Packet : public utils::MemBuf,
 
   // Format
   Format getFormat() const;
-  void setFormat(Packet::Format format, std::size_t additional_header_size = 0);
+  void setFormat(Packet::Format format);
+
+  void initialize(std::size_t additional_header_size = 0);
+  void analyze();
+
+  hicn_packet_type_t getType() const;
+  void setType(Packet::Type type);
+
+  void setBuffer();
 
   // Name
   virtual const Name &getName() const = 0;
@@ -98,8 +115,8 @@ class Packet : public utils::MemBuf,
   virtual uint32_t getLifetime() const = 0;
 
   // Locator
-  virtual void setLocator(const ip_address_t &locator) = 0;
-  virtual ip_address_t getLocator() const = 0;
+  virtual void setLocator(const hicn_ip_address_t &locator) = 0;
+  virtual hicn_ip_address_t getLocator() const = 0;
 
   // Payload type
   PayloadType getPayloadType() const;
@@ -117,31 +134,18 @@ class Packet : public utils::MemBuf,
   // Digest
   auth::CryptoHash computeDigest(auth::CryptoHashType algorithm) const;
 
+  bool isInterest();
+
   // Reset packet
   void reset();
 
   // Utils
-  bool isInterest();
   Packet &updateLength(std::size_t length = 0);
   void dump() const;
 
   // TCP methods
   void setChecksum();
   bool checkIntegrity() const;
-  Packet &setSyn();
-  Packet &resetSyn();
-  bool testSyn() const;
-  Packet &setAck();
-  Packet &resetAck();
-  bool testAck() const;
-  Packet &setRst();
-  Packet &resetRst();
-  bool testRst() const;
-  Packet &setFin();
-  Packet &resetFin();
-  bool testFin() const;
-  Packet &resetFlags();
-  std::string printFlags() const;
   Packet &setSrcPort(uint16_t srcPort);
   Packet &setDstPort(uint16_t dstPort);
   uint16_t getSrcPort() const;
@@ -164,17 +168,18 @@ class Packet : public utils::MemBuf,
   void setKeyId(const auth::KeyId &key_id);
   void setValidationAlgorithm(const auth::CryptoSuite &algo);
 
+  void saveHeader(u8 *header, size_t *header_len);
+  void loadHeader(u8 *header, size_t header_len);
+
   // Static methods
   static Format toAHFormat(const Format &format);
   static Format getFormatFromBuffer(const uint8_t *buffer, std::size_t length);
   static std::size_t getHeaderSizeFromFormat(Format format,
                                              std::size_t signature_size = 0);
-  static std::size_t getHeaderSizeFromBuffer(Format format,
-                                             const uint8_t *buffer);
-  static std::size_t getPayloadSizeFromBuffer(Format format,
-                                              const uint8_t *buffer);
-  static bool isInterest(const uint8_t *buffer,
-                         Format format = Format::HF_UNSPEC);
+  static std::size_t getHeaderSizeFromBuffer(const uint8_t *buffer,
+                                             size_t length);
+  static std::size_t getPayloadSizeFromBuffer(const uint8_t *buffer,
+                                              size_t length);
   static void dump(uint8_t *buffer, std::size_t length);
 
  private:
@@ -182,9 +187,7 @@ class Packet : public utils::MemBuf,
   void prependPayload(const uint8_t **buffer, std::size_t *size);
 
  protected:
-  hicn_header_t *packet_start_;
-  std::size_t header_offset_;
-  mutable Format format_;
+  hicn_packet_buffer_t pkbuf_;
   Name name_;
   mutable PayloadType payload_type_;
   static const core::Name base_name;

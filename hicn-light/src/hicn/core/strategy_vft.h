@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -24,13 +24,11 @@
 
 #include "../strategies/best_path.h"
 #include "../strategies/load_balancer.h"
-#include "../strategies/low_latency.h"
 #include "../strategies/random.h"
 #include "../strategies/replication.h"
 
 typedef union {
   strategy_load_balancer_options_t load_balancer;
-  strategy_low_latency_options_t low_latency;
   strategy_random_options_t random;
   strategy_replication_options_t replication;
   strategy_bestpath_options_t bestpath;
@@ -42,7 +40,6 @@ typedef struct {
 #endif /* WITH_POLICY */
   union {
     strategy_load_balancer_nexthop_state_t load_balancer;
-    strategy_low_latency_nexthop_state_t low_latency;
     strategy_random_nexthop_state_t random;
     strategy_replication_nexthop_state_t replication;
     strategy_bestpath_nexthop_state_t bestpath;
@@ -58,7 +55,6 @@ typedef struct {
 
 typedef union {
   strategy_load_balancer_state_t load_balancer;
-  strategy_low_latency_state_t low_latency;
   strategy_random_state_t random;
   strategy_replication_state_t replication;
   strategy_bestpath_state_t bestpath;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -18,6 +18,8 @@
  * \brief Nexthops implementation
  */
 
+#include <hicn/util/hash.h>
+
 #include "nexthops.h"
 
 int nexthops_disable(nexthops_t *nexthops, off_t offset) {
@@ -34,7 +36,6 @@ void nexthops_reset(nexthops_t *nexthops) {
 
 off_t nexthops_add(nexthops_t *nexthops, nexthop_t nexthop) {
   off_t id;
-  unsigned i, n;
   nexthops_enumerate(nexthops, i, n, {
     if (n == nexthop) return i;
   });
@@ -45,7 +46,6 @@ off_t nexthops_add(nexthops_t *nexthops, nexthop_t nexthop) {
 }
 
 off_t nexthops_remove(nexthops_t *nexthops, nexthop_t nexthop) {
-  unsigned i, n;
   nexthops_enumerate(nexthops, i, n, {
     if (n == nexthop) {
       nexthops->num_elts--;
@@ -59,7 +59,6 @@ off_t nexthops_remove(nexthops_t *nexthops, nexthop_t nexthop) {
 }
 
 bool nexthops_contains(nexthops_t *nexthops, unsigned nexthop) {
-  unsigned n;
   nexthops_foreach(nexthops, n, {
     if (n == nexthop) return true;
   });
@@ -67,7 +66,6 @@ bool nexthops_contains(nexthops_t *nexthops, unsigned nexthop) {
 }
 
 off_t nexthops_find(nexthops_t *nexthops, unsigned nexthop) {
-  unsigned i, n;
   nexthops_enumerate(nexthops, i, n, {
     if (n == nexthop) return i;
   });
@@ -75,7 +73,6 @@ off_t nexthops_find(nexthops_t *nexthops, unsigned nexthop) {
 }
 
 unsigned nexthops_get_one(nexthops_t *nexthops) {
-  unsigned n;
   nexthops_foreach(nexthops, n, { return n; });
   return INVALID_NEXTHOP;
 }
@@ -92,8 +89,6 @@ int nexthops_select(nexthops_t *nexthops, off_t i) {
 
 void nexthops_set_priority(nexthops_t *nexthops, nexthop_t nexthop,
                            int priority) {
-  unsigned i;
-  nexthop_t nh;
   nexthops_enumerate(nexthops, i, nh, {
     if (nexthop == nh) nexthops_set_priority_by_id(nexthops, i, priority);
   });
@@ -112,8 +107,6 @@ void nexthops_reset_priority_by_id(nexthops_t *nexthops, off_t i) {
 }
 
 void nexthops_reset_priorities(nexthops_t *nexthops) {
-  unsigned i;
-  nexthop_t nh;
   nexthops_enumerate(nexthops, i, nh, {
     (void)nh;
     nexthops_reset_priority(nexthops, i);
@@ -121,7 +114,6 @@ void nexthops_reset_priorities(nexthops_t *nexthops) {
 }
 
 bool nexthops_equal(nexthops_t *a, nexthops_t *b) {
-  unsigned n;
   if (nexthops_get_len(a) != nexthops_get_len(b)) return false;
   nexthops_foreach(a, n, {
     if (!nexthops_contains(b, n)) return false;
@@ -137,6 +129,21 @@ void nexthops_copy(nexthops_t *src, nexthops_t *dst) {
   dst->num_elts = src->num_elts;
   dst->flags = src->flags;
   dst->cur_elts = src->cur_elts;
+}
+
+/* Adapted from Jenkins hash (commutative) */
+uint32_t nexthops_get_hash(nexthops_t *nexthops) {
+  uint32_t hash = 0;
+
+  nexthops_foreach(nexthops, nh, {
+    hash += nh;
+    hash += hash << 10;
+    hash ^= hash >> 6;
+  });
+  hash += hash << 3;
+  hash ^= hash >> 11;
+  hash += hash << 15;
+  return hash;
 }
 
 #endif /* WITH_POLICY */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -37,16 +37,20 @@
 #ifndef fib_entry_h
 #define fib_entry_h
 
-#include "name.h"
+#include <hicn/name.h>
 #include "strategy.h"
 #include "msgbuf.h"
 #include "nexthops.h"
 #include "policy_stats.h"
 
 typedef struct {
-  Name name;
+  hicn_prefix_t prefix;
   unsigned refcount;
   nexthops_t nexthops;
+
+  /* This is used for producer prefixes only */
+  uint32_t nexthops_hash;
+
   strategy_entry_t strategy;
 
   const void *forwarder;
@@ -59,10 +63,12 @@ typedef struct {
   policy_stats_t policy_stats;
 
 #ifdef WITH_MAPME
+#if 0
   /* In case of no multipath, this stores the previous decision taken by policy.
    * As the list of nexthops is not expected to change, we can simply store the
    * flags */
   uint_fast32_t prev_nexthops_flags;
+#endif
   void *user_data;
   void (*user_data_release)(void **user_data);
 #endif /* WITH_MAPME */
@@ -73,6 +79,7 @@ typedef struct {
 #define fib_entry_strategy_type(fib_entry) ((fib_entry)->strategy.type)
 
 #define fib_entry_get_nexthops(fib_entry) (&(fib_entry)->nexthops)
+
 #define fib_entry_nexthops_len(fib_entry) \
   (nexthops_get_len(&(fib_entry)->nexthops))
 #define fib_entry_nexthops_curlen(fib_entry) \
@@ -81,14 +88,36 @@ typedef struct {
 #define fib_entry_foreach_nexthop(fib_entry, nexthop, BODY) \
   nexthops_foreach(fib_entry->nexthops, BODY)
 
-#define fib_entry_nexthops_changed(fib_entry) \
-  ((fib_entry)->prev_nexthops_flags == fib_entry_get_nexthops(fib_entry)->flags)
+#define fib_entry_get_nexthops_hash(E) ((E)->nexthops_hash)
+#define fib_entry_set_nexthops_hash(E, H) (E)->nexthops_hash = (H)
 
-#define fib_entry_set_prev_nexthops(fib_entry) \
-  ((fib_entry)->prev_nexthops_flags = fib_entry_get_nexthops(fib_entry)->flags)
+static inline void fib_entry_set_nexthops(fib_entry_t *entry,
+                                          nexthops_t *nexthops) {
+  entry->nexthops = *nexthops;
+}
+
+static inline void fib_entry_initialize_nexthops(fib_entry_t *entry) {
+  entry->nexthops = NEXTHOPS_EMPTY;
+}
+
+static inline bool fib_entry_nexthops_changed(fib_entry_t *entry,
+                                              nexthops_t *nexthops) {
+  uint32_t old_hash = fib_entry_get_nexthops_hash(entry);
+  uint32_t hash = nexthops_get_hash(nexthops);
+  if (hash != old_hash) {
+    fib_entry_set_nexthops_hash(entry, hash);
+    return true;
+  }
+  return false;
+};
 
 struct forwarder_s;
-fib_entry_t *fib_entry_create(Name *name, strategy_type_t strategy_type,
+
+/*
+ * This does a copy of the name passed as parameter
+ */
+fib_entry_t *fib_entry_create(const hicn_prefix_t *prefix,
+                              strategy_type_t strategy_type,
                               strategy_options_t *strategy_options,
                               const struct forwarder_s *table);
 
@@ -105,8 +134,6 @@ void fib_entry_set_strategy(fib_entry_t *fib_entry,
 void fib_entry_nexthops_add(fib_entry_t *fib_entry, unsigned nexthop);
 
 void fib_entry_nexthops_remove(fib_entry_t *fib_entry, unsigned nexthop);
-
-size_t fib_entry_NexthopCount(const fib_entry_t *fib_entry);
 
 /**
  * @function fib_entry_nexthops_get
@@ -132,6 +159,12 @@ void fib_entry_set_policy(fib_entry_t *fib_entry, hicn_policy_t policy);
 void fib_entry_update_stats(fib_entry_t *fib_entry, uint64_t now);
 #endif /* WITH_POLICY */
 
+nexthops_t *fib_entry_filter_nexthops(fib_entry_t *entry, nexthops_t *nexthops,
+                                      unsigned ingress_id, bool prefer_local);
+
+nexthops_t *fib_entry_get_mapme_nexthops(fib_entry_t *entry,
+                                         nexthops_t *new_nexthops);
+
 nexthops_t *fib_entry_get_available_nexthops(fib_entry_t *fib_entry,
                                              unsigned in_connection,
                                              nexthops_t *new_nexthops);
@@ -145,7 +178,7 @@ nexthops_t *fib_entry_get_nexthops_from_strategy(
  * @abstract Returns a copy of the prefix.
  * @return A reference counted copy that you must destroy
  */
-const Name *fib_entry_get_prefix(const fib_entry_t *fib_entry);
+const hicn_prefix_t *fib_entry_get_prefix(const fib_entry_t *fib_entry);
 
 bool fib_entry_has_local_nexthop(const fib_entry_t *entry);
 

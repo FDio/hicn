@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -70,11 +70,11 @@ class PacketAllocatorTest : public ::testing::Test {
 };
 
 TEST_F(PacketAllocatorTest, ContentObjectAllocation) {
-  allocationTest<core::ContentObject>(HF_INET_TCP);
+  allocationTest<core::ContentObject>(HICN_PACKET_FORMAT_IPV4_TCP);
 }
 
 TEST_F(PacketAllocatorTest, InterestAllocation) {
-  allocationTest<core::Interest>(HF_INET_TCP);
+  allocationTest<core::Interest>(HICN_PACKET_FORMAT_IPV4_TCP);
 }
 
 // TEST_F(PacketAllocatorTest, MemBufAllocation) {
@@ -83,7 +83,8 @@ TEST_F(PacketAllocatorTest, InterestAllocation) {
 
 TEST_F(PacketAllocatorTest, CheckAllocationIsCorrect) {
   // Create packet
-  auto packet = allocator_.getPacket<core::ContentObject>(HF_INET_TCP);
+  auto packet =
+      allocator_.getPacket<core::ContentObject>(HICN_PACKET_FORMAT_IPV4_TCP);
 
   // Address of actual buffer
   uint8_t *buffer_address = packet->writableData();

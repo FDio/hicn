@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -38,8 +38,6 @@ Verifier::Verifier()
 Verifier::~Verifier() {}
 
 bool Verifier::verifyPacket(PacketPtr packet) {
-  core::Packet::Format format = packet->getFormat();
-
   if (!packet->hasAH()) {
     throw errors::MalformedAHPacketException();
   }
@@ -49,8 +47,9 @@ bool Verifier::verifyPacket(PacketPtr packet) {
   CryptoHashType hash_type = getHashType(suite);
 
   // Copy IP+TCP / ICMP header before zeroing them
-  hicn_header_t header_copy;
-  hicn_packet_copy_header(format, packet->packet_start_, &header_copy, false);
+  u8 header_copy[HICN_HDRLEN_MAX];
+  size_t header_len;
+  packet->saveHeader(header_copy, &header_len);
 
   // Copy bitmap from interest manifest
   uint32_t request_bitmap[BITMAP_SIZE] = {0};
@@ -74,7 +73,7 @@ bool Verifier::verifyPacket(PacketPtr packet) {
                                    signature_raw, hash_type);
 
   // Restore header
-  hicn_packet_copy_header(format, &header_copy, packet->packet_start_, false);
+  packet->loadHeader(header_copy, header_len);
   packet->setSignature(signature_raw);
   packet->setSignatureSize(signature_raw->length());
 

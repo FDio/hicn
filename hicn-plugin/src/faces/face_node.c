@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -24,6 +24,9 @@
 #include "../infra.h"
 #include "../hicn.h"
 #include "../parser.h"
+
+#include <hicn/error.h>
+#include <hicn/util/ip_address.h>
 
 /**
  * @File
@@ -140,7 +143,7 @@ typedef enum
       ip_hdr = (IP_HEADER_##ipv *) vlib_buffer_get_current (b0);              \
                                                                               \
       /* Parse packet and cache useful info in opaque2 */                     \
-      ret0 = hicn_data_parse_pkt (b0);                                        \
+      ret0 = hicn_data_parse_pkt (b0, vlib_buffer_length_in_chain (vm, b0));  \
       is_icmp0 = ret0 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
       ret0 = (ret0 == HICN_ERROR_NONE) ||                                     \
 	     (ret0 == HICN_ERROR_PARSER_MAPME_PACKET);                        \
@@ -235,8 +238,8 @@ typedef enum
       ip_hdr1 = (IP_HEADER_##ipv *) vlib_buffer_get_current (b1);             \
                                                                               \
       /* Parse packet and cache useful info in opaque2 */                     \
-      ret0 = hicn_data_parse_pkt (b0);                                        \
-      ret1 = hicn_data_parse_pkt (b1);                                        \
+      ret0 = hicn_data_parse_pkt (b0, vlib_buffer_length_in_chain (vm, b0));  \
+      ret1 = hicn_data_parse_pkt (b1, vlib_buffer_length_in_chain (vm, b1));  \
       is_icmp0 = ret0 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
       is_icmp1 = ret1 == HICN_ERROR_PARSER_MAPME_PACKET;                      \
       ret0 = (ret0 == HICN_ERROR_NONE) ||                                     \
@@ -545,18 +548,17 @@ hicn_face_rewrite_interest (vlib_main_t *vm, vlib_buffer_t *b0,
    * hicn_face_match_probe(b0, face, next)) */
   /*   return; */
 
-  hicn_header_t *hicn = vlib_buffer_get_current (b0);
+  hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (b0)->pkbuf;
 
   u8 is_v4 = ip46_address_is_ip4 (&face->nat_addr) &&
 	     !ip6_address_is_loopback (&face->nat_addr.ip6);
 
   // hicn_face_ip_t *ip_face = (hicn_face_ip_t *) face->data;
 
-  ip46_address_t temp_addr;
-  ip46_address_reset (&temp_addr);
-  hicn_type_t type = hicn_get_buffer (b0)->type;
-  int ret = hicn_ops_vft[type.l1]->rewrite_interest (
-    type, &hicn->protocol, &face->nat_addr, &temp_addr);
+  hicn_ip_address_t temp_addr;
+  ip46_address_reset (&(temp_addr.as_ip46));
+  hicn_ip_address_t *face_nat_addr = (hicn_ip_address_t *) &face->nat_addr;
+  int ret = hicn_interest_rewrite (pkbuf, face_nat_addr, &temp_addr);
   if (ret == HICN_LIB_ERROR_REWRITE_CKSUM_REQUIRED)
     {
       ensure_offload_flags (b0, is_v4);

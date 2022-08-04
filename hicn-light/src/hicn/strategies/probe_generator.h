@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -19,6 +19,9 @@
 #include <hicn/util/khash.h>
 #include <hicn/core/ticks.h>
 #include <hicn/core/msgbuf.h>
+
+#define MIN_PROBE_SUFFIX 0xefffffff
+#define MAX_PROBE_SUFFIX 0xffffffff - 1
 
 KHASH_MAP_INIT_INT64(bp_map, Ticks);
 

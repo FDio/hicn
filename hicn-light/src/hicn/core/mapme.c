@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -294,15 +294,6 @@ static void mapme_create_tfib(const mapme_t *mapme, fib_entry_t *entry) {
   fib_entry_set_user_data(entry, tfib, (void (*)(void **))mapme_release_tfib);
 }
 
-int hicn_prefix_from_name(const Name *name, hicn_prefix_t *prefix) {
-  NameBitvector *bv = name_GetContentName(name);
-  ip_prefix_t ip_prefix;
-  nameBitvector_ToIPAddress(bv, &ip_prefix);
-
-  /* The name length will be equal to ip address' prefix length */
-  return hicn_prefix_create_from_ip_prefix(&ip_prefix, prefix);
-}
-
 /**
  * @brief Update/Notification heuristic:
  *
@@ -350,12 +341,14 @@ int mapme_send_to_nexthops(const mapme_t *mapme, fib_entry_t *entry,
     tfib = TFIB(entry);
   }
 
-  const Name *name = fib_entry_get_prefix(entry);
+  const hicn_prefix_t *prefix = fib_entry_get_prefix(entry);
 
   WITH_DEBUG({
-    char *name_str = name_ToString(name);
-    DEBUG("sending IU/IN for name %s on all nexthops", name_str);
-    free(name_str);
+    char buf[MAXSZ_HICN_PREFIX];
+    int rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, prefix);
+    if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+      snprintf(buf, MAXSZ_HICN_PREFIX, "(error)");
+    DEBUG("sending IU/IN for name %s on all nexthops", buf);
   })
 
   mapme_params_t params = {
@@ -364,14 +357,8 @@ int mapme_send_to_nexthops(const mapme_t *mapme, fib_entry_t *entry,
       .seq = tfib->seq,
   };
 
-  hicn_prefix_t prefix;
-  if (hicn_prefix_from_name(name, &prefix) < 0) {
-    ERROR("Failed to create lib's name");
-    return -1;
-  }
-
   uint8_t packet[MTU];
-  size_t size = hicn_mapme_create_packet(packet, &prefix, &params);
+  size_t size = hicn_mapme_create_packet(packet, prefix, &params);
   if (size <= 0) {
     ERROR("Could not create MAP-Me packet");
     return -1;
@@ -379,7 +366,6 @@ int mapme_send_to_nexthops(const mapme_t *mapme, fib_entry_t *entry,
 
   connection_table_t *table = forwarder_get_connection_table(mapme->forwarder);
 
-  unsigned nexthop;
   nexthops_foreach(nexthops, nexthop, {
     INFO("sending mapme packet on connection %d", nexthop);
     const connection_t *conn = connection_table_get_by_id(table, nexthop);
@@ -389,6 +375,7 @@ int mapme_send_to_nexthops(const mapme_t *mapme, fib_entry_t *entry,
   return 0;
 }
 
+#if 0
 /**
  *
  * Here nexthops is not necessarily FIB nexthops as we might advertise given FIB
@@ -410,6 +397,7 @@ void mapme_maybe_send_to_nexthops(const mapme_t *mapme, fib_entry_t *fib_entry,
 
   mapme_send_to_nexthops(mapme, fib_entry, nexthops);
 }
+#endif
 
 /******************************************************************************
  * MAPME API
@@ -423,15 +411,16 @@ int mapme_set_all_adjacencies(const mapme_t *mapme, fib_entry_t *entry) {
 
   /* Apply the policy of the fib_entry over all neighbours */
   nexthops_t new_nexthops = NEXTHOPS_EMPTY;
-  nexthops_t *nexthops =
-      fib_entry_get_available_nexthops(entry, ~0, &new_nexthops);
+  nexthops_t *nexthops = fib_entry_get_mapme_nexthops(entry, &new_nexthops);
 
   /* We set force to true to avoid overriding the FIB cache */
-  return mapme_set_adjacencies(mapme, entry, nexthops, true);
+  return mapme_set_adjacencies(mapme, entry, nexthops);
 }
 
+// XXX this will change with the FIB cache
+// XXX we are sometimes incrementing tfib seq for nothing
 int mapme_set_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
-                          nexthops_t *nexthops, bool force) {
+                          nexthops_t *nexthops) {
   if (mapme->enabled == false) {
     WARN("MAP-Me is NOT enabled");
     return -1;
@@ -449,12 +438,7 @@ int mapme_set_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
   nexthops_clear(&tfib->nexthops);
   tfib->seq++;
 
-  if (force) {
-    mapme_send_to_nexthops(mapme, entry, nexthops);
-    return 0;
-  }
-
-  mapme_maybe_send_to_nexthops(mapme, entry, nexthops);
+  mapme_send_to_nexthops(mapme, entry, nexthops);
   return 0;
 }
 
@@ -473,7 +457,7 @@ int mapme_update_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
 
   if (inc_iu_seq) tfib->seq++;
 
-  mapme_maybe_send_to_nexthops(mapme, entry, &tfib->nexthops);
+  mapme_send_to_nexthops(mapme, entry, &tfib->nexthops);
   return 0;
 }
 
@@ -490,6 +474,7 @@ int mapme_send_to_nexthop(const mapme_t *mapme, fib_entry_t *entry,
   return mapme_send_to_nexthops(mapme, entry, &nexthops);
 }
 
+#if 0
 /*
  * Callback called everytime a new connection is created by the control protocol
  */
@@ -539,9 +524,9 @@ void mapme_on_connection_event(const mapme_t *mapme,
   /* We need to send a MapMe update on the newly selected connections for
    * each concerned fib_entry : connection is involved, or no more involved */
   const fib_t *fib = forwarder_get_fib(mapme->forwarder);
-  fib_entry_t *entry;
   fib_foreach_entry(fib, entry, { mapme_set_all_adjacencies(mapme, entry); });
 }
+#endif
 
 /*------------------------------------------------------------------------------
  * Special Interest handling
@@ -811,30 +796,25 @@ static void mapme_on_interest(mapme_t *mapme, msgbuf_t *msgbuf,
 
   uint8_t *ack_packet = msgbuf_get_packet(ack);
   size_t size = hicn_mapme_create_ack(ack_packet, params);
-  if (connection_send_packet(conn_in, ack_packet, size) < 0) {
+  if (!connection_send_packet(conn_in, ack_packet, size)) {
     /* We accept the packet knowing we will get a retransmit */
     ERROR("Failed to send ACK packet");
   }
 
   msgbuf_pool_put(msgbuf_pool, ack);
 
-  /* process received interest */
-  uint8_t *packet = msgbuf_get_packet(msgbuf);
-  name_create_from_interest(packet, msgbuf_get_name(msgbuf));
-  Name name = EMPTY_NAME;
-  name_Copy(msgbuf_get_name(msgbuf), &name);
-  name_setLen(&name, prefix->len);
-
   WITH_DEBUG({
-    char *name_str = name_ToString(&name);
-    DEBUG("Ack'ed interest : connection=%d  prefix=%s seq=%d", ingress_id,
-          name_str, params->seq);
-    free(name_str);
+    char buf[MAXSZ_HICN_PREFIX];
+    int rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, prefix);
+    if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+      snprintf(buf, MAXSZ_HICN_PREFIX, "%s", "(error)");
+    DEBUG("Ack'ed interest : connection=%d  prefix=%s seq=%d", ingress_id, buf,
+          params->seq);
   });
 
   /* EPM on FIB */
   const fib_t *fib = forwarder_get_fib(mapme->forwarder);
-  fib_entry_t *entry = fib_contains(fib, &name);
+  fib_entry_t *entry = fib_contains(fib, prefix);
   if (!entry) {
 #ifdef HICN_MAPME_ALLOW_NONEXISTING_FIB_ENTRY
     if (mapme_create_fib_entry(mapme, &name, ingress_id) < 0) {
@@ -883,7 +863,6 @@ static void mapme_on_interest(mapme_t *mapme, msgbuf_t *msgbuf,
      * This could might optimized for situations where nothing changes, but
      * this is very unlikely if not impossible...
      * */
-    unsigned prevhop;
     nexthops_foreach(&entry->nexthops, prevhop,
                      { nexthops_add(&tfib->nexthops, prevhop); });
     nexthops_remove(&tfib->nexthops, ingress_id);
@@ -943,23 +922,17 @@ static void mapme_on_interest(mapme_t *mapme, msgbuf_t *msgbuf,
 
 static void mapme_on_data(mapme_t *mapme, msgbuf_t *msgbuf, unsigned ingress_id,
                           hicn_prefix_t *prefix, mapme_params_t *params) {
-  INFO("Receive IU/IN Ack on connection %d", ingress_id);
-
-  uint8_t *packet = msgbuf_get_packet(msgbuf);
-  name_create_from_data(packet, msgbuf_get_name(msgbuf));
-  Name name = EMPTY_NAME;
-  name_Copy(msgbuf_get_name(msgbuf), &name);
-  name_setLen(&name, prefix->len);
-
   WITH_DEBUG({
-    char *name_str = name_ToString(&name);
-    DEBUG("Received ack for name prefix=%s seq=%d on conn id=%d", name_str,
+    char buf[MAXSZ_HICN_PREFIX];
+    int rc = hicn_prefix_snprintf(buf, MAXSZ_HICN_PREFIX, prefix);
+    if (rc < 0 || rc >= MAXSZ_HICN_PREFIX)
+      snprintf(buf, MAXSZ_HICN_PREFIX, "(error)");
+    DEBUG("Received ack for name prefix=%s seq=%d on conn id=%d", buf,
           params->seq, ingress_id);
-    free(name_str);
   })
 
   const fib_t *fib = forwarder_get_fib(mapme->forwarder);
-  fib_entry_t *entry = fib_contains(fib, &name);
+  fib_entry_t *entry = fib_contains(fib, prefix);
   if (!entry) {
     INFO("Ignored ACK with no corresponding FIB entry");
     return;
@@ -1031,6 +1004,7 @@ void mapme_process(mapme_t *mapme, msgbuf_t *msgbuf) {
   }
 }
 
+#if 0
 /*
  * Returns true iif the message corresponds to a MAP-Me packet
  */
@@ -1048,6 +1022,7 @@ bool mapme_match_packet(const uint8_t *packet) {
       return false;
   }
 }
+#endif
 
 void mapme_set_enable(mapme_t *mapme, bool enable) { mapme->enabled = enable; }
 void mapme_set_discovery(mapme_t *mapme, bool enable) {

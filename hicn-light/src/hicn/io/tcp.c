@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -37,7 +37,6 @@
 #include "../core/listener_vft.h"
 #include "../core/msgbuf.h"
 #include "../core/forwarder.h"
-#include "../core/messageHandler.h"
 
 // 128 KB output queue
 #define OUTPUT_QUEUE_BYTES (128 * 1024)
@@ -336,8 +335,8 @@ static bool connection_tcp_send(connection_t *connection, msgbuf_t *msgbuf,
   return true;
 }
 
-static int connection_tcp_send_packet(const connection_t *connection,
-                                      const uint8_t *packet, size_t size) {
+static bool connection_tcp_send_packet(const connection_t *connection,
+                                       const uint8_t *packet, size_t size) {
   /* Not implemented for local connections */
   // XXX shall we set the pointer to NULL and add a check ?
 

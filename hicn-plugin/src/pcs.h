@@ -259,8 +259,8 @@ hicn_pcs_get_exp_time (f64 cur_time_sec, u64 lifetime_msec)
 always_inline void
 hicn_pcs_get_key_from_name (clib_bihash_kv_24_8_t *kv, const hicn_name_t *name)
 {
-  kv->key[0] = name->prefix.ip6.as_u64[0];
-  kv->key[1] = name->prefix.ip6.as_u64[1];
+  kv->key[0] = name->prefix.v6.as_u64[0];
+  kv->key[1] = name->prefix.v6.as_u64[1];
   kv->key[2] = name->suffix;
 }
 

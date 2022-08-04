@@ -54,6 +54,7 @@ class AggregatedPktHeaderTest : public ::testing::Test {
 
 }  // namespace
 
+#if 0
 TEST_F(AggregatedPktHeaderTest, Add2Packets8bit) {
   uint8_t buf[1500];
   std::vector<uint8_t> pkt1 = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
@@ -103,6 +104,7 @@ TEST_F(AggregatedPktHeaderTest, Add2Packets8bit) {
     EXPECT_EQ(*(pkt_ptr + i), pkt2[i]);
   }
 }
+#endif
 
 TEST_F(AggregatedPktHeaderTest, Add2Packets8bit255) {
   uint8_t buf[1500];

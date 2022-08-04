@@ -17,247 +17,252 @@
 #include <string.h>
 #include <hicn/common.h>
 #include <hicn/error.h>
-#include <hicn/ops.h>
+
+#include "ipv6.h"
+#include "../ops.h"
 
 typedef unsigned short u_short;
-int ipv6_get_payload_length (hicn_type_t type, const hicn_protocol_t *h,
-			     size_t *payload_length);
+
+#ifdef OPAQUE_IP
+#define GET_IPV6_HEADER(pkbuf)                                                \
+  (_ipv6_header_t *) ((pkbuf)->header + (pkbuf)->ipv6)
+#else
+#define GET_IPV6_HEADER(pkbuf) (_ipv6_header_t *) ((pkbuf)->header)
+#endif /* OPAQUE_IP */
 
 int
-ipv6_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
+ipv6_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  size_t total_header_length;
-  int rc = CHILD_OPS (get_header_length, type, h, &total_header_length);
-  if (rc < 0)
-    return rc;
+  assert (pkbuf->len == 0);
+  if (IPV6_HDRLEN > pkbuf->buffer_size - pkbuf->len)
+    return -1;
+  pkbuf->len += IPV6_HDRLEN;
 
-  /* *INDENT-OFF* */
-  h->ipv6 = (_ipv6_header_t){
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  hicn_packet_format_t format = hicn_packet_get_format (pkbuf);
+
+  size_t header_len;
+  hicn_packet_get_header_length_from_format (pkbuf->format, &header_len);
+
+  /* clang-format off */
+  *ipv6 = (_ipv6_header_t){
     .saddr = IP6_ADDRESS_EMPTY,
     .daddr = IP6_ADDRESS_EMPTY,
     .version_class_flow = htonl ((IPV6_DEFAULT_VERSION << 28) |
 				 (IPV6_DEFAULT_TRAFFIC_CLASS << 20) |
 				 (IPV6_DEFAULT_FLOW_LABEL & 0xfffff)),
-    .len = htons ((u16) total_header_length),
-    .nxt = type.l2,
+    .len = htons(header_len - IPV6_HDRLEN),
+    .nxt = format.as_u8[pos + 1],
     .hlim = HICN_DEFAULT_TTL,
   };
-  /* *INDENT-ON* */
-  return CHILD_OPS (init_packet_header, type, h);
+  /* clang-format on */
+  return CALL_CHILD (init_packet_header, pkbuf, pos);
 }
 
 int
-ipv6_get_interest_locator (hicn_type_t type, const hicn_protocol_t *h,
-			   ip_address_t *ip_address)
+ipv6_get_interest_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			   hicn_ip_address_t *ip_address)
 {
-  ip_address->v6 = h->ipv6.saddr;
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  ip_address->v6 = ipv6->saddr;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ipv6_set_interest_locator (hicn_type_t type, hicn_protocol_t *h,
-			   const ip_address_t *ip_address)
+ipv6_set_interest_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			   const hicn_ip_address_t *ip_address)
 {
-  h->ipv6.saddr = ip_address->v6;
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  ipv6->saddr = ip_address->v6;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ipv6_get_interest_name (hicn_type_t type, const hicn_protocol_t *h,
+ipv6_get_interest_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			hicn_name_t *name)
 {
-  name->prefix.v6 = h->ipv6.daddr;
-  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->suffix));
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  name->prefix.v6 = ipv6->daddr;
+  return CALL_CHILD (get_interest_name_suffix, pkbuf, pos, &(name->suffix));
 }
 
 int
-ipv6_set_interest_name (hicn_type_t type, hicn_protocol_t *h,
+ipv6_set_interest_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			const hicn_name_t *name)
 {
-  h->ipv6.daddr = name->prefix.v6;
-  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->suffix));
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  ipv6->daddr = name->prefix.v6;
+  return CALL_CHILD (set_interest_name_suffix, pkbuf, pos, &(name->suffix));
 }
 
 int
-ipv6_get_interest_name_suffix (hicn_type_t type, const hicn_protocol_t *h,
+ipv6_get_interest_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			       hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (get_interest_name_suffix, type, h, suffix);
+  return CALL_CHILD (get_interest_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-ipv6_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t *h,
+ipv6_set_interest_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			       const hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (set_interest_name_suffix, type, h, suffix);
+  return CALL_CHILD (set_interest_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-ipv6_is_interest (hicn_type_t type, const hicn_protocol_t *h, int *is_interest)
+ipv6_get_type (const hicn_packet_buffer_t *pkbuf, const size_t pos,
+	       hicn_packet_type_t *type)
 {
-  return CHILD_OPS (is_interest, type, h, is_interest);
+  return CALL_CHILD (get_type, pkbuf, pos, type);
 }
 
 int
-ipv6_mark_packet_as_interest (hicn_type_t type, hicn_protocol_t *h)
+ipv6_set_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
+	       hicn_packet_type_t type)
 {
-  return CHILD_OPS (mark_packet_as_interest, type, h);
+  return CALL_CHILD (set_type, pkbuf, pos, type);
 }
 
 int
-ipv6_mark_packet_as_data (hicn_type_t type, hicn_protocol_t *h)
+ipv6_reset_interest_for_hash (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  return CHILD_OPS (mark_packet_as_data, type, h);
-}
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
 
-int
-ipv6_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t *h)
-{
   /* Sets everything to 0 up to IP destination address */
-  memset (&(h->ipv6), 0, 24);
+  memset (ipv6, 0, 24);
 
-  return CHILD_OPS (reset_interest_for_hash, type, h);
+  return CALL_CHILD (reset_interest_for_hash, pkbuf, pos);
 }
 
 int
-ipv6_get_data_locator (hicn_type_t type, const hicn_protocol_t *h,
-		       ip_address_t *ip_address)
+ipv6_get_data_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       hicn_ip_address_t *ip_address)
 {
-  ip_address->v6 = h->ipv6.daddr;
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  ip_address->v6 = ipv6->daddr;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ipv6_set_data_locator (hicn_type_t type, hicn_protocol_t *h,
-		       const ip_address_t *ip_address)
+ipv6_set_data_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       const hicn_ip_address_t *ip_address)
 {
-  h->ipv6.daddr = ip_address->v6;
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  ipv6->daddr = ip_address->v6;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ipv6_get_data_name (hicn_type_t type, const hicn_protocol_t *h,
+ipv6_get_data_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		    hicn_name_t *name)
 {
-  name->prefix.v6 = h->ipv6.saddr;
-  return CHILD_OPS (get_data_name_suffix, type, h, &(name->suffix));
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  name->prefix.v6 = ipv6->saddr;
+  return CALL_CHILD (get_data_name_suffix, pkbuf, pos, &(name->suffix));
 }
 
 int
-ipv6_set_data_name (hicn_type_t type, hicn_protocol_t *h,
+ipv6_set_data_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		    const hicn_name_t *name)
 {
-  h->ipv6.saddr = name->prefix.v6;
-  return CHILD_OPS (set_data_name_suffix, type, h, &(name->suffix));
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  ipv6->saddr = name->prefix.v6;
+  return CALL_CHILD (set_data_name_suffix, pkbuf, pos, &(name->suffix));
 }
 
 int
-ipv6_get_data_name_suffix (hicn_type_t type, const hicn_protocol_t *h,
+ipv6_get_data_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			   hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (get_data_name_suffix, type, h, suffix);
+  return CALL_CHILD (get_data_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-ipv6_set_data_name_suffix (hicn_type_t type, hicn_protocol_t *h,
+ipv6_set_data_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			   const hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (set_data_name_suffix, type, h, suffix);
+  return CALL_CHILD (set_data_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-ipv6_get_data_pathlabel (hicn_type_t type, const hicn_protocol_t *h,
-			 u32 *pathlabel)
+ipv6_get_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			  hicn_path_label_t *path_label)
 {
-  return CHILD_OPS (get_data_pathlabel, type, h, pathlabel);
+  return CALL_CHILD (get_data_path_label, pkbuf, pos, path_label);
 }
 
 int
-ipv6_set_data_pathlabel (hicn_type_t type, hicn_protocol_t *h,
-			 const u32 pathlabel)
+ipv6_set_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			  hicn_path_label_t path_label)
 {
-  return CHILD_OPS (set_data_pathlabel, type, h, pathlabel);
+  return CALL_CHILD (set_data_path_label, pkbuf, pos, path_label);
 }
 
 int
-ipv6_update_data_pathlabel (hicn_type_t type, hicn_protocol_t *h,
-			    const hicn_faceid_t face_id)
+ipv6_update_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			     const hicn_faceid_t face_id)
 {
-  return CHILD_OPS (update_data_pathlabel, type, h, face_id);
+  return CALL_CHILD (update_data_path_label, pkbuf, pos, face_id);
 }
 
 int
-ipv6_reset_data_for_hash (hicn_type_t type, hicn_protocol_t *h)
+ipv6_reset_data_for_hash (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
   /* IP: Set everithing to 0 up to destination address */
-  memset (&h->ipv6, 0, 8);
+  memset (ipv6, 0, 8);
   /* Clears destination address */
-  memset (&(h->ipv6.daddr), 0, 16);
+  memset (&(ipv6->daddr), 0, 16);
 
-  return CHILD_OPS (reset_data_for_hash, type, h);
+  return CALL_CHILD (reset_data_for_hash, pkbuf, pos);
 }
 
 int
-ipv6_get_lifetime (hicn_type_t type, const hicn_protocol_t *h,
+ipv6_get_lifetime (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		   hicn_lifetime_t *lifetime)
 {
-  return CHILD_OPS (get_lifetime, type, h, lifetime);
+  return CALL_CHILD (get_lifetime, pkbuf, pos, lifetime);
 }
 
 int
-ipv6_set_lifetime (hicn_type_t type, hicn_protocol_t *h,
+ipv6_set_lifetime (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		   const hicn_lifetime_t lifetime)
 {
-  return CHILD_OPS (set_lifetime, type, h, lifetime);
+  return CALL_CHILD (set_lifetime, pkbuf, pos, lifetime);
 }
 
 int
-ipv6_get_source_port (hicn_type_t type, const hicn_protocol_t *h,
-		      u16 *source_port)
+ipv6_update_checksums (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       u16 partial_csum, size_t payload_len)
 {
-  return CHILD_OPS (get_source_port, type, h, source_port);
-}
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
 
-int
-ipv6_get_dest_port (hicn_type_t type, const hicn_protocol_t *h, u16 *dest_port)
-{
-  return CHILD_OPS (get_dest_port, type, h, dest_port);
-}
-
-int
-ipv6_set_source_port (hicn_type_t type, hicn_protocol_t *h, u16 source_port)
-{
-  return CHILD_OPS (set_source_port, type, h, source_port);
-}
-
-int
-ipv6_set_dest_port (hicn_type_t type, hicn_protocol_t *h, u16 dest_port)
-{
-  return CHILD_OPS (set_dest_port, type, h, dest_port);
-}
-
-int
-ipv6_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
-		       size_t payload_length)
-{
-  /* Retrieve payload length if not specified */
-  if (payload_length == ~0)
+  /* Retrieve payload len if not specified */
+  if (payload_len == ~0)
     {
-      int rc = ipv6_get_payload_length (type, h, &payload_length);
-      if (rc < 0)
-	return rc;
+      payload_len = hicn_packet_get_len (pkbuf) - pkbuf->payload;
     }
 
   /* Build pseudo-header */
   ipv6_pseudo_header_t psh;
-  psh.ip_src = h->ipv6.saddr;
-  psh.ip_dst = h->ipv6.daddr;
+  psh.ip_src = ipv6->saddr;
+  psh.ip_dst = ipv6->daddr;
   /* Size is u32 and not u16, we cannot copy and need to care about endianness
    */
-  psh.size = htonl (ntohs (h->ipv6.len));
+  psh.size = htonl (ntohs (ipv6->len));
   psh.zeros = 0;
   psh.zero = 0;
-  psh.protocol = h->ipv6.nxt;
+  psh.protocol = ipv6->nxt;
 
   /* Compute partial checksum based on pseudo-header */
   if (partial_csum != 0)
@@ -266,31 +271,41 @@ ipv6_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
     }
   partial_csum = csum (&psh, IPV6_PSHDRLEN, partial_csum);
 
-  return CHILD_OPS (update_checksums, type, h, partial_csum, payload_length);
+  return CALL_CHILD (update_checksums, pkbuf, pos, partial_csum, payload_len);
 }
 
 int
-ipv6_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
-		       size_t payload_length)
+ipv6_update_checksums_incremental (const hicn_packet_buffer_t *pkbuf,
+				   size_t pos, u16 *old_val, u16 *new_val,
+				   u8 size, bool skip_first)
 {
-  /* Retrieve payload length if not specified */
-  if (payload_length == ~0)
+  /* We update the child only */
+  return CALL_CHILD (update_checksums_incremental, pkbuf, pos, old_val,
+		     new_val, size, false);
+}
+
+int
+ipv6_verify_checksums (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       u16 partial_csum, size_t payload_len)
+{
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  /* Retrieve payload len if not specified */
+  if (payload_len == ~0)
     {
-      int rc = ipv6_get_payload_length (type, h, &payload_length);
-      if (rc < 0)
-	return rc;
+      payload_len = hicn_packet_get_len (pkbuf) - pkbuf->payload;
     }
 
   /* Build pseudo-header */
   ipv6_pseudo_header_t pseudo;
-  pseudo.ip_src = h->ipv6.saddr;
-  pseudo.ip_dst = h->ipv6.daddr;
+  pseudo.ip_src = ipv6->saddr;
+  pseudo.ip_dst = ipv6->daddr;
   /* Size is u32 and not u16, we cannot copy and need to care about endianness
    */
-  pseudo.size = htonl (ntohs (h->ipv6.len));
+  pseudo.size = htonl (ntohs (ipv6->len));
   pseudo.zeros = 0;
   pseudo.zero = 0;
-  pseudo.protocol = h->ipv6.nxt;
+  pseudo.protocol = ipv6->nxt;
 
   /* Compute partial checksum based on pseudo-header */
   if (partial_csum != 0)
@@ -299,187 +314,206 @@ ipv6_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
     }
   partial_csum = csum (&pseudo, IPV6_PSHDRLEN, partial_csum);
 
-  return CHILD_OPS (verify_checksums, type, h, partial_csum, payload_length);
+  return CALL_CHILD (verify_checksums, pkbuf, pos, partial_csum, payload_len);
 }
 
 int
-ipv6_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
-		       const ip_address_t *addr_new, ip_address_t *addr_old)
+ipv6_rewrite_interest (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       const hicn_ip_address_t *addr_new,
+		       hicn_ip_address_t *addr_old)
 {
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
   // ASSERT(addr_old == NULL);
-  addr_old->v6 = h->ipv6.saddr;
-  h->ipv6.saddr = addr_new->v6;
+  addr_old->v6 = ipv6->saddr;
+  ipv6->saddr = addr_new->v6;
 
-  return CHILD_OPS (rewrite_interest, type, h, addr_new, addr_old);
+  return CALL_CHILD (rewrite_interest, pkbuf, pos, addr_new, addr_old);
 }
 
 int
-ipv6_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
-		   const ip_address_t *addr_new, ip_address_t *addr_old,
-		   const hicn_faceid_t face_id, u8 reset_pl)
+ipv6_rewrite_data (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		   const hicn_ip_address_t *addr_new,
+		   hicn_ip_address_t *addr_old, const hicn_faceid_t face_id,
+		   u8 reset_pl)
 {
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
   // ASSERT(addr_old == NULL);
-  addr_old->v6 = h->ipv6.daddr;
-  h->ipv6.daddr = addr_new->v6;
+  addr_old->v6 = ipv6->daddr;
+  ipv6->daddr = addr_new->v6;
 
-  return CHILD_OPS (rewrite_data, type, h, addr_new, addr_old, face_id,
-		    reset_pl);
+  return CALL_CHILD (rewrite_data, pkbuf, pos, addr_new, addr_old, face_id,
+		     reset_pl);
 }
 
 int
-ipv6_get_length (hicn_type_t type, const hicn_protocol_t *h,
-		 size_t *header_length)
+ipv6_set_payload_len (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		      size_t payload_len)
 {
-  *header_length = IPV6_HDRLEN + ntohs (h->ipv6.len);
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  ipv6->len = htons ((u_short) (payload_len + pkbuf->payload - IPV6_HDRLEN));
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ipv6_get_current_header_length (hicn_type_t type, const hicn_protocol_t *h,
-				size_t *header_length)
-{
-  *header_length = IPV6_HDRLEN;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv6_get_header_length (hicn_type_t type, const hicn_protocol_t *h,
-			size_t *header_length)
-{
-  size_t child_header_length = 0;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-  *header_length = IPV6_HDRLEN + child_header_length;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv6_get_payload_length (hicn_type_t type, const hicn_protocol_t *h,
-			 size_t *payload_length)
-{
-  size_t child_header_length;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-  *payload_length = ntohs (h->ipv6.len) - child_header_length;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv6_set_payload_length (hicn_type_t type, hicn_protocol_t *h,
-			 size_t payload_length)
-{
-  size_t child_header_length;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-  h->ipv6.len = htons ((u_short) (payload_length + child_header_length));
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv6_get_payload_type (hicn_type_t type, const hicn_protocol_t *h,
+ipv6_get_payload_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		       hicn_payload_type_t *payload_type)
 {
-  return CHILD_OPS (get_payload_type, type, h, payload_type);
+  return CALL_CHILD (get_payload_type, pkbuf, pos, payload_type);
 }
 
 int
-ipv6_set_payload_type (hicn_type_t type, hicn_protocol_t *h,
+ipv6_set_payload_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		       hicn_payload_type_t payload_type)
 {
-  return CHILD_OPS (set_payload_type, type, h, payload_type);
+  return CALL_CHILD (set_payload_type, pkbuf, pos, payload_type);
 }
 
 int
-ipv6_get_signature_size (hicn_type_t type, const hicn_protocol_t *h,
+ipv6_get_signature_size (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			 size_t *signature_size)
 {
-  return CHILD_OPS (get_signature_size, type, h, signature_size);
+  return CALL_CHILD (get_signature_size, pkbuf, pos, signature_size);
 }
 
 int
-ipv6_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
+ipv6_set_signature_size (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			 size_t signature_size)
 {
-  return CHILD_OPS (set_signature_size, type, h, signature_size);
+  return CALL_CHILD (set_signature_size, pkbuf, pos, signature_size);
 }
 
 int
-ipv6_set_signature_padding (hicn_type_t type, hicn_protocol_t *h,
+ipv6_set_signature_padding (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			    size_t padding)
 {
-  return CHILD_OPS (set_signature_padding, type, h, padding);
+  return CALL_CHILD (set_signature_padding, pkbuf, pos, padding);
 }
 
 int
-ipv6_get_signature_padding (hicn_type_t type, const hicn_protocol_t *h,
+ipv6_get_signature_padding (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			    size_t *padding)
 {
-  return CHILD_OPS (get_signature_padding, type, h, padding);
+  return CALL_CHILD (get_signature_padding, pkbuf, pos, padding);
 }
 
 int
-ipv6_set_signature_timestamp (hicn_type_t type, hicn_protocol_t *h,
+ipv6_set_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      uint64_t signature_timestamp)
 {
-  return CHILD_OPS (set_signature_timestamp, type, h, signature_timestamp);
+  return CALL_CHILD (set_signature_timestamp, pkbuf, pos, signature_timestamp);
 }
 
 int
-ipv6_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t *h,
+ipv6_get_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      uint64_t *signature_timestamp)
 {
-  return CHILD_OPS (get_signature_timestamp, type, h, signature_timestamp);
+  return CALL_CHILD (get_signature_timestamp, pkbuf, pos, signature_timestamp);
 }
 
 int
-ipv6_set_validation_algorithm (hicn_type_t type, hicn_protocol_t *h,
+ipv6_set_validation_algorithm (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			       uint8_t validation_algorithm)
 {
-  return CHILD_OPS (set_validation_algorithm, type, h, validation_algorithm);
+  return CALL_CHILD (set_validation_algorithm, pkbuf, pos,
+		     validation_algorithm);
 }
 
 int
-ipv6_get_validation_algorithm (hicn_type_t type, const hicn_protocol_t *h,
+ipv6_get_validation_algorithm (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			       uint8_t *validation_algorithm)
 {
-  return CHILD_OPS (get_validation_algorithm, type, h, validation_algorithm);
+  return CALL_CHILD (get_validation_algorithm, pkbuf, pos,
+		     validation_algorithm);
 }
 
 int
-ipv6_set_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t *key_id)
+ipv6_set_key_id (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		 uint8_t *key_id, size_t key_len)
 {
-  return CHILD_OPS (set_key_id, type, h, key_id);
+  return CALL_CHILD (set_key_id, pkbuf, pos, key_id, key_len);
 }
 
 int
-ipv6_get_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t **key_id,
-		 uint8_t *key_id_size)
+ipv6_get_key_id (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		 uint8_t **key_id, uint8_t *key_id_size)
 {
-  return CHILD_OPS (get_key_id, type, h, key_id, key_id_size);
+  return CALL_CHILD (get_key_id, pkbuf, pos, key_id, key_id_size);
 }
 
 int
-ipv6_get_signature (hicn_type_t type, hicn_protocol_t *h, uint8_t **signature)
+ipv6_get_signature (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		    uint8_t **signature)
 {
-  return CHILD_OPS (get_signature, type, h, signature);
+  return CALL_CHILD (get_signature, pkbuf, pos, signature);
 }
 
 int
-ipv6_is_last_data (hicn_type_t type, const hicn_protocol_t *h, int *is_last)
+ipv6_has_signature (const hicn_packet_buffer_t *pkbuf, size_t pos, bool *flag)
 {
-  return CHILD_OPS (is_last_data, type, h, is_last);
+  return CALL_CHILD (has_signature, pkbuf, pos, flag);
 }
 
 int
-ipv6_set_last_data (hicn_type_t type, hicn_protocol_t *h)
+ipv6_is_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos, int *is_last)
 {
-  return CHILD_OPS (set_last_data, type, h);
+  return CALL_CHILD (is_last_data, pkbuf, pos, is_last);
 }
 
-DECLARE_HICN_OPS (ipv6);
+int
+ipv6_set_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos)
+{
+  return CALL_CHILD (set_last_data, pkbuf, pos);
+}
+
+int
+ipv6_get_ttl (const hicn_packet_buffer_t *pkbuf, size_t pos, u8 *hops)
+{
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  *hops = ipv6->hlim;
+
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+ipv6_set_ttl (const hicn_packet_buffer_t *pkbuf, size_t pos, u8 hops)
+{
+
+  _ipv6_header_t *ipv6 = pkbuf_get_ipv6 (pkbuf);
+
+  ipv6->hlim = hops;
+
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+ipv6_get_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
+{
+  return CALL_CHILD (get_src_port, pkbuf, pos, port);
+}
+
+int
+ipv6_set_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
+{
+  return CALL_CHILD (set_src_port, pkbuf, pos, port);
+}
+
+int
+ipv6_get_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
+{
+  return CALL_CHILD (get_dst_port, pkbuf, pos, port);
+}
+
+int
+ipv6_set_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
+{
+  return CALL_CHILD (set_dst_port, pkbuf, pos, port);
+}
+
+DECLARE_HICN_OPS (ipv6, IPV6_HDRLEN);
 
 /*
  * fd.io coding-style-patch-verification: ON

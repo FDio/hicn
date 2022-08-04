@@ -209,7 +209,7 @@ static inline int
 _vector_get (void *vector, off_t pos, size_t elt_size, void *elt)
 {
   vector_hdr_t *vh = vector_hdr (vector);
-  if (pos >= vh->alloc_size)
+  if ((size_t) pos >= vh->alloc_size)
     return -1;
 
   memcpy (elt, (uint8_t *) vector + pos * elt_size, elt_size);
@@ -228,7 +228,7 @@ _vector_get (void *vector, off_t pos, size_t elt_size, void *elt)
 static inline bool
 _vector_contains (void *vector, size_t elt_size, void *elt)
 {
-  for (int i = 0; i < vector_hdr (vector)->cur_size; i++)
+  for (size_t i = 0; i < vector_hdr (vector)->cur_size; i++)
     {
       if (memcmp ((uint8_t *) vector + i * elt_size, elt, elt_size) == 0)
 	return true;
@@ -251,7 +251,7 @@ static inline int
 _vector_remove_at (void **vector_ptr, size_t elt_size, off_t pos)
 {
   vector_hdr_t *vh = vector_hdr (*vector_ptr);
-  if (pos >= vh->cur_size)
+  if ((size_t) pos >= vh->cur_size)
     return -1;
 
   // Shift backward by one position all the elements after the one specified
@@ -342,7 +342,7 @@ _vector_remove_at (void **vector_ptr, size_t elt_size, off_t pos)
 
 #define vector_at(vector, pos)                                                \
   ({                                                                          \
-    assert (pos < vector_hdr (vector)->cur_size);                             \
+    assert ((size_t) pos < vector_hdr (vector)->cur_size);                    \
     (vector)[(pos)];                                                          \
   })
 

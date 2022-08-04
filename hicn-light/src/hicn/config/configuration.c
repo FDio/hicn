@@ -41,7 +41,8 @@
 
 #include <hicn/core/listener.h>  //the listener list
 #include <hicn/core/listener_table.h>
-#include <hicn/ctrl/hicn-light-ng.h>
+#include <hicn/ctrl/hicn-light.h>
+//#include <hicn/utils/utils.h>
 #include <hicn/utils/punting.h>
 #include <hicn/util/log.h>
 #include <hicn/face.h>
@@ -72,6 +73,8 @@ struct configuration_s {
   int logfile_fd;
   bool daemon;
   kh_strategy_map_t *strategy_map;
+  size_t n_suffixes_per_split;
+  int_manifest_split_strategy_t split_strategy;
 };
 
 configuration_t *configuration_create() {
@@ -92,6 +95,8 @@ configuration_t *configuration_create() {
 #endif
   configuration_set_loglevel(config, loglevel_from_str(DEFAULT_LOGLEVEL));
   config->strategy_map = kh_init_strategy_map();
+  config->n_suffixes_per_split = DEFAULT_N_SUFFIXES_PER_SPLIT;
+  config->split_strategy = DEFAULT_DISAGGREGATION_STRATEGY;
 
   return config;
 }
@@ -125,6 +130,25 @@ const char *configuration_get_fn_config(const configuration_t *config) {
 void configuration_set_fn_config(configuration_t *config,
                                  const char *fn_config) {
   config->fn_config = fn_config;
+}
+
+void configuration_set_suffixes_per_split(configuration_t *config,
+                                          size_t n_suffixes_per_split) {
+  config->n_suffixes_per_split = n_suffixes_per_split;
+}
+
+size_t configuration_get_suffixes_per_split(const configuration_t *config) {
+  return config->n_suffixes_per_split;
+}
+
+void configuration_set_split_strategy(
+    configuration_t *config, int_manifest_split_strategy_t split_strategy) {
+  config->split_strategy = split_strategy;
+}
+
+int_manifest_split_strategy_t configuration_get_split_strategy(
+    const configuration_t *config) {
+  return config->split_strategy;
 }
 
 void configuration_set_port(configuration_t *config, uint16_t port) {

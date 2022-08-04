@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -29,6 +29,14 @@
  *    Recovery (WLDR) [2], Anchorless Mobility Management (hICN-AMM) [3],
  *    including MAP-Me producer mobility mechanisms [4].
  *
+ * Other hICN constructs such as faces, policies and stategies are not included
+ * in this header, but available separately in :
+ *  - hicn/face.h
+ *  - hicn/policy.h
+ *  - hicn/strategy.h
+ *
+ * REFERENCES
+ *
  *  [1] Hybrid Information-Centric Networking
  *      L. Muscariello, G. Carofiglio, J. Augé, M. Papalini
  *      IETF draft (intarea) @
@@ -52,22 +60,21 @@
 #ifndef HICN__H
 #define HICN__H
 
-#ifdef HICN_VPP_PLUGIN
+/* Base data structures */
+#include <hicn/base.h>
 
-#include <hicn/header.h>
+/* Names */
 #include <hicn/name.h>
-#include <hicn/ops.h>
+
+/* Packet operations */
+#include <hicn/packet.h>
+
+/* MAP-Me : mobility management operations */
 #include <hicn/mapme.h>
 
-#else
-
+/* Error management */
+#ifndef HICN_VPP_PLUGIN
 #include <hicn/error.h>
-#include <hicn/header.h>
-#include <hicn/name.h>
-#include <hicn/ops.h>
-#include <hicn/mapme.h>
-#include <hicn/compat.h>
-
 #endif
 
 #endif /* HICN__H */

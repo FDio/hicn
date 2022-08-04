@@ -105,25 +105,23 @@ void UdpTunnelConnector::doSendPacket(
     current = current->next();
   } while (current != packet);
 
-  socket_->async_send_to(
-      std::move(array), remote_endpoint_send_,
-      [this, self](const std::error_code &ec, std::size_t length) {
-        if (TRANSPORT_EXPECT_TRUE(!ec)) {
-          sent_callback_(this, make_error_code(core_error::success));
-        } else if (ec.value() ==
-                   static_cast<int>(std::errc::operation_canceled)) {
-          // The connection has been closed by the application.
-          return;
-        } else {
-          sendFailed();
-          sent_callback_(this, ec);
-        }
+  socket_->async_send(std::move(array), [this, self](const std::error_code &ec,
+                                                     std::size_t length) {
+    if (TRANSPORT_EXPECT_TRUE(!ec)) {
+      sent_callback_(this, make_error_code(core_error::success));
+    } else if (ec.value() == static_cast<int>(std::errc::operation_canceled)) {
+      // The connection has been closed by the application.
+      return;
+    } else {
+      sendFailed();
+      sent_callback_(this, ec);
+    }
 
-        output_buffer_.pop_front();
-        if (!output_buffer_.empty()) {
-          doSendPacket(self);
-        }
-      });
+    output_buffer_.pop_front();
+    if (!output_buffer_.empty()) {
+      doSendPacket(self);
+    }
+  });
 #endif
 }
 

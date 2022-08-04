@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -31,10 +31,6 @@
 #include <hicn/transport/portability/portability.h>
 #include <hicn/transport/utils/event_thread.h>
 #include <hicn/transport/utils/fixed_block_allocator.h>
-
-extern "C" {
-#include <hicn/header.h>
-}
 
 #include <future>
 #include <memory>
@@ -575,24 +571,31 @@ class Portal : public ::utils::NonCopyable,
         return;
       }
 
-      auto format = Packet::getFormatFromBuffer(buffer.data(), buffer.length());
-      if (TRANSPORT_EXPECT_TRUE(_is_cmpr(format) || _is_tcp(format))) {
-        // The buffer is a base class for an interest or a content object
-        Packet &packet_buffer = static_cast<Packet &>(buffer);
-        if (is_consumer_ && !packet_buffer.isInterest()) {
-          processContentObject(static_cast<ContentObject &>(packet_buffer));
-        } else if (!is_consumer_ && packet_buffer.isInterest()) {
-          processInterest(static_cast<Interest &>(packet_buffer));
-        } else {
-          auto packet_type =
-              packet_buffer.isInterest() ? "Interest" : "ContentObject";
-          auto socket_type = is_consumer_ ? "consumer " : "producer ";
-          LOG(ERROR) << "Received a " << packet_type << " packet with name "
-                     << packet_buffer.getName() << " in a " << socket_type
-                     << " transport. Ignoring it.";
-        }
-      } else {
-        LOG(ERROR) << "Received not supported packet. Ignoring it.";
+      // The buffer is a base class for an interest or a content object
+      Packet &packet_buffer = static_cast<Packet &>(buffer);
+
+      switch (packet_buffer.getType()) {
+        case HICN_PACKET_TYPE_INTEREST:
+          if (!is_consumer_) {
+            processInterest(static_cast<Interest &>(packet_buffer));
+          } else {
+            LOG(ERROR) << "Received an Interest packet with name "
+                       << packet_buffer.getName()
+                       << " in a consumer transport. Ignoring it.";
+          }
+          break;
+        case HICN_PACKET_TYPE_DATA:
+          if (is_consumer_) {
+            processContentObject(static_cast<ContentObject &>(packet_buffer));
+          } else {
+            LOG(ERROR) << "Received a Data packet with name "
+                       << packet_buffer.getName()
+                       << " in a producer transport. Ignoring it.";
+          }
+          break;
+        default:
+          LOG(ERROR) << "Received not supported packet. Ignoring it.";
+          break;
       }
     }
   }

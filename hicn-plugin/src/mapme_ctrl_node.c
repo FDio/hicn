@@ -194,7 +194,7 @@ hicn_mapme_process_ctrl (vlib_main_t *vm, vlib_buffer_t *b,
   /* We forge the ACK which we be the packet forwarded by the node */
   hicn_mapme_create_ack (vlib_buffer_get_current (b), &params);
 
-  dpo = fib_epm_lookup (&prefix.name, prefix.len);
+  dpo = fib_epm_lookup (&prefix.name.as_ip46, prefix.len);
   if (!dpo)
     {
 #ifdef HICN_MAPME_ALLOW_NONEXISTING_FIB_ENTRY

@@ -61,9 +61,37 @@ hicnpg_server_restack (hicnpg_server_t *hicnpg_server)
 static hicnpg_server_t *
 hicnpg_server_from_fib_node (fib_node_t *node)
 {
+#if 1
   ASSERT (hicnpg_server_fib_node_type == node->fn_type);
   return ((hicnpg_server_t *) (((char *) node) -
 			       STRUCT_OFFSET_OF (hicnpg_server_t, fib_node)));
+#else
+  hicn_header_t *h0 = vlib_buffer_get_current (b0);
+
+  /* Generate the right src and dst corresponding to flow and iface */
+  ip46_address_t src_addr = {
+    .ip4 = hicnpg_main.pgen_clt_src_addr.ip4,
+  };
+  hicn_name_t dst_name = {
+    .prefix.v4.as_u32 = hicnpg_main.pgen_clt_hicn_name->fp_addr.ip4.as_u32,
+    .suffix = seq_number,
+  };
+
+  src_addr.ip4.as_u32 += clib_host_to_net_u32 (iface);
+  dst_name.prefix.v4.as_u32 += clib_net_to_host_u32 (next_flow);
+
+  /* Update locator and name */
+  hicn_type_t type = hicn_get_buffer (b0)->type;
+  HICN_OPS4->set_interest_locator (type, &h0->protocol,
+				   (hicn_ip_address_t *) &src_addr);
+  HICN_OPS4->set_interest_name (type, &h0->protocol, &dst_name);
+
+  /* Update lifetime  (currently L4 checksum is not updated) */
+  HICN_OPS4->set_lifetime (type, &h0->protocol, interest_lifetime);
+
+  /* Update checksums */
+  HICN_OPS4->update_checksums (type, &h0->protocol, 0, 0);
+#endif
 }
 
 /**
@@ -74,7 +102,35 @@ hicnpg_server_fib_back_walk (fib_node_t *node, fib_node_back_walk_ctx_t *ctx)
 {
   hicnpg_server_restack (hicnpg_server_from_fib_node (node));
 
+#if 1
   return FIB_NODE_BACK_WALK_CONTINUE;
+#else
+  /* Generate the right src and dst corresponding to flow and iface */
+  ip46_address_t src_addr = {
+    .ip6 = hicnpg_main.pgen_clt_src_addr.ip6,
+  };
+  hicn_name_t dst_name = {
+    .prefix.v6.as_u64 = {
+        hicnpg_main.pgen_clt_hicn_name->fp_addr.ip6.as_u64[0],
+        hicnpg_main.pgen_clt_hicn_name->fp_addr.ip6.as_u64[1],
+    },
+    .suffix = seq_number,
+  };
+  src_addr.ip6.as_u32[3] += clib_host_to_net_u32 (iface);
+  dst_name.prefix.v6.as_u32[3] += clib_net_to_host_u32 (next_flow);
+
+  /* Update locator and name */
+  hicn_type_t type = hicn_get_buffer (b0)->type;
+  HICN_OPS6->set_interest_locator (type, &h0->protocol,
+				   (hicn_ip_address_t *) &src_addr);
+  HICN_OPS6->set_interest_name (type, &h0->protocol, &dst_name);
+
+  /* Update lifetime */
+  HICN_OPS6->set_lifetime (type, &h0->protocol, interest_lifetime);
+
+  /* Update checksums */
+  calculate_tcp_checksum_v6 (vm, b0);
+#endif
 }
 
 /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -22,6 +22,8 @@
 #include <climits>
 #include <random>
 #include <vector>
+
+#include "../../lib/src/protocol.h"
 
 namespace transport {
 
@@ -56,13 +58,13 @@ class PacketForTest : public Packet {
     throw errors::NotImplementedException();
   }
 
-  void setLocator(const ip_address_t &locator) override {
+  void setLocator(const hicn_ip_address_t &locator) override {
     throw errors::NotImplementedException();
   }
 
   void resetForHash() override { throw errors::NotImplementedException(); }
 
-  ip_address_t getLocator() const override {
+  hicn_ip_address_t getLocator() const override {
     throw errors::NotImplementedException();
   }
 };
@@ -73,8 +75,9 @@ class PacketTest : public ::testing::Test {
  protected:
   PacketTest()
       : name_("b001::123|321"),
-        packet(Packet::COPY_BUFFER, &raw_packets_[HF_INET6_TCP][0],
-               raw_packets_[HF_INET6_TCP].size()) {
+        packet(Packet::COPY_BUFFER,
+               &raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32][0],
+               raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size()) {
     // You can do set-up work for each test here.
   }
 
@@ -99,7 +102,7 @@ class PacketTest : public ::testing::Test {
 
   PacketForTest packet;
 
-  static std::map<Packet::Format, std::vector<uint8_t>> raw_packets_;
+  static std::map<uint32_t, std::vector<uint8_t>> raw_packets_;
 
   std::vector<uint8_t> payload = {
       0x11, 0x11, 0x01, 0x00, 0xb0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -115,8 +118,8 @@ class PacketTest : public ::testing::Test {
   };
 };
 
-std::map<Packet::Format, std::vector<uint8_t>> PacketTest::raw_packets_ = {
-    {Packet::Format::HF_INET6_TCP,
+std::map<uint32_t, std::vector<uint8_t>> PacketTest::raw_packets_ = {
+    {HICN_PACKET_FORMAT_IPV6_TCP.as_u32,
 
      {// IPv6 src=b001::ab:cdab:cdef, dst=b002::ca
       IPV6_HEADER(TCP_PROTO, 20 + PAYLOAD_SIZE),
@@ -125,7 +128,7 @@ std::map<Packet::Format, std::vector<uint8_t>> PacketTest::raw_packets_ = {
       // Payload
       PAYLOAD}},
 
-    {Packet::Format::HF_INET_TCP,
+    {HICN_PACKET_FORMAT_IPV4_TCP.as_u32,
      {// IPv4 src=3.13.127.8, dst=192.168.1.92
       IPV4_HEADER(TCP_PROTO, 20 + PAYLOAD_SIZE),
       // TCP src=0x1234 dst=0x4321, seq=0x0001
@@ -133,64 +136,68 @@ std::map<Packet::Format, std::vector<uint8_t>> PacketTest::raw_packets_ = {
       // Other
       PAYLOAD}},
 
-    {Packet::Format::HF_INET_ICMP,
+    {HICN_PACKET_FORMAT_IPV4_ICMP.as_u32,
      {// IPv4 src=3.13.127.8, dst=192.168.1.92
       IPV4_HEADER(ICMP_PROTO, 64),
       // ICMP echo request
       ICMP_ECHO_REQUEST}},
 
-    {Packet::Format::HF_INET6_ICMP,
+    {HICN_PACKET_FORMAT_IPV6_ICMP.as_u32,
      {// IPv6 src=b001::ab:cdab:cdef, dst=b002::ca
       IPV6_HEADER(ICMP6_PROTO, 60),
       // ICMP6 echo request
       ICMP6_ECHO_REQUEST}},
 
-    {Packet::Format::HF_INET6_TCP_AH,
+    {HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32,
      {// IPv6 src=b001::ab:cdab:cdef, dst=b002::ca
       IPV6_HEADER(TCP_PROTO, 20 + 44 + 128),
       // ICMP6 echo request
       TCP_HEADER(0x18),
       // hICN AH header
-      AH_HEADER}},
+      AH_HEADER, SIGNATURE}},
 
-    {Packet::Format::HF_INET_TCP_AH,
+    {HICN_PACKET_FORMAT_IPV4_TCP_AH.as_u32,
      {// IPv6 src=b001::ab:cdab:cdef, dst=b002::ca
       IPV4_HEADER(TCP_PROTO, 20 + 44 + 128),
       // ICMP6 echo request
       TCP_HEADER(0x18),
       // hICN AH header
-      AH_HEADER}},
+      AH_HEADER, SIGNATURE}},
 
     // XXX No flag defined in ICMP header to signal AH header.
-    {Packet::Format::HF_INET_ICMP_AH,
+    {HICN_PACKET_FORMAT_IPV4_ICMP_AH.as_u32,
      {// IPv6 src=b001::ab:cdab:cdef, dst=b002::ca
       IPV4_HEADER(ICMP_PROTO, 64 + 44),
       // ICMP6 echo request
       ICMP_ECHO_REQUEST,
       // hICN AH header
-      AH_HEADER}},
+      AH_HEADER, SIGNATURE}},
 
-    {Packet::Format::HF_INET6_ICMP_AH,
+    {HICN_PACKET_FORMAT_IPV6_ICMP_AH.as_u32,
      {// IPv6 src=b001::ab:cdab:cdef, dst=b002::ca
       IPV6_HEADER(ICMP6_PROTO, 60 + 44),
       // ICMP6 echo request
       ICMP6_ECHO_REQUEST,
       // hICN AH header
-      AH_HEADER}},
+      AH_HEADER, SIGNATURE}},
 
 };
 
-void testFormatConstructor(Packet::Format format = HF_UNSPEC) {
+void testFormatConstructor(Packet::Format format = HICN_PACKET_FORMAT_NONE) {
   try {
-    PacketForTest packet(format);
+    PacketForTest packet(HICN_PACKET_TYPE_INTEREST, format);
   } catch (...) {
-    FAIL() << "ERROR: Unexpected exception thrown for " << format;
+    char buf[MAXSZ_HICN_PACKET_FORMAT];
+    int rc = hicn_packet_format_snprintf(buf, MAXSZ_HICN_PACKET_FORMAT, format);
+    if (rc < 0 || rc >= MAXSZ_HICN_PACKET_FORMAT)
+      snprintf(buf, MAXSZ_HICN_PACKET_FORMAT, "%s", "(error");
+    FAIL() << "ERROR: Unexpected exception thrown for " << buf;
   }
 }
 
 void testFormatAndAdditionalHeaderConstructor(Packet::Format format,
                                               std::size_t additional_header) {
-  PacketForTest packet(format, additional_header);
+  PacketForTest packet(HICN_PACKET_TYPE_INTEREST, format, additional_header);
   // Packet length should be the one of the normal header + the
   // additional_header
 
@@ -206,7 +213,7 @@ void testRawBufferConstructor(std::vector<uint8_t> packet,
                     packet.size());
 
     // Check format is expected one.
-    EXPECT_EQ(p.getFormat(), format);
+    EXPECT_EQ(p.getFormat().as_u32, format.as_u32);
 
     // // Try the same using a MemBuf
     // auto buf = utils::MemBuf::wrapBuffer(&packet[0], packet.size());
@@ -229,17 +236,19 @@ void testRawBufferConstructor(std::vector<uint8_t> packet,
     PacketForTest p(Packet::WRAP_BUFFER, &packet[0], packet.size(),
                     packet.size());
 
-    // Format should fallback to HF_UNSPEC
-    EXPECT_EQ(p.getFormat(), HF_UNSPEC);
+    // Format should fallback to HICN_PACKET_FORMAT_NONE
+    EXPECT_EQ(p.getFormat().as_u32, HICN_PACKET_FORMAT_NONE.as_u32);
+  } catch (errors::MalformedPacketException &exc) {
+    // Ok right exception
   } catch (...) {
     FAIL() << "ERROR: Unexpected exception thrown.";
   }
 }
 
-void getHeaderSizeFromBuffer(Packet::Format format,
-                             std::vector<uint8_t> &packet,
+void getHeaderSizeFromBuffer(std::vector<uint8_t> &packet,
                              std::size_t expected) {
-  auto header_size = PacketForTest::getHeaderSizeFromBuffer(format, &packet[0]);
+  auto header_size =
+      PacketForTest::getHeaderSizeFromBuffer(&packet[0], packet.size());
   EXPECT_EQ(header_size, expected);
 }
 
@@ -248,18 +257,17 @@ void getHeaderSizeFromFormat(Packet::Format format, std::size_t expected) {
   EXPECT_EQ(header_size, expected);
 }
 
-void getPayloadSizeFromBuffer(Packet::Format format,
-                              std::vector<uint8_t> &packet,
+void getPayloadSizeFromBuffer(std::vector<uint8_t> &packet,
                               std::size_t expected) {
   auto payload_size =
-      PacketForTest::getPayloadSizeFromBuffer(format, &packet[0]);
+      PacketForTest::getPayloadSizeFromBuffer(&packet[0], packet.size());
   EXPECT_EQ(payload_size, expected);
 }
 
 void getFormatFromBuffer(Packet::Format expected,
                          std::vector<uint8_t> &packet) {
   auto format = PacketForTest::getFormatFromBuffer(&packet[0], packet.size());
-  EXPECT_EQ(format, expected);
+  EXPECT_EQ(format.as_u32, expected.as_u32);
 }
 
 void getHeaderSize(std::size_t expected, const PacketForTest &packet) {
@@ -269,143 +277,160 @@ void getHeaderSize(std::size_t expected, const PacketForTest &packet) {
 
 void testGetFormat(Packet::Format expected, const Packet &packet) {
   auto format = packet.getFormat();
-  EXPECT_EQ(format, expected);
+  EXPECT_EQ(format.as_u32, expected.as_u32);
 }
 
 }  // namespace
 
 TEST_F(PacketTest, ConstructorWithFormat) {
-  testFormatConstructor(Packet::Format::HF_INET_TCP);
-  testFormatConstructor(Packet::Format::HF_INET6_TCP);
-  testFormatConstructor(Packet::Format::HF_INET_ICMP);
-  testFormatConstructor(Packet::Format::HF_INET6_ICMP);
-  testFormatConstructor(Packet::Format::HF_INET_TCP_AH);
-  testFormatConstructor(Packet::Format::HF_INET6_TCP_AH);
-  testFormatConstructor(Packet::Format::HF_INET_ICMP_AH);
-  testFormatConstructor(Packet::Format::HF_INET6_ICMP_AH);
+  testFormatConstructor(HICN_PACKET_FORMAT_IPV4_TCP);
+  testFormatConstructor(HICN_PACKET_FORMAT_IPV6_TCP);
+  testFormatConstructor(HICN_PACKET_FORMAT_IPV4_ICMP);
+  testFormatConstructor(HICN_PACKET_FORMAT_IPV6_ICMP);
+  testFormatConstructor(HICN_PACKET_FORMAT_IPV4_TCP_AH);
+  testFormatConstructor(HICN_PACKET_FORMAT_IPV6_TCP_AH);
+  testFormatConstructor(HICN_PACKET_FORMAT_IPV4_ICMP_AH);
+  testFormatConstructor(HICN_PACKET_FORMAT_IPV6_ICMP_AH);
 }
 
 TEST_F(PacketTest, ConstructorWithFormatAndAdditionalHeader) {
-  testFormatAndAdditionalHeaderConstructor(Packet::Format::HF_INET_TCP, 123);
-  testFormatAndAdditionalHeaderConstructor(Packet::Format::HF_INET6_TCP, 360);
-  testFormatAndAdditionalHeaderConstructor(Packet::Format::HF_INET_ICMP, 21);
-  testFormatAndAdditionalHeaderConstructor(Packet::Format::HF_INET6_ICMP, 444);
-  testFormatAndAdditionalHeaderConstructor(Packet::Format::HF_INET_TCP_AH, 555);
-  testFormatAndAdditionalHeaderConstructor(Packet::Format::HF_INET6_TCP_AH,
-                                           321);
-  testFormatAndAdditionalHeaderConstructor(Packet::Format::HF_INET_ICMP_AH,
+  testFormatAndAdditionalHeaderConstructor(HICN_PACKET_FORMAT_IPV4_TCP, 123);
+  testFormatAndAdditionalHeaderConstructor(HICN_PACKET_FORMAT_IPV6_TCP, 360);
+  testFormatAndAdditionalHeaderConstructor(HICN_PACKET_FORMAT_IPV4_ICMP, 21);
+  testFormatAndAdditionalHeaderConstructor(HICN_PACKET_FORMAT_IPV6_ICMP, 444);
+  testFormatAndAdditionalHeaderConstructor(HICN_PACKET_FORMAT_IPV4_TCP_AH, 555);
+  testFormatAndAdditionalHeaderConstructor(HICN_PACKET_FORMAT_IPV6_TCP_AH, 321);
+  testFormatAndAdditionalHeaderConstructor(HICN_PACKET_FORMAT_IPV4_ICMP_AH,
                                            123);
-  testFormatAndAdditionalHeaderConstructor(Packet::Format::HF_INET6_ICMP_AH,
-                                           44);
+  testFormatAndAdditionalHeaderConstructor(HICN_PACKET_FORMAT_IPV6_ICMP_AH, 44);
 }
 
 TEST_F(PacketTest, ConstructorWithNew) {
-  auto &_packet = raw_packets_[HF_INET6_TCP];
+  auto &_packet = raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32];
   auto packet_ptr = new PacketForTest(Packet::WRAP_BUFFER, &_packet[0],
                                       _packet.size(), _packet.size());
   delete packet_ptr;
 }
 
 TEST_F(PacketTest, ConstructorWithRawBufferInet6Tcp) {
-  auto format = Packet::Format::HF_INET6_TCP;
-  testRawBufferConstructor(raw_packets_[format], format);
+  auto format = HICN_PACKET_FORMAT_IPV6_TCP;
+  testRawBufferConstructor(raw_packets_[format.as_u32], format);
 }
 
 TEST_F(PacketTest, ConstructorWithRawBufferInetTcp) {
-  auto format = Packet::Format::HF_INET_TCP;
-  testRawBufferConstructor(raw_packets_[format], format);
+  auto format = HICN_PACKET_FORMAT_IPV4_TCP;
+  testRawBufferConstructor(raw_packets_[format.as_u32], format);
 }
 
 TEST_F(PacketTest, ConstructorWithRawBufferInetIcmp) {
-  auto format = Packet::Format::HF_INET_ICMP;
-  testRawBufferConstructor(raw_packets_[format], format);
+  auto format = HICN_PACKET_FORMAT_IPV4_ICMP;
+  testRawBufferConstructor(raw_packets_[format.as_u32], format);
 }
 
 TEST_F(PacketTest, ConstructorWithRawBufferInet6Icmp) {
-  auto format = Packet::Format::HF_INET6_ICMP;
-  testRawBufferConstructor(raw_packets_[format], format);
+  auto format = HICN_PACKET_FORMAT_IPV6_ICMP;
+  testRawBufferConstructor(raw_packets_[format.as_u32], format);
 }
 
 TEST_F(PacketTest, ConstructorWithRawBufferInet6TcpAh) {
-  auto format = Packet::Format::HF_INET6_TCP_AH;
-  testRawBufferConstructor(raw_packets_[format], format);
+  auto format = HICN_PACKET_FORMAT_IPV6_TCP_AH;
+  testRawBufferConstructor(raw_packets_[format.as_u32], format);
 }
 
 TEST_F(PacketTest, ConstructorWithRawBufferInetTcpAh) {
-  auto format = Packet::Format::HF_INET_TCP_AH;
-  testRawBufferConstructor(raw_packets_[format], format);
+  auto format = HICN_PACKET_FORMAT_IPV4_TCP_AH;
+  testRawBufferConstructor(raw_packets_[format.as_u32], format);
 }
 
 TEST_F(PacketTest, MoveConstructor) {
-  PacketForTest p0(Packet::Format::HF_INET6_TCP);
+  PacketForTest p0(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_TCP);
   PacketForTest p1(std::move(p0));
-  EXPECT_EQ(p0.getFormat(), Packet::Format::HF_UNSPEC);
-  EXPECT_EQ(p1.getFormat(), Packet::Format::HF_INET6_TCP);
+  EXPECT_EQ(p0.getFormat().as_u32, HICN_PACKET_FORMAT_NONE.as_u32);
+  EXPECT_EQ(p1.getFormat().as_u32, HICN_PACKET_FORMAT_IPV6_TCP.as_u32);
 }
 
 TEST_F(PacketTest, TestGetHeaderSizeFromBuffer) {
-  getHeaderSizeFromBuffer(HF_INET6_TCP, raw_packets_[HF_INET6_TCP],
-                          HICN_V6_TCP_HDRLEN);
-  getHeaderSizeFromBuffer(HF_INET_TCP, raw_packets_[HF_INET_TCP],
-                          HICN_V4_TCP_HDRLEN);
-  getHeaderSizeFromBuffer(HF_INET6_ICMP, raw_packets_[HF_INET6_ICMP],
+  getHeaderSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32],
+                          IPV6_HDRLEN + TCP_HDRLEN);
+  getHeaderSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP.as_u32],
+                          IPV4_HDRLEN + TCP_HDRLEN);
+  getHeaderSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32],
                           IPV6_HDRLEN + 4);
-  getHeaderSizeFromBuffer(HF_INET_ICMP, raw_packets_[HF_INET_ICMP],
+  getHeaderSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV4_ICMP.as_u32],
                           IPV4_HDRLEN + 4);
-  getHeaderSizeFromBuffer(HF_INET6_TCP_AH, raw_packets_[HF_INET6_TCP_AH],
-                          HICN_V6_TCP_AH_HDRLEN + 128);
-  getHeaderSizeFromBuffer(HF_INET_TCP_AH, raw_packets_[HF_INET_TCP_AH],
-                          HICN_V4_TCP_AH_HDRLEN + 128);
+  getHeaderSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32],
+                          IPV6_HDRLEN + TCP_HDRLEN + AH_HDRLEN + 128);
+  getHeaderSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP_AH.as_u32],
+                          IPV4_HDRLEN + TCP_HDRLEN + AH_HDRLEN + 128);
 }
 
 TEST_F(PacketTest, TestGetHeaderSizeFromFormat) {
-  getHeaderSizeFromFormat(HF_INET6_TCP, HICN_V6_TCP_HDRLEN);
-  getHeaderSizeFromFormat(HF_INET_TCP, HICN_V4_TCP_HDRLEN);
-  getHeaderSizeFromFormat(HF_INET6_ICMP, IPV6_HDRLEN + 4);
-  getHeaderSizeFromFormat(HF_INET_ICMP, IPV4_HDRLEN + 4);
-  getHeaderSizeFromFormat(HF_INET6_TCP_AH, HICN_V6_TCP_AH_HDRLEN);
-  getHeaderSizeFromFormat(HF_INET_TCP_AH, HICN_V4_TCP_AH_HDRLEN);
+  getHeaderSizeFromFormat(HICN_PACKET_FORMAT_IPV6_TCP,
+                          IPV6_HDRLEN + TCP_HDRLEN);
+  getHeaderSizeFromFormat(HICN_PACKET_FORMAT_IPV4_TCP,
+                          IPV4_HDRLEN + TCP_HDRLEN);
+  getHeaderSizeFromFormat(HICN_PACKET_FORMAT_IPV6_ICMP, IPV6_HDRLEN + 4);
+  getHeaderSizeFromFormat(HICN_PACKET_FORMAT_IPV4_ICMP, IPV4_HDRLEN + 4);
+  getHeaderSizeFromFormat(HICN_PACKET_FORMAT_IPV6_TCP_AH,
+                          IPV6_HDRLEN + TCP_HDRLEN + AH_HDRLEN);
+  getHeaderSizeFromFormat(HICN_PACKET_FORMAT_IPV4_TCP_AH,
+                          IPV4_HDRLEN + TCP_HDRLEN + AH_HDRLEN);
 }
 
 TEST_F(PacketTest, TestGetPayloadSizeFromBuffer) {
-  getPayloadSizeFromBuffer(HF_INET6_TCP, raw_packets_[HF_INET6_TCP], 12);
-  getPayloadSizeFromBuffer(HF_INET_TCP, raw_packets_[HF_INET_TCP], 12);
-  getPayloadSizeFromBuffer(HF_INET6_ICMP, raw_packets_[HF_INET6_ICMP], 56);
-  getPayloadSizeFromBuffer(HF_INET_ICMP, raw_packets_[HF_INET_ICMP], 60);
-  getPayloadSizeFromBuffer(HF_INET6_TCP_AH, raw_packets_[HF_INET6_TCP_AH], 0);
-  getPayloadSizeFromBuffer(HF_INET_TCP_AH, raw_packets_[HF_INET_TCP_AH], 0);
+  getPayloadSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32],
+                           12);
+  getPayloadSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP.as_u32],
+                           12);
+  getPayloadSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32],
+                           56);
+  getPayloadSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV4_ICMP.as_u32],
+                           60);
+  getPayloadSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32],
+                           0);
+  getPayloadSizeFromBuffer(raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP_AH.as_u32],
+                           0);
 }
 
+#if 0
 TEST_F(PacketTest, TestIsInterest) {
-  auto ret = PacketForTest::isInterest(&raw_packets_[HF_INET6_TCP][0]);
+  auto ret = PacketForTest::isInterest(&raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32][0]);
 
   EXPECT_TRUE(ret);
 }
+#endif
 
 TEST_F(PacketTest, TestGetFormatFromBuffer) {
-  getFormatFromBuffer(HF_INET6_TCP, raw_packets_[HF_INET6_TCP]);
-  getFormatFromBuffer(HF_INET_TCP, raw_packets_[HF_INET_TCP]);
-  getFormatFromBuffer(HF_INET6_ICMP, raw_packets_[HF_INET6_ICMP]);
-  getFormatFromBuffer(HF_INET_ICMP, raw_packets_[HF_INET_ICMP]);
-  getFormatFromBuffer(HF_INET6_TCP_AH, raw_packets_[HF_INET6_TCP_AH]);
-  getFormatFromBuffer(HF_INET_TCP_AH, raw_packets_[HF_INET_TCP_AH]);
+  getFormatFromBuffer(HICN_PACKET_FORMAT_IPV6_TCP,
+                      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32]);
+  getFormatFromBuffer(HICN_PACKET_FORMAT_IPV4_TCP,
+                      raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP.as_u32]);
+  getFormatFromBuffer(HICN_PACKET_FORMAT_IPV6_ICMP,
+                      raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32]);
+  getFormatFromBuffer(HICN_PACKET_FORMAT_IPV4_ICMP,
+                      raw_packets_[HICN_PACKET_FORMAT_IPV4_ICMP.as_u32]);
+  getFormatFromBuffer(HICN_PACKET_FORMAT_IPV6_TCP_AH,
+                      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32]);
+  getFormatFromBuffer(HICN_PACKET_FORMAT_IPV4_TCP_AH,
+                      raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP_AH.as_u32]);
 }
 
 // TEST_F(PacketTest, TestReplace) {
-//   PacketForTest packet(Packet::WRAP_BUFFER, &raw_packets_[HF_INET6_TCP][0],
-//                        raw_packets_[HF_INET6_TCP].size());
+//   PacketForTest packet(Packet::WRAP_BUFFER,
+//   &raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32][0],
+//                        raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size());
 
 //   // Replace current packet with another one
-//   packet.replace(&raw_packets_[HF_INET_TCP][0],
-//                  raw_packets_[HF_INET_TCP].size());
+//   packet.replace(&raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP.as_u32][0],
+//                  raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP.as_u32].size());
 
 //   // Check new format
-//   ASSERT_EQ(packet.getFormat(), HF_INET_TCP);
+//   ASSERT_EQ(packet.getFormat(), HICN_PACKET_FORMAT_IPV4_TCP);
 // }
 
 TEST_F(PacketTest, TestPayloadSize) {
   // Check payload size of existing packet
-  auto &_packet = raw_packets_[HF_INET6_TCP];
+  auto &_packet = raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32];
   PacketForTest packet(Packet::WRAP_BUFFER, &_packet[0], _packet.size(),
                        _packet.size());
 
@@ -415,7 +440,7 @@ TEST_F(PacketTest, TestPayloadSize) {
   std::string payload0(1024, 'X');
 
   // Create the packet
-  PacketForTest packet2(HF_INET6_TCP);
+  PacketForTest packet2(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_TCP);
 
   // Payload size should now be zero
   EXPECT_EQ(packet2.payloadSize(), std::size_t(0));
@@ -442,22 +467,29 @@ TEST_F(PacketTest, TestPayloadSize) {
 }
 
 TEST_F(PacketTest, TestHeaderSize) {
-  getHeaderSize(HICN_V6_TCP_HDRLEN,
-                PacketForTest(Packet::Format::HF_INET6_TCP));
-  getHeaderSize(HICN_V4_TCP_HDRLEN, PacketForTest(Packet::Format::HF_INET_TCP));
-  getHeaderSize(HICN_V6_ICMP_HDRLEN,
-                PacketForTest(Packet::Format::HF_INET6_ICMP));
-  getHeaderSize(HICN_V4_ICMP_HDRLEN,
-                PacketForTest(Packet::Format::HF_INET_ICMP));
-  getHeaderSize(HICN_V6_TCP_AH_HDRLEN,
-                PacketForTest(Packet::Format::HF_INET6_TCP_AH));
-  getHeaderSize(HICN_V4_TCP_AH_HDRLEN,
-                PacketForTest(Packet::Format::HF_INET_TCP_AH));
+  getHeaderSize(
+      IPV6_HDRLEN + TCP_HDRLEN,
+      PacketForTest(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_TCP));
+  getHeaderSize(
+      IPV4_HDRLEN + TCP_HDRLEN,
+      PacketForTest(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV4_TCP));
+  getHeaderSize(
+      IPV6_HDRLEN + ICMP_HDRLEN,
+      PacketForTest(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_ICMP));
+  getHeaderSize(
+      IPV4_HDRLEN + ICMP_HDRLEN,
+      PacketForTest(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV4_ICMP));
+  getHeaderSize(
+      IPV6_HDRLEN + TCP_HDRLEN + AH_HDRLEN,
+      PacketForTest(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_TCP_AH));
+  getHeaderSize(
+      IPV4_HDRLEN + TCP_HDRLEN + AH_HDRLEN,
+      PacketForTest(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV4_TCP_AH));
 }
 
 TEST_F(PacketTest, TestMemBufReference) {
   // Create packet
-  auto &_packet = raw_packets_[HF_INET6_TCP];
+  auto &_packet = raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32];
 
   // Packet was not created as a shared_ptr. If we try to get a membuf shared
   // ptr we should get an exception.
@@ -498,16 +530,17 @@ TEST_F(PacketTest, TestMemBufReference) {
 
 TEST_F(PacketTest, TestReset) {
   // Check everything is ok
-  EXPECT_EQ(packet.getFormat(), HF_INET6_TCP);
-  EXPECT_EQ(packet.length(), raw_packets_[HF_INET6_TCP].size());
-  EXPECT_EQ(packet.headerSize(), HICN_V6_TCP_HDRLEN);
+  EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_IPV6_TCP.as_u32);
+  EXPECT_EQ(packet.length(),
+            raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size());
+  EXPECT_EQ(packet.headerSize(), IPV6_HDRLEN + TCP_HDRLEN);
   EXPECT_EQ(packet.payloadSize(), packet.length() - packet.headerSize());
 
   // Reset the packet
   packet.reset();
 
   // Rerun test
-  EXPECT_EQ(packet.getFormat(), HF_UNSPEC);
+  EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_NONE.as_u32);
   EXPECT_EQ(packet.length(), std::size_t(0));
   EXPECT_EQ(packet.headerSize(), std::size_t(0));
   EXPECT_EQ(packet.payloadSize(), std::size_t(0));
@@ -548,7 +581,7 @@ TEST_F(PacketTest, TestAppendPayload) {
 
   // There should be no more bufferls left in the chain
   EXPECT_EQ(&packet, packet.next());
-  EXPECT_EQ(packet.getFormat(), HF_UNSPEC);
+  EXPECT_EQ(packet.getFormat().as_u32, HICN_PACKET_FORMAT_NONE.as_u32);
   EXPECT_EQ(packet.length(), std::size_t(0));
   EXPECT_EQ(packet.headerSize(), std::size_t(0));
   EXPECT_EQ(packet.payloadSize(), std::size_t(0));
@@ -557,6 +590,7 @@ TEST_F(PacketTest, TestAppendPayload) {
 TEST_F(PacketTest, GetPayload) {
   // Append payload with raw buffer
   uint8_t raw_buffer[2048];
+  memset(raw_buffer, 0, sizeof(raw_buffer));
   auto original_payload_length = packet.payloadSize();
   packet.appendPayload(raw_buffer, 2048);
 
@@ -621,61 +655,63 @@ TEST_F(PacketTest, SetGetPayloadType) {
 TEST_F(PacketTest, GetFormat) {
   {
     PacketForTest p0(Packet::WRAP_BUFFER,
-                     &raw_packets_[Packet::Format::HF_INET_TCP][0],
-                     raw_packets_[Packet::Format::HF_INET_TCP].size(),
-                     raw_packets_[Packet::Format::HF_INET_TCP].size());
-    testGetFormat(Packet::Format::HF_INET_TCP, p0);
+                     &raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP.as_u32][0],
+                     raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP.as_u32].size(),
+                     raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP.as_u32].size());
+    testGetFormat(HICN_PACKET_FORMAT_IPV4_TCP, p0);
 
     PacketForTest p1(Packet::WRAP_BUFFER,
-                     &raw_packets_[Packet::Format::HF_INET6_TCP][0],
-                     raw_packets_[Packet::Format::HF_INET6_TCP].size(),
-                     raw_packets_[Packet::Format::HF_INET6_TCP].size());
-    testGetFormat(Packet::Format::HF_INET6_TCP, p1);
+                     &raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32][0],
+                     raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size(),
+                     raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size());
+    testGetFormat(HICN_PACKET_FORMAT_IPV6_TCP, p1);
 
     PacketForTest p2(Packet::WRAP_BUFFER,
-                     &raw_packets_[Packet::Format::HF_INET_ICMP][0],
-                     raw_packets_[Packet::Format::HF_INET_ICMP].size(),
-                     raw_packets_[Packet::Format::HF_INET_ICMP].size());
-    testGetFormat(Packet::Format::HF_INET_ICMP, p2);
+                     &raw_packets_[HICN_PACKET_FORMAT_IPV4_ICMP.as_u32][0],
+                     raw_packets_[HICN_PACKET_FORMAT_IPV4_ICMP.as_u32].size(),
+                     raw_packets_[HICN_PACKET_FORMAT_IPV4_ICMP.as_u32].size());
+    testGetFormat(HICN_PACKET_FORMAT_IPV4_ICMP, p2);
 
     PacketForTest p3(Packet::WRAP_BUFFER,
-                     &raw_packets_[Packet::Format::HF_INET6_ICMP][0],
-                     raw_packets_[Packet::Format::HF_INET6_ICMP].size(),
-                     raw_packets_[Packet::Format::HF_INET6_ICMP].size());
-    testGetFormat(Packet::Format::HF_INET6_ICMP, p3);
+                     &raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32][0],
+                     raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32].size(),
+                     raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32].size());
+    testGetFormat(HICN_PACKET_FORMAT_IPV6_ICMP, p3);
 
-    PacketForTest p4(Packet::WRAP_BUFFER,
-                     &raw_packets_[Packet::Format::HF_INET_TCP_AH][0],
-                     raw_packets_[Packet::Format::HF_INET_TCP_AH].size(),
-                     raw_packets_[Packet::Format::HF_INET_TCP_AH].size());
-    testGetFormat(Packet::Format::HF_INET_TCP_AH, p4);
+    PacketForTest p4(
+        Packet::WRAP_BUFFER,
+        &raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP_AH.as_u32][0],
+        raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP_AH.as_u32].size(),
+        raw_packets_[HICN_PACKET_FORMAT_IPV4_TCP_AH.as_u32].size());
+    testGetFormat(HICN_PACKET_FORMAT_IPV4_TCP_AH, p4);
 
-    PacketForTest p5(Packet::WRAP_BUFFER,
-                     &raw_packets_[Packet::Format::HF_INET6_TCP_AH][0],
-                     raw_packets_[Packet::Format::HF_INET6_TCP_AH].size(),
-                     raw_packets_[Packet::Format::HF_INET6_TCP_AH].size());
-    testGetFormat(Packet::Format::HF_INET6_TCP_AH, p5);
+    PacketForTest p5(
+        Packet::WRAP_BUFFER,
+        &raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32][0],
+        raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32].size(),
+        raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP_AH.as_u32].size());
+    testGetFormat(HICN_PACKET_FORMAT_IPV6_TCP_AH, p5);
   }
 
   // Let's try now creating empty packets
   {
-    PacketForTest p0(Packet::Format::HF_INET_TCP);
-    testGetFormat(Packet::Format::HF_INET_TCP, p0);
+    PacketForTest p0(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV4_TCP);
+    testGetFormat(HICN_PACKET_FORMAT_IPV4_TCP, p0);
 
-    PacketForTest p1(Packet::Format::HF_INET6_TCP);
-    testGetFormat(Packet::Format::HF_INET6_TCP, p1);
+    PacketForTest p1(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_TCP);
+    testGetFormat(HICN_PACKET_FORMAT_IPV6_TCP, p1);
 
-    PacketForTest p2(Packet::Format::HF_INET_ICMP);
-    testGetFormat(Packet::Format::HF_INET_ICMP, p2);
+    PacketForTest p2(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV4_ICMP);
+    testGetFormat(HICN_PACKET_FORMAT_IPV4_ICMP, p2);
 
-    PacketForTest p3(Packet::Format::HF_INET6_ICMP);
-    testGetFormat(Packet::Format::HF_INET6_ICMP, p3);
+    PacketForTest p3(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_ICMP);
+    testGetFormat(HICN_PACKET_FORMAT_IPV6_ICMP, p3);
 
-    PacketForTest p4(Packet::Format::HF_INET_TCP_AH);
-    testGetFormat(Packet::Format::HF_INET_TCP_AH, p4);
+    PacketForTest p4(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV4_TCP_AH);
+    testGetFormat(HICN_PACKET_FORMAT_IPV4_TCP_AH, p4);
 
-    PacketForTest p5(Packet::Format::HF_INET6_TCP_AH);
-    testGetFormat(Packet::Format::HF_INET6_TCP_AH, p5);
+    PacketForTest p5(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_TCP_AH);
+    testGetFormat(HICN_PACKET_FORMAT_IPV6_TCP_AH, p5);
   }
 }
 
@@ -707,7 +743,7 @@ TEST_F(PacketTest, SetGetTestSignatureTimestamp) {
   }
 
   // Now let's construct a AH packet, with no additional space for signature
-  PacketForTest p(HF_INET6_TCP_AH);
+  PacketForTest p(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_TCP_AH);
   p.setSignatureTimestamp(now);
   uint64_t now_get = p.getSignatureTimestamp();
 
@@ -741,7 +777,7 @@ TEST_F(PacketTest, TestSetGetValidationAlgorithm) {
   }
 
   // Now let's construct a AH packet, with no additional space for signature
-  PacketForTest p(HF_INET6_TCP_AH);
+  PacketForTest p(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_TCP_AH);
   p.setValidationAlgorithm(auth::CryptoSuite::RSA_SHA256);
   auto v_get = p.getValidationAlgorithm();
 
@@ -751,6 +787,7 @@ TEST_F(PacketTest, TestSetGetValidationAlgorithm) {
 
 TEST_F(PacketTest, TestSetGetKeyId) {
   uint8_t key[32];
+  memset(key, 0, sizeof(key));
   auth::KeyId key_id = std::make_pair(key, sizeof(key));
 
   try {
@@ -762,7 +799,7 @@ TEST_F(PacketTest, TestSetGetKeyId) {
     FAIL() << "Unexpected exception";
   }
 
-  // Same fot get method
+  // Same for get method
   try {
     auto k = packet.getKeyId();
     // Let's make compiler happy
@@ -775,7 +812,7 @@ TEST_F(PacketTest, TestSetGetKeyId) {
   }
 
   // Now let's construct a AH packet, with no additional space for signature
-  PacketForTest p(HF_INET6_TCP_AH);
+  PacketForTest p(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_TCP_AH);
   p.setKeyId(key_id);
   auto p_get = p.getKeyId();
 
@@ -799,7 +836,8 @@ TEST_F(PacketTest, DISABLED_TestChecksum) {
   EXPECT_TRUE(integrity);
 
   // Check with AH header and 300 bytes signature
-  PacketForTest p(HF_INET6_TCP_AH, 300);
+  PacketForTest p(HICN_PACKET_TYPE_INTEREST, HICN_PACKET_FORMAT_IPV6_TCP_AH,
+                  300);
   std::string payload(5000, 'X');
   p.appendPayload((const uint8_t *)payload.c_str(), payload.size() / 2);
   p.appendPayload((const uint8_t *)(payload.c_str() + payload.size() / 2),
@@ -810,116 +848,13 @@ TEST_F(PacketTest, DISABLED_TestChecksum) {
   EXPECT_TRUE(integrity);
 }
 
-TEST_F(PacketTest, TestSetSyn) {
-  // Test syn of non-tcp format and check exception is thrown
-  try {
-    auto p = PacketForTest(Packet::WRAP_BUFFER, &raw_packets_[HF_INET6_ICMP][0],
-                           raw_packets_[HF_INET6_ICMP].size(),
-                           raw_packets_[HF_INET6_ICMP].size());
-    // Let's make compiler happy
-    p.setSyn();
-    FAIL() << "We should not reach this point.";
-  } catch (const errors::RuntimeException &exc) {
-    /* ok right exception*/
-  } catch (...) {
-    FAIL() << "Unexpected exception";
-  }
-
-  packet.setSyn();
-  EXPECT_TRUE(packet.testSyn());
-
-  packet.resetSyn();
-  EXPECT_FALSE(packet.testSyn());
-}
-
-TEST_F(PacketTest, TestSetFin) {
-  // Test syn of non-tcp format and check exception is thrown
-  try {
-    auto p = PacketForTest(Packet::WRAP_BUFFER, &raw_packets_[HF_INET6_ICMP][0],
-                           raw_packets_[HF_INET6_ICMP].size(),
-                           raw_packets_[HF_INET6_ICMP].size());
-    // Let's make compiler happy
-    p.setFin();
-    FAIL() << "We should not reach this point.";
-  } catch (const errors::RuntimeException &exc) {
-    /* ok right exception*/
-  } catch (...) {
-    FAIL() << "Unexpected exception";
-  }
-
-  packet.setFin();
-  EXPECT_TRUE(packet.testFin());
-
-  packet.resetFin();
-  EXPECT_FALSE(packet.testFin());
-}
-
-TEST_F(PacketTest, TestSetAck) {
-  // Test syn of non-tcp format and check exception is thrown
-  try {
-    auto p = PacketForTest(Packet::WRAP_BUFFER, &raw_packets_[HF_INET6_ICMP][0],
-                           raw_packets_[HF_INET6_ICMP].size(),
-                           raw_packets_[HF_INET6_ICMP].size());
-    // Let's make compiler happy
-    p.setAck();
-    FAIL() << "We should not reach this point.";
-  } catch (const errors::RuntimeException &exc) {
-    /* ok right exception*/
-  } catch (...) {
-    FAIL() << "Unexpected exception";
-  }
-
-  packet.setAck();
-  EXPECT_TRUE(packet.testAck());
-
-  packet.resetAck();
-  EXPECT_FALSE(packet.testAck());
-}
-
-TEST_F(PacketTest, TestSetRst) {
-  // Test syn of non-tcp format and check exception is thrown
-  try {
-    auto p = PacketForTest(Packet::WRAP_BUFFER, &raw_packets_[HF_INET6_ICMP][0],
-                           raw_packets_[HF_INET6_ICMP].size(),
-                           raw_packets_[HF_INET6_ICMP].size());
-    // Let's make compiler happy
-    p.setRst();
-    FAIL() << "We should not reach this point.";
-  } catch (const errors::RuntimeException &exc) {
-    /* ok right exception*/
-  } catch (...) {
-    FAIL() << "Unexpected exception";
-  }
-
-  packet.setRst();
-  EXPECT_TRUE(packet.testRst());
-
-  packet.resetRst();
-  EXPECT_FALSE(packet.testRst());
-}
-
-TEST_F(PacketTest, TestResetFlags) {
-  packet.setRst();
-  packet.setSyn();
-  packet.setAck();
-  packet.setFin();
-  EXPECT_TRUE(packet.testRst());
-  EXPECT_TRUE(packet.testAck());
-  EXPECT_TRUE(packet.testFin());
-  EXPECT_TRUE(packet.testSyn());
-
-  packet.resetFlags();
-  EXPECT_FALSE(packet.testRst());
-  EXPECT_FALSE(packet.testAck());
-  EXPECT_FALSE(packet.testFin());
-  EXPECT_FALSE(packet.testSyn());
-}
-
 TEST_F(PacketTest, TestSetGetSrcPort) {
   try {
-    auto p = PacketForTest(Packet::WRAP_BUFFER, &raw_packets_[HF_INET6_ICMP][0],
-                           raw_packets_[HF_INET6_ICMP].size(),
-                           raw_packets_[HF_INET6_ICMP].size());
+    auto p =
+        PacketForTest(Packet::WRAP_BUFFER,
+                      &raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32][0],
+                      raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32].size(),
+                      raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32].size());
     // Let's make compiler happy
     p.setSrcPort(12345);
     FAIL() << "We should not reach this point.";
@@ -935,9 +870,11 @@ TEST_F(PacketTest, TestSetGetSrcPort) {
 
 TEST_F(PacketTest, TestSetGetDstPort) {
   try {
-    auto p = PacketForTest(Packet::WRAP_BUFFER, &raw_packets_[HF_INET6_ICMP][0],
-                           raw_packets_[HF_INET6_ICMP].size(),
-                           raw_packets_[HF_INET6_ICMP].size());
+    auto p =
+        PacketForTest(Packet::WRAP_BUFFER,
+                      &raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32][0],
+                      raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32].size(),
+                      raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32].size());
     // Let's make compiler happy
     p.setDstPort(12345);
     FAIL() << "We should not reach this point.";
@@ -955,58 +892,73 @@ TEST_F(PacketTest, TestEnsureCapacity) {
   PacketForTest &p = packet;
 
   // This shoul be false
-  auto ret = p.ensureCapacity(raw_packets_[HF_INET6_TCP].size() + 10);
+  auto ret = p.ensureCapacity(
+      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size() + 10);
   EXPECT_FALSE(ret);
 
   // This should be true
-  ret = p.ensureCapacity(raw_packets_[HF_INET6_TCP].size());
+  ret =
+      p.ensureCapacity(raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size());
   EXPECT_TRUE(ret);
 
   // This should be true
-  ret = p.ensureCapacity(raw_packets_[HF_INET6_TCP].size() - 10);
+  ret = p.ensureCapacity(
+      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size() - 10);
   EXPECT_TRUE(ret);
 
   // Try to trim the packet start
   p.trimStart(10);
   // Now this should be false
-  ret = p.ensureCapacity(raw_packets_[HF_INET6_TCP].size());
+  ret =
+      p.ensureCapacity(raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size());
   EXPECT_FALSE(ret);
 
   // Create a new packet
-  auto p2 = PacketForTest(Packet::WRAP_BUFFER, &raw_packets_[HF_INET6_ICMP][0],
-                          raw_packets_[HF_INET6_ICMP].size(),
-                          raw_packets_[HF_INET6_ICMP].size());
+  auto p2 =
+      PacketForTest(Packet::WRAP_BUFFER,
+                    &raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32][0],
+                    raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32].size(),
+                    raw_packets_[HICN_PACKET_FORMAT_IPV6_ICMP.as_u32].size());
 
   p2.appendPayload(utils::MemBuf::createCombined(2000));
 
   // This should be false, since the buffer is chained
-  ret = p2.ensureCapacity(raw_packets_[HF_INET6_TCP].size() - 10);
+  ret = p2.ensureCapacity(
+      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size() - 10);
   EXPECT_FALSE(ret);
 }
 
-TEST_F(PacketTest, TestEnsureCapacityAndFillUnused) {
+//
+// This test is disabled as it manipulates a ipv6 header with the wrong payload
+// length inside.
+//
+TEST_F(PacketTest, DISABLED_TestEnsureCapacityAndFillUnused) {
   // Create packet by excluding the payload (So only L3 + L4 headers). The
   // payload will be trated as unused tailroom
-  PacketForTest p =
-      PacketForTest(Packet::WRAP_BUFFER, &raw_packets_[HF_INET6_TCP][0],
-                    raw_packets_[HF_INET6_TCP].size() - PAYLOAD_SIZE,
-                    raw_packets_[HF_INET6_TCP].size());
+  PacketForTest p = PacketForTest(
+      Packet::WRAP_BUFFER, &raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32][0],
+      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size() - PAYLOAD_SIZE,
+      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size());
 
   // Copy original packet payload, which is here trated as a unused tailroom
   uint8_t original_payload[PAYLOAD_SIZE];
-  uint8_t *payload = &raw_packets_[HF_INET6_TCP][0] +
-                     raw_packets_[HF_INET6_TCP].size() - PAYLOAD_SIZE;
+  uint8_t *payload = &raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32][0] +
+                     raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size() -
+                     PAYLOAD_SIZE;
   std::memcpy(original_payload, payload, PAYLOAD_SIZE);
 
   // This should be true and the unused tailroom should be unmodified
   auto ret = p.ensureCapacityAndFillUnused(
-      raw_packets_[HF_INET6_TCP].size() - (PAYLOAD_SIZE + 10), 0);
+      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size() -
+          (PAYLOAD_SIZE + 10),
+      0);
   EXPECT_TRUE(ret);
   ret = std::memcmp(original_payload, payload, PAYLOAD_SIZE);
   EXPECT_EQ(ret, 0);
 
   // This should fill the payload with zeros
-  ret = p.ensureCapacityAndFillUnused(raw_packets_[HF_INET6_TCP].size(), 0);
+  ret = p.ensureCapacityAndFillUnused(
+      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size(), 0);
   EXPECT_TRUE(ret);
   uint8_t zeros[PAYLOAD_SIZE];
   std::memset(zeros, 0, PAYLOAD_SIZE);
@@ -1014,7 +966,8 @@ TEST_F(PacketTest, TestEnsureCapacityAndFillUnused) {
   EXPECT_EQ(ret, 0);
 
   // This should fill the payload with ones
-  ret = p.ensureCapacityAndFillUnused(raw_packets_[HF_INET6_TCP].size(), 1);
+  ret = p.ensureCapacityAndFillUnused(
+      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size(), 1);
   EXPECT_TRUE(ret);
   uint8_t ones[PAYLOAD_SIZE];
   std::memset(ones, 1, PAYLOAD_SIZE);
@@ -1022,7 +975,8 @@ TEST_F(PacketTest, TestEnsureCapacityAndFillUnused) {
   EXPECT_EQ(ret, 0);
 
   // This should return false and the payload should be unmodified
-  ret = p.ensureCapacityAndFillUnused(raw_packets_[HF_INET6_TCP].size() + 1, 1);
+  ret = p.ensureCapacityAndFillUnused(
+      raw_packets_[HICN_PACKET_FORMAT_IPV6_TCP.as_u32].size() + 1, 1);
   EXPECT_FALSE(ret);
   ret = std::memcmp(payload, ones, PAYLOAD_SIZE);
   EXPECT_EQ(ret, 0);

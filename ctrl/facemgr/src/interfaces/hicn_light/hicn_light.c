@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,6 +23,7 @@
 #include <time.h>   // time
 
 #include <hicn/ctrl.h>
+#include <hicn/ctrl/socket.h>
 #include <hicn/facemgr.h>
 #include <hicn/util/ip_address.h>
 #include <hicn/util/log.h>
@@ -110,7 +111,7 @@ int hl_process_state(interface_t *interface)
       assert(!data->polled_routes);
       stop_poll_timer(interface);
 
-      // DEBUG("[hl_process_state] Querying route list");
+      DEBUG("[hl_process_state] Querying route list");
       if (hc_route_list_async(data->sp) < 0) {
         DEBUG("[hl_process_state] Error querying route list");
         return -1;
@@ -119,7 +120,8 @@ int hl_process_state(interface_t *interface)
       break;
 
     case HL_STATE_ROUTES_RECEIVED:
-      // DEBUG("[hl_process_state] Querying face list");
+      DEBUG("[hl_process_state] Got route list");
+      DEBUG("[hl_process_state] Querying face list");
       if (hc_face_list_async(data->sp) < 0) {
         DEBUG("[hl_process_state] Error querying face list");
         return -1;
@@ -128,6 +130,7 @@ int hl_process_state(interface_t *interface)
       break;
 
     case HL_STATE_FACES_RECEIVED:
+      DEBUG("[hl_process_state] Got face list");
       data->state = HL_STATE_IDLE;
       start_poll_timer(interface);
       break;
@@ -215,11 +218,12 @@ int hl_connect_timeout(interface_t *interface, int fd, void *unused) {
  * connected to succeed.
  */
 int _hl_connect(interface_t *interface) {
+  ERROR("[MACCHA] CONNECT");
   hl_data_t *data = interface->data;
   assert(!data->s);
   assert(!data->sp);
 
-  data->s = hc_sock_create();
+  data->s = hc_sock_create(FORWARDER_TYPE_HICNLIGHT, NULL);
   if (data->s <= 0) {
     ERROR("[hc_connect] Could not create control socket");
     goto ERR_SOCK;
@@ -230,7 +234,7 @@ int _hl_connect(interface_t *interface) {
     goto ERR_CONNECT;
   }
 
-  data->sp = hc_sock_create();
+  data->sp = hc_sock_create(FORWARDER_TYPE_HICNLIGHT, NULL);
   if (data->sp <= 0) {
     ERROR("[hc_connect] Could not create polling socket");
     goto ERR_SOCK_POLL;
@@ -339,15 +343,11 @@ int hl_finalize(interface_t *interface) {
 }
 
 int hl_on_event(interface_t *interface, facelet_t *facelet) {
-  hc_face_t hc_face;
   hc_route_t route;
   int rc;
   int ret = 0;
   hl_data_t *data = (hl_data_t *)interface->data;
   face_t *face = NULL;
-
-  hc_face.id = 0;
-  memset(hc_face.name, 0, sizeof(hc_face.name));
 
   /* NOTE
    *  - One example where this fails (and it is normal) is when we delete a
@@ -373,14 +373,13 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
       facelet_snprintf(buf, MAXSZ_FACELET, facelet);
       DEBUG("Create facelet %s", buf);
 
-      hc_face.face = *face;
-      rc = hc_face_create(data->s, &hc_face);
+      rc = hc_face_create(data->s, face);
       if (rc < 0) {
         ERROR("Failed to create face\n");
         ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
         goto ERR;
       }
-      INFO("Created face id=%d - %s", hc_face.id, buf);
+      INFO("Created face id=%d - %s", face->id, buf);
     }
 
       hicn_route_t **route_array;
@@ -393,7 +392,7 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
       if (n == 0) {
         /* Adding default routes */
         route = (hc_route_t){
-            .face_id = hc_face.id,
+            .face_id = face->id,
             .family = AF_INET,
             .remote_addr = IPV4_ANY,
             .len = 0,
@@ -406,7 +405,7 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
         }
 
         route = (hc_route_t){
-            .face_id = hc_face.id,
+            .face_id = face->id,
             .family = AF_INET6,
             .remote_addr = IPV6_ANY,
             .len = 0,
@@ -421,7 +420,7 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
       } else {
         for (unsigned i = 0; i < n; i++) {
           hicn_route_t *hicn_route = route_array[i];
-          ip_prefix_t prefix;
+          hicn_ip_prefix_t prefix;
           int cost;
           if (hicn_route_get_prefix(hicn_route, &prefix) < 0) {
             ERROR("Failed to get route prefix");
@@ -434,8 +433,8 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
             continue;
           }
           route = (hc_route_t){
-              .face_id = hc_face.id,
-              .name = "", /* take face_id into account */
+              .face_id = face->id,
+              .face_name = "", /* take face_id into account */
               .family = prefix.family,
               .remote_addr = prefix.address,
               .len = prefix.len,
@@ -454,8 +453,7 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
 
     case FACELET_EVENT_DELETE:
       /* Removing a face should also remove associated routes */
-      hc_face.face = *face;
-      rc = hc_face_delete(data->s, &hc_face, 1);
+      rc = hc_face_delete(data->s, face);  // delete_listener= */ 1);
       if (rc < 0) {
         ERROR("Failed to delete face\n");
         ret = -FACELET_ERROR_REASON_UNSPECIFIED_ERROR;
@@ -464,7 +462,7 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
 
       char buf[MAXSZ_FACELET];
       facelet_snprintf(buf, MAXSZ_FACELET, facelet);
-      INFO("Deleted face id=%d", hc_face.id);
+      INFO("Deleted face id=%d", face->id);
 
       break;
 
@@ -472,10 +470,9 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
       /* Currently, only admin_state & priority are supported */
       if (facelet_get_admin_state_status(facelet) ==
           FACELET_ATTR_STATUS_DIRTY) {
-        hc_face.face = *face;
-        hc_face_t *face_found;
+        hc_data_t *face_found;
 
-        rc = hc_face_get(data->s, &hc_face, &face_found);
+        rc = hc_face_get(data->s, face, &face_found);
         if (rc < 0) {
           ERROR("Failed to find face\n");
           ret = -FACELET_ERROR_REASON_INTERNAL_ERROR;
@@ -487,8 +484,10 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
           goto ERR;
         }
         char conn_id_or_name[SYMBOLIC_NAME_LEN];
-        snprintf(conn_id_or_name, SYMBOLIC_NAME_LEN, "%d", face_found->id);
-        free(face_found);
+
+        const hc_object_t *object = hc_data_get_object(face_found, 0);
+        snprintf(conn_id_or_name, SYMBOLIC_NAME_LEN, "%d", object->face.id);
+        hc_data_free(face_found);
 
         face_state_t admin_state;
         if (facelet_get_admin_state(facelet, &admin_state) < 0) {
@@ -504,16 +503,14 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
           goto ERR;
         }
         facelet_set_admin_state_status(facelet, FACELET_ATTR_STATUS_CLEAN);
-        INFO("Updated face id=%d - admin_state=%s", hc_face.id,
+        INFO("Updated face id=%d - admin_state=%s", face->id,
              face_state_str(admin_state));
       }
-#ifdef WITH_POLICY
       if (facelet_get_netdevice_type_status(facelet) ==
           FACELET_ATTR_STATUS_DIRTY) {
-        hc_face.face = *face;
-        hc_face_t *face_found;
+        hc_data_t *face_found;
 
-        rc = hc_face_get(data->s, &hc_face, &face_found);
+        rc = hc_face_get(data->s, face, &face_found);
         if (rc < 0) {
           ERROR("Failed to find face\n");
           goto ERR;
@@ -523,8 +520,9 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
           goto ERR;
         }
         char conn_id_or_name[SYMBOLIC_NAME_LEN];
-        snprintf(conn_id_or_name, SYMBOLIC_NAME_LEN, "%d", face_found->id);
-        free(face_found);
+        const hc_object_t *object = hc_data_get_object(face_found, 0);
+        snprintf(conn_id_or_name, SYMBOLIC_NAME_LEN, "%d", object->face.id);
+        hc_data_free(face_found);
 
         netdevice_type_t netdevice_type;
         if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0) {
@@ -565,15 +563,14 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
           goto ERR;
         }
         facelet_set_netdevice_type_status(facelet, FACELET_ATTR_STATUS_CLEAN);
-        INFO("Updated face id=%d - netdevice_type=%s", hc_face.id,
+        INFO("Updated face id=%d - netdevice_type=%s", face->id,
              netdevice_type_str(netdevice_type));
       }
       if (facelet_get_priority_status(facelet) == FACELET_ATTR_STATUS_DIRTY) {
         INFO("Updating priority...");
-        hc_face.face = *face;
-        hc_face_t *face_found;
+        hc_data_t *face_found;
 
-        rc = hc_face_get(data->s, &hc_face, &face_found);
+        rc = hc_face_get(data->s, face, &face_found);
         if (rc < 0) {
           ERROR("Failed to find face\n");
           goto ERR;
@@ -583,8 +580,9 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
           goto ERR;
         }
         char conn_id_or_name[SYMBOLIC_NAME_LEN];
-        snprintf(conn_id_or_name, SYMBOLIC_NAME_LEN, "%d", face_found->id);
-        free(face_found);
+        const hc_object_t *object = hc_data_get_object(face_found, 0);
+        snprintf(conn_id_or_name, SYMBOLIC_NAME_LEN, "%d", object->face.id);
+        hc_data_free(face_found);
 
         uint32_t priority;
         if (facelet_get_priority(facelet, &priority) < 0) {
@@ -601,9 +599,8 @@ int hl_on_event(interface_t *interface, facelet_t *facelet) {
         }
         facelet_set_priority_status(facelet, FACELET_ATTR_STATUS_CLEAN);
 
-        INFO("Updated face id=%d - priority=%d", hc_face.id, priority);
+        INFO("Updated face id=%d - priority=%d", face->id, priority);
       }
-#endif /* WITH_POLICY */
       break;
 
     default:
@@ -637,7 +634,7 @@ int hl_callback(interface_t *interface, int fd, void *unused) {
   }
 
   /* In case of error, reconnect to forwarder */
-  if (hc_sock_callback(data->sp, &results) < 0) {
+  if (hc_sock_receive_all(data->sp, &results) < 0) {
     INFO("Closing socket... reconnecting...");
     if (interface_unregister_fd(interface, hc_sock_get_fd(data->sp)) < 0) {
       ERROR("[hl_callback] Error unregistering fd");
@@ -657,7 +654,7 @@ int hl_callback(interface_t *interface, int fd, void *unused) {
   }
 
   /* Shall we wait for more data ? */
-  if (!results->complete) {
+  if (!hc_data_is_complete(results)) {
     INFO("[hl_callback] results incomplete");
     return ret;
   }
@@ -704,7 +701,7 @@ int hl_callback(interface_t *interface, int fd, void *unused) {
 
         /* We can ignore faces on localhost */
 
-        facelet_t *facelet = facelet_create_from_face(&f->face);
+        facelet_t *facelet = facelet_create_from_face(f);
         if (!facelet) {
           ERROR("[hl_callback] Could not create facelet... skipping");
           continue;
@@ -725,7 +722,7 @@ int hl_callback(interface_t *interface, int fd, void *unused) {
 
           if (r->len == 0) continue;
 
-          ip_prefix_t prefix = {
+          hicn_ip_prefix_t prefix = {
               .family = r->family,
               .address = r->remote_addr,
               .len = r->len,

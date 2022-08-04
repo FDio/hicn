@@ -34,15 +34,15 @@ typedef struct hicn_route_s hicn_route_t;
 #define MAX_ROUTE_COST 255
 #define IS_VALID_ROUTE_COST(x) ((x >= MIN_ROUTE_COST) && (x <= MAX_ROUTE_COST))
 
-hicn_route_t* hicn_route_create(ip_prefix_t* prefix, face_id_t face_id,
+hicn_route_t* hicn_route_create(hicn_ip_prefix_t* prefix, face_id_t face_id,
                                 route_cost_t cost);
 hicn_route_t* hicn_route_dup(const hicn_route_t* route);
 void hicn_route_free(hicn_route_t* route);
 
 int hicn_route_cmp(const hicn_route_t* route1, const hicn_route_t* route2);
 
-int hicn_route_get_prefix(const hicn_route_t* route, ip_prefix_t* prefix);
-int hicn_route_set_prefix(hicn_route_t* route, const ip_prefix_t prefix);
+int hicn_route_get_prefix(const hicn_route_t* route, hicn_ip_prefix_t* prefix);
+int hicn_route_set_prefix(hicn_route_t* route, const hicn_ip_prefix_t prefix);
 
 int hicn_route_get_cost(const hicn_route_t* route, int* cost);
 int hicn_route_set_cost(hicn_route_t* route, const int cost);

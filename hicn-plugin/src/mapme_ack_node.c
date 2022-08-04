@@ -67,7 +67,7 @@ hicn_mapme_process_ack (vlib_main_t *vm, vlib_buffer_t *b,
   /*     return true; */
   /*   } */
 
-  dpo = fib_epm_lookup (&(prefix.name), prefix.len);
+  dpo = fib_epm_lookup (&(prefix.name.as_ip46), prefix.len);
   if (!dpo)
     {
       HICN_ERROR ("Ignored ACK for non-existing FIB entry %U. Ignored.",

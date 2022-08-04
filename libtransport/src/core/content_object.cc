@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -35,25 +35,18 @@ namespace core {
 
 ContentObject::ContentObject(const Name &name, Packet::Format format,
                              std::size_t additional_header_size)
-    : Packet(format, additional_header_size) {
-  if (TRANSPORT_EXPECT_FALSE(hicn_packet_set_data(format_, packet_start_) <
-                             0)) {
-    throw errors::MalformedPacketException();
-  }
-
-  if (TRANSPORT_EXPECT_FALSE(
-          hicn_data_set_name(format, packet_start_, &name.name_) < 0)) {
+    : Packet(HICN_PACKET_TYPE_DATA, format, additional_header_size) {
+  if (TRANSPORT_EXPECT_FALSE(hicn_data_set_name(&pkbuf_, &name.name_) < 0)) {
     throw errors::RuntimeException("Error filling the packet name.");
   }
 
-  if (TRANSPORT_EXPECT_FALSE(hicn_data_get_name(format_, packet_start_,
-                                                &name_.getStructReference()) <
-                             0)) {
+  if (TRANSPORT_EXPECT_FALSE(
+          hicn_data_get_name(&pkbuf_, &name_.getStructReference()) < 0)) {
     throw errors::MalformedPacketException();
   }
 }
 
-ContentObject::ContentObject(hicn_format_t format,
+ContentObject::ContentObject(hicn_packet_format_t format,
                              std::size_t additional_header_size)
     : ContentObject(
 #ifdef __ANDROID__
@@ -62,13 +55,9 @@ ContentObject::ContentObject(hicn_format_t format,
           Packet::base_name,
 #endif
           format, additional_header_size) {
-  if (TRANSPORT_EXPECT_FALSE(hicn_packet_set_data(format_, packet_start_) <
-                             0)) {
-    throw errors::MalformedPacketException();
-  }
 }
 
-ContentObject::ContentObject(const Name &name, hicn_format_t format,
+ContentObject::ContentObject(const Name &name, hicn_packet_format_t format,
                              std::size_t additional_header_size,
                              const uint8_t *payload, std::size_t size)
     : ContentObject(name, format, additional_header_size) {
@@ -91,9 +80,8 @@ ContentObject::~ContentObject() {}
 
 const Name &ContentObject::getName() const {
   if (!name_) {
-    if (hicn_data_get_name(format_, packet_start_,
-                           (hicn_name_t *)&name_.getConstStructReference()) <
-        0) {
+    if (hicn_data_get_name(
+            &pkbuf_, (hicn_name_t *)&name_.getConstStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -104,31 +92,27 @@ const Name &ContentObject::getName() const {
 Name &ContentObject::getWritableName() { return const_cast<Name &>(getName()); }
 
 void ContentObject::setName(const Name &name) {
-  if (hicn_data_set_name(format_, packet_start_,
-                         &name.getConstStructReference()) < 0) {
+  if (hicn_data_set_name(&pkbuf_, &name.getConstStructReference()) < 0) {
     throw errors::RuntimeException("Error setting content object name.");
   }
 
-  if (hicn_data_get_name(format_, packet_start_, &name_.getStructReference()) <
-      0) {
+  if (hicn_data_get_name(&pkbuf_, &name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
 
-uint32_t ContentObject::getPathLabel() const {
-  uint32_t path_label;
-  if (hicn_data_get_path_label(packet_start_, &path_label) < 0) {
+hicn_path_label_t ContentObject::getPathLabel() const {
+  hicn_path_label_t path_label;
+  if (hicn_data_get_path_label(&pkbuf_, &path_label) < 0) {
     throw errors::RuntimeException(
         "Error retrieving the path label from content object");
   }
 
-  return portability::net_to_host(path_label);
+  return path_label;
 }
 
-ContentObject &ContentObject::setPathLabel(uint32_t path_label) {
-  path_label = portability::host_to_net(path_label);
-  if (hicn_data_set_path_label((hicn_header_t *)packet_start_, path_label) <
-      0) {
+ContentObject &ContentObject::setPathLabel(hicn_path_label_t path_label) {
+  if (hicn_data_set_path_label(&pkbuf_, path_label) < 0) {
     throw errors::RuntimeException(
         "Error setting the path label from content object");
   }
@@ -136,18 +120,18 @@ ContentObject &ContentObject::setPathLabel(uint32_t path_label) {
   return *this;
 }
 
-void ContentObject::setLocator(const ip_address_t &ip_address) {
-  if (hicn_data_set_locator(format_, packet_start_, &ip_address) < 0) {
+void ContentObject::setLocator(const hicn_ip_address_t &ip_address) {
+  if (hicn_data_set_locator(&pkbuf_, &ip_address) < 0) {
     throw errors::RuntimeException("Error setting content object locator");
   }
 
   return;
 }
 
-ip_address_t ContentObject::getLocator() const {
-  ip_address_t ip;
+hicn_ip_address_t ContentObject::getLocator() const {
+  hicn_ip_address_t ip;
 
-  if (hicn_data_get_locator(format_, packet_start_, &ip) < 0) {
+  if (hicn_data_get_locator(&pkbuf_, &ip) < 0) {
     throw errors::RuntimeException("Error getting content object locator.");
   }
 
@@ -155,7 +139,7 @@ ip_address_t ContentObject::getLocator() const {
 }
 
 void ContentObject::setLifetime(uint32_t lifetime) {
-  if (hicn_data_set_expiry_time(packet_start_, lifetime) < 0) {
+  if (hicn_data_set_expiry_time(&pkbuf_, lifetime) < 0) {
     throw errors::MalformedPacketException();
   }
 }
@@ -163,7 +147,7 @@ void ContentObject::setLifetime(uint32_t lifetime) {
 uint32_t ContentObject::getLifetime() const {
   uint32_t lifetime = 0;
 
-  if (hicn_data_get_expiry_time(packet_start_, &lifetime) < 0) {
+  if (hicn_data_get_expiry_time(&pkbuf_, &lifetime) < 0) {
     throw errors::MalformedPacketException();
   }
 
@@ -171,8 +155,7 @@ uint32_t ContentObject::getLifetime() const {
 }
 
 void ContentObject::resetForHash() {
-  if (hicn_data_reset_for_hash(
-          format_, reinterpret_cast<hicn_header_t *>(packet_start_)) < 0) {
+  if (hicn_data_reset_for_hash(&pkbuf_) < 0) {
     throw errors::RuntimeException(
         "Error resetting content object fields for hash computation.");
   }
@@ -180,7 +163,7 @@ void ContentObject::resetForHash() {
 
 bool ContentObject::isLast() const {
   int is_last = 0;
-  if (hicn_data_is_last(format_, packet_start_, &is_last) < 0) {
+  if (hicn_data_is_last(&pkbuf_, &is_last) < 0) {
     throw errors::RuntimeException(
         "Impossible to get last data flag from packet header.");
   }
@@ -189,7 +172,7 @@ bool ContentObject::isLast() const {
 }
 
 void ContentObject::setLast() {
-  if (hicn_data_set_last(format_, packet_start_) < 0) {
+  if (hicn_data_set_last(&pkbuf_) < 0) {
     throw errors::RuntimeException(
         "Impossible to set last data flag to packet header.");
   }

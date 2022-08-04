@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -16,13 +16,12 @@
 #include "local_prefixes.h"
 #include <hicn/core/forwarder.h>
 #include <hicn/core/nexthops.h>
-#include <hicn/core/name.h>
 #include <hicn/core/mapme.h>
 
 #define MAX_PREFIXES 10
 
 struct local_prefixes_s {
-  Name local_prefixes[MAX_PREFIXES];
+  hicn_prefix_t local_prefixes[MAX_PREFIXES];
   unsigned len;
 };
 
@@ -38,9 +37,10 @@ unsigned local_prefixes_get_len(local_prefixes_t *prefixes) {
   return prefixes->len;
 }
 
-bool contain_prefix(local_prefixes_t *prefixes, Name *name) {
+bool contain_prefix(const local_prefixes_t *prefixes,
+                    const hicn_prefix_t *prefix) {
   for (unsigned i = 0; i < prefixes->len; i++) {
-    if (name_Equals(&(prefixes->local_prefixes[i]), name)) return true;
+    if (hicn_prefix_equals(&(prefixes->local_prefixes[i]), prefix)) return true;
   }
   return false;
 }
@@ -51,19 +51,19 @@ void local_prefixes_add_prefixes(local_prefixes_t *prefixes,
   unsigned i = 0;
   while ((i < new_prefixes->len) && (prefixes->len < MAX_PREFIXES)) {
     if (!contain_prefix(prefixes, &(new_prefixes->local_prefixes[i]))) {
-      name_Copy(&new_prefixes->local_prefixes[i],
-                &prefixes->local_prefixes[prefixes->len]);
+      hicn_prefix_copy(&prefixes->local_prefixes[prefixes->len],
+                       &new_prefixes->local_prefixes[i]);
       prefixes->len++;
     }
     i++;
   }
 }
 
-void local_prefixes_add_prefix(local_prefixes_t *prefixes, const void *prefix) {
+void local_prefixes_add_prefix(local_prefixes_t *prefixes,
+                               const hicn_prefix_t *prefix) {
   if (prefixes->len >= MAX_PREFIXES) return;
-  Name *n = (Name *)prefix;
-  if (!contain_prefix(prefixes, n)) {
-    name_Copy(n, &(prefixes->local_prefixes[prefixes->len]));
+  if (!contain_prefix(prefixes, prefix)) {
+    hicn_prefix_copy(&(prefixes->local_prefixes[prefixes->len]), prefix);
     prefixes->len++;
   }
 }
@@ -74,8 +74,9 @@ void update_remote_node_paths(const void *nexthops, const void *forwarder,
   struct mapme_s *mapme = forwarder_get_mapme((forwarder_t *)forwarder);
   fib_t *fib = forwarder_get_fib((forwarder_t *)forwarder);
   for (unsigned i = 0; i < prefixes->len; i++) {
-    fib_entry_t *entry = fib_match_name(fib, &prefixes->local_prefixes[i]);
+    fib_entry_t *entry = fib_match_prefix(fib, &prefixes->local_prefixes[i]);
     if (!entry) continue;
-    mapme_set_adjacencies(mapme, entry, (nexthops_t *)nexthops, false);
+    // XXX we don't want to force
+    mapme_set_adjacencies(mapme, entry, (nexthops_t *)nexthops);
   }
 }

@@ -3,7 +3,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at:
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +21,6 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/fib_entry.h
   ${CMAKE_CURRENT_SOURCE_DIR}/fib.h
   ${CMAKE_CURRENT_SOURCE_DIR}/forwarder.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/interest_manifest.h
   ${CMAKE_CURRENT_SOURCE_DIR}/listener.h
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_table.h
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_vft.h
@@ -34,13 +33,11 @@ list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/strategy_vft.h
   ${CMAKE_CURRENT_SOURCE_DIR}/subscription.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ticks.h
-# ${CMAKE_CURRENT_SOURCE_DIR}/system.h
+
+  # ${CMAKE_CURRENT_SOURCE_DIR}/system.h
   ${CMAKE_CURRENT_SOURCE_DIR}/mapme.h
   ${CMAKE_CURRENT_SOURCE_DIR}/wldr.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/messageHandler.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/nameBitvector.h
   ${CMAKE_CURRENT_SOURCE_DIR}/nexthops.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/name.h
 )
 
 list(APPEND SOURCE_FILES
@@ -53,15 +50,12 @@ list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/fib.c
   ${CMAKE_CURRENT_SOURCE_DIR}/fib_entry.c
   ${CMAKE_CURRENT_SOURCE_DIR}/forwarder.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/interest_manifest.c
   ${CMAKE_CURRENT_SOURCE_DIR}/listener.c
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_table.c
   ${CMAKE_CURRENT_SOURCE_DIR}/listener_vft.c
   ${CMAKE_CURRENT_SOURCE_DIR}/mapme.c
   ${CMAKE_CURRENT_SOURCE_DIR}/msgbuf.c
   ${CMAKE_CURRENT_SOURCE_DIR}/msgbuf_pool.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/nameBitvector.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/name.c
   ${CMAKE_CURRENT_SOURCE_DIR}/nexthops.c
   ${CMAKE_CURRENT_SOURCE_DIR}/packet_cache.c
   ${CMAKE_CURRENT_SOURCE_DIR}/pit.c

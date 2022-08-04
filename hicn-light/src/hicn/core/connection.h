@@ -33,18 +33,22 @@
 
 #define CONNECTION_ID_UNDEFINED ~0
 
-#ifdef WITH_MAPME
-typedef enum {
-  CONNECTION_EVENT_CREATE,
-  CONNECTION_EVENT_DELETE,
-  CONNECTION_EVENT_UPDATE,
-  CONNECTION_EVENT_SET_UP,
-  CONNECTION_EVENT_SET_DOWN,
-  CONNECTION_EVENT_PRIORITY_CHANGED,
-  CONNECTION_EVENT_TAGS_CHANGED,
-} connection_event_t;
+#define foreach_connection_event \
+  _(UNDEFINED)                   \
+  _(CREATE)                      \
+  _(DELETE)                      \
+  _(UPDATE)                      \
+  _(SET_UP)                      \
+  _(SET_DOWN)                    \
+  _(PRIORITY_CHANGED)            \
+  _(TAGS_CHANGED)                \
+  _(N)
 
-#endif /* WITH_MAPME */
+typedef enum {
+#define _(x) CONNECTION_EVENT_##x,
+  foreach_connection_event
+#undef _
+} connection_event_t;
 
 struct wldr_s;
 
@@ -52,6 +56,7 @@ typedef struct {
   unsigned id;
   char* name;
   char* interface_name;
+  netdevice_type_t interface_type;
   face_type_t type;
   address_pair_t pair;
   //    bool up;
@@ -111,6 +116,7 @@ typedef struct {
 #define connection_get_admin_state(C) ((C)->admin_state)
 #define connection_set_admin_state(C, STATE) (C)->admin_state = STATE
 #define connection_get_interface_name(C) ((C)->interface_name)
+#define connection_get_interface_type(C) ((C)->interface_type)
 
 #ifdef WITH_POLICY
 #define connection_get_priority(C) ((C)->priority)
@@ -118,7 +124,7 @@ typedef struct {
 #define connection_get_tags(C) ((C)->tags)
 #define connection_set_tags(C, TAGS) (C)->tags = TAGS
 #define connection_has_tag(C, TAG) policy_tags_has(connection_get_tags(C), TAG)
-#define connection_add_tag(C, TAG) policy_tags_add(connection_get_tags(X), TAG)
+#define connection_add_tag(C, TAG) policy_tags_add(&connection_get_tags(C), TAG)
 #define connection_remove_tag(C, TAG)           \
   do {                                          \
     policy_tags_t _conn_var(tags);              \
@@ -198,7 +204,7 @@ static inline void connection_set_tags(connection_t* connection,
 
 connection_t* connection_create(face_type_t type, const char* name,
                                 const address_pair_t* pair,
-                                struct forwarder_s* forwarder);
+                                const struct forwarder_s* forwarder);
 
 int connection_initialize(connection_t* connection, face_type_t type,
                           const char* name, const char* interface_name, int fd,
@@ -207,8 +213,8 @@ int connection_initialize(connection_t* connection, face_type_t type,
 
 int connection_finalize(connection_t* connection);
 
-int connection_send_packet(const connection_t* connection,
-                           const uint8_t* packet, size_t size);
+bool connection_send_packet(const connection_t* connection,
+                            const uint8_t* packet, size_t size);
 
 bool connection_flush(connection_t* connection);
 

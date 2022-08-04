@@ -14,12 +14,12 @@
  */
 
 #include <hicn/http-proxy/http_session.h>
+#include <hicn/transport/core/asio_wrapper.h>
 #include <hicn/transport/core/prefix.h>
 #include <hicn/transport/interfaces/publication_options.h>
 #include <hicn/transport/interfaces/socket_producer.h>
 #include <hicn/transport/utils/spinlock.h>
 
-#include <asio.hpp>
 #include <cassert>
 #include <cstring>
 #include <queue>

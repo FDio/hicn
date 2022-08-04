@@ -27,7 +27,7 @@ namespace transport {
 ForwarderInterface::~ForwarderInterface() {}
 
 int ForwarderInterface::connectToForwarder() {
-  sock_ = hc_sock_create();
+  sock_ = hc_sock_create(FORWARDER_TYPE_HICNLIGHT, NULL);
   if (!sock_) return -1;
 
   if (hc_sock_connect(sock_) < 0) {
@@ -96,7 +96,8 @@ void ForwarderInterface::internalRemoveConnectedUser(uint32_t route_id) {
   std::vector<hc_route_t *> routes_to_remove;
   foreach_route(r, data) {
     char remote_addr[INET6_ADDRSTRLEN];
-    int ret = ip_address_ntop(&r->remote_addr, remote_addr, r->len, r->family);
+    int ret =
+        hicn_ip_address_ntop(&r->remote_addr, remote_addr, r->len, r->family);
     if (ret < 0) continue;
 
     std::string route_addr(remote_addr);
@@ -201,8 +202,9 @@ int ForwarderInterface::tryToCreateFaceAndRoute(route_info_t *route_info) {
     if (interface.compare("lo") != 0) {
       found = true;
 
-      ip_address_t remote_ip;
-      if (ip_address_pton(route_info->remote_addr.c_str(), &remote_ip) < 0) {
+      hicn_ip_address_t remote_ip;
+      if (hicn_ip_address_pton(route_info->remote_addr.c_str(), &remote_ip) <
+          0) {
         hc_data_free(data);
         return -1;
       }
@@ -210,14 +212,14 @@ int ForwarderInterface::tryToCreateFaceAndRoute(route_info_t *route_info) {
       hc_face_t face;
       memset(&face, 0, sizeof(hc_face_t));
 
-      face.face.type = FACE_TYPE_UDP;
-      face.face.family = route_info->family;
-      face.face.local_addr = l->local_addr;
-      face.face.remote_addr = remote_ip;
-      face.face.local_port = l->local_port;
-      face.face.remote_port = route_info->remote_port;
+      face.type = FACE_TYPE_UDP;
+      face.family = route_info->family;
+      face.local_addr = l->local_addr;
+      face.remote_addr = remote_ip;
+      face.local_port = l->local_port;
+      face.remote_port = route_info->remote_port;
 
-      if (netdevice_set_name(&face.face.netdevice, l->interface_name) < 0) {
+      if (netdevice_set_name(&face.netdevice, l->interface_name) < 0) {
         hc_data_free(data);
         return -1;
       }
@@ -237,10 +239,10 @@ int ForwarderInterface::tryToCreateFaceAndRoute(route_info_t *route_info) {
     return -1;
   }
 
-  ip_address_t route_ip;
+  hicn_ip_address_t route_ip;
   hc_route_t route;
 
-  if (ip_address_pton(route_info->route_addr.c_str(), &route_ip) < 0) {
+  if (hicn_ip_address_pton(route_info->route_addr.c_str(), &route_ip) < 0) {
     hc_data_free(data);
     return -1;
   }

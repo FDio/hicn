@@ -151,7 +151,7 @@ policy_state_t policy_state_from_str (const char *str);
 
 /* POLICY TAG STATE */
 
-typedef struct
+typedef struct __attribute__ ((packed, aligned (1)))
 {
   policy_state_t state;
   uint8_t disabled;

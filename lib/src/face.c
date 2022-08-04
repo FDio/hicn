@@ -142,6 +142,12 @@ netdevice_cmp (const netdevice_t *nd1, const netdevice_t *nd2)
   return (nd1->index - nd2->index);
 }
 
+bool
+netdevice_is_empty (const netdevice_t *netdevice)
+{
+  return (netdevice->index != 0) || (netdevice->name[0] != '\0');
+}
+
 /* Face state */
 
 const char *_face_state_str[] = {
@@ -181,8 +187,8 @@ face_initialize (face_t *face)
 
 int
 face_initialize_udp (face_t *face, const char *interface_name,
-		     const ip_address_t *local_addr, u16 local_port,
-		     const ip_address_t *remote_addr, u16 remote_port,
+		     const hicn_ip_address_t *local_addr, u16 local_port,
+		     const hicn_ip_address_t *remote_addr, u16 remote_port,
 		     int family)
 {
   if (!local_addr)
@@ -264,9 +270,10 @@ face_create ()
 }
 
 face_t *
-face_create_udp (const char *interface_name, const ip_address_t *local_addr,
-		 u16 local_port, const ip_address_t *remote_addr,
-		 u16 remote_port, int family)
+face_create_udp (const char *interface_name,
+		 const hicn_ip_address_t *local_addr, u16 local_port,
+		 const hicn_ip_address_t *remote_addr, u16 remote_port,
+		 int family)
 {
   face_t *face = face_create ();
   if (face_initialize_udp (face, interface_name, local_addr, local_port,
@@ -336,11 +343,11 @@ face_cmp (const face_t *f1, const face_t *f2)
   switch (f1->type)
     {
     case FACE_TYPE_HICN:
-      ret = ip_address_cmp (&f1->local_addr, &f2->local_addr, f1->family);
+      ret = hicn_ip_address_cmp (&f1->local_addr, &f2->local_addr);
       if (ret != 0)
 	return ret;
 
-      ret = ip_address_cmp (&f1->remote_addr, &f2->remote_addr, f1->family);
+      ret = hicn_ip_address_cmp (&f1->remote_addr, &f2->remote_addr);
       if (ret != 0)
 	return ret;
 
@@ -348,7 +355,7 @@ face_cmp (const face_t *f1, const face_t *f2)
 
     case FACE_TYPE_TCP:
     case FACE_TYPE_UDP:
-      ret = ip_address_cmp (&f1->local_addr, &f2->local_addr, f1->family);
+      ret = hicn_ip_address_cmp (&f1->local_addr, &f2->local_addr);
       if (ret != 0)
 	return ret;
 
@@ -356,7 +363,7 @@ face_cmp (const face_t *f1, const face_t *f2)
       if (ret != 0)
 	return ret;
 
-      ret = ip_address_cmp (&f1->remote_addr, &f2->remote_addr, f1->family);
+      ret = hicn_ip_address_cmp (&f1->remote_addr, &f2->remote_addr);
       if (ret != 0)
 	return ret;
 
@@ -376,19 +383,24 @@ face_cmp (const face_t *f1, const face_t *f2)
 size_t
 face_snprintf (char *s, size_t size, const face_t *face)
 {
+  char local[MAXSZ_IP_ADDRESS];
+  char remote[MAXSZ_IP_ADDRESS];
+  char tags[MAXSZ_POLICY_TAGS];
+
+  if (!hicn_ip_address_match_family (&face->local_addr, face->family))
+    return 0;
+  if (!hicn_ip_address_match_family (&face->remote_addr, face->family))
+    return 0;
+
+  hicn_ip_address_snprintf (local, MAXSZ_IP_ADDRESS, &face->local_addr);
+  hicn_ip_address_snprintf (remote, MAXSZ_IP_ADDRESS, &face->remote_addr);
+  policy_tags_snprintf (tags, MAXSZ_POLICY_TAGS, face->tags);
+
   switch (face->type)
     {
     case FACE_TYPE_HICN:
       {
-	char local[MAXSZ_IP_ADDRESS];
-	char remote[MAXSZ_IP_ADDRESS];
-	char tags[MAXSZ_POLICY_TAGS];
 
-	ip_address_snprintf (local, MAXSZ_IP_ADDRESS, &face->local_addr,
-			     face->family);
-	ip_address_snprintf (remote, MAXSZ_IP_ADDRESS, &face->remote_addr,
-			     face->family);
-	policy_tags_snprintf (tags, MAXSZ_POLICY_TAGS, face->tags);
 	return snprintf (s, size, "%s [%s -> %s] [%s]",
 			 face_type_str (face->type), local, remote, tags);
       }
@@ -396,16 +408,6 @@ face_snprintf (char *s, size_t size, const face_t *face)
     case FACE_TYPE_TCP:
     case FACE_TYPE_UDP:
       {
-	char local[MAXSZ_IP_ADDRESS];
-	char remote[MAXSZ_IP_ADDRESS];
-	char tags[MAXSZ_POLICY_TAGS];
-
-	ip_address_snprintf (local, MAXSZ_IP_ADDRESS, &face->local_addr,
-			     face->family);
-	ip_address_snprintf (remote, MAXSZ_IP_ADDRESS, &face->remote_addr,
-			     face->family);
-	policy_tags_snprintf (tags, MAXSZ_POLICY_TAGS, face->tags);
-
 	return snprintf (s, size, "%s [%s:%d -> %s:%d] [%s]",
 			 face_type_str (face->type), local, face->local_port,
 			 remote, face->remote_port, tags);

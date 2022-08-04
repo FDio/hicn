@@ -247,38 +247,8 @@ unsigned listener_create_connection(listener_t *listener,
     connection_table_print_by_pair(table);
   })
 
-#if 0
-  DEBUG("Notification for new connections");
-  // Generate notification message
-  flag_interface_type_t interface_type =
-      FLAG_INTERFACE_TYPE_WIRED | FLAG_INTERFACE_TYPE_CELLULAR;
-  struct {
-    cmd_header_t header;
-    hc_event_interface_update_t payload;
-  } msg = {.header =
-               {
-                   .message_type = NOTIFICATION_LIGHT,
-                   .command_id = EVENT_INTERFACE_UPDATE,
-                   .length = 0,
-                   .seq_num = 0,
-               },
-           .payload = {.interface_type = interface_type}};
-  size_t size = sizeof(msg);
-
-  // Retrieve subscribed connections
-  subscription_table_t *subscriptions =
-      forwarder_get_subscriptions(listener->forwarder);
-  unsigned *subscribed_conn_ids = subscription_table_get_connections_for_topic(
-      subscriptions, TOPIC_CONNECTION);
-
-  // Send notification to subscribed connections
-  for (int i = 0; i < vector_len(subscribed_conn_ids); i++) {
-    DEBUG("Sending notification to connection: %u", subscribed_conn_ids[i]);
-    const connection_t *conn =
-        connection_table_at(table, subscribed_conn_ids[i]);
-    connection_send_packet(conn, (uint8_t *)&msg, size);
-  }
-#endif
+  forwarder_on_connection_event(listener->forwarder, connection,
+                                CONNECTION_EVENT_CREATE);
 
   return connection_id;
 }

@@ -28,6 +28,7 @@
 #include <stdlib.h> // calloc
 
 #include <hicn/util/pool.h>
+#include <hicn/util/log.h>
 
 #include <stdio.h> // XXX
 

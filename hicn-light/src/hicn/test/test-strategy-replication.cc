@@ -152,7 +152,6 @@ TEST_F(StrategyReplicationTest, MultipleNexthops) {
 
   /* Retrieve candidate */
 
-  unsigned nexthop;
   unsigned tests = 0;
   nexthops_foreach(nexthops, nexthop, {
     EXPECT_TRUE(nexthop == NEXTHOP_ID1 || nexthop == NEXTHOP_ID2);
