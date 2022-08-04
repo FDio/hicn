@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -58,8 +58,6 @@ static inline void update_state_dec(nexthop_state_t *state) {
 }
 
 static inline void reset_all(nexthops_t *nexthops) {
-  unsigned i;
-  nexthop_t nexthop;
   nexthops_enumerate(nexthops, i, nexthop, {
     (void)nexthop;
     nexthops->state[i].load_balancer = NEXTHOP_STATE_INIT;
@@ -95,9 +93,9 @@ static int strategy_load_balancer_remove_nexthop(strategy_entry_t *entry,
 
 static nexthops_t *strategy_load_balancer_lookup_nexthops(
     strategy_entry_t *entry, nexthops_t *nexthops, const msgbuf_t *msgbuf) {
+  if (nexthops_get_curlen(nexthops) == 0) return nexthops;
   /* Compute the sum of weights of potential next hops */
   double sum = 0;
-  unsigned i, nexthop;
   nexthops_enumerate(nexthops, i, nexthop, {
     (void)nexthop;
     sum += nexthops_state(nexthops, i).load_balancer.weight;
@@ -125,10 +123,7 @@ static int strategy_load_balancer_on_timeout(
    * nexthops, we can allow for linear search that will be very efficient
    * CPU-wise.
    */
-  nexthop_t timeout_nexthop;
   nexthops_foreach(timeout_nexthops, timeout_nexthop, {
-    nexthop_t nexthop;
-    unsigned i;
     nexthops_enumerate(nexthops, i, nexthop, {
       if (nexthop == timeout_nexthop)
         update_state_dec(nexthop_state(nexthops, i));

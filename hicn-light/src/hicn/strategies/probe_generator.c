@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -87,8 +87,7 @@ int generate_probe(probe_generator_t *pg, const msgbuf_t *msgbuf,
 
   uint32_t seq = get_seq_number(pg);
   if (seq == 0) return -1;
-
-  messageHandler_ModifySuffix(msgbuf_get_packet(probe), seq);
+  msgbuf_modify_suffix(probe, seq);
   connection_send(conn, probe_offset, true);
   connection_flush(conn);
   add_to_map(pg, seq, ticks_now());

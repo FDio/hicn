@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -23,6 +23,7 @@ TRANSPORT_CLANG_DISABLE_WARNING("-Wextern-c-compat")
 #endif
 #include <hicn/base.h>
 #include <hicn/hicn.h>
+#include <hicn/interest_manifest.h>
 }
 
 #include <cstring>
@@ -34,23 +35,19 @@ namespace core {
 
 Interest::Interest(const Name &interest_name, Packet::Format format,
                    std::size_t additional_header_size)
-    : Packet(format, additional_header_size) {
-  if (hicn_packet_set_interest(format_, packet_start_) < 0) {
-    throw errors::MalformedPacketException();
-  }
-
-  if (hicn_interest_set_name(format_, packet_start_,
+    : Packet(HICN_PACKET_TYPE_INTEREST, format, additional_header_size) {
+  if (hicn_interest_set_name(&pkbuf_,
                              &interest_name.getConstStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 
-  if (hicn_interest_get_name(format_, packet_start_,
-                             &name_.getStructReference()) < 0) {
+  if (hicn_interest_get_name(&pkbuf_, &name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
 
-Interest::Interest(hicn_format_t format, std::size_t additional_header_size)
+Interest::Interest(hicn_packet_format_t format,
+                   std::size_t additional_header_size)
     : Interest(
 #ifdef __ANDROID__
           Name("0::0|0"),
@@ -58,14 +55,10 @@ Interest::Interest(hicn_format_t format, std::size_t additional_header_size)
           base_name,
 #endif
           format, additional_header_size) {
-  if (hicn_packet_set_interest(format_, packet_start_) < 0) {
-    throw errors::MalformedPacketException();
-  }
 }
 
 Interest::Interest(MemBuf &&buffer) : Packet(std::move(buffer)) {
-  if (hicn_interest_get_name(format_, packet_start_,
-                             &name_.getStructReference()) < 0) {
+  if (hicn_interest_get_name(&pkbuf_, &name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
@@ -88,8 +81,7 @@ Interest::~Interest() {}
 const Name &Interest::getName() const {
   if (!name_) {
     if (hicn_interest_get_name(
-            format_, packet_start_,
-            (hicn_name_t *)&name_.getConstStructReference()) < 0) {
+            &pkbuf_, (hicn_name_t *)&name_.getConstStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -100,29 +92,27 @@ const Name &Interest::getName() const {
 Name &Interest::getWritableName() { return const_cast<Name &>(getName()); }
 
 void Interest::setName(const Name &name) {
-  if (hicn_interest_set_name(format_, packet_start_,
-                             &name.getConstStructReference()) < 0) {
+  if (hicn_interest_set_name(&pkbuf_, &name.getConstStructReference()) < 0) {
     throw errors::RuntimeException("Error setting interest name.");
   }
 
-  if (hicn_interest_get_name(format_, packet_start_,
-                             &name_.getStructReference()) < 0) {
+  if (hicn_interest_get_name(&pkbuf_, &name_.getStructReference()) < 0) {
     throw errors::MalformedPacketException();
   }
 }
 
-void Interest::setLocator(const ip_address_t &ip_address) {
-  if (hicn_interest_set_locator(format_, packet_start_, &ip_address) < 0) {
+void Interest::setLocator(const hicn_ip_address_t &ip_address) {
+  if (hicn_interest_set_locator(&pkbuf_, &ip_address) < 0) {
     throw errors::RuntimeException("Error setting interest locator.");
   }
 
   return;
 }
 
-ip_address_t Interest::getLocator() const {
-  ip_address_t ip;
+hicn_ip_address_t Interest::getLocator() const {
+  hicn_ip_address_t ip;
 
-  if (hicn_interest_get_locator(format_, packet_start_, &ip) < 0) {
+  if (hicn_interest_get_locator(&pkbuf_, &ip) < 0) {
     throw errors::RuntimeException("Error getting interest locator.");
   }
 
@@ -130,7 +120,7 @@ ip_address_t Interest::getLocator() const {
 }
 
 void Interest::setLifetime(uint32_t lifetime) {
-  if (hicn_interest_set_lifetime(packet_start_, lifetime) < 0) {
+  if (hicn_interest_set_lifetime(&pkbuf_, lifetime) < 0) {
     throw errors::MalformedPacketException();
   }
 }
@@ -138,7 +128,7 @@ void Interest::setLifetime(uint32_t lifetime) {
 uint32_t Interest::getLifetime() const {
   uint32_t lifetime = 0;
 
-  if (hicn_interest_get_lifetime(packet_start_, &lifetime) < 0) {
+  if (hicn_interest_get_lifetime(&pkbuf_, &lifetime) < 0) {
     throw errors::MalformedPacketException();
   }
 
@@ -146,8 +136,7 @@ uint32_t Interest::getLifetime() const {
 }
 
 void Interest::resetForHash() {
-  if (hicn_interest_reset_for_hash(
-          format_, reinterpret_cast<hicn_header_t *>(packet_start_)) < 0) {
+  if (hicn_interest_reset_for_hash(&pkbuf_) < 0) {
     throw errors::RuntimeException(
         "Error resetting interest fields for hash computation.");
   }
@@ -217,7 +206,7 @@ uint32_t Interest::numberOfSuffixes() {
   return header->n_suffixes;
 }
 
-uint32_t *Interest::getRequestBitmap() {
+hicn_uword *Interest::getRequestBitmap() {
   if (!hasManifest()) return nullptr;
 
   auto header = (interest_manifest_header_t *)(writableData() + headerSize());

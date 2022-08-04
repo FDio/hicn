@@ -26,7 +26,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <hicn/ctrl/hicn-light-ng.h>
+#include <hicn/ctrl/hicn-light.h>
 #include <hicn/hicn.h>
 
 #include "connection.h"
@@ -87,7 +87,7 @@ int mapme_set_all_adjacencies(const mapme_t *mapme, fib_entry_t *entry);
  * @param [in] nexthops - next hops on which to send the update.
  */
 int mapme_set_adjacencies(const mapme_t *mapme, fib_entry_t *entry,
-                          nexthops_t *nexthops, bool force);
+                          nexthops_t *nexthops);
 
 /**
  * @function mapme_update_adjacencies

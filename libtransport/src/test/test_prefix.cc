@@ -194,47 +194,47 @@ TEST_F(PrefixTest, SetGetNetwork) {
 TEST_F(PrefixTest, Contains) {
   // IPv6 prefix
   Prefix p0(prefix_str0);
-  ip_address_t ip0, ip1;
+  hicn_ip_address_t ip0, ip1;
 
-  ip_address_pton("2001:db8:1::1234", &ip0);
-  ip_address_pton("2001:db9:1::1234", &ip1);
+  hicn_ip_address_pton("2001:db8:1::1234", &ip0);
+  hicn_ip_address_pton("2001:db9:1::1234", &ip1);
 
   EXPECT_TRUE(p0.contains(ip0));
   EXPECT_FALSE(p0.contains(ip1));
 
   Prefix p1(prefix_str1);
-  ip_address_pton("10.11.12.12", &ip0);
-  ip_address_pton("10.12.12.13", &ip1);
+  hicn_ip_address_pton("10.11.12.12", &ip0);
+  hicn_ip_address_pton("10.12.12.13", &ip1);
 
   EXPECT_TRUE(p1.contains(ip0));
   EXPECT_FALSE(p1.contains(ip1));
 
   Prefix p2(prefix_str2);
-  ip_address_pton("2001:db8:1::dbca", &ip0);
-  ip_address_pton("10.12.12.12", &ip1);
+  hicn_ip_address_pton("2001:db8:1::dbca", &ip0);
+  hicn_ip_address_pton("10.12.12.12", &ip1);
 
   EXPECT_TRUE(p2.contains(ip0));
   EXPECT_FALSE(p2.contains(ip1));
 
   Prefix p3(prefix_str3);
-  ip_address_pton("10.11.12.245", &ip0);
-  ip_address_pton("10.11.12.1", &ip1);
+  hicn_ip_address_pton("10.11.12.245", &ip0);
+  hicn_ip_address_pton("10.11.12.1", &ip1);
 
   EXPECT_TRUE(p3.contains(ip0));
   EXPECT_FALSE(p3.contains(ip1));
 
   // Corner cases
   Prefix p4("::/0");
-  ip_address_pton("7001:db8:1::1234", &ip0);
-  ip_address_pton("8001:db8:1::1234", &ip1);
+  hicn_ip_address_pton("7001:db8:1::1234", &ip0);
+  hicn_ip_address_pton("8001:db8:1::1234", &ip1);
 
   EXPECT_TRUE(p4.contains(ip0));
   EXPECT_TRUE(p4.contains(ip1));
 
   // Corner cases
   Prefix p5("b001:a:b:c:d:e:f:1/128");
-  ip_address_pton("b001:a:b:c:d:e:f:1", &ip0);
-  ip_address_pton("b001:a:b:c:d:e:f:2", &ip1);
+  hicn_ip_address_pton("b001:a:b:c:d:e:f:1", &ip0);
+  hicn_ip_address_pton("b001:a:b:c:d:e:f:2", &ip1);
 
   EXPECT_TRUE(p5.contains(ip0));
   EXPECT_FALSE(p5.contains(ip1));

@@ -54,8 +54,8 @@ typedef struct
   u8 ttl;
   u8 protocol;
   u16 csum;
-  ip4_address_t saddr;
-  ip4_address_t daddr;
+  ipv4_address_t saddr;
+  ipv4_address_t daddr;
 } _ipv4_header_t;
 
 #define ipv4_header_bytes(ipv4_header)                                        \
@@ -72,8 +72,8 @@ static_assert (EXPECTED_IPV4_HDRLEN == IPV4_HDRLEN,
 
 typedef struct
 {
-  ip4_address_t ip_src;
-  ip4_address_t ip_dst;
+  ipv4_address_t ip_src;
+  ipv4_address_t ip_dst;
   u8 zero;
   u8 protocol;
   u16 size;

@@ -40,10 +40,10 @@ TEST_F(SubscriptionTest, SetTopic) {
 
 TEST_F(SubscriptionTest, GetObjectFromTopic) {
   hc_object_type_t object_type = object_from_topic(TOPIC_STRATEGY);
-  EXPECT_EQ(object_type, OBJECT_STRATEGY);
+  EXPECT_EQ(object_type, OBJECT_TYPE_STRATEGY);
 
   object_type = object_from_topic(TOPIC_FACE);
-  EXPECT_EQ(object_type, OBJECT_FACE);
+  EXPECT_EQ(object_type, OBJECT_TYPE_FACE);
 }
 
 TEST_F(SubscriptionTest, AddSubscription) {

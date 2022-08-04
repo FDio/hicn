@@ -30,7 +30,8 @@
 #include "../core/msgbuf.h"
 #include "../core/strategy.h"
 #include <hicn/ctrl/api.h>
-#include <hicn/ctrl/hicn-light-ng.h>
+#include <hicn/ctrl/hicn-light.h>
+#include <hicn/interest_manifest.h>
 
 KHASH_MAP_INIT_STR(strategy_map, unsigned);
 
@@ -102,6 +103,18 @@ const char *configuration_get_fn_config(const configuration_t *config);
 
 void configuration_set_fn_config(configuration_t *config,
                                  const char *fn_config);
+
+void configuration_set_suffixes_per_split(configuration_t *config,
+                                          size_t n_suffixes_per_split);
+
+size_t configuration_get_suffixes_per_split(const configuration_t *config);
+
+void configuration_set_split_strategy(
+    configuration_t *config,
+    int_manifest_split_strategy_t n_suffixes_per_split);
+
+int_manifest_split_strategy_t configuration_get_split_strategy(
+    const configuration_t *config);
 
 void configuration_set_port(configuration_t *config, uint16_t port);
 

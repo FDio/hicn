@@ -16,7 +16,10 @@
 #ifndef UTIL_SSTRNCPY_H
 #define UTIL_SSTRNCPY_H
 
+#ifndef __STDC_WANT_LIB_EXT1__
 #define __STDC_WANT_LIB_EXT1__ 1
+#endif
+
 #include <string.h>
 
 #ifdef __STDC_LIB_EXT1__
@@ -29,6 +32,9 @@
 // Use custom safe string functions
 typedef int errno_t;
 #define EOK 0
+
+#ifndef HICN_VPP_PLUGIN
+/* This function is already defined in vppinfra/string.h */
 
 /**
  * @brief This function assures a null byte at the end of the buffer.
@@ -63,6 +69,7 @@ strnlen_s (const char *s, size_t maxlen)
 
   return strnlen (s, maxlen);
 }
+#endif /* HICN_VPP_PLUGIN */
 
 #endif /* __STDC_LIB_EXT1__ */
 #endif /* UTIL_SSTRNCPY_H */

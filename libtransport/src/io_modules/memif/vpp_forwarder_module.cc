@@ -124,8 +124,8 @@ uint32_t VPPForwarderModule::getMemifConfiguration() {
 void VPPForwarderModule::consumerConnection() {
   hicn_consumer_input_params input = {0};
   hicn_consumer_output_params output = {0};
-  ip_address_t ip4_address;
-  ip_address_t ip6_address;
+  hicn_ip_address_t ip4_address;
+  hicn_ip_address_t ip6_address;
 
   output.src4 = &ip4_address;
   output.src6 = &ip6_address;
@@ -181,10 +181,10 @@ void VPPForwarderModule::connect(bool is_consumer) {
 }
 
 void VPPForwarderModule::registerRoute(const Prefix &prefix) {
-  const ip_prefix_t &addr = prefix.toIpPrefixStruct();
+  const hicn_ip_prefix_t &addr = prefix.toIpPrefixStruct();
 
-  ip_prefix_t producer_prefix;
-  ip_address_t producer_locator;
+  hicn_ip_prefix_t producer_prefix;
+  hicn_ip_address_t producer_locator;
 
   if (face_id1_ == uint32_t(~0)) {
     hicn_producer_input_params input;

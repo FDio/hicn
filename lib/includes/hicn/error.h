@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -46,6 +46,8 @@ typedef enum
 } hicn_lib_error_t;
 
 extern const char *HICN_LIB_ERROR_STRING[];
+
+#define HICN_LIB_IS_ERROR(rc) (rc < 0)
 
 #define hicn_strerror(errno) (char *) (HICN_LIB_ERROR_STRING[-errno])
 

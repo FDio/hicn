@@ -30,8 +30,8 @@ typedef struct {
                     const address_t* remote, const char* interface_name);
   bool (*flush)(connection_t* connection);
   bool (*send)(connection_t* connection, msgbuf_t* msgbuf, bool queue);
-  int (*send_packet)(const connection_t* connection, const uint8_t* packet,
-                     size_t size);
+  bool (*send_packet)(const connection_t* connection, const uint8_t* packet,
+                      size_t size);
   // void (*read_callback)(connection_t * connection, int fd, void * data);
   size_t data_size;
 } connection_ops_t;

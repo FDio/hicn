@@ -24,17 +24,26 @@
 #define UTIL_BITMAP_H
 
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/param.h> // MIN, MAX
-
-#include <hicn/util/log.h>
 
 #include <hicn/common.h>
 #include <hicn/util/vector.h>
 
-typedef uint_fast32_t bitmap_t;
+typedef hicn_uword bitmap_t;
 
+#define WORD_WIDTH (sizeof (bitmap_t) * 8)
+
+#define WORD_WIDTH	     (sizeof (bitmap_t) * 8)
 #define BITMAP_WIDTH(bitmap) (sizeof ((bitmap)[0]) * 8)
+#define BITMAP_INVALID_INDEX ((uint32_t) (~0))
+
+static inline int
+get_lowest_set_bit_index (hicn_uword w)
+{
+  return hicn_uword_bits > 32 ? __builtin_ctzll (w) : __builtin_ctz (w);
+}
 
 /**
  * @brief Allocate and initialize a bitmap
@@ -79,13 +88,27 @@ bitmap_ensure_pos (bitmap_t **bitmap, off_t pos)
  * @param[in] i The bit position.
  */
 static inline int
-bitmap_get (const bitmap_t *bitmap, off_t i)
+_bitmap_get (const bitmap_t *bitmap, off_t i)
 {
   size_t offset = i / BITMAP_WIDTH (bitmap);
   assert (offset < bitmap_get_alloc_size (bitmap));
   size_t pos = i % BITMAP_WIDTH (bitmap);
-  size_t shift = BITMAP_WIDTH (bitmap) - pos - 1;
-  return (bitmap[offset] >> shift) & 1;
+  return (bitmap[offset] >> pos) & 1;
+}
+
+/**
+ * @brief Retrieve the state of the i-th bit in the bitmap.
+ * Does not sanity check the position.
+ *
+ * @param[in] bitmap The bitmap to access.
+ * @param[in] i The bit position.
+ */
+static inline int
+_bitmap_get_no_check (const bitmap_t *bitmap, off_t i)
+{
+  size_t offset = i / BITMAP_WIDTH (bitmap);
+  size_t pos = i % BITMAP_WIDTH (bitmap);
+  return (bitmap[offset] >> pos) & 1;
 }
 
 /*
@@ -96,8 +119,13 @@ bitmap_get (const bitmap_t *bitmap, off_t i)
  *
  * @return bool
  */
-#define bitmap_is_set(bitmap, i)   (bitmap_get ((bitmap), (i)) == 1)
-#define bitmap_is_unset(bitmap, i) (bitmap_get ((bitmap), (i)) == 0)
+#define bitmap_is_set(bitmap, i)   (_bitmap_get ((bitmap), (i)) == 1)
+#define bitmap_is_unset(bitmap, i) (_bitmap_get ((bitmap), (i)) == 0)
+
+#define bitmap_is_set_no_check(bitmap, i)                                     \
+  (_bitmap_get_no_check ((bitmap), (i)) == 1)
+#define bitmap_is_unset_no_check(bitmap, i)                                   \
+  (_bitmap_get_no_check ((bitmap), (i)) == 0)
 
 /*
  * @brief Returns whether the i-th bit is unset (equal to 0) in a bitmap.
@@ -107,7 +135,9 @@ bitmap_get (const bitmap_t *bitmap, off_t i)
  *
  * @return bool
  */
-#define bitmap_set(bitmap, i) _bitmap_set ((bitmap_t **) &bitmap, i)
+#define bitmap_set(bitmap, i) _bitmap_set ((bitmap_t **) &bitmap, i, 1)
+#define bitmap_set_no_check(bitmap, i)                                        \
+  _bitmap_set ((bitmap_t **) &bitmap, i, 0)
 
 /*
  * @brief Returns whether the i-th bit is unset (equal to 0) in a bitmap
@@ -119,29 +149,30 @@ bitmap_get (const bitmap_t *bitmap, off_t i)
  * @return bool
  */
 static inline int
-_bitmap_set (bitmap_t **bitmap_ptr, off_t i)
+_bitmap_set (bitmap_t **bitmap_ptr, off_t i, int check)
 {
-  if (bitmap_ensure_pos (bitmap_ptr, i) < 0)
+  if (check && bitmap_ensure_pos (bitmap_ptr, i) < 0)
     return -1;
 
   bitmap_t *bitmap = *bitmap_ptr;
   size_t offset = i / BITMAP_WIDTH (bitmap);
   size_t pos = i % BITMAP_WIDTH (bitmap);
-  size_t shift = BITMAP_WIDTH (bitmap) - pos - 1;
 
-  bitmap[offset] |= (bitmap_t) 1 << shift;
+  bitmap[offset] |= (bitmap_t) 1 << pos;
   return 0;
 }
 
+#define bitmap_unset(bitmap, i)		 _bitmap_unset (bitmap, i, 1)
+#define bitmap_unset_no_check(bitmap, i) _bitmap_unset (bitmap, i, 0)
+
 static inline int
-bitmap_unset (bitmap_t *bitmap, off_t i)
+_bitmap_unset (bitmap_t *bitmap, off_t i, int check)
 {
-  if (bitmap_ensure_pos (&bitmap, i) < 0)
+  if (check && bitmap_ensure_pos (&bitmap, i) < 0)
     return -1;
   size_t offset = i / BITMAP_WIDTH (bitmap);
   size_t pos = i % BITMAP_WIDTH (bitmap);
-  size_t shift = BITMAP_WIDTH (bitmap) - pos - 1;
-  bitmap[offset] &= ~(1ul << shift);
+  bitmap[offset] &= ~(1ul << pos);
   return 0;
 }
 
@@ -201,12 +232,95 @@ bitmap_set_range (bitmap_t *bitmap, off_t from, off_t to)
   return 0;
 
 END:
-  ERROR ("Error setting bitmap range\n");
   return -1;
 }
 
 #define bitmap_set_to(bitmap, to) bitmap_set_range ((bitmap), 0, (to))
 
 #define bitmap_free(bitmap) vector_free (bitmap)
+
+static inline hicn_uword
+bitmap_next_set_no_check (const bitmap_t *bitmap, hicn_uword i, size_t length)
+{
+  hicn_uword pos = i / WORD_WIDTH;
+  hicn_uword offset = i % WORD_WIDTH;
+  hicn_uword tmp;
+  hicn_uword mask = ~((1ULL << offset) - 1);
+
+  if (pos < length)
+    {
+      // This will zeroes all bits < i
+      tmp = bitmap[pos] & mask;
+      if (tmp)
+	return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+
+      for (pos += 1; pos < length; pos++)
+	{
+	  tmp = bitmap[pos];
+	  if (tmp)
+	    return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+	}
+    }
+
+  return BITMAP_INVALID_INDEX;
+}
+
+static inline hicn_uword
+bitmap_next_set (const bitmap_t *bitmap, hicn_uword i)
+{
+  return bitmap_next_set_no_check (bitmap, i, vector_get_alloc_size (bitmap));
+}
+
+static inline hicn_uword
+bitmap_next_unset_no_check (const bitmap_t *bitmap, hicn_uword i,
+			    size_t length)
+{
+  hicn_uword pos = i / WORD_WIDTH;
+  hicn_uword offset = i % WORD_WIDTH;
+  hicn_uword tmp;
+  hicn_uword mask = ~((1ULL << offset) - 1);
+
+  if (pos < length)
+    {
+      // This will zeroes all bits < i
+      tmp = ~bitmap[pos] & mask;
+      if (tmp)
+	return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+
+      for (pos += 1; pos < length; pos++)
+	{
+	  tmp = ~bitmap[pos];
+	  if (tmp)
+	    return get_lowest_set_bit_index (tmp) + pos * WORD_WIDTH;
+	}
+    }
+  return BITMAP_INVALID_INDEX;
+}
+
+static inline hicn_uword
+bitmap_next_unset (const bitmap_t *bitmap, hicn_uword i)
+{
+  return bitmap_next_unset_no_check (bitmap, i,
+				     vector_get_alloc_size (bitmap));
+}
+
+#define bitmap_first_set(bitmap) bitmap_next_set (bitmap, 0)
+#define bitmap_first_set_no_check(bitmap, size)                               \
+  bitmap_next_set_no_checks (bitmap, 0, size)
+
+#define bitmap_first_unset(bitmap) bitmap_next_unset (bitmap, 0)
+#define bitmap_first_unset_no_check(bitmap, size)                             \
+  bitmap_next_unset_no_checks (bitmap, 0, size)
+
+static inline void
+bitmap_print (const bitmap_t *bitmap, size_t n_words)
+{
+  for (size_t word = 0; word < n_words; word++)
+    {
+      for (int bit = sizeof (hicn_uword) - 1; bit >= 0; bit--)
+	(bitmap_is_set_no_check (&bitmap[word], bit)) ? printf ("1") :
+							      printf ("0");
+    }
+}
 
 #endif /* UTIL_BITMAP_H */

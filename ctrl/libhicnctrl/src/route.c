@@ -25,12 +25,12 @@
 #define DEFAULT_HICN_ROUTE_COST 1
 
 struct hicn_route_s {
-  ip_prefix_t prefix;
+  hicn_ip_prefix_t prefix;
   face_id_t face_id;
   route_cost_t cost; /* Optional, 0 means no value, defaults to 1 */
 };
 
-hicn_route_t* hicn_route_create(ip_prefix_t* prefix, face_id_t face_id,
+hicn_route_t* hicn_route_create(hicn_ip_prefix_t* prefix, face_id_t face_id,
                                 route_cost_t cost) {
   hicn_route_t* route = malloc(sizeof(hicn_route_t));
   if (!route) return NULL;
@@ -52,7 +52,7 @@ void hicn_route_free(hicn_route_t* route) { free(route); }
 
 int hicn_route_cmp(const hicn_route_t* route1, const hicn_route_t* route2) {
   int rc;
-  rc = ip_prefix_cmp(&route1->prefix, &route2->prefix);
+  rc = hicn_ip_prefix_cmp(&route1->prefix, &route2->prefix);
   if (rc != 0) return rc;
 
   return (route1->face_id > route2->face_id)   ? 1
@@ -60,12 +60,12 @@ int hicn_route_cmp(const hicn_route_t* route1, const hicn_route_t* route2) {
                                                : 0;
 }
 
-int hicn_route_get_prefix(const hicn_route_t* route, ip_prefix_t* prefix) {
+int hicn_route_get_prefix(const hicn_route_t* route, hicn_ip_prefix_t* prefix) {
   *prefix = route->prefix;
   return 0;
 }
 
-int hicn_route_set_prefix(hicn_route_t* route, const ip_prefix_t prefix) {
+int hicn_route_set_prefix(hicn_route_t* route, const hicn_ip_prefix_t prefix) {
   route->prefix = prefix;
   return 0;
 }
@@ -83,6 +83,6 @@ int hicn_route_set_cost(hicn_route_t* route, const int cost) {
 /* /!\ Please update constants in header file upon changes */
 size_t hicn_route_snprintf(char* s, size_t size, const hicn_route_t* route) {
   char prefix_s[MAXSZ_IP_PREFIX];
-  ip_prefix_ntop(&route->prefix, prefix_s, MAXSZ_IP_PREFIX);
+  hicn_ip_prefix_ntop(&route->prefix, prefix_s, MAXSZ_IP_PREFIX);
   return snprintf(s, size, "%s [%d]", prefix_s, route->cost);
 }

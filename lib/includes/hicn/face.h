@@ -37,6 +37,7 @@
 /* Netdevice type */
 
 #include <net/if.h> // IFNAMSIZ
+#include "base.h"
 
 #define foreach_netdevice_type                                                \
   _ (UNDEFINED)                                                               \
@@ -58,10 +59,17 @@ typedef enum
 #undef _
 } netdevice_type_t;
 
+typedef uint32_t netdevice_flags_t;
+#define NETDEVICE_FLAGS_EMPTY	     0
+#define netdevice_flags_clear(F)     (F = 0)
+#define netdevice_flags_add(F, T)    ((F) |= 1 << (T))
+#define netdevice_flags_remove(F, T) ((F) &= ~(1 << (T)))
+#define netdevice_flags_has(F, T)    ((F) & (1 << (T)))
+
 extern const char *_netdevice_type_str[];
 #define netdevice_type_str(x) _netdevice_type_str[x]
 
-#define NETDEVICE_INVALID_INDEX ~0
+#define INVALID_NETDEVICE_ID ~0
 
 /* Netdevice */
 
@@ -97,6 +105,7 @@ int netdevice_set_name (netdevice_t *netdevice, const char *name);
 int netdevice_update_index (netdevice_t *netdevice);
 int netdevice_update_name (netdevice_t *netdevice);
 int netdevice_cmp (const netdevice_t *nd1, const netdevice_t *nd2);
+bool netdevice_is_empty (const netdevice_t *netdevice);
 
 #define NETDEVICE_UNDEFINED_INDEX 0
 
@@ -175,9 +184,12 @@ face_type_t face_type_from_str (const char *str);
 /* Face */
 
 typedef u32 face_id_t;
+#define INVALID_FACE_ID ~0
 
 typedef struct
 {
+  face_id_t id;
+  char name[SYMBOLIC_NAME_LEN];
   face_type_t type;
   face_state_t admin_state;
   face_state_t state;
@@ -191,16 +203,16 @@ typedef struct
    */
   netdevice_t netdevice;
   int family; /* To access family independently of face type */
-  ip_address_t local_addr;
-  ip_address_t remote_addr;
+  hicn_ip_address_t local_addr;
+  hicn_ip_address_t remote_addr;
   u16 local_port;
   u16 remote_port;
 } face_t;
 
 int face_initialize (face_t *face);
 int face_initialize_udp (face_t *face, const char *interface_name,
-			 const ip_address_t *local_addr, u16 local_port,
-			 const ip_address_t *remote_addr, u16 remote_port,
+			 const hicn_ip_address_t *local_addr, u16 local_port,
+			 const hicn_ip_address_t *remote_addr, u16 remote_port,
 			 int family);
 int face_initialize_udp_sa (face_t *face, const char *interface_name,
 			    const struct sockaddr *local_addr,
@@ -208,8 +220,8 @@ int face_initialize_udp_sa (face_t *face, const char *interface_name,
 
 face_t *face_create ();
 face_t *face_create_udp (const char *interface_name,
-			 const ip_address_t *local_addr, u16 local_port,
-			 const ip_address_t *remote_addr, u16 remote_port,
+			 const hicn_ip_address_t *local_addr, u16 local_port,
+			 const hicn_ip_address_t *remote_addr, u16 remote_port,
 			 int family);
 face_t *face_create_udp_sa (const char *interface_name,
 			    const struct sockaddr *local_addr,

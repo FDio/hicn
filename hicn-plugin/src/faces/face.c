@@ -303,9 +303,6 @@ hicn_face_add (const dpo_id_t *dpo_nh, ip46_address_t *nat_address, int sw_if,
 	       hicn_face_id_t *pfaceid)
 {
 
-  hicn_face_flags_t flags = (hicn_face_flags_t) 0;
-  flags |= HICN_FACE_FLAGS_FACE;
-
   hicn_face_t *face;
 
   face =

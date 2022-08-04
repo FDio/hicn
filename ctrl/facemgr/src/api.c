@@ -28,7 +28,7 @@
 /*
  * Dump facelets (debug)
  */
-//#define WITH_DUMP
+#define WITH_DUMP 1
 
 /*
  * Allow priority setting before interface is actually created
@@ -291,7 +291,10 @@ int facemgr_finalize(facemgr_t *facemgr) {
   facelet_set_free(facemgr->facelet_cache);
 
   /* Free all facelets from static array */
-  for (unsigned i = 0; i < facelet_array_len(facemgr->static_facelets); i++) {
+  n = (int)facelet_array_len(facemgr->static_facelets);
+
+  INFO("Removing %d facelets from static array", n);
+  for (unsigned i = 0; i < n; i++) {
     facelet_t *facelet;
     if (facelet_array_get_index(facemgr->static_facelets, i, &facelet) < 0) {
       ERROR("[facemgr_cfg_finalize] Error getting facelet in array");
@@ -817,7 +820,7 @@ int facemgr_complement_facelet_manual(facemgr_t *facemgr, facelet_t *facelet) {
    * We never override a result we have obtained through bonjour
    */
   if (!facelet_has_remote_addr(facelet)) {
-    ip_address_t remote_addr;
+    hicn_ip_address_t remote_addr;
     if (facemgr_cfg_get_overlay_remote_addr(facemgr->cfg, &netdevice,
                                             netdevice_type, family,
                                             &remote_addr) < 0) {
@@ -826,7 +829,7 @@ int facemgr_complement_facelet_manual(facemgr_t *facemgr, facelet_t *facelet) {
           "information from cfg");
       return -1;
     }
-    if (ip_address_empty(&remote_addr)) {
+    if (hicn_ip_address_empty(&remote_addr)) {
       ERROR(
           "[facemgr_complement_facelet_manual] Got empty remote addr "
           "information from cfg");
@@ -859,7 +862,7 @@ int facemgr_complement_facelet_manual(facemgr_t *facemgr, facelet_t *facelet) {
    * whether this is an address that belong to us... it might be used
    * to arbitrate amongst several IP addresses instead...
    */
-  ip_address_t local_addr;
+  hicn_ip_address_t local_addr;
   if (facemgr_cfg_get_overlay_local_addr(
           facemgr->cfg, &netdevice, netdevice_type, family, &local_addr) < 0) {
     ERROR(
@@ -867,7 +870,7 @@ int facemgr_complement_facelet_manual(facemgr_t *facemgr, facelet_t *facelet) {
         "information from cfg");
     return -1;
   }
-  if (ip_address_empty(&local_addr)) {
+  if (hicn_ip_address_empty(&local_addr)) {
     ERROR(
         "[facemgr_complement_facelet_manual] Got empty local addr information "
         "from cfg");
@@ -1435,7 +1438,7 @@ int facemgr_process_facelet_get(facemgr_t *facemgr, facelet_t *facelet) {
     if (facelet_get_netdevice_type(facelet, &netdevice_type) < 0) {
       /* Inspect local address */
       int family;
-      ip_address_t local;
+      hicn_ip_address_t local;
       if (facelet_get_family(facelet, &family) < 0) {
         ERROR("[facemgr_process_facelet_get] Error getting facelet family");
         return -1;
@@ -1448,14 +1451,14 @@ int facemgr_process_facelet_get(facemgr_t *facemgr, facelet_t *facelet) {
       }
       switch (family) {
         case AF_INET:
-          if (ip_address_cmp(&local, &IPV4_LOOPBACK, family) == 0) {
+          if (hicn_ip_address_cmp(&local, &IPV4_LOOPBACK) == 0) {
             facelet_set_netdevice_type(facelet, NETDEVICE_TYPE_LOOPBACK);
           } else {
             return -2;
           }
           break;
         case AF_INET6:
-          if (ip_address_cmp(&local, &IPV6_LOOPBACK, family) == 0) {
+          if (hicn_ip_address_cmp(&local, &IPV6_LOOPBACK) == 0) {
             facelet_set_netdevice_type(facelet, NETDEVICE_TYPE_LOOPBACK);
           } else {
             return -2;
@@ -1673,7 +1676,8 @@ ERR_PRIORITY:
    * routes managed by the face manager.
    */
   DEBUG("[facemgr_process_facelet_create_no_family] Loop static");
-  for (unsigned i = 0; i < facelet_array_len(facemgr->static_facelets); i++) {
+  int n = (int)facelet_array_len(facemgr->static_facelets);
+  for (unsigned i = 0; i < n; i++) {
     facelet_t *static_facelet;
     if (facelet_array_get_index(facemgr->static_facelets, i, &static_facelet) <
         0) {
@@ -1733,7 +1737,7 @@ ERR_PRIORITY:
  */
 int facemgr_on_event(facemgr_t *facemgr, facelet_t *facelet_in) {
   bool remove_facelet = true;
-#if WITH_DUMP
+#ifdef WITH_DUMP
   bool dump = true;
 #endif /* WITH_DUMP */
   int ret = 0;
@@ -1826,7 +1830,7 @@ int facemgr_on_event(facemgr_t *facemgr, facelet_t *facelet_in) {
         // DEBUG("[facemgr_on_event] GET NEW %s", facelet_s);
         rc = facemgr_process_facelet_get(facemgr, facelet_in);
         if (rc == 0) remove_facelet = false;
-#if WITH_DUMP
+#ifdef WITH_DUMP
         dump = false;
 #endif
         if (rc == -1) {
@@ -1943,7 +1947,7 @@ int facemgr_on_event(facemgr_t *facemgr, facelet_t *facelet_in) {
         // ERROR("[facemgr_on_event] GET event for a face that already
         // exists...");
 #ifdef WITH_DUMP
-        dump = false;
+                              // dump = false;
 #endif /* WITH_DUMP */
         continue;
 
@@ -2025,7 +2029,7 @@ ERR:
   ret = -1;
 
 DUMP_CACHE:
-#if WITH_DUMP
+#ifdef WITH_DUMP
   if (dump) {
     DEBUG("    <CACHE>");
     facelet_set_dump(facemgr->facelet_cache);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -285,6 +285,7 @@ hicn_face_prod_add (fib_prefix_t *prefix, u32 sw_if, u32 *cs_reserved,
     }
 
   face = hicn_face_get (&local_app_ip, sw_if, &hicn_face_hashtb, adj_index);
+  assert (face);
 
   *faceid = hicn_dpoi_get_index (face);
 

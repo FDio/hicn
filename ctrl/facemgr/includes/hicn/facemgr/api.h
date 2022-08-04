@@ -44,7 +44,7 @@ typedef int (*facemgr_cb_t)(void *loop, facemgr_cb_type_t type, void *data);
 
 typedef struct {
   uint16_t local_port;
-  ip_address_t remote_addr;
+  hicn_ip_address_t remote_addr;
   uint16_t remote_port;
 } facemgr_overlay_setting_t;
 

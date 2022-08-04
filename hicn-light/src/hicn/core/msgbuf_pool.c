@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -19,6 +19,7 @@
  */
 
 #include <hicn/util/pool.h>
+#include <hicn/util/log.h>
 #include "msgbuf_pool.h"
 
 msgbuf_pool_t *_msgbuf_pool_create(size_t init_size, size_t max_size) {
@@ -90,16 +91,20 @@ void msgbuf_pool_release(msgbuf_pool_t *msgbuf_pool, msgbuf_t **msgbuf_ptr) {
   if (msgbuf->refs == 0) {
     WITH_TRACE({
       off_t msgbuf_id = msgbuf_pool_get_id(msgbuf_pool, msgbuf);
-      if (msgbuf->type != MSGBUF_TYPE_INTEREST &&
-          msgbuf->type != MSGBUF_TYPE_DATA) {
+      if (msgbuf_get_type(msgbuf) != HICN_PACKET_TYPE_INTEREST &&
+          msgbuf_get_type(msgbuf) != HICN_PACKET_TYPE_DATA) {
         TRACE("Msgbuf %d (%p) - put to msgbuf pool", msgbuf_id, msgbuf);
       } else {
-        char *name_str = name_ToString(msgbuf_get_name(msgbuf));
+        char buf[MAXSZ_HICN_NAME];
+        int rc =
+            hicn_name_snprintf(buf, MAXSZ_HICN_NAME, msgbuf_get_name(msgbuf));
+        if (rc < 0 || rc >= MAXSZ_HICN_NAME)
+          snprintf(buf, MAXSZ_HICN_NAME, "%s", "(error)");
         const char *msgbuf_type_str =
-            msgbuf->type == MSGBUF_TYPE_INTEREST ? "interest" : "data";
+            msgbuf_get_type(msgbuf) == HICN_PACKET_TYPE_INTEREST ? "interest"
+                                                                 : "data";
         TRACE("Msgbuf %d (%p) - %s (%s) put to msgbuf pool", msgbuf_id, msgbuf,
-              name_str, msgbuf_type_str);
-        free(name_str);
+              buf, msgbuf_type_str);
       }
     })
 

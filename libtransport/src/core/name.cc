@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -14,6 +14,7 @@
  */
 
 #include <core/manifest_format.h>
+#include <hicn/name.h>
 #include <hicn/transport/core/name.h>
 #include <hicn/transport/errors/errors.h>
 #include <hicn/transport/errors/tokenizer_exception.h>
@@ -124,8 +125,8 @@ std::string Name::toString() const {
 }
 
 uint32_t Name::getHash32(bool consider_suffix) const {
-  uint32_t hash;
-  if (hicn_name_hash(&name_, &hash, consider_suffix) < 0) {
+  uint32_t hash = _hicn_name_get_hash(&name_, consider_suffix);
+  if (hash < 0) {
     throw errors::RuntimeException("Error computing the hash of the name!");
   }
   return hash;
@@ -148,20 +149,19 @@ uint32_t Name::getSuffix() const {
   return ret;
 }
 
-Name &Name::setSuffix(uint32_t seq_number) {
-  if (hicn_name_set_seq_number(&name_, seq_number) < 0) {
-    throw errors::RuntimeException(
-        "Impossible to set the sequence number to the name.");
+Name &Name::setSuffix(hicn_name_suffix_t suffix) {
+  if (hicn_name_set_suffix(&name_, suffix) < 0) {
+    throw errors::RuntimeException("Impossible to set name suffix.");
   }
 
   return *this;
 }
 
-ip_prefix_t Name::toIpAddress() const {
-  ip_prefix_t ret;
+hicn_ip_prefix_t Name::toIpAddress() const {
+  hicn_ip_prefix_t ret;
   std::memset(&ret, 0, sizeof(ret));
 
-  if (hicn_name_to_ip_prefix(&name_, &ret) < 0) {
+  if (hicn_name_to_hicn_ip_prefix(&name_, &ret) < 0) {
     throw errors::InvalidIpAddressException();
   }
 

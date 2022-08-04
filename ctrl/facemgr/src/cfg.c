@@ -17,11 +17,11 @@ typedef struct {
   bool is_local_port;
   uint16_t local_port;
   bool is_local_addr;
-  ip_address_t local_addr;
+  hicn_ip_address_t local_addr;
   bool is_remote_port;
   uint16_t remote_port;
   bool is_remote_addr;
-  ip_address_t remote_addr;
+  hicn_ip_address_t remote_addr;
 } facemgr_cfg_overlay_t;
 
 int facemgr_cfg_overlay_initialize(facemgr_cfg_overlay_t *overlay) {
@@ -185,8 +185,8 @@ void facemgr_cfg_rule_dump(facemgr_cfg_rule_t *rule) {
     DEBUG("        <ipv4>");
     if (rule->override.overlays.v4->is_local_addr) {
       char buf[MAXSZ_IP_ADDRESS];
-      ip_address_snprintf(buf, MAXSZ_IP_ADDRESS,
-                          &rule->override.overlays.v4->local_addr, AF_INET);
+      hicn_ip_address_snprintf(buf, MAXSZ_IP_ADDRESS,
+                               &rule->override.overlays.v4->local_addr);
       DEBUG("          <local_addr>%s</local_addr>", buf);
     }
     if (rule->override.overlays.v4->is_local_port) {
@@ -195,8 +195,8 @@ void facemgr_cfg_rule_dump(facemgr_cfg_rule_t *rule) {
     }
     if (rule->override.overlays.v4->is_remote_addr) {
       char buf[MAXSZ_IP_ADDRESS];
-      ip_address_snprintf(buf, MAXSZ_IP_ADDRESS,
-                          &rule->override.overlays.v4->remote_addr, AF_INET);
+      hicn_ip_address_snprintf(buf, MAXSZ_IP_ADDRESS,
+                               &rule->override.overlays.v4->remote_addr);
       DEBUG("          <remote_addr>%s</remote_addr>", buf);
     }
     if (rule->override.overlays.v4->is_remote_port) {
@@ -209,8 +209,8 @@ void facemgr_cfg_rule_dump(facemgr_cfg_rule_t *rule) {
     DEBUG("        <ipv6>");
     if (rule->override.overlays.v6->is_local_addr) {
       char buf[MAXSZ_IP_ADDRESS];
-      ip_address_snprintf(buf, MAXSZ_IP_ADDRESS,
-                          &rule->override.overlays.v6->local_addr, AF_INET6);
+      hicn_ip_address_snprintf(buf, MAXSZ_IP_ADDRESS,
+                               &rule->override.overlays.v6->local_addr);
       DEBUG("          <local_addr>%s</local_addr>", buf);
     }
     if (rule->override.overlays.v6->is_local_port) {
@@ -219,8 +219,8 @@ void facemgr_cfg_rule_dump(facemgr_cfg_rule_t *rule) {
     }
     if (rule->override.overlays.v6->is_remote_addr) {
       char buf[MAXSZ_IP_ADDRESS];
-      ip_address_snprintf(buf, MAXSZ_IP_ADDRESS,
-                          &rule->override.overlays.v6->remote_addr, AF_INET6);
+      hicn_ip_address_snprintf(buf, MAXSZ_IP_ADDRESS,
+                               &rule->override.overlays.v6->remote_addr);
       DEBUG("          <remote_addr>%s</remote_addr>", buf);
     }
     if (rule->override.overlays.v6->is_remote_port) {
@@ -300,8 +300,9 @@ int facemgr_cfg_rule_unset_ipv6(facemgr_cfg_rule_t *rule) {
 }
 
 int facemgr_cfg_rule_set_overlay(facemgr_cfg_rule_t *rule, int family,
-                                 ip_address_t *local_addr, uint16_t local_port,
-                                 ip_address_t *remote_addr,
+                                 hicn_ip_address_t *local_addr,
+                                 uint16_t local_port,
+                                 hicn_ip_address_t *remote_addr,
                                  uint16_t remote_port) {
   if ((family != AF_INET) && (family != AF_INET6)) return -1;
 
@@ -546,8 +547,9 @@ int facemgr_cfg_unset_ipv6(facemgr_cfg_t *cfg) {
 }
 
 int facemgr_cfg_set_overlay(facemgr_cfg_t *cfg, int family,
-                            ip_address_t *local_addr, uint16_t local_port,
-                            ip_address_t *remote_addr, uint16_t remote_port) {
+                            hicn_ip_address_t *local_addr, uint16_t local_port,
+                            hicn_ip_address_t *remote_addr,
+                            uint16_t remote_port) {
   if ((family != AF_INET) && (family != AF_INET6)) return -1;
 
   facemgr_cfg_overlay_t *overlay = facemgr_cfg_overlay_create();
@@ -589,7 +591,7 @@ int facemgr_cfg_set_overlay(facemgr_cfg_t *cfg, int family,
     DEBUG("    <ipv4>");
     if (overlay->is_local_addr) {
       char buf[MAXSZ_IP_ADDRESS];
-      ip_address_snprintf(buf, MAXSZ_IP_ADDRESS, &overlay->local_addr, AF_INET);
+      hicn_ip_address_snprintf(buf, MAXSZ_IP_ADDRESS, &overlay->local_addr);
       DEBUG("      <local_addr>%s</local_addr>", buf);
     }
     if (overlay->is_local_port) {
@@ -597,8 +599,7 @@ int facemgr_cfg_set_overlay(facemgr_cfg_t *cfg, int family,
     }
     if (overlay->is_remote_addr) {
       char buf[MAXSZ_IP_ADDRESS];
-      ip_address_snprintf(buf, MAXSZ_IP_ADDRESS, &overlay->remote_addr,
-                          AF_INET);
+      hicn_ip_address_snprintf(buf, MAXSZ_IP_ADDRESS, &overlay->remote_addr);
       DEBUG("      <remote_addr>%s</remote_addr>", buf);
     }
     if (overlay->is_remote_port) {
@@ -803,7 +804,7 @@ int facemgr_cfg_get_ignore(const facemgr_cfg_t *cfg,
 int facemgr_cfg_get_overlay_local_addr(const facemgr_cfg_t *cfg,
                                        const netdevice_t *netdevice,
                                        netdevice_type_t netdevice_type,
-                                       int family, ip_address_t *addr) {
+                                       int family, hicn_ip_address_t *addr) {
   facemgr_cfg_override_t *override;
   int rc = facemgr_cfg_get_override(cfg, netdevice, netdevice_type, &override);
   if (rc < 0) return rc;
@@ -889,7 +890,7 @@ int facemgr_cfg_get_overlay_local_port(const facemgr_cfg_t *cfg,
 int facemgr_cfg_get_overlay_remote_addr(const facemgr_cfg_t *cfg,
                                         const netdevice_t *netdevice,
                                         netdevice_type_t netdevice_type,
-                                        int family, ip_address_t *addr) {
+                                        int family, hicn_ip_address_t *addr) {
   facemgr_cfg_override_t *override;
   int rc = facemgr_cfg_get_override(cfg, netdevice, netdevice_type, &override);
   if (rc < 0) return rc;
@@ -1042,7 +1043,8 @@ int facemgr_cfg_rule_get_ipv6(const facemgr_cfg_rule_t *rule, bool *ipv6) {
 }
 
 int facemgr_cfg_rule_get_overlay_local_addr(const facemgr_cfg_rule_t *rule,
-                                            int family, ip_address_t *addr) {
+                                            int family,
+                                            hicn_ip_address_t *addr) {
   facemgr_cfg_overlay_t *overlay = NULL;
   switch (family) {
     case AF_INET:
@@ -1078,7 +1080,8 @@ int facemgr_cfg_rule_get_overlay_local_port(const facemgr_cfg_rule_t *rule,
 }
 
 int facemgr_cfg_rule_get_overlay_remote_addr(const facemgr_cfg_rule_t *rule,
-                                             int family, ip_address_t *addr) {
+                                             int family,
+                                             hicn_ip_address_t *addr) {
   facemgr_cfg_overlay_t *overlay = NULL;
   switch (family) {
     case AF_INET:

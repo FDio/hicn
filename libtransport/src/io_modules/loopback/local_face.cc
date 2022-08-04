@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -57,10 +57,16 @@ Face &Face::operator=(Face &&other) {
 void Face::onPacket(const Packet &packet) {
   DLOG_IF(INFO, VLOG_IS_ON(3)) << "Sending content to local socket.";
 
-  if (Packet::isInterest(packet.data())) {
-    rescheduleOnIoService<Interest>(packet);
-  } else {
-    rescheduleOnIoService<ContentObject>(packet);
+  switch (packet->getFormat()) {
+    case HICN_PACKET_FORMAT_INTEREST:
+      rescheduleOnIoService<Interest>(packet);
+      break;
+    case HICN_PACKET_FORMAT_DATA:
+      rescheduleOnIoService<ContentObject>(packet);
+      break;
+    default:
+      /* Should not occur */
+      break;
   }
 }
 

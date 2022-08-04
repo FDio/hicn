@@ -31,6 +31,8 @@
 #include <hicn/name.h>
 #include <hicn/util/sstrncpy.h>
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
 int
 hicn_name_create (const char *ip_address, u32 id, hicn_name_t *name)
 {
@@ -55,11 +57,20 @@ hicn_name_create (const char *ip_address, u32 id, hicn_name_t *name)
 }
 
 int
-hicn_name_create_from_ip_prefix (const ip_prefix_t *prefix, u32 id,
+hicn_name_create_from_ip_address (const hicn_ip_address_t ip_address,
+				  u32 suffix, hicn_name_t *name)
+{
+  name->prefix = ip_address;
+  name->suffix = suffix;
+
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+hicn_name_create_from_ip_prefix (const hicn_ip_prefix_t *prefix, u32 id,
 				 hicn_name_t *name)
 {
-  name->prefix.v6.as_u64[0] = prefix->address.v6.as_u64[0];
-  name->prefix.v6.as_u64[1] = prefix->address.v6.as_u64[1];
+  name->prefix = prefix->address;
   name->suffix = id;
 
   return HICN_LIB_ERROR_NONE;
@@ -79,15 +90,15 @@ hicn_name_compare (const hicn_name_t *name_1, const hicn_name_t *name_2,
   return ret;
 }
 
-int
-hicn_name_hash (const hicn_name_t *name, u32 *hash, bool consider_suffix)
+uint32_t
+_hicn_name_get_hash (const hicn_name_t *name, bool consider_suffix)
 {
-  *hash = hash32 (&name->prefix, sizeof (name->prefix));
+  uint32_t hash = hash32 (&name->prefix, sizeof (name->prefix));
 
   if (consider_suffix)
-    *hash = cumulative_hash32 (&name->suffix, sizeof (name->suffix), *hash);
+    hash = cumulative_hash32 (&name->suffix, sizeof (name->suffix), hash);
 
-  return HICN_LIB_ERROR_NONE;
+  return hash;
 }
 
 int
@@ -116,9 +127,9 @@ hicn_name_copy_prefix_to_destination (u8 *dst, const hicn_name_t *name)
 }
 
 int
-hicn_name_set_seq_number (hicn_name_t *name, u32 seq_number)
+hicn_name_set_suffix (hicn_name_t *name, hicn_name_suffix_t suffix)
 {
-  name->suffix = seq_number;
+  name->suffix = suffix;
   return HICN_LIB_ERROR_NONE;
 }
 
@@ -149,7 +160,7 @@ hicn_name_to_sockaddr_address (const hicn_name_t *name,
 }
 
 int
-hicn_name_to_ip_prefix (const hicn_name_t *name, ip_prefix_t *prefix)
+hicn_name_to_hicn_ip_prefix (const hicn_name_t *name, hicn_ip_prefix_t *prefix)
 {
   int family, rc;
   rc = hicn_name_get_family (name, &family);
@@ -211,24 +222,247 @@ hicn_name_get_family (const hicn_name_t *name, int *family)
   return HICN_LIB_ERROR_NONE;
 }
 
+bool
+hicn_name_is_v4 (const hicn_name_t *name)
+{
+  return _is_inet4 (name);
+}
+
 int
-hicn_prefix_create_from_ip_prefix (const ip_prefix_t *ip_prefix,
+hicn_name_snprintf (char *s, size_t size, const hicn_name_t *name)
+{
+  int n, rc;
+  n = hicn_ip_address_snprintf (s, size, &name->prefix);
+  if (n < 0 || n >= size)
+    return n;
+  rc = snprintf (s + n, size - n, "|%d", name->suffix);
+  if (rc < 0)
+    return rc;
+  return rc + n;
+}
+
+int
+hicn_prefix_create_from_ip_prefix (const hicn_ip_prefix_t *hicn_ip_prefix,
 				   hicn_prefix_t *prefix)
 {
-  switch (ip_prefix->family)
-    {
-    case AF_INET:
-      prefix->name.v4.as_u32 = ip_prefix->address.v4.as_u32;
-      break;
-    case AF_INET6:
-      prefix->name.v6.as_u64[0] = ip_prefix->address.v6.as_u64[0];
-      prefix->name.v6.as_u64[1] = ip_prefix->address.v6.as_u64[1];
-      break;
-    default:
-      return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
-    }
-  prefix->len = (u8) (ip_prefix->len);
+  if (hicn_ip_prefix->family != AF_INET || hicn_ip_prefix->family != AF_INET6)
+    return HICN_LIB_ERROR_INVALID_IP_ADDRESS;
+  prefix->name = hicn_ip_prefix->address;
+  prefix->len = (u8) (hicn_ip_prefix->len);
 
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+hicn_name_cmp (const hicn_name_t *n1, const hicn_name_t *n2)
+{
+  int rc = hicn_ip_address_cmp (&n1->prefix, &n2->prefix);
+  if (rc != 0)
+    return rc;
+  return n2->suffix - n1->suffix;
+}
+
+bool
+hicn_name_equals (const hicn_name_t *n1, const hicn_name_t *n2)
+{
+  return (hicn_name_cmp (n1, n2) == 0);
+}
+
+int
+hicn_prefix_create_from_ip_address_len (const hicn_ip_address_t *ip_address,
+					uint8_t len, hicn_prefix_t *prefix)
+{
+  prefix->name = *ip_address;
+  prefix->len = len;
+
+  return HICN_LIB_ERROR_NONE;
+}
+
+hicn_prefix_t *
+hicn_prefix_dup (const hicn_prefix_t *prefix)
+{
+  hicn_prefix_t *copy = malloc (sizeof (hicn_prefix_t));
+  if (!copy)
+    goto ERR_MALLOC;
+  if (hicn_prefix_copy (copy, prefix) < 0)
+    goto ERR_COPY;
+  return copy;
+
+ERR_COPY:
+  free (copy);
+ERR_MALLOC:
+  return NULL;
+}
+
+int
+hicn_prefix_copy (hicn_prefix_t *dst, const hicn_prefix_t *src)
+{
+  dst->name = src->name;
+  dst->len = src->len;
+  return 0;
+}
+
+bool
+hicn_prefix_is_v4 (const hicn_prefix_t *prefix)
+{
+  return hicn_ip_address_is_v4 (&prefix->name);
+}
+
+/*
+ * The ip address is in network byte order (big endian, msb last) in
+ * hicn_{prefix,name}_t, as in ip_address_t which builds upon struct in*_addr,
+ * But the bits are in host order... so we cannot use builtin functions to get
+ * the position of the first 1 unless we swap bytes as was done previously,
+ * which is costly and non-essential.
+ */
+
+uint64_t
+_log2_nbo (uint64_t val)
+{
+  assert (val != 0); /* There is at least 1 bit set (network byte order) */
+
+  uint64_t result = 0;
+
+  if (val & 0xFFFFFFFF00000000)
+    val = val >> 32;
+  else
+    /* The first 32 bits of val are 0 */
+    result = result | 32;
+
+  if (val & 0xFFFF0000)
+    val = val >> 16;
+  else
+    result = result | 16;
+
+  if (val & 0xFF00)
+    val = val >> 8;
+  else
+    result = result | 8;
+
+  /* Val now contains the byte with at last 1 bit set (host bit order) */
+  if (val & 0xF0)
+    {
+      val = val >> 4;
+      result = result | 4;
+    }
+
+  if (val & 0xC)
+    {
+      val = val >> 2;
+      result = result | 2;
+    }
+  if (val & 0x2)
+    {
+      val = val >> 1;
+      result = result | 1;
+    }
+
+  return result;
+}
+
+uint32_t
+hicn_prefix_lpm (const hicn_prefix_t *p1, const hicn_prefix_t *p2)
+{
+  uint32_t prefix_len = 0;
+  /* Test each block of 64 bits as a whole */
+  for (unsigned i = 0; i < 2; i++)
+    {
+
+      /* Check for differences in the two u64 */
+      uint64_t diff = p1->name.v6.as_u64[i] ^ p2->name.v6.as_u64[i];
+      if (diff)
+	{
+	  /*
+	   * As the ip_address_t mimics in*_addr and has network byte order
+	   * (and host bit order, we cannot directly use 64-bit operations:
+	   *
+	   * Example:
+	   *
+	   * bits |  7 ..   0 | 15 14 13 12 11 10  9  8 | .. | 127 .. 120 |
+	   * diff |           |  1  0  1  0  0  0  0  0 | .. |            |
+	   *                           ^
+	   * bit of interest  ---------+
+	   */
+	  prefix_len += _log2_nbo (diff);
+	  break;
+	}
+      prefix_len += 8 * sizeof (uint64_t);
+    }
+
+  /* Bound the returned prefix length by the length of all input */
+  return MIN (prefix_len,
+	      MIN (hicn_prefix_get_len (p1), hicn_prefix_get_len (p2)));
+}
+
+void
+hicn_prefix_clear (hicn_prefix_t *prefix, uint8_t start_from)
+{
+  uint8_t *buffer = prefix->name.v6.as_u8;
+
+  /* Compute the offset of the byte from which to clear the name... */
+  uint8_t offset = start_from / 8;
+  if (hicn_prefix_is_v4 (prefix))
+    offset += IP_ADDRESS_V4_OFFSET_LEN; /* Ignore padding */
+  /* ... and the position of the first bit to clear */
+  uint8_t pos = start_from % 8;
+
+  /* Mask to clear specific bits at offset...
+   * pos   7 6 5 4 3 2 1 0  (eg. start_from = 19, pos = 3)
+   * mask  0 0 0 0 0 1 1 1  (= 1<<pos - 1)
+   * */
+  buffer[offset] &= 1 << (pos - 1);
+  /* ... then fully clear remaining bytes */
+  for (uint8_t i = offset + 1; i < HICN_PREFIX_MAX_LEN; i++)
+    buffer[i] = 0;
+}
+
+void
+hicn_prefix_truncate (hicn_prefix_t *prefix, uint8_t len)
+{
+  hicn_prefix_clear (prefix, len);
+  prefix->len = len;
+}
+
+int
+hicn_prefix_cmp (const hicn_prefix_t *p1, const hicn_prefix_t *p2)
+{
+  if (p1->len != p2->len)
+    return p2->len - p1->len;
+  return hicn_ip_address_cmp (&p1->name, &p2->name);
+}
+
+bool
+hicn_prefix_equals (const hicn_prefix_t *p1, const hicn_prefix_t *p2)
+{
+  return hicn_prefix_cmp (p1, p2) == 0;
+}
+
+int
+hicn_prefix_snprintf (char *s, size_t size, const hicn_prefix_t *prefix)
+{
+  hicn_ip_prefix_t ip_prefix = { .family =
+				   hicn_ip_address_get_family (&prefix->name),
+				 .address = prefix->name,
+				 .len = prefix->len };
+  return hicn_ip_prefix_snprintf (s, size, &ip_prefix);
+}
+
+uint8_t
+hicn_prefix_get_bit (const hicn_prefix_t *prefix, uint8_t pos)
+{
+  assert (pos <= hicn_prefix_get_len (prefix));
+  const hicn_ip_address_t *address = hicn_prefix_get_ip_address (prefix);
+  return hicn_ip_address_get_bit (address, pos);
+}
+
+int
+hicn_prefix_get_ip_prefix (const hicn_prefix_t *prefix,
+			   hicn_ip_prefix_t *ip_prefix)
+{
+  *ip_prefix =
+    (hicn_ip_prefix_t){ .family = hicn_ip_address_get_family (&prefix->name),
+			.address = prefix->name,
+			.len = prefix->len };
   return HICN_LIB_ERROR_NONE;
 }
 

@@ -13,28 +13,32 @@
 
 list(APPEND HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/configuration.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/command.h
     ${CMAKE_CURRENT_SOURCE_DIR}/commands.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/parse.h
 )
 
 list(APPEND SOURCE_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/module_object.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/connection.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/listener.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/face.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/route.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/strategy.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/modules/hicn_light/subscription.c
     ${CMAKE_CURRENT_SOURCE_DIR}/configuration.c
     ${CMAKE_CURRENT_SOURCE_DIR}/configuration_file.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_cache.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_connection.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_face.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_listener.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_mapme.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_policy.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_punting.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_route.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_stats.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_strategy.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command_subscription.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/command.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_cache.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_connection.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_face.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_listener.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_mapme.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_policy.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_punting.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_route.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_stats.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_strategy.c
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../../ctrl/libhicnctrl/src/commands/command_subscription.c
     ${CMAKE_CURRENT_SOURCE_DIR}/commands.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/parse.c
 )
 
 set(SOURCE_FILES ${SOURCE_FILES} PARENT_SCOPE)

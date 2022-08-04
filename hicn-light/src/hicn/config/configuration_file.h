@@ -28,6 +28,7 @@
 #define configuration_file_h
 
 #include <hicn/core/forwarder.h>
+#include <hicn/ctrl/hicn-light.h>
 
 /**
  * Configure hicn-light by reading a configuration file line-by-line and

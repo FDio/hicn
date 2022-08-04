@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -81,6 +81,14 @@ connection_t *connection_table_allocate(const connection_table_t *table,
   pool_get(table->connections, conn);
   if (!conn) return NULL;
 
+#ifdef __APPLE__
+  // set __uint8_t sin_len to 0
+  uint8_t *ptr = (uint8_t *)address_pair_get_local(pair);
+  *ptr = 0x0;
+  ptr = (uint8_t *)address_pair_get_remote(pair);
+  *ptr = 0x0;
+#endif /* __APPLE__ */
+
   off_t id = conn - table->connections;
   int rc;
 
@@ -106,6 +114,14 @@ void connection_table_deallocate(const connection_table_t *table,
   const char *name = connection_get_name(conn);
   const address_pair_t *pair = connection_get_pair(conn);
 
+#ifdef __APPLE__
+  // set __uint8_t sin_len to 0
+  uint8_t *ptr = (uint8_t *)address_pair_get_local(pair);
+  *ptr = 0x0;
+  ptr = (uint8_t *)address_pair_get_remote(pair);
+  *ptr = 0x0;
+#endif /* __APPLE__ */
+
   // Remove from name hash table
   khiter_t k = kh_get_ct_name(table->id_by_name, name);
   assert(k != kh_end(table->id_by_name));
@@ -124,6 +140,14 @@ void connection_table_deallocate(const connection_table_t *table,
 
 connection_t *connection_table_get_by_pair(const connection_table_t *table,
                                            const address_pair_t *pair) {
+#ifdef __APPLE__
+  // set __uint8_t sin_len to 0
+  uint8_t *ptr = (uint8_t *)address_pair_get_local(pair);
+  *ptr = 0x0;
+  ptr = (uint8_t *)address_pair_get_remote(pair);
+  *ptr = 0x0;
+#endif /* __APPLE__ */
+
   khiter_t k = kh_get_ct_pair(table->id_by_pair, pair);
   if (k == kh_end(table->id_by_pair)) return NULL;
   return table->connections + kh_val(table->id_by_pair, k);
@@ -196,7 +220,7 @@ int connection_table_get_random_name(const connection_table_t *table,
   int i, n_attempts = 2 * USHRT_MAX;
   for (i = 0; i < n_attempts; i++) {
     int rc = snprintf(name, SYMBOLIC_NAME_LEN, "conn%u", RAND16());
-    if (rc >= SYMBOLIC_NAME_LEN) continue;
+    if (rc < 0 || rc >= SYMBOLIC_NAME_LEN) continue;
 
     // Check if generated connection name is a duplicate
     khiter_t k = kh_get_ct_name(table->id_by_name, name);

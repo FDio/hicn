@@ -15,7 +15,7 @@
 # Compiler options
 ##############################################################
 set(COMPILER_OPTIONS
-  ${DEFAULT_COMPILER_OPTIONS}
+  PRIVATE ${DEFAULT_COMPILER_OPTIONS}
 )
 
 # -Wno-c99-designator issue
@@ -94,5 +94,6 @@ if (NOT DISABLE_EXECUTABLES)
     DEPENDS ${LIBHTTP_PROXY_STATIC}
     COMPONENT ${HICN_APPS}
     LINK_FLAGS ${LINK_FLAGS}
+    COMPILE_OPTIONS ${COMPILER_OPTIONS}
   )
 endif ()

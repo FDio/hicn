@@ -21,8 +21,8 @@
 #include <hicn/core/address.h>
 #include <hicn/util/sstrncpy.h>
 
-int address_from_ip_port(address_t *address, int family, ip_address_t *addr,
-                         uint16_t port) {
+int address_from_ip_port(address_t *address, int family,
+                         hicn_ip_address_t *addr, uint16_t port) {
   switch (family) {
     case AF_INET:
       *address = ADDRESS4(ntohl(addr->v4.as_inaddr.s_addr), ntohs(port));

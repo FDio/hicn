@@ -16,6 +16,7 @@ services:
     command:
       - |
         if [ -d /workspace/build-dev ]; then
+          git config --global --add safe.directory \*
           ninja -C /workspace/build-dev install
         fi
 

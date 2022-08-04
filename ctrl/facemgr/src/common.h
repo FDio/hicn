@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -33,8 +33,6 @@
 /* Dump with indent */
 #define INDENT(n, fmt) "%*s" fmt, n, ""
 #define printfi(n, fmt, ...) printf(INDENT(n * 4, fmt), ##__VA_ARGS__)
-
-#define _unused(x) ((void)(x))
 
 /* Random strings */
 

@@ -17,7 +17,7 @@
 
 extern "C" {
 #include <hicn/util/log.h>
-#include <hicn/config/parse.h>
+#include <hicn/ctrl/parse.h>
 }
 
 class ParserTest : public ::testing::Test {

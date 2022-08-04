@@ -27,6 +27,7 @@
 extern "C" {
 #define WITH_TESTS
 #include <hicn/core/connection_table.h>
+#include <hicn/util/log.h>
 }
 
 #define CONNECTION_NAME "connection_name_test"
@@ -275,7 +276,7 @@ TEST_F(ConnectionTableTest, GenerateConnNameExhaustion) {
   bool unable_to_allocate = false;
 
   // Force name exhaustion
-  int i, n_connections = 1 + USHRT_MAX;
+  int n_connections = 1 + USHRT_MAX;
   for (int i = 0; i <= n_connections; i++) {
     int rc = connection_table_get_random_name(conn_table_, conn_name);
     if (rc < 0) {

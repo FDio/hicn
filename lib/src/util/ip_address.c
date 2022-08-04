@@ -21,6 +21,7 @@
 #include <hicn/util/ip_address.h>
 #include <hicn/util/log.h>
 #include <hicn/util/sstrncpy.h>
+#include <hicn/common.h>
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #ifdef __ANDROID__
@@ -33,38 +34,44 @@
 #endif
 
 /* No htonl() with const */
-const ip_address_t IPV4_LOOPBACK = {
+const hicn_ip_address_t IPV4_LOOPBACK = {
   .v4.as_inaddr.s_addr = SWAP (INADDR_LOOPBACK),
 };
 
-const ip_address_t IPV6_LOOPBACK = {
+const hicn_ip_address_t IPV6_LOOPBACK = {
   .v6.as_in6addr = IN6ADDR_LOOPBACK_INIT,
 };
 
-const ip_address_t IPV4_ANY = {
+const hicn_ip_address_t IPV4_ANY = {
   .v4.as_inaddr.s_addr = INADDR_ANY,
 };
 
-const ip_address_t IPV6_ANY = {
+const hicn_ip_address_t IPV6_ANY = {
   .v6.as_in6addr = IN6ADDR_ANY_INIT,
 };
 
-const ip4_address_t IP4_ADDRESS_EMPTY = {
+const ipv4_address_t IP4_ADDRESS_EMPTY = {
   .as_u32 = 0,
 };
 
-const ip6_address_t IP6_ADDRESS_EMPTY = {
+const ipv6_address_t IP6_ADDRESS_EMPTY = {
   .as_u64 = { 0, 0 },
 };
 
-const ip_address_t IP_ADDRESS_EMPTY = {
+const hicn_ip_address_t IP_ADDRESS_EMPTY = {
   .v6.as_u64 = { 0, 0 },
 };
 
 /* IP address */
 
 int
-ip_address_get_family (const char *ip_address)
+hicn_ip_address_get_family (const hicn_ip_address_t *address)
+{
+  return hicn_ip_address_is_v4 (address) ? AF_INET : AF_INET6;
+}
+
+int
+hicn_ip_address_str_get_family (const char *ip_address)
 {
   struct addrinfo hint, *res = NULL;
   int rc;
@@ -85,7 +92,7 @@ ip_address_get_family (const char *ip_address)
 }
 
 int
-ip_address_len (int family)
+hicn_ip_address_len (int family)
 {
   return (family == AF_INET6) ? IPV6_ADDR_LEN :
 	 (family == AF_INET)  ? IPV4_ADDR_LEN :
@@ -93,8 +100,20 @@ ip_address_len (int family)
 }
 
 int
-ip_address_ntop (const ip_address_t *ip_address, char *dst, const size_t len,
-		 int family)
+hicn_ip_address_get_len (const hicn_ip_address_t *ip_address)
+{
+  return hicn_ip_address_len (hicn_ip_address_get_family (ip_address));
+}
+
+int
+hicn_ip_address_get_len_bits (const hicn_ip_address_t *ip_address)
+{
+  return bytes_to_bits (hicn_ip_address_get_len (ip_address));
+}
+
+int
+hicn_ip_address_ntop (const hicn_ip_address_t *ip_address, char *dst,
+		      const size_t len, int family)
 {
   const char *s;
   switch (family)
@@ -115,12 +134,13 @@ ip_address_ntop (const ip_address_t *ip_address, char *dst, const size_t len,
  * Parse ip addresses in presentation format
  */
 int
-ip_address_pton (const char *ip_address_str, ip_address_t *ip_address)
+hicn_ip_address_pton (const char *hicn_ip_address_str,
+		      hicn_ip_address_t *ip_address)
 {
   int pton_fd;
   int family;
 
-  family = ip_address_get_family (ip_address_str);
+  family = hicn_ip_address_str_get_family (hicn_ip_address_str);
 
   switch (family)
     {
@@ -128,10 +148,12 @@ ip_address_pton (const char *ip_address_str, ip_address_t *ip_address)
       ip_address->pad[0] = 0;
       ip_address->pad[1] = 0;
       ip_address->pad[2] = 0;
-      pton_fd = inet_pton (AF_INET, ip_address_str, &ip_address->v4.buffer);
+      pton_fd =
+	inet_pton (AF_INET, hicn_ip_address_str, &ip_address->v4.buffer);
       break;
     case AF_INET6:
-      pton_fd = inet_pton (AF_INET6, ip_address_str, &ip_address->v6.buffer);
+      pton_fd =
+	inet_pton (AF_INET6, hicn_ip_address_str, &ip_address->v6.buffer);
       break;
     default:
       return -1;
@@ -146,11 +168,11 @@ ip_address_pton (const char *ip_address_str, ip_address_t *ip_address)
 }
 
 int
-ip_address_snprintf (char *s, size_t size, const ip_address_t *ip_address,
-		     int family)
+hicn_ip_address_snprintf (char *s, size_t size,
+			  const hicn_ip_address_t *ip_address)
 {
-
   const char *rc;
+  int family = hicn_ip_address_get_family (ip_address);
   switch (family)
     {
     case AF_INET:
@@ -172,8 +194,8 @@ ip_address_snprintf (char *s, size_t size, const ip_address_t *ip_address,
 }
 
 int
-ip_address_to_sockaddr (const ip_address_t *ip_address, struct sockaddr *sa,
-			int family)
+hicn_ip_address_to_sockaddr (const hicn_ip_address_t *ip_address,
+			     struct sockaddr *sa, int family)
 {
   struct sockaddr_in6 *tmp6 = (struct sockaddr_in6 *) sa;
   struct sockaddr_in *tmp4 = (struct sockaddr_in *) sa;
@@ -199,64 +221,66 @@ ip_address_to_sockaddr (const ip_address_t *ip_address, struct sockaddr *sa,
 }
 
 int
-ip_address_cmp (const ip_address_t *ip1, const ip_address_t *ip2, int family)
+hicn_ip_address_cmp (const hicn_ip_address_t *ip1,
+		     const hicn_ip_address_t *ip2)
 {
-  switch (family)
-    {
-    case AF_INET:
-      return memcmp (ip1->v4.buffer, ip2->v4.buffer, sizeof (ip1->v4));
-    case AF_INET6:
-    default:
-      return memcmp (ip1->v6.buffer, ip2->v6.buffer, sizeof (ip1->v6));
-    }
+  /* This works as soon as all members are initialized */
+  return memcmp (ip1, ip2, sizeof (hicn_ip_address_t));
+}
+
+bool
+hicn_ip_address_equals (const hicn_ip_address_t *ip1,
+			const hicn_ip_address_t *ip2)
+{
+  return hicn_ip_address_cmp (ip1, ip2) == 0;
 }
 
 int
-ip_address_empty (const ip_address_t *ip)
+hicn_ip_address_empty (const hicn_ip_address_t *ip)
 {
-  return (memcmp (ip->v6.buffer, &IP_ADDRESS_EMPTY.v6.buffer,
-		  sizeof (IP_ADDRESS_EMPTY)) == 0);
+  return (memcmp (ip, &IP_ADDRESS_EMPTY, sizeof (hicn_ip_address_t)) == 0);
 }
 
 /* Prefix */
 
 /* Parse IP Prefixes in presentation format (in bits, separated by a slash) */
 int
-ip_prefix_pton (const char *ip_address_str, ip_prefix_t *ip_prefix)
+hicn_ip_prefix_pton (const char *hicn_ip_address_str,
+		     hicn_ip_prefix_t *hicn_ip_prefix)
 {
   int pton_fd;
   char *p;
   char *eptr;
-  char *addr = strdup (ip_address_str);
+  char *addr = strdup (hicn_ip_address_str);
 
   p = strchr (addr, '/');
   if (!p)
     {
-      ip_prefix->len = ~0; // until we get the ip address family
+      hicn_ip_prefix->len = ~0; // until we get the ip address family
     }
   else
     {
-      ip_prefix->len = (u8) strtoul (p + 1, &eptr, 10);
+      hicn_ip_prefix->len = (u8) strtoul (p + 1, &eptr, 10);
       *p = 0;
     }
 
-  ip_prefix->family = ip_address_get_family (addr);
+  hicn_ip_prefix->family = hicn_ip_address_str_get_family (addr);
 
-  switch (ip_prefix->family)
+  switch (hicn_ip_prefix->family)
     {
     case AF_INET6:
-      if (ip_prefix->len == (u8) ~0)
-	ip_prefix->len = IPV6_ADDR_LEN_BITS;
-      if (ip_prefix->len > IPV6_ADDR_LEN_BITS)
+      if (hicn_ip_prefix->len == (u8) ~0)
+	hicn_ip_prefix->len = IPV6_ADDR_LEN_BITS;
+      if (hicn_ip_prefix->len > IPV6_ADDR_LEN_BITS)
 	goto ERR;
-      pton_fd = inet_pton (AF_INET6, addr, &ip_prefix->address.v6.buffer);
+      pton_fd = inet_pton (AF_INET6, addr, &hicn_ip_prefix->address.v6.buffer);
       break;
     case AF_INET:
-      if (ip_prefix->len == (u8) ~0)
-	ip_prefix->len = IPV4_ADDR_LEN_BITS;
-      if (ip_prefix->len > IPV4_ADDR_LEN_BITS)
+      if (hicn_ip_prefix->len == (u8) ~0)
+	hicn_ip_prefix->len = IPV4_ADDR_LEN_BITS;
+      if (hicn_ip_prefix->len > IPV4_ADDR_LEN_BITS)
 	goto ERR;
-      pton_fd = inet_pton (AF_INET, addr, &ip_prefix->address.v4.buffer);
+      pton_fd = inet_pton (AF_INET, addr, &hicn_ip_prefix->address.v4.buffer);
       break;
     default:
       goto ERR;
@@ -275,18 +299,19 @@ ERR:
 }
 
 int
-ip_prefix_ntop_short (const ip_prefix_t *ip_prefix, char *dst, size_t size)
+hicn_ip_prefix_ntop_short (const hicn_ip_prefix_t *hicn_ip_prefix, char *dst,
+			   size_t size)
 {
   char ip_s[MAXSZ_IP_ADDRESS];
   const char *s;
-  switch (ip_prefix->family)
+  switch (hicn_ip_prefix->family)
     {
     case AF_INET:
-      s = inet_ntop (AF_INET, ip_prefix->address.v4.buffer, ip_s,
+      s = inet_ntop (AF_INET, hicn_ip_prefix->address.v4.buffer, ip_s,
 		     MAXSZ_IP_ADDRESS);
       break;
     case AF_INET6:
-      s = inet_ntop (AF_INET6, ip_prefix->address.v6.buffer, ip_s,
+      s = inet_ntop (AF_INET6, hicn_ip_prefix->address.v6.buffer, ip_s,
 		     MAXSZ_IP_ADDRESS);
       break;
     default:
@@ -301,18 +326,19 @@ ip_prefix_ntop_short (const ip_prefix_t *ip_prefix, char *dst, size_t size)
 }
 
 int
-ip_prefix_ntop (const ip_prefix_t *ip_prefix, char *dst, size_t size)
+hicn_ip_prefix_ntop (const hicn_ip_prefix_t *hicn_ip_prefix, char *dst,
+		     size_t size)
 {
   char ip_s[MAXSZ_IP_ADDRESS];
   const char *s;
-  switch (ip_prefix->family)
+  switch (hicn_ip_prefix->family)
     {
     case AF_INET:
-      s = inet_ntop (AF_INET, ip_prefix->address.v4.buffer, ip_s,
+      s = inet_ntop (AF_INET, hicn_ip_prefix->address.v4.buffer, ip_s,
 		     MAXSZ_IP_ADDRESS);
       break;
     case AF_INET6:
-      s = inet_ntop (AF_INET6, ip_prefix->address.v6.buffer, ip_s,
+      s = inet_ntop (AF_INET6, hicn_ip_prefix->address.v6.buffer, ip_s,
 		     MAXSZ_IP_ADDRESS);
       break;
     default:
@@ -320,26 +346,26 @@ ip_prefix_ntop (const ip_prefix_t *ip_prefix, char *dst, size_t size)
     }
   if (!s)
     return -1;
-  int rc = snprintf (dst, size, "%s/%d", ip_s, ip_prefix->len);
+  int rc = snprintf (dst, size, "%s/%d", ip_s, hicn_ip_prefix->len);
   if (rc >= size)
     return (int) size;
   return rc;
 }
 
 int
-ip_prefix_snprintf (char *s, size_t size, const ip_prefix_t *prefix)
+hicn_ip_prefix_snprintf (char *s, size_t size, const hicn_ip_prefix_t *prefix)
 {
-  return ip_prefix_ntop (prefix, s, size);
+  return hicn_ip_prefix_ntop (prefix, s, size);
 }
 
 int
-ip_prefix_len (const ip_prefix_t *prefix)
+hicn_ip_prefix_len (const hicn_ip_prefix_t *prefix)
 {
-  return prefix->len; // ip_address_len(&prefix->address, prefix->family);
+  return prefix->len; // hicn_ip_address_len(&prefix->address, prefix->family);
 }
 
 const u8 *
-ip_address_get_buffer (const ip_address_t *ip_address, int family)
+hicn_ip_address_get_buffer (const hicn_ip_address_t *ip_address, int family)
 {
   switch (family)
     {
@@ -353,20 +379,22 @@ ip_address_get_buffer (const ip_address_t *ip_address, int family)
 }
 
 bool
-ip_prefix_empty (const ip_prefix_t *prefix)
+hicn_ip_prefix_empty (const hicn_ip_prefix_t *prefix)
 {
   return prefix->len == 0;
 }
 
 int
-ip_prefix_to_sockaddr (const ip_prefix_t *prefix, struct sockaddr *sa)
+hicn_ip_prefix_to_sockaddr (const hicn_ip_prefix_t *prefix,
+			    struct sockaddr *sa)
 {
-  // XXX assert len == ip_address_len
-  return ip_address_to_sockaddr (&prefix->address, sa, prefix->family);
+  // XXX assert len == hicn_ip_address_len
+  return hicn_ip_address_to_sockaddr (&prefix->address, sa, prefix->family);
 }
 
 int
-ip_prefix_cmp (const ip_prefix_t *prefix1, const ip_prefix_t *prefix2)
+hicn_ip_prefix_cmp (const hicn_ip_prefix_t *prefix1,
+		    const hicn_ip_prefix_t *prefix2)
 {
   if (prefix1->family < prefix2->family)
     return -1;
@@ -378,8 +406,26 @@ ip_prefix_cmp (const ip_prefix_t *prefix1, const ip_prefix_t *prefix2)
   else if (prefix1->len > prefix2->len)
     return 1;
 
-  return ip_address_cmp (&prefix1->address, &prefix2->address,
-			 prefix1->family);
+  return hicn_ip_address_cmp (&prefix1->address, &prefix2->address);
+}
+
+uint8_t
+hicn_ip_address_get_bit (const hicn_ip_address_t *address, uint8_t pos)
+{
+  u64 quad = address->v6.as_u64[pos / 64];
+  return quad & (0x1 << pos % 64);
+}
+
+bool
+hicn_ip_address_match_family (const hicn_ip_address_t *address, int family)
+{
+  return hicn_ip_address_get_family (address) == family;
+}
+
+uint32_t
+hicn_ip_address_get_hash (const hicn_ip_address_t *address)
+{
+  return hash32 (address, sizeof (address));
 }
 
 /* URL */
@@ -395,23 +441,27 @@ ip_prefix_cmp (const ip_prefix_t *prefix1, const ip_prefix_t *prefix2)
 #define MAXSZ_URL   MAXSZ_URL_ + NULLTERM
 
 int
-url_snprintf (char *s, size_t size, int family, const ip_address_t *ip_address,
+url_snprintf (char *s, size_t size, const hicn_ip_address_t *ip_address,
 	      u16 port)
 {
-  char ip_address_s[MAXSZ_IP_ADDRESS];
+  char hicn_ip_address_s[MAXSZ_IP_ADDRESS];
   int rc;
+
+  int family = hicn_ip_address_get_family (ip_address);
 
   /* Other address are currently not supported */
   if (!IS_VALID_FAMILY (family))
     return -1;
 
+  if (!hicn_ip_address_match_family (ip_address, family))
+    return -1;
   rc =
-    ip_address_snprintf (ip_address_s, MAXSZ_IP_ADDRESS, ip_address, family);
+    hicn_ip_address_snprintf (hicn_ip_address_s, MAXSZ_IP_ADDRESS, ip_address);
   if (rc >= MAXSZ_IP_ADDRESS)
     WARN ("[url_snprintf] Unexpected ip_address truncation");
   if (rc < 0)
     return rc;
 
   return snprintf (s, size, "inet%c://%s:%d", (family == AF_INET) ? '4' : '6',
-		   ip_address_s, port);
+		   hicn_ip_address_s, port);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -21,6 +21,8 @@
 
 #include <vnet/fib/ip4_fib.h>
 #include <vnet/fib/ip6_fib.h>
+
+#include <hicn/mapme.h>
 
 #define DEFAULT_TIMEOUT 1.0 /* s */
 
@@ -196,7 +198,7 @@ hicn_mapme_on_face_added (vlib_main_t *vm, hicn_face_id_t face)
 
 static_always_inline void *
 get_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
-		   ip46_address_t *addr, hicn_type_t type)
+		   ip46_address_t *addr, hicn_packet_format_t format)
 {
   vlib_frame_t *f;
   vlib_buffer_t *b; // for newly created packet
@@ -216,7 +218,10 @@ get_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
 
   /* Face information for next hop node index */
   vnet_buffer (b)->ip.adj_index[VLIB_TX] = dpoi_index;
-  hicn_get_buffer (b)->type = type;
+
+  hicn_packet_buffer_t *pkbuf = &hicn_get_buffer (b)->pkbuf;
+  hicn_packet_set_format (pkbuf, format);
+  hicn_packet_init_header (pkbuf, 0);
 
   /* Enqueue the packet right now */
   f = vlib_get_frame_to_node (vm, node_index);
@@ -227,8 +232,8 @@ get_packet_buffer (vlib_main_t *vm, u32 node_index, u32 dpoi_index,
 
   // pointer to IP layer ? do we need to prepare for ethernet ???
   buffer = vlib_buffer_get_current (b);
-  b->current_length =
-    (type.l1 == IPPROTO_IPV6) ? HICN_MAPME_V6_HDRLEN : HICN_MAPME_V4_HDRLEN;
+  b->current_length = (format.l1 == IPPROTO_IPV6) ? EXPECTED_MAPME_V6_HDRLEN :
+							  EXPECTED_MAPME_V4_HDRLEN;
 
   return buffer;
 }
@@ -255,8 +260,8 @@ hicn_mapme_send_message (vlib_main_t *vm, const hicn_prefix_t *prefix,
 
   u8 *buffer = get_packet_buffer (
     vm, node_index, face, (ip46_address_t *) prefix,
-    (params->protocol == IPPROTO_IPV6) ? HICN_TYPE_IPV6_ICMP :
-					       HICN_TYPE_IPV4_ICMP);
+    (params->protocol == IPPROTO_IPV6) ? HICN_PACKET_FORMAT_IPV6_ICMP :
+					       HICN_PACKET_FORMAT_IPV4_ICMP);
   n = hicn_mapme_create_packet (buffer, prefix, params);
   if (n <= 0)
     {
@@ -282,7 +287,7 @@ hicn_mapme_send_updates (vlib_main_t *vm, hicn_prefix_t *prefix, dpo_id_t dpo,
 
   mapme_params_t params = {
     .protocol =
-      ip46_address_is_ip4 (&prefix->name) ? IPPROTO_IP : IPPROTO_IPV6,
+      ip46_address_is_ip4 (&prefix->name.as_ip46) ? IPPROTO_IP : IPPROTO_IPV6,
     .type = UPDATE,
     .seq = tfib->seq,
   };

@@ -74,9 +74,9 @@ int android_on_network_event(interface_t *interface, const char *interface_name,
     goto ERR_ND;
   }
 
-  ip_address_t local_addr = IP_ADDRESS_EMPTY;
+  hicn_ip_address_t local_addr = IP_ADDRESS_EMPTY;
   if (ip_address) {
-    if (ip_address_pton(ip_address, &local_addr) < 0) {
+    if (hicn_ip_address_pton(ip_address, &local_addr) < 0) {
       ERROR("[android_on_network_event] error processing IP address");
       goto ERR_IP_ADDRESS;
     }

@@ -15,11 +15,50 @@
 # Source files
 ##############################################################
 set(SOURCE_FILES
-  route.c
+  action.c
   api.c
+  command.c
+  commands/command_cache.c
+  commands/command_connection.c
+  commands/command_face.c
+  commands/command_listener.c
+  commands/command_mapme.c
+  commands/command_policy.c
+  commands/command_punting.c
+  commands/command_route.c
+  commands/command_stats.c
+  commands/command_strategy.c
+  commands/command_subscription.c
+  data.c
+  fw_interface.c
+  object.c
+  object_type.c
+  object_vft.c
+  objects/active_interface.c
+  objects/base.c
+  objects/connection.c
+  objects/face.c
+  objects/listener.c
+  objects/route.c
+  objects/strategy.c
+  objects/subscription.c
+  parse.c
+  request.c
+  route.c
+  socket.c
 )
 
 set(HEADER_FILES
+  object_vft.h
+  objects/active_interface.h
+  objects/base.h
+  objects/connection.h
+  objects/face.h
+  objects/listener.h
+  objects/route.h
+  objects/strategy.h
+  objects/subscription.h
+  request.h
   api_private.h
 )
 
@@ -58,25 +97,37 @@ endif ()
 
 
 ##############################################################
-# Do not use modules if Android
-##############################################################
-
-if (${CMAKE_SYSTEM_NAME} MATCHES Android OR ${CMAKE_SYSTEM_NAME} MATCHES iOS)
-  list(APPEND SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light_common.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light_ng_api.c
-  )
-else()
-  add_subdirectory(modules)
-endif()
-
-
-##############################################################
 # Compiler options
 ##############################################################
 set(COMPILER_OPTIONS
   ${DEFAULT_COMPILER_OPTIONS}
 )
+
+##############################################################
+# Do not use modules if Android
+##############################################################
+
+if (${CMAKE_SYSTEM_NAME} MATCHES Android OR ${CMAKE_SYSTEM_NAME} MATCHES iOS)
+  list(APPEND SOURCE_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/connection.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/face.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/listener.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/route.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/strategy.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/subscription.c
+  )
+  list(APPEND HEADER_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/connection.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/face.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/listener.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/route.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/strategy.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/hicn_light/subscription.h
+  )
+else()
+  add_subdirectory(modules)
+endif()
 
 
 ##############################################################
@@ -96,6 +147,12 @@ build_library(${LIBHICNCTRL}
   COMPILE_OPTIONS ${COMPILER_OPTIONS}
 )
 
+##############################################################
+# Unit tests
+##############################################################
+if (${BUILD_TESTS})
+  add_subdirectory(test)
+endif()
 
 ##############################################################
 # Cmake config files

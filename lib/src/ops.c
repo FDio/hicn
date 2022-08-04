@@ -22,8 +22,9 @@
 #include <netinet/in.h>
 #endif
 #include <stdlib.h>
-#include <hicn/ops.h>
-#include <hicn/header.h>
+
+#include "ops.h"
+#include "protocol.h"
 
 extern const hicn_ops_t hicn_ops_ipv4;
 extern const hicn_ops_t hicn_ops_icmp;
@@ -34,16 +35,22 @@ extern const hicn_ops_t hicn_ops_new;
 extern const hicn_ops_t hicn_ops_ah;
 
 /* Declare empty operations (terminates recursion on protocol layers) */
-DECLARE_init_packet_header (none, NONE);
+
+int
+none_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
+{
+  pkbuf->payload = pkbuf->len;
+  return HICN_LIB_ERROR_NONE;
+}
+
 DECLARE_get_interest_locator (none, NONE);
 DECLARE_set_interest_locator (none, NONE);
 DECLARE_get_interest_name (none, NONE);
 DECLARE_set_interest_name (none, NONE);
 DECLARE_get_interest_name_suffix (none, NONE);
 DECLARE_set_interest_name_suffix (none, NONE);
-DECLARE_is_interest (none, NONE);
-DECLARE_mark_packet_as_interest (none, NONE);
-DECLARE_mark_packet_as_data (none, NONE);
+DECLARE_get_type (none, NONE);
+DECLARE_set_type (none, NONE);
 DECLARE_reset_interest_for_hash (none, NONE);
 DECLARE_get_data_locator (none, NONE);
 DECLARE_set_data_locator (none, NONE);
@@ -51,25 +58,18 @@ DECLARE_get_data_name (none, NONE);
 DECLARE_set_data_name (none, NONE);
 DECLARE_get_data_name_suffix (none, NONE);
 DECLARE_set_data_name_suffix (none, NONE);
-DECLARE_get_data_pathlabel (none, NONE);
-DECLARE_set_data_pathlabel (none, NONE);
-DECLARE_update_data_pathlabel (none, NONE);
+DECLARE_get_data_path_label (none, NONE);
+DECLARE_set_data_path_label (none, NONE);
+DECLARE_update_data_path_label (none, NONE);
 DECLARE_reset_data_for_hash (none, NONE);
 DECLARE_get_lifetime (none, NONE);
 DECLARE_set_lifetime (none, NONE);
-DECLARE_get_source_port (none, NONE);
-DECLARE_get_dest_port (none, NONE);
-DECLARE_set_source_port (none, NONE);
-DECLARE_set_dest_port (none, NONE);
 DECLARE_update_checksums (none, NONE);
+DECLARE_update_checksums_incremental (none, NONE);
 DECLARE_verify_checksums (none, NONE);
 DECLARE_rewrite_interest (none, NONE);
 DECLARE_rewrite_data (none, NONE);
-DECLARE_get_length (none, NONE);
-DECLARE_get_header_length (none, NONE);
-DECLARE_get_current_header_length (none, NONE);
-DECLARE_get_payload_length (none, NONE);
-DECLARE_set_payload_length (none, NONE);
+DECLARE_set_payload_len (none, NONE);
 DECLARE_get_payload_type (none, NONE);
 DECLARE_set_payload_type (none, NONE);
 DECLARE_get_signature_size (none, NONE);
@@ -81,11 +81,18 @@ DECLARE_get_validation_algorithm (none, NONE);
 DECLARE_set_key_id (none, NONE);
 DECLARE_get_key_id (none, NONE);
 DECLARE_get_signature (none, NONE);
+DECLARE_has_signature (none, NONE);
 DECLARE_get_signature_padding (none, NONE);
 DECLARE_set_signature_padding (none, NONE);
 DECLARE_is_last_data (none, NONE);
 DECLARE_set_last_data (none, NONE);
-DECLARE_HICN_OPS (none);
+DECLARE_get_ttl (none, NONE);
+DECLARE_set_ttl (none, NONE);
+DECLARE_get_src_port (none, NONE);
+DECLARE_set_src_port (none, NONE);
+DECLARE_get_dst_port (none, NONE);
+DECLARE_set_dst_port (none, NONE);
+DECLARE_HICN_OPS (none, 0);
 
 /**
  * @brief Virtual function table for packet operations
@@ -99,8 +106,8 @@ const hicn_ops_t *const hicn_ops_vft[] = {
   /* 41 */[IPPROTO_IPV6] = &hicn_ops_ipv6,
   /* 51 */[IPPROTO_AH] = &hicn_ops_ah,
   /* 58 */[IPPROTO_ICMPV6] = &hicn_ops_icmp,
+  /* 59 */[IPPROTO_NONE] = &hicn_ops_none,
   /* 98 */[IPPROTO_ENCAP] = &hicn_ops_new,
-  [IPPROTO_NONE] = &hicn_ops_none,
 };
 
 /*

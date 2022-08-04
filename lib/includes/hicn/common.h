@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -36,61 +36,17 @@
 #include <stdint.h>
 #include <assert.h>
 
-/* Concise type definitions */
+#include <hicn/util/types.h>
 
-typedef uint64_t u64;
-typedef uint32_t u32;
-typedef uint16_t u16;
-typedef uint8_t u8;
-
-/*
- * Code annotations
- *
- * NOTE: these are defined by default in VPP.
- */
-
-#ifndef HICN_VPP_PLUGIN
-
-#define PREDICT_FALSE(x)	     (x)
-#define PREDICT_TRUE(x)		     (x)
-#define STRUCT_SIZE_OF(type, member) sizeof (((type *) 0)->member)
-#define ASSERT
+#define HICN_EXPECT_FALSE(x) __builtin_expect ((x), 1)
+#define HICN_EXPECT_TRUE(x)  __builtin_expect ((x), 0)
+#define HICN_UNUSED(x)	     x __attribute__ ((unused))
 
 #ifndef NDEBUG
 #define _ASSERT(x) assert (x)
 #else
 #define _ASSERT(x) ((void) (x))
 #endif
-
-#define STATIC_ASSERT(x)
-
-/* Architecture-dependent uword size */
-#if INTPTR_MAX == INT64_MAX
-#define log2_uword_bits 6
-#elif INTPTR_MAX == INT32_MAX
-#define log2_uword_bits 5
-#else
-#error "Impossible to detect architecture"
-#endif
-
-#define uword_bits (1 << log2_uword_bits)
-
-/* Word types. */
-#if uword_bits == 64
-/* 64 bit word machines. */
-typedef u64 uword;
-#else
-/* 32 bit word machines. */
-typedef u32 uword;
-#endif
-
-typedef uword ip_csum_t;
-
-#else
-
-#include <vppinfra/clib.h>
-
-#endif /* ! HICN_VPP_PLUGIN */
 
 /*
  * Windows compilers do not support named initilizers when .h files are
@@ -178,11 +134,11 @@ int get_addr_family (const char *ip_address);
  */
 
 static inline u16
-ip_csum_fold (ip_csum_t c)
+ip_csum_fold (hicn_ip_csum_t c)
 {
   /* Reduce to 16 bits. */
 #if uword_bits == 64
-  c = (c & (ip_csum_t) 0xffffffff) + (c >> (ip_csum_t) 32);
+  c = (c & (hicn_ip_csum_t) 0xffffffff) + (c >> (hicn_ip_csum_t) 32);
   c = (c & 0xffff) + (c >> 16);
 #endif
 
@@ -192,18 +148,18 @@ ip_csum_fold (ip_csum_t c)
   return (u16) c;
 }
 
-static inline ip_csum_t
-ip_csum_with_carry (ip_csum_t sum, ip_csum_t x)
+static inline hicn_ip_csum_t
+ip_csum_with_carry (hicn_ip_csum_t sum, hicn_ip_csum_t x)
 {
-  ip_csum_t t = sum + x;
+  hicn_ip_csum_t t = sum + x;
   return t + (t < x);
 }
 
 /* Update checksum changing field at even byte offset from x -> 0. */
-static inline ip_csum_t
-ip_csum_add_even (ip_csum_t c, ip_csum_t x)
+static inline hicn_ip_csum_t
+ip_csum_add_even (hicn_ip_csum_t c, hicn_ip_csum_t x)
 {
-  ip_csum_t d;
+  hicn_ip_csum_t d;
 
   d = c - x;
 
@@ -214,8 +170,8 @@ ip_csum_add_even (ip_csum_t c, ip_csum_t x)
 }
 
 /* Update checksum changing field at even byte offset from 0 -> x. */
-static inline ip_csum_t
-ip_csum_sub_even (ip_csum_t c, ip_csum_t x)
+static inline hicn_ip_csum_t
+ip_csum_sub_even (hicn_ip_csum_t c, hicn_ip_csum_t x)
 {
   return ip_csum_with_carry (c, x);
 }
@@ -265,8 +221,19 @@ csum (const void *addr, size_t size, u16 init)
  * Query IP version from packet (either 4 or 6)
  * (version is located as same offsets in both protocol headers)
  */
-#define HICN_IP_VERSION(packet)                                               \
-  ((hicn_header_t *) packet)->protocol.ipv4.version
+typedef struct
+{
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+  u8 dummy : 4;
+  u8 version : 4;
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+  u8 version : 4;
+  u8 dummy : 4;
+#else
+#error "Unsupported endianness"
+#endif
+} ip_version_t;
+#define HICN_IP_VERSION(packet) ((ip_version_t *) packet)->version
 
 #ifndef ntohll
 static inline uint64_t
@@ -296,9 +263,9 @@ htonll (uint64_t input)
 }
 #endif
 
-#define round_pow2(x, pow2) (((x) + (pow2) -1) & ~((pow2) -1))
+#define hicn_round_pow2(x, pow2) (((x) + (pow2) -1) & ~((pow2) -1))
 
-#define _SIZEOF_ALIGNED(x, size) round_pow2 (sizeof (x), size)
+#define _SIZEOF_ALIGNED(x, size) hicn_round_pow2 (sizeof (x), size)
 #define SIZEOF_ALIGNED(x)	 _SIZEOF_ALIGNED (x, sizeof (void *))
 
 /* Definitions for builtins unavailable on MSVC */
@@ -336,6 +303,7 @@ uint32_t __inline __builtin_clzl2 (uint64_t value)
 #endif
 
 #define next_pow2(x) (x <= 1 ? 1 : 1ul << (64 - __builtin_clzl (x - 1)))
+#define _unused(x)   ((void) (x))
 
 #endif /* HICN_COMMON_H */
 

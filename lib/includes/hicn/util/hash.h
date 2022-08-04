@@ -28,6 +28,7 @@
 #define UTIL_HASH_H
 
 #include <stdint.h>
+#include <stddef.h> // size_t
 
 #if (defined(__BYTE_ORDER) && defined(__LITTLE_ENDIAN) &&                     \
      __BYTE_ORDER == __LITTLE_ENDIAN) ||                                      \

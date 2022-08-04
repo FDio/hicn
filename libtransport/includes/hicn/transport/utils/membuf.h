@@ -30,6 +30,7 @@
 #include <cinttypes>
 #include <cstddef>
 #include <cstring>
+#include <iostream>
 #include <iterator>
 #include <limits>
 #include <memory>

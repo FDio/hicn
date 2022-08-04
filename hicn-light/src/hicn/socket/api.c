@@ -43,7 +43,7 @@ static hicn_conf_t hicn_default_conf = {
 
 struct ip_rule_state_ {
   char tun_name[IF_NAMESIZE];
-  ip_prefix_t prefix;
+  hicn_ip_prefix_t prefix;
   uint32_t table_id;
   uint8_t priority;
   uint8_t address_family;
@@ -193,7 +193,7 @@ int hicn_socket_cmp(hicn_socket_t *a, hicn_socket_t *b) {
   return b->fd - a->fd;
 }
 
-ip_prefix_t *hicn_socket_get_src_ip(hicn_socket_t *socket) {
+hicn_ip_prefix_t *hicn_socket_get_src_ip(hicn_socket_t *socket) {
   if (socket->type != HS_CONNECTION) {
     return NULL;
   }
@@ -241,7 +241,8 @@ int hicn_set_local_endpoint(hicn_socket_t *socket, const char *local_ip_address,
    */
 
   /* Copy the local IP address inside the connection */
-  rc = ip_prefix_pton(local_ip_address, &socket->connection.tun_ip_address);
+  rc =
+      hicn_ip_prefix_pton(local_ip_address, &socket->connection.tun_ip_address);
   if (rc < 0) {
     rc = HICN_SOCKET_ERROR_SOCKET_LOCAL_REPR;
     goto end;
@@ -251,14 +252,14 @@ end:
   return rc;
 }
 
-int hicn_get_local_address(const ip_prefix_t *remote_address,
-                           ip_prefix_t *local_address) {
+int hicn_get_local_address(const hicn_ip_prefix_t *remote_address,
+                           hicn_ip_prefix_t *local_address) {
   int rc = 0;
   uint32_t interface_id;
   char remote_address_str[INET_MAX_ADDRSTRLEN + 4];
 
-  rc = ip_prefix_ntop_short(remote_address, remote_address_str,
-                            sizeof(remote_address_str));
+  rc = hicn_ip_prefix_ntop_short(remote_address, remote_address_str,
+                                 sizeof(remote_address_str));
   if (rc < 0) {
     rc = HICN_SOCKET_ERROR_BIND_REMOTE_REPR;
     goto ERR;
@@ -289,7 +290,7 @@ ERR:
 int hicn_set_remote_endpoint(hicn_socket_t *socket,
                              const char *remote_ip_address) {
   int af, rc = HICN_SOCKET_ERROR_NONE;
-  ip_prefix_t addr;
+  hicn_ip_prefix_t addr;
 
   af = get_addr_family(remote_ip_address);
   if ((af != AF_INET6) && (af != AF_INET)) {
@@ -297,7 +298,7 @@ int hicn_set_remote_endpoint(hicn_socket_t *socket,
   }
 
   /* Bind local endpoint if not done yet */
-  if (ip_prefix_empty(&socket->connection.tun_ip_address)) {
+  if (hicn_ip_prefix_empty(&socket->connection.tun_ip_address)) {
     char local_ip_address[INET_MAX_ADDRSTRLEN + 4];
 
     /* Local interface id */
@@ -327,8 +328,8 @@ int hicn_set_remote_endpoint(hicn_socket_t *socket,
     /////
 
     /* Convert to representation format */
-    rc =
-        ip_prefix_ntop_short(&addr, local_ip_address, sizeof(local_ip_address));
+    rc = hicn_ip_prefix_ntop_short(&addr, local_ip_address,
+                                   sizeof(local_ip_address));
     if (rc < 0) {
       rc = HICN_SOCKET_ERROR_BIND_REMOTE_REPR;
       goto ERR;
@@ -445,8 +446,8 @@ int hicn_listen(hicn_socket_helper_t *hicn, int fd, const char *prefix) {
     return rc;
   }
 
-  ip_prefix_t ip_prefix;
-  rc = ip_prefix_pton(prefix, &ip_prefix);
+  hicn_ip_prefix_t hicn_ip_prefix;
+  rc = hicn_ip_prefix_pton(prefix, &hicn_ip_prefix);
   if (rc < 0) {
     return rc;
   }
@@ -457,7 +458,7 @@ int hicn_listen(hicn_socket_helper_t *hicn, int fd, const char *prefix) {
 
   if (punting_table_id == -1) punting_table_id = socket->connection.table_id;
 
-  rc = ops.add_prio_rule(&ip_prefix, ip_prefix.family, 0,
+  rc = ops.add_prio_rule(&hicn_ip_prefix, hicn_ip_prefix.family, 0,
                          socket->connection.table_id);
   if (rc < 0) {
     return rc;
@@ -467,8 +468,8 @@ int hicn_listen(hicn_socket_helper_t *hicn, int fd, const char *prefix) {
                 sizeof(rules_to_remove[rules_counter].tun_name), "NONE");
   if (rc != EOK) return -1;
 
-  rules_to_remove[rules_counter].prefix = ip_prefix;
-  rules_to_remove[rules_counter].address_family = ip_prefix.family;
+  rules_to_remove[rules_counter].prefix = hicn_ip_prefix;
+  rules_to_remove[rules_counter].address_family = hicn_ip_prefix.family;
   rules_to_remove[rules_counter].table_id = socket->connection.table_id;
   rules_to_remove[rules_counter].priority = 0;
   ++rules_counter;

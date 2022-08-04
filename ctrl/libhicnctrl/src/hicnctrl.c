@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -24,19 +24,17 @@
 
 #include <hicn/ctrl.h>
 #include <hicn/util/ip_address.h>
+#include <hicn/util/log.h>
 #include <hicn/util/token.h>
 #include <hicn/validation.h>
+
+#include <hicn/ctrl/parse.h>
 
 #define die(LABEL, MESSAGE) \
   do {                      \
     printf(MESSAGE "\n");   \
-    rc = -1;                \
     goto ERR_##LABEL;       \
   } while (0)
-
-const char HICNLIGHT_PARAM[] = "hicnlight";
-const char HICNLIGHT_NG_PARAM[] = "hicnlightng";
-const char VPP_PARAM[] = "vpp";
 
 void usage_header() { fprintf(stderr, "Usage:\n"); }
 
@@ -201,69 +199,66 @@ void usage(const char *prog) {
   usage_connection(prog, false, true);
 }
 
-#if 0
-typedef struct {
-    hc_action_t action;
-    hc_object_t object;
-    union {
-        hc_face_t face;
-        hc_route_t route;
-        hc_connection_t connection;
-        hc_listener_t listener;
-    };
-} hc_command_t;
-#endif
+/*
+ * We only allow settings commands and object types once, with the default
+ * action being set to CREATE
+ */
+#define set_command(ACTION, OBJECT_TYPE)                             \
+  do {                                                               \
+    if ((ACTION) != ACTION_UNDEFINED) {                              \
+      if (command->action != ACTION_CREATE) goto USAGE;              \
+      command->action = (ACTION);                                    \
+    }                                                                \
+    if ((OBJECT_TYPE) != OBJECT_TYPE_UNDEFINED) {                    \
+      if (command->object_type != OBJECT_TYPE_UNDEFINED) goto USAGE; \
+      command->object_type = (OBJECT_TYPE);                          \
+    }                                                                \
+  } while (0)
 
 int parse_options(int argc, char *argv[], hc_command_t *command,
                   forwarder_type_t *forwarder) {
-  command->object.type = OBJECT_UNDEFINED;
+  command->object_type = OBJECT_TYPE_UNDEFINED;
   command->action = ACTION_CREATE;
   int opt;
-  int family;
 
-  while ((opt = getopt(argc, argv, "dflcrFLCRShz:")) != -1) {
+  while ((opt = getopt(argc, argv, "cCdfFlLrRsShz:")) != -1) {
     switch (opt) {
       case 'z':
-        if (strncmp(optarg, VPP_PARAM, strlen(VPP_PARAM)) == 0) {
-          *forwarder = VPP;
-        } else if (strncmp(optarg, HICNLIGHT_PARAM, strlen(HICNLIGHT_PARAM))) {
-          *forwarder = HICNLIGHT;
-        } else if (strncmp(optarg, HICNLIGHT_NG_PARAM,
-                           strlen(HICNLIGHT_NG_PARAM))) {
-          *forwarder = HICNLIGHT_NG;
-        } else {
-          usage(argv[0]);
-          exit(EXIT_FAILURE);
-        }
+        *forwarder = forwarder_type_from_str(optarg);
+        if (*forwarder == FORWARDER_TYPE_UNDEFINED) goto USAGE;
         break;
       case 'd':
-        command->action = ACTION_DELETE;
+        set_command(ACTION_DELETE, OBJECT_TYPE_UNDEFINED);
+        break;
+      case 's':
+        set_command(ACTION_SUBSCRIBE, OBJECT_TYPE_UNDEFINED);
         break;
       case 'f':
-        command->object.type = OBJECT_FACE;
+        set_command(ACTION_UNDEFINED, OBJECT_TYPE_FACE);
         break;
       case 'c':
-        command->object.type = OBJECT_CONNECTION;
+        set_command(ACTION_UNDEFINED, OBJECT_TYPE_CONNECTION);
+        break;
+      case 'l':
+        set_command(ACTION_UNDEFINED, OBJECT_TYPE_LISTENER);
+        break;
+      case 'r':
+        set_command(ACTION_UNDEFINED, OBJECT_TYPE_ROUTE);
         break;
       case 'F':
-        command->action = ACTION_LIST;
-        command->object.type = OBJECT_FACE;
+        set_command(ACTION_LIST, OBJECT_TYPE_FACE);
         break;
       case 'L':
-        command->action = ACTION_LIST;
-        command->object.type = OBJECT_LISTENER;
+        set_command(ACTION_LIST, OBJECT_TYPE_LISTENER);
         break;
       case 'C':
-        command->action = ACTION_LIST;
-        command->object.type = OBJECT_CONNECTION;
+        set_command(ACTION_LIST, OBJECT_TYPE_CONNECTION);
         break;
       case 'R':
-        command->action = ACTION_LIST;
-        command->object.type = OBJECT_ROUTE;
+        set_command(ACTION_LIST, OBJECT_TYPE_ROUTE);
         break;
       case 'S':
-        command->action = ACTION_LIST;
-        command->object.type = OBJECT_STRATEGY;
+        set_command(ACTION_LIST, OBJECT_TYPE_STRATEGY);
         break;
       default: /* "h" */
         usage(argv[0]);
@@ -271,535 +266,129 @@ int parse_options(int argc, char *argv[], hc_command_t *command,
     }
   }
 
-  if (command->object.type == OBJECT_UNDEFINED) {
-    fprintf(stderr,
-            "Missing object specification: connection | listener | route\n");
-    return -1;
+  // XXX The rest could be made a single parse function
+
+  /* A default action is always defined, let's verify we have an object type,
+   * unless we are subscribing to notifications. In that case, we can monitor
+   * all objects.
+   * XXX handle later
+   */
+  if ((command->object_type == OBJECT_TYPE_UNDEFINED) &&
+      (command->action != ACTION_SUBSCRIBE)) {
+    ERROR("Missing object specification");
+    goto USAGE;
   }
 
-  /* Parse and validate parameters for add/delete */
-  switch (command->object.type) {
-    case OBJECT_FACE:
-      switch (command->action) {
-        case ACTION_CREATE:
-          if ((argc - optind != 5) && (argc - optind != 6)) {
-            usage_face_create(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-          /* NAME will be autogenerated (and currently not used) */
-          // snprintf(command->face.name, SYMBOLIC_NAME_LEN, "%s",
-          // argv[optind++]);
-          command->object.face.face.type = face_type_from_str(argv[optind++]);
-          if (command->object.face.face.type == FACE_TYPE_UNDEFINED)
-            goto ERR_PARAM;
-          command->object.face.face.family =
-              ip_address_get_family(argv[optind]);
-          if (!IS_VALID_FAMILY(command->object.face.face.family))
-            goto ERR_PARAM;
-          if (ip_address_pton(argv[optind++],
-                              &command->object.face.face.local_addr) < 0)
-            goto ERR_PARAM;
-          command->object.face.face.local_port = atoi(argv[optind++]);
-          family = ip_address_get_family(argv[optind]);
-          if (!IS_VALID_FAMILY(family) ||
-              (command->object.face.face.family != family))
-            goto ERR_PARAM;
-          if (ip_address_pton(argv[optind++],
-                              &command->object.face.face.remote_addr) < 0)
-            goto ERR_PARAM;
-          command->object.face.face.remote_port = atoi(argv[optind++]);
-          if (argc != optind) {
-            // netdevice_set_name(&command->object.face.face.netdevice,
-            // argv[optind++]);
-            command->object.face.face.netdevice.index = atoi(argv[optind++]);
-          }
+  /* Check the adequation between the number of parameters and the command */
+  size_t nparams = argc - optind;
+  if (nparams > 0) {
+    if (command->action == ACTION_LIST) command->action = ACTION_GET;
+  } else {
+    if ((command->action != ACTION_LIST) &&
+        (command->action != ACTION_SUBSCRIBE))
+      goto USAGE;
+  }
 
-          break;
-        case ACTION_DELETE:
-          if ((argc - optind != 1) && (argc - optind != 5) &&
-              (argc - optind != 6)) {
-            usage_face_delete(argv[0], true, false);
-            goto ERR_PARAM;
-          }
+  /*
+   * This checks is important even with 0 parameters as it checks whether the
+   * command exists.
+   */
+  if (command->action != ACTION_SUBSCRIBE) {
+    const command_parser_t *parser =
+        command_search(command->action, command->object_type, nparams);
+    if (!parser) {
+      ERROR("Could not find parser for command '%s %s'",
+            action_str(command->action), object_type_str(command->object_type));
+      return -1;
+    }
 
-          if (argc - optind == 1) {
-            /* Id or name */
-            if (is_number(argv[optind], SYMBOLIC_NAME_LEN)) {
-              command->object.face.id = atoi(argv[optind++]);
-              snprintf(command->object.face.name, SYMBOLIC_NAME_LEN, "%s",
-                       argv[optind++]);
-              //} else if (is_symbolic_name(argv[optind])) {
-              //    snprintf(command->object.face.name, SYMBOLIC_NAME_LEN, "%s",
-              //    argv[optind++]);
-            } else {
-              fprintf(stderr, "Invalid argument\n");
-              goto ERR_PARAM;
-            }
-          } else {
-            command->object.face.face.type = face_type_from_str(argv[optind++]);
-            if (command->object.face.face.type == FACE_TYPE_UNDEFINED)
-              goto ERR_PARAM;
-            command->object.face.face.family =
-                ip_address_get_family(argv[optind]);
-            if (!IS_VALID_FAMILY(command->object.face.face.family))
-              goto ERR_PARAM;
-            if (ip_address_pton(argv[optind++],
-                                &command->object.face.face.local_addr) < 0)
-              goto ERR_PARAM;
-            command->object.face.face.local_port = atoi(argv[optind++]);
-            family = ip_address_get_family(argv[optind]);
-            if (!IS_VALID_FAMILY(family) ||
-                (command->object.face.face.family != family))
-              goto ERR_PARAM;
-            if (ip_address_pton(argv[optind++],
-                                &command->object.face.face.remote_addr) < 0)
-              goto ERR_PARAM;
-            command->object.face.face.remote_port = atoi(argv[optind++]);
-            if (argc != optind) {
-              command->object.face.face.netdevice.index = atoi(argv[optind++]);
-              // netdevice_set_name(&command->object.face.face.netdevice,
-              // argv[optind++]);
-            }
-          }
-          break;
-
-        case ACTION_LIST:
-          if (argc - optind != 0) {
-            usage_face_list(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-          break;
-
-        default:
-          goto ERR_COMMAND;
+    if (nparams > 0) {
+      if (parse_getopt_args(parser, argc - optind, argv + optind, command) <
+          0) {
+        ERROR("Error parsing command arguments");
+        goto USAGE;
       }
-      break;
-
-    case OBJECT_ROUTE:
-      switch (command->action) {
-        case ACTION_CREATE:
-          if ((argc - optind != 2) && (argc - optind != 3)) {
-            usage_route_create(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-
-          command->object.route.face_id = atoi(argv[optind++]);
-
-          {
-            ip_prefix_t prefix;
-            ip_prefix_pton(argv[optind++], &prefix);
-            command->object.route.family = prefix.family;
-            command->object.route.remote_addr = prefix.address;
-            command->object.route.len = prefix.len;
-          }
-
-          if (argc != optind) {
-            printf("parse cost\n");
-            command->object.route.cost = atoi(argv[optind++]);
-          }
-          break;
-
-        case ACTION_DELETE:
-          if (argc - optind != 2) {
-            usage_route_delete(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-
-          command->object.route.face_id = atoi(argv[optind++]);
-
-          {
-            ip_prefix_t prefix;
-            ip_prefix_pton(argv[optind++], &prefix);
-            command->object.route.family = prefix.family;
-            command->object.route.remote_addr = prefix.address;
-            command->object.route.len = prefix.len;
-          }
-          break;
-
-        case ACTION_LIST:
-          if (argc - optind != 0) {
-            usage_route_list(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-          break;
-
-        default:
-          goto ERR_COMMAND;
-      }
-      break;
-
-    case OBJECT_STRATEGY:
-      switch (command->action) {
-        case ACTION_LIST:
-          if (argc - optind != 0) {
-            usage_forwarding_strategy_list(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-          break;
-        default:
-          goto ERR_COMMAND;
-      }
-      break;
-
-    case OBJECT_LISTENER:
-      switch (command->action) {
-        case ACTION_CREATE:
-          if ((argc - optind != 4) && (argc - optind != 5)) {
-            usage_listener_create(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-
-          snprintf(command->object.listener.name, SYMBOLIC_NAME_LEN, "%s",
-                   argv[optind++]);
-          command->object.listener.type = face_type_from_str(argv[optind++]);
-          if (command->object.listener.type == FACE_TYPE_UNDEFINED)
-            goto ERR_PARAM;
-          command->object.listener.family = ip_address_get_family(argv[optind]);
-          if (!IS_VALID_FAMILY(command->object.listener.family)) goto ERR_PARAM;
-          if (ip_address_pton(argv[optind++],
-                              &command->object.listener.local_addr) < 0)
-            goto ERR_PARAM;
-          command->object.listener.local_port = atoi(argv[optind++]);
-          if (argc != optind) {
-            snprintf(command->object.listener.interface_name, INTERFACE_LEN,
-                     "%s", argv[optind++]);
-          }
-          break;
-
-        case ACTION_DELETE:
-          if ((argc - optind != 1) && (argc - optind != 3) &&
-              (argc - optind != 4)) {
-            usage_listener_delete(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-
-          if (argc - optind == 1) {
-            /* Id or name */
-            if (is_number(argv[optind], SYMBOLIC_NAME_LEN)) {
-              command->object.listener.id = atoi(argv[optind++]);
-              snprintf(command->object.listener.name, SYMBOLIC_NAME_LEN, "%s",
-                       argv[optind++]);
-            } else if (is_symbolic_name(argv[optind], SYMBOLIC_NAME_LEN)) {
-              snprintf(command->object.listener.name, SYMBOLIC_NAME_LEN, "%s",
-                       argv[optind++]);
-            } else {
-              fprintf(stderr, "Invalid argument\n");
-              goto ERR_PARAM;
-            }
-          } else {
-            command->object.listener.type = face_type_from_str(argv[optind++]);
-            if (command->object.listener.type == FACE_TYPE_UNDEFINED)
-              goto ERR_PARAM;
-            command->object.listener.family =
-                ip_address_get_family(argv[optind]);
-            if (!IS_VALID_FAMILY(command->object.listener.family))
-              goto ERR_PARAM;
-            if (ip_address_pton(argv[optind++],
-                                &command->object.listener.local_addr) < 0)
-              goto ERR_PARAM;
-            command->object.listener.local_port = atoi(argv[optind++]);
-            if (argc != optind) {
-              snprintf(command->object.listener.interface_name, INTERFACE_LEN,
-                       "%s", argv[optind++]);
-            }
-          }
-          break;
-
-        case ACTION_LIST:
-          if (argc - optind != 0) {
-            usage_listener_list(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-          break;
-
-        default:
-          goto ERR_COMMAND;
-      }
-      break;
-
-    case OBJECT_CONNECTION:
-      switch (command->action) {
-        case ACTION_CREATE:
-          /* NAME TYPE LOCAL_ADDRESS LOCAL_PORT REMOTE_ADDRESS REMOTE_PORT */
-          if ((argc - optind != 6) && (argc - optind != 7)) {
-            usage_connection_create(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-          snprintf(command->object.connection.name, SYMBOLIC_NAME_LEN, "%s",
-                   argv[optind++]);
-          command->object.connection.type = face_type_from_str(argv[optind++]);
-          if (command->object.connection.type == FACE_TYPE_UNDEFINED)
-            goto ERR_PARAM;
-          command->object.connection.family =
-              ip_address_get_family(argv[optind]);
-          if (!IS_VALID_FAMILY(command->object.connection.family))
-            goto ERR_PARAM;
-          if (ip_address_pton(argv[optind++],
-                              &command->object.connection.local_addr) < 0)
-            goto ERR_PARAM;
-          command->object.connection.local_port = atoi(argv[optind++]);
-          family = ip_address_get_family(argv[optind]);
-          if (!IS_VALID_FAMILY(family) ||
-              (command->object.connection.family != family))
-            goto ERR_PARAM;
-          if (ip_address_pton(argv[optind++],
-                              &command->object.connection.remote_addr) < 0)
-            goto ERR_PARAM;
-          command->object.connection.remote_port = atoi(argv[optind++]);
-
-          break;
-
-        case ACTION_DELETE:
-          if ((argc - optind != 1) && (argc - optind != 5) &&
-              (argc - optind != 6)) {
-            usage_connection_delete(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-
-          if (argc - optind == 1) {
-            /* Id or name */
-            if (is_number(argv[optind], SYMBOLIC_NAME_LEN)) {
-              command->object.connection.id = atoi(argv[optind++]);
-              snprintf(command->object.connection.name, SYMBOLIC_NAME_LEN, "%s",
-                       argv[optind++]);
-            } else if (is_symbolic_name(argv[optind], SYMBOLIC_NAME_LEN)) {
-              snprintf(command->object.connection.name, SYMBOLIC_NAME_LEN, "%s",
-                       argv[optind++]);
-            } else {
-              fprintf(stderr, "Invalid argument\n");
-              goto ERR_PARAM;
-            }
-          } else {
-            command->object.connection.type =
-                face_type_from_str(argv[optind++]);
-            if (command->object.connection.type == FACE_TYPE_UNDEFINED)
-              goto ERR_PARAM;
-            command->object.connection.family =
-                ip_address_get_family(argv[optind]);
-            if (!IS_VALID_FAMILY(command->object.connection.family))
-              goto ERR_PARAM;
-            if (ip_address_pton(argv[optind++],
-                                &command->object.connection.local_addr) < 0)
-              goto ERR_PARAM;
-            command->object.connection.local_port = atoi(argv[optind++]);
-            family = ip_address_get_family(argv[optind]);
-            if (!IS_VALID_FAMILY(family) ||
-                (command->object.connection.family != family))
-              goto ERR_PARAM;
-            if (ip_address_pton(argv[optind++],
-                                &command->object.connection.remote_addr) < 0)
-              goto ERR_PARAM;
-            command->object.connection.remote_port = atoi(argv[optind++]);
-          }
-          break;
-
-        case ACTION_LIST:
-          if (argc - optind != 0) {
-            usage_connection_list(argv[0], true, false);
-            goto ERR_PARAM;
-          }
-          break;
-
-        default:
-          goto ERR_COMMAND;
-      }
-      break;
-
-    default:
-      goto ERR_COMMAND;
+    }
   }
 
   return 0;
 
-ERR_PARAM:
-ERR_COMMAND:
-  return -1;
+USAGE:
+  usage(argv[0]);
+  exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
-  hc_data_t *data;
   int rc = 1;
   hc_command_t command = {0};
-  char buf_listener[MAXSZ_HC_LISTENER];
-  char buf_connection[MAXSZ_HC_CONNECTION];
-  char buf_route[MAXSZ_HC_ROUTE];
-  char buf_strategy[MAXSZ_HC_STRATEGY];
+  char buf[MAXSZ_HC_OBJECT];
 
-  forwarder_type_t forwarder = HICNLIGHT;
+  forwarder_type_t forwarder = FORWARDER_TYPE_VPP;
 
   if (parse_options(argc, argv, &command, &forwarder) < 0)
     die(OPTIONS, "Bad arguments");
 
-  hc_sock_t *s = hc_sock_create_forwarder(forwarder);
+  hc_sock_t *s = hc_sock_create(forwarder, /* url= */ NULL);
   if (!s) die(SOCKET, "Error creating socket.");
 
   if (hc_sock_connect(s) < 0)
     die(CONNECT, "Error connecting to the forwarder.");
 
-  switch (command.object.type) {
-    case OBJECT_FACE:
-      switch (command.action) {
-        case ACTION_CREATE:
-          if (hc_face_create(s, &command.object.face) < 0)
-            die(COMMAND, "Error creating face");
-          printf("OK\n");
-          break;
+  hc_data_t *data = NULL;
 
-        case ACTION_DELETE:
-          if (hc_face_delete(s, &command.object.face, 1) < 0)
-            die(COMMAND, "Error creating face");
-          printf("OK\n");
-          break;
+  rc = hc_execute(s, command.action, command.object_type, &command.object,
+                  &data);
 
-        case ACTION_LIST:
-          if (hc_face_list(s, &data) < 0)
-            die(COMMAND, "Error getting connections.");
-
-          printf("Faces:\n");
-          foreach_face(f, data) {
-            if (hc_face_snprintf(buf_connection, MAXSZ_HC_FACE, f) >=
-                MAXSZ_HC_FACE)
-              die(COMMAND, "Display error");
-            printf("[%s] %s\n", f->name, buf_connection);
-          }
-
-          hc_data_free(data);
-          break;
-        default:
-          die(COMMAND, "Unsupported command for connection");
-          break;
-      }
-      break;
-
-    case OBJECT_ROUTE:
-      switch (command.action) {
-        case ACTION_CREATE:
-          if (hc_route_create(s, &command.object.route) < 0)
-            die(COMMAND, "Error creating route");
-          printf("OK\n");
-          break;
-
-        case ACTION_DELETE:
-          if (hc_route_delete(s, &command.object.route) < 0)
-            die(COMMAND, "Error creating route");
-          printf("OK\n");
-          break;
-
-        case ACTION_LIST:
-          if (hc_route_list(s, &data) < 0)
-            die(COMMAND, "Error getting routes.");
-
-          printf("Routes:\n");
-          foreach_route(r, data) {
-            if (hc_route_snprintf(buf_route, MAXSZ_HC_ROUTE, r) >=
-                MAXSZ_HC_ROUTE)
-              die(COMMAND, "Display error");
-            printf("%s\n", buf_route);
-          }
-
-          hc_data_free(data);
-          break;
-        default:
-          die(COMMAND, "Unsupported command for route");
-          break;
-      }
-      break;
-
-    case OBJECT_STRATEGY:
-      switch (command.action) {
-        case ACTION_LIST:
-          if (hc_strategy_list(s, &data) < 0)
-            die(COMMAND, "Error getting routes.");
-
-          printf("Forwarding strategies:\n");
-          foreach_strategy(st, data) {
-            if (hc_strategy_snprintf(buf_strategy, MAXSZ_HC_STRATEGY, st) >=
-                MAXSZ_HC_STRATEGY)
-              die(COMMAND, "Display error");
-            printf("%s\n", buf_strategy);
-          }
-
-          hc_data_free(data);
-          break;
-        default:
-          die(COMMAND, "Unsupported command for strategy");
-          break;
-      }
-      break;
-
-    case OBJECT_LISTENER:
-      switch (command.action) {
-        case ACTION_CREATE:
-          if (hc_listener_create(s, &command.object.listener) < 0)
-            die(COMMAND, "Error creating listener");
-          printf("OK\n");
-          break;
-        case ACTION_DELETE:
-          if (hc_listener_delete(s, &command.object.listener) < 0)
-            die(COMMAND, "Error deleting listener");
-          printf("OK\n");
-          break;
-        case ACTION_LIST:
-          if (hc_listener_list(s, &data) < 0)
-            die(COMMAND, "Error getting listeners.");
-
-          printf("Listeners:\n");
-          foreach_listener(l, data) {
-            if (hc_listener_snprintf(buf_listener, MAXSZ_HC_LISTENER + 17, l) >=
-                MAXSZ_HC_LISTENER)
-              die(COMMAND, "Display error");
-            printf("[%d] %s\n", l->id, buf_listener);
-          }
-
-          hc_data_free(data);
-          break;
-        default:
-          die(COMMAND, "Unsupported command for listener");
-          break;
-      }
-      break;
-
-    case OBJECT_CONNECTION:
-      switch (command.action) {
-        case ACTION_CREATE:
-          if (hc_connection_create(s, &command.object.connection) < 0)
-            die(COMMAND, "Error creating connection");
-          printf("OK\n");
-          break;
-        case ACTION_DELETE:
-          if (hc_connection_delete(s, &command.object.connection) < 0)
-            die(COMMAND, "Error creating connection");
-          printf("OK\n");
-          break;
-        case ACTION_LIST:
-          if (hc_connection_list(s, &data) < 0)
-            die(COMMAND, "Error getting connections.");
-
-          printf("Connections:\n");
-          foreach_connection(c, data) {
-            if (hc_connection_snprintf(buf_connection, MAXSZ_HC_CONNECTION,
-                                       c) >= MAXSZ_HC_CONNECTION)
-              die(COMMAND, "Display error");
-            printf("[%s] %s\n", c->name, buf_connection);
-          }
-
-          hc_data_free(data);
-          break;
-        default:
-          die(COMMAND, "Unsupported command for connection");
-          break;
-      }
-      break;
-
-    default:
-      die(COMMAND, "Unsupported object");
-      break;
+  if (rc < 0) {
+    switch (rc) {
+      case INPUT_ERROR:
+        ERROR("Wrong input parameters");
+        break;
+      case UNSUPPORTED_CMD_ERROR:
+        ERROR("Unsupported command");
+        break;
+      default:
+        ERROR("Error executing command");
+        break;
+    }
+    goto ERR_COMMAND;
   }
 
+  if (!data) goto ERR_QUERY;
+
+  if (!hc_data_get_result(data)) goto ERR_DATA;
+
+  size_t size = hc_data_get_size(data);
+  if (size > 0) {
+    printf("Success: got %ld %s\n", size, object_type_str(command.object_type));
+  } else {
+    printf("Success.\n");
+  }
+
+  if (command.action == ACTION_LIST) {
+    hc_data_foreach(data, obj, {
+      rc = hc_object_snprintf(buf, MAXSZ_HC_OBJECT, command.object_type, obj);
+      if (rc < 0)
+        WARN("Display error");
+      else if (rc >= MAXSZ_HC_OBJECT)
+        WARN("Output truncated");
+      else
+        printf("%s\n", buf);
+    });
+  }
+
+  hc_data_free(data);
+  hc_sock_free(s);
+  return EXIT_SUCCESS;
+
+ERR_DATA:
+  hc_data_free(data);
+ERR_QUERY:
 ERR_COMMAND:
 ERR_CONNECT:
   hc_sock_free(s);
 ERR_SOCKET:
 ERR_OPTIONS:
-  return (rc < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
+  printf("Error.\n");
+  return EXIT_FAILURE;
 }

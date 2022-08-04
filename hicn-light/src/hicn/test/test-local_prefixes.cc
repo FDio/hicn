@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -28,7 +28,6 @@ extern "C" {
 #define WITH_TESTS
 #include <hicn/strategies/local_prefixes.h>
 #include <hicn/core/strategy.h>
-#include <hicn/core/name.h>
 }
 
 const char *name_str1 = "b001::0";
@@ -51,53 +50,65 @@ class LocalPrefixesTest : public ::testing::Test {
 };
 
 TEST_F(LocalPrefixesTest, LocalPrefixesAddName) {
+  int rc;
   local_prefixes_t *lp = create_local_prefixes();
   EXPECT_FALSE(lp == nullptr);
 
-  ip_address_t result;
-  inet_pton(AF_INET6, name_str1, (struct in6_addr *)&result);
-  Name name1;
-  name_CreateFromAddress(&name1, AF_INET6, result, 128);
+  hicn_ip_address_t result = IP_ADDRESS_EMPTY;
+  hicn_ip_address_pton(name_str1, &result);
+  hicn_prefix_t name1;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name1);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str2, (struct in6_addr *)&result);
-  Name name2;
-  name_CreateFromAddress(&name2, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str2, &result);
+  hicn_prefix_t name2;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name2);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str3, (struct in6_addr *)&result);
-  Name name3;
-  name_CreateFromAddress(&name3, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str3, &result);
+  hicn_prefix_t name3;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name3);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str4, (struct in6_addr *)&result);
-  Name name4;
-  name_CreateFromAddress(&name4, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str4, &result);
+  hicn_prefix_t name4;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name4);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str5, (struct in6_addr *)&result);
-  Name name5;
-  name_CreateFromAddress(&name5, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str5, &result);
+  hicn_prefix_t name5;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name5);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str6, (struct in6_addr *)&result);
-  Name name6;
-  name_CreateFromAddress(&name6, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str6, &result);
+  hicn_prefix_t name6;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name6);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str7, (struct in6_addr *)&result);
-  Name name7;
-  name_CreateFromAddress(&name7, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str7, &result);
+  hicn_prefix_t name7;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name7);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str8, (struct in6_addr *)&result);
-  Name name8;
-  name_CreateFromAddress(&name8, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str8, &result);
+  hicn_prefix_t name8;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name8);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str9, (struct in6_addr *)&result);
-  Name name9;
-  name_CreateFromAddress(&name9, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str9, &result);
+  hicn_prefix_t name9;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name9);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str10, (struct in6_addr *)&result);
-  Name name10;
-  name_CreateFromAddress(&name10, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str10, &result);
+  hicn_prefix_t name10;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name10);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str11, (struct in6_addr *)&result);
-  Name name11;
-  name_CreateFromAddress(&name11, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str11, &result);
+  hicn_prefix_t name11;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name11);
+  EXPECT_EQ(rc, 0);
 
   local_prefixes_add_prefix(lp, &name1);
   EXPECT_EQ(local_prefixes_get_len(lp), (unsigned)1);
@@ -142,29 +153,34 @@ TEST_F(LocalPrefixesTest, LocalPrefixesAddName) {
 }
 
 TEST_F(LocalPrefixesTest, LocalPrefixesAddPrefixes) {
+  int rc;
   local_prefixes_t *lp = create_local_prefixes();
   EXPECT_FALSE(lp == nullptr);
 
-  ip_address_t result;
+  hicn_ip_address_t result;
 
   local_prefixes_t *lp1 = create_local_prefixes();
   EXPECT_FALSE(lp1 == nullptr);
 
-  inet_pton(AF_INET6, name_str1, (struct in6_addr *)&result);
-  Name name1;
-  name_CreateFromAddress(&name1, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str1, &result);
+  hicn_prefix_t name1;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name1);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str2, (struct in6_addr *)&result);
-  Name name2;
-  name_CreateFromAddress(&name2, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str2, &result);
+  hicn_prefix_t name2;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name2);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str3, (struct in6_addr *)&result);
-  Name name3;
-  name_CreateFromAddress(&name3, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str3, &result);
+  hicn_prefix_t name3;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name3);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str4, (struct in6_addr *)&result);
-  Name name4;
-  name_CreateFromAddress(&name4, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str4, &result);
+  hicn_prefix_t name4;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name4);
+  EXPECT_EQ(rc, 0);
 
   local_prefixes_add_prefix(lp1, &name1);
   local_prefixes_add_prefix(lp1, &name2);
@@ -182,33 +198,40 @@ TEST_F(LocalPrefixesTest, LocalPrefixesAddPrefixes) {
   local_prefixes_t *lp2 = create_local_prefixes();
   EXPECT_FALSE(lp2 == nullptr);
 
-  inet_pton(AF_INET6, name_str5, (struct in6_addr *)&result);
-  Name name5;
-  name_CreateFromAddress(&name5, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str5, &result);
+  hicn_prefix_t name5;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name5);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str6, (struct in6_addr *)&result);
-  Name name6;
-  name_CreateFromAddress(&name6, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str6, &result);
+  hicn_prefix_t name6;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name6);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str7, (struct in6_addr *)&result);
-  Name name7;
-  name_CreateFromAddress(&name7, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str7, &result);
+  hicn_prefix_t name7;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name7);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str8, (struct in6_addr *)&result);
-  Name name8;
-  name_CreateFromAddress(&name8, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str8, &result);
+  hicn_prefix_t name8;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name8);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str9, (struct in6_addr *)&result);
-  Name name9;
-  name_CreateFromAddress(&name9, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str9, &result);
+  hicn_prefix_t name9;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name9);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str10, (struct in6_addr *)&result);
-  Name name10;
-  name_CreateFromAddress(&name10, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str10, &result);
+  hicn_prefix_t name10;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name10);
+  EXPECT_EQ(rc, 0);
 
-  inet_pton(AF_INET6, name_str11, (struct in6_addr *)&result);
-  Name name11;
-  name_CreateFromAddress(&name11, AF_INET6, result, 128);
+  hicn_ip_address_pton(name_str11, &result);
+  hicn_prefix_t name11;
+  rc = hicn_prefix_create_from_ip_address_len(&result, 128, &name11);
+  EXPECT_EQ(rc, 0);
 
   local_prefixes_add_prefix(lp2, &name5);
   local_prefixes_add_prefix(lp2, &name6);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -178,11 +178,13 @@ class PayloadSize {
                                             bool ah = false) {
     switch (prefix.getAddressFamily()) {
       case AF_INET:
-        return ah ? HF_INET_TCP_AH : HF_INET_TCP;
+        return ah ? HICN_PACKET_FORMAT_IPV4_TCP_AH
+                  : HICN_PACKET_FORMAT_IPV4_TCP;
       case AF_INET6:
-        return ah ? HF_INET6_TCP_AH : HF_INET6_TCP;
+        return ah ? HICN_PACKET_FORMAT_IPV6_TCP_AH
+                  : HICN_PACKET_FORMAT_IPV6_TCP;
       default:
-        return HF_UNSPEC;
+        return HICN_PACKET_FORMAT_NONE;
     }
   }
 

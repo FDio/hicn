@@ -17,7 +17,7 @@
 list(APPEND TESTS_SRC
   main.cc
   test_aggregated_header.cc
-  test_auth.cc
+  #######test_auth.cc
   # test_consumer_producer_rtc.cc
   test_core_manifest.cc
   # test_event_thread.cc
@@ -42,11 +42,11 @@ if (ENABLE_RELY)
   )
 endif()
 
-if (UNIX AND NOT APPLE)
-  list(APPEND TESTS_SRC
-    test_memif_connector.cc
-  )
-endif()
+#if (UNIX AND NOT APPLE)
+#  list(APPEND TESTS_SRC
+#    test_memif_connector.cc
+#  )
+#endif()
 
 
 ##############################################################

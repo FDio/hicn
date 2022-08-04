@@ -30,11 +30,11 @@ namespace core {
 #ifdef ANDROID
 static const constexpr char default_module[] = "";
 #elif defined(MACINTOSH)
-static const constexpr char default_module[] = "hicnlightng_module.dylib";
+static const constexpr char default_module[] = "hicnlight_module.dylib";
 #elif defined(LINUX)
-static const constexpr char default_module[] = "hicnlightng_module.so";
+static const constexpr char default_module[] = "hicnlight_module.so";
 #elif defined(WINDOWS)
-static const constexpr char default_module[] = "hicnlightng_module.lib";
+static const constexpr char default_module[] = "hicnlight_module.lib";
 #endif
 
 IoModuleConfiguration Portal::conf_;

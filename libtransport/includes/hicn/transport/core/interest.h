@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -20,6 +20,10 @@
 #include <hicn/transport/utils/shared_ptr_utils.h>
 
 #include <set>
+
+extern "C" {
+#include <hicn/interest_manifest.h>
+}
 
 namespace transport {
 
@@ -42,8 +46,7 @@ class Interest
   template <typename... Args>
   Interest(CopyBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
-    if (hicn_interest_get_name(format_, packet_start_,
-                               &name_.getStructReference()) < 0) {
+    if (hicn_interest_get_name(&pkbuf_, &name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
@@ -51,19 +54,14 @@ class Interest
   template <typename... Args>
   Interest(WrapBufferOp op, Args &&...args)
       : Packet(op, std::forward<Args>(args)...) {
-    if (hicn_interest_get_name(format_, packet_start_,
-                               &name_.getStructReference()) < 0) {
+    if (hicn_interest_get_name(&pkbuf_, &name_.getStructReference()) < 0) {
       throw errors::MalformedPacketException();
     }
   }
 
   template <typename... Args>
   Interest(CreateOp op, Args &&...args)
-      : Packet(op, std::forward<Args>(args)...) {
-    if (hicn_packet_set_interest(format_, packet_start_) < 0) {
-      throw errors::MalformedPacketException();
-    }
-  }
+      : Packet(op, HICN_PACKET_TYPE_INTEREST, std::forward<Args>(args)...) {}
 
   /* Move constructor */
   Interest(Interest &&other_interest);
@@ -82,9 +80,9 @@ class Interest
 
   void setName(const Name &name) override;
 
-  void setLocator(const ip_address_t &ip_address) override;
+  void setLocator(const hicn_ip_address_t &ip_address) override;
 
-  ip_address_t getLocator() const override;
+  hicn_ip_address_t getLocator() const override;
 
   void setLifetime(uint32_t lifetime) override;
 
@@ -100,7 +98,7 @@ class Interest
 
   uint32_t numberOfSuffixes();
 
-  uint32_t *getRequestBitmap();
+  hicn_uword *getRequestBitmap();
 
   void setRequestBitmap(const uint32_t *request_bitmap);
 

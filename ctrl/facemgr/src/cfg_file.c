@@ -99,16 +99,16 @@ int parse_config_global(facemgr_cfg_t *cfg, config_setting_t *setting) {
     config_setting_t *overlay_v4 = config_setting_get_member(overlay, "ipv4");
     if (overlay_v4) {
       const char *local_addr_str, *remote_addr_str;
-      ip_address_t local_addr = IP_ADDRESS_EMPTY;
-      ip_address_t remote_addr = IP_ADDRESS_EMPTY;
-      ip_address_t *local_addr_p = NULL;
-      ip_address_t *remote_addr_p = NULL;
+      hicn_ip_address_t local_addr = IP_ADDRESS_EMPTY;
+      hicn_ip_address_t remote_addr = IP_ADDRESS_EMPTY;
+      hicn_ip_address_t *local_addr_p = NULL;
+      hicn_ip_address_t *remote_addr_p = NULL;
       int local_port = 0;
       int remote_port = 0;
 
       if (config_setting_lookup_string(overlay_v4, "local_addr",
                                        &local_addr_str)) {
-        if (ip_address_pton(local_addr_str, &local_addr) < 0) {
+        if (hicn_ip_address_pton(local_addr_str, &local_addr) < 0) {
           ERROR("Error parsing v4 local addr");
           goto ERR;
         }
@@ -121,7 +121,7 @@ int parse_config_global(facemgr_cfg_t *cfg, config_setting_t *setting) {
 
       if (config_setting_lookup_string(overlay_v4, "remote_addr",
                                        &remote_addr_str)) {
-        if (ip_address_pton(remote_addr_str, &remote_addr) < 0) {
+        if (hicn_ip_address_pton(remote_addr_str, &remote_addr) < 0) {
           ERROR("Error parsing v4 remote addr");
           goto ERR;
         }
@@ -140,16 +140,16 @@ int parse_config_global(facemgr_cfg_t *cfg, config_setting_t *setting) {
     config_setting_t *overlay_v6 = config_setting_get_member(overlay, "ipv6");
     if (overlay_v6) {
       const char *local_addr_str, *remote_addr_str;
-      ip_address_t local_addr = IP_ADDRESS_EMPTY;
-      ip_address_t remote_addr = IP_ADDRESS_EMPTY;
-      ip_address_t *local_addr_p = NULL;
-      ip_address_t *remote_addr_p = NULL;
+      hicn_ip_address_t local_addr = IP_ADDRESS_EMPTY;
+      hicn_ip_address_t remote_addr = IP_ADDRESS_EMPTY;
+      hicn_ip_address_t *local_addr_p = NULL;
+      hicn_ip_address_t *remote_addr_p = NULL;
       int local_port = 0;
       int remote_port = 0;
 
       if (config_setting_lookup_string(overlay_v6, "local_addr",
                                        &local_addr_str)) {
-        if (ip_address_pton(local_addr_str, &local_addr) < 0) {
+        if (hicn_ip_address_pton(local_addr_str, &local_addr) < 0) {
           ERROR("Error parsing v6 local addr");
           goto ERR;
         }
@@ -162,7 +162,7 @@ int parse_config_global(facemgr_cfg_t *cfg, config_setting_t *setting) {
 
       if (config_setting_lookup_string(overlay_v6, "remote_addr",
                                        &remote_addr_str)) {
-        if (ip_address_pton(remote_addr_str, &remote_addr) < 0) {
+        if (hicn_ip_address_pton(remote_addr_str, &remote_addr) < 0) {
           ERROR("Error parsing v6 remote addr");
           goto ERR;
         }
@@ -353,16 +353,16 @@ int parse_config_rules(facemgr_cfg_t *cfg, config_setting_t *setting) {
       config_setting_t *overlay_v4 = config_setting_get_member(overlay, "ipv4");
       if (overlay_v4) {
         const char *local_addr_str, *remote_addr_str;
-        ip_address_t local_addr = IP_ADDRESS_EMPTY;
-        ip_address_t remote_addr = IP_ADDRESS_EMPTY;
-        ip_address_t *local_addr_p = NULL;
-        ip_address_t *remote_addr_p = NULL;
+        hicn_ip_address_t local_addr = IP_ADDRESS_EMPTY;
+        hicn_ip_address_t remote_addr = IP_ADDRESS_EMPTY;
+        hicn_ip_address_t *local_addr_p = NULL;
+        hicn_ip_address_t *remote_addr_p = NULL;
         int local_port = 0;
         int remote_port = 0;
 
         if (config_setting_lookup_string(overlay_v4, "local_addr",
                                          &local_addr_str)) {
-          ip_address_pton(local_addr_str, &local_addr);
+          hicn_ip_address_pton(local_addr_str, &local_addr);
           local_addr_p = &local_addr;
         }
 
@@ -372,7 +372,7 @@ int parse_config_rules(facemgr_cfg_t *cfg, config_setting_t *setting) {
 
         if (config_setting_lookup_string(overlay_v4, "remote_addr",
                                          &remote_addr_str)) {
-          ip_address_pton(remote_addr_str, &remote_addr);
+          hicn_ip_address_pton(remote_addr_str, &remote_addr);
           remote_addr_p = &remote_addr;
         }
 
@@ -390,16 +390,16 @@ int parse_config_rules(facemgr_cfg_t *cfg, config_setting_t *setting) {
       config_setting_t *overlay_v6 = config_setting_get_member(overlay, "ipv6");
       if (overlay_v6) {
         const char *local_addr_str, *remote_addr_str;
-        ip_address_t local_addr = IP_ADDRESS_EMPTY;
-        ip_address_t remote_addr = IP_ADDRESS_EMPTY;
-        ip_address_t *local_addr_p = NULL;
-        ip_address_t *remote_addr_p = NULL;
+        hicn_ip_address_t local_addr = IP_ADDRESS_EMPTY;
+        hicn_ip_address_t remote_addr = IP_ADDRESS_EMPTY;
+        hicn_ip_address_t *local_addr_p = NULL;
+        hicn_ip_address_t *remote_addr_p = NULL;
         int local_port = 0;
         int remote_port = 0;
 
         if (config_setting_lookup_string(overlay_v6, "local_addr",
                                          &local_addr_str)) {
-          ip_address_pton(local_addr_str, &local_addr);
+          hicn_ip_address_pton(local_addr_str, &local_addr);
           local_addr_p = &local_addr;
         }
 
@@ -409,7 +409,7 @@ int parse_config_rules(facemgr_cfg_t *cfg, config_setting_t *setting) {
 
         if (config_setting_lookup_string(overlay_v6, "remote_addr",
                                          &remote_addr_str)) {
-          ip_address_pton(remote_addr_str, &remote_addr);
+          hicn_ip_address_pton(remote_addr_str, &remote_addr);
           remote_addr_p = &remote_addr;
         }
 
@@ -450,7 +450,7 @@ int parse_config_static_facelets(facemgr_cfg_t *cfg,
     const char *family_str;
     int family;
     const char *remote_addr_str;
-    ip_address_t remote_addr = IP_ADDRESS_EMPTY;
+    hicn_ip_address_t remote_addr = IP_ADDRESS_EMPTY;
     int remote_port = 0;
     const char *interface_name;
     const char *interface_type_str;
@@ -496,7 +496,7 @@ int parse_config_static_facelets(facemgr_cfg_t *cfg,
     /* Remote address */
     if (config_setting_lookup_string(static_setting, "remote_addr",
                                      &remote_addr_str)) {
-      if (ip_address_pton(remote_addr_str, &remote_addr) < 0) {
+      if (hicn_ip_address_pton(remote_addr_str, &remote_addr) < 0) {
         ERROR("Error parsing v4 remote addr");
         goto ERR_FACELET;
       }
@@ -554,12 +554,12 @@ int parse_config_static_facelets(facemgr_cfg_t *cfg,
             config_setting_get_elem(routes_static_setting, j);
 
         const char *prefix_str;
-        ip_prefix_t prefix;
+        hicn_ip_prefix_t prefix;
         int cost = 0; /* default */
 
         if (config_setting_lookup_string(route_static_setting, "prefix",
                                          &prefix_str)) {
-          if (ip_prefix_pton(prefix_str, &prefix) < 0) {
+          if (hicn_ip_prefix_pton(prefix_str, &prefix) < 0) {
             ERROR("Error parsing prefix in route #%d, rule #%d", j, i);
             goto ERR_FACELET;
           }

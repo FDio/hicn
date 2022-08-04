@@ -17,9 +17,9 @@
 #include <string.h>
 #include <hicn/common.h>
 #include <hicn/error.h>
-#include <hicn/ops.h>
 
-#include <hicn/protocol/udp.h>
+#include "udp.h"
+#include "../ops.h"
 
 DECLARE_get_interest_locator (udp, UNEXPECTED);
 DECLARE_set_interest_locator (udp, UNEXPECTED);
@@ -29,308 +29,313 @@ DECLARE_get_data_locator (udp, UNEXPECTED);
 DECLARE_set_data_locator (udp, UNEXPECTED);
 DECLARE_get_data_name (udp, UNEXPECTED);
 DECLARE_set_data_name (udp, UNEXPECTED);
-DECLARE_get_payload_length (udp, UNEXPECTED);
-DECLARE_set_payload_length (udp, UNEXPECTED);
+DECLARE_set_payload_len (udp, UNEXPECTED);
+DECLARE_get_ttl (udp, UNEXPECTED);
+DECLARE_set_ttl (udp, UNEXPECTED);
 
 int
-udp_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
+udp_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  size_t total_header_length;
-  int rc = CHILD_OPS (get_header_length, type, h, &total_header_length);
-  if (rc < 0)
-    return rc;
+  pkbuf->udp = pkbuf->len;
+  if (UDP_HDRLEN > pkbuf->buffer_size - pkbuf->len)
+    return -1;
+  pkbuf->len += UDP_HDRLEN;
 
-  /* *INDENT-OFF* */
-  h->udp = (_udp_header_t){ .src_port = 0,
-			    .dst_port = 0,
-			    .length = htons ((u16) total_header_length),
-			    .checksum = 0 };
-  /* *INDENT-ON* */
-  return CHILD_OPS (init_packet_header, type, h);
+  _udp_header_t *udp = pkbuf_get_udp (pkbuf);
+
+  size_t len = hicn_packet_get_len (pkbuf) -
+	       ((u8 *) udp - pkbuf_get_header (pkbuf)) -
+	       sizeof (_udp_header_t);
+
+  // clang-format off
+  *udp = (_udp_header_t){
+    .src_port = 0,
+    .dst_port = 0,
+    .len = htons ((u16) len),
+    .checksum = 0
+  };
+  // clang-format on
+  return CALL_CHILD (init_packet_header, pkbuf, pos);
 }
 
 int
-udp_get_interest_name_suffix (hicn_type_t type, const hicn_protocol_t *h,
+udp_get_interest_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (get_interest_name_suffix, type, h, suffix);
+  return CALL_CHILD (get_interest_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-udp_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t *h,
+udp_set_interest_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      const hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (set_interest_name_suffix, type, h, suffix);
+  return CALL_CHILD (set_interest_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-udp_is_interest (hicn_type_t type, const hicn_protocol_t *h, int *is_interest)
+udp_get_type (const hicn_packet_buffer_t *pkbuf, const size_t pos,
+	      hicn_packet_type_t *type)
 {
-  return CHILD_OPS (is_interest, type, h, is_interest);
+  return CALL_CHILD (get_type, pkbuf, pos, type);
 }
 
 int
-udp_mark_packet_as_interest (hicn_type_t type, hicn_protocol_t *h)
+udp_set_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
+	      hicn_packet_type_t type)
 {
-  return CHILD_OPS (mark_packet_as_interest, type, h);
+  return CALL_CHILD (set_type, pkbuf, pos, type);
 }
 
 int
-udp_mark_packet_as_data (hicn_type_t type, hicn_protocol_t *h)
+udp_reset_interest_for_hash (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  return CHILD_OPS (mark_packet_as_data, type, h);
+  return CALL_CHILD (reset_interest_for_hash, pkbuf, pos);
 }
 
 int
-udp_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t *h)
-{
-  return CHILD_OPS (reset_interest_for_hash, type, h);
-}
-
-int
-udp_get_data_name_suffix (hicn_type_t type, const hicn_protocol_t *h,
+udp_get_data_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			  hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (get_data_name_suffix, type, h, suffix);
+  return CALL_CHILD (get_data_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-udp_set_data_name_suffix (hicn_type_t type, hicn_protocol_t *h,
+udp_set_data_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			  const hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (set_data_name_suffix, type, h, suffix);
+  return CALL_CHILD (set_data_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-udp_get_data_pathlabel (hicn_type_t type, const hicn_protocol_t *h,
-			u32 *pathlabel)
+udp_get_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			 hicn_path_label_t *path_label)
 {
-  return CHILD_OPS (get_data_pathlabel, type, h, pathlabel);
+  return CALL_CHILD (get_data_path_label, pkbuf, pos, path_label);
 }
 
 int
-udp_set_data_pathlabel (hicn_type_t type, hicn_protocol_t *h,
-			const u32 pathlabel)
+udp_set_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			 hicn_path_label_t path_label)
 {
-  return CHILD_OPS (set_data_pathlabel, type, h, pathlabel);
+  return CALL_CHILD (set_data_path_label, pkbuf, pos, path_label);
 }
 
 int
-udp_update_data_pathlabel (hicn_type_t type, hicn_protocol_t *h,
-			   const hicn_faceid_t face_id)
+udp_update_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			    const hicn_faceid_t face_id)
 {
-  return CHILD_OPS (update_data_pathlabel, type, h, face_id);
+  return CALL_CHILD (update_data_path_label, pkbuf, pos, face_id);
 }
 
 int
-udp_reset_data_for_hash (hicn_type_t type, hicn_protocol_t *h)
+udp_reset_data_for_hash (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  return CHILD_OPS (reset_data_for_hash, type, h);
+  return CALL_CHILD (reset_data_for_hash, pkbuf, pos);
 }
 
 int
-udp_get_lifetime (hicn_type_t type, const hicn_protocol_t *h,
+udp_get_lifetime (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		  hicn_lifetime_t *lifetime)
 {
-  return CHILD_OPS (get_lifetime, type, h, lifetime);
+  return CALL_CHILD (get_lifetime, pkbuf, pos, lifetime);
 }
 
 int
-udp_set_lifetime (hicn_type_t type, hicn_protocol_t *h,
+udp_set_lifetime (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		  const hicn_lifetime_t lifetime)
 {
-  return CHILD_OPS (set_lifetime, type, h, lifetime);
+  return CALL_CHILD (set_lifetime, pkbuf, pos, lifetime);
 }
 
 int
-udp_get_source_port (hicn_type_t type, const hicn_protocol_t *h,
-		     u16 *source_port)
+udp_update_checksums (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		      u16 partial_csum, size_t payload_len)
 {
-  *source_port = ntohs (h->udp.src_port);
-  return HICN_LIB_ERROR_NONE;
+  return CALL_CHILD (update_checksums, pkbuf, pos, partial_csum, payload_len);
 }
 
 int
-udp_get_dest_port (hicn_type_t type, const hicn_protocol_t *h, u16 *dest_port)
+udp_update_checksums_incremental (const hicn_packet_buffer_t *pkbuf,
+				  size_t pos, u16 *old_val, u16 *new_val,
+				  u8 size, bool skip_first)
 {
-  *dest_port = ntohs (h->udp.dst_port);
-  return HICN_LIB_ERROR_NONE;
+  return CALL_CHILD (update_checksums_incremental, pkbuf, pos, old_val,
+		     new_val, size, false);
 }
 
 int
-udp_set_source_port (hicn_type_t type, hicn_protocol_t *h, u16 source_port)
+udp_verify_checksums (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		      u16 partial_csum, size_t payload_len)
 {
-  h->udp.src_port = htons (source_port);
-  return HICN_LIB_ERROR_NONE;
+  return CALL_CHILD (verify_checksums, pkbuf, pos, partial_csum, payload_len);
 }
 
 int
-udp_set_dest_port (hicn_type_t type, hicn_protocol_t *h, u16 dest_port)
+udp_rewrite_interest (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		      const hicn_ip_address_t *addr_new,
+		      hicn_ip_address_t *addr_old)
 {
-  h->udp.dst_port = htons (dest_port);
-  return HICN_LIB_ERROR_NONE;
+  return CALL_CHILD (rewrite_interest, pkbuf, pos, addr_new, addr_old);
 }
 
 int
-udp_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
-		      size_t payload_length)
+udp_rewrite_data (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		  const hicn_ip_address_t *addr_new,
+		  hicn_ip_address_t *addr_old, const hicn_faceid_t face_id,
+		  u8 reset_pl)
 {
-  return CHILD_OPS (update_checksums, type, h, partial_csum, payload_length);
+  return CALL_CHILD (rewrite_data, pkbuf, pos, addr_new, addr_old, face_id,
+		     reset_pl);
 }
 
 int
-udp_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
-		      size_t payload_length)
-{
-  return CHILD_OPS (verify_checksums, type, h, partial_csum, payload_length);
-}
-
-int
-udp_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
-		      const ip_address_t *addr_new, ip_address_t *addr_old)
-{
-  return CHILD_OPS (rewrite_interest, type, h, addr_new, addr_old);
-}
-
-int
-udp_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
-		  const ip_address_t *addr_new, ip_address_t *addr_old,
-		  const hicn_faceid_t face_id, u8 reset_pl)
-{
-  return CHILD_OPS (rewrite_data, type, h, addr_new, addr_old, face_id,
-		    reset_pl);
-}
-
-int
-udp_get_length (hicn_type_t type, const hicn_protocol_t *h,
-		size_t *header_length)
-{
-  *header_length = IPV6_HDRLEN + ntohs (h->ipv6.len);
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-udp_get_current_header_length (hicn_type_t type, const hicn_protocol_t *h,
-			       size_t *header_length)
-{
-  *header_length = UDP_HDRLEN;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-udp_get_header_length (hicn_type_t type, const hicn_protocol_t *h,
-		       size_t *header_length)
-{
-  size_t child_header_length = 0;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-  *header_length = UDP_HDRLEN + child_header_length;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-udp_get_payload_type (hicn_type_t type, const hicn_protocol_t *h,
+udp_get_payload_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		      hicn_payload_type_t *payload_type)
 {
-  return CHILD_OPS (get_payload_type, type, h, payload_type);
+  return CALL_CHILD (get_payload_type, pkbuf, pos, payload_type);
 }
 
 int
-udp_set_payload_type (hicn_type_t type, hicn_protocol_t *h,
+udp_set_payload_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		      hicn_payload_type_t payload_type)
 {
-  return CHILD_OPS (set_payload_type, type, h, payload_type);
+  return CALL_CHILD (set_payload_type, pkbuf, pos, payload_type);
 }
 
 int
-udp_get_signature_size (hicn_type_t type, const hicn_protocol_t *h,
+udp_get_signature_size (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			size_t *signature_size)
 {
-  return CHILD_OPS (get_signature_size, type, h, signature_size);
+  return CALL_CHILD (get_signature_size, pkbuf, pos, signature_size);
 }
 
 int
-udp_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
+udp_set_signature_size (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			size_t signature_size)
 {
-  return CHILD_OPS (set_signature_size, type, h, signature_size);
+  return CALL_CHILD (set_signature_size, pkbuf, pos, signature_size);
 }
 
 int
-udp_set_signature_padding (hicn_type_t type, hicn_protocol_t *h,
+udp_has_signature (const hicn_packet_buffer_t *pkbuf, size_t pos, bool *flag)
+{
+  return CALL_CHILD (has_signature, pkbuf, pos, flag);
+}
+
+int
+udp_set_signature_padding (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			   size_t padding)
 {
-  return CHILD_OPS (set_signature_padding, type, h, padding);
+  return CALL_CHILD (set_signature_padding, pkbuf, pos, padding);
 }
 
 int
-udp_get_signature_padding (hicn_type_t type, const hicn_protocol_t *h,
+udp_get_signature_padding (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			   size_t *padding)
 {
-  return CHILD_OPS (get_signature_padding, type, h, padding);
+  return CALL_CHILD (get_signature_padding, pkbuf, pos, padding);
 }
 
 int
-udp_set_signature_timestamp (hicn_type_t type, hicn_protocol_t *h,
+udp_set_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			     uint64_t signature_timestamp)
 {
-  return CHILD_OPS (set_signature_timestamp, type, h, signature_timestamp);
+  return CALL_CHILD (set_signature_timestamp, pkbuf, pos, signature_timestamp);
 }
 
 int
-udp_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t *h,
+udp_get_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			     uint64_t *signature_timestamp)
 {
-  return CHILD_OPS (get_signature_timestamp, type, h, signature_timestamp);
+  return CALL_CHILD (get_signature_timestamp, pkbuf, pos, signature_timestamp);
 }
 
 int
-udp_set_validation_algorithm (hicn_type_t type, hicn_protocol_t *h,
+udp_set_validation_algorithm (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      uint8_t validation_algorithm)
 {
-  return CHILD_OPS (set_validation_algorithm, type, h, validation_algorithm);
+  return CALL_CHILD (set_validation_algorithm, pkbuf, pos,
+		     validation_algorithm);
 }
 
 int
-udp_get_validation_algorithm (hicn_type_t type, const hicn_protocol_t *h,
+udp_get_validation_algorithm (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      uint8_t *validation_algorithm)
 {
-  return CHILD_OPS (get_validation_algorithm, type, h, validation_algorithm);
+  return CALL_CHILD (get_validation_algorithm, pkbuf, pos,
+		     validation_algorithm);
 }
 
 int
-udp_set_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t *key_id)
+udp_set_key_id (const hicn_packet_buffer_t *pkbuf, size_t pos, uint8_t *key_id,
+		size_t key_len)
 {
-  return CHILD_OPS (set_key_id, type, h, key_id);
+  return CALL_CHILD (set_key_id, pkbuf, pos, key_id, key_len);
 }
 
 int
-udp_get_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t **key_id,
-		uint8_t *key_id_size)
+udp_get_key_id (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		uint8_t **key_id, uint8_t *key_id_size)
 {
-  return CHILD_OPS (get_key_id, type, h, key_id, key_id_size);
+  return CALL_CHILD (get_key_id, pkbuf, pos, key_id, key_id_size);
 }
 
 int
-udp_get_signature (hicn_type_t type, hicn_protocol_t *h, uint8_t **signature)
+udp_get_signature (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		   uint8_t **signature)
 {
-  return CHILD_OPS (get_signature, type, h, signature);
+  return CALL_CHILD (get_signature, pkbuf, pos, signature);
 }
 
 int
-udp_is_last_data (hicn_type_t type, const hicn_protocol_t *h, int *is_last)
+udp_is_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos, int *is_last)
 {
-  return CHILD_OPS (is_last_data, type, h, is_last);
+  return CALL_CHILD (is_last_data, pkbuf, pos, is_last);
 }
 
 int
-udp_set_last_data (hicn_type_t type, hicn_protocol_t *h)
+udp_set_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  return CHILD_OPS (set_last_data, type, h);
+  return CALL_CHILD (set_last_data, pkbuf, pos);
 }
 
-DECLARE_HICN_OPS (udp);
+int
+udp_get_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
+{
+  _udp_header_t *udp = pkbuf_get_udp (pkbuf);
+
+  *port = udp->src_port;
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+udp_set_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
+{
+  _udp_header_t *udp = pkbuf_get_udp (pkbuf);
+
+  udp->src_port = port;
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+udp_get_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
+{
+  _udp_header_t *udp = pkbuf_get_udp (pkbuf);
+
+  *port = udp->dst_port;
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+udp_set_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
+{
+  _udp_header_t *udp = pkbuf_get_udp (pkbuf);
+
+  udp->dst_port = port;
+  return HICN_LIB_ERROR_NONE;
+}
+
+DECLARE_HICN_OPS (udp, UDP_HDRLEN);
 
 /*
  * fd.io coding-style-patch-verification: ON

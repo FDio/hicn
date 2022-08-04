@@ -13,7 +13,6 @@
 
 list(APPEND HEADER_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/load_balancer.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/low_latency.h
   ${CMAKE_CURRENT_SOURCE_DIR}/random.h
   ${CMAKE_CURRENT_SOURCE_DIR}/replication.h
   ${CMAKE_CURRENT_SOURCE_DIR}/best_path.h
@@ -23,7 +22,6 @@ list(APPEND HEADER_FILES
 
 list(APPEND SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/load_balancer.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/low_latency.c
   ${CMAKE_CURRENT_SOURCE_DIR}/random.c
   ${CMAKE_CURRENT_SOURCE_DIR}/replication.c
   ${CMAKE_CURRENT_SOURCE_DIR}/best_path.c

@@ -433,8 +433,8 @@ static bool connection_hicn_send(connection_t *connection, msgbuf_t *msgbuf,
 //    return 0;
 //}
 //
-static int connection_hicn_send_packet(const connection_t *connection,
-                                       const uint8_t *packet, size_t size) {
+static bool connection_hicn_send_packet(const connection_t *connection,
+                                        const uint8_t *packet, size_t size) {
   assert(connection);
   assert(packet);
 

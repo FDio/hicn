@@ -114,9 +114,7 @@ facelet_t *facelet_create() {
   facelet->remote_port_status = FACELET_ATTR_STATUS_UNSET;
   facelet->admin_state_status = FACELET_ATTR_STATUS_UNSET;
   facelet->state_status = FACELET_ATTR_STATUS_UNSET;
-#ifdef WITH_POLICY
   facelet->priority_status = FACELET_ATTR_STATUS_UNSET;
-#endif /* WITH_POLICY */
   facelet->face_type_status = FACELET_ATTR_STATUS_UNSET;
 
   facelet->status = FACELET_STATUS_UNDEFINED;
@@ -187,7 +185,6 @@ int facelet_validate_face(const facelet_t *facelet) {
 }
 
 netdevice_type_t netdevice_type_from_face_tags(const face_t *face) {
-#ifdef WITH_POLICY
   policy_tags_t tags = face->tags;
   if (policy_tags_has(tags, POLICY_TAG_WIRED))
     return NETDEVICE_TYPE_WIRED;
@@ -195,7 +192,6 @@ netdevice_type_t netdevice_type_from_face_tags(const face_t *face) {
     return NETDEVICE_TYPE_WIFI;
   else if (policy_tags_has(tags, POLICY_TAG_CELLULAR))
     return NETDEVICE_TYPE_CELLULAR;
-#endif /* WITH_POLICY */
   return NETDEVICE_TYPE_UNDEFINED;
 }
 
@@ -232,8 +228,7 @@ facelet_t *facelet_create_from_face(face_t *face) {
     facelet->family_status = FACELET_ATTR_STATUS_CLEAN;
 
     /* Attribute : local_addr  */
-    if (ip_address_cmp(&face->local_addr, &IP_ADDRESS_EMPTY, face->family) !=
-        0) {
+    if (hicn_ip_address_cmp(&face->local_addr, &IP_ADDRESS_EMPTY) != 0) {
       facelet->local_addr = face->local_addr;
       facelet->local_addr_status = FACELET_ATTR_STATUS_CLEAN;
     } else {
@@ -249,8 +244,7 @@ facelet_t *facelet_create_from_face(face_t *face) {
     }
 
     /* Attribute : remote_addr  */
-    if (ip_address_cmp(&face->remote_addr, &IP_ADDRESS_EMPTY, face->family) !=
-        0) {
+    if (hicn_ip_address_cmp(&face->remote_addr, &IP_ADDRESS_EMPTY) != 0) {
       facelet->remote_addr = face->remote_addr;
       facelet->remote_addr_status = FACELET_ATTR_STATUS_CLEAN;
     } else {
@@ -290,7 +284,6 @@ facelet_t *facelet_create_from_face(face_t *face) {
     facelet->state_status = FACELET_ATTR_STATUS_UNSET;
   }
 
-#ifdef WITH_POLICY
   /* Attribute : priority */
   if (face->priority > 0) {
     facelet->priority = face->priority;
@@ -298,7 +291,6 @@ facelet_t *facelet_create_from_face(face_t *face) {
   } else {
     facelet->priority_status = FACELET_ATTR_STATUS_UNSET;
   }
-#endif /* WITH_POLICY */
 
   /* Attribute : face_type */
   if ((face->type != FACE_TYPE_UNDEFINED) && (face->type != FACE_TYPE_N)) {
@@ -382,7 +374,8 @@ facelet_t *facelet_dup(const facelet_t *current_facelet) {
   hicn_route_t **route_array;
   int n = route_set_get_array(current_facelet->routes, &route_array);
   if (n < 0) {
-    ERROR("[facelet_free] Error getting route set associated to facelet");
+    ERROR("[facelet_free] Error getting route set associated to facelet %p",
+          current_facelet);
   } else {
     for (unsigned i = 0; i < n; i++) {
       hicn_route_t *route = route_array[i];
@@ -775,7 +768,6 @@ int facelet_get_face(const facelet_t *facelet, face_t **pface) {
     face->state = FACE_STATE_UP;
   }
 
-#ifdef WITH_POLICY
   /* Priority */
   if (facelet_has_priority(facelet)) {
     if (facelet_get_priority(facelet, &face->priority) < 0) {
@@ -815,7 +807,6 @@ int facelet_get_face(const facelet_t *facelet, face_t **pface) {
     }
   }
   face->tags = tags;
-#endif /* WITH_POLICY */
 
   *pface = face;
 
@@ -956,8 +947,7 @@ int facelet_snprintf(char *s, size_t size, const facelet_t *facelet) {
     cur += rc;
     if (cur >= s + size) return (int)(cur - s);
 
-    rc = ip_address_snprintf(cur, s + size - cur, &facelet->local_addr,
-                             facelet->family);
+    rc = hicn_ip_address_snprintf(cur, s + size - cur, &facelet->local_addr);
     if (rc < 0) return rc;
     cur += rc;
     if (cur >= s + size) return (int)(cur - s);
@@ -978,8 +968,7 @@ int facelet_snprintf(char *s, size_t size, const facelet_t *facelet) {
     cur += rc;
     if (cur >= s + size) return (int)(cur - s);
 
-    rc = ip_address_snprintf(cur, s + size - cur, &facelet->remote_addr,
-                             facelet->family);
+    rc = hicn_ip_address_snprintf(cur, s + size - cur, &facelet->remote_addr);
     if (rc < 0) return rc;
     cur += rc;
     if (cur >= s + size) return (int)(cur - s);
@@ -1011,7 +1000,6 @@ int facelet_snprintf(char *s, size_t size, const facelet_t *facelet) {
     if (cur >= s + size) return (int)(cur - s);
   }
 
-#ifdef WITH_POLICY
   /* Priority */
   if (facelet_has_priority(facelet)) {
     rc = snprintf(cur, s + size - cur, " priority=%d", facelet->priority);
@@ -1019,7 +1007,6 @@ int facelet_snprintf(char *s, size_t size, const facelet_t *facelet) {
     cur += rc;
     if (cur >= s + size) return (int)(cur - s);
   }
-#endif /* WITH_POLICY */
 
   /* Face type */
   if (facelet_has_face_type(facelet)) {
@@ -1138,8 +1125,7 @@ int facelet_snprintf_json(char *s, size_t size, const facelet_t *facelet,
     cur += rc;
     if (cur >= s + size) return (int)(cur - s);
 
-    rc = ip_address_snprintf(cur, s + size - cur, &facelet->local_addr,
-                             facelet->family);
+    rc = hicn_ip_address_snprintf(cur, s + size - cur, &facelet->local_addr);
     if (rc < 0) return rc;
     cur += rc;
     if (cur >= s + size) return (int)(cur - s);
@@ -1167,8 +1153,7 @@ int facelet_snprintf_json(char *s, size_t size, const facelet_t *facelet,
     cur += rc;
     if (cur >= s + size) return (int)(cur - s);
 
-    rc = ip_address_snprintf(cur, s + size - cur, &facelet->remote_addr,
-                             facelet->family);
+    rc = hicn_ip_address_snprintf(cur, s + size - cur, &facelet->remote_addr);
     if (rc < 0) return rc;
     cur += rc;
     if (cur >= s + size) return (int)(cur - s);
@@ -1206,7 +1191,6 @@ int facelet_snprintf_json(char *s, size_t size, const facelet_t *facelet,
     if (cur >= s + size) return (int)(cur - s);
   }
 
-#ifdef WITH_POLICY
   /* Priority */
   if (facelet_has_priority(facelet)) {
     rc = snprintf(cur, s + size - cur, "%*s%s: %d,\n", 4 * (indent + 1), "",
@@ -1215,7 +1199,6 @@ int facelet_snprintf_json(char *s, size_t size, const facelet_t *facelet,
     cur += rc;
     if (cur >= s + size) return (int)(cur - s);
   }
-#endif /* WITH_POLICY */
 
   if (facelet_has_face_type(facelet)) {
     rc = snprintf(cur, s + size - cur, "%*s%s: \"LAYER%s/%s\",\n",

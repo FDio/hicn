@@ -234,6 +234,26 @@ bool _pool_validate_id (void **pool_ptr, off_t id);
     }                                                                         \
   while (0)
 
+#define pool_enumerate_typed(pool, i, TYPE, ELTP, BODY)                       \
+  do                                                                          \
+    {                                                                         \
+      pool_hdr_t *_pool_var (ph) = pool_hdr (pool);                           \
+      bitmap_t *_pool_var (fb) = _pool_var (ph)->free_bitmap;                 \
+      TYPE ELTP = NULL;                                                       \
+      for ((i) = 0; (i) < _pool_var (ph)->alloc_size; (i)++)                  \
+	{                                                                     \
+	  if (bitmap_is_set (_pool_var (fb), (i)))                            \
+	    continue;                                                         \
+	  ELTP = (pool) + (i);                                                \
+	  do                                                                  \
+	    {                                                                 \
+	      BODY;                                                           \
+	    }                                                                 \
+	  while (0);                                                          \
+	}                                                                     \
+    }                                                                         \
+  while (0)
+
 /**
  * @brief  Iterate over elements in a pool.
  *
@@ -255,6 +275,14 @@ bool _pool_validate_id (void **pool_ptr, off_t id);
   while (0)
 
 #define pool_get_alloc_size(pool) pool_hdr (pool)->alloc_size
+
+#define pool_foreach_typed(pool, TYPE, ELTP, BODY)                            \
+  do                                                                          \
+    {                                                                         \
+      unsigned _pool_var (i);                                                 \
+      pool_enumerate_typed ((pool), _pool_var (i), TYPE, ELTP, BODY);         \
+    }                                                                         \
+  while (0)
 
 #ifdef WITH_TESTS
 #define pool_get_free_indices(pool) pool_hdr (pool)->free_indices

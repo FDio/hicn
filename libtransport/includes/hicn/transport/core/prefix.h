@@ -49,7 +49,7 @@ class Prefix {
 
   int getAddressFamily() const;
 
-  bool contains(const ip_address_t &content_name) const;
+  bool contains(const hicn_ip_address_t &content_name) const;
 
   bool contains(const core::Name &content_name) const;
 
@@ -62,7 +62,7 @@ class Prefix {
   Name makeRandomName() const;
   Name makeNameWithIndex(std::uint64_t index) const;
 
-  const ip_prefix_t &toIpPrefixStruct() const;
+  const hicn_ip_prefix_t &toIpPrefixStruct() const;
 
  private:
   static bool checkPrefixLengthAndAddressFamily(uint16_t prefix_length,
@@ -72,7 +72,7 @@ class Prefix {
                    int family);
 
  private:
-  ip_prefix_t ip_prefix_;
+  hicn_ip_prefix_t hicn_ip_prefix_;
 };
 
 }  // end namespace core

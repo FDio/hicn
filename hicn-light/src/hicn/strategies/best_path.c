@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -88,8 +88,20 @@ static void bestpath_update_remote_node(strategy_entry_t *entry,
   strategy_state_t *state = &entry->state.bestpath;
   strategy_bestpath_options_t *options = &entry->options.bestpath;
   off_t offset = nexthops_find(nexthops, state->best_nexthop);
+
+  /* Backup flags and cur_len: because our code is called from
+   * strategy_on_data / check_stop_probing / stop_probing
+   * which does not expect the nexthop flags to be modified.
+   */
+  uint_fast32_t flags = nexthops->flags;
+  size_t cur_len = nexthops_get_curlen(nexthops);
+
   nexthops_select(nexthops, offset);
   update_remote_node_paths(nexthops, entry->forwarder, options->local_prefixes);
+
+  /* Restore flags & curlen */
+  nexthops->flags = flags;
+  nexthops->cur_elts = cur_len;
 }
 
 // probing functions
@@ -104,9 +116,8 @@ static void start_probing(strategy_entry_t *entry) {
 
 static void stop_probing(strategy_entry_t *entry, nexthops_t *nexthops) {
   strategy_state_t *state = &entry->state.bestpath;
-  nexthop_t best_nexthop, nexthop;
+  nexthop_t best_nexthop;
   best_nexthop = state->best_nexthop;
-  unsigned i;
   unsigned int min_cost = ~0;
   unsigned current_nexthop_cost = ~0;
 
@@ -164,8 +175,6 @@ static void send_probes(strategy_entry_t *entry, nexthops_t *nexthops,
                         const msgbuf_t *msgbuf) {
   strategy_state_t *state = &entry->state.bestpath;
 
-  unsigned i;
-  nexthop_t nexthop;
   bool sent_max_probes = false;
   nexthops_enumerate(nexthops, i, nexthop, {
     if (get_sent_probes(nexthop_state(nexthops, i)) < MAX_PROBES) {
@@ -241,6 +250,7 @@ static nexthops_t *strategy_bestpath_lookup_nexthops(strategy_entry_t *entry,
   strategy_state_t *state = &entry->state.bestpath;
   off_t best_nexthop_offset = nexthops_find(nexthops, state->best_nexthop);
 
+  // TODO explain the purpose of this test
   if (nexthops_len == 1) {
     nexthop_t nh = nexthops_get_one(nexthops);
     if (state->best_nexthop != nh) {
@@ -265,7 +275,7 @@ static nexthops_t *strategy_bestpath_lookup_nexthops(strategy_entry_t *entry,
     // send a probe for each interest received
     send_probes(entry, nexthops, msgbuf);
 
-    uint32_t suffix = name_GetSuffix(msgbuf_get_name(msgbuf));
+    uint32_t suffix = hicn_name_get_suffix(msgbuf_get_name(msgbuf));
     if (suffix >= MIN_PROBE_SUFFIX && suffix <= MAX_PROBE_SUFFIX) {
       // this packet is a probe from the transport, so register it
       Ticks time = get_probe_send_time(state->pg, suffix);
@@ -302,7 +312,7 @@ static int strategy_bestpath_on_data(strategy_entry_t *entry,
   strategy_state_t *state = &entry->state.bestpath;
   if (state->probing_state == PROBING_OFF) return 0;
 
-  uint32_t seq = name_GetSuffix(msgbuf_get_name(msgbuf));
+  uint32_t seq = hicn_name_get_suffix(msgbuf_get_name(msgbuf));
   if (seq >= MIN_PROBE_SUFFIX && seq <= MAX_PROBE_SUFFIX) {
     if (pitEntryCreation != 0) {
       // this is not a probe sent by the forwader. do not use it in the probing
@@ -311,7 +321,6 @@ static int strategy_bestpath_on_data(strategy_entry_t *entry,
       return 0;
     }
 
-    unsigned nexthop, i;
     Ticks send_time = get_probe_send_time(state->pg, seq);
     if (send_time != 0) {
       Ticks rtt = ticks_now() - send_time;

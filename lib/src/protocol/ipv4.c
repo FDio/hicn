@@ -14,7 +14,7 @@
  */
 
 /**
- * @file protocol/ipv4.c
+ * @file protocol/ipv4->c
  * @brief hICN operations for IPv4 header
  *
  * NOTE: IPv4 options (affecting the header size) are currently not supported.
@@ -28,264 +28,262 @@
 #include <string.h>
 
 #include <hicn/error.h>
-#include <hicn/ops.h>
 #include <hicn/common.h>
-#include <hicn/header.h>
 
-#include <hicn/protocol/ipv4.h>
-typedef unsigned short u_short;
-int ipv4_get_payload_length (hicn_type_t type, const hicn_protocol_t *h,
-			     size_t *payload_length);
+#include "../ops.h"
+#include "ipv4.h"
+
+#define UINT16_T_MASK 0x0000ffff // 1111 1111 1111 1111
+
+#define ipv4_get_payload_len(pkbuf, ipv4) htons (ipv4->len - pkbuf->payload)
 
 int
-ipv4_init_packet_header (hicn_type_t type, hicn_protocol_t *h)
+ipv4_init_packet_header (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  size_t total_header_length;
-  int rc =
-    hicn_ops_vft[type.l1]->get_header_length (type, h, &total_header_length);
-  if (rc < 0)
-    return rc;
+  assert (pkbuf->len == 0);
+  if (IPV4_HDRLEN > pkbuf->buffer_size - pkbuf->len)
+    return -1;
+  pkbuf->len += IPV4_HDRLEN;
 
-  h->ipv4 = (_ipv4_header_t){
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  hicn_packet_format_t format = hicn_packet_get_format (pkbuf);
+
+  size_t header_len;
+  hicn_packet_get_header_length_from_format (pkbuf->format, &header_len);
+
+  /* We initialize the len considering an empty payload */
+  *ipv4 = (_ipv4_header_t){
     .version_ihl = (IPV4_DEFAULT_VERSION << 4) | (0x0f & IPV4_DEFAULT_IHL),
     .tos = IPV4_DEFAULT_TOS,
-    .len = htons ((u16) total_header_length),
+    .len = htons (header_len),
     .id = htons (IPV4_DEFAULT_ID),
     .frag_off = htons (IPV4_DEFAULT_FRAG_OFF),
     .ttl = HICN_DEFAULT_TTL,
-    .protocol = type.l2,
+    .protocol = format.as_u8[pos + 1],
     .csum = 0,
     .saddr.as_u32 = 0,
     .daddr.as_u32 = 0,
   };
 
-  return CHILD_OPS (init_packet_header, type, h);
+  return CALL_CHILD (init_packet_header, pkbuf, pos);
 }
 
 int
-ipv4_get_interest_locator (hicn_type_t type, const hicn_protocol_t *h,
-			   ip_address_t *ip_address)
+ipv4_get_interest_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			   hicn_ip_address_t *ip_address)
 {
-  ip_address->v4 = h->ipv4.saddr;
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  ip_address->v4 = ipv4->saddr;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ipv4_set_interest_locator (hicn_type_t type, hicn_protocol_t *h,
-			   const ip_address_t *ip_address)
+ipv4_set_interest_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			   const hicn_ip_address_t *ip_address)
 {
-  h->ipv4.saddr = ip_address->v4;
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  ipv4->saddr = ip_address->v4;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ipv4_get_interest_name (hicn_type_t type, const hicn_protocol_t *h,
+ipv4_get_interest_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			hicn_name_t *name)
 {
-  name->prefix.v4 = h->ipv4.daddr;
-  return CHILD_OPS (get_interest_name_suffix, type, h, &(name->suffix));
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  name->prefix.v4 = ipv4->daddr;
+  return CALL_CHILD (get_interest_name_suffix, pkbuf, pos, &(name->suffix));
 }
 
 int
-ipv4_set_interest_name (hicn_type_t type, hicn_protocol_t *h,
+ipv4_set_interest_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			const hicn_name_t *name)
 {
-  h->ipv4.daddr = name->prefix.v4;
-  return CHILD_OPS (set_interest_name_suffix, type, h, &(name->suffix));
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  ipv4->daddr = name->prefix.v4;
+  return CALL_CHILD (set_interest_name_suffix, pkbuf, pos, &(name->suffix));
 }
 
 int
-ipv4_get_interest_name_suffix (hicn_type_t type, const hicn_protocol_t *h,
+ipv4_get_interest_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			       hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (get_interest_name_suffix, type, h, suffix);
+  return CALL_CHILD (get_interest_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-ipv4_set_interest_name_suffix (hicn_type_t type, hicn_protocol_t *h,
+ipv4_set_interest_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			       const hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (set_interest_name_suffix, type, h, suffix);
+  return CALL_CHILD (set_interest_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-ipv4_is_interest (hicn_type_t type, const hicn_protocol_t *h, int *is_interest)
+ipv4_get_type (const hicn_packet_buffer_t *pkbuf, const size_t pos,
+	       hicn_packet_type_t *type)
 {
-  return CHILD_OPS (is_interest, type, h, is_interest);
+  return CALL_CHILD (get_type, pkbuf, pos, type);
 }
 
 int
-ipv4_mark_packet_as_interest (hicn_type_t type, hicn_protocol_t *h)
+ipv4_set_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
+	       hicn_packet_type_t type)
 {
-  return CHILD_OPS (mark_packet_as_interest, type, h);
+  return CALL_CHILD (set_type, pkbuf, pos, type);
 }
 
 int
-ipv4_mark_packet_as_data (hicn_type_t type, hicn_protocol_t *h)
+ipv4_reset_interest_for_hash (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
-  return CHILD_OPS (mark_packet_as_data, type, h);
-}
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
 
-int
-ipv4_reset_interest_for_hash (hicn_type_t type, hicn_protocol_t *h)
-{
   /* Sets everything to 0 up to IP destination address */
-  memset (&(h->ipv4), 0, 16);
+  memset (ipv4, 0, 16);
 
-  return CHILD_OPS (reset_interest_for_hash, type, h);
+  return CALL_CHILD (reset_interest_for_hash, pkbuf, pos);
 }
 
 int
-ipv4_get_data_locator (hicn_type_t type, const hicn_protocol_t *h,
-		       ip_address_t *ip_address)
+ipv4_get_data_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       hicn_ip_address_t *ip_address)
 {
-  ip_address->v4 = h->ipv4.daddr;
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  ip_address->v4 = ipv4->daddr;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ipv4_set_data_locator (hicn_type_t type, hicn_protocol_t *h,
-		       const ip_address_t *ip_address)
+ipv4_set_data_locator (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       const hicn_ip_address_t *ip_address)
 {
-  h->ipv4.daddr = ip_address->v4;
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  ipv4->daddr = ip_address->v4;
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ipv4_get_data_name (hicn_type_t type, const hicn_protocol_t *h,
+ipv4_get_data_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		    hicn_name_t *name)
 {
-  name->prefix.v4 = h->ipv4.saddr;
-  return CHILD_OPS (get_data_name_suffix, type, h, &(name->suffix));
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  name->prefix.v4 = ipv4->saddr;
+  return CALL_CHILD (get_data_name_suffix, pkbuf, pos, &(name->suffix));
 }
 
 int
-ipv4_set_data_name (hicn_type_t type, hicn_protocol_t *h,
+ipv4_set_data_name (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		    const hicn_name_t *name)
 {
-  h->ipv4.saddr = name->prefix.v4;
-  return CHILD_OPS (set_data_name_suffix, type, h, &(name->suffix));
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  ipv4->saddr = name->prefix.v4;
+  return CALL_CHILD (set_data_name_suffix, pkbuf, pos, &(name->suffix));
 }
 
 int
-ipv4_get_data_name_suffix (hicn_type_t type, const hicn_protocol_t *h,
+ipv4_get_data_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			   hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (get_data_name_suffix, type, h, suffix);
+  return CALL_CHILD (get_data_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-ipv4_set_data_name_suffix (hicn_type_t type, hicn_protocol_t *h,
+ipv4_set_data_name_suffix (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			   const hicn_name_suffix_t *suffix)
 {
-  return CHILD_OPS (set_data_name_suffix, type, h, suffix);
+  return CALL_CHILD (set_data_name_suffix, pkbuf, pos, suffix);
 }
 
 int
-ipv4_get_data_pathlabel (hicn_type_t type, const hicn_protocol_t *h,
-			 u32 *pathlabel)
+ipv4_get_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			  hicn_path_label_t *path_label)
 {
-  return CHILD_OPS (get_data_pathlabel, type, h, pathlabel);
+  return CALL_CHILD (get_data_path_label, pkbuf, pos, path_label);
 }
 
 int
-ipv4_set_data_pathlabel (hicn_type_t type, hicn_protocol_t *h,
-			 const u32 pathlabel)
+ipv4_set_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			  hicn_path_label_t path_label)
 {
-  return CHILD_OPS (set_data_pathlabel, type, h, pathlabel);
+  return CALL_CHILD (set_data_path_label, pkbuf, pos, path_label);
 }
 
 int
-ipv4_update_data_pathlabel (hicn_type_t type, hicn_protocol_t *h,
-			    const hicn_faceid_t face_id)
+ipv4_update_data_path_label (const hicn_packet_buffer_t *pkbuf, size_t pos,
+			     const hicn_faceid_t face_id)
 {
-  return CHILD_OPS (update_data_pathlabel, type, h, face_id);
+  return CALL_CHILD (update_data_path_label, pkbuf, pos, face_id);
 }
 
 int
-ipv4_reset_data_for_hash (hicn_type_t type, hicn_protocol_t *h)
+ipv4_reset_data_for_hash (hicn_packet_buffer_t *pkbuf, size_t pos)
 {
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
   /* Sets everything to 0 up to source address */
-  memset (&h->ipv4, 0, 12);
+  memset (ipv4, 0, 12);
   /* Clears destination address */
-  memset (&(h->ipv4.daddr), 0, 4);
+  memset (&(ipv4->daddr), 0, 4);
 
-  return CHILD_OPS (reset_data_for_hash, type, h);
+  return CALL_CHILD (reset_data_for_hash, pkbuf, pos);
 }
 
 int
-ipv4_get_lifetime (hicn_type_t type, const hicn_protocol_t *h,
+ipv4_get_lifetime (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		   hicn_lifetime_t *lifetime)
 {
-  return CHILD_OPS (get_lifetime, type, h, lifetime);
+  return CALL_CHILD (get_lifetime, pkbuf, pos, lifetime);
 }
 
 int
-ipv4_set_lifetime (hicn_type_t type, hicn_protocol_t *h,
+ipv4_set_lifetime (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		   const hicn_lifetime_t lifetime)
 {
-  return CHILD_OPS (set_lifetime, type, h, lifetime);
+  return CALL_CHILD (set_lifetime, pkbuf, pos, lifetime);
 }
 
 int
-ipv4_get_source_port (hicn_type_t type, const hicn_protocol_t *h,
-		      u16 *source_port)
+ipv4_update_checksums (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       u16 partial_csum, size_t payload_len)
 {
-  return CHILD_OPS (get_source_port, type, h, source_port);
-}
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
 
-int
-ipv4_get_dest_port (hicn_type_t type, const hicn_protocol_t *h, u16 *dest_port)
-{
-  return CHILD_OPS (get_dest_port, type, h, dest_port);
-}
-
-int
-ipv4_set_source_port (hicn_type_t type, hicn_protocol_t *h, u16 source_port)
-{
-  return CHILD_OPS (set_source_port, type, h, source_port);
-}
-
-int
-ipv4_set_dest_port (hicn_type_t type, hicn_protocol_t *h, u16 dest_port)
-{
-  return CHILD_OPS (set_dest_port, type, h, dest_port);
-}
-
-int
-ipv4_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
-		       size_t payload_length)
-{
   /*
    * Checksum field is not accounted for in lower layers, so we can compute
    * them in any order. Note that it is only a header checksum.
    */
-  h->ipv4.csum = 0;
-  h->ipv4.csum = csum (h, IPV4_HDRLEN, 0);
+  ipv4->csum = 0;
+  ipv4->csum = csum (pkbuf_get_header (pkbuf), IPV4_HDRLEN, 0);
 
-  /* Retrieve payload length if not specified, as it is not available later */
-  if (payload_length == 0)
+  /* Retrieve payload len if not specified, as it is not available later */
+  if (payload_len == 0)
     {
-      int rc = ipv4_get_payload_length (type, h, &payload_length);
-      if (rc < 0)
-	return rc;
+      payload_len = ipv4_get_payload_len (pkbuf, ipv4);
     }
 
-  /* Ignore the payload if payload_length = ~0 */
-  if (payload_length == ~0)
+  /* Ignore the payload if payload_len = ~0 */
+  if (payload_len == ~0)
     {
-      payload_length = 0;
+      payload_len = 0;
     }
 
   /* Build pseudo-header */
   ipv4_pseudo_header_t psh;
-  psh.ip_src = h->ipv4.saddr;
-  psh.ip_dst = h->ipv4.daddr;
+  psh.ip_src = ipv4->saddr;
+  psh.ip_dst = ipv4->daddr;
   /* Size is u32 and not u16, we cannot copy and need to care about endianness
    */
-  psh.size = htons (ntohs (h->ipv4.len) - (u16) IPV4_HDRLEN);
+  psh.size = htons (ntohs (ipv4->len) - (u16) IPV4_HDRLEN);
   psh.zero = 0;
-  psh.protocol = (u8) h->ipv4.protocol;
+  psh.protocol = (u8) ipv4->protocol;
 
   /* Compute partial checksum based on pseudo-header */
   if (partial_csum != 0)
@@ -294,243 +292,289 @@ ipv4_update_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
     }
   partial_csum = csum (&psh, IPV4_PSHDRLEN, partial_csum);
 
-  return CHILD_OPS (update_checksums, type, h, partial_csum, payload_length);
+  return CALL_CHILD (update_checksums, pkbuf, pos, partial_csum, payload_len);
 }
 
 int
-ipv4_verify_checksums (hicn_type_t type, hicn_protocol_t *h, u16 partial_csum,
-		       size_t payload_length)
+ipv4_update_checksums_incremental (const hicn_packet_buffer_t *pkbuf,
+				   size_t pos, u16 *old_val, u16 *new_val,
+				   u8 size, bool skip_first)
 {
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  /* We update the child first */
+  int rc = CALL_CHILD (update_checksums_incremental, pkbuf, pos, old_val,
+		       new_val, size, false);
+  if (rc < 0)
+    return rc;
+
+  if (!skip_first)
+    {
+      for (uint8_t i = 0; i < size; i++)
+	{
+	  uint16_t old_csum = ~ipv4->csum;
+	  uint16_t not_old_val = ~(*old_val);
+	  uint32_t sum = (uint32_t) old_csum + not_old_val + *new_val;
+
+	  while (sum >> 16)
+	    {
+	      sum = (sum >> 16) + (sum & UINT16_T_MASK);
+	    }
+
+	  ipv4->csum = ~sum;
+	  ++old_val;
+	  ++new_val;
+	}
+    }
+
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+ipv4_verify_checksums (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       u16 partial_csum, size_t payload_len)
+{
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
   /*
    * Checksum field is not accounted for in lower layers, so we can compute
    * them in any order. Note that it is only a header checksum.
    */
-  if (csum (h, IPV4_HDRLEN, 0) != 0)
+  if (csum (pkbuf_get_header (pkbuf), IPV4_HDRLEN, 0) != 0)
     return HICN_LIB_ERROR_CORRUPTED_PACKET;
 
-  /* Retrieve payload length if not specified, as it is not available later */
-  if (payload_length == 0)
+  /* Retrieve payload len if not specified, as it is not available later */
+  if (payload_len == 0)
     {
-      int rc = ipv4_get_payload_length (type, h, &payload_length);
-      if (rc < 0)
-	return rc;
+      payload_len = ipv4_get_payload_len (pkbuf, ipv4);
     }
 
   /* Build pseudo-header */
   ipv4_pseudo_header_t psh;
-  psh.ip_src = h->ipv4.saddr;
-  psh.ip_dst = h->ipv4.daddr;
+  psh.ip_src = ipv4->saddr;
+  psh.ip_dst = ipv4->daddr;
   /* Size is u32 and not u16, we cannot copy and need to care about endianness
    */
-  psh.size = htons (ntohs (h->ipv4.len) - (u16) IPV4_HDRLEN);
+  psh.size = htons (ntohs (ipv4->len) - (u16) IPV4_HDRLEN);
   psh.zero = 0;
-  psh.protocol = (u8) h->ipv4.protocol;
+  psh.protocol = (u8) ipv4->protocol;
 
   /* Compute partial checksum based on pseudo-header */
   partial_csum = csum (&psh, IPV4_PSHDRLEN, 0);
 
-  return CHILD_OPS (update_checksums, type, h, partial_csum, payload_length);
+  return CALL_CHILD (verify_checksums, pkbuf, pos, partial_csum, payload_len);
 }
 
 int
-ipv4_rewrite_interest (hicn_type_t type, hicn_protocol_t *h,
-		       const ip_address_t *addr_new, ip_address_t *addr_old)
+ipv4_rewrite_interest (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		       const hicn_ip_address_t *addr_new,
+		       hicn_ip_address_t *addr_old)
 {
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
   // ASSERT(addr_old == NULL);
-  addr_old->v4 = h->ipv4.saddr;
+  addr_old->v4 = ipv4->saddr;
   addr_old->pad[0] = 0;
   addr_old->pad[1] = 0;
   addr_old->pad[2] = 0;
 
-  h->ipv4.saddr = addr_new->v4;
-  h->ipv4.csum = 0;
-  h->ipv4.csum = csum (&h->ipv4, IPV4_HDRLEN, 0);
+  ipv4->saddr = addr_new->v4;
+  ipv4->csum = 0;
+  ipv4->csum = csum (&ipv4, IPV4_HDRLEN, 0);
 
-  return CHILD_OPS (rewrite_interest, type, h, addr_new, addr_old);
+  return CALL_CHILD (rewrite_interest, pkbuf, pos, addr_new, addr_old);
 }
 
 int
-ipv4_rewrite_data (hicn_type_t type, hicn_protocol_t *h,
-		   const ip_address_t *addr_new, ip_address_t *addr_old,
-		   const hicn_faceid_t face_id, u8 reset_pl)
+ipv4_rewrite_data (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		   const hicn_ip_address_t *addr_new,
+		   hicn_ip_address_t *addr_old, const hicn_faceid_t face_id,
+		   u8 reset_pl)
 {
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
   // ASSERT(addr_old == NULL);
-  addr_old->v4 = h->ipv4.daddr;
+  addr_old->v4 = ipv4->daddr;
   addr_old->pad[0] = 0;
   addr_old->pad[1] = 0;
   addr_old->pad[2] = 0;
 
-  h->ipv4.daddr = addr_new->v4;
-  h->ipv4.csum = 0;
-  h->ipv4.csum = csum (&h->ipv4, IPV4_HDRLEN, 0);
+  ipv4->daddr = addr_new->v4;
+  ipv4->csum = 0;
+  ipv4->csum = csum (&ipv4, IPV4_HDRLEN, 0);
 
-  return CHILD_OPS (rewrite_data, type, h, addr_new, addr_old, face_id,
-		    reset_pl);
+  return CALL_CHILD (rewrite_data, pkbuf, pos, addr_new, addr_old, face_id,
+		     reset_pl);
 }
 
 int
-ipv4_get_current_length (hicn_type_t type, const hicn_protocol_t *h,
-			 size_t *header_length)
+ipv4_set_payload_len (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		      size_t payload_len)
 {
-  *header_length = IPV4_HDRLEN;
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  size_t child_header_len = hicn_ops_vft[pos + 1]->header_len;
+
+  ipv4->len = htons ((u16) (payload_len + IPV4_HDRLEN + child_header_len));
   return HICN_LIB_ERROR_NONE;
 }
 
 int
-ipv4_get_length (hicn_type_t type, const hicn_protocol_t *h,
-		 size_t *header_length)
-{
-  *header_length = h->ipv4.len;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv4_get_current_header_length (hicn_type_t type, const hicn_protocol_t *h,
-				size_t *header_length)
-{
-  *header_length = IPV4_HDRLEN;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv4_get_header_length (hicn_type_t type, const hicn_protocol_t *h,
-			size_t *header_length)
-{
-  size_t child_header_length = 0;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-  *header_length = IPV4_HDRLEN + child_header_length;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv4_get_payload_length (hicn_type_t type, const hicn_protocol_t *h,
-			 size_t *payload_length)
-{
-  size_t child_header_length;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-  *payload_length = htons (h->ipv4.len) - IPV4_HDRLEN - child_header_length;
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv4_set_payload_length (hicn_type_t type, hicn_protocol_t *h,
-			 size_t payload_length)
-{
-  size_t child_header_length;
-  int rc = CHILD_OPS (get_header_length, type, h, &child_header_length);
-  if (rc < 0)
-    return rc;
-  h->ipv4.len =
-    htons ((u_short) (payload_length + IPV4_HDRLEN + child_header_length));
-  return HICN_LIB_ERROR_NONE;
-}
-
-int
-ipv4_get_payload_type (hicn_type_t type, const hicn_protocol_t *h,
+ipv4_get_payload_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		       hicn_payload_type_t *payload_type)
 {
-  return CHILD_OPS (get_payload_type, type, h, payload_type);
+  return CALL_CHILD (get_payload_type, pkbuf, pos, payload_type);
 }
 
 int
-ipv4_set_payload_type (hicn_type_t type, hicn_protocol_t *h,
+ipv4_set_payload_type (const hicn_packet_buffer_t *pkbuf, size_t pos,
 		       hicn_payload_type_t payload_type)
 {
-  return CHILD_OPS (set_payload_type, type, h, payload_type);
+  return CALL_CHILD (set_payload_type, pkbuf, pos, payload_type);
 }
 
 int
-ipv4_get_signature_size (hicn_type_t type, const hicn_protocol_t *h,
+ipv4_get_signature_size (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			 size_t *signature_size)
 {
-  return CHILD_OPS (get_signature_size, type, h, signature_size);
+  return CALL_CHILD (get_signature_size, pkbuf, pos, signature_size);
 }
 
 int
-ipv4_set_signature_size (hicn_type_t type, hicn_protocol_t *h,
+ipv4_set_signature_size (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			 size_t signature_size)
 {
-  return CHILD_OPS (set_signature_size, type, h, signature_size);
+  return CALL_CHILD (set_signature_size, pkbuf, pos, signature_size);
 }
 
 int
-ipv4_set_signature_padding (hicn_type_t type, hicn_protocol_t *h,
+ipv4_set_signature_padding (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			    size_t padding)
 {
-  return CHILD_OPS (set_signature_padding, type, h, padding);
+  return CALL_CHILD (set_signature_padding, pkbuf, pos, padding);
 }
 
 int
-ipv4_get_signature_padding (hicn_type_t type, const hicn_protocol_t *h,
+ipv4_get_signature_padding (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			    size_t *padding)
 {
-  return CHILD_OPS (get_signature_padding, type, h, padding);
+  return CALL_CHILD (get_signature_padding, pkbuf, pos, padding);
 }
 
 int
-ipv4_set_signature_timestamp (hicn_type_t type, hicn_protocol_t *h,
+ipv4_set_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      uint64_t signature_timestamp)
 {
-  return CHILD_OPS (set_signature_timestamp, type, h, signature_timestamp);
+  return CALL_CHILD (set_signature_timestamp, pkbuf, pos, signature_timestamp);
 }
 
 int
-ipv4_get_signature_timestamp (hicn_type_t type, const hicn_protocol_t *h,
+ipv4_get_signature_timestamp (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			      uint64_t *signature_timestamp)
 {
-  return CHILD_OPS (get_signature_timestamp, type, h, signature_timestamp);
+  return CALL_CHILD (get_signature_timestamp, pkbuf, pos, signature_timestamp);
 }
 
 int
-ipv4_set_validation_algorithm (hicn_type_t type, hicn_protocol_t *h,
+ipv4_set_validation_algorithm (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			       uint8_t validation_algorithm)
 {
-  return CHILD_OPS (set_validation_algorithm, type, h, validation_algorithm);
+  return CALL_CHILD (set_validation_algorithm, pkbuf, pos,
+		     validation_algorithm);
 }
 
 int
-ipv4_get_validation_algorithm (hicn_type_t type, const hicn_protocol_t *h,
+ipv4_get_validation_algorithm (const hicn_packet_buffer_t *pkbuf, size_t pos,
 			       uint8_t *validation_algorithm)
 {
-  return CHILD_OPS (get_validation_algorithm, type, h, validation_algorithm);
+  return CALL_CHILD (get_validation_algorithm, pkbuf, pos,
+		     validation_algorithm);
 }
 
 int
-ipv4_set_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t *key_id)
+ipv4_set_key_id (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		 uint8_t *key_id, size_t key_len)
 {
-  return CHILD_OPS (set_key_id, type, h, key_id);
+  return CALL_CHILD (set_key_id, pkbuf, pos, key_id, key_len);
 }
 
 int
-ipv4_get_key_id (hicn_type_t type, hicn_protocol_t *h, uint8_t **key_id,
-		 uint8_t *key_id_size)
+ipv4_get_key_id (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		 uint8_t **key_id, uint8_t *key_id_size)
 {
-  return CHILD_OPS (get_key_id, type, h, key_id, key_id_size);
+  return CALL_CHILD (get_key_id, pkbuf, pos, key_id, key_id_size);
 }
 
 int
-ipv4_get_signature (hicn_type_t type, hicn_protocol_t *h, uint8_t **signature)
+ipv4_get_signature (const hicn_packet_buffer_t *pkbuf, size_t pos,
+		    uint8_t **signature)
 {
-  return CHILD_OPS (get_signature, type, h, signature);
+  return CALL_CHILD (get_signature, pkbuf, pos, signature);
 }
 
 int
-ipv4_is_last_data (hicn_type_t type, const hicn_protocol_t *h, int *is_last)
+ipv4_has_signature (const hicn_packet_buffer_t *pkbuf, size_t pos, bool *flag)
 {
-  return CHILD_OPS (is_last_data, type, h, is_last);
+  return CALL_CHILD (has_signature, pkbuf, pos, flag);
 }
 
 int
-ipv4_set_last_data (hicn_type_t type, hicn_protocol_t *h)
+ipv4_is_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos, int *is_last)
 {
-  return CHILD_OPS (set_last_data, type, h);
+  return CALL_CHILD (is_last_data, pkbuf, pos, is_last);
 }
 
-DECLARE_HICN_OPS (ipv4);
+int
+ipv4_set_last_data (const hicn_packet_buffer_t *pkbuf, size_t pos)
+{
+  return CALL_CHILD (set_last_data, pkbuf, pos);
+}
+
+int
+ipv4_get_ttl (const hicn_packet_buffer_t *pkbuf, size_t pos, u8 *hops)
+{
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  *hops = ipv4->ttl;
+
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+ipv4_set_ttl (const hicn_packet_buffer_t *pkbuf, size_t pos, u8 hops)
+{
+  _ipv4_header_t *ipv4 = pkbuf_get_ipv4 (pkbuf);
+
+  ipv4->ttl = hops;
+
+  return HICN_LIB_ERROR_NONE;
+}
+
+int
+ipv4_get_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
+{
+  return CALL_CHILD (get_src_port, pkbuf, pos, port);
+}
+
+int
+ipv4_set_src_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
+{
+  return CALL_CHILD (set_src_port, pkbuf, pos, port);
+}
+
+int
+ipv4_get_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 *port)
+{
+  return CALL_CHILD (get_dst_port, pkbuf, pos, port);
+}
+
+int
+ipv4_set_dst_port (const hicn_packet_buffer_t *pkbuf, size_t pos, u16 port)
+{
+  return CALL_CHILD (set_dst_port, pkbuf, pos, port);
+}
+
+DECLARE_HICN_OPS (ipv4, IPV4_HDRLEN);
 
 /*
  * fd.io coding-style-patch-verification: ON

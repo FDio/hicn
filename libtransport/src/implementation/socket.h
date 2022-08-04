@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Cisco and/or its affiliates.
+ * Copyright (c) 2021-2022 Cisco and/or its affiliates.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at:
@@ -44,8 +44,10 @@ class Socket {
     return portal_->getThread().getIoService();
   }
 
-  int setSocketOption(int socket_option_key, hicn_format_t packet_format);
-  int getSocketOption(int socket_option_key, hicn_format_t &packet_format);
+  int setSocketOption(int socket_option_key,
+                      hicn_packet_format_t packet_format);
+  int getSocketOption(int socket_option_key,
+                      hicn_packet_format_t &packet_format);
 
   int getSocketOption(int socket_option_key,
                       std::shared_ptr<core::Portal> &socket_option_value) {
@@ -69,7 +71,7 @@ class Socket {
  protected:
   std::shared_ptr<core::Portal> portal_;
   bool is_async_;
-  hicn_format_t packet_format_;
+  hicn_packet_format_t packet_format_;
   std::shared_ptr<auth::Signer> signer_;
   std::shared_ptr<auth::Verifier> verifier_;
 };

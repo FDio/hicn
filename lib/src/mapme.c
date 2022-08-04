@@ -22,8 +22,44 @@
 #include <hicn/common.h>
 #include <hicn/error.h>
 
-#include <hicn/protocol/ipv4.h>
-#include <hicn/protocol/ipv6.h>
+#include "protocol/ipv4.h"
+#include "protocol/ipv6.h"
+#include "protocol/icmprd.h"
+
+/** @brief MAP-Me packet header for IPv4 */
+typedef struct
+{
+  _ipv4_header_t ip;
+  _icmprd4_header_t icmp_rd;
+  seq_t seq;
+  u8 len;
+  u8 _pad[3];
+} hicn_mapme_v4_header_t;
+
+/** @brief MAP-Me packet header for IPv6 */
+typedef struct
+{
+  _ipv6_header_t ip;
+  _icmprd_header_t icmp_rd;
+  seq_t seq;
+  u8 len;
+  u8 _pad[3];
+} hicn_mapme_v6_header_t;
+
+/** @brief MAP-Me packet header (IP version agnostic) */
+typedef union
+{
+  hicn_mapme_v4_header_t v4;
+  hicn_mapme_v6_header_t v6;
+} hicn_mapme_header_t;
+
+#define HICN_MAPME_V4_HDRLEN sizeof (hicn_mapme_v4_header_t)
+#define HICN_MAPME_V6_HDRLEN sizeof (hicn_mapme_v6_header_t)
+
+static_assert (EXPECTED_MAPME_V4_HDRLEN == HICN_MAPME_V4_HDRLEN,
+	       "Size of MAPME_V4 struct does not match its expected size.");
+static_assert (EXPECTED_MAPME_V6_HDRLEN == HICN_MAPME_V6_HDRLEN,
+	       "Size of MAPME_V6 struct does not match its expected size.");
 
 size_t
 hicn_mapme_v4_create_packet (u8 *buf, const hicn_prefix_t *prefix,
@@ -96,7 +132,7 @@ hicn_mapme_create_packet (u8 *buf, const hicn_prefix_t *prefix,
 			  const mapme_params_t *params)
 {
   /* We currently ignore subsequent protocol definitions */
-  if (PREDICT_TRUE (params->protocol == IPPROTO_IPV6))
+  if (HICN_EXPECT_TRUE (params->protocol == IPPROTO_IPV6))
     return hicn_mapme_v6_create_packet (buf, prefix, params);
   else
     return hicn_mapme_v4_create_packet (buf, prefix, params);
@@ -105,7 +141,7 @@ hicn_mapme_create_packet (u8 *buf, const hicn_prefix_t *prefix,
 size_t
 hicn_mapme_v4_create_ack (u8 *buf, const mapme_params_t *params)
 {
-  ip4_address_t tmp; // tmp storage for swapping IP addresses for ACK
+  ipv4_address_t tmp; // tmp storage for swapping IP addresses for ACK
 
   hicn_mapme_v4_header_t *mh = (hicn_mapme_v4_header_t *) buf;
   tmp = mh->ip.daddr;
@@ -121,7 +157,7 @@ hicn_mapme_v4_create_ack (u8 *buf, const mapme_params_t *params)
 size_t
 hicn_mapme_v6_create_ack (u8 *buf, const mapme_params_t *params)
 {
-  ip6_address_t tmp; // tmp storage for swapping IP addresses for ACK
+  ipv6_address_t tmp; // tmp storage for swapping IP addresses for ACK
 
   hicn_mapme_v6_header_t *mh = (hicn_mapme_v6_header_t *) buf;
   tmp = mh->ip.daddr;
@@ -138,7 +174,7 @@ size_t
 hicn_mapme_create_ack (u8 *buf, const mapme_params_t *params)
 {
   /* We currently ignore subsequent protocol definitions */
-  if (PREDICT_TRUE (params->protocol == IPPROTO_IPV6))
+  if (HICN_EXPECT_TRUE (params->protocol == IPPROTO_IPV6))
     return hicn_mapme_v6_create_ack (buf, params);
   else
     return hicn_mapme_v4_create_ack (buf, params);
@@ -205,8 +241,9 @@ hicn_mapme_parse_packet (const u8 *packet, hicn_prefix_t *prefix,
     case 6:
       return hicn_mapme_v6_parse_packet (packet, prefix, params);
     default:
-      return HICN_LIB_ERROR_UNEXPECTED;
+      break;
     }
+  return HICN_LIB_ERROR_UNEXPECTED;
 }
 
 /*

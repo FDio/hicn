@@ -211,8 +211,8 @@ static mdns_string_t ipv6_address_to_string(char* buffer, size_t capacity,
   return str;
 }
 
-static mdns_string_t ip_address_to_string(char* buffer, size_t capacity,
-                                          const struct sockaddr* addr) {
+static mdns_string_t hicn_ip_address_to_string(char* buffer, size_t capacity,
+                                               const struct sockaddr* addr) {
   if (addr->sa_family == AF_INET6)
     return ipv6_address_to_string(buffer, capacity,
                                   (const struct sockaddr_in6*)addr);
@@ -220,7 +220,8 @@ static mdns_string_t ip_address_to_string(char* buffer, size_t capacity,
                                 (const struct sockaddr_in*)addr);
 }
 
-int ip_address_set_sockaddr(ip_address_t* ip_address, struct sockaddr* sa) {
+int hicn_ip_address_set_sockaddr(hicn_ip_address_t* ip_address,
+                                 struct sockaddr* sa) {
   switch (sa->sa_family) {
     case AF_INET:
       ip_address->v4.as_inaddr = ((struct sockaddr_in*)sa)->sin_addr;
@@ -245,7 +246,7 @@ static int callback(const struct sockaddr* from, mdns_entry_type_t entry,
   struct sockaddr_storage addr;
 
   mdns_string_t fromaddrstr =
-      ip_address_to_string(addrbuffer, sizeof(addrbuffer), from);
+      hicn_ip_address_to_string(addrbuffer, sizeof(addrbuffer), from);
   const char* entrytype =
       (entry == MDNS_ENTRYTYPE_ANSWER)
           ? "answer"
@@ -253,10 +254,10 @@ static int callback(const struct sockaddr* from, mdns_entry_type_t entry,
 
   switch (type) {
     case MDNS_RECORDTYPE_A: {
-      ip_address_t ip_address;
+      hicn_ip_address_t ip_address;
       mdns_record_parse_a(data, size, offset, length,
                           (struct sockaddr_in*)&addr);
-      ip_address_set_sockaddr(&ip_address, (struct sockaddr*)&addr);
+      hicn_ip_address_set_sockaddr(&ip_address, (struct sockaddr*)&addr);
 
       mdns_string_t addrstr = ipv4_address_to_string(
           namebuffer, sizeof(namebuffer), (struct sockaddr_in*)&addr);
@@ -276,10 +277,10 @@ static int callback(const struct sockaddr* from, mdns_entry_type_t entry,
     }
 
     case MDNS_RECORDTYPE_AAAA: {
-      ip_address_t ip_address;
+      hicn_ip_address_t ip_address;
       mdns_record_parse_aaaa(data, size, offset, length,
                              (struct sockaddr_in6*)&addr);
-      ip_address_set_sockaddr(&ip_address, (struct sockaddr*)&addr);
+      hicn_ip_address_set_sockaddr(&ip_address, (struct sockaddr*)&addr);
 
       mdns_string_t addrstr = ipv6_address_to_string(
           namebuffer, sizeof(namebuffer), (struct sockaddr_in6*)&addr);

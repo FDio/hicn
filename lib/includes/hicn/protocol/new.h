@@ -34,7 +34,7 @@ typedef struct
   u8 flags;
   u16 payload_length;
   u32 lifetime;
-  ip_address_t prefix;
+  hicn_ip_address_t prefix;
   u32 suffix;
   u32 path_label;
 } _new_header_t;
